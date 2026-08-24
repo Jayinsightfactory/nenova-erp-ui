@@ -4,11 +4,18 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { apiGet, apiPost } from '../../lib/useApi';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
-import { normalizeOrderUnit } from '../../lib/orderUtils';
+import { normalizeOrderUnit, resolveOrderWeekQuery } from '../../lib/orderUtils';
 import { getDisplayName } from '../../lib/displayName';
 import { clearImportProductMatchForName } from '../../lib/orderImportMatch';
 import { scoreProductSearchOptions } from '../../lib/productSearchRanking';
-import { mergeRegisterItems } from '../../lib/orderImportRegister';
+import {
+  mergeRegisterItems,
+  setImportItemsSkip,
+  importSkipCounts,
+  pickImportRegisteredOrder,
+  importWriteStatusLabel,
+  buildImportRegisterResult,
+} from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
 import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
@@ -333,6 +340,8 @@ export default function OrderImportPage() {
   const [registering, setRegistering] = useState(false);
   const [statementLoading, setStatementLoading] = useState(false);
   const [resultMsg, setResultMsg] = useState('');
+  const [registeredResult, setRegisteredResult] = useState(null);
+  const skipAllRef = useRef(null);
   const [defaultShipDates, setDefaultShipDates] = useState({ 1: '', 2: '' });
   const [shipmentRows, setShipmentRows] = useState([]);
   const [shipmentSource, setShipmentSource] = useState('upload');
@@ -515,6 +524,7 @@ export default function OrderImportPage() {
     if (!file) return;
     setLoading(true);
     setResultMsg('');
+    setRegisteredResult(null);
     const fd = new FormData();
     fd.append('file', file);
     try {
@@ -697,16 +707,18 @@ export default function OrderImportPage() {
     const registerItems = mergeRegisterItems(items.filter(it => !it.skip && it.prodKey && Number(it.qty) > 0));
     if (!registerItems.length) { alert('등록할 매칭 품목이 없습니다. (수량 0·미매칭·제외 행 확인)'); return; }
 
-    const yearFromWeek = week.match(/^(\d{4})-/) ? week.match(/^(\d{4})-/)[1] : String(new Date().getFullYear());
+    const weekQuery = resolveOrderWeekQuery(week);
     if (!confirm(`${cust.CustName} / ${formatWeekDisplay(week)}\n${registerItems.length}개 품목 주문등록 (delta 추가)?`)) return;
 
     setRegistering(true);
     setResultMsg('');
+    setRegisteredResult(null);
+    const skippedItems = items.filter(it => it.skip || !it.prodKey || Number(it.qty) <= 0);
     try {
       const d = await apiPost('/api/orders', {
         custKey: cust.CustKey,
         week,
-        year: yearFromWeek,
+        year: weekQuery.year,
         items: registerItems.map(it => ({
           prodKey: it.prodKey,
           prodName: it.prodName,
@@ -719,6 +731,25 @@ export default function OrderImportPage() {
       if (!d.success) throw new Error(d.error || '저장 실패');
       const okCount = d.results?.filter(r => ['OK', 'UPDATED', 'ADDED', 'DELETED'].includes(r.status)).length ?? registerItems.length;
       setResultMsg(`✅ ${okCount}개 저장 완료 — OrderKey ${d.orderMasterKey}${d.warning ? ` / ⚠ ${d.warning}` : ''}`);
+      setRegisteredResult(buildImportRegisterResult({
+        apiResults: d.results,
+        skippedItems,
+        orderMasterKey: d.orderMasterKey,
+        warning: d.warning,
+      }));
+      try {
+        const od = await apiGet('/api/orders', { custName: cust.CustName, week, year: weekQuery.year });
+        const matched = pickImportRegisteredOrder(od.orders, cust.CustName, week);
+        if (matched) {
+          setRegisteredResult(buildImportRegisterResult({
+            apiResults: d.results,
+            dbOrder: matched,
+            skippedItems,
+            orderMasterKey: d.orderMasterKey,
+            warning: d.warning,
+          }));
+        }
+      } catch { /* 저장은 완료. 조회 실패해도 방금 쓴 결과 행은 유지 */ }
       clearImportDraft();
     } catch (e) {
       setResultMsg(`❌ ${e.message}`);
@@ -729,13 +760,22 @@ export default function OrderImportPage() {
 
   const liveSummary = useMemo(() => {
     const active = items.filter(it => !it.skip);
+    const skipCounts = importSkipCounts(items);
     return {
       total: items.length,
       matched: active.filter(it => it.prodKey).length,
       registerable: active.filter(it => it.prodKey && Number(it.qty) > 0).length,
       unmatched: active.filter(it => !it.prodKey).length,
+      skipped: skipCounts.skipped,
+      allSkipped: skipCounts.allSkipped,
+      noneSkipped: skipCounts.noneSkipped,
     };
   }, [items]);
+
+  useEffect(() => {
+    if (!skipAllRef.current) return;
+    skipAllRef.current.indeterminate = items.length > 0 && !liveSummary.allSkipped && !liveSummary.noneSkipped;
+  }, [items.length, liveSummary.allSkipped, liveSummary.noneSkipped]);
 
   const newWeeks = weeks.filter(w => w.match(/^\d{4}-/));
   const oldWeeks = weeks.filter(w => !w.match(/^\d{4}-/));
@@ -936,12 +976,109 @@ export default function OrderImportPage() {
               <div style={st.kpiBox}>전체 <b>{liveSummary.total}</b></div>
               <div style={st.kpiBox}>매칭 <b style={{ color: '#166534' }}>{liveSummary.matched}</b></div>
               <div style={st.kpiBox}>미매칭 <b style={{ color: liveSummary.unmatched ? '#c2410c' : '#166534' }}>{liveSummary.unmatched}</b></div>
+              <div style={st.kpiBox}>제외 <b style={{ color: liveSummary.skipped ? '#b91c1c' : '#64748b' }}>{liveSummary.skipped}</b></div>
             </div>
           )}
 
           {resultMsg && (
             <div style={{ padding: 10, marginBottom: 10, borderRadius: 6, background: resultMsg.startsWith('✅') ? '#ecfdf5' : '#fef2f2', fontSize: 13 }}>
               {resultMsg}
+            </div>
+          )}
+
+          {registeredResult && (
+            <div style={{ ...st.card, border: '2px solid #2e7d32', background: '#f1f8e9', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                <strong style={{ fontSize: 14, color: '#2e7d32' }}>
+                  📋 주문등록 결과
+                  {registeredResult.custName ? ` — ${registeredResult.custName}` : ''}
+                  {registeredResult.week ? ` / ${formatWeekDisplay(registeredResult.week)}` : ` / ${formatWeekDisplay(week)}`}
+                </strong>
+                {registeredResult.orderMasterKey ? (
+                  <span style={{ fontSize: 11, color: '#33691e' }}>OrderKey {registeredResult.orderMasterKey}</span>
+                ) : null}
+                {registeredResult.skippedItems.length > 0 && (
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: '#ffebee', color: '#c62828' }}>
+                    제외 {registeredResult.skippedItems.length}건은 등록하지 않음
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setRegisteredResult(null)}
+                  style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 8px', background: 'none', border: '1px solid #a5d6a7', borderRadius: 4, color: '#388e3c', cursor: 'pointer' }}
+                >
+                  닫기
+                </button>
+              </div>
+              {registeredResult.writeRows.length > 0 && (
+                <div style={{ overflowX: 'auto', marginBottom: registeredResult.dbItems.length ? 10 : 0 }}>
+                  <table style={st.table}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...st.th, background: '#c8e6c9' }}>품목</th>
+                        <th style={{ ...st.th, background: '#c8e6c9', textAlign: 'right' }}>이전</th>
+                        <th style={{ ...st.th, background: '#c8e6c9', textAlign: 'right' }}>증감</th>
+                        <th style={{ ...st.th, background: '#c8e6c9', textAlign: 'right' }}>최종</th>
+                        <th style={{ ...st.th, background: '#c8e6c9' }}>단위</th>
+                        <th style={{ ...st.th, background: '#c8e6c9' }}>상태</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {registeredResult.writeRows.map((row, i) => (
+                        <tr key={`${row.prodKey || i}-${i}`}>
+                          <td style={st.td}>{row.prodName || `품목#${row.prodKey}`}</td>
+                          <td style={{ ...st.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.previousQty ?? '—'}</td>
+                          <td style={{ ...st.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: Number(row.deltaQty) < 0 ? '#c62828' : '#1565c0' }}>
+                            {row.deltaQty > 0 ? `+${row.deltaQty}` : (row.deltaQty ?? '—')}
+                          </td>
+                          <td style={{ ...st.td, textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{row.finalQty ?? row.qty}</td>
+                          <td style={st.td}>{row.unit || ''}</td>
+                          <td style={st.td}>{importWriteStatusLabel(row.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {registeredResult.dbItems.length > 0 && (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#2e7d32', margin: '4px 0 6px' }}>현재 DB 주문 내역</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={st.table}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...st.th, background: '#c8e6c9' }}>품목</th>
+                          <th style={{ ...st.th, background: '#c8e6c9' }}>국가</th>
+                          <th style={{ ...st.th, background: '#c8e6c9' }}>꽃</th>
+                          <th style={{ ...st.th, background: '#c8e6c9', textAlign: 'right' }}>주문수량</th>
+                          <th style={{ ...st.th, background: '#c8e6c9' }}>단위</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {registeredResult.dbItems.map((it, i) => (
+                          <tr key={it.detailKey || `${it.prodKey}-${i}`}>
+                            <td style={st.td}>{it.displayName || it.prodName}</td>
+                            <td style={st.td}>{it.counName || '—'}</td>
+                            <td style={st.td}>{it.flowerName || '—'}</td>
+                            <td style={{ ...st.td, textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{it.qty}</td>
+                            <td style={st.td}>{it.unit || ''}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+              {registeredResult.skippedItems.length > 0 && (
+                <details style={{ marginTop: 8, fontSize: 12, color: '#7f1d1d' }}>
+                  <summary>등록하지 않은 행 {registeredResult.skippedItems.length}건</summary>
+                  <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                    {registeredResult.skippedItems.map((it, i) => (
+                      <li key={`${it.inputName}-${i}`}>{it.inputName || it.prodName || '(이름없음)'} {it.qty}{it.unit || ''} — {it.reason}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </div>
           )}
 
@@ -982,15 +1119,34 @@ export default function OrderImportPage() {
           <div style={st.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
               <strong style={{ fontSize: 14 }}>품목 매칭 결과</strong>
-              <button
-                type="button"
-                style={{ ...st.btn, ...st.btnPrimary, opacity: liveSummary.unmatched || registering ? 0.6 : 1 }}
-                disabled={!!liveSummary.unmatched || registering}
-                onClick={handleRegister}
-                title={liveSummary.unmatched ? '미매칭 품목을 먼저 지정하세요' : ''}
-              >
-                {registering ? '등록 중…' : `주문등록 (${liveSummary.registerable}품목)`}
-              </button>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  style={{ ...st.btn, ...st.btnSecondary }}
+                  disabled={!items.length}
+                  onClick={() => setItems(setImportItemsSkip(items, true))}
+                  title="매칭된 품목도 포함해 모두 주문등록에서 뺍니다"
+                >
+                  전체 제외
+                </button>
+                <button
+                  type="button"
+                  style={{ ...st.btn, ...st.btnSecondary }}
+                  disabled={!items.length || liveSummary.noneSkipped}
+                  onClick={() => setItems(setImportItemsSkip(items, false))}
+                >
+                  전체 제외 해제
+                </button>
+                <button
+                  type="button"
+                  style={{ ...st.btn, ...st.btnPrimary, opacity: liveSummary.unmatched || registering || !liveSummary.registerable ? 0.6 : 1 }}
+                  disabled={!!liveSummary.unmatched || registering || !liveSummary.registerable}
+                  onClick={handleRegister}
+                  title={liveSummary.unmatched ? '미매칭 품목을 먼저 지정하거나 제외하세요' : (!liveSummary.registerable ? '등록할 품목이 없습니다' : '')}
+                >
+                  {registering ? '등록 중…' : `주문등록 (${liveSummary.registerable}품목)`}
+                </button>
+              </div>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
@@ -1003,7 +1159,18 @@ export default function OrderImportPage() {
                     <th style={st.th}>단위</th>
                     <th style={st.th}>매칭 품목</th>
                     <th style={st.th}>상태</th>
-                    <th style={st.th}>제외</th>
+                    <th style={st.th}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        제외
+                        <input
+                          ref={skipAllRef}
+                          type="checkbox"
+                          checked={!!items.length && liveSummary.allSkipped}
+                          onChange={(e) => setItems(setImportItemsSkip(items, e.target.checked))}
+                          title="전체 제외 / 전체 제외 해제"
+                        />
+                      </label>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
