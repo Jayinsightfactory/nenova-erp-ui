@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
-import { formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder } from '../lib/arrivalCostView.js';
+import { arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder } from '../lib/arrivalCostView.js';
 
 const BASIS = [
   ['SOURCE', '엑셀 원식'],
@@ -238,9 +238,15 @@ export default function ArrivalCostPage() {
     } catch (e) { setError(e.message); }
   };
 
-  const weeks = useMemo(() => [...new Set(data.rows.map(row => row.orderWeek).filter(Boolean))], [data.rows]);
-  const unmatched = data.rows.filter(row => row.matchStatus !== 'MATCHED').length;
-  const groups = useMemo(() => groupArrivalCostRows(data.rows || []), [data.rows]);
+  const [weightRuleOn, setWeightRuleOn] = useState(true);
+  const visibleRows = useMemo(
+    () => (weightRuleOn ? filterArrivalRowsByWeight(data.rows || []) : (data.rows || [])),
+    [data.rows, weightRuleOn],
+  );
+  const weeks = useMemo(() => [...new Set(visibleRows.map(row => row.orderWeek).filter(Boolean))], [visibleRows]);
+  const unmatched = visibleRows.filter(row => row.matchStatus !== 'MATCHED').length;
+  const groups = useMemo(() => groupArrivalCostRows(visibleRows), [visibleRows]);
+  const weightHints = useMemo(() => arrivalWeightHints(data.rows || []), [data.rows]);
   const currentWeekOrder = normalizeWeekOrder(appliedFilters.weekOrder);
   const applySearch = () => {
     if (!filters.orderYear) { setError('연도를 선택하세요.'); return; }
@@ -331,15 +337,22 @@ export default function ArrivalCostPage() {
             {String(appliedFilters.product || '').trim() && varieties.length === 0 && !loading && <span className="muted">검색된 품종이 없습니다.</span>}
           </div>
           <div className="summary-row">
-            <span>현재본 {Number(data.total || 0).toLocaleString()}행 · 화면 {data.rows.length.toLocaleString()}행</span>
+            <span>현재본 {Number(data.total || 0).toLocaleString()}행 · 화면 {visibleRows.length.toLocaleString()}행</span>
             <span>매칭확인 필요 {unmatched.toLocaleString()}행</span>
             <span>차수 {weeks.join(', ') || '-'}</span>
+            <label className="weight-rule">
+              <input type="checkbox" checked={weightRuleOn} onChange={(e) => setWeightRuleOn(e.target.checked)} />
+              특별기준 CW/GW (콜롬비아)
+            </label>
             <span className="week-sort" role="group" aria-label="차수 정렬">
               <button type="button" className={currentWeekOrder === 'asc' ? 'active' : ''} onClick={() => applyWeekOrder('asc')}>차수 오름차순</button>
               <button type="button" className={currentWeekOrder === 'desc' ? 'active' : ''} onClick={() => applyWeekOrder('desc')}>차수 내림차순</button>
             </span>
             <span>페이지 {page} / {Math.max(1, Math.ceil(Number(data.total || 0) / Number(data.pageSize || 200)))}</span>
           </div>
+          {weightRuleOn && weightHints.length > 0 && (
+            <div className="hint">특별기준(콜롬비아만): {weightHints.join(' · ')}. 콜롬비아는 CW가 GW보다 크면 장미만, CW가 GW와 같거나 작으면 카네이션·알스트로 원가를 보여 줍니다. 다른 국가는 그대로 둡니다. 이미 올라간 행은 파일을 다시 올려야 농장 병합·CW/GW가 반영됩니다.</div>
+          )}
         </section>
 
         {message && <div className="notice success">{message}</div>}
@@ -347,7 +360,7 @@ export default function ArrivalCostPage() {
 
         <section className="arrival-card table-card">
           <div className="section-title">도착원가 내역 <span className="muted">(현재 revision)</span></div>
-          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">선택 범위에 표시할 품목이 없습니다.</div> : (
+          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">선택 범위에 표시할 품목이 없습니다.</div> : visibleRows.length === 0 ? <div className="empty">특별기준(CW/GW)으로 가려진 품목만 있습니다. 기준을 끄면 전체가 보입니다.</div> : (
             <div className="table-wrap">
               <table>
                 <thead><tr>
@@ -412,7 +425,7 @@ export default function ArrivalCostPage() {
         .upload-row input[type=file] { min-width:260px; } .filter-grid label input { width:130px; } .filter-grid label:nth-child(2) input { width:230px; }
         button { border:1px solid #aab7c7; background:#f5f7fa; border-radius:3px; padding:5px 9px; cursor:pointer; font:inherit; font-size:12px; } button:hover { background:#eaf2fb; } button.primary { background:#1565c0; color:#fff; border-color:#1565c0; font-weight:700; } button:disabled { opacity:.55; cursor:wait; }
         .hint { margin-top:4px; } .summary-row { display:flex; flex-wrap:wrap; gap:18px; margin-top:6px; font-size:12px; color:#506074; align-items:center; }
-        .week-sort { display:flex; gap:5px; } .week-sort button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
+        .weight-rule { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#32445d; } .week-sort { display:flex; gap:5px; } .week-sort button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
         .group-head { background:#e8eef6; font-weight:700; } .group-head td { border-bottom:1px solid #c5d0de; } .farm-costs { white-space:normal; max-width:720px; }
         .variety-tabs { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px; padding-top:7px; border-top:1px solid #e1e6ed; } .variety-tabs button { border-radius:999px; } .variety-tabs button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
         .notice { padding:9px 12px; margin:8px 0; border-radius:4px; font-size:12px; } .notice.success { color:#0b5d42; background:#e7f7ef; border:1px solid #b6e6cc; } .notice.error { color:#a12d2d; background:#fff0f0; border:1px solid #f0b7b7; }
