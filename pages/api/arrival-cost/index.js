@@ -33,6 +33,7 @@ export default withAuth(async function handler(req, res) {
         allVarieties: req.query.allVarieties === '1',
         product: req.query.product,
         farm: req.query.farm,
+        weekOrder: req.query.weekOrder,
         includeHistory: req.query.includeHistory === '1',
         page: req.query.page,
         pageSize: req.query.pageSize,

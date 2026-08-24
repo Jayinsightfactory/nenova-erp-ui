@@ -33,8 +33,9 @@
 - 교차연도 충돌을 막기 위해 목록 GET은 계속 `OrderYear`를 받는다. 품목 검색 시 차수는
   선택이며, 비우면 같은 연도의 모든 차수 현재본을 보여 준다.
 - `화이트`처럼 여러 품종이 매칭되면 전산 `Product.CountryFlower`(국가+품종) 버튼으로
-  좁힌다. `FormOrderAdd`와 같이 `CountryFlower`를 우선하고, 값이 없으면
-  `CounName + FlowerName`으로 대체한다. 품목명에서 `화이트붐` 같은 그룹을 만들지 않는다.
+  좁힌다. 품목명을 넣지 않아도 연도만 있으면 품종 버튼을 눌러 조회할 수 있다.
+- 목록 정렬은 차수 오름/내림 → 국가 → 품종 → 품목명 → 농장이다. 같은 차수·같은 품목은
+  농장별 도착원가를 `농장1 8,800원 / 농장2 8,000원` 형태로 함께 보여 준다.
 - 검색·품종 탭·페이지 조회는 SELECT 전용이다. `OrderDetail`/`ShipmentDetail`/`Estimate`는
   보존한다. 품목 검색 목록은 `WebArrivalCostLine.RawJson`과 `OrderDetail` 사용량
   전수 스캔을 빼서 nginx 502 HTML이 나가지 않게 한다.
