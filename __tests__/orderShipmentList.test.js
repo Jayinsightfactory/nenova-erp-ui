@@ -68,4 +68,11 @@ assert.match(page, /const saved = onPersistMapping \? await onPersistMapping\(ro
 assert.match(page, /return persistItemMapping\(row, prod, \{ force: true \}\);/,
   '수동 품목 변경 저장 결과가 선택 UI까지 전달돼야 한다');
 assert.match(page, /e\.target\.value = '';/, '같은 엑셀 파일을 다시 선택해도 onChange가 재실행되도록 파일 입력을 초기화해야 한다');
+assert.match(page, /전체 제외/, '업로드 매칭표에서 전체 제외가 가능해야 한다');
+assert.match(page, /전체 제외 해제/, '전체 제외를 한 번에 해제할 수 있어야 한다');
+assert.match(page, /setImportItemsSkip\(items, true\)/, '전체 제외는 행 skip만 바꾸고 주문원장을 쓰지 않아야 한다');
+assert.match(page, /주문등록 결과/, '주문등록 후 결과를 화면에 남겨야 한다');
+assert.match(page, /apiGet\('\/api\/orders', \{ custName: cust\.CustName, week, year: weekQuery\.year \}\)/,
+  '등록 결과 조회는 OrderYear와 차수를 함께 써야 한다');
+assert.match(page, /현재 DB 주문 내역/, '등록 후 ViewOrder 기준 주문 내역을 보여줘야 한다');
 console.log('order shipment list tests passed');
