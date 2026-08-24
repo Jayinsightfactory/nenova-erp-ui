@@ -35,7 +35,7 @@ async function main() {
   check('01차 전년 52차 재고 호출 유지',
     /currentMajor <= 1 \? String\(Number\(orderYear\) - 1\)/.test(apiSource)
     && /currentMajor <= 1 \? '52'/.test(apiSource)
-    && /stockSnapshotByCategory\(prevMajor, prevOrderYear\)/.test(apiSource));
+    && /stockSnapshotByCategory\(prevMajor, prevOrderYear, \{ rateEvidenceByCurrency: beginRateEvidenceByCurrency \}\)/.test(apiSource));
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);
   process.exit(failed ? 1 : 0);

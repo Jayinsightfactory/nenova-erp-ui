@@ -40,6 +40,35 @@ async function main() {
   assert.equal(totals.T, 6, 'T는 국내 마지막 행을 제외해야 한다.');
   assert.equal(totals.U, 15 / 23, 'U 표시합은 국내와 베트남을 제외하고 분모 P는 베트남을 포함해야 한다.');
 
+  // 두 독립 감사에서 확정된 27/28차 본표 합계 K=J/(C+F) 수치 검증 — 실제 computeProfitTotals 함수를 실행한다.
+  // 27차: J=17,296,698 / (C=227,653,408 + F=13,229,405) ≈ 7.1805% (일반 J/C ≈ 7.5978%)
+  // 28차: J=27,553,369 / (C=244,367,497 + F=21,966,629) ≈ 10.3454% (일반 J/C ≈ 11.2754%)
+  const auditedWeeks = [
+    { label: '27차', C: 227653408, F: 13229405, J: 17296698, expectedK: 0.071805, generalMarginJoverC: 0.075978 },
+    { label: '28차', C: 244367497, F: 21966629, J: 27553369, expectedK: 0.103454, generalMarginJoverC: 0.112754 },
+  ];
+  for (const week of auditedWeeks) {
+    const weekTotals = computeProfitTotals([row('감사대상', { C: week.C, F: week.F, J: week.J })]);
+    assert.ok(
+      Math.abs(weekTotals.K - week.J / (week.C + week.F)) < 1e-9,
+      `${week.label} totals.K는 computeProfitTotals 내부에서도 항상 J/(C+F) 공식이어야 한다.`,
+    );
+    assert.ok(
+      Math.abs(weekTotals.K - week.expectedK) < 0.0001,
+      `${week.label} 합계 K는 감사에서 확정된 ${(week.expectedK * 100).toFixed(4)}%와 일치해야 한다. 실제=${(weekTotals.K * 100).toFixed(4)}%`,
+    );
+    // 일반 영업 이익률 J/C는 합계 K와 다른 값이며, 화면·엑셀 기본 이익률로 쓰지 않는다(설명용 별도 값).
+    const generalMargin = week.J / week.C;
+    assert.ok(
+      Math.abs(generalMargin - week.generalMarginJoverC) < 0.0001,
+      `${week.label} 일반 J/C는 ${(week.generalMarginJoverC * 100).toFixed(4)}%와 일치해야 한다. 실제=${(generalMargin * 100).toFixed(4)}%`,
+    );
+    assert.notEqual(
+      Math.round(weekTotals.K * 1e6), Math.round(generalMargin * 1e6),
+      `${week.label} 합계 K(J/(C+F))는 일반 J/C와 서로 다른 값이어야 한다 — 합계 화면 기본 이익률은 K여야 한다.`,
+    );
+  }
+
   console.log('profit report week-28 workbook total-range tests passed');
 }
 

@@ -30,6 +30,51 @@ export function parseMajor(raw) {
   return m ? m[1].padStart(2, '0') : null;
 }
 
+function buildInventoryRateEvidenceByCurrency({
+  targetYear, targetMajor, manual = {}, invoice = {}, saved = {}, kcs = {}, rateByCode = {},
+} = {}) {
+  const category = '호주';
+  const currency = 'AUD';
+  const manualRate = manual?.[category]?.R;
+  if (manualRate != null && Number(manualRate) > 0) {
+    return { AUD: { rate: Number(manualRate), source: `profit-report:${targetYear}:${targetMajor}:호주:R:manual` } };
+  }
+  const resolved = resolveTaxableRate({
+    snapshotRate: invoice?.[category] != null ? Number(invoice[category]) : null,
+    savedByCategory: saved.byCategory?.[category] || null,
+    savedByCurrency: saved.byCurrency?.[currency] || null,
+    historicalRate: getHistoricalTaxableRate(targetYear, targetMajor, category),
+    currency,
+    currencyMasterRate: rateByCode[currency] != null ? rateByCode[currency] : null,
+    previousWeekRate: null,
+    previousWeekLabel: null,
+    kcsRate: kcs.byCategory?.[category]?.rate ?? null,
+    kcsDetail: kcs.byCategory?.[category]?.detail ?? null,
+  });
+  return Number(resolved.rate) > 0
+    ? { AUD: { rate: Number(resolved.rate), source: `profit-report:${targetYear}:${targetMajor}:호주:R:${resolved.source || 'exact'}` } }
+    : {};
+}
+
+async function loadInventoryRateEvidenceByCurrency(targetYear, targetMajor) {
+  const [invoice, manualResult, saved, kcs, rates] = await Promise.all([
+    invoiceRatesByCategory(targetMajor, targetYear),
+    loadManual(targetMajor, targetYear),
+    loadTaxableRates(targetYear, targetMajor),
+    kcsRatesByCategory(targetMajor, targetYear),
+    currencyRates(),
+  ]);
+  return buildInventoryRateEvidenceByCurrency({
+    targetYear,
+    targetMajor,
+    manual: manualResult.manual,
+    invoice,
+    saved,
+    kcs,
+    rateByCode: Object.fromEntries((rates || []).map((row) => [row.CurrencyCode, Number(row.ExchangeRate)])),
+  });
+}
+
 // GET/엑셀 공용 — 보고서 행 데이터 구성
 export async function loadReportData(major, orderYear) {
   const currentMajor = Number(major);
@@ -37,7 +82,7 @@ export async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, purchaseQty, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
+  const [N, est, Q, purchaseQty, S, rates, invoiceRates, cur, prev, customs, unclassifiedDetails, savedRates, kcsRates] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
@@ -47,8 +92,6 @@ export async function loadReportData(major, orderYear) {
         invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
         loadManual(major, orderYear),
         loadManual(prevMajor, prevOrderYear), // 전차수 R은 자동 적용이 아닌 참고 제안에만 사용
-        stockSnapshotByCategory(major, orderYear),      // F: EXE 계산 ProductStock + 동일 시점 VERIFIED 단가
-        stockSnapshotByCategory(prevMajor, prevOrderYear),  // E 재료: 전차수말 스냅샷
         computeCustomsAndForwarding(major, orderYear),      // 그외통관비(H)+포워딩(S) — 그외통관비/포워딩/콜롬비아1·2차 시트 재현
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
         loadTaxableRates(orderYear, major),                 // R 원천: 이 주차에 저장/캐시된 과세환율(웹 전용, SELECT only)
@@ -74,6 +117,18 @@ export async function loadReportData(major, orderYear) {
       if (extraHasData) keys.push(EXTRA_CATEGORY);
 
       const rateByCode = Object.fromEntries((rates || []).map(r => [r.CurrencyCode, Number(r.ExchangeRate)]));
+      const endRateEvidenceByCurrency = buildInventoryRateEvidenceByCurrency({
+        targetYear: orderYear, targetMajor: major, manual: cur.manual,
+        invoice: invoiceRates, saved: savedRates, kcs: kcsRates, rateByCode,
+      });
+      const beginRateEvidenceByCurrency = buildInventoryRateEvidenceByCurrency({
+        targetYear: prevOrderYear, targetMajor: prevMajor, manual: prev.manual,
+        invoice: prevInvoiceRates, saved: prevSavedRates, kcs: prevKcsRates, rateByCode,
+      });
+      const [stockEnd, stockBegin] = await Promise.all([
+        stockSnapshotByCategory(major, orderYear, { rateEvidenceByCurrency: endRateEvidenceByCurrency }),
+        stockSnapshotByCategory(prevMajor, prevOrderYear, { rateEvidenceByCurrency: beginRateEvidenceByCurrency }),
+      ]);
       const previousValuation = Object.fromEntries(categories.map((definition) => {
         const key = definition.key;
         const previousManual = prev.manual[key] || {};
@@ -187,6 +242,7 @@ export async function loadReportData(major, orderYear) {
           priceEvidenceStatus: resolvedEnd?.status || (stockEnd.week && Number(stockEnd.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
           priceEvidenceSources: resolvedEnd?.sources || [],
           missingPriceCount: resolvedEnd ? 0 : Number(stockEnd.missingPriceCounts?.[key] || 0),
+          missingPriceItems: resolvedEnd ? [] : (stockEnd.missingPriceItems?.[key] || []),
           conversionMissingCount: Number(stockEnd.conversionMissingCounts?.[key] || 0),
           conversionIssues: stockEnd.conversionIssues?.[key] || [],
           unitMismatch: endUnitMismatch,
@@ -221,6 +277,7 @@ export async function loadReportData(major, orderYear) {
           priceEvidenceStatus: resolvedBegin?.status || (stockBegin.week && Number(stockBegin.qtys[key] || 0) === 0 ? 'VERIFIED' : 'INPUT_REQUIRED'),
           priceEvidenceSources: resolvedBegin?.sources || [],
           missingPriceCount: resolvedBegin ? 0 : Number(stockBegin.missingPriceCounts?.[key] || 0),
+          missingPriceItems: resolvedBegin ? [] : (stockBegin.missingPriceItems?.[key] || []),
           conversionMissingCount: Number(stockBegin.conversionMissingCounts?.[key] || 0),
           conversionIssues: stockBegin.conversionIssues?.[key] || [],
           unitMismatch: previous.unitMismatch === true,
@@ -303,6 +360,9 @@ export async function loadReportData(major, orderYear) {
       previousMajor: Number(prevMajor),
       previousOrderYear: prevOrderYear,
       previousForwardingLedger: prevCustoms.sources?.forwardingLedger || null,
+      colombiaWeeks: customs.components?.colombiaWeeks || [],
+      customsComponents: customs.components?.H || {},
+      countryInbound: customs.sources?.countryInbound || {},
     }),
   };
 }
@@ -429,7 +489,14 @@ export default withAuth(async function handler(req, res) {
         const currentMajor = Number(major);
         const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
         const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-        const list = await stockPriceRows(major, prevMajor, orderYear, prevOrderYear);
+        const [endRateEvidenceByCurrency, beginRateEvidenceByCurrency] = await Promise.all([
+          loadInventoryRateEvidenceByCurrency(orderYear, major),
+          loadInventoryRateEvidenceByCurrency(prevOrderYear, prevMajor),
+        ]);
+        const list = await stockPriceRows(major, prevMajor, orderYear, prevOrderYear, {
+          endRateEvidenceByCurrency,
+          beginRateEvidenceByCurrency,
+        });
         return res.status(200).json({ success: true, ...list });
       }
 

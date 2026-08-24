@@ -140,6 +140,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const F_SOURCE_TEXT = {
     verified_product_stock_price: 'EXE ProductStock 수량 × 동일 OrderYear+OrderWeek의 VERIFIED 품목 단가 근거',
     verified_arrival_cost: 'EXE ProductStock 수량 × 동일 연도·차수·품목·단위의 사용자 확정 도착원가',
+    verified_freight_arrival_calc: 'EXE ProductStock 수량 × 동일 연도·세부차수 입고·항공료 원장으로 계산한 도착원가',
     verified_carried_acquisition_cost: 'EXE ProductStock 수량 × 같은 연도·품목·단위의 이전 VERIFIED 매입원가(근거 이후 새 매입이 없을 때만 이월)',
     verified_mixed_price_evidence: 'EXE ProductStock 수량 × 직접 확정 단가와 사용자 확정 도착원가의 품목별 혼합 근거',
     verified_category_average: '원본 엑셀 공식: (매입액+그외통관비) ÷ 매입수량 × 마지막 EXE ProductStock 수량',
