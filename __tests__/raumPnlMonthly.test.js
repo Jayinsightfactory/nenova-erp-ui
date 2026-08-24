@@ -41,9 +41,13 @@ assert.equal(fallback[0].profit, 7, '저장 ProfitTotal이 없으면 손익대�
 const apiSource = fs.readFileSync(new URL('../pages/api/raum/pnl.js', import.meta.url), 'utf8');
 const libSource = fs.readFileSync(new URL('../lib/raumPnl.js', import.meta.url), 'utf8');
 const migration = fs.readFileSync(new URL('../docs/migrations/2026-08-24_web_raum_pnl_assigned_month.sql', import.meta.url), 'utf8');
+const pageSource = fs.readFileSync(new URL('../pages/raum/pnl.js', import.meta.url), 'utf8');
 assert.match(apiSource, /action === 'assign-month'/);
 assert.match(libSource, /UPDATE WebRaumPnl SET AssignedMonth=@month[\s\S]*WHERE PnlKey=@key AND isDeleted=0/);
 assert.doesNotMatch(libSource.match(/export async function assignRaumPnlMonth[\s\S]*?\n}/)?.[0] || '', /OrderMaster|ShipmentMaster|StockMaster|Estimate/);
 assert.match(migration, /COL_LENGTH\('dbo\.WebRaumPnl', 'AssignedMonth'\) IS NULL/);
+assert.match(pageSource, /grid-template-columns: minmax\(900px, 1fr\) minmax\(420px, 560px\)/, '넓은 화면에서 차수표와 월별 합계가 독립 열이어야 한다');
+assert.match(pageSource, /\.raum-pnl-week-list[\s\S]*overflow-x: auto/, '차수표가 월별 합계 영역을 침범하지 않아야 한다');
+assert.match(pageSource, /@media \(max-width: 1420px\)[\s\S]*grid-template-columns: minmax\(0, 1fr\)/, '좁은 화면에서는 한 열로 쌓여야 한다');
 
 console.log('raumPnlMonthly.test.js passed');
