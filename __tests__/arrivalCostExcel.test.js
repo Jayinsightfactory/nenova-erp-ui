@@ -78,6 +78,52 @@ async function main() {
   assert.equal(formulaSheet.D1.v, 50);
   assert.equal(formulaSheet.E1.v, 2 / 3);
 
+  const { matchArrivalFarm, inferArrivalQtyUnit } = await import('../lib/arrivalCostExcel.js');
+  const farms = [
+    { FarmKey: 10, FarmName: 'Antioquia' },
+    { FarmKey: 11, FarmName: 'Greenland' },
+    { FarmKey: 12, FarmName: 'Lozarte' },
+    { FarmKey: 13, FarmName: 'Cloud Flowers' },
+  ];
+  assert.equal(matchArrivalFarm('Green Land', farms)?.FarmKey, 11, '공백 없는 전산 농장명도 매칭해야 한다.');
+  assert.equal(matchArrivalFarm('Lorzate', farms)?.FarmKey, 12, '수국표 오탈자 농장도 별칭으로 매칭해야 한다.');
+  assert.equal(matchArrivalFarm('Cloud', farms)?.FarmKey, 13, '상품명 정규화로 cloud를 지우면 안 된다.');
+  assert.equal(inferArrivalQtyUnit({
+    quantityHeader: '수량',
+    unitCountHeader: '단당  수량',
+    unitCostHeader: '도착원가(단)',
+    unitCount: 1,
+    product: { OutUnit: '박스' },
+  }), '단', '단당수량·도착원가(단) 양식은 전산 OutUnit이 박스여도 입고수량은 단이다.');
+  assert.equal(inferArrivalQtyUnit({
+    quantityHeader: '수량(박스)',
+    product: { OutUnit: '단' },
+  }), '박스', '수량 헤더가 박스면 박스로 분류한다.');
+
+  const fillDown = [
+    ['COLOMBIA 수국'],
+    ['차수', '34-2'],
+    ['환율', 1550, 'GW', 10, 'CW', 12, '항공료', 120],
+    [],
+    ['Color Grade', '수량', 'FOB', '운송비(송이)', '도착원가(송이)', '단당 수량', '도착원가(단)'],
+    ['Antioquia', 'Hydrangea White (화이트)', 10, 0.5, 1.1, 1, 1800],
+    ['', 'Hydrangea Blue (블루)', 5, 0.6, 1.2, 1, 1900],
+  ];
+  const fillWb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(fillWb, XLSX.utils.aoa_to_sheet(fillDown), '34-2');
+  const filledFarms = parseArrivalCostWorkbook(XLSX.write(fillWb, { type: 'buffer', bookType: 'xlsx' }), {
+    fileName: '34-2 수국 원가자료.xlsx',
+    products: [
+      { ProdKey: 2, ProdName: 'Hydrangea White', DisplayName: '수국 화이트', FlowerName: '수국', CounName: '콜롬비아', OutUnit: '박스' },
+      { ProdKey: 3, ProdName: 'Hydrangea Blue', DisplayName: '수국 블루', FlowerName: '수국', CounName: '콜롬비아', OutUnit: '박스' },
+    ],
+    farms: [{ FarmKey: 10, FarmName: 'Antioquia' }],
+  });
+  assert.equal(filledFarms.rowCount, 2, '농장명이 첫 행만 있어도 아래 품목 행을 읽어야 한다.');
+  assert.equal(filledFarms.rows[1].farmNameRaw, 'Antioquia', '빈 농장 칸은 위 행 농장명을 이어받아야 한다.');
+  assert.equal(filledFarms.rows[1].farmKey, 10);
+  assert.ok(filledFarms.rows.every((row) => row.unit === '단'), '수국 Color Grade 수량은 단으로 분류해야 한다.');
+
   console.log('arrival cost excel parser tests passed');
 }
 
