@@ -107,12 +107,21 @@ async function main() {
       category, currency: 'USD', auto: { Q: 100, S: 0, R: 1450 }, manual: {}, stock: {},
       source: { H: 'partial', S: 'partial', R: 'saved_official_week' },
     }));
-  const sharedAudit = buildProfitReportAudit(sharedRows, { major: 33, forwardingLedger: missing31 });
+  const sharedAudit = buildProfitReportAudit(sharedRows, {
+    major: 33,
+    forwardingLedger: missing31,
+    colombiaWeeks: [
+      { orderWeek: '33-01', gw: 120, forwardingDetected: true },
+      { orderWeek: '33-02', gw: 0, forwardingDetected: false },
+    ],
+  });
   check('콜롬비아 공유 통관비 누락은 품목별 4건이 아니라 1건으로 안내',
     sharedAudit.issues.filter((item) => item.code === 'CUSTOMS_INCOMPLETE').length === 1
-      && sharedAudit.issues.find((item) => item.code === 'CUSTOMS_INCOMPLETE')?.category === '콜롬비아 4품목');
+      && sharedAudit.issues.find((item) => item.code === 'CUSTOMS_INCOMPLETE')?.category === '콜롬비아 4품목'
+      && /누락 반차수: 33-02/.test(sharedAudit.issues.find((item) => item.code === 'CUSTOMS_INCOMPLETE')?.message || ''));
   check('콜롬비아 공유 항공료 누락은 품목·범위 중복 없이 1건으로 안내',
     sharedAudit.issues.filter((item) => item.code === 'FORWARDING_INCOMPLETE').length === 1
+      && /누락 반차수: 33-02/.test(sharedAudit.issues.find((item) => item.code === 'FORWARDING_INCOMPLETE')?.message || '')
       && !sharedAudit.issues.some((item) => item.code === 'FORWARDING_SCOPE_MISSING'));
   const noPurchaseCustoms = buildProfitReportAudit([{
     category: '호주', currency: 'AUD', auto: { N: 100, Q: 0, S: 0, R: 0 }, manual: {}, stock: {},
@@ -120,6 +129,25 @@ async function main() {
   }], { major: 33 });
   check('구매가 없는 국가의 H=0은 사용자가 처리할 검증 항목으로 만들지 않음',
     !noPurchaseCustoms.issues.some((item) => item.code === 'CUSTOMS_NO_PURCHASE' || item.code === 'CUSTOMS_INCOMPLETE'));
+  const thailandFirstHalfOnly = buildProfitReportAudit([{
+    category: '태국', currency: 'USD', auto: { N: 100, Q: 50, S: 0, R: 1450 }, manual: {}, stock: {},
+    source: { H: 'gw_auto', S: 'auto', R: 'saved_official_week' },
+  }], { major: 33, countryInbound: { 태국: ['33-01'] } });
+  check('태국 -01만 입고·GW1만 있는 경우는 22~28차와 같이 H 누락으로 보지 않음',
+    !thailandFirstHalfOnly.issues.some((item) => item.code === 'CUSTOMS_INCOMPLETE'));
+  const thailandMissingGw = buildProfitReportAudit([{
+    category: '태국', currency: 'USD', auto: { N: 100, Q: 50, S: 0, R: 1450 }, manual: {}, stock: {},
+    source: { H: 'missing', S: 'auto', R: 'saved_official_week' },
+  }], {
+    major: 33,
+    countryInbound: { 태국: ['33-01'] },
+    customsComponents: { 태국: { GW1: 0, GW2: 0 } },
+  });
+  check('태국 H가 정말 없을 때는 -02 부재가 아니라 33-01 GW만 확인하라고 안내',
+    thailandMissingGw.issues.some((item) => item.code === 'CUSTOMS_INCOMPLETE'
+      && /입고 반차수: 33-01/.test(item.message)
+      && /GW2=0이 정상/.test(item.message)
+      && !/입고 GW 라인도 없음/.test(item.message)));
   const historicalAudit = buildProfitReportAudit([{
     category: '콜롬비아 장미', currency: 'USD', auto: { Q: 100, S: 0, R: 1450 }, manual: {}, stock: {},
     source: { H: 'gw_auto', S: 'missing', R: 'saved_official_week' },
@@ -137,7 +165,8 @@ async function main() {
     previousForwardingLedger: missing31,
   });
   check('직전차수 포워딩 누락도 현재 기초재고가 조용히 확정되지 않도록 차단',
-    previousAudit.issues.some((item) => item.code === 'PREVIOUS_FORWARDING_INCOMPLETE' && item.columns.includes('E')));
+    previousAudit.issues.some((item) => item.code === 'PREVIOUS_FORWARDING_INCOMPLETE' && item.columns.includes('E')
+      && /31-02 콜롬비아 장미/.test(item.message || '')));
   check('입고 원장 조회는 연도+대차수로 제한하고 수량·금액·BILL/AWB 근거를 함께 읽음',
     forwardingSource.includes("wm.OrderWeek LIKE @pfx")
       && forwardingSource.includes("wm.OrderYear AS NVARCHAR(4)")

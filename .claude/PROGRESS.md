@@ -4,6 +4,65 @@
 
 ---
 
+## [2026-08-24] 세션 — 매출이익보고서 독립 감사 후 결함 수정
+
+### 작업 내용
+- 2026-08-19 세션이 남긴 재고단가 우선순위(`arrival || catalogEvidence || freightArrival || carried`)가
+  결함이었음을 두 독립 감사가 확정 — catalog(과거 workbook 값)가 같은 세부차수 실제 계산 도착원가보다
+  먼저 선택됐다. `lib/profitReportCalc.js`에 순수 정책 함수 `selectStockPriceEvidence()`를 신설해
+  `arrival || freightArrival || catalogEvidence || carried`로 정정하고 두 호출부가 공유하도록 정리.
+- `data/profit-report-inventory-catalog/v1/index.json`의 N열 표시단가(KRW_VAT_INCLUDED) 33개(태국
+  Jinda·중국·네덜란드 등)는 산식으로 취득원가가 입증되지 않은 판매·분배단가 후보였다 — 각 entry에
+  `eligibleForInventoryValuation:false`+사유를 붙이고 resolver가 후보로 반환하지 않도록 필터링(호주
+  14개만 true로 유지).
+- 합계 이익률 `computeProfitTotals().K = J/(C+F)`는 이미 정확했음을 확인(코드 변경 없음) — 27/28차
+  감사 확정 수치(K≈7.1805%/10.3454%, 일반 J/C≈7.5978%/11.2754%)를 실제 함수 실행으로 고정하는 회귀만
+  `__tests__/profitReportWeek28Totals.test.js`에 추가.
+- 태국/콜롬비아/32차 항공료 원천 누락 경고는 그대로 보존(수정하지 않음).
+
+### 변경된 파일
+- `lib/profitReportCalc.js`, `lib/profitReport.js`, `lib/profitReportInventoryWorkbookCatalog.js`
+- `data/profit-report-inventory-catalog/v1/index.json`
+- `docs/contracts/weekly-profit-report.json`, `docs/exe-golden/FormProfitReport.md`
+- `__tests__/profitReportInventoryWorkbookCatalog.test.js`, `__tests__/profitReportInventorySourceCompletion.test.js`,
+  `__tests__/profitReportWeek28Totals.test.js`, `__tests__/profitReportRecentCostCutoff.test.js`(stale regex 정정)
+- 상세: `docs/work-reports/2026-08-24_profit-report-independent-audit-fixes.md`
+
+### 검증
+- `npm run test:profit-report-22-28` PASS, `npm run test:erp-contract` PASS(0 실패), `npm run build` PASS,
+  `git diff --check` PASS
+
+### 다음 작업 예정
+- 커밋/PR/배포는 이번 세션에서 수행하지 않음(작업 지시상 금지) — 사용자 승인 후 진행
+- 운영 33차 이후 실브라우저 재확인, 28차 전체 workbook fixture 보강(현재는 22~27차만 셀 단위 fixture)
+
+### 미결 이슈 / 블로킹
+- 미국 SALAL(P59 계열) catalog 항목이 아직 등록되지 않아 eligible=true 대상이 호주뿐
+- 아직 미커밋·미배포
+
+---
+
+## [2026-08-19] 세션 — 33차 손익 원천 경고 재분류
+
+### 작업 내용
+- 표시된 12건을 직접입력 12개로 보지 않고, E/F는 품목 단가 자동연결, H/S는 실제 반차수 누락만 남김.
+- 우선순위: 확정 단가 → 확정 업로드 도착원가 → 2026 28차 이후 안정 catalog → 같은 세부차수 전산 도착원가 → 이월.
+- 호주는 28차 AUD 환율을 재사용하지 않고 대상 차수 공식 과세환율만 곱한다.
+
+### 변경된 파일
+- `lib/profitReport*.js`, `pages/api/sales/profit-report.js`, 계약/exe-golden, 관련 테스트
+
+### 다음 작업 예정
+- 커밋/PR/배포 후 운영 33차 실브라우저로 경고 건수 확인
+
+### 미결 이슈 / 블로킹
+- 태국 `-01`만 입고·GW2=0은 정상이라 H 경고에서 빼야 함. 입고가 있는데 GW1=0일 때만 `33-01 GW` 확인.
+- 시네신스/안개꽃은 엑셀 번호 없음 → 품목리스트 확인 키만 catalog. 이름 추정·연핑크/옐로우 2159 자동연결 금지.
+- 콜롬비아 33-02 GW/CW, 32차 포워딩 구매범위 1건은 원천 입력 필요
+- 아직 미커밋·미배포
+
+---
+
 ## [2026-08-19 09:35] 세션 — 견적서 추가 품목등록 배치 사이클
 
 ### 작업 내용

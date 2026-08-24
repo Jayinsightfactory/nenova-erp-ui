@@ -403,11 +403,16 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
   우선한다. 이 여섯 카테고리를 품목단가 catalog로 덮어쓰지 않는다.
 - 그 밖의 정확히 승인된 ProdKey는 `data/profit-report-inventory-catalog/v1/index.json`에서 원본
   workbook SHA·시트·셀·단위와 함께 읽는다. 원화 표시단가는 VAT 포함값이므로 공급가 단가로
-  `/1.1`한다. 호주는 P열 외화단가에 원본 O37의 AUD 과세환율을 곱한 원본 취득원가를 사용한다.
+  `/1.1`한다. 호주 28차 원본은 P열 외화단가×O37 AUD 과세환율이고, 2026년 후속 차수는 같은
+  외화단가에 대상 차수 공식 과세환율을 곱한다.
 - 적용 우선순위는 정확한 같은 스냅샷의 `WebStockPriceEvidence` → 같은 품목·단위의 사용자 확정
-  `WebArrivalCostLine` → 정확한 ProdKey·EstUnit의 workbook catalog다. 품명 fuzzy 매칭과 다른
-  품목·카테고리 평균은 금지한다.
-- catalog 기준일은 2026-28차이며 그 이전 및 다른 연도에 역전파하지 않는다. 이후 업로드에서
+  `WebArrivalCostLine` → 같은 연도·같은 세부차수 입고·FreightCost 재현 도착원가
+  (`VERIFIED_FREIGHT_ARRIVAL_CALC`) → 취득원가 산식이 입증된 정확한 ProdKey·EstUnit의 workbook
+  catalog다(2026-08-19 정정 — 아래 "재고단가 우선순위·catalog eligibility 정정" 절 참고). 품명
+  fuzzy 매칭과 다른 품목·카테고리 평균, 판매·분배단가, `Product.Cost`는 금지한다.
+- catalog 기준일은 2026-28차이며 그 이전 및 다른 연도에 역전파하지 않는다. 2026년 28차 이후에는
+  안정 원화 단가만 exact ProdKey template로 재사용한다. 호주는 28차 AUD 환율을 재사용하지 않고
+  대상 차수의 공식 과세환율이 있을 때만 외화단가×대상 환율로 평가한다. 이후 업로드에서
   더 최신의 확정 도착원가 또는 직접 단가가 생기면 그 근거가 항상 우선한다.
 - 모든 workbook에서 기초 F30=11,000원과 달리 기말 N30=110,000원인 카네이션 10배 이상값은
   `quarantined`로 기록하고 자동 catalog에 포함하지 않는다.
@@ -416,9 +421,12 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
 
 ## 2026-08-18 입력 경계·샘플 평균 정정
 
-22~28차 전체 시트 재검증 결과, 재고잔량 단가는 판매·분배단가가 아니라 매입·취득원가다. 따라서 호주를
-포함한 평균원가 공식 밖의 신규 품목도 `ShipmentDetail.Cost`로 자동 대체하지 않는다. 정확한 외화
-매입단가, 사용자 확정 도착원가, 같은 차수·품목의 검증 매입원가가 모두 없을 때만 입력 행을 표시한다.
+22~28차 전체 시트 재검증 결과, 재고잔량 단가는 `ShipmentDetail.Cost` 같은 명시적 출고단가는 아니다.
+따라서 호주를 포함한 평균원가 공식 밖의 신규 품목도 `ShipmentDetail.Cost`로 자동 대체하지 않는다.
+정확한 외화 매입단가, 사용자 확정 도착원가, 같은 차수·품목의 검증 매입원가가 모두 없을 때만 입력
+행을 표시한다. 단, 재고잔량 시트 자체에도 판매·분배 단가가 섞여 있을 수 있으므로 catalog 항목이
+곧 취득원가라고 일괄 가정하지 않는다 — 아래 "2026-08-19 재고단가 우선순위·catalog eligibility
+정정" 절 참고.
 
 샘플은 전체 금액 영향이 작은 명시적 예외로서, 정확 근거가 없을 때만 같은 ProductStock 스냅샷의
 동일 단위 비샘플 검증단가를 수량가중평균한다. 이 평균은 보고서 계산 중에만 만들어지고 증거 테이블에
@@ -429,3 +437,50 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
 | 자동 계산 가능 여부 조회 | 읽기만 함 | 보존 | 보존 | 보존 |
 | 샘플 동일 스냅샷 평균 계산 | 보존 | 수량 읽기만 함 | 검증단가 읽기만 함 | 보존 |
 | 사용자가 매입단가 근거 저장 | 보존 | 보존 | 해당 OrderYear+OrderWeek+ProdKey만 저장 | 보존 |
+
+## 2026-08-19 재고단가 우선순위·catalog eligibility·합계 이익률 독립 감사 정정
+
+두 독립 감사에서 확정된 결함 두 건을 수정했다. 새 EXE Form/메서드 조사 대상이 아니라 이미 문서화된
+`ViewWarehouse`/`ViewShipment` 공용 읽기 계약과 기존 workbook 대조 근거를 그대로 재사용한
+버그 수정이다.
+
+### 결함 1 — 재고단가 exact fallback 우선순위가 과거 catalog를 전산 도착원가보다 앞세움
+
+`lib/profitReport.js`의 `stockSnapshotByCategory`/`stockPriceRows`가
+`arrival || catalogEvidence || freightArrival || carried` 순서로 후보를 골라, 2026년 28차
+원본 workbook에서 읽은 과거 catalog 단가가 같은 세부차수에서 실제로 계산된 전산 도착원가
+(`VERIFIED_FREIGHT_ARRIVAL_CALC`, `FreightCost`/입고 재현)보다 먼저 선택됐다. 올바른 우선순위는
+사용자 확정 도착원가 → 같은 세부차수 전산 계산 도착원가 → 취득원가 산식이 입증된 workbook catalog
+→ 이월 근거다. `lib/profitReportCalc.js`에 순수 정책 함수 `selectStockPriceEvidence()`를 신설해
+두 호출부가 같은 함수 하나만 공유하도록 정리했다(`arrival || freightArrival || catalogEvidence
+|| carried`). 회귀는 `__tests__/profitReportInventoryWorkbookCatalog.test.js`,
+`__tests__/profitReportInventorySourceCompletion.test.js`가 이 정책 함수를 실제 값으로 호출해
+검증한다.
+
+### 결함 2 — catalog N열 표시단가 다수가 판매·분배단가인데 취득원가로 자동 채택됨
+
+`data/profit-report-inventory-catalog/v1/index.json`의 `KRW_VAT_INCLUDED`(N열 기말 표시단가)
+항목 33개 중 다수(특히 태국 Jinda 계열, 중국, 네덜란드)가 출처 셀·산식만으로는 취득원가임이
+입증되지 않은 판매·분배단가 후보였다. 출처 셀과 산식으로 취득원가임이 실제로 입증된 항목은
+호주(FOREIGN_TAXABLE — 원본 P열 외화 취득단가×대상 차수 AUD 과세환율) 14개뿐이다(미국 SALAL의
+원본 P59 계열 취득원가 근거는 이 catalog에 아직 등록되지 않았다 — 추가되면 같은 기준으로 eligible
+표시한다). 각 catalog entry에 `eligibleForInventoryValuation`(호주만 `true`, 나머지 33개는
+`false`+`ineligibleReason`)을 추가하고, `lib/profitReportInventoryWorkbookCatalog.js`의
+`inventoryWorkbookPriceEvidenceByProduct()`가 `eligibleForInventoryValuation===false`인 항목을
+어떤 차수·연도에서도 후보로 반환하지 않도록 필터링했다. 항목 자체는 감사 근거로 JSON에 보존한다
+(삭제하지 않음). `inventoryWorkbookCatalogMetadata()`에 `eligibleEntryCount`/`ineligibleEntryCount`를
+추가해 화면·감사 도구가 격리 현황을 조회할 수 있게 했다. 회귀는
+`__tests__/profitReportInventoryWorkbookCatalog.test.js`(중국 안개꽃·시네신스, 태국 Jinda XL, 네덜란드
+장미 3종이 더 이상 후보로 반환되지 않음을 실제 함수 호출로 검증, eligible/ineligible 개수 고정).
+
+### 확인 — 합계 이익률 K는 이미 J/(C+F)로 일치, 별도 수정 불필요
+
+`lib/profitReportCalc.js#computeProfitTotals`의 `totals.K = totals.J / (totals.C + totals.F)`는
+두 독립 감사가 확정한 27차(≈7.1805%)·28차(≈10.3454%) 원본 본표 합계 K 공식과 이미 일치했다
+(행별 K는 `computeProfitRow`가 원본 규칙대로 유지 — 일반 국가는 `J/C`, `noEnding` 3개국은
+`J/(C+F)`). 화면(`pages/sales/profit-report.js`)·엑셀(`lib/profitReportExcel.js`)·확정 스냅샷
+(`pages/api/sales/profit-report-confirm.js`) 모두 이 한 함수만 공유해 이미 일치했으므로 코드
+변경은 없고, `__tests__/profitReportWeek28Totals.test.js`에 27/28차 감사 확정 수치(J/C/F, 합계
+K, 일반 J/C)를 실제 `computeProfitTotals()` 실행으로 고정하는 회귀만 추가했다. 일반 영업
+이익률(J/C, 27차≈7.5978%·28차≈11.2754%)은 합계 K와 다른 값이며 화면·엑셀 기본 이익률로 쓰지
+않는다 — 필요하면 별도 이름의 설명용 값으로만 노출한다.

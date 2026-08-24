@@ -83,11 +83,26 @@ async function main() {
     category: '중국', variant: null,
     auto: { N: 1, L: 0, O: 0, Q: 0, S: 0, E: null, F: null },
     manual: {}, source: { E: 'missing_price_evidence', F: 'missing_price_evidence' },
-    beginStock: { unitMismatch: true, conversionMissingCount: 0 },
-    stock: { endQty: 10, unitMismatch: true, missingPriceCount: 1, conversionMissingCount: 0 },
+    beginStock: {
+      unitMismatch: true,
+      conversionMissingCount: 0,
+      missingPriceItems: [{ prodKey: 9999, prodName: '', displayName: '' }],
+    },
+    stock: {
+      endQty: 10, unitMismatch: true, missingPriceCount: 1, conversionMissingCount: 0,
+      missingPriceItems: [
+        { prodKey: 9999, prodName: '', displayName: '' },
+        { prodKey: 123, prodName: 'CHINA / Limonium Sinensis white 500g', displayName: '' },
+      ],
+    },
   }], { major: 28 }).issues;
   assert.ok(directIssues.some(item => item.code === 'STOCK_BEGIN_PRICE_EVIDENCE_MISSING'));
   assert.ok(directIssues.some(item => item.code === 'STOCK_END_PRICE_EVIDENCE_MISSING'));
+  assert.ok(directIssues.some(item => item.code === 'STOCK_BEGIN_PRICE_EVIDENCE_MISSING' && /품목번호 9999/.test(item.message) && !/시네신스/.test(item.message)));
+  assert.ok(directIssues.some(item => item.code === 'STOCK_END_PRICE_EVIDENCE_MISSING'
+    && /품목번호 9999/.test(item.message)
+    && /CHINA \/ Limonium Sinensis white 500g\(123\)/.test(item.message)
+    && !/시네신스\(2158\)/.test(item.message)));
 
   const reportSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
   const calcSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReportCalc.js'), 'utf8');
