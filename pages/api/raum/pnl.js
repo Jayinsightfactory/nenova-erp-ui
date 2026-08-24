@@ -4,7 +4,7 @@
 // POST { action:'save', orderYear, major, ... items }   → 차수 upsert(품목 전체 교체)
 // POST { action:'delete', key }                          → soft delete
 import { withAuth } from '../../../lib/auth';
-import { saveRaumPnl, loadRaumPnlList, loadRaumPnlDetail, deleteRaumPnl } from '../../../lib/raumPnl';
+import { saveRaumPnl, loadRaumPnlList, loadRaumPnlDetail, deleteRaumPnl, assignRaumPnlMonth } from '../../../lib/raumPnl';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -44,6 +44,13 @@ export default withAuth(async function handler(req, res) {
         if (!key) return res.status(400).json({ success: false, error: 'key 필요' });
         await deleteRaumPnl(key, actor);
         return res.status(200).json({ success: true });
+      }
+
+      if (action === 'assign-month') {
+        const key = Number(req.body?.key);
+        if (!Number.isInteger(key) || key <= 0) return res.status(400).json({ success: false, error: '유효한 key가 필요합니다.' });
+        const result = await assignRaumPnlMonth(key, req.body?.assignedMonth, actor);
+        return res.status(200).json({ success: true, ...result });
       }
 
       if (action === 'save') {
