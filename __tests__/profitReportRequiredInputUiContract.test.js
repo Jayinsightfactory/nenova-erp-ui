@@ -82,6 +82,12 @@ async function main() {
       && /replace\(\/VERIFIED\/g, '확인된'\)/.test(source)
       && source.includes(".replace(/E 최종값/g, '기초상품재고액')")
       && source.includes(".replace(/F 최종값/g, '기말상품재고액')"));
+  check('감사 메시지의 H/GW2/Gross weight 내부 용어를 업무 문장으로 변환함',
+    source.includes('그외통관비 입력값이 없어 0원으로 계산했습니다.')
+      && source.includes('두 번째 입고의 총중량이 0')
+      && source.includes(".replace(/Gross weight\\(또는 입고 마스터 GW\\)/g, '입고 총중량')"));
+  check('상세 확인 구분이 원천/참고 대신 자동 연결 확인/안내로 표시됨',
+    source.includes('자동 연결 확인 필요') && source.includes("['안내', noticeIssues"));
 
   console.log('\n=== 4) 재고 매입단가 모달이 전용 table 스타일을 쓰고 공용 st.table 을 쓰지 않음 ===');
   check('priceModalTable 전용 스타일이 정의됨(tableLayout fixed)',
