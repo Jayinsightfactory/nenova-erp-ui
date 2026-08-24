@@ -124,6 +124,59 @@ async function main() {
   assert.equal(filledFarms.rows[1].farmKey, 10);
   assert.ok(filledFarms.rows.every((row) => row.unit === '단'), '수국 Color Grade 수량은 단으로 분류해야 한다.');
 
+  const merged = [
+    ['COLOMBIA'],
+    ['차수', '33-1'],
+    ['GW', 80, 'CW', 140],
+    [],
+    ['농장', '품목명', '수량', '단위', '도착원가(단)'],
+    ['Fillco', 'CARNATION Moon Light', 30, '단', 9520],
+    [null, 'CARNATION White', 20, '단', 8800],
+  ];
+  const mergedWb = XLSX.utils.book_new();
+  const mergedSheet = XLSX.utils.aoa_to_sheet(merged);
+  mergedSheet['!merges'] = [{ s: { r: 5, c: 0 }, e: { r: 6, c: 0 } }];
+  XLSX.utils.book_append_sheet(mergedWb, mergedSheet, '33-1');
+  const mergedParsed = parseArrivalCostWorkbook(XLSX.write(mergedWb, { type: 'buffer', bookType: 'xlsx' }), {
+    fileName: '33-1 카네이션 원가자료.xlsx',
+    products: [
+      { ProdKey: 11, ProdName: 'CARNATION Moon Light', DisplayName: '카네이션 문라이트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '박스' },
+      { ProdKey: 12, ProdName: 'CARNATION White', DisplayName: '카네이션 화이트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '박스' },
+    ],
+    farms: [{ FarmKey: 21, FarmName: 'Fillco' }],
+  });
+  assert.equal(mergedParsed.rowCount, 2);
+  assert.equal(mergedParsed.rows[1].farmNameRaw, 'Fillco', '세로 병합된 농장 칸을 아래 품목에도 채워야 한다.');
+  assert.equal(mergedParsed.rows[1].farmKey, 21);
+  assert.equal(mergedParsed.rows[0].chargeableWeight, 140);
+  assert.equal(mergedParsed.rows[0].grossWeight, 80);
+  assert.ok(mergedParsed.rows.every((row) => row.unit === '단'), '엑셀 단위 열이 단이면 전산 OutUnit이 박스여도 단이다.');
+
+  const banner = [
+    ['COLOMBIA'],
+    ['차수', '33-1'],
+    ['GW', 100, 'CW', 100],
+    [],
+    ['품목명', '수량', '도착원가(단)'],
+    ['La Gaitana', '', ''],
+    ['CARNATION Moon Light', 25, 9520],
+    ['CARNATION White', 10, 8800],
+  ];
+  const bannerWb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(bannerWb, XLSX.utils.aoa_to_sheet(banner), '33-1');
+  const bannerParsed = parseArrivalCostWorkbook(XLSX.write(bannerWb, { type: 'buffer', bookType: 'xlsx' }), {
+    fileName: '33-1 카네이션 원가자료.xlsx',
+    products: [
+      { ProdKey: 11, ProdName: 'CARNATION Moon Light', DisplayName: '카네이션 문라이트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단' },
+      { ProdKey: 12, ProdName: 'CARNATION White', DisplayName: '카네이션 화이트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단' },
+    ],
+    farms: [{ FarmKey: 22, FarmName: 'La Gaitana' }],
+  });
+  assert.equal(bannerParsed.rowCount, 2, '수량 없는 농장 제목 행 다음 품목을 읽어야 한다.');
+  assert.equal(bannerParsed.rows[0].farmNameRaw, 'La Gaitana');
+  assert.equal(bannerParsed.rows[1].farmNameRaw, 'La Gaitana');
+  assert.equal(bannerParsed.rows[0].farmKey, 22);
+
   console.log('arrival cost excel parser tests passed');
 }
 

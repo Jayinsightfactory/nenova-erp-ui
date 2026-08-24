@@ -13,12 +13,36 @@
     "docs/migrations/2026-08-10_web_arrival_cost_schema.sql",
     "components/Layout.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
-    { "name": "ARRIVAL_COST_SEARCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "품목 검색은 order-mappings 매칭데이터로 ProdKey를 찾고, 차수·국가는 결과 표시만 한다. 품종 버튼은 Product.CountryFlower(국가+품종)이며 FormOrderAdd와 같다. 품목명 없이 연도+품종만으로 조회할 수 있다. 목록은 차수 오름/내림 → 국가 → 품종 → 품목명 → 농장 순이며 같은 차수·품목은 농장별 원가를 함께 보여 준다. OrderYear는 교차연도 충돌 방지용으로 유지한다. 목록 SELECT는 RawJson을 제외하고, 품목 검색 중에는 OrderDetail 사용량 OUTER APPLY를 돌리지 않는다." },
-    { "name": "ARRIVAL_COST_UPLOAD_REVISION", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "엑셀 도착원가 수식의 계산값이 비어 있으면 그 수식을 계산해 WebArrivalCost에 저장한다. 수식조차 없으면 수국 Color Grade 표시 원가 공식으로 채운다. 농장명은 그룹 첫 행만 있어도 아래 행으로 이어받고, 전산 FarmName과 공백·별칭으로 맞춘다. 입고수량은 엑셀 헤더(단당수량·도착원가(단)/수량(박스))로 단·박스를 분류하며 Product.OutUnit으로 덮어쓰지 않는다. Product/Warehouse/Shipment/Estimate는 보존한다." },
-    { "name": "ARRIVAL_COST_MATCH_OR_BASIS_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve" },
-    { "name": "PROFIT_REPORT_PRICE_EVIDENCE_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "sideEffect": "조회 전용. 같은 연도·차수·ProdKey·EstUnit, 현재 MATCHED 행과 사용자 MATCH/BASIS_CHANGE 이력 및 완전한 source provenance만 사용하며 WebStockPriceEvidence로 자동 복사하지 않는다." }
+    {
+      "name": "ARRIVAL_COST_SEARCH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "품목 검색은 order-mappings 매칭데이터로 ProdKey를 찾고, 차수·국가는 결과 표시만 한다. 품종 버튼은 Product.CountryFlower(국가+품종)이며 FormOrderAdd와 같다. 품목명 없이 연도+품종만으로 조회할 수 있다. 목록은 차수 오름/내림 → 국가 → 품종 → 품목명 → 농장 순이며 같은 차수·품목은 농장별 원가를 함께 보여 준다. OrderYear는 교차연도 충돌 방지용으로 유지한다. 목록 SELECT는 RawJson을 제외하고, 품목 검색 중에는 OrderDetail 사용량 OUTER APPLY를 돌리지 않는다. 목록은 콜롬비아 행에만 GW(Gross Weight)·CW(Chargeable Weight) 특별기준을 기본 적용한다. 콜롬비아에서 CW>GW이면 장미 원가만 보이고, CW≤GW이면 카네이션·알스트로 원가가 보이며 장미는 숨긴다. 에콰도르 등 다른 국가와 GW/CW 없는 행은 전 품목을 그대로 보여 준다. 농장 원가 요약은 같은 농장+원가 문구를 한 번만 적는다. Order/Shipment/Estimate/Stock은 읽지 않는다."
+    },
+    {
+      "name": "ARRIVAL_COST_UPLOAD_REVISION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "엑셀 도착원가 수식의 계산값이 비어 있으면 그 수식을 계산해 WebArrivalCost에 저장한다. 수식조차 없으면 수국 Color Grade 표시 원가 공식으로 채운다. 농장명은 그룹 첫 행만 있어도 아래 행으로 이어받고, 전산 FarmName과 공백·별칭으로 맞춘다. 입고수량은 엑셀 헤더(단당수량·도착원가(단)/수량(박스))로 단·박스를 분류하며 Product.OutUnit으로 덮어쓰지 않는다. Product/Warehouse/Shipment/Estimate는 보존한다. 엑셀 !merges 농장 칸을 펼치고, 수량 없는 농장 제목 행도 아래 품목에 이어받는다. 시트 머리의 GW/CW 라벨 값을 행에 저장한다. 단위 열이 있으면 단/박스 분류에 쓰고 Product.OutUnit으로 덮지 않는다. 이미 올라간 행은 파일을 다시 올려야 반영된다."
+    },
+    {
+      "name": "ARRIVAL_COST_MATCH_OR_BASIS_SAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "PROFIT_REPORT_PRICE_EVIDENCE_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "조회 전용. 같은 연도·차수·ProdKey·EstUnit, 현재 MATCHED 행과 사용자 MATCH/BASIS_CHANGE 이력 및 완전한 source provenance만 사용하며 WebStockPriceEvidence로 자동 복사하지 않는다."
+    }
   ],
   "crossYearFixture": {
     "required": true,
