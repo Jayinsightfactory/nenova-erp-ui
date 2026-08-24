@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
+import { formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder } from '../lib/arrivalCostView.js';
 
 const BASIS = [
   ['SOURCE', '엑셀 원식'],
@@ -91,10 +92,10 @@ function LookupInput({ kind, value, onInput, onSelect, placeholder }) {
 
 export default function ArrivalCostPage() {
   const [filters, setFilters] = useState({
-    orderYear: String(new Date().getFullYear()), orderWeek: '', country: '', flower: '', product: '', farm: '',
+    orderYear: String(new Date().getFullYear()), orderWeek: '', country: '', flower: '', product: '', farm: '', weekOrder: 'desc',
   });
   const [appliedFilters, setAppliedFilters] = useState({
-    orderYear: String(new Date().getFullYear()), orderWeek: '', country: '', flower: '', product: '', farm: '',
+    orderYear: String(new Date().getFullYear()), orderWeek: '', country: '', flower: '', product: '', farm: '', weekOrder: 'desc',
   });
   const [data, setData] = useState({ rows: [], imports: [], total: 0, page: 1, pageSize: 200, hasMore: false });
   const [page, setPage] = useState(1);
@@ -110,11 +111,12 @@ export default function ArrivalCostPage() {
 
   useEffect(() => {
     if (String(filters.product || '').trim()) return undefined;
-    if (!filters.orderYear || !filters.orderWeek) { setVarieties([]); setScopeReady(false); return undefined; }
+    if (!filters.orderYear) { setVarieties([]); setScopeReady(false); return undefined; }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const qs = new URLSearchParams({ lookup: 'varieties', orderYear: filters.orderYear, orderWeek: filters.orderWeek });
+        const qs = new URLSearchParams({ lookup: 'varieties', orderYear: filters.orderYear });
+        if (filters.orderWeek) qs.set('orderWeek', filters.orderWeek);
         const res = await fetch(`/api/arrival-cost?${qs}`, { credentials: 'same-origin', signal: controller.signal });
         const json = await parseJsonResponse(res);
         if (!res.ok || !json.success) throw new Error(json.error || '품종 조회 실패');
@@ -128,7 +130,9 @@ export default function ArrivalCostPage() {
 
   const load = useCallback(async (targetPage = 1, queryFilters = appliedFilters) => {
     if (!queryFilters.orderYear) return;
-    if (!String(queryFilters.product || '').trim() && (!queryFilters.orderWeek || (!queryFilters.flower && !queryFilters.allVarieties))) return;
+    const hasProduct = String(queryFilters.product || '').trim();
+    const hasFlower = String(queryFilters.flower || '').trim();
+    if (!hasProduct && !hasFlower && !(queryFilters.orderWeek && queryFilters.allVarieties)) return;
     requestRef.current.controller?.abort();
     const controller = new AbortController();
     const requestId = requestRef.current.id + 1;
@@ -236,25 +240,39 @@ export default function ArrivalCostPage() {
 
   const weeks = useMemo(() => [...new Set(data.rows.map(row => row.orderWeek).filter(Boolean))], [data.rows]);
   const unmatched = data.rows.filter(row => row.matchStatus !== 'MATCHED').length;
+  const groups = useMemo(() => groupArrivalCostRows(data.rows || []), [data.rows]);
+  const currentWeekOrder = normalizeWeekOrder(appliedFilters.weekOrder);
   const applySearch = () => {
     if (!filters.orderYear) { setError('연도를 선택하세요.'); return; }
     if (String(filters.product || '').trim()) {
       setError('');
       setPage(1);
-      setAppliedFilters({ ...filters, flower: '', allVarieties: '1' });
+      setAppliedFilters({ ...filters, flower: '', allVarieties: '1', weekOrder: normalizeWeekOrder(filters.weekOrder) });
       return;
     }
-    if (!filters.orderWeek) { setError('품목명으로 검색하거나 차수를 입력하세요.'); return; }
+    if (String(filters.flower || '').trim()) {
+      setError('');
+      setPage(1);
+      setAppliedFilters({ ...filters, allVarieties: '', weekOrder: normalizeWeekOrder(filters.weekOrder) });
+      return;
+    }
+    if (!filters.orderWeek) { setError('품목명으로 검색하거나 품종을 선택하세요. 전체보기는 차수를 입력하세요.'); return; }
     if (!filters.flower) { setError('품종을 선택하거나 전체보기를 누르세요.'); return; }
     setError('');
     setPage(1);
-    setAppliedFilters({ ...filters, allVarieties: '' });
+    setAppliedFilters({ ...filters, allVarieties: '', weekOrder: normalizeWeekOrder(filters.weekOrder) });
+  };
+  const applyWeekOrder = (weekOrder) => {
+    const next = { ...appliedFilters, weekOrder: normalizeWeekOrder(weekOrder) };
+    setFilters((prev) => ({ ...prev, weekOrder: next.weekOrder }));
+    setPage(1);
+    setAppliedFilters(next);
   };
   const selectVariety = (flower) => {
     const next = { ...filters, flower };
     setFilters(next);
     setPage(1);
-    setAppliedFilters({ ...next, allVarieties: '' });
+    setAppliedFilters({ ...next, allVarieties: '', weekOrder: normalizeWeekOrder(next.weekOrder) });
   };
   const showAll = () => {
     if (String(filters.product || '').trim()) {
@@ -305,17 +323,21 @@ export default function ArrivalCostPage() {
             <label>표시 차수 <input value={filters.orderWeek} onChange={e => updateFilter('orderWeek', e.target.value)} placeholder="비우면 전 차수" onKeyDown={e => e.key === 'Enter' && applySearch()} /></label>
             <button className="primary" onClick={applySearch} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           </div>
-          <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 아래 버튼은 전산 국가·품종(CountryFlower) 기준입니다. 예: 콜롬비아수국.</div>
+          <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 아래 버튼은 전산 국가·품종(CountryFlower)입니다. 품목명 없이 품종 버튼만 눌러도 조회됩니다. 결과는 차수 → 국가 → 품종 → 품목명 → 농장별 원가 순입니다.</div>
           <div className="variety-tabs" role="tablist" aria-label="국가·품종 선택">
             <button type="button" role="tab" aria-selected={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim())} className={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim()) ? 'active' : ''} onClick={showAll}>전체보기</button>
             {varieties.map(name => <button type="button" role="tab" key={name} aria-selected={appliedFilters.flower === name} className={appliedFilters.flower === name ? 'active' : ''} onClick={() => selectVariety(name)}>{name}</button>)}
-            {!scopeReady && !String(filters.product || '').trim() && <span className="muted">차수를 입력하면 품종 탭으로 볼 수 있습니다. 품목 검색은 차수 없이 가능합니다.</span>}
+            {!scopeReady && !String(filters.product || '').trim() && <span className="muted">연도를 선택하면 품종 탭이 나옵니다. 품종만 눌러도 검색됩니다.</span>}
             {String(appliedFilters.product || '').trim() && varieties.length === 0 && !loading && <span className="muted">검색된 품종이 없습니다.</span>}
           </div>
           <div className="summary-row">
             <span>현재본 {Number(data.total || 0).toLocaleString()}행 · 화면 {data.rows.length.toLocaleString()}행</span>
             <span>매칭확인 필요 {unmatched.toLocaleString()}행</span>
             <span>차수 {weeks.join(', ') || '-'}</span>
+            <span className="week-sort" role="group" aria-label="차수 정렬">
+              <button type="button" className={currentWeekOrder === 'asc' ? 'active' : ''} onClick={() => applyWeekOrder('asc')}>차수 오름차순</button>
+              <button type="button" className={currentWeekOrder === 'desc' ? 'active' : ''} onClick={() => applyWeekOrder('desc')}>차수 내림차순</button>
+            </span>
             <span>페이지 {page} / {Math.max(1, Math.ceil(Number(data.total || 0) / Number(data.pageSize || 200)))}</span>
           </div>
         </section>
@@ -332,26 +354,35 @@ export default function ArrivalCostPage() {
                   <th>차수</th><th>국가</th><th>국가·품종</th><th>원본 품목명</th><th>전산 품목 매칭</th><th>원본 농장</th><th>전산 농장 선택</th>
                   <th>수량</th><th>원가(엑셀)</th><th>기준</th><th>선택 원가</th><th>메모</th><th>저장</th>
                 </tr></thead>
-                <tbody>{data.rows.map(row => {
-                  const draft = drafts[row.arrivalLineKey] || {};
-                  return <tr key={row.arrivalLineKey} className={row.uploadStatus === 'COST_NOT_UPLOADED' ? 'cost-missing' : row.matchStatus === 'MATCHED' ? '' : 'needs-match'}>
-                    <td>{row.orderWeek || '-'}</td>
-                    <td>{row.countryName || row.dbCountryName || '-'}</td>
-                    <td>{row.countryFlower || row.dbFlowerName || row.flowerNameRaw || '-'}</td>
-                    <td className="raw-name" title={row.productNameRaw}>{row.productNameRaw}</td>
-                    <td><LookupInput kind="product" value={draft.prodInput || ''} onInput={value => updateProductInput(row, value)} onSelect={value => selectProduct(row, value)} placeholder="품목 검색·선택" /></td>
-                    <td>{row.farmNameRaw || '-'}</td>
-                    <td><LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />{row.autoFarmKey && !row.farmKey && <span className="auto-match">자동 후보</span>}</td>
-                    <td className="num">{fmt(row.quantity, 2)} {row.unit}</td>
-                    <td className="num">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="missing-badge">원가 미업로드</span> : `${fmt(row.sourceArrivalCostKRW, 2)}원`}</td>
-                    <td><select value={draft.allocationBasis || 'SOURCE'} onChange={e => updateDraft(row.arrivalLineKey, 'allocationBasis', e.target.value)}>
-                      {BASIS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                    </select></td>
-                    <td className="num selected-cost">{row.uploadStatus === 'COST_NOT_UPLOADED' ? '-' : `${fmt(row.selectedArrivalCostKRW)}원`}</td>
-                    <td><input value={draft.notes || ''} onChange={e => updateDraft(row.arrivalLineKey, 'notes', e.target.value)} placeholder="메모" /></td>
-                    <td className="actions">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="muted">업로드 필요</span> : <><button onClick={() => save(row)}>저장</button><button onClick={() => showHistory(row)}>이력</button></>}</td>
-                  </tr>;
-                })}</tbody>
+                <tbody>{groups.map(group => [
+                  <tr key={`${group.key}-head`} className="group-head">
+                    <td>{group.orderWeek || '-'}</td>
+                    <td>{group.countryName || '-'}</td>
+                    <td>{group.countryFlower || '-'}</td>
+                    <td className="raw-name" title={group.productNameRaw}>{group.productNameRaw || group.productName}</td>
+                    <td colSpan={9} className="farm-costs">{formatFarmCostSummary(group.rows)}</td>
+                  </tr>,
+                  ...group.rows.map(row => {
+                    const draft = drafts[row.arrivalLineKey] || {};
+                    return <tr key={row.arrivalLineKey} className={row.uploadStatus === 'COST_NOT_UPLOADED' ? 'cost-missing' : row.matchStatus === 'MATCHED' ? '' : 'needs-match'}>
+                      <td>{row.orderWeek || '-'}</td>
+                      <td>{row.countryName || row.dbCountryName || '-'}</td>
+                      <td>{row.countryFlower || row.dbFlowerName || row.flowerNameRaw || '-'}</td>
+                      <td className="raw-name" title={row.productNameRaw}>{row.productNameRaw}</td>
+                      <td><LookupInput kind="product" value={draft.prodInput || ''} onInput={value => updateProductInput(row, value)} onSelect={value => selectProduct(row, value)} placeholder="품목 검색·선택" /></td>
+                      <td>{row.farmNameRaw || '-'}</td>
+                      <td><LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />{row.autoFarmKey && !row.farmKey && <span className="auto-match">자동 후보</span>}</td>
+                      <td className="num">{fmt(row.quantity, 2)} {row.unit}</td>
+                      <td className="num">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="missing-badge">원가 미업로드</span> : `${fmt(row.sourceArrivalCostKRW, 2)}원`}</td>
+                      <td><select value={draft.allocationBasis || 'SOURCE'} onChange={e => updateDraft(row.arrivalLineKey, 'allocationBasis', e.target.value)}>
+                        {BASIS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                      </select></td>
+                      <td className="num selected-cost">{row.uploadStatus === 'COST_NOT_UPLOADED' ? '-' : `${fmt(row.selectedArrivalCostKRW)}원`}</td>
+                      <td><input value={draft.notes || ''} onChange={e => updateDraft(row.arrivalLineKey, 'notes', e.target.value)} placeholder="메모" /></td>
+                      <td className="actions">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="muted">업로드 필요</span> : <><button onClick={() => save(row)}>저장</button><button onClick={() => showHistory(row)}>이력</button></>}</td>
+                    </tr>;
+                  }),
+                ])}</tbody>
               </table>
             </div>
           )}
@@ -380,7 +411,9 @@ export default function ArrivalCostPage() {
         .upload-row,.filter-grid { display:flex; flex-wrap:wrap; gap:8px; align-items:center; } label { display:flex; align-items:center; gap:5px; font-size:12px; } input,select { border:1px solid #b9c4d1; border-radius:3px; background:#fff; min-height:28px; padding:3px 6px; font:inherit; font-size:12px; } input:focus,select:focus { outline:2px solid #b9d9ff; border-color:#4b91dd; }
         .upload-row input[type=file] { min-width:260px; } .filter-grid label input { width:130px; } .filter-grid label:nth-child(2) input { width:230px; }
         button { border:1px solid #aab7c7; background:#f5f7fa; border-radius:3px; padding:5px 9px; cursor:pointer; font:inherit; font-size:12px; } button:hover { background:#eaf2fb; } button.primary { background:#1565c0; color:#fff; border-color:#1565c0; font-weight:700; } button:disabled { opacity:.55; cursor:wait; }
-        .hint { margin-top:4px; } .summary-row { display:flex; flex-wrap:wrap; gap:18px; margin-top:6px; font-size:12px; color:#506074; }
+        .hint { margin-top:4px; } .summary-row { display:flex; flex-wrap:wrap; gap:18px; margin-top:6px; font-size:12px; color:#506074; align-items:center; }
+        .week-sort { display:flex; gap:5px; } .week-sort button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
+        .group-head { background:#e8eef6; font-weight:700; } .group-head td { border-bottom:1px solid #c5d0de; } .farm-costs { white-space:normal; max-width:720px; }
         .variety-tabs { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px; padding-top:7px; border-top:1px solid #e1e6ed; } .variety-tabs button { border-radius:999px; } .variety-tabs button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
         .notice { padding:9px 12px; margin:8px 0; border-radius:4px; font-size:12px; } .notice.success { color:#0b5d42; background:#e7f7ef; border:1px solid #b6e6cc; } .notice.error { color:#a12d2d; background:#fff0f0; border:1px solid #f0b7b7; }
         .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:8px 8px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 275px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:max-content; min-width:1600px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } tr.cost-missing { background:#fff0f0; } .missing-badge { color:#a12d2d; background:#ffe0e0; border:1px solid #efb4b4; border-radius:999px; padding:2px 6px; font-weight:700; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } td:nth-child(5) input,td:nth-child(7) input { width:310px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; } .pager { display:flex; align-items:center; justify-content:center; gap:12px; padding:8px; border-top:1px solid #d7dee8; } .lookup-input { position:relative; display:inline-block; } .lookup-input > input { width:310px; } .lookup-menu { position:absolute; top:calc(100% + 2px); left:0; z-index:20; width:360px; max-height:190px; overflow:auto; background:#fff; border:1px solid #718096; box-shadow:0 5px 14px #0003; } .lookup-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; border:0; border-bottom:1px solid #e4e8ee; border-radius:0; background:#fff; padding:6px 8px; text-align:left; white-space:normal; } .lookup-option:hover { background:#eaf3ff; } .lookup-option small { color:#657080; margin-top:2px; } .lookup-status { padding:8px; color:#657080; } .auto-match { display:block; color:#0b6e4f; font-size:10px; margin-top:2px; }

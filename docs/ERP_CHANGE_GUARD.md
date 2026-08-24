@@ -334,7 +334,9 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 (`order-mappings`)가 가리키는 `ProdKey`로 행을 찾는다. `OrderWeek`와
 `CountryName`은 결과 표 표시 값이다. 국가명 또는 차수명만 입력한 검색어는
 품목 필터로 쓰지 않는다. `화이트`처럼 여러 품종이 매칭되면 전산
-`Product.CountryFlower`(국가+품종) 버튼으로 좁힌다. 품목명에서 임의 품종을
+`Product.CountryFlower`(국가+품종) 버튼으로 좁힌다. 품목명 검색 없이 품종 버튼만으로
+조회할 수 있다. 목록은 차수 오름/내림 → 국가 → 품종 → 품목명 → 농장 순이고,
+같은 차수·품목은 농장별 원가를 한 줄에 비교한다. 품목명에서 임의 품종을
 쪼개지 않는다. 교차연도 충돌을 막기 위해
 목록 GET은 `OrderYear`를 유지한다.
 

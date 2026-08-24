@@ -52,6 +52,8 @@ assert.doesNotMatch(lib, /arrivalFlowerInferSql/, '엑셀 품목명을 품종 �
 assert.doesNotMatch(page, /화이트붐/, '화이트붐 같은 품목명은 품종 그룹이 아니다.');
 assert.doesNotMatch(page, /<label>국가 /, '국가는 검색 조건이 아니라 표시 컬럼이다.');
 assert.match(page, /applySearch\(\)/, '품목 검색 Enter는 조회를 적용해야 한다.');
+assert.match(page, /selectVariety\(name\)/, '품종 버튼으로 검색을 좁혀야 한다.');
+assert.doesNotMatch(lib, /if \(!hasProductSearch && !week\) throw/, '품종만 있어도 차수 없이 조회할 수 있어야 한다.');
 assert.match(lib, /buildArrivalCostProductMatch/, '목록 SQL은 매칭데이터 ProdKey를 써야 한다.');
 assert.match(lib, /OrderYear=@year/, '연도는 교차연도 충돌을 막기 위해 유지한다.');
 assert.match(api, /MappingAliases/, '행 단위 품목 선택도 매칭 별칭을 검색해야 한다.');
