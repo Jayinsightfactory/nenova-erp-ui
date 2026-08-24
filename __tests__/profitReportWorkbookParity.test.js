@@ -113,7 +113,7 @@ async function main() {
       && reportApiSource.includes('rateSuggestions')
       && !reportApiSource.includes('previous_report_taxable_rate')
       && !reportApiSource.includes('currency_master_fallback'));
-  check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' && needsRateInput(row)") && pageSource.includes('과세환율(R) 입력 필요'));
+  check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' && needsRateInput(row)") && pageSource.includes('과세환율 입력 필요'));
   check('보고서 저장 뒤 과세환율 캐시 저장 실패를 조용히 무시하지 않음',
     pageSource.includes('과세환율 별도 저장 실패')
       && pageSource.includes('보고서 수기값은 저장되었습니다.')

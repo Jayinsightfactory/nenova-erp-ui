@@ -484,3 +484,57 @@ historical snapshot 모듈에 옮겨 담고 화면 계산은 항상 운영 데�
 K, 일반 J/C)를 실제 `computeProfitTotals()` 실행으로 고정하는 회귀만 추가했다. 일반 영업
 이익률(J/C, 27차≈7.5978%·28차≈11.2754%)은 합계 K와 다른 값이며 화면·엑셀 기본 이익률로 쓰지
 않는다 — 필요하면 별도 이름의 설명용 값으로만 노출한다.
+
+## 2026-08-24 필수 입력 UX 개선 — "입력·확인 필요" 요약을 본표 위로, 상세 진단은 본표 아래 접힘으로
+
+2026-08-12에 통관/포워딩 입력 패널을 본표 **아래**의 "검증·입력" 접기 그룹으로 옮겼던 배치가
+실사용에서 "본표를 봐야 입력이 필요한지 알 수 있다"는 혼선을 만들었다. 계산식·API·저장 payload·
+ERP side effect는 이번 작업으로 전혀 바뀌지 않았고, 화면 배치와 표기만 정리했다.
+
+- **"입력·확인 필요" 요약을 본표 위로 이동**: 재고 매입단가 입력(`openPriceModal`)·그외통관비
+  입력(`showCustoms`/`CustomsClearancePanel`)·항공료 연결 확인(`showForwarding`/
+  `ForwardingClearancePanel`)·과세환율 입력 필요 안내(`validationRateRows`/`needsRateInput`)
+  네 가지 진입점을 본표(카테고리별 표+합계 행) **위**의 요약 블록 하나로 모았다. 버튼은 모두
+  기존 상태 변수(`showCustoms`/`showForwarding`)와 핸들러(`openPriceModal`)를 그대로 재사용하며,
+  새 API 호출이나 계산 로직을 추가하지 않았다. 열린 `CustomsClearancePanel`/
+  `ForwardingClearancePanel`도 이 요약 블록 안, 즉 본표보다 위에서 렌더링한다(이전에는 본표
+  아래 "검증·입력" 그룹 안에서 렌더링했다).
+- **표 아래 그룹 이름 변경**: "검증·입력" → "상세 확인 내역"으로 바꾸고, 감사 오류 배너·실사
+  시작재고 확인 배너·기타(미분류) 배너 등 **진단 전용** 내용만 남겼다. 입력 진입점(통관/포워딩
+  패널, 재고 매입단가 버튼)은 모두 위 요약 블록으로 옮겼으므로 이 그룹에는 더 이상 없다. 제목과
+  툴팁도 "계산 전 필수 입력"처럼 보이지 않도록 "감사 오류·재고 확인 필요 등 계산에 사용된
+  자동값의 상세 진단 내역"으로 정정했다. 기본 펼침/접힘 판단(`hasValidationIssues`)과 배지
+  집계(`validationCount`)는 이전 로직을 그대로 유지한다.
+- **내부 열 문자 표기 제거**: 감사 안내(`issue.columns`)를 `E`/`F`/`H`/`S`/`R` 원문 그대로
+  보여주던 것을 `ISSUE_COLUMN_LABELS`(기초재고 매입단가/기말재고 매입단가/그외통관비/
+  항공료·포워딩/과세환율 + 기존 `COLUMN_DEFS` 라벨)로 변환해 표시한다. "과세환율(R) 입력 필요"는
+  "과세환율 입력 필요"로, "VERIFIED 품목 단가"는 "확인된 품목 단가"로, 기타(미분류) 배너의
+  "본표 합계(C·D·I·J·K)"는 "본표 합계(매출액·매출비율·매출원가·매출이익·이익률)"로 바꿨다.
+  `issue.code`/`issue.message` 등 서버가 내려주는 audit 객체 자체와 `lib/*`의 감사 로직은 전혀
+  바꾸지 않았다 — 이 변환은 UI 출력 단계(`pages/sales/profit-report.js`)에서만 일어난다.
+  서버 감사 문장에 남은 `VERIFIED`, `E 최종값`, `F 최종값`도 `humanizeAuditMessage()`를 거쳐
+  `확인된`, `기초상품재고액`, `기말상품재고액`으로 표시한다. 본표 위 설명 역시 내부 열 문자를
+  제거하고 자동 입력 자료와 직접 입력 자료를 짧은 업무 문장으로 안내한다.
+- **재고 매입단가 모달 재배치**: 카드 크기를 `min(1000px, 96vw)`/`86vh`에서
+  `min(1320px, 98vw)`/`92vh`로 키우고, 공용 `st.table`(minWidth 1800, 가로 스크롤 유발) 대신
+  `tableLayout: 'fixed'`의 전용 `st.priceModalTable`/`st.priceModalTh`/`st.priceModalTd`
+  스타일을 도입해 모달 폭 안에서 가로 스크롤 없이 표시한다. 상단에 `입력 필요 N건`/
+  `입력한 값 N건` 배지와 `매입단가 근거 저장` 버튼을 추가했다(하단 저장 버튼은 유지 — 둘 다
+  같은 `savePrices()` 핸들러). 열 구성을 재고 기준/국가·품종/품목명(가장 넓게, 줄바꿈 허용)/
+  재고수량/환산수량/매입단가(원)으로 정리하고, 매 행마다 반복되던 고정 문구 "입력 사유" 열은
+  제거했다(모달 상단 요약 문구로 대체). 긴 설명 문단은 2줄 요약 + 접힌 `계산 기준 보기`
+  (`<details>`)로 나눴다. 입력칸은 최소 폭 140px·우측정렬·천 단위 콤마(`fmtInput`)를 그대로
+  유지한다. 저장 로직(`savePrices()`)·API(`action: 'stockPrices'`)·필요 근거(sourceRef·기준일)
+  입력은 변경하지 않았다.
+- **side-effect matrix**: 이 작업은 화면 배치·표기·모달 레이아웃만 바꿨다. 모달을 열거나
+  `CustomsClearancePanel`/`ForwardingClearancePanel`을 펼치는 동작은 기존과 동일하게 GET
+  조회만 하며(각 컴포넌트 자체 조회 로직 불변), 저장은 기존 저장 버튼(`저장`/`매입단가 근거
+  저장`/`CustomsClearancePanel`·`ForwardingClearancePanel` 내부 저장)만 그대로 사용한다.
+  `OrderMaster/Detail`, `ShipmentMaster/Detail`, `Estimate`, `ProductStock`, `StockHistory`는
+  이 작업으로 전혀 건드리지 않는다(2026-08-12 절의 downstream 보존 표와 동일하게 유지).
+- 회귀: `__tests__/profitReportPanelOrderContract.test.js`(요약 블록·Customs/Forwarding 패널이
+  본표보다 앞, 상세 확인 내역·이익률 분석은 본표보다 뒤라는 순서를 정적 소스 검사로 재고정,
+  구 배치 회귀 가드 포함), `__tests__/profitReportRequiredInputUiContract.test.js`(요약 진입점이
+  기존 상태/핸들러를 재사용함, 렌더 텍스트에 "검증·입력"/"과세환율(R)"/"VERIFIED"/"C/D/I/J/K"가
+  없음, `issue.columns`가 `ISSUE_COLUMN_LABELS`로 변환됨, 모달이 전용 table 스타일을 쓰고 공용
+  `st.table`을 쓰지 않음).
