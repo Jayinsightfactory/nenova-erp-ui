@@ -17,6 +17,8 @@ async function main() {
   }
   assert.match(source, /OrderYear=@yr[\s\S]{0,160}MajorWeek=@mj|OrderYear\s*=\s*@yr[\s\S]{0,160}MajorWeek\s*=\s*@mj/,
     '재업로드 대상은 OrderYear+MajorWeek로 한정되어야 합니다.');
+  assert.match(source, /PartnerCode=@pc/,
+    '라움과 초이문 같은 차수는 PartnerCode로 분리되어야 합니다.');
   assert.match(source, /preserv(?:e|ation)|기존.*(?:단가|수기|매칭)|CostPrice[\s\S]{0,180}ProdKey/s,
     '재업로드 시 수기단가·IsCustom·ProdKey를 병합 보존하는 명시적 경로가 필요합니다.');
   assert.match(api, /verification[\s\S]{0,500}(?:ok|fail|검증)/i,

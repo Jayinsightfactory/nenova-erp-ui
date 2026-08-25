@@ -2,7 +2,7 @@
 
 ## 기능 경계
 
-라움 손익계산서와 이미지 OCR 초안은 웹 전용 화면이다. 이미지·가격·적요·결산 미리보기는 `WebRaumPnl`/`WebRaumPnlItem`에 저장하며, 품목 선택은 기존 `Product` 마스터를 조회한다.
+라움·초이문 손익계산서와 이미지 OCR 초안은 웹 전용 화면이다. 이미지·가격·적요·결산 미리보기는 `WebRaumPnl`/`WebRaumPnlItem`에 저장하며(`PartnerCode`로 라움/초이문 분리), 품목 선택은 기존 `Product` 마스터를 조회한다. 전산 분배 대조·이미지 주문등록의 거래처는 `Customer.CustName` LIKE(라움/트라움 또는 초이문)로 고르고, `OrderWeek`만으로 Master를 찾지 않는다.
 
 이미지 초안의 주문등록만 nenova.exe 주문등록 경로와 공용 `OrderMaster`/`OrderDetail`에 기록한다. 농장분배(`ShipmentFarm`), 출고수량(`ShipmentDetail.OutQuantity`), 출고일(`ShipmentDate`)은 이미지 주문등록에서 생성하거나 수정하지 않는다. nenova.exe 주문등록 화면이 신규 주문 저장 시 빈 `ShipmentMaster`를 준비하는 동작은 `ShipmentMaster`가 없을 때만 재현하며, 기존 출고 상세는 보존한다.
 

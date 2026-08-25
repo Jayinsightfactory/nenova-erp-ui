@@ -6,7 +6,7 @@ const root = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 async function main() {
-  const source = read('lib/raumPnl.js');
+  const source = `${read('lib/raumPnl.js')}\n${read('lib/raumPnlParse.js')}`;
 
   // This is intentionally a source-level contract while the API implementation is
   // developed separately.  A multi-sheet workbook must yield six independent

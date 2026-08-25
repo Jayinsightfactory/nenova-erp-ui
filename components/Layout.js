@@ -69,7 +69,7 @@ export const MENU_ITEMS = [
       { href: '/sales/registration-history', labelKey: '판매등록 히스토리', popup: true },
       { href: '/sales/defect-deductions', labelKey: '영업수입불량차감', popup: true },
       { href: '/sales/profit-report', labelKey: '주차별 매출이익 보고서', popup: true },
-      { href: '/raum/pnl',           labelKey: '라움 손익계산서',     popup: true },
+      { href: '/raum/pnl',           labelKey: '라움 초이문 손익계산서', popup: true },
       { href: '/sales/revenue-management', labelKey: '영업매출관리', popup: false },
       { href: '/sales/shilla-miu-board', labelKey: '호텔+미우 통합게시판', popup: false },
       { href: '/catalog',              labelKey: '거래처 카탈로그', popup: true },

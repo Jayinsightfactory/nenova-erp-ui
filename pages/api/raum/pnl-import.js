@@ -9,6 +9,7 @@ import {
   parseRaumQuoteWorkbookGroups, lookupErpRefPrices, loadLearnedCosts, loadRaumConsignedSet,
   prepareRaumPnlImportPreview, saveRaumPnlImportBatch, DEFAULT_NENOVA_PCT,
 } from '../../../lib/raumPnl';
+import { resolvePnlPartner } from '../../../lib/raumPnlPartner';
 
 export const config = { api: { bodyParser: false } };
 
@@ -25,11 +26,11 @@ function previewToken(raw, snapshots, batches) {
   return crypto.createHash('sha256').update(raw).update(JSON.stringify({ state, groups })).digest('hex');
 }
 
-async function enrichBatch(parsed, orderYear) {
+async function enrichBatch(parsed, orderYear, partnerCode) {
   const warnings = [...(parsed.warnings || [])];
   let refs = {};
   try {
-    refs = await lookupErpRefPrices(parsed.items.map(it => ({ name: it.name, price: it.price })), parsed.major, orderYear);
+    refs = await lookupErpRefPrices(parsed.items.map(it => ({ name: it.name, price: it.price })), parsed.major, orderYear, partnerCode);
   } catch (e) {
     warnings.push(`전산 참고단가 조회 실패: ${e.message}`);
   }
@@ -72,7 +73,7 @@ async function enrichBatch(parsed, orderYear) {
     };
   });
   return {
-    ...parsed, orderYear, quoteDate: localDate(parsed.quoteDate), items, warnings,
+    ...parsed, orderYear, partnerCode, quoteDate: localDate(parsed.quoteDate), items, warnings,
     sheets: parsed.sheets.map(s => ({
       sheetName: s.sheetName, branch: s.branch, itemCount: s.items.length,
       parsedSupply: s.parsedSupply, summarySupply: s.summarySupply, summaryTotal: s.summaryTotal,
@@ -96,12 +97,13 @@ async function handler(req, res) {
   try {
     const raw = fs.readFileSync(file.filepath);
     const workbook = XLSX.read(raw, { type: 'buffer', cellDates: true, cellNF: false, cellStyles: false });
-    const parsed = parseRaumQuoteWorkbookGroups(XLSX, workbook);
+    const partner = resolvePnlPartner(asField(fields.partner) || asField(fields.partnerCode));
+    const parsed = parseRaumQuoteWorkbookGroups(XLSX, workbook, { partnerCode: partner.code });
     if (!parsed.batches.length) return res.status(400).json({ success: false, error: parsed.warnings[0] || '파싱된 품목이 없습니다.', warnings: parsed.warnings });
 
     const batches = await Promise.all(parsed.batches.map(async (batch) => {
       const orderYear = batch.quoteDate ? String(batch.quoteDate.getFullYear()) : resolveActiveOrderYear(`${batch.major}-01`);
-      return enrichBatch(batch, orderYear);
+      return enrichBatch(batch, orderYear, partner.code);
     }));
     const prepared = await prepareRaumPnlImportPreview(batches);
     const canonicalBatches = prepared.batches;

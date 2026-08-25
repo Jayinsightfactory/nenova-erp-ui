@@ -68,7 +68,7 @@ function ProductPicker({ group, onPick, onClose }) {
   );
 }
 
-export default function RaumImageOrderPanel({ open, onClose, onPreview, onSaveDraft, savingDraft = false }) {
+export default function RaumImageOrderPanel({ open, onClose, onPreview, onSaveDraft, savingDraft = false, custName = '라움', partnerLabel = '라움' }) {
   const fileRef = useRef(null);
   const [images, setImages] = useState([]);
   const [lines, setLines] = useState([]);
@@ -189,7 +189,7 @@ export default function RaumImageOrderPanel({ open, onClose, onPreview, onSaveDr
     try {
       const r = await fetch('/api/orders', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custName: '라움', year, week: week.trim(), source: 'raum-pnl', ensureShipmentMaster: true, items: orderItems }),
+        body: JSON.stringify({ custName, year, week: week.trim(), source: 'raum-pnl', ensureShipmentMaster: true, items: orderItems }),
       });
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '주문등록 실패');
@@ -237,7 +237,7 @@ export default function RaumImageOrderPanel({ open, onClose, onPreview, onSaveDr
     <div style={{ border: '1px solid #93c5fd', borderRadius: 9, background: '#f8fbff', padding: 12, marginBottom: 14 }}>
       {picker ? <ProductPicker group={picker} onPick={p => chooseProduct(picker, p)} onClose={() => setPicker(null)} /> : null}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <b style={{ color: '#1d4ed8' }}>📷 라움 이미지 주문등록·결산 초안</b>
+        <b style={{ color: '#1d4ed8' }}>📷 {partnerLabel} 이미지 주문등록·결산 초안</b>
         <span style={{ fontSize: 12, color: '#64748b' }}>이미지는 왼쪽, 품목·수량·단가·적요는 오른쪽</span>
         <span style={{ flex: 1 }} />
         <button style={{ ...button, color: '#b45309', borderColor: '#fbbf24' }} onClick={resetDraft}>🧹 초기화</button>
