@@ -96,8 +96,12 @@ async function main() {
     { EstimateKey: 1, EstimateType: '불량차감/송이', Descr: '수입부 메모', outDate: '2026-06-04' },
     { showDeductionDescr: true },
   ) === '수입부 메모');
-  assert('불량차감 적요 화면 유지', sanitizeEstimateDescrForDisplay(
+  assert('불량차감 적요 화면 기본 미표시', sanitizeEstimateDescrForDisplay(
     { EstimateKey: 1, EstimateType: '불량차감/송이', Descr: '수입부 메모', outDate: '2026-06-04' },
+  ) === '');
+  assert('불량차감 적요 화면 옵션 표시', sanitizeEstimateDescrForDisplay(
+    { EstimateKey: 1, EstimateType: '불량차감/송이', Descr: '수입부 메모', outDate: '2026-06-04' },
+    { showDeductionDescr: true },
   ) === '수입부 메모');
   assert('불량차감 유형 판별', isDefectDeductionRow({ EstimateType: '불량차감/송이' }));
   assert('단가차감은 불량차감 아님', !isDefectDeductionRow({ EstimateType: '단가차감/단' }));
@@ -188,13 +192,13 @@ async function main() {
 
   console.log('\n=== sanitizeEstimateDescrForDisplay (차감 비고) ===');
   assert('차감수량 로그 표시', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, EstimateType: '단가차감/송이', Descr: '차감수량 5>3' }) === '차감수량 5>3');
-  assert('차감단가 로그 표시', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, EstimateType: '불량차감/박스', Descr: '차감단가 700>650' }) === '차감단가 700>650');
+  assert('불량차감 단가로그 화면 기본 미표시', sanitizeEstimateDescrForDisplay({ EstimateKey: 1, EstimateType: '불량차감/박스', Descr: '차감단가 700>650' }) === '');
   assert('희경 단가차감 메모', sanitizeEstimateDescrForDisplay({
     EstimateKey: 7389, EstimateType: '단가차감/단', Descr: '25년도 불량차감 미적용건',
   }) === '25년도 불량차감 미적용건');
-  assert('불량차감 사용자 메모', sanitizeEstimateDescrForDisplay({
+  assert('불량차감 사용자 메모 화면 기본 미표시', sanitizeEstimateDescrForDisplay({
     EstimateKey: 7278, EstimateType: '불량차감/박스', Descr: '어버이날 78박스',
-  }) === '어버이날 78박스');
+  }) === '');
   assert('정상출고 운영로그 숨김', sanitizeEstimateDescrForDisplay({ EstimateType: '정상출고', Descr: '임16>12' }) === '');
   assert('차감 혼합 메모 유지', sanitizeEstimateDescrForDisplay({
     EstimateKey: 1, EstimateType: '검역차감/송이', DescrRaw: '현장 확인\n차감수량 10>8',

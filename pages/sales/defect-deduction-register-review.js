@@ -20,7 +20,7 @@ function adjustedAfter(row) {
     Quantity: quantity,
     Amount: amount,
     Vat: quantity * cost - amount,
-    Descr: row.editNote || '',
+    Descr: '',
   };
 }
 
@@ -188,7 +188,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
                   <div className="estimate-view-preview"><b>견적서관리 표시</b> [{row.estimateTypeLabel || deductionType}] {after.ProdName || row.productDbName || row.productName || '-'} · {after.Quantity} {after.Unit || row.sourceUnit || ''} · {fmt(after.Amount)}원</div>
                   <div className="edit-line"><b>차감수량</b><input type="number" min="1" value={row.editQuantity} onChange={(e) => updateRow(index, { editQuantity: e.target.value })} /> {after.Unit || row.sourceUnit || ''}</div>
                   <div><b>일자</b> {dateText(after.EstimateDtm)} · 출고키 #{after.ShipmentKey}</div><div><b>분배단가</b> {fmt(after.Cost)}원 <small>({after.CostOrderWeek || '타임라인 자동매칭'})</small></div><div><b>금액</b> {fmt(after.Amount)}원 / 부가세 {fmt(after.Vat)}원</div>
-                  <div className="edit-line"><b>적요</b><input value={row.editNote} onChange={(e) => updateRow(index, { editNote: e.target.value })} /></div>
+                  <div className="edit-line"><b>웹 비고</b><input value={row.editNote} onChange={(e) => updateRow(index, { editNote: e.target.value })} /><small>수입부 원장만 유지 · 견적서 적요에 올리지 않음</small></div>
                 </> : <div className="empty">적용값을 계산할 수 없습니다.</div>}</section>
               </div>
             </div>;
