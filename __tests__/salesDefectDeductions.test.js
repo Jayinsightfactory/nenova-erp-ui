@@ -100,6 +100,10 @@ const supportReviewSource = fs.readFileSync('pages/sales/defect-deduction-regist
 const deductionContract = JSON.parse(fs.readFileSync('docs/contracts/sales-defect-deduction.json', 'utf8'));
 assert.ok(deductionContract.actions.some((item) => item.name === 'MANUAL_PROCESSING_COMPLETE'), '수동처리완료 계약 동작이 있어야 한다.');
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /수동처리완료/);
+assert.match(deductionContract.sideEffects.salesSupportRegistration, /ImportConfirmed 값과 무관하게 표시/);
+assert.match(deductionContract.sideEffects.salesSupportRegistration, /미확정 행은 수입부 상태를 ‘미확정’으로 명시/);
+assert.match(deductionContract.sideEffects.supportCustomerEstimate, /불량차감 음수 Estimate 항목만/);
+assert.match(deductionContract.sideEffects.supportCustomerEstimate, /iframe\/딥링크나 previewCapture 요청에 의존하지 않는다/);
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
 const productSearchApiSource = fs.readFileSync('pages/api/products/search.js', 'utf8');
 const orderImportSource = fs.readFileSync('lib/orderImportMatch.js', 'utf8');
@@ -173,14 +177,11 @@ assert.ok(pageSource.includes('견적서관리에 불량차감 등록'), '영업
 assert.ok(pageSource.includes("buildEstimateFixStatusUrl(selectedWeek)"), '영업지원은 붙여넣기 주문등록과 같은 견적서관리 확정현황 링크를 사용해야 한다.');
 assert.ok(pageSource.includes("window.open(url, 'estimate-fix-status'"), '영업지원 확정현황은 동일한 견적서관리 새창으로 열려야 한다.');
 assert.ok(pageSource.includes('🔎 확정 현황 확인'), '영업지원 도구모음에 확정 현황 확인 버튼이 있어야 한다.');
-assert.ok(pageSource.includes('buildEstimateCustomerUrl'), '영업지원 처리상태는 해당 차수·업체 견적서 딥링크를 사용해야 한다.');
-assert.ok(pageSource.includes('openCustomerEstimate'), '영업지원 처리상태에서 해당 업체 견적서를 바로 열 수 있어야 한다.');
-assert.ok(pageSource.includes('견적서 열기'), '영업지원 처리상태에 거래처 견적서 열기 버튼이 있어야 한다.');
 assert.ok(pageSource.includes('견적서 캡쳐'), '처리상태 옆에 불량차감이 올라간 견적서 캡쳐 열이 있어야 한다.');
 assert.ok(pageSource.includes('buildSupportEstimateCapture'), '견적서 캡쳐는 공통 helper로 견적서 목록을 재현해야 한다.');
 assert.ok(pageSource.includes('data-estimate-capture'), '견적서 캡쳐 미리보기가 처리상태 옆에 보여야 한다.');
-assert.ok(pageSource.includes('previewCapture: true'), '캡쳐 호버는 견적서 미리보기 모드를 읽기만 해야 한다.');
-assert.ok(pageSource.includes("window.open(url, 'estimate-customer'"), '업체 견적서는 견적서관리 새창으로 열려야 한다.');
+assert.doesNotMatch(pageSource, /previewCapture\s*:/, '캡쳐 미리보기는 견적서관리 iframe/딥링크를 다시 의존하지 않아야 한다.');
+assert.doesNotMatch(pageSource, /<iframe|window\.open\(url, ['"]estimate-customer/, '영업지원 미리보기는 원장 화면을 새로 열지 않고 불량차감 목록만 보여야 한다.');
 assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 분배단가 열을 표시해야 한다.');
 assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 EXE 호환 분배단가 조회 결과를 표시해야 한다.');
 assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
@@ -214,9 +215,10 @@ assert.ok(pageSource.includes('setSupportRows((current) => current.map'), '영�
     pageSource.indexOf('const isSupportRegistrationSelectable'),
     pageSource.indexOf('const existingEstimateLabel'),
   );
-  assert.doesNotMatch(selectableSource, /importReviewRequired/, '보완 필요는 표시일 뿐 영업지원 견적 등록 선택을 막으면 안 된다.');
+  assert.match(selectableSource, /importConfirmed/, '미확정 행은 영업지원 목록에는 보이되 견적 등록 선택에서 제외해야 한다.');
 }
 assert.ok(pageSource.includes('support-review-required'), '영업지원 목록은 수입부 확정과 별개로 보완 필요 상태를 표시해야 한다.');
+assert.match(pageSource, /importConfirmed\s*\?[^:]*확정[^:]*:[^'"`]*['"]미확정/, '영업지원 목록은 수입부 미확정 행도 표시하고 미확정 상태를 명시해야 한다.');
 assert.ok(pageSource.includes('sales-row-review-alert'), '보완 필요 행은 담당자 화면에 빨간 알림으로 표시해야 한다.');
 assert.ok(pageSource.includes("const [salesViewMode, setSalesViewMode] = useState('edit')"), '영업 입력은 편집/완료 목록 보기 전환을 제공해야 한다.');
 assert.ok(pageSource.includes('sales-summary-card'), '영업 입력 완료 목록은 수입부 확인처럼 간단한 다중 행 목록으로 보여야 한다.');
@@ -254,8 +256,7 @@ assert.ok(deductionSource.includes('hasReviewDetails'), '보완 필요/비고는
 assert.ok(deductionSource.includes('기존 농장값을 유지하고 확정 이력을 남긴다.'), '보완 우선 확정 시 기존 농장값을 보존해야 한다.');
 assert.ok(deductionSource.includes('resolveIncomingReview'), '수입부 보완 필요 해제 전용 저장 경로가 있어야 한다.');
 assert.ok(deductionSource.includes('cancelIncomingDeductions'), '수입부 확정 취소 전용 저장 경로가 있어야 한다.');
-assert.ok(defectApiSource.includes("importConfirmedOnly: String(req.query.view || '') === 'support'"), '영업지원 목록은 수입부 확정 완료 건만 조회해야 한다.');
-assert.ok(pageSource.includes('setSupportRows((current) => current.filter'), '수입부 확정 취소 즉시 영업지원 등록 대상에서도 제거해야 한다.');
+assert.doesNotMatch(defectApiSource, /importConfirmedOnly:\s*String\(req\.query\.view\s*\|\|\s*['"]['"]\)\s*===\s*['"]support['"]/, '영업지원 목록은 수입부 확정 완료 건만 필터링하지 않고 미확정 행도 조회해야 한다.');
 assert.ok(deductionSource.includes("action: 'INCOMING_CONFIRM_CANCEL'"), '수입부 확정 취소 이력을 기록해야 한다.');
 assert.ok(deductionSource.includes("ImportConfirmedBy=N''"), '수입부 확정 취소 시 NOT NULL 확정자 필드는 빈 문자열로 해제해야 한다.');
 assert.ok(deductionSource.includes("ImportConfirmedByName=N''"), '수입부 확정 취소 시 NOT NULL 확정자명 필드는 빈 문자열로 해제해야 한다.');
@@ -602,11 +603,13 @@ const capturePage = buildSupportEstimateCapture({
   existingEstimateRecords: [
     { estimateKey: 9001, prodKey: 12, estimateTypeLabel: '불량차감', productName: 'CARNATION Kaori', unit: '단', quantity: -4, cost: 1200, amount: -4364 },
     { estimateKey: 9002, prodKey: 99, estimateTypeLabel: '불량차감', productName: 'ROSE Freedom', unit: '단', quantity: -2, cost: 800, amount: -1455 },
+    { estimateKey: 9003, prodKey: 100, estimateTypeLabel: '판매요청', productName: 'ROSE Request', unit: '단', quantity: 2, cost: 800, amount: 1455 },
   ],
 }, { year: 2026, week: 33 });
 assert.equal(capturePage.mode, 'page');
 assert.match(capturePage.subtitle, /청화원예 불량차감 2건/);
 assert.equal(capturePage.rows[0].current, true, '현재 행의 견적키가 캡쳐에서 강조되어야 한다.');
+assert.equal(capturePage.rows.some((row) => row.typeLabel === '판매요청'), false, '미리보기는 불량차감된 항목만 보여야 한다.');
 assert.equal(buildSupportEstimateCapture({ status: 'MANUAL_COMPLETED', customerName: '청화원예' }, { year: 2026, week: 33 }).mode, 'manual');
 assert.equal(buildSupportEstimateCapture({ customerName: '청화원예', existingEstimateRecords: [] }, { year: 2026, week: 33 }).mode, 'empty');
 
