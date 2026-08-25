@@ -299,18 +299,18 @@ async function verifyCreatedOrdersInTransaction(tQuery, { orderYear, orderWeek, 
   for (const item of results || []) {
     if (!Number.isInteger(Number(item?.prodKey)) || !Number.isFinite(Number(item?.finalQty))) continue;
     const check = await tQuery(
-      `SELECT rawOrder.RowCount AS RawOrderCount, rawOrder.Qty AS RawOrderQty,
-              viewOrder.RowCount AS ViewOrderCount, viewOrder.Qty AS ViewOrderQty
+      `SELECT rawOrder.RecordCount AS RawOrderCount, rawOrder.Qty AS RawOrderQty,
+              viewOrder.RecordCount AS ViewOrderCount, viewOrder.Qty AS ViewOrderQty
          FROM (VALUES (1)) seed(n)
          OUTER APPLY (
-           SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(od.OutQuantity,0)),0) AS Qty
+           SELECT COUNT(*) AS RecordCount, ISNULL(SUM(ISNULL(od.OutQuantity,0)),0) AS Qty
              FROM OrderMaster om
              JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
             WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND om.CustKey=@ck
               AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey=@pk
          ) rawOrder
          OUTER APPLY (
-           SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(vo.OutQuantity,0)),0) AS Qty
+           SELECT COUNT(*) AS RecordCount, ISNULL(SUM(ISNULL(vo.OutQuantity,0)),0) AS Qty
              FROM ViewOrder vo
             WHERE vo.OrderYear=@yr AND vo.OrderWeek=@wk AND vo.CustKey=@ck AND vo.ProdKey=@pk
          ) viewOrder`,

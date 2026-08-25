@@ -469,27 +469,27 @@ async function verifyShipmentAdjustmentPostWrite(tQ, {
 }) {
   const result = await tQ(
     `SELECT
-       rawOrder.RowCount AS RawOrderCount, rawOrder.Qty AS RawOrderQty,
-       viewOrder.RowCount AS ViewOrderCount, viewOrder.Qty AS ViewOrderQty,
-       rawShipment.RowCount AS RawShipmentCount, rawShipment.Qty AS RawShipmentQty,
+       rawOrder.RecordCount AS RawOrderCount, rawOrder.Qty AS RawOrderQty,
+       viewOrder.RecordCount AS ViewOrderCount, viewOrder.Qty AS ViewOrderQty,
+       rawShipment.RecordCount AS RawShipmentCount, rawShipment.Qty AS RawShipmentQty,
        rawShipment.CustMismatch AS ShipmentCustomerMismatch,
-       viewShipment.RowCount AS ViewShipmentCount, viewShipment.Qty AS ViewShipmentQty,
-       shipDate.RowCount AS ShipmentDateCount, shipDate.Qty AS ShipmentDateQty
+       viewShipment.RecordCount AS ViewShipmentCount, viewShipment.Qty AS ViewShipmentQty,
+       shipDate.RecordCount AS ShipmentDateCount, shipDate.Qty AS ShipmentDateQty
      FROM (VALUES (1)) seed(n)
      OUTER APPLY (
-       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(od.OutQuantity,0)),0) AS Qty
+       SELECT COUNT(*) AS RecordCount, ISNULL(SUM(ISNULL(od.OutQuantity,0)),0) AS Qty
          FROM OrderMaster om
          JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
         WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND om.CustKey=@ck
           AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey=@pk
      ) rawOrder
      OUTER APPLY (
-       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(vo.OutQuantity,0)),0) AS Qty
+       SELECT COUNT(*) AS RecordCount, ISNULL(SUM(ISNULL(vo.OutQuantity,0)),0) AS Qty
          FROM ViewOrder vo
         WHERE vo.OrderYear=@yr AND vo.OrderWeek=@wk AND vo.CustKey=@ck AND vo.ProdKey=@pk
      ) viewOrder
      OUTER APPLY (
-       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(sd.OutQuantity,0)),0) AS Qty,
+       SELECT COUNT(*) AS RecordCount, ISNULL(SUM(ISNULL(sd.OutQuantity,0)),0) AS Qty,
               SUM(CASE WHEN ISNULL(sd.CustKey,0)<>ISNULL(sm.CustKey,0) THEN 1 ELSE 0 END) AS CustMismatch
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
@@ -497,13 +497,13 @@ async function verifyShipmentAdjustmentPostWrite(tQ, {
           AND ISNULL(sm.isDeleted,0)=0 AND sd.ProdKey=@pk AND ISNULL(sd.OutQuantity,0)<>0
      ) rawShipment
      OUTER APPLY (
-       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(vs.OutQuantity,0)),0) AS Qty
+       SELECT COUNT(*) AS RecordCount, ISNULL(SUM(ISNULL(vs.OutQuantity,0)),0) AS Qty
          FROM ViewShipment vs
         WHERE vs.OrderYear=@yr AND vs.OrderWeek=@wk AND vs.CustKey=@ck AND vs.ProdKey=@pk
           AND ISNULL(vs.OutQuantity,0)<>0
      ) viewShipment
      OUTER APPLY (
-       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(sdt.ShipmentQuantity,0)),0) AS Qty
+       SELECT COUNT(*) AS RecordCount, ISNULL(SUM(ISNULL(sdt.ShipmentQuantity,0)),0) AS Qty
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
          JOIN ShipmentDate sdt ON sdt.SdetailKey=sd.SdetailKey
