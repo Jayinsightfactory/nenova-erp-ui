@@ -18,6 +18,7 @@ assert.match(api, /requireMoyiDriveAdmin/, 'API도 관리자 계정을 다시 �
 assert.match(previewApi, /requireMoyiDriveAdmin/, '이미지 미리보기 API도 관리자 계정을 다시 검사해야 합니다.');
 assert.match(previewApi, /private, no-store/, '이미지 미리보기는 브라우저 공유 캐시에 저장하면 안 됩니다.');
 assert.match(fileRow, /loading="lazy"/, '이미지 썸네일은 화면에 가까워질 때 불러와야 합니다.');
+assert.match(fileRow, /onError=\{\(\) => setPreviewFailed\(true\)\}/, '원본이 없거나 손상된 이미지는 깨진 그림 대신 확인 필요 상태를 표시해야 합니다.');
 assert.match(fileRow, /moyi-file-tag/, 'MOYI 파일 태그를 목록에 표시해야 합니다.');
 assert.match(api, /status\(503\)/, 'MOYI 저장 계약 확인 전 변경을 차단해야 합니다.');
 assert.match(api, /writePermissionAudit/, '허용되지 않거나 대기 중인 변경 시도를 기록해야 합니다.');

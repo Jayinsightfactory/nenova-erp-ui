@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import StatusBadge from './StatusBadge';
 
 // lib/moyiDriveViewModel.js mapFileRowView() 출력 전용. 값을 지어내지 않고
 // backend DTO에 없는 열은 pending 표시("연결대기 · ...")를 그대로 보여준다.
 export default function FileRow({ row, selected, onSelect }) {
+  const [previewFailed, setPreviewFailed] = useState(false);
   const cellClass = (cell) => (cell.pending ? 'moyi-pending-cell' : undefined);
   return (
     <tr
@@ -12,9 +14,9 @@ export default function FileRow({ row, selected, onSelect }) {
       onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && onSelect) { e.preventDefault(); onSelect(); } }}
     >
       <td className="moyi-preview-cell">
-        {row.preview.available
-          ? <img src={row.preview.src} alt={row.preview.alt} loading="lazy" decoding="async" />
-          : <span className="moyi-file-icon" aria-label="미리보기 없음">파일</span>}
+        {row.preview.available && !previewFailed
+          ? <img src={row.preview.src} alt={row.preview.alt} loading="lazy" decoding="async" onError={() => setPreviewFailed(true)} />
+          : <span className="moyi-file-icon" aria-label={previewFailed ? '원본 미리보기 실패' : '미리보기 없음'}>{previewFailed ? '확인 필요' : '파일'}</span>}
       </td>
       <td className="name">
         <span className="moyi-file-name">{row.name.value}</span>
