@@ -209,6 +209,20 @@ async function main() {
   assert('메모+수량변동 혼합', appendDescr('특별요청,임16>12', '임12>14') === '특별요청,임16>12,임12>14');
   assert('메모만 유지', appendDescr('배송 지연', '임16>12') === '배송 지연,임16>12');
   assert('운영만 2건', appendDescr('임1>2,임3>4', '임5>6') === '임3>4,임5>6');
+  assert('SqlClient 감사줄 제거', appendDescr(
+    '특별요청\r\n[2026-08-25 17:37] [.Net SqlClient Data Provider / nenova1_nenova] 20->10',
+    '재용20>10',
+  ) === '특별요청,재용20>10');
+  assert('SqlClient만 있으면 새 운영로그만', appendDescr(
+    '[2026-08-25 17:37] [.Net SqlClient Data Provider / nenova1_nenova] 1->0',
+    '재용1>0',
+  ) === '재용1>0');
+  const { stripSqlAuditFromDescr } = await import('../lib/shipmentDescr.js');
+  assert('strip SqlClient 유지 운영로그', stripSqlAuditFromDescr(
+    '재용3>2\r\n[2026-08-25 17:37] [.Net SqlClient Data Provider / nenova1_nenova] 3->2',
+  ) === '재용3>2');
+  assert('견적 적요는 운영로그 숨김', sanitizeDescrTextForPrint('재용3>2') === '');
+  assert('견적 적요는 직접입력만', sanitizeDescrTextForPrint('현장요청,재용3>2') === '현장요청');
 
   console.log('\n=== splitEstByDistributeUnits (송이 16+32 → 160+320) ===');
   const steamProd = { OutUnit: '박스', EstUnit: '송이', BunchOf1Box: 0, SteamOf1Bunch: 0, SteamOf1Box: 10 };

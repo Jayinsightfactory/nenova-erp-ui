@@ -351,10 +351,13 @@ function pivotProdName(product) {
 function cleanDescrText(text) {
   if (!text) return '';
   return String(text)
-    .replace(/\[\s*\.Net SqlClient Data Provider[^\]]*\]/gi, '[작업자미상]')
-    .replace(/\.Net SqlClient Data Provider/gi, '작업자미상')
-    .replace(/\[(?:\d{4}-\d{2}-\d{2}|\d{2}\/\d{2})\s+\d{2}:\d{2}\]\s*\[([^\]]+)\]\s*/g, '[$1]')
-    .replace(/\[(?:\d{2}\/\d{2})\s+\d{2}:\d{2}\s+([^\]]+)\]\s*/g, '[$1]');
+    .split(/[\r\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((s) => !/SqlClient|Data Provider|node-mssql/i.test(s))
+    .filter((s) => !/\[\d{4}-\d{2}-\d{2}[^\]]*\]\s*\[[^\]]*\]/.test(s))
+    .filter((s) => !/^\].*\[(?:node-mssql|SqlClient|\.Net)/i.test(s))
+    .join(',');
 }
 
 // ─────────────────────────────────────────────────────────────

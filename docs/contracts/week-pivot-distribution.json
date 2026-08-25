@@ -4,6 +4,8 @@
   "scope": [
     "pages/shipment/week-pivot.js",
     "pages/api/shipment/adjust.js",
+    "pages/api/shipment/distribute.js",
+    "lib/shipmentDescr.js",
     "pages/api/shipment/adjust-batch.js",
     "pages/api/shipment/adjust-batch-undo.js",
     "pages/api/shipment/stock-status.js",

@@ -65,10 +65,17 @@
 
 **A.** 미확정 포함 견적 목록 GROUP BY에 `sm.OrderYear`를 넣었다. 영업지원 등록·연결 갱신·검토 미리보기는 `Estimate.Descr`을 빈 문자열로 두고, 수입부 Note는 웹 원장만 유지한다. 화면·인쇄 모두 불량차감 적요는 기본 숨김(`showDeductionDescr=true`만 표시). 배포 후 Descr=Note인 기존 행만 대상 정리가 필요하면 별도 probe.
 
-**결과.** 커밋·PR·Cafe24 배포 진행.
+**결과.** PR #356 squash merge. Cafe24 배포 성공. Descr=Note 일치 4건 정리 완료.
+
+### 7. 2026-08-25 17:57 — 분배 SqlClient · 견적 적요는 직접입력만
+
+**Q.** nenova.exe 분배에 `재용3>2` 뒤로 SQL 문구가 붙는다. 견적서관리 비고/적요에는 웹 수정내역이 남으면 안 되고 직접 입력만.
+
+**A.** 원인: `TR_ShipmentDetail_OutQty_Log`가 웹 수정 시 SqlClient 감사줄을 Descr에 append. 트리거를 SqlClient/Node면 skip하도록 바꿨고(운영 적용), `appendDescr`이 감사줄을 버린다. 견적 적요는 운영로그·업로드 로그를 숨기고 직접입력만 표시. 기존 SqlClient 2035건+잔여 191건 정리.
+
+**결과.** PR·Cafe24 배포 진행.
 
 ## 미완
 
-- 배포 후 기존 Estimate.Descr이 웹 Note와 같은 행만 대상 정리(읽기 probe → 적용).
 - 수입부 인쇄 버튼이 전체 확정 전에는 비활성.
 - 엑셀 다운로드 거래처·농장 열 너비.

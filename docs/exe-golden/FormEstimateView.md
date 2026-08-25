@@ -53,10 +53,11 @@ Web: `pages/estimate.js` + `pages/api/estimate/index.js` + `lib/exeEstimateViewS
 ### 웹 인쇄 — 불량차감 적요 기본 미표시
 
 EXE `ReportEstimate`는 `GetPrintDetail`의 `Descr`을 그대로 적요에 바인딩한다.
-웹 인쇄는 정상출고·검역·단가차감 적요는 이 원문을 유지하고, **불량차감 적요만**
-화면·인쇄 모두 기본 숨긴다. 인쇄 다이얼로그의 `불량차감 적요 표시`를 켠 경우에만
-`Estimate.Descr`을 출력한다. 영업지원 전산등록은 `Estimate.Descr`을 비워 저장해서
-수입부 비고·사유가 견적서에 올라가지 않게 한다.
+웹 인쇄는 정상출고·검역·단가차감 **사용자 직접 입력** 적요만 유지한다.
+웹 수량수정 운영로그(`재용3>2`)와 SqlClient 트리거 감사줄은 견적서 비고/적요에
+올리지 않는다. **불량차감 적요**는 화면·인쇄 모두 기본 숨기고, 인쇄 다이얼로그의
+`불량차감 적요 표시`를 켠 경우에만 `Estimate.Descr`을 출력한다. 영업지원 전산등록은
+`Estimate.Descr`을 비워 저장한다.
 
 ## GetData 핵심 조건
 
