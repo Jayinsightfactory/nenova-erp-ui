@@ -39,7 +39,7 @@ async function requestPresence(method, payload) {
 }
 
 function emptyState() {
-  return { loading: false, active: false, ownedByMe: false, stale: false, error: '', digest: '', token: '', ownerName: '', pageCode: '', expiresAt: '', scopeKey: '' };
+  return { loading: false, active: false, ownedByMe: false, ownedBySameUser: false, stale: false, error: '', digest: '', token: '', ownerName: '', pageCode: '', expiresAt: '', scopeKey: '' };
 }
 
 function editScopeKey({ year, orderYear, week, orderWeek, custKey } = {}) {
@@ -47,6 +47,12 @@ function editScopeKey({ year, orderYear, week, orderWeek, custKey } = {}) {
   const parts = rawWeek.split('-');
   const parentWeek = parts.length === 3 ? parts[1] : parts[0];
   return `${String(orderYear || year || '')}/${parentWeek}/${String(custKey || '')}`;
+}
+
+export function normalizeErpEditClientWeek(week) {
+  const rawWeek = String(week || '').trim();
+  const parts = rawWeek.split('-');
+  return parts.length === 3 ? parts[1] : parts[0];
 }
 
 export function getErpEditClientId() {
@@ -91,19 +97,21 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
   const [state, setState] = useState(emptyState);
   const stateRef = useRef(state);
   const savingRef = useRef(0);
-  const scope = useMemo(() => ({ year: String(year || ''), week: String(week || ''), custKey: custKey == null ? '' : String(custKey || ''), pageCode: String(pageCode || ''), clientId: clientIdRef.current }), [year, week, custKey, pageCode]);
+  const scope = useMemo(() => ({ year: String(year || ''), week: normalizeErpEditClientWeek(week), custKey: custKey == null ? '' : String(custKey || ''), pageCode: String(pageCode || ''), clientId: clientIdRef.current }), [year, week, custKey, pageCode]);
   const validScope = Boolean(enabled && scope.year && scope.week && scope.custKey && scope.pageCode);
 
   useEffect(() => { stateRef.current = state; }, [state]);
 
   const applyResponse = useCallback((data, { preserveToken = true } = {}) => {
     const lease = data?.lease || {};
-    setState(prev => ({
+    const prev = stateRef.current;
+    const next = {
       ...prev,
       loading: false,
       error: '',
       active: Boolean(lease.active),
       ownedByMe: Boolean(lease.ownedByMe),
+      ownedBySameUser: Boolean(lease.ownedBySameUser),
       ownerName: lease.ownerName || '',
       pageCode: lease.pageCode || '',
       expiresAt: lease.expiresAt || '',
@@ -111,7 +119,9 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
       token: lease.token || (preserveToken ? prev.token : ''),
       stale: Boolean(data?.stale),
       scopeKey: editScopeKey(data?.scope || {}),
-    }));
+    };
+    stateRef.current = next;
+    setState(next);
     return data;
   }, []);
 
@@ -134,7 +144,7 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
         setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
       } else if (error.code === 'ERP_EDIT_LOCKED') {
         const lease = error.data?.lease || {};
-        setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
+        setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
       } else {
         setState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
       }
@@ -151,10 +161,33 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
     } catch (error) {
       if (error.code === 'ERP_EDIT_LOCKED') {
         const lease = error.data?.lease || {};
-        setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
+        setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
       } else {
         setState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
       }
+      throw error;
+    }
+  }, [applyResponse, scope, validScope]);
+
+  const takeover = useCallback(async () => {
+    if (!validScope) return null;
+    setState(prev => ({ ...prev, loading: true, error: '' }));
+    try {
+      const data = await requestPresence('POST', { action: 'takeover', ...scope });
+      return applyResponse(data, { preserveToken: false });
+    } catch (error) {
+      const lease = error.data?.lease || {};
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        active: Boolean(lease.active),
+        ownedByMe: false,
+        ownedBySameUser: Boolean(lease.ownedBySameUser),
+        ownerName: lease.ownerName || '',
+        pageCode: lease.pageCode || '',
+        expiresAt: lease.expiresAt || '',
+        error: error.code === 'ERP_EDIT_LOCKED' ? '' : (error.message || '작업 넘겨받기 실패'),
+      }));
       throw error;
     }
   }, [applyResponse, scope, validScope]);
@@ -185,7 +218,7 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
           if (error.code === 'ERP_EDIT_STALE') setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
           else if (error.code === 'ERP_EDIT_LOCKED') {
             const lease = error.data?.lease || {};
-            setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownerName: lease.ownerName || '', error: '' }));
+            setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', error: '' }));
           } else setState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
         });
     }, HEARTBEAT_MS);
@@ -214,5 +247,5 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
   const scopeMatches = Boolean(validScope && state.scopeKey && state.scopeKey === editScopeKey(scope));
   const blocked = !validScope || !scopeMatches || state.loading || locked || state.stale || Boolean(state.error) || !state.token;
 
-  return { ...state, clientId: clientIdRef.current, scope, validScope, scopeMatches, locked, blocked, editGuard, acquire, release, refresh, beginSaving, endSaving, markStale };
+  return { ...state, clientId: clientIdRef.current, scope, validScope, scopeMatches, locked, blocked, editGuard, acquire, takeover, release, refresh, beginSaving, endSaving, markStale };
 }

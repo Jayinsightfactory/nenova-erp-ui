@@ -3,6 +3,10 @@ const fs = require('node:fs');
 
 async function main() {
   const presence = await import('../lib/erpEditPresence.js');
+  const { normalizeErpEditClientWeek } = await import('../hooks/useErpEditPresence.js');
+  assert.equal(normalizeErpEditClientWeek('34-01'), '34');
+  assert.equal(normalizeErpEditClientWeek('34-02'), '34');
+  assert.equal(normalizeErpEditClientWeek('2026-34-02'), '34');
   assert.deepEqual(presence.normalizeEditScope({ orderYear: '2026', orderWeek: '32-01', custKey: 9 }), { orderYear: '2026', orderWeek: '32', custKey: 9 });
   assert.deepEqual(presence.normalizeEditScope({ orderYear: '2026', week: '32-02', custKey: 9 }), { orderYear: '2026', orderWeek: '32', custKey: 9 });
   assert.throws(() => presence.normalizeEditScope({ orderWeek: '32', custKey: 9 }), /선택 연도와 차수/);
@@ -67,7 +71,24 @@ async function main() {
   assert.equal(mine.scope.orderWeek, '32');
   assert.notEqual(mine.lease.leaseToken, priorYear.lease.leaseToken, '2025/2026 동일 차수·업체는 서로 다른 작업권이어야 합니다.');
   await assert.rejects(() => presence.acquireErpEditLease(fakeQuery, { ...scope, orderWeek: '32-02' }, bob, { clientId: 'B', pageCode: 'paste' }), { code: 'ERP_EDIT_LOCKED' });
-  await assert.rejects(() => presence.assertErpEditGuard(fakeQuery, scope, alice, { editGuard: { leaseToken: 'forged', clientId: 'A', expectedDigest: mine.snapshot.digest } }), { code: 'ERP_EDIT_LOCKED' });
+  let sameUserBlocked;
+  try {
+    await presence.acquireErpEditLease(fakeQuery, { ...scope, orderWeek: '32-02' }, alice, { clientId: 'A-OTHER', pageCode: 'estimate' });
+  } catch (error) {
+    sameUserBlocked = error;
+  }
+  assert.equal(sameUserBlocked?.code, 'ERP_EDIT_LOCKED');
+  assert.equal(sameUserBlocked.lease.ownedBySameUser, true, '같은 계정의 다른 창임을 구분해야 합니다.');
+  const oldMineToken = mine.lease.leaseToken;
+  const takenBySameUser = await presence.acquireErpEditLease(fakeQuery, scope, alice, { clientId: 'A-OTHER', pageCode: 'estimate', takeover: true });
+  assert.notEqual(takenBySameUser.lease.leaseToken, oldMineToken, '넘겨받기는 기존 창 토큰을 무효화해야 합니다.');
+  await assert.rejects(
+    () => presence.releaseErpEditLease(fakeQuery, scope, alice, { leaseToken: oldMineToken, clientId: 'A' }),
+    { code: 'ERP_EDIT_LOCKED' },
+  );
+  await presence.releaseErpEditLease(fakeQuery, scope, alice, { leaseToken: takenBySameUser.lease.leaseToken, clientId: 'A-OTHER' });
+  const reacquired = await presence.acquireErpEditLease(fakeQuery, scope, alice, { clientId: 'A', pageCode: 'estimate' });
+  await assert.rejects(() => presence.assertErpEditGuard(fakeQuery, scope, alice, { editGuard: { leaseToken: 'forged', clientId: 'A', expectedDigest: reacquired.snapshot.digest } }), { code: 'ERP_EDIT_LOCKED' });
   const oldExpiry = lease.get('2026/32/7'); oldExpiry.ExpiresAt = new Date(Date.now() - 1);
   const taken = await presence.acquireErpEditLease(fakeQuery, scope, bob, { clientId: 'B', pageCode: 'paste' });
   assert.equal(taken.lease.ownerUserId, 'bob');
