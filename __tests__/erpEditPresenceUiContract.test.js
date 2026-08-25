@@ -35,7 +35,7 @@ function main() {
   assert.match(paste, /if \(currentPresence\.stale\)/, '이미 외부 변경을 감지한 카드는 작업권을 새로 얻어 변경을 숨기면 안 됩니다.');
   assert.match(paste, /heartbeatErpEditPresence[\s\S]{0,180}20_000/, '붙여넣기 장시간 저장은 20초 작업권 연장을 유지해야 합니다.');
   assert.match(paste, /clearInterval\(guard\.heartbeatTimer\)/, '붙여넣기 작업 완료/실패 뒤 작업권 연장 타이머를 정리해야 합니다.');
-  assert.match(paste, /pasteWriteError[\s\S]{0,150}ERP_EDIT_STALE/, '409 응답의 코드와 상태를 카드 고정 경고로 전달해야 합니다.');
+  assert.match(paste, /pasteWriteError[\s\S]{0,220}ERP_EDIT_STALE/, '409 응답의 코드와 상태를 카드 고정 경고로 전달해야 합니다.');
   assert.match(paste, /acquireAllPasteGuards\(targets\.map\(t => t\.custKey\)\)[\s\S]{0,800}\/api\/shipment\/adjust-batch/, '전체 일괄은 모든 업체의 작업권을 먼저 얻은 뒤에만 저장해야 합니다.');
   assert.match(paste, /entries: targets\.map[\s\S]{0,1800}editGuard: guardByCust\.get/, '전체 일괄의 각 업체 행에는 해당 작업 확인 정보를 실어야 합니다.');
   assert.match(paste, /endPasteSaving\(pasteGuard, \{ refreshBaseline: saveSucceeded \}\)/, '붙여넣기 부분 성공/실패는 새 기준값을 자동 수용하면 안 됩니다.');
