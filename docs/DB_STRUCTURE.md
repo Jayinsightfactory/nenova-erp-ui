@@ -289,9 +289,11 @@ Farm(FarmKey) ── FarmCredit(CreditKey)
 
 ## 3. 트리거
 
-**TR_ShipmentDetail_OutQty_Log** (2026-04-17)
-- `ShipmentDetail.OutQuantity` UPDATE 시 `Descr` 에 `[YYYY-MM-DD HH:mm] [전산수정] old→new` 자동 append.
-- 정의: `docs/migrations/2026-04-17_shipment_detail_trigger.sql`
+**TR_ShipmentDetail_OutQty_Log** (2026-08-25)
+- `ShipmentDetail.OutQuantity` UPDATE 시 Descr 자동 append.
+- 웹(`.Net SqlClient` / Node) APP_NAME이면 append하지 않는다. 웹은 `lib/shipmentDescr.appendDescr`의 `재용3>2` 형식만 남긴다.
+- Nenova.exe 등 전산 앱만 짧은 `이전>이후` 한 줄을 붙인다. SqlClient 드라이버명·로그인 감사줄은 쓰지 않는다.
+- 정의: `docs/migrations/2026-08-25_shipment_detail_trigger_skip_sqlclient.sql`
 
 ---
 

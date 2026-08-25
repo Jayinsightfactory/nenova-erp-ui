@@ -7,7 +7,7 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { normalizeOrderWeek, resolveActiveOrderYear, requireOrderYear } from '../../../lib/orderUtils';
-import { changeEntry } from '../../../lib/shipmentDescr';
+import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { resolveShipmentDistributionEditPolicy } from '../../../lib/shipmentDistributionEditPolicy.js';
@@ -776,7 +776,8 @@ async function saveDistribute(req, res) {
 
       // 기존 수량 조회 (이력용)
       const oldSd = await tQuery(
-        `SELECT SdetailKey, OutQuantity FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+        `SELECT SdetailKey, OutQuantity, ISNULL(Descr,N'') AS Descr
+           FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
       );
       const oldRow = oldSd.recordset[0];
@@ -794,6 +795,7 @@ async function saveDistribute(req, res) {
         const { box: boxQty, bunch: bunchQty, steam: steamQty, outQty: canonicalOutQty, estQty } = units;
         const { amount, vat } = amountVatFromCostEst(unitCost, estQty);
         const logEntry = changeEntry(userName, oldQty, qty);
+        const newDescr = appendDescr(oldRow?.Descr || '', logEntry);
 
         let targetSdk = oldRow?.SdetailKey;
         if (targetSdk) {
@@ -815,7 +817,7 @@ async function saveDistribute(req, res) {
               cost: { type: sql.Float, value: unitCost },
               amount: { type: sql.Float, value: amount },
               vat: { type: sql.Float, value: vat },
-              log: { type: sql.NVarChar, value: logEntry },
+              log: { type: sql.NVarChar, value: newDescr },
             }
           );
         } else {
@@ -980,7 +982,7 @@ async function saveDistributeBatch(req, res) {
         }
 
         const oldSd = await tQuery(
-          `SELECT SdetailKey, OutQuantity, Cost
+          `SELECT SdetailKey, OutQuantity, Cost, ISNULL(Descr,N'') AS Descr
              FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
             WHERE ShipmentKey=@sk AND ProdKey=@pk
             ORDER BY SdetailKey`,
@@ -1041,6 +1043,7 @@ async function saveDistributeBatch(req, res) {
         const { box: boxQty, bunch: bunchQty, steam: steamQty, estQty } = units;
         const { amount, vat } = amountVatFromCostEst(resolvedCost, estQty);
         const logEntry = changeEntry(userName, oldQty, canonicalOutQty);
+        const newDescr = appendDescr(oldRow?.Descr || '', logEntry);
         let targetSdk = oldRow?.SdetailKey;
         if (targetSdk) {
           await tQuery(
@@ -1055,7 +1058,7 @@ async function saveDistributeBatch(req, res) {
               estQty: { type: sql.Float, value: estQty }, bq: { type: sql.Float, value: boxQty },
               bnq: { type: sql.Float, value: bunchQty }, sq: { type: sql.Float, value: steamQty },
               cost: { type: sql.Float, value: resolvedCost }, amount: { type: sql.Float, value: amount },
-              vat: { type: sql.Float, value: vat }, log: { type: sql.NVarChar, value: logEntry },
+              vat: { type: sql.Float, value: vat }, log: { type: sql.NVarChar, value: newDescr },
             }
           );
         } else {
