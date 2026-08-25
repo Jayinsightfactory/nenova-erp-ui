@@ -14,7 +14,7 @@ import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
 import { applyPasteCustomerMappings, pasteCustomerMappingKey } from '../../lib/pasteCustomerMapping.js';
-import { buildPasteMixedActionPreview, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey } from '../../lib/pasteMixedBatch.js';
+import { buildPasteMixedActionPreview, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
@@ -2430,6 +2430,23 @@ export default function PasteOrderPage() {
   const handleAllMixedDistribute = async () => {
     if (!week || bulkRunning) return;
     if (!confirmWeekMatch(pasteText, week, formatWeekDisplay)) return;
+    const intent = validatePasteMixedBatchIntent(orders);
+    if (!intent.valid) {
+      const grouped = new Map();
+      intent.issues.forEach((issue) => {
+        const label = issue.reason === 'customer'
+          ? `거래처 미확인: ${issue.customerName}`
+          : issue.reason === 'product'
+            ? `품목 미확인: ${issue.customerName} / ${issue.inputName}`
+            : `수량 미확인: ${issue.customerName} / ${issue.inputName}`;
+        grouped.set(label, (grouped.get(label) || 0) + 1);
+      });
+      const lines = [...grouped.entries()].map(([label, count]) => `• ${label}${count > 1 ? ` (${count}건)` : ''}`);
+      const message = `전체 ${intent.intendedCount}건 중 확인되지 않은 항목이 있어 아무것도 저장하지 않았습니다.\n\n${lines.join('\n')}\n\n업체·품목·수량을 모두 확인한 뒤 전체 일괄 처리를 다시 실행하세요.`;
+      setBulkResult({ orderId: 'ALL', okCount: 0, failCount: intent.intendedCount, details: [], rolledBack: true, preflightBlocked: true, error: message });
+      alert(message);
+      return;
+    }
     const eligible = orders.flatMap(order => {
       if (!order.custMatch) return [];
       return (order.items || []).filter(it => !it.skip && it.prodKey).map((it, itemIndex) => {
@@ -2452,6 +2469,10 @@ export default function PasteOrderPage() {
         };
       });
     }).filter(x => x.qty > 0);
+    if (eligible.length !== intent.intendedCount) {
+      alert(`전체 ${intent.intendedCount}건과 저장 준비 ${eligible.length}건이 일치하지 않아 아무것도 저장하지 않았습니다. 화면을 새로고침한 뒤 다시 분석하세요.`);
+      return;
+    }
     const targets = orderPasteMixedBatchTargets(eligible);
     if (!targets.length) { alert('전체 처리할 매칭 품목이 없습니다.'); return; }
     if (!(await ensureWeekCanDistribute(week, targets.map(t => t.prodKey)))) return;
@@ -3232,6 +3253,7 @@ export default function PasteOrderPage() {
   );
   const globalCancelEntries = globalActionEntries.filter(({ item }) => item.action === '취소');
   const globalAddEntries = globalActionEntries.filter(({ item }) => item.action !== '취소');
+  const globalBatchIntent = validatePasteMixedBatchIntent(orders);
   const anyPasteLocked = globalActionEntries.some(({ order }) => {
     const presence = pastePresenceByCust[String(order.custMatch?.CustKey)] || {};
     return presence.loading || (presence.active && !presence.ownedByMe) || presence.stale || Boolean(presence.error);
@@ -3788,6 +3810,9 @@ export default function PasteOrderPage() {
         {orders.length > 0 && (
           <>
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            {globalBatchIntent.issues.length > 0 && <span role="alert" style={{ marginRight: 'auto', fontSize: 12, fontWeight: 800, color: '#b71c1c', background: '#ffebee', border: '1px solid #ef9a9a', borderRadius: 5, padding: '6px 9px' }}>
+              업체·품목·수량 미확인 {globalBatchIntent.issues.length}건 — 전체 확인 전에는 취소와 추가를 모두 저장하지 않습니다.
+            </span>}
             {bulkResult?.orderId === 'ALL' && <span style={{ fontSize: 12, fontWeight: 700, color: bulkResult.rolledBack ? '#c62828' : '#2e7d32' }}>
               {bulkResult.rolledBack
                 ? `성공 0건 · 전체 ${bulkResult.failCount}건 모두 롤백 — 수정 후 전체 재실행`
