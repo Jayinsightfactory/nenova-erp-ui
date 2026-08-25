@@ -348,6 +348,7 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 | 동작 | Product | OrderDetail | WebArrivalCost | Shipment/Estimate/Stock |
 |---|---|---|---|---|
 | 품목 검색·품종 탭·페이지 조회 | 읽기 | 품목검색 시 미조회 / 차수·품종 탐색 시 사용량 읽기 | 읽기(RawJson 제외) | 보존 |
+| 엑셀 업로드(새 revision) | 읽기 | 보존 | 같은 연도·차수·국가 SUPERSEDE 후 40행 단위 INSERT | 보존 |
 | 전산 품목/농장 선택 후 저장 | 보존 | 보존 | 해당 행만 UPDATE | 보존 |
 
 회귀는 `__tests__/arrivalCostProductSearch.test.js`와 기존 도착원가 계약 테스트가 담당한다.
