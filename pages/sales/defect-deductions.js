@@ -10,7 +10,7 @@ import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
-import { isSupportProcessingComplete, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
+import { isSupportManualCompleteSelectable, isSupportProcessingComplete, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -926,7 +926,7 @@ export default function SalesDefectDeductionsPage() {
     const next = new Set(current);
     const key = Number(deductionKey);
     const row = supportRows.find((item) => Number(item.deductionKey) === key);
-    if (!isSupportRegistrationSelectable(row, activeTab)) {
+    if (!isSupportManualCompleteSelectable(row)) {
       next.delete(key);
       return next;
     }
@@ -964,6 +964,22 @@ export default function SalesDefectDeductionsPage() {
       const reviewWindow = window.open(reviewUrl, 'nenovaSalesSupportDefectRegister', 'width=1500,height=900,resizable=yes,scrollbars=yes');
       if (!reviewWindow) throw new Error('전산등록 검토창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 시도하세요.');
       setMessage(`영업지원 전산등록 검토창을 열었습니다. ${valid.length}건의 처리로그·전후값·재조회 검증을 진행합니다.${invalid.length ? ` 오류 제외 ${invalid.length}건.` : ''}`);
+    } catch (e) { setError(e.message); }
+    finally { setSupportLoading(false); }
+  };
+
+  const markSupportManualComplete = async () => {
+    const selectedRows = supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)) && isSupportManualCompleteSelectable(row));
+    const ids = selectedRows.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
+    if (!ids.length) { setError('수동처리완료할 행을 선택하세요. 이미 처리된 행은 제외됩니다.'); return; }
+    if (!window.confirm(`선택한 ${ids.length}건을 수동처리완료로 표시합니다.\n견적서는 만들지 않고 수기 처리 이력만 남깁니다.`)) return;
+    setSupportLoading(true); setError(''); setMessage('수동처리완료 이력 기록 중…');
+    try {
+      const data = await apiPost('/api/sales/defect-deductions', { action: 'manual-complete', year, week, ids });
+      const completed = Number(data.completed || (data.rows || []).length);
+      setMessage(`수동처리완료 ${completed}건. 견적서는 만들지 않고 이력을 남겼습니다.`);
+      if (activeTab === 'carryover') await loadCarryover();
+      else await loadSupport();
     } catch (e) { setError(e.message); }
     finally { setSupportLoading(false); }
   };
@@ -1143,6 +1159,7 @@ export default function SalesDefectDeductionsPage() {
 
   const statusText = (row) => row.status === 'REGISTERED'
     ? `견적서 등록완료${row.estimateKey ? ` (#${row.estimateKey})` : ''}`
+    : row.status === 'MANUAL_COMPLETED' ? '수동처리완료'
     : row.status === 'DELETED' ? '삭제됨' : salesRowSaveState(row);
   const registrationHistoryByKey = useMemo(() => {
     const map = new Map();
@@ -1291,6 +1308,7 @@ export default function SalesDefectDeductionsPage() {
           {activeTab === 'support' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>견적서관리에 불량차감 등록</button>
+            <button type="button" className="btn" onClick={markSupportManualComplete} disabled={supportLoading || !supportSelected.size}>수동처리완료</button>
             <button type="button" className="btn" onClick={() => {
               const selectedWeek = `${year}-${String(week).padStart(2, '0')}-01`;
               const url = buildEstimateFixStatusUrl(selectedWeek);
@@ -1303,6 +1321,7 @@ export default function SalesDefectDeductionsPage() {
           {activeTab === 'carryover' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>선택 항목 처리 검토</button>
+            <button type="button" className="btn" onClick={markSupportManualComplete} disabled={supportLoading || !supportSelected.size}>수동처리완료</button>
           </>}
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading || activeTab === 'carryover'}>엑셀 다운로드</button>
@@ -1413,12 +1432,12 @@ export default function SalesDefectDeductionsPage() {
             <thead><tr><th><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={!supportSelectableKeys.length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
-              const selectable = isSupportRegistrationSelectable(row, activeTab);
+              const checkable = isSupportManualCompleteSelectable(row);
               const existingEstimateRecords = Array.isArray(row.existingEstimateRecords) ? row.existingEstimateRecords : [];
               const existingEstimateCount = Number(row.existingEstimateCount ?? existingEstimateRecords.length);
               const scopeLabel = supportStatusDetail(row, year, week);
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''} ${row.exactExistingEstimate ? 'support-existing-row' : ''}`} key={key || `support-${index}`}>
-                <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={selectable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!selectable} /></label></td>
+                <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={checkable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!checkable} /></label></td>
                 <td>{index + 1}</td>
                 <td>{row.managerName || '-'}</td>
                 <td>{row.customerName || '-'}</td>

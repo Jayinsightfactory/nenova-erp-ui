@@ -216,12 +216,13 @@
   Estimate를 만들지 않고 이월 대기 후보로 남긴다.
 - 웹 원장 저장만으로 `OrderDetail`, `ShipmentDetail`, `ShipmentDate`, 재고, 손익 원장을 변경하지 않는다.
 - 견적서관리 등록을 명시적으로 실행할 때만 dnSpy `ClassEstimate.Insert/Update`와 동일한 `Estimate` 행을 생성·갱신한다.
+- 영업지원 수동처리완료는 수기 처리한 웹 원장을 `Status=MANUAL_COMPLETED`로 표시하고 `WebSalesDefectDeductionHistory(ActionType=MANUAL_COMPLETE)`만 남긴다. Estimate를 만들지 않는다.
 - `IsCarryoverLedger=1`은 수동 이월업체 원장이며 `OriginalQuantity`와 `RemainingQuantity`를 분리한다. 부분 처리 후 `RemainingQuantity>0`이면 다음 차수 이월 목록에 계속 표시한다.
 - `WebSalesCarryoverApplication`은 이월 원장의 차수별 처리수량·`EstimateKey`·적용 출고키를 보존한다. 이월 등록/조회/잔여수량 갱신은 Order/Shipment/Stock 원장을 변경하지 않는다.
 
 **WebSalesDefectDeductionHistory** — 불량/검역 차감 변경 이력
 - PK: `HistoryKey`, 업무 FK: `DeductionKey`
-- `CREATE`, `UPDATE`, `MATCH`, `INCOMING_CONFIRM`, `REGISTER_ESTIMATE`, `DELETE`와 거래처명/품명/색상/수량/크레딧/농장/비고 변경 전후 JSON을 보존한다.
+- `CREATE`, `UPDATE`, `MATCH`, `INCOMING_CONFIRM`, `REGISTER_ESTIMATE`, `MANUAL_COMPLETE`, `DELETE`와 거래처명/품명/색상/수량/크레딧/농장/비고 변경 전후 JSON을 보존한다.
 - 담당자별 입력자·수정자를 기록하지만 조회 범위는 전체 담당자 공통이다.
 
 **ReceivableLedger** — 미수금 원장

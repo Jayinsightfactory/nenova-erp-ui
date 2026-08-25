@@ -19,7 +19,7 @@ import {
   isNoopDeductionHistory,
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
-import { deriveSupportProcessingStatus, isSupportProcessingComplete, supportCarryoverFromLabel, supportProcessingLabel, supportRegistrationDecisionLabel, supportStatusDetail } from '../lib/salesDefectSupportStatus.js';
+import { deriveSupportProcessingStatus, isSupportManualCompleteSelectable, isSupportProcessingComplete, supportCarryoverFromLabel, supportProcessingLabel, supportRegistrationDecisionLabel, supportStatusDetail } from '../lib/salesDefectSupportStatus.js';
 import { buildEstimateCustomerUrl } from '../lib/estimateFixStatusLink.js';
 import {
   parseQuantityCell,
@@ -98,6 +98,8 @@ const defectApiSource = fs.readFileSync('pages/api/sales/defect-deductions.js', 
 const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
 const supportReviewSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const deductionContract = JSON.parse(fs.readFileSync('docs/contracts/sales-defect-deduction.json', 'utf8'));
+assert.ok(deductionContract.actions.some((item) => item.name === 'MANUAL_PROCESSING_COMPLETE'), '수동처리완료 계약 동작이 있어야 한다.');
+assert.match(deductionContract.sideEffects.salesSupportRegistration, /수동처리완료/);
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
 const productSearchApiSource = fs.readFileSync('pages/api/products/search.js', 'utf8');
 const orderImportSource = fs.readFileSync('lib/orderImportMatch.js', 'utf8');
@@ -180,7 +182,11 @@ assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 E
 assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
 assert.ok(pageSource.includes('toggleAllSupport'), '영업지원 전체 선택/해제를 지원해야 한다.');
 assert.ok(pageSource.includes('isSupportRegistrationSelectable'), '영업지원 선택은 등록 가능 상태를 공통 판정해야 한다.');
-assert.ok(pageSource.includes('!isSupportProcessingComplete(row)'), '이미 연결되거나 기존 견적으로 처리완료된 행은 중복 선택할 수 없어야 한다.');
+assert.ok(pageSource.includes('isSupportManualCompleteSelectable'), '수기 처리 행은 등록 가능 여부와 무관하게 체크할 수 있어야 한다.');
+assert.ok(pageSource.includes('markSupportManualComplete'), '영업지원에 수동처리완료 동작이 있어야 한다.');
+assert.ok(pageSource.includes('수동처리완료'), '영업지원 도구모음에 수동처리완료 버튼이 있어야 한다.');
+assert.ok(pageSource.includes("action: 'manual-complete'"), '수동처리완료는 전용 저장 액션을 사용해야 한다.');
+assert.ok(pageSource.includes('isSupportManualCompleteSelectable(row)'), '이미 연결되거나 기존 견적·수동처리완료된 행은 중복 선택할 수 없어야 한다.');
 assert.ok(pageSource.includes('existingEstimateRecords'), '업체의 기존 음수 Estimate 내역을 목록에서 확인할 수 있어야 한다.');
 assert.ok(pageSource.includes('supportRegistrationDecisionLabel(row)'), '정확히 일치하는 기존 차감은 처리완료 상태와 견적키로 표시해야 한다.');
 assert.ok(pageSource.includes('supportStatusDetail(row, year, week)'), '처리상태는 이월 원차수를 숨기지 않고 보여야 한다.');
@@ -264,6 +270,15 @@ assert.ok(supportReviewSource.includes('.compare-pane { padding: 5px 8px;'), '�
 assert.ok(deductionSource.includes('if (/변경\\s*없음$/.test(summary)) return false;'), '변경없는 저장은 이력을 만들지 않아야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=0'), '해결 완료 시 보완 필요 상태를 해제해야 한다.');
 assert.ok(deductionSource.includes("action: 'INCOMING_REVIEW_RESOLVE'"), '보완 해결 완료 이력을 기록해야 한다.');
+assert.ok(deductionSource.includes("Status=N'MANUAL_COMPLETED'"), '수동처리완료는 웹 원장 상태만 바꿔야 한다.');
+assert.ok(deductionSource.includes("action: 'MANUAL_COMPLETE'"), '수동처리완료는 별도 History ActionType을 남겨야 한다.');
+assert.ok(deductionSource.includes('planManualProcessingComplete'), '수동처리완료는 순수 정책 함수로 부작용을 먼저 판정해야 한다.');
+assert.doesNotMatch(
+  deductionSource.slice(deductionSource.indexOf('export async function markManualProcessingComplete'), deductionSource.indexOf('async function getStoredRow')),
+  /INSERT INTO Estimate|UPDATE Estimate/,
+  '수동처리완료는 Estimate를 만들거나 고치면 안 된다.',
+);
+assert.ok(defectApiSource.includes("action === 'manual-complete'"), '수동처리완료 API action이 있어야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=CASE WHEN ImportReviewRequired=1 THEN 1 ELSE @reviewRequired END'), '일반 영업 저장은 해결 완료 전 보완 필요 상태를 해제하면 안 된다.');
 assert.ok(deductionSource.includes('Boolean(dbRow.ImportReviewRequired) || input.importReviewRequired === true'), '수입부 확정은 해결 완료 전까지 보완 필요 상태를 해제하면 안 된다.');
 assert.ok(deductionSource.includes('const inputNote = input.note == null ? text(dbRow.Note, 1000) : text(input.note, 1000);'), '수입부 확정은 빈 비고로 기존 비고를 덮으면 안 된다.');
@@ -554,6 +569,13 @@ assert.equal(supportStatusDetail({
 }, 2026, 33), '2026년 32차부터 이월', '출고 없음 문구가 이월 원차수를 가리면 안 된다.');
 const crossYearOrMismatch = deriveSupportProcessingStatus({ status: 'DRAFT', exactExistingEstimate: false });
 assert.equal(crossYearOrMismatch.processingStatus, 'UNREGISTERED', '다른 연도·수량·단위 불일치 후보는 처리완료로 표시하면 안 된다.');
+assert.equal(isSupportManualCompleteSelectable({ deductionKey: 88, status: 'DRAFT', registrationEligible: false }), true, '등록 불가 행도 수기 처리완료 체크 대상이어야 한다.');
+assert.equal(isSupportManualCompleteSelectable({ deductionKey: 88, status: 'MANUAL_COMPLETED' }), false, '이미 수동처리완료된 행은 다시 체크할 수 없어야 한다.');
+const manualCompleted = deriveSupportProcessingStatus({ status: 'MANUAL_COMPLETED' });
+assert.equal(manualCompleted.processingStatus, 'MANUAL_COMPLETED');
+assert.equal(isSupportProcessingComplete(manualCompleted), true);
+assert.equal(supportProcessingLabel(manualCompleted), '수동처리완료');
+assert.match(supportStatusDetail({ status: 'MANUAL_COMPLETED', processingStatus: 'MANUAL_COMPLETED', orderYear: 2026, orderWeek: '32' }, 2026, 33), /수기 처리/);
 
 const customerEstimateUrl = new URL(buildEstimateCustomerUrl({
   year: 2026, week: 33, custKey: 77, customerName: '청화원예',

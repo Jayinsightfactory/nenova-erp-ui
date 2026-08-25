@@ -8,6 +8,7 @@ import {
   ensureRegistrationRequestKey,
   isDeductionOwnedByUser,
   planDeductionRegistration,
+  planManualProcessingComplete,
   runIsolatedRegistrationTransaction,
   shouldResetIncomingConfirmation,
 } from '../lib/salesDefectDeductionState.js';
@@ -253,5 +254,55 @@ await assert.rejects(
   ),
   /forced rollback/,
 );
+
+const manualPlan = planManualProcessingComplete({
+  row: {
+    DeductionKey: 501, OrderYear: 2026, OrderWeek: '32', Status: 'CARRYOVER',
+    EstimateKey: null, IsDeleted: 0, IsCarryoverLedger: 1, RemainingQuantity: 4,
+  },
+  targetYear: 2026, targetWeek: 33,
+});
+assert.equal(manualPlan.action, 'MANUAL_COMPLETE');
+assert.equal(manualPlan.status, 'MANUAL_COMPLETED');
+assert.equal(manualPlan.remainingQuantity, 0);
+assert.equal(manualPlan.appliedOrderYear, 2026);
+assert.equal(manualPlan.appliedOrderWeek, '33');
+
+const priorYearManual = planManualProcessingComplete({
+  row: {
+    DeductionKey: 502, OrderYear: 2025, OrderWeek: '33', Status: 'DRAFT',
+    EstimateKey: null, IsDeleted: 0,
+  },
+  targetYear: 2026, targetWeek: 33,
+});
+assert.equal(priorYearManual.action, 'MANUAL_COMPLETE', '2025년 같은 33차 미등록 행은 2026년 33차 화면에서 수동처리완료할 수 있어야 한다.');
+assert.equal(priorYearManual.appliedOrderYear, 2026);
+
+assert.throws(() => planManualProcessingComplete({
+  row: {
+    DeductionKey: 503, OrderYear: 2025, OrderWeek: '33', Status: 'REGISTERED',
+    EstimateKey: 8801, IsDeleted: 0,
+  },
+  targetYear: 2026, targetWeek: 33,
+}), /이미 견적서관리/);
+
+assert.deepEqual(planManualProcessingComplete({
+  row: {
+    DeductionKey: 504, OrderYear: 2026, OrderWeek: '33', Status: 'MANUAL_COMPLETED',
+    EstimateKey: null, IsDeleted: 0,
+  },
+  targetYear: 2026, targetWeek: 33,
+}), { action: 'NOOP', writeCount: 0, status: 'MANUAL_COMPLETED' });
+
+assert.equal(evaluateDefectRegistrationEligibility({
+  row: { ...confirmedRow, status: 'MANUAL_COMPLETED' },
+  context: { shipmentKey: 5808, cost: 5900 },
+}).code, 'MANUAL_COMPLETED');
+
+assert.equal(planDeductionRegistration({
+  row: { ...confirmedCarryover, Status: 'MANUAL_COMPLETED', RemainingQuantity: 4 },
+  targetYear: 2026, targetWeek: 33, requestKey: 'req-manual',
+  customerShipmentExists: true, shipmentKey: 3300, cost: 1100,
+}).action, 'COMPLETE_NOOP');
 
 console.log('salesDefectDeductionState tests passed');

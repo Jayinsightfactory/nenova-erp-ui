@@ -32,6 +32,10 @@ Web: `pages/estimate.js` + `pages/api/estimate/index.js` + `lib/exeEstimateViewS
 는 기존 `GetData`/`GetDetail` 조회만 재사용한다. 선택한 `OrderYear + 부모 OrderWeek + CustKey`
 견적서를 열고 불량차감 행을 강조할 뿐 Estimate INSERT/UPDATE를 실행하지 않는다.
 
+영업지원 처리상태의 `수동처리완료`도 Estimate를 만들지 않는다. 수기 처리한
+`WebSalesDefectDeduction`만 `Status=MANUAL_COMPLETED`로 표시하고
+`WebSalesDefectDeductionHistory.ActionType=MANUAL_COMPLETE` 이력을 남긴다.
+
 ## 웹 견적서 인쇄의 Estimate 등록행 누락 방지
 
 정상 출고(`ShipmentDate`)에는 EXE와 같이 `PeriodDay` 요일 필터를 적용한다. 반면

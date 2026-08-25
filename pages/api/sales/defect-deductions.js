@@ -18,6 +18,7 @@ import {
   preflightRegistration,
   registrationPreview,
   registerDeductions,
+  markManualProcessingComplete,
   saveDraftRows,
   saveManagerOption,
 } from '../../../lib/salesDefectDeductions.js';
@@ -167,6 +168,22 @@ async function handler(req, res) {
             ...registered.map((row) => `${row.estimateAction || 'UPDATE'} Estimate #${row.estimateKey} · 원장키 #${row.deductionKey} · 원차수 ${row.sourceOrderWeek || '-'} → 적용 ${row.appliedOrderWeek || week}차 · 수량 ${row.quantity} · 단가 ${row.cost} · 금액 ${row.amount} · 부가세 ${row.vat} · 출고키 #${row.targetShipmentKey}`),
             ...skipped.map((row) => `이월 대기 · 원장키 #${row.deductionKey} · ${row.error}`),
           ],
+        });
+      }
+      if (action === 'manual-complete') {
+        if (!canUseDefectSupport(req.user)) {
+          return res.status(403).json({ success: false, error: '영업지원 전산등록 권한이 필요합니다.' });
+        }
+        const result = await markManualProcessingComplete({
+          year, week, ids: req.body?.ids || [], user: req.user,
+        });
+        const completed = result.completed || [];
+        const skipped = result.skipped || [];
+        return res.status(200).json({
+          success: true,
+          completed: completed.length,
+          rows: completed,
+          skipped,
         });
       }
       return res.status(400).json({ success: false, error: `지원하지 않는 작업입니다: ${action}` });
