@@ -31,6 +31,8 @@ assert.match(estimate, /params\.get\('openFixStatus'\) !== '1'/);
 assert.match(estimate, /checkFixStatus\(\{ orderYearOverride: requestedYear, parentWeekOverride: requestedWeek \}\)/);
 assert.match(estimate, /params\.get\('custKey'\)/);
 assert.match(estimate, /params\.get\('highlightDeductions'\) === '1'/);
+assert.match(estimate, /params\.get\('previewCapture'\) === '1'/);
+assert.match(estimate, /estimate-preview-capture/);
 assert.match(estimate, /queryIncludeUnfixedRef\.current/);
 assert.match(estimate, /data-estimate-deduction/);
 assert.doesNotMatch(page, /PasteFixStatusPanel/);
