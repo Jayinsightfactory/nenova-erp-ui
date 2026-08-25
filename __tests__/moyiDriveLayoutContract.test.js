@@ -84,11 +84,9 @@ for (const [file, src] of Object.entries({ 'Toolbar.js': components['Toolbar.js'
 assert.match(components['StatusBadge.js'], /\{children\}/, '배지는 항상 글자를 함께 표시해야 합니다.');
 
 // ── 실제 DTO가 있을 때만 렌더: 없는 열은 값을 지어내지 않고 연결대기 표시 ──
-assert.match(viewModel, /연결대기 · 폴더 구조 미구현/);
-assert.match(viewModel, /연결대기 · 크기 API 없음/);
 assert.match(viewModel, /연결대기 · 변경시각 API 없음/);
 assert.match(viewModel, /연결대기 · 권한 API 없음/);
-assert.match(page, /<th>폴더<\/th>/);
+assert.match(page, /<th>미리보기<\/th>/);
 assert.match(page, /<th>크기<\/th>/);
 assert.match(page, /<th>변경시각<\/th>/);
 assert.match(page, /<th>권한<\/th>/);

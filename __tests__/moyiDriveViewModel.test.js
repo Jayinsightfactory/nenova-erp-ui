@@ -33,23 +33,28 @@ const assert = require('node:assert/strict');
 
   // ── 파일 목록 ──────────────────────────────────────────────
   const files = [
-    { id: '1', name: '업무보고.pdf', source: 'MOYI 앱', state: '확인 완료', sourceDeleted: false, contentReady: true },
+    { id: '1', fileId: 'f1', name: '업무보고.jpg', tags: ['현장', '34차'], mime: 'image/jpeg', size: 2048, previewAvailable: true, source: 'MOYI 앱', state: '확인 완료', sourceDeleted: false, contentReady: true },
     { id: '2', name: '백업.xlsx', source: '네이버웍스 Drive', state: '백업 대기', sourceDeleted: false, contentReady: false },
     { id: '3', name: '원본삭제.pdf', source: '네이버웍스 Drive', state: '원본에서 삭제됨', sourceDeleted: true, contentReady: false },
   ];
   assert.equal(filterFiles(files, '').length, 3, '빈 검색어는 전체를 반환해야 합니다.');
   assert.deepEqual(filterFiles(files, '업무').map((f) => f.id), ['1']);
-  assert.deepEqual(filterFiles(files, 'PDF').map((f) => f.id), ['1', '3'], '대소문자를 구분하지 않아야 합니다.');
+  assert.deepEqual(filterFiles(files, 'PDF').map((f) => f.id), ['3'], '대소문자를 구분하지 않아야 합니다.');
+  assert.deepEqual(filterFiles(files, '현장').map((f) => f.id), ['1'], '태그로도 파일을 찾을 수 있어야 합니다.');
   assert.equal(fileBadgeTone(files[0]), 'green');
   assert.equal(fileBadgeTone(files[1]), 'amber');
   assert.equal(fileBadgeTone(files[2]), 'red');
 
   const row = mapFileRowView(files[0]);
-  assert.equal(row.name.value, '업무보고.pdf');
+  assert.equal(row.name.value, '업무보고.jpg');
+  assert.deepEqual(row.name.tags, ['현장', '34차']);
+  assert.equal(row.preview.available, true);
+  assert.match(row.preview.src, /drive-preview\/f1$/);
+  assert.equal(row.size.value, '2.0KB');
   assert.equal(row.name.pending, false);
   assert.equal(row.source.value, 'MOYI 앱');
   assert.equal(row.status.tone, 'green');
-  for (const key of ['folder', 'size', 'modifiedAt', 'permission']) {
+  for (const key of ['modifiedAt', 'permission']) {
     assert.equal(row[key].pending, true, `${key} 열은 backend DTO가 없어 pending이어야 합니다.`);
     assert.match(row[key].value, /연결대기/, `${key} 열은 실제 값을 지어내면 안 됩니다.`);
     assert.doesNotMatch(row[key].value, /^\d+(\.\d+)?\s*(KB|MB|GB)?$/, `${key} 열에 지어낸 숫자를 넣으면 안 됩니다.`);

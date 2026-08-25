@@ -218,7 +218,7 @@ export default function MoyiDriveAdminPage() {
                 <table className="tbl">
                   <thead>
                     <tr>
-                      <th>폴더</th>
+                      <th>미리보기</th>
                       <th>파일명</th>
                       <th>출처</th>
                       <th>크기</th>
