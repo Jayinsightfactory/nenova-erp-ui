@@ -10,7 +10,7 @@ import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
-import { isSupportManualCompleteSelectable, isSupportProcessingComplete, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
+import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -1415,6 +1415,12 @@ export default function SalesDefectDeductionsPage() {
           <div><strong>{activeTab === 'carryover' ? '미처리·다음 차수 재시도 목록' : `영업지원 전산등록 — ${year}년 ${week}차 전체 불량`}</strong><span>{supportLoading ? ' 불러오는 중…' : ` ${supportRows.length}건`}</span></div>
           <span className="incoming-review-note">{activeTab === 'carryover' ? '컨펌 완료·현재 차수 판매행 있음 건만 등록 가능합니다. 나머지는 잔여수량이 0이 될 때까지 미처리로 계속 표시됩니다.' : '원차수 불량도 현재 차수에 EXE 판매행이 생기면 이월 등록할 수 있습니다.'}</span>
         </div>
+        {activeTab === 'support' && <div className="support-usage-notice" role="note">
+          <strong>공지</strong>
+          <ol>
+            {SUPPORT_REGISTER_USAGE_STEPS.map((step) => <li key={step}>{step}</li>)}
+          </ol>
+        </div>}
         {activeTab === 'carryover' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 8, padding: '8px 10px', borderBottom: '1px solid #e2e8f0' }}>
           {carryoverCustomerGroups.map((group) => {
             const selectableRows = group.rows.filter(isCarryoverRetrySelectable);
@@ -1737,6 +1743,12 @@ export default function SalesDefectDeductionsPage() {
         .support-register-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .support-register-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid var(--border); background: #eff6ff; color: #1e3a8a; }
         .support-register-head span { color: #475569; font-size: 12px; }
+        .support-usage-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid #fcd34d; background: #fffbeb; color: #92400e; font-size: 13px; }
+        .support-usage-notice strong { color: #b45309; }
+        .support-usage-notice ol { display: flex; gap: 6px; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+        .support-usage-notice li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid #fbbf24; background: #fff; border-radius: 999px; font-weight: 700; }
+        .support-usage-notice li::after { content: '→'; color: #d97706; }
+        .support-usage-notice li:last-child::after { content: ''; }
         .support-grid-scroll { max-height: calc(100vh - 260px); }
         .support-grid th, .support-grid td { padding: 4px 6px; line-height: 1.25; }
         .support-grid .defect-row td { vertical-align: middle; }

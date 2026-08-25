@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { ensureRegistrationRequestKey } from '../../lib/salesDefectDeductionState';
+import { SUPPORT_REGISTER_USAGE_STEPS, supportRegisterUsageNotice } from '../../lib/salesDefectSupportStatus.js';
 
 const fmt = (value) => Number(value || 0).toLocaleString();
 const dateText = (value) => value ? String(value).slice(0, 19).replace('T', ' ') : '-';
@@ -168,7 +169,10 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         </div>
         {message && <div className="notice ok">{message}{verified && ' 재조회 검증 완료.'}</div>}
         {error && <div className="notice error">{error}</div>}
-        <div className="notice info">단가는 같은 연도의 이전 차수 분배단가를 우선 사용하고, 해당 차수 금액이 없으면 가장 최근 유효 분배단가로 자동 대체합니다. 적용 차수는 각 행에 표시됩니다. 차감수량은 등록 시 음수로 적용되고 수정 이력은 원장에 남습니다.</div>
+        <div className="notice usage" role="note"><strong>공지</strong> {supportRegisterUsageNotice()}
+          <ol>{SUPPORT_REGISTER_USAGE_STEPS.map((step) => <li key={step}>{step}</li>)}</ol>
+        </div>
+        <div className="notice info">단가는 같은 연도의 이전 차수 분배단가를 우선 사용하고, 해당 차수 금액이 없으면 가장 최근 유효 분배단가로 자동 대체합니다. 적용 차수는 각 행에 표시됩니다. 차감수량은 등록 시 음수로 적용되고 수정 이력은 원장에 남습니다. 「기존 견적서 조회 완료」가 로그에 뜨면 「전산등록 실행 및 검증」을 누르세요.</div>
         <div className="process-log" aria-live="polite"><strong>처리 로그</strong>{logs.length ? logs.map((log, index) => <div key={`${log.at}-${index}`}><span>{log.at}</span> {log.label}</div>) : <div className="empty">아직 처리 로그가 없습니다.</div>}</div>
         <div className="review-list">
           {rows.map((row, index) => {
@@ -197,6 +201,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           h2 { margin: 0; font-size: 18px; } .sub { margin-top: 2px; color: #64748b; font-size: 11px; }
           .head-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
           .notice { margin-top: 4px; padding: 5px 7px; border: 1px solid; font-size: 11px; } .notice.ok { color: #166534; background: #f0fdf4; border-color: #86efac; } .notice.error { color: #991b1b; background: #fef2f2; border-color: #fca5a5; white-space: pre-wrap; } .notice.info { color: #1e3a8a; background: #eff6ff; border-color: #93c5fd; }
+          .notice.usage { color: #92400e; background: #fffbeb; border-color: #fbbf24; } .notice.usage ol { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 0; padding: 0; list-style: none; } .notice.usage li { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid #fbbf24; background: #fff; border-radius: 999px; font-weight: 700; } .notice.usage li::after { content: '→'; color: #d97706; } .notice.usage li:last-child::after { content: ''; }
           .process-log { margin-top: 4px; padding: 5px 7px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-size: 11px; max-height: 130px; overflow: auto; }
           .process-log strong { display: block; margin-bottom: 3px; color: #1e3a8a; } .process-log div { padding: 1px 0; } .process-log span { display: inline-block; min-width: 68px; color: #64748b; font-variant-numeric: tabular-nums; }
           .review-list { margin-top: 4px; display: grid; gap: 4px; }

@@ -19,7 +19,7 @@ import {
   isNoopDeductionHistory,
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
-import { deriveSupportProcessingStatus, isSupportManualCompleteSelectable, isSupportProcessingComplete, supportCarryoverFromLabel, supportProcessingLabel, supportRegistrationDecisionLabel, supportStatusDetail } from '../lib/salesDefectSupportStatus.js';
+import { deriveSupportProcessingStatus, isSupportManualCompleteSelectable, isSupportProcessingComplete, supportCarryoverFromLabel, supportProcessingLabel, supportRegisterUsageNotice, supportRegistrationDecisionLabel, supportStatusDetail } from '../lib/salesDefectSupportStatus.js';
 import { buildEstimateCustomerUrl } from '../lib/estimateFixStatusLink.js';
 import {
   parseQuantityCell,
@@ -181,6 +181,10 @@ assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 
 assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 EXE 호환 분배단가 조회 결과를 표시해야 한다.');
 assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
 assert.ok(pageSource.includes('toggleAllSupport'), '영업지원 전체 선택/해제를 지원해야 한다.');
+assert.ok(pageSource.includes('support-usage-notice'), '영업지원 화면에 사용 방법 공지가 있어야 한다.');
+assert.ok(pageSource.includes('SUPPORT_REGISTER_USAGE_STEPS'), '영업지원 공지는 공통 사용 방법 단계를 표시해야 한다.');
+assert.ok(supportReviewSource.includes('supportRegisterUsageNotice'), '검토창에도 같은 사용 방법 공지가 있어야 한다.');
+assert.equal(supportRegisterUsageNotice(), '사용 방법: 확정확인 → 전체선택 → 견적서관리에 불량차감 등록 → 기존 견적서 조회 완료가 뜨면 → 전산등록 실행 및 검증');
 assert.ok(pageSource.includes('isSupportRegistrationSelectable'), '영업지원 선택은 등록 가능 상태를 공통 판정해야 한다.');
 assert.ok(pageSource.includes('isSupportManualCompleteSelectable'), '수기 처리 행은 등록 가능 여부와 무관하게 체크할 수 있어야 한다.');
 assert.ok(pageSource.includes('markSupportManualComplete'), '영업지원에 수동처리완료 동작이 있어야 한다.');
@@ -269,6 +273,16 @@ assert.ok(supportReviewSource.includes('<b>분배단가</b>'), '영업지원 전
 assert.ok(supportReviewSource.includes('.compare-pane { padding: 5px 8px;'), '영업지원 전산등록 검토창은 텍스트 간격을 줄여야 한다.');
 assert.ok(deductionSource.includes('if (/변경\\s*없음$/.test(summary)) return false;'), '변경없는 저장은 이력을 만들지 않아야 한다.');
 assert.ok(deductionSource.includes('ImportReviewRequired=0'), '해결 완료 시 보완 필요 상태를 해제해야 한다.');
+{
+  const ledgerUpdateSql = deductionSource.slice(
+    deductionSource.indexOf('SET DeductionType=@type, EstimateKey=@ek'),
+    deductionSource.indexOf('const current = await getStoredRow(tQuery, key);'),
+  );
+  assert.doesNotMatch(ledgerUpdateSql, /ImportReviewRequired=0/, '보완필요는 견적 등록 원장 UPDATE를 막으면 안 된다.');
+  assert.match(ledgerUpdateSql, /ImportConfirmed=1/, '수입부 미확정 행은 등록 UPDATE 대상이 아니다.');
+}
+assert.ok(deductionSource.includes('explainDefectLedgerRegisterMiss'), '등록 원장 갱신 실패는 확정·잔여 상태를 다시 읽어 안내해야 한다.');
+assert.equal(deductionSource.includes('다른 사용자에 의해 변경되었습니다'), false, '보완필요 행을 다른 사용자 변경으로 오인하면 안 된다.');
 assert.ok(deductionSource.includes("action: 'INCOMING_REVIEW_RESOLVE'"), '보완 해결 완료 이력을 기록해야 한다.');
 assert.ok(deductionSource.includes("Status=N'MANUAL_COMPLETED'"), '수동처리완료는 웹 원장 상태만 바꿔야 한다.');
 assert.ok(deductionSource.includes("action: 'MANUAL_COMPLETE'"), '수동처리완료는 별도 History ActionType을 남겨야 한다.');

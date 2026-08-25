@@ -6,6 +6,7 @@ import {
   assertIncomingConfirmed,
   collectDeductionEstimateKeys,
   ensureRegistrationRequestKey,
+  explainDefectLedgerRegisterMiss,
   isDeductionOwnedByUser,
   planDeductionRegistration,
   planManualProcessingComplete,
@@ -304,5 +305,18 @@ assert.equal(planDeductionRegistration({
   targetYear: 2026, targetWeek: 33, requestKey: 'req-manual',
   customerShipmentExists: true, shipmentKey: 3300, cost: 1100,
 }).action, 'COMPLETE_NOOP');
+
+assert.equal(explainDefectLedgerRegisterMiss({
+  DeductionKey: 147, EstimateKey: 9001, ImportConfirmed: 1, ImportReviewRequired: 1, IsDeleted: 0,
+}, { key: 147, estimateKey: 9001, applyQuantity: 3 }), '', '보완필요는 견적키 연결을 실패로 보지 않는다.');
+assert.match(explainDefectLedgerRegisterMiss({
+  DeductionKey: 147, EstimateKey: null, ImportConfirmed: 1, ImportReviewRequired: 1, IsDeleted: 0, IsCarryoverLedger: 0,
+}, { key: 147, estimateKey: 9001, applyQuantity: 3 }), /원장을 갱신하지 못했습니다/);
+assert.match(explainDefectLedgerRegisterMiss({
+  DeductionKey: 147, EstimateKey: null, ImportConfirmed: 0, IsDeleted: 0,
+}, { key: 147, estimateKey: 9001, applyQuantity: 3 }), /수입부 확정/);
+assert.match(explainDefectLedgerRegisterMiss({
+  DeductionKey: 147, EstimateKey: null, ImportConfirmed: 1, IsCarryoverLedger: 1, RemainingQuantity: 1, IsDeleted: 0,
+}, { key: 147, estimateKey: 9001, applyQuantity: 5 }), /잔여수량/);
 
 console.log('salesDefectDeductionState tests passed');
