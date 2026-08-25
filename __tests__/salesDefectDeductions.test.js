@@ -20,6 +20,7 @@ import {
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
 import { deriveSupportProcessingStatus, isSupportProcessingComplete, supportProcessingLabel } from '../lib/salesDefectSupportStatus.js';
+import { buildEstimateCustomerUrl } from '../lib/estimateFixStatusLink.js';
 import {
   parseQuantityCell,
   parseSalesDefectWorkbook,
@@ -170,6 +171,10 @@ assert.ok(pageSource.includes('견적서관리에 불량차감 등록'), '영업
 assert.ok(pageSource.includes("buildEstimateFixStatusUrl(selectedWeek)"), '영업지원은 붙여넣기 주문등록과 같은 견적서관리 확정현황 링크를 사용해야 한다.');
 assert.ok(pageSource.includes("window.open(url, 'estimate-fix-status'"), '영업지원 확정현황은 동일한 견적서관리 새창으로 열려야 한다.');
 assert.ok(pageSource.includes('🔎 확정 현황 확인'), '영업지원 도구모음에 확정 현황 확인 버튼이 있어야 한다.');
+assert.ok(pageSource.includes('buildEstimateCustomerUrl'), '영업지원 처리상태는 해당 차수·업체 견적서 딥링크를 사용해야 한다.');
+assert.ok(pageSource.includes('openCustomerEstimate'), '영업지원 처리상태에서 해당 업체 견적서를 바로 열 수 있어야 한다.');
+assert.ok(pageSource.includes('견적서 열기'), '영업지원 처리상태에 거래처 견적서 열기 버튼이 있어야 한다.');
+assert.ok(pageSource.includes("window.open(url, 'estimate-customer'"), '업체 견적서는 견적서관리 새창으로 열려야 한다.');
 assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 분배단가 열을 표시해야 한다.');
 assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 EXE 호환 분배단가 조회 결과를 표시해야 한다.');
 assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
@@ -533,5 +538,15 @@ assert.equal(isSupportProcessingComplete(existingCompleted), true, '기존 불�
 assert.equal(supportProcessingLabel(existingCompleted), '처리완료 (기존 불량차감 #4567)', '영업지원 처리상태에 기존 불량차감 완료를 명시해야 한다.');
 const crossYearOrMismatch = deriveSupportProcessingStatus({ status: 'DRAFT', exactExistingEstimate: false });
 assert.equal(crossYearOrMismatch.processingStatus, 'UNREGISTERED', '다른 연도·수량·단위 불일치 후보는 처리완료로 표시하면 안 된다.');
+
+const customerEstimateUrl = new URL(buildEstimateCustomerUrl({
+  year: 2026, week: 33, custKey: 77, customerName: '청화원예',
+}), 'https://nenova.test');
+assert.equal(customerEstimateUrl.searchParams.get('year'), '2026', '업체 견적서 링크는 화면 선택 연도를 써야 한다.');
+assert.equal(customerEstimateUrl.searchParams.get('week'), '33', '업체 견적서 링크는 부모차수만 전달해야 한다.');
+assert.equal(customerEstimateUrl.searchParams.get('custKey'), '77', '업체 견적서 링크는 CustKey를 포함해야 한다.');
+assert.equal(customerEstimateUrl.searchParams.get('highlightDeductions'), '1', '업체 견적서 링크는 불량차감 행을 강조해야 한다.');
+assert.equal(new URL(buildEstimateCustomerUrl({ year: 2025, week: 33, custKey: 77 }), 'https://nenova.test').searchParams.get('year'), '2025', '같은 33차라도 2025년 선택이면 2025 견적서를 열어야 한다.');
+assert.equal(buildEstimateCustomerUrl({ year: 2026, week: 33, custKey: 0 }), '', '거래처 키가 없으면 견적서 링크를 만들지 않아야 한다.');
 
 console.log('sales defect deduction tests passed');
