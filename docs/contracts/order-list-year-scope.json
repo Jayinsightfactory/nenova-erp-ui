@@ -1,0 +1,63 @@
+{
+  "id": "order-list-year-scope",
+  "title": "주문조회 차수 연도 분리 계약",
+  "scope": [
+    "lib/orderListYearScope.js",
+    "pages/orders/index.js",
+    "pages/api/orders/index.js",
+    "__tests__/orderListYearScope.test.js",
+    "docs/work-reports/2026-08-25_paste-undo-order-list-year.md"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "READ_ORDER_LIST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "readPolicy": {
+    "fullWeek": "YYYY-NN-NN에서 연도를 사용한다.",
+    "shortWeek": "화면이 전달한 year를 사용하고, 없으면 같은 연도의 조회기간, 마지막으로 현재 운영연도를 사용한다.",
+    "crossYearDateRange": "짧은 차수와 두 연도에 걸친 기간을 함께 보내면 모호한 조회를 차단한다.",
+    "sql": "ViewOrder를 OrderYear=@orderYear AND OrderWeek=@week로 정확히 제한한다.",
+    "legacyNullYear": "현재연도 조회에 OrderYear NULL·빈 문자열·전년도 행을 포함하지 않는다. 과거 조회는 전체 차수나 명시 year를 사용한다."
+  },
+  "sideEffects": {
+    "OrderMaster": "preserve",
+    "OrderDetail": "preserve",
+    "ShipmentMaster": "preserve",
+    "ShipmentDetail": "preserve",
+    "ShipmentDate": "preserve",
+    "ShipmentFarm": "preserve",
+    "Estimate": "preserve",
+    "ProductStock": "preserve",
+    "StockHistory": "preserve",
+    "WebProfitReport": "preserve"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "orderWeek": "35-01",
+    "priorYear": "2025",
+    "selectedYear": "2026",
+    "expectedIncludedYears": ["2026"],
+    "expectedExcludedYears": ["2025"]
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderAdd.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormOrderAdd.cs",
+    "methods": ["btnSave_Click", "UnitQuantity", "MergeDataBefore"],
+    "tables": ["OrderMaster", "OrderDetail", "OrderHistory", "ViewOrder"]
+  },
+  "requiredTestFiles": [
+    "__tests__/orderListYearScope.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

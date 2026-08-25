@@ -1097,9 +1097,11 @@ export default function PasteOrderPage() {
   const beginPasteSaving = (custKey) => { pasteSavingCustRef.current.add(String(custKey)); };
   const endPasteSaving = async (guard, { refreshBaseline = false } = {}) => {
     if (!guard?.scope) return;
-    pasteSavingCustRef.current.delete(String(guard.scope.custKey));
     // 부분 성공/실패/409에서는 새 지문을 받아들이지 않는다. 입력과 경고를 유지한다.
-    if (!refreshBaseline) return;
+    if (!refreshBaseline) {
+      pasteSavingCustRef.current.delete(String(guard.scope.custKey));
+      return;
+    }
     try {
       const data = await refreshErpEditPresence({ ...guard.scope, token: guard.data?.lease?.token });
       if (data) setPastePresence(guard.scope.custKey, data);
@@ -1108,6 +1110,9 @@ export default function PasteOrderPage() {
       setPastePresenceByCust(prev => ({ ...prev, [String(guard.scope.custKey)]: {
         ...(prev[String(guard.scope.custKey)] || {}), stale, loading: false, error: stale ? '' : (error.message || '작업 상태 확인 실패'),
       } }));
+    } finally {
+      // 새 기준값을 받은 뒤에만 저장중 표시를 해제해야 주기 조회가 자기 변경을 외부 변경으로 오인하지 않는다.
+      pasteSavingCustRef.current.delete(String(guard.scope.custKey));
     }
   };
   const acquireAllPasteGuards = async (custKeys) => {
@@ -2598,9 +2603,10 @@ export default function PasteOrderPage() {
         error: error.message,
       });
     } finally {
-      setBulkRunning(false);
       await Promise.all(pasteGuards.map(guard => endPasteSaving(guard, { refreshBaseline: allSucceeded })));
       await Promise.all(pasteGuards.map(releasePasteGuard));
+      // 작업권 기준값 갱신과 반납이 모두 끝난 뒤에만 되돌리기 버튼을 다시 누를 수 있다.
+      setBulkRunning(false);
     }
   };
 
@@ -2611,20 +2617,37 @@ export default function PasteOrderPage() {
     if (!rows.length || bulkRunning) return;
     if (!confirm(`방금 완료한 전체 일괄 ${rows.length}건을 변경 전 수량으로 되돌립니다.\n\n처리 후 다른 수정이 있으면 안전을 위해 전체 되돌리기를 중단합니다.\n진행하시겠습니까?`)) return;
     setBulkRunning(true);
+    let undoGuards = [];
+    let undoSucceeded = false;
     try {
-      const response = await fetch('/api/shipment/adjust-batch-undo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({
-          week, year: selectedYearFromWeek(week),
-          entries: rows.map(row => ({
-            originalType: row.type, custKey: row.custKey, prodKey: row.prodKey,
-            prodName: row.displayName || row.prodName, qty: row.qty, unit: row.unit,
-            orderQtyAfter: row.orderQtyAfter, outQtyAfter: row.outQtyAfter,
-          })),
-        }),
-      });
+      undoGuards = await acquireAllPasteGuards(rows.map(row => row.custKey));
+      undoGuards.forEach(guard => beginPasteSaving(guard.scope.custKey));
+      const guardByCust = new Map(undoGuards.map(item => [String(item.scope.custKey), item.guard]));
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 70_000);
+      let response;
+      try {
+        response = await fetch('/api/shipment/adjust-batch-undo', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+          signal: controller.signal,
+          body: JSON.stringify({
+            week, year: selectedYearFromWeek(week),
+            entries: rows.map(row => ({
+              originalType: row.type, custKey: row.custKey, prodKey: row.prodKey,
+              prodName: row.displayName || row.prodName, qty: row.qty, unit: row.unit,
+              orderQtyAfter: row.orderQtyAfter, outQtyAfter: row.outQtyAfter,
+              editGuard: guardByCust.get(String(row.custKey)),
+            })),
+          }),
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || result.success !== true) throw new Error(result.error || '전체 일괄 되돌리기에 실패했습니다.');
+      if (!response.ok || result.success !== true || result.verified !== true) {
+        throw pasteWriteError(response, result, '전체 일괄 되돌리기에 실패했습니다.');
+      }
+      undoSucceeded = true;
       setBulkResult(prev => ({ ...prev, undone: true, undoResults: result.results || [] }));
       await Promise.all(orders.filter(order => order.custMatch).map(async order => {
         const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, ...orderQueryParams(week) });
@@ -2640,8 +2663,17 @@ export default function PasteOrderPage() {
       loadOrderHistorySummary(week, orders);
       alert(`전체 일괄 ${rows.length}건을 변경 전 수량으로 되돌렸습니다.`);
     } catch (error) {
-      alert(`되돌리기 실패 — 모든 변경은 롤백되었습니다.\n${error.message}`);
+      [...new Set(rows.map(row => row.custKey))].forEach(custKey => keepPasteGuardWarning(custKey, error));
+      const detail = error?.name === 'AbortError'
+        ? '서버 응답이 70초 안에 끝나지 않아 요청을 중단했습니다. 저장 결과를 다시 조회한 뒤 재시도하세요.'
+        : error.message;
+      const prefix = error?.name === 'AbortError'
+        ? '되돌리기 응답 확인이 중단되었습니다.'
+        : '되돌리기 실패 — 모든 변경은 롤백되었습니다.';
+      alert(`${prefix}\n${detail}`);
     } finally {
+      await Promise.all(undoGuards.map(guard => endPasteSaving(guard, { refreshBaseline: undoSucceeded })));
+      await Promise.all(undoGuards.map(releasePasteGuard));
       setBulkRunning(false);
     }
   };

@@ -4,7 +4,8 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderUnit, validateOrderWeek, resolveOrderWeekQuery, requireOrderYear } from '../../../lib/orderUtils';
+import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
+import { resolveOrderListYearScope } from '../../../lib/orderListYearScope.js';
 import { withActionLog } from '../../../lib/withActionLog';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlOrderViewGetData } from '../../../lib/exeOrderViewSql.js';
@@ -195,24 +196,22 @@ async function getOrders(req, res) {
 
   if (week) {
     try {
-      const yearParam = req.query.year;
-      const v = validateOrderWeek(String(week));
-      const resolved = resolveOrderWeekQuery(week);
-      const orderYear = yearParam || resolved.year;
+      const scope = resolveOrderListYearScope({
+        week,
+        explicitYear: req.query.year,
+        startDate,
+        endDate,
+      });
       where += ' AND vo.OrderWeek = @week';
-      params.week = { type: sql.NVarChar, value: v.week };
-      if (orderYear) {
-        if (orderYear === '2025' || orderYear === '2024') {
-          where += ` AND (vo.OrderYear = @orderYear OR vo.OrderYear IS NULL OR vo.OrderYear = N'')`;
-        } else {
-          where += ' AND vo.OrderYear = @orderYear';
-        }
-        params.orderYear = { type: sql.NVarChar, value: String(orderYear) };
-      }
-    } catch {
-      const normWeek = week.match(/^\d{4}-(\d{2}-\d{2})$/) ? week.match(/^\d{4}-(\d{2}-\d{2})$/)[1] : week;
-      where += ' AND vo.OrderWeek = @week';
-      params.week = { type: sql.NVarChar, value: normWeek };
+      where += ' AND vo.OrderYear = @orderYear';
+      params.week = { type: sql.NVarChar, value: scope.orderWeek };
+      params.orderYear = { type: sql.NVarChar, value: scope.orderYear };
+    } catch (error) {
+      return res.status(Number(error.statusCode) || 400).json({
+        success: false,
+        code: error.code || 'ORDER_LIST_SCOPE_INVALID',
+        error: error.message,
+      });
     }
   }
   if (startDate) {
