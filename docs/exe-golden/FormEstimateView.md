@@ -32,6 +32,9 @@ Web: `pages/estimate.js` + `pages/api/estimate/index.js` + `lib/exeEstimateViewS
 는 기존 `GetData`/`GetDetail` 조회만 재사용한다. 선택한 `OrderYear + 부모 OrderWeek + CustKey`
 견적서를 열고 불량차감 행을 강조할 뿐 Estimate INSERT/UPDATE를 실행하지 않는다.
 
+`previewCapture=1`은 영업지원 처리상태 옆 캡쳐용이다. 출고 목록·필터·편집 버튼을 숨기고
+견적서 목록만 보여 주며, 같은 GetDetail 조회만 한다. Estimate 원장은 변경하지 않는다.
+
 영업지원 처리상태의 `수동처리완료`도 Estimate를 만들지 않는다. 수기 처리한
 `WebSalesDefectDeduction`만 `Status=MANUAL_COMPLETED`로 표시하고
 `WebSalesDefectDeductionHistory.ActionType=MANUAL_COMPLETE` 이력을 남긴다.

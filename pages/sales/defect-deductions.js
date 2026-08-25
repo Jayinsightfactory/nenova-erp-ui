@@ -10,7 +10,7 @@ import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
-import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
+import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -35,6 +35,63 @@ const existingEstimateLabel = (record = {}) => {
   const descr = record.descr || record.Descr || '';
   return `${estimateKey > 0 ? `#${estimateKey} · ` : ''}${type} · ${product} · ${fmt(Math.abs(quantity))}${unit}${cost ? ` · 단가 ${fmt(cost)}원` : ''}${amount ? ` · 금액 ${fmt(amount)}원` : ''}${week ? ` · ${week}차` : ''}${date ? ` · ${date}` : ''}${descr ? ` · ${descr}` : ''}`;
 };
+
+function SupportEstimateCaptureThumb({ capture, onOpen, onShowLive, onHideLive }) {
+  return (
+    <div
+      className="support-estimate-capture"
+      data-estimate-capture="1"
+      role="button"
+      tabIndex={0}
+      title="견적서 불량차감 페이지 캡쳐. 클릭하면 실제 견적서를 엽니다."
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      onMouseEnter={(event) => onShowLive(event.currentTarget)}
+      onMouseLeave={onHideLive}
+      onFocus={(event) => onShowLive(event.currentTarget)}
+      onBlur={onHideLive}
+    >
+      <div className="support-estimate-capture-head">
+        <strong>■ 견적서 목록</strong>
+        <span>{capture.subtitle}</span>
+      </div>
+      {capture.mode === 'page' ? (
+        <table className="support-estimate-capture-table">
+          <thead>
+            <tr>
+              <th>품목명</th>
+              <th>단위</th>
+              <th>수량</th>
+              <th>단가</th>
+              <th>공급가액</th>
+            </tr>
+          </thead>
+          <tbody>
+            {capture.rows.map((item, index) => (
+              <tr key={item.estimateKey || index} className={item.current ? 'is-current' : ''}>
+                <td>
+                  <span className="support-estimate-capture-type">[{item.typeLabel}]</span>
+                  {item.productName}
+                </td>
+                <td>{item.unit || '-'}</td>
+                <td className="num">{fmt(item.quantity)}</td>
+                <td className="num">{fmt(item.cost)}</td>
+                <td className="num">{fmt(item.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="support-estimate-capture-empty">{capture.mode === 'manual' ? '수기 처리 · 견적서 미생성' : '아직 올라간 불량차감이 없습니다'}</div>
+      )}
+    </div>
+  );
+}
 const usageLabel = (item) => {
   const count = Number(item?.UsageCount ?? item?.usageCount ?? 0);
   const mappingCount = Number(item?.MappingCount ?? item?.mappingCount ?? 0);
@@ -141,6 +198,7 @@ export default function SalesDefectDeductionsPage() {
   const [supportRows, setSupportRows] = useState([]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
+  const [liveEstimateCapture, setLiveEstimateCapture] = useState(null);
   const [incomingLoading, setIncomingLoading] = useState(false);
   const [incomingSaving, setIncomingSaving] = useState(false);
   const [incomingConfirming, setIncomingConfirming] = useState(new Set());
@@ -163,6 +221,7 @@ export default function SalesDefectDeductionsPage() {
   const [addModeMenu, setAddModeMenu] = useState(null); // { index, sourceIndex }
   const [preflight, setPreflight] = useState({});
   const fileRef = useRef(null);
+  const captureHoverTimerRef = useRef(null);
   const searchTimer = useRef(null);
   const preflightTimer = useRef(null);
   const lookupPanelRef = useRef(null);
@@ -1152,6 +1211,53 @@ export default function SalesDefectDeductionsPage() {
     window.open(url, 'estimate-customer', 'width=1500,height=940,scrollbars=yes,resizable=yes');
   };
 
+  const hideLiveEstimateCapture = (immediate = false) => {
+    if (captureHoverTimerRef.current) {
+      clearTimeout(captureHoverTimerRef.current);
+      captureHoverTimerRef.current = null;
+    }
+    if (immediate) {
+      setLiveEstimateCapture(null);
+      return;
+    }
+    captureHoverTimerRef.current = setTimeout(() => setLiveEstimateCapture(null), 180);
+  };
+
+  const showLiveEstimateCapture = (row, anchor) => {
+    if (Number(row?.custKey) <= 0) return;
+    if (captureHoverTimerRef.current) clearTimeout(captureHoverTimerRef.current);
+    captureHoverTimerRef.current = setTimeout(() => {
+      const url = buildEstimateCustomerUrl({
+        year,
+        week,
+        custKey: row.custKey,
+        customerName: row.customerName,
+        previewCapture: true,
+      });
+      const openUrl = buildEstimateCustomerUrl({
+        year,
+        week,
+        custKey: row.custKey,
+        customerName: row.customerName,
+      });
+      if (!url || !anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const width = 520;
+      const height = 300;
+      const left = Math.min(Math.max(8, rect.right + 8), Math.max(8, window.innerWidth - width - 8));
+      const top = Math.min(Math.max(8, rect.top), Math.max(8, window.innerHeight - height - 8));
+      setLiveEstimateCapture({
+        url,
+        openUrl,
+        title: `${row.customerName || '거래처'} 견적서 캡쳐`,
+        left,
+        top,
+        width,
+        height,
+      });
+    }, 280);
+  };
+
   const toggle = (index) => setSelected((current) => {
     const next = new Set(current); if (next.has(index)) next.delete(index); else next.add(index); return next;
   });
@@ -1435,13 +1541,14 @@ export default function SalesDefectDeductionsPage() {
         </div>}
         <div className="defect-grid-scroll support-grid-scroll">
           <table className="data-table defect-grid support-grid">
-            <thead><tr><th><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={!supportSelectableKeys.length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th></tr></thead>
+            <thead><tr><th><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={!supportSelectableKeys.length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>견적서 캡쳐</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
               const checkable = isSupportManualCompleteSelectable(row);
               const existingEstimateRecords = Array.isArray(row.existingEstimateRecords) ? row.existingEstimateRecords : [];
               const existingEstimateCount = Number(row.existingEstimateCount ?? existingEstimateRecords.length);
               const scopeLabel = supportStatusDetail(row, year, week);
+              const estimateCapture = buildSupportEstimateCapture(row, { year, week });
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''} ${row.exactExistingEstimate ? 'support-existing-row' : ''}`} key={key || `support-${index}`}>
                 <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={checkable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!checkable} /></label></td>
                 <td>{index + 1}</td>
@@ -1468,9 +1575,17 @@ export default function SalesDefectDeductionsPage() {
                   {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
                   {existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
                 </td>
+                <td className="support-estimate-capture-cell">
+                  <SupportEstimateCaptureThumb
+                    capture={estimateCapture}
+                    onOpen={() => openCustomerEstimate(row)}
+                    onShowLive={(anchor) => showLiveEstimateCapture(row, anchor)}
+                    onHideLive={() => hideLiveEstimateCapture()}
+                  />
+                </td>
               </tr>;
             })}
-            {!supportRows.length && <tr><td colSpan="11" className="empty-row-cell">{activeTab === 'carryover' ? '미처리 잔여 목록이 없습니다.' : '선택한 차수에 저장된 불량 차감이 없습니다.'}</td></tr>}
+            {!supportRows.length && <tr><td colSpan="12" className="empty-row-cell">{activeTab === 'carryover' ? '미처리 잔여 목록이 없습니다.' : '선택한 차수에 저장된 불량 차감이 없습니다.'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1765,6 +1880,25 @@ export default function SalesDefectDeductionsPage() {
         .support-carryover { color: #b45309; font-weight: 700; }
         .support-scope-label { display: block; margin-top: 1px; color: #64748b; font-size: 10px; white-space: nowrap; }
         .support-estimate-open { display: inline-block; margin-top: 4px; white-space: nowrap; }
+        .support-estimate-capture-cell { width: 280px; min-width: 260px; padding: 4px !important; vertical-align: top !important; }
+        .support-estimate-capture { width: 268px; max-height: 148px; overflow: auto; border: 1px solid #f59e0b; border-radius: 6px; background: #fffbeb; cursor: pointer; text-align: left; }
+        .support-estimate-capture:focus, .support-estimate-capture:hover { outline: 2px solid #f59e0b; outline-offset: 1px; max-height: 220px; }
+        .support-estimate-capture-head { display: flex; flex-direction: column; gap: 1px; padding: 4px 6px 3px; border-bottom: 1px solid #fde68a; background: #fff7ed; }
+        .support-estimate-capture-head strong { color: #92400e; font-size: 11px; }
+        .support-estimate-capture-head span { color: #b45309; font-size: 10px; font-weight: 800; }
+        .support-estimate-capture-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .support-estimate-capture-table th, .support-estimate-capture-table td { padding: 2px 4px; border-bottom: 1px solid #fde68a; white-space: nowrap; }
+        .support-estimate-capture-table th { background: #f8fafc; color: #475569; font-weight: 700; }
+        .support-estimate-capture-table td { color: #A0522D; }
+        .support-estimate-capture-table .num { text-align: right; font-variant-numeric: tabular-nums; color: #C0392B; }
+        .support-estimate-capture-table tr.is-current { background: #FDE68A; }
+        .support-estimate-capture-table tr:not(.is-current) { background: #FFF8DC; }
+        .support-estimate-capture-type { margin-right: 3px; color: #B8860B; font-size: 9px; }
+        .support-estimate-capture-empty { padding: 18px 8px; color: #92400e; font-size: 11px; text-align: center; }
+        :global(.support-estimate-live) { position: fixed; z-index: 2147483001; overflow: hidden; border: 1px solid #d97706; border-radius: 8px; background: #fff; box-shadow: 0 16px 40px rgba(15, 23, 42, .28); }
+        :global(.support-estimate-live-label) { padding: 5px 8px; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 800; border-bottom: 1px solid #f59e0b; }
+        :global(.support-estimate-live-frame) { width: 100%; height: calc(100% - 26px); overflow: hidden; background: #f8fafc; }
+        :global(.support-estimate-live-frame iframe) { width: 222%; height: 222%; border: 0; transform: scale(0.45); transform-origin: top left; pointer-events: none; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }
@@ -1870,6 +2004,21 @@ export default function SalesDefectDeductionsPage() {
           .print-table th { background: #c69700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
+      {typeof document !== 'undefined' && liveEstimateCapture && createPortal(
+        <div
+          className="support-estimate-live"
+          style={{ left: liveEstimateCapture.left, top: liveEstimateCapture.top, width: liveEstimateCapture.width, height: liveEstimateCapture.height }}
+          onMouseEnter={() => { if (captureHoverTimerRef.current) { clearTimeout(captureHoverTimerRef.current); captureHoverTimerRef.current = null; } }}
+          onMouseLeave={() => hideLiveEstimateCapture(true)}
+          onClick={() => window.open(liveEstimateCapture.openUrl || liveEstimateCapture.url, 'estimate-customer', 'width=1500,height=940,scrollbars=yes,resizable=yes')}
+        >
+          <div className="support-estimate-live-label">{liveEstimateCapture.title} · 실제 견적서 페이지</div>
+          <div className="support-estimate-live-frame">
+            <iframe title={liveEstimateCapture.title} src={liveEstimateCapture.url} />
+          </div>
+        </div>,
+        document.body,
+      )}
       </div>
     </Layout>
   );

@@ -8,7 +8,7 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
-| [2026-08-25_support-customer-estimate](./2026-08-25_support-customer-estimate.md) | 영업지원 처리상태 견적서 열기·이월 표시·수동처리완료 | 진행 |
+| [2026-08-25_support-customer-estimate](./2026-08-25_support-customer-estimate.md) | 영업지원 처리상태 견적서 열기·이월·수동처리완료·견적서 캡쳐 | 진행 |
 | [2026-08-25_raum-choimun-pnl](./2026-08-25_raum-choimun-pnl.md) | 라움/초이문 손익, 업로드 잔존·전산 매칭 표시 | 진행 |
 | [2026-08-24_import-skip-all-result](./2026-08-24_import-skip-all-result.md) | 업로드 주문등록 전체 제외·등록 후 결과 표시 | 진행 |
 | [2026-08-24_arrival-cost-week-farm-group](./2026-08-24_arrival-cost-week-farm-group.md) | 도착원가 차수 정렬·농장별 원가·품종만 조회, 이어서 농장 이어받기·단/박스·CW/GW(콜롬비아), 업로드 502, 문라이트 단원가·한눈에, 33-2 빈국가 유령 476원 | 진행 |

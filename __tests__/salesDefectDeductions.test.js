@@ -19,7 +19,7 @@ import {
   isNoopDeductionHistory,
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
-import { deriveSupportProcessingStatus, isSupportManualCompleteSelectable, isSupportProcessingComplete, supportCarryoverFromLabel, supportProcessingLabel, supportRegisterUsageNotice, supportRegistrationDecisionLabel, supportStatusDetail } from '../lib/salesDefectSupportStatus.js';
+import { deriveSupportProcessingStatus, isSupportManualCompleteSelectable, isSupportProcessingComplete, supportCarryoverFromLabel, supportProcessingLabel, supportRegisterUsageNotice, supportRegistrationDecisionLabel, supportStatusDetail, buildSupportEstimateCapture } from '../lib/salesDefectSupportStatus.js';
 import { buildEstimateCustomerUrl } from '../lib/estimateFixStatusLink.js';
 import {
   parseQuantityCell,
@@ -176,6 +176,10 @@ assert.ok(pageSource.includes('🔎 확정 현황 확인'), '영업지원 도구
 assert.ok(pageSource.includes('buildEstimateCustomerUrl'), '영업지원 처리상태는 해당 차수·업체 견적서 딥링크를 사용해야 한다.');
 assert.ok(pageSource.includes('openCustomerEstimate'), '영업지원 처리상태에서 해당 업체 견적서를 바로 열 수 있어야 한다.');
 assert.ok(pageSource.includes('견적서 열기'), '영업지원 처리상태에 거래처 견적서 열기 버튼이 있어야 한다.');
+assert.ok(pageSource.includes('견적서 캡쳐'), '처리상태 옆에 불량차감이 올라간 견적서 캡쳐 열이 있어야 한다.');
+assert.ok(pageSource.includes('buildSupportEstimateCapture'), '견적서 캡쳐는 공통 helper로 견적서 목록을 재현해야 한다.');
+assert.ok(pageSource.includes('data-estimate-capture'), '견적서 캡쳐 미리보기가 처리상태 옆에 보여야 한다.');
+assert.ok(pageSource.includes('previewCapture: true'), '캡쳐 호버는 견적서 미리보기 모드를 읽기만 해야 한다.');
 assert.ok(pageSource.includes("window.open(url, 'estimate-customer'"), '업체 견적서는 견적서관리 새창으로 열려야 한다.');
 assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 분배단가 열을 표시해야 한다.');
 assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 EXE 호환 분배단가 조회 결과를 표시해야 한다.');
@@ -591,6 +595,21 @@ assert.equal(isSupportProcessingComplete(manualCompleted), true);
 assert.equal(supportProcessingLabel(manualCompleted), '수동처리완료');
 assert.match(supportStatusDetail({ status: 'MANUAL_COMPLETED', processingStatus: 'MANUAL_COMPLETED', orderYear: 2026, orderWeek: '32' }, 2026, 33), /수기 처리/);
 
+const capturePage = buildSupportEstimateCapture({
+  customerName: '청화원예',
+  prodKey: 12,
+  estimateKey: 9001,
+  existingEstimateRecords: [
+    { estimateKey: 9001, prodKey: 12, estimateTypeLabel: '불량차감', productName: 'CARNATION Kaori', unit: '단', quantity: -4, cost: 1200, amount: -4364 },
+    { estimateKey: 9002, prodKey: 99, estimateTypeLabel: '불량차감', productName: 'ROSE Freedom', unit: '단', quantity: -2, cost: 800, amount: -1455 },
+  ],
+}, { year: 2026, week: 33 });
+assert.equal(capturePage.mode, 'page');
+assert.match(capturePage.subtitle, /청화원예 불량차감 2건/);
+assert.equal(capturePage.rows[0].current, true, '현재 행의 견적키가 캡쳐에서 강조되어야 한다.');
+assert.equal(buildSupportEstimateCapture({ status: 'MANUAL_COMPLETED', customerName: '청화원예' }, { year: 2026, week: 33 }).mode, 'manual');
+assert.equal(buildSupportEstimateCapture({ customerName: '청화원예', existingEstimateRecords: [] }, { year: 2026, week: 33 }).mode, 'empty');
+
 const customerEstimateUrl = new URL(buildEstimateCustomerUrl({
   year: 2026, week: 33, custKey: 77, customerName: '청화원예',
 }), 'https://nenova.test');
@@ -598,6 +617,9 @@ assert.equal(customerEstimateUrl.searchParams.get('year'), '2026', '업체 견�
 assert.equal(customerEstimateUrl.searchParams.get('week'), '33', '업체 견적서 링크는 부모차수만 전달해야 한다.');
 assert.equal(customerEstimateUrl.searchParams.get('custKey'), '77', '업체 견적서 링크는 CustKey를 포함해야 한다.');
 assert.equal(customerEstimateUrl.searchParams.get('highlightDeductions'), '1', '업체 견적서 링크는 불량차감 행을 강조해야 한다.');
+assert.equal(new URL(buildEstimateCustomerUrl({
+  year: 2026, week: 33, custKey: 77, customerName: '청화원예', previewCapture: true,
+}), 'https://nenova.test').searchParams.get('previewCapture'), '1', '캡쳐 미리보기는 previewCapture=1로 견적서 목록만 읽어야 한다.');
 assert.equal(new URL(buildEstimateCustomerUrl({ year: 2025, week: 33, custKey: 77 }), 'https://nenova.test').searchParams.get('year'), '2025', '같은 33차라도 2025년 선택이면 2025 견적서를 열어야 한다.');
 assert.equal(buildEstimateCustomerUrl({ year: 2026, week: 33, custKey: 0 }), '', '거래처 키가 없으면 견적서 링크를 만들지 않아야 한다.');
 

@@ -739,6 +739,7 @@ export default function Estimate() {
   const [includeUnfixed, setIncludeUnfixed] = useState(false);
   const queryIncludeUnfixedRef = useRef(false);
   const [highlightDeductions, setHighlightDeductions] = useState(false);
+  const [previewCapture, setPreviewCapture] = useState(false);
   // 최근 2개 차수만 표시 토글 (default ON)
   const [recentOnly, setRecentOnly] = useState(true);
   // 차수별 확정 취소 작업 상태
@@ -1053,6 +1054,10 @@ export default function Estimate() {
     const requestedCustName = String(params.get('custName') || '').trim();
     if (params.get('includeUnfixed') === '1') queryIncludeUnfixedRef.current = true;
     if (params.get('highlightDeductions') === '1') setHighlightDeductions(true);
+    if (params.get('previewCapture') === '1') {
+      setPreviewCapture(true);
+      setHighlightDeductions(true);
+    }
     if (requestedYear) setYearStr(requestedYear);
     if (requestedWeek) setWeekNum(String(Number(requestedWeek)));
     if (Number.isInteger(requestedCustKey) && requestedCustKey > 0) {
@@ -2477,6 +2482,12 @@ export default function Estimate() {
     if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [highlightDeductions, itemLoading, filteredItems.length, selectedId]);
 
+  useEffect(() => {
+    if (!previewCapture || typeof document === 'undefined') return undefined;
+    document.body.classList.add('estimate-preview-capture');
+    return () => document.body.classList.remove('estimate-preview-capture');
+  }, [previewCapture]);
+
   // 좌측 출고 목록에 실제로 보이는 업체 = 담당자별 출력 모달의 후보와 동일해야 한다.
   const visibleShipments = useMemo(
     () => filterRecentParentWeeks(shipments, recentOnly),
@@ -3651,7 +3662,7 @@ export default function Estimate() {
   };
 
   return (
-    <div>
+    <div className={previewCapture ? 'estimate-page estimate-preview-capture-root' : 'estimate-page'}>
       {/* ── 필터 바 ── */}
       <div className="filter-bar">
         {/* 연도 (별도) */}
@@ -3835,7 +3846,7 @@ export default function Estimate() {
       <div className="split-panel estimate-split-panel">
 
         {/* 왼쪽: 출고 목록 */}
-        <div className="card" style={{overflow:'hidden', display:'flex', flexDirection:'column'}}>
+        <div className="card estimate-shipment-list" style={{overflow:'hidden', display:'flex', flexDirection:'column'}}>
           <div className="card-header">
             <span className="card-title">■ 출고 목록</span>
             <span style={{fontSize:11, color:'var(--text3)'}}>{shipments.length}건</span>
@@ -3987,7 +3998,7 @@ export default function Estimate() {
         </div>
 
         {/* 오른쪽: 견적서 목록 */}
-        <div className="card" style={{overflow:'hidden', display:'flex', flexDirection:'column'}}>
+        <div className="card estimate-item-list" style={{overflow:'hidden', display:'flex', flexDirection:'column'}}>
           <div className="card-header" style={{flexWrap:'wrap', gap:6}}>
             <span className="card-title">■ 견적서 목록</span>
             {selectedShip && <span style={{fontSize:12, color:'var(--blue)', fontWeight:'bold'}}>{selectedShip.CustName}</span>}
@@ -5580,6 +5591,18 @@ export default function Estimate() {
         </div>
       )}
 
+      {previewCapture && (
+        <style jsx global>{`
+          body.estimate-preview-capture [data-ui-sidebar],
+          body.estimate-preview-capture [data-ui-topbar],
+          body.estimate-preview-capture [data-ui-popupbar] { display: none !important; }
+          .estimate-preview-capture-root .filter-bar,
+          .estimate-preview-capture-root .page-actions,
+          .estimate-preview-capture-root .estimate-shipment-list { display: none !important; }
+          .estimate-preview-capture-root .estimate-split-panel { grid-template-columns: 1fr !important; min-height: 100vh; }
+          .estimate-preview-capture-root .estimate-item-list .card-header .btn { display: none !important; }
+        `}</style>
+      )}
     </div>
   );
 }

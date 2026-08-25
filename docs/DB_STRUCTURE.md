@@ -217,6 +217,7 @@
 - 웹 원장 저장만으로 `OrderDetail`, `ShipmentDetail`, `ShipmentDate`, 재고, 손익 원장을 변경하지 않는다.
 - 견적서관리 등록을 명시적으로 실행할 때만 dnSpy `ClassEstimate.Insert/Update`와 동일한 `Estimate` 행을 생성·갱신한다.
 - 영업지원 수동처리완료는 수기 처리한 웹 원장을 `Status=MANUAL_COMPLETED`로 표시하고 `WebSalesDefectDeductionHistory(ActionType=MANUAL_COMPLETE)`만 남긴다. Estimate를 만들지 않는다.
+- 영업지원 처리상태 옆 견적서 캡쳐는 같은 연도·부모차수·업체의 기존 음수 Estimate를 읽기만 해서 견적서 목록처럼 보여 준다. Estimate INSERT/UPDATE는 없다.
 - `IsCarryoverLedger=1`은 수동 이월업체 원장이며 `OriginalQuantity`와 `RemainingQuantity`를 분리한다. 부분 처리 후 `RemainingQuantity>0`이면 다음 차수 이월 목록에 계속 표시한다.
 - `WebSalesCarryoverApplication`은 이월 원장의 차수별 처리수량·`EstimateKey`·적용 출고키를 보존한다. 이월 등록/조회/잔여수량 갱신은 Order/Shipment/Stock 원장을 변경하지 않는다.
 
