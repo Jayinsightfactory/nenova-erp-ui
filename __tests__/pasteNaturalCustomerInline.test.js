@@ -32,6 +32,11 @@ async function main() {
   ], { savedMappings: {} });
   assert(matched.custKey === 75, `공백/하이픈 업체 매칭 실패: ${matched.custKey}`);
   assert(matched.confidenceLabel === 'high', `업체 매칭 신뢰도 실패: ${matched.confidenceLabel}`);
+
+  const bulletCustomer = resolveImportCustomer('●영남가빈', [
+    { CustKey: 88, CustName: '인터넷공판장 (영남가빈)', CustCode: '', OrderCode: '', CustArea: '' },
+  ], { savedMappings: {} });
+  assert(bulletCustomer.custKey === 88, `카카오 말머리 거래처 매칭 실패: ${bulletCustomer.custKey}`);
   console.log('paste natural customer inline tests passed');
 }
 

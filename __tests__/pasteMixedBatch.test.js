@@ -7,6 +7,7 @@ async function main() {
     buildPasteMixedActionPreview,
     orderPasteMixedBatchTargets,
     pasteBatchActionType,
+    validatePasteMixedBatchIntent,
   } = await import('../lib/pasteMixedBatch.js');
 
   const mixed = [
@@ -40,6 +41,29 @@ async function main() {
     '실제 실행 배열은 CANCEL 단계와 ADD 단계가 섞이면 안 된다.',
   );
   assert.deepEqual(orderPasteMixedBatchTargets([]), [], '빈 일괄 요청은 그대로 비어 있어야 한다.');
+
+  const partialCustomerIntent = validatePasteMixedBatchIntent([
+    { id: 1, custName: '로뎀농원', custMatch: { CustKey: 11, CustName: '로뎀농원' }, items: [
+      { prodKey: 201, qty: 1, action: '취소', inputName: '돈셀' },
+    ] },
+    { id: 2, custName: '●영남가빈', custMatch: null, items: [
+      { prodKey: 201, qty: 1, action: '추가', inputName: '돈셀' },
+    ] },
+  ]);
+  assert.equal(partialCustomerIntent.intendedCount, 2, '화면의 취소+추가 전체 행 수를 보존해야 한다.');
+  assert.equal(partialCustomerIntent.valid, false, '추가 업체가 미확인이면 전체 일괄을 차단해야 한다.');
+  assert.equal(partialCustomerIntent.issues.filter((row) => row.reason === 'customer').length, 1,
+    '거래처 미확인 행을 저장 대상에서 조용히 제외하면 안 된다.');
+
+  const completeIntent = validatePasteMixedBatchIntent([
+    { id: 1, custMatch: { CustKey: 11, CustName: '로뎀농원' }, items: [
+      { prodKey: 201, qty: 1, action: '취소', inputName: '돈셀' },
+    ] },
+    { id: 2, custMatch: { CustKey: 22, CustName: '인터넷공판장 (영남가빈)' }, items: [
+      { prodKey: 201, qty: 1, action: '추가', inputName: '돈셀' },
+    ] },
+  ]);
+  assert.equal(completeIntent.valid, true, '거래처·품목·수량이 모두 확인되면 전체 일괄을 허용해야 한다.');
 
   const product = { OutUnit: '박스', EstUnit: '박스', BunchOf1Box: 10, SteamOf1Box: 100 };
   assert.deepEqual(
@@ -84,6 +108,11 @@ async function main() {
     pasteSource,
     /const targets = orderPasteMixedBatchTargets\(eligibleTargets\);[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/,
     '페이지의 실제 API 실행 배열은 CANCEL→ADD 순서로 만든 뒤 단일 트랜잭션 API에 전달해야 한다.',
+  );
+  assert.match(
+    pasteSource,
+    /const intent = validatePasteMixedBatchIntent\(orders\);[\s\S]*if \(!intent\.valid\)[\s\S]*return;[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/,
+    '미확인 행이 하나라도 있으면 API 호출 전에 전체 일괄을 차단해야 한다.',
   );
   assert.match(
     pasteSource,

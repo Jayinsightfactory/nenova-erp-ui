@@ -81,6 +81,7 @@
     "cancelApiPolicy": "the atomic API reuses the existing type=CANCEL and mode=AUTO_CANCEL policy",
     "addApiPolicy": "the atomic API reuses the existing type=ADD combined order+shipment policy",
     "failurePolicy": "all-or-nothing; any entry failure rolls back every CANCEL and ADD entry, the UI reports success 0 and all rows rolled back, and the user reruns the full batch after correcting the cause",
+    "clientPreflightPolicy": "every non-skipped pasted row must have a confirmed CustKey, ProdKey, and positive quantity before the first write; an unmatched ADD may never be omitted while matched CANCEL rows are submitted",
     "forcePolicy": "force is always false for the global paste batch and cannot be enabled by an entry payload",
     "uiRefreshPolicy": "registered order state, shipment quantity state, and order history refresh only after success=true for the whole atomic batch",
     "sideEffects": [
