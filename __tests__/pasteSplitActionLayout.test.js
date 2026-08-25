@@ -12,7 +12,7 @@ assert.match(page, /const handleAllMixedDistribute = async/);
 assert.match(page, /const targets = orderPasteMixedBatchTargets\(eligible\);[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/);
 assert.match(page, /entries: targets\.map\(t =>/);
 assert.match(page, /if \(matched\) \{[\s\S]*await fetchShipmentQtys\([\s\S]*matched\.custKey,[\s\S]*effectiveWeek/);
-assert.match(page, /type=custItems&week=\$\{encodeURIComponent\(week\)\}&year=\$\{encodeURIComponent\(orderYear\)\}&custKey=/);
+assert.match(page, /\/api\/shipment\/adjust\?type=current&week=\$\{encodeURIComponent\(week\)\}&year=\$\{encodeURIComponent\(orderYear\)\}&custKey=/);
 assert.match(page, /일괄 대상이 아니었던 기존 품목[\s\S]*await Promise\.all\(orders\.filter/);
 assert.match(page, /if \(!response\.ok \|\| result\.success !== true\)[\s\S]*throw rollbackError/);
 assert.match(page, /okCount: 0,[\s\S]*failCount: targets\.length,[\s\S]*rolledBack: true/);

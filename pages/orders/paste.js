@@ -1,5 +1,5 @@
 // pages/orders/paste.js — 붙여넣기 주문등록 (Claude AI 파싱, 다중거래처/변경사항, 미매칭 질문)
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
@@ -19,6 +19,7 @@ import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChange
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
+import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence } from '../../hooks/useErpEditPresence';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
 const CUSTOMER_MAPPING_KEY = 'nenova_paste_customer_mappings';
@@ -1026,6 +1027,141 @@ export default function PasteOrderPage() {
   const [orderHistoryRows, setOrderHistoryRows] = useState([]);
   const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
   const [orderHistoryOpen, setOrderHistoryOpen] = useState(false);
+  const [pastePresenceByCust, setPastePresenceByCust] = useState({});
+  const pasteSavingCustRef = useRef(new Set());
+  const pasteClientId = getErpEditClientId();
+
+  const pasteScopeFor = (custKey) => ({
+    year: selectedYearFromWeek(week), week, custKey: Number(custKey), pageCode: 'paste', clientId: pasteClientId,
+  });
+  const setPastePresence = (custKey, data, extra = {}) => {
+    const lease = data?.lease || {};
+    setPastePresenceByCust(prev => ({ ...prev, [String(custKey)]: {
+      active: Boolean(lease.active), ownedByMe: Boolean(lease.ownedByMe), ownerName: lease.ownerName || '',
+      pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', digest: data?.digest || '',
+      token: lease.token || '', stale: Boolean(data?.stale), loading: false, error: '', ...extra,
+    } }));
+  };
+  const pasteWriteError = (response, data, fallback) => {
+    const error = new Error(data?.error || fallback);
+    error.code = data?.code || (response?.status === 409 ? 'ERP_EDIT_STALE' : 'PASTE_WRITE_FAILED');
+    error.data = data || {};
+    return error;
+  };
+  const keepPasteGuardWarning = (custKey, error) => {
+    const code = error?.code || error?.data?.code;
+    if (code !== 'ERP_EDIT_STALE' && code !== 'ERP_EDIT_LOCKED') return;
+    const lease = error?.data?.lease || {};
+    setPastePresenceByCust(prev => ({ ...prev, [String(custKey)]: {
+      ...(prev[String(custKey)] || {}),
+      active: code === 'ERP_EDIT_LOCKED' || Boolean(lease.active),
+      ownedByMe: false,
+      ownerName: lease.ownerName || prev[String(custKey)]?.ownerName || '',
+      stale: code === 'ERP_EDIT_STALE',
+      loading: false,
+      error: '',
+    } }));
+  };
+  const acquirePasteGuard = async (custKey) => {
+    const currentPresence = pastePresenceByCust[String(custKey)] || {};
+    if (currentPresence.stale) {
+      const error = new Error('nenova.exe 또는 다른 화면에서 값이 변경되었습니다. 새로고침 후 다시 확인하세요.');
+      error.code = 'ERP_EDIT_STALE';
+      throw error;
+    }
+    const scope = { ...pasteScopeFor(custKey), expectedDigest: currentPresence.digest || '' };
+    const data = await acquireErpEditPresence(scope);
+    if (!data?.lease?.ownedByMe || !data?.lease?.token) {
+      const error = new Error(`${data?.lease?.ownerName || '다른 사용자'}님이 이 업체를 작업 중입니다.`);
+      error.code = 'ERP_EDIT_LOCKED';
+      error.data = data;
+      throw error;
+    }
+    setPastePresence(custKey, data);
+    const guard = { scope, data, guard: editGuardFromPresence({
+      token: data.lease.token, digest: data.digest, clientId: pasteClientId, custKey, pageCode: 'paste',
+    }, { custKey, pageCode: 'paste' }) };
+    // 품목·재고 계산이 길어져도 임대가 만료되지 않도록 저장 직후부터 20초마다 연장한다.
+    guard.heartbeatTimer = setInterval(() => {
+      heartbeatErpEditPresence({ ...scope, token: guard.data?.lease?.token })
+        .then(next => setPastePresence(custKey, next))
+        .catch(error => keepPasteGuardWarning(custKey, error));
+    }, 20_000);
+    return guard;
+  };
+  const releasePasteGuard = async (guard) => {
+    if (guard?.heartbeatTimer) clearInterval(guard.heartbeatTimer);
+    if (!guard?.scope || !guard?.data?.lease?.token) return;
+    await releaseErpEditPresence({ ...guard.scope, token: guard.data.lease.token }).catch(() => {});
+  };
+  const beginPasteSaving = (custKey) => { pasteSavingCustRef.current.add(String(custKey)); };
+  const endPasteSaving = async (guard, { refreshBaseline = false } = {}) => {
+    if (!guard?.scope) return;
+    pasteSavingCustRef.current.delete(String(guard.scope.custKey));
+    // 부분 성공/실패/409에서는 새 지문을 받아들이지 않는다. 입력과 경고를 유지한다.
+    if (!refreshBaseline) return;
+    try {
+      const data = await refreshErpEditPresence({ ...guard.scope, token: guard.data?.lease?.token });
+      if (data) setPastePresence(guard.scope.custKey, data);
+    } catch (error) {
+      const stale = error?.code === 'ERP_EDIT_STALE' || error?.data?.code === 'ERP_EDIT_STALE';
+      setPastePresenceByCust(prev => ({ ...prev, [String(guard.scope.custKey)]: {
+        ...(prev[String(guard.scope.custKey)] || {}), stale, loading: false, error: stale ? '' : (error.message || '작업 상태 확인 실패'),
+      } }));
+    }
+  };
+  const acquireAllPasteGuards = async (custKeys) => {
+    const guards = [];
+    try {
+      for (const custKey of [...new Set(custKeys.map(Number).filter(Boolean))].sort((a, b) => a - b)) {
+        guards.push(await acquirePasteGuard(custKey));
+      }
+      return guards;
+    } catch (error) {
+      await Promise.all(guards.map(releasePasteGuard));
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    const scopeYear = selectedYearFromWeek(week);
+    const custKeys = [...new Set(orders.map(order => Number(order.custMatch?.CustKey)).filter(Boolean))];
+    if (!scopeYear || !week || custKeys.length === 0) { setPastePresenceByCust({}); return undefined; }
+    setPastePresenceByCust(prev => {
+      const next = { ...prev };
+      custKeys.forEach((custKey) => {
+        const key = String(custKey);
+        if (!next[key]) next[key] = { loading: true, error: '', stale: false };
+      });
+      return next;
+    });
+    let cancelled = false;
+    const loadStatuses = () => Promise.all(custKeys.map(async (custKey) => {
+      const query = new URLSearchParams({ year: scopeYear, week, custKey: String(custKey), pageCode: 'paste', clientId: pasteClientId });
+      const response = await fetch(`/api/erp/edit-presence?${query.toString()}`, { credentials: 'same-origin' });
+      const data = await response.json().catch(() => ({}));
+      return { custKey, data, ok: response.ok && data.success !== false };
+    })).then(rows => {
+      if (cancelled) return;
+      rows.forEach(({ custKey, data, ok }) => {
+        if (ok) setPastePresenceByCust(prev => {
+          const previous = prev[String(custKey)] || {};
+          const changedElsewhere = !pasteSavingCustRef.current.has(String(custKey))
+            && previous.digest && data?.digest && previous.digest !== data.digest;
+          const lease = data?.lease || {};
+          return { ...prev, [String(custKey)]: {
+            active: Boolean(lease.active), ownedByMe: Boolean(lease.ownedByMe), ownerName: lease.ownerName || '',
+            pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', digest: data?.digest || previous.digest || '',
+            token: lease.token || previous.token || '', stale: Boolean(data?.stale) || changedElsewhere || previous.stale, loading: false, error: '',
+          } };
+        });
+        else setPastePresenceByCust(prev => ({ ...prev, [String(custKey)]: { loading: false, error: data.error || '작업 상태 확인 실패', stale: false } }));
+      });
+    }).catch(() => {});
+    loadStatuses();
+    const timer = setInterval(loadStatuses, 8_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [week, orders.map(order => order.custMatch?.CustKey || '').join('|')]);
 
   useEffect(() => {
     const localProductCache = loadCache();
@@ -2181,10 +2317,15 @@ export default function PasteOrderPage() {
     if (!confirm(`${order.custMatch.CustName} / ${week}\n${targets.length}개 품목 ${retryLabel}:\n\n${previewLines.join('\n')}${excludedBlock}\n\n취소 ${cancelTargets.length}건을 먼저 처리한 뒤 추가·분배 ${addTargets.length}건을 처리합니다.\n진행하시겠습니까?\n(추가는 주문등록+분배 동시 +, 취소는 분배가 있으면 분배만 − / 없으면 주문만 −)`)) return;
 
     setBulkRunning(true); setBulkResult(null);
+    let pasteGuard;
+    let saveSucceeded = false;
     const details = [];
-    for (const t of targets) {
-      const type = pasteBatchActionType(t);
-      try {
+    try {
+      pasteGuard = await acquirePasteGuard(order.custMatch.CustKey);
+      beginPasteSaving(order.custMatch.CustKey);
+      for (const t of targets) {
+        const type = pasteBatchActionType(t);
+        try {
         const r = await fetch('/api/shipment/adjust', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
           body: JSON.stringify({
@@ -2194,6 +2335,7 @@ export default function PasteOrderPage() {
             ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
             memo: `붙여넣기 일괄${type === 'ADD' ? '추가' : '취소'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
             force: false,
+            editGuard: pasteGuard.guard,
           }),
         });
         const j = await r.json();
@@ -2201,6 +2343,7 @@ export default function PasteOrderPage() {
           ...t,
           type,
           ok: !!j.success,
+          code: j.code,
           error: j.error,
           qtyBefore: j.qtyBefore,
           qtyAfter: j.qtyAfter,
@@ -2213,9 +2356,19 @@ export default function PasteOrderPage() {
           totalIn: j.totalIn,
           totalOut: j.totalOut,
         });
-      } catch (e) {
-        details.push({ ...t, type, ok: false, error: e.message });
+        } catch (e) {
+          details.push({ ...t, type, ok: false, error: e.message });
+        }
       }
+      saveSucceeded = details.length === targets.length && details.every(row => row.ok);
+      details.filter(row => row.code === 'ERP_EDIT_STALE' || row.code === 'ERP_EDIT_LOCKED')
+        .forEach(row => keepPasteGuardWarning(order.custMatch.CustKey, { code: row.code, data: row }));
+    } catch (e) {
+      keepPasteGuardWarning(order.custMatch.CustKey, e);
+      details.push(...targets.map(t => ({ ...t, type: pasteBatchActionType(t), ok: false, error: e.message })));
+    } finally {
+      await endPasteSaving(pasteGuard, { refreshBaseline: saveSucceeded });
+      await releasePasteGuard(pasteGuard);
     }
     const okCount = details.filter(x => x.ok).length;
     const failCount = details.filter(x => !x.ok).length;
@@ -2306,7 +2459,14 @@ export default function PasteOrderPage() {
 
     setBulkRunning(true);
     setBulkResult(null);
+    let pasteGuards = [];
+    let allSucceeded = false;
     try {
+      // 전체 처리는 업체키 순서로 모두 작업권을 먼저 얻는다. 하나라도 다른 작업 중이면
+      // 저장 API를 한 번도 호출하지 않고, 이미 확보한 업체도 즉시 풀어준다.
+      pasteGuards = await acquireAllPasteGuards(targets.map(t => t.custKey));
+      pasteGuards.forEach(guard => beginPasteSaving(guard.scope.custKey));
+      const guardByCust = new Map(pasteGuards.map(item => [String(item.scope.custKey), item.guard]));
       const response = await fetch('/api/shipment/adjust-batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({
@@ -2331,13 +2491,14 @@ export default function PasteOrderPage() {
               ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
               memo: `붙여넣기 전체 일괄${type === 'CANCEL' ? '취소' : '추가'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
               force: false,
+              editGuard: guardByCust.get(String(t.custKey)),
             };
           }),
         }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result.success !== true) {
-        const rollbackError = new Error(result.error || '전체 일괄 처리에 실패했습니다.');
+        const rollbackError = pasteWriteError(response, result, '전체 일괄 처리에 실패했습니다.');
         rollbackError.failedIndex = Number.isInteger(result.failedIndex)
           ? result.failedIndex
           : Number.isInteger(result.failedEntry?.inputIndex)
@@ -2356,6 +2517,7 @@ export default function PasteOrderPage() {
         type: pasteBatchActionType(target),
         ok: true,
       }));
+      allSucceeded = true;
       setBulkResult({ orderId: 'ALL', okCount: details.length, failCount: 0, details, rolledBack: false });
       // 원장 반영이 전체 성공한 경우에만 DB 저장내역/분배수량/히스토리를 화면에 반영한다.
       setRegisteredOrders(prev => {
@@ -2392,6 +2554,7 @@ export default function PasteOrderPage() {
       });
       loadOrderHistorySummary(week, orders);
     } catch (error) {
+      [...new Set(targets.map(target => target.custKey))].forEach(custKey => keepPasteGuardWarning(custKey, error));
       const details = targets.map(target => ({
         ...target,
         type: pasteBatchActionType(target),
@@ -2410,6 +2573,8 @@ export default function PasteOrderPage() {
       });
     } finally {
       setBulkRunning(false);
+      await Promise.all(pasteGuards.map(guard => endPasteSaving(guard, { refreshBaseline: allSucceeded })));
+      await Promise.all(pasteGuards.map(releasePasteGuard));
     }
   };
 
@@ -2480,16 +2645,21 @@ export default function PasteOrderPage() {
 
     setBulkRunning(true); setBulkResult(null);
     let details = [];
+    let pasteGuard;
+    let saveSucceeded = false;
     try {
+      pasteGuard = await acquirePasteGuard(ro.custKey);
+      beginPasteSaving(ro.custKey);
       const r = await fetch('/api/shipment/distribute', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({
           week: targetWeek,
           entries: targets.map((t) => ({ custKey: ro.custKey, prodKey: t.prodKey, outQty: t.qty })),
+          editGuard: pasteGuard.guard,
         }),
       });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok || j.success === false) throw new Error(j.error || '일괄 분배 저장 실패');
+      if (!r.ok || j.success === false) throw pasteWriteError(r, j, '일괄 분배 저장 실패');
       const resultByProd = new Map((j.results || []).map((row) => [Number(row.prodKey), row]));
       details = targets.map((t) => {
         const shipKey = `${ro.custKey}-${t.prodKey}-${targetWeek}`;
@@ -2505,10 +2675,14 @@ export default function PasteOrderPage() {
           outQtyAfter: Number(saved?.outQty ?? t.qty),
         };
       });
+      saveSucceeded = true;
     } catch (e) {
+      keepPasteGuardWarning(ro.custKey, e);
       // 서버 일괄 트랜잭션이므로 실패 시 모든 행이 롤백된다.
       details = targets.map((t) => ({ ...t, type: 'DISTRIBUTE', ok: false, error: e.message }));
     }
+    await endPasteSaving(pasteGuard, { refreshBaseline: saveSucceeded });
+    await releasePasteGuard(pasteGuard);
     const okCount = details.filter(x => x.ok).length;
     const failCount = details.filter(x => !x.ok).length;
     setBulkResult({ orderId: oid, okCount, failCount, details });
@@ -2537,7 +2711,11 @@ export default function PasteOrderPage() {
     if (!(delta > 0)) { alert('수량은 0보다 커야 합니다.'); return; }
     if (!(await ensureWeekCanDistribute(adjustModal.week, [adjustModal.prodKey]))) return;
     setAdjustSaving(true);
+    let pasteGuard;
+    let saveSucceeded = false;
     try {
+      pasteGuard = await acquirePasteGuard(adjustModal.custKey);
+      beginPasteSaving(adjustModal.custKey);
       const r = await fetch('/api/shipment/adjust', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({
@@ -2546,9 +2724,11 @@ export default function PasteOrderPage() {
           type: adjustModal.type, qty: delta, unit: adjustModal.unit,
           ...(adjustModal.type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
           memo: '붙여넣기 등록 후 분배조정', force,
+          editGuard: pasteGuard.guard,
         }),
       });
       const d = await r.json();
+      if ((!r.ok || !d.success) && (d.code === 'ERP_EDIT_STALE' || d.code === 'ERP_EDIT_LOCKED')) throw pasteWriteError(r, d, `${adjustModal.type} 저장 실패`);
       // 입고 미등록/초과 차단 → 강제 진행 옵션 안내
       if (!d.success && !force && d.error && (d.error.includes('입고 미등록') || d.error.includes('입고') && d.error.includes('초과'))) {
         const proceed = confirm(`${d.error}\n\n그래도 진행하시겠습니까?`);
@@ -2581,13 +2761,17 @@ export default function PasteOrderPage() {
         }
         loadOrderHistorySummary(adjustModal.week, orders);
         setAdjustModal(null); setAdjustQty('');
+        saveSucceeded = true;
       } else {
         alert(`${adjustModal.type} 실패: ${d.error}`);
       }
     } catch (e) {
-      alert('네트워크 오류: ' + e.message);
+      keepPasteGuardWarning(adjustModal.custKey, e);
+      if (e?.code !== 'ERP_EDIT_STALE' && e?.code !== 'ERP_EDIT_LOCKED') alert('네트워크 오류: ' + e.message);
     } finally {
       setAdjustSaving(false);
+      await endPasteSaving(pasteGuard, { refreshBaseline: saveSucceeded });
+      await releasePasteGuard(pasteGuard);
     }
   };
 
@@ -2642,6 +2826,8 @@ export default function PasteOrderPage() {
     const { week: orderWeek, year: orderYear } = resolveOrderWeekQuery(week);
 
     updateOrder(oid, { saving: true, resultMsg: '' });
+    let pasteGuard;
+    let saveSucceeded = false;
 
     // 저장 직전 스냅샷 — 변경 셀 표시용 (prev qty per ProdKey)
     const prevSnapshot = {};
@@ -2656,6 +2842,8 @@ export default function PasteOrderPage() {
     } catch { /* 스냅샷 실패해도 등록은 진행 */ }
 
     try {
+      pasteGuard = await acquirePasteGuard(order.custMatch.CustKey);
+      beginPasteSaving(order.custMatch.CustKey);
       // 취소는 현재 DB에 활성 분배가 있으면 분배만, 없으면 주문만 취소한다.
       // 취소를 먼저 처리해 실패 시 양수 주문등록이 뒤늦게 저장되지 않도록 한다.
       const cancelResults = [];
@@ -2674,10 +2862,11 @@ export default function PasteOrderPage() {
             unit: item.unit,
             mode: 'AUTO_CANCEL',
             memo: `붙여넣기 주문 취소: ${item.prodName} ${Math.abs(Number(item.qty || 0))}${item.unit}`,
+            editGuard: pasteGuard.guard,
           }),
         });
         const result = await res.json();
-        if (!result.success) throw new Error(result.error || `${item.prodName} 취소 실패`);
+        if (!res.ok || !result.success) throw pasteWriteError(res, result, `${item.prodName} 취소 실패`);
         cancelResults.push({ ...item, status: 'CANCELLED', mode: result.mode, policyReason: result.policyReason });
       }
 
@@ -2687,10 +2876,10 @@ export default function PasteOrderPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ custKey: order.custMatch.CustKey, week: orderWeek, year: orderYear, items, delta: true, source: 'paste' }),
+          body: JSON.stringify({ custKey: order.custMatch.CustKey, week: orderWeek, year: orderYear, items, delta: true, source: 'paste', editGuard: pasteGuard.guard }),
         });
         d = await res.json();
-        if (!d.success) throw new Error(d.error || '주문등록 실패');
+        if (!res.ok || !d.success) throw pasteWriteError(res, d, '주문등록 실패');
       }
 
       const orderResults = d.results || [];
@@ -2722,8 +2911,14 @@ export default function PasteOrderPage() {
         }
       } catch { /* 조회 실패해도 저장은 완료 */ }
       loadOrderHistorySummary(week, orders);
+      saveSucceeded = true;
     } catch (e) {
-      updateOrder(oid, { saving: false, resultMsg: `❌ 취소/주문등록 실패: ${e.message}` });
+      keepPasteGuardWarning(order.custMatch.CustKey, e);
+      const locked = e?.code === 'ERP_EDIT_LOCKED' || e?.data?.code === 'ERP_EDIT_LOCKED';
+      updateOrder(oid, { saving: false, resultMsg: locked ? `⚠️ ${e.message}` : `❌ 취소/주문등록 실패: ${e.message}` });
+    } finally {
+      await endPasteSaving(pasteGuard, { refreshBaseline: saveSucceeded });
+      await releasePasteGuard(pasteGuard);
     }
   };
 
@@ -3032,6 +3227,12 @@ export default function PasteOrderPage() {
   );
   const globalCancelEntries = globalActionEntries.filter(({ item }) => item.action === '취소');
   const globalAddEntries = globalActionEntries.filter(({ item }) => item.action !== '취소');
+  const anyPasteLocked = globalActionEntries.some(({ order }) => {
+    const presence = pastePresenceByCust[String(order.custMatch?.CustKey)] || {};
+    return presence.loading || (presence.active && !presence.ownedByMe) || presence.stale || Boolean(presence.error);
+  });
+  const adjustPresence = pastePresenceByCust[String(adjustModal?.custKey)] || {};
+  const adjustBlocked = Boolean(adjustPresence.loading || (adjustPresence.active && !adjustPresence.ownedByMe) || adjustPresence.stale || adjustPresence.error);
   const actionPreview = (order, item) => {
     if (!order.custMatch?.CustKey || !item.prodKey || !registeredOrders[order.id]) return null;
     const shipmentKey = `${order.custMatch.CustKey}-${item.prodKey}-${week}`;
@@ -3587,7 +3788,7 @@ export default function PasteOrderPage() {
                 ? `성공 0건 · 전체 ${bulkResult.failCount}건 모두 롤백 — 수정 후 전체 재실행`
                 : `성공 ${bulkResult.okCount}건 · 실패 0건`}
             </span>}
-            <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning || globalActionEntries.length === 0}
+            <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning || anyPasteLocked || globalActionEntries.length === 0}
               style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: bulkRunning ? '#90a4ae' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : 'pointer' }}>
               {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
             </button>
@@ -3690,6 +3891,9 @@ export default function PasteOrderPage() {
           const addEntries = actionEntries.filter(({ item }) => !item.skip && item.action !== '취소');
           const bulkFlowers = [...new Set(matchedItems.map(it => it.flowerName || '기타'))].sort();
           const bulkEdit = bulkUnitEdits[order.id] || {};
+          const orderPresence = pastePresenceByCust[String(order.custMatch?.CustKey)] || {};
+          const orderLocked = Boolean(orderPresence.active && !orderPresence.ownedByMe);
+          const orderBlocked = Boolean(orderPresence.loading || orderLocked || orderPresence.stale || orderPresence.error);
 
           return (
             <div key={order.id} style={{ border: '1px solid #c5cae9', borderRadius: 8, marginBottom: 16, overflow: 'hidden' }}>
@@ -3703,6 +3907,10 @@ export default function PasteOrderPage() {
                   <>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>✅ {order.custMatch.CustName}</span>
                     <span style={{ fontSize: 12, opacity: 0.8 }}>{order.custMatch.CustArea}</span>
+                    {orderLocked && <span role="alert" style={{fontSize:11, background:'#fff3cd', color:'#7c2d12', border:'1px solid #fbbf24', borderRadius:4, padding:'3px 7px', fontWeight:900}}>{orderPresence.ownerName || '다른 사용자'}님이 이 업체를 작업 중</span>}
+                    {orderPresence.loading && <span style={{fontSize:11, background:'#e3f2fd', color:'#0d47a1', border:'1px solid #90caf9', borderRadius:4, padding:'3px 7px', fontWeight:900}}>작업 상태 확인 중</span>}
+                    {orderPresence.stale && <span role="alert" style={{fontSize:11, background:'#fee2e2', color:'#991b1b', border:'1px solid #fca5a5', borderRadius:4, padding:'3px 7px', fontWeight:900}}>전산 또는 다른 화면에서 값 변경됨</span>}
+                    {orderPresence.error && <span role="alert" style={{fontSize:11, background:'#fee2e2', color:'#991b1b', border:'1px solid #fca5a5', borderRadius:4, padding:'3px 7px', fontWeight:900}}>작업 상태 확인 실패 — 저장 전 다시 확인 필요</span>}
                     {order.custName && order.custName !== order.custMatch.CustName && (
                       <span style={{ fontSize: 11, background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 10, padding: '2px 8px' }}>
                         입력 {order.custName} → {order.custFromMapping ? '저장매칭' : '자동/수동'} 적용
@@ -4094,7 +4302,7 @@ export default function PasteOrderPage() {
                       </button>
                       <button
                         onClick={() => handleDistributeOnly(order.id)}
-                        disabled={bulkRunning}
+                        disabled={bulkRunning || orderBlocked}
                         title="등록한 주문수량 그대로 출고분배만 다시 저장합니다. 주문등록은 재가산하지 않습니다."
                         style={{
                           marginLeft: 'auto',
@@ -4121,7 +4329,7 @@ export default function PasteOrderPage() {
                         {bulkResult.failCount > 0 && (
                           <button
                             onClick={() => handleBulkDistribute(order.id, { failedOnly: true })}
-                            disabled={bulkRunning}
+                            disabled={bulkRunning || orderBlocked}
                             title="성공한 품목은 제외하고 이 결과의 실패 품목만 다시 처리합니다."
                             style={{ marginLeft: 8, fontSize: 11, padding: '0 8px', background: '#e65100', color: '#fff', border: '1px solid #e65100', borderRadius: 4, cursor: bulkRunning ? 'wait' : 'pointer' }}
                           >
@@ -4230,11 +4438,11 @@ export default function PasteOrderPage() {
                                 </td>
                                 <td style={{ padding: '4px 8px', textAlign: 'center', color: '#666' }}>{normalizeOrderUnit(it.unit)}</td>
                                 <td style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'CANCEL', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: normalizeOrderUnit(it.unit) }); setAdjustQty(''); }}
+                                  <button disabled={orderBlocked} onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'CANCEL', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: normalizeOrderUnit(it.unit) }); setAdjustQty(''); }}
                                     style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#c62828', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', marginRight: 4 }}>
                                     − 취소
                                   </button>
-                                  <button onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'ADD', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: normalizeOrderUnit(it.unit) }); setAdjustQty(''); }}
+                                  <button disabled={orderBlocked} onClick={() => { setAdjustModal({ custKey: ro.custKey, prodKey: it.prodKey, week: ro.week, type: 'ADD', currentQty: shipQty, prodName: it.displayName || it.prodName, custName: ro.custName, unit: normalizeOrderUnit(it.unit) }); setAdjustQty(''); }}
                                     style={{ padding: '2px 8px', fontSize: 11, fontWeight: 700, background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
                                     + 추가
                                   </button>
@@ -4355,7 +4563,7 @@ export default function PasteOrderPage() {
                 style={{ padding: '8px 18px', border: '1px solid #ccc', background: '#f5f5f5', borderRadius: 5, cursor: 'pointer', color: '#666' }}>
                 취소
               </button>
-              <button onClick={handleAdjust} disabled={adjustSaving || !(parseFloat(adjustQty) > 0)}
+              <button onClick={handleAdjust} disabled={adjustSaving || adjustBlocked || !(parseFloat(adjustQty) > 0)}
                 style={{ padding: '8px 22px', background: adjustSaving ? '#aaa' : (adjustModal.type === 'ADD' ? '#2e7d32' : '#c62828'),
                   color: '#fff', border: 'none', borderRadius: 5, fontWeight: 700, cursor: adjustSaving ? 'wait' : 'pointer' }}>
                 {adjustSaving ? '저장중...' : (adjustModal.type === 'ADD' ? '추가 확정' : '취소 확정')}

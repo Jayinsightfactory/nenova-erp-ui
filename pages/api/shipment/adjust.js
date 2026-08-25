@@ -30,6 +30,7 @@ import { assertFarmAssignmentTotal, normalizeFarmAssignments } from '../../../li
 import { FARM_CANDIDATE_SCOPE_SQL } from '../../../lib/shipmentFarmCandidates.js';
 import { calculateShipmentAvailability, hasInsufficientShipmentStock, normalizeShipmentQty } from '../../../lib/shipmentAvailability.js';
 import { loadShipmentAdjustmentCurrent } from '../../../lib/shipmentAdjustmentCurrent.js';
+import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -487,6 +488,7 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
     error.statusCode = 400;
     throw error;
   }
+  await assertErpEditGuard(tQ, { orderYear, orderWeek, custKey: Number(custKey) }, user, body);
   const pivotDistribution = isPivotDistributionMode(mode);
   const autoCancel = isAutoCancelMode(mode);
   const undoShipmentOnly = String(mode || '').trim().toUpperCase() === 'PASTE_UNDO_SHIPMENT_ONLY';
@@ -1052,6 +1054,7 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
         }
       );
 
+      const editGuardAfter = await advanceErpEditGuard(tQ, { orderYear, orderWeek, custKey: Number(custKey) }, user, body);
       return {
         type,
         delta,
@@ -1078,6 +1081,8 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
         totalIn,
         totalOut,
         sdetailKey: targetSdk,
+        editDigestAfter: editGuardAfter.editDigestAfter,
+        revision: editGuardAfter.revision,
         farmAssignmentsProvided,
       };
 }
@@ -1102,6 +1107,9 @@ async function postAdjust(req, res) {
       success: false,
       code: err?.code,
       error: err.message,
+      lease: err?.lease || null,
+      expectedDigest: err?.expectedDigest,
+      actualDigest: err?.actualDigest,
     });
   }
 }

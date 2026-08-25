@@ -69,6 +69,8 @@ import {
 } from '../lib/estimateManagerPrint';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
+import ErpEditPresenceBanner from '../components/ErpEditPresenceBanner';
+import useErpEditPresence from '../hooks/useErpEditPresence';
 import { confirmedWeekFixCycleStockFlags, shouldSkipFixCycleStockCalc } from '../lib/estimateAdditionalProduct';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
@@ -1334,6 +1336,27 @@ export default function Estimate() {
   }, [selectedId, shipments, weekNum]);
 
   const selectedShip = shipments.find(s => estimateShipmentGroupId(s) === selectedId);
+  // 선택 업체의 첫 세부차수를 기준으로 작업권을 확보한다. 실제 저장 API에는 선택 연도와
+  // 업체키도 함께 전달되어 전년도 같은 차수와 섞이지 않는다.
+  const selectedEditWeek = String(selectedShip?.SubWeeks || '').split(',').map(v => v.trim()).find(Boolean)
+    || (weekNum ? `${String(weekNum).padStart(2, '0')}-01` : '');
+  const estimateEditPresence = useErpEditPresence({
+    year: yearStr,
+    week: selectedEditWeek,
+    custKey: selectedShip?.CustKey,
+    pageCode: 'estimate',
+    enabled: Boolean(selectedShip?.CustKey && selectedEditWeek),
+  });
+  const ensureEstimateEditAllowed = () => {
+    if (!estimateEditPresence.blocked) return true;
+    setErr(estimateEditPresence.stale
+      ? 'nenova.exe 또는 다른 화면에서 값이 변경되었습니다. 새로고침 후 다시 확인하세요.'
+      : estimateEditPresence.locked
+        ? `${estimateEditPresence.ownerName || '다른 사용자'}님이 이 업체를 작업 중입니다.`
+        : '이 업체의 작업 상태를 확인한 뒤 다시 시도하세요.');
+    return false;
+  };
+  const estimateEditGuard = () => ({ ...estimateEditPresence.editGuard, custKey: selectedShip?.CustKey || '' });
 
   // ── 단가 수정 관련 함수 (P3) ─────────────────────────
   // 현재 선택된 그룹의 ShipmentKey 목록
@@ -1419,6 +1442,7 @@ export default function Estimate() {
         body: JSON.stringify({
           orderYear: yearStr,
           custKey: selectedShip?.CustKey || rows[0]?.item?.CustKey,
+          editGuard: estimateEditGuard(),
           items: rows.map(p => ({
             sdateKey: p.keyNumber,
             quantity: p.newQty,
@@ -1484,13 +1508,19 @@ export default function Estimate() {
       orderYear: selectedYear,
       action,
       ...extraBody,
+      custKey: selectedShip?.CustKey,
+      editGuard: estimateEditGuard(),
       // 자동 편집은 뒤 차수 확정 경고를 강제로 우회하지 않는다.
       force: false,
       countryFlowers,
       stockProdKeys,
     });
     if (!d.success) {
-      throw new Error(d.error || d.message || `${week} ${action === 'unfix' ? '확정취소' : '재확정'} 실패`);
+      const error = new Error(d.error || d.message || `${week} ${action === 'unfix' ? '확정취소' : '재확정'} 실패`);
+      error.code = d.code;
+      error.data = d;
+      if (d.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
+      throw error;
     }
     return d;
   };
@@ -1747,6 +1777,9 @@ export default function Estimate() {
   // 수량 수정 적용 — 정상출고는 ShipmentDate.EstQuantity, 차감은 Estimate.Quantity에 저장
   const applyQtyEdits = async () => {
     if (editedQtyCount === 0) return;
+    if (!ensureEstimateEditAllowed()) return;
+    estimateEditPresence.beginSaving();
+    let saveSucceeded = false;
     setQtyApplying(true);
     setQtyResult(null);
     setCostApplying(true);
@@ -1792,6 +1825,7 @@ export default function Estimate() {
             quantity: p.newQty,
             unit: p.item.Unit,
             expectedOldQuantity: p.oldQty,
+            editGuard: estimateEditGuard(),
           }),
         });
         const d = await r.json();
@@ -1844,19 +1878,23 @@ export default function Estimate() {
 
       const okCount = results.filter(r => r.ok).length;
       const failCount = results.filter(r => !r.ok).length;
+      if (results.some(r => r.code === 'ERP_EDIT_STALE')) estimateEditPresence.markStale();
       setQtyResult({ results, okCount, failCount });
       if (failCount === 0) setQtyEdits({});
       setCostApplyLog(prev => [...prev, { step: 'done', label: '완료 — 수정 수량 반영 후 견적서 재조회 중' }]);
       setCostResult({ success: failCount === 0, type: 'quantity', changedCount: okCount, error: failCount ? (results.find(r => !r.ok)?.error || '일부 수량 저장 실패') : undefined });
+      saveSucceeded = failCount === 0;
       // 다시 조회하여 화면 갱신
       load(true);
     } catch (e) {
+      if (e?.code === 'ERP_EDIT_STALE' || e?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
       setQtyResult({ error: e.message });
       setCostApplyLog(prev => [...prev, { step: 'error', label: `오류 — ${e.message}` }]);
       setCostResult({ success: false, error: e.message });
     } finally {
       setQtyApplying(false);
       setCostApplying(false);
+      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded });
     }
   };
 
@@ -1864,6 +1902,9 @@ export default function Estimate() {
   async function applyCostEdits() {
     if (editedCount === 0) return;
     if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
+    if (!ensureEstimateEditAllowed()) return;
+    estimateEditPresence.beginSaving();
+    let saveSucceeded = false;
 
     // 차수/거래처 정보
     const week = selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`;
@@ -1947,6 +1988,7 @@ export default function Estimate() {
         orderYear: yearStr,
         week,
         custKey: selectedShip.CustKey,
+        editGuard: estimateEditGuard(),
       };
       // 2026-07-13: 확정된 차수에서 단가를 수정하면 확정해제→적용→재확정 사이클을 타야 하는데
       // cycleWeeks 가 항상 빈 배열로 고정돼 있어서 이 사이클이 아예 동작하지 않던 버그.
@@ -1994,7 +2036,10 @@ export default function Estimate() {
             staleErr.isStaleData = true;
             throw staleErr;
           }
-          throw new Error(d.error || '단가 수정 실패');
+          const editError = new Error(d.error || '단가 수정 실패');
+          editError.code = d.code;
+          editError.data = d;
+          throw editError;
         }
         return d;
       };
@@ -2046,7 +2091,10 @@ export default function Estimate() {
           staleErr.isStaleData = true;
           throw staleErr;
         }
-        throw new Error(d.error || '단가 수정 실패');
+        const editError = new Error(d.error || '단가 수정 실패');
+        editError.code = d.code;
+        editError.data = d;
+        throw editError;
       }
 
       setCostApplyLog(prev => [...prev, {
@@ -2073,12 +2121,14 @@ export default function Estimate() {
       });
       // 성공 시 편집 상태 초기화
       setCostEdits({});
+      saveSucceeded = true;
     } catch (err) {
       setCostApplyLog(prev => [...prev, { step: 'error', label: `❌ 오류: ${err.message}` }]);
       setCostResult({ success: false, error: err.message });
       // STALE_DATA = 화면이 옛 단가를 들고 있음(앞선 시도가 이미 저장됐거나 타인이 수정)
       // → 최신 단가로 화면 자동 갱신. 입력한 수정값(costEdits)은 유지되므로 바로 재적용 가능.
-      if (err.isStaleData) {
+      if (err.isStaleData || err.code === 'ERP_EDIT_STALE') {
+        estimateEditPresence.markStale();
         setCostApplyLog(prev => [...prev, { step: 'cycle', label: '최신 단가로 화면 갱신 중 — 이미 반영된 항목은 값이 일치하게 보입니다' }]);
         try { await reloadSelectedShipmentItems(); load(true); } catch { /* 갱신 실패는 무시 */ }
       }
@@ -2087,12 +2137,16 @@ export default function Estimate() {
       setTimeout(() => {
         // 자동 닫기는 3초 후에만 (성공 시)
       }, 0);
+      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded });
     }
   }
 
   async function applyAllEdits() {
     if (editedCount === 0 && editedQtyCount === 0 && pendingAdds.length === 0) return;
     if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
+    if (!ensureEstimateEditAllowed()) return;
+    estimateEditPresence.beginSaving();
+    let saveSucceeded = false;
 
     setQtyApplying(true);
     setCostApplying(true);
@@ -2222,6 +2276,7 @@ export default function Estimate() {
               quantity: p.newQty,
               unit: p.item.Unit,
               expectedOldQuantity: p.oldQty,
+              editGuard: estimateEditGuard(),
             }),
           });
           const d = await r.json();
@@ -2261,6 +2316,7 @@ export default function Estimate() {
               orderYear: yearStr,
               week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
               custKey: selectedShip.CustKey,
+              editGuard: estimateEditGuard(),
             }),
           });
           const d = await r.json();
@@ -2296,15 +2352,18 @@ export default function Estimate() {
                 estimateAdditional: true,
                 memo: `견적서 추가 품목: ${t.prodName} +${t.qty}${t.unit} 단가출처=${t.costSourceId}`,
                 force: false,
+                editGuard: estimateEditGuard(),
               });
               addResults.push({ ...t, ok: !!d.success, error: d.error });
             } catch (e) {
-              addResults.push({ ...t, ok: false, error: e.message });
+              addResults.push({ ...t, ok: false, code: e?.code || e?.data?.code, error: e.message });
             }
           }
           if (addResults.some(r => !r.ok)) {
             const first = addResults.find(r => !r.ok);
-            throw new Error(first?.error || '추가 품목 저장 실패');
+            const error = new Error(first?.error || '추가 품목 저장 실패');
+            error.code = first?.code;
+            throw error;
           }
         }
         return { qtyResults, costResultData, addResults };
@@ -2367,16 +2426,19 @@ export default function Estimate() {
         setQtyEdits({});
         setCostEdits({});
         setPendingAdds([]);
+        saveSucceeded = true;
       }
       await load(true);
       if (selectedShip) selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys);
     } catch (err) {
+      if (err?.code === 'ERP_EDIT_STALE' || err?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
       setCostApplyLog(prev => [...prev, { step: 'error', label: `오류 — ${err.message}` }]);
       setCostResult({ success: false, error: err.message });
       setQtyResult({ error: err.message });
     } finally {
       setQtyApplying(false);
       setCostApplying(false);
+      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded });
     }
   }
 
@@ -2465,6 +2527,7 @@ export default function Estimate() {
       alert('먼저 왼쪽에서 업체를 조회·선택하세요.');
       return;
     }
+    if (!ensureEstimateEditAllowed()) return;
     resetDefectForm(entryMode);
     setShowDefect(true);
   };
@@ -2521,6 +2584,9 @@ export default function Estimate() {
     const shipmentKeyForEstimate = selectedShip?.firstShipmentKey
       || Number((selectedShip?.ShipmentKeys || '').split(',').find(Boolean));
     if (!shipmentKeyForEstimate) { alert('견적을 등록할 출고번호를 찾지 못했습니다. 다시 조회 후 선택하세요.'); return; }
+    if (!ensureEstimateEditAllowed()) return;
+    estimateEditPresence.beginSaving();
+    let saveSucceeded = false;
     setSaving(true);
     try {
       const data = await apiPost('/api/estimate', {
@@ -2538,13 +2604,18 @@ export default function Estimate() {
         cost:         parseFloat(defectForm.cost) || 0,
         estimateDate: defectForm.estimateDate,
         descr:        defectForm.descr || '',
+        editGuard: estimateEditGuard(),
       });
       setShowDefect(false);
       resetDefectForm('defect');
       setSuccessMsg(`✅ ${defectForm.entryMode === 'sales' ? '판매요청' : defectForm.entryMode === 'legacy' ? '불량/검역' : '불량차감'} 등록 완료 · 견적키 #${data.estimateKey || '-'}`);
       setTimeout(() => setSuccessMsg(''), 3000);
       selectShipment(selectedId, selectedCustKey);
-    } catch(e) { alert(e.message); } finally { setSaving(false); }
+      saveSucceeded = true;
+    } catch(e) {
+      if (e?.code === 'ERP_EDIT_STALE' || e?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
+      setErr(e.message);
+    } finally { setSaving(false); await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded }); }
   };
 
   const openItemEditor = (item) => {
@@ -2574,6 +2645,9 @@ export default function Estimate() {
     if (!(quantity > 0)) { setItemEditorError('수량은 0보다 커야 합니다.'); return; }
     if (!Number.isFinite(cost) || cost < 0) { setItemEditorError('단가는 0 이상이어야 합니다.'); return; }
     if (!editor.prodKey) { setItemEditorError('품목을 선택하세요.'); return; }
+    if (!ensureEstimateEditAllowed()) { setItemEditorError('다른 작업 또는 전산 변경이 감지되었습니다. 화면의 안내를 확인하세요.'); return; }
+    estimateEditPresence.beginSaving();
+    let saveSucceeded = false;
 
     setItemEditorSaving(true);
     setItemEditorError('');
@@ -2596,14 +2670,24 @@ export default function Estimate() {
             descr: editor.descr || '',
             expectedQuantity: Number(item.Quantity || 0),
             expectedCost: Number(item.Cost || 0),
+            expectedProdKey: Number(item.ProdKey || 0),
+            expectedUnit: String(item.Unit || ''),
+            expectedDescr: item.DescrRaw != null ? String(item.DescrRaw) : String(item.Descr || ''),
+            editGuard: estimateEditGuard(),
           }),
         });
         const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.error || '견적 품목 수정에 실패했습니다.');
+        if (!response.ok || !data.success) {
+          const error = new Error(data.error || '견적 품목 수정에 실패했습니다.');
+          error.code = data.code;
+          error.data = data;
+          throw error;
+        }
         setItemEditor(null);
         setSuccessMsg(`✅ 견적 품목 수정 완료 · 견적키 #${editor.estimateKey}`);
         setTimeout(() => setSuccessMsg(''), 3000);
         await reloadSelectedShipmentItems();
+        saveSucceeded = true;
         return;
       }
 
@@ -2646,6 +2730,7 @@ export default function Estimate() {
               expectedOldQuantity: Number(item.Quantity || 0),
               descr: editor.descr || '',
               expectedOldDescr: originalDescr,
+              editGuard: estimateEditGuard(),
             }),
           });
           const data = await response.json();
@@ -2671,6 +2756,7 @@ export default function Estimate() {
               mode: 'once',
               orderYear: yearStr,
               custKey: selectedShip.CustKey,
+              editGuard: estimateEditGuard(),
             }),
           });
           const data = await response.json();
@@ -2700,12 +2786,15 @@ export default function Estimate() {
       setSuccessMsg(`✅ ${item.ProdName} 정보 수정 완료`);
       setTimeout(() => setSuccessMsg(''), 3000);
       await reloadSelectedShipmentItems();
+      saveSucceeded = true;
     } catch (error) {
+      if (error?.code === 'ERP_EDIT_STALE' || error?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
       setItemEditorError(error.message || '수정에 실패했습니다.');
       setCostApplyLog(prev => [...prev, { step: 'error', label: `오류 — ${error.message}` }]);
     } finally {
       setItemEditorSaving(false);
       setCostApplying(false);
+      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded });
     }
   };
 
@@ -3896,7 +3985,7 @@ export default function Estimate() {
                 <button
                   className="btn btn-sm"
                   style={{background:'#6a1b9a', color:'#fff', borderColor:'#4a148c', fontWeight:'bold'}}
-                  disabled={costApplying || qtyApplying}
+                  disabled={costApplying || qtyApplying || estimateEditPresence.blocked}
                   onClick={applyAllEdits}
                   title="수량·단가·추가 품목을 한 번의 확정해제/저장/재확정으로 처리. 기존 수량 변경이 없으면 재고 재계산을 생략합니다."
                 >
@@ -3909,7 +3998,7 @@ export default function Estimate() {
                     value={costMode}
                     onChange={e => setCostMode(e.target.value)}
                     style={{fontSize:11, padding:'3px 6px', borderRadius:4, border:'1px solid #CBD5E0'}}
-                    disabled={costApplying}
+                    disabled={costApplying || estimateEditPresence.blocked}
                     title="수정한 단가를 어떻게 저장할지 선택"
                   >
                     <option value="once">① 1회성 (이 견적서만)</option>
@@ -3919,14 +4008,14 @@ export default function Estimate() {
                   <button
                     className="btn btn-sm"
                     style={{background:'#2b6cb0', color:'#fff', borderColor:'#1e4e8c', fontWeight:'bold'}}
-                    disabled={costApplying}
+                    disabled={costApplying || estimateEditPresence.blocked}
                     onClick={applyCostEdits}
                   >
                     단가 적용하기 ({editedCount})
                   </button>
                   <button
                     className="btn btn-sm"
-                    disabled={costApplying}
+                    disabled={costApplying || estimateEditPresence.blocked}
                     onClick={() => setCostEdits({})}
                   >
                     ↩ 수정 취소
@@ -3939,7 +4028,7 @@ export default function Estimate() {
                   <button
                     className="btn btn-sm"
                     style={{background:'#00897b', color:'#fff', borderColor:'#00695c', fontWeight:'bold'}}
-                    disabled={qtyApplying}
+                    disabled={qtyApplying || estimateEditPresence.blocked}
                     onClick={applyQtyEdits}
                     title="수량 변경분을 ADD/CANCEL 로 자동 분기 적용 (이력 기록됨)"
                   >
@@ -3947,7 +4036,7 @@ export default function Estimate() {
                   </button>
                   <button
                     className="btn btn-sm"
-                    disabled={qtyApplying}
+                    disabled={qtyApplying || estimateEditPresence.blocked}
                     onClick={() => setQtyEdits({})}
                   >
                     ↩ 수량 취소
@@ -3962,25 +4051,25 @@ export default function Estimate() {
               )}
               <button className="btn btn-sm" style={{background:'#006600', color:'#fff', borderColor:'#004400'}}
                 onClick={() => openEstimateEntry('legacy')}
-                disabled={!selectedShip}
+                disabled={!selectedShip || estimateEditPresence.blocked}
                 title="기존 EstimateType을 선택해 nenova.exe 호환 음수 Estimate를 등록합니다.">
                 ＋ 불량/검역등록
               </button>
               <button className="btn btn-sm" style={{background:'#166534', color:'#fff', borderColor:'#14532d'}}
                 onClick={() => openEstimateEntry('defect')}
-                disabled={!selectedShip}
+                disabled={!selectedShip || estimateEditPresence.blocked}
                 title="선택한 거래처의 EXE 판매행에 불량차감 Estimate를 등록합니다.">
                 ＋ 불량차감등록
               </button>
               <button className="btn btn-sm" style={{background:'#1565c0', color:'#fff', borderColor:'#0d47a1'}}
                 onClick={() => openEstimateEntry('sales')}
-                disabled={!selectedShip}
+                disabled={!selectedShip || estimateEditPresence.blocked}
                 title="선택한 거래처에 판매요청 Estimate를 등록합니다.">
                 ＋ 판매요청
               </button>
-              <button className="btn btn-sm" style={{background:'#7c3aed',color:'#fff',borderColor:'#6d28d9'}} disabled={!selectedShip} onClick={()=>setShowAdditionalProduct(true)} title="추가 품목을 목록에 담은 뒤 수량/단가와 한 번에 저장합니다.">＋ 추가 품목등록{pendingAdds.length ? ` (${pendingAdds.length})` : ''}</button>
+              <button className="btn btn-sm" style={{background:'#7c3aed',color:'#fff',borderColor:'#6d28d9'}} disabled={!selectedShip || estimateEditPresence.blocked} onClick={()=>setShowAdditionalProduct(true)} title="추가 품목을 목록에 담은 뒤 수량/단가와 한 번에 저장합니다.">＋ 추가 품목등록{pendingAdds.length ? ` (${pendingAdds.length})` : ''}</button>
               <button className="btn btn-sm"
-                disabled={!selectedItemForEdit || itemEditorSaving}
+                disabled={!selectedItemForEdit || itemEditorSaving || estimateEditPresence.blocked}
                 onClick={() => openItemEditor(selectedItemForEdit)}
                 title="표에서 품목명을 선택한 뒤 상세 정보창에서 수정합니다.">
                 ✏️ 품목 정보 수정
@@ -3989,7 +4078,9 @@ export default function Estimate() {
             </div>
           </div>
 
-          <OrderRegisterDistributeModal open={showAdditionalProduct} onClose={()=>setShowAdditionalProduct(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} onQueue={(rows)=>{setPendingAdds(prev=>[...prev,...rows]);setShowAdditionalProduct(false);}} />
+          <div style={{padding:'0 10px'}}><ErpEditPresenceBanner presence={estimateEditPresence} /></div>
+
+          <OrderRegisterDistributeModal open={showAdditionalProduct} onClose={()=>setShowAdditionalProduct(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} editBlocked={estimateEditPresence.blocked} editPresence={estimateEditPresence} onQueue={(rows)=>{setPendingAdds(prev=>[...prev,...rows]);setShowAdditionalProduct(false);}} />
           {pendingAdds.length > 0 && (
             <div style={{margin:'8px 12px 0',padding:'8px 10px',borderRadius:8,background:'#f5f3ff',border:'1px solid #ddd6fe',fontSize:12}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -5308,7 +5399,7 @@ export default function Estimate() {
               {itemEditorError && <div className="banner-err" style={{marginTop:8}}>⚠️ {itemEditorError}</div>}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-primary" onClick={saveItemEditor} disabled={itemEditorSaving}>
+              <button className="btn btn-primary" onClick={saveItemEditor} disabled={itemEditorSaving || estimateEditPresence.blocked}>
                 {itemEditorSaving ? '저장 중...' : '💾 수정 저장'}
               </button>
               <button className="btn" onClick={() => !itemEditorSaving && setItemEditor(null)}>닫기</button>
@@ -5446,7 +5537,7 @@ export default function Estimate() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-primary" onClick={handleDefectSave} disabled={saving}>
+              <button className="btn btn-primary" onClick={handleDefectSave} disabled={saving || estimateEditPresence.blocked}>
                 💾 {saving ? '저장 중... / Guardando' : (defectForm.entryMode === 'sales' ? '판매요청 등록' : defectForm.entryMode === 'legacy' ? '불량/검역 저장' : '불량차감 등록')}
               </button>
               <button className="btn" onClick={() => setShowDefect(false)}>{t('닫기')}</button>

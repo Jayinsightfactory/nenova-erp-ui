@@ -35,6 +35,7 @@ import { withAuth } from '../../../lib/auth';
 import { estimateFromOutQuantity, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { syncShipmentDateEstBySdetailKey } from '../../../lib/syncShipmentDateEst.js';
 import { WEEK_PROD_COST_YEAR_PROBE_SQL } from '../../../lib/weekProdCostSchema.js';
+import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 
 // FIXED_WEEK 차단 진단용 — 사이클 미작동 신고 추적 (AppLog 없어도 무시)
 async function logCostGuard(step, detail) {
@@ -161,6 +162,13 @@ export default withAuth(async function handler(req, res) {
           orderWeek: row.OrderWeek,
         };
       }
+      const guardedParents = [...new Set(Object.values(smMap).map((row) => String(row.orderWeek || '').split('-')[0]))];
+      if (guardedParents.length !== 1) {
+        const error = new Error('한 번의 단가 저장은 하나의 부모차수만 수정할 수 있습니다.');
+        error.code = 'ESTIMATE_SCOPE_MISMATCH';
+        throw error;
+      }
+      await assertErpEditGuard(tQ, { orderYear: requestedYear, orderWeek: Object.values(smMap)[0].orderWeek, custKey: Number(custKey) }, req.user, req.body);
       // 2026-07-13: 재활성화 — 클라이언트(applyCostEdits)가 이제 확정 사이클을 제대로 태우므로
       // (getFixCycleWeeksForEditedItems 로 cycleWeeks 산출), 이 서버측 차단은 사이클을 안 거치고
       // 직접 호출된 경우를 막는 안전망. 꺼져있던 동안 확정된 차수에 단가가 "일단 저장"됐다가
@@ -400,6 +408,7 @@ export default withAuth(async function handler(req, res) {
       const totalOldVat    = changes.reduce((a, c) => a + (c.oldVat    || 0), 0);
       const totalNewVat    = changes.reduce((a, c) => a + (c.newVat    || 0), 0);
 
+      const editGuardAfter = await advanceErpEditGuard(tQ, { orderYear: requestedYear, orderWeek: Object.values(smMap)[0].orderWeek, custKey: Number(custKey) }, req.user, req.body);
       return {
         shipmentKeys: uniqueSks,
         fixedShipmentKeys: uniqueSks.filter(sk => smMap[sk].wasFixed),
@@ -410,6 +419,8 @@ export default withAuth(async function handler(req, res) {
         diffAmount: totalNewAmount - totalOldAmount,
         totalOldVat,
         totalNewVat,
+        editDigestAfter: editGuardAfter.editDigestAfter,
+        revision: editGuardAfter.revision,
         diffVat: totalNewVat - totalOldVat,
       };
     });
@@ -451,6 +462,9 @@ export default withAuth(async function handler(req, res) {
         error: err.message,
         shipmentKey: err.shipmentKey,
       });
+    }
+    if (['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err.code)) {
+      return res.status(409).json({ success: false, code: err.code, error: err.message, lease: err.lease || null });
     }
     return res.status(500).json({ success: false, error: err.message });
   }

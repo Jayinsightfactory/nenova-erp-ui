@@ -6,6 +6,7 @@ import { withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
 import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
+import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 
 function parseDate(value) {
   if (!value) return null;
@@ -32,6 +33,11 @@ export default withAuth(async function handler(req, res) {
   const expectedCost = body.expectedCost == null || body.expectedCost === ''
     ? null
     : Number(body.expectedCost);
+  const expectedProdKey = body.expectedProdKey == null || body.expectedProdKey === ''
+    ? null
+    : Number(body.expectedProdKey);
+  const expectedUnit = body.expectedUnit == null ? null : String(body.expectedUnit);
+  const expectedDescr = body.expectedDescr == null ? null : String(body.expectedDescr);
 
   if (!Number.isInteger(estimateKey) || estimateKey <= 0) {
     return res.status(400).json({ success: false, error: 'estimateKey가 필요합니다.' });
@@ -50,6 +56,9 @@ export default withAuth(async function handler(req, res) {
   }
   if (expectedCost != null && !Number.isFinite(expectedCost)) {
     return res.status(400).json({ success: false, error: '조회시점 단가가 올바르지 않습니다.' });
+  }
+  if (expectedProdKey != null && (!Number.isInteger(expectedProdKey) || expectedProdKey <= 0)) {
+    return res.status(400).json({ success: false, error: '조회시점 품목이 올바르지 않습니다.' });
   }
   let writeScope;
   try { writeScope = requireErpWriteScope(body, '견적 행 저장'); }
@@ -83,6 +92,7 @@ export default withAuth(async function handler(req, res) {
       const row = current.recordset?.[0];
       if (!row) throw new Error(`EstimateKey=${estimateKey} 견적 행을 찾을 수 없습니다.`);
       assertErpWriteScope(row, writeScope, `EstimateKey=${estimateKey}`);
+      await assertErpEditGuard(tQ, { ...writeScope, orderWeek: row.OrderWeek }, req.user, body);
 
       const oldQuantity = Number(row.Quantity || 0);
       const oldCost = Number(row.Cost || 0);
@@ -93,6 +103,21 @@ export default withAuth(async function handler(req, res) {
       }
       if (expectedCost != null && Math.abs(oldCost - expectedCost) > 0.001) {
         const error = new Error(`단가가 조회 이후 변경되었습니다. 조회시점=${expectedCost}, 현재=${oldCost}`);
+        error.code = 'STALE_DATA';
+        throw error;
+      }
+      if (expectedProdKey != null && Number(row.ProdKey) !== expectedProdKey) {
+        const error = new Error('품목이 조회 이후 변경되었습니다. 다시 조회하세요.');
+        error.code = 'STALE_DATA';
+        throw error;
+      }
+      if (expectedUnit != null && String(row.Unit || '') !== expectedUnit) {
+        const error = new Error('단위가 조회 이후 변경되었습니다. 다시 조회하세요.');
+        error.code = 'STALE_DATA';
+        throw error;
+      }
+      if (expectedDescr != null && String(row.Descr || '') !== expectedDescr) {
+        const error = new Error('적요가 조회 이후 변경되었습니다. 다시 조회하세요.');
         error.code = 'STALE_DATA';
         throw error;
       }
@@ -140,15 +165,17 @@ export default withAuth(async function handler(req, res) {
           WHERE EstimateKey=@ek`,
         { ek: { type: sql.Int, value: estimateKey } },
       );
-      return { before: row, after: saved.recordset?.[0] || null };
+      const editGuardAfter = await advanceErpEditGuard(tQ, { ...writeScope, orderWeek: row.OrderWeek }, req.user, req.body);
+      return { before: row, after: saved.recordset?.[0] || null, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision };
     });
 
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
-    return res.status(['STALE_DATA', 'ERP_SCOPE_MISMATCH'].includes(error.code) ? 409 : 500).json({
+    return res.status(['STALE_DATA', 'ERP_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(error.code) ? 409 : Number(error.statusCode || 500)).json({
       success: false,
       code: error.code,
       error: error.message,
+      lease: error.lease || null,
     });
   }
 });

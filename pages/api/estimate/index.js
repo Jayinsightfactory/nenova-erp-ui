@@ -2,7 +2,7 @@
 // P3 구조 변경:
 //   - 단가 우선순위: WeekProdCost → ShipmentDetail.Cost → CustomerProdCost → Product.Cost
 //   - WeekProdCost: 차수+거래처+품목 단가 (매차수 즐겨찾기, 웹 전용 신규 테이블)
-import { query, sql } from '../../../lib/db';
+import { query, sql, withTransaction } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
@@ -22,6 +22,7 @@ import {
 import { resolveEstimateContext } from '../../../lib/salesDefectDeductions.js';
 import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { exeAmountVatSql } from '../../../lib/estimateDateQuantity.js';
+import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getEstimates(req, res);
@@ -909,7 +910,22 @@ async function createEstimate(req, res) {
     const appliedShipmentKey = isSalesRequest
       ? (Number(context.shipmentKey) || parseInt(targetShipmentKey, 10) || selectedShipmentKey)
       : Number(context.shipmentKey);
-    const inserted = await query(
+    const inserted = await withTransaction(async (tQ) => {
+      const lockedMaster = await tQ(
+        `SELECT OrderYear, OrderWeek, CustKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
+          WHERE ShipmentKey=@sk AND ISNULL(isDeleted,0)=0`,
+        { sk: { type: sql.Int, value: appliedShipmentKey } },
+      );
+      const locked = lockedMaster.recordset?.[0];
+      if (!locked || String(locked.OrderYear) !== String(targetYear)
+        || String(locked.OrderWeek || '').split('-')[0] !== String(targetParentWeek)
+        || Number(locked.CustKey) !== Number(targetCustKey)) {
+        const error = new Error('견적 등록 대상이 조회 이후 변경되었습니다. 다시 조회하세요.');
+        error.code = 'ESTIMATE_SCOPE_MISMATCH';
+        throw error;
+      }
+      await assertErpEditGuard(tQ, { orderYear: targetYear, orderWeek: locked.OrderWeek, custKey: targetCustKey }, req.user, req.body);
+      const insertResult = await tQ(
       `DECLARE @EstimateInserted TABLE (EstimateKey INT);
        INSERT INTO Estimate
          (EstimateType, ProdKey, Unit, Quantity, Cost, Amount, Vat, Descr, ShipmentKey, EstimateDtm)
@@ -928,11 +944,16 @@ async function createEstimate(req, res) {
         sk:     { type: sql.Int,      value: appliedShipmentKey },
         dt:     { type: sql.DateTime, value: dtValue },
       }
-    );
+      );
+      const editGuardAfter = await advanceErpEditGuard(tQ, { orderYear: targetYear, orderWeek: locked.OrderWeek, custKey: targetCustKey }, req.user, req.body);
+      return { insertResult, editGuardAfter };
+    });
     return res.status(201).json({
       success: true,
       message: `${typeText} 견적 등록 완료`,
-      estimateKey: inserted.recordset?.[0]?.EstimateKey || null,
+      estimateKey: inserted.insertResult?.recordset?.[0]?.EstimateKey || null,
+      editDigestAfter: inserted.editGuardAfter?.editDigestAfter,
+      revision: inserted.editGuardAfter?.revision,
       entryMode: isLegacyEntry ? 'legacy' : isSalesRequest ? 'sales' : 'defect',
       quantity: qty,
       cost: effectiveCost,
@@ -943,6 +964,6 @@ async function createEstimate(req, res) {
       costOrderWeek: context.costOrderWeek || '',
     });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(['ESTIMATE_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err.code) ? 409 : Number(err.statusCode || 500)).json({ success: false, code: err.code, error: err.message, lease: err.lease || null });
   }
 }

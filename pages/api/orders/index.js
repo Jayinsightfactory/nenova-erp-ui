@@ -15,6 +15,7 @@ import {
 } from '../../../lib/exeOrderAddSql.js';
 import { quantitiesMatch } from '../../../lib/myCustomerOrderEntry.js';
 import { allowHotelMiuMissingCancel, resolveHotelMiuOverflowCancel } from '../../../lib/hotelMiuIntake.js';
+import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 
 async function appLog(category, step, detail, isError = false) {
   try {
@@ -364,6 +365,7 @@ async function createOrder(req, res) {
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
     const { orderMasterKey, results, prodKeys, shipmentMasterKey } = await withTransaction(async (tQuery) => {
+      await assertErpEditGuard(tQuery, { orderYear, orderWeek, custKey: Number(resolvedCustKey) }, req.user, req.body);
       // 기존 OrderMaster 확인 (같은 업체+연도+차수 — 연도 무시 시 25년 주문에 26년 등록이 붙는 버그 방지)
       // 수량 0으로 숨긴 Master도 재사용한다. 새로 INSERT하면 EXE에 같은 차수 주문이 두 장이 된다.
       const existing = await tQuery(
@@ -703,7 +705,8 @@ async function createOrder(req, res) {
           throw new Error(`${item.prodName || prodKey}: 취소 대상 주문이 없습니다.`);
         }
       }
-      return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys], shipmentMasterKey: ensuredShipmentMasterKey };
+      const editGuardAfter = await advanceErpEditGuard(tQuery, { orderYear, orderWeek, custKey: Number(resolvedCustKey) }, req.user, req.body);
+      return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys], shipmentMasterKey: ensuredShipmentMasterKey, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision };
     });
 
     const stockWarning = await runStockCalculation(orderYear, orderWeek, uid, prodKeys);
@@ -719,7 +722,14 @@ async function createOrder(req, res) {
     });
   } catch (err) {
     await appLog('createOrder', '오류', err.message, true);
-    return res.status(err.statusCode || 500).json({ success: false, error: err.message });
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      code: err.code,
+      error: err.message,
+      lease: err.lease || null,
+      expectedDigest: err.expectedDigest,
+      actualDigest: err.actualDigest,
+    });
   }
 }
 
