@@ -16,6 +16,10 @@ import {
 import { quantitiesMatch } from '../../../lib/myCustomerOrderEntry.js';
 import { allowHotelMiuMissingCancel, resolveHotelMiuOverflowCancel } from '../../../lib/hotelMiuIntake.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
+import {
+  evaluateOrderRegistrationPostWrite,
+  orderRegistrationPostWriteMismatchError,
+} from '../../../lib/shipmentAdjustmentPostWrite.js';
 
 async function appLog(category, step, detail, isError = false) {
   try {
@@ -290,6 +294,49 @@ async function getOrders(req, res) {
   }
 }
 
+async function verifyCreatedOrdersInTransaction(tQuery, { orderYear, orderWeek, custKey, results }) {
+  const verifiedItems = [];
+  for (const item of results || []) {
+    if (!Number.isInteger(Number(item?.prodKey)) || !Number.isFinite(Number(item?.finalQty))) continue;
+    const check = await tQuery(
+      `SELECT rawOrder.RowCount AS RawOrderCount, rawOrder.Qty AS RawOrderQty,
+              viewOrder.RowCount AS ViewOrderCount, viewOrder.Qty AS ViewOrderQty
+         FROM (VALUES (1)) seed(n)
+         OUTER APPLY (
+           SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(od.OutQuantity,0)),0) AS Qty
+             FROM OrderMaster om
+             JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
+            WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND om.CustKey=@ck
+              AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey=@pk
+         ) rawOrder
+         OUTER APPLY (
+           SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(vo.OutQuantity,0)),0) AS Qty
+             FROM ViewOrder vo
+            WHERE vo.OrderYear=@yr AND vo.OrderWeek=@wk AND vo.CustKey=@ck AND vo.ProdKey=@pk
+         ) viewOrder`,
+      {
+        yr: { type: sql.NVarChar, value: orderYear },
+        wk: { type: sql.NVarChar, value: orderWeek },
+        ck: { type: sql.Int, value: Number(custKey) },
+        pk: { type: sql.Int, value: Number(item.prodKey) },
+      },
+    );
+    const row = check.recordset?.[0] || {};
+    const verification = evaluateOrderRegistrationPostWrite({
+      expectedOrderOut: item.finalQty,
+      facts: {
+        rawOrderCount: row.RawOrderCount,
+        rawOrderQty: row.RawOrderQty,
+        viewOrderCount: row.ViewOrderCount,
+        viewOrderQty: row.ViewOrderQty,
+      },
+    });
+    if (!verification.verified) throw orderRegistrationPostWriteMismatchError(verification);
+    verifiedItems.push({ prodKey: Number(item.prodKey), finalQty: Number(item.finalQty), verified: true });
+  }
+  return verifiedItems;
+}
+
 // ── 등록: 정식 테이블 (OrderMaster + OrderDetail) ──────────────────────────
 // 웹 주문등록은 기존 OrderDetail 수량에 입력값을 가산한다. (기존 2 + 신규 3 → 5)
 async function createOrder(req, res) {
@@ -364,7 +411,7 @@ async function createOrder(req, res) {
     const hasShipmentCreateDtmColumn = ensureShipmentMaster ? await columnExists('ShipmentMaster', 'CreateDtm') : false;
 
     // Master + Detail 전체를 하나의 트랜잭션으로 (중간 실패 시 전체 롤백)
-    const { orderMasterKey, results, prodKeys, shipmentMasterKey } = await withTransaction(async (tQuery) => {
+    const { orderMasterKey, results, prodKeys, shipmentMasterKey, postWriteVerification } = await withTransaction(async (tQuery) => {
       await assertErpEditGuard(tQuery, { orderYear, orderWeek, custKey: Number(resolvedCustKey) }, req.user, req.body);
       // 기존 OrderMaster 확인 (같은 업체+연도+차수 — 연도 무시 시 25년 주문에 26년 등록이 붙는 버그 방지)
       // 수량 0으로 숨긴 Master도 재사용한다. 새로 INSERT하면 EXE에 같은 차수 주문이 두 장이 된다.
@@ -705,14 +752,22 @@ async function createOrder(req, res) {
           throw new Error(`${item.prodName || prodKey}: 취소 대상 주문이 없습니다.`);
         }
       }
+      const postWriteVerification = await verifyCreatedOrdersInTransaction(tQuery, {
+        orderYear,
+        orderWeek,
+        custKey: Number(resolvedCustKey),
+        results: detailResults,
+      });
       const editGuardAfter = await advanceErpEditGuard(tQuery, { orderYear, orderWeek, custKey: Number(resolvedCustKey) }, req.user, req.body);
-      return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys], shipmentMasterKey: ensuredShipmentMasterKey, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision };
+      return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys], shipmentMasterKey: ensuredShipmentMasterKey, postWriteVerification, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision };
     });
 
     const stockWarning = await runStockCalculation(orderYear, orderWeek, uid, prodKeys);
     await appLog('createOrder', '완료', `mk=${orderMasterKey} items=${results.length}`);
     return res.status(201).json({
       success: true,
+      verified: true,
+      verifiedCount: postWriteVerification.length,
       source: 'real_db',
       orderMasterKey,
       shipmentMasterKey: shipmentMasterKey || null,
@@ -729,6 +784,7 @@ async function createOrder(req, res) {
       lease: err.lease || null,
       expectedDigest: err.expectedDigest,
       actualDigest: err.actualDigest,
+      verification: err.verification || null,
     });
   }
 }

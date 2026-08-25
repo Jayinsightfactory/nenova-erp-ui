@@ -31,6 +31,10 @@ import { FARM_CANDIDATE_SCOPE_SQL } from '../../../lib/shipmentFarmCandidates.js
 import { calculateShipmentAvailability, hasInsufficientShipmentStock, normalizeShipmentQty } from '../../../lib/shipmentAvailability.js';
 import { loadShipmentAdjustmentCurrent } from '../../../lib/shipmentAdjustmentCurrent.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
+import {
+  evaluateShipmentAdjustmentPostWrite,
+  shipmentPostWriteMismatchError,
+} from '../../../lib/shipmentAdjustmentPostWrite.js';
 
 async function safeNextKey(tQ, table, keyCol) {
   const r = await tQ(
@@ -458,6 +462,76 @@ export async function loadShipmentAdjustmentCapabilities() {
     columnExists('OrderDetail', 'Descr'),
   ]);
   return { hasOrderYearWeekColumn, hasShipmentYearWeekColumn, hasOrderDetailDescrColumn };
+}
+
+async function verifyShipmentAdjustmentPostWrite(tQ, {
+  orderYear, orderWeek, custKey, prodKey, expectedOrderOut, expectedShipmentOut,
+}) {
+  const result = await tQ(
+    `SELECT
+       rawOrder.RowCount AS RawOrderCount, rawOrder.Qty AS RawOrderQty,
+       viewOrder.RowCount AS ViewOrderCount, viewOrder.Qty AS ViewOrderQty,
+       rawShipment.RowCount AS RawShipmentCount, rawShipment.Qty AS RawShipmentQty,
+       rawShipment.CustMismatch AS ShipmentCustomerMismatch,
+       viewShipment.RowCount AS ViewShipmentCount, viewShipment.Qty AS ViewShipmentQty,
+       shipDate.RowCount AS ShipmentDateCount, shipDate.Qty AS ShipmentDateQty
+     FROM (VALUES (1)) seed(n)
+     OUTER APPLY (
+       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(od.OutQuantity,0)),0) AS Qty
+         FROM OrderMaster om
+         JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
+        WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND om.CustKey=@ck
+          AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey=@pk
+     ) rawOrder
+     OUTER APPLY (
+       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(vo.OutQuantity,0)),0) AS Qty
+         FROM ViewOrder vo
+        WHERE vo.OrderYear=@yr AND vo.OrderWeek=@wk AND vo.CustKey=@ck AND vo.ProdKey=@pk
+     ) viewOrder
+     OUTER APPLY (
+       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(sd.OutQuantity,0)),0) AS Qty,
+              SUM(CASE WHEN ISNULL(sd.CustKey,0)<>ISNULL(sm.CustKey,0) THEN 1 ELSE 0 END) AS CustMismatch
+         FROM ShipmentMaster sm
+         JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+        WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.CustKey=@ck
+          AND ISNULL(sm.isDeleted,0)=0 AND sd.ProdKey=@pk AND ISNULL(sd.OutQuantity,0)<>0
+     ) rawShipment
+     OUTER APPLY (
+       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(vs.OutQuantity,0)),0) AS Qty
+         FROM ViewShipment vs
+        WHERE vs.OrderYear=@yr AND vs.OrderWeek=@wk AND vs.CustKey=@ck AND vs.ProdKey=@pk
+          AND ISNULL(vs.OutQuantity,0)<>0
+     ) viewShipment
+     OUTER APPLY (
+       SELECT COUNT(*) AS RowCount, ISNULL(SUM(ISNULL(sdt.ShipmentQuantity,0)),0) AS Qty
+         FROM ShipmentMaster sm
+         JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+         JOIN ShipmentDate sdt ON sdt.SdetailKey=sd.SdetailKey
+        WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.CustKey=@ck
+          AND ISNULL(sm.isDeleted,0)=0 AND sd.ProdKey=@pk AND ISNULL(sd.OutQuantity,0)<>0
+     ) shipDate`,
+    {
+      yr: { type: sql.NVarChar, value: orderYear },
+      wk: { type: sql.NVarChar, value: orderWeek },
+      ck: { type: sql.Int, value: Number(custKey) },
+      pk: { type: sql.Int, value: Number(prodKey) },
+    },
+  );
+  const row = result.recordset?.[0] || {};
+  const verification = evaluateShipmentAdjustmentPostWrite({
+    expectedOrderOut,
+    expectedShipmentOut,
+    facts: {
+      rawOrderCount: row.RawOrderCount, rawOrderQty: row.RawOrderQty,
+      viewOrderCount: row.ViewOrderCount, viewOrderQty: row.ViewOrderQty,
+      rawShipmentCount: row.RawShipmentCount, rawShipmentQty: row.RawShipmentQty,
+      shipmentCustomerMismatch: row.ShipmentCustomerMismatch,
+      viewShipmentCount: row.ViewShipmentCount, viewShipmentQty: row.ViewShipmentQty,
+      shipmentDateCount: row.ShipmentDateCount, shipmentDateQty: row.ShipmentDateQty,
+    },
+  });
+  if (!verification.verified) throw shipmentPostWriteMismatchError(verification);
+  return verification;
 }
 
 // 단건 API와 붙여넣기 전체 일괄 API가 같은 SQL 쓰기 정책을 사용하도록
@@ -1054,8 +1128,27 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
         }
       );
 
+      // SQL 문장이 성공했다는 사실만으로 완료 처리하지 않는다. 같은 트랜잭션 안에서
+      // raw 원장과 nenova.exe가 사용하는 ViewOrder/ViewShipment, ShipmentDate를
+      // 다시 읽어 실제 주문·분배·출고일 합계가 예정값과 같을 때만 commit한다.
+      const expectedOrderOut = orderDeleted || !targetOdk
+        ? 0
+        : adjustmentPolicy.mutateOrder
+          ? normalizeShipmentQty(toAllUnits(orderQtyAfter).outQ)
+          : normalizeShipmentQty(odRow?.curOut || 0);
+      const postWriteVerification = await verifyShipmentAdjustmentPostWrite(tQ, {
+        orderYear,
+        orderWeek,
+        custKey: ck,
+        prodKey: pk,
+        expectedOrderOut,
+        expectedShipmentOut: outQAfter,
+      });
+
       const editGuardAfter = await advanceErpEditGuard(tQ, { orderYear, orderWeek, custKey: Number(custKey) }, user, body);
       return {
+        verified: true,
+        postWriteVerification,
         type,
         delta,
         orderYear,
@@ -1110,6 +1203,7 @@ async function postAdjust(req, res) {
       lease: err?.lease || null,
       expectedDigest: err?.expectedDigest,
       actualDigest: err?.actualDigest,
+      verification: err?.verification || null,
     });
   }
 }

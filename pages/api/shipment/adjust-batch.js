@@ -44,11 +44,13 @@ async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
+      verified: true,
       atomic: true,
       rolledBack: false,
       orderYear: batch.orderYear,
       orderWeek: batch.orderWeek,
       committedCount: results.length,
+      verifiedCount: results.length,
       results,
       message: `취소 전체 후 추가 전체 ${results.length}건을 한 번에 저장했습니다.`,
     });
@@ -60,6 +62,7 @@ async function handler(req, res) {
       committedCount: 0,
       code: error?.code,
       error: error.message,
+      verification: error?.verification || null,
       failedEntry: error.failedEntry ? {
         executionIndex: error.failedEntry.executionIndex,
         inputIndex: error.failedEntry.inputIndex,
