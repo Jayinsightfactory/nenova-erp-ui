@@ -82,6 +82,12 @@ async function main() {
   const pasteSource = fs.readFileSync('pages/orders/paste.js', 'utf8');
   const batchSource = fs.readFileSync('lib/shipmentAdjustmentBatch.js', 'utf8');
   assert.match(adjustSource, /ViewOrder[\s\S]*ViewShipment[\s\S]*ShipmentDate/);
+  assert.doesNotMatch(adjustSource, /\bAS\s+RowCount\b|\.RowCount\b/,
+    'MSSQL 예약어 ROWCOUNT를 저장 후 검증 SQL 별칭으로 사용하면 안 된다.');
+  assert.doesNotMatch(orderSource, /\bAS\s+RowCount\b|\.RowCount\b/,
+    '주문 저장 후 검증 SQL도 MSSQL 예약어 ROWCOUNT 별칭을 사용하면 안 된다.');
+  assert.match(adjustSource, /AS RecordCount/);
+  assert.match(orderSource, /AS RecordCount/);
   assert.match(adjustSource, /postWriteVerification = await verifyShipmentAdjustmentPostWrite/);
   assert.match(orderSource, /postWriteVerification = await verifyCreatedOrdersInTransaction/);
   assert.match(orderSource, /success: true,[\s\S]*verified: true/);
