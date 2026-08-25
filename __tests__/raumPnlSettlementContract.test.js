@@ -29,6 +29,9 @@ async function main() {
     assert.ok(contract.requiredTestFiles.includes(testFile), `${testFile}가 계약 필수 테스트여야 합니다.`);
   }
   assert.deepEqual(contract.businessIdentity, ['OrderYear', 'OrderWeek', 'CustKey', 'ProdKey']);
+  assert.deepEqual(contract.settlementIdentity, ['OrderYear', 'MajorWeek', 'PartnerCode']);
+  assert.ok(contract.requiredTestFiles.includes('__tests__/raumPnlPartner.test.js'));
+  assert.match(source, /OrderYear=@yr AND MajorWeek=@mj AND PartnerCode=@pc/);
 
   const targets = writeTargets(`${source}\n${api}`);
   for (const target of targets) {

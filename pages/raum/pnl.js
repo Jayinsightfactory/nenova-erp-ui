@@ -6,6 +6,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { runEditWithFixCycle } from '../../lib/fixCycleClient';
 import RaumImageOrderPanel from '../../components/raum/RaumImageOrderPanel';
 import { buildRaumPnlMonthlySummary } from '../../lib/raumPnlMonthly';
+import { defaultPnlTitle, PNL_PARTNERS, resolvePnlPartner } from '../../lib/raumPnlPartner';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -287,7 +288,7 @@ async function postJson(url, body) {
  *  이동(moves)이 있으면: 전체를 확정해제→적용→재확정 사이클 안에서 실행
  *    — ①이동(CANCEL→ADD, 단가보존) ②재고 쌍보정(+D/−D) ③신규분배 ④수량/단가 ⑤이동품목 견적정렬
  *  이동이 없으면: 기존 direct-first (FIXED_WEEK 거절분만 사이클) */
-async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {}) {
+async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows, partnerLabel = '라움' } = {}) {
   const results = { moveOk: 0, stockOk: 0, addOk: 0, qtyOk: 0, costOk: 0, failed: [], applied: {} };
   // 품목별 적용 내역 — 완료 후 전산 분배 대조 칸 옆에 초록 '✔ 적용' 으로 표시
   const noteFor = (prodKey, msg) => {
@@ -310,7 +311,7 @@ async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {
   // ── 신규 분배 추가 — 차수피벗과 동일 API(주문+출고+출고일 동시 생성) + 견적서 단가 세팅 ──
   const doAdds = async () => {
     if (!plan.addEdits?.length) return;
-    if (!custKey) { results.failed.push('신규 분배: 라움 CustKey 조회 실패 — 추가 건너뜀'); return; }
+    if (!custKey) { results.failed.push(`신규 분배: ${partnerLabel} CustKey 조회 실패 — 추가 건너뜀`); return; }
     const added = [];
     for (const a of plan.addEdits) {
       log(`신규 분배: ${a.name} [${a.week}] ${fmt(a.qty)}${a.unit} 추가 …`);
@@ -488,7 +489,7 @@ async function applyErpSyncPlan(plan, log, { custKey, orderYear, fetchRows } = {
 
   // ═══ 실행 ═══
   if ((plan.moves || []).length) {
-    if (!custKey) { results.failed.push('이동: 라움 CustKey 조회 실패 — 중단'); return results; }
+    if (!custKey) { results.failed.push(`이동: ${partnerLabel} CustKey 조회 실패 — 중단`); return results; }
     // 이동은 확정 차수(N-02)가 대상이므로 처음부터 사이클로 감싼다.
     // 수량/단가 편집이 걸린 차수(N-01 포함)도 사이클에 넣어야 확정 행 수정이 통과한다.
     const weekSet = new Set([plan.moveTarget, ...plan.editedWeeks]);
@@ -665,7 +666,7 @@ function masterProfit(m) {
   return { sale, pnlSale, profit, rate: pnlSale > 0 ? profit / pnlSale : null };
 }
 
-function buildSummaryPrintHtml(list) {
+function buildSummaryPrintHtml(list, partnerLabel = '라움') {
   const rows = list.map(m => {
     const { profit, rate } = masterProfit(m);
     const nen = Number(m.NenovaPct);
@@ -686,8 +687,8 @@ function buildSummaryPrintHtml(list) {
   const totalProfit = list.reduce((a, m) => a + masterProfit(m).profit, 0);
   const totalNen = list.reduce((a, m) => a + masterProfit(m).profit * Number(m.NenovaPct) / 100, 0);
   const year = list[0]?.OrderYear || new Date().getFullYear();
-  return `<!doctype html><html><head><meta charset="utf-8"><title>라움 결산</title><style>${PRINT_CSS}</style></head><body>
-    <h1>${year} 라움 손익 결산</h1>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${partnerLabel} 결산</title><style>${PRINT_CSS}</style></head><body>
+    <h1>${year} ${partnerLabel} 손익 결산</h1>
     <div class="sub">차수별 합산 · VAT 별도 · 매입은 수기 입력 기준</div>
     <table>
       <thead><tr><th>차수</th><th>견적일</th><th>총 매입</th><th>총 매출(VAT별도)</th><th>총 이익</th><th>이익율</th><th>네노바이익</th><th>미우이익</th></tr></thead>
@@ -890,7 +891,7 @@ function BranchComparePanel({ items, sheets, branches }) {
             </tbody>
           </table>
           <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
-            <span style={{ background: HL.merged, padding: '0 6px', borderRadius: 3 }}>초록</span> = 강남·건대 양쪽 수량이 합산된 행 ·{' '}
+            <span style={{ background: HL.merged, padding: '0 6px', borderRadius: 3 }}>초록</span> = 여러 지점 수량이 합산된 행 ·{' '}
             <span style={{ background: HL.priceDiff, padding: '0 6px', borderRadius: 3 }}>주황</span> = 같은 품목명이지만 단가가 달라 분리 유지된 행(이월분이면 정상) ·{' '}
             <span style={{ background: HL.consigned, padding: '0 6px', borderRadius: 3, border: '1px solid #cbd5e1' }}>회색</span> = 사입 표시행(매입단가 입력 시 손익 포함) ·{' '}
             <b>·</b> = 해당 지점에 없음 · 지점 합계의 ✓ = 견적서 원본 하단 합계와 일치
@@ -1153,6 +1154,7 @@ const st = {
 };
 
 export default function RaumPnlPage() {
+  const [partnerCode, setPartnerCode] = useState('raum');
   const [list, setList] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
   const [error, setError] = useState('');
@@ -1172,7 +1174,7 @@ export default function RaumPnlPage() {
     setLoadingList(true);
     setError('');
     try {
-      const r = await fetch('/api/raum/pnl?view=list');
+      const r = await fetch(`/api/raum/pnl?view=list&partner=${encodeURIComponent(partnerCode)}`);
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '목록 조회 실패');
       setList(j.list || []);
@@ -1182,7 +1184,24 @@ export default function RaumPnlPage() {
       setLoadingList(false);
     }
   };
-  useEffect(() => { loadList(); }, []);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('nenova.raumPnl.partner');
+      if (saved === 'raum' || saved === 'choimun') setPartnerCode(saved);
+    } catch { /* private mode */ }
+  }, []);
+  useEffect(() => { loadList(); }, [partnerCode]);
+
+  const selectPartner = (code) => {
+    const next = resolvePnlPartner(code).code;
+    setPartnerCode(next);
+    try { window.localStorage.setItem('nenova.raumPnl.partner', next); } catch { /* private mode */ }
+    setDetail(null);
+    setBulkPreview(null);
+    setError('');
+    setMessage('');
+  };
+  const partner = resolvePnlPartner(partnerCode);
 
   const assignMonth = async (row, assignedMonth) => {
     setAssigningMonthKey(row.PnlKey);
@@ -1230,6 +1249,7 @@ export default function RaumPnlPage() {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('mode', 'preview');
+      fd.append('partner', partnerCode);
       const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '업로드 실패');
@@ -1248,7 +1268,7 @@ export default function RaumPnlPage() {
           pnlKey: null,
           orderYear: one.orderYear,
           major: one.major || '',
-          title: `라움 ${Number(one.major) || '?'}차`,
+          title: defaultPnlTitle(partnerCode, one.major),
           quoteDate: one.quoteDate,
           nenovaPct: 80,
           note: '',
@@ -1284,6 +1304,7 @@ export default function RaumPnlPage() {
       fd.append('file', bulkPreview.file);
       fd.append('mode', 'save');
       fd.append('previewToken', bulkPreview.previewToken);
+      fd.append('partner', partnerCode);
       const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '일괄 저장 실패');
@@ -1310,7 +1331,7 @@ export default function RaumPnlPage() {
           pnlKey: j.master.PnlKey,
           orderYear: j.master.OrderYear,
           major: j.master.MajorWeek,
-          title: j.master.Title || `라움 ${Number(j.master.MajorWeek)}차`,
+          title: j.master.Title || defaultPnlTitle(j.master.PartnerCode || partnerCode, j.master.MajorWeek),
           quoteDate: dateStr(j.master.QuoteDate),
           nenovaPct: Number(j.master.NenovaPct),
           note: j.master.Note || '',
@@ -1341,6 +1362,7 @@ export default function RaumPnlPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save',
+          partnerCode,
           orderYear: meta.orderYear,
           major: meta.major,
           title: meta.title,
@@ -1371,7 +1393,7 @@ export default function RaumPnlPage() {
         pnlKey: null,
         orderYear,
         major,
-        title: `라움 ${Number(major) || '?'}차 이미지 결산`,
+        title: defaultPnlTitle(partnerCode, major, ' 이미지 결산'),
         quoteDate: localToday(),
         nenovaPct: 80,
         note: '',
@@ -1401,9 +1423,10 @@ export default function RaumPnlPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save',
+          partnerCode,
           orderYear,
           major: mj,
-          title: `라움 ${Number(mj) || '?'}차 이미지 결산`,
+          title: defaultPnlTitle(partnerCode, mj, ' 이미지 결산'),
           quoteDate: localToday(),
           nenovaPct: 80,
           note: '',
@@ -1420,7 +1443,7 @@ export default function RaumPnlPage() {
           pnlKey: j.pnlKey,
           orderYear,
           major: mj,
-          title: `라움 ${Number(mj) || '?'}차 이미지 결산`,
+          title: defaultPnlTitle(partnerCode, mj, ' 이미지 결산'),
           quoteDate: localToday(),
           nenovaPct: 80,
           note: '',
@@ -1554,7 +1577,7 @@ export default function RaumPnlPage() {
 
   const refreshErpCompare = async () => {
     // 최신 전산 행으로 대조값(erpQty/erpSalePrice) 갱신 — { rows, custKey } 반환
-    const r = await fetch(`/api/raum/pnl-erp-rows?major=${detail.meta.major}&year=${detail.meta.orderYear}`);
+    const r = await fetch(`/api/raum/pnl-erp-rows?major=${detail.meta.major}&year=${detail.meta.orderYear}&partner=${encodeURIComponent(partnerCode)}`);
     const j = await r.json();
     if (!j.success) throw new Error(j.error || '전산 행 조회 실패');
     // 대조(erpQty): 창(N-02·(N+1)-01) 우선, 창에 없는 품목만 N-01 폴백(쌓아두는 품목)
@@ -1649,6 +1672,7 @@ export default function RaumPnlPage() {
       results = await applyErpSyncPlan(sync.plan, log, {
         custKey: sync.custKey,
         orderYear: detail.meta.orderYear,
+        partnerLabel: partner.label,
         fetchRows: async () => (await refreshErpCompare()).rows,
       });
     } catch (e) {
@@ -1668,7 +1692,7 @@ export default function RaumPnlPage() {
     // 적용 직후 자동 정합검증 (verify:week V1~V3 를 라움 창 범위로) — 견적서 금액이 어긋나면 즉시 드러남
     log('정합검증(V1~V3) 실행 중 — 견적단가·견적금액·출고수량 일치 확인…');
     try {
-      const vr = await fetch(`/api/raum/pnl-verify-erp?major=${detail.meta.major}&year=${detail.meta.orderYear}`).then(r => r.json());
+      const vr = await fetch(`/api/raum/pnl-verify-erp?major=${detail.meta.major}&year=${detail.meta.orderYear}&partner=${encodeURIComponent(partnerCode)}`).then(r => r.json());
       if (vr.success) {
         results.verify = vr;
         if (vr.violations.length) {
@@ -1689,7 +1713,7 @@ export default function RaumPnlPage() {
   const downloadExcel = async () => {
     setError('');
     try {
-      const r = await fetch('/api/raum/pnl?excel=1');
+      const r = await fetch(`/api/raum/pnl?excel=1&partner=${encodeURIComponent(partnerCode)}`);
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j.error || `엑셀 생성 실패 (${r.status})`);
@@ -1698,7 +1722,7 @@ export default function RaumPnlPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `라움 손익계산서.xlsx`;
+      a.download = `${partner.label} 손익계산서.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1747,10 +1771,29 @@ export default function RaumPnlPage() {
   // ── 렌더 ──
   return (
     <div style={st.page}>
-      <h1 style={st.h1}>라움 손익계산서</h1>
+      <h1 style={st.h1}>라움 초이문 손익계산서</h1>
+      <div style={{ display: 'flex', gap: 8, margin: '0 0 10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        {Object.values(PNL_PARTNERS).map(p => (
+          <button
+            key={p.code}
+            type="button"
+            onClick={() => selectPartner(p.code)}
+            style={{
+              ...st.btn,
+              fontWeight: 700,
+              background: partnerCode === p.code ? '#1d4ed8' : '#fff',
+              color: partnerCode === p.code ? '#fff' : '#1e293b',
+              borderColor: partnerCode === p.code ? '#1d4ed8' : '#cbd5e1',
+            }}
+          >{p.label}</button>
+        ))}
+        <span style={{ fontSize: 12.5, color: '#64748b' }}>선택한 거래처 견적서만 올리고, 저장·전산대조도 그 거래처 기준으로 봅니다.</span>
+      </div>
       <p style={st.desc}>
-        강남/건대 라움 견적서(거래명세표 엑셀)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만듭니다.
-        매출단가는 견적서 단가, 매입단가는 <b>가장 최근 도착원가(100원 단위 반올림)가 자동 입력</b>되며(🚢), 직접 고치면 그 값을 기억해 다음부터 우선 적용합니다(🧠).
+        {partner.code === 'choimun'
+          ? '초이문 견적서(거래명세표 엑셀, 시트명 32차처럼 차수만)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만듭니다.'
+          : '강남/건대 라움 견적서(거래명세표 엑셀)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만듭니다.'}
+        {' '}매출단가는 견적서 단가, 매입단가는 <b>가장 최근 도착원가(100원 단위 반올림)가 자동 입력</b>되며(🚢), 직접 고치면 그 값을 기억해 다음부터 우선 적용합니다(🧠).
         저장하면 차수별 히스토리가 남습니다.
       </p>
 
@@ -1762,6 +1805,8 @@ export default function RaumPnlPage() {
         onPreview={openImagePreview}
         onSaveDraft={saveImageDraft}
         savingDraft={saving}
+        custName={partner.custName}
+        partnerLabel={partner.label}
       />
       <ErpSyncModal sync={sync} onApply={applyErpSync} onClose={() => setSync(null)} />
       <MatchEditorModal
@@ -1810,7 +1855,7 @@ export default function RaumPnlPage() {
           </>
         ) : (
           <>
-            <button style={st.btn} disabled={!list.length} onClick={() => printInIframe(buildSummaryPrintHtml(list))}>🖨 결산표 인쇄</button>
+            <button style={st.btn} disabled={!list.length} onClick={() => printInIframe(buildSummaryPrintHtml(list, partner.label))}>🖨 결산표 인쇄</button>
             <button style={st.btn} disabled={!list.length} title="차수별 시트 + 결산 시트 (수식 포함)" onClick={downloadExcel}>📥 엑셀 다운로드</button>
           </>
         )}
@@ -1949,7 +1994,7 @@ export default function RaumPnlPage() {
               <input
                 style={{ ...st.input, width: 46, textAlign: 'center' }}
                 value={detail.meta.major}
-                onChange={e => setMeta({ major: e.target.value.replace(/[^0-9]/g, '').slice(0, 2), title: `라움 ${Number(e.target.value) || '?'}차` })}
+                onChange={e => setMeta({ major: e.target.value.replace(/[^0-9]/g, '').slice(0, 2), title: defaultPnlTitle(partnerCode, e.target.value) })}
               />차 ({detail.meta.orderYear}년)
             </label>
             <label style={{ fontSize: 13 }}>견적일{' '}

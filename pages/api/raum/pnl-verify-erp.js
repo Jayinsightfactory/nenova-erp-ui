@@ -5,12 +5,15 @@
 //   V3 ΣShipmentDate.ShipmentQuantity ≠ OutQuantity → 총수량 어긋남/견적 누락
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
+import { resolvePnlPartner } from '../../../lib/raumPnlPartner';
 
-const RAUM_FILTER = `
+function partnerWeekFilter(partner) {
+  return `
       ISNULL(sm.isDeleted, 0) = 0
-  AND c.isDeleted = 0 AND (c.CustName LIKE N'%라움%' OR c.CustName LIKE N'%트라움%')
+  AND c.isDeleted = 0 AND ${partner.custLikeSql}
   AND ((sm.OrderWeek IN (@wPrev, @w1) AND ISNULL(sm.OrderYearWeek, '') LIKE @yw1)
     OR (sm.OrderWeek = @w2 AND ISNULL(sm.OrderYearWeek, '') LIKE @yw2))`;
+}
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
@@ -18,6 +21,8 @@ export default withAuth(async function handler(req, res) {
     const major = String(req.query.major || '').replace(/[^0-9]/g, '');
     const orderYear = String(req.query.year || '').replace(/[^0-9]/g, '');
     if (!major || !orderYear) return res.status(400).json({ success: false, error: 'major, year 필요' });
+    const partner = resolvePnlPartner(req.query.partner);
+    const PARTNER_FILTER = partnerWeekFilter(partner);
     const mj = major.padStart(2, '0');
     const nextMj = String(Number(major) + 1).padStart(2, '0');
     const P = {
@@ -37,7 +42,7 @@ export default withAuth(async function handler(req, res) {
          JOIN Customer c ON sm.CustKey = c.CustKey
          JOIN Product p ON sd.ProdKey = p.ProdKey
          JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
-        WHERE ${RAUM_FILTER}
+        WHERE ${PARTNER_FILTER}
           AND ABS(ISNULL(sdd.Cost,0) - ISNULL(sd.Cost,0)) > 0.5`,
       P
     );
@@ -53,7 +58,7 @@ export default withAuth(async function handler(req, res) {
          JOIN Customer c ON sm.CustKey = c.CustKey
          JOIN Product p ON sd.ProdKey = p.ProdKey
          JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
-        WHERE ${RAUM_FILTER}
+        WHERE ${PARTNER_FILTER}
           AND ABS(ISNULL(sdd.Amount,0) - ROUND(ISNULL(sdd.Cost,0)*ISNULL(sdd.EstQuantity,0)/1.1, 0)) > 1`,
       P
     );
@@ -69,7 +74,7 @@ export default withAuth(async function handler(req, res) {
          JOIN Product p ON sd.ProdKey = p.ProdKey
         CROSS APPLY (SELECT ROUND(SUM(ISNULL(sdd.ShipmentQuantity,0)),3) AS sumQty
                        FROM ShipmentDate sdd WHERE sdd.SdetailKey = sd.SdetailKey) x
-        WHERE ${RAUM_FILTER}
+        WHERE ${PARTNER_FILTER}
           AND sd.OutQuantity > 0
           AND ABS(ISNULL(x.sumQty,0) - sd.OutQuantity) > 0.01`,
       P
