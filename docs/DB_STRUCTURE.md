@@ -248,6 +248,13 @@
 - `CreateID`, `CreateDtm`, `UpdateID`, `UpdateDtm`
 - 농장명별 공통 설정이며 WarehouseMaster/WarehouseDetail 및 주문·출고·재고 원장을 변경하지 않는다.
 
+**WebPreShipmentPlan / WebPreShipmentItem / WebPreShipmentSchedule / WebPreShipmentAllocation** — 주광 선출고 웹 전용 원장 (2026-08-25 신규)
+- `Plan`: 등록 연도·대차수·원본 파일/시트. ERP `OrderMaster`/`ShipmentMaster`와 FK로 연결하지 않는다.
+- `Item`: 원본 시트의 품종·품목·발주 박스/단·부산윌슨 수량·메모.
+- `Schedule`: 실제 출고일·요일/구분·비교할 견적 연도/차수.
+- `Allocation`: `ScheduleKey + ItemKey`별 선출고 수량. 0도 유효한 명시값이다.
+- 네 테이블의 저장은 `Order*`, `Shipment*`, `ShipmentDate`, `Stock*`, `Estimate`, `WebProfitReport`를 변경하지 않는다.
+
 **UserInfo** — 사용자
 **UserFavorite** — 즐겨찾기
 **SystemActionLog** — 시스템 동작 로그

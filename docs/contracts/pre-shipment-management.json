@@ -1,0 +1,31 @@
+{
+  "id": "pre-shipment-management",
+  "title": "주광 선출고 웹 전용 관리 계약",
+  "scope": [
+    "pages/pre-shipment.js",
+    "pages/api/pre-shipment/index.js",
+    "pages/api/pre-shipment/upload.js",
+    "lib/preShipment.js",
+    "lib/preShipmentWorkbook.js",
+    "components/Layout.js",
+    "scripts/apply-pre-shipment-migration.mjs",
+    "docs/migrations/2026-08-25_web_pre_shipment_management.sql",
+    "__tests__/preShipmentWorkbook.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "webIdentity": ["OrderYear", "MajorWeek", "PlanKey", "ScheduleKey", "ItemKey"],
+  "actions": [
+    { "name": "PRE_SHIPMENT_UPLOAD", "orderDetail": "preserve", "shipmentDetail": "preserve", "shipmentDate": "preserve", "stock": "preserve", "estimate": "preserve", "writeAllowlist": ["WebPreShipmentPlan", "WebPreShipmentItem", "WebPreShipmentSchedule", "WebPreShipmentAllocation"] },
+    { "name": "PRE_SHIPMENT_EDIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "shipmentDate": "preserve", "stock": "preserve", "estimate": "preserve", "writeAllowlist": ["WebPreShipmentSchedule", "WebPreShipmentAllocation"] }
+  ],
+  "crossYearFixture": { "required": true, "description": "2025년과 2026년 같은 32차는 OrderYear가 다른 별도 계획이며 화면/API에서 섞지 않는다." },
+  "requiredTestFiles": ["__tests__/preShipmentWorkbook.test.js", "__tests__/erpContractManifest.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormPreShipmentManagement.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormOrderAdd.cs; web-only schedule ledger intentionally isolated from nenova.exe ERP writes",
+    "methods": ["CheckExistingOrder", "btnSave_Click", "GetDataProduct"],
+    "tables": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "StockMaster", "Estimate", "WebPreShipmentPlan", "WebPreShipmentItem", "WebPreShipmentSchedule", "WebPreShipmentAllocation"]
+  },
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"]
+}
