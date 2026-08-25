@@ -29,5 +29,9 @@ assert.match(page, /원가 미업로드/, '누락 원가는 숨기거나 0원 �
 assert.match(lib, /weekSortSql/, '차수는 오름·내림 숫자 정렬이어야 합니다.');
 assert.match(lib, /!hasProductSearch && !week && !flower/, '품종만 선택해도 목록을 조회할 수 있어야 합니다.');
 assert.match(page, /weekOrder/, '화면이 차수 정렬 방향을 API에 넘겨야 합니다.');
+assert.match(lib, /ARRIVAL_LINE_INSERT_CHUNK/, '도착원가 업로드는 행을 묶어 INSERT해야 합니다.');
+assert.match(lib, /SELECT ArrivalLineKey,@importKey,N'SUPERSEDE'/, '이전 revision 이력은 집합 INSERT여야 합니다.');
+assert.doesNotMatch(lib, /JSON\.stringify\(row\)/, '업로드 이력에 행 전체 JSON을 넣으면 2천 행에서 502가 납니다.');
+assert.doesNotMatch(lib, /for \(const row of parsed\.rows\)/, '업로드 저장은 행마다 왕복하면 안 됩니다.');
 
 console.log('arrival cost performance contract tests passed');

@@ -30,7 +30,7 @@
       "name": "ARRIVAL_COST_UPLOAD_REVISION",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "notes": "엑셀 도착원가 수식의 계산값이 비어 있으면 그 수식을 계산해 WebArrivalCost에 저장한다. 수식조차 없으면 수국 Color Grade 표시 원가 공식으로 채운다. 농장명은 그룹 첫 행만 있어도 아래 행으로 이어받고, 전산 FarmName과 공백·별칭으로 맞춘다. 입고수량은 엑셀 헤더(단당수량·도착원가(단)/수량(박스))로 단·박스를 분류하며 Product.OutUnit으로 덮어쓰지 않는다. Product/Warehouse/Shipment/Estimate는 보존한다. 엑셀 !merges 농장 칸을 펼치고, 수량 없는 농장 제목 행도 아래 품목에 이어받는다. 시트 머리의 GW/CW 라벨 값을 행에 저장한다. 단위 열이 있으면 단/박스 분류에 쓰고 Product.OutUnit으로 덮지 않는다. 이미 올라간 행은 파일을 다시 올려야 반영된다."
+      "notes": "엑셀 도착원가 수식의 계산값이 비어 있으면 그 수식을 계산해 WebArrivalCost에 저장한다. 수식조차 없으면 수국 Color Grade 표시 원가 공식으로 채운다. 농장명은 그룹 첫 행만 있어도 아래 행으로 이어받고, 전산 FarmName과 공백·별칭으로 맞춘다. 입고수량은 엑셀 헤더(단당수량·도착원가(단)/수량(박스))로 단·박스를 분류하며 Product.OutUnit으로 덮어쓰지 않는다. Product/Warehouse/Shipment/Estimate는 보존한다. 엑셀 !merges 농장 칸을 펼치고, 수량 없는 농장 제목 행도 아래 품목에 이어받는다. 시트 머리의 GW/CW 라벨 값을 행에 저장한다. 단위 열이 있으면 단/박스 분류에 쓰고 Product.OutUnit으로 덮지 않는다. 이미 올라간 행은 파일을 다시 올려야 반영된다. 저장은 같은 연도·차수·국가만 SUPERSEDE 집합 INSERT/UPDATE 후 40행 단위로 WebArrivalCostLine에 넣고, 행마다 UPLOAD 이력 JSON을 넣지 않아 2천 행 재업로드가 nginx 502가 나지 않게 한다."
     },
     {
       "name": "ARRIVAL_COST_MATCH_OR_BASIS_SAVE",

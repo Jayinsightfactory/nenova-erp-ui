@@ -177,6 +177,28 @@ async function main() {
   assert.equal(bannerParsed.rows[1].farmNameRaw, 'La Gaitana');
   assert.equal(bannerParsed.rows[0].farmKey, 22);
 
+  const { expandMergedCells } = await import('../lib/arrivalCostExcel.js');
+  const hugeMerge = XLSX.utils.aoa_to_sheet([
+    ['Fillco', 'CARNATION Moon Light', 30, '단', 9520],
+    [null, 'CARNATION White', 20, '단', 8800],
+  ]);
+  hugeMerge['!ref'] = 'A1:E2';
+  hugeMerge['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 200000, c: 0 } }];
+  const mergeStarted = Date.now();
+  expandMergedCells(hugeMerge);
+  assert.ok(Date.now() - mergeStarted < 500, '시트 범위를 넘는 병합은 펼치지 않아야 한다.');
+  assert.equal(hugeMerge.A2?.v, 'Fillco');
+  assert.ok(Object.keys(hugeMerge).filter((key) => key[0] !== '!').length < 20);
+
+  const hugeSum = {
+    A1: { t: 'n', v: 2 },
+    B1: { t: 'z', f: 'SUM(A1:A20000)', v: 0 },
+  };
+  const sumStarted = Date.now();
+  hydrateSheetFormulas(hugeSum);
+  assert.ok(Date.now() - sumStarted < 500, '과도한 SUM 범위는 계산을 건너뛰어야 한다.');
+  assert.equal(hugeSum.B1.v, 0);
+
   console.log('arrival cost excel parser tests passed');
 }
 
