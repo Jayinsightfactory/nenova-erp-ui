@@ -1,5 +1,5 @@
 import { withAuth } from '../../../lib/auth.js';
-import { addPreShipmentSchedule, loadPreShipmentPlans, savePreShipmentAllocation, savePreShipmentSchedule } from '../../../lib/preShipment.js';
+import { addManualPreShipmentItem, addPreShipmentSchedule, loadPreShipmentPlans, matchPreShipmentItem, savePreShipmentAllocation, savePreShipmentSchedule, searchPreShipmentProducts } from '../../../lib/preShipment.js';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -16,6 +16,15 @@ export default withAuth(async function handler(req, res) {
     }
     if (action === 'add-schedule') {
       return res.status(200).json({ success: true, schedule: await addPreShipmentSchedule({ ...req.body, user: req.user }) });
+    }
+    if (action === 'add-item') {
+      return res.status(200).json({ success: true, item: await addManualPreShipmentItem({ ...req.body, user: req.user }) });
+    }
+    if (action === 'search-products') {
+      return res.status(200).json({ success: true, products: await searchPreShipmentProducts(req.body?.query) });
+    }
+    if (action === 'match-item') {
+      return res.status(200).json({ success: true, item: await matchPreShipmentItem({ ...req.body, user: req.user }) });
     }
     return res.status(400).json({ success: false, error: '지원하지 않는 action입니다.' });
   } catch (error) {
