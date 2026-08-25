@@ -232,6 +232,37 @@ async function main() {
   assert.equal(Math.round(week33[0].sourceArrivalCostKRW), 8986);
   assert.ok(week14.every((row) => Math.round(row.sourceArrivalCostPerStemKRW) === 476));
 
+  const splitWb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(splitWb, XLSX.utils.aoa_to_sheet([
+    ['COLOMBIA 콜카장'],
+    ['Color Grade', '수량', 'FOB', '운송비(송이)', '도착원가(송이)', '단당 수량', '도착원가(단)'],
+    ['Fillco', 'CARNATION Moon Light', 10, 0.2, 0.08, 488.5, 20, 9770],
+  ]), '16-1A');
+  XLSX.utils.book_append_sheet(splitWb, XLSX.utils.aoa_to_sheet([
+    ['B'],
+    ['Color Grade', '수량', 'FOB', '운송비(송이)', '도착원가(송이)', '단당 수량', '도착원가(단)'],
+    ['Ayura', 'CARNATION Moon Light', 10, 0.2, 0.08, 476, 20, 9520],
+  ]), '16-1B');
+  const splitParsed = parseArrivalCostWorkbook(XLSX.write(splitWb, { type: 'buffer', bookType: 'xlsx' }), {
+    fileName: '33-2 원가자료 (1).xlsx',
+    products: [{ ProdKey: 11, ProdName: 'CARNATION Moon Light', DisplayName: '카네이션 문라이트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단' }],
+    farms: [{ FarmKey: 21, FarmName: 'Fillco' }, { FarmKey: 23, FarmName: 'Ayura' }],
+  });
+  const sheetB = splitParsed.rows.filter((row) => row.sheetName === '16-1B');
+  assert.equal(sheetB.length, 1);
+  assert.equal(sheetB[0].orderWeek, '16-1');
+  assert.equal(sheetB[0].countryName, '콜롬비아', '16-1B 머리글에 COLOMBIA가 없어도 같은 차수 시트의 국가를 이어받아야 한다.');
+  assert.equal(Math.round(sheetB[0].sourceArrivalCostKRW), 9520);
+
+  const { arrivalCostSupersedeScopes } = await import('../lib/arrivalCost.js');
+  const scopes = arrivalCostSupersedeScopes([
+    { orderWeek: '33-2', countryName: '콜롬비아' },
+    { orderWeek: '16-1', countryName: '콜롬비아' },
+  ]);
+  assert.ok(scopes.includes('33-2|콜롬비아'));
+  assert.ok(scopes.includes('33-2|'), '이전 업로드의 빈 국가 33-2 유령 행도 SUPERSEDE 해야 한다.');
+  assert.ok(scopes.includes('16-1|'));
+
   console.log('arrival cost excel parser tests passed');
 }
 
