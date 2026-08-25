@@ -8,6 +8,7 @@ import {
 import { exeRoundedEstimateQuantity } from '../../../lib/estimateDateQuantity.js';
 import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
 import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
+import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 
 // 견적서관리의 출고일별 수량 변경은 단순 ShipmentDate.EstQuantity 수정이 아니다.
 // nenova.exe FormShipmentDistribution의 날짜 탭과 동일하게 해당 날짜의
@@ -159,6 +160,15 @@ export default withAuth(async function handler(req, res) {
           throw error;
         }
       }
+
+      const guardedParents = [...new Set(selectedRows.map((row) => String(row.OrderWeek || '').split('-')[0]))];
+      if (guardedParents.length !== 1) {
+        const error = new Error('한 번의 출고일 저장은 하나의 부모차수만 수정할 수 있습니다.');
+        error.code = 'ERP_SCOPE_MISMATCH';
+        throw error;
+      }
+      // 32-01·32-02처럼 견적서가 같은 부모차수의 여러 세부차수를 함께 저장하는 것은 정상이다.
+      await assertErpEditGuard(tQ, { ...writeScope, orderWeek: selectedRows[0].OrderWeek }, req.user, req.body);
 
       const groups = new Map();
       for (const item of items) {
@@ -330,12 +340,13 @@ export default withAuth(async function handler(req, res) {
           throw new Error(`SdetailKey=${row.SdetailKey}의 출고일별 합계와 ShipmentDetail 총량이 맞지 않습니다.`);
         }
       }
-      return { items: saved, updatedCount: saved.length };
+      const editGuardAfter = await advanceErpEditGuard(tQ, { ...writeScope, orderWeek: selectedRows[0].OrderWeek }, req.user, req.body);
+      return { items: saved, updatedCount: saved.length, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision };
     });
 
     return res.status(200).json({ success: true, message: '출고분배 및 출고일별 견적수량 저장 완료', ...result });
   } catch (error) {
-    const status = error.code === 'STALE_DATA' || error.code === 'ERP_SCOPE_MISMATCH' ? 409
+    const status = ['STALE_DATA', 'ERP_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(error.code) ? 409
       : error.code === 'FIXED_WEEK' ? 409
         : 500;
     return res.status(status).json({
@@ -346,6 +357,7 @@ export default withAuth(async function handler(req, res) {
       fixedCategories: error.fixedCategories || [],
       expected: error.expected,
       actual: error.actual,
+      lease: error.lease || null,
     });
   }
 });

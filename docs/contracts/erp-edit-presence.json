@@ -1,0 +1,75 @@
+{
+  "id": "erp-edit-presence",
+  "title": "웹 편집 중복 방지 및 전산 원장 변경 감지 계약",
+  "scope": [
+    "lib/erpEditPresence.js",
+    "lib/useApi.js",
+    "pages/api/erp/edit-presence.js",
+    "pages/api/estimate/update-quantity.js",
+    "pages/api/estimate/update-date-quantity.js",
+    "pages/api/estimate/update-cost.js",
+    "pages/api/estimate/update-entry.js",
+    "pages/api/estimate/index.js",
+    "pages/api/shipment/adjust.js",
+    "pages/api/shipment/distribute.js",
+    "pages/api/shipment/fix.js",
+    "pages/api/orders/index.js",
+    "pages/estimate.js",
+    "pages/orders/paste.js",
+    "components/ErpEditPresenceBanner.js",
+    "components/estimate/OrderRegisterDistributeModal.js",
+    "hooks/useErpEditPresence.js",
+    "docs/migrations/2026-08-25_web_erp_edit_presence.sql",
+    "docs/work-reports/2026-08-25_erp_edit_concurrency_guard.md",
+    "scripts/apply-erp-edit-presence-migration.mjs",
+    ".github/workflows/deploy.yml",
+    "__tests__/erpEditPresence.test.js",
+    "__tests__/erpEditPresenceUiContract.test.js",
+    "__tests__/pasteSplitActionLayout.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "LEASE_ACQUIRE_HEARTBEAT_RELEASE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "erpTables": "preserve",
+      "sidecar": "WebErpEditLease only",
+      "ttlSeconds": 90,
+      "heartbeatSeconds": 20,
+      "baseline": "BaselineDigest + Revision are server-authoritative; heartbeat preserves baseline and explicit refresh replaces it",
+      "conflict": "different UserID or browser clientId returns ERP_EDIT_LOCKED"
+    },
+    {
+      "name": "WRITE_GUARD",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "existing API policy",
+      "snapshot": "canonical SHA256 of parent-week rows; assert/advance take UPDLOCK,HOLDLOCK, GET remains lock-free",
+      "sequence": "successful write advances server BaselineDigest so unfix-save-refix self writes remain valid; intervening EXE change returns ERP_EDIT_STALE"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025-32-02/CustKey=10 lease or digest must never block or include 2026-32-02/CustKey=10."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormEstimateView.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateView.cs",
+    "methods": ["GetDetail", "btnSave_Click", "ClassShipmentDate.Update"],
+    "tables": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Estimate"]
+  },
+  "requiredTestFiles": [
+    "__tests__/erpEditPresence.test.js",
+    "__tests__/erpEditPresenceUiContract.test.js",
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/estimateDateQuantityContract.test.js"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

@@ -39,6 +39,8 @@ export default function OrderRegisterDistributeModal({
   selectedShip,
   initialCust,
   products = [],
+  editBlocked = false,
+  editPresence = null,
   onQueue,
 }) {
   const [cust, setCust] = useState(null);
@@ -50,6 +52,7 @@ export default function OrderRegisterDistributeModal({
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
   const wrapRef = useRef(null);
+  const selectedCustFixed = Boolean(selectedShip?.CustKey);
 
   const weekOptions = useMemo(() => {
     try { const value=buildEstimateAdditionalWeek(yearStr, weekNum); return [{value,label:formatWeekDisplay(value)}]; }
@@ -82,7 +85,7 @@ export default function OrderRegisterDistributeModal({
 
   useEffect(() => {
     const q = custQuery.trim();
-    if (!open || q.length < 1) {
+    if (!open || selectedCustFixed || q.length < 1) {
       setCustResults([]);
       return undefined;
     }
@@ -92,7 +95,7 @@ export default function OrderRegisterDistributeModal({
         .catch(() => setCustResults([]));
     }, 250);
     return () => clearTimeout(t);
-  }, [custQuery, open]);
+  }, [custQuery, open, selectedCustFixed]);
 
   // 품목 점수 계산은 전체 카탈로그를 훑기 때문에 타이핑 중간 값으로는 계산하지 않고,
   // 수량·단위만 바뀐 리렌더에서도 다시 계산하지 않도록 결과를 기억한다.
@@ -154,7 +157,12 @@ export default function OrderRegisterDistributeModal({
     .filter(Boolean);
 
   const submit = async () => {
+    if (editBlocked) return;
     if (!cust?.CustKey) { alert('업체를 선택하세요.'); return; }
+    if (selectedCustFixed && Number(cust.CustKey) !== Number(selectedShip.CustKey)) {
+      alert('견적서에서 조회한 업체와 추가 품목의 업체가 다릅니다. 업체를 다시 조회하세요.');
+      return;
+    }
     if (!weekValue) { alert('등록 차수를 선택하세요.'); return; }
     if (!validTargets.length) { alert('품목과 수량을 입력하세요.'); return; }
 
@@ -198,6 +206,13 @@ export default function OrderRegisterDistributeModal({
         </div>
 
         <div style={{ padding: 20, display: 'grid', gap: 16 }}>
+          {editBlocked && (
+            <div role="alert" style={{padding:'8px 10px',border:'1px solid #f59e0b',background:'#fffbeb',color:'#92400e',fontSize:12,fontWeight:700}}>
+              {editPresence?.stale
+                ? 'nenova.exe 또는 다른 화면에서 값이 변경되었습니다. 창을 닫고 새로 확인하세요.'
+                : `${editPresence?.ownerName || '다른 사용자'}님이 이 업체를 작업 중입니다. 추가 품목을 담을 수 없습니다.`}
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: 12 }}>
             <label style={{ display: 'grid', gap: 6 }}>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#7c3aed' }}>업체</span>
@@ -209,7 +224,7 @@ export default function OrderRegisterDistributeModal({
                 onChange={(e) => { setCustQuery(e.target.value); if (cust) setCust(null); }}
                 onFocus={() => { if (custResults.length) setCustOpen(true); }}
                 placeholder="업체명 검색 후 선택"
-                disabled={running}
+                disabled={running || editBlocked || selectedCustFixed}
                 style={{ height: 36, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 10px', fontSize: 13 }}
               />
               {custOpen && custResults.length > 0 && (
@@ -239,7 +254,7 @@ export default function OrderRegisterDistributeModal({
               <select
                 value={weekValue}
                 onChange={(e) => setWeekValue(e.target.value)}
-                disabled={running}
+                disabled={running || editBlocked}
                 style={{ height: 36, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 8px', fontSize: 13, fontWeight: 700 }}
               >
                 {weekOptions.map((w) => (
@@ -252,7 +267,7 @@ export default function OrderRegisterDistributeModal({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, gap: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#334155' }}>품목 · 수량</span>
-              <button type="button" onClick={addLine} disabled={running} style={{ marginLeft: 'auto', height: 28, padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', fontSize: 12, cursor: 'pointer' }}>+ 행 추가</button>
+              <button type="button" onClick={addLine} disabled={running || editBlocked} style={{ marginLeft: 'auto', height: 28, padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', fontSize: 12, cursor: 'pointer' }}>+ 행 추가</button>
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
               {lines.map((line) => {
@@ -267,7 +282,7 @@ export default function OrderRegisterDistributeModal({
                         onChange={(e) => updateLine(line.id, { prodSearch: e.target.value, prodOpen: true, prodKey: null, prodName: '' })}
                         onFocus={() => updateLine(line.id, { prodOpen: true })}
                         placeholder="품목 검색"
-                        disabled={running}
+                        disabled={running || editBlocked}
                         style={{ width: '100%', height: 34, border: `1px solid ${line.prodKey ? '#86efac' : '#cbd5e1'}`, borderRadius: 6, padding: '0 8px', fontSize: 12, boxSizing: 'border-box' }}
                       />
                       {line.prodOpen && prodResults.length > 0 && (
@@ -293,16 +308,16 @@ export default function OrderRegisterDistributeModal({
                       value={line.qty}
                       onChange={(e) => updateLine(line.id, { qty: e.target.value })}
                       placeholder="수량"
-                      disabled={running}
+                      disabled={running || editBlocked}
                       style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 6px', fontSize: 13, fontWeight: 700, textAlign: 'center' }}
                     />
                     <input
                       value={line.unit}
                       readOnly
-                      disabled={running}
+                      disabled={running || editBlocked}
                       style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 4px', fontSize: 12, textAlign: 'center' }}
                     />
-                    <button type="button" onClick={() => removeLine(line.id)} disabled={running} style={{ height: 34, border: '1px solid #e2e8f0', borderRadius: 6, background: '#f8fafc', cursor: 'pointer' }}>−</button>
+                    <button type="button" onClick={() => removeLine(line.id)} disabled={running || editBlocked} style={{ height: 34, border: '1px solid #e2e8f0', borderRadius: 6, background: '#f8fafc', cursor: 'pointer' }}>−</button>
                     <div style={{gridColumn:'1 / -1',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                       {line.contextError && <div style={{gridColumn:'1 / -1',fontSize:11,color:'#c62828'}}>{line.contextError}</div>}
                       <select value={line.costSourceId} onChange={e=>{
@@ -310,12 +325,12 @@ export default function OrderRegisterDistributeModal({
                         if (id==='DIRECT') { updateLine(line.id,{costSourceId:'DIRECT'}); return; }
                         const src=line.context?.priceSources?.find(x=>x.id===id);
                         updateLine(line.id, applyReferenceCostOnly(src || { id }));
-                      }} disabled={!line.context} style={{height:34,border:'1px solid #cbd5e1',borderRadius:6}}>
+                      }} disabled={!line.context || editBlocked} style={{height:34,border:'1px solid #cbd5e1',borderRadius:6}}>
                         <option value="">업체 단가 선택 (단가만 적용, 업체는 그대로)</option>
                         {(line.context?.priceSources||[]).map(s=><option key={s.id} value={s.id}>{formatReferenceCostLabel(s)}</option>)}
                         <option value="DIRECT">직접 입력</option>
                       </select>
-                      <input type="number" value={line.cost} onChange={e=>updateLine(line.id,{cost:e.target.value,costSourceId:line.costSourceId||'DIRECT'})} placeholder="VAT 포함 단가" style={{height:34,border:'1px solid #cbd5e1',borderRadius:6,padding:'0 8px'}} />
+                      <input type="number" value={line.cost} disabled={editBlocked} onChange={e=>updateLine(line.id,{cost:e.target.value,costSourceId:line.costSourceId||'DIRECT'})} placeholder="VAT 포함 단가" style={{height:34,border:'1px solid #cbd5e1',borderRadius:6,padding:'0 8px'}} />
                       <div style={{gridColumn:'1 / -1',fontSize:11,color:'#475569'}}>출고일 {line.context?.shipmentDate||'-'} · 재고 부족 시 저장 중단 · 확정 차수는 해제 후 저장하고 다시 확정</div>
                     </div>
                   </div>
@@ -339,7 +354,7 @@ export default function OrderRegisterDistributeModal({
           <button
             type="button"
             onClick={submit}
-            disabled={running || !cust?.CustKey || !validTargets.length}
+            disabled={running || editBlocked || !cust?.CustKey || !validTargets.length}
             style={{ height: 38, padding: '0 20px', border: 'none', borderRadius: 7, background: running || !validTargets.length ? '#94a3b8' : '#15803d', color: '#fff', fontWeight: 900, cursor: running ? 'wait' : 'pointer' }}
           >
             {running ? '처리 중…' : '목록에 담기'}

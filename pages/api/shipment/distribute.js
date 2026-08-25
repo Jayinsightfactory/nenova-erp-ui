@@ -13,6 +13,7 @@ import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUn
 import { resolveShipmentDistributionEditPolicy } from '../../../lib/shipmentDistributionEditPolicy.js';
 import { buildProdGroupWhere, loadShipmentProdGroups, parseProdGroupKey, prodGroupLabel } from '../../../lib/shipmentProdGroups.js';
 import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
+import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 import {
   sqlDistributeGetProductList,
   sqlDistributeGetCustomerList,
@@ -679,7 +680,8 @@ async function getDistribute(req, res) {
 
     return res.status(400).json({ success: false, error: 'type 파라미터 필요 (groups|products|custDist|custItems|custList|dates|summary)' });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    const status = ['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500;
+    return res.status(status).json({ success: false, code: err?.code, error: err.message, lease: err?.lease || null });
   }
 }
 
@@ -729,6 +731,7 @@ async function saveDistribute(req, res) {
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
 
     const shipmentKey = await withTransaction(async (tQuery) => {
+      await assertErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: Number(custKey) }, req.user, req.body);
       // Reuse the ERP-created master first. Nenova.exe does not appear to use WebCreated.
       const smResult = await tQuery(
         `SELECT ShipmentKey, WebCreated, ISNULL(isFix,0) AS isFix FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
@@ -845,12 +848,14 @@ async function saveDistribute(req, res) {
         await refreshShipmentDatesAfterDetailChange(tQuery, targetSdk, sql, { shipDtm: resolvedShipDate });
         await insertShipmentHistory(tQuery, targetSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
       }
+      await advanceErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: Number(custKey) }, req.user, req.body);
       return sk;
     });
 
     return res.status(200).json({ success: true, shipmentKey, message: '출고 분배 저장 완료' });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    const status = ['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500;
+    return res.status(status).json({ success: false, code: err?.code, error: err.message, lease: err?.lease || null });
   }
 }
 
@@ -881,6 +886,11 @@ async function saveDistributeBatch(req, res) {
       duplicateKeys.add(key);
     }
 
+    const entryCustomers = [...new Set(normalizedEntries.map((entry) => entry.custKey))];
+    if (req.body?.editGuard && entryCustomers.length !== 1) {
+      return res.status(400).json({ success: false, code: 'ERP_EDIT_SCOPE_AMBIGUOUS', error: '편집 보호를 사용하는 일괄 분배는 한 업체의 행만 함께 저장할 수 있습니다.' });
+    }
+
     const uid = req.user?.userId || 'system';
     const userName = req.user?.userName || uid;
     const week = normalizeOrderWeek(rawWeek);
@@ -890,6 +900,9 @@ async function saveDistributeBatch(req, res) {
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
 
     const results = await withTransaction(async (tQuery) => {
+      if (entryCustomers.length === 1) {
+        await assertErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: entryCustomers[0] }, req.user, req.body);
+      }
       const saved = [];
       for (const entry of normalizedEntries) {
         await assertProductScopeNotFixed(tQuery, orderYear, week, entry.prodKey);
@@ -1069,6 +1082,9 @@ async function saveDistributeBatch(req, res) {
         await insertShipmentHistory(tQuery, targetSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
         saved.push({ ...entry, shipmentKey, sdetailKey: targetSdk, outQty: canonicalOutQty, action: oldRow ? 'update' : 'insert' });
       }
+      if (entryCustomers.length === 1) {
+        await advanceErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: entryCustomers[0] }, req.user, req.body);
+      }
       return saved;
     });
 
@@ -1079,7 +1095,8 @@ async function saveDistributeBatch(req, res) {
       message: '출고 분배 일괄 저장 완료',
     });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    const status = ['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500;
+    return res.status(status).json({ success: false, code: err?.code, error: err.message, lease: err?.lease || null });
   }
 }
 

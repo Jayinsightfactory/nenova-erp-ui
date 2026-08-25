@@ -4,6 +4,7 @@ import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipment
 import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
 import { estimateFromOutQuantity, shipmentUnitsFromUserInput, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
+import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 
 function normalizeUnit(unit) {
   const u = String(unit || '').trim().toLowerCase();
@@ -56,6 +57,7 @@ export default withAuth(async function handler(req, res) {
         if (cur.recordset.length === 0) throw new Error(`EstimateKey=${estimateKey} 를 찾을 수 없습니다.`);
         const row = cur.recordset[0];
         assertErpWriteScope(row, writeScope, `EstimateKey=${estimateKey}`);
+        await assertErpEditGuard(tQ, { ...writeScope, orderWeek: row.OrderWeek }, req.user, req.body);
         const oldQuantity = Number(row.Quantity || 0);
         if (expectedOldQuantity != null && Math.abs(oldQuantity - expectedOldQuantity) > 0.001) {
           const err = new Error(`수량이 조회 이후 변경되었습니다. 조회시점=${expectedOldQuantity}, 현재=${oldQuantity}`);
@@ -78,7 +80,10 @@ export default withAuth(async function handler(req, res) {
             vat: { type: sql.Float, value: vat },
           }
         );
+        const verified = await tQ('SELECT Quantity, Cost, Amount, Vat FROM Estimate WITH (UPDLOCK, HOLDLOCK) WHERE EstimateKey=@ek', { ek: { type: sql.Int, value: estimateKey } });
+        if (Math.abs(Number(verified.recordset?.[0]?.Quantity) - nextQuantity) > 0.001) throw new Error('저장 직후 견적 수량 재조회가 일치하지 않아 저장을 취소했습니다.');
 
+        await advanceErpEditGuard(tQ, { ...writeScope, orderWeek: row.OrderWeek }, req.user, req.body);
         return {
           estimateKey,
           shipmentKey: row.ShipmentKey,
@@ -123,6 +128,7 @@ export default withAuth(async function handler(req, res) {
       if (cur.recordset.length === 0) throw new Error(`SdetailKey=${sdetailKey} 행을 찾을 수 없습니다.`);
       const row = cur.recordset[0];
       assertErpWriteScope(row, writeScope, `SdetailKey=${sdetailKey}`);
+      await assertErpEditGuard(tQ, { ...writeScope, orderWeek: row.OrderWeek }, req.user, req.body);
       const detailFixed = Number(row.detailIsFix || 0) === 1;
       if (detailFixed) {
         // 2026-07-14: 코드 부여 — 클라이언트(applyQtyEdits)가 이 코드를 보고
@@ -189,6 +195,7 @@ export default withAuth(async function handler(req, res) {
           }
         );
         await purgeZeroOutShipmentDetail(tQ, sdetailKey, sql);
+        await advanceErpEditGuard(tQ, { ...writeScope, orderWeek: row.OrderWeek }, req.user, req.body);
         return {
           sdetailKey,
           shipmentKey: row.ShipmentKey,
@@ -228,6 +235,8 @@ export default withAuth(async function handler(req, res) {
       await refreshShipmentDatesAfterDetailChange(tQ, sdetailKey, sql, {
         shipDtm: next.outQuantity > 0 ? row.ShipmentDtm : undefined,
       });
+      const verified = await tQ('SELECT OutQuantity, Amount, Vat FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK) WHERE SdetailKey=@sdk', { sdk: { type: sql.Int, value: sdetailKey } });
+      if (Math.abs(Number(verified.recordset?.[0]?.OutQuantity) - Number(next.outQuantity)) > 0.001) throw new Error('저장 직후 출고수량 재조회가 일치하지 않아 저장을 취소했습니다.');
 
       await tQ(
         `INSERT INTO ShipmentHistory
@@ -243,6 +252,7 @@ export default withAuth(async function handler(req, res) {
         }
       );
 
+      await advanceErpEditGuard(tQ, { ...writeScope, orderWeek: row.OrderWeek }, req.user, req.body);
       return {
         sdetailKey,
         shipmentKey: row.ShipmentKey,
@@ -258,7 +268,7 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(200).json({ success: true, message: '수량 수정 완료', ...result });
   } catch (err) {
-    return res.status(['STALE_DATA', 'FIXED_WEEK', 'ERP_SCOPE_MISMATCH'].includes(err.code) ? 409 : 500).json({
+    return res.status(['STALE_DATA', 'FIXED_WEEK', 'ERP_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err.code) ? 409 : Number(err.statusCode || 500)).json({
       success: false,
       code: err.code,
       error: err.message,
@@ -266,6 +276,7 @@ export default withAuth(async function handler(req, res) {
       actual: err.actual,
       fixedWeeks: err.fixedWeeks,
       fixedCategories: err.fixedCategories,
+      lease: err.lease || null,
     });
   }
 });

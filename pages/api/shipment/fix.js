@@ -14,6 +14,7 @@ import {
 } from '../../../lib/shipmentFixCancelGuard';
 import { calculateStockShortage, roundStockQuantity } from '../../../lib/stockShortage.js';
 import { requireOrderYear } from '../../../lib/orderUtils';
+import { assertErpEditGuard, advanceErpEditGuard, editErrorResponse } from '../../../lib/erpEditPresence.js';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -156,9 +157,42 @@ export default withAuth(async function handler(req, res) {
     if (action === 'unfix') return await unfix(req, res, week, prodKey, countryFlowers);
     return await fix(req, res, week, prodKey, countryFlowers);
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    const response = editErrorResponse(err);
+    return res.status(response.statusCode).json(response.body);
   }
 });
+
+async function assertOptionalFixEditGuard(req) {
+  if (!req.body?.editGuard) return;
+  const custKey = Number(req.body?.custKey);
+  if (!Number.isInteger(custKey) || custKey <= 0) {
+    const error = new Error('확정 작업의 편집 보호에는 선택 업체가 필요합니다.');
+    error.code = 'ERP_EDIT_SCOPE_INVALID';
+    error.statusCode = 400;
+    throw error;
+  }
+  // fix/unfix is a whole-week EXE stored-procedure operation.  When the web
+  // page opted into a customer lease, validate that customer scope before the
+  // procedure starts; legacy EXE/API callers remain unchanged.
+  await withTransaction((tQ) => assertErpEditGuard(tQ, {
+    orderYear: req.erpWeek.orderYear,
+    orderWeek: req.erpWeek.orderWeek,
+    custKey,
+  }, req.user, req.body));
+}
+
+// usp_ShipmentFix/Cancel may run several independent transactions.  Advance
+// only after the complete operation reports success; a partial failure stays
+// stale and forces a fresh ERP read rather than concealing changed rows.
+async function advanceOptionalFixEditGuard(req) {
+  if (!req.body?.editGuard) return null;
+  const custKey = Number(req.body?.custKey);
+  return withTransaction((tQ) => advanceErpEditGuard(tQ, {
+    orderYear: req.erpWeek.orderYear,
+    orderWeek: req.erpWeek.orderWeek,
+    custKey,
+  }, req.user, req.body));
+}
 
 // ── 확정 전 사전검증 (GET ?week=16-01)
 // 1. 주문 없는데 출고 있는 품목 (ghost)
@@ -354,7 +388,8 @@ async function validate(req, res) {
       negativeCarry: carryResult.recordset, // 음수 이월 (그 주 출고 없음 → 잔량검사 사각) — 경고 전용
     });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    const response = editErrorResponse(err);
+    return res.status(response.statusCode).json(response.body);
   }
 }
 
@@ -728,6 +763,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   }
 
   const { orderYear, orderWeek } = req.erpWeek;
+  await assertOptionalFixEditGuard(req);
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
@@ -1014,8 +1050,10 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     `${orderYear}/${orderWeek} success=${results.length} errors=${errors.length} stockErrors=${stockErrors.length} reconcile=${reconcile.recalculatedCount}`,
     errors.length > 0 || stockErrors.length > 0 || !reconcile.parity.exeAligned,
   );
+  const success = errors.length === 0 && stockErrors.length === 0 && reconcile.stockErrors.length === 0;
+  const editGuardAfter = success ? await advanceOptionalFixEditGuard(req) : null;
   return res.status(200).json({
-    success: errors.length === 0 && stockErrors.length === 0 && reconcile.stockErrors.length === 0,
+    success,
     message: `[${week}] ${procedureShape.hasCountryFlower ? `${results.length}개 카테고리` : '차수 전체'} 확정 완료` +
              (errors.length > 0 || stockErrors.length > 0 ? ` (${errors.length + stockErrors.length}개 실패)` : '') +
              (reconcile.parity.exeAligned ? '' : ' · exe 정합 미완(재고마감/음수재고 확인)'),
@@ -1027,6 +1065,8 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     autoStockAddUsed: stockAdjustments.length > 0,
     reconcile,
     parity: reconcile.parity,
+    editDigestAfter: editGuardAfter?.editDigestAfter,
+    revision: editGuardAfter?.revision,
   });
 }
 
@@ -1040,6 +1080,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   }
 
   const { orderYear, orderWeek } = req.erpWeek;
+  await assertOptionalFixEditGuard(req);
   const uid       = req.user?.userId || 'admin';
   const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
@@ -1189,8 +1230,10 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         reconcile,
       });
     }
+    const success = errors.length === 0;
+    const editGuardAfter = success ? await advanceOptionalFixEditGuard(req) : null;
     return res.status(200).json({
-      success: errors.length === 0,
+      success,
       message: `[${week}] ${results.length}개 카테고리 확정 취소` +
                (errors.length > 0 ? ` (${errors.length}개 실패)` : '') +
                (requiresAllCategoryFix
@@ -1205,8 +1248,11 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       parity: reconcile.parity,
       pendingUnfixedCategories: pendingUnfixedLabels,
       requiresAllCategoryFix,
+      editDigestAfter: editGuardAfter?.editDigestAfter,
+      revision: editGuardAfter?.revision,
     });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    const response = editErrorResponse(err);
+    return res.status(response.statusCode).json(response.body);
   }
 }
