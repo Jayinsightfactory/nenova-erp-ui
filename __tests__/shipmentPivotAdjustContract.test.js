@@ -89,6 +89,21 @@ async function main() {
   assert.match(paste, /mode: 'AUTO_CANCEL'/, '붙여넣기 취소는 AUTO_CANCEL 서버 분기를 사용해야 한다.');
   assert.match(paste, /failedOnly[\s\S]*실패 품목만 재시도/, '부분 성공 뒤에는 성공 품목을 중복 가산하지 않고 실패 품목만 재시도할 수 있어야 한다.');
   assert.match(
+    paste,
+    /useEffect\(\(\) => \{[\s\S]*?loadStockNote\(stockBaseWeek, \{ apply: false \}\);[\s\S]*?\}, \[stockBaseWeek\]\);/,
+    '붙여넣기 주문등록은 페이지 진입이나 기준 차수 변경만으로 이전 입력 저장본을 자동 복원하면 안 된다.'
+  );
+  assert.match(
+    paste,
+    /loadStockNote\(activeStockBaseWeek, \{ apply: true \}\)/,
+    '이전 입력 저장본은 사용자가 불러오기 버튼을 명시적으로 눌렀을 때만 적용해야 한다.'
+  );
+  assert.doesNotMatch(
+    paste,
+    /const shouldApply = !pasteText\.trim\(\)/,
+    '입력창이 비어 있다는 이유만으로 이전 저장본을 자동 복원하는 정책을 다시 추가하면 안 된다.'
+  );
+  assert.match(
     adjust,
     /OrderMaster[\s\S]*?CustKey=@ck AND OrderYear=@yr AND OrderWeek=@wk/,
     'OrderMaster 선택은 연도를 포함해야 같은 차수명의 전년도 주문을 수정하지 않는다.'

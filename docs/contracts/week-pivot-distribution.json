@@ -99,6 +99,13 @@
     ],
     "undoPolicy": "the last successful in-memory batch can be undone once; original ADD restores order+shipment and original CANCEL restores shipment only; changed current quantities abort and roll back the whole undo"
   },
+  "pastePageInitializationPolicy": {
+    "pageOpen": "paste, base-stock, and remaining-stock input fields start empty; a saved stock note may be checked for existence but is never applied automatically",
+    "baseWeekChange": "changing the selected base week checks saved-note availability only and preserves the current input fields",
+    "explicitLoad": "a saved note is applied to the input fields only after the user clicks the load button",
+    "mappingCache": "learned product and customer mappings are preserved because they are matching history, not pasted order input",
+    "erpSideEffects": "page open, base-week change, and explicit load are UI-only and must not write Order, Shipment, Stock, Estimate, or WebProfitReport tables"
+  },
   "crossYearFixture": {
     "required": true,
     "description": "2025와 2026에 같은 OrderWeek·CustKey·ProdKey가 있을 때 2026 요청은 2026 행만 읽고 쓴다. stock-status view=pivot도 OrderMaster를 선택 연도로 제한하고 ShipmentMaster를 OrderYear+OrderWeek+CustKey로 결합한다.",

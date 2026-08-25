@@ -1530,8 +1530,9 @@ export default function PasteOrderPage() {
 
   useEffect(() => {
     if (!stockBaseWeek) return;
-    const shouldApply = !pasteText.trim() && !baseStockText.trim() && !remainStockText.trim();
-    loadStockNote(stockBaseWeek, { apply: shouldApply });
+    // 페이지 진입이나 기준 차수 변경 때는 저장본의 존재 여부만 확인한다.
+    // 이전 입력 내용은 사용자가 '불러오기'를 눌렀을 때만 입력창에 적용한다.
+    loadStockNote(stockBaseWeek, { apply: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockBaseWeek]);
 
