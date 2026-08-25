@@ -48,6 +48,7 @@ async function main() {
   const estimateApi = fs.readFileSync('pages/api/estimate/index.js', 'utf8');
   assert.match(estimateApi, /sdd\.SdateKey AS SdateKey/);
   assert.match(estimateApi, /ISNULL\(sdd\.EstQuantity, 0\)/);
+  assert.match(estimateApi, /GROUP BY LEFT\(sm\.OrderWeek, CHARINDEX\('-', sm\.OrderWeek\) - 1\), sm\.OrderYear, sm\.CustKey/);
   assert.doesNotMatch(estimateApi, /applyByDateRowQuantities/);
 
   const page = fs.readFileSync('pages/estimate.js', 'utf8');

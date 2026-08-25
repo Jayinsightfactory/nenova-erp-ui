@@ -102,6 +102,8 @@ assert.ok(deductionContract.actions.some((item) => item.name === 'MANUAL_PROCESS
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /수동처리완료/);
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /ImportConfirmed 값과 무관하게 표시/);
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /미확정 행은 수입부 상태를 ‘미확정’으로 명시/);
+assert.match(deductionContract.sideEffects.salesSupportRegistration, /Estimate\.Descr은 빈 문자열/);
+assert.match(deductionContract.sideEffects.registrationPartial, /Estimate\.Descr에는 올리지 않는다/);
 assert.match(deductionContract.sideEffects.supportCustomerEstimate, /불량차감 음수 Estimate 항목만/);
 assert.match(deductionContract.sideEffects.supportCustomerEstimate, /iframe\/딥링크나 previewCapture 요청에 의존하지 않는다/);
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
@@ -145,7 +147,9 @@ assert.equal(pageSource.includes('원차수 품목 수정'), false, '품목 매�
 assert.ok(pageSource.includes('supportSelectableKeys') && pageSource.includes('supportAllSelected'), '전체 선택 표시와 동작은 실제 등록 가능 행을 동일한 기준으로 사용해야 합니다.');
 assert.match(pageSource, /disabled=\{activeTab === 'support' \|\| activeTab === 'carryover'/, '미처리 목록은 영업입력 양식으로 인쇄하면 안 됩니다.');
 assert.match(pageSource, /disabled=\{loading \|\| activeTab === 'carryover'\}/, '미처리 목록을 다른 조회 계약의 엑셀로 내보내면 안 됩니다.');
-assert.ok(supportReviewSource.includes('editQuantity') && supportReviewSource.includes('editNote'), '실제 등록 전에 처리수량과 적요를 수정할 수 있어야 합니다.');
+assert.ok(supportReviewSource.includes('editQuantity') && supportReviewSource.includes('editNote'), '실제 등록 전에 처리수량과 웹 비고를 수정할 수 있어야 합니다.');
+assert.ok(supportReviewSource.includes('견적서 적요에 올리지 않음'), '검토창 비고는 웹 원장만 바꾸고 견적서 적요에 올리면 안 됩니다.');
+assert.match(supportReviewSource, /Descr: ''/, '검토 미리보기의 견적 적요는 비어야 한다.');
 const registerDeductionsSource = deductionSource.slice(
   deductionSource.indexOf('export async function registerDeductions'),
   deductionSource.indexOf('export async function deleteDeductions'),
@@ -273,7 +277,7 @@ assert.ok(!deductionSource.includes('AND ISNULL(sdd.EstQuantity,0)>0'), 'GetDeta
 assert.ok(deductionSource.includes('AppliedOrderYear'), '원차수와 적용차수를 분리 저장해야 한다.');
 assert.ok(deductionSource.includes('이월 대기'), '현재 판매행이 없으면 이월 대기로 남겨야 한다.');
 assert.equal(/INSERT INTO Estimate[\s\S]{0,500}OUTPUT INSERTED\.EstimateKey\s+VALUES/.test(deductionSource), false, '트리거가 있는 Estimate에 직접 반환 OUTPUT을 사용하면 안 된다.');
-assert.ok(deductionSource.includes('const estimateDescr = text(dbRow.Note, 1000);'), '견적 적요 기본값은 자동 문구가 아닌 입력된 메모만 사용해야 한다.');
+assert.ok(deductionSource.includes("const estimateDescr = '';"), '불량차감 등록은 수입부 비고를 견적서 적요에 올리지 않아야 한다.');
 assert.ok(deductionSource.includes('loadProductPreview'), '견적서 등록 미리보기는 실제 Product DB 품명을 사용해야 한다.');
 assert.ok(supportReviewSource.includes('originalRowByKey'), '신규 Estimate INSERT 후 발급된 견적키와 이월 잔여수량을 재조회 검증해야 한다.');
 assert.ok(supportReviewSource.includes('<b>분배단가</b>'), '영업지원 전산등록 검토창은 분배단가를 표시해야 한다.');
@@ -336,6 +340,7 @@ assert.ok(estimatePageSource.includes("view: 'defectContext'"), '품목 선택 �
 assert.ok(estimatePageSource.includes("['단','박스','스팀(대)']"), '견적 직접입력 단위는 단/박스/스팀(대) 세 가지여야 한다.');
 assert.ok(estimatePageSource.includes('defectForm.negative'), '불량차감/판매요청은 - 체크 상태를 명시해야 한다.');
 assert.ok(estimateApiSource.includes("view === 'defectContext'"), '견적 API는 품목 선택용 분배단가 컨텍스트를 제공해야 한다.');
+assert.match(estimateApiSource, /GROUP BY LEFT\(sm\.OrderWeek, CHARINDEX\('-', sm\.OrderWeek\) - 1\), sm\.OrderYear, sm\.CustKey/, '미확정 포함 견적 목록은 OrderYear를 GROUP BY에 넣어야 한다.');
 assert.ok(estimateApiSource.includes('resolveEstimateContext'), '분배단가 조회는 공통 EXE 호환 컨텍스트를 사용해야 한다.');
 assert.ok(estimateApiSource.includes('NO_EXE_SALE_ROW'), 'EXE 판매행 없는 불량차감은 구체적인 등록 불가 사유를 반환해야 한다.');
 assert.ok(estimateApiSource.includes('OUTPUT INSERTED.EstimateKey INTO @EstimateInserted(EstimateKey)'), '견적 직접 입력도 Estimate 트리거 호환 INSERT를 사용해야 한다.');

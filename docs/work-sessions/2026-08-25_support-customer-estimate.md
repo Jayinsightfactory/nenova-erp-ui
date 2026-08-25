@@ -14,6 +14,8 @@
 - 원차수가 선택 차수보다 앞이면 `N년 M차부터 이월`을 처리상태에 보여 준다.
 - 출고 존재는 OrderYear + 부모차수 정수(및 OrderYearWeek)로 본다. LIKE `33-%` 접두는 쓰지 않는다.
 - 처리상태 옆 **견적서 캡쳐**는 같은 연도·부모차수·업체의 기존 음수 Estimate를 견적서 목록처럼 보여 준다. 호버는 읽기 전용 iframe이다.
+- 미확정 포함 견적 목록 GROUP BY에 `sm.OrderYear` 필수.
+- 영업지원 불량차감 등록은 `Estimate.Descr`을 비운다. 수입부 Note는 웹 원장만. 화면·인쇄 불량차감 적요는 기본 숨김.
 
 ## 질문 → 답변
 
@@ -57,7 +59,16 @@
 
 **결과.** 구현 후 배포.
 
+### 6. 2026-08-25 15:13 — OrderYear GROUP BY · 견적 적요 차단
+
+**Q.** `ShipmentMaster.OrderYear` GROUP BY 오류. 불량처리 등록 후 견적서에 사유·비고·적요가 같이 올라가면 안 된다.
+
+**A.** 미확정 포함 견적 목록 GROUP BY에 `sm.OrderYear`를 넣었다. 영업지원 등록·연결 갱신·검토 미리보기는 `Estimate.Descr`을 빈 문자열로 두고, 수입부 Note는 웹 원장만 유지한다. 화면·인쇄 모두 불량차감 적요는 기본 숨김(`showDeductionDescr=true`만 표시). 배포 후 Descr=Note인 기존 행만 대상 정리가 필요하면 별도 probe.
+
+**결과.** 커밋·PR·Cafe24 배포 진행.
+
 ## 미완
 
+- 배포 후 기존 Estimate.Descr이 웹 Note와 같은 행만 대상 정리(읽기 probe → 적용).
 - 수입부 인쇄 버튼이 전체 확정 전에는 비활성.
 - 엑셀 다운로드 거래처·농장 열 너비.
