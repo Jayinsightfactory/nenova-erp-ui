@@ -49,5 +49,7 @@ assert.match(migration, /COL_LENGTH\('dbo\.WebRaumPnl', 'AssignedMonth'\) IS NUL
 assert.match(pageSource, /grid-template-columns: minmax\(900px, 1fr\) minmax\(420px, 560px\)/, '넓은 화면에서 차수표와 월별 합계가 독립 열이어야 한다');
 assert.match(pageSource, /\.raum-pnl-week-list[\s\S]*overflow-x: auto/, '차수표가 월별 합계 영역을 침범하지 않아야 한다');
 assert.match(pageSource, /@media \(max-width: 1420px\)[\s\S]*grid-template-columns: minmax\(0, 1fr\)/, '좁은 화면에서는 한 열로 쌓여야 한다');
+assert.match(pageSource, /colSpan=\{12\}/, '저장 자료가 없어도 차수표 헤더(월 배정·견적일·품목수·총매입·총매출)가 보여야 한다');
+assert.match(pageSource, /월별 합계/);
 
 console.log('raumPnlMonthly.test.js passed');

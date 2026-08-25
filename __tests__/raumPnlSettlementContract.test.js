@@ -32,6 +32,7 @@ async function main() {
   assert.deepEqual(contract.settlementIdentity, ['OrderYear', 'MajorWeek', 'PartnerCode']);
   assert.ok(contract.requiredTestFiles.includes('__tests__/raumPnlPartner.test.js'));
   assert.match(source, /OrderYear=@yr AND MajorWeek=@mj AND PartnerCode=@pc/);
+  assert.ok(contract.actions.find(x => x.name === 'RAUM_PNL_IMPORT_AUTO_COMMIT'));
 
   const targets = writeTargets(`${source}\n${api}`);
   for (const target of targets) {

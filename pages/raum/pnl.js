@@ -6,7 +6,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { runEditWithFixCycle } from '../../lib/fixCycleClient';
 import RaumImageOrderPanel from '../../components/raum/RaumImageOrderPanel';
 import { buildRaumPnlMonthlySummary } from '../../lib/raumPnlMonthly';
-import { defaultPnlTitle, PNL_PARTNERS, resolvePnlPartner } from '../../lib/raumPnlPartner';
+import { canAutoCommitRaumPnlImport, defaultPnlTitle, PNL_PARTNERS, resolvePnlPartner } from '../../lib/raumPnlPartner';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -1194,6 +1194,9 @@ export default function RaumPnlPage() {
 
   const selectPartner = (code) => {
     const next = resolvePnlPartner(code).code;
+    if (next === partnerCode) return;
+    if ((detail?.unsaved || bulkPreview) && typeof window !== 'undefined'
+      && !window.confirm('저장하지 않은 업로드가 사라집니다. 거래처를 바꿀까요?')) return;
     setPartnerCode(next);
     try { window.localStorage.setItem('nenova.raumPnl.partner', next); } catch { /* private mode */ }
     setDetail(null);
@@ -1240,6 +1243,18 @@ export default function RaumPnlPage() {
     return result;
   };
 
+  const persistImportFile = async (file, previewToken) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('mode', 'save');
+    fd.append('previewToken', previewToken);
+    fd.append('partner', partnerCode);
+    const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || '일괄 저장 실패');
+    return j;
+  };
+
   const onUpload = async (file) => {
     if (!file) return;
     setUploading(true);
@@ -1254,13 +1269,21 @@ export default function RaumPnlPage() {
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '업로드 실패');
       const batches = j.batches || [];
+      if (!batches.length) throw new Error('파싱된 차수가 없습니다.');
+      if (canAutoCommitRaumPnlImport(batches)) {
+        const saved = await persistImportFile(file, j.previewToken);
+        setDetail(null);
+        setBulkPreview(null);
+        setMessage(`${partner.label} ${saved.batchCount}개 차수를 저장했습니다. 아래 목록에서 월 배정·견적일·품목수·총매입·총매출과 월별 합계를 확인하고, 차수를 누르면 상세를 볼 수 있습니다.`);
+        await loadList();
+        return;
+      }
       if (batches.length > 1) {
         setDetail(null);
         setBulkPreview({ file, previewToken: j.previewToken, fileName: j.fileName, batches, warnings: j.warnings || [] });
         return;
       }
       const one = batches[0];
-      if (!one) throw new Error('파싱된 차수가 없습니다.');
       setBulkPreview(null);
       const warnings = [...(j.warnings || [])];
       setDetail({
@@ -1300,14 +1323,7 @@ export default function RaumPnlPage() {
     setSaving(true);
     setError('');
     try {
-      const fd = new FormData();
-      fd.append('file', bulkPreview.file);
-      fd.append('mode', 'save');
-      fd.append('previewToken', bulkPreview.previewToken);
-      fd.append('partner', partnerCode);
-      const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
-      const j = await r.json();
-      if (!j.success) throw new Error(j.error || '일괄 저장 실패');
+      const j = await persistImportFile(bulkPreview.file, bulkPreview.previewToken);
       setBulkPreview(null);
       setMessage(`${j.batchCount}개 차수를 검증 후 한 번에 저장했습니다. 수기 원가·수동 행·품목 매칭은 보존했습니다.`);
       loadList();
@@ -1791,7 +1807,7 @@ export default function RaumPnlPage() {
       </div>
       <p style={st.desc}>
         {partner.code === 'choimun'
-          ? '초이문 견적서(거래명세표 엑셀, 시트명 32차처럼 차수만)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만듭니다.'
+          ? '초이문 견적서(거래명세표 엑셀, 시트명 32차처럼 차수만)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만들고, 라움과 같은 차수 목록·월별 합계에 남깁니다.'
           : '강남/건대 라움 견적서(거래명세표 엑셀)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만듭니다.'}
         {' '}매출단가는 견적서 단가, 매입단가는 <b>가장 최근 도착원가(100원 단위 반올림)가 자동 입력</b>되며(🚢), 직접 고치면 그 값을 기억해 다음부터 우선 적용합니다(🧠).
         저장하면 차수별 히스토리가 남습니다.
@@ -1902,72 +1918,76 @@ export default function RaumPnlPage() {
         <div className="raum-pnl-summary-layout">
           <div className="raum-pnl-week-list">
           {loadingList ? <div style={{ fontSize: 13, color: '#64748b' }}>불러오는 중…</div> : null}
-          {!loadingList && !list.length ? (
-            <div style={{ fontSize: 13.5, color: '#64748b', padding: '30px 0' }}>
-              저장된 손익계산서가 없습니다. 위 [견적서 업로드]로 시작하세요.
-            </div>
-          ) : null}
-          {list.length ? (
-            <table style={{ ...st.table, minWidth: 900 }}>
-              <thead>
+          <table style={{ ...st.table, minWidth: 900 }}>
+            <thead>
+              <tr>
+                {['차수', '월 배정', '견적일', '품목수', '총 매입', '총 매출(VAT별도)', '총 이익', '이익율', '네노바이익', '미우이익', '수정일', ''].map(h => (
+                  <th key={h} style={st.th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {!loadingList && !list.length ? (
                 <tr>
-                  {['차수', '월 배정', '견적일', '품목수', '총 매입', '총 매출(VAT별도)', '총 이익', '이익율', '네노바이익', '미우이익', '수정일', ''].map(h => (
-                    <th key={h} style={st.th}>{h}</th>
-                  ))}
+                  <td colSpan={12} style={{ ...st.td, whiteSpace: 'normal', color: '#64748b', padding: '18px 10px' }}>
+                    저장된 {partner.label} 손익계산서가 없습니다. 위 [견적서 업로드]로 올리면 차수별로 이 목록과 오른쪽 월별 합계에 남습니다.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {list.map(m => {
-                  const { profit, rate } = masterProfit(m);
-                  const nen = Number(m.NenovaPct);
-                  return (
-                    <tr key={m.PnlKey} style={{ cursor: 'pointer' }} onClick={() => openDetail(m.PnlKey)}>
-                      <td style={{ ...st.td, fontWeight: 700 }}>{Number(m.MajorWeek)}차</td>
-                      <td style={st.td} onClick={e => e.stopPropagation()}>
-                        <select
-                          value={m.AssignedMonth || ''}
-                          disabled={assigningMonthKey === m.PnlKey}
-                          onChange={e => assignMonth(m, e.target.value)}
-                          aria-label={`${Number(m.MajorWeek)}차 월 배정`}
-                          style={{ padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', fontSize: 12 }}
-                        >
-                          <option value="">자동 ({dateStr(m.QuoteDate).slice(5, 7) ? `${Number(dateStr(m.QuoteDate).slice(5, 7))}월` : '날짜 미지정'})</option>
-                          {Array.from({ length: 12 }, (_, index) => {
-                            const month = String(index + 1).padStart(2, '0');
-                            return <option key={month} value={`${m.OrderYear}-${month}`}>{index + 1}월</option>;
-                          })}
-                        </select>
-                      </td>
-                      <td style={st.td}>{dateStr(m.QuoteDate)}</td>
-                      <td style={{ ...st.td, ...st.num }}>
-                        {m.ItemCount}{Number(m.MissingCost) > 0 ? <span style={{ color: '#b91c1c' }}> (매입단가 미입력 {m.MissingCost})</span> : null}
-                      </td>
-                      <td style={{ ...st.td, ...st.num }}>{fmt(m.CostTotal)}</td>
-                      <td style={{ ...st.td, ...st.num }} title={Number(m.ConsignedSale) > 0 ? `사입 ${fmt(m.ConsignedSale)}원 포함 (매입단가 입력 시 손익 합산)` : ''}>
-                        {fmt(m.SaleTotal)}{Number(m.ConsignedSale) > 0 ? ' ▪' : ''}
-                      </td>
-                      <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(profit)}</td>
-                      <td style={{ ...st.td, ...st.num }}>{pct(rate)}</td>
-                      <td style={{ ...st.td, ...st.num }}>{fmt(profit * nen / 100)} <span style={{ color: '#94a3b8' }}>({nen}%)</span></td>
-                      <td style={{ ...st.td, ...st.num }}>{fmt(profit * (100 - nen) / 100)}</td>
-                      <td style={st.td}>{dateStr(m.UpdatedAt || m.CreatedAt)}</td>
-                      <td style={st.td} onClick={e => e.stopPropagation()}>
-                        <button style={st.btnDanger} onClick={() => remove(m.PnlKey, `${Number(m.MajorWeek)}차`)}>삭제</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : null}
+              ) : null}
+              {list.map(m => {
+                const { profit, rate } = masterProfit(m);
+                const nen = Number(m.NenovaPct);
+                return (
+                  <tr key={m.PnlKey} style={{ cursor: 'pointer' }} onClick={() => openDetail(m.PnlKey)}>
+                    <td style={{ ...st.td, fontWeight: 700 }}>{Number(m.MajorWeek)}차</td>
+                    <td style={st.td} onClick={e => e.stopPropagation()}>
+                      <select
+                        value={m.AssignedMonth || ''}
+                        disabled={assigningMonthKey === m.PnlKey}
+                        onChange={e => assignMonth(m, e.target.value)}
+                        aria-label={`${Number(m.MajorWeek)}차 월 배정`}
+                        style={{ padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', fontSize: 12 }}
+                      >
+                        <option value="">자동 ({dateStr(m.QuoteDate).slice(5, 7) ? `${Number(dateStr(m.QuoteDate).slice(5, 7))}월` : '날짜 미지정'})</option>
+                        {Array.from({ length: 12 }, (_, index) => {
+                          const month = String(index + 1).padStart(2, '0');
+                          return <option key={month} value={`${m.OrderYear}-${month}`}>{index + 1}월</option>;
+                        })}
+                      </select>
+                    </td>
+                    <td style={st.td}>{dateStr(m.QuoteDate)}</td>
+                    <td style={{ ...st.td, ...st.num }}>
+                      {m.ItemCount}{Number(m.MissingCost) > 0 ? <span style={{ color: '#b91c1c' }}> (매입단가 미입력 {m.MissingCost})</span> : null}
+                    </td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(m.CostTotal)}</td>
+                    <td style={{ ...st.td, ...st.num }} title={Number(m.ConsignedSale) > 0 ? `사입 ${fmt(m.ConsignedSale)}원 포함 (매입단가 입력 시 손익 합산)` : ''}>
+                      {fmt(m.SaleTotal)}{Number(m.ConsignedSale) > 0 ? ' ▪' : ''}
+                    </td>
+                    <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(profit)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{pct(rate)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(profit * nen / 100)} <span style={{ color: '#94a3b8' }}>({nen}%)</span></td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(profit * (100 - nen) / 100)}</td>
+                    <td style={st.td}>{dateStr(m.UpdatedAt || m.CreatedAt)}</td>
+                    <td style={st.td} onClick={e => e.stopPropagation()}>
+                      <button style={st.btnDanger} onClick={() => remove(m.PnlKey, `${Number(m.MajorWeek)}차`)}>삭제</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
           </div>
           <aside className="raum-pnl-month-summary">
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 7 }}>월별 합계</div>
             <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 8 }}>수동 월 배정 우선 · 미배정은 견적일 기준</div>
-            {!monthlySummary.length ? <div style={{ color: '#64748b', fontSize: 13 }}>집계할 저장 자료가 없습니다.</div> : (
-              <table style={{ ...st.table, fontSize: 12 }}>
-                <thead><tr>{['월', '차수', '매출', '매입', '이익', '네노바', '미우'].map(label => <th key={label} style={{ ...st.th, padding: '5px 6px' }}>{label}</th>)}</tr></thead>
-                <tbody>{monthlySummary.map(month => (
+            <table style={{ ...st.table, fontSize: 12 }}>
+              <thead><tr>{['월', '차수', '매출', '매입', '이익', '네노바', '미우'].map(label => <th key={label} style={{ ...st.th, padding: '5px 6px' }}>{label}</th>)}</tr></thead>
+              <tbody>
+                {!monthlySummary.length ? (
+                  <tr>
+                    <td colSpan={7} style={{ ...st.td, whiteSpace: 'normal', color: '#64748b' }}>집계할 저장 자료가 없습니다. 견적서를 업로드하면 월별로 합산됩니다.</td>
+                  </tr>
+                ) : monthlySummary.map(month => (
                   <tr key={month.month}>
                     <td style={{ ...st.td, fontWeight: 700 }}>{month.month.replace('-날짜미지정', '년 미지정')}</td>
                     <td style={{ ...st.td, whiteSpace: 'normal' }}>{month.weeks.map(week => Number(week.slice(5))).join(', ')}</td>
@@ -1977,9 +1997,9 @@ export default function RaumPnlPage() {
                     <td style={{ ...st.td, ...st.num }}>{fmt(month.nenova)}</td>
                     <td style={{ ...st.td, ...st.num }}>{fmt(month.miu)}</td>
                   </tr>
-                ))}</tbody>
-              </table>
-            )}
+                ))}
+              </tbody>
+            </table>
           </aside>
         </div>
       ) : (

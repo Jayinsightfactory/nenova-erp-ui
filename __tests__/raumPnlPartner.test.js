@@ -24,7 +24,7 @@ function addQuoteSheet(wb, name, { remark, items }) {
 
 async function main() {
   const { parseRaumQuoteWorkbookGroups } = await import('../lib/raumPnlParse.js');
-  const { defaultPnlTitle, resolvePnlPartner } = await import('../lib/raumPnlPartner.js');
+  const { canAutoCommitRaumPnlImport, defaultPnlTitle, resolvePnlPartner } = await import('../lib/raumPnlPartner.js');
 
   assert.equal(resolvePnlPartner().code, 'raum');
   assert.equal(resolvePnlPartner('CHOIMUN').label, '초이문');
@@ -52,6 +52,11 @@ async function main() {
   assert.equal(choimun.batches[0].items[0].price, 2600);
   assert.equal(choimun.batches[0].items[0].byBranch.초이문, 362);
   assert.ok(choimun.batches.every(b => (b.verification || []).every(c => c.ok)), '초이문 합계 검증이 통과해야 한다.');
+
+  assert.equal(canAutoCommitRaumPnlImport(choimun.batches), true, '초이문 신규 업로드는 바로 목록에 남아야 한다.');
+  assert.equal(canAutoCommitRaumPnlImport([]), false);
+  assert.equal(canAutoCommitRaumPnlImport([{ verification: [{ ok: false }] }]), false);
+  assert.equal(canAutoCommitRaumPnlImport([{ verification: [{ ok: true }], existingDiff: { hasChanges: true } }]), false);
 
   const asRaum = parseRaumQuoteWorkbookGroups(XLSX, choimunWb, { partnerCode: 'raum' });
   assert.equal(asRaum.batches.length, 0, '라움 선택 시 초이문 시트를 합산하면 안 된다.');
@@ -97,6 +102,11 @@ async function main() {
   assert.match(layout, /라움 초이문 손익계산서/);
   assert.match(page, /selectPartner/);
   assert.match(page, /partnerCode/);
+  assert.match(page, /canAutoCommitRaumPnlImport/);
+  assert.match(page, /persistImportFile/);
+  assert.match(page, /colSpan=\{12\}/);
+  assert.match(page, /월별 합계/);
+  assert.match(lib, /COL_LENGTH\('dbo\.WebRaumPnl', 'PartnerCode'\) IS NULL/);
   assert.match(panel, /custName,/);
   assert.doesNotMatch(panel, /custName: '라움'/);
   console.log('Raum/Choimun P&L partner tests passed');
