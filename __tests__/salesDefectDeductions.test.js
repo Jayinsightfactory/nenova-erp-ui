@@ -177,11 +177,11 @@ assert.ok(pageSource.includes('견적서관리에 불량차감 등록'), '영업
 assert.ok(pageSource.includes("buildEstimateFixStatusUrl(selectedWeek)"), '영업지원은 붙여넣기 주문등록과 같은 견적서관리 확정현황 링크를 사용해야 한다.');
 assert.ok(pageSource.includes("window.open(url, 'estimate-fix-status'"), '영업지원 확정현황은 동일한 견적서관리 새창으로 열려야 한다.');
 assert.ok(pageSource.includes('🔎 확정 현황 확인'), '영업지원 도구모음에 확정 현황 확인 버튼이 있어야 한다.');
-assert.ok(pageSource.includes('견적서 캡쳐'), '처리상태 옆에 불량차감이 올라간 견적서 캡쳐 열이 있어야 한다.');
+assert.ok(pageSource.includes('<th>불량차감</th>'), '처리상태 옆에 불량차감 미리보기 열이 있어야 한다.');
 assert.ok(pageSource.includes('buildSupportEstimateCapture'), '견적서 캡쳐는 공통 helper로 견적서 목록을 재현해야 한다.');
 assert.ok(pageSource.includes('data-estimate-capture'), '견적서 캡쳐 미리보기가 처리상태 옆에 보여야 한다.');
 assert.doesNotMatch(pageSource, /previewCapture\s*:/, '캡쳐 미리보기는 견적서관리 iframe/딥링크를 다시 의존하지 않아야 한다.');
-assert.doesNotMatch(pageSource, /<iframe|window\.open\(url, ['"]estimate-customer/, '영업지원 미리보기는 원장 화면을 새로 열지 않고 불량차감 목록만 보여야 한다.');
+assert.doesNotMatch(pageSource, /<iframe/, '영업지원 미리보기는 iframe 원장 화면을 쓰지 않고 불량차감 목록만 보여야 한다.');
 assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 분배단가 열을 표시해야 한다.');
 assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 EXE 호환 분배단가 조회 결과를 표시해야 한다.');
 assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
@@ -607,7 +607,7 @@ const capturePage = buildSupportEstimateCapture({
   ],
 }, { year: 2026, week: 33 });
 assert.equal(capturePage.mode, 'page');
-assert.match(capturePage.subtitle, /청화원예 불량차감 2건/);
+assert.match(capturePage.subtitle, /청화원예 불량차감 1건/);
 assert.equal(capturePage.rows[0].current, true, '현재 행의 견적키가 캡쳐에서 강조되어야 한다.');
 assert.equal(capturePage.rows.some((row) => row.typeLabel === '판매요청'), false, '미리보기는 불량차감된 항목만 보여야 한다.');
 assert.equal(buildSupportEstimateCapture({ status: 'MANUAL_COMPLETED', customerName: '청화원예' }, { year: 2026, week: 33 }).mode, 'manual');

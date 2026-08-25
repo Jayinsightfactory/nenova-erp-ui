@@ -18,6 +18,7 @@ const isCarryoverRetrySelectable = (row = {}) => Boolean(
 );
 const isSupportRegistrationSelectable = (row = {}, activeTab = 'support') => Boolean(
   Number(row.deductionKey) > 0
+  && row.importConfirmed === true
   && row.registrationEligible === true
   && !isSupportProcessingComplete(row)
   && (activeTab !== 'carryover' || isCarryoverRetrySelectable(row))
@@ -36,60 +37,19 @@ const existingEstimateLabel = (record = {}) => {
   return `${estimateKey > 0 ? `#${estimateKey} · ` : ''}${type} · ${product} · ${fmt(Math.abs(quantity))}${unit}${cost ? ` · 단가 ${fmt(cost)}원` : ''}${amount ? ` · 금액 ${fmt(amount)}원` : ''}${week ? ` · ${week}차` : ''}${date ? ` · ${date}` : ''}${descr ? ` · ${descr}` : ''}`;
 };
 
-function SupportEstimateCaptureThumb({ capture, onOpen, onShowLive, onHideLive }) {
+function SupportEstimatePreviewButton({ capture, onOpen }) {
+  const unavailable = capture.mode !== 'page';
   return (
-    <div
-      className="support-estimate-capture"
+    <button
+      type="button"
+      className="btn btn-xs support-estimate-preview"
       data-estimate-capture="1"
-      role="button"
-      tabIndex={0}
-      title="견적서 불량차감 페이지 캡쳐. 클릭하면 실제 견적서를 엽니다."
+      title={unavailable ? '등록된 불량차감 견적 항목이 없습니다.' : '이 불량차감 항목만 미리 봅니다.'}
       onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
-      onMouseEnter={(event) => onShowLive(event.currentTarget)}
-      onMouseLeave={onHideLive}
-      onFocus={(event) => onShowLive(event.currentTarget)}
-      onBlur={onHideLive}
+      disabled={unavailable}
     >
-      <div className="support-estimate-capture-head">
-        <strong>■ 견적서 목록</strong>
-        <span>{capture.subtitle}</span>
-      </div>
-      {capture.mode === 'page' ? (
-        <table className="support-estimate-capture-table">
-          <thead>
-            <tr>
-              <th>품목명</th>
-              <th>단위</th>
-              <th>수량</th>
-              <th>단가</th>
-              <th>공급가액</th>
-            </tr>
-          </thead>
-          <tbody>
-            {capture.rows.map((item, index) => (
-              <tr key={item.estimateKey || index} className={item.current ? 'is-current' : ''}>
-                <td>
-                  <span className="support-estimate-capture-type">[{item.typeLabel}]</span>
-                  {item.productName}
-                </td>
-                <td>{item.unit || '-'}</td>
-                <td className="num">{fmt(item.quantity)}</td>
-                <td className="num">{fmt(item.cost)}</td>
-                <td className="num">{fmt(item.amount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <div className="support-estimate-capture-empty">{capture.mode === 'manual' ? '수기 처리 · 견적서 미생성' : '아직 올라간 불량차감이 없습니다'}</div>
-      )}
-    </div>
+      미리보기 {capture.rows.length ? `(${capture.rows.length})` : ''}
+    </button>
   );
 }
 const usageLabel = (item) => {
@@ -198,7 +158,7 @@ export default function SalesDefectDeductionsPage() {
   const [supportRows, setSupportRows] = useState([]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
-  const [liveEstimateCapture, setLiveEstimateCapture] = useState(null);
+  const [estimatePreview, setEstimatePreview] = useState(null);
   const [incomingLoading, setIncomingLoading] = useState(false);
   const [incomingSaving, setIncomingSaving] = useState(false);
   const [incomingConfirming, setIncomingConfirming] = useState(new Set());
@@ -221,7 +181,6 @@ export default function SalesDefectDeductionsPage() {
   const [addModeMenu, setAddModeMenu] = useState(null); // { index, sourceIndex }
   const [preflight, setPreflight] = useState({});
   const fileRef = useRef(null);
-  const captureHoverTimerRef = useRef(null);
   const searchTimer = useRef(null);
   const preflightTimer = useRef(null);
   const lookupPanelRef = useRef(null);
@@ -985,7 +944,7 @@ export default function SalesDefectDeductionsPage() {
     const next = new Set(current);
     const key = Number(deductionKey);
     const row = supportRows.find((item) => Number(item.deductionKey) === key);
-    if (!isSupportManualCompleteSelectable(row)) {
+    if (!isSupportRegistrationSelectable(row, activeTab)) {
       next.delete(key);
       return next;
     }
@@ -1211,51 +1170,13 @@ export default function SalesDefectDeductionsPage() {
     window.open(url, 'estimate-customer', 'width=1500,height=940,scrollbars=yes,resizable=yes');
   };
 
-  const hideLiveEstimateCapture = (immediate = false) => {
-    if (captureHoverTimerRef.current) {
-      clearTimeout(captureHoverTimerRef.current);
-      captureHoverTimerRef.current = null;
-    }
-    if (immediate) {
-      setLiveEstimateCapture(null);
-      return;
-    }
-    captureHoverTimerRef.current = setTimeout(() => setLiveEstimateCapture(null), 180);
-  };
-
-  const showLiveEstimateCapture = (row, anchor) => {
-    if (Number(row?.custKey) <= 0) return;
-    if (captureHoverTimerRef.current) clearTimeout(captureHoverTimerRef.current);
-    captureHoverTimerRef.current = setTimeout(() => {
-      const url = buildEstimateCustomerUrl({
-        year,
-        week,
-        custKey: row.custKey,
-        customerName: row.customerName,
-        previewCapture: true,
-      });
-      const openUrl = buildEstimateCustomerUrl({
-        year,
-        week,
-        custKey: row.custKey,
-        customerName: row.customerName,
-      });
-      if (!url || !anchor) return;
-      const rect = anchor.getBoundingClientRect();
-      const width = 520;
-      const height = 300;
-      const left = Math.min(Math.max(8, rect.right + 8), Math.max(8, window.innerWidth - width - 8));
-      const top = Math.min(Math.max(8, rect.top), Math.max(8, window.innerHeight - height - 8));
-      setLiveEstimateCapture({
-        url,
-        openUrl,
-        title: `${row.customerName || '거래처'} 견적서 캡쳐`,
-        left,
-        top,
-        width,
-        height,
-      });
-    }, 280);
+  const openEstimatePreview = (row, capture) => {
+    if (capture.mode !== 'page') return;
+    setEstimatePreview({
+      title: `${row.customerName || '거래처'} 불량차감 미리보기`,
+      subtitle: capture.subtitle,
+      rows: capture.rows,
+    });
   };
 
   const toggle = (index) => setSelected((current) => {
@@ -1541,10 +1462,10 @@ export default function SalesDefectDeductionsPage() {
         </div>}
         <div className="defect-grid-scroll support-grid-scroll">
           <table className="data-table defect-grid support-grid">
-            <thead><tr><th><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={!supportSelectableKeys.length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>견적서 캡쳐</th></tr></thead>
+            <thead><tr><th><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={!supportSelectableKeys.length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
-              const checkable = isSupportManualCompleteSelectable(row);
+              const checkable = isSupportRegistrationSelectable(row, activeTab);
               const existingEstimateRecords = Array.isArray(row.existingEstimateRecords) ? row.existingEstimateRecords : [];
               const existingEstimateCount = Number(row.existingEstimateCount ?? existingEstimateRecords.length);
               const scopeLabel = supportStatusDetail(row, year, week);
@@ -1560,7 +1481,7 @@ export default function SalesDefectDeductionsPage() {
                 <td className="support-cost-cell">{row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}</td>
                 <td>{row.farmName || '-'}</td>
                 <td>
-                  <div>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : '확인 필요'}</div>
+                  <div>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : '미확정 · 수입부 확인 필요'}</div>
                   {row.importReviewRequired && <div className="support-review-required" role="alert">
                     <strong>보완 필요</strong>
                     <button type="button" className="btn btn-xs review-resolve-button" onClick={() => resolveReviewRow(row)} disabled={reviewResolving.has(key)}>
@@ -1575,12 +1496,10 @@ export default function SalesDefectDeductionsPage() {
                   {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
                   {existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
                 </td>
-                <td className="support-estimate-capture-cell">
-                  <SupportEstimateCaptureThumb
+                <td className="support-estimate-preview-cell">
+                  <SupportEstimatePreviewButton
                     capture={estimateCapture}
-                    onOpen={() => openCustomerEstimate(row)}
-                    onShowLive={(anchor) => showLiveEstimateCapture(row, anchor)}
-                    onHideLive={() => hideLiveEstimateCapture()}
+                    onOpen={() => openEstimatePreview(row, estimateCapture)}
                   />
                 </td>
               </tr>;
@@ -1880,25 +1799,19 @@ export default function SalesDefectDeductionsPage() {
         .support-carryover { color: #b45309; font-weight: 700; }
         .support-scope-label { display: block; margin-top: 1px; color: #64748b; font-size: 10px; white-space: nowrap; }
         .support-estimate-open { display: inline-block; margin-top: 4px; white-space: nowrap; }
-        .support-estimate-capture-cell { width: 280px; min-width: 260px; padding: 4px !important; vertical-align: top !important; }
-        .support-estimate-capture { width: 268px; max-height: 148px; overflow: auto; border: 1px solid #f59e0b; border-radius: 6px; background: #fffbeb; cursor: pointer; text-align: left; }
-        .support-estimate-capture:focus, .support-estimate-capture:hover { outline: 2px solid #f59e0b; outline-offset: 1px; max-height: 220px; }
-        .support-estimate-capture-head { display: flex; flex-direction: column; gap: 1px; padding: 4px 6px 3px; border-bottom: 1px solid #fde68a; background: #fff7ed; }
-        .support-estimate-capture-head strong { color: #92400e; font-size: 11px; }
-        .support-estimate-capture-head span { color: #b45309; font-size: 10px; font-weight: 800; }
-        .support-estimate-capture-table { width: 100%; border-collapse: collapse; font-size: 10px; }
-        .support-estimate-capture-table th, .support-estimate-capture-table td { padding: 2px 4px; border-bottom: 1px solid #fde68a; white-space: nowrap; }
-        .support-estimate-capture-table th { background: #f8fafc; color: #475569; font-weight: 700; }
-        .support-estimate-capture-table td { color: #A0522D; }
-        .support-estimate-capture-table .num { text-align: right; font-variant-numeric: tabular-nums; color: #C0392B; }
-        .support-estimate-capture-table tr.is-current { background: #FDE68A; }
-        .support-estimate-capture-table tr:not(.is-current) { background: #FFF8DC; }
-        .support-estimate-capture-type { margin-right: 3px; color: #B8860B; font-size: 9px; }
-        .support-estimate-capture-empty { padding: 18px 8px; color: #92400e; font-size: 11px; text-align: center; }
-        :global(.support-estimate-live) { position: fixed; z-index: 2147483001; overflow: hidden; border: 1px solid #d97706; border-radius: 8px; background: #fff; box-shadow: 0 16px 40px rgba(15, 23, 42, .28); }
-        :global(.support-estimate-live-label) { padding: 5px 8px; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 800; border-bottom: 1px solid #f59e0b; }
-        :global(.support-estimate-live-frame) { width: 100%; height: calc(100% - 26px); overflow: hidden; background: #f8fafc; }
-        :global(.support-estimate-live-frame iframe) { width: 222%; height: 222%; border: 0; transform: scale(0.45); transform-origin: top left; pointer-events: none; }
+        .support-estimate-preview-cell { width: 104px; min-width: 104px; text-align: center; white-space: nowrap; }
+        .support-estimate-preview { min-width: 84px; color: #92400e; border-color: #f59e0b; background: #fffbeb; }
+        .support-estimate-preview:disabled { color: #94a3b8; border-color: #cbd5e1; background: #f8fafc; cursor: not-allowed; }
+        .support-estimate-preview-modal { position: fixed; z-index: 2147483001; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .42); }
+        .support-estimate-preview-card { width: min(680px, 100%); max-height: min(520px, calc(100vh - 32px)); overflow: auto; border: 1px solid #f59e0b; border-radius: 8px; background: #fff; box-shadow: 0 18px 48px rgba(15, 23, 42, .32); }
+        .support-estimate-preview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid #fde68a; background: #fffbeb; }
+        .support-estimate-preview-head strong { display: block; color: #92400e; font-size: 14px; }
+        .support-estimate-preview-head span { display: block; margin-top: 2px; color: #64748b; font-size: 11px; }
+        .support-estimate-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .support-estimate-preview-table th, .support-estimate-preview-table td { padding: 8px 9px; border-bottom: 1px solid #fde68a; text-align: left; }
+        .support-estimate-preview-table th { position: sticky; top: 0; background: #f8fafc; color: #475569; font-size: 11px; white-space: nowrap; }
+        .support-estimate-preview-table .num { text-align: right; font-variant-numeric: tabular-nums; color: #9a3412; white-space: nowrap; }
+        .support-estimate-preview-table tr.is-current { background: #fef3c7; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }
@@ -2004,20 +1917,31 @@ export default function SalesDefectDeductionsPage() {
           .print-table th { background: #c69700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
-      {typeof document !== 'undefined' && liveEstimateCapture && createPortal(
-        <div
-          className="support-estimate-live"
-          style={{ left: liveEstimateCapture.left, top: liveEstimateCapture.top, width: liveEstimateCapture.width, height: liveEstimateCapture.height }}
-          onMouseEnter={() => { if (captureHoverTimerRef.current) { clearTimeout(captureHoverTimerRef.current); captureHoverTimerRef.current = null; } }}
-          onMouseLeave={() => hideLiveEstimateCapture(true)}
-          onClick={() => window.open(liveEstimateCapture.openUrl || liveEstimateCapture.url, 'estimate-customer', 'width=1500,height=940,scrollbars=yes,resizable=yes')}
-        >
-          <div className="support-estimate-live-label">{liveEstimateCapture.title} · 실제 견적서 페이지</div>
-          <div className="support-estimate-live-frame">
-            <iframe title={liveEstimateCapture.title} src={liveEstimateCapture.url} />
-          </div>
-        </div>,
-        document.body,
+      {estimatePreview && (
+        <div className="support-estimate-preview-modal" role="presentation" onMouseDown={() => setEstimatePreview(null)}>
+          <section className="support-estimate-preview-card" role="dialog" aria-modal="true" aria-label={estimatePreview.title} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="support-estimate-preview-head">
+              <div>
+                <strong>{estimatePreview.title}</strong>
+                <span>{estimatePreview.subtitle} · 불량차감 항목만 표시</span>
+              </div>
+              <button type="button" className="btn btn-xs" onClick={() => setEstimatePreview(null)}>닫기</button>
+            </div>
+            <table className="support-estimate-preview-table">
+              <thead><tr><th>견적키</th><th>상태</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th></tr></thead>
+              <tbody>{estimatePreview.rows.map((item, index) => (
+                <tr key={item.estimateKey || index} className={item.current ? 'is-current' : ''}>
+                  <td>#{item.estimateKey || '-'}</td>
+                  <td>{item.statusLabel}</td>
+                  <td>{item.productName}{item.unit ? ` (${item.unit})` : ''}</td>
+                  <td className="num">{fmt(item.quantity)}</td>
+                  <td className="num">{fmt(item.cost)}원</td>
+                  <td className="num">{fmt(item.amount)}원</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </section>
+        </div>
       )}
       </div>
     </Layout>

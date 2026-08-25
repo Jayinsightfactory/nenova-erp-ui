@@ -74,7 +74,9 @@ async function handler(req, res) {
         includeDeleted: req.query.includeDeleted === '1',
         history: req.query.history === '1',
         includeCarryover: String(req.query.view || '') === 'support',
-        importConfirmedOnly: String(req.query.view || '') === 'support',
+        // 영업지원은 수입부 미확정 행도 업무 대기 목록에서 확인한다.
+        // 실제 견적 등록은 공통 preflight/write의 ImportConfirmed 가드가 계속 차단한다.
+        importConfirmedOnly: false,
         carryoverOnly,
       });
       return res.status(200).json({ success: true, year, week, ...data });
