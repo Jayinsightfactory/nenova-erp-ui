@@ -18,7 +18,6 @@ const isCarryoverRetrySelectable = (row = {}) => Boolean(
 );
 const isSupportRegistrationSelectable = (row = {}, activeTab = 'support') => Boolean(
   Number(row.deductionKey) > 0
-  && row.importConfirmed === true
   && row.registrationEligible === true
   && !isSupportProcessingComplete(row)
   && (activeTab !== 'carryover' || isCarryoverRetrySelectable(row))
@@ -38,17 +37,16 @@ const existingEstimateLabel = (record = {}) => {
 };
 
 function SupportEstimatePreviewButton({ capture, onOpen }) {
-  const unavailable = capture.mode !== 'page';
+  const registered = capture.mode === 'page';
   return (
     <button
       type="button"
       className="btn btn-xs support-estimate-preview"
       data-estimate-capture="1"
-      title={unavailable ? '등록된 불량차감 견적 항목이 없습니다.' : '이 불량차감 항목만 미리 봅니다.'}
+      title={registered ? '이 불량차감 항목만 미리 봅니다.' : '이 불량차감 항목의 등록 여부를 확인합니다.'}
       onClick={onOpen}
-      disabled={unavailable}
     >
-      미리보기 {capture.rows.length ? `(${capture.rows.length})` : ''}
+      미리보기{registered && capture.rows.length ? ` (${capture.rows.length})` : ''}
     </button>
   );
 }
@@ -1171,10 +1169,10 @@ export default function SalesDefectDeductionsPage() {
   };
 
   const openEstimatePreview = (row, capture) => {
-    if (capture.mode !== 'page') return;
     setEstimatePreview({
       title: `${row.customerName || '거래처'} 불량차감 미리보기`,
       subtitle: capture.subtitle,
+      mode: capture.mode,
       rows: capture.rows,
     });
   };
@@ -1812,6 +1810,9 @@ export default function SalesDefectDeductionsPage() {
         .support-estimate-preview-table th { position: sticky; top: 0; background: #f8fafc; color: #475569; font-size: 11px; white-space: nowrap; }
         .support-estimate-preview-table .num { text-align: right; font-variant-numeric: tabular-nums; color: #9a3412; white-space: nowrap; }
         .support-estimate-preview-table tr.is-current { background: #fef3c7; }
+        .support-estimate-preview-empty { padding: 28px 18px; color: #475569; text-align: center; }
+        .support-estimate-preview-empty strong { display: block; color: #92400e; font-size: 14px; }
+        .support-estimate-preview-empty p { margin: 8px 0 0; font-size: 12px; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }
@@ -1919,27 +1920,34 @@ export default function SalesDefectDeductionsPage() {
       `}</style>
       {estimatePreview && (
         <div className="support-estimate-preview-modal" role="presentation" onMouseDown={() => setEstimatePreview(null)}>
-          <section className="support-estimate-preview-card" role="dialog" aria-modal="true" aria-label={estimatePreview.title} onMouseDown={(event) => event.stopPropagation()}>
+          <section className="support-estimate-preview-card" role="dialog" aria-modal="true" aria-labelledby="support-estimate-preview-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="support-estimate-preview-head">
               <div>
-                <strong>{estimatePreview.title}</strong>
+                <strong id="support-estimate-preview-title">{estimatePreview.title}</strong>
                 <span>{estimatePreview.subtitle} · 불량차감 항목만 표시</span>
               </div>
-              <button type="button" className="btn btn-xs" onClick={() => setEstimatePreview(null)}>닫기</button>
+              <button type="button" className="btn btn-xs" aria-label="불량차감 미리보기 닫기" onClick={() => setEstimatePreview(null)}>닫기</button>
             </div>
-            <table className="support-estimate-preview-table">
-              <thead><tr><th>견적키</th><th>상태</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th></tr></thead>
-              <tbody>{estimatePreview.rows.map((item, index) => (
-                <tr key={item.estimateKey || index} className={item.current ? 'is-current' : ''}>
-                  <td>#{item.estimateKey || '-'}</td>
-                  <td>{item.statusLabel}</td>
-                  <td>{item.productName}{item.unit ? ` (${item.unit})` : ''}</td>
-                  <td className="num">{fmt(item.quantity)}</td>
-                  <td className="num">{fmt(item.cost)}원</td>
-                  <td className="num">{fmt(item.amount)}원</td>
-                </tr>
-              ))}</tbody>
-            </table>
+            {estimatePreview.rows.length ? (
+              <table className="support-estimate-preview-table">
+                <thead><tr><th>견적키</th><th>상태</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th></tr></thead>
+                <tbody>{estimatePreview.rows.map((item, index) => (
+                  <tr key={item.estimateKey || index} className={item.current ? 'is-current' : ''}>
+                    <td>#{item.estimateKey || '-'}</td>
+                    <td>{item.statusLabel}</td>
+                    <td>{item.productName}{item.unit ? ` (${item.unit})` : ''}</td>
+                    <td className="num">{fmt(item.quantity)}</td>
+                    <td className="num">{fmt(item.cost)}원</td>
+                    <td className="num">{fmt(item.amount)}원</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            ) : (
+              <div className="support-estimate-preview-empty" role="status">
+                <strong>{estimatePreview.mode === 'manual' ? '수기 처리완료' : '아직 등록되지 않았습니다.'}</strong>
+                <p>{estimatePreview.mode === 'manual' ? '수기 처리된 항목으로 견적서 원장이 생성되지 않았습니다.' : '이 불량차감 항목은 현재 차수 견적서에 아직 등록되지 않았습니다.'}</p>
+              </div>
+            )}
           </section>
         </div>
       )}
