@@ -34,6 +34,7 @@
     "__tests__/erpEditFixScopeAudit.test.js",
     "__tests__/pasteMixedBatch.test.js",
     "__tests__/pasteBatchHistory.test.js"
+    ,"__tests__/pasteBatchUndo.test.js"
     ,"__tests__/shipmentAdjustmentPostWrite.test.js"
     ,"__tests__/pasteRematchCache.test.js"
     ,"__tests__/pasteSplitActionLayout.test.js"
@@ -102,7 +103,7 @@
         "estimateAndSales": "preserve"
       }
     ],
-    "undoPolicy": "the last successful in-memory batch can be undone once; original ADD restores order+shipment and original CANCEL restores shipment only; changed current quantities abort and roll back the whole undo"
+    "undoPolicy": "the last successful in-memory batch can be undone once; undo acquires a fresh edit lease for every customer and sends its editGuard; original ADD restores order+shipment and original CANCEL restores shipment only; every row must pass post-write verification inside one transaction; changed current quantities abort and roll back the whole undo; the client refreshes its baseline and releases all leases before enabling the action button again; a client timeout is reported as unknown until a fresh read, never assumed rolled back"
   },
   "postWriteVerificationPolicy": {
     "successMeaning": "success is returned only after the same transaction re-reads raw Order/Shipment rows, ViewOrder/ViewShipment, and ShipmentDate totals",

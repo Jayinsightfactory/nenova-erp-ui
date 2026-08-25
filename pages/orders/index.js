@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { apiGetExe } from '../../lib/exeParity/client.js';
 import { mapExeOrderViewToOrders } from '../../lib/exeParity/mapResponses.js';
 import { useLang } from '../../lib/i18n';
+import { resolveOrderListYearScope } from '../../lib/orderListYearScope.js';
 
 const fmt = n => Number(n || 0).toLocaleString();
 
@@ -40,9 +41,20 @@ export default function OrderList() {
   const load = () => {
     setLoading(true); setErr('');
     // 차수 필터 있으면 날짜 무시하고 차수 기준 조회
-    const params = weekFilter
-      ? { week: weekFilter, custName }
-      : { startDate, endDate, custName, view: 'exe' };
+    let params;
+    try {
+      params = weekFilter
+        ? {
+            week: weekFilter,
+            year: resolveOrderListYearScope({ week: weekFilter, startDate, endDate }).orderYear,
+            custName,
+          }
+        : { startDate, endDate, custName, view: 'exe' };
+    } catch (error) {
+      setErr(error.message);
+      setLoading(false);
+      return;
+    }
     apiGetExe('/api/orders', params)
       .then((d) => {
         if (d.rows && Array.isArray(d.rows)) {

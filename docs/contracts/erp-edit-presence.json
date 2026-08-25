@@ -11,11 +11,13 @@
     "pages/api/estimate/update-entry.js",
     "pages/api/estimate/index.js",
     "pages/api/shipment/adjust.js",
+    "pages/api/shipment/adjust-batch-undo.js",
     "pages/api/shipment/distribute.js",
     "pages/api/shipment/fix.js",
     "pages/api/orders/index.js",
     "pages/estimate.js",
     "pages/orders/paste.js",
+    "lib/pasteBatchUndo.js",
     "components/ErpEditPresenceBanner.js",
     "components/estimate/OrderRegisterDistributeModal.js",
     "hooks/useErpEditPresence.js",
@@ -26,6 +28,7 @@
     "__tests__/erpEditPresence.test.js",
     "__tests__/erpEditPresenceUiContract.test.js",
     "__tests__/pasteSplitActionLayout.test.js"
+    ,"__tests__/pasteBatchUndo.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -49,6 +52,22 @@
       "estimate": "existing API policy",
       "snapshot": "canonical SHA256 of parent-week rows; assert/advance take UPDLOCK,HOLDLOCK, GET remains lock-free",
       "sequence": "successful write advances server BaselineDigest so unfix-save-refix self writes remain valid; intervening EXE change returns ERP_EDIT_STALE"
+    },
+    {
+      "name": "PASTE_BATCH_UNDO_ORIGINAL_ADD",
+      "orderDetail": "decrease",
+      "shipmentDetail": "decrease",
+      "estimate": "preserve",
+      "sequence": "acquire all customer leases -> keep saving marker -> atomic undo with editGuard -> verify all rows -> refresh baseline -> release all leases -> enable button",
+      "failure": "one failure rolls back the transaction; timeout is treated as unknown and requires a fresh read"
+    },
+    {
+      "name": "PASTE_BATCH_UNDO_ORIGINAL_CANCEL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "increase",
+      "estimate": "preserve",
+      "sequence": "acquire all customer leases -> keep saving marker -> atomic undo with editGuard -> verify all rows -> refresh baseline -> release all leases -> enable button",
+      "failure": "one failure rolls back the transaction; timeout is treated as unknown and requires a fresh read"
     }
   ],
   "crossYearFixture": {
