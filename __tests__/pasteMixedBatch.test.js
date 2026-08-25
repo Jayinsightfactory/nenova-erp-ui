@@ -82,8 +82,8 @@ async function main() {
     '실제 저장도 중복 레거시 상세행이 있을 때 예상값과 같은 첫 상세행을 선택해야 한다.');
   assert.match(
     pasteSource,
-    /const targets = orderPasteMixedBatchTargets\(eligibleTargets\);[\s\S]*for \(const t of targets\)/,
-    '페이지의 실제 API 실행 배열에 CANCEL→ADD 순서 함수를 적용해야 한다.',
+    /const targets = orderPasteMixedBatchTargets\(eligibleTargets\);[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/,
+    '페이지의 실제 API 실행 배열은 CANCEL→ADD 순서로 만든 뒤 단일 트랜잭션 API에 전달해야 한다.',
   );
   assert.match(
     pasteSource,

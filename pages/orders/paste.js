@@ -2240,9 +2240,9 @@ export default function PasteOrderPage() {
   // 동작:
   //   - "5 추가" 입력 → adjust ADD qty=5 → OrderDetail+5 + ShipmentDetail+5
   //   - "1 박스 취소" 입력 → 활성 분배가 있으면 ShipmentDetail만 -1,
-  //     없으면 OrderDetail만 -1 (ShipmentMaster/ShipmentDetail 신규 생성 금지)
-  // 주의: adjust API 의 ADD 가 이미 OrderDetail+ShipmentDetail 동시 처리하므로
-  //       handleRegister 별도 호출 불필요.
+  //     없으면 취소 대상을 찾지 못한 것으로 중단하며 OrderDetail은 보존
+  // 주의: 업체별 실행도 전체 실행과 같은 단일 트랜잭션 API를 사용한다.
+  //       각 품목을 따로 저장하면 중간 실패 때 일부만 반영될 수 있으므로 금지한다.
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkResult, setBulkResult] = useState(null); // { okCount, failCount, details }
   const handleBulkDistribute = async (oid, { failedOnly = false } = {}) => {
@@ -2324,43 +2324,44 @@ export default function PasteOrderPage() {
     try {
       pasteGuard = await acquirePasteGuard(order.custMatch.CustKey);
       beginPasteSaving(order.custMatch.CustKey);
-      for (const t of targets) {
-        const type = pasteBatchActionType(t);
-        try {
-        const r = await fetch('/api/shipment/adjust', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-          body: JSON.stringify({
-            custKey: order.custMatch.CustKey, prodKey: t.prodKey, week,
-            year: selectedYearFromWeek(week),
-            type, qty: t.qty, unit: t.unit,
-            ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
-            memo: `붙여넣기 일괄${type === 'ADD' ? '추가' : '취소'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
-            force: false,
-            editGuard: pasteGuard.guard,
+      const response = await fetch('/api/shipment/adjust-batch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({
+          week,
+          year: selectedYearFromWeek(week),
+          entries: targets.map((t, inputIndex) => {
+            const type = pasteBatchActionType(t);
+            return {
+              entryId: `${oid}:${inputIndex}`,
+              custKey: order.custMatch.CustKey,
+              prodKey: t.prodKey,
+              type,
+              qty: t.qty,
+              unit: t.unit,
+              ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
+              memo: `붙여넣기 일괄${type === 'ADD' ? '추가' : '취소'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
+              force: false,
+              editGuard: pasteGuard.guard,
+            };
           }),
-        });
-        const j = await r.json();
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success !== true || result.verified !== true) {
+        throw pasteWriteError(response, result, '업체 일괄 처리 후 전산 대조에 실패했습니다.');
+      }
+      const serverResults = Array.isArray(result.results) ? result.results : [];
+      const serverByInput = new Map(serverResults.filter(row => Number.isInteger(row?.inputIndex)).map(row => [row.inputIndex, row]));
+      targets.forEach((t, inputIndex) => {
+        const saved = serverByInput.get(inputIndex) || serverResults[inputIndex];
         details.push({
           ...t,
-          type,
-          ok: !!j.success,
-          code: j.code,
-          error: j.error,
-          qtyBefore: j.qtyBefore,
-          qtyAfter: j.qtyAfter,
-          orderQtyBefore: j.orderQtyBefore,
-          orderQtyAfter: j.orderQtyAfter,
-          outQtyBefore: j.outQtyBefore,
-          outQtyAfter: j.outQtyAfter,
-          remainBefore: j.remainBefore,
-          remainAfter: j.remainAfter,
-          totalIn: j.totalIn,
-          totalOut: j.totalOut,
+          ...(saved || {}),
+          type: pasteBatchActionType(t),
+          ok: saved?.verified === true,
+          error: saved?.verified === true ? null : '저장 직후 전산 대조 결과가 없습니다.',
         });
-        } catch (e) {
-          details.push({ ...t, type, ok: false, error: e.message });
-        }
-      }
+      });
       saveSucceeded = details.length === targets.length && details.every(row => row.ok);
       details.filter(row => row.code === 'ERP_EDIT_STALE' || row.code === 'ERP_EDIT_LOCKED')
         .forEach(row => keepPasteGuardWarning(order.custMatch.CustKey, { code: row.code, data: row }));
@@ -2420,7 +2421,7 @@ export default function PasteOrderPage() {
         }));
         await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
       }
-    } catch { /* 갱신 실패해도 결과는 표시 */ }
+    } catch { /* 서버 트랜잭션 내부 대조는 완료됨. 화면 재조회만 실패한 경우 기존 검증결과를 유지한다. */ }
     loadOrderHistorySummary(week, orders);
   };
 
@@ -2498,7 +2499,7 @@ export default function PasteOrderPage() {
         }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || result.success !== true) {
+      if (!response.ok || result.success !== true || result.verified !== true) {
         const rollbackError = pasteWriteError(response, result, '전체 일괄 처리에 실패했습니다.');
         rollbackError.failedIndex = Number.isInteger(result.failedIndex)
           ? result.failedIndex
@@ -2516,8 +2517,11 @@ export default function PasteOrderPage() {
         ...target,
         ...(serverResultsByEntryId.get(target.entryId) || serverResultsByInputIndex.get(index) || serverResults[index] || {}),
         type: pasteBatchActionType(target),
-        ok: true,
+        ok: (serverResultsByEntryId.get(target.entryId) || serverResultsByInputIndex.get(index) || serverResults[index])?.verified === true,
       }));
+      if (details.some(row => !row.ok)) {
+        throw new Error('저장 직후 전산 대조가 완료되지 않은 항목이 있어 완료 처리하지 않았습니다.');
+      }
       allSucceeded = true;
       setBulkResult({ orderId: 'ALL', okCount: details.length, failCount: 0, details, rolledBack: false });
       // 원장 반영이 전체 성공한 경우에만 DB 저장내역/분배수량/히스토리를 화면에 반영한다.
@@ -2740,7 +2744,7 @@ export default function PasteOrderPage() {
         setAdjustSaving(false);
         return;
       }
-      if (d.success) {
+      if (d.success && d.verified === true) {
         // 분배수량 갱신
         const key = `${adjustModal.custKey}-${adjustModal.prodKey}-${adjustModal.week}`;
         const shipQty = Number.isFinite(Number(d.outQtyAfter)) ? Number(d.outQtyAfter) : Number(d.qtyAfter || 0);
@@ -2764,7 +2768,7 @@ export default function PasteOrderPage() {
         setAdjustModal(null); setAdjustQty('');
         saveSucceeded = true;
       } else {
-        alert(`${adjustModal.type} 실패: ${d.error}`);
+        alert(`${adjustModal.type} 실패: ${d.error || '저장 직후 전산 대조가 완료되지 않았습니다.'}`);
       }
     } catch (e) {
       keepPasteGuardWarning(adjustModal.custKey, e);
@@ -2867,7 +2871,7 @@ export default function PasteOrderPage() {
           }),
         });
         const result = await res.json();
-        if (!res.ok || !result.success) throw pasteWriteError(res, result, `${item.prodName} 취소 실패`);
+        if (!res.ok || !result.success || result.verified !== true) throw pasteWriteError(res, result, `${item.prodName} 취소 후 전산 대조 실패`);
         cancelResults.push({ ...item, status: 'CANCELLED', mode: result.mode, policyReason: result.policyReason });
       }
 
@@ -2880,7 +2884,7 @@ export default function PasteOrderPage() {
           body: JSON.stringify({ custKey: order.custMatch.CustKey, week: orderWeek, year: orderYear, items, delta: true, source: 'paste', editGuard: pasteGuard.guard }),
         });
         d = await res.json();
-        if (!res.ok || !d.success) throw pasteWriteError(res, d, '주문등록 실패');
+        if (!res.ok || !d.success || d.verified !== true) throw pasteWriteError(res, d, '주문등록 후 전산 대조 실패');
       }
 
       const orderResults = d.results || [];
@@ -2910,7 +2914,7 @@ export default function PasteOrderPage() {
             await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
           }
         }
-      } catch { /* 조회 실패해도 저장은 완료 */ }
+      } catch { /* 서버 트랜잭션 내부 전산 대조는 완료됨. 화면 재조회만 실패한 경우다. */ }
       loadOrderHistorySummary(week, orders);
       saveSucceeded = true;
     } catch (e) {

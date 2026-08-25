@@ -81,7 +81,7 @@ async function main() {
     },
     executeEntryFn: async (staged, { body }) => {
       staged.push(body.type);
-      return { type: body.type, custKey: body.custKey, prodKey: body.prodKey };
+      return { verified: true, type: body.type, custKey: body.custKey, prodKey: body.prodKey };
     },
   });
   assert.deepEqual(successCommitted, ['CANCEL', 'CANCEL', 'ADD']);
@@ -100,6 +100,7 @@ async function main() {
   assert.match(batchApiSource, /executeEntryFn: executeShipmentAdjustmentInTransaction/);
   assert.doesNotMatch(batchApiSource, /fetch\(|\/api\/shipment\/adjust['"]/);
   assert.match(batchApiSource, /rolledBack: true,[\s\S]*committedCount: 0/);
+  assert.match(batchApiSource, /verified: true,[\s\S]*verifiedCount: results\.length/);
 
   console.log('shipment adjust batch atomic transaction tests passed');
 }

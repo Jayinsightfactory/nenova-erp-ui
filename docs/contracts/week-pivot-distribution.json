@@ -19,6 +19,7 @@
     "lib/pasteMixedBatch.js",
     "lib/pasteBatchUndo.js",
     "lib/shipmentAdjustmentBatch.js",
+    "lib/shipmentAdjustmentPostWrite.js",
     "lib/pasteBatchHistory.js",
     "pages/api/shipment/farm-distribution.js",
     "pages/api/shipment/estimate-visibility.js",
@@ -31,6 +32,7 @@
     "__tests__/erpEditFixScopeAudit.test.js",
     "__tests__/pasteMixedBatch.test.js",
     "__tests__/pasteBatchHistory.test.js"
+    ,"__tests__/shipmentAdjustmentPostWrite.test.js"
     ,"__tests__/pasteRematchCache.test.js"
     ,"__tests__/pasteSplitActionLayout.test.js"
   ],
@@ -99,6 +101,15 @@
     ],
     "undoPolicy": "the last successful in-memory batch can be undone once; original ADD restores order+shipment and original CANCEL restores shipment only; changed current quantities abort and roll back the whole undo"
   },
+  "postWriteVerificationPolicy": {
+    "successMeaning": "success is returned only after the same transaction re-reads raw Order/Shipment rows, ViewOrder/ViewShipment, and ShipmentDate totals",
+    "requiredIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+    "orderOnlyRegistration": "POST /api/orders must re-read raw OrderDetail and ViewOrder for every changed product before commit",
+    "distributionRegistration": "POST /api/shipment/adjust and adjust-batch must re-read raw OrderDetail, raw ShipmentDetail, ViewOrder, ViewShipment, and ShipmentDate before commit",
+    "mismatchPolicy": "any missing, duplicate, hidden, customer-mismatched, or quantity-mismatched row throws inside the transaction and rolls back the entire request",
+    "uiPolicy": "paste UI may display completion and learn mappings only when success=true and verified=true",
+    "auditPolicy": "SHIPMENT_ADJUST_BATCH logs committedCount and verifiedCount instead of reporting a successful zero-impact action"
+  },
   "pastePageInitializationPolicy": {
     "pageOpen": "paste, base-stock, and remaining-stock input fields start empty; a saved stock note may be checked for existence but is never applied automatically",
     "baseWeekChange": "changing the selected base week checks saved-note availability only and preserves the current input fields",
@@ -126,6 +137,7 @@
     "__tests__/pasteOrderUnit.test.js",
     "__tests__/pasteMixedBatch.test.js",
     "__tests__/shipmentAdjustBatch.test.js",
+    "__tests__/shipmentAdjustmentPostWrite.test.js",
     "__tests__/pasteBatchUndo.test.js",
     "__tests__/pasteBatchHistory.test.js",
     "__tests__/pasteSplitActionLayout.test.js",
