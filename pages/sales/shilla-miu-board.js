@@ -1,5 +1,5 @@
 // 호텔+미우 통합게시판 홈 — 업체에 합산을 쌓은 뒤 주문만 가산 등록
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getClipboardImage } from '../../lib/raumPnlImage';
@@ -30,6 +30,13 @@ import {
   formatSplitQtyLabel,
   reapplyItemsFromSnaps,
   resolveHotelMiuDefaultVendors,
+  attachVarietyToRows,
+  historyVarietyButtons,
+  toggleVarietyFilter,
+  filterRowsByVarieties,
+  groupRowsByVariety,
+  readVarietyFilter,
+  writeVarietyFilter,
 } from '../../lib/hotelMiuIntake';
 
 function defaultScope() {
@@ -40,46 +47,77 @@ function defaultScope() {
 const fmt = (n) => Number(n || 0).toLocaleString();
 let lineSeq = 1;
 
-function HistoryQtyTable({ view, exeQty, products }) {
+function VarietyChipBar({ rows, selectedVarieties, onToggle, onClear }) {
+  const buttons = historyVarietyButtons(rows);
+  if (!buttons.length) return null;
+  const allOn = !selectedVarieties?.length;
+  return (
+    <div style={st.varRow}>
+      <button type="button" style={allOn ? st.chipOn : st.chip} onClick={onClear}>전체</button>
+      {buttons.map(({ variety, count }) => {
+        const on = (selectedVarieties || []).includes(variety);
+        return (
+          <button key={variety} type="button" style={on ? st.chipOn : st.chip} onClick={() => onToggle(variety)}>
+            {variety} {count}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function HistoryQtyTable({ view, exeQty, products, selectedVarieties = [], onToggleVariety, onClearVarieties }) {
   const rows = view?.rows || [];
   const batchNos = view?.batchNos?.length ? view.batchNos : [1, 2, 3];
   if (!rows.length) return <p style={st.muted}>이 업체·차수에 주문등록된 내역이 없습니다.</p>;
+  const groups = groupRowsByVariety(filterRowsByVarieties(rows, selectedVarieties));
+  const colSpan = 1 + batchNos.length + 4;
   return (
-    <table style={st.tbl}>
-      <thead>
-        <tr>
-          <th style={st.th}>품목</th>
-          {batchNos.map((no) => (
-            <th key={no} style={st.thRight}>{no}차</th>
+    <>
+      <VarietyChipBar rows={rows} selectedVarieties={selectedVarieties} onToggle={onToggleVariety} onClear={onClearVarieties} />
+      <table style={st.tbl}>
+        <thead>
+          <tr>
+            <th style={st.th}>품목</th>
+            {batchNos.map((no) => (
+              <th key={no} style={st.thRight}>{no}차</th>
+            ))}
+            <th style={st.thRight}>반올림 전</th>
+            <th style={st.thRight}>반올림 후</th>
+            <th style={st.thRight}>전산 현재</th>
+            <th style={st.th}>맞춤</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((g) => (
+            <Fragment key={g.variety}>
+              <tr>
+                <td colSpan={colSpan} style={st.varHead}>{g.variety}</td>
+              </tr>
+              {g.rows.map((row) => {
+                const exe = exeQty?.[row.prodKey];
+                const product = products?.[row.prodKey] || products?.[Number(row.prodKey)] || {};
+                const exeLabel = exe
+                  ? formatSplitQtyLabel(exe.outQty ?? exe.qty, exe.unit, product, { sourceUnit: row.unit })
+                  : '-';
+                return (
+                  <tr key={row.prodKey}>
+                    <td style={st.td}>{row.prodName}</td>
+                    {batchNos.map((no) => (
+                      <td key={no} style={st.tdRight}>{row.byRound?.[no] || '-'}</td>
+                    ))}
+                    <td style={st.tdRight}>{row.beforeLabel}</td>
+                    <td style={st.tdRight}><b>{row.afterLabel}</b></td>
+                    <td style={st.tdRight}>{exeLabel}</td>
+                    <td style={st.td}>{row.roundLabel}</td>
+                  </tr>
+                );
+              })}
+            </Fragment>
           ))}
-          <th style={st.thRight}>반올림 전</th>
-          <th style={st.thRight}>반올림 후</th>
-          <th style={st.thRight}>전산 현재</th>
-          <th style={st.th}>맞춤</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => {
-          const exe = exeQty?.[row.prodKey];
-          const product = products?.[row.prodKey] || products?.[Number(row.prodKey)] || {};
-          const exeLabel = exe
-            ? formatSplitQtyLabel(exe.outQty ?? exe.qty, exe.unit, product, { sourceUnit: row.unit })
-            : '-';
-          return (
-            <tr key={row.prodKey}>
-              <td style={st.td}>{row.prodName}</td>
-              {batchNos.map((no) => (
-                <td key={no} style={st.tdRight}>{row.byRound?.[no] || '-'}</td>
-              ))}
-              <td style={st.tdRight}>{row.beforeLabel}</td>
-              <td style={st.tdRight}><b>{row.afterLabel}</b></td>
-              <td style={st.tdRight}>{exeLabel}</td>
-              <td style={st.td}>{row.roundLabel}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -107,6 +145,7 @@ export default function HotelMiuIntakePage() {
   const [historyFactors, setHistoryFactors] = useState({});
   const [historyOpen, setHistoryOpen] = useState(false);
   const [exeQty, setExeQty] = useState({});
+  const [selectedVarieties, setSelectedVarieties] = useState([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -178,6 +217,9 @@ export default function HotelMiuIntakePage() {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { loadBatches().catch((e) => setError(e.message)); }, [cust?.custKey, year, week]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setSelectedVarieties(readVarietyFilter(cust?.custKey));
+  }, [cust?.custKey]);
 
   const extraVendors = favorites.filter((f) => !defaults.some((d) => d.custKey && d.custKey === f.custKey));
 
@@ -355,6 +397,22 @@ export default function HotelMiuIntakePage() {
     snaps: registerSnaps,
     productsByKey: historyFactors,
   }), [registeredBatches, registerSnaps, historyFactors]);
+  const confirmRows = useMemo(
+    () => attachVarietyToRows(registerPreview.rows, boxFactors),
+    [registerPreview, boxFactors],
+  );
+
+  const toggleVariety = (variety) => {
+    setSelectedVarieties((prev) => {
+      const next = toggleVarietyFilter(prev, variety);
+      writeVarietyFilter(cust?.custKey, next);
+      return next;
+    });
+  };
+  const clearVarieties = () => {
+    setSelectedVarieties([]);
+    writeVarietyFilter(cust?.custKey, []);
+  };
 
   const pickProduct = async (line, prod) => {
     const p = {
@@ -782,8 +840,15 @@ export default function HotelMiuIntakePage() {
       {!!registeredBatches.length && (
         <div style={st.panel}>
           <b>주문반영 내역 — {cust?.custName} / {week}</b>
-          <p style={st.muted}>1·2·3차는 그 합산 원문입니다. 반올림 전은 합계, 괄호는 박스+나머지입니다. 출고분배는 하지 않습니다.</p>
-          <HistoryQtyTable view={historyView} exeQty={exeQty} products={historyFactors} />
+          <p style={st.muted}>1·2·3차는 그 합산 원문입니다. 반올림 전은 합계, 괄호는 박스+나머지입니다. 품종 버튼으로 묶어서 볼 수 있습니다. 출고분배는 하지 않습니다.</p>
+          <HistoryQtyTable
+            view={historyView}
+            exeQty={exeQty}
+            products={historyFactors}
+            selectedVarieties={selectedVarieties}
+            onToggleVariety={toggleVariety}
+            onClearVarieties={clearVarieties}
+          />
           {registeredBatches.map((b) => (
             <div key={b.batchKey} style={st.batch}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -847,7 +912,8 @@ export default function HotelMiuIntakePage() {
         <div style={st.modal}>
           <div style={{ ...st.modalBox, width: 'min(1100px, 96vw)' }}>
             <b>주문등록 수량 확인 — {cust?.custName} / {week}</b>
-            <p style={st.muted}>아래 합계를 주문수량에 더합니다. 박스당 단/송이가 틀리면 고친 뒤 반올림·반내림하세요. 고친 박스당은 매칭 데이터처럼 저장되어 다음 주문등록에도 쓰입니다. 전산 품목 마스터와 출고분배는 건드리지 않습니다.</p>
+            <p style={st.muted}>아래 합계를 주문수량에 더합니다. 품종 버튼은 화면만 묶어서 보여 주고, 주문등록은 숨긴 품종도 함께 더합니다. 박스당 단/송이가 틀리면 고친 뒤 반올림·반내림하세요. 고친 박스당은 매칭 데이터처럼 저장되어 다음 주문등록에도 쓰입니다. 전산 품목 마스터와 출고분배는 건드리지 않습니다.</p>
+            <VarietyChipBar rows={confirmRows} selectedVarieties={selectedVarieties} onToggle={toggleVariety} onClear={clearVarieties} />
             <table style={st.tbl}>
               <thead>
                 <tr>
@@ -864,7 +930,12 @@ export default function HotelMiuIntakePage() {
                 </tr>
               </thead>
               <tbody>
-                {registerPreview.rows.map((row) => {
+                {groupRowsByVariety(filterRowsByVarieties(confirmRows, selectedVarieties)).map((g) => (
+                  <Fragment key={g.variety}>
+                    <tr>
+                      <td colSpan={2 + registerPreview.batchNos.length + 5} style={st.varHead}>{g.variety}</td>
+                    </tr>
+                    {g.rows.map((row) => {
                   const hint = boxRoundHint(row.total, row.unit, boxFactors[row.prodKey]);
                   const round = boxRounds[row.prodKey];
                   const orderLabel = hint.needsRound && round === 'up'
@@ -908,7 +979,9 @@ export default function HotelMiuIntakePage() {
                       </td>
                     </tr>
                   );
-                })}
+                    })}
+                  </Fragment>
+                ))}
               </tbody>
             </table>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -925,8 +998,15 @@ export default function HotelMiuIntakePage() {
         <div style={st.modal}>
           <div style={{ ...st.modalBox, width: 'min(1200px, 96vw)' }}>
             <b>주문등록 내역 — {cust?.custName} / {week}</b>
-            <p style={st.muted}>1·2·3차는 그 합산 원문입니다. 반올림 전은 합계, 괄호는 박스+나머지입니다. 출고분배는 하지 않습니다.</p>
-            <HistoryQtyTable view={historyView} exeQty={exeQty} products={historyFactors} />
+            <p style={st.muted}>1·2·3차는 그 합산 원문입니다. 반올림 전은 합계, 괄호는 박스+나머지입니다. 품종 버튼으로 묶어서 볼 수 있습니다. 출고분배는 하지 않습니다.</p>
+            <HistoryQtyTable
+              view={historyView}
+              exeQty={exeQty}
+              products={historyFactors}
+              selectedVarieties={selectedVarieties}
+              onToggleVariety={toggleVariety}
+              onClearVarieties={clearVarieties}
+            />
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
               <button style={st.orderBtn} disabled={!!busy || !reapplyItemsFromSnaps(registerSnaps).length} onClick={reapplyHistory}>
                 {busy === 'reapply' ? '반영 중…' : '등록내역을 전산에 다시 더하기'}
@@ -1022,10 +1102,12 @@ const st = {
   modalFront: { position: 'fixed', inset: 0, background: '#0006', display: 'grid', placeItems: 'center', zIndex: 50 },
   modalBox: { background: '#fff', padding: 16, width: 'min(720px, 92vw)', maxHeight: '80vh', overflow: 'auto', borderRadius: 10 },
   danger: { border: '1px solid #fca5a5', background: '#fef2f2', color: '#b91c1c', borderRadius: 6, padding: '6px 10px', cursor: 'pointer' },
-  tbl: { width: 'auto', maxWidth: '100%', borderCollapse: 'collapse', marginTop: 8, fontSize: 12 },
-  th: { textAlign: 'left', borderBottom: '1px solid #cbd5e1', padding: '4px 7px', color: '#475569', fontWeight: 700 },
-  thRight: { textAlign: 'right', borderBottom: '1px solid #cbd5e1', padding: '4px 7px', color: '#475569', fontWeight: 700 },
-  td: { borderBottom: '1px solid #f1f5f9', padding: '4px 7px', verticalAlign: 'middle' },
-  tdRight: { borderBottom: '1px solid #f1f5f9', padding: '4px 7px', textAlign: 'right', verticalAlign: 'middle' },
+  tbl: { width: 'auto', maxWidth: '100%', borderCollapse: 'collapse', marginTop: 4, fontSize: 11 },
+  th: { textAlign: 'left', borderBottom: '1px solid #cbd5e1', padding: '2px 5px', color: '#475569', fontWeight: 700 },
+  thRight: { textAlign: 'right', borderBottom: '1px solid #cbd5e1', padding: '2px 5px', color: '#475569', fontWeight: 700 },
+  td: { borderBottom: '1px solid #f1f5f9', padding: '2px 5px', verticalAlign: 'middle' },
+  tdRight: { borderBottom: '1px solid #f1f5f9', padding: '2px 5px', textAlign: 'right', verticalAlign: 'middle' },
+  varRow: { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', margin: '6px 0' },
+  varHead: { background: '#f1f5f9', color: '#0f766e', fontWeight: 800, padding: '3px 5px', borderBottom: '1px solid #cbd5e1' },
   perBoxInp: { border: '1px solid #cbd5e1', borderRadius: 6, padding: '3px 6px', width: 52, textAlign: 'right', marginRight: 4 },
 };

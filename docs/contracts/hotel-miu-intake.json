@@ -40,7 +40,7 @@
       "name": "READ_BOX_FACTORS",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "GET prodKeys reads Product BunchOf1Box/SteamOf1Box/SteamOf1Bunch then overlays WebHotelMiuProductMap prodbox:{ProdKey} PerBox when present. Overlay wins. Does not UPDATE Product. No Order/Shipment write."
+      "sideEffect": "GET prodKeys reads Product FlowerName/CountryFlower and BunchOf1Box/SteamOf1Box/SteamOf1Bunch then overlays WebHotelMiuProductMap prodbox:{ProdKey} PerBox when present. Overlay wins and does not drop FlowerName. Does not UPDATE Product. No Order/Shipment write."
     },
     {
       "name": "SAVE_BOX_FACTOR_OVERLAY",
@@ -64,7 +64,7 @@
       "name": "READ_REGISTER_HISTORY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "After a vendor is selected, clicking a week chip GETs WebHotelMiuRegisterSnap + REGISTERED 합산 + ViewOrder 전산 현재 for that OrderYear+OrderWeek+CustKey and opens a popup of 1차/2차/3차 vs 반올림 전 vs 반올림 후 vs 전산 현재. The same table is always shown on the 주문반영 내역 panel. Stem/bunch qty is labeled as 2065송이 (68박스 + 25송이) using Product/overlay perBox. Each 주문반영 line shows 전/후. GET year/week calls ensureTables so snaps are not dropped. No Order/Shipment write. Cross-year same OrderWeek is excluded."
+      "sideEffect": "After a vendor is selected, clicking a week chip GETs WebHotelMiuRegisterSnap + REGISTERED 합산 + ViewOrder 전산 현재 for that OrderYear+OrderWeek+CustKey and opens a popup of 1차/2차/3차 vs 반올림 전 vs 반올림 후 vs 전산 현재. The same table is always shown on the 주문반영 내역 panel, grouped under Product.FlowerName (else CountryFlower, else ProdName prefix) with selectable 전체/수국/장미 buttons. Empty selection shows all groups. Filter is localStorage display-only and does not change which items REGISTER_ORDER_ADD writes. Stem/bunch qty is labeled as 2065송이 (68박스 + 25송이) using Product/overlay perBox. Each 주문반영 line shows 전/후. GET year/week calls ensureTables so snaps are not dropped. No Order/Shipment write. Cross-year same OrderWeek is excluded."
     },
     {
       "name": "REVISE_BATCH_INCREASE",

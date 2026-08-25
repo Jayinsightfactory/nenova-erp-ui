@@ -255,6 +255,8 @@ export default withAuth(async function handler(req, res) {
         }).join(',');
         const r = await query(
           `SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, OutUnit,
+                  ISNULL(FlowerName,'') AS FlowerName,
+                  ISNULL(CountryFlower,'') AS CountryFlower,
                   ISNULL(BunchOf1Box,0) AS BunchOf1Box,
                   ISNULL(SteamOf1Box,0) AS SteamOf1Box,
                   ISNULL(SteamOf1Bunch,0) AS SteamOf1Bunch
