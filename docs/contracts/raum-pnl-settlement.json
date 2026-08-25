@@ -27,6 +27,7 @@
   "settlementIdentity": ["OrderYear", "MajorWeek", "PartnerCode"],
   "actions": [
     { "name": "RAUM_PNL_MULTI_WEEK_IMPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "all-or-nothing", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
+    { "name": "RAUM_PNL_IMPORT_AUTO_COMMIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "verified-no-overwrite then list+monthly-summary", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
     { "name": "RAUM_PNL_EXISTING_UPLOAD_COMPARE", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "read-only-preview", "writeAllowlist": [] },
     { "name": "RAUM_PNL_MONTHLY_SUMMARY", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "QuoteDate YYYY-MM; aggregate stored week summaries", "writeAllowlist": [] },
     { "name": "RAUM_PNL_ASSIGN_MONTH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "AssignedMonth YYYY-MM and same as WebRaumPnl.OrderYear", "writeAllowlist": ["WebRaumPnl.AssignedMonth", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
