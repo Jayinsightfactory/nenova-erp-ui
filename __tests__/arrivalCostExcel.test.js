@@ -199,6 +199,39 @@ async function main() {
   assert.ok(Date.now() - sumStarted < 500, '과도한 SUM 범위는 계산을 건너뛰어야 한다.');
   assert.equal(hugeSum.B1.v, 0);
 
+  const moonWb = XLSX.utils.book_new();
+  const moonSheet = [
+    ['COLOMBIA'],
+    ['차수', '14-1'],
+    ['GW', 80, 'CW', 140],
+    [],
+    ['Color Grade', '수량', 'FOB', '운송비(송이)', '도착원가(송이)', '단당 수량', '도착원가(단)'],
+    ['Fillco', 'CARNATION Moon Light', 30, 0.2, 0.08, 476, 20, 9520],
+    ['Don Eusebio', 'CARNATION Moon Light', 25, 0.2, 0.08, 476, 20, 9520],
+  ];
+  XLSX.utils.book_append_sheet(moonWb, XLSX.utils.aoa_to_sheet(moonSheet), '14-1A');
+  const moon33 = [
+    ['COLOMBIA'],
+    ['차수', '33-2'],
+    ['GW', 2147, 'CW', 2274],
+    [],
+    ['Color Grade', '수량', 'FOB', '운송비(송이)', '도착원가(송이)', '단당 수량', '도착원가(단)'],
+    ['Fillco', 'CARNATION Moon Light', 1500, 0.2, 0.08, 449.287, 20, 8985.74],
+  ];
+  XLSX.utils.book_append_sheet(moonWb, XLSX.utils.aoa_to_sheet(moon33), '33-2');
+  const moonParsed = parseArrivalCostWorkbook(XLSX.write(moonWb, { type: 'buffer', bookType: 'xlsx' }), {
+    fileName: '33-2 원가자료 (1).xlsx',
+    products: [{ ProdKey: 11, ProdName: 'CARNATION Moon Light', DisplayName: '카네이션 문라이트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단' }],
+    farms: [{ FarmKey: 21, FarmName: 'Fillco' }, { FarmKey: 22, FarmName: 'Don Eusebio' }],
+  });
+  const week14 = moonParsed.rows.filter((row) => row.orderWeek === '14-1');
+  const week33 = moonParsed.rows.filter((row) => row.orderWeek === '33-2');
+  assert.equal(week14.length, 2, '시트명 14-1A는 파일명 33-2보다 시트 차수를 써야 한다.');
+  assert.equal(week33.length, 1);
+  assert.ok(week14.every((row) => Math.round(row.sourceArrivalCostKRW) === 9520), '입고수량이 단이면 도착원가(단)을 써야 한다.');
+  assert.equal(Math.round(week33[0].sourceArrivalCostKRW), 8986);
+  assert.ok(week14.every((row) => Math.round(row.sourceArrivalCostPerStemKRW) === 476));
+
   console.log('arrival cost excel parser tests passed');
 }
 

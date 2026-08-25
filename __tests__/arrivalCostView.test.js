@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatFarmCostSummary, groupArrivalCostRows, arrivalCostGroupKey, normalizeWeekOrder, filterArrivalRowsByWeight, arrivalWeightMode } from '../lib/arrivalCostView.js';
+import { formatFarmCostSummary, groupArrivalCostRows, arrivalCostGroupKey, normalizeWeekOrder, filterArrivalRowsByWeight, arrivalWeightMode, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
 
 assert.equal(normalizeWeekOrder('asc'), 'asc');
 assert.equal(normalizeWeekOrder('ASC'), 'asc');
@@ -61,5 +61,11 @@ const spam = [
   { farmNameRaw: 'Fillco', farmName: 'Fillco', selectedArrivalCostKRW: 8898 },
 ];
 assert.equal(formatFarmCostSummary(spam), '농장미지정 9,520원 / Fillco 8,898원');
+
+const weekSections = sectionArrivalCostGroupsByWeek(groups);
+assert.equal(weekSections.length, 2);
+assert.equal(weekSections[0].orderWeek, '34-2');
+assert.equal(weekSections[0].groups.length, 1);
+assert.equal(weekSections[1].groups[0].productNameRaw, 'Moon Light');
 
 console.log('arrival cost view grouping tests passed');

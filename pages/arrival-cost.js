@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
-import { arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder } from '../lib/arrivalCostView.js';
+import { arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
 
 const BASIS = [
   ['SOURCE', '엑셀 원식'],
@@ -239,6 +239,7 @@ export default function ArrivalCostPage() {
   };
 
   const [weightRuleOn, setWeightRuleOn] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState({});
   const visibleRows = useMemo(
     () => (weightRuleOn ? filterArrivalRowsByWeight(data.rows || []) : (data.rows || [])),
     [data.rows, weightRuleOn],
@@ -246,6 +247,8 @@ export default function ArrivalCostPage() {
   const weeks = useMemo(() => [...new Set(visibleRows.map(row => row.orderWeek).filter(Boolean))], [visibleRows]);
   const unmatched = visibleRows.filter(row => row.matchStatus !== 'MATCHED').length;
   const groups = useMemo(() => groupArrivalCostRows(visibleRows), [visibleRows]);
+  const weekSections = useMemo(() => sectionArrivalCostGroupsByWeek(groups), [groups]);
+  const toggleGroup = (key) => setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   const weightHints = useMemo(() => arrivalWeightHints(data.rows || []), [data.rows]);
   const currentWeekOrder = normalizeWeekOrder(appliedFilters.weekOrder);
   const applySearch = () => {
@@ -353,6 +356,7 @@ export default function ArrivalCostPage() {
           {weightRuleOn && weightHints.length > 0 && (
             <div className="hint">특별기준(콜롬비아만): {weightHints.join(' · ')}. 콜롬비아는 CW가 GW보다 크면 장미만, CW가 GW와 같거나 작으면 카네이션·알스트로 원가를 보여 줍니다. 다른 국가는 그대로 둡니다. 이미 올라간 행은 파일을 다시 올려야 농장 병합·CW/GW가 반영됩니다.</div>
           )}
+          <div className="hint">차수별로 품목 한 줄에 농장 원가를 모읍니다. 입고수량이 단이면 도착원가(단)을 씁니다. 행을 누르면 농장별 매칭을 수정할 수 있습니다.</div>
         </section>
 
         {message && <div className="notice success">{message}</div>}
@@ -364,37 +368,39 @@ export default function ArrivalCostPage() {
             <div className="table-wrap">
               <table>
                 <thead><tr>
-                  <th>차수</th><th>국가</th><th>국가·품종</th><th>원본 품목명</th><th>전산 품목 매칭</th><th>원본 농장</th><th>전산 농장 선택</th>
-                  <th>입고수량</th><th>원가(엑셀)</th><th>기준</th><th>선택 원가</th><th>메모</th><th>저장</th>
+                  <th>차수</th><th>국가</th><th>국가·품종</th><th>품목</th><th>농장별 원가</th>
                 </tr></thead>
-                <tbody>{groups.map(group => [
-                  <tr key={`${group.key}-head`} className="group-head">
-                    <td>{group.orderWeek || '-'}</td>
-                    <td>{group.countryName || '-'}</td>
-                    <td>{group.countryFlower || '-'}</td>
-                    <td className="raw-name" title={group.productNameRaw}>{group.productNameRaw || group.productName}</td>
-                    <td colSpan={9} className="farm-costs">{formatFarmCostSummary(group.rows)}</td>
+                <tbody>{weekSections.flatMap(section => [
+                  <tr key={`week-${section.orderWeek || 'none'}`} className="week-head">
+                    <td colSpan={5}>차수 {section.orderWeek || '-'}</td>
                   </tr>,
-                  ...group.rows.map(row => {
-                    const draft = drafts[row.arrivalLineKey] || {};
-                    return <tr key={row.arrivalLineKey} className={row.uploadStatus === 'COST_NOT_UPLOADED' ? 'cost-missing' : row.matchStatus === 'MATCHED' ? '' : 'needs-match'}>
-                      <td>{row.orderWeek || '-'}</td>
-                      <td>{row.countryName || row.dbCountryName || '-'}</td>
-                      <td>{row.countryFlower || row.dbFlowerName || row.flowerNameRaw || '-'}</td>
-                      <td className="raw-name" title={row.productNameRaw}>{row.productNameRaw}</td>
-                      <td><LookupInput kind="product" value={draft.prodInput || ''} onInput={value => updateProductInput(row, value)} onSelect={value => selectProduct(row, value)} placeholder="품목 검색·선택" /></td>
-                      <td>{row.farmNameRaw || '-'}</td>
-                      <td><LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />{row.autoFarmKey && !row.farmKey && <span className="auto-match">자동 후보</span>}</td>
-                      <td className="num">{fmt(row.quantity, 2)} {row.unit}</td>
-                      <td className="num">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="missing-badge">원가 미업로드</span> : `${fmt(row.sourceArrivalCostKRW, 2)}원`}</td>
-                      <td><select value={draft.allocationBasis || 'SOURCE'} onChange={e => updateDraft(row.arrivalLineKey, 'allocationBasis', e.target.value)}>
-                        {BASIS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                      </select></td>
-                      <td className="num selected-cost">{row.uploadStatus === 'COST_NOT_UPLOADED' ? '-' : `${fmt(row.selectedArrivalCostKRW)}원`}</td>
-                      <td><input value={draft.notes || ''} onChange={e => updateDraft(row.arrivalLineKey, 'notes', e.target.value)} placeholder="메모" /></td>
-                      <td className="actions">{row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="muted">업로드 필요</span> : <><button onClick={() => save(row)}>저장</button><button onClick={() => showHistory(row)}>이력</button></>}</td>
-                    </tr>;
-                  }),
+                  ...section.groups.flatMap(group => [
+                    <tr key={`${group.key}-head`} className="group-head" onClick={() => toggleGroup(group.key)}>
+                      <td>{group.orderWeek || '-'}</td>
+                      <td>{group.countryName || '-'}</td>
+                      <td>{group.countryFlower || '-'}</td>
+                      <td className="raw-name" title={group.productNameRaw}>{group.productName || group.productNameRaw}</td>
+                      <td className="farm-costs">{formatFarmCostSummary(group.rows)}</td>
+                    </tr>,
+                    ...(expandedGroups[group.key] ? group.rows.map(row => {
+                      const draft = drafts[row.arrivalLineKey] || {};
+                      return <tr key={row.arrivalLineKey} className={row.uploadStatus === 'COST_NOT_UPLOADED' ? 'cost-missing' : row.matchStatus === 'MATCHED' ? 'group-detail' : 'group-detail needs-match'}>
+                        <td colSpan={5}>
+                          <div className="detail-row">
+                            <span className="detail-farm">{row.farmNameRaw || '-'}</span>
+                            <span className="num">{fmt(row.quantity, 2)} {row.unit} · {row.uploadStatus === 'COST_NOT_UPLOADED' ? '원가 미업로드' : `${fmt(row.sourceArrivalCostKRW)}원`}</span>
+                            <LookupInput kind="product" value={draft.prodInput || ''} onInput={value => updateProductInput(row, value)} onSelect={value => selectProduct(row, value)} placeholder="품목 검색·선택" />
+                            <LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />
+                            {row.autoFarmKey && !row.farmKey && <span className="auto-match">자동 후보</span>}
+                            {row.uploadStatus === 'COST_NOT_UPLOADED' ? <span className="muted">업로드 필요</span> : <>
+                              <button onClick={(e) => { e.stopPropagation(); save(row); }}>저장</button>
+                              <button onClick={(e) => { e.stopPropagation(); showHistory(row); }}>이력</button>
+                            </>}
+                          </div>
+                        </td>
+                      </tr>;
+                    }) : []),
+                  ]),
                 ])}</tbody>
               </table>
             </div>
@@ -426,10 +432,12 @@ export default function ArrivalCostPage() {
         button { border:1px solid #aab7c7; background:#f5f7fa; border-radius:3px; padding:5px 9px; cursor:pointer; font:inherit; font-size:12px; } button:hover { background:#eaf2fb; } button.primary { background:#1565c0; color:#fff; border-color:#1565c0; font-weight:700; } button:disabled { opacity:.55; cursor:wait; }
         .hint { margin-top:4px; } .summary-row { display:flex; flex-wrap:wrap; gap:18px; margin-top:6px; font-size:12px; color:#506074; align-items:center; }
         .weight-rule { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#32445d; } .week-sort { display:flex; gap:5px; } .week-sort button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
-        .group-head { background:#e8eef6; font-weight:700; } .group-head td { border-bottom:1px solid #c5d0de; } .farm-costs { white-space:normal; max-width:720px; }
+        .group-head { background:#e8eef6; font-weight:700; cursor:pointer; } .group-head td { border-bottom:1px solid #c5d0de; } .farm-costs { white-space:normal; max-width:920px; }
+        .week-head td { background:#163d76; color:#fff; font-weight:800; font-size:13px; padding:8px 7px; }
+        .detail-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; } .detail-farm { font-weight:700; min-width:120px; }
         .variety-tabs { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px; padding-top:7px; border-top:1px solid #e1e6ed; } .variety-tabs button { border-radius:999px; } .variety-tabs button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
         .notice { padding:9px 12px; margin:8px 0; border-radius:4px; font-size:12px; } .notice.success { color:#0b5d42; background:#e7f7ef; border:1px solid #b6e6cc; } .notice.error { color:#a12d2d; background:#fff0f0; border:1px solid #f0b7b7; }
-        .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:8px 8px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 275px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:max-content; min-width:1600px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } tr.cost-missing { background:#fff0f0; } .missing-badge { color:#a12d2d; background:#ffe0e0; border:1px solid #efb4b4; border-radius:999px; padding:2px 6px; font-weight:700; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } td:nth-child(5) input,td:nth-child(7) input { width:310px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; } .pager { display:flex; align-items:center; justify-content:center; gap:12px; padding:8px; border-top:1px solid #d7dee8; } .lookup-input { position:relative; display:inline-block; } .lookup-input > input { width:310px; } .lookup-menu { position:absolute; top:calc(100% + 2px); left:0; z-index:20; width:360px; max-height:190px; overflow:auto; background:#fff; border:1px solid #718096; box-shadow:0 5px 14px #0003; } .lookup-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; border:0; border-bottom:1px solid #e4e8ee; border-radius:0; background:#fff; padding:6px 8px; text-align:left; white-space:normal; } .lookup-option:hover { background:#eaf3ff; } .lookup-option small { color:#657080; margin-top:2px; } .lookup-status { padding:8px; color:#657080; } .auto-match { display:block; color:#0b6e4f; font-size:10px; margin-top:2px; }
+        .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:8px 8px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 275px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:100%; min-width:960px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } tr.cost-missing { background:#fff0f0; } .missing-badge { color:#a12d2d; background:#ffe0e0; border:1px solid #efb4b4; border-radius:999px; padding:2px 6px; font-weight:700; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; } .pager { display:flex; align-items:center; justify-content:center; gap:12px; padding:8px; border-top:1px solid #d7dee8; } .lookup-input { position:relative; display:inline-block; } .lookup-input > input { width:220px; } .lookup-menu { position:absolute; top:calc(100% + 2px); left:0; z-index:20; width:360px; max-height:190px; overflow:auto; background:#fff; border:1px solid #718096; box-shadow:0 5px 14px #0003; } .lookup-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; border:0; border-bottom:1px solid #e4e8ee; border-radius:0; background:#fff; padding:6px 8px; text-align:left; white-space:normal; } .lookup-option:hover { background:#eaf3ff; } .lookup-option small { color:#657080; margin-top:2px; } .lookup-status { padding:8px; color:#657080; } .auto-match { display:block; color:#0b6e4f; font-size:10px; margin-top:2px; }
         .modal-backdrop { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:#0006; } .history-modal { width:min(720px,92vw); max-height:80vh; overflow:auto; background:#fff; border-radius:6px; padding:14px; box-shadow:0 10px 40px #0005; } .modal-title { display:flex; justify-content:space-between; font-weight:700; margin-bottom:10px; color:#163d76; } .history-item { padding:8px 2px; border-bottom:1px solid #e4e8ee; font-size:12px; }
         @media (max-width:800px) { .arrival-page { padding:8px; } .arrival-title-row { display:block; } .read-only-badge { display:inline-block; margin-top:8px; } .table-wrap { max-height:none; } }
       `}</style>
