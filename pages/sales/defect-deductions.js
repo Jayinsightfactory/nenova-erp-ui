@@ -8,7 +8,7 @@ import { parseJsonResponse } from '../../lib/parseJsonResponse';
 import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
-import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
+import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 import { isSupportProcessingComplete, supportProcessingLabel } from '../../lib/salesDefectSupportStatus.js';
 
@@ -1123,6 +1123,20 @@ export default function SalesDefectDeductionsPage() {
     window.print();
   };
 
+  const openCustomerEstimate = (row) => {
+    const url = buildEstimateCustomerUrl({
+      year,
+      week,
+      custKey: row?.custKey,
+      customerName: row?.customerName,
+    });
+    if (!url) {
+      setError('견적서를 열 연도·차수·거래처를 먼저 확인하세요.');
+      return;
+    }
+    window.open(url, 'estimate-customer', 'width=1500,height=940,scrollbars=yes,resizable=yes');
+  };
+
   const toggle = (index) => setSelected((current) => {
     const next = new Set(current); if (next.has(index)) next.delete(index); else next.add(index); return next;
   });
@@ -1423,7 +1437,13 @@ export default function SalesDefectDeductionsPage() {
                     </button>
                   </div>}
                 </td>
-                <td><span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{isSupportProcessingComplete(row) ? supportProcessingLabel(row) : row.registrationEligible ? '등록 가능' : '수정 필요'}</span><small className="support-scope-label">{isSupportProcessingComplete(row) ? (row.exactExistingEstimate ? '동일 차수·업체·품목·수량·단위의 기존 불량차감 확인 · 중복 등록 제외' : scopeLabel) : row.registrationError || scopeLabel}</small>{row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}{existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}</td>
+                <td>
+                  <span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{isSupportProcessingComplete(row) ? supportProcessingLabel(row) : row.registrationEligible ? '등록 가능' : '수정 필요'}</span>
+                  <small className="support-scope-label">{isSupportProcessingComplete(row) ? (row.exactExistingEstimate ? '동일 차수·업체·품목·수량·단위의 기존 불량차감 확인 · 중복 등록 제외' : scopeLabel) : row.registrationError || scopeLabel}</small>
+                  {Number(row.custKey) > 0 && <button type="button" className="btn btn-xs support-estimate-open" onClick={() => openCustomerEstimate(row)} title={`${year}년 ${week}차 ${row.customerName || '거래처'} 견적서에서 불량차감 현황을 엽니다.`}>{row.customerName || '거래처'} 견적서 열기</button>}
+                  {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
+                  {existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
+                </td>
               </tr>;
             })}
             {!supportRows.length && <tr><td colSpan="11" className="empty-row-cell">{activeTab === 'carryover' ? '미처리 잔여 목록이 없습니다.' : '선택한 차수에 저장된 불량 차감이 없습니다.'}</td></tr>}
@@ -1714,6 +1734,7 @@ export default function SalesDefectDeductionsPage() {
         .support-existing-estimates div { margin-top: 2px; padding-top: 2px; border-top: 1px dashed #cbd5e1; white-space: normal; }
         .support-carryover { color: #b45309; font-weight: 700; }
         .support-scope-label { display: block; margin-top: 1px; color: #64748b; font-size: 10px; white-space: nowrap; }
+        .support-estimate-open { display: inline-block; margin-top: 4px; white-space: nowrap; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }

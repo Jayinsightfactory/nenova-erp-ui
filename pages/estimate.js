@@ -737,6 +737,8 @@ export default function Estimate() {
   const [autoLoad, setAutoLoad] = useState(true);
   // 미확정 포함 토글 — 켜면 isFix=0 차수도 견적서에 표시
   const [includeUnfixed, setIncludeUnfixed] = useState(false);
+  const queryIncludeUnfixedRef = useRef(false);
+  const [highlightDeductions, setHighlightDeductions] = useState(false);
   // 최근 2개 차수만 표시 토글 (default ON)
   const [recentOnly, setRecentOnly] = useState(true);
   // 차수별 확정 취소 작업 상태
@@ -1042,6 +1044,22 @@ export default function Estimate() {
     setActiveWD(new Set(WEEKDAYS));
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const requestedYear = String(params.get('year') || '').replace(/\D/g, '').slice(0, 4);
+    const requestedWeek = String(params.get('week') || '').replace(/\D/g, '').slice(0, 2);
+    const requestedCustKey = Number(params.get('custKey') || 0);
+    const requestedCustName = String(params.get('custName') || '').trim();
+    if (params.get('includeUnfixed') === '1') queryIncludeUnfixedRef.current = true;
+    if (params.get('highlightDeductions') === '1') setHighlightDeductions(true);
+    if (requestedYear) setYearStr(requestedYear);
+    if (requestedWeek) setWeekNum(String(Number(requestedWeek)));
+    if (Number.isInteger(requestedCustKey) && requestedCustKey > 0) {
+      pickCustomer({ CustKey: requestedCustKey, CustName: requestedCustName || `#${requestedCustKey}` });
+    }
+  }, [pickCustomer]);
+
   const resetCustomerSearch = useCallback((nextSearch = '') => {
     custReqSeq.current += 1;
     custPickedName.current = null;
@@ -1238,7 +1256,7 @@ export default function Estimate() {
       return Promise.resolve();
     }
     setLoading(true); setErr('');
-    const includeUnfixedForLoad = opts.includeUnfixedOverride ?? includeUnfixed;
+    const includeUnfixedForLoad = opts.includeUnfixedOverride ?? (queryIncludeUnfixedRef.current || includeUnfixed);
     return apiGet('/api/estimate', {
       week: weekNum,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
       year: yearStr,
@@ -2451,6 +2469,13 @@ export default function Estimate() {
   // ── WeekDay 필터 (exe ActiveFilterString — filterItemsByWeekday 위에서 정의)
   const ALL_WD = ['월','화','수','목','금','토','일'];
   const filteredItems = filterItemsByWeekday(items);
+  const deductionItemCount = filteredItems.filter(isEstimateDeductionRow).length;
+
+  useEffect(() => {
+    if (!highlightDeductions || itemLoading) return;
+    const el = document.querySelector('[data-estimate-deduction="1"]');
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [highlightDeductions, itemLoading, filteredItems.length, selectedId]);
 
   // 좌측 출고 목록에 실제로 보이는 업체 = 담당자별 출력 모달의 후보와 동일해야 한다.
   const visibleShipments = useMemo(
@@ -3966,6 +3991,14 @@ export default function Estimate() {
           <div className="card-header" style={{flexWrap:'wrap', gap:6}}>
             <span className="card-title">■ 견적서 목록</span>
             {selectedShip && <span style={{fontSize:12, color:'var(--blue)', fontWeight:'bold'}}>{selectedShip.CustName}</span>}
+            {highlightDeductions && (
+              <span style={{
+                fontSize: 12, fontWeight: 800, padding: '2px 8px', borderRadius: 12,
+                background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b',
+              }}>
+                {yearStr}년 {weekNum}차 {selectedCust?.CustName || selectedShip?.CustName || '선택 업체'} 불량차감 {deductionItemCount}건
+              </span>
+            )}
             {mismatch && mismatch.total > 0 && (
               <button onClick={() => setMismatchModalOpen(true)}
                 title={`주문 vs 출고 불일치 ${mismatch.total}건 — 클릭하여 상세 보기`}
@@ -4118,13 +4151,14 @@ export default function Estimate() {
                         </td></tr>
                       : filteredItems.map((item, i) => {
                           const isDed = isEstimateDeductionRow(item);
+                          const highlightDed = highlightDeductions && isDed;
                           const sdk = item.SdetailKey;
                           const qtyEditKey = getQtyEditKey(item);
                           const costEditKey = getItemEditKey(item);
                           const editVal = costEditKey ? (costEdits[costEditKey] ?? '') : '';
                           const isEdited = editVal !== '' && !isNaN(parseFloat(editVal)) && parseFloat(editVal) !== item.Cost;
                           return (
-                          <tr key={i} style={{background: isEdited ? '#E6F7FF' : (isDed ? '#FFF8DC' : '')}}>
+                          <tr key={i} data-estimate-deduction={isDed ? '1' : undefined} style={{background: isEdited ? '#E6F7FF' : (highlightDed ? '#FDE68A' : (isDed ? '#FFF8DC' : ''))}}>
                             <td style={{fontSize:12, fontWeight:500, color: isDed ? '#A0522D' : ''}}>
                               {isDed && <span style={{fontSize:10, color:'#B8860B', marginRight:3}}>
                                 [{mapEstimateType(item.EstimateType)}]

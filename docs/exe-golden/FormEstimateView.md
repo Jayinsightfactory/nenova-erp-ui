@@ -26,7 +26,13 @@ Web: `pages/estimate.js` + `pages/api/estimate/index.js` + `lib/exeEstimateViewS
 | `GetPrintDetail(custKey)` | `pd.WeekDay IN (...)` | `sqlEstimateGetPrintDetail` + `printDetail=1` |
 | `GetExcelDetail(custKey)` | `pd.WeekDay IN (...)` | `view=excelDetail` + `sqlEstimateGetExcelDetail` |
 
-### 웹 견적서 인쇄의 Estimate 등록행 누락 방지
+### 웹 딥링크 (영업지원 → 견적서)
+
+`/estimate?popup=1&year=YYYY&week=WW&custKey=&custName=&includeUnfixed=1&highlightDeductions=1`
+는 기존 `GetData`/`GetDetail` 조회만 재사용한다. 선택한 `OrderYear + 부모 OrderWeek + CustKey`
+견적서를 열고 불량차감 행을 강조할 뿐 Estimate INSERT/UPDATE를 실행하지 않는다.
+
+## 웹 견적서 인쇄의 Estimate 등록행 누락 방지
 
 정상 출고(`ShipmentDate`)에는 EXE와 같이 `PeriodDay` 요일 필터를 적용한다. 반면
 불량·검역·단가차감·판매요청 등 이미 `Estimate`에 등록된 행은 거래처·차수의
