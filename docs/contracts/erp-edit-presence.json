@@ -38,7 +38,9 @@
       "ttlSeconds": 90,
       "heartbeatSeconds": 20,
       "baseline": "BaselineDigest + Revision are server-authoritative; heartbeat preserves baseline and explicit refresh replaces it",
-      "conflict": "different UserID or browser clientId returns ERP_EDIT_LOCKED"
+      "conflict": "different UserID or browser clientId returns ERP_EDIT_LOCKED; same UserID may explicitly take over and invalidates the previous tab token",
+      "stableScope": "estimate uses the parent week only, so unordered sub-week aggregation cannot reacquire then release the same lease",
+      "tokenRotation": "every explicit acquire/takeover rotates LeaseToken so late cleanup from the previous render cannot expire the renewed lease"
     },
     {
       "name": "WRITE_GUARD",

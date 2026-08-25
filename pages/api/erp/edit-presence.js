@@ -34,9 +34,10 @@ export default withAuth(async function handler(req, res) {
     }
     const result = await withTransaction(async (tQ) => {
       if (action === 'acquire') return acquireErpEditLease(tQ, body, req.user, body);
+      if (action === 'takeover') return acquireErpEditLease(tQ, body, req.user, { ...body, takeover: true });
       if (action === 'heartbeat') return heartbeatErpEditLease(tQ, body, req.user, body.editGuard || body);
       if (action === 'release') return releaseErpEditLease(tQ, body, req.user, body.editGuard || body);
-      const error = new Error('action은 acquire, heartbeat, release, refresh 중 하나여야 합니다.');
+      const error = new Error('action은 acquire, takeover, heartbeat, release, refresh 중 하나여야 합니다.');
       error.code = 'ERP_EDIT_ACTION_INVALID';
       error.statusCode = 400;
       throw error;

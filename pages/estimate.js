@@ -1359,10 +1359,9 @@ export default function Estimate() {
   }, [selectedId, shipments, weekNum]);
 
   const selectedShip = shipments.find(s => estimateShipmentGroupId(s) === selectedId);
-  // 선택 업체의 첫 세부차수를 기준으로 작업권을 확보한다. 실제 저장 API에는 선택 연도와
-  // 업체키도 함께 전달되어 전년도 같은 차수와 섞이지 않는다.
-  const selectedEditWeek = String(selectedShip?.SubWeeks || '').split(',').map(v => v.trim()).find(Boolean)
-    || (weekNum ? `${String(weekNum).padStart(2, '0')}-01` : '');
+  // 견적 편집은 모든 세부차수를 묶는 대차수 단위다. STRING_AGG 조회 순서가
+  // 34-01/34-02 사이에서 바뀌어도 같은 작업권을 해제·재취득하지 않는다.
+  const selectedEditWeek = weekNum ? String(weekNum).padStart(2, '0') : '';
   const estimateEditPresence = useErpEditPresence({
     year: yearStr,
     week: selectedEditWeek,

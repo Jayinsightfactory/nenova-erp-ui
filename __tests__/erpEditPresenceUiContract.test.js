@@ -9,6 +9,7 @@ function main() {
   const useApi = fs.readFileSync('lib/useApi.js', 'utf8');
 
   assert.match(hook, /sessionStorage\.getItem\(CLIENT_ID_KEY\)/, '탭별 작업 식별자는 sessionStorage에 보관해야 합니다.');
+  assert.match(hook, /normalizeErpEditClientWeek/, '세부차수 순서가 달라도 같은 대차수 작업키를 사용해야 합니다.');
   assert.match(hook, /HEARTBEAT_MS = 20_000/, '작업권 연장은 20초 간격이어야 합니다.');
   assert.match(hook, /POLL_MS = 8_000/, '외부 변경 확인은 8초 간격이어야 합니다.');
   assert.doesNotMatch(hook, /if \(!current\.token \|\| savingRef\.current > 0\)/, '저장 중에도 작업권 연장은 멈추면 안 됩니다.');
@@ -19,6 +20,9 @@ function main() {
 
   assert.match(banner, /nenova\.exe 또는 다른 화면에서 값이 변경되었습니다\. 새로고침 후 다시 확인하세요\./, '전산 또는 다른 화면 변경 경고를 한글로 고정 표시해야 합니다.');
   assert.match(banner, /님이 .* 이 업체를 작업 중입니다/, '다른 작업자 이름을 사용자에게 보여줘야 합니다.');
+  assert.match(banner, /같은 계정의 다른 창/, '본인의 다른 창을 다른 사용자로 오인하지 않아야 합니다.');
+  assert.match(banner, /이 창에서 계속 작업/, '본인 작업권은 새로고침 없이 명시적으로 넘겨받을 수 있어야 합니다.');
+  assert.match(estimate, /const selectedEditWeek = weekNum \? String\(weekNum\)\.padStart\(2, '0'\)/, '견적서 작업권은 불안정한 SubWeeks 순서가 아니라 대차수로 고정해야 합니다.');
 
   for (const label of ['＋ 불량/검역등록', '＋ 불량차감등록', '＋ 판매요청', '＋ 추가 품목등록']) {
     assert.ok(estimate.includes(label), `${label} 버튼을 보존해야 합니다.`);
