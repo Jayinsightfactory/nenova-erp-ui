@@ -19,6 +19,7 @@
     "lib/raumPnlCost.js",
     "lib/raumPnlUploadDiff.js",
     "lib/raumPnlMonthly.js",
+    "lib/raumPnlMatchDisplay.js",
     "docs/migrations/2026-08-24_web_raum_pnl_assigned_month.sql",
     "docs/migrations/2026-08-25_web_raum_pnl_partner_code.sql",
     "lib/raumPnlExcel.js"
@@ -28,6 +29,7 @@
   "actions": [
     { "name": "RAUM_PNL_MULTI_WEEK_IMPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "all-or-nothing", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
     { "name": "RAUM_PNL_IMPORT_AUTO_COMMIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "verified-no-overwrite then list+monthly-summary", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
+    { "name": "RAUM_PNL_MATCH_DISPLAY", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "show Product.ProdName for WebRaumPnlItem.ProdKey; unmatched visible", "writeAllowlist": [] },
     { "name": "RAUM_PNL_EXISTING_UPLOAD_COMPARE", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "read-only-preview", "writeAllowlist": [] },
     { "name": "RAUM_PNL_MONTHLY_SUMMARY", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "QuoteDate YYYY-MM; aggregate stored week summaries", "writeAllowlist": [] },
     { "name": "RAUM_PNL_ASSIGN_MONTH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "AssignedMonth YYYY-MM and same as WebRaumPnl.OrderYear", "writeAllowlist": ["WebRaumPnl.AssignedMonth", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
@@ -45,6 +47,7 @@
     "__tests__/raumPnlExcel.test.js",
     "__tests__/raumPnlMultiImport.test.js",
     "__tests__/raumPnlPartner.test.js",
+    "__tests__/raumPnlMatchDisplay.test.js",
     "__tests__/raumPnlPreservation.test.js",
     "__tests__/raumPnlUploadDiff.test.js",
     "__tests__/raumPnlMonthly.test.js",

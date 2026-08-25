@@ -7,6 +7,7 @@ import { runEditWithFixCycle } from '../../lib/fixCycleClient';
 import RaumImageOrderPanel from '../../components/raum/RaumImageOrderPanel';
 import { buildRaumPnlMonthlySummary } from '../../lib/raumPnlMonthly';
 import { canAutoCommitRaumPnlImport, defaultPnlTitle, PNL_PARTNERS, resolvePnlPartner } from '../../lib/raumPnlPartner';
+import { raumPnlMatchCounts, raumPnlMatchDisplay } from '../../lib/raumPnlMatchDisplay';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -606,9 +607,11 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
   const rows = items.map((it, i) => {
     const r = computeItemRow(it, nen);
     const costCell = it.costPrice != null ? fmt1(it.costPrice) : '<span class="missing">미입력</span>';
+    const match = raumPnlMatchDisplay(it);
     return `<tr${it.consigned ? ' style="background:#f3f4f6;color:#555"' : ''}>
       <td class="ctr">${i + 1}</td>
       <td>${it.name}${it.consigned ? ' <small>(사입)</small>' : ''}</td>
+      <td>${match.matched ? match.label : (match.kind === 'consigned' ? '사입' : '미매칭')}</td>
       <td class="ctr">${it.unit || ''}</td>
       ${branches.map(b => `<td class="num">${fmt(it.byBranch?.[b])}</td>`).join('')}
       <td class="num">${fmt(it.qty)}</td>
@@ -631,14 +634,14 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
     <div class="sub">견적일 ${dateStr(meta.quoteDate) || '-'} · 순익분배 네노바 ${nen}% : 미우 ${100 - nen}% · VAT 별도</div>
     <table>
       <thead><tr>
-        <th>순번</th><th>품목명</th><th>단위</th>
+        <th>순번</th><th>품목명</th><th>전산 매칭</th><th>단위</th>
         ${branches.map(b => `<th>${b}</th>`).join('')}
         <th>수량계</th><th>1개당 매입단가<br />(원/VAT별도)</th><th>매입액</th><th>매출단가</th><th>매출액</th>
         <th>이익</th><th>이익율</th><th>네노바이익<br/>(${nen}%)</th><th>미우이익<br/>(${100 - nen}%)</th>
       </tr></thead>
       <tbody>${rows}
         <tr class="total">
-          <td class="ctr" colspan="3">합계</td>
+          <td class="ctr" colspan="4">합계</td>
           ${branches.map(b => `<td class="num">${fmt(items.reduce((a, it) => a + Number(it.byBranch?.[b] || 0), 0))}</td>`).join('')}
           <td class="num">${fmt(items.reduce((a, it) => a + Number(it.qty || 0), 0))}</td>
           <td></td>
@@ -1255,6 +1258,36 @@ export default function RaumPnlPage() {
     return j;
   };
 
+  const openDetail = async (pnlKey, opts = {}) => {
+    setError('');
+    if (!opts.keepMessage) setMessage('');
+    try {
+      const r = await fetch(`/api/raum/pnl?key=${pnlKey}`);
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || '조회 실패');
+      setDetail({
+        meta: {
+          pnlKey: j.master.PnlKey,
+          orderYear: j.master.OrderYear,
+          major: j.master.MajorWeek,
+          title: j.master.Title || defaultPnlTitle(j.master.PartnerCode || partnerCode, j.master.MajorWeek),
+          quoteDate: dateStr(j.master.QuoteDate),
+          nenovaPct: Number(j.master.NenovaPct),
+          note: j.master.Note || '',
+          sourceFile: j.master.SourceFile || '',
+        },
+        sheets: null,
+        items: j.items,
+        images: j.images || [],
+        verification: j.verification || null,
+        warnings: [],
+        unsaved: false,
+      });
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   const onUpload = async (file) => {
     if (!file) return;
     setUploading(true);
@@ -1272,10 +1305,12 @@ export default function RaumPnlPage() {
       if (!batches.length) throw new Error('파싱된 차수가 없습니다.');
       if (canAutoCommitRaumPnlImport(batches)) {
         const saved = await persistImportFile(file, j.previewToken);
-        setDetail(null);
         setBulkPreview(null);
-        setMessage(`${partner.label} ${saved.batchCount}개 차수를 저장했습니다. 아래 목록에서 월 배정·견적일·품목수·총매입·총매출과 월별 합계를 확인하고, 차수를 누르면 상세를 볼 수 있습니다.`);
+        setMessage(`${partner.label} ${saved.batchCount}개 차수를 저장했습니다. 전산 품목 매칭과 매입단가를 확인하세요. ← 결산 목록에서 월별 합계를 볼 수 있습니다.`);
         await loadList();
+        const firstKey = saved.saved?.[0]?.pnlKey;
+        if (firstKey) await openDetail(firstKey, { keepMessage: true });
+        else setDetail(null);
         return;
       }
       if (batches.length > 1) {
@@ -1325,43 +1360,14 @@ export default function RaumPnlPage() {
     try {
       const j = await persistImportFile(bulkPreview.file, bulkPreview.previewToken);
       setBulkPreview(null);
-      setMessage(`${j.batchCount}개 차수를 검증 후 한 번에 저장했습니다. 수기 원가·수동 행·품목 매칭은 보존했습니다.`);
-      loadList();
+      setMessage(`${j.batchCount}개 차수를 검증 후 한 번에 저장했습니다. 전산 품목 매칭과 매입단가를 확인하세요.`);
+      await loadList();
+      const firstKey = j.saved?.[0]?.pnlKey;
+      if (firstKey) await openDetail(firstKey, { keepMessage: true });
     } catch (e) {
       setError(e.message);
     } finally {
       setSaving(false);
-    }
-  };
-
-  // ── 저장본 열기 ──
-  const openDetail = async (pnlKey) => {
-    setError('');
-    setMessage('');
-    try {
-      const r = await fetch(`/api/raum/pnl?key=${pnlKey}`);
-      const j = await r.json();
-      if (!j.success) throw new Error(j.error || '조회 실패');
-      setDetail({
-        meta: {
-          pnlKey: j.master.PnlKey,
-          orderYear: j.master.OrderYear,
-          major: j.master.MajorWeek,
-          title: j.master.Title || defaultPnlTitle(j.master.PartnerCode || partnerCode, j.master.MajorWeek),
-          quoteDate: dateStr(j.master.QuoteDate),
-          nenovaPct: Number(j.master.NenovaPct),
-          note: j.master.Note || '',
-          sourceFile: j.master.SourceFile || '',
-        },
-        sheets: null,
-        items: j.items,
-        images: j.images || [],
-        verification: j.verification || null,
-        warnings: [],
-        unsaved: false,
-      });
-    } catch (e) {
-      setError(e.message);
     }
   };
 
@@ -1770,6 +1776,7 @@ export default function RaumPnlPage() {
 
   const nenovaPct = detail ? Number(detail.meta.nenovaPct) || 0 : 80;
   const totals = useMemo(() => (detail ? computeTotals(detail.items, nenovaPct) : null), [detail, nenovaPct]);
+  const matchCounts = useMemo(() => (detail ? raumPnlMatchCounts(detail.items) : { matched: 0, missing: 0, total: 0 }), [detail]);
   const hasRef = detail ? detail.items.some(it => it.refPrice != null) : false;
   const monthlySummary = useMemo(() => buildRaumPnlMonthlySummary(list), [list]);
   const gridMultiNames = useMemo(
@@ -1957,7 +1964,9 @@ export default function RaumPnlPage() {
                     </td>
                     <td style={st.td}>{dateStr(m.QuoteDate)}</td>
                     <td style={{ ...st.td, ...st.num }}>
-                      {m.ItemCount}{Number(m.MissingCost) > 0 ? <span style={{ color: '#b91c1c' }}> (매입단가 미입력 {m.MissingCost})</span> : null}
+                      {m.ItemCount}
+                      {Number(m.MissingMatch) > 0 ? <span style={{ color: '#b91c1c' }}> (미매칭 {m.MissingMatch})</span> : null}
+                      {Number(m.MissingCost) > 0 ? <span style={{ color: '#b91c1c' }}> (매입단가 미입력 {m.MissingCost})</span> : null}
                     </td>
                     <td style={{ ...st.td, ...st.num }}>{fmt(m.CostTotal)}</td>
                     <td style={{ ...st.td, ...st.num }} title={Number(m.ConsignedSale) > 0 ? `사입 ${fmt(m.ConsignedSale)}원 포함 (매입단가 입력 시 손익 합산)` : ''}>
@@ -2060,6 +2069,10 @@ export default function RaumPnlPage() {
                 {detail.sheets.map(s => `${s.branch} ${s.itemCount}품목 ${fmt(s.parsedSupply)}원`).join(' · ')} → 합산 {detail.items.length}품목
               </span>
             ) : null}
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: matchCounts.missing ? '#b91c1c' : '#166534' }}>
+              전산 매칭 {matchCounts.matched}/{matchCounts.total}
+              {matchCounts.missing ? ` · 미매칭 ${matchCounts.missing}` : ''}
+            </span>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -2068,6 +2081,7 @@ export default function RaumPnlPage() {
                 <tr>
                   <th style={st.th}>순번</th>
                   <th style={st.th}>품목명</th>
+                  <th style={st.th} title="견적 품목이 연결된 전산 품목. 도착원가·매입단가는 이 매칭 기준입니다.">전산 매칭</th>
                   <th style={st.th}>단위</th>
                   {branches.map(b => <th key={b} style={st.th}>{b}</th>)}
                   <th style={st.th}>수량계</th>
@@ -2093,23 +2107,33 @@ export default function RaumPnlPage() {
                   return (
                     <tr key={it.itemKey ?? it._uid ?? `${it.name}|${it.price}`} style={hl.bg ? { background: hl.bg } : undefined} title={hl.why}>
                       <td style={{ ...st.td, textAlign: 'center' }}>{i + 1}</td>
-                      <td style={st.td} title={it.isCustom ? '수동 추가 행' : (it.prodName ? `전산 매칭: ${it.prodName}` : '전산 미매칭')}>
+                      <td style={st.td} title={it.isCustom ? '수동 추가 행' : (raumPnlMatchDisplay(it).hint)}>
                         {it.isCustom ? (
                           <input style={{ ...st.input, width: 130, textAlign: 'left' }} value={it.name}
                             onChange={e => setItem(i, { name: e.target.value })} />
-                        ) : (
-                          <>
-                            {it.name}{it.prodName ? '' : ' ⚪'}
-                            {!it.consigned ? (
-                              <button
-                                style={{ marginLeft: 5, padding: '0 5px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 11, color: '#475569' }}
-                                title={`품목 매칭 ${it.prodName ? '수정' : '연결'} — 전산 품목을 검색해서 바꿉니다 (기억됨)`}
-                                onClick={() => setMatchEdit({ open: true, name: it.name, current: it.prodName || null })}
-                              >✎</button>
-                            ) : null}
-                          </>
-                        )}
+                        ) : it.name}
                         {it.isCustom ? ' ✍' : ''}
+                      </td>
+                      <td style={{ ...st.td, whiteSpace: 'normal', minWidth: 140 }}>
+                        {(() => {
+                          const match = raumPnlMatchDisplay(it);
+                          if (it.isCustom) return <span style={{ color: '#94a3b8' }}>—</span>;
+                          return (
+                            <>
+                              <span style={{ color: match.matched ? '#166534' : (match.kind === 'consigned' ? '#64748b' : '#b91c1c'), fontWeight: match.matched ? 600 : 400 }} title={match.hint}>
+                                {match.matched ? match.label : (match.kind === 'consigned' ? '사입' : '미매칭 ⚪')}
+                              </span>
+                              {it.matchType && match.matched ? <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 11 }}>{it.matchType}</span> : null}
+                              {!it.consigned ? (
+                                <button
+                                  style={{ marginLeft: 5, padding: '0 5px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 11, color: '#475569' }}
+                                  title={`품목 매칭 ${match.matched ? '수정' : '연결'} — 전산 품목을 검색해서 바꿉니다 (기억됨)`}
+                                  onClick={() => setMatchEdit({ open: true, name: it.name, current: it.prodName || match.label || null })}
+                                >✎</button>
+                              ) : null}
+                            </>
+                          );
+                        })()}
                       </td>
                       <td style={{ ...st.td, textAlign: 'center' }}>
                         {it.isCustom || it.isImageRow ? (
@@ -2197,7 +2221,7 @@ export default function RaumPnlPage() {
                   );
                 })}
                 <tr>
-                  <td style={{ ...st.td, textAlign: 'center', fontWeight: 700 }} colSpan={3}>합계</td>
+                  <td style={{ ...st.td, textAlign: 'center', fontWeight: 700 }} colSpan={4}>합계</td>
                   {branches.map(b => (
                     <td key={b} style={{ ...st.td, ...st.num, fontWeight: 700 }}>
                       {fmt(detail.items.reduce((a, it) => a + Number(it.byBranch?.[b] || 0), 0))}
@@ -2226,6 +2250,7 @@ export default function RaumPnlPage() {
           {totals.missing > 0 ? (
             <div style={{ ...st.warn, marginTop: 10 }}>
               ⚠ 매입단가 미입력 {totals.missing}건 — 도착원가도 학습값도 없는 품목입니다(전산 미매칭 ⚪ 또는 입고이력 없음). 직접 입력하면 다음부터 자동 적용됩니다. 총매입/이익은 입력된 품목만 합산됩니다.
+              {matchCounts.missing ? ` 전산 미매칭 ${matchCounts.missing}건은 ✎로 전산 품목을 연결해야 도착원가가 맞습니다.` : ''}
             </div>
           ) : null}
 

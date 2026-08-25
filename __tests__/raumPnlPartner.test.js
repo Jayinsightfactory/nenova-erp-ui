@@ -106,6 +106,7 @@ async function main() {
   assert.match(page, /persistImportFile/);
   assert.match(page, /colSpan=\{12\}/);
   assert.match(page, /월별 합계/);
+  assert.match(page, /전산 매칭/);
   assert.match(lib, /COL_LENGTH\('dbo\.WebRaumPnl', 'PartnerCode'\) IS NULL/);
   assert.match(panel, /custName,/);
   assert.doesNotMatch(panel, /custName: '라움'/);

@@ -31,6 +31,8 @@ async function main() {
   assert.deepEqual(contract.businessIdentity, ['OrderYear', 'OrderWeek', 'CustKey', 'ProdKey']);
   assert.deepEqual(contract.settlementIdentity, ['OrderYear', 'MajorWeek', 'PartnerCode']);
   assert.ok(contract.requiredTestFiles.includes('__tests__/raumPnlPartner.test.js'));
+  assert.ok(contract.requiredTestFiles.includes('__tests__/raumPnlMatchDisplay.test.js'));
+  assert.ok(contract.actions.find(x => x.name === 'RAUM_PNL_MATCH_DISPLAY'));
   assert.match(source, /OrderYear=@yr AND MajorWeek=@mj AND PartnerCode=@pc/);
   assert.ok(contract.actions.find(x => x.name === 'RAUM_PNL_IMPORT_AUTO_COMMIT'));
 

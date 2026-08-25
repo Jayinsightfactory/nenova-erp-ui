@@ -69,6 +69,7 @@ async function enrichBatch(parsed, orderYear, partnerCode) {
       imChecked: !!ref, imQty: ref?.imQty ?? null, imFirstDtm: ref?.imFirstDtm ?? null,
       imLastDtm: ref?.imLastDtm ?? null, imModCnt: ref?.imModCnt ?? 0,
       prodKey: ref?.prodKey ?? null, prodName: ref?.prodName ?? null,
+      matchType: ref?.matchType ?? null,
       prodKeySource: ref?.matchType === '확정매핑' ? 'explicit-map' : 'auto',
     };
   });
