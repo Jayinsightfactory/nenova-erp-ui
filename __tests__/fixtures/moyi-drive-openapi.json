@@ -9,6 +9,7 @@
   },
   "paths": {
     "/integrations/nenovaweb/drive-items": { "get": {} },
+    "/integrations/nenovaweb/drive-items/{file_id}/preview-url": { "get": {} },
     "/drive/v2/folders/{folder_id}/items": { "get": {} },
     "/drive/v2/folders/{folder_id}/acl": { "put": {} },
     "/drive/v2/folders/{folder_id}/naverworks/manifest": { "post": {} },

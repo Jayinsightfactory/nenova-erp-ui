@@ -4,6 +4,7 @@
   "scope": [
     "pages/integrations/moyi-drive.js",
     "pages/api/moyi/drive-admin.js",
+    "pages/api/moyi/drive-preview/[fileId].js",
     "lib/moyiDriveAdmin.js",
     "lib/moyiDriveGateway.js",
     "lib/moyiDriveViewModel.js",
@@ -22,6 +23,7 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     { "name": "DRIVE_LEDGER_READ_VIA_CONNECTION", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "DRIVE_IMAGE_PREVIEW_VIA_SHORT_LIVED_URL", "orderDetail": "preserve", "shipmentDetail": "preserve" },
     { "name": "DRIVE_PERMISSION_CHANGE_BLOCKED_PENDING_CORE", "orderDetail": "preserve", "shipmentDetail": "preserve" },
     { "name": "DRIVE_IDENTITY_CHANGE_BLOCKED_PENDING_CORE", "orderDetail": "preserve", "shipmentDetail": "preserve" }
   ],

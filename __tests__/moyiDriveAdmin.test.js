@@ -5,6 +5,8 @@ const helper = fs.readFileSync('lib/moyiDriveAdmin.js', 'utf8');
 const gateway = fs.readFileSync('lib/moyiDriveGateway.js', 'utf8');
 const viewModel = fs.readFileSync('lib/moyiDriveViewModel.js', 'utf8');
 const api = fs.readFileSync('pages/api/moyi/drive-admin.js', 'utf8');
+const previewApi = fs.readFileSync('pages/api/moyi/drive-preview/[fileId].js', 'utf8');
+const fileRow = fs.readFileSync('components/moyiDrive/FileRow.js', 'utf8');
 const page = fs.readFileSync('pages/integrations/moyi-drive.js', 'utf8');
 const layout = fs.readFileSync('components/Layout.js', 'utf8');
 const mobileHome = fs.readFileSync('pages/m/index.js', 'utf8');
@@ -13,6 +15,10 @@ assert.match(helper, /MOYI_DRIVE_ADMIN_USER_IDS[^\n]+nenovaSS3/, '허용 계정�
 assert.match(helper, /includes\(String\(userId/, '표시 이름이 아니라 정확한 로그인 ID를 검사해야 합니다.');
 assert.match(api, /withAuth\(handler\)/, 'API는 로그인이 필요해야 합니다.');
 assert.match(api, /requireMoyiDriveAdmin/, 'API도 관리자 계정을 다시 검사해야 합니다.');
+assert.match(previewApi, /requireMoyiDriveAdmin/, '이미지 미리보기 API도 관리자 계정을 다시 검사해야 합니다.');
+assert.match(previewApi, /private, no-store/, '이미지 미리보기는 브라우저 공유 캐시에 저장하면 안 됩니다.');
+assert.match(fileRow, /loading="lazy"/, '이미지 썸네일은 화면에 가까워질 때 불러와야 합니다.');
+assert.match(fileRow, /moyi-file-tag/, 'MOYI 파일 태그를 목록에 표시해야 합니다.');
 assert.match(api, /status\(503\)/, 'MOYI 저장 계약 확인 전 변경을 차단해야 합니다.');
 assert.match(api, /writePermissionAudit/, '허용되지 않거나 대기 중인 변경 시도를 기록해야 합니다.');
 assert.doesNotMatch(api, /sample-1|설계 미리보기|직원 예시/, '가짜 파일·권한 자료를 반환하면 안 됩니다.');
@@ -50,6 +56,7 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
     hasCrossWorkspaceInput,
     hasExistingFilesScopeInput,
     loadMoyiDrive,
+    loadMoyiDrivePreview,
     mapDriveItem,
     normalizeExistingFilesPreview,
     pendingDriveModel,
@@ -81,11 +88,11 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
       ambiguous: [], no_workspace: [], already_linked: [], missing_storage: [],
     },
   });
-  assert.deepEqual(mapDriveItem({ id: 'i1', file_id: 'f1', name: '업무.pdf', source_kind: 'moyi_upload', sync_state: 'verified' }), {
-    id: 'i1', fileId: 'f1', name: '업무.pdf', source: 'MOYI 앱', state: '확인 완료', sourceDeleted: false, contentReady: true,
+  assert.deepEqual(mapDriveItem({ id: 'i1', file_id: 'f1', name: '현장.jpg', mime: 'image/jpeg', size: 2048, tags: ['현장', '34차'], preview_available: true, source_kind: 'moyi_upload', sync_state: 'verified' }), {
+    id: 'i1', fileId: 'f1', name: '현장.jpg', mime: 'image/jpeg', size: 2048, tags: ['현장', '34차'], source: 'MOYI 앱', state: '확인 완료', sourceDeleted: false, contentReady: true, previewAvailable: true,
   });
   assert.deepEqual(mapDriveItem({ id: 'i2', file_id: null, name: '백업.xlsx', source_kind: 'naverworks_drive', sync_state: 'observed' }), {
-    id: 'i2', fileId: null, name: '백업.xlsx', source: '네이버웍스 Drive', state: '백업 대기', sourceDeleted: false, contentReady: false,
+    id: 'i2', fileId: null, name: '백업.xlsx', mime: 'application/octet-stream', size: 0, tags: [], source: '네이버웍스 Drive', state: '백업 대기', sourceDeleted: false, contentReady: false, previewAvailable: false,
   });
   const pending = pendingDriveModel('아직 준비되지 않았습니다.');
   assert.equal(pending.connectionReady, false);
@@ -97,7 +104,7 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
     global.fetch = async (url, options) => {
       fetchCall += 1;
       if (String(url).endsWith('/drive/capabilities')) return { ok: true, status: 200, json: async () => ({ contract_revision: '2026-08-12.1', flags: { drive_legacy_inline_url: false } }) };
-      if (String(url).endsWith('/openapi.json')) return { ok: true, status: 200, json: async () => ({ paths: { '/drive/v2/folders/{folder_id}/items': { get: {} }, '/integrations/nenovaweb/drive-items': { get: {} }, '/files/{file_id}/raw-url': { get: {} }, '/files/{file_id}/raw': { get: {} } } }) };
+      if (String(url).endsWith('/openapi.json')) return { ok: true, status: 200, json: async () => ({ paths: { '/drive/v2/folders/{folder_id}/items': { get: {} }, '/integrations/nenovaweb/drive-items': { get: {} }, '/integrations/nenovaweb/drive-items/{file_id}/preview-url': { get: {} }, '/files/{file_id}/raw-url': { get: {} }, '/files/{file_id}/raw': { get: {} } } }) };
       if (String(url).endsWith('/integrations/nenovaweb/drive-root')) return { ok: true, status: 200, json: async () => ({ ready: true, root_folder_id: 'folder-fixed-by-server' }) };
       assert.match(String(url), /integrations\/nenovaweb\/drive-items$/, '연결 토큰 전용 목록 경로를 사용해야 합니다.');
       assert.equal(options.headers.Authorization, 'Bearer connection-token');
@@ -108,6 +115,31 @@ assert.match(viewModel, /다운로드 기록/, '다운로드 성공·차단 화�
     assert.equal(connected.body.files[0].name, '실제.pdf');
     assert.equal(JSON.stringify(connected.body).includes('connection-token'), false, '연결 token을 응답에 노출하면 안 됩니다.');
     assert.equal(classifyDriveResponse({ status: connected.status, body: connected.body }).kind, 'connected', '실제 연결 응답은 pending이 아니라 connected로 분류되어야 합니다.');
+  } finally {
+    global.fetch = previousFetch;
+  }
+  try {
+    const calls = [];
+    global.fetch = async (url, options = {}) => {
+      calls.push({ url: String(url), options });
+      if (String(url).includes('/preview-url')) return {
+        ok: true, status: 200,
+        json: async () => ({ url: 'https://api.nowlink.kr/files/f1/raw?uid=u1&exp=1&sig=hidden', expires_in: 300, mime: 'image/jpeg' }),
+      };
+      return {
+        ok: true, status: 200,
+        headers: { get: () => 'image/jpeg' },
+        arrayBuffer: async () => Uint8Array.from([1, 2, 3]).buffer,
+      };
+    };
+    const preview = await loadMoyiDrivePreview({ headers: { cookie: 'moyiNenovaToken=connection-token' } }, 'f1');
+    assert.equal(preview.status, 200);
+    assert.equal(preview.contentType, 'image/jpeg');
+    assert.deepEqual([...preview.bytes], [1, 2, 3]);
+    assert.equal(JSON.stringify(preview).includes('sig='), false, '브라우저 응답 모델에 서명 주소를 노출하면 안 됩니다.');
+    assert.equal(calls[0].options.headers.Authorization, 'Bearer connection-token');
+    const invalid = await loadMoyiDrivePreview({ headers: { cookie: 'moyiNenovaToken=connection-token' } }, '../other');
+    assert.equal(invalid.status, 400, '경로형 파일 식별값은 upstream 호출 전에 거부해야 합니다.');
   } finally {
     global.fetch = previousFetch;
   }

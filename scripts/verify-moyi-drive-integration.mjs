@@ -23,12 +23,12 @@ function checkStaticContracts() {
   assert.equal(fixture['x-moyi-contract'].stagingVisibility, 'admin-only-not-found');
   assert.equal(fixture['x-moyi-contract'].acl.expiredIgnored, true);
   assert.equal(fixture['x-moyi-contract'].acl.explicitDenyWins, true);
-  assert.deepEqual(capabilities, { listItems: true, listConnectionItems: true, writeAcl: true, recordManifest: true, rawUrl: true, guardedRaw: true });
+  assert.deepEqual(capabilities, { listItems: true, listConnectionItems: true, connectionPreview: true, writeAcl: true, recordManifest: true, rawUrl: true, guardedRaw: true });
   assert.equal(isMoyiDriveAdmin('nenovaSS3'), true);
   assert.equal(isMoyiDriveAdmin('employee'), false);
   assert.equal(hasCrossWorkspaceInput({ workspace_id: 'other' }), true);
   assert.deepEqual(mapDriveItem({ id: 'item', file_id: null, name: '대기.pdf', source_kind: 'naverworks_drive', sync_state: 'observed' }), {
-    id: 'item', fileId: null, name: '대기.pdf', source: '네이버웍스 Drive', state: '백업 대기', sourceDeleted: false, contentReady: false,
+    id: 'item', fileId: null, name: '대기.pdf', mime: 'application/octet-stream', size: 0, tags: [], source: '네이버웍스 Drive', state: '백업 대기', sourceDeleted: false, contentReady: false, previewAvailable: false,
   });
   const pending = pendingDriveModel('연결 대기');
   assert.equal(pending.files.length, 0);
@@ -71,6 +71,7 @@ async function checkReadonly() {
   const capabilities = inspectDriveOpenApi(await response.json());
   assert.equal(capabilities.listItems, true, 'Drive v2 목록 API가 배포되지 않았습니다.');
   assert.equal(capabilities.listConnectionItems, true, 'Nenova 연결 전용 Drive 목록 API가 배포되지 않았습니다.');
+  assert.equal(capabilities.connectionPreview, true, 'Nenova 연결 전용 이미지 미리보기 API가 배포되지 않았습니다.');
   assert.equal(capabilities.rawUrl && capabilities.guardedRaw, true, '권한형 raw-url/raw 계약이 배포되지 않았습니다.');
   console.log(`연결 token 설정 여부: ${Boolean(process.env.MOYI_DRIVE_CONNECTION_TOKEN) ? '있음' : '없음'} (값은 출력하지 않음)`);
 }
