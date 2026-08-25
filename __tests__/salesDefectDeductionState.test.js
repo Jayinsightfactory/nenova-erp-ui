@@ -39,6 +39,8 @@ assert.match(estimateTargetSql, /JOIN ShipmentDetail sd/);
 assert.match(estimateTargetSql, /JOIN ShipmentDate sdd/);
 assert.match(estimateTargetSql, /JOIN PeriodDay pd/);
 assert.match(estimateTargetSql, /sd\.ProdKey AS ShipmentProdKey/);
+assert.match(estimateTargetSql, /sd\.OutQuantity AS ShipmentOutQuantity/);
+assert.match(estimateTargetSql, /ISNULL\(sd\.OutQuantity,0\)>0/);
 assert.match(estimateTargetSql, /ISNULL\(sm\.isFix,0\) AS MasterFix/);
 assert.match(estimateTargetSql, /ISNULL\(sd\.isFix,0\) AS ShipmentDetailFix/);
 assert.doesNotMatch(estimateTargetSql, /ViewShipment|ViewOrder|@pk/, '적용 출고 eligibility는 불량 원장 품목 및 ViewShipment.DetailFix와 독립된 업체 확정출고 기준이어야 한다.');
@@ -47,20 +49,21 @@ const customerTargetSql = buildDefectEstimateTargetCandidatesSql({ customerOnly:
 assert.doesNotMatch(customerTargetSql, /vs\.ProdKey=@pk/, '차감 품목이 대상 차수에 없어도 같은 업체의 확정 출고가 있으면 등록할 수 있어야 한다.');
 
 const cheonghwaVisibleTarget = {
-  ShipmentKey: 3301, MasterFix: 1, ShipmentDetailFix: 1,
+  ShipmentKey: 3301, ShipmentOutQuantity: 1, MasterFix: 1, ShipmentDetailFix: 1,
   ShipmentDateEstimateQuantity: 0,
 };
 assert.equal(isExeEstimateTargetCandidate(cheonghwaVisibleTarget), true, '견적 상세에 보이는 출고일 EstQuantity 0행도 등록 대상이어야 한다.');
 assert.equal(selectExeEstimateTargetCandidate([
-  { ...cheonghwaVisibleTarget, ShipmentKey: 3300, MasterFix: 0 },
+  { ...cheonghwaVisibleTarget, ShipmentKey: 3300, ShipmentOutQuantity: 1, MasterFix: 0 },
   cheonghwaVisibleTarget,
 ])?.ShipmentKey, 3300, '정렬된 해당 차수 업체 출고키를 확정 여부와 무관하게 결정적으로 선택해야 한다.');
-assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, MasterFix: 0, ShipmentDetailFix: 0 }), true, '해당 차수의 업체 출고가 존재하면 확정 해제 상태에서도 견적 차감을 연결할 수 있어야 한다.');
+assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, MasterFix: 0, ShipmentDetailFix: 0 }), true, '해당 차수의 업체 분배가 존재하면 확정 해제 상태에서도 견적 차감을 연결할 수 있어야 한다.');
+assert.equal(isExeEstimateTargetCandidate({ ...cheonghwaVisibleTarget, ShipmentOutQuantity: 0 }), false, '분배량이 0인 빈 출고는 견적 차감 대상이 아니어야 한다.');
 assert.equal(isExeEstimateTargetCandidate({ ShipmentKey: 0 }), false, '실제 ShipmentKey가 없는 행은 제외해야 한다.');
 
 const confirmedRow = { importConfirmed: true, importReviewRequired: false, status: 'CARRYOVER', estimateKey: null };
 const sanghee33ConfirmedShipment = {
-  ShipmentKey: 5808, TargetOrderYear: 2026, OrderWeek: '33-01', ShipmentProdKey: 447,
+  ShipmentKey: 5808, TargetOrderYear: 2026, OrderWeek: '33-01', ShipmentProdKey: 447, ShipmentOutQuantity: 2,
   MasterFix: 1, ShipmentDetailFix: 1, DetailFix: 0, ShipmentDateEstimateQuantity: 0,
 };
 assert.equal(selectExeEstimateTargetCandidate([
@@ -75,7 +78,7 @@ const customerShipmentMissing = evaluateDefectRegistrationEligibility({ row: con
 assert.equal(customerShipmentMissing.eligible, false, '같은 연도·적용 부모차수에 업체 확정 출고가 없으면 등록할 수 없다.');
 assert.equal(customerShipmentMissing.code, 'CUSTOMER_SALE_MISSING');
 assert.match(customerShipmentMissing.error, /업체/);
-assert.equal(evaluateDefectRegistrationEligibility({ row: { ...confirmedRow, importConfirmed: false }, context: { shipmentKey: 5809, cost: 5900 } }).eligible, false);
+assert.equal(evaluateDefectRegistrationEligibility({ row: { ...confirmedRow, importConfirmed: false }, context: { shipmentKey: 5809, cost: 5900 } }).eligible, true, '수입부 미확정은 표시 상태일 뿐 업체 분배가 있으면 등록을 막지 않아야 한다.');
 assert.equal(evaluateDefectRegistrationEligibility({ row: confirmedRow, context: { shipmentKey: 5809, cost: 0 } }).code, 'COST_MISSING');
 
 const reviewPageSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
@@ -110,10 +113,10 @@ const confirmedCarryover = {
 };
 
 assert.throws(() => assertIncomingConfirmed({ ...confirmedCarryover, ImportConfirmed: 0 }), /수입부 확정/);
-assert.throws(() => planDeductionRegistration({
+assert.doesNotThrow(() => planDeductionRegistration({
   row: { ...confirmedCarryover, ImportConfirmed: 0 }, targetYear: 2026, targetWeek: '33',
   requestKey: 'req-unconfirmed', customerShipmentExists: true, shipmentKey: 300, cost: 1100,
-}), /수입부 확정/);
+}), '수입부 미확정이어도 업체 분배·단가가 있으면 등록 계획을 세울 수 있어야 한다.');
 assert.equal(evaluateDefectRegistrationEligibility({
   row: { ...confirmedRow, prodKey: 456, importReviewRequired: true },
   context: { shipmentKey: sanghee33ConfirmedShipment.ShipmentKey, shipmentProductKey: sanghee33ConfirmedShipment.ShipmentProdKey, cost: 5900 },
@@ -314,7 +317,7 @@ assert.match(explainDefectLedgerRegisterMiss({
 }, { key: 147, estimateKey: 9001, applyQuantity: 3 }), /원장을 갱신하지 못했습니다/);
 assert.match(explainDefectLedgerRegisterMiss({
   DeductionKey: 147, EstimateKey: null, ImportConfirmed: 0, IsDeleted: 0,
-}, { key: 147, estimateKey: 9001, applyQuantity: 3 }), /수입부 확정/);
+}, { key: 147, estimateKey: 9001, applyQuantity: 3 }), /원장을 갱신하지 못했습니다/);
 assert.match(explainDefectLedgerRegisterMiss({
   DeductionKey: 147, EstimateKey: null, ImportConfirmed: 1, IsCarryoverLedger: 1, RemainingQuantity: 1, IsDeleted: 0,
 }, { key: 147, estimateKey: 9001, applyQuantity: 5 }), /잔여수량/);

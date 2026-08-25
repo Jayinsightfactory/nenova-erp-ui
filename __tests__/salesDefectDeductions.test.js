@@ -133,11 +133,11 @@ assert.doesNotMatch(defectApiSource, /action === 'carryover-register'/, '별도 
 assert.match(deductionSource, /RemainingQuantity[\s\S]*WebSalesCarryoverApplication/, '이월 부분처리는 잔여수량과 적용이력을 모두 보존해야 합니다.');
 assert.equal(pageSource.includes('특정 원차수 이월업체 직접등록'), false, '별도 수동 이월업체 직접등록 폼을 업무 흐름에 두면 안 됩니다.');
 assert.equal(pageSource.includes("sourceFileName: '이월업체 직접등록'"), false, '이월은 별도 원장 생성이 아니라 기존 영업입력 원장을 다음 차수에 재시도해야 합니다.');
-assert.match(deductionContract.sideEffects.operationalWorkflow, /영업입력 저장.*수입부.*확정.*견적 일괄등록/, '계약은 영업입력→수입부 수정·확정→견적 일괄등록 순서를 고정해야 합니다.');
+assert.match(deductionContract.sideEffects.operationalWorkflow, /영업입력 저장 즉시.*수입부.*병행.*수입부 확정을 기다리지 않고/, '계약은 영업입력 직후 등록 가능하고 수입부 확인은 병행 업무임을 고정해야 합니다.');
 assert.match(deductionContract.sideEffects.carryover, /판매행이 없는 행은 자동 미처리[\s\S]*다음 차수.*재시도/, '판매행 없는 행은 별도 수동 등록 없이 다음 차수에 재시도해야 합니다.');
 assert.match(deductionContract.sideEffects.carryover, /부분 처리[\s\S]*잔량이 0이 될 때까지/, '부분 처리 잔량은 완료될 때까지 같은 원장에 남아야 합니다.');
-assert.ok(pageSource.includes("action: 'incoming-confirm'"), '견적 일괄등록 전 수입부 수정·확정 단계가 있어야 합니다.');
-assert.ok(pageSource.includes('registerSupport'), '수입부 확인 뒤 선택 행 견적 일괄등록 단계가 있어야 합니다.');
+assert.ok(pageSource.includes("action: 'incoming-confirm'"), '수입부 농장·크레딧 확인 기능은 별도 병행 업무로 유지해야 합니다.');
+assert.ok(pageSource.includes('registerSupport'), '영업지원 선택 행 견적 일괄등록 단계가 있어야 합니다.');
 assert.ok(pageSource.includes('isCarryoverRetrySelectable') && pageSource.includes('row.registrationEligible === true'), '미처리 재시도는 같은 업체의 차수 확정 출고와 품목별 단가가 있는 행만 선택해야 한다.');
 assert.ok(deductionSource.includes('registrationEligibilityCode') && deductionSource.includes('targetShipmentKey'), '목록은 사전검증과 같은 업체 단위 등록 판정 결과를 응답해야 한다.');
 assert.ok(pageSource.includes('원차수 출고 확인') && pageSource.includes("setActiveTab('sales')"), '업체 출고가 없는 행은 원차수 출고 확인으로 이동할 수 있어야 한다.');
@@ -180,6 +180,8 @@ assert.ok(pageSource.includes('🔎 확정 현황 확인'), '영업지원 도구
 assert.ok(pageSource.includes('<th>불량차감</th>'), '처리상태 옆에 불량차감 미리보기 열이 있어야 한다.');
 assert.ok(pageSource.includes('buildSupportEstimateCapture'), '견적서 캡쳐는 공통 helper로 견적서 목록을 재현해야 한다.');
 assert.ok(pageSource.includes('data-estimate-capture'), '견적서 캡쳐 미리보기가 처리상태 옆에 보여야 한다.');
+assert.ok(pageSource.includes('아직 등록되지 않았습니다.'), '미등록 불량차감도 미리보기에서 등록 전 상태를 안내해야 한다.');
+assert.doesNotMatch(pageSource, /SupportEstimatePreviewButton[\s\S]*?disabled=\{unavailable\}/, '미등록 행도 등록 여부 확인을 위해 미리보기 버튼을 열 수 있어야 한다.');
 assert.doesNotMatch(pageSource, /previewCapture\s*:/, '캡쳐 미리보기는 견적서관리 iframe/딥링크를 다시 의존하지 않아야 한다.');
 assert.doesNotMatch(pageSource, /<iframe/, '영업지원 미리보기는 iframe 원장 화면을 쓰지 않고 불량차감 목록만 보여야 한다.');
 assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 분배단가 열을 표시해야 한다.');
@@ -189,7 +191,7 @@ assert.ok(pageSource.includes('toggleAllSupport'), '영업지원 전체 선택/�
 assert.ok(pageSource.includes('support-usage-notice'), '영업지원 화면에 사용 방법 공지가 있어야 한다.');
 assert.ok(pageSource.includes('SUPPORT_REGISTER_USAGE_STEPS'), '영업지원 공지는 공통 사용 방법 단계를 표시해야 한다.');
 assert.ok(supportReviewSource.includes('supportRegisterUsageNotice'), '검토창에도 같은 사용 방법 공지가 있어야 한다.');
-assert.equal(supportRegisterUsageNotice(), '사용 방법: 확정확인 → 전체선택 → 견적서관리에 불량차감 등록 → 기존 견적서 조회 완료가 뜨면 → 전산등록 실행 및 검증');
+assert.equal(supportRegisterUsageNotice(), '사용 방법: 업체 분배 확인 → 전체선택 → 견적서관리에 불량차감 등록 → 기존 견적서 조회 완료가 뜨면 → 전산등록 실행 및 검증');
 assert.ok(pageSource.includes('isSupportRegistrationSelectable'), '영업지원 선택은 등록 가능 상태를 공통 판정해야 한다.');
 assert.ok(pageSource.includes('isSupportManualCompleteSelectable'), '수기 처리 행은 등록 가능 여부와 무관하게 체크할 수 있어야 한다.');
 assert.ok(pageSource.includes('markSupportManualComplete'), '영업지원에 수동처리완료 동작이 있어야 한다.');
@@ -215,7 +217,7 @@ assert.ok(pageSource.includes('setSupportRows((current) => current.map'), '영�
     pageSource.indexOf('const isSupportRegistrationSelectable'),
     pageSource.indexOf('const existingEstimateLabel'),
   );
-  assert.match(selectableSource, /importConfirmed/, '미확정 행은 영업지원 목록에는 보이되 견적 등록 선택에서 제외해야 한다.');
+  assert.doesNotMatch(selectableSource, /importConfirmed/, '수입부 미확정은 영업지원 견적 등록 선택을 막지 않아야 한다.');
 }
 assert.ok(pageSource.includes('support-review-required'), '영업지원 목록은 수입부 확정과 별개로 보완 필요 상태를 표시해야 한다.');
 assert.match(pageSource, /importConfirmed\s*\?[^:]*확정[^:]*:[^'"`]*['"]미확정/, '영업지원 목록은 수입부 미확정 행도 표시하고 미확정 상태를 명시해야 한다.');
@@ -284,7 +286,7 @@ assert.ok(deductionSource.includes('ImportReviewRequired=0'), '해결 완료 시
     deductionSource.indexOf('const current = await getStoredRow(tQuery, key);'),
   );
   assert.doesNotMatch(ledgerUpdateSql, /ImportReviewRequired=0/, '보완필요는 견적 등록 원장 UPDATE를 막으면 안 된다.');
-  assert.match(ledgerUpdateSql, /ImportConfirmed=1/, '수입부 미확정 행은 등록 UPDATE 대상이 아니다.');
+  assert.doesNotMatch(ledgerUpdateSql, /ImportConfirmed=1/, '수입부 확정 필드는 견적 등록 UPDATE의 차단 조건이 아니어야 한다.');
 }
 assert.ok(deductionSource.includes('explainDefectLedgerRegisterMiss'), '등록 원장 갱신 실패는 확정·잔여 상태를 다시 읽어 안내해야 한다.');
 assert.equal(deductionSource.includes('다른 사용자에 의해 변경되었습니다'), false, '보완필요 행을 다른 사용자 변경으로 오인하면 안 된다.');
