@@ -35,6 +35,14 @@ import {
   resolveHotelMiuOverflowCancel,
   allowHotelMiuMissingCancel,
   isHotelMiuCancelOverflowError,
+  historyVarietyLabel,
+  historyVarietyButtons,
+  attachVarietyToRows,
+  toggleVarietyFilter,
+  filterRowsByVarieties,
+  groupRowsByVariety,
+  readVarietyFilter,
+  writeVarietyFilter,
   HOTEL_MIU_BATCH_DRAFT,
   HOTEL_MIU_DEFAULT_VENDOR_LABELS,
   HOTEL_MIU_WEEK_UNTIL,
@@ -319,6 +327,43 @@ assert.equal(mergeAllBatchLines([
   assert.equal(view.rows[0].byRound[3], '-');
   assert.equal(view.rows[0].beforeLabel, '2065송이 (68박스 + 25송이)');
   assert.equal(view.rows[0].afterLabel, '69박스 (2070송이)');
+  assert.equal(view.rows[0].variety, '수국');
+  assert.equal(historyVarietyLabel({ FlowerName: '수국' }), '수국');
+  assert.equal(historyVarietyLabel({ CountryFlower: '콜롬비아수국' }), '콜롬비아수국');
+  assert.equal(historyVarietyLabel({}, 'ROSE / Mondial White 50cm'), 'ROSE');
+  assert.equal(historyVarietyLabel({}, 'CARNATION Moon Light'), 'CARNATION');
+  assert.equal(historyVarietyLabel({}, 'Hydrangea White'), 'Hydrangea');
+  assert.equal(historyVarietyLabel({}, '알수없는품목'), '기타');
+  assert.equal(attachVarietyToRows(
+    [{ prodKey: 1, prodName: 'ROSE Red' }],
+    { 1: { FlowerName: '장미' } },
+  )[0].variety, '장미');
+  const grouped = groupRowsByVariety([
+    { prodKey: 1, variety: '수국' },
+    { prodKey: 2, variety: '장미' },
+    { prodKey: 3, variety: '수국' },
+  ]);
+  assert.deepEqual(grouped.map((g) => [g.variety, g.rows.length]), [['수국', 2], ['장미', 1]]);
+  assert.equal(filterRowsByVarieties(grouped.flatMap((g) => g.rows), ['장미']).length, 1);
+  assert.deepEqual(filterRowsByVarieties([{ variety: '수국' }, { variety: '장미' }], []), [{ variety: '수국' }, { variety: '장미' }]);
+  assert.deepEqual(historyVarietyButtons([{ variety: '장미' }, { variety: '수국' }, { variety: '수국' }]), [
+    { variety: '수국', count: 2 },
+    { variety: '장미', count: 1 },
+  ]);
+  assert.deepEqual(toggleVarietyFilter([], '수국'), ['수국']);
+  assert.deepEqual(toggleVarietyFilter(['수국'], '수국'), []);
+  assert.deepEqual(toggleVarietyFilter(['수국'], '장미').sort(), ['수국', '장미'].sort());
+  const mem = {};
+  const storage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = String(v); } };
+  writeVarietyFilter(680, ['수국'], storage);
+  assert.deepEqual(readVarietyFilter(680, storage), ['수국']);
+  assert.deepEqual(readVarietyFilter(656, storage), []);
+  const mergedKeep = mergeProductBoxFactors(
+    [{ ProdKey: 9, SteamOf1Box: 30, OutUnit: '송이', FlowerName: '수국', CountryFlower: '콜롬비아수국' }],
+    [{ prodKey: 9, perBox: 16, unit: '송이' }],
+  );
+  assert.equal(mergedKeep[0].FlowerName, '수국');
+  assert.equal(mergedKeep[0].CountryFlower, '콜롬비아수국');
   const inferred = historyFromRegisteredBatches([
     { status: 'REGISTERED', batchNo: 1, lines: [{ prodKey: 9, prodName: '수국', qty: 40, unit: '송이' }] },
   ]);
@@ -449,6 +494,16 @@ assert.match(page, /주문등록 내역/);
 assert.match(page, /주문반영 내역/);
 assert.match(page, /registeredHistoryView/);
 assert.match(page, /HistoryQtyTable/);
+assert.match(page, /VarietyChipBar/);
+assert.match(page, /selectedVarieties/);
+assert.match(page, /historyVarietyButtons/);
+assert.match(page, /groupRowsByVariety/);
+assert.match(page, /filterRowsByVarieties/);
+assert.match(page, />전체</);
+assert.match(page, /st\.varHead/);
+assert.match(page, /attachVarietyToRows/);
+assert.match(page, /readVarietyFilter/);
+assert.match(page, /품종 버튼은 화면만 묶어서 보여 주고/);
 assert.match(page, /\{no\}차/);
 assert.match(page, /formatSplitQtyLabel/);
 assert.match(page, /registeredLineHistory/);
@@ -502,6 +557,8 @@ assert.match(intakeApi, /SET isDeleted=1/);
 assert.doesNotMatch(intakeApi, /UPDATE Product/);
 assert.match(intakeApi, /req.query.prodKeys/);
 assert.match(intakeApi, /SteamOf1Box/);
+assert.match(intakeApi, /ISNULL\(FlowerName,''\) AS FlowerName/);
+assert.match(intakeApi, /ISNULL\(CountryFlower,''\) AS CountryFlower/);
 assert.match(intakeApi, /WebHotelMiuRegisterSnap/);
 assert.match(intakeApi, /INSERT INTO WebHotelMiuRegisterSnap/);
 assert.match(intakeApi, /batchKeys: keys/);
@@ -547,6 +604,8 @@ assert.equal(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').or
 assert.match(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').sideEffect, /주문반영 내역/);
 assert.match(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').sideEffect, /1차\/2차\/3차/);
 assert.match(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').sideEffect, /68박스/);
+assert.match(contract.actions.find((a) => a.name === 'READ_REGISTER_HISTORY').sideEffect, /selectable 전체\/수국\/장미/);
+assert.match(contract.actions.find((a) => a.name === 'READ_BOX_FACTORS').sideEffect, /FlowerName/);
 assert.ok(contract.writes.includes('WebHotelMiuRegisterSnap'));
 assert.match(contract.actions.find((a) => a.name === 'PARSE_IMAGE_OR_TEXT').sideEffect, /compact 입력\/매칭\/수량/);
 assert.equal(contract.actions.find((a) => a.name === 'REVISE_BATCH_DECREASE').orderDetail, 'decrease');
