@@ -10,7 +10,7 @@ import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
-import { isSupportProcessingComplete, supportProcessingLabel } from '../../lib/salesDefectSupportStatus.js';
+import { isSupportProcessingComplete, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -20,7 +20,6 @@ const isSupportRegistrationSelectable = (row = {}, activeTab = 'support') => Boo
   Number(row.deductionKey) > 0
   && row.registrationEligible === true
   && !isSupportProcessingComplete(row)
-  && !row.importReviewRequired
   && (activeTab !== 'carryover' || isCarryoverRetrySelectable(row))
 );
 const existingEstimateLabel = (record = {}) => {
@@ -1417,7 +1416,7 @@ export default function SalesDefectDeductionsPage() {
               const selectable = isSupportRegistrationSelectable(row, activeTab);
               const existingEstimateRecords = Array.isArray(row.existingEstimateRecords) ? row.existingEstimateRecords : [];
               const existingEstimateCount = Number(row.existingEstimateCount ?? existingEstimateRecords.length);
-              const scopeLabel = row.isCarryover ? `원차수 ${row.orderYear || '-'}-${row.orderWeek || '-'} → 적용 ${year}-${week}` : `원차수 ${row.orderYear || year}-${row.orderWeek || week}`;
+              const scopeLabel = supportStatusDetail(row, year, week);
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''} ${row.exactExistingEstimate ? 'support-existing-row' : ''}`} key={key || `support-${index}`}>
                 <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={selectable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!selectable} /></label></td>
                 <td>{index + 1}</td>
@@ -1438,8 +1437,8 @@ export default function SalesDefectDeductionsPage() {
                   </div>}
                 </td>
                 <td>
-                  <span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{isSupportProcessingComplete(row) ? supportProcessingLabel(row) : row.registrationEligible ? '등록 가능' : '수정 필요'}</span>
-                  <small className="support-scope-label">{isSupportProcessingComplete(row) ? (row.exactExistingEstimate ? '동일 차수·업체·품목·수량·단위의 기존 불량차감 확인 · 중복 등록 제외' : scopeLabel) : row.registrationError || scopeLabel}</small>
+                  <span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{supportRegistrationDecisionLabel(row)}</span>
+                  {scopeLabel && <small className="support-scope-label">{scopeLabel}</small>}
                   {Number(row.custKey) > 0 && <button type="button" className="btn btn-xs support-estimate-open" onClick={() => openCustomerEstimate(row)} title={`${year}년 ${week}차 ${row.customerName || '거래처'} 견적서에서 불량차감 현황을 엽니다.`}>{row.customerName || '거래처'} 견적서 열기</button>}
                   {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
                   {existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}

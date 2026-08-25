@@ -29,7 +29,9 @@ import {
 
 const estimateTargetSql = buildDefectEstimateTargetCandidatesSql();
 assert.match(estimateTargetSql, /sm\.OrderYear=@yr/);
-assert.match(estimateTargetSql, /sm\.OrderWeek LIKE @prefix/);
+assert.match(estimateTargetSql, /TRY_CONVERT\(INT, LEFT\(sm\.OrderWeek/);
+assert.match(estimateTargetSql, /sm\.OrderYearWeek = CONVERT\(varchar\(4\), @yr\)/);
+assert.doesNotMatch(estimateTargetSql, /LIKE @prefix/, '부모차수는 LIKE 접두가 아니라 OrderYear+부모차수 정수로 맞춰야 한다.');
 assert.match(estimateTargetSql, /FROM ShipmentMaster sm/);
 assert.match(estimateTargetSql, /JOIN ShipmentDetail sd/);
 assert.match(estimateTargetSql, /JOIN ShipmentDate sdd/);
@@ -110,10 +112,15 @@ assert.throws(() => planDeductionRegistration({
   row: { ...confirmedCarryover, ImportConfirmed: 0 }, targetYear: 2026, targetWeek: '33',
   requestKey: 'req-unconfirmed', customerShipmentExists: true, shipmentKey: 300, cost: 1100,
 }), /수입부 확정/);
-assert.throws(() => planDeductionRegistration({
+assert.equal(evaluateDefectRegistrationEligibility({
+  row: { ...confirmedRow, prodKey: 456, importReviewRequired: true },
+  context: { shipmentKey: sanghee33ConfirmedShipment.ShipmentKey, shipmentProductKey: sanghee33ConfirmedShipment.ShipmentProdKey, cost: 5900 },
+}).eligible, true, '보완 필요는 표시만 하고 등록 가능 판정을 막으면 안 된다.');
+assert.doesNotThrow(() => assertIncomingConfirmed({ ...confirmedCarryover, ImportReviewRequired: 1 }), '보완 필요는 수입부 표시일 뿐 등록 차단 조건이 아니다.');
+assert.doesNotThrow(() => planDeductionRegistration({
   row: { ...confirmedCarryover, ImportReviewRequired: 1 }, targetYear: 2026, targetWeek: '33',
   requestKey: 'req-review', customerShipmentExists: true, shipmentKey: 300, cost: 1100,
-}), /보완 필요/);
+}), '보완 필요 행도 출고·단가가 있으면 등록 계획을 세울 수 있어야 한다.');
 
 const firstPlan = planDeductionRegistration({
   row: confirmedCarryover, targetYear: 2026, targetWeek: '33', applyQuantity: 4,

@@ -19,7 +19,7 @@ import {
   isNoopDeductionHistory,
 } from '../lib/salesDefectDeductionCore.js';
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
-import { deriveSupportProcessingStatus, isSupportProcessingComplete, supportProcessingLabel } from '../lib/salesDefectSupportStatus.js';
+import { deriveSupportProcessingStatus, isSupportProcessingComplete, supportCarryoverFromLabel, supportProcessingLabel, supportRegistrationDecisionLabel, supportStatusDetail } from '../lib/salesDefectSupportStatus.js';
 import { buildEstimateCustomerUrl } from '../lib/estimateFixStatusLink.js';
 import {
   parseQuantityCell,
@@ -182,7 +182,9 @@ assert.ok(pageSource.includes('toggleAllSupport'), '영업지원 전체 선택/�
 assert.ok(pageSource.includes('isSupportRegistrationSelectable'), '영업지원 선택은 등록 가능 상태를 공통 판정해야 한다.');
 assert.ok(pageSource.includes('!isSupportProcessingComplete(row)'), '이미 연결되거나 기존 견적으로 처리완료된 행은 중복 선택할 수 없어야 한다.');
 assert.ok(pageSource.includes('existingEstimateRecords'), '업체의 기존 음수 Estimate 내역을 목록에서 확인할 수 있어야 한다.');
-assert.ok(pageSource.includes('supportProcessingLabel(row)'), '정확히 일치하는 기존 차감은 처리완료 상태와 견적키로 표시해야 한다.');
+assert.ok(pageSource.includes('supportRegistrationDecisionLabel(row)'), '정확히 일치하는 기존 차감은 처리완료 상태와 견적키로 표시해야 한다.');
+assert.ok(pageSource.includes('supportStatusDetail(row, year, week)'), '처리상태는 이월 원차수를 숨기지 않고 보여야 한다.');
+assert.equal(pageSource.includes('수정 필요'), false, '처리상태는 수정 필요 대신 등록 가능/불가만 보여야 한다.');
 assert.ok(pageSource.includes('이 업체 기존 차감'), '동일 업체의 다른 기존 차감도 펼쳐 확인할 수 있어야 한다.');
 assert.ok(pageSource.includes('&support=1'), '영업지원 등록은 처리로그 검토창 모드로 열려야 한다.');
 assert.ok(pageSource.includes('meaningfulHistory'), '변경없는 수정 이력은 화면에 표시하지 않아야 한다.');
@@ -193,7 +195,13 @@ assert.ok(pageSource.includes('reviewRequiredCount'), '영업담당자 화면에
 assert.ok(pageSource.includes('resolveReview'), '영업담당자 화면에 보완 해결 완료 동작이 있어야 한다.');
 assert.ok(pageSource.includes('해결 완료'), '보완 필요 행에 해결 완료 버튼이 있어야 한다.');
 assert.ok(pageSource.includes('setSupportRows((current) => current.map'), '영업지원에서 보완 해결 완료 후 해당 목록 행 상태를 즉시 갱신해야 한다.');
-assert.match(pageSource, /!row\.importReviewRequired[\s\S]*activeTab !== 'carryover'/, '보완 필요 행은 해결 완료 전 영업지원 견적 등록 선택 대상이 아니어야 한다.');
+{
+  const selectableSource = pageSource.slice(
+    pageSource.indexOf('const isSupportRegistrationSelectable'),
+    pageSource.indexOf('const existingEstimateLabel'),
+  );
+  assert.doesNotMatch(selectableSource, /importReviewRequired/, '보완 필요는 표시일 뿐 영업지원 견적 등록 선택을 막으면 안 된다.');
+}
 assert.ok(pageSource.includes('support-review-required'), '영업지원 목록은 수입부 확정과 별개로 보완 필요 상태를 표시해야 한다.');
 assert.ok(pageSource.includes('sales-row-review-alert'), '보완 필요 행은 담당자 화면에 빨간 알림으로 표시해야 한다.');
 assert.ok(pageSource.includes("const [salesViewMode, setSalesViewMode] = useState('edit')"), '영업 입력은 편집/완료 목록 보기 전환을 제공해야 한다.');
@@ -536,6 +544,14 @@ assert.equal(existingCompleted.processingStatus, 'COMPLETED_EXISTING', '정확�
 assert.equal(existingCompleted.processingEstimateKey, 4567, '기존 불량차감 견적키를 처리상태에 표시해야 한다.');
 assert.equal(isSupportProcessingComplete(existingCompleted), true, '기존 불량차감 처리완료 행은 중복 등록 대상에서 제외해야 한다.');
 assert.equal(supportProcessingLabel(existingCompleted), '처리완료 (기존 불량차감 #4567)', '영업지원 처리상태에 기존 불량차감 완료를 명시해야 한다.');
+assert.equal(supportRegistrationDecisionLabel({ registrationEligible: true }), '등록 가능');
+assert.equal(supportRegistrationDecisionLabel({ registrationEligible: false }), '등록 불가');
+assert.equal(supportCarryoverFromLabel({ orderYear: 2026, orderWeek: '32' }, 2026, 33), '2026년 32차부터 이월');
+assert.equal(supportCarryoverFromLabel({ orderYear: 2026, orderWeek: '33-01' }, 2026, 33), '');
+assert.equal(supportStatusDetail({
+  orderYear: 2026, orderWeek: '32', registrationEligible: false, registrationEligibilityCode: 'CUSTOMER_SALE_MISSING',
+  registrationError: '선택 차수에 이 업체의 출고가 없습니다.',
+}, 2026, 33), '2026년 32차부터 이월', '출고 없음 문구가 이월 원차수를 가리면 안 된다.');
 const crossYearOrMismatch = deriveSupportProcessingStatus({ status: 'DRAFT', exactExistingEstimate: false });
 assert.equal(crossYearOrMismatch.processingStatus, 'UNREGISTERED', '다른 연도·수량·단위 불일치 후보는 처리완료로 표시하면 안 된다.');
 
