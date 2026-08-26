@@ -26,7 +26,7 @@
 | 확정 여부는 등록 필수 아님 | 기존 사용자 명시 정책 | 기존 업체 분배 eligibility 보존 |
 | 단가 저장은 등록 아님 | EXE 저장과 웹 초안 구분 | 저장 후 서버 재조회, 자동 견적 생성 금지 |
 | 완료/연결된 견적은 단가입력 대상 제외 | 기존 중복/잔여 계약 | 잠금 후 서버 검증 |
-| 동시 변경 감지 | RowVersionNo | expectedRowVersionNo와 행 매칭키 확인 |
+| 동시 변경 감지 | RowVersionNo 및 Product.EstUnit | expectedRowVersionNo/expectedEstimateUnit와 행 매칭키 확인 |
 
 ## 부작용
 
@@ -51,4 +51,11 @@ History INSERT 실패 시 감사 버전까지 롤백(가짜 transaction으로 �
 로컬 필수 검증: test:erp-contract, test:nenova-dnspy-evidence,
 test:erp-manifest --changed-from origin/master, guard:erp-writes --changed-from origin/master,
 build 통과. 운영 값을 입력/등록하는 쓰기 스모크는 수행하지 않음.
-PR/배포/실브라우저 확인은 진행 중.
+PR #359 병합: `9caf84585b0b6a4866e733e94b73f1bf82244d9a`.
+Cafe24 deploy run `32915205307` 성공(2m51s), hydration smoke 성공.
+운영 버전 `v1.0.2·9caf845` 확인.
+2026/34 영업지원 60행, 일신원예 CustKey=520 / Mandala mc 50cm ProdKey=2911
+2단 행에 직접입력 버튼과 모달 표시 확인. 전산 견적 단위 `단`당 금액임을 표시.
+빈 단가 저장 클릭은 클라이언트에서 차단하고 모달 안에 오류 표시, 취소 닫기 정상.
+브라우저 console error 0건. 양수 단가 저장 및 실제 견적 등록은 운영값을 임의로
+설정하지 않기 위해 실행하지 않았고, 해당 경로는 실행형 fake transaction으로 검증.
