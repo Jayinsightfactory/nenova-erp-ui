@@ -37,6 +37,10 @@ ClassCustomerProdCost.Select 원문은 Product LEFT JOIN CustomerProdCost ON Pro
 
 ## 품목 최근거래 기본 필터 (후속 요청)
 
+## 단가 셀 드래그 선택 (2026-08-26)
+
+위 FormCustomerProdCost dnSpy CLI를 재실행하여 btnModify_Click의 수정행 CustKey+ProdKey 저장을 재확인했다. 직사각형 셀 선택은 웹 브라우저 전용 초안 기능이다. 기본단가 열 제외, 현재 표시행/업체만 선택, 새 조회/정렬/필터 시 선택 해제. 선택 영역 적용은 localCosts/changed만 변경하고 기존 PUT saveMatrix를 호출하지 않는다. 기존 저장 버튼의 CustomerProdCost MERGE와 나머지 ERP 원장·재고·견적 경로는 변경하지 않는다. 이번 읽기 검증은 앞서 확인한 운영 단가표/GET 근거를 재사용하며, 현재 Chrome 열린 탭이 없어 신규 운영 DOM probe는 미완료다. SQL 변경이나 운영 단가 쓰기는 없다.
+
 기본 초기선택/검색 전 후보를 최근90일 거래 품목으로 좁힌다. 명시 검색으로 선택한 과거 품목은 표에 유지한다. 최근 여부는 단가 유무가 아닌 전사 주문/출고 이력이며 사용자 요청에 따른 웹 표시 정책이다.
 
 위 CLI의 `-t ClassOrderDetail`, `-t ClassShipmentDetail`로 ProdKey/OutQuantity/OrderMasterKey/ShipmentKey 및 ShipmentDtm과 OrderDetail.isDeleted 필드를 재확인했다. 일반 GET과 EXE parity 응답 모두 같은 read-only 최근거래 메타데이터로 보강하며 `sqlCustomerProdCostSelect()` 원문과 저장 트랜잭션은 변경하지 않는다. 모든 기존 가격·주문·분배·재고·견적·매출 데이터는 보존한다.

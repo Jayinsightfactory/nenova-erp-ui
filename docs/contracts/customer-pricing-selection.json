@@ -1,7 +1,7 @@
 {
   "id": "customer-pricing-selection",
   "title": "업체별 품목 단가관리 최근 거래업체 선택",
-  "scope": ["pages/master/pricing.js", "pages/api/master/pricing-matrix.js", "lib/pricingCustomerSelection.js"],
+  "scope": ["pages/master/pricing.js", "pages/api/master/pricing-matrix.js", "lib/pricingCustomerSelection.js", "lib/pricingCellSelection.js", "__tests__/pricingCellSelection.test.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [{"name":"RECENT_CUSTOMER_SELECTION", "orderDetail":"preserve", "shipmentDetail":"preserve", "stock":"preserve", "estimate":"preserve", "writeAllowlist":[]}],
   "criteria": {
@@ -15,10 +15,12 @@
     "selection": "customer filtering preserves selectedKeys; select-all toggles visible customers only, preserving hidden selections; blank product query initially selects recent products, explicit product search selects returned matches, picker filtering preserves selected hidden products, and bulk targets only selected currently visible products",
     "sort": "recent trade date descending then customer name/key",
     "save": "existing CustomerProdCost reads, PUT saveMatrix and EXE parity path unchanged",
+    "dragSelection": "explicit drag mode selects rectangular displayed CustKey_ProdKey cells; excludes base price and hidden cells, resets selection on displayed order/membership changes; mouseup outside and blur end drag; normal input and Enter navigation preserved",
+    "selectedCost": "finite nonnegative price, including explicit 0; blank/negative/nonfinite rejected; apply only changes localCosts/changed for selected cells, preserves other drafts; no HTTP until existing save; loading/saving blocks edits; no new ERP writes",
     "keyboardNavigation": "Customer cost Enter focuses and selects the next visible sorted product in the same CustKey column, scrolling nearest; hidden rows skipped, last row stays, IME composition ignored. No copying values, automatic saving, or base-cost behavior change."
   },
   "crossYearFixture": {"required":true,"description":"Recent rolling dates may span December/January using actual transaction dates and master PKs, never same OrderWeek collision. Old prior-year records remain excluded unless searched."},
-  "requiredTestFiles": ["__tests__/pricingCustomerSelection.test.js"],
+  "requiredTestFiles": ["__tests__/pricingCustomerSelection.test.js", "__tests__/pricingCellSelection.test.js"],
   "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormCustomerProdCost.md","source":"local dnSpy.Console.exe FormCustomerProdCost 2026-08-26","methods":["SetCombo","GetData","btnModify_Click"],"tables":["Customer","CustomerProdCost","OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail"]},
   "requiredCommands": ["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
 }
