@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 
 async function main() {
-  const { loadManifests } = await import('../scripts/check-erp-contract-manifest.mjs');
+  const { loadManifests, validateManifest } = await import('../scripts/check-erp-contract-manifest.mjs');
   const manifests = loadManifests();
   assert.ok(manifests.length > 0, '기능 계약 manifest가 하나 이상 있어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'week-pivot-distribution'), '차수피벗 계약이 등록되어야 합니다.');
@@ -14,6 +14,11 @@ async function main() {
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'pivot-stats'), '피벗 통계 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'estimate-print'), '견적서 출력 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'my-customer-order-entry'), '내 업체 주문등록 계약이 등록되어야 합니다.');
+  const myOrderContract = manifests.find(({ manifest }) => manifest.id === 'my-customer-order-entry').manifest;
+  assert.equal(myOrderContract.actions.find(a => a.name === 'REPLACE_ACTIVE_CUSTOMER_ORDER_QUANTITY').orderDetail, 'replace-nonnegative');
+  const invalidEffect = structuredClone(myOrderContract);
+  invalidEffect.actions[0].orderDetail = 'anything';
+  assert.throws(() => validateManifest(invalidEffect, 'invalid-fixture.json'), /orderDetail/);
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'sales-registration-history'), '판매등록 히스토리 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'hotel-miu-intake'), '호텔+미우 주문입력 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'shipment-fix-remain-check'), '출고확정 SP 잔량검사 계약이 등록되어야 합니다.');

@@ -8,6 +8,7 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
+| [2026-08-26_my-order-replace-log](./2026-08-26_my-order-replace-log.md) | 현재 주문수량·추가/변경등록·실행로그 | 구현·로컬 회귀검증, 배포 대기 |
 | [2026-08-26_pricing-enter-next](./2026-08-26_pricing-enter-next.md) | 업체별 단가 Enter시 같은 업체 아래 품목 입력칸 이동 | 구현 중 |
 | [2026-08-26_pricing-recent-products](./2026-08-26_pricing-recent-products.md) | 품목도 최근90일 거래 기본표시·검색시 전체 | PR367 배포완료·대량조회 브라우저 검증 지연 |
 | [2026-08-26_pricing-product-selection](./2026-08-26_pricing-product-selection.md) | 품목 전체 선택 후 개별 해제·선택 품목만 일괄 단가 적용 | PR366 배포·실브라우저 확인 완료 |

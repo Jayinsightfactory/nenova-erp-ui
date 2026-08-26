@@ -14,7 +14,13 @@ import {
   sqlOrderAddGetDataFlower,
   sqlOrderAddGetDataProduct,
 } from '../../../lib/exeOrderAddSql.js';
-import { quantitiesMatch } from '../../../lib/myCustomerOrderEntry.js';
+import {
+  assertMyCustomerExpectedCurrentQty,
+  isMyCustomerOrderSource,
+  MY_CUSTOMER_ORDER_MODE,
+  planMyCustomerOrderWrite,
+  validateMyCustomerOrderWriteRequest,
+} from '../../../lib/myCustomerOrderWritePolicy.js';
 import { allowHotelMiuMissingCancel, resolveHotelMiuOverflowCancel } from '../../../lib/hotelMiuIntake.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 import {
@@ -125,6 +131,54 @@ function toAllUnits(qty, unit, prod = {}) {
   }
   const outQ = outUnit === '단' ? bunch : outUnit === '송이' ? steam : box;
   return { box, bunch, steam, outQ };
+}
+
+// FormOrderAdd.UnitQuantity(false): OrderDetail의 이미 환산된 박스/단/송이 열에서
+// Product.EstUnit에 해당하는 열을 그대로 고른다. 출고분배용 반올림/보정은 주문에 쓰지 않는다.
+function myCustomerOrderEstQuantity(allQty, prod = {}, finalOutQty) {
+  const outUnit = normalizeOrderUnit(prod.OutUnit, '박스');
+  const estUnit = normalizeOrderUnit(prod.EstUnit, outUnit);
+  const value = estUnit === '박스' ? Number(allQty.box)
+    : estUnit === '단' ? Number(allQty.bunch)
+      : Number(allQty.steam);
+  if (!Number.isFinite(value) || (Number(finalOutQty) > 0 && value <= 0)) {
+    const error = new Error(`품목 ${prod.ProdName || ''}의 EstUnit(${estUnit}) 환산값을 확인할 수 없습니다.`);
+    error.statusCode = 400;
+    error.code = 'EST_UNIT_CONVERSION_INVALID';
+    throw error;
+  }
+  return value;
+}
+
+// FormOrderAdd.UnitQuantity가 읽는 세 실제 수량 열을 만든다. 기존 범용 toAllUnits는
+// 다른 source의 과거 동작을 보존하기 위해 건드리지 않는다.
+function myCustomerOrderAllUnits(qty, unit, prod = {}) {
+  const outUnit = normalizeOrderUnit(prod.OutUnit, '박스');
+  const inputUnit = normalizeOrderUnit(unit, outUnit);
+  const bunchOfBox = Number(prod.B1B || prod.BunchOf1Box || 0);
+  const steamOfBox = Number(prod.S1B || prod.SteamOf1Box || 0);
+  const steamOfBunch = Number(prod.SteamOf1Bunch || 0);
+  let box = 0;
+  let bunch = 0;
+  let steam = 0;
+  if (inputUnit === '박스') {
+    box = qty;
+    if (bunchOfBox > 0) bunch = qty * bunchOfBox;
+    if (steamOfBox > 0) steam = qty * steamOfBox;
+    else if (bunchOfBox > 0 && steamOfBunch > 0) steam = qty * bunchOfBox * steamOfBunch;
+  } else if (inputUnit === '단') {
+    bunch = qty;
+    if (bunchOfBox > 0) box = qty / bunchOfBox;
+    if (steamOfBunch > 0) steam = qty * steamOfBunch;
+    else if (steamOfBox > 0 && bunchOfBox > 0) steam = (qty / bunchOfBox) * steamOfBox;
+  } else {
+    steam = qty;
+    if (steamOfBox > 0) box = qty / steamOfBox;
+    else if (steamOfBunch > 0 && bunchOfBox > 0) box = qty / (steamOfBunch * bunchOfBox);
+    if (steamOfBunch > 0) bunch = qty / steamOfBunch;
+    else if (steamOfBox > 0 && bunchOfBox > 0) bunch = (qty / steamOfBox) * bunchOfBox;
+  }
+  return { box, bunch, steam, outQ: outUnit === '박스' ? box : outUnit === '단' ? bunch : steam };
 }
 
 function isNetherlandsProduct(prod = {}) {
@@ -340,16 +394,27 @@ async function verifyCreatedOrdersInTransaction(tQuery, { orderYear, orderWeek, 
 // 웹 주문등록은 기존 OrderDetail 수량에 입력값을 가산한다. (기존 2 + 신규 3 → 5)
 async function createOrder(req, res) {
   const { custName, custKey, week, year, manager, orderCode, items, source } = req.body;
-  const ensureShipmentMaster = String(source || '').toLowerCase() === 'raum-pnl' || req.body?.ensureShipmentMaster === true;
+  let myCustomerPolicy;
+  try {
+    myCustomerPolicy = validateMyCustomerOrderWriteRequest({ source, orderMode: req.body?.orderMode, items });
+  } catch (error) {
+    return res.status(error.statusCode || 400).json({ success: false, code: error.code, error: error.message });
+  }
+  const isMyCustomerSource = myCustomerPolicy.isMyCustomerSource;
+  const orderMode = myCustomerPolicy.orderMode;
+  const writeItems = isMyCustomerSource ? myCustomerPolicy.items : items;
+  // 웹 내 업체 등록의 의도된 범위는 OrderMaster/Detail/History만이다. 출고 원장은 보존한다.
+  const ensureShipmentMaster = !isMyCustomerSource
+    && (String(source || '').toLowerCase() === 'raum-pnl' || req.body?.ensureShipmentMaster === true);
   const isDelta = true; // 웹/붙여넣기 주문등록은 기존 수량을 덮어쓰지 않고 항상 가산한다.
   const historyDescr = String(source || '').toLowerCase() === 'paste' ? '붙여넣기 주문등록' : '주문등록';
 
-  if (!items || items.length === 0) {
+  if (!writeItems || writeItems.length === 0) {
     return res.status(400).json({ success: false, error: '품목을 입력하세요.' });
   }
 
   try {
-    await appLog('createOrder', '시작', `custKey=${custKey} custName=${custName} week=${week} items=${items?.length}`);
+    await appLog('createOrder', '시작', `custKey=${custKey} custName=${custName} week=${week} items=${writeItems?.length} mode=${orderMode}`);
 
     // 거래처 조회 (OrderCode 포함)
     let resolvedCustKey = custKey;
@@ -373,12 +438,12 @@ async function createOrder(req, res) {
       resolvedOrderCode = r.recordset[0].OrderCode || '';
     }
 
-    if (String(source || '').toLowerCase() === 'my-customer') {
+    if (isMyCustomerSource) {
       const activeCustomer = await query(`SELECT TOP 1 CustKey FROM Customer WHERE CustKey=@ck AND ISNULL(isDeleted,0)=0`, {
         ck: { type: sql.Int, value: Number(resolvedCustKey) },
       });
       if (!activeCustomer.recordset[0]) return res.status(404).json({ success: false, error: '사용 가능한 업체가 아닙니다.' });
-      if (items.some(item => item.expectedCurrentQty === undefined)) return res.status(400).json({ success: false, error: '중복 등록 방지를 위한 현재 수량이 필요합니다.' });
+      if (writeItems.some(item => item.expectedCurrentQty === undefined)) return res.status(400).json({ success: false, error: '중복 등록 방지를 위한 현재 수량이 필요합니다.' });
     }
 
     // OrderWeek 형식 검증 + 정규화 (NN-NN 또는 YYYY-NN-NN 만 허용)
@@ -394,7 +459,7 @@ async function createOrder(req, res) {
     // Manager 에는 UserInfo.UserID 가 들어가야 ViewOrder 의 INNER JOIN UserInfo(om.Manager=ui.UserID)
     // 를 통과한다. 문자열 '관리자'(=UserName) 를 넣으면 그 주문이 ViewOrder 에서 탈락 → 전산 분배
     // grid 에 거래처가 안 뜸. '관리자' 계정의 실제 UserID(보통 'admin') 로 해석해 넣는다.
-    const mgrRow = String(source || '').toLowerCase() === 'my-customer'
+    const mgrRow = isMyCustomerSource
       ? await query(`SELECT TOP 1 ui.UserID FROM Customer c LEFT JOIN UserInfo ui ON ui.UserID=c.Manager OR ui.UserName=c.Manager
           WHERE c.CustKey=@ck AND ISNULL(c.isDeleted,0)=0 ORDER BY CASE WHEN ui.UserID=c.Manager THEN 0 ELSE 1 END`, { ck: { type: sql.Int, value: Number(resolvedCustKey) } })
       : await query(`SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자' ORDER BY UserID`, {});
@@ -415,18 +480,19 @@ async function createOrder(req, res) {
       // 기존 OrderMaster 확인 (같은 업체+연도+차수 — 연도 무시 시 25년 주문에 26년 등록이 붙는 버그 방지)
       // 수량 0으로 숨긴 Master도 재사용한다. 새로 INSERT하면 EXE에 같은 차수 주문이 두 장이 된다.
       const existing = await tQuery(
-        `SELECT TOP 1 OrderMasterKey, ISNULL(isDeleted,0) AS isDeleted
+          `SELECT TOP 1 OrderMasterKey, ISNULL(isDeleted,0) AS isDeleted
            FROM OrderMaster WITH (UPDLOCK, HOLDLOCK)
           WHERE CustKey=@ck AND OrderWeek=@wk
             AND (
               OrderYear = @year
-              OR (@year IN (N'2025', N'2024') AND (OrderYear IS NULL OR OrderYear = N''))
+              OR (@allowLegacyYear=1 AND @year IN (N'2025', N'2024') AND (OrderYear IS NULL OR OrderYear = N''))
             )
           ORDER BY CASE WHEN ISNULL(isDeleted,0)=0 THEN 0 ELSE 1 END, OrderMasterKey ASC`,
         {
           ck: { type: sql.Int, value: resolvedCustKey },
           wk: { type: sql.NVarChar, value: orderWeek },
           year: { type: sql.NVarChar, value: orderYear },
+          allowLegacyYear: { type: sql.Bit, value: isMyCustomerSource ? 0 : 1 },
         }
       );
 
@@ -533,55 +599,126 @@ async function createOrder(req, res) {
 
       const detailResults = [];
       const changedProdKeys = new Set();
-      for (const item of items) {
+      const touchedOrderMasterKeys = new Set([Number(mk)]);
+      for (const item of writeItems) {
         let prodKey = item.prodKey;
         if (!prodKey && item.prodName) {
           const pr = await tQuery(
             `SELECT TOP 1 ProdKey FROM Product WHERE ProdName LIKE @name AND isDeleted = 0`,
             { name: { type: sql.NVarChar, value: `%${item.prodName}%` } }
           );
-          if (!pr.recordset[0]) { detailResults.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue; }
+          if (!pr.recordset[0]) {
+            if (isMyCustomerSource) throw Object.assign(new Error(`${item.prodName}: 품목을 찾을 수 없습니다.`), { statusCode: 404, code: 'PRODUCT_NOT_FOUND' });
+            detailResults.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue;
+          }
           prodKey = pr.recordset[0].ProdKey;
         }
         const prodInfo = await tQuery(
-          `SELECT ProdName, FlowerName, OutUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
-                  ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B
+          `SELECT ProdName, FlowerName, OutUnit, EstUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
+                  ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Box,0) AS S1B,
+                  ISNULL(SteamOf1Bunch,0) AS SteamOf1Bunch
              FROM Product WHERE ProdKey=@pk AND isDeleted=0`,
           { pk: { type: sql.Int, value: prodKey } }
         );
-        if (!prodInfo.recordset[0]) { detailResults.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue; }
+        if (!prodInfo.recordset[0]) {
+          if (isMyCustomerSource) throw Object.assign(new Error(`${item.prodName || prodKey}: 품목을 찾을 수 없습니다.`), { statusCode: 404, code: 'PRODUCT_NOT_FOUND' });
+          detailResults.push({ prodName: item.prodName, status: 'NOT_FOUND' }); continue;
+        }
         const prod = prodInfo.recordset[0];
-        const qty = parseFloat(item.qty) || 0;
+        const qty = isMyCustomerSource ? Number(item.qty) : (parseFloat(item.qty) || 0);
         const unit = normalizeOrderUnit(item.unit, normalizeOrderUnit(prod.OutUnit, '박스'));
-        const allQty = toAllUnits(qty, unit, prod);
+        const allQty = isMyCustomerSource ? myCustomerOrderAllUnits(qty, unit, prod) : toAllUnits(qty, unit, prod);
         const boxQty = allQty.box;
         const bunchQty = allQty.bunch;
         const steamQty = allQty.steam;
         const outQty = allQty.outQ;
         const detailDescr = String(item.descr || item.memo || extractMoqText(prod) || '').trim();
 
-        // 기존 OrderDetail 확인 (같은 Master+품목). 수량 0으로 숨긴 행도 재사용한다.
-        const existOd = await tQuery(
-          `SELECT TOP 1 OrderDetailKey, OutQuantity, ISNULL(isDeleted,0) AS isDeleted
-             FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
-            WHERE OrderMasterKey=@mk AND ProdKey=@pk
-            ORDER BY CASE WHEN ISNULL(isDeleted,0)=0 THEN 0 ELSE 1 END, OrderDetailKey ASC`,
-          { mk: { type: sql.Int, value: mk }, pk: { type: sql.Int, value: prodKey } }
-        );
+        // 내 업체 화면은 현재수량을 모든 활성 Master의 합으로 표시한다. 따라서 한 품목의
+        // 활성 상세가 둘 이상이면 어느 행도 임의로 고르지 않고 전체 트랜잭션을 거부한다.
+        let detailMasterKey = mk;
+        let existOd;
+        if (isMyCustomerSource) {
+          const activeDetails = await tQuery(
+            `SELECT od.OrderDetailKey, od.OrderMasterKey, od.OutQuantity, CAST(0 AS INT) AS isDeleted
+               FROM OrderMaster om WITH (UPDLOCK, HOLDLOCK)
+               JOIN OrderDetail od WITH (UPDLOCK, HOLDLOCK) ON od.OrderMasterKey=om.OrderMasterKey
+              WHERE om.CustKey=@ck AND om.OrderYear=@year AND om.OrderWeek=@wk
+                AND ISNULL(om.isDeleted,0)=0 AND od.ProdKey=@pk AND ISNULL(od.isDeleted,0)=0
+              ORDER BY od.OrderDetailKey ASC`,
+            { ck: { type: sql.Int, value: Number(resolvedCustKey) }, year: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: orderWeek }, pk: { type: sql.Int, value: prodKey } }
+          );
+          if (activeDetails.recordset.length > 1) {
+            const duplicate = new Error(`${item.prodName || prodKey}: 같은 연도·차수의 활성 주문 상세가 ${activeDetails.recordset.length}건이라 안전하게 변경할 수 없습니다.`);
+            duplicate.statusCode = 409;
+            duplicate.code = 'DUPLICATE_ACTIVE_ORDER_DETAIL';
+            throw duplicate;
+          }
+          if (activeDetails.recordset[0]) {
+            detailMasterKey = Number(activeDetails.recordset[0].OrderMasterKey);
+            touchedOrderMasterKeys.add(detailMasterKey);
+            existOd = activeDetails;
+          } else {
+            // 숨긴 과거 행은 새 활성행을 만들지 않도록 기본 Master에서만 재사용한다.
+            existOd = await tQuery(
+              `SELECT TOP 1 OrderDetailKey, OrderMasterKey, OutQuantity, ISNULL(isDeleted,0) AS isDeleted
+                 FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
+                WHERE OrderMasterKey=@mk AND ProdKey=@pk
+                ORDER BY CASE WHEN ISNULL(isDeleted,0)=0 THEN 0 ELSE 1 END, OrderDetailKey ASC`,
+              { mk: { type: sql.Int, value: detailMasterKey }, pk: { type: sql.Int, value: prodKey } }
+            );
+          }
+        } else {
+          existOd = await tQuery(
+            `SELECT TOP 1 OrderDetailKey, OrderMasterKey, OutQuantity, ISNULL(isDeleted,0) AS isDeleted
+               FROM OrderDetail WITH (UPDLOCK, HOLDLOCK)
+              WHERE OrderMasterKey=@mk AND ProdKey=@pk
+              ORDER BY CASE WHEN ISNULL(isDeleted,0)=0 THEN 0 ELSE 1 END, OrderDetailKey ASC`,
+            { mk: { type: sql.Int, value: detailMasterKey }, pk: { type: sql.Int, value: prodKey } }
+          );
+        }
         const existRow = existOd.recordset[0];
         const reviveDeleted = !!(existRow && Number(existRow.isDeleted));
         const oldOutQty = existRow && !reviveDeleted ? Number(existRow.OutQuantity || 0) : 0;
-        const applyDeltaAdd = isDelta && !reviveDeleted;
+        const applyDeltaAdd = (isMyCustomerSource ? orderMode === MY_CUSTOMER_ORDER_MODE.ADD : isDelta) && !reviveDeleted;
 
-        if (String(source || '').toLowerCase() === 'my-customer' && !quantitiesMatch(item.expectedCurrentQty, oldOutQty)) {
-          const stale = new Error(`${item.prodName || prodKey}: 다른 작업에서 수량이 변경되었습니다. 새로고침 후 다시 등록하세요.`);
-          stale.statusCode = 409;
-          throw stale;
+        if (isMyCustomerSource) assertMyCustomerExpectedCurrentQty(item.expectedCurrentQty, oldOutQty);
+
+        if (isMyCustomerSource && qty > 0 && outQty <= 0) {
+          throw Object.assign(new Error(`${item.prodName || prodKey}: OutUnit 환산수량이 0입니다. 품목 단위 설정을 확인하세요.`), { statusCode: 400, code: 'OUT_UNIT_CONVERSION_INVALID' });
+        }
+        let myWritePlan = null;
+        if (isMyCustomerSource) {
+          let hasShipmentDetail = false;
+          if (orderMode === MY_CUSTOMER_ORDER_MODE.REPLACE && outQty === 0) {
+            const shipment = await tQuery(
+              `SELECT COUNT(*) AS ShipmentDetailCount
+                 FROM ShipmentMaster sm WITH (UPDLOCK, HOLDLOCK)
+                 JOIN ShipmentDetail sd WITH (UPDLOCK, HOLDLOCK) ON sd.ShipmentKey=sm.ShipmentKey
+                WHERE sm.OrderYear=@year AND sm.OrderWeek=@wk AND sm.CustKey=@ck
+                  AND ISNULL(sm.isDeleted,0)=0 AND sd.ProdKey=@pk`,
+              { year: { type: sql.NVarChar, value: orderYear }, wk: { type: sql.NVarChar, value: orderWeek }, ck: { type: sql.Int, value: Number(resolvedCustKey) }, pk: { type: sql.Int, value: prodKey } }
+            );
+            hasShipmentDetail = Number(shipment.recordset[0]?.ShipmentDetailCount || 0) > 0;
+          }
+          myWritePlan = planMyCustomerOrderWrite({
+            orderMode,
+            inputOutQty: outQty,
+            previousQty: oldOutQty,
+            hasActiveOrderDetail: Boolean(existRow && !reviveDeleted),
+            hasShipmentDetail,
+          });
+          if (myWritePlan.action === 'SKIP_ZERO') {
+            detailResults.push({ prodKey, prodName: item.prodName || prod.ProdName || '', qty: outQty, inputQty: outQty, unit: normalizeOrderUnit(prod.OutUnit, '박스'), status: 'SKIPPED', ...myWritePlan });
+            continue;
+          }
         }
 
         if (existOd.recordset.length > 0) {
-          const computedNext = applyDeltaAdd ? oldOutQty + outQty : outQty;
-          const overflow = resolveHotelMiuOverflowCancel(source, applyDeltaAdd, oldOutQty, computedNext);
+          const computedNext = myWritePlan ? myWritePlan.finalQty : (applyDeltaAdd ? oldOutQty + outQty : outQty);
+          const overflow = myWritePlan
+            ? { kind: myWritePlan.action === 'DELETE_ZERO' ? 'zero' : 'normal', nextOutQty: myWritePlan.finalQty }
+            : resolveHotelMiuOverflowCancel(source, applyDeltaAdd, oldOutQty, computedNext);
           if (overflow.kind === 'reject') {
             throw new Error(`${item.prodName || prodKey}: 취소 수량이 현재 주문수량(${oldOutQty})보다 큽니다.`);
           }
@@ -600,7 +737,7 @@ async function createOrder(req, res) {
             continue;
           }
           const nextOutQty = overflow.nextOutQty;
-          if (overflow.kind === 'zero' || (applyDeltaAdd && nextOutQty <= 0)) {
+          if (overflow.kind === 'zero' || (!isMyCustomerSource && applyDeltaAdd && nextOutQty <= 0)) {
             await appLog('createOrder', 'OD_DELETE_ZERO', `pk=${prodKey} old=${oldOutQty} delta=${outQty}`);
             await tQuery(
               `UPDATE OrderDetail SET
@@ -622,46 +759,54 @@ async function createOrder(req, res) {
               historyDescr,
               uid
             );
-            await tQuery(
-              `UPDATE OrderMaster
-                  SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
-                WHERE OrderMasterKey=@mk
-                  AND ISNULL(isDeleted,0)=0
-                  AND NOT EXISTS (
-                    SELECT 1 FROM OrderDetail
-                     WHERE OrderMasterKey=@mk AND ISNULL(isDeleted,0)=0
-                  )`,
-              { mk: { type: sql.Int, value: mk }, uid: { type: sql.NVarChar, value: uid } }
-            );
+            // 내 업체의 여러 명시 행은 한 트랜잭션 끝까지 모두 처리한 뒤에만 Master를 정리한다.
+            // 중간 0행 처리 뒤 다음 품목을 같은 Master에 넣는 ghost 삭제를 막는다.
+            if (!isMyCustomerSource) {
+              await tQuery(
+                `UPDATE OrderMaster
+                    SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+                  WHERE OrderMasterKey=@mk
+                    AND ISNULL(isDeleted,0)=0
+                    AND NOT EXISTS (
+                      SELECT 1 FROM OrderDetail
+                       WHERE OrderMasterKey=@mk AND ISNULL(isDeleted,0)=0
+                    )`,
+                { mk: { type: sql.Int, value: mk }, uid: { type: sql.NVarChar, value: uid } }
+              );
+            }
             changedProdKeys.add(Number(prodKey));
             detailResults.push({
               prodKey,
               prodName: item.prodName || prod.ProdName || '',
-              qty,
-              unit,
+              qty: isMyCustomerSource ? outQty : qty,
+              inputQty: isMyCustomerSource ? outQty : undefined,
+              unit: isMyCustomerSource ? normalizeOrderUnit(prod.OutUnit, '박스') : unit,
               status: 'DELETED',
               previousQty: oldOutQty,
-              deltaQty: outQty,
+              deltaQty: isMyCustomerSource ? myWritePlan.deltaQty : outQty,
               finalQty: 0,
               orderDetailKey: existOd.recordset[0].OrderDetailKey,
             });
             continue;
           }
           // delta=true 면 기존값에 더하기. 숨긴 행은 잔여 환산값을 더하지 않고 이번 수량으로 덮어 살린다.
+          const updateEstQty = isMyCustomerSource
+            ? myCustomerOrderEstQuantity(myCustomerOrderAllUnits(nextOutQty, normalizeOrderUnit(prod.OutUnit, '박스'), prod), prod, nextOutQty)
+            : outQty;
           const updateSql = applyDeltaAdd
             ? `UPDATE OrderDetail SET
                  BoxQuantity   = ISNULL(BoxQuantity,0)   + @box,
                  BunchQuantity = ISNULL(BunchQuantity,0) + @bunch,
                  SteamQuantity = ISNULL(SteamQuantity,0) + @steam,
                  OutQuantity   = ISNULL(OutQuantity,0)   + @oq,
-                 EstQuantity   = ISNULL(EstQuantity,0)   + @oq,
+                 EstQuantity   = ${isMyCustomerSource ? '@est' : 'ISNULL(EstQuantity,0)   + @oq'},
                  NoneOutQuantity = 0,
                  isDeleted = 0,
                  ${hasOrderDetailDescrColumn ? `Descr = CASE WHEN @descr<>'' THEN @descr ELSE Descr END,` : ''}
                  LastUpdateID=@uid, LastUpdateDtm=GETDATE()
                WHERE OrderDetailKey=@dk`
             : `UPDATE OrderDetail SET BoxQuantity=@box, BunchQuantity=@bunch, SteamQuantity=@steam,
-                 OutQuantity=@oq, EstQuantity=@oq, NoneOutQuantity=0, isDeleted=0,
+                 OutQuantity=@oq, EstQuantity=${isMyCustomerSource ? '@est' : '@oq'}, NoneOutQuantity=0, isDeleted=0,
                  ${hasOrderDetailDescrColumn ? `Descr = CASE WHEN @descr<>'' THEN @descr ELSE Descr END,` : ''}
                  LastUpdateID=@uid, LastUpdateDtm=GETDATE()
                WHERE OrderDetailKey=@dk`;
@@ -669,7 +814,8 @@ async function createOrder(req, res) {
           await tQuery(updateSql,
             { box: { type: sql.Float, value: boxQty }, bunch: { type: sql.Float, value: bunchQty },
               steam: { type: sql.Float, value: steamQty },
-              oq:  { type: sql.Float,    value: outQty },
+              oq:  { type: sql.Float,    value: isMyCustomerSource && !applyDeltaAdd ? nextOutQty : outQty },
+              est: { type: sql.Float,    value: updateEstQty },
               descr: { type: sql.NVarChar, value: detailDescr },
               uid: { type: sql.NVarChar, value: uid },
               dk: { type: sql.Int, value: existOd.recordset[0].OrderDetailKey } }
@@ -686,15 +832,19 @@ async function createOrder(req, res) {
           detailResults.push({
             prodKey,
             prodName: item.prodName || prod.ProdName || '',
-            qty,
-            unit,
+            qty: isMyCustomerSource ? outQty : qty,
+            inputQty: isMyCustomerSource ? outQty : undefined,
+            unit: isMyCustomerSource ? normalizeOrderUnit(prod.OutUnit, '박스') : unit,
             status: applyDeltaAdd ? (outQty < 0 ? 'CANCELLED' : 'ADDED') : (reviveDeleted ? 'ADDED' : 'UPDATED'),
             previousQty: oldOutQty,
-            deltaQty: outQty,
+            deltaQty: isMyCustomerSource ? myWritePlan.deltaQty : outQty,
             finalQty: nextOutQty,
             orderDetailKey: existOd.recordset[0].OrderDetailKey,
           });
         } else if (qty > 0) {
+          const insertEstQty = isMyCustomerSource
+            ? myCustomerOrderEstQuantity(myCustomerOrderAllUnits(outQty, normalizeOrderUnit(prod.OutUnit, '박스'), prod), prod, outQty)
+            : outQty;
           const newDetailKey = await tryInsertWithRetry(tQuery, 'OrderDetail', 'OrderDetailKey', async (newNk) => {
             await appLog('createOrder', 'OD_INSERT', `nk=${newNk} pk=${prodKey} box=${boxQty} bunch=${bunchQty} steam=${steamQty}`);
             const insertCols = hasOrderDetailDescrColumn
@@ -703,18 +853,19 @@ async function createOrder(req, res) {
               : `(OrderDetailKey, OrderMasterKey, ProdKey, BoxQuantity, BunchQuantity, SteamQuantity,
                   OutQuantity, EstQuantity, NoneOutQuantity, isDeleted, CreateID, CreateDtm)`;
             const insertValues = hasOrderDetailDescrColumn
-              ? `(@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, 0, @descr, 0, @uid, GETDATE())`
-              : `(@nk, @mk, @pk, @box, @bunch, @steam, @oq, @oq, 0, 0, @uid, GETDATE())`;
+              ? `(@nk, @mk, @pk, @box, @bunch, @steam, @oq, @est, 0, @descr, 0, @uid, GETDATE())`
+              : `(@nk, @mk, @pk, @box, @bunch, @steam, @oq, @est, 0, 0, @uid, GETDATE())`;
             await tQuery(
               `INSERT INTO OrderDetail ${insertCols} VALUES ${insertValues}`,
               {
                 nk:    { type: sql.Int,      value: newNk },
-                mk:    { type: sql.Int,      value: mk },
+                mk:    { type: sql.Int,      value: detailMasterKey },
                 pk:    { type: sql.Int,      value: prodKey },
                 box:   { type: sql.Float,    value: boxQty },
                 bunch: { type: sql.Float,    value: bunchQty },
                 steam: { type: sql.Float,    value: steamQty },
                 oq:    { type: sql.Float,    value: outQty },
+                est:   { type: sql.Float,    value: insertEstQty },
                 descr: { type: sql.NVarChar, value: detailDescr },
                 uid:   { type: sql.NVarChar, value: 'admin' }, // 전산 호환
               }
@@ -726,11 +877,12 @@ async function createOrder(req, res) {
           detailResults.push({
             prodKey,
             prodName: item.prodName || prod.ProdName || '',
-            qty,
-            unit,
+            qty: isMyCustomerSource ? outQty : qty,
+            inputQty: isMyCustomerSource ? outQty : undefined,
+            unit: isMyCustomerSource ? normalizeOrderUnit(prod.OutUnit, '박스') : unit,
             status: 'OK',
             previousQty: 0,
-            deltaQty: outQty,
+            deltaQty: isMyCustomerSource ? myWritePlan.deltaQty : outQty,
             finalQty: outQty,
             orderDetailKey: newDetailKey,
           });
@@ -751,6 +903,21 @@ async function createOrder(req, res) {
           throw new Error(`${item.prodName || prodKey}: 취소 대상 주문이 없습니다.`);
         }
       }
+      if (isMyCustomerSource) {
+        for (const touchedMasterKey of touchedOrderMasterKeys) {
+          await tQuery(
+            `UPDATE OrderMaster
+                SET isDeleted=1, LastUpdateID=@uid, LastUpdateDtm=GETDATE()
+              WHERE OrderMasterKey=@mk
+                AND ISNULL(isDeleted,0)=0
+                AND NOT EXISTS (
+                  SELECT 1 FROM OrderDetail
+                   WHERE OrderMasterKey=@mk AND ISNULL(isDeleted,0)=0
+                )`,
+            { mk: { type: sql.Int, value: touchedMasterKey }, uid: { type: sql.NVarChar, value: uid } }
+          );
+        }
+      }
       const postWriteVerification = await verifyCreatedOrdersInTransaction(tQuery, {
         orderYear,
         orderWeek,
@@ -761,7 +928,13 @@ async function createOrder(req, res) {
       return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys], shipmentMasterKey: ensuredShipmentMasterKey, postWriteVerification, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision };
     });
 
-    const stockWarning = await runStockCalculation(orderYear, orderWeek, uid, prodKeys);
+    // FormOrderAdd EditMode=2(변경등록)는 재고 재계산을 하지 않는다. 기존 ADD 경로는 유지한다.
+    const stockWarning = isMyCustomerSource && orderMode === MY_CUSTOMER_ORDER_MODE.REPLACE
+      ? null
+      : await runStockCalculation(orderYear, orderWeek, uid, prodKeys);
+    const modeWarning = isMyCustomerSource && orderMode === MY_CUSTOMER_ORDER_MODE.ADD
+      ? '추가등록은 기존 재고 재계산 절차를 유지했습니다.'
+      : null;
     await appLog('createOrder', '완료', `mk=${orderMasterKey} items=${results.length}`);
     return res.status(201).json({
       success: true,
@@ -771,7 +944,8 @@ async function createOrder(req, res) {
       orderMasterKey,
       shipmentMasterKey: shipmentMasterKey || null,
       message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'CANCELLED' || r.status === 'DELETED').length}개 품목`,
-      warning: stockWarning?.message || null,
+      warning: stockWarning?.message || modeWarning,
+      orderMode: isMyCustomerSource ? orderMode : undefined,
       results,
     });
   } catch (err) {

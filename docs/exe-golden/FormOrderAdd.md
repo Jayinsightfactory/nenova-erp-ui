@@ -4,13 +4,19 @@
 - decompile: `C:\Users\USER\nenova-decompiled\Nenova\FormOrderAdd.cs`
 - 확인 메서드: `btnSave_Click`, `UnitQuantity`, `MergeDataBefore`
 - `btnSave_Click`는 `OrderMaster`에 연도·차수·담당자·업체를 저장한 뒤 `OrderDetail` 수량과 `OrderHistory`를 저장한다.
-- 새 웹 메뉴는 `source=my-customer` 주문 수량 추가 전용이다. `OrderMaster`/`OrderDetail`/`OrderHistory`만 변경하고 출고·견적·손익 원장은 보존한다.
+- 웹 메뉴 `source=my-customer`는 ADD(기존 수량 가산)와 REPLACE(명시 입력한 품목만 절대수량 변경)를 구분한다. `OrderMaster`/`OrderDetail`/`OrderHistory`만 직접 변경하고 출고·견적·손익 원장은 보존한다. REPLACE는 EXE EditMode=2처럼 재고계산을 실행하지 않는다. ADD의 기존 재고계산 경로는 유지한다.
 - 업무키는 `OrderYear + OrderWeek + CustKey + ProdKey`이며 이전 연도 같은 차수 Master를 재사용하지 않는다.
 - EXE의 지난 주문 불러오기는 선택 업체의 `CustKey`, 선택 `OrderYear`, 현재 `OrderWeek`보다 작은 주문 중 가장 최근 `OrderMasterKey`를 찾고 `MergeDataBefore`로 품목별 수량을 현재 입력 그리드에 복사한다. 웹도 같은 연도·정확한 업체·이전 차수만 조회하며, 불러온 값의 삭제는 초안에서 제외하는 동작일 뿐 기존 `OrderDetail`을 삭제하지 않는다.
 - EXE 분류는 `FlowerName` 단독이 아니다. `FormProductAdd`는 `Flower.FlowerName`을 `Product.FlowerName`에 저장하면서 국가의 `isSelectFlower` 값에 따라 `Product.CountryFlower`를 국가명 또는 `국가명 + FlowerName`으로 함께 저장한다.
 - `FormOrderAdd.GetDataCountry`는 `CountryFlower`를 먼저 표시하고, `LoadProductData`는 `CountryFlower + FlowerName`으로 품목을 필터링한다. 웹의 내 업체 주문등록도 저장된 `Product.CountryFlower`를 우선 그룹명으로 사용하고, 값이 비어 있는 레거시 행만 계산값으로 대체한다.
 
 배포 스모크는 읽기 전용으로 수행한다. 실제 업무 등록 뒤에는 같은 네 키의 `ViewOrder`를 재조회하며 `ViewShipment`, `ShipmentDate`, `Estimate`, `WebProfitReport`를 직접 쓰지 않는다.
+
+## 2026-08-26 현재수량 / 변경등록 재확인
+
+로컬 `dnSpy.Console.exe --no-color -t FormOrderAdd Nenova.exe` 재실행. GetDataProduct.OrderCnt는 저장된 `OrderDetail.OutQuantity`이며 Box/Bunch/Steam 재선택 값이 아니다. btnSave_Click는 GetChanges(Modified)만 UPDATE/INSERT하며, 0수량인 품목에 ShipmentKey가 있으면 저장을 거부한다. UnitQuantity(true/false)는 각각 OutUnit/EstUnit을 사용한다. 새 웹 REPLACE도 미입력 품목을 지우지 않으며 분배행이 있는 품목의 0 주문 제거를 거부한다.
+
+SELECT-only probe run32940568091: 2026/34-01 Cust317 Prod53 OrderDetail69516 Out32단/Est320송이. 2026/36-01 Cust680 Prod3124 활성2행 합계16(중복 주문은 임의 정리 금지/쓰기 거부). 2025/34-01 Cust461 Prod1003 Out700은 선택한2026 범위에서 제외. 34~36차 차이 큰 순 TOP30의 기존 표시값과 OutQuantity는 동일하여 이번 표시 문제를 실데이터 단위 불일치로 단정하지 않는다. 화면의 조회 실패/이전 scope 노출/검색추가 0 고정값 경로를 별도 차단한다.
 
 ## 호텔+미우 통합게시판 주문입력 (웹 전용 입력면)
 
