@@ -3,6 +3,24 @@
 source: `C:\Users\USER\nenova-decompiled\Nenova\FormShipmentDistribution.cs`
 verification: read-only decompile source and SQL structure inspection
 
+## 견적 수정 품종 범위 재검증 (2026-08-26)
+
+- 실제 dnSpy CLI의 `btnFix_Click/btnFixCancel_Click`은 `lueCountry.EditValue`를
+  CountryFlower로 전달한다. CommonLogic의 이전/이후 확정 검사도 선택 품종 기준이다.
+- 현재 운영 SP 정의를 SELECT로 재확인했다. 두 확정 SP는
+  `ViewShipment.OrderYear=@OrderYear AND OrderWeek=@OrderWeek AND CountryFlower=@CountryFlower`
+  로 대상을 고른다. 선택 품종 취소와 마지막 전 품목 스냅샷 계산은 다른 동작이다.
+- 견적 자동 편집에서 빈 countryFlowers(전체)를 보내는 기존 코드/테스트는 이 근거와
+  상충한다. 변경 ProdKey→Product.CountryFlower를 조회/재검증하고 한 품종씩 처리한다.
+- 견적 편집 전용 요청은 한 품종 SP와 편집 기준값 갱신을 같은 트랜잭션에서 처리한다.
+  중간 합산을 생략할 때는 성공한 요청의 WAIT_CALC/연도/차수/동작만 해제한다.
+  전체 루프 끝에서 해제하면 두 번째 품종이 게이트를 기다리는 문제가 생긴다.
+- 복구 대상은 이번 요청이 명시 성공으로 해제한 품종이다. 원래 미확정인 다른 품종과
+  응답 불명 범위는 임의 재확정하지 않는다. 복구 실패는 별도로 보고한다.
+- SP는 Product.Stock/StockHistory도 변경하므로 '플래그만 변경'이라고 설명하지 않는다.
+  생략되는 것은 중간 usp_StockCalculation이다. 단가만 저장은 확정/재고/물량을 보존한다.
+- 본 검증은 CLI 및 운영 SELECT만 수행했다. 운영 확정/취소/원장 저장은 하지 않았다.
+
 ## CLI verification record
 
 ```powershell
@@ -175,3 +193,27 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 - 웹 확정취소 API는 위 CheckFixCancel과 같은 `ViewShipment.DetailFix` 가드를 쓰고, `body.force`로 우회하지 않는다.
   재계산이 실패하면 취소를 성공으로 응답하지 않는다. 견적 `skipStockCalc` 중간 단계는 게이트를 비운다.
 - 이 확인은 로컬 decompile 원문의 읽기 전용 대조이며, dnSpy/WinForms 패치는 하지 않는다.
+
+## 사용자 승인 구조 변경: 기존 출고수량은 확정 유지 (2026-08-26)
+
+`dnSpy.Console.exe --no-color -t Nenova.FormShipmentDistribution Nenova.exe`를 다시 실행하고
+운영 `sys.sql_modules`의 `usp_ShipmentFixCancel`, `usp_ShipmentFix`,
+`usp_StockCalculation` 정의를 SELECT로 대조했다. EXE 자체가 빠른 경로를 제공한다는
+뜻이 아니며, 사용자가 승인한 웹의 저장 순서 변경이다.
+
+- native Cancel은 기존 확정 출고를 `Product.Stock`에 더하고 Fix는 새 확정 출고를 뺀다.
+  따라서 확정 출고 old→new의 순효과는 old-new이다. 웹의 기존 출고 수정은 이 결과를
+  한 트랜잭션에서 반영하고 원래 Master/Detail의 확정 플래그를 유지한다.
+- native Fix의 부족 검사는 증가/감소를 구별하지 않는다. 감소까지 Fix를 다시 호출하면
+  불필요한 부족 검사와 전체 품종군 확정 사이클 문제가 남으므로 기존 출고 수정에서는
+  Fix/Cancel 대신 잠금 조회한 실제 증가분에만 부족 검사를 실행한다.
+- `usp_StockCalculation`은 확정 출고만 소비하며 `ProductStock`을 갱신하고
+  `Product.Stock`은 갱신하지 않는다. 웹은 이 둘을 구분하여 변경 품목만 계산하고,
+  출고 수량과 같은 트랜잭션에서 실패 시 전부 롤백한다.
+- native 출고 이력 분류 `출고`는 운영 `CodeInfo.Category='StockType'`에 포함되지
+  않음을 확인했다. 수량 변경을 `재고조정`으로 기록해 계산에 이중 가산하지 않는다.
+- 운영 정의에서 Native CATCH가 전체 rollback 뒤 GateLeave를 호출함을 확인했다.
+  따라서 새 경로는 획득별 토큰과 연결 소유자를 확인하는 잠금 계약이 설치돼야만
+  실행한다. 단순 경과시간으로 실행 중 잠금을 회수하거나 다른 작업의 잠금을 지우지 않는다.
+- 이 작업에서 운영 고객 자료를 수정하거나 이미 부분 해제된 차수를 복구하지 않았다.
+  격리된 SQL 시험 결과와 운영 적용 여부는 별도 작업 보고서에 기록한다.

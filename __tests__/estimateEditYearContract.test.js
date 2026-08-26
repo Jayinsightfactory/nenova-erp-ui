@@ -23,12 +23,16 @@ async function main() {
   const estimateCycles = [...page.matchAll(/runEditWithFixCycle\(\{[\s\S]{0,180}?orderYear:\s*yearStr/g)];
   assert.equal(
     estimateCycles.length,
-    3,
-    '수량/통합(물리적 수량·추가품목)/품목정보 확정 사이클은 선택 연도를 전달해야 한다. ' +
-    '단가 전용 저장(확정 플래그 보존)은 2026-08-26 설계 이후 확정해제→재확정 사이클을 태우지 않는다.',
+    1,
+    '신규 추가품목의 범위 제한 확정 사이클만 선택 연도를 전달해야 한다. ' +
+    '기존 출고일 수량·품목정보·단가 저장은 확정 플래그를 보존하므로 확정 사이클을 호출하지 않는다.',
   );
 
-  assert.match(page, /let results = await savePendingQuantities\(pending\)[\s\S]*?fixedFails[\s\S]*?runEditWithFixCycle/, '수량 수정은 미확정 직접 저장과 확정 재시도 경로를 모두 유지해야 한다.');
+  const applyQtySrc = page.slice(page.indexOf('const applyQtyEdits = async () =>'), page.indexOf('async function applyCostEdits'));
+  assert.match(applyQtySrc, /let results = await savePendingQuantities\(pending\)/, '기존 출고일 수량은 확정 여부와 무관하게 원자 저장 요청으로 처리해야 한다.');
+  assert.doesNotMatch(applyQtySrc, /runEditWithFixCycle\(/, '기존 수량 저장이 실패해도 확정취소로 우회하면 안 된다.');
+  const saveDateSrc = page.slice(page.indexOf('const saveDateQuantityBatch = async'), page.indexOf('const runEditWithFixCycle = async'));
+  assert.match(saveDateSrc, /orderYear: yearStr,[\s\S]*?custKey:[\s\S]*?editGuard: estimateEditGuard\(\)/, '확정 상태 유지 수량 저장에도 화면 연도·거래처·동시 수정 검사가 필요하다.');
   const applyCostEditsSrc = page.slice(
     page.indexOf('async function applyCostEdits'),
     page.indexOf('async function applyAllEdits'),
@@ -44,8 +48,11 @@ async function main() {
     /runEditWithFixCycle/,
     '단가 전용 저장(applyCostEdits)은 확정 플래그를 보존해야 하므로 확정해제→재확정 사이클을 호출하면 안 된다.',
   );
-  assert.match(page, /cycleWeeks\.length > 0[\s\S]*?runCombinedFixCycle\(cycleWeeks\)[\s\S]*?: await runCombinedUpdate\(\)/, '수량+단가 통합 수정은 확정/미확정 경로를 분리해야 한다.');
-  assert.match(page, /cycleWeeks\.length > 0[\s\S]*?runEditWithFixCycle\(\{[\s\S]*?orderYear: yearStr[\s\S]*?: apply\(\)/, '품목정보 수정은 확정/미확정 경로를 분리해야 한다.');
+  assert.match(page, /const cycleItems = addCycleItems;/, '통합 저장의 확정 사이클은 신규 추가품목만 대상으로 해야 한다.');
+  assert.match(page, /cycleWeeks\.length > 0[\s\S]*?runCombinedFixCycle\(cycleWeeks\)[\s\S]*?: await runCombinedUpdate\(\)/, '신규 추가품목이 없는 통합 저장은 확정 사이클을 실행하지 않아야 한다.');
+  const editorSrc = page.slice(page.indexOf('const saveItemEditor = async () =>'), page.indexOf('// ── 엑셀 다운 → 인쇄 옵션'));
+  assert.doesNotMatch(editorSrc, /runEditWithFixCycle\(/, '기존 품목정보 저장은 확정 상태를 보존해야 한다.');
+  assert.match(editorSrc, /fetch\('\/api\/estimate\/update-date-quantity'[\s\S]*?orderYear: yearStr,[\s\S]*?custKey: capturedRefresh\.ship\.custKey/, '품목정보 수량 저장도 선택 연도·거래처를 전달해야 한다.');
 
   assert.doesNotMatch(cycleClient, /runEditWithFixCycle\(\{[^}]*orderYear\s*=\s*''/, '공용 확정 사이클은 연도 누락 기본값을 허용하면 안 된다.');
   assert.match(cycleClient, /resolveFixStatusOrderYear\(orderYear, \.\.\.targetWeeks\)/, '저장 전에 선택 연도를 검증해야 한다.');
@@ -55,7 +62,19 @@ async function main() {
   assert.match(page, /const body = \{[\s\S]{0,250}?mode: effectiveMode,[\s\S]{0,80}?orderYear: yearStr/, '단가 전용 저장 payload에 선택 연도가 필요하다.');
   assert.match(page, /items: rebasedCosts\.items\.map[\s\S]{0,220}?mode: costMode,[\s\S]{0,80}?orderYear: yearStr/, '수량+단가 통합 저장 payload에 선택 연도가 필요하다.');
   assert.match(page, /items: editorCostItems,[\s\S]{0,100}?mode: 'once',[\s\S]{0,80}?orderYear: yearStr/, '품목정보 단가 저장 payload에 선택 연도가 필요하다.');
-  assert.match(page, /mode: 'once',[\s\S]{0,120}?orderYear: yearStr,[\s\S]{0,120}?custKey: selectedShip\.CustKey/, '품목정보 단가 저장 payload에 선택 거래처가 필요하다.');
+  const captureStart = page.indexOf('const captureEstimateRefresh = () =>');
+  const captureEnd = page.indexOf('const isCapturedEstimateScopeCurrent', captureStart);
+  const captureContract = page.slice(captureStart, captureEnd).replace(/\s+/g, ' ');
+  const itemEditorStart = page.indexOf('const saveItemEditor = async () =>');
+  const itemEditorEnd = page.indexOf('// ── 엑셀 다운 → 인쇄 옵션', itemEditorStart);
+  const itemEditorContract = page.slice(itemEditorStart, itemEditorEnd).replace(/\s+/g, ' ');
+  assert.ok(
+    captureContract.includes('groupId: selectedId, custKey: selectedShip.CustKey,')
+      && captureContract.includes('scope: buildSelectionScope({ selectedId: ship.groupId, selectedCustKey: ship.custKey }),')
+      && itemEditorContract.includes("mode: 'once', orderYear: yearStr, custKey: capturedRefresh.ship.custKey,"),
+    'pages/estimate.js:1541-1553의 captureEstimateRefresh가 선택 업체/선택 범위를 캡처하고, '
+      + 'pages/estimate.js:2954-2971 품목정보 단가 payload가 그 capturedRefresh.ship.custKey를 사용해야 한다.',
+  );
   assert.match(raum, /postJson\('\/api\/estimate\/update-cost'[\s\S]{0,300}?orderYear/, '라움의 공용 단가 저장 호출도 연도를 전달해야 한다.');
   assert.match(raum, /postJson\('\/api\/estimate\/update-cost'[\s\S]{0,350}?custKey/, '라움의 공용 단가 저장 호출도 거래처를 전달해야 한다.');
 

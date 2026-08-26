@@ -6,32 +6,45 @@
     "pages/api/estimate/index.js",
     "pages/api/estimate/update-date-quantity.js",
     "lib/estimateDateQuantity.js",
+    "lib/estimateDirectionalQuantity.js",
     "__tests__/estimateDateQuantityContract.test.js",
+    "__tests__/estimateDirectionalQuantity.test.js",
     "__tests__/estimateAmountVatParity.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "isolatedSqlAdapter": {
+    "owner": "Popper/main integration",
+    "factory": "createAdapter(ctx) -> { run({ operation, fromOutQuantity, toOutQuantity, cost, nativeCalcShouldFail }) }",
+    "fixtureBoundary": "adapter uses only ctx.fixture.transaction and ctx.nativeCalc.callInTransaction; it never imports lib/db or app auth/env loaders",
+    "helperExports": ["buildDirectionalQuantityPlan", "positiveIncreaseByProduct", "fixedDirectionalChanges", "evaluateDirectionalAvailability", "assertDirectionalPlanYears", "assertDirectionalDateSnapshot", "assertDirectionalGateCapability", "lockDirectionalGate", "assertNativeResult"],
+    "requiredScenarios": ["fixed decrease recalculates but never runs negative-shortage block", "fixed increase runs same-year future ProductStock negative block", "post-native ProductStock ROUND(Stock,3)<0 blocks -0.001 but allows raw sub-milli negative float noise", "per-date ShipmentHistory uses the changed date", "native null/missing returnCode or oResult rolls back", "unfixed existing increase succeeds when all active ViewShipment baseline plus positive delta fits", "unfixed existing increase returns STOCK_SHORTAGE when it does not fit", "-0.001 and -0.4 shortage fail while sub-milli floating noise normalizes to zero", "unfixed edits never invoke native calculation"],
+    "note": "The app route is not the fixture adapter. The adapter is an isolated-SQL integration seam owned outside this API/helper subtask."
+  },
   "actions": [
     {
       "name": "DATE_DISTRIBUTION_INCREASE",
       "orderDetail": "preserve",
       "shipmentDetail": "increase",
       "shipmentDate": "update-shipment-quantity-estimate-quantity-and-descr",
-      "fixCycle": "unfix-save-refix"
+      "fixCycle": "none; server-locked direct fixed-status-preserving transaction",
+      "stock": "unrounded active ViewShipment baseline (fixed+unfixed) plus same OrderYear/OrderWeek/ProdKey positive deltas is shortage-checked; decreases never offset increases. The shared three-decimal remain<0 guard is intentionally stricter than native integer ROUND(remain,0)<0, which can display a negative fractional box as zero. Product.Stock receives native CANCEL(old)+FIX(new) net delta only for fixed details; nonmanual StockHistory ChangeType=출고/ColumName=수량; scoped native calculation and current/future ProductStock negative check"
     },
     {
       "name": "DATE_DISTRIBUTION_DECREASE",
       "orderDetail": "preserve",
       "shipmentDetail": "decrease",
       "shipmentDate": "update-shipment-quantity-estimate-quantity-and-descr",
-      "fixCycle": "unfix-save-refix"
+      "fixCycle": "none; server-locked direct fixed-status-preserving transaction",
+      "stock": "decrease skips shortage query; fixed Product.Stock and nonmanual 출고 history receive the signed net delta before scoped native calculation"
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "같은 OrderWeek가 다른 연도에 존재해도 SdateKey가 속한 ShipmentMaster의 OrderYear/OrderWeek·CustKey·ProdKey만 수정한다. 선택 출고일의 ShipmentQuantity를 변경하고 ShipmentDetail 총량·환산수량·금액과 ShipmentDate.EstQuantity/Amount/Vat/Descr를 함께 갱신한다. 비고만 변경하는 경우에도 수량·단가를 보존한 채 ShipmentDate.Descr만 갱신한다. 조회시점 수량·비고 스냅샷을 검증해 다른 사용자의 변경을 덮어쓰지 않는다. OrderDetail과 농장배정 원장은 직접 변경하지 않는다."
+    "description": "같은 OrderWeek가 다른 연도에 존재해도 SdateKey가 속한 ShipmentMaster의 OrderYear/OrderWeek·CustKey·ProdKey만 수정한다. SdateKey/수량/조회스냅샷 숫자는 빈값·boolean·접미문자를 허용하지 않는 엄격 Number 변환으로 검증한다. 삭제되지 않은 Product를 잠근 뒤 서버가 잠긴 ShipmentDate/ShipmentDetail로 실제 per-Sdetail delta를 다시 계산하며 클라이언트의 방향/확정 플래그를 신뢰하지 않는다. 가용재고는 native와 같은 이전 StockMaster 스냅샷+ViewWarehouse+StockType 이력에서, 동일 OrderYear/OrderWeek/ProdKey의 active ViewShipment 전체(확정·미확정) baseline과 양의 delta 합계를 뺀다. 감소는 증가와 상계하지 않는다. shared 3자리 remain<0 guard는 native 정수 반올림보다 엄격한 기존 웹 정책이며 -0.001/-0.4도 차단한다. 미확정 변경은 native calc을 호출하지 않는다. 확정 detail은 editGuard 없이는 legacy 저장을 허용하지 않으며 상태를 보존한 단일 트랜잭션에서 Product.Stock, 출고 StockHistory, ShipmentHistory, ShipmentDetail/ShipmentDate, product-scoped usp_StockCalculation, ProductStock 후속음수 검증, edit guard advance를 수행한다. GateCapability ProtocolVersion=2/IsReady=1과 idle singleton UPDLOCK,HOLDLOCK,NOWAIT가 없으면 구버전 재시도 없이 차단한다. 확정 기준 총량/출고일 합계가 불완전하거나 StockType에 출고가 있으면 차단한다. OrderDetail과 농장배정 원장은 직접 변경하지 않으며 0 수량은 기존 purge 정책으로 ShipmentDetail/Date/Farm만 정리한다."
   },
   "requiredTestFiles": [
     "__tests__/estimateDateQuantityContract.test.js",
+    "__tests__/estimateDirectionalQuantity.test.js",
     "__tests__/estimateAmountVatParity.test.js",
     "__tests__/exeEstimateViewSql.test.js",
     "__tests__/erpContractManifest.test.js"

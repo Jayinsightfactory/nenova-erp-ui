@@ -103,7 +103,14 @@ assert.match(page, /불량·검역 전체 선택/, '선택 가능한 차감 전�
 assert.match(page, /저장하지 않은 단가·수량·추가 품목이 있습니다/, '미저장 편집값이 있으면 삭제 불가 사유를 표시해야 한다.');
 assert.match(page, /shouldApply/, '삭제 후 늦은 목록 응답은 scope가 같은 경우에만 화면에 적용해야 한다.');
 assert.match(page, /삭제는 완료, 목록 재조회 실패/, '삭제 성공 뒤 재조회 실패를 삭제 실패로 표시하면 안 된다.');
-assert.match(page, /if \(opts\.shouldApply\) throw e/, '삭제 후 조회 실패는 빈 목록으로 처리하지 말고 호출자에게 전달한다.');
+const loadStart = page.indexOf('const load = (silent = false, opts = {}) =>');
+const loadEnd = page.indexOf('// 자동조회: 차수/거래처 변경 시 자동 로드', loadStart);
+const loadErrorContract = page.slice(loadStart, loadEnd).replace(/\s+/g, ' ');
+assert.ok(
+  loadErrorContract.includes("if (!sameEstimateSelectionScope(scope, renderedSelectionScopeRef.current) || (typeof opts.shouldApply === 'function' && !opts.shouldApply()) || !shouldApply()) return { skipped: true };")
+    && loadErrorContract.includes("if (typeof opts.shouldApply === 'function') throw error;"),
+  'pages/estimate.js:1479-1488 load catch는 stale scope/호출자 guard 실패를 skipped 처리하면서 현재 captured refresh 오류는 호출자에게 재전파해야 한다.',
+);
 for (const label of ['＋ 불량/검역등록', '＋ 불량차감등록', '＋ 판매요청', '＋ 추가 품목등록', '단가 + 업체 지정단가 함께 저장']) {
   assert.ok(page.includes(label), `${label} 기능을 유지해야 한다.`);
 }

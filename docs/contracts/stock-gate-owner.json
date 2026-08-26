@@ -1,0 +1,62 @@
+{
+  "id": "stock-gate-owner",
+  "title": "재고 게이트 V2: 물리 연결 + 획득 토큰, rollback 안전 소유권",
+  "scope": [
+    "lib/stockGateOperation.js",
+    "docs/migrations/2026-08-26_nenova_stock_gate_owner.sql",
+    "__tests__/stockGateOwnership.test.js",
+    "docs/contracts/stock-gate-owner.json"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name": "ENTER", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "NULL only; WAIT_CALC accepts same year/week full-product CALC on another physical session; each acquisition gets NEWID; RUN never reenters or expires"},
+    {"name": "LEAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "compare Mode=RUN, Action, OwnerSessionID=@@SPID and caller-local OwnerToken; a stale/missing token changes zero rows"},
+    {"name": "CALC_FAILURE", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "matching acquired owner retains WAIT_CALC; an outer rollback may restore an earlier owner/token, which Leave must preserve"},
+    {"name": "LEGACY_CLEAR", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "no-argument global Clear raises STOCK_GATE_UNSAFE_CLEAR_DISABLED; old raw clear violates the V2 state CHECK; explicit same-outer-transaction deferred clear uses stockGateOperation helper and verifies native success, original transaction marker, SPID, acquisition token and year/week/action, then requires one changed row"},
+    {"name": "CAPABILITY", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "read-only ProtocolVersion=2 and IsReady=1; verifies six module hashes, owner column types/nullability, and the trusted/enabled state constraint definition hash"}
+  ],
+  "sideEffects": {
+    "NenovaStockWeekGate": "add OwnerSessionID, OwnerToken, PendingCalc, CalcProdKey, ProtocolVersion and a validated state CHECK; no ledger rows",
+    "storedProcedures": "replace gate helpers; modify only gate declarations/call arguments inside the three native procedures; external native parameters and business SQL preserved",
+    "OrderDetail": "preserve",
+    "ShipmentMaster/ShipmentDetail/ShipmentDate/ShipmentFarm": "no writes from the gate migration or helpers",
+    "Product.Stock/StockHistory/ProductStock/Estimate/WebProfitReport": "no writes from the gate migration or helpers; native business formulas unchanged"
+  },
+  "compatibility": {
+    "sqlServer": "SQL Server 2016 SP1+; production 13.0.7095.1; isolated SQL2022 tests run compatibility_level=130",
+    "nativeSignatures": "usp_ShipmentFix, usp_ShipmentFixCancel and usp_StockCalculation unchanged for EXE callers",
+    "helperProtocol": "GateEnter requires @ProtocolVersion=2 and returns @OwnerToken; CALC supplies @CalcProdKey; GateLeave receives the token in a SQL local variable surviving rollback",
+    "legacyCutover": "Before migration, main must update every legacy skipStockCalc/no-argument Clear/raw gate-clear path to lib/stockGateOperation.js. Normal legacy fix/unfix uses first native CALC @ProdKey=0, including categories with <=5 products. Deferred skipStockCalc uses lockStockGateOperation before lease/business locks and clearStockGateOperation after native success, within the same still-live outer transaction. Do not fetch/clear through a pooled separate query. Owned deferred clear proves ownership only, not final inventory consistency; caller retains final-calculation/recovery responsibility.",
+    "legacyV1Bridge": "New API may be deployed before migration. Helper recognizes V1 only when all five owner columns AND the capability procedure are absent; partial/malformed V2 never falls back. V1 keeps initial idle row lock and same-transaction/scope clear but cannot fix the native post-rollback unconditional Leave defect. New existing-quantity feature remains disabled until V2 capability passes. No V1 bridge may be presented as V2 concurrency safety.",
+    "legacyHelper": "lockStockGateOperation(tQ,types,{orderYear,orderWeek,action:'FIX'|'CANCEL',requireV2:false}) -> immutable context; clearStockGateOperation(tQ,types,context,{nativeResult:0,nativeReturnCode:0}) -> cleared. Both native outputs are mandatory numeric zero; NULL/missing values never mean success. Helpers never own/commit transactions. A unique transaction-owned sp_getapplock marker only proves transaction identity after a rollback/rebegin on reused SPID; EXE serialization is provided by the real gate row, not the marker.",
+    "backend": "Before any new quantity write require capability ProtocolVersion=2/IsReady=1. Inside the same physical SQL transaction, acquire GateKey=1 UPDLOCK,HOLDLOCK only in fully idle NULL state before data locks; retain it through all product-scoped native calculations, result verification and baseline advance. No pool query or per-product commit. Require explicit SP return code=0 AND output result=0 AND original transaction health; missing/NULL results are not success. Any failure aborts the whole request.",
+    "sameSession": "A second Enter while RUN is rejected even on the owning SPID. Token reuse/reentrant RUN is not supported.",
+    "pendingHandoff": "Legacy FIX/CANCEL pending scope is conservatively the full year/week. Only CALC with the exact year/week and @CalcProdKey=0 may consume it. New atomic quantity writes start from idle and can call product-scoped CALC while retaining the outer row lock.",
+    "staleWait": "WAIT_CALC is not a lease timeout. A new EXE connection may recover it by the ordinary same-year/week full-product stock calculation. Failed calculation retains pending work.",
+    "orphanRun": "No automatic RUN/WAIT_CALC time reclamation, including a missing/sleeping/dead session. Main must drain writers, determine committed/rolled-back state and arrange an explicit scope-preserving recovery. Session death alone does not prove the native commit did not happen.",
+    "rollout": "1) Deploy API V1/V2 bridge with ALL ownerless clear paths removed and new quantity feature V2-gated/disabled. 2) Enter maintenance and drain ALL EXE/web/jobs; main verifies current inactive/idle singleton immediately before migration. 3) Apply owner migration atomically with main acknowledgement; verify V2 capability and legacy full-CALC/deferred-clear paths. 4) Only then enable new quantity route and release maintenance. If drain cannot be guaranteed, withhold migration/deployment activation and report blocker. Never activate new writes through a capability-missing temporary fallback. Application rollback must keep the bridge or disable affected routes; do not run the old gate installer. No runtime DDL or permission grants.",
+    "noMigrationAlternative": "An application-only outer transaction/savepoint/advisory lock cannot prevent the old native post-rollback unconditional Leave or queued global Clear. Keep the new physical-quantity route disabled until the gate and caller cutover pass isolated SQL tests. A fully drained maintenance operation is not an online replacement."
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "WAIT_CALC for 2026/34-02 cannot be consumed by CALC for 2025/34-02 or 2026/34-01; same-year/week different-session full CALC can recover it. No business data are used."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": ["btnFix_Click", "btnFixCancel_Click", "uspStockCalculation"],
+    "tables": ["NenovaStockWeekGate", "StockMaster", "ProductStock", "StockHistory"]
+  },
+  "requiredTestFiles": ["__tests__/stockGateOwnership.test.js", "__tests__/erpContractManifest.test.js"],
+  "requiredCommands": [
+    "node __tests__/stockGateOwnership.test.js",
+    "node __tests__/stockGateOwnership.test.js --sql",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "testBoundary": "Default test is offline. --sql accepts explicit JSON from stdin only; fixed loopback:14339, dedicated NenovaStockGateOwnerFixture database, fixtureOnly=true. Never imports app db/auth/env loaders. SQL integration is mandatory before deployment; offline tests do not establish SQL concurrency correctness.",
+  "integrationOwner": "Main owns package/CI registration and API wiring; package.json and application files are outside this subtask's write scope. Main has registered the offline test under test:estimate-edit-safety. SQL --sql remains an explicit isolated-fixture gate, not an application startup action."
+}

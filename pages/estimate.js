@@ -26,6 +26,7 @@ import { filterItemsByExeWeekDay } from '../lib/exeEstimateViewSql.js';
 import { amountVatFromCostEst } from '../lib/distributeUnits.js';
 import { requireCostSnapshot, rebaseCostItemsFromSaved, STALE_COST_MESSAGE } from '../lib/estimateCostSnapshot.js';
 import { downloadEcountUploadWorkbook } from '../lib/estimateEcountExcel.js';
+import { collectEstimateBatchReadFailures, estimateBatchReadFailureMessage } from '../lib/estimateBatchOutputGuard';
 import {
   FIX_CATEGORY_PRESETS,
   categoriesForPreset,
@@ -34,6 +35,20 @@ import {
 } from '../lib/fixStatusCategories';
 import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
 import { formatAutoUnfixSaveLog, getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
+import { runScopedEstimateFixCycle } from '../lib/estimateCategoryCycle.js';
+import {
+  appendEstimateEditProgress,
+  createEstimateEditProgress,
+  describeDateQuantitySaveResult,
+  ESTIMATE_EDIT_LOG_POLL_MS,
+  finishEstimateEditProgress,
+  formatEstimateEditElapsed,
+  formatEstimateEditNotice,
+  mergeEstimateEditServerLogs,
+  nextEstimateEditPollDelay,
+  recordEstimateEditPollFailure,
+  setEstimateEditProgressWeeks,
+} from '../lib/estimateEditProgress.js';
 import { buildFixStatusQuery, findFixStatusWeek, resolveFixStatusOrderYear } from '../lib/fixStatusYearScope';
 import {
   computePrintPreviewTotals,
@@ -82,6 +97,13 @@ import {
   selectAllEligibleEstimateDeductions,
   toggleEstimateDeductionSelection,
 } from '../lib/estimateDeductionSelection';
+import {
+  createEstimateSelectionScope,
+  createEstimateSelectionState,
+  resolveEstimateReloadSelection,
+  sameEstimateSelectionScope,
+  shouldReloadCapturedEstimateSelection,
+} from '../lib/estimateSelectionState';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -1022,6 +1044,8 @@ export default function Estimate() {
   const [selectedGroups, setSelectedGroups] = useState(new Set()); // 다중 선택 (전체선택 + 인쇄용)
   const [selectedId, setSelectedId] = useState(null);
   const [selectedCustKey, setSelectedCustKey] = useState(null);
+  const estimateSelectionStateRef = useRef(createEstimateSelectionState());
+  const renderedSelectionScopeRef = useRef(createEstimateSelectionScope());
 
   // 오른쪽 패널 - 견적서 목록
   const [items, setItems] = useState([]);
@@ -1047,6 +1071,59 @@ export default function Estimate() {
   // WeekDay 필터 — 업체 검색 시에도 EXE 기본값인 전체 출고요일을 유지한다.
   const [activeWD, setActiveWD] = useState(new Set(WEEKDAYS));
 
+  const buildSelectionScope = useCallback((overrides = {}) => {
+    const hasOverride = (key) => Object.prototype.hasOwnProperty.call(overrides, key);
+    const valueOr = (key, fallback) => hasOverride(key) ? overrides[key] : fallback;
+    const filterCustKey = valueOr('filterCustKey', selectedCust?.CustKey);
+    const preferredCustKey = valueOr('selectedCustKey', selectedCust?.CustKey ?? selectedCustKey);
+    const selectedGroupId = valueOr(
+      'selectedId',
+      selectedCust && Number(selectedCust.CustKey) !== Number(selectedCustKey) ? null : selectedId,
+    );
+    return createEstimateSelectionScope({
+      year: valueOr('year', yearStr),
+      week: valueOr('week', weekNum),
+      selectedId: selectedGroupId,
+      selectedCustKey: preferredCustKey,
+      filterCustKey,
+      includeUnfixed: valueOr('includeUnfixed', queryIncludeUnfixedRef.current || includeUnfixed),
+      weekDays: valueOr('weekDays', activeWD),
+    });
+  }, [activeWD, includeUnfixed, selectedCust, selectedCustKey, selectedId, weekNum, yearStr]);
+
+  const renderedSelectionScope = useMemo(() => buildSelectionScope(), [buildSelectionScope]);
+  // Write during render so a timeout from an earlier render is rejected even
+  // before this render's effects (or auto-load) get a chance to run.
+  renderedSelectionScopeRef.current = renderedSelectionScope;
+
+  const activateSelectionScope = useCallback((scope) => {
+    renderedSelectionScopeRef.current = scope;
+    estimateSelectionStateRef.current.syncScope(scope);
+  }, []);
+
+  const beginCurrentSelectionRequest = useCallback((channel, scope, fresh = false) => (
+    estimateSelectionStateRef.current[fresh ? 'beginFreshIfCurrent' : 'beginIfCurrent'](
+      channel,
+      scope,
+      renderedSelectionScopeRef.current,
+    )
+  ), []);
+
+  // A changed year/week/customer/filter must invalidate already-started list,
+  // detail, mismatch, and their finally handlers. Clear spinners even when
+  // auto-load is off, because no replacement request will do it for us.
+  useEffect(() => {
+    const scopeChanged = !sameEstimateSelectionScope(
+      estimateSelectionStateRef.current.currentScope(),
+      renderedSelectionScope,
+    );
+    estimateSelectionStateRef.current.syncScope(renderedSelectionScope);
+    if (scopeChanged) {
+      setLoading(false);
+      setItemLoading(false);
+    }
+  }, [renderedSelectionScope]);
+
   const pickCustomer = useCallback((c) => {
     if (!c) return;
     // 진행 중인 검색 응답을 무효화해야 선택 직후 목록이 다시 덮이지 않는다.
@@ -1067,7 +1144,10 @@ export default function Estimate() {
     const requestedWeek = String(params.get('week') || '').replace(/\D/g, '').slice(0, 2);
     const requestedCustKey = Number(params.get('custKey') || 0);
     const requestedCustName = String(params.get('custName') || '').trim();
-    if (params.get('includeUnfixed') === '1') queryIncludeUnfixedRef.current = true;
+    if (params.get('includeUnfixed') === '1') {
+      queryIncludeUnfixedRef.current = true;
+      setIncludeUnfixed(true);
+    }
     if (params.get('highlightDeductions') === '1') setHighlightDeductions(true);
     if (params.get('previewCapture') === '1') {
       setPreviewCapture(true);
@@ -1083,10 +1163,14 @@ export default function Estimate() {
   const resetCustomerSearch = useCallback((nextSearch = '') => {
     custReqSeq.current += 1;
     custPickedName.current = null;
-    setSelectedCust(null);
     setCustSearch(nextSearch);
     setCustQwertyBuf('');
   }, []);
+
+  const clearCustomerFilter = useCallback(() => {
+    resetCustomerSearch('');
+    setSelectedCust(null);
+  }, [resetCustomerSearch]);
 
   // 거래처 드롭다운 키보드 탐색
   const custNav = useDropdownNav(
@@ -1180,6 +1264,102 @@ export default function Estimate() {
   const [editApplyTitle, setEditApplyTitle] = useState('단가 적용');
   const [costApplyLog, setCostApplyLog] = useState([]); // 진행 단계 로그
   const [costResult, setCostResult] = useState(null);   // 완료 후 결과
+  const [estimateEditUserId, setEstimateEditUserId] = useState('');
+  const automaticEditOperationRef = useRef(0);
+  const [automaticEditProgress, setAutomaticEditProgress] = useState(null);
+
+  useEffect(() => {
+    let stopped = false;
+    apiGet('/api/auth/me')
+      .then(data => {
+        if (!stopped) setEstimateEditUserId(String(data?.user?.userId || '').trim());
+      })
+      .catch(() => {
+        if (!stopped) setEstimateEditUserId('');
+      });
+    return () => { stopped = true; };
+  }, []);
+
+  const beginAutomaticEditProgress = useCallback(({ weeks, title, pollServerLogs = false }) => {
+    const operationId = `estimate-edit-${Date.now()}-${++automaticEditOperationRef.current}`;
+    setAutomaticEditProgress(createEstimateEditProgress({
+      operationId,
+      orderYear: yearStr,
+      weeks,
+      userId: estimateEditUserId,
+      pollServerLogs,
+      title,
+    }));
+    return operationId;
+  }, [estimateEditUserId, yearStr]);
+
+  const appendAutomaticEditStage = useCallback((operationId, stage) => {
+    setAutomaticEditProgress(prev => appendEstimateEditProgress(prev, operationId, stage));
+  }, []);
+
+  const finishAutomaticEditProgress = useCallback((operationId, result) => {
+    setAutomaticEditProgress(prev => finishEstimateEditProgress(prev, operationId, result));
+  }, []);
+
+  const automaticEditScopeKey = automaticEditProgress
+    ? `${automaticEditProgress.orderYear}|${automaticEditProgress.weeks.join(',')}`
+    : '';
+
+  // Re-render elapsed time while a scoped automatic edit is actually running.
+  useEffect(() => {
+    if (!automaticEditProgress?.running) return undefined;
+    const operationId = automaticEditProgress.operationId;
+    const timer = setInterval(() => {
+      setAutomaticEditProgress(prev => (
+        prev?.operationId === operationId && prev.running
+          ? { ...prev, lastProgressTickAt: Date.now() }
+          : prev
+      ));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [automaticEditProgress?.operationId, automaticEditProgress?.running]);
+
+  // AppLog has no operation id. Keep it visually separate from the browser's
+  // own stages and only retain records matching this edit's year/week/time.
+  useEffect(() => {
+    const operation = automaticEditProgress;
+    if (!operation?.running || !operation.pollServerLogs || operation.weeks.length === 0) return undefined;
+    const operationId = operation.operationId;
+    let stopped = false;
+    let inFlight = false;
+    let failures = 0;
+    let timer = null;
+
+    const schedule = (delay) => {
+      if (!stopped) timer = setTimeout(refresh, delay);
+    };
+    async function refresh() {
+      if (stopped || inFlight) return;
+      inFlight = true;
+      try {
+        const data = await apiGet('/api/dev/app-log', { limit: 120, category: 'shipmentFix' });
+        if (!stopped) {
+          failures = 0;
+          setAutomaticEditProgress(prev => mergeEstimateEditServerLogs(prev, operationId, data?.logs || [], Date.now()));
+          schedule(ESTIMATE_EDIT_LOG_POLL_MS);
+        }
+      } catch (error) {
+        if (!stopped) {
+          failures += 1;
+          setAutomaticEditProgress(prev => recordEstimateEditPollFailure(prev, operationId, error, Date.now()));
+          schedule(nextEstimateEditPollDelay(failures));
+        }
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    refresh();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [automaticEditProgress?.operationId, automaticEditProgress?.running, automaticEditScopeKey]);
 
   // 출력 다이얼로그
   const [showPrintDialog, setShowPrintDialog] = useState(false);
@@ -1268,6 +1448,61 @@ export default function Estimate() {
       .catch(() => setEstimateTypes([]));
   }, []);
 
+  const requestShipmentItems = useCallback(async (ship, scope, { throwOnError = false } = {}) => {
+    const token = beginCurrentSelectionRequest('detail', scope);
+    if (!token) return [];
+    const canApply = () => estimateSelectionStateRef.current.shouldApply(token, renderedSelectionScopeRef.current);
+    setItemLoading(true);
+    const detailParams = {
+      week: scope.week,
+      year: scope.year,
+      custKey: ship.CustKey,
+      byDate: 1,
+      itemsOnly: 1,
+    };
+    try {
+      const data = await apiGet('/api/estimate', detailParams);
+      if (canApply()) setItems(data.items || []);
+      return data.items || [];
+    } catch (primaryError) {
+      // A newer list/selection may already own the detail channel. Do not let
+      // this obsolete failure start another fallback request for the old row.
+      if (!canApply()) return [];
+      try {
+        const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
+        if (keys.length === 0) throw primaryError;
+        const results = await Promise.all(keys.map((shipmentKey) => apiGet('/api/estimate', {
+          shipmentKey,
+          week: scope.week,
+          year: scope.year,
+          custKey: ship.CustKey,
+          byDate: 1,
+          itemsOnly: 1,
+        }).then((result) => result.items || [])));
+        const nextItems = results.flat();
+        if (canApply()) setItems(nextItems);
+        return nextItems;
+      } catch (fallbackError) {
+        if (!canApply()) return [];
+        setErr(fallbackError.message || '견적서 상세 조회에 실패했습니다.');
+        if (throwOnError) throw fallbackError;
+        return [];
+      }
+    } finally {
+      if (canApply()) setItemLoading(false);
+    }
+  }, [beginCurrentSelectionRequest]);
+
+  const requestMismatch = useCallback((custKey, scope) => {
+    if (!custKey || !scope.week) return;
+    const token = beginCurrentSelectionRequest('mismatch', scope);
+    if (!token) return;
+    const canApply = () => estimateSelectionStateRef.current.shouldApply(token, renderedSelectionScopeRef.current);
+    apiGet('/api/estimate', { view: 'mismatch', week: scope.week, year: scope.year, custKey })
+      .then((data) => { if (canApply()) setMismatch(data.success ? data : null); })
+      .catch(() => { if (canApply()) setMismatch(null); });
+  }, [beginCurrentSelectionRequest]);
+
   // ── 조회 (차수 + 업체 기준) — 차수 단위 그룹핑 (14 → 14-01, 14-02 … 모두 포함)
   // silent=true: 자동조회 시 에러 무시 (입력 부족 케이스)
   const load = (silent = false, opts = {}) => {
@@ -1275,44 +1510,95 @@ export default function Estimate() {
       if (!silent) setErr('차수 또는 업체를 입력하세요.');
       return Promise.resolve();
     }
-    const shouldApply = typeof opts.shouldApply === 'function' ? opts.shouldApply : () => true;
-    setLoading(true); setErr('');
-    const includeUnfixedForLoad = opts.includeUnfixedOverride ?? (queryIncludeUnfixedRef.current || includeUnfixed);
+    const hasOption = (key) => Object.prototype.hasOwnProperty.call(opts, key);
+    const includeUnfixedForLoad = hasOption('includeUnfixedOverride')
+      ? Boolean(opts.includeUnfixedOverride)
+      : queryIncludeUnfixedRef.current || includeUnfixed;
+    const preserved = hasOption('preserveSelection')
+      ? opts.preserveSelection
+      : resolveEstimateReloadSelection({ selectedCust, selectedId, selectedCustKey });
+    const scope = buildSelectionScope({
+      selectedId: preserved?.groupId ?? null,
+      selectedCustKey: preserved?.custKey ?? null,
+      includeUnfixed: includeUnfixedForLoad,
+    });
+    const renderedScope = renderedSelectionScopeRef.current;
+    const sameScopeExcept = (ignoredFields) => Object.keys(scope)
+      .filter((key) => !ignoredFields.includes(key))
+      .every((key) => Array.isArray(scope[key])
+        ? Array.isArray(renderedScope[key]) && scope[key].join('|') === renderedScope[key].join('|')
+        : scope[key] === renderedScope[key]);
+    // setState has not rendered yet for these explicit user actions. Allow only
+    // the declared override to advance scope; a stale saved callback still
+    // differs in customer/year/week/filter and is rejected below.
+    const canActivateExplicitOverride = (
+      hasOption('includeUnfixedOverride')
+      && sameScopeExcept(['includeUnfixed'])
+    ) || (
+      hasOption('preserveSelection')
+      && opts.preserveSelection === null
+      && sameScopeExcept(['selectedId', 'selectedCustKey'])
+    );
+    if (canActivateExplicitOverride) activateSelectionScope(scope);
+    const token = beginCurrentSelectionRequest('load', scope, true);
+    if (!token) return Promise.resolve({ skipped: true });
+    const shouldApply = () => estimateSelectionStateRef.current.shouldApply(token, renderedSelectionScopeRef.current)
+      && (typeof opts.shouldApply !== 'function' || opts.shouldApply());
+    setLoading(true); setItemLoading(false); setErr('');
     return apiGet('/api/estimate', {
-      week: weekNum,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
-      year: yearStr,
-      custKey: selectedCust?.CustKey || '',
+      week: scope.week,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
+      year: scope.year,
+      custKey: scope.filterCustKey || '',
       includeUnfixed: includeUnfixedForLoad ? '1' : '',
-      ...(activeWD.size < 7 ? { weekDays: [...activeWD].join(',') } : {}),
+      ...(scope.weekDays.length < 7 ? { weekDays: scope.weekDays.join(',') } : {}),
       })
-      .then(d => {
-        // 삭제 직후처럼 scope가 바뀔 수 있는 재조회는 이전 응답으로 새 업체 화면을 덮지 않는다.
-        if (!shouldApply()) return d;
-        setShipments(d.shipments || []);
+      .then((data) => {
+        // 서버 목록 응답의 items는 첫 거래처의 것일 수 있다. 선택 거래처의
+        // detail 요청이 성공한 경우에만 우측 목록을 갱신한다.
+        if (!shouldApply()) return data;
+        const nextShipments = data.shipments || [];
+        const nextShip = preserved
+          ? nextShipments.find((ship) => estimateShipmentGroupId(ship) === preserved.groupId
+              && Number(ship.CustKey) === Number(preserved.custKey))
+            || nextShipments.find((ship) => Number(ship.CustKey) === Number(preserved.custKey))
+          : nextShipments[0];
+        setShipments(nextShipments);
         setSelectedGroups(new Set()); // 새 조회 시 다중선택 초기화
         setSelectedDeductionKeys(resetEstimateDeductionSelection());
-        setItems(d.items || []);
-        const preserved = opts.preserveSelection;
-        const nextShip = preserved
-          ? (d.shipments || []).find((ship) => estimateShipmentGroupId(ship) === preserved.groupId
-              && Number(ship.CustKey) === Number(preserved.custKey))
-            || (d.shipments || []).find((ship) => Number(ship.CustKey) === Number(preserved.custKey))
-          : d.shipments?.[0];
-        if (nextShip) {
-          // 그룹 기준: ParentWeek + CustKey
-          setSelectedId(estimateShipmentGroupId(nextShip));
-          setSelectedCustKey(nextShip.CustKey);
-        } else {
-          setSelectedId(null); setSelectedCustKey(null);
+        setItems([]);
+        setMismatch(null);
+        setLoading(false);
+        if (!nextShip) {
+          if (preserved) setErr('선택한 업체의 조회 결과가 없습니다. 다른 업체로 자동 전환하지 않았습니다.');
+          return data;
         }
-        return d;
+        const nextScope = buildSelectionScope({
+          selectedId: estimateShipmentGroupId(nextShip),
+          selectedCustKey: nextShip.CustKey,
+          includeUnfixed: includeUnfixedForLoad,
+        });
+        setSelectedId(estimateShipmentGroupId(nextShip));
+        setSelectedCustKey(nextShip.CustKey);
+        activateSelectionScope(nextScope);
+        requestMismatch(nextShip.CustKey, nextScope);
+        return requestShipmentItems(nextShip, nextScope, { throwOnError: true })
+          .then(() => data);
       })
-      .catch(e => {
-        if (!silent && shouldApply()) setErr(e.message);
-        // A failed post-delete refresh is not an empty successful list.
-        if (opts.shouldApply) throw e;
+      .catch((error) => {
+        // The initiating render is no longer visible: stale failures must not
+        // become a save error for the newly selected scope.
+        if (!sameEstimateSelectionScope(scope, renderedSelectionScopeRef.current)
+          || (typeof opts.shouldApply === 'function' && !opts.shouldApply())
+          || !shouldApply()) return { skipped: true };
+        setErr(error.message || '견적서 조회에 실패했습니다.');
+        // A current captured refresh needs to report its genuine detail/list
+        // failure to the save flow; normal loads have already shown setErr.
+        if (typeof opts.shouldApply === 'function') throw error;
+        return undefined;
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (shouldApply()) setLoading(false);
+      });
   };
 
   // 자동조회: 차수/거래처 변경 시 자동 로드 (autoLoad=true 일 때만)
@@ -1322,7 +1608,7 @@ export default function Estimate() {
     const t = setTimeout(() => load(true), 200); // 입력 디바운스
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekNum, selectedCust?.CustKey, autoLoad, includeUnfixed, activeWD]);
+  }, [weekNum, yearStr, selectedCust?.CustKey, autoLoad, includeUnfixed, activeWD]);
 
   // exe: GetDetail=전체 로드 → grdViewEstimate ActiveFilterString(WeekDay 코드)
   const filterItemsByWeekday = useCallback(
@@ -1339,58 +1625,55 @@ export default function Estimate() {
   // ── 출고 목록 행 클릭 → exe GetDetail 1회 조회 (FormEstimateView parity)
   const selectShipment = (groupId, custKey, shipmentKeys) => {
     if (deductionDeleteInFlightRef.current) return;
+    const ship = shipments.find((row) => estimateShipmentGroupId(row) === groupId
+      && Number(row.CustKey) === Number(custKey)) || { CustKey: custKey, ShipmentKeys: shipmentKeys };
+    const scope = buildSelectionScope({ selectedId: groupId, selectedCustKey: custKey });
+    activateSelectionScope(scope);
     setSelectedId(groupId);
     setSelectedCustKey(custKey);
     setSelectedDeductionKeys(resetEstimateDeductionSelection());
-    setItemLoading(true);
-    const detailParams = {
-      week: weekNum,
-      year: yearStr,
-      custKey,
-      byDate: 1,
-      itemsOnly: 1,
-    };
-    apiGet('/api/estimate', detailParams)
-      .then((d) => setItems(d.items || []))
-      .catch(() => {
-        const keys = (shipmentKeys || '').split(',').map(Number).filter(Boolean);
-        return Promise.all(keys.map((sk) => apiGet('/api/estimate', { shipmentKey: sk, byDate: 1 }).then((r) => r.items || [])))
-          .then((results) => setItems(results.flat()));
-      })
-      .finally(() => setItemLoading(false));
-    // 주문 vs 출고 불일치 자동 검증
-    if (custKey && weekNum) {
-      apiGet('/api/estimate', { view: 'mismatch', week: weekNum, year: yearStr, custKey })
-        .then(d => { if (d.success) setMismatch(d); else setMismatch(null); })
-        .catch(() => setMismatch(null));
-    }
+    setLoading(false); setItems([]); setMismatch(null);
+    requestShipmentItems(ship, scope).catch(() => {});
+    requestMismatch(custKey, scope);
   };
 
   const reloadSelectedShipmentItems = useCallback(async () => {
     const ship = shipments.find(s => estimateShipmentGroupId(s) === selectedId);
     if (!ship) return [];
+    const scope = buildSelectionScope({ selectedId, selectedCustKey: ship.CustKey });
+    if (!sameEstimateSelectionScope(scope, renderedSelectionScopeRef.current)) return [];
     setSelectedDeductionKeys(resetEstimateDeductionSelection());
-    try {
-      const d = await apiGet('/api/estimate', {
-        week: weekNum,
-        year: yearStr,
-        custKey: ship.CustKey,
-        byDate: 1,
-        itemsOnly: 1,
-      });
-      const nextItems = d.items || [];
-      setItems(nextItems);
-      return nextItems;
-    } catch {
-      const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
-      const results = await Promise.all(keys.map((sk) => apiGet('/api/estimate', { shipmentKey: sk, byDate: 1 }).then((r) => r.items || [])));
-      const nextItems = results.flat();
-      setItems(nextItems);
-      return nextItems;
-    }
-  }, [selectedId, shipments, weekNum, yearStr]);
+    return requestShipmentItems(ship, scope, { throwOnError: true });
+  }, [buildSelectionScope, requestShipmentItems, selectedId, shipments]);
 
   const selectedShip = shipments.find(s => estimateShipmentGroupId(s) === selectedId);
+  const captureEstimateRefresh = () => {
+    if (!selectedShip) return null;
+    const ship = {
+      groupId: selectedId,
+      custKey: selectedShip.CustKey,
+      shipmentKeys: selectedShip.ShipmentKeys,
+      shipmentKey: selectedShip.firstShipmentKey
+        || Number((selectedShip.ShipmentKeys || '').split(',').find(Boolean)),
+      custName: selectedShip.CustName || '선택 업체',
+    };
+    return {
+      ship,
+      scope: buildSelectionScope({ selectedId: ship.groupId, selectedCustKey: ship.custKey }),
+    };
+  };
+  const isCapturedEstimateScopeCurrent = (captured) => Boolean(captured)
+    && shouldReloadCapturedEstimateSelection(captured.scope, renderedSelectionScopeRef.current);
+  const refreshCapturedEstimate = async (captured) => {
+    if (!isCapturedEstimateScopeCurrent(captured)) {
+      return { skipped: true };
+    }
+    const refreshed = await load(true, {
+      preserveSelection: { groupId: captured.ship.groupId, custKey: captured.ship.custKey },
+      shouldApply: () => shouldReloadCapturedEstimateSelection(captured.scope, renderedSelectionScopeRef.current),
+    });
+    return isCapturedEstimateScopeCurrent(captured) ? refreshed : { skipped: true };
+  };
   const deductionDeleteScope = `${yearStr}|${String(weekNum || '')}|${selectedShip?.CustKey || ''}|${selectedId || ''}|${selectedCust?.CustKey || ''}|${[...activeWD].sort().join(',')}`;
   // 연도·차수·업체·상세 필터가 바뀌면 다른 범위의 숨은 선택을 절대 유지하지 않는다.
   useEffect(() => {
@@ -1488,12 +1771,14 @@ export default function Estimate() {
 
   // nenova.exe FormEstimateView는 정상출고의 견적 수량을 ShipmentDate.EstQuantity에
   // 저장한다. 여러 출고일을 한 번에 저장하여 품목별 총량 검증도 EXE와 동일한 시점에 수행한다.
-  const saveDateQuantityBatch = async (rows) => {
+  const saveDateQuantityBatch = async (rows, { onProgress } = {}) => {
     if (!rows.length) return [];
+    const startLabel = `EXE 출고일별 분배 ${rows.length}건 저장 시도 — ShipmentDetail + ShipmentDate`;
     setCostApplyLog(prev => [...prev, {
       step: 'save',
-      label: `EXE 출고일별 분배 ${rows.length}건 저장 시도 — ShipmentDetail + ShipmentDate`,
+      label: startLabel,
     }]);
+    onProgress?.({ kind: 'save', label: `수량 저장 요청 — ${rows.length}건 (확정 상태 유지)` });
     try {
       const response = await fetch('/api/estimate/update-date-quantity', {
         method: 'POST',
@@ -1516,13 +1801,14 @@ export default function Estimate() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) {
         const error = data.error || `출고일별 견적수량 저장 실패 (${response.status})`;
-        const isFixedWeek = data.code === 'FIXED_WEEK';
+        const label = data.rolledBack === true
+          ? `${error} — 저장되지 않았습니다.`
+          : `${error} — 저장 결과를 확인하지 못했습니다. 다시 저장하지 말고 재조회하세요.`;
         setCostApplyLog(prev => [...prev, {
-          step: isFixedWeek ? 'cycle' : 'error',
-          label: isFixedWeek
-            ? formatAutoUnfixSaveLog(data.fixedWeeks || rows.map(p => p.item.OrderWeek))
-            : error,
+          step: 'error',
+          label,
         }]);
+        onProgress?.({ kind: 'error', status: 'error', label });
         return rows.map(p => ({
           key: p.keyNumber,
           ok: false,
@@ -1536,7 +1822,12 @@ export default function Estimate() {
           pendingRef: p,
         }));
       }
+      const stockResponse = describeDateQuantitySaveResult(data);
+      const label = `저장 결과 — ${stockResponse.join(' / ')}`;
+      setCostApplyLog(prev => [...prev, { step: 'save', label }]);
+      onProgress?.({ kind: 'server', label });
       const savedByKey = new Map((data.items || []).map(item => [Number(item.sdateKey), item]));
+      onProgress?.({ kind: 'server', status: 'done', label: `수량 저장 완료 — ${rows.length}건` });
       return rows.map(p => ({
         key: p.keyNumber,
         ok: true,
@@ -1547,6 +1838,9 @@ export default function Estimate() {
         pendingRef: p,
       }));
     } catch (error) {
+      const label = '수량 저장 응답을 확인하지 못했습니다. 다시 저장하지 말고 재조회하세요.';
+      setCostApplyLog(prev => [...prev, { step: 'error', label }]);
+      onProgress?.({ kind: 'error', status: 'error', label });
       return rows.map(p => ({
         key: p.keyNumber,
         ok: false,
@@ -1593,45 +1887,21 @@ export default function Estimate() {
   const runEditWithFixCycle = async ({ weeks, orderYear, countryFlowers = [], stockProdKeys = [], progress, apply, lightStock = false, skipFinalStockCalc = false }) => {
     const targetWeeks = sortWeeksAsc(weeks);
     const selectedYear = resolveFixStatusOrderYear(orderYear, ...targetWeeks);
-    const unfixedWeeks = [];
-    let applyResult = null;
-    let applyError = null;
-    const skipBody = (lightStock || skipFinalStockCalc) ? { skipStockCalc: true } : {};
-    try {
-      for (const wk of sortWeeksDesc(targetWeeks)) {
-        progress?.(`${wk} 확정해제 중`);
-        await runShipmentFixAction(selectedYear, wk, 'unfix', countryFlowers, stockProdKeys, skipBody);
-        unfixedWeeks.push(wk);
-      }
-    } catch (err) {
-      progress?.(`확정해제 오류 — ${err.message}`);
-      for (const wk of sortWeeksAsc(unfixedWeeks)) {
-        progress?.(`${wk} 원상복구 재확정 중`);
-        // 원상복구는 안전 우선 — 재계산 생략하지 않음
-        await runShipmentFixAction(selectedYear, wk, 'fix', countryFlowers, stockProdKeys);
-      }
-      throw err;
-    }
-
-    try {
-      progress?.('수정값 저장 중');
-      applyResult = await apply();
-    } catch (err) {
-      applyError = err;
-      progress?.(`수정 저장 오류 — ${err.message}`);
-    }
-
-    const refixWeeks = sortWeeksAsc(unfixedWeeks);
-    for (let i = 0; i < refixWeeks.length; i++) {
-      const wk = refixWeeks[i];
-      const isLast = i === refixWeeks.length - 1;
-      progress?.(`${wk} 재확정 중${skipFinalStockCalc ? ' (기존 확정 재고 유지)' : (lightStock && isLast ? ' (재고 정리 재계산 포함)' : '')}`);
-      // 기존 수량 변경이 없으면 재확정 수량계산을 생략하고 확정 스냅샷을 그대로 쓴다.
-      await runShipmentFixAction(selectedYear, wk, 'fix', countryFlowers, stockProdKeys, (isLast && !skipFinalStockCalc) ? {} : skipBody);
-    }
-
-    if (applyError) throw applyError;
-    return applyResult;
+    return runScopedEstimateFixCycle({
+      weeks: targetWeeks, orderYear: selectedYear, prodKeys: stockProdKeys,
+      progress, apply, lightStock, skipFinalStockCalc,
+      resolveScope: async (keys) => {
+        const data = await apiGet('/api/shipment/fix', {
+          week: targetWeeks[0], orderYear: selectedYear, editScope: '1', editProdKeys: keys.join(','),
+        });
+        if (!data.success || data.orderYear !== selectedYear || data.orderWeek !== targetWeeks[0]) {
+          throw new Error(data.error || '수정 품목의 연도·차수·품종을 확인하지 못했습니다.');
+        }
+        return data.groups;
+      },
+      runAction: (body) => runShipmentFixAction(body.orderYear, body.week, body.action,
+        body.countryFlowers, body.stockProdKeys, { editProdKeys: body.editProdKeys, skipStockCalc: body.skipStockCalc === true }),
+    });
   };
 
   // 수정된 단가 개수
@@ -1699,6 +1969,7 @@ export default function Estimate() {
 
       // 1단계: 각 세부차수 사전검증 → 이슈 모음
       const allIssues = {};
+      const preflightFailures = {};
       for (let i = 0; i < weekList.length; i += 1) {
         const wk = weekList[i];
         setFixProgress(prev => ({
@@ -1710,6 +1981,7 @@ export default function Estimate() {
         try {
           const r = await fetch(`/api/shipment/fix?week=${encodeURIComponent(wk)}&orderYear=${encodeURIComponent(yearStr)}`);
           const d = await r.json();
+          if (!r.ok || !d.success) throw new Error(d.error || d.message || '사전검증 응답 실패');
           if (d.success && d.issueCount > 0) {
             allIssues[wk] = {
               ghost: d.ghost || [], noIncoming: d.noIncoming || [],
@@ -1717,12 +1989,19 @@ export default function Estimate() {
               count: d.issueCount,
             };
           }
-        } catch (_) { /* 검증 실패 시 무시하고 fix 시도 */ }
+        } catch (error) {
+          preflightFailures[wk] = error.message || '사전검증 응답을 확인할 수 없습니다.';
+        }
         setFixProgress(prev => ({
           ...(prev || {}),
           done: i + 1,
-          message: `${wk} 사전검증 완료`,
+          message: preflightFailures[wk] ? `${wk} 사전검증 확인 실패` : `${wk} 사전검증 완료`,
         }));
+      }
+
+      const failedWeeks = Object.keys(preflightFailures);
+      if (failedWeeks.length > 0) {
+        throw new Error(`사전검증 확인 실패: ${failedWeeks.map((wk) => `${wk} (${preflightFailures[wk]})`).join(', ')}. 재조회 후 다시 시도하세요.`);
       }
 
       const totalIssues = Object.values(allIssues).reduce((a, x) => a + x.count, 0);
@@ -1743,6 +2022,7 @@ export default function Estimate() {
   };
 
   const doFixAll = async (weekList, force = false, countryFlowers = [], opts = {}) => {
+    const capturedRefresh = captureEstimateRefresh();
     const weeks = weekList || [];
     if (!opts.skipProgressInit) {
       setFixWorking(true);
@@ -1833,15 +2113,17 @@ export default function Estimate() {
     });
     setFixWorking(false);
     setFixProgress(null);
-    load(true); // 화면 갱신
+    await refreshCapturedEstimate(capturedRefresh); // 목록 → 선택 업체 상세 1회 갱신
   };
 
   // 수량 수정 적용 — 정상출고는 ShipmentDate.EstQuantity, 차감은 Estimate.Quantity에 저장
   const applyQtyEdits = async () => {
     if (editedQtyCount === 0) return;
     if (!ensureEstimateEditAllowed()) return;
+    const capturedRefresh = captureEstimateRefresh();
     estimateEditPresence.beginSaving();
     let saveSucceeded = false;
+    let automaticProgressId = '';
     setQtyApplying(true);
     setQtyResult(null);
     setCostApplying(true);
@@ -1867,6 +2149,14 @@ export default function Estimate() {
       }
 
       if (pending.length === 0) throw new Error('수정 대상 수량이 없습니다.');
+
+      const atomicDateItems = pending.filter(p => p.isDateQuantity).map(p => p.item);
+      if (atomicDateItems.length > 0) {
+        automaticProgressId = beginAutomaticEditProgress({
+          weeks: getFixCycleWeeksForEditedItems(atomicDateItems, selectedShip),
+          title: '확정 상태 유지 수량 저장 준비 중',
+        });
+      }
 
       // 차감 행은 EXE의 Estimate.Quantity 저장 경로를 그대로 사용한다.
       const postOneDeductionQty = async (p) => {
@@ -1900,63 +2190,59 @@ export default function Estimate() {
       };
 
       const savePendingQuantities = async (rows) => {
-        const dateResults = await saveDateQuantityBatch(rows.filter(p => p.isDateQuantity));
+        const dateResults = await saveDateQuantityBatch(rows.filter(p => p.isDateQuantity), {
+          onProgress: stage => {
+            if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, stage);
+          },
+        });
         const deductionResults = await runLimited(rows.filter(p => p.isEstimate), 4, postOneDeductionQty);
         return [...dateResults, ...deductionResults];
       };
 
       let results = await savePendingQuantities(pending);
 
-      // 실제 출고분배를 함께 바꾸므로 확정된 정상출고도 EXE처럼
-      // 확정해제 → ShipmentDetail/ShipmentDate 저장 → 재확정 사이클을 탄다.
-      const fixedFails = results.filter(r => !r.ok && r.code === 'FIXED_WEEK');
-      if (fixedFails.length > 0) {
-        const fixedPending = fixedFails.map(r => r.pendingRef);
-        const cycleWeeks = sortWeeksAsc([
-          ...getFixCycleWeeksForEditedItems(fixedPending.map(p => p.item), selectedShip),
-          ...fixedFails.flatMap(r => r.fixedWeeks),
-        ]);
-        const cycleCountryFlowers = [...new Set([
-          ...getCountryFlowersForEditedItems(fixedPending.map(p => p.item)),
-          ...fixedFails.flatMap(r => r.fixedCategories),
-        ])];
-        const cycleStockProdKeys = getProdKeysForEditedItems(fixedPending.map(p => p.item));
-        setCostApplyLog(prev => [...prev, {
-          step: 'cycle',
-          label: formatAutoUnfixSaveLog(cycleWeeks, cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''),
-        }]);
-        const retryResults = await runEditWithFixCycle({
-          weeks: cycleWeeks,
-          orderYear: yearStr,
-          countryFlowers: cycleCountryFlowers,
-          stockProdKeys: cycleStockProdKeys,
-          progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-          apply: async () => await savePendingQuantities(fixedPending),
-          ...confirmedWeekFixCycleStockFlags({ existingQtyChanged: true }),
-        });
-        const retryByRef = new Map(retryResults.map(x => [x.pendingRef, x]));
-        results = results.map(r => retryByRef.get(r.pendingRef) || r);
-      }
+      // 기존 출고일 수량은 서버의 원자 저장이 확정 상태를 보존한 채 처리한다.
+      // 구 서버의 FIXED_WEEK 응답도 여기서 자동 확정해제로 우회하지 않는다.
 
       const okCount = results.filter(r => r.ok).length;
       const failCount = results.filter(r => !r.ok).length;
+      saveSucceeded = failCount === 0;
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
       if (results.some(r => r.code === 'ERP_EDIT_STALE')) estimateEditPresence.markStale();
       setQtyResult({ results, okCount, failCount });
       if (failCount === 0) setQtyEdits({});
-      setCostApplyLog(prev => [...prev, { step: 'done', label: '완료 — 수정 수량 반영 후 견적서 재조회 중' }]);
+      setCostApplyLog(prev => [...prev, {
+        step: failCount ? 'error' : 'done',
+        label: failCount
+          ? `수량 저장 실패 ${failCount}건 — 성공으로 처리하지 않았습니다.`
+          : '완료 — 수정 수량 반영 후 견적서 재조회 중',
+      }]);
       setCostResult({ success: failCount === 0, type: 'quantity', changedCount: okCount, error: failCount ? (results.find(r => !r.ok)?.error || '일부 수량 저장 실패') : undefined });
-      saveSucceeded = failCount === 0;
       // 다시 조회하여 화면 갱신
-      load(true);
+      await refreshCapturedEstimate(capturedRefresh);
     } catch (e) {
+      if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, { kind: 'error', status: 'error', label: `자동 수량 저장 오류 — ${e.message || '알 수 없는 오류'}` });
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
+      if (saveSucceeded) {
+        setCostApplyLog(prev => [...prev, { step: 'error', label: '수량 저장은 완료됐지만 재조회에 실패했습니다. 다시 조회해 결과를 확인하세요.' }]);
+        setCostResult(prev => prev && ({ ...prev, success: true, refreshRequired: true }));
+        setErr('수량 저장은 완료됐지만 재조회에 실패했습니다. 다시 조회해 결과를 확인하세요.');
+        return;
+      }
       if (e?.code === 'ERP_EDIT_STALE' || e?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
       setQtyResult({ error: e.message });
       setCostApplyLog(prev => [...prev, { step: 'error', label: `오류 — ${e.message}` }]);
       setCostResult({ success: false, error: e.message });
     } finally {
+      if (automaticProgressId) {
+        finishAutomaticEditProgress(automaticProgressId, {
+          ok: saveSucceeded,
+          label: saveSucceeded ? '확정 상태 유지 수량 저장 완료' : '확정 상태 유지 수량 저장이 실패했거나 중단됨',
+        });
+      }
       setQtyApplying(false);
       setCostApplying(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded });
+      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   };
 
@@ -1973,9 +2259,11 @@ export default function Estimate() {
     if (editedCount === 0) return;
     if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
     if (!ensureEstimateEditAllowed()) return;
+    const capturedRefresh = captureEstimateRefresh();
     const effectiveMode = modeOverride || costMode;
     estimateEditPresence.beginSaving();
     let saveSucceeded = false;
+    let savedCostOutcome = null;
 
     // 차수/거래처 정보
     const week = selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`;
@@ -2098,26 +2386,35 @@ export default function Estimate() {
 
       const allChanges = d.changes || [];
       const totalDiff = d.diffAmount || 0;
-
-      setCostApplyLog(prev => [...prev, { step: 'done', label: '✅ 전체 완료 — 견적서 재로딩 중...' }]);
-
-      // 재로딩 — 좌측 출고목록(합계금액) + 우측 견적 상세 둘 다
-      if (selectedShip) {
-        await new Promise(res => setTimeout(res, 400));
-        load(true); // 좌측 shipments 재조회 (총 합계금액 갱신)
-        selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys);
-      }
-
-      setCostResult({
+      saveSucceeded = true;
+      savedCostOutcome = {
         success: true,
         changedCount: allChanges.length,
         totalDiff,
         customerCostUpdated: Number(d.customerCostUpdated || 0),
-      });
+      };
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
+
+      setCostApplyLog(prev => [...prev, { step: 'done', label: '✅ 전체 완료 — 견적서 재로딩 중...' }]);
+
+      // 재로딩 — 좌측 출고목록(합계금액) + 우측 견적 상세 둘 다
+      if (capturedRefresh) {
+        await new Promise(res => setTimeout(res, 400));
+        await refreshCapturedEstimate(capturedRefresh);
+      }
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
+
+      setCostResult(savedCostOutcome);
       // 성공 시 편집 상태 초기화
       setCostEdits({});
-      saveSucceeded = true;
     } catch (err) {
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
+      if (saveSucceeded) {
+        setCostApplyLog(prev => [...prev, { step: 'error', label: '저장은 완료됐지만 재조회에 실패했습니다. 다시 조회해 결과를 확인하세요.' }]);
+        setCostResult({ ...savedCostOutcome, refreshRequired: true });
+        setErr('단가 저장은 완료됐지만 재조회에 실패했습니다. 다시 조회해 결과를 확인하세요.');
+        return;
+      }
       setCostApplyLog(prev => [...prev, { step: 'error', label: `❌ 오류: ${err.message}` }]);
       setCostResult({ success: false, error: err.message });
       // STALE_DATA = 화면이 옛 단가를 들고 있음(앞선 시도가 이미 저장됐거나 타인이 수정)
@@ -2125,10 +2422,11 @@ export default function Estimate() {
       if (err.isStaleData || err.code === 'ERP_EDIT_STALE') {
         estimateEditPresence.markStale();
         setCostApplyLog(prev => [...prev, { step: 'cycle', label: '최신 단가로 화면 갱신 중 — 이미 반영된 항목은 값이 일치하게 보입니다' }]);
-        try { await reloadSelectedShipmentItems(); load(true); } catch { /* 갱신 실패는 무시 */ }
+        try { await refreshCapturedEstimate(capturedRefresh); } catch { /* 최신 재조회 실패는 현재 오류 안내를 유지 */ }
       }
     } finally {
-      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded });
+      setCostApplying(false);
+      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   }
 
@@ -2136,8 +2434,10 @@ export default function Estimate() {
     if (editedCount === 0 && editedQtyCount === 0 && pendingAdds.length === 0) return;
     if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
     if (!ensureEstimateEditAllowed()) return;
+    const capturedRefresh = captureEstimateRefresh();
     estimateEditPresence.beginSaving();
     let saveSucceeded = false;
+    let automaticProgressId = '';
 
     setQtyApplying(true);
     setCostApplying(true);
@@ -2200,15 +2500,17 @@ export default function Estimate() {
 
       if (qtyPending.length === 0 && costItems.length === 0 && pendingAdds.length === 0) throw new Error('수정 대상이 없습니다.');
 
-      // 실제 날짜분배를 바꾸는 정상출고 수량과 신규 추가품목만 확정 사이클 대상이다.
+      // 기존 출고일 수량은 서버의 원자 저장으로 확정 상태를 보존한다.
+      // 신규 추가품목만 기존의 범위 제한 확정해제·저장·재확정 사이클 대상이다.
       // 단가 전용 수정은 확정 플래그를 보존하는 금액 전용 저장이므로 사이클에 포함하지 않는다
       // (2026-08-26: docs/work-reports/2026-08-26_estimate-cost-no-stock-design.md).
       // 차감(Estimate.Quantity)만 단독 수정하는 경우에도 ShipmentDetail 사이클이 필요 없다.
-      const physicalQtyItems = qtyPending.filter(p => p.isDateQuantity).map(p => p.item);
+      const atomicDateItems = qtyPending.filter(p => p.isDateQuantity).map(p => p.item);
+      const atomicDateWeeks = getFixCycleWeeksForEditedItems(atomicDateItems, selectedShip);
       const addWeekShort = `${String(weekNum).padStart(2, '0')}-02`;
       const addCycleItems = pendingAdds.map((t) => ({ OrderWeek: addWeekShort, ProdKey: t.prodKey }));
-      const cycleItems = [...physicalQtyItems, ...addCycleItems];
-      const existingQtyChanged = physicalQtyItems.length > 0 || pendingAdds.length > 0;
+      const cycleItems = addCycleItems;
+      const existingQtyChanged = pendingAdds.length > 0;
       const skipStockCalc = shouldSkipFixCycleStockCalc({ existingQtyChanged });
       const cycleStockFlags = confirmedWeekFixCycleStockFlags({ existingQtyChanged });
       const derivedCycleWeeks = getFixCycleWeeksForEditedItems(cycleItems, selectedShip);
@@ -2226,14 +2528,28 @@ export default function Estimate() {
       const cycleCountryFlowers = getCountryFlowersForEditedItems(cycleItems);
       const cycleStockProdKeys = getProdKeysForEditedItems(cycleItems);
       if (cycleWeeks.length > 0) {
+        automaticProgressId = beginAutomaticEditProgress({
+          weeks: cycleWeeks,
+          title: '확정차수 해제 준비 중',
+          pollServerLogs: true,
+        });
         setCostApplyLog(prev => [...prev, {
           step: 'cycle',
-          label: formatAutoUnfixSaveLog(cycleWeeks, `${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}${skipStockCalc ? ' · 기존 수량 변경 없음 → 재고 재계산 생략' : ' · 중간 재고합산 생략, 마지막 재확정만 재계산'}`),
+          label: formatAutoUnfixSaveLog(cycleWeeks, `${cycleCountryFlowers.length ? ` / 카테고리 ${cycleCountryFlowers.join(', ')}` : ''}${skipStockCalc ? ' · 재고 반영 생략' : ' · 대상 품목 재고 반영 및 영향 차수 재확정'}`),
         }]);
+      } else if (atomicDateItems.length > 0) {
+        automaticProgressId = beginAutomaticEditProgress({
+          weeks: atomicDateWeeks,
+          title: '확정 상태 유지 수량 저장 준비 중',
+        });
       }
 
       const runCombinedUpdate = async () => {
-        const dateResults = await saveDateQuantityBatch(qtyPending.filter(p => p.isDateQuantity));
+        const dateResults = await saveDateQuantityBatch(qtyPending.filter(p => p.isDateQuantity), {
+          onProgress: stage => {
+            if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, stage);
+          },
+        });
         if (dateResults.some(r => !r.ok)) {
           return {
             qtyResults: dateResults,
@@ -2355,17 +2671,24 @@ export default function Estimate() {
         return { qtyResults, costResultData, addResults };
       };
 
-      const runCombinedFixCycle = async (weeks) => runEditWithFixCycle({
-        weeks,
-        orderYear: yearStr,
-        // 확정된 상세가 화면 품목과 다른 카테고리로 섞여 있을 수 있다.
-        // EXE의 차수 확정 단위와 동일하게 전체 고정 범위를 해제·재확정한다.
-        countryFlowers: [],
-        stockProdKeys: existingQtyChanged ? cycleStockProdKeys : [],
-        progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-        apply: runCombinedUpdate,
-        ...cycleStockFlags,
-      });
+      const runCombinedFixCycle = async (weeks) => {
+        if (automaticProgressId) {
+          setAutomaticEditProgress(prev => setEstimateEditProgressWeeks(prev, automaticProgressId, weeks));
+        }
+        return runEditWithFixCycle({
+          weeks,
+          orderYear: yearStr,
+          // 화면 품종은 안내용이며 최종 범위는 수정 ProdKey로 서버에서 다시 확인한다.
+          countryFlowers: cycleCountryFlowers,
+          stockProdKeys: existingQtyChanged ? cycleStockProdKeys : [],
+          progress: label => {
+            setCostApplyLog(prev => [...prev, { step: 'cycle', label }]);
+            if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, { kind: 'cycle', label });
+          },
+          apply: runCombinedUpdate,
+          ...cycleStockFlags,
+        });
+      };
 
       let combinedResult;
       try {
@@ -2375,7 +2698,7 @@ export default function Estimate() {
       } catch (firstError) {
         // 첫 사이클의 화면 범위가 운영 DB의 확정 범위와 달랐던 경우에도
         // 서버가 반환한 실제 확정 차수를 합쳐 전체 범위로 1회 재시도한다.
-        if (firstError?.code !== 'FIXED_WEEK') throw firstError;
+        if (!automaticProgressId || firstError?.code !== 'FIXED_WEEK') throw firstError;
         const retryWeeks = sortWeeksAsc([
           ...cycleWeeks,
           ...fallbackCycleWeeks,
@@ -2394,6 +2717,8 @@ export default function Estimate() {
       const okQty = qtyResults.filter(r => r.ok).length;
       const failedQty = qtyResults.length - okQty;
       const okAdds = addResults.filter(r => r.ok).length;
+      saveSucceeded = failedQty === 0;
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
       setQtyResult({ results: qtyResults, okCount: okQty, failCount: failedQty });
       setCostApplyLog(prev => [...prev, {
         step: failedQty ? 'error' : 'done',
@@ -2412,19 +2737,35 @@ export default function Estimate() {
         setQtyEdits({});
         setCostEdits({});
         setPendingAdds([]);
-        saveSucceeded = true;
       }
-      await load(true);
-      if (selectedShip) selectShipment(selectedId, selectedShip.CustKey, selectedShip.ShipmentKeys);
+      await refreshCapturedEstimate(capturedRefresh);
     } catch (err) {
+      if (automaticProgressId) {
+        appendAutomaticEditStage(automaticProgressId, {
+          kind: 'error', status: 'error', label: `자동 확정차수 편집 오류 — ${err.message || '알 수 없는 오류'}`,
+        });
+      }
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
+      if (saveSucceeded) {
+        setCostApplyLog(prev => [...prev, { step: 'error', label: '수정 저장은 완료됐지만 재조회에 실패했습니다. 다시 조회해 결과를 확인하세요.' }]);
+        setCostResult(prev => prev && ({ ...prev, success: true, refreshRequired: true }));
+        setErr('수정 저장은 완료됐지만 재조회에 실패했습니다. 다시 조회해 결과를 확인하세요.');
+        return;
+      }
       if (err?.code === 'ERP_EDIT_STALE' || err?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
       setCostApplyLog(prev => [...prev, { step: 'error', label: `오류 — ${err.message}` }]);
       setCostResult({ success: false, error: err.message });
       setQtyResult({ error: err.message });
     } finally {
+      if (automaticProgressId) {
+        finishAutomaticEditProgress(automaticProgressId, {
+          ok: saveSucceeded,
+          label: saveSucceeded ? '자동 확정차수 편집 완료' : '자동 확정차수 편집이 일부 실패했거나 중단됨',
+        });
+      }
       setQtyApplying(false);
       setCostApplying(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded });
+      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   }
 
@@ -2432,6 +2773,7 @@ export default function Estimate() {
     setCostApplying(false);
     setCostApplyLog([]);
     setCostResult(null);
+    setAutomaticEditProgress(null);
   }
 
   // ── WeekDay 필터 (exe ActiveFilterString — filterItemsByWeekday 위에서 정의)
@@ -2528,6 +2870,7 @@ export default function Estimate() {
     if (!ensureEstimateEditAllowed()) return;
 
     const capturedScope = deductionDeleteScope;
+    const capturedRefresh = captureEstimateRefresh();
     const capturedShip = {
       groupId: selectedId,
       custKey: selectedShip.CustKey,
@@ -2578,38 +2921,22 @@ export default function Estimate() {
       if (!result?.success) throw new Error(result?.error || '선택 차감 삭제에 실패했습니다.');
       deleteSucceeded = true;
       deletedCount = Number(result.deletedCount || payload.entries.length);
-      setSelectedDeductionKeys(resetEstimateDeductionSelection());
 
       // 요청 뒤 업체/차수 전환이 있었다면 이미 성공한 삭제를 다른 범위에 재조회하지 않는다.
-      if (deductionDeleteScopeRef.current !== capturedScope) {
-        setSuccessMsg(`✅ 선택 차감 ${deletedCount}건 삭제 완료. 현재 조회 범위가 바뀌어 자동 새로고침하지 않았습니다.`);
-        return;
-      }
+      if (deductionDeleteScopeRef.current !== capturedScope || !isCapturedEstimateScopeCurrent(capturedRefresh)) return;
+      setSelectedDeductionKeys(resetEstimateDeductionSelection());
 
-      const refreshedList = await load(true, {
-        preserveSelection: capturedShip,
-        shouldApply: () => deductionDeleteScopeRef.current === capturedScope,
-      });
-      if (deductionDeleteScopeRef.current !== capturedScope) return;
+      const refreshedList = await refreshCapturedEstimate(capturedRefresh);
+      if (deductionDeleteScopeRef.current !== capturedScope || refreshedList?.skipped) return;
       const sameCustomerStillExists = (refreshedList?.shipments || [])
         .some((ship) => Number(ship.CustKey) === Number(capturedShip.custKey));
       if (!sameCustomerStillExists) {
-        setItems([]);
         setSuccessMsg(`✅ 선택 차감 ${deletedCount}건을 삭제했습니다. 이 업체의 남은 견적 행이 없습니다.`);
         return;
       }
-      const refreshed = await apiGet('/api/estimate', {
-        week: weekNum,
-        year: yearStr,
-        custKey: capturedShip.custKey,
-        byDate: 1,
-        itemsOnly: 1,
-      });
-      if (deductionDeleteScopeRef.current === capturedScope) {
-        setItems(refreshed.items || []);
-        setSuccessMsg(`✅ 선택 차감 ${deletedCount}건을 삭제했습니다.`);
-      }
+      setSuccessMsg(`✅ 선택 차감 ${deletedCount}건을 삭제했습니다.`);
     } catch (error) {
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
       if (error?.code === 'ERP_EDIT_STALE' || error?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
       if (deleteSucceeded) {
         setSuccessMsg(`✅ 선택 차감 ${deletedCount}건은 삭제됐습니다.`);
@@ -2620,7 +2947,7 @@ export default function Estimate() {
     } finally {
       deductionDeleteInFlightRef.current = false;
       setDeductionDeleting(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: deleteSucceeded });
+      await estimateEditPresence.endSaving({ refreshBaseline: deleteSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   };
 
@@ -2701,8 +3028,11 @@ export default function Estimate() {
       alert(expectedNegative ? `${defectForm.entryMode === 'legacy' ? '불량/검역' : '불량차감'}등록은 - 차감을 체크해야 합니다.` : '판매요청은 - 차감을 해제해야 합니다.');
       return;
     }
-    const shipmentKeyForEstimate = selectedShip?.firstShipmentKey
-      || Number((selectedShip?.ShipmentKeys || '').split(',').find(Boolean));
+    const capturedRefresh = captureEstimateRefresh();
+    const capturedShip = capturedRefresh?.ship && {
+      ...capturedRefresh.ship,
+    };
+    const shipmentKeyForEstimate = capturedShip?.shipmentKey;
     if (!shipmentKeyForEstimate) { alert('견적을 등록할 출고번호를 찾지 못했습니다. 다시 조회 후 선택하세요.'); return; }
     if (!ensureEstimateEditAllowed()) return;
     estimateEditPresence.beginSaving();
@@ -2714,7 +3044,7 @@ export default function Estimate() {
         targetShipmentKey: shipmentKeyForEstimate,
         orderYear: yearStr,
         orderWeek: weekNum,
-        custKey: selectedShip.CustKey,
+        custKey: capturedShip.custKey,
         prodKey:      parseInt(defectForm.prodKey),
         estimateType: defectForm.estimateType,
         entryMode:    defectForm.entryMode,
@@ -2726,16 +3056,24 @@ export default function Estimate() {
         descr:        defectForm.descr || '',
         editGuard: estimateEditGuard(),
       });
+      saveSucceeded = true;
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
       setShowDefect(false);
       resetDefectForm('defect');
       setSuccessMsg(`✅ ${defectForm.entryMode === 'sales' ? '판매요청' : defectForm.entryMode === 'legacy' ? '불량/검역' : '불량차감'} 등록 완료 · 견적키 #${data.estimateKey || '-'}`);
       setTimeout(() => setSuccessMsg(''), 3000);
-      selectShipment(selectedId, selectedCustKey);
-      saveSucceeded = true;
+      // Saving A can finish after the user selected B. Reload only the exact
+      // captured A scope through the shared list → detail path.
+      await refreshCapturedEstimate(capturedRefresh);
     } catch(e) {
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
+      if (saveSucceeded) {
+        setErr('등록은 완료됐지만 재조회에 실패했습니다. 다시 조회해 결과를 확인하세요.');
+        return;
+      }
       if (e?.code === 'ERP_EDIT_STALE' || e?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
       setErr(e.message);
-    } finally { setSaving(false); await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded }); }
+    } finally { setSaving(false); await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) }); }
   };
 
   const openItemEditor = (item) => {
@@ -2767,8 +3105,11 @@ export default function Estimate() {
     if (!Number.isFinite(cost) || cost < 0) { setItemEditorError('단가는 0 이상이어야 합니다.'); return; }
     if (!editor.prodKey) { setItemEditorError('품목을 선택하세요.'); return; }
     if (!ensureEstimateEditAllowed()) { setItemEditorError('다른 작업 또는 전산 변경이 감지되었습니다. 화면의 안내를 확인하세요.'); return; }
+    const capturedRefresh = captureEstimateRefresh();
+    if (!capturedRefresh) { setItemEditorError('선택한 업체 정보가 없어 다시 조회하세요.'); return; }
     estimateEditPresence.beginSaving();
     let saveSucceeded = false;
+    let automaticProgressId = '';
 
     setItemEditorSaving(true);
     setItemEditorError('');
@@ -2782,7 +3123,7 @@ export default function Estimate() {
             estimateKey: editor.estimateKey,
             shipmentKey: item.ShipmentKey,
             orderYear: yearStr,
-            custKey: selectedShip.CustKey,
+            custKey: capturedRefresh.ship.custKey,
             prodKey: Number(editor.prodKey),
             unit: editor.unit,
             quantity,
@@ -2804,11 +3145,12 @@ export default function Estimate() {
           error.data = data;
           throw error;
         }
+        saveSucceeded = true;
+        if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
         setItemEditor(null);
         setSuccessMsg(`✅ 견적 품목 수정 완료 · 견적키 #${editor.estimateKey}`);
         setTimeout(() => setSuccessMsg(''), 3000);
-        await reloadSelectedShipmentItems();
-        saveSucceeded = true;
+        await refreshCapturedEstimate(capturedRefresh);
         return;
       }
 
@@ -2833,19 +3175,26 @@ export default function Estimate() {
       setEditApplyTitle('품목 정보 수정');
       setCostApplyLog([{ step: 'start', label: `${item.OrderWeek || weekNum} ${item.ProdName} 정보 수정 시작` }]);
       setCostResult(null);
+      if (quantityChanged || descrChanged) {
+        automaticProgressId = beginAutomaticEditProgress({
+          weeks: getFixCycleWeeksForEditedItems([item], selectedShip),
+          title: '확정 상태 유지 출고일 저장 준비 중',
+        });
+      }
       const apply = async () => {
         let editorCostItems = costChanged ? [{ shipmentKey: item.ShipmentKey, sdetailKey: item.SdetailKey, cost, ...requireCostSnapshot(item) }] : [];
         if (quantityChanged || descrChanged) {
           setCostApplyLog(prev => [...prev, { step: 'save', label: quantityChanged
             ? `출고일 수량/비고 저장 — ${item.Quantity}${item.Unit} → ${quantity}${item.Unit}`
             : '출고일 비고 저장' }]);
+          if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, { kind: 'save', label: '출고일 저장 요청 (확정 상태 유지)' });
           const response = await fetch('/api/estimate/update-date-quantity', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
             body: JSON.stringify({
               orderYear: yearStr,
-              custKey: selectedShip.CustKey,
+              custKey: capturedRefresh.ship.custKey,
               sdateKey: item.SdateKey,
               quantity,
               unit: item.Unit,
@@ -2858,10 +3207,20 @@ export default function Estimate() {
           });
           const data = await response.json();
           if (!response.ok || !data.success) {
+            const label = data.rolledBack === true
+              ? `${data.error || '출고일 수량 수정 실패'} — 저장되지 않았습니다.`
+              : `${data.error || '출고일 수량 수정 실패'} — 저장 결과를 확인하지 못했습니다. 다시 저장하지 말고 재조회하세요.`;
+            setCostApplyLog(prev => [...prev, { step: 'error', label }]);
+            if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, { kind: 'error', status: 'error', label });
             const error = new Error(data.error || '출고일 수량 수정에 실패했습니다.');
             error.code = data.code;
             throw error;
           }
+          const stockResponse = describeDateQuantitySaveResult(data);
+          const label = `저장 결과 — ${stockResponse.join(' / ')}`;
+          setCostApplyLog(prev => [...prev, { step: 'save', label }]);
+          if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, { kind: 'server', label });
+          if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, { kind: 'server', status: 'done', label: '출고일 저장 완료' });
           if (costChanged) {
             const rebased = rebaseCostItemsFromSaved(editorCostItems, data.items || [], [item.SdateKey]);
             if (!rebased.ok) throw new Error(STALE_COST_MESSAGE);
@@ -2879,7 +3238,7 @@ export default function Estimate() {
               items: editorCostItems,
               mode: 'once',
               orderYear: yearStr,
-              custKey: selectedShip.CustKey,
+              custKey: capturedRefresh.ship.custKey,
               editGuard: estimateEditGuard(),
             }),
           });
@@ -2892,35 +3251,35 @@ export default function Estimate() {
         }
         return { success: true };
       };
-      // 단가만 바뀌면(costChanged 단독) 확정 플래그를 보존하는 금액 전용 저장이므로
-      // 확정해제→재확정 사이클을 태우지 않는다. 실제 출고일 수량이 바뀔 때만 사이클 대상이다.
-      const cycleWeeks = quantityChanged
-        ? getFixCycleWeeksForEditedItems([item], selectedShip)
-        : [];
-      await (cycleWeeks.length > 0
-        ? runEditWithFixCycle({
-            weeks: cycleWeeks,
-            orderYear: yearStr,
-            stockProdKeys: quantityChanged ? [Number(item.ProdKey)] : [],
-            ...confirmedWeekFixCycleStockFlags({ existingQtyChanged: quantityChanged }),
-            progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-            apply,
-          })
-        : apply());
+      // 기존 행의 수량·비고·단가는 서버의 원자 저장으로 확정 상태를 보존한다.
+      await apply();
+      saveSucceeded = true;
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
       setCostApplyLog(prev => [...prev, { step: 'done', label: '완료 — 견적서 재조회 중' }]);
       setItemEditor(null);
       setSuccessMsg(`✅ ${item.ProdName} 정보 수정 완료`);
       setTimeout(() => setSuccessMsg(''), 3000);
-      await reloadSelectedShipmentItems();
-      saveSucceeded = true;
+      await refreshCapturedEstimate(capturedRefresh);
     } catch (error) {
+      if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, { kind: 'error', status: 'error', label: `품목 저장 오류 — ${error.message || '알 수 없는 오류'}` });
+      if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
+      if (saveSucceeded) {
+        setErr('품목 정보 저장은 완료됐지만 재조회에 실패했습니다. 다시 조회해 결과를 확인하세요.');
+        return;
+      }
       if (error?.code === 'ERP_EDIT_STALE' || error?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
       setItemEditorError(error.message || '수정에 실패했습니다.');
       setCostApplyLog(prev => [...prev, { step: 'error', label: `오류 — ${error.message}` }]);
     } finally {
+      if (automaticProgressId) {
+        finishAutomaticEditProgress(automaticProgressId, {
+          ok: saveSucceeded,
+          label: saveSucceeded ? '확정 상태 유지 출고일 저장 완료' : '확정 상태 유지 출고일 저장이 실패했거나 중단됨',
+        });
+      }
       setItemEditorSaving(false);
       setCostApplying(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded });
+      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   };
 
@@ -3078,11 +3437,12 @@ export default function Estimate() {
     const fetchPrintRowsForShip = async (ship) => {
       if (isStatementPrintFormat(opts.printFormat)) {
         const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
-        const results = await Promise.all(keys.map(k =>
-          fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
-            .then(r => r.json())
-            .then(d => d.success ? (d.items || []) : [])
-        ));
+        const results = await Promise.all(keys.map(async (k) => {
+          const response = await fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' });
+          const data = await response.json();
+          if (!response.ok || !data.success) throw new Error(data.error || '거래명세표 출력자료 조회 실패');
+          return data.items || [];
+        }));
         return filterItemsByWeekday(results.flat());
       }
       const params = new URLSearchParams({
@@ -3192,6 +3552,7 @@ export default function Estimate() {
         .filter(Boolean);
       // 담당자 순으로 정렬해 인쇄물이 담당자별로 모이게 한다(구분 표지는 종이 낭비라 미삽입).
       const printShips = sortEstimateShipmentsForPrint(selectedShips);
+      const batchOutcomes = [];
       for (const ship of printShips) {
         let custPages = [];
         try {
@@ -3199,10 +3560,16 @@ export default function Estimate() {
           custPages = buildCustomerPrintPages(ship.CustName, rows);
         } catch (e) {
           console.error(`[print] ${ship.CustName} 실패:`, e);
+          batchOutcomes.push({ custName: ship.CustName, error: e });
         }
         // 요일 필터로 해당 거래처에 출력할 항목이 없으면 생략
         if (custPages.length === 0) continue;
         printPages.push(...custPages);
+      }
+      const failedCustomers = collectEstimateBatchReadFailures(batchOutcomes);
+      if (failedCustomers.length > 0) {
+        alert(estimateBatchReadFailureMessage(failedCustomers));
+        return;
       }
       if (printPages.length === 0) {
         alert('출력할 데이터가 없습니다.');
@@ -3248,11 +3615,12 @@ export default function Estimate() {
     const fetchPrintRowsForShip = async (ship) => {
       if (isStatementPrintFormat(opts.printFormat)) {
         const keys = (ship.ShipmentKeys || '').split(',').map(Number).filter(Boolean);
-        const results = await Promise.all(keys.map(k =>
-          fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' })
-            .then(r => r.json())
-            .then(d => d.success ? (d.items || []) : [])
-        ));
+        const results = await Promise.all(keys.map(async (k) => {
+          const response = await fetch(`/api/estimate?shipmentKey=${k}&byDate=1`, { credentials: 'same-origin' });
+          const data = await response.json();
+          if (!response.ok || !data.success) throw new Error(data.error || '거래명세표 출력자료 조회 실패');
+          return data.items || [];
+        }));
         return filterItemsByWeekday(results.flat());
       }
       const params = new URLSearchParams({
@@ -3330,6 +3698,7 @@ export default function Estimate() {
       const printShips = sortEstimateShipmentsForPrint(groupArr
         .map(groupId => shipments.find(s => estimateShipmentGroupId(s) === groupId))
         .filter(Boolean));
+      const batchOutcomes = [];
       for (const ship of printShips) {
         try {
           const rows = await fetchPrintRowsForShip(ship);
@@ -3342,7 +3711,13 @@ export default function Estimate() {
           }
         } catch (e) {
           console.error(`[excel] ${ship.CustName} 실패:`, e);
+          batchOutcomes.push({ custName: ship.CustName, error: e });
         }
+      }
+      const failedCustomers = collectEstimateBatchReadFailures(batchOutcomes);
+      if (failedCustomers.length > 0) {
+        alert(estimateBatchReadFailureMessage(failedCustomers));
+        return;
       }
     } else {
       const custName = selectedShip?.CustName || '';
@@ -3807,7 +4182,6 @@ export default function Estimate() {
                 setCustQwertyBuf('');
                 setCustSearch(raw);
               }
-              setSelectedCust(null);
               custNav.reset();
             }}
             onCompositionStart={() => setCustQwertyBuf('')}
@@ -3830,7 +4204,6 @@ export default function Estimate() {
                   custPickedName.current = null;
                   setCustQwertyBuf(edit.buffer);
                   setCustSearch(edit.display);
-                  setSelectedCust(null);
                   custNav.reset();
                   return;
                 }
@@ -3861,6 +4234,11 @@ export default function Estimate() {
             </div>
           )}
         </div>
+        {custSearch && !custPickedName.current && selectedShip && (
+          <span style={{ fontSize: 10, color: 'var(--text3)' }}>
+            검색어는 선택 전 초안입니다 · 저장 대상: {selectedShip.CustName}
+          </span>
+        )}
         <button type="button" className="btn btn-sm"
           onClick={() => {
             setCustInputMode(mode => mode === 'ko' ? 'en' : 'ko');
@@ -3871,7 +4249,7 @@ export default function Estimate() {
           {custInputMode === 'ko' ? '한글입력' : '영문입력'}
         </button>
         {selectedCust && (
-          <button className="btn btn-sm" onClick={() => resetCustomerSearch('')}>✕</button>
+          <button className="btn btn-sm" onClick={clearCustomerFilter}>✕</button>
         )}
 
         {/* 출고요일 필터 */}
@@ -4482,7 +4860,7 @@ export default function Estimate() {
           <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">
-                {costApplying && !costResult ? `🔄 ${editApplyTitle} 중...` : (costResult?.success ? `✅ ${editApplyTitle} 완료` : '❌ 오류')}
+                {costApplying && !costResult ? `🔄 ${editApplyTitle} 중...` : (costResult?.success ? `✅ ${costResult.refreshRequired ? '저장 완료 · 다시 조회 필요' : `${editApplyTitle} 완료`}` : '❌ 오류')}
               </span>
               {!costApplying || costResult ? (
                 <button className="btn btn-sm" onClick={closeCostModal}>✕</button>
@@ -4513,6 +4891,55 @@ export default function Estimate() {
                 </div>
               </div>
 
+              {automaticEditProgress && (
+                <div style={{ padding: '8px 12px', background: '#FFFAF0', border: '1px solid #F6AD55', borderRadius: 6, fontSize: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <strong>수량 저장 진행</strong>
+                    <span style={{ fontFamily: 'var(--mono)', color: '#744210' }}>경과 {formatEstimateEditElapsed(automaticEditProgress, automaticEditProgress.lastProgressTickAt || Date.now())}</span>
+                  </div>
+                  <div style={{ marginTop: 4, color: '#744210' }}>
+                    대상: {automaticEditProgress.orderYear}년 {automaticEditProgress.weeks.join(', ') || '-'}
+                  </div>
+                  <div style={{ marginTop: 6, maxHeight: 150, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {automaticEditProgress.stages.map((stage, index) => (
+                      <div key={`${stage.at}-${index}`} style={{
+                        padding: '4px 7px', borderRadius: 3, fontSize: 11,
+                        background: stage.status === 'error' ? '#FED7D7' : (stage.status === 'done' ? '#C6F6D5' : '#fff'),
+                        borderLeft: stage.status === 'error' ? '3px solid #c53030' : (stage.status === 'done' ? '3px solid #2f855a' : '3px solid #d69e2e'),
+                      }}>
+                        {stage.label}
+                      </div>
+                    ))}
+                  </div>
+                  {automaticEditProgress.pollServerLogs ? (
+                    <details style={{ marginTop: 8 }}>
+                      <summary style={{ cursor: 'pointer', fontWeight: 700 }}>개발용 서버 참고 기록 {automaticEditProgress.serverLogs.length}건</summary>
+                      <div style={{ marginTop: 5, maxHeight: 130, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {automaticEditProgress.serverLogs.length === 0 ? (
+                          <div style={{ color: '#718096', fontSize: 11 }}>아직 일치하는 서버 로그가 없습니다.</div>
+                        ) : automaticEditProgress.serverLogs.map((log, index) => (
+                          <div key={`${log.CreateDtm}-${log.Step}-${index}`} style={{ fontFamily: 'var(--mono)', fontSize: 10, color: log.IsError ? '#c53030' : '#4A5568' }}>
+                            [{log.correlation === 'user-match' ? '사용자 일치' : '같은차수 참고기록'}] [{log.CreateDtm}] {log.Step} — {log.Detail}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 5, color: '#718096', fontSize: 10 }}>
+                        사용자 ID가 없는 기록은 같은 차수의 참고 정보입니다.
+                      </div>
+                    </details>
+                  ) : (
+                    <div style={{ marginTop: 8, padding: '5px 7px', background: '#FFF', borderRadius: 3, color: '#744210', fontSize: 11 }}>
+                      {formatEstimateEditNotice(automaticEditProgress)}
+                    </div>
+                  )}
+                  {automaticEditProgress.pollServerLogs && automaticEditProgress.pollError && (
+                    <div style={{ marginTop: 6, color: '#c53030', fontSize: 11 }}>
+                      서버 로그 조회 실패: {automaticEditProgress.pollError}{automaticEditProgress.running ? ` · ${nextEstimateEditPollDelay(automaticEditProgress.pollFailures) / 1000}초 후 재시도` : ' · 기존 로그는 유지했습니다.'}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {costResult && costResult.success && (
                 <div style={{ padding: 12, background: '#F0FFF4', border: '1px solid #9AE6B4', borderRadius: 6, fontSize: 12 }}>
                   <div><strong>수정된 품목:</strong> {costResult.changedCount}건</div>
@@ -4520,7 +4947,9 @@ export default function Estimate() {
                     <div><strong>공급가 변동:</strong> {costResult.totalDiff >= 0 ? '+' : ''}{(costResult.totalDiff || 0).toLocaleString()}원</div>
                   )}
                   <div style={{ marginTop: 6, color: '#2f855a' }}>
-                    견적서가 재로딩되었습니다. 새 {costResult.type === 'quantity' ? '수량' : '단가'}가 반영된 것을 확인하세요.
+                    {costResult.refreshRequired
+                      ? '저장은 완료됐지만 재조회에 실패했습니다. 다시 조회해 결과를 확인하세요.'
+                      : `견적서가 재로딩되었습니다. 새 ${costResult.type === 'quantity' ? '수량' : '단가'}가 반영된 것을 확인하세요.`}
                   </div>
                 </div>
               )}
