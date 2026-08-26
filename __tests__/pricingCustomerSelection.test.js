@@ -4,6 +4,10 @@ import {
   RECENT_CUSTOMER_SQL,
   filterPricingCustomers,
   toggleVisiblePricingCustomers,
+  filterPricingProducts,
+  selectAllPricingProducts,
+  toggleVisiblePricingProducts,
+  visiblePricingProducts,
 } from '../lib/pricingCustomerSelection.js';
 
 const customers = [
@@ -40,6 +44,25 @@ const deselectedVisible = toggleVisiblePricingCustomers(selectedAfter, visible);
 assert.deepEqual(deselectedVisible, new Set([99]));
 assert.deepEqual(toggleVisiblePricingCustomers(new Set([7]), []), new Set([7]));
 
+const products = [
+  { ProdKey: 11, ProdName: 'Moon Light', FlowerName: '카네이션', CounName: '콜롬비아' },
+  { ProdKey: 22, ProdName: 'White', FlowerName: '수국', CounName: '에콰도르' },
+  { ProdKey: 33, ProdName: 'Red Naomi', FlowerName: '장미', CounName: '콜롬비아' },
+];
+const allProductKeys = selectAllPricingProducts(products);
+assert.deepEqual(allProductKeys, new Set([11, 22, 33]), '새 조회는 모든 품목을 선택한다');
+assert.deepEqual(toggleVisiblePricingProducts(allProductKeys, [products[1]]), new Set([11, 33]), '개별 해제는 해당 품목만 제외한다');
+assert.deepEqual(toggleVisiblePricingProducts(new Set(), []), new Set(), '빈 선택/빈 표시 대상은 안전하게 처리한다');
+assert.deepEqual(toggleVisiblePricingProducts(new Set([99]), products), new Set([99, 11, 22, 33]));
+assert.deepEqual(toggleVisiblePricingProducts(new Set([99, 11, 22, 33]), products), new Set([99]), '필터 밖 선택은 전체 해제에도 유지한다');
+assert.deepEqual(allProductKeys, new Set([11, 22, 33]), '개별 해제가 원래 Set을 변경하지 않는다');
+assert.deepEqual(filterPricingProducts(products, 'white').map(p => p.ProdKey), [22]);
+const deselected = new Set([11, 33]);
+assert.deepEqual(visiblePricingProducts(products, deselected, { search: '콜롬비아' }).map(p => p.ProdKey), [11, 33]);
+assert.deepEqual(visiblePricingProducts(products, new Set(), {}).map(p => p.ProdKey), [], '선택 품목이 없으면 bulk 대상도 없다');
+assert.deepEqual(visiblePricingProducts(products, new Set([11, 22, 33]), { hideNoCost: true, hasCostMap: { 11: true, 22: false, 33: true } }).map(p => p.ProdKey), [11, 33]);
+assert.deepEqual(visiblePricingProducts(products, new Set([11, 22, 33]), { search: '콜롬비아', hideNoCost: true, hasCostMap: { 11: true, 22: true, 33: false } }).map(p => p.ProdKey), [11], '검색/단가숨김/선택의 교집합만 bulk 대상이다');
+
 // The SQL contract is the EXE-compatible read scope: active positive order
 // details joined through their order master plus active positive shipments,
 // aggregated per customer with KST calendar bounds.
@@ -66,5 +89,9 @@ const saveStart = pricingApi.indexOf('async function saveMatrix');
 assert.ok(saveStart >= 0, 'saveMatrix must remain present');
 const saveBody = pricingApi.slice(saveStart);
 assert.doesNotMatch(saveBody, /RECENT_CUSTOMER_SQL|filterPricingCustomers|toggleVisiblePricingCustomers/);
+const pricingPage = fs.readFileSync(new URL('../pages/master/pricing.js', import.meta.url), 'utf8');
+const bulkBody = pricingPage.slice(pricingPage.indexOf('const handleInlineBulk'), pricingPage.indexOf('// ── 품목별 단가'));
+assert.match(bulkBody, /sortedProducts\.forEach/);
+assert.doesNotMatch(bulkBody, /\bproducts\.forEach/);
 
 console.log('pricing customer selection tests passed');

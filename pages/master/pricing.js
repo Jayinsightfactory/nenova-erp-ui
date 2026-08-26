@@ -4,7 +4,14 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiGet, apiPut } from '../../lib/useApi';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
-import { filterPricingCustomers, toggleVisiblePricingCustomers } from '../../lib/pricingCustomerSelection';
+import {
+  filterPricingCustomers,
+  toggleVisiblePricingCustomers,
+  filterPricingProducts,
+  selectAllPricingProducts,
+  toggleVisiblePricingProducts,
+  visiblePricingProducts,
+} from '../../lib/pricingCustomerSelection';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const LS = key => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
@@ -109,6 +116,10 @@ export default function Pricing() {
   const [custSearch,   setCustSearch]   = useState('');
   const [showCustPanel, setShowCustPanel] = useState(false);
   const custPanelRef = useRef();
+  const productPanelRef = useRef();
+  const [selectedProductKeys, setSelectedProductKeys] = useState(new Set());
+  const [productPickerSearch, setProductPickerSearch] = useState('');
+  const [showProductPanel, setShowProductPanel] = useState(false);
 
   // ── 드롭다운 옵션
   const [counNames,   setCounNames]   = useState([]);
@@ -144,6 +155,14 @@ export default function Pricing() {
     const h = e => {
       if (custPanelRef.current && !custPanelRef.current.contains(e.target))
         setShowCustPanel(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  useEffect(() => {
+    const h = e => {
+      if (productPanelRef.current && !productPanelRef.current.contains(e.target)) setShowProductPanel(false);
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -198,6 +217,7 @@ export default function Pricing() {
             DefaultCost: r.Cost,
           }));
           setProducts(prods);
+          setSelectedProductKeys(selectAllPricingProducts(prods));
           const lc = {};
           const ck = [...selectedKeys][0];
           prods.forEach((p) => {
@@ -210,7 +230,9 @@ export default function Pricing() {
           setSearched(true);
           return;
         }
-        setProducts(d.products || []);
+        const loadedProducts = d.products || [];
+        setProducts(loadedProducts);
+        setSelectedProductKeys(selectAllPricingProducts(loadedProducts));
         setCosts(d.costs || {});
         const lc = {};
         for (const [key, val] of Object.entries(d.costs || {})) lc[key] = val.cost;
@@ -264,11 +286,11 @@ export default function Pricing() {
     const newLC = { ...localCosts };
     const newChg = new Set(changed);
     [...selectedKeys].forEach(ck => {
-      products.forEach(p => { const k = `${ck}_${p.ProdKey}`; newLC[k] = cost; newChg.add(k); });
+      sortedProducts.forEach(p => { const k = `${ck}_${p.ProdKey}`; newLC[k] = cost; newChg.add(k); });
     });
     setLocalCosts(newLC);
     setChanged(newChg);
-    setSuccessMsg(`✅ ${[...selectedKeys].length}개 업체 × ${products.length}개 품목 ${fmt(cost)}원 적용`);
+    setSuccessMsg(`✅ ${[...selectedKeys].length}개 업체 × ${sortedProducts.length}개 품목 ${fmt(cost)}원 적용`);
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
@@ -290,15 +312,16 @@ export default function Pricing() {
   // ── 품목 우선순위 정렬
   const sortedProducts = useMemo(() => {
     if (!searched || products.length === 0) return products;
-    let list = hideNoCost ? products.filter(p => hasCostMap[p.ProdKey]) : [...products];
+    let list = visiblePricingProducts(products, selectedProductKeys, { hideNoCost, hasCostMap });
     list = rankProductSearchOptions(prodSearch, list, { limit: list.length });
     if (sortByHasCost) list.sort((a, b) => (hasCostMap[a.ProdKey] ? 0 : 1) - (hasCostMap[b.ProdKey] ? 0 : 1));
     return list;
-  }, [products, hasCostMap, hideNoCost, sortByHasCost, searched, prodSearch]);
+  }, [products, selectedProductKeys, hasCostMap, hideNoCost, sortByHasCost, searched, prodSearch]);
 
   const selectedCustomers = allCustomers.filter(c => selectedKeys.has(c.CustKey));
 
   const filteredCusts = filterPricingCustomers(allCustomers, custSearch);
+  const filteredProducts = filterPricingProducts(products, productPickerSearch);
 
   const getCost = (custKey, prodKey) => {
     const key = `${custKey}_${prodKey}`;
@@ -418,6 +441,39 @@ export default function Pricing() {
           style={{ minWidth: 140 }}
         />
 
+        {/* 품목 선택 — 조회된 품목을 기본 전체 선택하고, 여기서 개별 제외 */}
+        {searched && <>
+          <span className="filter-label">품목 선택</span>
+          <div style={{ position: 'relative' }} ref={productPanelRef}>
+            <button
+              className="btn"
+              onClick={() => setShowProductPanel(v => !v)}
+              style={{ minWidth: 190, textAlign: 'left', fontWeight: 'normal', borderColor: selectedProductKeys.size < products.length ? 'var(--blue)' : undefined, background: selectedProductKeys.size < products.length ? '#EEF4FF' : undefined }}
+            >
+              {selectedProductKeys.size === 0 ? '품목 선택...' : `${selectedProductKeys.size}개 품목 선택됨`} ▼
+            </button>
+            {showProductPanel && <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 300, background: '#fff', border: '2px solid var(--border2)', width: 330, maxHeight: 340, display: 'flex', flexDirection: 'column', boxShadow: '2px 4px 12px rgba(0,0,0,0.2)', borderRadius: 4 }}>
+              <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 }}>
+                <input className="filter-input" placeholder="품목명 / 국가 / 품종 검색" value={productPickerSearch} onChange={e => setProductPickerSearch(e.target.value)} style={{ flex: 1, fontSize: 12 }} autoFocus />
+                <button className="btn btn-sm" onClick={() => setSelectedProductKeys(prev => toggleVisiblePricingProducts(prev, filteredProducts))}>
+                  {filteredProducts.length > 0 && filteredProducts.every(p => selectedProductKeys.has(p.ProdKey)) ? '전체 해제' : '전체 선택'}
+                </button>
+              </div>
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                {filteredProducts.map(p => {
+                  const checked = selectedProductKeys.has(p.ProdKey);
+                  return <label key={p.ProdKey} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #EEE', background: checked ? '#EEF4FF' : '#fff' }}>
+                    <input type="checkbox" checked={checked} onChange={() => setSelectedProductKeys(prev => toggleVisiblePricingProducts(prev, [p]))} />
+                    <span><strong>{p.ProdName}</strong><span style={{ color: 'var(--text3)', marginLeft: 6 }}>{p.CounName} · {p.FlowerName}</span></span>
+                  </label>;
+                })}
+                {filteredProducts.length === 0 && <div style={{ padding: 10, fontSize: 12, color: 'var(--text3)' }}>검색 결과 없음</div>}
+              </div>
+              <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg)', fontSize: 11, color: 'var(--text3)' }}>{productPickerSearch.trim() ? '검색 결과' : '조회 품목'} {filteredProducts.length}개 · {selectedProductKeys.size}개 선택 / 전체 {products.length}개 · 선택 변경은 미저장 단가를 유지합니다.</div>
+            </div>}
+          </div>
+        </>}
+
         <div className="page-actions">
           <button className="btn btn-primary" onClick={handleSearch}>🔍 조회</button>
           {searched && (
@@ -436,7 +492,7 @@ export default function Pricing() {
                 <button
                   className="btn"
                   onClick={handleInlineBulk}
-                  disabled={inlineCost === ''}
+                  disabled={inlineCost === '' || sortedProducts.length === 0}
                   style={{ whiteSpace: 'nowrap', background: '#FF8F00', color: '#fff', borderColor: '#FF8F00', fontSize: 11 }}
                 >
                   ✅ 단가 일괄 지정
@@ -504,7 +560,7 @@ export default function Pricing() {
           <div className="empty-state">
             <div className="empty-icon">🔍</div>
             <div className="empty-text">
-              {hideNoCost ? '단가가 설정된 품목이 없습니다' : '조건에 맞는 품목이 없습니다'}
+              {selectedProductKeys.size === 0 ? '품목을 선택하세요' : hideNoCost ? '단가가 설정된 품목이 없습니다' : '조건에 맞는 품목이 없습니다'}
             </div>
           </div>
         ) : (
