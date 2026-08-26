@@ -8,7 +8,7 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
-| [2026-08-26_estimate-directional-quantity](./2026-08-26_estimate-directional-quantity.md) | 증가만 부족재고 검사·기존 수량 확정 유지·변경 품목 재고 반영 | 로컬 구현·격리 SQL/화면 검사 완료, 운영 설치·배포 없음 |
+| [2026-08-26_estimate-directional-quantity](./2026-08-26_estimate-directional-quantity.md) | 증가만 부족재고 검사·기존 수량 확정 유지·변경 품목 재고 반영 | 배포 지시·통합 검사 완료, EXE/웹 저장 중지 확인 대기·미배포 |
 | [2026-08-26_estimate-category-buttons](./2026-08-26_estimate-category-buttons.md) | 수국만 확정취소·모든 재조회 업체 유지·검색 초안 분리·버튼 검사 | 로컬 수정·자동검사 완료, 후속 화면 클릭 미검증·미배포 |
 | [2026-08-26_pivot-display-export](./2026-08-26_pivot-display-export.md) | 차수 제목 대비·비고 토글·엑셀 수량 변경내역 | 로컬 검증 중 |
 | [2026-08-26_pricing-drag-select](./2026-08-26_pricing-drag-select.md) | 업체별 단가 셀 드래그·선택영역 일괄 적용 | 구현/검증 중 |
