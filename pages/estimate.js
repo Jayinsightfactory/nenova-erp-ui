@@ -3962,7 +3962,7 @@ export default function Estimate() {
                   style={{background:'#6a1b9a', color:'#fff', borderColor:'#4a148c', fontWeight:'bold'}}
                   disabled={costApplying || qtyApplying || estimateEditPresence.blocked}
                   onClick={applyAllEdits}
-                  title="수량·단가·추가 품목을 한 번의 확정해제/저장/재확정으로 처리. 기존 수량 변경이 없으면 재고 재계산을 생략합니다."
+                  title="단가만 바꾸면 확정 상태와 재고를 그대로 두고 저장합니다. 실제 수량 변경이나 추가 품목이 있을 때만 기존 확정취소·저장·재확정 절차를 진행합니다."
                 >
                   수정 저장 ({editedCount + editedQtyCount + pendingAdds.length})
                 </button>
@@ -3977,7 +3977,7 @@ export default function Estimate() {
                     title="수정한 단가를 어떻게 저장할지 선택"
                   >
                     <option value="once">① 1회성 (이 견적서만)</option>
-                    <option value="fixed">② 거래처 고정 (이후 모든 차수)</option>
+                    <option value="fixed">② 업체 품목 지정단가 함께 저장</option>
                     <option value="weekFav">③ 이 차수 즐겨찾기</option>
                   </select>
                   <button
