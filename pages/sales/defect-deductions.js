@@ -362,6 +362,7 @@ export default function SalesDefectDeductionsPage() {
         action: 'manual-cost-save', year: modal.year, week: modal.week,
         deductionKey: modal.row.deductionKey, cost: raw,
         expectedRowVersionNo: modal.row.rowVersionNo,
+        expectedEstimateUnit: modal.row.distributionCostUnit,
         custKey: modal.row.custKey, prodKey: modal.row.prodKey,
       });
       setManualCostModal(null); setManualCostValue('');

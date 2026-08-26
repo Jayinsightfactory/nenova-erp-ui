@@ -681,9 +681,9 @@ const fakeTransaction = async (callback, failInsert = false) => callback(async (
   if (sqlText.includes('INSERT INTO WebSalesDefectDeductionHistory') && failInsert) throw new Error('insert failed');
   return { recordset: [] };
 });
-const saved = await saveManualCost({ year: 2026, week: '34', deductionKey: 704, cost: '1500.1250', expectedRowVersionNo: 4, custKey: 77, prodKey: 88 }, fakeTransaction);
+const saved = await saveManualCost({ year: 2026, week: '34', deductionKey: 704, cost: '1500.1250', expectedRowVersionNo: 4, expectedEstimateUnit: '단', custKey: 77, prodKey: 88 }, fakeTransaction);
 assert.equal(saved.manualCost, 1500.125);
-await assert.rejects(() => saveManualCost({ year: 2026, week: '34', deductionKey: 704, cost: 1500, expectedRowVersionNo: 4, custKey: 77, prodKey: 88 }, (callback) => fakeTransaction(callback, true)), /insert failed/);
+await assert.rejects(() => saveManualCost({ year: 2026, week: '34', deductionKey: 704, cost: 1500, expectedRowVersionNo: 4, expectedEstimateUnit: '단', custKey: 77, prodKey: 88 }, (callback) => fakeTransaction(callback, true)), /insert failed/);
 
 // Execute the actual save with transactional staging; failed history insertion
 // must not leave an audit-version change committed either.
@@ -703,7 +703,7 @@ const stageCostTransaction = (fail = false, storedRow = txRow) => async (callbac
   committedCostWrites = staged;
   return result;
 };
-const savePayload = { year: 2026, week: 34, deductionKey: 704, cost: 1500, expectedRowVersionNo: 4, custKey: 77, prodKey: 88 };
+const savePayload = { year: 2026, week: 34, deductionKey: 704, cost: 1500, expectedRowVersionNo: 4, expectedEstimateUnit: '단', custKey: 77, prodKey: 88 };
 await assert.rejects(() => saveManualCost(savePayload, stageCostTransaction(true)), /rollback fixture/);
 assert.equal(committedCostWrites.length, 0);
 await saveManualCost(savePayload, stageCostTransaction());
@@ -715,7 +715,7 @@ const reloadedOverride = await getManualCostOverride({ row: txRow, targetYear: 2
 });
 assert.equal(applyManualCostContext({ cost: 0, shipmentKey: 88 }, reloadedOverride).cost, 1500);
 assert.equal(applyManualCostContext({ cost: 2200 }, { cost: null }).cost, 2200, '해제하면 자동단가를 유지한다.');
-for (const patch of [{ expectedRowVersionNo: 3 }, { custKey: 78 }, { prodKey: 89 }, { week: 29 }, { expectedRowVersionNo: undefined }]) {
+for (const patch of [{ expectedEstimateUnit: '송이' }, { expectedEstimateUnit: undefined }, { expectedRowVersionNo: 3 }, { custKey: 78 }, { prodKey: 89 }, { week: 29 }, { expectedRowVersionNo: undefined }]) {
   await assert.rejects(() => saveManualCost({ ...savePayload, ...patch }, stageCostTransaction()));
 }
 for (const patch of [{ Status: 'COMPLETED' }, { EstimateKey: 123 }, { RemainingQuantity: 0 }, { IsDeleted: 1 }]) {

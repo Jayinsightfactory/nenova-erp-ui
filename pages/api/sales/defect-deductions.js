@@ -107,6 +107,7 @@ async function handler(req, res) {
         const row = await saveManualCost({
           year, week, deductionKey: req.body?.deductionKey, cost: req.body?.cost,
           expectedRowVersionNo: req.body?.expectedRowVersionNo,
+          expectedEstimateUnit: req.body?.expectedEstimateUnit,
           custKey: req.body?.custKey, prodKey: req.body?.prodKey, user: req.user,
         });
         return res.status(200).json({ success: true, row });
