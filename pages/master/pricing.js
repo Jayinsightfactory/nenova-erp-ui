@@ -8,6 +8,7 @@ import {
   filterPricingCustomers,
   toggleVisiblePricingCustomers,
   filterPricingProducts,
+  selectRecentPricingProducts,
   selectAllPricingProducts,
   toggleVisiblePricingProducts,
   visiblePricingProducts,
@@ -215,9 +216,12 @@ export default function Pricing() {
             FlowerName: r.FlowerName,
             CounName: r.CounName,
             DefaultCost: r.Cost,
+            HasRecentTrade: r.HasRecentTrade,
+            LastTradeDtm: r.LastTradeDtm,
           }));
           setProducts(prods);
-          setSelectedProductKeys(selectAllPricingProducts(prods));
+          const parityMatches = rankProductSearchOptions(prodSearch, prods, { limit: prods.length });
+          setSelectedProductKeys(prodSearch.trim() ? selectAllPricingProducts(parityMatches) : selectRecentPricingProducts(prods));
           const lc = {};
           const ck = [...selectedKeys][0];
           prods.forEach((p) => {
@@ -232,7 +236,7 @@ export default function Pricing() {
         }
         const loadedProducts = d.products || [];
         setProducts(loadedProducts);
-        setSelectedProductKeys(selectAllPricingProducts(loadedProducts));
+        setSelectedProductKeys(prodSearch.trim() ? selectAllPricingProducts(loadedProducts) : selectRecentPricingProducts(loadedProducts));
         setCosts(d.costs || {});
         const lc = {};
         for (const [key, val] of Object.entries(d.costs || {})) lc[key] = val.cost;
@@ -321,7 +325,10 @@ export default function Pricing() {
   const selectedCustomers = allCustomers.filter(c => selectedKeys.has(c.CustKey));
 
   const filteredCusts = filterPricingCustomers(allCustomers, custSearch);
-  const filteredProducts = filterPricingProducts(products, productPickerSearch);
+  // With no picker search the picker is a recent-trade view. An explicit
+  // picker search intentionally exposes historical products too; selected
+  // historical rows remain in the matrix even after the search is cleared.
+  const filteredProducts = filterPricingProducts(products, productPickerSearch, { recentOnly: !productPickerSearch.trim() });
 
   const getCost = (custKey, prodKey) => {
     const key = `${custKey}_${prodKey}`;
@@ -441,7 +448,7 @@ export default function Pricing() {
           style={{ minWidth: 140 }}
         />
 
-        {/* 품목 선택 — 조회된 품목을 기본 전체 선택하고, 여기서 개별 제외 */}
+        {/* 품목 선택 — 최근 거래 품목을 기본 선택하고, 검색 시 전체 품목 노출 */}
         {searched && <>
           <span className="filter-label">품목 선택</span>
           <div style={{ position: 'relative' }} ref={productPanelRef}>
@@ -467,9 +474,9 @@ export default function Pricing() {
                     <span><strong>{p.ProdName}</strong><span style={{ color: 'var(--text3)', marginLeft: 6 }}>{p.CounName} · {p.FlowerName}</span></span>
                   </label>;
                 })}
-                {filteredProducts.length === 0 && <div style={{ padding: 10, fontSize: 12, color: 'var(--text3)' }}>검색 결과 없음</div>}
+                {filteredProducts.length === 0 && <div style={{ padding: 10, fontSize: 12, color: 'var(--text3)' }}>{productPickerSearch.trim() ? '검색 결과 없음' : '최근 90일 거래품목이 없습니다. 검색하면 전체 품목에서 선택할 수 있습니다.'}</div>}
               </div>
-              <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg)', fontSize: 11, color: 'var(--text3)' }}>{productPickerSearch.trim() ? '검색 결과' : '조회 품목'} {filteredProducts.length}개 · {selectedProductKeys.size}개 선택 / 전체 {products.length}개 · 선택 변경은 미저장 단가를 유지합니다.</div>
+              <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg)', fontSize: 11, color: 'var(--text3)' }}>{productPickerSearch.trim() ? '검색시 전체품목' : '최근 거래 90일'} {filteredProducts.length}개 · {selectedProductKeys.size}개 선택 / 전체 {products.length}개 · 선택 변경은 미저장 단가를 유지합니다.</div>
             </div>}
           </div>
         </>}

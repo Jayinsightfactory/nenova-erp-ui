@@ -34,3 +34,9 @@ ClassCustomerProdCost.Select 원문은 Product LEFT JOIN CustomerProdCost ON Pro
 ## 품목 선택 확장 (2026-08-26)
 
 동일 CLI 명령으로 FormCustomerProdCost의 GetData/btnModify_Click을 재확인했다. 품목 체크는 웹 전용 표시·일괄 단가 입력 대상 선택 기능이며 SQL과 API 저장 함수는 변경하지 않는다. 조회한 품목 전체를 초기 선택하고 사용자가 일부를 해제하면 표와 이후 일괄 단가 입력에서 제외한다. 선택 자체는 CustomerProdCost와 모든 ERP 원장을 보존한다. 이미 입력한 미저장 단가를 선택 해제로 삭제하지 않는다.
+
+## 품목 최근거래 기본 필터 (후속 요청)
+
+기본 초기선택/검색 전 후보를 최근90일 거래 품목으로 좁힌다. 명시 검색으로 선택한 과거 품목은 표에 유지한다. 최근 여부는 단가 유무가 아닌 전사 주문/출고 이력이며 사용자 요청에 따른 웹 표시 정책이다.
+
+위 CLI의 `-t ClassOrderDetail`, `-t ClassShipmentDetail`로 ProdKey/OutQuantity/OrderMasterKey/ShipmentKey 및 ShipmentDtm과 OrderDetail.isDeleted 필드를 재확인했다. 일반 GET과 EXE parity 응답 모두 같은 read-only 최근거래 메타데이터로 보강하며 `sqlCustomerProdCostSelect()` 원문과 저장 트랜잭션은 변경하지 않는다. 모든 기존 가격·주문·분배·재고·견적·매출 데이터는 보존한다.
