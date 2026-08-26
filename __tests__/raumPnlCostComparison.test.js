@@ -70,6 +70,19 @@ async function main() {
   assert.match(sql, /m\.PartnerCode\s*=\s*@pc/i, 'query must constrain partner');
   assert.match(sql, /ISNULL\(m\.isDeleted\s*,\s*0\)\s*=\s*0/i, 'query must exclude deleted masters');
 
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const preview = fs.readFileSync(path.join(__dirname, '../components/raum/RaumCostHistoryPreview.js'), 'utf8');
+  const page = fs.readFileSync(path.join(__dirname, '../pages/raum/pnl.js'), 'utf8');
+  assert.match(preview, /ref: anchorRef/, 'hover trigger must bind its real input ref');
+  assert.match(preview, /onMouseEnter: show/);
+  assert.match(preview, /onFocus: show/);
+  assert.match(preview, /role="tooltip"/);
+  assert.match(preview, /Escape/);
+  assert.match(preview, /createPortal/);
+  assert.doesNotMatch(preview, /\bfetch\s*\(/, 'hover reuses already scoped comparison data without additional requests');
+  assert.match(page, /valuesByWeek=\{costComparisonByIndex\[i\]\}/, 'hover and right-side table share the same item matrix');
+
   console.log('Raum P&L cost comparison tests passed');
 }
 

@@ -4,6 +4,7 @@
   "scope": [
     "pages/raum/pnl.js",
     "components/raum/RaumImageOrderPanel.js",
+    "components/raum/RaumCostHistoryPreview.js",
     "lib/raumPnlImage.js",
     "lib/orderImportMatch.js",
     "pages/api/raum/pnl.js",
@@ -46,6 +47,7 @@
     "description": "같은 라움 차수와 품목이 2025·2026에 있어도 주문등록과 결산 저장은 선택한 OrderYear를 유지한다."
   },
   "costComparison": {
+    "preview": "purchase-cost input hover/focus shows nearby viewport-clamped portal preview from the SAME costComparison matrix; Escape dismisses; no additional requests or writes; excluded from print",
     "source": "WebRaumPnlItem.CostPrice, not arrival reference price or WebRaumCostPrice latest learned value",
     "scope": "active WebRaumPnl, exact selected OrderYear and PartnerCode; latest MajorWeek first",
     "identity": "positive ProdKey + normalized Unit; if both rows lack ProdKey, exact whitespace-normalized ItemName + Unit; custom rows kept separate",
