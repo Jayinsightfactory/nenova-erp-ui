@@ -222,6 +222,7 @@
 - `WebSalesCarryoverApplication`은 이월 원장의 차수별 처리수량·`EstimateKey`·적용 출고키를 보존한다. 이월 등록/조회/잔여수량 갱신은 Order/Shipment/Stock 원장을 변경하지 않는다.
 
 **WebSalesDefectDeductionHistory** — 불량/검역 차감 변경 이력
+- `MANUAL_COST`의 AfterJson은 직접입력 단가와 원장키·적용연도/차수·업체·품목·단위 범위를 기록한다. 같은 범위의 최신 이벤트만 적용하며 null 단가는 직접입력 해제다. EstimateCost 및 ERP 원장은 이 저장에서 변경하지 않는다.
 - PK: `HistoryKey`, 업무 FK: `DeductionKey`
 - `CREATE`, `UPDATE`, `MATCH`, `INCOMING_CONFIRM`, `REGISTER_ESTIMATE`, `MANUAL_COMPLETE`, `DELETE`와 거래처명/품명/색상/수량/크레딧/농장/비고 변경 전후 JSON을 보존한다.
 - 담당자별 입력자·수정자를 기록하지만 조회 범위는 전체 담당자 공통이다.

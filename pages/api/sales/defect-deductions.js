@@ -22,6 +22,7 @@ import {
   saveDraftRows,
   saveManagerOption,
 } from '../../../lib/salesDefectDeductions.js';
+import { saveManualCost } from '../../../lib/salesDefectManualCost.js';
 import {
   canUseDefectIncoming,
   canUseDefectSales,
@@ -75,7 +76,7 @@ async function handler(req, res) {
         history: req.query.history === '1',
         includeCarryover: String(req.query.view || '') === 'support',
         // 영업지원은 수입부 미확정 행도 업무 대기 목록에서 확인한다.
-        // 실제 견적 등록은 공통 preflight/write의 ImportConfirmed 가드가 계속 차단한다.
+        // 등록은 업체 분배·단가·잔여수량·중복 여부를 공통 경로에서 검증한다.
         importConfirmedOnly: false,
         carryoverOnly,
       });
@@ -100,6 +101,16 @@ async function handler(req, res) {
       const year = normalizeYear(req.body?.year);
       const week = normalizeParentWeek(req.body?.week);
       if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
+
+      if (action === 'manual-cost-save') {
+        if (!canUseDefectSupport(req.user)) return res.status(403).json({ success: false, error: '영업지원 전산등록 권한이 필요합니다.' });
+        const row = await saveManualCost({
+          year, week, deductionKey: req.body?.deductionKey, cost: req.body?.cost,
+          expectedRowVersionNo: req.body?.expectedRowVersionNo,
+          custKey: req.body?.custKey, prodKey: req.body?.prodKey, user: req.user,
+        });
+        return res.status(200).json({ success: true, row });
+      }
 
       if (action === 'save') {
         if (!canUseDefectSales(req.user)) {

@@ -33,6 +33,7 @@ import { matchImportRows, buildProductMappingStats, buildProductSuggestions } fr
 import { rankProductSearchOptions } from '../lib/productSearchRanking.js';
 import { resolveImportCustomer } from '../lib/orderImportCustomerMatch.js';
 import { matchSalesDefectRows } from '../lib/salesDefectDeductions.js';
+import { applyManualCostContext, getManualCostOverride, saveManualCost, canEditManualCost, validateManualCost } from '../lib/salesDefectManualCost.js';
 
 assert.equal(normalizeParentWeek('29-02'), 29);
 assert.equal(normalizeParentWeek('29'), 29);
@@ -633,4 +634,91 @@ assert.equal(new URL(buildEstimateCustomerUrl({
 assert.equal(new URL(buildEstimateCustomerUrl({ year: 2025, week: 33, custKey: 77 }), 'https://nenova.test').searchParams.get('year'), '2025', '같은 33차라도 2025년 선택이면 2025 견적서를 열어야 한다.');
 assert.equal(buildEstimateCustomerUrl({ year: 2026, week: 33, custKey: 0 }), '', '거래처 키가 없으면 견적서 링크를 만들지 않아야 한다.');
 
+// Explicit manual cost wins over automatic lookup, but only within the complete
+// year/week/customer/product/unit scope. History is mocked; this test performs no DB writes.
+const costRow = { DeductionKey: 701, CustKey: 77, ProdKey: 88, SourceUnit: '단' };
+const scopedEvent = (cost, extra = {}) => ({
+  kind: 'MANUAL_COST', targetYear: 2026, targetWeek: '33', deductionKey: 701,
+  custKey: 77, prodKey: 88, sourceUnit: '단', estimateUnit: '단', cost, cleared: cost == null, ...extra,
+});
+const resolveCost = (events, scope = {}) => getManualCostOverride({
+  row: costRow, targetYear: scope.year ?? 2026, targetWeek: scope.week ?? '33',
+  estimateUnit: '단', q: async () => ({ recordset: events.map((event, index) => ({ HistoryKey: 900 - index, AfterJson: JSON.stringify(event) })) }),
+});
+const explicit = await resolveCost([scopedEvent(1450)]);
+const applied = applyManualCostContext({ cost: 0, costSource: 'Automatic', quantity: 3 }, explicit);
+assert.equal(applied.cost, 1450);
+assert.equal(applied.cost * applied.quantity, 4350);
+assert.equal(await resolveCost([scopedEvent(1450, { targetYear: 2025 })]), null);
+assert.equal(await resolveCost([scopedEvent(1450, { targetWeek: '34' })]), null);
+assert.equal(await resolveCost([scopedEvent(1450, { custKey: 78 })]), null);
+assert.equal(await resolveCost([scopedEvent(1450, { prodKey: 89 })]), null);
+assert.equal(await resolveCost([scopedEvent(1450, { sourceUnit: '박스' })]), null);
+assert.equal((await resolveCost([scopedEvent(null), scopedEvent(1450)])).cost, null, 'clear 최신 이벤트는 예전 단가를 되살리지 않아야 한다.');
+const manualCostSource = fs.readFileSync('lib/salesDefectManualCost.js', 'utf8');
+assert.match(defectApiSource, /manual-cost|MANUAL_COST/, '수동단가 API는 MANUAL_COST history 저장 경로를 사용해야 한다.');
+assert.match(pageSource, /manualCost|distributionCost/, '목록 화면은 수동단가를 표시해야 한다.');
+assert.match(supportReviewSource, /Cost|단가/, '사전검토 화면은 수동단가를 사용해야 한다.');
+assert.match(deductionSource, /getManualCostOverride[\s\S]*applyManualCostContext/, '공통 수동단가 helper wiring을 사용해야 한다.');
+assert.match(manualCostSource, /EstimateKey/, '완료·견적 연결 행은 수동단가를 수정할 수 없어야 한다.');
+assert.match(manualCostSource, /RemainingQuantity|잔여수량/, '잔여수량 0인 행은 수동단가를 수정할 수 없어야 한다.');
+
+assert.match(deductionSource, /getManualCostOverride[\s\S]{0,180}deductionKey/, '서로 다른 차감행의 같은 업체·품목이 수동단가 cache를 공유하면 안 된다.');
+const source30Row = { DeductionKey: 702, CustKey: 77, ProdKey: 88, SourceUnit: '단', OrderYear: 2026, OrderWeek: '30' };
+const source30Event = { ...scopedEvent(1500), deductionKey: 702, targetWeek: '34' };
+assert.equal((await getManualCostOverride({ row: source30Row, targetYear: 2026, targetWeek: '34', estimateUnit: '단', q: async () => ({ recordset: [{ HistoryKey: 901, AfterJson: JSON.stringify(source30Event) }] }) })).cost, 1500, '원차수 30차 행은 적용 대상 34차에서도 수동단가를 유지해야 한다.');
+const crossYearEvent = { ...source30Event, targetYear: 2026, targetWeek: '1' };
+assert.equal((await getManualCostOverride({ row: { ...source30Row, OrderYear: 2025, OrderWeek: '52' }, targetYear: 2026, targetWeek: '1', estimateUnit: '단', q: async () => ({ recordset: [{ HistoryKey: 902, AfterJson: JSON.stringify(crossYearEvent) }] }) })).cost, 1500, '2025 원차수에서 2026 적용 차수로 넘어간 수동단가를 허용해야 한다.');
+assert.equal(canEditManualCost({ DeductionKey: 702, CustKey: 77, ProdKey: 88, Quantity: 1, RemainingQuantity: 1, Status: 'DRAFT' }), true);
+assert.equal(canEditManualCost({ DeductionKey: 703, CustKey: 77, ProdKey: 88, Quantity: 1, RemainingQuantity: 0, Status: 'DRAFT' }), false);
+for (const bad of [undefined, '', 0, false, -1, NaN, '1.23456']) assert.throws(() => validateManualCost(bad), /단가/);
+
+const txRow = { ...source30Row, DeductionKey: 704, OrderWeek: '30', Quantity: 2, RemainingQuantity: 2, Status: 'DRAFT', EstimateKey: null, RowVersionNo: 4, IsDeleted: 0 };
+const fakeTransaction = async (callback, failInsert = false) => callback(async (sqlText) => {
+  if (sqlText.includes('SELECT * FROM WebSalesDefectDeduction')) return { recordset: [txRow] };
+  if (sqlText.includes('SELECT TOP 1 EstUnit')) return { recordset: [{ EstUnit: '단' }] };
+  if (sqlText.includes('FROM WebSalesDefectDeductionHistory')) return { recordset: [] };
+  if (sqlText.includes('INSERT INTO WebSalesDefectDeductionHistory') && failInsert) throw new Error('insert failed');
+  return { recordset: [] };
+});
+const saved = await saveManualCost({ year: 2026, week: '34', deductionKey: 704, cost: '1500.1250', expectedRowVersionNo: 4, custKey: 77, prodKey: 88 }, fakeTransaction);
+assert.equal(saved.manualCost, 1500.125);
+await assert.rejects(() => saveManualCost({ year: 2026, week: '34', deductionKey: 704, cost: 1500, expectedRowVersionNo: 4, custKey: 77, prodKey: 88 }, (callback) => fakeTransaction(callback, true)), /insert failed/);
+
+// Execute the actual save with transactional staging; failed history insertion
+// must not leave an audit-version change committed either.
+let committedCostWrites = [];
+const stageCostTransaction = (fail = false, storedRow = txRow) => async (callback) => {
+  const staged = [];
+  const result = await callback(async (sqlText, params) => {
+    if (sqlText.includes('SELECT * FROM WebSalesDefectDeduction')) return { recordset: [storedRow] };
+    if (sqlText.includes('SELECT TOP 1 EstUnit')) return { recordset: [{ EstUnit: '단' }] };
+    if (sqlText.includes('FROM WebSalesDefectDeductionHistory')) return { recordset: [] };
+    if (/^UPDATE|^INSERT/.test(sqlText.trim())) {
+      if (fail && sqlText.includes('INSERT')) throw new Error('rollback fixture');
+      staged.push({ sqlText, params });
+    }
+    return { recordset: [] };
+  });
+  committedCostWrites = staged;
+  return result;
+};
+const savePayload = { year: 2026, week: 34, deductionKey: 704, cost: 1500, expectedRowVersionNo: 4, custKey: 77, prodKey: 88 };
+await assert.rejects(() => saveManualCost(savePayload, stageCostTransaction(true)), /rollback fixture/);
+assert.equal(committedCostWrites.length, 0);
+await saveManualCost(savePayload, stageCostTransaction());
+assert.equal(committedCostWrites.length, 2);
+assert.doesNotMatch(committedCostWrites[0].sqlText, /EstimateCost|Quantity|ImportConfirmed|UpdatedBy|CustKey\s*=|ProdKey\s*=/);
+const savedPayload = JSON.parse(committedCostWrites[1].params.after.value);
+const reloadedOverride = await getManualCostOverride({ row: txRow, targetYear: 2026, targetWeek: 34, estimateUnit: '단',
+  q: async () => ({ recordset: [{ HistoryKey: 1000, AfterJson: JSON.stringify(savedPayload) }] }),
+});
+assert.equal(applyManualCostContext({ cost: 0, shipmentKey: 88 }, reloadedOverride).cost, 1500);
+assert.equal(applyManualCostContext({ cost: 2200 }, { cost: null }).cost, 2200, '해제하면 자동단가를 유지한다.');
+for (const patch of [{ expectedRowVersionNo: 3 }, { custKey: 78 }, { prodKey: 89 }, { week: 29 }, { expectedRowVersionNo: undefined }]) {
+  await assert.rejects(() => saveManualCost({ ...savePayload, ...patch }, stageCostTransaction()));
+}
+for (const patch of [{ Status: 'COMPLETED' }, { EstimateKey: 123 }, { RemainingQuantity: 0 }, { IsDeleted: 1 }]) {
+  await assert.rejects(() => saveManualCost(savePayload, stageCostTransaction(false, { ...txRow, ...patch })));
+}
 console.log('sales defect deduction tests passed');

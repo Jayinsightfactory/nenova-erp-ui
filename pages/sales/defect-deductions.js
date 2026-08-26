@@ -156,6 +156,9 @@ export default function SalesDefectDeductionsPage() {
   const [supportRows, setSupportRows] = useState([]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
+  const [manualCostModal, setManualCostModal] = useState(null);
+  const [manualCostValue, setManualCostValue] = useState('');
+  const [manualCostSaving, setManualCostSaving] = useState(false);
   const [estimatePreview, setEstimatePreview] = useState(null);
   const [incomingLoading, setIncomingLoading] = useState(false);
   const [incomingSaving, setIncomingSaving] = useState(false);
@@ -182,8 +185,12 @@ export default function SalesDefectDeductionsPage() {
   const searchTimer = useRef(null);
   const preflightTimer = useRef(null);
   const lookupPanelRef = useRef(null);
+  const manualCostInputRef = useRef(null);
+  const manualCostSavingRef = useRef(false);
   const lookupRequestSeq = useRef(0);
   const salesLoadRequestSeq = useRef(0);
+  const supportLoadRequestSeq = useRef(0);
+  const viewContextRef = useRef({ year, week, activeTab });
   const savedRowSignaturesRef = useRef(new Map());
 
   const replaceSavedRowSignatures = useCallback((sourceRows = []) => {
@@ -209,6 +216,27 @@ export default function SalesDefectDeductionsPage() {
     if (!(key > 0)) return salesRowHasInput(row) ? '미저장' : '초기화됨';
     return savedRowSignaturesRef.current.get(key) === salesRowSignature(row) ? '저장 완료' : '저장 안 됨';
   };
+
+  useEffect(() => {
+    viewContextRef.current = { year, week, activeTab };
+  }, [year, week, activeTab]);
+
+  useEffect(() => {
+    setManualCostModal(null);
+    setManualCostValue('');
+  }, [year, week]);
+
+  useEffect(() => {
+    if (!manualCostModal) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape' && !manualCostSaving) {
+        event.preventDefault(); setManualCostModal(null); setManualCostValue('');
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    const timer = window.setTimeout(() => manualCostInputRef.current?.focus(), 0);
+    return () => { document.removeEventListener('keydown', onKeyDown); window.clearTimeout(timer); };
+  }, [manualCostModal, manualCostSaving]);
 
   useEffect(() => {
     apiGet('/api/auth/me').then((data) => {
@@ -272,32 +300,87 @@ export default function SalesDefectDeductionsPage() {
 
   const loadSupport = useCallback(async () => {
     if (!year || !week) return;
+    const requestSeq = ++supportLoadRequestSeq.current;
     setSupportLoading(true);
     setError('');
     try {
       const data = await apiGet('/api/sales/defect-deductions', {
         year, week, view: 'support', history: '1', manager: '',
       });
+      if (requestSeq !== supportLoadRequestSeq.current) return data;
       setSupportRows(data.rows || []);
       setSupportSelected(new Set());
       setHistory(data.history || []);
       return data;
     } catch (e) {
-      setError(e.message);
+      if (requestSeq === supportLoadRequestSeq.current) setError(e.message);
     } finally {
-      setSupportLoading(false);
+      if (requestSeq === supportLoadRequestSeq.current) setSupportLoading(false);
     }
   }, [year, week]);
 
   const loadCarryover = useCallback(async () => {
+    const requestSeq = ++supportLoadRequestSeq.current;
     setSupportLoading(true); setError('');
     try {
       const data = await apiGet('/api/sales/defect-deductions', { year, week, view: 'carryover', history: '1', manager: '' });
+      if (requestSeq !== supportLoadRequestSeq.current) return data;
       setSupportRows(data.rows || []); setSupportSelected(new Set()); setHistory(data.history || []);
       return data;
-    } catch (e) { setError(e.message); }
-    finally { setSupportLoading(false); }
+    } catch (e) { if (requestSeq === supportLoadRequestSeq.current) setError(e.message); }
+    finally { if (requestSeq === supportLoadRequestSeq.current) setSupportLoading(false); }
   }, [year, week]);
+
+  const openManualCost = useCallback((row) => {
+    if (!row?.manualCostEditable || !(Number(row.deductionKey) > 0)) return;
+    const existing = Number(row.manualCost);
+    setError('');
+    setManualCostValue(existing > 0 ? String(existing) : '');
+    setManualCostModal({
+      row,
+      year: String(year),
+      week: String(week),
+      hasExisting: existing > 0,
+    });
+  }, [year, week]);
+
+  const saveManualCost = useCallback(async (clear = false) => {
+    const modal = manualCostModal;
+    if (!modal || manualCostSaving || manualCostSavingRef.current) return;
+    const raw = clear ? null : String(manualCostValue).trim();
+    if (!clear) {
+      if (!raw) { setError('불량차감 단가를 입력하세요.'); return; }
+      if (!/^\d+(?:\.\d{1,4})?$/.test(raw) || !(Number(raw) > 0) || Number(raw) > 9999999999.9999) {
+        setError('단가는 0보다 큰 숫자이며 소수점 이하 4자리까지 입력할 수 있습니다.');
+        return;
+      }
+    }
+    manualCostSavingRef.current = true;
+    setManualCostSaving(true); setError(''); setMessage('');
+    try {
+      await apiPost('/api/sales/defect-deductions', {
+        action: 'manual-cost-save', year: modal.year, week: modal.week,
+        deductionKey: modal.row.deductionKey, cost: raw,
+        expectedRowVersionNo: modal.row.rowVersionNo,
+        custKey: modal.row.custKey, prodKey: modal.row.prodKey,
+      });
+      setManualCostModal(null); setManualCostValue('');
+      const current = viewContextRef.current;
+      let refreshed = true;
+      if (String(current.year) === String(modal.year) && String(current.week) === String(modal.week)) {
+        if (current.activeTab === 'support') refreshed = Boolean(await loadSupport());
+        else if (current.activeTab === 'carryover') refreshed = Boolean(await loadCarryover());
+      }
+      setMessage(clear
+        ? (refreshed ? '수동단가를 삭제하고 자동 분배단가로 되돌렸습니다.' : '수동단가는 저장했지만 목록을 새로고침하지 못했습니다.')
+        : (refreshed ? '수동단가를 저장했습니다. 등록 가능 여부를 다시 확인했습니다.' : '수동단가는 저장했지만 목록을 새로고침하지 못했습니다.'));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      manualCostSavingRef.current = false;
+      setManualCostSaving(false);
+    }
+  }, [manualCostModal, manualCostSaving, manualCostValue, loadCarryover, loadSupport]);
 
   useEffect(() => {
     if (activeTab === 'support') loadSupport();
@@ -1476,7 +1559,10 @@ export default function SalesDefectDeductionsPage() {
                 <td>{row.productName || '-'}</td>
                 <td><span className="defect-product-match">{[row.countryName, row.matchedProductDbName || row.matchedProductName || row.colorName].filter(Boolean).join(' · ') || row.colorName || '-'}</span></td>
                 <td>{activeTab === 'carryover' ? `${fmt(row.originalQuantity)} / ${fmt(row.remainingQuantity)}${row.sourceUnit || ''}` : printQuantity(row)}</td>
-                <td className="support-cost-cell">{row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}</td>
+                <td className="support-cost-cell">
+                  {row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}
+                  {activeTab === 'support' && row.manualCostEditable && (row.manualCost || !row.distributionCost) && <button type="button" className="btn btn-xs support-manual-cost-button" onClick={() => openManualCost(row)} disabled={supportLoading || manualCostSaving}>{row.manualCost ? '수정' : '단가 직접입력'}</button>}
+                </td>
                 <td>{row.farmName || '-'}</td>
                 <td>
                   <div>{row.importConfirmed ? `확정 · ${row.importConfirmedByName || row.importConfirmedBy || '-'}` : '미확정 · 수입부 확인 필요'}</div>
@@ -1788,6 +1874,7 @@ export default function SalesDefectDeductionsPage() {
         .support-cost-cell strong { font-variant-numeric: tabular-nums; }
         .support-cost-cell small { display: block; margin-top: 1px; color: #64748b; font-size: 10px; }
         .support-cost-missing { color: #b45309; font-size: 11px; }
+        .support-manual-cost-button { display: block; margin-top: 4px; }
         .support-selected-row { background: #ecfdf5; }
         .support-existing-row { background: #fff7ed; }
         .support-existing-status { color: #b45309; font-weight: 800; }
@@ -1813,6 +1900,20 @@ export default function SalesDefectDeductionsPage() {
         .support-estimate-preview-empty { padding: 28px 18px; color: #475569; text-align: center; }
         .support-estimate-preview-empty strong { display: block; color: #92400e; font-size: 14px; }
         .support-estimate-preview-empty p { margin: 8px 0 0; font-size: 12px; }
+        .support-manual-cost-modal { position: fixed; z-index: 2147483002; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .42); }
+        .support-manual-cost-card { width: min(500px, 100%); border: 1px solid #0f766e; border-radius: 8px; background: #fff; box-shadow: 0 18px 48px rgba(15, 23, 42, .32); }
+        .support-manual-cost-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid #99f6e4; background: #f0fdfa; }
+        .support-manual-cost-head strong, .support-manual-cost-head span { display: block; }
+        .support-manual-cost-head strong { color: #115e59; font-size: 14px; }
+        .support-manual-cost-head span { margin-top: 2px; color: #64748b; font-size: 11px; }
+        .support-manual-cost-body { padding: 14px; }
+        .support-manual-cost-summary { display: grid; gap: 6px; margin: 0 0 14px; }
+        .support-manual-cost-summary div { display: grid; grid-template-columns: 88px 1fr; gap: 8px; font-size: 13px; }
+        .support-manual-cost-summary dt { color: #64748b; font-weight: 700; }
+        .support-manual-cost-summary dd { margin: 0; color: #0f172a; overflow-wrap: anywhere; }
+        .support-manual-cost-label { display: block; margin-bottom: 5px; color: #0f172a; font-weight: 700; font-size: 13px; }
+        .support-manual-cost-help { margin-top: 4px; color: #64748b; font-size: 11px; }
+        .support-manual-cost-actions { display: flex; align-items: center; gap: 6px; padding: 10px 13px; border-top: 1px solid #e2e8f0; }
         .defect-grid-card { padding: 0; overflow: visible; position: relative; min-height: 0; }
         .sales-review-alert { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border-bottom: 1px solid #fecaca; background: #fef2f2; color: #991b1b; font-size: 12px; }
         .sales-review-alert span { color: #b91c1c; }
@@ -1918,6 +2019,34 @@ export default function SalesDefectDeductionsPage() {
           .print-table th { background: #c69700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
+      {manualCostModal && (
+        <div className="support-manual-cost-modal" role="presentation" onMouseDown={() => { if (!manualCostSaving) { setManualCostModal(null); setManualCostValue(''); } }}>
+          <section className="support-manual-cost-card" role="dialog" aria-modal="true" aria-labelledby="support-manual-cost-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="support-manual-cost-head">
+              <div><strong id="support-manual-cost-title">불량차감 단가 직접입력</strong><span>{manualCostModal.year}년 {manualCostModal.week}차 · 웹 수동단가만 저장</span></div>
+              <button type="button" className="btn btn-xs" onClick={() => { setManualCostModal(null); setManualCostValue(''); }} disabled={manualCostSaving}>닫기</button>
+            </div>
+            <div className="support-manual-cost-body">
+              <dl className="support-manual-cost-summary">
+                <div><dt>거래처</dt><dd>{manualCostModal.row.customerName || '-'}{manualCostModal.row.custKey ? ` (#${manualCostModal.row.custKey})` : ''}</dd></div>
+                <div><dt>품목</dt><dd>{manualCostModal.row.matchedProductDbName || manualCostModal.row.matchedProductName || manualCostModal.row.colorName || manualCostModal.row.productName || '-'}{manualCostModal.row.prodKey ? ` (#${manualCostModal.row.prodKey})` : ''}</dd></div>
+                <div><dt>수량 / 단위</dt><dd>{printQuantity(manualCostModal.row) || '-'} / {manualCostModal.row.sourceUnit || manualCostModal.row.unit || '-'}</dd></div>
+                <div><dt>단가 기준</dt><dd>전산 견적 단위 {manualCostModal.row.distributionCostUnit || '-'}당 금액</dd></div>
+              </dl>
+              <label className="support-manual-cost-label" htmlFor="support-manual-cost-input">불량차감 단가(부가세 포함, 원)</label>
+              <input ref={manualCostInputRef} id="support-manual-cost-input" className="input" inputMode="decimal" type="text" value={manualCostValue} onChange={(event) => setManualCostValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); saveManualCost(false); } }} placeholder="예: 12000 또는 12000.5000" disabled={manualCostSaving} aria-describedby="support-manual-cost-help" />
+              <div id="support-manual-cost-help" className="support-manual-cost-help">0보다 큰 숫자, 소수점 이하 최대 4자리</div>
+              {error && <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{error}</p>}
+            </div>
+            <div className="support-manual-cost-actions">
+              {manualCostModal.hasExisting && <button type="button" className="btn" onClick={() => saveManualCost(true)} disabled={manualCostSaving}>{manualCostSaving ? '저장중…' : '자동 단가로 돌아가기'}</button>}
+              <span style={{ flex: 1 }} />
+              <button type="button" className="btn" onClick={() => { setManualCostModal(null); setManualCostValue(''); }} disabled={manualCostSaving}>취소</button>
+              <button type="button" className="btn btn-primary" onClick={() => saveManualCost(false)} disabled={manualCostSaving}>{manualCostSaving ? '저장중…' : '저장'}</button>
+            </div>
+          </section>
+        </div>
+      )}
       {estimatePreview && (
         <div className="support-estimate-preview-modal" role="presentation" onMouseDown={() => setEstimatePreview(null)}>
           <section className="support-estimate-preview-card" role="dialog" aria-modal="true" aria-labelledby="support-estimate-preview-title" onMouseDown={(event) => event.stopPropagation()}>

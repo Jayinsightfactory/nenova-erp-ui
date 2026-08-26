@@ -188,7 +188,12 @@ decompile 원본은 `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateAdd.cs`�
 영업수입불량차감 웹 등록 규칙도 이 계약을 그대로 따른다. 예를 들어 29차를 등록할 때
 단가는 28차 같은 연도·거래처·품목의 `ShipmentDate.Cost`를 우선하고, 없으면
 `ShipmentDetail.Cost`를 사용한다. `CustomerProdCost`나 `Product.Cost`로 임의 대체하지
-않으며, 이전 차수 분배 단가가 없으면 등록 전에 오류로 알린다.
+않는다. 이전 차수 분배 단가가 없으면 영업지원에서 단가를 직접 입력·저장할 수 있다.
+2026-08-26 decompile 원문 재확인: `FormEstimateAdd.CheckValue`는 speCost 0을 거부하고,
+`btnSave_Click`은 입력한 speCost를 `ClassEstimate.Cost`로 전달한다. `ClassEstimate.Insert`
+는 그 값을 Estimate에 저장하며 주문·출고·재고 단가를 변경하지 않는다.
+웹 직접입력 값은 원장키·적용연도/차수·업체·품목·단위가 일치할 때만 적용하고,
+목록/미리보기/사전검증/저장 트랜잭션이 동일 단가 선택 helper를 사용한다.
 
 `FormEstimateAdd`가 받는 적용 출고는 `ShipmentMaster`만으로 판단하지 않는다. 웹은 같은
 연도·적용 부모차수·거래처의 활성 `ShipmentMaster + ShipmentDetail + ShipmentDate +
