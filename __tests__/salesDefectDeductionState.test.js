@@ -13,6 +13,7 @@ import {
   runIsolatedRegistrationTransaction,
   shouldResetIncomingConfirmation,
 } from '../lib/salesDefectDeductionState.js';
+import { applyManualCostContext, getManualCostOverride, saveManualCost, validateManualCost } from '../lib/salesDefectManualCost.js';
 
 assert.equal(shouldResetIncomingConfirmation(
   { custKey: 10, prodKey: 20, quantity: 4, sourceUnit: '단', creditApplied: true, farmName: 'Farm A', note: '확인' },
@@ -321,5 +322,46 @@ assert.match(explainDefectLedgerRegisterMiss({
 assert.match(explainDefectLedgerRegisterMiss({
   DeductionKey: 147, EstimateKey: null, ImportConfirmed: 1, IsCarryoverLedger: 1, RemainingQuantity: 1, IsDeleted: 0,
 }, { key: 147, estimateKey: 9001, applyQuantity: 5 }), /잔여수량/);
+
+// 수동 분배단가는 차감 원장 키뿐 아니라 적용 연도·차수·업체·품목·단위를
+// 모두 묶어야 한다. DB를 건드리지 않고 history 조회 helper를 가짜 query로 검증한다.
+const manualCostRow = {
+  DeductionKey: 601, OrderYear: 2026, OrderWeek: '33', CustKey: 10, ProdKey: 20, SourceUnit: '단',
+  Quantity: 2, Status: 'DRAFT', EstimateKey: null, RemainingQuantity: 2,
+};
+const manualEvent = (cost, extra = {}) => ({
+  kind: 'MANUAL_COST', targetYear: 2026, targetWeek: '33', deductionKey: 601,
+  custKey: 10, prodKey: 20, sourceUnit: '단', estimateUnit: '단', cost, cleared: cost == null, ...extra,
+});
+const overrideFrom = async (events, scope = {}) => getManualCostOverride({
+  row: manualCostRow, targetYear: scope.year ?? 2026, targetWeek: scope.week ?? '33',
+  estimateUnit: '단', q: async () => ({ recordset: events.map((payload, i) => ({ HistoryKey: 700 - i, AfterJson: JSON.stringify(payload) })) }),
+});
+const savedCost = await overrideFrom([manualEvent(1250)]);
+const savedContext = applyManualCostContext({ shipmentKey: 8801, cost: 0, costSource: 'Automatic', quantity: 2 }, savedCost);
+assert.equal(savedContext.cost, 1250, '자동 단가가 없어도 저장된 양수 수동단가로 등록 가능해야 한다.');
+assert.equal(evaluateDefectRegistrationEligibility({ row: manualCostRow, context: savedContext }).eligible, true);
+assert.equal(savedContext.cost * savedContext.quantity, 2500, '수동단가는 등록 금액 계산의 단가로 사용되어야 한다.');
+for (const invalid of [0, -1, 'NaN', NaN]) {
+  assert.ok(!(Number((await overrideFrom([manualEvent(invalid)]))?.cost) > 0), '유효하지 않은 history 단가는 등록 가능 단가로 사용하면 안 된다.');
+}
+for (const invalid of ['', 0, -1, 'NaN', NaN]) {
+  await assert.rejects(() => saveManualCost({ year: 2026, week: '33', deductionKey: 601, cost: invalid, expectedRowVersionNo: 1 }), /단가/);
+}
+assert.equal(validateManualCost('1200.1250'), 1200.125);
+assert.equal(await overrideFrom([manualEvent(999, { targetYear: 2025 })]), null, '다른 연도 history는 무시해야 한다.');
+assert.equal(await overrideFrom([manualEvent(999, { targetWeek: '34' })]), null, '다른 차수 history는 무시해야 한다.');
+assert.equal(await overrideFrom([manualEvent(999, { custKey: 11 })]), null, '다른 업체 history는 무시해야 한다.');
+assert.equal(await overrideFrom([manualEvent(999, { prodKey: 21 })]), null, '다른 품목 history는 무시해야 한다.');
+assert.equal(await overrideFrom([manualEvent(999, { sourceUnit: '박스' })]), null, '다른 단위 history는 무시해야 한다.');
+assert.equal(await overrideFrom([{ ...manualEvent(999), deductionKey: 602 }]), null, '다른 원장 행 history는 무시해야 한다.');
+assert.equal((await overrideFrom([manualEvent(null), manualEvent(1250)])).cost, null, '최신 clear 이벤트가 과거 단가를 부활시키면 안 된다.');
+assert.equal(applyManualCostContext({ cost: 2200 }, savedCost).cost, 1250, '저장 단가가 자동 단가보다 우선해야 한다.');
+
+assert.match(deductionServiceSource, /getManualCostOverride/, '목록 조회는 수동단가 history helper를 사용해야 한다.');
+assert.match(deductionServiceSource, /applyManualCostContext/, '목록·사전검증은 공통 수동단가 context를 사용해야 한다.');
+assert.match(reviewPageSource, /Cost|단가/, '미리보기는 단가를 표시해야 한다.');
+assert.match(fs.readFileSync('pages/api/sales/defect-deductions.js', 'utf8'), /saveManualCost/, '저장은 기존 history 기반 MANUAL_COST 이벤트를 사용해야 한다.');
+assert.match(deductionServiceSource, /remainingQuantity|RemainingQuantity/, '잔여수량 0 행은 수동단가 저장 대상에서 제외해야 한다.');
 
 console.log('salesDefectDeductionState tests passed');
