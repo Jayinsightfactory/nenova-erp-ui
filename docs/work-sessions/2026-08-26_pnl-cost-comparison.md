@@ -1,7 +1,9 @@
 # 라움·초이문 차수별 매입단가 비교
 
 - 작업: PNL-COST-COMPARISON / branch `codex/pnl-cost-comparison`
-- 상태: LOCAL_TESTED, 배포 및 읽기 화면 검증 예정
+- 상태: SMOKE_VERIFIED
+- PR #361, merge `55c3a97b5e89312c77cbec2e145f50de77718d3d`
+- Cafe24 deploy run `32917552264` SUCCESS (2m38s), hydration smoke PASS
 
 ## 요청과 결정
 
@@ -25,6 +27,11 @@ A. 같은 연도·거래처의 저장된 결산 CostPrice를 최근 차수순 �
 - test:erp-manifest / guard:erp-writes --changed-from origin/master PASS
 - npm run build (98 pages), git diff --check PASS
 
-## 다음 확인
+## 배포 후 읽기 스모크
 
-PR/배포 성공 뒤 두 거래처 상세에서 비교값과 이동 버튼 확인. 실수 방지를 위해 가격 입력·저장/전산 일괄수정 버튼은 운영 스모크에서 실행하지 않는다.
+- 운영 버전 v1.0.2·55c3a97 확인.
+- 라움 28차: 32~27차 비교열 표시. 수국 화이트 28차 2,200원은 저장 입력값과 일치. 카네이션 화이트 9,920원 차수별 표시 확인.
+- 초이문 33차: 33/32차만 표시. 수국 화이트 2,200/2,200, 연핑크 2,450/— 확인. 라움의 다른 차수 혼입 없음.
+- 비교로 이동/입력란 복귀 버튼 클릭 확인. 오른쪽 비교열 DOM 위치 정상. 브라우저 error 로그 없음.
+- 화면 캡처는 CDP timeout으로 이미지 증적 미수집, DOM 내용·실제 버튼 동작·위치 기준 검증.
+- 가격 입력·저장·전산 일괄수정은 실행하지 않았으며 사업 데이터 변경 없음.
