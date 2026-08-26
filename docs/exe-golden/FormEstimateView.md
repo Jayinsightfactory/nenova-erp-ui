@@ -322,3 +322,24 @@ probe만 수행한다.
   다른 차수 출고의 저장 Cost를 직접 갱신하지 않는다. 기존 지정단가 fallback 조회 효과는 별개다.
 - 실데이터 근거와 부작용 표: `docs/work-reports/2026-08-26_estimate-cost-no-stock-design.md`.
   운영 원장 저장 시험은 수행하지 않았다.
+
+## 2026-08-26 불량·검역차감 체크 선택 삭제
+
+실제 CLI `--md 0x0600011B`로 재확인한 `ClassEstimate.Delete`는
+`DELETE FROM Estimate WHERE EstimateKey=...`만 수행한다.
+`FormEstimateView.groupControl3_CustomButtonClick`은 정상출고 Sort=0을 거부하고
+차감 삭제 확인 후 이 메서드를 호출하여 GetDetail을 새로 불러온다.
+확정해제·재확정·재고계산 호출은 없다.
+
+웹은 사용자 요청 범위에 맞춰 CodeInfo의 불량차감/검역차감이면서 음수인 행만
+체크 삭제한다. 같은 업체의 부모차수에 여러 세부차수가 있어도 모든 요청의
+OrderYear/CustKey/ShipmentKey/EstimateKey와 조회 스냅샷을 잠금 대조한다.
+선택 외 정상출고·판매요청·다른 차감·다른 연도는 보존한다.
+영업수입불량차감 원본과 과거 이력은 지우지 않고 선택한 견적 등록만 해제한다.
+삭제 감사와 연결 해제는 같은 트랜잭션으로 처리하며 실패 시 전체 취소한다.
+
+운영 SELECT에서 Estimate DELETE 트리거/참조 외래키가 없음을 확인했다.
+실제 CodeInfo는 불량차감 KR0009/0010/0011/0020/0024,
+검역차감 KR0012/0013/0014/0019이고 샘플·판매요청·단가차감도 별도 존재한다.
+2025/2026 동일 34-01과 2026-34-02에 확정 차감이 있어 교차연도 fixture로 고정한다.
+근거·부작용·검사 결과: `docs/work-reports/2026-08-26_estimate-deduction-delete.md`.

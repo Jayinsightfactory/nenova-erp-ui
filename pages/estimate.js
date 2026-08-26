@@ -73,6 +73,15 @@ import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDi
 import ErpEditPresenceBanner from '../components/ErpEditPresenceBanner';
 import useErpEditPresence from '../hooks/useErpEditPresence';
 import { confirmedWeekFixCycleStockFlags, shouldSkipFixCycleStockCalc } from '../lib/estimateAdditionalProduct';
+import {
+  buildEstimateDeductionDeletePayload,
+  eligibleEstimateDeductions,
+  hasEstimateDeductionDeleteSnapshot,
+  isEligibleEstimateDeduction,
+  resetEstimateDeductionSelection,
+  selectAllEligibleEstimateDeductions,
+  toggleEstimateDeductionSelection,
+} from '../lib/estimateDeductionSelection';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -1016,6 +1025,11 @@ export default function Estimate() {
 
   // 오른쪽 패널 - 견적서 목록
   const [items, setItems] = useState([]);
+  // 인쇄용 왼쪽 업체 선택과 분리된, 현재 상세의 불량/검역 Estimate 삭제 선택.
+  const [selectedDeductionKeys, setSelectedDeductionKeys] = useState(() => new Set());
+  const [deductionDeleting, setDeductionDeleting] = useState(false);
+  const deductionDeleteInFlightRef = useRef(false);
+  const deductionDeleteScopeRef = useRef('');
 
   // 업체 검색 드롭다운
   const [custSearch, setCustSearch] = useState('');
@@ -1261,6 +1275,7 @@ export default function Estimate() {
       if (!silent) setErr('차수 또는 업체를 입력하세요.');
       return Promise.resolve();
     }
+    const shouldApply = typeof opts.shouldApply === 'function' ? opts.shouldApply : () => true;
     setLoading(true); setErr('');
     const includeUnfixedForLoad = opts.includeUnfixedOverride ?? (queryIncludeUnfixedRef.current || includeUnfixed);
     return apiGet('/api/estimate', {
@@ -1269,21 +1284,34 @@ export default function Estimate() {
       custKey: selectedCust?.CustKey || '',
       includeUnfixed: includeUnfixedForLoad ? '1' : '',
       ...(activeWD.size < 7 ? { weekDays: [...activeWD].join(',') } : {}),
-    })
+      })
       .then(d => {
+        // 삭제 직후처럼 scope가 바뀔 수 있는 재조회는 이전 응답으로 새 업체 화면을 덮지 않는다.
+        if (!shouldApply()) return d;
         setShipments(d.shipments || []);
         setSelectedGroups(new Set()); // 새 조회 시 다중선택 초기화
+        setSelectedDeductionKeys(resetEstimateDeductionSelection());
         setItems(d.items || []);
-        if (d.shipments?.length > 0) {
+        const preserved = opts.preserveSelection;
+        const nextShip = preserved
+          ? (d.shipments || []).find((ship) => estimateShipmentGroupId(ship) === preserved.groupId
+              && Number(ship.CustKey) === Number(preserved.custKey))
+            || (d.shipments || []).find((ship) => Number(ship.CustKey) === Number(preserved.custKey))
+          : d.shipments?.[0];
+        if (nextShip) {
           // 그룹 기준: ParentWeek + CustKey
-          const first = d.shipments[0];
-          setSelectedId(estimateShipmentGroupId(first));
-          setSelectedCustKey(first.CustKey);
+          setSelectedId(estimateShipmentGroupId(nextShip));
+          setSelectedCustKey(nextShip.CustKey);
         } else {
           setSelectedId(null); setSelectedCustKey(null);
         }
+        return d;
       })
-      .catch(e => { if (!silent) setErr(e.message); })
+      .catch(e => {
+        if (!silent && shouldApply()) setErr(e.message);
+        // A failed post-delete refresh is not an empty successful list.
+        if (opts.shouldApply) throw e;
+      })
       .finally(() => setLoading(false));
   };
 
@@ -1310,8 +1338,10 @@ export default function Estimate() {
 
   // ── 출고 목록 행 클릭 → exe GetDetail 1회 조회 (FormEstimateView parity)
   const selectShipment = (groupId, custKey, shipmentKeys) => {
+    if (deductionDeleteInFlightRef.current) return;
     setSelectedId(groupId);
     setSelectedCustKey(custKey);
+    setSelectedDeductionKeys(resetEstimateDeductionSelection());
     setItemLoading(true);
     const detailParams = {
       week: weekNum,
@@ -1339,6 +1369,7 @@ export default function Estimate() {
   const reloadSelectedShipmentItems = useCallback(async () => {
     const ship = shipments.find(s => estimateShipmentGroupId(s) === selectedId);
     if (!ship) return [];
+    setSelectedDeductionKeys(resetEstimateDeductionSelection());
     try {
       const d = await apiGet('/api/estimate', {
         week: weekNum,
@@ -1357,9 +1388,15 @@ export default function Estimate() {
       setItems(nextItems);
       return nextItems;
     }
-  }, [selectedId, shipments, weekNum]);
+  }, [selectedId, shipments, weekNum, yearStr]);
 
   const selectedShip = shipments.find(s => estimateShipmentGroupId(s) === selectedId);
+  const deductionDeleteScope = `${yearStr}|${String(weekNum || '')}|${selectedShip?.CustKey || ''}|${selectedId || ''}|${selectedCust?.CustKey || ''}|${[...activeWD].sort().join(',')}`;
+  // 연도·차수·업체·상세 필터가 바뀌면 다른 범위의 숨은 선택을 절대 유지하지 않는다.
+  useEffect(() => {
+    deductionDeleteScopeRef.current = deductionDeleteScope;
+    setSelectedDeductionKeys(resetEstimateDeductionSelection());
+  }, [deductionDeleteScope, activeWD]);
   // 견적 편집은 모든 세부차수를 묶는 대차수 단위다. STRING_AGG 조회 순서가
   // 34-01/34-02 사이에서 바뀌어도 같은 작업권을 해제·재취득하지 않는다.
   const selectedEditWeek = weekNum ? String(weekNum).padStart(2, '0') : '';
@@ -2465,6 +2502,127 @@ export default function Estimate() {
   const totalCost   = filteredItems.reduce((a,b) => a+(b.Cost||0), 0);
   const totalSupply = filteredItems.reduce((a,b) => a+(b.Amount||0), 0);
   const totalVat    = filteredItems.reduce((a,b) => a+(b.Vat||0), 0);
+  const eligibleDeductionItems = useMemo(
+    () => eligibleEstimateDeductions(filteredItems),
+    [filteredItems],
+  );
+  const selectedEligibleDeductionItems = useMemo(
+    () => eligibleDeductionItems.filter((item) => selectedDeductionKeys.has(Number(item.EstimateKey))),
+    [eligibleDeductionItems, selectedDeductionKeys],
+  );
+  const selectedDeductionCount = selectedEligibleDeductionItems.length;
+  const deductionSnapshotMissingCount = filteredItems.filter((item) => isEstimateDeductionRow(item)
+    && !hasEstimateDeductionDeleteSnapshot(item)).length;
+  const hasUnsavedEstimateEdits = editedCount > 0 || editedQtyCount > 0 || pendingAdds.length > 0;
+
+  const handleSelectedDeductionDelete = async () => {
+    if (deductionDeleteInFlightRef.current) return;
+    if (!selectedShip || !selectedDeductionCount) {
+      setErr('삭제할 불량·검역 차감 행을 선택하세요.');
+      return;
+    }
+    if (hasUnsavedEstimateEdits) {
+      setErr('저장하지 않은 단가·수량·추가 품목이 있습니다. 먼저 수정 저장 또는 각 취소를 완료한 뒤 삭제하세요.');
+      return;
+    }
+    if (!ensureEstimateEditAllowed()) return;
+
+    const capturedScope = deductionDeleteScope;
+    const capturedShip = {
+      groupId: selectedId,
+      custKey: selectedShip.CustKey,
+      custName: selectedShip.CustName || '선택 업체',
+    };
+    let payload;
+    try {
+      payload = buildEstimateDeductionDeletePayload({
+        orderYear: yearStr,
+        orderWeek: String(weekNum || ''),
+        custKey: capturedShip.custKey,
+        items: filteredItems,
+        selectedKeys: selectedDeductionKeys,
+        editGuard: estimateEditGuard(),
+      });
+    } catch (error) {
+      setErr(error.message || '선택 차감 삭제 정보를 확인할 수 없습니다. 다시 조회하세요.');
+      return;
+    }
+    if (!payload.entries.length) {
+      setErr('삭제할 수 있는 불량·검역 차감 행이 없습니다. 다시 조회한 뒤 선택하세요.');
+      return;
+    }
+
+    const names = selectedEligibleDeductionItems
+      .map((item) => `${item.ProdName || '품목'} ${item.DeleteSnapshot?.quantity ?? item.Quantity}${item.DeleteSnapshot?.unit ?? item.Unit ?? ''}`)
+      .join(', ');
+    const estimateTotalIncrease = selectedEligibleDeductionItems.reduce((sum, item) => {
+      const snapshot = item.DeleteSnapshot || {};
+      return sum + Math.abs(Number(snapshot.amount || 0) + Number(snapshot.vat || 0));
+    }, 0);
+    const confirmed = window.confirm(
+      `${capturedShip.custName}\n${yearStr}년 ${weekNum}차\n선택한 불량·검역 차감 ${payload.entries.length}건만 삭제합니다.\n${names}\n\n주문·분배·재고 수량은 그대로이며, 선택 차감이 제외되어 견적 합계는 약 ${fmt(estimateTotalIncrease)}원 증가합니다. 연결된 영업 원본은 보존하고 선택한 견적 등록 연결만 취소합니다. 계속하시겠습니까?`,
+    );
+    if (!confirmed) return;
+    if (deductionDeleteScopeRef.current !== capturedScope) {
+      setErr('조회 범위가 변경되어 삭제하지 않았습니다. 현재 업체에서 다시 선택하세요.');
+      return;
+    }
+
+    deductionDeleteInFlightRef.current = true;
+    setDeductionDeleting(true);
+    estimateEditPresence.beginSaving();
+    let deleteSucceeded = false;
+    let deletedCount = payload.entries.length;
+    try {
+      const result = await apiPost('/api/estimate/delete-deductions', payload);
+      if (!result?.success) throw new Error(result?.error || '선택 차감 삭제에 실패했습니다.');
+      deleteSucceeded = true;
+      deletedCount = Number(result.deletedCount || payload.entries.length);
+      setSelectedDeductionKeys(resetEstimateDeductionSelection());
+
+      // 요청 뒤 업체/차수 전환이 있었다면 이미 성공한 삭제를 다른 범위에 재조회하지 않는다.
+      if (deductionDeleteScopeRef.current !== capturedScope) {
+        setSuccessMsg(`✅ 선택 차감 ${deletedCount}건 삭제 완료. 현재 조회 범위가 바뀌어 자동 새로고침하지 않았습니다.`);
+        return;
+      }
+
+      const refreshedList = await load(true, {
+        preserveSelection: capturedShip,
+        shouldApply: () => deductionDeleteScopeRef.current === capturedScope,
+      });
+      if (deductionDeleteScopeRef.current !== capturedScope) return;
+      const sameCustomerStillExists = (refreshedList?.shipments || [])
+        .some((ship) => Number(ship.CustKey) === Number(capturedShip.custKey));
+      if (!sameCustomerStillExists) {
+        setItems([]);
+        setSuccessMsg(`✅ 선택 차감 ${deletedCount}건을 삭제했습니다. 이 업체의 남은 견적 행이 없습니다.`);
+        return;
+      }
+      const refreshed = await apiGet('/api/estimate', {
+        week: weekNum,
+        year: yearStr,
+        custKey: capturedShip.custKey,
+        byDate: 1,
+        itemsOnly: 1,
+      });
+      if (deductionDeleteScopeRef.current === capturedScope) {
+        setItems(refreshed.items || []);
+        setSuccessMsg(`✅ 선택 차감 ${deletedCount}건을 삭제했습니다.`);
+      }
+    } catch (error) {
+      if (error?.code === 'ERP_EDIT_STALE' || error?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
+      if (deleteSucceeded) {
+        setSuccessMsg(`✅ 선택 차감 ${deletedCount}건은 삭제됐습니다.`);
+        setErr(`삭제는 완료, 목록 재조회 실패: ${error.message || '다시 조회해 결과를 확인하세요.'}`);
+      } else {
+        setErr(`선택 차감 삭제 오류: ${error.message || '다시 조회한 뒤 시도하세요.'}`);
+      }
+    } finally {
+      deductionDeleteInFlightRef.current = false;
+      setDeductionDeleting(false);
+      await estimateEditPresence.endSaving({ refreshBaseline: deleteSucceeded });
+    }
+  };
 
   const resetDefectForm = (entryMode = 'defect') => {
     const isSalesRequest = entryMode === 'sales';
@@ -2581,6 +2739,7 @@ export default function Estimate() {
   };
 
   const openItemEditor = (item) => {
+    if (deductionDeleteInFlightRef.current) return;
     if (!item) return;
     setSelectedItemForEdit(item);
     const isEstimate = isEstimateDeductionRow(item) && item.EstimateKey != null;
@@ -3955,12 +4114,35 @@ export default function Estimate() {
               </button>
             )}
             <div style={{marginLeft:'auto', display:'flex', gap:4, alignItems:'center', flexWrap:'wrap'}}>
+              {eligibleDeductionItems.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  disabled={deductionDeleting}
+                  onClick={() => setSelectedDeductionKeys((prev) => selectAllEligibleEstimateDeductions(filteredItems, prev))}
+                  title="현재 보이는 불량·검역 차감 행만 전체 선택 또는 해제합니다."
+                >
+                  {selectedDeductionCount === eligibleDeductionItems.length ? '불량·검역 전체 해제' : `불량·검역 전체 선택 (${eligibleDeductionItems.length})`}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{color:'#b91c1c', borderColor:'#dc2626', fontWeight:700}}
+                disabled={deductionDeleting || hasUnsavedEstimateEdits || selectedDeductionCount === 0 || !selectedShip || estimateEditPresence.blocked}
+                onClick={handleSelectedDeductionDelete}
+                title={hasUnsavedEstimateEdits
+                  ? '저장하지 않은 단가·수량·추가 품목을 먼저 저장하거나 취소하세요.'
+                  : '선택한 불량·검역 차감 견적만 삭제합니다.'}
+              >
+                {deductionDeleting ? '선택 차감 삭제 중…' : `선택 차감 삭제 (${selectedDeductionCount})`}
+              </button>
               {/* ── 단가 수정 모드 선택 + 적용 버튼 (P3) ── */}
               {(editedCount > 0 || editedQtyCount > 0 || pendingAdds.length > 0) && (
                 <button
                   className="btn btn-sm"
                   style={{background:'#6a1b9a', color:'#fff', borderColor:'#4a148c', fontWeight:'bold'}}
-                  disabled={costApplying || qtyApplying || estimateEditPresence.blocked}
+                  disabled={costApplying || qtyApplying || deductionDeleting || estimateEditPresence.blocked}
                   onClick={applyAllEdits}
                   title="단가만 바꾸면 확정 상태와 재고를 그대로 두고 저장합니다. 실제 수량 변경이나 추가 품목이 있을 때만 기존 확정취소·저장·재확정 절차를 진행합니다."
                 >
@@ -3973,7 +4155,7 @@ export default function Estimate() {
                     value={costMode}
                     onChange={e => setCostMode(e.target.value)}
                     style={{fontSize:11, padding:'3px 6px', borderRadius:4, border:'1px solid #CBD5E0'}}
-                    disabled={costApplying || estimateEditPresence.blocked}
+                    disabled={costApplying || deductionDeleting || estimateEditPresence.blocked}
                     title="수정한 단가를 어떻게 저장할지 선택"
                   >
                     <option value="once">① 1회성 (이 견적서만)</option>
@@ -3983,7 +4165,7 @@ export default function Estimate() {
                   <button
                     className="btn btn-sm"
                     style={{background:'#2b6cb0', color:'#fff', borderColor:'#1e4e8c', fontWeight:'bold'}}
-                    disabled={costApplying || estimateEditPresence.blocked}
+                    disabled={costApplying || deductionDeleting || estimateEditPresence.blocked}
                     onClick={() => applyCostEdits()}
                     title="확정 상태와 재고를 그대로 두고 단가·금액만 저장합니다. 위에서 선택한 방식으로 저장합니다."
                   >
@@ -3992,7 +4174,7 @@ export default function Estimate() {
                   <button
                     className="btn btn-sm"
                     style={{background:'#b45309', color:'#fff', borderColor:'#92400e', fontWeight:'bold'}}
-                    disabled={costApplying || estimateEditPresence.blocked}
+                    disabled={costApplying || deductionDeleting || estimateEditPresence.blocked}
                     onClick={() => applyCostEdits('fixed')}
                     title="해당 품목의 연결된 모든 출고일 단가와 이 업체의 지정단가를 함께 저장합니다. 다른 업체·다른 차수의 출고 저장값은 유지합니다. 지정단가를 참고하는 화면에는 새 가격이 표시될 수 있습니다."
                   >
@@ -4000,7 +4182,7 @@ export default function Estimate() {
                   </button>
                   <button
                     className="btn btn-sm"
-                    disabled={costApplying || estimateEditPresence.blocked}
+                    disabled={costApplying || deductionDeleting || estimateEditPresence.blocked}
                     onClick={() => setCostEdits({})}
                   >
                     ↩ 수정 취소
@@ -4013,7 +4195,7 @@ export default function Estimate() {
                   <button
                     className="btn btn-sm"
                     style={{background:'#00897b', color:'#fff', borderColor:'#00695c', fontWeight:'bold'}}
-                    disabled={qtyApplying || estimateEditPresence.blocked}
+                    disabled={qtyApplying || deductionDeleting || estimateEditPresence.blocked}
                     onClick={applyQtyEdits}
                     title="수량 변경분을 ADD/CANCEL 로 자동 분기 적용 (이력 기록됨)"
                   >
@@ -4021,7 +4203,7 @@ export default function Estimate() {
                   </button>
                   <button
                     className="btn btn-sm"
-                    disabled={qtyApplying || estimateEditPresence.blocked}
+                    disabled={qtyApplying || deductionDeleting || estimateEditPresence.blocked}
                     onClick={() => setQtyEdits({})}
                   >
                     ↩ 수량 취소
@@ -4036,34 +4218,43 @@ export default function Estimate() {
               )}
               <button className="btn btn-sm" style={{background:'#006600', color:'#fff', borderColor:'#004400'}}
                 onClick={() => openEstimateEntry('legacy')}
-                disabled={!selectedShip || estimateEditPresence.blocked}
+                disabled={deductionDeleting || !selectedShip || estimateEditPresence.blocked}
                 title="기존 EstimateType을 선택해 nenova.exe 호환 음수 Estimate를 등록합니다.">
                 ＋ 불량/검역등록
               </button>
               <button className="btn btn-sm" style={{background:'#166534', color:'#fff', borderColor:'#14532d'}}
                 onClick={() => openEstimateEntry('defect')}
-                disabled={!selectedShip || estimateEditPresence.blocked}
+                disabled={deductionDeleting || !selectedShip || estimateEditPresence.blocked}
                 title="선택한 거래처의 EXE 판매행에 불량차감 Estimate를 등록합니다.">
                 ＋ 불량차감등록
               </button>
               <button className="btn btn-sm" style={{background:'#1565c0', color:'#fff', borderColor:'#0d47a1'}}
                 onClick={() => openEstimateEntry('sales')}
-                disabled={!selectedShip || estimateEditPresence.blocked}
+                disabled={deductionDeleting || !selectedShip || estimateEditPresence.blocked}
                 title="선택한 거래처에 판매요청 Estimate를 등록합니다.">
                 ＋ 판매요청
               </button>
-              <button className="btn btn-sm" style={{background:'#7c3aed',color:'#fff',borderColor:'#6d28d9'}} disabled={!selectedShip || estimateEditPresence.blocked} onClick={()=>setShowAdditionalProduct(true)} title="추가 품목을 목록에 담은 뒤 수량/단가와 한 번에 저장합니다.">＋ 추가 품목등록{pendingAdds.length ? ` (${pendingAdds.length})` : ''}</button>
+              <button className="btn btn-sm" style={{background:'#7c3aed',color:'#fff',borderColor:'#6d28d9'}} disabled={deductionDeleting || !selectedShip || estimateEditPresence.blocked} onClick={()=>setShowAdditionalProduct(true)} title="추가 품목을 목록에 담은 뒤 수량/단가와 한 번에 저장합니다.">＋ 추가 품목등록{pendingAdds.length ? ` (${pendingAdds.length})` : ''}</button>
               <button className="btn btn-sm"
-                disabled={!selectedItemForEdit || itemEditorSaving || estimateEditPresence.blocked}
+                disabled={deductionDeleting || !selectedItemForEdit || itemEditorSaving || estimateEditPresence.blocked}
                 onClick={() => openItemEditor(selectedItemForEdit)}
                 title="표에서 품목명을 선택한 뒤 상세 정보창에서 수정합니다.">
                 ✏️ 품목 정보 수정
               </button>
-              <button className="btn btn-sm" disabled title="견적 품목 삭제 API는 아직 연결되어 있지 않습니다." style={{color:'var(--red)'}}>🗑️ 삭제 / Eliminar</button>
             </div>
           </div>
 
           <div style={{padding:'0 10px'}}><ErpEditPresenceBanner presence={estimateEditPresence} /></div>
+          {hasUnsavedEstimateEdits && (
+            <div style={{margin:'6px 12px 0', fontSize:12, color:'#9a3412'}}>
+              저장하지 않은 단가·수량·추가 품목이 있습니다. 삭제하려면 먼저 수정 저장 또는 각 취소를 완료하세요.
+            </div>
+          )}
+          {deductionSnapshotMissingCount > 0 && (
+            <div style={{margin:'6px 12px 0', fontSize:12, color:'#9a3412'}}>
+              삭제 확인정보가 없는 차감 행 {deductionSnapshotMissingCount}건은 삭제할 수 없습니다. 다시 조회하세요.
+            </div>
+          )}
 
           <OrderRegisterDistributeModal open={showAdditionalProduct} onClose={()=>setShowAdditionalProduct(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} editBlocked={estimateEditPresence.blocked} editPresence={estimateEditPresence} onQueue={(rows)=>{setPendingAdds(prev=>[...prev,...rows]);setShowAdditionalProduct(false);}} />
           {pendingAdds.length > 0 && (
@@ -4086,6 +4277,19 @@ export default function Estimate() {
                 <table className="tbl">
                   <thead>
                     <tr>
+                      <th style={{width:42, minWidth:42, padding:'4px 2px', textAlign:'center'}}>
+                        <label title="현재 보이는 불량·검역 차감 행 전체 선택" style={{display:'inline-flex', alignItems:'center', justifyContent:'center', cursor: deductionDeleting ? 'wait' : 'pointer'}}>
+                          <input
+                            type="checkbox"
+                            aria-label="불량·검역 차감 전체 선택"
+                            checked={eligibleDeductionItems.length > 0 && selectedDeductionCount === eligibleDeductionItems.length}
+                            ref={el => { if (el) el.indeterminate = selectedDeductionCount > 0 && selectedDeductionCount < eligibleDeductionItems.length; }}
+                            onChange={() => setSelectedDeductionKeys((prev) => selectAllEligibleEstimateDeductions(filteredItems, prev))}
+                            disabled={deductionDeleting || eligibleDeductionItems.length === 0}
+                            style={{width:22, height:22, minWidth:22, minHeight:22, cursor: deductionDeleting ? 'wait' : 'pointer', accentColor:'#b91c1c'}}
+                          />
+                        </label>
+                      </th>
                       <th>품목명</th><th>단위</th><th>출고일자</th>
                       <th style={{textAlign:'right'}}>수량</th>
                       <th style={{textAlign:'right', background:'#E6FFFA'}}>수량 수정</th>
@@ -4098,11 +4302,13 @@ export default function Estimate() {
                   </thead>
                   <tbody>
                     {filteredItems.length === 0
-                      ? <tr><td colSpan={10} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>
+                      ? <tr><td colSpan={11} style={{textAlign:'center', padding:32, color:'var(--text3)'}}>
                           {selectedId ? '견적서 데이터 없음' : '거래처를 선택하세요'}
                         </td></tr>
                       : filteredItems.map((item, i) => {
                           const isDed = isEstimateDeductionRow(item);
+                          const canDeleteDeduction = isEligibleEstimateDeduction(item);
+                          const deductionChecked = canDeleteDeduction && selectedDeductionKeys.has(Number(item.EstimateKey));
                           const highlightDed = highlightDeductions && isDed;
                           const sdk = item.SdetailKey;
                           const qtyEditKey = getQtyEditKey(item);
@@ -4111,6 +4317,20 @@ export default function Estimate() {
                           const isEdited = editVal !== '' && !isNaN(parseFloat(editVal)) && parseFloat(editVal) !== item.Cost;
                           return (
                           <tr key={i} data-estimate-deduction={isDed ? '1' : undefined} style={{background: isEdited ? '#E6F7FF' : (highlightDed ? '#FDE68A' : (isDed ? '#FFF8DC' : ''))}}>
+                            <td style={{padding:'2px', textAlign:'center'}}>
+                              {canDeleteDeduction ? (
+                                <label title="이 불량·검역 차감만 삭제 대상으로 선택" style={{display:'inline-flex', alignItems:'center', justifyContent:'center', cursor: deductionDeleting ? 'wait' : 'pointer'}}>
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`${item.ProdName || '품목'} 차감 삭제 선택`}
+                                    checked={deductionChecked}
+                                    disabled={deductionDeleting}
+                                    onChange={(event) => setSelectedDeductionKeys((prev) => toggleEstimateDeductionSelection(prev, item.EstimateKey, event.target.checked))}
+                                    style={{width:22, height:22, minWidth:22, minHeight:22, cursor: deductionDeleting ? 'wait' : 'pointer', accentColor:'#b91c1c'}}
+                                  />
+                                </label>
+                              ) : <span title={isDed ? '불량·검역 차감 삭제 대상이 아니거나 삭제 확인정보가 없습니다.' : '정상출고는 삭제 대상이 아닙니다.'} style={{color:'var(--text3)'}}>—</span>}
+                            </td>
                             <td style={{fontSize:12, fontWeight:500, color: isDed ? '#A0522D' : ''}}>
                               {isDed && <span style={{fontSize:10, color:'#B8860B', marginRight:3}}>
                                 [{mapEstimateType(item.EstimateType)}]
@@ -4157,7 +4377,7 @@ export default function Estimate() {
                                     fontFamily: 'var(--mono)',
                                     background: (qtyEditKey && qtyEdits[qtyEditKey] !== undefined && qtyEdits[qtyEditKey] !== '') ? '#E0F2F1' : '#fff',
                                   }}
-                                  disabled={qtyApplying || !qtyEditKey}
+                                  disabled={deductionDeleting || qtyApplying || !qtyEditKey}
                                   title={isDed ? '차감 수량 수정: Estimate.Quantity' : '출고일별 견적수량 수정: ShipmentDate.EstQuantity'}
                                 />
                               )}
@@ -4190,7 +4410,7 @@ export default function Estimate() {
                                     fontFamily: 'var(--mono)',
                                     background: isEdited ? '#EBF8FF' : '#fff',
                                   }}
-                                  disabled={costApplying || !costEditKey}
+                                  disabled={deductionDeleting || costApplying || !costEditKey}
                                 />
                               )}
                             </td>
@@ -4206,7 +4426,7 @@ export default function Estimate() {
                   </tbody>
                   <tfoot>
                     <tr style={{background:'var(--bg2)'}}>
-                      <td colSpan={3} style={{fontWeight:'bold', padding:'3px 6px', fontSize:12}}>합계</td>
+                      <td colSpan={4} style={{fontWeight:'bold', padding:'3px 6px', fontSize:12}}>합계</td>
                       <td className="num" style={{fontWeight:'bold'}}>{fmt(totalQty)}</td>
                       <td></td>
                       <td className="num" style={{fontWeight:'bold', color:'var(--text3)'}}>{fmt(totalCost)}</td>

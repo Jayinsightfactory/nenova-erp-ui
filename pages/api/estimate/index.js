@@ -14,6 +14,7 @@ import {
   activeWdKrToExeSqlIn,
   buildEstimateOrderYearWeek,
   mapExeDetailRowToWebItem,
+  mapEstimateDeleteSnapshot,
   sqlEstimateGetData,
   sqlEstimateGetDetail,
   sqlEstimateGetExcelDetail,
@@ -587,7 +588,11 @@ async function loadItems(sk, byDate = false) {
           ISNULL(sd.Descr, N'')                      AS DetailDescr,
           ${dateDescrCol}                            AS DateDescr,
           ISNULL(sd.Descr, N'')                      AS Descr,
-          CONVERT(NVARCHAR(10), ${outDateExpr}, 120) AS outDate
+          CONVERT(NVARCHAR(10), ${outDateExpr}, 120) AS outDate,
+          CAST(NULL AS FLOAT) AS DeleteQuantityRaw,
+          CAST(NULL AS NVARCHAR(100)) AS DeleteUnitRaw,
+          CAST(NULL AS NVARCHAR(100)) AS DeleteTypeRaw,
+          CAST(NULL AS NVARCHAR(10)) AS DeleteDateRaw
        FROM ShipmentDetail sd
        ${dateJoin}
        LEFT JOIN ShipmentMaster smOuter ON sd.ShipmentKey = smOuter.ShipmentKey
@@ -673,7 +678,11 @@ async function loadItems(sk, byDate = false) {
           N''                                       AS DetailDescr,
           N''                                       AS DateDescr,
           ISNULL(e.Descr, '')                       AS Descr,
-          CONVERT(NVARCHAR(10), COALESCE(e.EstimateDtm, sd2.ShipmentDtm), 120) AS outDate
+          CONVERT(NVARCHAR(10), COALESCE(e.EstimateDtm, sd2.ShipmentDtm), 120) AS outDate,
+          e.Quantity AS DeleteQuantityRaw,
+          e.Unit AS DeleteUnitRaw,
+          e.EstimateType AS DeleteTypeRaw,
+          CONVERT(NVARCHAR(10), e.EstimateDtm, 120) AS DeleteDateRaw
        FROM Estimate e
        LEFT JOIN Product p  ON e.ProdKey = p.ProdKey
        LEFT JOIN CodeInfo ci
@@ -760,6 +769,7 @@ function sanitizeItemDescrs(rows) {
     const display = formatEstimateDescrForRow({ ...row, DescrRaw: raw });
     return {
       ...row,
+      DeleteSnapshot: mapEstimateDeleteSnapshot(row),
       DescrRaw: raw,
       Descr: display,
     };

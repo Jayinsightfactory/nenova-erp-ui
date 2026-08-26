@@ -1,0 +1,12 @@
+{
+  "id": "estimate-deduction-delete",
+  "title": "견적서 불량·검역차감 선택 삭제",
+  "scope": ["pages/estimate.js", "pages/api/estimate/delete-deductions.js", "pages/api/estimate/index.js", "lib/exeEstimateViewSql.js", "lib/estimateDeductionDelete.js", "lib/estimateDeductionSelection.js", "lib/estimateDeductionTypes.js", "lib/salesDefectDeductions.js", "__tests__/estimateDeductionDelete.test.js", "__tests__/estimateDeductionSelection.test.js", "__tests__/estimateDeductionReadSnapshot.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "entryIdentity": ["ShipmentKey", "EstimateKey"],
+  "actions": [{"name": "DELETE_SELECTED_DEFECT_QUARANTINE", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "delete selected negative defect/quarantine rows only, all-or-nothing", "stock": "preserve", "fixCycle": "none", "linkedWebLedger": "preserve source claim and application history; undo selected registration link and selected carryover applied quantity only", "audit": "transactional SystemActionLog and linked claim history", "concurrency": "edit guard + locked exact scope and expected row snapshot"}],
+  "crossYearFixture": {"required": true, "description": "2025/2026 same 34-01 and same customer/product; only selected year permitted; no current-year fallback"},
+  "requiredTestFiles": ["__tests__/estimateDeductionDelete.test.js", "__tests__/estimateDeductionSelection.test.js", "__tests__/estimateDeductionReadSnapshot.test.js"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormEstimateView.md", "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateView.cs", "methods": ["groupControl3_CustomButtonClick", "ClassEstimate.Delete"], "tables": ["Estimate", "ShipmentMaster", "CodeInfo"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:estimate", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}
