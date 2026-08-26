@@ -5,6 +5,7 @@ import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlCustomerProdCostSelect } from '../../../lib/exeCustomerProdCostSql.js';
+import { RECENT_CUSTOMER_SQL } from '../../../lib/pricingCustomerSelection.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getMatrix(req, res);
@@ -34,12 +35,7 @@ async function getMatrix(req, res) {
     }
 
     // 업체 목록 (담당자 있는 업체 전체 — 필터용)
-    const custResult = await query(
-      `SELECT CustKey, CustName, Manager, CustArea
-       FROM Customer
-       WHERE isDeleted=0 AND Manager IS NOT NULL AND Manager <> ''
-       ORDER BY CustName`
-    );
+    const custResult = await query(RECENT_CUSTOMER_SQL);
     const allCustomers = custResult.recordset;
 
     // 품목 조건 구성
