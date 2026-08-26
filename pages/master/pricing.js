@@ -12,6 +12,7 @@ import {
   selectAllPricingProducts,
   toggleVisiblePricingProducts,
   visiblePricingProducts,
+  nextPricingCustomerCellKey,
 } from '../../lib/pricingCustomerSelection';
 
 const fmt = n => Number(n || 0).toLocaleString();
@@ -146,6 +147,7 @@ export default function Pricing() {
 
   // ── 인라인 단가 일괄
   const [inlineCost, setInlineCost] = useState('');
+  const pricingInputRefs = useRef({});
 
   // 필터 변경 + localStorage 저장
   const handleCountName = v => { setCountName(v);   LSset('pricing_coun', v); };
@@ -335,6 +337,17 @@ export default function Pricing() {
     return key in localCosts ? localCosts[key] : (costs[key]?.cost ?? '');
   };
   const isChanged = (custKey, prodKey) => changed.has(`${custKey}_${prodKey}`);
+  const focusNextPricingInput = (currentKey) => {
+    const nextKey = nextPricingCustomerCellKey(currentKey, sortedProducts);
+    if (!nextKey) return;
+    requestAnimationFrame(() => {
+      const nextInput = pricingInputRefs.current[nextKey];
+      if (!nextInput) return;
+      nextInput.focus({ preventScroll: true });
+      nextInput.select();
+      nextInput.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+  };
 
   return (
     <div>
@@ -638,8 +651,19 @@ export default function Pricing() {
                               type="number"
                               value={val}
                               placeholder="0"
+                              aria-label={`${c.CustName} ${p.ProdName} 단가`}
+                              ref={input => {
+                                const key = `${c.CustKey}_${p.ProdKey}`;
+                                if (input) pricingInputRefs.current[key] = input;
+                                else delete pricingInputRefs.current[key];
+                              }}
                               onChange={e => handleCostChange(c.CustKey, p.ProdKey, e.target.value)}
                               onFocus={e => e.target.select()}
+                              onKeyDown={e => {
+                                if (e.key !== 'Enter' || e.isComposing || e.nativeEvent?.isComposing || e.keyCode === 229) return;
+                                e.preventDefault();
+                                focusNextPricingInput(`${c.CustKey}_${p.ProdKey}`);
+                              }}
                               style={{
                                 width: '100%', height: 22, minWidth: 80,
                                 border: `1px solid ${chg ? '#AABB00' : 'var(--border2)'}`,

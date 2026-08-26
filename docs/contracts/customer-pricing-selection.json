@@ -14,7 +14,8 @@
     "productSelection": "initial product selection is recent products only when product search is blank; explicit trimmed product search selects returned matches; picker blank shows recent products, picker search exposes all loaded products, and selected historical products remain matrix-visible after picker search clears",
     "selection": "customer filtering preserves selectedKeys; select-all toggles visible customers only, preserving hidden selections; blank product query initially selects recent products, explicit product search selects returned matches, picker filtering preserves selected hidden products, and bulk targets only selected currently visible products",
     "sort": "recent trade date descending then customer name/key",
-    "save": "existing CustomerProdCost reads, PUT saveMatrix and EXE parity path unchanged"
+    "save": "existing CustomerProdCost reads, PUT saveMatrix and EXE parity path unchanged",
+    "keyboardNavigation": "Customer cost Enter focuses and selects the next visible sorted product in the same CustKey column, scrolling nearest; hidden rows skipped, last row stays, IME composition ignored. No copying values, automatic saving, or base-cost behavior change."
   },
   "crossYearFixture": {"required":true,"description":"Recent rolling dates may span December/January using actual transaction dates and master PKs, never same OrderWeek collision. Old prior-year records remain excluded unless searched."},
   "requiredTestFiles": ["__tests__/pricingCustomerSelection.test.js"],

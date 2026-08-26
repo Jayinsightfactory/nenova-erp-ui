@@ -10,6 +10,7 @@ import {
   selectRecentPricingProducts,
   toggleVisiblePricingProducts,
   visiblePricingProducts,
+  nextPricingCustomerCellKey,
 } from '../lib/pricingCustomerSelection.js';
 
 const customers = [
@@ -72,6 +73,16 @@ assert.deepEqual(visiblePricingProducts(products, deselected, { search: '콜롬�
 assert.deepEqual(visiblePricingProducts(products, new Set(), {}).map(p => p.ProdKey), [], '선택 품목이 없으면 bulk 대상도 없다');
 assert.deepEqual(visiblePricingProducts(products, new Set([11, 22, 33]), { hideNoCost: true, hasCostMap: { 11: true, 22: false, 33: true } }).map(p => p.ProdKey), [11, 33]);
 assert.deepEqual(visiblePricingProducts(products, new Set([11, 22, 33]), { search: '콜롬비아', hideNoCost: true, hasCostMap: { 11: true, 22: true, 33: false } }).map(p => p.ProdKey), [11], '검색/단가숨김/선택의 교집합만 bulk 대상이다');
+
+// Enter navigation is keyed by customer and follows the current visible order.
+const reorderedVisible = [{ ProdKey: 33 }, { ProdKey: 11 }, { ProdKey: 99 }];
+assert.equal(nextPricingCustomerCellKey('7_33', reorderedVisible), '7_11');
+assert.equal(nextPricingCustomerCellKey('7_11', reorderedVisible), '7_99');
+assert.equal(nextPricingCustomerCellKey('7_99', reorderedVisible), null, 'end does not wrap');
+assert.equal(nextPricingCustomerCellKey('7_22', reorderedVisible), null, 'missing current row has no target');
+assert.equal(nextPricingCustomerCellKey('7_33', [{ ProdKey: 33 }, { ProdKey: 99 }]), '7_99', 'filtered rows are skipped');
+assert.equal(nextPricingCustomerCellKey('7_33', [{ ProdKey: 33 }]), null, 'single row has no target');
+assert.equal(nextPricingCustomerCellKey('7_33', reorderedVisible).split('_')[0], '7', 'customer column is preserved');
 
 // The SQL contract is the EXE-compatible read scope: active positive order
 // details joined through their order master plus active positive shipments,
