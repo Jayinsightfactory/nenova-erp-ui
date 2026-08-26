@@ -20,6 +20,8 @@
     "lib/raumPnlUploadDiff.js",
     "lib/raumPnlMonthly.js",
     "lib/raumPnlMatchDisplay.js",
+    "lib/raumPnlCostComparison.js",
+    "lib/raumPnlCostComparisonServer.js",
     "docs/migrations/2026-08-24_web_raum_pnl_assigned_month.sql",
     "docs/migrations/2026-08-25_web_raum_pnl_partner_code.sql",
     "lib/raumPnlExcel.js"
@@ -27,6 +29,7 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "settlementIdentity": ["OrderYear", "MajorWeek", "PartnerCode"],
   "actions": [
+    { "name": "RAUM_PNL_COST_HISTORY", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "SELECT-only stored CostPrice by active settlement + selected OrderYear + PartnerCode; same product and unit; browser comparison only", "writeAllowlist": [] },
     { "name": "RAUM_PNL_MULTI_WEEK_IMPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "all-or-nothing", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
     { "name": "RAUM_PNL_IMPORT_AUTO_COMMIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "verified-no-overwrite then list+monthly-summary", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
     { "name": "RAUM_PNL_MATCH_DISPLAY", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "show Product.ProdName for WebRaumPnlItem.ProdKey; unmatched visible", "writeAllowlist": [] },
@@ -42,7 +45,17 @@
     "required": true,
     "description": "같은 라움 차수와 품목이 2025·2026에 있어도 주문등록과 결산 저장은 선택한 OrderYear를 유지한다."
   },
+  "costComparison": {
+    "source": "WebRaumPnlItem.CostPrice, not arrival reference price or WebRaumCostPrice latest learned value",
+    "scope": "active WebRaumPnl, exact selected OrderYear and PartnerCode; latest MajorWeek first",
+    "identity": "positive ProdKey + normalized Unit; if both rows lack ProdKey, exact whitespace-normalized ItemName + Unit; custom rows kept separate",
+    "missing": "null/empty is absent; explicit zero remains zero; differing prices within one week are all shown without averaging",
+    "refresh": "detail open, partner/year change, successful settlement save, explicit retry; stale responses ignored",
+    "export": "comparison excluded from Excel and print; existing calculation and export payloads unchanged",
+    "preserve": ["Estimate", "ShipmentDetail.Amount", "ShipmentDetail.Vat", "ShipmentDetail.isFix", "WebProfitReport", "OrderDetail", "ShipmentDate", "ShipmentFarm", "StockHistory", "ProductStock"]
+  },
   "requiredTestFiles": [
+    "__tests__/raumPnlCostComparison.test.js",
     "__tests__/raumPnlImage.test.js",
     "__tests__/raumPnlExcel.test.js",
     "__tests__/raumPnlMultiImport.test.js",

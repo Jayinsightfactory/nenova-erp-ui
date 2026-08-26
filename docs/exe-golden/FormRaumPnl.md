@@ -23,6 +23,16 @@
 
 ## 웹 구현 불변식
 
+### 차수별 매입단가 비교 (2026-08-26)
+
+- 웹 전용 저장자료의 비교 기능이며 EXE 저장 동작을 추가하거나 변경하지 않는다.
+- 기준 원천: `WebRaumPnlItem.CostPrice` → GET cost-history → 공용 순수 비교 helper → 상세표 오른쪽 표시.
+- 같은 연도·거래처의 활성 결산만 읽는다. 품목키+단위로 비교하고 양쪽 모두 미매칭인 경우에만 정확한 품목명+단위를 사용한다. 수동 행은 일반 행과 분리한다.
+- 매입 참고단가/학습단가로 과거 저장값을 덮지 않는다. 미입력과 0을 구분하며 같은 차수에 다른 단가가 있으면 모두 표시한다.
+- `WebRaumPnl`/`WebRaumPnlItem` SELECT만 추가한다. 신규 GET의 DDL, 데이터 저장, ERP 원장 변경은 없다.
+- `Estimate`, `ShipmentDetail.Amount/Vat/isFix`, `WebProfitReport`, 주문/출고/재고는 보존한다. 엑셀과 인쇄 생성기는 변경하지 않는다.
+- 운영 화면 읽기 근거: 2026-08-26 기존 라움 28차 저장 상세에서 수국 화이트/장미/카네이션의 저장 매입단가와 매칭 품목 표시 확인. SQL 스키마는 기존 loadRaumPnlDetail의 동일 필드 확인. 직접 DB 연결 환경 부재로 독립 SQL probe는 미수행하며 배포 후 읽기 화면 값 대조로 검증한다.
+
 - 업무키: `OrderYear + OrderWeek + CustKey + ProdKey`
 - `OrderMaster.Manager`는 `UserInfo.UserID`로 해석한다.
 - `OrderYearWeek`는 전산 raw 형식인 `OrderYear + 대차수`만 사용한다.

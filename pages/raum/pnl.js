@@ -8,6 +8,7 @@ import RaumImageOrderPanel from '../../components/raum/RaumImageOrderPanel';
 import { buildRaumPnlMonthlySummary } from '../../lib/raumPnlMonthly';
 import { canAutoCommitRaumPnlImport, defaultPnlTitle, PNL_PARTNERS, resolvePnlPartner } from '../../lib/raumPnlPartner';
 import { raumPnlMatchCounts, raumPnlMatchDisplay } from '../../lib/raumPnlMatchDisplay';
+import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -1171,6 +1172,11 @@ export default function RaumPnlPage() {
   const [bulkPreview, setBulkPreview] = useState(null);
   // detail: { meta:{pnlKey?, orderYear, major, title, quoteDate, nenovaPct, note, sourceFile}, items, warnings, sheets, unsaved }
   const [detail, setDetail] = useState(null);
+  const [costHistoryRows, setCostHistoryRows] = useState([]);
+  const [costHistoryState, setCostHistoryState] = useState({ loading: false, error: '' });
+  const [costHistoryRevision, setCostHistoryRevision] = useState(0);
+  const costHistoryRequest = useRef({ sequence: 0, controller: null });
+  const costComparisonScrollRef = useRef(null);
   const fileRef = useRef(null);
 
   const loadList = async () => {
@@ -1208,6 +1214,48 @@ export default function RaumPnlPage() {
     setMessage('');
   };
   const partner = resolvePnlPartner(partnerCode);
+
+  // Saved purchase-cost history is read-only here. It is intentionally fetched only
+  // when the opened detail/year/partner changes, or after a successful save.
+  useEffect(() => {
+    if (!detail) {
+      costHistoryRequest.current.controller?.abort();
+      setCostHistoryRows([]);
+      setCostHistoryState({ loading: false, error: '' });
+      return undefined;
+    }
+    const orderYear = detail.meta?.orderYear;
+    if (!orderYear || !partnerCode) {
+      costHistoryRequest.current.controller?.abort();
+      setCostHistoryRows([]);
+      setCostHistoryState({ loading: false, error: '' });
+      return undefined;
+    }
+    const sequence = costHistoryRequest.current.sequence + 1;
+    costHistoryRequest.current.sequence = sequence;
+    costHistoryRequest.current.controller?.abort();
+    const controller = new AbortController();
+    costHistoryRequest.current.controller = controller;
+    setCostHistoryRows([]);
+    setCostHistoryState({ loading: true, error: '' });
+    (async () => {
+      try {
+        const response = await fetch(`/api/raum/pnl?view=cost-history&partner=${encodeURIComponent(partnerCode)}&year=${encodeURIComponent(orderYear)}`, { signal: controller.signal });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.error || '차수별 매입단가 조회 실패');
+        if (costHistoryRequest.current.sequence !== sequence) return;
+        setCostHistoryRows(Array.isArray(result.rows) ? result.rows : []);
+        setCostHistoryState({ loading: false, error: '' });
+      } catch (e) {
+        if (e?.name === 'AbortError' || controller.signal.aborted || costHistoryRequest.current.sequence !== sequence) return;
+        setCostHistoryRows([]);
+        setCostHistoryState({ loading: false, error: e.message || '차수별 매입단가 조회 실패' });
+      }
+    })();
+    return () => controller.abort();
+  }, [detail?.meta?.orderYear, partnerCode, detail?.meta?.pnlKey, costHistoryRevision]);
+
+  const retryCostHistory = () => setCostHistoryRevision(value => value + 1);
 
   const assignMonth = async (row, assignedMonth) => {
     setAssigningMonthKey(row.PnlKey);
@@ -1400,6 +1448,7 @@ export default function RaumPnlPage() {
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '저장 실패');
       setDetail(d => ({ ...d, meta: { ...d.meta, pnlKey: j.pnlKey }, unsaved: false }));
+      setCostHistoryRevision(value => value + 1);
       setMessage(`저장 완료 — ${Number(meta.major)}차 손익계산서가 히스토리에 기록되었습니다.`);
       loadList();
     } catch (e) {
@@ -1478,6 +1527,7 @@ export default function RaumPnlPage() {
         warnings: ['이미지 OCR 초안으로 저장했습니다. 단가·적요·매입단가를 확인한 뒤 수정 저장하세요.'],
         unsaved: false,
       });
+      setCostHistoryRevision(value => value + 1);
       setImageOpen(false);
       setMessage(`${Number(mj)}차 이미지 결산 초안 저장 완료 — 주문등록은 별도로 실행하세요.`);
       await loadList();
@@ -1790,6 +1840,18 @@ export default function RaumPnlPage() {
     const p2 = (n) => String(n).padStart(2, '0');
     return { w1: `${p2(major)}-02`, w2: `${p2(major + 1)}-01` };
   }, [detail?.meta?.major]);
+  const costComparison = useMemo(
+    () => (detail ? buildRaumPnlCostComparison(detail.items, costHistoryRows, {
+      orderYear: detail.meta?.orderYear,
+      partnerCode,
+    }) : { weeks: [], rows: [] }),
+    [detail, costHistoryRows, partnerCode]
+  );
+  const costComparisonByIndex = costComparison.rows;
+  const formatCostHistoryValues = values => {
+    if (!values?.length) return '—';
+    return values.map(value => Number(value) === 0 ? '0' : Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })).join(' / ');
+  };
 
   // ── 렌더 ──
   return (
@@ -2075,12 +2137,28 @@ export default function RaumPnlPage() {
             </span>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={st.table}>
+          <div className="raum-pnl-cost-comparison-label" style={{ margin: '4px 0 6px', color: '#475569', fontSize: 11.5 }}>
+              <b>차수별 매입단가 비교 · 저장값 · 원/VAT별도 · 엑셀/인쇄 제외</b>
+              {costComparison.weeks.length ? (
+                <>
+                  <button type="button" style={{ ...st.btn, marginLeft: 8, padding: '1px 6px', fontSize: 11 }} onClick={() => { if (costComparisonScrollRef.current) costComparisonScrollRef.current.scrollLeft = costComparisonScrollRef.current.scrollWidth; }}>단가 비교로 이동 →</button>
+                  <button type="button" style={{ ...st.btn, marginLeft: 4, padding: '1px 6px', fontSize: 11 }} onClick={() => { if (costComparisonScrollRef.current) costComparisonScrollRef.current.scrollLeft = 0; }}>← 입력란</button>
+                </>
+              ) : null}
+              {costHistoryState.loading ? <span style={{ marginLeft: 8 }}>불러오는 중…</span> : null}
+              {!costHistoryState.loading && !costHistoryState.error && !costComparison.weeks.length ? <span style={{ marginLeft: 8, color: '#64748b' }}>저장된 비교값 없음</span> : null}
+              {costHistoryState.error ? (
+                <span style={{ marginLeft: 8, color: '#b91c1c' }}>
+                  {costHistoryState.error} <button type="button" style={{ ...st.btn, padding: '1px 6px', fontSize: 11 }} onClick={retryCostHistory}>다시 시도</button>
+                </span>
+              ) : null}
+          </div>
+          <div ref={costComparisonScrollRef} style={{ overflowX: 'auto' }}>
+            <table style={{ ...st.table, minWidth: 'max-content' }}>
               <thead>
                 <tr>
                   <th style={st.th}>순번</th>
-                  <th style={st.th}>품목명</th>
+                  <th style={{ ...st.th, position: 'sticky', left: 0, zIndex: 3, boxShadow: '2px 0 3px rgba(15,23,42,.08)' }}>품목명</th>
                   <th style={st.th} title="견적 품목이 연결된 전산 품목. 도착원가·매입단가는 이 매칭 기준입니다.">전산 매칭</th>
                   <th style={st.th}>단위</th>
                   {branches.map(b => <th key={b} style={st.th}>{b}</th>)}
@@ -2097,6 +2175,7 @@ export default function RaumPnlPage() {
                   <th style={st.th}>적요</th>
                   <th style={st.th}>행</th>
                   <th style={st.th} title="전산 라움 분배와 견적서 비교 — 기준 창 = 전산 N-2차+(N+1)-1차. 창에 없는 품목(쌓아두는 선입고 품목)만 N-1차를 폴백으로 확인('(전차수분)' 표시). 수량은 같은 품목 행 합계 기준, 단가는 ±2%. 라움 견적이 전산보다 적으면 잔량의 아이엠 분배 여부·시점이 └ 줄로 표시됩니다. ⚖ 적용 후엔 초록 ✔ 적용 로그가 여기 붙습니다.">전산 분배 대조</th>
+                  {costComparison.weeks.map((week, weekIndex) => <th className="raum-pnl-cost-comparison-cell" key={week.key} style={{ ...st.th, background: '#e0f2fe', borderLeft: weekIndex === 0 ? '2px solid #7dd3fc' : undefined, fontSize: 11.5 }}>{week.label}<br />매입단가</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -2107,7 +2186,7 @@ export default function RaumPnlPage() {
                   return (
                     <tr key={it.itemKey ?? it._uid ?? `${it.name}|${it.price}`} style={hl.bg ? { background: hl.bg } : undefined} title={hl.why}>
                       <td style={{ ...st.td, textAlign: 'center' }}>{i + 1}</td>
-                      <td style={st.td} title={it.isCustom ? '수동 추가 행' : (raumPnlMatchDisplay(it).hint)}>
+                      <td style={{ ...st.td, position: 'sticky', left: 0, zIndex: 2, background: hl.bg || '#fff', boxShadow: '2px 0 3px rgba(15,23,42,.08)' }} title={it.isCustom ? '수동 추가 행' : (raumPnlMatchDisplay(it).hint)}>
                         {it.isCustom ? (
                           <input style={{ ...st.input, width: 130, textAlign: 'left' }} value={it.name}
                             onChange={e => setItem(i, { name: e.target.value })} />
@@ -2217,6 +2296,11 @@ export default function RaumPnlPage() {
                           </td>
                         );
                       })()}
+                      {costComparison.weeks.map((week, weekIndex) => (
+                        <td className="raum-pnl-cost-comparison-cell" key={week.key} style={{ ...st.td, ...st.num, background: '#f8fbff', borderLeft: weekIndex === 0 ? '2px solid #bae6fd' : undefined, color: '#475569', fontSize: 11.5 }}>
+                          {formatCostHistoryValues(costComparisonByIndex[i]?.[weekIndex])}
+                        </td>
+                      ))}
                     </tr>
                   );
                 })}
@@ -2237,6 +2321,7 @@ export default function RaumPnlPage() {
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.nenova)}</td>
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.miu)}</td>
                   <td style={st.td} colSpan={4}></td>
+                  {costComparison.weeks.map(week => <td className="raum-pnl-cost-comparison-cell" key={week.key} style={st.td}></td>)}
                 </tr>
               </tbody>
             </table>
@@ -2280,6 +2365,12 @@ export default function RaumPnlPage() {
         .raum-pnl-month-summary {
           min-width: 0;
           overflow-x: auto;
+        }
+        @media print {
+          .raum-pnl-cost-comparison-label,
+          .raum-pnl-cost-comparison-cell {
+            display: none !important;
+          }
         }
         @media (max-width: 1420px) {
           .raum-pnl-summary-layout {
