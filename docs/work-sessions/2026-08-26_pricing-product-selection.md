@@ -15,4 +15,6 @@ Q. 품목도 전체 선택 후 일부만 해제하고 싶다.
 
 ## 검증 상태
 
-실행형 선택/일괄 적용 범위 fixture, test:erp-contract 전체, dnSpy evidence, manifest(changed-from origin/master), ERP write guard, build(98 pages), diff --check 통과. 배포/실브라우저 결과는 완료 후 기록.
+실행형 선택/일괄 적용 범위 fixture, test:erp-contract 전체, dnSpy evidence, manifest(changed-from origin/master), ERP write guard, build(98 pages), diff --check 통과.
+
+PR366 병합 a63ab2c, 배포32930972811 성공(2분48초). 운영 화면 버전 확인. 수연원예/콜롬비아 조회1012개 초기 전체 선택 → Moon Light 해제1011개 및 해당 표 행0 → 전체 선택 복원1012개/행1 → 전체 해제0개·품목 선택 안내 → 전체 선택 복원 확인. Moon Light 검색 시 후보1개, 전체 선택 상태1012개 유지. 모든 단계 저장0개 비활성: 단가 입력·저장/운영 DB 쓰기는 실행하지 않음.
