@@ -3,6 +3,9 @@
   "title": "차수피벗 업체 분배수량 변경 계약",
   "scope": [
     "pages/shipment/week-pivot.js",
+    "lib/weekPivotSheet.js",
+    "__tests__/weekPivotSheet.test.js",
+    "__tests__/weekPivotDisplay.test.js",
     "pages/api/shipment/adjust.js",
     "pages/api/shipment/distribute.js",
     "lib/shipmentDescr.js",
@@ -40,6 +43,12 @@
     ,"__tests__/pasteSplitActionLayout.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "displayExportPolicy": {
+    "weekTitle": "white foreground on all fixed/unfixed/partial/empty dark header backgrounds, overriding global table header color",
+    "notes": "existing outDescr/descrMap is display-only; pvDescrOpen top checkbox toggles inline customer-cell notes and summary notes without writes; summary includes customer label and wrapping; zero-quantity response rows with existing notes are retained",
+    "excel": "each week has a quantity-change text column built from same descrMap and customer labels regardless of UI note visibility; numeric quantities and SUM formula cells preserved; no formulas for text note columns; no extra history query",
+    "preserve": "all ERP writes, year scopes, quantity and stock arithmetic unchanged"
+  },
   "policyBoundaries": [
     "This contract covers week-pivot, adjust, paste-order distribution, and explicit farm-distribution only.",
     "The separate estimate-additional-product contract intentionally continues to require a FarmKey; this optional-farm rule does not relax that workflow."
@@ -133,6 +142,8 @@
     }
   },
   "requiredTestFiles": [
+    "__tests__/weekPivotSheet.test.js",
+    "__tests__/weekPivotDisplay.test.js",
     "__tests__/shipmentPivotAdjustContract.test.js",
     "__tests__/shipmentFarmAssignments.test.js",
     "__tests__/shipmentFarmContract.test.js",
