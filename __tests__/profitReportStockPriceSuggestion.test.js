@@ -127,7 +127,8 @@ async function main() {
   assert.ok(!/분배단가 후보|다수업체 기준 단가|SuggestionCandidates|priceSuggestionEvidence/.test(pageSource));
   assert.ok(!/key: 'H'.*editable: true/.test(pageSource));
   assert.ok(!/key: 'S'.*editable: true/.test(pageSource));
-  assert.match(pageSource, /cd\.key === 'R' && needsRateInput\(row\)/);
+  // 2026-08-26 조정열(AC/AJ) 추가로 렌더 조건이 삼항으로 변경 — R 입력칸 노출 조건은 동일.
+  assert.match(pageSource, /cd\.key === 'R' \? needsRateInput\(row\)/);
   assert.match(reportSource, /AS StockBeginEst/);
   assert.match(reportSource, /AS StockEndEst/);
 

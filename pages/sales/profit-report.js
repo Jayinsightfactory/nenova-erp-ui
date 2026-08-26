@@ -36,6 +36,9 @@ const fmtInput = v => {
 const COLUMN_DEFS = [
   { key: 'category', label: '품명' },
   { key: 'C', label: '매출액' },
+  // 차수귀속 조정(2026-08-26) — 원본 엑셀이 하던 수동 조정을 근거와 함께 입력하는 열.
+  // AC는 C·J에, AJ는 J에만 반영된다(lib/profitReportCalc.js computeProfitRow).
+  { key: 'AC', label: '매출조정', editable: true, editWidth: 90 },
   { key: 'D', label: '매출비율' },
   { key: 'E', label: '기초상품재고액' },
   { key: 'F', label: '기말상품재고액' },
@@ -43,6 +46,7 @@ const COLUMN_DEFS = [
   { key: 'H', label: '그외통관비' },
   { key: 'I', label: '매출원가', bold: true },
   { key: 'J', label: '매출이익', bold: true },
+  { key: 'AJ', label: '이익조정', editable: true, editWidth: 90 },
   { key: 'K', label: '이익률' },
   { key: 'L', label: '불량금액', color: '#1d4ed8' },
   { key: 'M', label: '불량율' },
@@ -56,7 +60,9 @@ const COLUMN_DEFS = [
   { key: 'U', label: '상품구매비율' },
 ];
 const ALL_COL_KEYS = COLUMN_DEFS.map(c => c.key);
-const LS_KEY = 'nenova_profitReport_visibleCols_v1';
+// v2(2026-08-26): 매출조정(AC)/이익조정(AJ) 컬럼 추가 — 기존 저장 프리퍼런스에 새 컬럼이
+// 영영 숨겨지지 않도록 키를 올려 1회 기본값(전체표시)으로 리셋한다.
+const LS_KEY = 'nenova_profitReport_visibleCols_v2';
 const LS_PRESET_KEY = 'nenova_profitReport_colPresets_v1';
 const VALIDATION_PANEL_ID = 'profit-report-validation-panel';
 const ANALYSIS_PANEL_ID = 'profit-report-analysis-panel';
@@ -114,6 +120,8 @@ function humanizeAuditMessage(message) {
 function readonlyValue(key, obj, ctx) {
   switch (key) {
     case 'C': return fmt(obj.C);
+    case 'AC': return obj.AC != null && Number(obj.AC) !== 0 ? fmt(obj.AC) : '';
+    case 'AJ': return obj.AJ != null && Number(obj.AJ) !== 0 ? fmt(obj.AJ) : '';
     case 'D': return pct(ctx.D);
     case 'E': return fmt(obj.E);
     case 'F': return fmt(obj.F);
@@ -149,7 +157,10 @@ const attentionRows = rows => rows.filter(r => needsCheck(r, 'E') || needsCheck(
 // 자동 환율 원천이 없고 매입/포워딩 금액이 있는 행은 사용자가 바로 R을 입력할 수 있어야 한다.
 // 검증 배너만 표시하고 입력 경로를 숨기면 보고서 저장이 막히므로, 해당 행의 R 셀을 자동 편집칸으로 노출한다.
 function needsRateInput(row) {
-  if (!row || row.manual?.R != null || row.source?.R !== 'missing') return false;
+  // approximate_currency_master(2026-08-26): 정확 원천이 없어 통화마스터 근사치를 임시 적용한
+  // 상태 — 값은 채워져 있지만 입력칸을 계속 열어 통관 신고 환율로 수정·확정할 수 있게 한다.
+  if (!row || row.manual?.R != null
+    || !['missing', 'approximate_currency_master'].includes(row.source?.R)) return false;
   return Math.abs(Number(row.auto?.Q || 0)) > 0.001 || Math.abs(Number(row.auto?.S || 0)) > 0.001;
 }
 
@@ -198,6 +209,8 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
     verified_category_average: '원본 엑셀 공식: (매입액+그외통관비) ÷ 매입수량 × 마지막 EXE ProductStock 수량',
     verified_sample_average: '명시적 샘플 품목: 같은 ProductStock 시점·동일 단위의 비샘플 검증 매입원가 수량가중평균',
     verified_historical_workbook: '2026년 22~28차 원본 엑셀의 기말재고 확정 근거(파일 해시·셀 위치 보존)',
+    category_average_fallback: '근사치(원본공식 확대): 품목별 검증 단가가 없어 (매입액+그외통관비) ÷ 매입수량 × ProductStock 수량으로 채움 — 단가 근거 입력 시 정확값으로 대체',
+    carried_category_unit_cost: '근사치(단가 이월): 이번 차수 매입이 없어 전차수 재고 평가단가 × 이번 수량으로 채움 — 단가 근거 입력 시 정확값으로 대체',
     missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 확인된 단가 근거가 부족합니다',
     missing_stock_snapshot: '⚠ EXE ProductStock 차수 스냅샷이 없습니다',
     no_stock: '이 차수 기말재고 수량이 없습니다',
@@ -210,6 +223,8 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
         : `과세환율(관세청 신고환율, ${row.currency || '-'}) — 당주 통관 스냅샷(FreightCost) → 이 차수에 저장/캐시된 과세환율 → 2026 22~27차 원본 엑셀값 → 관세청 공식 환율 순으로 적용합니다. 현재 차수에 매입이 없을 때만 가장 최근의 정확한 과세환율을 이어 사용하며, 통화마스터 현재 환율은 자동 적용하지 않습니다.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 값 사용 — (1차GW+2차GW)×백상단가 + 관세1+관세2 + (선율1+선율2+월드운송료1+월드운송료2+한국방역1+한국방역2)÷1.1. 콜롬비아 4품목은 반차수 TOTAL을 박스당무게×박스수량 비율로 배분. 입력하면 수기값 우선',
+    AC: '매출조정 — 다른 차수 귀속 매출(견적 누락분·차수 이동분)을 이 차수 매출에 가감합니다. 매출액(C)과 매출이익(J)에 함께 반영되며, 저장 시 근거(원본 보고서·사유)가 필요합니다.',
+    AJ: '이익조정 — 매출은 그대로 두고 매출이익(J)만 가감합니다(원본 엑셀의 J셀 수동 수정과 동일). 저장 시 근거가 필요합니다.',
     E: `기초재고 — 같은 매출연도 전차수(01차만 전년도 52차)의 마지막 EXE ProductStock와 검증된 품목 단가로만 계산합니다.${stockEvidenceText(row.beginStock)} 최종값 직접입력은 허용하지 않습니다.`,
     F: `기말재고 — ${row.stock?.week || '마지막 ProductStock 세부차수'} 기준. ${F_SOURCE_TEXT[row.stockSourceKind?.end] || F_SOURCE_TEXT.missing_stock_snapshot}.${stockEvidenceText(row.stock)} 최종값 직접입력은 허용하지 않습니다.`,
   };
@@ -463,7 +478,7 @@ export default function ProfitReportPage() {
       for (const row of data?.rows || []) {
         const e = edits[row.category] || {};
         const out = {};
-        for (const col of ['R']) {
+        for (const col of ['R', 'AC', 'AJ']) {
           if (e[col] === undefined) continue;
           out[col] = e[col] === '' ? null : Number(e[col]);
           const rawEvidence = window.prompt(`${row.category} ${col} 외부 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
@@ -1082,7 +1097,8 @@ export default function ProfitReportPage() {
                     )}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                        {!data.confirmed && cd.key === 'R' && needsRateInput(row) && cd.editable
+                        {!data.confirmed && cd.editable && row.category !== '기타(미분류)'
+                          && (cd.key === 'R' ? needsRateInput(row) : (cd.key === 'AC' || cd.key === 'AJ'))
                           ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} />
                           : readonlyValue(cd.key, c, { D, U })}
                       </td>

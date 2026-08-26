@@ -113,7 +113,9 @@ async function main() {
       && reportApiSource.includes('rateSuggestions')
       && !reportApiSource.includes('previous_report_taxable_rate')
       && !reportApiSource.includes('currency_master_fallback'));
-  check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' && needsRateInput(row)") && pageSource.includes('과세환율 입력 필요'));
+  // 2026-08-26: 매출조정(AC)/이익조정(AJ) 편집칸 추가로 렌더 조건이 삼항으로 바뀜 —
+  // R은 여전히 원천이 없거나 근사치일 때만 입력칸을 노출한다.
+  check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' ? needsRateInput(row)") && pageSource.includes('과세환율 입력 필요'));
   check('보고서 저장 뒤 과세환율 캐시 저장 실패를 조용히 무시하지 않음',
     pageSource.includes('과세환율 별도 저장 실패')
       && pageSource.includes('보고서 수기값은 저장되었습니다.')
@@ -138,9 +140,9 @@ async function main() {
     !/key: 'E'[^\n]*editable: true/.test(pageSource) && !/key: 'F'[^\n]*editable: true/.test(pageSource));
   check('표시·입력값은 소수점 없이 천 단위 콤마 적용', pageSource.includes('function NumericInput') && pageSource.includes('Math.round(n).toLocaleString()') && pageSource.includes('Math.round(Number(raw))'));
   check('통관·포워딩 입력 패널은 기본 접힘', pageSource.includes("const [showCustoms, setShowCustoms] = useState(false)") && pageSource.includes("const [showForwarding, setShowForwarding] = useState(false)"));
-  check('본표에는 원천이 없는 과세환율만 입력칸 노출',
+  check('본표에는 원천이 없는 과세환율만 입력칸 노출(조정열 AC/AJ 제외)',
     !pageSource.includes('showOverrides')
-      && pageSource.includes("cd.key === 'R' && needsRateInput(row)")
+      && pageSource.includes("cd.key === 'R' ? needsRateInput(row)")
       && !/key: 'H'[^\n]*editable: true/.test(pageSource)
       && !/key: 'S'[^\n]*editable: true/.test(pageSource));
   check('비고사항은 별도 저장 버튼으로 저장', pageSource.includes("const [noteDirty, setNoteDirty] = useState(false)") && pageSource.includes("action: 'saveNote'") && pageSource.includes('비고 저장'));
