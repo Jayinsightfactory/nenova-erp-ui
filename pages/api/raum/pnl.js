@@ -6,10 +6,18 @@
 import { withAuth } from '../../../lib/auth';
 import { saveRaumPnl, loadRaumPnlList, loadRaumPnlDetail, deleteRaumPnl, assignRaumPnlMonth } from '../../../lib/raumPnl';
 import { defaultPnlTitle, resolvePnlPartner } from '../../../lib/raumPnlPartner';
+import { loadRaumPnlCostComparisonRows } from '../../../lib/raumPnlCostComparisonServer';
 
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      if (req.query.view === 'cost-history') {
+        const orderYear = String(req.query.year || '').trim();
+        if (!/^\d{4}$/.test(orderYear)) return res.status(400).json({ success: false, error: '유효한 연도(year)가 필요합니다.' });
+        const partner = resolvePnlPartner(req.query.partner);
+        const rows = await loadRaumPnlCostComparisonRows({ orderYear, partnerCode: partner.code });
+        return res.status(200).json({ success: true, rows });
+      }
       // 엑셀 다운로드 — 저장된 전체 차수(오름차순) 시트 + 결산 시트, 수식 포함
       if (req.query.excel === '1') {
         const partner = resolvePnlPartner(req.query.partner);

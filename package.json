@@ -41,7 +41,7 @@
     "test:freight-search": "node __tests__/freightGroupSearch.test.js",
     "test:nenova-dnspy-evidence": "node scripts/check-nenova-dnspy-evidence.mjs",
     "pretest:erp-contract": "node __tests__/profitReportTaxableRateCarry.test.js && node __tests__/shipmentAdjustmentPostWrite.test.js",
-    "test:raum-pnl": "node __tests__/raumPnlImage.test.js && node __tests__/raumPnlExcel.test.js && node __tests__/raumPnlUploadDiff.test.js && node __tests__/raumPnlMonthly.test.js && node __tests__/raumPnlPartner.test.js && node __tests__/raumPnlMatchDisplay.test.js && node __tests__/raumPnlMultiImport.test.js && node __tests__/raumPnlPreservation.test.js && node __tests__/raumPnlSettlementContract.test.js",
+    "test:raum-pnl": "node __tests__/raumPnlImage.test.js && node __tests__/raumPnlExcel.test.js && node __tests__/raumPnlCostComparison.test.js && node __tests__/raumPnlUploadDiff.test.js && node __tests__/raumPnlMonthly.test.js && node __tests__/raumPnlPartner.test.js && node __tests__/raumPnlMatchDisplay.test.js && node __tests__/raumPnlMultiImport.test.js && node __tests__/raumPnlPreservation.test.js && node __tests__/raumPnlSettlementContract.test.js",
     "guard:erp-writes": "node scripts/check-erp-write-contracts.mjs",
     "verify:erp-change": "npm run test:board && npm run test:erp-contract && npm run test:erp-manifest -- --changed-from HEAD^ && npm run guard:erp-writes -- --changed-from HEAD^ && npm run build",
     "test:pivot": "node __tests__/pivotStats.test.js && node __tests__/pivotProductSearch.test.js && node __tests__/pivotVolumeRows.test.js && node __tests__/pivotVolumeCustDays.test.js && node __tests__/pivotExcelExport.test.js",
