@@ -295,8 +295,9 @@ async function main() {
   check('N/L/O/Q는 자동으로 표기', ['N', 'L', 'O', 'Q'].every((k) => byKey[k].kind === 'auto'));
   check('C/D/G/I/J/K/M/P/T/U는 계산으로 표기',
     ['C', 'D', 'G', 'I', 'J', 'K', 'M', 'P', 'T', 'U'].every((k) => byKey[k].kind === 'calc'));
+  // 2026-08-26 조정열(AC/AJ) 추가로 렌더 조건이 삼항으로 변경 — R 노출 조건 자체는 동일.
   check('환율 원천이 없을 때 입력칸이 뜨는 기존 동작 유지', /function needsRateInput\(row\)/.test(pageSource)
-    && /cd\.key === 'R' && needsRateInput\(row\) && cd\.editable/.test(pageSource));
+    && /cd\.key === 'R' \? needsRateInput\(row\)/.test(pageSource));
   check('수기 저장값이 자동값보다 우선하는 로직 유지', /const mv = row\.manual\[col\];/.test(pageSource + calcSource));
   check('환율 설명이 입력값을 자동값으로 포장하지 않음', /넣은 값은 자동값이 아니라 저장된 입력값/.test(byKey.R.note));
 
@@ -320,8 +321,9 @@ async function main() {
   console.log('\n=== 조회 전용 보장 ===');
   check('설명 모듈·컴포넌트에 fetch/POST 없음',
     !/fetch\(/.test(guideSource + componentSource) && !/method: 'POST'/.test(guideSource + componentSource));
-  check('본표 저장 대상은 원천이 없는 R뿐이며 H/S/E/F 최종값은 제외',
-    /for \(const col of \['R'\]\)/.test(pageSource)
+  // 2026-08-26: 저장 대상에 조정열 AC/AJ 추가 — H/S/E/F 최종값 직접 저장 금지는 그대로.
+  check('본표 저장 대상은 R과 조정열(AC/AJ)뿐이며 H/S/E/F 최종값은 제외',
+    /for \(const col of \['R', 'AC', 'AJ'\]\)/.test(pageSource)
     && !/for \(const col of \[[^\]]*'H'[^\]]*'S'/.test(pageSource)
     && !/for \(const col of \[[^\]]*'E'[^\]]*'F'/.test(pageSource));
 
