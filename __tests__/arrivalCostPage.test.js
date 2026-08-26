@@ -26,6 +26,8 @@ assert.match(source, /품목명 없이 품종 버튼만/, '품목명 검색 없�
 assert.match(source, /입고수량/, '수량 열은 단/박스 입고단위를 함께 보여야 한다.');
 assert.match(source, /특별기준 CW\/GW \(콜롬비아\)/, '콜롬비아 CW/GW 특별기준을 켤 수 있어야 한다.');
 assert.match(source, /filterArrivalRowsByWeight/, '콜롬비아만 CW>GW이면 장미만, CW≤GW이면 카네이션·알스트로를 보여야 한다.');
+assert.match(source, /면 활성화/, '안내와 품종 버튼에 활성화 품종을 보여야 한다.');
+assert.match(source, /arrivalVarietyWeightActive/);
 assert.match(source, /sectionArrivalCostGroupsByWeek/, '차수 구간으로 품목·농장 원가를 한눈에 보여야 한다.');
 assert.match(source, /expandedGroups/, '농장 행은 기본으로 펼치지 않고 품목 줄을 눌러 연다.');
 assert.match(source, /농장별 원가/, '같은 차수·품목의 농장 원가를 한 열에 모아야 한다.');

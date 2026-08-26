@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatFarmCostSummary, groupArrivalCostRows, arrivalCostGroupKey, normalizeWeekOrder, filterArrivalRowsByWeight, arrivalWeightMode, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
+import { formatFarmCostSummary, groupArrivalCostRows, arrivalCostGroupKey, normalizeWeekOrder, filterArrivalRowsByWeight, arrivalWeightMode, arrivalWeightHint, arrivalVarietyWeightActive, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
 
 assert.equal(normalizeWeekOrder('asc'), 'asc');
 assert.equal(normalizeWeekOrder('ASC'), 'asc');
@@ -37,6 +37,14 @@ assert.match(formatFarmCostSummary(groups[0].rows), /농장1 8,800원 \/ 농장2
 assert.equal(arrivalWeightMode(100, 180), 'VOLUME');
 assert.equal(arrivalWeightMode(120, 120), 'WEIGHT');
 assert.equal(arrivalWeightMode(null, 10), 'UNKNOWN');
+assert.equal(arrivalWeightHint({ countryName: '콜롬비아', orderWeek: '33-1', grossWeight: 100, chargeableWeight: 180 }), '33-1 콜롬비아장미 면 활성화');
+assert.equal(arrivalWeightHint({ countryName: '콜롬비아', orderWeek: '33-2', grossWeight: 120, chargeableWeight: 100 }), '33-2 콜롬비아카네이션·알스트로 면 활성화');
+assert.equal(arrivalWeightHint({ countryName: '에콰도르', orderWeek: '33-1', grossWeight: 100, chargeableWeight: 180 }), '');
+assert.equal(arrivalVarietyWeightActive('콜롬비아장미', [{ countryName: '콜롬비아', grossWeight: 100, chargeableWeight: 180 }]), true);
+assert.equal(arrivalVarietyWeightActive('콜롬비아카네이션', [{ countryName: '콜롬비아', grossWeight: 100, chargeableWeight: 180 }]), false);
+assert.equal(arrivalVarietyWeightActive('콜롬비아카네이션', [{ countryName: '콜롬비아', grossWeight: 120, chargeableWeight: 100 }]), true);
+assert.equal(arrivalVarietyWeightActive('콜롬비아알스트로', [{ countryName: '콜롬비아', grossWeight: 120, chargeableWeight: 120 }]), true);
+assert.equal(arrivalVarietyWeightActive('콜롬비아수국', [{ countryName: '콜롬비아', grossWeight: 120, chargeableWeight: 100 }]), false);
 
 const mixed = [
   { countryName: '콜롬비아', productNameRaw: 'ROSE Freedom', flowerNameRaw: '장미', grossWeight: 100, chargeableWeight: 180 },

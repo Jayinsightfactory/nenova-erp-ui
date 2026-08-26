@@ -24,7 +24,7 @@
       "name": "ARRIVAL_COST_SEARCH",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "notes": "품목 검색은 order-mappings 매칭데이터로 ProdKey를 찾고, 차수·국가는 결과 표시만 한다. 품종 버튼은 Product.CountryFlower(국가+품종)이며 FormOrderAdd와 같다. 품목명 없이 연도+품종만으로 조회할 수 있다. 목록은 차수 구간 → 품목 한 줄에 농장별 원가를 모으고, 농장 행은 기본으로 숨긴다. 입고수량이 단/박스이면 도착원가(단)을 표시 원가로 쓰고 송이 원가(476원)를 단 원가 대신 쓰지 않는다. OrderYear는 교차연도 충돌 방지용으로 유지한다. 목록 SELECT는 RawJson을 제외하고, 품목 검색 중에는 OrderDetail 사용량 OUTER APPLY를 돌리지 않는다. 목록은 콜롬비아 행에만 GW(Gross Weight)·CW(Chargeable Weight) 특별기준을 기본 적용한다. 콜롬비아에서 CW>GW이면 장미 원가만 보이고, CW≤GW이면 카네이션·알스트로 원가가 보이며 장미는 숨긴다. 에콰도르 등 다른 국가와 GW/CW 없는 행은 전 품목을 그대로 보여 준다. 농장 원가 요약은 같은 농장+원가 문구를 한 번만 적는다. Order/Shipment/Estimate/Stock은 읽지 않는다."
+      "notes": "품목 검색은 order-mappings 매칭데이터로 ProdKey를 찾고, 차수·국가는 결과 표시만 한다. 품종 버튼은 Product.CountryFlower(국가+품종)이며 FormOrderAdd와 같다. 품목명 없이 연도+품종만으로 조회할 수 있다. 목록은 차수 구간 → 품목 한 줄에 농장별 원가를 모으고, 농장 행은 기본으로 숨긴다. 입고수량이 단/박스이면 도착원가(단)을 표시 원가로 쓰고 송이 원가(476원)를 단 원가 대신 쓰지 않는다. OrderYear는 교차연도 충돌 방지용으로 유지한다. 목록 SELECT는 RawJson을 제외하고, 품목 검색 중에는 OrderDetail 사용량 OUTER APPLY를 돌리지 않는다. 목록은 콜롬비아 행에만 GW(Gross Weight)·CW(Chargeable Weight) 특별기준을 기본 적용한다. 콜롬비아에서 CW>GW이면 장미 원가만 보이고 안내는 '콜롬비아장미 면 활성화', CW≤GW이면 카네이션·알스트로 원가가 보이며 안내는 '콜롬비아카네이션·알스트로 면 활성화'이고 장미는 숨긴다. 해당 CountryFlower 버튼에도 활성화가 붙는다. 에콰도르 등 다른 국가와 GW/CW 없는 행은 전 품목을 그대로 보여 준다. 농장 원가 요약은 같은 농장+원가 문구를 한 번만 적는다. Order/Shipment/Estimate/Stock은 읽지 않는다."
     },
     {
       "name": "ARRIVAL_COST_UPLOAD_REVISION",
