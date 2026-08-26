@@ -14,6 +14,8 @@ import { isWeekPivotCellFixed, weekPivotFixState } from '../../lib/weekPivotFix'
 import { amountVatFromCostEst } from '../../lib/distributeUnits';
 import PivotFarmAssignmentModal from '../../components/PivotFarmAssignmentModal';
 import * as XLSX from 'xlsx';
+import * as XLSXStyled from 'xlsx-js-style';
+import { buildWeekPivotSheet } from '../../lib/weekPivotSheet';
 
 // 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
 // 01차=월요일, 02차=목요일(+3), 03차=토요일(+5)
@@ -875,6 +877,10 @@ export default function WeekPivot() {
 
     const prodMap={};
     rows.forEach(r=>{
+      // 수량이 0이 된 취소행도 조회 응답에 비고가 남아 있으면 화면/엑셀에서 숨기지 않는다.
+      if (cleanDescrText(r.outDescr)) {
+        if(!prodMap[r.ProdKey]) prodMap[r.ProdKey]={name:r.ProdName,displayName:r.DisplayName,coun:r.CounName,flower:r.FlowerName,unit:r.OutUnit};
+      }
       if(pvShowOnlyOut){
         if((r.outQty||0)>0||Object.keys(startStocks).some(k=>k.startsWith(`${r.ProdKey}-`)&&startStocks[k]?.stock)){
           if(!prodMap[r.ProdKey]) prodMap[r.ProdKey]={name:r.ProdName,displayName:r.DisplayName,coun:r.CounName,flower:r.FlowerName,unit:r.OutUnit};
@@ -1183,77 +1189,13 @@ export default function WeekPivot() {
         XLSX.utils.book_append_sheet(wb, mws, '전체병합');
       }
 
-      // 차수피벗 시트: 3줄 헤더 + 병합 + 합계 수식
+      // 차수피벗 시트: 숫자/수식 보존 + 차수별 수량 변경내역
       {
-        const colsPerWeekExcel = custKeys.length + 4;
-        const totalCols = 3 + weeks.length * colsPerWeekExcel;
-        const dataStartRow = 3;
-        const dataRows = prodKeys.length;
-        const sumRow = dataStartRow + dataRows;
-        const flatData = [];
-
-        const h1 = ['', '', ''];
-        weeks.forEach(wk => { for (let i = 0; i < colsPerWeekExcel; i++) h1.push(i === 0 ? wk : ''); });
-        flatData.push(h1);
-
-        const h2 = ['', '', ''];
-        weeks.forEach(() => {
-          areaGroups.forEach(ag => { for (let i = 0; i < ag.count; i++) h2.push(i === 0 ? ag.area : ''); });
-          h2.push('', '', '', '');
+        const flatWs = buildWeekPivotSheet(XLSX, {
+          weeks, custKeys, prodKeys, prodMap, dataMap, inMap,
+          startStocks, prevStockMap, descrMap, areaGroups,
+          customerLabel: cShort, productLabel: pivotProdName,
         });
-        flatData.push(h2);
-
-        const h3 = ['국가', '꽃', '품명'];
-        weeks.forEach(() => { custKeys.forEach(ck => h3.push(cShort(ck))); h3.push('시작', '입고', '출고', '잔량'); });
-        flatData.push(h3);
-
-        prodKeys.forEach(pk => {
-          const p = prodMap[pk];
-          const row = [p.coun, p.flower, pivotProdName(p)];
-          const first = startStocks[`${pk}-${weeks[0]}`];
-          let rs = first?.stock != null ? first.stock : (prevStockMap[pk] || 0);
-          weeks.forEach(wk => {
-            const wkSS = startStocks[`${pk}-${wk}`]?.stock;
-            if (wkSS != null) rs = wkSS;
-            custKeys.forEach(ck => {
-              const v = dataMap[`${pk}-${ck}-${wk}`] || 0;
-              row.push(v > 0 ? v : '');
-            });
-            const wStart = rs;
-            const inQ = inMap[`${pk}-${wk}`] || 0;
-            const wOut = custKeys.reduce((a, ck) => a + (dataMap[`${pk}-${ck}-${wk}`] || 0), 0);
-            rs = wStart + inQ - wOut;
-            row.push(wStart || '', inQ || '', wOut || '', rs);
-          });
-          flatData.push(row);
-        });
-
-        const sumRowData = ['', '', '합계'];
-        for (let c = 3; c < totalCols; c++) {
-          const col = XLSX.utils.encode_col(c);
-          sumRowData.push({ f: `SUM(${col}${dataStartRow + 1}:${col}${sumRow})` });
-        }
-        flatData.push(sumRowData);
-
-        const flatWs = XLSX.utils.aoa_to_sheet(flatData);
-        const merges = [
-          {s:{r:0,c:0},e:{r:2,c:0}},
-          {s:{r:0,c:1},e:{r:2,c:1}},
-          {s:{r:0,c:2},e:{r:2,c:2}},
-        ];
-        weeks.forEach((wk, wi) => {
-          const startCol = 3 + wi * colsPerWeekExcel;
-          const endCol = startCol + colsPerWeekExcel - 1;
-          merges.push({s:{r:0,c:startCol},e:{r:0,c:endCol}});
-          let col = startCol;
-          areaGroups.forEach(ag => {
-            if (ag.count > 1) merges.push({s:{r:1,c:col},e:{r:1,c:col + ag.count - 1}});
-            col += ag.count;
-          });
-          merges.push({s:{r:1,c:endCol - 3},e:{r:1,c:endCol}});
-        });
-        flatWs['!merges'] = merges;
-        flatWs['!cols'] = [{wch:10},{wch:10},{wch:26}, ...Array(totalCols - 3).fill({wch:7})];
         XLSX.utils.book_append_sheet(wb, flatWs, '차수피벗');
       }
 
@@ -1436,7 +1378,7 @@ export default function WeekPivot() {
       }
 
       const fileName = `차수피벗_${weeks.join('~')}.xlsx`;
-      XLSX.writeFile(wb, fileName, { compression: true });
+      XLSXStyled.writeFile(wb, fileName, { compression: true });
     };
 
     return (
@@ -1483,7 +1425,11 @@ export default function WeekPivot() {
           </button>
           <label style={{fontSize:11,color:'#555',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
             <input type="checkbox" checked={pvShowOnlyOut} onChange={e=>setPvShowOnlyOut(e.target.checked)} />
-            출고/재고 있는 품목만
+            출고/재고·변경내역 있는 품목만
+          </label>
+          <label style={{fontSize:11,color:'#334155',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+            <input type="checkbox" checked={pvDescrOpen} onChange={e=>setPvDescrOpen(e.target.checked)} />
+            비고(변경내역)
           </label>
           <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목 / {custKeys.length}개 업체)</span>
           {/* ── 보기 옵션: 글씨크기/셀너비/패딩 ── */}
@@ -1537,7 +1483,9 @@ export default function WeekPivot() {
           .wp-pivot .wp-prod-col { width: ${pvProdColWidth}px !important; min-width: ${pvProdColWidth}px !important; max-width: ${pvProdColWidth}px !important; }
           .wp-pivot .pv-cell { min-width: ${pvCellWidth}px !important; max-width: ${pvCellWidth}px !important; }
           .wp-pivot .pv-cust-head { min-width: ${pvCellWidth}px !important; max-width: ${pvCellWidth + 16}px !important; }
-          .wp-pivot .pv-descr-cell { white-space: nowrap; overflow-x: auto; overflow-y: hidden; max-width: ${pvDescrWidth}px; }
+          .wp-pivot .pv-descr-cell { white-space: normal; overflow-wrap: anywhere; max-width: ${pvDescrWidth}px; }
+          .wp-pivot .pv-inline-descr { display:block; margin-top:3px; white-space:normal; overflow-wrap:anywhere; text-align:left; font-size:10px; line-height:1.35; color:#7c2d12; background:#fff7ed; padding:2px; }
+          .wp-pivot thead tr.wp-week-header-row th { color:#fff !important; }
           .wp-pivot th.resizable .col-resize-handle { position: absolute; top: 0; right: 0; width: 5px; height: 100%; cursor: col-resize; }
           /* 상단 가로스크롤 미러 */
           .wp-top-scroll { overflow-x: auto; overflow-y: hidden; height: 14px; margin-bottom: 2px; background: #f5f5f5; border-radius: 3px; }
@@ -1571,7 +1519,7 @@ export default function WeekPivot() {
              style={{overflowX:'auto',overflowY:'auto',maxHeight:`calc(100vh - ${pvFiltersOpen ? 200 : 90}px)`,position:'relative'}}>
         <table ref={wpTableRef} className="tbl" style={{...st.table,fontSize:pvFontSize,borderCollapse:'collapse'}}>
           <thead style={{position:'sticky',top:0,zIndex:4}}>
-            <tr style={st.thead}>
+            <tr className="wp-week-header-row" style={st.thead}>
               <th className="wp-prod-col" style={{...st.th,position:'sticky',left:0,background:'#263238',zIndex:3}} rowSpan={3}>품명</th>
               {weeks.map(wk=>{
                 const fixState=weekFixState(wk);
@@ -1584,7 +1532,7 @@ export default function WeekPivot() {
                 return (
                   <th key={wk} colSpan={colsPerWeek}
                       title={stateConfig.desc}
-                      style={{...st.th,textAlign:'center',background:stateConfig.bg,fontSize:12,borderLeft:'2px solid #fff'}}>
+                      style={{...st.th,textAlign:'center',background:stateConfig.bg,color:'#fff',fontSize:12,borderLeft:'2px solid #fff'}}>
                     {wk}
                     {stateConfig.label && (
                       <span style={{
@@ -1716,6 +1664,7 @@ export default function WeekPivot() {
                                         onClick={()=>{if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;}setPvEdit({year:orderYearFromWeek(weekFrom),pk,ck,wk,val:v,newVal:pend?pend.newQty:v,custName:cShort(ck),prodName:pivotProdName(p),farmAssignments:pend?.farmAssignments,sdetailKey:pend?.sdetailKey});}}>
                                       {pend?`${v>0?fmt(v):0}→${fmt(pend.newQty)}`:(v>0?fmt(v):'·')}
                                       {fixed&&v>0&&<span style={{fontSize:Math.max(6,pvFontSize-3),color:'#999'}}>🔒</span>}
+                                      {pvDescrOpen && descrMap[`${pk}-${ck}-${wk}`] && <span className="pv-inline-descr" title={`${cShort(ck)} 비고(변경내역)`} onClick={e=>e.stopPropagation()}>{descrMap[`${pk}-${ck}-${wk}`]}</span>}
                                     </td>
                                   );
                                 })()}
@@ -1764,14 +1713,14 @@ export default function WeekPivot() {
                             const cnt=custLogs.reduce((a,x)=>a+x.lines.length,0);
                             const descrW = pvDescrOpen ? (wpColWidths['g:descr'] ?? pvDescrWidth) : 30;
                             return (
-                              <td className="pv-descr-cell" style={{...st.td,fontSize:8,color:'#555',width:descrW,minWidth:descrW,maxWidth:descrW,
+                              <td className="pv-descr-cell" style={{...st.td,fontSize:10,color:'#334155',width:descrW,minWidth:descrW,maxWidth:descrW,
                                           lineHeight:'1.3',cursor:'pointer',verticalAlign:'middle',padding:'2px 4px'}}
                                   onClick={()=>setPvDescrOpen(p=>!p)}>
                                 {pvDescrOpen?(
-                                  <div style={{display:'flex',flexDirection:'row',flexWrap:'nowrap',gap:10,alignItems:'center',minWidth:'max-content'}}>
+                                  <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'stretch'}}>
                                     {custLogs.flatMap(({ck,lines})=>lines.map((line,li)=>(
-                                      <span key={`${ck}-${li}`} style={{display:'inline-flex',alignItems:'center',gap:2,whiteSpace:'nowrap',flexShrink:0}}>
-                                        <span style={{fontSize:7,color:'#555'}}>{line}</span>
+                                      <span key={`${ck}-${li}`} style={{display:'flex',alignItems:'flex-start',gap:4,whiteSpace:'normal'}}>
+                                        <span style={{fontSize:10,color:'#334155',overflowWrap:'anywhere'}}><b>{cShort(ck)}:</b> {line}</span>
                                         <span title="수정내역 삭제"
                                           style={{cursor:'pointer',color:'#e53935',fontSize:9,lineHeight:'1.3',padding:'0 1px'}}
                                           onClick={e=>{e.stopPropagation();setPvDescrModal({pk,ck,wk,lineIdx:li,custName:cShort(ck),prodName:pivotProdName(p),line,allLines:lines});}}>✕</span>

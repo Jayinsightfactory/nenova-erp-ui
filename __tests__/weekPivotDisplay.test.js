@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const page=fs.readFileSync(new URL('../pages/shipment/week-pivot.js',import.meta.url),'utf8');
+assert.match(page,/wp-week-header-row th\s*\{\s*color:#fff !important/);
+assert.match(page,/className="wp-week-header-row"/);
+assert.match(page,/checked=\{pvDescrOpen\} onChange=\{e=>setPvDescrOpen\(e.target.checked\)\}/);
+assert.match(page,/pvDescrOpen && descrMap\[/);
+assert.match(page,/pv-inline-descr/);
+assert.match(page,/<b>\{cShort\(ck\)\}:<\/b> \{line\}/);
+assert.match(page,/if \(cleanDescrText\(r.outDescr\)\)/);
+assert.match(page,/buildWeekPivotSheet\(XLSX,/);
+assert.match(page,/XLSXStyled.writeFile\(wb, fileName/);
+assert.doesNotMatch(page,/colsPerWeekExcel = custKeys.length \+ 4/);
+console.log('week-pivot header and notes display integration guards passed');
