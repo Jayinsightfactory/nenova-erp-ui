@@ -1,26 +1,21 @@
-name: Audit Stock After 30-02
+name: Audit My Order Quantity Branch Preflight
 on: workflow_dispatch
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Run read-only audit over SSH
         env:
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq sshpass
-          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no root@172.233.89.171 '
-            export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
-            cd /var/www/nenova-erp
-            git fetch origin codex/stock-target-repair >/dev/null 2>&1
-            git show origin/codex/stock-target-repair:scripts/audit-stock-all-weeks.mjs > /tmp/audit-stock-all-weeks.mjs
-            node --env-file=.env.local /tmp/audit-stock-all-weeks.mjs --year=2026 > /tmp/nenova-stock-audit-2026.json || true
-            cat /tmp/nenova-stock-audit-2026.json
-          ' > nenova-stock-audit-2026.json
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no scripts/probe-my-customer-order-quantity.cjs root@172.233.89.171:/tmp/nenova-my-order-${{ github.run_id }}.cjs
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no root@172.233.89.171 'cd /var/www/nenova-erp && node --env-file=.env.local /tmp/nenova-my-order-${{ github.run_id }}.cjs' > nenova-stock-audit-2026.json
       - name: Upload audit artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nenova-stock-audit-2026
+          name: my-order-probe
           path: nenova-stock-audit-2026.json
           retention-days: 7
