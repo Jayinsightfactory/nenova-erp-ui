@@ -33,11 +33,20 @@ const writePaths = [
   'pages/api/estimate/update-entry.js',
   'pages/api/shipment/adjust.js',
 ];
+const readIfExists = (file) => {
+  try { return fs.readFileSync(file, 'utf8'); } catch { return ''; }
+};
+// 2026-08-26 단가 전용 저장 분리 설계로 update-cost.js의 금액 계산이
+// lib/estimateCostOnly.js로 이동할 수 있다 — 그 경로만 헬퍼 모듈도 함께 확인한다.
+const helperOverrides = {
+  'pages/api/estimate/update-cost.js': ['lib/estimateCostOnly.js'],
+};
 for (const p of writePaths) {
   const src = fs.readFileSync(p, 'utf8');
-  assert.ok(src.includes('amountVatFromCostEst'), `${p} 는 공용 헬퍼로 Amount/Vat 를 계산해야 한다.`);
+  const combined = [src, ...(helperOverrides[p] || []).map(readIfExists)].join('\n');
+  assert.ok(combined.includes('amountVatFromCostEst'), `${p} 는 공용 헬퍼로 Amount/Vat 를 계산해야 한다 (분리된 헬퍼 모듈 포함).`);
   assert.ok(
-    !/Vat\b[\s\S]{0,80}?\/\s*11\b/.test(src.replace(/^\s*(\/\/|\*).*$/gm, '')),
+    !/Vat\b[\s\S]{0,80}?\/\s*11\b/.test(combined.replace(/^\s*(\/\/|\*).*$/gm, '')),
     `${p} 에 Vat 를 /11 로 따로 반올림하는 쓰기가 남아 있다.`,
   );
 }

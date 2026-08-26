@@ -24,6 +24,7 @@ import {
 } from '../lib/estimateInvariants';
 import { filterItemsByExeWeekDay } from '../lib/exeEstimateViewSql.js';
 import { amountVatFromCostEst } from '../lib/distributeUnits.js';
+import { requireCostSnapshot, rebaseCostItemsFromSaved, STALE_COST_MESSAGE } from '../lib/estimateCostSnapshot.js';
 import { downloadEcountUploadWorkbook } from '../lib/estimateEcountExcel.js';
 import {
   FIX_CATEGORY_PRESETS,
@@ -1470,6 +1471,8 @@ export default function Estimate() {
             quantity: p.newQty,
             unit: p.item.Unit,
             expectedOldQuantity: p.oldQty,
+            ...(costEdits[getItemEditKey(p.item)] != null && costEdits[getItemEditKey(p.item)] !== ''
+              ? { expectedOldCost: requireCostSnapshot(p.item).expectedOldCost } : {}),
           })),
         }),
       });
@@ -1920,11 +1923,20 @@ export default function Estimate() {
     }
   };
 
-  // "확정풀고 단가 적용하기" — 실제 적용 함수
-  async function applyCostEdits() {
+  // "단가 적용하기" — 재고 재계산 없이, 확정 플래그(isFix)를 보존한 채 단가/금액만 저장한다.
+  // 2026-08-26: dnSpy CLI + 운영 read-only SELECT 근거
+  // (docs/work-reports/2026-08-26_estimate-cost-no-stock-design.md) —
+  // ShipmentMaster/ShipmentDate/CustomerProdCost 에는 트리거가 없고 ShipmentDetail 트리거는
+  // OutQuantity UPDATE 에만 반응한다. 금액(Cost/Amount/Vat) UPDATE 에는 확정취소/재확정 SP나
+  // 재고 SP가 필요 없다. 따라서 이 경로는 확정해제→재확정 사이클(runEditWithFixCycle)을
+  // 태우지 않는다 — 수량/신규분배처럼 실제 물리 변경이 있는 경로만 기존 사이클을 그대로 쓴다.
+  // modeOverride 는 새 "단가 + 업체 지정단가 함께 저장" 버튼이 React state 갱신 타이밍에
+  // 의존하지 않고 mode='fixed' 를 명시적으로 전달하기 위한 인수다 (없으면 기존 select 상태 사용).
+  async function applyCostEdits(modeOverride) {
     if (editedCount === 0) return;
     if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
     if (!ensureEstimateEditAllowed()) return;
+    const effectiveMode = modeOverride || costMode;
     estimateEditPresence.beginSaving();
     let saveSucceeded = false;
 
@@ -1939,49 +1951,44 @@ export default function Estimate() {
     ]);
 
     try {
-      const editedSdKeys = Object.keys(costEdits)
-        .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined)
-        .filter(k => !isEstimateEditKey(k))
-        .map(k => parseEditKeyNumber(k));
-      const editedEstimateKeys = Object.keys(costEdits)
-        .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined)
-        .filter(k => isEstimateEditKey(k))
-        .map(k => parseEditKeyNumber(k));
+      // 편집된 정확한 행 키만 수집한다 — 같은 SdetailKey의 다른(미편집) 출고일을
+      // 끌어들이지 않는다. 서버가 sdateKey 소속을 검증하고, 같은 상세의 동일가는
+      // 병합, 서로 다른 가격은 명확히 거부한다.
+      const editedEntries = Object.entries(costEdits)
+        .filter(([, v]) => v !== '' && v !== undefined && v !== null);
 
       setCostApplyLog(prev => [...prev, {
         step: 'collect',
-        label: `${editedSdKeys.length + editedEstimateKeys.length}건 수정 대상 확인 중...`,
+        label: `${editedEntries.length}건 수정 대상 확인 중...`,
       }]);
 
-      const sdkToShipment = Object.fromEntries(
-        filteredItems
-          .filter(it => it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && it.ShipmentKey)
-          .map(it => [it.SdetailKey, { sk: it.ShipmentKey, cost: it.Cost }])
-      );
-
-      // filteredItems 에서 편집된 sdk 를 찾고 각각에 shipmentKey 매핑
       const allItems = [];
-      filteredItems.forEach(it => {
-        if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && sdkToShipment[it.SdetailKey]) {
-          allItems.push({
-            shipmentKey: sdkToShipment[it.SdetailKey].sk,
-            sdetailKey: it.SdetailKey,
-            cost: parseFloat(costEdits[getItemEditKey(it)]),
-            OrderWeek: it.OrderWeek,
-            ProdName: it.ProdName,
-            CountryFlower: it.CountryFlower,
-            // 낙관적 동시성: 조회 시점 snapshot 의 Cost (filteredItems 에 있는 값)
-            expectedOldCost: it.Cost,
-          });
-        } else if (it.EstimateKey && editedEstimateKeys.includes(it.EstimateKey)) {
+      editedEntries.forEach(([key, rawVal]) => {
+        const cost = Number(rawVal);
+        if (!Number.isFinite(cost) || cost < 0) throw new Error('단가는 0 이상의 숫자로 입력하세요. 저장하지 않았습니다.');
+        const it = items.find(row => getItemEditKey(row) === key);
+        if (!it) throw new Error('수정한 품목이 현재 조회 내역에 없습니다. 입력값을 보관하고 다시 조회하세요.');
+        if (isEstimateEditKey(key) && it.EstimateKey != null) {
           allItems.push({
             shipmentKey: it.ShipmentKey,
             estimateKey: it.EstimateKey,
-            cost: parseFloat(costEdits[getItemEditKey(it)]),
+            cost,
             OrderWeek: it.OrderWeek,
             ProdName: it.ProdName,
             CountryFlower: it.CountryFlower,
             expectedOldCost: it.Cost,
+          });
+        } else if (it.SdetailKey != null) {
+          allItems.push({
+            shipmentKey: it.ShipmentKey,
+            sdetailKey: it.SdetailKey,
+            ...requireCostSnapshot(it),
+            cost,
+            OrderWeek: it.OrderWeek,
+            ProdName: it.ProdName,
+            CountryFlower: it.CountryFlower,
+            // 화면의 출고일별 단가(DateCost)와 상세 단가(Cost)가 다를 수 있다 — 서버가
+            // sdateKey 소속을 검증하고 이 값으로 낙관적 동시성을 확인한다.
           });
         }
       });
@@ -2000,115 +2007,40 @@ export default function Estimate() {
 
       setCostApplyLog(prev => [...prev, {
         step: 'processing',
-        label: `${allItems.length}건 처리 중 (${skSummary}) — 미확정 차수 단가/금액 수정 (단일 트랜잭션)...`,
+        label: `${allItems.length}건 처리 중 — 확정 상태와 재고는 그대로 두고 단가·금액을 한 번에 저장합니다.`,
       }]);
 
-      // ── 2) 단일 POST — 모든 ShipmentKey + SdetailKey 를 한 트랜잭션으로
+      // ── 단일 POST — 확정 플래그를 그대로 보존하는 금액 전용 저장.
+      // 수량을 바꾸지 않으므로 확정해제→저장→재확정 사이클(fix/unfix)을 호출하지 않는다.
       const body = {
         items: allItems.map(({ OrderWeek, ProdName, CountryFlower, ...it }) => it),
-        mode: costMode,
+        mode: effectiveMode,
         orderYear: yearStr,
         week,
         custKey: selectedShip.CustKey,
         editGuard: estimateEditGuard(),
       };
-      // 2026-07-13: 확정된 차수에서 단가를 수정하면 확정해제→적용→재확정 사이클을 타야 하는데
-      // cycleWeeks 가 항상 빈 배열로 고정돼 있어서 이 사이클이 아예 동작하지 않던 버그.
-      // (서버 update-cost.js 의 확정차수 차단도 꺼져있어 직접 UPDATE는 "성공"하지만, 이후 재확정
-      //  시점에 값이 되돌아가는 것으로 관측됨 — 수량수정(applyQtyEdits)과 동일한 방식으로 수정.)
-      // 2026-07-14: 선제 사이클 → "직접 저장 먼저, 서버가 FIXED_WEEK 라고 할 때만 사이클"로 변경.
-      //   화요일 카테고리별 부분확정 중간상태(마스터=1·상세=0)에서 SubWeeksFix 기준 선제 사이클이
-      //   미확정 카테고리를 조기 재확정하려다 부분확정 가드에 막혀 "직접 확정취소하라" 경고가 뜨던
-      //   문제 수정. 상세가 미확정이면 직접 저장이 안전하고(서버 가드도 상세 기준으로 정정),
-      //   상세가 진짜 확정일 때만 사이클이 필요하다.
-      const cycleWeeks = getFixCycleWeeksForEditedItems(allItems, selectedShip);
-      const cycleCountryFlowers = getCountryFlowersForEditedItems(allItems);
-      const postCostUpdate = async () => {
-        allItems.forEach(it => {
-          setCostApplyLog(prev => [...prev, {
-            step: 'save',
-            label: `${it.OrderWeek} ${it.ProdName} 단가 저장 — ${it.expectedOldCost} → ${it.cost}`,
-          }]);
-        });
-        const r = await fetch('/api/estimate/update-cost', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const d = await r.json();
-        if (!d.success) {
-          if (d.code === 'FIXED_WEEK') {
-            const fixedErr = new Error(
-              `확정된 차수는 단가를 바로 수정할 수 없습니다.\n\n` +
-              `대상 차수: ${(d.fixedWeeks || []).join(', ') || '확정 차수'}\n\n` +
-              `확정해제 후 저장/재확정 과정에서 다시 확정된 데이터가 감지되었습니다.`
-            );
-            fixedErr.isFixedWeek = true;
-            fixedErr.fixedWeeks = d.fixedWeeks || [];
-            fixedErr.fixedCategories = d.fixedCategories || [];
-            throw fixedErr;
-          }
-          if (d.code === 'STALE_DATA') {
-            const staleErr = new Error(
-              `⚠️ 데이터 변경 감지\n\n견적서 조회 이후 다른 사용자 또는 전산 프로그램이 단가를 변경했습니다.\n\n` +
-              `(SdetailKey=${d.sdetailKey}${d.shipmentKey ? ` / ShipmentKey=${d.shipmentKey}` : ''}: ` +
-              `조회시점=${d.expected}원 → 현재=${d.actual}원)\n\n` +
-              `수정은 중단되고 확정 상태는 다시 복구됩니다. 조회 버튼을 다시 눌러 최신 데이터를 불러온 뒤 다시 시도해주세요.`
-            );
-            staleErr.isStaleData = true;
-            throw staleErr;
-          }
-          const editError = new Error(d.error || '단가 수정 실패');
-          editError.code = d.code;
-          editError.data = d;
-          throw editError;
-        }
-        return d;
-      };
 
-      let d;
-      try {
-        d = await postCostUpdate();
-      } catch (firstErr) {
-        // 2026-07-14: 사이클 스코프는 서버가 알려준 "실제 확정된 차수/카테고리"를 합집합으로 사용.
-        //   화면 아이템의 OrderWeek/CountryFlower 누락(차감류 null 차수, 중국장미 등 카테고리 공백)으로
-        //   스코프가 빠지면 해당 카테고리가 안 풀려 저장이 다시 FIXED_WEEK 로 실패하던 문제 대응.
-        const effWeeks = sortWeeksAsc([...cycleWeeks, ...(firstErr.fixedWeeks || [])]);
-        const effCats = [...new Set([...cycleCountryFlowers, ...(firstErr.fixedCategories || [])])];
-        if (!firstErr.isFixedWeek || effWeeks.length === 0) throw firstErr;
+      allItems.forEach(it => {
         setCostApplyLog(prev => [...prev, {
-          step: 'cycle',
-          label: formatAutoUnfixSaveLog(effWeeks, effCats.length ? ` / 카테고리 ${effCats.join(', ')}` : ''),
+          step: 'save',
+          label: `${it.OrderWeek} ${it.ProdName} 단가 저장 — ${it.expectedOldCost} → ${it.cost}`,
         }]);
-        d = await runEditWithFixCycle({
-          weeks: effWeeks,
-          orderYear: yearStr,
-          // 화면 카테고리 라벨과 DB 확정 범위가 다를 수 있으므로 전체 고정 범위를
-          // 해제·재확정한다. 단가 수정은 수량을 변경하지 않아 downstream 원장은 보존된다.
-          countryFlowers: [],
-          stockProdKeys: [],
-          progress: label => setCostApplyLog(prev => [...prev, { step: 'cycle', label }]),
-          apply: postCostUpdate,
-          ...confirmedWeekFixCycleStockFlags({ existingQtyChanged: false }),
-        });
-      }
+      });
 
+      const r = await fetch('/api/estimate/update-cost', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
       if (!d.success) {
-        if (d.code === 'FIXED_WEEK') {
-          const fixedErr = new Error(
-            `확정된 차수는 단가를 바로 수정할 수 없습니다.\n\n` +
-            `대상 차수: ${(d.fixedWeeks || []).join(', ') || '확정 차수'}\n\n` +
-            `확정현황에서 필요한 구간을 먼저 확정취소한 뒤 단가를 수정하고, 낮은 차수부터 다시 확정해주세요.`
-          );
-          fixedErr.isFixedWeek = true;
-          throw fixedErr;
-        }
         if (d.code === 'STALE_DATA') {
           const staleErr = new Error(
             `⚠️ 데이터 변경 감지\n\n견적서 조회 이후 다른 사용자 또는 전산 프로그램이 단가를 변경했습니다.\n\n` +
             `(SdetailKey=${d.sdetailKey}${d.shipmentKey ? ` / ShipmentKey=${d.shipmentKey}` : ''}: ` +
             `조회시점=${d.expected}원 → 현재=${d.actual}원)\n\n` +
-            `전체 변경이 롤백되었습니다. 조회 버튼을 다시 눌러 최신 데이터를 불러온 뒤 다시 시도해주세요.`
+            `저장은 중단되었습니다. 조회 버튼을 다시 눌러 최신 데이터를 불러온 뒤 다시 시도해주세요.`
           );
           staleErr.isStaleData = true;
           throw staleErr;
@@ -2119,9 +2051,12 @@ export default function Estimate() {
         throw editError;
       }
 
+      const customerCostNote = effectiveMode === 'fixed'
+        ? ` · 업체 지정단가 ${Number(d.customerCostUpdated || 0)}건 저장. ${Number(d.customerCostSkippedEstimate || 0) > 0 ? `불량·검역·판매요청 ${Number(d.customerCostSkippedEstimate)}건은 견적 단가만 변경했습니다. ` : ''}다른 업체·다른 차수의 출고 저장값은 변경하지 않았습니다.`
+        : '';
       setCostApplyLog(prev => [...prev, {
         step: 'processed',
-        label: `✓ DB 반영 완료 — ${d.changedCount}건, ${d.shipmentKeys?.length || 0}개 차수 동시 수정, 공급가 ${d.diffAmount >= 0 ? '+' : ''}${(d.diffAmount || 0).toLocaleString()}원`,
+        label: `✓ 저장 완료 — ${d.changedCount}건, 공급가 ${d.diffAmount >= 0 ? '+' : ''}${(d.diffAmount || 0).toLocaleString()}원${customerCostNote}`,
       }]);
 
       const allChanges = d.changes || [];
@@ -2140,6 +2075,7 @@ export default function Estimate() {
         success: true,
         changedCount: allChanges.length,
         totalDiff,
+        customerCostUpdated: Number(d.customerCostUpdated || 0),
       });
       // 성공 시 편집 상태 초기화
       setCostEdits({});
@@ -2155,10 +2091,6 @@ export default function Estimate() {
         try { await reloadSelectedShipmentItems(); load(true); } catch { /* 갱신 실패는 무시 */ }
       }
     } finally {
-      // 모달은 수동 닫기 — 사용자가 결과를 볼 수 있도록
-      setTimeout(() => {
-        // 자동 닫기는 3초 후에만 (성공 시)
-      }, 0);
       await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded });
     }
   }
@@ -2195,58 +2127,50 @@ export default function Estimate() {
         qtyPending.push({ keyNumber, isDateQuantity, isEstimate, item, oldQty, newQty });
       }
 
-      const editedSdKeys = Object.keys(costEdits)
-        .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined && costEdits[k] !== null)
-        .filter(k => !isEstimateEditKey(k))
-        .map(k => parseEditKeyNumber(k));
-      const editedEstimateKeys = Object.keys(costEdits)
-        .filter(k => costEdits[k] !== '' && costEdits[k] !== undefined && costEdits[k] !== null)
-        .filter(k => isEstimateEditKey(k))
-        .map(k => parseEditKeyNumber(k));
-      const sdkToShipment = Object.fromEntries(
-        filteredItems
-          .filter(it => it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && it.ShipmentKey)
-          .map(it => [it.SdetailKey, { sk: it.ShipmentKey, cost: it.Cost }])
-      );
+      // 편집된 정확한 행 키만 수집한다 — 같은 SdetailKey의 다른(미편집) 출고일을
+      // 끌어들이지 않는다. 서버가 sdateKey 소속을 검증하고, 같은 상세의 동일가는
+      // 병합, 서로 다른 가격은 명확히 거부한다.
+      const editedCostEntries = Object.entries(costEdits)
+        .filter(([, v]) => v !== '' && v !== undefined && v !== null);
       const costItems = [];
-      filteredItems.forEach(it => {
-        if (it.SdetailKey && editedSdKeys.includes(it.SdetailKey) && sdkToShipment[it.SdetailKey]) {
-          const cost = parseFloat(costEdits[getItemEditKey(it)]);
-          if (!Number.isNaN(cost) && cost >= 0) {
-            costItems.push({
-              shipmentKey: sdkToShipment[it.SdetailKey].sk,
-              sdetailKey: it.SdetailKey,
-              cost,
-              OrderWeek: it.OrderWeek,
-              ProdName: it.ProdName,
-              CountryFlower: it.CountryFlower,
-              expectedOldCost: it.Cost,
-            });
-          }
-        } else if (it.EstimateKey && editedEstimateKeys.includes(it.EstimateKey)) {
-          const cost = parseFloat(costEdits[getItemEditKey(it)]);
-          if (!Number.isNaN(cost) && cost >= 0) {
-            costItems.push({
-              shipmentKey: it.ShipmentKey,
-              estimateKey: it.EstimateKey,
-              cost,
-              OrderWeek: it.OrderWeek,
-              ProdName: it.ProdName,
-              CountryFlower: it.CountryFlower,
-              expectedOldCost: it.Cost,
-            });
-          }
+      editedCostEntries.forEach(([key, rawVal]) => {
+        const cost = Number(rawVal);
+        if (!Number.isFinite(cost) || cost < 0) throw new Error('단가는 0 이상의 숫자로 입력하세요. 저장하지 않았습니다.');
+        const it = items.find(row => getItemEditKey(row) === key);
+        if (!it) throw new Error('수정한 품목이 현재 조회 내역에 없습니다. 입력값을 보관하고 다시 조회하세요.');
+        if (isEstimateEditKey(key) && it.EstimateKey != null) {
+          costItems.push({
+            shipmentKey: it.ShipmentKey,
+            estimateKey: it.EstimateKey,
+            cost,
+            OrderWeek: it.OrderWeek,
+            ProdName: it.ProdName,
+            CountryFlower: it.CountryFlower,
+            expectedOldCost: it.Cost,
+          });
+        } else if (it.SdetailKey != null) {
+          costItems.push({
+            shipmentKey: it.ShipmentKey,
+            sdetailKey: it.SdetailKey,
+            ...requireCostSnapshot(it),
+            cost,
+            OrderWeek: it.OrderWeek,
+            ProdName: it.ProdName,
+            CountryFlower: it.CountryFlower,
+          });
         }
       });
 
       if (qtyPending.length === 0 && costItems.length === 0 && pendingAdds.length === 0) throw new Error('수정 대상이 없습니다.');
 
-      // 실제 날짜분배를 바꾸는 정상출고 수량과 단가 수정은 확정 사이클 대상이다.
-      // 차감(Estimate.Quantity)만 단독 수정하는 경우에는 ShipmentDetail 사이클이 필요 없다.
+      // 실제 날짜분배를 바꾸는 정상출고 수량과 신규 추가품목만 확정 사이클 대상이다.
+      // 단가 전용 수정은 확정 플래그를 보존하는 금액 전용 저장이므로 사이클에 포함하지 않는다
+      // (2026-08-26: docs/work-reports/2026-08-26_estimate-cost-no-stock-design.md).
+      // 차감(Estimate.Quantity)만 단독 수정하는 경우에도 ShipmentDetail 사이클이 필요 없다.
       const physicalQtyItems = qtyPending.filter(p => p.isDateQuantity).map(p => p.item);
       const addWeekShort = `${String(weekNum).padStart(2, '0')}-02`;
       const addCycleItems = pendingAdds.map((t) => ({ OrderWeek: addWeekShort, ProdKey: t.prodKey }));
-      const cycleItems = [...costItems, ...physicalQtyItems, ...addCycleItems];
+      const cycleItems = [...physicalQtyItems, ...addCycleItems];
       const existingQtyChanged = physicalQtyItems.length > 0 || pendingAdds.length > 0;
       const skipStockCalc = shouldSkipFixCycleStockCalc({ existingQtyChanged });
       const cycleStockFlags = confirmedWeekFixCycleStockFlags({ existingQtyChanged });
@@ -2322,8 +2246,11 @@ export default function Estimate() {
         }
 
         let costResultData = { changedCount: 0, diffAmount: 0, changes: [] };
-        if (costItems.length > 0) {
-          costItems.forEach(it => {
+        const rebasedCosts = rebaseCostItemsFromSaved(costItems, dateResults.map(r => r.saved), dateResults.map(r => r.key));
+        if (!rebasedCosts.ok) throw new Error(STALE_COST_MESSAGE);
+        if (rebasedCosts.skipped) setCostApplyLog(prev => [...prev, { step: 'save', label: `출고 삭제로 단가 저장 제외 ${rebasedCosts.skipped}건` }]);
+        if (rebasedCosts.items.length > 0) {
+          rebasedCosts.items.forEach(it => {
             setCostApplyLog(prev => [...prev, {
               step: 'save',
               label: `${it.OrderWeek} ${it.ProdName} 단가 저장 — ${it.expectedOldCost} → ${it.cost}`,
@@ -2333,7 +2260,7 @@ export default function Estimate() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              items: costItems.map(({ OrderWeek, ProdName, CountryFlower, ...it }) => it),
+              items: rebasedCosts.items.map(({ OrderWeek, ProdName, CountryFlower, ...it }) => it),
               mode: costMode,
               orderYear: yearStr,
               week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
@@ -2748,6 +2675,7 @@ export default function Estimate() {
       setCostApplyLog([{ step: 'start', label: `${item.OrderWeek || weekNum} ${item.ProdName} 정보 수정 시작` }]);
       setCostResult(null);
       const apply = async () => {
+        let editorCostItems = costChanged ? [{ shipmentKey: item.ShipmentKey, sdetailKey: item.SdetailKey, cost, ...requireCostSnapshot(item) }] : [];
         if (quantityChanged || descrChanged) {
           setCostApplyLog(prev => [...prev, { step: 'save', label: quantityChanged
             ? `출고일 수량/비고 저장 — ${item.Quantity}${item.Unit} → ${quantity}${item.Unit}`
@@ -2765,6 +2693,7 @@ export default function Estimate() {
               expectedOldQuantity: Number(item.Quantity || 0),
               descr: editor.descr || '',
               expectedOldDescr: originalDescr,
+              ...(costChanged ? { expectedOldCost: editorCostItems[0].expectedOldCost } : {}),
               editGuard: estimateEditGuard(),
             }),
           });
@@ -2774,20 +2703,21 @@ export default function Estimate() {
             error.code = data.code;
             throw error;
           }
+          if (costChanged) {
+            const rebased = rebaseCostItemsFromSaved(editorCostItems, data.items || [], [item.SdateKey]);
+            if (!rebased.ok) throw new Error(STALE_COST_MESSAGE);
+            editorCostItems = rebased.items;
+            if (rebased.skipped) setCostApplyLog(prev => [...prev, { step: 'save', label: '출고 삭제로 단가 저장 제외' }]);
+          }
         }
-        if (costChanged) {
+        if (editorCostItems.length > 0) {
           setCostApplyLog(prev => [...prev, { step: 'save', label: `출고 단가 저장 — ${item.Cost} → ${cost}` }]);
           const response = await fetch('/api/estimate/update-cost', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
             body: JSON.stringify({
-              items: [{
-                shipmentKey: item.ShipmentKey,
-                sdetailKey: item.SdetailKey,
-                cost,
-                expectedOldCost: Number(item.Cost || 0),
-              }],
+              items: editorCostItems,
               mode: 'once',
               orderYear: yearStr,
               custKey: selectedShip.CustKey,
@@ -2803,7 +2733,9 @@ export default function Estimate() {
         }
         return { success: true };
       };
-      const cycleWeeks = (quantityChanged || costChanged)
+      // 단가만 바뀌면(costChanged 단독) 확정 플래그를 보존하는 금액 전용 저장이므로
+      // 확정해제→재확정 사이클을 태우지 않는다. 실제 출고일 수량이 바뀔 때만 사이클 대상이다.
+      const cycleWeeks = quantityChanged
         ? getFixCycleWeeksForEditedItems([item], selectedShip)
         : [];
       await (cycleWeeks.length > 0
@@ -4052,9 +3984,19 @@ export default function Estimate() {
                     className="btn btn-sm"
                     style={{background:'#2b6cb0', color:'#fff', borderColor:'#1e4e8c', fontWeight:'bold'}}
                     disabled={costApplying || estimateEditPresence.blocked}
-                    onClick={applyCostEdits}
+                    onClick={() => applyCostEdits()}
+                    title="확정 상태와 재고를 그대로 두고 단가·금액만 저장합니다. 위에서 선택한 방식으로 저장합니다."
                   >
                     단가 적용하기 ({editedCount})
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    style={{background:'#b45309', color:'#fff', borderColor:'#92400e', fontWeight:'bold'}}
+                    disabled={costApplying || estimateEditPresence.blocked}
+                    onClick={() => applyCostEdits('fixed')}
+                    title="해당 품목의 연결된 모든 출고일 단가와 이 업체의 지정단가를 함께 저장합니다. 다른 업체·다른 차수의 출고 저장값은 유지합니다. 지정단가를 참고하는 화면에는 새 가격이 표시될 수 있습니다."
+                  >
+                    단가 + 업체 지정단가 함께 저장 ({editedCount})
                   </button>
                   <button
                     className="btn btn-sm"

@@ -560,6 +560,7 @@ async function loadItems(sk, byDate = false) {
          ${productUnitCols}
          ${dateShipQtyCol}
          ${byDate ? 'sdd.SdateKey AS SdateKey,' : 'CAST(NULL AS INT) AS SdateKey,'}
+         ${byDate ? 'ISNULL(sdd.Cost, 0)' : 'CAST(NULL AS FLOAT)'} AS DateCost,
        -- 표시 단위/수량: nenova.exe 견적 — 출고일별 ShipmentDate.EstQuantity
          ISNULL(NULLIF(p.EstUnit, N''),
            CASE WHEN ISNULL(sd.BunchQuantity,0) > 0 THEN N'단'
@@ -653,6 +654,7 @@ async function loadItems(sk, byDate = false) {
          ISNULL(p.CountryFlower, '')               AS CountryFlower,
          ${estimateUnitCols}
          CAST(NULL AS INT)                         AS SdateKey,
+         CAST(NULL AS FLOAT)                       AS DateCost,
          e.Unit,
          e.Quantity,
          CASE WHEN e.Unit = N'박스' THEN e.Quantity

@@ -265,19 +265,20 @@ PeriodDay` 행 중 `ShipmentDetail.OutQuantity > 0`인 실제 분배를 직접 �
 
 정상출고(`SdetailKey`/`SdateKey`)를 선택한 경우 품목명과 단위는
 `ShipmentDetail` 원장과 연결되어 있어 정보창에서 변경하지 않는다. 수량은
-기존 `ShipmentDate` 수정 경로, 단가는 기존 `ShipmentDetail` 단가 수정 경로와
-확정취소·저장·재확정 사이클을 사용한다. 이 보강은 `OrderDetail`, 재고,
-`Estimate` 차감행을 변경하지 않는다.
+기존 `ShipmentDate` 수정 경로와 필요한 확정취소·저장·재확정 사이클을 사용한다.
+단가만 변경할 때는 아래 2026-08-26 검증에 따라 플래그와 재고를 보존하는 금액 전용
+`ShipmentDetail`/`ShipmentDate` 저장 경로를 사용한다. `Estimate` 차감행은 변경하지 않는다.
 
 ## 2026-08-10 선택연도 저장 회귀 재검증
 
 `FormEstimateView.GetData/GetDetail`의 표시 범위는 `OrderYearWeek/OrderYearWeek2`이고,
 단가 저장 대상은 `ShipmentKey`로 연결된 `ShipmentMaster`와 `ShipmentDetail/ShipmentDate`다.
-따라서 웹의 확정취소→저장→재확정 사이클은 짧은 `32-02`만 전달하지 않고 화면의
+따라서 물리적 수량 변경의 확정취소→저장→재확정 사이클은 짧은 `32-02`만 전달하지 않고 화면의
 `OrderYear`를 반드시 함께 전달한다. `/api/estimate/update-cost`도 `ShipmentMaster`를
 `UPDLOCK/HOLDLOCK`으로 읽어 요청 연도·거래처와 실제 `OrderYear/CustKey`가 일치할 때만
-`ShipmentDetail.Cost/EstQuantity/Amount/Vat`와 연결 `ShipmentDate.Cost/Amount/Vat`를
-수정한다. 불일치 시 전체 트랜잭션을 중단한다.
+`ShipmentDetail.Cost/Amount/Vat`와 연결 `ShipmentDate.Cost/Amount/Vat`를
+수정한다. 2026-08-26부터 단가 전용 저장에서는 기존 EstQuantity를 재계산하지 않는다.
+불일치 시 전체 트랜잭션을 중단한다.
 
 자동 편집 사이클은 `force=false`로 확정취소/재확정을 호출한다. `force`는 음수재고
 검사를 건너뛰지는 않지만, 뒤 차수 확정 경고를 우회할 수 있으므로 자동 저장에서는
@@ -304,3 +305,20 @@ probe만 수행한다.
 웹 인쇄 설정의 「부가세 미분류 견적서」는 같은 품목·수량을 읽되, 분배단가 숫자를 공급가 단가로
 보고 `공급가액 = 단가 × 수량`, `부가세 = 공급가액 × 10%` 로만 다시 계산한다. 인쇄와 Excel이
 같다. 이 계산은 출력에만 쓰이며 `ShipmentDetail`/`Estimate` 원장은 변경하지 않는다.
+
+## 2026-08-26 확정 단가 전용 저장 재검증
+
+- 설치 EXE SHA256: `4033996D20006213BD7D7C5454396421FC18B3836CCB7F2C47B1CB8C93C1BD63`.
+- dnSpy CLI 재대조: `FormShipmentDistribution.btnSave_Click`는 수량 불변일 때
+  `ClassShipmentDate.UpdateCost`를 호출하며, 저장된 EstQuantity로 Amount/Vat만 재계산한다.
+- 운영 SELECT: ShipmentMaster/ShipmentDate/CustomerProdCost 트리거 없음. ShipmentDetail의
+  수량 로그 트리거는 UPDATE(OutQuantity)에만 반응. Estimate 비고 정리 트리거는 기존 동작 유지.
+- 실제 usp_ShipmentFix/usp_ShipmentFixCancel에는 단가 되돌림 SQL이 없고 재고/StockHistory 쓰기는 있다.
+- 웹 금액 전용 API는 이 결과를 따르되 확정 플래그 자체를 보존한다. EXE에 '재고 없는 확정취소'가
+  있다고 주장하지 않는다. 수량/신규분배 변경은 기존 확정 사이클과 후속 차수 가드를 유지한다.
+- 날짜별 Cost와 표시용 fallback Cost를 분리해 DateCost로 비교한다. 수량·비고 동시 저장 후에는
+  해당 저장의 성공 응답 기준값으로 다음 단가 요청을 구성한다. 최신 GET으로 stale 검사를 우회하지 않는다.
+- 업체 지정단가는 동일 거래처+품목의 견적 단위 가격을 금액 저장과 같은 트랜잭션으로 갱신한다.
+  다른 차수 출고의 저장 Cost를 직접 갱신하지 않는다. 기존 지정단가 fallback 조회 효과는 별개다.
+- 실데이터 근거와 부작용 표: `docs/work-reports/2026-08-26_estimate-cost-no-stock-design.md`.
+  운영 원장 저장 시험은 수행하지 않았다.
