@@ -27,6 +27,9 @@ function parseItems(body) {
     const expectedOldDescr = item?.expectedOldDescr == null
       ? null
       : String(item.expectedOldDescr);
+    const expectedOldCost = item?.expectedOldCost == null
+      ? null
+      : Number(item.expectedOldCost);
     if (!Number.isInteger(sdateKey) || sdateKey <= 0) {
       throw new Error('sdateKey가 필요합니다. 출고일 행은 ShipmentDate.SdateKey로 저장해야 합니다.');
     }
@@ -35,6 +38,9 @@ function parseItems(body) {
     }
     if (expectedOldQuantity != null && !Number.isFinite(expectedOldQuantity)) {
       throw new Error(`SdateKey=${sdateKey}의 조회시점 수량이 올바르지 않습니다.`);
+    }
+    if (expectedOldCost != null && !Number.isFinite(expectedOldCost)) {
+      throw new Error(`SdateKey=${sdateKey}의 조회시점 단가가 올바르지 않습니다.`);
     }
     if (seen.has(sdateKey)) throw new Error(`SdateKey=${sdateKey}가 중복되었습니다.`);
     seen.add(sdateKey);
@@ -45,6 +51,7 @@ function parseItems(body) {
       expectedOldQuantity,
       descr,
       expectedOldDescr,
+      expectedOldCost,
     };
   });
 }
@@ -159,6 +166,17 @@ export default withAuth(async function handler(req, res) {
           error.actual = String(row.DateDescr || '');
           throw error;
         }
+        if (item.expectedOldCost != null
+          && Number(row.DateCost ?? 0) !== item.expectedOldCost) {
+          const error = new Error(
+            `출고일 단가가 조회 이후 변경되었습니다. SdateKey=${item.sdateKey}, `
+            + `조회시점=${item.expectedOldCost}, 현재=${row.DateCost}`
+          );
+          error.code = 'STALE_DATA';
+          error.expected = item.expectedOldCost;
+          error.actual = row.DateCost;
+          throw error;
+        }
       }
 
       const guardedParents = [...new Set(selectedRows.map((row) => String(row.OrderWeek || '').split('-')[0]))];
@@ -241,6 +259,9 @@ export default withAuth(async function handler(req, res) {
               amount: 0,
               vat: 0,
               purged: true,
+              dateDeleted: true,
+              dateCostAfter: null,
+              detailCostAfter: null,
             });
           }
           continue;
@@ -322,6 +343,9 @@ export default withAuth(async function handler(req, res) {
             newDetailQuantity: detailEstQuantity,
             oldDetailOutQuantity: Number(row.DetailOutQuantity) || 0,
             newDetailOutQuantity: detailUnits.outQuantity,
+            dateDeleted: newDateOutQuantity <= 0.0001,
+            dateCostAfter: newDateOutQuantity <= 0.0001 ? null : Number(row.DetailCost || 0),
+            detailCostAfter: Number(row.DetailCost || 0),
             amount: dateMoney.amount,
             vat: dateMoney.vat,
           });

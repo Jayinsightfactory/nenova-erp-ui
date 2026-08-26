@@ -19,38 +19,50 @@
     "lib/estimateAdditionalProduct.js",
     "lib/distributeUnits.js",
     "lib/estimateDateQuantity.js",
+    "lib/estimateCostOnly.js",
+    "lib/estimateCostSnapshot.js",
+    "lib/exeEstimateViewSql.js",
     "docs/migrations/2026-08-10_week_prod_cost_order_year.sql",
     "lib/i18n.js",
     "pages/orders/import.js",
     "pages/raum/pnl.js",
     "__tests__/estimateEditYearContract.test.js",
     "__tests__/estimateFixCycle.test.js",
-    "__tests__/erpEditFixScopeAudit.test.js"
+    "__tests__/erpEditFixScopeAudit.test.js",
+    "__tests__/estimateCostOnly.test.js",
+    "__tests__/estimateCostOnlyUi.test.js",
+    "__tests__/estimateCostSnapshot.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {
-      "name": "COST_EDIT_UNFIX_SAVE_REFIX",
+      "name": "PRICE_ONLY_PRESERVE_CONFIRMATION",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "fixCycle": "unfix-save-refix",
+      "shipmentDetailMoney": "Cost/Amount/Vat only; preserve raw quantities, EstQuantity, keys, dates and isFix",
+      "fixCycle": "none — 확정 플래그(isFix)를 그대로 보존한 채 Cost/Amount/Vat만 단일 트랜잭션으로 갱신",
       "selectedYearRequired": true,
       "forceLaterFixedOverride": false,
       "costWriteScope": "ShipmentKey + SdetailKey/EstimateKey, with ShipmentMaster.OrderYear/CustKey verification",
       "weekProdCostKey": "OrderYear + OrderWeek + CustKey + ProdKey",
-      "stockCalc": "keep-unfix-save-refix; skip usp_StockCalculation when OutQuantity unchanged"
+      "stockCalc": "never invoked — price-only writes never call fix/unfix SP or usp_StockCalculation (2026-08-26 dnSpy + read-only 운영 SELECT 근거: ShipmentMaster/ShipmentDate/CustomerProdCost에 트리거 없음, ShipmentDetail 트리거는 OutQuantity UPDATE에만 반응)",
+      "evidence": "docs/work-reports/2026-08-26_estimate-cost-no-stock-design.md",
+      "note": "수량 변경(출고일 EstQuantity/OutQuantity)이 함께 있는 경로는 이 action이 아니라 기존 unfix-save-refix 사이클을 그대로 유지한다."
     }
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "같은 OrderWeek가 2025와 2026에 존재해도 확정 해제·재확정 후보·단가 저장은 ShipmentMaster.OrderYear가 선택된 연도인 행만 사용한다. OrderDetail/OutQuantity/ShipmentFarm은 보존하고 ShipmentDetail Cost/Amount/Vat만 갱신한다. 화면 카테고리 라벨이 누락되어도 서버가 반환한 실제 확정 차수와 전체 고정 범위를 기준으로 한 번만 재시도한다."
+    "description": "2025/2026 동일 차수에서 선택 연도+거래처+출고 상세/날짜 소속을 대조한다. 가격 전용은 후속 차수 확정과 무관하게 플래그/재고/수량을 보존하고 Cost/Amount/Vat만 저장한다. 물량 변경에는 기존 연도별 확정 사이클을 유지한다."
   },
   "requiredTestFiles": [
     "__tests__/estimateFixCycle.test.js",
     "__tests__/estimateEditYearContract.test.js",
     "__tests__/erpEditFixScopeAudit.test.js",
     "__tests__/estimateAmountVatParity.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/estimateCostOnly.test.js",
+    "__tests__/estimateCostOnlyUi.test.js",
+    "__tests__/estimateCostSnapshot.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

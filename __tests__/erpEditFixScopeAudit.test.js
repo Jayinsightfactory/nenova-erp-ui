@@ -2,6 +2,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const read = (file) => fs.readFileSync(file, 'utf8');
+const readIfExists = (file) => {
+  try { return fs.readFileSync(file, 'utf8'); } catch { return ''; }
+};
 
 async function main() {
   const { requireErpWriteScope, assertErpWriteScope } = await import('../lib/erpWriteScope.js');
@@ -34,6 +37,10 @@ async function main() {
   const adjustApi = read('pages/api/shipment/adjust.js');
   const adjustBatchPolicy = read('lib/shipmentAdjustmentBatch.js');
   const costApi = read('pages/api/estimate/update-cost.js');
+  // 2026-08-26 단가 전용 저장 분리 설계: WeekProdCost 스키마/연도 조회 SQL이
+  // lib/estimateCostOnly.js로 이동할 수 있어 두 소스를 합쳐서 확인한다.
+  const costHelper = readIfExists('lib/estimateCostOnly.js');
+  const costApiCombined = `${costApi}\n${costHelper}`;
   const distributePage = read('pages/shipment/distribute.js');
   const distributeApi = read('pages/api/shipment/distribute.js');
   const ordersApi = read('pages/api/orders/index.js');
@@ -52,8 +59,8 @@ async function main() {
   assert.match(estimateApi, /om\.OrderYear=@yr/);
   assert.match(estimateApi, /sm\.OrderYear=@yr/);
   assert.doesNotMatch(estimateApi, /ensureWeekProdCostTable|WEEK_PROD_COST_SCHEMA_SQL/);
-  assert.doesNotMatch(costApi, /WEEK_PROD_COST_SCHEMA_SQL|CREATE TABLE WeekProdCost|ALTER TABLE WeekProdCost/);
-  assert.match(costApi, /WEEK_PROD_COST_YEAR_PROBE_SQL/);
+  assert.doesNotMatch(costApiCombined, /WEEK_PROD_COST_SCHEMA_SQL|CREATE TABLE WeekProdCost|ALTER TABLE WeekProdCost/);
+  assert.match(costApiCombined, /WEEK_PROD_COST_YEAR_PROBE_SQL/);
 
   assert.match(fixClient, /action, force: false/);
   assert.match(estimatePage, /pendingAdds[\s\S]*?runEditWithFixCycle|applyAllEdits/);
