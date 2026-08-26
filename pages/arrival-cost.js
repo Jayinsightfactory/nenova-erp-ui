@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
-import { arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
+import { arrivalVarietyWeightActive, arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
 
 const BASIS = [
   ['SOURCE', '엑셀 원식'],
@@ -335,7 +335,20 @@ export default function ArrivalCostPage() {
           <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 아래 버튼은 전산 국가·품종(CountryFlower)입니다. 품목명 없이 품종 버튼만 눌러도 조회됩니다. 결과는 차수 → 국가 → 품종 → 품목명 → 농장별 원가 순입니다.</div>
           <div className="variety-tabs" role="tablist" aria-label="국가·품종 선택">
             <button type="button" role="tab" aria-selected={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim())} className={appliedFilters.allVarieties === '1' || (!appliedFilters.flower && !!String(appliedFilters.product || '').trim()) ? 'active' : ''} onClick={showAll}>전체보기</button>
-            {varieties.map(name => <button type="button" role="tab" key={name} aria-selected={appliedFilters.flower === name} className={appliedFilters.flower === name ? 'active' : ''} onClick={() => selectVariety(name)}>{name}</button>)}
+            {varieties.map((name) => {
+              const ruleOn = weightRuleOn && arrivalVarietyWeightActive(name, data.rows || []);
+              const selected = appliedFilters.flower === name;
+              return (
+                <button
+                  type="button"
+                  role="tab"
+                  key={name}
+                  aria-selected={selected}
+                  className={[selected ? 'active' : '', ruleOn ? 'rule-on' : ''].filter(Boolean).join(' ')}
+                  onClick={() => selectVariety(name)}
+                >{name}{ruleOn ? ' 면 활성화' : ''}</button>
+              );
+            })}
             {!scopeReady && !String(filters.product || '').trim() && <span className="muted">연도를 선택하면 품종 탭이 나옵니다. 품종만 눌러도 검색됩니다.</span>}
             {String(appliedFilters.product || '').trim() && varieties.length === 0 && !loading && <span className="muted">검색된 품종이 없습니다.</span>}
           </div>
@@ -354,7 +367,7 @@ export default function ArrivalCostPage() {
             <span>페이지 {page} / {Math.max(1, Math.ceil(Number(data.total || 0) / Number(data.pageSize || 200)))}</span>
           </div>
           {weightRuleOn && weightHints.length > 0 && (
-            <div className="hint">특별기준(콜롬비아만): {weightHints.join(' · ')}. 콜롬비아는 CW가 GW보다 크면 장미만, CW가 GW와 같거나 작으면 카네이션·알스트로 원가를 보여 줍니다. 다른 국가는 그대로 둡니다. 이미 올라간 행은 파일을 다시 올려야 농장 병합·CW/GW가 반영됩니다.</div>
+            <div className="hint">{weightHints.join(' · ')}. 활성화된 품종만 목록에 나옵니다. 다른 국가는 그대로입니다.</div>
           )}
           <div className="hint">차수별로 품목 한 줄에 농장 원가를 모읍니다. 입고수량이 단이면 도착원가(단)을 씁니다. 행을 누르면 농장별 매칭을 수정할 수 있습니다.</div>
         </section>
@@ -364,7 +377,7 @@ export default function ArrivalCostPage() {
 
         <section className="arrival-card table-card">
           <div className="section-title">도착원가 내역 <span className="muted">(현재 revision)</span></div>
-          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">선택 범위에 표시할 품목이 없습니다.</div> : visibleRows.length === 0 ? <div className="empty">특별기준(CW/GW)으로 가려진 품목만 있습니다. 기준을 끄면 전체가 보입니다.</div> : (
+          {loading ? <div className="empty">조회 중입니다.</div> : data.rows.length === 0 ? <div className="empty">선택 범위에 표시할 품목이 없습니다.</div> : visibleRows.length === 0 ? <div className="empty">지금 활성화된 품종이 아닙니다. 전체보기나 특별기준을 끄면 전체가 보입니다.</div> : (
             <div className="table-wrap">
               <table>
                 <thead><tr>
@@ -435,7 +448,7 @@ export default function ArrivalCostPage() {
         .group-head { background:#e8eef6; font-weight:700; cursor:pointer; } .group-head td { border-bottom:1px solid #c5d0de; } .farm-costs { white-space:normal; max-width:920px; }
         .week-head td { background:#163d76; color:#fff; font-weight:800; font-size:13px; padding:8px 7px; }
         .detail-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; } .detail-farm { font-weight:700; min-width:120px; }
-        .variety-tabs { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px; padding-top:7px; border-top:1px solid #e1e6ed; } .variety-tabs button { border-radius:999px; } .variety-tabs button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
+        .variety-tabs { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px; padding-top:7px; border-top:1px solid #e1e6ed; } .variety-tabs button { border-radius:999px; } .variety-tabs button.rule-on { color:#1b5e20; background:#e8f5e9; border-color:#2e7d32; font-weight:700; } .variety-tabs button.active { color:#fff; background:#1565c0; border-color:#1565c0; font-weight:700; }
         .notice { padding:9px 12px; margin:8px 0; border-radius:4px; font-size:12px; } .notice.success { color:#0b5d42; background:#e7f7ef; border:1px solid #b6e6cc; } .notice.error { color:#a12d2d; background:#fff0f0; border:1px solid #f0b7b7; }
         .table-card { padding:0; overflow:hidden; } .table-card .section-title { padding:8px 8px 0; } .table-wrap { overflow:auto; max-height:calc(100vh - 275px); border-top:1px solid #d7dee8; } table { border-collapse:collapse; width:100%; min-width:960px; font-size:11px; } th { position:sticky; top:0; z-index:2; background:#edf2f8; color:#32445d; } th,td { border-bottom:1px solid #e1e6ed; padding:6px 7px; vertical-align:middle; white-space:nowrap; } tr.needs-match { background:#fff9e9; } tr.cost-missing { background:#fff0f0; } .missing-badge { color:#a12d2d; background:#ffe0e0; border:1px solid #efb4b4; border-radius:999px; padding:2px 6px; font-weight:700; } td.raw-name { max-width:260px; overflow:hidden; text-overflow:ellipsis; } td input { width:130px; } .num { text-align:right; font-variant-numeric:tabular-nums; } .selected-cost { color:#0b5d42; font-weight:700; } .actions { display:flex; gap:4px; } .empty { padding:28px; text-align:center; color:#8491a3; font-size:13px; } .import-list { font-size:12px; line-height:1.9; color:#506074; } .pager { display:flex; align-items:center; justify-content:center; gap:12px; padding:8px; border-top:1px solid #d7dee8; } .lookup-input { position:relative; display:inline-block; } .lookup-input > input { width:220px; } .lookup-menu { position:absolute; top:calc(100% + 2px); left:0; z-index:20; width:360px; max-height:190px; overflow:auto; background:#fff; border:1px solid #718096; box-shadow:0 5px 14px #0003; } .lookup-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; border:0; border-bottom:1px solid #e4e8ee; border-radius:0; background:#fff; padding:6px 8px; text-align:left; white-space:normal; } .lookup-option:hover { background:#eaf3ff; } .lookup-option small { color:#657080; margin-top:2px; } .lookup-status { padding:8px; color:#657080; } .auto-match { display:block; color:#0b6e4f; font-size:10px; margin-top:2px; }
         .modal-backdrop { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:#0006; } .history-modal { width:min(720px,92vw); max-height:80vh; overflow:auto; background:#fff; border-radius:6px; padding:14px; box-shadow:0 10px 40px #0005; } .modal-title { display:flex; justify-content:space-between; font-weight:700; margin-bottom:10px; color:#163d76; } .history-item { padding:8px 2px; border-bottom:1px solid #e4e8ee; font-size:12px; }
