@@ -1,0 +1,21 @@
+{
+  "id": "customer-pricing-selection",
+  "title": "업체별 품목 단가관리 최근 거래업체 선택",
+  "scope": ["pages/master/pricing.js", "pages/api/master/pricing-matrix.js", "lib/pricingCustomerSelection.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"RECENT_CUSTOMER_SELECTION", "orderDetail":"preserve", "shipmentDetail":"preserve", "stock":"preserve", "estimate":"preserve", "writeAllowlist":[]}],
+  "criteria": {
+    "customerUniverse": "preserve existing active Customer with nonblank Manager; explicit search uses full universe",
+    "recent": "KST today and preceding 89 calendar dates inclusive (90 days); exclude tomorrow/future",
+    "source": "positive active OrderDetail via active OrderMaster.OrderDtm, OR positive ShipmentDetail.ShipmentDtm via active ShipmentMaster; no ShipmentDetail.isDeleted column assumed",
+    "join": "OrderMasterKey and ShipmentKey PK joins; never OrderWeek-only joins; rolling window may cross years without conflating masters",
+    "search": "trimmed nonempty customer-name or manager search bypasses recent filter; whitespace is default recent view",
+    "selection": "filtering preserves selectedKeys; select-all toggles visible customers only, preserving hidden selections",
+    "sort": "recent trade date descending then customer name/key",
+    "save": "existing CustomerProdCost reads, PUT saveMatrix and EXE parity path unchanged"
+  },
+  "crossYearFixture": {"required":true,"description":"Recent rolling dates may span December/January using actual transaction dates and master PKs, never same OrderWeek collision. Old prior-year records remain excluded unless searched."},
+  "requiredTestFiles": ["__tests__/pricingCustomerSelection.test.js"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormCustomerProdCost.md","source":"local dnSpy.Console.exe FormCustomerProdCost 2026-08-26","methods":["SetCombo","GetData","btnModify_Click"],"tables":["Customer","CustomerProdCost","OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail"]},
+  "requiredCommands": ["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}

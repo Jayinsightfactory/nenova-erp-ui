@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiGet, apiPut } from '../../lib/useApi';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
+import { filterPricingCustomers, toggleVisiblePricingCustomers } from '../../lib/pricingCustomerSelection';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const LS = key => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
@@ -124,6 +125,7 @@ export default function Pricing() {
   const [saving,     setSaving]     = useState(false);
   const [searched,   setSearched]   = useState(false);
   const [err,        setErr]        = useState('');
+  const [initialLoading, setInitialLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState('');
 
   // ── 우선순위 / 표시 옵션
@@ -167,7 +169,8 @@ export default function Pricing() {
           }
         } catch {}
       })
-      .catch(() => {});
+      .catch(e => setErr(e.message || '업체 목록을 불러오지 못했습니다.'))
+      .finally(() => setInitialLoading(false));
   }, []);
 
   // 조회
@@ -295,11 +298,7 @@ export default function Pricing() {
 
   const selectedCustomers = allCustomers.filter(c => selectedKeys.has(c.CustKey));
 
-  const filteredCusts = custSearch
-    ? allCustomers.filter(c =>
-        c.CustName.toLowerCase().includes(custSearch.toLowerCase()) ||
-        (c.Manager || '').toLowerCase().includes(custSearch.toLowerCase()))
-    : allCustomers;
+  const filteredCusts = filterPricingCustomers(allCustomers, custSearch);
 
   const getCost = (custKey, prodKey) => {
     const key = `${custKey}_${prodKey}`;
@@ -344,14 +343,15 @@ export default function Pricing() {
                   autoFocus
                 />
                 <button className="btn btn-sm" onClick={() => {
-                  if (selectedKeys.size === filteredCusts.length) setSelectedKeys(new Set());
-                  else setSelectedKeys(new Set(filteredCusts.map(c => c.CustKey)));
+                  setSelectedKeys(prev => toggleVisiblePricingCustomers(prev, filteredCusts));
                 }}>
-                  {selectedKeys.size === filteredCusts.length ? '전체 해제' : '전체 선택'}
+                  {filteredCusts.length > 0 && filteredCusts.every(c => selectedKeys.has(c.CustKey)) ? '전체 해제' : '전체 선택'}
                 </button>
               </div>
               <div style={{ overflowY: 'auto', flex: 1 }}>
-                {filteredCusts.map(c => {
+            {initialLoading ? (
+              <div style={{ padding: 16, fontSize: 12, color: 'var(--text3)' }}>업체 목록 불러오는 중...</div>
+            ) : filteredCusts.map(c => {
                   const checked = selectedKeys.has(c.CustKey);
                   return (
                     <label key={c.CustKey} style={{
@@ -373,10 +373,15 @@ export default function Pricing() {
                       </span>
                     </label>
                   );
-                })}
+            })}
+            {!initialLoading && filteredCusts.length === 0 && (
+              <div style={{ padding: 10, fontSize: 12, color: 'var(--text3)' }}>
+                {custSearch.trim() ? '검색 결과 없음' : '최근 90일 거래업체가 없습니다.'}
+              </div>
+            )}
               </div>
               <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg)', fontSize: 11, color: 'var(--text3)' }}>
-                {selectedKeys.size}개 선택 / 전체 {allCustomers.length}개
+                {custSearch.trim() ? '검색시 전체업체' : '최근90일 거래업체'} {filteredCusts.length}개 · {selectedKeys.size}개 선택 / 전체 {allCustomers.length}개
               </div>
             </div>
           )}
