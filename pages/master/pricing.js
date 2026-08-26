@@ -4,6 +4,17 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiGet, apiPut } from '../../lib/useApi';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
+import {
+  filterPricingCustomers,
+  toggleVisiblePricingCustomers,
+  filterPricingProducts,
+  selectRecentPricingProducts,
+  selectAllPricingProducts,
+  toggleVisiblePricingProducts,
+  visiblePricingProducts,
+  nextPricingCustomerCellKey,
+} from '../../lib/pricingCustomerSelection';
+import { rectanglePricingCellKeys, applyPricingCellCost } from '../../lib/pricingCellSelection';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const LS = key => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
@@ -108,6 +119,10 @@ export default function Pricing() {
   const [custSearch,   setCustSearch]   = useState('');
   const [showCustPanel, setShowCustPanel] = useState(false);
   const custPanelRef = useRef();
+  const productPanelRef = useRef();
+  const [selectedProductKeys, setSelectedProductKeys] = useState(new Set());
+  const [productPickerSearch, setProductPickerSearch] = useState('');
+  const [showProductPanel, setShowProductPanel] = useState(false);
 
   // ── 드롭다운 옵션
   const [counNames,   setCounNames]   = useState([]);
@@ -124,6 +139,7 @@ export default function Pricing() {
   const [saving,     setSaving]     = useState(false);
   const [searched,   setSearched]   = useState(false);
   const [err,        setErr]        = useState('');
+  const [initialLoading, setInitialLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState('');
 
   // ── 우선순위 / 표시 옵션
@@ -132,6 +148,11 @@ export default function Pricing() {
 
   // ── 인라인 단가 일괄
   const [inlineCost, setInlineCost] = useState('');
+  const [dragMode, setDragMode] = useState(false);
+  const [selectedCellKeys, setSelectedCellKeys] = useState(new Set());
+  const [selectedCellCost, setSelectedCellCost] = useState('');
+  const pricingInputRefs = useRef({});
+  const dragStartRef = useRef(null);
 
   // 필터 변경 + localStorage 저장
   const handleCountName = v => { setCountName(v);   LSset('pricing_coun', v); };
@@ -142,6 +163,14 @@ export default function Pricing() {
     const h = e => {
       if (custPanelRef.current && !custPanelRef.current.contains(e.target))
         setShowCustPanel(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  useEffect(() => {
+    const h = e => {
+      if (productPanelRef.current && !productPanelRef.current.contains(e.target)) setShowProductPanel(false);
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -167,12 +196,15 @@ export default function Pricing() {
           }
         } catch {}
       })
-      .catch(() => {});
+      .catch(e => setErr(e.message || '업체 목록을 불러오지 못했습니다.'))
+      .finally(() => setInitialLoading(false));
   }, []);
 
   // 조회
   const handleSearch = useCallback(() => {
     if (selectedKeys.size === 0) { setErr('업체를 1개 이상 선택하세요.'); return; }
+    setSelectedCellKeys(new Set());
+    dragStartRef.current = null;
     setLoading(true); setErr(''); setSearched(false);
 
     // 업체키 localStorage 저장
@@ -193,8 +225,12 @@ export default function Pricing() {
             FlowerName: r.FlowerName,
             CounName: r.CounName,
             DefaultCost: r.Cost,
+            HasRecentTrade: r.HasRecentTrade,
+            LastTradeDtm: r.LastTradeDtm,
           }));
           setProducts(prods);
+          const parityMatches = rankProductSearchOptions(prodSearch, prods, { limit: prods.length });
+          setSelectedProductKeys(prodSearch.trim() ? selectAllPricingProducts(parityMatches) : selectRecentPricingProducts(prods));
           const lc = {};
           const ck = [...selectedKeys][0];
           prods.forEach((p) => {
@@ -207,7 +243,9 @@ export default function Pricing() {
           setSearched(true);
           return;
         }
-        setProducts(d.products || []);
+        const loadedProducts = d.products || [];
+        setProducts(loadedProducts);
+        setSelectedProductKeys(prodSearch.trim() ? selectAllPricingProducts(loadedProducts) : selectRecentPricingProducts(loadedProducts));
         setCosts(d.costs || {});
         const lc = {};
         for (const [key, val] of Object.entries(d.costs || {})) lc[key] = val.cost;
@@ -261,11 +299,11 @@ export default function Pricing() {
     const newLC = { ...localCosts };
     const newChg = new Set(changed);
     [...selectedKeys].forEach(ck => {
-      products.forEach(p => { const k = `${ck}_${p.ProdKey}`; newLC[k] = cost; newChg.add(k); });
+      sortedProducts.forEach(p => { const k = `${ck}_${p.ProdKey}`; newLC[k] = cost; newChg.add(k); });
     });
     setLocalCosts(newLC);
     setChanged(newChg);
-    setSuccessMsg(`✅ ${[...selectedKeys].length}개 업체 × ${products.length}개 품목 ${fmt(cost)}원 적용`);
+    setSuccessMsg(`✅ ${[...selectedKeys].length}개 업체 × ${sortedProducts.length}개 품목 ${fmt(cost)}원 적용`);
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
@@ -287,25 +325,79 @@ export default function Pricing() {
   // ── 품목 우선순위 정렬
   const sortedProducts = useMemo(() => {
     if (!searched || products.length === 0) return products;
-    let list = hideNoCost ? products.filter(p => hasCostMap[p.ProdKey]) : [...products];
+    let list = visiblePricingProducts(products, selectedProductKeys, { hideNoCost, hasCostMap });
     list = rankProductSearchOptions(prodSearch, list, { limit: list.length });
     if (sortByHasCost) list.sort((a, b) => (hasCostMap[a.ProdKey] ? 0 : 1) - (hasCostMap[b.ProdKey] ? 0 : 1));
     return list;
-  }, [products, hasCostMap, hideNoCost, sortByHasCost, searched, prodSearch]);
+  }, [products, selectedProductKeys, hasCostMap, hideNoCost, sortByHasCost, searched, prodSearch]);
 
   const selectedCustomers = allCustomers.filter(c => selectedKeys.has(c.CustKey));
 
-  const filteredCusts = custSearch
-    ? allCustomers.filter(c =>
-        c.CustName.toLowerCase().includes(custSearch.toLowerCase()) ||
-        (c.Manager || '').toLowerCase().includes(custSearch.toLowerCase()))
-    : allCustomers;
+  const filteredCusts = filterPricingCustomers(allCustomers, custSearch);
+  // With no picker search the picker is a recent-trade view. An explicit
+  // picker search intentionally exposes historical products too; selected
+  // historical rows remain in the matrix even after the search is cleared.
+  const filteredProducts = filterPricingProducts(products, productPickerSearch, { recentOnly: !productPickerSearch.trim() });
 
   const getCost = (custKey, prodKey) => {
     const key = `${custKey}_${prodKey}`;
     return key in localCosts ? localCosts[key] : (costs[key]?.cost ?? '');
   };
   const isChanged = (custKey, prodKey) => changed.has(`${custKey}_${prodKey}`);
+  const visibleMatrixSignature = useMemo(
+    () => `${selectedCustomers.map(c => c.CustKey).join(',')}|${sortedProducts.map(p => p.ProdKey).join(',')}`,
+    [selectedCustomers, sortedProducts]
+  );
+
+  // A rectangle is meaningful only for the exact visible rows and columns it began with.
+  useEffect(() => {
+    setSelectedCellKeys(new Set());
+    dragStartRef.current = null;
+  }, [visibleMatrixSignature]);
+
+  const stopDrag = useCallback(() => { dragStartRef.current = null; }, []);
+  useEffect(() => {
+    window.addEventListener('pointerup', stopDrag);
+    window.addEventListener('blur', stopDrag);
+    return () => {
+      window.removeEventListener('pointerup', stopDrag);
+      window.removeEventListener('blur', stopDrag);
+    };
+  }, [stopDrag]);
+
+  const startDrag = (event, key) => {
+    if (!dragMode || loading || saving || event.button !== 0) return;
+    event.preventDefault();
+    dragStartRef.current = { key, products: [...sortedProducts], customers: [...selectedCustomers] };
+    setSelectedCellKeys(new Set([key]));
+  };
+  const extendDrag = (event, key) => {
+    const start = dragStartRef.current;
+    if (!dragMode || !start || loading || saving) return;
+    event.preventDefault();
+    setSelectedCellKeys(new Set(rectanglePricingCellKeys({ ...start, startKey: start.key, endKey: key })));
+  };
+  const applySelectedCellCost = () => {
+    if (loading || saving || selectedCellKeys.size === 0) return;
+    try {
+      const result = applyPricingCellCost({ keys: [...selectedCellKeys], value: selectedCellCost, localCosts, costs, changed });
+      setLocalCosts(result.localCosts);
+      setChanged(result.changed);
+      setSuccessMsg(`✅ 선택 영역 ${selectedCellKeys.size}개에 ${fmt(Number(selectedCellCost))}원 적용`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (error) { setErr(error.message); }
+  };
+  const focusNextPricingInput = (currentKey) => {
+    const nextKey = nextPricingCustomerCellKey(currentKey, sortedProducts);
+    if (!nextKey) return;
+    requestAnimationFrame(() => {
+      const nextInput = pricingInputRefs.current[nextKey];
+      if (!nextInput) return;
+      nextInput.focus({ preventScroll: true });
+      nextInput.select();
+      nextInput.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+  };
 
   return (
     <div>
@@ -344,14 +436,15 @@ export default function Pricing() {
                   autoFocus
                 />
                 <button className="btn btn-sm" onClick={() => {
-                  if (selectedKeys.size === filteredCusts.length) setSelectedKeys(new Set());
-                  else setSelectedKeys(new Set(filteredCusts.map(c => c.CustKey)));
+                  setSelectedKeys(prev => toggleVisiblePricingCustomers(prev, filteredCusts));
                 }}>
-                  {selectedKeys.size === filteredCusts.length ? '전체 해제' : '전체 선택'}
+                  {filteredCusts.length > 0 && filteredCusts.every(c => selectedKeys.has(c.CustKey)) ? '전체 해제' : '전체 선택'}
                 </button>
               </div>
               <div style={{ overflowY: 'auto', flex: 1 }}>
-                {filteredCusts.map(c => {
+            {initialLoading ? (
+              <div style={{ padding: 16, fontSize: 12, color: 'var(--text3)' }}>업체 목록 불러오는 중...</div>
+            ) : filteredCusts.map(c => {
                   const checked = selectedKeys.has(c.CustKey);
                   return (
                     <label key={c.CustKey} style={{
@@ -373,10 +466,15 @@ export default function Pricing() {
                       </span>
                     </label>
                   );
-                })}
+            })}
+            {!initialLoading && filteredCusts.length === 0 && (
+              <div style={{ padding: 10, fontSize: 12, color: 'var(--text3)' }}>
+                {custSearch.trim() ? '검색 결과 없음' : '최근 90일 거래업체가 없습니다.'}
+              </div>
+            )}
               </div>
               <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg)', fontSize: 11, color: 'var(--text3)' }}>
-                {selectedKeys.size}개 선택 / 전체 {allCustomers.length}개
+                {custSearch.trim() ? '검색시 전체업체' : '최근90일 거래업체'} {filteredCusts.length}개 · {selectedKeys.size}개 선택 / 전체 {allCustomers.length}개
               </div>
             </div>
           )}
@@ -413,6 +511,39 @@ export default function Pricing() {
           style={{ minWidth: 140 }}
         />
 
+        {/* 품목 선택 — 최근 거래 품목을 기본 선택하고, 검색 시 전체 품목 노출 */}
+        {searched && <>
+          <span className="filter-label">품목 선택</span>
+          <div style={{ position: 'relative' }} ref={productPanelRef}>
+            <button
+              className="btn"
+              onClick={() => setShowProductPanel(v => !v)}
+              style={{ minWidth: 190, textAlign: 'left', fontWeight: 'normal', borderColor: selectedProductKeys.size < products.length ? 'var(--blue)' : undefined, background: selectedProductKeys.size < products.length ? '#EEF4FF' : undefined }}
+            >
+              {selectedProductKeys.size === 0 ? '품목 선택...' : `${selectedProductKeys.size}개 품목 선택됨`} ▼
+            </button>
+            {showProductPanel && <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 300, background: '#fff', border: '2px solid var(--border2)', width: 330, maxHeight: 340, display: 'flex', flexDirection: 'column', boxShadow: '2px 4px 12px rgba(0,0,0,0.2)', borderRadius: 4 }}>
+              <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 4 }}>
+                <input className="filter-input" placeholder="품목명 / 국가 / 품종 검색" value={productPickerSearch} onChange={e => setProductPickerSearch(e.target.value)} style={{ flex: 1, fontSize: 12 }} autoFocus />
+                <button className="btn btn-sm" onClick={() => setSelectedProductKeys(prev => toggleVisiblePricingProducts(prev, filteredProducts))}>
+                  {filteredProducts.length > 0 && filteredProducts.every(p => selectedProductKeys.has(p.ProdKey)) ? '전체 해제' : '전체 선택'}
+                </button>
+              </div>
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                {filteredProducts.map(p => {
+                  const checked = selectedProductKeys.has(p.ProdKey);
+                  return <label key={p.ProdKey} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #EEE', background: checked ? '#EEF4FF' : '#fff' }}>
+                    <input type="checkbox" checked={checked} onChange={() => setSelectedProductKeys(prev => toggleVisiblePricingProducts(prev, [p]))} />
+                    <span><strong>{p.ProdName}</strong><span style={{ color: 'var(--text3)', marginLeft: 6 }}>{p.CounName} · {p.FlowerName}</span></span>
+                  </label>;
+                })}
+                {filteredProducts.length === 0 && <div style={{ padding: 10, fontSize: 12, color: 'var(--text3)' }}>{productPickerSearch.trim() ? '검색 결과 없음' : '최근 90일 거래품목이 없습니다. 검색하면 전체 품목에서 선택할 수 있습니다.'}</div>}
+              </div>
+              <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg)', fontSize: 11, color: 'var(--text3)' }}>{productPickerSearch.trim() ? '검색시 전체품목' : '최근 거래 90일'} {filteredProducts.length}개 · {selectedProductKeys.size}개 선택 / 전체 {products.length}개 · 선택 변경은 미저장 단가를 유지합니다.</div>
+            </div>}
+          </div>
+        </>}
+
         <div className="page-actions">
           <button className="btn btn-primary" onClick={handleSearch}>🔍 조회</button>
           {searched && (
@@ -431,7 +562,7 @@ export default function Pricing() {
                 <button
                   className="btn"
                   onClick={handleInlineBulk}
-                  disabled={inlineCost === ''}
+                  disabled={loading || saving || inlineCost === '' || sortedProducts.length === 0}
                   style={{ whiteSpace: 'nowrap', background: '#FF8F00', color: '#fff', borderColor: '#FF8F00', fontSize: 11 }}
                 >
                   ✅ 단가 일괄 지정
@@ -464,6 +595,32 @@ export default function Pricing() {
           </div>
           {searched && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, padding: '3px 6px', border: '1px solid #9FC3FF', borderRadius: 4, background: dragMode ? '#EEF4FF' : '#fff' }}>
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  aria-pressed={dragMode}
+                  disabled={loading || saving}
+                  onClick={() => { setDragMode(value => !value); dragStartRef.current = null; }}
+                  style={{ fontWeight: dragMode ? 700 : 'normal', color: dragMode ? 'var(--blue)' : undefined }}
+                >
+                  드래그 선택 {dragMode ? '켜짐' : '끔'}
+                </button>
+                <span style={{ whiteSpace: 'nowrap', color: 'var(--text3)' }}>{selectedCellKeys.size}칸 선택</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  disabled={loading || saving}
+                  value={selectedCellCost}
+                  onChange={e => setSelectedCellCost(e.target.value)}
+                  placeholder="선택 단가"
+                  aria-label="선택 단가"
+                  style={{ width: 78, height: 23, textAlign: 'right', fontSize: 11 }}
+                />
+                <button className="btn btn-sm" type="button" disabled={loading || saving || selectedCellKeys.size === 0 || selectedCellCost.trim() === ''} onClick={applySelectedCellCost}>선택 영역 적용</button>
+                <button className="btn btn-sm" type="button" disabled={selectedCellKeys.size === 0} onClick={() => setSelectedCellKeys(new Set())}>해제</button>
+              </div>
               {/* 단가 있는 항목 먼저 */}
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none' }}>
                 <input
@@ -499,7 +656,7 @@ export default function Pricing() {
           <div className="empty-state">
             <div className="empty-icon">🔍</div>
             <div className="empty-text">
-              {hideNoCost ? '단가가 설정된 품목이 없습니다' : '조건에 맞는 품목이 없습니다'}
+              {selectedProductKeys.size === 0 ? '품목을 선택하세요' : hideNoCost ? '단가가 설정된 품목이 없습니다' : '조건에 맞는 품목이 없습니다'}
             </div>
           </div>
         ) : (
@@ -565,19 +722,36 @@ export default function Pricing() {
                         const chg = isChanged(c.CustKey, p.ProdKey);
                         const val = getCost(c.CustKey, p.ProdKey);
                         return (
-                          <td key={c.CustKey} style={{ padding: '2px 4px', background: chg ? '#FFFFC0' : undefined }}>
+                          <td key={c.CustKey} style={{ padding: '2px 4px', background: selectedCellKeys.has(`${c.CustKey}_${p.ProdKey}`) ? '#DDEBFF' : (chg ? '#FFFFC0' : undefined), outline: selectedCellKeys.has(`${c.CustKey}_${p.ProdKey}`) ? '1px solid #4D90FE' : undefined }}>
                             <input
                               type="number"
                               value={val}
                               placeholder="0"
+                              aria-label={`${c.CustName} ${p.ProdName} 단가`}
+                              readOnly={dragMode}
+                              disabled={loading || saving}
+                              ref={input => {
+                                const key = `${c.CustKey}_${p.ProdKey}`;
+                                if (input) pricingInputRefs.current[key] = input;
+                                else delete pricingInputRefs.current[key];
+                              }}
                               onChange={e => handleCostChange(c.CustKey, p.ProdKey, e.target.value)}
-                              onFocus={e => e.target.select()}
+                              onFocus={e => { if (!dragMode) e.target.select(); }}
+                              onPointerDown={e => startDrag(e, `${c.CustKey}_${p.ProdKey}`)}
+                              onPointerEnter={e => extendDrag(e, `${c.CustKey}_${p.ProdKey}`)}
+                              onPointerCancel={stopDrag}
+                              onKeyDown={e => {
+                                if (dragMode) return;
+                                if (e.key !== 'Enter' || e.isComposing || e.nativeEvent?.isComposing || e.keyCode === 229) return;
+                                e.preventDefault();
+                                focusNextPricingInput(`${c.CustKey}_${p.ProdKey}`);
+                              }}
                               style={{
                                 width: '100%', height: 22, minWidth: 80,
                                 border: `1px solid ${chg ? '#AABB00' : 'var(--border2)'}`,
                                 borderRadius: 2, textAlign: 'right', fontSize: 12,
                                 fontFamily: 'var(--mono)', padding: '0 4px',
-                                background: chg ? '#FFFFC0' : 'var(--surface)',
+                                background: selectedCellKeys.has(`${c.CustKey}_${p.ProdKey}`) ? '#DDEBFF' : (chg ? '#FFFFC0' : 'var(--surface)'),
                                 fontWeight: chg ? 'bold' : 'normal',
                               }}
                             />

@@ -5,6 +5,7 @@ import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlCustomerProdCostSelect } from '../../../lib/exeCustomerProdCostSql.js';
+import { RECENT_CUSTOMER_SQL, RECENT_PRODUCT_SQL } from '../../../lib/pricingCustomerSelection.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getMatrix(req, res);
@@ -16,30 +17,33 @@ export default withAuth(async function handler(req, res) {
 async function getMatrix(req, res) {
   try {
     const { custKeys, flowerName, counName, prodSearch, countryFlower, exeParity } = req.query;
+    const productTerm = String(prodSearch || '').trim();
     const useExe = useExeParityFlag(exeParity);
     const selectedKeys = custKeys
       ? custKeys.split(',').map((k) => parseInt(k, 10)).filter((k) => !Number.isNaN(k))
       : [];
 
     if (useExe && selectedKeys.length === 1 && countryFlower) {
-      const result = await query(sqlCustomerProdCostSelect(), {
+      const [result, recentResult] = await Promise.all([query(sqlCustomerProdCostSelect(), {
         custKey: { type: sql.Int, value: selectedKeys[0] },
         countryFlower: { type: sql.NVarChar, value: countryFlower },
-      });
+      }), query(RECENT_PRODUCT_SQL)]);
+      const recentByProduct = new Map(recentResult.recordset.map((row) => [row.ProdKey, row]));
+      const products = result.recordset.map((row) => ({
+        ...row,
+        HasRecentTrade: recentByProduct.has(row.ProdKey) ? recentByProduct.get(row.ProdKey).HasRecentTrade : 0,
+        LastTradeDtm: recentByProduct.get(row.ProdKey)?.LastTradeDtm || null,
+      }));
       return res.status(200).json({
         success: true,
         source: 'real_db_exe_parity',
-        costs: result.recordset,
+        costs: products,
+        products,
       });
     }
 
     // 업체 목록 (담당자 있는 업체 전체 — 필터용)
-    const custResult = await query(
-      `SELECT CustKey, CustName, Manager, CustArea
-       FROM Customer
-       WHERE isDeleted=0 AND Manager IS NOT NULL AND Manager <> ''
-       ORDER BY CustName`
-    );
+    const custResult = await query(RECENT_CUSTOMER_SQL);
     const allCustomers = custResult.recordset;
 
     // 품목 조건 구성
@@ -53,13 +57,13 @@ async function getMatrix(req, res) {
       prodWhere += ' AND p.CounName=@coun';
       prodParams.coun = { type: sql.NVarChar, value: counName };
     }
-    if (prodSearch) {
+    if (productTerm) {
       prodWhere += ' AND (p.ProdName LIKE @ps OR p.FlowerName LIKE @ps OR p.CounName LIKE @ps)';
-      prodParams.ps = { type: sql.NVarChar, value: `%${prodSearch}%` };
+      prodParams.ps = { type: sql.NVarChar, value: `%${productTerm}%` };
     }
 
     // 국가/꽃 목록 (필터 드롭다운용)
-    const [counResult, flowerResult, prodResult] = await Promise.all([
+    const [counResult, flowerResult, prodResult, recentProductResult] = await Promise.all([
       query(`SELECT DISTINCT CounName FROM Product WHERE isDeleted=0 AND CounName IS NOT NULL AND CounName<>'' ORDER BY CounName`),
       query(`SELECT DISTINCT FlowerName FROM Product WHERE isDeleted=0 AND FlowerName IS NOT NULL AND FlowerName<>'' ORDER BY FlowerName`),
       query(
@@ -80,9 +84,15 @@ async function getMatrix(req, res) {
          ORDER BY ISNULL(u.UsageCount,0) DESC, ISNULL(u.RecentUsageCount,0) DESC, p.CounName, p.FlowerName, p.ProdName`,
         prodParams
       ),
+      query(RECENT_PRODUCT_SQL),
     ]);
 
-    const products = prodResult.recordset;
+    const recentByProduct = new Map(recentProductResult.recordset.map((row) => [row.ProdKey, row]));
+    const products = prodResult.recordset.map((row) => ({
+      ...row,
+      HasRecentTrade: recentByProduct.has(row.ProdKey) ? recentByProduct.get(row.ProdKey).HasRecentTrade : 0,
+      LastTradeDtm: recentByProduct.get(row.ProdKey)?.LastTradeDtm || null,
+    }));
     const prodKeys = products.map(p => p.ProdKey);
 
     // 선택된 업체들의 단가 조회

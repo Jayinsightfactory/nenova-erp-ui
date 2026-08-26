@@ -33,9 +33,7 @@ export default withAuth(async function handler(req, res) {
           od.ProdKey, p.ProdName, p.DisplayName, p.FlowerName,
           COALESCE(NULLIF(LTRIM(RTRIM(p.CountryFlower)),''), ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'')) AS CountryFlower,
           p.CounName, p.OutUnit,
-          CASE WHEN p.OutUnit IN (N'박스','BOX','Box') THEN ISNULL(od.BoxQuantity,0)
-               WHEN p.OutUnit IN (N'단','BUNCH','Bunch') THEN ISNULL(od.BunchQuantity,0)
-               ELSE ISNULL(od.SteamQuantity,0) END AS Qty
+          ISNULL(od.OutQuantity,0) AS Qty
         FROM OrderMaster om
         JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
         JOIN Product p ON p.ProdKey=od.ProdKey AND ISNULL(p.isDeleted,0)=0
@@ -64,19 +62,17 @@ export default withAuth(async function handler(req, res) {
         COALESCE(NULLIF(LTRIM(RTRIM(p.CountryFlower)),''), ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'')) AS CountryFlower,
         p.CounName, p.OutUnit,
         COUNT_BIG(*) AS UsageCount, MAX(om.OrderYear) AS LastOrderYear, MAX(om.OrderWeek) AS LastOrderWeek,
-        CASE WHEN p.OutUnit IN (N'박스','BOX','Box') THEN ISNULL(cur.BoxQty,0)
-             WHEN p.OutUnit IN (N'단','BUNCH','Bunch') THEN ISNULL(cur.BunchQty,0)
-             ELSE ISNULL(cur.SteamQty,0) END AS CurrentQty
+        ISNULL(cur.OutQty,0) AS CurrentQty,
+        ISNULL(cur.ActiveRows,0) AS CurrentOrderRows
       FROM OrderMaster om
       JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
       JOIN Product p ON p.ProdKey=od.ProdKey AND ISNULL(p.isDeleted,0)=0
-      OUTER APPLY (SELECT SUM(ISNULL(xod.BoxQuantity,0)) AS BoxQty,
-                          SUM(ISNULL(xod.BunchQuantity,0)) AS BunchQty,
-                          SUM(ISNULL(xod.SteamQuantity,0)) AS SteamQty
+      OUTER APPLY (SELECT SUM(ISNULL(xod.OutQuantity,0)) AS OutQty,
+                          COUNT_BIG(*) AS ActiveRows
         FROM OrderMaster xom JOIN OrderDetail xod ON xod.OrderMasterKey=xom.OrderMasterKey AND ISNULL(xod.isDeleted,0)=0
         WHERE xom.CustKey=@ck AND xom.OrderYear=@year AND xom.OrderWeek=@week AND ISNULL(xom.isDeleted,0)=0 AND xod.ProdKey=p.ProdKey) cur
       WHERE om.CustKey=@ck AND ISNULL(om.isDeleted,0)=0
-      GROUP BY p.ProdKey,p.ProdName,p.DisplayName,p.FlowerName,p.CountryFlower,p.CounName,p.OutUnit,cur.BoxQty,cur.BunchQty,cur.SteamQty`, {
+      GROUP BY p.ProdKey,p.ProdName,p.DisplayName,p.FlowerName,p.CountryFlower,p.CounName,p.OutUnit,cur.OutQty,cur.ActiveRows`, {
       ck: { type: sql.Int, value: custKey }, year: { type: sql.NVarChar, value: orderYear }, week: { type: sql.NVarChar, value: orderWeek },
     });
     return res.status(200).json({ success: true, products: sortCustomerProducts(r.recordset), year: orderYear, week: orderWeek });

@@ -10,6 +10,13 @@
 |------|-------------------|------|
 | [2026-08-26_estimate-directional-quantity](./2026-08-26_estimate-directional-quantity.md) | 증가만 부족재고 검사·기존 수량 확정 유지·변경 품목 재고 반영 | 로컬 구현·격리 SQL/화면 검사 완료, 운영 설치·배포 없음 |
 | [2026-08-26_estimate-category-buttons](./2026-08-26_estimate-category-buttons.md) | 수국만 확정취소·모든 재조회 업체 유지·검색 초안 분리·버튼 검사 | 로컬 수정·자동검사 완료, 후속 화면 클릭 미검증·미배포 |
+| [2026-08-26_pivot-display-export](./2026-08-26_pivot-display-export.md) | 차수 제목 대비·비고 토글·엑셀 수량 변경내역 | 로컬 검증 중 |
+| [2026-08-26_pricing-drag-select](./2026-08-26_pricing-drag-select.md) | 업체별 단가 셀 드래그·선택영역 일괄 적용 | 구현/검증 중 |
+| [2026-08-26_my-order-replace-log](./2026-08-26_my-order-replace-log.md) | 현재 주문수량·추가/변경등록·실행로그 | 구현·로컬 회귀검증, 배포 대기 |
+| [2026-08-26_pricing-enter-next](./2026-08-26_pricing-enter-next.md) | 업체별 단가 Enter시 같은 업체 아래 품목 입력칸 이동 | 구현 중 |
+| [2026-08-26_pricing-recent-products](./2026-08-26_pricing-recent-products.md) | 품목도 최근90일 거래 기본표시·검색시 전체 | PR367 배포완료·대량조회 브라우저 검증 지연 |
+| [2026-08-26_pricing-product-selection](./2026-08-26_pricing-product-selection.md) | 품목 전체 선택 후 개별 해제·선택 품목만 일괄 단가 적용 | PR366 배포·실브라우저 확인 완료 |
+| [2026-08-26_pricing-recent-customers](./2026-08-26_pricing-recent-customers.md) | 단가관리 기본 업체목록 최근90일, 검색시 전체 | PR365 배포·실브라우저 확인 완료 |
 | [2026-08-26_estimate-deduction-delete](./2026-08-26_estimate-deduction-delete.md) | 견적서 불량·검역차감 체크 선택 삭제 | 구현·검사 중 |
 | [2026-08-26_pnl-cost-hover](./2026-08-26_pnl-cost-hover.md) | 매입단가 입력칸에 차수별 단가 미리보기 | 구현 중 |
 | [2026-08-26_pnl-cost-comparison](./2026-08-26_pnl-cost-comparison.md) | 라움·초이문 상세 우측 차수별 매입단가 비교, 엑셀 제외 | 로컬 검증 완료 |
