@@ -7,6 +7,8 @@
     "pages/sales/forwarding-clearance.js",
     "pages/api/sales/profit-report.js",
     "pages/api/sales/profit-report-confirm.js",
+    "pages/api/sales/profit-report-excel-audit.js",
+    "lib/profitReportExcelAudit.js",
     "pages/api/moyi/report-push.js",
     "pages/api/sales/customs-clearance.js",
     "pages/api/sales/forwarding-clearance.js",
@@ -75,6 +77,13 @@
       "shipmentDetail": "preserve",
       "erpLedgerWrite": "forbidden",
       "sideEffect": "read-only UI default; 주차별 보고서 첫 진입 시 현재 진행 대차수보다 1차수 전을 조회한다(예: 현재 34차→33차). 현재 01차이면 전년도 52차로 이동한다. 사용자가 직접 선택한 연도·차수와 이후 이전/다음 이동, 월별 보고서 기본 연도, 계산·저장 API에는 영향을 주지 않는다."
+    },
+    {
+      "name": "REPORT_EXCEL_AUDIT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "erpLedgerWrite": "forbidden",
+      "sideEffect": "read-only 진단(2026-08-26 대표 지시). POST multipart로 확정 '매출원가 양식' 엑셀을 받아 첫 시트 본표를 파싱하고, 같은 차수의 loadReportData+computeProfitRow 계산과 13개 금액열을 셀 단위 대조한다(허용오차 1,000원/0.05%). 차이는 26~31차 수기 대조에서 확정한 원인 체계(차수귀속→매출조정 안내/재고 근사/전산우선 매입/통관비 미입력/포워딩 배분/환율 근사/매출 분류 위치 상쇄)로 규칙 분류하고, ANTHROPIC_API_KEY가 있으면 claude-haiku-4-5가 대표용 소견을 요약한다(비용은 chat costTracker purpose='profit-excel-audit'로 기록, 키 없음·타임아웃·오류 시 규칙 요약으로 폴백). DB에는 어떤 것도 저장하지 않으며(INSERT/UPDATE/MERGE/DDL 없음) 업로드 임시파일은 응답 후 삭제한다."
     },
     {
       "name": "REPORT_MANUAL_SAVE",
