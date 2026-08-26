@@ -8,7 +8,8 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
-| [2026-08-26_pricing-recent-products](./2026-08-26_pricing-recent-products.md) | 품목도 최근90일 거래 기본표시·검색시 전체 | 구현 중 |
+| [2026-08-26_pricing-enter-next](./2026-08-26_pricing-enter-next.md) | 업체별 단가 Enter시 같은 업체 아래 품목 입력칸 이동 | 구현 중 |
+| [2026-08-26_pricing-recent-products](./2026-08-26_pricing-recent-products.md) | 품목도 최근90일 거래 기본표시·검색시 전체 | PR367 배포완료·대량조회 브라우저 검증 지연 |
 | [2026-08-26_pricing-product-selection](./2026-08-26_pricing-product-selection.md) | 품목 전체 선택 후 개별 해제·선택 품목만 일괄 단가 적용 | PR366 배포·실브라우저 확인 완료 |
 | [2026-08-26_pricing-recent-customers](./2026-08-26_pricing-recent-customers.md) | 단가관리 기본 업체목록 최근90일, 검색시 전체 | PR365 배포·실브라우저 확인 완료 |
 | [2026-08-26_estimate-deduction-delete](./2026-08-26_estimate-deduction-delete.md) | 견적서 불량·검역차감 체크 선택 삭제 | 구현·검사 중 |

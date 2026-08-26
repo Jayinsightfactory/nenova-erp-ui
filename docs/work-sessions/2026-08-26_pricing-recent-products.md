@@ -18,3 +18,7 @@ Product/OrderMaster/OrderDetail/ShipmentMaster/ShipmentDetail SELECT만. Custome
 ## 상태
 
 실행형 recent flag/검색 override/과거 선택 보존/부분선택 fixture, test:erp-contract 전체, dnSpy evidence, manifest(changed-from origin/master), write guard, build98페이지, diff --check 통과. PUT 저장 함수는 기준 커밋과 문자열 동일 확인. 배포 후 실제 최근목록/과거 검색을 확인할 예정.
+
+PR367 병합2fc5c4c, 배포32932185536 성공(3분2초), 서버 hydration smoke 통과. 운영 UI version2fc5c4c 확인. 다만 사용자 기존77업체/콜롬비아 카네이션 선택 상태의 조회 후 브라우저 CDP 응답 지연/timeout으로 실제 최근 품목 개수 및 과거 검색 smoke는 미완료. 단가 입력/저장 없음. 구버전a63ab2c에서도 동일 대량조회 도중 지연이 관찰되어 이번 필터 변경 원인으로 단정하지 않는다.
+
+후속 사용자 스크린샷(단가 Enter 요청)에는 77개 업체×96개 품목이 표시되어 최근 품목 표시 적용은 확인됨. 자동화 응답 지연과 별개로 사용자가 단가 편집 중이므로 해당 사용자 탭을 재조회/새로고침하지 않는다.
