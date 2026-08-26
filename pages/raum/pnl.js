@@ -9,6 +9,7 @@ import { buildRaumPnlMonthlySummary } from '../../lib/raumPnlMonthly';
 import { canAutoCommitRaumPnlImport, defaultPnlTitle, PNL_PARTNERS, resolvePnlPartner } from '../../lib/raumPnlPartner';
 import { raumPnlMatchCounts, raumPnlMatchDisplay } from '../../lib/raumPnlMatchDisplay';
 import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
+import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -2228,12 +2229,14 @@ export default function RaumPnlPage() {
                         ) : fmt(it.qty)}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>
-                        <>
+                        <RaumCostHistoryPreview item={it} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>
+                          {anchorProps => <>
                         <input
+                          {...anchorProps}
                           style={{ ...st.input, background: it.costPrice != null && it.costPrice !== '' ? '#ecfdf5' : '#fff' }}
                           value={it.costPrice ?? ''}
                           placeholder={it.refPrice != null ? String(it.refPrice) : ''}
-                          title={
+                          aria-label={
                             it.costSource === 'learned' ? '직접 입력해 학습된 매입단가가 자동 입력됨 — 수정하면 저장 시 다시 학습'
                             : it.costSource === 'arrival' ? `가장 최근 도착원가를 100원 단위 반올림해 자동 입력 (${it.refSource || ''}) — 직접 고치면 그 값을 학습`
                             : it.consigned ? '사입 품목의 1개당 매입단가(원화·VAT 별도)를 입력하면 합산양식의 매입·이익에 포함됩니다'
@@ -2244,8 +2247,9 @@ export default function RaumPnlPage() {
                         {it.costSource === 'learned' ? <span title="직접 입력 학습값" style={{ marginLeft: 3 }}>🧠</span>
                           : it.costSource === 'arrival' ? <span title={it.refSource || '도착원가 자동'} style={{ marginLeft: 3 }}>🚢</span>
                           : it.costSource === 'manual' ? <span title="직접 입력 — 저장 시 학습됨" style={{ marginLeft: 3 }}>✍</span> : null}
-                        </>
                         {it.consigned ? <span title="사입도 매입단가 입력 시 손익 합산" style={{ marginLeft: 3, color: '#64748b' }}>사입</span> : null}
+                          </>}
+                        </RaumCostHistoryPreview>
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.costAmount)}</td>
                       <td style={{ ...st.td, ...st.num }} title={erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : (it.erpSalePrice != null ? '전산 분배단가와 일치' : '')}>
@@ -2350,7 +2354,10 @@ export default function RaumPnlPage() {
           </div>
         </div>
       )}
-      <style jsx>{`
+      <style jsx global>{`
+        @media print {
+          .raum-cost-history-preview { display: none !important; }
+        }
         .raum-pnl-summary-layout {
           display: grid;
           grid-template-columns: minmax(900px, 1fr) minmax(420px, 560px);
