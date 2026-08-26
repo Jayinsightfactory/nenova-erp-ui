@@ -2,7 +2,7 @@
 import { withAuth } from '../../../lib/auth';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
-  EXTRA_CATEGORY,
+  EXTRA_CATEGORY, CNF_CATEGORIES,
   salesByCategory, estimateByCategory, purchaseByCategory, purchaseQtyByCategory, forwardingByCategory,
   invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
   stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote, composeProfitReportNote,
@@ -546,7 +546,10 @@ export async function loadReportData(major, orderYear) {
           F: stockFSourceKind,
           H: man.H != null ? 'manual' : (customs.sources?.H?.[key] || 'missing'),
           R: man.R != null ? 'manual_invoice' : autoRSource,
-          S: man.S != null ? 'manual' : hasStructuredS ? structuredSSource : autoS ? 'legacy_auto' : 'missing',
+          // CNF(호주·베트남): 운임이 매입단가에 포함돼 운송료 전표가 없는 것이 정상 —
+          // 'missing' 대신 별도 라벨로 표시해 항공료 누락 감사 대상에서 제외한다(2026-08-26).
+          S: man.S != null ? 'manual' : hasStructuredS ? structuredSSource : autoS ? 'legacy_auto'
+            : CNF_CATEGORIES.includes(key) ? 'cnf_included_in_purchase' : 'missing',
         };
         return {
           currency: curCode,
