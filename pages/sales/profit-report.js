@@ -4,7 +4,7 @@
 // 매입이 없는 차수는 최근 이전 차수의 정확한 환율을 이어 사용한다. H/S는 각 원천 화면에서 관리한다.
 // 계산열은 엑셀 수식 그대로: C=N+L+O, G=P+T, P=Q×R, T=S×R, I=E+G+H−F, J=C−I, K=J/C, M=−L/C, D=C/ΣC, U=P/ΣP
 // (이스라엘·뉴질랜드·일본: I=E+G+H, J=C−I+F, K=J/(C+F) — 원본 수식 변형 유지)
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { getPreviousProfitReportPeriod } from '../../lib/profitReportDefaultPeriod.mjs';
@@ -470,6 +470,26 @@ export default function ProfitReportPage() {
     return n;
   });
 
+  // 확정엑셀 대조(2026-08-26) — 대표 확정 "매출원가 양식" 파일을 올리면 이 차수 웹 계산과
+  // 셀 단위 대조 후 규칙 분류 + LLM 소견을 보여준다. 저장/수정 없음(읽기 전용 진단).
+  const [excelAudit, setExcelAudit] = useState(null);
+  const [excelAuditBusy, setExcelAuditBusy] = useState(false);
+  const excelAuditFileRef = useRef(null);
+  const runExcelAudit = async (file) => {
+    setExcelAuditBusy(true); setError(''); setMessage('');
+    try {
+      const body = new FormData();
+      body.append('week', weekInput.value);
+      body.append('year', data?.orderYear || reportYear);
+      body.append('file', file, file.name);
+      const res = await fetch('/api/sales/profit-report-excel-audit', { method: 'POST', credentials: 'same-origin', body });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '대조 실패');
+      setExcelAudit(d);
+      setMessage(`확정엑셀 대조 완료 — 확인 필요 ${d.counts.review}건 · 구조적 차이 ${d.counts.expected}건`);
+    } catch (e) { setError(`확정엑셀 대조 실패: ${e.message}`); } finally { setExcelAuditBusy(false); }
+  };
+
   const save = async () => {
     setSaving(true); setError(''); setMessage('');
     try {
@@ -817,6 +837,12 @@ export default function ProfitReportPage() {
                 title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
                 {moyiSending ? '📤 MOYI 전송 중…' : '📤 MOYI 전송'}
               </button>
+              <button style={{ ...st.primaryBtn, background: '#b45309' }} onClick={() => excelAuditFileRef.current?.click()} disabled={!data || excelAuditBusy}
+                title="확정 매출원가 양식 엑셀을 업로드하면 이 차수의 웹 계산과 셀 단위로 대조해, 규칙 분류와 AI 소견으로 오류값 여부를 알려줍니다(저장·수정 없음)">
+                {excelAuditBusy ? '📑 대조 중…' : '📑 확정엑셀 대조'}
+              </button>
+              <input ref={excelAuditFileRef} type="file" accept=".xlsx,.xlsm,.xls" style={{ display: 'none' }} aria-label="확정엑셀 대조 파일 선택"
+                onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) runExcelAudit(f); }} />
               {data?.confirmed ? (
                 <button style={{ ...st.primaryBtn, background: '#b91c1c' }} onClick={cancelConfirmReport} disabled={confirmBusy}
                   title="확정을 취소하면 다시 라이브 자동값으로 계산합니다. 취소해도 이전 확정 기록은 이력에 남습니다">
@@ -1067,6 +1093,49 @@ export default function ProfitReportPage() {
               <div style={st.embedPanelBody}>
                 <ForwardingClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {viewMode === 'category' && excelAudit && (
+        <div style={{ background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: 10, padding: '12px 14px', margin: '10px 0', fontSize: 13 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <strong>📑 확정엑셀 대조 — {Number(excelAudit.major)}차 · {excelAudit.fileName}</strong>
+            <span style={{ color: excelAudit.counts.review ? '#b91c1c' : '#166534', fontWeight: 700 }}>
+              확인 필요 {excelAudit.counts.review}건 · 구조적 차이 {excelAudit.counts.expected}건
+            </span>
+            <button style={{ ...st.secondaryBtn, marginLeft: 'auto' }} onClick={() => setExcelAudit(null)}>닫기</button>
+          </div>
+          <div style={{ whiteSpace: 'pre-wrap', margin: '8px 0', lineHeight: 1.6 }}>
+            {excelAudit.llmOpinion
+              ? <><b>AI 소견({excelAudit.llmModel}):</b> {excelAudit.llmOpinion}</>
+              : <><b>요약:</b> {excelAudit.ruleSummary}</>}
+          </div>
+          {excelAudit.diffs.length > 0 && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', fontSize: 12.5, minWidth: 720 }}>
+                <thead><tr>
+                  {['품명', '항목', '엑셀 확정값', '웹 계산값', '차이(웹−엑셀)', '분류'].map(h => (
+                    <th key={h} style={{ border: '1px solid #e2e8f0', padding: '4px 8px', background: '#f8fafc', textAlign: 'left' }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {excelAudit.diffs
+                    .filter(d => d.col !== 'I')
+                    .sort((a, b) => (a.severity === b.severity ? Math.abs(b.diff || 0) - Math.abs(a.diff || 0) : a.severity === 'review' ? -1 : 1))
+                    .map((d, i) => (
+                      <tr key={i} style={d.severity === 'review' ? { background: '#fef2f2' } : undefined}>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '3px 8px' }}>{d.category}</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '3px 8px' }}>{d.label}</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '3px 8px', textAlign: 'right' }}>{d.excel == null ? '' : Math.round(d.excel).toLocaleString()}</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '3px 8px', textAlign: 'right' }}>{d.web == null ? '' : Math.round(d.web).toLocaleString()}</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '3px 8px', textAlign: 'right', fontWeight: 700 }}>{d.diff == null ? '' : Math.round(d.diff).toLocaleString()}</td>
+                        <td style={{ border: '1px solid #e2e8f0', padding: '3px 8px' }}>{d.severity === 'review' ? '⚠ ' : '· '}{d.causeLabel}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
