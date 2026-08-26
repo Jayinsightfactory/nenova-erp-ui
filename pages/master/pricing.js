@@ -14,6 +14,7 @@ import {
   visiblePricingProducts,
   nextPricingCustomerCellKey,
 } from '../../lib/pricingCustomerSelection';
+import { rectanglePricingCellKeys, applyPricingCellCost } from '../../lib/pricingCellSelection';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const LS = key => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
@@ -147,7 +148,11 @@ export default function Pricing() {
 
   // ── 인라인 단가 일괄
   const [inlineCost, setInlineCost] = useState('');
+  const [dragMode, setDragMode] = useState(false);
+  const [selectedCellKeys, setSelectedCellKeys] = useState(new Set());
+  const [selectedCellCost, setSelectedCellCost] = useState('');
   const pricingInputRefs = useRef({});
+  const dragStartRef = useRef(null);
 
   // 필터 변경 + localStorage 저장
   const handleCountName = v => { setCountName(v);   LSset('pricing_coun', v); };
@@ -198,6 +203,8 @@ export default function Pricing() {
   // 조회
   const handleSearch = useCallback(() => {
     if (selectedKeys.size === 0) { setErr('업체를 1개 이상 선택하세요.'); return; }
+    setSelectedCellKeys(new Set());
+    dragStartRef.current = null;
     setLoading(true); setErr(''); setSearched(false);
 
     // 업체키 localStorage 저장
@@ -337,6 +344,49 @@ export default function Pricing() {
     return key in localCosts ? localCosts[key] : (costs[key]?.cost ?? '');
   };
   const isChanged = (custKey, prodKey) => changed.has(`${custKey}_${prodKey}`);
+  const visibleMatrixSignature = useMemo(
+    () => `${selectedCustomers.map(c => c.CustKey).join(',')}|${sortedProducts.map(p => p.ProdKey).join(',')}`,
+    [selectedCustomers, sortedProducts]
+  );
+
+  // A rectangle is meaningful only for the exact visible rows and columns it began with.
+  useEffect(() => {
+    setSelectedCellKeys(new Set());
+    dragStartRef.current = null;
+  }, [visibleMatrixSignature]);
+
+  const stopDrag = useCallback(() => { dragStartRef.current = null; }, []);
+  useEffect(() => {
+    window.addEventListener('pointerup', stopDrag);
+    window.addEventListener('blur', stopDrag);
+    return () => {
+      window.removeEventListener('pointerup', stopDrag);
+      window.removeEventListener('blur', stopDrag);
+    };
+  }, [stopDrag]);
+
+  const startDrag = (event, key) => {
+    if (!dragMode || loading || saving || event.button !== 0) return;
+    event.preventDefault();
+    dragStartRef.current = { key, products: [...sortedProducts], customers: [...selectedCustomers] };
+    setSelectedCellKeys(new Set([key]));
+  };
+  const extendDrag = (event, key) => {
+    const start = dragStartRef.current;
+    if (!dragMode || !start || loading || saving) return;
+    event.preventDefault();
+    setSelectedCellKeys(new Set(rectanglePricingCellKeys({ ...start, startKey: start.key, endKey: key })));
+  };
+  const applySelectedCellCost = () => {
+    if (loading || saving || selectedCellKeys.size === 0) return;
+    try {
+      const result = applyPricingCellCost({ keys: [...selectedCellKeys], value: selectedCellCost, localCosts, costs, changed });
+      setLocalCosts(result.localCosts);
+      setChanged(result.changed);
+      setSuccessMsg(`✅ 선택 영역 ${selectedCellKeys.size}개에 ${fmt(Number(selectedCellCost))}원 적용`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (error) { setErr(error.message); }
+  };
   const focusNextPricingInput = (currentKey) => {
     const nextKey = nextPricingCustomerCellKey(currentKey, sortedProducts);
     if (!nextKey) return;
@@ -512,7 +562,7 @@ export default function Pricing() {
                 <button
                   className="btn"
                   onClick={handleInlineBulk}
-                  disabled={inlineCost === '' || sortedProducts.length === 0}
+                  disabled={loading || saving || inlineCost === '' || sortedProducts.length === 0}
                   style={{ whiteSpace: 'nowrap', background: '#FF8F00', color: '#fff', borderColor: '#FF8F00', fontSize: 11 }}
                 >
                   ✅ 단가 일괄 지정
@@ -545,6 +595,32 @@ export default function Pricing() {
           </div>
           {searched && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5, padding: '3px 6px', border: '1px solid #9FC3FF', borderRadius: 4, background: dragMode ? '#EEF4FF' : '#fff' }}>
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  aria-pressed={dragMode}
+                  disabled={loading || saving}
+                  onClick={() => { setDragMode(value => !value); dragStartRef.current = null; }}
+                  style={{ fontWeight: dragMode ? 700 : 'normal', color: dragMode ? 'var(--blue)' : undefined }}
+                >
+                  드래그 선택 {dragMode ? '켜짐' : '끔'}
+                </button>
+                <span style={{ whiteSpace: 'nowrap', color: 'var(--text3)' }}>{selectedCellKeys.size}칸 선택</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  disabled={loading || saving}
+                  value={selectedCellCost}
+                  onChange={e => setSelectedCellCost(e.target.value)}
+                  placeholder="선택 단가"
+                  aria-label="선택 단가"
+                  style={{ width: 78, height: 23, textAlign: 'right', fontSize: 11 }}
+                />
+                <button className="btn btn-sm" type="button" disabled={loading || saving || selectedCellKeys.size === 0 || selectedCellCost.trim() === ''} onClick={applySelectedCellCost}>선택 영역 적용</button>
+                <button className="btn btn-sm" type="button" disabled={selectedCellKeys.size === 0} onClick={() => setSelectedCellKeys(new Set())}>해제</button>
+              </div>
               {/* 단가 있는 항목 먼저 */}
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none' }}>
                 <input
@@ -646,20 +722,26 @@ export default function Pricing() {
                         const chg = isChanged(c.CustKey, p.ProdKey);
                         const val = getCost(c.CustKey, p.ProdKey);
                         return (
-                          <td key={c.CustKey} style={{ padding: '2px 4px', background: chg ? '#FFFFC0' : undefined }}>
+                          <td key={c.CustKey} style={{ padding: '2px 4px', background: selectedCellKeys.has(`${c.CustKey}_${p.ProdKey}`) ? '#DDEBFF' : (chg ? '#FFFFC0' : undefined), outline: selectedCellKeys.has(`${c.CustKey}_${p.ProdKey}`) ? '1px solid #4D90FE' : undefined }}>
                             <input
                               type="number"
                               value={val}
                               placeholder="0"
                               aria-label={`${c.CustName} ${p.ProdName} 단가`}
+                              readOnly={dragMode}
+                              disabled={loading || saving}
                               ref={input => {
                                 const key = `${c.CustKey}_${p.ProdKey}`;
                                 if (input) pricingInputRefs.current[key] = input;
                                 else delete pricingInputRefs.current[key];
                               }}
                               onChange={e => handleCostChange(c.CustKey, p.ProdKey, e.target.value)}
-                              onFocus={e => e.target.select()}
+                              onFocus={e => { if (!dragMode) e.target.select(); }}
+                              onPointerDown={e => startDrag(e, `${c.CustKey}_${p.ProdKey}`)}
+                              onPointerEnter={e => extendDrag(e, `${c.CustKey}_${p.ProdKey}`)}
+                              onPointerCancel={stopDrag}
                               onKeyDown={e => {
+                                if (dragMode) return;
                                 if (e.key !== 'Enter' || e.isComposing || e.nativeEvent?.isComposing || e.keyCode === 229) return;
                                 e.preventDefault();
                                 focusNextPricingInput(`${c.CustKey}_${p.ProdKey}`);
@@ -669,7 +751,7 @@ export default function Pricing() {
                                 border: `1px solid ${chg ? '#AABB00' : 'var(--border2)'}`,
                                 borderRadius: 2, textAlign: 'right', fontSize: 12,
                                 fontFamily: 'var(--mono)', padding: '0 4px',
-                                background: chg ? '#FFFFC0' : 'var(--surface)',
+                                background: selectedCellKeys.has(`${c.CustKey}_${p.ProdKey}`) ? '#DDEBFF' : (chg ? '#FFFFC0' : 'var(--surface)'),
                                 fontWeight: chg ? 'bold' : 'normal',
                               }}
                             />
