@@ -28,3 +28,9 @@ ClassCustomerProdCost.Select 원문은 Product LEFT JOIN CustomerProdCost ON Pro
 ## read-only 검증
 
 운영 기존 /master/pricing 화면: 담당자 있는 활성 업체 전체 123개 표시 확인. 직접 DB 접속 환경파일은 없어 독립 SQL probe는 미실행. 신규 SELECT는 배포 후 실제 GET 결과/브라우저로 확인하고 저장은 실행하지 않는다.
+
+최근업체 변경 배포54bedf7 후 운영 브라우저에서 최근77/전체123, 과거 업체 검색 및 검색어 제거 후 복귀를 확인했다.
+
+## 품목 선택 확장 (2026-08-26)
+
+동일 CLI 명령으로 FormCustomerProdCost의 GetData/btnModify_Click을 재확인했다. 품목 체크는 웹 전용 표시·일괄 단가 입력 대상 선택 기능이며 SQL과 API 저장 함수는 변경하지 않는다. 조회한 품목 전체를 초기 선택하고 사용자가 일부를 해제하면 표와 이후 일괄 단가 입력에서 제외한다. 선택 자체는 CustomerProdCost와 모든 ERP 원장을 보존한다. 이미 입력한 미저장 단가를 선택 해제로 삭제하지 않는다.

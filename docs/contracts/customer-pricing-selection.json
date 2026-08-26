@@ -10,7 +10,7 @@
     "source": "positive active OrderDetail via active OrderMaster.OrderDtm, OR positive ShipmentDetail.ShipmentDtm via active ShipmentMaster; no ShipmentDetail.isDeleted column assumed",
     "join": "OrderMasterKey and ShipmentKey PK joins; never OrderWeek-only joins; rolling window may cross years without conflating masters",
     "search": "trimmed nonempty customer-name or manager search bypasses recent filter; whitespace is default recent view",
-    "selection": "filtering preserves selectedKeys; select-all toggles visible customers only, preserving hidden selections",
+    "selection": "customer filtering preserves selectedKeys; select-all toggles visible customers only, preserving hidden selections; each newly queried product is initially selected, product filtering preserves deselected hidden products, and bulk targets only selected currently visible products",
     "sort": "recent trade date descending then customer name/key",
     "save": "existing CustomerProdCost reads, PUT saveMatrix and EXE parity path unchanged"
   },

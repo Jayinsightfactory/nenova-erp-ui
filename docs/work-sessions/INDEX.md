@@ -8,7 +8,8 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
-| [2026-08-26_pricing-recent-customers](./2026-08-26_pricing-recent-customers.md) | 단가관리 기본 업체목록 최근90일, 검색시 전체 | 검증 완료·배포 대기 |
+| [2026-08-26_pricing-product-selection](./2026-08-26_pricing-product-selection.md) | 품목 전체 선택 후 개별 해제·선택 품목만 일괄 단가 적용 | 구현·검증 중 |
+| [2026-08-26_pricing-recent-customers](./2026-08-26_pricing-recent-customers.md) | 단가관리 기본 업체목록 최근90일, 검색시 전체 | PR365 배포·실브라우저 확인 완료 |
 | [2026-08-26_estimate-deduction-delete](./2026-08-26_estimate-deduction-delete.md) | 견적서 불량·검역차감 체크 선택 삭제 | 구현·검사 중 |
 | [2026-08-26_pnl-cost-hover](./2026-08-26_pnl-cost-hover.md) | 매입단가 입력칸에 차수별 단가 미리보기 | 구현 중 |
 | [2026-08-26_pnl-cost-comparison](./2026-08-26_pnl-cost-comparison.md) | 라움·초이문 상세 우측 차수별 매입단가 비교, 엑셀 제외 | 로컬 검증 완료 |
