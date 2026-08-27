@@ -1,0 +1,64 @@
+{
+  "id": "china-volume-board",
+  "title": "자동 중국물량표 패킹리스트 박스 배정 계약",
+  "scope": [
+    "pages/stats/china-volume-board.js",
+    "lib/chinaVolumeBoard.js",
+    "__tests__/chinaVolumeBoard.test.js",
+    "__tests__/chinaVolumeBoardUi.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "CHINA_VOLUME_BOARD_READ",
+      "source": "getPivotStats read-only payload",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve"
+    },
+    {
+      "name": "CHINA_PACKING_LOCAL_EDIT",
+      "source": "browser memory/localStorage only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve"
+    }
+  ],
+  "criteriaLedger": {
+    "viewport": "1920x1080 CSS px, browser zoom 100%",
+    "boxSource": "packing list column B Box No.",
+    "quantitySource": "packing list column D Quantity",
+    "customerSource": "packing list Customer code matched to Customer.OrderCode",
+    "productSource": "China-only pivot product candidates",
+    "display": "quantity cell dimensions remain fixed; red box badges are overlays; each allocation has its own editor"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 35-01이 전년도에도 존재해도 화면 GET은 명시한 OrderYear를 /api/stats/pivot-data에 전달하고 로컬 편집키에도 연도를 포함한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/chinaVolumeBoard.test.js",
+    "__tests__/chinaVolumeBoardUi.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormQuantityPivot.md",
+    "source": "FormQuantityPivot read-only 수량 표시를 재사용하며 박스 배정은 ERP 원장을 변경하지 않는 웹 표시 기능이다.",
+    "methods": ["FormQuantityPivot read-only pivot grid"],
+    "tables": ["Product", "Customer", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "WarehouseMaster", "WarehouseDetail"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run test:pivot",
+    "npm run build"
+  ],
+  "preserves": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "WarehouseMaster", "WarehouseDetail", "ProductStock", "StockHistory", "Estimate", "WebProfitReport"]
+}
