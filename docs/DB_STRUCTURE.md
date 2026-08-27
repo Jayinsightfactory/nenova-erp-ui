@@ -256,6 +256,12 @@
 - `Allocation`: `ScheduleKey + ItemKey`별 선출고 수량. 0도 유효한 명시값이다.
 - 네 테이블의 저장은 `Order*`, `Shipment*`, `ShipmentDate`, `Stock*`, `Estimate`, `WebProfitReport`를 변경하지 않는다.
 
+**WebChinaVolumeBoard / WebChinaVolumeProductMap** — 자동 중국물량표 웹 전용 원장 (2026-08-27 신규)
+- `WebChinaVolumeBoard`: PK `BoardKey`, `OrderYear`, `OrderWeek`, `BoardName`, `SourceFileName`, `SourceSheetName`, `PackingRowsJson`, `CellsJson`, `MatchOverridesJson`, `ReviewStateJson`, `isDeleted`, `RowVersion`, 생성/수정 사용자·시각. 패킹 원본·업로드 당시 매칭, 업체×품목 수량과 박스 배정, 수량대조 선택을 분리 JSON으로 보존한다. 동일 `OrderYear + OrderWeek`에 여러 BoardKey 작업본을 허용한다.
+- `WebChinaVolumeProductMap`: PK `MapKey`, `NormalizedSourceName`, `SourceItemName`, `ProdKey`, `ProdNameSnapshot`, 생성/수정 사용자·시각·`isDeleted`. 사용자가 확정한 중국 품목 매칭만 전역 재사용하며 애매한 자동 후보는 저장하지 않는다.
+- 기존 작업본 저장/삭제는 반드시 `BoardKey + expectedRowVersion`을 검사한다. 최신이 아니면 0행 변경과 HTTP 409 재조회 안내를 반환한다. 삭제는 soft delete이며 JSON 원본·매칭·박스·검토상태는 보존한다.
+- 두 테이블은 웹 전용이며 runtime DDL 금지. 저장/삭제/매칭/수량·박스 편집은 `Order*`, `Shipment*`, `Warehouse*`, `Stock*`, `Estimate`, `WebProfitReport`를 절대 변경하지 않는다.
+
 **UserInfo** — 사용자
 **UserFavorite** — 즐겨찾기
 **SystemActionLog** — 시스템 동작 로그

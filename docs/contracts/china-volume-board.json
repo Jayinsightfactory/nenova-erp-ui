@@ -3,9 +3,21 @@
   "title": "자동 중국물량표 패킹리스트 박스 배정 계약",
   "scope": [
     "pages/stats/china-volume-board.js",
+    "pages/stats/china-volume-board-review.js",
+    "pages/api/stats/china-volume-board.js",
+    ".github/workflows/deploy.yml",
     "lib/chinaVolumeBoard.js",
+    "lib/chinaVolumeBoardStore.js",
+    "lib/chinaVolumeBoardApi.js",
+    "docs/migrations/2026-08-27_web_china_volume_board.sql",
+    "scripts/apply-china-volume-board-migration.mjs",
+    "docs/DB_STRUCTURE.md",
+    "docs/work-reports/2026-08-27_china-volume-board-persistence-design.md",
     "__tests__/chinaVolumeBoard.test.js",
-    "__tests__/chinaVolumeBoardUi.test.js"
+    "__tests__/chinaVolumeBoardUi.test.js",
+    "__tests__/chinaVolumeBoardPersistence.test.js",
+    "__tests__/chinaVolumeBoardStore.test.js",
+    "__tests__/chinaVolumeBoardReviewUi.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -20,12 +32,44 @@
     },
     {
       "name": "CHINA_PACKING_LOCAL_EDIT",
-      "source": "browser memory/localStorage only",
+      "source": "browser memory until explicit WebChinaVolumeBoard save",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseDetail": "preserve",
       "estimate": "preserve",
       "stock": "preserve"
+    },
+    {
+      "name": "CHINA_VOLUME_BOARD_SAVE",
+      "source": "explicit user save for a BoardKey in the selected OrderYear + OrderWeek scope",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "writeAllowlist": ["WebChinaVolumeBoard", "WebChinaVolumeProductMap"]
+    },
+    {
+      "name": "CHINA_VOLUME_BOARD_DELETE",
+      "source": "explicit user delete of a saved BoardKey work copy",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "writeAllowlist": ["WebChinaVolumeBoard"],
+      "deletePolicy": "soft delete only; the BoardKey JSON, packing file, matching rows, cell edits, and audit history remain queryable"
+    },
+    {
+      "name": "CHINA_VOLUME_BOARD_MATCH_SAVE",
+      "source": "explicit user confirmation of a customer/product rematch",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseDetail": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "writeAllowlist": ["WebChinaVolumeProductMap", "WebChinaVolumeBoard"],
+      "matchPolicy": "never silently promote an ambiguous or unmatched row; save the selected CustKey/ProdKey and before/after mapping in history"
     }
   ],
   "criteriaLedger": {
@@ -40,15 +84,38 @@
     "reconciliationSource": "one shared summarizeChinaVolumeTotals helper for screen status, mismatch list, and XLSX audit sheet",
     "reconciliationPolicy": "packing total equals matched plus unmatched; every customer-product compares packing, current board display, and box allocation without offsetting another cell; visible totals are grouped by Product.unit so box, bunch, and stem are never presented as one meaningful quantity; pivot-versus-packing remains a reference difference because early shipment or carryover can be legitimate",
     "reuploadPolicy": "a new packing upload replaces prior browser cell state so stale allocations cannot remain",
-    "downloadWarning": "unmatched rows or cell quantity differences require explicit confirmation and remain visible in the 수량대조 sheet"
+    "downloadWarning": "unmatched rows or cell quantity differences require explicit confirmation and remain visible in the 수량대조 sheet",
+    "persistence": {
+      "businessScope": ["OrderYear", "OrderWeek"],
+      "identity": ["BoardKey"],
+      "multipleWorkCopies": "multiple BoardKey work copies may coexist for the same OrderYear + OrderWeek; list GET uses the explicit year+week scope, optional detail GET may use BoardKey, and update POST/delete always identify BoardKey explicitly",
+      "rowVersion": "every mutable BoardKey row has RowVersion; save/delete requires expectedRowVersion and returns HTTP 409 with no mutation when stale",
+      "uploadRetention": "original file metadata, source sheet name, source row, raw customer/item/box text and parsed quantity are retained inside each BoardKey JSON payload",
+      "deleteRetention": "delete is a reversible soft-delete of the selected BoardKey work copy; it must not delete ERP rows or erase its packing/matching audit",
+      "staleRevision": "save/delete must include BoardKey + expectedRowVersion; a stale token changes zero rows and returns HTTP 409/reload-required",
+      "database": "WebChinaVolumeBoard stores PackingRowsJson, CellsJson, MatchOverridesJson and ReviewStateJson for each BoardKey plus source-file metadata; WebChinaVolumeProductMap stores reusable explicit source-item to ProdKey mappings globally across BoardKey and weeks. Both are web-only; no runtime CREATE/ALTER/DROP and no writes to Order*, Shipment*, Warehouse*, Stock*, Estimate or WebProfitReport"
+    },
+    "mismatchReview": {
+      "open": "a dedicated confirmation button opens a new review window/modal; it does not hide warnings in the main grid",
+      "choices": ["keep current board quantity", "apply matched packing quantity", "leave unresolved and save for later"],
+      "requiresReason": "choice and optional note are stored in history; unresolved rows remain visible and block a false OK status"
+    },
+    "excelLayout": {
+      "sheet": "one worksheet matching the web grid layout; the audit sheet is separate",
+      "printOnlyPagination": "do not split the web data into per-page sheets; set print area/page breaks for A4 printing",
+      "style": "preserve product/customer headers, large quantity text, red box badges, and digit-aware wrapped box labels in the workbook"
+    }
   },
   "crossYearFixture": {
     "required": true,
-    "description": "같은 35-01이 전년도에도 존재해도 화면 GET은 명시한 OrderYear를 /api/stats/pivot-data에 전달하고 로컬 편집키에도 연도를 포함한다."
+    "description": "같은 35-01이 전년도에도 존재해도 BoardKey 목록과 저장/삭제 API는 명시한 OrderYear + OrderWeek만 범위로 사용하며 전년도 작업본을 섞지 않는다. 같은 차수에 여러 BoardKey 작업본이 존재할 수 있다."
   },
   "requiredTestFiles": [
     "__tests__/chinaVolumeBoard.test.js",
     "__tests__/chinaVolumeBoardUi.test.js",
+    "__tests__/chinaVolumeBoardPersistence.test.js",
+    "__tests__/chinaVolumeBoardStore.test.js",
+    "__tests__/chinaVolumeBoardReviewUi.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
