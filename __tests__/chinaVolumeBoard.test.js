@@ -8,6 +8,7 @@ const assert = require('assert');
     parseChinaBoxNumbers,
     splitChinaBoxQuantity,
     parseChinaPackingRows,
+    planChinaBoxNeighborAreas,
     matchChinaPackingRows,
     mergeChinaCellAllocations,
     mergeChinaPackingIntoPivotCells,
@@ -25,6 +26,23 @@ const assert = require('assert');
     cells: { '1:9': { quantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] } },
   });
   assert.deepStrictEqual(workbookRows[2], ['ROSE Diana 50cm full name', '20 (16,17)']);
+  const neighborRows = [
+    { prodKey: 1, outOrders: { A: 10, B: 0, C: 5 } },
+    { prodKey: 2, outOrders: { A: 0, B: 0, C: 0 } },
+  ];
+  const neighborCustomers = [
+    { custKey: 1, custName: 'A' }, { custKey: 2, custName: 'B' }, { custKey: 3, custName: 'C' },
+  ];
+  const neighborPlan = planChinaBoxNeighborAreas({
+    rows: neighborRows,
+    customers: neighborCustomers,
+    cells: {
+      '1:1': { quantity: 10, allocations: [{ boxNo: '100', quantity: 10 }] },
+      '3:1': { quantity: 5, allocations: [{ boxNo: '101', quantity: 5 }] },
+    },
+  });
+  assert.strictEqual(neighborPlan['1:1'], 'right', '오른쪽 빈 셀을 우선 예약한다');
+  assert.strictEqual(neighborPlan['3:1'], 'down', '이미 예약됐거나 차 있는 좌우 셀을 덮지 않고 아래 빈 셀을 사용한다');
 
   assert.deepStrictEqual(parseChinaBoxNumbers('NO.16.17'), ['16', '17']);
   assert.deepStrictEqual(parseChinaBoxNumbers('NO.31-37'), ['31', '32', '33', '34', '35', '36', '37']);
