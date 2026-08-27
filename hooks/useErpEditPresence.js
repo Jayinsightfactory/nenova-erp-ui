@@ -42,6 +42,30 @@ function emptyState() {
   return { loading: false, active: false, ownedByMe: false, ownedBySameUser: false, stale: false, error: '', digest: '', token: '', ownerName: '', pageCode: '', expiresAt: '', scopeKey: '' };
 }
 
+// Keep this reducer pure so the save-completion transition can be exercised
+// without mounting React.  A successful own write advances the lease baseline
+// inside the ERP transaction; heartbeat then returns stale=false with that
+// exact baseline.  An EXE/other-window write after our commit returns
+// stale=true and must never be accepted as another own write.
+export function mergeErpEditPresenceResponse(previous = {}, data = {}, { preserveToken = true } = {}) {
+  const lease = data?.lease || {};
+  return {
+    ...previous,
+    loading: false,
+    error: '',
+    active: Boolean(lease.active),
+    ownedByMe: Boolean(lease.ownedByMe),
+    ownedBySameUser: Boolean(lease.ownedBySameUser),
+    ownerName: lease.ownerName || '',
+    pageCode: lease.pageCode || '',
+    expiresAt: lease.expiresAt || '',
+    digest: data?.digest || previous.digest || '',
+    token: lease.token || (preserveToken ? previous.token : ''),
+    stale: Boolean(data?.stale),
+    scopeKey: editScopeKey(data?.scope || {}),
+  };
+}
+
 function editScopeKey({ year, orderYear, week, orderWeek, custKey } = {}) {
   const rawWeek = String(orderWeek || week || '').trim();
   const parts = rawWeek.split('-');
@@ -103,23 +127,8 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
   useEffect(() => { stateRef.current = state; }, [state]);
 
   const applyResponse = useCallback((data, { preserveToken = true } = {}) => {
-    const lease = data?.lease || {};
     const prev = stateRef.current;
-    const next = {
-      ...prev,
-      loading: false,
-      error: '',
-      active: Boolean(lease.active),
-      ownedByMe: Boolean(lease.ownedByMe),
-      ownedBySameUser: Boolean(lease.ownedBySameUser),
-      ownerName: lease.ownerName || '',
-      pageCode: lease.pageCode || '',
-      expiresAt: lease.expiresAt || '',
-      digest: data?.digest || prev.digest || '',
-      token: lease.token || (preserveToken ? prev.token : ''),
-      stale: Boolean(data?.stale),
-      scopeKey: editScopeKey(data?.scope || {}),
-    };
+    const next = mergeErpEditPresenceResponse(prev, data, { preserveToken });
     stateRef.current = next;
     setState(next);
     return data;
@@ -234,11 +243,33 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
 
   const beginSaving = useCallback(() => { savingRef.current += 1; }, []);
   const endSaving = useCallback(async ({ refreshBaseline = true } = {}) => {
-    savingRef.current = Math.max(0, savingRef.current - 1);
-    if (savingRef.current === 0 && refreshBaseline) {
-      try { await refresh({ force: true }); } catch { /* fixed warning remains visible */ }
+    const shouldVerifyOwnWrite = savingRef.current === 1 && refreshBaseline;
+    try {
+      if (shouldVerifyOwnWrite) {
+        const current = stateRef.current;
+        if (!validScope || !current.token) return;
+        // Do not call action=refresh here. refresh means the user explicitly
+        // accepts whatever is currently in ERP and can hide an EXE edit that
+        // lands immediately after our commit. heartbeat only compares the
+        // transaction-advanced server baseline with the live ERP snapshot.
+        const data = await requestPresence('POST', { action: 'heartbeat', ...scope, token: current.token });
+        applyResponse(data);
+      }
+    } catch (error) {
+      if (error.code === 'ERP_EDIT_STALE') {
+        setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
+      } else if (error.code === 'ERP_EDIT_LOCKED') {
+        const lease = error.data?.lease || {};
+        setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
+      } else {
+        setState(prev => ({ ...prev, loading: false, error: error.message || '저장 후 작업 상태 확인 실패' }));
+      }
+    } finally {
+      // Keep polling suspended until the authoritative heartbeat has settled;
+      // otherwise the old client digest can race the just-committed digest.
+      savingRef.current = Math.max(0, savingRef.current - 1);
     }
-  }, [refresh]);
+  }, [applyResponse, scope, validScope]);
   const markStale = useCallback(() => {
     setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
   }, []);

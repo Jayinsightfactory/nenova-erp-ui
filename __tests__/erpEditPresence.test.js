@@ -3,10 +3,24 @@ const fs = require('node:fs');
 
 async function main() {
   const presence = await import('../lib/erpEditPresence.js');
-  const { normalizeErpEditClientWeek } = await import('../hooks/useErpEditPresence.js');
+  const { normalizeErpEditClientWeek, mergeErpEditPresenceResponse } = await import('../hooks/useErpEditPresence.js');
   assert.equal(normalizeErpEditClientWeek('34-01'), '34');
   assert.equal(normalizeErpEditClientWeek('34-02'), '34');
   assert.equal(normalizeErpEditClientWeek('2026-34-02'), '34');
+  const clientBeforeSave = { digest: 'a'.repeat(64), token: 'mine', stale: false, scopeKey: '2026/34/7' };
+  const clientAfterOwnSave = mergeErpEditPresenceResponse(clientBeforeSave, {
+    digest: 'b'.repeat(64), stale: false,
+    scope: { orderYear: '2026', orderWeek: '34', custKey: 7 },
+    lease: { active: true, ownedByMe: true, token: 'mine', pageCode: 'estimate' },
+  });
+  assert.equal(clientAfterOwnSave.digest, 'b'.repeat(64), '본인 저장 뒤 서버 heartbeat 기준값은 화면 기준으로 반영해야 합니다.');
+  assert.equal(clientAfterOwnSave.stale, false, '본인 저장은 외부 변경 경고가 아니어야 합니다.');
+  const clientAfterExternalSave = mergeErpEditPresenceResponse(clientAfterOwnSave, {
+    digest: 'c'.repeat(64), stale: true,
+    scope: { orderYear: '2026', orderWeek: '34', custKey: 7 },
+    lease: { active: true, ownedByMe: true, token: 'mine', pageCode: 'estimate' },
+  });
+  assert.equal(clientAfterExternalSave.stale, true, '본인 저장 이후의 EXE/다른 화면 변경 경고는 유지해야 합니다.');
   assert.deepEqual(presence.normalizeEditScope({ orderYear: '2026', orderWeek: '32-01', custKey: 9 }), { orderYear: '2026', orderWeek: '32', custKey: 9 });
   assert.deepEqual(presence.normalizeEditScope({ orderYear: '2026', week: '32-02', custKey: 9 }), { orderYear: '2026', orderWeek: '32', custKey: 9 });
   assert.throws(() => presence.normalizeEditScope({ orderWeek: '32', custKey: 9 }), /선택 연도와 차수/);
@@ -102,6 +116,9 @@ async function main() {
   await presence.assertErpEditGuard(fakeQuery, scope, bob, guard);
   erpRevision += 1; // simulates the first successful web ERP write.
   await presence.advanceErpEditGuard(fakeQuery, scope, bob, guard);
+  const ownSaveHeartbeat = await presence.heartbeatErpEditLease(fakeQuery, scope, bob, { leaseToken: taken.lease.leaseToken, clientId: 'B' });
+  assert.equal(ownSaveHeartbeat.stale, false, 'transaction-advanced own write must settle without a false external-change warning');
+  assert.equal(ownSaveHeartbeat.snapshot.digest, lease.get('2026/32/7').BaselineDigest, 'own-write heartbeat must return the exact server baseline');
   await presence.assertErpEditGuard(fakeQuery, scope, bob, guard);
   erpRevision += 1; // nenova.exe changes an ERP row between web saves.
   const staleHeartbeat = await presence.heartbeatErpEditLease(fakeQuery, scope, bob, { leaseToken: taken.lease.leaseToken, clientId: 'B' });
