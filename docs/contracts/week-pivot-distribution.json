@@ -70,6 +70,14 @@
     "quantity": "WarehouseDetail.OutQuantity",
     "unit": "Product.OutUnit"
   },
+  "pasteBatchStartFeedbackPolicy": {
+    "sharedDecision": "The visible button state and click handler use getPasteMixedBatchStartBlocker with the same selected week, action entries, and customer presence state.",
+    "blockingReasons": ["week missing", "no action rows", "presence loading", "another editor lock", "stale ERP baseline", "presence lookup error"],
+    "feedback": "Except while an actual batch is running, a blocked start remains click-observable and shows the exact reason both inline and by alert; runtime failures alert that all entries rolled back.",
+    "scopeReset": "Presence digest/stale/error state is scoped by OrderYear+OrderWeek+CustKey and must not carry from a prior week.",
+    "fixture": "2026-35-01 남대문 청화 레드팬서 10단 CANCEL runs before 주광농원 레드팬서 10단 ADD.",
+    "preserve": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Stock", "Estimate", "WebProfitReport"]
+  },
   "policyBoundaries": [
     "This contract covers week-pivot, adjust, paste-order distribution, and explicit farm-distribution only.",
     "The separate estimate-additional-product contract intentionally continues to require a FarmKey; this optional-farm rule does not relax that workflow."

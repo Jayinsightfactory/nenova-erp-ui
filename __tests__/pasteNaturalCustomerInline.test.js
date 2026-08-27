@@ -12,6 +12,15 @@ async function main() {
   assert(parseNaturalInlineOrderLine('남대문-중앙') === null, '업체명 내부 하이픈을 구분자로 오인');
   assert(parseNaturalInlineOrderLine('일요일 출고건 입니다.') === null, '출고 메모를 주문행으로 오인');
 
+  const redPantherCancel = parseNaturalInlineOrderLine('남대문 청화 - 레드팬서 10단 취소');
+  const redPantherAdd = parseNaturalInlineOrderLine('주광농원 - 레드팬서 10단 추가');
+  assert(redPantherCancel?.customerName === '남대문 청화' && redPantherCancel?.productName === '레드팬서'
+    && redPantherCancel?.quantityText === '10' && redPantherCancel?.unitText === '단' && redPantherCancel?.action === '취소',
+  '35-1 남대문 청화 레드팬서 취소 분석 실패');
+  assert(redPantherAdd?.customerName === '주광농원' && redPantherAdd?.productName === '레드팬서'
+    && redPantherAdd?.quantityText === '10' && redPantherAdd?.unitText === '단' && redPantherAdd?.action === '추가',
+  '35-1 주광농원 레드팬서 추가 분석 실패');
+
   const proudMemo = stripTrailingOrderMemo('프라우드 10단 취소 (밀라그로)');
   assert(proudMemo === '프라우드 10단 취소', `동작 뒤 농장 메모 제거 실패: ${proudMemo}`);
   assert(stripTrailingOrderMemo('프라우드 10단 추가 (밀라그로) (농장확인)') === '프라우드 10단 추가', '연속 괄호 메모 제거 실패');
