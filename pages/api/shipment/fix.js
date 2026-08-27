@@ -15,6 +15,8 @@ import {
 import { calculateStockShortage, roundStockQuantity } from '../../../lib/stockShortage.js';
 import { requireOrderYear } from '../../../lib/orderUtils';
 import { assertErpEditGuard, advanceErpEditGuard, editErrorResponse } from '../../../lib/erpEditPresence.js';
+import { normalizeEstimateEditProdKeys, resolveEstimateEditCategories } from '../../../lib/estimateCategoryCycle.js';
+import { lockStockGateOperation, clearStockGateOperation } from '../../../lib/stockGateOperation.js';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -62,14 +64,6 @@ async function loadCheckFixCancel(orderYear, orderWeek, allowedCountryFlowers) {
     },
     products: prodRes.recordset,
   });
-}
-
-async function clearStockWeekGate() {
-  try {
-    await query('EXEC dbo.usp_NenovaStockWeekGateClear');
-  } catch (e) {
-    await logFix('gate_clear_error', e.message, true);
-  }
 }
 
 async function retryStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, logContext = {}) {
@@ -140,6 +134,14 @@ export default withAuth(async function handler(req, res) {
     } catch (error) {
       return res.status(400).json({ success: false, code: error.code, error: error.message });
     }
+    if (req.query.editScope === '1') {
+      try {
+        const groups = await loadEstimateEditGroups(req.query.editProdKeys);
+        return res.status(200).json({ success: true, orderYear: req.erpWeek.orderYear, orderWeek: req.erpWeek.orderWeek, groups });
+      } catch (error) {
+        return res.status(400).json({ success: false, code: 'ESTIMATE_CATEGORY_SCOPE_INVALID', error: error.message });
+      }
+    }
     return await validate(req, res);
   }
   if (req.method !== 'POST') return res.status(405).end();
@@ -179,6 +181,58 @@ async function assertOptionalFixEditGuard(req) {
     orderWeek: req.erpWeek.orderWeek,
     custKey,
   }, req.user, req.body));
+}
+
+async function loadEstimateEditGroups(rawKeys, requestedCategories, q = query, lock = false) {
+  const keys = normalizeEstimateEditProdKeys(rawKeys);
+  const params = Object.fromEntries(keys.map((key, i) => [`pk${i}`, { type: sql.Int, value: key }]));
+  const result = await q(`SELECT ProdKey, CountryFlower, isDeleted FROM Product ${lock ? 'WITH (UPDLOCK,HOLDLOCK)' : ''}
+    WHERE ProdKey IN (${keys.map((_, i) => `@pk${i}`).join(',')})`, params);
+  return resolveEstimateEditCategories(keys, result.recordset || [], requestedCategories);
+}
+
+async function resolveFixCategoryScope(req, countryFlowersFilter) {
+  if (req.body?.editProdKeys === undefined) return normalizeCountryFlowerFilter(countryFlowersFilter);
+  if (!Array.isArray(countryFlowersFilter) || countryFlowersFilter.length !== 1) {
+    const error = new Error('견적서 수정은 확인한 품종 한 개씩 처리합니다. 수정 품종을 다시 조회하세요.');
+    error.code = 'ESTIMATE_CATEGORY_SCOPE_INVALID'; error.statusCode = 400; throw error;
+  }
+  if (!req.body.editGuard || !(Number(req.body.custKey) > 0)) {
+    const error = new Error('견적서 품종별 저장에는 선택 업체의 편집 보호가 필요합니다. 다시 조회하세요.');
+    error.code = 'ERP_EDIT_SCOPE_INVALID'; error.statusCode = 400; throw error;
+  }
+  if (req.body.autoStockAdd || req.body.confirmAutoStockAdd) {
+    const error = new Error('견적서 수정에서는 재고를 자동 보충하지 않습니다. 재고조정 화면에서 확인하세요.');
+    error.code = 'ESTIMATE_CATEGORY_SCOPE_INVALID'; error.statusCode = 400; throw error;
+  }
+  try {
+    req.estimateEditGroups = await loadEstimateEditGroups(req.body.editProdKeys, countryFlowersFilter);
+    return new Set(req.estimateEditGroups.map(g => g.countryFlower));
+  } catch (error) {
+    error.code = 'ESTIMATE_CATEGORY_SCOPE_INVALID'; error.statusCode = 400; throw error;
+  }
+}
+
+async function runFixTargetProcedure(name, shape, orderYear, orderWeek, uid, cf, req, skipStockCalc) {
+  if (req.estimateEditGroups && !shape.hasCountryFlower) throw new Error('전산의 품종별 확정 기능을 확인하지 못했습니다. 전체 품종을 대신 변경하지 않습니다.');
+  // One category + its lease baseline commit together. A failed SP rolls back
+  // this category, not earlier successful categories reported to the client.
+  return withTransaction(async (tQ) => {
+    const gateOperation = await lockStockGateOperation(tQ, sql, {
+      orderYear, orderWeek, action: name === 'usp_ShipmentFixCancel' ? 'CANCEL' : 'FIX',
+    });
+    const scope = { orderYear, orderWeek, custKey: Number(req.body.custKey) };
+    if (req.body?.editGuard) await assertErpEditGuard(tQ, scope, req.user, req.body);
+    if (req.estimateEditGroups) await loadEstimateEditGroups(req.body.editProdKeys, [cf], tQ, true);
+    const result = await runShipmentProcedure(name, shape, orderYear, orderWeek, uid, cf, tQ);
+    const row = result.recordset?.[0];
+    if (!row || row.result !== 0 || (row.returnCode !== undefined && row.returnCode !== 0)) throw new Error(row?.message || '품종별 확정 처리 결과를 확인하지 못했습니다.');
+    if (skipStockCalc) {
+      await clearStockGateOperation(tQ, sql, gateOperation, { nativeResult: row.result, nativeReturnCode: row.returnCode });
+    }
+    if (req.body?.editGuard) await advanceErpEditGuard(tQ, scope, req.user, req.body);
+    return result;
+  });
 }
 
 // usp_ShipmentFix/Cancel may run several independent transactions.  Advance
@@ -411,7 +465,7 @@ async function loadNegativeGuardRows(orderYear, orderWeek) {
          JOIN CodeInfo ci ON ci.Category=N'StockType' AND ci.Descr=sh.ChangeType
         WHERE sh.OrderYear=@yr AND sh.OrderWeek=@wk GROUP BY sh.ProdKey
      )
-     SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName,
+     SELECT p.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.CountryFlower,
             ISNULL(prev.Stock,0) productStock, ISNULL(prev.Stock,0) prevStock,
             ISNULL(i.qty,0) + ISNULL(a.qty,0) inQty,
             ISNULL(o.qty,0) outQty,
@@ -466,14 +520,14 @@ function shipmentProcedureSql(procedureName, shape) {
   }
   const countryArg = shape.hasCountryFlower ? `\n              @CountryFlower = @cf,` : '';
   if (shape.hasOutput) {
-    return `DECLARE @r INT, @m NVARCHAR(MAX);
-         EXEC dbo.${procedureName}
+    return `DECLARE @r INT, @m NVARCHAR(MAX), @ret INT;
+         EXEC @ret=dbo.${procedureName}
               @OrderYear     = @yr,
               @OrderWeek     = @wk,${countryArg}
               @iUserID       = @uid,
               @oResult       = @r OUTPUT,
               @oMessage      = @m OUTPUT;
-         SELECT ISNULL(@r, 0) AS result, @m AS message;`;
+         SELECT @r AS result, @m AS message, @ret AS returnCode;`;
   }
   return `EXEC dbo.${procedureName}
               @OrderYear     = @yr,
@@ -482,7 +536,7 @@ function shipmentProcedureSql(procedureName, shape) {
           SELECT 0 AS result, N'' AS message;`;
 }
 
-async function runShipmentProcedure(procedureName, shape, orderYear, orderWeek, uid, countryFlower) {
+async function runShipmentProcedure(procedureName, shape, orderYear, orderWeek, uid, countryFlower, queryFn) {
   const params = {
     yr:  { type: sql.NVarChar, value: orderYear },
     wk:  { type: sql.NVarChar, value: orderWeek },
@@ -494,6 +548,7 @@ async function runShipmentProcedure(procedureName, shape, orderYear, orderWeek, 
   return await queryWithDeadlockRetry(shipmentProcedureSql(procedureName, shape), params, {
     retries: 4,
     baseDelay: 300,
+    queryFn,
   });
 }
 
@@ -547,24 +602,33 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
   const total = uniqueKeys.length;
   const logPrefix = logContext.prefix || 'stock_calc';
   const logLabel = logContext.label || '';
+  // Native EXE FIX/CANCEL commits a pending calculation then opens a separate
+  // connection for ProdKey=0. The owner-aware gate permits that exact handoff;
+  // a pending week must not be released by an incomplete one-product calculation.
+  const gate = await (logContext.queryFn || query)(
+    `SELECT Mode, OrderYear, OrderWeek FROM dbo.NenovaStockWeekGate WHERE GateKey='1'`
+  );
+  const pending = gate.recordset?.[0];
+  const fullPendingHandoff = pending?.Mode === 'WAIT_CALC'
+    && String(pending.OrderYear) === String(orderYear) && String(pending.OrderWeek) === String(orderWeek);
 
   // 2026-07-14: 품목이 많으면 exe 방식(ProdKey=0 전 품목 단일 호출) — nenova.exe 는 모든 흐름에서
   // uspStockCalculation(yr, wk, 0) 한 번만 부른다(디컴파일 확인). 품목별 순차 호출은 호출마다
   // 이후 차수 전체를 cascade 재계산해 카테고리당 수 분씩 걸리던 병목. prodKey=0 결과 마커를 보고
   // reconcileWeekAfterScopedOperation 이 중복 재계산을 건너뛴다.
-  if (uniqueKeys.length > 5) {
+  if (uniqueKeys.length > 5 || fullPendingHandoff) {
     try {
       await logFix(`${logPrefix}_all_start`, `${orderYear}/${orderWeek} ${logLabel} 전품목 단일호출 (요청 ${total}품목)`);
       const r = await queryWithDeadlockRetry(
-        `DECLARE @r INT, @m NVARCHAR(200);
-         EXEC dbo.usp_StockCalculation
+        `DECLARE @r INT, @m NVARCHAR(200), @ret INT;
+         EXEC @ret=dbo.usp_StockCalculation
               @OrderYear = @yr,
               @OrderWeek = @wk,
               @ProdKey   = 0,
               @iUserID   = @uid,
               @oResult   = @r OUTPUT,
               @oMessage  = @m OUTPUT;
-         SELECT ISNULL(@r, 0) AS result, @m AS message;`,
+         SELECT @r AS result, @m AS message, @ret AS returnCode;`,
         {
           yr:  { type: sql.NVarChar, value: orderYear },
           wk:  { type: sql.NVarChar, value: orderWeek },
@@ -573,11 +637,11 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
         { retries: 4, baseDelay: 300, queryFn: logContext.queryFn }
       );
       const row = r.recordset?.[0] || {};
-      if (Number(row.result || 0) === 0) {
+      if (row.result === 0 && row.returnCode === 0) {
         results.push({ prodKey: 0, ok: true, all: true, message: row.message || '' });
         await logFix(`${logPrefix}_all_done`, `${orderYear}/${orderWeek} ${logLabel} 전품목 OK`);
       } else {
-        errors.push({ prodKey: 0, code: row.result, message: row.message || 'unknown' });
+        errors.push({ prodKey: 0, code: row.result ?? row.returnCode ?? -1, message: row.message || '재고 계산 완료 응답을 확인하지 못했습니다.' });
         await logFix(`${logPrefix}_all_error`, `${orderYear}/${orderWeek} ${logLabel} ${row.message || ''}`, true);
       }
     } catch (e) {
@@ -591,15 +655,15 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
     try {
       await logFix(`${logPrefix}_item_start`, `${orderYear}/${orderWeek} ${logLabel} pk=${prodKey} ${completed + 1}/${total}`);
       const r = await queryWithDeadlockRetry(
-        `DECLARE @r INT, @m NVARCHAR(200);
-         EXEC dbo.usp_StockCalculation
+        `DECLARE @r INT, @m NVARCHAR(200), @ret INT;
+         EXEC @ret=dbo.usp_StockCalculation
               @OrderYear = @yr,
               @OrderWeek = @wk,
               @ProdKey   = @pk,
               @iUserID   = @uid,
               @oResult   = @r OUTPUT,
               @oMessage  = @m OUTPUT;
-         SELECT ISNULL(@r, 0) AS result, @m AS message;`,
+         SELECT @r AS result, @m AS message, @ret AS returnCode;`,
         {
           yr:  { type: sql.NVarChar, value: orderYear },
           wk:  { type: sql.NVarChar, value: orderWeek },
@@ -609,10 +673,10 @@ async function runStockCalculationForProducts(orderYear, orderWeek, uid, prodKey
         { retries: 4, baseDelay: 300, queryFn: logContext.queryFn }
       );
       const row = r.recordset?.[0] || {};
-      if (Number(row.result || 0) === 0) {
+      if (row.result === 0 && row.returnCode === 0) {
         results.push({ prodKey, ok: true, message: row.message || '' });
       } else {
-        const error = { prodKey, code: row.result, message: row.message || 'unknown' };
+        const error = { prodKey, code: row.result ?? row.returnCode ?? -1, message: row.message || '재고 계산 완료 응답을 확인하지 못했습니다.' };
         errors.push(error);
         await logFix(`${logPrefix}_item_error`, `${orderYear}/${orderWeek} ${logLabel} pk=${prodKey} ${error.message}`, true);
       }
@@ -765,7 +829,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const { orderYear, orderWeek } = req.erpWeek;
   await assertOptionalFixEditGuard(req);
   const uid       = req.user?.userId || 'admin';
-  const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
+  const allowedCountryFlowers = await resolveFixCategoryScope(req, countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
   // skipStockCalc: 확정/해제 SP는 항상 실행한다. 이 플래그는 usp_StockCalculation
   // 품목별 합산만 생략한다. 확정차수 편집 사이클이 수량 이상을 막은 뒤 중간 합산을
@@ -773,9 +837,10 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const skipStockCalc = req.body?.skipStockCalc === true;
   await logFix('fix_start', `${orderYear}/${orderWeek} uid=${uid} filter=${allowedCountryFlowers ? [...allowedCountryFlowers].join(',') : 'ALL'}${skipStockCalc ? ' skipStockCalc' : ''}`);
 
-  const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, null);
+  const lowerUnfixedWeeks = await loadLowerUnfixedWeeks(orderYear, orderWeek, req.estimateEditGroups ? allowedCountryFlowers : null);
   if (lowerUnfixedWeeks.length > 0) {
-    const lowerDetails = await loadLowerUnfixedDetails(orderYear, orderWeek);
+    const lowerDetails = (await loadLowerUnfixedDetails(orderYear, orderWeek))
+      .filter(row => !req.estimateEditGroups || allowedCountryFlowers.has(row.category));
     const labels = lowerUnfixedWeeks.map(w => `${w.OrderYear}-${w.OrderWeek}`).join(', ');
     await logFix('lower_unfixed_block', `${orderYear}/${orderWeek} blocked by ${labels} (all-categories)`, true);
     return res.status(409).json({
@@ -783,12 +848,14 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       code: 'LOWER_UNFIXED_EXISTS',
       lowerWeeks: lowerUnfixedWeeks,
       lowerDetails,
-      error: `[${week}] 확정 불가: 이전 차수에 미확정 출고가 남아 있습니다 (전 카테고리 기준). 먼저 ${labels} 차수를 낮은 차수부터 확정하세요.`,
+      error: `[${week}] 확정 불가: 이전 차수에 미확정 출고가 남아 있습니다 (${req.estimateEditGroups ? '수정 품종' : '전 카테고리'} 기준). 먼저 ${labels} 차수를 낮은 차수부터 확정하세요.`,
     });
   }
 
   const allUnfixedTargets = await loadShipmentCategoryTargets(orderYear, orderWeek, 0, null);
-  const partialFixGuard = evaluatePartialCategoryFixBlock(allUnfixedTargets, allowedCountryFlowers);
+  // EXE permits selected CountryFlower fix. Keep the legacy full-week UI
+  // policy separate; validated Estimate edits must not include unrelated rows.
+  const partialFixGuard = req.estimateEditGroups ? { blocked: false } : evaluatePartialCategoryFixBlock(allUnfixedTargets, allowedCountryFlowers);
   if (partialFixGuard.blocked) {
     await logFix('partial_category_fix_block', `${orderYear}/${orderWeek} remaining=${partialFixGuard.remainingCategories?.join(',')}`, true);
     return res.status(409).json({
@@ -924,7 +991,8 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   }
 
   const procedureShape = await loadProcedureShape('usp_ShipmentFix');
-  const wholeWeekNegativeRows = await loadNegativeGuardRows(orderYear, orderWeek);
+  const wholeWeekNegativeRows = (await loadNegativeGuardRows(orderYear, orderWeek))
+    .filter(row => !req.estimateEditGroups || allowedCountryFlowers.has(String(row.CountryFlower || '').trim()));
   if (wholeWeekNegativeRows.length > 0) {
     return res.status(400).json({
       success: false,
@@ -936,6 +1004,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const targets = procedureShape.hasCountryFlower
     ? categoryTargets
     : [{ countryFlower: null, label: 'ALL', mode: 'ALL', isBlank: false }];
+  if (req.estimateEditGroups && !procedureShape.hasCountryFlower) throw new Error('품종별 확정 범위를 지원하지 않는 전산입니다. 전체 확정으로 변경하지 않았습니다.');
   await logFix('fix_targets', `${orderYear}/${orderWeek} targets=${targets.length} shapeCountry=${procedureShape.hasCountryFlower ? 1 : 0}`);
 
   // 3. SP 호출 — DB 프로시저 구조에 맞춰 카테고리별/차수전체 자동 선택
@@ -950,7 +1019,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       const categoryProdKeys = await loadShipmentProdKeys(orderYear, orderWeek, cf, target.mode);
       const prodKeys = narrowStockProdKeys(categoryProdKeys, requestedStockProdKeys);
       await logFix('fix_sp_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
-      const r = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
+      const r = await runFixTargetProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf, req, skipStockCalc);
       const row = r.recordset?.[0] || {};
       if (row.result === 0) {
         if (skipStockCalc) {
@@ -985,7 +1054,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         stockResults.push(...preStock.results);
         stockErrors.push(...preStock.errors);
         await logFix('fix_retry_stock_calc_done', `${orderYear}/${orderWeek} ${label} ok=${preStock.results.length} err=${preStock.errors.length}`, preStock.errors.length > 0);
-        const retry = await runShipmentProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf);
+        const retry = await runFixTargetProcedure('usp_ShipmentFix', procedureShape, orderYear, orderWeek, uid, cf, req, skipStockCalc);
         retryRow = retry.recordset?.[0] || {};
 
         if (retryRow && retryRow.result === 0) {
@@ -1041,9 +1110,6 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         scopeLabel: allowedCountryFlowers ? `scoped:${[...allowedCountryFlowers].join(',')}` : 'fix',
         forceFullWeekRecalc: Boolean(allowedCountryFlowers),
       });
-  if (skipStockCalc) {
-    await clearStockWeekGate();
-  }
 
   await logFix(
     'fix_done',
@@ -1051,7 +1117,7 @@ async function fix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     errors.length > 0 || stockErrors.length > 0 || !reconcile.parity.exeAligned,
   );
   const success = errors.length === 0 && stockErrors.length === 0 && reconcile.stockErrors.length === 0;
-  const editGuardAfter = success ? await advanceOptionalFixEditGuard(req) : null;
+  const editGuardAfter = success && !req.estimateEditGroups ? await advanceOptionalFixEditGuard(req) : null;
   return res.status(200).json({
     success,
     message: `[${week}] ${procedureShape.hasCountryFlower ? `${results.length}개 카테고리` : '차수 전체'} 확정 완료` +
@@ -1082,7 +1148,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
   const { orderYear, orderWeek } = req.erpWeek;
   await assertOptionalFixEditGuard(req);
   const uid       = req.user?.userId || 'admin';
-  const allowedCountryFlowers = normalizeCountryFlowerFilter(countryFlowersFilter);
+  const allowedCountryFlowers = await resolveFixCategoryScope(req, countryFlowersFilter);
   const requestedStockProdKeys = normalizeStockProdKeys(req.body?.stockProdKeys);
   // skipStockCalc: 확정해제 SP는 항상 실행하고, 곧바로 재확정될 사이클의
   // 중간 스냅샷 합산만 생략한다.
@@ -1105,9 +1171,9 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     const categoryTargets = await loadShipmentCategoryTargets(orderYear, orderWeek, 1, allowedCountryFlowers);
 
     if (categoryTargets.length === 0) {
-      if (skipStockCalc) {
-        await clearStockWeekGate();
-      } else {
+      if (req.estimateEditGroups) {
+        return res.status(200).json({ success: true, message: `[${week}] 수정 품종은 이미 미확정 상태입니다.`, results: [] });
+      } else if (!skipStockCalc) {
         const prodKeys = await loadShipmentProdKeys(orderYear, orderWeek, null, 'ALL');
         const stock = await retryStockCalculationForProducts(orderYear, orderWeek, uid, prodKeys, {
           prefix: 'unfix_stock_calc',
@@ -1136,6 +1202,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
     const targets = procedureShape.hasCountryFlower
       ? categoryTargets
       : [{ countryFlower: null, label: 'ALL', mode: 'ALL', isBlank: false }];
+    if (req.estimateEditGroups && !procedureShape.hasCountryFlower) throw new Error('품종별 확정취소 범위를 지원하지 않는 전산입니다. 전체 취소로 변경하지 않았습니다.');
     await logFix('unfix_targets', `${orderYear}/${orderWeek} targets=${targets.length} shapeCountry=${procedureShape.hasCountryFlower ? 1 : 0}`);
 
     const results = [];
@@ -1149,7 +1216,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
         const categoryProdKeys = await loadShipmentProdKeys(orderYear, orderWeek, cf, target.mode);
         const prodKeys = narrowStockProdKeys(categoryProdKeys, requestedStockProdKeys);
         await logFix('unfix_sp_start', `${orderYear}/${orderWeek} ${label} prod=${prodKeys.length}`);
-        const r = await runShipmentProcedure('usp_ShipmentFixCancel', procedureShape, orderYear, orderWeek, uid, cf);
+        const r = await runFixTargetProcedure('usp_ShipmentFixCancel', procedureShape, orderYear, orderWeek, uid, cf, req, skipStockCalc);
         const row = r.recordset?.[0] || {};
         if (row.result === 0) {
           if (skipStockCalc) {
@@ -1198,13 +1265,10 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
           forceFullWeekRecalc: Boolean(allowedCountryFlowers),
         });
 
-    const pendingUnfixed = await loadShipmentCategoryTargets(orderYear, orderWeek, 0, null);
+    const pendingUnfixed = await loadShipmentCategoryTargets(orderYear, orderWeek, 0, req.estimateEditGroups ? allowedCountryFlowers : null);
     const pendingUnfixedLabels = labelsFromCategoryTargets(pendingUnfixed);
-    const requiresAllCategoryFix = pendingUnfixed.length > 1;
+    const requiresAllCategoryFix = !req.estimateEditGroups && pendingUnfixed.length > 1;
 
-    if (skipStockCalc) {
-      await clearStockWeekGate();
-    }
 
     const calcCheck = evaluateUnfixStockCalcResult({
       skipStockCalc,
@@ -1231,7 +1295,7 @@ async function unfix(req, res, week, prodKeyFilter, countryFlowersFilter) {
       });
     }
     const success = errors.length === 0;
-    const editGuardAfter = success ? await advanceOptionalFixEditGuard(req) : null;
+    const editGuardAfter = success && !req.estimateEditGroups ? await advanceOptionalFixEditGuard(req) : null;
     return res.status(200).json({
       success,
       message: `[${week}] ${results.length}개 카테고리 확정 취소` +

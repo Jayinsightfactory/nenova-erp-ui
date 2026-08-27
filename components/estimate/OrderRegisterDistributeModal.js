@@ -6,6 +6,14 @@ import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { useDebouncedValue } from '../../lib/useDebouncedValue';
 import { PRODUCT_SEARCH_DEBOUNCE_MS } from '../../lib/productSearchLimits';
 import { applyReferenceCostOnly, buildEstimateAdditionalWeek, formatReferenceCostLabel, validateAdditionalProductSelection } from '../../lib/estimateAdditionalProduct';
+import {
+  ADDITIONAL_PRODUCT_CONTEXT_RELOAD_MESSAGE,
+  buildAdditionalProductContextRequest,
+  buildAdditionalProductContextScope,
+  canApplyAdditionalProductContext,
+  invalidateAdditionalProductContextLine,
+  sameAdditionalProductContextScope,
+} from '../../lib/estimateAdditionalProductContext';
 
 function buildFullWeek(yearStr, shortWeek) {
   const w = String(shortWeek || '').trim();
@@ -52,7 +60,17 @@ export default function OrderRegisterDistributeModal({
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
   const wrapRef = useRef(null);
+  const linesRef = useRef(lines);
+  const currentScopeRef = useRef(null);
+  const contextSessionRef = useRef(0);
+  const contextRequestIdsRef = useRef(new Map());
+  const parentScopeRef = useRef(null);
+  const wasOpenRef = useRef(false);
   const selectedCustFixed = Boolean(selectedShip?.CustKey);
+  linesRef.current = lines;
+  currentScopeRef.current = buildAdditionalProductContextScope({
+    open, yearStr, weekNum, custKey: selectedShip?.CustKey ?? cust?.CustKey,
+  });
 
   const weekOptions = useMemo(() => {
     try { const value=buildEstimateAdditionalWeek(yearStr, weekNum); return [{value,label:formatWeekDisplay(value)}]; }
@@ -60,20 +78,48 @@ export default function OrderRegisterDistributeModal({
   }, [yearStr, weekNum]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      if (wasOpenRef.current) contextSessionRef.current += 1;
+      contextRequestIdsRef.current.clear();
+      parentScopeRef.current = null;
+      wasOpenRef.current = false;
+      return;
+    }
     const fromShip = selectedShip?.CustKey
       ? { CustKey: selectedShip.CustKey, CustName: selectedShip.CustName || '' }
       : null;
     const fromFilter = initialCust?.CustKey ? initialCust : null;
     const next = fromShip || fromFilter || null;
-    setCust(next);
-    setCustQuery(next?.CustName || '');
-    setCustResults([]);
-    setCustOpen(false);
-    setWeekValue(weekOptions[0]?.value || '');
-    setLines([emptyLine()]);
-    setResult(null);
-  }, [open, selectedShip, initialCust, weekOptions]);
+    const nextScope = buildAdditionalProductContextScope({
+      open: true, yearStr, weekNum, custKey: next?.CustKey,
+    });
+    const opening = !wasOpenRef.current;
+    const scopeChanged = !opening && !sameAdditionalProductContextScope(parentScopeRef.current, nextScope);
+    if (opening) {
+      contextSessionRef.current += 1;
+      contextRequestIdsRef.current.clear();
+      setCust(next);
+      setCustQuery(next?.CustName || '');
+      setCustResults([]);
+      setCustOpen(false);
+      setWeekValue(weekOptions[0]?.value || '');
+      setLines([emptyLine()]);
+      setResult(null);
+    } else if (scopeChanged) {
+      contextSessionRef.current += 1;
+      contextRequestIdsRef.current.clear();
+      setCust(next);
+      setCustQuery(next?.CustName || '');
+      setCustResults([]);
+      setCustOpen(false);
+      setWeekValue(weekOptions[0]?.value || '');
+      // Keep user-entered rows, but never carry context across year/week/customer.
+      setLines(prev => prev.map(line => invalidateAdditionalProductContextLine(line)));
+      setResult(null);
+    }
+    parentScopeRef.current = nextScope;
+    wasOpenRef.current = true;
+  }, [open, selectedShip?.CustKey, selectedShip?.CustName, initialCust?.CustKey, initialCust?.CustName, yearStr, weekNum, weekOptions]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -114,11 +160,49 @@ export default function OrderRegisterDistributeModal({
   }, [deferredProdSearchKey, lineIdsKey, products]);
 
   const updateLine = (id, patch) => {
-    setLines(prev => prev.map(l => (l.id === id ? { ...l, ...patch } : l)));
+    setLines(prev => {
+      const next = prev.map(l => (l.id === id ? { ...l, ...patch } : l));
+      linesRef.current = next;
+      return next;
+    });
     setResult(null);
   };
 
+  const invalidateLineRequest = (lineId) => {
+    contextRequestIdsRef.current.set(lineId, (contextRequestIdsRef.current.get(lineId) || 0) + 1);
+  };
+
+  const invalidateAllLineRequests = () => {
+    contextSessionRef.current += 1;
+    contextRequestIdsRef.current.clear();
+    setLines(prev => {
+      const next = prev.map(line => invalidateAdditionalProductContextLine(line));
+      linesRef.current = next;
+      return next;
+    });
+    setResult(null);
+  };
+
+  const selectCustomer = (customer) => {
+    setCust(customer);
+    setCustQuery(customer?.CustName || '');
+    setCustOpen(false);
+    invalidateAllLineRequests();
+  };
+
   const pickProduct = async (lineId, prod) => {
+    invalidateLineRequest(lineId);
+    const requestId = contextRequestIdsRef.current.get(lineId);
+    const request = buildAdditionalProductContextRequest({
+      sessionId: contextSessionRef.current,
+      requestId,
+      lineId,
+      open,
+      yearStr,
+      weekNum,
+      custKey: cust?.CustKey,
+      prodKey: prod.ProdKey,
+    });
     updateLine(lineId, {
       prodKey: prod.ProdKey,
       prodName: prod.ProdName || '',
@@ -131,8 +215,29 @@ export default function OrderRegisterDistributeModal({
       const d = await apiGet('/api/estimate/additional-product-context', {
         year: yearStr, week: `${String(weekNum).padStart(2,'0')}-02`, custKey: cust?.CustKey, prodKey: prod.ProdKey,
       });
+      const currentLine = linesRef.current.find(line => line.id === lineId);
+      const current = {
+        open,
+        sessionId: contextSessionRef.current,
+        requestId: contextRequestIdsRef.current.get(lineId),
+        lineId,
+        scope: { ...currentScopeRef.current, prodKey: currentLine?.prodKey },
+      };
+      if (!canApplyAdditionalProductContext(request, current)) return;
       updateLine(lineId, { context:d, contextError:'' });
-    } catch (e) { updateLine(lineId, { context:null, contextError:e.message }); }
+    } catch (e) {
+      const currentLine = linesRef.current.find(line => line.id === lineId);
+      const current = {
+        open,
+        sessionId: contextSessionRef.current,
+        requestId: contextRequestIdsRef.current.get(lineId),
+        lineId,
+        scope: { ...currentScopeRef.current, prodKey: currentLine?.prodKey },
+      };
+      if (canApplyAdditionalProductContext(request, current)) {
+        updateLine(lineId, { context:null, contextError:e.message });
+      }
+    }
   };
 
   const addLine = () => setLines(prev => [...prev, emptyLine()]);
@@ -221,7 +326,13 @@ export default function OrderRegisterDistributeModal({
               )}
               <input
                 value={custQuery}
-                onChange={(e) => { setCustQuery(e.target.value); if (cust) setCust(null); }}
+                onChange={(e) => {
+                  setCustQuery(e.target.value);
+                  if (cust) {
+                    setCust(null);
+                    invalidateAllLineRequests();
+                  }
+                }}
                 onFocus={() => { if (custResults.length) setCustOpen(true); }}
                 placeholder="업체명 검색 후 선택"
                 disabled={running || editBlocked || selectedCustFixed}
@@ -234,7 +345,7 @@ export default function OrderRegisterDistributeModal({
                       <button
                         key={c.CustKey}
                         type="button"
-                        onClick={() => { setCust(c); setCustQuery(c.CustName); setCustOpen(false); }}
+                        onClick={() => selectCustomer(c)}
                         style={{ width: '100%', textAlign: 'left', border: 0, borderBottom: '1px solid #f1f5f9', background: Number(cust?.CustKey) === Number(c.CustKey) ? '#f5f3ff' : '#fff', padding: '8px 10px', cursor: 'pointer' }}
                       >
                         <div style={{ fontWeight: 800, fontSize: 13 }}>{c.CustName}</div>
@@ -279,7 +390,17 @@ export default function OrderRegisterDistributeModal({
                     <div style={{ position: 'relative' }}>
                       <input
                         value={line.prodSearch}
-                        onChange={(e) => updateLine(line.id, { prodSearch: e.target.value, prodOpen: true, prodKey: null, prodName: '' })}
+                        onChange={(e) => {
+                          invalidateLineRequest(line.id);
+                          updateLine(line.id, {
+                            ...invalidateAdditionalProductContextLine(line),
+                            prodSearch: e.target.value,
+                            prodOpen: true,
+                            prodKey: null,
+                            prodName: '',
+                            contextError: ADDITIONAL_PRODUCT_CONTEXT_RELOAD_MESSAGE,
+                          });
+                        }}
                         onFocus={() => updateLine(line.id, { prodOpen: true })}
                         placeholder="품목 검색"
                         disabled={running || editBlocked}

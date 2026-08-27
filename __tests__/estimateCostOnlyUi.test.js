@@ -53,17 +53,17 @@ async function main() {
     '단가 적용하기 버튼은 화면 select 상태(costMode)를 그대로 사용해야 한다.',
   );
 
-  // 통합 저장의 확정 사이클 대상은 실제 물리적 수량 변경(출고일 수량)과 신규 추가 품목만이다 —
-  // 단가 전용 항목은 이 사이클에 섞이지 않는다.
+  // 2026-08-26 방향별 수량 저장: 기존 수량과 단가는 확정 상태를 보존한다.
+  // 신규 추가 품목만 범위 제한 확정 사이클에 들어간다.
   assert.match(
     page,
-    /const physicalQtyItems = qtyPending\.filter\(p => p\.isDateQuantity\)\.map\(p => p\.item\)/,
-    '통합 저장의 확정 사이클 대상은 실제 출고일 수량 변경 항목만이어야 한다.',
+    /const atomicDateItems = qtyPending\.filter\(p => p\.isDateQuantity\)\.map\(p => p\.item\)/,
+    '기존 출고일 수량은 확정 상태 보존 원자 저장 대상으로 구분해야 한다.',
   );
   assert.match(
     page,
-    /const cycleItems = \[\.\.\.physicalQtyItems, \.\.\.addCycleItems\]/,
-    '통합 저장의 확정 사이클은 물리적 수량 변경과 신규 추가 품목만 포함해야 한다 (단가 전용 항목 제외).',
+    /const cycleItems = addCycleItems;/,
+    '통합 저장의 확정 사이클은 신규 추가 품목만 포함해야 한다 (기존 수량·단가 제외).',
   );
 
   // 기존 네 등록 버튼 보존

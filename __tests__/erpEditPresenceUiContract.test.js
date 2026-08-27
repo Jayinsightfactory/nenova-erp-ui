@@ -29,7 +29,9 @@ function main() {
   }
   assert.match(estimate, /disabled=\{[^}]*estimateEditPresence\.blocked/, '견적서 저장/등록 버튼은 다른 작업 또는 외부 변경 시 차단해야 합니다.');
   assert.ok((estimate.match(/editGuard: estimateEditGuard\(\)/g) || []).length >= 7, '견적서의 모든 저장 경로는 작업 확인 정보를 함께 보내야 합니다.');
-  assert.ok((estimate.match(/endSaving\(\{ refreshBaseline: saveSucceeded \}\)/g) || []).length >= 5, '견적서 저장은 전체 성공 시에만 기준값을 갱신해야 합니다.');
+  const guardedBaselineUpdates = estimate.match(/refreshBaseline:\s*(?:saveSucceeded|deleteSucceeded)\s*&&\s*isCapturedEstimateScopeCurrent\(capturedRefresh\)/g) || [];
+  assert.equal(guardedBaselineUpdates.length, 6, '견적서의 6개 저장/삭제 경로는 성공 상태와 현재 capturedRefresh scope가 모두 참일 때만 기준값을 갱신해야 합니다.');
+  assert.doesNotMatch(estimate, /refreshBaseline:\s*(?:saveSucceeded|deleteSucceeded)\s*[,}]/, '기준값 갱신은 성공 여부만으로 실행하면 안 되고 현재 capturedRefresh scope도 확인해야 합니다.');
   assert.match(estimate, /custKey: selectedShip\?\.CustKey,[\s\S]{0,100}editGuard: estimateEditGuard\(\)/, '확정취소·재확정에도 선택 업체와 작업 확인값을 함께 보내야 합니다.');
   assert.match(estimate, /expectedProdKey:[\s\S]{0,220}expectedDescr:/, '견적 품목·단위·적요도 조회 후 변경 여부를 함께 검증해야 합니다.');
 

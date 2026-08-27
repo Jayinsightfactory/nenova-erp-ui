@@ -75,7 +75,7 @@ async function main() {
   assert('unfix next week from StockMaster.OrderYearWeek', fixApi.includes('StockMaster') && fixApi.includes('OrderYearWeek > @oyw'));
   assert('unfix does not honour force for later-fixed', !/laterFixed\.length > 0 && !req\.body\.force/.test(fixApi));
   assert('unfix fails when stock calc fails', fixApi.includes('evaluateUnfixStockCalcResult'));
-  assert('skipStockCalc clears gate', fixApi.includes('usp_NenovaStockWeekGateClear'));
+  assert('skipStockCalc clears only its owned gate in the same transaction', fixApi.includes('clearStockGateOperation') && fixApi.includes('lockStockGateOperation') && !fixApi.includes('usp_NenovaStockWeekGateClear'));
   assert('estimate one-week unfix does not force-retry later-fixed', !estimate.includes('return await unfixOneWeek(subWeek, true)'));
   assert('estimate selected unfix does not recurse with force', !estimate.includes('await unfixSelectedFixStatusWeeks(true)'));
   assert('fix-status range does not force later-fixed', !fixStatusApi.includes('later.recordset.length > 0 && !force'));

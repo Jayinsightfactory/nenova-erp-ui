@@ -37,12 +37,14 @@ related:
 
 | ID | 증상 | 원인 | 수정·가드 | 검증 | 상세 |
 |----|------|------|-----------|------|------|
+| **G-08** | 기존 수량 수정 때 전체 확정취소·긴 지연·부분 해제·자기 작업을 타인 변경으로 오인 | 전체 사이클과 전역 잠금 정리, 기준값 갱신 분리 | 증가만 부족 검사, 기존 수량 확정 유지 단일 거래, 변경 품목 재고 반영, 소유 토큰 보호·명시 성공 반환 | 전체 변경 검사, 격리 SQL 방향별/소유권 검사, 가짜 자료 브라우저. 운영 설치·배포는 별도 | [2026-08-26 구조·검증](work-reports/2026-08-26_estimate-directional-quantity-verification.md) |
 | **G-01** | 견적 그리드에 `차감단가`/`차감수량` 비고 누적 | `update-cost`/`update-quantity`가 `Estimate.Descr` append | append 중단 + `sanitizeDescrTextForPrint` | `npm run test:estimate` | [work-reports/2026-06-24_estimate-descr-unit-cost-hide.md](work-reports/2026-06-24_estimate-descr-unit-cost-hide.md) |
 | **G-02** | EXE 견적 화면·인쇄에 운영 로그 그대로 | EXE는 DB `Descr` 원문 출력 | DB 트리거 + cleanup API + dnSpy 패치 | `probe-estimate-descr-*.mjs` | [NENOVA_EXE_PRINT_DESCR_PATCH.md](NENOVA_EXE_PRINT_DESCR_PATCH.md) |
 | **G-03** | **화면 비고 O, 인쇄 비고 X** (대구희경 등) | ① `byDate=1` 조회 시 `ShipmentDate.Descr`(운영 로그)만 취함 ② 인쇄 합산 시 첫 행 비고만 유지 | `mergeEstimateDescrRaw(DetailDescr, DateDescr)` · `estimatePrintPrepare` 합산 시 비고 병합 · 인쇄 `descLabel` = 화면과 동일 sanitize | `test:estimate` + `node __tests__/estimatePrintFormats.test.js` | [work-reports/2026-06-16_session-regression-prevention-compilation.md](work-reports/2026-06-16_session-regression-prevention-compilation.md) §2 |
 | **G-04** | Orange Flame 등 수량·단가 빈칸 | `ShipmentDate` Cost/Est 미동기, OutQty=0 유령 Detail | write-path sync · 읽기 필터 · purge guard | `npm run probe:estimate-24:strict` | [work-reports/2026-06-16_estimate-orange-green-24.md](work-reports/2026-06-16_estimate-orange-green-24.md) |
 | **G-05** | byDate 수국 190박스 전량 표시 | Detail 총량×비율 배분 | `applyByDateRowQuantities` + `distributeUnits` | `test:estimate` | `lib/estimateInvariants.js` |
 | **G-06** | Freedom 23-1/2 합산 오류 | HTML 집계 키 | `estimateAggregateKey` 출고일 포함 | — | [ESTIMATE_PRINT_FREEDOM_23_FIX_2026-06-09.md](ESTIMATE_PRINT_FREEDOM_23_FIX_2026-06-09.md) |
+| **G-07** | 조회·저장 뒤 업체가 첫 업체로 바뀌거나 다른 업체 상세가 섞임 | 검색 초안이 적용 업체를 지움, 목록·상세 중복 조회, 이전 응답과 저장 콜백 적용 | 검색 초안/적용 업체 분리, 공통 캡처 재조회, 새 목록 세대로 상세·불일치 무효화, 빈 결과 선택 유지 | `test:estimate-edit-safety`와 로컬 가짜 응답 화면 검사. 운영 저장·배포 여부는 보고서에서 별도 확인 | [2026-08-26 설계·검증](work-reports/2026-08-26_estimate-selection-category-design.md) |
 
 ### 재발 방지 — 견적 비고 수정 시
 

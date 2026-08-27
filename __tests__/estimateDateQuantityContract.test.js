@@ -38,7 +38,13 @@ async function main() {
   assert.match(api, /expectedOldDescr/);
   assert.match(api, /UPDATE ShipmentDetail/);
   assert.match(api, /ShipmentQuantity/);
-  assert.match(api, /FIXED_WEEK/);
+  assert.match(api, /buildDirectionalQuantityPlan/);
+  assert.match(api, /positiveIncreaseByProduct/);
+  assert.match(api, /assertDirectionalGateCapability/);
+  assert.match(api, /lockDirectionalGate/);
+  assert.match(api, /usp_StockCalculation/);
+  assert.doesNotMatch(api, /FIXED_WEEK|EXEC[^\n]*usp_ShipmentFix(?:Cancel)?\b/);
+  assert.doesNotMatch(api, /SET\s+isFix\s*=/i);
   assert.match(api, /shipmentUnitsFromUserInput/);
   assert.match(api, /purgeZeroOutShipmentDetail/);
   assert.match(api, /isActiveShipmentOutQty/);
