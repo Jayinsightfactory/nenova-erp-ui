@@ -14,6 +14,12 @@ assert.match(page, /flex-wrap:wrap/, '자릿수별 실제 폭의 누적값이 �
 assert.match(page, /box-badge\[data-digits="1"\]\{width:16px\}/, '1자리 번호는 가장 좁은 폭을 사용한다');
 assert.match(page, /box-badge\[data-digits="2"\]\{width:20px\}/, '2자리 번호는 중간 폭을 사용한다');
 assert.match(page, /box-badge\[data-digits="3"\]\{width:26px\}/, '3자리 번호는 넓은 폭을 사용한다');
+assert.match(page, /font-size:16px;line-height:22px;font-weight:900/, '수량을 큰 굵은 글씨로 표시한다');
+assert.match(page, /planChinaBoxNeighborAreas/, '박스번호가 사용할 빈 인접 셀을 공용 순수 정책으로 계산한다');
+assert.match(page, /area-right/, '오른쪽 빈 셀 확장 표시를 지원한다');
+assert.match(page, /area-left/, '왼쪽 빈 셀 확장 표시를 지원한다');
+assert.match(page, /area-down/, '아래 빈 셀 확장 표시를 지원한다');
+assert.match(page, /area-up/, '위 빈 셀 확장 표시를 지원한다');
 assert.match(page, /grid-template-columns:minmax\(0,1fr\) 390px/, '1920 화면에서 물량표와 입고원장을 좌우 배치한다');
 assert.ok(!page.includes('/api/shipment/'), '웹 물량표 화면은 ERP 출고 쓰기 API를 호출하지 않는다');
 console.log('chinaVolumeBoard UI contract passed');
