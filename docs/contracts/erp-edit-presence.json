@@ -54,6 +54,16 @@
       "sequence": "successful write advances server BaselineDigest so unfix-save-refix self writes remain valid; intervening EXE change returns ERP_EDIT_STALE"
     },
     {
+      "name": "OWN_WRITE_SETTLEMENT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sidecar": "heartbeat only; do not refresh/replace BaselineDigest",
+      "sequence": "keep client saving marker -> successful ERP transaction advances BaselineDigest -> heartbeat compares that baseline with live rows -> stale=false accepts own digest -> release saving marker",
+      "externalRace": "an EXE or other-window write after the web commit makes heartbeat stale=true and remains blocked",
+      "failure": "failed or partial save does not settle the client baseline"
+    },
+    {
       "name": "PASTE_BATCH_UNDO_ORIGINAL_ADD",
       "orderDetail": "decrease",
       "shipmentDetail": "decrease",

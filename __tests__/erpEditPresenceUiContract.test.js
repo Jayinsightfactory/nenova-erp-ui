@@ -13,7 +13,10 @@ function main() {
   assert.match(hook, /HEARTBEAT_MS = 20_000/, '작업권 연장은 20초 간격이어야 합니다.');
   assert.match(hook, /POLL_MS = 8_000/, '외부 변경 확인은 8초 간격이어야 합니다.');
   assert.doesNotMatch(hook, /if \(!current\.token \|\| savingRef\.current > 0\)/, '저장 중에도 작업권 연장은 멈추면 안 됩니다.');
-  assert.match(hook, /endSaving[\s\S]{0,260}?refreshBaseline/, '성공한 전체 저장만 기준값을 새로 받아들일 수 있어야 합니다.');
+  assert.match(hook, /endSaving[\s\S]{0,1200}?action: 'heartbeat'/, '성공한 전체 저장 뒤에는 강제 기준 갱신이 아니라 서버 heartbeat로 본인 저장을 확인해야 합니다.');
+  assert.doesNotMatch(hook, /endSaving[\s\S]{0,1500}?refresh\(\{ force: true \}\)/, '저장 직후 현재 전산값을 강제 수용하면 뒤이어 발생한 EXE 변경을 숨길 수 있습니다.');
+  const endSavingSource = hook.slice(hook.indexOf('const endSaving'), hook.indexOf('const markStale'));
+  assert.ok(endSavingSource.indexOf("action: 'heartbeat'") < endSavingSource.indexOf('savingRef.current = Math.max'), '본인 저장 확인이 끝날 때까지 외부 변경 polling을 중지해야 합니다.');
   assert.match(hook, /stale: Boolean\(data\?\.stale\)/, '서버의 stale 상태를 화면 차단 상태에 반영해야 합니다.');
   assert.match(hook, /scopeMatches[\s\S]{0,220}blocked/, '업체를 바꾸는 순간 이전 업체의 작업권으로 저장할 수 없어야 합니다.');
   assert.match(useApi, /error\.code = data\.code/, '공용 API 호출도 편집 충돌 코드를 화면까지 보존해야 합니다.');
