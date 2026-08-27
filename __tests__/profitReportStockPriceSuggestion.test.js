@@ -119,7 +119,7 @@ async function main() {
   assert.ok(!/loadConfirmedCustomerProductPrices|confirmedDistribution|SuggestionCandidates/.test(inventoryBlock));
   assert.match(inventoryBlock, /SuggestedPrice/);
   assert.match(inventoryBlock, /if \(!row\.RequiresInput\) continue;/);
-  const suggestionMarker = inventoryBlock.indexOf('판매단가 자동제안');
+  const suggestionMarker = inventoryBlock.indexOf('판매단가 자동평가·제안');
   assert.ok(suggestionMarker > 0);
   assert.ok(!/SuggestedPrice/.test(inventoryBlock.slice(0, suggestionMarker)));
   assert.ok(!/distributionMajorityStockPriceSuggestion/.test(calcSource));
