@@ -14,7 +14,7 @@ import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
 import { applyPasteCustomerMappings, pasteCustomerMappingKey } from '../../lib/pasteCustomerMapping.js';
-import { buildPasteMixedActionPreview, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
+import { buildPasteMixedActionPreview, getPasteMixedBatchStartBlocker, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/pasteIncomingDisplay.js';
@@ -1038,10 +1038,11 @@ export default function PasteOrderPage() {
   });
   const setPastePresence = (custKey, data, extra = {}) => {
     const lease = data?.lease || {};
+    const scopeKey = `${selectedYearFromWeek(week)}:${week}:${Number(custKey)}`;
     setPastePresenceByCust(prev => ({ ...prev, [String(custKey)]: {
       active: Boolean(lease.active), ownedByMe: Boolean(lease.ownedByMe), ownerName: lease.ownerName || '',
       pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', digest: data?.digest || '',
-      token: lease.token || '', stale: Boolean(data?.stale), loading: false, error: '', ...extra,
+      token: lease.token || '', stale: Boolean(data?.stale), loading: false, error: '', scopeKey, ...extra,
     } }));
   };
   const pasteWriteError = (response, data, fallback) => {
@@ -1135,10 +1136,14 @@ export default function PasteOrderPage() {
     const custKeys = [...new Set(orders.map(order => Number(order.custMatch?.CustKey)).filter(Boolean))];
     if (!scopeYear || !week || custKeys.length === 0) { setPastePresenceByCust({}); return undefined; }
     setPastePresenceByCust(prev => {
-      const next = { ...prev };
+      const next = {};
       custKeys.forEach((custKey) => {
         const key = String(custKey);
-        if (!next[key]) next[key] = { loading: true, error: '', stale: false };
+        const scopeKey = `${scopeYear}:${week}:${custKey}`;
+        const previous = prev[key] || {};
+        next[key] = previous.scopeKey === scopeKey
+          ? previous
+          : { scopeKey, loading: true, error: '', stale: false, digest: '' };
       });
       return next;
     });
@@ -1153,18 +1158,35 @@ export default function PasteOrderPage() {
       rows.forEach(({ custKey, data, ok }) => {
         if (ok) setPastePresenceByCust(prev => {
           const previous = prev[String(custKey)] || {};
-          const changedElsewhere = !pasteSavingCustRef.current.has(String(custKey))
+          const scopeKey = `${scopeYear}:${week}:${custKey}`;
+          const sameScope = previous.scopeKey === scopeKey;
+          const changedElsewhere = sameScope && !pasteSavingCustRef.current.has(String(custKey))
             && previous.digest && data?.digest && previous.digest !== data.digest;
           const lease = data?.lease || {};
           return { ...prev, [String(custKey)]: {
             active: Boolean(lease.active), ownedByMe: Boolean(lease.ownedByMe), ownerName: lease.ownerName || '',
-            pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', digest: data?.digest || previous.digest || '',
-            token: lease.token || previous.token || '', stale: Boolean(data?.stale) || changedElsewhere || previous.stale, loading: false, error: '',
+            pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', digest: data?.digest || (sameScope ? previous.digest : '') || '',
+            token: lease.token || (sameScope ? previous.token : '') || '', stale: Boolean(data?.stale) || changedElsewhere || (sameScope && previous.stale), loading: false, error: '', scopeKey,
           } };
         });
-        else setPastePresenceByCust(prev => ({ ...prev, [String(custKey)]: { loading: false, error: data.error || '작업 상태 확인 실패', stale: false } }));
+        else setPastePresenceByCust(prev => ({ ...prev, [String(custKey)]: { scopeKey: `${scopeYear}:${week}:${custKey}`, loading: false, error: data.error || '작업 상태 확인 실패', stale: false } }));
       });
-    }).catch(() => {});
+    }).catch((error) => {
+      if (cancelled) return;
+      setPastePresenceByCust(prev => {
+        const next = { ...prev };
+        custKeys.forEach((custKey) => {
+          next[String(custKey)] = {
+            ...(next[String(custKey)] || {}),
+            scopeKey: `${scopeYear}:${week}:${custKey}`,
+            loading: false,
+            stale: false,
+            error: error?.message || '작업 상태 확인 실패',
+          };
+        });
+        return next;
+      });
+    });
     loadStatuses();
     const timer = setInterval(loadStatuses, 8_000);
     return () => { cancelled = true; clearInterval(timer); };
@@ -2435,7 +2457,16 @@ export default function PasteOrderPage() {
   // 화면 전체의 모든 업체를 서버 단일 트랜잭션으로 처리한다.
   // payload는 CANCEL 전체 → ADD 전체 순서이며, 한 건이라도 실패하면 서버가 모두 롤백한다.
   const handleAllMixedDistribute = async () => {
-    if (!week || bulkRunning) return;
+    const startBlocker = getPasteMixedBatchStartBlocker({
+      week, bulkRunning, entries: globalActionEntries, presenceByCust: pastePresenceByCust,
+    });
+    if (startBlocker) {
+      if (startBlocker.code !== 'RUNNING') {
+        setBulkResult({ orderId: 'ALL', okCount: 0, failCount: globalActionEntries.length, details: [], rolledBack: true, preflightBlocked: true, error: startBlocker.message });
+      }
+      alert(startBlocker.message);
+      return;
+    }
     if (!confirmWeekMatch(pasteText, week, formatWeekDisplay)) return;
     const intent = validatePasteMixedBatchIntent(orders);
     if (!intent.valid) {
@@ -2604,6 +2635,7 @@ export default function PasteOrderPage() {
         failedIndex: error.failedIndex,
         error: error.message,
       });
+      alert(`전체 일괄 처리를 시작하지 못했습니다.\n\n${error.message}\n\n저장된 항목은 없으며 전체가 롤백되었습니다. 원인을 수정한 뒤 다시 실행하세요.`);
     } finally {
       await Promise.all(pasteGuards.map(guard => endPasteSaving(guard, { refreshBaseline: allSucceeded })));
       await Promise.all(pasteGuards.map(releasePasteGuard));
@@ -3316,9 +3348,8 @@ export default function PasteOrderPage() {
   const globalCancelEntries = globalActionEntries.filter(({ item }) => item.action === '취소');
   const globalAddEntries = globalActionEntries.filter(({ item }) => item.action !== '취소');
   const globalBatchIntent = validatePasteMixedBatchIntent(orders);
-  const anyPasteLocked = globalActionEntries.some(({ order }) => {
-    const presence = pastePresenceByCust[String(order.custMatch?.CustKey)] || {};
-    return presence.loading || (presence.active && !presence.ownedByMe) || presence.stale || Boolean(presence.error);
+  const globalBatchStartBlocker = getPasteMixedBatchStartBlocker({
+    week, bulkRunning, entries: globalActionEntries, presenceByCust: pastePresenceByCust,
   });
   const adjustPresence = pastePresenceByCust[String(adjustModal?.custKey)] || {};
   const adjustBlocked = Boolean(adjustPresence.loading || (adjustPresence.active && !adjustPresence.ownedByMe) || adjustPresence.stale || adjustPresence.error);
@@ -3880,8 +3911,12 @@ export default function PasteOrderPage() {
                 ? `성공 0건 · 전체 ${bulkResult.failCount}건 모두 롤백 — 수정 후 전체 재실행`
                 : `성공 ${bulkResult.okCount}건 · 실패 0건`}
             </span>}
-            <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning || anyPasteLocked || globalActionEntries.length === 0}
-              style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: bulkRunning ? '#90a4ae' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : 'pointer' }}>
+            {globalBatchStartBlocker && globalBatchStartBlocker.code !== 'RUNNING' && <span role="alert" style={{ marginRight: 'auto', fontSize: 12, fontWeight: 800, color: '#b71c1c' }}>
+              {globalBatchStartBlocker.message}
+            </span>}
+            <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning}
+              aria-disabled={Boolean(globalBatchStartBlocker)} title={globalBatchStartBlocker?.message || '취소 전체 처리 후 추가·분배 전체 처리'}
+              style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: globalBatchStartBlocker ? '#78909c' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : globalBatchStartBlocker ? 'help' : 'pointer' }}>
               {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
             </button>
           </div>

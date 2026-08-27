@@ -48,8 +48,8 @@ function main() {
   assert.match(paste, /acquireAllPasteGuards\(targets\.map\(t => t\.custKey\)\)[\s\S]{0,800}\/api\/shipment\/adjust-batch/, '전체 일괄은 모든 업체의 작업권을 먼저 얻은 뒤에만 저장해야 합니다.');
   assert.match(paste, /entries: targets\.map[\s\S]{0,1800}editGuard: guardByCust\.get/, '전체 일괄의 각 업체 행에는 해당 작업 확인 정보를 실어야 합니다.');
   assert.match(paste, /endPasteSaving\(pasteGuard, \{ refreshBaseline: saveSucceeded \}\)/, '붙여넣기 부분 성공/실패는 새 기준값을 자동 수용하면 안 됩니다.');
-  assert.match(paste, /presence\.stale \|\| Boolean\(presence\.error\)/, '외부 변경이나 상태 확인 실패 중에는 전체 저장 버튼을 막아야 합니다.');
-  assert.match(paste, /presence\.loading \|\| \(presence\.active/, '최초 작업 상태 확인이 끝나기 전에도 저장을 막아야 합니다.');
+  assert.match(paste, /getPasteMixedBatchStartBlocker\(\{[\s\S]{0,160}presenceByCust: pastePresenceByCust/, '전체 저장의 외부 변경·조회 실패·최초 확인 판정은 공용 차단 사유 helper를 사용해야 합니다.');
+  assert.match(paste, /disabled=\{bulkRunning\}[\s\S]{0,180}aria-disabled=\{Boolean\(globalBatchStartBlocker\)\}/, '실제 처리 중만 native disabled하고 상태 차단은 클릭 알림이 가능한 aria-disabled로 표시해야 합니다.');
   assert.match(paste, /disabled=\{bulkRunning \|\| orderBlocked\}/, '업체별 분배 버튼도 작업 충돌 중에는 비활성화해야 합니다.');
 
   console.log('ERP edit presence UI contract tests passed');

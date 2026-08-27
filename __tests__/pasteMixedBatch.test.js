@@ -5,6 +5,7 @@ const path = require('node:path');
 async function main() {
   const {
     buildPasteMixedActionPreview,
+    getPasteMixedBatchStartBlocker,
     orderPasteMixedBatchTargets,
     pasteBatchActionType,
     validatePasteMixedBatchIntent,
@@ -41,6 +42,35 @@ async function main() {
     '실제 실행 배열은 CANCEL 단계와 ADD 단계가 섞이면 안 된다.',
   );
   assert.deepEqual(orderPasteMixedBatchTargets([]), [], '빈 일괄 요청은 그대로 비어 있어야 한다.');
+
+  const cancelOrder = { custMatch: { CustKey: 75, CustName: '남대문 청화' } };
+  const addOrder = { custMatch: { CustKey: 401, CustName: '주광농원' } };
+  const userExampleEntries = [
+    { order: addOrder, item: { action: '추가', inputName: '레드팬서', qty: 10, unit: '단' } },
+    { order: cancelOrder, item: { action: '취소', inputName: '레드팬서', qty: 10, unit: '단' } },
+  ];
+  assert.deepEqual(
+    orderPasteMixedBatchTargets(userExampleEntries.map(({ order, item }) => ({ ...item, custName: order.custMatch.CustName })))
+      .map(row => `${row.custName}:${pasteBatchActionType(row)}:${row.qty}${row.unit}`),
+    ['남대문 청화:CANCEL:10단', '주광농원:ADD:10단'],
+    '35-1 레드팬서 변경은 남대문 청화 10단 취소 후 주광농원 10단 추가 순서여야 한다.',
+  );
+  assert.equal(getPasteMixedBatchStartBlocker({ week: '', entries: userExampleEntries })?.code, 'WEEK_REQUIRED');
+  assert.equal(getPasteMixedBatchStartBlocker({ week: '2026-35-01', entries: [] })?.code, 'NO_ACTIONS');
+  assert.equal(getPasteMixedBatchStartBlocker({
+    week: '2026-35-01', entries: userExampleEntries, presenceByCust: { 75: { loading: true } },
+  })?.code, 'PRESENCE_LOADING');
+  assert.equal(getPasteMixedBatchStartBlocker({
+    week: '2026-35-01', entries: userExampleEntries, presenceByCust: { 75: { active: true, ownedByMe: false, ownerName: '다른 작업자' } },
+  })?.code, 'LOCKED');
+  assert.equal(getPasteMixedBatchStartBlocker({
+    week: '2026-35-01', entries: userExampleEntries, presenceByCust: { 75: { stale: true } },
+  })?.code, 'STALE');
+  assert.equal(getPasteMixedBatchStartBlocker({
+    week: '2026-35-01', entries: userExampleEntries, presenceByCust: { 75: { error: '조회 실패' } },
+  })?.code, 'PRESENCE_ERROR');
+  assert.equal(getPasteMixedBatchStartBlocker({ week: '2026-35-01', entries: userExampleEntries }), null,
+    '정상 2건은 실행 버튼 차단 사유가 없어야 한다.');
 
   const partialCustomerIntent = validatePasteMixedBatchIntent([
     { id: 1, custName: '로뎀농원', custMatch: { CustKey: 11, CustName: '로뎀농원' }, items: [
@@ -109,6 +139,10 @@ async function main() {
     /const targets = orderPasteMixedBatchTargets\(eligibleTargets\);[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/,
     '페이지의 실제 API 실행 배열은 CANCEL→ADD 순서로 만든 뒤 단일 트랜잭션 API에 전달해야 한다.',
   );
+  assert.match(pasteSource, /disabled=\{bulkRunning\}[\s\S]*aria-disabled=\{Boolean\(globalBatchStartBlocker\)\}/,
+    '실행 중 외의 차단 상태는 클릭을 삼키는 native disabled가 아니라 알림 가능한 aria-disabled여야 한다.');
+  assert.match(pasteSource, /alert\(startBlocker\.message\)/,
+    '차단된 전체 실행 버튼을 누르면 구체적인 차단 사유를 즉시 알려야 한다.');
   assert.match(
     pasteSource,
     /const intent = validatePasteMixedBatchIntent\(orders\);[\s\S]*if \(!intent\.valid\)[\s\S]*return;[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/,
