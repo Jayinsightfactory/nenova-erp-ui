@@ -13,6 +13,7 @@ const assert = require('assert');
     mergeChinaCellAllocations,
     mergeChinaPackingIntoPivotCells,
     validateChinaCellAllocation,
+    summarizeChinaVolumeTotals,
   } = await import('../lib/chinaVolumeBoard.js');
 
   assert.strictEqual(chinaVolumeProductLabel('CHINA / ROSE Diana 50cm'), 'ROSE Diana 50cm');
@@ -89,6 +90,50 @@ const assert = require('assert');
   assert.strictEqual(pivotCells['7:70'].quantity, 18, '웹 셀 수량은 패킹 20이 아니라 피벗 분배 18을 유지');
   assert.strictEqual(pivotCells['7:70'].packingQuantity, 20);
   assert.strictEqual(validateChinaCellAllocation({ quantity: 20, allocations: [{ boxNo: '16', quantity: 5 }] }).valid, false);
+
+  const totalFixture = {
+    pivotData: {
+      customers: [{ custKey: 7, custName: '주광농원', orderCode: 'CL1' }],
+      rows: [
+        { prodKey: 70, country: '중국', prodName: 'ROSE Diana', outOrders: { 주광농원: 18 } },
+        { prodKey: 71, country: '중국', prodName: 'ROSE Idana', outOrders: { 주광농원: 10 } },
+      ],
+    },
+    packingRows: [
+      { sourceRow: 2, mappingStatus: 'MATCHED', cellKey: '7:70', quantity: 20 },
+      { sourceRow: 3, mappingStatus: 'MATCHED', cellKey: '7:71', quantity: 10 },
+    ],
+    cells: {
+      '7:70': { quantity: 18, allocations: [{ boxNo: '16', quantity: 20 }] },
+      '7:71': { quantity: 10, allocations: [{ boxNo: '17', quantity: 10 }] },
+    },
+  };
+  const totals = summarizeChinaVolumeTotals(totalFixture);
+  assert.strictEqual(totals.packingTotal, 30, '원장 전체 합계');
+  assert.strictEqual(totals.matchedPackingTotal + totals.unmatchedPackingTotal, totals.packingTotal, '원장 합계 = 매칭 + 미매칭');
+  assert.strictEqual(totals.pivotTotal, 28, '피벗 합계는 별도 참고값');
+  assert.strictEqual(totals.allocationTotal, 30, '박스 배정 합계');
+  assert.strictEqual(totals.pivotVsPackingDifference, -2, '피벗-패킹 차이는 참고값');
+  assert.strictEqual(totals.status, 'OK', '피벗과 패킹 차이가 있어도 박스 배정이 맞으면 정상');
+
+  const omitted = summarizeChinaVolumeTotals({
+    ...totalFixture,
+    packingRows: [totalFixture.packingRows[0], { mappingStatus: 'CUSTOMER_UNMATCHED', quantity: 4 }],
+    cells: { '7:70': totalFixture.cells['7:70'] },
+  });
+  assert.strictEqual(omitted.packingTotal, 24);
+  assert.strictEqual(omitted.matchedPackingTotal + omitted.unmatchedPackingTotal, 24);
+  assert.strictEqual(omitted.unmatchedPackingTotal, 4, '미매칭 원장도 누락 없이 합계에 포함');
+  assert.strictEqual(omitted.unmatchedRowCount, 1);
+  assert.strictEqual(omitted.status, 'WARNING', '미매칭은 경고');
+
+  const boxShort = summarizeChinaVolumeTotals({
+    ...totalFixture,
+    cells: { ...totalFixture.cells, '7:70': { quantity: 18, allocations: [{ boxNo: '16', quantity: 19 }] } },
+  });
+  assert.strictEqual(boxShort.mismatches.length, 1, '품목별 박스 배정 부족을 검출');
+  assert.strictEqual(boxShort.mismatches[0].allocationDifference, 1);
+  assert.strictEqual(boxShort.status, 'WARNING');
 
   console.log('chinaVolumeBoard tests passed');
 })().catch(error => { console.error(error); process.exit(1); });
