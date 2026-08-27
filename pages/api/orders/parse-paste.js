@@ -500,7 +500,7 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    const qtyOnly = orderLine.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이|개|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템|stems?|steam)?\s*$/i);
+    const qtyOnly = orderLine.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이(?:\s*\(\s*대\s*\))?|개(?:\s*\(\s*대\s*\))?|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템(?:\s*\(\s*대\s*\))?|stems?|steam)?\s*$/i);
     if (qtyOnly && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(qtyOnly[2] || '1')) || 1;
