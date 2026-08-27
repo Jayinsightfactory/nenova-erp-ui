@@ -95,8 +95,8 @@ const assert = require('assert');
     pivotData: {
       customers: [{ custKey: 7, custName: '주광농원', orderCode: 'CL1' }],
       rows: [
-        { prodKey: 70, country: '중국', prodName: 'ROSE Diana', outOrders: { 주광농원: 18 } },
-        { prodKey: 71, country: '중국', prodName: 'ROSE Idana', outOrders: { 주광농원: 10 } },
+        { prodKey: 70, country: '중국', prodName: 'ROSE Diana', unit: '단', outOrders: { 주광농원: 18 } },
+        { prodKey: 71, country: '중국', prodName: 'HYDRANGEA Blue', unit: '박스', outOrders: { 주광농원: 10 } },
       ],
     },
     packingRows: [
@@ -114,7 +114,19 @@ const assert = require('assert');
   assert.strictEqual(totals.pivotTotal, 28, '피벗 합계는 별도 참고값');
   assert.strictEqual(totals.allocationTotal, 30, '박스 배정 합계');
   assert.strictEqual(totals.pivotVsPackingDifference, -2, '피벗-패킹 차이는 참고값');
-  assert.strictEqual(totals.status, 'OK', '피벗과 패킹 차이가 있어도 박스 배정이 맞으면 정상');
+  assert.strictEqual(totals.boardAllocationDifference, -2, '현재 표시수량과 박스 배정 합계 차이를 별도 검출');
+  assert.deepStrictEqual(totals.unitTotals.map(item => [item.unit, item.packing]), [['단', 20], ['박스', 10]], '단과 박스를 하나의 의미 없는 합계로 섞지 않는다');
+  assert.strictEqual(totals.status, 'WARNING', '피벗 차이는 참고값이지만 현재 표시수량과 박스배정이 다르면 확인 경고');
+
+  const exact = summarizeChinaVolumeTotals({
+    ...totalFixture,
+    cells: {
+      '7:70': { quantity: 20, allocations: [{ boxNo: '16', quantity: 20 }] },
+      '7:71': { quantity: 10, allocations: [{ boxNo: '17', quantity: 10 }] },
+    },
+  });
+  assert.strictEqual(exact.status, 'OK', '매칭 원장·표시수량·박스배정이 셀별로 같으면 정상');
+  assert.strictEqual(exact.mismatches.length, 0);
 
   const omitted = summarizeChinaVolumeTotals({
     ...totalFixture,

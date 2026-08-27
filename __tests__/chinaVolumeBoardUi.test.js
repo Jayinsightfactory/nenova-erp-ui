@@ -16,6 +16,12 @@ assert.match(page, /box-badge\[data-digits="2"\]\{width:20px\}/, '2자리 번호
 assert.match(page, /box-badge\[data-digits="3"\]\{width:26px\}/, '3자리 번호는 넓은 폭을 사용한다');
 assert.match(page, /font-size:16px;line-height:22px;font-weight:900/, '수량을 큰 굵은 글씨로 표시한다');
 assert.match(page, /planChinaBoxNeighborAreas/, '박스번호가 사용할 빈 인접 셀을 공용 순수 정책으로 계산한다');
+assert.match(page, /summarizeChinaVolumeTotals/, '전체 수량 대조 helper를 화면과 엑셀에 공통 사용한다');
+assert.match(page, /수량 대조 정상/, '상단에 전체 대조 상태를 표시한다');
+assert.match(page, /미매칭/, '미매칭 수량과 건수를 표시한다');
+assert.match(page, /박스배정/, '박스 배정 합계를 표시한다');
+assert.match(page, /수량대조/, '엑셀에 수량대조 시트를 추가한다');
+assert.match(page, /window\.confirm/, '불일치가 있는 다운로드는 사용자 확인을 요구한다');
 assert.match(page, /area-right/, '오른쪽 빈 셀 확장 표시를 지원한다');
 assert.match(page, /area-left/, '왼쪽 빈 셀 확장 표시를 지원한다');
 assert.match(page, /area-down/, '아래 빈 셀 확장 표시를 지원한다');
