@@ -6,6 +6,9 @@
     "lib/weekPivotSheet.js",
     "__tests__/weekPivotSheet.test.js",
     "__tests__/weekPivotDisplay.test.js",
+    "lib/pasteIncomingDisplay.js",
+    "__tests__/pasteIncomingDisplay.test.js",
+    "pages/api/orders/paste-incoming.js",
     "pages/api/shipment/adjust.js",
     "pages/api/shipment/distribute.js",
     "lib/shipmentDescr.js",
@@ -48,6 +51,20 @@
     "notes": "existing outDescr/descrMap is display-only; pvDescrOpen top checkbox toggles inline customer-cell notes and summary notes without writes; summary includes customer label and wrapping; zero-quantity response rows with existing notes are retained",
     "excel": "each week has a quantity-change text column built from same descrMap and customer labels regardless of UI note visibility; numeric quantities and SUM formula cells preserved; no formulas for text note columns; no extra history query",
     "preserve": "all ERP writes, year scopes, quantity and stock arithmetic unchanged"
+  },
+  "pasteIncomingDisplayPolicy": {
+    "operation": "SELECT-only WarehouseMaster + WarehouseDetail current OrderYear + OrderWeek + ProdKey lookup; no ERP write is permitted",
+    "predicates": ["wm.OrderYear=@orderYear", "wm.OrderWeek=@orderWeek", "wd.ProdKey IN (@prodKeys)", "wm.isDeleted=0"],
+    "result": "SUM(wd.OutQuantity) by ProdKey with Product.OutUnit",
+    "productKeyLimit": 300,
+    "crossYear": "A same-OrderWeek prior-year WarehouseMaster is excluded by the explicit selected OrderYear predicate.",
+    "preserve": ["Order", "Shipment", "Warehouse", "Stock", "Estimate", "WebProfitReport"]
+  },
+  "pasteIncomingDnspyEvidence": {
+    "record": "docs/exe-golden/FormWarehouseView.md",
+    "method": "FormWarehouseView.GetDetail",
+    "quantity": "WarehouseDetail.OutQuantity",
+    "unit": "Product.OutUnit"
   },
   "policyBoundaries": [
     "This contract covers week-pivot, adjust, paste-order distribution, and explicit farm-distribution only.",
@@ -144,6 +161,7 @@
   "requiredTestFiles": [
     "__tests__/weekPivotSheet.test.js",
     "__tests__/weekPivotDisplay.test.js",
+    "__tests__/pasteIncomingDisplay.test.js",
     "__tests__/shipmentPivotAdjustContract.test.js",
     "__tests__/shipmentFarmAssignments.test.js",
     "__tests__/shipmentFarmContract.test.js",

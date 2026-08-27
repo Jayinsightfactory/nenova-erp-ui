@@ -17,6 +17,7 @@ import { applyPasteCustomerMappings, pasteCustomerMappingKey } from '../../lib/p
 import { buildPasteMixedActionPreview, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
+import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/pasteIncomingDisplay.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence } from '../../hooks/useErpEditPresence';
@@ -1001,6 +1002,7 @@ export default function PasteOrderPage() {
   const [disambigResults, setDisambigResults] = useState([]);
   const [registeredOrders, setRegisteredOrders] = useState({}); // orderId → DB 주문내역
   const [shipmentQtys, setShipmentQtys] = useState({}); // `${custKey}-${prodKey}-${week}` → ShipmentDetail.OutQuantity
+  const [pasteIncoming, setPasteIncoming] = useState({ map: {}, loading: false, error: '' });
   const [adjustModal, setAdjustModal] = useState(null); // { custKey, prodKey, week, type, currentQty, prodName, custName, unit }
   const [adjustQty, setAdjustQty] = useState('');
   const [adjustSaving, setAdjustSaving] = useState(false);
@@ -2983,6 +2985,7 @@ export default function PasteOrderPage() {
   const totalAdd    = orders.reduce((s, o) => s + o.items.filter(it => !it.skip && it.action !== '취소' && it.prodKey).length, 0);
   const totalCancel = orders.reduce((s, o) => s + o.items.filter(it => !it.skip && it.action === '취소').length, 0);
   const matchedCustomerKey = orders.map(o => o.custMatch?.CustKey || o.custMatch?.CustName || o.custName || '').join('|');
+  const matchedProductKey = [...new Set(orders.flatMap(o => o.items || []).map(it => Number(it.prodKey)).filter(Number.isInteger))].sort((a,b) => a-b).join(',');
   const matchingDone = orders.length > 0 && unmatchedQueue.length === 0;
   const cachedEntries = Object.keys(mappingCache).length;
   const activeStockBaseWeek = stockBaseWeek || week;
@@ -3022,6 +3025,33 @@ export default function PasteOrderPage() {
     loadOrderHistorySummary(week, orders);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [week, matchedCustomerKey, orders.length]);
+
+  useEffect(() => {
+    if (!week || !matchedProductKey) {
+      setPasteIncoming({ map: {}, loading: false, error: '' });
+      return undefined;
+    }
+    const controller = new AbortController();
+    setPasteIncoming(prev => ({ ...prev, loading: true, error: '' }));
+    const { week: orderWeek, year } = resolveOrderWeekQuery(week);
+    const productKeys = matchedProductKey.split(',').filter(Boolean);
+    const chunks = Array.from({ length: Math.ceil(productKeys.length / 250) }, (_, index) => productKeys.slice(index * 250, (index + 1) * 250));
+    Promise.all(chunks.map(async keys => {
+      const response = await fetch(`/api/orders/paste-incoming?week=${encodeURIComponent(orderWeek)}&year=${encodeURIComponent(year)}&prodKeys=${encodeURIComponent(keys.join(','))}`, {
+        credentials: 'same-origin', signal: controller.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.success !== true) throw new Error(data.error || '입고수량 조회 실패');
+      return data.rows || [];
+    }))
+      .then(rowGroups => {
+        setPasteIncoming({ map: buildPasteIncomingMap(rowGroups.flat()), loading: false, error: '' });
+      })
+      .catch(error => {
+        if (error.name !== 'AbortError') setPasteIncoming({ map: {}, loading: false, error: error.message });
+      });
+    return () => controller.abort();
+  }, [week, matchedProductKey]);
 
   const openWeekPivot = () => {
     const suffix = week ? `?weekFrom=${encodeURIComponent(week)}&weekTo=${encodeURIComponent(week)}` : '';
@@ -3869,6 +3899,11 @@ export default function PasteOrderPage() {
                     <div style={{ padding: 24, textAlign: 'center', color: '#9e9e9e', fontSize: 12 }}>해당 품목 없음</div>
                   ) : group.entries.map(({ order, item: it, itemIdx }) => {
                     const preview = actionPreview(order, it);
+                    const incomingState = pasteIncomingDisplayState({
+                      loading: pasteIncoming.loading,
+                      error: pasteIncoming.error,
+                      entry: pasteIncoming.map[Number(it.prodKey)],
+                    });
                     return <div key={`${group.key}-${order.id}-${itemIdx}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(95px, .65fr) minmax(180px, 1.35fr) 58px 66px 78px', alignItems: 'center', gap: 5, padding: '6px 8px', borderBottom: '1px solid #eee', background: it.prodKey ? '#fff' : '#fff8e1' }}>
                       <div title={order.custMatch?.CustName || order.custName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 900, color: '#1a237e' }}>
                         {order.custMatch?.CustName || order.custName || '업체 미확인'}
@@ -3878,6 +3913,9 @@ export default function PasteOrderPage() {
                         <div title={it.displayName || it.prodName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: it.prodKey ? '#607d8b' : '#e65100' }}>
                           {it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}
                         </div>
+                        {it.prodKey && <div title={`${formatWeekDisplay(week)} 전산 입고수량`} style={{ marginTop: 2, fontSize: 10, fontWeight: 900, color: incomingState.kind === 'error' ? '#c62828' : incomingState.kind === 'zero' ? '#78909c' : '#00695c' }}>
+                          {incomingState.label}
+                        </div>}
                         {it.prodKey && <div style={{ marginTop: 2, fontSize: 10, fontWeight: 800, color: preview?.error ? '#c62828' : '#455a64', whiteSpace: 'nowrap' }}>
                           {preview?.error
                             ? `적용 예상 오류 · ${preview.error}`
@@ -4099,6 +4137,11 @@ export default function PasteOrderPage() {
                     {order.items.map((it, idx) => {
                       const isCancel = it.action === '취소';
                       const isCurrentQ = currentQ?.orderId === order.id && currentQ?.itemIdx === idx;
+                      const incomingState = pasteIncomingDisplayState({
+                        loading: pasteIncoming.loading,
+                        error: pasteIncoming.error,
+                        entry: pasteIncoming.map[Number(it.prodKey)],
+                      });
                       return (
                         <tr id={`paste-match-${order.id}-${idx}`} key={idx} style={{
                           background: it.skip ? '#fafafa' :
@@ -4197,6 +4240,9 @@ export default function PasteOrderPage() {
                                   {pd?.FlowerName && <span style={{ fontSize: 10, background: '#f3e5f5', color: '#7b1fa2', borderRadius: 8, padding: '1px 6px' }}>{pd.FlowerName}</span>}
                                   {moqText && <span style={{ fontSize: 10, background: '#fff3e0', color: '#ef6c00', borderRadius: 8, padding: '1px 6px', fontWeight: 700 }}>{moqText}</span>}
                                   <span style={{ color: '#aaa', fontSize: 10 }}>{it.prodName}</span>
+                                  <span title={`${formatWeekDisplay(week)} 전산 입고수량`} style={{ fontSize: 10, background: incomingState.kind === 'zero' ? '#eceff1' : '#e0f2f1', color: incomingState.kind === 'error' ? '#c62828' : incomingState.kind === 'zero' ? '#607d8b' : '#00695c', borderRadius: 8, padding: '1px 6px', fontWeight: 800 }}>
+                                    {incomingState.label}
+                                  </span>
                                   <button onClick={() => updateItem(order.id, idx, { prodEditOpen: !it.prodEditOpen, prodSearch: it.prodEditOpen ? '' : (it.inputName || ''), prodSearchResults: it.prodEditOpen ? [] : rankProductSearchOptions(it.inputName || '', allProducts, { limit: 10 }) })}
                                     style={{ fontSize: 10, padding: '1px 6px', background: it.prodEditOpen ? '#1565c0' : 'none', color: it.prodEditOpen ? '#fff' : '#777', border: '1px solid #bbb', borderRadius: 3, cursor: 'pointer', marginLeft: 'auto' }}>
                                     {it.prodEditOpen ? '닫기' : '✎ 품목변경'}
