@@ -20,6 +20,9 @@
     "lib/shipmentAvailability.js",
     "lib/pasteOrderUnit.js",
     "lib/pasteNaturalInlineOrder.js",
+    "lib/orderImportMatch.js",
+    "lib/pasteFlowerContext.js",
+    "lib/pasteLocalMapping.js",
     "lib/pasteCustomerMapping.js",
     "lib/normalizeCustomerToken.js",
     "lib/customerMappings.js",
@@ -154,6 +157,12 @@
     "omittedInput": "단위가 생략된 경우에만 품목 OutUnit과 기존 주문이력 기본단위를 사용한다.",
     "conversion": "명시 송이는 OrderDetail.SteamQuantity에 입력하고 Product.OutUnit 환산값은 기존 FormOrderAdd 호환 경로로 계산한다."
   },
+  "pasteFlowerContextPolicy": {
+    "canonicalContext": "자연어 섹션 헤더의 품종 문맥을 품목 토큰 앞에 유지한다. 예: 35-01 수국 변경사항 + 화이트는 수국 화이트이다.",
+    "savedMappingGuard": "명시 품종 문맥과 Product.FlowerName/CountryFlower/ProdName이 충돌하는 저장 매핑은 exact/compact/fuzzy 여부와 관계없이 거부한다.",
+    "suggestionScope": "명시 품종 문맥이 있으면 자동 후보와 추천 후보 모두 같은 품종만 허용한다.",
+    "sideEffects": "분석·미리보기 단계는 Product/Order/Shipment/Stock/Estimate/WebProfitReport를 모두 보존한다."
+  },
   "crossYearFixture": {
     "required": true,
     "description": "2025와 2026에 같은 OrderWeek·CustKey·ProdKey가 있을 때 2026 요청은 2026 행만 읽고 쓴다. stock-status view=pivot도 OrderMaster를 선택 연도로 제한하고 ShipmentMaster를 OrderYear+OrderWeek+CustKey로 결합한다.",
@@ -175,6 +184,7 @@
     "__tests__/shipmentDownstreamImpactContract.test.js",
     "__tests__/shipmentAvailability.test.js",
     "__tests__/pasteOrderUnit.test.js",
+    "__tests__/pasteHydrangeaContext.test.js",
     "__tests__/pasteMixedBatch.test.js",
     "__tests__/shipmentAdjustBatch.test.js",
     "__tests__/shipmentAdjustmentPostWrite.test.js",
