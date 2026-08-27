@@ -21,7 +21,8 @@
     ".github/workflows/repair-confirmed-negative-stock-from-31-01.yml",
     ".github/workflows/repair-stock-30-carnation.yml",
     "pages/api/stock/adjust-batch.js",
-    "lib/stockTargetAdjustment.js"
+    "lib/stockTargetAdjustment.js",
+    "docs/migrations/2026-08-27_normalize_tiny_product_stock.sql"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "identityNote": "재고 조정은 업체 비종속이므로 CustKey는 계약 공통 스키마 호환용이며 실제 범위는 OrderYear+OrderWeek+ProdKey다.",
@@ -38,6 +39,16 @@
       "atomicity": "all edited products in one transaction",
       "liveStockParity": "FormStockAdd order is StockHistory insert, Product.Stock update, then usp_StockCalculation; repair and auto-shortage paths must preserve the same order.",
       "confirmedScope": "부분확정 차수에서는 수정 대상 ProdKey의 ShipmentDetail만 미확정이면 허용하며, 관련 없는 확정 카테고리 때문에 차단하지 않는다."
+    },
+    {
+      "name": "NORMALIZE_TINY_LIVE_STOCK",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stockHistory": "preserve; do not rewrite historical float residue",
+      "productStock": "preserve; never align snapshot stock to live stock",
+      "product": "when Product.Stock is non-zero and ABS(Stock) < 0.000001, normalize only that live value to exact zero",
+      "triggerScope": "AFTER INSERT/UPDATE OF Stock; all six native procedure/direct update paths are covered without changing their business formulas",
+      "rollback": "drop dbo.trg_Product_NormalizeTinyStock; the one-time Maruchi normalization is not reversed to the invalid scientific-notation residue"
     }
   ],
   "crossYearFixture": {
@@ -46,6 +57,7 @@
   },
   "requiredTestFiles": [
     "__tests__/stockTargetAdjustment.test.js",
+    "__tests__/tinyProductStockNormalization.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
