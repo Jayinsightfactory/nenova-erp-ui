@@ -2,6 +2,9 @@ const assert = require('assert');
 
 (async () => {
   const {
+    buildChinaVolumeWorkbookRows,
+    chinaVolumeCellText,
+    chinaVolumeProductLabel,
     parseChinaBoxNumbers,
     splitChinaBoxQuantity,
     parseChinaPackingRows,
@@ -10,6 +13,18 @@ const assert = require('assert');
     mergeChinaPackingIntoPivotCells,
     validateChinaCellAllocation,
   } = await import('../lib/chinaVolumeBoard.js');
+
+  assert.strictEqual(chinaVolumeProductLabel('CHINA / ROSE Diana 50cm'), 'ROSE Diana 50cm');
+  assert.strictEqual(chinaVolumeProductLabel('China/ Hydrangea Blue (블루)'), 'Hydrangea Blue (블루)');
+  assert.strictEqual(chinaVolumeCellText(20, [{ boxNo: '16' }, { boxNo: '17' }]), '20 (16,17)');
+  const workbookRows = buildChinaVolumeWorkbookRows({
+    year: 2026,
+    week: '35-01',
+    customers: [{ custKey: 1, custName: 'CL1', orderCode: 'CL1' }],
+    rows: [{ prodKey: 9, prodName: 'CHINA / ROSE Diana 50cm full name', outOrders: { CL1: 20 } }],
+    cells: { '1:9': { quantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] } },
+  });
+  assert.deepStrictEqual(workbookRows[2], ['ROSE Diana 50cm full name', '20 (16,17)']);
 
   assert.deepStrictEqual(parseChinaBoxNumbers('NO.16.17'), ['16', '17']);
   assert.deepStrictEqual(parseChinaBoxNumbers('NO.31-37'), ['31', '32', '33', '34', '35', '36', '37']);

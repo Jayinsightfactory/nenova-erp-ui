@@ -4,6 +4,8 @@ import { useRouter } from 'next/router';
 import * as XLSX from 'xlsx';
 import { apiGet } from '../../lib/useApi';
 import {
+  buildChinaVolumeWorkbookRows,
+  chinaVolumeProductLabel,
   matchChinaPackingRows,
   mergeChinaPackingIntoPivotCells,
   parseChinaPackingRows,
@@ -20,7 +22,7 @@ function fmt(value) {
 }
 
 function BoxBadges({ allocations = [] }) {
-  const visible = allocations.slice(0, 2);
+  const visible = allocations.slice(0, 4);
   if (!allocations.length) return null;
   const title = allocations.map(item => `${item.boxNo}번 ${fmt(item.quantity)}`).join(' / ');
   return (
@@ -141,6 +143,17 @@ export default function ChinaVolumeBoard() {
 
   const matchedCount = packingRows.filter(row => row.mappingStatus === 'MATCHED').length;
 
+  const downloadExcel = () => {
+    if (!data) return;
+    const sheet = XLSX.utils.aoa_to_sheet(buildChinaVolumeWorkbookRows({ year, week, rows: chinaRows, customers, cells }));
+    sheet['!cols'] = [{ wch: 48 }, ...customers.map(() => ({ wch: 16 }))];
+    sheet['!rows'] = [{ hpt: 26 }, { hpt: 20 }, ...chinaRows.map(() => ({ hpt: 24 }))];
+    sheet['!autofilter'] = { ref: `A2:${XLSX.utils.encode_col(customers.length)}${chinaRows.length + 2}` };
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, '중국물량표');
+    XLSX.writeFile(workbook, `${year}_${week}_자동중국물량표.xlsx`);
+  };
+
   return (
     <>
       <Head><title>자동 중국물량표 - nenova ERP</title></Head>
@@ -151,7 +164,7 @@ export default function ChinaVolumeBoard() {
           <label>차수<input value={week} onChange={e => setWeek(e.target.value)} placeholder="35-01" /></label>
           <button className="load" onClick={load} disabled={loading}>{loading ? '조회 중…' : '중국 물량표 조회'}</button>
           <label className={`upload ${!data ? 'disabled' : ''}`}>패킹리스트 업로드<input type="file" accept=".xlsx,.xls" onChange={handleUpload} disabled={!data} /></label>
-          <button onClick={() => window.print()} disabled={!data}>인쇄</button>
+          <button onClick={downloadExcel} disabled={!data}>엑셀 다운로드</button>
           <span className="legend"><i>16</i> 빨간 번호는 패킹 박스 · 셀마다 클릭 수정</span>
         </div>
         {error && <div className="error" role="alert">{error}</div>}
@@ -163,7 +176,7 @@ export default function ChinaVolumeBoard() {
                 <thead><tr><th className="product-head">품종 · 품목</th>{customers.map(customer => <th key={customer.custKey}>{customer.custName}<small>{customer.orderCode || ''}</small></th>)}</tr></thead>
                 <tbody>{chinaRows.map(row => (
                   <tr key={row.prodKey}>
-                    <th><small>{row.flower}</small>{row.prodName}</th>
+                    <th title={chinaVolumeProductLabel(row.prodName)}><small>{row.flower}</small><span>{chinaVolumeProductLabel(row.prodName)}</span></th>
                     {customers.map(customer => {
                       const key = `${customer.custKey}:${row.prodKey}`;
                       const originalQty = Number(row.outOrders?.[customer.custName] || 0);
@@ -197,6 +210,7 @@ export default function ChinaVolumeBoard() {
       <style jsx global>{`
         html,body,#__next{height:100%;margin:0} body{overflow:hidden;font-family:Arial,'맑은 고딕',sans-serif;background:#eef1f5;color:#172033}
         *{box-sizing:border-box} button,input{font:inherit}.page{height:100vh;display:flex;flex-direction:column}.titlebar{height:30px;flex:none;background:linear-gradient(90deg,#071780,#087bc2);color:#fff;display:flex;align-items:center;padding:0 10px;font-size:12px;gap:12px}.titlebar span{font-weight:400;opacity:.8}.titlebar button{margin-left:auto;color:#fff;background:transparent;border:1px solid #ffffff66;border-radius:3px;padding:2px 12px}.toolbar{height:48px;flex:none;display:flex;align-items:center;gap:7px;padding:5px 8px;background:#fff;border-bottom:1px solid #cdd5df;font-size:12px}.toolbar label:not(.upload){display:flex;align-items:center;gap:4px}.toolbar input{height:28px;border:1px solid #aeb9c8;border-radius:4px;padding:3px 6px}.toolbar label:first-child input{width:70px}.toolbar label:nth-child(2) input{width:82px}.toolbar button,.upload{height:29px;border:1px solid #9aa9bc;background:#fff;border-radius:4px;padding:5px 11px;cursor:pointer}.toolbar .load,.upload{background:#155bd7;color:#fff;border-color:#155bd7;font-weight:700}.upload input{display:none}.upload.disabled{opacity:.45;cursor:not-allowed}.legend{margin-left:auto;color:#677388}.legend i,.box-badge{font-style:normal;color:#d31616;border:1px solid #e32626;background:#fff6f6;border-radius:3px;font-weight:800}.legend i{padding:1px 4px}.error{flex:none;background:#fff0f0;color:#b00020;padding:5px 10px;font-size:12px;border-bottom:1px solid #efb5bd}main{display:grid;grid-template-columns:minmax(0,1fr) 390px;min-height:0;flex:1;gap:6px;padding:6px}.board-wrap,aside{background:#fff;border:1px solid #cbd3de;border-radius:5px;min-height:0;overflow:auto}.empty{padding:50px;text-align:center;color:#7c8797}.board{border-collapse:separate;border-spacing:0;font-size:11px;min-width:100%}.board th,.board td{border-right:1px solid #dde2e8;border-bottom:1px solid #dde2e8}.board thead th{position:sticky;top:0;z-index:4;background:#e8eef7;height:42px;min-width:92px;max-width:92px;padding:3px}.board thead small{display:block;color:#78869a;font-weight:400}.board .product-head,.board tbody th{position:sticky;left:0;z-index:5;min-width:205px;max-width:205px;background:#f7f9fc;text-align:left}.board tbody th{height:38px;padding:3px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.board tbody th small{display:block;color:#6c7890;font-weight:400}.board td{position:relative;width:92px;min-width:92px;max-width:92px;height:38px;min-height:38px;text-align:center;cursor:pointer;background:#fff}.board td:hover{outline:2px solid #276fea;outline-offset:-2px}.board td.active{background:#f8fbff}.board td.boxed{background:#fffaf9}.qty{font-weight:800;color:#153b7a}.box-badges{position:absolute;right:2px;top:2px;display:flex;gap:2px;max-width:58px;overflow:hidden;pointer-events:none}.box-badge{font-size:9px;line-height:13px;height:15px;min-width:18px;padding:0 2px;white-space:nowrap}.box-badge.more{background:#e32626;color:#fff}.aside-title{position:sticky;top:0;z-index:2;background:#172b55;color:#fff;padding:7px 9px;display:flex;justify-content:space-between;font-size:12px}aside>p{font-size:11px;color:#667286;margin:7px 9px}.packing-list{padding:0 7px 8px}.packing-list article{padding:7px;margin-bottom:5px;border:1px solid #d7dde6;border-left:4px solid #239b56;border-radius:4px;font-size:11px}.packing-list article.unmatched{border-left-color:#e24b3b;background:#fff7f5}.packing-list article header{display:flex;justify-content:space-between;color:#56647a}.packing-list article strong{display:block;margin:3px 0}.packing-list article i{font-style:normal;color:#d31616;border:1px solid #ee9b9b;border-radius:3px;padding:1px 3px;margin-left:3px}.packing-list article small{display:block;margin-top:4px;color:#64748b}.aside-empty{text-align:center;color:#8894a5;padding:35px 10px;line-height:1.8}.modal-shade{position:fixed;inset:0;z-index:100;background:#08122688;display:flex;align-items:center;justify-content:center}.cell-modal{width:510px;max-height:85vh;background:#fff;border-radius:7px;box-shadow:0 15px 60px #0006;overflow:auto}.cell-modal>header{height:36px;background:#183b72;color:#fff;display:flex;align-items:center;padding:0 12px}.cell-modal>header button{margin-left:auto;background:transparent;color:#fff;border:0;font-size:22px}.modal-meta{padding:10px 13px;border-bottom:1px solid #e1e6ec}.modal-meta span,.modal-meta small{display:block;margin-top:3px}.modal-meta small{color:#b42318}.qty-field{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;font-weight:700}.qty-field input{width:150px}.cell-modal input{height:29px;border:1px solid #aeb9c8;border-radius:4px;padding:3px 6px}.alloc-title{display:flex;justify-content:space-between;padding:7px 13px;background:#f3f6fa;font-size:12px}.alloc-title span{color:#657187}.alloc-list{padding:8px 13px}.alloc-row{display:grid;grid-template-columns:1fr 1fr 52px;gap:7px;margin-bottom:6px;align-items:end}.alloc-row label{font-size:11px}.alloc-row input{display:block;width:100%;margin-top:2px}.remove{height:29px;border:1px solid #e1a5a5;background:#fff;color:#b42318;border-radius:4px}.add-box{margin:0 13px 8px;border:1px dashed #df5454;background:#fff8f8;color:#c51f1f;border-radius:4px;padding:5px 10px}.allocation-check{margin:2px 13px;padding:7px;border-radius:4px;font-size:12px;font-weight:700}.allocation-check.ok{background:#eaf8ef;color:#176b35}.allocation-check.bad{background:#fff0f0;color:#ad1622}.cell-modal footer{display:flex;justify-content:flex-end;gap:7px;padding:10px 13px;border-top:1px solid #e2e7ed}.cell-modal footer button{padding:6px 17px;border:1px solid #aeb9c8;background:#fff;border-radius:4px}.cell-modal footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.cell-modal footer .primary:disabled{opacity:.45}
+        .board .product-head,.board tbody th{min-width:330px;max-width:330px}.board tbody th{overflow:visible;text-overflow:clip}.board tbody th span{display:block;white-space:nowrap}.qty{position:absolute;left:0;right:0;top:4px}.box-badges{left:2px;right:2px;top:auto;bottom:2px;justify-content:center;max-width:none;overflow:visible}.box-badge{font-size:10px;padding:0 3px;box-shadow:0 0 0 1px #fff}
         @media(max-width:1200px){main{grid-template-columns:minmax(0,1fr) 320px}.legend{display:none}}
         @media print{.titlebar,.toolbar,aside,.error{display:none!important}body{overflow:visible}.page,main{height:auto;display:block;padding:0}.board-wrap{border:0;overflow:visible}.board thead th,.board tbody th{position:static}.box-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
       `}</style>
