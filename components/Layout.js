@@ -22,6 +22,7 @@ export const MENU_ITEMS = [
     items: [
       { href: '/integrations/moyi', labelKey: 'MOYI 보고 연동', popup: false },
       { href: '/integrations/moyi-drive', labelKey: 'MOYI Drive 관리', popup: false, userIds: ['nenovaSS3'] },
+      { href: '/admin/orbit-report', labelKey: '직원 업무 심화 리포트', popup: true, userIds: ['nenovaSS3'] },
     ]
   },
   {

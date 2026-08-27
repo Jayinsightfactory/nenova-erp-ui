@@ -11,6 +11,7 @@ const NO_LAYOUT = [
   '/catalog/print',
   '/incoming-price',
   '/admin/category-overrides',
+  '/admin/orbit-report',
   '/orders/paste',
   '/orders/paste-template',
   '/orders/mapping-status',
