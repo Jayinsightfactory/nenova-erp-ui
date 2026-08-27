@@ -7,9 +7,14 @@
     "pages/api/estimate/update-date-quantity.js",
     "lib/estimateDateQuantity.js",
     "lib/estimateDirectionalQuantity.js",
+    "lib/estimateSaveRecovery.js",
+    "lib/estimateGridNavigation.js",
     "__tests__/estimateDateQuantityContract.test.js",
     "__tests__/estimateDirectionalQuantity.test.js",
-    "__tests__/estimateAmountVatParity.test.js"
+    "__tests__/estimateAmountVatParity.test.js",
+    "__tests__/estimateSaveRecovery.test.js",
+    "__tests__/estimateGridNavigation.test.js",
+    "__tests__/estimateSaveRecoveryUi.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "isolatedSqlAdapter": {
@@ -46,6 +51,9 @@
     "__tests__/estimateDateQuantityContract.test.js",
     "__tests__/estimateDirectionalQuantity.test.js",
     "__tests__/estimateAmountVatParity.test.js",
+    "__tests__/estimateSaveRecovery.test.js",
+    "__tests__/estimateGridNavigation.test.js",
+    "__tests__/estimateSaveRecoveryUi.test.js",
     "__tests__/exeEstimateViewSql.test.js",
     "__tests__/erpContractManifest.test.js"
   ],

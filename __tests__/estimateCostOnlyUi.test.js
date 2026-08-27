@@ -24,7 +24,12 @@ async function main() {
     /runEditWithFixCycle|postShipmentFix\(|action:\s*'unfix'|action:\s*'fix'/,
     '단가 전용 저장은 확정 플래그를 보존해야 하므로 unfix/fix 호출이 없어야 한다.',
   );
-  assert.match(applyCostEditsSrc, /fetch\('\/api\/estimate\/update-cost'/, '단가 전용 저장은 update-cost API를 직접 호출해야 한다.');
+  assert.match(applyCostEditsSrc, /saveEstimateCostBatch\(/, '단가 전용 저장은 복구 가능한 update-cost 전용 helper를 호출해야 한다.');
+  const costSaveHelperSrc = page.slice(
+    page.indexOf('const saveEstimateCostBatch'),
+    page.indexOf('const getProdKeysForEditedItems'),
+  );
+  assert.match(costSaveHelperSrc, /url:\s*'\/api\/estimate\/update-cost'/, '단가 저장 helper는 update-cost API만 호출해야 한다.');
 
   // 화면의 출고일별 단가(DateCost)와 상세 단가(Cost)가 다를 수 있음 — sdateKey 소속과
   // DateCost 스냅샷을 함께 서버로 보내 서버가 낙관적 동시성/소속을 검증하게 한다.

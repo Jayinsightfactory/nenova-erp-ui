@@ -21,6 +21,8 @@
     "lib/estimateDateQuantity.js",
     "lib/estimateCostOnly.js",
     "lib/estimateCostSnapshot.js",
+    "lib/estimateSaveRecovery.js",
+    "lib/estimateGridNavigation.js",
     "lib/exeEstimateViewSql.js",
     "docs/migrations/2026-08-10_week_prod_cost_order_year.sql",
     "lib/i18n.js",
@@ -31,7 +33,10 @@
     "__tests__/erpEditFixScopeAudit.test.js",
     "__tests__/estimateCostOnly.test.js",
     "__tests__/estimateCostOnlyUi.test.js",
-    "__tests__/estimateCostSnapshot.test.js"
+    "__tests__/estimateCostSnapshot.test.js",
+    "__tests__/estimateSaveRecovery.test.js",
+    "__tests__/estimateGridNavigation.test.js",
+    "__tests__/estimateSaveRecoveryUi.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -62,7 +67,10 @@
     "__tests__/erpContractManifest.test.js",
     "__tests__/estimateCostOnly.test.js",
     "__tests__/estimateCostOnlyUi.test.js",
-    "__tests__/estimateCostSnapshot.test.js"
+    "__tests__/estimateCostSnapshot.test.js",
+    "__tests__/estimateSaveRecovery.test.js",
+    "__tests__/estimateGridNavigation.test.js",
+    "__tests__/estimateSaveRecoveryUi.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
