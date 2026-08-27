@@ -663,8 +663,25 @@ export default function ProfitReportPage() {
       EditKey: `end:${row.ProdKey}`,
     } : null,
   ].filter(Boolean)), [priceModal]);
+  // 제안 적용 흐름(2026-08-27) — 제안가를 그대로 적용한 행은 제안 출처가 근거로 자동 기록되고,
+  // 값을 고친 행은 기존처럼 근거를 직접 입력한다.
+  const [priceAutoEvidence, setPriceAutoEvidence] = useState({});
+  const applySuggestion = (row) => {
+    if (row.SuggestedPrice == null) return;
+    setPriceEdits(prev => ({ ...prev, [row.EditKey]: String(row.SuggestedPrice) }));
+    setPriceAutoEvidence(prev => ({
+      ...prev,
+      [row.EditKey]: {
+        price: Number(row.SuggestedPrice),
+        sourceRef: `자동제안(${row.SuggestedSource === 'recent_sales_price' ? '판매단가' : '최근 매입원가 근사'}) — ${row.SuggestedDetail} · 사장님 방침 2026-08-27(26~31차 백테스트 오차율 판매단가 7.3%)`,
+        effectiveAt: row.SuggestedEffectiveAt || new Date().toISOString().slice(0, 10),
+      },
+    }));
+  };
+  const applyAllSuggestions = () => { for (const row of priceInputRows) applySuggestion(row); };
   const openPriceModal = async () => {
     setPriceEdits({});
+    setPriceAutoEvidence({});
     try {
       const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(reportYear)}&stockPrices=1`, { credentials: 'same-origin' });
       const d = await res.json();
@@ -678,9 +695,16 @@ export default function ProfitReportPage() {
       for (const row of priceInputRows) {
         const price = priceEdits[row.EditKey];
         if (price == null || price === '') continue;
-        const rawEvidence = window.prompt(`${row.ScopeLabel} ${row.ProdName} 매입단가 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
-        if (!rawEvidence) throw new Error(`${row.ScopeLabel} ${row.ProdName} 단가 근거 입력이 취소되었습니다.`);
-        const [sourceRef, effectiveAt] = rawEvidence.split('|').map(value => value.trim());
+        // 제안을 그대로 적용한 행은 제안 출처를 근거로 자동 사용한다(값을 고치면 직접 입력으로 전환).
+        const auto = priceAutoEvidence[row.EditKey];
+        let sourceRef; let effectiveAt;
+        if (auto && Number(price) === Number(auto.price)) {
+          sourceRef = auto.sourceRef; effectiveAt = auto.effectiveAt;
+        } else {
+          const rawEvidence = window.prompt(`${row.ScopeLabel} ${row.ProdName} 매입단가 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
+          if (!rawEvidence) throw new Error(`${row.ScopeLabel} ${row.ProdName} 단가 근거 입력이 취소되었습니다.`);
+          [sourceRef, effectiveAt] = rawEvidence.split('|').map(value => value.trim());
+        }
         if (!sourceRef || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveAt || '')) throw new Error(`${row.ScopeLabel} ${row.ProdName} 근거 형식이 올바르지 않습니다.`);
         const batchKey = `${row.ScopeOrderYear}:${row.ScopeOrderWeek}`;
         if (!batches.has(batchKey)) batches.set(batchKey, { orderYear: row.ScopeOrderYear, orderWeek: row.ScopeOrderWeek, prices: {} });
@@ -1605,7 +1629,12 @@ export default function ProfitReportPage() {
                 입력 필요 {priceInputRows.length}건
               </span>
               <span style={st.collapseBadgeOk}>입력한 값 {Object.keys(priceEdits).length}건</span>
-              <button style={{ ...st.primaryBtn, background: '#16a34a', marginLeft: 'auto' }} onClick={savePrices} disabled={Object.keys(priceEdits).length === 0}>
+              <button style={{ ...st.secondaryBtn, marginLeft: 'auto' }} onClick={applyAllSuggestions}
+                disabled={!priceInputRows.some(r => r.SuggestedPrice != null)}
+                title="판매단가(없으면 최근 매입원가 근사) 자동제안을 전 품목에 채웁니다 — 26~31차 백테스트에서 확정 엑셀 대비 오차율 7.3%로 검증된 기준입니다. 채운 뒤 개별 수정 가능하며, 저장 시 제안 출처가 근거로 기록됩니다">
+                ✨ 제안 모두 적용
+              </button>
+              <button style={{ ...st.primaryBtn, background: '#16a34a' }} onClick={savePrices} disabled={Object.keys(priceEdits).length === 0}>
                 매입단가 근거 저장 ({Object.keys(priceEdits).length}건)
               </button>
             </div>
@@ -1625,11 +1654,12 @@ export default function ProfitReportPage() {
               <table style={st.priceModalTable}>
                 <colgroup>
                   <col style={{ width: 84 }} />
-                  <col style={{ width: 120 }} />
+                  <col style={{ width: 110 }} />
                   <col />
+                  <col style={{ width: 80 }} />
                   <col style={{ width: 90 }} />
-                  <col style={{ width: 100 }} />
-                  <col style={{ width: 160 }} />
+                  <col style={{ width: 170 }} />
+                  <col style={{ width: 150 }} />
                 </colgroup>
                 <thead>
                   <tr>
@@ -1638,6 +1668,7 @@ export default function ProfitReportPage() {
                     <th style={st.priceModalTh}>품목명</th>
                     <th style={{ ...st.priceModalTh, textAlign: 'right' }}>재고수량</th>
                     <th style={{ ...st.priceModalTh, textAlign: 'right' }}>환산수량</th>
+                    <th style={{ ...st.priceModalTh, textAlign: 'right' }}>자동제안</th>
                     <th style={{ ...st.priceModalTh, textAlign: 'right' }}>매입단가(원)</th>
                   </tr>
                 </thead>
@@ -1653,6 +1684,17 @@ export default function ProfitReportPage() {
                         <td style={{ ...st.priceModalTd, textAlign: 'right' }}>{fmt(r.ScopeStock)}</td>
                         <td style={{ ...st.priceModalTd, textAlign: 'right' }}>{fmt(r.ScopeStockEst)} {r.EstUnit || ''}</td>
                         <td style={{ ...st.priceModalTd, textAlign: 'right' }}>
+                          {r.SuggestedPrice != null ? (
+                            <button
+                              style={{ ...st.secondaryBtn, padding: '2px 8px', fontSize: 12 }}
+                              onClick={() => applySuggestion(r)}
+                              title={`${r.SuggestedSource === 'recent_sales_price' ? '판매단가' : '최근 매입원가 근사'} — ${r.SuggestedDetail || ''}. 클릭하면 입력칸에 채워지고, 저장 시 이 출처가 근거로 기록됩니다`}
+                            >
+                              {fmt(r.SuggestedPrice)} 적용
+                            </button>
+                          ) : <span style={{ color: '#94a3b8' }}>—</span>}
+                        </td>
+                        <td style={{ ...st.priceModalTd, textAlign: 'right' }}>
                           <NumericInput
                             style={{ ...st.cellInput, width: '100%', minWidth: 140, background: edit !== undefined ? '#fef9c3' : '#fff' }}
                             value={shown}
@@ -1663,7 +1705,7 @@ export default function ProfitReportPage() {
                     );
                   })}
                   {!priceInputRows.length && (
-                    <tr><td colSpan={6} style={{ padding: 16, textAlign: 'center', color: '#166534', fontWeight: 800 }}>입력할 재고 매입단가가 없습니다. 모두 자동완성되었습니다.</td></tr>
+                    <tr><td colSpan={7} style={{ padding: 16, textAlign: 'center', color: '#166534', fontWeight: 800 }}>입력할 재고 매입단가가 없습니다. 모두 자동완성되었습니다.</td></tr>
                   )}
                 </tbody>
               </table>

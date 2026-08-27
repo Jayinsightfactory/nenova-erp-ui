@@ -111,7 +111,17 @@ async function main() {
     reportSource.indexOf('export async function stockPriceRows'),
     reportSource.indexOf('/** 카테고리별 구매 통화'),
   );
-  assert.ok(!/loadConfirmedCustomerProductPrices|confirmedDistribution|SuggestedPrice|SuggestionCandidates/.test(inventoryBlock));
+  // 2026-08-27 정책 갱신(사장님 지시): 판매단가 자동제안 도입 — 26~31차 백테스트에서 확정 엑셀
+  // 대비 오차율이 판매단가 7.3% vs 매입원가환산 45.2%로 검증됨. 단, 과거 제거된 분배단가 자동
+  // 반영(loadConfirmedCustomerProductPrices/confirmedDistribution 등)은 계속 금지하고, 제안은
+  // RequiresInput 행에만 붙는 표시 전용 값으로 beginPrice/endPrice 확정 로직에는 개입하지 않는다
+  // (저장 시 사용자 확인 근거로만 계산에 들어간다).
+  assert.ok(!/loadConfirmedCustomerProductPrices|confirmedDistribution|SuggestionCandidates/.test(inventoryBlock));
+  assert.match(inventoryBlock, /SuggestedPrice/);
+  assert.match(inventoryBlock, /if \(!row\.RequiresInput\) continue;/);
+  const suggestionMarker = inventoryBlock.indexOf('판매단가 자동제안');
+  assert.ok(suggestionMarker > 0);
+  assert.ok(!/SuggestedPrice/.test(inventoryBlock.slice(0, suggestionMarker)));
   assert.ok(!/distributionMajorityStockPriceSuggestion/.test(calcSource));
   assert.match(reportSource, /RequiresInput: requiresInput/);
   assert.match(reportSource, /CATEGORY_AVERAGE_INVENTORY_KEYS\.includes/);
