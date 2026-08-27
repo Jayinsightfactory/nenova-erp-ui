@@ -34,7 +34,7 @@
     "quantitySource": "packing list column D Quantity",
     "customerSource": "packing list Customer code matched to Customer.OrderCode",
     "productSource": "China-only pivot product candidates",
-    "display": "quantity cell dimensions remain fixed; red box badges are overlays; each allocation has its own editor",
+    "display": "quantity cell dimensions remain fixed; red box badges are overlays; each allocation has its own editor; badge width follows 1/2/3 digit count and wraps only when cumulative width exceeds the fixed badge area",
     "productLabel": "strip leading CHINA / only; preserve the full remaining product name in web and workbook",
     "excelExport": "current displayed quantities and edited box allocations export as quantity (box numbers) without ERP writes"
   },
