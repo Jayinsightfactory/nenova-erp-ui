@@ -168,6 +168,8 @@ jobs:
             node scripts/apply-erp-edit-presence-migration.mjs --apply
             echo "=== 선출고 관리 웹 스키마 적용 ==="
             node scripts/apply-pre-shipment-migration.mjs --apply
+            echo "=== 자동 중국물량표 웹 스키마 적용 ==="
+            node scripts/apply-china-volume-board-migration.mjs --apply
             echo "=== build ==="
             rm -rf .next-build
             if ! NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
