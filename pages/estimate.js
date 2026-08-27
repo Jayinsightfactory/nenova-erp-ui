@@ -104,6 +104,14 @@ import {
   sameEstimateSelectionScope,
   shouldReloadCapturedEstimateSelection,
 } from '../lib/estimateSelectionState';
+import {
+  classifyEstimateSaveSnapshot,
+  estimateEditDraftKey,
+  readEstimateEditDraft,
+  runRecoverableEstimateSave,
+  writeEstimateEditDraft,
+} from '../lib/estimateSaveRecovery.js';
+import { getEstimateGridNavigationTarget } from '../lib/estimateGridNavigation.js';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -247,6 +255,53 @@ async function postShipmentFix(body, { timeoutMs = FIX_UNFIX_FETCH_TIMEOUT_MS } 
       };
     }
     return { res, data };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function postEstimateWriteJson(url, body) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45_000);
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+  let data;
+  try {
+    data = await parseJsonResponse(response);
+  } catch (error) {
+    error.status = response.status;
+    throw error;
+  }
+  if (!response.ok || !data?.success) {
+    const error = new Error(data?.error || `저장 실패 (${response.status})`);
+    error.status = response.status;
+    error.code = data?.code;
+    error.data = data;
+    throw error;
+  }
+  return data;
+}
+
+async function probeEstimateServer() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const response = await fetch(`/api/ping?_estimateRecovery=${Date.now()}`, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    return response.ok;
   } finally {
     clearTimeout(timer);
   }
@@ -1264,6 +1319,7 @@ export default function Estimate() {
   const [editApplyTitle, setEditApplyTitle] = useState('단가 적용');
   const [costApplyLog, setCostApplyLog] = useState([]); // 진행 단계 로그
   const [costResult, setCostResult] = useState(null);   // 완료 후 결과
+  const [editDraftHydratedScope, setEditDraftHydratedScope] = useState('');
   const [estimateEditUserId, setEstimateEditUserId] = useState('');
   const automaticEditOperationRef = useRef(0);
   const [automaticEditProgress, setAutomaticEditProgress] = useState(null);
@@ -1659,6 +1715,8 @@ export default function Estimate() {
     };
     return {
       ship,
+      orderYear: String(yearStr),
+      parentWeek: String(weekNum).padStart(2, '0'),
       scope: buildSelectionScope({ selectedId: ship.groupId, selectedCustKey: ship.custKey }),
     };
   };
@@ -1700,6 +1758,123 @@ export default function Estimate() {
     return false;
   };
   const estimateEditGuard = () => ({ ...estimateEditPresence.editGuard, custKey: selectedShip?.CustKey || '' });
+
+  const editDraftScope = useMemo(() => ({
+    orderYear: yearStr,
+    parentWeek: selectedEditWeek,
+    custKey: selectedShip?.CustKey,
+  }), [selectedEditWeek, selectedShip?.CustKey, yearStr]);
+  const editDraftScopeKey = estimateEditDraftKey(editDraftScope);
+
+  // 배포·서버 재시작 중 새로고침되어도 현재 업체의 입력값은 브라우저에 남긴다.
+  // 업체/연도/차수별 키를 분리하므로 다른 업체 입력과 섞이지 않는다.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!editDraftScopeKey) {
+      setCostEdits({});
+      setQtyEdits({});
+      setEditDraftHydratedScope('');
+      return;
+    }
+    const draft = readEstimateEditDraft(window.sessionStorage, editDraftScope);
+    setCostEdits(draft?.costEdits || {});
+    setQtyEdits(draft?.qtyEdits || {});
+    if (draft?.costMode) setCostMode(draft.costMode);
+    setEditDraftHydratedScope(editDraftScopeKey);
+  }, [editDraftScopeKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !editDraftScopeKey || editDraftHydratedScope !== editDraftScopeKey) return;
+    writeEstimateEditDraft(window.sessionStorage, editDraftScope, { costEdits, qtyEdits, costMode });
+  }, [costEdits, costMode, editDraftHydratedScope, editDraftScope, editDraftScopeKey, qtyEdits]);
+
+  const fetchEstimateRecoveryRows = async (captured) => {
+    if (!captured?.ship?.custKey || !captured?.orderYear || !captured?.parentWeek) {
+      throw new Error('저장 결과를 확인할 연도·차수·업체 정보가 없습니다.');
+    }
+    const query = new URLSearchParams({
+      year: captured.orderYear,
+      week: captured.parentWeek,
+      custKey: String(captured.ship.custKey),
+      byDate: '1',
+      itemsOnly: '1',
+      _estimateRecovery: String(Date.now()),
+    });
+    const response = await fetch(`/api/estimate?${query}`, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    let data;
+    try {
+      data = await parseJsonResponse(response);
+    } catch (error) {
+      error.status = response.status;
+      throw error;
+    }
+    if (!response.ok || !data?.success) {
+      const error = new Error(data?.error || `저장 결과 확인 실패 (${response.status})`);
+      error.status = response.status;
+      error.code = data?.code;
+      throw error;
+    }
+    return data.items || [];
+  };
+
+  const appendEstimateRecoveryState = (state, onProgress) => {
+    let label = '';
+    if (state.phase === 'server-updating') {
+      label = '서버 업데이트 중 — 입력값을 보존했습니다. 연결 복구 후 자동으로 다시 처리합니다.';
+    } else if (state.phase === 'waiting') {
+      label = `서버 연결 확인 중 — ${state.attempt}번째 확인`;
+    } else if (state.phase === 'retrying') {
+      label = '서버 복구 확인 — 아직 저장 전 상태여서 한 번 자동 재처리합니다.';
+    } else if (state.phase === 'already-applied') {
+      label = '서버 복구 확인 — 응답만 늦었고 입력값은 이미 정상 반영됐습니다.';
+    }
+    if (!label) return;
+    setCostApplyLog(prev => [...prev, { step: 'save', label }]);
+    onProgress?.({ kind: 'server', status: state.phase === 'already-applied' ? 'done' : undefined, label });
+  };
+
+  const runEstimateWriteWithRecovery = async ({ url, body, intents, captured, onProgress, recoveredData }) => {
+    const result = await runRecoverableEstimateSave({
+      request: () => postEstimateWriteJson(url, body),
+      probe: probeEstimateServer,
+      reconcile: async () => {
+        const rows = await fetchEstimateRecoveryRows(captured);
+        const snapshot = classifyEstimateSaveSnapshot({ intents, rows });
+        if (snapshot.status === 'applied') snapshot.data = recoveredData(snapshot, rows);
+        return snapshot;
+      },
+      onState: state => appendEstimateRecoveryState(state, onProgress),
+    });
+    return {
+      ...result.data,
+      recoveredAfterServerUpdate: result.recovered,
+      responseRecovered: result.alreadyApplied,
+    };
+  };
+
+  const handleEstimateEditCellKeyDown = useCallback((event) => {
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    const table = event.currentTarget.closest('table');
+    if (!table) return;
+    const elements = [...table.querySelectorAll('[data-estimate-edit-cell="1"]')];
+    const cells = elements.map(element => ({
+      element,
+      row: Number(element.dataset.estimateEditRow),
+      column: element.dataset.estimateEditColumn,
+      disabled: element.disabled,
+    }));
+    const target = getEstimateGridNavigationTarget(cells, {
+      row: Number(event.currentTarget.dataset.estimateEditRow),
+      column: event.currentTarget.dataset.estimateEditColumn,
+    }, event.key);
+    if (!target?.element) return;
+    event.preventDefault();
+    target.element.focus();
+    target.element.select?.();
+  }, []);
 
   // ── 단가 수정 관련 함수 (P3) ─────────────────────────
   // 현재 선택된 그룹의 ShipmentKey 목록
@@ -1771,7 +1946,7 @@ export default function Estimate() {
 
   // nenova.exe FormEstimateView는 정상출고의 견적 수량을 ShipmentDate.EstQuantity에
   // 저장한다. 여러 출고일을 한 번에 저장하여 품목별 총량 검증도 EXE와 동일한 시점에 수행한다.
-  const saveDateQuantityBatch = async (rows, { onProgress } = {}) => {
+  const saveDateQuantityBatch = async (rows, { onProgress, captured = captureEstimateRefresh() } = {}) => {
     if (!rows.length) return [];
     const startLabel = `EXE 출고일별 분배 ${rows.length}건 저장 시도 — ShipmentDetail + ShipmentDate`;
     setCostApplyLog(prev => [...prev, {
@@ -1779,31 +1954,70 @@ export default function Estimate() {
       label: startLabel,
     }]);
     onProgress?.({ kind: 'save', label: `수량 저장 요청 — ${rows.length}건 (확정 상태 유지)` });
+    const body = {
+      orderYear: yearStr,
+      custKey: selectedShip?.CustKey || rows[0]?.item?.CustKey,
+      editGuard: estimateEditGuard(),
+      items: rows.map(p => ({
+        sdateKey: p.keyNumber,
+        quantity: p.newQty,
+        unit: p.item.Unit,
+        expectedOldQuantity: p.oldQty,
+        ...(costEdits[getItemEditKey(p.item)] != null && costEdits[getItemEditKey(p.item)] !== ''
+          ? { expectedOldCost: requireCostSnapshot(p.item).expectedOldCost } : {}),
+      })),
+    };
+    const intents = rows.map(p => ({
+      kind: 'date',
+      field: 'quantity',
+      key: p.keyNumber,
+      expected: p.oldQty,
+      desired: p.newQty,
+      sdetailKey: p.item.SdetailKey,
+      shipmentKey: p.item.ShipmentKey,
+    }));
     try {
-      const response = await fetch('/api/estimate/update-date-quantity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          orderYear: yearStr,
-          custKey: selectedShip?.CustKey || rows[0]?.item?.CustKey,
-          editGuard: estimateEditGuard(),
-          items: rows.map(p => ({
-            sdateKey: p.keyNumber,
-            quantity: p.newQty,
-            unit: p.item.Unit,
-            expectedOldQuantity: p.oldQty,
-            ...(costEdits[getItemEditKey(p.item)] != null && costEdits[getItemEditKey(p.item)] !== ''
-              ? { expectedOldCost: requireCostSnapshot(p.item).expectedOldCost } : {}),
-          })),
+      const data = await runEstimateWriteWithRecovery({
+        url: '/api/estimate/update-date-quantity',
+        body,
+        intents,
+        captured,
+        onProgress,
+        recoveredData: (snapshot, liveRows) => ({
+          success: true,
+          changedCount: snapshot.matches.length,
+          direction: 'recovered',
+          stockMode: 'reconciled',
+          items: snapshot.matches.map(({ intent, row }) => {
+            if (row) {
+              return {
+                sdateKey: Number(row.SdateKey),
+                sdetailKey: Number(row.SdetailKey),
+                shipmentKey: Number(row.ShipmentKey),
+                dateDeleted: false,
+                dateCostAfter: Number(row.DateCost),
+                detailCostAfter: Number(row.Cost),
+              };
+            }
+            const remainingDetailRow = liveRows.find(candidate => Number(candidate.SdetailKey) === Number(intent.sdetailKey));
+            return remainingDetailRow
+              ? {
+                sdateKey: Number(intent.key),
+                sdetailKey: Number(intent.sdetailKey),
+                shipmentKey: Number(intent.shipmentKey),
+                dateDeleted: true,
+                detailCostAfter: Number(remainingDetailRow.Cost),
+              }
+              : { sdetailKey: Number(intent.sdetailKey), purged: true };
+          }),
         }),
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.success) {
-        const error = data.error || `출고일별 견적수량 저장 실패 (${response.status})`;
-        const label = data.rolledBack === true
-          ? `${error} — 저장되지 않았습니다.`
-          : `${error} — 저장 결과를 확인하지 못했습니다. 다시 저장하지 말고 재조회하세요.`;
+      if (data.recoveredAfterServerUpdate) {
+        setCostApplyLog(prev => [...prev, { step: 'save', label: '서버 복구 후 실제 저장값까지 다시 확인했습니다.' }]);
+      }
+      if (!data.success) {
+        const error = data.error || '출고일별 견적수량 저장 실패';
+        const label = data.rolledBack === true ? `${error} — 저장되지 않았습니다.` : error;
         setCostApplyLog(prev => [...prev, {
           step: 'error',
           label,
@@ -1822,7 +2036,9 @@ export default function Estimate() {
           pendingRef: p,
         }));
       }
-      const stockResponse = describeDateQuantitySaveResult(data);
+      const stockResponse = data.recoveredAfterServerUpdate
+        ? ['서버 복구 후 수량 반영 확인']
+        : describeDateQuantitySaveResult(data);
       const label = `저장 결과 — ${stockResponse.join(' / ')}`;
       setCostApplyLog(prev => [...prev, { step: 'save', label }]);
       onProgress?.({ kind: 'server', label });
@@ -1838,18 +2054,95 @@ export default function Estimate() {
         pendingRef: p,
       }));
     } catch (error) {
-      const label = '수량 저장 응답을 확인하지 못했습니다. 다시 저장하지 말고 재조회하세요.';
+      const label = error?.message || '수량 저장을 완료하지 못했습니다. 입력값은 그대로 보관했습니다.';
       setCostApplyLog(prev => [...prev, { step: 'error', label }]);
       onProgress?.({ kind: 'error', status: 'error', label });
       return rows.map(p => ({
         key: p.keyNumber,
         ok: false,
+        code: error?.code || error?.data?.code,
         oldQty: p.oldQty,
         newQty: p.newQty,
         orderWeek: p.item.OrderWeek,
         error: error.message,
+        fixedWeeks: error?.data?.fixedWeeks || [],
+        fixedCategories: error?.data?.fixedCategories || [],
         pendingRef: p,
       }));
+    }
+  };
+
+  const saveDeductionQuantity = async (p, { captured = captureEstimateRefresh() } = {}) => {
+    const body = {
+      sdetailKey: p.isEstimate ? undefined : p.keyNumber,
+      estimateKey: p.isEstimate ? p.keyNumber : undefined,
+      shipmentKey: p.item.ShipmentKey,
+      orderYear: yearStr,
+      custKey: selectedShip?.CustKey || p.item.CustKey,
+      quantity: p.newQty,
+      unit: p.item.Unit,
+      expectedOldQuantity: p.oldQty,
+      editGuard: estimateEditGuard(),
+    };
+    const intent = {
+      kind: p.isEstimate ? 'estimate' : 'detail',
+      field: 'quantity',
+      key: p.keyNumber,
+      expected: p.oldQty,
+      desired: p.isEstimate && p.oldQty < 0 ? -Math.abs(p.newQty) : p.newQty,
+    };
+    try {
+      const data = await runEstimateWriteWithRecovery({
+        url: '/api/estimate/update-quantity',
+        body,
+        intents: [intent],
+        captured,
+        recoveredData: () => ({ success: true, recoveredAfterServerUpdate: true }),
+      });
+      return {
+        key: p.keyNumber, ok: true, code: data.code,
+        oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek,
+        fixedWeeks: data.fixedWeeks || [], fixedCategories: data.fixedCategories || [],
+        pendingRef: p,
+      };
+    } catch (error) {
+      return {
+        key: p.keyNumber, ok: false, code: error?.code || error?.data?.code,
+        oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek,
+        error: error?.message || '차감 수량 저장 실패',
+        fixedWeeks: error?.data?.fixedWeeks || [], fixedCategories: error?.data?.fixedCategories || [],
+        pendingRef: p,
+      };
+    }
+  };
+
+  const saveEstimateCostBatch = async ({ allItems, body, captured = captureEstimateRefresh() }) => {
+    const intents = allItems.map((item) => {
+      if (item.estimateKey != null) {
+        return { kind: 'estimate', field: 'cost', key: item.estimateKey, expected: item.expectedOldCost, desired: item.cost };
+      }
+      if (item.sdateKey != null) {
+        return { kind: 'date', field: 'cost', key: item.sdateKey, expected: item.expectedOldCost, desired: item.cost };
+      }
+      return { kind: 'detail', field: 'cost', key: item.sdetailKey, expected: item.expectedOldCost, desired: item.cost };
+    });
+    try {
+      return await runEstimateWriteWithRecovery({
+        url: '/api/estimate/update-cost',
+        body,
+        intents,
+        captured,
+        recoveredData: snapshot => ({
+          success: true,
+          changedCount: snapshot.matches.length,
+          diffAmount: 0,
+          changes: [],
+          recoveredAfterServerUpdate: true,
+        }),
+      });
+    } catch (error) {
+      if (error?.code === 'STALE_DATA') error.isStaleData = true;
+      throw error;
     }
   };
 
@@ -2164,33 +2457,12 @@ export default function Estimate() {
           step: 'save',
           label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
         }]);
-        const r = await fetch('/api/estimate/update-quantity', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            sdetailKey: p.isEstimate ? undefined : p.keyNumber,
-            estimateKey: p.isEstimate ? p.keyNumber : undefined,
-            shipmentKey: p.item.ShipmentKey,
-            orderYear: yearStr,
-            custKey: selectedShip?.CustKey || p.item.CustKey,
-            quantity: p.newQty,
-            unit: p.item.Unit,
-            expectedOldQuantity: p.oldQty,
-            editGuard: estimateEditGuard(),
-          }),
-        });
-        const d = await r.json();
-        return {
-          key: p.keyNumber, ok: d.success, code: d.code,
-          oldQty: p.oldQty, newQty: p.newQty, orderWeek: p.item.OrderWeek, error: d.error,
-          fixedWeeks: d.fixedWeeks || [], fixedCategories: d.fixedCategories || [],
-          pendingRef: p,
-        };
+        return saveDeductionQuantity(p, { captured: capturedRefresh });
       };
 
       const savePendingQuantities = async (rows) => {
         const dateResults = await saveDateQuantityBatch(rows.filter(p => p.isDateQuantity), {
+          captured: capturedRefresh,
           onProgress: stage => {
             if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, stage);
           },
@@ -2353,35 +2625,16 @@ export default function Estimate() {
         }]);
       });
 
-      const r = await fetch('/api/estimate/update-cost', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const d = await r.json();
-      if (!d.success) {
-        if (d.code === 'STALE_DATA') {
-          const staleErr = new Error(
-            `⚠️ 데이터 변경 감지\n\n견적서 조회 이후 다른 사용자 또는 전산 프로그램이 단가를 변경했습니다.\n\n` +
-            `(SdetailKey=${d.sdetailKey}${d.shipmentKey ? ` / ShipmentKey=${d.shipmentKey}` : ''}: ` +
-            `조회시점=${d.expected}원 → 현재=${d.actual}원)\n\n` +
-            `저장은 중단되었습니다. 조회 버튼을 다시 눌러 최신 데이터를 불러온 뒤 다시 시도해주세요.`
-          );
-          staleErr.isStaleData = true;
-          throw staleErr;
-        }
-        const editError = new Error(d.error || '단가 수정 실패');
-        editError.code = d.code;
-        editError.data = d;
-        throw editError;
-      }
+      const d = await saveEstimateCostBatch({ allItems, body, captured: capturedRefresh });
 
       const customerCostNote = effectiveMode === 'fixed'
         ? ` · 업체 지정단가 ${Number(d.customerCostUpdated || 0)}건 저장. ${Number(d.customerCostSkippedEstimate || 0) > 0 ? `불량·검역·판매요청 ${Number(d.customerCostSkippedEstimate)}건은 견적 단가만 변경했습니다. ` : ''}다른 업체·다른 차수의 출고 저장값은 변경하지 않았습니다.`
         : '';
       setCostApplyLog(prev => [...prev, {
         step: 'processed',
-        label: `✓ 저장 완료 — ${d.changedCount}건, 공급가 ${d.diffAmount >= 0 ? '+' : ''}${(d.diffAmount || 0).toLocaleString()}원${customerCostNote}`,
+        label: d.responseRecovered
+          ? `✓ 서버 복구 후 실제 단가 ${d.changedCount}건 반영 확인${customerCostNote}`
+          : `✓ 저장 완료 — ${d.changedCount}건, 공급가 ${d.diffAmount >= 0 ? '+' : ''}${(d.diffAmount || 0).toLocaleString()}원${customerCostNote}`,
       }]);
 
       const allChanges = d.changes || [];
@@ -2389,7 +2642,7 @@ export default function Estimate() {
       saveSucceeded = true;
       savedCostOutcome = {
         success: true,
-        changedCount: allChanges.length,
+        changedCount: Number(d.changedCount || allChanges.length),
         totalDiff,
         customerCostUpdated: Number(d.customerCostUpdated || 0),
       };
@@ -2419,7 +2672,7 @@ export default function Estimate() {
       setCostResult({ success: false, error: err.message });
       // STALE_DATA = 화면이 옛 단가를 들고 있음(앞선 시도가 이미 저장됐거나 타인이 수정)
       // → 최신 단가로 화면 자동 갱신. 입력한 수정값(costEdits)은 유지되므로 바로 재적용 가능.
-      if (err.isStaleData || err.code === 'ERP_EDIT_STALE') {
+      if (err.isStaleData || err.code === 'STALE_DATA' || err.code === 'ERP_EDIT_STALE') {
         estimateEditPresence.markStale();
         setCostApplyLog(prev => [...prev, { step: 'cycle', label: '최신 단가로 화면 갱신 중 — 이미 반영된 항목은 값이 일치하게 보입니다' }]);
         try { await refreshCapturedEstimate(capturedRefresh); } catch { /* 최신 재조회 실패는 현재 오류 안내를 유지 */ }
@@ -2546,6 +2799,7 @@ export default function Estimate() {
 
       const runCombinedUpdate = async () => {
         const dateResults = await saveDateQuantityBatch(qtyPending.filter(p => p.isDateQuantity), {
+          captured: capturedRefresh,
           onProgress: stage => {
             if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, stage);
           },
@@ -2562,33 +2816,7 @@ export default function Estimate() {
             step: 'save',
             label: `${p.item.OrderWeek} ${p.item.ProdName} 수량 저장 — ${p.oldQty}${p.item.Unit} → ${p.newQty}${p.item.Unit}`,
           }]);
-          const r = await fetch('/api/estimate/update-quantity', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-              sdetailKey: p.isEstimate ? undefined : p.keyNumber,
-              estimateKey: p.isEstimate ? p.keyNumber : undefined,
-              shipmentKey: p.item.ShipmentKey,
-              orderYear: yearStr,
-              custKey: selectedShip?.CustKey || p.item.CustKey,
-              quantity: p.newQty,
-              unit: p.item.Unit,
-              expectedOldQuantity: p.oldQty,
-              editGuard: estimateEditGuard(),
-            }),
-          });
-          const d = await r.json();
-          return {
-            key: p.keyNumber,
-            ok: d.success,
-            code: d.code,
-            oldQty: p.oldQty,
-            newQty: p.newQty,
-            orderWeek: p.item.OrderWeek,
-            error: d.error,
-            pendingRef: p,
-          };
+          return saveDeductionQuantity(p, { captured: capturedRefresh });
         });
         const qtyResults = [...dateResults, ...deductionResults];
         if (qtyResults.some(r => !r.ok)) {
@@ -2609,27 +2837,19 @@ export default function Estimate() {
               label: `${it.OrderWeek} ${it.ProdName} 단가 저장 — ${it.expectedOldCost} → ${it.cost}`,
             }]);
           });
-          const r = await fetch('/api/estimate/update-cost', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              items: rebasedCosts.items.map(({ OrderWeek, ProdName, CountryFlower, ...it }) => it),
-              mode: costMode,
-              orderYear: yearStr,
-              week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
-              custKey: selectedShip.CustKey,
-              editGuard: estimateEditGuard(),
-            }),
+          const costBody = {
+            items: rebasedCosts.items.map(({ OrderWeek, ProdName, CountryFlower, ...it }) => it),
+            mode: costMode,
+            orderYear: yearStr,
+            week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
+            custKey: selectedShip.CustKey,
+            editGuard: estimateEditGuard(),
+          };
+          costResultData = await saveEstimateCostBatch({
+            allItems: rebasedCosts.items,
+            body: costBody,
+            captured: capturedRefresh,
           });
-          const d = await r.json();
-          if (!d.success) {
-            const error = new Error(d.error || '단가 수정 실패');
-            error.code = d.code;
-            error.fixedWeeks = d.fixedWeeks || [];
-            error.fixedCategories = d.fixedCategories || [];
-            throw error;
-          }
-          costResultData = d;
         }
         const addResults = [];
         if (pendingAdds.length > 0) {
@@ -4734,7 +4954,11 @@ export default function Estimate() {
                               ) : (
                                 <input
                                   type="number"
+                                  data-estimate-edit-cell="1"
+                                  data-estimate-edit-row={i}
+                                  data-estimate-edit-column="quantity"
                                   value={qtyEditKey ? (qtyEdits[qtyEditKey] ?? '') : ''}
+                                  onKeyDown={handleEstimateEditCellKeyDown}
                                   onChange={e => {
                                     const v = e.target.value;
                                     setQtyEdits(prev => {
@@ -4767,7 +4991,11 @@ export default function Estimate() {
                               ) : (
                                 <input
                                   type="number"
+                                  data-estimate-edit-cell="1"
+                                  data-estimate-edit-row={i}
+                                  data-estimate-edit-column="cost"
                                   value={editVal}
+                                  onKeyDown={handleEstimateEditCellKeyDown}
                                   onChange={e => {
                                     const v = e.target.value;
                                     setCostEdits(prev => {

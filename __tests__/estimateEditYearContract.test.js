@@ -40,9 +40,11 @@ async function main() {
   assert.ok(applyCostEditsSrc.length > 0, 'applyCostEdits/applyAllEdits 경계를 찾을 수 없다.');
   assert.match(
     applyCostEditsSrc,
-    /fetch\('\/api\/estimate\/update-cost'/,
-    '단가 전용 저장은 확정 여부와 무관하게 단일 저장 요청으로 처리해야 한다.',
+    /saveEstimateCostBatch\(/,
+    '단가 전용 저장은 확정 여부와 무관하게 복구 가능한 단일 저장 요청으로 처리해야 한다.',
   );
+  const saveEstimateCostBatchSrc = page.slice(page.indexOf('const saveEstimateCostBatch'), page.indexOf('const getProdKeysForEditedItems'));
+  assert.match(saveEstimateCostBatchSrc, /url:\s*'\/api\/estimate\/update-cost'/, '복구 가능한 단가 저장 helper는 update-cost API를 사용해야 한다.');
   assert.doesNotMatch(
     applyCostEditsSrc,
     /runEditWithFixCycle/,
