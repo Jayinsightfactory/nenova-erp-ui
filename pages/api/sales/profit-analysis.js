@@ -26,7 +26,9 @@
 // 에러: { ok:false, message }
 import { withAuth } from '../../../lib/auth';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
-import { parseMajor } from './profit-report';
+import { parseMajor, loadWeeklyReportPayload } from './profit-report';
+import { computeProfitRow } from '../../../lib/profitReportCalc';
+import { buildCategoryEvidence, loadNegativeEndStock, loadNextWeekArrivalProdKeys } from '../../../lib/profitReportCategoryAnalysis.js';
 import { loadCustomerProductSales } from '../../../lib/profitReportCustomerMixSql.js';
 import { loadRateTrend, findRateAndStockGapWeeks, isProvisional } from '../../../lib/profitReportRateAnalysis.js';
 import { explainDrivers, averageTotals } from '../../../lib/profitReportDriverExplanation.js';
@@ -87,6 +89,41 @@ async function loadPriceMixCandidates(orderYear, major) {
   }
 }
 
+/** 카테고리(품종)별 원인분석 근거팩 — GET detail=category 와 AI 소견(POST 별도 엔드포인트)이
+ * 같은 값을 쓴다. 주차 원장은 loadWeeklyReportPayload(확정 스냅샷 우선)로 읽는다(읽기 전용). */
+export async function loadCategoryEvidence(orderYear, major) {
+  const majorNum = Number(major);
+  const { prevOrderYear, prevMajor } = prevMajorYear(orderYear, majorNum);
+  const withCalc = (rows) => (rows || []).map((row) => ({ ...row, calc: row.confirmed && row.calc ? row.calc : computeProfitRow(row) }));
+  const [currentPayload, prevPayload, currentSales, prevSales] = await Promise.all([
+    loadWeeklyReportPayload(major, orderYear),
+    loadWeeklyReportPayload(prevMajor, prevOrderYear).catch(() => ({ rows: [] })),
+    loadCustomerProductSales(orderYear, major, { withCategory: true }),
+    loadCustomerProductSales(prevOrderYear, prevMajor, { withCategory: true }).catch(() => []),
+  ]);
+  const nextMajor = String(majorNum + 1).padStart(2, '0');
+  const rawStockLag = await loadNegativeEndStock(currentPayload.stockWeeks?.endStockKey).catch(() => []);
+  const arrivalSet = rawStockLag.length
+    ? await loadNextWeekArrivalProdKeys(orderYear, nextMajor, rawStockLag.map((x) => x.prodKey)).catch(() => new Set())
+    : new Set();
+  const stockLag = rawStockLag.map((x) => ({ ...x, nextWeekArrival: arrivalSet.has(x.prodKey), nextMajor }));
+  const categories = buildCategoryEvidence({
+    currentRows: withCalc(currentPayload.rows),
+    prevRows: withCalc(prevPayload.rows),
+    currentSales,
+    prevSales,
+    priceDrops: detectPriceDecreaseCandidates(currentSales, prevSales),
+    mixCandidates: detectLowPriceCustomerMixCandidates(currentSales, prevSales),
+    stockLag,
+  });
+  return {
+    orderYear, major, prevOrderYear, prevMajor,
+    confirmed: Boolean(currentPayload.confirmed),
+    categories,
+    stockLagTotal: stockLag.length,
+  };
+}
+
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method !== 'GET') {
@@ -96,6 +133,12 @@ export default withAuth(async function handler(req, res) {
     const major = parseMajor(req.query.week);
     if (!major) return res.status(400).json({ ok: false, message: 'week 필요 (예: 27)' });
     const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);
+
+    // 원인분석 탭 — 카테고리(품종)별 근거팩만 반환한다(총계 추세/드라이버는 기존 기본 응답 그대로).
+    if (String(req.query.detail || '') === 'category') {
+      const evidence = await loadCategoryEvidence(orderYear, major);
+      return res.status(200).json({ ok: true, ...evidence });
+    }
 
     const [rateTrend, priceMix] = await Promise.all([
       loadRateTrend(orderYear, major),

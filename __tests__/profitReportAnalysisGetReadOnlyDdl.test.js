@@ -32,6 +32,7 @@ const TARGET_FILES = [
   'lib/profitReportRateAnalysis.js',
   'lib/profitReportPriceMixCandidates.js',
   'lib/profitReportDriverExplanation.js',
+  'lib/profitReportCategoryAnalysis.js',
   'pages/api/sales/profit-analysis.js',
 ];
 

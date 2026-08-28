@@ -14,6 +14,9 @@
     "pages/api/sales/customs-clearance.js",
     "pages/api/sales/forwarding-clearance.js",
     "pages/api/sales/profit-analysis.js",
+    "components/ProfitAnalysisTab.js",
+    "lib/profitReportCategoryAnalysis.js",
+    "pages/api/sales/profit-analysis-opinion.js",
     "lib/profitReport.js",
     "lib/profitReportConfirm.js",
     "lib/profitReportClassification.js",
@@ -213,6 +216,16 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "read-only; GET /api/sales/profit-analysis is a separate request from the main report GET so a slow/failed analysis never blocks the report table. Snapshot-first per week (active REPORT_CONFIRM_SNAPSHOT revision if present, else live loadReportData+computeProfitTotals) strictly scoped to the same OrderYear (no cross-year averaging, no wraparound near year boundary weeks). Customer/price-mix candidate detection reads only ShipmentMaster/ShipmentDetail/Customer with the same confirmed-shipment filter as lib/profitReport.js#salesByCategory (sm.isFix=1 and sd.isFix=1), bounded to a fixed top-N product scope by current-week amount (lib/profitReportCustomerMixSql.js, pages/api/sales/profit-analysis.js MAX_PRODUCTS), never customer-name literals in detection logic, never causal language, always the fixed candidate note '특가·재고소진 여부 확인', and marks the whole response provisional when any involved week has an audit issue, missing R rate, or stock-snapshot gap. Writes nothing — no INSERT/UPDATE/DELETE/MERGE/DDL anywhere in this action's code path (lib/profitReportRateAnalysis.js, lib/profitReportPriceMixCandidates.js, lib/profitReportDriverExplanation.js, lib/profitReportCustomerMixSql.js, pages/api/sales/profit-analysis.js)."
+    },
+    {
+      "name": "REPORT_ANALYSIS_CATEGORY_VIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "REPORT_ANALYSIS_LLM_OPINION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     },
     {
       "name": "REPORT_CONFIRM_SNAPSHOT",

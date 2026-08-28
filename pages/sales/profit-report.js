@@ -11,6 +11,7 @@ import { getPreviousProfitReportPeriod } from '../../lib/profitReportDefaultPeri
 import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRatio } from '../../lib/profitReportCalc';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
+import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 
 function getDefaultYear() {
@@ -888,6 +889,7 @@ export default function ProfitReportPage() {
             <button style={viewMode === 'category' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('category')}>카테고리별</button>
             <button style={viewMode === 'weeks' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToWeeksView}>차수별</button>
             <button style={viewMode === 'months' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToMonthsView}>월별</button>
+            <button style={viewMode === 'analysis' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('analysis')}>원인분석</button>
           </div>
           {viewMode === 'category' ? (
             <>
@@ -946,6 +948,25 @@ export default function ProfitReportPage() {
                 title="이 차수의 확정/취소 이력(revision·확정자·시각)을 봅니다">
                 🕘 확정 이력{showConfirmHistory ? ' ▲' : ' ▼'}
               </button>
+            </>
+          ) : viewMode === 'analysis' ? (
+            <>
+              <label style={st.label}>연도</label>
+              <input
+                style={{ ...st.weekInput, borderRight: '1px solid #cbd5e1', borderRadius: 8, width: 66 }}
+                value={reportYear}
+                onChange={e => setReportYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="2026"
+                aria-label="원인분석 연도"
+              />
+              <label style={st.label}>차수</label>
+              <div style={st.weekStepperWrap}>
+                <input style={st.weekInput} value={weekInput.value} onChange={e => weekInput.setValue(e.target.value)} placeholder="31" />
+                <div style={st.weekStepperBtns}>
+                  <button style={st.weekStepperBtn} onClick={() => stepWeek(1)} title="다음 차수">▲</button>
+                  <button style={st.weekStepperBtn} onClick={() => stepWeek(-1)} title="이전 차수">▼</button>
+                </div>
+              </div>
             </>
           ) : viewMode === 'weeks' ? (
             <>
@@ -1027,7 +1048,9 @@ export default function ProfitReportPage() {
         </div>
       </div>
       <div style={st.hint}>
-        {viewMode === 'months' ? (
+        {viewMode === 'analysis' ? (
+          <>원인분석 화면은 <b>카테고리(품종)별 이익률의 원인</b>을 분해합니다 — 거래처 판매단가·판매비중·환율·재고 시차·원가 변동. 숫자는 본표와 같은 전산 계산이며, AI 소견은 버튼을 눌렀을 때만 생성됩니다.</>
+        ) : viewMode === 'months' ? (
           <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
         ) : (
           <>자동 입력: 매출·구매·재고수량·항공료는 전산에서 불러옵니다. <b>기초·기말상품재고액은 확정 재고수량에 확인된 매입원가를 적용</b>합니다.
@@ -1654,6 +1677,8 @@ export default function ProfitReportPage() {
         </>
       )}
       {viewMode === 'months' && monthlyLoading && <div style={st.message}>연간 주차 원장과 PeriodDay를 읽어 월별로 분류하는 중입니다…</div>}
+
+      {viewMode === 'analysis' && <ProfitAnalysisTab weekValue={weekInput.value} year={reportYear} />}
 
       {viewMode === 'category' && data && (
         <div style={{ marginTop: 12 }}>
