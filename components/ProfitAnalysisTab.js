@@ -47,6 +47,25 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
   const [yearLag, setYearLag] = useState(null); // { total, byWeek, rows } — 연간 재고시차 전수
   const [yearLagBusy, setYearLagBusy] = useState(false);
   const [yearLagError, setYearLagError] = useState('');
+  const [flowLag, setFlowLag] = useState(null); // 흐름 재구성 전수 (조정 가림 포함)
+  const [flowLagBusy, setFlowLagBusy] = useState(false);
+  const [flowLagError, setFlowLagError] = useState('');
+
+  const loadFlowLag = async () => {
+    if (flowLagBusy) return;
+    if (flowLag) { setFlowLag(null); return; }
+    setFlowLagBusy(true); setFlowLagError('');
+    try {
+      const res = await fetch(`/api/sales/profit-analysis?detail=stockLagFlow&year=${encodeURIComponent(year)}`, { credentials: 'same-origin' });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.message || '흐름 재구성 조회 실패');
+      setFlowLag(d);
+    } catch (e) {
+      setFlowLagError(e.message);
+    } finally {
+      setFlowLagBusy(false);
+    }
+  };
 
   const loadYearLag = async () => {
     if (yearLagBusy) return;
@@ -132,6 +151,10 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
       <div style={st.topBar}>
         <span style={{ fontSize: 13, color: '#475569' }}>{data ? `${data.orderYear}년 ${Number(data.major)}차 (직전 ${Number(data.prevMajor)}차 대비)` : ''}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button style={{ ...st.aiAllBtn, background: '#0f766e' }} onClick={loadFlowLag} disabled={flowLagBusy}
+            title="스냅샷 잔량과 무관하게 (전차수 기말+입고-출고)를 직접 계산해 음수가 나온 차수·품목을 전수 검출합니다 — 재고조정으로 음수가 가려진 선판매까지 잡습니다">
+            {flowLagBusy ? '🔍 재구성 중…' : flowLag ? '🔍 흐름 재구성 닫기' : '🔍 흐름 재구성 전수'}
+          </button>
           <button style={{ ...st.aiAllBtn, background: '#b45309' }} onClick={loadYearLag} disabled={yearLagBusy}
             title="올해 모든 세부차수 재고 스냅샷에서 잔량이 음수인 품목(다음 차수 입고분 선판매 흔적)을 전수 조회합니다">
             {yearLagBusy ? '📦 전수 조회 중…' : yearLag ? '📦 연간 재고시차 닫기' : '📦 연간 재고시차 전체'}
@@ -144,6 +167,35 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
       {opinions[ALL_CATEGORY]?.text || opinions[ALL_CATEGORY]?.error ? (
         <div style={st.card}><div style={st.body}><OpinionBlock category={ALL_CATEGORY} /></div></div>
       ) : null}
+      {flowLagError && <div style={st.error}>{flowLagError}</div>}
+      {flowLag && (
+        <div style={st.card}>
+          <div style={{ ...st.cardHead, cursor: 'default' }}>
+            <span style={st.cardTitle}>🔍 {flowLag.orderYear}년 흐름 재구성 전수 — 총 {flowLag.total}건 (조정으로 가려진 {flowLag.maskedCount}건 포함)</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#64748b' }}>계산잔량 = 전차수 기말 + 입고 − 출고(확정). 음수 = 다음 차수 입고분 선판매</span>
+          </div>
+          <div style={st.body}>
+            {flowLag.total === 0 ? <div style={st.message}>흐름상 잔량 음수가 없습니다.</div> : (
+              <table style={st.table}>
+                <thead><tr><th style={st.th}>차수</th><th style={st.th}>카테고리</th><th style={st.th}>품목</th><th style={{ ...st.th, ...st.num }}>기초</th><th style={{ ...st.th, ...st.num }}>입고</th><th style={{ ...st.th, ...st.num }}>출고</th><th style={{ ...st.th, ...st.num }}>계산잔량</th><th style={{ ...st.th, ...st.num }}>스냅샷</th><th style={st.th}>상태</th></tr></thead>
+                <tbody>{flowLag.rows.map((x, i) => (
+                  <tr key={i}>
+                    <td style={st.td}>{Number(x.major)}차</td>
+                    <td style={st.td}>{x.category || '-'}</td>
+                    <td style={st.td}>{x.productName}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(x.begin)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(x.arrivals)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{fmt(x.shipments)}</td>
+                    <td style={{ ...st.td, ...st.num, color: '#b91c1c', fontWeight: 700 }}>{x.impliedEnd}</td>
+                    <td style={{ ...st.td, ...st.num }}>{x.snapshotEnd == null ? '-' : fmt(x.snapshotEnd)}</td>
+                    <td style={st.td}>{x.masked ? `⚠ 조정 가림 (+${x.adjustment})` : x.nextWeekArrival ? `✅ ${Number(x.nextMajor)}차 입고` : '입고 미확인'}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
       {yearLagError && <div style={st.error}>{yearLagError}</div>}
       {yearLag && (
         <div style={st.card}>

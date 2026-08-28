@@ -45,5 +45,8 @@ assert.match(lib, /loadYearNegativeStock/, '연간 재고시차 전수 스캐너
 assert.match(lib, /ROW_NUMBER\(\) OVER/, '전수 스캔은 세부차수별 대표 스냅샷(행수·StockKey 기준)만 봐야 합니다 — 낡은 중복 스냅샷 오탐 금지.');
 assert.match(analysisApi, /stockLagYear/, 'GET detail=stockLagYear 분기가 있어야 합니다.');
 assert.match(tab, /stockLagYear/, '탭에서 연간 재고시차 전수를 조회할 수 있어야 합니다.');
+assert.match(lib, /loadYearStockFlow/, '흐름 재구성 전수(조정 가림 검출) 스캐너가 있어야 합니다.');
+assert.match(analysisApi, /stockLagFlow/, 'GET detail=stockLagFlow 분기가 있어야 합니다.');
+assert.match(tab, /stockLagFlow/, '탭에서 흐름 재구성 전수를 조회할 수 있어야 합니다.');
 
 console.log('profit analysis category/LLM contract tests passed');
