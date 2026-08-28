@@ -13,6 +13,7 @@ import { parseMajor } from './profit-report';
 import { loadCategoryEvidence } from './profit-analysis';
 
 const ALL_CATEGORY = '(전체)';
+const DRIVER_LABEL = { C: '매출액', E: '기초상품재고액', F: '기말상품재고액', P: '상품매입액', H: '그외통관비', T: '포워딩(원화)' };
 const MODEL = 'claude-haiku-4-5';
 
 const TABLE_SQL = `
@@ -36,6 +37,7 @@ const SYSTEM_PROMPT = [
   '너는 네노바(꽃 수입 유통) 주차별 매출이익 보고서의 이익률 원인분석 담당이다.',
   '입력 JSON(근거팩)은 웹 화면과 동일한 확정 수치다. 규칙:',
   '- 근거팩에 있는 숫자만 인용하고 새 수치를 계산하거나 추정해 만들지 마라.',
+  '- drivers의 열 의미는 label 필드가 정답이다: C=매출액, E=기초상품재고액, F=기말상품재고액, P=상품매입액, H=그외통관비, T=포워딩. profitImpact 양수=이익 개선, 음수=이익 악화. 열 의미를 절대 바꿔 해석하지 마라(예: C를 원가로, P를 판매가로 부르지 말 것).',
   '- 카테고리(품종)마다 이익률이 왜 높거나 낮은지 핵심 원인을 영향이 큰 순서로 2~4문장으로 설명하라.',
   '- 원인 유형: ①거래처 판매단가(카테고리 평균 대비 낮은 거래처와 그 매출 비중) ②저가 거래처 판매비중 확대 ③환율(rate.effect: 음수=환율 상승으로 이익 감소) ④재고 시차(stockLag: 기말 잔량 음수 = 다음 차수 입고분을 이번 차수에 선판매 — nextWeekArrival=true면 다음 차수 입고 확인됨) ⑤매입원가·통관비·포워딩 변동(drivers의 profitImpact).',
   '- cnf=true(호주·베트남)는 운임이 매입단가에 포함(CNF)이라 포워딩 부재가 정상임을 전제로 하라.',
@@ -54,7 +56,7 @@ function compactEvidence(evidence, categoryFilter) {
       category: c.category,
       cnf: c.cnf,
       K: c.K, prevK: c.prevK, J: c.J == null ? null : Math.round(c.J), C: c.C == null ? null : Math.round(c.C),
-      drivers: (c.drivers || []).slice(0, 4).map((d) => ({ col: d.column, delta: Math.round(d.delta || 0), profitImpact: Math.round(d.profitImpact || 0) })),
+      drivers: (c.drivers || []).slice(0, 4).map((d) => ({ col: d.column, label: DRIVER_LABEL[d.column] || d.column, delta: Math.round(d.delta || 0), profitImpact: Math.round(d.profitImpact || 0) })),
       rate: c.rate && (c.rate.current != null || c.rate.prev != null)
         ? { current: c.rate.current, prev: c.rate.prev, effect: c.rate.effect == null ? null : Math.round(c.rate.effect) }
         : null,
