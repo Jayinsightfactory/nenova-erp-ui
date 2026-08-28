@@ -18,6 +18,8 @@ function main() {
   const endSavingSource = hook.slice(hook.indexOf('const endSaving'), hook.indexOf('const markStale'));
   assert.ok(endSavingSource.indexOf("action: 'heartbeat'") < endSavingSource.indexOf('savingRef.current = Math.max'), '본인 저장 확인이 끝날 때까지 외부 변경 polling을 중지해야 합니다.');
   assert.match(hook, /stale: Boolean\(data\?\.stale\)/, '서버의 stale 상태를 화면 차단 상태에 반영해야 합니다.');
+  assert.match(hook, /fixStatusChanged:/, '확정상태 변경은 실제 견적 내용 충돌과 별도로 전달해야 합니다.');
+  assert.match(hook, /shouldBlockErpDigestTransition\(\{[\s\S]{0,240}force,/, '명시적 최신 현황 불러오기는 일반 polling과 구분해야 합니다.');
   assert.match(hook, /scopeMatches[\s\S]{0,220}blocked/, '업체를 바꾸는 순간 이전 업체의 작업권으로 저장할 수 없어야 합니다.');
   assert.match(useApi, /error\.code = data\.code/, '공용 API 호출도 편집 충돌 코드를 화면까지 보존해야 합니다.');
 
@@ -25,7 +27,20 @@ function main() {
   assert.match(banner, /님이 .* 이 업체를 작업 중입니다/, '다른 작업자 이름을 사용자에게 보여줘야 합니다.');
   assert.match(banner, /같은 계정의 다른 창/, '본인의 다른 창을 다른 사용자로 오인하지 않아야 합니다.');
   assert.match(banner, /이 창에서 계속 작업/, '본인 작업권은 새로고침 없이 명시적으로 넘겨받을 수 있어야 합니다.');
+  assert.match(banner, /최신 내용을 다시 불러오면 현재 값으로 계속 작업할 수 있습니다/, 'EXE 확정 뒤에는 사용자가 현재 값을 다시 읽을 수 있는 안내가 필요합니다.');
+  assert.match(banner, /typeof onReload === 'function'/, '외부 변경 경고에는 실제 재조회 동작을 연결할 수 있어야 합니다.');
   assert.match(estimate, /const selectedEditWeek = weekNum \? String\(weekNum\)\.padStart\(2, '0'\)/, '견적서 작업권은 불안정한 SubWeeks 순서가 아니라 대차수로 고정해야 합니다.');
+  assert.match(estimate, /const refreshFixStatusAndEstimate = async[\s\S]{0,1800}checkFixStatus\(\)[\s\S]{0,1800}refresh\(\{ force: true \}\)[\s\S]{0,1800}refreshCapturedEstimate/, '확정현황 확인은 현재 EXE 기준 수용과 선택 업체 재조회를 한 흐름으로 처리해야 합니다.');
+  assert.match(estimate, /onClick=\{refreshFixStatusAndEstimate\}/, '상단 확정현황 버튼은 단순 모달 조회가 아니라 최신 견적 동기화를 실행해야 합니다.');
+  assert.match(estimate, /onReload=\{refreshFixStatusAndEstimate\}/, '외부 변경 경고에서도 같은 안전한 재조회 흐름을 사용해야 합니다.');
+  assert.match(estimate, /estimateEditPresence\.fixStatusDigest[\s\S]{0,1200}refreshCapturedEstimate/, 'EXE 확정상태만 바뀌면 선택 업체와 목록을 자동 갱신해야 합니다.');
+  const estimateApi = fs.readFileSync('pages/api/estimate/index.js', 'utf8');
+  const fixStatusApi = fs.readFileSync('pages/api/shipment/fix-status.js', 'utf8');
+  assert.doesNotMatch(estimateApi, /MAX\(CAST\(sd2\.isFix AS INT\)\)/, '세부행 하나만 확정된 차수를 전체 확정으로 표시하면 안 됩니다.');
+  assert.match(estimateApi, /SUM\(CASE WHEN ISNULL\(sd2\.OutQuantity,0\) > 0 AND ISNULL\(sd2\.isFix,0\) = 0 THEN 1 ELSE 0 END\) = 0/, '양수 출고 상세행이 모두 확정된 경우에만 체크해야 합니다.');
+  assert.match(fixStatusApi, /Cache-Control', 'private, no-store, max-age=0'/, '확정현황 응답은 캐시된 과거 값을 반환하면 안 됩니다.');
+  assert.match(fixStatusApi, /SUM\(CASE WHEN ISNULL\(sd\.OutQuantity, 0\) > 0 THEN 1 ELSE 0 END\) AS detailCount/, '0수량 행은 확정 카운트에서 제외해야 합니다.');
+  assert.match(fixStatusApi, /COUNT\(DISTINCT CASE WHEN ISNULL\(sd\.OutQuantity, 0\) > 0 THEN p\.CountryFlower END\)[\s\S]{0,260}- COUNT\(DISTINCT CASE WHEN ISNULL\(sd\.OutQuantity, 0\) > 0 AND ISNULL\(sd\.isFix, 0\) = 0 THEN p\.CountryFlower END\) AS fixedCategoryCount/, '품목군도 양수 상세행이 모두 확정된 경우에만 확정 카운트에 포함해야 합니다.');
 
   for (const label of ['＋ 불량/검역등록', '＋ 불량차감등록', '＋ 판매요청', '＋ 추가 품목등록']) {
     assert.ok(estimate.includes(label), `${label} 버튼을 보존해야 합니다.`);

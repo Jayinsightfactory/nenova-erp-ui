@@ -39,7 +39,7 @@ async function requestPresence(method, payload) {
 }
 
 function emptyState() {
-  return { loading: false, active: false, ownedByMe: false, ownedBySameUser: false, stale: false, error: '', digest: '', token: '', ownerName: '', pageCode: '', expiresAt: '', scopeKey: '' };
+  return { loading: false, active: false, ownedByMe: false, ownedBySameUser: false, stale: false, error: '', digest: '', fixStatusDigest: '', fixStatusChanged: false, token: '', ownerName: '', pageCode: '', expiresAt: '', scopeKey: '' };
 }
 
 // Keep this reducer pure so the save-completion transition can be exercised
@@ -49,6 +49,7 @@ function emptyState() {
 // stale=true and must never be accepted as another own write.
 export function mergeErpEditPresenceResponse(previous = {}, data = {}, { preserveToken = true } = {}) {
   const lease = data?.lease || {};
+  const nextFixStatusDigest = data?.fixStatusDigest || previous.fixStatusDigest || '';
   return {
     ...previous,
     loading: false,
@@ -60,10 +61,23 @@ export function mergeErpEditPresenceResponse(previous = {}, data = {}, { preserv
     pageCode: lease.pageCode || '',
     expiresAt: lease.expiresAt || '',
     digest: data?.digest || previous.digest || '',
+    fixStatusDigest: nextFixStatusDigest,
+    fixStatusChanged: Boolean(previous.fixStatusDigest && nextFixStatusDigest && previous.fixStatusDigest !== nextFixStatusDigest),
     token: lease.token || (preserveToken ? previous.token : ''),
     stale: Boolean(data?.stale),
     scopeKey: editScopeKey(data?.scope || {}),
   };
+}
+
+// Polling 중 발견한 지문 변경은 외부 수정이므로 저장을 막아야 한다.
+// 단, 사용자가 명시적으로 최신 내용을 다시 불러온 경우에는 기존 화면
+// 기준을 버리고 현재 ERP 원장을 새 기준으로 받아들인다.
+export function shouldBlockErpDigestTransition({ force = false, savingCount = 0, previousDigest = '', nextDigest = '' } = {}) {
+  return !force
+    && Number(savingCount || 0) === 0
+    && Boolean(previousDigest)
+    && Boolean(nextDigest)
+    && previousDigest !== nextDigest;
 }
 
 function editScopeKey({ year, orderYear, week, orderWeek, custKey } = {}) {
@@ -142,8 +156,12 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
         ? await requestPresence('POST', { action: 'refresh', ...scope, token: previous.token })
         : await requestPresence('GET', scope);
       const nextDigest = data?.digest || '';
-      const ownMutationSuspended = savingRef.current > 0;
-      if (!ownMutationSuspended && previous.digest && nextDigest && previous.digest !== nextDigest) {
+      if (shouldBlockErpDigestTransition({
+        force,
+        savingCount: savingRef.current,
+        previousDigest: previous.digest,
+        nextDigest,
+      })) {
         setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
         return data;
       }

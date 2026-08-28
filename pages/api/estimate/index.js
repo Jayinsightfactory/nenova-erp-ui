@@ -380,7 +380,12 @@ async function getEstimates(req, res) {
           query(
             `SELECT sm.CustKey,
                     STUFF((
-                      SELECT ',' + sm2.OrderWeek + ':' + CAST(MAX(CAST(sd2.isFix AS INT)) AS NVARCHAR(1))
+                      SELECT ',' + sm2.OrderWeek + ':' + CAST(
+                        CASE
+                          WHEN SUM(CASE WHEN ISNULL(sd2.OutQuantity,0) > 0 THEN 1 ELSE 0 END) > 0
+                           AND SUM(CASE WHEN ISNULL(sd2.OutQuantity,0) > 0 AND ISNULL(sd2.isFix,0) = 0 THEN 1 ELSE 0 END) = 0
+                          THEN 1 ELSE 0
+                        END AS NVARCHAR(1))
                         FROM ShipmentMaster sm2
                         JOIN ShipmentDetail sd2 ON sm2.ShipmentKey = sd2.ShipmentKey
                        WHERE sm2.CustKey = sm.CustKey
