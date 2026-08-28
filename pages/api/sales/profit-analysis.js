@@ -28,7 +28,7 @@ import { withAuth } from '../../../lib/auth';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { parseMajor, loadWeeklyReportPayload } from './profit-report';
 import { computeProfitRow } from '../../../lib/profitReportCalc';
-import { buildCategoryEvidence, loadNegativeEndStock, loadNextWeekArrivalProdKeys, loadYearNegativeStock, loadYearArrivalMajors, loadYearStockFlow } from '../../../lib/profitReportCategoryAnalysis.js';
+import { buildCategoryEvidence, loadNegativeEndStock, loadNextWeekArrivalProdKeys, loadYearNegativeStock, loadYearArrivalMajors, loadYearStockFlow, loadYearStockAdjustments } from '../../../lib/profitReportCategoryAnalysis.js';
 import { loadCustomerProductSales } from '../../../lib/profitReportCustomerMixSql.js';
 import { loadRateTrend, findRateAndStockGapWeeks, isProvisional } from '../../../lib/profitReportRateAnalysis.js';
 import { explainDrivers, averageTotals } from '../../../lib/profitReportDriverExplanation.js';
@@ -128,6 +128,27 @@ export default withAuth(async function handler(req, res) {
   try {
     if (req.method !== 'GET') {
       return res.status(405).json({ ok: false, message: 'Method not allowed' });
+    }
+
+    // 재고 조정 원장 전수 — 모든 (차수, 품목)의 조정량(기말 − 흐름값). 품종별 집계 포함.
+    if (String(req.query.detail || '') === 'stockAdjustments') {
+      const scanYear = resolveActiveOrderYear('', req.query.year);
+      const rows = await loadYearStockAdjustments(scanYear);
+      const byCategory = {};
+      const byWeek = {};
+      for (const r of rows) {
+        const cat = r.category || '기타';
+        if (!byCategory[cat]) byCategory[cat] = { count: 0, injectQty: 0, shrinkQty: 0, negativeFlowCount: 0 };
+        byCategory[cat].count += 1;
+        if (r.adjustment > 0) byCategory[cat].injectQty += r.adjustment; else byCategory[cat].shrinkQty += r.adjustment;
+        if (r.negativeFlow) byCategory[cat].negativeFlowCount += 1;
+        byWeek[r.major] = (byWeek[r.major] || 0) + 1;
+      }
+      for (const cat of Object.keys(byCategory)) {
+        byCategory[cat].injectQty = Math.round(byCategory[cat].injectQty * 100) / 100;
+        byCategory[cat].shrinkQty = Math.round(byCategory[cat].shrinkQty * 100) / 100;
+      }
+      return res.status(200).json({ ok: true, orderYear: scanYear, total: rows.length, byCategory, byWeek, rows });
     }
 
     // 재고 흐름 재구성 전수 — 스냅샷과 무관하게 (전차수 기말+입고-출고)<0 인 (차수,품목).

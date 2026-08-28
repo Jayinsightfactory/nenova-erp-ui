@@ -48,5 +48,8 @@ assert.match(tab, /stockLagYear/, '탭에서 연간 재고시차 전수를 조�
 assert.match(lib, /loadYearStockFlow/, '흐름 재구성 전수(조정 가림 검출) 스캐너가 있어야 합니다.');
 assert.match(analysisApi, /stockLagFlow/, 'GET detail=stockLagFlow 분기가 있어야 합니다.');
 assert.match(tab, /stockLagFlow/, '탭에서 흐름 재구성 전수를 조회할 수 있어야 합니다.');
+assert.match(lib, /loadYearStockAdjustments/, '조정 원장 전수 스캐너가 있어야 합니다.');
+assert.match(analysisApi, /stockAdjustments/, 'GET detail=stockAdjustments 분기가 있어야 합니다.');
+assert.match(tab, /stockAdjustments/, '탭에서 조정 원장 전수를 조회할 수 있어야 합니다.');
 
 console.log('profit analysis category/LLM contract tests passed');

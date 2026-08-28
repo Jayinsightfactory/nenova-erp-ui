@@ -50,6 +50,25 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
   const [flowLag, setFlowLag] = useState(null); // 흐름 재구성 전수 (조정 가림 포함)
   const [flowLagBusy, setFlowLagBusy] = useState(false);
   const [flowLagError, setFlowLagError] = useState('');
+  const [adjLedger, setAdjLedger] = useState(null); // 조정 원장 전수 (품종별 집계 포함)
+  const [adjBusy, setAdjBusy] = useState(false);
+  const [adjError, setAdjError] = useState('');
+
+  const loadAdjLedger = async () => {
+    if (adjBusy) return;
+    if (adjLedger) { setAdjLedger(null); return; }
+    setAdjBusy(true); setAdjError('');
+    try {
+      const res = await fetch(`/api/sales/profit-analysis?detail=stockAdjustments&year=${encodeURIComponent(year)}`, { credentials: 'same-origin' });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.message || '조정 원장 조회 실패');
+      setAdjLedger(d);
+    } catch (e) {
+      setAdjError(e.message);
+    } finally {
+      setAdjBusy(false);
+    }
+  };
 
   const loadFlowLag = async () => {
     if (flowLagBusy) return;
@@ -151,6 +170,10 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
       <div style={st.topBar}>
         <span style={{ fontSize: 13, color: '#475569' }}>{data ? `${data.orderYear}년 ${Number(data.major)}차 (직전 ${Number(data.prevMajor)}차 대비)` : ''}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button style={{ ...st.aiAllBtn, background: '#334155' }} onClick={loadAdjLedger} disabled={adjBusy}
+            title="모든 차수·품목의 조정량(기말 − (기초+입고−출고))을 원장으로 봅니다 — 조정이 재고를 부풀려 선판매가 음수로 안 보이게 된 것까지 품종별로 집계됩니다">
+            {adjBusy ? '🧾 원장 조회 중…' : adjLedger ? '🧾 조정 원장 닫기' : '🧾 조정 원장 전수'}
+          </button>
           <button style={{ ...st.aiAllBtn, background: '#0f766e' }} onClick={loadFlowLag} disabled={flowLagBusy}
             title="스냅샷 잔량과 무관하게 (전차수 기말+입고-출고)를 직접 계산해 음수가 나온 차수·품목을 전수 검출합니다 — 재고조정으로 음수가 가려진 선판매까지 잡습니다">
             {flowLagBusy ? '🔍 재구성 중…' : flowLag ? '🔍 흐름 재구성 닫기' : '🔍 흐름 재구성 전수'}
@@ -167,6 +190,53 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
       {opinions[ALL_CATEGORY]?.text || opinions[ALL_CATEGORY]?.error ? (
         <div style={st.card}><div style={st.body}><OpinionBlock category={ALL_CATEGORY} /></div></div>
       ) : null}
+      {adjError && <div style={st.error}>{adjError}</div>}
+      {adjLedger && (
+        <div style={st.card}>
+          <div style={{ ...st.cardHead, cursor: 'default' }}>
+            <span style={st.cardTitle}>🧾 {adjLedger.orderYear}년 재고 조정 원장 — 총 {adjLedger.total}건</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#64748b' }}>조정 = 기말 − (기초+입고−출고). 양수=재고 주입(선판매 가림 포함) · 음수=재고 증발</span>
+          </div>
+          <div style={st.body}>
+            <div>
+              <div style={st.secTitle}>품종별 연간 집계</div>
+              <table style={st.table}>
+                <thead><tr><th style={st.th}>카테고리</th><th style={{ ...st.th, ...st.num }}>건수</th><th style={{ ...st.th, ...st.num }}>주입(+) 합계</th><th style={{ ...st.th, ...st.num }}>증발(−) 합계</th><th style={{ ...st.th, ...st.num }}>흐름 음수 동반</th></tr></thead>
+                <tbody>{Object.entries(adjLedger.byCategory).sort((a, b) => b[1].count - a[1].count).map(([cat, v]) => (
+                  <tr key={cat}>
+                    <td style={st.td}>{cat}</td>
+                    <td style={{ ...st.td, ...st.num }}>{v.count}</td>
+                    <td style={{ ...st.td, ...st.num, color: '#b45309', fontWeight: 700 }}>+{fmt(v.injectQty)}</td>
+                    <td style={{ ...st.td, ...st.num, color: '#b91c1c' }}>{fmt(v.shrinkQty)}</td>
+                    <td style={{ ...st.td, ...st.num }}>{v.negativeFlowCount}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <div>
+              <div style={st.secTitle}>상세 (차수순 · 조정 큰 순)</div>
+              <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+                <table style={st.table}>
+                  <thead><tr><th style={st.th}>차수</th><th style={st.th}>카테고리</th><th style={st.th}>품목</th><th style={{ ...st.th, ...st.num }}>기초</th><th style={{ ...st.th, ...st.num }}>입고</th><th style={{ ...st.th, ...st.num }}>출고</th><th style={{ ...st.th, ...st.num }}>흐름값</th><th style={{ ...st.th, ...st.num }}>스냅샷</th><th style={{ ...st.th, ...st.num }}>조정</th></tr></thead>
+                  <tbody>{adjLedger.rows.map((x, i) => (
+                    <tr key={i} style={x.negativeFlow ? { background: '#fff7ed' } : undefined}>
+                      <td style={st.td}>{Number(x.major)}차</td>
+                      <td style={st.td}>{x.category || '-'}</td>
+                      <td style={st.td}>{x.productName}</td>
+                      <td style={{ ...st.td, ...st.num }}>{fmt(x.begin)}</td>
+                      <td style={{ ...st.td, ...st.num }}>{fmt(x.arrivals)}</td>
+                      <td style={{ ...st.td, ...st.num }}>{fmt(x.shipments)}</td>
+                      <td style={{ ...st.td, ...st.num, ...(x.negativeFlow ? { color: '#b91c1c', fontWeight: 700 } : {}) }}>{x.impliedEnd}</td>
+                      <td style={{ ...st.td, ...st.num }}>{x.snapshotEnd}</td>
+                      <td style={{ ...st.td, ...st.num, color: x.adjustment > 0 ? '#b45309' : '#b91c1c', fontWeight: 700 }}>{x.adjustment > 0 ? '+' : ''}{x.adjustment}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {flowLagError && <div style={st.error}>{flowLagError}</div>}
       {flowLag && (
         <div style={st.card}>
