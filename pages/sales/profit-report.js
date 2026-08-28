@@ -654,21 +654,42 @@ export default function ProfitReportPage() {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d.success) throw new Error(d.error || 'MOYI 드라이브 동기화에 실패했습니다.');
-      // 연도 전체 계산은 수 분 걸려 서버가 백그라운드로 처리한다 — 완료까지 진행상황 폴링
+      // 연도 전체 계산은 수 분 걸려 서버가 백그라운드로 처리한다 — 완료까지 진행상황 폴링.
+      // pm2 클러스터에서는 작업 메모리(job)가 다른 워커에 있어 안 보일 수 있으므로
+      // DB 전송 이력(history)으로도 진행을 추적한다.
       setMessage('MOYI 드라이브 동기화 시작 — 전체 차수 계산 중… (수 분 소요)');
+      const startTs = Date.now() - 60_000;
+      let lastCount = -1;
+      let stableTicks = 0;
       for (let tick = 0; tick < 120; tick += 1) {
         await new Promise(r => setTimeout(r, 10_000));
         const sres = await fetch('/api/moyi/drive-report-sync', { credentials: 'same-origin' });
         const s = await sres.json().catch(() => ({}));
         const job = s.job;
-        if (!job) break;
-        if (job.done) {
+        if (job?.done) {
           if (job.error) throw new Error(`동기화 오류: ${job.error}`);
           const failNote = job.failed ? ` · 실패 ${job.failed}건 (전송 이력 확인)` : '';
           setMessage(`MOYI 드라이브 동기화 완료 — 경영지원/보고 폴더에 ${job.sent}개 차수 파일 갱신${failNote}`);
           return;
         }
-        setMessage(`MOYI 드라이브 동기화 진행 중 — ${job.detail || job.phase}${job.total ? ` (완료 ${job.sent + job.failed}/${job.total})` : ''}`);
+        if (job) {
+          setMessage(`MOYI 드라이브 동기화 진행 중 — ${job.detail || job.phase}${job.total ? ` (완료 ${job.sent + job.failed}/${job.total})` : ''}`);
+          continue;
+        }
+        const recent = (s.history || []).filter(h => h.requestedAt && new Date(h.requestedAt).getTime() >= startTs);
+        const sent = recent.filter(h => h.state === 'sent').length;
+        const failed = recent.filter(h => h.state === 'failed').length;
+        if (sent + failed > 0) {
+          if (sent + failed === lastCount) stableTicks += 1; else { stableTicks = 0; lastCount = sent + failed; }
+          if (stableTicks >= 3) {
+            const failNote = failed ? ` · 실패 ${failed}건 (전송 이력 확인)` : '';
+            setMessage(`MOYI 드라이브 동기화 완료 — 경영지원/보고 폴더에 ${sent}개 차수 파일 갱신${failNote}`);
+            return;
+          }
+          setMessage(`MOYI 드라이브 동기화 진행 중 — 전송 ${sent}건${failed ? ` · 실패 ${failed}건` : ''}`);
+        } else {
+          setMessage('MOYI 드라이브 동기화 진행 중 — 전체 차수 계산 중… (수 분 소요)');
+        }
       }
     } catch (e) {
       setError(e.message);
