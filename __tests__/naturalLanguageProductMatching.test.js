@@ -36,12 +36,26 @@ assert.equal(solomio.candidates[0].prodKey, 13, '전산 전체 품목명 SOLOMIO
 assert.equal(solomio.candidates[0].autoSelect, true);
 assert.ok(solomio.candidates[0].reasons.includes('master-name-exact'));
 assert.equal(solomio.candidates.find((x) => x.prodKey === 10)?.autoSelect, false, '화종 단어를 생략한 축약 후보는 정확한 전산 품목과 같은 만점으로 올리지 않는다.');
+assert.equal(solomio.candidates.find((x) => x.prodKey === 11)?.autoSelect, false, 'SOLOMIO 철자만 같고 PINK/WHITE가 다른 후보는 사용량이 많아도 자동 선택하지 않는다.');
 assert.equal(solomio.candidates.some((x) => x.prodKey === 12), false, '꽃 종류가 다른 동명 품목은 정상 후보에 섞지 않는다.');
 const exactWithMissingFlower = scoreNaturalLanguageProducts('SOLOMIO ROSE PINK', [
   { ProdKey: 14, ProdName: 'SOLOMIO ROSE (PINK)', DisplayName: '', FlowerName: '', CounName: '콜롬비아', OutUnit: '단' },
 ]);
 assert.equal(exactWithMissingFlower.candidates[0].prodKey, 14, '전산 전체 품목명이 정확하면 화종 메타데이터가 비어 있어도 수동 후보에서 숨기지 않는다.');
 assert.equal(exactWithMissingFlower.candidates[0].autoSelect, false, '화종 메타데이터 충돌 후보는 자동 선택하지 않는다.');
+const solomioRepeatedLetterTypo = scoreNaturalLanguageProducts('SOLOOMIO ROSE PINK', [
+  { ProdKey: 15, ProdName: 'SOLOMIO ROSE (PINK)', DisplayName: '', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
+  { ProdKey: 16, ProdName: 'SOLAR ROSE (PINK)', DisplayName: '', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단', UsageCount: 9000 },
+]);
+assert.equal(solomioRepeatedLetterTypo.candidates[0].prodKey, 15, 'SOLOMIO의 반복 O가 하나 더 입력돼도 철자 개수와 순서를 함께 비교해 실제 품목을 먼저 찾는다.');
+const solomioTransposedLetter = scoreNaturalLanguageProducts('SOOLMIO ROSE PINK', [
+  { ProdKey: 15, ProdName: 'SOLOMIO ROSE (PINK)', DisplayName: '', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
+]);
+assert.equal(solomioTransposedLetter.candidates[0].prodKey, 15, 'S×1/O×3/L·M·I×1 구성이 같은 인접 자리바꿈도 후보로 유지한다.');
+const inventoryOnlyAnagram = scoreNaturalLanguageProducts('OOSMILO ROSE PINK', [
+  { ProdKey: 15, ProdName: 'SOLOMIO ROSE (PINK)', DisplayName: '', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
+]);
+assert.equal(inventoryOnlyAnagram.candidates[0].autoSelect, false, '철자 개수만 같고 순서가 크게 다른 입력은 자동 확정하지 않는다.');
 const solomioWrongColor = scoreNaturalLanguageProducts('SOLOMIO ROSE WHITE', [
   { ProdKey: 10, ProdName: 'Solomio Pink', DisplayName: '솔로미오 핑크', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
 ]);
