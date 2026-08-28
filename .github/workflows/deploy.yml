@@ -42,6 +42,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AUTOMATION_API_TOKEN: ${{ secrets.AUTOMATION_API_TOKEN }}
           MOYI_API_TOKEN: ${{ secrets.MOYI_API_TOKEN }}
+          MOYI_BRIDGE_TOKEN: ${{ secrets.MOYI_BRIDGE_TOKEN }}
           ECOUNT_INGEST_TOKEN: ${{ secrets.ECOUNT_INGEST_TOKEN }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           KAKAO_SHEET_ID: ${{ secrets.KAKAO_SHEET_ID }}
@@ -50,7 +51,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: JWT_SECRET,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,ECOUNT_INGEST_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID
+          envs: JWT_SECRET,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -131,6 +132,17 @@ jobs:
               echo "✅ MOYI_API_TOKEN synced (len=${#MOYI_API_TOKEN})"
             else
               echo "ℹ️  MOYI_API_TOKEN GitHub Secret 미설정 — AUTOMATION_API_TOKEN 폴백 사용"
+            fi
+            echo "=== .env.local 환경변수 동기화 (MOYI_BRIDGE_TOKEN) ==="
+            if [ -n "$MOYI_BRIDGE_TOKEN" ]; then
+              if grep -q '^MOYI_BRIDGE_TOKEN=' .env.local 2>/dev/null; then
+                grep -v '^MOYI_BRIDGE_TOKEN=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "MOYI_BRIDGE_TOKEN=$MOYI_BRIDGE_TOKEN" >> .env.local
+              echo "✅ MOYI_BRIDGE_TOKEN synced (len=${#MOYI_BRIDGE_TOKEN})"
+            else
+              echo "ℹ️  MOYI_BRIDGE_TOKEN GitHub Secret 미설정 — MOYI 드라이브 동기화 비활성"
             fi
             echo "=== .env.local 환경변수 동기화 (GOOGLE_SERVICE_ACCOUNT_JSON) ==="
             if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then

@@ -10,6 +10,7 @@
     "pages/api/sales/profit-report-excel-audit.js",
     "lib/profitReportExcelAudit.js",
     "pages/api/moyi/report-push.js",
+    "pages/api/moyi/drive-report-sync.js",
     "pages/api/sales/customs-clearance.js",
     "pages/api/sales/forwarding-clearance.js",
     "pages/api/sales/profit-analysis.js",
@@ -64,7 +65,12 @@
     "scripts/extract-profit-report-workbooks.mjs",
     "components/CustomsClearancePanel.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
     {
       "name": "REPORT_READ",
@@ -180,6 +186,11 @@
       "shipmentDetail": "preserve"
     },
     {
+      "name": "MOYI_DRIVE_REPORT_SYNC",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
       "name": "REPORT_SOURCE_GUIDE_VIEW",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -271,25 +282,31 @@
     "__tests__/profitReportPriceMixCandidates.test.js",
     "__tests__/profitReportDriverExplanation.test.js",
     "__tests__/profitReportAnalysisGetReadOnlyDdl.test.js",
-    "__tests__/profitReportPanelOrderContract.test.js"
-    ,"__tests__/profitReportEvidence.test.js"
-    ,"__tests__/profitReportAcceptanceHarness.test.js"
-    ,"__tests__/profitReportStockLinkContract.test.js"
-    ,"__tests__/profitReportCountryResolver.test.js"
-    ,"__tests__/profitReportWeek28Customs.test.js"
-    ,"__tests__/profitReportInventoryWorkbookCatalog.test.js"
-    ,"__tests__/profitReportInventorySourceCompletion.test.js"
-    ,"__tests__/profitReportIndependentRecalculation.test.js"
-    ,"__tests__/profitReportFormulaSourceContract.test.js"
-    ,"__tests__/profitReportStockPriceSuggestion.test.js"
-    ,"__tests__/profitReportWeek28Totals.test.js"
-    ,"__tests__/profitReportRequiredInputUiContract.test.js"
-    ,"__tests__/profitReportDefaultWeek.test.js"
+    "__tests__/profitReportPanelOrderContract.test.js",
+    "__tests__/profitReportEvidence.test.js",
+    "__tests__/profitReportAcceptanceHarness.test.js",
+    "__tests__/profitReportStockLinkContract.test.js",
+    "__tests__/profitReportCountryResolver.test.js",
+    "__tests__/profitReportWeek28Customs.test.js",
+    "__tests__/profitReportInventoryWorkbookCatalog.test.js",
+    "__tests__/profitReportInventorySourceCompletion.test.js",
+    "__tests__/profitReportIndependentRecalculation.test.js",
+    "__tests__/profitReportFormulaSourceContract.test.js",
+    "__tests__/profitReportStockPriceSuggestion.test.js",
+    "__tests__/profitReportWeek28Totals.test.js",
+    "__tests__/profitReportRequiredInputUiContract.test.js",
+    "__tests__/profitReportDefaultWeek.test.js"
   ],
   "historicalCustomsPolicy": {
     "description": "2026-08-12 원천 정정: 22~27차 그외통관비(H) 원본 엑셀 historical snapshot(lib/profitReportHistoricalCustoms.js)을 국가/콜롬비아 저장행이 전혀 없을 때만 폴백으로 적용한다. 이전 구현(lib/profitReportAuditedBaseline.js)은 검증된 '최종 H 합계'만 갖고 있어 운영 DB 입력 부재를 화면에서 숨겼다 — 이제는 백상 GW·관세·선율·월드운송료·한국방역 구성요소를 그대로 갖고 있어 총액을 항상 같은 프로덕션 공식(computeCountryCustomsTotal/computeColombiaCustomsTotal)으로 재계산한다. 우선순위는 explicit saved row(WebCustomsWeekly/WebColombiaWeekly) > excel historical snapshot(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults(RATE_DEFAULTS/WebCustomsRateConfig)이며, 저장행에 조금이라도 값이 있으면 historical snapshot은 전혀 적용하지 않는다(행 단위 폴백 — 필드 일부만 덮어쓰지 않음). 연도가 정확히 2026과 일치할 때만 적용되어 2025년 동일 차수는 절대 오염되지 않는다. 백상 창고료 요율은 scope별로 분리된다 — 국가 시트(그외통관비 화면)는 22~27차 전부 460원/kg, 콜롬비아 4품목 반차수 시트는 22차만 370원/kg·23~27차는 460원/kg이다(lib/customsForwardingCalc.js effectiveRatesForWeek scope 파라미터). WebCustomsWeekly/WebColombiaWeekly.BakSangRateApplied 스냅샷이 있으면 그 값이 최우선이다(전역 요율 변경이 과거 저장행을 재계산하지 않음).",
-    "resolvers": ["lib/customsForwarding.js resolveCountryCustomsTotal()", "lib/customsForwarding.js resolveColombiaCustomsAllocation()"],
-    "consumers": ["lib/customsForwarding.js computeCustomsAndForwarding()", "pages/api/sales/customs-clearance.js GET"],
+    "resolvers": [
+      "lib/customsForwarding.js resolveCountryCustomsTotal()",
+      "lib/customsForwarding.js resolveColombiaCustomsAllocation()"
+    ],
+    "consumers": [
+      "lib/customsForwarding.js computeCustomsAndForwarding()",
+      "pages/api/sales/customs-clearance.js GET"
+    ],
     "worldFreightCombinedGw": "국가별(콜롬비아 수국 포함) 월드운송료 추천은 그 대차수의 GW1+GW2 합산 중량을 lib/colombiaTruck.js deriveTruckPlan()에 한 번만 넣는다. 5t 묶음을 먼저 배정하고 잔여가 1t 이하면 1t 1대, 2.5t 이하면 2.5t 1대, 2.5t 초과면 2.5t 1대와 필요한 1t 차량을 더한다(1.371t=2.5t, 3t=2.5t+1t). 계산된 조합 금액 전부를 1차 칸에 반영하고 2차 자동값은 0이다. 저장된 실제값(WorldFreight{1,2}Manual=1, historical snapshot 포함)이 있으면 추천값이 그 실제값을 절대 덮지 않는다. 콜롬비아 4품목(장미/카네이션/알스트로/루스커스)의 국내운송도 저장된 실제 대수가 우선이고, 없을 때만 같은 추천식을 쓴다."
   },
   "automaticCategoryRules": {
@@ -305,9 +322,22 @@
     "레몬잎 운송료": "미국",
     "CHINA 또는 중국 원산지 상품": "중국",
     "2026-28차 이후 공제/샘플 상품": "국내",
-    "nonValueItems": ["Chargeable weight", "Gross weight"],
+    "nonValueItems": [
+      "Chargeable weight",
+      "Gross weight"
+    ],
     "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외",
-    "forwardingValueItems": ["운송료", "운송비", "항공료", "항공비", "FREIGHT", "AIR FREIGHT", "SHIPPING", "SERVICE FEE", "현지상차운임"],
+    "forwardingValueItems": [
+      "운송료",
+      "운송비",
+      "항공료",
+      "항공비",
+      "FREIGHT",
+      "AIR FREIGHT",
+      "SHIPPING",
+      "SERVICE FEE",
+      "현지상차운임"
+    ],
     "forwardingReconciliation": "29차 이후 입고 전표가 운영 원천이다. 포워딩 금액행을 누락하지 않고 같은 OrderYear+대차수 안에서 모두 분류한 뒤 원천합계=분류합계+미분류합계를 통화별로 대조한다. 구매 수량 또는 금액이 있는 국가·화종인데 대응 포워딩 행이 없으면 FORWARDING_SCOPE_MISSING으로 확정 계산을 차단한다. 일반 국가 및 화종 명시 운송료는 대차수 합계로 대조하고, 콜롬비아 4품목 공유 운송료는 세부차수별 무게배분 원천이므로 해당 세부차수별로 대조한다. 금액·수량이 모두 0인 빈 WarehouseDetail은 구매 기대범위가 아니다. 수기 S가 있어도 원천 전표 누락·미분류는 숨기지 않는다.",
     "colombiaAllocClassifier": "콜롬비아 4품목 무게배분(colombiaBoxQtyByCategory)은 lib/colombiaFlowerClassification.js 토큰맵을 따라 FlowerName·ProdName 양쪽에서 한글(장미/카네이션/알스트로/루스커스)과 영문(Rose/Carnation/Alstro/Ruscus)을 모두 인식한다(2026-08-12 결함수정 — 이전에는 FlowerName 한글만 인식해 영문 품목이 배분 대상에서 누락됐다). 운송료/SERVICE FEE/현지상차운임/GW·CW placeholder 행은 항상 제외한다."
   },

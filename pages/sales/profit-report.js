@@ -268,6 +268,7 @@ export default function ProfitReportPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [moyiSending, setMoyiSending] = useState(false);
+  const [moyiDriveSyncing, setMoyiDriveSyncing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [data, setData] = useState(null);
@@ -639,6 +640,29 @@ export default function ProfitReportPage() {
     }
   };
 
+  const syncDriveToMoyi = async () => {
+    if (moyiDriveSyncing) return;
+    if (dirty && !(await save())) return;
+    if (!window.confirm(`${reportYear}년 전체 차수의 주차별 매출이익 엑셀(2번째 시트=월별)을 MOYI 회사 드라이브 경영지원/보고 폴더로 동기화할까요?`)) return;
+    setMoyiDriveSyncing(true); setError(''); setMessage('');
+    try {
+      const res = await fetch('/api/moyi/drive-report-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ year: reportYear }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || (!d.success && !d.sent)) throw new Error(d.error || 'MOYI 드라이브 동기화에 실패했습니다.');
+      const failNote = d.failed ? ` · 실패 ${d.failed}건 (전송 이력 확인)` : '';
+      setMessage(`MOYI 드라이브 동기화 완료 — ${d.folder} 폴더에 ${d.sent}개 차수 파일 갱신${failNote}`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setMoyiDriveSyncing(false);
+    }
+  };
+
   // ── 재고 평가단가표 모달
   const [priceModal, setPriceModal] = useState(null);   // { beginOrderYear, beginWeek, endOrderYear, endWeek, rows }
   const [priceEdits, setPriceEdits] = useState({});
@@ -861,6 +885,10 @@ export default function ProfitReportPage() {
               <button style={{ ...st.primaryBtn, background: '#7c3aed' }} onClick={sendToMoyi} disabled={!data || saving || moyiSending}
                 title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
                 {moyiSending ? '📤 MOYI 전송 중…' : '📤 MOYI 전송'}
+              </button>
+              <button style={{ ...st.primaryBtn, background: '#4338ca' }} onClick={syncDriveToMoyi} disabled={moyiDriveSyncing}
+                title="올해 전체 차수의 매출이익 엑셀(첫 시트=주차, 2번째 시트=월별)을 MOYI 회사 드라이브 경영지원/보고 폴더에 차수별 파일로 동기화합니다">
+                {moyiDriveSyncing ? '📲 드라이브 동기화 중…' : '📲 MOYI 드라이브 동기화'}
               </button>
               <button style={{ ...st.primaryBtn, background: '#b45309' }} onClick={() => excelAuditFileRef.current?.click()} disabled={!data || excelAuditBusy}
                 title="확정 매출원가 양식 엑셀을 업로드하면 이 차수의 웹 계산과 셀 단위로 대조해, 규칙 분류와 AI 소견으로 오류값 여부를 알려줍니다(저장·수정 없음)">
