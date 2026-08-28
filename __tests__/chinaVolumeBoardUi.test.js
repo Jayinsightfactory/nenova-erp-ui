@@ -37,8 +37,13 @@ assert.match(page, /const DEFAULT_WEEK = '35-01'/, '기본 조회 차수는 35-0
 assert.match(page, /aria-label="이전 차수"/, '왼쪽 차수 이동 버튼을 제공한다');
 assert.match(page, /aria-label="다음 차수"/, '오른쪽 차수 이동 버튼을 제공한다');
 assert.match(page, /적용: \$\{sourceFileName\}/, '현재 적용된 패킹리스트 파일명을 표시한다');
-assert.match(page, /await persistBoardSnapshot\(\{ nextRows: matched, nextCells: automatic/, '패킹 업로드 직후 작업본을 자동 저장한다');
-assert.match(page, /await persistBoardSnapshot\(\{ nextRows, nextCells \}\)/, '수동 품목 매칭 후 갱신된 패킹 작업본을 자동 저장한다');
+assert.match(page, /nextRows: matched, nextCells: \{\}[^;]*nextPhase: 'REVIEW'/, '패킹 업로드 직후 전산 물량표를 덮지 않고 매칭 검토 작업본으로 저장한다');
+assert.match(page, /packingPhase === 'APPLIED' \? \{ \.\.\.cells, \.\.\.automatic \} : cells/, '수동 매칭 중에는 확정 물량표를 덮지 않는다');
+assert.match(page, /nextPhase: 'APPLIED'/, '모든 미매칭을 수정한 뒤 명시적으로 매칭 적용 상태를 저장한다');
+assert.match(page, /1\. 전산 물량표 확인/, '전산 물량표→인보이스 대조→미매칭 수정→적용 순서를 안내한다');
+assert.match(page, /인보이스·매칭 대조/, '전산 물량표 옆에서 인보이스 원문과 매칭 결과를 동시에 표시한다');
+assert.match(page, /전산 업체 검색/, '업체 미매칭도 같은 검토 단계에서 수정한다');
+assert.match(page, /disabled=\{!canApplyChinaPackingRows\(packingRows\)/, '미매칭이 남아 있으면 매칭 적용 버튼을 차단한다');
 assert.match(page, /작업본과 업로드 입고원장 스냅샷을 삭제/, '작업본 삭제가 업로드 원장 스냅샷 삭제를 명시한다');
 assert.match(page, /save-mapping/, '중국 품목 수동 매칭을 전용 저장 액션으로 보낸다');
 assert.match(page, /\/api\/stats\/china-volume-products/, '선택 차수 피벗에 없는 전산 중국 품목도 읽기 전용 후보에서 찾는다');

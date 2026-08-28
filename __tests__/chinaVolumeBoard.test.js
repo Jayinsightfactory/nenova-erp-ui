@@ -3,6 +3,8 @@ const assert = require('assert');
 (async () => {
   const {
     buildChinaVolumeWorkbookRows,
+    applyChinaPackingCustomerMatch,
+    canApplyChinaPackingRows,
     chinaVolumeCellText,
     chinaVolumeProductLabel,
     parseChinaBoxNumbers,
@@ -32,6 +34,12 @@ const assert = require('assert');
   assert.strictEqual(stepChinaOrderWeek('35-01', -1), '34-01');
   assert.strictEqual(stepChinaOrderWeek('35-1', 1), '36-01');
   assert.strictEqual(stepChinaOrderWeek('01-01', -1), '01-01');
+  assert.strictEqual(canApplyChinaPackingRows([{ mappingStatus: 'MATCHED' }]), true, '전부 매칭된 인보이스만 적용 가능');
+  assert.strictEqual(canApplyChinaPackingRows([{ mappingStatus: 'MATCHED' }, { mappingStatus: 'PRODUCT_UNMATCHED' }]), false, '미매칭 한 건이라도 있으면 적용 차단');
+  assert.strictEqual(canApplyChinaPackingRows([]), false, '빈 업로드는 적용할 수 없다');
+  const customerFixed = applyChinaPackingCustomerMatch([{ sourceRow: 3, product: { prodKey: 70 }, mappingStatus: 'CUSTOMER_UNMATCHED' }], 3, { custKey: 7, custName: '주광농원' });
+  assert.strictEqual(customerFixed[0].mappingStatus, 'MATCHED', '업체 미매칭도 대조 화면에서 수정할 수 있다');
+  assert.strictEqual(customerFixed[0].cellKey, '7:70');
   const neighborRows = [
     { prodKey: 1, outOrders: { A: 10, B: 0, C: 5 } },
     { prodKey: 2, outOrders: { A: 0, B: 0, C: 0 } },
