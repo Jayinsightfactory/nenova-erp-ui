@@ -27,14 +27,21 @@ const aliasOnly = scoreNaturalLanguageProducts('문라이트', [
 ]);
 assert.equal(aliasOnly.candidates[0].prodKey, 9, '매칭데이터 별칭만 있어도 해당 품목이 먼저 나와야 한다.');
 const solomio = scoreNaturalLanguageProducts('SOLOMIO ROSE PINK', [
-  { ProdKey: 10, ProdName: 'Solomio Pink', DisplayName: '솔로미오 핑크', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
+  { ProdKey: 10, ProdName: 'Solomio Pink', DisplayName: '솔로미오 핑크', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단', UsageCount: 9000 },
   { ProdKey: 11, ProdName: 'Solomio White', DisplayName: '솔로미오 화이트', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단', UsageCount: 9000 },
   { ProdKey: 12, ProdName: 'Solomio Pink', DisplayName: '솔로미오 핑크', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단', UsageCount: 9000 },
+  { ProdKey: 13, ProdName: 'SOLOMIO ROSE (PINK)', DisplayName: '', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
 ]);
-assert.equal(solomio.candidates[0].prodKey, 10, '입력에 꽃 종류 ROSE가 끼어도 장미 Solomio Pink를 품종명으로 매칭한다.');
+assert.equal(solomio.candidates[0].prodKey, 13, '전산 전체 품목명 SOLOMIO ROSE (PINK)가 있으면 사용량이 많은 축약 품목보다 먼저 매칭한다.');
 assert.equal(solomio.candidates[0].autoSelect, true);
-assert.ok(solomio.candidates[0].reasons.includes('flower-category-normalized'));
+assert.ok(solomio.candidates[0].reasons.includes('master-name-exact'));
+assert.equal(solomio.candidates.find((x) => x.prodKey === 10)?.autoSelect, false, '화종 단어를 생략한 축약 후보는 정확한 전산 품목과 같은 만점으로 올리지 않는다.');
 assert.equal(solomio.candidates.some((x) => x.prodKey === 12), false, '꽃 종류가 다른 동명 품목은 정상 후보에 섞지 않는다.');
+const exactWithMissingFlower = scoreNaturalLanguageProducts('SOLOMIO ROSE PINK', [
+  { ProdKey: 14, ProdName: 'SOLOMIO ROSE (PINK)', DisplayName: '', FlowerName: '', CounName: '콜롬비아', OutUnit: '단' },
+]);
+assert.equal(exactWithMissingFlower.candidates[0].prodKey, 14, '전산 전체 품목명이 정확하면 화종 메타데이터가 비어 있어도 수동 후보에서 숨기지 않는다.');
+assert.equal(exactWithMissingFlower.candidates[0].autoSelect, false, '화종 메타데이터 충돌 후보는 자동 선택하지 않는다.');
 const solomioWrongColor = scoreNaturalLanguageProducts('SOLOMIO ROSE WHITE', [
   { ProdKey: 10, ProdName: 'Solomio Pink', DisplayName: '솔로미오 핑크', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
 ]);
