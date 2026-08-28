@@ -5,6 +5,7 @@ const assert = require('assert');
     buildChinaVolumeWorkbookRows,
     applyChinaPackingCustomerMatch,
     canApplyChinaPackingRows,
+    chinaPackingDistributions,
     chinaVolumeCellText,
     chinaVolumeProductLabel,
     parseChinaBoxNumbers,
@@ -14,8 +15,11 @@ const assert = require('assert');
     matchChinaPackingRows,
     mergeChinaCellAllocations,
     mergeChinaPackingIntoPivotCells,
+    setChinaPackingRowDistributions,
+    distributeChinaBoxAllocations,
     restoreChinaPackingCells,
     validateChinaCellAllocation,
+    validateChinaPackingDistribution,
     summarizeChinaVolumeTotals,
     stepChinaOrderWeek,
   } = await import('../lib/chinaVolumeBoard.js');
@@ -34,9 +38,22 @@ const assert = require('assert');
   assert.strictEqual(stepChinaOrderWeek('35-01', -1), '34-01');
   assert.strictEqual(stepChinaOrderWeek('35-1', 1), '36-01');
   assert.strictEqual(stepChinaOrderWeek('01-01', -1), '01-01');
-  assert.strictEqual(canApplyChinaPackingRows([{ mappingStatus: 'MATCHED' }]), true, '전부 매칭된 인보이스만 적용 가능');
-  assert.strictEqual(canApplyChinaPackingRows([{ mappingStatus: 'MATCHED' }, { mappingStatus: 'PRODUCT_UNMATCHED' }]), false, '미매칭 한 건이라도 있으면 적용 차단');
+  const matchedPacking = { sourceRow: 2, mappingStatus: 'MATCHED', cellKey: '7:70', quantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] };
+  assert.strictEqual(canApplyChinaPackingRows([matchedPacking]), true, '전부 매칭·분배된 인보이스만 적용 가능');
+  assert.strictEqual(canApplyChinaPackingRows([matchedPacking, { mappingStatus: 'PRODUCT_UNMATCHED' }]), false, '미매칭 한 건이라도 있으면 적용 차단');
   assert.strictEqual(canApplyChinaPackingRows([]), false, '빈 업로드는 적용할 수 없다');
+  const splitPacking = setChinaPackingRowDistributions([matchedPacking], 2, [{ cellKey: '7:70', quantity: 12 }, { cellKey: '8:70', quantity: 8 }])[0];
+  assert.deepStrictEqual(chinaPackingDistributions(splitPacking), [{ cellKey: '7:70', quantity: 12 }, { cellKey: '8:70', quantity: 8 }], '한 인보이스 행을 여러 주문 셀로 나눈다');
+  assert.strictEqual(validateChinaPackingDistribution(splitPacking).valid, true, '분배합계가 인보이스 원본과 같으면 저장 가능');
+  assert.strictEqual(validateChinaPackingDistribution({ ...splitPacking, distributions: [{ cellKey: '7:70', quantity: 19 }] }).valid, false, '미분배 수량이 남으면 적용 차단');
+  assert.deepStrictEqual(distributeChinaBoxAllocations(matchedPacking.allocations, splitPacking.distributions), [
+    { cellKey: '7:70', quantity: 12, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 2 }] },
+    { cellKey: '8:70', quantity: 8, allocations: [{ boxNo: '17', quantity: 8 }] },
+  ], '분배 대상이 나뉘어도 원본 박스번호와 수량을 순서대로 보존한다');
+  assert.deepStrictEqual(mergeChinaCellAllocations([splitPacking]), {
+    '7:70': { quantity: 12, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 2 }], sourceRows: [2] },
+    '8:70': { quantity: 8, allocations: [{ boxNo: '17', quantity: 8 }], sourceRows: [2] },
+  }, '직접 분배 결과가 업체·품목별 최종 셀과 박스 표시에 반영된다');
   const customerFixed = applyChinaPackingCustomerMatch([{ sourceRow: 3, product: { prodKey: 70 }, mappingStatus: 'CUSTOMER_UNMATCHED' }], 3, { custKey: 7, custName: '주광농원' });
   assert.strictEqual(customerFixed[0].mappingStatus, 'MATCHED', '업체 미매칭도 대조 화면에서 수정할 수 있다');
   assert.strictEqual(customerFixed[0].cellKey, '7:70');

@@ -45,6 +45,10 @@ assert.match(page, /1\. 전산 물량표 확인/, '전산 물량표→인보이�
 assert.match(page, /인보이스·매칭 대조/, '전산 물량표 옆에서 인보이스 원문과 매칭 결과를 동시에 표시한다');
 assert.match(page, /전산 업체 검색/, '업체 미매칭도 같은 검토 단계에서 수정한다');
 assert.match(page, /disabled=\{!canApplyChinaPackingRows\(packingRows\)/, '미매칭이 남아 있으면 매칭 적용 버튼을 차단한다');
+assert.match(page, /인보이스 박스 직접 분배/, '매칭된 인보이스에서 박스를 주문 셀로 직접 분배한다');
+assert.match(page, /한 박스를 여러 업체·품목으로 나눌 수 있습니다/, '한 박스 분할 분배 방법을 안내한다');
+assert.match(page, /validateChinaPackingDistribution/, '인보이스 원본수량과 분배합계를 공용 정책으로 검증한다');
+assert.match(page, /setChinaPackingRowDistributions/, '직접 분배 결과를 패킹 작업본에 저장한다');
 assert.match(page, /작업본과 업로드 입고원장 스냅샷을 삭제/, '작업본 삭제가 업로드 원장 스냅샷 삭제를 명시한다');
 assert.match(page, /save-mapping/, '중국 품목 수동 매칭을 전용 저장 액션으로 보낸다');
 assert.match(page, /\/api\/stats\/china-volume-products/, '선택 차수 피벗에 없는 전산 중국 품목도 읽기 전용 후보에서 찾는다');

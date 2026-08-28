@@ -8,6 +8,7 @@ import {
   buildChinaVolumeWorkbookRows,
   applyChinaPackingCustomerMatch,
   canApplyChinaPackingRows,
+  chinaPackingDistributions,
   chinaVolumeProductLabel,
   matchChinaPackingRows,
   mergeChinaPackingIntoPivotCells,
@@ -15,9 +16,11 @@ import {
   parseChinaPackingRows,
   planChinaBoxNeighborAreas,
   restoreChinaPackingCells,
+  setChinaPackingRowDistributions,
   summarizeChinaVolumeTotals,
   stepChinaOrderWeek,
   validateChinaCellAllocation,
+  validateChinaPackingDistribution,
 } from '../../lib/chinaVolumeBoard';
 
 const currentYear = new Date().getFullYear();
@@ -173,6 +176,37 @@ function CellEditor({ draft, onChange, onClose, onSave }) {
   );
 }
 
+function PackingDistributionModal({ draft, customers, products, onChange, onClose, onSave }) {
+  if (!draft) return null;
+  const check = validateChinaPackingDistribution(draft);
+  const update = (index, patch) => onChange({ ...draft, distributions: draft.distributions.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) });
+  const customerOptions = (customers || []).filter(customer => Number(customer.custKey));
+  const productOptions = (products || []).filter(product => Number(product.prodKey));
+  return <div className="modal-shade" role="presentation" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+    <section className="distribution-modal" role="dialog" aria-modal="true" aria-labelledby="distribution-title">
+      <header><strong id="distribution-title">인보이스 박스 직접 분배</strong><button onClick={onClose}>×</button></header>
+      <div className="distribution-source"><b>{draft.customerCode} · {draft.sourceItemName}</b><span>박스 {draft.sourceBoxText || draft.boxNumbers?.join(', ') || '-'} · 인보이스 수량 {fmt(draft.quantity)}</span><small>전산 원장은 변경하지 않으며 이 중국물량표 작업본에만 저장됩니다.</small></div>
+      <div className="distribution-head"><b>분배 대상과 수량</b><span>한 박스를 여러 업체·품목으로 나눌 수 있습니다.</span></div>
+      <div className="distribution-list">
+        {draft.distributions.map((item, index) => {
+          const [custKey = '', prodKey = ''] = String(item.cellKey || '').split(':');
+          const selectedCustomer = customerOptions.find(customer => String(customer.custKey) === String(custKey));
+          const orderedProducts = [...productOptions].sort((left, right) => Number(right.outOrders?.[selectedCustomer?.custName] || 0) - Number(left.outOrders?.[selectedCustomer?.custName] || 0));
+          return <div className="distribution-row" key={index}>
+            <label>전산 업체<select value={custKey} onChange={event => update(index, { cellKey: `${event.target.value}:${prodKey}` })}><option value="">업체 선택</option>{customerOptions.map(customer => <option key={customer.custKey} value={customer.custKey}>{customer.custName} · {customer.orderCode || '코드없음'}</option>)}</select></label>
+            <label>전산 품목<select value={prodKey} onChange={event => update(index, { cellKey: `${custKey}:${event.target.value}` })}><option value="">품목 선택</option>{orderedProducts.map(product => { const orderQuantity = Number(product.outOrders?.[selectedCustomer?.custName] || 0); return <option key={product.prodKey} value={product.prodKey}>{chinaVolumeProductLabel(product.prodName)} · 주문 {fmt(orderQuantity)}</option>; })}</select></label>
+            <label>분배수량<input type="number" min="0.001" step="0.001" value={item.quantity} onChange={event => update(index, { quantity: Number(event.target.value) })} /></label>
+            <button className="remove" onClick={() => onChange({ ...draft, distributions: draft.distributions.filter((_, itemIndex) => itemIndex !== index) })}>삭제</button>
+          </div>;
+        })}
+      </div>
+      <button className="add-distribution" onClick={() => onChange({ ...draft, distributions: [...draft.distributions, { cellKey: draft.cellKey || '', quantity: Math.max(0, check.remainingQuantity) }] })}>+ 분배 대상 추가</button>
+      <div className={`distribution-check ${check.valid ? 'ok' : 'bad'}`}><span>인보이스 <b>{fmt(check.sourceQuantity)}</b></span><span>분배 <b>{fmt(check.distributedQuantity)}</b></span><span>남은 수량 <b>{fmt(check.remainingQuantity)}</b></span><strong>{check.valid ? '✓ 전량 분배됨' : check.remainingQuantity < 0 ? '분배수량이 인보이스를 초과했습니다.' : '남은 수량을 모두 분배하세요.'}</strong></div>
+      <footer><button onClick={onClose}>취소</button><button className="primary" disabled={!check.valid} onClick={onSave}>분배 저장</button></footer>
+    </section>
+  </div>;
+}
+
 export default function ChinaVolumeBoard() {
   const router = useRouter();
   const [year, setYear] = useState(currentYear);
@@ -197,6 +231,7 @@ export default function ChinaVolumeBoard() {
   const [sourceSheetName, setSourceSheetName] = useState('');
   const [expectedRowVersion, setExpectedRowVersion] = useState('');
   const [packingPhase, setPackingPhase] = useState('EMPTY');
+  const [distributionDraft, setDistributionDraft] = useState(null);
 
   const applyBoard = (rawBoard, pivotData = data, mappings = productMappings, catalog = productCatalog) => {
     const board = normalizeBoard(rawBoard);
@@ -252,12 +287,22 @@ export default function ChinaVolumeBoard() {
   const chinaRows = useMemo(() => {
     const byKey = new Map((data?.rows || []).filter(row => /중국/i.test(String(row.country || ''))).map(row => [Number(row.prodKey), row]));
     packingRows.forEach(row => row.product?.prodKey && !byKey.has(Number(row.product.prodKey)) && byKey.set(Number(row.product.prodKey), { ...row.product, outOrders: {} }));
+    packingRows.flatMap(chinaPackingDistributions).forEach(distribution => {
+      const prodKey = Number(String(distribution.cellKey || '').split(':')[1]);
+      const product = productCatalog.find(item => Number(item.prodKey) === prodKey);
+      if (product && !byKey.has(prodKey)) byKey.set(prodKey, { ...product, outOrders: {} });
+    });
     return [...byKey.values()];
-  }, [data, packingRows]);
+  }, [data, packingRows, productCatalog]);
   const customers = useMemo(() => {
     const used = new Set();
     chinaRows.forEach(row => Object.entries(row.outOrders || {}).forEach(([name, qty]) => Number(qty || 0) > 0 && used.add(name)));
     packingRows.forEach(row => row.customer?.custName && used.add(row.customer.custName));
+    packingRows.flatMap(chinaPackingDistributions).forEach(distribution => {
+      const custKey = Number(String(distribution.cellKey || '').split(':')[0]);
+      const customer = (data?.customers || []).find(item => Number(item.custKey) === custKey);
+      if (customer) used.add(customer.custName);
+    });
     return (data?.customers || []).filter(customer => used.has(customer.custName));
   }, [data, chinaRows, packingRows]);
   const boxAreas = useMemo(() => planChinaBoxNeighborAreas({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
@@ -376,6 +421,32 @@ export default function ChinaVolumeBoard() {
     } catch (e) { setError(`중국 품목 매칭 저장 실패: ${e.message || e}`); }
   };
 
+  const openPackingDistribution = sourceRow => {
+    const row = packingRows.find(item => Number(item.sourceRow) === Number(sourceRow));
+    if (!row || row.mappingStatus !== 'MATCHED') {
+      setError('업체·품목 미매칭을 먼저 수정한 뒤 박스를 분배하세요.');
+      setMatchOpen(true);
+      return;
+    }
+    setDistributionDraft({ ...row, distributions: chinaPackingDistributions(row).map(item => ({ ...item })) });
+  };
+
+  const savePackingDistribution = async () => {
+    const check = validateChinaPackingDistribution(distributionDraft);
+    if (!check.valid) { setError('인보이스 원본수량과 분배수량 합계가 같아야 저장할 수 있습니다.'); return; }
+    setSaving(true); setError('');
+    try {
+      const nextRows = setChinaPackingRowDistributions(packingRows, distributionDraft.sourceRow, distributionDraft.distributions);
+      const nextCells = packingPhase === 'APPLIED' ? mergeChinaPackingIntoPivotCells(nextRows, { ...data, rows: matchProducts }) : cells;
+      setPackingRows(nextRows);
+      setCells(nextCells);
+      setDistributionDraft(null);
+      setDirty(true);
+      await persistBoardSnapshot({ nextRows, nextCells, nextPhase: packingPhase });
+    } catch (e) { setError(`박스 분배 저장 실패: ${e.message || e}`); }
+    finally { setSaving(false); }
+  };
+
   const saveCustomerMatch = async (row, customer) => {
     try {
       const nextRows = applyChinaPackingCustomerMatch(packingRows, row.sourceRow, customer);
@@ -387,9 +458,11 @@ export default function ChinaVolumeBoard() {
 
   const applyPackingMatches = async () => {
     const unresolved = packingRows.filter(row => row.mappingStatus !== 'MATCHED');
+    const distributionErrors = packingRows.filter(row => row.mappingStatus === 'MATCHED' && !validateChinaPackingDistribution(row).valid);
     if (!canApplyChinaPackingRows(packingRows)) {
-      setError(`미매칭 ${unresolved.length}건을 먼저 수정하세요.`);
+      setError(unresolved.length ? `미매칭 ${unresolved.length}건을 먼저 수정하세요.` : `박스 분배가 완료되지 않은 인보이스 ${distributionErrors.length}건을 먼저 확인하세요.`);
       if (unresolved.length) setMatchOpen(true);
+      else if (distributionErrors.length) openPackingDistribution(distributionErrors[0].sourceRow);
       return;
     }
     setSaving(true); setError('');
@@ -406,6 +479,7 @@ export default function ChinaVolumeBoard() {
     const reviewKey = `china-volume-review:${Date.now()}`;
     sessionStorage.setItem(reviewKey, JSON.stringify({
       boardKey, year, week, boardName, packingPhase, mismatches: totals.mismatches, invoiceMismatches: totals.invoiceMismatches,
+      packingRows: packingRows.map(row => ({ sourceRow: row.sourceRow, customerCode: row.customerCode, sourceItemName: row.sourceItemName, sourceBoxText: row.sourceBoxText, quantity: row.quantity, mappingStatus: row.mappingStatus, distributions: chinaPackingDistributions(row) })),
       unmatched: packingRows.filter(row => row.mappingStatus !== 'MATCHED').map(row => ({ sourceRow: row.sourceRow, sourceItemName: row.sourceItemName, customerCode: row.customerCode, quantity: row.quantity, mappingStatus: row.mappingStatus })),
     }));
     const child = window.open(`/stats/china-volume-board-review?key=${encodeURIComponent(reviewKey)}&boardKey=${encodeURIComponent(boardKey || '')}`, 'china-volume-review', 'popup,width=1050,height=760,resizable=yes,scrollbars=yes');
@@ -423,6 +497,7 @@ export default function ChinaVolumeBoard() {
         if (row && customer) openCell(row, customer);
       }
       if (action === 'OPEN_MATCH') setMatchOpen(true);
+      if (action === 'OPEN_DISTRIBUTION' && sourceRow) openPackingDistribution(sourceRow);
       if (action === 'APPLY_PACKING' && cellKey) {
         setCells(previous => ({ ...previous, [cellKey]: { ...(previous[cellKey] || { allocations: [] }), quantity: Number(event.data.packingQuantity || 0) } }));
         setReviewNotes(previous => ({ ...previous, [cellKey]: 'apply matched packing quantity' }));
@@ -433,7 +508,7 @@ export default function ChinaVolumeBoard() {
     };
     window.addEventListener('message', onReviewMessage);
     return () => window.removeEventListener('message', onReviewMessage);
-  }, [chinaRows, customers]);
+  }, [chinaRows, customers, packingRows]);
 
   const matchedCount = packingRows.filter(row => row.mappingStatus === 'MATCHED').length;
 
@@ -565,17 +640,19 @@ export default function ChinaVolumeBoard() {
             <div className="aside-title"><b>인보이스·매칭 대조</b><span>{packingRows.length ? `${matchedCount}/${packingRows.length}건 매칭` : '업로드 대기'}</span></div>
             <p>{sourceFileName ? <><b>{sourceFileName}</b>{sourceSheetName ? ` · ${sourceSheetName}` : ''}<br /></> : ''}Customer 코드는 거래처 Client No., Item Name은 중국 품목으로 자동 매칭합니다.</p>
             <div className="packing-list">
-              {packingRows.map((row, index) => <article key={`${row.sourceRow}-${index}`} className={row.mappingStatus === 'MATCHED' ? 'matched' : 'unmatched'}>
+              {packingRows.map((row, index) => { const distribution = validateChinaPackingDistribution(row); return <article key={`${row.sourceRow}-${index}`} className={row.mappingStatus === 'MATCHED' && distribution.valid ? 'matched' : 'unmatched'}>
                 <header><b>{row.customerCode}</b><span>{row.sourceBoxText}</span></header>
                 <strong>{row.sourceItemName}</strong><div>{fmt(row.quantity)} · {row.allocations.map(a => <i key={`${a.boxNo}-${a.quantity}`}>{a.boxNo}:{fmt(a.quantity)}</i>)}</div>
                 <small>{row.mappingStatus === 'MATCHED' ? `전산 매칭: ${row.customer.custName} / ${row.product.prodName}` : <>{row.mappingStatus === 'CUSTOMER_UNMATCHED' ? '업체 매칭 필요' : '품목 매칭 필요'} <button className="inline-match" onClick={() => setMatchOpen(true)}>수정</button></>}</small>
-              </article>)}
+                {row.mappingStatus === 'MATCHED' && <div className={`distribution-summary ${distribution.valid ? 'ok' : 'bad'}`}><span>분배 {fmt(distribution.distributedQuantity)} / {fmt(distribution.sourceQuantity)}</span><button onClick={() => openPackingDistribution(row.sourceRow)}>박스 분배</button></div>}
+              </article>; })}
               {!packingRows.length && <div className="aside-empty">예: ROSE Diana 20단 / NO.16.17<br />→ 16번 10단 + 17번 10단</div>}
             </div>
           </aside>
         </main>
       </div>
       <CellEditor draft={draft} onChange={setDraft} onClose={() => setDraft(null)} onSave={saveCell} />
+      <PackingDistributionModal draft={distributionDraft} customers={data?.customers || []} products={matchProducts} onChange={setDistributionDraft} onClose={() => setDistributionDraft(null)} onSave={savePackingDistribution} />
       {matchOpen && <MatchingModal rows={packingRows} products={matchProducts} customers={data?.customers || []} onClose={() => setMatchOpen(false)} onMatch={saveProductMatch} onCustomerMatch={saveCustomerMatch} />}
       <style jsx global>{`
         html,body,#__next{height:100%;margin:0} body{overflow:hidden;font-family:Arial,'맑은 고딕',sans-serif;background:#eef1f5;color:#172033}
@@ -584,6 +661,7 @@ export default function ChinaVolumeBoard() {
         .reconcile{height:36px;flex:none;display:flex;align-items:center;gap:4px;padding:3px 6px;background:#eef8f1;border-bottom:1px solid #a9d9b8;font-size:10px;overflow-x:auto;white-space:nowrap}.reconcile>b{min-width:125px;color:#176b35}.reconcile>span,.reconcile>button{display:flex;align-items:baseline;gap:3px;min-width:90px;padding:3px 5px;background:#fff;border:1px solid #cbd8ce;border-radius:3px;font:inherit;text-align:left}.reconcile strong{font-size:13px;color:#183b72}.reconcile small{color:#78869a}.reconcile.warning{background:#fff6e8;border-color:#efbd68}.reconcile.warning>b,.reconcile .warn,.reconcile .warn strong{color:#b42318}.reconcile.idle{background:#f4f6f8;border-color:#d6dce4}
         .match-modal{width:690px}.match-source{padding:10px 13px;border-bottom:1px solid #e1e6ec}.match-source b,.match-source span,.match-source small{display:block}.match-source span{margin-top:3px}.match-source small{color:#657187;margin-top:5px}.match-queue{padding:7px 10px;background:#f3f6fa;display:flex;gap:4px;overflow:auto}.match-queue button{border:1px solid #bac6d7;background:#fff;border-radius:3px;padding:3px 6px;white-space:nowrap;font-size:11px}.match-queue button.active{background:#173b72;color:#fff;border-color:#173b72}.match-search{display:block;padding:9px 12px;font-size:11px;font-weight:700}.match-search input{display:block;width:100%;height:30px;margin-top:4px;border:1px solid #aeb9c8;border-radius:4px;padding:4px 7px}.match-products{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 12px 12px;max-height:48vh;overflow:auto}.match-products button{border:1px solid #d5dce6;background:#fff;text-align:left;border-radius:4px;padding:6px;cursor:pointer}.match-products button:hover{border-color:#155bd7;background:#f4f8ff}.match-products b,.match-products span,.match-products small{display:block}.match-products b{font-size:10px;color:#617087}.match-products span{font-size:12px;font-weight:700;margin-top:2px}.match-products small{font-size:10px;color:#7b8798;margin-top:3px}
         .week-field button{width:24px;padding:0!important;font-size:18px;font-weight:900}.source-file{display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#36547c;vertical-align:middle}.toolbar .apply-matches{background:#168447;color:#fff;border-color:#168447;font-weight:900}.matching-guide{height:31px;flex:none;display:flex;align-items:center;gap:18px;padding:4px 8px;background:#fff7db;border-bottom:1px solid #e6bf55;font-size:11px}.matching-guide b{color:#173b72}.matching-guide strong{color:#087b3d}.inline-match{margin-left:4px;border:1px solid #dd6b55;background:#fff;color:#b42318;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer}
+        .distribution-summary{display:flex;align-items:center;justify-content:space-between;margin-top:5px;padding-top:4px;border-top:1px dashed #d4dbe5;font-size:10px}.distribution-summary.ok span{color:#08783e}.distribution-summary.bad span{color:#b42318;font-weight:800}.distribution-summary button{border:1px solid #2c69bd;background:#edf5ff;color:#174f9d;border-radius:3px;padding:2px 6px;cursor:pointer}.distribution-modal{width:900px;max-width:96vw;max-height:88vh;background:#fff;border-radius:7px;box-shadow:0 15px 60px #0006;overflow:auto}.distribution-modal>header{height:38px;background:#183b72;color:#fff;display:flex;align-items:center;padding:0 12px}.distribution-modal>header button{margin-left:auto;background:transparent;color:#fff;border:0;font-size:22px}.distribution-source{padding:10px 13px;border-bottom:1px solid #dce3ec}.distribution-source b,.distribution-source span,.distribution-source small{display:block}.distribution-source span{margin-top:4px;font-weight:700}.distribution-source small{margin-top:4px;color:#66758a}.distribution-head{display:flex;justify-content:space-between;padding:8px 13px;background:#f2f6fb;font-size:12px}.distribution-head span{color:#66758a}.distribution-list{padding:9px 13px}.distribution-row{display:grid;grid-template-columns:1fr 1.7fr 110px 48px;gap:7px;align-items:end;margin-bottom:7px}.distribution-row label{font-size:10px;font-weight:700}.distribution-row select,.distribution-row input{display:block;width:100%;height:30px;margin-top:3px;border:1px solid #aeb9c8;border-radius:4px;padding:3px 6px;background:#fff}.distribution-row .remove{height:30px}.add-distribution{margin:0 13px 8px;border:1px dashed #447cc4;background:#f5f9ff;color:#174f9d;border-radius:4px;padding:5px 10px}.distribution-check{display:flex;align-items:center;gap:18px;margin:3px 13px 10px;padding:9px;border-radius:4px;font-size:12px}.distribution-check.ok{background:#eaf8ef;color:#176b35}.distribution-check.bad{background:#fff0f0;color:#ad1622}.distribution-check strong{margin-left:auto}.distribution-modal>footer{display:flex;justify-content:flex-end;gap:7px;padding:10px 13px;border-top:1px solid #e2e7ed}.distribution-modal>footer button{padding:6px 17px;border:1px solid #aeb9c8;background:#fff;border-radius:4px}.distribution-modal>footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.distribution-modal>footer .primary:disabled{opacity:.45}
         @media(max-width:1200px){main{grid-template-columns:minmax(0,1fr) 320px}.legend{display:none}}
         @media print{.titlebar,.toolbar,aside,.error{display:none!important}body{overflow:visible}.page,main{height:auto;display:block;padding:0}.board-wrap{border:0;overflow:visible}.board thead th,.board tbody th{position:static}.box-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
       `}</style>

@@ -9,5 +9,8 @@ assert.match(page, /전산 주문수량.*인보이스 수량|인보이스 수량
 assert.match(page, /인보이스.*부족|부족.*인보이스/s, '인보이스 부족 판정을 명확히 표시해야 합니다.');
 assert.match(page, /인보이스.*초과|초과.*인보이스/s, '인보이스 초과 판정을 명확히 표시해야 합니다.');
 assert.match(page, /packingPhase === 'REVIEW'/, '업로드 검토와 적용 결과 검사를 서로 다른 단계로 표시해야 합니다.');
+assert.match(page, /인보이스 박스 분배/, '업로드 검토 화면에서 박스 분배 현황을 함께 표시해야 합니다.');
+assert.match(page, /박스 직접 분배/, '수량 차이 확인 중 바로 분배 편집으로 이동할 수 있어야 합니다.');
+assert.match(page, /OPEN_DISTRIBUTION/, '별도 검토창의 분배 작업을 원래 물량표에 안전하게 전달해야 합니다.');
 assert.match(page, /window|popup|새창|noopener/i, '검토 화면은 별도 창/검토 흐름으로 열 수 있어야 합니다.');
 console.log('china volume board review UI contract passed');
