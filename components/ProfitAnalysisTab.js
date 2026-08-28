@@ -44,6 +44,25 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
   const [error, setError] = useState('');
   const [openCat, setOpenCat] = useState(null);
   const [opinions, setOpinions] = useState({}); // category → { busy, text, model, createdAt, cached, error }
+  const [yearLag, setYearLag] = useState(null); // { total, byWeek, rows } — 연간 재고시차 전수
+  const [yearLagBusy, setYearLagBusy] = useState(false);
+  const [yearLagError, setYearLagError] = useState('');
+
+  const loadYearLag = async () => {
+    if (yearLagBusy) return;
+    if (yearLag) { setYearLag(null); return; } // 토글 닫기
+    setYearLagBusy(true); setYearLagError('');
+    try {
+      const res = await fetch(`/api/sales/profit-analysis?detail=stockLagYear&year=${encodeURIComponent(year)}`, { credentials: 'same-origin' });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.message || '연간 재고시차 조회 실패');
+      setYearLag(d);
+    } catch (e) {
+      setYearLagError(e.message);
+    } finally {
+      setYearLagBusy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!weekValue) return;
@@ -113,6 +132,10 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
       <div style={st.topBar}>
         <span style={{ fontSize: 13, color: '#475569' }}>{data ? `${data.orderYear}년 ${Number(data.major)}차 (직전 ${Number(data.prevMajor)}차 대비)` : ''}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button style={{ ...st.aiAllBtn, background: '#b45309' }} onClick={loadYearLag} disabled={yearLagBusy}
+            title="올해 모든 세부차수 재고 스냅샷에서 잔량이 음수인 품목(다음 차수 입고분 선판매 흔적)을 전수 조회합니다">
+            {yearLagBusy ? '📦 전수 조회 중…' : yearLag ? '📦 연간 재고시차 닫기' : '📦 연간 재고시차 전체'}
+          </button>
           <button style={st.aiAllBtn} onClick={() => runOpinion(ALL_CATEGORY)} disabled={!data || opinions[ALL_CATEGORY]?.busy}>
             {opinions[ALL_CATEGORY]?.busy ? '🤖 전체 분석 중…' : '🤖 전체 AI 소견'}
           </button>
@@ -121,6 +144,31 @@ export default function ProfitAnalysisTab({ weekValue, year }) {
       {opinions[ALL_CATEGORY]?.text || opinions[ALL_CATEGORY]?.error ? (
         <div style={st.card}><div style={st.body}><OpinionBlock category={ALL_CATEGORY} /></div></div>
       ) : null}
+      {yearLagError && <div style={st.error}>{yearLagError}</div>}
+      {yearLag && (
+        <div style={st.card}>
+          <div style={{ ...st.cardHead, cursor: 'default' }}>
+            <span style={st.cardTitle}>📦 {yearLag.orderYear}년 재고시차 전수 — 총 {yearLag.total}건</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#64748b' }}>세부차수 스냅샷 잔량 음수 = 다음 차수 입고분을 그 차수에 선판매</span>
+          </div>
+          <div style={st.body}>
+            {yearLag.total === 0 ? <div style={st.message}>올해 잔량 음수 품목이 없습니다.</div> : (
+              <table style={st.table}>
+                <thead><tr><th style={st.th}>세부차수</th><th style={st.th}>카테고리</th><th style={st.th}>품목</th><th style={{ ...st.th, ...st.num }}>잔량</th><th style={st.th}>다음 차수 입고</th></tr></thead>
+                <tbody>{yearLag.rows.map((x, i) => (
+                  <tr key={i}>
+                    <td style={st.td}>{x.orderWeek}</td>
+                    <td style={st.td}>{x.category || '-'}</td>
+                    <td style={st.td}>{x.productName}</td>
+                    <td style={{ ...st.td, ...st.num, color: '#b91c1c', fontWeight: 700 }}>{fmt(x.endStock)}</td>
+                    <td style={st.td}>{x.nextWeekArrival ? `✅ ${Number(x.nextMajor)}차 입고 확인` : '입고 미확인'}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
       {loading && <div style={st.message}>이번 차수와 직전 차수 원장을 읽어 카테고리별 원인을 분해하는 중… (수십 초 걸릴 수 있습니다)</div>}
       {error && <div style={st.error}>{error} <button style={{ ...st.aiBtn, marginLeft: 8 }} onClick={load}>다시 시도</button></div>}
       {data?.categories?.map((c) => {

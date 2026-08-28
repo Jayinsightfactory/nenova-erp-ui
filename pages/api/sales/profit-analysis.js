@@ -28,7 +28,7 @@ import { withAuth } from '../../../lib/auth';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
 import { parseMajor, loadWeeklyReportPayload } from './profit-report';
 import { computeProfitRow } from '../../../lib/profitReportCalc';
-import { buildCategoryEvidence, loadNegativeEndStock, loadNextWeekArrivalProdKeys } from '../../../lib/profitReportCategoryAnalysis.js';
+import { buildCategoryEvidence, loadNegativeEndStock, loadNextWeekArrivalProdKeys, loadYearNegativeStock, loadYearArrivalMajors } from '../../../lib/profitReportCategoryAnalysis.js';
 import { loadCustomerProductSales } from '../../../lib/profitReportCustomerMixSql.js';
 import { loadRateTrend, findRateAndStockGapWeeks, isProvisional } from '../../../lib/profitReportRateAnalysis.js';
 import { explainDrivers, averageTotals } from '../../../lib/profitReportDriverExplanation.js';
@@ -128,6 +128,22 @@ export default withAuth(async function handler(req, res) {
   try {
     if (req.method !== 'GET') {
       return res.status(405).json({ ok: false, message: 'Method not allowed' });
+    }
+
+    // 연간 재고시차 전수 — 모든 세부차수 대표 스냅샷의 잔량 음수 품목(선판매 흔적) 목록.
+    if (String(req.query.detail || '') === 'stockLagYear') {
+      const scanYear = resolveActiveOrderYear('', req.query.year);
+      const [items, arrivalSet] = await Promise.all([
+        loadYearNegativeStock(scanYear),
+        loadYearArrivalMajors(scanYear),
+      ]);
+      const rows = items.map((x) => {
+        const nextMajor = String(Number(x.major) + 1).padStart(2, '0');
+        return { ...x, nextMajor, nextWeekArrival: arrivalSet.has(`${nextMajor}:${x.prodKey}`) };
+      });
+      const byWeek = {};
+      for (const r of rows) byWeek[r.orderWeek] = (byWeek[r.orderWeek] || 0) + 1;
+      return res.status(200).json({ ok: true, orderYear: scanYear, total: rows.length, byWeek, rows });
     }
 
     const major = parseMajor(req.query.week);

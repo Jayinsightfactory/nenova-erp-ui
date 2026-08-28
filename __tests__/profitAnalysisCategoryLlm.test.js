@@ -41,5 +41,9 @@ assert.match(tab, /profit-analysis-opinion/, '탭에서 AI 소견 API를 호출�
 assert.match(tab, /onClick=\{\(\) => runOpinion/, 'AI 소견은 버튼을 눌렀을 때만 실행되어야 합니다(자동 호출 금지).');
 assert.ok(!/useEffect\([^)]*runOpinion/s.test(tab), 'useEffect에서 AI 소견을 자동 호출하면 안 됩니다.');
 assert.match(tab, /재고 시차/, '재고 시차 섹션이 있어야 합니다.');
+assert.match(lib, /loadYearNegativeStock/, '연간 재고시차 전수 스캐너가 있어야 합니다.');
+assert.match(lib, /ROW_NUMBER\(\) OVER/, '전수 스캔은 세부차수별 대표 스냅샷(행수·StockKey 기준)만 봐야 합니다 — 낡은 중복 스냅샷 오탐 금지.');
+assert.match(analysisApi, /stockLagYear/, 'GET detail=stockLagYear 분기가 있어야 합니다.');
+assert.match(tab, /stockLagYear/, '탭에서 연간 재고시차 전수를 조회할 수 있어야 합니다.');
 
 console.log('profit analysis category/LLM contract tests passed');
