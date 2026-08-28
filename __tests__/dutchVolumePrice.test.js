@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import * as XLSX from 'xlsx';
+import { appendDutchPriceSheet, parseDutchPivotWorkbook, priceProgress } from '../lib/dutchVolumePrice.js';
+const wb = XLSX.utils.book_new();
+const ws = XLSX.utils.aoa_to_sheet([['차수(3501) 품종(네덜란드)'],['', '', '서울'],['', '칼라', '꽃길\nCL6', '로뎀농원\nCL99', '주문', '입고', '재고', '잔량'],['Tulip Strong Gold', 'Yellow', 10, 0, 10, 10, 0, 0],['Rose Avalanche', 'White', 5, 7, 12, 12, 0, 0],['합계', '', 15, 7, 22, 22, 0, 0]]);
+XLSX.utils.book_append_sheet(wb, ws, '네덜란드');
+const parsed = parseDutchPivotWorkbook(XLSX, wb);
+assert.equal(parsed.entries.length, 3);
+assert.deepEqual(parsed.entries.map(row => [row.product, row.customer, row.quantity]), [['Tulip Strong Gold', '꽃길\nCL6', 10],['Rose Avalanche', '꽃길\nCL6', 5],['Rose Avalanche', '로뎀농원\nCL99', 7]]);
+const prices = { [parsed.entries[0].id]: 1.25, [parsed.entries[1].id]: 2 };
+assert.deepEqual(priceProgress(parsed.entries, prices), { completed: 2, total: 3, pending: 1 });
+appendDutchPriceSheet(XLSX, wb, parsed.entries, prices, 'EUR');
+const output = XLSX.utils.sheet_to_json(wb.Sheets.NL_단가표, { header: 1 });
+assert.deepEqual(output[2].slice(2, 9), ['꽃길\nCL6', 'Tulip Strong Gold', 'Yellow', 10, 'EUR', 1.25, 12.5]);
+assert.equal(output[4][9], '단가 미입력');
+assert.equal(ws.C4.v, 10, '원본 수량 셀을 변경하면 안 됩니다.');
+console.log('dutch volume price tests passed');
