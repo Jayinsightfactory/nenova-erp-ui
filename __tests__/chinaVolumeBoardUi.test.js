@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const page = fs.readFileSync(path.join(__dirname, '..', 'pages', 'stats', 'china-volume-board.js'), 'utf8');
+const productApi = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'stats', 'china-volume-products.js'), 'utf8');
 assert.match(page, /width:76px;min-width:76px;max-width:76px;height:32px;min-height:32px/, '1920 화면에서 업체·품목을 더 많이 보는 고밀도 수량 셀을 고정한다');
 assert.match(page, /\.box-badges\{position:absolute/, '박스 배지는 셀 레이아웃 밖의 overlay다');
 assert.match(page, /color:#d31616;border:1px solid #e32626/, '박스번호는 빨간 글씨와 빨간 테두리다');
@@ -31,6 +32,12 @@ assert.match(page, /\/api\/stats\/china-volume-board/, '작업본·입고원장 
 assert.match(page, /작업 저장/, '차수별 작업 저장 버튼을 제공한다');
 assert.match(page, /작업본과 업로드 입고원장 스냅샷을 삭제/, '작업본 삭제가 업로드 원장 스냅샷 삭제를 명시한다');
 assert.match(page, /save-mapping/, '중국 품목 수동 매칭을 전용 저장 액션으로 보낸다');
+assert.match(page, /\/api\/stats\/china-volume-products/, '선택 차수 피벗에 없는 전산 중국 품목도 읽기 전용 후보에서 찾는다');
+assert.match(page, /normalizeChinaText\(search\)/, '품목 검색은 괄호·공백·화종 표기를 정규화한다');
+assert.match(page, /mergeChinaProductCandidates/, '현재 차수 품목과 전산 중국 품목 후보를 ProdKey로 안전하게 합친다');
+assert.match(productApi, /withAuth/, '중국 품목 후보 조회는 로그인 사용자만 가능하다');
+assert.match(productApi, /p\.isDeleted = 0 AND p\.CounName = N'중국'/, '활성 중국 Product만 읽는다');
+assert.doesNotMatch(productApi, /\b(?:INSERT|UPDATE|DELETE|MERGE)\b/i, '중국 품목 후보 API는 ERP 원장을 변경하지 않는다');
 assert.match(page, /중국 품목 미매칭 처리/, '품목 미매칭은 즉시 처리 모달을 연다');
 assert.match(page, /china-volume-board-review/, '누락·초과 확인은 별도 창 페이지를 연다');
 assert.match(page, /xlsx-js-style/, '엑셀 다운로드는 웹과 유사한 색상·글꼴 스타일을 지원한다');
