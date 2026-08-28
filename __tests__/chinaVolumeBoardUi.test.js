@@ -43,7 +43,7 @@ assert.match(page, /packingPhase === 'APPLIED' \? \{ \.\.\.cells, \.\.\.automati
 assert.match(page, /nextPhase: 'APPLIED'/, '모든 미매칭을 수정한 뒤 명시적으로 매칭 적용 상태를 저장한다');
 assert.match(page, /1\. 전산 물량표 확인/, '전산 물량표→인보이스 대조→미매칭 수정→적용 순서를 안내한다');
 assert.match(page, /인보이스·매칭 대조/, '전산 물량표 옆에서 인보이스 원문과 매칭 결과를 동시에 표시한다');
-assert.match(page, /전산 업체 검색/, '업체 미매칭도 같은 검토 단계에서 수정한다');
+assert.match(page, /전산 업체/, '업체 미매칭도 같은 검토 단계에서 수정한다');
 assert.match(page, /disabled=\{!canApplyChinaPackingRows\(packingRows\)/, '미매칭이 남아 있으면 매칭 적용 버튼을 차단한다');
 assert.match(page, /인보이스 박스 직접 분배/, '매칭된 인보이스에서 박스를 주문 셀로 직접 분배한다');
 assert.match(page, /한 박스를 여러 업체·품목으로 나눌 수 있습니다/, '한 박스 분할 분배 방법을 안내한다');
@@ -57,7 +57,10 @@ assert.match(page, /mergeChinaProductCandidates/, '현재 차수 품목과 전�
 assert.match(productApi, /withAuth/, '중국 품목 후보 조회는 로그인 사용자만 가능하다');
 assert.match(productApi, /p\.isDeleted = 0 AND p\.CounName = N'중국'/, '활성 중국 Product만 읽는다');
 assert.doesNotMatch(productApi, /\b(?:INSERT|UPDATE|DELETE|MERGE)\b/i, '중국 품목 후보 API는 ERP 원장을 변경하지 않는다');
-assert.match(page, /중국 품목 미매칭 처리/, '품목 미매칭은 즉시 처리 모달을 연다');
+assert.match(page, /업체·품목 매칭 수정/, '품목·업체 미매칭과 기존 매칭은 즉시 같은 처리 모달을 연다');
+assert.match(page, /업체·품목 매칭 수정/, '미매칭과 기존 매칭은 같은 업체·품목 편집창에서 수정한다');
+assert.match(page, /매칭 저장 후 박스 분배/, '매칭을 저장한 뒤 해당 인보이스의 박스 분배로 바로 이어진다');
+assert.match(page, /rematchChinaPackingRow/, '기존 분배를 남겨 다른 업체로 새는 대신 공용 재매칭 정책으로 초기화한다');
 assert.match(page, /china-volume-board-review/, '누락·초과 확인은 별도 창 페이지를 연다');
 assert.match(page, /xlsx-js-style/, '엑셀 다운로드는 웹과 유사한 색상·글꼴 스타일을 지원한다');
 assert.match(page, /expectedRowVersion/, '저장·삭제는 작업본 RowVersion을 함께 보내 동시수정을 막는다');

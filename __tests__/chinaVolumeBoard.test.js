@@ -4,6 +4,7 @@ const assert = require('assert');
   const {
     buildChinaVolumeWorkbookRows,
     applyChinaPackingCustomerMatch,
+    rematchChinaPackingRow,
     canApplyChinaPackingRows,
     chinaPackingDistributions,
     chinaVolumeCellText,
@@ -57,6 +58,13 @@ const assert = require('assert');
   const customerFixed = applyChinaPackingCustomerMatch([{ sourceRow: 3, product: { prodKey: 70 }, mappingStatus: 'CUSTOMER_UNMATCHED' }], 3, { custKey: 7, custName: '주광농원' });
   assert.strictEqual(customerFixed[0].mappingStatus, 'MATCHED', '업체 미매칭도 대조 화면에서 수정할 수 있다');
   assert.strictEqual(customerFixed[0].cellKey, '7:70');
+  const rematched = rematchChinaPackingRow([
+    { sourceRow: 3, quantity: 20, customer: { custKey: 7 }, product: { prodKey: 70 }, cellKey: '7:70', mappingStatus: 'MATCHED', distributions: [{ cellKey: '7:70', quantity: 12 }, { cellKey: '8:70', quantity: 8 }] },
+    { sourceRow: 4, quantity: 10, cellKey: '9:90', mappingStatus: 'MATCHED' },
+  ], 3, { custKey: 8, custName: '일신원예' }, { prodKey: 71, prodName: 'SOLOMIO ROSE (PINK)' });
+  assert.strictEqual(rematched[0].cellKey, '8:71', '기존 매칭도 명시한 업체·품목으로 다시 연결한다');
+  assert.deepStrictEqual(rematched[0].distributions, [{ cellKey: '8:71', quantity: 20 }], '재매칭 시 과거 분배를 새 대상 전량 1건으로 안전하게 초기화한다');
+  assert.strictEqual(rematched[1].cellKey, '9:90', '다른 원본 행은 변경하지 않는다');
   const neighborRows = [
     { prodKey: 1, outOrders: { A: 10, B: 0, C: 5 } },
     { prodKey: 2, outOrders: { A: 0, B: 0, C: 0 } },

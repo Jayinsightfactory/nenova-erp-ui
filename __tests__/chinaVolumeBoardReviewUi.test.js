@@ -12,5 +12,8 @@ assert.match(page, /packingPhase === 'REVIEW'/, '업로드 검토와 적용 결�
 assert.match(page, /인보이스 박스 분배/, '업로드 검토 화면에서 박스 분배 현황을 함께 표시해야 합니다.');
 assert.match(page, /박스 직접 분배/, '수량 차이 확인 중 바로 분배 편집으로 이동할 수 있어야 합니다.');
 assert.match(page, /OPEN_DISTRIBUTION/, '별도 검토창의 분배 작업을 원래 물량표에 안전하게 전달해야 합니다.');
+assert.match(page, /editMatching\(row\.sourceRow\)/, '미매칭과 기존 매칭 행 모두 정확한 원본 행을 편집하도록 전달해야 합니다.');
+assert.match(page, /업체·품목 매칭 수정/, '미매칭 원인이 업체 또는 품목이어도 같은 편집창으로 안내해야 합니다.');
+assert.match(page, /매칭 수정/, '이미 매칭된 인보이스도 검토창에서 다시 매칭할 수 있어야 합니다.');
 assert.match(page, /window|popup|새창|noopener/i, '검토 화면은 별도 창/검토 흐름으로 열 수 있어야 합니다.');
 console.log('china volume board review UI contract passed');
