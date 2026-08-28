@@ -56,6 +56,14 @@ const inventoryOnlyAnagram = scoreNaturalLanguageProducts('OOSMILO ROSE PINK', [
   { ProdKey: 15, ProdName: 'SOLOMIO ROSE (PINK)', DisplayName: '', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
 ]);
 assert.equal(inventoryOnlyAnagram.candidates[0].autoSelect, false, '철자 개수만 같고 순서가 크게 다른 입력은 자동 확정하지 않는다.');
+const solomioRoseCarnation = scoreNaturalLanguageProducts('SOLOMIO ROSE PINK', [
+  { ProdKey: 20, ProdCode: 'CAR01-CHI020', ProdName: 'Spray Carnation CHINA / 솔로미오 Solomio Rose (pink)', DisplayName: 'SPRAY 카네이션 CHINA / 솔로미오 SOLOMIO 장미 (PINK)', FlowerName: '카네이션', CounName: '중국', OutUnit: '단' },
+  { ProdKey: 21, ProdCode: 'CAR01-CHI999', ProdName: 'Spray Carnation CHINA / Solomio White', DisplayName: '', FlowerName: '카네이션', CounName: '중국', OutUnit: '단', UsageCount: 9000 },
+]);
+assert.equal(solomioRoseCarnation.candidates[0].prodKey, 20, '전산 품목명 속 ROSE는 카네이션 화종 충돌이 아니라 Solomio Rose 품종명 일부로 검색한다.');
+assert.equal(solomioRoseCarnation.candidates[0].conflicts.flower, false);
+assert.ok(solomioRoseCarnation.candidates[0].reasons.includes('flower-token-in-product-name'));
+assert.equal(solomioRoseCarnation.candidates.some((x) => x.prodKey === 21), false, '전산 품목명에 ROSE가 없는 카네이션 후보는 기존 화종 충돌 차단을 유지한다.');
 const solomioWrongColor = scoreNaturalLanguageProducts('SOLOMIO ROSE WHITE', [
   { ProdKey: 10, ProdName: 'Solomio Pink', DisplayName: '솔로미오 핑크', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
 ]);

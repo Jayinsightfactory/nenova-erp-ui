@@ -30,6 +30,7 @@
   "confidence": { "high": 0.9, "medium": 0.68, "countryOrFlowerConflictAutoSelect": false, "selfTrainingFromAutoSelection": false },
   "categoryTokenPolicy": { "description": "전산 전체 품목명 직접 일치를 최우선으로 한다. 공급처 품종명에 포함된 ROSE/장미 등 꽃 종류는 후보 Product.FlowerName과 같은 경우에만 보조 비교에서 제외하며 직접 일치와 같은 만점으로 올리지 않는다.", "masterNameExactFirst": true, "crossFlowerMatch": false, "colorMismatchAutoSelect": false, "exactNameVisibleOnMetadataConflict": true },
   "spellingPolicy": { "description": "5자 이상 영문 품종은 LCS 철자 순서와 문자별 개수 구성을 함께 비교한다. 문자 개수만 같은 애너그램은 자동 확정하지 않는다.", "sequenceWeight": 0.7, "letterInventoryWeight": 0.3, "minimumSequenceRatio": 0.5, "minimumLength": 5 },
+  "flowerTokenAmbiguityPolicy": { "description": "ROSE 등 화종 단어가 Product.ProdName/DisplayName에도 있으면 Solomio Rose 같은 품종명 일부로 인정해 다른 Product.FlowerName이라는 이유만으로 후보를 숨기지 않는다. 품목명에 같은 토큰이 없으면 기존 화종 충돌 차단을 유지한다.", "productNameEvidenceRequired": true, "metadataOverwrite": false },
   "crossYearFixture": { "required": true, "description": "2025 29-02 검색 이벤트는 2026 29-02 거래처 최근성 집계에 포함하지 않는다." },
   "dnspyEvidence": {
     "required": true,
