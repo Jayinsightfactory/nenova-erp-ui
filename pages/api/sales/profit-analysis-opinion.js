@@ -36,10 +36,11 @@ END
 const SYSTEM_PROMPT = [
   '너는 네노바(꽃 수입 유통) 주차별 매출이익 보고서의 이익률 원인분석 담당이다.',
   '입력 JSON(근거팩)은 웹 화면과 동일한 확정 수치다. 규칙:',
-  '- 근거팩에 있는 숫자만 인용하고 새 수치를 계산하거나 추정해 만들지 마라.',
-  '- drivers의 열 의미는 label 필드가 정답이다: C=매출액, E=기초상품재고액, F=기말상품재고액, P=상품매입액, H=그외통관비, T=포워딩. profitImpact 양수=이익 개선, 음수=이익 악화. 열 의미를 절대 바꿔 해석하지 마라(예: C를 원가로, P를 판매가로 부르지 말 것).',
+  '- 근거팩의 금액·비율은 이미 단위가 붙은 문자열이다(만원/원/%). 그 문자열을 그대로 인용하고, 단위 환산·재계산·새 수치 생성을 절대 하지 마라.',
+  '- 이익영향은 양수(+)=이익 개선, 음수(-)=이익 악화다. 부호와 반대로 서술하지 마라.',
+  '- 변동요인의 항목명(매출액/기초상품재고액/기말상품재고액/상품매입액/그외통관비/포워딩)을 그대로 쓰고 다른 이름으로 바꿔 부르지 마라.',
   '- 카테고리(품종)마다 이익률이 왜 높거나 낮은지 핵심 원인을 영향이 큰 순서로 2~4문장으로 설명하라.',
-  '- 원인 유형: ①거래처 판매단가(카테고리 평균 대비 낮은 거래처와 그 매출 비중) ②저가 거래처 판매비중 확대 ③환율(rate.effect: 음수=환율 상승으로 이익 감소) ④재고 시차(stockLag: 기말 잔량 음수 = 다음 차수 입고분을 이번 차수에 선판매 — nextWeekArrival=true면 다음 차수 입고 확인됨) ⑤매입원가·통관비·포워딩 변동(drivers의 profitImpact).',
+  '- 원인 유형: ①거래처 판매단가(저단가거래처: 카테고리 평균 대비 낮은 거래처와 매출비중) ②저가비중확대·단가하락 ③환율(환율.이익영향) ④재고시차(기말잔량 음수 = 다음 차수 입고분을 이번 차수에 선판매) ⑤변동요인(매입·통관비·포워딩·재고).',
   '- cnf=true(호주·베트남)는 운임이 매입단가에 포함(CNF)이라 포워딩 부재가 정상임을 전제로 하라.',
   '- 전산(ERP)이 정답이다. 데이터 결측이 의심되면 "확인 필요"로 명시하고 단정하지 마라.',
   '- 출력은 한국어. 카테고리별로 "■ 카테고리명" 제목 뒤 서술. 금액은 만원 단위로 반올림해 말해도 된다.',
@@ -49,22 +50,31 @@ function truncateText(value, max = 1900) {
   return String(value || '').slice(0, max);
 }
 
+// LLM의 산수 환각을 차단한다 — 금액·비율을 서버가 미리 문자열로 포맷해 전달하고,
+// 프롬프트는 "그 문자열을 그대로 인용"만 허용한다.
+const fmtMan = (v) => {
+  if (v == null || Number.isNaN(Number(v))) return null;
+  const man = Math.round(Number(v) / 10000);
+  return `${man > 0 ? '+' : ''}${man.toLocaleString()}만원`;
+};
+const fmtPct = (v) => (v == null || Number.isNaN(Number(v)) ? null : `${(Number(v) * 100).toFixed(1)}%`);
+
 function compactEvidence(evidence, categoryFilter) {
   const cats = (evidence.categories || [])
     .filter((c) => !categoryFilter || c.category === categoryFilter)
     .map((c) => ({
       category: c.category,
       cnf: c.cnf,
-      K: c.K, prevK: c.prevK, J: c.J == null ? null : Math.round(c.J), C: c.C == null ? null : Math.round(c.C),
-      drivers: (c.drivers || []).slice(0, 4).map((d) => ({ col: d.column, label: DRIVER_LABEL[d.column] || d.column, delta: Math.round(d.delta || 0), profitImpact: Math.round(d.profitImpact || 0) })),
-      rate: c.rate && (c.rate.current != null || c.rate.prev != null)
-        ? { current: c.rate.current, prev: c.rate.prev, effect: c.rate.effect == null ? null : Math.round(c.rate.effect) }
+      이번이익률: fmtPct(c.K), 직전이익률: fmtPct(c.prevK), 매출이익: fmtMan(c.J), 매출액: fmtMan(c.C),
+      변동요인: (c.drivers || []).slice(0, 4).map((d) => ({ 항목: DRIVER_LABEL[d.column] || d.column, 이번대비직전증감: fmtMan(d.delta), 이익영향: fmtMan(d.profitImpact) })),
+      환율: c.rate && (c.rate.current != null || c.rate.prev != null)
+        ? { 이번: c.rate.current, 직전: c.rate.prev, 이익영향: fmtMan(c.rate.effect) }
         : null,
-      lowPriceCustomers: (c.customerPrices || []).filter((x) => (x.vsCategoryAvgPct ?? 0) < -0.03).slice(0, 5)
-        .map((x) => ({ cust: x.custName, price: Math.round(x.unitPrice), vsAvgPct: Math.round((x.vsCategoryAvgPct || 0) * 1000) / 10, sharePct: x.amountShare == null ? null : Math.round(x.amountShare * 100) })),
-      priceDrops: (c.priceDrops || []).slice(0, 5).map((x) => ({ cust: x.custName, product: x.productName, cur: Math.round(x.currentPrice), prev: Math.round(x.priorPrice), pct: Math.round((x.pctChange || 0) * 1000) / 10 })),
-      mixCandidates: (c.mixCandidates || []).slice(0, 5).map((x) => ({ cust: x.custName, product: x.productName, price: Math.round(x.currentPrice), peerAvg: Math.round(x.peerWeightedAvg), shareDeltaPp: x.shareDeltaPp })),
-      stockLag: (c.stockLag || []).slice(0, 8).map((x) => ({ product: x.productName, endStock: x.endStock, nextWeekArrival: x.nextWeekArrival })),
+      저단가거래처: (c.customerPrices || []).filter((x) => (x.vsCategoryAvgPct ?? 0) < -0.03).slice(0, 5)
+        .map((x) => ({ 거래처: x.custName, 단가: `${Math.round(x.unitPrice).toLocaleString()}원`, 평균대비: fmtPct(x.vsCategoryAvgPct), 매출비중: fmtPct(x.amountShare) })),
+      단가하락: (c.priceDrops || []).slice(0, 5).map((x) => ({ 거래처: x.custName, 품목: x.productName, 이번: `${Math.round(x.currentPrice).toLocaleString()}원`, 직전: `${Math.round(x.priorPrice).toLocaleString()}원`, 변화: fmtPct(x.pctChange) })),
+      저가비중확대: (c.mixCandidates || []).slice(0, 5).map((x) => ({ 거래처: x.custName, 품목: x.productName, 단가: `${Math.round(x.currentPrice).toLocaleString()}원`, 품목평균: `${Math.round(x.peerWeightedAvg).toLocaleString()}원`, 비중변화: `+${x.shareDeltaPp}%p` })),
+      재고시차: (c.stockLag || []).slice(0, 8).map((x) => ({ 품목: x.productName, 기말잔량: x.endStock, 다음차수입고확인: x.nextWeekArrival })),
     }));
   return { orderYear: evidence.orderYear, major: evidence.major, prevMajor: evidence.prevMajor, categories: cats };
 }
@@ -74,15 +84,16 @@ function ruleFallbackOpinion(compact) {
   const lines = [];
   for (const c of compact.categories) {
     const parts = [];
-    const kTxt = c.K == null ? '이익률 미계산' : `이익률 ${(c.K * 100).toFixed(1)}%${c.prevK != null ? ` (직전 ${(c.prevK * 100).toFixed(1)}%)` : ''}`;
-    const top = (c.drivers || [])[0];
-    if (top && top.profitImpact) parts.push(`최대 변동요인 ${top.col} (이익영향 ${Math.round(top.profitImpact / 10000)}만원)`);
-    if (c.rate?.effect) parts.push(`환율 영향 ${Math.round(c.rate.effect / 10000)}만원`);
-    if (c.lowPriceCustomers?.length) parts.push(`평균 대비 저단가 거래처 ${c.lowPriceCustomers.map((x) => x.cust).join('·')}`);
-    if (c.stockLag?.length) parts.push(`재고 시차(잔량 음수) 품목 ${c.stockLag.length}건`);
+    const kTxt = c.이번이익률 == null ? '이익률 미계산' : `이익률 ${c.이번이익률}${c.직전이익률 != null ? ` (직전 ${c.직전이익률})` : ''}`;
+    const top = (c.변동요인 || [])[0];
+    if (top && top.이익영향) parts.push(`최대 변동요인 ${top.항목} (이익영향 ${top.이익영향})`);
+    if (c.환율?.이익영향) parts.push(`환율 영향 ${c.환율.이익영향}`);
+    if (c.저단가거래처?.length) parts.push(`평균 대비 저단가 거래처 ${c.저단가거래처.map((x) => x.거래처).join('·')}`);
+    if (c.재고시차?.length) parts.push(`재고 시차(잔량 음수) 품목 ${c.재고시차.length}건`);
     lines.push(`■ ${c.category}: ${kTxt}. ${parts.join(' · ') || '전기 대비 특이 요인 없음.'}`);
   }
-  return lines.join('\n');
+  return lines.join('
+');
 }
 
 async function llmOpinion(compact) {
