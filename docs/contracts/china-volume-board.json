@@ -80,7 +80,7 @@
     "customerSource": "packing list Customer code matched to Customer.OrderCode",
     "productSource": "활성 Product 마스터의 중국 품목 전체를 읽기 전용 매칭 후보로 사용하되, 표에는 선택 차수 피벗 품목과 업로드에서 실제 매칭된 품목만 표시한다.",
     "productSearch": "괄호·공백·하이픈·ROSE/CARNATION 같은 화종 표기를 정규화해 SOLOMIO ROSE PINK가 Solomio Rose (pink)를 찾는다.",
-    "display": "quantity cell dimensions remain fixed; quantity is large; red box badges use one deterministically reserved empty neighbor in right-left-down-up order without covering nonempty cells; badge width follows digit count",
+    "display": "quantity cell dimensions remain fixed; ERP order quantity stays visible on a dedicated upper layer even when box badges expand; red box badges use one deterministically reserved empty neighbor in right-left-down-up order without covering nonempty cells; badge width follows digit count",
     "productLabel": "strip leading CHINA / only; preserve the full remaining product name in web and workbook",
     "excelExport": "current displayed quantities and edited box allocations export as quantity (box numbers) plus a 수량대조 audit sheet without ERP writes",
     "reconciliationSource": "one shared summarizeChinaVolumeTotals helper for screen status, mismatch list, and XLSX audit sheet",
