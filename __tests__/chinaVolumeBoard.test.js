@@ -12,8 +12,10 @@ const assert = require('assert');
     matchChinaPackingRows,
     mergeChinaCellAllocations,
     mergeChinaPackingIntoPivotCells,
+    restoreChinaPackingCells,
     validateChinaCellAllocation,
     summarizeChinaVolumeTotals,
+    stepChinaOrderWeek,
   } = await import('../lib/chinaVolumeBoard.js');
 
   assert.strictEqual(chinaVolumeProductLabel('CHINA / ROSE Diana 50cm'), 'ROSE Diana 50cm');
@@ -27,6 +29,9 @@ const assert = require('assert');
     cells: { '1:9': { quantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] } },
   });
   assert.deepStrictEqual(workbookRows[2], ['ROSE Diana 50cm full name', '20 (16,17)']);
+  assert.strictEqual(stepChinaOrderWeek('35-01', -1), '34-01');
+  assert.strictEqual(stepChinaOrderWeek('35-1', 1), '36-01');
+  assert.strictEqual(stepChinaOrderWeek('01-01', -1), '01-01');
   const neighborRows = [
     { prodKey: 1, outOrders: { A: 10, B: 0, C: 5 } },
     { prodKey: 2, outOrders: { A: 0, B: 0, C: 0 } },
@@ -97,8 +102,28 @@ const assert = require('assert');
       { prodKey: 71, country: '중국', prodName: 'ROSE Idana', outOrders: { 주광농원: 10 } },
     ],
   });
-  assert.strictEqual(pivotCells['7:70'].quantity, 18, '웹 셀 수량은 패킹 20이 아니라 피벗 분배 18을 유지');
+  assert.strictEqual(pivotCells['7:70'].quantity, 20, '웹 셀 주 표시수량은 업로드 패킹 20을 채운다');
   assert.strictEqual(pivotCells['7:70'].packingQuantity, 20);
+  assert.strictEqual(pivotCells['7:70'].orderQuantity, 18, '전산 주문수량은 비교값으로 별도 보존한다');
+  const packingWorkbookRows = buildChinaVolumeWorkbookRows({
+    year: 2026,
+    week: '35-01',
+    customers: [{ custKey: 7, custName: '주광농원', orderCode: 'CL1' }],
+    rows: [{ prodKey: 70, prodName: 'ROSE Diana', outOrders: { 주광농원: 18 } }],
+    cells: pivotCells,
+  });
+  assert.strictEqual(packingWorkbookRows[2][1], '20 (16,17)', '엑셀에도 패킹수량과 박스번호를 함께 출력한다');
+  const restoredCells = restoreChinaPackingCells({
+    '7:70': { quantity: 18, packingQuantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] },
+  }, matched, {
+    customers: [{ custKey: 7, custName: '주광농원', orderCode: 'CL1' }],
+    rows: [
+      { prodKey: 70, country: '중국', prodName: 'ROSE Diana', outOrders: { 주광농원: 18 } },
+      { prodKey: 71, country: '중국', prodName: 'ROSE Idana', outOrders: { 주광농원: 10 } },
+    ],
+  });
+  assert.strictEqual(restoredCells['7:70'].quantity, 20, '기존 저장본도 재업로드 없이 패킹 수량으로 복원한다');
+  assert.strictEqual(restoredCells['7:70'].orderQuantity, 18);
   assert.strictEqual(validateChinaCellAllocation({ quantity: 20, allocations: [{ boxNo: '16', quantity: 5 }] }).valid, false);
 
   const totalFixture = {
