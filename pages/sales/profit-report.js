@@ -653,9 +653,23 @@ export default function ProfitReportPage() {
         body: JSON.stringify({ year: reportYear }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok || (!d.success && !d.sent)) throw new Error(d.error || 'MOYI 드라이브 동기화에 실패했습니다.');
-      const failNote = d.failed ? ` · 실패 ${d.failed}건 (전송 이력 확인)` : '';
-      setMessage(`MOYI 드라이브 동기화 완료 — ${d.folder} 폴더에 ${d.sent}개 차수 파일 갱신${failNote}`);
+      if (!res.ok || !d.success) throw new Error(d.error || 'MOYI 드라이브 동기화에 실패했습니다.');
+      // 연도 전체 계산은 수 분 걸려 서버가 백그라운드로 처리한다 — 완료까지 진행상황 폴링
+      setMessage('MOYI 드라이브 동기화 시작 — 전체 차수 계산 중… (수 분 소요)');
+      for (let tick = 0; tick < 120; tick += 1) {
+        await new Promise(r => setTimeout(r, 10_000));
+        const sres = await fetch('/api/moyi/drive-report-sync', { credentials: 'same-origin' });
+        const s = await sres.json().catch(() => ({}));
+        const job = s.job;
+        if (!job) break;
+        if (job.done) {
+          if (job.error) throw new Error(`동기화 오류: ${job.error}`);
+          const failNote = job.failed ? ` · 실패 ${job.failed}건 (전송 이력 확인)` : '';
+          setMessage(`MOYI 드라이브 동기화 완료 — 경영지원/보고 폴더에 ${job.sent}개 차수 파일 갱신${failNote}`);
+          return;
+        }
+        setMessage(`MOYI 드라이브 동기화 진행 중 — ${job.detail || job.phase}${job.total ? ` (완료 ${job.sent + job.failed}/${job.total})` : ''}`);
+      }
     } catch (e) {
       setError(e.message);
     } finally {

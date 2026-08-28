@@ -2,13 +2,18 @@
 // ERP 주문·출고·재고 원장은 읽기만 하고, 전송 이력은 웹 전용 WebMoyiReportPush에 기록한다.
 // MOYI 쪽은 drive-bridge 에이전트 프로토콜(/drive-bridge/index → /drive-bridge/content)로
 // 차수별 엑셀(2번째 시트=월별)을 부서 폴더 트리에 올린다 — 브리지 PC 없이 서버가 직접 밀어넣는 구조.
+//
+// 연도 전체 계산이 수 분 걸려 nginx 프록시(300s)를 넘길 수 있어, POST는 작업을 시작만 하고
+// 즉시 202로 응답한다. 진행/결과는 GET(메모리 진행상황 + WebMoyiReportPush 이력)으로 조회한다.
 import crypto from 'node:crypto';
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
-import { composeProfitReportNote } from '../../../lib/profitReport';
+import { composeProfitReportNote, periodDayRangesByMajor } from '../../../lib/profitReport';
+import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly';
+import { computeProfitRow, computeProfitTotals } from '../../../lib/profitReportCalc';
 import { buildProfitReportXlsx } from '../../../lib/profitReportExcel';
-import { loadAnnualMonthlyReportData, loadWeeklyReportPayload, parseMajor } from '../sales/profit-report';
+import { loadWeeklyReportPayload, parseMajor } from '../sales/profit-report';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '1mb' }, responseLimit: '8mb' },
@@ -94,37 +99,52 @@ function fileNameFor(orderYear, major) {
   return `${orderYear}년 ${String(major).padStart(2, '0')}차 주차별 매출이익.xlsx`;
 }
 
-async function syncReports(req, res) {
-  const actor = req.user?.userName || req.user?.userId || 'user';
-  const body = req.body || {};
-  const orderYear = resolveActiveOrderYear('', body.year);
+// 진행상황 (프로세스 메모리 — pm2 fork 단일 프로세스 기준. 영구 기록은 WebMoyiReportPush)
+let activeJob = null;
 
-  const base = (process.env.MOYI_API_BASE || 'https://api.nowlink.kr').replace(/\/$/, '');
-  const token = process.env.MOYI_BRIDGE_TOKEN || '';
-  if (!token) {
-    return res.status(503).json({ success: false, error: 'MOYI_BRIDGE_TOKEN이 배포 환경에 설정되지 않았습니다.' });
+async function runSyncJob(job, { orderYear, requestedWeeks, actor, base, token }) {
+  const step = (phase, detail) => { job.phase = phase; job.detail = detail || ''; };
+
+  // 1) 차수 목록 + 주차 원장 1회 로드 (모든 파일이 같은 월별 요약을 공유)
+  step('period', '차수 범위 조회');
+  const periods = await periodDayRangesByMajor(orderYear);
+  const activePeriods = periods.filter(p => p.hasData);
+  const payloads = new Map();
+  const weeks = [];
+  const concurrency = 2;
+  for (let i = 0; i < activePeriods.length; i += concurrency) {
+    const batch = activePeriods.slice(i, i + concurrency);
+    step('load', `주차 계산 ${Math.min(i + concurrency, activePeriods.length)}/${activePeriods.length}`);
+    const results = await Promise.all(batch.map(async period => {
+      try {
+        const data = await loadWeeklyReportPayload(period.major, orderYear);
+        const totals = data.confirmed
+          ? data.confirmedTotals
+          : computeProfitTotals((data.rows || []).map(row => ({ ...row, calc: computeProfitRow(row) })));
+        return { major: period.major, period, totals, data };
+      } catch (error) {
+        return { major: period.major, period, error: error.message || '주차 보고서 조회 실패' };
+      }
+    }));
+    for (const r of results) {
+      weeks.push({ major: r.major, period: r.period, totals: r.totals, error: r.error });
+      if (!r.error) payloads.set(String(r.major).padStart(2, '0'), r.data);
+    }
   }
+  const summary = buildMonthlyProfitSummary(weeks, orderYear);
+  const monthly = { year: summary.year, months: summary.months, boundaryWeeks: summary.boundaryWeeks, missingWeeks: summary.missingWeeks };
 
-  // 연간 월별 집계 한 번 — 모든 차수 파일의 2번째 시트(월별)에 동일하게 들어간다.
-  const annual = await loadAnnualMonthlyReportData(orderYear);
-  const availableMajors = (annual.weeks || []).filter(w => !w.error).map(w => String(w.major).padStart(2, '0'));
+  const availableMajors = Array.from(payloads.keys());
   let targetMajors = availableMajors;
-  if (Array.isArray(body.weeks) && body.weeks.length) {
-    const requested = body.weeks.map(w => parseMajor(String(w))).filter(Boolean);
-    if (!requested.length) return res.status(400).json({ success: false, error: 'weeks 형식이 올바르지 않습니다 (예: ["26","27"])' });
-    targetMajors = requested.filter(m => availableMajors.includes(m));
-  }
-  if (!targetMajors.length) {
-    return res.status(400).json({ success: false, error: '동기화할 차수가 없습니다.' });
-  }
-  const monthly = { year: annual.year, months: annual.months, boundaryWeeks: annual.boundaryWeeks, missingWeeks: annual.missingWeeks };
+  if (requestedWeeks?.length) targetMajors = requestedWeeks.filter(m => availableMajors.includes(m));
+  job.total = targetMajors.length;
 
-  // 1) 차수별 엑셀 생성 (주차 시트 + 월별 시트)
+  // 2) 차수별 엑셀 생성 (주차 시트 + 월별 시트)
   const files = [];
-  const results = [];
   for (const major of targetMajors) {
+    step('build', `${Number(major)}차 엑셀 생성`);
     try {
-      const data = await loadWeeklyReportPayload(major, orderYear);
+      const data = payloads.get(major);
       const buffer = buildProfitReportXlsx({
         major,
         rows: data.rows,
@@ -135,11 +155,13 @@ async function syncReports(req, res) {
       });
       files.push({ major, fileName: fileNameFor(orderYear, major), buffer, sha256: crypto.createHash('sha256').update(buffer).digest('hex') });
     } catch (error) {
-      results.push({ major, state: 'failed', error: truncate(`보고서 생성 실패: ${error.message}`) });
+      job.results.push({ major, state: 'failed', error: truncate(`보고서 생성 실패: ${error.message}`) });
+      job.failed += 1;
     }
   }
 
-  // 2) 부서 트리 + 파일 메타 색인 (full=false — 다른 에이전트/기존 항목은 건드리지 않는다)
+  // 3) 부서 트리 + 파일 메타 색인 (full=false — 다른 에이전트/기존 항목은 건드리지 않는다)
+  step('index', 'MOYI 색인');
   const nowIso = new Date().toISOString();
   const indexItems = [
     ...DEPT_SKELETON.map(p => ({ path: p, name: p.split('/').pop(), kind: 'dir', size: 0 })),
@@ -153,19 +175,22 @@ async function syncReports(req, res) {
     const error = truncate(`MOYI 색인 실패 (${indexRes.status}): ${indexRes.text}`);
     for (const f of files) {
       await logPush({ orderYear, major: f.major, fileName: f.fileName, actor, state: 'failed', sizeBytes: f.buffer.length, sha256: f.sha256, responseStatus: indexRes.status, responseText: indexRes.text, errorText: error });
-      results.push({ major: f.major, state: 'failed', error });
+      job.results.push({ major: f.major, state: 'failed', error });
+      job.failed += 1;
     }
-    return res.status(502).json({ success: false, error, results });
+    return;
   }
   const itemIds = indexRes.json?.items || {};
 
-  // 3) 파일 내용 업로드 — 색인 캐시에 의존하지 않고 매번 최신 내용으로 교체한다.
+  // 4) 파일 내용 업로드 — 색인 캐시에 의존하지 않고 매번 최신 내용으로 교체한다.
   for (const f of files) {
+    step('upload', `${Number(f.major)}차 업로드`);
     const itemId = itemIds[`${REPORT_FOLDER}/${f.fileName}`];
     if (!itemId) {
       const error = '색인 응답에 항목 id가 없습니다 — MOYI 백엔드 버전 확인 필요.';
       await logPush({ orderYear, major: f.major, fileName: f.fileName, actor, state: 'failed', sizeBytes: f.buffer.length, sha256: f.sha256, errorText: error });
-      results.push({ major: f.major, state: 'failed', error });
+      job.results.push({ major: f.major, state: 'failed', error });
+      job.failed += 1;
       continue;
     }
     const contentRes = await moyiFetch(base, token, '/drive-bridge/content', {
@@ -174,7 +199,8 @@ async function syncReports(req, res) {
     if (!contentRes.ok) {
       const error = truncate(`MOYI 업로드 실패 (${contentRes.status}): ${contentRes.text}`);
       await logPush({ orderYear, major: f.major, fileName: f.fileName, actor, state: 'failed', sizeBytes: f.buffer.length, sha256: f.sha256, responseStatus: contentRes.status, responseText: contentRes.text, errorText: error });
-      results.push({ major: f.major, state: 'failed', error });
+      job.results.push({ major: f.major, state: 'failed', error });
+      job.failed += 1;
       continue;
     }
     await logPush({
@@ -182,25 +208,76 @@ async function syncReports(req, res) {
       sizeBytes: f.buffer.length, sha256: f.sha256, responseStatus: contentRes.status,
       responseText: contentRes.text, remoteFileId: contentRes.json?.file_id,
     });
-    results.push({ major: f.major, state: 'sent', fileName: f.fileName, sizeBytes: f.buffer.length, sha256: f.sha256, remoteFileId: contentRes.json?.file_id || null });
+    job.results.push({ major: f.major, state: 'sent', fileName: f.fileName, sizeBytes: f.buffer.length, sha256: f.sha256, remoteFileId: contentRes.json?.file_id || null });
+    job.sent += 1;
+  }
+}
+
+function jobView() {
+  if (!activeJob) return null;
+  const { startedAt, finishedAt, orderYear, phase, detail, total, sent, failed, done, error, results } = activeJob;
+  return { startedAt, finishedAt, orderYear, phase, detail, total, sent, failed, done, error, results };
+}
+
+async function startSync(req, res) {
+  const actor = req.user?.userName || req.user?.userId || 'user';
+  const body = req.body || {};
+  const orderYear = resolveActiveOrderYear('', body.year);
+
+  const base = (process.env.MOYI_API_BASE || 'https://api.nowlink.kr').replace(/\/$/, '');
+  const token = process.env.MOYI_BRIDGE_TOKEN || '';
+  if (!token) {
+    return res.status(503).json({ success: false, error: 'MOYI_BRIDGE_TOKEN이 배포 환경에 설정되지 않았습니다.' });
+  }
+  if (activeJob && !activeJob.done) {
+    return res.status(409).json({ success: false, error: '동기화가 이미 진행 중입니다.', job: jobView() });
   }
 
-  const sent = results.filter(r => r.state === 'sent').length;
-  const failed = results.filter(r => r.state === 'failed').length;
-  return res.status(failed && !sent ? 502 : 200).json({
-    success: failed === 0,
-    orderYear,
-    folder: REPORT_FOLDER,
-    sent,
-    failed,
-    results: results.sort((a, b) => String(a.major).localeCompare(String(b.major))),
+  let requestedWeeks = null;
+  if (Array.isArray(body.weeks) && body.weeks.length) {
+    requestedWeeks = body.weeks.map(w => parseMajor(String(w))).filter(Boolean);
+    if (!requestedWeeks.length) return res.status(400).json({ success: false, error: 'weeks 형식이 올바르지 않습니다 (예: ["26","27"])' });
+  }
+
+  const job = {
+    startedAt: new Date().toISOString(), finishedAt: null, orderYear,
+    phase: 'start', detail: '', total: null, sent: 0, failed: 0, done: false, error: null, results: [],
+  };
+  activeJob = job;
+  // 연도 전체 계산이 nginx 프록시 한도(300s)를 넘을 수 있어 응답과 분리해 실행한다.
+  runSyncJob(job, { orderYear, requestedWeeks, actor, base, token })
+    .catch(error => { job.error = truncate(error.message); })
+    .finally(() => { job.done = true; job.finishedAt = new Date().toISOString(); job.phase = 'done'; });
+
+  return res.status(202).json({ success: true, started: true, orderYear, folder: REPORT_FOLDER, job: jobView() });
+}
+
+async function syncStatus(req, res) {
+  const result = await query(
+    `SELECT TOP (40) OrderYear, OrderWeek, FileName, SizeBytes, Sha256, State, ResponseStatus, ErrorText, RequestedBy, RequestedAt, SentAt
+       FROM dbo.WebMoyiReportPush
+      WHERE ReportType=@reportType
+      ORDER BY RequestedAt DESC`,
+    { reportType: { type: sql.NVarChar(40), value: REPORT_TYPE } },
+  );
+  return res.status(200).json({
+    success: true,
+    job: jobView(),
+    history: (result.recordset || []).map(r => ({
+      orderYear: r.OrderYear, orderWeek: r.OrderWeek, fileName: r.FileName, sizeBytes: r.SizeBytes,
+      sha256: r.Sha256, state: r.State, responseStatus: r.ResponseStatus, errorText: r.ErrorText,
+      requestedBy: r.RequestedBy,
+      requestedAt: r.RequestedAt?.toISOString?.() || r.RequestedAt || null,
+      sentAt: r.SentAt?.toISOString?.() || r.SentAt || null,
+    })),
   });
 }
 
 export default withAuth(async function handler(req, res) {
   try {
     await query(TABLE_SQL);
-    if (req.method === 'POST') return await syncReports(req, res);
+    if (req.method === 'POST') return await startSync(req, res);
+    if (req.method === 'GET') return await syncStatus(req, res);
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (error) {
     console.error('[moyi/drive-report-sync]', error);
