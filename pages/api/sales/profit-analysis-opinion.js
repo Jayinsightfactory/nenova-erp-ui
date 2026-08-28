@@ -92,8 +92,7 @@ function ruleFallbackOpinion(compact) {
     if (c.재고시차?.length) parts.push(`재고 시차(잔량 음수) 품목 ${c.재고시차.length}건`);
     lines.push(`■ ${c.category}: ${kTxt}. ${parts.join(' · ') || '전기 대비 특이 요인 없음.'}`);
   }
-  return lines.join('
-');
+  return lines.join('\n');
 }
 
 async function llmOpinion(compact) {
