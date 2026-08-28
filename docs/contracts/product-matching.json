@@ -27,7 +27,7 @@
     { "name": "ORDER_MAPPING_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "estimate": "preserve", "sideEffect": "업로드·붙여넣기 주문등록 모두 공용 /api/orders/mappings에 사용자 선택을 저장; 브라우저별 매핑 저장 금지" }
   ],
   "confidence": { "high": 0.9, "medium": 0.68, "countryOrFlowerConflictAutoSelect": false, "selfTrainingFromAutoSelection": false },
-  "categoryTokenPolicy": { "description": "공급처 품종명에 포함된 ROSE/장미 등 꽃 종류는 후보 Product.FlowerName과 같은 경우에만 품종 문자열 비교에서 제외한다.", "crossFlowerMatch": false, "colorMismatchAutoSelect": false },
+  "categoryTokenPolicy": { "description": "전산 전체 품목명 직접 일치를 최우선으로 한다. 공급처 품종명에 포함된 ROSE/장미 등 꽃 종류는 후보 Product.FlowerName과 같은 경우에만 보조 비교에서 제외하며 직접 일치와 같은 만점으로 올리지 않는다.", "masterNameExactFirst": true, "crossFlowerMatch": false, "colorMismatchAutoSelect": false, "exactNameVisibleOnMetadataConflict": true },
   "crossYearFixture": { "required": true, "description": "2025 29-02 검색 이벤트는 2026 29-02 거래처 최근성 집계에 포함하지 않는다." },
   "dnspyEvidence": {
     "required": true,
