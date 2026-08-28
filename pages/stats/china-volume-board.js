@@ -405,7 +405,7 @@ export default function ChinaVolumeBoard() {
   const openReconciliationReview = () => {
     const reviewKey = `china-volume-review:${Date.now()}`;
     sessionStorage.setItem(reviewKey, JSON.stringify({
-      boardKey, year, week, boardName, mismatches: totals.mismatches,
+      boardKey, year, week, boardName, packingPhase, mismatches: totals.mismatches, invoiceMismatches: totals.invoiceMismatches,
       unmatched: packingRows.filter(row => row.mappingStatus !== 'MATCHED').map(row => ({ sourceRow: row.sourceRow, sourceItemName: row.sourceItemName, customerCode: row.customerCode, quantity: row.quantity, mappingStatus: row.mappingStatus })),
     }));
     const child = window.open(`/stats/china-volume-board-review?key=${encodeURIComponent(reviewKey)}&boardKey=${encodeURIComponent(boardKey || '')}`, 'china-volume-review', 'popup,width=1050,height=760,resizable=yes,scrollbars=yes');
@@ -521,21 +521,20 @@ export default function ChinaVolumeBoard() {
           <span className="source-file" title={sourceFileName || '적용된 패킹리스트 없음'}>{sourceFileName ? `적용: ${sourceFileName}` : '적용 파일 없음'}</span>
           <button className={totals.unmatchedRowCount ? 'attention' : ''} onClick={() => setMatchOpen(true)} disabled={!packingRows.some(row => row.mappingStatus !== 'MATCHED')}>미매칭 수정 {totals.unmatchedRowCount ? `${totals.unmatchedRowCount}건` : ''}</button>
           <button className={packingPhase === 'REVIEW' ? 'apply-matches' : ''} onClick={applyPackingMatches} disabled={!canApplyChinaPackingRows(packingRows) || packingPhase === 'APPLIED' || saving}>{packingPhase === 'APPLIED' ? '✓ 매칭 적용됨' : '매칭 적용'}</button>
-          <button className={totals.status === 'WARNING' ? 'attention' : ''} onClick={openReconciliationReview} disabled={!packingRows.length}>누락·초과 확인</button>
+          <button className={(packingPhase === 'REVIEW' ? totals.invoiceMismatches.length || totals.unmatchedRowCount : totals.status === 'WARNING') ? 'attention' : ''} onClick={openReconciliationReview} disabled={!packingRows.length}>{packingPhase === 'REVIEW' ? `주문↔인보이스 확인 ${totals.invoiceMismatches.length ? `${totals.invoiceMismatches.length}건` : ''}` : '적용 결과 확인'}</button>
           <button onClick={downloadExcel} disabled={!data || packingPhase === 'REVIEW'}>엑셀 다운로드</button>
           <span className="legend"><i>16</i> 빨간 번호는 패킹 박스 · 셀마다 클릭 수정</span>
         </div>
         {error && <div className="error" role="alert">{error}</div>}
         {packingPhase === 'REVIEW' && <div className="matching-guide"><b>1. 전산 물량표 확인</b><span>2. 오른쪽 인보이스·매칭 결과 확인</span><span>3. 미매칭 수정</span><strong>4. 매칭 적용</strong></div>}
-        {data && <section className={`reconcile ${packingRows.length ? totals.status.toLowerCase() : 'idle'}`} aria-label="총수량 대조">
-          <b>{packingRows.length ? (totals.status === 'OK' ? '✓ 수량 대조 정상' : '⚠ 수량 대조 확인 필요') : '수량 대조 · 패킹리스트 업로드 대기'}</b>
-          <span>피벗 출고 <strong>{fmtUnitTotals(totals.unitTotals, 'pivot')}</strong><small>참고</small></span>
+        {data && <section className={`reconcile ${packingRows.length ? ((packingPhase === 'REVIEW' ? totals.invoiceMismatches.length || totals.unmatchedRowCount : totals.status === 'WARNING') ? 'warning' : 'ok') : 'idle'}`} aria-label="총수량 대조">
+          <b>{!packingRows.length ? '수량 대조 · 패킹리스트 업로드 대기' : packingPhase === 'REVIEW' ? ((totals.invoiceMismatches.length || totals.unmatchedRowCount) ? '⚠ 주문과 인보이스 확인 필요' : '✓ 주문과 인보이스 수량 일치') : (totals.status === 'OK' ? '✓ 적용 결과 정상' : '⚠ 적용 결과 확인 필요')}</b>
+          <span>전산 주문 <strong>{fmtUnitTotals(totals.unitTotals, 'pivot')}</strong></span>
           <span>입고원장 <strong>{fmtUnitTotals(totals.unitTotals, 'packing')}</strong></span>
           <span>매칭 <strong>{fmt(totals.matchedPackingTotal)}</strong></span>
           <span className={totals.unmatchedPackingTotal ? 'warn' : ''}>미매칭 <strong>{fmt(totals.unmatchedPackingTotal)}</strong><small>{totals.unmatchedRowCount}건</small></span>
-          <span>박스배정 <strong>{fmtUnitTotals(totals.unitTotals, 'allocated')}</strong></span>
-          <span className={Math.abs(totals.boardAllocationDifference) >= 0.001 ? 'warn' : ''}>표시-배정 <strong>{fmtUnitDifferences(totals.unitTotals)}</strong></span>
-          <button className={totals.mismatches.length ? 'warn' : ''} onClick={openReconciliationReview}>불일치 <strong>{totals.mismatches.length}</strong><small>업체·품목 확인</small></button>
+          {packingPhase !== 'REVIEW' && <><span>박스배정 <strong>{fmtUnitTotals(totals.unitTotals, 'allocated')}</strong></span><span className={Math.abs(totals.boardAllocationDifference) >= 0.001 ? 'warn' : ''}>최종표-박스 <strong>{fmtUnitDifferences(totals.unitTotals)}</strong></span></>}
+          <button className={(packingPhase === 'REVIEW' ? totals.invoiceMismatches.length : totals.mismatches.length) ? 'warn' : ''} onClick={openReconciliationReview}>{packingPhase === 'REVIEW' ? '주문과 다른 인보이스' : '적용 오류'} <strong>{packingPhase === 'REVIEW' ? totals.invoiceMismatches.length : totals.mismatches.length}</strong><small>업체·품목 확인</small></button>
         </section>}
         <main>
           <section className="board-wrap">

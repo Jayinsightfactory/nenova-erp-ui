@@ -101,7 +101,7 @@
       "database": "WebChinaVolumeBoard stores PackingRowsJson, CellsJson, MatchOverridesJson and ReviewStateJson for each BoardKey plus source-file metadata; WebChinaVolumeProductMap stores reusable explicit source-item to ProdKey mappings globally across BoardKey and weeks. Both are web-only; no runtime CREATE/ALTER/DROP and no writes to Order*, Shipment*, Warehouse*, Stock*, Estimate or WebProfitReport"
     },
     "mismatchReview": {
-      "open": "a dedicated confirmation button opens a new review window/modal; it does not hide warnings in the main grid",
+      "open": "a dedicated confirmation button opens a new review window/modal; during REVIEW it compares ERP order quantity with invoice quantity and labels shortage/excess in plain Korean, while after APPLIED it separately verifies invoice, final board and box-allocation totals",
       "choices": ["keep current board quantity", "apply matched packing quantity", "leave unresolved and save for later"],
       "requiresReason": "choice and optional note are stored in history; unresolved rows remain visible and block a false OK status"
     },

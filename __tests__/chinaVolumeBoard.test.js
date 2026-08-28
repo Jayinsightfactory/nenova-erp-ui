@@ -157,6 +157,8 @@ const assert = require('assert');
   assert.strictEqual(totals.pivotTotal, 28, '피벗 합계는 별도 참고값');
   assert.strictEqual(totals.allocationTotal, 30, '박스 배정 합계');
   assert.strictEqual(totals.pivotVsPackingDifference, -2, '피벗-패킹 차이는 참고값');
+  assert.strictEqual(totals.invoiceMismatches.length, 1, '업로드 검토에는 실제 주문-인보이스 차이만 표시한다');
+  assert.strictEqual(totals.invoiceMismatches[0].invoiceDifference, 2, '양수 차이는 인보이스 초과수량이다');
   assert.strictEqual(totals.boardAllocationDifference, -2, '현재 표시수량과 박스 배정 합계 차이를 별도 검출');
   assert.deepStrictEqual(totals.unitTotals.map(item => [item.unit, item.packing]), [['단', 20], ['박스', 10]], '단과 박스를 하나의 의미 없는 합계로 섞지 않는다');
   assert.strictEqual(totals.status, 'WARNING', '피벗 차이는 참고값이지만 현재 표시수량과 박스배정이 다르면 확인 경고');
