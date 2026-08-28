@@ -15,5 +15,11 @@ assert.match(page, /OPEN_DISTRIBUTION/, '별도 검토창의 분배 작업을 �
 assert.match(page, /editMatching\(row\.sourceRow\)/, '미매칭과 기존 매칭 행 모두 정확한 원본 행을 편집하도록 전달해야 합니다.');
 assert.match(page, /업체·품목 매칭 수정/, '미매칭 원인이 업체 또는 품목이어도 같은 편집창으로 안내해야 합니다.');
 assert.match(page, /매칭 수정/, '이미 매칭된 인보이스도 검토창에서 다시 매칭할 수 있어야 합니다.');
+assert.match(page, /packingRowsForCell/, '부족·초과 셀을 구성한 정확한 인보이스 원본 행을 찾아야 합니다.');
+assert.match(page, /sameProductFallback/, '직접 배정된 박스가 없는 부족 행은 같은 품목의 다른 업체 배정 후보를 찾아야 합니다.');
+assert.match(page, /같은 품목이 다른 업체에 배정된 박스 후보/, '부족 행에서 후보 박스의 의미를 쉬운 문구로 알려야 합니다.');
+assert.match(page, /원본 \{row\.sourceRow\}행 · 박스 \{row\.sourceBoxText/, '부족·초과 표에 수정 대상 원본 행과 박스번호를 함께 표시해야 합니다.');
+assert.match(page, /관련 인보이스·박스 수정/, '사용자가 부족·초과 표에서 바로 박스별 수정 경로를 알아볼 수 있어야 합니다.');
+assert.match(page, /InvoiceEditActions review=\{review\} cellKey=\{item\.cellKey\}/, '검토 전과 적용 후 모두 같은 직접 편집 경로를 사용해야 합니다.');
 assert.match(page, /window|popup|새창|noopener/i, '검토 화면은 별도 창/검토 흐름으로 열 수 있어야 합니다.');
 console.log('china volume board review UI contract passed');
