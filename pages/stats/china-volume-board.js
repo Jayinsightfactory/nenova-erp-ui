@@ -39,8 +39,16 @@ function chinaMappingKey(value) {
   return normalizeChinaText(value);
 }
 
-function applySavedChinaMappings(rows, pivotData, productMappings = {}) {
-  const products = (pivotData?.rows || []).filter(row => /중국/i.test(String(row?.country || '')));
+function mergeChinaProductCandidates(pivotData, productCatalog = []) {
+  const byKey = new Map();
+  [...(pivotData?.rows || []), ...(productCatalog || [])]
+    .filter(row => /중국/i.test(String(row?.country || '')))
+    .forEach(row => byKey.set(Number(row.prodKey), { ...row, outOrders: row.outOrders || {} }));
+  return [...byKey.values()];
+}
+
+function applySavedChinaMappings(rows, pivotData, productMappings = {}, productCatalog = []) {
+  const products = mergeChinaProductCandidates(pivotData, productCatalog);
   return (rows || []).map(row => {
     const saved = productMappings[chinaMappingKey(row.sourceItemName)];
     const savedProdKey = Number(saved?.prodKey || saved?.ProdKey || saved || 0);
@@ -85,8 +93,8 @@ function MatchingModal({ rows, products, onClose, onMatch }) {
   const unresolved = rows.filter(row => row.mappingStatus === 'PRODUCT_UNMATCHED');
   const target = unresolved[Math.min(selectedIndex, Math.max(0, unresolved.length - 1))];
   const candidates = products.filter(product => {
-    const haystack = `${product.flower || ''} ${chinaVolumeProductLabel(product.prodName)}`.toLowerCase();
-    return !search.trim() || haystack.includes(search.trim().toLowerCase());
+    const haystack = normalizeChinaText(`${product.flower || ''} ${product.displayName || ''} ${chinaVolumeProductLabel(product.prodName)}`);
+    return !search.trim() || haystack.includes(normalizeChinaText(search));
   }).slice(0, 80);
   if (!target) return null;
   return (
@@ -170,6 +178,7 @@ export default function ChinaVolumeBoard() {
   const [boardKey, setBoardKey] = useState('');
   const [boardName, setBoardName] = useState('');
   const [productMappings, setProductMappings] = useState({});
+  const [productCatalog, setProductCatalog] = useState([]);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
@@ -178,12 +187,12 @@ export default function ChinaVolumeBoard() {
   const [sourceSheetName, setSourceSheetName] = useState('');
   const [expectedRowVersion, setExpectedRowVersion] = useState('');
 
-  const applyBoard = (rawBoard, pivotData = data, mappings = productMappings) => {
+  const applyBoard = (rawBoard, pivotData = data, mappings = productMappings, catalog = productCatalog) => {
     const board = normalizeBoard(rawBoard);
     if (!board) return;
     setBoardKey(board.boardKey);
     setBoardName(board.name || `${board.orderYear || year}년 ${board.orderWeek || week} 중국 물량표`);
-    const hydratedRows = applySavedChinaMappings(board.packingRows, pivotData, { ...mappings, ...board.matchOverrides });
+    const hydratedRows = applySavedChinaMappings(board.packingRows, pivotData, { ...mappings, ...board.matchOverrides }, catalog);
     setPackingRows(hydratedRows);
     if (hydratedRows.some(row => row.mappingStatus === 'PRODUCT_UNMATCHED')) setMatchOpen(true);
     setCells(board.cells || {});
@@ -206,12 +215,15 @@ export default function ChinaVolumeBoard() {
   const load = async () => {
     setLoading(true); setError('');
     try {
-      const [result, history] = await Promise.all([
+      const [result, history, catalogResult] = await Promise.all([
         apiGet('/api/stats/pivot-data', { orderYear: year, weekStart: week, weekEnd: week }),
         loadBoardHistory(year, week),
+        apiGet('/api/stats/china-volume-products'),
       ]);
+      const catalog = catalogResult.products || [];
+      setProductCatalog(catalog);
       setData(result);
-      if (history.active) applyBoard(history.active, result, history.mappings);
+      if (history.active) applyBoard(history.active, result, history.mappings, catalog);
       else {
         setBoardKey(''); setBoardName(`${year}년 ${week} 중국 물량표`);
         setCells({}); setPackingRows([]); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setDirty(false);
@@ -222,7 +234,12 @@ export default function ChinaVolumeBoard() {
 
   useEffect(() => { load(); }, []);
 
-  const chinaRows = useMemo(() => (data?.rows || []).filter(row => /중국/i.test(String(row.country || ''))), [data]);
+  const matchProducts = useMemo(() => mergeChinaProductCandidates(data, productCatalog), [data, productCatalog]);
+  const chinaRows = useMemo(() => {
+    const byKey = new Map((data?.rows || []).filter(row => /중국/i.test(String(row.country || ''))).map(row => [Number(row.prodKey), row]));
+    packingRows.forEach(row => row.product?.prodKey && !byKey.has(Number(row.product.prodKey)) && byKey.set(Number(row.product.prodKey), { ...row.product, outOrders: {} }));
+    return [...byKey.values()];
+  }, [data, packingRows]);
   const customers = useMemo(() => {
     const used = new Set();
     chinaRows.forEach(row => Object.entries(row.outOrders || {}).forEach(([name, qty]) => Number(qty || 0) > 0 && used.add(name)));
@@ -230,7 +247,7 @@ export default function ChinaVolumeBoard() {
     return (data?.customers || []).filter(customer => used.has(customer.custName));
   }, [data, chinaRows, packingRows]);
   const boxAreas = useMemo(() => planChinaBoxNeighborAreas({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
-  const totals = useMemo(() => summarizeChinaVolumeTotals({ pivotData: data, packingRows, cells }), [data, packingRows, cells]);
+  const totals = useMemo(() => summarizeChinaVolumeTotals({ pivotData: { ...data, rows: chinaRows }, packingRows, cells }), [data, chinaRows, packingRows, cells]);
 
   const handleUpload = async event => {
     const file = event.target.files?.[0];
@@ -242,9 +259,10 @@ export default function ChinaVolumeBoard() {
       const workbook = XLSX.read(buffer, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-      const matched = applySavedChinaMappings(matchChinaPackingRows(parseChinaPackingRows(aoa), data), data, productMappings);
+      const candidateData = { ...data, rows: matchProducts };
+      const matched = applySavedChinaMappings(matchChinaPackingRows(parseChinaPackingRows(aoa), candidateData), data, productMappings, productCatalog);
       setPackingRows(matched);
-      const automatic = mergeChinaPackingIntoPivotCells(matched, data);
+      const automatic = mergeChinaPackingIntoPivotCells(matched, { ...data, rows: matchProducts });
       setCells(automatic);
       setSourceFileName(file.name);
       setSourceSheetName(workbook.SheetNames[0] || '');
@@ -330,8 +348,8 @@ export default function ChinaVolumeBoard() {
     try {
       await apiPost('/api/stats/china-volume-board', { action: 'save-mapping', sourceItemName, prodKey: Number(product.prodKey), prodName: product.prodName });
       const nextMappings = { ...productMappings, [chinaMappingKey(sourceItemName)]: { prodKey: Number(product.prodKey), prodName: product.prodName } };
-      const nextRows = applySavedChinaMappings(packingRows, data, nextMappings);
-      const automatic = mergeChinaPackingIntoPivotCells(nextRows, data);
+      const nextRows = applySavedChinaMappings(packingRows, data, nextMappings, productCatalog);
+      const automatic = mergeChinaPackingIntoPivotCells(nextRows, { ...data, rows: matchProducts });
       setProductMappings(nextMappings);
       setPackingRows(nextRows);
       setCells(previous => ({ ...previous, ...automatic }));
@@ -510,7 +528,7 @@ export default function ChinaVolumeBoard() {
         </main>
       </div>
       <CellEditor draft={draft} onChange={setDraft} onClose={() => setDraft(null)} onSave={saveCell} />
-      {matchOpen && <MatchingModal rows={packingRows} products={chinaRows} onClose={() => setMatchOpen(false)} onMatch={saveProductMatch} />}
+      {matchOpen && <MatchingModal rows={packingRows} products={matchProducts} onClose={() => setMatchOpen(false)} onMatch={saveProductMatch} />}
       <style jsx global>{`
         html,body,#__next{height:100%;margin:0} body{overflow:hidden;font-family:Arial,'맑은 고딕',sans-serif;background:#eef1f5;color:#172033}
         *{box-sizing:border-box} button,input,select{font:inherit}.page{height:100vh;display:flex;flex-direction:column}.titlebar{height:27px;flex:none;background:linear-gradient(90deg,#071780,#087bc2);color:#fff;display:flex;align-items:center;padding:0 8px;font-size:11px;gap:10px}.titlebar span{font-weight:400;opacity:.8}.titlebar button{margin-left:auto;color:#fff;background:transparent;border:1px solid #ffffff66;border-radius:3px;padding:2px 10px}.toolbar{min-height:40px;flex:none;display:flex;align-items:center;gap:4px;padding:4px 6px;background:#fff;border-bottom:1px solid #cdd5df;font-size:11px;white-space:nowrap;overflow-x:auto}.toolbar label:not(.upload){display:flex;align-items:center;gap:3px}.toolbar input,.toolbar select{height:25px;border:1px solid #aeb9c8;border-radius:3px;padding:2px 5px}.toolbar label:first-child input{width:58px}.toolbar label:nth-child(2) input{width:65px}.toolbar .board-name input{width:122px}.toolbar .board-history{width:170px}.toolbar button,.upload{height:25px;border:1px solid #9aa9bc;background:#fff;border-radius:3px;padding:3px 7px;cursor:pointer}.toolbar .load,.upload,.save-board{background:#155bd7;color:#fff;border-color:#155bd7;font-weight:700}.toolbar .delete-board{color:#a11b1b;border-color:#e1a5a5}.toolbar .attention{background:#fff0e8;border-color:#e98145;color:#ae3c10;font-weight:800}.upload input{display:none}.upload.disabled{opacity:.45;cursor:not-allowed}.legend{margin-left:auto;color:#677388}.legend i,.box-badge{font-style:normal;color:#d31616;border:1px solid #e32626;background:#fff6f6;border-radius:3px;font-weight:800}.legend i{padding:1px 4px}.error{flex:none;background:#fff0f0;color:#b00020;padding:4px 8px;font-size:11px;border-bottom:1px solid #efb5bd}main{display:grid;grid-template-columns:minmax(0,1fr) 292px;min-height:0;flex:1;gap:4px;padding:4px}.board-wrap,aside{background:#fff;border:1px solid #cbd3de;border-radius:4px;min-height:0;overflow:auto}.empty{padding:50px;text-align:center;color:#7c8797}.board{border-collapse:separate;border-spacing:0;font-size:10px;min-width:100%}.board th,.board td{border-right:1px solid #dde2e8;border-bottom:1px solid #dde2e8}.board thead th{position:sticky;top:0;z-index:4;background:#e8eef7;height:34px;min-width:76px;max-width:76px;padding:2px}.board thead small{display:block;color:#78869a;font-weight:400}.board .product-head,.board tbody th{position:sticky;left:0;z-index:5;min-width:260px;max-width:260px;background:#f7f9fc;text-align:left}.board tbody th{height:32px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.board tbody th small{display:inline;color:#6c7890;font-weight:400;margin-right:4px}.board td{position:relative;width:76px;min-width:76px;max-width:76px;height:32px;min-height:32px;text-align:center;cursor:pointer;background:#fff}.board td:hover{outline:2px solid #276fea;outline-offset:-2px}.board td.active{background:#f8fbff}.board td.boxed{background:#fffaf9}.qty{font-weight:800;color:#153b7a}.box-badges{position:absolute;right:2px;top:2px;display:flex;gap:2px;max-width:58px;overflow:hidden;pointer-events:none}.box-badge{font-size:9px;line-height:13px;height:15px;min-width:18px;padding:0 2px;white-space:nowrap}.box-badge.more{background:#e32626;color:#fff}.aside-title{position:sticky;top:0;z-index:2;background:#172b55;color:#fff;padding:6px 7px;display:flex;justify-content:space-between;font-size:11px}aside>p{font-size:10px;color:#667286;margin:5px 7px}.packing-list{padding:0 5px 6px}.packing-list article{padding:5px;margin-bottom:4px;border:1px solid #d7dde6;border-left:3px solid #239b56;border-radius:3px;font-size:10px}.packing-list article.unmatched{border-left-color:#e24b3b;background:#fff7f5}.packing-list article header{display:flex;justify-content:space-between;color:#56647a}.packing-list article strong{display:block;margin:2px 0}.packing-list article i{font-style:normal;color:#d31616;border:1px solid #ee9b9b;border-radius:3px;padding:1px 2px;margin-left:2px}.packing-list article small{display:block;margin-top:3px;color:#64748b}.aside-empty{text-align:center;color:#8894a5;padding:28px 8px;line-height:1.7}.modal-shade{position:fixed;inset:0;z-index:100;background:#08122688;display:flex;align-items:center;justify-content:center}.cell-modal,.match-modal{width:510px;max-height:85vh;background:#fff;border-radius:7px;box-shadow:0 15px 60px #0006;overflow:auto}.cell-modal>header,.match-modal>header{height:36px;background:#183b72;color:#fff;display:flex;align-items:center;padding:0 12px}.cell-modal>header button,.match-modal>header button{margin-left:auto;background:transparent;color:#fff;border:0;font-size:22px}.modal-meta{padding:10px 13px;border-bottom:1px solid #e1e6ec}.modal-meta span,.modal-meta small{display:block;margin-top:3px}.modal-meta small{color:#b42318}.qty-field{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;font-weight:700}.qty-field input{width:150px}.cell-modal input{height:29px;border:1px solid #aeb9c8;border-radius:4px;padding:3px 6px}.alloc-title{display:flex;justify-content:space-between;padding:7px 13px;background:#f3f6fa;font-size:12px}.alloc-title span{color:#657187}.alloc-list{padding:8px 13px}.alloc-row{display:grid;grid-template-columns:1fr 1fr 52px;gap:7px;margin-bottom:6px;align-items:end}.alloc-row label{font-size:11px}.alloc-row input{display:block;width:100%;margin-top:2px}.remove{height:29px;border:1px solid #e1a5a5;background:#fff;color:#b42318;border-radius:4px}.add-box{margin:0 13px 8px;border:1px dashed #df5454;background:#fff8f8;color:#c51f1f;border-radius:4px;padding:5px 10px}.allocation-check{margin:2px 13px;padding:7px;border-radius:4px;font-size:12px;font-weight:700}.allocation-check.ok{background:#eaf8ef;color:#176b35}.allocation-check.bad{background:#fff0f0;color:#ad1622}.cell-modal footer,.match-modal footer{display:flex;justify-content:flex-end;gap:7px;padding:10px 13px;border-top:1px solid #e2e7ed}.cell-modal footer button,.match-modal footer button{padding:6px 17px;border:1px solid #aeb9c8;background:#fff;border-radius:4px}.cell-modal footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.cell-modal footer .primary:disabled{opacity:.45}

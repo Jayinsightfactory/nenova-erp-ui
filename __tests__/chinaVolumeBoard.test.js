@@ -74,6 +74,16 @@ const assert = require('assert');
     ],
   });
   assert.ok(matched.every(row => row.mappingStatus === 'MATCHED'));
+  const solomio = matchChinaPackingRows([
+    { sourceRow: 2, sourceItemName: 'SOLOMIO ROSE PINK', customerCode: 'CL1', quantity: 10 },
+  ], {
+    customers: [{ custKey: 7, custName: '주광농원', orderCode: 'CL1' }],
+    rows: [
+      { prodKey: 72, country: '중국', flower: '카네이션', prodName: 'Spray Carnation CHINA / 솔로미오 Solomio Rose (pink)' },
+    ],
+  });
+  assert.strictEqual(solomio[0].mappingStatus, 'MATCHED', '패킹 SOLOMIO ROSE PINK는 전산 괄호 표기와 화종명이 달라도 실제 중국 품목명으로 매칭한다');
+  assert.strictEqual(solomio[0].product.prodKey, 72);
   const cells = mergeChinaCellAllocations(matched);
   assert.deepStrictEqual(cells['7:70'].allocations, [
     { boxNo: '16', quantity: 10 },
