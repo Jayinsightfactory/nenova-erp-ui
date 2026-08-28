@@ -16,6 +16,8 @@ assert.match(page, /box-badge\[data-digits="1"\]\{width:15px\}/, '고밀도 보�
 assert.match(page, /box-badge\[data-digits="2"\]\{width:19px\}/, '고밀도 보기에서 2자리 번호는 중간 폭을 사용한다');
 assert.match(page, /box-badge\[data-digits="3"\]\{width:24px\}/, '고밀도 보기에서 3자리 번호는 넓은 폭을 사용한다');
 assert.match(page, /font-size:15px;line-height:21px;font-weight:900/, '고밀도 셀에서도 수량을 굵게 표시한다');
+assert.match(page, /\.qty\{position:absolute;z-index:4;[^}]*pointer-events:none\}/, '박스번호 확장 레이어가 있어도 전산 수량은 위 레이어에서 항상 표시한다');
+assert.match(page, /\.box-badges\{z-index:3;/, '박스번호는 수량보다 아래 표시 레이어를 사용한다');
 assert.match(page, /planChinaBoxNeighborAreas/, '박스번호가 사용할 빈 인접 셀을 공용 순수 정책으로 계산한다');
 assert.match(page, /summarizeChinaVolumeTotals/, '전체 수량 대조 helper를 화면과 엑셀에 공통 사용한다');
 assert.match(page, /수량 대조 정상/, '상단에 전체 대조 상태를 표시한다');
