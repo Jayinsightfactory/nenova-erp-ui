@@ -6,6 +6,8 @@ import XLSXStyled from 'xlsx-js-style';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import {
   buildChinaVolumeWorkbookRows,
+  applyChinaPackingCustomerMatch,
+  canApplyChinaPackingRows,
   chinaVolumeProductLabel,
   matchChinaPackingRows,
   mergeChinaPackingIntoPivotCells,
@@ -88,10 +90,10 @@ function normalizeProductMappings(raw) {
   return raw && typeof raw === 'object' ? raw : {};
 }
 
-function MatchingModal({ rows, products, onClose, onMatch }) {
+function MatchingModal({ rows, products, customers, onClose, onMatch, onCustomerMatch }) {
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const unresolved = rows.filter(row => row.mappingStatus === 'PRODUCT_UNMATCHED');
+  const unresolved = rows.filter(row => row.mappingStatus !== 'MATCHED');
   const target = unresolved[Math.min(selectedIndex, Math.max(0, unresolved.length - 1))];
   const candidates = products.filter(product => {
     const haystack = normalizeChinaText(`${product.flower || ''} ${product.displayName || ''} ${chinaVolumeProductLabel(product.prodName)}`);
@@ -104,11 +106,18 @@ function MatchingModal({ rows, products, onClose, onMatch }) {
         <header><strong id="china-match-title">중국 품목 미매칭 처리</strong><button onClick={onClose}>×</button></header>
         <div className="match-source"><b>{target.sourceItemName}</b><span>패킹 수량 {fmt(target.quantity)} · Client No. {target.customerCode}</span><small>선택 후 중국전용 매칭값으로 저장됩니다. 다음 차수 업로드에도 재사용됩니다.</small></div>
         {unresolved.length > 1 && <div className="match-queue">{unresolved.map((row, index) => <button className={row === target ? 'active' : ''} key={`${row.sourceRow}-${index}`} onClick={() => setSelectedIndex(index)}>{index + 1}. {row.sourceItemName}</button>)}</div>}
-        <label className="match-search">중국 품목 검색<input autoFocus value={search} onChange={event => setSearch(event.target.value)} placeholder="품종 또는 품목명" /></label>
-        <div className="match-products">
-          {candidates.map(product => <button key={product.prodKey} onClick={() => onMatch(target, product)}><b>{product.flower || '품종미상'}</b><span>{chinaVolumeProductLabel(product.prodName)}</span><small>#{product.prodKey}</small></button>)}
-          {!candidates.length && <p>검색 결과가 없습니다.</p>}
-        </div>
+        {target.mappingStatus === 'CUSTOMER_UNMATCHED' ? <>
+          <label className="match-search">전산 업체 검색<input autoFocus value={search} onChange={event => setSearch(event.target.value)} placeholder="업체명 또는 Client No." /></label>
+          <div className="match-products">
+            {(customers || []).filter(customer => !search.trim() || normalizeChinaText(`${customer.custName} ${customer.orderCode}`)?.includes(normalizeChinaText(search))).slice(0, 80).map(customer => <button key={customer.custKey} onClick={() => onCustomerMatch(target, customer)}><b>{customer.orderCode || '코드없음'}</b><span>{customer.custName}</span><small>#{customer.custKey}</small></button>)}
+          </div>
+        </> : <>
+          <label className="match-search">중국 품목 검색<input autoFocus value={search} onChange={event => setSearch(event.target.value)} placeholder="품종 또는 품목명" /></label>
+          <div className="match-products">
+            {candidates.map(product => <button key={product.prodKey} onClick={() => onMatch(target, product)}><b>{product.flower || '품종미상'}</b><span>{chinaVolumeProductLabel(product.prodName)}</span><small>#{product.prodKey}</small></button>)}
+            {!candidates.length && <p>검색 결과가 없습니다.</p>}
+          </div>
+        </>}
         <footer><button onClick={onClose}>닫기</button></footer>
       </section>
     </div>
@@ -187,6 +196,7 @@ export default function ChinaVolumeBoard() {
   const [sourceFileName, setSourceFileName] = useState('');
   const [sourceSheetName, setSourceSheetName] = useState('');
   const [expectedRowVersion, setExpectedRowVersion] = useState('');
+  const [packingPhase, setPackingPhase] = useState('EMPTY');
 
   const applyBoard = (rawBoard, pivotData = data, mappings = productMappings, catalog = productCatalog) => {
     const board = normalizeBoard(rawBoard);
@@ -194,9 +204,12 @@ export default function ChinaVolumeBoard() {
     setBoardKey(board.boardKey);
     setBoardName(board.name || `${board.orderYear || year}년 ${board.orderWeek || week} 중국 물량표`);
     const hydratedRows = applySavedChinaMappings(board.packingRows, pivotData, { ...mappings, ...board.matchOverrides }, catalog);
+    const nextPhase = board.reviewState?.packingPhase || (hydratedRows.length ? 'APPLIED' : 'EMPTY');
     setPackingRows(hydratedRows);
-    if (hydratedRows.some(row => row.mappingStatus === 'PRODUCT_UNMATCHED')) setMatchOpen(true);
-    setCells(restoreChinaPackingCells(board.cells || {}, hydratedRows, { ...pivotData, rows: mergeChinaProductCandidates(pivotData, catalog) }));
+    setPackingPhase(nextPhase);
+    setCells(nextPhase === 'APPLIED'
+      ? restoreChinaPackingCells(board.cells || {}, hydratedRows, { ...pivotData, rows: mergeChinaProductCandidates(pivotData, catalog) })
+      : (board.cells || {}));
     setReviewNotes(board.reviewState || {});
     setSourceFileName(board.sourceFileName || '');
     setSourceSheetName(board.sourceSheetName || '');
@@ -227,7 +240,7 @@ export default function ChinaVolumeBoard() {
       if (history.active) applyBoard(history.active, result, history.mappings, catalog);
       else {
         setBoardKey(''); setBoardName(`${year}년 ${week} 중국 물량표`);
-        setCells({}); setPackingRows([]); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setDirty(false);
+        setCells({}); setPackingRows([]); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setPackingPhase('EMPTY'); setDirty(false);
       }
     } catch (e) { setError(e.message || '물량표 조회 실패'); }
     finally { setLoading(false); }
@@ -250,13 +263,13 @@ export default function ChinaVolumeBoard() {
   const boxAreas = useMemo(() => planChinaBoxNeighborAreas({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
   const totals = useMemo(() => summarizeChinaVolumeTotals({ pivotData: { ...data, rows: chinaRows }, packingRows, cells }), [data, chinaRows, packingRows, cells]);
 
-  const persistBoardSnapshot = async ({ nextRows, nextCells, nextFileName = sourceFileName, nextSheetName = sourceSheetName }) => {
+  const persistBoardSnapshot = async ({ nextRows, nextCells, nextFileName = sourceFileName, nextSheetName = sourceSheetName, nextPhase = packingPhase }) => {
     const name = boardName.trim() || `${year}년 ${week} 중국 물량표`;
     const saved = await apiPost('/api/stats/china-volume-board', {
       action: 'save', boardKey: boardKey || undefined, name, orderYear: year, orderWeek: week,
       packingRows: nextRows, cells: nextCells,
       matchOverrides: Object.fromEntries(nextRows.filter(row => row.product?.prodKey).map(row => [chinaMappingKey(row.sourceItemName), { prodKey: Number(row.product.prodKey), prodName: row.product.prodName }])),
-      reviewState: reviewNotes, sourceFileName: nextFileName, sourceSheetName: nextSheetName,
+      reviewState: { ...reviewNotes, packingPhase: nextPhase }, sourceFileName: nextFileName, sourceSheetName: nextSheetName,
       expectedRowVersion: expectedRowVersion || undefined,
     });
     const nextBoard = normalizeBoard(saved.board || saved.item || saved);
@@ -281,13 +294,12 @@ export default function ChinaVolumeBoard() {
       const candidateData = { ...data, rows: matchProducts };
       const matched = applySavedChinaMappings(matchChinaPackingRows(parseChinaPackingRows(aoa), candidateData), data, productMappings, productCatalog);
       setPackingRows(matched);
-      const automatic = mergeChinaPackingIntoPivotCells(matched, { ...data, rows: matchProducts });
-      setCells(automatic);
+      setCells({});
+      setPackingPhase('REVIEW');
       setSourceFileName(file.name);
       setSourceSheetName(workbook.SheetNames[0] || '');
       setDirty(true);
-      await persistBoardSnapshot({ nextRows: matched, nextCells: automatic, nextFileName: file.name, nextSheetName: workbook.SheetNames[0] || '' });
-      if (matched.some(row => row.mappingStatus === 'PRODUCT_UNMATCHED')) setMatchOpen(true);
+      await persistBoardSnapshot({ nextRows: matched, nextCells: {}, nextFileName: file.name, nextSheetName: workbook.SheetNames[0] || '', nextPhase: 'REVIEW' });
     } catch (e) { setError(`패킹리스트 분석 실패: ${e.message || e}`); }
   };
 
@@ -326,7 +338,7 @@ export default function ChinaVolumeBoard() {
 
   const newBoard = () => {
     if (dirty && !window.confirm('저장하지 않은 작업이 있습니다. 새 작업으로 전환할까요?')) return;
-    setBoardKey(''); setBoardName(`${year}년 ${week} 중국 물량표`); setPackingRows([]); setCells({}); setReviewNotes({}); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setDirty(false);
+    setBoardKey(''); setBoardName(`${year}년 ${week} 중국 물량표`); setPackingRows([]); setCells({}); setReviewNotes({}); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setPackingPhase('EMPTY'); setDirty(false);
   };
 
   const deleteBoard = async () => {
@@ -339,7 +351,7 @@ export default function ChinaVolumeBoard() {
       await apiDelete(`/api/stats/china-volume-board?${query.toString()}`);
       const history = await loadBoardHistory(year, week);
       if (history.active) applyBoard(history.active, data, history.mappings);
-      else { setBoardKey(''); setBoardName(`${year}년 ${week} 중국 물량표`); setPackingRows([]); setCells({}); setReviewNotes({}); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setDirty(false); }
+      else { setBoardKey(''); setBoardName(`${year}년 ${week} 중국 물량표`); setPackingRows([]); setCells({}); setReviewNotes({}); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setPackingPhase('EMPTY'); setDirty(false); }
     } catch (e) {
       setError(['STALE_BOARD_VERSION', 'BOARD_VERSION_REQUIRED'].includes(e.code)
         ? '다른 사용자가 이 작업본을 변경했습니다. 삭제하지 않았습니다. [중국 물량표 조회]로 최신 작업본을 다시 확인하세요.'
@@ -355,13 +367,39 @@ export default function ChinaVolumeBoard() {
       const nextMappings = { ...productMappings, [chinaMappingKey(sourceItemName)]: { prodKey: Number(product.prodKey), prodName: product.prodName } };
       const nextRows = applySavedChinaMappings(packingRows, data, nextMappings, productCatalog);
       const automatic = mergeChinaPackingIntoPivotCells(nextRows, { ...data, rows: matchProducts });
-      const nextCells = { ...cells, ...automatic };
+      const nextCells = packingPhase === 'APPLIED' ? { ...cells, ...automatic } : cells;
       setProductMappings(nextMappings);
       setPackingRows(nextRows);
       setCells(nextCells);
       setDirty(true);
-      await persistBoardSnapshot({ nextRows, nextCells });
+      await persistBoardSnapshot({ nextRows, nextCells, nextPhase: packingPhase });
     } catch (e) { setError(`중국 품목 매칭 저장 실패: ${e.message || e}`); }
+  };
+
+  const saveCustomerMatch = async (row, customer) => {
+    try {
+      const nextRows = applyChinaPackingCustomerMatch(packingRows, row.sourceRow, customer);
+      setPackingRows(nextRows);
+      setDirty(true);
+      await persistBoardSnapshot({ nextRows, nextCells: cells, nextPhase: packingPhase });
+    } catch (e) { setError(`중국 업체 매칭 저장 실패: ${e.message || e}`); }
+  };
+
+  const applyPackingMatches = async () => {
+    const unresolved = packingRows.filter(row => row.mappingStatus !== 'MATCHED');
+    if (!canApplyChinaPackingRows(packingRows)) {
+      setError(`미매칭 ${unresolved.length}건을 먼저 수정하세요.`);
+      if (unresolved.length) setMatchOpen(true);
+      return;
+    }
+    setSaving(true); setError('');
+    try {
+      const nextCells = mergeChinaPackingIntoPivotCells(packingRows, { ...data, rows: matchProducts });
+      setCells(nextCells);
+      setPackingPhase('APPLIED');
+      await persistBoardSnapshot({ nextRows: packingRows, nextCells, nextPhase: 'APPLIED' });
+    } catch (e) { setError(`매칭 적용 저장 실패: ${e.message || e}`); }
+    finally { setSaving(false); }
   };
 
   const openReconciliationReview = () => {
@@ -481,12 +519,14 @@ export default function ChinaVolumeBoard() {
           <button className="delete-board" onClick={deleteBoard} disabled={!boardKey || saving}>삭제</button>
           <label className={`upload ${!data ? 'disabled' : ''}`}>패킹리스트 업로드<input type="file" accept=".xlsx,.xls" onChange={handleUpload} disabled={!data} /></label>
           <span className="source-file" title={sourceFileName || '적용된 패킹리스트 없음'}>{sourceFileName ? `적용: ${sourceFileName}` : '적용 파일 없음'}</span>
-          <button className={totals.unmatchedRowCount ? 'attention' : ''} onClick={() => setMatchOpen(true)} disabled={!packingRows.some(row => row.mappingStatus === 'PRODUCT_UNMATCHED')}>품목 미매칭 {totals.unmatchedRowCount ? `${totals.unmatchedRowCount}건` : ''}</button>
+          <button className={totals.unmatchedRowCount ? 'attention' : ''} onClick={() => setMatchOpen(true)} disabled={!packingRows.some(row => row.mappingStatus !== 'MATCHED')}>미매칭 수정 {totals.unmatchedRowCount ? `${totals.unmatchedRowCount}건` : ''}</button>
+          <button className={packingPhase === 'REVIEW' ? 'apply-matches' : ''} onClick={applyPackingMatches} disabled={!canApplyChinaPackingRows(packingRows) || packingPhase === 'APPLIED' || saving}>{packingPhase === 'APPLIED' ? '✓ 매칭 적용됨' : '매칭 적용'}</button>
           <button className={totals.status === 'WARNING' ? 'attention' : ''} onClick={openReconciliationReview} disabled={!packingRows.length}>누락·초과 확인</button>
-          <button onClick={downloadExcel} disabled={!data}>엑셀 다운로드</button>
+          <button onClick={downloadExcel} disabled={!data || packingPhase === 'REVIEW'}>엑셀 다운로드</button>
           <span className="legend"><i>16</i> 빨간 번호는 패킹 박스 · 셀마다 클릭 수정</span>
         </div>
         {error && <div className="error" role="alert">{error}</div>}
+        {packingPhase === 'REVIEW' && <div className="matching-guide"><b>1. 전산 물량표 확인</b><span>2. 오른쪽 인보이스·매칭 결과 확인</span><span>3. 미매칭 수정</span><strong>4. 매칭 적용</strong></div>}
         {data && <section className={`reconcile ${packingRows.length ? totals.status.toLowerCase() : 'idle'}`} aria-label="총수량 대조">
           <b>{packingRows.length ? (totals.status === 'OK' ? '✓ 수량 대조 정상' : '⚠ 수량 대조 확인 필요') : '수량 대조 · 패킹리스트 업로드 대기'}</b>
           <span>피벗 출고 <strong>{fmtUnitTotals(totals.unitTotals, 'pivot')}</strong><small>참고</small></span>
@@ -523,13 +563,13 @@ export default function ChinaVolumeBoard() {
             )}
           </section>
           <aside>
-            <div className="aside-title"><b>업로드 입고원장</b><span>{packingRows.length ? `${matchedCount}/${packingRows.length}건 매칭` : '업로드 대기'}</span></div>
+            <div className="aside-title"><b>인보이스·매칭 대조</b><span>{packingRows.length ? `${matchedCount}/${packingRows.length}건 매칭` : '업로드 대기'}</span></div>
             <p>{sourceFileName ? <><b>{sourceFileName}</b>{sourceSheetName ? ` · ${sourceSheetName}` : ''}<br /></> : ''}Customer 코드는 거래처 Client No., Item Name은 중국 품목으로 자동 매칭합니다.</p>
             <div className="packing-list">
               {packingRows.map((row, index) => <article key={`${row.sourceRow}-${index}`} className={row.mappingStatus === 'MATCHED' ? 'matched' : 'unmatched'}>
                 <header><b>{row.customerCode}</b><span>{row.sourceBoxText}</span></header>
                 <strong>{row.sourceItemName}</strong><div>{fmt(row.quantity)} · {row.allocations.map(a => <i key={`${a.boxNo}-${a.quantity}`}>{a.boxNo}:{fmt(a.quantity)}</i>)}</div>
-                <small>{row.mappingStatus === 'MATCHED' ? `${row.customer.custName} / ${row.product.prodName}` : row.mappingStatus === 'CUSTOMER_UNMATCHED' ? '업체 매칭 필요' : '품목 매칭 필요'}</small>
+                <small>{row.mappingStatus === 'MATCHED' ? `전산 매칭: ${row.customer.custName} / ${row.product.prodName}` : <>{row.mappingStatus === 'CUSTOMER_UNMATCHED' ? '업체 매칭 필요' : '품목 매칭 필요'} <button className="inline-match" onClick={() => setMatchOpen(true)}>수정</button></>}</small>
               </article>)}
               {!packingRows.length && <div className="aside-empty">예: ROSE Diana 20단 / NO.16.17<br />→ 16번 10단 + 17번 10단</div>}
             </div>
@@ -537,14 +577,14 @@ export default function ChinaVolumeBoard() {
         </main>
       </div>
       <CellEditor draft={draft} onChange={setDraft} onClose={() => setDraft(null)} onSave={saveCell} />
-      {matchOpen && <MatchingModal rows={packingRows} products={matchProducts} onClose={() => setMatchOpen(false)} onMatch={saveProductMatch} />}
+      {matchOpen && <MatchingModal rows={packingRows} products={matchProducts} customers={data?.customers || []} onClose={() => setMatchOpen(false)} onMatch={saveProductMatch} onCustomerMatch={saveCustomerMatch} />}
       <style jsx global>{`
         html,body,#__next{height:100%;margin:0} body{overflow:hidden;font-family:Arial,'맑은 고딕',sans-serif;background:#eef1f5;color:#172033}
         *{box-sizing:border-box} button,input,select{font:inherit}.page{height:100vh;display:flex;flex-direction:column}.titlebar{height:27px;flex:none;background:linear-gradient(90deg,#071780,#087bc2);color:#fff;display:flex;align-items:center;padding:0 8px;font-size:11px;gap:10px}.titlebar span{font-weight:400;opacity:.8}.titlebar button{margin-left:auto;color:#fff;background:transparent;border:1px solid #ffffff66;border-radius:3px;padding:2px 10px}.toolbar{min-height:40px;flex:none;display:flex;align-items:center;gap:4px;padding:4px 6px;background:#fff;border-bottom:1px solid #cdd5df;font-size:11px;white-space:nowrap;overflow-x:auto}.toolbar label:not(.upload){display:flex;align-items:center;gap:3px}.toolbar input,.toolbar select{height:25px;border:1px solid #aeb9c8;border-radius:3px;padding:2px 5px}.toolbar label:first-child input{width:58px}.toolbar label:nth-child(2) input{width:65px}.toolbar .board-name input{width:122px}.toolbar .board-history{width:170px}.toolbar button,.upload{height:25px;border:1px solid #9aa9bc;background:#fff;border-radius:3px;padding:3px 7px;cursor:pointer}.toolbar .load,.upload,.save-board{background:#155bd7;color:#fff;border-color:#155bd7;font-weight:700}.toolbar .delete-board{color:#a11b1b;border-color:#e1a5a5}.toolbar .attention{background:#fff0e8;border-color:#e98145;color:#ae3c10;font-weight:800}.upload input{display:none}.upload.disabled{opacity:.45;cursor:not-allowed}.legend{margin-left:auto;color:#677388}.legend i,.box-badge{font-style:normal;color:#d31616;border:1px solid #e32626;background:#fff6f6;border-radius:3px;font-weight:800}.legend i{padding:1px 4px}.error{flex:none;background:#fff0f0;color:#b00020;padding:4px 8px;font-size:11px;border-bottom:1px solid #efb5bd}main{display:grid;grid-template-columns:minmax(0,1fr) 292px;min-height:0;flex:1;gap:4px;padding:4px}.board-wrap,aside{background:#fff;border:1px solid #cbd3de;border-radius:4px;min-height:0;overflow:auto}.empty{padding:50px;text-align:center;color:#7c8797}.board{border-collapse:separate;border-spacing:0;font-size:10px;min-width:100%}.board th,.board td{border-right:1px solid #dde2e8;border-bottom:1px solid #dde2e8}.board thead th{position:sticky;top:0;z-index:4;background:#e8eef7;height:34px;min-width:76px;max-width:76px;padding:2px}.board thead small{display:block;color:#78869a;font-weight:400}.board .product-head,.board tbody th{position:sticky;left:0;z-index:5;min-width:260px;max-width:260px;background:#f7f9fc;text-align:left}.board tbody th{height:32px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.board tbody th small{display:inline;color:#6c7890;font-weight:400;margin-right:4px}.board td{position:relative;width:76px;min-width:76px;max-width:76px;height:32px;min-height:32px;text-align:center;cursor:pointer;background:#fff}.board td:hover{outline:2px solid #276fea;outline-offset:-2px}.board td.active{background:#f8fbff}.board td.boxed{background:#fffaf9}.qty{font-weight:800;color:#153b7a}.box-badges{position:absolute;right:2px;top:2px;display:flex;gap:2px;max-width:58px;overflow:hidden;pointer-events:none}.box-badge{font-size:9px;line-height:13px;height:15px;min-width:18px;padding:0 2px;white-space:nowrap}.box-badge.more{background:#e32626;color:#fff}.aside-title{position:sticky;top:0;z-index:2;background:#172b55;color:#fff;padding:6px 7px;display:flex;justify-content:space-between;font-size:11px}aside>p{font-size:10px;color:#667286;margin:5px 7px}.packing-list{padding:0 5px 6px}.packing-list article{padding:5px;margin-bottom:4px;border:1px solid #d7dde6;border-left:3px solid #239b56;border-radius:3px;font-size:10px}.packing-list article.unmatched{border-left-color:#e24b3b;background:#fff7f5}.packing-list article header{display:flex;justify-content:space-between;color:#56647a}.packing-list article strong{display:block;margin:2px 0}.packing-list article i{font-style:normal;color:#d31616;border:1px solid #ee9b9b;border-radius:3px;padding:1px 2px;margin-left:2px}.packing-list article small{display:block;margin-top:3px;color:#64748b}.aside-empty{text-align:center;color:#8894a5;padding:28px 8px;line-height:1.7}.modal-shade{position:fixed;inset:0;z-index:100;background:#08122688;display:flex;align-items:center;justify-content:center}.cell-modal,.match-modal{width:510px;max-height:85vh;background:#fff;border-radius:7px;box-shadow:0 15px 60px #0006;overflow:auto}.cell-modal>header,.match-modal>header{height:36px;background:#183b72;color:#fff;display:flex;align-items:center;padding:0 12px}.cell-modal>header button,.match-modal>header button{margin-left:auto;background:transparent;color:#fff;border:0;font-size:22px}.modal-meta{padding:10px 13px;border-bottom:1px solid #e1e6ec}.modal-meta span,.modal-meta small{display:block;margin-top:3px}.modal-meta small{color:#b42318}.qty-field{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;font-weight:700}.qty-field input{width:150px}.cell-modal input{height:29px;border:1px solid #aeb9c8;border-radius:4px;padding:3px 6px}.alloc-title{display:flex;justify-content:space-between;padding:7px 13px;background:#f3f6fa;font-size:12px}.alloc-title span{color:#657187}.alloc-list{padding:8px 13px}.alloc-row{display:grid;grid-template-columns:1fr 1fr 52px;gap:7px;margin-bottom:6px;align-items:end}.alloc-row label{font-size:11px}.alloc-row input{display:block;width:100%;margin-top:2px}.remove{height:29px;border:1px solid #e1a5a5;background:#fff;color:#b42318;border-radius:4px}.add-box{margin:0 13px 8px;border:1px dashed #df5454;background:#fff8f8;color:#c51f1f;border-radius:4px;padding:5px 10px}.allocation-check{margin:2px 13px;padding:7px;border-radius:4px;font-size:12px;font-weight:700}.allocation-check.ok{background:#eaf8ef;color:#176b35}.allocation-check.bad{background:#fff0f0;color:#ad1622}.cell-modal footer,.match-modal footer{display:flex;justify-content:flex-end;gap:7px;padding:10px 13px;border-top:1px solid #e2e7ed}.cell-modal footer button,.match-modal footer button{padding:6px 17px;border:1px solid #aeb9c8;background:#fff;border-radius:4px}.cell-modal footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.cell-modal footer .primary:disabled{opacity:.45}
         .board .product-head,.board tbody th{min-width:260px;max-width:260px}.board tbody th{overflow:visible;text-overflow:clip}.board tbody th span{display:inline;white-space:nowrap}.qty{position:absolute;z-index:5;left:1px;width:31px;top:1px;text-align:center;font-size:15px;line-height:18px;font-weight:900;pointer-events:none}.order-qty{position:absolute;z-index:5;left:1px;bottom:0;width:31px;font-size:7px;line-height:9px;color:#6d7787;pointer-events:none;white-space:nowrap}.box-badges{z-index:3;left:auto;right:1px;top:1px;bottom:1px;width:42px;max-width:42px;display:flex;align-content:center;justify-content:flex-start;flex-wrap:wrap;gap:1px;overflow:hidden}.box-badges.area-right{width:118px;max-width:118px;right:-75px;background:#fffaf9aa;padding:1px}.box-badges.area-left{width:118px;max-width:118px;right:1px;background:#fffaf9aa;padding:1px}.box-badges.area-down{height:62px;bottom:-31px;background:#fffaf9aa;padding:1px}.box-badges.area-up{height:62px;top:-31px;background:#fffaf9aa;padding:1px}.box-badge{font-size:9px;line-height:12px;height:14px;padding:0 1px;min-width:0;box-shadow:0 0 0 1px #fff}.box-badge[data-digits="1"]{width:15px}.box-badge[data-digits="2"]{width:19px}.box-badge[data-digits="3"]{width:24px}
         .reconcile{height:36px;flex:none;display:flex;align-items:center;gap:4px;padding:3px 6px;background:#eef8f1;border-bottom:1px solid #a9d9b8;font-size:10px;overflow-x:auto;white-space:nowrap}.reconcile>b{min-width:125px;color:#176b35}.reconcile>span,.reconcile>button{display:flex;align-items:baseline;gap:3px;min-width:90px;padding:3px 5px;background:#fff;border:1px solid #cbd8ce;border-radius:3px;font:inherit;text-align:left}.reconcile strong{font-size:13px;color:#183b72}.reconcile small{color:#78869a}.reconcile.warning{background:#fff6e8;border-color:#efbd68}.reconcile.warning>b,.reconcile .warn,.reconcile .warn strong{color:#b42318}.reconcile.idle{background:#f4f6f8;border-color:#d6dce4}
         .match-modal{width:690px}.match-source{padding:10px 13px;border-bottom:1px solid #e1e6ec}.match-source b,.match-source span,.match-source small{display:block}.match-source span{margin-top:3px}.match-source small{color:#657187;margin-top:5px}.match-queue{padding:7px 10px;background:#f3f6fa;display:flex;gap:4px;overflow:auto}.match-queue button{border:1px solid #bac6d7;background:#fff;border-radius:3px;padding:3px 6px;white-space:nowrap;font-size:11px}.match-queue button.active{background:#173b72;color:#fff;border-color:#173b72}.match-search{display:block;padding:9px 12px;font-size:11px;font-weight:700}.match-search input{display:block;width:100%;height:30px;margin-top:4px;border:1px solid #aeb9c8;border-radius:4px;padding:4px 7px}.match-products{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 12px 12px;max-height:48vh;overflow:auto}.match-products button{border:1px solid #d5dce6;background:#fff;text-align:left;border-radius:4px;padding:6px;cursor:pointer}.match-products button:hover{border-color:#155bd7;background:#f4f8ff}.match-products b,.match-products span,.match-products small{display:block}.match-products b{font-size:10px;color:#617087}.match-products span{font-size:12px;font-weight:700;margin-top:2px}.match-products small{font-size:10px;color:#7b8798;margin-top:3px}
-        .week-field button{width:24px;padding:0!important;font-size:18px;font-weight:900}.source-file{display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#36547c;vertical-align:middle}
+        .week-field button{width:24px;padding:0!important;font-size:18px;font-weight:900}.source-file{display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#36547c;vertical-align:middle}.toolbar .apply-matches{background:#168447;color:#fff;border-color:#168447;font-weight:900}.matching-guide{height:31px;flex:none;display:flex;align-items:center;gap:18px;padding:4px 8px;background:#fff7db;border-bottom:1px solid #e6bf55;font-size:11px}.matching-guide b{color:#173b72}.matching-guide strong{color:#087b3d}.inline-match{margin-left:4px;border:1px solid #dd6b55;background:#fff;color:#b42318;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer}
         @media(max-width:1200px){main{grid-template-columns:minmax(0,1fr) 320px}.legend{display:none}}
         @media print{.titlebar,.toolbar,aside,.error{display:none!important}body{overflow:visible}.page,main{height:auto;display:block;padding:0}.board-wrap{border:0;overflow:visible}.board thead th,.board tbody th{position:static}.box-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
       `}</style>
