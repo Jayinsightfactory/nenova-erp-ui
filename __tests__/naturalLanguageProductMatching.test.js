@@ -26,6 +26,19 @@ const aliasOnly = scoreNaturalLanguageProducts('문라이트', [
   { ProdKey: 8, ProdName: 'ROSE / Candlelight 50cm', DisplayName: '장미 캔들라이트', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단', UsageCount: 9000 },
 ]);
 assert.equal(aliasOnly.candidates[0].prodKey, 9, '매칭데이터 별칭만 있어도 해당 품목이 먼저 나와야 한다.');
+const solomio = scoreNaturalLanguageProducts('SOLOMIO ROSE PINK', [
+  { ProdKey: 10, ProdName: 'Solomio Pink', DisplayName: '솔로미오 핑크', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
+  { ProdKey: 11, ProdName: 'Solomio White', DisplayName: '솔로미오 화이트', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단', UsageCount: 9000 },
+  { ProdKey: 12, ProdName: 'Solomio Pink', DisplayName: '솔로미오 핑크', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단', UsageCount: 9000 },
+]);
+assert.equal(solomio.candidates[0].prodKey, 10, '입력에 꽃 종류 ROSE가 끼어도 장미 Solomio Pink를 품종명으로 매칭한다.');
+assert.equal(solomio.candidates[0].autoSelect, true);
+assert.ok(solomio.candidates[0].reasons.includes('flower-category-normalized'));
+assert.equal(solomio.candidates.some((x) => x.prodKey === 12), false, '꽃 종류가 다른 동명 품목은 정상 후보에 섞지 않는다.');
+const solomioWrongColor = scoreNaturalLanguageProducts('SOLOMIO ROSE WHITE', [
+  { ProdKey: 10, ProdName: 'Solomio Pink', DisplayName: '솔로미오 핑크', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
+]);
+assert.equal(solomioWrongColor.candidates[0].autoSelect, false, '색상이 다른 품목을 꽃 종류 제거만으로 자동 선택하지 않는다.');
 const metrics = calculateMatchingMetrics(Array.from({ length: 20 }, (_, i) => ({ confirmed: true, selectedProdKey: 1, candidateProdKeys: i < 18 ? [1, 2] : [2, 1], candidateScores: [0.9], country: '콜롬비아', flower: '카네이션', createdAt: new Date() })));
 assert.equal(metrics.overall.top1, 0.9);
 assert.equal(metrics.targetMet, true);
