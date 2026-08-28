@@ -34,6 +34,7 @@
     ,"__tests__/estimateSaveRecovery.test.js"
     ,"__tests__/estimateGridNavigation.test.js"
     ,"__tests__/estimateSaveRecoveryUi.test.js"
+    ,"docs/work-reports/2026-08-28_estimate_exe_fix_status_sync.md"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -46,6 +47,7 @@
       "ttlSeconds": 90,
       "heartbeatSeconds": 20,
       "baseline": "BaselineDigest + Revision are server-authoritative; heartbeat preserves baseline and explicit refresh replaces it",
+      "digestSplit": "content digest excludes ShipmentMaster.isFix/ShipmentDetail.isFix; fixStatusDigest tracks positive-out detail confirmation separately",
       "conflict": "different UserID or browser clientId returns ERP_EDIT_LOCKED; same UserID may explicitly take over and invalidates the previous tab token",
       "stableScope": "estimate uses the parent week only, so unordered sub-week aggregation cannot reacquire then release the same lease",
       "tokenRotation": "every explicit acquire/takeover rotates LeaseToken so late cleanup from the previous render cannot expire the renewed lease"
@@ -67,6 +69,16 @@
       "sequence": "keep client saving marker -> successful ERP transaction advances BaselineDigest -> heartbeat compares that baseline with live rows -> stale=false accepts own digest -> release saving marker",
       "externalRace": "an EXE or other-window write after the web commit makes heartbeat stale=true and remains blocked",
       "failure": "failed or partial save does not settle the client baseline"
+    },
+    {
+      "name": "EXPLICIT_EXE_CONFIRMATION_REFRESH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sidecar": "selected customer's WebErpEditLease BaselineDigest only",
+      "sequence": "user opens confirmation status -> read live ShipmentDetail.isFix counts -> explicitly refresh owned lease baseline -> reload selected customer list/detail -> compare once more",
+      "automaticPolling": "must remain detection-only and must never replace the baseline",
+      "lockSafety": "never refresh or take over another user/browser lease"
     },
     {
       "name": "DEPLOYMENT_SAFE_SAVE_RECOVERY",

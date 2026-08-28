@@ -812,6 +812,8 @@ export default function Estimate() {
   const [fixLogSince, setFixLogSince] = useState(0);
   const [fixStatusModal, setFixStatusModal] = useState(null);
   const [fixStatusLoading, setFixStatusLoading] = useState(false);
+  const [fixStatusSyncing, setFixStatusSyncing] = useState(false);
+  const fixStatusDigestRef = useRef('');
   const [fixStatusBatchCount, setFixStatusBatchCount] = useState(FIX_STATUS_COUNT);
   const [fixStatusAvailableCategories, setFixStatusAvailableCategories] = useState([]);
   const [fixStatusSelectedCategories, setFixStatusSelectedCategories] = useState([]);
@@ -992,6 +994,7 @@ export default function Estimate() {
     try {
       const res = await fetch(`/api/shipment/fix-status?${buildFixStatusQuery({ orderYear: orderYearOverride, fromWeek: range.fromWeek, toWeek: range.toWeek })}`, {
         credentials: 'same-origin',
+        cache: 'no-store',
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '확정 현황 조회 실패');
@@ -1003,8 +1006,10 @@ export default function Estimate() {
       setFixStatusSelectedCategories([]);
       setFixStatusCategoryPreset('all');
       setFixStatusModal({ ...data, weeks, range });
+      return data;
     } catch (e) {
       alert(`${orderYearOverride}년 ${range.fromWeek}~${range.toWeek} 확정 현황 자동 조회 오류: ${e.message}`);
+      return null;
     } finally {
       setFixStatusLoading(false);
     }
@@ -1758,6 +1763,68 @@ export default function Estimate() {
     return false;
   };
   const estimateEditGuard = () => ({ ...estimateEditPresence.editGuard, custKey: selectedShip?.CustKey || '' });
+
+  // 확정현황 버튼은 사용자가 EXE/다른 화면 변경을 직접 확인하고 현재
+  // 원장을 다시 읽겠다는 명시적 동작이다. 자동 polling은 계속 감지만 하고,
+  // 이 흐름에서만 현재 탭이 소유한 업체의 기준 지문을 갱신한다.
+  const refreshFixStatusAndEstimate = async () => {
+    if (fixStatusLoading || fixStatusSyncing || !weekNum) return null;
+    const captured = captureEstimateRefresh();
+    setFixStatusSyncing(true);
+    try {
+      const status = await checkFixStatus();
+      if (!status) return null;
+
+      if (captured
+        && estimateEditPresence.validScope
+        && estimateEditPresence.ownedByMe
+        && estimateEditPresence.token) {
+        await estimateEditPresence.refresh({ force: true });
+      }
+
+      if (captured) {
+        await refreshCapturedEstimate(captured);
+      } else {
+        await load(true);
+      }
+
+      if (captured
+        && estimateEditPresence.validScope
+        && estimateEditPresence.ownedByMe
+        && estimateEditPresence.token) {
+        await estimateEditPresence.refresh();
+      }
+      setErr('');
+      setSuccessMsg('nenova.exe의 최신 확정 현황과 견적서 내용을 다시 불러왔습니다.');
+      return status;
+    } catch (error) {
+      setErr(`최신 확정 현황을 다시 불러오지 못했습니다. ${error.message || '잠시 후 다시 시도하세요.'}`);
+      return null;
+    } finally {
+      setFixStatusSyncing(false);
+    }
+  };
+
+  // EXE에서 확정/확정취소만 바뀐 경우에는 실제 견적 내용 충돌이 아니다.
+  // 상태 전용 지문 변화를 감지해 목록과 현재 업체를 자동으로 다시 읽는다.
+  useEffect(() => {
+    const nextDigest = String(estimateEditPresence.fixStatusDigest || '');
+    const previousDigest = fixStatusDigestRef.current;
+    fixStatusDigestRef.current = nextDigest;
+    if (!previousDigest || !nextDigest || previousDigest === nextDigest) return;
+    if (estimateEditPresence.stale || estimateEditPresence.locked || fixStatusSyncing || fixStatusLoading) return;
+
+    const captured = captureEstimateRefresh();
+    const refreshPromise = captured ? refreshCapturedEstimate(captured) : load(true);
+    Promise.resolve(refreshPromise)
+      .then(() => {
+        setErr('');
+        setSuccessMsg('nenova.exe의 확정상태 변경을 자동으로 반영했습니다.');
+      })
+      .catch((error) => setErr(`확정상태 자동 갱신에 실패했습니다. ${error.message || '확정 현황 확인을 눌러 다시 불러오세요.'}`));
+    // 이 effect는 서버가 계산한 상태 전용 지문이 바뀔 때만 실행한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estimateEditPresence.fixStatusDigest]);
 
   const editDraftScope = useMemo(() => ({
     orderYear: yearStr,
@@ -4501,14 +4568,14 @@ export default function Estimate() {
           }}>
           {includeUnfixed ? '🔓 미확정 포함' : '🔒 확정만'}
         </button>
-        <button type="button" onClick={checkFixStatus} disabled={fixStatusLoading || fixWorking || rangeUnfixWorking || !weekNum}
+        <button type="button" onClick={refreshFixStatusAndEstimate} disabled={fixStatusLoading || fixStatusSyncing || fixWorking || rangeUnfixWorking || !weekNum}
           title={`${weekNum}차 기준 확정/미확정/음수재고 현황 확인 후 확정 또는 구간 확정취소`}
           style={{
-            padding: '3px 12px', fontSize: 11, fontWeight: 700, cursor: fixStatusLoading ? 'wait' : 'pointer',
+            padding: '3px 12px', fontSize: 11, fontWeight: 700, cursor: (fixStatusLoading || fixStatusSyncing) ? 'wait' : 'pointer',
             borderRadius: 14, marginLeft: 4,
-            border: '1.5px solid #1565c0', background: fixStatusLoading ? '#90caf9' : '#1565c0', color: '#fff',
+            border: '1.5px solid #1565c0', background: (fixStatusLoading || fixStatusSyncing) ? '#90caf9' : '#1565c0', color: '#fff',
           }}>
-          {fixStatusLoading ? '⏳ 확인중...' : '🔎 확정 현황 확인'}
+          {(fixStatusLoading || fixStatusSyncing) ? '⏳ 최신 현황 확인중...' : '🔎 확정 현황 확인'}
         </button>
 
         <div className="page-actions">
@@ -4842,7 +4909,7 @@ export default function Estimate() {
             </div>
           </div>
 
-          <div style={{padding:'0 10px'}}><ErpEditPresenceBanner presence={estimateEditPresence} /></div>
+          <div style={{padding:'0 10px'}}><ErpEditPresenceBanner presence={estimateEditPresence} onReload={refreshFixStatusAndEstimate} reloadLabel="확정 현황 다시 불러오기" /></div>
           {hasUnsavedEstimateEdits && (
             <div style={{margin:'6px 12px 0', fontSize:12, color:'#9a3412'}}>
               저장하지 않은 단가·수량·추가 품목이 있습니다. 삭제하려면 먼저 수정 저장 또는 각 취소를 완료하세요.

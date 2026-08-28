@@ -159,11 +159,12 @@ async function loadWeekStatus(from, to) {
          ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
          COUNT(DISTINCT sm.ShipmentKey) AS masterCount,
          SUM(CASE WHEN ISNULL(sm.isFix, 0) = 1 THEN 1 ELSE 0 END) AS fixedMasterCount,
-         COUNT(sd.SdetailKey) AS detailCount,
-         SUM(CASE WHEN ISNULL(sd.isFix, 0) = 1 THEN 1 ELSE 0 END) AS fixedDetailCount,
+         SUM(CASE WHEN ISNULL(sd.OutQuantity, 0) > 0 THEN 1 ELSE 0 END) AS detailCount,
+         SUM(CASE WHEN ISNULL(sd.OutQuantity, 0) > 0 AND ISNULL(sd.isFix, 0) = 1 THEN 1 ELSE 0 END) AS fixedDetailCount,
          SUM(CASE WHEN ISNULL(sd.isFix, 0) = 0 AND ISNULL(sd.OutQuantity, 0) > 0 THEN 1 ELSE 0 END) AS unfixedDetailCount,
-         COUNT(DISTINCT p.CountryFlower) AS categoryCount,
-         COUNT(DISTINCT CASE WHEN ISNULL(sd.isFix, 0) = 1 THEN p.CountryFlower END) AS fixedCategoryCount
+         COUNT(DISTINCT CASE WHEN ISNULL(sd.OutQuantity, 0) > 0 THEN p.CountryFlower END) AS categoryCount,
+         COUNT(DISTINCT CASE WHEN ISNULL(sd.OutQuantity, 0) > 0 THEN p.CountryFlower END)
+           - COUNT(DISTINCT CASE WHEN ISNULL(sd.OutQuantity, 0) > 0 AND ISNULL(sd.isFix, 0) = 0 THEN p.CountryFlower END) AS fixedCategoryCount
        FROM ShipmentMaster sm
        LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
        LEFT JOIN Product p ON p.ProdKey = sd.ProdKey
@@ -434,6 +435,7 @@ async function loadLaterFixed(to, countryFlowers = []) {
 export default withAuth(async function handler(req, res) {
   try {
     if (req.method === 'GET') {
+      res.setHeader('Cache-Control', 'private, no-store, max-age=0');
       const { fromWeek, toWeek, orderYear, year } = req.query;
       const { from, to } = normalizeRange(fromWeek, toWeek, orderYear || year);
       const [statusRes, negativeRes, categoryRes] = await Promise.all([

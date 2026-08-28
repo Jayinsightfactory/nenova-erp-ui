@@ -3,7 +3,7 @@ const fs = require('node:fs');
 
 async function main() {
   const presence = await import('../lib/erpEditPresence.js');
-  const { normalizeErpEditClientWeek, mergeErpEditPresenceResponse } = await import('../hooks/useErpEditPresence.js');
+  const { normalizeErpEditClientWeek, mergeErpEditPresenceResponse, shouldBlockErpDigestTransition } = await import('../hooks/useErpEditPresence.js');
   assert.equal(normalizeErpEditClientWeek('34-01'), '34');
   assert.equal(normalizeErpEditClientWeek('34-02'), '34');
   assert.equal(normalizeErpEditClientWeek('2026-34-02'), '34');
@@ -21,6 +21,9 @@ async function main() {
     lease: { active: true, ownedByMe: true, token: 'mine', pageCode: 'estimate' },
   });
   assert.equal(clientAfterExternalSave.stale, true, '본인 저장 이후의 EXE/다른 화면 변경 경고는 유지해야 합니다.');
+  assert.equal(shouldBlockErpDigestTransition({ previousDigest: 'old', nextDigest: 'exe-fixed' }), true, '자동 확인은 EXE 확정 변경을 차단해야 합니다.');
+  assert.equal(shouldBlockErpDigestTransition({ force: true, previousDigest: 'old', nextDigest: 'exe-fixed' }), false, '사용자가 최신 현황을 명시적으로 다시 불러오면 새 확정 기준을 받아들여야 합니다.');
+  assert.equal(shouldBlockErpDigestTransition({ savingCount: 1, previousDigest: 'old', nextDigest: 'web-save' }), false, '본인 저장 정산 중 digest 변화는 외부 변경으로 오인하지 않아야 합니다.');
   assert.deepEqual(presence.normalizeEditScope({ orderYear: '2026', orderWeek: '32-01', custKey: 9 }), { orderYear: '2026', orderWeek: '32', custKey: 9 });
   assert.deepEqual(presence.normalizeEditScope({ orderYear: '2026', week: '32-02', custKey: 9 }), { orderYear: '2026', orderWeek: '32', custKey: 9 });
   assert.throws(() => presence.normalizeEditScope({ orderWeek: '32', custKey: 9 }), /선택 연도와 차수/);
@@ -31,6 +34,7 @@ async function main() {
   const lease = new Map();
   const seenSql = [];
   let erpRevision = 0;
+  let shipmentFix = 0;
   const keyOf = (params) => `${params.yr.value}/${params.wk.value}/${params.ck.value}`;
   const fakeQuery = async (statement, params = {}) => {
     seenSql.push(statement);
@@ -64,6 +68,14 @@ async function main() {
       }
       return { recordset: [] };
     }
+    if (/AS MasterFix/.test(statement)) {
+      return { recordset: [{
+        ShipmentKey: 11, SdetailKey: 12, ProdKey: 9,
+        MasterFix: shipmentFix, DetailFix: shipmentFix, MasterDeleted: 0,
+        BoxQuantity: 0, BunchQuantity: 1, SteamQuantity: 0, OutQuantity: 1,
+        EstQuantity: 1, Cost: 1000, Amount: 909, Vat: 91, ShipmentDtm: new Date('2026-08-28T00:00:00Z'),
+      }] };
+    }
     if (/FROM OrderMaster/.test(statement)) {
       return { recordset: [{ OrderMasterKey: 1, OrderDetailKey: 1, ProdKey: 9, OutQuantity: erpRevision, BoxQuantity: 0, BunchQuantity: 0, SteamQuantity: 0, DetailDeleted: 0, MasterDeleted: 0 }] };
     }
@@ -72,6 +84,12 @@ async function main() {
   const alice = { userId: 'alice', userName: '앨리스' };
   const bob = { userId: 'bob', userName: '밥' };
   const scope = { orderYear: '2026', orderWeek: '32-01', custKey: 7 };
+  const beforeFixOnly = await presence.readErpEditSnapshot(fakeQuery, scope);
+  shipmentFix = 1;
+  const afterFixOnly = await presence.readErpEditSnapshot(fakeQuery, scope);
+  assert.equal(afterFixOnly.digest, beforeFixOnly.digest, 'EXE 확정상태만 바뀌면 견적 내용 충돌 지문은 유지해야 합니다.');
+  assert.notEqual(afterFixOnly.fixStatusDigest, beforeFixOnly.fixStatusDigest, 'EXE 확정상태 변경은 상태 전용 지문으로 감지해야 합니다.');
+  shipmentFix = 0;
   const priorYear = await presence.acquireErpEditLease(fakeQuery, { ...scope, orderYear: '2025' }, alice, { clientId: 'YEAR-2025', pageCode: 'estimate' });
   assert.equal(priorYear.scope.orderYear, '2025');
   const beforeNewLease = await presence.readErpEditSnapshot(fakeQuery, { orderYear: '2026', orderWeek: '31-01', custKey: 8 });
