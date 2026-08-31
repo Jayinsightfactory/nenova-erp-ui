@@ -20,7 +20,9 @@ import { parseNaturalInlineOrderLine, parseNaturalSectionActionLine, stripTraili
 import { matchImportRows } from '../../../lib/orderImportMatch';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
 import { parseExplicitOrderUnit } from '../../../lib/pasteOrderUnit.js';
-import { buildSalesPasteMatchName, normalizeSalesPasteInputText, salesPasteCountryContext } from '../../../lib/salesPasteOrder.js';
+import { buildSalesPasteMatchName, chooseSalesPasteParsedOrders, normalizeSalesPasteInputText, salesPasteCountryContext } from '../../../lib/salesPasteOrder.js';
+
+const ORDER_PASTE_LLM_MODEL = process.env.ORDER_PASTE_LLM_MODEL || 'claude-sonnet-4-5';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -717,7 +719,7 @@ Caroline | 2
 
     const resp = await Promise.race([
       client.messages.create({
-        model: 'claude-haiku-4-5',
+        model: ORDER_PASTE_LLM_MODEL,
         max_tokens: 4000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMsg }],
@@ -727,7 +729,7 @@ Caroline | 2
 
     trackLLMCall({
       userId: req.user?.userId || null,
-      model: 'claude-haiku-4-5',
+      model: ORDER_PASTE_LLM_MODEL,
       inputTokens:  resp?.usage?.input_tokens  || 0,
       outputTokens: resp?.usage?.output_tokens || 0,
       purpose: 'parse-paste',
@@ -740,7 +742,14 @@ Caroline | 2
     const parsed = JSON.parse(jsonText);
     const compactParsed = parseCompactStockOrders(cleanText);
     const naturalParsed = parseNaturalSectionOrders(cleanText);
-    const baseParsedOrders = naturalParsed.orders?.length ? naturalParsed.orders : (parsed.orders || []);
+    // LLM을 호출하고도 규칙 파서가 한 행만 찾으면 전체 LLM 결과를 버리던 구조를 제거한다.
+    // 원문 수량행 개수와 가장 가까운 결과를 선택하고, 동률이면 정확도 우선 LLM을 사용한다.
+    const selectedParse = chooseSalesPasteParsedOrders({
+      text: cleanText,
+      llmParsed: parsed,
+      naturalParsed,
+    });
+    const baseParsedOrders = selectedParse.orders;
     const mergedParsedOrders = [...baseParsedOrders, ...(compactParsed.orders || [])];
 
     // 거래처·품목 보강
@@ -812,7 +821,16 @@ Caroline | 2
     }
     if (!detectedWeek && compactParsed.detectedWeek) detectedWeek = compactParsed.detectedWeek;
 
-    return res.status(200).json({ success: true, orders, prodUnitMap, detectedWeek });
+    return res.status(200).json({
+      success: true,
+      orders,
+      prodUnitMap,
+      detectedWeek,
+      parseSource: selectedParse.source,
+      parsedItemCount: selectedParse.itemCount,
+      expectedItemCount: selectedParse.expectedCount,
+      analysisModel: ORDER_PASTE_LLM_MODEL,
+    });
   } catch (err) {
     console.error('[parse-paste]', err.message);
     return res.status(500).json({ success: false, error: err.message });
