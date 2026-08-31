@@ -10,12 +10,13 @@ const XLSX = require('xlsx-js-style');
     rows: [{ category: '콜롬비아 수국', confirmed: true, calc: sample }],
     confirmedTotals: sample,
     visibleCols: ['C', 'D', 'H', 'J', 'K', 'Q'],
+    displaySheetFirst: true,
   });
   const workbook = XLSX.read(buffer, { cellStyles: true, cellNF: true });
   const original = workbook.Sheets['주차별 매출이익 보고서'];
   const display = workbook.Sheets['화면표시(선택컬럼)'];
 
-  assert.deepStrictEqual(workbook.SheetNames, ['주차별 매출이익 보고서', '화면표시(선택컬럼)']);
+  assert.deepStrictEqual(workbook.SheetNames, ['화면표시(선택컬럼)', '주차별 매출이익 보고서'], '다운로드를 열면 디자인 시트가 먼저 보인다');
   assert.strictEqual(original.B1.v, '주차별 매출이익 보고서-35차', '원본 엑셀 템플릿 시트를 보존한다');
   assert.strictEqual(display.A1.v, '주차별 매출이익 보고서-35차');
   assert.strictEqual(display.A4.v, '품명');
@@ -33,6 +34,7 @@ const XLSX = require('xlsx-js-style');
   assert.strictEqual(display.C5.z, '0.00%', '비율 열은 백분율 형식이다');
   assert.ok(display['!cols'][0].wch >= 23, '품명 열은 전체 이름을 읽을 수 있는 너비다');
   assert.ok(display['!rows'][3].hpt >= 32, '열 제목은 줄바꿈을 고려한 높이다');
+  assert.strictEqual(workbook.Workbook.Sheets[0].name, '화면표시(선택컬럼)', '통합문서 메타데이터도 디자인 시트를 첫 시트로 지정한다');
 
   const unclassifiedBuffer = buildProfitReportXlsx({
     major: 35,
