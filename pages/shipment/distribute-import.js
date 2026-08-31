@@ -19,12 +19,12 @@ const fmtUpload = r => {
 };
 const qtyWarningText = r => (r.qtyWarnings || []).filter(w => w.severity === 'critical').map(w => w.message).join(' / ');
 const hasQtyDiff = n => Math.abs(Number(n || 0)) > 0.0001;
-const statusText = status => status === '주문없음' ? '신규추가' : status === '엑셀누락' ? '분배삭제' : status === '확정차단' ? '확정차단' : status;
+const statusText = status => status === '주문없음' ? '신규추가' : status === '엑셀누락' ? '엑셀누락·유지' : status === '확정차단' ? '확정차단' : status;
 const rowChanged = r => r?.status !== '동일' && r?.status !== '확정차단';
 const orderChanged = r => hasQtyDiff(r?.orderDiffQty) || r?.status === '주문없음';
 const shipmentDiffQty = r => Number(r?.shipmentDiffQty ?? (Number(r?.uploadQty || 0) - Number(r?.currentOutQty || 0)));
 const shipmentNeedsApply = r => !!r?.needsShipmentApply || hasQtyDiff(shipmentDiffQty(r));
-const applyTarget = r => !r.fixBlocked && (rowChanged(r) || shipmentNeedsApply(r));
+const applyTarget = r => !r.fixBlocked && !r.missingFromExcel && (rowChanged(r) || shipmentNeedsApply(r));
 const rowStatusText = r => r?.status === '동일' && shipmentNeedsApply(r) ? '분배반영' : statusText(r?.status);
 const rowBg = r => r?.fixBlocked ? '#f3f4f6' : r?.status === '주문없음' ? '#eff6ff' : r?.status === '엑셀누락' ? '#fee2e2' : rowChanged(r) ? '#fff7ed' : shipmentNeedsApply(r) ? '#f0fdf4' : '#fff';
 
@@ -130,11 +130,57 @@ export default function DistributeImport() {
   const [custOverrides, setCustOverrides] = useState({});   // { 원본업체라벨: custKey }
   const [prodOverrides, setProdOverrides] = useState({});   // { productOverrideKey: prodKey }
   const [shipmentOnly, setShipmentOnly] = useState(false);  // true: 주문(OrderDetail) 미변경, 출고분배만 반영
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRows, setHistoryRows] = useState([]);
   const custOverridesRef = useRef({});
   const prodOverridesRef = useRef({});
   const verifiedOverridesRef = useRef({ cust: {}, prod: {} });  // 직전 검증에 보낸 override 스냅샷
   const setOverrides = next => { custOverridesRef.current = next; setCustOverrides(next); };
   const setProdOverridesState = next => { prodOverridesRef.current = next; setProdOverrides(next); };
+
+  const loadImportHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const response = await fetch('/api/shipment/distribute-import-history?limit=30', { credentials: 'same-origin' });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || '업로드 이력을 불러오지 못했습니다.');
+      setHistoryRows(data.rows || []);
+    } catch (historyError) {
+      setError(historyError.message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const toggleImportHistory = async () => {
+    const next = !historyOpen;
+    setHistoryOpen(next);
+    if (next) await loadImportHistory();
+  };
+
+  const rollbackImport = async (row) => {
+    if (!confirm(`${row.OrderYear}년 ${row.OrderWeek} 업로드 전체를 적용 전 상태로 되돌릴까요?\n\n업로드 후 다른 수정이 하나라도 있으면 전체 작업을 중단합니다. 이력은 삭제하지 않고 되돌린 기록을 남깁니다.`)) return;
+    const reason = prompt('되돌리는 이유를 입력하세요.', '잘못된 엑셀 업로드') || '';
+    setHistoryLoading(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/shipment/distribute-import-rollback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ auditKey: row.AuditKey, reason }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || '업로드 전체 되돌리기에 실패했습니다.');
+      setMessage(data.alreadyRolledBack ? '이미 전체 되돌리기가 완료된 업로드입니다.' : `${row.OrderYear}년 ${row.OrderWeek} 업로드 전체를 적용 전 상태로 되돌렸습니다.`);
+      await loadImportHistory();
+      if (preview) await handlePreview({ preserveMessage: true });
+    } catch (rollbackError) {
+      setError(rollbackError.message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const rows = preview?.rows || [];
   const changedRows = useMemo(() => rows.filter(r => r.status !== '동일' && !r.fixBlocked), [rows]);
@@ -444,7 +490,7 @@ export default function DistributeImport() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ week: preview.week, rows: applyRows, ackQtyWarnings, shipmentOnly, jobId }),
+        body: JSON.stringify({ week: preview.week, year: preview.orderYear, rows: applyRows, ackQtyWarnings, shipmentOnly, jobId }),
       });
       let data;
       try {
@@ -550,6 +596,7 @@ export default function DistributeImport() {
             {preAligning ? '일괄분배 중...' : '업로드 품종 일괄분배'}
           </button>
           <button style={st.primaryBtn} onClick={handlePreview} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
+          <button style={st.secondaryBtn} onClick={toggleImportHistory} disabled={historyLoading}>{historyOpen ? '업로드 이력 닫기' : '업로드 이력·전체 되돌리기'}</button>
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }} title="켜면 주문등록(OrderDetail)은 전혀 변경하지 않고 출고분배(ShipmentDetail)만 반영합니다.">
             <input type="checkbox" checked={shipmentOnly} onChange={e => setShipmentOnly(e.target.checked)} />
             분배만 반영(주문 미변경)
@@ -613,6 +660,39 @@ export default function DistributeImport() {
           </div>
         )}
         </CollapsibleTop>
+
+        {historyOpen && (
+          <section style={{ ...st.panel, marginBottom: 10 }}>
+            <div style={st.panelHead}>
+              <strong>업로드 이력 · 전체 되돌리기</strong>
+              <span style={{ fontSize: 11, color: '#64748b' }}>이력은 삭제하지 않으며, 이후 수정이 있으면 전체 되돌리기를 차단합니다.</span>
+            </div>
+            <div style={{ maxHeight: 260, overflow: 'auto' }}>
+              <table style={st.table}>
+                <thead><tr><th>시각</th><th>차수</th><th>작업자</th><th>방식</th><th>처리</th><th>상태</th><th>되돌리기</th></tr></thead>
+                <tbody>
+                  {historyRows.map(row => {
+                    const rolledBack = String(row.RollbackStatus || '') === 'ROLLED_BACK' || String(row.AuditStatus || '') === 'ROLLED_BACK';
+                    const eligible = !rolledBack && String(row.AuditStatus || '') === 'SUCCESS' && Number(row.SnapshotCount || 0) > 0;
+                    return (
+                      <tr key={row.AuditKey}>
+                        <td>{row.CreatedDtm ? new Date(row.CreatedDtm).toLocaleString('ko-KR') : '-'}</td>
+                        <td><b>{row.OrderYear}-{row.OrderWeek}</b></td>
+                        <td>{row.ActorName || row.ActorUserId || '-'}</td>
+                        <td>{row.ApplyMode === 'SHIPMENT_ONLY' ? '분배만' : '주문+분배'}</td>
+                        <td>{fmt(row.AppliedCount)}건</td>
+                        <td>{rolledBack ? `되돌림 · ${row.RolledBackBy || ''}` : row.AuditStatus}</td>
+                        <td><button style={eligible ? st.rollbackBtn : st.rollbackBtnDisabled} disabled={!eligible || historyLoading} onClick={() => rollbackImport(row)}>{rolledBack ? '완료' : eligible ? '전체 되돌리기' : '불가'}</button></td>
+                      </tr>
+                    );
+                  })}
+                  {!historyLoading && historyRows.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: 18, color: '#64748b' }}>표시할 업로드 이력이 없습니다.</td></tr>}
+                  {historyLoading && <tr><td colSpan={7} style={{ textAlign: 'center', padding: 18 }}>이력을 확인하는 중…</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         {error && <div style={st.error}>{error}</div>}
         {message && <div style={st.message}>{message}</div>}
@@ -1706,6 +1786,8 @@ const st = {
   preAlignBtn: { height: 34, padding: '0 16px', border: 0, background: '#0f766e', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
   preAlignDisabledBtn: { height: 34, padding: '0 16px', border: '1px solid #cbd5e1', background: '#e2e8f0', color: '#64748b', borderRadius: 6, cursor: 'not-allowed', fontWeight: 700 },
   applyBtn: { height: 34, padding: '0 16px', border: 0, background: '#15803d', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
+  rollbackBtn: { height: 26, padding: '0 10px', border: '1px solid #b91c1c', background: '#fff', color: '#b91c1c', borderRadius: 5, cursor: 'pointer', fontWeight: 700, fontSize: 11 },
+  rollbackBtnDisabled: { height: 26, padding: '0 10px', border: '1px solid #cbd5e1', background: '#f1f5f9', color: '#94a3b8', borderRadius: 5, cursor: 'not-allowed', fontWeight: 700, fontSize: 11 },
   error: { padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 6, marginBottom: 10 },
   miniBtn: { border: '1px solid #2563eb', color: '#2563eb', background: '#fff', borderRadius: 6, fontSize: 11, fontWeight: 800, padding: '2px 10px', cursor: 'pointer' },
   miniApplyBtn: { border: '1px solid #15803d', color: '#fff', background: '#16a34a', borderRadius: 6, fontSize: 11, fontWeight: 800, padding: '2px 10px', cursor: 'pointer' },
