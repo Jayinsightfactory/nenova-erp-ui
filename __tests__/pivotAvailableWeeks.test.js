@@ -20,7 +20,7 @@ for (const table of ['OrderMaster', 'WarehouseMaster', 'ShipmentMaster', 'StockM
   assert.match(scopeSql, new RegExp(`${table}[\\s\\S]*?OrderYear=@year`), `${table} 입력 이력은 선택 연도로 격리해야 한다.`);
 }
 const orderOnlySql = buildPivotAvailableWeeksSql('orders');
-assert.match(orderOnlySql, /FROM OrderMaster[\s\S]*OrderYear=@year/, '네덜란드 물량표 선택지는 주문 입력 차수를 연도와 함께 조회해야 한다.');
-assert.doesNotMatch(orderOnlySql, /StockMaster|WarehouseMaster|ShipmentMaster/, '주문이 없는 미래 재고 차수를 네덜란드 물량표 선택지에 섞으면 안 된다.');
+assert.match(orderOnlySql, /FROM OrderMaster[\s\S]*OrderYear=@year/, '네덜란드·중국 물량표 선택지는 주문 입력 차수를 연도와 함께 조회해야 한다.');
+assert.doesNotMatch(orderOnlySql, /StockMaster|WarehouseMaster|ShipmentMaster/, '주문이 없는 미래 재고 차수를 네덜란드·중국 물량표 선택지에 섞으면 안 된다.');
 
 console.log('pivotAvailableWeeks tests passed');
