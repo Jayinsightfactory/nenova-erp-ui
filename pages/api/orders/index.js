@@ -401,13 +401,14 @@ async function createOrder(req, res) {
     return res.status(error.statusCode || 400).json({ success: false, code: error.code, error: error.message });
   }
   const isMyCustomerSource = myCustomerPolicy.isMyCustomerSource;
+  const isSalesPasteSource = String(source || '').trim().toLowerCase() === 'sales-paste';
   const orderMode = myCustomerPolicy.orderMode;
   const writeItems = isMyCustomerSource ? myCustomerPolicy.items : items;
   // 웹 내 업체 등록의 의도된 범위는 OrderMaster/Detail/History만이다. 출고 원장은 보존한다.
   const ensureShipmentMaster = !isMyCustomerSource
     && (String(source || '').toLowerCase() === 'raum-pnl' || req.body?.ensureShipmentMaster === true);
   const isDelta = true; // 웹/붙여넣기 주문등록은 기존 수량을 덮어쓰지 않고 항상 가산한다.
-  const historyDescr = String(source || '').toLowerCase() === 'paste' ? '붙여넣기 주문등록' : '주문등록';
+  const historyDescr = isSalesPasteSource ? '영업부 붙여넣기 주문등록' : String(source || '').toLowerCase() === 'paste' ? '붙여넣기 주문등록' : '주문등록';
 
   if (!writeItems || writeItems.length === 0) {
     return res.status(400).json({ success: false, error: '품목을 입력하세요.' });
@@ -459,10 +460,13 @@ async function createOrder(req, res) {
     // Manager 에는 UserInfo.UserID 가 들어가야 ViewOrder 의 INNER JOIN UserInfo(om.Manager=ui.UserID)
     // 를 통과한다. 문자열 '관리자'(=UserName) 를 넣으면 그 주문이 ViewOrder 에서 탈락 → 전산 분배
     // grid 에 거래처가 안 뜸. '관리자' 계정의 실제 UserID(보통 'admin') 로 해석해 넣는다.
-    const mgrRow = isMyCustomerSource
+    const mgrRow = isSalesPasteSource
+      ? await query(`SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager OR UserName=@manager ORDER BY CASE WHEN UserID=@manager THEN 0 ELSE 1 END`, { manager: { type: sql.NVarChar, value: String(manager || req.user?.userId || req.user?.userName || '') } })
+      : isMyCustomerSource
       ? await query(`SELECT TOP 1 ui.UserID FROM Customer c LEFT JOIN UserInfo ui ON ui.UserID=c.Manager OR ui.UserName=c.Manager
           WHERE c.CustKey=@ck AND ISNULL(c.isDeleted,0)=0 ORDER BY CASE WHEN ui.UserID=c.Manager THEN 0 ELSE 1 END`, { ck: { type: sql.Int, value: Number(resolvedCustKey) } })
       : await query(`SELECT TOP 1 UserID FROM UserInfo WHERE UserName=N'관리자' ORDER BY UserID`, {});
+    if (isSalesPasteSource && !mgrRow.recordset[0]?.UserID) return res.status(400).json({ success: false, code: 'SALES_MANAGER_INVALID', error: '선택한 담당자를 UserInfo에서 찾을 수 없습니다.' });
     const mgr = mgrRow.recordset[0]?.UserID || 'admin';
 
     await appLog('createOrder', 'OM_조회', `ck=${resolvedCustKey} yr=${orderYear} wk=${orderWeek}`);

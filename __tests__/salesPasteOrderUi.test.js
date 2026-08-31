@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const page = fs.readFileSync(new URL('../pages/orders/sales-paste.js', import.meta.url), 'utf8');
+const api = fs.readFileSync(new URL('../pages/api/orders/index.js', import.meta.url), 'utf8');
+const layout = fs.readFileSync(new URL('../components/Layout.js', import.meta.url), 'utf8');
+assert.match(layout, /\/orders\/sales-paste[^\n]+영업부 붙여서 주문등록/);
+assert.match(page, /apiPost\('\/api\/orders\/parse-paste'/, '기존 붙여넣기 매칭 API를 그대로 사용해야 합니다.');
+assert.match(page, /source:\s*'sales-paste',[\s\S]{0,80}orderMode:\s*'ADD'/, '주문 전용 안전 정책으로 추가등록해야 합니다.');
+assert.doesNotMatch(page, /\/api\/shipment\//, '영업부 페이지는 분배 API를 호출하면 안 됩니다.');
+assert.match(page, /expectedCurrentQty/, '저장 직전 현재 주문수량 optimistic lock을 전달해야 합니다.');
+assert.match(page, /apiGet\('\/api\/orders\/my-customers',[\s\S]{0,100}custKey,[\s\S]{0,40}year,[\s\S]{0,40}week/, '등록 후 같은 연도·차수·업체 주문을 재조회해야 합니다.');
+assert.match(api, /isSalesPasteSource/);
+assert.match(api, /SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager OR UserName=@manager/, '선택 담당자를 실제 UserInfo.UserID로 저장해야 합니다.');
+assert.match(api, /ensureShipmentMaster = !isMyCustomerSource/, 'sales-paste는 ShipmentMaster를 생성하면 안 됩니다.');
+console.log('sales paste order UI/API tests passed');
