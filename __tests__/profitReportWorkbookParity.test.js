@@ -151,7 +151,11 @@ async function main() {
   check('관세·선율 분할 입력칸은 금액 전체가 보이도록 가로 폭 확보', customsPanelSource.includes('minWidth: 235') && customsPanelSource.includes('minWidth: 1500') && customsPanelSource.includes('splitInput: { width: 68'));
   check('통관비 숫자 입력은 엔터로 다음 입력칸 이동', customsPanelSource.includes('focusNextCustomsInput') && customsPanelSource.includes("onKeyDown={focusNextCustomsInput}"));
   check('월드운송료는 부가세 제외값을 화면에 표시', customsPanelSource.includes('vatInclusiveToNet') && customsPanelSource.includes('vatNetToInclusive'));
-  check('기타 미분류 품목은 자동 비고·엑셀에 포함', reportSource.includes('unclassifiedDetailsByCategory') && reportApiSource.includes('composeProfitReportNote') && pageSource.includes('data.autoNote'));
+  check('기타 미분류 품목은 웹 자동 비고에만 포함하고 엑셀에서는 제외',
+    reportSource.includes('unclassifiedDetailsByCategory')
+      && pageSource.includes('data.autoNote')
+      && reportApiSource.includes('major, rows: data.rows, note: data.note')
+      && !reportApiSource.includes('note: composeProfitReportNote(data.note, data.autoNote)'));
 
   const autoUnclassifiedNote = formatUnclassifiedNote([
     { source: '입고', country: '미상', flower: '미상', product: '테스트 품목', quantity: 12, amount: 3456 },
