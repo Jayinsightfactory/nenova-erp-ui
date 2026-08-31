@@ -4,12 +4,13 @@
   "scope": ["components/Layout.js", "pages/stats/dutch-volume-board.js", "lib/dutchVolumePrice.js", "__tests__/dutchVolumePrice.test.js", "__tests__/dutchVolumePriceUi.test.js", "docs/contracts/dutch-volume-board.json", "docs/exe-golden/FormQuantityPivot.md"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
-    {"name": "DUTCH_PIVOT_WORKBOOK_UPLOAD", "source": "client-side upload of the existing Pivot statistics workbook; extract positive customer-product quantity cells only", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
+    {"name": "DUTCH_PIVOT_LIVE_READ", "source": "authenticated GET /api/stats/pivot-data with explicit orderYear + weekStart + weekEnd; extract Netherlands positive customer-product order quantities only", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
+    {"name": "DUTCH_PIVOT_WORKBOOK_UPLOAD", "source": "optional client-side upload of the existing Pivot statistics workbook; extract positive customer-product quantity cells only", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
     {"name": "DUTCH_PRICE_DRAFT", "source": "browser localStorage keyed by uploaded filename; Enter focuses the next visible price input", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
     {"name": "DUTCH_PRICE_WORKBOOK_EXPORT", "source": "preserve source workbook and append or replace NL_단가표 with source cell, customer, product, color, quantity, currency, unit price, amount and completion state", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"}
   ],
   "criteriaLedger": {
-    "authority": "the uploaded workbook is the only data source; no ERP API or DB lookup",
+    "authority": "default source is authenticated read-only pivot-data with explicit year/week; uploaded workbook remains an optional alternate source",
     "sheetDetection": "sheet name or first three rows must contain 네덜란드, Netherlands, Holland or Dutch",
     "header": "the existing Pivot template uses row 3 for customer headers and 주문 marks the end of customer quantity columns",
     "quantity": "only finite numeric values greater than zero become price-entry rows",
@@ -18,7 +19,7 @@
     "export": "source workbook stays intact; NL_단가표 is replaced idempotently on re-export",
     "currency": "EUR default with explicit KRW choice"
   },
-  "crossYearFixture": {"required": true, "description": "업로드 파일만 읽고 OrderWeek 기반 ERP 조회·저장을 하지 않으므로 전년도 동일 차수의 ERP Master를 선택하거나 변경할 경로가 없다."},
+  "crossYearFixture": {"required": true, "description": "직접 조회는 orderYear + weekStart + weekEnd를 모두 전달하고 단가 입력은 ERP에 쓰지 않으므로 전년도 동일 차수 Master를 섞거나 변경하지 않는다."},
   "requiredTestFiles": ["__tests__/dutchVolumePrice.test.js", "__tests__/dutchVolumePriceUi.test.js", "__tests__/erpContractManifest.test.js"],
   "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormQuantityPivot.md", "source": "FormQuantityPivot의 읽기 전용 업체·품목·수량 표시 결과를 엑셀 입력으로만 사용하며 ShipmentDetail.Cost 등 ERP 원장을 수정하지 않는다.", "methods": ["FormQuantityPivot read-only pivot grid"], "tables": ["Product", "Customer", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail"]},
   "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run test:pivot", "npm run build"],
