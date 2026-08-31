@@ -38,7 +38,8 @@ async function main() {
   console.log('=== CASE_CATEGORY(SQL) 카테고리 키 ↔ 공용 모듈 PROFIT_REPORT_CATEGORY_KEYS 일치 ===');
   const caseBlock = buildProfitReportCategorySql('p');
   check('profitReport.js가 공용 CASE_CATEGORY 생성기를 사용',
-    /export const CASE_CATEGORY = buildProfitReportCategorySql\('p'\)/.test(reportSource));
+    /export let CASE_CATEGORY = buildProfitReportCategorySql\('p'\)/.test(reportSource)
+      && /buildProfitOverrideCaseSql\(buildProfitReportCategorySql\('p'\)/.test(reportSource));
   const literalRe = /THEN\s+N'([^']+)'/g;
   const sqlKeys = new Set();
   let m;

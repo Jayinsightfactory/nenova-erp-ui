@@ -547,8 +547,10 @@ ERP side effect는 이번 작업으로 전혀 바뀌지 않았고, 화면 배치
   표시한다. 저장은 기존 `saveTaxableRate` 계약을 사용하며
   `OrderYear + MajorWeek + Currency + Category`에만 적용한다.
 - 기타(미분류)는 해당 연도·대차수의 확정 매출/견적/입고/포워딩 원천에 실제 나타난 `ProdKey`만
-  후보로 표시한다. 저장 직전 같은 범위를 재확인하고, 사용자가 고른 허용 카테고리에 맞춰 활성
-  `Product` 한 행의 `CounName/FlowerName`만 변경한다.
-- 품목 수량·단가·단위·재고 및 Order/Shipment/Warehouse/Estimate/WebProfitReport는 보존한다.
-  확정 보고서, 다른 연도·차수 품목, 이미 분류가 바뀐 품목은 거부하고 변경 전후는
-  `SystemActionLog`에 기록한다.
+  후보로 표시한다. 저장 직전 같은 범위를 재확인하고, 사용자가 고른 허용 카테고리를 웹 전용
+  `data/profit-report-category-overrides.json`에 원자적으로 저장한다. 보고서 SQL은 이 품목별
+  오버라이드를 기본 국가·화종 분류보다 먼저 적용한다.
+- `Product.CounName/FlowerName`과 품목 수량·단가·단위·재고 및
+  Order/Shipment/Warehouse/Estimate/WebProfitReport는 보존한다. 확정 보고서에서는 현재 처리
+  대상을 읽기 전용으로 보여주되 저장은 막고, 확정 취소 후에만 입력할 수 있다. 상세 품목을
+  찾지 못해도 처리 영역을 숨기거나 ‘문제 없음’으로 표시하지 않는다. 변경은 `SystemActionLog`에 기록한다.

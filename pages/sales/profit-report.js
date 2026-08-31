@@ -838,7 +838,7 @@ export default function ProfitReportPage() {
       });
       const body = await res.json();
       if (!res.ok || !body.success) throw new Error(body.error || '품목 분류 저장 실패');
-      setMessage(`${row.product} 품목마스터를 ${category}(으)로 분류하고 보고서를 다시 계산했습니다.`);
+      setMessage(`${row.product}을(를) 이 보고서에서 ${category}(으)로 분류하고 다시 계산했습니다. 전산 품목마스터는 변경하지 않았습니다.`);
       await load();
     } catch (e) { setError(e.message); } finally { setClassificationBusy(0); }
   };
@@ -881,7 +881,7 @@ export default function ProfitReportPage() {
     + (stockPriceInputNeeded ? 1 : 0)
     + (customsInputNeeded ? 1 : 0)
     + (forwardingSourceReviewNeeded ? 1 : 0)
-    + unclassifiedProducts.length;
+    + (unclassifiedProducts.length || (validationUnclassified ? 1 : 0));
   // 차수를 새로 조회할 때마다 문제 유무로 기본 펼침을 다시 판단한다(사용자가 그 뒤 수동으로
   // 접고 펼치는 것은 다음 조회 전까지 유지).
   useEffect(() => {
@@ -1233,8 +1233,8 @@ export default function ProfitReportPage() {
             {validationRateRows.length > 0 && (
               <span style={st.requiredNotice}>⚠ 과세환율 입력 필요 {validationRateRows.length}건 — 바로 아래 입력표에서 저장할 수 있습니다</span>
             )}
-            {unclassifiedProducts.length > 0 && (
-              <span style={st.requiredNotice}>⚠ 품목 국가·화종 확인 {unclassifiedProducts.length}건 — 품목별 올바른 분류를 선택하세요</span>
+            {validationUnclassified && (
+              <span style={st.requiredNotice}>⚠ 품목 국가·화종 확인 {unclassifiedProducts.length || 1}건 — 아래 처리 영역에서 확인하세요</span>
             )}
             {requiredInputCount === 0 && (
               <span style={st.requiredOkNotice}>입력·확인이 필요한 항목이 없습니다</span>
@@ -1260,11 +1260,17 @@ export default function ProfitReportPage() {
               </div>
             </div>
           )}
-          {unclassifiedProducts.length > 0 && (
+          {validationUnclassified && (
             <div style={st.embedPanel}>
-              <div style={st.embedPanelHead}><strong>🧭 기타(미분류) 품목 처리 — {unclassifiedProducts.length}건</strong></div>
+              <div style={st.embedPanelHead}><strong>🧭 기타(미분류) 품목 처리 — {unclassifiedProducts.length || '상세 확인 필요'}건</strong></div>
               <div style={st.embedPanelBody}>
-                <div style={st.requiredHelp}>이 차수의 미분류 거래에 실제 포함된 품목만 표시합니다. 저장하면 품목마스터의 국가·화종이 바뀌므로 이후 모든 화면에도 같은 분류가 적용되며 변경 전후가 감사기록에 남습니다.</div>
+                <div style={st.requiredHelp}>이 차수의 미분류 거래에 실제 포함된 품목만 표시합니다. 저장하면 주차별 손익보고서의 웹 전용 분류로 계속 적용되며, 전산 품목마스터의 국가·화종은 바꾸지 않습니다. 변경 전후는 감사기록에 남습니다.</div>
+                {data.confirmed && (
+                  <div style={st.requiredBlocked}>현재 확정본은 수정할 수 없습니다. 화면 위의 <b>확정 취소 후 다시 계산</b>을 먼저 누르면 아래 분류 입력과 저장 버튼이 활성화됩니다.</div>
+                )}
+                {unclassifiedProducts.length === 0 && (
+                  <div style={st.requiredBlocked}>미분류 합계는 있지만 연결된 품목마스터 상세를 찾지 못했습니다. 조회를 다시 실행해도 같으면 원천 거래의 품목 연결이 먼저 필요합니다. 이 상태를 ‘문제 없음’으로 표시하거나 임의 분류로 저장하지 않습니다.</div>
+                )}
                 <div style={st.classificationList}>
                   {unclassifiedProducts.map(row => <div key={row.prodKey} style={st.classificationRow}>
                     <div style={st.classificationInfo}><b>{row.product}</b><span>현재 {row.country} / {row.flower} · 원천 {row.sources.join('·')} · 수량 {fmt(row.quantity)} · 금액 {fmt(row.amount)}</span></div>
@@ -1272,7 +1278,7 @@ export default function ProfitReportPage() {
                       <option value="">올바른 분류 선택</option>
                       {classificationTargets.map(category => <option key={category} value={category}>{category}</option>)}
                     </select>
-                    <button style={st.primarySmallBtn} disabled={data.confirmed || classificationBusy === row.prodKey} onClick={() => saveProductClassification(row)}>{classificationBusy === row.prodKey ? '저장 중…' : '품목 분류 저장'}</button>
+                    <button style={st.primarySmallBtn} disabled={data.confirmed || classificationBusy === row.prodKey} onClick={() => saveProductClassification(row)}>{classificationBusy === row.prodKey ? '저장 중…' : '보고서 분류 저장'}</button>
                   </div>)}
                 </div>
               </div>
@@ -1950,6 +1956,7 @@ const st = {
   requiredNotice: { fontSize: 12, fontWeight: 700, color: '#9a3412' },
   requiredOkNotice: { fontSize: 12, fontWeight: 600, color: '#166534' },
   requiredHelp: { fontSize: 11.5, lineHeight: 1.5, color: '#475569', marginBottom: 8 },
+  requiredBlocked: { fontSize: 12, lineHeight: 1.55, color: '#9a3412', background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 6, padding: '8px 10px', marginBottom: 8 },
   requiredGrid: { display: 'grid', gridTemplateColumns: 'minmax(150px,1.1fr) minmax(105px,.7fr) minmax(145px,.8fr) minmax(190px,1.4fr) auto', gap: 7, alignItems: 'center' },
   requiredRowLabel: { display: 'flex', flexDirection: 'column', minWidth: 0, fontSize: 12, color: '#334155' },
   requiredInput: { minWidth: 0, height: 32, boxSizing: 'border-box', border: '1px solid #94a3b8', borderRadius: 5, padding: '0 8px', fontSize: 12, background: '#fff' },
