@@ -20,4 +20,5 @@ assert.match(api, /isSalesPasteSource/);
 assert.match(api, /SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager OR UserName=@manager/, '선택 담당자를 실제 UserInfo.UserID로 저장해야 합니다.');
 assert.match(api, /ensureShipmentMaster = !isMyCustomerSource/, 'sales-paste는 ShipmentMaster를 생성하면 안 됩니다.');
 assert.match(parser, /matchName: item\.matchName \|\| item\.inputName/, '콜 수국 같은 국가·품종 문맥을 공통 매칭 엔진에 전달해야 합니다.');
+assert.match(parser, /normalizeSalesPasteInputText\(raw\)/, 'API 직접 호출에서도 줄 끝 역슬래시 수량행이 누락되면 안 됩니다.');
 console.log('sales paste order UI/API tests passed');

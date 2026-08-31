@@ -20,7 +20,7 @@ import { parseNaturalInlineOrderLine, parseNaturalSectionActionLine, stripTraili
 import { matchImportRows } from '../../../lib/orderImportMatch';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
 import { parseExplicitOrderUnit } from '../../../lib/pasteOrderUnit.js';
-import { buildSalesPasteMatchName, salesPasteCountryContext } from '../../../lib/salesPasteOrder.js';
+import { buildSalesPasteMatchName, normalizeSalesPasteInputText, salesPasteCountryContext } from '../../../lib/salesPasteOrder.js';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -245,7 +245,7 @@ const KO_EN_KEYWORDS = {
 export const config = { api: { responseLimit: false, bodyParser: { sizeLimit: '1mb' } } };
 
 function sanitizePasteText(raw) {
-  return String(raw || '')
+  return normalizeSalesPasteInputText(raw)
     .split('\n')
     .map(line => line.trim())
     .filter(line => !/^[ㅡ\-_=\s]{5,}$/.test(line))
