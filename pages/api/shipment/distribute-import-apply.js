@@ -7,6 +7,12 @@ async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
   const jobId = String(req.body?.jobId || '').slice(0, 80);
   try {
+    if (req.body?.shipmentOnly) {
+      const error = new Error('엑셀 업로드는 주문등록과 출고분배를 함께 최종값으로 처리합니다. 분배만 반영할 수 없습니다.');
+      error.code = 'SHIPMENT_ONLY_NOT_ALLOWED';
+      error.statusCode = 400;
+      throw error;
+    }
     if (jobId) initApplyProgress(jobId, (req.body?.rows || []).length);
     const result = await applyImportRows({
       rawWeek: req.body?.week,
@@ -14,7 +20,7 @@ async function handler(req, res) {
       rows: req.body?.rows,
       user: req.user,
       ackQtyWarnings: !!req.body?.ackQtyWarnings,
-      shipmentOnly: !!req.body?.shipmentOnly,
+      shipmentOnly: false,
       onProgress: jobId ? (patch => progressStep(jobId, patch)) : null,
     });
     if (jobId) finishApplyProgress(jobId, { log: '적용 완료' });

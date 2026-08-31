@@ -122,6 +122,14 @@ async function main() {
     'UI 이력에서 증거 삭제 대신 전체 되돌리기 API 사용',
     uiSrc.includes('/api/shipment/distribute-import-rollback') && uiSrc.includes('업로드 이력 · 전체 되돌리기'),
   );
+  assertLabel(
+    '분배만 반영 선택은 제거되고 주문등록+분배만 제공',
+    !uiSrc.includes('분배만 반영(주문 미변경)') && !uiSrc.includes('shipmentOnly, jobId') && uiSrc.includes('승인 후 주문등록+분배'),
+  );
+  assertLabel(
+    '서버도 분배만 요청을 명시적으로 거부',
+    apiSrc.includes("SHIPMENT_ONLY_NOT_ALLOWED") && /shipmentOnly: false/.test(apiSrc) && src.includes("SHIPMENT_ONLY_NOT_ALLOWED"),
+  );
 
   const snapshotSrc = fs.readFileSync('lib/shipmentImportSnapshot.js', 'utf8');
   const rollbackSrc = fs.readFileSync('lib/shipmentImportRollback.js', 'utf8');
