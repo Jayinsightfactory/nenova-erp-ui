@@ -11,6 +11,10 @@ assert.doesNotMatch(page, /\/api\/shipment\//, '영업부 페이지는 분배 AP
 assert.match(page, /expectedCurrentQty/, '저장 직전 현재 주문수량 optimistic lock을 전달해야 합니다.');
 assert.match(page, /resolveDetectedSalesPasteScope\(parsed\.detectedWeek, weekChoices\)/, '붙여넣기에서 감지한 차수를 선택 차수에 자동 반영해야 합니다.');
 assert.match(page, /detectedScopeChange/, '차수 자동선택 중 입력 내용과 분석 결과가 지워지면 안 됩니다.');
+assert.match(page, /apiGet\('\/api\/products\/search'/, '기존 공통 품목검색 랭킹 API를 사용해야 합니다.');
+assert.match(page, /fetch\('\/api\/orders\/mappings'/, '사용자가 선택한 품목 매칭을 기존 저장매칭 시스템에 기록해야 합니다.');
+assert.match(page, /replaceSalesPasteProduct\(rows, rowIndex, product, products\)/, '품목 수정 뒤 현재 주문과 등록 후 수량을 다시 계산해야 합니다.');
+assert.match(page, /품목 검색·수정/, '자동 매칭된 행도 사용자가 검색하여 수정할 수 있어야 합니다.');
 assert.match(page, /apiGet\('\/api\/orders\/my-customers',[\s\S]{0,100}custKey,[\s\S]{0,40}year,[\s\S]{0,40}week/, '등록 후 같은 연도·차수·업체 주문을 재조회해야 합니다.');
 assert.match(api, /isSalesPasteSource/);
 assert.match(api, /SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager OR UserName=@manager/, '선택 담당자를 실제 UserInfo.UserID로 저장해야 합니다.');
