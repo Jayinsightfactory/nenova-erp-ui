@@ -211,7 +211,7 @@
       "name": "REPORT_REQUIRED_INPUT_SUMMARY_VIEW",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "read-only UI 재배치(2026-08-24); 재고 매입단가 입력(openPriceModal)·그외통관비 입력(showCustoms/CustomsClearancePanel)·항공료 연결 확인(showForwarding/ForwardingClearancePanel)·과세환율 입력 필요 안내(needsRateInput) 진입점을 본표 위 요약 블록 하나로 모으고, 감사 오류·재고 확인 등 진단 전용 배너는 본표 아래 '상세 확인 내역'(구 '검증·입력') 접기 그룹에만 남긴다. 버튼은 기존 상태(showCustoms/showForwarding)·핸들러(openPriceModal)만 재사용하며 이 액션 자체는 새 조회·저장을 추가하지 않는다. 실제 조회/저장은 각 컴포넌트(CustomsClearancePanel/ForwardingClearancePanel)와 기존 PRICE_EVIDENCE_SAVE/CUSTOMS_COUNTRY_BATCH_SAVE/TAXABLE_RATE_SAVE 액션이 그대로 수행한다. 이 배치 변경은 issue.columns의 내부 열 문자(E/F/H/S/R)를 ISSUE_COLUMN_LABELS로 한글 변환해 표시하는 것도 포함하며, 서버 audit 객체(code/message)나 계산 로직은 건드리지 않는다."
+      "sideEffect": "read-only UI 재배치(2026-08-24, 2026-08-31 보완); 재고 매입단가 입력(openPriceModal)·그외통관비 입력(showCustoms/CustomsClearancePanel)·항공료 연결 확인(showForwarding/ForwardingClearancePanel)·과세환율 입력 필요 안내(needsRateInput) 진입점을 본표 위 요약 블록 하나로 모으고, 감사 오류·재고 확인 등 진단 전용 배너는 본표 아래 '상세 확인 내역'(구 '검증·입력') 접기 그룹에만 남긴다. 그외통관비 입력 버튼은 CUSTOMS_INCOMPLETE 자동 판정과 무관하게 모든 조회된 차수에서 항상 표시하며, 확정 차수에서만 기존 정책대로 비활성화한다. 버튼은 기존 상태(showCustoms/showForwarding)·핸들러(openPriceModal)만 재사용하며 이 액션 자체는 새 조회·저장을 추가하지 않는다. 실제 조회/저장은 각 컴포넌트(CustomsClearancePanel/ForwardingClearancePanel)와 기존 PRICE_EVIDENCE_SAVE/CUSTOMS_COUNTRY_BATCH_SAVE/TAXABLE_RATE_SAVE 액션이 그대로 수행한다. 이 배치 변경은 issue.columns의 내부 열 문자(E/F/H/S/R)를 ISSUE_COLUMN_LABELS로 한글 변환해 표시하는 것도 포함하며, 서버 audit 객체(code/message)나 계산 로직은 건드리지 않는다."
     },
     {
       "name": "REPORT_MONTHLY_READ",

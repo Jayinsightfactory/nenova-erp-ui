@@ -1227,12 +1227,10 @@ export default function ProfitReportPage() {
                 🏷 재고 매입단가 입력
               </button>
             )}
-            {customsInputNeeded && (
-              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={data?.confirmed}
-                title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — 그외통관비 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다'}>
-                📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
-              </button>
-            )}
+            <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={data?.confirmed}
+              title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '항상 열 수 있습니다. 백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분을 확인·입력하면 그외통관비가 바로 다시 계산됩니다'}>
+              📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
+            </button>
             {forwardingSourceReviewNeeded && (
               <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={data?.confirmed}
                 title={data?.confirmed ? '확정된 차수입니다 — 수정하려면 먼저 확정을 취소하세요' : '금액을 임의 입력하지 않고 누락된 항공료 전표 연결을 확인합니다'}>
