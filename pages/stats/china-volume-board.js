@@ -22,6 +22,7 @@ import {
   validateChinaCellAllocation,
   validateChinaPackingDistribution,
 } from '../../lib/chinaVolumeBoard';
+import { extractDays, pickDataDay } from '../../lib/pivotVolumeCustDays';
 
 const currentYear = new Date().getFullYear();
 const DEFAULT_WEEK = '35-01';
@@ -214,6 +215,30 @@ function PackingDistributionModal({ draft, customers, products, onChange, onClos
   </div>;
 }
 
+function InlineReviewPanel({ open, phase, totals, packingRows, onClose, onMatch, onDistribution }) {
+  const [filter, setFilter] = useState('all');
+  if (!open) return null;
+  const unmatched = packingRows.filter(row => row.mappingStatus !== 'MATCHED');
+  const differences = (phase === 'REVIEW' ? totals.invoiceMismatches : totals.mismatches)
+    .filter(item => filter === 'all' || (filter === 'shortage' ? Number(item.invoiceDifference || 0) < -0.001 : Number(item.invoiceDifference || 0) > 0.001));
+  const sourceRows = cellKey => {
+    const exact = packingRows.filter(row => row.mappingStatus === 'MATCHED' && chinaPackingDistributions(row).some(item => String(item.cellKey) === String(cellKey)));
+    if (exact.length) return exact;
+    const productKey = String(cellKey || '').split(':')[1];
+    return packingRows.filter(row => row.mappingStatus === 'MATCHED' && chinaPackingDistributions(row).some(item => String(item.cellKey || '').split(':')[1] === productKey));
+  };
+  return <section className="inline-review" aria-label="매칭 품목 현황">
+    <header><div><b>매칭 품목 현황 확인·변경</b><span>전산 주문수량과 인보이스 수량, 인보이스 원본과 DB 품목을 한 화면에서 확인합니다.</span></div><button onClick={onClose}>×</button></header>
+    <div className="review-tabs"><button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>전체 {differences.length + unmatched.length}</button><button className={filter === 'shortage' ? 'active' : ''} onClick={() => setFilter('shortage')}>부족</button><button className={filter === 'excess' ? 'active' : ''} onClick={() => setFilter('excess')}>초과</button></div>
+    <div className="review-scroll">
+      {unmatched.length > 0 && <div className="review-block"><h3>미매칭 인보이스·품목</h3>{unmatched.map(row => <article className="review-row bad" key={`u-${row.sourceRow}`}><div><small>인보이스 품목</small><b>{row.sourceItemName}</b><span>{row.customerCode} · 박스 {row.sourceBoxText || '-'} · 수량 {fmt(row.quantity)}</span></div><div><small>DB 품목</small><b>매칭 필요</b><span>{row.mappingStatus === 'CUSTOMER_UNMATCHED' ? '업체 미매칭' : '품목 미매칭'}</span></div><button onClick={() => onMatch(row.sourceRow)}>매칭 변경</button></article>)}</div>}
+      <div className="review-block"><h3>전산 주문 대비 인보이스 수량</h3>{differences.map(item => { const diff = Number(item.invoiceDifference || 0); const related = sourceRows(item.cellKey); return <article className="review-row bad" key={item.cellKey}><div><small>업체 · DB 품목</small><b>{item.customerName} · {chinaVolumeProductLabel(item.productName)}</b><span>전산 주문 {fmt(item.pivotQuantity)}</span></div><div><small>인보이스 수량</small><b>{fmt(item.packingQuantity)} · {diff < 0 ? `${fmt(Math.abs(diff))} 부족` : `${fmt(diff)} 초과`}</b><span>{related.map(row => `${row.sourceItemName} [${row.sourceBoxText || '-'}]`).join(' · ') || '관련 인보이스 없음'}</span></div><div className="review-actions">{related.map(row => <span key={row.sourceRow}><button onClick={() => onMatch(row.sourceRow)}>매칭</button><button className="primary" onClick={() => onDistribution(row.sourceRow)}>박스 분할·배분</button></span>)}</div></article>; })}
+      {!differences.length && !unmatched.length && <div className="review-complete">✓ 모든 인보이스 품목과 물량표 기준 수량이 일치합니다.</div>}</div>
+      {packingRows.filter(row => row.mappingStatus === 'MATCHED').map(row => { const check = validateChinaPackingDistribution(row); const orderQty = totals.invoiceMismatches.find(item => chinaPackingDistributions(row).some(dist => dist.cellKey === item.cellKey)); return <article className={`review-row ${check.valid && !orderQty ? 'good' : 'bad'}`} key={`p-${row.sourceRow}`}><div><small>인보이스 품목</small><b>{row.sourceItemName}</b><span>{row.customerCode} · 박스 {row.sourceBoxText || '-'}</span></div><div><small>DB 매칭 품목</small><b>{chinaVolumeProductLabel(row.product?.prodName)}</b><span>{row.customer?.custName} · 분배 {fmt(check.distributedQuantity)}/{fmt(check.sourceQuantity)}</span></div><div className="review-actions"><button onClick={() => onMatch(row.sourceRow)}>매칭 변경</button><button className="primary" onClick={() => onDistribution(row.sourceRow)}>박스 분할·배분</button></div></article>; })}
+    </div>
+  </section>;
+}
+
 export default function ChinaVolumeBoard() {
   const router = useRouter();
   const [year, setYear] = useState(currentYear);
@@ -242,6 +267,7 @@ export default function ChinaVolumeBoard() {
   const [expectedRowVersion, setExpectedRowVersion] = useState('');
   const [packingPhase, setPackingPhase] = useState('EMPTY');
   const [distributionDraft, setDistributionDraft] = useState(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const applyBoard = (rawBoard, pivotData = data, mappings = productMappings, catalog = productCatalog) => {
     const board = normalizeBoard(rawBoard);
@@ -353,6 +379,7 @@ export default function ChinaVolumeBoard() {
   }, [data, chinaRows, packingRows]);
   const boxAreas = useMemo(() => planChinaBoxNeighborAreas({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
   const totals = useMemo(() => summarizeChinaVolumeTotals({ pivotData: { ...data, rows: chinaRows }, packingRows, cells }), [data, chinaRows, packingRows, cells]);
+  const customerDays = useMemo(() => Object.fromEntries(customers.map(customer => [customer.custKey, pickDataDay(extractDays(customer, '중국'))])), [customers]);
 
   const persistBoardSnapshot = async ({ nextRows, nextCells, nextFileName = sourceFileName, nextSheetName = sourceSheetName, nextPhase = packingPhase }) => {
     const name = boardName.trim() || `${year}년 ${week} 중국 물량표`;
@@ -551,57 +578,29 @@ export default function ChinaVolumeBoard() {
   };
 
   const openReconciliationReview = () => {
-    const reviewKey = `china-volume-review:${Date.now()}`;
-    sessionStorage.setItem(reviewKey, JSON.stringify({
-      boardKey, year, week, boardName, packingPhase, mismatches: totals.mismatches, invoiceMismatches: totals.invoiceMismatches,
-      packingRows: packingRows.map(row => ({ sourceRow: row.sourceRow, customerCode: row.customerCode, sourceItemName: row.sourceItemName, sourceBoxText: row.sourceBoxText, quantity: row.quantity, mappingStatus: row.mappingStatus, distributions: chinaPackingDistributions(row) })),
-      unmatched: packingRows.filter(row => row.mappingStatus !== 'MATCHED').map(row => ({ sourceRow: row.sourceRow, sourceItemName: row.sourceItemName, customerCode: row.customerCode, quantity: row.quantity, mappingStatus: row.mappingStatus })),
-    }));
-    const child = window.open(`/stats/china-volume-board-review?key=${encodeURIComponent(reviewKey)}&boardKey=${encodeURIComponent(boardKey || '')}`, 'china-volume-review', 'popup,width=1050,height=760,resizable=yes,scrollbars=yes');
-    if (!child) setError('누락·초과 확인창이 차단되었습니다. 브라우저 팝업 허용 후 다시 누르세요.');
+    setReviewOpen(true);
   };
-
-  useEffect(() => {
-    const onReviewMessage = event => {
-      if (event.origin !== window.location.origin || event.data?.type !== 'CHINA_VOLUME_REVIEW_ACTION') return;
-      const { action, cellKey, sourceRow } = event.data;
-      if (action === 'OPEN_CELL' && cellKey) {
-        const [custKey, prodKey] = String(cellKey).split(':').map(Number);
-        const row = chinaRows.find(item => Number(item.prodKey) === prodKey);
-        const customer = customers.find(item => Number(item.custKey) === custKey);
-        if (row && customer) openCell(row, customer);
-      }
-      if (action === 'OPEN_MATCH') openPackingMatch(sourceRow);
-      if (action === 'OPEN_DISTRIBUTION' && sourceRow) openPackingDistribution(sourceRow);
-      if (action === 'APPLY_PACKING' && cellKey) {
-        setCells(previous => ({ ...previous, [cellKey]: { ...(previous[cellKey] || { allocations: [] }), quantity: Number(event.data.packingQuantity || 0) } }));
-        setReviewNotes(previous => ({ ...previous, [cellKey]: 'apply matched packing quantity' }));
-        setDirty(true);
-      }
-      if (action === 'KEEP_BOARD') { setReviewNotes(previous => ({ ...previous, [cellKey || `source-${sourceRow}`]: 'keep current board quantity' })); setDirty(true); }
-      if (action === 'HOLD') { setReviewNotes(previous => ({ ...previous, [cellKey || `source-${sourceRow}`]: 'leave unresolved and save for later' })); setDirty(true); }
-    };
-    window.addEventListener('message', onReviewMessage);
-    return () => window.removeEventListener('message', onReviewMessage);
-  }, [chinaRows, customers, packingRows]);
 
   const matchedCount = packingRows.filter(row => row.mappingStatus === 'MATCHED').length;
 
   const downloadExcel = () => {
     if (!data) return;
+    if (packingPhase !== 'APPLIED') { setError('매칭·박스 배분을 저장하고 [매칭 적용]을 완료한 뒤 엑셀을 다운로드하세요.'); return; }
     if (packingRows.length && totals.status === 'WARNING' && !window.confirm(`수량 대조 경고가 ${totals.mismatches.length + totals.unmatchedRowCount}건 있습니다. 대조내역을 포함해 엑셀을 다운로드할까요?`)) return;
-    const sheet = XLSXStyled.utils.aoa_to_sheet(buildChinaVolumeWorkbookRows({ year, week, rows: chinaRows, customers, cells }));
-    sheet['!cols'] = [{ wch: 48 }, ...customers.map(() => ({ wch: 16 }))];
-    sheet['!rows'] = [{ hpt: 26 }, { hpt: 20 }, ...chinaRows.map(() => ({ hpt: 24 }))];
-    sheet['!autofilter'] = { ref: `A2:${XLSX.utils.encode_col(customers.length)}${chinaRows.length + 2}` };
-    sheet['!freeze'] = { xSplit: 1, ySplit: 2 };
+    const appliedCustomers = customers.filter(customer => chinaRows.some(row => Number(cells[`${customer.custKey}:${row.prodKey}`]?.quantity || 0) > 0));
+    const appliedRows = chinaRows.filter(row => appliedCustomers.some(customer => Number(cells[`${customer.custKey}:${row.prodKey}`]?.quantity || 0) > 0));
+    const sheet = XLSXStyled.utils.aoa_to_sheet(buildChinaVolumeWorkbookRows({ year, week, rows: appliedRows, customers: appliedCustomers, cells, appliedOnly: true, customerDays }));
+    sheet['!cols'] = [{ wch: 48 }, ...appliedCustomers.map(() => ({ wch: 16 }))];
+    sheet['!rows'] = [{ hpt: 26 }, { hpt: 20 }, { hpt: 34 }, ...appliedRows.map(() => ({ hpt: 24 }))];
+    sheet['!autofilter'] = { ref: `A3:${XLSX.utils.encode_col(appliedCustomers.length)}${appliedRows.length + 3}` };
+    sheet['!freeze'] = { xSplit: 1, ySplit: 3 };
     const border = { top: { style: 'thin', color: { rgb: 'DDE2E8' } }, bottom: { style: 'thin', color: { rgb: 'DDE2E8' } }, left: { style: 'thin', color: { rgb: 'DDE2E8' } }, right: { style: 'thin', color: { rgb: 'DDE2E8' } } };
-    for (let rowIndex = 0; rowIndex < chinaRows.length + 2; rowIndex += 1) {
-      for (let colIndex = 0; colIndex <= customers.length; colIndex += 1) {
+    for (let rowIndex = 0; rowIndex < appliedRows.length + 3; rowIndex += 1) {
+      for (let colIndex = 0; colIndex <= appliedCustomers.length; colIndex += 1) {
         const address = XLSXStyled.utils.encode_cell({ r: rowIndex, c: colIndex });
         if (!sheet[address]) continue;
         const isTitle = rowIndex === 0;
-        const isHeader = rowIndex === 1;
+        const isHeader = rowIndex === 1 || rowIndex === 2;
         const isProduct = colIndex === 0;
         const hasBoxes = /\(/.test(String(sheet[address].v || ''));
         sheet[address].s = {
@@ -691,7 +690,7 @@ export default function ChinaVolumeBoard() {
             {!data && !loading && <div className="empty">연도·차수를 조회한 뒤 패킹리스트를 업로드하세요.</div>}
             {data && (
               <table className="board">
-                <thead><tr><th className="product-head">품종 · 품목</th>{customers.map(customer => <th key={customer.custKey}>{customer.custName}<small>{customer.orderCode || ''}</small></th>)}</tr></thead>
+                <thead><tr><th className="product-head">품종 · 품목</th>{customers.map(customer => <th key={customer.custKey}><small className="customer-area">{customer.area || '기타'} · {customerDays[customer.custKey] ? `${customerDays[customer.custKey]}요일` : '요일미등록'}</small>{customer.custName}<small>{customer.orderCode || ''}</small></th>)}</tr></thead>
                 <tbody>{chinaRows.map(row => (
                   <tr key={row.prodKey}>
                     <th title={chinaVolumeProductLabel(row.prodName)}><small>{row.flower}</small><span>{chinaVolumeProductLabel(row.prodName)}</span></th>
@@ -729,6 +728,7 @@ export default function ChinaVolumeBoard() {
       <CellEditor draft={draft} onChange={setDraft} onClose={() => setDraft(null)} onSave={saveCell} />
       <PackingDistributionModal draft={distributionDraft} customers={data?.customers || []} products={matchProducts} onChange={setDistributionDraft} onClose={() => setDistributionDraft(null)} onSave={savePackingDistribution} />
       {matchOpen && <MatchingModal key={matchingSourceRow ?? 'unresolved'} rows={packingRows} products={matchProducts} customers={data?.customers || []} targetSourceRow={matchingSourceRow} onClose={() => { setMatchOpen(false); setMatchingSourceRow(null); }} onSave={saveFullMatch} />}
+      <InlineReviewPanel open={reviewOpen} phase={packingPhase} totals={totals} packingRows={packingRows} onClose={() => setReviewOpen(false)} onMatch={sourceRow => { setReviewOpen(false); openPackingMatch(sourceRow); }} onDistribution={sourceRow => { setReviewOpen(false); openPackingDistribution(sourceRow); }} />
       <style jsx global>{`
         html,body,#__next{height:100%;margin:0} body{overflow:hidden;font-family:Arial,'맑은 고딕',sans-serif;background:#eef1f5;color:#172033}
         *{box-sizing:border-box} button,input,select{font:inherit}.page{height:100vh;display:flex;flex-direction:column}.titlebar{height:27px;flex:none;background:linear-gradient(90deg,#071780,#087bc2);color:#fff;display:flex;align-items:center;padding:0 8px;font-size:11px;gap:10px}.titlebar span{font-weight:400;opacity:.8}.titlebar button{margin-left:auto;color:#fff;background:transparent;border:1px solid #ffffff66;border-radius:3px;padding:2px 10px}.toolbar{min-height:40px;flex:none;display:flex;align-items:center;gap:4px;padding:4px 6px;background:#fff;border-bottom:1px solid #cdd5df;font-size:11px;white-space:nowrap;overflow-x:auto}.toolbar label:not(.upload){display:flex;align-items:center;gap:3px}.toolbar input,.toolbar select{height:25px;border:1px solid #aeb9c8;border-radius:3px;padding:2px 5px}.toolbar label:first-child input{width:58px}.toolbar label:nth-child(2) input{width:65px}.toolbar .board-name input{width:122px}.toolbar .board-history{width:170px}.toolbar button,.upload{height:25px;border:1px solid #9aa9bc;background:#fff;border-radius:3px;padding:3px 7px;cursor:pointer}.toolbar .load,.upload,.save-board{background:#155bd7;color:#fff;border-color:#155bd7;font-weight:700}.toolbar .delete-board{color:#a11b1b;border-color:#e1a5a5}.toolbar .attention{background:#fff0e8;border-color:#e98145;color:#ae3c10;font-weight:800}.upload input{display:none}.upload.disabled{opacity:.45;cursor:not-allowed}.legend{margin-left:auto;color:#677388}.legend i,.box-badge{font-style:normal;color:#d31616;border:1px solid #e32626;background:#fff6f6;border-radius:3px;font-weight:800}.legend i{padding:1px 4px}.error{flex:none;background:#fff0f0;color:#b00020;padding:4px 8px;font-size:11px;border-bottom:1px solid #efb5bd}main{display:grid;grid-template-columns:minmax(0,1fr) 292px;min-height:0;flex:1;gap:4px;padding:4px}.board-wrap,aside{background:#fff;border:1px solid #cbd3de;border-radius:4px;min-height:0;overflow:auto}.empty{padding:50px;text-align:center;color:#7c8797}.board{border-collapse:separate;border-spacing:0;font-size:10px;min-width:100%}.board th,.board td{border-right:1px solid #dde2e8;border-bottom:1px solid #dde2e8}.board thead th{position:sticky;top:0;z-index:4;background:#e8eef7;height:34px;min-width:76px;max-width:76px;padding:2px}.board thead small{display:block;color:#78869a;font-weight:400}.board .product-head,.board tbody th{position:sticky;left:0;z-index:5;min-width:260px;max-width:260px;background:#f7f9fc;text-align:left}.board tbody th{height:32px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.board tbody th small{display:inline;color:#6c7890;font-weight:400;margin-right:4px}.board td{position:relative;width:76px;min-width:76px;max-width:76px;height:32px;min-height:32px;text-align:center;cursor:pointer;background:#fff}.board td:hover{outline:2px solid #276fea;outline-offset:-2px}.board td.active{background:#f8fbff}.board td.boxed{background:#fffaf9}.qty{font-weight:800;color:#153b7a}.box-badges{position:absolute;right:2px;top:2px;display:flex;gap:2px;max-width:58px;overflow:hidden;pointer-events:none}.box-badge{font-size:9px;line-height:13px;height:15px;min-width:18px;padding:0 2px;white-space:nowrap}.box-badge.more{background:#e32626;color:#fff}.aside-title{position:sticky;top:0;z-index:2;background:#172b55;color:#fff;padding:6px 7px;display:flex;justify-content:space-between;font-size:11px}aside>p{font-size:10px;color:#667286;margin:5px 7px}.packing-list{padding:0 5px 6px}.packing-list article{padding:5px;margin-bottom:4px;border:1px solid #d7dde6;border-left:3px solid #239b56;border-radius:3px;font-size:10px}.packing-list article.unmatched{border-left-color:#e24b3b;background:#fff7f5}.packing-list article header{display:flex;justify-content:space-between;color:#56647a}.packing-list article strong{display:block;margin:2px 0}.packing-list article i{font-style:normal;color:#d31616;border:1px solid #ee9b9b;border-radius:3px;padding:1px 2px;margin-left:2px}.packing-list article small{display:block;margin-top:3px;color:#64748b}.aside-empty{text-align:center;color:#8894a5;padding:28px 8px;line-height:1.7}.modal-shade{position:fixed;inset:0;z-index:100;background:#08122688;display:flex;align-items:center;justify-content:center}.cell-modal,.match-modal{width:510px;max-height:85vh;background:#fff;border-radius:7px;box-shadow:0 15px 60px #0006;overflow:auto}.cell-modal>header,.match-modal>header{height:36px;background:#183b72;color:#fff;display:flex;align-items:center;padding:0 12px}.cell-modal>header button,.match-modal>header button{margin-left:auto;background:transparent;color:#fff;border:0;font-size:22px}.modal-meta{padding:10px 13px;border-bottom:1px solid #e1e6ec}.modal-meta span,.modal-meta small{display:block;margin-top:3px}.modal-meta small{color:#b42318}.qty-field{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;font-weight:700}.qty-field input{width:150px}.cell-modal input{height:29px;border:1px solid #aeb9c8;border-radius:4px;padding:3px 6px}.alloc-title{display:flex;justify-content:space-between;padding:7px 13px;background:#f3f6fa;font-size:12px}.alloc-title span{color:#657187}.alloc-list{padding:8px 13px}.alloc-row{display:grid;grid-template-columns:1fr 1fr 52px;gap:7px;margin-bottom:6px;align-items:end}.alloc-row label{font-size:11px}.alloc-row input{display:block;width:100%;margin-top:2px}.remove{height:29px;border:1px solid #e1a5a5;background:#fff;color:#b42318;border-radius:4px}.add-box{margin:0 13px 8px;border:1px dashed #df5454;background:#fff8f8;color:#c51f1f;border-radius:4px;padding:5px 10px}.allocation-check{margin:2px 13px;padding:7px;border-radius:4px;font-size:12px;font-weight:700}.allocation-check.ok{background:#eaf8ef;color:#176b35}.allocation-check.bad{background:#fff0f0;color:#ad1622}.cell-modal footer,.match-modal footer{display:flex;justify-content:flex-end;gap:7px;padding:10px 13px;border-top:1px solid #e2e7ed}.cell-modal footer button,.match-modal footer button{padding:6px 17px;border:1px solid #aeb9c8;background:#fff;border-radius:4px}.cell-modal footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.cell-modal footer .primary:disabled{opacity:.45}
@@ -737,7 +737,8 @@ export default function ChinaVolumeBoard() {
         .match-modal{width:690px}.match-source{padding:10px 13px;border-bottom:1px solid #e1e6ec}.match-source b,.match-source span,.match-source small{display:block}.match-source span{margin-top:3px}.match-source small{color:#657187;margin-top:5px}.match-queue{padding:7px 10px;background:#f3f6fa;display:flex;gap:4px;overflow:auto}.match-queue button{border:1px solid #bac6d7;background:#fff;border-radius:3px;padding:3px 6px;white-space:nowrap;font-size:11px}.match-queue button.active{background:#173b72;color:#fff;border-color:#173b72}.match-search{display:block;padding:9px 12px;font-size:11px;font-weight:700}.match-search input{display:block;width:100%;height:30px;margin-top:4px;border:1px solid #aeb9c8;border-radius:4px;padding:4px 7px}.match-products{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 12px 12px;max-height:48vh;overflow:auto}.match-products button{border:1px solid #d5dce6;background:#fff;text-align:left;border-radius:4px;padding:6px;cursor:pointer}.match-products button:hover{border-color:#155bd7;background:#f4f8ff}.match-products b,.match-products span,.match-products small{display:block}.match-products b{font-size:10px;color:#617087}.match-products span{font-size:12px;font-weight:700;margin-top:2px}.match-products small{font-size:10px;color:#7b8798;margin-top:3px}
         .week-field button{width:24px;padding:0!important;font-size:18px;font-weight:900}.week-field select{width:72px;font-weight:800;color:#173b72}.source-file{display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#36547c;vertical-align:middle}.toolbar .apply-matches{background:#168447;color:#fff;border-color:#168447;font-weight:900}.matching-guide{height:31px;flex:none;display:flex;align-items:center;gap:18px;padding:4px 8px;background:#fff7db;border-bottom:1px solid #e6bf55;font-size:11px}.matching-guide b{color:#173b72}.matching-guide strong{color:#087b3d}.inline-match{margin-left:4px;border:1px solid #dd6b55;background:#fff;color:#b42318;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer}
         .rematch-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 13px;background:#f6f8fb}.rematch-fields label{font-size:11px;font-weight:800}.rematch-fields select{display:block;width:100%;height:32px;margin-top:4px;border:1px solid #aeb9c8;border-radius:4px;background:#fff;padding:3px 6px}.match-products button.active{outline:2px solid #155bd7;background:#edf5ff}.match-modal footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.match-modal footer .primary:disabled{opacity:.45}.distribution-summary{display:flex;align-items:center;justify-content:space-between;margin-top:5px;padding-top:4px;border-top:1px dashed #d4dbe5;font-size:10px}.distribution-summary.ok span{color:#08783e}.distribution-summary.bad span{color:#b42318;font-weight:800}.distribution-summary button{border:1px solid #2c69bd;background:#edf5ff;color:#174f9d;border-radius:3px;padding:2px 6px;cursor:pointer}.distribution-modal{width:900px;max-width:96vw;max-height:88vh;background:#fff;border-radius:7px;box-shadow:0 15px 60px #0006;overflow:auto}.distribution-modal>header{height:38px;background:#183b72;color:#fff;display:flex;align-items:center;padding:0 12px}.distribution-modal>header button{margin-left:auto;background:transparent;color:#fff;border:0;font-size:22px}.distribution-source{padding:10px 13px;border-bottom:1px solid #dce3ec}.distribution-source b,.distribution-source span,.distribution-source small{display:block}.distribution-source span{margin-top:4px;font-weight:700}.distribution-source small{margin-top:4px;color:#66758a}.distribution-head{display:flex;justify-content:space-between;padding:8px 13px;background:#f2f6fb;font-size:12px}.distribution-head span{color:#66758a}.distribution-list{padding:9px 13px}.distribution-row{display:grid;grid-template-columns:1fr 1.7fr 110px 48px;gap:7px;align-items:end;margin-bottom:7px}.distribution-row label{font-size:10px;font-weight:700}.distribution-row select,.distribution-row input{display:block;width:100%;height:30px;margin-top:3px;border:1px solid #aeb9c8;border-radius:4px;padding:3px 6px;background:#fff}.distribution-row .remove{height:30px}.add-distribution{margin:0 13px 8px;border:1px dashed #447cc4;background:#f5f9ff;color:#174f9d;border-radius:4px;padding:5px 10px}.distribution-check{display:flex;align-items:center;gap:18px;margin:3px 13px 10px;padding:9px;border-radius:4px;font-size:12px}.distribution-check.ok{background:#eaf8ef;color:#176b35}.distribution-check.bad{background:#fff0f0;color:#ad1622}.distribution-check strong{margin-left:auto}.distribution-modal>footer{display:flex;justify-content:flex-end;gap:7px;padding:10px 13px;border-top:1px solid #e2e7ed}.distribution-modal>footer button{padding:6px 17px;border:1px solid #aeb9c8;background:#fff;border-radius:4px}.distribution-modal>footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.distribution-modal>footer .primary:disabled{opacity:.45}
-        @media(max-width:1200px){main{grid-template-columns:minmax(0,1fr) 320px}.legend{display:none}}
+        .board thead .customer-area{color:#225ea8;font-weight:700;font-size:8px}.inline-review{position:fixed;z-index:90;top:27px;right:0;bottom:0;width:min(860px,72vw);background:#eef2f7;border-left:2px solid #173b72;box-shadow:-10px 0 30px #09152b44;display:flex;flex-direction:column}.inline-review>header{min-height:48px;background:#173b72;color:#fff;display:flex;align-items:center;padding:7px 12px}.inline-review>header div{display:flex;flex-direction:column;gap:2px}.inline-review>header span{font-size:10px;opacity:.8}.inline-review>header button{margin-left:auto;border:0;background:transparent;color:#fff;font-size:24px}.review-tabs{display:flex;gap:5px;padding:7px;background:#fff;border-bottom:1px solid #cdd6e2}.review-tabs button{border:1px solid #aeb9c8;background:#fff;border-radius:3px;padding:5px 10px}.review-tabs button.active{background:#155bd7;color:#fff;border-color:#155bd7}.review-scroll{overflow:auto;padding:7px}.review-block{margin-bottom:8px}.review-block h3{font-size:11px;margin:0;padding:5px 7px;color:#173b72}.review-row{display:grid;grid-template-columns:minmax(170px,1fr) minmax(190px,1.2fr) 210px;gap:7px;align-items:center;margin-bottom:5px;padding:7px;border:1px solid;border-radius:4px;background:#fff}.review-row.good{border-color:#83b8ef;background:#edf6ff}.review-row.bad{border-color:#ef9b92;background:#fff3f1}.review-row small,.review-row b,.review-row span{display:block}.review-row small{font-size:9px;color:#637087}.review-row b{font-size:11px;margin:2px 0}.review-row span{font-size:9px;color:#526077;white-space:normal}.review-row>button,.review-actions button{border:1px solid #9baabd;background:#fff;border-radius:3px;padding:4px 7px;font-size:10px}.review-actions{display:flex;flex-direction:column;gap:3px}.review-actions>span{display:flex;gap:3px}.review-actions .primary{background:#155bd7;color:#fff;border-color:#155bd7}.review-complete{padding:22px;text-align:center;color:#155bd7;background:#edf6ff;border:1px solid #83b8ef;font-weight:800}
+        @media(max-width:1200px){main{grid-template-columns:minmax(0,1fr) 320px}.legend{display:none}.inline-review{width:92vw}}
         @media print{.titlebar,.toolbar,aside,.error{display:none!important}body{overflow:visible}.page,main{height:auto;display:block;padding:0}.board-wrap{border:0;overflow:visible}.board thead th,.board tbody th{position:static}.box-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
       `}</style>
     </>

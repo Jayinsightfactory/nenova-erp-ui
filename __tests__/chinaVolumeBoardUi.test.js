@@ -65,7 +65,10 @@ assert.match(page, /업체·품목 매칭 수정/, '품목·업체 미매칭과 
 assert.match(page, /업체·품목 매칭 수정/, '미매칭과 기존 매칭은 같은 업체·품목 편집창에서 수정한다');
 assert.match(page, /매칭 저장 후 박스 분배/, '매칭을 저장한 뒤 해당 인보이스의 박스 분배로 바로 이어진다');
 assert.match(page, /rematchChinaPackingRow/, '기존 분배를 남겨 다른 업체로 새는 대신 공용 재매칭 정책으로 초기화한다');
-assert.match(page, /china-volume-board-review/, '누락·초과 확인은 별도 창 페이지를 연다');
+assert.match(page, /InlineReviewPanel/, '누락·초과 확인은 같은 페이지 검토 패널에서 처리한다');
+assert.match(page, /extractDays\(customer, '중국'\)/, '거래처 비고의 중국 출고요일을 기존 물량표 기준으로 사용한다');
+assert.match(page, /customer\.area \|\| '기타'/, '거래처 지역을 기존 물량표 기준으로 표시한다');
+assert.match(page, /appliedOnly: true/, '최종 엑셀은 적용된 인보이스 셀만 출력한다');
 assert.match(page, /xlsx-js-style/, '엑셀 다운로드는 웹과 유사한 색상·글꼴 스타일을 지원한다');
 assert.match(page, /expectedRowVersion/, '저장·삭제는 작업본 RowVersion을 함께 보내 동시수정을 막는다');
 assert.match(page, /STALE_BOARD_VERSION/, '낡은 작업본 저장 충돌은 재조회 안내로 표시한다');

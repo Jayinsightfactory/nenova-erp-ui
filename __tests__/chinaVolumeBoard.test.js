@@ -35,7 +35,28 @@ const assert = require('assert');
     rows: [{ prodKey: 9, prodName: 'CHINA / ROSE Diana 50cm full name', outOrders: { CL1: 20 } }],
     cells: { '1:9': { quantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] } },
   });
-  assert.deepStrictEqual(workbookRows[2], ['ROSE Diana 50cm full name', '20 (16,17)']);
+  assert.deepStrictEqual(workbookRows[3], ['ROSE Diana 50cm full name', '20 (16,17)']);
+  const appliedWorkbookRows = buildChinaVolumeWorkbookRows({
+    year: 2026,
+    week: '35-01',
+    customers: [
+      { custKey: 1, custName: 'CL1', orderCode: 'CL1', area: '서울' },
+      { custKey: 2, custName: 'CL2', orderCode: 'CL2', area: '경기' },
+    ],
+    customerDays: { 1: '수', 2: '목' },
+    rows: [
+      { prodKey: 9, prodName: 'CHINA / ROSE Diana', outOrders: { CL1: 20, CL2: 30 } },
+      { prodKey: 10, prodName: 'CHINA / ROSE Unapplied', outOrders: { CL1: 10, CL2: 10 } },
+    ],
+    cells: { '1:9': { quantity: 20, allocations: [{ boxNo: '16', quantity: 20 }] } },
+    appliedOnly: true,
+  });
+  assert.deepStrictEqual(appliedWorkbookRows, [
+    ['2026년 35-01 중국 물량표', '서울'],
+    ['출고요일', '수'],
+    ['품목', 'CL1\nCL1'],
+    ['ROSE Diana', '20 (16)'],
+  ], '최종 엑셀은 적용된 셀만 포함하고 거래처 지역·비고 기반 중국 출고요일을 표시한다');
   assert.strictEqual(stepChinaOrderWeek('35-01', -1), '34-01');
   assert.strictEqual(stepChinaOrderWeek('35-1', 1), '36-01');
   assert.strictEqual(stepChinaOrderWeek('01-01', -1), '01-01');
@@ -145,7 +166,7 @@ const assert = require('assert');
     rows: [{ prodKey: 70, prodName: 'ROSE Diana', outOrders: { 주광농원: 18 } }],
     cells: pivotCells,
   });
-  assert.strictEqual(packingWorkbookRows[2][1], '20 (16,17)', '엑셀에도 패킹수량과 박스번호를 함께 출력한다');
+  assert.strictEqual(packingWorkbookRows[3][1], '20 (16,17)', '엑셀에도 패킹수량과 박스번호를 함께 출력한다');
   const restoredCells = restoreChinaPackingCells({
     '7:70': { quantity: 18, packingQuantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] },
   }, matched, {
