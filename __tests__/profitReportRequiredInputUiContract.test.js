@@ -44,8 +44,9 @@ async function main() {
   console.log('=== 1) "입력·확인 필요" 요약 진입점이 기존 상태/핸들러를 재사용함 ===');
   check('재고 매입단가 입력 버튼이 기존 openPriceModal 핸들러를 사용',
     /입력·확인 필요[\s\S]*?onClick=\{openPriceModal\}/.test(source));
-  check('그외통관비 입력 버튼이 기존 showCustoms 상태를 사용',
-    /입력·확인 필요[\s\S]*?onClick=\{\(\) => setShowCustoms\(v => !v\)\}/.test(source));
+  check('그외통관비 입력 버튼이 자동 누락 판정과 무관하게 항상 보이고 기존 showCustoms 상태를 사용',
+    /입력·확인 필요[\s\S]*?<button style=\{showCustoms \? st\.toggleBtnOn : st\.secondaryBtn\} onClick=\{\(\) => setShowCustoms\(v => !v\)\}/.test(source)
+      && !/\{customsInputNeeded && \(\s*<button style=\{showCustoms/.test(source));
   check('항공료 연결 확인 버튼이 기존 showForwarding 상태를 사용',
     /입력·확인 필요[\s\S]*?onClick=\{\(\) => setShowForwarding\(v => !v\)\}/.test(source));
   check('과세환율 입력 필요 안내가 기존 validationRateRows(needsRateInput 기반) 개수를 사용',
