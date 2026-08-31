@@ -18,6 +18,7 @@
     "lib/profitReportCategoryAnalysis.js",
     "pages/api/sales/profit-analysis-opinion.js",
     "lib/profitReport.js",
+    "lib/profitReportExcel.js",
     "lib/profitReportConfirm.js",
     "lib/profitReportClassification.js",
     "lib/profitReportClassificationInput.js",
@@ -68,7 +69,8 @@
     "data/profit-report-inventory-catalog/v1/index.json",
     "scripts/profit-report-acceptance-harness.mjs",
     "scripts/extract-profit-report-workbooks.mjs",
-    "components/CustomsClearancePanel.js"
+    "components/CustomsClearancePanel.js",
+    "__tests__/profitReportExcelDesign.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
