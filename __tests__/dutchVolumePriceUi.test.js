@@ -10,4 +10,7 @@ assert.match(page, /localStorage/);
 assert.match(page, /file\.name.*file\.size.*file\.lastModified/, '같은 파일명의 다른 작업본 단가가 섞이면 안 됩니다.');
 assert.doesNotMatch(page, /XLSX\.write\(workbook/, '원본 workbook을 불필요하게 재직렬화해 스타일과 계산식을 잃으면 안 됩니다.');
 assert.match(page, /수량.*단가/);
+assert.match(page, /apiGet\('\/api\/stats\/pivot-data', \{ orderYear: year, weekStart: week, weekEnd: week \}\)/, '연도와 시작·종료 차수를 모두 명시해 직접 조회해야 합니다.');
+assert.match(page, /네노바웹 물량 바로 불러오기/);
+assert.match(page, /useEffect\(\(\) => \{ loadLive\(\); \}, \[\]\)/, '첫 화면에서도 네노바웹 물량을 자동 조회해야 합니다.');
 console.log('dutch volume price UI tests passed');

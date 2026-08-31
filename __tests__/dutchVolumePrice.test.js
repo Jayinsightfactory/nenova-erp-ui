@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { appendDutchPriceSheet, parseDutchPivotWorkbook, priceProgress } from '../lib/dutchVolumePrice.js';
+import { appendDutchPriceSheet, buildDutchEntriesFromPivotData, parseDutchPivotWorkbook, priceProgress } from '../lib/dutchVolumePrice.js';
 const wb = XLSX.utils.book_new();
 const ws = XLSX.utils.aoa_to_sheet([['차수(3501) 품종(네덜란드)'],['', '', '서울'],['', '칼라', '꽃길\nCL6', '로뎀농원\nCL99', '주문', '입고', '재고', '잔량'],['Tulip Strong Gold', 'Yellow', 10, 0, 10, 10, 0, 0],['Rose Avalanche', 'White', 5, 7, 12, 12, 0, 0],['합계', '', 15, 7, 22, 22, 0, 0]]);
 XLSX.utils.book_append_sheet(wb, ws, '네덜란드');
@@ -14,4 +14,9 @@ const output = XLSX.utils.sheet_to_json(wb.Sheets.NL_단가표, { header: 1 });
 assert.deepEqual(output[2].slice(2, 9), ['꽃길\nCL6', 'Tulip Strong Gold', 'Yellow', 10, 'EUR', 1.25, 12.5]);
 assert.equal(output[4][9], '단가 미입력');
 assert.equal(ws.C4.v, 10, '원본 수량 셀을 변경하면 안 됩니다.');
+const live = buildDutchEntriesFromPivotData({ rows: [
+  { country: '네덜란드', prodKey: 7, prodName: 'Tulip Gold', productDescr: 'Yellow', orders: { 꽃길: 10, 로뎀: 0 } },
+  { country: '중국', prodKey: 8, prodName: 'Rose', orders: { 꽃길: 20 } },
+] }, 2026, '35-01');
+assert.deepEqual(live.map(row => [row.id, row.customer, row.quantity]), [['live:2026:35-01:꽃길:7', '꽃길', 10]], '선택 연도·차수의 네덜란드 양수 주문만 직접 조회 대상으로 만들어야 합니다.');
 console.log('dutch volume price tests passed');
