@@ -16,6 +16,13 @@ async function main() {
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'my-customer-order-entry'), '내 업체 주문등록 계약이 등록되어야 합니다.');
   const myOrderContract = manifests.find(({ manifest }) => manifest.id === 'my-customer-order-entry').manifest;
   assert.equal(myOrderContract.actions.find(a => a.name === 'REPLACE_ACTIVE_CUSTOMER_ORDER_QUANTITY').orderDetail, 'replace-nonnegative');
+  const shipmentImportContract = manifests.find(({ manifest }) => manifest.id === 'shipment-diagnostic').manifest;
+  const finalApply = shipmentImportContract.actions.find((a) => a.name === 'DISTRIBUTE_IMPORT_FINAL_APPLY');
+  assert.equal(finalApply.orderDetail, 'replace-positive_preserve-zero-blank-missing');
+  assert.equal(finalApply.shipmentDetail, 'set-final-nonnegative');
+  assert.equal(finalApply.blankCell, 'preserve_order_set_distribution_zero');
+  assert.equal(finalApply.missingRow, 'preserve_order_set_distribution_zero');
+  assert.equal(finalApply.explicitZero, 'preserve_order_set_distribution_zero');
   const invalidEffect = structuredClone(myOrderContract);
   invalidEffect.actions[0].orderDetail = 'anything';
   assert.throws(() => validateManifest(invalidEffect, 'invalid-fixture.json'), /orderDetail/);

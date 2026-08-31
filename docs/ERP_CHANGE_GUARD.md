@@ -303,10 +303,12 @@ ShipmentMaster.OrderYear + ShipmentMaster.OrderWeek
 헤더의 `주문`, `입고`, `재고`, `잔량` 요약값은 검증·감사 참고값으로만 읽으며,
 재고값을 분배수량으로 대체하거나 계산에 섞지 않는다.
 
-- `주문+분배` 모드: 양수 `uploadQty`만 주문 동기화와 분배 적용 대상이다.
-- `분배만` 모드: OrderDetail은 보존하고 ShipmentDetail만 적용한다.
-- `uploadQty <= 0`: 기존 분배가 있으면 삭제할 수 있지만, 기존 분배가 없으면
-  ShipmentMaster/ShipmentDetail 신규 생성 금지. 주문도 삭제하지 않는다.
+- 양수 `uploadQty`: 주문과 분배를 같은 최종값으로 동기화한다.
+- `uploadQty <= 0`, 빈 셀, 파일 범위 안의 행누락: `OrderDetail`은 보존하고 기존
+  분배만 0으로 만든다. 기존 분배가 없으면 `ShipmentMaster/ShipmentDetail`을 새로
+  만들지 않는다.
+- 파일 전체를 `분배만` 처리하는 별도 모드는 허용하지 않는다. 0·빈칸·행누락의
+  주문 보존은 최종 분배표의 행별 의미이며 양수 셀의 주문 동기화를 우회하는 모드가 아니다.
 - 적용 후에는 같은 `OrderYear + OrderWeek + CustKey + ProdKey`로 DB를 재조회해
   의도 수량과 실제 분배·출고일 합계를 비교한다.
 - 모든 업로드는 `ShipmentImportAudit`/`ShipmentImportAuditRow`에 원본수량,

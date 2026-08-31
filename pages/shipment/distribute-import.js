@@ -19,12 +19,12 @@ const fmtUpload = r => {
 };
 const qtyWarningText = r => (r.qtyWarnings || []).filter(w => w.severity === 'critical').map(w => w.message).join(' / ');
 const hasQtyDiff = n => Math.abs(Number(n || 0)) > 0.0001;
-const statusText = status => status === '주문없음' ? '신규추가' : status === '엑셀누락' ? '엑셀누락·유지' : status === '확정차단' ? '확정차단' : status;
+const statusText = status => status === '주문없음' ? '신규추가' : status === '엑셀누락' ? '엑셀누락·분배 0' : status === '분배0' ? '주문유지·분배 0' : status === '확정차단' ? '확정차단' : status;
 const rowChanged = r => r?.status !== '동일' && r?.status !== '확정차단';
 const orderChanged = r => hasQtyDiff(r?.orderDiffQty) || r?.status === '주문없음';
 const shipmentDiffQty = r => Number(r?.shipmentDiffQty ?? (Number(r?.uploadQty || 0) - Number(r?.currentOutQty || 0)));
 const shipmentNeedsApply = r => !!r?.needsShipmentApply || hasQtyDiff(shipmentDiffQty(r));
-const applyTarget = r => !r.fixBlocked && !r.missingFromExcel && (rowChanged(r) || shipmentNeedsApply(r));
+const applyTarget = r => !r.fixBlocked && (orderChanged(r) || shipmentNeedsApply(r));
 const rowStatusText = r => r?.status === '동일' && shipmentNeedsApply(r) ? '분배반영' : statusText(r?.status);
 const rowBg = r => r?.fixBlocked ? '#f3f4f6' : r?.status === '주문없음' ? '#eff6ff' : r?.status === '엑셀누락' ? '#fee2e2' : rowChanged(r) ? '#fff7ed' : shipmentNeedsApply(r) ? '#f0fdf4' : '#fff';
 
@@ -90,7 +90,7 @@ function buildPivotModel(sourceRows) {
     p.uploadQty += Number(r.uploadQty || 0);
     p.changeQty += Number(r.changeQty || 0);
     p.shipmentDiffQty += shipmentDiffQty(r);
-    if (rowChanged(r)) {
+    if (orderChanged(r)) {
       c.changedLines += 1;
       p.changedLines += 1;
     }
@@ -182,10 +182,10 @@ export default function DistributeImport() {
   };
 
   const rows = preview?.rows || [];
-  const changedRows = useMemo(() => rows.filter(r => r.status !== '동일' && !r.fixBlocked), [rows]);
+  const changedRows = useMemo(() => rows.filter(r => !r.fixBlocked && orderChanged(r)), [rows]);
   const fixBlockedRows = useMemo(() => rows.filter(r => r.fixBlocked), [rows]);
   const orderlessRows = useMemo(() => changedRows.filter(r => r.status === '주문없음'), [changedRows]);
-  const orderChangeRows = useMemo(() => changedRows.filter(orderChanged), [changedRows]);
+  const orderChangeRows = changedRows;
   const applyRows = useMemo(() => rows.filter(applyTarget), [rows]);
   const qtyWarningRows = useMemo(() => rows.filter(r => r.hasQtyWarning), [rows]);
   const shipmentRows = useMemo(() => rows.filter(shipmentNeedsApply), [rows]);
@@ -255,7 +255,9 @@ export default function DistributeImport() {
     return [...map.values()];
   }, [preview]);
 
-  const unmatchedQtyCount = (preview?.unmatched || []).filter(u => Number(u.uploadQty || u.excelQty || 0) !== 0).length;
+  const unmatchedQtyCount = (preview?.unmatched || []).filter(
+    u => u.hasFinalDistributionDirective || Number(u.uploadQty || u.excelQty || 0) !== 0,
+  ).length;
   const custMatchPending = unmatchedCustomers.filter(it => !custOverrides[it.label]).length;
   const prodMatchPending = unmatchedProducts.filter(it => !prodOverrides[it.key]).length;
 
@@ -456,7 +458,7 @@ export default function DistributeImport() {
       );
       if (!ok) return;
       ackQtyWarnings = true;
-    } else if (!confirm(`${preview.week}차 검증 결과를 주문등록과 출고분배의 최종값으로 함께 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${orderAlreadyFinalText}\n\n※ 엑셀 빈칸·누락은 기존값을 유지하고, 명시적 0만 주문과 분배를 함께 0으로 처리합니다.`)) {
+    } else if (!confirm(`${preview.week}차 검증 결과를 주문등록과 출고분배에 함께 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${orderAlreadyFinalText}\n\n※ 양수는 주문·분배 최종값으로 맞춥니다. 0·빈칸·엑셀에서 빠진 품목은 주문등록값을 유지하고 분배만 0으로 처리합니다.`)) {
       return;
     }
     setApplying(true); setError(''); setMessage('');
@@ -508,7 +510,7 @@ export default function DistributeImport() {
       if ((data.appliedCount || 0) === 0) {
         setMessage(`적용 완료: 변경 없음 (이미 DB와 동일 ${data.skippedNoChangeCount || 0}건). 검증하기를 다시 눌러 최신 상태를 확인하세요.${verifyText}`);
       } else {
-        setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 분배 ${data.shipmentChangedCount || 0}건 (주문삭제 ${data.orderDeletedCount || 0}건)${verifyText}`);
+        setMessage(`적용 완료: 신규추가 ${data.orderCreatedCount || 0}건, 주문수정 ${data.orderUpdatedCount || 0}건, 주문보존·분배 0 ${data.shipmentDeletedCount || 0}건, 그 외 분배변경 ${Math.max(0, Number(data.shipmentChangedCount || 0) - Number(data.shipmentDeletedCount || 0))}건${verifyText}`);
       }
       if (verifyMismatchCount > 0) setError(`사후 검증에서 미반영·불일치 ${verifyMismatchCount}건이 발견됐습니다. 적용 내역 아래 검증 결과 표를 확인하세요.`);
       await handlePreview({ preserveMessage: true, preserveApplyResult: true });
@@ -1184,9 +1186,9 @@ function ApplyResultContent({ result }) {
       )}
       {result.running && (
         <div style={st.applyStepBox}>
-          <div>검증된 엑셀 수량으로 주문등록을 먼저 맞추는 중입니다.</div>
-          <div>없는 주문은 새로 등록하고, 0으로 바뀐 주문은 삭제 처리합니다.</div>
-          <div>주문등록이 맞춰지면 같은 수량으로 출고분배를 입력합니다.</div>
+          <div>검증된 엑셀의 양수 수량은 주문등록과 출고분배의 최종값으로 맞춥니다.</div>
+          <div>0·빈칸·엑셀에서 빠진 품목은 주문등록값을 유지하고 출고분배만 0으로 처리합니다.</div>
+          <div>주문과 분배 검증이 모두 끝나야 한 번에 저장됩니다.</div>
         </div>
       )}
       <div style={st.applyTableWrap}>
@@ -1211,7 +1213,7 @@ function ApplyResultContent({ result }) {
                 <td>{r.custName}</td>
                 <td>{r.displayName || r.prodName}</td>
                 <td style={{ color: r.orderChanged ? '#b45309' : '#64748b', fontWeight: r.orderChanged ? 800 : 500 }}>
-                  {fmt(r.orderQty)} → {fmt(r.uploadQty)}
+                  {fmt(r.orderQty)} → {fmt(r.orderAfterQty ?? r.orderQty)}
                 </td>
                 <td style={{ color: r.shipmentChanged ? '#15803d' : '#64748b', fontWeight: r.shipmentChanged ? 800 : 500 }}>
                   {fmt(r.beforeQty)} → {fmt(r.afterQty)}

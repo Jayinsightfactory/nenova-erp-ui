@@ -1,7 +1,7 @@
 // node __tests__/shipmentImportFinalStateRollback.test.js
 //
 // 엑셀 출고분배 업로드 — 최종상태(SET, additive 아님) / preflight 전체중단 /
-// 명시 0 vs 빈칸·누락 구분 / 연도 필수화 / 트랜잭션 내부 검증 롤백 계약을 고정한다.
+// 0·빈칸·누락의 주문보존+분배0 / 연도 필수화 / 트랜잭션 내부 검증 롤백 계약을 고정한다.
 //
 // lib/shipmentImport.js 는 모듈 최상단에서 './db'(DB 커넥션 풀)를 import 하기 때문에
 // 이 저장소의 plain-node ESM 테스트(빌드 로더 없음, package.json "type" 미지정)에서는
@@ -49,6 +49,14 @@ async function main() {
   }
 
   {
+    const verified = compareVerifyResult(
+      [{ custKey: 1, prodKey: 2, intended: 0, verifyOrder: false, intendedOrder: 10 }],
+      new Map([['1|2', { orderQty: 10, outQuantity: 0, dateQty: 0, dateIssueCount: 0 }]]),
+    );
+    assertLabel('0·빈칸·행누락은 주문 10을 보존하고 분배 0만 검증', verified.mismatchCount === 0 && verified.matched === 1);
+  }
+
+  {
     const merged = mergeSnapshotEntries([
       { entityType: 'OrderMaster', entityKey: 9, beforeJson: '{"v":1}', afterJson: '{"v":2}', changeKind: 'UPDATED' },
       { entityType: 'OrderMaster', entityKey: 9, beforeJson: '{"v":2}', afterJson: '{"v":3}', changeKind: 'UPDATED' },
@@ -60,12 +68,22 @@ async function main() {
   const src = fs.readFileSync('lib/shipmentImport.js', 'utf8');
 
   assertLabel(
-    '[버그A] 그리드 파싱 루프에 hasCellValue 게이트 존재 — 빈칸은 행 자체를 만들지 않음(PRESERVE)',
-    /if \(!hasCellValue\(XLSX, sheet, r, cc\.col\)\) continue;/.test(src),
+    '[요구사항1] 빈 셀도 최종 분배 0 지시 행으로 생성',
+    /const blankInExcel = !hasCellValue\(XLSX, sheet, r, cc\.col\);/.test(src) &&
+    /hasFinalDistributionDirective: true/.test(src),
   );
   assertLabel(
-    '[요구사항2] missingFromExcel(엑셀누락) 행은 자동 apply 대상(applyRows)에서 제외 — 정보표시만, 0 합성 삭제 금지',
-    /applyRows = previewRows\.filter\(r => !r\.fixBlocked && !r\.missingFromExcel && /.test(src),
+    '[요구사항2] missingFromExcel(엑셀누락)도 분배 0 적용 대상에 포함',
+    /applyRows = previewRows\.filter\(r => !r\.fixBlocked && \(!sameQty\(r\.orderDiffQty, 0\) \|\| r\.needsShipmentApply\)\);/.test(src),
+  );
+  assertLabel(
+    '[요구사항2] 주문 차이는 양수 셀만 계산하고 0·빈칸·누락은 0',
+    /const orderDiffQty = uploadQty > 0 \? \(uploadQty - r\.orderQty\) : 0;/.test(src),
+  );
+  assertLabel(
+    '[요구사항2] 주문 없이 남은 분배도 NOT EXISTS 주문 대조로 비교대상에 포함',
+    /const shipmentOnlyDbResult = await query\(/.test(src) &&
+    /AND NOT EXISTS \(\s*SELECT 1\s*FROM OrderMaster om\s*JOIN OrderDetail od/.test(src),
   );
   assertLabel(
     '[요구사항3] applyImportRowsCore/applyImportRows 모두 requireOrderYear 사용(연도 추정 금지) — resolveImportOrderYear 아님',
@@ -115,9 +133,10 @@ async function main() {
     /body: JSON\.stringify\(\{ week: preview\.week, year: preview\.orderYear, rows: applyRows/.test(uiSrc),
   );
   assertLabel(
-    'UI도 엑셀누락 행을 적용대상에서 제외 — 서버와 동일한 PRESERVE 계약',
-    /const applyTarget = r => !r\.fixBlocked && !r\.missingFromExcel/.test(uiSrc),
+    'UI도 엑셀누락 행을 분배 0 적용대상에 포함',
+    /const applyTarget = r => !r\.fixBlocked && \(orderChanged\(r\) \|\| shipmentNeedsApply\(r\)\);/.test(uiSrc),
   );
+  assertLabel('UI가 0·빈칸·누락의 주문보존·분배0을 설명', uiSrc.includes('주문등록값을 유지하고 출고분배만 0으로 처리합니다.'));
   assertLabel(
     'UI 이력에서 증거 삭제 대신 전체 되돌리기 API 사용',
     uiSrc.includes('/api/shipment/distribute-import-rollback') && uiSrc.includes('업로드 이력 · 전체 되돌리기'),

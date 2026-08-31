@@ -315,7 +315,13 @@ async function handler(req, res) {
   try {
     const workbook = XLSX.readFile(file.filepath, { cellDates: false, cellNF: false, cellStyles: false });
     const parsed = parseAllocationWorkbook(XLSX, workbook, { sourceName: file.originalFilename || 'upload.xlsx' });
-    const preview = await buildImportPreview({ parsedRows: parsed.rows, rawWeek: week });
+    const preview = await buildImportPreview({
+      parsedRows: parsed.rows,
+      rawWeek: week,
+      custKeysInScope: parsed.custKeysInScope,
+      prodKeysInScope: parsed.prodKeysInScope,
+      pairKeysInScope: parsed.pairKeysInScope,
+    });
     const matchedRows = (preview.rows || []).filter(r => r.custKey && r.prodKey);
     const productTargets = buildProductTargets(matchedRows);
     if (productTargets.length === 0) throw new Error('업로드 파일에서 DB 품목으로 매칭된 행이 없습니다.');

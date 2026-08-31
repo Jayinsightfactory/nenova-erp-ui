@@ -234,26 +234,30 @@ async function main() {
   console.log('\n=== isImportRowInUploadScope (28-01 콜롬비아카네이션 품목삭제 유령분배 재현) ===');
   {
     const { isImportRowInUploadScope } = await import('../lib/shipmentImportQty.js');
-    // 케이스1: 텍스트 매칭 성공(uploadedProductKeys 에 있음) → 스코프 포함
+    // 케이스1: 파싱·매칭된 정확한 업체×품목 pair → 스코프 포함
     assert(
-      '텍스트 매칭된 prodKey는 스코프 포함',
-      isImportRowInUploadScope(100, 200, new Set([200]), new Set(), new Set())
+      '정확히 매칭된 pair는 스코프 포함',
+      isImportRowInUploadScope(100, 200, new Set([200]), new Set([100]), new Set([200]), new Set(['100|200']), new Set())
     );
     // 케이스2: 품목 행 자체를 시트에서 통째로 삭제 — 텍스트 매칭 실패(uploadedProductKeys 없음)이지만
     // _keymap 은 export 시점 전체 범위를 담고 있어 custKeysInScope/prodKeysInScope 로 커버돼야 한다.
     assert(
       '행 삭제로 텍스트매칭 실패해도 키맵 스코프(cust+prod 모두)에 있으면 포함 — 유령분배 방지',
-      isImportRowInUploadScope(100, 200, new Set(), new Set([100]), new Set([200]))
+      isImportRowInUploadScope(100, 200, new Set(), new Set([100]), new Set([200]), new Set(), new Set(['100|200']))
     );
     // 케이스3: 키맵 스코프에도 없고 텍스트 매칭도 안 됨(이 워크북과 무관한 기존 DB 라인) → 제외(기존 분배 보존)
     assert(
       '스코프 밖(다른 거래처 기존 분배)은 제외 — 무관한 기존 값 보존',
-      !isImportRowInUploadScope(999, 888, new Set(), new Set([100]), new Set([200]))
+      !isImportRowInUploadScope(999, 888, new Set(), new Set([100]), new Set([200]), new Set(), new Set(['100|200']))
     );
     // 케이스4: 품목은 스코프에 있는데 거래처가 다른 워크북 범위 — 교집합 없으면 제외(오삭제 방지)
     assert(
       'prodKey 는 스코프에 있어도 custKey 가 없으면 제외',
-      !isImportRowInUploadScope(999, 200, new Set(), new Set([100]), new Set([200]))
+      !isImportRowInUploadScope(999, 200, new Set(), new Set([100]), new Set([200]), new Set(), new Set(['100|200']))
+    );
+    assert(
+      '다른 시트에서 품목만 보였어도 exact pair 없으면 다른 업체 분배는 보존',
+      !isImportRowInUploadScope(999, 200, new Set([200]), new Set([100, 999]), new Set([200]), new Set(['100|200']), new Set(['100|200']))
     );
   }
 

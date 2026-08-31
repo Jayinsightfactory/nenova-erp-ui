@@ -8,6 +8,7 @@
     "pages/admin/distribute-repair.js",
     "pages/admin/order-requests.js",
     "pages/api/shipment/distribute-import-prealign.js",
+    "pages/api/shipment/distribute-import-preview.js",
     "pages/api/shipment/index.js",
     "pages/api/stock/adjust-batch.js",
     "pages/api/stock/index.js",
@@ -109,10 +110,10 @@
     },
     {
       "name": "DISTRIBUTE_IMPORT_FINAL_APPLY",
-      "description": "명시된 연도·차수의 엑셀 셀 수량을 주문과 분배의 최종값으로 한 트랜잭션에 저장한다. 빈칸·행누락은 보존하고 명시적 0은 주문과 분배를 함께 0으로 처리한다. 분배만 반영 모드는 허용하지 않는다.",
-      "orderDetail": "replace-nonnegative",
-      "shipmentDetail": "increase",
-      "detailEffect": "set_final_positive_or_delete_on_explicit_zero",
+      "description": "명시된 연도·차수의 엑셀을 최종 분배표로 한 트랜잭션에 저장한다. 양수는 주문과 분배의 최종값으로 맞추고, 0·빈칸·행누락은 주문등록값을 보존하면서 분배만 0으로 처리한다. 파일 전체를 분배만 반영하는 별도 모드는 허용하지 않는다.",
+      "orderDetail": "replace-positive_preserve-zero-blank-missing",
+      "shipmentDetail": "set-final-nonnegative",
+      "detailEffect": "set_final_positive_or_delete_distribution_on_zero_blank_missing",
       "shipmentDate": "follow_shipment_detail_quantity",
       "shipmentFarm": "preserve",
       "estimate": "preserve",
@@ -123,7 +124,11 @@
       "fixedRow": "block_entire_batch",
       "verification": "order_shipment_and_date_before_commit",
       "repeatSameUpload": "no_op",
-      "shipmentOnly": "reject"
+      "shipmentOnly": "reject_global_mode",
+      "blankCell": "preserve_order_set_distribution_zero",
+      "missingRow": "preserve_order_set_distribution_zero",
+      "explicitZero": "preserve_order_set_distribution_zero",
+      "shipmentWithoutOrder": "include_in_preview_and_set_distribution_zero_when_in_file_scope"
     },
     {
       "name": "DISTRIBUTE_IMPORT_ROLLBACK",

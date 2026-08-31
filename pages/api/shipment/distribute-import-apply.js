@@ -8,7 +8,7 @@ async function handler(req, res) {
   const jobId = String(req.body?.jobId || '').slice(0, 80);
   try {
     if (req.body?.shipmentOnly) {
-      const error = new Error('엑셀 업로드는 주문등록과 출고분배를 함께 최종값으로 처리합니다. 분배만 반영할 수 없습니다.');
+      const error = new Error('파일 전체를 주문과 무관하게 분배만 바꾸는 모드는 사용할 수 없습니다. 양수는 주문·분배를 함께 맞추고, 0·빈칸·행누락만 주문을 보존한 채 분배 0으로 처리합니다.');
       error.code = 'SHIPMENT_ONLY_NOT_ALLOWED';
       error.statusCode = 400;
       throw error;

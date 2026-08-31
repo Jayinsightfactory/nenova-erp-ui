@@ -30,7 +30,7 @@ async function main() {
   }
   {
     const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 0 });
-    assert('엑셀누락 → skip_keep_order', p.action === 'skip_keep_order' && !p.allowOrderDelete);
+    assert('0·빈칸·엑셀누락 → 주문보존', p.action === 'skip_keep_order' && !p.allowOrderDelete);
   }
   {
     const p = resolveImportOrderSyncPlan({ orderQty: 0, uploadQty: 5 });
@@ -48,8 +48,8 @@ async function main() {
     assert('양수·기존분배 없음 → 분배 신규', p.shouldCreateShipment && !p.shouldUpdateShipment);
   }
   {
-    const p = resolveImportWriteIntent({ uploadQty: 5, hasExistingShipment: true, shipmentOnly: true });
-    assert('분배만 모드 → 주문 쓰기 금지', p.shouldUpdateShipment && !p.shouldCreateOrUpdateOrder);
+    const p = resolveImportWriteIntent({ uploadQty: 0, hasExistingShipment: true });
+    assert('0·빈칸·엑셀누락 + 기존분배 → 주문 생성/수정 없이 분배 삭제', p.shouldDeleteShipment && !p.shouldCreateOrUpdateOrder);
   }
 
   if (!process.exitCode) console.log('\n=== RESULT: all passed ===');

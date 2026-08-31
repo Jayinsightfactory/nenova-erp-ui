@@ -5,8 +5,19 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = process.cwd();
 const contractDir = path.join(root, 'docs', 'contracts');
-const allowedOrderEffects = new Set(['create-positive', 'decrease', 'replace-nonnegative', 'preserve']);
-const allowedShipmentEffects = new Set(['increase', 'decrease', 'preserve']);
+const allowedOrderEffects = new Set([
+  'create-positive',
+  'decrease',
+  'replace-nonnegative',
+  'replace-positive_preserve-zero-blank-missing',
+  'preserve',
+]);
+const allowedShipmentEffects = new Set([
+  'increase',
+  'decrease',
+  'set-final-nonnegative',
+  'preserve',
+]);
 const ERP_FEATURE_FILE_RE = /^(?:pages\/api\/|pages\/(?:shipment|orders|stock|warehouse|estimate|sales|raum)\/|components\/raum\/|lib\/(?:pivot|order|shipment|exe|db|raum))/;
 
 function fail(message) {
