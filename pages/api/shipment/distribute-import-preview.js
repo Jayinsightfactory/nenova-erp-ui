@@ -51,6 +51,7 @@ async function handler(req, res) {
       productOverrides,
       custKeysInScope: parsed.custKeysInScope,
       prodKeysInScope: parsed.prodKeysInScope,
+      pairKeysInScope: parsed.pairKeysInScope,
     });
     return res.status(200).json({
       ...preview,

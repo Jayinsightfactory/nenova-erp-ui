@@ -43,7 +43,8 @@ The CLI output was inspected for `GetCustomerList`, `grdViewShipment_FocusedRowC
 ## 출고분배 엑셀 최종값·전체 되돌리기 계약 (2026-08-31)
 
 - 엑셀 셀의 양수 수량은 증감값이 아니라 해당 `OrderYear + OrderWeek + CustKey + ProdKey`의 최종 분배수량이다. 기존 `ShipmentDetail.OutQuantity`에 더하지 않고 같은 값으로 맞춘다.
-- 셀에 숫자 0을 명시한 경우에만 기존 `ShipmentDate`/`ShipmentFarm`과 분배상세를 제거한다. 빈 셀, 빠진 행, 빠진 시트는 삭제 지시가 아니며 기존 원장을 보존한다.
+- 이 파일은 최종 분배표다. 숫자 0, 빈 셀, 파일 범위 안에서 빠진 품목행은 기존 주문등록값을 보존하고 `ShipmentDate`/`ShipmentFarm`과 분배상세만 제거해 분배를 0으로 맞춘다. 빈 셀과 빠진 행을 주문 취소로 해석하지 않는다.
+- 빈 셀은 실제 업체×품목 pair 로 읽고, 품목행 자체가 삭제된 경우에는 export 시점 `_keymap`의 시트별 업체×품목 pair 로만 범위를 복원한다. 파일 범위 밖 거래처·품목은 0 처리하지 않는다.
 - 주문과 분배는 한 트랜잭션에서 저장하고 커밋 전 `OrderDetail`, `ShipmentDetail`, `ShipmentDate` 합계를 함께 재조회한다. 확정행, 검증 이후 변경, 단위환산 실패 또는 사후 불일치가 한 건이라도 있으면 파일 전체를 중단한다.
 - 전체 되돌리기는 웹 감사 기능이다. 적용 전후의 주문·분배·출고일·농장 상태를 불변 스냅샷으로 남기고, 현재 상태가 적용 직후 상태와 정확히 같을 때만 한 트랜잭션으로 복원한다. 이후 nenova.exe/웹 수정이 있으면 덮어쓰지 않고 전체를 중단한다. 기존 감사·OrderHistory·ShipmentHistory는 삭제하지 않는다.
 
