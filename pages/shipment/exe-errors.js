@@ -3,6 +3,32 @@
 import { useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
+import { describeShipmentFixLog } from '../../lib/shipmentFixUserMessage';
+
+function WebErrorLogRow({ log }) {
+  const view = describeShipmentFixLog(log);
+  const color = view.tone === 'danger' ? '#b91c1c' : view.tone === 'warning' ? '#92400e' : '#065f46';
+  return (
+    <tr>
+      <td style={{ whiteSpace: 'nowrap', verticalAlign: 'top' }}>{log.logDtm}</td>
+      <td style={{ verticalAlign: 'top', minWidth: 210 }}>
+        <div style={{ color, fontWeight: 800 }}>{view.title}</div>
+        <div style={{ marginTop: 3, color: '#475569', lineHeight: 1.45 }}>{view.summary}</div>
+      </td>
+      <td style={{ verticalAlign: 'top', minWidth: 220, color: '#1e40af', lineHeight: 1.45 }}>
+        {view.action}
+      </td>
+      <td style={{ verticalAlign: 'top', width: 110 }}>
+        <details>
+          <summary style={{ cursor: 'pointer', color: '#64748b' }}>기술 기록</summary>
+          <div style={{ marginTop: 5, fontSize: 10, color: '#64748b', wordBreak: 'break-all', lineHeight: 1.4 }}>
+            {log.Category} / {log.Step}<br />{log.Detail}
+          </div>
+        </details>
+      </td>
+    </tr>
+  );
+}
 
 function getDefaultWeek() {
   const current = getCurrentWeek();
@@ -119,21 +145,14 @@ export default function ExeErrorsPage() {
             <div style={{ ...st.card, borderColor: (data.webErrors || []).length ? '#fcd34d' : '#d1fae5' }}>
               <div style={{ ...st.cardHead, cursor: 'default' }}>
                 <span style={{ fontSize: 16 }}>🌐</span>
-                <span style={{ fontWeight: 800 }}>웹 오류 로그 (AppLog · 최근 30건, 차수 무관)</span>
+                <span style={{ fontWeight: 800 }}>최근 작업 오류 — 원인과 처리 방법</span>
               </div>
               <div style={st.cardBody}>
                 {(data.webErrors || []).length === 0 ? <div style={st.emptyTxt}>오류 로그 없음</div> : (
                   <table style={st.table}>
-                    <thead><tr><th>시각</th><th>분류</th><th>단계</th><th>내용</th></tr></thead>
+                    <thead><tr><th>시각</th><th>무엇이 문제였나</th><th>어떻게 처리하나</th><th>원본</th></tr></thead>
                     <tbody>
-                      {data.webErrors.map(w => (
-                        <tr key={w.LogKey}>
-                          <td style={{ whiteSpace: 'nowrap' }}>{w.logDtm}</td>
-                          <td>{w.Category}</td>
-                          <td>{w.Step}</td>
-                          <td style={{ fontSize: 11 }}>{w.Detail}</td>
-                        </tr>
-                      ))}
+                      {data.webErrors.map(w => <WebErrorLogRow key={w.LogKey} log={w} />)}
                     </tbody>
                   </table>
                 )}
@@ -171,7 +190,7 @@ export default function ExeErrorsPage() {
 }
 
 const st = {
-  page: { padding: 20, maxWidth: 1100, margin: '0 auto' },
+  page: { padding: 14, maxWidth: 1480, margin: '0 auto' },
   h1: { fontSize: 20, fontWeight: 800, margin: '0 0 6px' },
   desc: { fontSize: 13, color: '#475569', margin: '0 0 14px', lineHeight: 1.6 },
   bar: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' },

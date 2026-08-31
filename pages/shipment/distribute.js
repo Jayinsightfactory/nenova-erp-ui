@@ -3,6 +3,7 @@ import { apiGet } from '../../lib/useApi';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
 import { useLang } from '../../lib/i18n';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
+import { formatShipmentFixErrorMessage } from '../../lib/shipmentFixUserMessage';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const PG_SEP = '::';
@@ -197,7 +198,7 @@ export default function Distribute() {
         body: JSON.stringify({ configs }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error || '출고요일 설정 저장 실패');
       setSuccessMsg('✅ 출고요일 설정 저장 완료');
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (e) { setErr(e.message); } finally { setShipDaySaving(false); }
@@ -344,7 +345,7 @@ export default function Distribute() {
         body: JSON.stringify({ week, orderYear: selectedOrderYear, action: 'fix' }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(formatShipmentFixErrorMessage(data, week, '확정'));
       setIsFixed(true);
       setShowValidate(false);
       setSuccessMsg('✅ ' + data.message);
@@ -364,7 +365,7 @@ export default function Distribute() {
         body: JSON.stringify({ week, orderYear: selectedOrderYear, action: 'unfix' }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(formatShipmentFixErrorMessage(data, week, '확정취소'));
       setIsFixed(false);
       setSuccessMsg('✅ ' + data.message);
       setTimeout(() => setSuccessMsg(''), 3000);

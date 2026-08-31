@@ -4,13 +4,17 @@ import { useCallback, useMemo, useState } from 'react';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, WeekInput, getCurrentWeek } from '../../lib/useWeekInput';
 import { resolveFixStatusOrderYear } from '../../lib/fixStatusYearScope';
+import {
+  formatShipmentFixErrorMessage,
+  getShipmentFixStatusPresentation,
+} from '../../lib/shipmentFixUserMessage';
 
 const fmt = n => Number(n || 0).toLocaleString();
-const fixedLabel = {
-  FIXED: { text: '확정', bg: '#d1fae5', color: '#065f46' },
-  PARTIAL: { text: '부분확정', bg: '#fef3c7', color: '#92400e' },
-  UNFIXED: { text: '미확정', bg: '#fee2e2', color: '#991b1b' },
-  NO_SHIPMENT: { text: '출고없음', bg: '#e5e7eb', color: '#374151' },
+const fixedTone = {
+  success: { bg: '#d1fae5', color: '#065f46' },
+  warning: { bg: '#fef3c7', color: '#92400e' },
+  danger: { bg: '#fee2e2', color: '#991b1b' },
+  neutral: { bg: '#e5e7eb', color: '#374151' },
 };
 
 const MAX_SEQ = 4;
@@ -65,12 +69,13 @@ function getRecentRange(count = 10) {
   };
 }
 
-function StatusBadge({ status }) {
-  const s = fixedLabel[status] || fixedLabel.NO_SHIPMENT;
+function StatusBadge({ row }) {
+  const view = getShipmentFixStatusPresentation(row);
+  const s = fixedTone[view.tone] || fixedTone.neutral;
   return (
     <span style={{
       display: 'inline-block',
-      minWidth: 58,
+      minWidth: 106,
       padding: '3px 8px',
       borderRadius: 10,
       background: s.bg,
@@ -78,8 +83,9 @@ function StatusBadge({ status }) {
       fontSize: 11,
       fontWeight: 800,
       textAlign: 'center',
+      whiteSpace: 'nowrap',
     }}>
-      {s.text}
+      {view.text}
     </span>
   );
 }
@@ -116,7 +122,7 @@ export default function ShipmentFixStatus() {
       setNegative(data.negative || []);
       setSelectedWeek('');
     } catch (e) {
-      setErr(e.message);
+      setErr(formatShipmentFixErrorMessage({ code: e.code, error: e.message }, fromInput.value, '확정현황 조회'));
     } finally {
       setLoading(false);
     }
@@ -144,7 +150,7 @@ export default function ShipmentFixStatus() {
       });
       const data = await res.json();
       if (!data.success) {
-        throw new Error(data.error || data.message || '확정취소 실패');
+        throw new Error(formatShipmentFixErrorMessage(data, fromInput.value, '확정취소'));
       }
       setWorkStatus('확정취소 완료 — 현황 갱신 중');
       setMsg(data.message || '구간 확정취소 완료');
@@ -164,11 +170,17 @@ export default function ShipmentFixStatus() {
   }, [negative, selectedWeek]);
 
   const summary = useMemo(() => ({
-    fixed: weeks.filter(w => w.status === 'FIXED').length,
-    partial: weeks.filter(w => w.status === 'PARTIAL').length,
-    unfixed: weeks.filter(w => w.status === 'UNFIXED').length,
+    fixed: weeks.filter(w => getShipmentFixStatusPresentation(w).key === 'FIXED').length,
+    pending: weeks.filter(w => getShipmentFixStatusPresentation(w).key === 'FIXED_PENDING_STOCK').length,
+    partial: weeks.filter(w => getShipmentFixStatusPresentation(w).key === 'PARTIAL').length,
+    unfixed: weeks.filter(w => getShipmentFixStatusPresentation(w).key === 'UNFIXED').length,
     negative: negative.length,
   }), [weeks, negative]);
+
+  const selectedStatus = useMemo(() => {
+    const row = weeks.find(w => `${w.OrderYear}-${w.OrderWeek}` === selectedWeek);
+    return row ? getShipmentFixStatusPresentation(row) : null;
+  }, [weeks, selectedWeek]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -193,13 +205,14 @@ export default function ShipmentFixStatus() {
         </div>
       </div>
 
-      {err && <div style={{ padding: '8px 12px', background: 'var(--red-bg)', color: 'var(--red)', borderLeft: '3px solid var(--red)', fontSize: 13 }}>{err}</div>}
+      {err && <div style={{ padding: '8px 12px', background: 'var(--red-bg)', color: 'var(--red)', borderLeft: '3px solid var(--red)', fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{err}</div>}
       {(working || workStatus) && <div style={{ padding: '8px 12px', background: '#fff7ed', color: '#9a3412', borderLeft: '3px solid #f97316', fontSize: 13, fontWeight: 800 }}>{workStatus || '확정취소 처리 중'}</div>}
       {msg && <div style={{ padding: '8px 12px', background: 'var(--green-bg)', color: 'var(--green)', borderLeft: '3px solid var(--green)', fontSize: 13 }}>{msg}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(120px, 1fr))', gap: 10 }}>
         {[
           ['확정 차수', summary.fixed, '#065f46'],
+          ['확정·점검필요', summary.pending, '#92400e'],
           ['부분확정', summary.partial, '#92400e'],
           ['미확정', summary.unfixed, '#991b1b'],
           ['음수재고 품목', summary.negative, '#b91c1c'],
@@ -214,21 +227,21 @@ export default function ShipmentFixStatus() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">차수 확정 현황</span>
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>행을 누르면 해당 차수 음수재고만 봅니다.</span>
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>행을 누르면 상태 이유와 해당 차수 음수재고를 함께 봅니다.</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="tbl">
             <thead>
               <tr>
                 <th>차수</th>
-                <th>상태</th>
+                <th>확정 상태</th>
                 <th style={{ textAlign: 'right' }}>출고거래처</th>
                 <th style={{ textAlign: 'right' }}>출고라인</th>
                 <th style={{ textAlign: 'right' }}>확정라인</th>
                 <th style={{ textAlign: 'right' }}>미확정라인</th>
                 <th style={{ textAlign: 'right' }}>카테고리</th>
                 <th style={{ textAlign: 'right' }}>음수재고</th>
-                <th title="nenova.exe 재고확정 기준이 아닌 참고 필드">StockMaster(참고)</th>
+                <th title="출고 확정 판정에는 사용하지 않는 재고 기준값 존재 여부">재고 기준값</th>
               </tr>
             </thead>
             <tbody>
@@ -244,14 +257,14 @@ export default function ShipmentFixStatus() {
                     className={selectedWeek === weekLabel ? 'selected' : ''}
                     style={{ cursor: 'pointer' }}>
                     <td style={{ fontFamily: 'var(--mono)', fontWeight: 800 }}>{weekLabel}</td>
-                    <td><StatusBadge status={w.status} /></td>
+                    <td><StatusBadge row={w} /></td>
                     <td className="num">{fmt(w.masterCount)}</td>
                     <td className="num">{fmt(w.detailCount)}</td>
                     <td className="num" style={{ color: 'var(--green)', fontWeight: 700 }}>{fmt(w.fixedDetailCount)}</td>
                     <td className="num" style={{ color: w.unfixedDetailCount > 0 ? 'var(--red)' : 'var(--text3)' }}>{fmt(w.unfixedDetailCount)}</td>
                     <td className="num">{fmt(w.fixedCategoryCount)} / {fmt(w.categoryCount)}</td>
                     <td className="num" style={{ color: w.negativeCount > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: w.negativeCount > 0 ? 800 : 400 }}>{fmt(w.negativeCount)}</td>
-                    <td>{w.stockMasterCount ? (w.stockFixed ? '마커 1' : '마커 0') : '-'}</td>
+                    <td>{w.stockMasterCount ? '있음' : '없음'}</td>
                   </tr>
                 );
               })}
@@ -259,6 +272,19 @@ export default function ShipmentFixStatus() {
           </table>
         </div>
       </div>
+
+      {selectedStatus && (
+        <div style={{
+          padding: '10px 12px',
+          background: selectedStatus.tone === 'danger' ? '#fef2f2' : selectedStatus.tone === 'warning' ? '#fffbeb' : '#ecfdf5',
+          borderLeft: `4px solid ${selectedStatus.tone === 'danger' ? '#dc2626' : selectedStatus.tone === 'warning' ? '#d97706' : '#059669'}`,
+          fontSize: 13,
+          lineHeight: 1.55,
+        }}>
+          <b>{selectedStatus.text}</b> — {selectedStatus.summary}
+          {selectedStatus.action && <div><b>처리 방법:</b> {selectedStatus.action}</div>}
+        </div>
+      )}
 
       <div className="card">
         <div className="card-header">

@@ -6,6 +6,8 @@ async function main() {
   const root = path.join(__dirname, '..');
   const api = fs.readFileSync(path.join(root, 'pages/api/shipment/exe-errors.js'), 'utf8');
   const page = fs.readFileSync(path.join(root, 'pages/shipment/exe-errors.js'), 'utf8');
+  const fixStatusPage = fs.readFileSync(path.join(root, 'pages/shipment/fix-status.js'), 'utf8');
+  const friendly = fs.readFileSync(path.join(root, 'lib/shipmentFixUserMessage.js'), 'utf8');
   const distribute = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute.js'), 'utf8');
   const distributeSp = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute-sp.js'), 'utf8');
   const diagnose = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute-diagnose.js'), 'utf8');
@@ -34,6 +36,11 @@ async function main() {
   assert.match(page, /year=\$\{encodeURIComponent\(year\)\}/, '진단 화면은 선택 연도를 API에 전달해야 한다.');
   assert.match(page, /발생 가능 작업/, '진단 화면에 발생 가능 작업을 표시해야 한다.');
   assert.match(page, /교차연도 후보/, '진단 화면에서 교차연도 후보를 별도 구분해야 한다.');
+  assert.match(page, /describeShipmentFixLog/, '웹 오류 로그는 원인과 처리 방법을 사용자 문구로 바꿔야 한다.');
+  assert.match(page, /기술 기록/, '기계식 원문은 기본 문구가 아니라 접힌 기술 기록으로 보존해야 한다.');
+  assert.match(fixStatusPage, /getShipmentFixStatusPresentation/, '확정현황은 공통 사용자 상태 판정을 사용해야 한다.');
+  assert.match(friendly, /출고확정·점검필요/, '확정 후 점검 상태를 출고없음으로 잘못 표시하지 않아야 한다.');
+  assert.match(friendly, /PARTIAL_CATEGORY_FIX_BLOCKED/, '일부 품종 확정 차단은 빠진 품종과 처리 방법을 설명해야 한다.');
 
   assert.match(
     distribute,

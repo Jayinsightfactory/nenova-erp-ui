@@ -914,7 +914,7 @@ export default function Estimate() {
     try {
       const { data: d } = await postShipmentFix({ week: subWeek, orderYear: yearStr, action: 'unfix' });
       if (!d.success) {
-        alert(`확정 취소 실패: ${d.error || '알 수 없는 오류'}`);
+        alert(formatFixApiErrorMessage(d, subWeek, '확정취소'));
         return;
       }
       alert(`${d.message || `[${subWeek}] 확정 취소 완료`}${d.stockWarning ? `\n\n참고: 재고 재계산 경고 ${d.stockErrors?.length || 0}건이 있습니다.` : ''}`);
@@ -1080,7 +1080,7 @@ export default function Estimate() {
       });
       const data = await res.json();
       if (!data.success) {
-        throw new Error(data.error || '구간 확정취소 실패');
+        throw new Error(formatFixApiErrorMessage(data, `${fromWeek} ~ ${toWeek}`, '확정취소'));
       }
 
       setRangeUnfixStatus('확정취소 완료 — 화면 갱신 중');
@@ -2232,7 +2232,7 @@ export default function Estimate() {
       stockProdKeys,
     });
     if (!d.success) {
-      const error = new Error(d.error || d.message || `${week} ${action === 'unfix' ? '확정취소' : '재확정'} 실패`);
+      const error = new Error(formatFixApiErrorMessage(d, week, action === 'unfix' ? '확정취소' : '재확정'));
       error.code = d.code;
       error.data = d;
       if (d.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
