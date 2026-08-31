@@ -50,6 +50,15 @@ async function main() {
     /입력·확인 필요[\s\S]*?onClick=\{\(\) => setShowForwarding\(v => !v\)\}/.test(source));
   check('과세환율 입력 필요 안내가 기존 validationRateRows(needsRateInput 기반) 개수를 사용',
     /입력·확인 필요[\s\S]*?validationRateRows\.length > 0/.test(source));
+  check('과세환율 전용 입력표가 환율·신고 기준일·근거를 받아 기존 saveTaxableRate 액션으로 저장',
+    source.includes('saveRequiredRate') && source.includes("action: 'saveTaxableRate'")
+      && source.includes('통관 신고 기준일') && source.includes('환율 근거'));
+  check('기타 미분류 품목은 대상 분류를 명시적으로 선택한 뒤 전용 서버 액션으로 저장',
+    source.includes('saveProductClassification') && source.includes("action: 'classifyUnclassifiedProduct'")
+      && source.includes('올바른 분류 선택') && source.includes('품목 분류 저장'));
+  check('확정 보고서에서는 환율·품목 분류 저장 버튼이 모두 비활성',
+    /disabled=\{data\.confirmed \|\| rateBusy/.test(source)
+      && /disabled=\{data\.confirmed \|\| classificationBusy/.test(source));
   check('CustomsClearancePanel 이 기존 week/year/onSaved=load props 그대로 사용됨',
     /<CustomsClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{load\} \/>/.test(source));
   check('ForwardingClearancePanel 이 기존 week/year/onSaved=load props 그대로 사용됨',

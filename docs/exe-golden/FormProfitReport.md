@@ -540,3 +540,15 @@ ERP side effect는 이번 작업으로 전혀 바뀌지 않았고, 화면 배치
   기존 상태/핸들러를 재사용함, 렌더 텍스트에 "검증·입력"/"과세환율(R)"/"VERIFIED"/"C/D/I/J/K"가
   없음, `issue.columns`가 `ISSUE_COLUMN_LABELS`로 변환됨, 모달이 전용 table 스타일을 쓰고 공용
   `st.table`을 쓰지 않음).
+
+## 2026-08-31 필수 경고 직접 처리 입력
+
+- 과세환율 누락은 상단 처리영역에 카테고리·통화·환율·통관 신고 기준일·근거 입력을 함께
+  표시한다. 저장은 기존 `saveTaxableRate` 계약을 사용하며
+  `OrderYear + MajorWeek + Currency + Category`에만 적용한다.
+- 기타(미분류)는 해당 연도·대차수의 확정 매출/견적/입고/포워딩 원천에 실제 나타난 `ProdKey`만
+  후보로 표시한다. 저장 직전 같은 범위를 재확인하고, 사용자가 고른 허용 카테고리에 맞춰 활성
+  `Product` 한 행의 `CounName/FlowerName`만 변경한다.
+- 품목 수량·단가·단위·재고 및 Order/Shipment/Warehouse/Estimate/WebProfitReport는 보존한다.
+  확정 보고서, 다른 연도·차수 품목, 이미 분류가 바뀐 품목은 거부하고 변경 전후는
+  `SystemActionLog`에 기록한다.
