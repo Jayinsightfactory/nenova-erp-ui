@@ -1,16 +1,16 @@
 {
   "id": "dutch-volume-board",
   "title": "네덜란드 Pivot 물량표 단가 입력·엑셀 계약",
-  "scope": ["components/Layout.js", "pages/stats/dutch-volume-board.js", "lib/dutchVolumePrice.js", "__tests__/dutchVolumePrice.test.js", "__tests__/dutchVolumePriceUi.test.js", "docs/contracts/dutch-volume-board.json", "docs/exe-golden/FormQuantityPivot.md"],
+  "scope": ["components/Layout.js", "pages/stats/dutch-volume-board.js", "pages/api/stats/pivot-weeks.js", "lib/pivotAvailableWeeks.js", "lib/dutchVolumePrice.js", "__tests__/pivotAvailableWeeks.test.js", "__tests__/dutchVolumePrice.test.js", "__tests__/dutchVolumePriceUi.test.js", "docs/contracts/dutch-volume-board.json", "docs/exe-golden/FormQuantityPivot.md"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
-    {"name": "DUTCH_PIVOT_LIVE_READ", "source": "authenticated GET /api/stats/pivot-data with explicit orderYear + weekStart + weekEnd; extract Netherlands positive customer-product order quantities only", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
+    {"name": "DUTCH_PIVOT_LIVE_READ", "source": "authenticated GET /api/stats/pivot-weeks?source=orders lists exact OrderYear-scoped OrderMaster subweeks; the selected recorded subweek is sent to /api/stats/pivot-data as explicit orderYear + exact weekStart + weekEnd; extract Netherlands positive customer-product order quantities only", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
     {"name": "DUTCH_PIVOT_WORKBOOK_UPLOAD", "source": "optional client-side upload of the existing Pivot statistics workbook; extract positive customer-product quantity cells only", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
     {"name": "DUTCH_PRICE_DRAFT", "source": "browser localStorage keyed by uploaded filename; Enter focuses the next visible price input", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
     {"name": "DUTCH_PRICE_WORKBOOK_EXPORT", "source": "preserve source workbook and append or replace NL_단가표 with source cell, customer, product, color, quantity, currency, unit price, amount and completion state", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"}
   ],
   "criteriaLedger": {
-    "authority": "default source is authenticated read-only pivot-data with explicit year/week; uploaded workbook remains an optional alternate source",
+    "authority": "default source is authenticated read-only pivot-data with explicit year/week; selectable weeks come only from the selected OrderYear's active OrderMaster records because Dutch customer quantities are OrderDetail-based; uploaded workbook remains an optional alternate source",
     "sheetDetection": "sheet name or first three rows must contain 네덜란드, Netherlands, Holland or Dutch",
     "header": "the existing Pivot template uses row 3 for customer headers and 주문 marks the end of customer quantity columns",
     "quantity": "only finite numeric values greater than zero become price-entry rows",

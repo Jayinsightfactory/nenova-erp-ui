@@ -6,18 +6,20 @@ export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const orderYear = Number(req.query.orderYear);
+  const source = req.query.source === 'orders' ? 'orders' : 'all';
   if (!Number.isInteger(orderYear) || orderYear < 2020 || orderYear > 2099) {
     return res.status(400).json({ success: false, error: '조회 연도를 확인하세요.' });
   }
 
   try {
     const result = await query(
-      buildPivotAvailableWeeksSql(),
+      buildPivotAvailableWeeksSql(source),
       { year: { type: sql.Int, value: orderYear } },
     );
     return res.status(200).json({
       success: true,
       orderYear,
+      source,
       weeks: normalizePivotAvailableWeeks(result.recordset),
     });
   } catch (error) {
