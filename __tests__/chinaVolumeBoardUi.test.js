@@ -32,6 +32,7 @@ assert.match(page, /area-left/, '왼쪽 빈 셀 확장 표시를 지원한다');
 assert.match(page, /area-down/, '아래 빈 셀 확장 표시를 지원한다');
 assert.match(page, /area-up/, '위 빈 셀 확장 표시를 지원한다');
 assert.match(page, /grid-template-columns:minmax\(0,1fr\) 292px/, '1920 화면에서 물량표 영역을 넓히고 입고원장을 좌우 배치한다');
+assert.match(page, /\.page,\.toolbar,main,\.board-wrap,aside\{min-width:0\}/, '넓은 물량표가 grid 최소폭을 밀어 우측 인보이스 영역을 화면 밖으로 보내지 않는다');
 assert.match(page, /\/api\/stats\/china-volume-board/, '작업본·입고원장 스냅샷은 중국 전용 API에 저장한다');
 assert.match(page, /작업 저장/, '차수별 작업 저장 버튼을 제공한다');
 assert.match(page, /const DEFAULT_WEEK = '35-01'/, '기본 조회 차수는 35-01이다');
