@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { importProductOverrideKey, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue } from '../../lib/shipmentImportQty';
+import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
@@ -273,6 +274,12 @@ export default function DistributeImport() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '검증 실패');
       setPreview(data);
+      const fixedAlert = buildImportFixBlockedAlert({
+        orderYear: data.orderYear,
+        week: data.week,
+        fixBlockedRows: data.fixBlockedRows,
+      });
+      if (fixedAlert) window.alert(fixedAlert);
       const orderless = (data.changedRows || []).filter(r => r.status === '주문없음').length;
       const applyCount = (data.rows || []).filter(applyTarget).length;
       const shipmentDiffCount = (data.rows || []).filter(shipmentNeedsApply).length;
@@ -281,7 +288,8 @@ export default function DistributeImport() {
       setFilter(nextFilter);
       if (!options.preserveMessage) {
         const viewHint = applyCount === 0 && rowCount > 0 ? ' (변경 없음 — 전체 비교 표시)' : '';
-        setMessage(`검증 완료: 적용대상 ${applyCount}건, 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배차이 ${shipmentDiffCount}건, 미매칭 ${data.unmatched?.length || 0}건${viewHint}`);
+        const fixedNotice = data.fixBlockedCount > 0 ? `, 확정차단 ${data.fixBlockedCount}건(확정취소 후 재검증 필요)` : '';
+        setMessage(`검증 완료: 적용대상 ${applyCount}건, 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배차이 ${shipmentDiffCount}건, 미매칭 ${data.unmatched?.length || 0}건${fixedNotice}${viewHint}`);
       }
       if ((data.unmatched || []).length > 0) {
         const hasCust = (data.unmatched || []).some(u => /업체/.test(u.reason || ''));
