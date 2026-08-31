@@ -18,6 +18,10 @@ const XLSX = require('xlsx-js-style');
 
   assert.deepStrictEqual(workbook.SheetNames, ['화면표시(선택컬럼)', '주차별 매출이익 보고서'], '다운로드를 열면 디자인 시트가 먼저 보인다');
   assert.strictEqual(original.B1.v, '주차별 매출이익 보고서-35차', '원본 엑셀 템플릿 시트를 보존한다');
+  assert.strictEqual(original.B1.s.fgColor.rgb, '17365D', '원본 보고서 제목에도 파란 디자인을 적용한다');
+  assert.strictEqual(original.B7.s.fgColor.rgb, '1F4E78', '원본 보고서 열 제목에도 파란 디자인을 적용한다');
+  assert.strictEqual(original.B8.s.fgColor.rgb, 'FFFFFF', '원본 보고서 본문에도 교차 행 디자인을 적용한다');
+  assert.strictEqual(original.B24.s.fgColor.rgb, 'DDEBF7', '원본 보고서 합계행도 강조한다');
   assert.strictEqual(display.A1.v, '주차별 매출이익 보고서-35차');
   assert.strictEqual(display.A4.v, '품명');
   assert.strictEqual(display.B4.v, '매출액');
@@ -35,6 +39,7 @@ const XLSX = require('xlsx-js-style');
   assert.ok(display['!cols'][0].wch >= 23, '품명 열은 전체 이름을 읽을 수 있는 너비다');
   assert.ok(display['!rows'][3].hpt >= 32, '열 제목은 줄바꿈을 고려한 높이다');
   assert.strictEqual(workbook.Workbook.Sheets[0].name, '화면표시(선택컬럼)', '통합문서 메타데이터도 디자인 시트를 첫 시트로 지정한다');
+  assert.strictEqual(workbook.Workbook.Views[0].activeTab ?? 0, 0, 'Excel 기본 활성 탭이 디자인 시트(0번)다');
 
   const unclassifiedBuffer = buildProfitReportXlsx({
     major: 35,
