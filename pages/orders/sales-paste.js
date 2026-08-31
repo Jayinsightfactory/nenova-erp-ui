@@ -166,8 +166,8 @@ export default function SalesPasteOrderPage() {
       ).length;
       setMessage(
         failed
-          ? `분석 ${nextRows.length}건 · 매칭/수량 확인 필요 ${failed}건`
-          : `분석 ${nextRows.length}건 · 전부 등록 가능${detectedScope ? ` · 차수 ${detectedScope.week} 자동 선택` : ''}`,
+          ? `LLM 정밀분석 ${nextRows.length}건 · 매칭/수량 확인 필요 ${failed}건`
+          : `LLM 정밀분석 ${nextRows.length}건 · 전부 등록 가능${detectedScope ? ` · 차수 ${detectedScope.week} 자동 선택` : ''}`,
       );
     } catch (error) {
       setMessage(error.message);

@@ -15,10 +15,15 @@ assert.match(page, /apiGet\('\/api\/products\/search'/, '기존 공통 품목검
 assert.match(page, /fetch\('\/api\/orders\/mappings'/, '사용자가 선택한 품목 매칭을 기존 저장매칭 시스템에 기록해야 합니다.');
 assert.match(page, /replaceSalesPasteProduct\(rows, rowIndex, product, products\)/, '품목 수정 뒤 현재 주문과 등록 후 수량을 다시 계산해야 합니다.');
 assert.match(page, /품목 검색·수정/, '자동 매칭된 행도 사용자가 검색하여 수정할 수 있어야 합니다.');
+assert.match(page, /LLM 정밀분석/, '사용자가 정확도 우선 LLM 분석이 적용됐음을 확인할 수 있어야 합니다.');
 assert.match(page, /apiGet\('\/api\/orders\/my-customers',[\s\S]{0,100}custKey,[\s\S]{0,40}year,[\s\S]{0,40}week/, '등록 후 같은 연도·차수·업체 주문을 재조회해야 합니다.');
 assert.match(api, /isSalesPasteSource/);
 assert.match(api, /SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager OR UserName=@manager/, '선택 담당자를 실제 UserInfo.UserID로 저장해야 합니다.');
 assert.match(api, /ensureShipmentMaster = !isMyCustomerSource/, 'sales-paste는 ShipmentMaster를 생성하면 안 됩니다.');
 assert.match(parser, /matchName: item\.matchName \|\| item\.inputName/, '콜 수국 같은 국가·품종 문맥을 공통 매칭 엔진에 전달해야 합니다.');
 assert.match(parser, /normalizeSalesPasteInputText\(raw\)/, 'API 직접 호출에서도 줄 끝 역슬래시 수량행이 누락되면 안 됩니다.');
+assert.match(parser, /ORDER_PASTE_LLM_MODEL[\s\S]{0,100}claude-sonnet-4-5/, '비용보다 정확도를 우선하는 Sonnet 분석을 기본값으로 사용해야 합니다.');
+assert.match(parser, /chooseSalesPasteParsedOrders\(/, 'LLM 결과를 규칙 결과가 무조건 덮어쓰지 말고 수량행 완전성으로 선택해야 합니다.');
+assert.match(parser, /parseSource:\s*selectedParse\.source/, '분석 출처를 응답에 남겨 진단 가능해야 합니다.');
+assert.match(parser, /analysisModel:\s*ORDER_PASTE_LLM_MODEL/, '분석 모델을 응답에 남겨 진단 가능해야 합니다.');
 console.log('sales paste order UI/API tests passed');

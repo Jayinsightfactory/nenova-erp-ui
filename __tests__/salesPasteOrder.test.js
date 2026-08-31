@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildSalesPasteMatchName, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, replaceSalesPasteProduct, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext } from '../lib/salesPasteOrder.js';
+import { buildSalesPasteMatchName, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, chooseSalesPasteParsedOrders, countSalesPasteQuantityLines, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, replaceSalesPasteProduct, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext } from '../lib/salesPasteOrder.js';
 
 const weeks = buildSalesPasteWeekChoices(new Date(2026, 7, 31));
 assert.equal(weeks.length, 8, '베이스부터 +3까지 각 1·2 세부차수를 보여야 합니다.');
@@ -25,6 +25,13 @@ assert.equal(normalizeSalesPasteInputText(slashInput), `36-2 콜 수국 추가 �
 연핑크 3박스
 진핑크 4박스`, '줄 끝 역슬래시 때문에 수량행이 누락되면 안 됩니다.');
 assert.doesNotMatch(buildSalesPasteText({ year: 2026, week: '36-02', customerName: '꽃길', text: slashInput }), /박스\\/);
+assert.equal(countSalesPasteQuantityLines(slashInput), 5);
+const completeLlm = { orders: [{ custName: '꽃길', items: [
+  { inputName: '진핑크', qty: 8 }, { inputName: '블루', qty: 7 }, { inputName: '화이트', qty: 44 }, { inputName: '연핑크', qty: 3 }, { inputName: '진핑크', qty: 4 },
+] }] };
+const partialRules = { orders: [{ custName: '꽃길', items: [{ inputName: '진핑크', qty: 4 }] }] };
+assert.equal(chooseSalesPasteParsedOrders({ text: slashInput, llmParsed: completeLlm, naturalParsed: partialRules }).source, 'llm', 'LLM이 5개 수량행을 모두 찾고 규칙 파서가 일부만 찾으면 LLM을 사용해야 합니다.');
+assert.equal(chooseSalesPasteParsedOrders({ text: slashInput, llmParsed: { orders: [{ items: [...completeLlm.orders[0].items, { inputName: '환각', qty: 1 }] }] }, naturalParsed: completeLlm }).source, 'rules', 'LLM 품목이 원문 수량행보다 많으면 완전한 규칙 결과를 우선해 과잉 등록을 막아야 합니다.');
 const customers = [{ ManagerName: '김영업', CustKey: 1 }, { ManagerName: '이영업', CustKey: 2 }];
 assert.deepEqual(salesManagerOptions(customers, { userName: '박영업' }), ['김영업', '박영업', '이영업']);
 assert.deepEqual(salesManagerCustomers(customers, '이영업').map(row => row.CustKey), [2]);
