@@ -38,6 +38,8 @@ const drawingXml = await shapedZip.file(drawingName).async('string');
 assert.match(drawingXml, /<a:t>1\.25<\/a:t>/, '도형에는 통화나 @ 없이 단가 숫자만 표시해야 합니다.');
 assert.doesNotMatch(drawingXml, /@|EUR|KRW/, '단가 도형에 @ 또는 통화 문자를 넣으면 안 됩니다.');
 assert.match(drawingXml, /prst="rect"/, '단가는 테두리가 있는 사각 텍스트박스로 표시해야 합니다.');
+assert.match(drawingXml, /sz="900"/, '단가 글씨는 수량과 같은 9pt로 표시해야 합니다.');
+assert.match(drawingXml, /<xdr:to>[\s\S]*<xdr:colOff>350000<\/xdr:colOff>/, '긴 단가는 한 셀 경계를 넘어가도록 도형 폭을 확보해야 합니다.');
 const live = buildDutchEntriesFromPivotData({ rows: [
   { country: '네덜란드', prodKey: 7, prodName: 'Tulip Gold', productDescr: 'Yellow', orders: { 꽃길: 10, 로뎀: 0 } },
   { country: '중국', prodKey: 8, prodName: 'Rose', orders: { 꽃길: 20 } },
