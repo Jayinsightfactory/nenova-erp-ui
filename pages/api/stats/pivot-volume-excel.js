@@ -14,6 +14,7 @@ import {
 } from '../../../lib/pivotVolumeNetherlands';
 const ALSTRO_DIVISOR = 16;
 const CUSTOMER_COL_WCH = 4;
+const volumeTitle = meta => `차수(${String(meta?.weekLabel || '').replace(/-/g, '')})\n품종(${meta?.species || meta?.flower || ''})`;
 const COUNTRY_ONLY_SHEETS = new Set(['중국', '태국', '호주', '네덜란드']);
 const PRODUCT_WORD_RE = /\b(spray\s+rose|rose|hydrangea|alstroe?meria)\b\s*\/?\s*/gi;
 const BORDER = {
@@ -255,13 +256,13 @@ function makeSheet(rows, customers, farms, meta) {
 
   colPlan.forEach((col, idx) => {
     if (col.type === 'flower') {
-      aoa[0][idx] = `차수(${String(meta.weekLabel || '').replace(/-/g, '')}) 품종(${meta.species || meta.flower || ''})`;
+      aoa[0][idx] = volumeTitle(meta);
       aoa[1][idx] = '';
       aoa[2][idx] = '꽃';
     } else if (col.type === 'product') {
       aoa[0][idx] = isNetherlandsVolume(meta) && col.section === 'left'
         ? ''
-        : `차수(${String(meta.weekLabel || '').replace(/-/g, '')}) 품종(${meta.species || meta.flower || ''})`;
+        : volumeTitle(meta);
       aoa[1][idx] = '';
       aoa[2][idx] = isNetherlandsVolume(meta) ? '품목명' : '';
     } else if (col.type === 'color') {
@@ -322,7 +323,7 @@ function makeSheet(rows, customers, farms, meta) {
   ws['!cols'] = colPlan.map(col => ({
     wch: col.type === 'flower' ? 12 : col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' ? 8 : col.type === 'customer' ? CUSTOMER_COL_WCH : 5,
   }));
-  ws['!rows'] = [{ hpt: 22 }, { hpt: 20 }, { hpt: 44 }];
+  ws['!rows'] = [{ hpt: 32 }, { hpt: 20 }, { hpt: 44 }];
   ws['!freeze'] = { xSplit: isNetherlandsVolume(meta) ? 3 : 1, ySplit: 3 };
 
   const dataStart = 4;
@@ -363,8 +364,7 @@ function makeSheet(rows, customers, farms, meta) {
       : { t: 's', v: String(value || ''), s: STYLES.summary };
   });
 
-  const weekNum = String(meta.weekLabel || '').replace(/-/g, '');
-  ws.A1 = { t: 's', v: `차수(${weekNum}) 품종(${meta.species || meta.flower || ''})` };
+  ws.A1 = { t: 's', v: volumeTitle(meta) };
   for (let r = 1; r <= totalRow; r += 1) {
     colPlan.forEach((col, idx) => {
       const addr = encodeCell(r, idx + 1);

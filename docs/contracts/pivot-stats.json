@@ -24,6 +24,12 @@
       "shipmentDetail": "preserve"
     },
     {
+      "name": "PIVOT_VOLUME_TWO_LINE_TITLE",
+      "description": "모든 물량표 엑셀 제목은 차수(...)와 품종(...)을 줄바꿈해 표시하고 제목 행 높이를 확보한다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
       "name": "PIVOT_AVAILABLE_SUBWEEK_SELECTION",
       "description": "선택 OrderYear의 Order/Shipment/Warehouse/Stock 입력 이력에서 실제 OrderWeek를 읽어 36-01과 36-02를 합치지 않고 별도 선택한다. 선택값은 조회와 물량표 다운로드의 시작·종료 차수에 동일하게 전달한다.",
       "orderDetail": "preserve",
