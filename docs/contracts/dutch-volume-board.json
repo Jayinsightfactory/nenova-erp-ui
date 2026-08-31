@@ -16,8 +16,8 @@
     "quantity": "only finite numeric values greater than zero become price-entry rows",
     "price": "strictly positive value means complete; zero or blank remains pending",
     "keyboard": "Enter prevents form submission and focuses/selects the next visible price input",
-    "export": "both live-download and uploaded-workbook paths read and write with xlsx-js-style; the source workbook stays intact and the exported Netherlands Pivot sheet keeps the exact original used range, columns, merges, colors, borders, widths and formulas; a positive unit price appears on a second line inside its numeric quantity cell via custom number format, so no price columns are inserted and order-total formulas keep summing numeric quantities",
-    "currency": "EUR default with explicit KRW choice"
+    "export": "both live-download and uploaded-workbook paths read and write with xlsx-js-style; the source workbook stays intact and the exported Netherlands Pivot sheet keeps the exact original used range, columns, merges, colors, borders, widths and formulas; a positive unit price appears as number-only text on a second line inside its numeric quantity cell via custom number format, with no EUR/KRW suffix, so no price columns are inserted and order-total formulas keep summing numeric quantities",
+    "currency": "EUR default with explicit KRW choice remains for the web entry grid and amount calculation only; the downloaded volume-sheet quantity cell shows price digits without a currency suffix"
   },
   "crossYearFixture": {"required": true, "description": "직접 조회는 orderYear + weekStart + weekEnd를 모두 전달하고 단가 입력은 ERP에 쓰지 않으므로 전년도 동일 차수 Master를 섞거나 변경하지 않는다."},
   "requiredTestFiles": ["__tests__/dutchVolumePrice.test.js", "__tests__/dutchVolumePriceUi.test.js", "__tests__/erpContractManifest.test.js"],
