@@ -72,6 +72,16 @@ async function main() {
   check('ForwardingClearancePanel 이 기존 week/year/onSaved=load props 그대로 사용됨',
     /<ForwardingClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{load\} \/>/.test(source));
 
+  console.log('\n=== 1-1) 보고서 확정 상태가 현재 차수와 차수별 목록에 항상 보임 ===');
+  check('현재 차수 상단에 확정됨/미확정 배지와 revision을 표시',
+    source.includes("data.confirmed ? `✓ 확정됨 · R${data.confirmed.revisionNo}` : '● 미확정'")
+      && source.includes('보고서 상태:'));
+  check('차수별 목록에 별도 보고서 상태 열과 확정됨/미확정 배지를 표시',
+    source.includes('<th style={st.th}>보고서 상태</th>')
+      && source.includes("w.confirmed ? '✓ 확정됨' : '● 미확정'"));
+  check('보고서 확정 상태가 출고 확정과 별개임을 화면 도움말에 명시',
+    source.includes('출고 확정 상태와는 별개입니다.'));
+
   console.log('\n=== 2) 사용자에게 보이는 JSX 텍스트에 내부 표기를 직접 출력하지 않음 ===');
   check('렌더 코드(주석 제외)에 "검증·입력" 문자열이 없음(상세 확인 내역으로 교체됨)',
     !visibleCode.includes('검증·입력'));
