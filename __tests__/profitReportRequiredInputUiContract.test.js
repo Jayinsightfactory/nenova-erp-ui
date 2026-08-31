@@ -55,10 +55,18 @@ async function main() {
       && source.includes('통관 신고 기준일') && source.includes('환율 근거'));
   check('기타 미분류 품목은 대상 분류를 명시적으로 선택한 뒤 전용 서버 액션으로 저장',
     source.includes('saveProductClassification') && source.includes("action: 'classifyUnclassifiedProduct'")
-      && source.includes('올바른 분류 선택') && source.includes('품목 분류 저장'));
+      && source.includes('올바른 분류 선택') && source.includes('보고서 분류 저장'));
+  check('미분류 저장 안내는 전산 품목마스터 보존을 명시',
+    source.includes('전산 품목마스터의 국가·화종은 바꾸지 않습니다'));
   check('확정 보고서에서는 환율·품목 분류 저장 버튼이 모두 비활성',
     /disabled=\{data\.confirmed \|\| rateBusy/.test(source)
       && /disabled=\{data\.confirmed \|\| classificationBusy/.test(source));
+  check('미분류 경고가 있으면 상세 품목 수가 0이어도 처리 영역과 원인을 표시',
+    source.includes('{validationUnclassified && (')
+      && source.includes('unclassifiedProducts.length || (validationUnclassified ? 1 : 0)')
+      && source.includes('연결된 품목마스터 상세를 찾지 못했습니다'));
+  check('확정본에서는 확정 취소 후 입력 가능하다는 안내를 표시',
+    source.includes('아래 분류 입력과 저장 버튼이 활성화됩니다'));
   check('CustomsClearancePanel 이 기존 week/year/onSaved=load props 그대로 사용됨',
     /<CustomsClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{load\} \/>/.test(source));
   check('ForwardingClearancePanel 이 기존 week/year/onSaved=load props 그대로 사용됨',

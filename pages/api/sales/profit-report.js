@@ -7,7 +7,7 @@ import {
   invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
   stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote, composeProfitReportNote,
   periodDayRangesByMajor, profitReportCategoriesForWeek, latestStockSnapshotWeek,
-  assertProfitReportReadSchema, classifyUnclassifiedProfitProduct,
+  assertProfitReportReadSchema, classifyUnclassifiedProfitProduct, refreshProfitCategorySql,
 } from '../../../lib/profitReport';
 import {
   computeAutoEndingStock,
@@ -135,6 +135,8 @@ async function loadInventoryRateEvidenceByCurrency(targetYear, targetMajor) {
 
 // GET/엑셀 공용 — 보고서 행 데이터 구성
 export async function loadReportData(major, orderYear) {
+  // 다른 서버 프로세스에서 저장된 웹 전용 분류 파일도 매 조회마다 다시 읽는다.
+  refreshProfitCategorySql(true);
   const currentMajor = Number(major);
   // 27차 기초재고는 같은 매출연도의 26차 마지막 ProductStock 세부차수다.
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
@@ -636,7 +638,12 @@ export async function loadReportData(major, orderYear) {
  * 모양을 기대하므로 shape을 맞춘다. row.calc는 확정 시점 값 그대로(재계산 금지) — 화면은 이 calc를 그대로 써야 한다. */
 async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
   const { confirm, rowsByCategory, totalsCalc } = activeConfirmResult;
-  const [manual, rates] = await Promise.all([loadManual(major, orderYear), currencyRates()]);
+  const [manual, rates, unclassifiedDetails] = await Promise.all([
+    loadManual(major, orderYear),
+    currencyRates(),
+    // 확정 스냅샷 금액은 불변으로 유지하고, 경고 처리 대상만 현재 원장에서 읽기 전용 제공한다.
+    unclassifiedDetailsByCategory(major, orderYear),
+  ]);
   const categories = profitReportCategoriesForWeek(Number(major));
   const rows = Object.keys(rowsByCategory).map((key) => {
     const def = categories.find(c => c.key === key) || {};
@@ -666,7 +673,8 @@ async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
     rows,
     note: manual.note,
     autoNote: '',
-    unclassifiedDetails: [],
+    unclassifiedDetails,
+    unclassifiedDetailsSource: 'live_read_only',
     rates,
     confirmed: {
       confirmKey: confirm.confirmKey,
