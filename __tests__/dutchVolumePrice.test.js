@@ -18,7 +18,8 @@ assert.deepEqual(output[2].slice(0, 8), ['', '칼라', '꽃길\nCL6', '로뎀농
 assert.deepEqual(output[3].slice(0, 8), ['Tulip Strong Gold', 'Yellow', 10, 0, 10, 10, 0, 0]);
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.fill.fgColor.rgb, 'ABCDEF', '원본 수량 셀 서식을 유지해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.v, 10, '단가를 표시해도 수량 셀의 실제 숫자값은 보존해야 합니다.');
-assert.equal(priced.workbook.Sheets['네덜란드'].C4.z, dutchQuantityPriceNumberFormat(1.25, 'EUR'), '단가는 수량 셀 안의 두 번째 줄 표시형식으로 보여야 합니다.');
+assert.equal(priced.workbook.Sheets['네덜란드'].C4.z, dutchQuantityPriceNumberFormat(1.25), '단가는 수량 셀 안의 두 번째 줄에 숫자만 보여야 합니다.');
+assert.doesNotMatch(priced.workbook.Sheets['네덜란드'].C4.z, /EUR|KRW/, '엑셀 수량 셀의 단가에는 통화 문자를 넣지 않아야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].E4.f, 'SUM(C4:D4)', '열 삽입 없이 원본 주문 합계 수식을 그대로 보존해야 합니다.');
 assert.deepEqual(priced.workbook.Sheets['네덜란드']['!merges'][0], { s: { r: 1, c: 2 }, e: { r: 1, c: 3 } }, '원본 업체 영역 병합을 그대로 보존해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드']['!ref'], ws['!ref'], '단가 때문에 열 개수가 늘어나면 안 됩니다.');
