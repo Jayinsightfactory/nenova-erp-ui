@@ -21,6 +21,7 @@ import {
 } from '../../lib/pivotFieldRegistry';
 import { buildPivotDimensionOptions, pruneDimensionFilters, pruneFieldFilters } from '../../lib/pivotFilterOptions';
 import { buildPivotProductSearchAliases, pivotProductOptionMatches } from '../../lib/pivotProductSearch.js';
+import { selectedPivotWeekValue } from '../../lib/pivotAvailableWeeks';
 import { sumOrderQty, sumIncomingQty } from '../../lib/pivotVolumeRows';
 import { arrivalCostWithVat } from '../../lib/pivotArrivalCalc';
 import {
@@ -402,6 +403,9 @@ export default function Pivot() {
   const yearInput = useYearInput(new Date().getFullYear().toString());
   const weekStartInput = useWeekInput('');
   const weekEndInput   = useWeekInput('');
+  const [availableWeeks, setAvailableWeeks] = useState([]);
+  const [weeksLoading, setWeeksLoading] = useState(false);
+  const [weeksError, setWeeksError] = useState('');
   const [custFilter, setCustFilter] = useState('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -410,6 +414,36 @@ export default function Pivot() {
   const [pickOpen, setPickOpen] = useState(false);   // 품종 선택 다운로드 모달
   const [pickItems, setPickItems] = useState([]);
   const [pickSel, setPickSel] = useState(new Set());
+
+  useEffect(() => {
+    let active = true;
+    const loadAvailableWeeks = async () => {
+      setWeeksLoading(true);
+      setWeeksError('');
+      try {
+        const response = await fetch(`/api/stats/pivot-weeks?orderYear=${encodeURIComponent(yearInput.value)}`);
+        const payload = await response.json();
+        if (!response.ok || !payload.success) throw new Error(payload.error || '차수 이력을 불러오지 못했습니다.');
+        if (!active) return;
+        const nextWeeks = Array.isArray(payload.weeks) ? payload.weeks : [];
+        setAvailableWeeks(nextWeeks);
+        const current = selectedPivotWeekValue(weekStartInput.value);
+        const selected = nextWeeks.includes(current) ? current : (nextWeeks[0] || '');
+        if (selected) {
+          weekStartInput.setValue(selected);
+          weekEndInput.setValue(selected);
+        }
+      } catch (error) {
+        if (!active) return;
+        setAvailableWeeks([]);
+        setWeeksError(error.message);
+      } finally {
+        if (active) setWeeksLoading(false);
+      }
+    };
+    loadAvailableWeeks();
+    return () => { active = false; };
+  }, [yearInput.value]);
 
   // 행 추가 컬럼 토글
   const [showOutDate,  setShowOutDate]  = useState(false);
@@ -1299,6 +1333,23 @@ export default function Pivot() {
       {/* 툴바 */}
       <div className="filter-bar">
         <YearInput yearInput={yearInput} label="주문년도" />
+        <span className="filter-label">입력 차수</span>
+        <select
+          className="filter-input"
+          style={{ width: 92, height: 22, fontSize: 11, fontWeight: 700 }}
+          value={selectedPivotWeekValue(weekStartInput.value)}
+          disabled={weeksLoading || availableWeeks.length === 0}
+          title="선택 연도에 주문·입고·출고·재고 입력 이력이 있는 세부차수"
+          onChange={(event) => {
+            weekStartInput.setValue(event.target.value);
+            weekEndInput.setValue(event.target.value);
+          }}
+        >
+          {weeksLoading && <option value="">조회 중…</option>}
+          {!weeksLoading && availableWeeks.length === 0 && <option value="">입력 이력 없음</option>}
+          {availableWeeks.map((week) => <option key={week} value={week}>{week}</option>)}
+        </select>
+        {weeksError && <span role="alert" style={{ color: '#b71c1c', fontSize: 10 }}>{weeksError}</span>}
         <button className="btn btn-sm" style={{height:22,fontSize:11,fontWeight:800}}
           onClick={() => { weekStartInput.prevWeek(); weekEndInput.prevWeek(); }}
           title="범위 전체 주차-1">&lt;&lt;</button>
