@@ -6,6 +6,7 @@ import {
   buildSalesPasteRows,
   buildSalesPasteText,
   buildSalesPasteWeekChoices,
+  replaceSalesPasteProduct,
   resolveDetectedSalesPasteScope,
   salesManagerCustomers,
   salesManagerOptions,
@@ -31,6 +32,7 @@ export default function SalesPasteOrderPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [logs, setLogs] = useState([]);
+  const [matchEditor, setMatchEditor] = useState(null);
   const submitLock = useRef(false);
   const detectedScopeChange = useRef(false);
 
@@ -235,6 +237,65 @@ export default function SalesPasteOrderPage() {
     }
   }
 
+  async function searchProducts(rowIndex, searchText) {
+    const q = String(searchText || '').trim();
+    setMatchEditor((previous) => ({ ...(previous || {}), rowIndex, query: searchText, busy: true, error: '' }));
+    if (!q) {
+      setMatchEditor((previous) => ({ ...previous, busy: false, results: [], error: '검색어를 입력하세요.' }));
+      return;
+    }
+    try {
+      const result = await apiGet('/api/products/search', { q });
+      setMatchEditor((previous) => previous?.rowIndex === rowIndex
+        ? { ...previous, busy: false, results: result.products || [], error: '' }
+        : previous);
+    } catch (error) {
+      setMatchEditor((previous) => previous?.rowIndex === rowIndex
+        ? { ...previous, busy: false, results: [], error: error.message }
+        : previous);
+    }
+  }
+
+  function openMatchEditor(rowIndex) {
+    const row = rows[rowIndex];
+    const searchText = row?.inputName || row?.displayName || row?.prodName || '';
+    setMatchEditor({ rowIndex, query: searchText, results: [], busy: false, error: '' });
+    searchProducts(rowIndex, searchText);
+  }
+
+  async function selectMatchedProduct(product) {
+    const rowIndex = matchEditor?.rowIndex;
+    const row = rows[rowIndex];
+    if (!row || !product?.ProdKey) return;
+    const mappingToken = row.matchName || row.inputName;
+    try {
+      const response = await fetch('/api/orders/mappings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          inputToken: mappingToken,
+          prodKey: product.ProdKey,
+          prodName: product.ProdName,
+          displayName: product.DisplayName,
+          flowerName: product.FlowerName,
+          counName: product.CounName,
+          unit: row.unit,
+          force: true,
+        }),
+      });
+      const saved = await response.json().catch(() => ({}));
+      if (!response.ok || !saved.success) throw new Error(saved.error || '저장매칭 저장 실패');
+      const nextRows = replaceSalesPasteProduct(rows, rowIndex, product, products);
+      setRows(nextRows);
+      setMatchEditor(null);
+      const failed = nextRows.filter((item) => !item.prodKey || !(Number(item.qty) > 0) || item.unitConflict).length;
+      setMessage(`품목 매칭 수정 완료 · ${product.DisplayName || product.ProdName}${failed ? ` · 확인 필요 ${failed}건` : ' · 전부 등록 가능'}`);
+    } catch (error) {
+      setMatchEditor((previous) => ({ ...previous, error: error.message }));
+    }
+  }
+
   return (
     <>
       <Head>
@@ -378,6 +439,7 @@ export default function SalesPasteOrderPage() {
                       <th>수량</th>
                       <th>현재 주문</th>
                       <th>등록 후</th>
+                      <th>매칭 수정</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -409,6 +471,11 @@ export default function SalesPasteOrderPage() {
                         </td>
                         <td>
                           {row.finalQty ?? '-'} {row.unit}
+                        </td>
+                        <td>
+                          <button className="match-edit" type="button" onClick={() => openMatchEditor(index)}>
+                            품목 검색·수정
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -472,6 +539,35 @@ export default function SalesPasteOrderPage() {
             </section>
           </aside>
         </div>
+        {matchEditor && (
+          <div className="match-modal" role="dialog" aria-modal="true" aria-label="품목 매칭 검색">
+            <div className="match-card">
+              <header>
+                <div>
+                  <h2>품목 매칭 검색·수정</h2>
+                  <p>입력값: {rows[matchEditor.rowIndex]?.inputName || '-'}</p>
+                </div>
+                <button type="button" onClick={() => setMatchEditor(null)}>닫기</button>
+              </header>
+              <form onSubmit={(event) => { event.preventDefault(); searchProducts(matchEditor.rowIndex, matchEditor.query); }}>
+                <input autoFocus value={matchEditor.query || ''} onChange={(event) => setMatchEditor((previous) => ({ ...previous, query: event.target.value }))} placeholder="품목명·품종·국가 검색" />
+                <button type="submit" disabled={matchEditor.busy}>{matchEditor.busy ? '검색 중' : '검색'}</button>
+              </form>
+              {matchEditor.error && <div className="match-error" role="alert">{matchEditor.error}</div>}
+              <div className="match-results">
+                {(matchEditor.results || []).map((product) => (
+                  <button key={product.ProdKey} type="button" onClick={() => selectMatchedProduct(product)}>
+                    <b>{product.DisplayName || product.ProdName}</b>
+                    <span>{product.ProdName}</span>
+                    <small>{product.CounName || '-'} · {product.FlowerName || '-'} · {product.OutUnit || '-'}</small>
+                  </button>
+                ))}
+                {!matchEditor.busy && !(matchEditor.results || []).length && !matchEditor.error && <div className="empty">검색 결과가 없습니다.</div>}
+              </div>
+              <footer>선택한 매칭은 저장되어 다음 분석에도 동일하게 적용됩니다.</footer>
+            </div>
+          </div>
+        )}
       </main>
       <style jsx>{`
         .sales-paste-page {
@@ -680,6 +776,13 @@ export default function SalesPasteOrderPage() {
         .analysis td:nth-child(n + 3) {
           text-align: right;
         }
+        .match-edit {
+          padding: 4px 7px;
+          white-space: nowrap;
+          background: #fff;
+          color: #155bd7;
+          font-weight: 800;
+        }
         .analysis td small {
           display: block;
           color: #65758b;
@@ -728,6 +831,99 @@ export default function SalesPasteOrderPage() {
         small {
           color: #65758b;
         }
+        .match-modal {
+          position: fixed;
+          inset: 0;
+          z-index: 1000;
+          display: grid;
+          place-items: center;
+          padding: 24px;
+          background: #0f172a66;
+        }
+        .match-card {
+          width: min(920px, 96vw);
+          max-height: min(760px, 92vh);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border-radius: 9px;
+          background: #fff;
+          box-shadow: 0 18px 50px #0f172a55;
+        }
+        .match-card header {
+          border-radius: 0;
+          padding: 10px 14px;
+        }
+        .match-card header p {
+          margin: 2px 0 0;
+          font-size: 12px;
+        }
+        .match-card header button {
+          padding: 5px 10px;
+          background: #fff;
+        }
+        .match-card form {
+          display: flex;
+          gap: 6px;
+          padding: 9px;
+          border-bottom: 1px solid #d8e0ea;
+        }
+        .match-card form input {
+          flex: 1;
+          min-width: 0;
+          height: 36px;
+          padding: 0 10px;
+          border: 2px solid #155bd7;
+          border-radius: 5px;
+        }
+        .match-card form button {
+          padding: 0 18px;
+          background: #155bd7;
+          color: #fff;
+          font-weight: 800;
+        }
+        .match-results {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 5px;
+          padding: 9px;
+          overflow: auto;
+        }
+        .match-results > button {
+          display: flex;
+          min-width: 0;
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 8px;
+          background: #fff;
+          text-align: left;
+        }
+        .match-results > button:hover {
+          border-color: #155bd7;
+          background: #eef5ff;
+        }
+        .match-results span,
+        .match-results b {
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .match-results span {
+          font-size: 11px;
+          color: #526278;
+        }
+        .match-error {
+          padding: 7px 10px;
+          background: #fff0ee;
+          color: #a11;
+        }
+        .match-card footer {
+          padding: 7px 10px;
+          background: #f3f6fa;
+          color: #526278;
+          font-size: 12px;
+        }
         @media (max-width: 1000px) {
           .scope {
             grid-template-columns: 1fr;
@@ -740,6 +936,9 @@ export default function SalesPasteOrderPage() {
           }
           .analysis {
             max-height: none;
+          }
+          .match-results {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>

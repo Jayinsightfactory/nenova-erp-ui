@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildSalesPasteMatchName, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, normalizeDetectedSalesPasteWeek, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext } from '../lib/salesPasteOrder.js';
+import { buildSalesPasteMatchName, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, normalizeDetectedSalesPasteWeek, replaceSalesPasteProduct, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext } from '../lib/salesPasteOrder.js';
 
 const weeks = buildSalesPasteWeekChoices(new Date(2026, 7, 31));
 assert.equal(weeks.length, 8, '베이스부터 +3까지 각 1·2 세부차수를 보여야 합니다.');
@@ -23,6 +23,11 @@ const mixedUnits = buildSalesPasteRows([{ items: [{ prodKey: 7, qty: 2, unit: '�
 assert.equal(mixedUnits.every(row => row.unitConflict && row.finalQty === null), true, '동일 품목의 혼합 단위는 환산 근거 없이 합산하면 안 됩니다.');
 const repeatedPink = buildSalesPasteRows([{ items: [{ prodKey: 9, qty: 8, unit: '박스' }, { prodKey: 9, qty: 4, unit: '박스' }] }], []);
 assert.deepEqual(repeatedPink.map(row => row.qty), [12], '같은 진핑크 두 줄은 한 품목 12박스로 합산해야 합니다.');
+const rematched = replaceSalesPasteProduct([
+  { inputName: '화이트', qty: 44, unit: '박스', currentQty: 0, finalQty: null },
+  { inputName: '기존 화이트', prodKey: 101, qty: 2, unit: '박스' },
+], 0, { ProdKey: 101, ProdName: 'Hydrangea White', DisplayName: '수국 화이트', FlowerName: '수국', CounName: '콜롬비아' }, [{ ProdKey: 101, CurrentQty: 3 }]);
+assert.deepEqual(rematched.map(row => [row.prodKey, row.qty, row.currentQty, row.finalQty]), [[101, 46, 3, 49]], '수동 매칭 뒤 동일 품목은 합산하고 현재/등록 후 수량을 다시 계산해야 합니다.');
 const { matchImportRow } = await import('../lib/orderImportMatch.js');
 const colombiaWhite = { ProdKey: 101, ProdName: 'Hydrangea White (화이트)', DisplayName: '수국 화이트', FlowerName: '수국', CounName: '콜롬비아', OutUnit: '박스' };
 const ecuadorWhite = { ProdKey: 102, ProdName: 'Hydrangea White (화이트)', DisplayName: '수국 화이트', FlowerName: '수국', CounName: '에콰도르', OutUnit: '박스' };
