@@ -29,6 +29,7 @@
     "lib/shipmentFixReconcile.js",
     "lib/shipmentFixCancelGuard.js",
     "lib/shipmentFixGuards.js",
+    "lib/shipmentFixScopeCore.js",
     "lib/orderUtils.js",
     "lib/fixCycleClient.js",
     "pages/stock.js",
@@ -88,6 +89,16 @@
       "fixedShipment": "block_with_SHIPMENT_FIXED_before_quantity_or_date_mutation",
       "productStock": "preserve",
       "productLiveStock": "preserve"
+    },
+    {
+      "name": "DISTRIBUTE_IMPORT_PREVIEW_FIXED_ALERT",
+      "description": "엑셀 업로드 후 검증하기는 preview와 apply가 공유하는 확정 범위 판정 결과에 확정차단 행이 있으면 연도·세부차수·업체·품목·건수와 확정취소 후 재검증 안내를 즉시 표시한다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -98,6 +109,7 @@
     "__tests__/shipmentExeErrorsContract.test.js",
     "__tests__/shipmentImportApply.test.js",
     "__tests__/shipmentImportAudit.test.js",
+    "__tests__/shipmentFixScope.test.js",
     "__tests__/shipmentDistributionEdit.test.js",
     "__tests__/syncShipmentDateEst.test.js",
     "__tests__/shipmentDownstreamImpactContract.test.js",
