@@ -20,6 +20,7 @@ import { parseNaturalInlineOrderLine, parseNaturalSectionActionLine, stripTraili
 import { matchImportRows } from '../../../lib/orderImportMatch';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
 import { parseExplicitOrderUnit } from '../../../lib/pasteOrderUnit.js';
+import { buildSalesPasteMatchName, salesPasteCountryContext } from '../../../lib/salesPasteOrder.js';
 
 // 한국어 → 영문 키워드 매핑 (품목 사전필터링용)
 const KO_EN_KEYWORDS = {
@@ -420,6 +421,7 @@ function parseNaturalSectionOrders(text) {
   let detectedWeek = null;
   let currentCust = '';
   let flowerContext = '';
+  let countryContext = '';
   let sectionAction = '';
 
   String(text || '').split('\n').forEach(raw => {
@@ -427,6 +429,7 @@ function parseNaturalSectionOrders(text) {
     if (!line || /^[\s\-_=ㅡ─]{4,}$/.test(line)) return;
 
     const lineWeek = parseCompactWeek(line);
+    countryContext = salesPasteCountryContext(line, countryContext);
     const explicitHeaderFlowerContext = parseCompactFlowerContext(line, '');
     const headerLooksLikeSection = /(변경사항|추가|취소|재고|잔량|출고일)/.test(line);
     if (headerLooksLikeSection && explicitHeaderFlowerContext) {
@@ -465,10 +468,12 @@ function parseNaturalSectionOrders(text) {
       const custName = inline.customerName;
       const qty = Math.abs(parseCompactQty(inline.quantityText)) || 1;
       const productName = applyFlowerContext(inline.productName, flowerContext);
+      const matchName = buildSalesPasteMatchName(productName, flowerContext, countryContext);
       const unit = normNatUnit(inline.unitText, flowerContext);
       if (!orderMap.has(custName)) orderMap.set(custName, { custKey: null, custName, items: [] });
       orderMap.get(custName).items.push({
         inputName: productName,
+        matchName,
         qty,
         unit,
         unitExplicit: Boolean(inline.unitText),
@@ -485,10 +490,12 @@ function parseNaturalSectionOrders(text) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(actionLine.quantityText)) || 1;
       const productName = applyFlowerContext(actionLine.productName, flowerContext);
+      const matchName = buildSalesPasteMatchName(productName, flowerContext, countryContext);
       const unit = normNatUnit(actionLine.unitText, flowerContext);
       if (!orderMap.has(custName)) orderMap.set(custName, { custKey: null, custName, items: [] });
       orderMap.get(custName).items.push({
         inputName: productName,
+        matchName,
         qty,
         unit,
         unitExplicit: !!actionLine.unitText,
@@ -505,10 +512,12 @@ function parseNaturalSectionOrders(text) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(qtyOnly[2] || '1')) || 1;
       const productName = applyFlowerContext(qtyOnly[1].trim(), flowerContext);
+      const matchName = buildSalesPasteMatchName(productName, flowerContext, countryContext);
       const unit = normNatUnit(qtyOnly[3], flowerContext);
       if (!orderMap.has(custName)) orderMap.set(custName, { custKey: null, custName, items: [] });
       orderMap.get(custName).items.push({
         inputName: productName,
+        matchName,
         qty,
         unit,
         unitExplicit: !!qtyOnly[3],
@@ -750,6 +759,7 @@ Caroline | 2
       const sharedMatches = matchImportRows((order.items || []).map((item, index) => ({
         rowNo: index + 1,
         inputName: item.inputName,
+        matchName: item.matchName || item.inputName,
         qty: item.qty || 1,
         unit: item.unitExplicit ? item.unit : '',
         preferredProdKey: item.prodKey || null,

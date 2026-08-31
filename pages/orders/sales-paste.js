@@ -6,6 +6,7 @@ import {
   buildSalesPasteRows,
   buildSalesPasteText,
   buildSalesPasteWeekChoices,
+  resolveDetectedSalesPasteScope,
   salesManagerCustomers,
   salesManagerOptions,
 } from '../../lib/salesPasteOrder';
@@ -31,6 +32,7 @@ export default function SalesPasteOrderPage() {
   const [message, setMessage] = useState('');
   const [logs, setLogs] = useState([]);
   const submitLock = useRef(false);
+  const detectedScopeChange = useRef(false);
 
   useEffect(() => {
     Promise.all([apiGet('/api/auth/me'), apiGet('/api/orders/my-customers')])
@@ -82,9 +84,12 @@ export default function SalesPasteOrderPage() {
   );
 
   useEffect(() => {
-    setRows([]);
-    setText('');
-    setMessage('');
+    if (detectedScopeChange.current) detectedScopeChange.current = false;
+    else {
+      setRows([]);
+      setText('');
+      setMessage('');
+    }
     if (!custKey || !year || !week) {
       setProducts([]);
       return;
@@ -134,7 +139,23 @@ export default function SalesPasteOrderPage() {
         throw new Error(
           '여러 업체 구간이 감지되었습니다. 선택한 한 업체의 품목·수량만 붙여넣으세요.',
         );
-      const nextRows = buildSalesPasteRows(parsed.orders || [], products);
+      const detectedScope = resolveDetectedSalesPasteScope(parsed.detectedWeek, weekChoices);
+      if (parsed.detectedWeek && !detectedScope)
+        throw new Error(`입력 차수 ${parsed.detectedWeek}는 현재 선택 가능한 베이스~+3 범위가 아닙니다.`);
+      let scopeProducts = products;
+      if (detectedScope && (detectedScope.year !== year || detectedScope.week !== week)) {
+        detectedScopeChange.current = true;
+        setYear(detectedScope.year);
+        setWeek(detectedScope.week);
+        const refreshed = await apiGet('/api/orders/my-customers', {
+          custKey,
+          year: detectedScope.year,
+          week: detectedScope.week,
+        });
+        scopeProducts = refreshed.products || [];
+        setProducts(scopeProducts);
+      }
+      const nextRows = buildSalesPasteRows(parsed.orders || [], scopeProducts);
       if (!nextRows.length)
         throw new Error('분석된 품목이 없습니다. 붙여넣기 형식을 확인하세요.');
       setRows(nextRows);
@@ -144,7 +165,7 @@ export default function SalesPasteOrderPage() {
       setMessage(
         failed
           ? `분석 ${nextRows.length}건 · 매칭/수량 확인 필요 ${failed}건`
-          : `분석 ${nextRows.length}건 · 전부 등록 가능`,
+          : `분석 ${nextRows.length}건 · 전부 등록 가능${detectedScope ? ` · 차수 ${detectedScope.week} 자동 선택` : ''}`,
       );
     } catch (error) {
       setMessage(error.message);

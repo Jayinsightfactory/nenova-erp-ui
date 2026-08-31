@@ -1,13 +1,13 @@
 {
   "id": "sales-paste-order",
   "title": "영업부 붙여넣기 주문전용 등록 계약",
-  "scope": ["components/Layout.js", "pages/orders/sales-paste.js", "pages/api/orders/index.js", "pages/api/orders/parse-paste.js", "pages/api/orders/my-customers.js", "lib/salesPasteOrder.js", "lib/myCustomerOrderWritePolicy.js", "__tests__/salesPasteOrder.test.js", "__tests__/salesPasteOrderUi.test.js", "docs/contracts/sales-paste-order.json", "docs/exe-golden/FormOrderAdd.md"],
+  "scope": ["components/Layout.js", "pages/orders/sales-paste.js", "pages/api/orders/index.js", "pages/api/orders/parse-paste.js", "pages/api/orders/my-customers.js", "lib/salesPasteOrder.js", "lib/orderImportMatch.js", "lib/myCustomerOrderWritePolicy.js", "__tests__/salesPasteOrder.test.js", "__tests__/salesPasteOrderUi.test.js", "docs/contracts/sales-paste-order.json", "docs/exe-golden/FormOrderAdd.md"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "criteriaLedger": {
-    "week": "base major week plus 1, 2 and 3; each exposes subweek 01 and 02 with explicit year wrap",
+    "week": "sales base is calendar major +1 (2026-08-31 => 36), then base+1/+2/+3; each exposes subweek 01/02 and a pasted in-range WW-S automatically becomes the exact selected year+week",
     "manager": "defaults to authenticated userName when that manager exists; selected display name is resolved to active UserInfo.UserID before OrderMaster write",
     "customer": "explicit selected CustKey is authoritative; pasted customer text cannot redirect the write",
-    "matching": "reuse /api/orders/parse-paste and its persisted customer/product mappings; unmatched or nonpositive rows block the whole write",
+    "matching": "reuse /api/orders/parse-paste and its persisted customer/product mappings; country+flower headers such as 콜 수국 are carried into matchName while display inputName stays 수국 화이트; unmatched or nonpositive rows block the whole write",
     "currentOrder": "exact OrderYear + OrderWeek + CustKey product quantities load before analysis and reload after verified commit",
     "write": "source=sales-paste uses my-customer optimistic-lock ADD policy and post-write ViewOrder verification",
     "stock": "ADD retains the existing FormOrderAdd-compatible stock calculation/warning path; it must not perform a direct manual stock adjustment",
