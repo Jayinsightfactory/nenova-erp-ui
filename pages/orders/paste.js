@@ -20,6 +20,7 @@ import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/pasteIncomingDisplay.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
+import { buildStockNoteChangeEntry, resolveInitialStockBaseWeek } from '../../lib/pasteStockNote';
 import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence } from '../../hooks/useErpEditPresence';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
@@ -1217,7 +1218,8 @@ export default function PasteOrderPage() {
         const ws = [...nearby, ...dbWeeks];
         setWeeks(ws);
         setWeek(def);
-        setStockBaseWeek(loadStockBaseWeek(def));
+        setStockBaseWeek(resolveInitialStockBaseWeek(def));
+        saveStockBaseWeek(def);
         setWeekPage(0);
       }
     });
@@ -1572,6 +1574,7 @@ export default function PasteOrderPage() {
     baseStockText,
     remainStockText,
     baseStockMatches: baseStockMatches.filter(m => m.prodKey),
+    changeLogs: savedStockNote?.data?.changeLogs || [],
     savedAt: new Date().toISOString(),
   });
 
@@ -1591,13 +1594,28 @@ export default function PasteOrderPage() {
       alert('저장할 기존재고, 수정내역, 잔량재고 중 하나 이상 입력하세요.');
       return;
     }
-    const data = buildStockNotePayload(baseWeek);
+    const now = new Date().toISOString();
+    const existingNote = savedStockNote?.data?.baseWeek === baseWeek ? savedStockNote : null;
+    const changeEntry = existingNote
+      ? buildStockNoteChangeEntry({
+        baseWeek,
+        previousText: existingNote.data?.baseStockText || '',
+        nextText: baseStockText,
+        savedAt: now,
+      })
+      : null;
+    const data = {
+      ...buildStockNotePayload(baseWeek),
+      savedAt: now,
+      changeLogs: changeEntry
+        ? [...(existingNote?.data?.changeLogs || []), changeEntry]
+        : (existingNote?.data?.changeLogs || []),
+    };
     const name = stockNoteName(baseWeek, forceCreate ? 'add' : 'save');
     setStockNoteSaving(true);
     try {
       const payload = { name, filterData: JSON.stringify(data) };
       let saved;
-      const existingNote = savedStockNote?.data?.baseWeek === baseWeek ? savedStockNote : null;
       if (!forceCreate && existingNote?.FavoriteKey) {
         saved = await apiPut('/api/favorites', {
           favoriteKey: existingNote.FavoriteKey,
@@ -1615,8 +1633,13 @@ export default function PasteOrderPage() {
         FilterData: JSON.stringify(data),
         data,
       };
+      const verification = await apiGet('/api/favorites', { page: STOCK_NOTE_PAGE });
+      const verified = (verification.favorites || []).some(
+        (fav) => Number(fav.FavoriteKey) === Number(note.FavoriteKey) && fav.FilterData === note.FilterData,
+      );
+      if (!verified) throw new Error('저장 후 재조회 검증에 실패했습니다.');
       setSavedStockNote(note);
-      setStockNoteStatus(`${forceCreate ? '추가저장' : existingNote?.FavoriteKey ? '수정저장' : '저장'} 완료: ${formatWeekDisplay(baseWeek)}`);
+      setStockNoteStatus(`${forceCreate ? '추가저장' : existingNote?.FavoriteKey ? '수정저장' : '저장'} 완료 · 재조회 확인: ${formatWeekDisplay(baseWeek)}${changeEntry ? ` · ±변경 ${changeEntry.changes.length}건` : ''}`);
       refreshStockDraft(pasteText, baseStockText, week, remainStockText, baseWeek, orders, baseStockMatches);
     } catch (e) {
       alert(`기존재고 저장 실패: ${e.message}`);
@@ -3761,6 +3784,24 @@ export default function PasteOrderPage() {
             {stockNoteStatus && (
               <div style={{ fontSize: 10, color: stockNoteStatus.includes('실패') ? '#c62828' : '#0f766e', marginBottom: 4, fontWeight: 700 }}>
                 {stockNoteStatus}
+              </div>
+            )}
+            {(currentStockNote?.data?.changeLogs || []).length > 0 && (
+              <div style={{ border: '1px solid #f59e0b', background: '#fffbeb', borderRadius: 6, padding: 6, marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <strong style={{ fontSize: 10, color: '#92400e' }}>± 기초재고 변경 로그</strong>
+                  <span style={{ fontSize: 10, color: '#b45309' }}>{currentStockNote.data.changeLogs.length}건</span>
+                  <button
+                    type="button"
+                    onClick={() => copyStockDraft(currentStockNote.data.changeLogs.map(v => v.copyText).join('\n\n'))}
+                    style={{ marginLeft: 'auto', height: 22, padding: '0 7px', border: '1px solid #d97706', borderRadius: 4, background: '#fff', color: '#92400e', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    로그 복사
+                  </button>
+                </div>
+                <pre style={{ margin: 0, maxHeight: 90, overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: 10, lineHeight: 1.35, color: '#78350f' }}>
+                  {currentStockNote.data.changeLogs.slice(-3).map(v => v.copyText).join('\n\n')}
+                </pre>
               </div>
             )}
             <textarea

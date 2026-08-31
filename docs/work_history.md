@@ -1290,3 +1290,11 @@ collapsed: Set  // 접힌 행 그룹
 - 서버 설치 키트(레포 reference, 배포 스크립트는 미실행 → 사용자가 SSH 실행):
   - `deploy/n8n/docker-compose.yml`(127.0.0.1:5678 바인딩, N8N_PATH=/n8n/, sqlite, mem limit), `deploy/n8n/nginx-n8n-location.conf`(`^~ /n8n/` 프록시+WebSocket), `deploy/n8n/.env.example`(N8N_ENCRYPTION_KEY), `docs/N8N_SETUP.md`(설치·보안·백업·트러블슈팅).
 - 보안: 포트 로컬바인딩+nginx만 노출, 암호화키 보존, ERP DB 관리자 계정을 n8n에 저장 금지(필요시 토큰 read API 브리지 — 추후). n8n 설치/ nginx 수정은 서버 수작업 필요(저는 push→Next 빌드만 트리거 가능).
+# 2026-08-31 붙여넣기 주문등록 기초재고 기준차수·저장·변경로그 보완
+
+- 기준차수 첫 진입값이 브라우저의 오래된 선택값에 고정되지 않고 오늘 기준 등록차수에서 시작하도록 변경.
+- 기초재고 저장/수정 후 `UserFavorite`를 즉시 재조회하여 같은 저장키와 payload가 확인되어야만 저장 완료로 표시.
+- 저장된 기초재고를 수정하면 이전/현재 수량 차이를 `+/-` 형식으로 계산해 저장본에 누적하고, 화면에서 최근 로그 확인 및 전체 로그 복사를 지원.
+- 기초재고 메모는 주문·출고·입고·재고 ERP 원장을 변경하지 않고 기존처럼 사용자별 `UserFavorite`만 사용.
+
+---
