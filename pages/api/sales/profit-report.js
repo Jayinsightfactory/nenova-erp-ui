@@ -784,7 +784,7 @@ export default withAuth(async function handler(req, res) {
         const buf = buildProfitReportXlsx({
           // 자동 미분류 내역은 웹에서 확인·처리하는 검증 정보다. 다운로드 파일에는
           // 사용자가 직접 작성한 비고만 남겨 보고용 엑셀에 미분류 원문이 노출되지 않게 한다.
-          major, rows: data.rows, note: data.note, audit: data.audit, visibleCols,
+          major, rows: data.rows, note: data.note, audit: data.audit, visibleCols, displaySheetFirst: true,
           confirmedTotals: data.confirmed ? data.confirmedTotals : null,
         });
         const filename = `주차별 매출이익 보고서-${Number(major)}차.xlsx`;

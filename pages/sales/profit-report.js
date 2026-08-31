@@ -62,9 +62,11 @@ const COLUMN_DEFS = [
   { key: 'U', label: '상품구매비율' },
 ];
 const ALL_COL_KEYS = COLUMN_DEFS.map(c => c.key);
-// v2(2026-08-26): 매출조정(AC)/이익조정(AJ) 컬럼 추가 — 기존 저장 프리퍼런스에 새 컬럼이
-// 영영 숨겨지지 않도록 키를 올려 1회 기본값(전체표시)으로 리셋한다.
-const LS_KEY = 'nenova_profitReport_visibleCols_v2';
+// 기본 보고 화면은 합계 중심으로 보여주고, 매출 구성 세부열은 컬럼 설정에서 필요할 때 켠다.
+// v3: 기존 전체표시 저장값을 한 번 초기화해 새 기본값을 실제 사용자에게 적용한다.
+const DEFAULT_HIDDEN_COL_KEYS = new Set(['L', 'M', 'N', 'O']);
+const DEFAULT_VISIBLE_COL_KEYS = ALL_COL_KEYS.filter(key => !DEFAULT_HIDDEN_COL_KEYS.has(key));
+const LS_KEY = 'nenova_profitReport_visibleCols_v3';
 const LS_PRESET_KEY = 'nenova_profitReport_colPresets_v1';
 const VALIDATION_PANEL_ID = 'profit-report-validation-panel';
 const ANALYSIS_PANEL_ID = 'profit-report-analysis-panel';
@@ -314,13 +316,13 @@ export default function ProfitReportPage() {
   };
 
   // ── 컬럼 표시/숨김 (localStorage 에 저장 — 다음에 열어도 유지)
-  const [visibleCols, setVisibleCols] = useState(ALL_COL_KEYS);
+  const [visibleCols, setVisibleCols] = useState(DEFAULT_VISIBLE_COL_KEYS);
   const [showColPicker, setShowColPicker] = useState(false);
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
       if (Array.isArray(saved) && saved.length) setVisibleCols(saved.filter(k => ALL_COL_KEYS.includes(k)));
-    } catch { /* 무시 — 기본값(전체표시) 유지 */ }
+    } catch { /* 무시 — 기본 보고 컬럼 유지 */ }
   }, []);
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify(visibleCols)); } catch { /* 저장 불가 환경 무시 */ }
@@ -978,7 +980,7 @@ export default function ProfitReportPage() {
                 {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
               </button>
               <button style={{ ...st.primaryBtn, background: '#0f766e' }} onClick={downloadExcel} disabled={!data || saving}
-                title="원본 양식과 동일한 첫 시트 + 현재 화면에 표시된 컬럼만 담은 두번째 시트, 총 2개 시트로 다운로드">
+                title="현재 화면의 파란색 보고서 디자인 시트가 먼저 열리고, 기존 원본 양식은 두번째 시트에 함께 보존됩니다">
                 📥 엑셀 다운로드
               </button>
               <button style={{ ...st.primaryBtn, background: '#7c3aed' }} onClick={sendToMoyi} disabled={!data || saving || moyiSending}

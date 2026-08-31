@@ -156,6 +156,10 @@ async function main() {
       && pageSource.includes('data.autoNote')
       && reportApiSource.includes('major, rows: data.rows, note: data.note')
       && !reportApiSource.includes('note: composeProfitReportNote(data.note, data.autoNote)'));
+  check('기본 화면은 매출 구성 세부열을 숨기고 컬럼 설정에서 다시 표시 가능',
+    pageSource.includes("const DEFAULT_HIDDEN_COL_KEYS = new Set(['L', 'M', 'N', 'O'])")
+      && pageSource.includes('const [visibleCols, setVisibleCols] = useState(DEFAULT_VISIBLE_COL_KEYS)')
+      && pageSource.includes('setVisibleCols(ALL_COL_KEYS)'));
 
   const autoUnclassifiedNote = formatUnclassifiedNote([
     { source: '입고', country: '미상', flower: '미상', product: '테스트 품목', quantity: 12, amount: 3456 },
