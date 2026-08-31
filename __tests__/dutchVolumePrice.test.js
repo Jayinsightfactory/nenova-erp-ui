@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
 import { addDutchPriceColumns, buildDutchEntriesFromPivotData, dutchQuantityPriceNumberFormat, parseDutchPivotWorkbook, priceProgress } from '../lib/dutchVolumePrice.js';
+import { addDutchPriceShapesToXlsx } from '../lib/dutchPriceShapes.js';
+import JSZip from 'jszip';
 const wb = XLSX.utils.book_new();
 const ws = XLSX.utils.aoa_to_sheet([['차수(3501) 품종(네덜란드)'],['', '', '서울'],['', '칼라', '꽃길\nCL6', '로뎀농원\nCL99', '주문', '입고', '재고', '잔량'],['Tulip Strong Gold', 'Yellow', 10, 0, 10, 10, 0, 0],['Rose Avalanche', 'White', 5, 7, 12, 12, 0, 0],['합계', '', 15, 7, 22, 22, 0, 0]]);
 ws.C4.s = { fill: { fgColor: { rgb: 'ABCDEF' } } };
@@ -19,19 +21,23 @@ assert.deepEqual(output[3].slice(0, 8), ['Tulip Strong Gold', 'Yellow', 10, 0, 1
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.font.name, '맑은 고딕', '브라우저 재저장 뒤에도 Pivot 본문 글꼴을 복원해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.border.left.color.rgb, 'C8C8C8', '브라우저 재저장 뒤에도 Pivot 셀 테두리를 복원해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.v, 10, '단가를 표시해도 수량 셀의 실제 숫자값은 보존해야 합니다.');
-assert.equal(priced.workbook.Sheets['네덜란드'].C4.z, dutchQuantityPriceNumberFormat(1.25), '단가는 수량 오른쪽에 @ 보조값으로 보여야 합니다.');
-assert.equal(priced.workbook.Sheets['네덜란드'].C4.z.includes('\n'), false, '수량과 단가는 한 줄로 표시해야 합니다.');
+assert.equal(priced.workbook.Sheets['네덜란드'].C4.z, dutchQuantityPriceNumberFormat(1.25), '수량 셀 표시형식에는 단가 문자열을 섞지 않아야 합니다.');
 assert.doesNotMatch(priced.workbook.Sheets['네덜란드'].C4.z, /EUR|KRW/, '엑셀 수량 셀의 단가에는 통화 문자를 넣지 않아야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].E4.f, 'SUM(C4:D4)', '열 삽입 없이 원본 주문 합계 수식을 그대로 보존해야 합니다.');
 assert.deepEqual(priced.workbook.Sheets['네덜란드']['!merges'][0], { s: { r: 1, c: 2 }, e: { r: 1, c: 3 } }, '원본 업체 영역 병합을 그대로 보존해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드']['!ref'], ws['!ref'], '단가 때문에 열 개수가 늘어나면 안 됩니다.');
-assert.ok(priced.workbook.Sheets['네덜란드']['!rows'][3].hpt >= 18, '수량과 단가가 한 줄에서 잘리지 않도록 행 높이를 확보해야 합니다.');
-assert.ok(priced.workbook.Sheets['네덜란드']['!cols'][2].wch >= 13, '가로 단가 오버레이가 ####로 잘리지 않도록 업체 수량 열 폭을 확보해야 합니다.');
-assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.alignment.shrinkToFit, true, '긴 단가도 셀 안에서 축소 표시되어야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].A1.v, '차수(3501)\n품종(네덜란드)', '차수와 품종은 두 줄 제목으로 보여야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].A1.s.fill.fgColor.rgb, 'D9E6F2', '브라우저 재저장 때도 Pivot 제목 디자인을 명시적으로 복원해야 합니다.');
 assert.equal(priced.workbook.SheetNames.includes('NL_단가표'), false, '별도 단가 결과 시트를 만들면 안 됩니다.');
 assert.equal(ws.C4.v, 10, '원본 수량 셀을 변경하면 안 됩니다.');
+const shapedBuffer = await addDutchPriceShapesToXlsx(XLSX, XLSX.write(priced.workbook, { type: 'array', bookType: 'xlsx' }), priced.workbook, parsed.entries, prices);
+const shapedZip = await JSZip.loadAsync(shapedBuffer);
+const drawingName = Object.keys(shapedZip.files).find(name => /^xl\/drawings\/drawing\d+\.xml$/.test(name));
+assert.ok(drawingName, '단가는 셀 문자열이 아니라 실제 Excel drawing 텍스트박스로 생성해야 합니다.');
+const drawingXml = await shapedZip.file(drawingName).async('string');
+assert.match(drawingXml, /<a:t>1\.25<\/a:t>/, '도형에는 통화나 @ 없이 단가 숫자만 표시해야 합니다.');
+assert.doesNotMatch(drawingXml, /@|EUR|KRW/, '단가 도형에 @ 또는 통화 문자를 넣으면 안 됩니다.');
+assert.match(drawingXml, /prst="rect"/, '단가는 테두리가 있는 사각 텍스트박스로 표시해야 합니다.');
 const live = buildDutchEntriesFromPivotData({ rows: [
   { country: '네덜란드', prodKey: 7, prodName: 'Tulip Gold', productDescr: 'Yellow', orders: { 꽃길: 10, 로뎀: 0 } },
   { country: '중국', prodKey: 8, prodName: 'Rose', orders: { 꽃길: 20 } },
