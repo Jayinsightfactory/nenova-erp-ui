@@ -1,6 +1,5 @@
 import Head from 'next/head';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
 import * as XLSXStyled from 'xlsx-js-style';
 import { apiGet } from '../../lib/useApi';
 import { addDutchPriceColumns, buildDutchEntriesFromPivotData, parseDutchPivotWorkbook, priceProgress } from '../../lib/dutchVolumePrice';
@@ -89,8 +88,8 @@ export default function DutchVolumeBoard() {
   async function upload(file) {
     setError('');
     try {
-      const nextWorkbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellStyles: true, cellFormula: true });
-      const parsed = parseDutchPivotWorkbook(XLSX, nextWorkbook);
+      const nextWorkbook = XLSXStyled.read(await file.arrayBuffer(), { type: 'array', cellStyles: true, cellFormula: true });
+      const parsed = parseDutchPivotWorkbook(XLSXStyled, nextWorkbook);
       const nextStorageKey = `${file.name}:${file.size}:${file.lastModified}`;
       const saved = JSON.parse(localStorage.getItem(`${STORAGE_PREFIX}${nextStorageKey}`) || '{}');
       setWorkbook(nextWorkbook); setFileName(file.name); setStorageKey(nextStorageKey); setEntries(parsed.entries); setPrices(saved.prices || {}); setCurrency(saved.currency === 'KRW' ? 'KRW' : 'EUR'); setSourceMode('UPLOAD');
@@ -114,7 +113,7 @@ export default function DutchVolumeBoard() {
     <header><div><h1>네덜란드 물량표</h1><p>네노바웹 물량을 바로 조회하거나 Pivot 엑셀을 올려 업체·품목별 단가를 연속 입력합니다.</p></div><label className="upload">엑셀 업로드<input type="file" accept=".xlsx,.xls" onChange={event => event.target.files?.[0] && upload(event.target.files[0])}/></label></header>
     <div className="live-load"><label>연도<input aria-label="연도" type="number" min="2000" max="2100" value={year} onChange={event => setYear(Number(event.target.value))}/></label><label>DB 입력 차수<div><button aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={weeksLoading || !availableWeeks.length}>‹</button><select aria-label="차수" value={week} onChange={event => setWeek(event.target.value)} disabled={weeksLoading || !availableWeeks.length}>{weeksLoading && <option value="">조회 중…</option>}{!weeksLoading && !availableWeeks.length && <option value="">입력 이력 없음</option>}{availableWeeks.map(recordedWeek => <option key={recordedWeek} value={recordedWeek}>{recordedWeek}</option>)}</select><button aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={weeksLoading || !availableWeeks.length}>›</button></div></label><button className="load" onClick={() => loadLive(year, week)} disabled={loading || weeksLoading || !availableWeeks.length}>{loading ? '조회 중…' : '네노바웹 물량 바로 불러오기'}</button><span>DB에 실제 입력된 세부차수만 표시하며 선택 연도·차수 주문수량을 읽습니다.</span></div>
     {error && <div className="notice error">{error}</div>}
-    {!entries.length && !error && <div className="empty"><b>연도·차수를 조회하거나 네덜란드 Pivot 엑셀을 올려주세요.</b><span>전산은 읽기만 하며 입력 단가는 ERP 원장에 저장하지 않습니다. 저장 엑셀은 Pivot 물량표 원본 양식에 단가 열만 추가됩니다.</span></div>}
+    {!entries.length && !error && <div className="empty"><b>연도·차수를 조회하거나 네덜란드 Pivot 엑셀을 올려주세요.</b><span>전산은 읽기만 하며 입력 단가는 ERP 원장에 저장하지 않습니다. 저장 엑셀은 Pivot 물량표 원본 디자인을 유지하고 수량 셀 안에 단가를 함께 표시합니다.</span></div>}
     {!!entries.length && <><div className="toolbar"><div><b>{sourceMode === 'LIVE' ? `네노바웹 ${year}년 ${week} 직접 조회` : fileName}</b><span>단가 입력 {progress.completed}/{progress.total} · 미입력 {progress.pending}</span></div><input aria-label="업체·품목 검색" value={query} onChange={event => setQuery(event.target.value)} placeholder="업체·품목 검색"/><select aria-label="통화" value={currency} onChange={event => setCurrency(event.target.value)}><option>EUR</option><option>KRW</option></select><button onClick={download}>단가표 엑셀 저장</button></div>
       <div className="guide"><b>입력 방법</b><span>단가 입력 후 Enter를 누르면 다음 수량의 단가 칸으로 이동합니다. 파란색은 완료, 주황색은 미입력입니다.</span></div>
       <div className="grid-wrap"><table><colgroup><col className="product"/><col className="color"/><col className="customer"/><col className="qty"/><col className="price"/><col className="amount"/></colgroup><thead><tr><th>품목</th><th>칼라</th><th>업체</th><th>수량</th><th>단가 ({currency})</th><th>금액</th></tr></thead><tbody>{visibleEntries.map((row, index) => { const price = Number(prices[row.id] || 0); return <tr key={row.id} className={price > 0 ? 'done' : 'pending'}><td title={row.product}>{row.product}</td><td>{row.color || '-'}</td><td title={row.customer}>{customerName(row.customer)}</td><td><strong>{row.quantity.toLocaleString()}</strong>{price > 0 && <small>@ {price.toLocaleString(undefined, { maximumFractionDigits: 4 })}</small>}</td><td><input ref={node => { inputRefs.current[index] = node; }} aria-label={`${customerName(row.customer)} ${row.product} 단가`} type="number" min="0" step="any" value={prices[row.id] ?? ''} onChange={event => updatePrice(row.id, event.target.value)} onKeyDown={event => moveNext(event, index)} placeholder="단가 입력"/></td><td>{price > 0 ? (row.quantity * price).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-'}</td></tr>; })}</tbody></table></div>

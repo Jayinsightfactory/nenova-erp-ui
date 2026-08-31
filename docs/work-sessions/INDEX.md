@@ -8,6 +8,7 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
+| [2026-08-31_dutch-volume-price-overlay](./2026-08-31_dutch-volume-price-overlay.md) | 네덜란드 물량표 원본 디자인 보존·단가를 수량 셀 안에 표시 | 전체 계약·빌드 통과, 배포 진행 |
 | [2026-08-31_china-volume-subweek-navigation](./2026-08-31_china-volume-subweek-navigation.md) | 자동 중국물량표를 실제 DB 세부차수 순서로 이동 | 구현·전체 계약·빌드 통과, 배포 진행 |
 | [2026-08-27_paste-incoming-display](./2026-08-27_paste-incoming-display.md) | 붙여넣기 품목 매칭 시 선택 차수 전산 입고수량 표시 | 로컬 ERP 계약·빌드 통과, 배포 준비 |
 | [2026-08-26_estimate-directional-quantity](./2026-08-26_estimate-directional-quantity.md) | 증가만 부족재고 검사·기존 수량 확정 유지·변경 품목 재고 반영 | 배포 지시·통합 검사 완료, EXE/웹 저장 중지 확인 대기·미배포 |
