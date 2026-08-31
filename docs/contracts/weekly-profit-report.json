@@ -406,6 +406,13 @@
       "Customer"
     ]
   },
+  "confirmationStatusUi": {
+    "authority": "WebProfitReportConfirm의 동일 OrderYear+MajorWeek 활성 revision",
+    "currentWeek": "카테고리별 화면 상단에 확정됨(Revision 포함) 또는 미확정 배지를 항상 표시한다.",
+    "weekList": "차수별 조회 목록의 각 차수에 확정됨 또는 미확정 상태 열을 표시한다.",
+    "separation": "이 상태는 보고서 스냅샷 확정 상태이며 ShipmentDetail.isFix 기반 출고 확정 상태와 혼용하지 않는다.",
+    "sideEffect": "read-only UI 표시만 추가하며 WebProfitReportConfirm과 ERP 공유 원장을 변경하지 않는다."
+  },
   "requiredCommands": [
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",

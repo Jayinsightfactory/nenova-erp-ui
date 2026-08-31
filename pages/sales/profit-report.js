@@ -937,6 +937,15 @@ export default function ProfitReportPage() {
     <div style={st.page}>
       <div style={st.bar}>
         <h1 style={st.h1}>📈 {viewMode === 'months' ? '월별 매출이익 보고서' : '주차별 매출이익 보고서'}{viewMode === 'months' && monthlyData ? ` — ${monthlyData.year}` : data ? ` — ${data.major}차 (${data.orderYear})` : ''}</h1>
+        {viewMode === 'category' && data && (
+          <span
+            style={data.confirmed ? st.reportStatusConfirmed : st.reportStatusDraft}
+            title="보고서 기준 확정 상태입니다. 출고 확정 상태와는 별개입니다."
+            aria-label={`보고서 상태: ${data.confirmed ? '확정됨' : '미확정'}`}
+          >
+            {data.confirmed ? `✓ 확정됨 · R${data.confirmed.revisionNo}` : '● 미확정'}
+          </span>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <div style={st.viewToggleWrap}>
             <button style={viewMode === 'category' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('category')}>카테고리별</button>
@@ -1631,6 +1640,7 @@ export default function ProfitReportPage() {
             <thead>
               <tr>
                 <th style={{ ...st.th, ...st.stickyCol, background: '#1e293b', zIndex: 3 }}>차수</th>
+                <th style={st.th}>보고서 상태</th>
                 {shownColumns.map(cd => <th key={cd.key} style={st.th}>{cd.label}</th>)}
               </tr>
             </thead>
@@ -1640,7 +1650,7 @@ export default function ProfitReportPage() {
                   return (
                     <tr key={w.major}>
                       <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{Number(w.major)}차</td>
-                      <td style={{ ...st.td, color: '#dc2626' }} colSpan={shownColumns.length}>조회 실패: {w.error}</td>
+                      <td style={{ ...st.td, color: '#dc2626' }} colSpan={shownColumns.length + 1}>조회 실패: {w.error}</td>
                     </tr>
                   );
                 }
@@ -1651,6 +1661,14 @@ export default function ProfitReportPage() {
                       <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700, background: expanded ? '#eff6ff' : '#f8fafc' }}>
                         {expanded ? '▼' : '▶'} {Number(w.major)}차
                       </td>
+                      <td style={st.td}>
+                        <span
+                          style={w.confirmed ? st.reportStatusConfirmed : st.reportStatusDraft}
+                          title="보고서 기준 확정 상태이며 출고 확정과는 별개입니다."
+                        >
+                          {w.confirmed ? '✓ 확정됨' : '● 미확정'}
+                        </span>
+                      </td>
                       {shownColumns.map(cd => (
                         <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (w.totals.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
                           {readonlyValue(cd.key, w.totals, { D: w.totals.D ?? 1, U: w.totals.U ?? 1 })}
@@ -1659,7 +1677,7 @@ export default function ProfitReportPage() {
                     </tr>
                     {expanded && (
                       <tr>
-                        <td colSpan={shownColumns.length + 1} style={{ padding: 0, border: '1px solid #e2e8f0' }}>
+                        <td colSpan={shownColumns.length + 2} style={{ padding: 0, border: '1px solid #e2e8f0' }}>
                           <div style={{ padding: 8, background: '#f8fafc' }}>
                             <ReadonlyDetailTable rows={w.rows} totals={w.totals} />
                           </div>
@@ -1670,7 +1688,7 @@ export default function ProfitReportPage() {
                 );
               })}
               {weeksData.length === 0 && !weeksLoading && (
-                <tr><td style={st.td} colSpan={shownColumns.length + 1}>차수 범위를 입력하고 조회하세요.</td></tr>
+                <tr><td style={st.td} colSpan={shownColumns.length + 2}>차수 범위를 입력하고 조회하세요.</td></tr>
               )}
             </tbody>
           </table>
@@ -1985,6 +2003,8 @@ const st = {
   auditWarning: { background: '#fffbeb', border: '1px solid #f59e0b', color: '#92400e', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   attentionBanner: { background: '#fff7ed', border: '1px solid #fb923c', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 8, lineHeight: 1.6 },
   confirmBanner: { background: '#ecfdf5', border: '1px solid #16a34a', color: '#065f46', borderRadius: 8, padding: '9px 12px', fontSize: 13, fontWeight: 700, marginBottom: 8, lineHeight: 1.6 },
+  reportStatusConfirmed: { display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', background: '#dcfce7', border: '1px solid #86efac', color: '#166534', borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 800 },
+  reportStatusDraft: { display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 800 },
   monthlyInfo: { background: '#eff6ff', border: '1px solid #93c5fd', color: '#1e3a8a', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.6 },
   monthDetail: { padding: 9, background: '#f8fafc' },
   monthDetailTitle: { fontWeight: 800, color: '#334155', fontSize: 12, marginBottom: 5 },
