@@ -43,9 +43,16 @@
     "lib/shipmentImport.js",
     "lib/shipmentImportQty.js",
     "lib/shipmentImportAudit.js",
+    "lib/shipmentImportSnapshot.js",
+    "lib/shipmentImportRollback.js",
     "lib/withActionLog.js",
     "pages/api/shipment/distribute-import-apply.js",
-    "pages/shipment/distribute-import.js"
+    "pages/api/shipment/distribute-import-history.js",
+    "pages/api/shipment/distribute-import-rollback.js",
+    "pages/shipment/distribute-import.js",
+    "docs/migrations/2026-08-31_shipment_import_snapshot_rollback.sql",
+    "__tests__/shipmentImportFinalStateRollback.test.js",
+    "package.json"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -99,6 +106,35 @@
       "shipmentFarm": "preserve",
       "estimate": "preserve",
       "stock": "preserve"
+    },
+    {
+      "name": "DISTRIBUTE_IMPORT_FINAL_APPLY",
+      "description": "명시된 연도·차수의 엑셀 셀 수량을 주문과 분배의 최종값으로 한 트랜잭션에 저장한다. 빈칸·행누락은 보존하고 명시적 0은 분배만 삭제하며 주문은 보존한다.",
+      "orderDetail": "replace-nonnegative",
+      "shipmentDetail": "increase",
+      "detailEffect": "set_final_positive_or_delete_on_explicit_zero",
+      "shipmentDate": "follow_shipment_detail_quantity",
+      "shipmentFarm": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve",
+      "batchAtomic": true,
+      "yearRequired": true,
+      "stalePreview": "block_entire_batch",
+      "fixedRow": "block_entire_batch",
+      "verification": "order_shipment_and_date_before_commit",
+      "repeatSameUpload": "no_op"
+    },
+    {
+      "name": "DISTRIBUTE_IMPORT_ROLLBACK",
+      "description": "관리자가 불변 전후 스냅샷과 현재 원장을 대조한 뒤 업로드 한 건 전체를 적용 전 상태로 되돌린다. 업로드 이후 변경이 하나라도 있으면 전체를 중단한다.",
+      "audit": "immutable_preserve_and_mark_rolled_back",
+      "orderDetail": "decrease",
+      "shipmentDetail": "decrease",
+      "conflict": "abort_entire_batch",
+      "orderHistory": "append",
+      "shipmentHistory": "append",
+      "batchAtomic": true,
+      "authorization": "server_admin_required"
     }
   ],
   "crossYearFixture": {
@@ -109,6 +145,7 @@
     "__tests__/shipmentExeErrorsContract.test.js",
     "__tests__/shipmentImportApply.test.js",
     "__tests__/shipmentImportAudit.test.js",
+    "__tests__/shipmentImportFinalStateRollback.test.js",
     "__tests__/shipmentFixScope.test.js",
     "__tests__/shipmentDistributionEdit.test.js",
     "__tests__/syncShipmentDateEst.test.js",
@@ -119,6 +156,7 @@
   "dnspyEvidence": {
     "required": true,
     "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "orderRecord": "docs/exe-golden/FormOrderAdd.md",
     "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
     "methods": [
       "GetCustomerList",

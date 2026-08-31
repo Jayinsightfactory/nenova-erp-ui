@@ -29,7 +29,10 @@ async function handler(req, res) {
         qtyWarnings: e.qtyWarnings,
       });
     }
-    return res.status(500).json({ success: false, error: e.message });
+    if (e.statusCode) {
+      return res.status(e.statusCode).json({ success: false, error: e.message, code: e.code });
+    }
+    return res.status(500).json({ success: false, error: e.message, code: e.code });
   }
 }
 
