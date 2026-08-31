@@ -14,6 +14,7 @@ const assert = require('node:assert/strict');
   });
   assert.equal(validAdd.orderMode, MY_CUSTOMER_ORDER_MODE.ADD, 'my-customer의 생략 모드는 ADD여야 한다.');
   assert.equal(validateMyCustomerOrderWriteRequest({ source: 'my-customer', orderMode: 'ADD', items: [{ prodKey: 2, qty: 1, expectedCurrentQty: 0 }] }).orderMode, 'ADD');
+  assert.equal(validateMyCustomerOrderWriteRequest({ source: 'sales-paste', orderMode: 'ADD', items: [{ prodKey: 2, qty: 1, expectedCurrentQty: 0 }] }).isMyCustomerSource, true, '영업부 붙여넣기도 주문전용 optimistic-lock 정책을 사용해야 합니다.');
   assert.deepEqual(planMyCustomerOrderWrite({ ...validAdd.items[0], orderMode: validAdd.orderMode, inputOutQty: 2, previousQty: 32, hasActiveOrderDetail: true }), {
     action: 'UPDATE', previousQty: 32, inputQty: 2, deltaQty: 2, finalQty: 34,
   });
