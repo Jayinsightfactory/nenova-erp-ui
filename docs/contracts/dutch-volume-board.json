@@ -16,7 +16,7 @@
     "quantity": "only finite numeric values greater than zero become price-entry rows",
     "price": "strictly positive value means complete; zero or blank remains pending",
     "keyboard": "Enter prevents form submission and focuses/selects the next visible price input",
-    "export": "both live-download and uploaded-workbook paths preserve the Pivot workbook; all Pivot titles use 차수(...) newline 품종(...); a positive unit price is inserted into OOXML drawing markup as a small bordered rectangle containing price digits only, anchored over the adjacent right blank cell or left blank cell when right is occupied; quantity cells, formulas, used range and worksheet columns stay unchanged and no @, EUR or KRW text is emitted",
+    "export": "both live-download and uploaded-workbook paths preserve the Pivot workbook; all Pivot titles use 차수(...) newline 품종(...); a positive unit price is inserted into OOXML drawing markup as a bordered rectangle containing price digits only at the same 9pt bold size as quantities, anchored over the adjacent right blank cell or left blank cell when right is occupied; the drawing may extend beyond one cell boundary so long prices remain full-size; quantity cells, formulas, used range and worksheet columns stay unchanged and no @, EUR or KRW text is emitted",
     "currency": "EUR default with explicit KRW choice remains for the web entry grid and amount calculation only; the downloaded volume-sheet quantity cell shows price digits without a currency suffix"
   },
   "crossYearFixture": {"required": true, "description": "직접 조회는 orderYear + weekStart + weekEnd를 모두 전달하고 단가 입력은 ERP에 쓰지 않으므로 전년도 동일 차수 Master를 섞거나 변경하지 않는다."},
