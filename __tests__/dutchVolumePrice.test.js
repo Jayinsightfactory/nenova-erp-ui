@@ -19,13 +19,15 @@ assert.deepEqual(output[3].slice(0, 8), ['Tulip Strong Gold', 'Yellow', 10, 0, 1
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.font.name, '맑은 고딕', '브라우저 재저장 뒤에도 Pivot 본문 글꼴을 복원해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.border.left.color.rgb, 'C8C8C8', '브라우저 재저장 뒤에도 Pivot 셀 테두리를 복원해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.v, 10, '단가를 표시해도 수량 셀의 실제 숫자값은 보존해야 합니다.');
-assert.equal(priced.workbook.Sheets['네덜란드'].C4.z, dutchQuantityPriceNumberFormat(1.25), '단가는 수량 셀 안의 두 번째 줄에 숫자만 보여야 합니다.');
+assert.equal(priced.workbook.Sheets['네덜란드'].C4.z, dutchQuantityPriceNumberFormat(1.25), '단가는 수량 오른쪽에 @ 보조값으로 보여야 합니다.');
+assert.equal(priced.workbook.Sheets['네덜란드'].C4.z.includes('\n'), false, '수량과 단가는 한 줄로 표시해야 합니다.');
 assert.doesNotMatch(priced.workbook.Sheets['네덜란드'].C4.z, /EUR|KRW/, '엑셀 수량 셀의 단가에는 통화 문자를 넣지 않아야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].E4.f, 'SUM(C4:D4)', '열 삽입 없이 원본 주문 합계 수식을 그대로 보존해야 합니다.');
 assert.deepEqual(priced.workbook.Sheets['네덜란드']['!merges'][0], { s: { r: 1, c: 2 }, e: { r: 1, c: 3 } }, '원본 업체 영역 병합을 그대로 보존해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드']['!ref'], ws['!ref'], '단가 때문에 열 개수가 늘어나면 안 됩니다.');
-assert.ok(priced.workbook.Sheets['네덜란드']['!rows'][3].hpt >= 26, '수량과 단가 두 줄이 보이도록 해당 행 높이를 확보해야 합니다.');
-assert.ok(priced.workbook.Sheets['네덜란드']['!cols'][2].wch >= 9, '단가 오버레이가 ####로 잘리지 않도록 업체 수량 열 폭을 확보해야 합니다.');
+assert.ok(priced.workbook.Sheets['네덜란드']['!rows'][3].hpt >= 18, '수량과 단가가 한 줄에서 잘리지 않도록 행 높이를 확보해야 합니다.');
+assert.ok(priced.workbook.Sheets['네덜란드']['!cols'][2].wch >= 13, '가로 단가 오버레이가 ####로 잘리지 않도록 업체 수량 열 폭을 확보해야 합니다.');
+assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.alignment.shrinkToFit, true, '긴 단가도 셀 안에서 축소 표시되어야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].A1.v, '차수(3501)\n품종(네덜란드)', '차수와 품종은 두 줄 제목으로 보여야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].A1.s.fill.fgColor.rgb, 'D9E6F2', '브라우저 재저장 때도 Pivot 제목 디자인을 명시적으로 복원해야 합니다.');
 assert.equal(priced.workbook.SheetNames.includes('NL_단가표'), false, '별도 단가 결과 시트를 만들면 안 됩니다.');
