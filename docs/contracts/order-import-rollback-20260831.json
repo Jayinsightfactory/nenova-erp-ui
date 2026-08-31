@@ -1,0 +1,58 @@
+{
+  "id": "order-import-rollback-20260831",
+  "title": "2026-08-31 36-01 잘못된 주문변경 41건 제한 원복 계약",
+  "scope": [
+    "scripts/rollback-order-import-20260831.mjs",
+    "docs/repair-manifests/2026-08-31_36-01_order-import-rollback.json",
+    ".github/workflows/rollback-order-import-20260831.yml"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "fixedScope": {
+    "orderYear": "2026",
+    "orderWeek": "36-01",
+    "sourceActor": "nenovaSS3",
+    "sourceWindow": "2026-08-31 09:37:00 <= ChangeDtm < 2026-08-31 09:40:30",
+    "targetCount": 41
+  },
+  "actions": [
+    {
+      "name": "ROLLBACK_WRONG_ORDER_IMPORT_41",
+      "orderMaster": "preserve",
+      "orderDetail": "replace-nonnegative",
+      "orderDetailPolicy": "restore exact 41 rows only after current quantity and latest OrderHistory match the source manifest; newly created zero-before detail becomes deleted",
+      "orderHistory": "insert one rollback audit row per restored detail",
+      "shipmentMaster": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentFarm": "preserve",
+      "stock": "preserve Product/ProductStock/StockHistory",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "atomicity": "all 41 rows in one transaction; any missing, duplicate, changed, or later-edited row aborts all",
+      "postWrite": "re-read all restored OrderDetail rows and compare downstream shipment/date/farm/estimate/stock snapshots before commit",
+      "audit": "OrderHistory plus SystemActionLog"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "Only 2026 + 36-01 is eligible; same OrderWeek in another year is never read or written."
+  },
+  "requiredTestFiles": [
+    "__tests__/orderImportRollback20260831.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderAdd.md",
+    "source": "project-recorded dnSpy CLI evidence",
+    "methods": ["btnSave_Click", "UnitQuantity"],
+    "tables": ["OrderMaster", "OrderDetail", "OrderHistory"]
+  },
+  "requiredCommands": [
+    "npm run test:order-import-rollback",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^"
+  ]
+}
