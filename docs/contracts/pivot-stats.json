@@ -3,13 +3,21 @@
   "title": "피벗 통계 품목 필터 검색 계약",
   "scope": [
     "pages/stats/pivot.js",
+    "pages/api/stats/pivot-volume-excel.js",
     "lib/pivotProductSearch.js",
-    "lib/pivotFilterOptions.js"
+    "lib/pivotFilterOptions.js",
+    "lib/pivotVolumeNetherlands.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {
       "name": "PIVOT_STATS_PRODUCT_FILTER_SEARCH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "PIVOT_VOLUME_NETHERLANDS_FLOWER_EXPORT",
+      "description": "네덜란드 물량표는 Product.FlowerName을 꽃 열로, 기존 ProdName 기반 표기를 품목명 열로 분리해 함께 출력한다. 다른 국가 물량표 열 구성은 유지한다.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
     }
@@ -21,6 +29,7 @@
   "requiredTestFiles": [
     "__tests__/pivotProductSearch.test.js",
     "__tests__/pivotFilterOptions.test.js",
+    "__tests__/pivotVolumeNetherlands.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
