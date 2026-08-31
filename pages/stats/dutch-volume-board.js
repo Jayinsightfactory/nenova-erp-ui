@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSXStyled from 'xlsx-js-style';
 import { apiGet } from '../../lib/useApi';
 import { addDutchPriceColumns, buildDutchEntriesFromPivotData, parseDutchPivotWorkbook, priceProgress } from '../../lib/dutchVolumePrice';
+import { addDutchPriceShapesToXlsx } from '../../lib/dutchPriceShapes';
 
 const STORAGE_PREFIX = 'nenova.dutch-volume-prices.v1:';
 const customerName = value => String(value || '').split('\n')[0].trim();
@@ -103,10 +104,15 @@ export default function DutchVolumeBoard() {
     setPrices(previous => ({ ...previous, [id]: Number.isFinite(normalized) ? normalized : '' }));
   }
   function moveNext(event, index) { if (event.key === 'Enter') { event.preventDefault(); inputRefs.current[index + 1]?.focus(); inputRefs.current[index + 1]?.select(); } }
-  function download() {
+  async function download() {
     if (!workbook) return;
     const priced = addDutchPriceColumns(XLSXStyled, workbook, entries, prices, currency);
-    XLSXStyled.writeFile(priced.workbook, `${fileName.replace(/\.xlsx?$/i, '')}_단가입력.xlsx`, { compression: true });
+    const base = XLSXStyled.write(priced.workbook, { type: 'array', bookType: 'xlsx', compression: true });
+    const shaped = await addDutchPriceShapesToXlsx(XLSXStyled, base, priced.workbook, entries, prices);
+    const url = URL.createObjectURL(new Blob([shaped], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = `${fileName.replace(/\.xlsx?$/i, '')}_단가입력.xlsx`; anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   return <><Head><title>네덜란드 물량표 - nenova ERP</title></Head><section className="dutch-board">
