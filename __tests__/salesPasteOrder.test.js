@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildSalesPasteMatchName, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, normalizeDetectedSalesPasteWeek, replaceSalesPasteProduct, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext } from '../lib/salesPasteOrder.js';
+import { buildSalesPasteMatchName, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, replaceSalesPasteProduct, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext } from '../lib/salesPasteOrder.js';
 
 const weeks = buildSalesPasteWeekChoices(new Date(2026, 7, 31));
 assert.equal(weeks.length, 8, '베이스부터 +3까지 각 1·2 세부차수를 보여야 합니다.');
@@ -12,6 +12,19 @@ assert.equal(resolveDetectedSalesPasteScope('40-1', weeks), null, '베이스~+3 
 assert.equal(salesPasteCountryContext('36-2 콜 수국 추가 발주'), '콜롬비아');
 assert.equal(buildSalesPasteMatchName('수국 화이트', '수국', '콜롬비아'), '콜롬비아 수국 화이트');
 assert.match(buildSalesPasteText({ year: 2026, week: '36-01', customerName: '꽃길', text: '돈셀 2박스' }), /^2026년 36-01차\n꽃길\n돈셀 2박스$/);
+const slashInput = `36-2 콜 수국 추가 발주
+진핑크 8박스\\
+블루 7박스\\
+화이트 44박스\\
+연핑크 3박스\\
+진핑크 4박스`;
+assert.equal(normalizeSalesPasteInputText(slashInput), `36-2 콜 수국 추가 발주
+진핑크 8박스
+블루 7박스
+화이트 44박스
+연핑크 3박스
+진핑크 4박스`, '줄 끝 역슬래시 때문에 수량행이 누락되면 안 됩니다.');
+assert.doesNotMatch(buildSalesPasteText({ year: 2026, week: '36-02', customerName: '꽃길', text: slashInput }), /박스\\/);
 const customers = [{ ManagerName: '김영업', CustKey: 1 }, { ManagerName: '이영업', CustKey: 2 }];
 assert.deepEqual(salesManagerOptions(customers, { userName: '박영업' }), ['김영업', '박영업', '이영업']);
 assert.deepEqual(salesManagerCustomers(customers, '이영업').map(row => row.CustKey), [2]);
