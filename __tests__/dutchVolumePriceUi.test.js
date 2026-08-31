@@ -5,7 +5,9 @@ const layout = fs.readFileSync(new URL('../components/Layout.js', import.meta.ur
 assert.match(layout, /\/stats\/dutch-volume-board[^\n]+네덜란드 물량표/);
 assert.doesNotMatch(page, /<Layout|import Layout/);
 assert.match(page, /onKeyDown=\{event => moveNext\(event, index\)\}/);
-assert.match(page, /NL_단가표/);
+assert.match(page, /addDutchPriceColumns/);
+assert.match(page, /pivot-volume-excel/);
+assert.doesNotMatch(page, /appendDutchPriceSheet|NL_단가표/, '별도 단가 결과 시트를 만들면 안 됩니다.');
 assert.match(page, /localStorage/);
 assert.match(page, /file\.name.*file\.size.*file\.lastModified/, '같은 파일명의 다른 작업본 단가가 섞이면 안 됩니다.');
 assert.doesNotMatch(page, /XLSX\.write\(workbook/, '원본 workbook을 불필요하게 재직렬화해 스타일과 계산식을 잃으면 안 됩니다.');
