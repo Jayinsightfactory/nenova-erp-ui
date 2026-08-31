@@ -19,7 +19,6 @@ import {
   rematchChinaPackingRow,
   setChinaPackingRowDistributions,
   summarizeChinaVolumeTotals,
-  stepChinaOrderWeek,
   validateChinaCellAllocation,
   validateChinaPackingDistribution,
 } from '../../lib/chinaVolumeBoard';
@@ -219,6 +218,8 @@ export default function ChinaVolumeBoard() {
   const router = useRouter();
   const [year, setYear] = useState(currentYear);
   const [week, setWeek] = useState(DEFAULT_WEEK);
+  const [availableWeeks, setAvailableWeeks] = useState([]);
+  const [weeksLoading, setWeeksLoading] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -270,12 +271,12 @@ export default function ChinaVolumeBoard() {
     return { boards, mappings, active: normalizeBoard(result.activeBoard || result.board || boards[0]) };
   };
 
-  const load = async () => {
+  const load = async (targetYear = year, targetWeek = week) => {
     setLoading(true); setError('');
     try {
       const [result, history, catalogResult] = await Promise.all([
-        apiGet('/api/stats/pivot-data', { orderYear: year, weekStart: week, weekEnd: week }),
-        loadBoardHistory(year, week),
+        apiGet('/api/stats/pivot-data', { orderYear: targetYear, weekStart: targetWeek, weekEnd: targetWeek }),
+        loadBoardHistory(targetYear, targetWeek),
         apiGet('/api/stats/china-volume-products'),
       ]);
       const catalog = catalogResult.products || [];
@@ -283,14 +284,50 @@ export default function ChinaVolumeBoard() {
       setData(result);
       if (history.active) applyBoard(history.active, result, history.mappings, catalog);
       else {
-        setBoardKey(''); setBoardName(`${year}년 ${week} 중국 물량표`);
+        setBoardKey(''); setBoardName(`${targetYear}년 ${targetWeek} 중국 물량표`);
         setCells({}); setPackingRows([]); setSourceFileName(''); setSourceSheetName(''); setExpectedRowVersion(''); setPackingPhase('EMPTY'); setDirty(false);
       }
     } catch (e) { setError(e.message || '물량표 조회 실패'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let active = true;
+    const loadRecordedWeeks = async () => {
+      setWeeksLoading(true);
+      setError('');
+      try {
+        const result = await apiGet('/api/stats/pivot-weeks', { orderYear: year, source: 'orders' });
+        if (!active) return;
+        const recordedWeeks = Array.isArray(result.weeks) ? result.weeks : [];
+        setAvailableWeeks(recordedWeeks);
+        if (!recordedWeeks.length) {
+          setData(null);
+          setPackingRows([]);
+          setCells({});
+          setError(`${year}년 주문 입력 차수가 없습니다.`);
+          return;
+        }
+        const targetWeek = recordedWeeks.includes(week) ? week : recordedWeeks[0];
+        setWeek(targetWeek);
+        await load(year, targetWeek);
+      } catch (e) {
+        if (active) setError(e.message || '입력 차수 조회 실패');
+      } finally {
+        if (active) setWeeksLoading(false);
+      }
+    };
+    loadRecordedWeeks();
+    return () => { active = false; };
+  }, [year]);
+
+  const stepWeek = delta => {
+    if (!availableWeeks.length) return;
+    const currentIndex = availableWeeks.indexOf(week);
+    const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = Math.max(0, Math.min(availableWeeks.length - 1, baseIndex - delta));
+    setWeek(availableWeeks[nextIndex]);
+  };
 
   const matchProducts = useMemo(() => mergeChinaProductCandidates(data, productCatalog), [data, productCatalog]);
   const chinaRows = useMemo(() => {
@@ -616,8 +653,8 @@ export default function ChinaVolumeBoard() {
         <header className="titlebar"><b>자동 중국물량표</b><span>1920×1080 기준</span><button onClick={() => window.opener ? window.close() : router.push('/dashboard')}>닫기</button></header>
         <div className="toolbar">
           <label>연도<input type="number" value={year} onChange={e => setYear(Number(e.target.value))} /></label>
-          <label className="week-field">차수<button type="button" aria-label="이전 차수" onClick={() => setWeek(value => stepChinaOrderWeek(value, -1))}>‹</button><input value={week} onChange={e => setWeek(e.target.value)} placeholder="35-01" /><button type="button" aria-label="다음 차수" onClick={() => setWeek(value => stepChinaOrderWeek(value, 1))}>›</button></label>
-          <button className="load" onClick={load} disabled={loading}>{loading ? '조회 중…' : '중국 물량표 조회'}</button>
+          <label className="week-field">DB 입력 차수<button type="button" aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={weeksLoading || availableWeeks.indexOf(week) >= availableWeeks.length - 1}>‹</button><select aria-label="차수" value={week} onChange={e => setWeek(e.target.value)} disabled={weeksLoading || !availableWeeks.length}>{availableWeeks.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={weeksLoading || availableWeeks.indexOf(week) <= 0}>›</button></label>
+          <button className="load" onClick={() => load(year, week)} disabled={loading || weeksLoading || !availableWeeks.length}>{loading || weeksLoading ? '조회 중…' : '중국 물량표 조회'}</button>
           <label className="board-name">작업명<input value={boardName} onChange={event => { setBoardName(event.target.value); setDirty(true); }} placeholder="예: CL 1차 배정" /></label>
           <select className="board-history" value={boardKey} onChange={event => {
             const next = workHistory.find(item => String(item.boardKey) === event.target.value);
@@ -698,7 +735,7 @@ export default function ChinaVolumeBoard() {
         .board .product-head,.board tbody th{min-width:260px;max-width:260px}.board tbody th{overflow:visible;text-overflow:clip}.board tbody th span{display:inline;white-space:nowrap}.qty{position:absolute;z-index:5;left:1px;width:31px;top:1px;text-align:center;font-size:15px;line-height:18px;font-weight:900;pointer-events:none}.order-qty{position:absolute;z-index:5;left:1px;bottom:0;width:31px;font-size:7px;line-height:9px;color:#6d7787;pointer-events:none;white-space:nowrap}.box-badges{z-index:3;left:auto;right:1px;top:1px;bottom:1px;width:42px;max-width:42px;display:flex;align-content:center;justify-content:flex-start;flex-wrap:wrap;gap:1px;overflow:hidden}.box-badges.area-right{width:118px;max-width:118px;right:-75px;background:#fffaf9aa;padding:1px}.box-badges.area-left{width:118px;max-width:118px;right:1px;background:#fffaf9aa;padding:1px}.box-badges.area-down{height:62px;bottom:-31px;background:#fffaf9aa;padding:1px}.box-badges.area-up{height:62px;top:-31px;background:#fffaf9aa;padding:1px}.box-badge{font-size:9px;line-height:12px;height:14px;padding:0 1px;min-width:0;box-shadow:0 0 0 1px #fff}.box-badge[data-digits="1"]{width:15px}.box-badge[data-digits="2"]{width:19px}.box-badge[data-digits="3"]{width:24px}
         .reconcile{height:36px;flex:none;display:flex;align-items:center;gap:4px;padding:3px 6px;background:#eef8f1;border-bottom:1px solid #a9d9b8;font-size:10px;overflow-x:auto;white-space:nowrap}.reconcile>b{min-width:125px;color:#176b35}.reconcile>span,.reconcile>button{display:flex;align-items:baseline;gap:3px;min-width:90px;padding:3px 5px;background:#fff;border:1px solid #cbd8ce;border-radius:3px;font:inherit;text-align:left}.reconcile strong{font-size:13px;color:#183b72}.reconcile small{color:#78869a}.reconcile.warning{background:#fff6e8;border-color:#efbd68}.reconcile.warning>b,.reconcile .warn,.reconcile .warn strong{color:#b42318}.reconcile.idle{background:#f4f6f8;border-color:#d6dce4}
         .match-modal{width:690px}.match-source{padding:10px 13px;border-bottom:1px solid #e1e6ec}.match-source b,.match-source span,.match-source small{display:block}.match-source span{margin-top:3px}.match-source small{color:#657187;margin-top:5px}.match-queue{padding:7px 10px;background:#f3f6fa;display:flex;gap:4px;overflow:auto}.match-queue button{border:1px solid #bac6d7;background:#fff;border-radius:3px;padding:3px 6px;white-space:nowrap;font-size:11px}.match-queue button.active{background:#173b72;color:#fff;border-color:#173b72}.match-search{display:block;padding:9px 12px;font-size:11px;font-weight:700}.match-search input{display:block;width:100%;height:30px;margin-top:4px;border:1px solid #aeb9c8;border-radius:4px;padding:4px 7px}.match-products{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:0 12px 12px;max-height:48vh;overflow:auto}.match-products button{border:1px solid #d5dce6;background:#fff;text-align:left;border-radius:4px;padding:6px;cursor:pointer}.match-products button:hover{border-color:#155bd7;background:#f4f8ff}.match-products b,.match-products span,.match-products small{display:block}.match-products b{font-size:10px;color:#617087}.match-products span{font-size:12px;font-weight:700;margin-top:2px}.match-products small{font-size:10px;color:#7b8798;margin-top:3px}
-        .week-field button{width:24px;padding:0!important;font-size:18px;font-weight:900}.source-file{display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#36547c;vertical-align:middle}.toolbar .apply-matches{background:#168447;color:#fff;border-color:#168447;font-weight:900}.matching-guide{height:31px;flex:none;display:flex;align-items:center;gap:18px;padding:4px 8px;background:#fff7db;border-bottom:1px solid #e6bf55;font-size:11px}.matching-guide b{color:#173b72}.matching-guide strong{color:#087b3d}.inline-match{margin-left:4px;border:1px solid #dd6b55;background:#fff;color:#b42318;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer}
+        .week-field button{width:24px;padding:0!important;font-size:18px;font-weight:900}.week-field select{width:72px;font-weight:800;color:#173b72}.source-file{display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#36547c;vertical-align:middle}.toolbar .apply-matches{background:#168447;color:#fff;border-color:#168447;font-weight:900}.matching-guide{height:31px;flex:none;display:flex;align-items:center;gap:18px;padding:4px 8px;background:#fff7db;border-bottom:1px solid #e6bf55;font-size:11px}.matching-guide b{color:#173b72}.matching-guide strong{color:#087b3d}.inline-match{margin-left:4px;border:1px solid #dd6b55;background:#fff;color:#b42318;border-radius:3px;font-size:10px;padding:1px 5px;cursor:pointer}
         .rematch-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 13px;background:#f6f8fb}.rematch-fields label{font-size:11px;font-weight:800}.rematch-fields select{display:block;width:100%;height:32px;margin-top:4px;border:1px solid #aeb9c8;border-radius:4px;background:#fff;padding:3px 6px}.match-products button.active{outline:2px solid #155bd7;background:#edf5ff}.match-modal footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.match-modal footer .primary:disabled{opacity:.45}.distribution-summary{display:flex;align-items:center;justify-content:space-between;margin-top:5px;padding-top:4px;border-top:1px dashed #d4dbe5;font-size:10px}.distribution-summary.ok span{color:#08783e}.distribution-summary.bad span{color:#b42318;font-weight:800}.distribution-summary button{border:1px solid #2c69bd;background:#edf5ff;color:#174f9d;border-radius:3px;padding:2px 6px;cursor:pointer}.distribution-modal{width:900px;max-width:96vw;max-height:88vh;background:#fff;border-radius:7px;box-shadow:0 15px 60px #0006;overflow:auto}.distribution-modal>header{height:38px;background:#183b72;color:#fff;display:flex;align-items:center;padding:0 12px}.distribution-modal>header button{margin-left:auto;background:transparent;color:#fff;border:0;font-size:22px}.distribution-source{padding:10px 13px;border-bottom:1px solid #dce3ec}.distribution-source b,.distribution-source span,.distribution-source small{display:block}.distribution-source span{margin-top:4px;font-weight:700}.distribution-source small{margin-top:4px;color:#66758a}.distribution-head{display:flex;justify-content:space-between;padding:8px 13px;background:#f2f6fb;font-size:12px}.distribution-head span{color:#66758a}.distribution-list{padding:9px 13px}.distribution-row{display:grid;grid-template-columns:1fr 1.7fr 110px 48px;gap:7px;align-items:end;margin-bottom:7px}.distribution-row label{font-size:10px;font-weight:700}.distribution-row select,.distribution-row input{display:block;width:100%;height:30px;margin-top:3px;border:1px solid #aeb9c8;border-radius:4px;padding:3px 6px;background:#fff}.distribution-row .remove{height:30px}.add-distribution{margin:0 13px 8px;border:1px dashed #447cc4;background:#f5f9ff;color:#174f9d;border-radius:4px;padding:5px 10px}.distribution-check{display:flex;align-items:center;gap:18px;margin:3px 13px 10px;padding:9px;border-radius:4px;font-size:12px}.distribution-check.ok{background:#eaf8ef;color:#176b35}.distribution-check.bad{background:#fff0f0;color:#ad1622}.distribution-check strong{margin-left:auto}.distribution-modal>footer{display:flex;justify-content:flex-end;gap:7px;padding:10px 13px;border-top:1px solid #e2e7ed}.distribution-modal>footer button{padding:6px 17px;border:1px solid #aeb9c8;background:#fff;border-radius:4px}.distribution-modal>footer .primary{background:#155bd7;color:#fff;border-color:#155bd7}.distribution-modal>footer .primary:disabled{opacity:.45}
         @media(max-width:1200px){main{grid-template-columns:minmax(0,1fr) 320px}.legend{display:none}}
         @media print{.titlebar,.toolbar,aside,.error{display:none!important}body{overflow:visible}.page,main{height:auto;display:block;padding:0}.board-wrap{border:0;overflow:visible}.board thead th,.board tbody th{position:static}.box-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}}

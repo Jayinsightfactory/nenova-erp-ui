@@ -6,10 +6,12 @@
     "pages/stats/china-volume-board-review.js",
     "pages/api/stats/china-volume-board.js",
     "pages/api/stats/china-volume-products.js",
+    "pages/api/stats/pivot-weeks.js",
     ".github/workflows/deploy.yml",
     "lib/chinaVolumeBoard.js",
     "lib/chinaVolumeBoardStore.js",
     "lib/chinaVolumeBoardApi.js",
+    "lib/pivotAvailableWeeks.js",
     "docs/migrations/2026-08-27_web_china_volume_board.sql",
     "scripts/apply-china-volume-board-migration.mjs",
     "docs/DB_STRUCTURE.md",
@@ -18,13 +20,14 @@
     "__tests__/chinaVolumeBoardUi.test.js",
     "__tests__/chinaVolumeBoardPersistence.test.js",
     "__tests__/chinaVolumeBoardStore.test.js",
-    "__tests__/chinaVolumeBoardReviewUi.test.js"
+    "__tests__/chinaVolumeBoardReviewUi.test.js",
+    "__tests__/pivotAvailableWeeks.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {
       "name": "CHINA_VOLUME_BOARD_READ",
-      "source": "getPivotStats read-only payload",
+      "source": "authenticated OrderMaster input-week list scoped by OrderYear, followed by getPivotStats for the exact selected OrderYear + OrderWeek",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseDetail": "preserve",
@@ -81,7 +84,7 @@
     "productSource": "활성 Product 마스터의 중국 품목 전체를 읽기 전용 매칭 후보로 사용하되, 표에는 선택 차수 피벗 품목과 업로드에서 실제 매칭된 품목만 표시한다.",
     "productSearch": "괄호·공백·하이픈·ROSE/CARNATION 같은 화종 표기를 정규화해 SOLOMIO ROSE PINK가 Solomio Rose (pink)를 찾는다.",
     "display": "quantity cell dimensions remain fixed; matched invoice/packing quantity is the primary value and ERP order quantity remains a separate comparison value; both stay above box badge expansion layers; red box badges use one deterministically reserved empty neighbor in right-left-down-up order without covering nonempty cells; badge width follows digit count",
-    "defaultWeek": "35-01; previous/next buttons change only the selected major week and 조회 performs the read",
+    "defaultWeek": "35-01 is only the initial preference; the page loads the selected year's actual active OrderMaster OrderWeek values, keeps every recorded subweek such as 35-01 and 35-02, and previous/next navigation moves through that list without calculating a major-week jump",
     "uploadPersistence": "a successful packing upload immediately saves parsed rows, file name, sheet name and mapping review state without replacing the ERP quantity grid; manual matches update the review snapshot, and only an explicit apply after every row is matched saves invoice quantities and box allocations as the applied page",
     "matchingFlow": "show the ERP quantity board first; keep invoice source rows and current customer/product mapping visible in the right comparison panel; both unmatched and already matched source rows can explicitly select a different customer and product; a rematch resets only that immutable source row's working distribution to the newly selected cell for the full invoice quantity and then opens box distribution; each matched invoice row may be split into one or more customer-product cells, but its distribution total must exactly equal the immutable invoice quantity; preserve original quantity and box numbers while splitting quantities; block apply for every unmatched or incompletely distributed row; only the explicit apply action changes the displayed packing quantities and enables the final workbook",
     "productLabel": "strip leading CHINA / only; preserve the full remaining product name in web and workbook",
@@ -121,6 +124,7 @@
     "__tests__/chinaVolumeBoardPersistence.test.js",
     "__tests__/chinaVolumeBoardStore.test.js",
     "__tests__/chinaVolumeBoardReviewUi.test.js",
+    "__tests__/pivotAvailableWeeks.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

@@ -35,8 +35,12 @@ assert.match(page, /grid-template-columns:minmax\(0,1fr\) 292px/, '1920 화면�
 assert.match(page, /\/api\/stats\/china-volume-board/, '작업본·입고원장 스냅샷은 중국 전용 API에 저장한다');
 assert.match(page, /작업 저장/, '차수별 작업 저장 버튼을 제공한다');
 assert.match(page, /const DEFAULT_WEEK = '35-01'/, '기본 조회 차수는 35-01이다');
-assert.match(page, /aria-label="이전 차수"/, '왼쪽 차수 이동 버튼을 제공한다');
-assert.match(page, /aria-label="다음 차수"/, '오른쪽 차수 이동 버튼을 제공한다');
+assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, source: 'orders' \}\)/, '중국 물량표도 선택 연도의 실제 주문 입력 차수를 조회한다');
+assert.match(page, /availableWeeks\.map/, 'DB 입력 세부차수를 축약하지 않고 선택지로 표시한다');
+assert.match(page, /baseIndex - delta/, '이전·다음 이동은 계산한 주차가 아니라 DB 입력 차수 배열을 따른다');
+assert.match(page, /aria-label="이전 입력 차수"/, '왼쪽 DB 입력 차수 이동 버튼을 제공한다');
+assert.match(page, /aria-label="다음 입력 차수"/, '오른쪽 DB 입력 차수 이동 버튼을 제공한다');
+assert.doesNotMatch(page, /stepChinaOrderWeek/, '35-01에서 36-01로 건너뛰는 계산식 차수 이동을 사용하지 않는다');
 assert.match(page, /적용: \$\{sourceFileName\}/, '현재 적용된 패킹리스트 파일명을 표시한다');
 assert.match(page, /nextRows: matched, nextCells: \{\}[^;]*nextPhase: 'REVIEW'/, '패킹 업로드 직후 전산 물량표를 덮지 않고 매칭 검토 작업본으로 저장한다');
 assert.match(page, /packingPhase === 'APPLIED' \? \{ \.\.\.cells, \.\.\.automatic \} : cells/, '수동 매칭 중에는 확정 물량표를 덮지 않는다');
