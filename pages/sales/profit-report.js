@@ -13,6 +13,7 @@ import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
 import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
+import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
 
 function getDefaultYear() {
   const m = String(getCurrentWeek() || '').match(/^(\d{4})-/);
@@ -279,6 +280,10 @@ export default function ProfitReportPage() {
   // 보고서 진입 시에는 자동값만 읽기전용으로 보여준다. 입력 패널은 필요한 경우에만 연다.
   const [showCustoms, setShowCustoms] = useState(false);
   const [showForwarding, setShowForwarding] = useState(false);
+  const [rateDrafts, setRateDrafts] = useState({});
+  const [rateBusy, setRateBusy] = useState('');
+  const [classificationDrafts, setClassificationDrafts] = useState({});
+  const [classificationBusy, setClassificationBusy] = useState(0);
 
   // ── 검증·입력(표 아래 접기 영역) — 문제가 있으면 새 차수 조회 때마다 기본으로 펼친다.
   const [showValidation, setShowValidation] = useState(false);
@@ -790,6 +795,53 @@ export default function ProfitReportPage() {
   };
 
   const setEdit = (cat, col, val) => setEdits(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [col]: val } }));
+  const setRateDraft = (category, field, value) => setRateDrafts(prev => ({ ...prev, [category]: { ...(prev[category] || {}), [field]: value } }));
+  const saveRequiredRate = async (row) => {
+    const draft = rateDrafts[row.category] || {};
+    const rate = Number(String(draft.rate || '').replace(/,/g, ''));
+    if (!(rate > 0)) return setError(`${row.category} 과세환율을 입력하세요.`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.sourceDate || '')) return setError(`${row.category} 통관 신고 기준일을 입력하세요.`);
+    if (!String(draft.sourceNote || '').trim()) return setError(`${row.category} 환율 근거를 입력하세요.`);
+    setRateBusy(row.category); setError(''); setMessage('');
+    try {
+      const res = await fetch('/api/sales/profit-report', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, action: 'saveTaxableRate',
+          currency: row.currency || '', category: row.category, rate, rateSource: 'manual_input',
+          sourceDate: draft.sourceDate, sourceNote: draft.sourceNote.trim() }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error || '과세환율 저장 실패');
+      setMessage(`${row.category} 과세환율을 저장하고 보고서를 다시 계산했습니다.`);
+      await load();
+    } catch (e) { setError(e.message); } finally { setRateBusy(''); }
+  };
+  const unclassifiedProducts = useMemo(() => {
+    const map = new Map();
+    for (const row of data?.unclassifiedDetails || []) {
+      if (!row.prodKey) continue;
+      const current = map.get(row.prodKey) || { ...row, sources: new Set(), quantity: 0, amount: 0 };
+      current.sources.add(row.source); current.quantity += Number(row.quantity || 0); current.amount += Number(row.amount || 0);
+      map.set(row.prodKey, current);
+    }
+    return [...map.values()].map(row => ({ ...row, sources: [...row.sources] }));
+  }, [data?.unclassifiedDetails]);
+  const classificationTargets = useMemo(() => allowedProfitClassificationTargets(data?.major || weekInput.value), [data?.major, weekInput.value]);
+  const saveProductClassification = async (row) => {
+    const category = classificationDrafts[row.prodKey] || '';
+    if (!category) return setError(`${row.product}의 국가·화종 분류를 선택하세요.`);
+    setClassificationBusy(row.prodKey); setError(''); setMessage('');
+    try {
+      const res = await fetch('/api/sales/profit-report', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ week: weekInput.value, year: reportYear, action: 'classifyUnclassifiedProduct', prodKey: row.prodKey, category }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error || '품목 분류 저장 실패');
+      setMessage(`${row.product} 품목마스터를 ${category}(으)로 분류하고 보고서를 다시 계산했습니다.`);
+      await load();
+    } catch (e) { setError(e.message); } finally { setClassificationBusy(0); }
+  };
   const dirty = Object.keys(edits).length > 0 || noteDirty;
   const { rows, totals } = rowsCalc;
   const needsAttention = attentionRows(rows);
@@ -828,7 +880,8 @@ export default function ProfitReportPage() {
   const requiredInputCount = validationRateRows.length
     + (stockPriceInputNeeded ? 1 : 0)
     + (customsInputNeeded ? 1 : 0)
-    + (forwardingSourceReviewNeeded ? 1 : 0);
+    + (forwardingSourceReviewNeeded ? 1 : 0)
+    + unclassifiedProducts.length;
   // 차수를 새로 조회할 때마다 문제 유무로 기본 펼침을 다시 판단한다(사용자가 그 뒤 수동으로
   // 접고 펼치는 것은 다음 조회 전까지 유지).
   useEffect(() => {
@@ -1178,12 +1231,53 @@ export default function ProfitReportPage() {
               </button>
             )}
             {validationRateRows.length > 0 && (
-              <span style={st.requiredNotice}>⚠ 과세환율 입력 필요 {validationRateRows.length}건 — 아래 표의 환율 칸이 자동으로 열렸습니다</span>
+              <span style={st.requiredNotice}>⚠ 과세환율 입력 필요 {validationRateRows.length}건 — 바로 아래 입력표에서 저장할 수 있습니다</span>
+            )}
+            {unclassifiedProducts.length > 0 && (
+              <span style={st.requiredNotice}>⚠ 품목 국가·화종 확인 {unclassifiedProducts.length}건 — 품목별 올바른 분류를 선택하세요</span>
             )}
             {requiredInputCount === 0 && (
               <span style={st.requiredOkNotice}>입력·확인이 필요한 항목이 없습니다</span>
             )}
           </div>
+          {validationRateRows.length > 0 && (
+            <div style={st.embedPanel}>
+              <div style={st.embedPanelHead}><strong>💱 과세환율 입력 — {data.orderYear}년 {data.major}차</strong></div>
+              <div style={st.embedPanelBody}>
+                <div style={st.requiredHelp}>통관 신고서의 환율·신고 기준일·근거를 입력하면 이 연도와 차수에만 저장되고 보고서가 즉시 다시 계산됩니다.</div>
+                <div style={st.requiredGrid}>
+                  {validationRateRows.map(row => {
+                    const draft = rateDrafts[row.category] || {};
+                    return <Fragment key={row.category}>
+                      <div style={st.requiredRowLabel}><b>{row.category}</b><span>{row.currency || '통화 미확인'}</span></div>
+                      <input aria-label={`${row.category} 과세환율`} style={st.requiredInput} inputMode="decimal" placeholder="과세환율" value={draft.rate || ''} onChange={e => setRateDraft(row.category, 'rate', e.target.value.replace(/[^0-9.]/g, ''))}/>
+                      <input aria-label={`${row.category} 신고 기준일`} style={st.requiredInput} type="date" value={draft.sourceDate || ''} onChange={e => setRateDraft(row.category, 'sourceDate', e.target.value)}/>
+                      <input aria-label={`${row.category} 환율 근거`} style={st.requiredInput} placeholder="예: 수입신고필증 35-01" value={draft.sourceNote || ''} onChange={e => setRateDraft(row.category, 'sourceNote', e.target.value)}/>
+                      <button style={st.primarySmallBtn} disabled={data.confirmed || rateBusy === row.category} onClick={() => saveRequiredRate(row)}>{rateBusy === row.category ? '저장 중…' : '환율 저장'}</button>
+                    </Fragment>;
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+          {unclassifiedProducts.length > 0 && (
+            <div style={st.embedPanel}>
+              <div style={st.embedPanelHead}><strong>🧭 기타(미분류) 품목 처리 — {unclassifiedProducts.length}건</strong></div>
+              <div style={st.embedPanelBody}>
+                <div style={st.requiredHelp}>이 차수의 미분류 거래에 실제 포함된 품목만 표시합니다. 저장하면 품목마스터의 국가·화종이 바뀌므로 이후 모든 화면에도 같은 분류가 적용되며 변경 전후가 감사기록에 남습니다.</div>
+                <div style={st.classificationList}>
+                  {unclassifiedProducts.map(row => <div key={row.prodKey} style={st.classificationRow}>
+                    <div style={st.classificationInfo}><b>{row.product}</b><span>현재 {row.country} / {row.flower} · 원천 {row.sources.join('·')} · 수량 {fmt(row.quantity)} · 금액 {fmt(row.amount)}</span></div>
+                    <select aria-label={`${row.product} 국가·화종 분류`} style={st.requiredInput} value={classificationDrafts[row.prodKey] || ''} onChange={e => setClassificationDrafts(prev => ({ ...prev, [row.prodKey]: e.target.value }))}>
+                      <option value="">올바른 분류 선택</option>
+                      {classificationTargets.map(category => <option key={category} value={category}>{category}</option>)}
+                    </select>
+                    <button style={st.primarySmallBtn} disabled={data.confirmed || classificationBusy === row.prodKey} onClick={() => saveProductClassification(row)}>{classificationBusy === row.prodKey ? '저장 중…' : '품목 분류 저장'}</button>
+                  </div>)}
+                </div>
+              </div>
+            </div>
+          )}
           {showCustoms && (
             <div style={st.embedPanel}>
               <div style={st.embedPanelHead}>
@@ -1855,6 +1949,14 @@ const st = {
   requiredActions: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   requiredNotice: { fontSize: 12, fontWeight: 700, color: '#9a3412' },
   requiredOkNotice: { fontSize: 12, fontWeight: 600, color: '#166534' },
+  requiredHelp: { fontSize: 11.5, lineHeight: 1.5, color: '#475569', marginBottom: 8 },
+  requiredGrid: { display: 'grid', gridTemplateColumns: 'minmax(150px,1.1fr) minmax(105px,.7fr) minmax(145px,.8fr) minmax(190px,1.4fr) auto', gap: 7, alignItems: 'center' },
+  requiredRowLabel: { display: 'flex', flexDirection: 'column', minWidth: 0, fontSize: 12, color: '#334155' },
+  requiredInput: { minWidth: 0, height: 32, boxSizing: 'border-box', border: '1px solid #94a3b8', borderRadius: 5, padding: '0 8px', fontSize: 12, background: '#fff' },
+  primarySmallBtn: { height: 32, border: 'none', borderRadius: 5, padding: '0 11px', background: '#166534', color: '#fff', fontSize: 11.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' },
+  classificationList: { display: 'flex', flexDirection: 'column', gap: 6 },
+  classificationRow: { display: 'grid', gridTemplateColumns: 'minmax(260px,1fr) minmax(190px,260px) auto', gap: 8, alignItems: 'center', padding: 7, border: '1px solid #e2e8f0', borderRadius: 6, background: '#f8fafc' },
+  classificationInfo: { display: 'flex', flexDirection: 'column', minWidth: 0, fontSize: 12, color: '#334155' },
   // 표 아래 접기 영역(상세 확인 내역 / 이익률 분석) — components/ProfitReportSourceGuide.js 와 동일한 토글 패턴.
   collapseWrap: { marginTop: 12 },
   collapseToggle: {

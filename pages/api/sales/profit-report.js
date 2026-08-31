@@ -7,7 +7,7 @@ import {
   invoiceRatesByCategory, stockSnapshotByCategory, currencyRates, loadManual, saveManual,
   stockPriceRows, saveStockPrices, currencyCodeForCategory, unclassifiedDetailsByCategory, formatUnclassifiedNote, composeProfitReportNote,
   periodDayRangesByMajor, profitReportCategoriesForWeek, latestStockSnapshotWeek,
-  assertProfitReportReadSchema,
+  assertProfitReportReadSchema, classifyUnclassifiedProfitProduct,
 } from '../../../lib/profitReport';
 import {
   computeAutoEndingStock,
@@ -821,6 +821,15 @@ export default withAuth(async function handler(req, res) {
           sourceNote: req.body?.sourceNote || null,
         }, actor);
         return res.status(200).json({ success: true });
+      }
+      if (req.body?.action === 'classifyUnclassifiedProduct') {
+        const changed = await classifyUnclassifiedProfitProduct({
+          orderYear, major,
+          prodKey: req.body?.prodKey,
+          category: String(req.body?.category || ''),
+          actor,
+        });
+        return res.status(200).json({ success: true, changed, affected: 1 });
       }
       if (req.body?.action === 'saveNote') {
         const note = String(req.body?.note ?? '').slice(0, 2000);
