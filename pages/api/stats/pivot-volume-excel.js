@@ -7,6 +7,11 @@ import { getFarmDisplayName } from '../../../lib/farmKoreanNames';
 import { customerDisplayLabel, getPivotStats, makePivotVolumeSheetName } from '../../../lib/pivotStats';
 import { DAY_ORDER, extractDays, pickDataDay } from '../../../lib/pivotVolumeCustDays';
 import { includePivotVolumeRow, sumIncomingQty, sumOrderQty } from '../../../lib/pivotVolumeRows';
+import {
+  buildPivotVolumeIdentityColumns,
+  isNetherlandsVolume,
+  pivotVolumeFlowerLabel,
+} from '../../../lib/pivotVolumeNetherlands';
 const ALSTRO_DIVISOR = 16;
 const CUSTOMER_COL_WCH = 4;
 const COUNTRY_ONLY_SHEETS = new Set(['중국', '태국', '호주', '네덜란드']);
@@ -84,14 +89,9 @@ function normalizeCountryName(country) {
   return String(country || '').replace(/\s+/g, '').trim();
 }
 
-function isNetherlands(rowOrMeta) {
-  return normalizeCountryName(rowOrMeta?.country) === '네덜란드' ||
-    normalizeCountryName(rowOrMeta?.sheetName) === '네덜란드';
-}
-
 // 중국·네덜란드 시트는 업체명 아래에 CL(OrderCode)을 함께 표시
 function showsCustomerCL(meta) {
-  if (isNetherlands(meta)) return true;
+  if (isNetherlandsVolume(meta)) return true;
   const c = normalizeCountryName(meta?.country || meta?.species || meta?.sheetName);
   return c === '중국';
 }
@@ -234,8 +234,7 @@ function makeColumnPlan(rows, customers, farms, meta) {
   const customerGroups = makeCustomerGroups(rows, customers, meta.flower);
   const customerColCount = customerGroups.reduce((sum, group) => sum + group.cols.length, 0);
   const farmNames = activeFarms(rows, farms);
-  const colPlan = [{ type: 'product', section: 'left' }];
-  if (isNetherlands(meta)) colPlan.push({ type: 'color' });
+  const colPlan = buildPivotVolumeIdentityColumns(meta);
 
   for (const group of customerGroups) {
     if (customerColCount > 10 && group.region === '지방' && colPlan.filter(col => col.type === 'product').length === 1) {
@@ -255,10 +254,16 @@ function makeSheet(rows, customers, farms, meta) {
   const aoa = [[], [], []];
 
   colPlan.forEach((col, idx) => {
-    if (col.type === 'product') {
+    if (col.type === 'flower') {
       aoa[0][idx] = `차수(${String(meta.weekLabel || '').replace(/-/g, '')}) 품종(${meta.species || meta.flower || ''})`;
       aoa[1][idx] = '';
-      aoa[2][idx] = '';
+      aoa[2][idx] = '꽃';
+    } else if (col.type === 'product') {
+      aoa[0][idx] = isNetherlandsVolume(meta) && col.section === 'left'
+        ? ''
+        : `차수(${String(meta.weekLabel || '').replace(/-/g, '')}) 품종(${meta.species || meta.flower || ''})`;
+      aoa[1][idx] = '';
+      aoa[2][idx] = isNetherlandsVolume(meta) ? '품목명' : '';
     } else if (col.type === 'color') {
       aoa[0][idx] = '';
       aoa[1][idx] = '';
@@ -284,8 +289,9 @@ function makeSheet(rows, customers, farms, meta) {
   rows.forEach(row => {
     const line = [];
     colPlan.forEach(col => {
-      if (col.type === 'product') line.push(volumeProdLabel(row));
-      else if (col.type === 'color') line.push(isNetherlands(row) ? dutchColorLabel(row.productDescr) : '');
+      if (col.type === 'flower') line.push(pivotVolumeFlowerLabel(row));
+      else if (col.type === 'product') line.push(volumeProdLabel(row));
+      else if (col.type === 'color') line.push(isNetherlandsVolume(row) ? dutchColorLabel(row.productDescr) : '');
       else if (col.type === 'customer') line.push(q(row, row.orders?.[col.customer.custName]) || '');
       else if (col.type === 'summary' && col.label === '주문') line.push(q(row, sumOrderQty(row)) || '');
       else if (col.type === 'summary' && col.label === '입고') line.push(q(row, sumIncomingQty(row)) || '');
@@ -299,7 +305,8 @@ function makeSheet(rows, customers, farms, meta) {
 
   const totals = [];
   colPlan.forEach(col => {
-    if (col.type === 'product') totals.push('합계');
+    if (col.type === 'flower') totals.push('');
+    else if (col.type === 'product') totals.push('합계');
     else if (col.type === 'color') totals.push('');
     else if (col.type === 'customer') totals.push(rows.reduce((sum, row) => sum + q(row, row.orders?.[col.customer.custName]), 0) || '');
     else if (col.type === 'summary' && col.label === '주문') totals.push(rows.reduce((sum, row) => sum + q(row, sumOrderQty(row)), 0) || '');
@@ -313,10 +320,10 @@ function makeSheet(rows, customers, farms, meta) {
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = colPlan.map(col => ({
-    wch: col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' ? 8 : col.type === 'customer' ? CUSTOMER_COL_WCH : 5,
+    wch: col.type === 'flower' ? 12 : col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' ? 8 : col.type === 'customer' ? CUSTOMER_COL_WCH : 5,
   }));
   ws['!rows'] = [{ hpt: 22 }, { hpt: 20 }, { hpt: 44 }];
-  ws['!freeze'] = { xSplit: 1, ySplit: 3 };
+  ws['!freeze'] = { xSplit: isNetherlandsVolume(meta) ? 3 : 1, ySplit: 3 };
 
   const dataStart = 4;
   const totalRow = dataStart + rows.length;
@@ -348,7 +355,7 @@ function makeSheet(rows, customers, farms, meta) {
   });
 
   colPlan.forEach((col, idx) => {
-    if (col.type === 'product') return;
+    if (col.type === 'product' || col.type === 'flower') return;
     const colNo = idx + 1;
     const value = totals[idx];
     ws[encodeCell(totalRow, colNo)] = typeof value === 'number'
@@ -369,7 +376,7 @@ function makeSheet(rows, customers, farms, meta) {
           : (r === 3 && (col.type === 'customer' || col.type === 'farm')) ? STYLES.headerTop  // #5 업체/농장 위쪽맞춤
           : STYLES.header;
       } else if (r === totalRow) ws[addr].s = remainNeg ? STYLES.summaryRed : STYLES.summary;
-      else if (col.type === 'product') ws[addr].s = STYLES.text;
+      else if (col.type === 'product' || col.type === 'flower') ws[addr].s = STYLES.text;
       else if (col.type === 'color') ws[addr].s = STYLES.text;
       else if (col.type === 'summary') ws[addr].s = remainNeg ? STYLES.summaryRed : STYLES.summary;  // #4 잔량 음수 빨강
       else ws[addr].s = STYLES.number;
