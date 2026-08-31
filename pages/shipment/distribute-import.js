@@ -129,7 +129,6 @@ export default function DistributeImport() {
   const [matchTab, setMatchTab] = useState('customer');
   const [custOverrides, setCustOverrides] = useState({});   // { 원본업체라벨: custKey }
   const [prodOverrides, setProdOverrides] = useState({});   // { productOverrideKey: prodKey }
-  const [shipmentOnly, setShipmentOnly] = useState(false);  // true: 주문(OrderDetail) 미변경, 출고분배만 반영
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyRows, setHistoryRows] = useState([]);
@@ -443,11 +442,8 @@ export default function DistributeImport() {
     }
     const orderCreateText = orderlessRows.length ? `\n신규추가 ${orderlessRows.length}건은 주문등록을 먼저 만든 뒤 분배합니다.` : '';
     const orderChangeText = orderChangeRows.length ? `\n기존 주문수량 변경 ${orderChangeRows.length}건은 엑셀 최종 수량으로 동기화합니다.` : '';
-    const shipmentOnlyInfoText = shipmentRows.length && !orderChangeRows.length
-      ? `\n분배만 반영 ${shipmentRows.length}건 — 주문등록은 유지하고 출고분배 수량만 변경합니다.`
-      : '';
-    const shipmentOnlyModeText = shipmentOnly
-      ? '\n※ 분배전용 모드: 주문등록(OrderDetail)은 전혀 변경하지 않고 출고분배(ShipmentDetail)만 반영합니다.'
+    const orderAlreadyFinalText = shipmentRows.length && !orderChangeRows.length
+      ? `\n주문수량 ${shipmentRows.length}건은 이미 엑셀 최종값과 같아 유지하고, 출고분배만 같은 최종값으로 맞춥니다.`
       : '';
     let ackQtyWarnings = false;
     if (qtyWarningRows.length) {
@@ -460,14 +456,14 @@ export default function DistributeImport() {
       );
       if (!ok) return;
       ackQtyWarnings = true;
-    } else if (!confirm(`${preview.week}차 검증 결과를 일괄 ${shipmentOnly ? '출고분배' : '주문등록+출고분배'}로 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${shipmentOnlyInfoText}${shipmentOnlyModeText}\n\n※ 분배만 변경되는 행은 주문등록을 삭제하지 않습니다.`)) {
+    } else if (!confirm(`${preview.week}차 검증 결과를 주문등록과 출고분배의 최종값으로 함께 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${orderAlreadyFinalText}\n\n※ 엑셀 빈칸·누락은 기존값을 유지하고, 명시적 0만 주문과 분배를 함께 0으로 처리합니다.`)) {
       return;
     }
     setApplying(true); setError(''); setMessage('');
     const initialApplyResult = {
       running: true,
       logs: [
-        `${preview.week}차 일괄 ${shipmentOnly ? '출고분배(주문 미변경)' : '주문등록+분배'} 적용 시작`,
+        `${preview.week}차 주문등록+출고분배 최종값 적용 시작`,
         `적용대상 ${applyRows.length}건을 서버 트랜잭션으로 처리 중입니다.`,
       ],
       appliedRows: [],
@@ -490,7 +486,7 @@ export default function DistributeImport() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ week: preview.week, year: preview.orderYear, rows: applyRows, ackQtyWarnings, shipmentOnly, jobId }),
+        body: JSON.stringify({ week: preview.week, year: preview.orderYear, rows: applyRows, ackQtyWarnings, jobId }),
       });
       let data;
       try {
@@ -597,12 +593,8 @@ export default function DistributeImport() {
           </button>
           <button style={st.primaryBtn} onClick={handlePreview} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
           <button style={st.secondaryBtn} onClick={toggleImportHistory} disabled={historyLoading}>{historyOpen ? '업로드 이력 닫기' : '업로드 이력·전체 되돌리기'}</button>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#374151', whiteSpace: 'nowrap' }} title="켜면 주문등록(OrderDetail)은 전혀 변경하지 않고 출고분배(ShipmentDetail)만 반영합니다.">
-            <input type="checkbox" checked={shipmentOnly} onChange={e => setShipmentOnly(e.target.checked)} />
-            분배만 반영(주문 미변경)
-          </label>
           <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>
-            {applying ? '적용 중...' : shipmentOnly ? '승인 후 분배만 반영' : '승인 후 주문등록+분배'}
+            {applying ? '적용 중...' : '승인 후 주문등록+분배'}
           </button>
         </div>
 
