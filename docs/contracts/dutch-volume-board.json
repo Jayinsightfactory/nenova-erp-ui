@@ -7,7 +7,7 @@
     {"name": "DUTCH_PIVOT_LIVE_READ", "source": "authenticated GET /api/stats/pivot-weeks?source=orders lists exact OrderYear-scoped OrderMaster subweeks; the selected recorded subweek is sent to /api/stats/pivot-data as explicit orderYear + exact weekStart + weekEnd; extract Netherlands positive customer-product order quantities only", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
     {"name": "DUTCH_PIVOT_WORKBOOK_UPLOAD", "source": "optional client-side upload of the existing Pivot statistics workbook; extract positive customer-product quantity cells only", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
     {"name": "DUTCH_PRICE_DRAFT", "source": "browser localStorage keyed by uploaded filename; Enter focuses the next visible price input", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"},
-    {"name": "DUTCH_PRICE_WORKBOOK_EXPORT", "source": "reuse the exact Pivot statistics Netherlands volume workbook and preserve its product/color/customer/summary/farm layout, styles and formulas; insert only one unit-price column immediately to the right of each customer quantity column", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"}
+    {"name": "DUTCH_PRICE_WORKBOOK_EXPORT", "source": "reuse the exact Pivot statistics Netherlands volume workbook and preserve its product/color/customer/summary/farm columns, merges, colors, borders, widths, styles and formulas; keep quantity as the numeric cell value and show unit price as a second-line custom number format inside that same quantity cell without adding columns", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseDetail": "preserve", "estimate": "preserve", "stock": "preserve"}
   ],
   "criteriaLedger": {
     "authority": "default source is authenticated read-only pivot-data with explicit year/week; selectable weeks come only from the selected OrderYear's active OrderMaster records because Dutch customer quantities are OrderDetail-based; uploaded workbook remains an optional alternate source",
@@ -16,7 +16,7 @@
     "quantity": "only finite numeric values greater than zero become price-entry rows",
     "price": "strictly positive value means complete; zero or blank remains pending",
     "keyboard": "Enter prevents form submission and focuses/selects the next visible price input",
-    "export": "source workbook stays intact; the exported Netherlands Pivot sheet keeps the Pivot volume template and adds only unit-price columns beside customer quantity columns; order-total formulas exclude inserted price columns",
+    "export": "both live-download and uploaded-workbook paths read and write with xlsx-js-style; the source workbook stays intact and the exported Netherlands Pivot sheet keeps the exact original used range, columns, merges, colors, borders, widths and formulas; a positive unit price appears on a second line inside its numeric quantity cell via custom number format, so no price columns are inserted and order-total formulas keep summing numeric quantities",
     "currency": "EUR default with explicit KRW choice"
   },
   "crossYearFixture": {"required": true, "description": "직접 조회는 orderYear + weekStart + weekEnd를 모두 전달하고 단가 입력은 ERP에 쓰지 않으므로 전년도 동일 차수 Master를 섞거나 변경하지 않는다."},

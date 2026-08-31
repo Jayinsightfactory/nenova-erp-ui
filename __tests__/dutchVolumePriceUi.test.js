@@ -11,7 +11,10 @@ assert.doesNotMatch(page, /appendDutchPriceSheet|NL_단가표/, '별도 단가 �
 assert.match(page, /localStorage/);
 assert.match(page, /file\.name.*file\.size.*file\.lastModified/, '같은 파일명의 다른 작업본 단가가 섞이면 안 됩니다.');
 assert.doesNotMatch(page, /XLSX\.write\(workbook/, '원본 workbook을 불필요하게 재직렬화해 스타일과 계산식을 잃으면 안 됩니다.');
+assert.doesNotMatch(page, /from 'xlsx'/, '업로드도 xlsx-js-style로 읽어 원본 색상과 셀 서식을 보존해야 합니다.');
+assert.match(page, /XLSXStyled\.read\(await file\.arrayBuffer\(\)/, '업로드와 다운로드의 스타일 지원 라이브러리를 통일해야 합니다.');
 assert.match(page, /수량.*단가/);
+assert.doesNotMatch(page, /단가 열만 추가됩니다/, '다운로드 안내에서 별도 단가 열을 추가한다고 설명하면 안 됩니다.');
 assert.match(page, /apiGet\('\/api\/stats\/pivot-data', \{ orderYear: selectedYear, weekStart: selectedWeek, weekEnd: selectedWeek \}\)/, '선택한 연도와 DB 세부차수를 시작·종료 범위에 정확히 전달해야 합니다.');
 assert.match(page, /네노바웹 물량 바로 불러오기/);
 assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, source: 'orders' \}\)/, '선택 연도의 주문 입력 세부차수 목록을 조회해야 합니다.');
