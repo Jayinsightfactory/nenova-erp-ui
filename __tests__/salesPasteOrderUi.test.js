@@ -43,6 +43,9 @@ assert.match(api, /ensureShipmentMaster = !isMyCustomerSource/, 'sales-paste는 
 assert.match(parser, /matchName: item\.matchName \|\| item\.inputName/, '콜 수국 같은 국가·품종 문맥을 공통 매칭 엔진에 전달해야 합니다.');
 assert.match(parser, /suggestedProducts:\s*\(matched\.suggestedProducts \|\| \[\]\)\.map/, '공통 매칭 엔진의 순위 후보를 화면 응답에 포함해야 합니다.');
 assert.match(parser, /normalizeSalesPasteInputText\(raw\)/, 'API 직접 호출에서도 줄 끝 역슬래시 수량행이 누락되면 안 됩니다.');
+assert.match(parser, /'알스트로':\s*'ALSTROMERIA'/, '알스트로 후보 SQL은 실제 ERP Product 영문 철자와 같아야 합니다.');
+assert.match(parser, /'피피':\s*'FIFI'/, '피피 입력은 ALSTROMERIA Fifi 후보를 LLM 목록에 포함해야 합니다.');
+assert.match(parser, /parsedExplicitUnit[\s\S]{0,220}unitExplicit:\s*Boolean\(item\.unitExplicit \|\| parsedExplicitUnit\)/, 'LLM 결과에서도 원문의 박스·단·송이 단위를 기본단위로 덮으면 안 됩니다.');
 assert.match(parser, /sourceNaturalParsed\.detectedWeek[\s\S]{0,100}sourceCompactParsed\.detectedWeek[\s\S]{0,100}naturalParsed\.detectedWeek/, '붙여넣은 원문 차수를 문맥 헤더와 LLM 감지값보다 우선해야 합니다.');
 assert.match(parser, /ORDER_PASTE_LLM_MODEL[\s\S]{0,100}claude-sonnet-4-5/, '비용보다 정확도를 우선하는 Sonnet 분석을 기본값으로 사용해야 합니다.');
 assert.match(parser, /chooseSalesPasteParsedOrders\(/, 'LLM 결과를 규칙 결과가 무조건 덮어쓰지 말고 수량행 완전성으로 선택해야 합니다.');

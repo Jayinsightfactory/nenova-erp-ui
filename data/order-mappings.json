@@ -2683,6 +2683,24 @@
     "savedAt": "2026-07-17T04:00:00.000Z",
     "auto": false
   },
+  "알스트로 피피": {
+    "prodKey": 69,
+    "prodName": "ALSTROMERIA Fifi",
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-09-01T00:00:00.000Z",
+    "auto": false
+  },
+  "콜롬비아 알스트로 피피": {
+    "prodKey": 69,
+    "prodName": "ALSTROMERIA Fifi",
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-09-01T00:00:00.000Z",
+    "auto": false
+  },
   "알스트로메리아 화이트": {
     "prodKey": 53,
     "prodName": "ALSTROMERIA Whistler",
@@ -2699,6 +2717,24 @@
     "counName": "콜롬비아",
     "displayName": null,
     "savedAt": "2026-07-17T04:00:00.000Z",
+    "auto": false
+  },
+  "알스트로 두바이": {
+    "prodKey": 54,
+    "prodName": "ALSTROMERIA Dubai",
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-09-01T00:00:00.000Z",
+    "auto": false
+  },
+  "콜롬비아 알스트로 두바이": {
+    "prodKey": 54,
+    "prodName": "ALSTROMERIA Dubai",
+    "flowerName": "알스트로",
+    "counName": "콜롬비아",
+    "displayName": null,
+    "savedAt": "2026-09-01T00:00:00.000Z",
     "auto": false
   },
   "카네이션 연그린": {

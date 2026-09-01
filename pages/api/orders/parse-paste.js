@@ -37,8 +37,11 @@ const KO_EN_KEYWORDS = {
   '국화': 'CHRYSANTHEMUM',
   '안개': 'GYPSOPHILA',
   '해바라기': 'SUNFLOWER',
-  '알스트로': 'ALSTROEMERIA',
-  '알스트로메리아': 'ALSTROEMERIA',
+  // ERP Product.ProdName은 ALSTROMERIA 철자를 사용한다.
+  '알스트로': 'ALSTROMERIA',
+  '알스트로메리아': 'ALSTROMERIA',
+  '두바이': 'DUBAI',
+  '피피': 'FIFI',
   '휘슬러': 'WHISTLER',
   '스타티스': 'STATICE',
   '호주': '호주',
@@ -788,11 +791,12 @@ Caroline | 2
       });
       const items = (order.items || []).map((item, index) => {
         const matched = sharedMatches[index] || {};
+        const parsedExplicitUnit = parseExplicitOrderUnit(item.unit);
         return {
           inputName:   item.inputName,
           qty:         item.qty || 1,
-          unit: item.unitExplicit ? normNatUnit(item.unit, '') : (matched.unit || item.unit || '박스'),
-          unitExplicit: Boolean(item.unitExplicit),
+          unit: (item.unitExplicit || parsedExplicitUnit) ? normNatUnit(item.unit, '') : (matched.unit || item.unit || '박스'),
+          unitExplicit: Boolean(item.unitExplicit || parsedExplicitUnit),
           action:      normalizeAction(item.action, item.inputName),
           prodKey:     matched.prodKey || item.prodKey || null,
           prodName:    matched.prodName || item.prodName || null,

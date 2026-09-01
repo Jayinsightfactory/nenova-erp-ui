@@ -148,7 +148,10 @@ export default withAuth(async function handler(req, res) {
 
     const ctx = await loadMatchContext();
     const items = applyBoardOverlay(
-      matchImportRows(decorateIntakeRows(parsedRows, { forImage: sourceType === 'image' }), ctx),
+      matchImportRows(
+        decorateIntakeRows(parsedRows, { forImage: sourceType === 'image' }),
+        { ...ctx, mappingRelevanceMode: sourceType === 'image' ? 'image' : 'standard' },
+      ),
       ctx.overlay,
       ctx.productByKey,
     ).map((it) => {
