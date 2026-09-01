@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { addDutchPriceColumns, buildDutchEntriesFromPivotData, dutchQuantityPriceNumberFormat, parseDutchPivotWorkbook, priceProgress } from '../lib/dutchVolumePrice.js';
+import { addDutchPriceColumns, buildDutchEntriesFromPivotData, dutchEntryPrice, dutchPriceKey, isDutchIndividualPriceCustomer, migrateDutchPriceDraft, dutchQuantityPriceNumberFormat, parseDutchPivotWorkbook, priceProgress } from '../lib/dutchVolumePrice.js';
 import { addDutchPriceShapesToXlsx } from '../lib/dutchPriceShapes.js';
 import JSZip from 'jszip';
 const wb = XLSX.utils.book_new();
@@ -12,8 +12,8 @@ XLSX.utils.book_append_sheet(wb, ws, '네덜란드');
 const parsed = parseDutchPivotWorkbook(XLSX, wb);
 assert.equal(parsed.entries.length, 3);
 assert.deepEqual(parsed.entries.map(row => [row.product, row.customer, row.quantity]), [['Tulip Strong Gold', '꽃길\nCL6', 10],['Rose Avalanche', '꽃길\nCL6', 5],['Rose Avalanche', '로뎀농원\nCL99', 7]]);
-const prices = { [parsed.entries[0].id]: 1.25, [parsed.entries[1].id]: 2 };
-assert.deepEqual(priceProgress(parsed.entries, prices), { completed: 2, total: 3, pending: 1 });
+const prices = { [dutchPriceKey(parsed.entries[0])]: 1.25, [dutchPriceKey(parsed.entries[1])]: 2 };
+assert.deepEqual(priceProgress(parsed.entries, prices), { completed: 3, total: 3, pending: 0 }, '같은 품목의 비주광 업체 두 곳은 균일가 한 번으로 함께 완료된다.');
 const priced = addDutchPriceColumns(XLSX, wb, parsed.entries, prices, 'EUR');
 const output = XLSX.utils.sheet_to_json(priced.workbook.Sheets['네덜란드'], { header: 1, defval: '' });
 assert.deepEqual(output[2].slice(0, 8), ['', '칼라', '꽃길\nCL6', '로뎀농원\nCL99', '주문', '입고', '재고', '잔량']);
@@ -30,6 +30,19 @@ assert.equal(priced.workbook.Sheets['네덜란드'].A1.v, '차수(3501)\n품종(
 assert.equal(priced.workbook.Sheets['네덜란드'].A1.s.fill.fgColor.rgb, 'D9E6F2', '브라우저 재저장 때도 Pivot 제목 디자인을 명시적으로 복원해야 합니다.');
 assert.equal(priced.workbook.SheetNames.includes('NL_단가표'), false, '별도 단가 결과 시트를 만들면 안 됩니다.');
 assert.equal(ws.C4.v, 10, '원본 수량 셀을 변경하면 안 됩니다.');
+const uniformRows = [
+  { id: 'a', product: 'Rose Avalanche', color: 'White', customer: '꽃길\nCL6' },
+  { id: 'b', product: 'Rose Avalanche', color: 'White', customer: '로뎀농원\nCL99' },
+  { id: 'c', product: 'Rose Avalanche', color: 'White', customer: '주광농원\nCL2' },
+];
+const uniformPrices = { [dutchPriceKey(uniformRows[0])]: 3.5, c: 4.2 };
+assert.equal(isDutchIndividualPriceCustomer(uniformRows[2].customer), true, '주광 명칭은 업체별 개별단가 대상이다.');
+assert.equal(dutchPriceKey(uniformRows[0]), dutchPriceKey(uniformRows[1]), '주광 외 동일 품목·칼라는 하나의 균일가 키를 공유한다.');
+assert.notEqual(dutchPriceKey(uniformRows[0]), dutchPriceKey(uniformRows[2]), '주광은 공통 균일가 키에 포함하지 않는다.');
+assert.deepEqual(uniformRows.map(row => dutchEntryPrice(row, uniformPrices)), [3.5, 3.5, 4.2], '비주광 균일가와 주광 개별단가를 분리한다.');
+assert.equal(dutchEntryPrice({ ...uniformRows[1], color: 'Pink' }, uniformPrices), 0, '같은 품목이라도 칼라가 다르면 균일가를 재사용하지 않는다.');
+assert.equal(migrateDutchPriceDraft(uniformRows, { a: 2, b: 2 })[dutchPriceKey(uniformRows[0])], 2, '과거 비주광 단가가 모두 같을 때만 균일가로 승계한다.');
+assert.equal(migrateDutchPriceDraft(uniformRows, { a: 2, b: 3 })[dutchPriceKey(uniformRows[0])], undefined, '과거 비주광 단가가 충돌하면 임의 균일가를 선택하지 않는다.');
 const shapedBuffer = await addDutchPriceShapesToXlsx(XLSX, XLSX.write(priced.workbook, { type: 'array', bookType: 'xlsx' }), priced.workbook, parsed.entries, prices);
 const shapedZip = await JSZip.loadAsync(shapedBuffer);
 const drawingName = Object.keys(shapedZip.files).find(name => /^xl\/drawings\/drawing\d+\.xml$/.test(name));

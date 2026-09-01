@@ -20,6 +20,9 @@ assert.doesNotMatch(page, /<small>@ /, '웹 미리보기에도 @ 문자를 표�
 assert.doesNotMatch(page, /writeFile\(/, '도형 삽입 전 일반 writeFile로 바로 저장하면 안 됩니다.');
 assert.match(page, /apiGet\('\/api\/stats\/pivot-data', \{ orderYear: selectedYear, weekStart: selectedWeek, weekEnd: selectedWeek \}\)/, '선택한 연도와 DB 세부차수를 시작·종료 범위에 정확히 전달해야 합니다.');
 assert.match(page, /네노바웹 물량 바로 불러오기/);
+assert.match(page, /주광은 업체별 단가를 입력합니다/, '주광 개별단가와 비주광 품목 균일가 규칙을 화면에서 안내해야 합니다.');
+assert.match(page, /dutchPriceKey\(row\)/, '비주광 단가 입력은 업체 행 id가 아니라 품목 균일가 키를 사용해야 합니다.');
+assert.match(page, /isDutchIndividualPriceCustomer\(row\.customer\)/, '주광 업체만 개별단가 입력으로 구분해야 합니다.');
 assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, source: 'orders' \}\)/, '선택 연도의 주문 입력 세부차수 목록을 조회해야 합니다.');
 assert.match(page, /availableWeeks\.map\(recordedWeek/, '35-01·35-02 같은 실제 입력 세부차수를 각각 선택할 수 있어야 합니다.');
 assert.match(page, /baseIndex - delta/, '이전·다음 버튼은 주차 계산이 아니라 DB 입력 차수 순서를 따라야 합니다.');
