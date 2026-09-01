@@ -27,7 +27,9 @@ import {
   formatSplitQtyLabel,
   parseRegisterSnapPayload,
   batchLineTotal,
-  hotelMiuWeekOptions,
+  hotelMiuMajorWeekOptions,
+  normalizeHotelMiuWeekSelection,
+  requireHotelMiuWeekScope,
   pickHotelMiuCustomer,
   resolveHotelMiuDefaultVendors,
   reapplyItemsFromSnaps,
@@ -45,7 +47,8 @@ import {
   writeVarietyFilter,
   HOTEL_MIU_BATCH_DRAFT,
   HOTEL_MIU_DEFAULT_VENDOR_LABELS,
-  HOTEL_MIU_WEEK_UNTIL,
+  HOTEL_MIU_FORWARD_MAJOR_COUNT,
+  HOTEL_MIU_SUBWEEK_NUMBERS,
 } from '../lib/hotelMiuIntake.js';
 
 function sampleText(kind) {
@@ -373,26 +376,42 @@ assert.equal(mergeAllBatchLines([
 }
 
 assert.deepEqual(HOTEL_MIU_DEFAULT_VENDOR_LABELS, ['라움', '신라', '쵸이문', '미우']);
-const weekOpts = hotelMiuWeekOptions('2026-34-01');
-assert.equal(weekOpts.length, 4);
-assert.deepEqual(weekOpts.map((w) => w.week), ['34-01', '34-02', '34-03', '34-04']);
-assert.equal(weekOpts[0].year, '2026');
-assert.equal(weekOpts[0].isDefault, true);
-assert.deepEqual(hotelMiuWeekOptions('2026-34-03').map((w) => w.week), ['34-03', '34-04', '35-01', '35-02']);
-assert.deepEqual(hotelMiuWeekOptions('2026-52-04').map((w) => `${w.year}-${w.week}`), [
-  '2026-52-04', '2027-01-01', '2027-01-02', '2027-01-03',
-]);
-assert.equal(HOTEL_MIU_WEEK_UNTIL, '36-02');
-const until3602 = hotelMiuWeekOptions('2026-34-01', HOTEL_MIU_WEEK_UNTIL);
-assert.equal(until3602[0].week, '34-01');
-assert.equal(until3602[until3602.length - 1].week, '36-02');
-assert.ok(until3602.some((w) => w.week === '35-01'));
-assert.ok(until3602.some((w) => w.week === '36-01'));
-assert.deepEqual(until3602.map((w) => w.week), [
-  '34-01', '34-02', '34-03', '34-04',
-  '35-01', '35-02', '35-03', '35-04',
-  '36-01', '36-02',
-]);
+assert.equal(HOTEL_MIU_FORWARD_MAJOR_COUNT, 9);
+assert.deepEqual(HOTEL_MIU_SUBWEEK_NUMBERS, [1, 2, 3, 4]);
+const majorOpts = hotelMiuMajorWeekOptions(new Date(2026, 8, 1));
+assert.equal(majorOpts.length, 10, '2026-09-01 영업 기준 대차수부터 +9까지 보여야 한다.');
+assert.deepEqual(majorOpts.map((w) => w.major), [36, 37, 38, 39, 40, 41, 42, 43, 44, 45]);
+assert.ok(majorOpts.every((w) => w.year === '2026'));
+assert.equal(majorOpts[0].isDefault, true);
+assert.deepEqual(normalizeHotelMiuWeekSelection({ year: '2026', major: '39', detail: '2', allowedMajors: majorOpts }), {
+  year: '2026', week: '39-02', major: 39, detail: 2, flightSuffix: '',
+});
+assert.equal(normalizeHotelMiuWeekSelection({ year: '2026', major: '36-2', detail: '4', allowedMajors: majorOpts }).week, '36-02');
+assert.equal(normalizeHotelMiuWeekSelection({ year: '2026', major: '36-1A', allowedMajors: majorOpts }).week, '36-01');
+assert.equal(normalizeHotelMiuWeekSelection({ year: '2026', major: '36-1B', allowedMajors: majorOpts }).week, '36-01');
+assert.equal(normalizeHotelMiuWeekSelection({ year: '2026', major: '36-2A', allowedMajors: majorOpts }).week, '36-02');
+assert.equal(normalizeHotelMiuWeekSelection({ year: '2026', major: '36-2B', allowedMajors: majorOpts }).week, '36-02');
+assert.equal(normalizeHotelMiuWeekSelection({ year: '2026', major: '36', detail: '1a', allowedMajors: majorOpts }).week, '36-01');
+assert.equal(normalizeHotelMiuWeekSelection({ year: '2026', major: '36', detail: '2b', allowedMajors: majorOpts }).week, '36-02');
+for (const detail of HOTEL_MIU_SUBWEEK_NUMBERS) {
+  assert.equal(normalizeHotelMiuWeekSelection({ year: '2026', major: '39', detail, allowedMajors: majorOpts }).week, `39-0${detail}`);
+}
+const rollover = hotelMiuMajorWeekOptions(new Date(2026, 11, 20));
+assert.deepEqual(rollover.slice(0, 3).map((w) => `${w.year}-${w.majorText}`), ['2026-52', '2027-01', '2027-02']);
+assert.equal(`${rollover.at(-1).year}-${rollover.at(-1).majorText}`, '2027-09');
+for (const invalid of [
+  { major: '00', detail: '1' },
+  { major: '53', detail: '1' },
+  { major: '36', detail: '0' },
+  { major: '36', detail: '5' },
+  { major: '36-1C', detail: '' },
+]) {
+  assert.throws(() => normalizeHotelMiuWeekSelection({ year: '2026', ...invalid, allowedMajors: majorOpts }));
+}
+assert.throws(() => normalizeHotelMiuWeekSelection({ year: '2026', major: '46', detail: '1', allowedMajors: majorOpts }), /\+9차수/);
+assert.deepEqual(requireHotelMiuWeekScope('2026', '39-02'), { year: '2026', week: '39-02', major: 39, detail: 2, flightSuffix: '' });
+assert.equal(requireHotelMiuWeekScope('2025', '39-02').year, '2025', '2025/2026 같은 차수는 명시 연도로 분리한다.');
+assert.throws(() => requireHotelMiuWeekScope('', '39-02'), /4자리/);
 
 const sampleCusts = [
   { CustKey: 680, CustName: '트라움에스앤씨' },
@@ -441,8 +460,13 @@ assert.match(page, /year, week/);
   assert.match(imp, /applyBoardOverlay/);
   assert.match(imp, /overlayMappingRecord/);
 }
-assert.match(page, /hotelMiuWeekOptions/);
-assert.match(page, /HOTEL_MIU_WEEK_UNTIL/);
+assert.match(page, /hotelMiuMajorWeekOptions/);
+assert.match(page, /HOTEL_MIU_SUBWEEK_NUMBERS/);
+assert.match(page, /normalizeHotelMiuWeekSelection/);
+assert.match(page, /차수 적용/);
+assert.match(page, /1A·1B는 1차/);
+assert.doesNotMatch(page, /HOTEL_MIU_WEEK_UNTIL/);
+assert.doesNotMatch(page, /기본~36-02/);
 assert.match(page, /라움/);
 assert.match(page, /신라/);
 assert.match(page, /쵸이문/);
@@ -564,6 +588,10 @@ assert.match(intakeApi, /INSERT INTO WebHotelMiuRegisterSnap/);
 assert.match(intakeApi, /batchKeys: keys/);
 assert.match(intakeApi, /await ensureTables\(\)/);
 assert.match(intakeApi, /OrderYear=@yr AND OrderWeek=@wk AND CustKey=@ck/);
+assert.match(intakeApi, /requireHotelMiuWeekScope/);
+assert.match(intakeApi, /requestWeekScope\(req\.query\.year, req\.query\.week\)/);
+assert.match(intakeApi, /requestWeekScope\(req\.body\?\.year, req\.body\?\.week\)/);
+assert.doesNotMatch(intakeApi, /new Date\(\)\.getFullYear/);
 assert.doesNotMatch(intakeApi, /INSERT INTO Order(?:Master|Detail)/);
 
 const orderApi = fs.readFileSync('pages/api/orders/index.js', 'utf8');

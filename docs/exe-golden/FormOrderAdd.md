@@ -22,6 +22,8 @@ SELECT-only probe run32940568091: 2026/34-01 Cust317 Prod53 OrderDetail69516 Out
 ## 호텔+미우 통합게시판 주문입력 (웹 전용 입력면)
 
 - 화면 `/sales/shilla-miu-board`는 이미지·텍스트 발주를 한 업체·차수로 합친 뒤, **합산을 웹 원장에 먼저 쌓고** 마지막에 `POST /api/orders` `source=hotel-miu-board`로 **주문수량만 가산**한다.
+- dnSpy `FormOrderAdd.Designer.txtOrderWeek`는 정규식 마스크 `[0-9][0-9]-0[1-9]`인 `TextEdit`이고, `CheckValue`는 비어 있는지만 확인한 뒤 `OrderMaster.OrderWeek`에 그 숫자 문자열을 그대로 저장한다. 호텔+미우 화면은 이 전산 형식보다 좁은 실제 업무범위 `NN-01~NN-04`만 만든다. 사용자가 입력한 `1A·1B·2A·2B`의 A/B는 입고·항공편 구분이므로 각각 주문 세부차수 `01·01·02·02`로 정규화하고 알파벳이 붙은 별도 `OrderWeek`를 만들지 않는다.
+- 차수 빠른 선택은 영업 발주 기준(달력 대차수 +1)부터 +9 대차수까지이며, 각 대차수의 01/02/03/04를 고른다. 예를 들어 2026-09-01 기준 기본 대차수는 36이고 39-02도 선택·직접입력할 수 있다. 연말을 넘으면 선택지의 `OrderYear`를 함께 넘기며 `OrderWeek`만으로 연도를 추정하지 않는다.
 - EXE `FormOrderAdd.btnSave_Click`와 같이 `OrderMaster`/`OrderDetail`/`OrderHistory`만 쓰고, `ensureShipmentMaster`는 `raum-pnl`일 때만 켜지므로 이 소스는 `ShipmentMaster`/`ShipmentDetail`/`ShipmentDate`/`Estimate`를 만들지 않는다.
 - 공통 `order-mappings.json`은 초기 매칭 읽기만 하고, 이 게시판에서 고친 품목은 `WebHotelMiuProductMap` overlay가 덮는다. `persistImportMatchMappings`/`saveMapping`(공통 파일)은 호출하지 않는다.
 - 1차/2차 입력 이력은 웹 전용 `WebHotelMiuIntakeBatch`/`WebHotelMiuIntakeLine`에 남기고, 수정 시 차이 수량(부호 있는 delta)만 다시 `createOrder`에 보낸다.

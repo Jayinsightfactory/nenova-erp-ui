@@ -1,7 +1,6 @@
 // 호텔+미우 통합게시판 홈 — 업체에 합산을 쌓은 뒤 주문만 가산 등록
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
-import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getClipboardImage } from '../../lib/raumPnlImage';
 import {
   HOTEL_MIU_BATCH_DRAFT,
@@ -9,8 +8,9 @@ import {
   batchLineTotal,
   orderDeltaForRegisteredBatch,
   isHotelMiuCancelOverflowError,
-  hotelMiuWeekOptions,
-  HOTEL_MIU_WEEK_UNTIL,
+  hotelMiuMajorWeekOptions,
+  HOTEL_MIU_SUBWEEK_NUMBERS,
+  normalizeHotelMiuWeekSelection,
   clipboardLooksLikeOrderText,
   isDraftBatch,
   mergeAllBatchLines,
@@ -40,8 +40,15 @@ import {
 } from '../../lib/hotelMiuIntake';
 
 function defaultScope() {
-  const opts = hotelMiuWeekOptions(getCurrentWeek(), HOTEL_MIU_WEEK_UNTIL);
-  return { year: opts[0].year, week: opts[0].week, weeks: opts };
+  const majors = hotelMiuMajorWeekOptions(new Date());
+  const first = majors[0];
+  return {
+    year: first.year,
+    week: `${first.majorText}-01`,
+    major: String(first.major),
+    detail: '1',
+    majors,
+  };
 }
 
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -123,9 +130,11 @@ function HistoryQtyTable({ view, exeQty, products, selectedVarieties = [], onTog
 
 export default function HotelMiuIntakePage() {
   const initial = useMemo(() => defaultScope(), []);
-  const weekOptions = initial.weeks;
+  const majorOptions = initial.majors;
   const [year, setYear] = useState(initial.year);
   const [week, setWeek] = useState(initial.week);
+  const [majorInput, setMajorInput] = useState(initial.major);
+  const [detailInput, setDetailInput] = useState(initial.detail);
   const [defaults, setDefaults] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [cust, setCust] = useState(null);
@@ -256,6 +265,23 @@ export default function HotelMiuIntakePage() {
       setHistoryOpen(true);
     } catch (e) { setError(e.message); }
     finally { setBusy(''); }
+  };
+
+  const applyWeekEntry = async ({ nextYear = year, nextMajor = majorInput, nextDetail = detailInput } = {}) => {
+    try {
+      const scope = normalizeHotelMiuWeekSelection({
+        year: nextYear,
+        major: nextMajor,
+        detail: nextDetail,
+        allowedMajors: majorOptions,
+      });
+      setMajorInput(String(scope.major));
+      setDetailInput(String(scope.detail));
+      setError('');
+      await selectWeek({ year: scope.year, week: scope.week });
+    } catch (e) {
+      setError(e.message);
+    }
   };
 
   const addFavorite = async (hit) => {
@@ -673,7 +699,7 @@ export default function HotelMiuIntakePage() {
       <div style={st.head}>
         <div>
           <h1 style={st.h1}>호텔+미우 통합게시판</h1>
-          <p style={st.sub}>기본 업체(라움·신라·쵸이문·미우)와 차수(기본~36-02)를 고른 뒤, 이미지·텍스트를 그 업체 합산으로 쌓고 마지막에 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
+          <p style={st.sub}>기본 업체(라움·신라·쵸이문·미우)와 영업 기준 차수부터 +9차수 안의 세부 1·2·3·4를 고른 뒤, 이미지·텍스트를 업체 합산으로 쌓고 마지막에 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
         </div>
         <a href="/sales/shilla-miu-allocation" style={st.linkBtn}>잔량분배표</a>
       </div>
@@ -723,16 +749,48 @@ export default function HotelMiuIntakePage() {
           </div>
         )}
         <div style={st.pickRow}>
-          <span style={st.muted}>차수</span>
-          {weekOptions.map((opt) => (
+          <span style={st.muted}>대차수</span>
+          {majorOptions.map((opt) => (
             <button
-              key={opt.week}
+              key={`${opt.year}-${opt.major}`}
               type="button"
-              style={week === opt.week ? st.pickOn : st.pick}
-              title="주문등록 내역(반올림 전·후)"
-              onClick={() => selectWeek(opt)}
-            >{opt.isDefault ? `${opt.label} 기본` : opt.label}</button>
+              style={String(year) === String(opt.year) && Number(week.split('-')[0]) === opt.major ? st.pickOn : st.pick}
+              title={`${opt.year}년 ${opt.major}차 선택`}
+              onClick={() => applyWeekEntry({ nextYear: opt.year, nextMajor: String(opt.major), nextDetail: String(Number(week.split('-')[1]) || 1) })}
+            >{opt.label}</button>
           ))}
+        </div>
+        <div style={st.pickRow}>
+          <span style={st.muted}>세부차수</span>
+          {HOTEL_MIU_SUBWEEK_NUMBERS.map((seq) => (
+            <button
+              key={seq}
+              type="button"
+              style={Number(week.split('-')[1]) === seq ? st.pickOn : st.pick}
+              title="주문등록 내역(반올림 전·후)"
+              onClick={() => applyWeekEntry({ nextDetail: String(seq) })}
+            >{seq}</button>
+          ))}
+          <span style={{ ...st.muted, marginLeft: 8 }}>직접 입력</span>
+          <input
+            aria-label="대차수 직접 입력"
+            style={{ ...st.inp, width: 104, textAlign: 'center' }}
+            value={majorInput}
+            onChange={(e) => setMajorInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && applyWeekEntry()}
+            placeholder="36 또는 36-2"
+          />
+          <span>-</span>
+          <input
+            aria-label="세부차수 직접 입력"
+            style={{ ...st.inp, width: 48, textAlign: 'center' }}
+            value={detailInput}
+            onChange={(e) => setDetailInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && applyWeekEntry()}
+            placeholder="1A"
+          />
+          <button type="button" style={st.btn} onClick={() => applyWeekEntry()}>차수 적용</button>
+          <span style={st.muted}>1A·1B는 1차, 2A·2B는 2차로 저장</span>
         </div>
         {cust
           ? <div style={st.note}>작업 업체: <b>{cust.custName}</b> · {year} / {week} · 품목은 이 이름 아래 1합산, 2합산으로 쌓입니다. 주문등록 후 반올림 전·후는 아래 주문반영 내역에 남고, 차수 버튼을 눌러도 볼 수 있습니다.</div>

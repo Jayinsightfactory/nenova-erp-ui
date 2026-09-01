@@ -34,7 +34,7 @@
       "name": "FAVORITE_CUSTOMER_WEEK",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "Default chips 라움/신라/쵸이문/미우 resolved from Customer by name. Extra vendors stored in UserFavorite page=hotel-miu-board. Week chips are current OrderWeek through 36-02 of the selected year. Selected OrderYear+OrderWeek+CustKey go to later writes. Ledger preserve."
+      "sideEffect": "Default chips 라움/신라/쵸이문/미우 resolved from Customer by name. Extra vendors stored in UserFavorite page=hotel-miu-board. Week input uses the sales business base major week (calendar major +1) through major +9, and exposes numeric subweeks 01/02/03/04. Direct inputs such as 36 + 2, 36-2, 36-1A, and 36-2B normalize to exact ERP OrderWeek 36-02, 36-02, 36-01, and 36-02 respectively; A/B is a logistics-flight suffix and never creates a separate ERP OrderWeek. Selected OrderYear+OrderWeek+CustKey go to later reads/writes. Ledger preserve."
     },
     {
       "name": "READ_BOX_FACTORS",
@@ -99,10 +99,10 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025와 2026의 동일 차수(예: 33-01)라도 화면 연도+차수+CustKey만 조회·가산한다. 전년도 Master를 재사용하지 않는다.",
+    "description": "2025와 2026의 동일 차수(예: 39-02)라도 화면 연도+정규화 차수+CustKey만 조회·가산한다. 2026년 말 +9 범위가 2027년으로 넘어가도 각 선택값의 명시 연도를 전달하며 전년도 Master를 재사용하지 않는다.",
     "fixture": {
       "selectedOrderYear": "2026",
-      "orderWeek": "33-01",
+      "orderWeek": "39-02",
       "priorYear": "2025",
       "expectedIncludedYears": ["2026"],
       "expectedExcludedYears": ["2025"]
