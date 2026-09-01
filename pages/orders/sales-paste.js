@@ -550,7 +550,7 @@ export default function SalesPasteOrderPage() {
                                   </button>
                                 ))}
                               <button className="match-edit" type="button" onClick={() => openMatchEditor(index)}>
-                                품목 검색·수정 (더 찾기)
+                                더보기
                               </button>
                             </div>
                           </td>
@@ -677,7 +677,7 @@ export default function SalesPasteOrderPage() {
             <div className="match-card">
               <header>
                 <div>
-                  <h2>품목 매칭 검색·수정</h2>
+                  <h2>후순위 품목 더보기</h2>
                   <p>입력값: {rows[matchEditor.rowIndex]?.inputName || '-'}</p>
                 </div>
                 <button type="button" onClick={() => setMatchEditor(null)}>닫기</button>
@@ -687,15 +687,19 @@ export default function SalesPasteOrderPage() {
                 <button type="submit" disabled={matchEditor.busy}>{matchEditor.busy ? '검색 중' : '검색'}</button>
               </form>
               {matchEditor.error && <div className="match-error" role="alert">{matchEditor.error}</div>}
+              <h3 className="match-more-title">검색 결과 · 클릭하면 바로 매칭 변경</h3>
               <div className="match-results">
-                {(matchEditor.results || []).map((product) => (
+                {(matchEditor.results || [])
+                  .filter((product) => Number(product.ProdKey) !== Number(rows[matchEditor.rowIndex]?.prodKey))
+                  .map((product, rank) => (
                   <button key={product.ProdKey} type="button" onClick={() => selectMatchedProduct(product)}>
+                    <em>대안 {rank + 1}</em>
                     <b>{product.DisplayName || product.ProdName}</b>
                     <span>{product.ProdName}</span>
                     <small>{product.CounName || '-'} · {product.FlowerName || '-'} · {product.OutUnit || '-'}</small>
                   </button>
                 ))}
-                {!matchEditor.busy && !(matchEditor.results || []).length && !matchEditor.error && <div className="empty">검색 결과가 없습니다.</div>}
+                {!matchEditor.busy && !(matchEditor.results || []).some((product) => Number(product.ProdKey) !== Number(rows[matchEditor.rowIndex]?.prodKey)) && !matchEditor.error && <div className="empty">다른 후순위 품목이 없습니다. 검색어를 바꿔보세요.</div>}
               </div>
               <footer>선택한 매칭은 저장되어 다음 분석에도 동일하게 적용됩니다.</footer>
             </div>
@@ -1201,6 +1205,18 @@ export default function SalesPasteOrderPage() {
           padding: 7px 10px;
           background: #fff0ee;
           color: #a11;
+        }
+        .match-more-title {
+          margin: 0;
+          padding: 7px 10px 0;
+          font-size: 13px;
+          color: #344054;
+        }
+        .match-results button em {
+          color: #155bd7;
+          font-size: 10px;
+          font-style: normal;
+          font-weight: 800;
         }
         .match-card footer {
           padding: 7px 10px;

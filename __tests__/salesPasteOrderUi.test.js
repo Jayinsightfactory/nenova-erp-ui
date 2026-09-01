@@ -14,10 +14,12 @@ assert.match(page, /detectedScopeChange/, '차수 자동선택 중 입력 내용
 assert.match(page, /apiGet\('\/api\/products\/search'/, '기존 공통 품목검색 랭킹 API를 사용해야 합니다.');
 assert.match(page, /fetch\('\/api\/orders\/mappings'/, '사용자가 선택한 품목 매칭을 기존 저장매칭 시스템에 기록해야 합니다.');
 assert.match(page, /replaceSalesPasteProduct\(rows, rowIndex, product, products\)/, '품목 수정 뒤 현재 주문과 등록 후 수량을 다시 계산해야 합니다.');
-assert.match(page, /품목 검색·수정/, '자동 매칭된 행도 사용자가 검색하여 수정할 수 있어야 합니다.');
+assert.match(page, /openMatchEditor\(index\)/, '자동 매칭된 행도 더보기에서 검색하여 수정할 수 있어야 합니다.');
 assert.match(page, /suggestedProducts[\s\S]{0,180}slice\(0, 3\)/, '공통 매칭 엔진의 후순위 후보를 최대 3개 바로 표시해야 합니다.');
 assert.match(page, /onClick=\{\(\) => applyMatchedProduct\(index, product\)\}/, '후순위 후보 클릭 한 번으로 저장 매칭을 변경해야 합니다.');
-assert.match(page, /품목 검색·수정 \(더 찾기\)/, '후순위 후보에 원하는 품목이 없으면 전체 검색을 열 수 있어야 합니다.');
+assert.match(page, />\s*더보기\s*<\/button>/, '후순위 후보에 원하는 품목이 없으면 더보기 버튼으로 전체 검색을 열 수 있어야 합니다.');
+assert.match(page, /후순위 품목 더보기/, '더보기 화면에서 후순위 후보 목록임을 명확히 안내해야 합니다.');
+assert.match(page, /검색 결과 · 클릭하면 바로 매칭 변경/, '검색창 아래 후순위 품목을 클릭하면 즉시 변경됨을 안내해야 합니다.');
 assert.match(page, /LLM 정밀분석/, '사용자가 정확도 우선 LLM 분석이 적용됐음을 확인할 수 있어야 합니다.');
 assert.match(page, /AI 인식 결과/, '기존 붙여넣기 주문등록처럼 AI가 읽은 결과를 별도 영역에 표시해야 합니다.');
 assert.match(page, /buildSalesPasteAiPreview\(parsed\)/, 'API 원본 인식행을 최종 합산 전에 미리보기로 보존해야 합니다.');
