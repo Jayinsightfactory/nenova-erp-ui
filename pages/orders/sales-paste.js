@@ -451,90 +451,99 @@ export default function SalesPasteOrderPage() {
         )}
         <div className="workspace">
           <section className="paste-box">
-            <h2>붙여넣기 입력</h2>
-            <textarea
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              placeholder={
-                '품목과 수량을 붙여넣으세요.\n예) 돈셀 2박스\n문라이트 3박스'
-              }
-            />
-            <div className="actions">
-              <button
-                onClick={analyze}
-                disabled={busy || !custKey || !text.trim()}
-              >
-                {busy ? '처리 중' : '기존 매칭으로 분석'}
-              </button>
-              <button
-                className="register"
-                onClick={register}
-                disabled={busy || !rows.length || Boolean(unmatched.length)}
-              >
-                주문만 등록
-              </button>
-            </div>
-            <div className="analysis">
-              <h2>
-                분석 결과 <small>{rows.length}건</small>
-              </h2>
-              {rows.length ? (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>상태</th>
-                      <th>품목</th>
-                      <th>수량</th>
-                      <th>현재 주문</th>
-                      <th>등록 후</th>
-                      <th>매칭 수정</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, index) => (
-                      <tr
-                        key={`${row.prodKey || row.inputName}-${index}`}
-                        className={
-                          !row.prodKey || row.unitConflict ? 'bad' : ''
-                        }
-                      >
-                        <td>
-                          {row.prodKey &&
-                          Number(row.qty) > 0 &&
-                          !row.unitConflict
-                            ? '매칭'
-                            : row.unitConflict
-                              ? '단위 충돌'
-                              : '확인 필요'}
-                        </td>
-                        <td>
-                          <b>{productLabel(row)}</b>
-                          <small>{row.flowerName || row.counName || ''}</small>
-                        </td>
-                        <td>
-                          {row.qty} {row.unit}
-                        </td>
-                        <td>
-                          {row.currentQty} {row.unit}
-                        </td>
-                        <td>
-                          {row.finalQty ?? '-'} {row.unit}
-                        </td>
-                        <td>
-                          <button className="match-edit" type="button" onClick={() => openMatchEditor(index)}>
-                            품목 검색·수정
-                          </button>
-                        </td>
+            <div className="paste-analysis-grid">
+              <div className="paste-entry">
+                <h2>붙여넣기 입력</h2>
+                <textarea
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  placeholder={
+                    '품목과 수량을 붙여넣으세요.\n예) 돈셀 2박스\n문라이트 3박스'
+                  }
+                />
+                <div className="actions">
+                  <button
+                    onClick={analyze}
+                    disabled={busy || !custKey || !text.trim()}
+                  >
+                    {busy ? '처리 중' : '기존 매칭으로 분석'}
+                  </button>
+                  <button
+                    className="register"
+                    onClick={register}
+                    disabled={busy || !rows.length || Boolean(unmatched.length)}
+                  >
+                    주문만 등록
+                  </button>
+                </div>
+              </div>
+              <div className="analysis">
+                <h2>
+                  분석 결과 <small>{rows.length}건</small>
+                </h2>
+                {rows.length ? (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>상태</th>
+                        <th>입력값</th>
+                        <th>매칭값</th>
+                        <th>수량</th>
+                        <th>현재 주문</th>
+                        <th>등록 후</th>
+                        <th>매칭 수정</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="empty">
-                  붙여넣기 후 분석하면 기존 품목 매칭 결과와 현재 주문수량이
-                  함께 표시됩니다.
-                </p>
-              )}
+                    </thead>
+                    <tbody>
+                      {rows.map((row, index) => (
+                        <tr
+                          key={`${row.prodKey || row.inputName}-${index}`}
+                          className={
+                            !row.prodKey || row.unitConflict ? 'bad' : ''
+                          }
+                        >
+                          <td>
+                            {row.prodKey &&
+                            Number(row.qty) > 0 &&
+                            !row.unitConflict
+                              ? '매칭'
+                              : row.unitConflict
+                                ? '단위 충돌'
+                                : '확인 필요'}
+                          </td>
+                          <td>
+                            <b>{row.inputName || '-'}</b>
+                            <small>{row.customerInput || ''}</small>
+                          </td>
+                          <td>
+                            <b>{productLabel(row)}</b>
+                            <small>{row.flowerName || row.counName || ''}</small>
+                          </td>
+                          <td>
+                            {row.qty} {row.unit}
+                          </td>
+                          <td>
+                            {row.currentQty} {row.unit}
+                          </td>
+                          <td>
+                            {row.finalQty ?? '-'} {row.unit}
+                          </td>
+                          <td>
+                            <button className="match-edit" type="button" onClick={() => openMatchEditor(index)}>
+                              품목 검색·수정
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="empty">
+                    붙여넣기 후 분석하면 기존 품목 매칭 결과와 현재 주문수량이
+                    바로 옆에 표시됩니다.
+                  </p>
+                )}
+              </div>
             </div>
           </section>
           <aside>
@@ -829,10 +838,20 @@ export default function SalesPasteOrderPage() {
         }
         .paste-box textarea {
           width: 100%;
-          height: 130px;
+          height: 250px;
           resize: vertical;
           padding: 9px;
           font: 14px/1.45 sans-serif;
+        }
+        .paste-analysis-grid {
+          display: grid;
+          grid-template-columns: minmax(340px, 0.8fr) minmax(590px, 1.35fr);
+          gap: 10px;
+          align-items: start;
+        }
+        .paste-entry,
+        .analysis {
+          min-width: 0;
         }
         .actions {
           display: flex;
@@ -853,7 +872,7 @@ export default function SalesPasteOrderPage() {
           opacity: 0.45;
         }
         .analysis {
-          max-height: calc(100vh - 460px);
+          max-height: calc(100vh - 365px);
           overflow: auto;
         }
         table {
@@ -1137,6 +1156,9 @@ export default function SalesPasteOrderPage() {
             grid-template-columns: 1fr;
           }
           .workspace {
+            grid-template-columns: 1fr;
+          }
+          .paste-analysis-grid {
             grid-template-columns: 1fr;
           }
           aside {
