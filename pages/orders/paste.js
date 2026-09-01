@@ -21,6 +21,7 @@ import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/past
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 import { buildStockNoteChangeEntry, resolveInitialStockBaseWeek } from '../../lib/pasteStockNote';
+import { resolveStockProjectionIdentity, summarizeStockProjection } from '../../lib/pasteStockProjection';
 import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence } from '../../hooks/useErpEditPresence';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
@@ -537,6 +538,7 @@ function parseNaturalChangeLine(line, currentCustomer) {
   return {
     productName: m[1].trim(),
     reportedRemain: null,
+    unit: m[3] || '',
     changes: [{
       customer: currentCustomer,
       before: null,
@@ -619,6 +621,7 @@ function parseKakaoStockRecords(text, selectedWeek) {
         weekLabel: shortWeekLabel(currentWeek || selectedWeek || ''),
         productName,
         reportedRemain: null,
+        unit: natural.unit || '',
         changes: natural.changes,
         notes: natural.notes,
         sourceLine: line,
@@ -675,6 +678,41 @@ function parseKakaoStockRecords(text, selectedWeek) {
   return { records, extraRows };
 }
 
+function buildAnalyzedStockRecords(analysisOrders, selectedWeek) {
+  const records = [];
+  (analysisOrders || []).forEach((order, orderIdx) => {
+    (order.items || []).forEach((item, itemIdx) => {
+      const qty = Math.abs(Number(item.qty || 0));
+      if (item.skip || !Number.isFinite(qty) || qty <= 0) return;
+      const isCancel = item.action === '취소';
+      const productName = item.inputName || item.displayName || item.prodName || '';
+      if (!productName) return;
+      const customer = order.custMatch?.CustName || order.custName || '';
+      records.push({
+        id: `analysis-${order.id ?? orderIdx}-${item.idx ?? itemIdx}`,
+        lineNo: itemIdx + 1,
+        week: selectedWeek || '',
+        weekLabel: shortWeekLabel(selectedWeek || ''),
+        productName,
+        reportedRemain: null,
+        unit: normalizeOrderUnit(item.unit),
+        changes: [{
+          customer,
+          before: null,
+          after: null,
+          delta: isCancel ? -qty : qty,
+          kind: isCancel ? 'cancel' : 'add',
+          raw: `${customer} ${fmtStockQty(qty)} ${isCancel ? '취소' : '추가'}`,
+        }],
+        notes: [],
+        sourceLine: item.inputName || productName,
+        mode: 'analysis',
+      });
+    });
+  });
+  return records;
+}
+
 function formatChange(change) {
   const sign = change.delta > 0 ? '+' : '';
   const delta = `${sign}${fmtStockQty(change.delta)}`;
@@ -699,7 +737,7 @@ function buildResolvedMatchMap(orders, products, stockMatches = []) {
       if (it.skip || !it.prodKey) continue;
       const prod = (products || []).find((p) => Number(p.ProdKey) === Number(it.prodKey));
       const label = it.displayName || prod?.DisplayName || it.prodName || getDisplayName(prod) || '';
-      const entry = { status: 'matched', names: [label] };
+      const entry = { status: 'matched', names: [label], prodKey: Number(it.prodKey) };
       [it.inputName, it.prodName, it.displayName, label].forEach((name) => {
         const key = stockNorm(name);
         if (key) map.set(key, entry);
@@ -710,13 +748,31 @@ function buildResolvedMatchMap(orders, products, stockMatches = []) {
     if (!m?.prodKey) continue;
     const prod = (products || []).find((p) => Number(p.ProdKey) === Number(m.prodKey));
     const label = m.displayName || m.prodName || getDisplayName(prod) || '';
-    const entry = { status: 'matched', names: [label] };
+    const entry = { status: 'matched', names: [label], prodKey: Number(m.prodKey) };
     [m.name, m.matchName, m.prodName, m.displayName, label].forEach((name) => {
       const key = stockNorm(name);
       if (key) map.set(key, entry);
     });
   }
   return map;
+}
+
+function buildStockRowsByIdentity(parsed, resolvedMatches) {
+  const rowsByIdentity = new Map();
+  (parsed?.rows || []).forEach((row) => {
+    const identity = resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
+    if (!identity.normalizedName) return;
+    const existing = rowsByIdentity.get(identity.key);
+    rowsByIdentity.set(identity.key, {
+      ...(existing || row),
+      ...row,
+      qty: Number(existing?.qty || 0) + Number(row.qty || 0),
+      identityKey: identity.key,
+      match: identity.match,
+      sourceNames: [...new Set([...(existing?.sourceNames || []), row.name].filter(Boolean))],
+    });
+  });
+  return rowsByIdentity;
 }
 
 function productMatchSummary(productName, products, resolvedMatches) {
@@ -739,26 +795,33 @@ function productMatchSummary(productName, products, resolvedMatches) {
 
 function buildKakaoStockDraft({
   text, baseText, remainText = '', selectedWeek, stockBaseWeek, products, resolvedMatches,
-  pasteExcludedLineNos = [], baseExcludedLineNos = [],
+  analysisOrders = [], pasteExcludedLineNos = [], baseExcludedLineNos = [],
 }) {
   const filteredText = textWithoutExcludedLines(text, pasteExcludedLineNos);
   const filteredBase = textWithoutExcludedLines(baseText, baseExcludedLineNos);
   const base = parseBaseStockText(filteredBase, { excludedLineNos: baseExcludedLineNos });
   const finalRemain = parseBaseStockText(remainText);
-  const { records, extraRows } = parseKakaoStockRecords(filteredText, selectedWeek);
+  const parsedChanges = parseKakaoStockRecords(filteredText, selectedWeek);
+  const analyzedRecords = buildAnalyzedStockRecords(analysisOrders, selectedWeek);
+  const records = analyzedRecords.length > 0 ? analyzedRecords : parsedChanges.records;
+  const extraRows = parsedChanges.extraRows;
+  const baseByIdentity = buildStockRowsByIdentity(base, resolvedMatches);
+  const finalRemainByIdentity = buildStockRowsByIdentity(finalRemain, resolvedMatches);
   const confirmRows = [];
   const productWeekCounts = {};
 
   records.forEach(record => {
-    const key = `${stockNorm(record.productName)}|${record.week}`;
+    const identity = resolveStockProjectionIdentity(record.productName, resolvedMatches, stockNorm);
+    const key = `${identity.key}|${record.week}`;
     productWeekCounts[key] = (productWeekCounts[key] || 0) + 1;
   });
 
   const recordsByProduct = new Map();
   records.forEach((record, order) => {
-    const key = stockNorm(record.productName) || `line-${record.lineNo}`;
+    const identity = resolveStockProjectionIdentity(record.productName, resolvedMatches, stockNorm);
+    const key = identity.normalizedName ? identity.key : `line-${record.lineNo}`;
     if (!recordsByProduct.has(key)) recordsByProduct.set(key, []);
-    recordsByProduct.get(key).push({ ...record, order });
+    recordsByProduct.get(key).push({ ...record, order, identityKey: key, match: identity.match });
   });
 
   const remainRows = [];
@@ -770,21 +833,25 @@ function buildKakaoStockDraft({
       const ws = weekSortValue(a.week) - weekSortValue(b.week);
       return ws || a.order - b.order;
     });
-    const hasBase = base.byKey[productKey]?.qty != null;
-    let running = hasBase ? base.byKey[productKey].qty : 0;
+    const baseRow = baseByIdentity.get(productKey);
+    const hasBase = baseRow?.qty != null;
+    let running = hasBase ? baseRow.qty : 0;
     sorted.forEach((record, sortedIdx) => {
       const deltaSum = record.changes.reduce((sum, change) => sum + (Number(change.delta) || 0), 0);
       const calcRemain = running - deltaSum;
-      const finalRow = finalRemain.byKey[productKey];
+      const finalRow = finalRemainByIdentity.get(productKey);
       const finalInputRemain = finalRow && sortedIdx === sorted.length - 1 ? finalRow.qty : null;
       const reportedRemain = record.reportedRemain != null ? record.reportedRemain : finalInputRemain;
       if (finalInputRemain != null) usedFinalRemainKeys.add(productKey);
       const closeRemain = reportedRemain != null ? reportedRemain : calcRemain;
-      const match = productMatchSummary(record.productName, products, resolvedMatches);
+      const match = record.match || productMatchSummary(record.productName, products, resolvedMatches);
       const warnings = [];
 
       if (!hasBase && sortedIdx === 0) {
         warnings.push('기초재고 없음, 0으로 계산');
+      }
+      if (baseRow?.unit && record.unit && normalizeOrderUnit(baseRow.unit) !== normalizeOrderUnit(record.unit)) {
+        warnings.push(`단위 확인 필요: 기초재고 ${baseRow.unit} / 변경 ${record.unit}`);
       }
       if (reportedRemain != null && calcRemain != null && Math.abs(reportedRemain - calcRemain) > 0.001) {
         warnings.push(`계산 ${fmtStockQty(calcRemain)}와 잔량재고 ${fmtStockQty(reportedRemain)} 불일치`);
@@ -792,7 +859,7 @@ function buildKakaoStockDraft({
       if (record.changes.some(change => change.assumed)) {
         warnings.push('동작어 없는 괄호값은 추가로 추정');
       }
-      if (productWeekCounts[`${stockNorm(record.productName)}|${record.week}`] > 1) {
+      if (productWeekCounts[`${productKey}|${record.week}`] > 1) {
         warnings.push('같은 차수에 같은 품목명이 중복됨');
       }
       if (match.status === 'ambiguous') {
@@ -805,8 +872,10 @@ function buildKakaoStockDraft({
 
       const row = {
         ...record,
+        identityKey: productKey,
         reportedRemain,
         reportedRemainSource: record.reportedRemain != null ? 'text' : (finalInputRemain != null ? 'remainInput' : null),
+        unit: record.unit || baseRow?.unit || '',
         start: running,
         deltaSum,
         calcRemain,
@@ -825,9 +894,10 @@ function buildKakaoStockDraft({
   });
 
   finalRemain.rows.forEach(row => {
-    const productKey = stockNorm(row.name);
+    const identity = resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
+    const productKey = identity.key;
     if (!productKey || usedFinalRemainKeys.has(productKey) || recordsByProduct.has(productKey)) return;
-    const match = productMatchSummary(row.name, products, resolvedMatches);
+    const match = identity.match || productMatchSummary(row.name, products, resolvedMatches);
     const warnings = [];
     if (match.status === 'ambiguous') {
       warnings.push(`품목 후보 여러 개: ${match.names.join(', ')}`);
@@ -838,6 +908,7 @@ function buildKakaoStockDraft({
     }
     const finalOnlyRow = {
       id: `final-${row.idx}`,
+      identityKey: productKey,
       lineNo: row.idx + 1,
       week: selectedWeek || '',
       weekLabel: shortWeekLabel(selectedWeek || ''),
@@ -849,9 +920,9 @@ function buildKakaoStockDraft({
       notes: [],
       sourceLine: `${row.name} ${fmtStockQty(row.qty)}`,
       mode: 'remain-only',
-      start: base.byKey[productKey]?.qty ?? null,
+      start: baseByIdentity.get(productKey)?.qty ?? null,
       deltaSum: 0,
-      calcRemain: base.byKey[productKey]?.qty ?? null,
+      calcRemain: baseByIdentity.get(productKey)?.qty ?? null,
       closeRemain: row.qty,
       warnings,
       match,
@@ -862,11 +933,13 @@ function buildKakaoStockDraft({
     });
   });
 
-  const shownRemainKeys = new Set(remainRows.map(row => stockNorm(row.productName)));
+  const shownRemainKeys = new Set(remainRows.map(row => row.identityKey || resolveStockProjectionIdentity(row.productName, resolvedMatches, stockNorm).key));
   base.rows.forEach(row => {
-    const productKey = stockNorm(row.name);
+    const identity = resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
+    const productKey = identity.key;
     if (!productKey || shownRemainKeys.has(productKey)) return;
-    const match = productMatchSummary(row.name, products, resolvedMatches);
+    shownRemainKeys.add(productKey);
+    const match = identity.match || productMatchSummary(row.name, products, resolvedMatches);
     const warnings = [];
     if (match.status === 'ambiguous') {
       warnings.push(`품목 후보 여러 개: ${match.names.join(', ')}`);
@@ -877,6 +950,7 @@ function buildKakaoStockDraft({
     }
     const baseOnlyRow = {
       id: `base-${row.idx}`,
+      identityKey: productKey,
       lineNo: row.idx + 1,
       week: selectedWeek || '',
       weekLabel: shortWeekLabel(selectedWeek || ''),
@@ -888,10 +962,10 @@ function buildKakaoStockDraft({
       notes: [],
       sourceLine: `${row.name} ${fmtStockQty(row.qty)}`,
       mode: 'base-only',
-      start: row.qty,
+      start: baseByIdentity.get(productKey)?.qty ?? row.qty,
       deltaSum: 0,
-      calcRemain: row.qty,
-      closeRemain: row.qty,
+      calcRemain: baseByIdentity.get(productKey)?.qty ?? row.qty,
+      closeRemain: baseByIdentity.get(productKey)?.qty ?? row.qty,
       warnings,
       match,
     };
@@ -1386,6 +1460,7 @@ export default function PasteOrderPage() {
     nextBaseWeek = stockBaseWeek,
     ordersForMatch = orders,
     stockMatchesForDraft = baseStockMatches,
+    excludedOverrides = {},
   ) => {
     const draft = buildKakaoStockDraft({
       text: nextText,
@@ -1395,8 +1470,9 @@ export default function PasteOrderPage() {
       stockBaseWeek: nextBaseWeek,
       products: allProducts,
       resolvedMatches: buildResolvedMatchMap(ordersForMatch, allProducts, stockMatchesForDraft),
-      pasteExcludedLineNos: pasteExcludedLines,
-      baseExcludedLineNos: baseStockExcludedLines,
+      analysisOrders: ordersForMatch,
+      pasteExcludedLineNos: excludedOverrides.pasteExcludedLineNos ?? pasteExcludedLines,
+      baseExcludedLineNos: excludedOverrides.baseExcludedLineNos ?? baseStockExcludedLines,
     });
     setStockDraft(draft);
     setStockCopied(false);
@@ -1413,6 +1489,48 @@ export default function PasteOrderPage() {
     setBaseStockMatches(rows);
     refreshStockDraft(pasteText, text, week, remainStockText, stockBaseWeek, orders, rows);
     return rows;
+  };
+
+  const handleBaseStockTextChange = (nextText) => {
+    setBaseStockText(nextText);
+    const cache = { ...mappingCache, ...loadCache() };
+    const rows = nextText.trim()
+      ? buildBaseStockMatchRows(nextText, allProducts, cache, baseStockMatches, baseStockExcludedLines)
+      : [];
+    setBaseStockMatches(rows);
+    refreshStockDraft(pasteText, nextText, week, remainStockText, stockBaseWeek, orders, rows);
+    if (currentStockNote) setStockNoteStatus('수정 후 저장 필요');
+  };
+
+  const handlePasteExcludedLinesChange = (nextLines) => {
+    setPasteExcludedLines(nextLines);
+    refreshStockDraft(
+      pasteText,
+      baseStockText,
+      week,
+      remainStockText,
+      stockBaseWeek,
+      orders,
+      baseStockMatches,
+      { pasteExcludedLineNos: nextLines },
+    );
+  };
+
+  const handleBaseStockExcludedLinesChange = (nextLines) => {
+    setBaseStockExcludedLines(nextLines);
+    const cache = { ...mappingCache, ...loadCache() };
+    const rows = buildBaseStockMatchRows(baseStockText, allProducts, cache, baseStockMatches, nextLines);
+    setBaseStockMatches(rows);
+    refreshStockDraft(
+      pasteText,
+      baseStockText,
+      week,
+      remainStockText,
+      stockBaseWeek,
+      orders,
+      rows,
+      { baseExcludedLineNos: nextLines },
+    );
   };
 
   const applyBaseStockProduct = (idx, prod, saveToCache = true) => {
@@ -1447,7 +1565,7 @@ export default function PasteOrderPage() {
   const selectStockBaseWeek = (w) => {
     setStockBaseWeek(w);
     saveStockBaseWeek(w);
-    setStockDraft(null);
+    refreshStockDraft(pasteText, baseStockText, week, remainStockText, w, orders, baseStockMatches);
   };
 
   // 주문 품목 매칭이 끝나면 잔량/히스토리 복사본의 확인필요(품목후보)도 함께 갱신
@@ -1639,7 +1757,7 @@ export default function PasteOrderPage() {
       );
       if (!verified) throw new Error('저장 후 재조회 검증에 실패했습니다.');
       setSavedStockNote(note);
-      setStockNoteStatus(`${forceCreate ? '추가저장' : existingNote?.FavoriteKey ? '수정저장' : '저장'} 완료 · 재조회 확인: ${formatWeekDisplay(baseWeek)}${changeEntry ? ` · ±변경 ${changeEntry.changes.length}건` : ''}`);
+      setStockNoteStatus(`${forceCreate ? '새 기록 저장' : existingNote?.FavoriteKey ? '현재 저장본 덮어쓰기' : '현재 값 저장'} 완료 · 재조회 확인: ${formatWeekDisplay(baseWeek)}${changeEntry ? ` · ±변경 ${changeEntry.changes.length}건` : ''}`);
       refreshStockDraft(pasteText, baseStockText, week, remainStockText, baseWeek, orders, baseStockMatches);
     } catch (e) {
       alert(`기존재고 저장 실패: ${e.message}`);
@@ -3771,6 +3889,11 @@ export default function PasteOrderPage() {
                   <div role="alert" className="paste-order-results-blocker">{globalBatchStartBlocker.message}</div>
                 )}
                 {renderGlobalActionPreviewBoard({ compact: true })}
+                <StockImpactSummary
+                  draft={stockDraft}
+                  selectedWeek={week}
+                  processed={Boolean(bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone)}
+                />
                 <details className="paste-order-helper-details">
                   <summary>제외·색상 미리보기</summary>
                   <div className="paste-col-side-scroll paste-order-helper-content">
@@ -3778,7 +3901,7 @@ export default function PasteOrderPage() {
                       <PasteExcludeHighlight
                         text={pasteText}
                         excludedLines={pasteExcludedLines}
-                        onExcludedLinesChange={setPasteExcludedLines}
+                        onExcludedLinesChange={handlePasteExcludedLinesChange}
                         title="제외 하이라이트 (주문)"
                         embedded
                       />
@@ -3806,7 +3929,7 @@ export default function PasteOrderPage() {
                     <PasteExcludeHighlight
                       text={pasteText}
                       excludedLines={pasteExcludedLines}
-                      onExcludedLinesChange={setPasteExcludedLines}
+                      onExcludedLinesChange={handlePasteExcludedLinesChange}
                       title="제외 하이라이트 (주문)"
                       embedded
                     />
@@ -3826,9 +3949,9 @@ export default function PasteOrderPage() {
           {/* 3열: 기초재고 */}
           <div className="paste-col paste-col-stock">
             <label style={{ ...labelS, marginBottom: 4 }}>
-              기초재고 입력
+              기초재고 입력·저장
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
-                시작 기준 · 등록차수와 별도
+                변경 적용 전 잔량 · 주문 적용 차수와 별도
               </span>
             </label>
 
@@ -3878,7 +4001,7 @@ export default function PasteOrderPage() {
                 disabled={!currentStockNote || stockNoteLoading}
                 style={{ height: 24, padding: '0 8px', border: '1px solid #94a3b8', borderRadius: 5, background: currentStockNote ? '#fff' : '#f1f5f9', color: currentStockNote ? '#334155' : '#94a3b8', fontSize: 10, fontWeight: 800, cursor: currentStockNote ? 'pointer' : 'default' }}
               >
-                불러오기
+                저장본 불러오기
               </button>
               <button
                 onClick={openStockPicker}
@@ -3886,21 +4009,21 @@ export default function PasteOrderPage() {
                 style={{ height: 24, padding: '0 8px', border: '1px solid #1565c0', borderRadius: 5, background: '#e3f2fd', color: '#0d47a1', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}
                 title="저장된 시작재고를 여러 개 골라 합쳐서 불러옵니다."
               >
-                📚 여러 개
+                저장본 선택
               </button>
               <button
                 onClick={() => saveStockNote({ forceCreate: true })}
                 disabled={stockNoteSaving || !hasStockNoteText}
                 style={{ height: 24, padding: '0 8px', border: '1px solid #0f766e', borderRadius: 5, background: stockNoteSaving || !hasStockNoteText ? '#94a3b8' : '#0f766e', color: '#fff', fontSize: 10, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : hasStockNoteText ? 'pointer' : 'default' }}
               >
-                추가저장
+                새 기록으로 저장
               </button>
               <button
                 onClick={() => saveStockNote()}
                 disabled={stockNoteSaving || !hasStockNoteText || !(stockBaseWeek || week)}
                 style={{ height: 24, padding: '0 8px', border: '1px solid #2563eb', borderRadius: 5, background: stockNoteSaving || !hasStockNoteText || !(stockBaseWeek || week) ? '#cbd5e1' : '#2563eb', color: '#fff', fontSize: 10, fontWeight: 900, cursor: stockNoteSaving ? 'wait' : hasStockNoteText ? 'pointer' : 'default' }}
               >
-                {stockNoteSaving ? '저장중' : (currentStockNote ? '수정저장' : '저장하기')}
+                {stockNoteSaving ? '저장중' : (currentStockNote ? '현재 저장본 덮어쓰기' : '현재 값 저장')}
               </button>
               <button
                 onClick={deleteStockNote}
@@ -3938,7 +4061,7 @@ export default function PasteOrderPage() {
               style={{ width: '100%', padding: '8px 10px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.4, fontFamily: 'monospace', resize: 'none', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'수국\n블루 2\n라벤더 14\n화이트 1'}
               value={baseStockText}
-              onChange={e => { setBaseStockText(e.target.value); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 저장 필요'); }}
+              onChange={e => handleBaseStockTextChange(e.target.value)}
             />
           </div>
 
@@ -3955,7 +4078,7 @@ export default function PasteOrderPage() {
                 <PasteExcludeHighlight
                   text={baseStockText}
                   excludedLines={baseStockExcludedLines}
-                  onExcludedLinesChange={setBaseStockExcludedLines}
+                  onExcludedLinesChange={handleBaseStockExcludedLinesChange}
                   title="제외 하이라이트 (기초재고)"
                   hint="메모·별도 정보 줄은 드래그로 제외하세요."
                   embedded
@@ -3985,21 +4108,21 @@ export default function PasteOrderPage() {
           .paste-input-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
+            gap: 8px;
             align-items: start;
           }
           .paste-col {
             min-width: 0;
             display: flex;
             flex-direction: column;
-            padding: 10px;
+            padding: 8px;
             border-radius: 8px;
           }
           .paste-col-order { border: 1px solid #c5cae9; background: #f7f8ff; }
-          .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; min-height: min(500px, calc(100vh - 260px)); }
+          .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; min-height: min(320px, calc(100vh - 420px)); }
           .paste-col-order-side.paste-col-order-results { min-height: 0; background: #fff; border-color: #9fa8da; }
-          .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: min(500px, calc(100vh - 260px)); }
-          .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; min-height: min(500px, calc(100vh - 260px)); }
+          .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: 270px; }
+          .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; min-height: 270px; }
           .paste-order-results-head {
             display: flex;
             align-items: center;
@@ -4024,17 +4147,59 @@ export default function PasteOrderPage() {
           .paste-order-helper-details { margin-top: 7px; border-top: 1px solid #d5d9e8; padding-top: 5px; }
           .paste-order-helper-details > summary { color: #546e7a; font-size: 10px; font-weight: 800; cursor: pointer; user-select: none; }
           .paste-order-helper-content { max-height: 220px; margin-top: 6px; }
-          /* 1열: textarea 고정 높이 — 다른 열 높이에 끌려가지 않게 */
+          .paste-stock-impact {
+            margin-top: 7px;
+            border: 1px solid #99c7b0;
+            border-radius: 6px;
+            background: #f5fbf7;
+            overflow: hidden;
+          }
+          .paste-stock-impact-head {
+            min-height: 25px;
+            padding: 4px 7px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            border-bottom: 1px solid #cfe3d7;
+            color: #36594a;
+            font-size: 10px;
+            white-space: nowrap;
+          }
+          .paste-stock-impact-head > strong { color: #0f5132; font-size: 11px; }
+          .paste-stock-impact-head > span { border: 1px solid #b7d7c4; border-radius: 9px; padding: 1px 6px; background: #fff; }
+          .paste-stock-impact-head > small { margin-left: auto; color: #527566; }
+          .paste-stock-impact-scroll { max-height: 132px; overflow: auto; }
+          .paste-stock-impact-row {
+            display: grid;
+            grid-template-columns: minmax(150px, 1.8fr) repeat(4, minmax(64px, .6fr));
+            min-height: 25px;
+            align-items: center;
+            border-top: 1px solid #e2eee7;
+            background: #fff;
+            color: #334155;
+            font-size: 10px;
+          }
+          .paste-stock-impact-row:first-child { border-top: 0; }
+          .paste-stock-impact-row > * { padding: 3px 6px; text-align: right; min-width: 0; }
+          .paste-stock-impact-row > *:first-child { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .paste-stock-impact-row > span:first-child > small { margin-left: 5px; color: #c2410c; font-weight: 800; }
+          .paste-stock-impact-row.needs-review { background: #fff9ed; }
+          .paste-stock-impact-columns { position: sticky; top: 0; z-index: 1; background: #edf6f0; color: #3f6252; }
+          .paste-stock-impact-row .stock-cancel { color: #b91c1c; font-weight: 800; }
+          .paste-stock-impact-row .stock-add { color: #15803d; font-weight: 800; }
+          .paste-stock-impact-row > strong:last-child { color: #0f5132; }
+          .paste-stock-impact-empty { padding: 8px; color: #64748b; font-size: 10px; line-height: 1.35; }
+          /* 붙여넣기 입력은 실제 내용 확인에 필요한 높이만 사용하고 기초재고를 첫 화면으로 당긴다. */
           .paste-col-order .paste-main-ta {
             flex: 0 0 auto;
-            height: min(280px, calc(100vh - 380px));
-            min-height: 140px;
-            max-height: 360px;
+            height: clamp(140px, 16vh, 180px);
+            min-height: 120px;
+            max-height: 220px;
             overflow-y: auto;
           }
           .paste-col:not(.paste-col-order) .paste-main-ta {
             flex: 1;
-            min-height: 160px;
+            min-height: 130px;
           }
           .paste-order-actions {
             flex-shrink: 0;
@@ -4064,9 +4229,11 @@ export default function PasteOrderPage() {
             background: #fff;
           }
           @media (max-width: 1500px) {
-            .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 380px; }
+            .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 260px; }
             .paste-col-order-side.paste-col-order-results { min-height: 0; }
             .paste-global-action-board-top { grid-template-columns: 1fr !important; }
+            .paste-stock-impact-head { flex-wrap: wrap; white-space: normal; }
+            .paste-stock-impact-head > small { width: 100%; margin-left: 0; }
           }
           @media (max-width: 768px) {
             .paste-input-grid { grid-template-columns: 1fr; }
@@ -4076,7 +4243,8 @@ export default function PasteOrderPage() {
             .paste-col-order-side.paste-col-order-results { min-height: 0; }
             .paste-order-results-head { align-items: flex-start; }
             .paste-order-results-head > div:first-child > span { white-space: normal; }
-            .paste-col-order .paste-main-ta { height: min(220px, calc(100vh - 420px)); }
+            .paste-col-order .paste-main-ta { height: 150px; }
+            .paste-stock-impact-row { grid-template-columns: minmax(120px, 1.6fr) repeat(4, minmax(58px, .6fr)); }
           }
         `}</style>
 
@@ -4999,6 +5167,48 @@ export default function PasteOrderPage() {
         onClose={() => setShowStockPicker(false)}
       />
     </Layout>
+  );
+}
+
+function StockImpactSummary({ draft, selectedWeek, processed = false }) {
+  const rows = summarizeStockProjection(draft?.historyRows || []);
+  const baseWeek = draft?.stockBaseWeek || '';
+  return (
+    <section className="paste-stock-impact" aria-label="기초재고 추가 취소 반영 결과">
+      <div className="paste-stock-impact-head">
+        <strong>{processed ? '처리 후 기초재고 변동' : '기초재고 변동 예상'}</strong>
+        <span>변경 적용 {selectedWeek ? formatWeekDisplay(selectedWeek) : '차수 미선택'}</span>
+        <span>기초재고 기준 {baseWeek ? formatWeekDisplay(baseWeek) : '차수 미선택'}</span>
+        <small>예상잔량 = 기초재고 + 취소 − 추가</small>
+      </div>
+      {rows.length > 0 ? (
+        <div className="paste-stock-impact-scroll">
+          <div className="paste-stock-impact-row paste-stock-impact-columns" aria-hidden="true">
+            <b>품목</b><b>기초재고</b><b>취소반영</b><b>추가반영</b><b>예상잔량</b>
+          </div>
+          {rows.map((row) => {
+            const needsReview = row.warnings.length > 0 || !row.prodKey;
+            const unit = row.unit || '';
+            return (
+              <div className={`paste-stock-impact-row${needsReview ? ' needs-review' : ''}`} key={row.identityKey}>
+                <span title={row.inputNames.join(' / ')}>
+                  <b>{row.productName}</b>
+                  {needsReview && <small>확인필요</small>}
+                </span>
+                <span>{fmtStockQty(row.start)}{unit}</span>
+                <span className="stock-cancel">+{fmtStockQty(row.cancelled)}{unit}</span>
+                <span className="stock-add">-{fmtStockQty(row.added)}{unit}</span>
+                <strong>{fmtStockQty(row.expected)}{unit}</strong>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="paste-stock-impact-empty">
+          기초재고를 입력하고 위 변경사항을 분석하면 품목별 기초재고·취소·추가·예상잔량이 여기에 바로 표시됩니다.
+        </div>
+      )}
+    </section>
   );
 }
 

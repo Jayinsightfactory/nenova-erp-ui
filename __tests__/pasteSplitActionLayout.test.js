@@ -26,6 +26,21 @@ assert.equal(
 assert.match(page, /분석 결과/);
 assert.match(page, /입력 오른쪽에서 취소·추가 예상값을 바로 확인하세요/);
 assert.match(page, /className="paste-order-helper-details"/);
+assert.match(page, /StockImpactSummary[\s\S]*draft=\{stockDraft\}[\s\S]*selectedWeek=\{week\}/);
+assert.match(page, /기초재고 변동 예상/);
+assert.match(page, /예상잔량 = 기초재고 \+ 취소 − 추가/);
+assert.match(page, /저장본 불러오기/);
+assert.match(page, /저장본 선택/);
+assert.match(page, /새 기록으로 저장/);
+assert.match(page, /현재 저장본 덮어쓰기/);
+assert.match(page, /const handleBaseStockTextChange = \(nextText\) => \{[\s\S]*buildBaseStockMatchRows[\s\S]*refreshStockDraft/);
+assert.match(page, /const entry = \{ status: 'matched', names: \[label\], prodKey: Number\(it\.prodKey\) \}/);
+assert.match(page, /buildStockRowsByIdentity\(base, resolvedMatches\)/);
+assert.match(page, /resolveStockProjectionIdentity\(record\.productName, resolvedMatches, stockNorm\)/);
+assert.match(page, /const analyzedRecords = buildAnalyzedStockRecords\(analysisOrders, selectedWeek\)/);
+assert.match(page, /const records = analyzedRecords\.length > 0 \? analyzedRecords : parsedChanges\.records/);
+assert.match(page, /analysisOrders: ordersForMatch/);
+assert.match(page, /height: clamp\(140px, 16vh, 180px\)/);
 assert.match(page, /\.paste-global-action-board-top \{ grid-template-columns: 1fr !important; \}/);
 assert.match(page, /왼쪽 · 취소 먼저 \(\$\{globalCancelEntries\.length\}건\)/);
 assert.match(page, /오른쪽 · 추가·분배 \(\$\{globalAddEntries\.length\}건\)/);
@@ -82,6 +97,7 @@ assert.match(page, /\.paste-action-split \{ grid-template-columns: 1fr !importan
 assert.match(page, /\.paste-global-action-board \{ grid-template-columns: 1fr !important; \}/);
 const contract = JSON.parse(fs.readFileSync('docs/contracts/week-pivot-distribution.json', 'utf8'));
 assert.match(contract.pastePreviewPlacementPolicy.desktop, /top-right cell directly beside the paste input/);
+assert.match(contract.pasteBaseStockProjectionPolicy.formula, /base \+ cancelled - added/);
 assert.deepEqual(contract.pastePreviewPlacementPolicy.preserve, [
   'OrderMaster', 'OrderDetail', 'ShipmentMaster', 'ShipmentDetail', 'ShipmentDate',
   'ShipmentFarm', 'Stock', 'Estimate', 'WebProfitReport',

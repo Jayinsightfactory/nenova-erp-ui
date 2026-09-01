@@ -48,6 +48,8 @@
     ,"__tests__/shipmentAdjustmentPostWrite.test.js"
     ,"__tests__/pasteRematchCache.test.js"
     ,"__tests__/pasteSplitActionLayout.test.js"
+    ,"__tests__/pasteStockProjection.test.js"
+    ,"lib/pasteStockProjection.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "displayExportPolicy": {
@@ -120,6 +122,15 @@
     "previewContent": "The moved preview continues to show customer, input name, matched ERP product, incoming quantity, order before/after, shipment before/after, editable quantity/unit, and detailed rematch entry.",
     "helper": "Order exclusion and color highlighting remain available in a collapsed helper directly below the top-right preview; before analysis the helper remains visible in that cell.",
     "responsive": "At 1500px and below the two action groups stack inside the right cell; at 768px and below the entire input/result grid stacks to one column.",
+    "preserve": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Stock", "Estimate", "WebProfitReport"]
+  },
+  "pasteBaseStockProjectionPolicy": {
+    "formula": "expected = base + cancelled - added",
+    "identity": "When both text aliases are confirmed as the same ProdKey, base-stock and analyzed ADD/CANCEL rows share prod:<ProdKey>; unmatched text falls back to its own normalized name and is never fuzzy-merged.",
+    "liveRefresh": "Base-stock text, explicit base-week, analysis result, matched product or quantity, and exclusion changes refresh the top projection immediately.",
+    "weekLabels": "The top projection displays the order change week and the independently selected base-stock week together. Changing the base week preserves current text and never auto-loads a saved note.",
+    "noteControls": "Saved note load is explicit; current save/update and create-new-record remain separate UserFavorite operations with clear labels.",
+    "layout": "At the 1920x1080 baseline the paste textarea is compact and the scrollable base/cancel/add/expected summary occupies the top-right unused area so base-stock input begins higher on the first screen.",
     "preserve": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Stock", "Estimate", "WebProfitReport"]
   },
   "pasteMixedBatchPolicy": {
@@ -206,6 +217,7 @@
     "__tests__/pasteBatchUndo.test.js",
     "__tests__/pasteBatchHistory.test.js",
     "__tests__/pasteSplitActionLayout.test.js",
+    "__tests__/pasteStockProjection.test.js",
     "__tests__/pasteNaturalCustomerInline.test.js",
     "__tests__/pasteRematchCache.test.js",
     "__tests__/pasteFixStatus.test.js",
