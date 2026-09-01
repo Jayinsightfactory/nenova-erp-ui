@@ -1873,6 +1873,15 @@ export default function RaumPnlPage() {
             }}
           >{p.label}</button>
         ))}
+        <button
+          type="button"
+          style={{ ...st.btn, fontWeight: 700, borderColor: '#0ea5e9', color: '#0369a1' }}
+          onClick={() => {
+            const year = detail?.meta?.orderYear || list.find(row => String(row.PartnerCode || '').toLowerCase() === partnerCode)?.OrderYear || '';
+            window.open(`/raum/purchase-costs?partner=${encodeURIComponent(partnerCode)}${year ? `&year=${encodeURIComponent(year)}` : ''}`, '_blank', 'noopener');
+          }}
+          title="선택한 거래처의 품목별 매입단가를 차수별로 한 화면에서 조회·수정합니다."
+        >차수별 매입단가 관리</button>
         <span style={{ fontSize: 12.5, color: '#64748b' }}>선택한 거래처 견적서만 올리고, 저장·전산대조도 그 거래처 기준으로 봅니다.</span>
       </div>
       <p style={st.desc}>

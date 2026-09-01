@@ -33,6 +33,15 @@
 - `Estimate`, `ShipmentDetail.Amount/Vat/isFix`, `WebProfitReport`, 주문/출고/재고는 보존한다. 엑셀과 인쇄 생성기는 변경하지 않는다.
 - 운영 화면 읽기 근거: 2026-08-26 기존 라움 28차 저장 상세에서 수국 화이트/장미/카네이션의 저장 매입단가와 매칭 품목 표시 확인. SQL 스키마는 기존 loadRaumPnlDetail의 동일 필드 확인. 직접 DB 연결 환경 부재로 독립 SQL probe는 미수행하며 배포 후 읽기 화면 값 대조로 검증한다.
 
+### 차수별 매입단가 관리 (2026-09-01)
+
+- EXE에는 라움·초이문 웹 결산 원장이 없으므로 주문·출고·재고 저장 동작을 복제하지 않는다. 기존 웹 전용 `WebRaumPnl`/`WebRaumPnlItem` 저장값만 관리한다.
+- 조회 범위는 사용자가 고른 `OrderYear + PartnerCode`의 활성 결산이며 현재 연도 추정값을 쓰지 않는다. 열은 `PnlKey + MajorWeek`, 행은 기존 비교 기능과 동일한 품목키(`ProdKey + Unit + IsCustom`, 미매칭은 정확한 품목명+단위+수동구분)다.
+- 저장은 `OrderYear + PartnerCode + MajorWeek + PnlKey`를 잠근 뒤 화면이 읽은 `ItemKey + CostPrice` snapshot과 현재행을 비교한다. 하나라도 달라지면 전체를 취소하고 새로고침을 안내한다.
+- 허용 쓰기는 대상 `WebRaumPnlItem.CostPrice/CostSource`와 부모 `WebRaumPnl.UpdatedBy/UpdatedAt`뿐이다. 명시적 0은 보존하고 빈칸은 NULL로 저장한다.
+- 과거 차수 수정은 `WebRaumCostPrice` 학습값을 바꾸지 않는다. `Product`, 주문·출고·분배·재고·견적·`WebProfitReport`도 보존한다.
+- 손익 목록과 상세의 매입액·이익은 `WebRaumPnlItem.CostPrice × Qty`를 조회 시 계산하므로 저장 후 재조회에서 새 단가가 반영된다.
+
 - 업무키: `OrderYear + OrderWeek + CustKey + ProdKey`
 - `OrderMaster.Manager`는 `UserInfo.UserID`로 해석한다.
 - `OrderYearWeek`는 전산 raw 형식인 `OrderYear + 대차수`만 사용한다.
