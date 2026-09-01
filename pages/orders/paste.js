@@ -3564,6 +3564,25 @@ export default function PasteOrderPage() {
         </div>
         </CollapsibleTop>
 
+        {orders.length > 0 && (
+          <div className="paste-primary-batch-action" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10, padding: '10px 12px', border: '2px solid #1565c0', borderRadius: 8, background: '#eef5ff', flexWrap: 'wrap' }}>
+            <strong style={{ marginRight: 'auto', color: '#1a237e', fontSize: 13 }}>
+              1. 전체 확인 → 2. 왼쪽 취소 → 3. 오른쪽 추가·분배
+            </strong>
+            {globalBatchIntent.issues.length > 0 && <span role="alert" style={{ fontSize: 12, fontWeight: 800, color: '#b71c1c' }}>
+              업체·품목·수량 미확인 {globalBatchIntent.issues.length}건
+            </span>}
+            {globalBatchStartBlocker && globalBatchStartBlocker.code !== 'RUNNING' && <span role="alert" style={{ fontSize: 12, fontWeight: 800, color: '#b71c1c' }}>
+              {globalBatchStartBlocker.message}
+            </span>}
+            <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning}
+              aria-disabled={Boolean(globalBatchStartBlocker)} title={globalBatchStartBlocker?.message || '취소 전체 처리 후 추가·분배 전체 처리'}
+              style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: globalBatchStartBlocker ? '#78909c' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : globalBatchStartBlocker ? 'help' : 'pointer' }}>
+              {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
+            </button>
+          </div>
+        )}
+
         <div className="paste-input-grid" style={{ marginBottom: 12 }}>
           {/* 1열: 주문 붙여넣기 */}
           <div className="paste-col paste-col-order">
@@ -3855,7 +3874,7 @@ export default function PasteOrderPage() {
         <style jsx global>{`
           .paste-input-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
             align-items: start;
           }
@@ -3910,7 +3929,6 @@ export default function PasteOrderPage() {
             background: #fff;
           }
           @media (max-width: 1500px) {
-            .paste-input-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 380px; }
           }
           @media (max-width: 768px) {
@@ -3955,11 +3973,6 @@ export default function PasteOrderPage() {
             {globalBatchStartBlocker && globalBatchStartBlocker.code !== 'RUNNING' && <span role="alert" style={{ marginRight: 'auto', fontSize: 12, fontWeight: 800, color: '#b71c1c' }}>
               {globalBatchStartBlocker.message}
             </span>}
-            <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning}
-              aria-disabled={Boolean(globalBatchStartBlocker)} title={globalBatchStartBlocker?.message || '취소 전체 처리 후 추가·분배 전체 처리'}
-              style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: globalBatchStartBlocker ? '#78909c' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : globalBatchStartBlocker ? 'help' : 'pointer' }}>
-              {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
-            </button>
           </div>
           <div className="paste-global-action-board" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, marginBottom: 14, alignItems: 'start' }}>
             {[
