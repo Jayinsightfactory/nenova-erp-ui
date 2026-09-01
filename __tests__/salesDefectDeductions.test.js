@@ -318,6 +318,9 @@ assert.ok(deductionSource.includes('const inputNote = input.note == null ? text(
 assert.ok(deductionSource.includes('ImportConfirmed=CASE WHEN @importReset=1 THEN 0'), '영업부가 수입부 확정 후 농장/크레딧/비고를 바꾸면 재확인이 필요해야 한다.');
 assert.ok(supportReviewSource.includes('verifyAppliedRow'), '견적서 등록은 적용 후 Estimate 재조회 검증을 수행해야 한다.');
 assert.ok(supportReviewSource.includes('처리 로그'), '영업지원 전산등록 검토창은 처리 로그를 표시해야 한다.');
+assert.ok(pageSource.includes('영업지원 전산등록 실시간 진행 로그') && pageSource.includes('supportProcessLogs'), '영업지원 본창은 팝업 등록 진행을 실시간으로 표시해야 한다.');
+assert.ok(supportReviewSource.includes("type: 'sales-defect-register-progress'"), '검토창은 각 처리 단계를 본창에 전송해야 한다.');
+assert.match(pageSource, /sales-defect-register-progress[\s\S]*setSupportProcessLogs/, '본창은 검토창의 진행 이벤트를 로그에 즉시 반영해야 한다.');
 assert.ok(supportReviewSource.includes('openEstimateManagement'), '전산등록 결과에서 견적서관리 새창을 열 수 있어야 한다.');
 assert.ok(estimatePageSource.includes('＋ 불량차감등록'), '견적서관리에는 불량차감등록 전용 버튼이 있어야 한다.');
 assert.ok(estimatePageSource.includes('＋ 불량/검역등록'), '견적서관리의 기존 불량/검역등록 버튼을 유지해야 한다.');

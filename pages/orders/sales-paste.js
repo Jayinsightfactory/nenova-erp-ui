@@ -37,6 +37,7 @@ export default function SalesPasteOrderPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [logs, setLogs] = useState([]);
+  const [operationLogs, setOperationLogs] = useState([]);
   const [matchEditor, setMatchEditor] = useState(null);
   const [analysisPreview, setAnalysisPreview] = useState({ status: 'idle', items: [], error: '' });
   const [analysisLogs, setAnalysisLogs] = useState([]);
@@ -240,8 +241,12 @@ export default function SalesPasteOrderPage() {
       return;
     submitLock.current = true;
     setBusy(true);
+    const appendOperationLog = (status, detail) => setOperationLogs((previous) => [...previous, { at: new Date().toISOString(), status, detail }].slice(-100));
+    setOperationLogs([]);
+    appendOperationLog('시작', `${year}년 ${week} · ${selectedCustomer.CustName} · ${rows.length}개 품목`);
     setMessage('주문 원장에 등록하고 재조회 중입니다…');
     try {
+      appendOperationLog('처리 중', '주문 DB 등록 요청 · 연도·차수·업체·품목 검증 중');
       const result = await apiPost('/api/orders', {
         source: 'sales-paste',
         orderMode: 'ADD',
@@ -260,6 +265,8 @@ export default function SalesPasteOrderPage() {
       });
       if (result.success === false || result.verified !== true)
         throw new Error(result.error || '주문등록 검증에 실패했습니다.');
+      (result.results || []).forEach((row) => appendOperationLog(row.status || '등록', `${row.prodName || row.ProdName || row.prodKey || '품목'} · ${row.message || row.qty || ''}`));
+      appendOperationLog('처리 중', '주문 DB 반영 완료 · 현재 주문 재조회 중');
       const refreshed = await apiGet('/api/orders/my-customers', {
         custKey,
         year,
@@ -282,7 +289,9 @@ export default function SalesPasteOrderPage() {
       setMessage(
         `${result.message || '주문 등록 완료'} · 현재 주문 재조회 완료 · 분배 변경 없음`,
       );
+      appendOperationLog('완료', `${result.message || '주문 등록 완료'} · 재조회 검증 완료 · 분배 변경 없음`);
     } catch (error) {
+      appendOperationLog('실패', error.message || '주문등록 실패');
       setMessage(error.message || '주문등록 실패');
     } finally {
       submitLock.current = false;
@@ -693,6 +702,10 @@ export default function SalesPasteOrderPage() {
                   {analysisLogs.map((log, index) => <div key={`${log.at}-${index}`}><b>{log.status}</b><span>{new Date(log.at).toLocaleTimeString('ko-KR')} · {log.detail}</span></div>)}
                 </details>
               )}
+            </section>
+            <section>
+              <h2>주문등록 실시간 진행 로그</h2>
+              {operationLogs.length ? <div className="operation-logs" role="log" aria-live="polite">{operationLogs.map((log, index) => <div key={`${log.at}-${index}`}><b>{log.status}</b><span>{new Date(log.at).toLocaleTimeString('ko-KR')} · {log.detail}</span></div>)}</div> : <div className="empty">등록 버튼을 누르면 DB 처리와 재조회 단계가 표시됩니다.</div>}
             </section>
             <section>
               <h2>이번 작업 로그</h2>
@@ -1176,6 +1189,7 @@ export default function SalesPasteOrderPage() {
         .analysis-log summary { cursor: pointer; font-weight: 800; color: #526278; }
         .analysis-log > div { display: flex; gap: 6px; padding: 3px; border-top: 1px solid #eee; }
         .analysis-log span { min-width: 0; overflow-wrap: anywhere; }
+        .operation-logs { max-height: 220px; overflow: auto; } .operation-logs > div { display: grid; grid-template-columns: 55px minmax(0,1fr); gap: 6px; padding: 4px 0; border-top: 1px solid #dbeafe; } .operation-logs b { color: #1d4ed8; } .operation-logs span { overflow-wrap: anywhere; }
         .current-list span {
           display: flex;
           min-width: 0;

@@ -156,6 +156,7 @@ export default function SalesDefectDeductionsPage() {
   const [supportRows, setSupportRows] = useState([]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
+  const [supportProcessLogs, setSupportProcessLogs] = useState([]);
   const [manualCostModal, setManualCostModal] = useState(null);
   const [manualCostValue, setManualCostValue] = useState('');
   const [manualCostSaving, setManualCostSaving] = useState(false);
@@ -1052,10 +1053,14 @@ export default function SalesDefectDeductionsPage() {
     const selectedRows = supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)) && isSupportRegistrationSelectable(row, activeTab));
     const ids = selectedRows.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
     if (!ids.length) { setError('영업지원 전산등록을 진행할 행을 전체 또는 일부 선택하세요.'); return; }
+    const startedAt = new Date().toLocaleTimeString('ko-KR');
+    setSupportProcessLogs([{ at: startedAt, label: `시작 · ${year}년 ${week}차 · 선택 ${ids.length}건` }]);
     setSupportLoading(true); setError(''); setMessage('영업지원 전산등록 대상 사전검증 중…');
     try {
+      setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '서버 사전검증 요청 · 출고·단가·중복 확인 중' }]);
       const check = await apiPost('/api/sales/defect-deductions', { action: 'preflight', year, week, rows: selectedRows });
       const { valid, invalid } = partitionRegistrationPreflight(check.rows || []);
+      setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `사전검증 완료 · 등록 가능 ${valid.length}건 · 오류 제외 ${invalid.length}건` }]);
       if (!valid.length) {
         throw new Error(`등록 가능한 행이 없습니다.\n${invalid.map((r) => `행 ${r.index + 1}: ${r.error || '원장키가 없습니다.'}`).join('\n')}`);
       }
@@ -1063,8 +1068,12 @@ export default function SalesDefectDeductionsPage() {
       const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1`;
       const reviewWindow = window.open(reviewUrl, 'nenovaSalesSupportDefectRegister', 'width=1500,height=900,resizable=yes,scrollbars=yes');
       if (!reviewWindow) throw new Error('전산등록 검토창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 시도하세요.');
+      setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '검토창 연결 완료 · 이후 등록·재조회 로그를 실시간 수신합니다.' }]);
       setMessage(`영업지원 전산등록 검토창을 열었습니다. ${valid.length}건의 처리로그·전후값·재조회 검증을 진행합니다.${invalid.length ? ` 오류 제외 ${invalid.length}건.` : ''}`);
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `실패 · ${e.message}` }]);
+      setError(e.message);
+    }
     finally { setSupportLoading(false); }
   };
 
@@ -1180,7 +1189,13 @@ export default function SalesDefectDeductionsPage() {
 
   useEffect(() => {
     const onMessage = (event) => {
-      if (event.origin !== window.location.origin || event.data?.type !== 'sales-defect-register-complete') return;
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'sales-defect-register-progress') {
+        setSupportProcessLogs((current) => [...current, { at: event.data.at || new Date().toLocaleTimeString('ko-KR'), label: event.data.label || '처리 중' }].slice(-100));
+        return;
+      }
+      if (event.data?.type !== 'sales-defect-register-complete') return;
+      setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: event.data.verified === false ? '완료 알림 · 재조회 확인 필요' : `전체 완료 · 등록 ${event.data.registered || 0}건 · 재조회 검증 통과` }]);
       if (event.data.verified === false) {
         setError(`견적서 등록 후 재조회 불일치가 ${event.data.mismatches?.length || 0}건 있습니다. 검토창의 오류 내용을 확인하세요.`);
       } else {
@@ -1530,6 +1545,10 @@ export default function SalesDefectDeductionsPage() {
             {SUPPORT_REGISTER_USAGE_STEPS.map((step) => <li key={step}>{step}</li>)}
           </ol>
         </div>}
+        {activeTab === 'support' && <div className="support-live-log" role="log" aria-live="polite" aria-label="영업지원 전산등록 실시간 진행 로그">
+          <div className="support-live-log-head"><strong>실시간 진행 로그</strong><span>{supportLoading ? '처리 중…' : supportProcessLogs.length ? '최근 작업' : '대기'}</span></div>
+          {supportProcessLogs.length ? supportProcessLogs.map((log, index) => <div key={`${log.at}-${index}`}><time>{log.at}</time><span>{log.label}</span></div>) : <div className="support-live-log-empty">등록 버튼을 누르면 사전검증부터 최종 재조회까지 단계별로 표시됩니다.</div>}
+        </div>}
         {activeTab === 'carryover' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 8, padding: '8px 10px', borderBottom: '1px solid #e2e8f0' }}>
           {carryoverCustomerGroups.map((group) => {
             const selectableRows = group.rows.filter(isCarryoverRetrySelectable);
@@ -1868,6 +1887,9 @@ export default function SalesDefectDeductionsPage() {
         .support-usage-notice li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid #fbbf24; background: #fff; border-radius: 999px; font-weight: 700; }
         .support-usage-notice li::after { content: '→'; color: #d97706; }
         .support-usage-notice li:last-child::after { content: ''; }
+        .support-live-log { max-height: 170px; overflow: auto; padding: 7px 10px; border-bottom: 1px solid #93c5fd; background: #eff6ff; color: #1e3a8a; font-size: 12px; }
+        .support-live-log-head { position: sticky; top: 0; display: flex; justify-content: space-between; padding-bottom: 4px; background: #eff6ff; } .support-live-log-head span { color: #0369a1; font-weight: 800; }
+        .support-live-log > div:not(.support-live-log-head):not(.support-live-log-empty) { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 7px; padding: 2px 0; border-top: 1px solid #bfdbfe; } .support-live-log time { color: #64748b; font-variant-numeric: tabular-nums; } .support-live-log-empty { color: #64748b; }
         .support-grid-scroll { max-height: calc(100vh - 260px); }
         .support-grid th, .support-grid td { padding: 4px 6px; line-height: 1.25; }
         .support-grid .defect-row td { vertical-align: middle; }

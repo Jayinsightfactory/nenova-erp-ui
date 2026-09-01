@@ -49,7 +49,13 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const deductionType = String(router.query.type || '불량차감');
   const supportMode = String(router.query.support || '') === '1';
   const excludedRows = useMemo(() => rows.filter((row) => excludedKeys.has(Number(row.deductionKey))), [rows, excludedKeys]);
-  const appendLog = (label) => setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label }]);
+  const appendLog = (label) => {
+    const at = new Date().toLocaleTimeString('ko-KR');
+    setLogs((current) => [...current, { at, label }]);
+    try {
+      window.opener?.postMessage({ type: 'sales-defect-register-progress', at, label }, window.location.origin);
+    } catch { /* opener가 닫힌 경우 검토창 로그만 유지 */ }
+  };
 
   const load = useCallback(async ({ throwOnError = false } = {}) => {
     if (!router.isReady || !ids.length || !year || !week) return;
@@ -140,7 +146,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
     );
     const activeIds = activeRows.map((row) => Number(row.deductionKey));
     const originalRowByKey = new Map(activeRows.map((row) => [Number(row.deductionKey), row]));
-    setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `전산등록 시작 · 등록 ${activeIds.length}건 · 제외 ${excludedKeys.size}건` }]);
+    appendLog(`전산등록 시작 · 등록 ${activeIds.length}건 · 제외 ${excludedKeys.size}건`);
     try {
       const overrides = Object.fromEntries(activeRows.map((row) => [String(row.deductionKey), {
         quantity: Number(row.editQuantity),
