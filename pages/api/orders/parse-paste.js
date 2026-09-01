@@ -20,7 +20,7 @@ import { parseNaturalInlineOrderLine, parseNaturalSectionActionLine, stripTraili
 import { matchImportRows } from '../../../lib/orderImportMatch';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
 import { parseExplicitOrderUnit } from '../../../lib/pasteOrderUnit.js';
-import { buildSalesPasteMatchName, chooseSalesPasteParsedOrders, normalizeSalesPasteInputText, salesPasteCountryContext } from '../../../lib/salesPasteOrder.js';
+import { buildSalesPasteMatchName, chooseSalesPasteParsedOrders, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, salesPasteCountryContext } from '../../../lib/salesPasteOrder.js';
 
 const ORDER_PASTE_LLM_MODEL = process.env.ORDER_PASTE_LLM_MODEL || 'claude-sonnet-4-5';
 
@@ -261,11 +261,7 @@ function parseCompactQty(value) {
 }
 
 function parseCompactWeek(line) {
-  const s = String(line || '');
-  let m = s.match(/(?:^|\s)(\d{1,2})\s*-\s*(\d{1,2})(?:\s*차)?(?:\s|$)/);
-  if (m) return `${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
-  m = s.match(/(?:^|\s)(\d{1,2})\s*차(?:\s|$)/);
-  return m ? `${m[1].padStart(2, '0')}-01` : null;
+  return normalizeDetectedSalesPasteWeek(line) || null;
 }
 
 /** 한글 키워드 사전 — 토큰 분리 없이 부분 문자열로도 꽃/품종 필터 추출 */
@@ -547,9 +543,10 @@ function normalizeAction(action, inputName = '') {
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  const { text } = req.body;
+  const { text, sourceText } = req.body;
   if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
   const cleanText = sanitizePasteText(text);
+  const cleanSourceText = sanitizePasteText(sourceText || '');
 
   try {
     // ── Step 1: 텍스트 첫 줄에서 꽃 품종 키워드 선(先) 추출
@@ -744,6 +741,14 @@ Caroline | 2
     const parsed = JSON.parse(jsonText);
     const compactParsed = parseCompactStockOrders(cleanText);
     const naturalParsed = parseNaturalSectionOrders(cleanText);
+    // 화면이 선택 차수·업체를 분석 문맥으로 앞에 붙이므로, 원문을 별도로 파싱하지
+    // 않으면 기존 선택 차수가 사용자가 입력한 "37차"보다 먼저 감지된다.
+    const sourceNaturalParsed = cleanSourceText
+      ? parseNaturalSectionOrders(cleanSourceText)
+      : { detectedWeek: null };
+    const sourceCompactParsed = cleanSourceText
+      ? parseCompactStockOrders(cleanSourceText)
+      : { detectedWeek: null };
     // LLM을 호출하고도 규칙 파서가 한 행만 찾으면 전체 LLM 결과를 버리던 구조를 제거한다.
     // 원문 수량행 개수와 가장 가까운 결과를 선택하고, 동률이면 정확도 우선 LLM을 사용한다.
     const selectedParse = chooseSalesPasteParsedOrders({
@@ -832,11 +837,12 @@ Caroline | 2
     });
 
     // 차수 정규화: "16-1" → "16-01"
-    let detectedWeek = naturalParsed.detectedWeek || parsed.detectedWeek || null;
-    if (detectedWeek) {
-      const m = String(detectedWeek).match(/^(\d{1,2})-(\d{1,2})$/);
-      if (m) detectedWeek = `${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
-    }
+    let detectedWeek = sourceNaturalParsed.detectedWeek
+      || sourceCompactParsed.detectedWeek
+      || naturalParsed.detectedWeek
+      || parsed.detectedWeek
+      || null;
+    if (detectedWeek) detectedWeek = normalizeDetectedSalesPasteWeek(detectedWeek) || detectedWeek;
     if (!detectedWeek && compactParsed.detectedWeek) detectedWeek = compactParsed.detectedWeek;
 
     return res.status(200).json({

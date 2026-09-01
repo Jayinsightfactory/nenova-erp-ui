@@ -8,6 +8,7 @@ import {
   buildSalesPasteOrderChanges,
   buildSalesPasteText,
   buildSalesPasteWeekChoices,
+  normalizeSalesPasteInputText,
   replaceSalesPasteProduct,
   replaceSalesPasteUnit,
   resolveDetectedSalesPasteScope,
@@ -158,6 +159,8 @@ export default function SalesPasteOrderPage() {
     setRows([]);
     try {
       const parsed = await apiPost('/api/orders/parse-paste', {
+        // 분석 문맥용 헤더보다 사용자가 붙여넣은 원문의 차수를 우선 판정한다.
+        sourceText: normalizeSalesPasteInputText(text),
         text: buildSalesPasteText({
           year,
           week,

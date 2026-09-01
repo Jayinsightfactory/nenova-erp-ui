@@ -10,6 +10,7 @@ assert.match(page, /source:\s*'sales-paste',[\s\S]{0,80}orderMode:\s*'ADD'/, '�
 assert.doesNotMatch(page, /\/api\/shipment\//, '영업부 페이지는 분배 API를 호출하면 안 됩니다.');
 assert.match(page, /expectedCurrentQty/, '저장 직전 현재 주문수량 optimistic lock을 전달해야 합니다.');
 assert.match(page, /resolveDetectedSalesPasteScope\(parsed\.detectedWeek, weekChoices\)/, '붙여넣기에서 감지한 차수를 선택 차수에 자동 반영해야 합니다.');
+assert.match(page, /sourceText:\s*normalizeSalesPasteInputText\(text\)/, '현재 선택 차수보다 붙여넣은 원문의 차수를 우선 판정하도록 원문을 별도 전달해야 합니다.');
 assert.match(page, /detectedScopeChange/, '차수 자동선택 중 입력 내용과 분석 결과가 지워지면 안 됩니다.');
 assert.match(page, /apiGet\('\/api\/products\/search'/, '기존 공통 품목검색 랭킹 API를 사용해야 합니다.');
 assert.match(page, /fetch\('\/api\/orders\/mappings'/, '사용자가 선택한 품목 매칭을 기존 저장매칭 시스템에 기록해야 합니다.');
@@ -42,6 +43,7 @@ assert.match(api, /ensureShipmentMaster = !isMyCustomerSource/, 'sales-paste는 
 assert.match(parser, /matchName: item\.matchName \|\| item\.inputName/, '콜 수국 같은 국가·품종 문맥을 공통 매칭 엔진에 전달해야 합니다.');
 assert.match(parser, /suggestedProducts:\s*\(matched\.suggestedProducts \|\| \[\]\)\.map/, '공통 매칭 엔진의 순위 후보를 화면 응답에 포함해야 합니다.');
 assert.match(parser, /normalizeSalesPasteInputText\(raw\)/, 'API 직접 호출에서도 줄 끝 역슬래시 수량행이 누락되면 안 됩니다.');
+assert.match(parser, /sourceNaturalParsed\.detectedWeek[\s\S]{0,100}sourceCompactParsed\.detectedWeek[\s\S]{0,100}naturalParsed\.detectedWeek/, '붙여넣은 원문 차수를 문맥 헤더와 LLM 감지값보다 우선해야 합니다.');
 assert.match(parser, /ORDER_PASTE_LLM_MODEL[\s\S]{0,100}claude-sonnet-4-5/, '비용보다 정확도를 우선하는 Sonnet 분석을 기본값으로 사용해야 합니다.');
 assert.match(parser, /chooseSalesPasteParsedOrders\(/, 'LLM 결과를 규칙 결과가 무조건 덮어쓰지 말고 수량행 완전성으로 선택해야 합니다.');
 assert.match(parser, /parseSource:\s*selectedParse\.source/, '분석 출처를 응답에 남겨 진단 가능해야 합니다.');
