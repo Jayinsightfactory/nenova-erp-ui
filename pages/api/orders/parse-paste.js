@@ -801,6 +801,15 @@ Caroline | 2
           confidenceLabel: matched.confidenceLabel || 'none',
           fallbackSuspect: Boolean(matched.fallbackSuspect),
           fallbackCount:   matched.fallbackCount || 0,
+          suggestedProducts: (matched.suggestedProducts || []).map((product) => ({
+            ProdKey: product.prodKey,
+            ProdName: product.prodName,
+            DisplayName: product.displayName,
+            FlowerName: product.flowerName,
+            CounName: product.counName,
+            OutUnit: product.outUnit,
+            MatchScore: product.score,
+          })),
         };
       });
 

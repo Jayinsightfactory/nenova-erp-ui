@@ -311,8 +311,7 @@ export default function SalesPasteOrderPage() {
     searchProducts(rowIndex, searchText);
   }
 
-  async function selectMatchedProduct(product) {
-    const rowIndex = matchEditor?.rowIndex;
+  async function applyMatchedProduct(rowIndex, product, { closeEditor = false } = {}) {
     const row = rows[rowIndex];
     if (!row || !product?.ProdKey) return;
     const mappingToken = row.matchName || row.inputName;
@@ -336,12 +335,17 @@ export default function SalesPasteOrderPage() {
       if (!response.ok || !saved.success) throw new Error(saved.error || '저장매칭 저장 실패');
       const nextRows = replaceSalesPasteProduct(rows, rowIndex, product, products);
       setRows(nextRows);
-      setMatchEditor(null);
+      if (closeEditor) setMatchEditor(null);
       const failed = nextRows.filter((item) => !item.prodKey || !(Number(item.qty) > 0) || item.unitConflict).length;
       setMessage(`품목 매칭 수정 완료 · ${product.DisplayName || product.ProdName}${failed ? ` · 확인 필요 ${failed}건` : ' · 전부 등록 가능'}`);
     } catch (error) {
-      setMatchEditor((previous) => ({ ...previous, error: error.message }));
+      if (closeEditor) setMatchEditor((previous) => ({ ...previous, error: error.message }));
+      else setMessage(`품목 매칭 수정 실패 · ${error.message}`);
     }
+  }
+
+  async function selectMatchedProduct(product) {
+    return applyMatchedProduct(matchEditor?.rowIndex, product, { closeEditor: true });
   }
 
   return (
@@ -529,9 +533,26 @@ export default function SalesPasteOrderPage() {
                             {row.finalQty ?? '-'} {row.unit}
                           </td>
                           <td>
-                            <button className="match-edit" type="button" onClick={() => openMatchEditor(index)}>
-                              품목 검색·수정
-                            </button>
+                            <div className="match-shortcuts">
+                              {(row.suggestedProducts || [])
+                                .filter((product) => Number(product.ProdKey) !== Number(row.prodKey))
+                                .slice(0, 3)
+                                .map((product, rank) => (
+                                  <button
+                                    key={product.ProdKey}
+                                    className="match-candidate"
+                                    type="button"
+                                    title={`대안 ${rank + 1} · ${product.DisplayName || product.ProdName}`}
+                                    onClick={() => applyMatchedProduct(index, product)}
+                                  >
+                                    <small>대안 {rank + 1}</small>
+                                    <b>{product.DisplayName || product.ProdName}</b>
+                                  </button>
+                                ))}
+                              <button className="match-edit" type="button" onClick={() => openMatchEditor(index)}>
+                                품목 검색·수정 (더 찾기)
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -902,7 +923,39 @@ export default function SalesPasteOrderPage() {
         .analysis td:nth-child(n + 3) {
           text-align: right;
         }
+        .match-shortcuts {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(86px, 1fr));
+          gap: 3px;
+          min-width: 285px;
+          text-align: left;
+        }
+        .match-candidate {
+          min-width: 0;
+          padding: 3px 5px;
+          background: #eef5ff;
+          border-color: #9ab7df;
+          color: #163d74;
+          cursor: pointer;
+          text-align: left;
+        }
+        .match-candidate small,
+        .match-candidate b {
+          display: block;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .match-candidate small {
+          color: #62718a;
+          font-size: 10px;
+        }
+        .match-candidate b {
+          font-size: 11px;
+        }
         .match-edit {
+          grid-column: 1 / -1;
+          justify-self: start;
           padding: 4px 7px;
           white-space: nowrap;
           background: #fff;
