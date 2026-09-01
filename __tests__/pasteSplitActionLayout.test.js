@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const page = fs.readFileSync('pages/orders/paste.js', 'utf8');
 assert.match(page, /className="paste-action-split"/);
-assert.match(page, /className="paste-global-action-board"/);
+assert.match(page, /paste-global-action-board-top/);
 assert.match(page, /className="paste-primary-batch-action"/);
 assert.match(page, /1\. 전체 확인 → 2\. 왼쪽 취소 → 3\. 오른쪽 추가·분배/);
 assert.ok(
@@ -11,6 +11,22 @@ assert.ok(
   '전체 일괄 등록·분배 버튼은 붙여넣기 입력 영역보다 위에 있어야 한다.',
 );
 assert.match(page, /\.paste-input-grid \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+const pasteInputIndex = page.indexOf('className="paste-col paste-col-order"');
+const topPreviewIndex = page.indexOf('renderGlobalActionPreviewBoard({ compact: true })');
+const stockInputIndex = page.indexOf('className="paste-col paste-col-stock"');
+assert.ok(
+  pasteInputIndex >= 0 && topPreviewIndex > pasteInputIndex && topPreviewIndex < stockInputIndex,
+  '취소·추가 예상 결과는 붙여넣기 입력 바로 오른쪽, 기초재고 영역보다 위에 렌더링해야 한다.',
+);
+assert.equal(
+  page.match(/renderGlobalActionPreviewBoard\(\{ compact: true \}\)/g)?.length,
+  1,
+  '상단 예상 결과표는 한 번만 렌더링해 아래에 중복 표시하지 않는다.',
+);
+assert.match(page, /분석 결과/);
+assert.match(page, /입력 오른쪽에서 취소·추가 예상값을 바로 확인하세요/);
+assert.match(page, /className="paste-order-helper-details"/);
+assert.match(page, /\.paste-global-action-board-top \{ grid-template-columns: 1fr !important; \}/);
 assert.match(page, /왼쪽 · 취소 먼저 \(\$\{globalCancelEntries\.length\}건\)/);
 assert.match(page, /오른쪽 · 추가·분배 \(\$\{globalAddEntries\.length\}건\)/);
 assert.match(page, /적용 예상 · 주문 \$\{previewQty\(preview\.orderBefore\)\}→\$\{previewQty\(preview\.orderAfter\)\} \/ 분배 \$\{previewQty\(preview\.shipmentBefore\)\}→\$\{previewQty\(preview\.shipmentAfter\)\}/);
@@ -64,4 +80,10 @@ assert.match(page, /const verification = await apiGet\('\/api\/favorites', \{ pa
 assert.doesNotMatch(page, /saveStockNote[\s\S]*?\/api\/shipment\/start-stock-text/);
 assert.match(page, /\.paste-action-split \{ grid-template-columns: 1fr !important; \}/);
 assert.match(page, /\.paste-global-action-board \{ grid-template-columns: 1fr !important; \}/);
+const contract = JSON.parse(fs.readFileSync('docs/contracts/week-pivot-distribution.json', 'utf8'));
+assert.match(contract.pastePreviewPlacementPolicy.desktop, /top-right cell directly beside the paste input/);
+assert.deepEqual(contract.pastePreviewPlacementPolicy.preserve, [
+  'OrderMaster', 'OrderDetail', 'ShipmentMaster', 'ShipmentDetail', 'ShipmentDate',
+  'ShipmentFarm', 'Stock', 'Estimate', 'WebProfitReport',
+]);
 console.log('paste split action layout tests passed');

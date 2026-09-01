@@ -115,6 +115,13 @@
       "shipmentDetail": "preserve"
     }
   ],
+  "pastePreviewPlacementPolicy": {
+    "desktop": "After analysis, the global CANCEL and ADD/distribution preview renders in the top-right cell directly beside the paste input instead of below the stock-input grid.",
+    "previewContent": "The moved preview continues to show customer, input name, matched ERP product, incoming quantity, order before/after, shipment before/after, editable quantity/unit, and detailed rematch entry.",
+    "helper": "Order exclusion and color highlighting remain available in a collapsed helper directly below the top-right preview; before analysis the helper remains visible in that cell.",
+    "responsive": "At 1500px and below the two action groups stack inside the right cell; at 768px and below the entire input/result grid stacks to one column.",
+    "preserve": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Stock", "Estimate", "WebProfitReport"]
+  },
   "pasteMixedBatchPolicy": {
     "executionOrder": "the UI sends one stable CANCEL phase followed by one stable ADD phase in a single atomic request",
     "selectionModel": "actions come from the pasted analysis; users do not build a separate multi-selection",
