@@ -66,6 +66,7 @@
   ],
   "sideEffects": {
     "stockIncreasePreflight": "수량 저장과 동일하게 잠근 Product.Stock 현재고에서 양수 증가분만 차감해 음수 여부를 판정한다. Product.Stock에는 기존 확정 출고가 이미 반영되어 있으므로 기존 ViewShipment 합계를 다시 빼지 않는다.",
+    "futureStockShortageDisplay": "usp_StockCalculation과 같은 StockMaster.OrderYearWeek >= 시작 OrderYearWeek 범위에서 첫 음수 ProductStock을 OrderYearWeek+StockKey 오름차순으로 선택하고 서버 잠금 품종·품목명·ProdKey·음수 차수·재고값을 오류와 stockValidation에 반환한다.",
     "fixedShipment": "unfix -> update -> fix",
     "reconfirmFailure": "dry-run edited rows; manual integrity issues stop before update, negative stock prompts for exact shortage adjustment then recalculates and retries fix",
     "negativeStockRecovery": "explicit confirm only -> StockHistory 재고조정(+exact shortage) -> usp_StockCalculation -> usp_ShipmentFix",
