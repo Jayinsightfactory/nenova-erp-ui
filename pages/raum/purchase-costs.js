@@ -188,13 +188,13 @@ export default function RaumPurchaseCostsPage() {
       {message ? <div style={{ padding: '6px 8px', marginBottom: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', borderRadius: 4 }}>{message}</div> : null}
 
       <div style={{ border, overflow: 'auto', maxHeight: 'calc(100vh - 174px)', background: '#fff' }}>
-        <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: Math.max(1000, 470 + matrix.weeks.length * 158), width: '100%', tableLayout: 'fixed' }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: Math.max(1000, 470 + matrix.weeks.length * 150), width: '100%', tableLayout: 'fixed' }}>
           <thead>
             <tr>
               <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 5, width: 230, padding: '5px 6px', background: '#dbeafe', borderRight: border, borderBottom: border }}>품목</th>
               <th style={{ position: 'sticky', top: 0, left: 230, zIndex: 5, width: 190, padding: '5px 6px', background: '#dbeafe', borderRight: border, borderBottom: border }}>전산 매칭</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 4, width: 50, padding: '5px 4px', background: '#dbeafe', borderRight: border, borderBottom: border }}>단위</th>
-              {matrix.weeks.map(week => <th key={week.key} style={{ position: 'sticky', top: 0, zIndex: 4, width: 158, padding: '4px', background: '#e0f2fe', borderRight: border, borderBottom: border }}>{week.label}<div style={{ fontSize: 10, color: '#64748b', fontWeight: 400 }}>매입단가 · 판매가 · 매입액 · 견적액 · 수량</div></th>)}
+              {matrix.weeks.map(week => <th key={week.key} style={{ position: 'sticky', top: 0, zIndex: 4, width: 150, padding: '4px', background: '#e0f2fe', borderRight: border, borderBottom: border }}>{week.label}<div style={{ fontSize: 10, color: '#64748b', fontWeight: 400 }}>매입단가 · 판매가 · 매입액 · 견적액 · 수량</div></th>)}
             </tr>
           </thead>
           <tbody>
