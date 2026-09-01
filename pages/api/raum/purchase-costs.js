@@ -1,9 +1,9 @@
 import { withAuth } from '../../../lib/auth';
-import { resolvePnlPartner } from '../../../lib/raumPnlPartner';
-import { loadRaumPnlCostComparisonRows } from '../../../lib/raumPnlCostComparisonServer';
+import { PNL_PARTNERS } from '../../../lib/raumPnlPartner';
+import { loadRaumPnlPurchaseCostRows } from '../../../lib/raumPnlCostComparisonServer';
 import {
   loadRaumPnlPurchaseCostYears,
-  saveRaumPnlPurchaseCosts,
+  saveRaumSharedPurchaseCosts,
 } from '../../../lib/raumPnlPurchaseCost';
 
 function explicitYear(value) {
@@ -16,38 +16,34 @@ function explicitYear(value) {
   return year;
 }
 
-function explicitPartner(value) {
-  const code = String(value || '').trim().toLowerCase();
-  if (!code) {
-    const error = new Error('라움 또는 초이문을 직접 선택해 주세요.');
-    error.statusCode = 400;
-    throw error;
-  }
-  return resolvePnlPartner(code);
-}
-
+// 라움·초이문 공통 매입단가 관리 화면 전용: 거래처 선택 없이 연도만 명시한다.
+// 요청에 partner가 실려와도 저장 범위에는 사용하지 않는다(양쪽 활성 결산을 항상 함께 처리).
 export default withAuth(async function handler(req, res) {
   try {
-    const partner = explicitPartner(req.method === 'GET' ? req.query.partner : req.body?.partnerCode);
     const orderYear = explicitYear(req.method === 'GET' ? req.query.year : req.body?.orderYear);
 
     if (req.method === 'GET') {
       const [rows, years] = await Promise.all([
-        loadRaumPnlCostComparisonRows({ orderYear, partnerCode: partner.code }),
-        loadRaumPnlPurchaseCostYears(partner.code),
+        loadRaumPnlPurchaseCostRows({ orderYear }),
+        loadRaumPnlPurchaseCostYears(),
       ]);
-      return res.status(200).json({ success: true, partner: { code: partner.code, label: partner.label }, orderYear, years, rows });
+      return res.status(200).json({
+        success: true,
+        orderYear,
+        years,
+        rows,
+        partners: Object.values(PNL_PARTNERS).map(p => ({ code: p.code, label: p.label })),
+      });
     }
 
     if (req.method === 'POST') {
       const actor = req.user?.userName || req.user?.userId || 'user';
-      const result = await saveRaumPnlPurchaseCosts({
+      const result = await saveRaumSharedPurchaseCosts({
         orderYear,
-        partnerCode: partner.code,
         updates: req.body?.updates,
         actor,
       });
-      const rows = await loadRaumPnlCostComparisonRows({ orderYear, partnerCode: partner.code });
+      const rows = await loadRaumPnlPurchaseCostRows({ orderYear });
       return res.status(200).json({ success: true, ...result, rows });
     }
 

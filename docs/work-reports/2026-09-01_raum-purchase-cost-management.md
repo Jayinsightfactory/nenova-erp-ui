@@ -4,30 +4,38 @@
 
 | 동작 | WebRaumPnl | WebRaumPnlItem | WebRaumCostPrice | 주문·출고·재고·견적·주차손익 |
 |---|---|---|---|---|
-| 연도·거래처 조회 | SELECT | SELECT | 보존 | 보존 |
+| 연도 통합 조회 | SELECT(라움+초이문) | SELECT(라움+초이문) | 보존 | 보존 |
 | 검색·미입력 필터 | 보존 | 보존 | 보존 | 보존 |
 | 단가 입력 미리보기 | 보존 | 보존 | 보존 | 보존 |
-| 변경 단가 저장 | UpdatedBy/UpdatedAt | 선택 차수 CostPrice/CostSource | 보존 | 보존 |
+| 공통 단가 저장 | 변경된 라움·초이문 부모의 UpdatedBy/UpdatedAt | 같은 연도·차수·품목·단위의 기존 라움+초이문 행 CostPrice/CostSource | 보존 | 보존 |
 
 ## 기준 장부
 
-- 화면 범위: 명시적 `OrderYear + PartnerCode`.
-- 차수 셀: 활성 `WebRaumPnl.PnlKey + MajorWeek`.
+- 화면 범위: 명시적 `OrderYear` 아래 활성 라움·초이문 결산 전체.
+- 차수 셀: 같은 `MajorWeek`의 라움·초이문 자료를 한 칸으로 묶는다. `PnlKey`와 `PartnerCode`는 저장 대상 snapshot에 보존한다.
 - 품목 묶음: 양수 `ProdKey + 정규화 Unit + IsCustom`; 미매칭은 공백 정규화한 정확한 `ItemName + Unit + IsCustom`.
-- 저장 전 확인: 잠근 현재행의 `ItemKey + CostPrice`가 화면 snapshot과 같아야 한다.
+- 저장 전 확인: 같은 연도·차수·품목의 라움+초이문 전체 `PartnerCode + PnlKey + ItemKey + CostPrice`가 화면 snapshot과 같아야 한다.
 - 값: 0은 유효한 단가, 빈칸은 NULL, 음수와 숫자가 아닌 값은 거부한다.
 - 여러 매출단가 행: 같은 차수·품목·단위에 속한 행을 한 셀에 보여주며 기존값이 다르면 모두 표시한다. 사용자가 새 단가를 입력한 경우에만 하나로 통일한다.
 
 ## 교차연도·근접 실패 항목
 
 - 2025/2026 같은 대차수는 다른 셀이다.
-- 라움/초이문 같은 대차수는 다른 셀이다.
+- 라움/초이문 같은 대차수·품목·단위는 하나의 공통 단가 셀이다. 한쪽에만 품목이 있으면 행을 새로 만들지 않고 존재하는 쪽만 수정한다.
 - 삭제 결산, 다른 ProdKey의 같은 이름, 같은 ProdKey의 다른 단위, 수동행/일반행은 합치지 않는다.
 - 다른 화면에서 행 또는 단가가 바뀌면 409로 전체 저장을 취소한다.
 
 ## 손익 반영
 
 라움·초이문 손익 목록과 상세는 저장된 `CostPrice`로 매입액과 이익을 조회 시 계산한다. 따라서 전용 화면에서 저장하고 재조회하면 해당 차수 손익만 새 단가로 계산된다. 다음 차수 자동 입력용 `WebRaumCostPrice`는 과거 차수 수정으로 바뀌지 않는다.
+
+## 라움·초이문 공통 단가 기준 (2026-09-01)
+
+- 매입단가는 거래처별 판매가가 아니라 같은 차수·품목·단위의 실제 매입 원가이므로 라움과 초이문이 공통으로 사용한다.
+- 화면은 거래처 전환 없이 두 거래처를 동시에 보여주며 매입단가 입력창은 하나만 둔다.
+- 판매가·수량·매입액·견적액은 라움/초이문별 값이므로 같은 칸 안에서 거래처별로 나눠 보여준다.
+- 저장은 양쪽 현재행을 먼저 모두 잠그고 비교한 뒤 한 트랜잭션에서 같이 처리한다. 한쪽이라도 다른 화면에서 바뀌었으면 아무 행도 저장하지 않는다.
+- 한쪽 결산이나 품목행이 원래 없으면 새 행을 만들지 않는다. 존재하는 쪽에만 공통 단가를 적용한다.
 
 ## 칸 표시 정보 (2026-09-01 추가)
 
@@ -40,4 +48,4 @@
 
 단가나 금액 원천이 전부 비어 있으면 0원으로 오해하지 않도록 `—`로 표시하고, 같은 품목으로 묶인 행 중 일부만 원천이 있으면 `(일부)`로 표시한다. 사용자가 잘못된 단가 문자를 입력하면 기존 금액으로 되돌려 보이지 않고 `입력 확인`으로 표시한다.
 
-이 4개 값은 GET 조회(`loadRaumPnlCostComparisonRows`)에서만 추가로 읽으며, 저장 API(`saveRaumPnlPurchaseCosts`)의 POST payload·UPDATE 대상·`RAUM_PNL_PURCHASE_COST_WRITE_SQL`에는 포함하지 않는다. 수정 가능한 값은 기존과 동일하게 `CostPrice`뿐이다.
+이 4개 값은 공통 매입단가 화면의 GET 조회(`loadRaumPnlPurchaseCostRows`, 명시 연도의 활성 라움+초이문 결산 전체)에서만 추가로 읽으며, 저장 API(`saveRaumSharedPurchaseCosts`)의 POST payload·UPDATE 대상·`RAUM_PNL_SHARED_PURCHASE_COST_WRITE_SQL`에는 포함하지 않는다. 수정 가능한 값은 기존과 동일하게 `CostPrice`뿐이다. (기존 partner별 `loadRaumPnlCostComparisonRows`/`saveRaumPnlPurchaseCosts`/`RAUM_PNL_PURCHASE_COST_WRITE_SQL`은 손익계산서 상세의 cost-history 비교 기능 호환을 위해 그대로 보존한다.)
