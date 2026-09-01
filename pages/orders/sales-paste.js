@@ -472,6 +472,12 @@ export default function SalesPasteOrderPage() {
             <div className="paste-analysis-grid">
               <div className="paste-entry">
                 <h2>붙여넣기 입력</h2>
+                <aside className="entry-guide">
+                  <b>담당자 입력 규칙</b>
+                  <span>첫 줄: 차수 · 국가/화종 · 추가 또는 취소</span>
+                  <span>다음 줄부터: 품목명 수량 단위 (예: 휘슬러 1박스)</span>
+                  <span>합계·대화·배송 메모는 주문 품목과 다른 줄에 적고, 한 번에 한 업체만 등록</span>
+                </aside>
                 <textarea
                   value={text}
                   onChange={(event) => setText(event.target.value)}
@@ -920,6 +926,20 @@ export default function SalesPasteOrderPage() {
         .analysis {
           min-width: 0;
         }
+        .entry-guide {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 3px 12px;
+          margin: 0 0 6px;
+          padding: 5px 8px;
+          border: 1px solid #f1d48a;
+          background: #fff9e8;
+          color: #624800;
+          font-size: 12px;
+          line-height: 1.25;
+        }
+        .entry-guide b { color: #8a5700; }
         .actions {
           display: flex;
           justify-content: flex-end;

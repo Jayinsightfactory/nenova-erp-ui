@@ -2,20 +2,25 @@ import assert from 'node:assert/strict';
 import { buildSalesPasteAiPreview, buildSalesPasteMatchName, buildSalesPasteOrderChanges, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, chooseSalesPasteParsedOrders, convertSalesPasteQtyToOutUnit, countSalesPasteQuantityLines, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, replaceSalesPasteProduct, replaceSalesPasteUnit, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext, salesPasteUnitOptions } from '../lib/salesPasteOrder.js';
 
 const weeks = buildSalesPasteWeekChoices(new Date(2026, 7, 31));
-assert.equal(weeks.length, 8, '베이스부터 +3까지 각 1·2 세부차수를 보여야 합니다.');
+assert.equal(weeks.length, 12, '베이스부터 +3까지 각 1·2·3 세부차수를 보여야 합니다.');
 assert.deepEqual([...new Set(weeks.map(row => row.offset))], [0, 1, 2, 3]);
-assert.equal(weeks.filter(row => row.offset === 0).length, 2);
+assert.equal(weeks.filter(row => row.offset === 0).length, 3);
 assert.equal(weeks[0].week, '36-01', '2026-08-31 영업 베이스 차수는 36차부터 보여야 합니다.');
 assert.deepEqual(resolveDetectedSalesPasteScope('36-2', weeks), { year: '2026', week: '36-02' });
+assert.deepEqual(resolveDetectedSalesPasteScope('36-3차', weeks), { year: '2026', week: '36-03' });
+assert.equal(normalizeDetectedSalesPasteWeek('20-1치 중국 발주'), '20-01', '차 오타 치도 차수로 인식');
+assert.equal(normalizeDetectedSalesPasteWeek('20-1A 콜수국'), '20-01', '항공편 A는 주문 1차를 보존');
+assert.equal(normalizeDetectedSalesPasteWeek('20-1B 콜수국'), '20-01', '항공편 B를 주문 2차로 오인하면 안 됨');
 assert.equal(normalizeDetectedSalesPasteWeek('37차'), '37-01', '원문 단일 차수는 1차로 해석');
 assert.equal(normalizeDetectedSalesPasteWeek('37-2차'), '37-02', '원문 세부차수 표기를 우선');
 assert.equal(normalizeDetectedSalesPasteWeek('2026년 36-2차'), '2026-36-02', '연도 포함 원문 차수를 보존');
 assert.equal(normalizeDetectedSalesPasteWeek('2026년 37차'), '2026-37-01', '연도 포함 단일 차수도 1차로 해석');
 assert.equal(normalizeDetectedSalesPasteWeek('2026-36-02'), '2026-36-02', 'API가 반환한 정규형을 화면에서 다시 해석할 수 있어야 함');
 assert.deepEqual(resolveDetectedSalesPasteScope('2026년 36-2차', weeks), { year: '2026', week: '36-02' });
-assert.equal(normalizeDetectedSalesPasteWeek('36-3'), '', '지원하지 않는 세부차수는 자동 선택하면 안 됩니다.');
+assert.equal(normalizeDetectedSalesPasteWeek('36-4'), '', '지원하지 않는 세부차수는 자동 선택하면 안 됩니다.');
 assert.equal(resolveDetectedSalesPasteScope('40-1', weeks), null, '베이스~+3 밖의 차수는 조용히 다른 연도로 추정하면 안 됩니다.');
 assert.equal(salesPasteCountryContext('36-2 콜 수국 추가 발주'), '콜롬비아');
+assert.equal(salesPasteCountryContext('22-1 베트남 호접 발주'), '베트남');
 assert.equal(buildSalesPasteMatchName('수국 화이트', '수국', '콜롬비아'), '콜롬비아 수국 화이트');
 assert.match(buildSalesPasteText({ year: 2026, week: '36-01', customerName: '꽃길', text: '돈셀 2박스' }), /^2026년 36-01차\n꽃길\n돈셀 2박스$/);
 const slashInput = `36-2 콜 수국 추가 발주
@@ -70,6 +75,18 @@ const contextualWhite = matchImportRow({ rowNo: 1, inputName: '수국 화이트'
   allProducts: [ecuadorWhite, colombiaWhite], productByKey: new Map([[101, colombiaWhite], [102, ecuadorWhite]]), prodUnitMap: { 101: '박스', 102: '박스' }, savedMappings: {}, unitCatalog: {},
 });
 assert.equal(contextualWhite.prodKey, 101, '콜 수국 헤더의 화이트는 콜롬비아 Hydrangea White로 확정해야 합니다.');
+const jamoProducts = [
+  { ProdKey: 201, ProdName: 'CARNATION Jinda Sweet', DisplayName: '카네이션 진다스위트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단' },
+  { ProdKey: 202, ProdName: 'ROSE Jinda Sweet', DisplayName: '장미 진다스위트', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
+];
+const jamoMatched = matchImportRow({ inputName: '카네이션 잔다스위트', matchName: '콜롬비아 카네이션 잔다스위트', qty: 2, unit: '단' }, {
+  allProducts: jamoProducts,
+  productByKey: new Map(jamoProducts.map((product) => [product.ProdKey, product])),
+  prodUnitMap: { 201: '단', 202: '단' },
+  savedMappings: {},
+  unitCatalog: {},
+});
+assert.equal(jamoMatched.prodKey, 201, '자모 오타는 같은 국가·화종 후보 안에서 근사 매칭해야 합니다.');
 const { loadMappings } = await import('../lib/parseMappings.js');
 const alstroProducts = [
   { ProdKey: 54, ProdName: 'ALSTROMERIA Dubai', DisplayName: 'ALSTROMERIA Dubai', FlowerName: '알스트로', CounName: '콜롬비아', OutUnit: '단', BunchOf1Box: 16 },
