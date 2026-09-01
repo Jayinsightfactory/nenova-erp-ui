@@ -12,6 +12,7 @@ const dateText = (value) => value ? String(value).slice(0, 19).replace('T', ' ')
 const rowProductName = (row = {}) => row.after?.ProdName || row.productDbName || row.productName || '-';
 const rowIdentityText = (row = {}) => `${row.customerName || '-'} · ${rowProductName(row)} · ${fmt(row.editQuantity || row.quantity)} ${row.sourceUnit || row.after?.Unit || ''}`;
 const REGISTRATION_PREVIEW_BATCH_SIZE = 10;
+const REGISTRATION_APPLY_BATCH_SIZE = 10;
 
 function adjustedAfter(row) {
   if (!row.after) return null;
@@ -152,18 +153,31 @@ export default function SalesDefectDeductionRegisterReviewPage() {
     );
     const activeIds = activeRows.map((row) => Number(row.deductionKey));
     const originalRowByKey = new Map(activeRows.map((row) => [Number(row.deductionKey), row]));
-    appendLog(`전산등록 시작 · 등록 ${activeIds.length}건 · 제외 ${excludedKeys.size}건`);
+    appendLog(`전산등록 시작 · 등록 ${activeIds.length}건 · 제외 ${excludedKeys.size}건 · ${REGISTRATION_APPLY_BATCH_SIZE}건씩 처리`);
+    let completedCount = 0;
     try {
-      const overrides = Object.fromEntries(activeRows.map((row) => [String(row.deductionKey), {
-        quantity: Number(row.editQuantity),
-        note: row.editNote || '',
-        sourceUnit: row.sourceUnit || '',
-      }]));
-      const data = await apiPost('/api/sales/defect-deductions', {
-        action: 'register', year, week, ids: activeIds, deductionType, overrides,
-        requestKey: registerRequestKeyRef.current,
-      });
-      (data.logs || []).forEach((label) => appendLog(label));
+      const combined = { registered: 0, rows: [], skipped: [] };
+      for (let offset = 0; offset < activeRows.length; offset += REGISTRATION_APPLY_BATCH_SIZE) {
+        const batchRows = activeRows.slice(offset, offset + REGISTRATION_APPLY_BATCH_SIZE);
+        const batchIds = batchRows.map((row) => Number(row.deductionKey));
+        const overrides = Object.fromEntries(batchRows.map((row) => [String(row.deductionKey), {
+          quantity: Number(row.editQuantity),
+          note: row.editNote || '',
+          sourceUnit: row.sourceUnit || '',
+        }]));
+        const batchData = await apiPost('/api/sales/defect-deductions', {
+          action: 'register', year, week, ids: batchIds, deductionType, overrides,
+          requestKey: registerRequestKeyRef.current,
+        });
+        combined.registered += Number(batchData.registered || 0);
+        combined.rows.push(...(batchData.rows || []));
+        combined.skipped.push(...(batchData.skipped || []));
+        (batchData.logs || []).forEach((label) => appendLog(label));
+        completedCount = Math.min(offset + batchRows.length, activeRows.length);
+        appendLog(`전산등록 진행 · ${completedCount}/${activeRows.length}건 · 적용 ${combined.registered}건 · 제외 ${combined.skipped.length}건`);
+        setMessage(`전산등록 ${completedCount}/${activeRows.length}건 처리 중…`);
+      }
+      const data = combined;
       const skipped = data.skipped || [];
       const skippedKeys = skipped.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
       if (skippedKeys.length) {
@@ -204,7 +218,10 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         }, window.location.origin);
       } catch { /* ignore */ }
       registerRequestKeyRef.current = '';
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      appendLog(`전산등록 중단 · 확인 완료 ${completedCount}/${activeRows.length}건 · ${e.message}`);
+      setError(`${e.message}\n${completedCount ? `앞의 ${completedCount}건은 서버 응답까지 완료되었습니다. 같은 창에서 다시 실행하면 기존 견적서를 재사용하므로 중복 생성하지 않습니다.` : '서버 완료 응답을 받은 묶음이 없습니다. 잠시 후 새로 불러와 현재 상태를 확인하세요.'}`);
+    }
     finally { setApplying(false); }
   };
 

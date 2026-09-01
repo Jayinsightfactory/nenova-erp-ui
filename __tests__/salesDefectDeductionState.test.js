@@ -199,7 +199,7 @@ assert.equal(ensureRegistrationRequestKey(generatedRequestKey, () => {
 assert.equal(requestKeyGenerations, 1, '실패·재시도 중에는 같은 등록 요청키를 유지해야 한다.');
 assert.match(reviewPageSource, /useRef\(''\)[\s\S]*ensureRegistrationRequestKey/, '검토창은 재시도 동안 등록 요청키를 ref에 유지해야 한다.');
 assert.match(reviewPageSource, /action: 'register'[\s\S]*requestKey: registerRequestKeyRef\.current/, '등록 POST에 안정된 요청키를 포함해야 한다.');
-const requestPostIndex = reviewPageSource.indexOf("const data = await apiPost('/api/sales/defect-deductions'");
+const requestPostIndex = reviewPageSource.indexOf("const batchData = await apiPost('/api/sales/defect-deductions'");
 const requestResetIndex = reviewPageSource.indexOf("registerRequestKeyRef.current = '';", requestPostIndex);
 const catchIndex = reviewPageSource.indexOf('} catch (e)', requestPostIndex);
 assert.ok(requestPostIndex >= 0 && requestResetIndex > requestPostIndex, '요청 성공 전 등록키를 초기화하면 안 된다.');
