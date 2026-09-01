@@ -432,12 +432,17 @@ export default function OrderRegisterDistributeModal({
                       disabled={running || editBlocked}
                       style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 6px', fontSize: 13, fontWeight: 700, textAlign: 'center' }}
                     />
-                    <input
-                      value={line.unit}
-                      readOnly
+                    <select
+                      aria-label={`${line.prodName || '추가 품목'} 단위`}
+                      value={normalizeOrderUnit(line.unit)}
+                      onChange={(e) => updateLine(line.id, { unit: normalizeOrderUnit(e.target.value) })}
                       disabled={running || editBlocked}
-                      style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 4px', fontSize: 12, textAlign: 'center' }}
-                    />
+                      style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 4px', fontSize: 12, textAlign: 'center', background:'#fff' }}
+                    >
+                      <option value="박스">박스</option>
+                      <option value="단">단</option>
+                      <option value="송이">송이</option>
+                    </select>
                     <button type="button" onClick={() => removeLine(line.id)} disabled={running || editBlocked} style={{ height: 34, border: '1px solid #e2e8f0', borderRadius: 6, background: '#f8fafc', cursor: 'pointer' }}>−</button>
                     <div style={{gridColumn:'1 / -1',display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                       {line.contextError && <div style={{gridColumn:'1 / -1',fontSize:11,color:'#c62828'}}>{line.contextError}</div>}
