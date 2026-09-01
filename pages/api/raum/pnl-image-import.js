@@ -159,7 +159,7 @@ async function handler(req, res) {
       matchName: row.matchName,
       qty: row.qty,
       unit: row.unit,
-    })), ctx);
+    })), { ...ctx, mappingRelevanceMode: 'image' });
     const items = matched.map((row, index) => ({
       ...parsedRows[index],
       prodKey: row.prodKey || null,

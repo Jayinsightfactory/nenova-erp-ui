@@ -70,4 +70,24 @@ const contextualWhite = matchImportRow({ rowNo: 1, inputName: '수국 화이트'
   allProducts: [ecuadorWhite, colombiaWhite], productByKey: new Map([[101, colombiaWhite], [102, ecuadorWhite]]), prodUnitMap: { 101: '박스', 102: '박스' }, savedMappings: {}, unitCatalog: {},
 });
 assert.equal(contextualWhite.prodKey, 101, '콜 수국 헤더의 화이트는 콜롬비아 Hydrangea White로 확정해야 합니다.');
+const { loadMappings } = await import('../lib/parseMappings.js');
+const alstroProducts = [
+  { ProdKey: 54, ProdName: 'ALSTROMERIA Dubai', DisplayName: 'ALSTROMERIA Dubai', FlowerName: '알스트로', CounName: '콜롬비아', OutUnit: '단', BunchOf1Box: 16 },
+  { ProdKey: 69, ProdName: 'ALSTROMERIA Fifi', DisplayName: 'ALSTROMERIA Fifi', FlowerName: '알스트로', CounName: '콜롬비아', OutUnit: '단', BunchOf1Box: 16 },
+];
+const alstroContext = {
+  allProducts: alstroProducts,
+  productByKey: new Map(alstroProducts.map((product) => [product.ProdKey, product])),
+  prodUnitMap: { 54: '단', 69: '단' },
+  savedMappings: loadMappings(true),
+  unitCatalog: {},
+};
+assert.equal(matchImportRow({ inputName: '알스트로 두바이', matchName: '콜롬비아 알스트로 두바이', qty: 1, unit: '박스' }, alstroContext).prodKey, 54, '두바이는 과거 Arrone 자동 fallback 대신 수동 확정 Dubai를 사용해야 합니다.');
+assert.equal(matchImportRow({ inputName: '알스트로 피피', matchName: '콜롬비아 알스트로 피피', qty: 1, unit: '박스' }, alstroContext).prodKey, 69, '피피는 한국어 별칭으로 ALSTROMERIA Fifi에 확정되어야 합니다.');
+const stickyManualContext = {
+  ...alstroContext,
+  savedMappings: { '알스트로 피피': { prodKey: 54, prodName: 'ALSTROMERIA Dubai', flowerName: '알스트로', counName: '콜롬비아', auto: false } },
+};
+assert.equal(matchImportRow({ inputName: '알스트로 피피', matchName: '알스트로 피피', qty: 1, unit: '박스' }, stickyManualContext).prodKey, 54, '텍스트에서 사용자가 저장한 수동 매핑은 이미지 OCR 관련도 검사로 폐기하면 안 됩니다.');
+assert.equal(matchImportRow({ inputName: '알스트로 피피', matchName: '알스트로 피피', qty: 1, unit: '박스' }, { ...stickyManualContext, mappingRelevanceMode: 'image' }).prodKey, 69, '이미지 OCR 모드에서는 관련도 낮은 저장 매핑을 거부하고 실제 Fifi 후보를 선택해야 합니다.');
 console.log('sales paste order helper tests passed');
