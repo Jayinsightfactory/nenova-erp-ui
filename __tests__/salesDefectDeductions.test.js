@@ -110,6 +110,10 @@ assert.match(pageSource, /사전검증 진행 · \$\{completed\}\/\$\{selectedRo
 assert.match(supportReviewSource, /REGISTRATION_PREVIEW_BATCH_SIZE = 10/);
 assert.match(supportReviewSource, /기존 견적서 조회 진행/);
 assert.match(deductionContract.sideEffects.registrationPartial, /Estimate\.Descr에는 올리지 않는다/);
+assert.match(deductionContract.sideEffects.registrationPartial, /10건씩 독립 트랜잭션/);
+assert.match(deductionContract.sideEffects.registrationPartial, /중복 Estimate INSERT를 방지/);
+assert.match(supportReviewSource, /REGISTRATION_APPLY_BATCH_SIZE = 10/);
+assert.match(supportReviewSource, /전산등록 진행 · \$\{completedCount\}\/\$\{activeRows\.length\}건/);
 assert.match(deductionContract.sideEffects.supportCustomerEstimate, /불량차감 음수 Estimate 항목만/);
 assert.match(deductionContract.sideEffects.supportCustomerEstimate, /iframe\/딥링크나 previewCapture 요청에 의존하지 않는다/);
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');
@@ -156,7 +160,7 @@ assert.match(pageSource, /disabled=\{loading \|\| activeTab === 'carryover'\}/, 
 assert.ok(supportReviewSource.includes('editQuantity') && supportReviewSource.includes('editNote'), '실제 등록 전에 처리수량과 웹 비고를 수정할 수 있어야 합니다.');
 assert.ok(supportReviewSource.includes('오류 건 제외하고 계속') && supportReviewSource.includes('이 행 제외'), '검토창은 중복·오류 행을 제외하고 나머지 행을 계속 등록할 수 있어야 합니다.');
 assert.match(supportReviewSource, /const activeRows = rows\.filter\([\s\S]*excludedKeys/, '제외한 원장키는 실제 등록 대상에서 빠져야 합니다.');
-assert.match(supportReviewSource, /ids: activeIds/, '등록 API에는 제외 후 남은 원장키만 전달해야 합니다.');
+assert.match(supportReviewSource, /const batchRows = activeRows\.slice[\s\S]*ids: batchIds/, '등록 API에는 제외 후 남은 원장키만 10건 단위로 전달해야 합니다.');
 assert.match(supportReviewSource, /registeredKeys\.has\(Number\(row\.deductionKey\)\)/, '재조회 검증은 최종 등록 성공행만 대상으로 해야 합니다.');
 assert.ok(supportReviewSource.includes('이번 등록 제외') && supportReviewSource.includes('rowIdentityText'), '제외 안내는 원장키뿐 아니라 업체·품목·수량을 함께 표시해야 합니다.');
 assert.match(supportReviewSource, /source = originalRowByKey\.get[\s\S]*rowIdentityText\(source\)/, '등록 직전 제외 로그도 원본 행의 업체·품목을 표시해야 합니다.');
