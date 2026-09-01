@@ -201,6 +201,13 @@
 
 ### 1.6 견적서 / 정산 / 기타
 
+**WebRaumPnl / WebRaumPnlItem / WebRaumCostPrice** — 라움·초이문 웹 손익 원장
+- `WebRaumPnl` 업무키: `OrderYear + MajorWeek + PartnerCode`; 삭제되지 않은 차수 결산 한 건을 나타낸다.
+- `WebRaumPnlItem`: `PnlKey` 품목행이며 `CostPrice`는 원/VAT별도 매입단가, `CostSource`는 단가 출처다. 손익 목록·상세의 매입액과 이익은 이 값을 조회 시 계산한다.
+- 한 차수의 품목 단가 수정은 `PnlKey + ProdKey + Unit + IsCustom`을 우선 사용하고, `ProdKey`가 없을 때만 정확한 품목명+단위+수동구분을 사용한다.
+- `WebRaumCostPrice`는 다음 업로드 자동입력용 학습값이다. 과거 차수 `WebRaumPnlItem.CostPrice` 수정으로 함께 바꾸지 않는다.
+- 차수별 매입단가 관리에서 허용되는 쓰기는 대상 `WebRaumPnlItem.CostPrice/CostSource`와 부모 `WebRaumPnl.UpdatedBy/UpdatedAt`뿐이다. 주문·출고·재고·견적·`WebProfitReport`는 보존한다.
+
 **Estimate** — 견적서 (`EstimateKey`, `CustKey`, `ProdKey`, `ShipmentKey`)
 
 **WebSalesDefectDeduction** — 영업수입 불량/검역 차감 웹 원장
