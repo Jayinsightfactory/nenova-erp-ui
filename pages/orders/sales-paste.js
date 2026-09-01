@@ -5,6 +5,7 @@ import { apiGet, apiPost } from '../../lib/useApi';
 import {
   buildSalesPasteRows,
   buildSalesPasteAiPreview,
+  buildSalesPasteOrderChanges,
   buildSalesPasteText,
   buildSalesPasteWeekChoices,
   replaceSalesPasteProduct,
@@ -36,6 +37,7 @@ export default function SalesPasteOrderPage() {
   const [matchEditor, setMatchEditor] = useState(null);
   const [analysisPreview, setAnalysisPreview] = useState({ status: 'idle', items: [], error: '' });
   const [analysisLogs, setAnalysisLogs] = useState([]);
+  const [lastAppliedChanges, setLastAppliedChanges] = useState([]);
   const submitLock = useRef(false);
   const detectedScopeChange = useRef(false);
 
@@ -87,6 +89,12 @@ export default function SalesPasteOrderPage() {
       ),
     [rows],
   );
+  const pendingOrderChanges = useMemo(() => buildSalesPasteOrderChanges(rows), [rows]);
+  const visibleOrderChanges = pendingOrderChanges.length ? pendingOrderChanges : lastAppliedChanges;
+  const changedProductKeys = useMemo(
+    () => new Set(visibleOrderChanges.map((row) => Number(row.prodKey))),
+    [visibleOrderChanges],
+  );
 
   useEffect(() => {
     if (detectedScopeChange.current) detectedScopeChange.current = false;
@@ -95,6 +103,7 @@ export default function SalesPasteOrderPage() {
       setText('');
       setMessage('');
       setAnalysisPreview({ status: 'idle', items: [], error: '' });
+      setLastAppliedChanges([]);
     }
     if (!custKey || !year || !week) {
       setProducts([]);
@@ -262,6 +271,7 @@ export default function SalesPasteOrderPage() {
         results: result.results || [],
       };
       setLogs((previous) => [log, ...previous].slice(0, 20));
+      setLastAppliedChanges(pendingOrderChanges.map((row) => ({ ...row, applied: true })));
       setRows([]);
       setText('');
       setMessage(
@@ -528,6 +538,50 @@ export default function SalesPasteOrderPage() {
             </div>
           </section>
           <aside>
+            <section className="current-orders">
+              <h2>현재 주문등록 현황</h2>
+              <p>
+                {selectedCustomer?.CustName || '업체'} · {year}년 {week}
+              </p>
+              {!!visibleOrderChanges.length && (
+                <div className="order-change-summary" aria-live="polite">
+                  <b>{pendingOrderChanges.length ? '변경 예정' : '방금 등록 변경'} {visibleOrderChanges.length}건</b>
+                  {visibleOrderChanges.map((change) => (
+                    <div key={change.prodKey}>
+                      <span>
+                        <small>{change.flowerName}</small>
+                        <strong>{change.label}</strong>
+                      </span>
+                      <em>
+                        {change.beforeQty} → {change.afterQty} {change.unit}
+                        <small>+{change.deltaQty} {change.unit}</small>
+                      </em>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {busy && !products.length ? (
+                <div className="empty">조회 중…</div>
+              ) : currentOrders.length ? (
+                <div className="current-list">
+                  {currentOrders.map((row) => (
+                    <div key={row.ProdKey} className={changedProductKeys.has(Number(row.ProdKey)) ? 'changed' : ''}>
+                      <span>
+                        <small>
+                          {row.CountryFlower || row.FlowerName || ''}
+                        </small>
+                        <b>{row.DisplayName || row.ProdName}</b>
+                      </span>
+                      <strong>
+                        {Number(row.CurrentQty)} {row.OutUnit}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty">현재 등록된 주문이 없습니다.</div>
+              )}
+            </section>
             <section className={`ai-preview ${analysisPreview.status}`} aria-live="polite">
               <h2>AI 인식 결과</h2>
               {analysisPreview.status === 'idle' && (
@@ -564,33 +618,6 @@ export default function SalesPasteOrderPage() {
                   <summary>분석 실행 로그 {analysisLogs.length}건</summary>
                   {analysisLogs.map((log, index) => <div key={`${log.at}-${index}`}><b>{log.status}</b><span>{new Date(log.at).toLocaleTimeString('ko-KR')} · {log.detail}</span></div>)}
                 </details>
-              )}
-            </section>
-            <section>
-              <h2>현재 주문등록 현황</h2>
-              <p>
-                {selectedCustomer?.CustName || '업체'} · {year}년 {week}
-              </p>
-              {busy && !products.length ? (
-                <div className="empty">조회 중…</div>
-              ) : currentOrders.length ? (
-                <div className="current-list">
-                  {currentOrders.map((row) => (
-                    <div key={row.ProdKey}>
-                      <span>
-                        <small>
-                          {row.CountryFlower || row.FlowerName || ''}
-                        </small>
-                        <b>{row.DisplayName || row.ProdName}</b>
-                      </span>
-                      <strong>
-                        {Number(row.CurrentQty)} {row.OutUnit}
-                      </strong>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="empty">현재 등록된 주문이 없습니다.</div>
               )}
             </section>
             <section>
@@ -883,6 +910,52 @@ export default function SalesPasteOrderPage() {
           padding: 4px;
           border-bottom: 1px solid #e5eaf0;
         }
+        .current-orders {
+          border-top: 3px solid #c62828;
+        }
+        .order-change-summary {
+          margin-bottom: 7px;
+          border: 1px solid #ef9a9a;
+          background: #fff2f2;
+          color: #9f1717;
+        }
+        .order-change-summary > b {
+          display: block;
+          padding: 5px 7px;
+          border-bottom: 1px solid #efb1b1;
+          background: #ffdede;
+        }
+        .order-change-summary > div {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 5px 7px;
+          border-bottom: 1px solid #f4cccc;
+        }
+        .order-change-summary span,
+        .order-change-summary em {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        .order-change-summary strong {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .order-change-summary em {
+          align-items: flex-end;
+          flex: 0 0 auto;
+          font-style: normal;
+          font-weight: 900;
+          color: #c62828;
+        }
+        .order-change-summary em small { color: #c62828; }
+        .current-list > div.changed {
+          background: #fff0f0;
+          box-shadow: inset 3px 0 #d32f2f;
+        }
+        .current-list > div.changed strong { color: #c62828; }
         .ai-preview {
           border-top: 3px solid #155bd7;
         }

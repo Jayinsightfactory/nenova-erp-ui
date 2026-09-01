@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildSalesPasteAiPreview, buildSalesPasteMatchName, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, chooseSalesPasteParsedOrders, countSalesPasteQuantityLines, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, replaceSalesPasteProduct, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext } from '../lib/salesPasteOrder.js';
+import { buildSalesPasteAiPreview, buildSalesPasteMatchName, buildSalesPasteOrderChanges, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, chooseSalesPasteParsedOrders, countSalesPasteQuantityLines, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, replaceSalesPasteProduct, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext } from '../lib/salesPasteOrder.js';
 
 const weeks = buildSalesPasteWeekChoices(new Date(2026, 7, 31));
 assert.equal(weeks.length, 8, '베이스부터 +3까지 각 1·2 세부차수를 보여야 합니다.');
@@ -40,6 +40,8 @@ const rows = buildSalesPasteRows([{ custName: '꽃길', items: [{ prodKey: 7, pr
 assert.deepEqual(rows.map(row => [row.prodKey || null, row.currentQty, row.finalQty]).sort((a, b) => Number(b[0] || 0) - Number(a[0] || 0)), [[7, 3, 5], [null, 0, null]]);
 const merged = buildSalesPasteRows([{ items: [{ prodKey: 7, qty: 2, unit: '박스' }, { prodKey: 7, qty: 3, unit: '박스' }] }], [{ ProdKey: 7, CurrentQty: 4 }]);
 assert.deepEqual(merged.map(row => [row.qty, row.currentQty, row.finalQty]), [[5, 4, 9]], '같은 품목·단위는 등록 전 합산해야 합니다.');
+assert.deepEqual(buildSalesPasteOrderChanges(merged).map(row => [row.beforeQty, row.afterQty, row.deltaQty]), [[4, 9, 5]], '현재 주문 최상단 변경 요약은 기존→변경 수량과 증감량을 보여야 합니다.');
+assert.deepEqual(buildSalesPasteOrderChanges([{ prodKey: 7, currentQty: 4, finalQty: 4, unit: '박스' }]), [], '수량이 달라지지 않은 품목은 변경 강조하면 안 됩니다.');
 const mixedUnits = buildSalesPasteRows([{ items: [{ prodKey: 7, qty: 2, unit: '박스' }, { prodKey: 7, qty: 3, unit: '단' }] }], [{ ProdKey: 7, CurrentQty: 4 }]);
 assert.equal(mixedUnits.every(row => row.unitConflict && row.finalQty === null), true, '동일 품목의 혼합 단위는 환산 근거 없이 합산하면 안 됩니다.');
 const repeatedPink = buildSalesPasteRows([{ items: [{ prodKey: 9, qty: 8, unit: '박스' }, { prodKey: 9, qty: 4, unit: '박스' }] }], []);

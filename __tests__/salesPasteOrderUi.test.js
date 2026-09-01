@@ -20,6 +20,9 @@ assert.match(page, /AI 인식 결과/, '기존 붙여넣기 주문등록처럼 A
 assert.match(page, /buildSalesPasteAiPreview\(parsed\)/, 'API 원본 인식행을 최종 합산 전에 미리보기로 보존해야 합니다.');
 assert.match(page, /category:\s*'sales-paste-analysis'/, '분석 시작·완료·실패를 운영 AppLog에서 추적할 수 있어야 합니다.');
 assert.match(page, /분석 실행 로그/, '사용자도 현재 화면에서 분석 실행 상태를 확인할 수 있어야 합니다.');
+assert.match(page, /변경 예정/, '현재 주문등록 현황 최상단에 등록 전 변경수량을 표시해야 합니다.');
+assert.match(page, /방금 등록 변경/, '등록 후에도 직전 변경 전후 수량을 바로 확인할 수 있어야 합니다.');
+assert.match(page, /order-change-summary/, '변경된 품목은 붉은 강조 영역으로 구분해야 합니다.');
 assert.match(page, /apiGet\('\/api\/orders\/my-customers',[\s\S]{0,100}custKey,[\s\S]{0,40}year,[\s\S]{0,40}week/, '등록 후 같은 연도·차수·업체 주문을 재조회해야 합니다.');
 assert.match(api, /isSalesPasteSource/);
 assert.match(api, /SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager OR UserName=@manager/, '선택 담당자를 실제 UserInfo.UserID로 저장해야 합니다.');
