@@ -30,6 +30,9 @@ assert.match(page, /방금 등록 변경/, '등록 후에도 직전 변경 전�
 assert.match(page, /order-change-summary/, '변경된 품목은 붉은 강조 영역으로 구분해야 합니다.');
 assert.match(page, /paste-analysis-grid/, '붙여넣기 입력과 분석 결과는 같은 행에서 바로 비교할 수 있어야 합니다.');
 assert.match(page, /<th>입력값<\/th>[\s\S]{0,80}<th>매칭값<\/th>/, '사용자 입력값과 전산 매칭값을 별도 열로 나란히 표시해야 합니다.');
+assert.match(page, /className="col-input"[\s\S]{0,80}className="col-match"/, '입력값과 매칭값에 전용 넓은 열을 배정해야 합니다.');
+assert.match(page, /salesPasteUnitOptions\(row\)/, '서버 환산식으로 검증된 단위만 행 선택지에 표시해야 합니다.');
+assert.match(page, /replaceSalesPasteUnit\(rows, rowIndex, unit, products\)/, '단위 변경 시 현재 주문과 등록 후 수량을 다시 계산해야 합니다.');
 assert.match(page, /\.customers\s*\{[\s\S]{0,100}flex-wrap:\s*wrap/, '업체 선택 버튼은 화면 폭에 맞춰 다음 줄로 내려가야 합니다.');
 assert.match(page, /\.customers\s*\{[\s\S]{0,180}overflow-x:\s*hidden/, '업체 선택을 한 줄 가로 스크롤로 강제하면 안 됩니다.');
 assert.match(page, /apiGet\('\/api\/orders\/my-customers',[\s\S]{0,100}custKey,[\s\S]{0,40}year,[\s\S]{0,40}week/, '등록 후 같은 연도·차수·업체 주문을 재조회해야 합니다.');

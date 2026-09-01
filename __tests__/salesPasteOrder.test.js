@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildSalesPasteAiPreview, buildSalesPasteMatchName, buildSalesPasteOrderChanges, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, chooseSalesPasteParsedOrders, countSalesPasteQuantityLines, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, replaceSalesPasteProduct, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext } from '../lib/salesPasteOrder.js';
+import { buildSalesPasteAiPreview, buildSalesPasteMatchName, buildSalesPasteOrderChanges, buildSalesPasteRows, buildSalesPasteText, buildSalesPasteWeekChoices, chooseSalesPasteParsedOrders, convertSalesPasteQtyToOutUnit, countSalesPasteQuantityLines, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, replaceSalesPasteProduct, replaceSalesPasteUnit, resolveDetectedSalesPasteScope, salesManagerCustomers, salesManagerOptions, salesPasteCountryContext, salesPasteUnitOptions } from '../lib/salesPasteOrder.js';
 
 const weeks = buildSalesPasteWeekChoices(new Date(2026, 7, 31));
 assert.equal(weeks.length, 8, '베이스부터 +3까지 각 1·2 세부차수를 보여야 합니다.');
@@ -46,6 +46,12 @@ const mixedUnits = buildSalesPasteRows([{ items: [{ prodKey: 7, qty: 2, unit: '�
 assert.equal(mixedUnits.every(row => row.unitConflict && row.finalQty === null), true, '동일 품목의 혼합 단위는 환산 근거 없이 합산하면 안 됩니다.');
 const repeatedPink = buildSalesPasteRows([{ items: [{ prodKey: 9, qty: 8, unit: '박스' }, { prodKey: 9, qty: 4, unit: '박스' }] }], []);
 assert.deepEqual(repeatedPink.map(row => row.qty), [12], '같은 진핑크 두 줄은 한 품목 12박스로 합산해야 합니다.');
+const unitProduct = { ProdKey: 10, OutUnit: '송이', BunchOf1Box: 10, SteamOf1Bunch: 20, SteamOf1Box: 200, CurrentQty: 40 };
+assert.equal(convertSalesPasteQtyToOutUnit(2, '단', unitProduct), 40, '단 선택은 FormOrderAdd와 같은 SteamOf1Bunch 기준으로 OutUnit 송이로 환산해야 합니다.');
+assert.deepEqual(salesPasteUnitOptions(unitProduct), ['박스', '단', '송이'], '환산 근거가 있는 단위만 선택지로 보여야 합니다.');
+assert.deepEqual(salesPasteUnitOptions({ unit: '박스', outUnit: '송이' }), ['박스', '송이'], '환산 계수가 없는 near-miss에서는 단을 선택 가능하다고 표시하면 안 됩니다.');
+const changedUnit = replaceSalesPasteUnit(buildSalesPasteRows([{ items: [{ prodKey: 10, qty: 2, unit: '송이', outUnit: '송이', bunchOf1Box: 10, steamOf1Bunch: 20, steamOf1Box: 200 }] }], [unitProduct]), 0, '단', [unitProduct]);
+assert.deepEqual(changedUnit.map(row => [row.qty, row.unit, row.deltaOutQty, row.currentQty, row.finalQty]), [[2, '단', 40, 40, 80]], '단위를 바꾸면 입력수량은 보존하고 현재/등록 후 수량은 OutUnit으로 다시 계산해야 합니다.');
 const rematched = replaceSalesPasteProduct([
   { inputName: '화이트', qty: 44, unit: '박스', currentQty: 0, finalQty: null },
   { inputName: '기존 화이트', prodKey: 101, qty: 2, unit: '박스' },

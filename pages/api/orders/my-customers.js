@@ -60,7 +60,7 @@ export default withAuth(async function handler(req, res) {
     const { orderYear, orderWeek } = requireOrderYear(req.query.week || '', req.query.year || '');
     const r = await query(`SELECT p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName,
         COALESCE(NULLIF(LTRIM(RTRIM(p.CountryFlower)),''), ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'')) AS CountryFlower,
-        p.CounName, p.OutUnit,
+        p.CounName, p.OutUnit, p.BunchOf1Box, p.SteamOf1Bunch, p.SteamOf1Box,
         COUNT_BIG(*) AS UsageCount, MAX(om.OrderYear) AS LastOrderYear, MAX(om.OrderWeek) AS LastOrderWeek,
         ISNULL(cur.OutQty,0) AS CurrentQty,
         ISNULL(cur.ActiveRows,0) AS CurrentOrderRows
@@ -72,7 +72,7 @@ export default withAuth(async function handler(req, res) {
         FROM OrderMaster xom JOIN OrderDetail xod ON xod.OrderMasterKey=xom.OrderMasterKey AND ISNULL(xod.isDeleted,0)=0
         WHERE xom.CustKey=@ck AND xom.OrderYear=@year AND xom.OrderWeek=@week AND ISNULL(xom.isDeleted,0)=0 AND xod.ProdKey=p.ProdKey) cur
       WHERE om.CustKey=@ck AND ISNULL(om.isDeleted,0)=0
-      GROUP BY p.ProdKey,p.ProdName,p.DisplayName,p.FlowerName,p.CountryFlower,p.CounName,p.OutUnit,cur.OutQty,cur.ActiveRows`, {
+      GROUP BY p.ProdKey,p.ProdName,p.DisplayName,p.FlowerName,p.CountryFlower,p.CounName,p.OutUnit,p.BunchOf1Box,p.SteamOf1Bunch,p.SteamOf1Box,cur.OutQty,cur.ActiveRows`, {
       ck: { type: sql.Int, value: custKey }, year: { type: sql.NVarChar, value: orderYear }, week: { type: sql.NVarChar, value: orderWeek },
     });
     return res.status(200).json({ success: true, products: sortCustomerProducts(r.recordset), year: orderYear, week: orderWeek });
