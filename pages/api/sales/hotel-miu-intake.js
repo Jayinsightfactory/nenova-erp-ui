@@ -2,7 +2,7 @@
 // Order/Shipment 쓰기는 /api/orders 가 담당한다. 이 API 는 WebHotelMiu* 만 쓴다.
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
-import { overlayMappingRecord, boxFactorOverlayRecord, mergeProductBoxFactors, nextBatchNo, parseRegisterSnapPayload, HOTEL_MIU_BATCH_DRAFT, HOTEL_MIU_BATCH_REGISTERED } from '../../../lib/hotelMiuIntake';
+import { overlayMappingRecord, boxFactorOverlayRecord, mergeProductBoxFactors, nextBatchNo, parseRegisterSnapPayload, requireHotelMiuWeekScope, HOTEL_MIU_BATCH_DRAFT, HOTEL_MIU_BATCH_REGISTERED } from '../../../lib/hotelMiuIntake';
 
 let ensurePromise = null;
 function ensureTables() {
@@ -75,6 +75,15 @@ function ensureTables() {
     `, {});
   })().catch((e) => { ensurePromise = null; throw e; });
   return ensurePromise;
+}
+
+function requestWeekScope(rawYear, rawWeek) {
+  try {
+    return requireHotelMiuWeekScope(text(rawYear), text(rawWeek));
+  } catch (error) {
+    error.statusCode = Number(error.statusCode) || 400;
+    throw error;
+  }
 }
 
 function text(v, fallback = '') { return String(v ?? fallback).trim(); }
@@ -270,10 +279,12 @@ export default withAuth(async function handler(req, res) {
         } catch (_) { /* overlay 없으면 Product 계수만 쓴다 */ }
         return res.status(200).json({ success: true, products });
       }
-      const year = text(req.query.year);
-      const week = text(req.query.week);
+      let scope;
+      try { scope = requestWeekScope(req.query.year, req.query.week); }
+      catch (error) { return res.status(error.statusCode).json({ success: false, code: error.code, error: error.message }); }
+      const { year, week } = scope;
       const custKey = Number(req.query.custKey);
-      if (!year || !week || !custKey) return res.status(400).json({ success: false, error: 'year, week, custKey 필요' });
+      if (!custKey) return res.status(400).json({ success: false, error: 'year, week, custKey 필요' });
       await ensureTables();
       const batches = await listBatches(year, week, custKey);
       const registerSnaps = await listRegisterSnaps(year, week, custKey);
@@ -298,11 +309,13 @@ export default withAuth(async function handler(req, res) {
     }
 
     if (action === 'recordBatch' || action === 'updateBatch') {
-      const year = text(req.body?.year);
-      const week = text(req.body?.week);
+      let scope;
+      try { scope = requestWeekScope(req.body?.year, req.body?.week); }
+      catch (error) { return res.status(error.statusCode).json({ success: false, code: error.code, error: error.message }); }
+      const { year, week } = scope;
       const custKey = Number(req.body?.custKey);
       const lines = Array.isArray(req.body?.lines) ? req.body.lines : [];
-      if (!year || !week || !custKey) {
+      if (!custKey) {
         return res.status(400).json({ success: false, error: 'year, week, custKey 필요' });
       }
       if (action === 'recordBatch' && !lines.length) {
@@ -413,12 +426,14 @@ export default withAuth(async function handler(req, res) {
     }
 
     if (action === 'markRegistered') {
-      const year = text(req.body?.year);
-      const week = text(req.body?.week);
+      let scope;
+      try { scope = requestWeekScope(req.body?.year, req.body?.week); }
+      catch (error) { return res.status(error.statusCode).json({ success: false, code: error.code, error: error.message }); }
+      const { year, week } = scope;
       const custKey = Number(req.body?.custKey);
       const keys = (Array.isArray(req.body?.batchKeys) ? req.body.batchKeys : [])
         .map((k) => Number(k)).filter(Boolean);
-      if (!year || !week || !custKey || !keys.length) {
+      if (!custKey || !keys.length) {
         return res.status(400).json({ success: false, error: 'year, week, custKey, batchKeys 필요' });
       }
       for (const batchKey of keys) {
