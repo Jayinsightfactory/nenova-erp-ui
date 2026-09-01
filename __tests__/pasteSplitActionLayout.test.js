@@ -4,6 +4,13 @@ import fs from 'node:fs';
 const page = fs.readFileSync('pages/orders/paste.js', 'utf8');
 assert.match(page, /className="paste-action-split"/);
 assert.match(page, /className="paste-global-action-board"/);
+assert.match(page, /className="paste-primary-batch-action"/);
+assert.match(page, /1\. 전체 확인 → 2\. 왼쪽 취소 → 3\. 오른쪽 추가·분배/);
+assert.ok(
+  page.indexOf('className="paste-primary-batch-action"') < page.indexOf('className="paste-input-grid"'),
+  '전체 일괄 등록·분배 버튼은 붙여넣기 입력 영역보다 위에 있어야 한다.',
+);
+assert.match(page, /\.paste-input-grid \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
 assert.match(page, /왼쪽 · 취소 먼저 \(\$\{globalCancelEntries\.length\}건\)/);
 assert.match(page, /오른쪽 · 추가·분배 \(\$\{globalAddEntries\.length\}건\)/);
 assert.match(page, /적용 예상 · 주문 \$\{previewQty\(preview\.orderBefore\)\}→\$\{previewQty\(preview\.orderAfter\)\} \/ 분배 \$\{previewQty\(preview\.shipmentBefore\)\}→\$\{previewQty\(preview\.shipmentAfter\)\}/);
@@ -51,6 +58,10 @@ assert.match(page, /onClick=\{\(\) => openDetailedMatchEditor\(order\.id, itemId
 assert.match(page, /업체를 검색해 다시 선택하세요/);
 assert.match(page, /onSelect=\{c => \{[\s\S]*setCustMatch\(order\.id, c\);[\s\S]*custEditOpen: false/);
 assert.match(page, /추가·취소 일괄 등록·분배/);
+assert.match(page, /const STOCK_NOTE_PAGE = 'paste-stock-note'/);
+assert.match(page, /const buildStockNotePayload = \(baseWeek\) => \(\{[\s\S]*?baseWeek,[\s\S]*?orderWeek: week/);
+assert.match(page, /const verification = await apiGet\('\/api\/favorites', \{ page: STOCK_NOTE_PAGE \}\)/);
+assert.doesNotMatch(page, /saveStockNote[\s\S]*?\/api\/shipment\/start-stock-text/);
 assert.match(page, /\.paste-action-split \{ grid-template-columns: 1fr !important; \}/);
 assert.match(page, /\.paste-global-action-board \{ grid-template-columns: 1fr !important; \}/);
 console.log('paste split action layout tests passed');
