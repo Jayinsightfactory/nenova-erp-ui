@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/useApi';
 import {
   buildSalesPasteRows,
+  buildSalesPasteAiPreview,
   buildSalesPasteText,
   buildSalesPasteWeekChoices,
   replaceSalesPasteProduct,
@@ -33,6 +34,8 @@ export default function SalesPasteOrderPage() {
   const [message, setMessage] = useState('');
   const [logs, setLogs] = useState([]);
   const [matchEditor, setMatchEditor] = useState(null);
+  const [analysisPreview, setAnalysisPreview] = useState({ status: 'idle', items: [], error: '' });
+  const [analysisLogs, setAnalysisLogs] = useState([]);
   const submitLock = useRef(false);
   const detectedScopeChange = useRef(false);
 
@@ -91,6 +94,7 @@ export default function SalesPasteOrderPage() {
       setRows([]);
       setText('');
       setMessage('');
+      setAnalysisPreview({ status: 'idle', items: [], error: '' });
     }
     if (!custKey || !year || !week) {
       setProducts([]);
@@ -126,7 +130,20 @@ export default function SalesPasteOrderPage() {
     if (!selectedCustomer || !text.trim())
       return setMessage('업체를 선택하고 주문 내용을 붙여넣으세요.');
     setBusy(true);
-    setMessage('기존 매칭 데이터로 분석 중입니다…');
+    const startedAt = new Date().toISOString();
+    const appendAnalysisLog = (status, detail) => setAnalysisLogs((previous) => [
+      { at: new Date().toISOString(), status, detail },
+      ...previous,
+    ].slice(0, 20));
+    const persistAnalysisLog = (step, detail) => apiPost('/api/log', {
+      category: 'sales-paste-analysis',
+      step,
+      detail,
+    }).catch(() => null);
+    setMessage('AI가 입력 문장을 분석 중입니다…');
+    setAnalysisPreview({ status: 'analyzing', items: [], error: '', startedAt });
+    appendAnalysisLog('시작', `${year} ${week} · ${selectedCustomer.CustName}`);
+    persistAnalysisLog('시작', `year=${year} week=${week} custKey=${custKey} chars=${text.length}`);
     setRows([]);
     try {
       const parsed = await apiPost('/api/orders/parse-paste', {
@@ -137,6 +154,20 @@ export default function SalesPasteOrderPage() {
           text,
         }),
       });
+      const previewItems = buildSalesPasteAiPreview(parsed);
+      const previewBase = {
+        status: 'complete',
+        items: previewItems,
+        error: '',
+        startedAt,
+        completedAt: new Date().toISOString(),
+        model: parsed.analysisModel || '',
+        source: parsed.parseSource || '',
+        expectedCount: Number(parsed.expectedItemCount || 0),
+        parsedCount: Number(parsed.parsedItemCount || previewItems.length),
+        detectedWeek: parsed.detectedWeek || '',
+      };
+      setAnalysisPreview(previewBase);
       if ((parsed.orders || []).length !== 1)
         throw new Error(
           '여러 업체 구간이 감지되었습니다. 선택한 한 업체의 품목·수량만 붙여넣으세요.',
@@ -169,8 +200,15 @@ export default function SalesPasteOrderPage() {
           ? `LLM 정밀분석 ${nextRows.length}건 · 매칭/수량 확인 필요 ${failed}건`
           : `LLM 정밀분석 ${nextRows.length}건 · 전부 등록 가능${detectedScope ? ` · 차수 ${detectedScope.week} 자동 선택` : ''}`,
       );
+      const matchedCount = nextRows.filter((row) => row.prodKey && !row.unitConflict).length;
+      const logDetail = `${parsed.analysisModel || 'LLM'} · ${parsed.parseSource || '-'} · 인식 ${previewItems.length}행 · 최종 ${nextRows.length}품목 · 매칭 ${matchedCount} · 확인 ${failed}`;
+      appendAnalysisLog('완료', logDetail);
+      persistAnalysisLog('완료', `model=${parsed.analysisModel || '-'} source=${parsed.parseSource || '-'} expected=${parsed.expectedItemCount || 0} parsed=${parsed.parsedItemCount || previewItems.length} preview=${previewItems.length} final=${nextRows.length} matched=${matchedCount} unmatched=${failed}`);
     } catch (error) {
       setMessage(error.message);
+      setAnalysisPreview((previous) => ({ ...previous, status: 'error', error: error.message, completedAt: new Date().toISOString() }));
+      appendAnalysisLog('실패', error.message);
+      persistAnalysisLog('실패', `year=${year} week=${week} custKey=${custKey} error=${error.message}`);
     } finally {
       setBusy(false);
     }
@@ -490,6 +528,44 @@ export default function SalesPasteOrderPage() {
             </div>
           </section>
           <aside>
+            <section className={`ai-preview ${analysisPreview.status}`} aria-live="polite">
+              <h2>AI 인식 결과</h2>
+              {analysisPreview.status === 'idle' && (
+                <div className="empty">분석을 누르면 AI가 읽은 품목과 수량이 여기에 표시됩니다.</div>
+              )}
+              {analysisPreview.status === 'analyzing' && (
+                <div className="ai-loading"><span />AI 문장 분석 및 기존 매칭 대조 중…</div>
+              )}
+              {analysisPreview.error && <div className="match-error" role="alert">분석 실패: {analysisPreview.error}</div>}
+              {analysisPreview.status !== 'idle' && analysisPreview.status !== 'analyzing' && (
+                <div className="ai-meta">
+                  <b>{analysisPreview.model || '분석 모델'}</b>
+                  <span>{analysisPreview.source === 'llm' ? 'LLM 선택' : analysisPreview.source === 'rules' ? '규칙 교차검증 선택' : analysisPreview.source || '-'}</span>
+                  <span>원문 {analysisPreview.expectedCount || '-'}행 · 인식 {analysisPreview.parsedCount || analysisPreview.items.length}행</span>
+                  {analysisPreview.detectedWeek && <span>차수 {analysisPreview.detectedWeek}</span>}
+                </div>
+              )}
+              {!!analysisPreview.items.length && (
+                <div className="ai-items">
+                  {analysisPreview.items.map((item) => (
+                    <div key={item.id} className={item.prodKey ? 'matched' : 'unmatched'}>
+                      <span>
+                        <b>{item.inputName}</b>
+                        <small>{item.customerName} · {item.action}</small>
+                      </span>
+                      <strong>{item.qty} {item.unit}</strong>
+                      <em>{item.prodKey ? `✓ ${item.matchedName}` : '⚠ 품목 매칭 필요'}</em>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!!analysisLogs.length && (
+                <details className="analysis-log">
+                  <summary>분석 실행 로그 {analysisLogs.length}건</summary>
+                  {analysisLogs.map((log, index) => <div key={`${log.at}-${index}`}><b>{log.status}</b><span>{new Date(log.at).toLocaleTimeString('ko-KR')} · {log.detail}</span></div>)}
+                </details>
+              )}
+            </section>
             <section>
               <h2>현재 주문등록 현황</h2>
               <p>
@@ -807,6 +883,65 @@ export default function SalesPasteOrderPage() {
           padding: 4px;
           border-bottom: 1px solid #e5eaf0;
         }
+        .ai-preview {
+          border-top: 3px solid #155bd7;
+        }
+        .ai-loading {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 14px;
+          color: #155bd7;
+          font-weight: 800;
+          background: #eef5ff;
+        }
+        .ai-loading span {
+          width: 14px;
+          height: 14px;
+          border: 2px solid #aac7f5;
+          border-top-color: #155bd7;
+          border-radius: 50%;
+          animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .ai-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 5px;
+          margin-bottom: 6px;
+        }
+        .ai-meta > * {
+          padding: 2px 6px;
+          border-radius: 10px;
+          background: #eef2f7;
+          font-size: 10px;
+        }
+        .ai-items {
+          max-height: 290px;
+          overflow: auto;
+          border: 1px solid #d8e0ea;
+        }
+        .ai-items > div {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 70px minmax(100px, 1fr);
+          gap: 6px;
+          align-items: center;
+          padding: 5px 6px;
+          border-bottom: 1px solid #e5eaf0;
+          font-size: 11px;
+        }
+        .ai-items > div.unmatched { background: #fff4e5; }
+        .ai-items span { display: flex; min-width: 0; flex-direction: column; }
+        .ai-items strong { text-align: right; white-space: nowrap; color: #155bd7; }
+        .ai-items em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #087443; font-style: normal; }
+        .ai-items > div.unmatched em { color: #b54708; }
+        .analysis-log {
+          margin-top: 7px;
+          font-size: 11px;
+        }
+        .analysis-log summary { cursor: pointer; font-weight: 800; color: #526278; }
+        .analysis-log > div { display: flex; gap: 6px; padding: 3px; border-top: 1px solid #eee; }
+        .analysis-log span { min-width: 0; overflow-wrap: anywhere; }
         .current-list span {
           display: flex;
           min-width: 0;

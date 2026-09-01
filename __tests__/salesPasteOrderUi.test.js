@@ -16,6 +16,10 @@ assert.match(page, /fetch\('\/api\/orders\/mappings'/, '사용자가 선택한 �
 assert.match(page, /replaceSalesPasteProduct\(rows, rowIndex, product, products\)/, '품목 수정 뒤 현재 주문과 등록 후 수량을 다시 계산해야 합니다.');
 assert.match(page, /품목 검색·수정/, '자동 매칭된 행도 사용자가 검색하여 수정할 수 있어야 합니다.');
 assert.match(page, /LLM 정밀분석/, '사용자가 정확도 우선 LLM 분석이 적용됐음을 확인할 수 있어야 합니다.');
+assert.match(page, /AI 인식 결과/, '기존 붙여넣기 주문등록처럼 AI가 읽은 결과를 별도 영역에 표시해야 합니다.');
+assert.match(page, /buildSalesPasteAiPreview\(parsed\)/, 'API 원본 인식행을 최종 합산 전에 미리보기로 보존해야 합니다.');
+assert.match(page, /category:\s*'sales-paste-analysis'/, '분석 시작·완료·실패를 운영 AppLog에서 추적할 수 있어야 합니다.');
+assert.match(page, /분석 실행 로그/, '사용자도 현재 화면에서 분석 실행 상태를 확인할 수 있어야 합니다.');
 assert.match(page, /apiGet\('\/api\/orders\/my-customers',[\s\S]{0,100}custKey,[\s\S]{0,40}year,[\s\S]{0,40}week/, '등록 후 같은 연도·차수·업체 주문을 재조회해야 합니다.');
 assert.match(api, /isSalesPasteSource/);
 assert.match(api, /SELECT TOP 1 UserID FROM UserInfo WHERE UserID=@manager OR UserName=@manager/, '선택 담당자를 실제 UserInfo.UserID로 저장해야 합니다.');
