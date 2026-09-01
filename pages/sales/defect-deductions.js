@@ -138,6 +138,8 @@ function valueOf(row, key) {
   return row[key] == null ? '' : row[key];
 }
 
+const REGISTRATION_PREFLIGHT_BATCH_SIZE = 10;
+
 export default function SalesDefectDeductionsPage() {
   const scope = useMemo(initialScope, []);
   const [year, setYear] = useState(scope.year);
@@ -156,6 +158,7 @@ export default function SalesDefectDeductionsPage() {
   const [supportRows, setSupportRows] = useState([]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
+  const [supportRegistering, setSupportRegistering] = useState(false);
   const [supportProcessLogs, setSupportProcessLogs] = useState([]);
   const [manualCostModal, setManualCostModal] = useState(null);
   const [manualCostValue, setManualCostValue] = useState('');
@@ -1054,27 +1057,40 @@ export default function SalesDefectDeductionsPage() {
     const ids = selectedRows.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
     if (!ids.length) { setError('영업지원 전산등록을 진행할 행을 전체 또는 일부 선택하세요.'); return; }
     const startedAt = new Date().toLocaleTimeString('ko-KR');
+    const reviewWindow = window.open('', 'nenovaSalesSupportDefectRegister', 'width=1500,height=900,resizable=yes,scrollbars=yes');
+    if (!reviewWindow) { setError('전산등록 검토창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 시도하세요.'); return; }
+    reviewWindow.document.title = '영업지원 전산등록 사전검증';
+    reviewWindow.document.body.textContent = `${year}년 ${week}차 ${ids.length}건을 사전검증하고 있습니다. 진행 상황은 기존 화면의 실시간 로그에서 확인하세요.`;
+    reviewWindow.document.body.style.cssText = 'font:16px sans-serif;padding:32px;line-height:1.7;color:#17365d;background:#f4f8fd';
     setSupportProcessLogs([{ at: startedAt, label: `시작 · ${year}년 ${week}차 · 선택 ${ids.length}건` }]);
-    setSupportLoading(true); setError(''); setMessage('영업지원 전산등록 대상 사전검증 중…');
+    setSupportRegistering(true); setError(''); setMessage('영업지원 전산등록 대상 사전검증 중…');
     try {
-      setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '서버 사전검증 요청 · 출고·단가·중복 확인 중' }]);
-      const check = await apiPost('/api/sales/defect-deductions', { action: 'preflight', year, week, rows: selectedRows });
-      const { valid, invalid } = partitionRegistrationPreflight(check.rows || []);
+      setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `서버 사전검증 시작 · ${REGISTRATION_PREFLIGHT_BATCH_SIZE}건씩 출고·단가·중복 확인` }]);
+      const checkedRows = [];
+      for (let offset = 0; offset < selectedRows.length; offset += REGISTRATION_PREFLIGHT_BATCH_SIZE) {
+        const batch = selectedRows.slice(offset, offset + REGISTRATION_PREFLIGHT_BATCH_SIZE);
+        const check = await apiPost('/api/sales/defect-deductions', { action: 'preflight', year, week, rows: batch });
+        checkedRows.push(...(check.rows || []).map((row) => ({ ...row, index: offset + Number(row.index || 0) })));
+        const completed = Math.min(offset + batch.length, selectedRows.length);
+        setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `사전검증 진행 · ${completed}/${selectedRows.length}건` }]);
+        setMessage(`영업지원 전산등록 대상 사전검증 ${completed}/${selectedRows.length}건…`);
+      }
+      const { valid, invalid } = partitionRegistrationPreflight(checkedRows);
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `사전검증 완료 · 등록 가능 ${valid.length}건 · 오류 제외 ${invalid.length}건` }]);
       if (!valid.length) {
         throw new Error(`등록 가능한 행이 없습니다.\n${invalid.map((r) => `행 ${r.index + 1}: ${r.error || '원장키가 없습니다.'}`).join('\n')}`);
       }
       const validIds = valid.map((row) => Number(row.deductionKey)).filter(Boolean);
       const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1`;
-      const reviewWindow = window.open(reviewUrl, 'nenovaSalesSupportDefectRegister', 'width=1500,height=900,resizable=yes,scrollbars=yes');
-      if (!reviewWindow) throw new Error('전산등록 검토창이 차단되었습니다. 브라우저의 팝업 허용 후 다시 시도하세요.');
+      reviewWindow.location.href = reviewUrl;
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '검토창 연결 완료 · 이후 등록·재조회 로그를 실시간 수신합니다.' }]);
       setMessage(`영업지원 전산등록 검토창을 열었습니다. ${valid.length}건의 처리로그·전후값·재조회 검증을 진행합니다.${invalid.length ? ` 오류 제외 ${invalid.length}건.` : ''}`);
     } catch (e) {
+      if (!reviewWindow.closed) reviewWindow.close();
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `실패 · ${e.message}` }]);
       setError(e.message);
     }
-    finally { setSupportLoading(false); }
+    finally { setSupportRegistering(false); }
   };
 
   const markSupportManualComplete = async () => {
@@ -1419,7 +1435,7 @@ export default function SalesDefectDeductionsPage() {
               <button type="button" className={`btn btn-xs ${salesViewMode === 'summary' ? 'btn-primary' : ''}`} onClick={() => setSalesViewMode('summary')}>완료 목록</button>
             </span>
           </>}
-          <button className="btn btn-primary" onClick={activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : activeTab === 'carryover' ? loadCarryover : load} disabled={loading || incomingLoading || supportLoading}>조회</button>
+          <button className="btn btn-primary" onClick={activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : activeTab === 'carryover' ? loadCarryover : load} disabled={loading || incomingLoading || supportLoading || supportRegistering}>조회</button>
           {activeTab === 'sales' && <>
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
@@ -1430,8 +1446,8 @@ export default function SalesDefectDeductionsPage() {
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           {activeTab === 'support' && <>
-            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
-            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>견적서관리에 불량차감 등록</button>
+            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
+            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={supportLoading || !supportSelected.size}>수동처리완료</button>
             <button type="button" className="btn" onClick={() => {
               const selectedWeek = `${year}-${String(week).padStart(2, '0')}-01`;
@@ -1443,8 +1459,8 @@ export default function SalesDefectDeductionsPage() {
             </button>
           </>}
           {activeTab === 'carryover' && <>
-            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
-            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || !supportSelected.size}>선택 항목 처리 검토</button>
+            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
+            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || supportRegistering || !supportSelected.size}>선택 항목 처리 검토</button>
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={supportLoading || !supportSelected.size}>수동처리완료</button>
           </>}
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
@@ -1536,7 +1552,7 @@ export default function SalesDefectDeductionsPage() {
       {(activeTab === 'support' || activeTab === 'carryover') && <div className="screenOnly">
       <div className="card support-register-card">
         <div className="support-register-head">
-          <div><strong>{activeTab === 'carryover' ? '미처리·다음 차수 재시도 목록' : `영업지원 전산등록 — ${year}년 ${week}차 전체 불량`}</strong><span>{supportLoading ? ' 불러오는 중…' : ` ${supportRows.length}건`}</span></div>
+          <div><strong>{activeTab === 'carryover' ? '미처리·다음 차수 재시도 목록' : `영업지원 전산등록 — ${year}년 ${week}차 전체 불량`}</strong><span>{supportLoading ? ' 불러오는 중…' : supportRegistering ? ' 사전검증 중…' : ` ${supportRows.length}건`}</span></div>
           <span className="incoming-review-note">{activeTab === 'carryover' ? '컨펌 완료·현재 차수 판매행 있음 건만 등록 가능합니다. 나머지는 잔여수량이 0이 될 때까지 미처리로 계속 표시됩니다.' : '원차수 불량도 현재 차수에 EXE 판매행이 생기면 이월 등록할 수 있습니다.'}</span>
         </div>
         {activeTab === 'support' && <div className="support-usage-notice" role="note">
@@ -1546,7 +1562,7 @@ export default function SalesDefectDeductionsPage() {
           </ol>
         </div>}
         {activeTab === 'support' && <div className="support-live-log" role="log" aria-live="polite" aria-label="영업지원 전산등록 실시간 진행 로그">
-          <div className="support-live-log-head"><strong>실시간 진행 로그</strong><span>{supportLoading ? '처리 중…' : supportProcessLogs.length ? '최근 작업' : '대기'}</span></div>
+          <div className="support-live-log-head"><strong>실시간 진행 로그</strong><span>{supportLoading || supportRegistering ? '처리 중…' : supportProcessLogs.length ? '최근 작업' : '대기'}</span></div>
           {supportProcessLogs.length ? supportProcessLogs.map((log, index) => <div key={`${log.at}-${index}`}><time>{log.at}</time><span>{log.label}</span></div>) : <div className="support-live-log-empty">등록 버튼을 누르면 사전검증부터 최종 재조회까지 단계별로 표시됩니다.</div>}
         </div>}
         {activeTab === 'carryover' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 8, padding: '8px 10px', borderBottom: '1px solid #e2e8f0' }}>

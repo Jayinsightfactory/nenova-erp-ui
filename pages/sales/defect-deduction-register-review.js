@@ -11,6 +11,7 @@ const fmt = (value) => Number(value || 0).toLocaleString();
 const dateText = (value) => value ? String(value).slice(0, 19).replace('T', ' ') : '-';
 const rowProductName = (row = {}) => row.after?.ProdName || row.productDbName || row.productName || '-';
 const rowIdentityText = (row = {}) => `${row.customerName || '-'} · ${rowProductName(row)} · ${fmt(row.editQuantity || row.quantity)} ${row.sourceUnit || row.after?.Unit || ''}`;
+const REGISTRATION_PREVIEW_BATCH_SIZE = 10;
 
 function adjustedAfter(row) {
   if (!row.after) return null;
@@ -60,17 +61,22 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const load = useCallback(async ({ throwOnError = false } = {}) => {
     if (!router.isReady || !ids.length || !year || !week) return;
     setLoading(true); setError('');
-    appendLog(`대상 ${ids.length}건 기존 견적서·출고키·이전차수 단가 조회`);
+    appendLog(`대상 ${ids.length}건 기존 견적서·출고키·이전차수 단가 조회 시작`);
     try {
-      const data = await apiGet('/api/sales/defect-deductions', {
-        view: 'registration-preview', year, week, ids: ids.join(','), type: deductionType,
-      });
-      const nextRows = (data.rows || []).map((row) => ({
-        ...row,
-        editQuantity: row.quantity,
-        editNote: row.note || '',
-      }));
-      setRows(nextRows);
+      const nextRows = [];
+      for (let offset = 0; offset < ids.length; offset += REGISTRATION_PREVIEW_BATCH_SIZE) {
+        const batchIds = ids.slice(offset, offset + REGISTRATION_PREVIEW_BATCH_SIZE);
+        const data = await apiGet('/api/sales/defect-deductions', {
+          view: 'registration-preview', year, week, ids: batchIds.join(','), type: deductionType,
+        });
+        nextRows.push(...(data.rows || []).map((row) => ({
+          ...row,
+          editQuantity: row.quantity,
+          editNote: row.note || '',
+        })));
+        setRows([...nextRows]);
+        appendLog(`기존 견적서 조회 진행 · ${Math.min(offset + batchIds.length, ids.length)}/${ids.length}건`);
+      }
       appendLog(`기존 견적서 조회 완료 · 신규 ${nextRows.filter((row) => !row.before).length}건 · 수정 ${nextRows.filter((row) => row.before).length}건`);
       return nextRows;
     } catch (e) {

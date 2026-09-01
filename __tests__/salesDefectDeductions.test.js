@@ -104,6 +104,11 @@ assert.match(deductionContract.sideEffects.salesSupportRegistration, /수동처�
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /ImportConfirmed 값과 무관하게 표시/);
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /미확정 행은 수입부 상태를 ‘미확정’으로 명시/);
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /Estimate\.Descr은 빈 문자열/);
+assert.match(deductionContract.sideEffects.salesSupportRegistration, /10건씩 나누어 처리/);
+assert.match(pageSource, /REGISTRATION_PREFLIGHT_BATCH_SIZE = 10/);
+assert.match(pageSource, /사전검증 진행 · \$\{completed\}\/\$\{selectedRows\.length\}건/);
+assert.match(supportReviewSource, /REGISTRATION_PREVIEW_BATCH_SIZE = 10/);
+assert.match(supportReviewSource, /기존 견적서 조회 진행/);
 assert.match(deductionContract.sideEffects.registrationPartial, /Estimate\.Descr에는 올리지 않는다/);
 assert.match(deductionContract.sideEffects.supportCustomerEstimate, /불량차감 음수 Estimate 항목만/);
 assert.match(deductionContract.sideEffects.supportCustomerEstimate, /iframe\/딥링크나 previewCapture 요청에 의존하지 않는다/);
