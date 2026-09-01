@@ -14,7 +14,7 @@
     "sheetDetection": "sheet name or first three rows must contain 네덜란드, Netherlands, Holland or Dutch",
     "header": "the existing Pivot template uses row 3 for customer headers and 주문 marks the end of customer quantity columns",
     "quantity": "only finite numeric values greater than zero become price-entry rows",
-    "price": "strictly positive value means complete; zero or blank remains pending",
+    "price": "a customer whose first display-name line contains 주광 keeps an individual customer-product price; every other customer shares one uniform price by product and color. Entering that uniform price on any non-주광 row applies it to every non-주광 row for the same product and color; strictly positive means complete and zero or blank remains pending",
     "keyboard": "Enter prevents form submission and focuses/selects the next visible price input",
     "export": "both live-download and uploaded-workbook paths preserve the Pivot workbook; all Pivot titles use 차수(...) newline 품종(...); a positive unit price is inserted into OOXML drawing markup as a bordered rectangle containing price digits only at the same 9pt bold size as quantities, anchored over the adjacent right blank cell or left blank cell when right is occupied; the drawing may extend beyond one cell boundary so long prices remain full-size; quantity cells, formulas, used range and worksheet columns stay unchanged and no @, EUR or KRW text is emitted",
     "currency": "EUR default with explicit KRW choice remains for the web entry grid and amount calculation only; the downloaded volume-sheet quantity cell shows price digits without a currency suffix"
