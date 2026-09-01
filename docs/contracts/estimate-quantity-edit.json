@@ -8,6 +8,7 @@
     "pages/api/estimate/update-entry.js",
     "pages/api/shipment/fix.js",
     "lib/stockShortage.js",
+    "lib/estimateDirectionalQuantity.js",
     "lib/erpWriteScope.js",
     "lib/shipmentDetailWriteGuard.js",
     "__tests__/stockShortage.test.js"
@@ -69,6 +70,7 @@
     "negativeStockRecovery": "explicit confirm only -> StockHistory 재고조정(+exact shortage) -> usp_StockCalculation -> usp_ShipmentFix",
     "stockMutation": "Product.Stock is changed only through the existing stored procedure path; no direct Product.Stock update",
     "dateRows": "ShipmentDate sum must equal ShipmentDetail.OutQuantity",
+    "stockShortageDisplay": "재고 부족 오류는 잠긴 Product 행의 CountryFlower + ProdName + ProdKey를 함께 표시하고 클라이언트 제공 이름은 사용하지 않는다.",
     "zeroQuantity": "setting the last/only date row to 0 purges ShipmentDetail+ShipmentDate+ShipmentFarm, hides the row from estimate (EstQuantity>0), and preserves OrderDetail"
   },
   "requiredPreflight": [
