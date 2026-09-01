@@ -51,6 +51,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const deductionType = String(router.query.type || '불량차감');
   const supportMode = String(router.query.support || '') === '1';
   const excludedRows = useMemo(() => rows.filter((row) => excludedKeys.has(Number(row.deductionKey))), [rows, excludedKeys]);
+  const waitingForApply = !loading && !applying && !verified && rows.length > 0;
   const appendLog = (label) => {
     const at = new Date().toLocaleTimeString('ko-KR');
     setLogs((current) => [...current, { at, label }]);
@@ -238,8 +239,9 @@ export default function SalesDefectDeductionRegisterReviewPage() {
             <h2>{supportMode ? '영업지원 전산등록 — 견적서관리 반영 결과' : '견적서 등록 검토'}</h2>
             <div className="sub">{year}년 {week}차 · {deductionType} · 기존 견적서와 적용 후 값을 비교한 뒤 등록합니다.</div>
           </div>
-          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !rows.length}>{supportMode ? '전산등록 실행 및 검증' : '수정 적용 및 등록'}</button>{rows.some((row) => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || !(Number(row.editQuantity) > 0))) && <button className="btn btn-danger" onClick={excludeInvalidRows} disabled={loading || applying}>오류 건 제외하고 계속</button>}<button className="btn" onClick={load} disabled={loading || applying}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
+          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !rows.length}>{supportMode ? (waitingForApply ? '전산등록 실행 및 검증 ← 클릭' : '전산등록 실행 및 검증') : '수정 적용 및 등록'}</button>{rows.some((row) => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || !(Number(row.editQuantity) > 0))) && <button className="btn btn-danger" onClick={excludeInvalidRows} disabled={loading || applying}>오류 건 제외하고 계속</button>}<button className="btn" onClick={load} disabled={loading || applying}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
         </div>
+        {waitingForApply && <div className="notice waiting" role="status"><strong>진행 대기 중</strong> · 기존 견적서 조회가 완료되었습니다. 상단의 「전산등록 실행 및 검증 ← 클릭」 버튼을 눌러야 실제 등록이 시작됩니다.</div>}
         {message && <div className="notice ok">{message}{verified && ' 재조회 검증 완료.'}</div>}
         {error && <div className="notice error">{error}</div>}
         {excludedRows.length > 0 && <div className="notice excluded-summary"><strong>이번 등록 제외 {excludedRows.length}건</strong>{excludedRows.map((row) => <div key={row.deductionKey}><b>{row.customerName || '-'}</b> · {rowProductName(row)} · {fmt(row.editQuantity || row.quantity)} {row.sourceUnit || row.after?.Unit || ''} · 원장키 #{row.deductionKey}{row.error ? ` · ${row.error}` : ''}</div>)}</div>}
@@ -275,7 +277,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           .review-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #94a3b8; background: #f8fafc; }
           h2 { margin: 0; font-size: 18px; } .sub { margin-top: 2px; color: #64748b; font-size: 11px; }
           .head-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
-          .notice { margin-top: 4px; padding: 5px 7px; border: 1px solid; font-size: 11px; } .notice.ok { color: #166534; background: #f0fdf4; border-color: #86efac; } .notice.error { color: #991b1b; background: #fef2f2; border-color: #fca5a5; white-space: pre-wrap; } .notice.info { color: #1e3a8a; background: #eff6ff; border-color: #93c5fd; }
+          .notice { margin-top: 4px; padding: 5px 7px; border: 1px solid; font-size: 11px; } .notice.waiting { color: #92400e; background: #fff7d6; border: 2px solid #f59e0b; font-size: 13px; } .notice.waiting strong { color: #b45309; } .notice.ok { color: #166534; background: #f0fdf4; border-color: #86efac; } .notice.error { color: #991b1b; background: #fef2f2; border-color: #fca5a5; white-space: pre-wrap; } .notice.info { color: #1e3a8a; background: #eff6ff; border-color: #93c5fd; }
           .notice.excluded-summary { color: #7f1d1d; background: #fff7ed; border-color: #fb923c; } .notice.excluded-summary strong { display: block; margin-bottom: 3px; } .notice.excluded-summary div { padding: 2px 0; border-top: 1px solid #fed7aa; } .notice.excluded-summary div:first-of-type { border-top: 0; }
           .notice.usage { color: #92400e; background: #fffbeb; border-color: #fbbf24; } .notice.usage ol { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 0; padding: 0; list-style: none; } .notice.usage li { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid #fbbf24; background: #fff; border-radius: 999px; font-weight: 700; } .notice.usage li::after { content: '→'; color: #d97706; } .notice.usage li:last-child::after { content: ''; }
           .process-log { margin-top: 4px; padding: 5px 7px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-size: 11px; max-height: 130px; overflow: auto; }
