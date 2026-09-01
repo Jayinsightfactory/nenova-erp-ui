@@ -161,6 +161,7 @@
     ],
     "undoPolicy": "the last successful in-memory batch can be undone once; undo acquires a fresh edit lease for every customer and sends its editGuard; original ADD restores order+shipment and original CANCEL restores shipment only; every row must pass post-write verification inside one transaction; changed current quantities abort and roll back the whole undo; the client refreshes its baseline and releases all leases before enabling the action button again; a client timeout is reported as unknown until a fresh read, never assumed rolled back"
   },
+  "stockShortageDisplayPolicy": "ADD 가용재고 검증 실패는 서버가 같은 트랜잭션에서 조회한 Product.CountryFlower + Product.ProdName + ProdKey를 수량 근거 앞에 표시한다.",
   "postWriteVerificationPolicy": {
     "successMeaning": "success is returned only after the same transaction re-reads raw Order/Shipment rows, ViewOrder/ViewShipment, and ShipmentDate totals",
     "requiredIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
