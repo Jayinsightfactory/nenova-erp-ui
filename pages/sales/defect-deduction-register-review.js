@@ -33,6 +33,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [excludedKeys, setExcludedKeys] = useState(() => new Set());
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [logs, setLogs] = useState([]);
@@ -73,6 +74,23 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   useEffect(() => { load(); }, [load]);
 
   const updateRow = (index, patch) => setRows((current) => current.map((row, i) => i === index ? { ...row, ...patch } : row));
+  const setRowExcluded = (deductionKey, excluded) => {
+    const key = Number(deductionKey);
+    setExcludedKeys((current) => {
+      const next = new Set(current);
+      if (excluded) next.add(key); else next.delete(key);
+      return next;
+    });
+    setError('');
+  };
+  const excludeInvalidRows = () => {
+    const invalidKeys = rows
+      .filter((row) => row.error || !row.after || !(Number(row.editQuantity) > 0))
+      .map((row) => Number(row.deductionKey));
+    setExcludedKeys((current) => new Set([...current, ...invalidKeys]));
+    setError('');
+    setMessage(`오류 ${invalidKeys.length}건을 이번 등록에서 제외했습니다. 나머지 행은 계속 진행할 수 있습니다.`);
+  };
 
   const sameNumber = (left, right) => Math.abs(Number(left || 0) - Number(right || 0)) < 0.0001;
   const verifyAppliedRow = (row, originalRow = null) => {
@@ -102,9 +120,14 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   };
 
   const apply = async () => {
-    const invalid = rows.filter((row) => row.error || !row.after || !(Number(row.editQuantity) > 0));
+    const activeRows = rows.filter((row) => !excludedKeys.has(Number(row.deductionKey)));
+    if (!activeRows.length) {
+      setError('등록할 행이 없습니다. 제외를 해제하거나 창을 닫아주세요.');
+      return;
+    }
+    const invalid = activeRows.filter((row) => row.error || !row.after || !(Number(row.editQuantity) > 0));
     if (invalid.length) {
-      setError('오류가 있는 행과 수량이 없는 행을 먼저 수정하세요.');
+      setError(`오류가 있는 ${invalid.length}건을 수정하거나 「오류 건 제외하고 계속」을 눌러주세요.`);
       return;
     }
     setApplying(true); setError(''); setMessage(''); setVerified(false);
@@ -113,37 +136,53 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       () => globalThis.crypto?.randomUUID?.()
         || `defect-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`,
     );
-    const originalRowByKey = new Map(rows.map((row) => [Number(row.deductionKey), row]));
-    setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '전산등록 시작 · 선택 행 사전검증 통과' }]);
+    const activeIds = activeRows.map((row) => Number(row.deductionKey));
+    const originalRowByKey = new Map(activeRows.map((row) => [Number(row.deductionKey), row]));
+    setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `전산등록 시작 · 등록 ${activeIds.length}건 · 제외 ${excludedKeys.size}건` }]);
     try {
-      const overrides = Object.fromEntries(rows.map((row) => [String(row.deductionKey), {
+      const overrides = Object.fromEntries(activeRows.map((row) => [String(row.deductionKey), {
         quantity: Number(row.editQuantity),
         note: row.editNote || '',
         sourceUnit: row.sourceUnit || '',
       }]));
       const data = await apiPost('/api/sales/defect-deductions', {
-        action: 'register', year, week, ids, deductionType, overrides,
+        action: 'register', year, week, ids: activeIds, deductionType, overrides,
         requestKey: registerRequestKeyRef.current,
       });
       (data.logs || []).forEach((label) => appendLog(label));
+      const skipped = data.skipped || [];
+      const skippedKeys = skipped.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
+      if (skippedKeys.length) {
+        setExcludedKeys((current) => new Set([...current, ...skippedKeys]));
+        skipped.forEach((row) => appendLog(`등록 제외 · 원장키 #${row.deductionKey} · ${row.error}`));
+      }
       appendLog('Estimate 적용 완료 · Order/Shipment/Stock 원장은 변경하지 않음');
-      setMessage(`${data.registered || 0}건 적용 완료. 기존 견적서를 다시 불러와 검증 중입니다.`);
+      setMessage(`${data.registered || 0}건 적용 완료${skippedKeys.length ? ` · 중복/오류 ${skippedKeys.length}건 제외` : ''}. 기존 견적서를 다시 불러와 검증 중입니다.`);
       const refreshedRows = await load({ throwOnError: true }) || [];
-      const mismatches = refreshedRows.filter((row) => !verifyAppliedRow(row, originalRowByKey.get(Number(row.deductionKey)))).map((row) => row.deductionKey);
-      if (mismatches.length) {
+      const registeredKeys = new Set((data.rows || []).map((row) => Number(row.deductionKey)));
+      const mismatches = refreshedRows
+        .filter((row) => registeredKeys.has(Number(row.deductionKey)))
+        .filter((row) => !verifyAppliedRow(row, originalRowByKey.get(Number(row.deductionKey))))
+        .map((row) => row.deductionKey);
+      const registrationVerified = registeredKeys.size > 0 && mismatches.length === 0;
+      if (!registeredKeys.size) {
+        appendLog('등록할 유효행 없음 · 중복/오류 행만 제외');
+        setVerified(false);
+        setMessage(`등록된 행이 없습니다. 중복/오류 ${skippedKeys.length}건은 기존 이력을 보존하고 제외했습니다.`);
+      } else if (mismatches.length) {
         appendLog(`재조회 검증 실패 · 불일치 ${mismatches.length}건`);
         setVerified(false);
         setError(`견적서 등록 후 재조회 값이 일치하지 않는 행이 ${mismatches.length}건 있습니다. 원장키: ${mismatches.join(', ')}`);
       } else {
         appendLog('재조회 검증 완료 · 견적키·수량·단가·금액·부가세·출고키 일치');
         setVerified(true);
-        setMessage(`${data.registered || 0}건 견적서 등록 및 재조회 검증 완료. 견적키·수량·단가·금액·출고키가 일치합니다.`);
+        setMessage(`${data.registered || 0}건 견적서 등록 및 재조회 검증 완료${skippedKeys.length ? ` · 중복/오류 ${skippedKeys.length}건은 제외됨` : ''}. 견적키·수량·단가·금액·출고키가 일치합니다.`);
       }
       try {
         window.opener?.postMessage({
           type: 'sales-defect-register-complete',
           registered: data.registered || 0,
-          verified: mismatches.length === 0,
+          verified: registrationVerified,
           mismatches,
         }, window.location.origin);
       } catch { /* ignore */ }
@@ -165,7 +204,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
             <h2>{supportMode ? '영업지원 전산등록 — 견적서관리 반영 결과' : '견적서 등록 검토'}</h2>
             <div className="sub">{year}년 {week}차 · {deductionType} · 기존 견적서와 적용 후 값을 비교한 뒤 등록합니다.</div>
           </div>
-          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !rows.length}>{supportMode ? '전산등록 실행 및 검증' : '수정 적용 및 등록'}</button><button className="btn" onClick={load} disabled={loading || applying}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
+          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !rows.length}>{supportMode ? '전산등록 실행 및 검증' : '수정 적용 및 등록'}</button>{rows.some((row) => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || !(Number(row.editQuantity) > 0))) && <button className="btn btn-danger" onClick={excludeInvalidRows} disabled={loading || applying}>오류 건 제외하고 계속</button>}<button className="btn" onClick={load} disabled={loading || applying}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
         </div>
         {message && <div className="notice ok">{message}{verified && ' 재조회 검증 완료.'}</div>}
         {error && <div className="notice error">{error}</div>}
@@ -177,8 +216,9 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         <div className="review-list">
           {rows.map((row, index) => {
             const after = adjustedAfter(row);
-            return <div className={`review-card ${row.error ? 'has-error' : ''}`} key={row.deductionKey || index}>
-              <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span><span>원장키 #{row.deductionKey}</span></div>
+            const excluded = excludedKeys.has(Number(row.deductionKey));
+            return <div className={`review-card ${row.error ? 'has-error' : ''} ${excluded ? 'is-excluded' : ''}`} key={row.deductionKey || index}>
+              <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span>{excluded && <span className="excluded-badge">이번 등록 제외</span>}<button className="row-exclude" onClick={() => setRowExcluded(row.deductionKey, !excluded)} disabled={loading || applying}>{excluded ? '제외 해제' : '이 행 제외'}</button><span>원장키 #{row.deductionKey}</span></div>
               {row.error && <div className="row-error">{row.error}</div>}
               <div className="compare-grid">
                 <section className="compare-pane before"><h3>기존 견적서 내용</h3>{row.before ? <>
@@ -206,7 +246,10 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           .process-log strong { display: block; margin-bottom: 3px; color: #1e3a8a; } .process-log div { padding: 1px 0; } .process-log span { display: inline-block; min-width: 68px; color: #64748b; font-variant-numeric: tabular-nums; }
           .review-list { margin-top: 4px; display: grid; gap: 4px; }
           .review-card { border: 1px solid #94a3b8; background: #fff; } .review-card.has-error { border-color: #ef4444; }
-          .row-title { display: flex; gap: 8px; align-items: center; padding: 4px 7px; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; font-size: 12px; } .row-title span:last-child { margin-left: auto; color: #64748b; font-size: 10px; }
+          .review-card.is-excluded { opacity: .62; border-style: dashed; } .review-card.is-excluded .compare-grid { pointer-events: none; }
+          .row-title { display: flex; gap: 8px; align-items: center; padding: 4px 7px; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; font-size: 12px; } .row-title > span:last-child { margin-left: auto; color: #64748b; font-size: 10px; }
+          .excluded-badge { padding: 2px 6px; color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 999px; font-size: 10px; font-weight: 700; }
+          .row-exclude { min-height: 25px; padding: 2px 8px; color: #991b1b; background: #fff; border: 1px solid #ef4444; cursor: pointer; font-size: 11px; font-weight: 700; } .row-exclude:disabled { cursor: default; opacity: .5; }
           .row-error { padding: 4px 7px; color: #991b1b; background: #fef2f2; font-size: 11px; }
           .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; } .compare-pane { padding: 5px 8px; min-height: 110px; font-size: 11px; line-height: 1.45; } .compare-pane + .compare-pane { border-left: 1px solid #cbd5e1; } .compare-pane.before { background: #f8fafc; } .compare-pane.after { background: #fff; } h3 { margin: 0 0 3px; font-size: 12px; color: #1e3a8a; }
           .compare-pane b { display: inline-block; min-width: 78px; color: #475569; } .compare-pane small { color: #64748b; }

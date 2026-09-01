@@ -149,6 +149,11 @@ assert.ok(pageSource.includes('supportSelectableKeys') && pageSource.includes('s
 assert.match(pageSource, /disabled=\{activeTab === 'support' \|\| activeTab === 'carryover'/, '미처리 목록은 영업입력 양식으로 인쇄하면 안 됩니다.');
 assert.match(pageSource, /disabled=\{loading \|\| activeTab === 'carryover'\}/, '미처리 목록을 다른 조회 계약의 엑셀로 내보내면 안 됩니다.');
 assert.ok(supportReviewSource.includes('editQuantity') && supportReviewSource.includes('editNote'), '실제 등록 전에 처리수량과 웹 비고를 수정할 수 있어야 합니다.');
+assert.ok(supportReviewSource.includes('오류 건 제외하고 계속') && supportReviewSource.includes('이 행 제외'), '검토창은 중복·오류 행을 제외하고 나머지 행을 계속 등록할 수 있어야 합니다.');
+assert.match(supportReviewSource, /const activeRows = rows\.filter\([\s\S]*excludedKeys/, '제외한 원장키는 실제 등록 대상에서 빠져야 합니다.');
+assert.match(supportReviewSource, /ids: activeIds/, '등록 API에는 제외 후 남은 원장키만 전달해야 합니다.');
+assert.match(supportReviewSource, /registeredKeys\.has\(Number\(row\.deductionKey\)\)/, '재조회 검증은 최종 등록 성공행만 대상으로 해야 합니다.');
+assert.match(deductionContract.sideEffects.existingEstimateDuplicateGuard, /행별 제외.*오류 건 일괄 제외/, '중복 가드는 오류 행 제외 후 나머지 계속 처리 계약을 명시해야 합니다.');
 assert.ok(supportReviewSource.includes('견적서 적요에 올리지 않음'), '검토창 비고는 웹 원장만 바꾸고 견적서 적요에 올리면 안 됩니다.');
 assert.match(supportReviewSource, /Descr: ''/, '검토 미리보기의 견적 적요는 비어야 한다.');
 const registerDeductionsSource = deductionSource.slice(

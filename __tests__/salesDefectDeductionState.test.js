@@ -100,7 +100,7 @@ assert.match(draftSaveSource, /before\.quantity[\s\S]*before\.sourceUnit[\s\S]*b
 // 등록 후 재조회는 최초 미리보기의 before가 아니라 등록 전 원본 행을
 // 기준으로 비교해야 한다. 신규 EstimateKey는 발급된 양수 키를 허용하고,
 // 이월행은 남은 수량과 연결 견적키를 검증한다.
-assert.match(reviewPageSource, /const originalRowByKey = new Map\(rows\.map/);
+assert.match(reviewPageSource, /const originalRowByKey = new Map\(activeRows\.map/);
 assert.match(reviewPageSource, /verifyAppliedRow\(row, originalRowByKey\.get/);
 assert.match(reviewPageSource, /originalRow\?\.isCarryoverLedger/);
 assert.match(reviewPageSource, /Number\(actual\.EstimateKey \|\| 0\) > 0/);
