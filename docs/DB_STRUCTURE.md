@@ -207,6 +207,7 @@
 - 한 차수의 품목 단가 수정은 `PnlKey + ProdKey + Unit + IsCustom`을 우선 사용하고, `ProdKey`가 없을 때만 정확한 품목명+단위+수동구분을 사용한다.
 - `WebRaumCostPrice`는 다음 업로드 자동입력용 학습값이다. 과거 차수 `WebRaumPnlItem.CostPrice` 수정으로 함께 바꾸지 않는다.
 - 차수별 매입단가 관리에서 허용되는 쓰기는 대상 `WebRaumPnlItem.CostPrice/CostSource`와 부모 `WebRaumPnl.UpdatedBy/UpdatedAt`뿐이다. 주문·출고·재고·견적·`WebProfitReport`는 보존한다.
+- 매입단가는 `PartnerCode`가 아니라 같은 `OrderYear + MajorWeek + 품목 identity`(양수 `ProdKey`+정규화 `Unit`+`IsCustom`, 미매칭은 정규화 `ItemName`+`Unit`+`IsCustom`)에 대해 라움·초이문 공통 하나다. 화면은 두 거래처를 전환 없이 함께 보여주고, 공통 단가 저장은 같은 연도·대차수의 활성 라움+초이문 결산을 함께 잠근 뒤 존재하는 양쪽 매칭행만 한 트랜잭션에서 `CostPrice/CostSource`를 갱신한다. 한쪽 거래처에 결산·품목행이 없으면 새로 만들지 않는다. `SalePrice/SaleAmount`는 거래처별 값을 화면 표시용으로만 함께 조회하며 저장 대상이 아니다.
 
 **Estimate** — 견적서 (`EstimateKey`, `CustKey`, `ProdKey`, `ShipmentKey`)
 
