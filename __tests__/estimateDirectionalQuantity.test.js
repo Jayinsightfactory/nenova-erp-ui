@@ -44,6 +44,7 @@ async function main() {
     evaluateDirectionalCurrentStock,
     formatDirectionalProductLabel,
     fixedDirectionalChanges,
+    futureStockShortageError,
     lockDirectionalGate,
     positiveIncreaseByProduct,
   } = helper;
@@ -129,6 +130,13 @@ async function main() {
     increase: 20,
     scope: { prodKey: 59, countryFlower: '콜롬비아알스트로', prodName: 'ALSTROMERIA Lavender' },
   }), (error) => error?.code === 'STOCK_SHORTAGE' && error.message.includes('현재 가용재고=10'));
+  const futureError = futureStockShortageError({
+    scope: { prodKey: 59, prodName: 'ALSTROMERIA Lavender', countryFlower: '콜롬비아알스트로', orderYear: '2026', orderWeek: '35-01' },
+    negativeRow: { OrderYear: 2026, OrderWeek: '35-02', Stock: -20 },
+  });
+  assert.equal(futureError.code, 'FUTURE_STOCK_SHORTAGE');
+  assert.match(futureError.message, /ALSTROMERIA Lavender \(#59\).*2026년 35-02차 재고=-20/);
+  assert.equal(futureError.stockValidation.postNative[0].orderWeek, '35-02');
 
   assert.throws(() => buildDirectionalQuantityPlan({
     changes: [change(fixedRow({ DetailIsFix: null }), 9)],

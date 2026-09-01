@@ -19,6 +19,7 @@ import {
   directionalQuantityError,
   evaluateDirectionalCurrentStock,
   fixedDirectionalChanges,
+  futureStockShortageError,
   lockDirectionalGate,
   positiveIncreaseByProduct,
 } from '../../../lib/estimateDirectionalQuantity.js';
@@ -435,12 +436,23 @@ export default withAuth(async function handler(req, res) {
           `SELECT TOP 1 stm.OrderYear,stm.OrderWeek,ps.Stock
              FROM ProductStock ps JOIN StockMaster stm ON stm.StockKey=ps.StockKey
             WHERE ps.ProdKey=@pk
-              AND stm.OrderYear=@yr
-              AND RIGHT('0000'+CAST(stm.OrderYear AS nvarchar(4)),4)+REPLACE(stm.OrderWeek,'-','')>=@ywk
-              AND ROUND(ps.Stock,3)<0`,
-          { pk: { type: sql.Int, value: row.ProdKey }, yr: { type: sql.NVarChar, value: row.OrderYear }, ywk: { type: sql.NVarChar, value: `${row.OrderYear}${String(row.OrderWeek).replace('-', '')}` } },
+              AND stm.OrderYearWeek>=@ywk
+              AND ROUND(ps.Stock,3)<0
+            ORDER BY stm.OrderYearWeek ASC, stm.StockKey ASC`,
+          { pk: { type: sql.Int, value: row.ProdKey }, ywk: { type: sql.NVarChar, value: `${row.OrderYear}${String(row.OrderWeek).replace('-', '')}` } },
         );
-        if (negative.recordset?.length) throw directionalQuantityError('FUTURE_STOCK_SHORTAGE', '재계산 뒤 현재 또는 후속 차수 재고가 음수입니다. 전체 변경을 저장하지 않았습니다.');
+        if (negative.recordset?.length) {
+          throw futureStockShortageError({
+            scope: {
+              prodKey: Number(row.ProdKey),
+              prodName: row.ProdName,
+              countryFlower: row.CountryFlower,
+              orderYear: String(row.OrderYear),
+              orderWeek: String(row.OrderWeek),
+            },
+            negativeRow: negative.recordset[0],
+          });
+        }
         stockValidation.postNative.push({ prodKey: Number(row.ProdKey), orderYear: String(row.OrderYear), fromOrderWeek: String(row.OrderWeek), negative: false });
       }
       const editGuardAfter = await advanceErpEditGuard(tQ, { ...writeScope, orderWeek: selectedRows[0].OrderWeek }, req.user, req.body);
