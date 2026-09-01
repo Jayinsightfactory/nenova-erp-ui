@@ -783,12 +783,16 @@ export default function SalesPasteOrderPage() {
         }
         .customers {
           display: flex;
+          flex-wrap: wrap;
           gap: 4px;
-          overflow-x: auto;
+          max-height: 112px;
+          overflow-y: auto;
+          overflow-x: hidden;
           padding-bottom: 2px;
         }
         .customers button {
           min-width: 135px;
+          flex: 0 0 135px;
           display: flex;
           flex-direction: column;
           align-items: flex-start;
