@@ -153,6 +153,8 @@ assert.ok(supportReviewSource.includes('오류 건 제외하고 계속') && supp
 assert.match(supportReviewSource, /const activeRows = rows\.filter\([\s\S]*excludedKeys/, '제외한 원장키는 실제 등록 대상에서 빠져야 합니다.');
 assert.match(supportReviewSource, /ids: activeIds/, '등록 API에는 제외 후 남은 원장키만 전달해야 합니다.');
 assert.match(supportReviewSource, /registeredKeys\.has\(Number\(row\.deductionKey\)\)/, '재조회 검증은 최종 등록 성공행만 대상으로 해야 합니다.');
+assert.ok(supportReviewSource.includes('이번 등록 제외') && supportReviewSource.includes('rowIdentityText'), '제외 안내는 원장키뿐 아니라 업체·품목·수량을 함께 표시해야 합니다.');
+assert.match(supportReviewSource, /source = originalRowByKey\.get[\s\S]*rowIdentityText\(source\)/, '등록 직전 제외 로그도 원본 행의 업체·품목을 표시해야 합니다.');
 assert.match(deductionContract.sideEffects.existingEstimateDuplicateGuard, /행별 제외.*오류 건 일괄 제외/, '중복 가드는 오류 행 제외 후 나머지 계속 처리 계약을 명시해야 합니다.');
 assert.ok(supportReviewSource.includes('견적서 적요에 올리지 않음'), '검토창 비고는 웹 원장만 바꾸고 견적서 적요에 올리면 안 됩니다.');
 assert.match(supportReviewSource, /Descr: ''/, '검토 미리보기의 견적 적요는 비어야 한다.');
