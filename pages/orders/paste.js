@@ -3392,6 +3392,68 @@ export default function PasteOrderPage() {
     }
   };
   const previewQty = value => Number.isFinite(Number(value)) ? Number(Number(value).toFixed(3)) : '-';
+  const renderGlobalActionPreviewBoard = ({ compact = false } = {}) => (
+    <div
+      className={`paste-global-action-board${compact ? ' paste-global-action-board-top' : ''}`}
+      style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: compact ? 8 : 12, alignItems: 'start' }}
+    >
+      {[
+        { key: 'cancel', title: `왼쪽 · 취소 먼저 (${globalCancelEntries.length}건)`, entries: globalCancelEntries, color: '#c62828', bg: '#fff5f5' },
+        { key: 'add', title: `오른쪽 · 추가·분배 (${globalAddEntries.length}건)`, entries: globalAddEntries, color: '#2e7d32', bg: '#f3fbf4' },
+      ].map(group => (
+        <section key={group.key} style={{ minWidth: 0, border: `2px solid ${group.color}66`, borderRadius: 9, overflow: 'hidden', background: '#fff' }}>
+          <div style={{ position: 'sticky', top: 0, zIndex: 2, padding: compact ? '7px 9px' : '9px 12px', background: group.bg, color: group.color, fontSize: compact ? 12 : 14, fontWeight: 900, borderBottom: `1px solid ${group.color}44` }}>
+            {group.title}
+          </div>
+          <div style={{ maxHeight: compact ? 'min(330px, calc(100vh - 430px))' : '55vh', overflow: 'auto' }}>
+            {group.entries.length === 0 ? (
+              <div style={{ padding: compact ? 16 : 24, textAlign: 'center', color: '#9e9e9e', fontSize: 12 }}>해당 품목 없음</div>
+            ) : group.entries.map(({ order, item: it, itemIdx }) => {
+              const preview = actionPreview(order, it);
+              const incomingState = pasteIncomingDisplayState({
+                loading: pasteIncoming.loading,
+                error: pasteIncoming.error,
+                entry: pasteIncoming.map[Number(it.prodKey)],
+              });
+              return <div key={`${group.key}-${order.id}-${itemIdx}`} style={{ display: 'grid', gridTemplateColumns: compact ? 'minmax(62px,.58fr) minmax(100px,1.42fr) 46px 58px 64px' : 'minmax(95px, .65fr) minmax(180px, 1.35fr) 58px 66px 78px', alignItems: 'center', gap: compact ? 3 : 5, padding: compact ? '5px 6px' : '6px 8px', borderBottom: '1px solid #eee', background: it.prodKey ? '#fff' : '#fff8e1' }}>
+                <div title={order.custMatch?.CustName || order.custName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: compact ? 10 : 11, fontWeight: 900, color: '#1a237e' }}>
+                  {order.custMatch?.CustName || order.custName || '업체 미확인'}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div title={it.inputName} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: compact ? 11 : 12, fontWeight: 700, color: group.color }}>{it.inputName}</div>
+                  <div title={it.displayName || it.prodName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: it.prodKey ? '#607d8b' : '#e65100' }}>
+                    {it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}
+                  </div>
+                  {it.prodKey && <div title={`${formatWeekDisplay(week)} 전산 입고수량`} style={{ marginTop: 2, fontSize: 10, fontWeight: 900, color: incomingState.kind === 'error' ? '#c62828' : incomingState.kind === 'zero' ? '#78909c' : '#00695c' }}>
+                    {incomingState.label}
+                  </div>}
+                  {it.prodKey && <div style={{ marginTop: 2, fontSize: 10, fontWeight: 800, color: preview?.error ? '#c62828' : '#455a64', whiteSpace: compact ? 'normal' : 'nowrap', lineHeight: 1.25 }}>
+                    {preview?.error
+                      ? `적용 예상 오류 · ${preview.error}`
+                      : preview
+                        ? `적용 예상 · 주문 ${previewQty(preview.orderBefore)}→${previewQty(preview.orderAfter)} / 분배 ${previewQty(preview.shipmentBefore)}→${previewQty(preview.shipmentAfter)}`
+                        : '적용 예상 수량 조회 중'}
+                  </div>}
+                </div>
+                <input type="number" min="0" step="0.5" value={it.qty} aria-label={`${it.inputName} 수량`}
+                  onChange={e => updateItem(order.id, itemIdx, { qty: parseFloat(e.target.value) || 0 })}
+                  style={{ width: compact ? 44 : 54, padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4, textAlign: 'right', fontSize: compact ? 11 : 12 }} />
+                <select value={normalizeOrderUnit(it.unit)} aria-label={`${it.inputName} 단위`}
+                  onChange={e => updateItem(order.id, itemIdx, { unit: e.target.value, unitExplicit: true })}
+                  style={{ width: compact ? 56 : 64, padding: '3px 2px', border: '1px solid #ccc', borderRadius: 4, fontSize: compact ? 10 : 11 }}>
+                  <option>박스</option><option>단</option><option>송이</option>
+                </select>
+                <button type="button" onClick={() => openDetailedMatchEditor(order.id, itemIdx)}
+                  style={{ padding: '3px 4px', border: '1px solid #b0bec5', borderRadius: 4, background: '#fff', color: '#455a64', cursor: 'pointer', fontSize: 10 }}>
+                  {it.prodKey ? '상세수정' : '매칭하기'}
+                </button>
+              </div>;
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
 
   return (
     <Layout title="붙여넣기 주문등록">
@@ -3685,32 +3747,80 @@ export default function PasteOrderPage() {
             </div>
           </div>
 
-          {/* 2열: 주문 제외·하이라이트 */}
-          <div className="paste-col paste-col-order-side">
-            <label style={{ ...labelS, marginBottom: 6 }}>
-              주문 보조
-              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
-                제외 · 색상 미리보기
-              </span>
-            </label>
-            <div className="paste-col-side-scroll">
-              {showExcludeHighlight ? (
-                <PasteExcludeHighlight
-                  text={pasteText}
-                  excludedLines={pasteExcludedLines}
-                  onExcludedLinesChange={setPasteExcludedLines}
-                  title="제외 하이라이트 (주문)"
-                  embedded
-                />
-              ) : (
-                <div className="paste-side-off">🚫 제외 하이라이트 OFF — 상단 버튼으로 켜세요</div>
-              )}
-              {showHighlight ? (
-                <PasteHighlight text={pasteText} customers={allCustomers} embedded />
-              ) : (
-                <div className="paste-side-off">🖍 하이라이트 OFF — 차수/거래처/품목 색 표시</div>
-              )}
-            </div>
+          {/* 2열: 분석 즉시 취소/추가 예상 결과 — 입력창과 같은 첫 화면에서 확인 */}
+          <div className={`paste-col paste-col-order-side${orders.length > 0 ? ' paste-col-order-results' : ''}`}>
+            {orders.length > 0 ? (
+              <>
+                <div className="paste-order-results-head">
+                  <div>
+                    <b>분석 결과</b>
+                    <span>입력 오른쪽에서 취소·추가 예상값을 바로 확인하세요.</span>
+                  </div>
+                  <div className="paste-order-results-summary">
+                    <b style={{ color: '#c62828' }}>취소 {globalCancelEntries.length}</b>
+                    <b style={{ color: '#2e7d32' }}>추가 {globalAddEntries.length}</b>
+                    {globalBatchIntent.issues.length > 0 && <b role="alert" style={{ color: '#b71c1c' }}>미확인 {globalBatchIntent.issues.length}</b>}
+                    {bulkResult?.orderId === 'ALL' && <b style={{ color: bulkResult.rolledBack ? '#c62828' : '#2e7d32' }}>
+                      {bulkResult.rolledBack
+                        ? `성공 0건 · 전체 ${bulkResult.failCount}건 모두 롤백 — 수정 후 전체 재실행`
+                        : `성공 ${bulkResult.okCount}건 · 실패 0건`}
+                    </b>}
+                  </div>
+                </div>
+                {globalBatchStartBlocker && globalBatchStartBlocker.code !== 'RUNNING' && (
+                  <div role="alert" className="paste-order-results-blocker">{globalBatchStartBlocker.message}</div>
+                )}
+                {renderGlobalActionPreviewBoard({ compact: true })}
+                <details className="paste-order-helper-details">
+                  <summary>제외·색상 미리보기</summary>
+                  <div className="paste-col-side-scroll paste-order-helper-content">
+                    {showExcludeHighlight ? (
+                      <PasteExcludeHighlight
+                        text={pasteText}
+                        excludedLines={pasteExcludedLines}
+                        onExcludedLinesChange={setPasteExcludedLines}
+                        title="제외 하이라이트 (주문)"
+                        embedded
+                      />
+                    ) : (
+                      <div className="paste-side-off">🚫 제외 하이라이트 OFF — 상단 버튼으로 켜세요</div>
+                    )}
+                    {showHighlight ? (
+                      <PasteHighlight text={pasteText} customers={allCustomers} embedded />
+                    ) : (
+                      <div className="paste-side-off">🖍 하이라이트 OFF — 차수/거래처/품목 색 표시</div>
+                    )}
+                  </div>
+                </details>
+              </>
+            ) : (
+              <>
+                <label style={{ ...labelS, marginBottom: 6 }}>
+                  주문 보조
+                  <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                    분석 후 이곳에 취소·추가 결과 표시
+                  </span>
+                </label>
+                <div className="paste-col-side-scroll">
+                  {showExcludeHighlight ? (
+                    <PasteExcludeHighlight
+                      text={pasteText}
+                      excludedLines={pasteExcludedLines}
+                      onExcludedLinesChange={setPasteExcludedLines}
+                      title="제외 하이라이트 (주문)"
+                      embedded
+                    />
+                  ) : (
+                    <div className="paste-side-off">🚫 제외 하이라이트 OFF — 상단 버튼으로 켜세요</div>
+                  )}
+                  {showHighlight ? (
+                    <PasteHighlight text={pasteText} customers={allCustomers} embedded />
+                  ) : (
+                    <div className="paste-side-off">🖍 하이라이트 OFF — 차수/거래처/품목 색 표시</div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* 3열: 기초재고 */}
@@ -3887,8 +3997,33 @@ export default function PasteOrderPage() {
           }
           .paste-col-order { border: 1px solid #c5cae9; background: #f7f8ff; }
           .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; min-height: min(500px, calc(100vh - 260px)); }
+          .paste-col-order-side.paste-col-order-results { min-height: 0; background: #fff; border-color: #9fa8da; }
           .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: min(500px, calc(100vh - 260px)); }
           .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; min-height: min(500px, calc(100vh - 260px)); }
+          .paste-order-results-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+          }
+          .paste-order-results-head > div:first-child { min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+          .paste-order-results-head > div:first-child > b { color: #1a237e; font-size: 13px; white-space: nowrap; }
+          .paste-order-results-head > div:first-child > span { color: #667085; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .paste-order-results-summary { display: flex; align-items: center; gap: 8px; font-size: 11px; white-space: nowrap; }
+          .paste-order-results-blocker {
+            margin-bottom: 6px;
+            padding: 5px 7px;
+            border: 1px solid #ef9a9a;
+            border-radius: 5px;
+            background: #ffebee;
+            color: #b71c1c;
+            font-size: 10px;
+            font-weight: 800;
+          }
+          .paste-order-helper-details { margin-top: 7px; border-top: 1px solid #d5d9e8; padding-top: 5px; }
+          .paste-order-helper-details > summary { color: #546e7a; font-size: 10px; font-weight: 800; cursor: pointer; user-select: none; }
+          .paste-order-helper-content { max-height: 220px; margin-top: 6px; }
           /* 1열: textarea 고정 높이 — 다른 열 높이에 끌려가지 않게 */
           .paste-col-order .paste-main-ta {
             flex: 0 0 auto;
@@ -3930,12 +4065,17 @@ export default function PasteOrderPage() {
           }
           @media (max-width: 1500px) {
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 380px; }
+            .paste-col-order-side.paste-col-order-results { min-height: 0; }
+            .paste-global-action-board-top { grid-template-columns: 1fr !important; }
           }
           @media (max-width: 768px) {
             .paste-input-grid { grid-template-columns: 1fr; }
             .paste-action-split { grid-template-columns: 1fr !important; }
             .paste-global-action-board { grid-template-columns: 1fr !important; }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 280px; }
+            .paste-col-order-side.paste-col-order-results { min-height: 0; }
+            .paste-order-results-head { align-items: flex-start; }
+            .paste-order-results-head > div:first-child > span { white-space: normal; }
             .paste-col-order .paste-main-ta { height: min(220px, calc(100vh - 420px)); }
           }
         `}</style>
@@ -3961,76 +4101,6 @@ export default function PasteOrderPage() {
 
         {orders.length > 0 && (
           <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            {globalBatchIntent.issues.length > 0 && <span role="alert" style={{ marginRight: 'auto', fontSize: 12, fontWeight: 800, color: '#b71c1c', background: '#ffebee', border: '1px solid #ef9a9a', borderRadius: 5, padding: '6px 9px' }}>
-              업체·품목·수량 미확인 {globalBatchIntent.issues.length}건 — 전체 확인 전에는 취소와 추가를 모두 저장하지 않습니다.
-            </span>}
-            {bulkResult?.orderId === 'ALL' && <span style={{ fontSize: 12, fontWeight: 700, color: bulkResult.rolledBack ? '#c62828' : '#2e7d32' }}>
-              {bulkResult.rolledBack
-                ? `성공 0건 · 전체 ${bulkResult.failCount}건 모두 롤백 — 수정 후 전체 재실행`
-                : `성공 ${bulkResult.okCount}건 · 실패 0건`}
-            </span>}
-            {globalBatchStartBlocker && globalBatchStartBlocker.code !== 'RUNNING' && <span role="alert" style={{ marginRight: 'auto', fontSize: 12, fontWeight: 800, color: '#b71c1c' }}>
-              {globalBatchStartBlocker.message}
-            </span>}
-          </div>
-          <div className="paste-global-action-board" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, marginBottom: 14, alignItems: 'start' }}>
-            {[
-              { key: 'cancel', title: `왼쪽 · 취소 먼저 (${globalCancelEntries.length}건)`, entries: globalCancelEntries, color: '#c62828', bg: '#fff5f5' },
-              { key: 'add', title: `오른쪽 · 추가·분배 (${globalAddEntries.length}건)`, entries: globalAddEntries, color: '#2e7d32', bg: '#f3fbf4' },
-            ].map(group => (
-              <section key={group.key} style={{ minWidth: 0, border: `2px solid ${group.color}66`, borderRadius: 9, overflow: 'hidden', background: '#fff' }}>
-                <div style={{ position: 'sticky', top: 0, zIndex: 2, padding: '9px 12px', background: group.bg, color: group.color, fontSize: 14, fontWeight: 900, borderBottom: `1px solid ${group.color}44` }}>
-                  {group.title}
-                </div>
-                <div style={{ maxHeight: '55vh', overflow: 'auto' }}>
-                  {group.entries.length === 0 ? (
-                    <div style={{ padding: 24, textAlign: 'center', color: '#9e9e9e', fontSize: 12 }}>해당 품목 없음</div>
-                  ) : group.entries.map(({ order, item: it, itemIdx }) => {
-                    const preview = actionPreview(order, it);
-                    const incomingState = pasteIncomingDisplayState({
-                      loading: pasteIncoming.loading,
-                      error: pasteIncoming.error,
-                      entry: pasteIncoming.map[Number(it.prodKey)],
-                    });
-                    return <div key={`${group.key}-${order.id}-${itemIdx}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(95px, .65fr) minmax(180px, 1.35fr) 58px 66px 78px', alignItems: 'center', gap: 5, padding: '6px 8px', borderBottom: '1px solid #eee', background: it.prodKey ? '#fff' : '#fff8e1' }}>
-                      <div title={order.custMatch?.CustName || order.custName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 900, color: '#1a237e' }}>
-                        {order.custMatch?.CustName || order.custName || '업체 미확인'}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div title={it.inputName} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700, color: group.color }}>{it.inputName}</div>
-                        <div title={it.displayName || it.prodName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: it.prodKey ? '#607d8b' : '#e65100' }}>
-                          {it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}
-                        </div>
-                        {it.prodKey && <div title={`${formatWeekDisplay(week)} 전산 입고수량`} style={{ marginTop: 2, fontSize: 10, fontWeight: 900, color: incomingState.kind === 'error' ? '#c62828' : incomingState.kind === 'zero' ? '#78909c' : '#00695c' }}>
-                          {incomingState.label}
-                        </div>}
-                        {it.prodKey && <div style={{ marginTop: 2, fontSize: 10, fontWeight: 800, color: preview?.error ? '#c62828' : '#455a64', whiteSpace: 'nowrap' }}>
-                          {preview?.error
-                            ? `적용 예상 오류 · ${preview.error}`
-                            : preview
-                              ? `적용 예상 · 주문 ${previewQty(preview.orderBefore)}→${previewQty(preview.orderAfter)} / 분배 ${previewQty(preview.shipmentBefore)}→${previewQty(preview.shipmentAfter)}`
-                              : '적용 예상 수량 조회 중'}
-                        </div>}
-                      </div>
-                      <input type="number" min="0" step="0.5" value={it.qty} aria-label={`${it.inputName} 수량`}
-                        onChange={e => updateItem(order.id, itemIdx, { qty: parseFloat(e.target.value) || 0 })}
-                        style={{ width: 54, padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4, textAlign: 'right', fontSize: 12 }} />
-                      <select value={normalizeOrderUnit(it.unit)} aria-label={`${it.inputName} 단위`}
-                        onChange={e => updateItem(order.id, itemIdx, { unit: e.target.value, unitExplicit: true })}
-                        style={{ width: 64, padding: '3px 2px', border: '1px solid #ccc', borderRadius: 4, fontSize: 11 }}>
-                        <option>박스</option><option>단</option><option>송이</option>
-                      </select>
-                      <button type="button" onClick={() => openDetailedMatchEditor(order.id, itemIdx)}
-                        style={{ padding: '3px 5px', border: '1px solid #b0bec5', borderRadius: 4, background: '#fff', color: '#455a64', cursor: 'pointer', fontSize: 10 }}>
-                        {it.prodKey ? '상세수정' : '매칭하기'}
-                      </button>
-                    </div>;
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
           {bulkResult?.orderId === 'ALL' && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
