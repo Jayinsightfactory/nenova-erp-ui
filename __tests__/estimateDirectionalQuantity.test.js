@@ -41,6 +41,7 @@ async function main() {
     assertNativeResult,
     buildDirectionalQuantityPlan,
     evaluateDirectionalAvailability,
+    formatDirectionalProductLabel,
     fixedDirectionalChanges,
     lockDirectionalGate,
     positiveIncreaseByProduct,
@@ -90,11 +91,16 @@ async function main() {
     scope: { prodKey: 7, orderYear: '2026', orderWeek: '34-02' },
   });
   assert.equal(unfixedEnough.remain, 8, 'all active unfixed baseline plus the positive delta is checked');
+  assert.equal(formatDirectionalProductLabel({ prodKey: 7, countryFlower: '콜롬비아 알스트로', prodName: 'ALSTROMERIA Fifi' }), '콜롬비아 알스트로 · ALSTROMERIA Fifi (#7)');
+  assert.equal(formatDirectionalProductLabel({ prodKey: 7, prodName: 'ALSTROMERIA Fifi' }), 'ALSTROMERIA Fifi (#7)');
+  assert.equal(formatDirectionalProductLabel({ prodKey: 7 }), '품목키 #7');
   assert.throws(() => evaluateDirectionalAvailability({
     facts: { prevStock: 5, currentIn: 0, adjustQty: 0, totalOut: 10 },
     increase: 1,
-    scope: { prodKey: 7, orderYear: '2026', orderWeek: '34-02' },
-  }), { code: 'STOCK_SHORTAGE' });
+    scope: { prodKey: 7, orderYear: '2026', orderWeek: '34-02', countryFlower: '콜롬비아 알스트로', prodName: 'ALSTROMERIA Fifi' },
+  }), (error) => error?.code === 'STOCK_SHORTAGE'
+    && error.message.includes('콜롬비아 알스트로 · ALSTROMERIA Fifi (#7)')
+    && error.stockValidation?.availability?.[0]?.productLabel === '콜롬비아 알스트로 · ALSTROMERIA Fifi (#7)');
   assert.throws(() => evaluateDirectionalAvailability({
     facts: { prevStock: 1, currentIn: 0, adjustQty: 0, totalOut: 1.001 },
     increase: 0,
