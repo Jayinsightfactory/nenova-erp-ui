@@ -41,6 +41,7 @@ async function main() {
     assertNativeResult,
     buildDirectionalQuantityPlan,
     evaluateDirectionalAvailability,
+    evaluateDirectionalCurrentStock,
     formatDirectionalProductLabel,
     fixedDirectionalChanges,
     lockDirectionalGate,
@@ -116,6 +117,18 @@ async function main() {
     increase: 0,
     scope: { prodKey: 7 },
   }).remain, 0, 'floating noise below one milliquantity is normalized to zero');
+  const startedStock = evaluateDirectionalCurrentStock({
+    currentStock: 80,
+    increase: 20,
+    scope: { prodKey: 59, orderYear: '2026', orderWeek: '35-02', countryFlower: '콜롬비아알스트로', prodName: 'ALSTROMERIA Lavender' },
+  });
+  assert.equal(startedStock.remain, 60, 'current stock already reflects existing shipment and subtracts only the new increase');
+  assert.equal(startedStock.source, 'Product.Stock');
+  assert.throws(() => evaluateDirectionalCurrentStock({
+    currentStock: 10,
+    increase: 20,
+    scope: { prodKey: 59, countryFlower: '콜롬비아알스트로', prodName: 'ALSTROMERIA Lavender' },
+  }), (error) => error?.code === 'STOCK_SHORTAGE' && error.message.includes('현재 가용재고=10'));
 
   assert.throws(() => buildDirectionalQuantityPlan({
     changes: [change(fixedRow({ DetailIsFix: null }), 9)],
