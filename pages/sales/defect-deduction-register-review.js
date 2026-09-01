@@ -9,6 +9,8 @@ import { SUPPORT_REGISTER_USAGE_STEPS, supportRegisterUsageNotice } from '../../
 
 const fmt = (value) => Number(value || 0).toLocaleString();
 const dateText = (value) => value ? String(value).slice(0, 19).replace('T', ' ') : '-';
+const rowProductName = (row = {}) => row.after?.ProdName || row.productDbName || row.productName || '-';
+const rowIdentityText = (row = {}) => `${row.customerName || '-'} · ${rowProductName(row)} · ${fmt(row.editQuantity || row.quantity)} ${row.sourceUnit || row.after?.Unit || ''}`;
 
 function adjustedAfter(row) {
   if (!row.after) return null;
@@ -46,6 +48,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const week = String(router.query.week || '');
   const deductionType = String(router.query.type || '불량차감');
   const supportMode = String(router.query.support || '') === '1';
+  const excludedRows = useMemo(() => rows.filter((row) => excludedKeys.has(Number(row.deductionKey))), [rows, excludedKeys]);
   const appendLog = (label) => setLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label }]);
 
   const load = useCallback(async ({ throwOnError = false } = {}) => {
@@ -84,12 +87,11 @@ export default function SalesDefectDeductionRegisterReviewPage() {
     setError('');
   };
   const excludeInvalidRows = () => {
-    const invalidKeys = rows
-      .filter((row) => row.error || !row.after || !(Number(row.editQuantity) > 0))
-      .map((row) => Number(row.deductionKey));
+    const invalidRows = rows.filter((row) => row.error || !row.after || !(Number(row.editQuantity) > 0));
+    const invalidKeys = invalidRows.map((row) => Number(row.deductionKey));
     setExcludedKeys((current) => new Set([...current, ...invalidKeys]));
     setError('');
-    setMessage(`오류 ${invalidKeys.length}건을 이번 등록에서 제외했습니다. 나머지 행은 계속 진행할 수 있습니다.`);
+    setMessage(`오류 ${invalidKeys.length}건을 이번 등록에서 제외했습니다: ${invalidRows.map(rowIdentityText).join(' / ')}`);
   };
 
   const sameNumber = (left, right) => Math.abs(Number(left || 0) - Number(right || 0)) < 0.0001;
@@ -154,7 +156,10 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       const skippedKeys = skipped.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
       if (skippedKeys.length) {
         setExcludedKeys((current) => new Set([...current, ...skippedKeys]));
-        skipped.forEach((row) => appendLog(`등록 제외 · 원장키 #${row.deductionKey} · ${row.error}`));
+        skipped.forEach((row) => {
+          const source = originalRowByKey.get(Number(row.deductionKey)) || row;
+          appendLog(`등록 제외 · ${rowIdentityText(source)} · 원장키 #${row.deductionKey} · ${row.error}`);
+        });
       }
       appendLog('Estimate 적용 완료 · Order/Shipment/Stock 원장은 변경하지 않음');
       setMessage(`${data.registered || 0}건 적용 완료${skippedKeys.length ? ` · 중복/오류 ${skippedKeys.length}건 제외` : ''}. 기존 견적서를 다시 불러와 검증 중입니다.`);
@@ -208,6 +213,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
         </div>
         {message && <div className="notice ok">{message}{verified && ' 재조회 검증 완료.'}</div>}
         {error && <div className="notice error">{error}</div>}
+        {excludedRows.length > 0 && <div className="notice excluded-summary"><strong>이번 등록 제외 {excludedRows.length}건</strong>{excludedRows.map((row) => <div key={row.deductionKey}><b>{row.customerName || '-'}</b> · {rowProductName(row)} · {fmt(row.editQuantity || row.quantity)} {row.sourceUnit || row.after?.Unit || ''} · 원장키 #{row.deductionKey}{row.error ? ` · ${row.error}` : ''}</div>)}</div>}
         <div className="notice usage" role="note"><strong>공지</strong> {supportRegisterUsageNotice()}
           <ol>{SUPPORT_REGISTER_USAGE_STEPS.map((step) => <li key={step}>{step}</li>)}</ol>
         </div>
@@ -241,6 +247,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           h2 { margin: 0; font-size: 18px; } .sub { margin-top: 2px; color: #64748b; font-size: 11px; }
           .head-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
           .notice { margin-top: 4px; padding: 5px 7px; border: 1px solid; font-size: 11px; } .notice.ok { color: #166534; background: #f0fdf4; border-color: #86efac; } .notice.error { color: #991b1b; background: #fef2f2; border-color: #fca5a5; white-space: pre-wrap; } .notice.info { color: #1e3a8a; background: #eff6ff; border-color: #93c5fd; }
+          .notice.excluded-summary { color: #7f1d1d; background: #fff7ed; border-color: #fb923c; } .notice.excluded-summary strong { display: block; margin-bottom: 3px; } .notice.excluded-summary div { padding: 2px 0; border-top: 1px solid #fed7aa; } .notice.excluded-summary div:first-of-type { border-top: 0; }
           .notice.usage { color: #92400e; background: #fffbeb; border-color: #fbbf24; } .notice.usage ol { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 0; padding: 0; list-style: none; } .notice.usage li { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid #fbbf24; background: #fff; border-radius: 999px; font-weight: 700; } .notice.usage li::after { content: '→'; color: #d97706; } .notice.usage li:last-child::after { content: ''; }
           .process-log { margin-top: 4px; padding: 5px 7px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-size: 11px; max-height: 130px; overflow: auto; }
           .process-log strong { display: block; margin-bottom: 3px; color: #1e3a8a; } .process-log div { padding: 1px 0; } .process-log span { display: inline-block; min-width: 68px; color: #64748b; font-variant-numeric: tabular-nums; }
