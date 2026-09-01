@@ -39,6 +39,9 @@ async function main() {
   assert('농장 후보 조회 없음',!api.includes('FARM_CANDIDATE_SCOPE_SQL') && !api.includes('farms:'));
   assert('출고일 모호성 중단',api.includes('SHIPMENT_DATE_AMBIGUOUS'));
   assert('모달은 담기만',modal.includes('onQueue') && modal.includes('목록에 담기') && !modal.includes('runEditWithFixCycle'));
+  assert('추가 품목 단위 선택 가능',modal.includes('<select') && modal.includes('onChange={(e) => updateLine(line.id, { unit: normalizeOrderUnit(e.target.value) })}'));
+  assert('추가 품목 표준 단위 3종',modal.includes('<option value="박스">박스</option>') && modal.includes('<option value="단">단</option>') && modal.includes('<option value="송이">송이</option>'));
+  assert('추가 품목 단위 읽기전용 금지',!modal.includes('value={line.unit}\n                      readOnly'));
   assert('통합 저장',page.includes('pendingAdds') && page.includes("mode: 'PIVOT_DISTRIBUTION'") && page.includes('estimateAdditional: true'));
   assert('한 번 사이클',page.includes('skipFinalStockCalc') && page.includes('confirmedWeekFixCycleStockFlags'));
   assert('force 금지',page.includes("force: false") && !modal.includes('force: true'));
