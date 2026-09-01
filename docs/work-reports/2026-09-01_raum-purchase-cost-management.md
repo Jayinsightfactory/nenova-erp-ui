@@ -28,3 +28,16 @@
 ## 손익 반영
 
 라움·초이문 손익 목록과 상세는 저장된 `CostPrice`로 매입액과 이익을 조회 시 계산한다. 따라서 전용 화면에서 저장하고 재조회하면 해당 차수 손익만 새 단가로 계산된다. 다음 차수 자동 입력용 `WebRaumCostPrice`는 과거 차수 수정으로 바뀌지 않는다.
+
+## 칸 표시 정보 (2026-09-01 추가)
+
+각 품목×차수 칸은 수정 가능한 매입단가 입력창과 함께 읽기 전용 참고값을 조밀하게 함께 보여준다.
+
+- 판매가: 저장된 `WebRaumPnlItem.SalePrice` distinct 값(여러 값이면 모두 표시, 평균 금지).
+- 매입액: `CostPrice × Qty` 합계. 입력창에 아직 저장하지 않은 draft 매입단가가 있으면 draft × 수량으로 즉시 다시 계산해 보여준다.
+- 견적액: 저장된 `WebRaumPnlItem.SaleAmount` 합계.
+- 수량: 기존과 동일한 `Qty` 합계.
+
+단가나 금액 원천이 전부 비어 있으면 0원으로 오해하지 않도록 `—`로 표시하고, 같은 품목으로 묶인 행 중 일부만 원천이 있으면 `(일부)`로 표시한다. 사용자가 잘못된 단가 문자를 입력하면 기존 금액으로 되돌려 보이지 않고 `입력 확인`으로 표시한다.
+
+이 4개 값은 GET 조회(`loadRaumPnlCostComparisonRows`)에서만 추가로 읽으며, 저장 API(`saveRaumPnlPurchaseCosts`)의 POST payload·UPDATE 대상·`RAUM_PNL_PURCHASE_COST_WRITE_SQL`에는 포함하지 않는다. 수정 가능한 값은 기존과 동일하게 `CostPrice`뿐이다.

@@ -62,7 +62,7 @@
     "preserve": ["Estimate", "ShipmentDetail.Amount", "ShipmentDetail.Vat", "ShipmentDetail.isFix", "WebProfitReport", "OrderDetail", "ShipmentDate", "ShipmentFarm", "StockHistory", "ProductStock"]
   },
   "purchaseCostManagement": {
-    "display": "rows are product identity and columns are active stored settlements for exact selected OrderYear+PartnerCode",
+    "display": "rows are product identity and columns are active stored settlements for exact selected OrderYear+PartnerCode; each cell also shows read-only stored SalePrice (distinct, never averaged), purchase amount (CostPrice x Qty, live from the draft input while editing), stored SaleAmount, and Qty; wholly missing amounts display as unknown rather than zero and partially sourced amounts are labelled partial",
     "identity": "PnlKey + positive ProdKey + normalized Unit + IsCustom; if ProdKey is absent, exact whitespace-normalized ItemName + Unit + IsCustom",
     "writeScope": "only matching WebRaumPnlItem CostPrice/CostSource and parent WebRaumPnl UpdatedBy/UpdatedAt",
     "concurrency": "client itemKey+old CostPrice snapshot must equal locked current rows; stale scope or values returns 409 without partial save",
