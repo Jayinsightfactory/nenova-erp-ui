@@ -17,7 +17,7 @@ import {
   assertNativeResult,
   buildDirectionalQuantityPlan,
   directionalQuantityError,
-  evaluateDirectionalAvailability,
+  evaluateDirectionalCurrentStock,
   fixedDirectionalChanges,
   lockDirectionalGate,
   positiveIncreaseByProduct,
@@ -227,18 +227,13 @@ export default withAuth(async function handler(req, res) {
       // Every positive physical delta is accumulated by its own product/year/week.
       // A selected decrease never offsets an increase in this shortage check.
       for (const increaseScope of positiveIncreaseByProduct(plan).values()) {
-        const remainQ = await tQ(
-          `SELECT ISNULL(prev.prevStock,0) AS prevStock,
-                  ISNULL((SELECT SUM(vw.OutQuantity) FROM ViewWarehouse vw WHERE vw.ProdKey=@pk AND vw.OrderYear=@yr AND vw.OrderWeek=@wk),0) AS currentIn,
-                  ISNULL((SELECT SUM(sh.AfterValue-sh.BeforeValue) FROM StockHistory sh JOIN CodeInfo ci ON ci.Category=N'StockType' AND ci.Descr=sh.ChangeType WHERE sh.ProdKey=@pk AND sh.OrderYear=@yr AND sh.OrderWeek=@wk),0) AS adjustQty,
-                  ISNULL((SELECT SUM(vs.OutQuantity) FROM ViewShipment vs WHERE vs.ProdKey=@pk AND vs.OrderYear=@yr AND vs.OrderWeek=@wk),0) AS totalOut
-             FROM (VALUES(1)) seed(n)
-             OUTER APPLY (SELECT TOP 1 stm.StockKey FROM StockMaster stm WHERE stm.OrderYearWeek<@ywk ORDER BY stm.OrderYearWeek DESC,stm.OrderWeek DESC) beforeStock
-             OUTER APPLY (SELECT ps.Stock AS prevStock FROM ProductStock ps WHERE ps.StockKey=beforeStock.StockKey AND ps.ProdKey=@pk) prev`,
-          { pk: { type: sql.Int, value: increaseScope.prodKey }, yr: { type: sql.NVarChar, value: increaseScope.orderYear }, wk: { type: sql.NVarChar, value: increaseScope.orderWeek }, ywk: { type: sql.NVarChar, value: `${increaseScope.orderYear}${increaseScope.orderWeek.replace('-', '')}` } },
+        const currentStockQ = await tQ(
+          `SELECT Stock FROM Product WITH (UPDLOCK,HOLDLOCK)
+            WHERE ProdKey=@pk AND ISNULL(isDeleted,0)=0`,
+          { pk: { type: sql.Int, value: increaseScope.prodKey } },
         );
-        const availabilityResult = evaluateDirectionalAvailability({
-          facts: remainQ.recordset?.[0] || {},
+        const availabilityResult = evaluateDirectionalCurrentStock({
+          currentStock: currentStockQ.recordset?.[0]?.Stock,
           increase: increaseScope.increase,
           scope: increaseScope,
         });
