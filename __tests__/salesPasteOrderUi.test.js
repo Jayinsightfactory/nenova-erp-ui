@@ -26,6 +26,9 @@ assert.match(page, /AI 인식 결과/, '기존 붙여넣기 주문등록처럼 A
 assert.match(page, /buildSalesPasteAiPreview\(parsed\)/, 'API 원본 인식행을 최종 합산 전에 미리보기로 보존해야 합니다.');
 assert.match(page, /category:\s*'sales-paste-analysis'/, '분석 시작·완료·실패를 운영 AppLog에서 추적할 수 있어야 합니다.');
 assert.match(page, /분석 실행 로그/, '사용자도 현재 화면에서 분석 실행 상태를 확인할 수 있어야 합니다.');
+assert.match(page, /주문등록 실시간 진행 로그/, '주문등록 버튼 작업은 DB 처리와 재조회 단계를 현재 화면에 표시해야 합니다.');
+assert.match(page, /appendOperationLog\('처리 중',[\s\S]*주문 DB 등록 요청/, '주문 등록 요청 시작이 실시간 로그에 남아야 합니다.');
+assert.match(page, /appendOperationLog\('완료',[\s\S]*재조회 검증 완료/, '주문 등록 완료는 재조회 검증 뒤에 로그로 남아야 합니다.');
 assert.match(page, /변경 예정/, '현재 주문등록 현황 최상단에 등록 전 변경수량을 표시해야 합니다.');
 assert.match(page, /방금 등록 변경/, '등록 후에도 직전 변경 전후 수량을 바로 확인할 수 있어야 합니다.');
 assert.match(page, /order-change-summary/, '변경된 품목은 붉은 강조 영역으로 구분해야 합니다.');
