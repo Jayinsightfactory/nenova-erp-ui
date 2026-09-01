@@ -41,6 +41,7 @@
 - 허용 쓰기는 대상 `WebRaumPnlItem.CostPrice/CostSource`와 부모 `WebRaumPnl.UpdatedBy/UpdatedAt`뿐이다. 명시적 0은 보존하고 빈칸은 NULL로 저장한다.
 - 과거 차수 수정은 `WebRaumCostPrice` 학습값을 바꾸지 않는다. `Product`, 주문·출고·분배·재고·견적·`WebProfitReport`도 보존한다.
 - 손익 목록과 상세의 매입액·이익은 `WebRaumPnlItem.CostPrice × Qty`를 조회 시 계산하므로 저장 후 재조회에서 새 단가가 반영된다.
+- 화면 표시 전용으로 `WebRaumPnlItem.SalePrice/SaleAmount`를 함께 조회해 각 칸에 견적서 판매가·매입금액(`CostPrice × Qty`, 입력 중에는 draft 값 기준)·견적서 금액·수량을 조밀하게 보여준다. 이 두 컬럼은 GET에서만 읽으며 저장 API/SQL에는 포함하지 않는다.
 
 - 업무키: `OrderYear + OrderWeek + CustKey + ProdKey`
 - `OrderMaster.Manager`는 `UserInfo.UserID`로 해석한다.

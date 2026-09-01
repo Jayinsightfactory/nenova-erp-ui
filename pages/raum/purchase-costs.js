@@ -188,13 +188,13 @@ export default function RaumPurchaseCostsPage() {
       {message ? <div style={{ padding: '6px 8px', marginBottom: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', borderRadius: 4 }}>{message}</div> : null}
 
       <div style={{ border, overflow: 'auto', maxHeight: 'calc(100vh - 174px)', background: '#fff' }}>
-        <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: Math.max(1000, 470 + matrix.weeks.length * 126), width: '100%', tableLayout: 'fixed' }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: Math.max(1000, 470 + matrix.weeks.length * 158), width: '100%', tableLayout: 'fixed' }}>
           <thead>
             <tr>
               <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 5, width: 230, padding: '5px 6px', background: '#dbeafe', borderRight: border, borderBottom: border }}>품목</th>
               <th style={{ position: 'sticky', top: 0, left: 230, zIndex: 5, width: 190, padding: '5px 6px', background: '#dbeafe', borderRight: border, borderBottom: border }}>전산 매칭</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 4, width: 50, padding: '5px 4px', background: '#dbeafe', borderRight: border, borderBottom: border }}>단위</th>
-              {matrix.weeks.map(week => <th key={week.key} style={{ position: 'sticky', top: 0, zIndex: 4, width: 126, padding: '4px', background: '#e0f2fe', borderRight: border, borderBottom: border }}>{week.label}<div style={{ fontSize: 10, color: '#64748b', fontWeight: 400 }}>매입단가</div></th>)}
+              {matrix.weeks.map(week => <th key={week.key} style={{ position: 'sticky', top: 0, zIndex: 4, width: 158, padding: '4px', background: '#e0f2fe', borderRight: border, borderBottom: border }}>{week.label}<div style={{ fontSize: 10, color: '#64748b', fontWeight: 400 }}>매입단가 · 판매가 · 매입액 · 견적액 · 수량</div></th>)}
             </tr>
           </thead>
           <tbody>
@@ -209,6 +209,15 @@ export default function RaumPurchaseCostsPage() {
                   const draft = drafts[cell.key];
                   const value = draft ? draft.value : (cell.values.length === 1 ? String(cell.values[0]) : '');
                   const changed = !!draft;
+                  const draftText = draft ? String(draft.value ?? '').trim() : '';
+                  const draftNumber = draftText ? Number(draftText.replace(/,/g, '')) : null;
+                  const draftInvalid = !!draft && !!draftText && (!Number.isFinite(draftNumber) || draftNumber < 0);
+                  const displayPurchaseAmount = draft
+                    ? (draftText && !draftInvalid ? draftNumber * cell.qty : null)
+                    : cell.purchaseAmount;
+                  const salePriceText = cell.salePrices.length ? cell.salePrices.map(fmt).join('/') : '—';
+                  const purchaseAmountLabel = `${fmt(displayPurchaseAmount)}${!draft && cell.missingCostRows > 0 && displayPurchaseAmount != null ? ' (일부)' : ''}`;
+                  const saleAmountLabel = `${fmt(cell.saleAmount)}${cell.missingSaleAmountRows > 0 && cell.saleAmount != null ? ' (일부)' : ''}`;
                   return <td key={cell.key} style={{ padding: 3, background: changed ? '#fef3c7' : cell.values.length ? undefined : '#fff7ed', borderRight: border, borderBottom: border }}>
                     <input
                       value={value}
@@ -216,10 +225,16 @@ export default function RaumPurchaseCostsPage() {
                       inputMode="decimal"
                       placeholder={cell.values.length > 1 ? '여러 단가' : '미입력'}
                       aria-label={`${item.name} ${cell.major}차 매입단가`}
-                      style={{ width: '100%', height: 24, boxSizing: 'border-box', textAlign: 'right', padding: '0 5px', border: changed ? '1px solid #f59e0b' : '1px solid #93c5fd', borderRadius: 3, color: cell.values.length > 1 && !changed ? '#b45309' : '#1e293b' }}
+                      style={{ width: '100%', height: 22, boxSizing: 'border-box', textAlign: 'right', padding: '0 5px', border: draftInvalid ? '1px solid #dc2626' : changed ? '1px solid #f59e0b' : '1px solid #93c5fd', borderRadius: 3, color: draftInvalid ? '#b91c1c' : cell.values.length > 1 && !changed ? '#b45309' : '#1e293b' }}
                     />
-                    <div style={{ minHeight: 12, marginTop: 1, textAlign: 'right', fontSize: 9.5, color: cell.values.length > 1 ? '#b45309' : '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={cell.values.length > 1 ? `현재 저장값 ${cell.values.map(fmt).join(' / ')}` : `수량 ${fmt(cell.qty)}`}>
-                      {cell.values.length > 1 ? `현재 ${cell.values.map(fmt).join('/')}` : `수량 ${fmt(cell.qty)}`}
+                    <div
+                      style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 4px', marginTop: 2, fontSize: 9.5, color: '#64748b', lineHeight: 1.35 }}
+                      title={`견적서 판매가 ${cell.salePrices.map(fmt).join(' / ') || '—'} · 매입금액 ${purchaseAmountLabel} · 견적서 금액 ${saleAmountLabel} · 수량 ${fmt(cell.qty)}`}
+                    >
+                      <span style={{ color: cell.salePrices.length > 1 ? '#b45309' : '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>판매가 {salePriceText}</span>
+                      <span style={{ textAlign: 'right' }}>수량 {fmt(cell.qty)}</span>
+                      <span style={{ color: draftInvalid ? '#b91c1c' : '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>매입액 {draftInvalid ? '입력 확인' : purchaseAmountLabel}</span>
+                      <span style={{ textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>견적액 {saleAmountLabel}</span>
                     </div>
                   </td>;
                 })}
