@@ -563,10 +563,12 @@ export default withAuth(async function handler(req, res) {
     }
     const [custRes, prodRes, allProdRes, unitRes] = await Promise.all([
       query(`SELECT CustKey, CustName, CustArea FROM Customer WHERE isDeleted=0 ORDER BY CustName`),
-      query(`SELECT TOP 300 ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit
+      query(`SELECT TOP 300 ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit,
+                    ISNULL(BunchOf1Box,0) AS BunchOf1Box, ISNULL(SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(SteamOf1Box,0) AS SteamOf1Box
              FROM Product WHERE isDeleted=0 ${prodFilter ? `AND (${prodFilter})` : ''}
              ORDER BY ProdName`),
-      query(`SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit
+      query(`SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit,
+                    ISNULL(BunchOf1Box,0) AS BunchOf1Box, ISNULL(SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(SteamOf1Box,0) AS SteamOf1Box
              FROM Product WHERE isDeleted=0
              ORDER BY ProdName`),
       query(`SELECT ProdKey,
@@ -792,6 +794,10 @@ Caroline | 2
           displayName: matched.displayName || item.displayName || null,
           flowerName:  matched.flowerName || null,
           counName:    matched.counName || null,
+          outUnit:     matched.outUnit || null,
+          bunchOf1Box: Number(matched.bunchOf1Box || 0),
+          steamOf1Bunch: Number(matched.steamOf1Bunch || 0),
+          steamOf1Box: Number(matched.steamOf1Box || 0),
           fromMapping: Boolean(matched.fromMapping),
           mappingMatchType: matched.mappingMatchType || null,
           mappingMatchKey: matched.mappingMatchKey || null,
@@ -808,6 +814,9 @@ Caroline | 2
             FlowerName: product.flowerName,
             CounName: product.counName,
             OutUnit: product.outUnit,
+            BunchOf1Box: Number(product.bunchOf1Box || 0),
+            SteamOf1Bunch: Number(product.steamOf1Bunch || 0),
+            SteamOf1Box: Number(product.steamOf1Box || 0),
             MatchScore: product.score,
           })),
         };

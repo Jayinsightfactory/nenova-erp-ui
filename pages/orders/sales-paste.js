@@ -9,9 +9,11 @@ import {
   buildSalesPasteText,
   buildSalesPasteWeekChoices,
   replaceSalesPasteProduct,
+  replaceSalesPasteUnit,
   resolveDetectedSalesPasteScope,
   salesManagerCustomers,
   salesManagerOptions,
+  salesPasteUnitOptions,
 } from '../../lib/salesPasteOrder';
 
 const productLabel = (row) =>
@@ -85,7 +87,7 @@ export default function SalesPasteOrderPage() {
   const unmatched = useMemo(
     () =>
       rows.filter(
-        (row) => !row.prodKey || !(Number(row.qty) > 0) || row.unitConflict,
+        (row) => !row.prodKey || !(Number(row.qty) > 0) || row.unitConflict || row.unitConversionInvalid,
       ),
     [rows],
   );
@@ -202,14 +204,14 @@ export default function SalesPasteOrderPage() {
         throw new Error('분석된 품목이 없습니다. 붙여넣기 형식을 확인하세요.');
       setRows(nextRows);
       const failed = nextRows.filter(
-        (row) => !row.prodKey || !(Number(row.qty) > 0) || row.unitConflict,
+        (row) => !row.prodKey || !(Number(row.qty) > 0) || row.unitConflict || row.unitConversionInvalid,
       ).length;
       setMessage(
         failed
           ? `LLM 정밀분석 ${nextRows.length}건 · 매칭/수량 확인 필요 ${failed}건`
           : `LLM 정밀분석 ${nextRows.length}건 · 전부 등록 가능${detectedScope ? ` · 차수 ${detectedScope.week} 자동 선택` : ''}`,
       );
-      const matchedCount = nextRows.filter((row) => row.prodKey && !row.unitConflict).length;
+      const matchedCount = nextRows.filter((row) => row.prodKey && !row.unitConflict && !row.unitConversionInvalid).length;
       const logDetail = `${parsed.analysisModel || 'LLM'} · ${parsed.parseSource || '-'} · 인식 ${previewItems.length}행 · 최종 ${nextRows.length}품목 · 매칭 ${matchedCount} · 확인 ${failed}`;
       appendAnalysisLog('완료', logDetail);
       persistAnalysisLog('완료', `model=${parsed.analysisModel || '-'} source=${parsed.parseSource || '-'} expected=${parsed.expectedItemCount || 0} parsed=${parsed.parsedItemCount || previewItems.length} preview=${previewItems.length} final=${nextRows.length} matched=${matchedCount} unmatched=${failed}`);
@@ -336,7 +338,7 @@ export default function SalesPasteOrderPage() {
       const nextRows = replaceSalesPasteProduct(rows, rowIndex, product, products);
       setRows(nextRows);
       if (closeEditor) setMatchEditor(null);
-      const failed = nextRows.filter((item) => !item.prodKey || !(Number(item.qty) > 0) || item.unitConflict).length;
+      const failed = nextRows.filter((item) => !item.prodKey || !(Number(item.qty) > 0) || item.unitConflict || item.unitConversionInvalid).length;
       setMessage(`품목 매칭 수정 완료 · ${product.DisplayName || product.ProdName}${failed ? ` · 확인 필요 ${failed}건` : ' · 전부 등록 가능'}`);
     } catch (error) {
       if (closeEditor) setMatchEditor((previous) => ({ ...previous, error: error.message }));
@@ -346,6 +348,15 @@ export default function SalesPasteOrderPage() {
 
   async function selectMatchedProduct(product) {
     return applyMatchedProduct(matchEditor?.rowIndex, product, { closeEditor: true });
+  }
+
+  function changeRowUnit(rowIndex, unit) {
+    const nextRows = replaceSalesPasteUnit(rows, rowIndex, unit, products);
+    setRows(nextRows);
+    const row = nextRows.find((item, index) => index === rowIndex);
+    setMessage(row?.unitConversionInvalid
+      ? `${productLabel(row)} · ${unit} 단위 환산 기준이 없어 등록할 수 없습니다.`
+      : `${productLabel(row)} · 입력 단위를 ${unit}(으)로 변경했습니다.`);
   }
 
   return (
@@ -487,6 +498,15 @@ export default function SalesPasteOrderPage() {
                 </h2>
                 {rows.length ? (
                   <table>
+                    <colgroup>
+                      <col className="col-status" />
+                      <col className="col-input" />
+                      <col className="col-match" />
+                      <col className="col-qty" />
+                      <col className="col-current" />
+                      <col className="col-final" />
+                      <col className="col-edit" />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th>상태</th>
@@ -503,16 +523,18 @@ export default function SalesPasteOrderPage() {
                         <tr
                           key={`${row.prodKey || row.inputName}-${index}`}
                           className={
-                            !row.prodKey || row.unitConflict ? 'bad' : ''
+                            !row.prodKey || row.unitConflict || row.unitConversionInvalid ? 'bad' : ''
                           }
                         >
                           <td>
                             {row.prodKey &&
                             Number(row.qty) > 0 &&
-                            !row.unitConflict
+                            !row.unitConflict && !row.unitConversionInvalid
                               ? '매칭'
                               : row.unitConflict
                                 ? '단위 충돌'
+                                : row.unitConversionInvalid
+                                  ? '환산 불가'
                                 : '확인 필요'}
                           </td>
                           <td>
@@ -524,13 +546,26 @@ export default function SalesPasteOrderPage() {
                             <small>{row.flowerName || row.counName || ''}</small>
                           </td>
                           <td>
-                            {row.qty} {row.unit}
+                            <div className="quantity-unit">
+                              <b>{row.qty}</b>
+                              <select
+                                aria-label={`${row.inputName || productLabel(row)} 입력 단위`}
+                                value={row.unit || ''}
+                                onChange={(event) => changeRowUnit(index, event.target.value)}
+                              >
+                                {salesPasteUnitOptions(row).map((unit) => (
+                                  <option key={unit} value={unit}>
+                                    {unit}{unit === row.defaultUnit ? ' (기본)' : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </td>
                           <td>
-                            {row.currentQty} {row.unit}
+                            {row.currentQty} {row.outUnit || row.unit}
                           </td>
                           <td>
-                            {row.finalQty ?? '-'} {row.unit}
+                            {row.finalQty ?? '-'} {row.outUnit || row.unit}
                           </td>
                           <td>
                             <div className="match-shortcuts">
@@ -874,7 +909,7 @@ export default function SalesPasteOrderPage() {
         }
         .paste-analysis-grid {
           display: grid;
-          grid-template-columns: minmax(340px, 0.8fr) minmax(590px, 1.35fr);
+          grid-template-columns: minmax(300px, 0.62fr) minmax(780px, 1.65fr);
           gap: 10px;
           align-items: start;
         }
@@ -906,6 +941,7 @@ export default function SalesPasteOrderPage() {
         }
         table {
           width: 100%;
+          min-width: 1010px;
           border-collapse: collapse;
           font-size: 12px;
         }
@@ -926,6 +962,28 @@ export default function SalesPasteOrderPage() {
         }
         .analysis td:nth-child(n + 3) {
           text-align: right;
+        }
+        .col-status { width: 55px; }
+        .col-input { width: 215px; }
+        .col-match { width: 215px; }
+        .col-qty { width: 105px; }
+        .col-current,
+        .col-final { width: 78px; }
+        .col-edit { width: 285px; }
+        .quantity-unit {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 4px;
+          white-space: nowrap;
+        }
+        .quantity-unit select {
+          max-width: 82px;
+          padding: 3px 2px;
+          border: 1px solid #9aaac0;
+          border-radius: 4px;
+          background: #fff;
+          font-size: 11px;
         }
         .match-shortcuts {
           display: grid;
