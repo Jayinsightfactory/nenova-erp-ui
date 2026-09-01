@@ -29,6 +29,7 @@ import { isAutoCancelMode, isPivotDistributionMode, resolvePivotAdjustmentPolicy
 import { assertFarmAssignmentTotal, normalizeFarmAssignments } from '../../../lib/shipmentFarmAssignments.js';
 import { FARM_CANDIDATE_SCOPE_SQL } from '../../../lib/shipmentFarmCandidates.js';
 import { calculateShipmentAvailability, hasInsufficientShipmentStock, normalizeShipmentQty } from '../../../lib/shipmentAvailability.js';
+import { formatDirectionalProductLabel } from '../../../lib/estimateDirectionalQuantity.js';
 import { loadShipmentAdjustmentCurrent } from '../../../lib/shipmentAdjustmentCurrent.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 import {
@@ -595,7 +596,7 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
 
       // 1) 품목 정보 (환산용)
       const pInfo = await tQ(
-        `SELECT ProdName, OutUnit, EstUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
+        `SELECT ProdName, CountryFlower, OutUnit, EstUnit, CounName, ISNULL(Descr,'') AS ProdDescr,
                 ISNULL(BunchOf1Box,0) AS B1B, ISNULL(SteamOf1Bunch,0) AS S1Bn,
                 ISNULL(SteamOf1Box,0) AS S1B,
                 ISNULL(Cost,0) AS ProductCost
@@ -604,6 +605,11 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
       );
       if (!pInfo.recordset[0]) throw new Error('품목 없음 ProdKey=' + pk);
       const prod = pInfo.recordset[0];
+      const productLabel = formatDirectionalProductLabel({
+        prodKey: pk,
+        prodName: prod.ProdName,
+        countryFlower: prod.CountryFlower,
+      });
       const orderDetailDescr = extractMoqText(prod);
       const cpc = await tQ(
         `SELECT TOP 1 ISNULL(Cost,0) AS Cost
@@ -1096,10 +1102,10 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
       // (b) 입고+수동재고조정 < 출고 (remainAfter < 0): 잔량 음수, 차수 확정 시 fix.js validate 에서 거부됨 → 차단
       if (type === 'ADD' && !force) {
         if (available <= 0) {
-          throw new Error(`입고/재고조정 반영 후 가용수량이 0 이하인 차수입니다. 입고 등록 또는 재고조정 후 분배하세요.\n선분배가 의도라면 force=true 로 강제 진행 (견적서 입고없는출고로 보일 수 있음)`);
+          throw new Error(`품목 ${productLabel} · 입고/재고조정 반영 후 가용수량이 0 이하인 차수입니다. 입고 등록 또는 재고조정 후 분배하세요.\n선분배가 의도라면 force=true 로 강제 진행 (견적서 입고없는출고로 보일 수 있음)`);
         }
         if (hasInsufficientShipmentStock(remainAfter)) {
-          throw new Error(`가용수량(${available}: 이월 ${prevStock} + 입고 ${currentIn} + 재고조정 ${adjustQty}) 초과 분배: 총 ${totalOut} 분배 → 잔량 ${remainAfter}\n강제 진행하려면 force=true (관리자만)`);
+          throw new Error(`품목 ${productLabel} · 가용수량(${available}: 이월 ${prevStock} + 입고 ${currentIn} + 재고조정 ${adjustQty}) 초과 분배: 총 ${totalOut} 분배 → 잔량 ${remainAfter}\n강제 진행하려면 force=true (관리자만)`);
         }
       }
 

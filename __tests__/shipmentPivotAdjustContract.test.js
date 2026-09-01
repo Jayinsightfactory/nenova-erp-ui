@@ -10,6 +10,8 @@ async function main() {
   const pivot = fs.readFileSync(path.join(root, 'pages/shipment/week-pivot.js'), 'utf8');
   const paste = fs.readFileSync(path.join(root, 'pages/orders/paste.js'), 'utf8');
   const { resolvePivotAdjustmentPolicy } = await import('../lib/pivotAdjustmentPolicy.js');
+  assert.match(adjust, /formatDirectionalProductLabel/, '재고 부족 오류는 서버 조회 품종·품목명·전산키를 표시한다');
+  assert.match(adjust, /품목 \$\{productLabel\} · 가용수량/, '초과 분배 오류에 품목 라벨을 먼저 표시한다');
 
   const cases = [
     {
