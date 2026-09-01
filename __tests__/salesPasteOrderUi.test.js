@@ -30,6 +30,8 @@ assert.match(page, /변경 예정/, '현재 주문등록 현황 최상단에 등
 assert.match(page, /방금 등록 변경/, '등록 후에도 직전 변경 전후 수량을 바로 확인할 수 있어야 합니다.');
 assert.match(page, /order-change-summary/, '변경된 품목은 붉은 강조 영역으로 구분해야 합니다.');
 assert.match(page, /paste-analysis-grid/, '붙여넣기 입력과 분석 결과는 같은 행에서 바로 비교할 수 있어야 합니다.');
+assert.match(page, /담당자 입력 규칙/, '오인식 방지를 위한 담당자 표준 입력 규칙을 화면에 보여야 합니다.');
+assert.match(page, /첫 줄: 차수 · 국가\/화종 · 추가 또는 취소/, '차수와 품종 문맥의 표준 위치를 안내해야 합니다.');
 assert.match(page, /<th>입력값<\/th>[\s\S]{0,80}<th>매칭값<\/th>/, '사용자 입력값과 전산 매칭값을 별도 열로 나란히 표시해야 합니다.');
 assert.match(page, /className="col-input"[\s\S]{0,80}className="col-match"/, '입력값과 매칭값에 전용 넓은 열을 배정해야 합니다.');
 assert.match(page, /salesPasteUnitOptions\(row\)/, '서버 환산식으로 검증된 단위만 행 선택지에 표시해야 합니다.');
