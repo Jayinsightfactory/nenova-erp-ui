@@ -1077,6 +1077,7 @@ export default function PasteOrderPage() {
   const [disambigResults, setDisambigResults] = useState([]);
   const [registeredOrders, setRegisteredOrders] = useState({}); // orderId → DB 주문내역
   const [shipmentQtys, setShipmentQtys] = useState({}); // `${custKey}-${prodKey}-${week}` → ShipmentDetail.OutQuantity
+  const [shipmentDiagnostics, setShipmentDiagnostics] = useState({}); // 같은 키 → raw 수량·실제 동일품명 후보
   const [pasteIncoming, setPasteIncoming] = useState({ map: {}, loading: false, error: '' });
   const [adjustModal, setAdjustModal] = useState(null); // { custKey, prodKey, week, type, currentQty, prodName, custName, unit }
   const [adjustQty, setAdjustQty] = useState('');
@@ -2254,15 +2255,19 @@ export default function PasteOrderPage() {
       const d = await r.json();
       if (d.success && d.items) {
         const updates = {};
+        const diagnostics = {};
         // 요청한 주문 품목을 먼저 0으로 초기화한 뒤 실제 ShipmentDetail 값을 덮는다.
         // 응답에 없는 품목도 이전 업체/차수의 화면 캐시가 남지 않게 한다.
         [...new Set(prodKeys.map(Number).filter(Boolean))].forEach(prodKey => {
           updates[`${custKey}-${prodKey}-${week}`] = 0;
         });
         d.items.forEach(it => {
-          updates[`${custKey}-${it.ProdKey}-${week}`] = it.OutQuantity || 0;
+          const key = `${custKey}-${it.ProdKey}-${week}`;
+          updates[key] = it.OutQuantity || 0;
+          diagnostics[key] = it;
         });
         setShipmentQtys(prev => ({ ...prev, ...updates }));
+        setShipmentDiagnostics(prev => ({ ...prev, ...diagnostics }));
       }
     } catch { /* 조회 실패해도 무시 */ }
   };
@@ -3548,6 +3553,8 @@ export default function PasteOrderPage() {
               <div style={{ padding: compact ? 16 : 24, textAlign: 'center', color: '#9e9e9e', fontSize: 12 }}>해당 품목 없음</div>
             ) : group.entries.map(({ order, item: it, itemIdx }) => {
               const preview = actionPreview(order, it);
+              const diagnosticKey = `${order.custMatch?.CustKey}-${it.prodKey}-${week}`;
+              const shipmentDiagnostic = shipmentDiagnostics[diagnosticKey];
               const incomingState = pasteIncomingDisplayState({
                 loading: pasteIncoming.loading,
                 error: pasteIncoming.error,
@@ -3571,6 +3578,12 @@ export default function PasteOrderPage() {
                       : preview
                         ? `적용 예상 · 주문 ${previewQty(preview.orderBefore)}→${previewQty(preview.orderAfter)} / 분배 ${previewQty(preview.shipmentBefore)}→${previewQty(preview.shipmentAfter)}`
                         : '적용 예상 수량 조회 중'}
+                  </div>}
+                  {it.prodKey && preview?.error && shipmentDiagnostic && <div style={{ marginTop: 2, fontSize: 9, lineHeight: 1.25, color: '#ad1457', whiteSpace: 'normal' }}>
+                    전산키 P#{it.prodKey} · S#{shipmentDiagnostic.ShipmentKey || '-'} / D#{shipmentDiagnostic.SdetailKey || '-'} · Out {previewQty(shipmentDiagnostic.OutQuantity)} · Box {previewQty(shipmentDiagnostic.BoxQuantity)} · 단 {previewQty(shipmentDiagnostic.BunchQuantity)} · 송이 {previewQty(shipmentDiagnostic.SteamQuantity)}
+                    {(shipmentDiagnostic.sameNameAlternatives || []).map(candidate => <div key={`${candidate.ProdKey}-${candidate.SdetailKey}`} style={{ fontWeight: 900 }}>
+                      동일품명 실제분배 → P#{candidate.ProdKey} · {candidate.ProdName} · {previewQty(candidate.OutQuantity)} · S#{candidate.ShipmentKey}/D#{candidate.SdetailKey}
+                    </div>)}
                   </div>}
                 </div>
                 <input type="number" min="0" step="0.5" value={it.qty} aria-label={`${it.inputName} 수량`}

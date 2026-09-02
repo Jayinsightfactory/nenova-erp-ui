@@ -340,11 +340,34 @@ async function getCurrentAdjustmentState(req, res) {
       const current = await loadShipmentAdjustmentCurrent(query, {
         ...scope, custKey: Number(custKey), prodKey: pk, lock: false,
       });
+      const sameNameAlternatives = await query(
+        `SELECT TOP 5 sd.ProdKey, p.ProdName, p.CountryFlower,
+                sm.ShipmentKey, sd.SdetailKey, ISNULL(sd.OutQuantity,0) AS OutQuantity
+           FROM Product selected
+           JOIN Product p ON UPPER(REPLACE(LTRIM(RTRIM(p.ProdName)),' ',''))
+                            =UPPER(REPLACE(LTRIM(RTRIM(selected.ProdName)),' ',''))
+           JOIN ShipmentDetail sd ON sd.ProdKey=p.ProdKey
+           JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+          WHERE selected.ProdKey=@pk AND p.ProdKey<>@pk
+            AND sm.CustKey=@ck AND sm.OrderYear=@yr AND sm.OrderWeek=@wk
+            AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(sd.OutQuantity,0)>0
+          ORDER BY ISNULL(sd.OutQuantity,0) DESC, sd.SdetailKey ASC`,
+        {
+          pk: { type: sql.Int, value: pk },
+          ck: { type: sql.Int, value: Number(custKey) },
+          yr: { type: sql.NVarChar, value: scope.orderYear },
+          wk: { type: sql.NVarChar, value: scope.orderWeek },
+        },
+      );
       items.push({
         ProdKey: pk,
         ShipmentKey: current.master?.ShipmentKey || null,
         SdetailKey: current.detail?.SdetailKey || null,
         OutQuantity: Number(current.detail?.curOut || 0),
+        BoxQuantity: Number(current.detail?.curBox || 0),
+        BunchQuantity: Number(current.detail?.curBunch || 0),
+        SteamQuantity: Number(current.detail?.curSteam || 0),
+        sameNameAlternatives: sameNameAlternatives.recordset || [],
       });
     }
     return res.status(200).json({ success: true, orderYear: scope.orderYear, orderWeek: scope.orderWeek, items });
