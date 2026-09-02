@@ -2765,7 +2765,7 @@ export default function Estimate() {
     }
   }
 
-  async function applyAllEdits() {
+  async function applyAllEdits(modeOverride) {
     if (editedCount === 0 && editedQtyCount === 0 && pendingAdds.length === 0) return;
     if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
     if (!ensureEstimateEditAllowed()) return;
@@ -2773,6 +2773,7 @@ export default function Estimate() {
     estimateEditPresence.beginSaving();
     let saveSucceeded = false;
     let automaticProgressId = '';
+    const effectiveCostMode = modeOverride || costMode;
 
     setQtyApplying(true);
     setCostApplying(true);
@@ -2921,7 +2922,7 @@ export default function Estimate() {
           });
           const costBody = {
             items: rebasedCosts.items.map(({ OrderWeek, ProdName, CountryFlower, ...it }) => it),
-            mode: costMode,
+            mode: effectiveCostMode,
             orderYear: yearStr,
             week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
             custKey: selectedShip.CustKey,
@@ -3026,7 +3027,7 @@ export default function Estimate() {
         step: failedQty ? 'error' : 'done',
         label: failedQty
           ? `수량 저장 실패 ${failedQty}건 — ${qtyResults.find(r => !r.ok)?.error || '단가/추가품목 저장은 실행하지 않음'}`
-          : `완료 — 단가/수량/추가품목 ${okAdds}건 반영 후 견적서 재조회 중`,
+          : `완료 — 단가/수량/추가품목 ${okAdds}건 반영${effectiveCostMode === 'fixed' ? ` · 업체 지정단가 ${Number(costResultData.customerCostUpdated || 0)}건 저장` : ''} 후 견적서 재조회 중`,
       }]);
       setCostResult({
         success: failedQty === 0,
@@ -4920,6 +4921,17 @@ export default function Estimate() {
                   title="단가만 바꾸면 확정 상태와 재고를 그대로 두고 저장합니다. 실제 수량 변경이나 추가 품목이 있을 때만 기존 확정취소·저장·재확정 절차를 진행합니다."
                 >
                   수정 저장 ({editedCount + editedQtyCount + pendingAdds.length})
+                </button>
+              )}
+              {editedCount > 0 && (editedQtyCount > 0 || pendingAdds.length > 0) && (
+                <button
+                  className="btn btn-sm"
+                  style={{background:'#b45309', color:'#fff', borderColor:'#92400e', fontWeight:'bold'}}
+                  disabled={costApplying || qtyApplying || deductionDeleting || estimateEditPresence.blocked}
+                  onClick={() => applyAllEdits('fixed')}
+                  title="수량·추가품목은 기존 저장 절차로 처리하고, 수정한 단가는 이 견적서와 선택 업체의 품목 지정단가에 함께 저장합니다."
+                >
+                  수정 저장 + 업체 지정단가 ({editedCount + editedQtyCount + pendingAdds.length})
                 </button>
               )}
               {editedCount > 0 && editedQtyCount === 0 && (
