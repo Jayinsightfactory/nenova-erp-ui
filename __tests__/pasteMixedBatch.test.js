@@ -130,10 +130,10 @@ async function main() {
     '예상값 GET은 공용 현재 분배 조회를 사용해야 한다.');
   assert.match(adjustSource, /loadShipmentAdjustmentCurrent\(tQ,[\s\S]*lock: true/,
     '실제 저장 트랜잭션도 같은 공용 현재 분배 조회를 잠금 모드로 사용해야 한다.');
-  assert.match(currentSource, /OrderYear=@yr AND OrderWeek=@wk[\s\S]*ORDER BY ISNULL\(isFix,0\) DESC, ShipmentKey ASC/,
-    '공용 조회는 연도+차수+업체를 고정하고 실제 저장과 같은 마스터 우선순위를 사용해야 한다.');
-  assert.match(adjustSource, /FROM ShipmentDetail WITH \(UPDLOCK, HOLDLOCK\)[\s\S]*WHERE ShipmentKey=@sk AND ProdKey=@pk[\s\S]*ORDER BY SdetailKey ASC/,
-    '실제 저장도 중복 레거시 상세행이 있을 때 예상값과 같은 첫 상세행을 선택해야 한다.');
+  assert.match(currentSource, /sm\.OrderYear=@yr AND sm\.OrderWeek=@wk[\s\S]*EXISTS \([\s\S]*sd\.ShipmentKey=sm\.ShipmentKey[\s\S]*sd\.ProdKey=@pk[\s\S]*ISNULL\(sd\.OutQuantity,0\)>0[\s\S]*ISNULL\(sm\.isFix,0\) DESC[\s\S]*sm\.ShipmentKey ASC/,
+    '공용 조회는 연도+차수+업체를 고정하고 선택 품목의 실제 양수 분배 마스터를 먼저 사용해야 한다.');
+  assert.match(adjustSource, /FROM ShipmentDetail WITH \(UPDLOCK, HOLDLOCK\)[\s\S]*WHERE ShipmentKey=@sk AND ProdKey=@pk[\s\S]*ORDER BY CASE WHEN ISNULL\(OutQuantity,0\)>0 THEN 0 ELSE 1 END[\s\S]*SdetailKey ASC/,
+    '실제 저장도 중복 레거시 상세행이 있을 때 0행이 아닌 실제 양수 분배행을 먼저 선택해야 한다.');
   assert.match(
     pasteSource,
     /const targets = orderPasteMixedBatchTargets\(eligibleTargets\);[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/,

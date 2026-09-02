@@ -45,6 +45,7 @@
     "__tests__/erpEditFixScopeAudit.test.js",
     "__tests__/erpEditPresenceUiContract.test.js",
     "__tests__/pasteMixedBatch.test.js",
+    "__tests__/shipmentAdjustmentCurrent.test.js",
     "__tests__/pasteBatchHistory.test.js"
     ,"__tests__/pasteBatchUndo.test.js"
     ,"__tests__/shipmentAdjustmentPostWrite.test.js"
@@ -141,6 +142,7 @@
     "atomicApi": "POST /api/shipment/adjust-batch with explicit year, week, and ordered entries",
     "serverPreflightPolicy": "Before the commit request, the UI sends the identical ordered payload with preflightOnly=true. The API executes the same write core and post-write verification in a rollback-only transaction, reports the exact failed customer/product/input/quantity, and commits zero ERP rows. The real transaction still revalidates every predicate to close the concurrency gap.",
     "cancelApiPolicy": "the atomic API reuses the existing type=CANCEL and mode=AUTO_CANCEL policy",
+    "duplicateMasterSelection": "preview, rollback-only preflight, and commit share loadShipmentAdjustmentCurrent. For the selected current-year week/customer/product, a non-deleted (NULL or 0) ShipmentMaster containing a positive ShipmentDetail.OutQuantity for that product wins, and a positive duplicate detail wins over an earlier zero detail; only when no positive product detail exists does the existing fixed-master then oldest-master priority choose the owner for a new detail. This prevents an empty fixed duplicate master or zero legacy detail from hiding the actual cancellable distribution.",
     "addApiPolicy": "the atomic API reuses the existing type=ADD combined order+shipment policy",
     "failurePolicy": "all-or-nothing; any preflight or commit entry failure rolls back every CANCEL and ADD entry, the UI reports success 0 and all rows rolled back, and the user reruns the full batch after correcting the cause",
     "clientPreflightPolicy": "every non-skipped pasted row must have a confirmed CustKey, ProdKey, and positive quantity before the first write; an unmatched ADD may never be omitted while matched CANCEL rows are submitted",
@@ -218,6 +220,7 @@
     "__tests__/pasteMixedBatch.test.js",
     "__tests__/shipmentAdjustBatch.test.js",
     "__tests__/shipmentAdjustmentPostWrite.test.js",
+    "__tests__/shipmentAdjustmentCurrent.test.js",
     "__tests__/pasteBatchUndo.test.js",
     "__tests__/pasteBatchHistory.test.js",
     "__tests__/pasteSplitActionLayout.test.js",

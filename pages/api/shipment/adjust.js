@@ -900,7 +900,8 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
                 ISNULL(Descr,'')        AS curDescr
            FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK)
           WHERE ShipmentKey=@sk AND ProdKey=@pk
-          ORDER BY SdetailKey ASC`,
+          ORDER BY CASE WHEN ISNULL(OutQuantity,0)>0 THEN 0 ELSE 1 END,
+                   SdetailKey ASC`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: pk } }
       );
       const sdRow = sdCur.recordset[0];
