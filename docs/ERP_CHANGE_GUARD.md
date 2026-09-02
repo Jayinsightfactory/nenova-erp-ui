@@ -88,8 +88,11 @@ OrderYear + OrderWeek + CustKey + ProdKey
 `WebErpEditLease`가 TTL 동안 남을 수 있다. 이후 사용자가 명시적으로 기존 매칭 재분석을
 실행해 최신 주문·분배를 읽어도, 화면 상태만 초기화하고 서버 lease의 과거
 `BaselineDigest`는 갱신하지 않아 `ERP_EDIT_STALE`가 반복됐다. 이제 명시적 재분석은
-최신 행을 읽은 뒤 **동일 사용자·동일 browser client가 소유한 활성 lease**만 refresh한다.
-다른 사용자/탭의 lease는 갱신하거나 인수하지 않으며 ERP 원장은 보존한다.
+최신 행을 읽은 뒤 **동일 사용자·동일 browser client가 소유한 활성 lease는 refresh하고,
+동일 사용자·다른 browser client가 소유한 활성 lease는 명시적 takeover 후 새 lock-bound
+기준을 refresh**한다. 다른 사용자 lease는 갱신하거나 인수하지 않으며 ERP 원장은 보존한다.
+takeover는 일반 polling/acquire가 아니라 사용자가 현재 화면에서 명시적으로 재분석을
+실행한 경우에만 수행되고, 이전 client token을 무효화한다.
 활성 lease가 이미 만료된 경우에도 화면의 이전 `stale=true`를 새 GET 결과와 다시
 합치지 않고, `Claude로 분석`에서 읽은 현재 지문을 다음 저장 기준으로 사용한다.
 
