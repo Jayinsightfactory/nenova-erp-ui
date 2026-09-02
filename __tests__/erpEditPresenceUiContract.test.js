@@ -60,7 +60,7 @@ function main() {
   assert.match(paste, /heartbeatErpEditPresence[\s\S]{0,180}20_000/, '붙여넣기 장시간 저장은 20초 작업권 연장을 유지해야 합니다.');
   assert.match(paste, /clearInterval\(guard\.heartbeatTimer\)/, '붙여넣기 작업 완료/실패 뒤 작업권 연장 타이머를 정리해야 합니다.');
   assert.match(paste, /pasteWriteError[\s\S]{0,220}ERP_EDIT_STALE/, '409 응답의 코드와 상태를 카드 고정 경고로 전달해야 합니다.');
-  assert.match(paste, /acquireAllPasteGuards\(targets\.map\(t => t\.custKey\)\)[\s\S]{0,800}\/api\/shipment\/adjust-batch/, '전체 일괄은 모든 업체의 작업권을 먼저 얻은 뒤에만 저장해야 합니다.');
+  assert.match(paste, /acquireAllPasteGuards\(targets\.map\(t => t\.custKey\)\)[\s\S]{0,2400}\/api\/shipment\/adjust-batch/, '전체 일괄은 모든 업체의 작업권을 먼저 얻은 뒤에만 사전검증/저장해야 합니다.');
   assert.match(paste, /entries: targets\.map[\s\S]{0,1800}editGuard: guardByCust\.get/, '전체 일괄의 각 업체 행에는 해당 작업 확인 정보를 실어야 합니다.');
   assert.match(paste, /endPasteSaving\(pasteGuard, \{ refreshBaseline: saveSucceeded \}\)/, '붙여넣기 부분 성공/실패는 새 기준값을 자동 수용하면 안 됩니다.');
   assert.match(paste, /getPasteMixedBatchStartBlocker\(\{[\s\S]{0,160}presenceByCust: pastePresenceByCust/, '전체 저장의 외부 변경·조회 실패·최초 확인 판정은 공용 차단 사유 helper를 사용해야 합니다.');
