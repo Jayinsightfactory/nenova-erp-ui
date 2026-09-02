@@ -7,6 +7,7 @@ import { withAuth } from '../../../lib/auth.js';
 import { withActionLog } from '../../../lib/withActionLog.js';
 import {
   normalizeShipmentAdjustmentBatch,
+  isShipmentAdjustmentBatchPreflight,
   runShipmentAdjustmentBatchTransaction,
 } from '../../../lib/shipmentAdjustmentBatch.js';
 import {
@@ -34,11 +35,16 @@ async function handler(req, res) {
 
   try {
     const capabilities = await loadShipmentAdjustmentCapabilities();
+    const preflightOnly = isShipmentAdjustmentBatchPreflight(req.body?.preflightOnly);
     const results = await runShipmentAdjustmentBatchTransaction({
       batch,
       user: req.user,
       capabilities,
-      withTransactionFn: withTransaction,
+      // 사전검증도 실제 저장 코어와 사후 원장 대조를 그대로 실행하되,
+      // 성공한 트랜잭션까지 반드시 rollback하여 ERP 원장을 보존한다.
+      withTransactionFn: preflightOnly
+        ? (callback) => withTransaction(callback, { rollbackOnly: true })
+        : withTransaction,
       executeEntryFn: executeShipmentAdjustmentInTransaction,
     });
 
@@ -46,13 +52,17 @@ async function handler(req, res) {
       success: true,
       verified: true,
       atomic: true,
-      rolledBack: false,
+      preflight: preflightOnly,
+      rolledBack: preflightOnly,
       orderYear: batch.orderYear,
       orderWeek: batch.orderWeek,
-      committedCount: results.length,
+      committedCount: preflightOnly ? 0 : results.length,
+      projectedCount: results.length,
       verifiedCount: results.length,
       results,
-      message: `취소 전체 후 추가 전체 ${results.length}건을 한 번에 저장했습니다.`,
+      message: preflightOnly
+        ? `취소 전체 후 추가 전체 ${results.length}건의 저장 가능 여부를 확인했습니다. ERP 원장은 변경하지 않았습니다.`
+        : `취소 전체 후 추가 전체 ${results.length}건을 한 번에 저장했습니다.`,
     });
   } catch (error) {
     return res.status(Number(error?.statusCode) || 500).json({
@@ -71,6 +81,11 @@ async function handler(req, res) {
         orderWeek: batch.orderWeek,
         custKey: error.failedEntry.custKey,
         prodKey: error.failedEntry.prodKey,
+        custName: error.failedEntry.custName || '',
+        inputName: error.failedEntry.inputName || '',
+        prodName: error.failedEntry.prodName || '',
+        qty: error.failedEntry.qty,
+        unit: error.failedEntry.unit || '',
       } : null,
     });
   }

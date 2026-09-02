@@ -80,6 +80,36 @@ OrderYear + OrderWeek + CustKey + ProdKey
 
 앞으로는 문서를 추가하는 것만으로 완료로 보지 않는다. 문서 규칙마다 실행 가능한 테스트 또는 CI 검사 하나 이상을 연결한다.
 
+## 2026-09-02 붙여넣기 전체 일괄 저장 전 검증 누락
+
+35-01 붙여넣기 변경은 취소 전체 후 추가 전체를 한 트랜잭션으로 실행하고 있었지만,
+확정 상태·현재 분배·환산·재고 부족·전산 View 노출을 실제 쓰기 트랜잭션을 시작한 뒤에야
+검사했다. 따라서 사용자는 실행 전에는 실패 행을 알 수 없었고, 의미가 다른 품목으로
+매칭된 경우에도 유효한 `ProdKey`라는 이유로 저장 단계까지 진입했다. 실패 시 원장은
+전체 rollback되었지만 작업이 누락된 것처럼 보였다.
+
+### 기준 원천 → 사용 위치
+
+| 기준 | 원천 | 표시/사전검증/저장 위치 |
+|---|---|---|
+| 업무키 | dnSpy ViewOrder/ViewShipment 조인 | `OrderYear + OrderWeek + CustKey + ProdKey` |
+| 실행순서 | 붙여넣기 계약 | 안정 정렬된 CANCEL 전체 → ADD 전체 |
+| 환산·재고·확정·출고일 | `executeShipmentAdjustmentInTransaction` | 사전검증과 실제 저장이 동일 코어 사용 |
+| 강제처리 | 붙여넣기 계약 | 항상 `force=false` |
+| 사전검증 기본값 | API 계약 | boolean `true`만 rollback-only, 누락/false/0/문자열은 실제 저장 |
+
+### 부작용 표
+
+| 동작 | Order | Shipment | ShipmentDate/Farm/History/Adjustment | Estimate/WebProfitReport |
+|---|---|---|---|---|
+| `preflightOnly=true` | 동일 저장 코어 실행 후 rollback, 최종 보존 | 동일 | 동일 | 보존 |
+| 실제 CANCEL | 보존 | 감소 | 기존 AUTO_CANCEL 계약 | 보존 |
+| 실제 ADD | 활성 주문 있으면 보존, 없으면 양수 생성 | 증가 | 기존 adjust 계약 | 직접 쓰기 금지 |
+
+사전검증은 성공 경로까지 트랜잭션을 rollback하며 `committedCount=0`을 반환한다. 이후 실제
+요청은 별도 트랜잭션에서 모든 조건을 다시 검사하므로 사전검증과 저장 사이의 동시 수정도
+우회하지 못한다. 한 행 실패 시 전체 rollback하는 기존 정책은 유지한다.
+
 ## 2026-08-18 불량차감 등록 대상 과잉 필터 회귀
 
 영업지원 전산등록에서 견적서관리 상세에 노출되는 확정 출고가 있는데도 “출고가 없어

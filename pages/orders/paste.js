@@ -2669,9 +2669,7 @@ export default function PasteOrderPage() {
       pasteGuards = await acquireAllPasteGuards(targets.map(t => t.custKey));
       pasteGuards.forEach(guard => beginPasteSaving(guard.scope.custKey));
       const guardByCust = new Map(pasteGuards.map(item => [String(item.scope.custKey), item.guard]));
-      const response = await fetch('/api/shipment/adjust-batch', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({
+      const batchPayload = {
           week,
           year: selectedYearFromWeek(week),
           entries: targets.map(t => {
@@ -2696,7 +2694,29 @@ export default function PasteOrderPage() {
               editGuard: guardByCust.get(String(t.custKey)),
             };
           }),
-        }),
+      };
+      const preflightResponse = await fetch('/api/shipment/adjust-batch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ ...batchPayload, preflightOnly: true }),
+      });
+      const preflightResult = await preflightResponse.json().catch(() => ({}));
+      if (!preflightResponse.ok || preflightResult.success !== true || preflightResult.verified !== true || preflightResult.preflight !== true) {
+        const failed = preflightResult.failedEntry || {};
+        const failedLabel = [failed.custName, failed.inputName || failed.prodName, failed.qty && `${failed.qty}${failed.unit || ''}`]
+          .filter(Boolean).join(' / ');
+        const preflightError = pasteWriteError(
+          preflightResponse,
+          preflightResult,
+          `저장 전 검증에 실패했습니다.${failedLabel ? `\n실패 항목: ${failedLabel}` : ''}`,
+        );
+        preflightError.failedIndex = Number.isInteger(failed.inputIndex) ? failed.inputIndex : failed.executionIndex;
+        preflightError.rolledBack = true;
+        throw preflightError;
+      }
+
+      const response = await fetch('/api/shipment/adjust-batch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify(batchPayload),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result.success !== true || result.verified !== true) {

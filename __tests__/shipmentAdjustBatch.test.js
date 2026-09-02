@@ -4,8 +4,15 @@ const fs = require('node:fs');
 async function main() {
   const {
     normalizeShipmentAdjustmentBatch,
+    isShipmentAdjustmentBatchPreflight,
     runShipmentAdjustmentBatchTransaction,
   } = await import('../lib/shipmentAdjustmentBatch.js');
+
+  assert.equal(isShipmentAdjustmentBatchPreflight(undefined), false, '미지정은 기존 실제 저장이다.');
+  assert.equal(isShipmentAdjustmentBatchPreflight(false), false, '명시 false는 실제 저장이다.');
+  assert.equal(isShipmentAdjustmentBatchPreflight(0), false, '명시 0을 사전검증으로 오판하지 않는다.');
+  assert.equal(isShipmentAdjustmentBatchPreflight('true'), false, '문자열 truthy 값은 허용하지 않는다.');
+  assert.equal(isShipmentAdjustmentBatchPreflight(true), true, 'boolean true만 rollback 전용 사전검증이다.');
 
   const batch = normalizeShipmentAdjustmentBatch({
     year: '2026',
@@ -96,11 +103,23 @@ async function main() {
     '기존 단건 POST도 추출한 트랜잭션 코어를 재사용해야 한다.',
   );
   assert.match(batchApiSource, /runShipmentAdjustmentBatchTransaction\(\{/);
-  assert.match(batchApiSource, /withTransactionFn: withTransaction/);
+  assert.match(batchApiSource, /withTransactionFn:[\s\S]*?: withTransaction,/);
+  assert.match(batchApiSource, /preflightOnly/);
+  assert.match(batchApiSource, /rollbackOnly: true/);
+  assert.match(batchApiSource, /committedCount: preflightOnly \? 0 : results\.length/);
   assert.match(batchApiSource, /executeEntryFn: executeShipmentAdjustmentInTransaction/);
   assert.doesNotMatch(batchApiSource, /fetch\(|\/api\/shipment\/adjust['"]/);
   assert.match(batchApiSource, /rolledBack: true,[\s\S]*committedCount: 0/);
   assert.match(batchApiSource, /verified: true,[\s\S]*verifiedCount: results\.length/);
+
+  const dbSource = fs.readFileSync('lib/db.js', 'utf8');
+  assert.match(dbSource, /const rollbackOnly = options\.rollbackOnly === true/);
+  assert.match(dbSource, /if \(rollbackOnly\) await transaction\.rollback\(\)/);
+
+  const pasteSource = fs.readFileSync('pages/orders/paste.js', 'utf8');
+  assert.match(pasteSource, /preflightOnly: true/);
+  assert.match(pasteSource, /const preflightResponse = await fetch\('\/api\/shipment\/adjust-batch'/);
+  assert.match(pasteSource, /const response = await fetch\('\/api\/shipment\/adjust-batch'/);
 
   console.log('shipment adjust batch atomic transaction tests passed');
 }

@@ -32,6 +32,7 @@
     "lib/pasteBatchUndo.js",
     "lib/shipmentAdjustmentBatch.js",
     "lib/shipmentAdjustmentPostWrite.js",
+    "lib/db.js",
     "lib/pasteBatchHistory.js",
     "pages/api/shipment/farm-distribution.js",
     "pages/api/shipment/estimate-visibility.js",
@@ -42,6 +43,7 @@
     "pages/orders/paste.js",
     "pages/api/orders/parse-paste.js",
     "__tests__/erpEditFixScopeAudit.test.js",
+    "__tests__/erpEditPresenceUiContract.test.js",
     "__tests__/pasteMixedBatch.test.js",
     "__tests__/pasteBatchHistory.test.js"
     ,"__tests__/pasteBatchUndo.test.js"
@@ -137,9 +139,10 @@
     "executionOrder": "the UI sends one stable CANCEL phase followed by one stable ADD phase in a single atomic request",
     "selectionModel": "actions come from the pasted analysis; users do not build a separate multi-selection",
     "atomicApi": "POST /api/shipment/adjust-batch with explicit year, week, and ordered entries",
+    "serverPreflightPolicy": "Before the commit request, the UI sends the identical ordered payload with preflightOnly=true. The API executes the same write core and post-write verification in a rollback-only transaction, reports the exact failed customer/product/input/quantity, and commits zero ERP rows. The real transaction still revalidates every predicate to close the concurrency gap.",
     "cancelApiPolicy": "the atomic API reuses the existing type=CANCEL and mode=AUTO_CANCEL policy",
     "addApiPolicy": "the atomic API reuses the existing type=ADD combined order+shipment policy",
-    "failurePolicy": "all-or-nothing; any entry failure rolls back every CANCEL and ADD entry, the UI reports success 0 and all rows rolled back, and the user reruns the full batch after correcting the cause",
+    "failurePolicy": "all-or-nothing; any preflight or commit entry failure rolls back every CANCEL and ADD entry, the UI reports success 0 and all rows rolled back, and the user reruns the full batch after correcting the cause",
     "clientPreflightPolicy": "every non-skipped pasted row must have a confirmed CustKey, ProdKey, and positive quantity before the first write; an unmatched ADD may never be omitted while matched CANCEL rows are submitted",
     "forcePolicy": "force is always false for the global paste batch and cannot be enabled by an entry payload",
     "uiRefreshPolicy": "registered order state, shipment quantity state, and order history refresh only after success=true for the whole atomic batch",
