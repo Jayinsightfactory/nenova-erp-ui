@@ -14,7 +14,7 @@ import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
 import { applyPasteCustomerMappings, pasteCustomerMappingKey } from '../../lib/pasteCustomerMapping.js';
-import { buildPasteMixedActionPreview, getPasteMixedBatchStartBlocker, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
+import { buildPasteMixedActionPreview, getPasteMixedBatchStartBlocker, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, pasteShipmentLookupProdKeys, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/pasteIncomingDisplay.js';
@@ -1984,12 +1984,13 @@ export default function PasteOrderPage() {
           const matched = pickOrderForWeek(od.orders, customer.CustName, week);
           if (matched) {
             setRegisteredOrders(prev => ({ ...prev, [oid]: matched }));
-            await fetchShipmentQtys(matched.custKey, week, (matched.items || []).map(i => i.prodKey));
+            await fetchShipmentQtys(matched.custKey, week, pasteShipmentLookupProdKeys(order, matched));
             return;
           }
         }
         // 기존 주문 없음 — empty 상태로 미리보기 표시 (분배 가능 안내)
         setRegisteredOrders(prev => ({ ...prev, [oid]: { custKey: customer.CustKey, custName: customer.CustName, week, items: [], prevSnapshot: {} } }));
+        await fetchShipmentQtys(customer.CustKey, week, pasteShipmentLookupProdKeys(order));
       } catch { /* 조회 실패 무시 */ }
     })();
   };
@@ -2069,7 +2070,7 @@ export default function PasteOrderPage() {
   };
 
   // 매칭 확인 화면에서 품목을 인라인으로 바로 바꾼다(해제→큐 거치지 않음). 저장매칭도 학습.
-  const reassignItemProduct = (oid, idx, prod) => {
+  const reassignItemProduct = async (oid, idx, prod) => {
     const order = orders.find(o => o.id === oid);
     const item = order?.items?.[idx];
     updateItem(oid, idx, {
@@ -2089,6 +2090,9 @@ export default function PasteOrderPage() {
       prodSearchResults: [],
     });
     if (item?.inputName) learnItemMapping({ ...item }, prod);
+    if (order?.custMatch?.CustKey && week) {
+      await fetchShipmentQtys(order.custMatch.CustKey, week, [prod.ProdKey]);
+    }
   };
 
   const learnItemMapping = (item, prodOverride = null) => {
@@ -2155,6 +2159,9 @@ export default function PasteOrderPage() {
     });
     if (saveToCache && inputName) {
       learnItemMapping({ inputName, unit: currentItem.unit }, prod);
+    }
+    if (currentOrder?.custMatch?.CustKey && week) {
+      fetchShipmentQtys(currentOrder.custMatch.CustKey, week, [prod.ProdKey]);
     }
     setDisambigSearch('');
     setDisambigResults([]);
