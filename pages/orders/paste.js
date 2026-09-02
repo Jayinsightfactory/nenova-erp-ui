@@ -1107,6 +1107,7 @@ export default function PasteOrderPage() {
   const [orderHistoryOpen, setOrderHistoryOpen] = useState(false);
   const [pastePresenceByCust, setPastePresenceByCust] = useState({});
   const [pastePresenceRefreshRevision, setPastePresenceRefreshRevision] = useState(0);
+  const pasteExplicitRefreshCustKeysRef = useRef(new Set());
   const pasteSavingCustRef = useRef(new Set());
   const pasteClientId = getErpEditClientId();
 
@@ -1228,8 +1229,29 @@ export default function PasteOrderPage() {
     const loadStatuses = () => Promise.all(custKeys.map(async (custKey) => {
       const query = new URLSearchParams({ year: scopeYear, week, custKey: String(custKey), pageCode: 'paste', clientId: pasteClientId });
       const response = await fetch(`/api/erp/edit-presence?${query.toString()}`, { credentials: 'same-origin' });
-      const data = await response.json().catch(() => ({}));
-      return { custKey, data, ok: response.ok && data.success !== false };
+      let data = await response.json().catch(() => ({}));
+      let ok = response.ok && data.success !== false;
+      // 사용자가 [기존 매칭으로 분석]을 명시적으로 다시 실행한 경우에는 최신
+      // 주문·분배를 화면에 다시 읽은 것이다. 이전 요청이 서버 중단으로 작업권을
+      // 반납하지 못해 같은 브라우저의 stale lease가 남아 있으면, 그 lease만 현재
+      // 원장 지문으로 갱신한다. 다른 사용자/다른 탭의 lease는 절대 수용하지 않는다.
+      const refreshKey = `${scopeYear}:${week}:${custKey}`;
+      if (ok && pasteExplicitRefreshCustKeysRef.current.has(refreshKey)) {
+        pasteExplicitRefreshCustKeysRef.current.delete(refreshKey);
+        const lease = data?.lease || {};
+        if (lease.ownedByMe && lease.token) {
+          try {
+            data = await refreshErpEditPresence({
+              year: scopeYear, week, custKey, pageCode: 'paste', clientId: pasteClientId, token: lease.token,
+            });
+            ok = data?.success !== false;
+          } catch (error) {
+            data = error?.data || { success: false, error: error?.message || '최신 기준수량 반영 실패' };
+            ok = false;
+          }
+        }
+      }
+      return { custKey, data, ok };
     })).then(rows => {
       if (cancelled) return;
       rows.forEach(({ custKey, data, ok }) => {
@@ -1879,6 +1901,10 @@ export default function PasteOrderPage() {
       // 같은 업체/차수 조합이면 effect dependency가 바뀌지 않아 이전 STALE 경고가
       // 영구 고정되던 문제를 막고, 서버의 최신 지문을 새로 조회한다.
       setPastePresenceByCust({});
+      pasteExplicitRefreshCustKeysRef.current = new Set(applied
+        .map(order => Number(order.custMatch?.CustKey))
+        .filter(Boolean)
+        .map(custKey => `${selectedYearFromWeek(effectiveWeek)}:${effectiveWeek}:${custKey}`));
       setPastePresenceRefreshRevision(prev => prev + 1);
 
       // 거래처 매칭된 업체의 저장내역 자동 로드 (감지된 차수 반영)

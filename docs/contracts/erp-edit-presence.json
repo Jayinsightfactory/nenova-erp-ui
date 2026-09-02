@@ -81,6 +81,15 @@
       "lockSafety": "never refresh or take over another user/browser lease"
     },
     {
+      "name": "PASTE_EXPLICIT_REANALYSIS_REFRESH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "sidecar": "only an active WebErpEditLease owned by the same user and browser client",
+      "sequence": "user explicitly re-runs existing-match analysis -> latest order/distribution rows are loaded -> if the same browser still owns a stale lease left by an interrupted request, refresh that lease baseline -> enable a new guarded preflight",
+      "lockSafety": "never refresh, accept, or take over a lease owned by another user or browser client"
+    },
+    {
       "name": "DEPLOYMENT_SAFE_SAVE_RECOVERY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
