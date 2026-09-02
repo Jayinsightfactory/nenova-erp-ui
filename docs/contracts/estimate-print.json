@@ -42,6 +42,14 @@
       "sideEffect": "read-only; no API mutation and no Order, Shipment, ShipmentDate, Estimate, Stock write. Manager and customer choices are always-visible wrapping buttons (not selects); choosing a customer reuses the existing detail load path. Left list stays totalAmount descending; print output order remains manager then customer."
     },
     {
+      "name": "ESTIMATE_WEEKDAY_DEFAULT_ALL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimateRows": "all weekdays remain selected by default on initial load, customer selection, and print-dialog distribution lookup; only an explicit weekday button click narrows the scope",
+      "source": "nenova.exe ActiveFilterString default and web estimate weekday filter",
+      "sideEffect": "read-only; opening the print dialog must not mutate the weekday filter to the first available shipment day"
+    },
+    {
       "name": "ESTIMATE_PRINT_SUPPLY_NET",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
