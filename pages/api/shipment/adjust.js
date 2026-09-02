@@ -918,7 +918,40 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
         steamOf1Bunch: prod.S1Bn, estUnit: prod.EstUnit,
       });
       const qtyAfter = adj.qtyAfter;
-      if (qtyAfter < 0) throw new Error(`취소량(${delta}${userUnit})이 현재 출고(${qtyBefore})보다 큼`);
+      if (qtyAfter < 0) {
+        // 같은 표시명으로 중복 등록된 Product가 있으면 사용자가 다른 ProdKey를
+        // 취소 대상으로 매칭했을 수 있다. 자동으로 키를 바꾸면 다른 품목 원장을
+        // 차감할 위험이 있으므로 읽기 전용 후보만 구체적으로 알려준다.
+        const alternatives = await tQ(
+          `SELECT TOP 5 sd.ProdKey, p.ProdName, p.CountryFlower,
+                  sm.ShipmentKey, sd.SdetailKey, ISNULL(sd.OutQuantity,0) AS OutQuantity
+             FROM ShipmentMaster sm
+             JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
+             JOIN Product p ON p.ProdKey=sd.ProdKey
+            WHERE sm.CustKey=@ck AND sm.OrderYear=@yr AND sm.OrderWeek=@wk
+              AND ISNULL(sm.isDeleted,0)=0
+              AND sd.ProdKey<>@pk
+              AND ISNULL(sd.OutQuantity,0)>0
+              AND UPPER(REPLACE(LTRIM(RTRIM(p.ProdName)),' ',''))
+                    =UPPER(REPLACE(LTRIM(RTRIM(@pn)),' ',''))
+            ORDER BY ISNULL(sd.OutQuantity,0) DESC, sd.SdetailKey ASC`,
+          {
+            ck: { type: sql.Int, value: ck },
+            yr: { type: sql.NVarChar, value: orderYear },
+            wk: { type: sql.NVarChar, value: orderWeek },
+            pk: { type: sql.Int, value: pk },
+            pn: { type: sql.NVarChar, value: String(prod.ProdName || '') },
+          },
+        );
+        const candidateText = (alternatives.recordset || []).map((row) =>
+          `${row.CountryFlower || ''} · ${row.ProdName} (#${row.ProdKey}, 현재 출고 ${Number(row.OutQuantity || 0)}${prodOutUnit}, Shipment #${row.ShipmentKey}/${row.SdetailKey})`
+        ).join('; ');
+        const selectedKeys = `선택 품목 ${productLabel}, Shipment #${sk}/${sdRow?.SdetailKey || '없음'}`;
+        throw adjustmentInputError(
+          `취소량(${delta}${userUnit})이 현재 출고(${qtyBefore}${prodOutUnit})보다 큽니다. ${selectedKeys}.${candidateText ? ` 같은 전산 품명의 다른 분배가 있습니다: ${candidateText}. [상세수정]에서 실제 분배 품목으로 매칭하세요.` : ' 같은 전산 품명의 다른 양수 분배도 없습니다. 취소 업체·품목·차수를 확인하세요.'}`,
+          'SHIPMENT_CANCEL_EXCEEDS_CURRENT',
+        );
+      }
 
       const u = adj.units;
       const outQBefore = qtyBefore;

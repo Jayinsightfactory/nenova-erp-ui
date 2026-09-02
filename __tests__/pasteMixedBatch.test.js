@@ -134,6 +134,8 @@ async function main() {
     '공용 조회는 연도+차수+업체를 고정하고 선택 품목의 실제 양수 분배 마스터를 먼저 사용해야 한다.');
   assert.match(adjustSource, /FROM ShipmentDetail WITH \(UPDLOCK, HOLDLOCK\)[\s\S]*WHERE ShipmentKey=@sk AND ProdKey=@pk[\s\S]*ORDER BY CASE WHEN ISNULL\(OutQuantity,0\)>0 THEN 0 ELSE 1 END[\s\S]*SdetailKey ASC/,
     '실제 저장도 중복 레거시 상세행이 있을 때 0행이 아닌 실제 양수 분배행을 먼저 선택해야 한다.');
+  assert.match(adjustSource, /SHIPMENT_CANCEL_EXCEEDS_CURRENT[\s\S]*같은 전산 품명의 다른 분배가 있습니다|같은 전산 품명의 다른 분배가 있습니다[\s\S]*SHIPMENT_CANCEL_EXCEEDS_CURRENT/,
+    '취소 대상 품목키가 잘못 매칭되면 같은 전산 품명의 실제 양수 분배 후보와 키를 안내해야 한다.');
   assert.match(
     pasteSource,
     /const targets = orderPasteMixedBatchTargets\(eligibleTargets\);[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/,
