@@ -1106,6 +1106,7 @@ export default function PasteOrderPage() {
   const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
   const [orderHistoryOpen, setOrderHistoryOpen] = useState(false);
   const [pastePresenceByCust, setPastePresenceByCust] = useState({});
+  const [pastePresenceRefreshRevision, setPastePresenceRefreshRevision] = useState(0);
   const pasteSavingCustRef = useRef(new Set());
   const pasteClientId = getErpEditClientId();
 
@@ -1266,7 +1267,7 @@ export default function PasteOrderPage() {
     loadStatuses();
     const timer = setInterval(loadStatuses, 8_000);
     return () => { cancelled = true; clearInterval(timer); };
-  }, [week, orders.map(order => order.custMatch?.CustKey || '').join('|')]);
+  }, [week, orders.map(order => order.custMatch?.CustKey || '').join('|'), pastePresenceRefreshRevision]);
 
   useEffect(() => {
     const localProductCache = loadCache();
@@ -1874,6 +1875,11 @@ export default function PasteOrderPage() {
 
       const applied = applyPasteCustomerMappings(applyCache(raw, cache, allProducts), customerCache, allCustomers);
       setOrders(applied);
+      // 재분석은 사용자가 최신 주문·분배를 다시 읽겠다는 명시적 동작이다.
+      // 같은 업체/차수 조합이면 effect dependency가 바뀌지 않아 이전 STALE 경고가
+      // 영구 고정되던 문제를 막고, 서버의 최신 지문을 새로 조회한다.
+      setPastePresenceByCust({});
+      setPastePresenceRefreshRevision(prev => prev + 1);
 
       // 거래처 매칭된 업체의 저장내역 자동 로드 (감지된 차수 반영)
       if (effectiveWeek) {
