@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const HEARTBEAT_MS = 20_000;
 const POLL_MS = 8_000;
+const PRESENCE_REQUEST_TIMEOUT_MS = 20_000;
 const CLIENT_ID_KEY = 'nenova.erp.edit.client-id';
 
 function makeClientId() {
@@ -26,6 +27,7 @@ async function requestPresence(method, payload) {
     credentials: 'same-origin',
     headers: method === 'GET' ? undefined : { 'Content-Type': 'application/json' },
     ...(method === 'GET' ? {} : { body: JSON.stringify(payload) }),
+    signal: AbortSignal.timeout(PRESENCE_REQUEST_TIMEOUT_MS),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.success === false) {

@@ -2432,6 +2432,7 @@ export default function PasteOrderPage() {
   // 주의: 업체별 실행도 전체 실행과 같은 단일 트랜잭션 API를 사용한다.
   //       각 품목을 따로 저장하면 중간 실패 때 일부만 반영될 수 있으므로 금지한다.
   const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState('');
   const [bulkResult, setBulkResult] = useState(null); // { okCount, failCount, details }
   const handleBulkDistribute = async (oid, { failedOnly = false } = {}) => {
     const order = orders.find(o => o.id === oid);
@@ -2672,18 +2673,30 @@ export default function PasteOrderPage() {
     }
     const targets = orderPasteMixedBatchTargets(eligible);
     if (!targets.length) { alert('전체 처리할 매칭 품목이 없습니다.'); return; }
-    if (!(await ensureWeekCanDistribute(week, targets.map(t => t.prodKey)))) return;
+    let currentStep = '1/4 차수 확정 상태 확인 중';
+    setBulkRunning(true);
+    setBulkProgress(currentStep);
+    if (!(await ensureWeekCanDistribute(week, targets.map(t => t.prodKey)))) {
+      setBulkProgress('차수 확정 상태 확인에서 중단됨');
+      setBulkRunning(false);
+      return;
+    }
     const cancelCount = targets.filter(t => pasteBatchActionType(t) === 'CANCEL').length;
     const addCount = targets.length - cancelCount;
-    if (!confirm(`${formatWeekDisplay(week)} 전체 업체 ${targets.length}건을 한 번에 처리합니다.\n\n1단계 취소 ${cancelCount}건 전체 처리\n2단계 추가·분배 ${addCount}건 전체 처리\n\n한 건이라도 실패하면 전체가 저장되지 않고 모두 롤백됩니다.\n진행하시겠습니까?`)) return;
+    if (!confirm(`${formatWeekDisplay(week)} 전체 업체 ${targets.length}건을 한 번에 처리합니다.\n\n1단계 취소 ${cancelCount}건 전체 처리\n2단계 추가·분배 ${addCount}건 전체 처리\n\n한 건이라도 실패하면 전체가 저장되지 않고 모두 롤백됩니다.\n진행하시겠습니까?`)) {
+      setBulkProgress('사용자가 실행을 취소함');
+      setBulkRunning(false);
+      return;
+    }
 
-    setBulkRunning(true);
     setBulkResult(null);
     let pasteGuards = [];
     let allSucceeded = false;
     try {
       // 전체 처리는 업체키 순서로 모두 작업권을 먼저 얻는다. 하나라도 다른 작업 중이면
       // 저장 API를 한 번도 호출하지 않고, 이미 확보한 업체도 즉시 풀어준다.
+      currentStep = '2/4 업체별 작업권 확인 중';
+      setBulkProgress(currentStep);
       pasteGuards = await acquireAllPasteGuards(targets.map(t => t.custKey));
       pasteGuards.forEach(guard => beginPasteSaving(guard.scope.custKey));
       const guardByCust = new Map(pasteGuards.map(item => [String(item.scope.custKey), item.guard]));
@@ -2713,9 +2726,12 @@ export default function PasteOrderPage() {
             };
           }),
       };
+      currentStep = '3/4 저장 전 취소·추가 전체 검증 중';
+      setBulkProgress(currentStep);
       const preflightResponse = await fetch('/api/shipment/adjust-batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({ ...batchPayload, preflightOnly: true }),
+        signal: AbortSignal.timeout(60_000),
       });
       const preflightResult = await preflightResponse.json().catch(() => ({}));
       if (!preflightResponse.ok || preflightResult.success !== true || preflightResult.verified !== true || preflightResult.preflight !== true) {
@@ -2732,6 +2748,8 @@ export default function PasteOrderPage() {
         throw preflightError;
       }
 
+      currentStep = '4/4 취소 먼저 처리 후 추가·분배 저장 중';
+      setBulkProgress(currentStep);
       const response = await fetch('/api/shipment/adjust-batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify(batchPayload),
@@ -2761,6 +2779,7 @@ export default function PasteOrderPage() {
         throw new Error('저장 직후 전산 대조가 완료되지 않은 항목이 있어 완료 처리하지 않았습니다.');
       }
       allSucceeded = true;
+      setBulkProgress(`완료: ${details.length}건 저장·검증 성공`);
       setBulkResult({ orderId: 'ALL', okCount: details.length, failCount: 0, details, rolledBack: false });
       // 원장 반영이 전체 성공한 경우에만 DB 저장내역/분배수량/히스토리를 화면에 반영한다.
       setRegisteredOrders(prev => {
@@ -2797,13 +2816,16 @@ export default function PasteOrderPage() {
       });
       loadOrderHistorySummary(week, orders);
     } catch (error) {
+      const displayError = error?.name === 'TimeoutError' || error?.name === 'AbortError'
+        ? `${currentStep} 응답이 제한시간을 초과했습니다. 원장 결과를 다시 조회한 뒤 재실행하세요.`
+        : error.message;
       [...new Set(targets.map(target => target.custKey))].forEach(custKey => keepPasteGuardWarning(custKey, error));
       const details = targets.map(target => ({
         ...target,
         type: pasteBatchActionType(target),
         ok: false,
         rolledBack: true,
-        error: error.message,
+        error: displayError,
       }));
       setBulkResult({
         orderId: 'ALL',
@@ -2814,7 +2836,8 @@ export default function PasteOrderPage() {
         failedIndex: error.failedIndex,
         error: error.message,
       });
-      alert(`전체 일괄 처리를 시작하지 못했습니다.\n\n${error.message}\n\n저장된 항목은 없으며 전체가 롤백되었습니다. 원인을 수정한 뒤 다시 실행하세요.`);
+      setBulkProgress(`중단: ${displayError}`);
+      alert(`전체 일괄 처리를 시작하지 못했습니다.\n\n${displayError}\n\n저장된 항목은 없으며 전체가 롤백되었습니다. 원인을 수정한 뒤 다시 실행하세요.`);
     } finally {
       await Promise.all(pasteGuards.map(guard => endPasteSaving(guard, { refreshBaseline: allSucceeded })));
       await Promise.all(pasteGuards.map(releasePasteGuard));
@@ -3806,6 +3829,9 @@ export default function PasteOrderPage() {
               style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: globalBatchStartBlocker ? '#78909c' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : globalBatchStartBlocker ? 'help' : 'pointer' }}>
               {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
             </button>
+            {bulkProgress && <span role="status" aria-live="polite" style={{ width: '100%', fontSize: 12, fontWeight: 900, color: bulkProgress.startsWith('중단') ? '#b71c1c' : '#0d47a1' }}>
+              처리 로그: {bulkProgress}
+            </span>}
           </div>
         )}
 

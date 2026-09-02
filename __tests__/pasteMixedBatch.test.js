@@ -169,6 +169,10 @@ async function main() {
     '실행 중 외의 차단 상태는 클릭을 삼키는 native disabled가 아니라 알림 가능한 aria-disabled여야 한다.');
   assert.match(pasteSource, /alert\(startBlocker\.message\)/,
     '차단된 전체 실행 버튼을 누르면 구체적인 차단 사유를 즉시 알려야 한다.');
+  assert.match(pasteSource, /1\/4 차수 확정 상태 확인 중[\s\S]*2\/4 업체별 작업권 확인 중[\s\S]*3\/4 저장 전 취소·추가 전체 검증 중[\s\S]*4\/4 취소 먼저 처리 후 추가·분배 저장 중/,
+    '전체 실행은 로그가 비는 구간 없이 현재 처리 단계를 즉시 표시해야 한다.');
+  assert.match(pasteSource, /preflightOnly: true[\s\S]*AbortSignal\.timeout\(60_000\)/,
+    '저장 전 검증이 무한 대기하지 않도록 읽기·롤백 전용 요청에 제한시간을 둬야 한다.');
   assert.match(
     pasteSource,
     /const intent = validatePasteMixedBatchIntent\(orders\);[\s\S]*if \(!intent\.valid\)[\s\S]*return;[\s\S]*fetch\('\/api\/shipment\/adjust-batch'/,
