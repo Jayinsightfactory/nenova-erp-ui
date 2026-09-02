@@ -50,6 +50,14 @@
       "sideEffect": "read-only; opening the print dialog must not mutate the weekday filter to the first available shipment day"
     },
     {
+      "name": "ESTIMATE_LEGACY_QUARANTINE_VISIBLE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimateRows": "registered Estimate rows remain visible for the selected OrderYearWeek + CustKey even when legacy EstimateType has no current CodeInfo row or EstimateDtm has no exact PeriodDay row",
+      "source": "Estimate is the authoritative registered deduction ledger; CodeInfo and PeriodDay are display metadata",
+      "sideEffect": "read-only; fallback label uses raw EstimateType and weekday filtering never removes an Estimate deduction row"
+    },
+    {
       "name": "ESTIMATE_PRINT_SUPPLY_NET",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
