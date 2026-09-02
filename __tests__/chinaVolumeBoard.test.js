@@ -9,6 +9,7 @@ const assert = require('assert');
     chinaPackingDistributions,
     chinaVolumeCellText,
     chinaVolumeProductLabel,
+    formatChinaBoxNumberList,
     parseChinaBoxNumbers,
     splitChinaBoxQuantity,
     parseChinaPackingRows,
@@ -27,7 +28,16 @@ const assert = require('assert');
 
   assert.strictEqual(chinaVolumeProductLabel('CHINA / ROSE Diana 50cm'), 'ROSE Diana 50cm');
   assert.strictEqual(chinaVolumeProductLabel('China/ Hydrangea Blue (블루)'), 'Hydrangea Blue (블루)');
-  assert.strictEqual(chinaVolumeCellText(20, [{ boxNo: '16' }, { boxNo: '17' }]), '20 (16,17)');
+  assert.strictEqual(chinaVolumeCellText(20, [{ boxNo: '16' }, { boxNo: '17' }]), '20 (16,17)', '2개만 연속이면 압축하지 않는다');
+
+  assert.strictEqual(formatChinaBoxNumberList(['150', '151', '152', '153', '154', '155', '156']), '150~156', '3개 이상 연속이면 시작~끝으로 압축');
+  assert.strictEqual(formatChinaBoxNumberList(['88', '89']), '88,89', '정확히 2개 연속이면 그대로 나열');
+  assert.strictEqual(formatChinaBoxNumberList(['88', '89', '90']), '88~90', '3개 연속이면 압축');
+  assert.strictEqual(formatChinaBoxNumberList(['1', '2', '3', '5', '6']), '1~3,5,6', '끊긴 지점에서 그룹을 나눠 각각 판단');
+  assert.strictEqual(formatChinaBoxNumberList(['1', '2', '4', '5', '6', '7']), '1,2,4~7', '앞쪽은 2개라 유지, 뒤쪽은 4개라 압축');
+  assert.strictEqual(formatChinaBoxNumberList(['90', '88', '89']), '88~90', '입력 순서와 무관하게 정렬 후 판단');
+  assert.strictEqual(chinaVolumeCellText(350, Array.from({ length: 35 }, (_, i) => ({ boxNo: String(47 + i) }))), '350 (47~81)', '실제 물량표 사례: 35개 연속 박스가 시작~끝으로 압축된다');
+
   const workbookRows = buildChinaVolumeWorkbookRows({
     year: 2026,
     week: '35-01',
@@ -35,7 +45,11 @@ const assert = require('assert');
     rows: [{ prodKey: 9, prodName: 'CHINA / ROSE Diana 50cm full name', outOrders: { CL1: 20 } }],
     cells: { '1:9': { quantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] } },
   });
-  assert.deepStrictEqual(workbookRows[3], ['ROSE Diana 50cm full name', '20 (16,17)']);
+  assert.deepStrictEqual(
+    workbookRows[3],
+    ['ROSE Diana 50cm full name', '20 (16,17)', 20, 20, '', 'ROSE Diana 50cm full name'],
+    '패킹 미반영 시 주문=입고이므로 잔량은 0(빈칸), 마지막 열에 품목명을 한 번 더 적는다',
+  );
   const appliedWorkbookRows = buildChinaVolumeWorkbookRows({
     year: 2026,
     week: '35-01',
@@ -52,11 +66,26 @@ const assert = require('assert');
     appliedOnly: true,
   });
   assert.deepStrictEqual(appliedWorkbookRows, [
-    ['2026년 35-01 중국 물량표', '서울'],
-    ['출고요일', '수'],
-    ['품목', 'CL1\nCL1'],
-    ['ROSE Diana', '20 (16)'],
-  ], '최종 엑셀은 적용된 셀만 포함하고 거래처 지역·비고 기반 중국 출고요일을 표시한다');
+    ['2026년 35-01 중국 물량표', '서울', '', '', '', ''],
+    ['출고요일', '수', '', '', '', ''],
+    ['품목', 'CL1\nCL1', '주문', '입고', '잔량', '품목'],
+    ['ROSE Diana', '20 (16)', 20, 20, '', 'ROSE Diana'],
+  ], '최종 엑셀은 적용된 셀만 포함하고 거래처 지역·비고 기반 중국 출고요일을 표시하며, 마지막에 주문·입고·잔량·품목 반복 열이 붙는다');
+
+  const shortageWorkbookRows = buildChinaVolumeWorkbookRows({
+    year: 2026,
+    week: '35-01',
+    customers: [{ custKey: 7, custName: '주광농원', orderCode: 'CL1', area: '서울' }],
+    customerDays: { 7: '수' },
+    rows: [{ prodKey: 70, prodName: 'ROSE Diana', outOrders: { 주광농원: 18 } }],
+    cells: { '7:70': { quantity: 12, orderQuantity: 18, allocations: [{ boxNo: '16', quantity: 12 }] } },
+    appliedOnly: true,
+  });
+  assert.deepStrictEqual(
+    shortageWorkbookRows[3].slice(2),
+    [18, 12, 6, 'ROSE Diana'],
+    '전산 주문(18) 대비 실제 입고(12)가 적으면 잔량 6으로 부족분을 보여준다',
+  );
   assert.strictEqual(stepChinaOrderWeek('35-01', -1), '34-01');
   assert.strictEqual(stepChinaOrderWeek('35-1', 1), '36-01');
   assert.strictEqual(stepChinaOrderWeek('01-01', -1), '01-01');
@@ -167,6 +196,11 @@ const assert = require('assert');
     cells: pivotCells,
   });
   assert.strictEqual(packingWorkbookRows[3][1], '20 (16,17)', '엑셀에도 패킹수량과 박스번호를 함께 출력한다');
+  assert.deepStrictEqual(
+    packingWorkbookRows[3].slice(2),
+    [18, 20, -2, 'ROSE Diana'],
+    '주문(전산 18)·입고(패킹 20)·잔량(주문-입고 -2)·품목 반복이 뒤에 붙는다',
+  );
   const restoredCells = restoreChinaPackingCells({
     '7:70': { quantity: 18, packingQuantity: 20, allocations: [{ boxNo: '16', quantity: 10 }, { boxNo: '17', quantity: 10 }] },
   }, matched, {
