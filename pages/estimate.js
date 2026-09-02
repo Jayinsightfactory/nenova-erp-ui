@@ -25,6 +25,7 @@ import {
 import { filterItemsByExeWeekDay } from '../lib/exeEstimateViewSql.js';
 import { amountVatFromCostEst } from '../lib/distributeUnits.js';
 import { requireCostSnapshot, rebaseCostItemsFromSaved, STALE_COST_MESSAGE } from '../lib/estimateCostSnapshot.js';
+import { shouldApplyEstimateProductContext } from '../lib/estimateProductContextGuard.js';
 import { downloadEcountUploadWorkbook } from '../lib/estimateEcountExcel.js';
 import { collectEstimateBatchReadFailures, estimateBatchReadFailureMessage } from '../lib/estimateBatchOutputGuard';
 import {
@@ -1313,6 +1314,7 @@ export default function Estimate() {
   const [defectContext, setDefectContext] = useState(null);
   const [defectContextLoading, setDefectContextLoading] = useState(false);
   const [defectContextError, setDefectContextError] = useState('');
+  const defectContextRequestRef = useRef(0);
 
   // 품목명을 클릭하면 기존 견적 행의 상세 정보창을 연다.
   // Estimate(불량/검역/판매요청)는 전산 ClassEstimate.Update 범위로 직접 저장하고,
@@ -1321,6 +1323,8 @@ export default function Estimate() {
   const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
   const [itemEditorSaving, setItemEditorSaving] = useState(false);
   const [itemEditorError, setItemEditorError] = useState('');
+  const [itemEditorProductLoading, setItemEditorProductLoading] = useState(false);
+  const itemEditorProductRequestRef = useRef(0);
 
   // ── 단가 수정 상태 (P3) ─────────────────────────
   // costEdits[sdetailKey] = 수정된 단가 (string)
@@ -1471,6 +1475,7 @@ export default function Estimate() {
     cost: '',
     descr: '',
   });
+  const defectContextSelectedProdRef = useRef('');
 
   // 공급가액/부가세 자동계산
   const amountSign = defectForm.negative ? -1 : 1;
@@ -3278,6 +3283,7 @@ export default function Estimate() {
   };
 
   const resetDefectForm = (entryMode = 'defect') => {
+    defectContextRequestRef.current += 1;
     const isSalesRequest = entryMode === 'sales';
     const isLegacy = entryMode === 'legacy';
     setDefectForm({
@@ -3293,6 +3299,7 @@ export default function Estimate() {
     });
     setDefectContext(null);
     setDefectContextError('');
+    defectContextSelectedProdRef.current = '';
   };
 
   const openEstimateEntry = (entryMode) => {
@@ -3312,6 +3319,11 @@ export default function Estimate() {
       setDefectContextError('차수와 거래처를 먼저 선택하세요.');
       return;
     }
+    const requestId = ++defectContextRequestRef.current;
+    // 품목 선택은 단가 조회보다 먼저 확정한다. 네트워크 지연 중 선택값이 빈칸으로
+    // 되돌아가거나 이전 품목 응답이 새 선택을 덮지 않게 한다.
+    setDefectForm((form) => ({ ...form, prodKey: String(key), cost: '' }));
+    defectContextSelectedProdRef.current = String(key);
     setDefectContextLoading(true);
     setDefectContextError('');
     setDefectContext(null);
@@ -3324,6 +3336,12 @@ export default function Estimate() {
         prodKey: key,
       });
       const context = data.context || {};
+      if (!shouldApplyEstimateProductContext({
+        requestId,
+        currentRequestId: defectContextRequestRef.current,
+        requestedProdKey: key,
+        currentProdKey: defectContextSelectedProdRef.current,
+      })) return;
       setDefectContext(context);
       setDefectForm((form) => ({
         ...form,
@@ -3335,10 +3353,10 @@ export default function Estimate() {
         setDefectContextError('이전 차수 분배단가를 찾지 못했습니다. 단가를 확인해 주세요.');
       }
     } catch (e) {
+      if (requestId !== defectContextRequestRef.current) return;
       setDefectContextError(e.message || '분배단가 조회에 실패했습니다.');
-      setDefectForm((form) => ({ ...form, prodKey: String(key), cost: '' }));
     } finally {
-      setDefectContextLoading(false);
+      if (requestId === defectContextRequestRef.current) setDefectContextLoading(false);
     }
   };
 
@@ -3405,6 +3423,8 @@ export default function Estimate() {
   const openItemEditor = (item) => {
     if (deductionDeleteInFlightRef.current) return;
     if (!item) return;
+    itemEditorProductRequestRef.current += 1;
+    setItemEditorProductLoading(false);
     setSelectedItemForEdit(item);
     const isEstimate = isEstimateDeductionRow(item) && item.EstimateKey != null;
     setItemEditor({
@@ -6350,16 +6370,27 @@ export default function Estimate() {
                       options={prodOptions}
                       value={itemEditor.prodKey}
                       onChange={async value => {
+                        const requestedProdKey = Number(value);
+                        const requestId = ++itemEditorProductRequestRef.current;
                         setItemEditor(prev => ({...prev, prodKey: String(value)}));
+                        setItemEditorProductLoading(true);
                         try {
                           const context = await apiGet('/api/estimate', {
                             view: 'defectContext', year: yearStr, week: weekNum,
-                            custKey: selectedShip?.CustKey, prodKey: Number(value),
+                            custKey: selectedShip?.CustKey, prodKey: requestedProdKey,
                           });
                           if (Number(context.context?.cost) > 0) {
-                            setItemEditor(prev => ({...prev, cost: String(Math.round(Number(context.context.cost)))}));
+                            setItemEditor(prev => shouldApplyEstimateProductContext({
+                              requestId,
+                              currentRequestId: itemEditorProductRequestRef.current,
+                              requestedProdKey,
+                              currentProdKey: prev?.prodKey,
+                            }) ? ({...prev, cost: String(Math.round(Number(context.context.cost)))}) : prev);
                           }
                         } catch (_) { /* 단가는 기존값을 유지하고 저장 시 서버가 검증 */ }
+                        finally {
+                          if (requestId === itemEditorProductRequestRef.current) setItemEditorProductLoading(false);
+                        }
                       }}
                       placeholder="품목명 검색..."
                     />
@@ -6396,6 +6427,8 @@ export default function Estimate() {
                   <input type="number" min={0} className="form-control"
                     value={itemEditor.cost}
                     onChange={e => setItemEditor(prev => ({...prev, cost:e.target.value}))}
+                    readOnly={itemEditorProductLoading}
+                    placeholder={itemEditorProductLoading ? '자동단가 조회 중...' : ''}
                   />
                 </div>
                 <div className="form-group">
@@ -6520,11 +6553,11 @@ export default function Estimate() {
                   <input type="number" min={0} className="form-control"
                     value={defectForm.cost}
                     onChange={e => setDefectForm(f => ({...f, cost: e.target.value}))}
-                    readOnly={defectContextLoading || Number(defectContext?.cost || 0) > 0}
+                    readOnly={defectContextLoading}
                     placeholder={defectContextLoading ? '조회 중...' : '분배단가 자동'}
-                    style={{background: Number(defectContext?.cost || 0) > 0 ? '#f0fdf4' : '#fff'}}
+                    style={{background: defectContextLoading ? '#f8fafc' : '#fff'}}
                   />
-                  <div style={{fontSize:10, color:'#64748b', marginTop:3}}>이전 차수 분배단가 자동 적용 · 필요 시 원장 확인</div>
+                  <div style={{fontSize:10, color:'#64748b', marginTop:3}}>이전 차수 분배단가 자동 제안 · 필요하면 직접 수정 가능</div>
                 </div>
               </div>
 

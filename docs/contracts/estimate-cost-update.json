@@ -23,6 +23,7 @@
     "lib/estimateCostSnapshot.js",
     "lib/estimateSaveRecovery.js",
     "lib/estimateGridNavigation.js",
+    "lib/estimateProductContextGuard.js",
     "lib/exeEstimateViewSql.js",
     "docs/migrations/2026-08-10_week_prod_cost_order_year.sql",
     "lib/i18n.js",
@@ -36,7 +37,8 @@
     "__tests__/estimateCostSnapshot.test.js",
     "__tests__/estimateSaveRecovery.test.js",
     "__tests__/estimateGridNavigation.test.js",
-    "__tests__/estimateSaveRecoveryUi.test.js"
+    "__tests__/estimateSaveRecoveryUi.test.js",
+    "__tests__/estimateProductContextGuard.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -53,6 +55,15 @@
       "stockCalc": "never invoked — price-only writes never call fix/unfix SP or usp_StockCalculation (2026-08-26 dnSpy + read-only 운영 SELECT 근거: ShipmentMaster/ShipmentDate/CustomerProdCost에 트리거 없음, ShipmentDetail 트리거는 OutQuantity UPDATE에만 반응)",
       "evidence": "docs/work-reports/2026-08-26_estimate-cost-no-stock-design.md",
       "note": "수량 변경(출고일 EstQuantity/OutQuantity)이 함께 있는 경로는 이 action이 아니라 기존 unfix-save-refix 사이클을 그대로 유지한다."
+    },
+    {
+      "name": "ESTIMATE_DEDUCTION_PRODUCT_COST_EDIT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDetailMoney": "preserve",
+      "estimateRows": "품목 선택 즉시 ProdKey 초안을 유지하고 최신 자동단가 응답만 제안값으로 적용한다. 자동단가는 읽기 전용 고정값이 아니며 사용자가 직접 수정한 Cost로 Estimate 한 행만 갱신한다.",
+      "source": "FormEstimateAdd/ClassEstimate.Update",
+      "sideEffect": "Estimate.ProdKey/Unit/Quantity/Cost/Amount/Vat/Descr/EstimateDtm only; no delete, no Order/Shipment/ShipmentDate/Stock write"
     }
   ],
   "crossYearFixture": {
@@ -70,7 +81,8 @@
     "__tests__/estimateCostSnapshot.test.js",
     "__tests__/estimateSaveRecovery.test.js",
     "__tests__/estimateGridNavigation.test.js",
-    "__tests__/estimateSaveRecoveryUi.test.js"
+    "__tests__/estimateSaveRecoveryUi.test.js",
+    "__tests__/estimateProductContextGuard.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
