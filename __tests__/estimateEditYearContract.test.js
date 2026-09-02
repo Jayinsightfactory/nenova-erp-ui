@@ -62,7 +62,7 @@ async function main() {
   assert.doesNotMatch(page.slice(page.indexOf('const runShipmentFixAction'), page.indexOf('// 수정된 단가 개수')), /force:\s*true/, '견적서 자동 편집 사이클은 force=true를 보내면 안 된다.');
 
   assert.match(page, /const body = \{[\s\S]{0,250}?mode: effectiveMode,[\s\S]{0,80}?orderYear: yearStr/, '단가 전용 저장 payload에 선택 연도가 필요하다.');
-  assert.match(page, /items: rebasedCosts\.items\.map[\s\S]{0,220}?mode: costMode,[\s\S]{0,80}?orderYear: yearStr/, '수량+단가 통합 저장 payload에 선택 연도가 필요하다.');
+  assert.match(page, /items: rebasedCosts\.items\.map[\s\S]{0,220}?mode: effectiveCostMode,[\s\S]{0,80}?orderYear: yearStr/, '수량+단가 통합 저장 payload에 선택 연도와 명시 단가 모드가 필요하다.');
   assert.match(page, /items: editorCostItems,[\s\S]{0,100}?mode: 'once',[\s\S]{0,80}?orderYear: yearStr/, '품목정보 단가 저장 payload에 선택 연도가 필요하다.');
   const captureStart = page.indexOf('const captureEstimateRefresh = () =>');
   const captureEnd = page.indexOf('const isCapturedEstimateScopeCurrent', captureStart);

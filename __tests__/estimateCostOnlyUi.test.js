@@ -57,6 +57,17 @@ async function main() {
     /onClick=\{\(\)\s*=>\s*applyCostEdits\(\)\}/,
     '단가 적용하기 버튼은 화면 select 상태(costMode)를 그대로 사용해야 한다.',
   );
+  assert.match(
+    page,
+    /editedCount\s*>\s*0\s*&&\s*\(editedQtyCount\s*>\s*0\s*\|\|\s*pendingAdds\.length\s*>\s*0\)[\s\S]{0,700}?onClick=\{\(\)\s*=>\s*applyAllEdits\('fixed'\)\}/,
+    '수량·단가 동시 수정에서도 업체 지정단가 통합 저장 버튼이 보여야 한다.',
+  );
+  const applyAllEditsSrc = page.slice(
+    page.indexOf('async function applyAllEdits'),
+    page.indexOf('function closeCostModal'),
+  );
+  assert.match(applyAllEditsSrc, /const effectiveCostMode = modeOverride \|\| costMode/, '통합 저장은 명시 fixed 모드를 우선해야 한다.');
+  assert.match(applyAllEditsSrc, /mode:\s*effectiveCostMode/, '통합 단가 저장 API에 선택한 업체 지정단가 모드를 전달해야 한다.');
 
   // 2026-08-26 방향별 수량 저장: 기존 수량과 단가는 확정 상태를 보존한다.
   // 신규 추가 품목만 범위 제한 확정 사이클에 들어간다.

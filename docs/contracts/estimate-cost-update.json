@@ -57,6 +57,16 @@
       "note": "수량 변경(출고일 EstQuantity/OutQuantity)이 함께 있는 경로는 이 action이 아니라 기존 unfix-save-refix 사이클을 그대로 유지한다."
     },
     {
+      "name": "QUANTITY_PRICE_WITH_CUSTOMER_FIXED_COST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentDetailMoney": "existing quantity path plus Cost/Amount/Vat update; preserve keys and unrelated rows",
+      "customerProdCost": "when the user explicitly clicks the combined fixed-cost button, update only selected CustKey + edited ProdKey through the existing update-cost mode=fixed transaction",
+      "selectedYearRequired": true,
+      "source": "existing applyAllEdits quantity path + saveEstimateCostBatch mode=fixed",
+      "sideEffect": "quantity handling remains unchanged; no customer price write for deductions/inspection/sales-request Estimate rows and no other customer/product/week price mutation"
+    },
+    {
       "name": "ESTIMATE_DEDUCTION_PRODUCT_COST_EDIT",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
