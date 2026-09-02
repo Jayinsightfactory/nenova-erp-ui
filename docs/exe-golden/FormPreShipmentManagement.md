@@ -44,3 +44,16 @@
 - 분배 행이 없으면 분배수량 `0`, 출고일 행이 없으면 출고일수량 `0`으로 표시하고
   `미분배/출고일 미지정` 상태를 명시한다. 매칭 전 행은 수량이 0이어도 `미매칭` 상태를
   유지하므로 “분배 0”과 “품목 미매칭”을 혼동하지 않는다.
+
+## 선출고 후출고 재고 이력 조회 (2026-09-02)
+
+- decompile: `C:\Users\USER\nenova-decompiled\Nenova\FormStockView.cs`
+- 기준 메서드: `FormStockView.GetData`, StockHistory focus 조회. 차수 재고는
+  `StockMaster`의 `StockKey`와 `ProductStock.Stock` 조합으로 읽는다.
+- 이력 API는 `OrderYear + OrderWeek + ProdKey`로 `ProductStock`, `StockHistory`,
+  `ViewWarehouse`, `ViewShipment`, `ShipmentDate`를 **SELECT-only**로 조회한다.
+  `StockMaster.isFix`는 마감 표시일 뿐 스냅샷 후보를 제외하는 조건으로 사용하지 않는다.
+- 정상 출고 차수를 비우면 같은 `OrderYear`에서 실제 `ProductStock` 행이 존재하는 다음
+  `StockMaster.OrderWeek`를 고른다. 전년도 같은 `NN-NN` 차수는 후보에 섞지 않는다.
+- `StockHistory`에는 거래처 FK가 없으므로, 수동 재고조정 여부는 품목/차수 시스템 이력으로만
+  표시한다. 선출고 업체의 작업이라고 단정하거나 ERP 수량·재고·견적 원장을 변경하지 않는다.

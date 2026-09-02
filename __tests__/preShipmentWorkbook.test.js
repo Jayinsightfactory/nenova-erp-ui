@@ -4,6 +4,7 @@ import XLSX from 'xlsx';
 import { normalizePreShipmentScope, parsePreShipmentWorkbook, selectPreShipmentSheetName } from '../lib/preShipmentWorkbook.js';
 import { buildPreShipmentErpStatusSql } from '../lib/preShipmentErpStatus.js';
 import { normalizeManualPreShipmentItem } from '../lib/preShipment.js';
+await import('./preShipmentHistory.test.js');
 
 const file = 'C:/Users/USER/Documents/카카오톡 받은 파일/주광 32차 정리.xlsx';
 if (fs.existsSync(file)) {
@@ -96,4 +97,9 @@ assert.doesNotMatch(statusSql, /(?:INSERT|UPDATE|DELETE|MERGE)\s/i, 'ERP 현황�
 assert.match(pageSource, /품목 추가|품목추가/);
 assert.match(pageSource, /매칭/);
 assert.match(pageSource, /분배|출고일/);
+assert.match(pageSource, /업체·품목 붙여넣기 재고 이력/);
+assert.match(pageSource, /\/api\/orders\/parse-paste/);
+assert.match(pageSource, /\/api\/pre-shipment\/history/);
+assert.match(pageSource, /재고수정 있음/);
+assert.match(pageSource, /StockHistory|재고 이력은 품목·차수 전체 기록/);
 console.log('preShipmentWorkbook.test.js passed');
