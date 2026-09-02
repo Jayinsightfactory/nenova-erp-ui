@@ -131,6 +131,11 @@ assert.match(pageSource, /weekDays:\s*\[\.\.\.activeWD\]/);
 assert.match(pageSource, /'견 적 서'/);
 assert.match(pageSource, /UnitQuantity/);
 assert.match(pageSource, /setActiveWD\(new Set\(WEEKDAYS\)\)/, '업체 선택 시 전체 출고요일을 기본 활성화한다.');
+assert.doesNotMatch(
+  pageSource,
+  /setActiveWD\(prev\s*=>\s*\(prev\.size\s*===\s*7\s*\?\s*new Set\(\[days\[0\]\.wd\]\)/,
+  '인쇄창 출고일 분포 조회가 전체 출고요일 기본값을 첫 요일 하나로 임의 축소하면 안 된다.',
+);
 assert.match(pageSource, /useState\('ko'\)/, '거래처 검색은 한글 입력이 기본이다.');
 assert.match(pageSource, /editHangulSearchBuffer/, '영문 키보드는 안전한 두벌식 한글 편집 경로를 사용한다.');
 assert.match(pageSource, /한글입력/, '거래처 검색 입력 모드를 표시한다.');

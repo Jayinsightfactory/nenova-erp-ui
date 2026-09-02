@@ -4233,10 +4233,8 @@ export default function Estimate() {
           });
         const days = WEEKDAYS.filter(w => map.has(w)).map(w => map.get(w));
         setPrintDayInfo({ loading: false, days });
-        // 출고일이 2개 이상(주광 등)이면 기본 '전체 요일' 대신 첫 출고요일만 선택 — 합산 인쇄 방지
-        if (ships.length === 1 && days.length >= 1) {
-          setActiveWD(prev => (prev.size === 7 ? new Set([days[0].wd]) : prev));
-        }
+        // 출고일 분포는 안내만 한다. 인쇄창을 열었다는 이유로 사용자가 선택한
+        // 전체 출고요일 기본값을 첫 요일 하나로 임의 변경하지 않는다.
       } catch (_) {
         if (!cancelled) {
           setPrintDayInfo({ loading: false, days: [] });
