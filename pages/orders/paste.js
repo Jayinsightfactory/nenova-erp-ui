@@ -22,7 +22,7 @@ import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 import { buildStockNoteChangeEntry, resolveInitialStockBaseWeek } from '../../lib/pasteStockNote';
 import { resolveStockProjectionIdentity, summarizeStockProjection } from '../../lib/pasteStockProjection';
-import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence } from '../../hooks/useErpEditPresence';
+import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence, takeoverErpEditPresence } from '../../hooks/useErpEditPresence';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
 const CUSTOMER_MAPPING_KEY = 'nenova_paste_customer_mappings';
@@ -1233,8 +1233,9 @@ export default function PasteOrderPage() {
       let ok = response.ok && data.success !== false;
       // 사용자가 [Claude로 분석]을 명시적으로 다시 실행한 경우에는 최신
       // 주문·분배를 화면에 다시 읽은 것이다. 이전 요청이 서버 중단으로 작업권을
-      // 반납하지 못해 같은 브라우저의 stale lease가 남아 있으면, 그 lease만 현재
-      // 원장 지문으로 갱신한다. 다른 사용자/다른 탭의 lease는 절대 수용하지 않는다.
+      // 반납하지 못해 같은 사용자 계정의 오래된 브라우저 lease가 남아 있으면,
+      // 명시적 분석을 실행한 이 브라우저가 그 lease를 넘겨받고 최신 원장 지문을
+      // 새 기준으로 확정한다. 다른 사용자 lease는 절대 수용하지 않는다.
       const refreshKey = `${scopeYear}:${week}:${custKey}`;
       const explicitRefreshRequested = pasteExplicitRefreshCustKeysRef.current.has(refreshKey);
       let explicitBaselineAccepted = false;
@@ -1250,6 +1251,26 @@ export default function PasteOrderPage() {
             explicitBaselineAccepted = ok;
           } catch (error) {
             data = error?.data || { success: false, error: error?.message || '최신 기준수량 반영 실패' };
+            ok = false;
+          }
+        } else if (lease.ownedBySameUser && lease.active) {
+          // sessionStorage client id가 바뀐 새 탭/브라우저에는 lease token이
+          // 공개되지 않는다. 분석은 사용자의 명시적 최신화 의도이므로 같은
+          // 로그인 계정에 한해서만 takeover → refresh를 수행한다. takeover
+          // 자체는 서버에서 다른 사용자 lease를 계속 거부한다.
+          try {
+            const taken = await takeoverErpEditPresence({
+              year: scopeYear, week, custKey, pageCode: 'paste', clientId: pasteClientId,
+            });
+            const token = taken?.lease?.token || '';
+            if (!token) throw new Error('같은 계정의 기존 작업권을 넘겨받지 못했습니다.');
+            data = await refreshErpEditPresence({
+              year: scopeYear, week, custKey, pageCode: 'paste', clientId: pasteClientId, token,
+            });
+            ok = data?.success !== false;
+            explicitBaselineAccepted = ok;
+          } catch (error) {
+            data = error?.data || { success: false, error: error?.message || '기존 작업권 최신화 실패' };
             ok = false;
           }
         } else if (!lease.active) {

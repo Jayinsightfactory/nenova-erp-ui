@@ -48,7 +48,7 @@
       "heartbeatSeconds": 20,
       "baseline": "BaselineDigest + Revision are server-authoritative; heartbeat preserves baseline and explicit refresh replaces it",
       "digestSplit": "content digest excludes ShipmentMaster.isFix/ShipmentDetail.isFix; fixStatusDigest tracks positive-out detail confirmation separately",
-      "conflict": "different UserID or browser clientId returns ERP_EDIT_LOCKED; same UserID may explicitly take over and invalidates the previous tab token",
+      "conflict": "different UserID or browser clientId returns ERP_EDIT_LOCKED during ordinary acquire; an explicit user action may take over a lease from the same UserID, invalidating the previous tab token and establishing the new lock-bound snapshot as baseline",
       "stableScope": "estimate uses the parent week only, so unordered sub-week aggregation cannot reacquire then release the same lease",
       "tokenRotation": "every explicit acquire/takeover rotates LeaseToken so late cleanup from the previous render cannot expire the renewed lease"
     },
@@ -85,9 +85,9 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "estimate": "preserve",
-      "sidecar": "only an active WebErpEditLease owned by the same user and browser client",
-      "sequence": "user explicitly re-runs existing-match analysis -> latest order/distribution rows are loaded -> if the same browser still owns a stale lease left by an interrupted request, refresh that lease baseline -> enable a new guarded preflight",
-      "lockSafety": "never refresh, accept, or take over a lease owned by another user or browser client"
+      "sidecar": "only an active WebErpEditLease owned by the same user; same-client leases refresh, different-client leases are explicitly taken over then refreshed",
+      "sequence": "user explicitly re-runs existing-match analysis -> latest order/distribution rows are loaded -> if the same browser still owns a stale lease left by an interrupted request, refresh that lease baseline; if a different browser client of the same user owns it, takeover with a lock-bound current snapshot then refresh -> enable a new guarded preflight",
+      "lockSafety": "never refresh, accept, or take over a lease owned by another user or browser client without same-user explicit reanalysis intent"
     },
     {
       "name": "DEPLOYMENT_SAFE_SAVE_RECOVERY",

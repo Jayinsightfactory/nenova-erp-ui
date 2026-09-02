@@ -112,8 +112,12 @@ async function main() {
   assert.equal(sameUserBlocked?.code, 'ERP_EDIT_LOCKED');
   assert.equal(sameUserBlocked.lease.ownedBySameUser, true, '같은 계정의 다른 창임을 구분해야 합니다.');
   const oldMineToken = mine.lease.leaseToken;
+  // A stale baseline left by an interrupted tab must not be carried into an
+  // explicit same-user takeover; the new tab starts from its lock-bound read.
+  erpRevision += 1;
   const takenBySameUser = await presence.acquireErpEditLease(fakeQuery, scope, alice, { clientId: 'A-OTHER', pageCode: 'estimate', takeover: true });
   assert.notEqual(takenBySameUser.lease.leaseToken, oldMineToken, '넘겨받기는 기존 창 토큰을 무효화해야 합니다.');
+  assert.equal(lease.get('2026/32/7').BaselineDigest, takenBySameUser.snapshot.digest, '같은 사용자 takeover는 이전 stale 기준값이 아니라 새 탭이 읽은 스냅샷을 기준으로 해야 합니다.');
   await assert.rejects(
     () => presence.releaseErpEditLease(fakeQuery, scope, alice, { leaseToken: oldMineToken, clientId: 'A' }),
     { code: 'ERP_EDIT_LOCKED' },

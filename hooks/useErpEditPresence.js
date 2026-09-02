@@ -103,6 +103,14 @@ export async function acquireErpEditPresence({ year, week, custKey, pageCode, cl
   return requestPresence('POST', { action: 'acquire', year, week, custKey, pageCode, clientId, expectedDigest });
 }
 
+// Explicit user action only. This is intentionally separate from acquire so a
+// page can decide when taking over a lease held by the same logged-in user is
+// warranted (for example, after the user re-runs paste analysis in a new tab).
+// The server still rejects a different user's lease and rotates the token.
+export async function takeoverErpEditPresence({ year, week, custKey, pageCode, clientId = makeClientId() }) {
+  return requestPresence('POST', { action: 'takeover', year, week, custKey, pageCode, clientId });
+}
+
 export async function releaseErpEditPresence({ year, week, custKey, pageCode, clientId = makeClientId(), token }) {
   if (!token) return null;
   return requestPresence('POST', { action: 'release', year, week, custKey, pageCode, clientId, token });
