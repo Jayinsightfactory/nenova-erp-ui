@@ -150,6 +150,8 @@ async function main() {
     '재분석 revision은 작업 상태 조회 effect를 실제로 다시 실행해야 한다.');
   assert.match(pasteSource, /pasteExplicitRefreshCustKeysRef[\s\S]*lease\.ownedByMe && lease\.token[\s\S]*refreshErpEditPresence/,
     '명시적 재분석은 같은 브라우저가 반납하지 못한 stale lease만 최신 원장 지문으로 갱신해야 한다.');
+  assert.match(pasteSource, /explicitBaselineAccepted[\s\S]*!lease\.active[\s\S]*stale: explicitBaselineAccepted[\s\S]*\? false/,
+    '활성 lease가 없는 명시적 재분석은 이전 React stale 플래그를 다시 합치지 않아야 한다.');
   assert.match(pasteSource, /new Set\(applied[\s\S]*selectedYearFromWeek\(effectiveWeek\)[\s\S]*setPastePresenceRefreshRevision/,
     '재분석 기준 갱신 대상은 새 분석 결과의 선택 연도·차수·업체로 한정해야 한다.');
   assert.match(adjustSource, /sameNameAlternatives[\s\S]*BoxQuantity[\s\S]*BunchQuantity[\s\S]*SteamQuantity/,
