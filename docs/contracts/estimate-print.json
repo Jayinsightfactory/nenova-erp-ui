@@ -11,6 +11,7 @@
     "lib/estimatePrintExcel.js",
     "lib/estimateInvariants.js",
     "lib/shipmentDescr.js",
+    "__tests__/estimateManagerFilter.test.js",
     "__tests__/estimatePrintContract.test.js",
     "__tests__/estimateInvariants.test.js"
   ],
@@ -33,6 +34,14 @@
       "sideEffect": "read-only. Default targets are Customer.Manager matches that already have ShipmentMaster in the selected OrderYear + major week. Other same-week distributed customers can be opted in."
     },
     {
+      "name": "ESTIMATE_LIST_FILTER_BY_MANAGER_CUSTOMER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimateRows": "client-side filtering only over the already year + major-week scoped estimate shipment list; manager selection limits customer options, customer selection opens the existing detail path",
+      "source": "Customer.Manager returned by the existing estimate list query; CustKey returned by the same scoped rows",
+      "sideEffect": "read-only; no API mutation and no Order, Shipment, ShipmentDate, Estimate, Stock write. Left list stays totalAmount descending; print output order remains manager then customer."
+    },
+    {
       "name": "ESTIMATE_PRINT_SUPPLY_NET",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -53,6 +62,7 @@
     "__tests__/estimateInvariants.test.js",
     "__tests__/estimatePrintFormats.test.js",
     "__tests__/estimateManagerPrint.test.js",
+    "__tests__/estimateManagerFilter.test.js",
     "__tests__/exeEstimateViewSql.test.js",
     "__tests__/erpContractManifest.test.js"
   ],

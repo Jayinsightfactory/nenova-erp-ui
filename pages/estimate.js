@@ -71,7 +71,15 @@ import {
   buildEstimatePrintWorksheet,
   downloadEstimatePrintWorkbook,
 } from '../lib/estimatePrintExcel';
-import { getEstimateShipmentManager, sortEstimateShipmentsForList, sortEstimateShipmentsForPrint } from '../lib/estimatePrintOrder';
+import {
+  filterEstimateShipmentsByCustomer,
+  filterEstimateShipmentsByManager,
+  getEstimateShipmentManager,
+  listEstimateShipmentCustomers,
+  listEstimateShipmentManagers,
+  sortEstimateShipmentsForList,
+  sortEstimateShipmentsForPrint,
+} from '../lib/estimatePrintOrder';
 import {
   estimateShipmentGroupId,
   filterRecentParentWeeks,
@@ -1104,6 +1112,8 @@ export default function Estimate() {
   const [selectedGroups, setSelectedGroups] = useState(new Set()); // 다중 선택 (전체선택 + 인쇄용)
   const [selectedId, setSelectedId] = useState(null);
   const [selectedCustKey, setSelectedCustKey] = useState(null);
+  const [managerListFilter, setManagerListFilter] = useState('');
+  const [customerListFilter, setCustomerListFilter] = useState('');
   const estimateSelectionStateRef = useRef(createEstimateSelectionState());
   const renderedSelectionScopeRef = useRef(createEstimateSelectionScope());
 
@@ -3081,10 +3091,39 @@ export default function Estimate() {
   }, [previewCapture]);
 
   // 좌측 출고 목록에 실제로 보이는 업체 = 담당자별 출력 모달의 후보와 동일해야 한다.
-  const visibleShipments = useMemo(
+  const recentShipments = useMemo(
     () => filterRecentParentWeeks(shipments, recentOnly),
     [shipments, recentOnly],
   );
+  const managerOptions = useMemo(
+    () => listEstimateShipmentManagers(recentShipments),
+    [recentShipments],
+  );
+  const managerShipments = useMemo(
+    () => filterEstimateShipmentsByManager(recentShipments, managerListFilter),
+    [recentShipments, managerListFilter],
+  );
+  const customerOptions = useMemo(
+    () => listEstimateShipmentCustomers(managerShipments),
+    [managerShipments],
+  );
+  const visibleShipments = useMemo(
+    () => filterEstimateShipmentsByCustomer(managerShipments, customerListFilter),
+    [managerShipments, customerListFilter],
+  );
+
+  useEffect(() => {
+    if (recentShipments.length > 0 && managerListFilter && !managerOptions.includes(managerListFilter)) {
+      setManagerListFilter('');
+      setCustomerListFilter('');
+    }
+  }, [managerListFilter, managerOptions, recentShipments.length]);
+
+  useEffect(() => {
+    if (managerShipments.length > 0 && customerListFilter && !customerOptions.some(row => Number(row.CustKey) === Number(customerListFilter))) {
+      setCustomerListFilter('');
+    }
+  }, [customerListFilter, customerOptions, managerShipments.length]);
 
   // 전체선택 체크박스는 "보이는 업체 중 몇 개가 선택됐는지"로 판단해야 한다.
   // selectedGroups.size 로 비교하면 recentOnly 로 숨은 선택 때문에 상태가 어긋난다.
@@ -4444,8 +4483,58 @@ export default function Estimate() {
           style={{ width:22, height:22, padding:0, fontSize:11 }}
           onClick={weekNext} title="다음 차수">▶</button>
 
-        {/* 업체 검색 드롭다운 */}
-        <span className="filter-label">거래처</span>
+        <span className="filter-label">담당자</span>
+        <select
+          className="filter-input"
+          aria-label="담당자 선택"
+          value={managerListFilter}
+          onChange={e => {
+            const nextManager = e.target.value;
+            setManagerListFilter(nextManager);
+            setCustomerListFilter('');
+            setSelectedGroups(new Set());
+            if (selectedShip && nextManager && getEstimateShipmentManager(selectedShip) !== nextManager) {
+              setSelectedId(null);
+              setSelectedCustKey(null);
+              setItems([]);
+              setMismatch(null);
+            }
+          }}
+          style={{ width: 118, fontWeight: 700 }}
+        >
+          <option value="">전체 담당자</option>
+          {managerOptions.map(manager => (
+            <option key={manager} value={manager}>{manager}</option>
+          ))}
+        </select>
+
+        <span className="filter-label">업체</span>
+        <select
+          className="filter-input"
+          aria-label="업체 선택"
+          value={customerListFilter}
+          onChange={e => {
+            const nextCustKey = e.target.value;
+            setCustomerListFilter(nextCustKey);
+            setSelectedGroups(new Set());
+            if (!nextCustKey) return;
+            const target = sortEstimateShipmentsForList(managerShipments)
+              .find(row => Number(row.CustKey) === Number(nextCustKey));
+            if (target) selectShipment(estimateShipmentGroupId(target), target.CustKey, target.ShipmentKeys);
+          }}
+          disabled={customerOptions.length === 0}
+          style={{ width: 174, fontWeight: customerListFilter ? 700 : 400 }}
+        >
+          <option value="">전체 업체 ({customerOptions.length})</option>
+          {customerOptions.map(customer => (
+            <option key={customer.CustKey} value={customer.CustKey}>
+              {customer.CustName}
+            </option>
+          ))}
+        </select>
+
+        {/* 업체 검색 드롭다운 — 담당자와 무관한 업체도 직접 찾는 보조 경로 */}
+        <span className="filter-label">업체 검색</span>
         <div style={{ position: 'relative' }} ref={custDropRef}>
           <input
             className={`filter-input${custInputMode === 'ko' ? ' ime-ko' : ''}`}
