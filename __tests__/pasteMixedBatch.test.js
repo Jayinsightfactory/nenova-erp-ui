@@ -126,6 +126,10 @@ async function main() {
   const currentSource = fs.readFileSync(path.join(__dirname, '..', 'lib/shipmentAdjustmentCurrent.js'), 'utf8');
   assert.match(pasteSource, /\/api\/shipment\/adjust\?type=current/,
     '화면 예상값은 주문목록용 custItems가 아니라 실제 adjust 마스터 선택 조회를 사용해야 한다.');
+  assert.match(pasteSource, /shipmentDiagnostics[\s\S]*전산키 P#[\s\S]*동일품명 실제분배/,
+    '취소 미리보기 오류는 선택 원장키와 raw 단위수량 및 동일품명 실제 분배 후보를 실행 전에 표시해야 한다.');
+  assert.match(adjustSource, /sameNameAlternatives[\s\S]*BoxQuantity[\s\S]*BunchQuantity[\s\S]*SteamQuantity/,
+    '현재분배 GET은 자동 재매칭 없이 raw 단위수량과 동일품명 양수 후보를 읽기 전용으로 반환해야 한다.');
   assert.match(adjustSource, /loadShipmentAdjustmentCurrent\(query,[\s\S]*lock: false/,
     '예상값 GET은 공용 현재 분배 조회를 사용해야 한다.');
   assert.match(adjustSource, /loadShipmentAdjustmentCurrent\(tQ,[\s\S]*lock: true/,
