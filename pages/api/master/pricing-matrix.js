@@ -1,17 +1,19 @@
 // pages/api/master/pricing-matrix.js
 // 업체 × 품목 단가 매트릭스 조회/저장
 
-import { query, sql } from '../../../lib/db';
+import { query, sql, withTransaction } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { useExeParityFlag } from '../../../lib/exeParity/common.js';
 import { sqlCustomerProdCostSelect } from '../../../lib/exeCustomerProdCostSql.js';
 import { RECENT_CUSTOMER_SQL, RECENT_PRODUCT_SQL } from '../../../lib/pricingCustomerSelection.js';
+import { normalizePricingChanges } from '../../../lib/pricingMatrix.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method === 'GET')  return await getMatrix(req, res);
   if (req.method === 'PUT')  return await saveMatrix(req, res);
   return res.status(405).end();
 });
+
 
 // GET: 업체 목록 + 품목 목록 + 단가 매트릭스
 async function getMatrix(req, res) {
@@ -127,44 +129,32 @@ async function getMatrix(req, res) {
 // PUT: 단가 일괄 저장 (여러 업체 × 여러 품목)
 async function saveMatrix(req, res) {
   try {
-    const { changes } = req.body;
-    // changes: [{ custKey, prodKey, autoKey?, cost }]
-    if (!Array.isArray(changes) || changes.length === 0) {
-      return res.status(400).json({ success: false, error: 'changes 배열 필요' });
-    }
-    // 중복 custKey+prodKey 제거 (MERGE 오류 방지)
-    const seen = new Set();
-    const valid = changes
-      .map(ch => ({ ck: parseInt(ch.custKey), pk: parseInt(ch.prodKey), cost: parseFloat(ch.cost) || 0 }))
-      .filter(ch => {
-        if (!ch.ck || !ch.pk) return false;
-        const k = `${ch.ck}_${ch.pk}`;
-        if (seen.has(k)) return false;
-        seen.add(k); return true;
-      });
+    const valid = normalizePricingChanges(req.body?.changes);
 
     // MSSQL 파라미터 최대 2100개 → 파라미터 3개/항목 → 배치당 최대 600항목
     const BATCH = 600;
-    for (let i = 0; i < valid.length; i += BATCH) {
-      const batch = valid.slice(i, i + BATCH);
-      const values = batch.map((_, j) => `(@ck${j},@pk${j},@cost${j})`).join(',');
-      const params = {};
-      batch.forEach((ch, j) => {
-        params[`ck${j}`]   = { type: sql.Int,   value: ch.ck };
-        params[`pk${j}`]   = { type: sql.Int,   value: ch.pk };
-        params[`cost${j}`] = { type: sql.Float, value: ch.cost };
-      });
-      await query(
-        `MERGE CustomerProdCost AS t
-         USING (VALUES ${values}) AS s(CustKey, ProdKey, Cost)
-         ON t.CustKey = s.CustKey AND t.ProdKey = s.ProdKey
-         WHEN MATCHED THEN UPDATE SET t.Cost = s.Cost
-         WHEN NOT MATCHED THEN INSERT (CustKey, ProdKey, Cost) VALUES (s.CustKey, s.ProdKey, s.Cost);`,
-        params
-      );
-    }
+    await withTransaction(async (tQ) => {
+      for (let i = 0; i < valid.length; i += BATCH) {
+        const batch = valid.slice(i, i + BATCH);
+        const values = batch.map((_, j) => `(@ck${j},@pk${j},@cost${j})`).join(',');
+        const params = {};
+        batch.forEach((ch, j) => {
+          params[`ck${j}`]   = { type: sql.Int,   value: ch.ck };
+          params[`pk${j}`]   = { type: sql.Int,   value: ch.pk };
+          params[`cost${j}`] = { type: sql.Float, value: ch.cost };
+        });
+        await tQ(
+          `MERGE CustomerProdCost WITH (HOLDLOCK) AS t
+           USING (VALUES ${values}) AS s(CustKey, ProdKey, Cost)
+           ON t.CustKey = s.CustKey AND t.ProdKey = s.ProdKey
+           WHEN MATCHED THEN UPDATE SET t.Cost = s.Cost
+           WHEN NOT MATCHED THEN INSERT (CustKey, ProdKey, Cost) VALUES (s.CustKey, s.ProdKey, s.Cost);`,
+          params
+        );
+      }
+    });
     return res.status(200).json({ success: true, saved: valid.length });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.status || 500).json({ success: false, code: err.code, error: err.message });
   }
 }

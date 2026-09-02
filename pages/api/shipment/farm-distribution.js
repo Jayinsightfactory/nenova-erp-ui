@@ -30,7 +30,7 @@ function text(value, name) {
   return v;
 }
 
-async function resolveDetail({ sdetailKey, year, week, custKey, prodKey }, q = query) {
+async function resolveDetail({ sdetailKey, year, week, custKey, prodKey }, q = query, { lock = false } = {}) {
   const params = {
     dk: { type: sql.Int, value: Number(sdetailKey || 0) },
     yr: { type: sql.NVarChar, value: year },
@@ -45,8 +45,8 @@ async function resolveDetail({ sdetailKey, year, week, custKey, prodKey }, q = q
     `SELECT TOP 1 sd.SdetailKey, sd.ProdKey, sm.CustKey, sm.OrderYear, sm.OrderWeek,
             ISNULL(sd.OutQuantity,0) AS OutQuantity,
             ISNULL(sm.isFix,0) AS MasterFix, ISNULL(sd.isFix,0) AS DetailFix
-       FROM ShipmentDetail sd
-       JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+       FROM ShipmentDetail sd ${lock ? 'WITH (UPDLOCK, HOLDLOCK)' : ''}
+       JOIN ShipmentMaster sm ${lock ? 'WITH (UPDLOCK, HOLDLOCK)' : ''} ON sm.ShipmentKey=sd.ShipmentKey
       WHERE ${where} AND ISNULL(sm.isDeleted,0)=0
       ORDER BY ISNULL(sm.isFix,0) DESC, sd.SdetailKey ASC`,
     params,
@@ -159,6 +159,15 @@ async function saveFarmDistribution(req, res) {
     }
 
     const result = await withTransaction(async (tQ) => {
+      const lockedDetail = await resolveDetail(
+        { sdetailKey, year, week, custKey, prodKey },
+        tQ,
+        { lock: true },
+      );
+      if (!lockedDetail || Number(lockedDetail.MasterFix) === 1 || Number(lockedDetail.DetailFix) === 1) {
+        throw new Error('저장 직전 출고가 변경되었거나 확정되었습니다. 새로고침 후 다시 시도하세요.');
+      }
+      assertFarmAssignmentTotal(assignments, lockedDetail.OutQuantity);
       await tQ(
         'DELETE FROM ShipmentFarm WHERE SdetailKey=@dk',
         { dk: { type: sql.Int, value: sdetailKey } },
@@ -185,7 +194,17 @@ async function saveFarmDistribution(req, res) {
           dk: { type: sql.Int, value: sdetailKey },
         },
       );
-      return { count: assignments.length, descr };
+      const verified = await tQ(
+        `SELECT COUNT(*) AS FarmCount, ISNULL(SUM(ShipmentQuantity),0) AS FarmQuantity
+           FROM ShipmentFarm WITH (HOLDLOCK) WHERE SdetailKey=@dk`,
+        { dk: { type: sql.Int, value: sdetailKey } },
+      );
+      const farmCount = Number(verified.recordset?.[0]?.FarmCount || 0);
+      const farmQuantity = Number(verified.recordset?.[0]?.FarmQuantity || 0);
+      if (farmCount !== assignments.length || Math.abs(farmQuantity - Number(lockedDetail.OutQuantity || 0)) > 0.0001) {
+        throw new Error('농장배정 저장 사후검증에 실패하여 전체 작업을 취소했습니다.');
+      }
+      return { count: assignments.length, descr, verified: true, farmQuantity };
     });
 
     return res.status(200).json({
