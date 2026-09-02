@@ -27,8 +27,12 @@ async function main() {
   ]);
   assert.deepEqual(customers.map(row => [row.CustKey, row.totalAmount]), [[1, 300], [2, 250]], '중복 업체는 합산 매출순으로 한 번만 표시해야 한다.');
   const pageSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'estimate.js'), 'utf8');
-  assert.match(pageSource, /aria-label="담당자 선택"/);
-  assert.match(pageSource, /aria-label="업체 선택"/);
+  assert.match(pageSource, /aria-label="담당자 선택" role="group"[\s\S]*\['', \.\.\.managerOptions\]\.map/,
+    '담당자는 드롭다운이 아니라 전체+담당자 버튼이 기본 펼침 상태여야 한다.');
+  assert.match(pageSource, /aria-label="업체 선택" role="group"[\s\S]*customerOptions\.map/,
+    '업체는 선택 담당자 범위의 버튼이 기본 펼침 상태여야 한다.');
+  assert.doesNotMatch(pageSource, /<select[\s\S]{0,120}aria-label="담당자 선택"/);
+  assert.doesNotMatch(pageSource, /<select[\s\S]{0,120}aria-label="업체 선택"/);
   assert.match(pageSource, /selectShipment\(estimateShipmentGroupId\(target\), target\.CustKey, target\.ShipmentKeys\)/, '업체 선택 즉시 기존 상세 조회 경로를 호출해야 한다.');
   console.log('estimate manager filter tests passed');
 }
