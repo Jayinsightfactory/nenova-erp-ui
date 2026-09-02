@@ -144,6 +144,10 @@ async function main() {
     '취소 미리보기 오류는 선택 원장키와 raw 단위수량 및 동일품명 실제 분배 후보를 실행 전에 표시해야 한다.');
   assert.match(pasteSource, /setCustMatch[\s\S]*pasteShipmentLookupProdKeys\(order, matched\)[\s\S]*pasteShipmentLookupProdKeys\(order\)/,
     '업체 선택 시 기존 주문 유무와 관계없이 붙여넣은 품목까지 현재 분배 조회 대상에 포함해야 한다.');
+  assert.match(pasteSource, /setOrders\(applied\);[\s\S]*setPastePresenceByCust\(\{\}\);[\s\S]*setPastePresenceRefreshRevision\(prev => prev \+ 1\)/,
+    '명시적 재분석은 같은 업체·차수에서도 이전 STALE 경고를 비우고 최신 서버 지문을 다시 조회해야 한다.');
+  assert.match(pasteSource, /pastePresenceRefreshRevision\]\);/,
+    '재분석 revision은 작업 상태 조회 effect를 실제로 다시 실행해야 한다.');
   assert.match(adjustSource, /sameNameAlternatives[\s\S]*BoxQuantity[\s\S]*BunchQuantity[\s\S]*SteamQuantity/,
     '현재분배 GET은 자동 재매칭 없이 raw 단위수량과 동일품명 양수 후보를 읽기 전용으로 반환해야 한다.');
   assert.match(adjustSource, /loadShipmentAdjustmentCurrent\(query,[\s\S]*lock: false/,
