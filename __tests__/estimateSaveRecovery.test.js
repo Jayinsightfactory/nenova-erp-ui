@@ -84,6 +84,40 @@ const retried = await runRecoverableEstimateSave({
 assert.equal(retryRequests, 2, '입력 전 상태일 때만 한 번 다시 저장한다');
 assert.equal(retried.recovered, true);
 
+let repeatedDeployRequests = 0;
+let repeatedDeployReconciles = 0;
+const repeatedDeploy = await runRecoverableEstimateSave({
+  request: async () => {
+    repeatedDeployRequests += 1;
+    if (repeatedDeployRequests < 4) throw Object.assign(new Error('deploying again'), { status: 502 });
+    return { success: true, changedCount: 1 };
+  },
+  probe: async () => true,
+  reconcile: async () => {
+    repeatedDeployReconciles += 1;
+    return { status: 'unchanged' };
+  },
+  delays: [0],
+});
+assert.equal(repeatedDeployRequests, 4, '연속 배포로 복구 직후 다시 끊겨도 안전 대조 후 재처리를 이어간다');
+assert.equal(repeatedDeployReconciles, 3, '각 실패 뒤 원장값이 입력 전 상태인지 다시 확인한다');
+assert.equal(repeatedDeploy.recovered, true);
+
+let finalResponseLossRequests = 0;
+const finalResponseLoss = await runRecoverableEstimateSave({
+  request: async () => {
+    finalResponseLossRequests += 1;
+    throw Object.assign(new Error('response lost'), { status: 504 });
+  },
+  probe: async () => true,
+  reconcile: async () => finalResponseLossRequests === 4
+    ? { status: 'applied', data: { success: true, changedCount: 1 } }
+    : { status: 'unchanged' },
+  delays: [0],
+});
+assert.equal(finalResponseLossRequests, 4);
+assert.equal(finalResponseLoss.alreadyApplied, true, '마지막 재요청의 응답만 유실돼도 중복 POST 없이 반영 완료로 판정한다');
+
 let businessRequests = 0;
 await assert.rejects(() => runRecoverableEstimateSave({
   request: async () => {

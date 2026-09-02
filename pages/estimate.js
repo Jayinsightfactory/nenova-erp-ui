@@ -1909,7 +1909,7 @@ export default function Estimate() {
     } else if (state.phase === 'waiting') {
       label = `서버 연결 확인 중 — ${state.attempt}번째 확인`;
     } else if (state.phase === 'retrying') {
-      label = '서버 복구 확인 — 아직 저장 전 상태여서 한 번 자동 재처리합니다.';
+      label = `서버 복구 확인 — 아직 저장 전 상태입니다. 안전 대조 후 자동 재처리합니다. (${state.requestNo}/${state.maxRequests})`;
     } else if (state.phase === 'already-applied') {
       label = '서버 복구 확인 — 응답만 늦었고 입력값은 이미 정상 반영됐습니다.';
     }
