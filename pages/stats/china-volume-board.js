@@ -590,13 +590,16 @@ export default function ChinaVolumeBoard() {
     const appliedCustomers = customers.filter(customer => chinaRows.some(row => Number(cells[`${customer.custKey}:${row.prodKey}`]?.quantity || 0) > 0));
     const appliedRows = chinaRows.filter(row => appliedCustomers.some(customer => Number(cells[`${customer.custKey}:${row.prodKey}`]?.quantity || 0) > 0));
     const sheet = XLSXStyled.utils.aoa_to_sheet(buildChinaVolumeWorkbookRows({ year, week, rows: appliedRows, customers: appliedCustomers, cells, appliedOnly: true, customerDays }));
-    sheet['!cols'] = [{ wch: 48 }, ...appliedCustomers.map(() => ({ wch: 16 }))];
+    // 마지막 거래처 열 다음에 주문·입고·잔량·품목(반복) 4개 열이 붙는다.
+    const summaryColCount = 4;
+    const lastColIndex = appliedCustomers.length + summaryColCount;
+    sheet['!cols'] = [{ wch: 48 }, ...appliedCustomers.map(() => ({ wch: 16 })), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 48 }];
     sheet['!rows'] = [{ hpt: 26 }, { hpt: 20 }, { hpt: 34 }, ...appliedRows.map(() => ({ hpt: 24 }))];
-    sheet['!autofilter'] = { ref: `A3:${XLSX.utils.encode_col(appliedCustomers.length)}${appliedRows.length + 3}` };
+    sheet['!autofilter'] = { ref: `A3:${XLSX.utils.encode_col(lastColIndex)}${appliedRows.length + 3}` };
     sheet['!freeze'] = { xSplit: 1, ySplit: 3 };
     const border = { top: { style: 'thin', color: { rgb: 'DDE2E8' } }, bottom: { style: 'thin', color: { rgb: 'DDE2E8' } }, left: { style: 'thin', color: { rgb: 'DDE2E8' } }, right: { style: 'thin', color: { rgb: 'DDE2E8' } } };
     for (let rowIndex = 0; rowIndex < appliedRows.length + 3; rowIndex += 1) {
-      for (let colIndex = 0; colIndex <= appliedCustomers.length; colIndex += 1) {
+      for (let colIndex = 0; colIndex <= lastColIndex; colIndex += 1) {
         const address = XLSXStyled.utils.encode_cell({ r: rowIndex, c: colIndex });
         if (!sheet[address]) continue;
         const isTitle = rowIndex === 0;
