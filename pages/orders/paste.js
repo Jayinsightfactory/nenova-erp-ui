@@ -1231,12 +1231,14 @@ export default function PasteOrderPage() {
       const response = await fetch(`/api/erp/edit-presence?${query.toString()}`, { credentials: 'same-origin' });
       let data = await response.json().catch(() => ({}));
       let ok = response.ok && data.success !== false;
-      // 사용자가 [기존 매칭으로 분석]을 명시적으로 다시 실행한 경우에는 최신
+      // 사용자가 [Claude로 분석]을 명시적으로 다시 실행한 경우에는 최신
       // 주문·분배를 화면에 다시 읽은 것이다. 이전 요청이 서버 중단으로 작업권을
       // 반납하지 못해 같은 브라우저의 stale lease가 남아 있으면, 그 lease만 현재
       // 원장 지문으로 갱신한다. 다른 사용자/다른 탭의 lease는 절대 수용하지 않는다.
       const refreshKey = `${scopeYear}:${week}:${custKey}`;
-      if (ok && pasteExplicitRefreshCustKeysRef.current.has(refreshKey)) {
+      const explicitRefreshRequested = pasteExplicitRefreshCustKeysRef.current.has(refreshKey);
+      let explicitBaselineAccepted = false;
+      if (ok && explicitRefreshRequested) {
         pasteExplicitRefreshCustKeysRef.current.delete(refreshKey);
         const lease = data?.lease || {};
         if (lease.ownedByMe && lease.token) {
@@ -1245,27 +1247,36 @@ export default function PasteOrderPage() {
               year: scopeYear, week, custKey, pageCode: 'paste', clientId: pasteClientId, token: lease.token,
             });
             ok = data?.success !== false;
+            explicitBaselineAccepted = ok;
           } catch (error) {
             data = error?.data || { success: false, error: error?.message || '최신 기준수량 반영 실패' };
             ok = false;
           }
+        } else if (!lease.active) {
+          // 활성 작업권이 없으면 방금 GET한 현재 지문 자체가 다음 acquire의
+          // expectedDigest다. 이전 React 상태의 stale 플래그를 이어받지 않는다.
+          explicitBaselineAccepted = true;
         }
       }
-      return { custKey, data, ok };
+      return { custKey, data, ok, explicitBaselineAccepted };
     })).then(rows => {
       if (cancelled) return;
-      rows.forEach(({ custKey, data, ok }) => {
+      rows.forEach(({ custKey, data, ok, explicitBaselineAccepted }) => {
         if (ok) setPastePresenceByCust(prev => {
           const previous = prev[String(custKey)] || {};
           const scopeKey = `${scopeYear}:${week}:${custKey}`;
           const sameScope = previous.scopeKey === scopeKey;
-          const changedElsewhere = sameScope && !pasteSavingCustRef.current.has(String(custKey))
+          const changedElsewhere = !explicitBaselineAccepted && sameScope && !pasteSavingCustRef.current.has(String(custKey))
             && previous.digest && data?.digest && previous.digest !== data.digest;
           const lease = data?.lease || {};
           return { ...prev, [String(custKey)]: {
             active: Boolean(lease.active), ownedByMe: Boolean(lease.ownedByMe), ownerName: lease.ownerName || '',
             pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', digest: data?.digest || (sameScope ? previous.digest : '') || '',
-            token: lease.token || (sameScope ? previous.token : '') || '', stale: Boolean(data?.stale) || changedElsewhere || (sameScope && previous.stale), loading: false, error: '', scopeKey,
+            token: lease.token || (sameScope ? previous.token : '') || '',
+            stale: explicitBaselineAccepted
+              ? false
+              : Boolean(data?.stale) || changedElsewhere || (sameScope && previous.stale),
+            loading: false, error: '', scopeKey,
           } };
         });
         else setPastePresenceByCust(prev => ({ ...prev, [String(custKey)]: { scopeKey: `${scopeYear}:${week}:${custKey}`, loading: false, error: data.error || '작업 상태 확인 실패', stale: false } }));

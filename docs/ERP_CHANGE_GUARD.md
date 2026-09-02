@@ -90,6 +90,8 @@ OrderYear + OrderWeek + CustKey + ProdKey
 `BaselineDigest`는 갱신하지 않아 `ERP_EDIT_STALE`가 반복됐다. 이제 명시적 재분석은
 최신 행을 읽은 뒤 **동일 사용자·동일 browser client가 소유한 활성 lease**만 refresh한다.
 다른 사용자/탭의 lease는 갱신하거나 인수하지 않으며 ERP 원장은 보존한다.
+활성 lease가 이미 만료된 경우에도 화면의 이전 `stale=true`를 새 GET 결과와 다시
+합치지 않고, `Claude로 분석`에서 읽은 현재 지문을 다음 저장 기준으로 사용한다.
 
 35-01 붙여넣기 변경은 취소 전체 후 추가 전체를 한 트랜잭션으로 실행하고 있었지만,
 확정 상태·현재 분배·환산·재고 부족·전산 View 노출을 실제 쓰기 트랜잭션을 시작한 뒤에야
