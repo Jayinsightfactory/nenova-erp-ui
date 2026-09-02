@@ -1,0 +1,46 @@
+{
+  "id": "stock-recalc",
+  "title": "관리자 전용 품목 재고 재계산 진단 계약",
+  "scope": [
+    "pages/api/dev/stock-recalc.js",
+    "__tests__/stockRecalcContract.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "STOCK_RECALC_DIAGNOSTIC",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stockHistory": "preserve",
+      "stockMaster": "read-range-selected-order-year",
+      "productStock": "read-range-selected-order-year",
+      "procedure": "usp_StockCalculation",
+      "authorization": "admin-authority-only"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025·2026에 같은 OrderWeek가 있어도 명시한 OrderYear의 StockMaster/ProductStock만 진단한다."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormStockView.cs",
+    "methods": ["Stock calculation snapshot range"],
+    "tables": ["StockMaster", "ProductStock", "Product"]
+  },
+  "requiredTests": [
+    "__tests__/stockRecalcContract.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "requiredTestFiles": [
+    "__tests__/stockRecalcContract.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

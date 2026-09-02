@@ -1,12 +1,13 @@
 import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
+import { isAdminUser } from '../../../lib/userAccess.js';
 
 function toInt(value, fallback = null) {
   const n = parseInt(value, 10);
   return Number.isFinite(n) ? n : fallback;
 }
 
-async function loadProductStock(prodKey, weekFrom, weekTo) {
+async function loadProductStock(prodKey, orderYear, weekFrom, weekTo) {
   const result = await query(
     `SELECT sm.StockKey, sm.OrderYear, sm.OrderWeek, sm.OrderYearWeek,
             sm.isFix AS StockMasterFix,
@@ -15,10 +16,12 @@ async function loadProductStock(prodKey, weekFrom, weekTo) {
             ISNULL(ps.Stock,0) AS ProductStock
        FROM StockMaster sm
        LEFT JOIN ProductStock ps ON ps.StockKey=sm.StockKey AND ps.ProdKey=@pk
-      WHERE sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
+      WHERE sm.OrderYear=@orderYear
+        AND sm.OrderWeek >= @weekFrom AND sm.OrderWeek <= @weekTo
       ORDER BY sm.OrderYearWeek, sm.OrderWeek, sm.StockKey`,
     {
       pk: { type: sql.Int, value: prodKey },
+      orderYear: { type: sql.NVarChar, value: orderYear },
       weekFrom: { type: sql.NVarChar, value: weekFrom },
       weekTo: { type: sql.NVarChar, value: weekTo },
     }
@@ -103,15 +106,25 @@ export default withAuth(async function handler(req, res) {
 
   const source = req.body || {};
   const prodKey = toInt(source.prodKey, null);
-  const orderYear = String(source.orderYear || '2026').trim();
+  // This endpoint executes the shared stock-calculation procedure and is an
+  // administrative repair tool. Never infer the year: a missing year could
+  // accidentally recalculate the same OrderWeek in the wrong ledger.
+  const orderYear = String(source.orderYear || '').trim();
   const orderWeek = String(source.orderWeek || '').trim();
   const weekFrom = String(source.weekFrom || orderWeek || '').trim();
   const weekTo = String(source.weekTo || orderWeek || '').trim();
   const confirm = String(source.confirm || '').trim();
   const uid = req.user?.userId || 'admin';
 
-  if (!prodKey || !orderWeek) {
-    return res.status(400).json({ success: false, error: 'prodKey, orderWeek required' });
+  if (!isAdminUser(req.user)) {
+    return res.status(403).json({ success: false, error: '관리자만 재고 재계산을 실행할 수 있습니다.' });
+  }
+
+  if (!prodKey || !orderYear || !orderWeek) {
+    return res.status(400).json({ success: false, error: 'orderYear, prodKey, orderWeek required' });
+  }
+  if (!/^\d{4}$/.test(orderYear)) {
+    return res.status(400).json({ success: false, error: 'orderYear must be a four-digit year' });
   }
   if (confirm !== 'usp_StockCalculation') {
     return res.status(400).json({
@@ -122,13 +135,13 @@ export default withAuth(async function handler(req, res) {
 
   try {
     await appLog('start', `${orderYear}/${orderWeek} pk=${prodKey} uid=${uid}`);
-    const before = await loadProductStock(prodKey, weekFrom, weekTo);
+    const before = await loadProductStock(prodKey, orderYear, weekFrom, weekTo);
     await appLog('before_loaded', `${orderYear}/${orderWeek} pk=${prodKey} rows=${before.length}`);
     const beforeProduct = await loadProduct(prodKey);
     await appLog('sp_start', `${orderYear}/${orderWeek} pk=${prodKey} live=${beforeProduct?.ProductStockLive ?? ''}`);
     const sp = await runStockCalculation({ orderYear, orderWeek, prodKey, uid });
     await appLog('sp_done', `${orderYear}/${orderWeek} pk=${prodKey} result=${sp.result ?? ''} msg=${sp.message || ''}`, Number(sp.result || 0) !== 0);
-    const after = await loadProductStock(prodKey, weekFrom, weekTo);
+    const after = await loadProductStock(prodKey, orderYear, weekFrom, weekTo);
     const afterProduct = await loadProduct(prodKey);
     await appLog('done', `${orderYear}/${orderWeek} pk=${prodKey} rows=${after.length} live=${afterProduct?.ProductStockLive ?? ''}`);
 

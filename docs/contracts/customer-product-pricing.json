@@ -1,0 +1,43 @@
+{
+  "id": "customer-product-pricing",
+  "title": "업체별 품목 지정단가 일괄 저장 계약",
+  "scope": [
+    "pages/api/master/pricing-matrix.js",
+    "lib/pricingMatrix.js",
+    "__tests__/pricingMatrixApi.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "SAVE_CUSTOMER_PRODUCT_COSTS",
+      "customerProdCost": "upsert-all-or-rollback",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouse": "preserve",
+      "stock": "preserve",
+      "invalidCost": "reject",
+      "explicitZero": "allow"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "CustomerProdCost는 EXE와 동일한 전역 업체+품목 단가이며 특정 연도·차수 원장을 조회하거나 변경하지 않는다. 전년도 동일 차수 주문·출고는 보존한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/pricingMatrixApi.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormCustomerProdCost.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormCustomerProdCost.cs",
+    "methods": ["btnSave_Click"],
+    "tables": ["CustomerProdCost"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

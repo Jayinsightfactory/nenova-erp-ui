@@ -1,6 +1,9 @@
 const assert = require('node:assert/strict');
 
 async function main() {
+  await import('./pricingMatrixApi.test.js');
+  await import('./stockRecalcContract.test.js');
+  await import('./shipmentDistributionVerification.test.js');
   const { loadManifests, validateManifest } = await import('../scripts/check-erp-contract-manifest.mjs');
   const manifests = loadManifests();
   assert.ok(manifests.length > 0, '기능 계약 manifest가 하나 이상 있어야 합니다.');

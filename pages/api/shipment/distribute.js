@@ -11,6 +11,7 @@ import { changeEntry, appendDescr } from '../../../lib/shipmentDescr';
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { distributeUnits, amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { resolveShipmentDistributionEditPolicy } from '../../../lib/shipmentDistributionEditPolicy.js';
+import { assertShipmentDistributionVerification } from '../../../lib/shipmentDistributionVerification.js';
 import { buildProdGroupWhere, loadShipmentProdGroups, parseProdGroupKey, prodGroupLabel } from '../../../lib/shipmentProdGroups.js';
 import { useExeParityFlag, normalizeOrderYearWeek2, resolveBeforeOrderYearWeek } from '../../../lib/exeParity/common.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
@@ -730,7 +731,7 @@ async function saveDistribute(req, res) {
     }
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
 
-    const shipmentKey = await withTransaction(async (tQuery) => {
+    const savedResult = await withTransaction(async (tQuery) => {
       await assertErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: Number(custKey) }, req.user, req.body);
       // Reuse the ERP-created master first. Nenova.exe does not appear to use WebCreated.
       const smResult = await tQuery(
@@ -743,6 +744,12 @@ async function saveDistribute(req, res) {
           week: { type: sql.NVarChar, value: week },
         }
       );
+      if (smResult.recordset.length > 1) {
+        throw new Error(`${week}차 업체 ${custKey}에 활성 출고 마스터가 중복되어 저장을 중단했습니다.`);
+      }
+      if (Number(smResult.recordset[0]?.isFix || 0) === 1) {
+        throw new Error(`${week}차 업체 ${custKey} 출고가 확정되어 저장할 수 없습니다.`);
+      }
 
       let sk;
       if (smResult.recordset.length === 0) {
@@ -851,10 +858,19 @@ async function saveDistribute(req, res) {
         await insertShipmentHistory(tQuery, targetSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
       }
       await advanceErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: Number(custKey) }, req.user, req.body);
-      return sk;
+      const verification = await verifyDistributedRow(tQuery, {
+        orderYear, orderWeek: week, custKey, prodKey, expectedQty: qty > 0 ? distributeUnits(qty, product).outQty : 0,
+      });
+      return { shipmentKey: sk, verification };
     });
 
-    return res.status(200).json({ success: true, shipmentKey, message: '출고 분배 저장 완료' });
+    return res.status(200).json({
+      success: true,
+      shipmentKey: savedResult.shipmentKey,
+      verified: true,
+      verification: savedResult.verification,
+      message: '출고 분배 저장 및 검증 완료',
+    });
   } catch (err) {
     const status = ['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500;
     return res.status(status).json({ success: false, code: err?.code, error: err.message, lease: err?.lease || null });
@@ -1085,6 +1101,15 @@ async function saveDistributeBatch(req, res) {
         await insertShipmentHistory(tQuery, targetSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
         saved.push({ ...entry, shipmentKey, sdetailKey: targetSdk, outQty: canonicalOutQty, action: oldRow ? 'update' : 'insert' });
       }
+      for (const row of saved) {
+        row.verification = await verifyDistributedRow(tQuery, {
+          orderYear,
+          orderWeek: week,
+          custKey: row.custKey,
+          prodKey: row.prodKey,
+          expectedQty: row.action === 'noop' ? row.outQty : row.outQty,
+        });
+      }
       if (entryCustomers.length === 1) {
         await advanceErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: entryCustomers[0] }, req.user, req.body);
       }
@@ -1093,6 +1118,7 @@ async function saveDistributeBatch(req, res) {
 
     return res.status(200).json({
       success: true,
+      verified: true,
       savedCount: results.filter((row) => row.action !== 'noop').length,
       results,
       message: '출고 분배 일괄 저장 완료',
@@ -1121,5 +1147,40 @@ async function insertShipmentHistory(tQuery, sdetailKey, before, after, descr, u
     );
   } catch (e) {
     console.warn('[ShipmentHistory INSERT failed]', e.message);
+  }
+}
+async function verifyDistributedRow(tQuery, { orderYear, orderWeek, custKey, prodKey, expectedQty }) {
+  const checked = await tQuery(
+    `SELECT COUNT(sd.SdetailKey) AS DetailCount,
+            ISNULL(SUM(sd.OutQuantity),0) AS DetailQuantity,
+            ISNULL(SUM(dates.DateQuantity),0) AS DateQuantity
+       FROM ShipmentMaster sm WITH (HOLDLOCK)
+       LEFT JOIN ShipmentDetail sd WITH (HOLDLOCK)
+         ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=@pk
+       OUTER APPLY (
+         SELECT SUM(sdt.ShipmentQuantity) AS DateQuantity
+           FROM ShipmentDate sdt WITH (HOLDLOCK)
+          WHERE sdt.SdetailKey=sd.SdetailKey
+       ) dates
+      WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.CustKey=@ck
+        AND ISNULL(sm.isDeleted,0)=0`,
+    {
+      yr: { type: sql.NVarChar, value: String(orderYear) },
+      wk: { type: sql.NVarChar, value: orderWeek },
+      ck: { type: sql.Int, value: Number(custKey) },
+      pk: { type: sql.Int, value: Number(prodKey) },
+    },
+  );
+  const row = checked.recordset?.[0] || {};
+  const detailCount = Number(row.DetailCount || 0);
+  const detailQty = Number(row.DetailQuantity || 0);
+  const dateQty = Number(row.DateQuantity || 0);
+  try {
+    return assertShipmentDistributionVerification({ expectedQty, detailCount, detailQty, dateQty });
+  } catch (error) {
+    throw new Error(
+      `분배 저장 사후검증 실패: ${orderYear}/${orderWeek} 업체 ${custKey}·품목 ${prodKey} ` +
+      `(${error.message})`,
+    );
   }
 }
