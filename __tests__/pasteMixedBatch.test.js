@@ -8,6 +8,7 @@ async function main() {
     getPasteMixedBatchStartBlocker,
     orderPasteMixedBatchTargets,
     pasteBatchActionType,
+    pasteShipmentLookupProdKeys,
     validatePasteMixedBatchIntent,
   } = await import('../lib/pasteMixedBatch.js');
 
@@ -42,6 +43,19 @@ async function main() {
     '실제 실행 배열은 CANCEL 단계와 ADD 단계가 섞이면 안 된다.',
   );
   assert.deepEqual(orderPasteMixedBatchTargets([]), [], '빈 일괄 요청은 그대로 비어 있어야 한다.');
+  assert.deepEqual(
+    pasteShipmentLookupProdKeys(
+      { items: [{ prodKey: 456 }, { prodKey: 457 }, { prodKey: null }, { prodKey: 999, skip: true }] },
+      { items: [{ prodKey: 457 }, { prodKey: 458 }] },
+    ),
+    [456, 457, 458],
+    '현재 분배 조회는 붙여넣은 품목과 기존 주문 품목의 합집합이어야 한다.',
+  );
+  assert.deepEqual(
+    pasteShipmentLookupProdKeys({ items: [{ prodKey: 456 }] }),
+    [456],
+    '기존 주문이 없는 업체도 붙여넣은 취소 품목의 현재 분배를 조회해야 한다.',
+  );
 
   const cancelOrder = { custMatch: { CustKey: 75, CustName: '남대문 청화' } };
   const addOrder = { custMatch: { CustKey: 401, CustName: '주광농원' } };
@@ -128,6 +142,8 @@ async function main() {
     '화면 예상값은 주문목록용 custItems가 아니라 실제 adjust 마스터 선택 조회를 사용해야 한다.');
   assert.match(pasteSource, /shipmentDiagnostics[\s\S]*전산키 P#[\s\S]*동일품명 실제분배/,
     '취소 미리보기 오류는 선택 원장키와 raw 단위수량 및 동일품명 실제 분배 후보를 실행 전에 표시해야 한다.');
+  assert.match(pasteSource, /setCustMatch[\s\S]*pasteShipmentLookupProdKeys\(order, matched\)[\s\S]*pasteShipmentLookupProdKeys\(order\)/,
+    '업체 선택 시 기존 주문 유무와 관계없이 붙여넣은 품목까지 현재 분배 조회 대상에 포함해야 한다.');
   assert.match(adjustSource, /sameNameAlternatives[\s\S]*BoxQuantity[\s\S]*BunchQuantity[\s\S]*SteamQuantity/,
     '현재분배 GET은 자동 재매칭 없이 raw 단위수량과 동일품명 양수 후보를 읽기 전용으로 반환해야 한다.');
   assert.match(adjustSource, /loadShipmentAdjustmentCurrent\(query,[\s\S]*lock: false/,
