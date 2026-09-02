@@ -39,7 +39,7 @@
       "shipmentDetail": "preserve",
       "estimateRows": "client-side filtering only over the already year + major-week scoped estimate shipment list; manager selection limits customer options, customer selection opens the existing detail path",
       "source": "Customer.Manager returned by the existing estimate list query; CustKey returned by the same scoped rows",
-      "sideEffect": "read-only; no API mutation and no Order, Shipment, ShipmentDate, Estimate, Stock write. Left list stays totalAmount descending; print output order remains manager then customer."
+      "sideEffect": "read-only; no API mutation and no Order, Shipment, ShipmentDate, Estimate, Stock write. Manager and customer choices are always-visible wrapping buttons (not selects); choosing a customer reuses the existing detail load path. Left list stays totalAmount descending; print output order remains manager then customer."
     },
     {
       "name": "ESTIMATE_PRINT_SUPPLY_NET",

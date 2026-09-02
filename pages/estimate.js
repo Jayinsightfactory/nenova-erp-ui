@@ -4503,55 +4503,56 @@ export default function Estimate() {
           style={{ width:22, height:22, padding:0, fontSize:11 }}
           onClick={weekNext} title="다음 차수">▶</button>
 
-        <span className="filter-label">담당자</span>
-        <select
-          className="filter-input"
-          aria-label="담당자 선택"
-          value={managerListFilter}
-          onChange={e => {
-            const nextManager = e.target.value;
-            setManagerListFilter(nextManager);
-            setCustomerListFilter('');
-            setSelectedGroups(new Set());
-            if (selectedShip && nextManager && getEstimateShipmentManager(selectedShip) !== nextManager) {
-              setSelectedId(null);
-              setSelectedCustKey(null);
-              setItems([]);
-              setMismatch(null);
-            }
-          }}
-          style={{ width: 118, fontWeight: 700 }}
-        >
-          <option value="">전체 담당자</option>
-          {managerOptions.map(manager => (
-            <option key={manager} value={manager}>{manager}</option>
-          ))}
-        </select>
+        <div aria-label="담당자 선택" role="group" style={{ display:'flex', alignItems:'center', gap:4, flexWrap:'wrap', maxWidth:560 }}>
+          <span className="filter-label">담당자</span>
+          {['', ...managerOptions].map(manager => {
+            const active = managerListFilter === manager;
+            return <button type="button" key={manager || 'all-manager'} aria-pressed={active}
+              className="btn btn-sm"
+              onClick={() => {
+                const nextManager = manager;
+                setManagerListFilter(nextManager);
+                setCustomerListFilter('');
+                setSelectedGroups(new Set());
+                if (selectedShip && nextManager && getEstimateShipmentManager(selectedShip) !== nextManager) {
+                  setSelectedId(null);
+                  setSelectedCustKey(null);
+                  setItems([]);
+                  setMismatch(null);
+                }
+              }}
+              style={{ padding:'3px 8px', minHeight:24, borderColor:active?'#1565c0':'#b8c3d1', background:active?'#1565c0':'#fff', color:active?'#fff':'#263238', fontWeight:active?900:700 }}>
+              {manager || '전체'}
+            </button>;
+          })}
+        </div>
 
-        <span className="filter-label">업체</span>
-        <select
-          className="filter-input"
-          aria-label="업체 선택"
-          value={customerListFilter}
-          onChange={e => {
-            const nextCustKey = e.target.value;
-            setCustomerListFilter(nextCustKey);
-            setSelectedGroups(new Set());
-            if (!nextCustKey) return;
-            const target = sortEstimateShipmentsForList(managerShipments)
-              .find(row => Number(row.CustKey) === Number(nextCustKey));
-            if (target) selectShipment(estimateShipmentGroupId(target), target.CustKey, target.ShipmentKeys);
-          }}
-          disabled={customerOptions.length === 0}
-          style={{ width: 174, fontWeight: customerListFilter ? 700 : 400 }}
-        >
-          <option value="">전체 업체 ({customerOptions.length})</option>
-          {customerOptions.map(customer => (
-            <option key={customer.CustKey} value={customer.CustKey}>
+        <div aria-label="업체 선택" role="group" style={{ display:'flex', alignItems:'center', gap:4, flexWrap:'wrap', maxWidth:920 }}>
+          <span className="filter-label">업체</span>
+          <button type="button" className="btn btn-sm" aria-pressed={!customerListFilter}
+            disabled={customerOptions.length === 0}
+            onClick={() => { setCustomerListFilter(''); setSelectedGroups(new Set()); }}
+            style={{ padding:'3px 8px', minHeight:24, borderColor:!customerListFilter?'#00897b':'#b8c3d1', background:!customerListFilter?'#00897b':'#fff', color:!customerListFilter?'#fff':'#263238', fontWeight:800 }}>
+            전체 ({customerOptions.length})
+          </button>
+          {customerOptions.map(customer => {
+            const custValue = String(customer.CustKey);
+            const active = String(customerListFilter) === custValue;
+            return <button type="button" key={customer.CustKey} className="btn btn-sm" aria-pressed={active}
+              onClick={() => {
+                const nextCustKey = custValue;
+                setCustomerListFilter(nextCustKey);
+                setSelectedGroups(new Set());
+                const target = sortEstimateShipmentsForList(managerShipments)
+                  .find(row => Number(row.CustKey) === Number(nextCustKey));
+                if (target) selectShipment(estimateShipmentGroupId(target), target.CustKey, target.ShipmentKeys);
+              }}
+              style={{ padding:'3px 8px', minHeight:24, maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', borderColor:active?'#00897b':'#b8c3d1', background:active?'#e0f2f1':'#fff', color:active?'#00695c':'#263238', fontWeight:active?900:700 }}
+              title={customer.CustName}>
               {customer.CustName}
-            </option>
-          ))}
-        </select>
+            </button>;
+          })}
+        </div>
 
         {/* 업체 검색 드롭다운 — 담당자와 무관한 업체도 직접 찾는 보조 경로 */}
         <span className="filter-label">업체 검색</span>
