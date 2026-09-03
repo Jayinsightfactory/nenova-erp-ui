@@ -3011,8 +3011,12 @@ export default function PasteOrderPage() {
         }),
       });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok || j.success === false) throw pasteWriteError(r, j, '일괄 분배 저장 실패');
+      if (!r.ok || j.success !== true || j.verified !== true) throw pasteWriteError(r, j, '일괄 분배 저장 후 전산 대조 실패');
       const resultByProd = new Map((j.results || []).map((row) => [Number(row.prodKey), row]));
+      const missingResults = targets.filter((target) => !resultByProd.has(Number(target.prodKey)));
+      if (missingResults.length > 0) {
+        throw new Error(`저장 결과가 ${missingResults.length}개 품목 누락되어 성공 처리하지 않았습니다.`);
+      }
       details = targets.map((t) => {
         const shipKey = `${ro.custKey}-${t.prodKey}-${targetWeek}`;
         const beforeQty = Number(shipmentQtys[shipKey] || 0);
@@ -3022,9 +3026,9 @@ export default function PasteOrderPage() {
           type: 'DISTRIBUTE',
           ok: true,
           qtyBefore: beforeQty,
-          qtyAfter: Number(saved?.outQty ?? t.qty),
+          qtyAfter: Number(saved?.outQty),
           outQtyBefore: beforeQty,
-          outQtyAfter: Number(saved?.outQty ?? t.qty),
+          outQtyAfter: Number(saved?.outQty),
         };
       });
       saveSucceeded = true;

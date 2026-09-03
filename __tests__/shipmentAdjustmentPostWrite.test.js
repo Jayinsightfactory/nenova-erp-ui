@@ -101,6 +101,8 @@ async function main() {
   assert.doesNotMatch(perCustomerSource, /fetch\('\/api\/shipment\/adjust'/,
     '업체별 품목을 한 건씩 저장해 부분 성공을 만들면 안 된다.');
   assert.match(pasteSource, /result\.success !== true \|\| result\.verified !== true/);
+  assert.match(pasteSource, /j\.success !== true \|\| j\.verified !== true/);
+  assert.match(pasteSource, /missingResults\.length > 0/);
   assert.match(pasteSource, /d\.success && d\.verified === true/);
 
   console.log('shipment/order post-write verification tests passed');
