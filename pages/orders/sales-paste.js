@@ -511,9 +511,12 @@ export default function SalesPasteOrderPage() {
                 </div>
               </div>
               <div className="analysis">
-                <h2>
-                  분석 결과 <small>{rows.length}건</small>
-                </h2>
+                <div className="analysis-heading">
+                  <h2>
+                    분석 결과 <small>{rows.length}건</small>
+                  </h2>
+                  <span>원문 → 전산 매칭을 비교하고, 오른쪽 대안을 누르면 즉시 변경됩니다.</span>
+                </div>
                 {rows.length ? (
                   <table>
                     <colgroup>
@@ -555,13 +558,15 @@ export default function SalesPasteOrderPage() {
                                   ? '환산 불가'
                                 : '확인 필요'}
                           </td>
-                          <td>
+                          <td className="match-source-cell">
+                            <span className="cell-kicker">붙여넣기 원문</span>
                             <b>{row.inputName || '-'}</b>
                             <small>{row.customerInput || ''}</small>
                           </td>
-                          <td>
+                          <td className="match-target-cell">
+                            <span className="cell-kicker">전산 매칭</span>
                             <b>{productLabel(row)}</b>
-                            <small>{row.flowerName || row.counName || ''}</small>
+                            <small>{[row.counName, row.flowerName, row.outUnit].filter(Boolean).join(' · ')}</small>
                           </td>
                           <td>
                             <div className="quantity-unit">
@@ -908,7 +913,7 @@ export default function SalesPasteOrderPage() {
         }
         .workspace {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 430px;
+          grid-template-columns: minmax(0, 1fr) 310px;
           gap: 10px;
           margin-top: 8px;
         }
@@ -931,7 +936,7 @@ export default function SalesPasteOrderPage() {
         }
         .paste-analysis-grid {
           display: grid;
-          grid-template-columns: minmax(300px, 0.62fr) minmax(780px, 1.65fr);
+          grid-template-columns: minmax(275px, 300px) minmax(0, 1fr);
           gap: 10px;
           align-items: start;
         }
@@ -975,9 +980,22 @@ export default function SalesPasteOrderPage() {
           max-height: calc(100vh - 365px);
           overflow: auto;
         }
+        .analysis-heading {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 12px;
+          margin-bottom: 6px;
+        }
+        .analysis-heading h2 { margin: 0; }
+        .analysis-heading > span {
+          color: #526278;
+          font-size: 11px;
+          text-align: right;
+        }
         table {
           width: 100%;
-          min-width: 1010px;
+          min-width: 1120px;
           border-collapse: collapse;
           font-size: 12px;
         }
@@ -996,16 +1014,48 @@ export default function SalesPasteOrderPage() {
           background: #fff0ee;
           color: #a11;
         }
-        .analysis td:nth-child(n + 3) {
+        .analysis td:nth-child(4),
+        .analysis td:nth-child(5),
+        .analysis td:nth-child(6) {
           text-align: right;
         }
         .col-status { width: 55px; }
-        .col-input { width: 215px; }
-        .col-match { width: 215px; }
-        .col-qty { width: 105px; }
+        .col-input { width: 250px; }
+        .col-match { width: 290px; }
+        .col-qty { width: 95px; }
         .col-current,
-        .col-final { width: 78px; }
-        .col-edit { width: 285px; }
+        .col-final { width: 72px; }
+        .col-edit { width: 330px; }
+        .match-source-cell,
+        .match-target-cell {
+          min-width: 0;
+          vertical-align: top;
+          overflow-wrap: anywhere;
+        }
+        .match-source-cell > b,
+        .match-target-cell > b {
+          display: block;
+          margin-top: 2px;
+          font-size: 13px;
+          line-height: 1.32;
+        }
+        .match-target-cell {
+          background: #f4f8ff;
+          border-left: 3px solid #7ba5df;
+        }
+        .cell-kicker {
+          display: inline-block;
+          padding: 1px 5px;
+          border-radius: 9px;
+          background: #e8eef6;
+          color: #526278;
+          font-size: 9px;
+          font-weight: 800;
+        }
+        .match-target-cell .cell-kicker {
+          background: #dbeafe;
+          color: #174b91;
+        }
         .quantity-unit {
           display: flex;
           align-items: center;
@@ -1023,9 +1073,9 @@ export default function SalesPasteOrderPage() {
         }
         .match-shortcuts {
           display: grid;
-          grid-template-columns: repeat(3, minmax(86px, 1fr));
+          grid-template-columns: repeat(3, minmax(100px, 1fr));
           gap: 3px;
-          min-width: 285px;
+          min-width: 330px;
           text-align: left;
         }
         .match-candidate {
@@ -1041,15 +1091,20 @@ export default function SalesPasteOrderPage() {
         .match-candidate b {
           display: block;
           overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
         }
         .match-candidate small {
           color: #62718a;
           font-size: 10px;
         }
         .match-candidate b {
+          display: -webkit-box;
+          min-height: 29px;
           font-size: 11px;
+          line-height: 1.3;
+          white-space: normal;
+          overflow-wrap: anywhere;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
         }
         .match-edit {
           grid-column: 1 / -1;
@@ -1319,6 +1374,16 @@ export default function SalesPasteOrderPage() {
           color: #526278;
           font-size: 12px;
         }
+        @media (max-width: 1400px) {
+          .workspace {
+            grid-template-columns: 1fr;
+          }
+          aside {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            max-height: none;
+          }
+        }
         @media (max-width: 1000px) {
           .scope {
             grid-template-columns: 1fr;
@@ -1330,6 +1395,7 @@ export default function SalesPasteOrderPage() {
             grid-template-columns: 1fr;
           }
           aside {
+            display: flex;
             max-height: none;
           }
           .analysis {
