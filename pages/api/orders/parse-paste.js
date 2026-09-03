@@ -1,5 +1,6 @@
 // pages/api/orders/parse-paste.js
 import Anthropic from '@anthropic-ai/sdk';
+import sql from 'mssql';
 import { query } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { trackLLMCall } from '../../../lib/chat/costTracker';
@@ -546,7 +547,7 @@ function normalizeAction(action, inputName = '') {
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-  const { text, sourceText } = req.body;
+  const { text, sourceText, selectedCustKey, selectedOrderYear } = req.body;
   if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
   const cleanText = sanitizePasteText(text);
   const cleanSourceText = sanitizePasteText(sourceText || '');
@@ -561,7 +562,9 @@ export default withAuth(async function handler(req, res) {
     if (detectedFlowers.length > 0) {
       prodFilter = detectedFlowers.map(f => `FlowerName LIKE '%${f}%' OR ProdName LIKE '%${f}%' OR CounName LIKE '%${f}%'`).join(' OR ');
     }
-    const [custRes, prodRes, allProdRes, unitRes] = await Promise.all([
+    const historyCustKey = Number(selectedCustKey || 0);
+    const historyYear = Number(selectedOrderYear || new Date().getFullYear());
+    const [custRes, prodRes, allProdRes, unitRes, customerUsageRes] = await Promise.all([
       query(`SELECT CustKey, CustName, CustArea FROM Customer WHERE isDeleted=0 ORDER BY CustName`),
       query(`SELECT TOP 300 ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit,
                     ISNULL(BunchOf1Box,0) AS BunchOf1Box, ISNULL(SteamOf1Bunch,0) AS SteamOf1Bunch, ISNULL(SteamOf1Box,0) AS SteamOf1Box
@@ -576,6 +579,16 @@ export default withAuth(async function handler(req, res) {
                SUM(ISNULL(BunchQuantity,0)) AS TotalBunch,
                SUM(ISNULL(SteamQuantity,0)) AS TotalSteam
              FROM OrderDetail WHERE isDeleted=0 AND ProdKey IS NOT NULL GROUP BY ProdKey`, {}),
+      historyCustKey > 0 ? query(`SELECT od.ProdKey,
+               COUNT_BIG(*) AS UsageCount,
+               SUM(CASE WHEN ISNULL(om.OrderYear, 0) >= @recentYear THEN 1 ELSE 0 END) AS RecentUsageCount
+             FROM OrderMaster om
+             JOIN OrderDetail od ON od.OrderKey=om.OrderKey AND od.isDeleted=0
+             WHERE om.isDeleted=0 AND om.CustKey=@custKey AND od.ProdKey IS NOT NULL
+             GROUP BY od.ProdKey`, {
+               custKey: { type: sql.Int, value: historyCustKey },
+               recentYear: { type: sql.Int, value: historyYear - 1 },
+             }) : Promise.resolve({ recordset: [] }),
     ]);
 
     const customers = custRes.recordset;
@@ -583,6 +596,10 @@ export default withAuth(async function handler(req, res) {
     const allProducts = allProdRes.recordset;
     const productByKey = new Map(allProducts.map(p => [Number(p.ProdKey), p]));
     const savedCustomerMappings = loadCustomerMappings(true);
+    const customerUsageByProdKey = new Map((customerUsageRes.recordset || []).map(row => [Number(row.ProdKey), {
+      usageCount: Number(row.UsageCount || 0),
+      recentUsageCount: Number(row.RecentUsageCount || 0),
+    }]));
 
     // 품목별 이력 단위 맵 빌드
     const prodUnitMap = {};
@@ -788,6 +805,7 @@ Caroline | 2
         prodUnitMap,
         savedMappings: loadMappings(true),
         unitCatalog: loadImportUnits(true),
+        usageByProdKey: customerUsageByProdKey,
       });
       const items = (order.items || []).map((item, index) => {
         const matched = sharedMatches[index] || {};
