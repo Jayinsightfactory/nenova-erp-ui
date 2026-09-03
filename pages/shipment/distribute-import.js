@@ -205,6 +205,8 @@ export default function DistributeImport() {
     return rows;
   }, [rows, applyRows, changedRows, shipmentRows, filter]);
   const pivotModel = useMemo(() => buildPivotModel(pivotSourceRows), [pivotSourceRows]);
+  // 필터된 행 합계를 원본 엑셀 합계로 오해하지 않도록 전체 행 모델을 별도로 유지한다.
+  const fullPivotModel = useMemo(() => buildPivotModel(rows), [rows]);
   const pivotFilterFallback = pivotSourceRows.length > 0 && (
     (filter === 'apply' && applyRows.length === 0) ||
     (filter === 'changed' && changedRows.length === 0) ||
@@ -775,6 +777,7 @@ export default function DistributeImport() {
               ) : viewMode === 'pivot' ? (
                 <PivotComparison
                   model={pivotModel}
+                  fullModel={fullPivotModel}
                   filter={filter}
                   filterFallback={pivotFilterFallback}
                   onShowAll={() => setFilter('all')}
@@ -836,7 +839,7 @@ export default function DistributeImport() {
   );
 }
 
-function PivotComparison({ model, filter, filterFallback, onShowAll }) {
+function PivotComparison({ model, fullModel, filter, filterFallback, onShowAll }) {
   if (!model.products.length) {
     const filterLabel = filter === 'apply' ? '적용대상'
       : filter === 'changed' ? '주문변경'
@@ -863,6 +866,8 @@ function PivotComparison({ model, filter, filterFallback, onShowAll }) {
     acc.shipmentDiffQty += c.shipmentDiffQty;
     return acc;
   }, { orderQty: 0, currentOutQty: 0, uploadQty: 0, changeQty: 0, shipmentDiffQty: 0 });
+  const fullCustomerByKey = new Map((fullModel?.customers || []).map(c => [String(c.key), c]));
+  const isFiltered = filter !== 'all' && !filterFallback;
   return (
     <div style={st.pivotWrap}>
       {filterFallback && (
@@ -877,7 +882,17 @@ function PivotComparison({ model, filter, filterFallback, onShowAll }) {
             {model.customers.map(c => (
               <th key={c.key} style={st.pivotCustHead}>
                 <div style={st.custName}>{c.name}</div>
-                <div style={st.custMeta}>엑셀 {fmt(c.uploadQty)} / 주문변경 {fmt(c.changeQty)} / 분배차이 {fmt(c.shipmentDiffQty)}</div>
+                {(() => {
+                  const fullCustomer = fullCustomerByKey.get(String(c.key)) || c;
+                  const filteredQtyDiffers = isFiltered && Number(fullCustomer.uploadQty || 0) !== Number(c.uploadQty || 0);
+                  return (
+                    <div style={st.custMeta}>
+                      전체 엑셀 {fmt(fullCustomer.uploadQty)}
+                      {filteredQtyDiffers ? ` / 현재 표시 ${fmt(c.uploadQty)}` : ''}
+                      {' / '}주문변경 {fmt(c.changeQty)} / 분배차이 {fmt(c.shipmentDiffQty)}
+                    </div>
+                  );
+                })()}
               </th>
             ))}
             <th style={st.pivotTotalHead}>주문등록</th>
