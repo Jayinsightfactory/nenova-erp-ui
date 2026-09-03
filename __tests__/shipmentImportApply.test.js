@@ -22,20 +22,24 @@ async function main() {
 
   console.log('\n=== resolveImportOrderSyncPlan ===');
   {
-    const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 10 });
-    assert('주문=엑셀 → skip', p.action === 'skip' && !p.allowOrderDelete);
+    const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 10, hasExistingOrder: true });
+    assert('기존 주문=엑셀 → 주문보존', p.action === 'skip_keep_order' && p.preservesExistingOrder);
   }
   {
-    const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 8 });
-    assert('주문≠엑셀(>0) → sync, 삭제금지', p.action === 'sync' && !p.allowOrderDelete);
+    const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 8, hasExistingOrder: true });
+    assert('기존 주문≠엑셀이어도 주문보존', p.action === 'skip_keep_order' && p.preservesExistingOrder && !p.allowOrderDelete);
   }
   {
-    const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 0 });
+    const p = resolveImportOrderSyncPlan({ orderQty: 10, uploadQty: 0, hasExistingOrder: true });
     assert('0·빈칸·엑셀누락 → 주문보존', p.action === 'skip_keep_order' && !p.allowOrderDelete);
   }
   {
-    const p = resolveImportOrderSyncPlan({ orderQty: 0, uploadQty: 5 });
-    assert('신규 → sync', p.action === 'sync');
+    const p = resolveImportOrderSyncPlan({ orderQty: 0, uploadQty: 5, hasExistingOrder: false });
+    assert('주문 없음 + 양수 분배 → 주문 신규', p.action === 'create');
+  }
+  {
+    const p = resolveImportOrderSyncPlan({ orderQty: 0, uploadQty: 0, hasExistingOrder: false });
+    assert('주문 없음 + 0 분배 → 주문 생성 안 함', p.action === 'skip_no_order');
   }
 
   console.log('\n=== resolveImportWriteIntent ===');
@@ -63,10 +67,10 @@ async function main() {
   }
   {
     const p = evaluateImportFinalStateStale({
-      previewOrderQty: 4, currentOrderQty: 6, intendedOrderQty: 8,
+      previewOrderQty: 4, currentOrderQty: 6, intendedOrderQty: 8, preserveOrder: true,
       previewShipmentQty: 4, currentShipmentQty: 4, intendedShipmentQty: 8,
     });
-    assert('주문이 목표가 아닌 제3값 6이면 전체 차단', p.orderBlocked);
+    assert('기존 주문이 제3값 6으로 바뀌어도 주문보존·분배 적용', !p.orderBlocked);
   }
   {
     const p = evaluateImportFinalStateStale({
@@ -92,6 +96,10 @@ async function main() {
   {
     const p = resolveImportWriteIntent({ uploadQty: 5, hasExistingShipment: false });
     assert('양수·기존분배 없음 → 분배 신규', p.shouldCreateShipment && !p.shouldUpdateShipment);
+  }
+  {
+    const p = resolveImportWriteIntent({ uploadQty: 8, hasExistingShipment: true, hasExistingOrder: true });
+    assert('기존 주문 있음 → 분배만 변경하고 주문은 보존', p.shouldUpdateShipment && !p.shouldCreateOrUpdateOrder);
   }
   {
     const p = resolveImportWriteIntent({ uploadQty: 0, hasExistingShipment: true });

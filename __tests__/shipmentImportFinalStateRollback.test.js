@@ -66,6 +66,17 @@ async function main() {
 
   console.log('\n=== 소스 계약 고정(회귀 방지) — lib/shipmentImport.js ===');
   const src = fs.readFileSync('lib/shipmentImport.js', 'utf8');
+  const orderSyncFn = src.slice(
+    src.indexOf('async function syncOrderDetailForShipmentImport'),
+    src.indexOf('function orderApplyAction')
+  );
+  assertLabel(
+    '기존 활성 주문은 UPDATE 없이 보존하고 없는 품목만 INSERT',
+    orderSyncFn.includes('if (detail)') &&
+      !orderSyncFn.includes('UPDATE OrderDetail') &&
+      !orderSyncFn.includes('UPDATE OrderMaster') &&
+      orderSyncFn.includes('INSERT INTO OrderDetail')
+  );
 
   assertLabel(
     '[요구사항1] 빈 셀도 최종 분배 0 지시 행으로 생성',
