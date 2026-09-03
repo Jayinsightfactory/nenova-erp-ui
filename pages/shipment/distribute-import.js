@@ -333,10 +333,12 @@ export default function DistributeImport() {
       const applyCount = (data.rows || []).filter(applyTarget).length;
       const shipmentDiffCount = (data.rows || []).filter(shipmentNeedsApply).length;
       const rowCount = (data.rows || []).length;
-      const nextFilter = applyCount > 0 ? 'apply' : rowCount > 0 ? 'all' : 'apply';
-      setFilter(nextFilter);
+      // 검증 직후에는 원본 엑셀의 모든 업체·수량을 먼저 보여준다.
+      // 적용대상만 자동 선택하면 기존 분배와 동일한 업체가 통째로 숨겨져
+      // 업체/수량 미인식으로 오해할 수 있다. 변경분은 사용자가 필터 버튼으로 좁힌다.
+      setFilter(rowCount > 0 ? 'all' : 'apply');
       if (!options.preserveMessage) {
-        const viewHint = applyCount === 0 && rowCount > 0 ? ' (변경 없음 — 전체 비교 표시)' : '';
+        const viewHint = rowCount > 0 ? ' (전체 업체·수량 표시)' : '';
         const fixedNotice = data.fixBlockedCount > 0 ? `, 확정차단 ${data.fixBlockedCount}건(확정취소 후 재검증 필요)` : '';
         setMessage(`검증 완료: 적용대상 ${applyCount}건, 신규추가 ${orderless}건, 주문변경 ${data.changedRows?.length || 0}건, 분배차이 ${shipmentDiffCount}건, 미매칭 ${data.unmatched?.length || 0}건${fixedNotice}${viewHint}`);
       }
