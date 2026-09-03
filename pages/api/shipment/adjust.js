@@ -1095,10 +1095,11 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
         });
       }
 
-      // 6) ADD 가용재고 검증 — 전산 분배 화면과 같은 ViewShipment 범위
+      // 6) ADD 가용재고 검증 — 전산 분배 화면의 실제 편집 가능 범위
       // 이월 ProductStock + 현차수 입고 + 수동재고조정 - 현차수 전체 출고.
-      // ShipmentMaster/Detail 직합계는 ViewShipment가 제외하는 삭제 업체·품목의
-      // 고아 출고까지 포함해 전산 화면보다 큰 수량을 만들 수 있으므로 사용하지 않는다.
+      // EXE의 업체별 분배/피벗은 ViewShipment를 동일 업무키의 ViewOrder와 조인한다.
+      // 주문행 없이 남은 출고는 EXE 분배 화면에 나타나지 않으므로 EXISTS로 제외한다.
+      // JOIN 대신 EXISTS를 사용해 중복 주문행이 출고량을 배수 합산하지 않게 한다.
       const remainQ = await tQ(
         `SELECT
            ISNULL(prev.prevStock, 0) AS prevStock,
@@ -1110,7 +1111,12 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
                    WHERE sh.ProdKey=@pk AND sh.OrderYear=@yr AND sh.OrderWeek=@wk
                      AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))),0) AS adjustQty,
            ISNULL((SELECT SUM(vs.OutQuantity) FROM ViewShipment vs
-                   WHERE vs.ProdKey=@pk AND vs.OrderYear=@yr AND vs.OrderWeek=@wk),0) AS totalOut
+                   WHERE vs.ProdKey=@pk AND vs.OrderYear=@yr AND vs.OrderWeek=@wk
+                     AND EXISTS (
+                       SELECT 1 FROM ViewOrder vo
+                        WHERE vo.OrderYear=vs.OrderYear AND vo.OrderWeek=vs.OrderWeek
+                          AND vo.CustKey=vs.CustKey AND vo.ProdKey=vs.ProdKey
+                     )),0) AS totalOut
          FROM (VALUES (1)) seed(n)
          OUTER APPLY (
            SELECT TOP 1 ps.Stock AS prevStock
