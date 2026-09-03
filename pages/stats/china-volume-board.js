@@ -50,7 +50,13 @@ function mergeChinaProductCandidates(pivotData, productCatalog = []) {
   const byKey = new Map();
   [...(pivotData?.rows || []), ...(productCatalog || [])]
     .filter(row => /중국/i.test(String(row?.country || '')))
-    .forEach(row => byKey.set(Number(row.prodKey), { ...row, outOrders: row.outOrders || {} }));
+    .forEach(row => {
+      const key = Number(row.prodKey);
+      const existingOutOrders = byKey.get(key)?.outOrders;
+      // 품목 마스터 후보(outOrders 없음)가 이미 채워진 이번 차수 실제 주문수량을 빈 값으로 덮어쓰지 않는다.
+      const outOrders = Object.keys(row.outOrders || {}).length ? row.outOrders : (existingOutOrders || {});
+      byKey.set(key, { ...row, outOrders });
+    });
   return [...byKey.values()];
 }
 
