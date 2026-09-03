@@ -322,6 +322,24 @@ dnSpy의 `FormEstimateView` 단순 견적수량 저장은 `SdateKey`의
 
 확정 SP가 음수재고로 실패하면 화면에 품목별 부족수량을 표시한다. 사용자가 `재고 부족분 보정 후 확정`을 명시적으로 선택한 경우에만 해당 수량을 `StockHistory`의 `재고조정`으로 기록하고 `usp_StockCalculation`을 실행한 뒤 다시 확정한다. 부족수량은 올림하지 않고 0.001 단위로 정규화한다. 재고 이력 등록과 재계산은 한 트랜잭션으로 처리하며 재계산 실패 시 롤백한다. 일반 확정 요청에는 이 보정이 자동 적용되지 않는다.
 
+## 2026-09-03 EXE 저장 잔량·웹 예상 잔량 및 공용 SP 경계
+
+`FormStockView`의 현재 잔량은 선택 `StockMaster`의 `ProductStock.Stock` 저장 스냅샷이다.
+웹 사전검사의 확정 후 예상 잔량과 같은 값으로 취급하거나 같은 `잔량` 라벨로 숨기지 않는다.
+화면·오류에는 `EXE 저장 잔량`과 `확정 후 예상 잔량`, 계산 기준 차수 및
+전재고·입고·재고조정·확정출고·미확정출고를 구분해 표시한다.
+
+입고 18·출고 18인데 raw 부동소수점 결과만 음수인 값은 0.001 정규화 후 0으로 판정한다.
+입고 18·출고 20처럼 실제 부족인 값은 품목명·ProdKey와 부족 2를 표시한다. 표시, 사전검사,
+저장 직전 검사와 저장 후 검증이 서로 다른 반올림 또는 출고 범위를 사용하면 배포하지 않는다.
+
+`usp_ShipmentFix`, `usp_ShipmentFixCancel`, `usp_StockCalculation`은 웹과 `nenova.exe`의
+공용 실행 경로다. 해당 프로시저의 ALTER는 **웹 수정이 아니라 EXE 동작 변경**으로 분류한다.
+원본/현재 정의, dnSpy 호출 순서, 선택 연도·차수 운영 read-only probe와 양쪽 replay fixture 없이
+변경하거나 원복하지 않는다. 웹 요청 잠금·멱등성·상세 오류는 가능한 웹 전용 wrapper/API에서
+처리하고, 최종 ERP 부작용은 EXE 권위 경로와 대조한다. 상세 세션 근거는
+[`work-sessions/2026-09-03_exe-web-stock-fix-parity.md`](work-sessions/2026-09-03_exe-web-stock-fix-parity.md)를 따른다.
+
 ## 2026-07-21 전산 오류 진단 연도·발생작업 추적 계약
 
 `/api/shipment/exe-errors`의 오류 건수는 `OrderWeek`만으로 계산하면 2025년과

@@ -8,6 +8,7 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
+| [2026-09-03_exe-web-stock-fix-parity](./2026-09-03_exe-web-stock-fix-parity.md) | EXE에서 0인 소수잔량·웹 음수차단·공용 SP 영향 등 이번 세션 오류를 후속 작업 필수 기준으로 저장 | 운영 읽기 전용 확인·설계 기준 기록, 원장/SP 쓰기 없음 |
 | [2026-09-02_estimate-and-paste-regression-guards](./2026-09-02_estimate-and-paste-regression-guards.md) | 오늘 발생한 견적서관리·붙여넣기 회귀 원인과 다음 작업 필수 기준 저장 | PR #472~#476 배포·스모크 완료, 재발 방지 계약 연결 |
 | [2026-08-31_dutch-volume-price-overlay](./2026-08-31_dutch-volume-price-overlay.md) | 네덜란드 물량표 원본 디자인 보존·단가를 수량 셀 안에 표시 | 전체 계약·빌드 통과, 배포 진행 |
 | [2026-08-31_china-volume-subweek-navigation](./2026-08-31_china-volume-subweek-navigation.md) | 자동 중국물량표를 실제 DB 세부차수 순서로 이동 | 구현·전체 계약·빌드 통과, 배포 진행 |
