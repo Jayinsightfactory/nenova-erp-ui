@@ -271,7 +271,9 @@ async function loadNegativeRows(from, to) {
          ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
          sm.OrderWeek,
          sd.ProdKey,
-         SUM(ISNULL(sd.OutQuantity, 0)) AS outQty
+         SUM(ISNULL(sd.OutQuantity, 0)) AS outQty,
+         SUM(CASE WHEN ISNULL(sd.isFix, 0) = 1 THEN ISNULL(sd.OutQuantity, 0) ELSE 0 END) AS confirmedOutQty,
+         SUM(CASE WHEN ISNULL(sd.isFix, 0) = 0 THEN ISNULL(sd.OutQuantity, 0) ELSE 0 END) AS unfixedOutQty
        FROM ShipmentMaster sm
        JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
        WHERE sm.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
@@ -305,9 +307,14 @@ async function loadNegativeRows(from, to) {
        p.FlowerName,
        p.CounName,
        ISNULL(prev.prevStock, 0) AS prevStock,
+       ISNULL(iq.inQty, 0) AS warehouseQty,
        ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) AS inQty,
        ISNULL(aq.adjustQty, 0) AS adjustQty,
        ISNULL(oq.outQty, 0) AS outQty,
+       ISNULL(oq.confirmedOutQty, 0) AS confirmedOutQty,
+       ISNULL(oq.unfixedOutQty, 0) AS unfixedOutQty,
+       currentStock.StockKey AS exeStockKey,
+       currentStock.Stock AS exeStoredStock,
        ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) - ISNULL(oq.outQty, 0) AS remain
      FROM out_qty oq
      JOIN week_set w ON w.WeekKey = oq.WeekKey
@@ -322,8 +329,17 @@ async function loadNegativeRows(from, to) {
          AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm2.OrderWeek, '-', '') < oq.WeekKey
        ORDER BY ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm2.OrderWeek, '-', '') DESC
      ) prev
+     OUTER APPLY (
+       SELECT TOP 1 sm3.StockKey, ps3.Stock
+       FROM StockMaster sm3
+       JOIN ProductStock ps3 ON ps3.StockKey = sm3.StockKey AND ps3.ProdKey = oq.ProdKey
+       WHERE ISNULL(CAST(sm3.OrderYear AS NVARCHAR(4)), @defaultYear) = w.OrderYear
+         AND sm3.OrderWeek = w.OrderWeek
+       ORDER BY sm3.StockKey DESC
+     ) currentStock
      WHERE oq.WeekKey BETWEEN @fromKey AND @toKey
-       AND ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) - ISNULL(oq.outQty, 0) < 0
+       -- 운영 usp_ShipmentFix와 같은 SQL Server 정수 반올림 판정.
+       AND ROUND(ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) - ISNULL(oq.outQty, 0), 0) < 0
      ORDER BY w.WeekKey DESC, p.FlowerName, p.ProdName`,
     {
       defaultYear: { type: sql.NVarChar, value: from.year },

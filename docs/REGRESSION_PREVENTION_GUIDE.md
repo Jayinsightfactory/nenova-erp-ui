@@ -88,7 +88,7 @@ related:
 | **H-02** | `Product.Stock` 음수·유령재고 | `repair-negative --apply`, live↔ps drift | **repair apply 금지** · undo-web-recovery · sync-week-stock | [STOCK_INTEGRITY_DESIGN.md](STOCK_INTEGRITY_DESIGN.md) |
 | **H-03** | 26-02 갑자기 재고 생성 | 잘못된 fix 스크립트 | 스크립트 삭제 + rollback | [work-reports/2026-06-16_session-stock-estimate-paste-template.md](work-reports/2026-06-16_session-stock-estimate-paste-template.md) §1 |
 | **H-04** | 26-1 웹복구 유령 | 25차 repair 전파 | `undo-web-recovery-stock.js` | [work-reports/2026-06-25_undo-web-recovery-26-01.md](work-reports/2026-06-25_undo-web-recovery-26-01.md) |
-| **H-05** | EXE는 잔량 0인데 웹 음수 목록에 부족 0.00 표시, 공용 SP 변경이 EXE에도 영향 | raw 부동소수점 음수·EXE 저장 스냅샷과 웹 예상값 혼용·공용 SP 경계 누락 | 0.001 정규화, 두 잔량 분리 표시, 사전/실행 동일 계약, 공용 SP ALTER를 EXE 변경으로 취급 | [2026-09-03 세션](work-sessions/2026-09-03_exe-web-stock-fix-parity.md) |
+| **H-05** | EXE는 잔량 0인데 웹 음수 목록에 부족 0.00 표시, 공용 SP 변경이 EXE에도 영향 | raw 부동소수점 음수·EXE 저장 스냅샷과 웹 예상값 혼용·공용 SP 경계 누락 | `usp_ShipmentFix`의 `ROUND(remain,0)<0` 판정 공유, 두 잔량 분리 표시, 공용 SP ALTER를 EXE 변경으로 취급 | [2026-09-03 세션](work-sessions/2026-09-03_exe-web-stock-fix-parity.md) |
 
 **금지 (운영):** `repair-negative-product-stock.js --apply`, `align-live-to-ps` 무계획 실행, `sync-week-stock-to-live --no-out-guard` 남용.
 

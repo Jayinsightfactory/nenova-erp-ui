@@ -353,7 +353,7 @@ async function validate(req, res) {
            AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') < @ywk
          ORDER BY ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @yr) + REPLACE(sm2.OrderWeek, '-', '') DESC
        ) prev
-       WHERE ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) - ISNULL(oq.outQty, 0) < 0
+        WHERE ROUND(ISNULL(prev.prevStock, 0) + ISNULL(iq.inQty, 0) + ISNULL(aq.adjustQty, 0) - ISNULL(oq.outQty, 0), 0) < 0
        ORDER BY p.FlowerName, p.ProdName`,
       {
         wk,
@@ -484,7 +484,8 @@ async function loadNegativeGuardRows(orderYear, orderWeek) {
        LEFT JOIN adjustment a ON a.ProdKey=p.ProdKey
       WHERE p.isDeleted=0
         AND (i.ProdKey IS NOT NULL OR o.ProdKey IS NOT NULL OR ISNULL(prev.Stock,0)<0)
-        AND ROUND(ISNULL(prev.Stock,0)+ISNULL(i.qty,0)+ISNULL(a.qty,0)-ISNULL(o.qty,0),2) < 0
+        -- usp_ShipmentFix와 같은 판정. 웹만 더 엄격한 소수 음수 기준으로 EXE 작업을 막지 않는다.
+        AND ROUND(ISNULL(prev.Stock,0)+ISNULL(i.qty,0)+ISNULL(a.qty,0)-ISNULL(o.qty,0),0) < 0
       ORDER BY p.FlowerName,p.ProdName`,
     {
       yr: { type: sql.NVarChar, value: orderYear },

@@ -80,6 +80,12 @@ async function main() {
   assert('진짜 부족 -0.6 은 차단', isShipmentFixRemainNegative({
     prevStock: 0, warehouseQty: 1, confirmedOut: 0, stockTypeAdj: 0, unfixedOut: 1.6,
   }) === true);
+  assert('입고 18/출고 18 raw 부동소수점 음수는 EXE와 같이 통과', isShipmentFixRemainNegative({
+    prevStock: 0, warehouseQty: 18, confirmedOut: 0, stockTypeAdj: 0, unfixedOut: 18.000000000000004,
+  }) === false);
+  assert('입고 18/출고 20 실제 부족 2는 품목 차단 대상', isShipmentFixRemainNegative({
+    prevStock: 0, warehouseQty: 18, confirmedOut: 0, stockTypeAdj: 0, unfixedOut: 20,
+  }) === true);
   assert('교차연도: 2025 33-01 스냅샷을 2026 33-01 이월로 쓰지 않음', shipmentFixWeekRemain({
     prevStock: 0,
     warehouseQty: 4,
