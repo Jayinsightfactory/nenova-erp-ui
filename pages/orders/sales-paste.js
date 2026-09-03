@@ -995,7 +995,7 @@ export default function SalesPasteOrderPage() {
         }
         table {
           width: 100%;
-          min-width: 1120px;
+          min-width: 1000px;
           border-collapse: collapse;
           font-size: 12px;
         }
@@ -1020,12 +1020,12 @@ export default function SalesPasteOrderPage() {
           text-align: right;
         }
         .col-status { width: 55px; }
-        .col-input { width: 250px; }
-        .col-match { width: 290px; }
-        .col-qty { width: 95px; }
+        .col-input { width: 240px; }
+        .col-match { width: 270px; }
+        .col-qty { width: 90px; }
         .col-current,
-        .col-final { width: 72px; }
-        .col-edit { width: 330px; }
+        .col-final { width: 65px; }
+        .col-edit { width: 240px; }
         .match-source-cell,
         .match-target-cell {
           min-width: 0;
@@ -1073,9 +1073,9 @@ export default function SalesPasteOrderPage() {
         }
         .match-shortcuts {
           display: grid;
-          grid-template-columns: repeat(3, minmax(100px, 1fr));
+          grid-template-columns: 1fr;
           gap: 3px;
-          min-width: 330px;
+          min-width: 0;
           text-align: left;
         }
         .match-candidate {
@@ -1107,7 +1107,6 @@ export default function SalesPasteOrderPage() {
           -webkit-line-clamp: 2;
         }
         .match-edit {
-          grid-column: 1 / -1;
           justify-self: start;
           padding: 4px 7px;
           white-space: nowrap;
