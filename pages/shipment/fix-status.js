@@ -6,6 +6,7 @@ import { useWeekInput, WeekInput, getCurrentWeek } from '../../lib/useWeekInput'
 import { resolveFixStatusOrderYear } from '../../lib/fixStatusYearScope';
 
 const fmt = n => Number(n || 0).toLocaleString();
+const qty = n => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 3 });
 const fixedLabel = {
   FIXED: { text: '확정', bg: '#d1fae5', color: '#065f46' },
   PARTIAL: { text: '부분확정', bg: '#fef3c7', color: '#92400e' },
@@ -262,9 +263,9 @@ export default function ShipmentFixStatus() {
 
       <div className="card">
         <div className="card-header">
-          <span className="card-title">확정 시 오류 예상 품목</span>
+          <span className="card-title">EXE 기준 확정 차단 예상 품목</span>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>
-            전재고 + 입고 + 재고조정 - 출고가 음수인 품목 {selectedWeek ? `(${selectedWeek})` : '(전체 범위)'}
+            usp_ShipmentFix와 동일하게 정수 반올림 후 음수인 품목 {selectedWeek ? `(${selectedWeek})` : '(전체 범위)'}
           </span>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -277,23 +278,31 @@ export default function ShipmentFixStatus() {
                 <th>품목</th>
                 <th style={{ textAlign: 'right' }}>전재고</th>
                 <th style={{ textAlign: 'right' }}>입고</th>
-                <th style={{ textAlign: 'right' }}>출고</th>
+                <th style={{ textAlign: 'right' }}>재고조정</th>
+                <th style={{ textAlign: 'right' }}>확정출고</th>
+                <th style={{ textAlign: 'right' }}>미확정출고</th>
+                <th style={{ textAlign: 'right' }} title="Nenova.exe 재고관리의 선택 차수 ProductStock.Stock">EXE 저장 잔량</th>
+                <th style={{ textAlign: 'right' }} title="전재고 + 입고 + 재고조정 - 확정출고 - 미확정출고">확정 후 예상</th>
                 <th style={{ textAlign: 'right' }}>부족</th>
               </tr>
             </thead>
             <tbody>
               {selectedNegative.length === 0 ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 28, color: 'var(--text3)' }}>음수재고 예상 품목이 없습니다.</td></tr>
+                <tr><td colSpan={12} style={{ textAlign: 'center', padding: 28, color: 'var(--text3)' }}>EXE 기준으로 확정을 막을 예상 품목이 없습니다.</td></tr>
               ) : selectedNegative.map((r, i) => (
                 <tr key={`${r.WeekKey || r.OrderWeek}-${r.ProdKey}-${i}`}>
                   <td style={{ fontFamily: 'var(--mono)' }}>{r.OrderYear}-{r.OrderWeek}</td>
                   <td>{r.CounName || ''}</td>
                   <td>{r.FlowerName || ''}</td>
                   <td className="name">{r.ProdName}</td>
-                  <td className="num">{Number(r.prevStock || 0).toFixed(2)}</td>
-                  <td className="num" style={{ color: 'var(--blue)' }}>{Number(r.inQty || 0).toFixed(2)}</td>
-                  <td className="num">{Number(r.outQty || 0).toFixed(2)}</td>
-                  <td className="num" style={{ color: 'var(--red)', fontWeight: 900 }}>{Math.abs(Number(r.remain || 0)).toFixed(2)}</td>
+                  <td className="num">{qty(r.prevStock)}</td>
+                  <td className="num" style={{ color: 'var(--blue)' }}>{qty(r.warehouseQty)}</td>
+                  <td className="num">{qty(r.adjustQty)}</td>
+                  <td className="num">{qty(r.confirmedOutQty)}</td>
+                  <td className="num">{qty(r.unfixedOutQty)}</td>
+                  <td className="num" title={r.exeStockKey ? `StockKey #${r.exeStockKey}` : '현재 차수 ProductStock 없음'}>{r.exeStoredStock == null ? '-' : qty(r.exeStoredStock)}</td>
+                  <td className="num" style={{ color: 'var(--red)', fontWeight: 800 }}>{qty(r.remain)}</td>
+                  <td className="num" style={{ color: 'var(--red)', fontWeight: 900 }}>{qty(Math.abs(Number(r.remain || 0)))}</td>
                 </tr>
               ))}
             </tbody>

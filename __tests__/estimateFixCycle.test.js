@@ -41,7 +41,7 @@ async function main() {
   assert('확정 후보 조회는 OrderYear를 사용', fixApi.includes('sm.OrderYear=@yr AND sm.OrderWeek=@wk'));
   assert('확정 후보 함수에 OrderYear 전달', fixApi.includes('loadShipmentCategoryTargets(orderYear, orderWeek'));
   assert('재고 재계산 품목 조회에 OrderYear 전달', fixApi.includes('loadShipmentProdKeys(orderYear, orderWeek'));
-  assert('확정 음수검사는 전차수+입고+조정-출고 공식을 사용', fixApi.includes("ROUND(ISNULL(prev.Stock,0)+ISNULL(i.qty,0)+ISNULL(a.qty,0)-ISNULL(o.qty,0),2) < 0"));
+  assert('확정 음수검사는 전차수+입고+조정-출고 공식과 EXE ROUND(0) 판정을 사용', fixApi.includes("ROUND(ISNULL(prev.Stock,0)+ISNULL(i.qty,0)+ISNULL(a.qty,0)-ISNULL(o.qty,0),0) < 0"));
   assert('카테고리형 SP도 전체 음수검사를 우회하지 않음', !fixApi.includes('if (!procedureShape.hasCountryFlower) {\n    const wholeWeekNegativeRows'));
   assert('전차수 음수 이월도 확정을 차단', fixApi.includes('OR ISNULL(prev.Stock,0)<0'));
   assert('확정/해제 SP는 skipStockCalc와 무관하게 실행', fixApi.includes("runFixTargetProcedure('usp_ShipmentFix'") && fixApi.includes("runFixTargetProcedure('usp_ShipmentFixCancel'"));

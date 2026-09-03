@@ -8,7 +8,9 @@
     "docs/migrations/backup_usp_ShipmentFix_2026-08-20_before_week_remain.sql",
     "scripts/apply-usp-shipment-fix-week-remain.js",
     "__tests__/shipmentFixReconcile.test.js",
-    "__tests__/estimateFixCycle.test.js"
+    "__tests__/estimateFixCycle.test.js",
+    "pages/api/shipment/fix-status.js",
+    "pages/shipment/fix-status.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -31,7 +33,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "직전 스냅샷은 StockMaster.OrderYearWeek < 현재 OrderYear+REPLACE(OrderWeek,'-','') 인 최신 1건만 사용한다. 2025년 33-01 ProductStock을 2026년 33-01 이월로 쓰지 않는다. 2026-08-20 운영 probe: 콜롬비아카네이션 33-01 미확정 53 SKU, 옛 ns.Stock-unfixed 음수 52건, leftover-unfixed 음수 0건(Zurigo ROUND(-0.33,0)=0)."
+    "description": "직전 스냅샷은 StockMaster.OrderYearWeek < 현재 OrderYear+REPLACE(OrderWeek,'-','') 인 최신 1건만 사용한다. 2025년 33-01 ProductStock을 2026년 33-01 이월로 쓰지 않는다. 2026-08-20 운영 probe: 콜롬비아카네이션 33-01 미확정 53 SKU, 옛 ns.Stock-unfixed 음수 52건, leftover-unfixed 음수 0건(Zurigo ROUND(-0.33,0)=0). 2026-09-03 회귀: 입고18/출고18의 raw 부동소수점 음수는 차단하지 않고 입고18/출고20은 부족2로 차단한다. fix-status 표시와 fix GET/POST 사전검사는 모두 운영 usp_ShipmentFix의 ROUND(remain,0)<0 판정을 사용한다."
   },
   "requiredTestFiles": [
     "__tests__/shipmentFixReconcile.test.js",
