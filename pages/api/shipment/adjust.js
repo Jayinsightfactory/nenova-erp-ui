@@ -1095,8 +1095,10 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
         });
       }
 
-      // 6) ADD 가용재고 검증 — 전산 usp_StockCalculation/GetProductList와 같은 공식
-      // 이월 ProductStock + 현차수 입고 + 수동재고조정 - 현차수 전체 출고
+      // 6) ADD 가용재고 검증 — 전산 분배 화면과 같은 ViewShipment 범위
+      // 이월 ProductStock + 현차수 입고 + 수동재고조정 - 현차수 전체 출고.
+      // ShipmentMaster/Detail 직합계는 ViewShipment가 제외하는 삭제 업체·품목의
+      // 고아 출고까지 포함해 전산 화면보다 큰 수량을 만들 수 있으므로 사용하지 않는다.
       const remainQ = await tQ(
         `SELECT
            ISNULL(prev.prevStock, 0) AS prevStock,
@@ -1107,9 +1109,8 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
                    FROM StockHistory sh
                    WHERE sh.ProdKey=@pk AND sh.OrderYear=@yr AND sh.OrderWeek=@wk
                      AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))),0) AS adjustQty,
-           ISNULL((SELECT SUM(sd.OutQuantity) FROM ShipmentDetail sd
-                   JOIN ShipmentMaster sm ON sd.ShipmentKey=sm.ShipmentKey
-                   WHERE sd.ProdKey=@pk AND sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.isDeleted=0),0) AS totalOut
+           ISNULL((SELECT SUM(vs.OutQuantity) FROM ViewShipment vs
+                   WHERE vs.ProdKey=@pk AND vs.OrderYear=@yr AND vs.OrderWeek=@wk),0) AS totalOut
          FROM (VALUES (1)) seed(n)
          OUTER APPLY (
            SELECT TOP 1 ps.Stock AS prevStock
