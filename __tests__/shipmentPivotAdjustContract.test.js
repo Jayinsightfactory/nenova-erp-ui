@@ -117,6 +117,8 @@ async function main() {
   );
   assert.match(adjust, /wm\.OrderYear=@yr AND wm\.OrderWeek=@wk/, '입고 합계도 연도로 격리해야 한다.');
   assert.match(adjust, /sm\.OrderYear=@yr AND sm\.OrderWeek=@wk/, '출고 합계도 연도로 격리해야 한다.');
+  assert.match(adjust, /SELECT SUM\(vs\.OutQuantity\) FROM ViewShipment vs[\s\S]*vs\.ProdKey=@pk AND vs\.OrderYear=@yr AND vs\.OrderWeek=@wk/, 'ADD 재고검사의 전체 분배량은 nenova.exe와 같은 ViewShipment 범위여야 한다.');
+  assert.doesNotMatch(adjust, /SELECT SUM\(sd\.OutQuantity\) FROM ShipmentDetail sd[\s\S]{0,180}AS totalOut/, '삭제 업체·품목의 고아 출고를 포함하는 raw ShipmentDetail 합계를 재고검사에 쓰면 안 된다.');
   assert.match(adjust, /ProductStock ps[\s\S]*sm2\.OrderYear[\s\S]*sm2\.OrderWeek[\s\S]*< @currentOrderYearWeek/, 'ADD 검증은 현재 연도차수 결합키보다 작은 최신 ProductStock 스냅샷을 이월재고로 사용해야 한다.');
   assert.match(adjust, /prevStock[\s\S]*currentIn[\s\S]*adjustQty[\s\S]*available[\s\S]*remainAfter/, '재고 검증 응답은 이월·입고·조정·가용·출고·잔량을 구분해야 한다.');
   assert.match(stockStatus, /resolveActiveOrderYear/, '조회·저장 API는 레거시 2025 주차 해석 대신 활성 연도 해석기를 사용해야 한다.');
