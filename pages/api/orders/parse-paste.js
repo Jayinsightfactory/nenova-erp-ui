@@ -290,7 +290,7 @@ function parseCompactProductHead(line) {
   const beforeParen = String(line || '').split('(')[0] || '';
   const beforeAngle = beforeParen.split('<')[0].trim();
   if (!beforeAngle) return '';
-  const m = beforeAngle.match(/^(.+?)[\s:：]*-?\d+(?:\.\d+)?\s*(박스|단|송이|개)?$/);
+  const m = beforeAngle.match(/^(.+?)[\s:：]*-?\d+(?:\.\d+)?\s*(박스|단|송이|개|대|st|stem|stems|steam|ea)?$/i);
   return (m ? m[1] : beforeAngle).trim();
 }
 
@@ -413,7 +413,7 @@ function isNaturalCustomerLine(line) {
   if (!s) return false;
   if (/추가|취소|[()<>]/.test(s)) return false;
   if (/^\d{1,2}\s*(?:-\s*\d{1,2})?\s*차?\s*$/.test(s)) return false;
-  if (/\d+\s*(박스|단|송이|개|ea|box|bunch|stem|stems)/i.test(s)) return false;
+  if (/\d+\s*(박스|단|송이|개|대|ea|st|box|bunch|stem|stems)/i.test(s)) return false;
   return true;
 }
 
@@ -436,7 +436,7 @@ function parseNaturalSectionOrders(text) {
     if (headerLooksLikeSection && explicitHeaderFlowerContext) {
       flowerContext = explicitHeaderFlowerContext;
     }
-    if (!lineWeek && headerLooksLikeSection && /추가|취소/.test(line) && explicitHeaderFlowerContext && !/\d+\s*(박스|단|송이|개)/.test(line)) {
+    if (!lineWeek && headerLooksLikeSection && /추가|취소/.test(line) && explicitHeaderFlowerContext && !/\d+\s*(박스|단|송이|개|대|st)/i.test(line)) {
       sectionAction = normalizeAction(line);
       return;
     }
@@ -445,7 +445,7 @@ function parseNaturalSectionOrders(text) {
       flowerContext = parseCompactFlowerContext(line, flowerContext);
       sectionAction = /추가|취소|춰소|츼소|치소|쥐소/.test(line) ? normalizeAction(line) : '';
       const lineWithoutWeek = line.replace(/(?:^|\s)\d{1,2}\s*(?:-\s*\d{1,2})?\s*차?/, ' ');
-      if (explicitHeaderFlowerContext && /추가|취소/.test(line) && !/\d+\s*(박스|단|송이|개)/.test(lineWithoutWeek)) return;
+      if (explicitHeaderFlowerContext && /추가|취소/.test(line) && !/\d+\s*(박스|단|송이|개|대|st)/i.test(lineWithoutWeek)) return;
       if (/변경사항|차\s*$|^\d{1,2}\s*-\s*\d{1,2}\s*$/.test(line)) return;
       // 차수가 붙은 줄에 수량(숫자)이 없으면 섹션 헤더(예: "23-2 중국 발주 추가",
       //  "23-2차 네덜란드 발주 추가") → 품목 아님. 소비하고 다음 줄로(여분코드 오등록 방지).
@@ -508,7 +508,7 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    const qtyOnly = orderLine.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이(?:\s*\(\s*대\s*\))?|개(?:\s*\(\s*대\s*\))?|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템(?:\s*\(\s*대\s*\))?|stems?|steam)?\s*$/i);
+    const qtyOnly = orderLine.match(/^(.+?)\s*(-?\d+(?:\.\d+)?)\s*(박\s*스|boxes?|box|bx|단|bunch(?:es)?|bun|송\s*이(?:\s*\(\s*대\s*\))?|개(?:\s*\(\s*대\s*\))?|대|스\s*팀(?:\s*\(\s*대\s*\))?|스\s*템(?:\s*\(\s*대\s*\))?|st|stems?|steam|ea)?\s*$/i);
     if (qtyOnly && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(qtyOnly[2] || '1')) || 1;
