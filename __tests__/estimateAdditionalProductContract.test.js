@@ -2,6 +2,7 @@ async function main() {
   const fs = await import('node:fs');
   const {
     applyReferenceCostOnly,
+    defaultReferenceCost,
     buildEstimateAdditionalWeek,
     formatReferenceCostLabel,
     rankReferenceCosts,
@@ -20,6 +21,10 @@ async function main() {
   assert('농장은 필수 아님',!farmRejected);
   const picked=applyReferenceCostOnly({id:'SDETAIL:9',cost:1500,custKey:88,customerName:'다른업체'});
   assert('단가만 선택',picked.cost===1500 && picked.costSourceId==='SDETAIL:9' && picked.custKey===undefined);
+  const autoCustomer=defaultReferenceCost([{id:'SDETAIL:9',kind:'SDETAIL',cost:1500},{id:'CUSTPROD',kind:'CUSTPROD',cost:2200}]);
+  assert('업체 지정단가 자동 우선',autoCustomer.cost===2200 && autoCustomer.costSourceId==='CUSTPROD');
+  const autoRecent=defaultReferenceCost([{id:'SDETAIL:9',kind:'SDETAIL',cost:1500}]);
+  assert('업체단가 없으면 최근 단가 자동값',autoRecent.cost===1500 && autoRecent.costSourceId==='SDETAIL:9');
   const costLabel=formatReferenceCostLabel({cost:1500,year:'2026',week:'29-01',customerName:'다른업체'});
   assert('라벨은 단가 우선',costLabel.includes('원') && costLabel.includes('참고 다른업체') && costLabel.indexOf('원') < costLabel.indexOf('다른업체'));
   assert('기존 수량 변경 없으면 최종 재고계산 생략',shouldSkipFixCycleStockCalc({existingQtyChanged:false})===true);
@@ -35,6 +40,7 @@ async function main() {
   const helper=fs.readFileSync('lib/estimateAdditionalProduct.js','utf8');
   assert('연도 업무키',api.includes('sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.CustKey=@ck'));
   assert('업체단가 원천',api.includes('FROM CustomerProdCost cpc'));
+  assert('업체단가 최신 행 결정',api.includes('ORDER BY cpc.AutoKey DESC'));
   assert('응답에 업체키 없음',!api.includes('custKey:r.CustKey') && !api.includes('custKey: r.CustKey'));
   assert('농장 후보 조회 없음',!api.includes('FARM_CANDIDATE_SCOPE_SQL') && !api.includes('farms:'));
   assert('출고일 모호성 중단',api.includes('SHIPMENT_DATE_AMBIGUOUS'));
@@ -42,6 +48,8 @@ async function main() {
   assert('추가 품목 단위 선택 가능',modal.includes('<select') && modal.includes('onChange={(e) => updateLine(line.id, { unit: normalizeOrderUnit(e.target.value) })}'));
   assert('추가 품목 표준 단위 3종',modal.includes('<option value="박스">박스</option>') && modal.includes('<option value="단">단</option>') && modal.includes('<option value="송이">송이</option>'));
   assert('추가 품목 단위 읽기전용 금지',!modal.includes('value={line.unit}\n                      readOnly'));
+  assert('추가 품목 업체단가 자동 기본값',modal.includes('defaultReferenceCost(d?.priceSources)'));
+  assert('자동단가 직접 수정 시 DIRECT 기록',modal.includes("cost:e.target.value,costSourceId:'DIRECT'"));
   assert('통합 저장',page.includes('pendingAdds') && page.includes("mode: 'PIVOT_DISTRIBUTION'") && page.includes('estimateAdditional: true'));
   assert('한 번 사이클',page.includes('skipFinalStockCalc') && page.includes('confirmedWeekFixCycleStockFlags'));
   assert('force 금지',page.includes("force: false") && !modal.includes('force: true'));

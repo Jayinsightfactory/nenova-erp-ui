@@ -35,7 +35,8 @@ async function handler(req, res) {
       `SELECT TOP 1 c.CustName, cpc.Cost
          FROM CustomerProdCost cpc
          JOIN Customer c ON c.CustKey=cpc.CustKey
-        WHERE cpc.CustKey=@ck AND cpc.ProdKey=@pk AND ISNULL(cpc.Cost,0)>0`,
+        WHERE cpc.CustKey=@ck AND cpc.ProdKey=@pk AND ISNULL(cpc.Cost,0)>0
+        ORDER BY cpc.AutoKey DESC`,
       { ck:{type:sql.Int,value:custKey}, pk:{type:sql.Int,value:prodKey} },
     );
     const prices = await query(
