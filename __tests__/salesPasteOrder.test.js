@@ -37,6 +37,7 @@ assert.equal(normalizeSalesPasteInputText(slashInput), `36-2 콜 수국 추가 �
 진핑크 4박스`, '줄 끝 역슬래시 때문에 수량행이 누락되면 안 됩니다.');
 assert.doesNotMatch(buildSalesPasteText({ year: 2026, week: '36-02', customerName: '꽃길', text: slashInput }), /박스\\/);
 assert.equal(countSalesPasteQuantityLines(slashInput), 5);
+assert.equal(countSalesPasteQuantityLines('화이트 5대\n블루 5st'), 2, '5대·5st 행을 각각 5송이 수량행으로 인식해야 합니다.');
 const completeLlm = { orders: [{ custName: '꽃길', items: [
   { inputName: '진핑크', qty: 8 }, { inputName: '블루', qty: 7 }, { inputName: '화이트', qty: 44 }, { inputName: '연핑크', qty: 3 }, { inputName: '진핑크', qty: 4 },
 ] }] };

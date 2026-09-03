@@ -69,8 +69,11 @@ async function main() {
 
   assert(parseRaumOrderQty('67박스(2010대)').qty === 67, 'parse box qty');
   assert(parseRaumOrderQty('16박스(160단)').unit === '박스', 'parse box unit');
+  assert(parseRaumOrderQty('5대').qty === 5 && parseRaumOrderQty('5대').unit === '송이', '5대 -> 5송이');
+  assert(parseRaumOrderQty('5st').qty === 5 && parseRaumOrderQty('5st').unit === '송이', '5st -> 5송이');
 
   assert(normalizeImportUnit('대') === '송이', '대 -> 송이');
+  assert(normalizeImportUnit('st') === '송이', 'st -> 송이');
   assert(normalizeImportUnit('stem') === '송이', 'stem -> 송이');
   assert(normalizeImportUnit('단') === '단', '단 -> 단');
 

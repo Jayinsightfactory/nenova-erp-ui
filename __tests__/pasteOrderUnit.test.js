@@ -12,7 +12,7 @@ async function main() {
   for (const token of ['단', 'BUNCH', 'bunches', 'bun']) {
     assert.equal(parseExplicitOrderUnit(token), '단', token);
   }
-  for (const token of ['송이', '송 이', '송이(대)', '송이 ( 대 )', '스팀', '스팀(대)', '스팀 ( 대 )', '스템', '스템(대)', 'stem', 'stems', 'steam']) {
+  for (const token of ['송이', '송 이', '송이(대)', '송이 ( 대 )', '대', '개', '스팀', '스팀(대)', '스팀 ( 대 )', '스템', '스템(대)', 'st', 'ST', 'stem', 'stems', 'steam', 'ea']) {
     assert.equal(parseExplicitOrderUnit(token), '송이', token);
   }
 
@@ -29,6 +29,12 @@ async function main() {
   );
   assert.equal(parseNaturalInlineOrderLine('은성꽃도매 - 비스위트 10송이(대) 추가').unitText, '송이(대)');
   assert.equal(parseNaturalSectionActionLine('비스위트 10스 템 ( 대 ) 취소').unitText.replace(/\s+/g, ''), '스템(대)');
+  const dae = parseNaturalSectionActionLine('수국 화이트 5대 추가');
+  assert.equal(dae.quantityText, '5');
+  assert.equal(parseExplicitOrderUnit(dae.unitText), '송이');
+  const st = parseNaturalSectionActionLine('수국 화이트 5st 추가');
+  assert.equal(st.quantityText, '5');
+  assert.equal(parseExplicitOrderUnit(st.unitText), '송이');
 
   const root = path.join(__dirname, '..');
   const parser = fs.readFileSync(path.join(root, 'pages/api/orders/parse-paste.js'), 'utf8');
