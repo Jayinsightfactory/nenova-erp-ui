@@ -160,6 +160,8 @@ export default function SalesPasteOrderPage() {
     setRows([]);
     try {
       const parsed = await apiPost('/api/orders/parse-paste', {
+        selectedCustKey: Number(custKey),
+        selectedOrderYear: year,
         // 분석 문맥용 헤더보다 사용자가 붙여넣은 원문의 차수를 우선 판정한다.
         sourceText: normalizeSalesPasteInputText(text),
         text: buildSalesPasteText({
@@ -212,8 +214,8 @@ export default function SalesPasteOrderPage() {
       ).length;
       setMessage(
         failed
-          ? `LLM 정밀분석 ${nextRows.length}건 · 매칭/수량 확인 필요 ${failed}건`
-          : `LLM 정밀분석 ${nextRows.length}건 · 전부 등록 가능${detectedScope ? ` · 차수 ${detectedScope.week} 자동 선택` : ''}`,
+          ? `LLM 정밀분석 ${nextRows.length}건 · 업체 주문이력 반영 · 매칭/수량 확인 필요 ${failed}건`
+          : `LLM 정밀분석 ${nextRows.length}건 · 업체 주문이력 반영 · 전부 등록 가능${detectedScope ? ` · 차수 ${detectedScope.week} 자동 선택` : ''}`,
       );
       const matchedCount = nextRows.filter((row) => row.prodKey && !row.unitConflict && !row.unitConversionInvalid).length;
       const logDetail = `${parsed.analysisModel || 'LLM'} · ${parsed.parseSource || '-'} · 인식 ${previewItems.length}행 · 최종 ${nextRows.length}품목 · 매칭 ${matchedCount} · 확인 ${failed}`;

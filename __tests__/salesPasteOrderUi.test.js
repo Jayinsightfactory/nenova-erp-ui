@@ -6,6 +6,9 @@ const parser = fs.readFileSync(new URL('../pages/api/orders/parse-paste.js', imp
 const layout = fs.readFileSync(new URL('../components/Layout.js', import.meta.url), 'utf8');
 assert.match(layout, /\/orders\/sales-paste[^\n]+영업부 붙여서 주문등록/);
 assert.match(page, /apiPost\('\/api\/orders\/parse-paste'/, '기존 붙여넣기 매칭 API를 그대로 사용해야 합니다.');
+assert.match(page, /selectedCustKey:\s*Number\(custKey\)/, '선택 업체 주문이력을 매칭 가산점으로 전달해야 합니다.');
+assert.match(parser, /om\.CustKey=@custKey[\s\S]{0,220}GROUP BY od\.ProdKey/, '선택 업체의 활성 주문 품목 이력만 집계해야 합니다.');
+assert.match(parser, /usageByProdKey:\s*customerUsageByProdKey/, '업체별 주문이력을 공통 품목 매칭 엔진에 전달해야 합니다.');
 assert.match(page, /source:\s*'sales-paste',[\s\S]{0,80}orderMode:\s*'ADD'/, '주문 전용 안전 정책으로 추가등록해야 합니다.');
 assert.doesNotMatch(page, /\/api\/shipment\//, '영업부 페이지는 분배 API를 호출하면 안 됩니다.');
 assert.match(page, /expectedCurrentQty/, '저장 직전 현재 주문수량 optimistic lock을 전달해야 합니다.');
