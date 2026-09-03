@@ -39,6 +39,7 @@ assert.match(page, /<th>입력값<\/th>[\s\S]{0,80}<th>매칭값<\/th>/, '사용
 assert.match(page, /className="col-input"[\s\S]{0,80}className="col-match"/, '입력값과 매칭값에 전용 넓은 열을 배정해야 합니다.');
 assert.match(page, /\.workspace\s*\{[\s\S]{0,100}grid-template-columns:\s*minmax\(0, 1fr\) 310px/, '1920 화면에서는 매칭 분석 영역을 주문현황보다 넓게 배정해야 합니다.');
 assert.match(page, /\.match-candidate b\s*\{[\s\S]{0,320}-webkit-line-clamp:\s*2/, '후순위 매칭 후보 품목명은 한 줄 말줄임 대신 두 줄까지 보여야 합니다.');
+assert.match(page, /\.match-shortcuts\s*\{[\s\S]{0,120}grid-template-columns:\s*1fr/, '후순위 후보는 좁은 3열 대신 세로형 큰 버튼으로 표시해야 합니다.');
 assert.match(page, /붙여넣기 원문/, '각 행에서 사용자 원문을 명확히 표시해야 합니다.');
 assert.match(page, /전산 매칭/, '각 행에서 ERP 매칭값을 명확히 표시해야 합니다.');
 assert.match(page, /@media \(max-width: 1400px\)[\s\S]{0,180}grid-template-columns:\s*1fr/, '좁은 화면에서는 주문현황을 아래로 이동해 매칭 조작 영역을 보존해야 합니다.');
