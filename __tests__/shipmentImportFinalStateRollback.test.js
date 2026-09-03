@@ -45,7 +45,12 @@ async function main() {
       [{ custKey: 1, prodKey: 2, intended: 5, verifyOrder: true, intendedOrder: 5 }],
       new Map([['1|2', { orderQty: 10, outQuantity: 5, dateQty: 5, dateIssueCount: 0 }]]),
     );
-    assertLabel('분배가 맞아도 주문이 최종값과 다르면 같은 트랜잭션 검증 실패', verified.mismatchCount === 1 && verified.mismatches[0].reason === '주문수량 불일치');
+    assertLabel('신규 주문은 목표수량 일치가 아니라 양수 활성 주문행 존재로 검증', verified.mismatchCount === 0);
+    const missingOrder = compareVerifyResult(
+      [{ custKey: 1, prodKey: 2, intended: 5, verifyOrder: true, intendedOrder: 5 }],
+      new Map([['1|2', { outQuantity: 5, orderQty: 0, dateQty: 5, dateIssueCount: 0 }]])
+    );
+    assertLabel('주문이 없던 행은 분배만 있고 양수 주문행이 생성되지 않으면 실패', missingOrder.mismatchCount === 1 && missingOrder.mismatches[0].reason === '신규 주문행 없음');
   }
 
   {
