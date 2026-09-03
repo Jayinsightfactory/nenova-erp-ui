@@ -128,8 +128,8 @@ async function main() {
     /await markShipmentImportAuditAppliedInTransaction\(tQ, \{/.test(src),
   );
   assertLabel(
-    '[요구사항5] 커밋 후 재검증에서도 불일치면 success:true 를 반환하지 않음',
-    /success: !\(verification\.mismatchCount > 0\),/.test(src),
+    '[요구사항5] 커밋 후 재검증 불일치·재조회 오류 모두 success:true 반환 금지',
+    /success: isShipmentImportVerificationSuccessful\(verification\),/.test(src),
   );
   assertLabel(
     'verifyAppliedShipmentRows 는 queryFn 을 주입받아 트랜잭션 내부(tQ)/커밋후(query) 양쪽에서 재사용',

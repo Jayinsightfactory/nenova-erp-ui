@@ -5,7 +5,7 @@ import { normalizeOrderUnit } from '../../lib/orderUtils';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { useDebouncedValue } from '../../lib/useDebouncedValue';
 import { PRODUCT_SEARCH_DEBOUNCE_MS } from '../../lib/productSearchLimits';
-import { applyReferenceCostOnly, buildEstimateAdditionalWeek, formatReferenceCostLabel, validateAdditionalProductSelection } from '../../lib/estimateAdditionalProduct';
+import { applyReferenceCostOnly, buildEstimateAdditionalWeek, defaultReferenceCost, formatReferenceCostLabel, validateAdditionalProductSelection } from '../../lib/estimateAdditionalProduct';
 import {
   ADDITIONAL_PRODUCT_CONTEXT_RELOAD_MESSAGE,
   buildAdditionalProductContextRequest,
@@ -224,7 +224,7 @@ export default function OrderRegisterDistributeModal({
         scope: { ...currentScopeRef.current, prodKey: currentLine?.prodKey },
       };
       if (!canApplyAdditionalProductContext(request, current)) return;
-      updateLine(lineId, { context:d, contextError:'' });
+      updateLine(lineId, { context:d, contextError:'', ...defaultReferenceCost(d?.priceSources) });
     } catch (e) {
       const currentLine = linesRef.current.find(line => line.id === lineId);
       const current = {
@@ -452,11 +452,11 @@ export default function OrderRegisterDistributeModal({
                         const src=line.context?.priceSources?.find(x=>x.id===id);
                         updateLine(line.id, applyReferenceCostOnly(src || { id }));
                       }} disabled={!line.context || editBlocked} style={{height:34,border:'1px solid #cbd5e1',borderRadius:6}}>
-                        <option value="">업체 단가 선택 (단가만 적용, 업체는 그대로)</option>
+                        <option value="">자동 단가 없음</option>
                         {(line.context?.priceSources||[]).map(s=><option key={s.id} value={s.id}>{formatReferenceCostLabel(s)}</option>)}
                         <option value="DIRECT">직접 입력</option>
                       </select>
-                      <input type="number" value={line.cost} disabled={editBlocked} onChange={e=>updateLine(line.id,{cost:e.target.value,costSourceId:line.costSourceId||'DIRECT'})} placeholder="VAT 포함 단가" style={{height:34,border:'1px solid #cbd5e1',borderRadius:6,padding:'0 8px'}} />
+                      <input type="number" value={line.cost} disabled={editBlocked} onChange={e=>updateLine(line.id,{cost:e.target.value,costSourceId:'DIRECT'})} placeholder="VAT 포함 단가" style={{height:34,border:'1px solid #cbd5e1',borderRadius:6,padding:'0 8px'}} />
                       <div style={{gridColumn:'1 / -1',fontSize:11,color:'#475569'}}>출고일 {line.context?.shipmentDate||'-'} · 재고 부족 시 저장 중단 · 확정 차수는 해제 후 저장하고 다시 확정</div>
                     </div>
                   </div>

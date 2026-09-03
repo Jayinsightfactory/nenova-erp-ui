@@ -124,7 +124,7 @@
       "stalePreview": "block_entire_batch_on_unexpected_shipment_drift; active current-year orders are always preserved and their quantity drift does not block shipment final-state SET",
       "orderWritePolicy": "active current-year OrderDetail exists => preserve order and apply shipment only; no active order + positive shipment target => create positive order then apply shipment; zero target never creates or changes order",
       "fixedRow": "block_entire_batch",
-      "verification": "shipment_final_quantity_and_date_before_commit; existing orders are quantity-preserved; newly required orders verify positive active-row existence only",
+      "verification": "shipment_final_quantity_and_date before commit and after commit; post-commit query error or mismatch must return success=false; existing orders are quantity-preserved; newly required orders verify positive active-row existence only",
       "repeatSameUpload": "no_op",
       "shipmentOnly": "reject_global_mode",
       "blankCell": "preserve_order_set_distribution_zero",

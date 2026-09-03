@@ -458,7 +458,7 @@ export default function DistributeImport() {
       );
       if (!ok) return;
       ackQtyWarnings = true;
-    } else if (!confirm(`${preview.week}차 검증 결과를 주문등록과 출고분배에 함께 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${orderAlreadyFinalText}\n\n※ 양수는 주문·분배 최종값으로 맞춥니다. 0·빈칸·엑셀에서 빠진 품목은 주문등록값을 유지하고 분배만 0으로 처리합니다.`)) {
+    } else if (!confirm(`${preview.week}차 검증 결과를 주문등록과 출고분배에 함께 적용하시겠습니까?\n적용대상 ${applyRows.length}건 / 주문변경 ${changedRows.length}건${fixBlockedRows.length ? `\n(확정차단 ${fixBlockedRows.length}건은 품종·라인 확정으로 제외)` : ''}${orderCreateText}${orderChangeText}${orderAlreadyFinalText}\n\n※ 기존 주문은 수량을 유지하고 분배만 최종값으로 맞춥니다. 주문이 없는 양수 분배만 주문을 신규 등록하며, 0·빈칸·엑셀에서 빠진 품목은 주문을 유지하고 분배만 0으로 처리합니다.`)) {
       return;
     }
     setApplying(true); setError(''); setMessage('');

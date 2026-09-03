@@ -12,6 +12,7 @@ async function main() {
     evaluateImportFinalStateStale,
     importProductOverrideKey,
     classifyImportUnmatchedReason,
+    isShipmentImportVerificationSuccessful,
   } = await import('../lib/shipmentImportQty.js');
 
   console.log('=== importProductOverrideKey / classify ===');
@@ -105,6 +106,11 @@ async function main() {
     const p = resolveImportWriteIntent({ uploadQty: 0, hasExistingShipment: true });
     assert('0·빈칸·엑셀누락 + 기존분배 → 주문 생성/수정 없이 분배 삭제', p.shouldDeleteShipment && !p.shouldCreateOrUpdateOrder);
   }
+
+  console.log('\n=== post-commit verification success ===');
+  assert('전건 일치만 성공', isShipmentImportVerificationSuccessful({ mismatchCount: 0 }));
+  assert('불일치는 성공 아님', !isShipmentImportVerificationSuccessful({ mismatchCount: 1 }));
+  assert('재조회 오류도 성공 아님', !isShipmentImportVerificationSuccessful({ mismatchCount: 0, error: 'timeout' }));
 
   if (!process.exitCode) console.log('\n=== RESULT: all passed ===');
 }
