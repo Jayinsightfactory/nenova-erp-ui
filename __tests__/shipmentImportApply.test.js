@@ -9,6 +9,7 @@ async function main() {
   const {
     resolveImportOrderSyncPlan,
     resolveImportWriteIntent,
+    evaluateImportFinalStateStale,
     importProductOverrideKey,
     classifyImportUnmatchedReason,
   } = await import('../lib/shipmentImportQty.js');
@@ -42,6 +43,51 @@ async function main() {
     const p = resolveImportWriteIntent({ uploadQty: 0, hasExistingShipment: false });
     assert('재고 요약값이 아닌 uploadQty만 수량 원천', p.source === 'uploadQty' && p.stockQtyIgnored === true);
     assert('0수량·기존분배 없음 → 신규 분배 금지', !p.shouldCreateShipment && !p.shouldDeleteShipment);
+  }
+
+  console.log('\n=== evaluateImportFinalStateStale ===');
+  {
+    const p = evaluateImportFinalStateStale({
+      previewOrderQty: 4, currentOrderQty: 8, intendedOrderQty: 8,
+      previewShipmentQty: 4, currentShipmentQty: 4, intendedShipmentQty: 8,
+    });
+    assert('주문 4→8이 목표 8에 이미 도달하면 허용', !p.orderBlocked && p.orderAlreadyAtTarget);
+    assert('분배는 기존 4에서 목표 8로 적용 가능', !p.shipmentBlocked && !p.shipmentAlreadyAtTarget);
+  }
+  {
+    const p = evaluateImportFinalStateStale({
+      previewOrderQty: 4, currentOrderQty: 8, intendedOrderQty: 8,
+      previewShipmentQty: 4, currentShipmentQty: 8, intendedShipmentQty: 8,
+    });
+    assert('주문·분배 모두 목표값이면 전체 멱등 no-op 후보', !p.orderBlocked && !p.shipmentBlocked && p.orderAlreadyAtTarget && p.shipmentAlreadyAtTarget);
+  }
+  {
+    const p = evaluateImportFinalStateStale({
+      previewOrderQty: 4, currentOrderQty: 6, intendedOrderQty: 8,
+      previewShipmentQty: 4, currentShipmentQty: 4, intendedShipmentQty: 8,
+    });
+    assert('주문이 목표가 아닌 제3값 6이면 전체 차단', p.orderBlocked);
+  }
+  {
+    const p = evaluateImportFinalStateStale({
+      previewOrderQty: 4, currentOrderQty: 4, intendedOrderQty: 8,
+      previewShipmentQty: 4, currentShipmentQty: 6, intendedShipmentQty: 8,
+    });
+    assert('분배가 목표가 아닌 제3값 6이면 전체 차단', p.shipmentBlocked);
+  }
+  {
+    const p = evaluateImportFinalStateStale({
+      previewOrderQty: 4, currentOrderQty: 8, intendedOrderQty: 0, preserveOrder: true,
+      previewShipmentQty: 4, currentShipmentQty: 0, intendedShipmentQty: 0,
+    });
+    assert('0·빈칸·누락은 변경된 주문을 보존하고 이미 0인 분배를 허용', !p.orderBlocked && !p.shipmentBlocked && p.shipmentAlreadyAtTarget);
+  }
+  {
+    const p = evaluateImportFinalStateStale({
+      previewOrderQty: 4, currentOrderQty: 8, intendedOrderQty: 0, preserveOrder: true,
+      previewShipmentQty: 4, currentShipmentQty: 2, intendedShipmentQty: 0,
+    });
+    assert('주문 보존 행도 분배가 제3값이면 전체 차단', !p.orderBlocked && p.shipmentBlocked);
   }
   {
     const p = resolveImportWriteIntent({ uploadQty: 5, hasExistingShipment: false });

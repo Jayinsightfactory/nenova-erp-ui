@@ -121,7 +121,7 @@
       "stock": "preserve",
       "batchAtomic": true,
       "yearRequired": true,
-      "stalePreview": "block_entire_batch",
+      "stalePreview": "block_entire_batch_unless_live_value_already_equals_final_target; preserve-order rows ignore order drift but still block unexpected shipment drift",
       "fixedRow": "block_entire_batch",
       "verification": "order_shipment_and_date_before_commit",
       "repeatSameUpload": "no_op",
