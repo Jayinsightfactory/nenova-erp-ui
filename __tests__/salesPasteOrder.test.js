@@ -76,6 +76,11 @@ const contextualWhite = matchImportRow({ rowNo: 1, inputName: '수국 화이트'
   allProducts: [ecuadorWhite, colombiaWhite], productByKey: new Map([[101, colombiaWhite], [102, ecuadorWhite]]), prodUnitMap: { 101: '박스', 102: '박스' }, savedMappings: {}, unitCatalog: {},
 });
 assert.equal(contextualWhite.prodKey, 101, '콜 수국 헤더의 화이트는 콜롬비아 Hydrangea White로 확정해야 합니다.');
+const historySuggestions = matchImportRow({ rowNo: 1, inputName: '수국 화이트', matchName: '콜롬비아 수국 화이트', qty: 1, unit: '박스' }, {
+  allProducts: [ecuadorWhite, colombiaWhite], productByKey: new Map([[101, colombiaWhite], [102, ecuadorWhite]]), prodUnitMap: {}, savedMappings: {}, unitCatalog: {},
+  usageByProdKey: new Map([[101, { usageCount: 12, recentUsageCount: 5 }]]),
+}).suggestedProducts;
+assert.equal(historySuggestions[0].prodKey, 101, '선택 업체가 최근 주문한 동일 후보를 추천 1순위로 올려야 합니다.');
 const jamoProducts = [
   { ProdKey: 201, ProdName: 'CARNATION Jinda Sweet', DisplayName: '카네이션 진다스위트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단' },
   { ProdKey: 202, ProdName: 'ROSE Jinda Sweet', DisplayName: '장미 진다스위트', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
