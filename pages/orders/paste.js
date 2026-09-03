@@ -1866,6 +1866,10 @@ export default function PasteOrderPage() {
 
   const handleParse = async () => {
     if (!pasteText.trim()) return;
+    // 명시적으로 다시 분석한 경우에만 이전 완료 잠금을 해제한다.
+    setBulkResult(null);
+    setBulkCompletionNotice(null);
+    setBulkProgress('');
     const textForParse = textWithoutExcludedLines(pasteText, pasteExcludedLines);
     refreshStockDraft(pasteText, baseStockText, week, remainStockText);
     setParsing(true);
@@ -2681,12 +2685,17 @@ export default function PasteOrderPage() {
         : `${order.custMatch.CustName} 처리 중 ${failCount}건이 실패했습니다. 아래 DB 처리 결과에서 원인을 확인해 주세요.`,
       okCount,
       failCount,
+      details: details.filter(row => row.ok),
     });
   };
 
   // 화면 전체의 모든 업체를 서버 단일 트랜잭션으로 처리한다.
   // payload는 CANCEL 전체 → ADD 전체 순서이며, 한 건이라도 실패하면 서버가 모두 롤백한다.
   const handleAllMixedDistribute = async () => {
+    if (bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone && bulkResult.okCount > 0) {
+      alert('이 분석 결과는 이미 일괄 등록·분배가 완료되었습니다.\n중복 가산을 막기 위해 다시 실행할 수 없습니다.\n\n새 입력으로 수정하거나 다시 분석한 뒤 실행하세요.');
+      return;
+    }
     const startBlocker = getPasteMixedBatchStartBlocker({
       week, bulkRunning, entries: globalActionEntries, presenceByCust: pastePresenceByCust,
     });
@@ -2893,6 +2902,7 @@ export default function PasteOrderPage() {
         message: `${formatWeekDisplay(week)} 전체 ${details.length}건이 저장되고 전산 원장 대조까지 완료되었습니다.`,
         okCount: details.length,
         failCount: 0,
+        details,
       };
     } catch (error) {
       const displayError = error?.name === 'TimeoutError' || error?.name === 'AbortError'
@@ -3643,6 +3653,7 @@ export default function PasteOrderPage() {
   const globalBatchStartBlocker = getPasteMixedBatchStartBlocker({
     week, bulkRunning, entries: globalActionEntries, presenceByCust: pastePresenceByCust,
   });
+  const globalBatchProcessed = Boolean(bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone && bulkResult.okCount > 0);
   const adjustPresence = pastePresenceByCust[String(adjustModal?.custKey)] || {};
   const adjustBlocked = Boolean(adjustPresence.loading || (adjustPresence.active && !adjustPresence.ownedByMe) || adjustPresence.stale || adjustPresence.error);
   const actionPreview = (order, item) => {
@@ -3661,6 +3672,7 @@ export default function PasteOrderPage() {
     }
   };
   const previewQty = value => Number.isFinite(Number(value)) ? Number(Number(value).toFixed(3)) : '-';
+  const batchResultQty = (before, after, unit = '') => `${previewQty(before)}→${previewQty(after)}${unit ? ` ${unit}` : ''}`;
   const renderGlobalActionPreviewBoard = ({ compact = false } = {}) => (
     <div
       className={`paste-global-action-board${compact ? ' paste-global-action-board-top' : ''}`}
@@ -3915,9 +3927,9 @@ export default function PasteOrderPage() {
               {globalBatchStartBlocker.message}
             </span>}
             <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning}
-              aria-disabled={Boolean(globalBatchStartBlocker)} title={globalBatchStartBlocker?.message || '취소 전체 처리 후 추가·분배 전체 처리'}
-              style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: globalBatchStartBlocker ? '#78909c' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : globalBatchStartBlocker ? 'help' : 'pointer' }}>
-              {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
+              aria-disabled={Boolean(globalBatchStartBlocker)} title={globalBatchProcessed ? '처리 완료 — 새 입력 또는 다시 분석 후 실행할 수 있습니다.' : globalBatchStartBlocker?.message || '취소 전체 처리 후 추가·분배 전체 처리'}
+              style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: globalBatchStartBlocker || globalBatchProcessed ? '#78909c' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : globalBatchProcessed ? 'not-allowed' : globalBatchStartBlocker ? 'help' : 'pointer' }}>
+              {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : globalBatchProcessed ? `✅ 처리 완료 (${bulkResult.okCount}건)` : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
             </button>
             {bulkProgress && <span role="status" aria-live="polite" style={{ width: '100%', fontSize: 12, fontWeight: 900, color: bulkProgress.startsWith('중단') ? '#b71c1c' : '#0d47a1' }}>
               처리 로그: {bulkProgress}
@@ -3997,7 +4009,7 @@ export default function PasteOrderPage() {
               style={{ width: '100%', padding: '8px 10px', border: '1px solid #9fa8da', borderRadius: 6, fontSize: 13, lineHeight: 1.4, fontFamily: 'monospace', resize: 'none', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'[변경사항형]\n21-1 수국 변경사항\n수경원예\n블루 1박스 취소\n\n[기본형]\n청화꽃집\nCaroline | 2'}
               value={pasteText}
-              onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
+              onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); setBulkResult(null); setBulkCompletionNotice(null); setBulkProgress(''); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
             />
             <div className="paste-order-actions">
               <button
@@ -4049,6 +4061,23 @@ export default function PasteOrderPage() {
                 </div>
                 {globalBatchStartBlocker && globalBatchStartBlocker.code !== 'RUNNING' && (
                   <div role="alert" className="paste-order-results-blocker">{globalBatchStartBlocker.message}</div>
+                )}
+                {globalBatchProcessed && (
+                  <section aria-label="일괄 등록 분배 성공 결과" style={{ marginBottom: 8, border: '2px solid #2e7d32', borderRadius: 8, overflow: 'hidden', background: '#f1f8e9' }}>
+                    <div style={{ padding: '7px 10px', background: '#2e7d32', color: '#fff', fontSize: 12, fontWeight: 900 }}>
+                      ✅ 저장 완료 결과 — 아래 수량이 현재 전산에 반영되었습니다.
+                    </div>
+                    <div style={{ maxHeight: 180, overflow: 'auto' }}>
+                      {(bulkResult.details || []).filter(row => row.ok).map((row, index) => (
+                        <div key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px,.8fr) minmax(130px,1.4fr) minmax(105px,.9fr) minmax(105px,.9fr)', gap: 7, alignItems: 'center', padding: '6px 9px', borderTop: index ? '1px solid #c8e6c9' : 0, fontSize: 11 }}>
+                          <b style={{ color: '#1a237e' }}>{row.custName}</b>
+                          <span>{row.displayName || row.prodName}</span>
+                          <span><b>주문</b> {batchResultQty(row.orderQtyBefore, row.orderQtyAfter, row.unit)}</span>
+                          <span style={{ color: '#1565c0', fontWeight: 800 }}><b>분배</b> {batchResultQty(row.outQtyBefore, row.outQtyAfter, row.unit)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
                 )}
                 {renderGlobalActionPreviewBoard({ compact: true })}
                 <StockImpactSummary
@@ -5327,7 +5356,7 @@ export default function PasteOrderPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
         }}>
           <section role="dialog" aria-modal="true" aria-labelledby="paste-batch-completion-title" style={{
-            width: 'min(520px, calc(100vw - 40px))', borderRadius: 12, background: '#fff',
+            width: 'min(760px, calc(100vw - 40px))', borderRadius: 12, background: '#fff',
             boxShadow: '0 18px 48px rgba(0,0,0,.28)', overflow: 'hidden',
           }}>
             <div style={{ padding: '16px 20px', color: '#fff', background: bulkCompletionNotice.success ? '#1b5e20' : '#b71c1c' }}>
@@ -5341,6 +5370,18 @@ export default function PasteOrderPage() {
                 <b style={{ color: '#b71c1c' }}>실패 {bulkCompletionNotice.failCount}건</b>
               </div>
               <div style={{ whiteSpace: 'pre-line', lineHeight: 1.55, color: '#263238' }}>{bulkCompletionNotice.message}</div>
+              {bulkCompletionNotice.success && bulkCompletionNotice.details?.length > 0 && (
+                <div style={{ marginTop: 12, maxHeight: 280, overflow: 'auto', border: '1px solid #c8e6c9', borderRadius: 7 }}>
+                  {bulkCompletionNotice.details.map((row, index) => (
+                    <div key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px,.8fr) minmax(130px,1.4fr) minmax(105px,1fr) minmax(105px,1fr)', gap: 8, padding: '7px 9px', borderTop: index ? '1px solid #e0e0e0' : 0, fontSize: 11 }}>
+                      <b style={{ color: '#1a237e' }}>{row.custName || ''}</b>
+                      <span>{row.displayName || row.prodName}</span>
+                      <span>주문 {batchResultQty(row.orderQtyBefore, row.orderQtyAfter, row.unit)}</span>
+                      <b style={{ color: '#1565c0' }}>분배 {batchResultQty(row.outQtyBefore, row.outQtyAfter, row.unit)}</b>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
                 <button type="button" autoFocus onClick={() => setBulkCompletionNotice(null)} style={{
                   padding: '9px 22px', border: 0, borderRadius: 7, background: '#1a237e', color: '#fff', fontWeight: 900, cursor: 'pointer',
