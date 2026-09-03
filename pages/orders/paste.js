@@ -2322,7 +2322,9 @@ export default function PasteOrderPage() {
     if (!custKey || !week || !prodKeys?.length) return;
     try {
       const orderYear = selectedYearFromWeek(week);
-      const r = await fetch(`/api/shipment/adjust?type=current&week=${encodeURIComponent(week)}&year=${encodeURIComponent(orderYear)}&custKey=${custKey}&prodKeys=${encodeURIComponent([...new Set(prodKeys.map(Number).filter(Boolean))].join(','))}`);
+      const r = await fetch(`/api/shipment/adjust?type=current&week=${encodeURIComponent(week)}&year=${encodeURIComponent(orderYear)}&custKey=${custKey}&prodKeys=${encodeURIComponent([...new Set(prodKeys.map(Number).filter(Boolean))].join(','))}`, {
+        signal: AbortSignal.timeout(20_000),
+      });
       const d = await r.json();
       if (d.success && d.items) {
         const updates = {};
@@ -2492,6 +2494,7 @@ export default function PasteOrderPage() {
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState('');
   const [bulkResult, setBulkResult] = useState(null); // { okCount, failCount, details }
+  const [bulkCompletionNotice, setBulkCompletionNotice] = useState(null);
   const handleBulkDistribute = async (oid, { failedOnly = false } = {}) => {
     const order = orders.find(o => o.id === oid);
     if (!order || !order.custMatch || !week) { alert('거래처/차수 확인하세요.'); return; }
@@ -2670,6 +2673,15 @@ export default function PasteOrderPage() {
       }
     } catch { /* 서버 트랜잭션 내부 대조는 완료됨. 화면 재조회만 실패한 경우 기존 검증결과를 유지한다. */ }
     loadOrderHistorySummary(week, orders);
+    setBulkCompletionNotice({
+      success: failCount === 0,
+      title: failCount === 0 ? '일괄 등록·분배 완료' : '일괄 등록·분배 실패',
+      message: failCount === 0
+        ? `${order.custMatch.CustName} ${okCount}건이 저장되고 전산 원장 대조까지 완료되었습니다.`
+        : `${order.custMatch.CustName} 처리 중 ${failCount}건이 실패했습니다. 아래 DB 처리 결과에서 원인을 확인해 주세요.`,
+      okCount,
+      failCount,
+    });
   };
 
   // 화면 전체의 모든 업체를 서버 단일 트랜잭션으로 처리한다.
@@ -2748,8 +2760,10 @@ export default function PasteOrderPage() {
     }
 
     setBulkResult(null);
+    setBulkCompletionNotice(null);
     let pasteGuards = [];
     let allSucceeded = false;
+    let completionNotice = null;
     try {
       // 전체 처리는 업체키 순서로 모두 작업권을 먼저 얻는다. 하나라도 다른 작업 중이면
       // 저장 API를 한 번도 호출하지 않고, 이미 확보한 업체도 즉시 풀어준다.
@@ -2873,6 +2887,13 @@ export default function PasteOrderPage() {
         updateOrder(order.id, { resultMsg: `전체 일괄 처리 완료: 성공 ${orderDetails.length}건 / 실패 0건` });
       });
       loadOrderHistorySummary(week, orders);
+      completionNotice = {
+        success: true,
+        title: '일괄 등록·분배 완료',
+        message: `${formatWeekDisplay(week)} 전체 ${details.length}건이 저장되고 전산 원장 대조까지 완료되었습니다.`,
+        okCount: details.length,
+        failCount: 0,
+      };
     } catch (error) {
       const displayError = error?.name === 'TimeoutError' || error?.name === 'AbortError'
         ? `${currentStep} 응답이 제한시간을 초과했습니다. 원장 결과를 다시 조회한 뒤 재실행하세요.`
@@ -2895,12 +2916,19 @@ export default function PasteOrderPage() {
         error: error.message,
       });
       setBulkProgress(`중단: ${displayError}`);
-      alert(`전체 일괄 처리를 시작하지 못했습니다.\n\n${displayError}\n\n저장된 항목은 없으며 전체가 롤백되었습니다. 원인을 수정한 뒤 다시 실행하세요.`);
+      completionNotice = {
+        success: false,
+        title: '일괄 등록·분배 실패',
+        message: `${displayError}\n\n저장된 항목은 없으며 전체가 롤백되었습니다. 원인을 수정한 뒤 다시 실행하세요.`,
+        okCount: 0,
+        failCount: targets.length,
+      };
     } finally {
       await Promise.all(pasteGuards.map(guard => endPasteSaving(guard, { refreshBaseline: allSucceeded })));
       await Promise.all(pasteGuards.map(releasePasteGuard));
       // 작업권 기준값 갱신과 반납이 모두 끝난 뒤에만 되돌리기 버튼을 다시 누를 수 있다.
       setBulkRunning(false);
+      if (completionNotice) setBulkCompletionNotice(completionNotice);
     }
   };
 
@@ -5293,6 +5321,35 @@ export default function PasteOrderPage() {
         </div>
       )}
       <MappingStatusModal open={showMapModal} onClose={() => setShowMapModal(false)} />
+      {bulkCompletionNotice && (
+        <div role="presentation" onClick={event => event.target === event.currentTarget && setBulkCompletionNotice(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 10020, background: 'rgba(15,23,42,.48)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="paste-batch-completion-title" style={{
+            width: 'min(520px, calc(100vw - 40px))', borderRadius: 12, background: '#fff',
+            boxShadow: '0 18px 48px rgba(0,0,0,.28)', overflow: 'hidden',
+          }}>
+            <div style={{ padding: '16px 20px', color: '#fff', background: bulkCompletionNotice.success ? '#1b5e20' : '#b71c1c' }}>
+              <strong id="paste-batch-completion-title" style={{ fontSize: 18 }}>
+                {bulkCompletionNotice.success ? '✅' : '❌'} {bulkCompletionNotice.title}
+              </strong>
+            </div>
+            <div style={{ padding: 20 }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                <b style={{ color: '#1b5e20' }}>성공 {bulkCompletionNotice.okCount}건</b>
+                <b style={{ color: '#b71c1c' }}>실패 {bulkCompletionNotice.failCount}건</b>
+              </div>
+              <div style={{ whiteSpace: 'pre-line', lineHeight: 1.55, color: '#263238' }}>{bulkCompletionNotice.message}</div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                <button type="button" autoFocus onClick={() => setBulkCompletionNotice(null)} style={{
+                  padding: '9px 22px', border: 0, borderRadius: 7, background: '#1a237e', color: '#fff', fontWeight: 900, cursor: 'pointer',
+                }}>확인</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
       <StockNotePicker
         open={showStockPicker}
         notes={stockNotesAll}

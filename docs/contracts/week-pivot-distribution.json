@@ -150,7 +150,8 @@
     "failurePolicy": "all-or-nothing; any preflight or commit entry failure rolls back every CANCEL and ADD entry, the UI reports success 0 and all rows rolled back, and the user reruns the full batch after correcting the cause",
     "clientPreflightPolicy": "every non-skipped pasted row must have a confirmed CustKey, ProdKey, and positive quantity before the first write; an unmatched ADD may never be omitted while matched CANCEL rows are submitted",
     "forcePolicy": "force is always false for the global paste batch and cannot be enabled by an entry payload",
-    "uiRefreshPolicy": "registered order state, shipment quantity state, and order history refresh only after success=true for the whole atomic batch",
+    "uiRefreshPolicy": "registered order state, shipment quantity state, and order history refresh only after success=true for the whole atomic batch; the post-write shipment refresh has a bounded timeout so the UI cannot remain indefinitely in running state after server verification",
+    "completionNoticePolicy": "after the global batch reaches a final success or rollback result and edit-lease cleanup finishes, the paste page opens a modal showing success/failure counts and the verified or rolled-back outcome",
     "sideEffects": [
       {
         "phase": "CANCEL",
