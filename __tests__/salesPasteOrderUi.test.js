@@ -37,6 +37,11 @@ assert.match(page, /담당자 입력 규칙/, '오인식 방지를 위한 담당
 assert.match(page, /첫 줄: 차수 · 국가\/화종 · 추가 또는 취소/, '차수와 품종 문맥의 표준 위치를 안내해야 합니다.');
 assert.match(page, /<th>입력값<\/th>[\s\S]{0,80}<th>매칭값<\/th>/, '사용자 입력값과 전산 매칭값을 별도 열로 나란히 표시해야 합니다.');
 assert.match(page, /className="col-input"[\s\S]{0,80}className="col-match"/, '입력값과 매칭값에 전용 넓은 열을 배정해야 합니다.');
+assert.match(page, /\.workspace\s*\{[\s\S]{0,100}grid-template-columns:\s*minmax\(0, 1fr\) 310px/, '1920 화면에서는 매칭 분석 영역을 주문현황보다 넓게 배정해야 합니다.');
+assert.match(page, /\.match-candidate b\s*\{[\s\S]{0,320}-webkit-line-clamp:\s*2/, '후순위 매칭 후보 품목명은 한 줄 말줄임 대신 두 줄까지 보여야 합니다.');
+assert.match(page, /붙여넣기 원문/, '각 행에서 사용자 원문을 명확히 표시해야 합니다.');
+assert.match(page, /전산 매칭/, '각 행에서 ERP 매칭값을 명확히 표시해야 합니다.');
+assert.match(page, /@media \(max-width: 1400px\)[\s\S]{0,180}grid-template-columns:\s*1fr/, '좁은 화면에서는 주문현황을 아래로 이동해 매칭 조작 영역을 보존해야 합니다.');
 assert.match(page, /salesPasteUnitOptions\(row\)/, '서버 환산식으로 검증된 단위만 행 선택지에 표시해야 합니다.');
 assert.match(page, /replaceSalesPasteUnit\(rows, rowIndex, unit, products\)/, '단위 변경 시 현재 주문과 등록 후 수량을 다시 계산해야 합니다.');
 assert.match(page, /\.customers\s*\{[\s\S]{0,100}flex-wrap:\s*wrap/, '업체 선택 버튼은 화면 폭에 맞춰 다음 줄로 내려가야 합니다.');
