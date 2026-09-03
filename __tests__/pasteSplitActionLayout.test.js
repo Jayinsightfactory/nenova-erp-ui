@@ -70,6 +70,11 @@ const atomicCatch = atomicHandler.slice(
 );
 assert.doesNotMatch(atomicCatch, /setRegisteredOrders|setShipmentQtys|loadOrderHistorySummary/);
 assert.match(page, /추가·취소 전체 일괄 등록·분배/);
+assert.match(page, /setBulkCompletionNotice\(completionNotice\)/, '전체 일괄 작업은 작업권 정리 뒤 완료 알림창을 열어야 한다.');
+assert.match(page, /setBulkCompletionNotice\(\{[\s\S]*order\.custMatch\.CustName[\s\S]*okCount,[\s\S]*failCount/, '업체별 일괄 작업도 완료 알림창에 결과를 전달해야 한다.');
+assert.match(page, /role="dialog"/, '완료 결과는 별도 알림창으로 보여야 한다.');
+assert.match(page, /title: '일괄 등록·분배 완료'/, '완료 알림창은 일괄 작업 완료를 명확히 알려야 한다.');
+assert.match(page, /fetch\(`\/api\/shipment\/adjust\?type=current[\s\S]*AbortSignal\.timeout\(20_000\)/, '완료 후 분배 재조회가 무기한 대기해 처리중 상태에 머물면 안 된다.');
 assert.match(page, /const handleUndoAllMixedDistribute = async/);
 assert.match(page, /fetch\('\/api\/shipment\/adjust-batch-undo'/);
 assert.match(page, /↩ 마지막 전체 일괄 되돌리기/);
