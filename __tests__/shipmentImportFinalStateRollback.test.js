@@ -96,9 +96,10 @@ async function main() {
     /if \(fixCheck\.fixBlocked\) \{\s*\n\s*preflightBlockers\.push/.test(src),
   );
   assertLabel(
-    '[요구사항4] stale 판정 — preview 스냅샷(orderQty/currentOutQty)과 apply 직전 재조회값 비교',
-    /if \(row\.orderQty != null && !sameQty\(row\.orderQty, state\.orderQty\)\)/.test(src) &&
-    /if \(row\.currentOutQty != null && !sameQty\(row\.currentOutQty, state\.currentOutQty\)\)/.test(src),
+    '[요구사항4] 최종값 stale 판정 — 목표 도달은 허용하고 제3값만 차단하는 공용 정책 사용',
+    /evaluateImportFinalStateStale\(\{/.test(src) &&
+    /if \(finalStateStale\.orderBlocked\)/.test(src) &&
+    /if \(finalStateStale\.shipmentBlocked\)/.test(src),
   );
   assertLabel(
     '[요구사항5] 같은 트랜잭션 내부(tQ)에서 커밋 전 재조회·검증하고 불일치 시 throw(rollback)',
