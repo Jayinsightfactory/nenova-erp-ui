@@ -478,6 +478,38 @@ export default function DistributeImport() {
     setApplyModalOpen(true);
     // 실시간 진행 로그 — 서버 트랜잭션이 도는 동안 몇 건째/어떤 업체·품목을 입력 중인지 폴링으로 표시
     const jobId = `apply_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const recoverApplyResult = async () => {
+      const deadline = Date.now() + (12 * 60 * 1000);
+      setApplyResult(prev => ({
+        ...(prev || initialApplyResult),
+        running: true,
+        logs: [...((prev || initialApplyResult).logs || []), '서버 응답이 끊겨 실제 처리 상태를 자동 확인 중입니다. 재실행하지 마세요.'],
+      }));
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        try {
+          const progressRes = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin' });
+          if (progressRes.status === 401) throw new Error('로그인 세션이 만료되었습니다.');
+          if (!progressRes.ok) continue;
+          const progressData = await progressRes.json();
+          const serverProgress = progressData?.progress;
+          if (!serverProgress) continue;
+          setApplyResult(prev => (prev?.running ? { ...prev, progress: serverProgress } : prev));
+          if (!serverProgress.finished) continue;
+          if (serverProgress.result) return serverProgress.result;
+          if (serverProgress.failed) {
+            return {
+              success: false,
+              error: serverProgress.error?.message || '서버 적용 작업이 실패했습니다.',
+              code: serverProgress.error?.code || '',
+            };
+          }
+        } catch (progressError) {
+          if (progressError?.message?.includes('로그인 세션')) throw progressError;
+        }
+      }
+      throw new Error('서버 응답은 끊겼고 12분 내에 처리 결과를 확인하지 못했습니다. 재실행하지 말고 이력에서 적용 여부를 확인해 주세요.');
+    };
     const pollTimer = setInterval(async () => {
       try {
         const r = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin' });
@@ -488,17 +520,30 @@ export default function DistributeImport() {
       } catch { /* 폴링 실패는 무시 — 본 요청이 결과를 준다 */ }
     }, 900);
     try {
-      const res = await fetch('/api/shipment/distribute-import-apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ week: preview.week, year: preview.orderYear, rows: applyRows, ackQtyWarnings, jobId }),
-      });
-      let data;
+      let res = null;
+      let data = null;
       try {
-        data = await res.json();
+        res = await fetch('/api/shipment/distribute-import-apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ week: preview.week, year: preview.orderYear, rows: applyRows, ackQtyWarnings, jobId }),
+        });
       } catch {
-        throw new Error(`서버 응답 오류 (${res.status}). 로그인 세션이 만료됐을 수 있습니다.`);
+        data = await recoverApplyResult();
+      }
+      if (!data && res && [502, 503, 504].includes(res.status)) {
+        data = await recoverApplyResult();
+      }
+      if (!data && res) {
+        try {
+          data = await res.json();
+        } catch {
+          if (res.status === 401 || res.status === 403) {
+            throw new Error(`로그인 세션 오류 (${res.status}). 다시 로그인해 주세요.`);
+          }
+          data = await recoverApplyResult();
+        }
       }
       if (!data.success) {
         if (res.status === 409 && data.code === 'QTY_WARNING') {

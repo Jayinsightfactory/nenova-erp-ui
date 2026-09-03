@@ -24,11 +24,19 @@ async function handler(req, res) {
       onProgress: jobId ? (patch => progressStep(jobId, patch)) : null,
     });
     if (jobId) finishApplyProgress(jobId, result?.success === true
-      ? { log: '적용 및 저장 후 검증 완료' }
-      : { failed: true, log: `적용 확인 실패: ${result?.error || result?.verification?.error || '저장 후 전산 대조 불일치'}` });
+      ? { log: '적용 및 저장 후 검증 완료', result }
+      : {
+        failed: true,
+        log: `적용 확인 실패: ${result?.error || result?.verification?.error || '저장 후 전산 대조 불일치'}`,
+        result,
+      });
     return res.status(200).json(result);
   } catch (e) {
-    if (jobId) finishApplyProgress(jobId, { failed: true, log: `오류: ${e.message}` });
+    if (jobId) finishApplyProgress(jobId, {
+      failed: true,
+      log: `오류: ${e.message}`,
+      error: { message: e.message, code: e.code || '', statusCode: Number(e.statusCode) || 500 },
+    });
     if (e.code === 'QTY_WARNING') {
       return res.status(409).json({
         success: false,
