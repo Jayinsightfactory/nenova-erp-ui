@@ -130,7 +130,7 @@ UPDATE ShipmentDate
 2. 같은 `SdetailKey`의 `ShipmentDetail.OutQuantity/BoxQuantity/BunchQuantity/SteamQuantity`
    총량을 기존 날짜분포의 증감으로 갱신한다.
 3. `ShipmentDetail`과 `ShipmentDate`의 `EstQuantity/Amount/Vat`를 다시 계산한다.
-4. 확정 행이면 웹 화면이 확정취소 → 저장 → 재확정 사이클을 실행한다.
+4. 확정 행도 서버 잠금 아래 확정 상태를 유지한 채 증감분과 재고를 같은 거래에서 반영한다. 기존 행 수량 수정은 차수 전체 확정취소 → 재확정 사이클을 실행하지 않는다.
 
 `OrderDetail`은 이 결합 저장에서 직접 변경하지 않는다. 출고일 수량을 0으로 만들어
 해당 `ShipmentDetail` 총량이 0이 되면 EXE `GetDetail`의 `EstQuantity > 0` 조건과 같이
@@ -265,7 +265,7 @@ PeriodDay` 행 중 `ShipmentDetail.OutQuantity > 0`인 실제 분배를 직접 �
 
 정상출고(`SdetailKey`/`SdateKey`)를 선택한 경우 품목명과 단위는
 `ShipmentDetail` 원장과 연결되어 있어 정보창에서 변경하지 않는다. 수량은
-기존 `ShipmentDate` 수정 경로와 필요한 확정취소·저장·재확정 사이클을 사용한다.
+기존 `ShipmentDate` 수정 경로를 확장한 서버 잠금 기반 확정상태 보존 저장을 사용한다.
 단가만 변경할 때는 아래 2026-08-26 검증에 따라 플래그와 재고를 보존하는 금액 전용
 `ShipmentDetail`/`ShipmentDate` 저장 경로를 사용한다. `Estimate` 차감행은 변경하지 않는다.
 
@@ -273,14 +273,15 @@ PeriodDay` 행 중 `ShipmentDetail.OutQuantity > 0`인 실제 분배를 직접 �
 
 `FormEstimateView.GetData/GetDetail`의 표시 범위는 `OrderYearWeek/OrderYearWeek2`이고,
 단가 저장 대상은 `ShipmentKey`로 연결된 `ShipmentMaster`와 `ShipmentDetail/ShipmentDate`다.
-따라서 물리적 수량 변경의 확정취소→저장→재확정 사이클은 짧은 `32-02`만 전달하지 않고 화면의
-`OrderYear`를 반드시 함께 전달한다. `/api/estimate/update-cost`도 `ShipmentMaster`를
+따라서 물리적 수량 변경의 확정상태 보존 저장은 짧은 `32-02`만 전달하지 않고 화면의
+`OrderYear`를 반드시 함께 전달한다. 추가 품목 생성 때만 사용하는 범위 제한 확정 사이클도
+같은 연도 규칙을 따른다. `/api/estimate/update-cost`도 `ShipmentMaster`를
 `UPDLOCK/HOLDLOCK`으로 읽어 요청 연도·거래처와 실제 `OrderYear/CustKey`가 일치할 때만
 `ShipmentDetail.Cost/Amount/Vat`와 연결 `ShipmentDate.Cost/Amount/Vat`를
 수정한다. 2026-08-26부터 단가 전용 저장에서는 기존 EstQuantity를 재계산하지 않는다.
 불일치 시 전체 트랜잭션을 중단한다.
 
-자동 편집 사이클은 `force=false`로 확정취소/재확정을 호출한다. `force`는 음수재고
+추가 품목의 자동 편집 사이클은 `force=false`로 확정취소/재확정을 호출한다. `force`는 음수재고
 검사를 건너뛰지는 않지만, 뒤 차수 확정 경고를 우회할 수 있으므로 자동 저장에서는
 사용하지 않는다. 재확정 중 음수재고가 확인되면 기존 `autoStockAdd +
 confirmAutoStockAdd` 명시 확인 계약 없이는 재고조정 원장을 만들지 않는다.

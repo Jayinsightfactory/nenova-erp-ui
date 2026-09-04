@@ -63,7 +63,7 @@
       "weekProdCostKey": "OrderYear + OrderWeek + CustKey + ProdKey",
       "stockCalc": "never invoked — price-only writes never call fix/unfix SP or usp_StockCalculation (2026-08-26 dnSpy + read-only 운영 SELECT 근거: ShipmentMaster/ShipmentDate/CustomerProdCost에 트리거 없음, ShipmentDetail 트리거는 OutQuantity UPDATE에만 반응)",
       "evidence": "docs/work-reports/2026-08-26_estimate-cost-no-stock-design.md",
-      "note": "수량 변경(출고일 EstQuantity/OutQuantity)이 함께 있는 경로는 이 action이 아니라 기존 unfix-save-refix 사이클을 그대로 유지한다."
+      "note": "기존 출고일 수량 변경이 함께 있어도 서버 잠금 기반 확정상태 보존 수량 저장 뒤 이 금액 전용 저장을 이어서 실행한다. 추가 품목 생성만 별도의 품목 범위 unfix-save-refix 계약을 사용한다."
     },
     {
       "name": "QUANTITY_PRICE_WITH_CUSTOMER_FIXED_COST",

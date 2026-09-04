@@ -67,9 +67,9 @@
       "shipmentDetail": "preserve",
       "estimate": "preserve",
       "sidecar": "heartbeat only; do not refresh/replace BaselineDigest",
-      "sequence": "keep client saving marker -> successful ERP transaction advances BaselineDigest -> heartbeat compares that baseline with live rows -> stale=false accepts own digest -> release saving marker",
+      "sequence": "keep client saving marker -> every successful ERP transaction advances BaselineDigest -> after the whole attempt (success, failure, or partial success) heartbeat compares the authoritative baseline with live rows -> stale=false settles own completed writes -> release saving marker",
       "externalRace": "an EXE or other-window write after the web commit makes heartbeat stale=true and remains blocked",
-      "failure": "failed or partial save does not settle the client baseline"
+      "failure": "a validation-only failure leaves the same baseline; a partial save settles only the server-advanced baseline through heartbeat and never uses action=refresh. An intervening external write remains stale"
     },
     {
       "name": "EXPLICIT_EXE_CONFIRMATION_REFRESH",

@@ -2595,7 +2595,7 @@ export default function Estimate() {
       }
       setQtyApplying(false);
       setCostApplying(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
+      await estimateEditPresence.endSaving({ refreshBaseline: isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   };
 
@@ -2760,7 +2760,7 @@ export default function Estimate() {
       }
     } finally {
       setCostApplying(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
+      await estimateEditPresence.endSaving({ refreshBaseline: isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   }
 
@@ -2773,13 +2773,19 @@ export default function Estimate() {
     let saveSucceeded = false;
     let automaticProgressId = '';
     const effectiveCostMode = modeOverride || costMode;
+    const usesFixCycle = pendingAdds.length > 0;
 
     setQtyApplying(true);
     setCostApplying(true);
     setEditApplyTitle(pendingAdds.length ? '단가/수량/추가품목 저장' : '단가/수량 수정 저장');
     setQtyResult(null);
     setCostResult(null);
-    setCostApplyLog([{ step: 'start', label: `${weekNum}차 견적서 단가/수량/추가품목 저장 시작` }]);
+    setCostApplyLog([{
+      step: 'start',
+      label: usesFixCycle
+        ? `${weekNum}차 견적서 수량·단가·추가 품목 저장 시작`
+        : `${weekNum}차 견적서 수량·단가 저장 시작`,
+    }]);
 
     try {
       const qtyPending = [];
@@ -3044,7 +3050,11 @@ export default function Estimate() {
     } catch (err) {
       if (automaticProgressId) {
         appendAutomaticEditStage(automaticProgressId, {
-          kind: 'error', status: 'error', label: `자동 확정차수 편집 오류 — ${err.message || '알 수 없는 오류'}`,
+          kind: 'error',
+          status: 'error',
+          label: usesFixCycle
+            ? `추가 품목 확정 처리 오류 — ${err.message || '알 수 없는 오류'}`
+            : `수량·단가 저장 오류 — ${err.message || '알 수 없는 오류'}`,
         });
       }
       if (!isCapturedEstimateScopeCurrent(capturedRefresh)) return;
@@ -3062,12 +3072,14 @@ export default function Estimate() {
       if (automaticProgressId) {
         finishAutomaticEditProgress(automaticProgressId, {
           ok: saveSucceeded,
-          label: saveSucceeded ? '자동 확정차수 편집 완료' : '자동 확정차수 편집이 일부 실패했거나 중단됨',
+          label: usesFixCycle
+            ? (saveSucceeded ? '추가 품목 포함 저장 완료' : '추가 품목 포함 저장이 실패했거나 중단됨')
+            : (saveSucceeded ? '수량·단가 저장 완료' : '수량·단가 저장이 실패했거나 중단됨'),
         });
       }
       setQtyApplying(false);
       setCostApplying(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
+      await estimateEditPresence.endSaving({ refreshBaseline: isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   }
 
@@ -3278,7 +3290,7 @@ export default function Estimate() {
     } finally {
       deductionDeleteInFlightRef.current = false;
       setDeductionDeleting(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: deleteSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
+      await estimateEditPresence.endSaving({ refreshBaseline: isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   };
 
@@ -3417,7 +3429,7 @@ export default function Estimate() {
       }
       if (e?.code === 'ERP_EDIT_STALE' || e?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
       setErr(e.message);
-    } finally { setSaving(false); await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) }); }
+    } finally { setSaving(false); await estimateEditPresence.endSaving({ refreshBaseline: isCapturedEstimateScopeCurrent(capturedRefresh) }); }
   };
 
   const openItemEditor = (item) => {
@@ -3622,7 +3634,7 @@ export default function Estimate() {
       }
       setItemEditorSaving(false);
       setCostApplying(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: saveSucceeded && isCapturedEstimateScopeCurrent(capturedRefresh) });
+      await estimateEditPresence.endSaving({ refreshBaseline: isCapturedEstimateScopeCurrent(capturedRefresh) });
     }
   };
 
@@ -4914,7 +4926,7 @@ export default function Estimate() {
                   style={{background:'#6a1b9a', color:'#fff', borderColor:'#4a148c', fontWeight:'bold'}}
                   disabled={costApplying || qtyApplying || deductionDeleting || estimateEditPresence.blocked}
                   onClick={applyAllEdits}
-                  title="단가만 바꾸면 확정 상태와 재고를 그대로 두고 저장합니다. 실제 수량 변경이나 추가 품목이 있을 때만 기존 확정취소·저장·재확정 절차를 진행합니다."
+                  title="기존 수량·단가는 확정 상태를 유지해 저장하고, 추가 품목이 있을 때만 해당 품목 범위의 확정취소·저장·재확정을 진행합니다."
                 >
                   수정 저장 ({editedCount + editedQtyCount + pendingAdds.length})
                 </button>
