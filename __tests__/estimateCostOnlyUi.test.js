@@ -88,6 +88,10 @@ async function main() {
     /const cycleItems = addCycleItems;/,
     '통합 저장의 확정 사이클은 신규 추가 품목만 포함해야 한다 (기존 수량·단가 제외).',
   );
+  assert.match(applyAllEditsSrc, /const usesFixCycle = pendingAdds\.length > 0/, '오류 안내도 실제 추가 품목 확정 사이클 여부를 기준으로 구분해야 한다.');
+  assert.match(applyAllEditsSrc, /수량·단가 저장 오류/, '기존 수량·단가 저장 실패를 자동 확정 오류로 잘못 표시하면 안 된다.');
+  assert.match(applyAllEditsSrc, /추가 품목 확정 처리 오류/, '추가 품목이 있을 때만 확정 처리 오류로 표시해야 한다.');
+  assert.doesNotMatch(applyAllEditsSrc, /자동 확정차수 편집 오류/, '일반 저장 실패에 자동 확정차수 오류라는 오해 문구를 사용하면 안 된다.');
 
   // 기존 네 등록 버튼 보존
   for (const label of ['＋ 불량/검역등록', '＋ 불량차감등록', '＋ 판매요청', '＋ 추가 품목등록']) {

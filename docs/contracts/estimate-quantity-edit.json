@@ -18,16 +18,17 @@
     {
       "name": "QUANTITY_EDIT",
       "orderDetail": "preserve",
-      "shipmentDetail": "increase",
-      "fixCycle": "unfix-save-refix",
-      "stockCalc": "keep-unfix-save-refix; skip per-item usp_StockCalculation during intermediate unfix/refix; run once at final refix when OutQuantity changed"
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentDate": "update ShipmentQuantity/EstQuantity/Amount/Vat for the selected SdateKey",
+      "fixCycle": "none; server-locked direct fixed-status-preserving transaction",
+      "stockCalc": "unfixed rows do not invoke native calculation; fixed rows apply the signed Product.Stock delta, append nonmanual shipment StockHistory, run product-scoped usp_StockCalculation, and reject current/future negative ProductStock in the same transaction"
     },
     {
       "name": "QUANTITY_ZERO_PURGE",
       "orderDetail": "preserve",
       "shipmentDetail": "decrease",
       "shipmentFarm": "delete-only-when-detail-purged",
-      "fixCycle": "unfix-save-refix"
+      "fixCycle": "none; the direct fixed-status-preserving transaction purges only the zeroed ShipmentDetail/ShipmentDate/ShipmentFarm scope"
     },
     {
       "name": "NEGATIVE_STOCK_EXACT_ADJUSTMENT",
@@ -57,7 +58,8 @@
     "ShipmentDate",
     "ShipmentHistory",
     "Estimate",
-    "StockHistory"
+    "StockHistory",
+    "Product"
   ],
   "preserves": [
     "OrderDetail",
@@ -67,10 +69,10 @@
   "sideEffects": {
     "stockIncreasePreflight": "수량 저장과 동일하게 잠근 Product.Stock 현재고에서 양수 증가분만 차감해 음수 여부를 판정한다. Product.Stock에는 기존 확정 출고가 이미 반영되어 있으므로 기존 ViewShipment 합계를 다시 빼지 않는다.",
     "futureStockShortageDisplay": "usp_StockCalculation과 같은 StockMaster.OrderYearWeek >= 시작 OrderYearWeek 범위에서 첫 음수 ProductStock을 OrderYearWeek+StockKey 오름차순으로 선택하고 서버 잠금 품종·품목명·ProdKey·음수 차수·재고값을 오류와 stockValidation에 반환한다.",
-    "fixedShipment": "unfix -> update -> fix",
-    "reconfirmFailure": "dry-run edited rows; manual integrity issues stop before update, negative stock prompts for exact shortage adjustment then recalculates and retries fix",
+    "fixedShipment": "preserve isFix; update the selected physical row and its signed stock delta atomically without week-wide unfix/refix",
+    "reconfirmFailure": "not applicable to existing quantity edits because no unfix/refix is performed; additional-product creation keeps its separate scoped fix-cycle contract",
     "negativeStockRecovery": "explicit confirm only -> StockHistory 재고조정(+exact shortage) -> usp_StockCalculation -> usp_ShipmentFix",
-    "stockMutation": "Product.Stock is changed only through the existing stored procedure path; no direct Product.Stock update",
+    "stockMutation": "for fixed physical rows only, Product.Stock is adjusted by the signed quantity delta inside the locked transaction and then product-scoped usp_StockCalculation rebuilds snapshots; unfixed and Estimate-only rows do not change Product.Stock",
     "dateRows": "ShipmentDate sum must equal ShipmentDetail.OutQuantity",
     "stockShortageDisplay": "재고 부족 오류는 잠긴 Product 행의 CountryFlower + ProdName + ProdKey를 함께 표시하고 클라이언트 제공 이름은 사용하지 않는다.",
     "zeroQuantity": "setting the last/only date row to 0 purges ShipmentDetail+ShipmentDate+ShipmentFarm, hides the row from estimate (EstQuantity>0), and preserves OrderDetail"

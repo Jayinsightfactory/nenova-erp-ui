@@ -49,9 +49,21 @@ function main() {
   }
   assert.match(estimate, /disabled=\{[^}]*estimateEditPresence\.blocked/, '견적서 저장/등록 버튼은 다른 작업 또는 외부 변경 시 차단해야 합니다.');
   assert.ok((estimate.match(/editGuard: estimateEditGuard\(\)/g) || []).length >= 7, '견적서의 모든 저장 경로는 작업 확인 정보를 함께 보내야 합니다.');
-  const guardedBaselineUpdates = estimate.match(/refreshBaseline:\s*(?:saveSucceeded|deleteSucceeded)\s*&&\s*isCapturedEstimateScopeCurrent\(capturedRefresh\)/g) || [];
-  assert.equal(guardedBaselineUpdates.length, 6, '견적서의 6개 저장/삭제 경로는 성공 상태와 현재 capturedRefresh scope가 모두 참일 때만 기준값을 갱신해야 합니다.');
-  assert.doesNotMatch(estimate, /refreshBaseline:\s*(?:saveSucceeded|deleteSucceeded)\s*[,}]/, '기준값 갱신은 성공 여부만으로 실행하면 안 되고 현재 capturedRefresh scope도 확인해야 합니다.');
+  const settledSaveAttempts = estimate.match(/refreshBaseline:\s*isCapturedEstimateScopeCurrent\(capturedRefresh\)/g) || [];
+  assert.equal(settledSaveAttempts.length, 6, '견적서의 6개 저장/삭제 경로는 부분 성공을 포함해 현재 capturedRefresh scope의 서버 기준값을 heartbeat로 정산해야 합니다.');
+  assert.doesNotMatch(estimate, /refreshBaseline:\s*(?:saveSucceeded|deleteSucceeded)\s*&&/, '부분 성공 뒤 본인 변경을 외부 변경으로 오인하지 않도록 저장 성공 여부로 heartbeat를 건너뛰면 안 됩니다.');
+  assert.doesNotMatch(estimate, /endSaving\(\{\s*refreshBaseline:\s*true\s*\}\)/, '저장 종료 확인은 scope를 확인하지 않은 상수 true를 사용하면 안 됩니다.');
+  for (const apiPath of [
+    'pages/api/estimate/update-date-quantity.js',
+    'pages/api/estimate/update-quantity.js',
+    'pages/api/estimate/update-cost.js',
+    'pages/api/estimate/update-entry.js',
+    'pages/api/estimate/delete-deductions.js',
+    'pages/api/estimate/index.js',
+  ]) {
+    const writeApi = fs.readFileSync(apiPath, 'utf8');
+    assert.match(writeApi, /advanceErpEditGuard|advanceEditGuard/, `${apiPath}의 성공 거래는 서버 작업 기준값을 같은 거래에서 전진시켜야 합니다.`);
+  }
   assert.match(estimate, /custKey: selectedShip\?\.CustKey,[\s\S]{0,100}editGuard: estimateEditGuard\(\)/, '확정취소·재확정에도 선택 업체와 작업 확인값을 함께 보내야 합니다.');
   assert.match(estimate, /expectedProdKey:[\s\S]{0,220}expectedDescr:/, '견적 품목·단위·적요도 조회 후 변경 여부를 함께 검증해야 합니다.');
 

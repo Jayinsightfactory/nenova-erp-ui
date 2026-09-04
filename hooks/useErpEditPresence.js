@@ -313,6 +313,10 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
       if (shouldVerifyOwnWrite) {
         const current = stateRef.current;
         if (!validScope || !current.token) return;
+        // Verify every completed save attempt, including partial writes. A later
+        // request can fail after an earlier transaction has already advanced the
+        // authoritative baseline. Skipping this heartbeat would make that own
+        // write look external when polling resumes.
         // Do not call action=refresh here. refresh means the user explicitly
         // accepts whatever is currently in ERP and can hide an EXE edit that
         // lands immediately after our commit. heartbeat only compares the
