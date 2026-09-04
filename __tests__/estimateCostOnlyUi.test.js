@@ -31,6 +31,13 @@ async function main() {
   );
   assert.match(costSaveHelperSrc, /url:\s*'\/api\/estimate\/update-cost'/, '단가 저장 helper는 update-cost API만 호출해야 한다.');
 
+  const editorSrc = page.slice(
+    page.indexOf('const saveItemEditor = async () =>'),
+    page.indexOf('// ── 엑셀 다운 → 인쇄 옵션'),
+  );
+  assert.match(editorSrc, /saveEstimateCostBatch\(\{[\s\S]*?allItems:\s*editorCostItems,[\s\S]*?captured:\s*capturedRefresh/, '품목 정보창 단가 저장도 서버 복구 후 실제값을 대조하는 공용 helper를 사용해야 한다.');
+  assert.doesNotMatch(editorSrc, /fetch\('\/api\/estimate\/update-cost'/, '품목 정보창이 복구 보호를 우회해 update-cost를 직접 호출하면 안 된다.');
+
   // 화면의 출고일별 단가(DateCost)와 상세 단가(Cost)가 다를 수 있음 — sdateKey 소속과
   // DateCost 스냅샷을 함께 서버로 보내 서버가 낙관적 동시성/소속을 검증하게 한다.
   // (향후 별도 스냅샷 helper가 도입되어도 이 값 자체는 계속 전달되어야 한다.)
