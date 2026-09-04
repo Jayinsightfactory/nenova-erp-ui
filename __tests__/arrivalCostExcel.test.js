@@ -38,6 +38,22 @@ async function main() {
   assert.ok(parsed.rows.every(row => row.sourceArrivalCostKRW > 0));
   assert.ok(parsed.rows.every(row => row.rawJson));
 
+  const dutchWb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(dutchWb, XLSX.utils.aoa_to_sheet([
+    ['NETHERLANDS 원가자료'],
+    ['품목명', '수량', '단위', '도착원가(단)'],
+    ['Gladiolus / Large Karma', 100, '단', 2100],
+  ]), '35-2 NL');
+  const dutchParsed = parseArrivalCostWorkbook(XLSX.write(dutchWb, { type: 'buffer', bookType: 'xlsx' }), {
+    fileName: '35-2 NL 원가자료.xlsx',
+    orderYear: '2025',
+    products: [{ ProdKey: 301, ProdName: 'Gladiolus / Large Karma', FlowerName: '글라디오루스', CounName: '네덜란드', OutUnit: '단' }],
+  });
+  assert.equal(dutchParsed.rowCount, 1);
+  assert.equal(dutchParsed.rows[0].orderWeek, '35-2');
+  assert.equal(dutchParsed.rows[0].countryName, '네덜란드');
+  assert.equal(dutchParsed.rows[0].orderYear, '2026', '네덜란드 원가자료는 화면의 잔존 연도와 무관하게 2026년 원장에 저장해야 한다.');
+
   const emptyCost = [
     ['COLOMBIA'],
     ['차수', '34-2'],
