@@ -148,15 +148,15 @@ async function loadWeekStatus(from, to) {
   return await query(
     `WITH week_set AS (
        SELECT DISTINCT
-              ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) AS OrderYear,
+              CAST(OrderYear AS NVARCHAR(4)) AS OrderYear,
               OrderWeek,
-              ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '') AS WeekKey
+              CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', '') AS WeekKey
        FROM ShipmentMaster
        WHERE isDeleted = 0
      ),
      ship AS (
        SELECT
-         ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
+         CAST(sm.OrderYear AS NVARCHAR(4)) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
          COUNT(DISTINCT sm.ShipmentKey) AS masterCount,
          SUM(CASE WHEN ISNULL(sm.isFix, 0) = 1 THEN 1 ELSE 0 END) AS fixedMasterCount,
          SUM(CASE WHEN ISNULL(sd.OutQuantity, 0) > 0 THEN 1 ELSE 0 END) AS detailCount,
@@ -169,7 +169,7 @@ async function loadWeekStatus(from, to) {
        LEFT JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
        LEFT JOIN Product p ON p.ProdKey = sd.ProdKey
        WHERE sm.isDeleted = 0
-       GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '')
+       GROUP BY CAST(sm.OrderYear AS NVARCHAR(4)) + REPLACE(sm.OrderWeek, '-', '')
      ),
      unfixed_category AS (
        SELECT
@@ -180,7 +180,7 @@ async function loadWeekStatus(from, to) {
            JOIN ShipmentDetail sd2 ON sd2.ShipmentKey = sm2.ShipmentKey
            LEFT JOIN Product p2 ON p2.ProdKey = sd2.ProdKey
            WHERE sm2.isDeleted = 0
-             AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm2.OrderWeek, '-', '') = x.WeekKey
+             AND CAST(sm2.OrderYear AS NVARCHAR(4)) + REPLACE(sm2.OrderWeek, '-', '') = x.WeekKey
              AND ISNULL(sd2.isFix, 0) = 0
              AND ISNULL(sd2.OutQuantity, 0) > 0
              AND (p2.CountryFlower IS NOT NULL OR p2.CounName IS NOT NULL OR p2.FlowerName IS NOT NULL)
@@ -188,7 +188,7 @@ async function loadWeekStatus(from, to) {
          ).value('.', 'NVARCHAR(MAX)'), 1, 2, N'') AS unfixedCategories
        FROM (
          SELECT DISTINCT
-           ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey
+           CAST(sm.OrderYear AS NVARCHAR(4)) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey
          FROM ShipmentMaster sm
          JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
          WHERE sm.isDeleted = 0
@@ -198,31 +198,31 @@ async function loadWeekStatus(from, to) {
      ),
      stock AS (
        SELECT
-         ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '') AS WeekKey,
+         CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', '') AS WeekKey,
          MAX(CASE WHEN ISNULL(isFix, 0) = 1 THEN 1 ELSE 0 END) AS stockFixed,
          COUNT(*) AS stockMasterCount
        FROM StockMaster
        WHERE OrderWeek IS NOT NULL
-       GROUP BY ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '')
+       GROUP BY CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', '')
      ),
      mismatch AS (
        SELECT
-         ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
+         CAST(sm.OrderYear AS NVARCHAR(4)) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
          SUM(CASE WHEN ISNULL(sm.isFix,0)<>ISNULL(sd.isFix,0) AND ISNULL(sd.OutQuantity,0)>0 THEN 1 ELSE 0 END) AS masterDetailMismatchCount
        FROM ShipmentMaster sm
        JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
        WHERE sm.isDeleted = 0
-       GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '')
+       GROUP BY CAST(sm.OrderYear AS NVARCHAR(4)) + REPLACE(sm.OrderWeek, '-', '')
      ),
      neg_live AS (
        SELECT
-         ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
+         CAST(sm.OrderYear AS NVARCHAR(4)) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
          COUNT(DISTINCT p.ProdKey) AS negativeLiveCount
        FROM ShipmentMaster sm
        JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
        JOIN Product p ON p.ProdKey = sd.ProdKey AND p.isDeleted = 0
        WHERE sm.isDeleted = 0 AND ISNULL(sd.OutQuantity,0) > 0 AND ISNULL(p.Stock,0) < 0
-       GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '')
+       GROUP BY CAST(sm.OrderYear AS NVARCHAR(4)) + REPLACE(sm.OrderWeek, '-', '')
      )
      SELECT
        w.OrderYear,
@@ -260,44 +260,43 @@ async function loadNegativeRows(from, to) {
   return await query(
     `WITH week_set AS (
        SELECT DISTINCT
-              ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) AS OrderYear,
+              CAST(OrderYear AS NVARCHAR(4)) AS OrderYear,
               OrderWeek,
-              ISNULL(CAST(OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(OrderWeek, '-', '') AS WeekKey
-       FROM ShipmentMaster
-       WHERE isDeleted = 0
+              CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', '') AS WeekKey
+       FROM ViewShipment
+       WHERE CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', '') BETWEEN @fromKey AND @toKey
      ),
      out_qty AS (
        SELECT
-         ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', '') AS WeekKey,
-         sm.OrderWeek,
-         sd.ProdKey,
-         SUM(ISNULL(sd.OutQuantity, 0)) AS outQty,
-         SUM(CASE WHEN ISNULL(sd.isFix, 0) = 1 THEN ISNULL(sd.OutQuantity, 0) ELSE 0 END) AS confirmedOutQty,
-         SUM(CASE WHEN ISNULL(sd.isFix, 0) = 0 THEN ISNULL(sd.OutQuantity, 0) ELSE 0 END) AS unfixedOutQty
-       FROM ShipmentMaster sm
-       JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
-       WHERE sm.isDeleted = 0 AND ISNULL(sd.OutQuantity, 0) > 0
-       GROUP BY ISNULL(CAST(sm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm.OrderWeek, '-', ''), sm.OrderWeek, sd.ProdKey
+         CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', '') AS WeekKey,
+         OrderWeek,
+         ProdKey,
+         SUM(ISNULL(OutQuantity, 0)) AS outQty,
+         SUM(CASE WHEN ISNULL(DetailFix, 0) = 1 THEN ISNULL(OutQuantity, 0) ELSE 0 END) AS confirmedOutQty,
+         SUM(CASE WHEN ISNULL(DetailFix, 0) = 0 THEN ISNULL(OutQuantity, 0) ELSE 0 END) AS unfixedOutQty
+       FROM ViewShipment
+       WHERE ISNULL(OutQuantity, 0) > 0
+         AND CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', '') BETWEEN @fromKey AND @toKey
+       GROUP BY CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', ''), OrderWeek, ProdKey
      ),
      in_qty AS (
        SELECT
-         ISNULL(CAST(wm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(wm.OrderWeek, '-', '') AS WeekKey,
-         wd.ProdKey,
-         SUM(ISNULL(wd.OutQuantity, 0)) AS inQty
-       FROM WarehouseMaster wm
-       JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey
-       WHERE wm.isDeleted = 0
-       GROUP BY ISNULL(CAST(wm.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(wm.OrderWeek, '-', ''), wd.ProdKey
+         CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', '') AS WeekKey,
+         ProdKey,
+         ROUND(SUM(ISNULL(OutQuantity, 0)), 2) AS inQty
+       FROM ViewWarehouse
+       WHERE CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', '') BETWEEN @fromKey AND @toKey
+       GROUP BY CAST(OrderYear AS NVARCHAR(4)) + REPLACE(OrderWeek, '-', ''), ProdKey
      ),
      adjust_qty AS (
        SELECT
-         ISNULL(CAST(sh.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sh.OrderWeek, '-', '') AS WeekKey,
+         CAST(sh.OrderYear AS NVARCHAR(4)) + REPLACE(sh.OrderWeek, '-', '') AS WeekKey,
          sh.ProdKey,
-         SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)) AS adjustQty
+         ROUND(SUM(ISNULL(sh.AfterValue,0) - ISNULL(sh.BeforeValue,0)), 2) AS adjustQty
        FROM StockHistory sh
-       WHERE sh.OrderWeek LIKE '__-__'
-         AND (sh.ChangeType IS NULL OR sh.ChangeType NOT IN (N'확정', N'확정취소', N'입고', N'출고'))
-       GROUP BY ISNULL(CAST(sh.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sh.OrderWeek, '-', ''), sh.ProdKey
+       JOIN CodeInfo ci ON ci.Category=N'StockType' AND ci.Descr=sh.ChangeType
+       WHERE CAST(sh.OrderYear AS NVARCHAR(4)) + REPLACE(sh.OrderWeek, '-', '') BETWEEN @fromKey AND @toKey
+       GROUP BY CAST(sh.OrderYear AS NVARCHAR(4)) + REPLACE(sh.OrderWeek, '-', ''), sh.ProdKey
      )
      SELECT TOP 500
        w.OrderYear,
@@ -322,18 +321,21 @@ async function loadNegativeRows(from, to) {
      LEFT JOIN in_qty iq ON iq.WeekKey = oq.WeekKey AND iq.ProdKey = oq.ProdKey
      LEFT JOIN adjust_qty aq ON aq.WeekKey = oq.WeekKey AND aq.ProdKey = oq.ProdKey
      OUTER APPLY (
+       SELECT TOP 1 sm2.StockKey
+       FROM StockMaster sm2
+       WHERE sm2.OrderYearWeek < oq.WeekKey
+       ORDER BY sm2.OrderYearWeek DESC, sm2.OrderWeek DESC
+     ) beforeStock
+     OUTER APPLY (
        SELECT TOP 1 ps.Stock AS prevStock
        FROM ProductStock ps
-       JOIN StockMaster sm2 ON sm2.StockKey = ps.StockKey
-       WHERE ps.ProdKey = oq.ProdKey
-         AND ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm2.OrderWeek, '-', '') < oq.WeekKey
-       ORDER BY ISNULL(CAST(sm2.OrderYear AS NVARCHAR(4)), @defaultYear) + REPLACE(sm2.OrderWeek, '-', '') DESC
+       WHERE ps.StockKey = beforeStock.StockKey AND ps.ProdKey = oq.ProdKey
      ) prev
      OUTER APPLY (
        SELECT TOP 1 sm3.StockKey, ps3.Stock
        FROM StockMaster sm3
        JOIN ProductStock ps3 ON ps3.StockKey = sm3.StockKey AND ps3.ProdKey = oq.ProdKey
-       WHERE ISNULL(CAST(sm3.OrderYear AS NVARCHAR(4)), @defaultYear) = w.OrderYear
+       WHERE CAST(sm3.OrderYear AS NVARCHAR(4)) = w.OrderYear
          AND sm3.OrderWeek = w.OrderWeek
        ORDER BY sm3.StockKey DESC
      ) currentStock
