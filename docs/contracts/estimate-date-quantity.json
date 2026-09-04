@@ -6,6 +6,7 @@
     "pages/api/estimate/index.js",
     "pages/api/estimate/update-date-quantity.js",
     "lib/estimateDateQuantity.js",
+    "lib/estimatePhysicalRow.js",
     "lib/estimateDirectionalQuantity.js",
     "lib/estimateSaveRecovery.js",
     "lib/estimateGridNavigation.js",
@@ -26,6 +27,17 @@
     "note": "The app route is not the fixture adapter. The adapter is an isolated-SQL integration seam owned outside this API/helper subtask."
   },
   "actions": [
+    {
+      "name": "EDIT_GRID_PHYSICAL_ROW_CARDINALITY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "read-only-preserve; one visible editable row per SdateKey",
+      "estimate": "read-only-preserve; one visible editable deduction row per EstimateKey",
+      "customerProdCost": "read-only-preserve; deterministic latest row used when duplicate CustKey+ProdKey records exist",
+      "fixCycle": "none",
+      "stock": "preserve",
+      "rule": "JOIN multiplication may not create multiple edit controls for the same physical PK. Rows with the same ProdKey/outDate but distinct SdateKey values remain separate and independently editable."
+    },
     {
       "name": "DATE_DISTRIBUTION_INCREASE",
       "orderDetail": "preserve",

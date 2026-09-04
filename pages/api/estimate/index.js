@@ -24,6 +24,7 @@ import { resolveEstimateContext } from '../../../lib/salesDefectDeductions.js';
 import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { exeAmountVatSql } from '../../../lib/estimateDateQuantity.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
+import { dedupeEstimatePhysicalRows } from '../../../lib/estimatePhysicalRow.js';
 
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getEstimates(req, res);
@@ -61,11 +62,12 @@ async function loadExeDetailItems({ orderYearWeek, custKey }) {
       custKey: { type: sql.Int, value: parseInt(custKey, 10) },
     }
   );
-  return result.recordset.map((row) => {
+  const items = result.recordset.map((row) => {
     const item = mapExeDetailRowToWebItem(row);
     const display = formatEstimateDescrForRow({ ...item, DescrRaw: item.Descr });
     return { ...item, Descr: display };
   });
+  return dedupeEstimatePhysicalRows(items);
 }
 
 async function loadExePrintDetailItems({ orderYearWeek, custKey, weekDayIn }) {
@@ -602,7 +604,13 @@ async function loadItems(sk, byDate = false) {
        ${dateJoin}
        LEFT JOIN ShipmentMaster smOuter ON sd.ShipmentKey = smOuter.ShipmentKey
        LEFT JOIN Product p ON sd.ProdKey = p.ProdKey
-       LEFT JOIN CustomerProdCost cpc ON cpc.CustKey = smOuter.CustKey AND cpc.ProdKey = sd.ProdKey
+       OUTER APPLY (
+         SELECT TOP 1 cpc1.Cost
+         FROM CustomerProdCost cpc1
+         WHERE cpc1.CustKey = smOuter.CustKey
+           AND cpc1.ProdKey = sd.ProdKey
+         ORDER BY cpc1.AutoKey DESC
+       ) cpc
        OUTER APPLY (
          SELECT
            CASE WHEN ISNULL(sd.BoxQuantity, 0) > 0 AND ISNULL(sd.BunchQuantity, 0) > 0
@@ -692,8 +700,14 @@ async function loadItems(sk, byDate = false) {
        LEFT JOIN Product p  ON e.ProdKey = p.ProdKey
        LEFT JOIN CodeInfo ci
          ON ci.Category = N'EstimateType' AND ci.DetailCode = e.EstimateType
-       LEFT JOIN ShipmentDetail sd2
-         ON e.ShipmentKey = sd2.ShipmentKey AND e.ProdKey = sd2.ProdKey
+       OUTER APPLY (
+         SELECT TOP 1 sdMatch.*
+         FROM ShipmentDetail sdMatch
+         WHERE sdMatch.ShipmentKey = e.ShipmentKey
+           AND sdMatch.ProdKey = e.ProdKey
+         ORDER BY CASE WHEN ISNULL(sdMatch.OutQuantity, 0) <> 0 THEN 0 ELSE 1 END,
+                  sdMatch.SdetailKey DESC
+       ) sd2
        LEFT JOIN ShipmentMaster smE ON e.ShipmentKey = smE.ShipmentKey
        OUTER APPLY (
          SELECT
@@ -765,7 +779,9 @@ async function loadItems(sk, byDate = false) {
        outDate, ProdName`,
     { sk: { type: sql.Int, value: sk } }
   );
-  return sanitizeItemDescrs(filterActiveEstimateShipmentRows(result.recordset));
+  return dedupeEstimatePhysicalRows(
+    sanitizeItemDescrs(filterActiveEstimateShipmentRows(result.recordset))
+  );
 }
 
 function sanitizeItemDescrs(rows) {
