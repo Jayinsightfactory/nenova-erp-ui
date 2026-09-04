@@ -2,7 +2,8 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
-import { buildForwardOrderWeeks, productAlphabetInitial } from '../../lib/myCustomerOrderEntry';
+import { buildForwardOrderWeeks, productAlphabetInitial, sortMyCustomersFirst } from '../../lib/myCustomerOrderEntry';
+import { convertSalesPasteQtyToOutUnit, salesPasteUnitOptions } from '../../lib/salesPasteOrder';
 
 const currentYear = new Date().getFullYear();
 const label = p => p.DisplayName || p.ProdName;
@@ -10,6 +11,7 @@ const groupLabel = p => p.CountryFlower || p.FlowerName || '기타';
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const ORDER_FAVORITE_PAGE = 'my-customer-order-template';
 const logTime = value => value ? new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false }) : '';
+const requestedLabel = mode => mode === 'REPLACE' ? '변경 후' : '입력 환산';
 
 function parseFavorite(row) {
   try { return { favoriteKey: row.FavoriteKey, name: row.FavName, ...JSON.parse(row.FilterData || '{}') }; }
@@ -30,6 +32,7 @@ export default function MyCustomerOrders() {
   const [custKey, setCustKey] = useState('');
   const [products, setProducts] = useState([]);
   const [qty, setQty] = useState({});
+  const [units, setUnits] = useState({});
   const [search, setSearch] = useState('');
   const [searchRows, setSearchRows] = useState([]);
   const [productQuery, setProductQuery] = useState('');
@@ -60,7 +63,8 @@ export default function MyCustomerOrders() {
 
   useEffect(() => {
     apiGet('/api/orders/my-customers').then((c) => {
-      setCustomers(c.customers || []); if (c.customers?.[0]) setCustKey(String(c.customers[0].CustKey));
+      const ordered = sortMyCustomersFirst(c.customers || []);
+      setCustomers(ordered); if (ordered[0]) setCustKey(String(ordered[0].CustKey));
     }).catch(e => setMessage(e.message));
   }, []);
 
@@ -75,7 +79,7 @@ export default function MyCustomerOrders() {
     try {
       const d = await apiGet('/api/orders/my-customers', { custKey, year, week });
       if (sequence !== loadSequenceRef.current || scopeRef.current !== requestedScope) return false;
-      setProducts(d.products || []); if (!preserveDraft) setQty({}); setLoadedScope(requestedScope); setNeedsReload(false);
+      setProducts(d.products || []); if (!preserveDraft) { setQty({}); setUnits({}); } setLoadedScope(requestedScope); setNeedsReload(false);
       setCollapsedFlowers({}); setProductQuery(''); setProductLetter('');
       if (scrollAfterLoadRef.current) setTimeout(()=>productAreaRef.current?.scrollIntoView({behavior:'smooth',block:'start'}),0);
       return true;
@@ -89,6 +93,8 @@ export default function MyCustomerOrders() {
     ? products.filter(p => Object.prototype.hasOwnProperty.call(qty, p.ProdKey) && String(qty[p.ProdKey]) !== '')
     : changed, [products, qty, orderMode, changed]);
   const enteredRows = useMemo(() => products.filter(p => Object.prototype.hasOwnProperty.call(qty, p.ProdKey) && String(qty[p.ProdKey]) !== ''), [products, qty]);
+  const selectedUnit = p => units[p.ProdKey] || p.OutUnit || '박스';
+  const convertedInputQty = p => convertSalesPasteQtyToOutUnit(Number(qty[p.ProdKey] || 0), selectedUnit(p), p);
   const productGroups = useMemo(() => {
     const groups = new Map();
     products.forEach(product => {
@@ -144,8 +150,9 @@ export default function MyCustomerOrders() {
     if (submitting || scopeRef.current !== scopeKey) return;
     const valid = new Map(products.map(p => [Number(p.ProdKey), p]));
     const nextQty = {};
-    for (const item of template.items || []) if (valid.has(Number(item.prodKey)) && Number(item.qty) > 0) nextQty[item.prodKey] = String(Number(item.qty));
-    setQty(nextQty); setShowTemplates(false); setSelectedTemplate(null);
+    const nextUnits = {};
+    for (const item of template.items || []) if (valid.has(Number(item.prodKey)) && Number(item.qty) > 0) { nextQty[item.prodKey] = String(Number(item.qty)); nextUnits[item.prodKey] = salesPasteUnitOptions().includes(item.unit) ? item.unit : valid.get(Number(item.prodKey)).OutUnit; }
+    setQty(nextQty); setUnits(nextUnits); setShowTemplates(false); setSelectedTemplate(null);
     setMessage(`${template.name || `${template.year}년 ${template.week}`} 주문 ${Object.keys(nextQty).length}개 품목을 불러왔습니다. 수량 수정·삭제 후 주문등록하세요.`);
   };
   const saveFavorite = async order => {
@@ -217,17 +224,19 @@ export default function MyCustomerOrders() {
       ? products.filter(p => Object.prototype.hasOwnProperty.call(qty, p.ProdKey) && String(qty[p.ProdKey]) !== '')
       : products.filter(p => Number(qty[p.ProdKey] || 0) > 0);
     if (!rows.length) return setMessage(requestedMode === 'REPLACE' ? '변경할 수량을 입력하세요. 0도 변경값으로 등록됩니다.' : '추가할 수량을 입력하세요.');
+    const invalid = rows.filter(p => convertedInputQty(p) === null);
+    if (invalid.length) return setMessage(`단위 환산값이 없어 등록할 수 없습니다: ${invalid.map(p => `${label(p)} (${selectedUnit(p)}→${p.OutUnit})`).join(', ')}`);
     const customer = customers.find(c => String(c.CustKey) === String(custKey));
-    const summary = rows.map(p => `${label(p)}: 기존 ${Number(p.CurrentQty || 0)}${p.OutUnit || ''} → ${requestedMode === 'ADD' ? `추가 ${qty[p.ProdKey]} / 최종 ${Number(p.CurrentQty || 0)+Number(qty[p.ProdKey]||0)}` : `변경후 ${qty[p.ProdKey]}`}${p.OutUnit || ''}`).join('\n');
+    const summary = rows.map(p => `${label(p)}: 기존 ${Number(p.CurrentQty || 0)}${p.OutUnit || ''} → 입력 ${qty[p.ProdKey]}${selectedUnit(p)} (= ${convertedInputQty(p)}${p.OutUnit}) → ${requestedMode === 'ADD' ? `최종 ${Number(p.CurrentQty || 0)+Number(convertedInputQty(p)||0)}` : `변경후 ${convertedInputQty(p)}`}${p.OutUnit || ''}`).join('\n');
     if (!window.confirm(`${customer?.CustName} / ${year}년 ${week}\n\n${summary}\n\n${requestedMode === 'ADD' ? '입력 수량을 기존 주문에 추가' : '입력한 품목만 주문 수량을 변경'}합니다. 빈 칸 품목과 다른 업체·차수 주문은 보존됩니다. 계속할까요?`)) return;
     submitLockRef.current = true; setSubmitting(true); setShowExecutionLog(true); setExecutionLog({ startedAt: new Date().toISOString(), mode: requestedMode, scope: scopeKey, customerName: customer?.CustName, year, week, status: 'working', rows: [] }); setMessage('주문 등록을 처리 중입니다…');
     try {
       const d = await apiPost('/api/orders', { source: 'my-customer', orderMode: requestedMode, custKey: Number(custKey), custName: customer?.CustName, year, week,
-        items: rows.map(p => ({ prodKey: p.ProdKey, prodName: p.ProdName, qty: Number(qty[p.ProdKey]), unit: p.OutUnit, expectedCurrentQty: Number(p.CurrentQty || 0) })) });
+        items: rows.map(p => ({ prodKey: p.ProdKey, prodName: p.ProdName, qty: Number(qty[p.ProdKey]), unit: selectedUnit(p), expectedCurrentQty: Number(p.CurrentQty || 0) })) });
       if (d.success === false || d.verified === false || (Object.prototype.hasOwnProperty.call(d, 'verified') && !d.verified)) {
         const verificationError = new Error(d.error || '주문 반영 검증에 실패했습니다. 입력 초안은 유지됩니다.'); verificationError.status = 422; throw verificationError;
       }
-      const resultRows = (d.results || []).map(r => { const sourceRow = rows.find(p => Number(p.ProdKey) === Number(r.prodKey)); return { ...r, prodName: r.prodName || sourceRow?.ProdName || '', unit: sourceRow?.OutUnit || '', inputQty: r.inputQty ?? r.qty ?? qty[r.prodKey] }; });
+      const resultRows = (d.results || []).map(r => { const sourceRow = rows.find(p => Number(p.ProdKey) === Number(r.prodKey)); return { ...r, prodName: r.prodName || sourceRow?.ProdName || '', unit: sourceRow ? selectedUnit(sourceRow) : '', inputQty: r.inputQty ?? r.qty ?? qty[r.prodKey] }; });
       setExecutionLog(v => ({ ...v, finishedAt: new Date().toISOString(), status: 'committed', rows: resultRows, warning: d.warning || '' }));
       setQty({}); setMessage(`${d.message || '주문 등록 완료'} · 결과를 재조회 중입니다.`);
       const reloaded = await load({ preserveDraft: false });
@@ -258,13 +267,13 @@ export default function MyCustomerOrders() {
       <div className="alphabet-bar"><div className="alphabet" aria-label="품목명 알파벳 필터"><button type="button" className={!productLetter?'active':''} onClick={()=>setProductLetter('')}>전체</button>{ALPHABET.map(letter=><button type="button" key={letter} className={productLetter===letter?'active':''} aria-pressed={productLetter===letter} onClick={()=>setProductLetter(letter)}>{letter}</button>)}</div></div>
       {message && <div className="notice" role="status" aria-live="polite">{message}</div>}
       <div className="product-scroll">
-      <div ref={productAreaRef} className="grid-head"><span>품종 / 품목</span><span>사용</span><span>현재</span><span>입력수량</span><span>변경 후 / 추가 후</span></div>
+      <div ref={productAreaRef} className="grid-head"><span>품종 / 품목</span><span>사용</span><span>현재</span><span>입력수량</span><span>단위</span><span>변경 후 / 추가 후</span></div>
       {loadedScope===scopeKey&&<div className="loaded-summary">현재 주문 {products.filter(p=>Number(p.CurrentQty||0)>0).length}개 품목 · {year}년 {week} · {selectedCustomer?.CustName||'업체'}</div>}
       {busy&&<div className="empty">{year}년 {week} · {selectedCustomer?.CustName||'업체'} 수량을 불러오는 중입니다…</div>}
-      <div className="product-list">{loadedScope===scopeKey&&filteredProductGroups.map(group=>{ const collapsed=Boolean(collapsedFlowers[group.flowerName]); const entered=group.products.filter(p=>String(qty[p.ProdKey] ?? '')!==''); const panelId=`flower-${String(group.flowerName).replace(/[^a-zA-Z0-9가-힣_-]/g,'-')}`; return <section ref={el=>groupRefs.current[group.flowerName]=el} className="flower-group" key={group.flowerName}><button type="button" className="flower-toggle" disabled={submitting} aria-expanded={!collapsed} aria-controls={panelId} onClick={()=>setCollapsedFlowers(v=>({...v,[group.flowerName]:!v[group.flowerName]}))}><span><b>{group.flowerName}</b><small>{group.products.length}개 품목{entered.length>0?` · 입력 ${entered.length}개`:''}</small></span><strong>{collapsed?'열기':'닫기'} <i aria-hidden="true">{collapsed?'▾':'▴'}</i></strong></button>{!collapsed&&<div className="flower-products" id={panelId}>{group.products.map(p=><div className="product-row" key={p.ProdKey}><span className="product-name"><b>{label(p)}</b>{p.CounName&&<small> · {p.CounName}</small>}</span><span>{p.UsageCount}회</span><strong className={Number(p.CurrentQty||0)>0?'current-positive':''}>{Number(p.CurrentQty||0)} {p.OutUnit}</strong><input ref={el=>refs.current[p.ProdKey]=el} value={qty[p.ProdKey] ?? ''} onChange={e=>setQty(v=>({...v,[p.ProdKey]:e.target.value}))} onKeyDown={e=>move(e,p.ProdKey)} disabled={submitting||loadedScope!==scopeKey} type="number" min="0" step="any" placeholder="입력수량" aria-label={`${label(p)} 입력수량`}/><strong>{String(qty[p.ProdKey] ?? '')!=='' ? `변경 후 ${Number(qty[p.ProdKey])} / ` : ''}추가 후 {Number(p.CurrentQty||0)+Number(qty[p.ProdKey]||0)} {p.OutUnit}</strong></div>)}</div>}</section>})}</div>
+      <div className="product-list">{loadedScope===scopeKey&&filteredProductGroups.map(group=>{ const collapsed=Boolean(collapsedFlowers[group.flowerName]); const entered=group.products.filter(p=>String(qty[p.ProdKey] ?? '')!==''); const panelId=`flower-${String(group.flowerName).replace(/[^a-zA-Z0-9가-힣_-]/g,'-')}`; return <section ref={el=>groupRefs.current[group.flowerName]=el} className="flower-group" key={group.flowerName}><button type="button" className="flower-toggle" disabled={submitting} aria-expanded={!collapsed} aria-controls={panelId} onClick={()=>setCollapsedFlowers(v=>({...v,[group.flowerName]:!v[group.flowerName]}))}><span><b>{group.flowerName}</b><small>{group.products.length}개 품목{entered.length>0?` · 입력 ${entered.length}개`:''}</small></span><strong>{collapsed?'열기':'닫기'} <i aria-hidden="true">{collapsed?'▾':'▴'}</i></strong></button>{!collapsed&&<div className="flower-products" id={panelId}>{group.products.map(p=>{ const converted=String(qty[p.ProdKey] ?? '')!==''?convertedInputQty(p):0; return <div className="product-row" key={p.ProdKey}><span className="product-name"><b>{label(p)}</b>{p.CounName&&<small> · {p.CounName}</small>}</span><span>{p.UsageCount}회</span><strong className={Number(p.CurrentQty||0)>0?'current-positive':''}>{Number(p.CurrentQty||0)} {p.OutUnit}</strong><input ref={el=>refs.current[p.ProdKey]=el} value={qty[p.ProdKey] ?? ''} onChange={e=>setQty(v=>({...v,[p.ProdKey]:e.target.value}))} onKeyDown={e=>move(e,p.ProdKey)} disabled={submitting||loadedScope!==scopeKey} type="number" min="0" step="any" placeholder="입력수량" aria-label={`${label(p)} 입력수량`}/><select value={selectedUnit(p)} onChange={e=>setUnits(v=>({...v,[p.ProdKey]:e.target.value}))} disabled={submitting||loadedScope!==scopeKey} aria-label={`${label(p)} 입력단위`}>{salesPasteUnitOptions().map(unit=><option key={unit} value={unit}>{unit}</option>)}</select><strong className={converted===null?'conversion-error':''}>{converted===null?'환산 불가':`${String(qty[p.ProdKey] ?? '')!=='' ? `${requestedLabel(orderMode)} ${converted} / ` : ''}추가 후 ${Number(p.CurrentQty||0)+Number(converted||0)} ${p.OutUnit}`}</strong></div>})}</div>}</section>})}</div>
       {products.length>0&&filteredProductGroups.length===0&&<div className="empty">검색 또는 알파벳 조건에 맞는 품목이 없습니다.</div>}
       {!busy && loadedScope===scopeKey && products.length===0 && <div className="empty">이 업체의 기존 주문 품목이 없습니다. 검색으로 품목을 추가하세요.</div>}</div></section>
-      <aside className="side-tools"><nav className="variety-nav" aria-label="품종 바로가기"><strong>품종 바로가기</strong><div>{filteredProductGroups.map(group=><button type="button" key={group.flowerName} onClick={()=>jumpToFlower(group.flowerName)}><span>{group.flowerName}</span><small>{group.products.length}</small></button>)}</div></nav><div className="live-order" aria-live="polite"><strong>입력 품목 {enteredRows.length}개</strong>{enteredRows.length>0?<div>{enteredRows.map(p=><button type="button" key={p.ProdKey} disabled={submitting} onClick={()=>setQty(v=>({...v,[p.ProdKey]:''}))} title="입력 수량 지우기"><span><small>{groupLabel(p)}</small><strong>{label(p)}</strong></span><b>{qty[p.ProdKey]} {p.OutUnit}</b><i aria-hidden="true">×</i></button>)}</div>:<p>수량을 입력하면 이곳에 목록으로 표시됩니다.</p>}</div></aside></div>
+      <aside className="side-tools"><nav className="variety-nav" aria-label="품종 바로가기"><strong>품종 바로가기</strong><div>{filteredProductGroups.map(group=><button type="button" key={group.flowerName} onClick={()=>jumpToFlower(group.flowerName)}><span>{group.flowerName}</span><small>{group.products.length}</small></button>)}</div></nav><div className="live-order" aria-live="polite"><strong>입력 품목 {enteredRows.length}개</strong>{enteredRows.length>0?<div>{enteredRows.map(p=><button type="button" key={p.ProdKey} disabled={submitting} onClick={()=>setQty(v=>({...v,[p.ProdKey]:''}))} title="입력 수량 지우기"><span><small>{groupLabel(p)}</small><strong>{label(p)}</strong></span><b>{qty[p.ProdKey]} {selectedUnit(p)}</b><i aria-hidden="true">×</i></button>)}</div>:<p>수량을 입력하면 이곳에 목록으로 표시됩니다.</p>}</div></aside></div>
 {showExecutionLog&&<section className="execution-log" role="dialog" aria-label="주문 실행 로그"><div className="execution-log-head"><b>주문 실행 로그</b><button type="button" onClick={()=>setShowExecutionLog(false)}>닫기</button></div>{executionLog?<><small>{logTime(executionLog.startedAt)} · {executionLog.mode === 'REPLACE' ? '변경등록' : '추가등록'} · {executionLog.customerName || '업체'} / {executionLog.year}년 {executionLog.week} · {executionLog.status}</small>{executionLog.error&&<p className="log-error">오류: {executionLog.error}</p>}{executionLog.warning&&<p className="log-warn">주의: {executionLog.warning}</p>}{executionLog.status==='committed-reload-failed'&&<p className="log-warn">DB 반영은 완료됐지만 재조회가 실패했습니다. 새로고침으로 확인하세요.</p>}{executionLog.status==='unknown-commit-reload-required'&&<p className="log-warn">반영 결과를 확인하지 못했습니다. 재조회 전 재등록하지 마세요.</p>}<div className="log-rows">{executionLog.rows?.map((r,i)=><div key={`${r.prodKey}-${i}`}><b>{r.prodName||r.prodKey}</b><span>{r.unit} · 기존 {r.previousQty ?? '-'} · 입력 {r.inputQty ?? r.qty ?? '-'} · 최종 {r.finalQty ?? '-'}</span><strong>{r.status||''}</strong></div>)}</div></>:<p>아직 실행한 작업이 없습니다.</p>}</section>}
       <div className="submit"><span>{entryRows.length}개 품목 {orderMode==='ADD'?'추가':'변경'}</span><button type="button" className={orderMode==='ADD'?'mode-active':''} onClick={()=>{setOrderMode('ADD');submit('ADD')}} disabled={submitting||needsReload||loadedScope!==scopeKey||!changed.length}>추가등록</button><button type="button" className={orderMode==='REPLACE'?'mode-active':''} onClick={()=>{setOrderMode('REPLACE');submit('REPLACE')}} disabled={submitting||needsReload||loadedScope!==scopeKey||!products.some(p=>Object.prototype.hasOwnProperty.call(qty,p.ProdKey)&&String(qty[p.ProdKey])!=='')}>변경등록</button></div>
     </main>
@@ -285,7 +294,8 @@ export default function MyCustomerOrders() {
       .customer-tools{display:flex;gap:5px}.customer-tools input{flex:1;max-width:360px}.customer-tools button{white-space:nowrap}
       .focus-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:5px 8px;background:#eef4ff;border:1px solid #b2ccff;border-radius:8px}.focus-bar strong{font-size:16px}.focus-bar span{color:#475467;margin-right:auto}.focus-bar button{min-height:34px}
       .pinned-favorites{position:sticky;top:44px;z-index:4;display:flex;align-items:center;gap:4px;padding:4px 7px;background:#fffaeb;border:1px solid #fedf89;border-radius:8px;overflow-x:auto}.pinned-favorites>b{white-space:nowrap;color:#93370d}.pinned-favorites button{display:flex;align-items:center;gap:5px;white-space:nowrap;min-height:30px;font-weight:700}.pinned-favorites small{color:#b54708}.templates{margin:5px 0;padding:7px;background:#f9fafb;border:1px solid #d0d5dd;border-radius:9px}.templates-head{display:flex;justify-content:space-between;align-items:center}.templates-head div{display:flex;flex-direction:column}.template-browser{display:grid;grid-template-columns:minmax(470px,1fr) minmax(430px,1.15fr);gap:10px;align-items:start}.template-columns{display:grid;grid-template-columns:1fr;gap:5px}.template-columns h3{margin:6px 0 3px;font-size:14px}.template-columns article{display:flex;gap:4px;margin-bottom:3px}.template-main{flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left}.template-main.selected{border-color:#155eef;background:#eef4ff;box-shadow:0 0 0 2px #dbe7ff}.star{color:#b54708;font-weight:700}.delete-fav{color:#b42318}.preview-pane{position:sticky;top:82px;min-height:250px}.template-preview{padding:7px;border:2px solid #84adff;border-radius:8px;background:white}.preview-empty{min-height:250px;border:2px dashed #b2ccff;border-radius:8px;background:#f5f8ff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center;color:#475467;padding:20px}.preview-empty b{color:#1849a9}.preview-title{display:flex;justify-content:space-between;align-items:center;gap:8px}.preview-title>div{display:flex;flex-direction:column}.load-template{background:#155eef;color:white;font-weight:800}.preview-items{display:grid;grid-template-columns:1fr;gap:2px;margin-top:6px;max-height:430px;overflow:auto}.preview-items>div{display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:6px;padding:3px 5px;border-bottom:1px solid #eaecf0}.preview-items span{color:#667085;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.preview-items b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.preview-items strong{color:#155eef;white-space:nowrap}@media(max-width:900px){.template-browser{grid-template-columns:1fr}.preview-pane{position:static}.template-columns{grid-template-columns:1fr 1fr}}@media(max-width:760px){.template-columns{grid-template-columns:1fr}.focus-bar{flex-wrap:wrap}.focus-bar span{width:100%}.pinned-favorites{top:76px}}
-      @media(max-width:1050px){.entry-layout{grid-template-columns:1fr}.side-tools{position:static;max-height:none;order:2}.variety-nav>div{flex-direction:row;overflow-x:auto}.variety-nav button{flex:0 0 auto;gap:8px}.live-order{max-height:260px;overflow:auto}.live-order>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.live-order>div{grid-template-columns:1fr}}
+      .my-order-page{max-width:1440px}.grid-head,.product-row{grid-template-columns:minmax(300px,1fr) 70px 120px 150px 80px 190px}.product-row select{min-height:30px;height:30px;padding:1px 6px;border:1px solid #84adff;border-radius:8px;background:#fff;font-size:16px}.conversion-error{color:#b42318}
+      @media(max-width:1050px){.entry-layout{grid-template-columns:1fr}.side-tools{position:static;max-height:none;order:2}.variety-nav>div{flex-direction:row;overflow-x:auto}.variety-nav button{flex:0 0 auto;gap:8px}.live-order{max-height:260px;overflow:auto}.live-order>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.product-row{grid-template-columns:1fr 1fr}}@media(max-width:620px){.live-order>div{grid-template-columns:1fr}}
     `}</style>
   </>;
 }

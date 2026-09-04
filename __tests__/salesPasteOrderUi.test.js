@@ -46,7 +46,7 @@ assert.match(page, /\.match-shortcuts\s*\{[\s\S]{0,120}grid-template-columns:\s*
 assert.match(page, /붙여넣기 원문/, '각 행에서 사용자 원문을 명확히 표시해야 합니다.');
 assert.match(page, /전산 매칭/, '각 행에서 ERP 매칭값을 명확히 표시해야 합니다.');
 assert.match(page, /@media \(max-width: 1400px\)[\s\S]{0,180}grid-template-columns:\s*1fr/, '좁은 화면에서는 주문현황을 아래로 이동해 매칭 조작 영역을 보존해야 합니다.');
-assert.match(page, /salesPasteUnitOptions\(row\)/, '서버 환산식으로 검증된 단위만 행 선택지에 표시해야 합니다.');
+assert.match(page, /salesPasteUnitOptions\(row\)/, '각 행에서 박스·단·송이 단위 선택지를 표시해야 합니다.');
 assert.match(page, /replaceSalesPasteUnit\(rows, rowIndex, unit, products\)/, '단위 변경 시 현재 주문과 등록 후 수량을 다시 계산해야 합니다.');
 assert.match(page, /\.customers\s*\{[\s\S]{0,100}flex-wrap:\s*wrap/, '업체 선택 버튼은 화면 폭에 맞춰 다음 줄로 내려가야 합니다.');
 assert.match(page, /\.customers\s*\{[\s\S]{0,180}overflow-x:\s*hidden/, '업체 선택을 한 줄 가로 스크롤로 강제하면 안 됩니다.');

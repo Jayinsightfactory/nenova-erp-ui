@@ -1,11 +1,12 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 (async () => {
-  const { sortCustomerProducts, quantitiesMatch, buildForwardOrderWeeks, productAlphabetInitial } = await import('../lib/myCustomerOrderEntry.js');
+  const { sortCustomerProducts, sortMyCustomersFirst, quantitiesMatch, buildForwardOrderWeeks, productAlphabetInitial } = await import('../lib/myCustomerOrderEntry.js');
   const rows = sortCustomerProducts([{ProdKey:1,FlowerName:'장미',UsageCount:2,ProdName:'B'},{ProdKey:2,FlowerName:'수국',UsageCount:7,ProdName:'A'},{ProdKey:3,FlowerName:'장미',UsageCount:8,ProdName:'A'}]);
   assert.deepEqual(rows.map(x=>x.ProdKey), [3,1,2]);
   const exeGroups = sortCustomerProducts([{ProdKey:4,FlowerName:'장미',CountryFlower:'중국장미',UsageCount:2},{ProdKey:5,FlowerName:'장미',CountryFlower:'콜롬비아장미',UsageCount:5}]);
   assert.deepEqual(exeGroups.map(x=>x.CountryFlower), ['콜롬비아장미','중국장미']);
+  assert.deepEqual(sortMyCustomersFirst([{CustKey:1,IsMine:0},{CustKey:2,IsMine:1},{CustKey:3,IsMine:1},{CustKey:4,IsMine:0}]).map(x=>x.CustKey), [2,3,1,4], '로그인 담당자 업체를 먼저 보이되 각 묶음의 기존 순서는 유지해야 합니다.');
   assert.equal(productAlphabetInitial({ProdName:'CARNATION Doncel'}), 'D');
   assert.equal(productAlphabetInitial({ProdName:'ROSE / Playa Blanca 50cm'}), 'P');
   assert.equal(productAlphabetInitial({ProdName:'Hydrangea G/ Esmeral'}), 'G');
@@ -38,6 +39,8 @@ const fs = require('node:fs');
   assert.match(own,/FROM Customer c/); assert.match(own,/ManagerName/); assert.doesNotMatch(own,/본인 담당 업체만 조회/);
   assert.match(api,/activeCustomer/); assert.doesNotMatch(api,/본인 담당 업체의 주문만 등록/);
   assert.match(own,/recent\.LastOrderDtm DESC/); assert.match(page,/visibleCustomers/); assert.match(page,/slice\(0, 30\)/);
+  assert.match(own,/ORDER BY CASE WHEN LTRIM\(RTRIM\(ISNULL\(c\.Manager,''\)\)\)/); assert.match(page,/sortMyCustomersFirst/);
+  assert.match(page,/salesPasteUnitOptions\(\)\.map/); assert.match(page,/convertSalesPasteQtyToOutUnit/); assert.match(page,/unit: selectedUnit\(p\)/); assert.match(page,/단위 환산값이 없어 등록할 수 없습니다/);
   assert.doesNotMatch(own,/SUM\(CASE WHEN p\.OutUnit/); assert.match(own,/SUM\(ISNULL\(xod\.OutQuantity,0\)\)/);
   assert.match(own,/ISNULL\(od\.OutQuantity,0\) AS Qty/);
   assert.match(own,/CurrentOrderRows/);

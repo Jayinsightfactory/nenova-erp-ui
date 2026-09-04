@@ -60,8 +60,9 @@ const repeatedPink = buildSalesPasteRows([{ items: [{ prodKey: 9, qty: 8, unit: 
 assert.deepEqual(repeatedPink.map(row => row.qty), [12], '같은 진핑크 두 줄은 한 품목 12박스로 합산해야 합니다.');
 const unitProduct = { ProdKey: 10, OutUnit: '송이', BunchOf1Box: 10, SteamOf1Bunch: 20, SteamOf1Box: 200, CurrentQty: 40 };
 assert.equal(convertSalesPasteQtyToOutUnit(2, '단', unitProduct), 40, '단 선택은 FormOrderAdd와 같은 SteamOf1Bunch 기준으로 OutUnit 송이로 환산해야 합니다.');
-assert.deepEqual(salesPasteUnitOptions(unitProduct), ['박스', '단', '송이'], '환산 근거가 있는 단위만 선택지로 보여야 합니다.');
-assert.deepEqual(salesPasteUnitOptions({ unit: '박스', outUnit: '송이' }), ['박스', '송이'], '환산 계수가 없는 near-miss에서는 단을 선택 가능하다고 표시하면 안 됩니다.');
+assert.deepEqual(salesPasteUnitOptions(unitProduct), ['박스', '단', '송이'], '박스·단·송이를 항상 선택할 수 있어야 합니다.');
+assert.deepEqual(salesPasteUnitOptions({ unit: '박스', outUnit: '송이' }), ['박스', '단', '송이'], '환산 계수가 없는 near-miss도 단위는 표시하고 저장 검증에서 구체적으로 차단해야 합니다.');
+assert.equal(convertSalesPasteQtyToOutUnit(1, '단', { unit: '박스', outUnit: '송이' }), null, '환산 계수가 없는 단위 변경은 등록 가능한 수량으로 만들면 안 됩니다.');
 const changedUnit = replaceSalesPasteUnit(buildSalesPasteRows([{ items: [{ prodKey: 10, qty: 2, unit: '송이', outUnit: '송이', bunchOf1Box: 10, steamOf1Bunch: 20, steamOf1Box: 200 }] }], [unitProduct]), 0, '단', [unitProduct]);
 assert.deepEqual(changedUnit.map(row => [row.qty, row.unit, row.deltaOutQty, row.currentQty, row.finalQty]), [[2, '단', 40, 40, 80]], '단위를 바꾸면 입력수량은 보존하고 현재/등록 후 수량은 OutUnit으로 다시 계산해야 합니다.');
 const rematched = replaceSalesPasteProduct([
