@@ -63,7 +63,8 @@ async function main() {
 
   assert.match(page, /const body = \{[\s\S]{0,250}?mode: effectiveMode,[\s\S]{0,80}?orderYear: yearStr/, '단가 전용 저장 payload에 선택 연도가 필요하다.');
   assert.match(page, /items: rebasedCosts\.items\.map[\s\S]{0,220}?mode: effectiveCostMode,[\s\S]{0,80}?orderYear: yearStr/, '수량+단가 통합 저장 payload에 선택 연도와 명시 단가 모드가 필요하다.');
-  assert.match(page, /items: editorCostItems,[\s\S]{0,100}?mode: 'once',[\s\S]{0,80}?orderYear: yearStr/, '품목정보 단가 저장 payload에 선택 연도가 필요하다.');
+  assert.match(editorSrc, /saveEstimateCostBatch\(\{[\s\S]{0,180}?allItems:\s*editorCostItems/, '품목정보 단가 저장은 복구 가능한 공용 helper를 사용해야 한다.');
+  assert.match(editorSrc, /items: editorCostItems,[\s\S]{0,100}?mode: 'once',[\s\S]{0,80}?orderYear: yearStr/, '품목정보 단가 저장 payload에 선택 연도가 필요하다.');
   const captureStart = page.indexOf('const captureEstimateRefresh = () =>');
   const captureEnd = page.indexOf('const isCapturedEstimateScopeCurrent', captureStart);
   const captureContract = page.slice(captureStart, captureEnd).replace(/\s+/g, ' ');

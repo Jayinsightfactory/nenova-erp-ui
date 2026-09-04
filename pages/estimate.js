@@ -3577,24 +3577,21 @@ export default function Estimate() {
         }
         if (editorCostItems.length > 0) {
           setCostApplyLog(prev => [...prev, { step: 'save', label: `출고 단가 저장 — ${item.Cost} → ${cost}` }]);
-          const response = await fetch('/api/estimate/update-cost', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({
+          // 표의 단가 일괄저장과 같은 복구/실제값 대조 경로를 사용한다.
+          // 서버 재시작·502/503/504가 응답 직전에 발생해도 다시 쓰기 전에
+          // 현재 값을 확인하므로, 이미 저장된 단가를 오류로 표시하거나 중복
+          // 요청하지 않는다. 수량·비고 저장 뒤에는 위에서 재기준화한 스냅샷을 쓴다.
+          await saveEstimateCostBatch({
+            allItems: editorCostItems,
+            body: {
               items: editorCostItems,
               mode: 'once',
               orderYear: yearStr,
               custKey: capturedRefresh.ship.custKey,
               editGuard: estimateEditGuard(),
-            }),
+            },
+            captured: capturedRefresh,
           });
-          const data = await response.json();
-          if (!response.ok || !data.success) {
-            const error = new Error(data.error || '출고 단가 수정에 실패했습니다.');
-            error.code = data.code;
-            throw error;
-          }
         }
         return { success: true };
       };
