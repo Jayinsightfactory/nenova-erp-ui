@@ -33,7 +33,7 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "직전 스냅샷은 StockMaster.OrderYearWeek < 현재 OrderYear+REPLACE(OrderWeek,'-','') 인 최신 StockKey 1건만 사용한다. 2025년 33-01 ProductStock을 2026년 33-01 이월로 쓰지 않고 OrderYear NULL 입고·출고·조정도 선택 연도에 귀속시키지 않는다. 2026-08-20 운영 probe: 콜롬비아카네이션 33-01 미확정 53 SKU, 옛 ns.Stock-unfixed 음수 52건, leftover-unfixed 음수 0건(Zurigo ROUND(-0.33,0)=0). 2026-09-03 회귀: 입고18/출고18의 raw 부동소수점 음수는 차단하지 않고 입고18/출고20은 부족2로 차단한다. 2026-09-04 회귀: 36-01 Doncel은 ViewWarehouse 입고135·ViewShipment 출고136으로 부족1이며, fix-status가 NULL 연도 입고 fallback 또는 CodeInfo 밖 이력을 포함해 부족을 숨기지 않는다. fix-status 표시와 fix GET/POST 사전검사는 모두 운영 usp_ShipmentFix의 ViewWarehouse/ViewShipment, StockType 조정, 직전 StockKey, ROUND(remain,0)<0 판정을 사용한다."
+    "description": "웹 표시·사전검사의 직전 스냅샷은 선택 연도 안에서 품목별로 StockMaster.OrderYearWeek < 현재 OrderYear+REPLACE(OrderWeek,'-','') 인 최신 ProductStock 1건을 사용한다. 2025년 33-01 ProductStock을 2026년 33-01 이월로 쓰지 않고 OrderYear NULL 입고·출고·조정도 선택 연도에 귀속시키지 않는다. 2026-08-20 운영 probe: 콜롬비아카네이션 33-01 미확정 53 SKU, 옛 ns.Stock-unfixed 음수 52건, leftover-unfixed 음수 0건(Zurigo ROUND(-0.33,0)=0). 2026-09-03 회귀: 입고18/출고18의 raw 부동소수점 음수는 차단하지 않고 입고18/출고20은 부족2로 차단한다. 2026-09-04 회귀: 36-01 Doncel은 ViewWarehouse 입고135·ViewShipment 출고136으로 부족1이며, fix-status가 NULL 연도 입고 fallback, CodeInfo 밖 이력 또는 품목이 없는 다른 StockKey를 포함해 부족을 숨기지 않는다. fix-status 표시와 fix GET/POST 사전검사는 ViewWarehouse/ViewShipment, StockType 조정, 선택 연도·품목별 직전 스냅샷, ROUND(remain,0)<0 판정을 사용한다."
   },
   "requiredTestFiles": [
     "__tests__/shipmentFixReconcile.test.js",

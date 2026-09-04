@@ -66,8 +66,8 @@ assert.match(
 );
 assert.match(
   fixStatusApi,
-  /WHERE sm2\.OrderYearWeek < oq\.WeekKey[\s\S]*ORDER BY sm2\.OrderYearWeek DESC, sm2\.OrderWeek DESC/,
-  '확정현황 이월재고는 usp_ShipmentFix와 같은 직전 StockKey를 사용해야 한다.',
+  /WHERE ps\.ProdKey = oq\.ProdKey[\s\S]*CAST\(sm2\.OrderYear AS NVARCHAR\(4\)\) = w\.OrderYear[\s\S]*sm2\.OrderYearWeek < oq\.WeekKey[\s\S]*ORDER BY sm2\.OrderYearWeek DESC, sm2\.StockKey DESC/,
+  '확정현황 이월재고는 확정 API와 같은 선택 연도·품목별 직전 스냅샷을 사용해야 한다.',
 );
 assert.equal(
   /ISNULL\(CAST\((?:wm|sm|sh)\.OrderYear AS NVARCHAR\(4\)\), @defaultYear\)/.test(negativeStatusSql),
