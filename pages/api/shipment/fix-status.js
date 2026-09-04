@@ -321,15 +321,13 @@ async function loadNegativeRows(from, to) {
      LEFT JOIN in_qty iq ON iq.WeekKey = oq.WeekKey AND iq.ProdKey = oq.ProdKey
      LEFT JOIN adjust_qty aq ON aq.WeekKey = oq.WeekKey AND aq.ProdKey = oq.ProdKey
      OUTER APPLY (
-       SELECT TOP 1 sm2.StockKey
-       FROM StockMaster sm2
-       WHERE sm2.OrderYearWeek < oq.WeekKey
-       ORDER BY sm2.OrderYearWeek DESC, sm2.OrderWeek DESC
-     ) beforeStock
-     OUTER APPLY (
        SELECT TOP 1 ps.Stock AS prevStock
        FROM ProductStock ps
-       WHERE ps.StockKey = beforeStock.StockKey AND ps.ProdKey = oq.ProdKey
+       JOIN StockMaster sm2 ON sm2.StockKey = ps.StockKey
+       WHERE ps.ProdKey = oq.ProdKey
+         AND CAST(sm2.OrderYear AS NVARCHAR(4)) = w.OrderYear
+         AND sm2.OrderYearWeek < oq.WeekKey
+       ORDER BY sm2.OrderYearWeek DESC, sm2.StockKey DESC
      ) prev
      OUTER APPLY (
        SELECT TOP 1 sm3.StockKey, ps3.Stock
