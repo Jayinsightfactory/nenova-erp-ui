@@ -19,8 +19,8 @@ export default withAuth(async function handler(req, res) {
           FROM OrderMaster om WHERE om.CustKey=c.CustKey AND ISNULL(om.isDeleted,0)=0
           ORDER BY om.OrderDtm DESC, om.OrderMasterKey DESC) recent
         WHERE ISNULL(c.isDeleted,0)=0
-        ORDER BY CASE WHEN recent.LastOrderDtm IS NULL THEN 1 ELSE 0 END, recent.LastOrderDtm DESC,
-          CASE WHEN LTRIM(RTRIM(ISNULL(c.Manager,''))) IN (LTRIM(RTRIM(@uid)), LTRIM(RTRIM(@uname))) THEN 0 ELSE 1 END, c.CustName`, {
+        ORDER BY CASE WHEN LTRIM(RTRIM(ISNULL(c.Manager,''))) IN (LTRIM(RTRIM(@uid)), LTRIM(RTRIM(@uname))) THEN 0 ELSE 1 END,
+          CASE WHEN recent.LastOrderDtm IS NULL THEN 1 ELSE 0 END, recent.LastOrderDtm DESC, c.CustName`, {
         uid: { type: sql.NVarChar, value: String(req.user?.userId || '') }, uname: { type: sql.NVarChar, value: String(req.user?.userName || '') },
       });
       return res.status(200).json({ success: true, customers: r.recordset });
