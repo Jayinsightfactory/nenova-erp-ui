@@ -26,6 +26,7 @@ import { filterItemsByExeWeekDay } from '../lib/exeEstimateViewSql.js';
 import { amountVatFromCostEst } from '../lib/distributeUnits.js';
 import { requireCostSnapshot, rebaseCostItemsFromSaved, STALE_COST_MESSAGE } from '../lib/estimateCostSnapshot.js';
 import { shouldApplyEstimateProductContext } from '../lib/estimateProductContextGuard.js';
+import { estimatePhysicalRowKey, estimateQuantityEditKey } from '../lib/estimatePhysicalRow.js';
 import { downloadEcountUploadWorkbook } from '../lib/estimateEcountExcel.js';
 import { collectEstimateBatchReadFailures, estimateBatchReadFailureMessage } from '../lib/estimateBatchOutputGuard';
 import {
@@ -2005,11 +2006,7 @@ export default function Estimate() {
   };
   // nenova.exe FormEstimateView의 정상출고 수량 키는 ShipmentDate.SdateKey다.
   // SdetailKey는 단가 수정용/물리 출고 상세용이므로 견적 날짜수량 저장에 재사용하지 않는다.
-  const getQtyEditKey = (item) => {
-    if (item?.EstimateKey != null && item?.SdetailKey == null) return `est:${item.EstimateKey}`;
-    if (item?.SdateKey != null) return `sdate:${item.SdateKey}`;
-    return '';
-  };
+  const getQtyEditKey = (item) => estimateQuantityEditKey(item);
   const isEstimateEditKey = (key) => String(key || '').startsWith('est:');
   const isDateQuantityEditKey = (key) => String(key || '').startsWith('sdate:');
   const parseEditKeyNumber = (key) => parseInt(String(key || '').split('@')[0].split(':')[1] || key, 10);
@@ -5100,7 +5097,7 @@ export default function Estimate() {
                           const editVal = costEditKey ? (costEdits[costEditKey] ?? '') : '';
                           const isEdited = editVal !== '' && !isNaN(parseFloat(editVal)) && parseFloat(editVal) !== item.Cost;
                           return (
-                          <tr key={i} data-estimate-deduction={isDed ? '1' : undefined} style={{background: isEdited ? '#E6F7FF' : (highlightDed ? '#FDE68A' : (isDed ? '#FFF8DC' : ''))}}>
+                          <tr key={estimatePhysicalRowKey(item) || costEditKey || `row:${i}`} data-estimate-deduction={isDed ? '1' : undefined} style={{background: isEdited ? '#E6F7FF' : (highlightDed ? '#FDE68A' : (isDed ? '#FFF8DC' : ''))}}>
                             <td style={{padding:'2px', textAlign:'center'}}>
                               {canDeleteDeduction ? (
                                 <label title="이 불량·검역 차감만 삭제 대상으로 선택" style={{display:'inline-flex', alignItems:'center', justifyContent:'center', cursor: deductionDeleting ? 'wait' : 'pointer'}}>

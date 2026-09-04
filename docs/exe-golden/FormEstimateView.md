@@ -343,3 +343,14 @@ OrderYear/CustKey/ShipmentKey/EstimateKey와 조회 스냅샷을 잠금 대조�
 검역차감 KR0012/0013/0014/0019이고 샘플·판매요청·단가차감도 별도 존재한다.
 2025/2026 동일 34-01과 2026-34-02에 확정 차감이 있어 교차연도 fixture로 고정한다.
 근거·부작용·검사 결과: `docs/work-reports/2026-08-26_estimate-deduction-delete.md`.
+
+## 2026-09-04 편집 화면의 실제 행 식별
+
+`FormEstimateView.GetDetail`의 정상출고 수량 저장 대상은 `ShipmentDate.SdateKey`,
+불량·검역 차감의 저장 대상은 `Estimate.EstimateKey`다. 품목명·출고일이 같아도
+`SdateKey`가 다르면 서로 다른 실제 출고행이므로 각각 별도 입력칸으로 유지한다.
+
+EXE 호환 조회의 `ViewShipment`와 `ViewOrder` 결합에서 같은 업무키의 주문행이 여러 건이면
+하나의 `SdateKey`가 조회 결과에 반복될 수 있다. 이 경우 웹은 같은 실제 기본키만 한 번
+표시한다. 서로 다른 `SdateKey`를 품목명이나 날짜가 같다는 이유로 합치지 않는다.
+이 정리는 조회 결과와 브라우저 입력 상태에만 적용하며 ERP 원장을 추가·수정·삭제하지 않는다.
