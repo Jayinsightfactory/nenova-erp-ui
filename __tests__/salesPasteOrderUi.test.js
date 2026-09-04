@@ -3,6 +3,9 @@ import fs from 'node:fs';
 const page = fs.readFileSync(new URL('../pages/orders/sales-paste.js', import.meta.url), 'utf8');
 const api = fs.readFileSync(new URL('../pages/api/orders/index.js', import.meta.url), 'utf8');
 const parser = fs.readFileSync(new URL('../pages/api/orders/parse-paste.js', import.meta.url), 'utf8');
+
+assert.doesNotMatch(parser, /\b(?:om|od)\.OrderKey\b/, '주문 이력 매칭 SQL은 존재하지 않는 OrderKey 컬럼을 사용하면 안 됩니다.');
+assert.match(parser, /JOIN\s+OrderDetail\s+od\s+ON\s+od\.OrderMasterKey\s*=\s*om\.OrderMasterKey/i, '주문 이력은 실제 PK/FK인 OrderMasterKey로 결합해야 합니다.');
 const layout = fs.readFileSync(new URL('../components/Layout.js', import.meta.url), 'utf8');
 assert.match(layout, /\/orders\/sales-paste[^\n]+영업부 붙여서 주문등록/);
 assert.match(page, /apiPost\('\/api\/orders\/parse-paste'/, '기존 붙여넣기 매칭 API를 그대로 사용해야 합니다.');

@@ -583,7 +583,7 @@ export default withAuth(async function handler(req, res) {
                COUNT_BIG(*) AS UsageCount,
                SUM(CASE WHEN ISNULL(om.OrderYear, 0) >= @recentYear THEN 1 ELSE 0 END) AS RecentUsageCount
              FROM OrderMaster om
-             JOIN OrderDetail od ON od.OrderKey=om.OrderKey AND od.isDeleted=0
+             JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND od.isDeleted=0
              WHERE om.isDeleted=0 AND om.CustKey=@custKey AND od.ProdKey IS NOT NULL
              GROUP BY od.ProdKey`, {
                custKey: { type: sql.Int, value: historyCustKey },
