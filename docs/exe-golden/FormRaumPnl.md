@@ -44,6 +44,15 @@
 - 화면 표시 전용으로 `WebRaumPnlItem.SalePrice/SaleAmount`를 함께 조회해 각 칸에 견적서 판매가·매입금액(`CostPrice × Qty`, 입력 중에는 draft 값 기준)·견적서 금액·수량을 조밀하게 보여준다. 이 두 컬럼은 GET에서만 읽으며 저장 API/SQL에는 포함하지 않는다.
 - 매입단가 관리 화면은 라움과 초이문을 전환하지 않고 같은 연도·대차수·품목·단위를 한 공통 단가 셀로 표시한다. 판매가·수량·매입액·견적액은 거래처별로 분리해 보여준다.
 - 공통 단가 저장은 해당 연도·대차수의 활성 라움+초이문 결산을 함께 잠근 뒤 `PartnerCode + PnlKey + ItemKey + CostPrice` 전체 snapshot을 대조하고, 존재하는 양쪽 매칭행의 `CostPrice/CostSource`만 한 트랜잭션으로 수정한다. 한쪽 자료가 없을 때 결산이나 품목행을 새로 만들지 않는다.
+- 매입단가 관리 화면(`pages/raum/purchase-costs.js`)은 품목 기준으로 압축 표시한다. 전체 공통 차수 열을 늘어놓지 않고, 각 품목에 실제 데이터가 있는 대차수 셀만 최신순으로 붙여 보여준다(빈 칸 없음). 차수 셀 안의 공통 매입단가·라움/초이문 판매가·수량·매입액·견적액과 수정/저장 동작은 그대로 유지한다.
+
+### 일반행·(사입)행 매입단가 연결 (2026-09-04)
+
+- `lib/raumPnlConsignedCost.js` — DB 접근이 없는 순수 helper. `pages/raum/pnl.js`(실시간 편집), `lib/raumPnl.js`(단일 차수 저장·다차수 업로드 병합/저장), `lib/raumPnlCostComparison.js`(공통 매입단가 화면 identity)가 공유한다.
+- 같은 품목의 일반행과 `IsConsigned`(사입) 행은 수량·매출·사입 여부 행을 절대 합치지 않는다 — 오직 매입단가만 연결한다. 연결 기준은 공백을 정규화한 품목명(끝의 `(사입)`/`사입` 표시는 매칭에서만 제거)과 단위가 정확히 같은 경우다.
+- 사입행에 직접 입력한 값이나 출처가 없는 기존 값은 덮어쓰지 않는다. 같은 이름·단위의 일반행 후보 단가가 정확히 하나일 때만 빈 사입 단가를 채우고, 이전에 자동 연결된 값은 일반행 단가 수정을 따라간다. 서로 다른 후보가 여럿이면 자동 선택·평균하지 않는다.
+- 손익계산서 화면에서 일반행 매입단가를 수정하면 같은 품목·단위의 빈 사입행이나 기존 자동 연결 사입행에 즉시 반영된다. 서버도 모든 저장 경로(`saveRaumPnl`, `saveRaumPnlImportBatch` → `mergedImportedItems`) 직전에 같은 helper로 재보장하므로 저장·다시 열기·파일 재업로드 병합에서도 규칙이 유지된다.
+- ProdKey가 있는 행은 기존 identity(`prod:ProdKey|unit|customPart`)를 그대로 쓴다. ProdKey가 없는 행은 (사입) suffix를 제거한 품목명+단위 기준으로 공통 매입단가 화면에서도 같은 셀에 묶인다.
 
 - 업무키: `OrderYear + OrderWeek + CustKey + ProdKey`
 - `OrderMaster.Manager`는 `UserInfo.UserID`로 해석한다.
