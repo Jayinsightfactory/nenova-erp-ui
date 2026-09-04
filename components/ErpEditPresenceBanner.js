@@ -5,7 +5,7 @@ export default function ErpEditPresenceBanner({ presence, compact = false, onRel
   let background = '#fffbeb';
   if (presence.stale) {
     message = onReload
-      ? 'nenova.exe 또는 다른 화면에서 값이 변경되었습니다. 최신 내용을 다시 불러오면 현재 값으로 계속 작업할 수 있습니다.'
+      ? '현재 화면을 연 뒤 전산 값이 달라졌습니다. 아래 버튼으로 최신 내용을 불러오면 계속 작업할 수 있습니다.'
       : 'nenova.exe 또는 다른 화면에서 값이 변경되었습니다. 새로고침 후 다시 확인하세요.';
     color = '#b91c1c'; background = '#fef2f2';
   } else if (presence.locked) {

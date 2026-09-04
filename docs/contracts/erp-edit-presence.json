@@ -35,6 +35,7 @@
     ,"__tests__/estimateGridNavigation.test.js"
     ,"__tests__/estimateSaveRecoveryUi.test.js"
     ,"docs/work-reports/2026-08-28_estimate_exe_fix_status_sync.md"
+    ,"docs/work-reports/2026-09-04_estimate_stale_self_recovery.md"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -78,6 +79,7 @@
       "sidecar": "selected customer's WebErpEditLease BaselineDigest only",
       "sequence": "user opens confirmation status -> read live ShipmentDetail.isFix counts -> explicitly refresh owned lease baseline -> reload selected customer list/detail -> compare once more",
       "automaticPolling": "must remain detection-only and must never replace the baseline",
+      "reloadRecovery": "if initial acquire finds a stale active lease owned by the exact same UserID+clientId, return its owner-only token while keeping stale=true so the explicit refresh button can accept the current ERP snapshot; never expose that token to another user or client",
       "lockSafety": "never refresh or take over another user/browser lease"
     },
     {

@@ -18,6 +18,8 @@ function main() {
   const endSavingSource = hook.slice(hook.indexOf('const endSaving'), hook.indexOf('const markStale'));
   assert.ok(endSavingSource.indexOf("action: 'heartbeat'") < endSavingSource.indexOf('savingRef.current = Math.max'), '본인 저장 확인이 끝날 때까지 외부 변경 polling을 중지해야 합니다.');
   assert.match(hook, /stale: Boolean\(data\?\.stale\)/, '서버의 stale 상태를 화면 차단 상태에 반영해야 합니다.');
+  assert.match(hook, /mergeErpEditPresenceError[\s\S]{0,1200}lease\?\.token \|\| previous\.token/, '같은 브라우저의 오래된 작업권은 명시적 최신화를 위해 본인 토큰을 복구해야 합니다.');
+  assert.match(hook, /error\.code === 'ERP_EDIT_STALE'[\s\S]{0,320}mergeErpEditPresenceError\(stateRef\.current, error, scope\)/, '초기 작업권 취득에서 외부 변경이 발견돼도 최신 내용 불러오기 버튼을 사용할 수 있어야 합니다.');
   assert.match(hook, /fixStatusChanged:/, '확정상태 변경은 실제 견적 내용 충돌과 별도로 전달해야 합니다.');
   assert.match(hook, /shouldBlockErpDigestTransition\(\{[\s\S]{0,240}force,/, '명시적 최신 현황 불러오기는 일반 polling과 구분해야 합니다.');
   assert.match(hook, /scopeMatches[\s\S]{0,220}blocked/, '업체를 바꾸는 순간 이전 업체의 작업권으로 저장할 수 없어야 합니다.');
@@ -27,7 +29,7 @@ function main() {
   assert.match(banner, /님이 .* 이 업체를 작업 중입니다/, '다른 작업자 이름을 사용자에게 보여줘야 합니다.');
   assert.match(banner, /같은 계정의 다른 창/, '본인의 다른 창을 다른 사용자로 오인하지 않아야 합니다.');
   assert.match(banner, /이 창에서 계속 작업/, '본인 작업권은 새로고침 없이 명시적으로 넘겨받을 수 있어야 합니다.');
-  assert.match(banner, /최신 내용을 다시 불러오면 현재 값으로 계속 작업할 수 있습니다/, 'EXE 확정 뒤에는 사용자가 현재 값을 다시 읽을 수 있는 안내가 필요합니다.');
+  assert.match(banner, /아래 버튼으로 최신 내용을 불러오면 계속 작업할 수 있습니다/, 'EXE 확정 뒤에는 사용자가 현재 값을 다시 읽을 수 있는 안내가 필요합니다.');
   assert.match(banner, /typeof onReload === 'function'/, '외부 변경 경고에는 실제 재조회 동작을 연결할 수 있어야 합니다.');
   assert.match(estimate, /const selectedEditWeek = weekNum \? String\(weekNum\)\.padStart\(2, '0'\)/, '견적서 작업권은 불안정한 SubWeeks 순서가 아니라 대차수로 고정해야 합니다.');
   assert.match(estimate, /const refreshFixStatusAndEstimate = async[\s\S]{0,1800}checkFixStatus\(\)[\s\S]{0,1800}refresh\(\{ force: true \}\)[\s\S]{0,1800}refreshCapturedEstimate/, '확정현황 확인은 현재 EXE 기준 수용과 선택 업체 재조회를 한 흐름으로 처리해야 합니다.');
