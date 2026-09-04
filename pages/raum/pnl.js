@@ -9,6 +9,7 @@ import { buildRaumPnlMonthlySummary } from '../../lib/raumPnlMonthly';
 import { canAutoCommitRaumPnlImport, defaultPnlTitle, PNL_PARTNERS, resolvePnlPartner } from '../../lib/raumPnlPartner';
 import { raumPnlMatchCounts, raumPnlMatchDisplay } from '../../lib/raumPnlMatchDisplay';
 import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
+import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
@@ -1201,6 +1202,14 @@ export default function RaumPnlPage() {
     } catch { /* private mode */ }
   }, []);
   useEffect(() => { loadList(); }, [partnerCode]);
+
+  // 일반행 매입단가 → 같은 품목명(사입 suffix 제거)+단위의 빈/자동연결 사입행에 즉시 반영.
+  // fillConsignedCostsFromOrdinary는 변경이 없으면 같은 배열 참조를 돌려주므로 무한 루프가 없다.
+  useEffect(() => {
+    if (!detail?.items) return;
+    const filled = fillConsignedCostsFromOrdinary(detail.items);
+    if (filled !== detail.items) setDetail(d => (d ? { ...d, items: filled, unsaved: true } : d));
+  }, [detail]);
 
   const selectPartner = (code) => {
     const next = resolvePnlPartner(code).code;

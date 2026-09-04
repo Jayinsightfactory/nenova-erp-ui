@@ -43,6 +43,42 @@ function PartnerCellBlock({ label, detail, draftText, draftInvalid }) {
   );
 }
 
+// 차수 셀 하나 — 실제 데이터가 있는 차수만 최신순으로 붙여 보여주는 압축형 칸.
+function WeekCostChip({ item, cell, draft, onChange }) {
+  const value = draft ? draft.value : (cell.state === 'match' || cell.state === 'partial' ? String(cell.singleValue) : '');
+  const changed = !!draft;
+  const draftText = draft ? String(draft.value ?? '').trim() : '';
+  const draftNumber = draftText ? Number(draftText.replace(/,/g, '')) : null;
+  const draftInvalid = !!draft && !!draftText && (!Number.isFinite(draftNumber) || draftNumber < 0);
+  const cellBg = changed ? '#fef3c7' : cell.state === 'mismatch' ? '#fff7ed' : cell.state === 'partial' ? '#fefce8' : cell.state === 'missing' ? '#fff7ed' : '#fff';
+  const inputBorder = draftInvalid ? '1px solid #dc2626' : changed ? '1px solid #f59e0b' : cell.state === 'mismatch' ? '1px solid #f97316' : cell.state === 'partial' ? '1px solid #eab308' : '1px solid #93c5fd';
+  return (
+    <div style={{ width: 152, flex: '0 0 152px', padding: 4, background: cellBg, border, borderRadius: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+        <b style={{ fontSize: 11, color: '#1d4ed8' }}>{cell.major}차</b>
+        {cell.state !== 'match' ? <span style={{ fontSize: 9, fontWeight: 700, color: cell.state === 'mismatch' ? '#c2410c' : '#a16207' }}>{STATE_LABEL[cell.state]}</span> : null}
+      </div>
+      <input
+        value={value}
+        onChange={event => onChange(cell, event.target.value)}
+        inputMode="decimal"
+        placeholder={cell.state === 'mismatch' ? '단가 다름' : cell.state === 'missing' ? '미입력' : ''}
+        aria-label={`${item.name} ${cell.major}차 공통 매입단가`}
+        style={{ width: '100%', height: 22, boxSizing: 'border-box', textAlign: 'right', padding: '0 5px', border: inputBorder, borderRadius: 3, color: draftInvalid ? '#b91c1c' : cell.state === 'mismatch' ? '#c2410c' : '#1e293b' }}
+      />
+      {cell.state === 'partial' && !changed ? (
+        <button
+          type="button"
+          onClick={() => onChange(cell, String(cell.singleValue))}
+          style={{ marginTop: 1, fontSize: 9, height: 14, lineHeight: '12px', padding: '0 4px', border: '1px solid #a16207', borderRadius: 3, background: '#fff', color: '#a16207', cursor: 'pointer' }}
+        >동일 적용</button>
+      ) : null}
+      <PartnerCellBlock label="라움" detail={cell.partners.raum} draftText={changed ? draftText : null} draftInvalid={draftInvalid} />
+      <PartnerCellBlock label="초이문" detail={cell.partners.choimun} draftText={changed ? draftText : null} draftInvalid={draftInvalid} />
+    </div>
+  );
+}
+
 export default function RaumPurchaseCostsPage() {
   const router = useRouter();
   const requestSeq = useRef(0);
@@ -212,62 +248,35 @@ export default function RaumPurchaseCostsPage() {
       {error ? <div role="alert" style={{ padding: '6px 8px', marginBottom: 6, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 4 }}>{error}</div> : null}
       {message ? <div style={{ padding: '6px 8px', marginBottom: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', borderRadius: 4 }}>{message}</div> : null}
 
-      <div style={{ border, overflow: 'auto', maxHeight: 'calc(100vh - 174px)', background: '#fff' }}>
-        <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: Math.max(1000, 470 + matrix.weeks.length * 150), width: '100%', tableLayout: 'fixed' }}>
-          <thead>
-            <tr>
-              <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 5, width: 230, padding: '5px 6px', background: '#dbeafe', borderRight: border, borderBottom: border }}>품목</th>
-              <th style={{ position: 'sticky', top: 0, left: 230, zIndex: 5, width: 190, padding: '5px 6px', background: '#dbeafe', borderRight: border, borderBottom: border }}>전산 매칭</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 4, width: 50, padding: '5px 4px', background: '#dbeafe', borderRight: border, borderBottom: border }}>단위</th>
-              {matrix.weeks.map(week => <th key={week.key} style={{ position: 'sticky', top: 0, zIndex: 4, width: 150, padding: '4px', background: '#e0f2fe', borderRight: border, borderBottom: border }}>{week.label}<div style={{ fontSize: 10, color: '#64748b', fontWeight: 400 }}>공통 매입단가 · 라움/초이문 판매가·수량·매입액·견적액</div></th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {!loading && !filteredItems.length ? <tr><td colSpan={3 + matrix.weeks.length} style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>저장된 손익 품목이 없습니다.</td></tr> : null}
-            {filteredItems.map((item, rowIndex) => (
-              <tr key={item.identity} style={{ background: rowIndex % 2 ? '#f8fafc' : '#fff' }}>
-                <td style={{ position: 'sticky', left: 0, zIndex: 2, padding: '4px 6px', background: rowIndex % 2 ? '#f8fafc' : '#fff', borderRight: border, borderBottom: border, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.name}>{item.name}{item.isCustom ? <span style={{ color: '#92400e' }}> · 수동</span> : null}</td>
-                <td style={{ position: 'sticky', left: 230, zIndex: 2, padding: '4px 6px', background: rowIndex % 2 ? '#f8fafc' : '#fff', borderRight: border, borderBottom: border, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.prodName || '전산 미매칭'}>{item.prodName || <span style={{ color: '#b91c1c' }}>미매칭</span>}{item.prodKey ? <span style={{ color: '#94a3b8' }}> #{item.prodKey}</span> : null}</td>
-                <td style={{ padding: '4px', textAlign: 'center', borderRight: border, borderBottom: border }}>{item.unit || '—'}</td>
-                {item.cells.map((cell, cellIndex) => {
-                  if (!cell) return <td key={matrix.weeks[cellIndex].key} style={{ background: '#f1f5f9', borderRight: border, borderBottom: border, textAlign: 'center', color: '#94a3b8' }}>—</td>;
-                  const draft = drafts[cell.key];
-                  const value = draft ? draft.value : (cell.state === 'match' || cell.state === 'partial' ? String(cell.singleValue) : '');
-                  const changed = !!draft;
-                  const draftText = draft ? String(draft.value ?? '').trim() : '';
-                  const draftNumber = draftText ? Number(draftText.replace(/,/g, '')) : null;
-                  const draftInvalid = !!draft && !!draftText && (!Number.isFinite(draftNumber) || draftNumber < 0);
-                  const cellBg = changed ? '#fef3c7' : cell.state === 'mismatch' ? '#fff7ed' : cell.state === 'partial' ? '#fefce8' : cell.state === 'missing' ? '#fff7ed' : undefined;
-                  const inputBorder = draftInvalid ? '1px solid #dc2626' : changed ? '1px solid #f59e0b' : cell.state === 'mismatch' ? '1px solid #f97316' : cell.state === 'partial' ? '1px solid #eab308' : '1px solid #93c5fd';
-                  return <td key={cell.key} style={{ padding: 3, background: cellBg, borderRight: border, borderBottom: border, verticalAlign: 'top' }}>
-                    <input
-                      value={value}
-                      onChange={event => updateDraft(cell, event.target.value)}
-                      inputMode="decimal"
-                      placeholder={cell.state === 'mismatch' ? '단가 다름' : cell.state === 'missing' ? '미입력' : ''}
-                      aria-label={`${item.name} ${cell.major}차 공통 매입단가`}
-                      style={{ width: '100%', height: 22, boxSizing: 'border-box', textAlign: 'right', padding: '0 5px', border: inputBorder, borderRadius: 3, color: draftInvalid ? '#b91c1c' : cell.state === 'mismatch' ? '#c2410c' : '#1e293b' }}
-                    />
-                    {cell.state !== 'match' ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1, fontSize: 9 }}>
-                        <span style={{ color: cell.state === 'mismatch' ? '#c2410c' : '#a16207', fontWeight: 700 }}>{STATE_LABEL[cell.state]}</span>
-                        {cell.state === 'partial' && !changed ? (
-                          <button
-                            type="button"
-                            onClick={() => updateDraft(cell, String(cell.singleValue))}
-                            style={{ fontSize: 9, height: 14, lineHeight: '12px', padding: '0 4px', border: '1px solid #a16207', borderRadius: 3, background: '#fff', color: '#a16207', cursor: 'pointer' }}
-                          >동일 적용</button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    <PartnerCellBlock label="라움" detail={cell.partners.raum} draftText={changed ? draftText : null} draftInvalid={draftInvalid} />
-                    <PartnerCellBlock label="초이문" detail={cell.partners.choimun} draftText={changed ? draftText : null} draftInvalid={draftInvalid} />
-                  </td>;
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{ border, overflowY: 'auto', overflowX: 'hidden', maxHeight: 'calc(100vh - 174px)', background: '#fff' }}>
+        <div style={{ display: 'flex', position: 'sticky', top: 0, zIndex: 5, background: '#dbeafe', borderBottom: border, fontWeight: 700, fontSize: 12 }}>
+          <div style={{ width: 210, flex: '0 0 210px', padding: '5px 6px', borderRight: border }}>품목</div>
+          <div style={{ width: 160, flex: '0 0 160px', padding: '5px 6px', borderRight: border }}>전산 매칭</div>
+          <div style={{ width: 46, flex: '0 0 46px', padding: '5px 4px', textAlign: 'center', borderRight: border }}>단위</div>
+          <div style={{ flex: '1 1 auto', padding: '5px 6px', fontWeight: 400, color: '#334155' }}>
+            차수별 공통 매입단가 — 실제 데이터가 있는 차수만 최신순으로 붙여 표시 (라움/초이문 판매가·수량·매입액·견적액 포함)
+          </div>
+        </div>
+        {!loading && !filteredItems.length ? <div style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>저장된 손익 품목이 없습니다.</div> : null}
+        {filteredItems.map((item, rowIndex) => {
+          const populatedCells = item.cells.filter(Boolean);
+          return (
+            <div key={item.identity} style={{ display: 'flex', alignItems: 'stretch', background: rowIndex % 2 ? '#f8fafc' : '#fff', borderBottom: border }}>
+              <div style={{ width: 210, flex: '0 0 210px', padding: '4px 6px', borderRight: border, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', alignSelf: 'center' }} title={item.name}>
+                {item.name}{item.isCustom ? <span style={{ color: '#92400e' }}> · 수동</span> : null}
+              </div>
+              <div style={{ width: 160, flex: '0 0 160px', padding: '4px 6px', borderRight: border, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', alignSelf: 'center' }} title={item.prodName || '전산 미매칭'}>
+                {item.prodName || <span style={{ color: '#b91c1c' }}>미매칭</span>}{item.prodKey ? <span style={{ color: '#94a3b8' }}> #{item.prodKey}</span> : null}
+              </div>
+              <div style={{ width: 46, flex: '0 0 46px', padding: '4px', textAlign: 'center', borderRight: border, alignSelf: 'center' }}>{item.unit || '—'}</div>
+              <div style={{ flex: '1 1 auto', display: 'flex', flexWrap: 'wrap', gap: 4, padding: 4 }}>
+                {populatedCells.length ? populatedCells.map(cell => (
+                  <WeekCostChip key={cell.key} item={item} cell={cell} draft={drafts[cell.key]} onChange={updateDraft} />
+                )) : <span style={{ fontSize: 11, color: '#94a3b8', alignSelf: 'center' }}>데이터 없음</span>}
+              </div>
+            </div>
+          );
+        })}
       </div>
       {loading ? <div style={{ position: 'fixed', right: 14, bottom: 12, padding: '6px 10px', background: '#1e293b', color: '#fff', borderRadius: 4 }}>불러오는 중…</div> : null}
     </div>

@@ -26,6 +26,8 @@
     "lib/raumPnlCostComparison.js",
     "lib/raumPnlCostComparisonServer.js",
     "lib/raumPnlPurchaseCost.js",
+    "lib/raumPnlConsignedCost.js",
+    "docs/work-reports/2026-09-04_raum_choimun_sparse_purchase_cost_consigned_link.md",
     "docs/migrations/2026-08-24_web_raum_pnl_assigned_month.sql",
     "docs/migrations/2026-08-25_web_raum_pnl_partner_code.sql",
     "docs/DB_STRUCTURE.md",
@@ -62,14 +64,21 @@
     "preserve": ["Estimate", "ShipmentDetail.Amount", "ShipmentDetail.Vat", "ShipmentDetail.isFix", "WebProfitReport", "OrderDetail", "ShipmentDate", "ShipmentFarm", "StockHistory", "ProductStock"]
   },
   "purchaseCostManagement": {
-    "display": "one combined Raum+Choimun matrix for the exact selected OrderYear; columns are MajorWeek and rows are shared product identity; each cell has one shared editable purchase cost and separate read-only Raum/Choimun SalePrice, Qty, purchase amount, and SaleAmount; distinct prices are never averaged; missing partner rows are shown as absent rather than created",
-    "identity": "OrderYear + MajorWeek + positive ProdKey + normalized Unit + IsCustom; if ProdKey is absent, exact whitespace-normalized ItemName + Unit + IsCustom; PartnerCode is deliberately excluded from the shared cost identity",
+    "display": "one combined Raum+Choimun matrix for the exact selected OrderYear, compressed per product row: only the MajorWeek cells that actually have data render, newest first and packed with no blank filler columns; each populated cell has one shared editable purchase cost and separate read-only Raum/Choimun SalePrice, Qty, purchase amount, and SaleAmount; distinct prices are never averaged; missing partner rows are shown as absent rather than created",
+    "identity": "OrderYear + MajorWeek + positive ProdKey + normalized Unit + IsCustom; if ProdKey is absent, exact whitespace-normalized ItemName (trailing (사입)/사입 suffix stripped for matching only) + Unit + IsCustom; PartnerCode is deliberately excluded from the shared cost identity",
     "writeScope": "for the selected OrderYear+MajorWeek+identity, update CostPrice/CostSource on every existing matching WebRaumPnlItem row under active Raum and Choimun masters, then update only those touched parents; never create a missing item or settlement",
     "concurrency": "client snapshot contains every displayed Raum+Choimun matching ItemKey/PnlKey/PartnerCode/old CostPrice; server locks both partner scopes and compares the complete current matching set before any write; any added, removed, moved, or changed row returns 409 and the whole request rolls back",
     "zeroAndEmpty": "explicit 0 is a valid saved cost; empty clears CostPrice to NULL and excludes the item from P&L totals",
     "learning": "WebRaumCostPrice is preserved so a historical week edit never changes the next import default",
     "preserve": ["WebRaumCostPrice", "Product", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Estimate", "ProductStock", "StockHistory", "WebProfitReport"],
     "nearMissFixtures": ["same MajorWeek in prior year", "one partner missing the product", "one partner added the product after preview", "deleted master", "same name with different ProdKey", "same ProdKey with different Unit", "custom versus ordinary", "stale value in either partner", "explicit zero", "empty NULL", "negative invalid"]
+  },
+  "consignedCostLinking": {
+    "helper": "lib/raumPnlConsignedCost.js — pure, no DB access; shared by pages/raum/pnl.js (live edit), lib/raumPnl.js (single-week save and multi-week import save/preview), and lib/raumPnlCostComparison.js (shared purchase-cost matrix identity)",
+    "rule": "an ordinary WebRaumPnlItem row and its IsConsigned(사입) counterpart never merge Qty/SalePrice/SaleAmount/IsConsigned — only CostPrice links, by exact whitespace-normalized ItemName with a trailing (사입)/사입 display suffix stripped for matching only, plus exact Unit",
+    "fill": "a blank consigned CostPrice is copied from ordinary (non-custom, non-consigned) rows sharing that identity only when they carry exactly one distinct cost value; a manually entered or legacy existing consigned cost is always preserved; a prior auto-linked cost follows a later unique ordinary-cost edit; multiple differing candidates are never averaged or guessed",
+    "propagation": "editing an ordinary row's CostPrice in pages/raum/pnl.js immediately fills a blank or refreshes an auto-linked matching consigned row in the same document; the same pure helper re-applies right before every server save so reopening, re-uploading, and merge all keep the same result",
+    "preserve": ["Qty", "SalePrice", "SaleAmount", "IsConsigned", "ProdKey identity for rows that have one"]
   },
   "requiredTestFiles": [
     "__tests__/raumPnlCostComparison.test.js",
@@ -83,7 +92,8 @@
     "__tests__/raumPnlUploadDiff.test.js",
     "__tests__/raumPnlMonthly.test.js",
     "__tests__/raumPnlSettlementContract.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/raumPnlConsignedCost.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
