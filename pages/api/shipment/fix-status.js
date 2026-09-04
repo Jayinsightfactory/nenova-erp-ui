@@ -301,6 +301,7 @@ async function loadNegativeRows(from, to) {
      SELECT TOP 500
        w.OrderYear,
        w.OrderWeek,
+       w.WeekKey,
        oq.ProdKey,
        p.ProdName,
        p.FlowerName,

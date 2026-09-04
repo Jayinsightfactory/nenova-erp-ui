@@ -69,6 +69,11 @@ assert.match(
   /WHERE ps\.ProdKey = oq\.ProdKey[\s\S]*CAST\(sm2\.OrderYear AS NVARCHAR\(4\)\) = w\.OrderYear[\s\S]*sm2\.OrderYearWeek < oq\.WeekKey[\s\S]*ORDER BY sm2\.OrderYearWeek DESC, sm2\.StockKey DESC/,
   '확정현황 이월재고는 확정 API와 같은 선택 연도·품목별 직전 스냅샷을 사용해야 한다.',
 );
+assert.match(
+  negativeStatusSql,
+  /SELECT TOP 500[\s\S]*w\.OrderYear,[\s\S]*w\.OrderWeek,[\s\S]*w\.WeekKey,[\s\S]*oq\.ProdKey/,
+  '부족 품목 행에는 차수별 negativeCount 집계용 WeekKey가 반드시 포함되어야 한다.',
+);
 assert.equal(
   /ISNULL\(CAST\((?:wm|sm|sh)\.OrderYear AS NVARCHAR\(4\)\), @defaultYear\)/.test(negativeStatusSql),
   false,
