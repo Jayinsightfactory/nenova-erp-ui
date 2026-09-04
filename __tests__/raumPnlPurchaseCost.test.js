@@ -38,6 +38,7 @@ async function main() {
   assert.match(serverComparisonSource, /export async function loadRaumPnlPurchaseCostRows/, 'new shared loader added');
   assert.match(serverComparisonSource, /export const RAUM_PNL_PURCHASE_COST_COMPARISON_SQL/);
   assert.match(serverComparisonSource, /m\.PartnerCode IN \('raum', 'choimun'\)/, 'shared loader reads both partners, not one');
+  assert.match(serverComparisonSource, /i\.Seq ASC, i\.ItemKey ASC/, 'shared loader preserves the saved estimate item order');
 
   // ---------------------------------------------------------------------
   // Shared Raum+Choimun matrix — the fixture this task is really about.
@@ -65,6 +66,12 @@ async function main() {
 
   const shared = buildRaumPnlSharedPurchaseCostMatrix(rows, { orderYear: 2026 });
   assert.deepEqual(shared.weeks.map(w => w.major), [34, 33, 32, 31], 'weeks are unique MajorWeek across both partners, descending, prior-year excluded');
+
+  const estimateOrderMatrix = buildRaumPnlSharedPurchaseCostMatrix([
+    { pnlKey: 300, itemKey: 1, orderYear: 2026, major: 35, partnerCode: 'raum', name: '장미 Z', prodKey: 31, prodName: 'ROSE Z', unit: '단', qty: 1, costPrice: 100, isCustom: false },
+    { pnlKey: 300, itemKey: 2, orderYear: 2026, major: 35, partnerCode: 'raum', name: '가나다 품목', prodKey: 32, prodName: 'ALPHA', unit: '단', qty: 1, costPrice: 100, isCustom: false },
+  ], { orderYear: 2026 });
+  assert.deepEqual(estimateOrderMatrix.items.map(item => item.name), ['장미 Z', '가나다 품목'], 'shared page keeps estimate row order instead of alphabetic product order');
 
   const roseA = shared.items.find(item => item.prodKey === 10 && item.unit === '단');
   assert.ok(roseA, 'shared identity ignores PartnerCode');
