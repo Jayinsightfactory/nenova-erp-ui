@@ -47,7 +47,7 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "estimateRows": "preserve unless the original explicit estimate cost/deduction request succeeds",
-      "retryPolicy": "after every transient 502/503/504/network failure, probe server and reconcile the exact year + parent week + CustKey scoped intents; retry only when all values remain at their expected pre-write values; treat all desired values as applied without another POST; stop on mixed/conflicting values",
+      "retryPolicy": "after every transient 502/503/504/network failure, probe server and reconcile the exact year + parent week + CustKey scoped intents; for 504, browser abort, and response-loss failures, observe the exact values for a bounded grace period because the original DB transaction may still be running; retry only when all values remain at their expected pre-write values after that observation; treat all desired values as applied without another POST; stop on mixed/conflicting values",
       "maxRequests": 4,
       "sideEffect": "never retry a business error and never duplicate a write whose response alone was lost"
     },
