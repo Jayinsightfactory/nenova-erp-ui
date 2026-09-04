@@ -3,7 +3,7 @@ const fs = require('node:fs');
 
 async function main() {
   const presence = await import('../lib/erpEditPresence.js');
-  const { normalizeErpEditClientWeek, mergeErpEditPresenceResponse, shouldBlockErpDigestTransition } = await import('../hooks/useErpEditPresence.js');
+  const { normalizeErpEditClientWeek, mergeErpEditPresenceError, mergeErpEditPresenceResponse, shouldBlockErpDigestTransition } = await import('../hooks/useErpEditPresence.js');
   assert.equal(normalizeErpEditClientWeek('34-01'), '34');
   assert.equal(normalizeErpEditClientWeek('34-02'), '34');
   assert.equal(normalizeErpEditClientWeek('2026-34-02'), '34');
@@ -102,7 +102,39 @@ async function main() {
   const mine = await presence.acquireErpEditLease(fakeQuery, scope, alice, { clientId: 'A', pageCode: 'estimate' });
   assert.equal(mine.scope.orderWeek, '32');
   assert.notEqual(mine.lease.leaseToken, priorYear.lease.leaseToken, '2025/2026 동일 차수·업체는 서로 다른 작업권이어야 합니다.');
-  await assert.rejects(() => presence.acquireErpEditLease(fakeQuery, { ...scope, orderWeek: '32-02' }, bob, { clientId: 'B', pageCode: 'paste' }), { code: 'ERP_EDIT_LOCKED' });
+  erpRevision += 1;
+  let sameClientStale;
+  try {
+    await presence.acquireErpEditLease(fakeQuery, scope, alice, { clientId: 'A', pageCode: 'estimate' });
+  } catch (error) {
+    sameClientStale = error;
+  }
+  assert.equal(sameClientStale?.code, 'ERP_EDIT_STALE');
+  assert.equal(sameClientStale.lease.ownedByMe, true, '같은 브라우저의 오래된 작업권은 본인 소유로 표시해야 합니다.');
+  assert.equal(sameClientStale.lease.token, mine.lease.leaseToken, '명시적 최신화에 필요한 토큰은 같은 사용자·같은 브라우저에만 돌려줘야 합니다.');
+  const staleResponse = presence.editErrorResponse(sameClientStale).body;
+  const recoveredClientState = mergeErpEditPresenceError({}, { code: staleResponse.code, data: staleResponse }, scope);
+  assert.equal(recoveredClientState.stale, true, '최신값 확인 전에는 저장 차단을 유지해야 합니다.');
+  assert.equal(recoveredClientState.ownedByMe, true);
+  assert.equal(recoveredClientState.token, mine.lease.leaseToken, '화면 새로고침 뒤에도 본인 토큰을 복구해야 합니다.');
+  assert.equal(recoveredClientState.scopeKey, '2026/32/7');
+  await presence.refreshErpEditLease(fakeQuery, scope, alice, {
+    leaseToken: recoveredClientState.token,
+    clientId: 'A',
+  });
+  erpRevision = 0;
+  await presence.refreshErpEditLease(fakeQuery, scope, alice, {
+    leaseToken: recoveredClientState.token,
+    clientId: 'A',
+  });
+  let otherUserBlocked;
+  try {
+    await presence.acquireErpEditLease(fakeQuery, { ...scope, orderWeek: '32-02' }, bob, { clientId: 'B', pageCode: 'paste' });
+  } catch (error) {
+    otherUserBlocked = error;
+  }
+  assert.equal(otherUserBlocked?.code, 'ERP_EDIT_LOCKED');
+  assert.equal(otherUserBlocked.lease?.token, undefined, '다른 사용자에게 기존 작업권 토큰을 노출하면 안 됩니다.');
   let sameUserBlocked;
   try {
     await presence.acquireErpEditLease(fakeQuery, { ...scope, orderWeek: '32-02' }, alice, { clientId: 'A-OTHER', pageCode: 'estimate' });
@@ -111,6 +143,7 @@ async function main() {
   }
   assert.equal(sameUserBlocked?.code, 'ERP_EDIT_LOCKED');
   assert.equal(sameUserBlocked.lease.ownedBySameUser, true, '같은 계정의 다른 창임을 구분해야 합니다.');
+  assert.equal(sameUserBlocked.lease.token, undefined, '같은 계정이어도 다른 브라우저 창에는 기존 토큰을 노출하면 안 됩니다.');
   const oldMineToken = mine.lease.leaseToken;
   // A stale baseline left by an interrupted tab must not be carried into an
   // explicit same-user takeover; the new tab starts from its lock-bound read.

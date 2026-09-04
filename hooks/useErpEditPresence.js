@@ -89,6 +89,39 @@ function editScopeKey({ year, orderYear, week, orderWeek, custKey } = {}) {
   return `${String(orderYear || year || '')}/${parentWeek}/${String(custKey || '')}`;
 }
 
+// A reload can meet an active stale lease that belongs to this exact browser.
+// Keep the owner-only token returned by the server so an explicit "latest
+// contents" action can refresh the baseline.  Never manufacture ownership or
+// a token when the server did not return one.
+export function mergeErpEditPresenceError(previous = {}, error = {}, scope = {}) {
+  const code = error?.code || error?.data?.code || '';
+  const lease = error?.data?.lease || null;
+  if (code === 'ERP_EDIT_STALE') {
+    const responseScope = error?.data?.scope || scope;
+    return {
+      ...previous,
+      loading: false,
+      active: lease ? Boolean(lease.active) : Boolean(previous.active),
+      ownedByMe: lease ? Boolean(lease.ownedByMe) : Boolean(previous.ownedByMe),
+      ownedBySameUser: lease ? Boolean(lease.ownedBySameUser) : Boolean(previous.ownedBySameUser),
+      ownerName: lease?.ownerName || previous.ownerName || '',
+      pageCode: lease?.pageCode || previous.pageCode || '',
+      expiresAt: lease?.expiresAt || previous.expiresAt || '',
+      token: lease?.token || previous.token || '',
+      digest: error?.data?.actualDigest || previous.digest || '',
+      fixStatusDigest: error?.data?.fixStatusDigest || previous.fixStatusDigest || '',
+      scopeKey: editScopeKey(responseScope) || previous.scopeKey || '',
+      stale: true,
+      error: '',
+    };
+  }
+  return {
+    ...previous,
+    loading: false,
+    error: error?.message || '작업 상태 확인 실패',
+  };
+}
+
 export function normalizeErpEditClientWeek(week) {
   const rawWeek = String(week || '').trim();
   const parts = rawWeek.split('-');
@@ -199,6 +232,10 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
       if (error.code === 'ERP_EDIT_LOCKED') {
         const lease = error.data?.lease || {};
         setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
+      } else if (error.code === 'ERP_EDIT_STALE') {
+        const next = mergeErpEditPresenceError(stateRef.current, error, scope);
+        stateRef.current = next;
+        setState(next);
       } else {
         setState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
       }

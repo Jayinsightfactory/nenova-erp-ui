@@ -1771,7 +1771,7 @@ export default function Estimate() {
   const ensureEstimateEditAllowed = () => {
     if (!estimateEditPresence.blocked) return true;
     setErr(estimateEditPresence.stale
-      ? 'nenova.exe 또는 다른 화면에서 값이 변경되었습니다. 새로고침 후 다시 확인하세요.'
+      ? "현재 화면을 연 뒤 전산 값이 달라졌습니다. 위의 '확정 현황 다시 불러오기'를 누른 뒤 다시 저장하세요."
       : estimateEditPresence.locked
         ? `${estimateEditPresence.ownerName || '다른 사용자'}님이 이 업체를 작업 중입니다.`
         : '이 업체의 작업 상태를 확인한 뒤 다시 시도하세요.');
