@@ -5,6 +5,7 @@ const source = fs.readFileSync(new URL('../pages/estimate.js', import.meta.url),
 
 assert.match(source, /서버 업데이트 중 — 입력값을 보존했습니다\. 연결 복구 후 자동으로 다시 처리합니다\./);
 assert.match(source, /안전 대조 후 자동 재처리합니다/);
+assert.match(source, /기존 저장 작업 완료 확인 중 — 중복 저장 없이 실제 단가를 다시 확인합니다/);
 assert.match(source, /runEstimateWriteWithRecovery/);
 assert.match(source, /classifyEstimateSaveSnapshot/);
 assert.match(source, /sessionStorage/);

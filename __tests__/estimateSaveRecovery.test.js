@@ -114,9 +114,31 @@ const finalResponseLoss = await runRecoverableEstimateSave({
     ? { status: 'applied', data: { success: true, changedCount: 1 } }
     : { status: 'unchanged' },
   delays: [0],
+  commitObservationDelays: [0],
 });
 assert.equal(finalResponseLossRequests, 4);
 assert.equal(finalResponseLoss.alreadyApplied, true, '마지막 재요청의 응답만 유실돼도 중복 POST 없이 반영 완료로 판정한다');
+
+let slowCommitRequests = 0;
+let slowCommitReconciles = 0;
+const slowCommit = await runRecoverableEstimateSave({
+  request: async () => {
+    slowCommitRequests += 1;
+    throw Object.assign(new Error('browser timeout'), { name: 'AbortError' });
+  },
+  probe: async () => true,
+  reconcile: async () => {
+    slowCommitReconciles += 1;
+    return slowCommitReconciles >= 3
+      ? { status: 'applied', data: { success: true, changedCount: 1 } }
+      : { status: 'unchanged' };
+  },
+  delays: [0],
+  commitObservationDelays: [0, 0, 0],
+});
+assert.equal(slowCommitRequests, 1, '시간이 오래 걸린 최초 저장이 진행 중이면 같은 POST를 다시 보내지 않는다');
+assert.equal(slowCommitReconciles, 3, '입력 전 값이 보여도 진행 중인 트랜잭션의 완료를 재조회한다');
+assert.equal(slowCommit.alreadyApplied, true);
 
 let businessRequests = 0;
 await assert.rejects(() => runRecoverableEstimateSave({

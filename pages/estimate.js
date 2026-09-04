@@ -1908,6 +1908,8 @@ export default function Estimate() {
       label = '서버 업데이트 중 — 입력값을 보존했습니다. 연결 복구 후 자동으로 다시 처리합니다.';
     } else if (state.phase === 'waiting') {
       label = `서버 연결 확인 중 — ${state.attempt}번째 확인`;
+    } else if (state.phase === 'observing-commit') {
+      label = `기존 저장 작업 완료 확인 중 — 중복 저장 없이 실제 단가를 다시 확인합니다. (${state.attempt}차)`;
     } else if (state.phase === 'retrying') {
       label = `서버 복구 확인 — 아직 저장 전 상태입니다. 안전 대조 후 자동 재처리합니다. (${state.requestNo}/${state.maxRequests})`;
     } else if (state.phase === 'already-applied') {
