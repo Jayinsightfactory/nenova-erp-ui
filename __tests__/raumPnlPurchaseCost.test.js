@@ -87,6 +87,8 @@ async function main() {
   // mismatch
   assert.equal(cell33.state, 'mismatch');
   assert.deepEqual(cell33.values, [120, 150], 'distinct combined costs are shown, never averaged');
+  assert.deepEqual(cell33.partners.raum.costPrices, [120], 'Raum stored costs stay visible per partner');
+  assert.deepEqual(cell33.partners.choimun.costPrices, [150], 'Choimun stored costs stay visible per partner');
 
   // one partner missing the product entirely -> no row created, block is null
   assert.equal(cell32.state, 'match');
@@ -230,6 +232,8 @@ async function main() {
   assert.match(page, /초이문 손익계산서/);
   assert.match(page, /PartnerCellBlock/, 'each cell must render separate Raum/Choimun sections');
   assert.match(page, /단가 다름/);
+  assert.match(page, /StoredCostDifference/, 'mismatch cells visibly compare each partner stored cost');
+  assert.match(page, /저장 단가 비교/);
   assert.match(page, /맞추기 필요/);
   assert.match(page, /동일 적용/);
   assert.match(page, /판매가|판 /);

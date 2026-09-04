@@ -43,6 +43,29 @@ function PartnerCellBlock({ label, detail, draftText, draftInvalid }) {
   );
 }
 
+function StoredCostDifference({ partners }) {
+  const entries = [
+    ['라움', partners?.raum],
+    ['초이문', partners?.choimun],
+  ].map(([label, detail]) => ({
+    label,
+    text: detail?.costPrices?.length ? detail.costPrices.map(value => `${fmt(value)}원`).join(' / ') : '미입력',
+  }));
+  return (
+    <div
+      aria-label={`저장 단가 비교: ${entries.map(entry => `${entry.label} ${entry.text}`).join(', ')}`}
+      style={{ marginTop: 3, padding: '3px 4px', border: '1px solid #fdba74', borderRadius: 3, background: '#fff', fontSize: 9, lineHeight: 1.35 }}
+    >
+      {entries.map((entry, index) => (
+        <div key={entry.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 4, color: index === 0 ? '#9a3412' : '#b91c1c' }}>
+          <b>{entry.label}</b>
+          <span style={{ fontWeight: 700, textAlign: 'right' }}>{entry.text}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // 차수 셀 하나 — 실제 데이터가 있는 차수만 최신순으로 붙여 보여주는 압축형 칸.
 function WeekCostChip({ item, cell, draft, onChange }) {
   const value = draft ? draft.value : (cell.state === 'match' || cell.state === 'partial' ? String(cell.singleValue) : '');
@@ -66,6 +89,7 @@ function WeekCostChip({ item, cell, draft, onChange }) {
         aria-label={`${item.name} ${cell.major}차 공통 매입단가`}
         style={{ width: '100%', height: 22, boxSizing: 'border-box', textAlign: 'right', padding: '0 5px', border: inputBorder, borderRadius: 3, color: draftInvalid ? '#b91c1c' : cell.state === 'mismatch' ? '#c2410c' : '#1e293b' }}
       />
+      {cell.state === 'mismatch' && !changed ? <StoredCostDifference partners={cell.partners} /> : null}
       {cell.state === 'partial' && !changed ? (
         <button
           type="button"
