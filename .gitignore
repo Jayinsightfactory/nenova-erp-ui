@@ -72,3 +72,5 @@ scripts/ecount-scraper/ecount-profile/
 scripts/ecount-scraper/_*.mjs
 scripts/ecount-scraper/_debug.png
 scripts/ecount-scraper/_downloads/
+# User-confirmed mappings are runtime data, never overwritten by deployment seeds.
+data/order-mappings.runtime.json

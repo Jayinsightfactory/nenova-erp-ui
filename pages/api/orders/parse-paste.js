@@ -15,6 +15,7 @@ function getClient() {
 }
 
 import { loadMappings } from '../../../lib/parseMappings';
+import { reviewPasteMatches, PASTE_REVIEW_SYSTEM } from '../../../lib/pasteAiMatchReview.js';
 import { loadCustomerMappings } from '../../../lib/customerMappings';
 import { resolveImportCustomer } from '../../../lib/orderImportCustomerMatch';
 import { parseNaturalInlineOrderLine, parseNaturalSectionActionLine, stripTrailingOrderMemo } from '../../../lib/pasteNaturalInlineOrder';
@@ -702,6 +703,7 @@ Caroline | 2
   ★ "콜" / "콜롬비아" 키워드 포함 → 콜롬비아장미 우선
   ★ "에콰" / "에콰도르" → 에콰도르장미
   ★ 섹션 헤더에 "중국 변경사항" 같이 국가 명시되면 그 섹션 전체 적용
+- custName: 반드시 입력 원문의 업체명을 보존한다. 전산 후보 이름으로 바꾸지 않는다.
 - custKey: 거래처 목록에서 가장 유사한 CustKey, 없으면 null
 - prodKey: 위 규칙대로 CountryFlower 추론 후 매칭. 못 찾으면 null (사용자 수동 매칭)
 
@@ -780,7 +782,7 @@ Caroline | 2
     const mergedParsedOrders = [...baseParsedOrders, ...(compactParsed.orders || [])];
 
     // 거래처·품목 보강
-    const orders = mergedParsedOrders.map(order => {
+    const preliminaryOrders = mergedParsedOrders.map(order => {
       const customerResolution = resolveImportCustomer(order.custName, customers, {
         inputCustKey: order.custKey,
         savedMappings: savedCustomerMappings,
@@ -812,13 +814,14 @@ Caroline | 2
         const parsedExplicitUnit = parseExplicitOrderUnit(item.unit);
         return {
           inputName:   item.inputName,
+          matchName:   item.matchName || item.inputName,
           qty:         item.qty || 1,
           unit: (item.unitExplicit || parsedExplicitUnit) ? normNatUnit(item.unit, '') : (matched.unit || item.unit || '박스'),
           unitExplicit: Boolean(item.unitExplicit || parsedExplicitUnit),
           action:      normalizeAction(item.action, item.inputName),
-          prodKey:     matched.prodKey || item.prodKey || null,
-          prodName:    matched.prodName || item.prodName || null,
-          displayName: matched.displayName || item.displayName || null,
+          prodKey:     matched.prodKey || null,
+          prodName:    matched.prodName || null,
+          displayName: matched.displayName || null,
           flowerName:  matched.flowerName || null,
           counName:    matched.counName || null,
           outUnit:     matched.outUnit || null,
@@ -856,6 +859,21 @@ Caroline | 2
         custMappingKey: savedCustMap?.key || null,
         items,
       };
+    });
+
+    const orders = await reviewPasteMatches({
+      orders: preliminaryOrders, customers, products: allProducts, mappings: savedCustomerMappings,
+      callModel: async (tasks) => {
+        const response = await client.messages.create({
+          model: ORDER_PASTE_LLM_MODEL, max_tokens: 4000, system: PASTE_REVIEW_SYSTEM,
+          messages: [{ role: 'user', content: JSON.stringify({ tasks }) }],
+        }, { timeout: 30000, maxRetries: 0 });
+        trackLLMCall({ userId: req.user?.userId || null, model: ORDER_PASTE_LLM_MODEL,
+          inputTokens: response?.usage?.input_tokens || 0, outputTokens: response?.usage?.output_tokens || 0,
+          purpose: 'paste-match-review' });
+        const text = (response.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+        return JSON.parse((text.match(/\{[\s\S]*\}/) || ['{}'])[0]);
+      },
     });
 
     // 차수 정규화: "16-1" → "16-01"

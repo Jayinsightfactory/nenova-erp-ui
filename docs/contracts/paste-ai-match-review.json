@@ -1,0 +1,13 @@
+{
+  "id": "paste-ai-match-review",
+  "title": "붙여넣기 AI 업체·품목 후보 검증",
+  "scope": ["lib/pasteAiMatchReview.js", "lib/pasteCustomerMapping.js", "lib/parseMappings.js", "pages/orders/paste.js", "pages/api/orders/parse-paste.js", "pages/api/orders/mappings.js", "__tests__/pasteAiMatchReview.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"REVIEW_CANDIDATES","orderDetail":"preserve","shipmentDetail":"preserve","estimate":"preserve"}, {"name":"SAVE_CONFIRMED_ALIAS","orderDetail":"preserve","shipmentDetail":"preserve","estimate":"preserve","sideEffect":"web-only runtime mapping JSON"}],
+  "criteriaLedger": {"threshold":0.9,"model":"existing ORDER_PASTE_LLM_MODEL","batchSize":24,"timeoutMs":30000,"failure":"unmatched; preserve every input row","customer":"unique exact ERP name then exact saved alias; fuzzy/proposed IDs are candidates only","product":"existing ranked candidates plus current selection; reject explicit country/family/cm mismatch; no source quantity/unit/week edits","cache":"server reviewed results including null cannot be overwritten by browser mapping cache","storage":"untracked runtime JSON; existing server mapping copied before deployment reset; atomic rename on saves"},
+  "crossYearFixture": {"required":true,"description":"2025/2026 same36-02 source context remains untouched during review; no ledger writes"},
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/ProductMatching.md","source":"FormOrderAdd","methods":["GetDataProduct","btnSave_Click"],"tables":["Customer","Product"]},
+  "requiredTestFiles": ["__tests__/pasteAiMatchReview.test.js", "__tests__/erpContractManifest.test.js"],
+  "downstreamPreserve": ["OrderMaster","OrderDetail","ShipmentDetail","ShipmentDate","ShipmentFarm","ProductStock","Estimate","WebProfitReport"],
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}

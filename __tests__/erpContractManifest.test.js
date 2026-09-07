@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 async function main() {
+  await import('./pasteAiMatchReview.test.js');
   await import('./pricingMatrixApi.test.js');
   await import('./stockRecalcContract.test.js');
   await import('./shipmentDistributionVerification.test.js');

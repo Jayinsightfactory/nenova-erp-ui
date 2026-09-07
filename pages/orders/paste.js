@@ -1331,8 +1331,8 @@ export default function PasteOrderPage() {
       .then(r => r.json())
       .then(d => {
         if (!d.success) return;
-        // 서버 공용 매핑을 후보 점수에도 반영한다. 브라우저에서 방금 바꾼 값은 우선한다.
-        setMappingCache(prev => ({ ...(d.mappings || {}), ...prev, ...loadCache() }));
+        // 서버 공용 저장값을 사용하고 과거 브라우저 값으로 덮어쓰지 않는다.
+        setMappingCache(d.mappings || {});
       })
       .catch(() => {});
     apiGet('/api/master', { entity: 'customers' }).then(d => setAllCustomers(d.data || []));
@@ -1384,6 +1384,7 @@ export default function PasteOrderPage() {
   const applyCache = (rawOrders, cache, prods) => rawOrders.map(o => ({
     ...o,
     items: o.items.map(it => {
+      if (it.matchReviewed) return it;
       const resolved = lookupSavedProductMapping(it.inputName, cache, prods);
       if (!resolved.ok) return it;
       const prod = resolved.prod;
@@ -1437,7 +1438,7 @@ export default function PasteOrderPage() {
       if (d.success) serverMappings = d.mappings || {};
     } catch { /* offline */ }
     const local = loadCache();
-    const merged = { ...serverMappings, ...local, ...mappingCache, ...sessionCache };
+    const merged = { ...local, ...mappingCache, ...serverMappings, ...sessionCache };
     if (Object.keys(sessionCache).length > 0) {
       saveCache({ ...local, ...sessionCache });
     }
@@ -1453,7 +1454,7 @@ export default function PasteOrderPage() {
       if (r.ok && d.success) serverMappings = d.mappings || {};
     } catch { /* local cache remains available */ }
     const local = loadCustomerCache();
-    const merged = { ...serverMappings, ...local, ...customerMappingCache };
+    const merged = { ...local, ...customerMappingCache, ...serverMappings };
     setCustomerMappingCache(merged);
     saveCustomerCache(merged);
     return merged;
@@ -1918,6 +1919,8 @@ export default function PasteOrderPage() {
         custMatch: o.custMatch,
         custFromMapping: !!o.custFromMapping,
         custMappingKey: o.custMappingKey || null,
+        matchReviewed: !!o.matchReviewed,
+        custMatchReason: o.custMatchReason || '',
         saving: false,
         resultMsg: '',
         items: (o.items || []).map((it, idx) => {
@@ -3699,14 +3702,16 @@ export default function PasteOrderPage() {
                 entry: pasteIncoming.map[Number(it.prodKey)],
               });
               return <div key={`${group.key}-${order.id}-${itemIdx}`} style={{ display: 'grid', gridTemplateColumns: compact ? 'minmax(62px,.58fr) minmax(100px,1.42fr) 46px 58px 64px' : 'minmax(95px, .65fr) minmax(180px, 1.35fr) 58px 66px 78px', alignItems: 'center', gap: compact ? 3 : 5, padding: compact ? '5px 6px' : '6px 8px', borderBottom: '1px solid #eee', background: it.prodKey ? '#fff' : '#fff8e1' }}>
-                <div title={order.custMatch?.CustName || order.custName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: compact ? 10 : 11, fontWeight: 900, color: '#1a237e' }}>
+                <div title={`${order.custName || ''} → ${order.custMatch?.CustName || '확인 필요'} · ${order.custMatchReason || ''}`} style={{ overflowWrap: 'anywhere', fontSize: compact ? 10 : 11, fontWeight: 900, color: '#1a237e' }}>
                   {order.custMatch?.CustName || order.custName || '업체 미확인'}
+                  {order.custMatchReason && <div style={{ fontWeight: 400, marginTop: 3 }}>입력: {order.custName}<br />{order.custMatchReason}</div>}
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div title={it.inputName} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: compact ? 11 : 12, fontWeight: 700, color: group.color }}>{it.inputName}</div>
                   <div title={it.displayName || it.prodName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: it.prodKey ? '#607d8b' : '#e65100' }}>
                     {it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}
                   </div>
+                  {it.matchReason && <div style={{ fontSize: 10, color: it.prodKey ? '#455a64' : '#c62828', overflowWrap: 'anywhere' }}>{it.matchReason}</div>}
                   {it.prodKey && <div title={`${formatWeekDisplay(week)} 전산 입고수량`} style={{ marginTop: 2, fontSize: 10, fontWeight: 900, color: incomingState.kind === 'error' ? '#c62828' : incomingState.kind === 'zero' ? '#78909c' : '#00695c' }}>
                     {incomingState.label}
                   </div>}

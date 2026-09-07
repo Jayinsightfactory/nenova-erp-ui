@@ -58,7 +58,13 @@ jobs:
             echo "=== git pull ==="
             git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
             git fetch origin master
+            # Preserve existing user mappings before reset replaces the tracked seed.
+            # copyFileSync(COPYFILE_EXCL) never overwrites a migrated runtime store.
+            node -e 'const fs=require("fs"); const src="data/order-mappings.json", dst="data/order-mappings.runtime.json"; if(fs.existsSync(src)&&!fs.existsSync(dst)){const value=JSON.parse(fs.readFileSync(src,"utf8")); if(!value||Array.isArray(value)||typeof value!=="object")throw Error("Invalid mapping store"); fs.copyFileSync(src,dst,fs.constants.COPYFILE_EXCL);}' || exit 1
             git reset --hard origin/master
+            # The still-running previous build writes the old filename until reload.
+            # Keep that filename pointing at the same persistent store during the build.
+            node -e 'const fs=require("fs"); const dst="data/order-mappings.runtime.json", old="data/order-mappings.json"; if(fs.existsSync(dst)){JSON.parse(fs.readFileSync(dst,"utf8")); if(fs.existsSync(old))fs.unlinkSync(old); fs.symlinkSync("order-mappings.runtime.json",old);}' || exit 1
             # App allows 30MiB; only this exact route receives multipart overhead allowance.
             # Helper preserves upstream/auth directives and validates/rolls back nginx config.
             node scripts/ensure-pnl-upload-nginx.mjs --apply || exit 1
