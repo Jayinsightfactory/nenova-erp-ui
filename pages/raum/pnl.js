@@ -1161,6 +1161,8 @@ const st = {
 
 export default function RaumPnlPage() {
   const [partnerCode, setPartnerCode] = useState('raum');
+  // 신라 원본은 연도가 없는 차수명도 있으므로, 미리보기와 저장에 같은 명시 연도를 보낸다.
+  const [importYear, setImportYear] = useState(() => String(new Date().getFullYear()));
   const [list, setList] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
   const [error, setError] = useState('');
@@ -1198,7 +1200,7 @@ export default function RaumPnlPage() {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem('nenova.raumPnl.partner');
-      if (saved === 'raum' || saved === 'choimun') setPartnerCode(saved);
+      if (saved === 'raum' || saved === 'choimun' || saved === 'shilla') setPartnerCode(saved);
     } catch { /* private mode */ }
   }, []);
   useEffect(() => { loadList(); }, [partnerCode]);
@@ -1206,10 +1208,10 @@ export default function RaumPnlPage() {
   // 일반행 매입단가 → 같은 품목명(사입 suffix 제거)+단위의 빈/자동연결 사입행에 즉시 반영.
   // fillConsignedCostsFromOrdinary는 변경이 없으면 같은 배열 참조를 돌려주므로 무한 루프가 없다.
   useEffect(() => {
-    if (!detail?.items) return;
+    if (partnerCode === 'shilla' || !detail?.items) return;
     const filled = fillConsignedCostsFromOrdinary(detail.items);
     if (filled !== detail.items) setDetail(d => (d ? { ...d, items: filled, unsaved: true } : d));
-  }, [detail]);
+  }, [detail, partnerCode]);
 
   const selectPartner = (code) => {
     const next = resolvePnlPartner(code).code;
@@ -1224,11 +1226,22 @@ export default function RaumPnlPage() {
     setMessage('');
   };
   const partner = resolvePnlPartner(partnerCode);
+  const isShilla = partner.code === 'shilla';
+
+  const changeImportYear = (value) => {
+    const next = String(value || '').replace(/[^0-9]/g, '').slice(0, 4);
+    if (next === importYear) return;
+    setImportYear(next);
+    if (bulkPreview) {
+      setBulkPreview(null);
+      setMessage('연도가 바뀌어 신라 미리보기를 초기화했습니다. 파일을 다시 미리보기하세요.');
+    }
+  };
 
   // Saved purchase-cost history is read-only here. It is intentionally fetched only
   // when the opened detail/year/partner changes, or after a successful save.
   useEffect(() => {
-    if (!detail) {
+    if (!detail || isShilla) {
       costHistoryRequest.current.controller?.abort();
       setCostHistoryRows([]);
       setCostHistoryState({ loading: false, error: '' });
@@ -1263,7 +1276,7 @@ export default function RaumPnlPage() {
       }
     })();
     return () => controller.abort();
-  }, [detail?.meta?.orderYear, partnerCode, detail?.meta?.pnlKey, costHistoryRevision]);
+  }, [detail?.meta?.orderYear, partnerCode, detail?.meta?.pnlKey, costHistoryRevision, isShilla]);
 
   const retryCostHistory = () => setCostHistoryRevision(value => value + 1);
 
@@ -1304,12 +1317,14 @@ export default function RaumPnlPage() {
     return result;
   };
 
-  const persistImportFile = async (file, previewToken) => {
+  const persistImportFile = async (file, previewToken, selectedMajors = null, orderYear = importYear) => {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('mode', 'save');
     fd.append('previewToken', previewToken);
     fd.append('partner', partnerCode);
+    fd.append('orderYear', orderYear);
+    if (Array.isArray(selectedMajors)) fd.append('selectedMajors', JSON.stringify(selectedMajors));
     const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
     const j = await r.json();
     if (!j.success) throw new Error(j.error || '일괄 저장 실패');
@@ -1356,12 +1371,16 @@ export default function RaumPnlPage() {
       fd.append('file', file);
       fd.append('mode', 'preview');
       fd.append('partner', partnerCode);
+      if (isShilla) {
+        if (!/^\d{4}$/.test(importYear)) throw new Error('신라 결산 연도를 네 자리로 입력하세요.');
+        fd.append('orderYear', importYear);
+      }
       const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '업로드 실패');
       const batches = j.batches || [];
       if (!batches.length) throw new Error('파싱된 차수가 없습니다.');
-      if (canAutoCommitRaumPnlImport(batches)) {
+      if (!isShilla && canAutoCommitRaumPnlImport(batches)) {
         const saved = await persistImportFile(file, j.previewToken);
         setBulkPreview(null);
         setMessage(`${partner.label} ${saved.batchCount}개 차수를 저장했습니다. 전산 품목 매칭과 매입단가를 확인하세요. ← 결산 목록에서 월별 합계를 볼 수 있습니다.`);
@@ -1371,9 +1390,15 @@ export default function RaumPnlPage() {
         else setDetail(null);
         return;
       }
-      if (batches.length > 1) {
+      if (isShilla || batches.length > 1) {
         setDetail(null);
-        setBulkPreview({ file, previewToken: j.previewToken, fileName: j.fileName, batches, warnings: j.warnings || [] });
+        const selectedMajors = batches
+          .filter(batch => (batch.verification || []).every(check => check?.ok))
+          .map(batch => String(batch.major));
+        setBulkPreview({
+          file, previewToken: j.previewToken, fileName: j.fileName, batches,
+          warnings: j.warnings || [], orderYear: isShilla ? importYear : null, selectedMajors,
+        });
         return;
       }
       const one = batches[0];
@@ -1411,12 +1436,27 @@ export default function RaumPnlPage() {
       setError('미리보기 정보가 없습니다. 파일을 다시 업로드하세요.');
       return;
     }
-    const changedWeeks = bulkPreview.batches.filter(batch => batch.existingDiff?.hasChanges);
+    const selectedMajors = (bulkPreview.selectedMajors || []).map(String);
+    const selected = bulkPreview.batches.filter(batch => selectedMajors.includes(String(batch.major)));
+    if (isShilla && !selected.length) {
+      setError('저장할 검증 통과 차수를 하나 이상 선택하세요.');
+      return;
+    }
+    if (isShilla && selected.some(batch => (batch.verification || []).some(check => !check?.ok))) {
+      setError('검증 실패 차수는 저장할 수 없습니다. 실패 사유와 원본 행을 확인하세요.');
+      return;
+    }
+    const changedWeeks = selected.filter(batch => batch.existingDiff?.hasChanges);
     if (changedWeeks.length && !window.confirm(`${changedWeeks.map(batch => `${Number(batch.major)}차`).join(', ')} 기존 저장본이 변경됩니다. 비교 내용을 확인했으며 전체 저장할까요?`)) return;
     setSaving(true);
     setError('');
     try {
-      const j = await persistImportFile(bulkPreview.file, bulkPreview.previewToken);
+      const j = await persistImportFile(
+        bulkPreview.file,
+        bulkPreview.previewToken,
+        isShilla ? selectedMajors : null,
+        isShilla ? bulkPreview.orderYear : importYear,
+      );
       setBulkPreview(null);
       setMessage(`${j.batchCount}개 차수를 검증 후 한 번에 저장했습니다. 전산 품목 매칭과 매입단가를 확인하세요.`);
       await loadList();
@@ -1866,7 +1906,7 @@ export default function RaumPnlPage() {
   // ── 렌더 ──
   return (
     <div style={st.page}>
-      <h1 style={st.h1}>라움 초이문 손익계산서</h1>
+      <h1 style={st.h1}>라움 초이문 신라호텔 손익계산서</h1>
       <div style={{ display: 'flex', gap: 8, margin: '0 0 10px', alignItems: 'center', flexWrap: 'wrap' }}>
         {Object.values(PNL_PARTNERS).map(p => (
           <button
@@ -1891,19 +1931,20 @@ export default function RaumPnlPage() {
           }}
           title="선택한 거래처의 품목별 매입단가를 차수별로 한 화면에서 조회·수정합니다."
         >차수별 매입단가 관리</button>
-        <span style={{ fontSize: 12.5, color: '#64748b' }}>선택한 거래처 견적서만 올리고, 저장·전산대조도 그 거래처 기준으로 봅니다.</span>
+        <span style={{ fontSize: 12.5, color: '#64748b' }}>{isShilla ? '신라는 원본 엑셀 차수만 저장하며 ERP 품목 매칭·분배 대조·자동 반영을 사용하지 않습니다.' : '선택한 거래처 견적서만 올리고, 저장·전산대조도 그 거래처 기준으로 봅니다.'}</span>
       </div>
       <p style={st.desc}>
-        {partner.code === 'choimun'
+        {partner.code === 'shilla'
+          ? '신라호텔 원본 손익 엑셀을 올리면 모든 차수를 먼저 검증합니다. 저장할 정상 차수만 직접 선택하세요. 원본 매입·매출 단가와 60:40 또는 80:20 배분율을 그대로 보존하며 전산 차수는 참고 정보로만 표시합니다.'
+          : partner.code === 'choimun'
           ? '초이문 견적서(거래명세표 엑셀, 시트명 32차처럼 차수만)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만들고, 라움과 같은 차수 목록·월별 합계에 남깁니다.'
           : '강남/건대 라움 견적서(거래명세표 엑셀)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만듭니다.'}
-        {' '}매출단가는 견적서 단가, 매입단가는 <b>가장 최근 도착원가(100원 단위 반올림)가 자동 입력</b>되며(🚢), 직접 고치면 그 값을 기억해 다음부터 우선 적용합니다(🧠).
-        저장하면 차수별 히스토리가 남습니다.
+        {!isShilla ? <>{' '}매출단가는 견적서 단가, 매입단가는 <b>가장 최근 도착원가(100원 단위 반올림)가 자동 입력</b>되며(🚢), 직접 고치면 그 값을 기억해 다음부터 우선 적용합니다(🧠). 저장하면 차수별 히스토리가 남습니다.</> : null}
       </p>
 
       {error ? <div style={st.err}>{error}</div> : null}
       {message ? <div style={st.ok}>{message}</div> : null}
-      <RaumImageOrderPanel
+      {!isShilla ? <RaumImageOrderPanel
         open={imageOpen}
         onClose={() => setImageOpen(false)}
         onPreview={openImagePreview}
@@ -1911,14 +1952,14 @@ export default function RaumPnlPage() {
         savingDraft={saving}
         custName={partner.custName}
         partnerLabel={partner.label}
-      />
-      <ErpSyncModal sync={sync} onApply={applyErpSync} onClose={() => setSync(null)} />
-      <MatchEditorModal
+      /> : null}
+      {!isShilla ? <ErpSyncModal sync={sync} onApply={applyErpSync} onClose={() => setSync(null)} /> : null}
+      {!isShilla ? <MatchEditorModal
         edit={matchEdit}
         onPick={(p) => applyMatch(p.ProdKey, p.ProdName)}
         onClear={() => applyMatch(null)}
         onClose={() => setMatchEdit(null)}
-      />
+      /> : null}
 
       <div style={st.bar}>
         <input
@@ -1929,13 +1970,14 @@ export default function RaumPnlPage() {
           onChange={e => onUpload(e.target.files?.[0])}
         />
         <button style={st.btnPrimary} disabled={uploading} onClick={() => fileRef.current?.click()}>
-          {uploading ? '분석 중…' : '📤 견적서 업로드'}
+          {uploading ? '분석 중…' : isShilla ? '📤 신라 원본 엑셀 미리보기' : '📤 견적서 업로드'}
         </button>
-        <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button>
+        {isShilla ? <label style={{ fontSize: 12.5 }}>결산 연도 <input aria-label="신라 결산 연도" value={importYear} onChange={event => changeImportYear(event.target.value)} inputMode="numeric" placeholder="2026" style={{ ...st.input, width: 62, textAlign: 'center' }} /></label> : null}
+        {!isShilla ? <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button> : null}
         {detail ? (
           <>
             <button style={st.btn} onClick={() => { setDetail(null); setMessage(''); setError(''); }}>← 결산 목록</button>
-            <button style={st.btnPrimary} disabled={saving} onClick={save}>{saving ? '저장 중…' : '💾 저장'}</button>
+            {!isShilla ? <button style={st.btnPrimary} disabled={saving} onClick={save}>{saving ? '저장 중…' : '💾 저장'}</button> : <span style={{ ...st.badge, background: '#ecfeff', color: '#0f766e' }}>신라 원가 수정은 차수별 매입단가 관리에서만 저장됩니다</span>}
             <button
               style={st.btn}
               onClick={() => printInIframe(buildDetailPrintHtml(detail.meta, detail.items, totals, branches))}
@@ -1952,8 +1994,8 @@ export default function RaumPnlPage() {
         ) : bulkPreview ? (
           <>
             <button style={st.btn} onClick={() => setBulkPreview(null)}>← 결산 목록</button>
-            <button style={st.btnPrimary} disabled={saving || bulkPreview.batches.some(batch => (batch.verification || []).some(check => !check.ok))} onClick={saveBulkPreview}>
-              {saving ? '전체 저장 중…' : `💾 ${bulkPreview.batches.length}개 차수 전체 저장`}
+            <button style={st.btnPrimary} disabled={saving || (isShilla ? !(bulkPreview.selectedMajors || []).length : bulkPreview.batches.some(batch => (batch.verification || []).some(check => !check.ok)))} onClick={saveBulkPreview}>
+              {saving ? '저장 중…' : isShilla ? `💾 선택 ${bulkPreview.selectedMajors?.length || 0}개 차수 저장` : `💾 ${bulkPreview.batches.length}개 차수 전체 저장`}
             </button>
             <span style={{ ...st.badge, background: '#fef3c7', color: '#92400e' }}>다차수 저장 전</span>
           </>
@@ -1968,13 +2010,15 @@ export default function RaumPnlPage() {
       {bulkPreview ? (
         <div>
           <div style={st.ok}>
-            {bulkPreview.batches.length}개 차수 미리보기입니다. 원본 파일을 저장 시 다시 파싱하고, 합계 검증·변경 충돌 확인을 통과해야 전체가 한 transaction으로 저장됩니다.
+            {isShilla
+              ? `${bulkPreview.orderYear}년 신라 원본 ${bulkPreview.batches.length}개 차수 미리보기입니다. 검증을 통과한 원본 차수만 체크해 명시 저장하며, 실패 차수는 저장되지 않습니다.`
+              : `${bulkPreview.batches.length}개 차수 미리보기입니다. 원본 파일을 저장 시 다시 파싱하고, 합계 검증·변경 충돌 확인을 통과해야 전체가 한 transaction으로 저장됩니다.`}
           </div>
           {bulkPreview.warnings?.length ? <div style={st.warn}>{bulkPreview.warnings.map(w => `⚠ ${w}`).join('\n')}</div> : null}
           <table style={{ ...st.table, maxWidth: 1100 }}>
             <thead>
               <tr>
-                {['차수', '견적일', '원본 시트', '합산 품목', '수량', '매출(VAT별도)', '검증', '상태'].map(h => <th key={h} style={st.th}>{h}</th>)}
+                {[(isShilla ? '저장' : null), '차수', '견적일', '원본 시트', '합산 품목', '수량', '매출(VAT별도)', '배분율', '검증', '상태'].filter(Boolean).map(h => <th key={h} style={st.th}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -1982,19 +2026,23 @@ export default function RaumPnlPage() {
                 const qty = batch.items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
                 const sale = batch.items.reduce((sum, it) => sum + Number(it.supply || 0), 0);
                 const failed = (batch.verification || []).filter(c => !c.ok);
+                const selectable = !failed.length;
+                const selected = (bulkPreview.selectedMajors || []).includes(String(batch.major));
                 return (
                   <Fragment key={`${batch.orderYear}-${batch.major}`}>
                     <tr>
+                      {isShilla ? <td style={{ ...st.td, textAlign: 'center' }}><input type="checkbox" aria-label={`${Number(batch.major)}차 저장`} checked={selected} disabled={!selectable || saving} onChange={event => setBulkPreview(current => current ? { ...current, selectedMajors: event.target.checked ? [...new Set([...(current.selectedMajors || []), String(batch.major)])] : (current.selectedMajors || []).filter(major => major !== String(batch.major)) } : current)} title={selectable ? '검증 통과 차수만 저장 대상으로 선택합니다.' : '검증 실패 차수는 저장할 수 없습니다.'} /></td> : null}
                       <td style={{ ...st.td, fontWeight: 700 }}>{batch.orderYear} {Number(batch.major)}차</td>
                       <td style={st.td}>{batch.quoteDate || '-'}</td>
-                      <td style={st.td}>{(batch.sheets || []).map(s => s.sheetName).join(' · ')}</td>
+                      <td style={st.td}>{(batch.sheets || []).map(s => s.sheetName || s.sourceSheet || s.sourceSheetName).filter(Boolean).join(' · ') || batch.sourceSheet || batch.sourceSheetName || '-'}</td>
                       <td style={{ ...st.td, ...st.num }}>{batch.items.length}</td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(qty)}</td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(sale)}</td>
+                      <td style={{ ...st.td, ...st.num }}>{batch.nenovaPct != null ? `네노바 ${batch.nenovaPct}% · 미우 ${100 - Number(batch.nenovaPct)}%` : '-'}</td>
                       <td style={{ ...st.td, color: failed.length ? '#b91c1c' : '#166534' }}>{failed.length ? `실패 ${failed.length}건` : '✓ 통과'}</td>
-                      <td style={st.td}>수기 원가·수동 행·매칭 보존</td>
+                      <td style={st.td}>{isShilla ? (selectable ? '원본 차수 저장 가능' : '저장 차단') : '수기 원가·수동 행·매칭 보존'}</td>
                     </tr>
-                    {[...(batch.warnings || []), ...existingDiffWarnings(batch)].length ? <tr><td colSpan={8} style={{ ...st.td, color: batch.existingDiff?.hasChanges ? '#b91c1c' : '#92400e', whiteSpace: 'pre-wrap', fontWeight: batch.existingDiff?.hasChanges ? 700 : 400 }}>{[...(batch.warnings || []), ...existingDiffWarnings(batch)].map(w => `⚠ ${w}`).join('\n')}</td></tr> : null}
+                    {[...(batch.warnings || []), ...failed.map(check => `${check.message || check.label || check.name || '검증 실패'}${check.sourceRow != null ? ` (원본 ${check.sourceRow}행)` : ''}`), ...existingDiffWarnings(batch)].length ? <tr><td colSpan={isShilla ? 10 : 9} style={{ ...st.td, color: batch.existingDiff?.hasChanges || failed.length ? '#b91c1c' : '#92400e', whiteSpace: 'pre-wrap', fontWeight: batch.existingDiff?.hasChanges || failed.length ? 700 : 400 }}>{[...(batch.warnings || []), ...failed.map(check => `${check.message || check.label || check.name || '검증 실패'}${check.sourceRow != null ? ` (원본 ${check.sourceRow}행)` : ''}`), ...existingDiffWarnings(batch)].map(w => `⚠ ${w}`).join('\n')}</td></tr> : null}
                   </Fragment>
                 );
               })}
@@ -2104,37 +2152,39 @@ export default function RaumPnlPage() {
               <input
                 style={{ ...st.input, width: 46, textAlign: 'center' }}
                 value={detail.meta.major}
+                readOnly={isShilla}
                 onChange={e => setMeta({ major: e.target.value.replace(/[^0-9]/g, '').slice(0, 2), title: defaultPnlTitle(partnerCode, e.target.value) })}
               />차 ({detail.meta.orderYear}년)
             </label>
             <label style={{ fontSize: 13 }}>견적일{' '}
-              <input style={{ ...st.input, width: 110, textAlign: 'center' }} value={detail.meta.quoteDate || ''}
+              <input style={{ ...st.input, width: 110, textAlign: 'center' }} value={detail.meta.quoteDate || ''} readOnly={isShilla}
                 onChange={e => setMeta({ quoteDate: e.target.value })} placeholder="YYYY-MM-DD" />
             </label>
-            <label style={{ fontSize: 13 }}>순익분배 네노바{' '}
+            <label style={{ fontSize: 13 }}>{isShilla ? '원본 순익분배 네노바' : '순익분배 네노바'}{' '}
               <input
                 style={{ ...st.input, width: 46, textAlign: 'center' }}
                 value={detail.meta.nenovaPct}
+                readOnly={isShilla}
                 onChange={e => {
                   const v = e.target.value.replace(/[^0-9.]/g, '');
                   setMeta({ nenovaPct: v === '' ? '' : Math.min(100, Number(v)) });
                 }}
               />% : 미우 {Number.isFinite(nenovaPct) ? 100 - nenovaPct : ''}%
             </label>
-            {hasRef ? (
+            {!isShilla && hasRef ? (
               <button style={st.btn} onClick={fillRefPrices} title="참고단가(가장 최근 도착원가 100원 반올림, 없으면 전산원가÷1.1)로 매입단가를 전부 다시 채웁니다.">
                 🚢 도착원가 다시 채우기
               </button>
             ) : null}
-            <button style={st.btn} onClick={addCustomRow} title="견적서에 없는 행(손실 등)을 직접 추가합니다. 품목명/수량/단가를 입력하면 이익·분배에 반영됩니다. 손실은 매입단가에 손실액, 매출단가 0 으로 넣으면 이익에서 차감됩니다.">
+            {!isShilla ? <button style={st.btn} onClick={addCustomRow} title="견적서에 없는 행(손실 등)을 직접 추가합니다. 품목명/수량/단가를 입력하면 이익·분배에 반영됩니다. 손실은 매입단가에 손실액, 매출단가 0 으로 넣으면 이익에서 차감됩니다.">
               ＋ 손실/수동 행
-            </button>
-            <button
+            </button> : null}
+            {!isShilla ? <button
               style={{ ...st.btn, borderColor: '#f59e0b' }}
               onClick={openErpSync}
               title="전산 분배 대조에서 어긋난 품목의 수량·단가를 견적서 값 기준으로 전산에 일괄 반영합니다 (견적서 관리와 동일 수정 로직·확정차수 자동 사이클). 적용 전 변경 목록을 먼저 보여줍니다."
-            >⚖ 전산 일괄수정</button>
-            <button
+            >⚖ 전산 일괄수정</button> : null}
+            {!isShilla ? <button
               style={st.btn}
               onClick={async () => {
                 setError('');
@@ -2144,19 +2194,19 @@ export default function RaumPnlPage() {
                 } catch (e) { setError(e.message); }
               }}
               title="전산 분배 대조·아이엠 분배 표시를 지금 전산값으로 다시 조회합니다 (업로드 없이 갱신)."
-            >↻ 대조 새로고침</button>
+            >↻ 대조 새로고침</button> : null}
             {detail.sheets ? (
               <span style={{ fontSize: 12, color: '#64748b' }}>
                 {detail.sheets.map(s => `${s.branch} ${s.itemCount}품목 ${fmt(s.parsedSupply)}원`).join(' · ')} → 합산 {detail.items.length}품목
               </span>
             ) : null}
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: matchCounts.missing ? '#b91c1c' : '#166534' }}>
+            {!isShilla ? <span style={{ fontSize: 12.5, fontWeight: 700, color: matchCounts.missing ? '#b91c1c' : '#166534' }}>
               전산 매칭 {matchCounts.matched}/{matchCounts.total}
               {matchCounts.missing ? ` · 미매칭 ${matchCounts.missing}` : ''}
-            </span>
+            </span> : <span style={{ fontSize: 12, color: '#475569' }}>원본 행·단가·수량·매출·이익을 보존합니다. 전산 품목 연결과 ERP 동기화는 하지 않습니다.</span>}
           </div>
 
-          <div className="raum-pnl-cost-comparison-label" style={{ margin: '4px 0 6px', color: '#475569', fontSize: 11.5 }}>
+          {!isShilla ? <div className="raum-pnl-cost-comparison-label" style={{ margin: '4px 0 6px', color: '#475569', fontSize: 11.5 }}>
               <b>차수별 매입단가 비교 · 저장값 · 원/VAT별도 · 엑셀/인쇄 제외</b>
               {costComparison.weeks.length ? (
                 <>
@@ -2171,14 +2221,14 @@ export default function RaumPnlPage() {
                   {costHistoryState.error} <button type="button" style={{ ...st.btn, padding: '1px 6px', fontSize: 11 }} onClick={retryCostHistory}>다시 시도</button>
                 </span>
               ) : null}
-          </div>
+          </div> : null}
           <div ref={costComparisonScrollRef} style={{ overflowX: 'auto' }}>
             <table style={{ ...st.table, minWidth: 'max-content' }}>
               <thead>
                 <tr>
                   <th style={st.th}>순번</th>
                   <th style={{ ...st.th, position: 'sticky', left: 0, zIndex: 3, boxShadow: '2px 0 3px rgba(15,23,42,.08)' }}>품목명</th>
-                  <th style={st.th} title="견적 품목이 연결된 전산 품목. 도착원가·매입단가는 이 매칭 기준입니다.">전산 매칭</th>
+                  {!isShilla ? <th style={st.th} title="견적 품목이 연결된 전산 품목. 도착원가·매입단가는 이 매칭 기준입니다.">전산 매칭</th> : null}
                   <th style={st.th}>단위</th>
                   {branches.map(b => <th key={b} style={st.th}>{b}</th>)}
                   <th style={st.th}>수량계</th>
@@ -2190,11 +2240,11 @@ export default function RaumPnlPage() {
                   <th style={st.th}>이익율</th>
                   <th style={st.th}>네노바이익 ({nenovaPct}%)</th>
                   <th style={st.th}>미우이익 ({100 - nenovaPct}%)</th>
-                  <th style={st.th}>참고단가(도착원가)</th>
+                  {!isShilla ? <th style={st.th}>참고단가(도착원가)</th> : null}
                   <th style={st.th}>적요</th>
-                  <th style={st.th}>행</th>
-                  <th style={st.th} title="전산 라움 분배와 견적서 비교 — 기준 창 = 전산 N-2차+(N+1)-1차. 창에 없는 품목(쌓아두는 선입고 품목)만 N-1차를 폴백으로 확인('(전차수분)' 표시). 수량은 같은 품목 행 합계 기준, 단가는 ±2%. 라움 견적이 전산보다 적으면 잔량의 아이엠 분배 여부·시점이 └ 줄로 표시됩니다. ⚖ 적용 후엔 초록 ✔ 적용 로그가 여기 붙습니다.">전산 분배 대조</th>
-                  {costComparison.weeks.map((week, weekIndex) => <th className="raum-pnl-cost-comparison-cell" key={week.key} style={{ ...st.th, background: '#e0f2fe', borderLeft: weekIndex === 0 ? '2px solid #7dd3fc' : undefined, fontSize: 11.5 }}>{week.label}<br />매입단가</th>)}
+                  {!isShilla ? <th style={st.th}>행</th> : null}
+                  {!isShilla ? <th style={st.th} title="전산 라움 분배와 견적서 비교 — 기준 창 = 전산 N-2차+(N+1)-1차. 창에 없는 품목(쌓아두는 선입고 품목)만 N-1차를 폴백으로 확인('(전차수분)' 표시). 수량은 같은 품목 행 합계 기준, 단가는 ±2%. 라움 견적이 전산보다 적으면 잔량의 아이엠 분배 여부·시점이 └ 줄로 표시됩니다. ⚖ 적용 후엔 초록 ✔ 적용 로그가 여기 붙습니다.">전산 분배 대조</th> : null}
+                  {!isShilla ? costComparison.weeks.map((week, weekIndex) => <th className="raum-pnl-cost-comparison-cell" key={week.key} style={{ ...st.th, background: '#e0f2fe', borderLeft: weekIndex === 0 ? '2px solid #7dd3fc' : undefined, fontSize: 11.5 }}>{week.label}<br />매입단가</th>) : null}
                 </tr>
               </thead>
               <tbody>
@@ -2212,7 +2262,7 @@ export default function RaumPnlPage() {
                         ) : it.name}
                         {it.isCustom ? ' ✍' : ''}
                       </td>
-                      <td style={{ ...st.td, whiteSpace: 'normal', minWidth: 140 }}>
+                      {!isShilla ? <td style={{ ...st.td, whiteSpace: 'normal', minWidth: 140 }}>
                         {(() => {
                           const match = raumPnlMatchDisplay(it);
                           if (it.isCustom) return <span style={{ color: '#94a3b8' }}>—</span>;
@@ -2232,9 +2282,9 @@ export default function RaumPnlPage() {
                             </>
                           );
                         })()}
-                      </td>
+                      </td> : null}
                       <td style={{ ...st.td, textAlign: 'center' }}>
-                        {it.isCustom || it.isImageRow ? (
+                        {!isShilla && (it.isCustom || it.isImageRow) ? (
                           <input style={{ ...st.input, width: 40, textAlign: 'center' }} value={it.unit}
                             onChange={e => setItem(i, { unit: e.target.value })} />
                         ) : it.unit}
@@ -2247,7 +2297,13 @@ export default function RaumPnlPage() {
                         ) : fmt(it.qty)}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>
-                        <RaumCostHistoryPreview item={it} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>
+                        {isShilla ? <input
+                          style={{ ...st.input, background: it.costPrice != null && it.costPrice !== '' ? '#ecfdf5' : '#fff' }}
+                          value={it.costPrice ?? ''}
+                          readOnly
+                          aria-label="신라 원본 1개당 매입단가"
+                          onChange={e => setItem(i, { costPrice: e.target.value.replace(/[^0-9.\-]/g, ''), costSource: 'manual', costLearned: false })}
+                        /> : <RaumCostHistoryPreview item={it} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>
                           {anchorProps => <>
                         <input
                           {...anchorProps}
@@ -2267,34 +2323,35 @@ export default function RaumPnlPage() {
                           : it.costSource === 'manual' ? <span title="직접 입력 — 저장 시 학습됨" style={{ marginLeft: 3 }}>✍</span> : null}
                         {it.consigned ? <span title="사입도 매입단가 입력 시 손익 합산" style={{ marginLeft: 3, color: '#64748b' }}>사입</span> : null}
                           </>}
-                        </RaumCostHistoryPreview>
+                        </RaumCostHistoryPreview>}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.costAmount)}</td>
-                      <td style={{ ...st.td, ...st.num }} title={erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : (it.erpSalePrice != null ? '전산 분배단가와 일치' : '')}>
+                      <td style={{ ...st.td, ...st.num }} title={!isShilla && erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : ''}>
                         {it.isCustom || it.isImageRow ? (
                           <input style={{ ...st.input, width: 70 }} value={it.price ?? ''}
                             onChange={e => setItem(i, { price: e.target.value.replace(/[^0-9.\-]/g, '') })} />
-                        ) : <>{fmt1(it.price)}{erpMismatch ? ' ⚠' : ''}</>}
+                        ) : <>{fmt1(it.price)}{!isShilla && erpMismatch ? ' ⚠' : ''}</>}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(it.supply)}</td>
                       <td style={{ ...st.td, ...st.num, color: r.profit != null && r.profit < 0 ? '#b91c1c' : undefined }}>{fmt(r.profit)}</td>
                       <td style={{ ...st.td, ...st.num }}>{pct(r.rate)}</td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.nenova)}</td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.miu)}</td>
-                      <td style={{ ...st.td, ...st.num, color: '#64748b' }} title={it.refSource || ''}>{it.refPrice != null ? fmt1(it.refPrice) : ''}</td>
+                      {!isShilla ? <td style={{ ...st.td, ...st.num, color: '#64748b' }} title={it.refSource || ''}>{it.refPrice != null ? fmt1(it.refPrice) : ''}</td> : null}
                       <td style={{ ...st.td, fontSize: 11.5, color: '#64748b' }}>
                         <input
                           style={{ ...st.input, width: 145, textAlign: 'left' }}
                           value={it.remark || ''}
+                          readOnly={isShilla}
                           onChange={e => setItem(i, { remark: e.target.value })}
                           placeholder="적요"
                           title="참고단가(도착원가) 옆 적요 — 입력/수정 후 저장"
                         />
                       </td>
-                      <td style={st.td}>
+                      {!isShilla ? <td style={st.td}>
                         <button style={{ ...st.btnDanger, padding: '2px 8px' }} onClick={() => removeItem(i)} title="이 행 삭제">✕ 삭제</button>
-                      </td>
-                      {(() => {
+                      </td> : null}
+                      {!isShilla ? (() => {
                         const cmp = erpCompare(it, erpQtyMap, weekLabels);
                         const smallBtn = { marginLeft: 5, padding: '0 6px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 11 };
                         return (
@@ -2317,17 +2374,17 @@ export default function RaumPnlPage() {
                             ) : null}
                           </td>
                         );
-                      })()}
-                      {costComparison.weeks.map((week, weekIndex) => (
+                      })() : null}
+                      {!isShilla ? costComparison.weeks.map((week, weekIndex) => (
                         <td className="raum-pnl-cost-comparison-cell" key={week.key} style={{ ...st.td, ...st.num, background: '#f8fbff', borderLeft: weekIndex === 0 ? '2px solid #bae6fd' : undefined, color: '#475569', fontSize: 11.5 }}>
                           {formatCostHistoryValues(costComparisonByIndex[i]?.[weekIndex])}
                         </td>
-                      ))}
+                      )) : null}
                     </tr>
                   );
                 })}
                 <tr>
-                  <td style={{ ...st.td, textAlign: 'center', fontWeight: 700 }} colSpan={4}>합계</td>
+                  <td style={{ ...st.td, textAlign: 'center', fontWeight: 700 }} colSpan={isShilla ? 3 : 4}>합계</td>
                   {branches.map(b => (
                     <td key={b} style={{ ...st.td, ...st.num, fontWeight: 700 }}>
                       {fmt(detail.items.reduce((a, it) => a + Number(it.byBranch?.[b] || 0), 0))}
@@ -2342,8 +2399,8 @@ export default function RaumPnlPage() {
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{pct(totals.rate)}</td>
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.nenova)}</td>
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.miu)}</td>
-                  <td style={st.td} colSpan={4}></td>
-                  {costComparison.weeks.map(week => <td className="raum-pnl-cost-comparison-cell" key={week.key} style={st.td}></td>)}
+                  <td style={st.td} colSpan={isShilla ? 1 : 4}></td>
+                  {!isShilla ? costComparison.weeks.map(week => <td className="raum-pnl-cost-comparison-cell" key={week.key} style={st.td}></td>) : null}
                 </tr>
               </tbody>
             </table>
