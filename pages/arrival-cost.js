@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
 import { arrivalVarietyWeightActive, arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
+import { recalcArrivalCostWithFx } from '../lib/arrivalCostFxPreview.js';
 
 const BASIS = [
   ['SOURCE', '엑셀 원식'],
@@ -239,6 +240,10 @@ export default function ArrivalCostPage() {
   };
 
   const [weightRuleOn, setWeightRuleOn] = useState(true);
+  // 환율 재계산 미리보기 — 화면 표시용, DB에는 저장하지 않는다.
+  const [previewFx, setPreviewFx] = useState('');
+  const previewFxNum = Number(previewFx);
+  const previewFxActive = previewFxNum > 0;
   const [expandedGroups, setExpandedGroups] = useState({});
   const visibleRows = useMemo(
     () => (weightRuleOn ? filterArrivalRowsByWeight(data.rows || []) : (data.rows || [])),
@@ -360,6 +365,19 @@ export default function ArrivalCostPage() {
               <input type="checkbox" checked={weightRuleOn} onChange={(e) => setWeightRuleOn(e.target.checked)} />
               특별기준 CW/GW (콜롬비아)
             </label>
+            <label className="weight-rule" title="입력한 환율로 각 행 원가를 화면에서만 다시 계산해 보여줍니다 (저장되지 않음)">
+              환율 재계산
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                placeholder="예: 1400"
+                value={previewFx}
+                onChange={(e) => setPreviewFx(e.target.value)}
+                style={{ width: 80, marginLeft: 4 }}
+              />
+              {previewFx !== '' && !previewFxActive && <span className="muted"> 환율을 입력하세요</span>}
+            </label>
             <span className="week-sort" role="group" aria-label="차수 정렬">
               <button type="button" className={currentWeekOrder === 'asc' ? 'active' : ''} onClick={() => applyWeekOrder('asc')}>차수 오름차순</button>
               <button type="button" className={currentWeekOrder === 'desc' ? 'active' : ''} onClick={() => applyWeekOrder('desc')}>차수 내림차순</button>
@@ -402,6 +420,14 @@ export default function ArrivalCostPage() {
                           <div className="detail-row">
                             <span className="detail-farm">{row.farmNameRaw || '-'}</span>
                             <span className="num">{fmt(row.quantity, 2)} {row.unit} · {row.uploadStatus === 'COST_NOT_UPLOADED' ? '원가 미업로드' : `${fmt(row.sourceArrivalCostKRW)}원`}</span>
+                            {previewFxActive && row.uploadStatus !== 'COST_NOT_UPLOADED' && (() => {
+                              const preview = recalcArrivalCostWithFx(row, previewFxNum);
+                              return preview.ok
+                                ? <span className="num fx-preview" title={`원본 환율 ${fmt(preview.origFx, 2)} → 입력 환율 ${fmt(previewFxNum, 2)}`}>
+                                    환율{fmt(previewFxNum, 2)} 적용 시 {fmt(preview.cost)}원
+                                  </span>
+                                : <span className="muted" title={preview.reason}>재계산 불가</span>;
+                            })()}
                             <LookupInput kind="product" value={draft.prodInput || ''} onInput={value => updateProductInput(row, value)} onSelect={value => selectProduct(row, value)} placeholder="품목 검색·선택" />
                             <LookupInput kind="farm" value={draft.farmInput || ''} onInput={value => updateFarmInput(row, value)} onSelect={value => selectFarm(row, value)} placeholder={row.autoFarmKey && !row.farmKey ? '자동 후보 · 저장 필요' : '농장 검색·선택'} />
                             {row.autoFarmKey && !row.farmKey && <span className="auto-match">자동 후보</span>}

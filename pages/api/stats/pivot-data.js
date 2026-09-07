@@ -6,10 +6,10 @@ import { getPivotStats } from '../../../lib/pivotStats';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
-  const { weekStart, weekEnd, orderYear } = req.query;
+  const { weekStart, weekEnd, orderYear, arrivalWeekStart, arrivalWeekEnd } = req.query;
 
   try {
-    const data = await getPivotStats({ weekStart, weekEnd, orderYear });
+    const data = await getPivotStats({ weekStart, weekEnd, orderYear, arrivalWeekStart, arrivalWeekEnd });
     return res.status(200).json(data);
   } catch (err) {
     const status = /필요|형식|범위/.test(err.message) ? 400 : 500;
