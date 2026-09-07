@@ -8,8 +8,16 @@ import { pathToFileURL } from 'node:url';
 export const MANAGED_NGINX_PATH = '/etc/nginx/sites-enabled/nenova-erp';
 export const NGINX_BACKUP_DIR = '/var/backups/nenova-nginx';
 export const CERTBOT_TLS_INCLUDE = '/etc/letsencrypt/options-ssl-nginx.conf';
-export const PNL_UPLOAD_LOCATION = '/api/raum/pnl-import';
-export const PNL_UPLOAD_BODY_LIMIT = '32m';
+
+// 앱이 30MiB 업로드를 허용하는 정확한 경로들 — multipart 오버헤드를 감안해 각각 32MiB로 exact
+// location을 만든다. 새 업로드 경로를 추가할 때는 여기에만 항목을 더한다(다른 로직은 무변경).
+export const MANAGED_UPLOAD_ROUTES = [
+  { location: '/api/raum/pnl-import', bodyLimit: '32m' },
+  { location: '/api/arrival-cost/upload', bodyLimit: '32m' },
+];
+// 하위 호환 별칭 — 기존 테스트/호출부가 참조한다.
+export const PNL_UPLOAD_LOCATION = MANAGED_UPLOAD_ROUTES[0].location;
+export const PNL_UPLOAD_BODY_LIMIT = MANAGED_UPLOAD_ROUTES[0].bodyLimit;
 
 function fail(message, code = 'PNL_NGINX_UNEXPECTED_CONFIG') {
   const error = new Error(message);
@@ -178,19 +186,19 @@ function insertionPointBeforeClose(source, closeStart) {
   return lineStart;
 }
 
-function validateExistingExactLocation(exact, root) {
+function validateExistingExactLocation(exact, root, location, bodyLimit) {
   const limits = direct(exact.children, 'client_max_body_size');
-  if (limits.length !== 1 || limits[0].values.length !== 2 || limits[0].values[1].toLowerCase() !== PNL_UPLOAD_BODY_LIMIT) {
-    fail(`기존 exact ${PNL_UPLOAD_LOCATION} location의 body limit가 ${PNL_UPLOAD_BODY_LIMIT}와 다릅니다.`, 'PNL_NGINX_CONFLICTING_ROUTE');
+  if (limits.length !== 1 || limits[0].values.length !== 2 || limits[0].values[1].toLowerCase() !== bodyLimit) {
+    fail(`기존 exact ${location} location의 body limit가 ${bodyLimit}와 다릅니다.`, 'PNL_NGINX_CONFLICTING_ROUTE');
   }
   const copied = exact.children.filter(node => node !== limits[0]);
   if (syntaxSignature(copied) !== syntaxSignature(root.children)) {
-    fail(`기존 exact ${PNL_UPLOAD_LOCATION} location이 현재 root proxy directive 전체와 일치하지 않습니다.`, 'PNL_NGINX_CONFLICTING_ROUTE');
+    fail(`기존 exact ${location} location이 현재 root proxy directive 전체와 일치하지 않습니다.`, 'PNL_NGINX_CONFLICTING_ROUTE');
   }
 }
 
-/** Return a complete patched config without touching disk. */
-export function buildPnlUploadNginxConfig(source, { validatedIncludes = new Set() } = {}) {
+/** Return a complete patched config without touching disk. Handles every route in MANAGED_UPLOAD_ROUTES. */
+export function buildPnlUploadNginxConfig(source, { validatedIncludes = new Set(), routes = MANAGED_UPLOAD_ROUTES } = {}) {
   const tree = parseNginxConfig(source);
   const candidates = targetTlsServers(tree);
   if (candidates.length !== 1) {
@@ -217,15 +225,11 @@ export function buildPnlUploadNginxConfig(source, { validatedIncludes = new Set(
   });
   if (roots.length !== 1) fail(`root location /가 정확히 1개여야 합니다(현재 ${roots.length}개).`);
   const root = roots[0];
-  for (const node of locations) {
+  if (locations.some(node => {
     const key = locationKey(node);
-    if (key?.modifier === '~' || key?.modifier === '~*') {
-      fail('대상 TLS server에 regex location이 있어 exact route의 인증 상속을 증명할 수 없습니다.');
-    }
-    if (node !== root && (key?.modifier === '' || key?.modifier === '^~')
-      && key.path && PNL_UPLOAD_LOCATION.startsWith(key.path)) {
-      fail(`${PNL_UPLOAD_LOCATION}를 덮는 기존 prefix location(${key.path})이 있습니다.`, 'PNL_NGINX_CONFLICTING_ROUTE');
-    }
+    return key?.modifier === '~' || key?.modifier === '~*';
+  })) {
+    fail('대상 TLS server에 regex location이 있어 exact route의 인증 상속을 증명할 수 없습니다.');
   }
   const proxyPass = direct(root.children, 'proxy_pass');
   if (proxyPass.length !== 1 || proxyPass[0].values.length !== 2 || proxyPass[0].values[1] !== 'http://127.0.0.1:3000') {
@@ -235,24 +239,42 @@ export function buildPnlUploadNginxConfig(source, { validatedIncludes = new Set(
     fail('root location에 예상하지 못한 client_max_body_size가 있습니다.');
   }
 
-  const samePath = locations.filter(node => locationKey(node)?.path === PNL_UPLOAD_LOCATION);
-  const exact = samePath.filter(node => locationKey(node)?.modifier === '=');
-  const nonExact = samePath.filter(node => locationKey(node)?.modifier !== '=');
-  if (nonExact.length || exact.length > 1) {
-    fail(`${PNL_UPLOAD_LOCATION}에 충돌하는 location이 있습니다.`, 'PNL_NGINX_CONFLICTING_ROUTE');
+  const pending = [];
+  for (const { location, bodyLimit } of routes) {
+    for (const node of locations) {
+      const key = locationKey(node);
+      if (node !== root && (key?.modifier === '' || key?.modifier === '^~')
+        && key.path && location.startsWith(key.path)) {
+        fail(`${location}를 덮는 기존 prefix location(${key.path})이 있습니다.`, 'PNL_NGINX_CONFLICTING_ROUTE');
+      }
+    }
+    const samePath = locations.filter(node => locationKey(node)?.path === location);
+    const exact = samePath.filter(node => locationKey(node)?.modifier === '=');
+    const nonExact = samePath.filter(node => locationKey(node)?.modifier !== '=');
+    if (nonExact.length || exact.length > 1) {
+      fail(`${location}에 충돌하는 location이 있습니다.`, 'PNL_NGINX_CONFLICTING_ROUTE');
+    }
+    if (exact.length === 1) {
+      validateExistingExactLocation(exact[0], root, location, bodyLimit);
+      continue;
+    }
+    pending.push({ location, bodyLimit });
   }
-  if (exact.length === 1) {
-    validateExistingExactLocation(exact[0], root);
+
+  if (!pending.length) {
     return { changed: false, text: source, status: 'already-configured' };
   }
 
   const rootBody = source.slice(root.bodyStart, root.bodyEnd);
   const indent = lineIndent(source, root.start);
   const insertAt = insertionPointBeforeClose(source, server.closeStart);
-  const exactBlock = `${indent}location = ${PNL_UPLOAD_LOCATION} {\n${indent}    client_max_body_size ${PNL_UPLOAD_BODY_LIMIT};${rootBody}}\n`;
+  const exactBlocks = pending
+    .map(({ location, bodyLimit }) =>
+      `${indent}location = ${location} {\n${indent}    client_max_body_size ${bodyLimit};${rootBody}}\n`)
+    .join('');
   return {
     changed: true,
-    text: `${source.slice(0, insertAt)}${exactBlock}${source.slice(insertAt)}`,
+    text: `${source.slice(0, insertAt)}${exactBlocks}${source.slice(insertAt)}`,
     status: 'patch-required',
   };
 }

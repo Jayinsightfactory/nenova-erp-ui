@@ -36,6 +36,7 @@ const REDIRECT_SERVER = `server {
 async function main() {
   const {
     CERTBOT_TLS_INCLUDE,
+    MANAGED_UPLOAD_ROUTES,
     PNL_UPLOAD_LOCATION,
     applyValidatedConfigFile,
     buildPnlUploadNginxConfig,
@@ -44,12 +45,18 @@ async function main() {
     validateTlsOnlyIncludeText,
   } = await import('../scripts/ensure-pnl-upload-nginx.mjs');
 
+  assert.ok(MANAGED_UPLOAD_ROUTES.length >= 2, '여러 업로드 경로를 관리해야 한다.');
+  assert.ok(MANAGED_UPLOAD_ROUTES.some(r => r.location === '/api/arrival-cost/upload'),
+    '도착원가 업로드 경로도 관리 대상이어야 한다.');
+
   const original = `${TLS_SERVER}\n${REDIRECT_SERVER}`;
   const plan = buildPnlUploadNginxConfig(original);
   assert.equal(plan.changed, true);
-  assert.match(plan.text, new RegExp(`location = ${PNL_UPLOAD_LOCATION.replaceAll('/', '\\/')} \\{`));
-  assert.equal((plan.text.match(/client_max_body_size 32m;/g) || []).length, 1,
-    '32m은 exact 업로드 location 한 곳에만 있어야 한다.');
+  for (const route of MANAGED_UPLOAD_ROUTES) {
+    assert.match(plan.text, new RegExp(`location = ${route.location.replaceAll('/', '\\/')} \\{`));
+  }
+  assert.equal((plan.text.match(/client_max_body_size 32m;/g) || []).length, MANAGED_UPLOAD_ROUTES.length,
+    '32m은 관리 대상 경로 수만큼 exact location에 있어야 한다.');
   for (const directive of [
     'auth_request /_auth;',
     'proxy_set_header Host $host;',
@@ -57,7 +64,8 @@ async function main() {
     'proxy_pass http://127.0.0.1:3000;',
     'proxy_read_timeout 300s;',
   ]) {
-    assert.equal(plan.text.split(directive).length - 1, 2, `${directive}가 root와 exact location에 모두 있어야 한다.`);
+    assert.equal(plan.text.split(directive).length - 1, 1 + MANAGED_UPLOAD_ROUTES.length,
+      `${directive}가 root와 관리 대상 exact location 전체에 있어야 한다.`);
   }
   assert.equal(plan.text.split('proxy_pass http://127.0.0.1:5678;').length - 1, 1, 'n8n location은 복제하거나 변경하지 않는다.');
   assert.ok(plan.text.endsWith(REDIRECT_SERVER), '80 redirect server는 바이트 그대로 보존해야 한다.');
@@ -66,6 +74,22 @@ async function main() {
   assert.equal(idempotent.changed, false);
   assert.equal(idempotent.text, plan.text);
   assert.equal(idempotent.status, 'already-configured');
+
+  // 한 경로만 이미 설정된 상태에서 전체를 다시 돌리면, 빠진 경로만 추가되고
+  // 이미 있는 경로는 중복·변경되지 않아야 한다.
+  const onlyFirstRoute = buildPnlUploadNginxConfig(original, { routes: [MANAGED_UPLOAD_ROUTES[0]] });
+  assert.equal(onlyFirstRoute.changed, true);
+  assert.equal((onlyFirstRoute.text.match(/client_max_body_size 32m;/g) || []).length, 1);
+  const completed = buildPnlUploadNginxConfig(onlyFirstRoute.text);
+  assert.equal(completed.changed, true, '두 번째 경로가 아직 빠져 있으므로 patch-required여야 한다.');
+  assert.equal(completed.status, 'patch-required');
+  assert.equal((completed.text.match(/client_max_body_size 32m;/g) || []).length, MANAGED_UPLOAD_ROUTES.length);
+  assert.equal(
+    completed.text.split(`location = ${MANAGED_UPLOAD_ROUTES[0].location} {`).length - 1, 1,
+    '이미 있던 첫 번째 경로 location을 중복 삽입하면 안 된다.',
+  );
+  const reCompleted = buildPnlUploadNginxConfig(completed.text);
+  assert.equal(reCompleted.changed, false, '두 경로 모두 설정된 뒤에는 already-configured여야 한다.');
 
   const conflictingLimit = plan.text.replace('client_max_body_size 32m;', 'client_max_body_size 16m;');
   assert.throws(() => buildPnlUploadNginxConfig(conflictingLimit), error => error.code === 'PNL_NGINX_CONFLICTING_ROUTE');
