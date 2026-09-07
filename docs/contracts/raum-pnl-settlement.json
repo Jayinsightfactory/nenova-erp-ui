@@ -2,6 +2,11 @@
   "id": "raum-pnl-settlement",
   "title": "라움·초이문·신라 손익계산서 결산 미리보기 계약",
   "scope": [
+    "components/raum/CombinedPurchaseCostCell.js",
+    "components/raum/ShillaProductMatchModal.js",
+    "lib/shillaPnlProductMatch.js",
+    "lib/shillaPnlProductMatchState.js",
+    "pages/api/raum/shilla-item-mapping.js",
     "lib/raumPnlRequestGuard.js",
     "lib/raumPnlHttp.js",
     "scripts/ensure-pnl-upload-nginx.mjs",
@@ -43,6 +48,8 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "settlementIdentity": ["OrderYear", "MajorWeek", "PartnerCode"],
   "actions": [
+    { "name": "SHILLA_PNL_PRODUCT_MATCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit shilla + OrderYear + MajorWeek + PnlKey + ItemKey; locked source-row snapshot, active Product isDeleted=0; only selected saved row ProdKey changes; no-op has no writes; no global name learning; reimport preserves exact or unique name/unit matching and rejects collisions", "writeAllowlist": ["WebRaumPnlItem.ProdKey", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
+    { "name": "SHILLA_COMBINED_PURCHASE_COST_DISPLAY", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "display-only join of same positive ProdKey+Unit+IsCustom; shared Raum/Choimun and independent Shilla subcells and snapshots stay separate; unmapped names never join across Shilla and other partners", "writeAllowlist": [] },
     { "name": "PNL_PARTNER_RESPONSE_ISOLATION", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "restore saved partner before first list request; invalidate stale list/detail success/error/loading responses on partner change; never display prior partner rows or preview under a new partner; prevent partner changes during upload/save", "writeAllowlist": [] },
     { "name": "PNL_UPLOAD_TRANSPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "30MiB app upload cap; exact nginx upload route 32MiB including multipart overhead; preserve existing proxy and authentication directives, validate and rollback configuration; HTML errors become Korean messages, failed saves never automatically retried", "writeAllowlist": [] },
     { "name": "SHILLA_PNL_IMPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit year + Excel MajorWeek + shilla; source header split 60:40 before July, 80:20 from July; approved original-file SHA corrections visibly annotated; selected verified batches only, preview-token and locked snapshot, no automatic commit; ERP week notes never remap Excel weeks", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
@@ -75,6 +82,8 @@
     "preserve": ["Estimate", "ShipmentDetail.Amount", "ShipmentDetail.Vat", "ShipmentDetail.isFix", "WebProfitReport", "OrderDetail", "ShipmentDate", "ShipmentFarm", "StockHistory", "ProductStock"]
   },
   "purchaseCostManagement": {
+    "shillaCombinedDisplay": "same positive ProdKey + normalized Unit + IsCustom appears on the same product row with independent shared Raum/Choimun and Shilla week subcells; different units and unmapped Shilla names stay separate; only actual week cells render; each partner keeps its own quantity, sale price and amounts; a failed request is visibly failed, never labelled absent",
+    "shillaWriteSeparation": "Shilla uses only its existing isolated cost endpoint; SHARED_PARTNERS and shared snapshot/transaction remain Raum+Choimun only; no copy/average/implicit conversion; separate drafts and save buttons",
     "display": "one combined Raum+Choimun matrix for the exact selected OrderYear, compressed per product row: product rows preserve the newest existing estimate's saved Seq then ItemKey order (new identities first encountered in later available estimates append in that source order) and are never alphabetically resorted; only the MajorWeek cells that actually have data render, newest first and packed with no blank filler columns; each populated cell has one shared editable purchase cost and separate read-only Raum/Choimun SalePrice, Qty, purchase amount, and SaleAmount; a mismatch visibly lists every distinct stored cost under its partner name beside the input; distinct prices are never averaged; missing partner rows are shown as absent rather than created",
     "identity": "OrderYear + MajorWeek + positive ProdKey + normalized Unit + IsCustom; if ProdKey is absent, exact whitespace-normalized ItemName (trailing (사입)/사입 suffix stripped for matching only) + Unit + IsCustom; PartnerCode is deliberately excluded from the shared cost identity",
     "writeScope": "for the selected OrderYear+MajorWeek+identity, update CostPrice/CostSource on every existing matching WebRaumPnlItem row under active Raum and Choimun masters, then update only those touched parents; never create a missing item or settlement",
@@ -92,6 +101,9 @@
     "preserve": ["Qty", "SalePrice", "SaleAmount", "IsConsigned", "ProdKey identity for rows that have one"]
   },
   "requiredTestFiles": [
+    "__tests__/shillaPnlUiRender.test.js",
+    "__tests__/shillaPnlProductMatch.test.js",
+    "__tests__/shillaPnlCombinedPurchaseCost.test.js",
     "__tests__/raumPnlRequestGuard.test.js",
     "__tests__/raumPnlHttp.test.js",
     "__tests__/pnlUploadNginx.test.js",
