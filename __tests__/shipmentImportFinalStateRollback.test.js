@@ -14,6 +14,7 @@
 // 호출해 실제 동작을 검증한다.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 
 const assertLabel = (label, cond) => {
   if (!cond) { console.error(`  ✗ ${label}`); process.exitCode = 1; }
@@ -24,6 +25,44 @@ async function main() {
   console.log('=== 요구사항3: requireOrderYear — 연도를 추정하지 않는다 (lib/orderUtils.js 직접 호출) ===');
   const { requireOrderYear } = await import('../lib/orderUtils.js');
   const { compareVerifyResult } = await import('../lib/shipmentImportQty.js');
+  const { buildReplacementProductKeys } = await import('../lib/shipmentImportQty.js');
+  {
+    const catalog = [
+      { ProdKey: 389, CountryFlower: '콜롬비아카네이션' },
+      { ProdKey: 456, CountryFlower: '콜롬비아카네이션' },
+      { ProdKey: 999, CountryFlower: '콜롬비아장미' },
+      { ProdKey: 888, CountryFlower: '' },
+    ];
+    assert.deepEqual([...buildReplacementProductKeys(catalog, new Set([389]))], [389, 456]);
+    assert.equal(buildReplacementProductKeys(catalog, new Set()).size, 0);
+    assert.equal(buildReplacementProductKeys(catalog, new Set([888])).size, 0);
+    const source = fs.readFileSync('lib/shipmentImport.js', 'utf8').replace(/\r\n/g, '\n');
+    const begin = source.indexOf('async function verifyAppliedShipmentRows(');
+    const end = source.indexOf('\n}\n', begin) + 2;
+    const verify = vm.runInNewContext(`(${source.slice(begin, end)})`, { sql: { NVarChar: 'nvarchar' }, compareVerifyResult });
+    const requested = [{ custKey: 1, prodKey: 389, intended: 8, verifyOrder: false }];
+    const data = [
+      { year: '2026', week: '36-01', CustKey: 1, ProdKey: 389, OutQuantity: 8, DateQty: 8 },
+      { year: '2026', week: '36-01', CustKey: 2, ProdKey: 456, OutQuantity: 5, DateQty: 5 },
+      { year: '2025', week: '36-01', CustKey: 3, ProdKey: 389, OutQuantity: 99, DateQty: 99 },
+      { year: '2026', week: '36-02', CustKey: 4, ProdKey: 389, OutQuantity: 99, DateQty: 99 },
+      { year: '2026', week: '36-01', CustKey: 5, ProdKey: 999, OutQuantity: 99, DateQty: 99 },
+    ];
+    const queryFixture = async (queryText, params) => {
+      assert.match(queryText, /sm.OrderYear=@importYear AND sm.OrderWeek=@week/);
+      assert.match(queryText, /p.CountryFlower IN/);
+      return { recordset: data.filter(r => r.year === params.importYear.value && r.week === params.week.value && [389, 456].includes(r.ProdKey)) };
+    };
+    const failed = await verify(queryFixture, '36-01', requested, '2026', true);
+    assert.equal(failed.mismatchCount, 1);
+    assert.equal(failed.mismatches[0].prodKey, 456);
+    assert.equal(failed.mismatches[0].intended, 0);
+    data[1].OutQuantity = 0; data[1].DateQty = 0;
+    assert.equal((await verify(queryFixture, '36-01', requested, '2026', true)).mismatchCount, 0);
+    await verify(async (_q, params) => { assert.equal(Object.keys(params).length, 2); return { recordset: [] }; }, '36-01', Array.from({ length: 1200 }, (_, i) => ({ custKey: i + 1, prodKey: 389, intended: 0 })), '2026', true);
+    await assert.rejects(verify(queryFixture, '36-01', [{ custKey: '1);DELETE', prodKey: 389 }], '2026', true));
+    assertLabel('품목행 전체 삭제·다른 품종 보존·전체 범위 검증·교차연도·1200행 검증', true);
+  }
   const { mergeSnapshotEntries } = await import('../lib/shipmentImportSnapshot.js');
   assert.throws(() => requireOrderYear('29-01', ''), (e) => e.code === 'ORDER_YEAR_REQUIRED' && e.statusCode === 400);
   assertLabel('연도 누락(짧은 NN-NN, 빈 year) → ORDER_YEAR_REQUIRED/400', true);
@@ -119,7 +158,7 @@ async function main() {
   );
   assertLabel(
     '[요구사항5] 같은 트랜잭션 내부(tQ)에서 커밋 전 재조회·검증하고 불일치 시 throw(rollback)',
-    /const inTxVerification = await verifyAppliedShipmentRows\(tQ, week, inTxTargets, orderYear\);/.test(src) &&
+    /const inTxVerification = await verifyAppliedShipmentRows\(tQ, week, inTxTargets, orderYear, fullCategoryReplacement\);/.test(src) &&
     /if \(inTxVerification\.mismatchCount > 0\) \{/.test(src) &&
     /err\.code = 'APPLY_VERIFICATION_FAILED';/.test(src),
   );
@@ -134,7 +173,7 @@ async function main() {
   assertLabel(
     'verifyAppliedShipmentRows 는 queryFn 을 주입받아 트랜잭션 내부(tQ)/커밋후(query) 양쪽에서 재사용',
     /async function verifyAppliedShipmentRows\(queryFn, week, targets, orderYear/.test(src) &&
-    /await verifyAppliedShipmentRows\(query, week, dedupedVerifyTargets, orderYear\);/.test(src),
+    /await verifyAppliedShipmentRows\(query, week, dedupedVerifyTargets, orderYear, fullCategoryReplacement\);/.test(src),
   );
 
   console.log('\n=== 소스 계약 고정 — API/UI 연동 ===');
@@ -147,7 +186,7 @@ async function main() {
   const uiSrc = fs.readFileSync('pages/shipment/distribute-import.js', 'utf8');
   assertLabel(
     'UI apply 요청이 preview.orderYear 를 함께 보냄(서버가 추정하지 않도록)',
-    /body: JSON\.stringify\(\{ week: preview\.week, year: preview\.orderYear, rows: applyRows/.test(uiSrc),
+    /body: JSON\.stringify\(\{ week: preview\.week, year: preview\.orderYear, rows, fullCategoryReplacement: true/.test(uiSrc),
   );
   assertLabel(
     'UI도 엑셀누락 행을 분배 0 적용대상에 포함',
