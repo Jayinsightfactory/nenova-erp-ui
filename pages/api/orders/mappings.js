@@ -7,7 +7,8 @@ import { loadMappings, saveMapping, deleteMapping, normalizeToken } from '../../
 
 export default withAuth(function handler(req, res) {
   if (req.method === 'GET') {
-    return res.status(200).json({ success: true, mappings: loadMappings() });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ success: true, mappings: loadMappings(true) });
   }
 
   if (req.method === 'DELETE') {
