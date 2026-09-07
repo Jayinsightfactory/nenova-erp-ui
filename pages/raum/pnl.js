@@ -2031,7 +2031,7 @@ export default function RaumPnlPage() {
           }}
           title="선택한 거래처의 품목별 매입단가를 차수별로 한 화면에서 조회·수정합니다."
         >차수별 매입단가 관리</button>
-        <span style={{ fontSize: 12.5, color: '#64748b' }}>{isShilla ? '신라는 원본 엑셀 차수만 저장하며 ERP 품목 매칭·분배 대조·자동 반영을 사용하지 않습니다.' : '선택한 거래처 견적서만 올리고, 저장·전산대조도 그 거래처 기준으로 봅니다.'}</span>
+        <span style={{ fontSize: 12.5, color: '#64748b' }}>{isShilla ? '신라는 원본 엑셀 차수로 보관합니다. 저장된 품목을 전산 품목에 연결해 단가를 비교할 수 있으며, 주문·분배·재고는 변경하지 않습니다.' : '선택한 거래처 견적서만 올리고, 저장·전산대조도 그 거래처 기준으로 봅니다.'}</span>
       </div>
       <p style={st.desc}>
         {partner.code === 'shilla'
