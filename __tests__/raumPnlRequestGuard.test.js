@@ -56,8 +56,8 @@ assert.match(selectPartnerSource, /setList\(\[\]\)/,
   'switching partner must invalidate and clear the previous list immediately');
 assert.match(pnlSource, /if \(requestedPartner !== partnerCodeRef\.current\) return false;[\s\S]{0,80}listRequestGuard\.current\.begin\(requestedPartner\)/,
   'a stale callback must not start a new old-partner list generation');
-assert.match(pnlSource, /disabled=\{uploading \|\| saving \|\| shillaMatching\}/,
-  'partner controls must not switch scope while an upload, save or Shilla mapping is active');
+assert.match(pnlSource, /disabled=\{uploading \|\| saving \|\| shillaMatching \|\| shillaBulkMatchOpen\}/,
+  'partner controls must not switch scope while an upload, save, single-row mapping, or bulk mapping modal is active');
 assert.match(pnlSource, /detailRequestGuard\.current\.isCurrent\(token, partnerCodeRef\.current\)/,
   'late detail responses must be rejected against the live partner');
 assert.doesNotMatch(pnlSource.slice(pnlSource.indexOf('const onUpload'), pnlSource.indexOf('const saveBulkPreview')), /token, requestedPartner/,
