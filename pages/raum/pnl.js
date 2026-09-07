@@ -12,7 +12,7 @@ import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
 import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
 import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHttp';
-import { createRaumPnlRequestGuard } from '../../lib/raumPnlRequestGuard';
+import { createRaumPnlRequestGuard, isRaumPnlPartnerMatch } from '../../lib/raumPnlRequestGuard';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -1376,8 +1376,13 @@ export default function RaumPnlPage() {
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '조회 실패');
       if (!detailRequestGuard.current.isCurrent(token, partnerCodeRef.current)) return;
+      if (!isRaumPnlPartnerMatch(j.master?.PartnerCode, requestedPartner)) {
+        setDetail(null);
+        throw new Error('선택한 업체와 조회된 결산 자료가 다릅니다. 업체를 다시 선택해 주세요.');
+      }
       setDetail({
         meta: {
+          partnerCode: requestedPartner,
           pnlKey: j.master.PnlKey,
           orderYear: j.master.OrderYear,
           major: j.master.MajorWeek,
@@ -1454,6 +1459,7 @@ export default function RaumPnlPage() {
       const warnings = [...(j.warnings || [])];
       setDetail({
         meta: {
+          partnerCode,
           pnlKey: null,
           orderYear: one.orderYear,
           major: one.major || '',
@@ -1524,6 +1530,10 @@ export default function RaumPnlPage() {
   const save = async () => {
     if (!detail) return;
     const { meta, items } = detail;
+    if (!isRaumPnlPartnerMatch(meta.partnerCode, partnerCodeRef.current)) {
+      setError('선택한 업체와 편집 중인 자료가 달라 저장하지 않았습니다. 업체를 다시 선택해 주세요.');
+      return;
+    }
     if (!meta.major) { setError('차수를 입력하세요 (예: 27).'); return; }
     if (detail.existingDiff?.hasChanges && !window.confirm(`${Number(meta.major)}차 기존 저장본이 업로드 내용으로 변경됩니다. 비교 내용을 확인했으며 저장할까요?`)) return;
     setSaving(true);
@@ -1563,6 +1573,7 @@ export default function RaumPnlPage() {
   const openImagePreview = ({ items, images, orderYear, major, sourceFile }) => {
     setDetail({
       meta: {
+        partnerCode,
         pnlKey: null,
         orderYear,
         major,
@@ -1613,6 +1624,7 @@ export default function RaumPnlPage() {
       if (!j.success) throw new Error(j.error || '이미지 결산 초안 저장 실패');
       setDetail({
         meta: {
+          partnerCode,
           pnlKey: j.pnlKey,
           orderYear,
           major: mj,

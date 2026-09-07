@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createRaumPnlRequestGuard } from '../lib/raumPnlRequestGuard.js';
+import { createRaumPnlRequestGuard, isRaumPnlPartnerMatch } from '../lib/raumPnlRequestGuard.js';
+
+for (const partner of ['raum', 'choimun', 'shilla']) {
+  assert.equal(isRaumPnlPartnerMatch(partner, partner), true);
+  for (const other of ['raum', 'choimun', 'shilla', null, undefined, '', 'SHILLA']) {
+    if (other !== partner) assert.equal(isRaumPnlPartnerMatch(other, partner), false);
+  }
+}
 
 const guard = createRaumPnlRequestGuard();
 const applied = [];
@@ -36,6 +43,8 @@ assert.equal(callbackGuard.isCurrent(currentToken, livePartner), true,
   'stale callback must not invalidate the current partner generation');
 
 const pnlSource = fs.readFileSync(new URL('../pages/raum/pnl.js', import.meta.url), 'utf8');
+assert.match(pnlSource, /isRaumPnlPartnerMatch\(j\.master\?\.PartnerCode, requestedPartner\)/);
+assert.match(pnlSource, /isRaumPnlPartnerMatch\(meta\.partnerCode, partnerCodeRef\.current\)/);
 assert.match(pnlSource, /const \[partnerReady, setPartnerReady\] = useState\(false\)/,
   'list loading must wait until localStorage partner restoration completes');
 assert.match(pnlSource, /if \(!partnerReady\) return;/,
