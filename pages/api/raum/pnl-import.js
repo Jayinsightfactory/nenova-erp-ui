@@ -10,6 +10,8 @@ import {
   prepareRaumPnlImportPreview, saveRaumPnlImportBatch, DEFAULT_NENOVA_PCT,
 } from '../../../lib/raumPnl';
 import { resolvePnlPartner } from '../../../lib/raumPnlPartner';
+import { parseShillaPnlWorkbookGroups } from '../../../lib/shillaPnlParse';
+import { applyConfirmedShillaSourceNames, selectShillaImportBatches, shillaSettlementItem } from '../../../lib/shillaPnlImportPolicy';
 
 export const config = { api: { bodyParser: false } };
 
@@ -22,11 +24,17 @@ function asField(value) { return Array.isArray(value) ? value[0] : value; }
 
 function previewToken(raw, snapshots, batches) {
   const state = Object.keys(snapshots).sort().map(k => [k, snapshots[k]?.version || 'new']);
-  const groups = batches.map(b => [String(b.orderYear), String(b.major), b.itemFingerprint || '', b.preservation || {}]);
+  const groups = batches.map(b => [b.partnerCode, String(b.orderYear), String(b.major), b.nenovaPct, b.itemFingerprint || '', b.preservation || {}]);
   return crypto.createHash('sha256').update(raw).update(JSON.stringify({ state, groups })).digest('hex');
 }
 
 async function enrichBatch(parsed, orderYear, partnerCode) {
+  if (partnerCode === 'shilla') {
+    return { ...parsed, orderYear, partnerCode, quoteDate: localDate(parsed.quoteDate),
+      warnings: [...(parsed.warnings || []), ...(parsed.erpWeekNote ? [`전산 차수 참고(엑셀 차수는 변경하지 않음): ${parsed.erpWeekNote}`] : [])],
+      items: parsed.items.map(shillaSettlementItem),
+    };
+  }
   const warnings = [...(parsed.warnings || [])];
   let refs = {};
   try {
@@ -99,11 +107,22 @@ async function handler(req, res) {
     const raw = fs.readFileSync(file.filepath);
     const workbook = XLSX.read(raw, { type: 'buffer', cellDates: true, cellNF: false, cellStyles: false });
     const partner = resolvePnlPartner(asField(fields.partner) || asField(fields.partnerCode));
-    const parsed = parseRaumQuoteWorkbookGroups(XLSX, workbook, { partnerCode: partner.code });
+    const explicitYear = String(asField(fields.orderYear) || '').trim();
+    if (partner.code === 'shilla' && !/^\d{4}$/.test(explicitYear)) return res.status(400).json({ success: false, error: '신라 원본의 결산 연도를 선택하세요.' });
+    const confirmedNotes = partner.code === 'shilla'
+      ? applyConfirmedShillaSourceNames(workbook, crypto.createHash('sha256').update(raw).digest('hex')) : [];
+    const parsed = partner.code === 'shilla'
+      ? parseShillaPnlWorkbookGroups(XLSX, workbook, { orderYear: explicitYear })
+      : parseRaumQuoteWorkbookGroups(XLSX, workbook, { partnerCode: partner.code });
+    parsed.warnings = [...(parsed.warnings || []), ...confirmedNotes];
+    for (const note of confirmedNotes) {
+      const confirmed = parsed.batches.find(batch => Number(batch.major) === Number(note.match(/^\d+/)?.[0]));
+      if (confirmed) confirmed.warnings = [...(confirmed.warnings || []), note];
+    }
     if (!parsed.batches.length) return res.status(400).json({ success: false, error: parsed.warnings[0] || '파싱된 품목이 없습니다.', warnings: parsed.warnings });
 
     const batches = await Promise.all(parsed.batches.map(async (batch) => {
-      const orderYear = batch.quoteDate ? String(batch.quoteDate.getFullYear()) : resolveActiveOrderYear(`${batch.major}-01`);
+      const orderYear = partner.code === 'shilla' ? explicitYear : batch.quoteDate ? String(batch.quoteDate.getFullYear()) : resolveActiveOrderYear(`${batch.major}-01`);
       return enrichBatch(batch, orderYear, partner.code);
     }));
     const prepared = await prepareRaumPnlImportPreview(batches);
@@ -117,11 +136,17 @@ async function handler(req, res) {
       if (!received || received !== token) {
         return res.status(409).json({ success: false, error: '미리보기 이후 결산이 변경되었거나 다른 파일입니다. 다시 미리보기 후 저장하세요.' });
       }
-      const failed = canonicalBatches.flatMap(b => b.verification || []).filter(c => !c.ok);
+      let saveBatches = canonicalBatches;
+      if (partner.code === 'shilla') {
+        try {
+          saveBatches = selectShillaImportBatches(canonicalBatches, JSON.parse(String(asField(fields.selectedMajors) || 'null')));
+        } catch (error) { return res.status(400).json({ success: false, error: error.message }); }
+      }
+      const failed = saveBatches.flatMap(b => b.verification || []).filter(c => !c.ok);
       if (failed.length) return res.status(400).json({ success: false, error: '합계 검증에 실패해 전체 저장을 차단했습니다.', batches: canonicalBatches, warnings: parsed.warnings });
       const actor = req.user?.userName || req.user?.userId || 'user';
       const saved = await saveRaumPnlImportBatch({
-        batches: canonicalBatches, sourceFile: file.originalFilename || 'upload.xlsx', actor, expectedSnapshots: snapshots,
+        batches: saveBatches, sourceFile: file.originalFilename || 'upload.xlsx', actor, expectedSnapshots: snapshots,
       });
       return res.status(200).json({ success: true, saved, batchCount: saved.length });
     }
