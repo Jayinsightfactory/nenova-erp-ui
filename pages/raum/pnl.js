@@ -2401,7 +2401,7 @@ export default function RaumPnlPage() {
                       </td> : (shillaDetailSaved ? <td style={{ ...st.td, whiteSpace: 'normal', minWidth: 140 }}>
                         {it.isCustom || it.isImageRow || Number(it.itemKey ?? it.ItemKey) <= 0 ? <span style={{ color: '#94a3b8' }}>—</span> : <>
                           <span style={{ color: Number(it.prodKey ?? it.ProdKey) > 0 ? '#166534' : '#b91c1c', fontWeight: 600 }}>{Number(it.prodKey ?? it.ProdKey) > 0 ? `${(it.prodName ?? it.ProdName) || `#${it.prodKey ?? it.ProdKey}`}` : '미연결'}</span>
-                          <button type="button" style={{ marginLeft: 5, padding: '0 5px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: shillaMatching ? 'not-allowed' : 'pointer', fontSize: 11, color: '#475569' }} disabled={shillaMatching} title="신라 저장 행 하나에만 전산 품목을 연결합니다." onClick={() => openShillaMatch(it)}>{Number(it.prodKey ?? it.ProdKey) > 0 ? '수정' : '연결'}</button>
+                          <button type="button" style={{ marginLeft: 5, padding: '0 5px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: shillaMatching ? 'not-allowed' : 'pointer', fontSize: 11, color: '#475569' }} disabled={shillaMatching} title="전산 품목을 선택하고 같은 호텔 동일 품목에 함께 연결할 수 있습니다." onClick={() => openShillaMatch(it)}>{Number(it.prodKey ?? it.ProdKey) > 0 ? '수정' : '연결'}</button>
                         </>}
                       </td> : null)}
                       <td style={{ ...st.td, textAlign: 'center' }}>

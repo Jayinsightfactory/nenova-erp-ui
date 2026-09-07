@@ -44,6 +44,8 @@ assert.match(pnl, /const isUnlink = result\.prodKey === null/, 'a null saved Pro
 assert.match(pnl, /isUnlink \? '품목 연결 해제' : '품목 연결'/, 'saved unlink statistics use the unlink action label');
 assert.match(pnl, /isUnlink \? '같은 호텔 동일 품목 연결 해제' : '같은 호텔 동일 품목 자동 연결'/, 'same-hotel group unlink statistics are distinct from auto-match statistics');
 assert.match(pnl, /원본 수량·단가·분배율은 변경하지 않았습니다/, 'group refresh keeps source quantity, price, and allocation immutable');
+assert.match(pnl, /전산 품목을 선택하고 같은 호텔 동일 품목에 함께 연결할 수 있습니다/, 'Shilla row action describes optional same-hotel matching');
+assert.doesNotMatch(pnl, /신라 저장 행 하나에만 전산 품목을 연결합니다/, 'Shilla row action must not advertise stale single-row-only behavior');
 
 assert.match(shillaMatchModal, /shillaPnlProductSearchUrl\(activeQuery\)/, 'Shilla mapping uses the canonical product-search GET');
 assert.match(shillaMatchModal, /readShillaPnlProductSearchResponse\(response\)/, 'Shilla product search reads GET results through the scoped helper');
