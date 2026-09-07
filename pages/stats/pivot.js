@@ -22,6 +22,7 @@ import {
 import { buildPivotDimensionOptions, pruneDimensionFilters, pruneFieldFilters } from '../../lib/pivotFilterOptions';
 import { buildPivotProductSearchAliases, pivotProductOptionMatches } from '../../lib/pivotProductSearch.js';
 import { selectedPivotWeekValue } from '../../lib/pivotAvailableWeeks';
+import { formatOrderWeekDateRange } from '../../lib/orderWeekDate';
 import { sumOrderQty, sumIncomingQty } from '../../lib/pivotVolumeRows';
 import { arrivalCostWithVat } from '../../lib/pivotArrivalCalc';
 import {
@@ -403,6 +404,9 @@ export default function Pivot() {
   const yearInput = useYearInput(new Date().getFullYear().toString());
   const weekStartInput = useWeekInput('');
   const weekEndInput   = useWeekInput('');
+  // 도착원가를 물량표 차수와 다른 차수 기준으로 불러오는 옵션 (read-only, 조회에만 영향)
+  const [useCustomArrivalWeek, setUseCustomArrivalWeek] = useState(false);
+  const arrivalWeekInput = useWeekInput('');
   const [availableWeeks, setAvailableWeeks] = useState([]);
   const [weeksLoading, setWeeksLoading] = useState(false);
   const [weeksError, setWeeksError] = useState('');
@@ -794,10 +798,12 @@ export default function Pivot() {
     setLoading(true); setErr('');
     const wStart = weekStartInput.value;
     const wEnd = weekEndInput.value || weekStartInput.value;
+    const arrivalWeek = useCustomArrivalWeek ? arrivalWeekInput.value : '';
     apiGet('/api/stats/pivot-data', {
       orderYear: yearInput.value,
       weekStart: wStart,
       weekEnd: wEnd,
+      ...(arrivalWeek ? { arrivalWeekStart: arrivalWeek } : {}),
     })
       .then(d => {
         setData(d);
@@ -1154,6 +1160,22 @@ export default function Pivot() {
     return formatWeekDisplay(`${y}-${week}`) || `${y}-${week}`;
   }, [data?.orderYear, yearInput.value, weekStartInput.value]);
 
+  // 차수 옆 실제 달력 날짜 표시 (예: "9/2~9/8") — read-only, DB 조회에는 쓰지 않음
+  const weekDateRangeLabel = useMemo(() => {
+    const y = data?.orderYear || yearInput.value;
+    const ws = selectedPivotWeekValue(weekStartInput.value);
+    const we = selectedPivotWeekValue(weekEndInput.value);
+    if (!ws) return '';
+    return formatOrderWeekDateRange(y, ws, we && we !== ws ? we : undefined);
+  }, [data?.orderYear, yearInput.value, weekStartInput.value, weekEndInput.value]);
+
+  const arrivalWeekDateLabel = useMemo(() => {
+    if (!useCustomArrivalWeek) return '';
+    const aw = selectedPivotWeekValue(arrivalWeekInput.value);
+    if (!aw) return '';
+    return formatOrderWeekDateRange(yearInput.value, aw);
+  }, [useCustomArrivalWeek, arrivalWeekInput.value, yearInput.value]);
+
   const measureCellProps = {
     sortedCusts, farms, showSections, showOrderCustCols, showOutCustCols,
     showIncomingFarmCols, showIncomingCompactTotal, compact, showDistCost,
@@ -1365,6 +1387,11 @@ export default function Pivot() {
         <button className="btn btn-sm" style={{height:22,fontSize:11,fontWeight:800}}
           onClick={() => { weekStartInput.nextWeek(); weekEndInput.nextWeek(); }}
           title="범위 전체 주차+1">&gt;&gt;</button>
+        {weekDateRangeLabel && (
+          <span style={{fontSize:11,color:'var(--text3)'}} title="선택한 차수의 실제 달력 날짜 (수요일 시작~화요일 종료)">
+            ({weekDateRangeLabel})
+          </span>
+        )}
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         <span className="filter-label" title="숫자 소수점(.00) 표시">소수점</span>
         <button type="button" className="btn btn-sm"
@@ -1467,6 +1494,29 @@ export default function Pivot() {
         <button className={`btn btn-sm ${showArrivalVat?'btn-primary':''}`} style={{height:22,fontSize:11}}
           title="도착원가 × 1.1 (부가세포함)"
           onClick={()=>setShowArrivalVat(s=>!s)}>도착원가(부가세포)</button>
+        <label style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:11}}
+          title="켜면 도착원가만 물량표 차수와 다른 차수 기준으로 불러옵니다 (물량·주문 등 나머지 데이터는 그대로)">
+          <input type="checkbox" checked={useCustomArrivalWeek}
+            onChange={(e)=>{
+              const checked = e.target.checked;
+              setUseCustomArrivalWeek(checked);
+              if (checked && !arrivalWeekInput.value) arrivalWeekInput.setValue(weekStartInput.value);
+            }} />
+          도착원가 별도차수
+        </label>
+        {useCustomArrivalWeek && (
+          <>
+            <WeekSpinInput weekInput={arrivalWeekInput} />
+            {arrivalWeekDateLabel && (
+              <span style={{fontSize:11,color:'var(--text3)'}}>({arrivalWeekDateLabel})</span>
+            )}
+            {data?.arrivalWeek && (
+              <span style={{fontSize:10,color:'#e65100'}} title="현재 화면에 표시된 도착원가가 실제로 적용된 차수">
+                적용됨: {data.arrivalWeek}
+              </span>
+            )}
+          </>
+        )}
         <span style={{borderLeft:'1px solid var(--border)',margin:'0 4px'}}></span>
         <button className="btn btn-sm" style={{height:22,fontSize:11}} onClick={()=>setCollapsed(new Set())}>▼ 펼침</button>
         <button className="btn btn-sm" style={{height:22,fontSize:11}} onClick={()=>{
