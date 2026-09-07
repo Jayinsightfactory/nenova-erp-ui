@@ -437,6 +437,10 @@ export default function DistributeImport() {
       setUnmatchedModalOpen(true);
       return;
     }
+    if (fixBlockedRows.length) {
+      setError(`확정된 행 ${fixBlockedRows.length}건이 있어 전체 교체를 중단했습니다. 대상 품종의 확정을 해제한 뒤 다시 검증하세요.`);
+      return;
+    }
     if (!applyRows.length) {
       const blocked = (preview?.fixBlockedCount || 0);
       setError(
@@ -527,7 +531,7 @@ export default function DistributeImport() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ week: preview.week, year: preview.orderYear, rows: applyRows, ackQtyWarnings, jobId }),
+          body: JSON.stringify({ week: preview.week, year: preview.orderYear, rows, fullCategoryReplacement: true, ackQtyWarnings, jobId }),
         });
       } catch {
         data = await recoverApplyResult();
@@ -739,6 +743,12 @@ export default function DistributeImport() {
 
         {error && <div style={st.error}>{error}</div>}
         {message && <div style={st.message}>{message}</div>}
+        {preview?.replacementCategories?.length > 0 && (
+          <div style={st.message}>
+            최종 분배 교체: {preview.orderYear}년 {preview.week} · {preview.replacementCategories.join(', ')}
+            {' — 새 파일에 없는 업체·품목과 빈칸은 분배 0으로 정리합니다. 기존 주문수량은 유지합니다.'}
+          </div>
+        )}
         {preview && preview.orderYear && (
           <div style={{ padding: '8px 14px', background: '#e0f2fe', border: '1px solid #0284c7', borderRadius: 8,
             margin: '0 0 10px', fontSize: 13, color: '#075985' }}>
