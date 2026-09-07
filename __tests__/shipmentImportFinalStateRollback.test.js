@@ -169,6 +169,7 @@ async function main() {
 
   const snapshotSrc = fs.readFileSync('lib/shipmentImportSnapshot.js', 'utf8');
   const rollbackSrc = fs.readFileSync('lib/shipmentImportRollback.js', 'utf8');
+  const historySrc = fs.readFileSync('pages/api/shipment/distribute-import-history.js', 'utf8');
   const migrationSrc = fs.readFileSync('docs/migrations/2026-08-31_shipment_import_snapshot_rollback.sql', 'utf8');
   const deploySrc = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
   assertLabel('조회·저장 경로는 런타임 DDL 대신 설치 여부만 검사', snapshotSrc.includes('assertShipmentImportSnapshotSchema') && !snapshotSrc.includes('CREATE TABLE dbo.ShipmentImportSnapshot'));
@@ -176,6 +177,7 @@ async function main() {
   assertLabel('운영 배포는 새 코드 실행 전에 스냅샷 migration을 적용', deploySrc.includes('node scripts/apply-shipment-import-snapshot-migration.mjs --apply'));
   assertLabel('롤백 전 현재값과 저장된 after 스냅샷을 전부 비교', rollbackSrc.includes("currentJson !== snapshot.AfterJson") && rollbackSrc.includes('SHIPMENT_IMPORT_ROLLBACK_CONFLICT'));
   assertLabel('롤백은 원본 이력을 삭제하지 않고 ROLLED_BACK 상태·작업자·사유를 기록', rollbackSrc.includes("AuditStatus=N'ROLLED_BACK'") && rollbackSrc.includes('RolledBackBy=@actor') && !rollbackSrc.includes('DELETE FROM ShipmentImportAudit'));
+  assertLabel('업로드 이력은 품목별 적용 전후 행을 읽기 전용으로 조회 가능', historySrc.includes('getShipmentImportAuditRows') && rollbackSrc.includes('ShipmentBeforeQty'));
   assertLabel('되돌리기 API는 서버 관리자 권한을 재검사', fs.readFileSync('pages/api/shipment/distribute-import-rollback.js', 'utf8').includes('isAdminUser(req.user)'));
 
   if (!process.exitCode) console.log('\n=== RESULT: all passed ===');
