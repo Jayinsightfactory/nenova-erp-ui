@@ -233,7 +233,7 @@ async function main() {
 
   console.log('\n=== isImportRowInUploadScope (28-01 콜롬비아카네이션 품목삭제 유령분배 재현) ===');
   {
-    const { isImportRowInUploadScope } = await import('../lib/shipmentImportQty.js');
+    const { isImportRowInUploadScope, buildPriorImportPairKeys } = await import('../lib/shipmentImportQty.js');
     // 케이스1: 파싱·매칭된 정확한 업체×품목 pair → 스코프 포함
     assert(
       '정확히 매칭된 pair는 스코프 포함',
@@ -258,6 +258,21 @@ async function main() {
     assert(
       '다른 시트에서 품목만 보였어도 exact pair 없으면 다른 업체 분배는 보존',
       !isImportRowInUploadScope(999, 200, new Set([200]), new Set([100, 999]), new Set([200]), new Set(['100|200']), new Set(['100|200']))
+    );
+    const priorPairs = buildPriorImportPairKeys(
+      [
+        { CustKey: 686, ProdKey: 389, SourceCells: '콜롬비아카네이션!R10C4' },
+        { CustKey: 664, ProdKey: 389, SourceCells: '콜롬비아카네이션!R10C5' },
+        { CustKey: 999, ProdKey: 389, SourceCells: '다른시트!R10C5' },
+        { CustKey: 777, ProdKey: 456, SourceCells: '콜롬비아카네이션!R11C5' },
+      ],
+      new Map([['콜롬비아카네이션', new Set([389])]])
+    );
+    assert('이전 같은 시트·같은 품목 pair는 업체 열 삭제 후에도 복원', priorPairs.has('686|389') && priorPairs.has('664|389'));
+    assert('다른 시트 또는 이번 시트에 없는 품목의 과거 pair는 제외', !priorPairs.has('999|389') && !priorPairs.has('777|456'));
+    assert(
+      '복원된 과거 pair는 missingFromExcel 0처리 범위에 포함',
+      isImportRowInUploadScope(686, 389, new Set([389]), new Set(), new Set(), new Set(), new Set(), priorPairs)
     );
   }
 

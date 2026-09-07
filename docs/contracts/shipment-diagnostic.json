@@ -129,6 +129,7 @@
       "shipmentOnly": "reject_global_mode",
       "blankCell": "preserve_order_set_distribution_zero",
       "missingRow": "preserve_order_set_distribution_zero",
+      "priorImportLineageScope": "a pair from a prior successful import of the same year/week/sheet is also in scope only when that product remains present on the current same sheet",
       "explicitZero": "preserve_order_set_distribution_zero",
       "shipmentWithoutOrder": "include_in_preview_and_set_distribution_zero_when_in_file_scope"
     },
