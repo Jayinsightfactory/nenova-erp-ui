@@ -17,6 +17,7 @@ async function main() {
   assert.equal(apply(free,hash).length,1); assert.equal(free.Sheets['15차'].D4.v,0);
   const a=adapt({name:'장미',color:'쉬머',qty:40,buyPrice:10800,sellPrice:11970,sellAmount:478800});
   assert.equal(a.name,'장미 · 쉬머'); assert.equal(a.costPrice,10800); assert.equal(a.price,11970); assert.equal(a.supply,478800); assert.equal(a.byBranch.신라호텔,40);
+  assert.equal(a.costSource,'shilla'); assert.ok(a.costSource.length<=10,'CostSource NVARCHAR(10) schema limit');
   assert.equal(adapt({name:'무료',qty:1,buyPrice:0,sellPrice:0,sellAmount:0}).costPrice,0);
   assert.equal(adapt({name:'누락',buyPrice:null}).costPrice,null);
   const good={major:'27',partnerCode:'shilla',verification:[{ok:true}]};

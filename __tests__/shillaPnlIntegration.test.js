@@ -72,7 +72,7 @@ function canonicalItem(overrides = {}) {
   return {
     name: '장미', unit: '단', qty: 1,
     price: 200, supply: 200, costPrice: 100,
-    costSource: 'shilla-excel', consigned: false,
+    costSource: 'shilla', consigned: false,
     byBranch: { 신라호텔: 1 }, ...overrides,
   };
 }
