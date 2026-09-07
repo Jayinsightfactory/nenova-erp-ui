@@ -704,6 +704,7 @@ Caroline | 2
   ★ "에콰" / "에콰도르" → 에콰도르장미
   ★ 섹션 헤더에 "중국 변경사항" 같이 국가 명시되면 그 섹션 전체 적용
 - custName: 반드시 입력 원문의 업체명을 보존한다. 전산 후보 이름으로 바꾸지 않는다.
+- inputName: 품종, 색상, 등급, 50cm/60cm 같은 길이·규격을 절대 생략하지 않는다.
 - custKey: 거래처 목록에서 가장 유사한 CustKey, 없으면 null
 - prodKey: 위 규칙대로 CountryFlower 추론 후 매칭. 못 찾으면 null (사용자 수동 매칭)
 
@@ -815,6 +816,7 @@ Caroline | 2
         return {
           inputName:   item.inputName,
           matchName:   item.matchName || item.inputName,
+          proposedProdKey: item.prodKey || null,
           qty:         item.qty || 1,
           unit: (item.unitExplicit || parsedExplicitUnit) ? normNatUnit(item.unit, '') : (matched.unit || item.unit || '박스'),
           unitExplicit: Boolean(item.unitExplicit || parsedExplicitUnit),
@@ -866,7 +868,7 @@ Caroline | 2
       callModel: async (tasks) => {
         const response = await client.messages.create({
           model: ORDER_PASTE_LLM_MODEL, max_tokens: 4000, system: PASTE_REVIEW_SYSTEM,
-          messages: [{ role: 'user', content: JSON.stringify({ tasks }) }],
+          messages: [{ role: 'user', content: JSON.stringify({ sourceText: cleanText, tasks }) }],
         }, { timeout: 30000, maxRetries: 0 });
         trackLLMCall({ userId: req.user?.userId || null, model: ORDER_PASTE_LLM_MODEL,
           inputTokens: response?.usage?.input_tokens || 0, outputTokens: response?.usage?.output_tokens || 0,
