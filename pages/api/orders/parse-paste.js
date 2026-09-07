@@ -814,6 +814,7 @@ Caroline | 2
         const parsedExplicitUnit = parseExplicitOrderUnit(item.unit);
         return {
           inputName:   item.inputName,
+          matchName:   item.matchName || item.inputName,
           qty:         item.qty || 1,
           unit: (item.unitExplicit || parsedExplicitUnit) ? normNatUnit(item.unit, '') : (matched.unit || item.unit || '박스'),
           unitExplicit: Boolean(item.unitExplicit || parsedExplicitUnit),
