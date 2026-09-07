@@ -5,6 +5,7 @@ import Head from 'next/head';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
 import { arrivalVarietyWeightActive, arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
 import { recalcArrivalCostWithFx } from '../lib/arrivalCostFxPreview.js';
+import { formatOrderWeekDateRange } from '../lib/orderWeekDate.js';
 
 const BASIS = [
   ['SOURCE', '엑셀 원식'],
@@ -322,6 +323,9 @@ export default function ArrivalCostPage() {
           <form className="upload-row" onSubmit={upload}>
             <label>연도 <input value={filters.orderYear} onChange={e => updateFilter('orderYear', e.target.value)} /></label>
             <label>기본 차수 <input placeholder="파일에 차수가 있으면 비워두세요" value={filters.orderWeek} onChange={e => updateFilter('orderWeek', e.target.value)} /></label>
+            {filters.orderWeek && (
+              <span className="muted">({formatOrderWeekDateRange(filters.orderYear, filters.orderWeek) || '차수 형식 확인 필요'})</span>
+            )}
             <input name="file" type="file" accept=".xlsx,.xls" />
             <button className="primary" disabled={uploading}>{uploading ? '업로드 중…' : '엑셀 업로드'}</button>
           </form>
@@ -335,6 +339,11 @@ export default function ArrivalCostPage() {
             <label>품목 <input value={filters.product} onChange={e => updateFilter('product', e.target.value)} placeholder="매칭 품목명 (예: 문라이트)" onKeyDown={e => e.key === 'Enter' && applySearch()} /></label>
             <label>농장 <input value={filters.farm} onChange={e => updateFilter('farm', e.target.value)} onKeyDown={e => e.key === 'Enter' && applySearch()} /></label>
             <label>표시 차수 <input value={filters.orderWeek} onChange={e => updateFilter('orderWeek', e.target.value)} placeholder="비우면 전 차수" onKeyDown={e => e.key === 'Enter' && applySearch()} /></label>
+            {filters.orderWeek && (
+              <span className="muted" title="선택한 차수의 실제 달력 날짜 (수요일 시작~화요일 종료)">
+                ({formatOrderWeekDateRange(filters.orderYear, filters.orderWeek) || '차수 형식 확인 필요'})
+              </span>
+            )}
             <button className="primary" onClick={applySearch} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
           </div>
           <div className="hint">품목은 붙여넣기 매칭데이터 기준으로 찾습니다. 아래 버튼은 전산 국가·품종(CountryFlower)입니다. 품목명 없이 품종 버튼만 눌러도 조회됩니다. 결과는 차수 → 국가 → 품종 → 품목명 → 농장별 원가 순입니다.</div>
@@ -403,7 +412,13 @@ export default function ArrivalCostPage() {
                 </tr></thead>
                 <tbody>{weekSections.flatMap(section => [
                   <tr key={`week-${section.orderWeek || 'none'}`} className="week-head">
-                    <td colSpan={5}>차수 {section.orderWeek || '-'}</td>
+                    <td colSpan={5}>
+                      차수 {section.orderWeek || '-'}
+                      {section.orderWeek && (() => {
+                        const range = formatOrderWeekDateRange(appliedFilters.orderYear, section.orderWeek);
+                        return range ? ` (${range})` : '';
+                      })()}
+                    </td>
                   </tr>,
                   ...section.groups.flatMap(group => [
                     <tr key={`${group.key}-head`} className="group-head" onClick={() => toggleGroup(group.key)}>

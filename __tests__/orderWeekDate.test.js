@@ -4,6 +4,7 @@ import {
   orderWeekToDateRange,
   formatOrderWeekDateRange,
   formatOrderWeekLabelWithDate,
+  parseWeekSeq,
 } from '../lib/orderWeekDate.js';
 
 const iso = (d) => d.toISOString().slice(0, 10);
@@ -32,6 +33,13 @@ assert.match(formatOrderWeekDateRange(2026, '01-01'), /^\d+\/\d+~\d+\/\d+$/, '01
 
 assert.equal(formatOrderWeekLabelWithDate(2026, '36-01', '36-02'), '2026 36-01~36-02 (9/2~9/8)');
 assert.equal(formatOrderWeekLabelWithDate(2026, '36-01'), '2026 36-01 (9/2~9/4)');
+
+// arrival-cost.js는 0채움 없는 'WW-S' 형식(예: '37-1')을 쓴다 — 둘 다 지원해야 한다.
+assert.deepEqual(parseWeekSeq('37-1'), { week: 37, seq: 1 });
+assert.deepEqual(parseWeekSeq('37-01'), { week: 37, seq: 1 });
+assert.equal(parseWeekSeq(''), null);
+assert.equal(parseWeekSeq('37'), null);
+assert.equal(formatOrderWeekDateRange(2026, '36-1'), '9/2~9/4', '0채움 없는 표기도 동일하게 계산돼야 한다.');
 
 // 매년 1차 시작일은 항상 수요일이어야 한다 (임의의 3개년 표본).
 for (const y of [2024, 2025, 2026, 2027, 2028]) {
