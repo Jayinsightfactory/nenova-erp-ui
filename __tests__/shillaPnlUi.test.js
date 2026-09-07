@@ -35,7 +35,17 @@ assert.match(pnl, /shillaDetailSaved/, 'only a saved Shilla detail exposes row m
 assert.match(pnl, /<VerifyPanel verification=\{detail\.verification\} items=\{detail\.items\} isShilla=\{isShilla\}/, 'Shilla verification explicitly suppresses ERP cross-check display');
 assert.match(pnl, /shillaMatching/, 'partner/year/detail changes are frozen while a Shilla mapping save is active');
 assert.match(pnl, /return true;[\s\S]*return false;/, 'list/detail loaders expose guarded refresh success without changing their request guards');
-assert.match(pnl, /품목 연결은 저장됐지만 화면을 다시 불러오지 못했습니다. 다시 조회해 주세요/, 'a post-save reload failure never falsely claims the mapping view refreshed');
+assert.match(pnl, /은 저장됐지만 화면을 다시 불러오지 못했습니다. 다시 조회해 주세요/, 'a post-save reload failure never falsely claims the mapping view refreshed');
+assert.match(pnl, /refreshAfterShillaMatch = async \(result = \{\}\)/, 'Shilla refresh receives the saved group result without bypassing existing list/detail guards');
+assert.match(pnl, /changedItemCount/, 'Shilla refresh reports the changed source-row count');
+assert.match(pnl, /autoMatchedCount/, 'Shilla refresh reports same-hotel automatic matches');
+assert.match(pnl, /affectedMajors/, 'Shilla refresh reports the affected Shilla weeks');
+assert.match(pnl, /const isUnlink = result\.prodKey === null/, 'a null saved Product key is treated as an unlink, not a match');
+assert.match(pnl, /isUnlink \? '품목 연결 해제' : '품목 연결'/, 'saved unlink statistics use the unlink action label');
+assert.match(pnl, /isUnlink \? '같은 호텔 동일 품목 연결 해제' : '같은 호텔 동일 품목 자동 연결'/, 'same-hotel group unlink statistics are distinct from auto-match statistics');
+assert.match(pnl, /원본 수량·단가·분배율은 변경하지 않았습니다/, 'group refresh keeps source quantity, price, and allocation immutable');
+assert.match(pnl, /전산 품목을 선택하고 같은 호텔 동일 품목에 함께 연결할 수 있습니다/, 'Shilla row action describes optional same-hotel matching');
+assert.doesNotMatch(pnl, /신라 저장 행 하나에만 전산 품목을 연결합니다/, 'Shilla row action must not advertise stale single-row-only behavior');
 
 assert.match(shillaMatchModal, /shillaPnlProductSearchUrl\(activeQuery\)/, 'Shilla mapping uses the canonical product-search GET');
 assert.match(shillaMatchModal, /readShillaPnlProductSearchResponse\(response\)/, 'Shilla product search reads GET results through the scoped helper');
@@ -44,6 +54,13 @@ assert.match(shillaMatchModal, /isCurrentShillaPnlSearchRequest/, 'Shilla search
 assert.doesNotMatch(shillaMatchModal, /\/api\/raum\/item-mapping\?q=/, 'Shilla mapping no longer uses the SQL-first global mapping search');
 assert.match(shillaMatchModal, /fetchRaumPnlJson\('\/api\/raum\/shilla-item-mapping'/, 'Shilla mapping uses its dedicated save API with safe response reading');
 assert.match(shillaMatchModal, /shillaPnlProductMatchSnapshot\(item\)/, 'Shilla mapping sends the complete source-row snapshot');
+assert.match(shillaMatchModal, /const \[applySameHotel, setApplySameHotel\] = useState\(true\)/, 'same-hotel matching is enabled by default');
+assert.match(shillaMatchModal, /applySameHotel,\s*expected: shillaPnlProductMatchSnapshot\(item\)/, 'the dedicated POST sends only the strict same-hotel flag alongside the existing row snapshot');
+assert.match(shillaMatchModal, /같은 호텔 동일 품목 함께 연결/, 'the modal exposes the same-hotel group toggle');
+assert.match(shillaMatchModal, /선택 연도 신라호텔에서 원본 품목명과 단위가 같은 저장 행에만 적용합니다/, 'the modal states its exact year/hotel/name/unit scope');
+assert.match(shillaMatchModal, /같은 호텔 동일 품목 연결 해제/, 'group unlink is visibly distinct from a one-row unlink');
+assert.match(shillaMatchModal, /window\.confirm\('선택 연도 신라호텔에서 원본 품목명과 단위가 같은 행의 연결도 함께 해제합니다/, 'group unlink requires an explicit confirmation');
+assert.doesNotMatch(shillaMatchModal, /(?:Qty|SalePrice|SaleAmount|CostPrice)\s*:/, 'same-hotel UI does not add source quantity or price writes');
 assert.match(shillaMatchModal, /product\.DisplayName, product\.FlowerName, product\.CounName, product\.OutUnit/, 'search candidates show disambiguating product fields without changing the source unit');
 assert.doesNotMatch(shillaMatchModal, /fetch\('\/api\/raum\/item-mapping', \{[\s\S]*method: 'POST'/, 'Shilla mapping must never save through global item mapping');
 

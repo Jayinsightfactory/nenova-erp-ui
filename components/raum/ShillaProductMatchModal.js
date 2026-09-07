@@ -27,6 +27,7 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [applySameHotel, setApplySameHotel] = useState(true);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -39,6 +40,7 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
     setQuery(String(item?.name ?? item?.Name ?? ''));
     setProducts([]);
     setHasSearched(false);
+    setApplySameHotel(true);
     setError('');
     setSearching(false);
     setSaving(false);
@@ -76,6 +78,8 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
       setError('저장된 신라 행 식별자가 없어 품목을 연결할 수 없습니다.');
       return;
     }
+    if (prodKey == null && applySameHotel && typeof window !== 'undefined'
+      && !window.confirm('선택 연도 신라호텔에서 원본 품목명과 단위가 같은 행의 연결도 함께 해제합니다. 계속할까요?')) return;
     requestRef.current += 1;
     setSearching(false);
     setSaving(true);
@@ -92,6 +96,7 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
           pnlKey: Number(edit.pnlKey),
           itemKey,
           prodKey,
+          applySameHotel,
           expected: shillaPnlProductMatchSnapshot(item),
         }),
       }, { operation: 'save' });
@@ -107,7 +112,7 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
   const currentKey = productKey(item);
   return <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', background: 'rgba(15,23,42,.45)', padding: 18 }} role="dialog" aria-modal="true" aria-label="신라 품목 연결">
     <div style={{ width: 'min(620px, 100%)', maxHeight: 'min(720px, 100%)', overflow: 'auto', background: '#fff', borderRadius: 8, padding: 14, boxShadow: '0 18px 45px rgba(15,23,42,.3)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><b style={{ fontSize: 16 }}>신라 저장 행 품목 연결</b><span style={{ color: '#64748b', fontSize: 11 }}>이 행에만 저장됩니다.</span></div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><b style={{ fontSize: 16 }}>신라 저장 행 품목 연결</b><span style={{ color: '#64748b', fontSize: 11 }}>{applySameHotel ? '같은 호텔 동일 품목에도 함께 저장됩니다.' : '이 행에만 저장됩니다.'}</span></div>
       <div style={{ marginTop: 8, padding: '7px 8px', background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 4, fontSize: 12, lineHeight: 1.55 }}>
         <b>{item.name ?? item.Name}</b> · {(item.unit ?? item.Unit) || '단위 미확인'} · 수량 {item.qty ?? item.Qty ?? '—'}<br />
         원본 판매가 {item.salePrice ?? item.SalePrice ?? item.price ?? item.Price ?? '—'} · 현재 연결 {currentKey ? `${(item.prodName ?? item.ProdName) || `#${currentKey}`} (#${currentKey})` : '미연결'}
@@ -116,6 +121,10 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
         <input value={query} onChange={event => { requestRef.current += 1; setQuery(event.target.value); setProducts([]); setHasSearched(false); setError(''); setSearching(false); }} onKeyDown={event => runShillaPnlSearchEnter(event, search)} disabled={saving} placeholder="전산 품목명 검색" style={{ flex: '1 1 auto', height: 28, border, borderRadius: 4, padding: '0 7px' }} />
         <button type="button" style={button} disabled={saving || searching || !query.trim()} onClick={() => search(query)}>{searching ? '검색 중…' : '검색'}</button>
       </div>
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 8, color: '#334155', fontSize: 12, lineHeight: 1.45 }}>
+        <input type="checkbox" checked={applySameHotel} disabled={saving} onChange={event => setApplySameHotel(event.target.checked)} />
+        <span><b>같은 호텔 동일 품목 함께 연결</b><br />선택 연도 신라호텔에서 원본 품목명과 단위가 같은 저장 행에만 적용합니다.</span>
+      </label>
       {error ? <div role="alert" style={{ color: '#b91c1c', fontSize: 12, marginTop: 7 }}>{error}</div> : null}
       <div style={{ marginTop: 8, borderTop: border }}>
         {products.map(product => {
@@ -131,7 +140,7 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
         {!searching && !hasSearched && query ? <div style={{ padding: '9px 2px', color: '#64748b', fontSize: 12 }}>검색어를 입력하고 검색을 누르세요.</div> : null}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-        <button type="button" style={{ ...button, color: '#b91c1c' }} disabled={saving || !currentKey} onClick={() => save(null)}>연결 해제</button>
+        <button type="button" style={{ ...button, color: '#b91c1c' }} disabled={saving || !currentKey} onClick={() => save(null)}>{applySameHotel ? '같은 호텔 동일 품목 연결 해제' : '연결 해제'}</button>
         <button type="button" style={button} disabled={saving} onClick={onClose}>닫기</button>
       </div>
     </div>

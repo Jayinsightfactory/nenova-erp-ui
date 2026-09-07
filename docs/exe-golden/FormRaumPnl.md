@@ -73,6 +73,12 @@
 - 같은 ProdKey+단위는 차수별 매입단가 화면에서 함께 보지만 신라 가격과 라움·초이문 공통 가격은 별도 저장한다. 단-5스팀/8스팀 등을 단으로 추정 환산하지 않는다.
 - 실행형 회귀: `shillaPnlProductMatch.test.js`, `shillaPnlCombinedPurchaseCost.test.js`, `shillaPnlIntegration.test.js`. 운영 검증은 사용자 자료를 임의 변경하지 않는 화면 조회·검색으로 한정하며 실제 연결 시험 수행 여부는 최종 보고에 구분한다.
 
+### 동일 호텔 자동 연결 후속 — 2026-09-07
+
+- 사용자 요청으로 명시 옵션에서만 선택연도·신라·정확 품목명/단위 그룹의 빈 연결을 함께 채운다. 다른 기존 연결 충돌은 전체 취소한다. 신라 엑셀 preview/save도 유일한 활성 품목 연결을 같은 helper로 재사용한다.
+- 기존 단일행 경로는 옵션 생략/false에서 유지한다. 공통 연도 잠금 후 부모/행/Product 순서로 재검증하며, GET에는 자동 쓰기를 추가하지 않는다.
+- 원본명·수량·금액·단가·비율과 ERP 원장은 그대로다. dnSpy의 주문/분배/재고 경로를 추가 호출하지 않는다. `shillaPnlHotelMatch.test.js`가 다른호텔/연도/단위/custom/충돌/해제/실패rollback 및 원본값 불변을 검사한다.
+
 - `ViewOrder`: 선택 연도·차수·라움 `CustKey`·품목이 보이는지
 - `OrderDetail`: `BoxQuantity/BunchQuantity/SteamQuantity/OutQuantity/EstQuantity`가 품목 단위 규칙으로 채워지는지
 - `ShipmentMaster`: 신규 주문 시 빈 마스터만 생성되고 기존 `ShipmentDetail`이 없는지

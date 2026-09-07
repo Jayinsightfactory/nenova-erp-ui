@@ -1752,7 +1752,7 @@ export default function RaumPnlPage() {
       major: detail.meta.major,
     });
   };
-  const refreshAfterShillaMatch = async () => {
+  const refreshAfterShillaMatch = async (result = {}) => {
     const pnlKey = Number(shillaMatchEdit?.pnlKey);
     if (partnerCodeRef.current !== 'shilla' || !Number.isInteger(pnlKey) || pnlKey <= 0) return false;
     setShillaMatchEdit(null);
@@ -1760,9 +1760,18 @@ export default function RaumPnlPage() {
     const detailLoaded = partnerCodeRef.current === 'shilla'
       ? await openDetail(pnlKey, { keepMessage: true })
       : false;
+    const changedItemCount = Number.isInteger(Number(result.changedItemCount)) ? Number(result.changedItemCount) : 1;
+    const autoMatchedCount = Number.isInteger(Number(result.autoMatchedCount)) ? Number(result.autoMatchedCount) : 0;
+    const affectedMajors = Array.isArray(result.affectedMajors)
+      ? result.affectedMajors.filter(major => Number.isInteger(Number(major)) && Number(major) > 0).map(major => `${Number(major)}차`)
+      : [];
+    const isUnlink = result.prodKey === null;
+    const matchAction = isUnlink ? '품목 연결 해제' : '품목 연결';
+    const sameHotelAction = isUnlink ? '같은 호텔 동일 품목 연결 해제' : '같은 호텔 동일 품목 자동 연결';
+    const matchSummary = `${matchAction} ${changedItemCount}건${autoMatchedCount ? ` · ${sameHotelAction} ${autoMatchedCount}건` : ''}${affectedMajors.length ? ` · 적용 차수 ${affectedMajors.join(', ')}` : ''}`;
     setMessage(listLoaded && detailLoaded
-      ? '신라 저장 행의 품목 연결을 갱신했습니다. 원본 수량·단가·분배율은 변경하지 않았습니다.'
-      : '품목 연결은 저장됐지만 화면을 다시 불러오지 못했습니다. 다시 조회해 주세요');
+      ? `신라 ${matchSummary}을 갱신했습니다. 원본 수량·단가·분배율은 변경하지 않았습니다.`
+      : `${matchSummary}은 저장됐지만 화면을 다시 불러오지 못했습니다. 다시 조회해 주세요`);
     return listLoaded && detailLoaded;
   };
 
@@ -2392,7 +2401,7 @@ export default function RaumPnlPage() {
                       </td> : (shillaDetailSaved ? <td style={{ ...st.td, whiteSpace: 'normal', minWidth: 140 }}>
                         {it.isCustom || it.isImageRow || Number(it.itemKey ?? it.ItemKey) <= 0 ? <span style={{ color: '#94a3b8' }}>—</span> : <>
                           <span style={{ color: Number(it.prodKey ?? it.ProdKey) > 0 ? '#166534' : '#b91c1c', fontWeight: 600 }}>{Number(it.prodKey ?? it.ProdKey) > 0 ? `${(it.prodName ?? it.ProdName) || `#${it.prodKey ?? it.ProdKey}`}` : '미연결'}</span>
-                          <button type="button" style={{ marginLeft: 5, padding: '0 5px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: shillaMatching ? 'not-allowed' : 'pointer', fontSize: 11, color: '#475569' }} disabled={shillaMatching} title="신라 저장 행 하나에만 전산 품목을 연결합니다." onClick={() => openShillaMatch(it)}>{Number(it.prodKey ?? it.ProdKey) > 0 ? '수정' : '연결'}</button>
+                          <button type="button" style={{ marginLeft: 5, padding: '0 5px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: shillaMatching ? 'not-allowed' : 'pointer', fontSize: 11, color: '#475569' }} disabled={shillaMatching} title="전산 품목을 선택하고 같은 호텔 동일 품목에 함께 연결할 수 있습니다." onClick={() => openShillaMatch(it)}>{Number(it.prodKey ?? it.ProdKey) > 0 ? '수정' : '연결'}</button>
                         </>}
                       </td> : null)}
                       <td style={{ ...st.td, textAlign: 'center' }}>
