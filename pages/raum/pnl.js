@@ -12,6 +12,7 @@ import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
 import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
 import ShillaProductMatchModal from '../../components/raum/ShillaProductMatchModal';
+import ShillaBulkMatchModal from '../../components/raum/ShillaBulkMatchModal';
 import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHttp';
 import { createRaumPnlRequestGuard, isRaumPnlPartnerMatch } from '../../lib/raumPnlRequestGuard';
 
@@ -1183,6 +1184,7 @@ export default function RaumPnlPage() {
   const [detail, setDetail] = useState(null);
   const [shillaMatchEdit, setShillaMatchEdit] = useState(null);
   const [shillaMatching, setShillaMatching] = useState(false);
+  const [shillaBulkMatchOpen, setShillaBulkMatchOpen] = useState(false);
   const [costHistoryRows, setCostHistoryRows] = useState([]);
   const [costHistoryState, setCostHistoryState] = useState({ loading: false, error: '' });
   const [costHistoryRevision, setCostHistoryRevision] = useState(0);
@@ -1241,8 +1243,8 @@ export default function RaumPnlPage() {
   const selectPartner = (code) => {
     const next = resolvePnlPartner(code).code;
     if (next === partnerCode) return;
-    if (uploading || saving || shillaMatching) {
-      setError(shillaMatching ? '신라 품목 연결이 끝난 뒤 거래처를 바꾸세요.' : '업로드 또는 저장이 끝난 뒤 거래처를 바꾸세요.');
+    if (uploading || saving || shillaMatching || shillaBulkMatchOpen) {
+      setError(shillaMatching || shillaBulkMatchOpen ? '신라 품목 연결이 끝난 뒤 거래처를 바꾸세요.' : '업로드 또는 저장이 끝난 뒤 거래처를 바꾸세요.');
       return;
     }
     if ((detail?.unsaved || bulkPreview) && typeof window !== 'undefined'
@@ -1269,8 +1271,8 @@ export default function RaumPnlPage() {
   const shillaMatchedCount = shillaStoredItems.filter(item => Number(item.prodKey ?? item.ProdKey) > 0).length;
 
   const changeImportYear = (value) => {
-    if (uploading || saving || shillaMatching) {
-      setError(shillaMatching ? '신라 품목 연결이 끝난 뒤 결산 연도를 바꾸세요.' : '업로드 또는 저장이 끝난 뒤 결산 연도를 바꾸세요.');
+    if (uploading || saving || shillaMatching || shillaBulkMatchOpen) {
+      setError(shillaMatching || shillaBulkMatchOpen ? '신라 품목 연결이 끝난 뒤 결산 연도를 바꾸세요.' : '업로드 또는 저장이 끝난 뒤 결산 연도를 바꾸세요.');
       return;
     }
     const next = String(value || '').replace(/[^0-9]/g, '').slice(0, 4);
@@ -1774,6 +1776,23 @@ export default function RaumPnlPage() {
       : `${matchSummary}은 저장됐지만 화면을 다시 불러오지 못했습니다. 다시 조회해 주세요`);
     return listLoaded && detailLoaded;
   };
+  const openShillaBulkMatch = () => {
+    if (!isShilla || shillaMatching || shillaBulkMatchOpen) return;
+    if (!/^\d{4}$/.test(importYear)) return setError('신라 결산 연도를 네 자리로 입력하세요.');
+    if (detail?.unsaved || bulkPreview) return setError('저장하지 않은 신라 상세 또는 업로드 미리보기가 있어 일괄 연결을 열 수 없습니다. 먼저 저장 또는 취소하세요.');
+    setError(''); setMessage(''); setShillaBulkMatchOpen(true);
+  };
+  const refreshAfterShillaBulkMatch = async (result = {}) => {
+    const pnlKey = Number(detail?.meta?.pnlKey);
+    const listLoaded = await loadList();
+    const detailLoaded = partnerCodeRef.current === 'shilla' && !detail?.unsaved && Number.isInteger(pnlKey) && pnlKey > 0
+      ? await openDetail(pnlKey, { keepMessage: true }) : true;
+    const majors = Array.isArray(result.affectedMajors) ? result.affectedMajors.map(major => `${major}차`).join(', ') : '';
+    setMessage(listLoaded && detailLoaded
+      ? `신라 미매칭 품목 ${Number(result.changedGroupCount || 0)}그룹 · ${Number(result.changedItemCount || 0)}행을 연결했습니다${majors ? ` · 적용 차수 ${majors}` : ''}.`
+      : '일괄 연결은 저장됐지만 목록 또는 상세를 다시 불러오지 못했습니다. 다시 조회해 주세요.');
+    return listLoaded && detailLoaded;
+  };
 
   // ── 수동 사입 지정/해제 — DB 저장(다음 업로드 자동 적용), 같은 품목명 행 전부 반영 ──
   const markConsigned = async (name, on) => {
@@ -2019,7 +2038,7 @@ export default function RaumPnlPage() {
           <button
             key={p.code}
             type="button"
-            disabled={uploading || saving || shillaMatching}
+            disabled={uploading || saving || shillaMatching || shillaBulkMatchOpen}
             onClick={() => selectPartner(p.code)}
             style={{
               ...st.btn,
@@ -2027,7 +2046,7 @@ export default function RaumPnlPage() {
               background: partnerCode === p.code ? '#1d4ed8' : '#fff',
               color: partnerCode === p.code ? '#fff' : '#1e293b',
               borderColor: partnerCode === p.code ? '#1d4ed8' : '#cbd5e1',
-              cursor: uploading || saving || shillaMatching ? 'not-allowed' : 'pointer',
+              cursor: uploading || saving || shillaMatching || shillaBulkMatchOpen ? 'not-allowed' : 'pointer',
             }}
           >{p.label}</button>
         ))}
@@ -2075,6 +2094,12 @@ export default function RaumPnlPage() {
         onSaved={refreshAfterShillaMatch}
         onClose={() => { if (!shillaMatching) setShillaMatchEdit(null); }}
       /> : null}
+      {shillaBulkMatchOpen ? <ShillaBulkMatchModal
+        orderYear={importYear}
+        onBusyChange={setShillaMatching}
+        onSaved={refreshAfterShillaBulkMatch}
+        onClose={() => { if (!shillaMatching) setShillaBulkMatchOpen(false); }}
+      /> : null}
 
       <div style={st.bar}>
         <input
@@ -2084,11 +2109,12 @@ export default function RaumPnlPage() {
           style={{ display: 'none' }}
           onChange={e => onUpload(e.target.files?.[0])}
         />
-        <button style={st.btnPrimary} disabled={uploading || shillaMatching} onClick={() => fileRef.current?.click()}>
+        <button style={st.btnPrimary} disabled={uploading || shillaMatching || shillaBulkMatchOpen} onClick={() => fileRef.current?.click()}>
           {uploading ? '분석 중…' : isShilla ? '📤 신라 원본 엑셀 미리보기' : '📤 견적서 업로드'}
         </button>
         {retryUploadFile ? <button type="button" style={st.btn} disabled={uploading} onClick={() => onUpload(retryUploadFile)}>다시 미리보기</button> : null}
-        {isShilla ? <label style={{ fontSize: 12.5 }}>결산 연도 <input aria-label="신라 결산 연도" value={importYear} disabled={uploading || saving || shillaMatching} onChange={event => changeImportYear(event.target.value)} inputMode="numeric" placeholder="2026" style={{ ...st.input, width: 62, textAlign: 'center' }} /></label> : null}
+        {isShilla ? <label style={{ fontSize: 12.5 }}>결산 연도 <input aria-label="신라 결산 연도" value={importYear} disabled={uploading || saving || shillaMatching || shillaBulkMatchOpen} onChange={event => changeImportYear(event.target.value)} inputMode="numeric" placeholder="2026" style={{ ...st.input, width: 62, textAlign: 'center' }} /></label> : null}
+        {isShilla ? <button type="button" style={st.btnPrimary} disabled={uploading || saving || shillaMatching || shillaBulkMatchOpen} onClick={openShillaBulkMatch}>미매칭 품목 일괄 연결</button> : null}
         {!isShilla ? <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button> : null}
         {detail ? (
           <>

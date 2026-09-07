@@ -79,6 +79,13 @@
 - 기존 단일행 경로는 옵션 생략/false에서 유지한다. 공통 연도 잠금 후 부모/행/Product 순서로 재검증하며, GET에는 자동 쓰기를 추가하지 않는다.
 - 원본명·수량·금액·단가·비율과 ERP 원장은 그대로다. dnSpy의 주문/분배/재고 경로를 추가 호출하지 않는다. `shillaPnlHotelMatch.test.js`가 다른호텔/연도/단위/custom/충돌/해제/실패rollback 및 원본값 불변을 검사한다.
 
+### 미매칭 일괄 연결 — 2026-09-07
+
+- 같은 호텔 자동 연결을 여러 품목에 대해 한 번에 명시 적용한다. GET은 원본명+단위별 미연결 그룹만 반환하며, POST는 선택 그룹의 구성과 연결 상태를 잠금 재조회 후 모두 성공하거나 모두 롤백한다.
+- `FormOrderAdd.GetDataProduct`의 Product 식별키와 단위를 다시 읽어 확인했다. 이 기능은 결산용 연결키만 바꾸므로 EXE 주문·확정·재고 프로시저를 호출하지 않는다. 원본 수량과 판매가/매입가, 금액, 기존 연결은 보존한다.
+- 실제 읽기 근거: 직전 운영 반영 5af40aa8의 신라 35차 6개 미연결 품목과 한글 쉬머 검색의 국가·길이별 후보를 확인했다. 독립 운영 SQL 연결은 없으며, 실제 자료 저장 시험과 읽기 확인을 구분하여 보고한다.
+- 회귀: `shillaPnlBulkMatch.test.js`의 연도/호텔/단위/완전한 그룹 snapshot/활성 Product/부분 실패 롤백, `shillaPnlBulkMatchUi.test.js`의 선택·검색·저장 확인과 실패 안내.
+
 - `ViewOrder`: 선택 연도·차수·라움 `CustKey`·품목이 보이는지
 - `OrderDetail`: `BoxQuantity/BunchQuantity/SteamQuantity/OutQuantity/EstQuantity`가 품목 단위 규칙으로 채워지는지
 - `ShipmentMaster`: 신규 주문 시 빈 마스터만 생성되고 기존 `ShipmentDetail`이 없는지
