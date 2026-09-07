@@ -28,6 +28,7 @@ function loadApi() {
   const state = {
     calls: [], handler: async () => ({ recordset: [] }), rolledBack: 0,
     committedItemProdKey: null, committedParentWrites: 0, failParentWrite: false,
+    lockResult: 0,
   };
   const db = {
     sql: new Proxy({}, { get: (_target, key) => String(key) }),
@@ -36,6 +37,7 @@ function loadApi() {
       try {
         const result = await callback(async (statement, params) => {
           state.calls.push({ statement, params });
+          if (/sp_getapplock/i.test(statement)) return { recordset: [{ LockResult: state.lockResult }] };
           if (/^\s*UPDATE\s+WebRaumPnlItem\b/i.test(statement)) {
             staged.itemProdKey = params.prodKey.value;
             return { recordset: [] };
@@ -109,7 +111,16 @@ async function main() {
     assert.throws(() => api.normalizeShillaPnlProductMatchRequest(request({ prodKey })), /전산 품목번호/);
   }
   assert.deepEqual(api.normalizeShillaPnlProductMatchRequest(request({ prodKey: null })).prodKey, null);
+  assert.equal(api.normalizeShillaPnlProductMatchRequest(request({ applySameHotel: true })).applySameHotel, true);
+  assert.equal(api.normalizeShillaPnlProductMatchRequest(request({ applySameHotel: false })).applySameHotel, false);
+  for (const applySameHotel of ['true', 1, null, {}]) {
+    assert.throws(() => api.normalizeShillaPnlProductMatchRequest(request({ applySameHotel })), /true 또는 false/);
+  }
   assert.throws(() => api.normalizeShillaPnlProductMatchRequest(request({ itemKey: 457 })), /품목 연결 기준/);
+
+  state.lockResult = -1;
+  await assert.rejects(api.saveShillaPnlProductMatch(request()), error => error.code === 'SHILLA_YEAR_LOCK_UNAVAILABLE');
+  state.lockResult = 0;
 
   const httpCalls = [];
   const httpHandler = loadHttpHandler(async payload => {
@@ -138,11 +149,81 @@ async function main() {
     return { recordset: [] };
   };
   const saved = await api.saveShillaPnlProductMatch({ ...request(), actor: 'x'.repeat(80) });
-  assert.deepEqual(saved, { changed: true, pnlKey: 123, itemKey: 456, prodKey: 3170 });
+  assert.deepEqual(saved, {
+    changed: true, pnlKey: 123, itemKey: 456, prodKey: 3170,
+    changedItemCount: 1, affectedMajors: [35], autoMatchedCount: 0,
+  });
   const writes = state.calls.filter(call => /^\s*UPDATE\b/i.test(call.statement));
   assert.equal(writes.length, 2, 'match writes exactly the source-row ProdKey and scoped parent timestamp');
   assert.equal(writes[0].params.prodKey.value, 3170);
   assert.equal(writes[1].params.actor.value.length, 50, 'UpdatedBy NVARCHAR(50) receives a bounded actor');
+
+  // Explicit same-hotel scope normalizes only whitespace and fills blank ordinary
+  // rows.  Product #181 is the test-only actual 송이 candidate; no source qty or
+  // unit is ever rewritten.
+  const groupRows = [
+    { ...current, PnlKey: 123, MajorWeek: 35, ProdKey: null },
+    { ...current, PnlKey: 124, MajorWeek: 30, ItemKey: 789, ItemName: '  호접   · 화이트 ', Unit: ' 8스팀 ', ProdKey: null },
+    { ...current, PnlKey: 125, MajorWeek: 29, ItemKey: 790, ItemName: '호접 · 화이트', Unit: '박스', ProdKey: null },
+    { ...current, PnlKey: 126, MajorWeek: 28, ItemKey: 791, ItemName: '호접 · 화이트', Unit: '8스팀', IsCustom: 1, ProdKey: null },
+  ];
+  state.handler = async statement => {
+    if (statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.groupMasters) {
+      return { recordset: [123, 124, 125, 126].map((PnlKey, index) => ({ PnlKey, MajorWeek: [35, 30, 29, 28][index] })) };
+    }
+    if (statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.groupItems) return { recordset: groupRows };
+    if (statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.product) return { recordset: [{ ProdKey: 181 }] };
+    return { recordset: [] };
+  };
+  state.calls.length = 0;
+  const grouped = await api.saveShillaPnlProductMatch({ ...request({ prodKey: 181, applySameHotel: true }), actor: 'tester' });
+  assert.deepEqual(grouped, {
+    changed: true, pnlKey: 123, itemKey: 456, prodKey: 181,
+    changedItemCount: 2, affectedMajors: [30, 35], autoMatchedCount: 1,
+  });
+  const groupWrites = state.calls.filter(call => call.statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.itemWrite);
+  assert.deepEqual(groupWrites.map(call => [call.params.pnlKey.value, call.params.itemKey.value, call.params.prodKey.value]), [[123, 456, 181], [124, 789, 181]]);
+  assert.ok(state.calls.findIndex(call => call.statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.yearLock) < state.calls.findIndex(call => call.statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.groupMasters));
+  assert.ok(state.calls.findIndex(call => call.statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.groupMasters) < state.calls.findIndex(call => call.statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.groupItems));
+  assert.ok(state.calls.findIndex(call => call.statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.groupItems) < state.calls.findIndex(call => call.statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.product));
+  assert.equal(groupRows[0].Qty, 324); assert.equal(groupRows[0].Unit, '8스팀');
+
+  // A current-key reselect still fills an unmatched companion. A different
+  // existing key is an atomic conflict, including when trying group unlink.
+  groupRows[0].ProdKey = 181;
+  groupRows[1].ProdKey = null;
+  state.calls.length = 0;
+  const groupedNoopAnchor = await api.saveShillaPnlProductMatch({ ...request({ prodKey: 181, applySameHotel: true, expected: expected({ prodKey: 181 }) }), actor: 'tester' });
+  assert.equal(groupedNoopAnchor.changedItemCount, 1);
+  assert.equal(groupedNoopAnchor.autoMatchedCount, 1);
+  groupRows[1].ProdKey = 3170;
+  state.calls.length = 0;
+  await assert.rejects(api.saveShillaPnlProductMatch({ ...request({ prodKey: 181, applySameHotel: true, expected: expected({ prodKey: 181 }) }), actor: 'tester' }), error => error.code === 'GROUP_MAPPING_CONFLICT');
+  await assert.rejects(api.saveShillaPnlProductMatch({ ...request({ prodKey: null, applySameHotel: true, expected: expected({ prodKey: 181 }) }), actor: 'tester' }), error => error.code === 'GROUP_MAPPING_CONFLICT');
+  assert.equal(state.calls.filter(call => /^\s*UPDATE\b/i.test(call.statement)).length, 0, 'conflicting group never writes a partial mapping');
+
+  // Group unlink clears every same-key row. A parent audit write after the item
+  // writes is still inside the transaction: failure leaves the whole group out.
+  groupRows[1].ProdKey = 181;
+  state.committedItemProdKey = 999;
+  const committedParentsBeforeUnlink = state.committedParentWrites;
+  state.failParentWrite = true;
+  state.calls.length = 0;
+  await assert.rejects(api.saveShillaPnlProductMatch({ ...request({ prodKey: null, applySameHotel: true, expected: expected({ prodKey: 181 }) }), actor: 'tester' }), /simulated parent write failure/);
+  assert.equal(state.committedItemProdKey, 999, 'multi-row group unlink rolls back before any ProdKey is committed');
+  assert.equal(state.committedParentWrites, committedParentsBeforeUnlink, 'failed group unlink commits no parent audit write');
+  state.failParentWrite = false;
+  state.calls.length = 0;
+  const unlinkedGroup = await api.saveShillaPnlProductMatch({ ...request({ prodKey: null, applySameHotel: true, expected: expected({ prodKey: 181 }) }), actor: 'tester' });
+  assert.deepEqual(unlinkedGroup.affectedMajors, [30, 35]);
+  assert.equal(unlinkedGroup.changedItemCount, 2);
+  assert.equal(unlinkedGroup.autoMatchedCount, 0);
+  state.handler = async statement => {
+    if (statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.master) return { recordset: [{ PnlKey: 123 }] };
+    if (statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.item) return { recordset: [current] };
+    if (statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.product) return { recordset: [{ ProdKey: 3170 }] };
+    return { recordset: [] };
+  };
 
   // Same saved mapping is a successful no-op: product can still be validated but no item/parent write occurs.
   current.ProdKey = 3170;

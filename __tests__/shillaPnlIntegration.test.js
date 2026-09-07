@@ -13,7 +13,9 @@ function loadRaumPnl() {
     queryCalls: [],
     transactionCalls: [],
     learnedCalls: [],
+    queryHandler: async () => ({ recordset: [] }),
     transactionHandler: async () => ({ recordset: [] }),
+    lockResult: 0,
   };
   const partner = code => {
     const key = String(code == null || code === '' ? 'raum' : code).trim().toLowerCase();
@@ -24,10 +26,11 @@ function loadRaumPnl() {
     './db': {
       query: async (statement, params) => {
         state.queryCalls.push({ statement, params });
-        return { recordset: [] };
+        return state.queryHandler(statement, params);
       },
       withTransaction: async callback => callback(async (statement, params) => {
         state.transactionCalls.push({ statement, params });
+        if (/sp_getapplock/i.test(statement)) return { recordset: [{ LockResult: state.lockResult }] };
         return state.transactionHandler(statement, params);
       }),
       sql: new Proxy({}, { get: (_target, property) => String(property) }),
@@ -153,6 +156,10 @@ async function main() {
   );
   assert.equal(state.queryCalls.length, 0, 'Shilla 비율 누락은 DB 접근 전에 거부되어야 한다.');
 
+  state.lockResult = -1;
+  await assert.rejects(api.saveRaumPnlImportBatch({ batches: [baseBatch] }), error => error.code === 'SHILLA_YEAR_LOCK_UNAVAILABLE');
+  state.lockResult = 0;
+
   let masterInsert;
   let itemInsert;
   state.transactionHandler = async (statement, params) => {
@@ -191,6 +198,67 @@ async function main() {
   assert.doesNotMatch(existingUpdate.statement, /NenovaPct/, '재가져오기는 기존 Shilla 마스터 비율을 덮어쓰면 안 된다.');
   assert.equal(Object.prototype.hasOwnProperty.call(existingUpdate.params, 'pct'), false);
   assert.equal(state.learnedCalls.length, 0);
+
+  // Preview and final save share the same unique-active mapping inference. The
+  // candidate is a saved Shilla row only; other hotel/year, deleted Product and
+  // a conflicting key never enter the pure helper's candidate result.
+  const uploadBatch = {
+    ...baseBatch,
+    major: '08',
+    items: [canonicalItem({ name: '송이 특', unit: '단', qty: 0, price: 0, supply: 0, prodKey: null })],
+  };
+  state.queryHandler = async statement => {
+    if (statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.preview) {
+      return { recordset: [{ OrderYear: '2026', ItemName: ' 송이  특 ', Unit: ' 단 ', IsCustom: 0, ProdKey: 181 }] };
+    }
+    return { recordset: [] };
+  };
+  const preview = await api.prepareRaumPnlImportPreview([uploadBatch]);
+  assert.equal(preview.batches[0].items[0].prodKey, 181);
+  assert.equal(preview.batches[0].autoMatchedCount, 1);
+  assert.equal(preview.batches[0].items[0].qty, 0);
+  assert.equal(preview.batches[0].items[0].unit, '단');
+
+  let importedProdKey = null;
+  state.transactionCalls.length = 0;
+  state.transactionHandler = async (statement, params) => {
+    if (statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.masters) return { recordset: [{ PnlKey: 70 }] };
+    if (statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.items) {
+      return { recordset: [{ ItemName: '송이 특', Unit: '단', IsCustom: 0, ProdKey: 181 }] };
+    }
+    if (statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.product) return { recordset: [{ ProdKey: params.prodKey.value }] };
+    if (/SELECT \* FROM WebRaumPnl WITH/.test(statement)) return { recordset: [] };
+    if (/INSERT INTO WebRaumPnl \(/.test(statement)) return { recordset: [{ PnlKey: 88 }] };
+    if (/INSERT INTO WebRaumPnlItem/.test(statement)) importedProdKey = params.pk.value;
+    return { recordset: [] };
+  };
+  const imported = await api.saveRaumPnlImportBatch({
+    batches: preview.batches, sourceFile: 'shilla-unique.xlsx', actor: 'tester', expectedSnapshots: preview.snapshots,
+  });
+  assert.equal(importedProdKey, 181, 'unique active same-hotel mapping reaches the new upload only');
+  assert.equal(imported[0].autoMatchedCount, 1);
+  const lockIndex = state.transactionCalls.findIndex(call => call.statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.yearLock);
+  const masterIndex = state.transactionCalls.findIndex(call => call.statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.masters);
+  const itemsIndex = state.transactionCalls.findIndex(call => call.statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.items);
+  const productIndex = state.transactionCalls.findIndex(call => call.statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.product);
+  assert.ok(lockIndex < masterIndex && masterIndex < itemsIndex && itemsIndex < productIndex, 'import locking order is year → master → items → Product');
+
+  // A different unique active candidate after preview changes the fingerprint;
+  // the transaction aborts before INSERT/UPDATE, rather than guessing or
+  // partially replacing the uploaded settlement.
+  let staleWrite = false;
+  state.transactionHandler = async (statement, params) => {
+    if (statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.masters) return { recordset: [{ PnlKey: 70 }] };
+    if (statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.items) return { recordset: [{ ItemName: '송이 특', Unit: '단', IsCustom: 0, ProdKey: 3170 }] };
+    if (statement === api.SHILLA_HOTEL_IMPORT_MATCH_SQL.product) return { recordset: [{ ProdKey: params.prodKey.value }] };
+    if (/SELECT \* FROM WebRaumPnl WITH/.test(statement)) return { recordset: [] };
+    if (/INSERT|UPDATE|DELETE/i.test(statement)) staleWrite = true;
+    return { recordset: [] };
+  };
+  await assert.rejects(api.saveRaumPnlImportBatch({
+    batches: preview.batches, sourceFile: 'shilla-stale.xlsx', actor: 'tester', expectedSnapshots: preview.snapshots,
+  }), /미리보기 이후 변경/);
+  assert.equal(staleWrite, false, 'fingerprint mismatch has no partial write');
 
   console.log('Shilla P&L integration safety tests passed');
 }
