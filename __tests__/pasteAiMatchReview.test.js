@@ -20,6 +20,8 @@ const products = [{ ProdKey: 1255, ProdName: 'ROSE / Pink Mondial 50cm', FlowerN
 assert.equal(productReviewAllowed('콜롬비아 장미 Pink Mondial 50cm', products[1]), false);
 assert.equal(productReviewAllowed('중국 장미 Pink Mondial 50cm', products[0]), false);
 assert.equal(productReviewAllowed('수국 화이트', products[0]), false);
+const missingRanked = buildPasteReviewTasks([{ custName: '양재동', items: [{ inputName: '콜장미 핑크몬디알', qty: 10, unit: '단', suggestedProducts: [] }] }], customers, products, mappings);
+assert.ok(missingRanked.find(t => t.id === 'p0:0').candidates.some(p => p.key === 1255), 'glued flower header must not remove translated cultivar candidate');
 for (const year of [2025, 2026]) {
   const orders = [{ year, week: '36-02', custName: '서부꽃집', custMatch: customers[3], items: [{
     inputName: '장미 핑크몬디알 50cm', qty: 10, unit: '단', unitExplicit: true, action: '취소',

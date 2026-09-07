@@ -2032,6 +2032,7 @@ export default function PasteOrderPage() {
     const inputName = order?.custName || order?.custMatch?.CustName || customer?.CustName;
     updateOrder(oid, {
       custMatch: customer,
+      custMatchReason: customer ? '사용자 직접 선택' : '업체 선택 필요',
       custFromMapping: false,
       custMappingKey: inputName ? customerCacheKey(inputName) : null,
       pendingCustomerLearning: customer && inputName && customer.CustName !== inputName
@@ -2145,6 +2146,7 @@ export default function PasteOrderPage() {
     const order = orders.find(o => o.id === oid);
     const item = order?.items?.[idx];
     updateItem(oid, idx, {
+      matchReason: '사용자 직접 선택',
       prodKey: prod.ProdKey,
       prodName: prod.ProdName,
       displayName: prod.DisplayName,
@@ -2207,6 +2209,7 @@ export default function PasteOrderPage() {
     const previous = currentItem.pendingMappingFrom || null;
     const changed = !!previous && Number(previous.prodKey) !== Number(prod.ProdKey);
     updateItem(orderId, itemIdx, {
+      matchReason: '사용자 직접 선택',
       prodKey:     prod.ProdKey,
       prodName:    prod.ProdName,
       displayName: prod.DisplayName || prod.ProdName,
