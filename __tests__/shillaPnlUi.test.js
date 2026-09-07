@@ -37,8 +37,11 @@ assert.match(pnl, /shillaMatching/, 'partner/year/detail changes are frozen whil
 assert.match(pnl, /return true;[\s\S]*return false;/, 'list/detail loaders expose guarded refresh success without changing their request guards');
 assert.match(pnl, /품목 연결은 저장됐지만 화면을 다시 불러오지 못했습니다. 다시 조회해 주세요/, 'a post-save reload failure never falsely claims the mapping view refreshed');
 
-assert.match(shillaMatchModal, /\/api\/raum\/item-mapping\?q=/, 'Shilla mapping reuses only the existing product-search GET');
-assert.match(shillaMatchModal, /Array\.isArray\(result\.products\)/, 'Shilla product search follows the existing products response contract');
+assert.match(shillaMatchModal, /shillaPnlProductSearchUrl\(activeQuery\)/, 'Shilla mapping uses the canonical product-search GET');
+assert.match(shillaMatchModal, /readShillaPnlProductSearchResponse\(response\)/, 'Shilla product search reads GET results through the scoped helper');
+assert.match(shillaMatchModal, /runShillaPnlSearchEnter\(event, search\)/, 'Shilla search delegates IME-safe Enter handling to the scoped helper');
+assert.match(shillaMatchModal, /isCurrentShillaPnlSearchRequest/, 'Shilla search ignores stale responses after a later input/search');
+assert.doesNotMatch(shillaMatchModal, /\/api\/raum\/item-mapping\?q=/, 'Shilla mapping no longer uses the SQL-first global mapping search');
 assert.match(shillaMatchModal, /fetchRaumPnlJson\('\/api\/raum\/shilla-item-mapping'/, 'Shilla mapping uses its dedicated save API with safe response reading');
 assert.match(shillaMatchModal, /shillaPnlProductMatchSnapshot\(item\)/, 'Shilla mapping sends the complete source-row snapshot');
 assert.match(shillaMatchModal, /product\.DisplayName, product\.FlowerName, product\.CounName, product\.OutUnit/, 'search candidates show disambiguating product fields without changing the source unit');

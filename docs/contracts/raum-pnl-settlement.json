@@ -2,6 +2,7 @@
   "id": "raum-pnl-settlement",
   "title": "라움·초이문·신라 손익계산서 결산 미리보기 계약",
   "scope": [
+    "lib/shillaPnlSearch.js",
     "components/raum/CombinedPurchaseCostCell.js",
     "components/raum/ShillaProductMatchModal.js",
     "lib/shillaPnlProductMatch.js",
@@ -48,6 +49,7 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "settlementIdentity": ["OrderYear", "MajorWeek", "PartnerCode"],
   "actions": [
+    { "name": "SHILLA_PRODUCT_SEARCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "GET /api/products/search canonical Korean/English alias search; display top 50 candidates, never auto-select; IME composition Enter does not search, committed Enter reads current input; ignore superseded responses; search never changes any mapping, price or source row", "writeAllowlist": [] },
     { "name": "SHILLA_PNL_PRODUCT_MATCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit shilla + OrderYear + MajorWeek + PnlKey + ItemKey; locked source-row snapshot, active Product isDeleted=0; only selected saved row ProdKey changes; no-op has no writes; no global name learning; reimport preserves exact or unique name/unit matching and rejects collisions", "writeAllowlist": ["WebRaumPnlItem.ProdKey", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
     { "name": "SHILLA_COMBINED_PURCHASE_COST_DISPLAY", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "display-only join of same positive ProdKey+Unit+IsCustom; shared Raum/Choimun and independent Shilla subcells and snapshots stay separate; unmapped names never join across Shilla and other partners", "writeAllowlist": [] },
     { "name": "PNL_PARTNER_RESPONSE_ISOLATION", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "restore saved partner before first list request; invalidate stale list/detail success/error/loading responses on partner change; never display prior partner rows or preview under a new partner; prevent partner changes during upload/save", "writeAllowlist": [] },
@@ -101,6 +103,7 @@
     "preserve": ["Qty", "SalePrice", "SaleAmount", "IsConsigned", "ProdKey identity for rows that have one"]
   },
   "requiredTestFiles": [
+    "__tests__/shillaPnlSearch.test.js",
     "__tests__/shillaPnlUiRender.test.js",
     "__tests__/shillaPnlProductMatch.test.js",
     "__tests__/shillaPnlCombinedPurchaseCost.test.js",

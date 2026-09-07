@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { shillaPnlProductMatchSnapshot } from '../../lib/shillaPnlProductMatchState';
 import { fetchRaumPnlJson } from '../../lib/raumPnlHttp';
+import {
+  isCurrentShillaPnlSearchRequest,
+  readShillaPnlProductSearchResponse,
+  runShillaPnlSearchEnter,
+  shillaPnlProductSearchUrl,
+  shillaPnlSearchEmptyMessage,
+} from '../../lib/shillaPnlSearch';
 
 const border = '1px solid #cbd5e1';
 const button = { height: 28, padding: '0 9px', border, borderRadius: 4, background: '#fff', color: '#1e293b', cursor: 'pointer', fontSize: 12 };
@@ -19,6 +26,7 @@ function productName(product) {
 export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusyChange }) {
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -30,6 +38,7 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
     requestRef.current += 1;
     setQuery(String(item?.name ?? item?.Name ?? ''));
     setProducts([]);
+    setHasSearched(false);
     setError('');
     setSearching(false);
     setSaving(false);
@@ -38,24 +47,25 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
   useEffect(() => () => { requestRef.current += 1; }, []);
   if (!edit || !item) return null;
 
-  const search = async () => {
-    const activeQuery = query.trim();
+  const search = async (rawQuery = query) => {
+    const activeQuery = String(rawQuery ?? '').trim();
     if (!activeQuery || saving) return;
     const request = ++requestRef.current;
+    setQuery(rawQuery);
+    setHasSearched(true);
     setSearching(true);
     setError('');
     try {
-      const response = await fetch(`/api/raum/item-mapping?q=${encodeURIComponent(activeQuery)}`);
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || '품목을 찾지 못했습니다.');
-      if (request !== requestRef.current) return;
-      setProducts(Array.isArray(result.products) ? result.products : []);
+      const response = await fetch(shillaPnlProductSearchUrl(activeQuery));
+      const nextProducts = await readShillaPnlProductSearchResponse(response);
+      if (!isCurrentShillaPnlSearchRequest(request, requestRef.current)) return;
+      setProducts(nextProducts);
     } catch (cause) {
-      if (request !== requestRef.current) return;
+      if (!isCurrentShillaPnlSearchRequest(request, requestRef.current)) return;
       setProducts([]);
       setError(cause.message || '품목을 찾지 못했습니다.');
     } finally {
-      if (request === requestRef.current) setSearching(false);
+      if (isCurrentShillaPnlSearchRequest(request, requestRef.current)) setSearching(false);
     }
   };
 
@@ -103,8 +113,8 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
         원본 판매가 {item.salePrice ?? item.SalePrice ?? item.price ?? item.Price ?? '—'} · 현재 연결 {currentKey ? `${(item.prodName ?? item.ProdName) || `#${currentKey}`} (#${currentKey})` : '미연결'}
       </div>
       <div style={{ display: 'flex', gap: 5, marginTop: 9 }}>
-        <input value={query} onChange={event => { requestRef.current += 1; setQuery(event.target.value); setProducts([]); setError(''); setSearching(false); }} onKeyDown={event => { if (event.key === 'Enter') search(); }} disabled={saving} placeholder="전산 품목명 검색" style={{ flex: '1 1 auto', height: 28, border, borderRadius: 4, padding: '0 7px' }} />
-        <button type="button" style={button} disabled={saving || searching || !query.trim()} onClick={search}>{searching ? '검색 중…' : '검색'}</button>
+        <input value={query} onChange={event => { requestRef.current += 1; setQuery(event.target.value); setProducts([]); setHasSearched(false); setError(''); setSearching(false); }} onKeyDown={event => runShillaPnlSearchEnter(event, search)} disabled={saving} placeholder="전산 품목명 검색" style={{ flex: '1 1 auto', height: 28, border, borderRadius: 4, padding: '0 7px' }} />
+        <button type="button" style={button} disabled={saving || searching || !query.trim()} onClick={() => search(query)}>{searching ? '검색 중…' : '검색'}</button>
       </div>
       {error ? <div role="alert" style={{ color: '#b91c1c', fontSize: 12, marginTop: 7 }}>{error}</div> : null}
       <div style={{ marginTop: 8, borderTop: border }}>
@@ -117,7 +127,8 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
             <button type="button" style={primary} disabled={saving} onClick={() => save(key)}>{saving ? '저장 중…' : (key === currentKey ? '선택됨' : '연결')}</button>
           </div>;
         })}
-        {!searching && query && !products.length ? <div style={{ padding: '9px 2px', color: '#64748b', fontSize: 12 }}>검색어를 입력하고 검색을 누르세요.</div> : null}
+        {!searching && shillaPnlSearchEmptyMessage({ hasSearched, products, error }) ? <div style={{ padding: '9px 2px', color: '#64748b', fontSize: 12 }}>{shillaPnlSearchEmptyMessage({ hasSearched, products, error })}</div> : null}
+        {!searching && !hasSearched && query ? <div style={{ padding: '9px 2px', color: '#64748b', fontSize: 12 }}>검색어를 입력하고 검색을 누르세요.</div> : null}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
         <button type="button" style={{ ...button, color: '#b91c1c' }} disabled={saving || !currentKey} onClick={() => save(null)}>연결 해제</button>
