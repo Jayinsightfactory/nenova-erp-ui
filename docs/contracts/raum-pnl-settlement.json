@@ -1,7 +1,11 @@
 {
   "id": "raum-pnl-settlement",
-  "title": "라움·초이문 손익계산서 이미지 주문등록·결산 미리보기 계약",
+  "title": "라움·초이문·신라 손익계산서 결산 미리보기 계약",
   "scope": [
+    "lib/shillaPnlParse.js",
+    "lib/shillaPnlImportPolicy.js",
+    "components/raum/ShillaPurchaseCosts.js",
+    "pages/api/raum/shilla-purchase-costs.js",
     "pages/raum/pnl.js",
     "components/raum/RaumImageOrderPanel.js",
     "components/raum/RaumCostHistoryPreview.js",
@@ -36,6 +40,8 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "settlementIdentity": ["OrderYear", "MajorWeek", "PartnerCode"],
   "actions": [
+    { "name": "SHILLA_PNL_IMPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit year + Excel MajorWeek + shilla; source header split 60:40 before July, 80:20 from July; approved original-file SHA corrections visibly annotated; selected verified batches only, preview-token and locked snapshot, no automatic commit; ERP week notes never remap Excel weeks", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
+    { "name": "SHILLA_PURCHASE_COST_EDIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "isolated shilla + year + major + item identity and complete expected snapshot; never update Raum/Choimun shared costs or global learned costs", "writeAllowlist": ["WebRaumPnlItem.CostPrice", "WebRaumPnlItem.CostSource", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
     { "name": "RAUM_PNL_COST_HISTORY", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "SELECT-only stored CostPrice by active settlement + selected OrderYear + PartnerCode; same product and unit; browser comparison only", "writeAllowlist": [] },
     { "name": "RAUM_PNL_PURCHASE_COST_EDIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit OrderYear+MajorWeek and product identity; lock and compare the complete Raum+Choimun matching-row snapshot; one shared cost is written atomically to every existing matching row in both partners; 0 preserved and empty becomes NULL", "writeAllowlist": ["WebRaumPnlItem.CostPrice", "WebRaumPnlItem.CostSource", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
     { "name": "RAUM_PNL_MULTI_WEEK_IMPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "all-or-nothing", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
@@ -81,6 +87,10 @@
     "preserve": ["Qty", "SalePrice", "SaleAmount", "IsConsigned", "ProdKey identity for rows that have one"]
   },
   "requiredTestFiles": [
+    "__tests__/shillaPnlParse.test.js",
+    "__tests__/shillaPnlUi.test.js",
+    "__tests__/shillaPnlIntegration.test.js",
+    "__tests__/shillaPnlImportPolicy.test.js",
     "__tests__/raumPnlCostComparison.test.js",
     "__tests__/raumPnlPurchaseCost.test.js",
     "__tests__/raumPnlImage.test.js",

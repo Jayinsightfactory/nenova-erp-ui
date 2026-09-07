@@ -5,6 +5,7 @@ import {
   buildRaumPnlSharedPurchaseCostMatrix,
   isRaumPnlSharedDraftUnchanged,
 } from '../../lib/raumPnlCostComparison';
+import ShillaPurchaseCosts from '../../components/raum/ShillaPurchaseCosts';
 
 const border = '1px solid #cbd5e1';
 const btn = { height: 28, padding: '0 9px', border, borderRadius: 4, background: '#fff', color: '#1e293b', cursor: 'pointer', fontSize: 12 };
@@ -302,6 +303,7 @@ export default function RaumPurchaseCostsPage() {
           );
         })}
       </div>
+      <ShillaPurchaseCosts key={orderYear} orderYear={orderYear} />
       {loading ? <div style={{ position: 'fixed', right: 14, bottom: 12, padding: '6px 10px', background: '#1e293b', color: '#fff', borderRadius: 4 }}>불러오는 중…</div> : null}
     </div>
   );

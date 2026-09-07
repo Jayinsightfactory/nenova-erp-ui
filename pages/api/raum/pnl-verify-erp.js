@@ -22,6 +22,7 @@ export default withAuth(async function handler(req, res) {
     const orderYear = String(req.query.year || '').replace(/[^0-9]/g, '');
     if (!major || !orderYear) return res.status(400).json({ success: false, error: 'major, year 필요' });
     const partner = resolvePnlPartner(req.query.partner);
+    if (partner.erpSync === false) return res.status(400).json({ success: false, error: '신라는 엑셀 차수와 전산 차수를 별도로 확인해야 합니다. 자동 전산 대조는 지원하지 않습니다.' });
     const PARTNER_FILTER = partnerWeekFilter(partner);
     const mj = major.padStart(2, '0');
     const nextMj = String(Number(major) + 1).padStart(2, '0');
