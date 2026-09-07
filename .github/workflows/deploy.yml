@@ -59,6 +59,9 @@ jobs:
             git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
             git fetch origin master
             git reset --hard origin/master
+            # App allows 30MiB; only this exact route receives multipart overhead allowance.
+            # Helper preserves upstream/auth directives and validates/rolls back nginx config.
+            node scripts/ensure-pnl-upload-nginx.mjs --apply || exit 1
             echo "=== .env.local 환경변수 동기화 (JWT_SECRET) ==="
             if [ -n "$JWT_SECRET" ]; then
               if grep -q '^JWT_SECRET=' .env.local 2>/dev/null; then

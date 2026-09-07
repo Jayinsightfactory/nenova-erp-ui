@@ -1,5 +1,7 @@
 # 세션 Q&A 인덱스
 
+- [2026-09-07 신라 결산 통합·원본 배분율·운영 반영](2026-09-07_shilla-pnl-integration.md) — 메뉴 배포 완료, 실제 원본 업로드는 Chrome 파일 접근 허용 대기.
+
 새 세션은 `TEMPLATE.md`를 복사하지 말고, 아래 파일명으로 **질문→답변 요약**을 만든다.
 
 `docs/work-sessions/YYYY-MM-DD_{slug}.md`
