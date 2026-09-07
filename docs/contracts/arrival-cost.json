@@ -10,6 +10,8 @@
     "lib/arrivalCostExcel.js",
     "lib/arrivalCostProductSearch.js",
     "lib/arrivalCostView.js",
+    "lib/arrivalCostFxPreview.js",
+    "__tests__/arrivalCostFxPreview.test.js",
     "docs/migrations/2026-08-10_web_arrival_cost_schema.sql",
     "components/Layout.js"
   ],
@@ -42,6 +44,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "조회 전용. 같은 연도·차수·ProdKey·EstUnit, 현재 MATCHED 행과 사용자 MATCH/BASIS_CHANGE 이력 및 완전한 source provenance만 사용하며 WebStockPriceEvidence로 자동 복사하지 않는다."
+    },
+    {
+      "name": "ARRIVAL_COST_FX_PREVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "화면 표시 전용 what-if 재계산. lib/arrivalCostFxPreview.js는 DB를 조회·저장하지 않는 순수함수로, 이미 화면에 표시된 원가(sourceArrivalCostKRW 또는 selectedArrivalCostKRW)와 원본 ExchangeRate·CustomsPerUnitKRW·OtherPerUnitKRW에서 lib/arrivalCostExcel.js::calculateArrivalCost의 식 cost=(FOB+운임)×환율+통관비+기타 를 역산해 USD 환산분을 구한 뒤 사용자가 입력한 환율로 다시 곱한다. WebArrivalCostLine.SelectedArrivalCostKRW 등 어떤 테이블도 갱신하지 않는다."
     }
   ],
   "crossYearFixture": {

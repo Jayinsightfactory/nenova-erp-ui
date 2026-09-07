@@ -1,0 +1,60 @@
+{
+  "id": "pivot-arrival-week-fx-lookup",
+  "title": "차수피벗 도착원가 차수-날짜 표시 및 별도차수 조회 계약",
+  "scope": [
+    "pages/stats/pivot.js",
+    "pages/api/stats/pivot-data.js",
+    "lib/pivotStats.js",
+    "lib/orderWeekDate.js",
+    "__tests__/orderWeekDate.test.js",
+    "__tests__/pivotStats.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "PIVOT_WEEK_DATE_DISPLAY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "lib/orderWeekDate.js는 DB를 전혀 조회하지 않는 순수함수다. OrderYear-OrderWeek-Seq(예: 2026-36-01)를 실제 달력 날짜 범위로 변환해 차수 선택기 옆에 표시만 한다. 규칙: 한 차수=수요일 시작 7일, 전반(seq=1)=수/목/금 3일, 후반(seq=2)=토/일/월/화 4일, 연도 경계는 새해 쪽 일수가 4일 이상이면 그 주가 신년 01차라는 majority-day 규칙(2025년 52차 종료=12/30, 2026년 01차 시작=12/31로 실사용자 확인)."
+    },
+    {
+      "name": "PIVOT_ARRIVAL_COST_WEEK_OVERRIDE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "getPivotStats/getPivotStatsRange에 선택적 arrivalWeekStart/arrivalWeekEnd(및 파생 orderYear)를 추가했다. 지정하지 않으면 기존과 동일하게 물량표 weekStart/weekEnd로 lib/pivotFreightArrival.js::getArrivalCostsForWeekRange를 호출한다(무변경 기본 동작). 지정 시에는 도착원가(read-only, FreightCostDetail 스냅샷 또는 freight.js와 동일한 live computeFreightCost)만 별도 차수 기준으로 다시 조회하고, 물량·주문·출고·재고 등 나머지 pivot 데이터는 원래 요청한 차수 그대로 유지한다. OrderMaster/OrderDetail/ShipmentMaster/ShipmentDetail/WarehouseMaster/StockMaster 등 어떤 원장도 쓰지 않는다."
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "arrivalWeekStart에 연도가 없으면 물량표 조회에서 이미 확정한 orderYear(startYear)를 fallback으로 쓴다(resolveActiveOrderYear). 같은 차수 번호라도 다른 연도의 WarehouseMaster/FreightCostDetail을 섞어 조회하지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/orderWeekDate.test.js",
+    "__tests__/pivotStats.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormFreightCost.md",
+    "source": "도착원가 계산식과 WarehouseMaster/FreightCostDetail 조회 범위는 freight-cost 계약(docs/contracts/freight-cost.json)에서 이미 검증된 lib/freightCalc.js::computeFreightCost 및 lib/pivotFreightArrival.js::getArrivalCostsForWeekRange를 그대로 재사용한다. 이번 변경은 그 함수에 전달하는 차수 범위를 물량표 차수와 분리할 수 있게 했을 뿐, 조회 SQL·스냅샷/라이브 판정 로직 자체는 바꾸지 않았다.",
+    "methods": [
+      "FormWarehouseView GetData",
+      "FormWarehouseView GetDetail",
+      "WarehouseMaster/WarehouseDetail read scope"
+    ],
+    "tables": [
+      "WarehouseMaster",
+      "WarehouseDetail",
+      "Product",
+      "Flower",
+      "FreightCost",
+      "FreightCostDetail"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
