@@ -12,6 +12,7 @@ import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
 import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
 import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHttp';
+import { createRaumPnlRequestGuard, isRaumPnlPartnerMatch } from '../../lib/raumPnlRequestGuard';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -1162,6 +1163,7 @@ const st = {
 
 export default function RaumPnlPage() {
   const [partnerCode, setPartnerCode] = useState('raum');
+  const [partnerReady, setPartnerReady] = useState(false);
   // 신라 원본은 연도가 없는 차수명도 있으므로, 미리보기와 저장에 같은 명시 연도를 보낸다.
   const [importYear, setImportYear] = useState(() => String(new Date().getFullYear()));
   const [list, setList] = useState([]);
@@ -1182,30 +1184,46 @@ export default function RaumPnlPage() {
   const [costHistoryState, setCostHistoryState] = useState({ loading: false, error: '' });
   const [costHistoryRevision, setCostHistoryRevision] = useState(0);
   const costHistoryRequest = useRef({ sequence: 0, controller: null });
+  const partnerCodeRef = useRef(partnerCode);
+  const listRequestGuard = useRef(createRaumPnlRequestGuard());
+  const detailRequestGuard = useRef(createRaumPnlRequestGuard());
   const costComparisonScrollRef = useRef(null);
   const fileRef = useRef(null);
 
   const loadList = async () => {
+    const requestedPartner = partnerCode;
+    // 이전 렌더의 저장 후 콜백이 새 거래처 목록 세대를 덮어쓰지 못하게 한다.
+    if (requestedPartner !== partnerCodeRef.current) return;
+    const token = listRequestGuard.current.begin(requestedPartner);
     setLoadingList(true);
     setError('');
     try {
-      const r = await fetch(`/api/raum/pnl?view=list&partner=${encodeURIComponent(partnerCode)}`);
+      const r = await fetch(`/api/raum/pnl?view=list&partner=${encodeURIComponent(requestedPartner)}`);
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '목록 조회 실패');
+      if (!listRequestGuard.current.isCurrent(token, partnerCodeRef.current)) return;
       setList(j.list || []);
     } catch (e) {
+      if (!listRequestGuard.current.isCurrent(token, partnerCodeRef.current)) return;
       setError(e.message);
     } finally {
-      setLoadingList(false);
+      if (listRequestGuard.current.isCurrent(token, partnerCodeRef.current)) setLoadingList(false);
     }
   };
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem('nenova.raumPnl.partner');
-      if (saved === 'raum' || saved === 'choimun' || saved === 'shilla') setPartnerCode(saved);
+      if (saved === 'raum' || saved === 'choimun' || saved === 'shilla') {
+        partnerCodeRef.current = saved;
+        setPartnerCode(saved);
+      }
     } catch { /* private mode */ }
+    setPartnerReady(true);
   }, []);
-  useEffect(() => { loadList(); }, [partnerCode]);
+  useEffect(() => {
+    if (!partnerReady) return;
+    loadList();
+  }, [partnerCode, partnerReady]);
 
   // 일반행 매입단가 → 같은 품목명(사입 suffix 제거)+단위의 빈/자동연결 사입행에 즉시 반영.
   // fillConsignedCostsFromOrdinary는 변경이 없으면 같은 배열 참조를 돌려주므로 무한 루프가 없다.
@@ -1218,12 +1236,21 @@ export default function RaumPnlPage() {
   const selectPartner = (code) => {
     const next = resolvePnlPartner(code).code;
     if (next === partnerCode) return;
+    if (uploading || saving) {
+      setError('업로드 또는 저장이 끝난 뒤 거래처를 바꾸세요.');
+      return;
+    }
     if ((detail?.unsaved || bulkPreview) && typeof window !== 'undefined'
       && !window.confirm('저장하지 않은 업로드가 사라집니다. 거래처를 바꿀까요?')) return;
+    listRequestGuard.current.invalidate();
+    detailRequestGuard.current.invalidate();
+    partnerCodeRef.current = next;
     setPartnerCode(next);
     try { window.localStorage.setItem('nenova.raumPnl.partner', next); } catch { /* private mode */ }
     setDetail(null);
     setBulkPreview(null);
+    setList([]);
+    setLoadingList(false);
     setRetryUploadFile(null);
     if (fileRef.current) fileRef.current.value = '';
     setError('');
@@ -1233,6 +1260,10 @@ export default function RaumPnlPage() {
   const isShilla = partner.code === 'shilla';
 
   const changeImportYear = (value) => {
+    if (uploading || saving) {
+      setError('업로드 또는 저장이 끝난 뒤 결산 연도를 바꾸세요.');
+      return;
+    }
     const next = String(value || '').replace(/[^0-9]/g, '').slice(0, 4);
     if (next === importYear) return;
     setImportYear(next);
@@ -1335,18 +1366,27 @@ export default function RaumPnlPage() {
   };
 
   const openDetail = async (pnlKey, opts = {}) => {
+    const requestedPartner = partnerCode;
+    if (requestedPartner !== partnerCodeRef.current) return;
+    const token = detailRequestGuard.current.begin(requestedPartner);
     setError('');
     if (!opts.keepMessage) setMessage('');
     try {
       const r = await fetch(`/api/raum/pnl?key=${pnlKey}`);
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '조회 실패');
+      if (!detailRequestGuard.current.isCurrent(token, partnerCodeRef.current)) return;
+      if (!isRaumPnlPartnerMatch(j.master?.PartnerCode, requestedPartner)) {
+        setDetail(null);
+        throw new Error('선택한 업체와 조회된 결산 자료가 다릅니다. 업체를 다시 선택해 주세요.');
+      }
       setDetail({
         meta: {
+          partnerCode: requestedPartner,
           pnlKey: j.master.PnlKey,
           orderYear: j.master.OrderYear,
           major: j.master.MajorWeek,
-          title: j.master.Title || defaultPnlTitle(j.master.PartnerCode || partnerCode, j.master.MajorWeek),
+          title: j.master.Title || defaultPnlTitle(j.master.PartnerCode || requestedPartner, j.master.MajorWeek),
           quoteDate: dateStr(j.master.QuoteDate),
           nenovaPct: Number(j.master.NenovaPct),
           note: j.master.Note || '',
@@ -1360,6 +1400,7 @@ export default function RaumPnlPage() {
         unsaved: false,
       });
     } catch (e) {
+      if (!detailRequestGuard.current.isCurrent(token, partnerCodeRef.current)) return;
       setError(e.message);
     }
   };
@@ -1418,6 +1459,7 @@ export default function RaumPnlPage() {
       const warnings = [...(j.warnings || [])];
       setDetail({
         meta: {
+          partnerCode,
           pnlKey: null,
           orderYear: one.orderYear,
           major: one.major || '',
@@ -1488,6 +1530,10 @@ export default function RaumPnlPage() {
   const save = async () => {
     if (!detail) return;
     const { meta, items } = detail;
+    if (!isRaumPnlPartnerMatch(meta.partnerCode, partnerCodeRef.current)) {
+      setError('선택한 업체와 편집 중인 자료가 달라 저장하지 않았습니다. 업체를 다시 선택해 주세요.');
+      return;
+    }
     if (!meta.major) { setError('차수를 입력하세요 (예: 27).'); return; }
     if (detail.existingDiff?.hasChanges && !window.confirm(`${Number(meta.major)}차 기존 저장본이 업로드 내용으로 변경됩니다. 비교 내용을 확인했으며 저장할까요?`)) return;
     setSaving(true);
@@ -1527,6 +1573,7 @@ export default function RaumPnlPage() {
   const openImagePreview = ({ items, images, orderYear, major, sourceFile }) => {
     setDetail({
       meta: {
+        partnerCode,
         pnlKey: null,
         orderYear,
         major,
@@ -1577,6 +1624,7 @@ export default function RaumPnlPage() {
       if (!j.success) throw new Error(j.error || '이미지 결산 초안 저장 실패');
       setDetail({
         meta: {
+          partnerCode,
           pnlKey: j.pnlKey,
           orderYear,
           major: mj,
@@ -1928,6 +1976,7 @@ export default function RaumPnlPage() {
           <button
             key={p.code}
             type="button"
+            disabled={uploading || saving}
             onClick={() => selectPartner(p.code)}
             style={{
               ...st.btn,
@@ -1935,6 +1984,7 @@ export default function RaumPnlPage() {
               background: partnerCode === p.code ? '#1d4ed8' : '#fff',
               color: partnerCode === p.code ? '#fff' : '#1e293b',
               borderColor: partnerCode === p.code ? '#1d4ed8' : '#cbd5e1',
+              cursor: uploading || saving ? 'not-allowed' : 'pointer',
             }}
           >{p.label}</button>
         ))}
@@ -1989,7 +2039,7 @@ export default function RaumPnlPage() {
           {uploading ? '분석 중…' : isShilla ? '📤 신라 원본 엑셀 미리보기' : '📤 견적서 업로드'}
         </button>
         {retryUploadFile ? <button type="button" style={st.btn} disabled={uploading} onClick={() => onUpload(retryUploadFile)}>다시 미리보기</button> : null}
-        {isShilla ? <label style={{ fontSize: 12.5 }}>결산 연도 <input aria-label="신라 결산 연도" value={importYear} onChange={event => changeImportYear(event.target.value)} inputMode="numeric" placeholder="2026" style={{ ...st.input, width: 62, textAlign: 'center' }} /></label> : null}
+        {isShilla ? <label style={{ fontSize: 12.5 }}>결산 연도 <input aria-label="신라 결산 연도" value={importYear} disabled={uploading || saving} onChange={event => changeImportYear(event.target.value)} inputMode="numeric" placeholder="2026" style={{ ...st.input, width: 62, textAlign: 'center' }} /></label> : null}
         {!isShilla ? <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button> : null}
         {detail ? (
           <>
