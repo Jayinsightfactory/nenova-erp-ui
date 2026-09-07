@@ -6,6 +6,8 @@ const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 const pnl = read('pages/raum/pnl.js');
+assert.match(pnl, /저장된 품목을 전산 품목에 연결해 단가를 비교할 수 있으며/);
+assert.doesNotMatch(pnl, /ERP 품목 매칭·분배 대조·자동 반영을 사용하지 않습니다/);
 const costs = read('pages/raum/purchase-costs.js');
 const shillaCosts = read('components/raum/ShillaPurchaseCosts.js');
 const shillaMatchModal = read('components/raum/ShillaProductMatchModal.js');
