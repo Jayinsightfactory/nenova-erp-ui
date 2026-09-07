@@ -65,6 +65,14 @@
 
 ## read-only downstream 확인 항목
 
+### 신라 품목 연결/통합 단가 표시 — 2026-09-07
+
+- 메인이 기존 `FormOrderAdd.cs`의 `GetDataProduct` 326행부터 직접 재확인했다. Product.ProdKey와 OutUnit/박스·단·송이 환산필드는 독립적이다. 새 dnSpy 실행 결과로 주장하지 않는다.
+- 신라 결산의 사용자가 선택한 품목 연결은 웹 결산행 ProdKey만 저장한다. EXE 주문 저장/확정 경로를 호출하지 않으며, Product·주문·출고·재고·견적 원장은 보존한다.
+- 활성 Product 검색과 저장 시 활성 재검증은 같은 `isDeleted=0` 기준이다. 신라 행의 연도/차수/부모/행/기존 원본 snapshot을 잠금 대조한다. 전역 이름 학습은 금지한다.
+- 같은 ProdKey+단위는 차수별 매입단가 화면에서 함께 보지만 신라 가격과 라움·초이문 공통 가격은 별도 저장한다. 단-5스팀/8스팀 등을 단으로 추정 환산하지 않는다.
+- 실행형 회귀: `shillaPnlProductMatch.test.js`, `shillaPnlCombinedPurchaseCost.test.js`, `shillaPnlIntegration.test.js`. 운영 검증은 사용자 자료를 임의 변경하지 않는 화면 조회·검색으로 한정하며 실제 연결 시험 수행 여부는 최종 보고에 구분한다.
+
 - `ViewOrder`: 선택 연도·차수·라움 `CustKey`·품목이 보이는지
 - `OrderDetail`: `BoxQuantity/BunchQuantity/SteamQuantity/OutQuantity/EstQuantity`가 품목 단위 규칙으로 채워지는지
 - `ShipmentMaster`: 신규 주문 시 빈 마스터만 생성되고 기존 `ShipmentDetail`이 없는지

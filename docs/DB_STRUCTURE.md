@@ -354,3 +354,9 @@ Farm(FarmKey) ── FarmCredit(CreditKey)
 - 스키마 캐시 (10분): `lib/chat/schema.js` → `getSchema({force:true})`
 - 진단 대시보드: `/m/admin/status` (카탈로그/비즈/사용량/환경 6종 헬스체크)
 - 운송원가 fixture: `__tests__/freightCalc.test.js` (238건, lib/freightCalc.js 수정 시 필수 pass)
+
+## 신라 결산 품목 연결 (2026-09-07)
+
+신라 저장행의 `WebRaumPnlItem.ProdKey`는 사용자가 명시 선택한 활성 전산 품목을 가리킨다. 전역 `WebRaumItemMap`에 학습하지 않는다. 연결/해제 시 `OrderYear+MajorWeek+PartnerCode='shilla'+PnlKey+ItemKey`와 현재 원본행 snapshot을 잠금 대조하며, 해당 행의 ProdKey와 부모 UpdatedBy/UpdatedAt만 변경한다. 원본명·단위·수량·금액·배분율과 Product 및 ERP 원장은 보존한다. 재업로드는 기존 exact/unique fallback 연결 보존 계약을 유지한다.
+
+차수별 매입단가 화면은 같은 양수 ProdKey+단위+일반/수동 구분을 한 제품 행에 표시한다. **표시 결합은 가격 공유가 아니다.** 라움·초이문은 기존 공통 가격, 신라는 독립 가격과 저장 요청을 사용한다. 다른 단위 또는 미매칭 신라 품목은 별도 행이며, 없는 자료를 생성하거나 가격을 평균하지 않는다.

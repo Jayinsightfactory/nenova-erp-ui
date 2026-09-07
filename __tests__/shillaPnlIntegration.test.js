@@ -123,6 +123,17 @@ async function main() {
   assert.deepEqual(preserved.items.map(item => item.costPrice), [70, 80],
     '재가져오기는 Shilla 단위별 기존 수동 비용을 보존해야 한다.');
 
+  const preservedMapping = api.mergePnlImportedItems([
+    canonicalItem({ name: '호접 · 화이트', unit: '8스팀', price: 20000, supply: 6480000, prodKey: null }),
+  ], [{
+    ItemName: '호접 · 화이트', Unit: '8스팀', SalePrice: 20000, SaleAmount: 6480000,
+    CostPrice: 11233, CostSource: 'manual', ProdKey: 3170,
+    IsCustom: 0, IsConsigned: 0, Seq: 1, Qty: 324,
+  }], 'shilla');
+  assert.equal(preservedMapping.items[0].prodKey, 3170,
+    'row-scoped Shilla Product mapping survives exact reimport even when canonical incoming prodKey is null.');
+  assert.equal(preservedMapping.items[0].unit, '8스팀', 'reimport never converts the original Shilla unit.');
+
   assert.equal(api.shouldLearnRaumPnlManualCost('shilla', canonicalItem({ costSource: 'manual' }), 0), false);
   assert.equal(api.shouldLearnRaumPnlManualCost('raum', canonicalItem({ costSource: 'manual' }), 0), true);
 

@@ -35,6 +35,13 @@ async function main() {
   assert.ok(contract.actions.find(x => x.name === 'RAUM_PNL_MATCH_DISPLAY'));
   assert.match(source, /OrderYear=@yr AND MajorWeek=@mj AND PartnerCode=@pc/);
   assert.ok(contract.actions.find(x => x.name === 'RAUM_PNL_IMPORT_AUTO_COMMIT'));
+  const shillaMatch = contract.actions.find(x => x.name === 'SHILLA_PNL_PRODUCT_MATCH');
+  assert.deepEqual(shillaMatch.writeAllowlist, ['WebRaumPnlItem.ProdKey', 'WebRaumPnl.UpdatedBy', 'WebRaumPnl.UpdatedAt']);
+  assert.ok(contract.actions.find(x => x.name === 'SHILLA_COMBINED_PURCHASE_COST_DISPLAY'));
+  for (const file of ['__tests__/shillaPnlProductMatch.test.js', '__tests__/shillaPnlCombinedPurchaseCost.test.js']) {
+    assert.ok(contract.requiredTestFiles.includes(file));
+    assert.ok(JSON.parse(read('package.json')).scripts['test:shilla-pnl'].includes(file));
+  }
 
   const targets = writeTargets(`${source}\n${api}`);
   for (const target of targets) {
