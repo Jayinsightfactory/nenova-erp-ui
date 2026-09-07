@@ -3,6 +3,8 @@ import { withActionLog } from '../../../lib/withActionLog';
 import { applyImportRows } from '../../../lib/shipmentImport';
 import { initApplyProgress, progressStep, finishApplyProgress } from '../../../lib/importApplyProgress';
 
+export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
+
 async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
   const jobId = String(req.body?.jobId || '').slice(0, 80);
@@ -18,6 +20,7 @@ async function handler(req, res) {
       rawWeek: req.body?.week,
       rawYear: req.body?.year,
       rows: req.body?.rows,
+      fullCategoryReplacement: req.body?.fullCategoryReplacement === true,
       user: req.user,
       ackQtyWarnings: !!req.body?.ackQtyWarnings,
       shipmentOnly: false,
