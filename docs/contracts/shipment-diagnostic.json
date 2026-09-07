@@ -129,7 +129,8 @@
       "shipmentOnly": "reject_global_mode",
       "blankCell": "preserve_order_set_distribution_zero",
       "missingRow": "preserve_order_set_distribution_zero",
-      "priorImportLineageScope": "a pair from a prior successful import of the same year/week/sheet is also in scope only when that product remains present on the current same sheet",
+      "categoryReplacement": "selected year/week and matched Product.CountryFlower categories: include every existing customer/product pair, including products entirely removed from the file; send all preview rows and verify the complete category before and after commit; unexpected nonzero pairs fail verification; fixed rows block the whole replacement",
+      "priorImportLineageScope": "superseded by categoryReplacement; historical sheet/keymap must not expand the current matched category scope",
       "explicitZero": "preserve_order_set_distribution_zero",
       "shipmentWithoutOrder": "include_in_preview_and_set_distribution_zero_when_in_file_scope"
     },
