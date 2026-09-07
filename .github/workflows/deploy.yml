@@ -1,16 +1,230 @@
 name: Deploy to Cafe24
+
 on:
   workflow_dispatch:
+  push:
+    branches: [master]
+
+concurrency:
+  group: nenova-cafe24-production
+  cancel-in-progress: false
+
 jobs:
-  inspect-pnl-upload:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Read-only nginx upload routing evidence
+      - name: Checkout (hydration 스모크 스크립트용)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node (ERP 계약검사용)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: ERP 계약 + 교차연도 쓰기 검증
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: |
+          BASE_SHA="${BASE_SHA:-$(git rev-parse "${GITHUB_SHA}^")}"
+          npm ci
+          npm run test:erp-contract
+          npm run test:erp-manifest -- --changed-from "$BASE_SHA"
+          npm run guard:erp-writes -- --changed-from "$BASE_SHA"
+
+      - name: SSH Deploy to Cafe24
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PUBLIC_API_KEY: ${{ secrets.PUBLIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AUTOMATION_API_TOKEN: ${{ secrets.AUTOMATION_API_TOKEN }}
+          MOYI_API_TOKEN: ${{ secrets.MOYI_API_TOKEN }}
+          MOYI_BRIDGE_TOKEN: ${{ secrets.MOYI_BRIDGE_TOKEN }}
+          ECOUNT_INGEST_TOKEN: ${{ secrets.ECOUNT_INGEST_TOKEN }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          KAKAO_SHEET_ID: ${{ secrets.KAKAO_SHEET_ID }}
         with:
           host: 172.233.89.171
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
+          envs: JWT_SECRET,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID
           script: |
-            nginx -T 2>&1 | awk '/^# configuration file / || /^[[:space:]]*(server_name|listen|location|client_max_body_size|proxy_read_timeout|proxy_send_timeout)[[:space:]]/ || /^[[:space:]]*proxy_pass[[:space:]]+http:\/\/(127\.0\.0\.1|localhost):[0-9]+;/ {print}'
+            export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
+            cd /var/www/nenova-erp
+            echo "=== git pull ==="
+            git remote set-url origin https://github.com/Jayinsightfactory/nenova-erp-ui.git
+            git fetch origin master
+            git reset --hard origin/master
+            # App allows 30MiB; only this exact route receives multipart overhead allowance.
+            # Helper preserves upstream/auth directives and validates/rolls back nginx config.
+            node scripts/ensure-pnl-upload-nginx.mjs --apply || exit 1
+            echo "=== .env.local 환경변수 동기화 (JWT_SECRET) ==="
+            if [ -n "$JWT_SECRET" ]; then
+              if grep -q '^JWT_SECRET=' .env.local 2>/dev/null; then
+                grep -v '^JWT_SECRET=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "JWT_SECRET=$JWT_SECRET" >> .env.local
+              echo "✅ JWT_SECRET synced (len=${#JWT_SECRET})"
+            elif ! grep -q '^JWT_SECRET=' .env.local 2>/dev/null; then
+              echo "❌ JWT_SECRET 필요 — GitHub Secret 또는 서버 .env.local 에 설정"
+              exit 1
+            else
+              JWT_SECRET="$(grep '^JWT_SECRET=' .env.local | tail -1 | cut -d= -f2-)"
+              export JWT_SECRET
+              echo "✅ JWT_SECRET already present on server"
+            fi
+            echo "=== .env.local 환경변수 동기화 (PUBLIC_API_KEY) ==="
+            if [ -n "$PUBLIC_API_KEY" ]; then
+              if grep -q '^PUBLIC_API_KEY=' .env.local 2>/dev/null; then
+                grep -v '^PUBLIC_API_KEY=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "PUBLIC_API_KEY=$PUBLIC_API_KEY" >> .env.local
+              echo "✅ PUBLIC_API_KEY synced (len=${#PUBLIC_API_KEY})"
+            elif ! grep -q '^PUBLIC_API_KEY=' .env.local 2>/dev/null; then
+              echo "❌ PUBLIC_API_KEY 필요 — public API smoke 와 외부 연동 보호용"
+              exit 1
+            else
+              echo "✅ PUBLIC_API_KEY already present on server"
+            fi
+            echo "=== .env.local 환경변수 동기화 (ANTHROPIC_API_KEY) ==="
+            if [ -n "$ANTHROPIC_API_KEY" ]; then
+              if grep -q '^ANTHROPIC_API_KEY=' .env.local 2>/dev/null; then
+                # BSD/GNU sed 호환: 임시 파일 방식
+                grep -v '^ANTHROPIC_API_KEY=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >> .env.local
+              echo "✅ ANTHROPIC_API_KEY synced (len=${#ANTHROPIC_API_KEY})"
+            else
+              echo "⚠️  ANTHROPIC_API_KEY GitHub Secret 이 비어있음 — 챗봇 LLM 비활성"
+            fi
+            echo "=== .env.local 환경변수 동기화 (AUTOMATION_API_TOKEN) ==="
+            if [ -n "$AUTOMATION_API_TOKEN" ]; then
+              if grep -q '^AUTOMATION_API_TOKEN=' .env.local 2>/dev/null; then
+                grep -v '^AUTOMATION_API_TOKEN=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "AUTOMATION_API_TOKEN=$AUTOMATION_API_TOKEN" >> .env.local
+              echo "✅ AUTOMATION_API_TOKEN synced (len=${#AUTOMATION_API_TOKEN})"
+            fi
+            echo "=== .env.local 환경변수 동기화 (ECOUNT_INGEST_TOKEN) ==="
+            if [ -n "$ECOUNT_INGEST_TOKEN" ]; then
+              if grep -q '^ECOUNT_INGEST_TOKEN=' .env.local 2>/dev/null; then
+                grep -v '^ECOUNT_INGEST_TOKEN=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "ECOUNT_INGEST_TOKEN=$ECOUNT_INGEST_TOKEN" >> .env.local
+              echo "✅ ECOUNT_INGEST_TOKEN synced (len=${#ECOUNT_INGEST_TOKEN})"
+            fi
+            if [ -z "$AUTOMATION_API_TOKEN" ]; then
+              echo "ℹ️  AUTOMATION_API_TOKEN GitHub Secret 미설정 — n8n 브리지 API 비활성(503)"
+            fi
+            echo "=== .env.local 환경변수 동기화 (MOYI_API_TOKEN) ==="
+            if [ -n "$MOYI_API_TOKEN" ]; then
+              if grep -q '^MOYI_API_TOKEN=' .env.local 2>/dev/null; then
+                grep -v '^MOYI_API_TOKEN=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "MOYI_API_TOKEN=$MOYI_API_TOKEN" >> .env.local
+              echo "✅ MOYI_API_TOKEN synced (len=${#MOYI_API_TOKEN})"
+            else
+              echo "ℹ️  MOYI_API_TOKEN GitHub Secret 미설정 — AUTOMATION_API_TOKEN 폴백 사용"
+            fi
+            echo "=== .env.local 환경변수 동기화 (MOYI_BRIDGE_TOKEN) ==="
+            if [ -n "$MOYI_BRIDGE_TOKEN" ]; then
+              if grep -q '^MOYI_BRIDGE_TOKEN=' .env.local 2>/dev/null; then
+                grep -v '^MOYI_BRIDGE_TOKEN=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "MOYI_BRIDGE_TOKEN=$MOYI_BRIDGE_TOKEN" >> .env.local
+              echo "✅ MOYI_BRIDGE_TOKEN synced (len=${#MOYI_BRIDGE_TOKEN})"
+            else
+              echo "ℹ️  MOYI_BRIDGE_TOKEN GitHub Secret 미설정 — MOYI 드라이브 동기화 비활성"
+            fi
+            echo "=== .env.local 환경변수 동기화 (GOOGLE_SERVICE_ACCOUNT_JSON) ==="
+            if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+              if grep -q '^GOOGLE_SERVICE_ACCOUNT_JSON=' .env.local 2>/dev/null; then
+                grep -v '^GOOGLE_SERVICE_ACCOUNT_JSON=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "GOOGLE_SERVICE_ACCOUNT_JSON=$GOOGLE_SERVICE_ACCOUNT_JSON" >> .env.local
+              echo "✅ GOOGLE_SERVICE_ACCOUNT_JSON synced (len=${#GOOGLE_SERVICE_ACCOUNT_JSON})"
+            else
+              echo "ℹ️  GOOGLE_SERVICE_ACCOUNT_JSON GitHub Secret 미설정 — 카카오 시트 연동 비활성"
+            fi
+            echo "=== .env.local 환경변수 동기화 (KAKAO_SHEET_ID) ==="
+            if [ -n "$KAKAO_SHEET_ID" ]; then
+              if grep -q '^KAKAO_SHEET_ID=' .env.local 2>/dev/null; then
+                grep -v '^KAKAO_SHEET_ID=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "KAKAO_SHEET_ID=$KAKAO_SHEET_ID" >> .env.local
+              echo "✅ KAKAO_SHEET_ID synced"
+            else
+              echo "ℹ️  KAKAO_SHEET_ID 미설정 — 기본 시트ID 사용"
+            fi
+            echo "=== npm install ==="
+            mkdir -p public/uploads/catalog/_bulk_import data
+            if [ -f public/uploads/catalog/_bulk_import/*통합본*.pptx ] 2>/dev/null || ls public/uploads/catalog/_bulk_import/*통합본*.pptx 1>/dev/null 2>&1; then
+              echo "✅ 카달로그 통합본 PPTX — 서버에 있음 (카탈로그 진입 시 자동 등록)"
+            else
+              echo "ℹ️  통합본 PPTX 없음 — public/uploads/catalog/_bulk_import/ 에 카달로그_통합본.pptx 1회 업로드"
+            fi
+            npm install --omit=dev
+            echo "=== 주차별 매출이익 근거 스키마 적용 ==="
+            node scripts/apply-profit-report-evidence-migrations.mjs --apply
+            echo "=== 웹·전산 동시수정 보호 스키마 적용 ==="
+            node scripts/apply-erp-edit-presence-migration.mjs --apply
+            echo "=== 선출고 관리 웹 스키마 적용 ==="
+            node scripts/apply-pre-shipment-migration.mjs --apply
+            echo "=== 자동 중국물량표 웹 스키마 적용 ==="
+            node scripts/apply-china-volume-board-migration.mjs --apply
+            echo "=== 엑셀 출고분배 전체 되돌리기 스키마 적용 ==="
+            node scripts/apply-shipment-import-snapshot-migration.mjs --apply
+            echo "=== build ==="
+            rm -rf .next-build
+            if ! NEXT_DIST_DIR=.next-build npm run build 2>&1; then echo "❌ 빌드 실패 — 운영 산출물/pm2 보존"; pm2 logs nenova-erp --nostream --lines 5 2>&1; exit 1; fi
+            if [ ! -d ".next-build/server" ]; then echo "❌ .next-build/server 누락 — 운영 산출물 보존"; exit 1; fi
+            echo "=== atomic build swap + pm2 reload ==="
+            rm -rf .next-previous
+            if [ -d .next ]; then mv .next .next-previous; fi
+            mv .next-build .next
+            if ! pm2 reload nenova-erp --update-env; then
+              rm -rf .next
+              if [ -d .next-previous ]; then mv .next-previous .next; fi
+              pm2 restart nenova-erp
+              echo "❌ reload 실패 — 이전 산출물로 롤백"
+              exit 1
+            fi
+            echo "=== pm2 워밍업 대기 (Next 초기화 — 스모크 오탐 방지) ==="
+            for i in $(seq 1 15); do
+              if curl -sf http://127.0.0.1:3000/api/ping >/dev/null 2>&1; then echo "warmup OK (${i}s)"; break; fi
+              sleep 1
+            done
+            sleep 2
+            echo "=== post-deploy smoke (로컬) ==="
+            export SMOKE_BASE_URL=http://127.0.0.1:3000
+            if ! node __tests__/nenovawebSmoke.test.js; then
+              echo "❌ post-deploy smoke 실패 — pm2 logs 확인"
+              pm2 logs nenova-erp --nostream --lines 20 2>&1
+              exit 1
+            fi
+            echo "✅ 배포 완료"
+
+      # 화면은 그려져도 React가 시동 안 되는 "조용한 장애" 감지 (2026-07-10 Turbopack 사고 재발 방지)
+      # API 스모크는 이 유형을 못 잡는다 — Actions 러너의 실브라우저로 fiber 부착 여부를 직접 확인
+      - name: Hydration smoke (실브라우저)
+        run: |
+          npm install puppeteer-core --no-save --no-audit --no-fund
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser)" \
+            node scripts/hydration-smoke.js https://nenovaweb.com/login
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser)" \
+            node scripts/week-pivot-hydration-smoke.js 'https://nenovaweb.com/shipment/week-pivot?popup=1'
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser)" \
+            node scripts/layout-shell-smoke.js

@@ -11,6 +11,7 @@ import { raumPnlMatchCounts, raumPnlMatchDisplay } from '../../lib/raumPnlMatchD
 import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
 import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
+import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHttp';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -1168,6 +1169,7 @@ export default function RaumPnlPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [retryUploadFile, setRetryUploadFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
   const [assigningMonthKey, setAssigningMonthKey] = useState(null);
@@ -1222,6 +1224,8 @@ export default function RaumPnlPage() {
     try { window.localStorage.setItem('nenova.raumPnl.partner', next); } catch { /* private mode */ }
     setDetail(null);
     setBulkPreview(null);
+    setRetryUploadFile(null);
+    if (fileRef.current) fileRef.current.value = '';
     setError('');
     setMessage('');
   };
@@ -1232,6 +1236,8 @@ export default function RaumPnlPage() {
     const next = String(value || '').replace(/[^0-9]/g, '').slice(0, 4);
     if (next === importYear) return;
     setImportYear(next);
+    setRetryUploadFile(null);
+    if (fileRef.current) fileRef.current.value = '';
     if (bulkPreview) {
       setBulkPreview(null);
       setMessage('연도가 바뀌어 신라 미리보기를 초기화했습니다. 파일을 다시 미리보기하세요.');
@@ -1325,10 +1331,7 @@ export default function RaumPnlPage() {
     fd.append('partner', partnerCode);
     fd.append('orderYear', orderYear);
     if (Array.isArray(selectedMajors)) fd.append('selectedMajors', JSON.stringify(selectedMajors));
-    const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
-    const j = await r.json();
-    if (!j.success) throw new Error(j.error || '일괄 저장 실패');
-    return j;
+    return fetchRaumPnlJson('/api/raum/pnl-import', { method: 'POST', body: fd }, { operation: 'save' });
   };
 
   const openDetail = async (pnlKey, opts = {}) => {
@@ -1363,9 +1366,17 @@ export default function RaumPnlPage() {
 
   const onUpload = async (file) => {
     if (!file) return;
+    if (Number(file.size) > MAX_RAUM_PNL_UPLOAD_BYTES) {
+      setError(`선택한 파일이 ${(Number(file.size) / 1024 / 1024).toFixed(1)}MB입니다. 미리보기는 30MB 이하 파일만 보낼 수 있습니다. 파일을 자동으로 줄이거나 변경하지 않았습니다.`);
+      setRetryUploadFile(file);
+      return;
+    }
     setUploading(true);
     setError('');
     setMessage('');
+    setRetryUploadFile(null);
+    let previewReady = false;
+    let saveAttempted = false;
     try {
       const fd = new FormData();
       fd.append('file', file);
@@ -1375,12 +1386,11 @@ export default function RaumPnlPage() {
         if (!/^\d{4}$/.test(importYear)) throw new Error('신라 결산 연도를 네 자리로 입력하세요.');
         fd.append('orderYear', importYear);
       }
-      const r = await fetch('/api/raum/pnl-import', { method: 'POST', body: fd });
-      const j = await r.json();
-      if (!j.success) throw new Error(j.error || '업로드 실패');
+      const j = await fetchRaumPnlJson('/api/raum/pnl-import', { method: 'POST', body: fd }, { operation: 'preview' });
       const batches = j.batches || [];
       if (!batches.length) throw new Error('파싱된 차수가 없습니다.');
       if (!isShilla && canAutoCommitRaumPnlImport(batches)) {
+        saveAttempted = true;
         const saved = await persistImportFile(file, j.previewToken);
         setBulkPreview(null);
         setMessage(`${partner.label} ${saved.batchCount}개 차수를 저장했습니다. 전산 품목 매칭과 매입단가를 확인하세요. ← 결산 목록에서 월별 합계를 볼 수 있습니다.`);
@@ -1388,6 +1398,7 @@ export default function RaumPnlPage() {
         const firstKey = saved.saved?.[0]?.pnlKey;
         if (firstKey) await openDetail(firstKey, { keepMessage: true });
         else setDetail(null);
+        previewReady = true;
         return;
       }
       if (isShilla || batches.length > 1) {
@@ -1399,6 +1410,7 @@ export default function RaumPnlPage() {
           file, previewToken: j.previewToken, fileName: j.fileName, batches,
           warnings: j.warnings || [], orderYear: isShilla ? importYear : null, selectedMajors,
         });
+        previewReady = true;
         return;
       }
       const one = batches[0];
@@ -1423,11 +1435,15 @@ export default function RaumPnlPage() {
         existingDiff: one.existingDiff || null,
         unsaved: true,
       });
+      previewReady = true;
     } catch (e) {
       setError(e.message);
+      // 일반 업체 자동 저장을 시작한 뒤에는 같은 파일로 다시 미리보기를
+      // 노출하지 않는다. 저장이 완료됐을 수도 있으므로 목록 확인이 먼저다.
+      if (!saveAttempted) setRetryUploadFile(file);
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
+      if (previewReady && fileRef.current) fileRef.current.value = '';
     }
   };
 
@@ -1972,6 +1988,7 @@ export default function RaumPnlPage() {
         <button style={st.btnPrimary} disabled={uploading} onClick={() => fileRef.current?.click()}>
           {uploading ? '분석 중…' : isShilla ? '📤 신라 원본 엑셀 미리보기' : '📤 견적서 업로드'}
         </button>
+        {retryUploadFile ? <button type="button" style={st.btn} disabled={uploading} onClick={() => onUpload(retryUploadFile)}>다시 미리보기</button> : null}
         {isShilla ? <label style={{ fontSize: 12.5 }}>결산 연도 <input aria-label="신라 결산 연도" value={importYear} onChange={event => changeImportYear(event.target.value)} inputMode="numeric" placeholder="2026" style={{ ...st.input, width: 62, textAlign: 'center' }} /></label> : null}
         {!isShilla ? <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button> : null}
         {detail ? (
