@@ -3346,6 +3346,7 @@ export default function PasteOrderPage() {
       );
       const d = await apiGet('/api/orders/history', {
         week: targetWeek,
+        year: resolveOrderWeekQuery(targetWeek).year,
         custNames: names.size > 0 ? [...names].join('|') : '',
       });
       const rows = (d.history || []).slice(0, 12);
@@ -3416,6 +3417,7 @@ export default function PasteOrderPage() {
   const openOrderHistoryDetail = (custName = '') => {
     const params = new URLSearchParams();
     if (week) params.set('week', week);
+    if (week) params.set('year', resolveOrderWeekQuery(week).year);
     if (custName) params.set('custName', custName);
     params.set('popup', '1');
     const url = `/orders/history?${params.toString()}`;
@@ -3785,6 +3787,11 @@ export default function PasteOrderPage() {
             title="새 창에서 원본 차수 주문 불러오기, 즐겨찾기 저장/수정, 등록대상 차수 주문등록을 처리합니다."
           >
             주문즐겨찾기
+          </button>
+          <button type="button" onClick={() => openOrderHistoryDetail('')}
+            style={{ padding: '8px 16px', background: '#37474f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+            title="분석 없이 주문 변경이력을 차수·거래처·품목별로 조회합니다.">
+            📋 작업 히스토리
           </button>
           <button
             onClick={() => setShowMapModal(true)}
