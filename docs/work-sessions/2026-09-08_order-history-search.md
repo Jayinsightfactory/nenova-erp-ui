@@ -21,3 +21,12 @@
 - **배포 차단**: test:erp-contract가 기존 shillaPnlParse.test.js:322의 사용자 Desktop 원본 선택검증에서 실패. 고정 기대 35개 단일차수 vs 현재 파일 36개. 신라 파서/테스트는 origin/master와 동일(이번 diff 없음). 파일·테스트를 바꾸거나 검사를 건너뛰지 않음.
 - 미완: 신라 원본 변경과 fixture 기준의 별도 확인/승인 → 전체 계약 재실행 → PR 병합·배포·운영 스모크. 원본 파일은 수정하지 않음.
 - outputs/의 진단 스크립트·스크린샷은 커밋 제외.
+
+## 배포 재개 / 불량차감 재클릭 문의
+- Q: 배포하고, 영업수입불량차감 등록 후 기존창 오류가 남는 이유와 재클릭 시 두 배 등록되는지 확인.
+- 사용자 창은 이미 닫힘. 정확한 오류 문구/차수가 아직 없어 해당 실행의 성공·실패 또는 중복 여부는 단정하지 않음.
+- 코드 확인: 검토창은 10건씩 저장한 뒤 registration-preview로 다시 조회한다. 저장 이후 조회 실패도 catch로 오류 표시되므로 오류 표시만으로 전체 롤백을 뜻하지 않는다. 본창 실시간 로그는 과거 오류 로그를 완료 후에도 보존한다.
+- 확인한 추가 경로: 이월 전량 처리 후 RemainingQuantity=0이면 registrationPreview의 assertConfirmedForRegistration→assertRemainingForRegistration이 '잔여수량이 없는 완료 행'을 row.error에 넣는다. 기존 Estimate는 before에 남고, 완료 검증과 행 오류가 공존할 수 있다. 사용자 사례와 동일한지는 미확인.
+- 일반 동일 DeductionKey는 연결 EstimateKey UPDATE(가산 아님). 이월 동일 DeductionKey+RequestKey는 기존 Application 재사용, DB unique index/행잠금 존재. 완료 잔량0은 재등록 차단. 새 업로드 원장/새 요청키 부분처리는 동일 재시도와 다르므로 무조건 중복 없다고 안내하지 않음.
+- 불량차감 생산 코드/운영 원장은 변경하지 않음. salesDefectDeductionState 및 salesDefectDeductions 테스트 통과. 차수 회신 후 GET 이력/견적 연결 대조 필요.
+- 배포 검사 보완: 승인 SHA의 35차 스냅샷 기대값을 변경된 개인 파일에 적용하던 테스트 문제. 생산 파서/승인 정책/사용자 엑셀은 보존하고, 항상 실행되는 합성 35→36 차수 추가 및 5개 승인 보정 fixture를 보강. 현재 파일은 일반 출처·품목 누락·비변경 검증, 승인 SHA 동일 파일만 기존 스냅샷 검증. 승인 원본 미검증은 명시하고 현재 파일을 대신 승인하지 않음.

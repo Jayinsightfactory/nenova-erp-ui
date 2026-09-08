@@ -305,13 +305,64 @@ async function main() {
   const src = fs.readFileSync(require.resolve('../lib/shillaPnlParse.js'), 'utf8');
   assert.doesNotMatch(src, /require\(['"]mssql['"]\)|from ['"]\.\.\/lib\/db(\.js)?['"]|fetch\(|http\.request|https\.request/, '순수 파서에는 DB/네트워크 호출이 없어야 한다.');
 
-  // ── 14. 실제 원본(선택) — 파일이 있을 때만 실행, 없으면 통과 ─────────────
+  // ── 14. 불변 합성 회귀 — 개인 파일/CI 환경과 무관하게 항상 실행 ─────────
+  // 실제 승인 원본을 복제한 자료가 아니다. 35차 스냅샷의 구조적 경계와
+  // 사용자가 36차를 추가해도 고정 35개 제한이 생기지 않는 계약을 재현한다.
+  const snapshotWb = XLSX.utils.book_new();
+  for (let major = 1; major <= 35; major += 1) {
+    const pct = major <= 26 ? 60 : 80;
+    addSheet(snapshotWb, `${major}차`, [headerWithRatio(pct),
+      rowWithRatio({ name: `합성품목${major}`, qty: 1, buyPrice: 100, buyAmount: 100, sellPrice: 200, sellAmount: 200, profit: 100, pct }),
+      ['합계', null, 1, null, 100, null, 200, 100],
+    ]);
+  }
+  for (const name of ['검토리포트', '결산', '26차~30차(7월)(']) addSheet(snapshotWb, name, [STD_HEADER]);
+  const snapshot = parseShillaPnlWorkbookGroups(XLSX, snapshotWb, { orderYear: 2026 });
+  assert.equal(snapshot.sourceSheets.length, 38);
+  assert.deepEqual(snapshot.batches.map(b => b.major), Array.from({ length: 35 }, (_, i) => String(i + 1).padStart(2, '0')));
+  assert.deepEqual(snapshot.sourceSheets.filter(s => !s.included).map(s => s.sheetName), ['검토리포트', '결산', '26차~30차(7월)(']);
+  for (const batch of snapshot.batches) {
+    assert.equal(batch.nenovaPct, Number(batch.major) <= 26 ? 60 : 80);
+    assert.equal(batch.miuPct, 100 - batch.nenovaPct);
+    assert.ok(batch.verification.every(c => c.ok));
+  }
+  addSheet(snapshotWb, '36차', [headerWithRatio(80),
+    rowWithRatio({ name: '새 차수 합성품목', qty: 1, buyPrice: 100, buyAmount: 100, sellPrice: 200, sellAmount: 200, profit: 100, pct: 80 }),
+    ['합계', null, 1, null, 100, null, 200, 100],
+  ]);
+  const extended = parseShillaPnlWorkbookGroups(XLSX, snapshotWb, { orderYear: 2026 });
+  assert.equal(extended.batches.length, 36);
+  assert.equal(extended.sourceSheets.length, 39);
+  assert.equal(extended.batches[35].major, '36');
+  assert.ok(extended.verification.every(c => c.ok));
+  assert.deepEqual(extended.batches.slice(0, 35), snapshot.batches, '차수 추가는 기존 차수 해석을 변경하지 않는다.');
+
+  // ── 15. 선택적 개인 파일 — 일반 검증과 승인 스냅샷 검증을 분리 ──────────
   const realPath = 'C:/Users/USER/Desktop/2026 신라 상반기 입고 손익계산_이사님보고.xlsx';
   if (fs.existsSync(realPath)) {
-    const realWb = XLSX.readFile(realPath, { cellDates: true });
+    const { applyConfirmedShillaSourceNames, SHILLA_CONFIRMED_SOURCE_SHA256 } = await import('../lib/shillaPnlImportPolicy.js');
+    const raw = fs.readFileSync(realPath);
+    const sourceSha256 = crypto.createHash('sha256').update(raw).digest('hex');
+    const realWb = XLSX.read(raw, { type: 'buffer', cellDates: true });
+    const beforeParse = JSON.stringify(realWb);
     const real = parseShillaPnlWorkbookGroups(XLSX, realWb, { orderYear: 2026 });
     assert.ok(Array.isArray(real.batches));
     assert.equal(real.sourceSheets.length, realWb.SheetNames.length, '모든 시트가 포함/제외 사유와 함께 sourceSheets 에 나타나야 한다.');
+    assert.deepEqual(real.sourceSheets.map(s => s.sheetName), realWb.SheetNames);
+    assert.equal(JSON.stringify(realWb), beforeParse, '파싱은 원본 워크북을 보정하지 않는다.');
+    for (const sourceSheet of real.sourceSheets) {
+      if (!sourceSheet.included) {
+        assert.ok(sourceSheet.reason, '제외 사유를 누락하면 안 된다.');
+        continue;
+      }
+      const batch = real.batches.find(b => b.major === sourceSheet.major);
+      assert.ok(batch, '포함된 시트는 해당 차수 배치에 남아야 한다.');
+      assert.equal(batch.items.filter(it => it.source.sheetName === sourceSheet.sheetName).length, sourceSheet.itemCount);
+    }
+    const approvedWorkbook = XLSX.read(raw, { type: 'buffer', cellDates: true });
+    const beforePolicy = JSON.stringify(approvedWorkbook);
+    const approvalNotes = applyConfirmedShillaSourceNames(approvedWorkbook, sourceSha256);
+    if (sourceSha256 === SHILLA_CONFIRMED_SOURCE_SHA256) {
 
     // 설계 리포트 기준값 — docs/work-reports/2026-09-07_shilla-pnl-design.md
     assert.deepEqual(
@@ -349,13 +400,6 @@ async function main() {
 
     // 승인된 SHA256 원본일 때만 메모리 복사본에 적용되는 정책을 별도 확인한다.
     // 정책 파일은 여기서 수정하지 않으며, 원본 파일에도 쓰지 않는다.
-    const { applyConfirmedShillaSourceNames } = await import('../lib/shillaPnlImportPolicy.js');
-    const raw = fs.readFileSync(realPath);
-    const approvedWorkbook = XLSX.read(raw, { type: 'buffer', cellDates: true });
-    const approvalNotes = applyConfirmedShillaSourceNames(
-      approvedWorkbook,
-      crypto.createHash('sha256').update(raw).digest('hex'),
-    );
     const approved = parseShillaPnlWorkbookGroups(XLSX, approvedWorkbook, { orderYear: 2026 });
     assert.equal(approvalNotes.length, 5, '승인된 원본 SHA256일 때만 다섯 가지 명시 보정이 적용되어야 한다.');
     assert.equal(approved.batches.length, 35);
@@ -367,6 +411,11 @@ async function main() {
     }
 
     console.log(`신라 실제 원본: 시트 ${realWb.SheetNames.length}개 중 배치 ${real.batches.length}개, 원본 검증 실패 ${real.verification.filter((c) => !c.ok).length}건 / 승인 정책 적용 후 ${approved.verification.filter((c) => !c.ok).length}건`);
+    } else {
+      assert.deepEqual(approvalNotes, [], '수정된 개인 파일에는 과거 SHA 승인 보정을 적용하면 안 된다.');
+      assert.equal(JSON.stringify(approvedWorkbook), beforePolicy, '미승인 원본은 전 셀을 보존한다.');
+      console.log(`신라 개인 파일 SHA 변경: 시트 ${realWb.SheetNames.length}개 / 배치 ${real.batches.length}개 일반 검증 완료; 미검증: 2026-09-07 승인 원본 스냅샷 (현재 파일로 대체 승인하지 않음).`);
+    }
   } else {
     console.log('신라 실제 원본 파일 없음 — 합성 fixture 검증만 수행 (미검증: 실제 원본 대조).');
   }
