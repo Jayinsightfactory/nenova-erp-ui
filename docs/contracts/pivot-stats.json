@@ -8,10 +8,17 @@
     "lib/pivotAvailableWeeks.js",
     "lib/pivotProductSearch.js",
     "lib/pivotFilterOptions.js",
-    "lib/pivotVolumeNetherlands.js"
+    "lib/pivotVolumeNetherlands.js",
+    "lib/pivotVolumeCombinedCells.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
+    {
+      "name": "PIVOT_VOLUME_COMBINED_SUBWEEK_CELLS",
+      "description": "combineSubweeks=1/true만 활성화. 동일 연도·본차수의 2개 이상 세부차수를 ProdKey와 기존 업체 차원으로 합산하여 숫자값에 합계(차수별수량) 표시형식을 적용한다. 기본값 false, 누락된 차수 데이터·합계불일치 차단. SQL·원장·기존 일반다운로드 보존.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
     {
       "name": "PIVOT_STATS_PRODUCT_FILTER_SEARCH",
       "orderDetail": "preserve",
@@ -41,6 +48,7 @@
     "description": "같은 품목명·차수명이 여러 연도에 있어도 별칭 검색은 현재 조회된 피벗 rows의 canonical 품목 옵션만 필터링하고 다른 연도 원장을 조회·수정하지 않는다."
   },
   "requiredTestFiles": [
+    "__tests__/pivotVolumeCombinedCells.test.js",
     "__tests__/pivotProductSearch.test.js",
     "__tests__/pivotFilterOptions.test.js",
     "__tests__/pivotVolumeNetherlands.test.js",

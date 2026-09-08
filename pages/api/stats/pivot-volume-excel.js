@@ -7,6 +7,7 @@ import { getFarmDisplayName } from '../../../lib/farmKoreanNames';
 import { customerDisplayLabel, getPivotStats, makePivotVolumeSheetName } from '../../../lib/pivotStats';
 import { DAY_ORDER, extractDays, pickDataDay } from '../../../lib/pivotVolumeCustDays';
 import { includePivotVolumeRow, sumIncomingQty, sumOrderQty } from '../../../lib/pivotVolumeRows';
+import { combinedCellContext, combinedParts, combinedNumberFormat } from '../../../lib/pivotVolumeCombinedCells';
 import {
   buildPivotVolumeIdentityColumns,
   isNetherlandsVolume,
@@ -272,7 +273,7 @@ function makeSheet(rows, customers, farms, meta) {
     } else if (col.type === 'customer') {
       const isRegionStart = idx === 0 || colPlan[idx - 1]?.group !== col.group;
       aoa[0][idx] = isRegionStart ? col.group : '';
-      aoa[1][idx] = col.day || '';
+      aoa[1][idx] = meta.combined ? meta.combined.legend : col.day || '';
       // 중국·네덜란드 시트: 업체명 아래 줄에 CL(OrderCode) 추가 표시
       const cl = String(col.customer?.orderCode || '').trim();
       aoa[2][idx] = (showsCustomerCL(meta) && cl) ? `${col.label}\n${cl}` : col.label;
@@ -383,6 +384,32 @@ function makeSheet(rows, customers, farms, meta) {
     });
   }
 
+  if (meta.combined) {
+    colPlan.forEach((col, idx) => {
+      if (col.type !== 'customer') return;
+      const totalsByWeek = meta.combined.weeks.map(() => 0);
+      let width = Math.max(14, meta.combined.legend.length + 2);
+      rows.forEach((row, rowIdx) => {
+        const parts = combinedParts(meta.combined, row, col.customer.custName, q);
+        parts.forEach((value, i) => { totalsByWeek[i] += value; });
+        const cell = ws[encodeCell(dataStart + rowIdx, idx + 1)];
+        if (cell.t !== 'n') return;
+        const numFmt = combinedNumberFormat(cell.v, parts);
+        cell.z = numFmt;
+        cell.s = { ...cell.s, numFmt };
+        width = Math.max(width, XLSX.SSF.format(numFmt, cell.v).length + 2);
+      });
+      const cell = ws[encodeCell(totalRow, idx + 1)];
+      if (cell.t === 'n') {
+        const numFmt = combinedNumberFormat(cell.v, totalsByWeek);
+        cell.z = numFmt;
+        cell.s = { ...cell.s, numFmt };
+        width = Math.max(width, XLSX.SSF.format(numFmt, cell.v).length + 2);
+      }
+      ws['!cols'][idx].wch = width;
+    });
+  }
+
   // 재업로드(출고분배) 정확 매칭용 키맵: 셀 "텍스트"(업체명/품목명)→키.
   // 위치(컬럼/행 index)가 아니라 실제 셀 텍스트로 매칭 → 중간 품목열 삽입 등 레이아웃 변화에도 안 깨짐.
   const keymap = [];
@@ -406,6 +433,7 @@ export default withAuth(async function handler(req, res) {
 
   try {
     const data = await getPivotStats({ weekStart, weekEnd, orderYear });
+    const combined = combinedCellContext(data, req.query.combineSubweeks);
     const wb = XLSX.utils.book_new();
     const customers = data.customers || [];
     const farms = data.farms || [];
@@ -457,6 +485,7 @@ export default withAuth(async function handler(req, res) {
         : makePivotVolumeSheetName(group.country, group.flower, usedSheetNames);
       const { ws, keymap } = makeSheet(sheetRows, customers, farms, {
         orderYear: data.orderYear,
+        combined,
         weekLabel,
         country: group.country,
         flower: group.flower,
@@ -482,9 +511,10 @@ export default withAuth(async function handler(req, res) {
       wb.Workbook.Sheets = wb.SheetNames.map(name => ({ Hidden: name === '_keymap' ? 1 : 0 }));
     }
 
-    const fileBase = (onlyKey && groups.get(onlyKey))
+    let fileBase = (onlyKey && groups.get(onlyKey))
       ? `${weekNum}_${speciesOf(groups.get(onlyKey))}.xlsx`
       : `${data.orderYear}_${data.weekStart}${data.weekEnd !== data.weekStart ? `_${data.weekEnd}` : ''}_통합물량표.xlsx`;
+    if (combined) fileBase = fileBase.replace(/\.xlsx$/, `_${data.weekEnd}_합산셀.xlsx`);
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', compression: true });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileBase)}`);
