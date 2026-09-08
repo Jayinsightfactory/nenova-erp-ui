@@ -36,6 +36,8 @@
     ,"__tests__/estimateSaveRecoveryUi.test.js"
     ,"docs/work-reports/2026-08-28_estimate_exe_fix_status_sync.md"
     ,"docs/work-reports/2026-09-04_estimate_stale_self_recovery.md"
+    ,"docs/work-reports/2026-09-08_estimate-save-conflicts.md"
+    ,"__tests__/erpEditPresenceRace.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -47,6 +49,7 @@
       "sidecar": "WebErpEditLease only",
       "ttlSeconds": 90,
       "heartbeatSeconds": 20,
+      "heartbeatLockOrder": "HTTP heartbeat renews only the lease inside withTransaction, waits for commit, then reads coherent status outside that transaction. It never holds a lease write lock while waiting for ERP rows. Renewal cannot change BaselineDigest; a subsequent EXE write still returns stale=true",
       "baseline": "BaselineDigest + Revision are server-authoritative; heartbeat preserves baseline and explicit refresh replaces it",
       "digestSplit": "content digest excludes ShipmentMaster.isFix/ShipmentDetail.isFix; fixStatusDigest tracks positive-out detail confirmation separately",
       "conflict": "different UserID or browser clientId returns ERP_EDIT_LOCKED during ordinary acquire; an explicit user action may take over a lease from the same UserID, invalidating the previous tab token and establishing the new lock-bound snapshot as baseline",
@@ -69,7 +72,10 @@
       "sidecar": "heartbeat only; do not refresh/replace BaselineDigest",
       "sequence": "keep client saving marker -> every successful ERP transaction advances BaselineDigest -> after the whole attempt (success, failure, or partial success) heartbeat compares the authoritative baseline with live rows -> stale=false settles own completed writes -> release saving marker",
       "externalRace": "an EXE or other-window write after the web commit makes heartbeat stale=true and remains blocked",
-      "failure": "a validation-only failure leaves the same baseline; a partial save settles only the server-advanced baseline through heartbeat and never uses action=refresh. An intervening external write remains stale"
+      "failure": "a validation-only failure leaves the same baseline; a partial save settles only the server-advanced baseline through heartbeat and never uses action=refresh. An intervening external write remains stale",
+      "responseOrdering": "scope/token request epoch and accepted sequence prevent earlier polling/heartbeat responses or errors from overwriting a settled own save; beginSaving invalidates outstanding observations; renewal continues while saving but only endSaving applies the authoritative settlement; a lower server revision never replaces a newer accepted revision",
+      "lostSettlementResponse": "after the endSaving response is lost, a coherent GET can settle an own write only with identical scope/token, ownedByMe=true, stale=false and a strictly newer server revision. Equal-revision automatic responses cannot clear a real stale warning",
+      "statusCoherence": "GET remains lock-free: read lease before and after the ERP snapshot; retry at most three times if token/revision/baseline/ownership changes. Continuous change returns temporary ERP_EDIT_STATUS_CHECKING instead of inventing an external-write conflict. Never replace the baseline automatically"
     },
     {
       "name": "EXPLICIT_EXE_CONFIRMATION_REFRESH",
@@ -98,7 +104,7 @@
       "estimate": "existing quantity/cost API policy",
       "draft": "sessionStorage scoped by OrderYear + parent OrderWeek + CustKey",
       "sequence": "only network/502/503/504 -> preserve inputs -> wait for /api/ping -> read exact estimate rows -> already desired means success without another write; still expected means one retry; mixed/other means stop",
-      "businessConflicts": "409, ERP_EDIT_STALE, ERP_EDIT_LOCKED, STOCK_SHORTAGE and validation failures are never automatically retried"
+      "businessConflicts": "ERP_EDIT_STALE, ERP_EDIT_LOCKED, STOCK_SHORTAGE and validation failures are never automatically retried. Sole exception: pre-business-write STOCK_GATE_BUSY with exact server retryable=true/saved=false may wait/retry at most five times and 15 seconds, preserving the same body and all server checks"
     },
     {
       "name": "PASTE_BATCH_UNDO_ORIGINAL_ADD",
@@ -131,6 +137,7 @@
   "requiredTestFiles": [
     "__tests__/erpEditPresence.test.js",
     "__tests__/erpEditPresenceUiContract.test.js",
+    "__tests__/erpEditPresenceRace.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/estimateDateQuantityContract.test.js",
     "__tests__/estimateSaveRecovery.test.js",

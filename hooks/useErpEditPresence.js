@@ -25,6 +25,7 @@ async function requestPresence(method, payload) {
   const response = await fetch(`/api/erp/edit-presence${query}`, {
     method,
     credentials: 'same-origin',
+    ...(method === 'GET' ? { cache: 'no-store' } : {}),
     headers: method === 'GET' ? undefined : { 'Content-Type': 'application/json' },
     ...(method === 'GET' ? {} : { body: JSON.stringify(payload) }),
     signal: AbortSignal.timeout(PRESENCE_REQUEST_TIMEOUT_MS),
@@ -41,7 +42,7 @@ async function requestPresence(method, payload) {
 }
 
 function emptyState() {
-  return { loading: false, active: false, ownedByMe: false, ownedBySameUser: false, stale: false, error: '', digest: '', fixStatusDigest: '', fixStatusChanged: false, token: '', ownerName: '', pageCode: '', expiresAt: '', scopeKey: '' };
+  return { loading: false, active: false, ownedByMe: false, ownedBySameUser: false, stale: false, error: '', digest: '', fixStatusDigest: '', fixStatusChanged: false, token: '', revision: 0, ownerName: '', pageCode: '', expiresAt: '', scopeKey: '' };
 }
 
 // Keep this reducer pure so the save-completion transition can be exercised
@@ -52,6 +53,9 @@ function emptyState() {
 export function mergeErpEditPresenceResponse(previous = {}, data = {}, { preserveToken = true } = {}) {
   const lease = data?.lease || {};
   const nextFixStatusDigest = data?.fixStatusDigest || previous.fixStatusDigest || '';
+  const nextRevision = Object.prototype.hasOwnProperty.call(lease, 'revision')
+    ? Number(lease.revision || 0)
+    : Number(previous.revision || 0);
   return {
     ...previous,
     loading: false,
@@ -66,8 +70,87 @@ export function mergeErpEditPresenceResponse(previous = {}, data = {}, { preserv
     fixStatusDigest: nextFixStatusDigest,
     fixStatusChanged: Boolean(previous.fixStatusDigest && nextFixStatusDigest && previous.fixStatusDigest !== nextFixStatusDigest),
     token: lease.token || (preserveToken ? previous.token : ''),
+    revision: nextRevision,
     stale: Boolean(data?.stale),
     scopeKey: editScopeKey(data?.scope || {}),
+  };
+}
+
+export function mergeCurrentErpEditPresenceResponse(previous = {}, data = {}, { preserveToken = true, allowStaleClear = false } = {}) {
+  const next = mergeErpEditPresenceResponse(previous, data, { preserveToken });
+  // Automatic equal-revision responses cannot clear a real external-change
+  // warning. Explicit refresh/takeover or a newer transaction revision can.
+  if (previous.stale && !next.stale && previous.scopeKey && previous.scopeKey === next.scopeKey
+    && Number(next.revision || 0) <= Number(previous.revision || 0) && !allowStaleClear) {
+    next.stale = true;
+  }
+  return next;
+}
+
+function responseRevision(data = {}) {
+  if (!Object.prototype.hasOwnProperty.call(data?.lease || {}, 'revision')) return null;
+  const revision = Number(data.lease.revision);
+  return Number.isFinite(revision) ? revision : null;
+}
+
+// Background status requests overlap by design. Keep their ordering policy
+// pure so delayed pre-save/past-scope responses can be exercised without a
+// browser harness. Server revision is authoritative for one owned lease;
+// request sequence resolves equal-revision network reordering.
+export function shouldApplyErpPresenceRequest(request = {}, current = {}, data = {}, { allowDuringSave = false, allowTokenChange = false } = {}) {
+  if (!request.scopeKey || request.scopeKey !== current.scopeKey) return false;
+  if (Number(request.epoch) !== Number(current.epoch)) return false;
+  if (Number(request.sequence || 0) < Number(current.appliedSequence || 0)) return false;
+  if (request.startedWhileSaving && !allowDuringSave) return false;
+
+  const dataScopeKey = data?.scope ? editScopeKey(data.scope) : '';
+  if (dataScopeKey && dataScopeKey !== current.scopeKey) return false;
+
+  const currentToken = String(current.token || '');
+  const requestToken = String(request.token || '');
+  if (!allowTokenChange && requestToken && currentToken && requestToken !== currentToken) return false;
+
+  const nextRevision = responseRevision(data);
+  const currentRevision = Number(current.revision || 0);
+  if (!allowTokenChange && nextRevision != null && nextRevision < currentRevision) return false;
+  return true;
+}
+
+export function createErpPresenceRequestCoordinator() {
+  let epoch = 0;
+  let sequence = 0;
+  let appliedSequence = 0;
+  let scopeKey = '';
+  return {
+    setScope(nextScopeKey = '') {
+      const normalized = String(nextScopeKey || '');
+      if (normalized !== scopeKey) {
+        scopeKey = normalized;
+        epoch += 1;
+      }
+      return epoch;
+    },
+    invalidateForSave() {
+      epoch += 1;
+      return epoch;
+    },
+    begin({ token = '', savingCount = 0 } = {}) {
+      sequence += 1;
+      return { epoch, sequence, scopeKey, token: String(token || ''), startedWhileSaving: Number(savingCount || 0) > 0 };
+    },
+    canApply(request, state = {}, data = {}, options = {}) {
+      return shouldApplyErpPresenceRequest(request, {
+        epoch,
+        appliedSequence,
+        scopeKey,
+        token: state.scopeKey === scopeKey ? state.token : '',
+        revision: state.scopeKey === scopeKey ? state.revision : 0,
+      }, data, options);
+    },
+    markApplied(request) {
+      appliedSequence = Math.max(appliedSequence, Number(request?.sequence || 0));
+    },
+    snapshot() { return { epoch, sequence, appliedSequence, scopeKey }; },
   };
 }
 
@@ -80,6 +163,22 @@ export function shouldBlockErpDigestTransition({ force = false, savingCount = 0,
     && Boolean(previousDigest)
     && Boolean(nextDigest)
     && previousDigest !== nextDigest;
+}
+
+export function isErpOwnSaveSettlement(previous = {}, data = {}) {
+  const lease = data?.lease || {};
+  const previousToken = String(previous.token || '');
+  const responseToken = String(lease.token || '');
+  const previousRevision = Number(previous.revision || 0);
+  const nextRevision = responseRevision(data);
+  return Boolean(
+    previousToken
+    && responseToken === previousToken
+    && lease.ownedByMe === true
+    && data?.stale === false
+    && nextRevision != null
+    && nextRevision > previousRevision
+  );
 }
 
 function editScopeKey({ year, orderYear, week, orderWeek, custKey } = {}) {
@@ -108,6 +207,7 @@ export function mergeErpEditPresenceError(previous = {}, error = {}, scope = {})
       pageCode: lease?.pageCode || previous.pageCode || '',
       expiresAt: lease?.expiresAt || previous.expiresAt || '',
       token: lease?.token || previous.token || '',
+      revision: Object.prototype.hasOwnProperty.call(lease || {}, 'revision') ? Number(lease.revision || 0) : Number(previous.revision || 0),
       digest: error?.data?.actualDigest || previous.digest || '',
       fixStatusDigest: error?.data?.fixStatusDigest || previous.fixStatusDigest || '',
       scopeKey: editScopeKey(responseScope) || previous.scopeKey || '',
@@ -178,80 +278,114 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
   const [state, setState] = useState(emptyState);
   const stateRef = useRef(state);
   const savingRef = useRef(0);
+  const requestCoordinatorRef = useRef(null);
+  if (!requestCoordinatorRef.current) requestCoordinatorRef.current = createErpPresenceRequestCoordinator();
   const scope = useMemo(() => ({ year: String(year || ''), week: normalizeErpEditClientWeek(week), custKey: custKey == null ? '' : String(custKey || ''), pageCode: String(pageCode || ''), clientId: clientIdRef.current }), [year, week, custKey, pageCode]);
   const validScope = Boolean(enabled && scope.year && scope.week && scope.custKey && scope.pageCode);
+  // Ref invalidation happens during render, before the old effect cleanup, so
+  // a response from the previous customer can never land in the new scope.
+  requestCoordinatorRef.current.setScope(validScope ? editScopeKey(scope) : '');
 
   useEffect(() => { stateRef.current = state; }, [state]);
 
-  const applyResponse = useCallback((data, { preserveToken = true } = {}) => {
-    const prev = stateRef.current;
-    const next = mergeErpEditPresenceResponse(prev, data, { preserveToken });
+  const transitionState = useCallback((updater) => {
+    const previous = stateRef.current;
+    const next = typeof updater === 'function' ? updater(previous) : updater;
     stateRef.current = next;
     setState(next);
-    return data;
+    return next;
   }, []);
+
+  const beginPresenceRequest = useCallback(() => requestCoordinatorRef.current.begin({
+    token: stateRef.current.token,
+    savingCount: savingRef.current,
+  }), []);
+
+  const claimPresenceResponse = useCallback((request, data, options = {}) => {
+    if (!request) return true;
+    const coordinator = requestCoordinatorRef.current;
+    if (!coordinator.canApply(request, stateRef.current, data, options)) return false;
+    coordinator.markApplied(request);
+    return true;
+  }, []);
+
+  const applyResponse = useCallback((data, { preserveToken = true, request = null, allowDuringSave = false, allowTokenChange = false, allowStaleClear = false, claimed = false } = {}) => {
+    if (!claimed && !claimPresenceResponse(request, data, { allowDuringSave, allowTokenChange })) return data;
+    const prev = stateRef.current;
+    const next = mergeCurrentErpEditPresenceResponse(prev, data, { preserveToken, allowStaleClear });
+    transitionState(next);
+    return data;
+  }, [claimPresenceResponse, transitionState]);
 
   const refresh = useCallback(async ({ force = false } = {}) => {
     if (!validScope) return null;
-    const previous = stateRef.current;
+    const request = beginPresenceRequest();
+    const requestState = stateRef.current;
     try {
-      const data = force && previous.token
-        ? await requestPresence('POST', { action: 'refresh', ...scope, token: previous.token })
+      const data = force && requestState.token
+        ? await requestPresence('POST', { action: 'refresh', ...scope, token: requestState.token })
         : await requestPresence('GET', scope);
+      if (!claimPresenceResponse(request, data)) return data;
+      const previous = stateRef.current;
       const nextDigest = data?.digest || '';
-      if (shouldBlockErpDigestTransition({
+      const ownSaveSettlement = isErpOwnSaveSettlement(previous, data);
+      if (!ownSaveSettlement && shouldBlockErpDigestTransition({
         force,
         savingCount: savingRef.current,
         previousDigest: previous.digest,
         nextDigest,
       })) {
-        setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
+        transitionState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
         return data;
       }
-      return applyResponse(data);
+      return applyResponse(data, { claimed: true, allowStaleClear: force });
     } catch (error) {
+      if (!claimPresenceResponse(request, error?.data || {})) return null;
       if (error.code === 'ERP_EDIT_STALE') {
-        setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
+        transitionState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
       } else if (error.code === 'ERP_EDIT_LOCKED') {
         const lease = error.data?.lease || {};
-        setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
+        transitionState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
       } else {
-        setState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
+        transitionState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
       }
       throw error;
     }
-  }, [applyResponse, scope, validScope]);
+  }, [applyResponse, beginPresenceRequest, claimPresenceResponse, scope, transitionState, validScope]);
 
   const acquire = useCallback(async () => {
     if (!validScope) return null;
-    setState(prev => ({ ...prev, loading: true, error: '' }));
+    transitionState(prev => ({ ...prev, loading: true, error: '' }));
+    const request = beginPresenceRequest();
     try {
       const data = await requestPresence('POST', { action: 'acquire', ...scope });
-      return applyResponse(data, { preserveToken: false });
+      return applyResponse(data, { preserveToken: false, request, allowTokenChange: true, allowStaleClear: true });
     } catch (error) {
+      if (!claimPresenceResponse(request, error?.data || {}, { allowTokenChange: true })) return null;
       if (error.code === 'ERP_EDIT_LOCKED') {
         const lease = error.data?.lease || {};
-        setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
+        transitionState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
       } else if (error.code === 'ERP_EDIT_STALE') {
         const next = mergeErpEditPresenceError(stateRef.current, error, scope);
-        stateRef.current = next;
-        setState(next);
+        transitionState(next);
       } else {
-        setState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
+        transitionState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
       }
       throw error;
     }
-  }, [applyResponse, scope, validScope]);
+  }, [applyResponse, beginPresenceRequest, claimPresenceResponse, scope, transitionState, validScope]);
 
   const takeover = useCallback(async () => {
     if (!validScope) return null;
-    setState(prev => ({ ...prev, loading: true, error: '' }));
+    transitionState(prev => ({ ...prev, loading: true, error: '' }));
+    const request = beginPresenceRequest();
     try {
       const data = await requestPresence('POST', { action: 'takeover', ...scope });
-      return applyResponse(data, { preserveToken: false });
+      return applyResponse(data, { preserveToken: false, request, allowTokenChange: true, allowStaleClear: true });
     } catch (error) {
+      if (!claimPresenceResponse(request, error?.data || {}, { allowTokenChange: true })) return null;
       const lease = error.data?.lease || {};
-      setState(prev => ({
+      transitionState(prev => ({
         ...prev,
         loading: false,
         active: Boolean(lease.active),
@@ -264,7 +398,7 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
       }));
       throw error;
     }
-  }, [applyResponse, scope, validScope]);
+  }, [applyResponse, beginPresenceRequest, claimPresenceResponse, scope, transitionState, validScope]);
 
   const release = useCallback(async (releaseScope = scope, token = stateRef.current.token) => {
     if (!token || !releaseScope?.year || !releaseScope?.week || !releaseScope?.custKey) return null;
@@ -274,7 +408,7 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
 
   useEffect(() => {
     if (!validScope) {
-      setState(emptyState());
+      transitionState(emptyState());
       return undefined;
     }
     let disposed = false;
@@ -285,15 +419,16 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
       // 저장 중에는 외부 변경 감지 polling만 멈춘다. 임대 연장은 계속해야
       // 확정해제→저장→재확정처럼 오래 걸리는 정상 작업이 자기 임대를 잃지 않는다.
       if (!current.token) return;
+      const request = beginPresenceRequest();
       requestPresence('POST', { action: 'heartbeat', ...scope, token: current.token })
-        .then(data => { if (!disposed) applyResponse(data); })
+        .then(data => { if (!disposed) applyResponse(data, { request }); })
         .catch(error => {
-          if (disposed) return;
-          if (error.code === 'ERP_EDIT_STALE') setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
+          if (disposed || !claimPresenceResponse(request, error?.data || {})) return;
+          if (error.code === 'ERP_EDIT_STALE') transitionState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
           else if (error.code === 'ERP_EDIT_LOCKED') {
             const lease = error.data?.lease || {};
-            setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', error: '' }));
-          } else setState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
+            transitionState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', error: '' }));
+          } else transitionState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
         });
     }, HEARTBEAT_MS);
     const poll = setInterval(() => { if (savingRef.current === 0) refresh().catch(() => {}); }, POLL_MS);
@@ -304,11 +439,18 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
       // scope가 바뀐 뒤의 새 임대를 잘못 해제하지 않도록, 이 effect가 취득한 토큰만 반납한다.
       release(scope, ownedToken);
     };
-  }, [acquire, applyResponse, refresh, release, scope, validScope]);
+  }, [acquire, applyResponse, beginPresenceRequest, claimPresenceResponse, refresh, release, scope, transitionState, validScope]);
 
-  const beginSaving = useCallback(() => { savingRef.current += 1; }, []);
+  const beginSaving = useCallback(() => {
+    // Every save start invalidates requests that observed the pre-save digest.
+    // A nested/new save also invalidates an older endSaving heartbeat that is
+    // still in flight; only the final current save may settle the baseline.
+    requestCoordinatorRef.current.invalidateForSave();
+    savingRef.current += 1;
+  }, []);
   const endSaving = useCallback(async ({ refreshBaseline = true } = {}) => {
     const shouldVerifyOwnWrite = savingRef.current === 1 && refreshBaseline;
+    let request = null;
     try {
       if (shouldVerifyOwnWrite) {
         const current = stateRef.current;
@@ -321,27 +463,29 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
         // accepts whatever is currently in ERP and can hide an EXE edit that
         // lands immediately after our commit. heartbeat only compares the
         // transaction-advanced server baseline with the live ERP snapshot.
+        request = beginPresenceRequest();
         const data = await requestPresence('POST', { action: 'heartbeat', ...scope, token: current.token });
-        applyResponse(data);
+        applyResponse(data, { request, allowDuringSave: true });
       }
     } catch (error) {
+      if (request && !claimPresenceResponse(request, error?.data || {}, { allowDuringSave: true })) return;
       if (error.code === 'ERP_EDIT_STALE') {
-        setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
+        transitionState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
       } else if (error.code === 'ERP_EDIT_LOCKED') {
         const lease = error.data?.lease || {};
-        setState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
+        transitionState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
       } else {
-        setState(prev => ({ ...prev, loading: false, error: error.message || '저장 후 작업 상태 확인 실패' }));
+        transitionState(prev => ({ ...prev, loading: false, error: error.message || '저장 후 작업 상태 확인 실패' }));
       }
     } finally {
       // Keep polling suspended until the authoritative heartbeat has settled;
       // otherwise the old client digest can race the just-committed digest.
       savingRef.current = Math.max(0, savingRef.current - 1);
     }
-  }, [applyResponse, scope, validScope]);
+  }, [applyResponse, beginPresenceRequest, claimPresenceResponse, scope, transitionState, validScope]);
   const markStale = useCallback(() => {
-    setState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
-  }, []);
+    transitionState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
+  }, [transitionState]);
   const editGuard = useMemo(() => editGuardFromPresence({ ...state, clientId: clientIdRef.current, custKey: scope.custKey, pageCode: scope.pageCode }, scope), [scope, state]);
   const locked = state.active && !state.ownedByMe;
   const scopeMatches = Boolean(validScope && state.scopeKey && state.scopeKey === editScopeKey(scope));

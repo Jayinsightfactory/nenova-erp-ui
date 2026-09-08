@@ -53,6 +53,15 @@
       "shipmentDate": "update-shipment-quantity-estimate-quantity-and-descr",
       "fixCycle": "none; server-locked direct fixed-status-preserving transaction",
       "stock": "decrease skips shortage query; fixed Product.Stock and nonmanual 출고 history receive the signed net delta before scoped native calculation"
+    },
+    {
+      "name": "PRE_WRITE_STOCK_GATE_BUSY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve; the V2 singleton NOWAIT gate is checked before every business row lock or write. Only an empty gate-query result or MSSQL lock-timeout number 1222, including originalError.info.number, becomes STOCK_GATE_BUSY with internal preWriteGateBusy=true. Deadlock 1205 remains unwrapped for withTransaction retry; missing table, timeout, and every other SQL error remain unwrapped.",
+      "clientAcknowledgement": "The API returns retryable:true and saved:false only when code is STOCK_GATE_BUSY and preWriteGateBusy is exactly true. No stale, locked, shortage, native failure, or unmarked busy error receives this acknowledgement."
     }
   ],
   "crossYearFixture": {

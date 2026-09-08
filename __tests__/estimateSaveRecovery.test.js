@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import {
+  boundedStockBusyDelayMs,
   classifyEstimateSaveSnapshot,
   estimateEditDraftKey,
+  ESTIMATE_SAVE_STOCK_BUSY_DELAYS_MS,
+  ESTIMATE_SAVE_STOCK_BUSY_MAX_RETRIES,
+  ESTIMATE_SAVE_STOCK_BUSY_MAX_TOTAL_DELAY_MS,
   isTransientEstimateSaveFailure,
   readEstimateEditDraft,
   runRecoverableEstimateSave,
@@ -35,6 +39,10 @@ assert.equal(isTransientEstimateSaveFailure(Object.assign(new Error('bad gateway
 assert.equal(isTransientEstimateSaveFailure(Object.assign(new Error('conflict'), { status: 409 })), false);
 assert.equal(isTransientEstimateSaveFailure(new TypeError('Failed to fetch')), true);
 assert.equal(isTransientEstimateSaveFailure(Object.assign(new Error('timeout'), { name: 'AbortError' })), true);
+assert.equal(ESTIMATE_SAVE_STOCK_BUSY_MAX_RETRIES, 5);
+assert.equal(ESTIMATE_SAVE_STOCK_BUSY_DELAYS_MS.reduce((total, delay) => total + delay, 0), ESTIMATE_SAVE_STOCK_BUSY_MAX_TOTAL_DELAY_MS);
+assert.equal(boundedStockBusyDelayMs(60_000), ESTIMATE_SAVE_STOCK_BUSY_MAX_TOTAL_DELAY_MS, 'large custom waits cannot exceed the total stock-gate budget');
+assert.equal(boundedStockBusyDelayMs(60_000, 14_500), 500, 'a later custom wait receives only the remaining stock-gate budget');
 
 const rows = [
   { SdateKey: 10, SdetailKey: 20, Quantity: 7, DateCost: 12000, Cost: 12000 },
@@ -151,5 +159,139 @@ await assert.rejects(() => runRecoverableEstimateSave({
   delays: [0],
 }), error => error.code === 'STALE_DATA');
 assert.equal(businessRequests, 1, '업무 충돌은 자동 재시도하지 않는다');
+
+const retryableStockBusy = () => Object.assign(new Error('stock gate busy'), {
+  status: 409,
+  code: 'STOCK_GATE_BUSY',
+  data: { retryable: true, saved: false },
+});
+
+let stockBusySuccessRequests = 0;
+const stockBusyStates = [];
+const stockBusySuccess = await runRecoverableEstimateSave({
+  request: async () => {
+    stockBusySuccessRequests += 1;
+    if (stockBusySuccessRequests === 1) throw retryableStockBusy();
+    return { success: true };
+  },
+  onState: state => stockBusyStates.push(state),
+  stockBusyDelays: [0],
+});
+assert.equal(stockBusySuccessRequests, 2, 'known no-write stock gate busy retries the same save once');
+assert.equal(stockBusySuccess.recovered, true);
+assert.deepEqual(stockBusyStates.map(({ phase, waitAttempt, delayMs }) => ({ phase, waitAttempt, delayMs })), [
+  { phase: 'stock-wait', waitAttempt: 1, delayMs: 0 },
+]);
+
+let stockBusyExhaustedRequests = 0;
+const stockBusyTerminalStates = [];
+await assert.rejects(() => runRecoverableEstimateSave({
+  request: async () => {
+    stockBusyExhaustedRequests += 1;
+    throw retryableStockBusy();
+  },
+  onState: state => stockBusyTerminalStates.push(state),
+  stockBusyDelays: [0],
+}), error => error.code === 'STOCK_GATE_BUSY' && /입력값은 그대로 보관/.test(error.message));
+assert.equal(stockBusyExhaustedRequests, 6, 'stock gate retries are bounded separately from network request retries');
+assert.equal(stockBusyTerminalStates.at(-1).phase, 'stockbusy');
+assert.equal(stockBusyTerminalStates.at(-1).preservesInput, true);
+
+let acknowledgedBusinessConflictRequests = 0;
+await assert.rejects(() => runRecoverableEstimateSave({
+  request: async () => {
+    acknowledgedBusinessConflictRequests += 1;
+    throw Object.assign(new Error('shortage'), {
+      status: 409,
+      code: 'STOCK_SHORTAGE',
+      data: { retryable: true, saved: false },
+    });
+  },
+  stockBusyDelays: [0],
+}), error => error.code === 'STOCK_SHORTAGE');
+assert.equal(acknowledgedBusinessConflictRequests, 1, 'business conflicts never use stock gate retry');
+
+let unacknowledgedStockBusyRequests = 0;
+await assert.rejects(() => runRecoverableEstimateSave({
+  request: async () => {
+    unacknowledgedStockBusyRequests += 1;
+    throw Object.assign(new Error('stock gate busy'), { status: 409, code: 'STOCK_GATE_BUSY', data: { retryable: true } });
+  },
+  stockBusyDelays: [0],
+}), error => error.code === 'STOCK_GATE_BUSY');
+assert.equal(unacknowledgedStockBusyRequests, 1, 'missing saved:false acknowledgement never retries');
+
+let unacknowledgedStockBusy503Requests = 0;
+const unacknowledgedStockBusy503 = Object.assign(new Error('stock gate busy'), {
+  status: 503,
+  code: 'STOCK_GATE_BUSY',
+  data: { retryable: true },
+});
+await assert.rejects(() => runRecoverableEstimateSave({
+  request: async () => {
+    unacknowledgedStockBusy503Requests += 1;
+    throw unacknowledgedStockBusy503;
+  },
+}), error => error === unacknowledgedStockBusy503);
+assert.equal(unacknowledgedStockBusy503Requests, 1, 'an unacknowledged stock busy error never falls through to 503 recovery');
+
+for (const businessCode of ['ERP_EDIT_STALE', 'ERP_EDIT_LOCKED']) {
+  let business503Requests = 0;
+  const business503 = Object.assign(new Error(businessCode), { status: 503, code: businessCode });
+  await assert.rejects(() => runRecoverableEstimateSave({
+    request: async () => {
+      business503Requests += 1;
+      throw business503;
+    },
+  }), error => error === business503);
+  assert.equal(business503Requests, 1, `${businessCode} takes precedence over transient HTTP status`);
+}
+
+let zeroRetryStockBusyRequests = 0;
+const zeroRetryStockBusyStates = [];
+await assert.rejects(() => runRecoverableEstimateSave({
+  request: async () => {
+    zeroRetryStockBusyRequests += 1;
+    throw retryableStockBusy();
+  },
+  onState: state => zeroRetryStockBusyStates.push(state),
+  maxStockBusyRetries: 0,
+}), error => error.code === 'STOCK_GATE_BUSY');
+assert.equal(zeroRetryStockBusyRequests, 1, 'an explicit zero stock-busy retry limit sends no retry request');
+assert.deepEqual(zeroRetryStockBusyStates.map(({ phase, waitAttempt }) => ({ phase, waitAttempt })), [
+  { phase: 'stockbusy', waitAttempt: 0 },
+]);
+
+let busyThenStaleRequests = 0;
+await assert.rejects(() => runRecoverableEstimateSave({
+  request: async () => {
+    busyThenStaleRequests += 1;
+    if (busyThenStaleRequests === 1) throw retryableStockBusy();
+    throw Object.assign(new Error('stale'), { status: 409, code: 'STALE_DATA' });
+  },
+  stockBusyDelays: [0],
+}), error => error.code === 'STALE_DATA');
+assert.equal(busyThenStaleRequests, 2, 'a later stale conflict stops stock retries immediately');
+
+let mixedRecoveryRequests = 0;
+let mixedRecoveryReconciles = 0;
+const mixedRecovery = await runRecoverableEstimateSave({
+  request: async () => {
+    mixedRecoveryRequests += 1;
+    if (mixedRecoveryRequests === 1) throw retryableStockBusy();
+    throw Object.assign(new Error('response lost'), { status: 504 });
+  },
+  probe: async () => true,
+  reconcile: async () => {
+    mixedRecoveryReconciles += 1;
+    return { status: 'applied', data: { success: true } };
+  },
+  stockBusyDelays: [0],
+  delays: [0],
+  commitObservationDelays: [0],
+});
+assert.equal(mixedRecoveryRequests, 2, 'network recovery after a stock wait does not send a duplicate request');
+assert.equal(mixedRecoveryReconciles, 1, 'network recovery still reconciles an ambiguous commit');
+assert.equal(mixedRecovery.alreadyApplied, true);
 
 console.log('estimateSaveRecovery tests passed');
