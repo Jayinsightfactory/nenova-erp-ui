@@ -20,6 +20,13 @@
 - docs/CODEX_SUBTASK_ORCHESTRATION.md는 현재 저장소에 없음. 하위 작업은 수량 대조(read-only)로 제한, 최종 판단과 배포는 메인에서 수행.
 
 ## 검증/배포
+### 후속 요청 — 소수점 한 자리 / 헤더 안내 제거
+- Q. 수량은 1.1처럼 소수점 한 자리까지만, 합산(1차,2차) 문구는 제거.
+- 기준: 합산 모드 숫자 표시만 최대 1자리 반올림, 정수는 소수점 생략. 괄호 안 각 차수도 동일. 원본 숫자값·수식·ERP 원장은 앞의 부작용 표대로 전부 보존. 일반 다운로드는 유지.
+- 헤더 안내 셀은 공란, 기존 출고요일을 대신 넣지 않는다. 화면의 옵션 설명은 유지.
+- 선검증: 실제 EXE FormQuantityPivot의 CellFormat=N2 확인. EXE/DB 형식은 변경하지 않고 사용자 지정 웹 Excel 형식만 변경. 동일 2026 36-01~36-02 read-only probe 재실행.
+- 후속 배포 검증은 PR 댓글에 기록.
+
 - 운영 읽기 자료 대조: 1,442 업체·품목 조합, 범위 합계와 36-01+36-02 불일치 0건.
 - test:erp-contract, test:nenova-dnspy-evidence, test:erp-manifest, guard:erp-writes, test:pivot, build 통과.
 - 새 회귀 테스트: 생략/false/0/stale 옵션, 동일 이름 다른 ProdKey, 전년도 데이터 배제, 누락 차수 차단, 누락 품목 0, 합계 불일치 차단, 알스트로 변환, 소수 표시, 실제 시트 생성기·XLSX 왕복의 숫자값/수식/색상 보존.
