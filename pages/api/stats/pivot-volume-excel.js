@@ -7,7 +7,7 @@ import { getFarmDisplayName } from '../../../lib/farmKoreanNames';
 import { customerDisplayLabel, getPivotStats, makePivotVolumeSheetName } from '../../../lib/pivotStats';
 import { DAY_ORDER, extractDays, pickDataDay } from '../../../lib/pivotVolumeCustDays';
 import { includePivotVolumeRow, sumIncomingQty, sumOrderQty } from '../../../lib/pivotVolumeRows';
-import { combinedCellContext, combinedParts, combinedNumberFormat } from '../../../lib/pivotVolumeCombinedCells';
+import { combinedCellContext, combinedParts, combinedNumberFormat, quantityNumberFormat } from '../../../lib/pivotVolumeCombinedCells';
 import {
   buildPivotVolumeIdentityColumns,
   isNetherlandsVolume,
@@ -273,7 +273,7 @@ function makeSheet(rows, customers, farms, meta) {
     } else if (col.type === 'customer') {
       const isRegionStart = idx === 0 || colPlan[idx - 1]?.group !== col.group;
       aoa[0][idx] = isRegionStart ? col.group : '';
-      aoa[1][idx] = meta.combined ? meta.combined.legend : col.day || '';
+      aoa[1][idx] = meta.combined ? '' : col.day || '';
       // 중국·네덜란드 시트: 업체명 아래 줄에 CL(OrderCode) 추가 표시
       const cl = String(col.customer?.orderCode || '').trim();
       aoa[2][idx] = (showsCustomerCL(meta) && cl) ? `${col.label}\n${cl}` : col.label;
@@ -385,10 +385,17 @@ function makeSheet(rows, customers, farms, meta) {
   }
 
   if (meta.combined) {
+    // Summary/farm quantities follow the same display precision; raw numbers and formulas stay intact.
+    for (const cell of Object.values(ws)) {
+      if (cell?.t !== 'n') continue;
+      const numFmt = quantityNumberFormat(cell.v);
+      cell.z = numFmt;
+      cell.s = { ...cell.s, numFmt };
+    }
     colPlan.forEach((col, idx) => {
       if (col.type !== 'customer') return;
       const totalsByWeek = meta.combined.weeks.map(() => 0);
-      let width = Math.max(14, meta.combined.legend.length + 2);
+      let width = 14;
       rows.forEach((row, rowIdx) => {
         const parts = combinedParts(meta.combined, row, col.customer.custName, q);
         parts.forEach((value, i) => { totalsByWeek[i] += value; });

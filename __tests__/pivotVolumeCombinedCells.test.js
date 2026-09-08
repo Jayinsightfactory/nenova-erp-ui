@@ -22,7 +22,13 @@ async function main() {
   assert.throws(() => combinedCellContext({...data, weeks:['36-01','37-01']}, 'true'), /범위/);
   assert.throws(() => combinedCellContext({...data, orderYear:'2025~2026'}, '1'), /범위/);
   assert.throws(() => combinedCellContext({...data, byWeek:{}}, '1'), /데이터/);
-  for (const [total, parts, expected] of [[30,[10,20],'30(10,20)'], [5,[5,0],'5(5,0)'], [1.875,[0.625,1.25],'1.875(0.625,1.25)']]) {
+  for (const [total, parts, expected] of [
+    [30, [10, 20], '30(10,20)'],
+    [5, [5, 0], '5(5,0)'],
+    [1.875, [0.625, 1.25], '1.9(0.6,1.3)'],
+    [1.15, [0.04, 1.11], '1.2(0,1.1)'],
+    [-1.25, [-0.625, -0.625], '-1.3(-0.6,-0.6)'],
+  ]) {
     const z = combinedNumberFormat(total, parts);
     assert.equal(XLSX.SSF.format(z, total), expected);
     const wb = XLSX.utils.book_new();
@@ -48,8 +54,15 @@ async function main() {
   assert.equal(XLSX.SSF.format(combined.B4.z, combined.B4.v), '30(10,20)');
   assert.equal(combined.B5.f, ordinary.B5.f);
   assert.equal(combined.C4.f, ordinary.C4.f);
+  const decimalCtx = combinedCellContext({ ...data, byWeek: {
+    '36-01': { rows: [row(1, 0.625)] }, '36-02': { rows: [row(1, 1.25)] },
+  } }, '1');
+  const decimalRow = { ...row(1, 1.875), orders: { Customer: 1.875 } };
+  const decimalCombined = context.generate([decimalRow], args[1], [], { ...args[3], combined: decimalCtx }).ws;
+  assert.equal(XLSX.SSF.format(decimalCombined.B4.z, decimalCombined.B4.v), '1.9(0.6,1.3)');
+  assert.equal(XLSX.SSF.format(decimalCombined.C4.z, decimalCombined.C4.v), '1.9');
   assert.deepEqual(combined.A1.s, ordinary.A1.s);
-  assert.equal(combined.B2.v, '합산(1차,2차)');
+  assert.equal(combined.B2.v, '');
   console.log('pivot combined cells: defaults, year, missing, precision, production sheet and XLSX roundtrip passed');
 }
 main().catch(e=>{ console.error(e); process.exitCode=1; });
