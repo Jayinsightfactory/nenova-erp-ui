@@ -416,6 +416,7 @@ export default function Pivot() {
   const [err, setErr] = useState('');
   const [volBusy, setVolBusy] = useState('');   // 물량표 다운로드 진행 표시
   const [pickOpen, setPickOpen] = useState(false);   // 품종 선택 다운로드 모달
+  const [combineSubweeks, setCombineSubweeks] = useState(false);
   const [pickItems, setPickItems] = useState([]);
   const [pickSel, setPickSel] = useState(new Set());
 
@@ -895,12 +896,16 @@ export default function Pivot() {
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         setVolBusy(`${i + 1}/${items.length} 다운로드 중: ${it.species}`);
-        const r = await fetch(`/api/stats/pivot-volume-excel?${new URLSearchParams({ ...base, species: it.key })}`);
-        if (!r.ok) continue;
+        const r = await fetch(`/api/stats/pivot-volume-excel?${new URLSearchParams({ ...base, species: it.key, ...(combineSubweeks ? { combineSubweeks: '1' } : {}) })}`);
+        if (!r.ok) {
+          const error = await r.json().catch(() => ({}));
+          throw new Error(error.error || `${it.species}: 다운로드 실패 (${r.status})`);
+        }
         const blob = await r.blob();
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = it.fileName || `${it.species}.xlsx`;
+        const filename = r.headers.get('content-disposition')?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+        a.download = filename ? decodeURIComponent(filename) : it.fileName || `${it.species}.xlsx`;
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(a.href);
         await new Promise(res => setTimeout(res, 450));
@@ -2354,6 +2359,13 @@ export default function Pivot() {
               <button className="btn btn-sm" onClick={()=>setPickSel(new Set(pickItems.map(i=>i.key)))}>전체 선택</button>
               <button className="btn btn-sm" onClick={()=>setPickSel(new Set())}>전체 해제</button>
             </div>
+            <label style={{padding:'10px 16px',fontSize:13,background:'#eef5ff',lineHeight:1.6}}>
+              <input type="checkbox" checked={combineSubweeks} onChange={e=>setCombineSubweeks(e.target.checked)} />{' '}
+              합산셀 — 합계(1차수량,2차수량)
+              <div>예: 30(10,20) · 출고요일 무관 · 업체별 합산</div>
+              <div>선택 범위: {yearInput.value}년 {weekStartInput.value} ~ {weekEndInput.value || weekStartInput.value}</div>
+              <small>같은 본차수의 세부차수 2개 이상을 선택하세요. 괄호는 세부차수 오름차순입니다.</small>
+            </label>
             <div style={{padding:'8px 16px',overflowY:'auto',flex:1}}>
               {pickItems.map(it => (
                 <label key={it.key} style={{display:'flex',alignItems:'center',gap:8,
