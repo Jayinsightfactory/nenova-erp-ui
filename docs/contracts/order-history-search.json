@@ -1,0 +1,13 @@
+{
+  "id": "order-history-search",
+  "title": "주문 변경이력 검색·상시 진입",
+  "scope": ["pages/orders/history.js", "pages/orders/paste.js", "pages/api/orders/history.js", "lib/orderHistorySearch.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name": "READ_ORDER_HISTORY", "orderDetail": "preserve", "shipmentDetail": "preserve"}],
+  "crossYearFixture": {"required": true, "description": "2025와 2026의 같은 36-01 이력은 선택 연도에만 조회. 전체 차수도 선택 연도 필수. full week/year 불일치 거부."},
+  "requiredTestFiles": ["__tests__/orderHistorySearch.test.js", "__tests__/erpContractManifest.test.js"],
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormOrderAdd.md", "source": "실제 ClassOrderHistory와 FormOrderAdd 이력 조인 확인", "methods": ["ClassOrderHistory.Insert", "FormOrderAdd history lookup"], "tables": ["OrderHistory", "OrderDetail", "OrderMaster", "Customer", "Product"]},
+  "criteria": {"entry": "분석 결과 없이 상단 작업 히스토리 표시", "year": "명시 year 또는 full week 연도, 생략은 현재연도; 불일치/빈 명시연도/0 거부", "week": "빈칸 전체, 36 또는36차 본차수, 36-1 또는2026-36-01 세부차수", "search": "거래처와 품목/꽃/국가 공백 토큰 부분검색, SQL 와일드카드 escape", "pagination": "500행 고정 페이지, hasMore 표시, ChangeDtm+OrderHistoryKey DESC", "empty": "오류와 무결과 구분, 최신 요청만 표시", "scope": "OrderHistory만; 분배 전용/실패/롤백 로그 전체로 안내 금지"},
+  "preserves": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "StockHistory", "ProductStock", "Estimate", "WebProfitReport"]
+}

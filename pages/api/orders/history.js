@@ -1,37 +1,21 @@
 // pages/api/orders/history.js — 주문 변경 내역 조회
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeOrderWeek } from '../../../lib/orderUtils';
+import { normalizeOrderHistorySearch, buildOrderHistoryWhere, ORDER_HISTORY_PAGE_SIZE } from '../../../lib/orderHistorySearch';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
-  const { custName, custNames, week } = req.query;
-
-  let where = 'WHERE 1=1';
-  const params = {};
-  if (week)     { where += ' AND om.OrderWeek = @week'; params.week = { type: sql.NVarChar, value: normalizeOrderWeek(week) }; }
-  if (custName) { where += ' AND c.CustName LIKE @cust'; params.cust = { type: sql.NVarChar, value: `%${custName}%` }; }
-  if (!custName && custNames) {
-    const names = String(custNames)
-      .split('|')
-      .map(v => v.trim())
-      .filter(Boolean)
-      .slice(0, 80);
-    if (names.length > 0) {
-      const keys = names.map((name, idx) => {
-        const key = `cust${idx}`;
-        params[key] = { type: sql.NVarChar, value: name };
-        return `@${key}`;
-      });
-      where += ` AND c.CustName IN (${keys.join(',')})`;
-    }
-  }
-
   try {
+    const scope = normalizeOrderHistorySearch(req.query);
+    const { where, values } = buildOrderHistoryWhere(scope);
+    const params = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { type: sql.NVarChar, value }]));
+    params.offset = { type: sql.Int, value: (scope.page - 1) * ORDER_HISTORY_PAGE_SIZE };
+    params.take = { type: sql.Int, value: ORDER_HISTORY_PAGE_SIZE + 1 };
     const result = await query(
-      `SELECT TOP 500
-        CONVERT(NVARCHAR(10), oh.ChangeDtm, 120) AS 변경일자,
+      `SELECT oh.OrderHistoryKey AS historyKey,
+        CONVERT(NVARCHAR(19), oh.ChangeDtm, 120) AS 변경일자,
         oh.ChangeID AS 변경사용자,
+        om.OrderYear AS 연도,
         om.OrderWeek AS 차수,
         c.CustName AS 거래처명,
         p.CounName AS 국가,
@@ -48,11 +32,14 @@ export default withAuth(async function handler(req, res) {
        LEFT JOIN Customer c ON om.CustKey = c.CustKey
        LEFT JOIN Product p  ON od.ProdKey = p.ProdKey
        ${where}
-       ORDER BY oh.ChangeDtm DESC`,
+       ORDER BY oh.ChangeDtm DESC, oh.OrderHistoryKey DESC
+       OFFSET @offset ROWS FETCH NEXT @take ROWS ONLY`,
       params
     );
-    return res.status(200).json({ success: true, history: result.recordset });
+    const records = result.recordset || [];
+    return res.status(200).json({ success: true, history: records.slice(0, ORDER_HISTORY_PAGE_SIZE), page: scope.page,
+      hasMore: records.length > ORDER_HISTORY_PAGE_SIZE, orderYear: scope.year });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message });
   }
 });
