@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatFarmCostSummary, groupArrivalCostRows, arrivalCostGroupKey, normalizeWeekOrder, filterArrivalRowsByWeight, arrivalWeightMode, arrivalWeightHint, arrivalVarietyWeightActive, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
+import { formatFarmCostSummary, groupArrivalCostRows, arrivalCostGroupKey, normalizeWeekOrder, filterArrivalRowsByWeight, arrivalWeightMode, arrivalWeightHint, arrivalVarietyWeightActive, rowCost, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
 
 assert.equal(normalizeWeekOrder('asc'), 'asc');
 assert.equal(normalizeWeekOrder('ASC'), 'asc');
@@ -33,6 +33,13 @@ const groups = groupArrivalCostRows(rows);
 assert.equal(groups.length, 2);
 assert.equal(groups[0].rows.length, 3);
 assert.match(formatFarmCostSummary(groups[0].rows), /농장1 8,800원 \/ 농장2 8,000원 \/ 농장3 8,600원/);
+assert.equal(rowCost(groups[0].rows[0]), 8800, 'rowCost는 formatFarmCostSummary의 기본 원가 계산과 같아야 한다.');
+// 환율 재계산 미리보기처럼 행별 원가 계산을 주입할 수 있어야 한다 (요약 줄도 같이 바뀌도록).
+assert.equal(
+  formatFarmCostSummary(groups[0].rows, undefined, (row) => rowCost(row) + 1000),
+  '농장1 9,800원 / 농장2 9,000원 / 농장3 9,600원',
+  'costFn을 주입하면 요약 줄이 그 값을 반영해야 한다.',
+);
 
 assert.equal(arrivalWeightMode(100, 180), 'VOLUME');
 assert.equal(arrivalWeightMode(120, 120), 'WEIGHT');

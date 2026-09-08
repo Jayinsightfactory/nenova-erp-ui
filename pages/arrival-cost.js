@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
-import { arrivalVarietyWeightActive, arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
+import { arrivalVarietyWeightActive, arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, rowCost, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
 import { recalcArrivalCostWithFx } from '../lib/arrivalCostFxPreview.js';
 import { formatOrderWeekDateRange } from '../lib/orderWeekDate.js';
 
@@ -245,6 +245,13 @@ export default function ArrivalCostPage() {
   const [previewFx, setPreviewFx] = useState('');
   const previewFxNum = Number(previewFx);
   const previewFxActive = previewFxNum > 0;
+  const farmSummaryCostFn = useCallback((row) => {
+    if (previewFxActive) {
+      const preview = recalcArrivalCostWithFx(row, previewFxNum);
+      if (preview.ok) return preview.cost;
+    }
+    return rowCost(row);
+  }, [previewFxActive, previewFxNum]);
   const [expandedGroups, setExpandedGroups] = useState({});
   const visibleRows = useMemo(
     () => (weightRuleOn ? filterArrivalRowsByWeight(data.rows || []) : (data.rows || [])),
@@ -426,7 +433,7 @@ export default function ArrivalCostPage() {
                       <td>{group.countryName || '-'}</td>
                       <td>{group.countryFlower || '-'}</td>
                       <td className="raw-name" title={group.productNameRaw}>{group.productName || group.productNameRaw}</td>
-                      <td className="farm-costs">{formatFarmCostSummary(group.rows)}</td>
+                      <td className="farm-costs">{formatFarmCostSummary(group.rows, undefined, farmSummaryCostFn)}</td>
                     </tr>,
                     ...(expandedGroups[group.key] ? group.rows.map(row => {
                       const draft = drafts[row.arrivalLineKey] || {};
