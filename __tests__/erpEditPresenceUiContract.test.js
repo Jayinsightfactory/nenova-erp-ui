@@ -12,6 +12,7 @@ function main() {
   assert.match(hook, /normalizeErpEditClientWeek/, '세부차수 순서가 달라도 같은 대차수 작업키를 사용해야 합니다.');
   assert.match(hook, /HEARTBEAT_MS = 20_000/, '작업권 연장은 20초 간격이어야 합니다.');
   assert.match(hook, /POLL_MS = 8_000/, '외부 변경 확인은 8초 간격이어야 합니다.');
+  assert.match(hook, /method === 'GET' \? \{ cache: 'no-store' \}/, '작업 상태 GET은 브라우저 캐시의 과거 지문을 재사용하면 안 됩니다.');
   assert.doesNotMatch(hook, /if \(!current\.token \|\| savingRef\.current > 0\)/, '저장 중에도 작업권 연장은 멈추면 안 됩니다.');
   assert.match(hook, /endSaving[\s\S]{0,1200}?action: 'heartbeat'/, '성공한 전체 저장 뒤에는 강제 기준 갱신이 아니라 서버 heartbeat로 본인 저장을 확인해야 합니다.');
   assert.doesNotMatch(hook, /endSaving[\s\S]{0,1500}?refresh\(\{ force: true \}\)/, '저장 직후 현재 전산값을 강제 수용하면 뒤이어 발생한 EXE 변경을 숨길 수 있습니다.');
@@ -23,6 +24,11 @@ function main() {
   assert.match(hook, /fixStatusChanged:/, '확정상태 변경은 실제 견적 내용 충돌과 별도로 전달해야 합니다.');
   assert.match(hook, /shouldBlockErpDigestTransition\(\{[\s\S]{0,240}force,/, '명시적 최신 현황 불러오기는 일반 polling과 구분해야 합니다.');
   assert.match(hook, /scopeMatches[\s\S]{0,220}blocked/, '업체를 바꾸는 순간 이전 업체의 작업권으로 저장할 수 없어야 합니다.');
+  assert.match(hook, /setScope\(validScope \? editScopeKey\(scope\) : ''\)/, '업체 scope가 렌더에서 바뀌는 즉시 이전 비동기 응답을 무효화해야 합니다.');
+  assert.match(hook, /beginSaving[\s\S]{0,500}invalidateForSave\(\)/, '저장 시작은 저장 전 poll/heartbeat 응답 epoch를 무효화해야 합니다.');
+  assert.match(hook, /endSaving[\s\S]{0,1800}allowDuringSave: true/, '현재 save epoch의 종료 heartbeat만 저장 중 authoritative 응답으로 적용해야 합니다.');
+  assert.match(hook, /isErpOwnSaveSettlement[\s\S]{0,700}ownedByMe === true[\s\S]{0,300}nextRevision > previousRevision/, '응답이 유실된 본인 저장은 동일 소유자의 strict higher revision으로만 정산해야 합니다.');
+  assert.doesNotMatch(hook, /\barguments\b/, 'arrow callback에서 외부 arguments를 요청 메타데이터로 오인하면 안 됩니다.');
   assert.match(useApi, /error\.code = data\.code/, '공용 API 호출도 편집 충돌 코드를 화면까지 보존해야 합니다.');
 
   assert.match(banner, /nenova\.exe 또는 다른 화면에서 값이 변경되었습니다\. 새로고침 후 다시 확인하세요\./, '전산 또는 다른 화면 변경 경고를 한글로 고정 표시해야 합니다.');

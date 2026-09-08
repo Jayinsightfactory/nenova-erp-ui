@@ -46,6 +46,7 @@ async function main() {
     fixedDirectionalChanges,
     futureStockShortageError,
     lockDirectionalGate,
+    preWriteStockGateAcknowledgement,
     positiveIncreaseByProduct,
   } = helper;
 
@@ -182,7 +183,40 @@ async function main() {
   assert.deepEqual(state, { stock: 10, writes: 0 });
 
   await expectCode(() => assertDirectionalGateCapability(async () => ({ recordset: [{ ProtocolVersion: 1, IsReady: true }] })), 'STOCK_GATE_CAPABILITY_REQUIRED');
-  await expectCode(() => lockDirectionalGate(async () => ({ recordset: [] })), 'STOCK_GATE_BUSY');
+  await assert.rejects(
+    () => lockDirectionalGate(async () => ({ recordset: [] })),
+    error => error?.code === 'STOCK_GATE_BUSY' && error.preWriteGateBusy === true,
+  );
+  const nestedLockTimeout = Object.assign(new Error('lock timeout'), {
+    originalError: { info: { number: 1222 } },
+  });
+  await assert.rejects(
+    () => lockDirectionalGate(async () => { throw nestedLockTimeout; }),
+    error => error?.code === 'STOCK_GATE_BUSY'
+      && error.preWriteGateBusy === true
+      && error.cause === nestedLockTimeout,
+  );
+  for (const unknownGateFailure of [
+    Object.assign(new Error('missing gate table'), { number: 208 }),
+    Object.assign(new Error('database timeout'), { code: 'ETIMEOUT' }),
+    Object.assign(new Error('deadlock victim'), { number: 1205 }),
+  ]) {
+    await assert.rejects(
+      () => lockDirectionalGate(async () => { throw unknownGateFailure; }),
+      error => error === unknownGateFailure,
+    );
+  }
+  const retryableGateError = Object.assign(new Error('busy'), {
+    code: 'STOCK_GATE_BUSY',
+    preWriteGateBusy: true,
+  });
+  assert.deepEqual(
+    preWriteStockGateAcknowledgement(retryableGateError),
+    { retryable: true, saved: false },
+    'only a marked no-write gate failure may receive retryable:true/saved:false',
+  );
+  assert.deepEqual(preWriteStockGateAcknowledgement(Object.assign(new Error('busy'), { code: 'STOCK_GATE_BUSY' })), {});
+  assert.deepEqual(preWriteStockGateAcknowledgement(Object.assign(new Error('stale'), { code: 'STALE_DATA', preWriteGateBusy: true })), {});
   await expectCode(async () => assertNativeResult({ recordset: [{ returnCode: 0, result: 0, TransactionState: 0 }] }), 'STOCK_CALC_TRANSACTION_ABORTED');
   await expectCode(async () => assertNativeResult({ recordset: [{ returnCode: -1, result: 0, TransactionState: 1 }] }), 'STOCK_CALC_FAILED');
   await expectCode(async () => assertNativeResult({ recordset: [{ returnCode: null, result: 0, TransactionState: 1 }] }), 'STOCK_CALC_FAILED');

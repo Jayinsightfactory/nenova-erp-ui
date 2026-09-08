@@ -185,6 +185,143 @@ async function main() {
   seenSql.length = 0;
   await presence.getErpEditStatus(fakeQuery, scope, { userId: 'bob', clientId: 'B' });
   assert.ok(seenSql.every((statement) => !/UPDLOCK|HOLDLOCK/.test(statement)), 'GET/status digest must be lock-free');
+
+  const statusScope = { orderYear: '2026', orderWeek: '44-01', custKey: 44 };
+  const statusSnapshotQuery = (revision) => async (statement) => {
+    if (/FROM OrderMaster/.test(statement)) {
+      return { recordset: [{
+        OrderMasterKey: 44, OrderDetailKey: 44, ProdKey: 9, OutQuantity: revision,
+        BoxQuantity: 0, BunchQuantity: 0, SteamQuantity: 0, DetailDeleted: 0, MasterDeleted: 0,
+      }] };
+    }
+    return { recordset: [] };
+  };
+  const oldSnapshot = await presence.readErpEditSnapshot(statusSnapshotQuery(1), statusScope);
+  const newSnapshot = await presence.readErpEditSnapshot(statusSnapshotQuery(2), statusScope);
+  const statusLease = (overrides = {}) => ({
+    OrderYear: '2026', OrderWeek: '44', CustKey: 44,
+    LeaseToken: 'status-token', OwnerUserId: 'alice', OwnerName: '앨리스', ClientId: 'status-client', PageCode: 'estimate',
+    BaselineDigest: newSnapshot.digest, Revision: 2,
+    AcquiredAt: new Date(), HeartbeatAt: new Date(), ExpiresAt: new Date(Date.now() + 90_000),
+    ...overrides,
+  });
+  const makeStatusQuery = (leaseAtRead, snapshotRevision = 2) => {
+    let leaseReads = 0;
+    let snapshotReads = 0;
+    const queries = [];
+    return {
+      queries,
+      counts: () => ({ leaseReads, snapshotReads }),
+      query: async (statement, params = {}) => {
+        queries.push(statement);
+        if (/FROM WebErpEditLease/.test(statement)) {
+          const row = leaseAtRead(leaseReads, params);
+          leaseReads += 1;
+          return { recordset: row ? [row] : [] };
+        }
+        snapshotReads += 1;
+        return statusSnapshotQuery(snapshotRevision)(statement, params);
+      },
+    };
+  };
+  const oldLease = statusLease({ LeaseToken: 'old-token', BaselineDigest: oldSnapshot.digest, Revision: 1 });
+  const newLease = statusLease();
+  const mixedRead = makeStatusQuery((read) => (read === 0 ? oldLease : newLease));
+  const coherent = await presence.getErpEditStatus(mixedRead.query, statusScope);
+  assert.equal(coherent.lease.leaseToken, 'status-token', 'old lease/new snapshot 조합은 반환하지 않고 안정된 재조회 결과를 사용해야 합니다.');
+  assert.equal(coherent.stale, false, '새 기준값과 새 snapshot이 일치하면 다른 사용자 변경으로 오인하면 안 됩니다.');
+  assert.deepEqual(mixedRead.counts(), { leaseReads: 4, snapshotReads: 10 }, 'lease 변경 시 한 번만 재시도하고 각 snapshot은 다섯 lock-free 조회여야 합니다.');
+  assert.ok(mixedRead.queries.every((statement) => !/UPDLOCK|HOLDLOCK/.test(statement)), 'coherent GET도 잠금을 획득하면 안 됩니다.');
+
+  const externalStale = makeStatusQuery(() => statusLease({ BaselineDigest: oldSnapshot.digest }));
+  const stableExternal = await presence.getErpEditStatus(externalStale.query, statusScope);
+  assert.equal(stableExternal.stale, true, '안정된 lease와 실제 외부 ERP 변경은 계속 stale로 반환해야 합니다.');
+  assert.deepEqual(externalStale.counts(), { leaseReads: 2, snapshotReads: 5 }, '안정된 상태는 재시도하지 않아야 합니다.');
+
+  const continuouslyChanging = makeStatusQuery((read) => statusLease({
+    LeaseToken: `changing-${read}`, Revision: read, BaselineDigest: read % 2 ? oldSnapshot.digest : newSnapshot.digest,
+  }));
+  await assert.rejects(
+    () => presence.getErpEditStatus(continuouslyChanging.query, statusScope),
+    (error) => error.code === 'ERP_EDIT_STATUS_CHECKING'
+      && error.statusCode === 503
+      && error.message === '다른 작업의 저장이 끝나는지 확인 중입니다. 잠시 후 자동으로 다시 확인합니다.',
+  );
+  assert.deepEqual(continuouslyChanging.counts(), { leaseReads: 6, snapshotReads: 15 }, '계속 바뀌면 최대 세 번만 lock-free 상태를 읽어야 합니다.');
+
+  const isolationReads = [];
+  const isolated = makeStatusQuery((read, params) => {
+    isolationReads.push(`${params.yr.value}/${params.wk.value}/${params.ck.value}`);
+    return statusLease();
+  });
+  const isolatedStatus = await presence.getErpEditStatus(isolated.query, statusScope);
+  assert.deepEqual(isolatedStatus.scope, { orderYear: '2026', orderWeek: '44', custKey: 44 });
+  assert.deepEqual(isolationReads, ['2026/44/44', '2026/44/44'], '상태 조회는 다른 연도 또는 업체의 lease를 섞지 않아야 합니다.');
+
+  const renewalSequence = [];
+  let renewalCommitted = false;
+  const renewedLease = statusLease({ LeaseToken: 'renewed-token', Revision: 3 });
+  const postRenewStatus = makeStatusQuery(() => renewedLease);
+  const renewalDependencies = {
+    withTransaction: async (work) => {
+      renewalSequence.push('transaction:start');
+      const result = await work(async (statement, params = {}) => {
+        renewalSequence.push(/WebErpEditLease/.test(statement) ? 'transaction:lease' : 'transaction:erp');
+        assert.match(statement, /WebErpEditLease/, 'renew-only transaction must not read ERP snapshot tables');
+        if (/FROM WebErpEditLease/.test(statement)) return { recordset: [renewedLease] };
+        return { recordset: [] };
+      });
+      renewalCommitted = true;
+      renewalSequence.push('transaction:commit');
+      return result;
+    },
+    query: async (statement, params = {}) => {
+      assert.equal(renewalCommitted, true, 'coherent status GET must begin only after lease transaction commits');
+      renewalSequence.push('status:get');
+      return postRenewStatus.query(statement, params);
+    },
+  };
+  const renewedStatus = await presence.renewThenReadErpEditStatus(
+    renewalDependencies,
+    statusScope,
+    { userId: 'alice', userName: '앨리스' },
+    { leaseToken: 'renewed-token', clientId: 'status-client' },
+  );
+  assert.equal(renewedStatus.lease.leaseToken, 'renewed-token');
+  assert.ok(renewalSequence.indexOf('transaction:commit') < renewalSequence.indexOf('status:get'), 'renewal commit must precede status reads');
+  assert.ok(!renewalSequence.includes('transaction:erp'), 'renew-only heartbeat must not query ERP snapshot rows in its transaction');
+
+  const handoffStatus = makeStatusQuery(() => statusLease({
+    LeaseToken: 'other-tab-token', OwnerUserId: 'bob', OwnerName: '밥', ClientId: 'other-tab',
+  }));
+  const handoffResult = await presence.renewThenReadErpEditStatus({
+    withTransaction: async (work) => work(async (statement) => (/FROM WebErpEditLease/.test(statement)
+      ? { recordset: [renewedLease] } : { recordset: [] })),
+    query: handoffStatus.query,
+  }, statusScope, { userId: 'alice', userName: '앨리스' }, { leaseToken: 'renewed-token', clientId: 'status-client' });
+  const handoffPayload = presence.editPresencePayload(handoffResult, { userId: 'alice', clientId: 'status-client' });
+  assert.equal(handoffPayload.lease.ownedByMe, false, 'renew 뒤 작업권이 바뀌면 이전 탭 토큰을 다시 노출하면 안 됩니다.');
+  assert.equal(handoffPayload.lease.token, undefined);
+  assert.equal(handoffPayload.lease.ownerName, '밥');
+
+  let checkingCommitted = false;
+  let checkingError;
+  try {
+    await presence.renewThenReadErpEditStatus({
+      withTransaction: async (work) => {
+        const result = await work(async (statement) => (/FROM WebErpEditLease/.test(statement)
+          ? { recordset: [renewedLease] } : { recordset: [] }));
+        checkingCommitted = true;
+        return result;
+      },
+      query: continuouslyChanging.query,
+    }, statusScope, { userId: 'alice', userName: '앨리스' }, { leaseToken: 'renewed-token', clientId: 'status-client' });
+  } catch (error) {
+    checkingError = error;
+  }
+  assert.equal(checkingCommitted, true, 'status checking failure must occur after the successful lease renewal commits');
+  assert.equal(checkingError?.code, 'ERP_EDIT_STATUS_CHECKING');
+  assert.equal(presence.editErrorResponse(checkingError).statusCode, 503, 'post-renew unstable status remains a safe transient response');
   seenSql.length = 0;
   await presence.assertErpEditGuard(fakeQuery, scope, bob, guard);
   assert.ok(seenSql.some((statement) => /UPDLOCK, HOLDLOCK/.test(statement)), 'write assert digest must lock ERP rows');
@@ -193,13 +330,20 @@ async function main() {
   assert.match(source, /OrderWeek LIKE @wkLike/g);
   assert.match(source, /readErpEditSnapshot\(tQ, scope, \{ lock: true \}\)/);
   assert.match(source, /const lockHint = lock \? ' WITH \(UPDLOCK, HOLDLOCK\)' : ''/);
-  assert.match(source, /Promise\.all\(\[\s*selectLease/);
+  const getStatusSource = source.slice(source.indexOf('export async function getErpEditStatus'), source.indexOf('export async function acquireErpEditLease'));
+  assert.doesNotMatch(getStatusSource, /Promise\.all/, '상태 조회는 lease와 snapshot을 병렬 조합하면 안 됩니다.');
+  assert.match(getStatusSource, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/, '상태 조회는 최대 세 번만 일관성을 재확인해야 합니다.');
+  assert.match(getStatusSource, /ERP_EDIT_STATUS_CHECKING/, '계속 변하면 다른 사용자 변경 대신 일시 상태를 반환해야 합니다.');
+  assert.match(source, /renewThenReadErpEditStatus[\s\S]*withTransaction[\s\S]*heartbeatErpEditLease[\s\S]*renewOnly: true[\s\S]*getErpEditStatus/, 'heartbeat orchestration must commit lease renewal before lock-free status read');
   assert.doesNotMatch(source, /CREATE TABLE|ALTER TABLE|DROP TABLE/);
 
   const api = fs.readFileSync('pages/api/erp/edit-presence.js', 'utf8');
   assert.match(api, /editPresencePayload/);
   assert.match(api, /action === 'refresh'/);
   assert.match(api, /refreshErpEditLease/);
+  assert.match(api, /action === 'heartbeat'[\s\S]*renewThenReadErpEditStatus/, 'API heartbeat must use the renew-only orchestration path');
+  assert.doesNotMatch(api, /action === 'heartbeat'[\s\S]{0,180}heartbeatErpEditLease/, 'API heartbeat must not retain the lease while reading ERP rows');
+  assert.match(api, /setHeader\('Cache-Control', 'private, no-store, max-age=0'\)/, '편집 상태 응답은 stale 상태를 캐시에서 재사용하면 안 됩니다.');
   const migration = fs.readFileSync('docs/migrations/2026-08-25_web_erp_edit_presence.sql', 'utf8');
   assert.match(migration, /SET XACT_ABORT ON/);
   assert.match(migration, /BEGIN TRANSACTION/);

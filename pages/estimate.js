@@ -1905,7 +1905,11 @@ export default function Estimate() {
 
   const appendEstimateRecoveryState = (state, onProgress) => {
     let label = '';
-    if (state.phase === 'server-updating') {
+    if (state.phase === 'stock-wait') {
+      label = `다른 작업의 재고 계산을 기다리는 중 — 입력값은 유지됩니다. ${state.delayMs / 1000}초 뒤 다시 확인합니다. (${state.waitAttempt}/${state.maxRetries})`;
+    } else if (state.phase === 'stockbusy') {
+      label = '재고 계산 대기가 길어 저장하지 않았습니다. 입력값은 유지됩니다. 잠시 후 다시 저장하세요.';
+    } else if (state.phase === 'server-updating') {
       label = '서버 업데이트 중 — 입력값을 보존했습니다. 연결 복구 후 자동으로 다시 처리합니다.';
     } else if (state.phase === 'waiting') {
       label = `서버 연결 확인 중 — ${state.attempt}번째 확인`;

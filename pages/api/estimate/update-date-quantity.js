@@ -21,6 +21,7 @@ import {
   fixedDirectionalChanges,
   futureStockShortageError,
   lockDirectionalGate,
+  preWriteStockGateAcknowledgement,
   positiveIncreaseByProduct,
 } from '../../../lib/estimateDirectionalQuantity.js';
 
@@ -74,6 +75,25 @@ function parseItems(body) {
 
 function roundOutQuantity(value) {
   return normalizeShipmentQty(value);
+}
+
+export function estimateDateQuantityErrorResponse(error = {}) {
+  const status = Number(error.statusCode)
+    || (['STALE_DATA', 'ERP_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID', 'DIRECTIONAL_YEAR_INVALID', 'STOCK_SHORTAGE', 'FUTURE_STOCK_SNAPSHOT_EXISTS', 'FUTURE_STOCK_SHORTAGE', 'FIX_STATUS_INVALID', 'FIXED_BASELINE_INVALID', 'STOCK_GATE_BUSY'].includes(error.code) ? 409 : 500);
+  const body = {
+    success: false,
+    code: error.code,
+    error: error.message,
+    fixedWeeks: error.fixedWeeks || [],
+    fixedCategories: error.fixedCategories || [],
+    expected: error.expected,
+    actual: error.actual,
+    lease: error.lease || null,
+    stockValidation: error.stockValidation || null,
+    ...( ['STOCK_CALC_FAILED', 'STOCK_CALC_TRANSACTION_ABORTED', 'FUTURE_STOCK_SHORTAGE', 'DATE_TOTAL_MISMATCH'].includes(error.code) ? { rolledBack: true } : {} ),
+    ...preWriteStockGateAcknowledgement(error),
+  };
+  return { status, body };
 }
 
 export default withAuth(async function handler(req, res) {
@@ -461,19 +481,7 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(200).json({ success: true, message: '출고분배 및 출고일별 견적수량 저장 완료', ...result });
   } catch (error) {
-    const status = Number(error.statusCode)
-      || (['STALE_DATA', 'ERP_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID', 'DIRECTIONAL_YEAR_INVALID', 'STOCK_SHORTAGE', 'FUTURE_STOCK_SNAPSHOT_EXISTS', 'FUTURE_STOCK_SHORTAGE', 'FIX_STATUS_INVALID', 'FIXED_BASELINE_INVALID', 'STOCK_GATE_BUSY'].includes(error.code) ? 409 : 500);
-    return res.status(status).json({
-      success: false,
-      code: error.code,
-      error: error.message,
-      fixedWeeks: error.fixedWeeks || [],
-      fixedCategories: error.fixedCategories || [],
-      expected: error.expected,
-      actual: error.actual,
-      lease: error.lease || null,
-      stockValidation: error.stockValidation || null,
-      ...( ['STOCK_CALC_FAILED', 'STOCK_CALC_TRANSACTION_ABORTED', 'FUTURE_STOCK_SHORTAGE', 'DATE_TOTAL_MISMATCH'].includes(error.code) ? { rolledBack: true } : {} ),
-    });
+    const response = estimateDateQuantityErrorResponse(error);
+    return res.status(response.status).json(response.body);
   }
 });

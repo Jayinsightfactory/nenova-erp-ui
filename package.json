@@ -15,7 +15,7 @@
     "test:estimate-edit-safety": "node __tests__/estimateSelectionState.test.js && node __tests__/estimateRefreshFlow.test.js && node __tests__/estimateCategoryCycle.test.js && node __tests__/estimateAdditionalProductContext.test.js && node __tests__/estimateBatchOutputGuard.test.js && node __tests__/estimateEditProgress.test.js && node __tests__/estimateDirectionalQuantity.test.js && node __tests__/stockGateOwnership.test.js && node __tests__/estimateSaveRecovery.test.js && node __tests__/estimateGridNavigation.test.js && node __tests__/estimateSaveRecoveryUi.test.js",
     "test:estimate-directional-sql": "node scripts/test-estimate-directional-sql.cjs",
     "test:erp-edit-audit": "node __tests__/erpEditFixScopeAudit.test.js && node __tests__/weekPivotHydrationContract.test.js",
-    "test:erp-edit-presence": "node __tests__/erpEditPresence.test.js && node __tests__/erpEditPresenceUiContract.test.js",
+    "test:erp-edit-presence": "node __tests__/erpEditPresence.test.js && node __tests__/erpEditPresenceRace.test.js && node __tests__/erpEditPresenceUiContract.test.js",
     "probe:exe-parity": "node scripts/probe-all-exe-parity.mjs",
     "scan:integrity": "node scripts/scan-integrity.mjs --week-min=1",
     "verify:week": "node scripts/verify-week.mjs",

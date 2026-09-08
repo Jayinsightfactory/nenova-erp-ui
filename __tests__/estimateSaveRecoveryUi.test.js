@@ -7,6 +7,10 @@ assert.match(source, /서버 업데이트 중 — 입력값을 보존했습니�
 assert.match(source, /안전 대조 후 자동 재처리합니다/);
 assert.match(source, /기존 저장 작업 완료 확인 중 — 중복 저장 없이 실제 단가를 다시 확인합니다/);
 assert.match(source, /runEstimateWriteWithRecovery/);
+assert.match(source, /state\.phase === 'stock-wait'/);
+assert.match(source, /다른 작업의 재고 계산을 기다리는 중 — 입력값은 유지됩니다/);
+assert.match(source, /state\.phase === 'stockbusy'/);
+assert.match(source, /error\.data = data/);
 assert.match(source, /classifyEstimateSaveSnapshot/);
 assert.match(source, /sessionStorage/);
 assert.match(source, /data-estimate-edit-column="quantity"/);
