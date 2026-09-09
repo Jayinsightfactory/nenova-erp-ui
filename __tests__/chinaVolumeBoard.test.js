@@ -7,6 +7,7 @@ const assert = require('assert');
     rematchChinaPackingRow,
     canApplyChinaPackingRows,
     chinaPackingDistributions,
+    chinaSystemOrderQuantity,
     chinaVolumeCellText,
     chinaVolumeProductLabel,
     formatChinaBoxNumberList,
@@ -37,6 +38,35 @@ const assert = require('assert');
   assert.strictEqual(formatChinaBoxNumberList(['1', '2', '4', '5', '6', '7']), '1,2,4~7', '앞쪽은 2개라 유지, 뒤쪽은 4개라 압축');
   assert.strictEqual(formatChinaBoxNumberList(['90', '88', '89']), '88~90', '입력 순서와 무관하게 정렬 후 판단');
   assert.strictEqual(chinaVolumeCellText(350, Array.from({ length: 35 }, (_, i) => ({ boxNo: String(47 + i) }))), '350 (47~81)', '실제 물량표 사례: 35개 연속 박스가 시작~끝으로 압축된다');
+
+  assert.strictEqual(
+    chinaSystemOrderQuantity({ outOrders: {}, orders: { 주광농원: 18 } }, '주광농원'),
+    18,
+    '확정 출고 전이라도 전산 주문(orders)이 있으면 그 값을 쓴다',
+  );
+  assert.strictEqual(
+    chinaSystemOrderQuantity({ outOrders: { 주광농원: 20 }, orders: { 주광농원: 18 } }, '주광농원'),
+    20,
+    '확정 출고(outOrders)가 있으면 주문(orders)보다 우선한다',
+  );
+  assert.strictEqual(
+    chinaSystemOrderQuantity({ outOrders: {}, orders: {} }, '주광농원'),
+    0,
+    '둘 다 없으면 0',
+  );
+
+  const unconfirmedWorkbookRows = buildChinaVolumeWorkbookRows({
+    year: 2026,
+    week: '36-02',
+    customers: [{ custKey: 7, custName: '주광농원', orderCode: 'CL1' }],
+    rows: [{ prodKey: 70, prodName: 'ROSE Diana', outOrders: {}, orders: { 주광농원: 18 } }],
+    cells: {},
+  });
+  assert.deepStrictEqual(
+    unconfirmedWorkbookRows[3],
+    ['ROSE Diana', '18', 18, 18, '', 'ROSE Diana'],
+    '출고 확정(outOrders) 전이라도 전산 주문(orders)만으로 주문/입고 열이 채워진다',
+  );
 
   const workbookRows = buildChinaVolumeWorkbookRows({
     year: 2026,
