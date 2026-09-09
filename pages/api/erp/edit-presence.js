@@ -1,5 +1,6 @@
 import { withAuth } from '../../../lib/auth.js';
 import { query, withTransaction } from '../../../lib/db.js';
+import { withActionLog } from '../../../lib/withActionLog.js';
 import {
   acquireErpEditLease,
   editErrorResponse,
@@ -10,7 +11,7 @@ import {
   renewThenReadErpEditStatus,
 } from '../../../lib/erpEditPresence.js';
 
-export default withAuth(async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   try {
     if (req.method === 'GET') {
@@ -46,10 +47,11 @@ export default withAuth(async function handler(req, res) {
       }) });
     }
     const result = await withTransaction(async (tQ) => {
-      if (action === 'acquire') return acquireErpEditLease(tQ, body, req.user, body);
-      if (action === 'takeover') return acquireErpEditLease(tQ, body, req.user, { ...body, takeover: true });
+      if (action === 'acquire') return acquireErpEditLease(tQ, body, req.user, { ...body, forceTakeover: false, takeover: false });
+      if (action === 'takeover') return acquireErpEditLease(tQ, body, req.user, { ...body, forceTakeover: false, takeover: true });
+      if (action === 'force-takeover') return acquireErpEditLease(tQ, body, req.user, { ...body, forceTakeover: true });
       if (action === 'release') return releaseErpEditLease(tQ, body, req.user, body.editGuard || body);
-      const error = new Error('action은 acquire, takeover, heartbeat, release, refresh 중 하나여야 합니다.');
+      const error = new Error('action은 acquire, takeover, force-takeover, heartbeat, release, refresh 중 하나여야 합니다.');
       error.code = 'ERP_EDIT_ACTION_INVALID';
       error.statusCode = 400;
       throw error;
@@ -62,4 +64,10 @@ export default withAuth(async function handler(req, res) {
     const response = editErrorResponse(error);
     return res.status(response.statusCode).json(response.body);
   }
+}
+
+const auditedTakeover = withActionLog(handler, {
+  actionType: 'ERP_EDIT_TAKEOVER', affectedTable: 'WebErpEditLease', riskLevel: 'HIGH',
 });
+export default withAuth((req, res) => req.method === 'POST' && String(req.body?.action || '').toLowerCase() === 'force-takeover'
+  ? auditedTakeover(req, res) : handler(req, res));

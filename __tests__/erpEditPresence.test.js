@@ -186,6 +186,40 @@ async function main() {
   await presence.getErpEditStatus(fakeQuery, scope, { userId: 'bob', clientId: 'B' });
   assert.ok(seenSql.every((statement) => !/UPDLOCK|HOLDLOCK/.test(statement)), 'GET/status digest must be lock-free');
 
+  const handoffScope = { orderYear:'2026', orderWeek:'36-01', custKey:13 };
+  const firstOwner = await presence.acquireErpEditLease(fakeQuery, handoffScope, alice, {clientId:'OLD',pageCode:'estimate'});
+  const observer = {userId:'admin', clientId:'NEW'};
+  const stamp = presence.editPresencePayload(firstOwner, observer).lease.leaseStamp;
+  assert.match(stamp, /^[a-f0-9]{64}$/);
+  assert.equal(presence.editPresencePayload(firstOwner, observer).lease.token, undefined);
+  const transfer = {clientId:'NEW',pageCode:'estimate',forceTakeover:true,confirmed:true,expectedLeaseStamp:stamp};
+  const admin = {userId:'admin',authority:1,userName:'관리자'};
+  for (const user of [bob, {...admin,authority:9}]) {
+    await assert.rejects(()=>presence.acquireErpEditLease(fakeQuery,handoffScope,user,transfer), {code:'ERP_EDIT_TAKEOVER_FORBIDDEN'});
+  }
+  for (const change of [{confirmed:false},{confirmed:undefined},{pageCode:'paste'}]) {
+    await assert.rejects(()=>presence.acquireErpEditLease(fakeQuery,handoffScope,admin,{...transfer,...change}), {code:'ERP_EDIT_TAKEOVER_FORBIDDEN'});
+  }
+  for (const expectedLeaseStamp of ['',undefined,'outdated']) {
+    await assert.rejects(()=>presence.acquireErpEditLease(fakeQuery,handoffScope,admin,{...transfer,expectedLeaseStamp}), {code:'ERP_EDIT_TAKEOVER_CHANGED'});
+  }
+  await assert.rejects(()=>presence.acquireErpEditLease(fakeQuery,{...handoffScope,orderYear:'2025'},admin,transfer), {code:'ERP_EDIT_TAKEOVER_CHANGED'});
+  const firstGuard = {leaseToken:firstOwner.lease.leaseToken,clientId:'OLD'};
+  const renewed = await presence.heartbeatErpEditLease(fakeQuery,handoffScope,alice,firstGuard);
+  assert.equal(presence.editPresencePayload(renewed,observer).lease.leaseStamp,stamp,'heartbeat must not invalidate confirmation');
+  await presence.advanceErpEditGuard(fakeQuery,handoffScope,alice,{editGuard:firstGuard});
+  await assert.rejects(()=>presence.acquireErpEditLease(fakeQuery,handoffScope,admin,transfer), {code:'ERP_EDIT_TAKEOVER_CHANGED'});
+  const live = await presence.getErpEditStatus(fakeQuery,handoffScope,observer);
+  seenSql.length = 0;
+  const moved = await presence.acquireErpEditLease(fakeQuery,handoffScope,admin,{...transfer,expectedLeaseStamp:presence.editPresencePayload(live,observer).lease.leaseStamp});
+  assert.notEqual(moved.lease.leaseToken,firstOwner.lease.leaseToken);
+  assert.equal(moved.lease.ownerUserId,'admin');
+  assert.equal(moved.lease.baselineDigest,moved.snapshot.digest);
+  assert.ok(seenSql.filter(s=>/UPDATE|INSERT|DELETE/.test(s)).every(s=>/UPDATE WebErpEditLease/.test(s)), 'handoff must only write sidecar');
+  await assert.rejects(()=>presence.releaseErpEditLease(fakeQuery,handoffScope,alice,firstGuard), {code:'ERP_EDIT_LOCKED'});
+  await assert.rejects(()=>presence.heartbeatErpEditLease(fakeQuery,handoffScope,alice,firstGuard), {code:'ERP_EDIT_LOCKED'});
+  await assert.rejects(()=>presence.assertErpEditGuard(fakeQuery,handoffScope,alice,{editGuard:firstGuard}), {code:'ERP_EDIT_LOCKED'});
+
   const statusScope = { orderYear: '2026', orderWeek: '44-01', custKey: 44 };
   const statusSnapshotQuery = (revision) => async (statement) => {
     if (/FROM OrderMaster/.test(statement)) {

@@ -66,6 +66,8 @@ export function mergeErpEditPresenceResponse(previous = {}, data = {}, { preserv
     ownerName: lease.ownerName || '',
     pageCode: lease.pageCode || '',
     expiresAt: lease.expiresAt || '',
+    leaseStamp: lease.leaseStamp || '',
+    heartbeatAt: lease.heartbeatAt || '',
     digest: data?.digest || previous.digest || '',
     fixStatusDigest: nextFixStatusDigest,
     fixStatusChanged: Boolean(previous.fixStatusDigest && nextFixStatusDigest && previous.fixStatusDigest !== nextFixStatusDigest),
@@ -278,6 +280,8 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
   const [state, setState] = useState(emptyState);
   const stateRef = useRef(state);
   const savingRef = useRef(0);
+  const refreshingRef = useRef(false);
+  const ownedTokensRef = useRef(new Map());
   const requestCoordinatorRef = useRef(null);
   if (!requestCoordinatorRef.current) requestCoordinatorRef.current = createErpPresenceRequestCoordinator();
   const scope = useMemo(() => ({ year: String(year || ''), week: normalizeErpEditClientWeek(week), custKey: custKey == null ? '' : String(custKey || ''), pageCode: String(pageCode || ''), clientId: clientIdRef.current }), [year, week, custKey, pageCode]);
@@ -291,6 +295,7 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
   const transitionState = useCallback((updater) => {
     const previous = stateRef.current;
     const next = typeof updater === 'function' ? updater(previous) : updater;
+    if (next.ownedByMe && next.scopeKey && next.token) ownedTokensRef.current.set(next.scopeKey, next.token);
     stateRef.current = next;
     setState(next);
     return next;
@@ -319,13 +324,18 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
 
   const refresh = useCallback(async ({ force = false } = {}) => {
     if (!validScope) return null;
+    if (!force && refreshingRef.current) return null;
+    if (force) {
+      refreshingRef.current = true;
+      requestCoordinatorRef.current.invalidateForSave();
+    }
     const request = beginPresenceRequest();
     const requestState = stateRef.current;
     try {
       const data = force && requestState.token
         ? await requestPresence('POST', { action: 'refresh', ...scope, token: requestState.token })
         : await requestPresence('GET', scope);
-      if (!claimPresenceResponse(request, data)) return data;
+      if (!claimPresenceResponse(request, data)) return { ...data, skipped: true };
       const previous = stateRef.current;
       const nextDigest = data?.digest || '';
       const ownSaveSettlement = isErpOwnSaveSettlement(previous, data);
@@ -345,11 +355,13 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
         transitionState(prev => ({ ...prev, loading: false, stale: true, error: '' }));
       } else if (error.code === 'ERP_EDIT_LOCKED') {
         const lease = error.data?.lease || {};
-        transitionState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
+        transitionState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', leaseStamp: lease.leaseStamp || '', error: '' }));
       } else {
         transitionState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
       }
       throw error;
+    } finally {
+      if (force) refreshingRef.current = false;
     }
   }, [applyResponse, beginPresenceRequest, claimPresenceResponse, scope, transitionState, validScope]);
 
@@ -364,7 +376,7 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
       if (!claimPresenceResponse(request, error?.data || {}, { allowTokenChange: true })) return null;
       if (error.code === 'ERP_EDIT_LOCKED') {
         const lease = error.data?.lease || {};
-        transitionState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', error: '' }));
+        transitionState(prev => ({ ...prev, loading: false, active: true, ownedByMe: false, ownedBySameUser: Boolean(lease.ownedBySameUser), ownerName: lease.ownerName || '', pageCode: lease.pageCode || '', expiresAt: lease.expiresAt || '', leaseStamp: lease.leaseStamp || '', error: '' }));
       } else if (error.code === 'ERP_EDIT_STALE') {
         const next = mergeErpEditPresenceError(stateRef.current, error, scope);
         transitionState(next);
@@ -381,7 +393,8 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
     const request = beginPresenceRequest();
     try {
       const data = await requestPresence('POST', { action: 'takeover', ...scope });
-      return applyResponse(data, { preserveToken: false, request, allowTokenChange: true, allowStaleClear: true });
+      if (!claimPresenceResponse(request, data, { allowTokenChange: true })) return { ...data, skipped: true };
+      return applyResponse(data, { preserveToken: false, claimed: true, allowStaleClear: true });
     } catch (error) {
       if (!claimPresenceResponse(request, error?.data || {}, { allowTokenChange: true })) return null;
       const lease = error.data?.lease || {};
@@ -400,6 +413,14 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
     }
   }, [applyResponse, beginPresenceRequest, claimPresenceResponse, scope, transitionState, validScope]);
 
+  const forceTakeover = useCallback(async () => {
+    if (!validScope || !stateRef.current.leaseStamp) throw new Error('작업 상태를 다시 확인한 뒤 인계해 주세요.');
+    const request = beginPresenceRequest();
+    const data = await requestPresence('POST', { action: 'force-takeover', ...scope, confirmed: true, expectedLeaseStamp: stateRef.current.leaseStamp });
+    if (!claimPresenceResponse(request, data, { allowTokenChange: true })) return { ...data, skipped: true };
+    return applyResponse(data, { preserveToken: false, claimed: true, allowStaleClear: true });
+  }, [validScope, beginPresenceRequest, scope, applyResponse, claimPresenceResponse]);
+
   const release = useCallback(async (releaseScope = scope, token = stateRef.current.token) => {
     if (!token || !releaseScope?.year || !releaseScope?.week || !releaseScope?.custKey) return null;
     try { return await releaseErpEditPresence({ ...releaseScope, clientId: clientIdRef.current, token }); }
@@ -413,8 +434,12 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
     }
     let disposed = false;
     let ownedToken = '';
-    acquire().then(data => { if (!disposed) ownedToken = data?.lease?.token || ''; }).catch(() => {});
+    acquire().then(data => {
+      ownedToken = data?.lease?.token || '';
+      if (disposed && ownedToken && !savingRef.current) release(scope, ownedToken);
+    }).catch(() => {});
     const heartbeat = setInterval(() => {
+      if (refreshingRef.current) return;
       const current = stateRef.current;
       // 저장 중에는 외부 변경 감지 polling만 멈춘다. 임대 연장은 계속해야
       // 확정해제→저장→재확정처럼 오래 걸리는 정상 작업이 자기 임대를 잃지 않는다.
@@ -431,13 +456,28 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
           } else transitionState(prev => ({ ...prev, loading: false, error: error.message || '작업 상태 확인 실패' }));
         });
     }, HEARTBEAT_MS);
-    const poll = setInterval(() => { if (savingRef.current === 0) refresh().catch(() => {}); }, POLL_MS);
+    const poll = setInterval(() => { if (savingRef.current === 0 && !refreshingRef.current) refresh().catch(() => {}); }, POLL_MS);
+    const releaseCurrent = () => {
+      const current = stateRef.current;
+      if (savingRef.current || current.scopeKey !== editScopeKey(scope) || !current.ownedByMe || !current.token) return;
+      fetch('/api/erp/edit-presence', { method: 'POST', credentials: 'same-origin', keepalive: true,
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'release', ...scope, token: current.token }) }).catch(() => {});
+    };
+    const restore = (event) => { if (event.persisted && !savingRef.current) acquire().catch(() => {}); };
+    window.addEventListener('pagehide', releaseCurrent);
+    window.addEventListener('pageshow', restore);
     return () => {
       disposed = true;
       clearInterval(heartbeat);
       clearInterval(poll);
       // scope가 바뀐 뒤의 새 임대를 잘못 해제하지 않도록, 이 effect가 취득한 토큰만 반납한다.
-      release(scope, ownedToken);
+      window.removeEventListener('pagehide', releaseCurrent);
+      window.removeEventListener('pageshow', restore);
+      if (!savingRef.current) {
+        const current = stateRef.current;
+        const token = current.scopeKey === editScopeKey(scope) && current.ownedByMe ? current.token : (ownedTokensRef.current.get(editScopeKey(scope)) || ownedToken);
+        release(scope, token);
+      }
     };
   }, [acquire, applyResponse, beginPresenceRequest, claimPresenceResponse, refresh, release, scope, transitionState, validScope]);
 
@@ -491,5 +531,5 @@ export default function useErpEditPresence({ year, week, custKey, pageCode, enab
   const scopeMatches = Boolean(validScope && state.scopeKey && state.scopeKey === editScopeKey(scope));
   const blocked = !validScope || !scopeMatches || state.loading || locked || state.stale || Boolean(state.error) || !state.token;
 
-  return { ...state, clientId: clientIdRef.current, scope, validScope, scopeMatches, locked, blocked, editGuard, acquire, takeover, release, refresh, beginSaving, endSaving, markStale };
+  return { ...state, clientId: clientIdRef.current, scope, validScope, scopeMatches, locked, blocked, editGuard, acquire, takeover, forceTakeover, release, refresh, beginSaving, endSaving, markStale };
 }

@@ -97,6 +97,8 @@ import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../componen
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
 import ErpEditPresenceBanner from '../components/ErpEditPresenceBanner';
 import useErpEditPresence from '../hooks/useErpEditPresence';
+import { isAdminUser } from '../lib/userAccess';
+import { estimateDraftSnapshot, reconcileEstimateDrafts } from '../lib/estimateDraftReconcile';
 import { confirmedWeekFixCycleStockFlags, shouldSkipFixCycleStockCalc } from '../lib/estimateAdditionalProduct';
 import {
   buildEstimateDeductionDeletePayload,
@@ -996,7 +998,7 @@ export default function Estimate() {
     });
   };
 
-  const checkFixStatus = async ({ orderYearOverride = yearStr, parentWeekOverride = weekNum } = {}) => {
+  const checkFixStatus = async ({ orderYearOverride = yearStr, parentWeekOverride = weekNum, showModal = true } = {}) => {
     if (!parentWeekOverride) { alert('차수를 입력하세요.'); return; }
     const range = getSelectedFixRange(parentWeekOverride);
     if (!range) { alert('확정 현황을 확인할 차수를 알 수 없습니다.'); return; }
@@ -1015,7 +1017,7 @@ export default function Estimate() {
       setFixStatusAvailableCategories(normalizeCategoryList(data.categories || []));
       setFixStatusSelectedCategories([]);
       setFixStatusCategoryPreset('all');
-      setFixStatusModal({ ...data, weeks, range });
+      if (showModal) setFixStatusModal({ ...data, weeks, range });
       return data;
     } catch (e) {
       alert(`${orderYearOverride}년 ${range.fromWeek}~${range.toWeek} 확정 현황 자동 조회 오류: ${e.message}`);
@@ -1332,6 +1334,9 @@ export default function Estimate() {
   const [costEdits, setCostEdits] = useState({});
   // qtyEdits[sdateKey|estimateKey] = 수정된 견적 수량 (string)
   const [qtyEdits, setQtyEdits] = useState({});
+  const draftBaselinesRef = useRef({ cost: {}, quantity: {} });
+  const [draftConflicts, setDraftConflicts] = useState([]);
+  const [estimateUser, setEstimateUser] = useState(null);
   const [qtyApplying, setQtyApplying] = useState(false);
   const [qtyResult, setQtyResult] = useState(null);
   const [costMode, setCostMode] = useState('once'); // 'once' | 'fixed' | 'weekFav'
@@ -1348,7 +1353,7 @@ export default function Estimate() {
     let stopped = false;
     apiGet('/api/auth/me')
       .then(data => {
-        if (!stopped) setEstimateEditUserId(String(data?.user?.userId || '').trim());
+        if (!stopped) { setEstimateEditUserId(String(data?.user?.userId || '').trim()); setEstimateUser(data?.user || null); }
       })
       .catch(() => {
         if (!stopped) setEstimateEditUserId('');
@@ -1770,6 +1775,8 @@ export default function Estimate() {
     enabled: Boolean(selectedShip?.CustKey && selectedEditWeek),
   });
   const ensureEstimateEditAllowed = () => {
+    if (fixStatusSyncing) { setErr('최신 내용 대조가 끝난 뒤 저장해 주세요.'); return false; }
+    if (draftConflicts.length) { setErr('최신 값과 수정 초안의 차이를 먼저 확인해 주세요.'); return false; }
     if (!estimateEditPresence.blocked) return true;
     setErr(estimateEditPresence.stale
       ? "현재 화면을 연 뒤 전산 값이 달라졌습니다. 위의 '확정 현황 다시 불러오기'를 누른 뒤 다시 저장하세요."
@@ -1783,42 +1790,79 @@ export default function Estimate() {
   // 확정현황 버튼은 사용자가 EXE/다른 화면 변경을 직접 확인하고 현재
   // 원장을 다시 읽겠다는 명시적 동작이다. 자동 polling은 계속 감지만 하고,
   // 이 흐름에서만 현재 탭이 소유한 업체의 기준 지문을 갱신한다.
-  const refreshFixStatusAndEstimate = async () => {
+  const refreshFixStatusAndEstimate = async ({ showModal = false } = {}) => {
+    if (saving || costApplying || qtyApplying || itemEditorSaving) { setErr('진행 중인 저장이 끝난 뒤 최신 내용을 불러와 주세요. 입력값은 유지됩니다.'); return null; }
     if (fixStatusLoading || fixStatusSyncing || !weekNum) return null;
     const captured = captureEstimateRefresh();
     setFixStatusSyncing(true);
     try {
-      const status = await checkFixStatus();
+      const status = await checkFixStatus({ showModal });
       if (!status) return null;
 
-      if (captured
-        && estimateEditPresence.validScope
-        && estimateEditPresence.ownedByMe
-        && estimateEditPresence.token) {
-        await estimateEditPresence.refresh({ force: true });
+      if (captured && !isCapturedEstimateScopeCurrent(captured)) return null;
+      if (captured && estimateEditPresence.validScope) {
+        if (estimateEditPresence.locked) throw new Error('다른 창의 작업권을 먼저 인계해 주세요.');
+        if (!estimateEditPresence.ownedByMe || !estimateEditPresence.token) {
+          try { await estimateEditPresence.acquire(); }
+          catch (error) { if (error.code !== 'ERP_EDIT_STALE' || !error.data?.lease?.ownedByMe || !error.data?.lease?.token) throw error; }
+        }
+        let baseline;
+        try { baseline = await estimateEditPresence.refresh({ force: true }); }
+        catch (error) {
+          // The rendered owner token may have expired since its last poll.
+          // Only an explicitly inactive/missing lease can be reacquired here;
+          // an active other writer still requires the separate handoff action.
+          if (error.code !== 'ERP_EDIT_LOCKED' || error.data?.lease?.active
+            || !isCapturedEstimateScopeCurrent(captured)) throw error;
+          await estimateEditPresence.acquire();
+          if (!isCapturedEstimateScopeCurrent(captured)) return null;
+          baseline = await estimateEditPresence.refresh({ force: true });
+        }
+        if (!baseline || baseline.skipped || baseline.stale || !baseline.lease?.ownedByMe || !baseline.lease?.token) throw new Error('작업 기준을 갱신하지 못했습니다. 다시 시도해 주세요.');
       }
 
       if (captured) {
-        await refreshCapturedEstimate(captured);
+        const latestRows = await fetchEstimateRecoveryRows(captured);
+        if (!isCapturedEstimateScopeCurrent(captured)) return null;
+        const costs = reconcileEstimateDrafts({ edits: costEdits, baselines: draftBaselinesRef.current.cost, rows: latestRows, keyOf: getItemEditKey, kind: 'cost' });
+        const quantities = reconcileEstimateDrafts({ edits: qtyEdits, baselines: draftBaselinesRef.current.quantity, rows: latestRows, keyOf: getQtyEditKey, kind: 'quantity' });
+        setItems(latestRows);
+        setCostEdits(costs.edits); setQtyEdits(quantities.edits);
+        draftBaselinesRef.current = { cost: costs.baselines, quantity: quantities.baselines };
+        setDraftConflicts([...costs.conflicts, ...quantities.conflicts]);
       } else {
         await load(true);
       }
 
-      if (captured
-        && estimateEditPresence.validScope
-        && estimateEditPresence.ownedByMe
-        && estimateEditPresence.token) {
-        await estimateEditPresence.refresh();
+      if (captured && estimateEditPresence.validScope) {
+        const verified = await estimateEditPresence.refresh();
+        if (!verified || verified.skipped || verified.stale || !verified.lease?.ownedByMe || !verified.lease?.token) throw new Error('조회 중 전산 값 또는 작업권이 다시 변경되었습니다. 다시 확인해 주세요.');
       }
+      if (captured && !isCapturedEstimateScopeCurrent(captured)) return null;
       setErr('');
       setSuccessMsg('nenova.exe의 최신 확정 현황과 견적서 내용을 다시 불러왔습니다.');
       return status;
     } catch (error) {
+      if (captured && !isCapturedEstimateScopeCurrent(captured)) return null;
+      estimateEditPresence.markStale();
       setErr(`최신 확정 현황을 다시 불러오지 못했습니다. ${error.message || '잠시 후 다시 시도하세요.'}`);
       return null;
     } finally {
       setFixStatusSyncing(false);
     }
+  };
+
+  const takeoverEstimateWork = async () => {
+    if (!window.confirm('기존 창의 작업권을 종료하고 이 창으로 인계합니다. 최신 내용과 수정 초안의 차이를 확인한 뒤 직접 저장해야 하며, 재고·동시 수정 검사는 생략하지 않습니다. 계속하시겠습니까?')) return;
+    try {
+      let acquired;
+      if (estimateEditPresence.ownedBySameUser) acquired = await estimateEditPresence.takeover();
+      else if (isAdminUser(estimateUser)) acquired = await estimateEditPresence.forceTakeover();
+      else throw new Error('관리자만 다른 사용자의 작업권을 인계할 수 있습니다.');
+      if (!acquired?.lease?.ownedByMe || !acquired?.lease?.token || acquired.skipped) throw new Error('작업권 인계 상태가 변경되었습니다. 다시 확인해 주세요.');
+      setSuccessMsg('작업권을 인계했습니다. 확정 현황 다시 불러오기로 수정 초안을 대조한 뒤 저장하세요.');
+      estimateEditPresence.markStale();
+    } catch (error) { setErr(error.message); }
   };
 
   // EXE에서 확정/확정취소만 바뀐 경우에는 실제 견적 내용 충돌이 아니다.
@@ -1853,6 +1897,8 @@ export default function Estimate() {
   // 업체/연도/차수별 키를 분리하므로 다른 업체 입력과 섞이지 않는다.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    draftBaselinesRef.current = { cost: {}, quantity: {} };
+    setDraftConflicts([]);
     if (!editDraftScopeKey) {
       setCostEdits({});
       setQtyEdits({});
@@ -1860,6 +1906,16 @@ export default function Estimate() {
       return;
     }
     const draft = readEstimateEditDraft(window.sessionStorage, editDraftScope);
+    // A restored draft must be compared with current ERP before another save,
+    // even when this tab has just acquired a fresh lease.
+    try {
+      const savedSnapshots = JSON.parse(window.sessionStorage.getItem(`${editDraftScopeKey}.snapshots`) || 'null');
+      draftBaselinesRef.current = { cost: savedSnapshots?.cost || {}, quantity: savedSnapshots?.quantity || {} };
+    } catch { draftBaselinesRef.current = { cost: {}, quantity: {} }; }
+    setDraftConflicts([
+      ...Object.entries(draft?.costEdits || {}).map(([key, desired]) => ({ key, desired, kind: 'cost', missing: true, name: '보관된 단가 초안 — 최신 내용 대조 필요' })),
+      ...Object.entries(draft?.qtyEdits || {}).map(([key, desired]) => ({ key, desired, kind: 'quantity', missing: true, name: '보관된 수량 초안 — 최신 내용 대조 필요' })),
+    ]);
     setCostEdits(draft?.costEdits || {});
     setQtyEdits(draft?.qtyEdits || {});
     if (draft?.costMode) setCostMode(draft.costMode);
@@ -1869,7 +1925,15 @@ export default function Estimate() {
   useEffect(() => {
     if (typeof window === 'undefined' || !editDraftScopeKey || editDraftHydratedScope !== editDraftScopeKey) return;
     writeEstimateEditDraft(window.sessionStorage, editDraftScope, { costEdits, qtyEdits, costMode });
+    try { window.sessionStorage.setItem(`${editDraftScopeKey}.snapshots`, JSON.stringify(draftBaselinesRef.current)); } catch { /* ERP save remains explicit; unavailable draft persistence is not an ERP write. */ }
   }, [costEdits, costMode, editDraftHydratedScope, editDraftScope, editDraftScopeKey, qtyEdits]);
+
+  useEffect(() => {
+    setDraftConflicts(previous => previous.filter(conflict => {
+      const value = (conflict.kind === 'cost' ? costEdits : qtyEdits)[conflict.key];
+      return value != null && value !== '';
+    }));
+  }, [costEdits, qtyEdits]);
 
   const fetchEstimateRecoveryRows = async (captured) => {
     if (!captured?.ship?.custKey || !captured?.orderYear || !captured?.parentWeek) {
@@ -4689,7 +4753,7 @@ export default function Estimate() {
           }}>
           {includeUnfixed ? '🔓 미확정 포함' : '🔒 확정만'}
         </button>
-        <button type="button" onClick={refreshFixStatusAndEstimate} disabled={fixStatusLoading || fixStatusSyncing || fixWorking || rangeUnfixWorking || !weekNum}
+        <button type="button" onClick={() => refreshFixStatusAndEstimate({ showModal: true })} disabled={fixStatusLoading || fixStatusSyncing || fixWorking || rangeUnfixWorking || !weekNum}
           title={`${weekNum}차 기준 확정/미확정/음수재고 현황 확인 후 확정 또는 구간 확정취소`}
           style={{
             padding: '3px 12px', fontSize: 11, fontWeight: 700, cursor: (fixStatusLoading || fixStatusSyncing) ? 'wait' : 'pointer',
@@ -5041,10 +5105,28 @@ export default function Estimate() {
             </div>
           </div>
 
-          <div style={{padding:'0 10px'}}><ErpEditPresenceBanner presence={estimateEditPresence} onReload={refreshFixStatusAndEstimate} reloadLabel="확정 현황 다시 불러오기" /></div>
+          <div style={{padding:'0 10px'}}><ErpEditPresenceBanner presence={estimateEditPresence} onReload={refreshFixStatusAndEstimate} onTakeover={takeoverEstimateWork} canForceTakeover={isAdminUser(estimateUser)} reloadLabel="확정 현황 다시 불러오기" /></div>
+          {draftConflicts.length > 0 && <div role="alert" style={{ margin: 10, padding: 12, border: '1px solid #dc2626', background: '#fff1f2' }}>
+            <strong>최신 전산 값과 다른 수정 초안 {draftConflicts.length}건 — 아래에서 확인한 뒤 저장하세요.</strong>
+            <button type="button" disabled={fixStatusSyncing} onClick={refreshFixStatusAndEstimate}>최신 내용 다시 대조</button>
+            {draftConflicts.map(conflict => <div key={`${conflict.kind}:${conflict.key}`} style={{ padding: 8 }}>
+              {conflict.name} · {conflict.kind === 'cost' ? '단가' : '수량'} · 이전 {conflict.original?.value ?? '확인 불가'} → 현재 {conflict.current?.value ?? '행 없음'} / 내 입력 {conflict.desired}
+              {!conflict.missing && <button type="button" onClick={() => {
+                draftBaselinesRef.current[conflict.kind][conflict.key] = conflict.current;
+                try { window.sessionStorage.setItem(`${editDraftScopeKey}.snapshots`, JSON.stringify(draftBaselinesRef.current)); } catch { /* Keep the in-memory conflict decision. */ }
+                setDraftConflicts(prev => prev.filter(row => row !== conflict));
+              }}>내 입력 유지</button>}
+              <button type="button" onClick={() => {
+                const setter = conflict.kind === 'cost' ? setCostEdits : setQtyEdits;
+                setter(prev => { const next = { ...prev }; delete next[conflict.key]; return next; });
+                delete draftBaselinesRef.current[conflict.kind][conflict.key];
+                setDraftConflicts(prev => prev.filter(row => row !== conflict));
+              }}>{conflict.missing ? '해당 초안 취소' : '현재 값 사용'}</button>
+            </div>)}
+          </div>}
           {hasUnsavedEstimateEdits && (
             <div style={{margin:'6px 12px 0', fontSize:12, color:'#9a3412'}}>
-              저장하지 않은 단가·수량·추가 품목이 있습니다. 삭제하려면 먼저 수정 저장 또는 각 취소를 완료하세요.
+              수정 초안이 보관되어 있습니다. 수정 저장으로 적용할 수 있습니다. 차감 삭제만 초안 저장 또는 취소 후 가능합니다.
             </div>
           )}
           {deductionSnapshotMissingCount > 0 && (
@@ -5160,6 +5242,8 @@ export default function Estimate() {
                                   onKeyDown={handleEstimateEditCellKeyDown}
                                   onChange={e => {
                                     const v = e.target.value;
+                                    if (v === '') delete draftBaselinesRef.current.quantity[qtyEditKey];
+                                    else if (qtyEdits[qtyEditKey] == null || !draftBaselinesRef.current.quantity[qtyEditKey]) draftBaselinesRef.current.quantity[qtyEditKey] = estimateDraftSnapshot(item, 'quantity');
                                     setQtyEdits(prev => {
                                       const next = { ...prev };
                                       if (v === '') delete next[qtyEditKey];
@@ -5178,7 +5262,7 @@ export default function Estimate() {
                                     fontFamily: 'var(--mono)',
                                     background: (qtyEditKey && qtyEdits[qtyEditKey] !== undefined && qtyEdits[qtyEditKey] !== '') ? '#E0F2F1' : '#fff',
                                   }}
-                                  disabled={deductionDeleting || qtyApplying || !qtyEditKey}
+                                  disabled={deductionDeleting || qtyApplying || fixStatusSyncing || !qtyEditKey}
                                   title={isDed ? '차감 수량 수정: Estimate.Quantity' : '출고일별 견적수량 수정: ShipmentDate.EstQuantity'}
                                 />
                               )}
@@ -5197,6 +5281,8 @@ export default function Estimate() {
                                   onKeyDown={handleEstimateEditCellKeyDown}
                                   onChange={e => {
                                     const v = e.target.value;
+                                    if (v === '') delete draftBaselinesRef.current.cost[costEditKey];
+                                    else if (costEdits[costEditKey] == null || !draftBaselinesRef.current.cost[costEditKey]) draftBaselinesRef.current.cost[costEditKey] = estimateDraftSnapshot(item, 'cost');
                                     setCostEdits(prev => {
                                       const next = { ...prev };
                                       if (v === '') delete next[costEditKey];
@@ -5215,7 +5301,7 @@ export default function Estimate() {
                                     fontFamily: 'var(--mono)',
                                     background: isEdited ? '#EBF8FF' : '#fff',
                                   }}
-                                  disabled={deductionDeleting || costApplying || !costEditKey}
+                                  disabled={deductionDeleting || costApplying || fixStatusSyncing || !costEditKey}
                                 />
                               )}
                             </td>

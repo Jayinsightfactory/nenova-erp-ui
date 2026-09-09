@@ -4,6 +4,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { apiGet } from '../../lib/useApi';
 import { normalizeOrderHistorySearch } from '../../lib/orderHistorySearch';
+import PasteOperationHistory from '../../components/orders/PasteOperationHistory';
 
 const currentYear = String(new Date().getFullYear());
 const fmtValue = (value) => String(value ?? '').trim() || '0';
@@ -45,10 +46,11 @@ export default function OrderHistoryPage() {
 
   useEffect(() => {
     if (!router.isReady) return;
+    if (router.query.mode === 'paste') return;
     const qWeek = queryValue(router.query.week);
     const initial = { year: queryValue(router.query.year) || yearFromWeek(qWeek) || currentYear, week: qWeek, custName: queryValue(router.query.custName), prodName: queryValue(router.query.prodName), page: Math.max(1, Number(queryValue(router.query.page)) || 1) };
     setYear(initial.year); setWeek(initial.week); setCustName(initial.custName); setProdName(initial.prodName); setPage(initial.page); load(initial);
-  }, [router.isReady, router.query.year, router.query.week, router.query.custName, router.query.prodName, router.query.page, load]);
+  }, [router.isReady, router.query.mode, router.query.year, router.query.week, router.query.custName, router.query.prodName, router.query.page, load]);
 
   const submit = (event) => { event.preventDefault(); setPage(1); load({ year, week, custName, prodName, page: 1 }); };
   const movePage = (nextPage) => {
@@ -62,9 +64,13 @@ export default function OrderHistoryPage() {
   const filterCustomer = (name) => { setCustName(name); setPage(1); load({ year, week, custName: name, prodName, page: 1 }); };
   const customerCounts = rows.reduce((acc, row) => { const name = row.거래처명 || '기타'; acc[name] = (acc[name] || 0) + 1; return acc; }, {});
 
+  const tabs = <nav aria-label="이력 종류" style={{ display: 'flex', gap: 8, padding: 12 }}><button onClick={() => router.replace({ pathname: router.pathname, query: { ...router.query, mode: 'paste' } })} style={button}>붙여넣기 작업별 이력</button><button onClick={() => router.replace({ pathname: router.pathname, query: { ...router.query, mode: 'rows' } })} style={button}>주문 행별 변경이력</button></nav>;
+  if (router.isReady && router.query.mode === 'paste') return <main style={{ padding: 16, background: '#f7f9fc', minHeight: '100vh' }}><Head><title>붙여넣기 작업이력 - nenova ERP</title></Head>{tabs}<h2>붙여넣기 작업이력</h2><PasteOperationHistory key={[router.query.year, router.query.week, router.query.custName, router.query.prodName].join('|')} initial={{ year: queryValue(router.query.year) || yearFromWeek(queryValue(router.query.week)), week: queryValue(router.query.week), custName: queryValue(router.query.custName), prodName: queryValue(router.query.prodName) }} /></main>;
+
   return (<>
     <Head><title>주문 변경이력 - nenova ERP</title></Head>
     <main style={{ padding: 16, minHeight: '100vh', boxSizing: 'border-box', background: '#f7f9fc' }}>
+      {tabs}
       <header style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}><h2 style={{ margin: 0, fontSize: 20, color: '#1a237e' }}>주문 변경이력</h2><span style={{ fontSize: 12, color: '#455a64' }}>연도 {responseYear || year} · 페이지당 500건</span><button type="button" onClick={() => window.opener ? window.close() : history.back()} style={{ ...button, marginLeft: 'auto' }}>닫기</button></header>
       <div style={{ marginBottom: 12, color: '#546e7a', fontSize: 12 }}>주문 변경이력입니다. 분배만 변경한 작업·실패·롤백은 포함하지 않습니다.</div>
       <form onSubmit={submit} style={{ display: 'flex', alignItems: 'end', gap: 10, flexWrap: 'wrap', padding: 12, border: '1px solid #cfd8dc', borderRadius: 8, background: '#fff', marginBottom: 10 }}>
