@@ -6,6 +6,8 @@
     "lib/weekPivotSheet.js",
     "__tests__/weekPivotSheet.test.js",
     "__tests__/weekPivotDisplay.test.js",
+    "lib/weekPivotReadability.js",
+    "__tests__/weekPivotReadability.test.js",
     "lib/pasteIncomingDisplay.js",
     "__tests__/pasteIncomingDisplay.test.js",
     "pages/api/orders/paste-incoming.js",
@@ -57,9 +59,17 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "displayExportPolicy": {
     "weekTitle": "white foreground on all fixed/unfixed/partial/empty dark header backgrounds, overriding global table header color",
-    "notes": "existing outDescr/descrMap is display-only; pvDescrOpen top checkbox toggles inline customer-cell notes and summary notes without writes; summary includes customer label and wrapping; zero-quantity response rows with existing notes are retained",
+    "notes": "existing outDescr/descrMap is display-only; pvDescrOpen toggles inline and summary notes without writes; inline notes are one line with full title, summary customer+line+delete entries form one horizontal scrollable line; zero-quantity rows with notes and exact delete indices are retained",
     "excel": "each week has a quantity-change text column built from same descrMap and customer labels regardless of UI note visibility; numeric quantities and SUM formula cells preserved; no formulas for text note columns; no extra history query",
     "preserve": "all ERP writes, year scopes, quantity and stock arithmetic unchanged"
+  },
+  "readabilityPolicy": {
+    "customerHighlight": "Header buttons toggle a CustKey-only UI highlight across repeated headers. Membership uses positive order or shipment in the explicitly selected year/week range; zero notes-only rows do not qualify. Existing customer filters, single product selection and draft/fixed/error colors remain independent.",
+    "productSearch": "Case-insensitive whitespace-normalized ProdName/DisplayName search filters only visibleProdKeys after maps/aggregates are built. It never filters customer source rows or mutates export prodKeys, quantities, pending edits or ERP tables. Empty results retain search and reset controls.",
+    "notes": "One horizontally scrollable summary line with no vertical stacking; original lineIdx/allLines and explicit delete-confirmation flow are preserved. Scrolling the note content does not collapse it.",
+    "scope": "No additional API or SQL queries, mutations, confirmation changes or export changes from highlight/search/notes layout.",
+    "viewport": "1920x1080 CSS pixels at 100%, with smaller-screen overflow access retained",
+    "evidence": "docs/work-sessions/2026-09-09_week-pivot-readability.md"
   },
   "pasteIncomingDisplayPolicy": {
     "operation": "SELECT-only WarehouseMaster + WarehouseDetail current OrderYear + OrderWeek + ProdKey lookup; no ERP write is permitted",
@@ -214,6 +224,7 @@
   "requiredTestFiles": [
     "__tests__/weekPivotSheet.test.js",
     "__tests__/weekPivotDisplay.test.js",
+    "__tests__/weekPivotReadability.test.js",
     "__tests__/pasteIncomingDisplay.test.js",
     "__tests__/shipmentPivotAdjustContract.test.js",
     "__tests__/shipmentFarmAssignments.test.js",
