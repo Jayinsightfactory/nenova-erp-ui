@@ -225,3 +225,28 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
   실행한다. 단순 경과시간으로 실행 중 잠금을 회수하거나 다른 작업의 잠금을 지우지 않는다.
 - 이 작업에서 운영 고객 자료를 수정하거나 이미 부분 해제된 차수를 복구하지 않았다.
   격리된 SQL 시험 결과와 운영 적용 여부는 별도 작업 보고서에 기록한다.
+
+## 견적 증가분 다음 세부차수 배정 (2026-09-09)
+
+- 위 로컬 CLI로 `FormShipmentDistribution`, `CommonLogic`, `ClassShipmentDetail`,
+  `ClassShipmentDate`, `ClassOrderMaster`, `ClassOrderDetail`을 다시 조회했다.
+- `CommonLogic.GetBaseOutDay`는 업체 기본 요일 0/없음이면 4를 사용한다.
+  `GetShipmentDate`는 `PeriodDay.OrderYearWeek=연도+부모차수`와 그 요일에 해당하는
+  `BaseYmd`를 가져온다. 다음 세부차수로 이동할 증가분도 이 **업체 기본 출고일**을
+  사용한다(사용자의 최종 선택). 달력 날짜를 JS로 추측하지 않는다.
+- `ClassShipmentDetail.Insert`는 상세 수량·환산 수량·견적 수량·단가·금액·세금·확정
+  상태를 함께 기록하고, `ClassShipmentDate.Insert`는 날짜별 행을 별도로 기록한다.
+  기존 현재/다음 차수의 다른 날짜는 변경하지 않는다.
+- `ClassOrderMaster.Insert`의 실제 INSERT에는 `OrderYearWeek`가 없다. 설치별로
+  writable 열이 존재하는 경우만 부모키를 기록하며, 기존 양수 주문은 수정하지 않는다.
+  0/중복 주문행은 새 주문을 겹쳐 만들지 않고 사전 차단한다.
+- 신규 다음 차수 상세는 확인창에서 명시적으로 승인한 경우에만 양수 주문(없을 때)과
+  확정 출고를 생성한다. `usp_ShipmentFix` 전체 품종군 호출은 하지 않고 기존 웹의
+  확정 유지 순증감 계약을 재사용한다. 임시 0수량 행은 동일 트랜잭션 내부에서만
+  사용하며, 최종 양수 및 ViewOrder/ViewShipment/날짜 견적 노출 검증 실패 시 롤백한다.
+- 운영 읽기 전용 probe로 동일 업무키의 현재 부족 및 다음 차수 가용량을 대조했다.
+  실제 원장 수량·거래처 키 및 프로시저 정의는 `outputs/estimate-overflow-evidence.json`
+  로컬 증거로만 보관했다(공개 저장소 제외). 운영 수량 수정은 수행하지 않았다.
+- native `usp_StockCalculation`의 직전 StockMaster, 확정출고 차감, StockType 조정만
+  사용하는 공식을 유지한다. 미확정 예약분은 현재 부모차수 01부터 목표 차수까지 별도
+  차감하고, 다음 차수에 이미 포함된 이월을 두 번 가용량으로 계산하지 않는다.

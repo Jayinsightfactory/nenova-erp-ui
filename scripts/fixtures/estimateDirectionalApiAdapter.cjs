@@ -202,6 +202,7 @@ function loadActualHandlers(ctx) {
     directional: pureLoader(path.join(REPO_ROOT, 'lib', 'estimateDirectionalQuantity.js')),
   };
   const overrides = {
+    'node:crypto': require('node:crypto'),
     [path.join(REPO_ROOT, 'lib', 'db.js')]: db,
     [path.join(REPO_ROOT, 'lib', 'auth.js')]: auth,
     [path.join(REPO_ROOT, 'lib', 'distributeUnits.js')]: pure.distributeUnits,
@@ -254,7 +255,19 @@ async function createAdapter(ctx) {
       },
     },
 
-    async run({ operation, fromOutQuantity, toOutQuantity, cost = 701, dateItems } = {}) {
+    async run({ operation, fromOutQuantity, toOutQuantity, cost = 701, dateItems, body: suppliedBody, user = { userId: 'admin' }, handler = 'date' } = {}) {
+      // Overflow SQL harness calls the real route with an exact preview/apply
+      // body. Returning the raw response is intentional so the harness can
+      // assert fail-closed near-misses without converting them into adapter
+      // exceptions. Existing directional callers retain the success helper.
+      if (suppliedBody) {
+        const response = await ctx.invokeApiHandler(handler === 'entry' ? handlers.entryHandler : handlers.dateHandler, {
+          url: handler === 'entry' ? '/api/estimate/update-entry' : '/api/estimate/update-date-quantity',
+          body: suppliedBody,
+          user,
+        });
+        return response;
+      }
       const bodyBase = {
         orderYear: '2026',
         custKey: 1,

@@ -96,6 +96,7 @@ import {
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
 import ErpEditPresenceBanner from '../components/ErpEditPresenceBanner';
+import EstimateOverflowPreview from '../components/EstimateOverflowPreview';
 import useErpEditPresence from '../hooks/useErpEditPresence';
 import { isAdminUser } from '../lib/userAccess';
 import { estimateDraftSnapshot, reconcileEstimateDrafts } from '../lib/estimateDraftReconcile';
@@ -124,6 +125,13 @@ import {
   writeEstimateEditDraft,
 } from '../lib/estimateSaveRecovery.js';
 import { getEstimateGridNavigationTarget } from '../lib/estimateGridNavigation.js';
+import {
+  clearPendingEstimateOverflow,
+  inspectPendingEstimateOverflow,
+  preparePendingEstimateOverflow,
+  readPendingEstimateOverflowStatus,
+  runEstimateOverflowApplyOnce,
+} from '../lib/estimateOverflowClient.js';
 
 // 오늘 날짜 기준 차수(주차 번호)만 반환 — "2026-18-01" → "18"
 function getCurrentWeekNum() {
@@ -296,6 +304,34 @@ async function postEstimateWriteJson(url, body) {
   }
   if (!response.ok || !data?.success) {
     const error = new Error(data?.error || `저장 실패 (${response.status})`);
+    error.status = response.status;
+    error.code = data?.code;
+    error.data = data;
+    throw error;
+  }
+  return data;
+}
+
+async function fetchEstimateOverflowStatus(operation) {
+  const body = operation?.baseBody || operation?.applyBody || {};
+  const query = new URLSearchParams({
+    orderYear: String(body.orderYear || ''),
+    custKey: String(body.custKey || ''),
+    operationId: String(operation?.operationId || ''),
+  });
+  const response = await fetch(`/api/estimate/overflow-status?${query.toString()}`, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+  let data;
+  try {
+    data = await parseJsonResponse(response);
+  } catch (error) {
+    error.status = response.status;
+    throw error;
+  }
+  if (!response.ok || !data?.success) {
+    const error = new Error(data?.error || `수량 저장 결과 확인 실패 (${response.status})`);
     error.status = response.status;
     error.code = data?.code;
     error.data = data;
@@ -1348,6 +1384,20 @@ export default function Estimate() {
   const [estimateEditUserId, setEstimateEditUserId] = useState('');
   const automaticEditOperationRef = useRef(0);
   const [automaticEditProgress, setAutomaticEditProgress] = useState(null);
+  const [overflowConfirmation, setOverflowConfirmation] = useState(null);
+  const overflowConfirmationRef = useRef(null);
+
+  const requestOverflowConfirmation = useCallback((preview) => new Promise((resolve) => {
+    overflowConfirmationRef.current = resolve;
+    setOverflowConfirmation({ preview });
+  }), []);
+
+  const finishOverflowConfirmation = useCallback((confirmed) => {
+    const resolve = overflowConfirmationRef.current;
+    overflowConfirmationRef.current = null;
+    setOverflowConfirmation(null);
+    resolve?.(confirmed);
+  }, []);
 
   useEffect(() => {
     let stopped = false;
@@ -2126,41 +2176,142 @@ export default function Estimate() {
       shipmentKey: p.item.ShipmentKey,
     }));
     try {
-      const data = await runEstimateWriteWithRecovery({
-        url: '/api/estimate/update-date-quantity',
-        body,
-        intents,
-        captured,
-        onProgress,
-        recoveredData: (snapshot, liveRows) => ({
-          success: true,
-          changedCount: snapshot.matches.length,
-          direction: 'recovered',
-          stockMode: 'reconciled',
-          items: snapshot.matches.map(({ intent, row }) => {
-            if (row) {
-              return {
-                sdateKey: Number(row.SdateKey),
-                sdetailKey: Number(row.SdetailKey),
-                shipmentKey: Number(row.ShipmentKey),
-                dateDeleted: false,
-                dateCostAfter: Number(row.DateCost),
-                detailCostAfter: Number(row.Cost),
-              };
-            }
-            const remainingDetailRow = liveRows.find(candidate => Number(candidate.SdetailKey) === Number(intent.sdetailKey));
-            return remainingDetailRow
-              ? {
-                sdateKey: Number(intent.key),
-                sdetailKey: Number(intent.sdetailKey),
-                shipmentKey: Number(intent.shipmentKey),
-                dateDeleted: true,
-                detailCostAfter: Number(remainingDetailRow.Cost),
-              }
-              : { sdetailKey: Number(intent.sdetailKey), purged: true };
-          }),
-        }),
-      });
+      const overflowScope = {
+        orderYear: yearStr,
+        parentWeek: selectedShip?.ParentWeek || weekNum,
+        custKey: body.custKey,
+      };
+      const overflowStorage = typeof window !== 'undefined' ? window.sessionStorage : null;
+      const pendingInspection = inspectPendingEstimateOverflow(overflowStorage, overflowScope, body);
+      if (pendingInspection.status === 'conflict') {
+        const previousOutcome = await readPendingEstimateOverflowStatus({
+          pending: pendingInspection.pending,
+          readStatus: fetchEstimateOverflowStatus,
+        });
+        if (previousOutcome.status === 'success') {
+          clearPendingEstimateOverflow(overflowStorage, overflowScope, pendingInspection.pending.operationId);
+          setCostApplyLog(prev => [...prev, { step: 'save', label: '이전 수량 저장은 서버에서 완료된 것으로 확인했습니다. 현재 수정값은 적용하지 않았습니다.' }]);
+          throw Object.assign(new Error('이전 수량 저장 완료를 확인했습니다. 현재 수정값은 적용하지 않았습니다. 최신 내용을 확인한 뒤 다시 저장하세요.'), {
+            code: 'OVERFLOW_PREVIOUS_COMPLETED',
+          });
+        }
+        throw Object.assign(new Error('확인이 끝나지 않은 이전 수량 저장이 있습니다. 기존 결과를 먼저 확인한 뒤 다시 시도하세요.'), {
+          code: 'OVERFLOW_PENDING_CONFLICT',
+        });
+      }
+
+      let data = null;
+      let overflowPreview = null;
+      if (pendingInspection.status === 'match') {
+        onProgress?.({ kind: 'server', label: '이전 수량 저장 결과를 읽기 전용으로 확인합니다. 새 저장은 시작하지 않습니다.' });
+        const pendingOutcome = await readPendingEstimateOverflowStatus({
+          pending: pendingInspection.pending,
+          readStatus: fetchEstimateOverflowStatus,
+        });
+        if (pendingOutcome.status === 'success') {
+          data = pendingOutcome.data;
+          clearPendingEstimateOverflow(overflowStorage, overflowScope, pendingInspection.pending.operationId);
+          setCostApplyLog(prev => [...prev, { step: 'save', label: '이전 응답은 유실됐지만 서버 저장 완료 결과를 확인했습니다.' }]);
+        } else if (pendingOutcome.status === 'rolledBack' || pendingOutcome.status === 'failed') {
+          clearPendingEstimateOverflow(overflowStorage, overflowScope, pendingInspection.pending.operationId);
+          throw pendingOutcome.error || new Error('이전 수량 저장이 실패하여 반영되지 않았습니다.');
+        } else {
+          overflowPreview = pendingInspection.pending.preview;
+          setCostApplyLog(prev => [...prev, {
+            step: 'save',
+            label: '이전 작업 결과가 아직 확인되지 않습니다. 다시 적용하면 같은 작업번호만 재사용합니다.',
+          }]);
+        }
+      }
+
+      if (!data && !overflowPreview) {
+        onProgress?.({ kind: 'server', label: '다음 세부차수 배정 필요 여부를 읽기 전용으로 확인합니다.' });
+        const previewData = await postEstimateWriteJson('/api/estimate/update-date-quantity', {
+          ...body,
+          overflowMode: 'preview',
+        });
+        overflowPreview = previewData.overflowPreview;
+        if (!overflowPreview?.required) {
+          data = await runEstimateWriteWithRecovery({
+            url: '/api/estimate/update-date-quantity',
+            body,
+            intents,
+            captured,
+            onProgress,
+            recoveredData: (snapshot, liveRows) => ({
+              success: true,
+              changedCount: snapshot.matches.length,
+              direction: 'recovered',
+              stockMode: 'reconciled',
+              items: snapshot.matches.map(({ intent, row }) => {
+                if (row) {
+                  return {
+                    sdateKey: Number(row.SdateKey),
+                    sdetailKey: Number(row.SdetailKey),
+                    shipmentKey: Number(row.ShipmentKey),
+                    dateDeleted: false,
+                    dateCostAfter: Number(row.DateCost),
+                    detailCostAfter: Number(row.Cost),
+                  };
+                }
+                const remainingDetailRow = liveRows.find(candidate => Number(candidate.SdetailKey) === Number(intent.sdetailKey));
+                return remainingDetailRow
+                  ? {
+                    sdateKey: Number(intent.key),
+                    sdetailKey: Number(intent.sdetailKey),
+                    shipmentKey: Number(intent.shipmentKey),
+                    dateDeleted: true,
+                    detailCostAfter: Number(remainingDetailRow.Cost),
+                  }
+                  : { sdetailKey: Number(intent.sdetailKey), purged: true };
+              }),
+            }),
+          });
+        }
+      }
+
+      if (!data && !overflowPreview) {
+        throw new Error('다음 세부차수 배정 미리보기 결과가 없습니다. 저장을 시작하지 않았습니다.');
+      }
+
+      if (!data && overflowPreview?.required) {
+        const hasCostEdits = Object.values(costEdits).some(value => value !== '' && value !== undefined && value !== null);
+        if (hasCostEdits) throw new Error('단가 수정부터 저장한 뒤 수량을 다시 저장하세요');
+        const confirmed = await requestOverflowConfirmation(overflowPreview);
+        if (!confirmed) throw Object.assign(new Error('다음 세부차수 배정을 취소했습니다. 수량은 저장되지 않았습니다.'), { code: 'OVERFLOW_CANCELLED' });
+
+        const operation = preparePendingEstimateOverflow({
+          storage: overflowStorage,
+          scope: overflowScope,
+          baseBody: body,
+          preview: overflowPreview,
+        });
+        onProgress?.({
+          kind: 'save',
+          label: operation.reused
+            ? '확인된 동일 작업번호로 수량 배정을 다시 요청합니다.'
+            : '확인한 수량 배정을 한 번만 요청합니다.',
+        });
+        const outcome = await runEstimateOverflowApplyOnce({
+          operation,
+          postApply: applyBody => postEstimateWriteJson('/api/estimate/update-date-quantity', applyBody),
+          readStatus: fetchEstimateOverflowStatus,
+        });
+        if (outcome.status === 'unknown') {
+          throw Object.assign(new Error('서버 응답이 불확실하여 저장 완료로 처리하지 않았습니다. 자동 재저장은 하지 않았습니다. 같은 수량으로 다시 저장하면 기존 작업번호의 결과를 먼저 확인합니다.'), {
+            code: 'OVERFLOW_STATUS_UNKNOWN',
+          });
+        }
+        if (outcome.status !== 'success') {
+          clearPendingEstimateOverflow(overflowStorage, overflowScope, operation.operationId);
+          throw outcome.error || new Error('다음 세부차수 수량 배정에 실패했습니다.');
+        }
+        data = outcome.data;
+        clearPendingEstimateOverflow(overflowStorage, overflowScope, operation.operationId);
+        if (outcome.recovered) {
+          setCostApplyLog(prev => [...prev, { step: 'save', label: '응답 유실 후 작업번호 조회로 실제 저장 완료를 확인했습니다.' }]);
+        }
+      }
       if (data.recoveredAfterServerUpdate) {
         setCostApplyLog(prev => [...prev, { step: 'save', label: '서버 복구 후 실제 저장값까지 다시 확인했습니다.' }]);
       }
@@ -2190,18 +2341,33 @@ export default function Estimate() {
         : describeDateQuantitySaveResult(data);
       const label = `저장 결과 — ${stockResponse.join(' / ')}`;
       setCostApplyLog(prev => [...prev, { step: 'save', label }]);
+      if (data.overflowApplied) {
+        (data.overflowRows || []).forEach(row => {
+          const overflowLabel = `${row.prodName || `품목 ${row.prodKey}`} — ${row.fromWeek} ${Number(row.oldQuantity || 0).toLocaleString()}→${Number(row.currentQuantity || 0).toLocaleString()}${row.unit || ''} / ${row.toWeek} +${Number(row.nextIncrease || 0).toLocaleString()}${row.unit || ''}${row.newShipment ? ' · 신규 출고 생성·확정' : ''}`;
+          setCostApplyLog(prev => [...prev, { step: 'save', label: overflowLabel }]);
+          onProgress?.({ kind: 'server', label: overflowLabel });
+        });
+      }
       onProgress?.({ kind: 'server', label });
       const savedByKey = new Map((data.items || []).map(item => [Number(item.sdateKey), item]));
+      const overflowByKey = new Map((data.overflowRows || []).map(item => [Number(item.sdateKey), item]));
       onProgress?.({ kind: 'server', status: 'done', label: `수량 저장 완료 — ${rows.length}건` });
-      return rows.map(p => ({
-        key: p.keyNumber,
-        ok: true,
-        oldQty: p.oldQty,
-        newQty: p.newQty,
-        orderWeek: p.item.OrderWeek,
-        saved: savedByKey.get(p.keyNumber),
-        pendingRef: p,
-      }));
+      return rows.map(p => {
+        const saved = savedByKey.get(p.keyNumber);
+        const overflowRow = overflowByKey.get(p.keyNumber);
+        const actualSourceQuantity = saved?.newDateQuantity ?? overflowRow?.currentQuantity ?? p.newQty;
+        return {
+          key: p.keyNumber,
+          ok: true,
+          oldQty: p.oldQty,
+          newQty: Number(actualSourceQuantity),
+          requestedQty: p.newQty,
+          orderWeek: p.item.OrderWeek,
+          saved,
+          overflow: overflowRow,
+          pendingRef: p,
+        };
+      });
     } catch (error) {
       const label = error?.message || '수량 저장을 완료하지 못했습니다. 입력값은 그대로 보관했습니다.';
       setCostApplyLog(prev => [...prev, { step: 'error', label }]);
@@ -5489,6 +5655,15 @@ export default function Estimate() {
             }
           `}</style>
         </div>
+      )}
+
+      {overflowConfirmation && (
+        <EstimateOverflowPreview
+          preview={overflowConfirmation.preview}
+          busy={false}
+          onConfirm={() => finishOverflowConfirmation(true)}
+          onCancel={() => finishOverflowConfirmation(false)}
+        />
       )}
 
       {/* ── 담당자별 견적서 출력 ── */}

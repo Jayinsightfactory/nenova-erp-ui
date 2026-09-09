@@ -11,6 +11,10 @@ import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 import { normalizeShipmentQty } from '../../../lib/shipmentAvailability.js';
 import {
+  planEstimateOverflow, materializeOverflowTargets, verifyOverflowTargets,
+  readOverflowResult, recordOverflowResult, overflowRequestHash, validateOverflowOperationId,
+} from '../../../lib/estimateOverflow.js';
+import {
   assertDirectionalGateCapability,
   assertDirectionalDateSnapshot,
   assertDirectionalPlanYears,
@@ -117,6 +121,14 @@ export default withAuth(async function handler(req, res) {
       // transaction; this code never writes/clears another owner's gate state.
       await assertDirectionalGateCapability(tQ);
       await lockDirectionalGate(tQ);
+      const overflowMode = req.body?.overflowMode;
+      if (overflowMode != null && !['preview','apply'].includes(overflowMode)) throw directionalQuantityError('OVERFLOW_MODE_INVALID','다음 차수 처리 방식이 올바르지 않습니다.');
+      if (overflowMode === 'apply') {
+        validateOverflowOperationId(req.body.overflowOperationId);
+        if (req.body.overflowConfirmed !== true || !req.body.overflowPlanHash) throw directionalQuantityError('OVERFLOW_CONFIRM_REQUIRED','차수별 배정과 신규 출고 확정 내용을 먼저 확인해 주세요.');
+        const prior = await readOverflowResult(tQ,sql,{operationId:req.body.overflowOperationId,userId:req.user.userId,...writeScope,requestHash:overflowRequestHash(req.body),lock:true});
+        if (prior) return {...prior,overflowReplayed:true};
+      }
       const params = Object.fromEntries(items.map((item, index) => [
         `dk${index}`,
         { type: sql.Int, value: item.sdateKey },
@@ -231,10 +243,17 @@ export default withAuth(async function handler(req, res) {
           GROUP BY sd.SdetailKey`,
         baselineParams,
       );
-      const plan = buildDirectionalQuantityPlan({
+      let plan = buildDirectionalQuantityPlan({
         changes: [...groups.values()].flatMap((group) => group.changes),
         lockedBaselines: lockedBaselines.recordset || [],
       });
+      let overflow = null;
+      if (overflowMode) {
+        overflow = await planEstimateOverflow(tQ,sql,plan);
+        if (overflowMode === 'preview' && !overflow.preview.required) return {overflowPreview:overflow.preview};
+        if (overflowMode === 'apply' && (!overflow.preview.required || req.body.overflowPlanHash !== overflow.preview.planHash)) throw directionalQuantityError('OVERFLOW_PLAN_STALE','재고·수량·출고일이 미리보기 후 달라졌습니다. 다시 배정 내용을 확인해 주세요.');
+        plan = overflow.plan;
+      }
       const physicalChanges = plan.filter((group) => Math.abs(group.confirmedDelta) > 0.0000001);
       const fixedChanges = fixedDirectionalChanges(physicalChanges);
       const directionKinds = new Set(physicalChanges.map((group) => (group.actualIncrease ? 'increase' : 'decrease')));
@@ -247,7 +266,15 @@ export default withAuth(async function handler(req, res) {
       }
       // Every positive physical delta is accumulated by its own product/year/week.
       // A selected decrease never offsets an increase in this shortage check.
-      for (const increaseScope of positiveIncreaseByProduct(plan).values()) {
+      const increaseScopes = [...positiveIncreaseByProduct(plan).values()];
+      // Split saves consume the same global current stock across both weeks once.
+      const guardedIncreases = overflow ? [...increaseScopes.reduce((map,scope)=> {
+        const key=`${scope.orderYear}|${scope.prodKey}`;
+        const old=map.get(key);
+        map.set(key,{...scope,increase:normalizeShipmentQty(scope.increase+(old?.increase||0))});
+        return map;
+      },new Map()).values()] : increaseScopes;
+      for (const increaseScope of guardedIncreases) {
         const currentStockQ = await tQ(
           `SELECT Stock FROM Product WITH (UPDLOCK,HOLDLOCK)
             WHERE ProdKey=@pk AND ISNULL(isDeleted,0)=0`,
@@ -268,6 +295,8 @@ export default withAuth(async function handler(req, res) {
           if (future.recordset?.length) throw directionalQuantityError('FUTURE_STOCK_SNAPSHOT_EXISTS', '후속 연도 재고 스냅샷이 있어 확정 출고를 안전하게 수정할 수 없습니다.');
         }
       }
+      if (overflowMode === 'preview') return {overflowPreview:overflow.preview};
+      if (overflow) await materializeOverflowTargets(tQ,sql,overflow.targets,req.user.userId);
       const uid = req.user?.userId || 'admin';
       for (const group of fixedChanges) {
         const productStock = await tQ(`SELECT Stock FROM Product WITH (UPDLOCK,HOLDLOCK) WHERE ProdKey=@pk`, { pk: { type: sql.Int, value: group.row.ProdKey } });
@@ -282,6 +311,13 @@ export default withAuth(async function handler(req, res) {
       const saved = [];
       for (const group of plan) {
         const { row, changes } = group;
+        // A fully moved increase must not touch the old date's price, amount or history.
+        if (overflow && !group.overflowTarget && changes.every(change =>
+          normalizeShipmentQty(change.newDateOutQuantity)===normalizeShipmentQty(change.row.DateShipmentQuantity)
+          && Number(change.newDateEstQuantity)===Number(change.row.DateEstQuantity) && change.item.descr==null)) {
+          for (const change of changes) saved.push({sdateKey:change.item.sdateKey,sdetailKey:row.SdetailKey,shipmentKey:row.ShipmentKey,orderWeek:row.OrderWeek,oldDateQuantity:Number(change.row.DateEstQuantity),newDateQuantity:Number(change.row.DateEstQuantity),oldDetailQuantity:Number(row.DetailEstQuantity),newDetailQuantity:Number(row.DetailEstQuantity),oldDetailOutQuantity:Number(row.DetailOutQuantity),newDetailOutQuantity:Number(row.DetailOutQuantity),dateCostAfter:Number(change.row.DateCost),detailCostAfter:Number(row.DetailCost),unchanged:true});
+          continue;
+        }
         const product = { OutUnit: row.OutUnit, EstUnit: row.EstUnit, BunchOf1Box: row.BunchOf1Box, SteamOf1Bunch: row.SteamOf1Bunch, SteamOf1Box: row.SteamOf1Box };
         const newDetailOutQuantity = group.newDetailOutQuantity;
         if (!isActiveShipmentOutQty(newDetailOutQuantity)) {
@@ -360,7 +396,8 @@ export default withAuth(async function handler(req, res) {
 
         for (const change of changes) {
           const { item, newDateOutQuantity, newDateEstQuantity } = change;
-          const dateMoney = amountVatFromCostEst(row.DetailCost, newDateEstQuantity);
+          const dateCost = overflow && !group.overflowTarget ? Number(change.row.DateCost) : Number(row.DetailCost);
+          const dateMoney = amountVatFromCostEst(dateCost, newDateEstQuantity);
           if (group.fixed && Math.abs(newDateOutQuantity - Number(change.row.DateShipmentQuantity || 0)) > 0.0000001) {
             await tQ(
               `INSERT INTO ShipmentHistory
@@ -394,7 +431,7 @@ export default withAuth(async function handler(req, res) {
                 sdateKey: { type: sql.Int, value: item.sdateKey },
                 shipQty: { type: sql.Float, value: newDateOutQuantity },
                 estQty: { type: sql.Float, value: newDateEstQuantity },
-                cost: { type: sql.Float, value: row.DetailCost },
+                cost: { type: sql.Float, value: dateCost },
                 amount: { type: sql.Float, value: dateMoney.amount },
                 vat: { type: sql.Float, value: dateMoney.vat },
                 hasDescr: { type: sql.Bit, value: item.descr != null ? 1 : 0 },
@@ -414,7 +451,7 @@ export default withAuth(async function handler(req, res) {
             oldDetailOutQuantity: Number(row.DetailOutQuantity) || 0,
             newDetailOutQuantity: detailUnits.outQuantity,
             dateDeleted: newDateOutQuantity <= 0.0001,
-            dateCostAfter: newDateOutQuantity <= 0.0001 ? null : Number(row.DetailCost || 0),
+            dateCostAfter: newDateOutQuantity <= 0.0001 ? null : dateCost,
             detailCostAfter: Number(row.DetailCost || 0),
             amount: dateMoney.amount,
             vat: dateMoney.vat,
@@ -444,12 +481,23 @@ export default withAuth(async function handler(req, res) {
         if (!previous || String(group.row.OrderWeek) < String(previous.OrderWeek)) calcScopes.set(key, group.row);
       }
       for (const row of calcScopes.values()) {
-        const calc = await tQ(
+        let calc;
+        try {
+          calc = await tQ(
           `DECLARE @r int,@m nvarchar(max),@returnCode int;
            EXEC @returnCode=dbo.usp_StockCalculation @OrderYear=@yr,@OrderWeek=@wk,@ProdKey=@pk,@iUserID=@uid,@oResult=@r OUTPUT,@oMessage=@m OUTPUT;
            SELECT @returnCode AS returnCode,@r AS result,@m AS message,XACT_STATE() AS TransactionState;`,
           { yr: { type: sql.NVarChar, value: row.OrderYear }, wk: { type: sql.NVarChar, value: row.OrderWeek }, pk: { type: sql.Int, value: row.ProdKey }, uid: { type: sql.NVarChar, value: uid } },
-        );
+          );
+        } catch (error) {
+          // The verified native calculator rolls back the outer transaction in
+          // CATCH. SQL Server then raises 266 before its result row can reach JS.
+          // Do not label a known rollback as an unknown network outcome/retry.
+          if (overflow && Number(error.number) === 266 && /current count\s*=\s*0\b/i.test(error.message || '')) {
+            throw directionalQuantityError('STOCK_CALC_TRANSACTION_ABORTED', '재고 재계산이 실패하여 전체 변경을 되돌렸습니다. 저장된 수량은 없습니다.', 500);
+          }
+          throw error;
+        }
         assertNativeResult(calc);
         if (!positiveFixedKeys.has(`${row.OrderYear}|${row.ProdKey}`)) continue;
         const negative = await tQ(
@@ -475,8 +523,12 @@ export default withAuth(async function handler(req, res) {
         }
         stockValidation.postNative.push({ prodKey: Number(row.ProdKey), orderYear: String(row.OrderYear), fromOrderWeek: String(row.OrderWeek), negative: false });
       }
+      if (overflow) await verifyOverflowTargets(tQ,sql,overflow.targets);
       const editGuardAfter = await advanceErpEditGuard(tQ, { ...writeScope, orderWeek: selectedRows[0].OrderWeek }, req.user, req.body);
-      return { items: saved, updatedCount: saved.length, direction, stockMode, stockValidation, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision };
+      const completed = { items: saved, updatedCount: saved.length, direction, stockMode, stockValidation, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision,
+        ...(overflow ? {overflowApplied:true,overflowRows:overflow.preview.rows} : {}) };
+      if (overflow) await recordOverflowResult(tQ,sql,req.body,req.user.userId,{success:true,...completed});
+      return completed;
     });
 
     return res.status(200).json({ success: true, message: '출고분배 및 출고일별 견적수량 저장 완료', ...result });

@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "id": "estimate-next-subweek-overflow-cases",
+  "evidence": {
+    "criteriaLedger": "docs/work-reports/2026-09-09_estimate-overflow-criteria.md",
+    "contract": "docs/contracts/estimate-next-subweek-overflow.json",
+    "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+    "dateSource": "CommonLogic.GetBaseOutDay + CommonLogic.GetShipmentDate",
+    "dateRule": "PeriodDay.OrderYearWeek = OrderYear + parentWeek and WeekDay = Customer.BaseOutDay",
+    "quantityPrecision": 0.001,
+    "allocationOrder": ["current subweek", "immediately next subweek"],
+    "fixtureFacts": {
+      "customer": {"CustKey": 533, "BaseOutDay": 4},
+      "product": {"ProdKey": 1239, "label": "Deep Silver 50cm"},
+      "observedCurrent": {
+        "OrderYear": "2026",
+        "OrderWeek": "36-01",
+        "incoming": 50,
+        "confirmedOut": 50,
+        "manualAdjustment": 0,
+        "ProductStock": 0,
+        "sourceDetailKey": 88237,
+        "sourceOutQuantity": 50,
+        "sourceShipmentDateRows": 2,
+        "sourceOrderQuantity": 60
+      },
+      "observedNext": {
+        "OrderYear": "2026",
+        "OrderWeek": "36-02",
+        "incoming": 30,
+        "confirmedOut": 30,
+        "manualAdjustment": 10,
+        "ProductStock": 10,
+        "targetOrderAndDistribution": "absent in the read-only probe"
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "id": "current-exhausted-next-capacity",
+      "tags": ["positive", "native-facts", "zero-current-remaining"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "current": {"remaining": 0, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 50, "dateRows": 2},
+      "next": {"remaining": 10, "stockMasterExists": true, "shipmentMasterExists": true, "existingOrderQuantity": 0, "existingDetail": null, "dateRows": []},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {
+        "status": "ok",
+        "allocation": {"current": 0, "next": 10, "unallocated": 0, "currentFinalRemaining": 0, "nextFinalRemaining": 0},
+        "carryCalculation": {"nextRemainingBefore": 10, "carriedIncrease": 10, "nextRemainingAfter": 0},
+        "order": {"current": "preserve", "next": "create_positive", "nextCreatedQuantity": 10},
+        "dates": {"current": "preserve_all_rows", "next": "increase_or_create_default_date"}
+      }
+    },
+    {
+      "id": "current-partial-carries-next",
+      "tags": ["positive", "capacity-boundary", "whole-increase-carry-subtraction"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "current": {"remaining": 4, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 46, "dateRows": 2},
+      "next": {"remaining": 10, "stockMasterExists": true, "shipmentMasterExists": true, "existingOrderQuantity": 0, "existingDetail": null, "dateRows": []},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {
+        "status": "ok",
+        "allocation": {"current": 4, "next": 6, "unallocated": 0, "currentFinalRemaining": 0, "nextFinalRemaining": 0},
+        "carryCalculation": {"nextRemainingBefore": 10, "carriedIncrease": 10, "nextRemainingAfter": 0},
+        "order": {"current": "preserve", "next": "create_positive", "nextCreatedQuantity": 6},
+        "dates": {"current": "preserve_all_rows", "next": "increase_or_create_default_date"}
+      }
+    },
+    {
+      "id": "next-capacity-shortfall",
+      "tags": ["reject", "near-miss", "no-rounding-away-shortage"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "current": {"remaining": 0, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 50, "dateRows": 2},
+      "next": {"remaining": 9, "stockMasterExists": true, "shipmentMasterExists": true, "existingOrderQuantity": 0, "existingDetail": null, "dateRows": []},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {"status": "reject", "reason": "INSUFFICIENT_CURRENT_AND_NEXT_CAPACITY", "unallocated": 1, "writes": "none"}
+    },
+    {
+      "id": "negative-prior-stock",
+      "tags": ["reject", "near-miss", "negative-stock"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "priorSnapshot": {"orderYear": "2026", "orderWeek": "35-02", "productStock": -0.001},
+      "current": {"remaining": 4, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 46, "dateRows": 2},
+      "next": {"remaining": 10, "stockMasterExists": true, "shipmentMasterExists": true, "existingOrderQuantity": 0, "existingDetail": null, "dateRows": []},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {"status": "reject", "reason": "NEGATIVE_PRIOR_STOCK", "writes": "none", "roundingMustNotHide": true}
+    },
+    {
+      "id": "duplicate-default-dates",
+      "tags": ["reject", "date-validation", "near-miss"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "current": {"remaining": 0, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 50, "dateRows": 2},
+      "next": {"remaining": 10, "stockMasterExists": true, "shipmentMasterExists": true, "existingOrderQuantity": 0, "existingDetail": null, "dateRows": [{"sdateKey": 36021, "baseYmd": "2026-09-03T00:00:00.000Z", "isDefault": true}, {"sdateKey": 36022, "baseYmd": "2026-09-03T00:00:00.000Z", "isDefault": true}]},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {"status": "reject", "reason": "NEXT_DEFAULT_DATE_NOT_UNIQUE", "writes": "none"}
+    },
+    {
+      "id": "invalid-default-date",
+      "tags": ["reject", "date-validation", "near-miss"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": null}],
+      "current": {"remaining": 0, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 50, "dateRows": 2},
+      "next": {"remaining": 10, "stockMasterExists": true, "shipmentMasterExists": true, "existingOrderQuantity": 0, "existingDetail": null, "dateRows": []},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {"status": "reject", "reason": "NEXT_DEFAULT_DATE_NOT_FOUND", "writes": "none"}
+    },
+    {
+      "id": "cross-year-same-week-isolation",
+      "tags": ["positive", "cross-year", "prior-year-sentinel"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "current": {"remaining": 0, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 50, "dateRows": 2},
+      "next": {"remaining": 10, "stockMasterExists": true, "shipmentMasterExists": true, "existingOrderQuantity": 0, "existingDetail": null, "dateRows": []},
+      "priorYearSentinel": {"orderYear": "2025", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239, "remaining": 999, "activeOrderQuantity": 999, "mustRemainUntouched": true},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {"status": "ok", "allocation": {"current": 0, "next": 10, "unallocated": 0}, "usesOnlyOrderYear": "2026", "priorYearRowsRead": false}
+    },
+    {
+      "id": "multiple-products-share-capacity",
+      "tags": ["positive", "multiple-product-requests", "capacity-sharing", "stable-order"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "capacityPools": {"current": {"remaining": 10, "shipmentMasterExists": true}, "next": {"remaining": 8, "stockMasterExists": true, "shipmentMasterExists": true}},
+      "requests": [{"prodKey": 1239, "increase": 7}, {"prodKey": 1240, "increase": 6}],
+      "expected": {
+        "status": "ok",
+        "allocationOrder": [1239, 1240],
+        "allocations": [{"prodKey": 1239, "current": 7, "next": 0, "unallocated": 0}, {"prodKey": 1240, "current": 3, "next": 3, "unallocated": 0}],
+        "capacityAfter": {"current": 0, "next": 5},
+        "writes": "one atomic plan"
+      }
+    },
+    {
+      "id": "next-master-missing-no-fake-master",
+      "tags": ["reject", "native-eligibility", "no-implicit-master"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "current": {"remaining": 0, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 50, "dateRows": 2},
+      "next": {"remaining": 10, "stockMasterExists": true, "shipmentMasterExists": false, "existingOrderQuantity": 0, "existingDetail": null, "dateRows": []},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {"status": "reject", "reason": "NEXT_SHIPMENT_MASTER_REQUIRED", "writes": "none", "mustNotCreateMaster": true}
+    },
+    {
+      "id": "existing-next-unfixed-detail-requires-review",
+      "tags": ["reject", "preserve-fix-state", "no-auto-confirm"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "current": {"remaining": 0, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 50, "dateRows": 2},
+      "next": {"remaining": 10, "stockMasterExists": true, "shipmentMasterExists": true, "existingOrderQuantity": 0, "existingDetail": {"sdetailKey": 36021, "outQuantity": 2, "isFix": 0}, "dateRows": []},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {"status": "reject", "reason": "NEXT_EXISTING_DETAIL_UNFIXED_REQUIRES_CONFIRMATION", "writes": "none", "mustPreserveIsFix": true}
+    },
+    {
+      "id": "existing-next-order-preserved",
+      "tags": ["positive", "order-preservation", "no-zero-fake-order"],
+      "scope": {"orderYear": "2026", "parentWeek": "36", "currentWeek": "36-01", "nextWeek": "36-02", "custKey": 533, "prodKey": 1239},
+      "customer": {"baseOutDay": 4},
+      "periodDays": [{"orderYearWeek": "202636", "weekDay": 4, "baseYmd": "2026-09-03T00:00:00.000Z"}],
+      "current": {"remaining": 0, "shipmentMasterExists": true, "detailKey": 88237, "existingOutQuantity": 50, "dateRows": 2},
+      "next": {"remaining": 10, "stockMasterExists": true, "shipmentMasterExists": true, "existingOrderQuantity": 4, "existingDetail": null, "dateRows": []},
+      "request": {"increase": 10, "unit": "physical"},
+      "expected": {"status": "ok", "allocation": {"current": 0, "next": 10, "unallocated": 0}, "order": {"next": "preserve_existing_quantity", "nextOrderQuantityBefore": 4, "nextOrderQuantityAfter": 4}, "zeroFakeOrder": false}
+    }
+  ]
+}

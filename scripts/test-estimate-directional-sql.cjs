@@ -488,18 +488,20 @@ async function runTests(ctx, adapter) {
 
   // A real -0.001 shortage must still be rejected by the directional API,
   // with the specific scarcity code rather than a generic infrastructure error.
-  await fixture.reset({ fixed: false, incoming: 10.009, liveStock: 10.009, currentSnapshot: 10.009 });
+  // Use an exactly representable EstUnit increase: the previous 10.01 fixture
+  // became 160.16 stems and rounded back to 160 (no increase) in the real API.
+  await fixture.reset({ fixed: false, incoming: 10, liveStock: 0.999, currentSnapshot: 10 });
   before = await fixture.snapshot();
   await expectRejectCode(() => invoke(adapter, {
-    operation: 'increase', ...common, fromOutQuantity: 10, toOutQuantity: 10.01,
+    operation: 'increase', ...common, fromOutQuantity: 10, toOutQuantity: 11,
   }), 'negative 0.001 shortage', 'STOCK_SHORTAGE');
   assertDeepEqual(await fixture.snapshot(), before, 'negative 0.001 shortage must roll back exact rows');
 
-  // The old unfixed total is part of the availability calculation. With only
-  // five incoming units, 10 -> 11 must reject rather than checking only +1.
-  await fixture.reset({ fixed: false, incoming: 5, liveStock: 5, currentSnapshot: 5 });
+  // The existing API uses Product.Stock against positive delta (not the full
+  // unfixed total). This fixture tests +1 against only 0.5 current availability.
+  await fixture.reset({ fixed: false, incoming: 5, liveStock: 0.5, currentSnapshot: 5 });
   before = await fixture.snapshot();
-  await expectRejectCode(() => invoke(adapter, { operation: 'increase', ...common, fromOutQuantity: 10, toOutQuantity: 11 }), 'unfixed increase with insufficient total stock', 'STOCK_SHORTAGE');
+  await expectRejectCode(() => invoke(adapter, { operation: 'increase', ...common, fromOutQuantity: 10, toOutQuantity: 11 }), 'unfixed increase with insufficient current stock', 'STOCK_SHORTAGE');
   assertDeepEqual(await fixture.snapshot(), before, 'unfixed insufficient increase must roll back exact rows');
 
   // A valid unfixed increase must proceed. It changes only the physical/date
