@@ -1,5 +1,12 @@
 # FormEstimateView — exe golden (dnSpy)
 
+2026-09-09 combined overflow 보완: 로컬 `dnSpy.Console.exe --no-color -t ClassShipmentDate`
+실행으로 실제 `Nenova.exe`의 `UpdateCost`를 재확인했다. `SdetailKey`의 모든 출고일
+Cost/Amount/Vat만 저장된 EstQuantity로 갱신한다. 새 웹 결합은 이 가격 core를 수량 저장
+직후 같은 tQ에서 수행하며 자체 금액/수량 보존 검증 사이에 다른 쓰기를 끼우지 않는다.
+2026/36-01·36-02 동일 품목 read-only probe 완료, 운영 원장 변경 없음. 상세 기준:
+`docs/work-reports/2026-09-09_estimate-overflow-combined-cost.md`.
+
 Source: `C:\Users\USER\nenova-decompiled\Nenova\FormEstimateView.cs`
 
 Web: `pages/estimate.js` + `pages/api/estimate/index.js` + `lib/exeEstimateViewSql.js`

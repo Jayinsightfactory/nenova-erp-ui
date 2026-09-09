@@ -107,6 +107,7 @@ function database(initial = fixture(), options = {}) {
     try {
       const result = await executeEstimateCostOnly(tQ, body, {
         sql, user: { userId: 'tester' },
+        validateOnly: options.validateOnly === true,
         assertEditGuard: async (executor, scope, user, input) => {
           assert.equal(executor, tQ);
           const firstLockedSk = log.find((entry) => /FROM ShipmentMaster/.test(entry.statement)).params.sk;
@@ -142,6 +143,32 @@ function database(initial = fixture(), options = {}) {
 function withoutMoney(row) {
   return Object.fromEntries(Object.entries(row).filter(([key]) => !['Cost', 'Amount', 'Vat'].includes(key)));
 }
+
+test('internal combined preview validates all prices and extras without writes or revision advance', async () => {
+  const db=database(fixture(),{validateOnly:true});
+  const before=db.state;
+  const result=await db.save(request([item({sdateKey:11,expectedOldCost:0,cost:0})],{mode:'fixed',editGuard:{token:'fixture'}}));
+  assert.equal(result.validated,true);
+  assert.deepEqual(result.detailCosts,[{sdetailKey:1,cost:0}]);
+  assert.equal(result.intent.mode,'fixed');
+  assert.deepEqual(db.state,before);
+  assert.ok(!db.log.some(entry=>isWrite(entry.statement)));
+  assert.ok(db.events.includes('assertGuard'));
+  assert.ok(!db.events.includes('advanceGuard'));
+});
+
+test('preview does not skip stale price validation', async () => {
+  const db=database(fixture(),{validateOnly:true});
+  const before=db.state;
+  await assert.rejects(db.save(request([item({sdateKey:11,expectedOldCost:1})])),{code:'STALE_DATA'});
+  assert.deepEqual(db.state,before);
+});
+
+test('HTTP validateOnly flag is not an internal dry-run option', async () => {
+  const db=database();
+  await db.save(request([item()],{validateOnly:true}));
+  assert.equal(db.state.ShipmentDetail.find(row=>row.SdetailKey===1).Cost,12700);
+});
 async function rejectedUnchanged(db, body, code) {
   const before = db.state;
   await assert.rejects(db.save(body), code ? { code } : undefined);

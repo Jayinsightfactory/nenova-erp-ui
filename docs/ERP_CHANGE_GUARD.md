@@ -6,6 +6,17 @@
 
 문서에만 있던 dnSpy/DB 규칙을 코드 계약, 자동검사, 배포 차단 조건으로 연결한다. 대상은 `OrderMaster`, `OrderDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `WarehouseMaster`, `StockMaster`, `ShipmentDate`, `ProductStock`, `StockHistory`를 읽거나 쓰는 모든 기능이다.
 
+## 2026-09-09 다음 세부차수 배정과 단가 통합 저장
+
+통합 저장이 수량부터 호출하지만 overflow UI가 단가 초안 존재를 무조건 거부해 정상 작업도
+중단됐다. 단순 가드 제거는 신규 다음 차수에 이전 단가를 쓰므로 금지한다. combinedCosts를
+읽기 전용으로 원본 가격까지 검증하고, 같은 수량 트랜잭션에서 기존 가격 core를 실행한다.
+실패는 주문·분배·재고·단가·업체 지정단가·감사까지 전체 롤백한다. 새 출고만 명시 수정
+단가를 상속하고 기존 다음 출고는 그 상세 자체를 편집한 경우에만 가격을 바꾼다.
+작업 UUID·미리보기 지문에는 단가 items/mode/week도 포함한다. 화면은 서버가 결합 단가
+완료를 반환하면 별도 단가 POST를 중복 실행하지 않는다. 회귀는 estimateCostOnly/
+estimateOverflowClient 및 격리 `scripts/test-estimate-overflow-sql.cjs`로 실행한다.
+
 ## 2026-07-20 차수피벗 회귀 원인
 
 1. `pages/shipment/week-pivot.js`가 분배수량 편집에 주문과 분배를 함께 증감하는 `/api/shipment/adjust`를 재사용했다.

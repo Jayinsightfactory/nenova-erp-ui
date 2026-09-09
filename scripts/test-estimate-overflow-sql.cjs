@@ -133,6 +133,7 @@ async function resetFixture(pool, options = {}) {
   const targetAdjust = 10 - (partial ? 4 : 0) - 30 + targetOut;
   const targetStock = 10;
   await withTransaction(pool, async tx => {
+    await query(tx, 'DELETE FROM dbo.CustomerProdCost; DELETE FROM dbo.WeekProdCost;');
     for (const table of ['OrderHistory','KeyNumbering','PeriodDay','Country','SystemActionLog','Estimate','ShipmentDate','ShipmentDetail','ShipmentMaster','ShipmentFarm','ShipmentHistory','OrderDetail','OrderMaster','WarehouseDetail','WarehouseMaster','StockHistory','ProductStock','StockMaster','FixtureNativeCalcControl','NenovaStockWeekGate','Product','Customer','UserInfo']) {
       await query(tx, `DELETE FROM dbo.[${table}]`);
     }
@@ -195,7 +196,7 @@ async function resetFixture(pool, options = {}) {
 }
 
 async function snapshot(pool) {
-  const tables = ['OrderMaster','OrderDetail','ShipmentMaster','ShipmentDetail','ShipmentDate','OrderHistory','Estimate','Product','ProductStock','StockHistory','SystemActionLog'];
+  const tables = ['OrderMaster','OrderDetail','ShipmentMaster','ShipmentDetail','ShipmentDate','OrderHistory','Estimate','Product','ProductStock','StockHistory','SystemActionLog','CustomerProdCost','WeekProdCost'];
   const result = {};
   for (const table of tables) {
     result[table] = (await query(pool, `SELECT * FROM dbo.[${table}] ORDER BY 1`)).recordset;
@@ -287,7 +288,93 @@ async function main() {
     await fixture.reset(); const beforeFail=await fixture.snapshot(); const previewFail=await adapter.run({operation:'overflow-preview',body:{...bodyBase(),overflowMode:'preview'}}); const previewFailBody=assertResponse(previewFail,'failure preview'); const failBody={...bodyBase(),overflowMode:'apply',overflowOperationId:'33333333-3333-4333-8333-333333333333',overflowConfirmed:true,overflowPlanHash:previewFailBody.overflowPreview.planHash}; await fixture.setNativeCalcFailure(); const failed=await adapter.run({operation:'overflow-failed-apply',body:failBody}); assert(Number(failed.statusCode)>=400,'native failure must fail apply'); assert(failed.body?.rolledBack===true,`native failure must report rollback: ${JSON.stringify(failed)}`); assert(JSON.stringify(await fixture.snapshot())===JSON.stringify(beforeFail),'native failure must roll back all rows');
 
     await fixture.reset({existingNext:true}); const existingPreview=await adapter.run({operation:'existing-next-preview',body:{...bodyBase(),overflowMode:'preview',items:[{sdateKey:SOURCE_DATE,quantity:450,unit:'송이',expectedOldQuantity:400,expectedOldCost:700,expectedOldDescr:'fixture date'}]}}); const existingPreviewBody=assertResponse(existingPreview,'existing target preview'); const existingApply={...bodyBase(),overflowMode:'apply',overflowOperationId:'44444444-4444-4444-8444-444444444444',overflowConfirmed:true,overflowPlanHash:existingPreviewBody.overflowPreview.planHash,items:[{sdateKey:SOURCE_DATE,quantity:450,unit:'송이',expectedOldQuantity:400,expectedOldCost:700,expectedOldDescr:'fixture date'}]}; assertResponse(await adapter.run({operation:'existing-next-apply',body:existingApply}),'existing target apply'); const existingAfter=await fixture.snapshot(); assert(existingAfter.ShipmentDate.some(row=>row.SdateKey===360202&&Number(row.ShipmentQuantity)===3),'other next date must remain unchanged'); assert(existingAfter.OrderDetail.some(row=>row.OrderDetailKey===360002&&Number(row.OutQuantity)===5),'existing next order must remain unchanged');
-    console.log(`PASS: overflow SQL fixture (image=${container.image}, nativeBackupSha256=${native.digest})`);
+    // Combined prices are validated before writes and committed with quantity.
+    const combinedBody = ({partial=false,cost=800,mode='once',existingNext=false,targetCost}={}) => {
+      const body = bodyBase({partial});
+      if (existingNext) body.items[0].quantity=450;
+      body.combinedCosts={mode,week:SOURCE_WEEK,items:[{shipmentKey:SOURCE_DETAIL,sdetailKey:SOURCE_DETAIL,sdateKey:SOURCE_DATE,expectedOldCost:700,cost}]};
+      if (targetCost!==undefined) body.combinedCosts.items.push({shipmentKey:NEXT_MASTER,sdetailKey:NEXT_DETAIL,sdateKey:NEXT_DATE,expectedOldCost:700,cost:targetCost});
+      return body;
+    };
+    const prepareCombined = async (options={}) => {
+      await fixture.reset(options);
+      await fixture.query(`INSERT WeekProdCost (OrderYear,OrderWeek,CustKey,ProdKey,Cost) VALUES (N'2025',N'36-01',533,1239,123)`);
+      const body=combinedBody(options), before=await fixture.snapshot();
+      const response=await adapter.run({operation:'combined-preview',body:{...body,overflowMode:'preview'}});
+      const preview=assertResponse(response,'combined preview').overflowPreview;
+      assert(preview.required && preview.combinedCostCount===body.combinedCosts.items.length,'preview includes all price intents');
+      assert(JSON.stringify(await fixture.snapshot())===JSON.stringify(before),'combined preview never writes prices/quantities');
+      return {before,preview,body:{...body,overflowMode:'apply',overflowOperationId:crypto.randomUUID(),overflowConfirmed:true,overflowPlanHash:preview.planHash}};
+    };
+    for (const options of [{},{partial:true},{cost:0},{mode:'fixed'},{mode:'weekFav'},{existingNext:true},{existingNext:true,targetCost:850}]) {
+      const test=await prepareCombined(options), expected=options.cost??800;
+      assert(test.preview.rows[0].cost===(options.existingNext ? (options.targetCost??700) : expected),'preview uses final target price');
+      const response=assertResponse(await adapter.run({operation:'combined-apply',body:test.body}),'combined apply');
+      assert(response.combinedCostResult?.changedCount===test.body.combinedCosts.items.length,'cost result reported atomically');
+      const snapshot=await fixture.snapshot();
+      const source=snapshot.ShipmentDetail.find(row=>row.SdetailKey===SOURCE_DETAIL);
+      assert(Number(source.Cost)===expected && Number(source.OutQuantity)===50,'source final quantity and edited price');
+      assert(snapshot.ShipmentDate.filter(row=>row.SdetailKey===SOURCE_DETAIL).every(row=>Number(row.Cost)===expected),'native price scope updates all source dates');
+      const target=snapshot.ShipmentDetail.find(row=>row.ShipmentKey===NEXT_MASTER);
+      assert(Number(target.Cost)===(options.existingNext ? (options.targetCost??700) : expected),'new target inherits cost, existing target stays independent');
+      assert(Number(snapshot.Product.find(row=>row.ProdKey===PROD).Stock)===(options.existingNext ? 95 : 90),'stock delta consumed only once');
+      assert(response.items.find(row=>row.sdateKey===SOURCE_DATE).dateCostAfter===expected,'response source price is final price');
+      if(options.mode==='fixed') assert(snapshot.CustomerProdCost[0]?.Cost===expected,'fixed customer price included');
+      if(options.mode==='weekFav') assert(snapshot.WeekProdCost.find(row=>row.OrderYear===YEAR)?.Cost===expected,'current-year favorite price included');
+      assert(snapshot.WeekProdCost.find(row=>row.OrderYear==='2025')?.Cost===123,'prior-year favorite price preserved');
+      assertPriorSentinel(test.before,snapshot);
+      const saved=JSON.stringify(snapshot);
+      assert(assertResponse(await adapter.run({operation:'combined-replay',body:test.body}),'combined replay').overflowReplayed,'replay returns prior combined result');
+      for (const change of [{items:test.body.combinedCosts.items.map(item=>({...item,cost:999}))},{mode:'fixed'}]) {
+        if(change.mode===test.body.combinedCosts.mode) continue;
+        const conflict=await adapter.run({operation:'combined-replay-conflict',body:{...test.body,combinedCosts:{...test.body.combinedCosts,...change}}});
+        assert(conflict.body?.code==='OVERFLOW_OPERATION_CONFLICT','changed price/mode cannot reuse UUID');
+      }
+      assert(JSON.stringify(await fixture.snapshot())===saved,'repeat request must never write again');
+    }
+    await fixture.reset();
+    const staleBefore=JSON.stringify(await fixture.snapshot());
+    for(const bad of ['stale','conflict','year']) {
+      const body=combinedBody();
+      if(bad==='stale') body.combinedCosts.items[0].expectedOldCost=699;
+      if(bad==='conflict') body.combinedCosts.items.push({...body.combinedCosts.items[0],cost:999});
+      if(bad==='year') body.combinedCosts.items[0]={...body.combinedCosts.items[0],shipmentKey:PRIOR_MASTER,sdetailKey:250101,sdateKey:250101};
+      const response=await adapter.run({operation:'combined-rejected',body:{...body,overflowMode:'preview'}});
+      assert(response.statusCode===409,'invalid baseline/scope/price conflict fails preflight');
+      assert(JSON.stringify(await fixture.snapshot())===staleBefore,'invalid combined preview has no writes');
+    }
+    // One source date is removed while another overflows. Its original price
+    // must still be validated, then rebased to the surviving detail internally.
+    await fixture.reset();
+    const deleteBody=combinedBody();
+    deleteBody.items.push({sdateKey:SOURCE_DATE_OTHER,quantity:0,unit:'송이',expectedOldQuantity:100,expectedOldCost:700});
+    deleteBody.combinedCosts.items.push({shipmentKey:SOURCE_DETAIL,sdetailKey:SOURCE_DETAIL,sdateKey:SOURCE_DATE_OTHER,expectedOldCost:700,cost:800});
+    const deletePreview=assertResponse(await adapter.run({operation:'combined-delete-preview',body:{...deleteBody,overflowMode:'preview'}}),'combined delete preview');
+    const deleteResult=assertResponse(await adapter.run({operation:'combined-delete-apply',body:{...deleteBody,overflowMode:'apply',overflowOperationId:crypto.randomUUID(),overflowConfirmed:true,overflowPlanHash:deletePreview.overflowPreview.planHash}}),'combined delete apply');
+    const deleteAfter=await fixture.snapshot();
+    assert(!deleteAfter.ShipmentDate.some(row=>row.SdateKey===SOURCE_DATE_OTHER),'zero date deleted');
+    assert(deleteAfter.ShipmentDetail.find(row=>row.SdetailKey===SOURCE_DETAIL).Cost===800,'deleted date price rebased to surviving detail');
+    assert(deleteResult.combinedCostResult.changedCount===1,'duplicate same-price detail cost applies once');
+    assert(deleteAfter.Product.find(row=>row.ProdKey===PROD).Stock===100,'cancel and overflow conserve global stock');
+
+    // Pricing intent changed after preview must not be silently accepted.
+    const stalePlan=await prepareCombined();
+    const changedPreviewBody={...stalePlan.body,combinedCosts:{...stalePlan.body.combinedCosts,items:stalePlan.body.combinedCosts.items.map(item=>({...item,cost:801}))}};
+    const changedPlan=await adapter.run({operation:'combined-stale-plan',body:changedPreviewBody});
+    assert(changedPlan.body?.code==='OVERFLOW_PLAN_STALE','price change invalidates confirmation plan hash');
+    assert(JSON.stringify(await fixture.snapshot())===JSON.stringify(stalePlan.before),'stale price plan cannot write');
+
+    const nativeFailure=await prepareCombined({mode:'fixed'});
+    await fixture.setNativeCalcFailure();
+    assert((await adapter.run({operation:'combined-native-failure',body:nativeFailure.body})).statusCode>=400,'native failure blocks combined save');
+    assert(JSON.stringify(await fixture.snapshot())===JSON.stringify(nativeFailure.before),'native failure rolls back combined operation');
+    // Fail after the quantity phase: a test-only trigger rejects customer price.
+    const priceFailure=await prepareCombined({mode:'fixed'});
+    await fixture.query(`CREATE TRIGGER dbo.FixtureCostFailure ON dbo.CustomerProdCost AFTER INSERT,UPDATE AS THROW 51001, 'forced cost write failure', 1;`);
+    assert((await adapter.run({operation:'combined-price-failure',body:priceFailure.body})).statusCode>=400,'cost phase failure blocks save');
+    assert(JSON.stringify(await fixture.snapshot())===JSON.stringify(priceFailure.before),'cost failure rolls back quantity, stock, order, date and audit');
+    await fixture.query('DROP TRIGGER dbo.FixtureCostFailure');
+    console.log(`PASS: overflow + combined cost SQL fixture (image=${container.image}, nativeBackupSha256=${native.digest})`);
     if (args.keepDb) console.log(`KEEP_DB: ${dbName}`);
     else await query(master, `ALTER DATABASE ${bracket(dbName)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ${bracket(dbName)}`);
   } catch (error) {

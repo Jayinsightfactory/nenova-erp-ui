@@ -42,6 +42,11 @@ ALTER TABLE dbo.OrderDetail ALTER COLUMN OrderQuantity decimal(18,4) NULL;
 GO
 ALTER TABLE dbo.ShipmentDetail ADD EstDescr nvarchar(1000) NULL;
 GO
+ALTER TABLE dbo.ShipmentDetail ADD EstQuantity2 decimal(18,4) NULL;
+ALTER TABLE dbo.ShipmentMaster ADD EstimateName nvarchar(200) NULL, LastUpdateID nvarchar(20) NULL, LastUpdateDtm datetime NULL;
+CREATE TABLE dbo.CustomerProdCost (AutoKey int IDENTITY PRIMARY KEY, CustKey int NOT NULL, ProdKey int NOT NULL, Cost decimal(18,4) NOT NULL, Descr nvarchar(1000) NULL);
+CREATE TABLE dbo.WeekProdCost (AutoKey int IDENTITY PRIMARY KEY, OrderYear nvarchar(4) NULL, OrderWeek nvarchar(20) NOT NULL, CustKey int NOT NULL, ProdKey int NOT NULL, Cost decimal(18,4) NOT NULL, UpdatedAt datetime NULL, UpdatedBy nvarchar(20) NULL);
+GO
 
 CREATE TABLE dbo.Country (
   CounName nvarchar(100) NOT NULL PRIMARY KEY

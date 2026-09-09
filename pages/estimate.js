@@ -128,8 +128,10 @@ import { getEstimateGridNavigationTarget } from '../lib/estimateGridNavigation.j
 import {
   clearPendingEstimateOverflow,
   inspectPendingEstimateOverflow,
+  normalizeEstimateCombinedCostMode,
   preparePendingEstimateOverflow,
   readPendingEstimateOverflowStatus,
+  removeMatchingEstimateDrafts,
   runEstimateOverflowApplyOnce,
 } from '../lib/estimateOverflowClient.js';
 
@@ -2145,7 +2147,7 @@ export default function Estimate() {
 
   // nenova.exe FormEstimateView는 정상출고의 견적 수량을 ShipmentDate.EstQuantity에
   // 저장한다. 여러 출고일을 한 번에 저장하여 품목별 총량 검증도 EXE와 동일한 시점에 수행한다.
-  const saveDateQuantityBatch = async (rows, { onProgress, captured = captureEstimateRefresh() } = {}) => {
+  const saveDateQuantityBatch = async (rows, { onProgress, captured = captureEstimateRefresh(), combinedCosts = null } = {}) => {
     if (!rows.length) return [];
     const startLabel = `EXE 출고일별 분배 ${rows.length}건 저장 시도 — ShipmentDetail + ShipmentDate`;
     setCostApplyLog(prev => [...prev, {
@@ -2165,7 +2167,12 @@ export default function Estimate() {
         ...(costEdits[getItemEditKey(p.item)] != null && costEdits[getItemEditKey(p.item)] !== ''
           ? { expectedOldCost: requireCostSnapshot(p.item).expectedOldCost } : {}),
       })),
+      ...(Array.isArray(combinedCosts?.items) && combinedCosts.items.length > 0
+        ? { combinedCosts }
+        : {}),
     };
+    const legacyQuantityBody = { ...body };
+    delete legacyQuantityBody.combinedCosts;
     const intents = rows.map(p => ({
       kind: 'date',
       field: 'quantity',
@@ -2234,7 +2241,7 @@ export default function Estimate() {
         if (!overflowPreview?.required) {
           data = await runEstimateWriteWithRecovery({
             url: '/api/estimate/update-date-quantity',
-            body,
+            body: legacyQuantityBody,
             intents,
             captured,
             onProgress,
@@ -2276,7 +2283,9 @@ export default function Estimate() {
 
       if (!data && overflowPreview?.required) {
         const hasCostEdits = Object.values(costEdits).some(value => value !== '' && value !== undefined && value !== null);
-        if (hasCostEdits) throw new Error('단가 수정부터 저장한 뒤 수량을 다시 저장하세요');
+        if (hasCostEdits && !body.combinedCosts) {
+          throw new Error('단가와 수량을 함께 수정한 경우 [수정 저장]을 눌러 한 번에 적용하세요.');
+        }
         const confirmed = await requestOverflowConfirmation(overflowPreview);
         if (!confirmed) throw Object.assign(new Error('다음 세부차수 배정을 취소했습니다. 수량은 저장되지 않았습니다.'), { code: 'OVERFLOW_CANCELLED' });
 
@@ -2352,7 +2361,7 @@ export default function Estimate() {
       const savedByKey = new Map((data.items || []).map(item => [Number(item.sdateKey), item]));
       const overflowByKey = new Map((data.overflowRows || []).map(item => [Number(item.sdateKey), item]));
       onProgress?.({ kind: 'server', status: 'done', label: `수량 저장 완료 — ${rows.length}건` });
-      return rows.map(p => {
+      const results = rows.map(p => {
         const saved = savedByKey.get(p.keyNumber);
         const overflowRow = overflowByKey.get(p.keyNumber);
         const actualSourceQuantity = saved?.newDateQuantity ?? overflowRow?.currentQuantity ?? p.newQty;
@@ -2368,6 +2377,8 @@ export default function Estimate() {
           pendingRef: p,
         };
       });
+      if (data.combinedCostResult) results.combinedCostResult = data.combinedCostResult;
+      return results;
     } catch (error) {
       const label = error?.message || '수량 저장을 완료하지 못했습니다. 입력값은 그대로 보관했습니다.';
       setCostApplyLog(prev => [...prev, { step: 'error', label }]);
@@ -3006,7 +3017,7 @@ export default function Estimate() {
     estimateEditPresence.beginSaving();
     let saveSucceeded = false;
     let automaticProgressId = '';
-    const effectiveCostMode = modeOverride || costMode;
+    const effectiveCostMode = normalizeEstimateCombinedCostMode(modeOverride, costMode);
     const usesFixCycle = pendingAdds.length > 0;
 
     setQtyApplying(true);
@@ -3036,7 +3047,7 @@ export default function Estimate() {
         if (Number.isNaN(newQty) || newQty < 0) continue;
         const effectiveNewQty = isEstimate && oldQty < 0 ? -Math.abs(newQty) : newQty;
         if (Math.abs(effectiveNewQty - oldQty) < 0.001) continue;
-        qtyPending.push({ keyNumber, isDateQuantity, isEstimate, item, oldQty, newQty });
+        qtyPending.push({ keyNumber, isDateQuantity, isEstimate, item, oldQty, newQty, editKey, draftValue: newVal });
       }
 
       // 편집된 정확한 행 키만 수집한다 — 같은 SdetailKey의 다른(미편집) 출고일을
@@ -3052,6 +3063,8 @@ export default function Estimate() {
         if (!it) throw new Error('수정한 품목이 현재 조회 내역에 없습니다. 입력값을 보관하고 다시 조회하세요.');
         if (isEstimateEditKey(key) && it.EstimateKey != null) {
           costItems.push({
+            editKey: key,
+            draftValue: rawVal,
             shipmentKey: it.ShipmentKey,
             estimateKey: it.EstimateKey,
             cost,
@@ -3062,6 +3075,8 @@ export default function Estimate() {
           });
         } else if (it.SdetailKey != null) {
           costItems.push({
+            editKey: key,
+            draftValue: rawVal,
             shipmentKey: it.ShipmentKey,
             sdetailKey: it.SdetailKey,
             ...requireCostSnapshot(it),
@@ -3074,6 +3089,19 @@ export default function Estimate() {
       });
 
       if (qtyPending.length === 0 && costItems.length === 0 && pendingAdds.length === 0) throw new Error('수정 대상이 없습니다.');
+
+      // 긴 저장 도중 사용자가 다시 편집했을 수 있으므로, 실제로 전송했던 초안값과
+      // 아직 같은 키만 제거한다. 이미 커밋된 단계는 뒤 단계 실패와 무관하게 즉시
+      // 정리하여 같은 수량/단가를 다음 시도에서 다시 쓰지 않는다.
+      const clearMatchingDrafts = (setDrafts, entries) => {
+        if (!entries.some(entry => entry?.editKey)) return;
+        setDrafts(prev => removeMatchingEstimateDrafts(prev, entries));
+      };
+      const clearCommittedQuantityDrafts = results => clearMatchingDrafts(
+        setQtyEdits,
+        results.filter(result => result?.ok).map(result => result.pendingRef),
+      );
+      const clearCommittedCostDrafts = (entries = costItems) => clearMatchingDrafts(setCostEdits, entries);
 
       // 기존 출고일 수량은 서버의 원자 저장으로 확정 상태를 보존한다.
       // 신규 추가품목만 기존의 범위 제한 확정해제·저장·재확정 사이클 대상이다.
@@ -3120,16 +3148,25 @@ export default function Estimate() {
       }
 
       const runCombinedUpdate = async () => {
+        const combinedCosts = costItems.length > 0 ? {
+          items: costItems.map(({ OrderWeek, ProdName, CountryFlower, editKey, draftValue, ...it }) => it),
+          mode: effectiveCostMode,
+          week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
+        } : null;
         const dateResults = await saveDateQuantityBatch(qtyPending.filter(p => p.isDateQuantity), {
           captured: capturedRefresh,
+          combinedCosts,
           onProgress: stage => {
             if (automaticProgressId) appendAutomaticEditStage(automaticProgressId, stage);
           },
         });
+        clearCommittedQuantityDrafts(dateResults);
+        const combinedCostResult = dateResults.combinedCostResult;
+        if (combinedCostResult) clearCommittedCostDrafts();
         if (dateResults.some(r => !r.ok)) {
           return {
             qtyResults: dateResults,
-            costResultData: { changedCount: 0, diffAmount: 0, changes: [] },
+            costResultData: combinedCostResult || { changedCount: 0, diffAmount: 0, changes: [] },
           };
         }
 
@@ -3140,38 +3177,54 @@ export default function Estimate() {
           }]);
           return saveDeductionQuantity(p, { captured: capturedRefresh });
         });
+        clearCommittedQuantityDrafts(deductionResults);
         const qtyResults = [...dateResults, ...deductionResults];
         if (qtyResults.some(r => !r.ok)) {
           return {
             qtyResults,
-            costResultData: { changedCount: 0, diffAmount: 0, changes: [] },
+            costResultData: combinedCostResult || { changedCount: 0, diffAmount: 0, changes: [] },
           };
         }
 
-        let costResultData = { changedCount: 0, diffAmount: 0, changes: [] };
-        const rebasedCosts = rebaseCostItemsFromSaved(costItems, dateResults.map(r => r.saved), dateResults.map(r => r.key));
-        if (!rebasedCosts.ok) throw new Error(STALE_COST_MESSAGE);
-        if (rebasedCosts.skipped) setCostApplyLog(prev => [...prev, { step: 'save', label: `출고 삭제로 단가 저장 제외 ${rebasedCosts.skipped}건` }]);
-        if (rebasedCosts.items.length > 0) {
-          rebasedCosts.items.forEach(it => {
-            setCostApplyLog(prev => [...prev, {
-              step: 'save',
-              label: `${it.OrderWeek} ${it.ProdName} 단가 저장 — ${it.expectedOldCost} → ${it.cost}`,
-            }]);
-          });
-          const costBody = {
-            items: rebasedCosts.items.map(({ OrderWeek, ProdName, CountryFlower, ...it }) => it),
-            mode: effectiveCostMode,
-            orderYear: yearStr,
-            week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
-            custKey: selectedShip.CustKey,
-            editGuard: estimateEditGuard(),
-          };
-          costResultData = await saveEstimateCostBatch({
-            allItems: rebasedCosts.items,
-            body: costBody,
-            captured: capturedRefresh,
-          });
+        let costResultData = combinedCostResult || { changedCount: 0, diffAmount: 0, changes: [] };
+        if (combinedCostResult) {
+          setCostApplyLog(prev => [...prev, {
+            step: 'save',
+            label: `수량·단가 원자 저장 완료 — 단가 ${Number(costResultData.changedCount || 0)}건`,
+          }]);
+        } else {
+          const rebasedCosts = rebaseCostItemsFromSaved(costItems, dateResults.map(r => r.saved), dateResults.map(r => r.key));
+          if (!rebasedCosts.ok) throw new Error(STALE_COST_MESSAGE);
+          if (rebasedCosts.skipped) {
+            const retainedEditKeys = new Set(rebasedCosts.items.map(item => item.editKey));
+            const skippedCostDrafts = costItems.filter(item => !retainedEditKeys.has(item.editKey));
+            // 수량 저장으로 상세가 삭제된 행은 단가를 쓸 대상 자체가 없다. 이를
+            // 성공 저장과 구분해 기록하되, 같은 값인 폐기 초안만 명시적으로 제거한다.
+            clearCommittedCostDrafts(skippedCostDrafts);
+            setCostApplyLog(prev => [...prev, { step: 'save', label: `출고 삭제로 단가 저장 대상 없음 ${skippedCostDrafts.length}건 — 해당 초안 정리` }]);
+          }
+          if (rebasedCosts.items.length > 0) {
+            rebasedCosts.items.forEach(it => {
+              setCostApplyLog(prev => [...prev, {
+                step: 'save',
+                label: `${it.OrderWeek} ${it.ProdName} 단가 저장 — ${it.expectedOldCost} → ${it.cost}`,
+              }]);
+            });
+            const costBody = {
+              items: rebasedCosts.items.map(({ OrderWeek, ProdName, CountryFlower, editKey, draftValue, ...it }) => it),
+              mode: effectiveCostMode,
+              orderYear: yearStr,
+              week: selectedShip.SubWeeks?.split(',')[0] || `${selectedShip.ParentWeek}-01`,
+              custKey: selectedShip.CustKey,
+              editGuard: estimateEditGuard(),
+            };
+            costResultData = await saveEstimateCostBatch({
+              allItems: rebasedCosts.items,
+              body: costBody,
+              captured: capturedRefresh,
+            });
+            clearCommittedCostDrafts(rebasedCosts.items);
+          }
         }
         const addResults = [];
         if (pendingAdds.length > 0) {
@@ -3265,7 +3318,7 @@ export default function Estimate() {
       setCostApplyLog(prev => [...prev, {
         step: failedQty ? 'error' : 'done',
         label: failedQty
-          ? `수량 저장 실패 ${failedQty}건 — ${qtyResults.find(r => !r.ok)?.error || '단가/추가품목 저장은 실행하지 않음'}`
+          ? `수량 저장 실패 ${failedQty}건 — ${qtyResults.find(r => !r.ok)?.error || '실패한 수량만 초안으로 유지'}${Number(costResultData.changedCount || 0) > 0 ? ` · 단가 ${Number(costResultData.changedCount)}건은 수량과 함께 저장 완료` : ''}`
           : `완료 — 단가/수량/추가품목 ${okAdds}건 반영${effectiveCostMode === 'fixed' ? ` · 업체 지정단가 ${Number(costResultData.customerCostUpdated || 0)}건 저장` : ''} 후 견적서 재조회 중`,
       }]);
       setCostResult({
@@ -3276,8 +3329,10 @@ export default function Estimate() {
         error: failedQty ? (qtyResults.find(r => !r.ok)?.error || '일부 수량 저장 실패') : undefined,
       });
       if (failedQty === 0) {
-        setQtyEdits({});
-        setCostEdits({});
+        // 각 단계에서 이미 정리했지만 최종 응답에도 같은 값 비교를 다시 적용한다.
+        // 요청 중 새로 입력된 초안은 절대 blanket clear 하지 않는다.
+        clearCommittedQuantityDrafts(qtyResults);
+        clearCommittedCostDrafts();
         setPendingAdds([]);
       }
       await refreshCapturedEstimate(capturedRefresh);
@@ -5159,7 +5214,7 @@ export default function Estimate() {
                   className="btn btn-sm"
                   style={{background:'#6a1b9a', color:'#fff', borderColor:'#4a148c', fontWeight:'bold'}}
                   disabled={costApplying || qtyApplying || deductionDeleting || estimateEditPresence.blocked}
-                  onClick={applyAllEdits}
+                  onClick={() => applyAllEdits()}
                   title="기존 수량·단가는 확정 상태를 유지해 저장하고, 추가 품목이 있을 때만 해당 품목 범위의 확정취소·저장·재확정을 진행합니다."
                 >
                   수정 저장 ({editedCount + editedQtyCount + pendingAdds.length})
