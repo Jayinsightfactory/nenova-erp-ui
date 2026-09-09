@@ -10,6 +10,8 @@ import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWrite
 import { isActiveShipmentOutQty, purgeZeroOutShipmentDetail } from '../../../lib/shipmentDetailWriteGuard.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 import { normalizeShipmentQty } from '../../../lib/shipmentAvailability.js';
+import { executeEstimateCostOnly } from '../../../lib/estimateCostOnly.js';
+import { rebaseCostItemsFromSaved } from '../../../lib/estimateCostSnapshot.js';
 import {
   planEstimateOverflow, materializeOverflowTargets, verifyOverflowTargets,
   readOverflowResult, recordOverflowResult, overflowRequestHash, validateOverflowOperationId,
@@ -83,6 +85,7 @@ function roundOutQuantity(value) {
 
 export function estimateDateQuantityErrorResponse(error = {}) {
   const status = Number(error.statusCode)
+    || Number(error.status)
     || (['STALE_DATA', 'ERP_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID', 'DIRECTIONAL_YEAR_INVALID', 'STOCK_SHORTAGE', 'FUTURE_STOCK_SNAPSHOT_EXISTS', 'FUTURE_STOCK_SHORTAGE', 'FIX_STATUS_INVALID', 'FIXED_BASELINE_INVALID', 'STOCK_GATE_BUSY'].includes(error.code) ? 409 : 500);
   const body = {
     success: false,
@@ -94,7 +97,7 @@ export function estimateDateQuantityErrorResponse(error = {}) {
     actual: error.actual,
     lease: error.lease || null,
     stockValidation: error.stockValidation || null,
-    ...( ['STOCK_CALC_FAILED', 'STOCK_CALC_TRANSACTION_ABORTED', 'FUTURE_STOCK_SHORTAGE', 'DATE_TOTAL_MISMATCH'].includes(error.code) ? { rolledBack: true } : {} ),
+    ...( ['STOCK_CALC_FAILED', 'STOCK_CALC_TRANSACTION_ABORTED', 'FUTURE_STOCK_SHORTAGE', 'DATE_TOTAL_MISMATCH', 'COST_READBACK_MISMATCH', 'COMBINED_COST_REBASE_FAILED'].includes(error.code) ? { rolledBack: true } : {} ),
     ...preWriteStockGateAcknowledgement(error),
   };
   return { status, body };
@@ -123,6 +126,7 @@ export default withAuth(async function handler(req, res) {
       await lockDirectionalGate(tQ);
       const overflowMode = req.body?.overflowMode;
       if (overflowMode != null && !['preview','apply'].includes(overflowMode)) throw directionalQuantityError('OVERFLOW_MODE_INVALID','다음 차수 처리 방식이 올바르지 않습니다.');
+      if (req.body.combinedCosts !== undefined && !overflowMode) throw directionalQuantityError('COMBINED_COST_MODE_REQUIRED','단가 동시 저장은 배정 미리보기와 확인 후 적용으로 진행하세요.');
       if (overflowMode === 'apply') {
         validateOverflowOperationId(req.body.overflowOperationId);
         if (req.body.overflowConfirmed !== true || !req.body.overflowPlanHash) throw directionalQuantityError('OVERFLOW_CONFIRM_REQUIRED','차수별 배정과 신규 출고 확정 내용을 먼저 확인해 주세요.');
@@ -202,6 +206,22 @@ export default withAuth(async function handler(req, res) {
       // 32-01·32-02처럼 견적서가 같은 부모차수의 여러 세부차수를 함께 저장하는 것은 정상이다.
       await assertErpEditGuard(tQ, { ...writeScope, orderWeek: selectedRows[0].OrderWeek }, req.user, req.body);
 
+      let combinedCostBody = null;
+      let combinedCostPreview = null;
+      if (req.body.combinedCosts !== undefined) {
+        const costs = req.body.combinedCosts;
+        if (!costs || typeof costs !== 'object' || Array.isArray(costs)) throw directionalQuantityError('INVALID_COST_ITEM','동시 저장 단가 입력이 올바르지 않습니다.');
+        combinedCostBody = {
+          items: costs.items, mode: costs.mode, week: costs.week ?? selectedRows[0].OrderWeek,
+          orderYear: writeScope.orderYear, custKey: writeScope.custKey, editGuard: req.body.editGuard,
+        };
+        combinedCostPreview = await executeEstimateCostOnly(tQ, combinedCostBody, {
+          sql, user: req.user, assertEditGuard: assertErpEditGuard,
+          advanceEditGuard: advanceErpEditGuard, validateOnly: true,
+        });
+        if (combinedCostPreview.scope.orderWeek.split('-')[0] !== guardedParents[0]) throw directionalQuantityError('ERP_SCOPE_MISMATCH','수량과 단가는 같은 부모차수에서만 함께 저장할 수 있습니다.');
+      }
+
       const groups = new Map();
       for (const item of items) {
         const row = rowByKey.get(item.sdateKey);
@@ -249,7 +269,7 @@ export default withAuth(async function handler(req, res) {
       });
       let overflow = null;
       if (overflowMode) {
-        overflow = await planEstimateOverflow(tQ,sql,plan);
+        overflow = await planEstimateOverflow(tQ,sql,plan,combinedCostPreview);
         if (overflowMode === 'preview' && !overflow.preview.required) return {overflowPreview:overflow.preview};
         if (overflowMode === 'apply' && (!overflow.preview.required || req.body.overflowPlanHash !== overflow.preview.planHash)) throw directionalQuantityError('OVERFLOW_PLAN_STALE','재고·수량·출고일이 미리보기 후 달라졌습니다. 다시 배정 내용을 확인해 주세요.');
         plan = overflow.plan;
@@ -315,7 +335,7 @@ export default withAuth(async function handler(req, res) {
         if (overflow && !group.overflowTarget && changes.every(change =>
           normalizeShipmentQty(change.newDateOutQuantity)===normalizeShipmentQty(change.row.DateShipmentQuantity)
           && Number(change.newDateEstQuantity)===Number(change.row.DateEstQuantity) && change.item.descr==null)) {
-          for (const change of changes) saved.push({sdateKey:change.item.sdateKey,sdetailKey:row.SdetailKey,shipmentKey:row.ShipmentKey,orderWeek:row.OrderWeek,oldDateQuantity:Number(change.row.DateEstQuantity),newDateQuantity:Number(change.row.DateEstQuantity),oldDetailQuantity:Number(row.DetailEstQuantity),newDetailQuantity:Number(row.DetailEstQuantity),oldDetailOutQuantity:Number(row.DetailOutQuantity),newDetailOutQuantity:Number(row.DetailOutQuantity),dateCostAfter:Number(change.row.DateCost),detailCostAfter:Number(row.DetailCost),unchanged:true});
+          for (const change of changes) saved.push({sdateKey:change.item.sdateKey,sdetailKey:row.SdetailKey,shipmentKey:row.ShipmentKey,orderWeek:row.OrderWeek,oldDateQuantity:Number(change.row.DateEstQuantity),newDateQuantity:Number(change.row.DateEstQuantity),oldDetailQuantity:Number(row.DetailEstQuantity),newDetailQuantity:Number(row.DetailEstQuantity),oldDetailOutQuantity:Number(row.DetailOutQuantity),newDetailOutQuantity:Number(row.DetailOutQuantity),dateCostAfter:Number(change.row.DateCost),detailCostAfter:Number(row.DetailCost),dateDeleted:false,unchanged:true});
           continue;
         }
         const product = { OutUnit: row.OutUnit, EstUnit: row.EstUnit, BunchOf1Box: row.BunchOf1Box, SteamOf1Bunch: row.SteamOf1Bunch, SteamOf1Box: row.SteamOf1Box };
@@ -524,8 +544,41 @@ export default withAuth(async function handler(req, res) {
         stockValidation.postNative.push({ prodKey: Number(row.ProdKey), orderYear: String(row.OrderYear), fromOrderWeek: String(row.OrderWeek), negative: false });
       }
       if (overflow) await verifyOverflowTargets(tQ,sql,overflow.targets);
+      let combinedCostResult = null;
+      if (combinedCostBody) {
+        // Original price baselines were validated before any quantity write.
+        // Rebase only to values saved by this same transaction, never a fresh GET.
+        const rebased = rebaseCostItemsFromSaved(combinedCostBody.items, saved, items.map(item => item.sdateKey));
+        if (!rebased.ok) throw directionalQuantityError('COMBINED_COST_REBASE_FAILED','동시 단가 저장의 기준값을 확인하지 못했습니다. 수량과 단가를 모두 취소합니다.');
+        combinedCostResult = {changedCount:0,diffAmount:0,changes:[],customerCostUpdated:0};
+        if (rebased.items.length) {
+          combinedCostResult = await executeEstimateCostOnly(tQ, {...combinedCostBody,items:rebased.items}, {
+            sql, user: req.user,
+            // The outer quantity transaction owns the original edit guard. A
+            // second digest assertion after our own writes would be falsely stale.
+            assertEditGuard: async (_tQ, scope) => {
+              assertErpWriteScope({OrderYear:scope.orderYear,CustKey:scope.custKey},writeScope);
+              if (scope.orderWeek.split('-')[0] !== guardedParents[0]) throw directionalQuantityError('ERP_SCOPE_MISMATCH','단가 저장 범위가 수량 저장 범위와 다릅니다.');
+            },
+            advanceEditGuard: async () => ({}),
+          });
+        }
+        combinedCostResult.skippedDeleted = rebased.skipped;
+        const finalPrices = new Map(combinedCostResult.changes.filter(change => change.sdetailKey != null).map(change => [Number(change.sdetailKey), Number(change.newCost)]));
+        for (const item of saved) {
+          if (item.purged || !finalPrices.has(Number(item.sdetailKey))) continue;
+          const cost = finalPrices.get(Number(item.sdetailKey));
+          item.detailCostAfter = cost;
+          if (!item.dateDeleted) {
+            item.dateCostAfter = cost;
+            Object.assign(item,amountVatFromCostEst(cost,item.newDateQuantity));
+          }
+          item.costUpdated = true;
+        }
+      }
       const editGuardAfter = await advanceErpEditGuard(tQ, { ...writeScope, orderWeek: selectedRows[0].OrderWeek }, req.user, req.body);
       const completed = { items: saved, updatedCount: saved.length, direction, stockMode, stockValidation, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision,
+        ...(combinedCostResult ? {combinedCostResult} : {}),
         ...(overflow ? {overflowApplied:true,overflowRows:overflow.preview.rows} : {}) };
       if (overflow) await recordOverflowResult(tQ,sql,req.body,req.user.userId,{success:true,...completed});
       return completed;

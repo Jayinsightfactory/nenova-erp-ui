@@ -73,7 +73,11 @@ async function main() {
     page.indexOf('async function applyAllEdits'),
     page.indexOf('function closeCostModal'),
   );
-  assert.match(applyAllEditsSrc, /const effectiveCostMode = modeOverride \|\| costMode/, '통합 저장은 명시 fixed 모드를 우선해야 한다.');
+  assert.match(applyAllEditsSrc, /const effectiveCostMode = normalizeEstimateCombinedCostMode\(modeOverride, costMode\)/, '통합 저장은 명시 모드를 검증하고 React 클릭 이벤트를 배제해야 한다.');
+  const { normalizeEstimateCombinedCostMode } = await import('../lib/estimateOverflowClient.js');
+  assert.equal(normalizeEstimateCombinedCostMode('fixed', 'once'), 'fixed', '명시 fixed 모드가 화면 선택보다 우선한다.');
+  assert.equal(normalizeEstimateCombinedCostMode(undefined, 'weekFav'), 'weekFav', '기본 저장은 화면 선택을 유지한다.');
+  assert.equal(normalizeEstimateCombinedCostMode({ type: 'click' }, 'once'), 'once', '클릭 이벤트는 업무 모드가 될 수 없다.');
   assert.match(applyAllEditsSrc, /mode:\s*effectiveCostMode/, '통합 단가 저장 API에 선택한 업체 지정단가 모드를 전달해야 한다.');
 
   // 2026-08-26 방향별 수량 저장: 기존 수량과 단가는 확정 상태를 보존한다.

@@ -11,6 +11,7 @@ export default function EstimateOverflowPreview({ preview, busy = false, error =
   useEffect(() => { setMounted(true); }, []);
   if (!mounted || !preview || typeof document === 'undefined') return null;
   const rows = Array.isArray(preview.rows) ? preview.rows : [];
+  const combinedCostCount = Number(preview.combinedCostCount || 0);
 
   return createPortal(
     <div role="presentation" style={styles.overlay} onClick={() => !busy && onCancel?.()}>
@@ -25,13 +26,18 @@ export default function EstimateOverflowPreview({ preview, busy = false, error =
 
         <div style={styles.body}>
           <div style={styles.notice}>
-            기존 현재·다음 차수 수량과 다른 출고일은 보존됩니다. 아래 신규 표시는 새 출고를 생성하고 즉시 확정하는 작업입니다.
+            {combinedCostCount > 0 && (
+              <strong data-estimate-overflow-atomic-price="1" style={styles.noticeStrong}>
+                수량 배정과 수정 단가 {combinedCostCount}건을 한 트랜잭션에서 함께 적용합니다.
+              </strong>
+            )}
+            기존 현재·다음 차수 수량과 다른 출고일은 보존됩니다. 기존 다음 차수 출고의 단가는 그 출고를 명시적으로 수정한 경우가 아니면 유지되고, 새 다음 차수 출고는 수정된 원본 단가를 이어받습니다. 아래 신규 표시는 새 출고를 생성하고 즉시 확정하는 작업입니다.
           </div>
           <div style={styles.tableScroll}>
             <table style={styles.table}>
               <thead>
                 <tr>
-                  {['품목', '전체 요청', '현재 차수', '현재 기존 → 적용', '현재 +증가', '다음 차수', '다음 +증가', '기본 출고일', '단가', '처리'].map(label => (
+                  {['품목', '전체 요청', '현재 차수', '현재 기존 → 적용', '현재 +증가', '다음 차수', '다음 +증가', '기본 출고일', '적용 단가', '처리'].map(label => (
                     <th key={label} style={styles.th}>{label}</th>
                   ))}
                 </tr>
@@ -47,7 +53,18 @@ export default function EstimateOverflowPreview({ preview, busy = false, error =
                     <td style={styles.td}>{row.toWeek}</td>
                     <td style={styles.numberCell}>+{number(row.nextIncrease)}</td>
                     <td style={styles.td}>{row.shipmentDate || '-'}</td>
-                    <td style={styles.numberCell}>₩{number(row.cost)}</td>
+                    <td data-estimate-overflow-price="1" style={styles.priceCell}>
+                      <strong>₩{number(row.cost)}</strong>
+                      {Number.isFinite(Number(row.sourceCostBefore)) && Number.isFinite(Number(row.sourceCost))
+                        && Number(row.sourceCostBefore) !== Number(row.sourceCost) && (
+                        <small style={styles.small}>원본 ₩{number(row.sourceCostBefore)} → ₩{number(row.sourceCost)}</small>
+                      )}
+                      <small style={styles.small}>
+                        {row.retainedTargetCost
+                          ? '기존 다음 차수 단가 유지'
+                          : (row.newShipment ? '신규 출고 · 수정 원본 단가 상속' : '다음 차수 단가 명시 수정')}
+                      </small>
+                    </td>
                     <td style={styles.td}>{row.newShipment ? <strong style={styles.newShipment}>신규 출고 생성·확정</strong> : '기존 출고 증가'}</td>
                   </tr>
                 ))}
@@ -90,7 +107,9 @@ const styles = {
   td: { padding: '8px 9px', borderBottom: '1px solid #e2e8f0', textAlign: 'center', whiteSpace: 'nowrap' },
   productCell: { padding: '8px 9px', borderBottom: '1px solid #e2e8f0', minWidth: 190 },
   numberCell: { padding: '8px 9px', borderBottom: '1px solid #e2e8f0', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' },
+  priceCell: { padding: '8px 9px', borderBottom: '1px solid #e2e8f0', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' },
   small: { display: 'block', marginTop: 2, color: '#64748b', fontWeight: 400 },
+  noticeStrong: { display: 'block', marginBottom: 4, color: '#92400e' },
   newShipment: { color: '#b45309', whiteSpace: 'normal' },
   error: { marginTop: 12, padding: 10, border: '1px solid #fca5a5', borderRadius: 6, background: '#fef2f2', color: '#b91c1c', fontSize: 12 },
   footer: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, padding: '12px 18px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' },

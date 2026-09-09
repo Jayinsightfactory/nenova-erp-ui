@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   clearPendingEstimateOverflow,
   estimateOverflowPendingKey,
   inspectPendingEstimateOverflow,
+  normalizeEstimateCombinedCostMode,
   preparePendingEstimateOverflow,
   readPendingEstimateOverflow,
   readPendingEstimateOverflowStatus,
+  removeMatchingEstimateDrafts,
   runEstimateOverflowApplyOnce,
 } from '../lib/estimateOverflowClient.js';
 
@@ -66,6 +69,74 @@ assert.throws(() => preparePendingEstimateOverflow({
   createOperationId: () => 'uuid-new',
 }), error => error.code === 'OVERFLOW_PENDING_CONFLICT');
 assert.equal(readPendingEstimateOverflow(storage, scope).operationId, 'uuid-stable', 'conflicting input never changes the pending ID');
+
+const combinedStorage = memoryStorage();
+const combinedBody = {
+  ...body,
+  combinedCosts: {
+    items: [{ shipmentKey: 9001, sdetailKey: 8001, expectedOldCost: 10000, cost: 12000 }],
+    mode: 'once',
+    week: '36-01',
+  },
+};
+const combinedFirst = preparePendingEstimateOverflow({
+  storage: combinedStorage,
+  scope,
+  baseBody: combinedBody,
+  preview: { ...preview, combinedCostCount: 1 },
+  createOperationId: () => 'uuid-combined',
+});
+const combinedReused = preparePendingEstimateOverflow({
+  storage: combinedStorage,
+  scope,
+  baseBody: { ...combinedBody, editGuard: { revision: 101, token: 'rotated-combined-token' } },
+  preview,
+  createOperationId: () => 'must-not-change-combined',
+});
+assert.equal(combinedReused.operationId, 'uuid-combined', 'combined quantity+cost retry reuses its UUID after editGuard rotates');
+assert.deepEqual(combinedReused.applyBody, combinedFirst.applyBody, 'combined retry reuses the exact stored apply body');
+assert.equal(inspectPendingEstimateOverflow(combinedStorage, scope, {
+  ...combinedBody,
+  combinedCosts: { ...combinedBody.combinedCosts, items: [{ ...combinedBody.combinedCosts.items[0], cost: 12500 }] },
+}).status, 'conflict', 'changed combined price is a different business request');
+assert.equal(inspectPendingEstimateOverflow(combinedStorage, scope, {
+  ...combinedBody,
+  combinedCosts: { ...combinedBody.combinedCosts, mode: 'fixed' },
+}).status, 'conflict', 'changed combined price mode is a different business request');
+assert.equal(inspectPendingEstimateOverflow(combinedStorage, scope, {
+  ...combinedBody,
+  combinedCosts: { ...combinedBody.combinedCosts, week: '36-02' },
+}).status, 'conflict', 'changed combined price week is a different business request');
+assert.equal(inspectPendingEstimateOverflow(combinedStorage, scope, {
+  ...body,
+  combinedCosts: null,
+}).status, 'conflict', 'an explicitly present combinedCosts value follows the server fingerprint exactly');
+
+const committedDrafts = { 'date:7001': '60', 'estimate:99': '3', 'date:edited-again': '75' };
+const reconciledDrafts = removeMatchingEstimateDrafts(committedDrafts, [
+  { editKey: 'date:7001', draftValue: 60 },
+  { editKey: 'date:edited-again', draftValue: 70 },
+]);
+assert.deepEqual(reconciledDrafts, {
+  'estimate:99': '3',
+  'date:edited-again': '75',
+}, 'committed drafts clear while a newer in-flight edit and unrelated failed draft remain');
+
+const fakeReactEvent = {};
+fakeReactEvent.self = fakeReactEvent;
+assert.equal(normalizeEstimateCombinedCostMode(fakeReactEvent, 'once'), 'once', 'a click event cannot enter the combined API payload');
+assert.equal(normalizeEstimateCombinedCostMode('fixed', 'once'), 'fixed', 'an explicit fixed override is retained');
+assert.equal(normalizeEstimateCombinedCostMode(undefined, 'weekFav'), 'weekFav', 'the selected fallback mode is retained');
+
+const estimatePage = fs.readFileSync(new URL('../pages/estimate.js', import.meta.url), 'utf8');
+const applyAllEditsSource = estimatePage.slice(
+  estimatePage.indexOf('async function applyAllEdits'),
+  estimatePage.indexOf('function closeCostModal'),
+);
+assert.ok(applyAllEditsSource.length > 0, 'applyAllEdits source boundary is available');
+assert.doesNotMatch(applyAllEditsSource, /set(?:Qty|Cost)Edits\(\{\}\)/, 'combined save never blanket-clears newer quantity or cost drafts');
+assert.match(applyAllEditsSource, /skippedCostDrafts[\s\S]*clearCommittedCostDrafts\(skippedCostDrafts\)/, 'deleted cost targets are reconciled explicitly');
+assert.match(estimatePage, /onClick=\{\(\) => applyAllEdits\(\)\}/, 'the default combined-save button never forwards a React click event as mode');
 
 let postCount = 0;
 let statusCount = 0;

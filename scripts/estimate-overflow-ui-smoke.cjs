@@ -22,8 +22,12 @@ if (!executablePath) {
 }
 
 let liveQuantity = 50;
+let liveCost = 10000;
 let applyPosts = 0;
 let forbiddenNormalWrites = 0;
+let separateCostWrites = 0;
+let combinedPreviewSeen = false;
+let combinedApplySeen = false;
 let currentYear = '2026';
 let currentParent = '36';
 
@@ -62,7 +66,7 @@ function shipment() {
     firstShipmentKey: 9001,
     SubWeeks: `${currentParent}-01,${currentParent}-02`,
     SubWeeksFix: `${currentParent}-01:1,${currentParent}-02:1`,
-    totalAmount: liveQuantity * 10000,
+    totalAmount: liveQuantity * liveCost,
   };
 }
 
@@ -77,10 +81,10 @@ function item() {
     CountryFlower: 'ECUADOR ROSE',
     Unit: '박스',
     Quantity: liveQuantity,
-    Cost: 10000,
-    DateCost: 10000,
-    Amount: liveQuantity * 10000,
-    Vat: liveQuantity * 1000,
+    Cost: liveCost,
+    DateCost: liveCost,
+    Amount: liveQuantity * liveCost,
+    Vat: Math.round(liveQuantity * liveCost * 0.1),
     outDate: '2026-09-07',
     OrderWeek: `${currentParent}-01`,
   };
@@ -100,7 +104,10 @@ function overflowRow() {
     currentIncrease: 5,
     nextIncrease: 5,
     shipmentDate: '2026-09-14',
-    cost: 10000,
+    cost: 12000,
+    sourceCost: 12000,
+    sourceCostBefore: 10000,
+    retainedTargetCost: false,
     newShipment: true,
   };
 }
@@ -132,22 +139,36 @@ async function clickAndWait(page, selector) {
         if (parsed.pathname === '/api/auth/me') return json(request, { success: true, user: { userId: 'overflow-smoke', userName: 'overflow-smoke', role: 'admin' } });
         if (parsed.pathname === '/api/products/search') return json(request, { success: true, products: [] });
         if (parsed.pathname === '/api/erp/edit-presence') return json(request, presenceResponse(request.method() === 'GET' ? Object.fromEntries(parsed.searchParams) : body));
+        if (parsed.pathname === '/api/estimate/update-cost') {
+          separateCostWrites += 1;
+          return json(request, { success: false, error: 'combined overflow fixture forbids a separate cost write' }, 500);
+        }
         if (parsed.pathname === '/api/estimate/update-date-quantity') {
           if (body.overflowMode === 'preview') {
-            return json(request, { success: true, overflowPreview: { required: true, planHash: 'ui-smoke-plan', rows: [overflowRow()] } });
+            combinedPreviewSeen = body.combinedCosts?.mode === 'once'
+              && body.combinedCosts?.week === `${currentParent}-01`
+              && body.combinedCosts?.items?.length === 1
+              && Number(body.combinedCosts.items[0].cost) === 12000;
+            return json(request, { success: true, overflowPreview: { required: true, planHash: 'ui-smoke-plan', combinedCostCount: 1, rows: [overflowRow()] } });
           }
           if (body.overflowMode === 'apply') {
+            combinedApplySeen = body.combinedCosts?.mode === 'once'
+              && body.combinedCosts?.week === `${currentParent}-01`
+              && body.combinedCosts?.items?.length === 1
+              && Number(body.combinedCosts.items[0].cost) === 12000;
             applyPosts += 1;
             liveQuantity = 55;
+            liveCost = 12000;
             return json(request, {
               success: true,
               updatedCount: 1,
               direction: 'increase',
               stockMode: 'fixed-direct',
               stockValidation: { availability: [{ prodKey: 1239 }] },
-              items: [{ sdateKey: 7001, sdetailKey: 8001, shipmentKey: 9001, newDateQuantity: 55, dateCostAfter: 10000, detailCostAfter: 10000 }],
+              items: [{ sdateKey: 7001, sdetailKey: 8001, shipmentKey: 9001, newDateQuantity: 55, dateCostAfter: 12000, detailCostAfter: 12000 }],
               overflowApplied: true,
               overflowRows: [overflowRow()],
+              combinedCostResult: { success: true, changedCount: 1, diffAmount: 110000, changes: [{ sdetailKey: 8001, oldCost: 10000, newCost: 12000 }] },
               editDigestAfter: 'digest-after',
               revision: 2,
             });
@@ -174,11 +195,14 @@ async function clickAndWait(page, selector) {
 
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
     const qtySelector = 'input[data-estimate-edit-column="quantity"]';
+    const costSelector = 'input[data-estimate-edit-column="cost"]';
     await page.waitForSelector(qtySelector, { visible: true, timeout: 30000 });
     await page.click(qtySelector, { clickCount: 3 });
     await page.type(qtySelector, '60');
-    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent.includes('수량 수정 적용') && !button.disabled));
-    await page.evaluate(() => [...document.querySelectorAll('button')].find(button => button.textContent.includes('수량 수정 적용'))?.click());
+    await page.click(costSelector, { clickCount: 3 });
+    await page.type(costSelector, '12000');
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => /^수정 저장 \(/.test(button.textContent.trim()) && !button.disabled));
+    await page.evaluate(() => [...document.querySelectorAll('button')].find(button => /^수정 저장 \(/.test(button.textContent.trim()))?.click());
 
     const dialogSelector = '[data-estimate-overflow-dialog="1"]';
     await page.waitForSelector(dialogSelector, { visible: true });
@@ -198,6 +222,11 @@ async function clickAndWait(page, selector) {
     if (layout.left < 0 || layout.right > 1920 || layout.top < 0 || layout.bottom > 1080) problems.push(`modal outside 1920x1080: ${JSON.stringify(layout)}`);
     if (layout.documentOverflow) problems.push('preview causes document-level horizontal overflow');
     if (!layout.hasHorizontalTableScroll) problems.push('preview table has no bounded horizontal scroll container');
+    const pricePreview = await page.$eval('[data-estimate-overflow-price="1"]', element => element.textContent.replace(/\s+/g, ' ').trim());
+    const atomicPriceCopy = await page.$eval('[data-estimate-overflow-atomic-price="1"]', element => element.textContent.trim());
+    if (!pricePreview.includes('₩12,000') || !pricePreview.includes('₩10,000 → ₩12,000')) problems.push(`combined final/source price missing: ${pricePreview}`);
+    if (!atomicPriceCopy.includes('한 트랜잭션')) problems.push(`atomic price copy missing: ${atomicPriceCopy}`);
+    if (!combinedPreviewSeen) problems.push('preview did not receive expected combinedCosts items/mode/week');
     fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath, fullPage: false });
 
@@ -207,8 +236,8 @@ async function clickAndWait(page, selector) {
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === '닫기'));
     await page.evaluate(() => [...document.querySelectorAll('button')].find(button => button.textContent.trim() === '닫기')?.click());
 
-    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent.includes('수량 수정 적용') && !button.disabled));
-    await page.evaluate(() => [...document.querySelectorAll('button')].find(button => button.textContent.includes('수량 수정 적용'))?.click());
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => /^수정 저장 \(/.test(button.textContent.trim()) && !button.disabled));
+    await page.evaluate(() => [...document.querySelectorAll('button')].find(button => /^수정 저장 \(/.test(button.textContent.trim()))?.click());
     await page.waitForSelector(dialogSelector, { visible: true });
     await clickAndWait(page, '[data-estimate-overflow-confirm="1"]');
     await page.waitForFunction(() => document.body.innerText.includes('수량 수정 저장 완료'), { timeout: 30000 });
@@ -217,9 +246,20 @@ async function clickAndWait(page, selector) {
     if (!progressHasNextRow) problems.push('next-subweek row is missing from save progress');
     if (applyPosts !== 1) problems.push(`expected one confirmed apply POST, received ${applyPosts}`);
     if (forbiddenNormalWrites !== 0) problems.push(`legacy write path was called ${forbiddenNormalWrites} time(s)`);
+    if (separateCostWrites !== 0) problems.push(`combined overflow used ${separateCostWrites} separate cost write(s)`);
+    if (!combinedApplySeen) problems.push('confirmed apply did not retain combinedCosts items/mode/week');
 
-    console.log(JSON.stringify({ viewport: '1920x1080', layout, applyPosts, forbiddenNormalWrites, liveQuantity, screenshotPath, problems }, null, 2));
+    console.log(JSON.stringify({ viewport: '1920x1080', layout, applyPosts, forbiddenNormalWrites, separateCostWrites, combinedPreviewSeen, combinedApplySeen, liveQuantity, liveCost, screenshotPath, problems }, null, 2));
     if (problems.length) process.exitCode = 1;
+  } catch (error) {
+    const pages = await browser.pages();
+    const failedPage = pages[pages.length - 1];
+    if (failedPage) {
+      fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
+      await failedPage.screenshot({ path: screenshotPath.replace(/\.png$/i, '-failure.png'), fullPage: false });
+      console.error(await failedPage.evaluate(() => document.body.innerText.slice(-12000)));
+    }
+    throw error;
   } finally {
     await browser.close();
   }
