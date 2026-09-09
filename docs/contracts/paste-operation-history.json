@@ -1,0 +1,23 @@
+{
+  "id": "paste-operation-history",
+  "title": "붙여넣기 실행 단위 취소·추가 작업이력",
+  "scope": ["lib/pasteOperationHistory.js", "lib/pasteOperationAudit.js", "pages/api/orders/paste-history.js", "pages/orders/history.js", "pages/orders/paste.js", "components/orders/PasteOperationHistory.js", "lib/withActionLog.js", "__tests__/pasteOperationHistory.test.js", "__tests__/pasteOperationAudit.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name":"READ_OPERATION_HISTORY", "orderDetail":"preserve", "shipmentDetail":"preserve", "estimate":"preserve", "sideEffect":"SystemActionLog.LogKey가 실제 HTTP 실행 1건의 그룹키. 본인 Actor가 기본, 연도+차수+거래처+품목 검색은 작업 전체를 유지하며 표시한다. 조회 SQL은 SELECT만 사용한다."},
+    {"name":"RECORD_PASTE_AUDIT", "orderDetail":"preserve", "shipmentDetail":"preserve", "estimate":"preserve", "sideEffect":"기존 SystemActionLog 감사 쓰기만 해당 action에 한해 비밀값 없는 전체 entries/result 요약 envelope를 보존한다. 주문/출고 저장 성공여부는 기존 트랜잭션 응답 기준이며 감사 저장 실패를 업무 성공으로 숨기지 않는다."}
+  ],
+  "crossYearFixture":{"required":true,"description":"2025/2026 같은 36-01은 Payload의 명시 연도/차수로 분리하고 ActionDtm 연도로 추정하지 않는다. 완전한 원문도 명시연도가 상충하면 표시하지 않는다."},
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormOrderAdd.md","source":"실제 ClassOrderHistory/FormOrderAdd 원장 이력과 별도 웹 SystemActionLog 실행 이력 분리; ClassEstimate dnSpy 재확인은 작업 보고서 참조","methods":["ClassOrderHistory.Insert","FormOrderAdd history lookup"],"tables":["SystemActionLog","Customer","Product"]},
+  "preserves":["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentFarm","Estimate","ProductStock","StockHistory","WebProfitReport"],
+  "criteria": {
+    "grouping":"LogKey only; same timestamp/user must never merge operations",
+    "success":"Result SUCCESS and committedCount > 0; committed=0 is preview, not successful work",
+    "legacy":"4000-character truncated payloads explicitly incomplete, never pretend complete or infer rows; exclude unknown/conflicting year from selected scope",
+    "privacy":"Never return raw Payload, editGuard, lease token, IP, user agent, auth data",
+    "ui":"Paste entry defaults grouped operations; retain original row-history view as separate tab. 1920x1080 responsive cancel/add columns",
+    "scope":"No new history rows fabricated, no operational ERP changes or replay"
+  },
+  "requiredTestFiles":["__tests__/pasteOperationHistory.test.js","__tests__/pasteOperationAudit.test.js","__tests__/erpContractManifest.test.js"],
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}

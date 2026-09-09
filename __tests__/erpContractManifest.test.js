@@ -1,6 +1,9 @@
 const assert = require('node:assert/strict');
 
 async function main() {
+  await import('./pasteOperationAudit.test.js');
+  await import('./estimateDraftReconcile.test.js');
+  await import('./pasteOperationHistory.test.js');
   await import('./orderHistorySearch.test.js');
   await import('./pivotVolumeCombinedCells.test.js');
   await import('./pasteAiMatchReview.test.js');

@@ -3418,6 +3418,7 @@ export default function PasteOrderPage() {
     const params = new URLSearchParams();
     if (week) params.set('week', week);
     if (week) params.set('year', resolveOrderWeekQuery(week).year);
+    params.set('mode', 'paste');
     if (custName) params.set('custName', custName);
     params.set('popup', '1');
     const url = `/orders/history?${params.toString()}`;

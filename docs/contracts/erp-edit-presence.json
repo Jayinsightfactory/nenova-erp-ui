@@ -3,6 +3,8 @@
   "title": "웹 편집 중복 방지 및 전산 원장 변경 감지 계약",
   "scope": [
     "lib/erpEditPresence.js",
+    "lib/estimateDraftReconcile.js",
+    "__tests__/estimateDraftReconcile.test.js",
     "lib/useApi.js",
     "pages/api/erp/edit-presence.js",
     "pages/api/estimate/update-quantity.js",
@@ -86,7 +88,9 @@
       "sequence": "user opens confirmation status -> read live ShipmentDetail.isFix counts -> explicitly refresh owned lease baseline -> reload selected customer list/detail -> compare once more",
       "automaticPolling": "must remain detection-only and must never replace the baseline",
       "reloadRecovery": "if initial acquire finds a stale active lease owned by the exact same UserID+clientId, return its owner-only token while keeping stale=true so the explicit refresh button can accept the current ERP snapshot; never expose that token to another user or client",
-      "lockSafety": "never refresh or take over another user/browser lease"
+      "lockSafety": "ordinary refresh never takes another user's lease; only separate admin-confirmed estimate force-takeover with an unchanged opaque lease stamp can transfer ownership. Rotate token, reload and reconcile drafts before any save",
+      "draftReconciliation": "preserve original/current/desired values; retain unchanged originals, remove already-applied values, require explicit choice for conflicts or missing identity; never silently rebase drafts",
+      "closeCleanup": "pagehide and effect cleanup release latest owned token for the same scope only, never while saving; old tokens cannot release new ownership"
     },
     {
       "name": "PASTE_EXPLICIT_REANALYSIS_REFRESH",
@@ -135,6 +139,7 @@
     "tables": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Estimate"]
   },
   "requiredTestFiles": [
+    "__tests__/estimateDraftReconcile.test.js",
     "__tests__/erpEditPresence.test.js",
     "__tests__/erpEditPresenceUiContract.test.js",
     "__tests__/erpEditPresenceRace.test.js",

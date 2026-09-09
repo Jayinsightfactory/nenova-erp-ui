@@ -38,8 +38,8 @@ function main() {
   assert.match(banner, /아래 버튼으로 최신 내용을 불러오면 계속 작업할 수 있습니다/, 'EXE 확정 뒤에는 사용자가 현재 값을 다시 읽을 수 있는 안내가 필요합니다.');
   assert.match(banner, /typeof onReload === 'function'/, '외부 변경 경고에는 실제 재조회 동작을 연결할 수 있어야 합니다.');
   assert.match(estimate, /const selectedEditWeek = weekNum \? String\(weekNum\)\.padStart\(2, '0'\)/, '견적서 작업권은 불안정한 SubWeeks 순서가 아니라 대차수로 고정해야 합니다.');
-  assert.match(estimate, /const refreshFixStatusAndEstimate = async[\s\S]{0,1800}checkFixStatus\(\)[\s\S]{0,1800}refresh\(\{ force: true \}\)[\s\S]{0,1800}refreshCapturedEstimate/, '확정현황 확인은 현재 EXE 기준 수용과 선택 업체 재조회를 한 흐름으로 처리해야 합니다.');
-  assert.match(estimate, /onClick=\{refreshFixStatusAndEstimate\}/, '상단 확정현황 버튼은 단순 모달 조회가 아니라 최신 견적 동기화를 실행해야 합니다.');
+  assert.match(estimate, /const refreshFixStatusAndEstimate = async[\s\S]{0,1800}checkFixStatus\(\{ showModal \}\)[\s\S]{0,1800}refresh\(\{ force: true \}\)[\s\S]{0,1800}fetchEstimateRecoveryRows\(captured\)[\s\S]{0,600}reconcileEstimateDrafts/, '명시적 재조회는 정확한 업체의 최신 행과 초안을 대조해야 합니다.');
+  assert.match(estimate, /onClick=\{\(\) => refreshFixStatusAndEstimate\(\{ showModal: true \}\)\}/, '상단 현황은 모달을 유지하되 초안 재대조 버튼은 모달로 가리지 않아야 합니다.');
   assert.match(estimate, /onReload=\{refreshFixStatusAndEstimate\}/, '외부 변경 경고에서도 같은 안전한 재조회 흐름을 사용해야 합니다.');
   assert.match(estimate, /estimateEditPresence\.fixStatusDigest[\s\S]{0,1200}refreshCapturedEstimate/, 'EXE 확정상태만 바뀌면 선택 업체와 목록을 자동 갱신해야 합니다.');
   const estimateApi = fs.readFileSync('pages/api/estimate/index.js', 'utf8');
