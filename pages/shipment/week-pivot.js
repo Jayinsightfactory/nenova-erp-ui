@@ -16,6 +16,10 @@ import PivotFarmAssignmentModal from '../../components/PivotFarmAssignmentModal'
 import * as XLSX from 'xlsx';
 import * as XLSXStyled from 'xlsx-js-style';
 import { buildWeekPivotSheet } from '../../lib/weekPivotSheet';
+import {
+  filterWeekPivotProductKeys,
+  getWeekPivotCustomerHighlightProdKeys,
+} from '../../lib/weekPivotReadability';
 
 // 차수(예: "15-01") → 정상 출고일(YYYY-MM-DD) 변환
 // 01차=월요일, 02차=목요일(+3), 03차=토요일(+5)
@@ -430,6 +434,7 @@ export default function WeekPivot() {
   // 공통 텍스트 필터
   const [filterCoun,   setFilterCoun]   = useState('');
   const [filterSearch, setFilterSearch] = useState('');
+  const [productSearch, setProductSearch] = useState('');
 
   // 피벗 전용 필터
   const [pvMgr,         setPvMgr]         = useState('');
@@ -442,6 +447,11 @@ export default function WeekPivot() {
   const [farmModalTarget, setFarmModalTarget] = useState(null);
   const [pvNameEdit,    setPvNameEdit]    = useState(null);
   const [selectedPK,    setSelectedPK]    = useState(null); // 행 강조 선택
+  const [highlightedCustKey, setHighlightedCustKey] = useState(null);
+
+  useEffect(() => {
+    setHighlightedCustKey(null);
+  }, [weekFrom, weekTo]);
 
   // ── 셀 일괄 적용(변경 대기) + 빈 행 추가 상태 — 콜백은 loadData 정의 뒤에 있음
   const [pendingEdits, setPendingEdits] = useState({});   // `${year}-${pk}-${ck}-${wk}` → {year,pk,ck,wk,oldQty,newQty,custName,prodName}
@@ -911,6 +921,8 @@ export default function WeekPivot() {
     });
     const isFixed=(pk,ck,wk)=>isWeekPivotCellFixed(rows,pk,ck,wk);
     const weekFixState=(wk)=>weekPivotFixState(rows,wk);
+    // 검색은 원본 행·집계·엑셀 입력을 건드리지 않고 최종 렌더 키만 좁힌다.
+    const visibleProdKeys = filterWeekPivotProductKeys(prodKeys, prodMap, productSearch);
 
     if(weeks.length===0) return <div style={st.empty}>해당 차수에 주문 데이터 없음<br/><span style={{fontSize:11,color:'#bbb'}}>custRows: {custRows.length}행</span></div>;
     if(prodKeys.length===0) return <div style={st.empty}>표시할 품목 없음 (출고/주문 수량이 0)<br/><span style={{fontSize:11,color:'#bbb'}}>전체 데이터: {rows.length}행</span></div>;
@@ -924,6 +936,39 @@ export default function WeekPivot() {
       const c=custMap[ck]; if(!c) return '?';
       const d=(c.descr||'').split('/')[0].trim();
       return d||c.name;
+    };
+    const highlightedProdKeys = getWeekPivotCustomerHighlightProdKeys(rows, {
+      custKey: highlightedCustKey,
+      selectedYear: orderYearFromWeek(weekFrom),
+      weekFrom,
+      weekTo,
+    });
+    const highlightedCustomer = highlightedCustKey == null ? null : custMap[highlightedCustKey];
+    const toggleCustomerHighlight = (custKey) => {
+      const key = Number(custKey);
+      setHighlightedCustKey(prev => Number(prev) === key ? null : key);
+    };
+    const customerHighlightButton = (ck, repeated = false) => {
+      const active = Number(highlightedCustKey) === Number(ck);
+      const fullName = custMap[ck]?.name || cShort(ck);
+      return (
+        <button
+          type="button"
+          data-pivot-customer-key={ck}
+          aria-label={`${fullName} 품목 강조`}
+          aria-pressed={active}
+          onClick={(event) => { event.stopPropagation(); toggleCustomerHighlight(ck); }}
+          title={`${fullName} 품목 강조${active ? ' 해제' : ''}`}
+          style={{
+            appearance:'none',border:active?'1px solid #7c3aed':'1px solid transparent',borderRadius:4,
+            background:active?'#ede9fe':'transparent',color:active?'#5b21b6':'inherit',font:'inherit',fontWeight:'inherit',
+            padding:repeated?'1px 2px':'2px 3px',lineHeight:1.15,cursor:'pointer',maxWidth:'100%',
+            whiteSpace:'normal',wordBreak:'break-word',overflowWrap:'anywhere',boxSizing:'border-box',
+          }}
+        >
+          {cShort(ck)}
+        </button>
+      );
     };
     const calcMoney = (qty, unitCost) => {
       const { amount, vat } = amountVatFromCostEst(unitCost, qty);
@@ -1431,7 +1476,32 @@ export default function WeekPivot() {
             <input type="checkbox" checked={pvDescrOpen} onChange={e=>setPvDescrOpen(e.target.checked)} />
             비고(변경내역)
           </label>
-          <span style={{fontSize:10,color:'#999'}}>({prodKeys.length}개 품목 / {custKeys.length}개 업체)</span>
+          <label style={{display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:700,color:'#1e3a8a'}}>
+            <span>품명 검색</span>
+            <input
+              type="search"
+              aria-label="품명 검색"
+              title="화면 품목만 검색합니다. 업체 열·집계·엑셀 출력은 유지됩니다."
+              value={productSearch}
+              onChange={event=>setProductSearch(event.target.value)}
+              placeholder="ERP/한글 품명"
+              style={{width:'min(240px,48vw)',minWidth:120,padding:'4px 8px',border:'1px solid #93c5fd',borderRadius:4,fontSize:12,background:'#fff'}}
+            />
+          </label>
+          {productSearch&&(
+            <button type="button" aria-label="품명 검색 해제" onClick={()=>setProductSearch('')}
+              style={{padding:'3px 8px',fontSize:10,border:'1px solid #93c5fd',borderRadius:4,background:'#eff6ff',color:'#1d4ed8',cursor:'pointer'}}>
+              검색 해제
+            </button>
+          )}
+          <span style={{fontSize:10,color:'#64748b'}}>표시 {visibleProdKeys.length} / 전체 {prodKeys.length}개 품목 · {custKeys.length}개 업체</span>
+          {highlightedCustomer&&(
+            <span className="pv-customer-highlight" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 7px',border:'1px solid #8b5cf6',borderRadius:12,background:'#f5f3ff',color:'#5b21b6',fontSize:10,fontWeight:700}}>
+              업체 강조: {highlightedCustomer.name}
+              <button type="button" aria-label={`${highlightedCustomer.name} 품목 강조 해제`} onClick={()=>setHighlightedCustKey(null)}
+                style={{border:0,background:'transparent',color:'#7c3aed',fontWeight:900,cursor:'pointer',padding:0,lineHeight:1}}>✕</button>
+            </span>
+          )}
           {/* ── 보기 옵션: 글씨크기/셀너비/패딩 ── */}
           <div style={{display:'flex',gap:4,alignItems:'center',padding:'2px 8px',background:'#f8f9fa',border:'1px solid #dee2e6',borderRadius:4}}>
             <span style={{fontSize:9,color:'#666'}}>🔡</span>
@@ -1483,8 +1553,11 @@ export default function WeekPivot() {
           .wp-pivot .wp-prod-col { width: ${pvProdColWidth}px !important; min-width: ${pvProdColWidth}px !important; max-width: ${pvProdColWidth}px !important; }
           .wp-pivot .pv-cell { min-width: ${pvCellWidth}px !important; max-width: ${pvCellWidth}px !important; }
           .wp-pivot .pv-cust-head { min-width: ${pvCellWidth}px !important; max-width: ${pvCellWidth + 16}px !important; }
-          .wp-pivot .pv-descr-cell { white-space: normal; overflow-wrap: anywhere; max-width: ${pvDescrWidth}px; }
-          .wp-pivot .pv-inline-descr { display:block; margin-top:3px; white-space:normal; overflow-wrap:anywhere; text-align:left; font-size:10px; line-height:1.35; color:#7c2d12; background:#fff7ed; padding:2px; }
+          .wp-pivot .pv-descr-cell { white-space: nowrap; max-width: ${pvDescrWidth}px; overflow: hidden; }
+          .wp-pivot .pv-inline-descr { display:block; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; font-size:10px; line-height:1.35; color:#7c2d12; background:#fff7ed; padding:2px; }
+          .wp-pivot .pv-notes-scroll { width:100%; overflow-x:auto; overflow-y:hidden; white-space:nowrap; overscroll-behavior-x:contain; }
+          .wp-pivot .pv-notes-line { display:inline-flex; align-items:center; gap:10px; min-width:max-content; }
+          .wp-pivot .pv-note-item { display:inline-flex; align-items:center; gap:4px; flex:0 0 auto; white-space:nowrap; }
           .wp-pivot thead tr.wp-week-header-row th { color:#fff !important; }
           .wp-pivot th.resizable .col-resize-handle { position: absolute; top: 0; right: 0; width: 5px; height: 100%; cursor: col-resize; }
           /* 상단 가로스크롤 미러 */
@@ -1563,8 +1636,8 @@ export default function WeekPivot() {
                   {custKeys.map((ck,ci)=>(
                     <React.Fragment key={`${wk}-${ck}`}>
                       {ci>0&&ci%CUST_REPEAT===0&&<th style={{...st.thCust,background:'#fed7aa',color:'#9a3412',fontSize:9,textAlign:'center',padding:'2px',minWidth:16}}>품명</th>}
-                      <th className="pv-cust-head" data-resize-group="cust" style={{...st.thCust,position:'relative',fontSize:Math.max(10,pvFontSize),background:ci%2===0?'#e8f0fe':'#f8fafc',borderLeft:ci===0?'2px solid #94a3b8':'none'}} title={cShort(ck)}>
-                        {cShort(ck)}
+                      <th className="pv-cust-head" data-resize-group="cust" style={{...st.thCust,position:'relative',fontSize:Math.max(10,pvFontSize),background:ci%2===0?'#e8f0fe':'#f8fafc',borderLeft:ci===0?'2px solid #94a3b8':'none'}} title={custMap[ck]?.name || cShort(ck)}>
+                        {customerHighlightButton(ck)}
                       </th>
                     </React.Fragment>
                   ))}
@@ -1581,7 +1654,14 @@ export default function WeekPivot() {
             </tr>
           </thead>
           <tbody>
-            {prodKeys.map((pk,pi)=>{
+            {visibleProdKeys.length===0&&(
+              <tr><td colSpan={1+weeks.length*colsPerWeek} style={{...st.td,padding:16,color:'#64748b'}}>
+                <div role="status" style={{position:'sticky',left:12,width:'fit-content',maxWidth:'calc(100vw - 40px)',whiteSpace:'normal'}}>
+                  검색 결과가 없습니다. 품명을 바꾸거나 위의 검색 해제 버튼을 눌러주세요.
+                </div>
+              </td></tr>
+            )}
+            {visibleProdKeys.map((pk,pi)=>{
               const p=prodMap[pk];
               const prodBaseName=removeFlowerFromName(stripProdName(p.name), p.flower);
               const prodDisplayName=cleanDisplayName(p.displayName, p.name);
@@ -1600,7 +1680,7 @@ export default function WeekPivot() {
                           {custKeys.map((ck,ci)=>(
                             <React.Fragment key={`r-${wk}-${ck}`}>
                               {ci>0&&ci%CUST_REPEAT===0&&<td style={{...st.td,background:'#eceff1',fontSize:7,color:'#888',textAlign:'center'}}>품명</td>}
-                              <td style={{...st.td,fontSize:9,textAlign:'center',color:'#1e293b',fontWeight:700,whiteSpace:'normal',wordBreak:'break-all',background:ci%2===0?'#e8f0fe':'#f8fafc',borderLeft:ci===0?'2px solid #94a3b8':'none'}}>{cShort(ck)}</td>
+                              <td style={{...st.td,fontSize:9,textAlign:'center',color:'#1e293b',fontWeight:700,whiteSpace:'normal',wordBreak:'break-all',background:ci%2===0?'#e8f0fe':'#f8fafc',borderLeft:ci===0?'2px solid #94a3b8':'none'}}>{customerHighlightButton(ck, true)}</td>
                             </React.Fragment>
                           ))}
                           <td colSpan={stockCols} style={{...st.td,background:'#eceff1'}}></td>
@@ -1610,19 +1690,23 @@ export default function WeekPivot() {
                   )}
                   {(()=>{
                     const isSel = pk === selectedPK;
+                    const isCustomerHighlighted = highlightedProdKeys.has(pk);
                     const rowBg = isSel ? '#FFF8E1' : (pi%2===0?'#fff':'#f5f5f5');
                     return (
-                  <tr style={{background:rowBg, outline: isSel?'1px solid #FFA000':'none', outlineOffset:'-1px'}}>
+                  <tr data-pivot-prod-key={pk} data-customer-highlighted={isCustomerHighlighted?'true':'false'} style={{background:rowBg, outline: isSel?'1px solid #FFA000':'none', outlineOffset:'-1px'}}>
                     <td className="wp-prod-col" style={{...st.td,position:'sticky',left:0,background:rowBg,zIndex:1,
-                                borderLeft: isSel?'4px solid #FF6F00':'4px solid transparent', boxSizing:'border-box'}}>
+                                borderLeft: isSel?'4px solid #FF6F00':isCustomerHighlighted?'4px solid #7c3aed':'4px solid transparent', boxSizing:'border-box'}}>
                       <span style={{...st.clickCell,fontSize:8,color:filterCoun===p.coun?'#1565c0':'#999'}}
                             onClick={()=>{setFilterCoun(prev=>prev===p.coun?'':p.coun);setPvFlowers(new Set());}}>{p.coun}</span>
                       <span style={{...st.clickCell,fontSize:8,color:pvFlowers.has(p.flower)?'#2e7d32':'#999',marginLeft:2}}
                             onClick={()=>setPvFlowers(prev=>{const n=new Set(prev);n.has(p.flower)?n.delete(p.flower):n.add(p.flower);return n;})}>·{p.flower}</span>
                       <div style={{display:'flex',alignItems:'flex-start',gap:4,marginTop:2}}>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontWeight:600,fontSize:12,cursor:'pointer',color:isSel?'#E65100':undefined,lineHeight:1.15,wordBreak:'break-word'}}
-                               onClick={()=>setSelectedPK(prev=>prev===pk?null:pk)} title={p.name}>{prodBaseName}</div>
+                          <div style={{fontWeight:600,fontSize:12,cursor:'pointer',color:isSel?'#E65100':isCustomerHighlighted?'#5b21b6':undefined,lineHeight:1.15,wordBreak:'break-word'}}
+                               onClick={()=>setSelectedPK(prev=>prev===pk?null:pk)} title={p.name}>
+                            {isCustomerHighlighted&&<span className="pv-customer-highlight" aria-hidden="true" style={{marginRight:4,color:'#7c3aed'}}>●</span>}
+                            {prodBaseName}
+                          </div>
                           <button
                             type="button"
                             onClick={(e)=>{e.stopPropagation();setPvNameEdit({prodKey:pk,prodName:p.name,displayName:prodSuggestedName});}}
@@ -1664,7 +1748,7 @@ export default function WeekPivot() {
                                         onClick={()=>{if(fixed){alert('확정된 차수는 수정할 수 없습니다');return;}setPvEdit({year:orderYearFromWeek(weekFrom),pk,ck,wk,val:v,newVal:pend?pend.newQty:v,custName:cShort(ck),prodName:pivotProdName(p),farmAssignments:pend?.farmAssignments,sdetailKey:pend?.sdetailKey});}}>
                                       {pend?`${v>0?fmt(v):0}→${fmt(pend.newQty)}`:(v>0?fmt(v):'·')}
                                       {fixed&&v>0&&<span style={{fontSize:Math.max(6,pvFontSize-3),color:'#999'}}>🔒</span>}
-                                      {pvDescrOpen && descrMap[`${pk}-${ck}-${wk}`] && <span className="pv-inline-descr" title={`${cShort(ck)} 비고(변경내역)`} onClick={e=>e.stopPropagation()}>{descrMap[`${pk}-${ck}-${wk}`]}</span>}
+                                      {pvDescrOpen && descrMap[`${pk}-${ck}-${wk}`] && <span className="pv-inline-descr" title={`${cShort(ck)}: ${descrMap[`${pk}-${ck}-${wk}`]}`} onMouseDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}>{descrMap[`${pk}-${ck}-${wk}`]}</span>}
                                     </td>
                                   );
                                 })()}
@@ -1717,15 +1801,17 @@ export default function WeekPivot() {
                                           lineHeight:'1.3',cursor:'pointer',verticalAlign:'middle',padding:'2px 4px'}}
                                   onClick={()=>setPvDescrOpen(p=>!p)}>
                                 {pvDescrOpen?(
-                                  <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'stretch'}}>
+                                  <div className="pv-notes-scroll" onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()} onWheel={e=>e.stopPropagation()}>
+                                    <div className="pv-notes-line">
                                     {custLogs.flatMap(({ck,lines})=>lines.map((line,li)=>(
-                                      <span key={`${ck}-${li}`} style={{display:'flex',alignItems:'flex-start',gap:4,whiteSpace:'normal'}}>
-                                        <span style={{fontSize:10,color:'#334155',overflowWrap:'anywhere'}}><b>{cShort(ck)}:</b> {line}</span>
+                                      <span className="pv-note-item" key={`${ck}-${li}`} title={`${cShort(ck)}: ${line}`}>
+                                        <span style={{fontSize:10,color:'#334155'}}><b>{cShort(ck)}:</b> {line}</span>
                                         <span title="수정내역 삭제"
                                           style={{cursor:'pointer',color:'#e53935',fontSize:9,lineHeight:'1.3',padding:'0 1px'}}
                                           onClick={e=>{e.stopPropagation();setPvDescrModal({pk,ck,wk,lineIdx:li,custName:cShort(ck),prodName:pivotProdName(p),line,allLines:lines});}}>✕</span>
                                       </span>
                                     )))}
+                                    </div>
                                   </div>
                                 ):(
                                   cnt>0?<span style={{color:'#e65100',fontWeight:700}}>+{cnt}</span>:''

@@ -15,3 +15,11 @@ verification: `docs/exe-golden/README.md`의 FormQuantityPivot 등록 및 기존
 
 `lib/pivotProductSearch.js`는 `수국화이트`, `수국 화이트`, `Hydrangea White`를 같은 canonical 품목 후보로 찾기 위한 정규화 모듈이다. `pages/stats/pivot.js`는 기존 옵션 목록과 exact filter 값을 유지하고, 후보 표시 단계에서만 별칭을 사용한다.
 
+## 2026-09-09 차수피벗 표시 전용 보강 근거
+
+- 실제 설치 `C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe`를 로컬 `dnSpy.Console.exe --no-color -t Nenova.FormQuantityPivot`로 재확인했다.
+- `GetData`는 StockMaster 연도·차수 범위와 ViewOrder, ViewShipment/ShipmentDate, ViewWarehouse, ProductStock을 조회한다. 업체 강조·품명 검색에는 별도 저장 작업이 없다.
+- 웹 `/shipment/week-pivot`의 기존 조회는 그대로 유지한다. 새 검색은 원본 `prodKeys`/집계 이후 화면 `visibleProdKeys`만 거르고, 업체 강조는 선택 범위의 현재 주문·출고 양수 여부만 읽는다.
+- 2026-37-01 운영 GET 근거: customers 1,024행 및 시작/확정재고 조회 모두 HTTP 200/success=true, 원장 변경 0건. 고객별 원문은 커밋하지 않는다.
+- 비고 원문과 삭제 시 사용하는 고객·품목·차수·행 인덱스는 보존하고 표시 방향만 가로 한 줄로 바꾼다. 기존 Excel 입력, Amount/Vat/isFix, Estimate, WebProfitReport에 변화 없음.
+
