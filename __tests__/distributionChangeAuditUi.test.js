@@ -28,6 +28,8 @@ assert.match(audit,/요청 차수/);assert.match(audit,/이력 근거/);assert.m
 assert.match(audit,/activeContext\.current!==runContext/);
 assert.match(audit,/activeContext\.current='unmounted'/);
 assert.match(audit,/분석 \{audit\.requests\.length\}건/);
+assert.match(audit,/audit\.extractionErrorCode\?<p className="audit-error" role="status">AI 분석 실패 · 원문을 보존했습니다<\/p>/);
+assert.match(audit,/audit\.extractionErrorCode\?'AI 오류로 분석 결과를 만들지 못했습니다\. 원문은 보존되어 있습니다\.'/);
 assert.doesNotMatch(audit,/\['참고 항목',audit\.findings\]/);
 assert.match(audit,/function candidateEventsFor/);
 assert.match(audit,/Array\.isArray\(finding\?\.evidence\?\.candidateEvents\)/);
