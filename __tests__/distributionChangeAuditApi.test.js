@@ -44,7 +44,7 @@ function response() {
   };
 }
 
-function makeDeps({ approximate = false, rejectLlm = false, storeFailure = false, missingSourceAt = false, factsFailure = false, manyCandidates = false, conflictingCustomerAliases = false } = {}) {
+function makeDeps({ approximate = false, rejectLlm = false, llmError = null, llmText = '{}', schemaError = null, storeFailure = false, missingSourceAt = false, factsFailure = false, manyCandidates = false, conflictingCustomerAliases = false } = {}) {
   const saveCalls = [];
   const history = manyCandidates
     ? Array.from({ length: 51 }, (_, index) => ({ eventId: `event-${index + 1}`, before: index, after: index + 1, changeAt: '2026-09-10T10:00:00+09:00', week: '37-01', shipmentDate: '2026-09-10', unit: '단' }))
@@ -54,7 +54,8 @@ function makeDeps({ approximate = false, rejectLlm = false, storeFailure = false
       this.messages = {
         create: async () => {
           if (rejectLlm) throw new Error('vendor-header: secret prompt content');
-          return { content: [{ type: 'text', text: '{}' }] };
+          if (llmError) throw llmError;
+          return { content: [{ type: 'text', text: llmText }] };
         },
       };
     }
@@ -65,16 +66,19 @@ function makeDeps({ approximate = false, rejectLlm = false, storeFailure = false
     auth: { withAuth: handler => handler },
     extract: {
       buildExtractionPrompt: () => 'strict prompt',
-      normalizeExtraction: (raw) => Array.isArray(raw.requests)
-        ? raw
-        : {
+      normalizeExtraction: (raw) => {
+        if (schemaError && raw.__schemaFailure === true) throw schemaError;
+        return Array.isArray(raw.requests)
+          ? raw
+          : {
           requests: [{
             id: 'request-1', sourceIdentity: 'message-1', quote: '라움별칭 화이트별칭 2박스 추가',
             action: 'ADD', customerText: '라움별칭', productText: '화이트별칭', qty: 2, unit: '박스',
             week: '37-01', shipmentDate: null, ...(missingSourceAt ? {} : { sourceAt: '2026-09-10T09:30:00+09:00' }), timestamp_approximate: approximate,
           }],
           unresolved: [],
-        },
+          };
+      },
     },
     facts: {
       validateAuditScope: ({ year, week }) => ({ year: String(year), weeks: [week], from: '2026-09-10', to: '2026-09-10' }),
@@ -125,6 +129,14 @@ async function invoke(options) {
   return { res, saveCalls: deps.saveCalls };
 }
 
+function sdkError({ name, status, code, message = 'vendor detail must not leave the server' }) {
+  const error = new Error(message);
+  if (name) error.name = name;
+  if (status !== undefined) error.status = status;
+  if (code) error.code = code;
+  return error;
+}
+
 (async () => {
   const { res: exactAliasResponse, saveCalls } = await invoke();
   assert.equal(exactAliasResponse.statusCode, 200);
@@ -148,6 +160,32 @@ async function invoke(options) {
     eventId: 'event-1', before: 3, after: 23, changeAt: '2026-09-10T10:00:00+09:00', week: '37-01', shipmentDate: '2026-09-10', unit: '단',
   }]);
 
+  const { res: fencedJsonResponse } = await invoke({ llmText: '```json\n{}\n```' });
+  assert.equal(fencedJsonResponse.statusCode, 200);
+  assert.equal(fencedJsonResponse.body.requests.length, 1);
+  assert.equal(Object.hasOwn(fencedJsonResponse.body, 'extractionErrorCode'), false);
+
+  const { res: prefixedJsonResponse } = await invoke({ llmText: '모델 안내문\n{}' });
+  assert.equal(prefixedJsonResponse.statusCode, 200);
+  assert.equal(prefixedJsonResponse.body.requests.length, 0);
+  assert.equal(prefixedJsonResponse.body.extractionErrorCode, 'JSON_PARSE');
+  assert.match(prefixedJsonResponse.body.warnings[0], /응답 형식/);
+  assert.doesNotMatch(JSON.stringify(prefixedJsonResponse.body), /모델 안내문/);
+
+  const { res: schemaFailureResponse } = await invoke({
+    schemaError: new TypeError('week must be WW-SS or null'), llmText: '{"__schemaFailure":true}',
+  });
+  assert.equal(schemaFailureResponse.body.extractionErrorCode, 'EXTRACTION_SCHEMA');
+  assert.equal(schemaFailureResponse.body.extractionValidationField, 'week');
+  assert.match(schemaFailureResponse.body.warnings[0], /AI가 차수 형식을 올바르게 반환하지 못했습니다/);
+
+  const { res: unknownSchemaFailureResponse } = await invoke({
+    schemaError: new Error('vendor schema details must not leave the server'), llmText: '{"__schemaFailure":true}',
+  });
+  assert.equal(unknownSchemaFailureResponse.body.extractionErrorCode, 'EXTRACTION_SCHEMA');
+  assert.equal(unknownSchemaFailureResponse.body.extractionValidationField, 'other');
+  assert.doesNotMatch(JSON.stringify(unknownSchemaFailureResponse.body), /vendor schema details/);
+
   const { res: approximateResponse } = await invoke({ approximate: true });
   assert.equal(approximateResponse.body.requests[0].mappingConfirmed, false);
 
@@ -157,8 +195,22 @@ async function invoke(options) {
   const { res: llmFailureResponse } = await invoke({ rejectLlm: true });
   assert.equal(llmFailureResponse.statusCode, 200);
   assert.equal(llmFailureResponse.body.requests.length, 0);
-  assert.match(llmFailureResponse.body.warnings[0], /자동 추출 결과 형식 또는 연결 문제/);
+  assert.equal(llmFailureResponse.body.extractionErrorCode, 'OTHER');
+  assert.match(llmFailureResponse.body.warnings[0], /알 수 없는 문제/);
   assert.doesNotMatch(llmFailureResponse.body.warnings[0], /vendor-header|secret prompt/);
+
+  for (const [error, expectedCode] of [
+    [sdkError({ name: 'AuthenticationError', status: 401 }), 'API_AUTH'],
+    [sdkError({ name: 'RateLimitError', status: 429 }), 'RATE_LIMIT'],
+    [sdkError({ name: 'NotFoundError', status: 404 }), 'MODEL_UNAVAILABLE'],
+    [sdkError({ name: 'APIConnectionTimeoutError', code: 'ETIMEDOUT' }), 'TIMEOUT'],
+  ]) {
+    const { res: classifiedFailureResponse } = await invoke({ llmError: error });
+    assert.equal(classifiedFailureResponse.statusCode, 200);
+    assert.equal(classifiedFailureResponse.body.extractionErrorCode, expectedCode);
+    assert.match(classifiedFailureResponse.body.warnings[0], /원문을 미확인 항목으로 보존했습니다/);
+    assert.doesNotMatch(JSON.stringify(classifiedFailureResponse.body), /vendor detail/);
+  }
 
   const { res: missingSourceAtResponse, saveCalls: missingSourceAtSaveCalls } = await invoke({ missingSourceAt: true });
   assert.equal(Object.hasOwn(missingSourceAtResponse.body.requests[0], 'sourceAt'), false);
