@@ -44,7 +44,7 @@ function response() {
   };
 }
 
-function makeDeps({ approximate = false, rejectLlm = false, llmError = null, toolName = 'record_distribution_changes', toolInput = {}, responseContent = null, schemaError = null, storeFailure = false, missingSourceAt = false, factsFailure = false, manyCandidates = false, conflictingCustomerAliases = false } = {}) {
+function makeDeps({ approximate = false, rejectLlm = false, llmError = null, toolName = 'record_distribution_changes', toolInput = {}, responseContent = null, schemaError = null, contextProductAlias = false, conflictingProductAliases = false, duplicateDirectProductNames = false, storeFailure = false, missingSourceAt = false, factsFailure = false, manyCandidates = false, conflictingCustomerAliases = false } = {}) {
   const saveCalls = [];
   const messageCalls = [];
   const history = manyCandidates
@@ -75,7 +75,7 @@ function makeDeps({ approximate = false, rejectLlm = false, llmError = null, too
           : {
           requests: [{
             id: 'request-1', sourceIdentity: 'message-1', quote: '라움별칭 화이트별칭 2박스 추가',
-            action: 'ADD', customerText: '라움별칭', productText: '화이트별칭', qty: 2, unit: '박스',
+            action: 'ADD', customerText: '라움별칭', productText: contextProductAlias || conflictingProductAliases || duplicateDirectProductNames ? '돈셀' : '화이트별칭', productContextText: contextProductAlias || conflictingProductAliases || duplicateDirectProductNames ? '카네이션' : null, qty: 2, unit: '박스',
             week: '37-01', shipmentDate: null, ...(missingSourceAt ? {} : { sourceAt: '2026-09-10T09:30:00+09:00' }), timestamp_approximate: approximate,
           }],
           unresolved: [],
@@ -88,7 +88,13 @@ function makeDeps({ approximate = false, rejectLlm = false, llmError = null, too
         if (factsFailure) throw new Error('database unavailable');
         return {
         customers: [{ CustKey: 11, CustName: '라움' }, { CustKey: 12, CustName: '다른 업체' }],
-        products: [{ ProdKey: 22, ProdName: '화이트', DisplayName: 'WHITE', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 }],
+        products: duplicateDirectProductNames ? [
+          { ProdKey: 22, ProdName: '돈셀', DisplayName: 'DONCEL-A', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 },
+          { ProdKey: 23, ProdName: '돈셀', DisplayName: 'DONCEL-B', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 },
+        ] : [
+          { ProdKey: 22, ProdName: '화이트', DisplayName: 'WHITE', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 },
+          ...(conflictingProductAliases ? [{ ProdKey: 23, ProdName: '다른 돈셀', DisplayName: 'OTHER', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 }] : []),
+        ],
         history,
         currentRows: [{ ignored: true }], historyComplete: false, warnings: [],
         };
@@ -102,7 +108,11 @@ function makeDeps({ approximate = false, rejectLlm = false, llmError = null, too
       },
     },
     products: {
-      loadMappings: () => ({ '화이트별칭': { prodKey: 22 } }),
+      loadMappings: () => duplicateDirectProductNames
+        ? { '카네이션 돈셀': { prodKey: 22 } }
+        : conflictingProductAliases
+        ? { '돈셀': { prodKey: 22 }, '카네이션 돈셀': { prodKey: 23 } }
+        : contextProductAlias ? { '카네이션 돈셀': { prodKey: 22 } } : { '화이트별칭': { prodKey: 22 } },
       normalizeToken: value => String(value).trim(),
     },
     customers: {
@@ -168,6 +178,7 @@ function sdkError({ name, status, code, message = 'vendor detail must not leave 
   assert.equal(messageCalls[0].tool_choice.disable_parallel_tool_use, true);
   assert.equal(messageCalls[0].tools[0].name, 'record_distribution_changes');
   assert.deepEqual(JSON.parse(JSON.stringify(messageCalls[0].tools[0].input_schema.required)), ['requests', 'unresolved']);
+  assert.deepEqual(JSON.parse(JSON.stringify(messageCalls[0].tools[0].input_schema.properties.requests.items.required)), ['sourceIdentity', 'quote', 'action', 'customerText', 'productText', 'productContextText', 'qty', 'unit', 'week', 'shipmentDate']);
   assert.deepEqual(JSON.parse(JSON.stringify(messageCalls[0].tools[0].input_schema.properties.unresolved.items.required)), ['sourceIdentity', 'quote', 'reason']);
 
   const { res: wrongToolResponse } = await invoke({
@@ -213,6 +224,19 @@ function sdkError({ name, status, code, message = 'vendor detail must not leave 
 
   const { res: conflictingAliasResponse } = await invoke({ conflictingCustomerAliases: true });
   assert.equal(conflictingAliasResponse.body.requests[0].mappingConfirmed, false);
+
+  const { res: contextProductResponse } = await invoke({ contextProductAlias: true });
+  assert.equal(contextProductResponse.body.requests[0].productContextText, '카네이션');
+  assert.equal(contextProductResponse.body.requests[0].prodKey, 22);
+  assert.equal(contextProductResponse.body.requests[0].mappingConfirmed, true);
+
+  const { res: conflictingProductResponse } = await invoke({ conflictingProductAliases: true });
+  assert.equal(conflictingProductResponse.body.requests[0].prodKey, null);
+  assert.equal(conflictingProductResponse.body.requests[0].mappingConfirmed, false);
+
+  const { res: duplicateDirectProductResponse } = await invoke({ duplicateDirectProductNames: true });
+  assert.equal(duplicateDirectProductResponse.body.requests[0].prodKey, null);
+  assert.equal(duplicateDirectProductResponse.body.requests[0].mappingConfirmed, false);
 
   const { res: llmFailureResponse } = await invoke({ rejectLlm: true });
   assert.equal(llmFailureResponse.statusCode, 200);
