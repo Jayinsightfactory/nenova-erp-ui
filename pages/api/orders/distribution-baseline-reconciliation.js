@@ -6,6 +6,7 @@ const { DistributionBaselineReconciliationError, reconcileDistributionBaseline }
 
 const WEEK_RE = /^(0[1-9]|[1-4]\d|5[0-3])-(0[1-9]|[1-9]\d)$/;
 const BASELINE_ID_RE = /^[0-9a-f]{64}$/;
+const REQUEST_FIELDS = new Set(['year', 'week', 'baselineId', 'bindings']);
 
 export const config = { api: { bodyParser: { sizeLimit: '200kb' } } };
 
@@ -33,6 +34,12 @@ function responseError(res, error, extras = {}) {
 }
 
 function requestScope(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw inputError('INVALID_REQUEST_FIELDS', '요청 본문 형식이 올바르지 않습니다.');
+  }
+  for (const key of Object.keys(body)) {
+    if (!REQUEST_FIELDS.has(key)) throw inputError('INVALID_REQUEST_FIELDS', '허용되지 않은 요청 필드가 있습니다.');
+  }
   const year = String(body?.year || '').trim(), week = String(body?.week || '').trim(), baselineId = String(body?.baselineId || '').trim();
   if (!/^20\d{2}$/.test(year) || !WEEK_RE.test(week)) throw inputError('INVALID_SCOPE', '연도와 세부차수 범위가 올바르지 않습니다.');
   if (!BASELINE_ID_RE.test(baselineId)) throw inputError('INVALID_BASELINE_ID', '기준본 식별자 형식이 올바르지 않습니다.');
@@ -73,6 +80,7 @@ export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return responseError(res, inputError('METHOD_NOT_ALLOWED', 'POST 요청만 허용됩니다.', 405)); }
   let baseline;
   let scope;
+  let currentComplete = false;
   try {
     const requested = requestScope(req.body || {});
     baseline = await store.getBaseline({ year: requested.year, week: requested.week, id: requested.baselineId });
@@ -84,6 +92,7 @@ export default withAuth(async function handler(req, res) {
         scope: { ...scope, currentComplete: false }, observedAt: new Date().toISOString(),
       });
     }
+    currentComplete = true;
     const projection = reconcileDistributionBaseline({ baseline, bindings: req.body?.bindings, ...catalog, currentComplete: true });
     return res.status(200).json({
       success: true,
@@ -95,6 +104,6 @@ export default withAuth(async function handler(req, res) {
       ...projection,
     });
   } catch (error) {
-    return responseError(res, error, baseline && scope ? { baseline: { id: baseline.id, year: baseline.year, week: baseline.week, coverage: baseline.coverage }, scope: { ...scope, currentComplete: false } } : {});
+    return responseError(res, error, baseline && scope ? { baseline: { id: baseline.id, year: baseline.year, week: baseline.week, coverage: baseline.coverage }, scope: { ...scope, currentComplete } } : {});
   }
 });

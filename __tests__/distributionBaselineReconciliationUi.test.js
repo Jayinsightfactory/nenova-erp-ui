@@ -3,6 +3,21 @@ const fs=require('node:fs');
 
 const panel=fs.readFileSync(require.resolve('../components/orders/DistributionBaselinePanel.js'),'utf8');
 const ui=fs.readFileSync(require.resolve('../components/orders/DistributionBaselineReconciliation.js'),'utf8');
+const helperSource=ui.slice(0,ui.indexOf('export default function')).replace(/^import .*?;\r?\n/m,'').replace(/^export /gm,'');
+const {createEmptyBindings,pageWindow,acceptsReconciliationResponse}=new Function(`${helperSource};return {createEmptyBindings,pageWindow,acceptsReconciliationResponse};`)();
+
+const emptyBindings=createEmptyBindings();
+for(const name of ['sheetScopes','keymapBatch','rowOverrides','columnOverrides','columnDateOverrides','rowUnitOverrides']) {
+  assert.equal(Array.isArray(emptyBindings[name]),false,`${name} must begin as an ID map`);
+  assert.equal(Object.getPrototypeOf(emptyBindings[name]),null,`${name} must begin as a null-prototype map`);
+}
+assert.deepEqual(emptyBindings.dateGroups,[]);
+const hundredThousand=Array.from({length:100000},(_,index)=>index);
+assert.deepEqual(pageWindow(hundredThousand,0,25),{items:hundredThousand.slice(0,25),page:0,pages:4000,total:100000,start:0,end:25});
+assert.deepEqual(pageWindow(hundredThousand,99999,20),{items:hundredThousand.slice(99980),page:4999,pages:5000,total:100000,start:99980,end:100000});
+assert.equal(acceptsReconciliationResponse({activeScope:'a',requestScope:'a',requestSequence:3,currentSequence:3,requestRevision:5,currentRevision:5}),true);
+assert.equal(acceptsReconciliationResponse({activeScope:'a',requestScope:'a',requestSequence:3,currentSequence:4,requestRevision:5,currentRevision:5}),false);
+assert.equal(acceptsReconciliationResponse({activeScope:'a',requestScope:'a',requestSequence:3,currentSequence:3,requestRevision:5,currentRevision:6}),false);
 
 assert.match(panel,/import DistributionBaselineReconciliation/);
 assert.match(panel,/const \[savedRecord,setSavedRecord\] = useState\(null\)/);
@@ -35,8 +50,8 @@ assert.match(ui,/const raw=column\.day\|\|'미정'/);
 assert.doesNotMatch(ui,/const raw=column\.sourceDay\|\|'미정'/);
 assert.match(ui,/원본 내보내기 단위를 그대로 사용함/);
 assert.match(ui,/원본 \{text\(cell\?\.baselineRaw\)\}/);
-assert.match(ui,/현재 \{numeric\(cell\?\.erpCurrentQuantity\)\}/);
-assert.match(ui,/차이 \{delta\(cell\?\.delta\)\}/);
+assert.match(ui,/현재 \{numeric\(stale\?null:cell\?\.erpCurrentQuantity\)\}/);
+assert.match(ui,/차이 \{delta\(stale\?null:cell\?\.delta\)\}/);
 assert.match(ui,/확인 필요/);
 assert.match(ui,/max-height:55vh/);
 assert.match(ui,/\.reconcile-scroll th small,\.reconcile-scroll td small\{display:block\}/);
@@ -45,6 +60,22 @@ assert.match(ui,/observedAtKst\(result\.observedAt\)/);
 assert.match(ui,/timeZone:'Asia\/Seoul'/);
 assert.match(ui,/const cellByCoordinate=useMemo\(\(\)=>new Map/);
 assert.match(ui,/cellByCoordinate\.get/);
+assert.match(ui,/const ROW_PAGE_SIZE=25/);
+assert.match(ui,/const COLUMN_PAGE_SIZE=20/);
+assert.match(ui,/const rowWindow=pageWindow\(filteredRows,rowPage,ROW_PAGE_SIZE\)/);
+assert.match(ui,/const columnWindow=pageWindow\(sheet\?\.columns\|\|\[\],columnPage,COLUMN_PAGE_SIZE\)/);
+assert.match(ui,/rowWindow\.items\.map/);
+assert.match(ui,/columnWindow\.items\.map/);
+assert.match(ui,/이전 차이값을 숨겼습니다/);
+assert.match(ui,/전체 \{sheet\.rows\.length\}품목/);
+assert.match(ui,/원본 \{sourceRows\.length\}품목/);
+assert.match(ui,/function updateBindings\(update\)/);
+assert.match(ui,/bindingRevision\.current\+\+;sequence\.current\+\+/);
+assert.match(ui,/acceptsReconciliationResponse\(\{activeScope:activeScope\.current/);
+assert.match(ui,/범위 확인 전 전산 후보/);
+assert.match(ui,/const \[settingsOpen,setSettingsOpen\]=useState\(true\)/);
+assert.match(ui,/successfulLoads\.current>0\)setSettingsOpen\(false\)/);
+assert.match(ui,/open=\{settingsOpen\} onToggle=\{event=>setSettingsOpen\(event\.currentTarget\.open\)\}/);
 assert.match(ui,/settings-body\{max-height:320px;overflow:auto/);
 assert.match(ui,/exception-settings/);
 assert.match(ui,/mappingEditor/);

@@ -120,6 +120,8 @@ assert.match('Premium Alstro', ALSTRO_RE);
   assert.equal(result.sheetCandidates[0].source, 'ERP_CANDIDATE');
   assert.deepEqual(result.sheets[0].rows.slice(0, 2).map(row => row.id), ['sheet-a!A4', 'sheet-a!A5']);
   assert.equal(result.sheets[0].rows.find(row => row.prodKey === 13).origin, 'ERP_CANDIDATE');
+  assert.equal(result.sheets[0].cells.some(item => item.state === 'ERP_CANDIDATE'), true,
+    'unconfirmed appended cells must not be presented as ERP_ONLY');
   assert.equal(result.sheets[0].id, 'sheet-a');
   assert.equal(result.sheets[0].sheetId, undefined);
   assert.equal(result.sheets[0].cells.every(item => item.delta === null), true);
@@ -237,6 +239,19 @@ assert.match('Premium Alstro', ALSTRO_RE);
   assert.deepEqual(cell(result).contributions, []);
   assert.equal(result.unclassifiedCurrent[0].duplicateCount, 2);
   assert.equal(result.unclassifiedCurrent[0].qty, null);
+  assert.ok(result.unclassifiedCurrent[0].issues.includes('DUPLICATE_CURRENT_IDENTITY'));
+}
+
+{
+  const first = current(11, 3);
+  const differentDateSameSixKeys = { ...first, shipmentDate: '2026-09-11', qty: 4 };
+  const result = project({ bindings: bindings(), currentRows: [first, differentDateSameSixKeys] });
+  const relatedCells = result.sheets[0].cells.filter(item => item.rowId === 'sheet-a!A4');
+  assert.equal(relatedCells.every(item => item.erpCurrentQuantity === null && item.delta === null), true,
+    'the exact six-key identity is duplicate even when observed shipment dates differ');
+  assert.equal(relatedCells.every(item => item.contributions.length === 0), true);
+  assert.equal(result.unclassifiedCurrent.length, 1);
+  assert.equal(result.unclassifiedCurrent[0].duplicateCount, 2);
   assert.ok(result.unclassifiedCurrent[0].issues.includes('DUPLICATE_CURRENT_IDENTITY'));
 }
 

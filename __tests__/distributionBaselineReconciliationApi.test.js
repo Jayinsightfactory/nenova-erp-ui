@@ -103,6 +103,23 @@ async function invoke(options = {}, body = { year: '2026', week: '37-01', baseli
   const { res: malformedResponse } = await invoke({ malformedCurrent: true });
   assert.equal(malformedResponse.statusCode, 503);
   assert.equal(malformedResponse.body.error.code, 'CURRENT_QUERY_MALFORMED');
+  assert.equal(malformedResponse.body.scope.currentComplete, false);
+
+  const { res: invalidBindingsResponse } = await invoke({}, {
+    year: '2026', week: '37-01', baselineId: 'a'.repeat(64), bindings: { keymapBatch: [] },
+  });
+  assert.equal(invalidBindingsResponse.statusCode, 400);
+  assert.equal(invalidBindingsResponse.body.error.code, 'INVALID_BINDINGS');
+  assert.equal(invalidBindingsResponse.body.scope.currentComplete, true,
+    'a completed current query remains complete when only bindings are invalid');
+
+  const legacyTopLevel = deps(); const legacyTopLevelResponse = response();
+  await compile(legacyTopLevel)({ method: 'POST', headers: {}, body: {
+    year: '2026', week: '37-01', baselineId: 'a'.repeat(64), unitAttestation: { originalExportUnitsPreserved: true },
+  } }, legacyTopLevelResponse);
+  assert.equal(legacyTopLevelResponse.statusCode, 400);
+  assert.equal(legacyTopLevelResponse.body.error.code, 'INVALID_REQUEST_FIELDS');
+  assert.equal(legacyTopLevel.calls.length, 0, 'unexpected top-level legacy fields must be rejected before reads');
 
   const { res: upperIdResponse } = await invoke({}, { year: '2026', week: '37-01', baselineId: 'A'.repeat(64), bindings: {} });
   assert.equal(upperIdResponse.statusCode, 400);

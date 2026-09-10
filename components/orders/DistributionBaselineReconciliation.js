@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-const EMPTY_BINDINGS=()=>({sheetScopes:Object.create(null),keymapBatch:Object.create(null),rowOverrides:Object.create(null),columnOverrides:Object.create(null),dateGroups:[],columnDateOverrides:Object.create(null),unitAttestation:{originalExportUnitsPreserved:false},rowUnitOverrides:Object.create(null)});
+const ROW_PAGE_SIZE=25;
+const COLUMN_PAGE_SIZE=20;
+export const createEmptyBindings=()=>({sheetScopes:Object.create(null),keymapBatch:Object.create(null),rowOverrides:Object.create(null),columnOverrides:Object.create(null),dateGroups:[],columnDateOverrides:Object.create(null),unitAttestation:{originalExportUnitsPreserved:false},rowUnitOverrides:Object.create(null)});
+export function pageWindow(items,page,size) {
+  const list=Array.isArray(items)?items:[];
+  const limit=Number.isInteger(size)&&size>0?size:1;
+  const pages=Math.max(1,Math.ceil(list.length/limit));
+  const current=Math.max(0,Math.min(Number.isInteger(page)?page:0,pages-1));
+  const start=current*limit;
+  return {items:list.slice(start,start+limit),page:current,pages,total:list.length,start,end:Math.min(start+limit,list.length)};
+}
+export function acceptsReconciliationResponse({activeScope,requestScope,requestSequence,currentSequence,requestRevision,currentRevision}) {
+  return activeScope===requestScope&&requestSequence===currentSequence&&requestRevision===currentRevision;
+}
 const isId=value=>typeof value==='string'&&/^[a-f0-9]{64}$/i.test(value);
 const text=value=>value===null||value===undefined||value===''?'—':String(value);
 const numeric=value=>typeof value==='number'&&Number.isFinite(value)?String(value):'—';
@@ -23,20 +36,26 @@ function validResult(data) {
 }
 
 export default function DistributionBaselineReconciliation({record,selectedWeek,onModeChange}) {
-  const [bindings,setBindings]=useState(EMPTY_BINDINGS);
+  const [bindings,setBindings]=useState(createEmptyBindings);
   const [result,setResult]=useState(null);
   const [activeSheet,setActiveSheet]=useState('');
   const [search,setSearch]=useState('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [editor,setEditor]=useState(null);
+  const [rowPage,setRowPage]=useState(0);
+  const [columnPage,setColumnPage]=useState(0);
+  const [needsRefresh,setNeedsRefresh]=useState(false);
+  const [settingsOpen,setSettingsOpen]=useState(true);
   const sequence=useRef(0);
+  const bindingRevision=useRef(0);
+  const successfulLoads=useRef(0);
   const scopeKey=`${record?.id||''}:${selectedWeek||''}`;
   const activeScope=useRef(scopeKey);activeScope.current=scopeKey;
   const weekMatch=/^(\d{4})-(\d{2}-\d{2})$/.exec(String(selectedWeek||''));
 
   useEffect(()=>{
-    sequence.current++;setBindings(EMPTY_BINDINGS());setResult(null);setActiveSheet('');setSearch('');setBusy(false);setError('');setEditor(null);onModeChange?.(false);
+    sequence.current++;bindingRevision.current++;successfulLoads.current=0;setBindings(createEmptyBindings());setResult(null);setActiveSheet('');setSearch('');setBusy(false);setError('');setEditor(null);setRowPage(0);setColumnPage(0);setNeedsRefresh(false);setSettingsOpen(true);onModeChange?.(false);
   },[scopeKey,onModeChange]);
 
   const products=useMemo(()=>new Map((result?.catalog?.products||[]).map(item=>[Number(item.ProdKey),item])),[result]);
@@ -51,52 +70,58 @@ export default function DistributionBaselineReconciliation({record,selectedWeek,
   const selectedBatch=sourceSheet?mapValue(bindings.keymapBatch,sourceSheet.id):null;
   const cellByCoordinate=useMemo(()=>new Map((sheet?.cells||[]).map(cell=>[`${cell.rowId}\u001f${cell.columnId}`,cell])),[sheet]);
 
-  function setBinding(name,value) { setBindings(previous=>({...previous,[name]:value})); }
+  function updateBindings(update) {
+    bindingRevision.current++;sequence.current++;setBusy(false);setError('');setNeedsRefresh(true);
+    setBindings(previous=>update(previous));
+  }
+  function setBinding(name,value) { updateBindings(previous=>({...previous,[name]:value})); }
   function setScope(candidate,confirmed) {
     if(!candidate)return;
     const groups=(candidate.groups||[]).map(group=>({country:group.country,flower:group.flower}));
     const sheetId=candidate.sheetId;
-    setBindings(previous=>({...previous,sheetScopes:setMapValue(previous.sheetScopes,sheetId,{confirmed:Boolean(confirmed),groups})}));
+    updateBindings(previous=>({...previous,sheetScopes:setMapValue(previous.sheetScopes,sheetId,{confirmed:Boolean(confirmed),groups})}));
   }
   function setBatch(sheetId,field,checked) {
-    setBindings(previous=>{
+    updateBindings(previous=>{
       const current=mapValue(previous.keymapBatch,sheetId)||{confirmRows:false,confirmClients:false};
       return {...previous,keymapBatch:setMapValue(previous.keymapBatch,sheetId,{...current,[field]:Boolean(checked)})};
     });
   }
   function setOverride(kind,id,key,value) {
-    setBindings(previous=>{
+    updateBindings(previous=>{
       const positive=Number(value)>0;
       return {...previous,[kind]:setMapValue(previous[kind],key,positive?{[id==='rowId'?'prodKey':'custKey']:Number(value),confirmed:true}:null)};
     });
   }
   function setDateGroup(columns,shipmentDate) {
-    setBindings(previous=>({...previous,dateGroups:[...previous.dateGroups.filter(group=>!group.columnIds.some(id=>columns.includes(id))),...(shipmentDate?[{columnIds:columns,shipmentDate,confirmed:true}]:[])]}));
+    updateBindings(previous=>({...previous,dateGroups:[...previous.dateGroups.filter(group=>!group.columnIds.some(id=>columns.includes(id))),...(shipmentDate?[{columnIds:columns,shipmentDate,confirmed:true}]:[])]}));
   }
   function setColumnDate(columnId,shipmentDate) {
-    setBindings(previous=>({...previous,columnDateOverrides:setMapValue(previous.columnDateOverrides,columnId,shipmentDate?{shipmentDate,confirmed:true}:null)}));
+    updateBindings(previous=>({...previous,columnDateOverrides:setMapValue(previous.columnDateOverrides,columnId,shipmentDate?{shipmentDate,confirmed:true}:null)}));
   }
   function setUnit(rowId,unit) {
-    setBindings(previous=>({...previous,rowUnitOverrides:setMapValue(previous.rowUnitOverrides,rowId,unit?{unit,confirmed:true}:null)}));
+    updateBindings(previous=>({...previous,rowUnitOverrides:setMapValue(previous.rowUnitOverrides,rowId,unit?{unit,confirmed:true}:null)}));
   }
   async function loadCurrent() {
     const requestScope=scopeKey;
     if(!weekMatch||!isId(record?.id)||String(record.year)!==weekMatch[1]||String(record.week)!==weekMatch[2]) {setError('선택 차수와 같은 서버 보관 기준표가 필요합니다. 원본 표는 유지됩니다.');return;}
-    const requestId=++sequence.current;setBusy(true);setError('');
+    const requestId=++sequence.current;const requestRevision=bindingRevision.current;setBusy(true);setError('');
     try {
       const response=await fetch('/api/orders/distribution-baseline-reconciliation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({year:weekMatch[1],week:weekMatch[2],baselineId:record.id,bindings})});
       const data=await response.json().catch(()=>null);
-      if(activeScope.current!==requestScope||requestId!==sequence.current)return;
+      if(!acceptsReconciliationResponse({activeScope:activeScope.current,requestScope,requestSequence:requestId,currentSequence:sequence.current,requestRevision,currentRevision:bindingRevision.current}))return;
       if(!response.ok||!validResult(data)) {setError(readError(data,'전산 현재값을 확인하지 못했습니다. 원본 표는 유지됩니다.'));return;}
-      setResult(data);setActiveSheet(previous=>data.sheets.some(item=>item.id===previous)?previous:data.sheets[0]?.id||'');onModeChange?.(true);
-    } catch {if(activeScope.current===requestScope&&requestId===sequence.current)setError('전산 현재값을 확인하지 못했습니다. 원본 표는 유지됩니다.');}
-    finally {if(activeScope.current===requestScope&&requestId===sequence.current)setBusy(false);}
+      setResult(data);setNeedsRefresh(false);if(successfulLoads.current>0)setSettingsOpen(false);successfulLoads.current++;setActiveSheet(previous=>data.sheets.some(item=>item.id===previous)?previous:data.sheets[0]?.id||'');setRowPage(0);setColumnPage(0);onModeChange?.(true);
+    } catch {if(acceptsReconciliationResponse({activeScope:activeScope.current,requestScope,requestSequence:requestId,currentSequence:sequence.current,requestRevision,currentRevision:bindingRevision.current}))setError('전산 현재값을 확인하지 못했습니다. 원본 표는 유지됩니다.');}
+    finally {if(acceptsReconciliationResponse({activeScope:activeScope.current,requestScope,requestSequence:requestId,currentSequence:sequence.current,requestRevision,currentRevision:bindingRevision.current}))setBusy(false);}
   }
   if(!record)return null;
   const dateGroups=sourceSheet?sourceColumns.reduce((groups,column)=>{
     const raw=column.day||'미정';const found=groups.find(group=>group.raw===raw);if(found)found.columns.push(column);else groups.push({raw,columns:[column]});return groups;
   },[]):[];
   const filteredRows=sheet?(sheet.rows||[]).filter(row=>`${row.label||''} ${row.prodKey||''}`.toLowerCase().includes(search.toLowerCase())):[];
+  const rowWindow=pageWindow(filteredRows,rowPage,ROW_PAGE_SIZE);
+  const columnWindow=pageWindow(sheet?.columns||[],columnPage,COLUMN_PAGE_SIZE);
   const editorOptions=editor?.kind==='row'?[...products.values()].filter(product=>`${product.DisplayName||product.ProdName||''} ${product.ProdKey}`.toLowerCase().includes((editor.query||'').toLowerCase())).slice(0,30):editor?.kind==='column'?[...customers.values()].filter(customer=>`${customer.CustName||''} ${customer.CustKey}`.toLowerCase().includes((editor.query||'').toLowerCase())).slice(0,30):[];
   function candidateText(kind,source) {
     const candidate=kind==='row'?products.get(Number(source.key)):customers.get(Number(source.key));
@@ -119,10 +144,10 @@ export default function DistributionBaselineReconciliation({record,selectedWeek,
     {error&&<p className="reconcile-error" role="alert">{error}</p>}
     {result&&<>
       <div className="reconcile-bar"><span title={result.baseline.id}>{record.fileName||'보관 기준표'} · {String(result.baseline.id).slice(0,8)}…</span><span>확인 시각 {observedAtKst(result.observedAt)}</span><span>{result.scope?.currentComplete===false?'현재 자료가 완전하지 않습니다.':'자문용 현재값입니다.'}</span></div>
-      <div className="reconcile-tabs">{sheets.map(item=><button type="button" key={item.id} aria-pressed={item.id===sheet?.id} onClick={()=>{setActiveSheet(item.id);setSearch('');setEditor(null);}}>{item.name||item.id}</button>)}</div>
+      <div className="reconcile-tabs">{sheets.map(item=><button type="button" key={item.id} aria-pressed={item.id===sheet?.id} onClick={()=>{setActiveSheet(item.id);setSearch('');setEditor(null);setRowPage(0);setColumnPage(0);}}>{item.name||item.id}</button>)}</div>
       {sheet&&<>
-        <div className="reconcile-bar"><label>이 시트 품목 검색 <input value={search} onChange={event=>setSearch(event.target.value)} placeholder="품목 또는 키"/></label><span>{filteredRows.length}/{sheet.rows.length} 품목 · {sheet.columns.length} 열</span></div>
-        <details className="reconcile-settings" open><summary>원본 keymap·범위·날짜·단위 확인</summary>
+        <div className="reconcile-bar"><label>이 시트 품목 검색 <input value={search} onChange={event=>{setSearch(event.target.value);setRowPage(0);}} placeholder="품목 또는 키"/></label><span>검색 {filteredRows.length} / 전체 {sheet.rows.length}품목 · {sheet.columns.length}열 (원본 {sourceRows.length}품목 · {sourceColumns.length}열)</span></div>
+        <details className="reconcile-settings" open={settingsOpen} onToggle={event=>setSettingsOpen(event.currentTarget.open)}><summary>원본 keymap·범위·날짜·단위 확인</summary>
           <div className="settings-body"><div className="setting-grid">
             <section><strong>시트 범위</strong>{candidateBySheet.get(sheet.id)?.groups?.length?<><p>{candidateBySheet.get(sheet.id).groups.map(group=>`${group.country} · ${group.flower}`).join(' / ')}</p><label><input type="checkbox" checked={!!selectedScope?.confirmed} onChange={event=>setScope(candidateBySheet.get(sheet.id),event.target.checked)}/> 위 품목군 전체를 직접 확인</label></>:<p>원본 품목 키 후보가 모두 확인되기 전에는 범위를 정할 수 없습니다.</p>}</section>
             <section><strong>원본 keymap 일괄 확인</strong><label><input type="checkbox" checked={!!selectedBatch?.confirmRows} onChange={event=>setBatch(sheet.id,'confirmRows',event.target.checked)}/> 표시된 품목 키를 일괄 확인</label><label><input type="checkbox" checked={!!selectedBatch?.confirmClients} onChange={event=>setBatch(sheet.id,'confirmClients',event.target.checked)}/> 표시된 거래처 키를 일괄 확인</label><small>자동으로 체크하지 않습니다. 원본 키 후보가 없는 항목만 직접 선택하세요.</small></section>
@@ -133,11 +158,13 @@ export default function DistributionBaselineReconciliation({record,selectedWeek,
           <details className="exception-settings"><summary>열별 날짜·품목별 단위 예외 설정</summary><div className="date-grid">{sourceColumns.map(column=>{const chosen=mapValue(bindings.columnDateOverrides,column.id);return <label key={column.id}>{column.label||column.id} · 원본 {column.day||'미정'}<input type="date" value={chosen?.shipmentDate||''} onChange={event=>setColumnDate(column.id,event.target.value)}/></label>;})}</div><div className="date-grid">{sourceRows.map(row=>{const chosen=mapValue(bindings.rowUnitOverrides,row.id);return <label key={row.id}>{row.label||row.id}<select value={chosen?.unit||''} onChange={event=>setUnit(row.id,event.target.value)}><option value="">원본/전산 단위 유지</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></label>;})}</div></details>
           </div>
         </details>
-        <div className="reconcile-scroll" tabIndex={0} aria-label="전산 현재값 비교 표"><table><thead><tr><th className="sticky-product">품목</th>{(sheet.columns||[]).map(column=><th key={column.id} title={column.label}>{column.label||column.id}<small>{column.shipmentDate||column.sourceDay||'일자 미정'} · {originLabel(column.origin)}</small></th>)}</tr></thead><tbody>{filteredRows.map(row=><tr key={row.id}><td className="sticky-product" title={row.label}>{row.label||row.id}<small>{originLabel(row.origin)} · {row.prodKey||'품목 확인 필요'}</small></td>{(sheet.columns||[]).map(column=>{const cell=cellByCoordinate.get(`${row.id}\u001f${column.id}`);return <td key={column.id} className={cell?.delta===null||cell?.delta===undefined?'needs-review':''}><span>원본 {text(cell?.baselineRaw)}</span><span>현재 {numeric(cell?.erpCurrentQuantity)}</span><strong>차이 {delta(cell?.delta)}</strong>{cell?.unit&&<small>단위 {cell.unit}</small>}{cell?.state&&<small>{stateLabel(cell.state)}</small>}</td>;})}</tr>)}</tbody></table></div>
+        {needsRefresh&&<p className="reconcile-refresh" role="status">이전 차이값을 숨겼습니다. ‘전산 현재값 보기’를 다시 눌러주세요.</p>}
+        <div className="reconcile-page-controls" aria-label="비교 표 페이지"><span>품목 {rowWindow.total?`${rowWindow.start+1}–${rowWindow.end}`:'0'} / 검색 {rowWindow.total} · 전체 {sheet.rows.length}</span><button type="button" disabled={rowWindow.page===0} onClick={()=>setRowPage(page=>page-1)}>이전 품목</button><button type="button" disabled={rowWindow.page>=rowWindow.pages-1} onClick={()=>setRowPage(page=>page+1)}>다음 품목</button><span>열 {columnWindow.total?`${columnWindow.start+1}–${columnWindow.end}`:'0'} / 전체 {sheet.columns.length}</span><button type="button" disabled={columnWindow.page===0} onClick={()=>setColumnPage(page=>page-1)}>이전 열</button><button type="button" disabled={columnWindow.page>=columnWindow.pages-1} onClick={()=>setColumnPage(page=>page+1)}>다음 열</button></div>
+        <div className="reconcile-scroll" tabIndex={0} aria-label="전산 현재값 비교 표"><table><thead><tr><th className="sticky-product">품목</th>{columnWindow.items.map(column=><th key={column.id} title={column.label}>{column.label||column.id}<small>{column.shipmentDate||column.sourceDay||'일자 미정'} · {originLabel(column.origin)}</small></th>)}</tr></thead><tbody>{rowWindow.items.map(row=><tr key={row.id}><td className="sticky-product" title={row.label}>{row.label||row.id}<small>{originLabel(row.origin)} · {row.prodKey||'품목 확인 필요'}</small></td>{columnWindow.items.map(column=>{const cell=cellByCoordinate.get(`${row.id}\u001f${column.id}`);const stale=needsRefresh;return <td key={column.id} className={stale||cell?.delta===null||cell?.delta===undefined?'needs-review':''}><span>원본 {text(cell?.baselineRaw)}</span><span>현재 {numeric(stale?null:cell?.erpCurrentQuantity)}</span><strong>차이 {delta(stale?null:cell?.delta)}</strong>{!stale&&cell?.unit&&<small>단위 {cell.unit}</small>}{stale?<small>설정 변경 후 재조회 필요</small>:cell?.state&&<small>{stateLabel(cell.state)}</small>}</td>;})}</tr>)}</tbody></table></div>
       </>}
       {!!result.unclassifiedCurrent.length&&<details><summary>시트 범위에 넣지 않은 전산 현재 행 {result.unclassifiedCurrent.length}건</summary><ul>{result.unclassifiedCurrent.slice(0,100).map((row,index)=><li key={`${row.prodKey||'p'}:${row.custKey||'c'}:${index}`}>품목 {row.prodKey||'확인 필요'} · 거래처 {row.custKey||'확인 필요'} · 출고일 {row.shipmentDate||'확인 필요'} · 수량 {numeric(row.qty)}</li>)}</ul>{result.unclassifiedCurrent.length>100&&<p className="reconcile-note">처음 100건만 표시했습니다. 이 항목들은 원본 누락으로 판단하지 않습니다.</p>}</details>}
       {!!result.issues.length&&<details><summary>확인사항 {result.issues.length}건</summary><ul>{result.issues.map((issue,index)=><li key={index}>{typeof issue==='string'?issue:issue.message||issue.code||'추가 확인이 필요합니다.'}</li>)}</ul></details>}
     </>}
-    <style jsx>{`.baseline-reconcile{border-top:1px solid #b8c9dc;background:#fbfdff;font-size:12px;color:#26405a}.reconcile-bar,.reconcile-tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 7px}.reconcile-bar strong{color:#294f73}.reconcile-bar span,.reconcile-note,small{color:#60758b}.reconcile-note{margin:3px 7px}.reconcile-bar button,.reconcile-tabs button,.mapping-editor button{border:1px solid #9db2ca;background:white;color:#245b93;padding:4px 8px;min-height:27px;cursor:pointer;font:inherit}.reconcile-tabs{border-block:1px solid #d7e3ef}.reconcile-tabs button[aria-pressed=true]{background:#daeaff}.reconcile-bar input,.reconcile-settings input,.reconcile-settings select{font:inherit;border:1px solid #afc2d8;padding:3px;max-width:190px}.reconcile-error{color:#b32929;margin:5px 7px}.reconcile-settings{margin:5px 7px;padding:5px;border:1px solid #d2dfed;background:#f7faff}.reconcile-settings summary{cursor:pointer;color:#245b93}.settings-body{max-height:320px;overflow:auto;padding-right:3px}.setting-grid,.date-grid{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.setting-grid section,.date-grid label{display:grid;gap:3px;border:1px solid #dbe6f0;padding:5px;background:white;min-width:210px}.setting-grid label{display:flex;gap:4px;align-items:center}.keymap-table{margin-top:7px;max-height:180px;overflow:auto}.keymap-table table{border-collapse:collapse;width:max-content}.keymap-table th,.keymap-table td{border:1px solid #d8e2ed;padding:3px;white-space:nowrap}.keymap-table th{background:#eef4fa}.mapping-editor{display:inline-flex;gap:4px;align-items:flex-start}.mapping-editor input{min-width:145px}.mapping-editor select{min-width:210px}.exception-settings{margin-top:7px;border-top:1px solid #dbe6f0}.exception-settings>summary{padding-top:5px}.reconcile-scroll{height:450px;max-height:55vh;overflow:auto;border-top:1px solid #b7c8db;background:white}.reconcile-scroll table{border-collapse:separate;border-spacing:0;width:max-content;table-layout:fixed;font-size:12px}.reconcile-scroll th,.reconcile-scroll td{min-width:154px;max-width:154px;width:154px;height:44px;padding:3px 5px;border-right:1px solid #d9e1ec;border-bottom:1px solid #d9e1ec;vertical-align:top;background:white}.reconcile-scroll th{position:sticky;top:0;z-index:2;background:#eaf0f8;text-align:center}.reconcile-scroll th small,.reconcile-scroll td small{display:block}.reconcile-scroll td span,.reconcile-scroll td strong{display:block;text-align:right}.reconcile-scroll td strong{color:#284f75}.reconcile-scroll .needs-review strong{color:#a65a20}.sticky-product{position:sticky!important;left:0;z-index:1;min-width:230px!important;max-width:230px!important;width:230px!important;text-align:left;background:#f2f6fb!important}.reconcile-scroll th.sticky-product{z-index:3}.baseline-reconcile details>summary{margin:5px 7px;cursor:pointer;color:#28587d}`}</style>
+    <style jsx>{`.baseline-reconcile{border-top:1px solid #b8c9dc;background:#fbfdff;font-size:12px;color:#26405a}.reconcile-bar,.reconcile-tabs,.reconcile-page-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 7px}.reconcile-bar strong{color:#294f73}.reconcile-bar span,.reconcile-note,small{color:#60758b}.reconcile-note{margin:3px 7px}.reconcile-bar button,.reconcile-tabs button,.reconcile-page-controls button,.mapping-editor button{border:1px solid #9db2ca;background:white;color:#245b93;padding:4px 8px;min-height:27px;cursor:pointer;font:inherit}.reconcile-page-controls{border-top:1px solid #d7e3ef}.reconcile-page-controls button:disabled{cursor:default;color:#93a3b4;background:#f1f4f7}.reconcile-tabs{border-block:1px solid #d7e3ef}.reconcile-tabs button[aria-pressed=true]{background:#daeaff}.reconcile-bar input,.reconcile-settings input,.reconcile-settings select{font:inherit;border:1px solid #afc2d8;padding:3px;max-width:190px}.reconcile-error,.reconcile-refresh{margin:5px 7px}.reconcile-error{color:#b32929}.reconcile-refresh{color:#8a4f14;background:#fff5e5;border:1px solid #edcf9a;padding:5px}.reconcile-settings{margin:5px 7px;padding:5px;border:1px solid #d2dfed;background:#f7faff}.reconcile-settings summary{cursor:pointer;color:#245b93}.settings-body{max-height:320px;overflow:auto;padding-right:3px}.setting-grid,.date-grid{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.setting-grid section,.date-grid label{display:grid;gap:3px;border:1px solid #dbe6f0;padding:5px;background:white;min-width:210px}.setting-grid label{display:flex;gap:4px;align-items:center}.keymap-table{margin-top:7px;max-height:180px;overflow:auto}.keymap-table table{border-collapse:collapse;width:max-content}.keymap-table th,.keymap-table td{border:1px solid #d8e2ed;padding:3px;white-space:nowrap}.keymap-table th{background:#eef4fa}.mapping-editor{display:inline-flex;gap:4px;align-items:flex-start}.mapping-editor input{min-width:145px}.mapping-editor select{min-width:210px}.exception-settings{margin-top:7px;border-top:1px solid #dbe6f0}.exception-settings>summary{padding-top:5px}.reconcile-scroll{height:450px;max-height:55vh;overflow:auto;border-top:1px solid #b7c8db;background:white}.reconcile-scroll table{border-collapse:separate;border-spacing:0;width:max-content;table-layout:fixed;font-size:12px}.reconcile-scroll th,.reconcile-scroll td{min-width:154px;max-width:154px;width:154px;height:44px;padding:3px 5px;border-right:1px solid #d9e1ec;border-bottom:1px solid #d9e1ec;vertical-align:top;background:white}.reconcile-scroll th{position:sticky;top:0;z-index:2;background:#eaf0f8;text-align:center}.reconcile-scroll th small,.reconcile-scroll td small{display:block}.reconcile-scroll td span,.reconcile-scroll td strong{display:block;text-align:right}.reconcile-scroll td strong{color:#284f75}.reconcile-scroll .needs-review strong{color:#a65a20}.sticky-product{position:sticky!important;left:0;z-index:1;min-width:230px!important;max-width:230px!important;width:230px!important;text-align:left;background:#f2f6fb!important}.reconcile-scroll th.sticky-product{z-index:3}.baseline-reconcile details>summary{margin:5px 7px;cursor:pointer;color:#28587d}`}</style>
   </section>;
 }
