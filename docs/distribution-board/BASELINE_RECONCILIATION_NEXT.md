@@ -1,6 +1,6 @@
 # 불변 기준 엑셀 ↔ ERP 현재값 union grid
 
-Status: 구현 계약 확정, 아직 미구현. 정식 manifest는
+Status: 구현 및 로컬 검증 완료, 운영 반영 검증 대기. 정식 manifest는
 `docs/contracts/distribution-baseline-reconciliation.json`이다.
 
 이 기능은 읽기 전용 참고 화면이다. 결과·오류·미확인 상태는 기존
