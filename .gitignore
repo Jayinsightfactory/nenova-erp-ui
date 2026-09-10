@@ -74,3 +74,6 @@ scripts/ecount-scraper/_debug.png
 scripts/ecount-scraper/_downloads/
 # User-confirmed mappings are runtime data, never overwritten by deployment seeds.
 data/order-mappings.runtime.json
+
+# Distribution baseline workbook originals are private runtime records.
+data/distribution-board/baselines/

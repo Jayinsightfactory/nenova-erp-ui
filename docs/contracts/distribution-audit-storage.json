@@ -1,0 +1,60 @@
+{
+  "id": "distribution-audit-storage",
+  "title": "물량 배분 자동 비교 snapshot 불변 저장",
+  "scope": [
+    "lib/distributionAuditStore.js",
+    "pages/api/orders/distribution-change-audits.js",
+    "__tests__/distributionAuditStore.test.js",
+    "docs/contracts/distribution-audit-storage.json"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "SAVE_AUTOMATED_COMPARISON_SNAPSHOT",
+      "fileAudit": "append-exclusive-create",
+      "manualChecklist": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": ["all ERP tables", "Estimate", "WebProfitReport", "ShipmentDate", "ShipmentFarm", "human checklist events"]
+    },
+    {
+      "name": "LIST_OR_GET_AUTOMATED_COMPARISON_SNAPSHOT",
+      "fileAudit": "read",
+      "manualChecklist": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": ["all ERP tables", "human checklist events"]
+    }
+  ],
+  "criteria": {
+    "interface": "exports saveAudit({year,week,userId,report}), listAudits({year,week}), and getAudit({year,week,id}); optional root is dependency injection for isolated tests only",
+    "scope": "year is an exact 20xx string and week is an exact WW-SS string with major week 01 through 53 and subweek 01 through 99",
+    "storage": "private data/distribution-board/baselines/automated-audits only; one UUID JSON file per snapshot; temporary private write plus exclusive hard-link creation; existing files are never overwritten",
+    "authority": "userId must be supplied by the future authenticated server API; client id and createdAt are ignored because the store generates UUID and server createdAt",
+    "report": "requests, findings, unresolved, and warnings are required arrays; advisoryOnly must be true; report is JSON-only, rejects secret-shaped keys and values, and is at most 2MiB UTF-8",
+    "reads": "list returns metadata and counts for at most the 20 most recent matching snapshots; get returns the complete immutable report",
+    "safety": "strict UUID/scope/schema checks, lexical path containment, symlink rejection, and explicit corruption errors prevent traversal or silent malformed-record acceptance",
+    "separation": "automated findings are stored separately and never overwrite, derive, or imply a human checklist disposition",
+    "erp": "authenticated archive GET only; no SQL, DB module, ERP read, ERP write, completion claim, or workflow gate"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "A 2025 snapshot for the same full week is never returned by a 2026 list or get request."
+  },
+  "requiredTestFiles": ["__tests__/distributionAuditStore.test.js", "__tests__/distributionAuditRead.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": ["GetCustomerList", "btnSave_Click"],
+    "tables": ["ShipmentDetail", "ShipmentDate", "ShipmentFarm"],
+    "note": "This append-only automated comparison archive is file-only, advisory-only, and preserves every EXE-facing table."
+  },
+  "requiredCommands": [
+    "node __tests__/distributionAuditStore.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

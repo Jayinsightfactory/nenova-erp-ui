@@ -7,6 +7,7 @@ import PasteHighlight from '../../components/orders/PasteHighlight';
 import PasteExcludeHighlight from '../../components/orders/PasteExcludeHighlight';
 import StockNotePicker from '../../components/orders/StockNotePicker';
 import DistributionBaselinePanel from '../../components/orders/DistributionBaselinePanel';
+import DistributionSalesInbox from '../../components/orders/DistributionSalesInbox';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
@@ -3934,6 +3935,12 @@ export default function PasteOrderPage() {
 
         <DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
           hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} />
+        <DistributionSalesInbox year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning} onLoadText={({text}) => {
+          if (pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
+          setPasteText(text); setOrders([]); setParseError(''); setQueueIdx(0);
+          setBulkResult(null); setDetectedWeek(''); setStockDraft(null); setBulkCompletionNotice(null); setBulkProgress('');
+          document.getElementById('paste-connected-input')?.scrollIntoView({block:'start'});
+        }} />
 
         {orders.length > 0 && (
           <div id="paste-connected-save" tabIndex={-1} className="paste-primary-batch-action" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10, padding: '10px 12px', border: '2px solid #1565c0', borderRadius: 8, background: '#eef5ff', flexWrap: 'wrap' }}>
