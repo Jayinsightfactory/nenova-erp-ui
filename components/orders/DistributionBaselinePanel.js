@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { parseDistributionBaseline, validateSelectedScope } from '../../lib/distributionBaseline';
+import DistributionBaselineReconciliation from './DistributionBaselineReconciliation';
 
 const steps = ['기준 엑셀 확인', '기준 보관', '카톡 입력·분석', '변경 검토', '기존 등록·분배', '처리 결과'];
 export default function DistributionBaselinePanel({ week, parsing, running, hasAnalysis, hasResult }) {
@@ -12,6 +13,8 @@ export default function DistributionBaselinePanel({ week, parsing, running, hasA
   const [confirmed, setConfirmed] = useState('');
   const [source, setSource] = useState(null);
   const [savedItems,setSavedItems] = useState([]);
+  const [savedRecord,setSavedRecord] = useState(null);
+  const [currentView,setCurrentView] = useState(false);
   const [coverage,setCoverage] = useState('');
   const seq = useRef(0);
   const scope = useRef(week); scope.current = week;
@@ -21,7 +24,7 @@ export default function DistributionBaselinePanel({ week, parsing, running, hasA
   async function load(e) {
     const file = e.target.files?.[0]; e.target.value = ''; if (!file) return;
     const id = ++seq.current, selected = week;
-    setError(''); setBusy(true);
+    setError(''); setBusy(true); setSavedRecord(null); setCurrentView(false);
     try {
       if (!/^\d{4}-\d{2}-\w+$/.test(selected)) throw new Error('먼저 등록할 연도와 차수를 선택하세요.');
       if (file.size > 524288) throw new Error('서버 보관은 512KB 이하 엑셀을 선택하세요.');
@@ -48,7 +51,7 @@ export default function DistributionBaselinePanel({ week, parsing, running, hasA
     try{
       const result=await serverCall(null,{...source,year:baseline.year,week:baseline.week,coverage});
       if(id!==seq.current||selected!==scope.current)return;
-      setConfirmed(result.baseline.createdAt);
+      setConfirmed(result.baseline.createdAt);setSavedRecord(result.baseline);setCurrentView(false);
     }catch(e){if(id===seq.current)setError(e.message);}finally{if(id===seq.current)setBusy(false);}
   }
   async function listSaved() {
@@ -63,7 +66,7 @@ export default function DistributionBaselinePanel({ week, parsing, running, hasA
     try{
       const result=await serverCall({year:selected.slice(0,4),week:selected.slice(5),id:savedId});
       if(id!==seq.current||selected!==scope.current)return;
-      setBaseline(result.baseline.parsed);setActive(0);setConfirmed(result.baseline.createdAt);setCoverage(result.baseline.coverage);setSource(null);
+      setBaseline(result.baseline.parsed);setActive(0);setConfirmed(result.baseline.createdAt);setCoverage(result.baseline.coverage);setSource(null);setSavedRecord(result.baseline);setCurrentView(false);
     }catch(e){if(id===seq.current)setError(e.message);}finally{if(id===seq.current)setBusy(false);}
   }
   function navigate(index) {
@@ -87,15 +90,16 @@ export default function DistributionBaselinePanel({ week, parsing, running, hasA
         <span>{confirmed&&matches?`기준 보관 ${confirmed}`:'기준 미보관'}</span>
         <input aria-label="물량표 품목 검색" placeholder="품목 검색" value={search} onChange={e=>setSearch(e.target.value)} />
       </div>
-      <p className="baseline-note">‘서버에 원본 보관’을 누르면 엑셀과 차수를 저장하며, 기존 보관본을 덮어쓰지 않습니다. 전산 분배 기준 촬영·자동 대조는 아직 연결 전입니다. 원본 보관은 전산 확정이 아닙니다.</p>
+      <p className="baseline-note">‘서버에 원본 보관’을 누르면 엑셀과 차수를 저장하며, 기존 보관본을 덮어쓰지 않습니다. 보관한 원본은 조회 시점의 전산 현재값과 읽기 전용으로 대조할 수 있습니다. 원본 보관과 대조 결과는 전산 확정이 아닙니다.</p>
       {!!savedItems.length&&<div className="baseline-toolbar">{savedItems.filter(s=>`${s.year}-${s.week}`===week).map(s=><button type="button" disabled={busy||running} key={s.id} onClick={()=>restore(s.id)}>{s.fileName} · {s.createdAt}</button>)}</div>}
       {error&&<p role="alert">{error}</p>}
       {baseline&&!matches&&<p role="alert">선택 차수가 바뀌었습니다. 이전 기준표를 현재 차수에 적용하지 않습니다.</p>}
       {matches&&baseline?.combinedUnknown&&<div className="baseline-toolbar"><label>이 엑셀의 수량 범위 <select value={coverage} disabled={busy||running||!source} onChange={e=>setCoverage(e.target.value)}><option value="">직접 확인 후 선택</option><option value="single">02만 있는 표</option><option value="combined">이미 01+02를 합친 표</option></select></label><span>합산된 표에 01 수량을 다시 더하지 않습니다. 세부차수 자동 분리는 하지 않습니다.</span></div>}
       {matches&&<div className="baseline-toolbar">{baseline.sheets.map((s,i)=><button key={s.id} type="button" aria-pressed={i===active} onClick={()=>setActive(i)}>{s.name}</button>)}</div>}
-      {sheet&&<div className="baseline-scroll" tabIndex={0} aria-label="기준 물량표 가로 세로 스크롤"><table><thead><tr><th className="product">품목</th>{sheet.clients.map(c=><th key={c.id} title={c.label}>{c.label}<small>{c.day||'일정 미지정'}</small></th>)}<th className="remain">엑셀 잔량</th></tr></thead><tbody>{sheet.rows.filter(r=>r.label.toLowerCase().includes(search.toLowerCase())).map(r=><tr key={r.id}><td className="product" title={r.label}>{r.label}</td>{sheet.clients.map(c=><td key={c.id}>{show(r.values[c.id])}</td>)}<td className="remain">{show(r.remaining)}</td></tr>)}</tbody></table></div>}
+      {sheet&&!currentView&&<div className="baseline-scroll" tabIndex={0} aria-label="기준 물량표 가로 세로 스크롤"><table><thead><tr><th className="product">품목</th>{sheet.clients.map(c=><th key={c.id} title={c.label}>{c.label}<small>{c.day||'일정 미지정'}</small></th>)}<th className="remain">엑셀 잔량</th></tr></thead><tbody>{sheet.rows.filter(r=>r.label.toLowerCase().includes(search.toLowerCase())).map(r=><tr key={r.id}><td className="product" title={r.label}>{r.label}</td>{sheet.clients.map(c=><td key={c.id}>{show(r.values[c.id])}</td>)}<td className="remain">{show(r.remaining)}</td></tr>)}</tbody></table></div>}
       {sheet&&<p className="baseline-note">{sheet.rows.length}품목 · {sheet.clients.length}열 · 수량은 원본 표기 그대로이며 단위 환산·전산 일치 판정 전입니다.</p>}
       {!!baseline?.issues?.length&&<details><summary>원본 확인사항 {baseline.issues.length}건</summary><ul>{baseline.issues.map((x,i)=><li key={i}>{typeof x==='string'?x:JSON.stringify(x)}</li>)}</ul></details>}
+      {savedRecord&&<DistributionBaselineReconciliation record={savedRecord} selectedWeek={week} onModeChange={setCurrentView}/>}
     </>}
     <style jsx>{`
       .baseline-panel{border:1px solid #b8c9dc;background:#f7faff;margin:0 0 10px;font-size:12px;color:#26405a}

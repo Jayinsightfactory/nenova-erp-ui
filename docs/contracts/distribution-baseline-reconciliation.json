@@ -1,0 +1,144 @@
+{
+  "id": "distribution-baseline-reconciliation",
+  "title": "불변 기준 물량표와 ERP 현재 출고량의 읽기 전용 union grid",
+  "scope": [
+    "pages/api/orders/distribution-baseline-reconciliation.js",
+    "lib/distributionBaselineReconcile.js",
+    "components/orders/DistributionBaselineReconciliation.js",
+    "components/orders/DistributionBaselinePanel.js",
+    "__tests__/distributionBaselineReconciliation.test.js",
+    "__tests__/distributionBaselineReconciliationApi.test.js",
+    "__tests__/distributionBaselineReconciliationUi.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "currentContributionIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey", "SdetailKey", "SdateKey"],
+  "actions": [
+    {
+      "name": "LOAD_BASELINE_RECONCILIATION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "SELECT only",
+      "preserve": ["all ERP tables", "immutable baseline files", "Kakao/source", "existing parse/register/distribute/fix workflows"]
+    },
+    {
+      "name": "CONFIRM_REQUEST_ONLY_BINDINGS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "preserve": ["all ERP tables", "immutable baseline files", "browser/server review stores"]
+    }
+  ],
+  "api": {
+    "method": "POST",
+    "path": "/api/orders/distribution-baseline-reconciliation",
+    "auth": "existing withAuth plus same-origin check",
+    "request": {
+      "required": ["year", "week", "baselineId"],
+      "baselineId": "exact lowercase 64-character hex id matching /^[0-9a-f]{64}$/ from the stored public baseline response; uppercase is rejected",
+      "bindings": "optional fixed-shape object containing every user binding; omitted or empty is a valid discovery request",
+      "sheetScopes": "optional own-property map keyed by a stored sheet id; each value is exactly {confirmed,groups:[{country,flower}]}. groups contains 1..10 exact server-catalog pairs and, when confirmed=true, must equal that sheet's server-derived unique candidate group set",
+      "keymapBatch": "optional own-property map keyed by stored sheet id with {confirmRows,confirmClients}; true attests only the non-null row.key/client.key candidates displayed for that immutable sheet",
+      "rowOverrides": "optional own-property map keyed by stored row id with {prodKey,confirmed}",
+      "columnOverrides": "optional own-property map keyed by stored client id with {custKey,confirmed}",
+      "dateGroups": "optional array of {columnIds,shipmentDate,confirmed}; every id must be a stored client id, may occur once only, and shipmentDate is a real user-selected YYYY-MM-DD",
+      "columnDateOverrides": "optional own-property map keyed by stored client id with {shipmentDate,confirmed}; an explicit confirmed ISO date overrides its date group while preserving raw client.day",
+      "unitAttestation": "optional {originalExportUnitsPreserved:true}; never default true",
+      "rowUnitOverrides": "optional own-property map keyed by stored row id with {unit,confirmed} using explicit unit 박스|단|송이"
+    },
+    "exampleRequest": {
+      "year": "2026",
+      "week": "37-02",
+      "baselineId": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "bindings": {
+        "sheetScopes": {
+          "수국": {
+            "confirmed": true,
+            "groups": [
+              {"country": "콜롬비아", "flower": "수국"},
+              {"country": "콜롬비아", "flower": "루스커스"}
+            ]
+          }
+        },
+        "keymapBatch": {
+          "수국": {"confirmRows": true, "confirmClients": true}
+        },
+        "rowOverrides": {},
+        "columnOverrides": {
+          "수국!B3": {"custKey": 456, "confirmed": true}
+        },
+        "dateGroups": [
+          {"columnIds": ["수국!B3", "수국!C3"], "shipmentDate": "2026-09-10", "confirmed": true}
+        ],
+        "columnDateOverrides": {},
+        "unitAttestation": {"originalExportUnitsPreserved": true},
+        "rowUnitOverrides": {}
+      }
+    },
+    "response": {
+      "common": ["success=true", "advisoryOnly=true", "baseline{id,year,week,coverage}", "observedAt", "scope{year,weeks,coverage,currentComplete}", "catalog", "sheetCandidates", "sheets", "unclassifiedCurrent", "issues"],
+      "catalog": "active Product candidates include ProdKey, ProdName, DisplayName, CounName, FlowerName, OutUnit, BunchOf1Box, SteamOf1Box; active Customer candidates include CustKey and CustName",
+      "discovery": "empty bindings returns catalog, server-resolved keymap candidates, CounName+FlowerName group candidates, bounded current evidence, and a union projection whose unconfirmed quantities have delta=null",
+      "unclassifiedCurrent": "returned once at top level, never appended to every sheet; contains current rows outside a confirmed sheet scope or rows that cannot safely be assigned while category scope is uncertain",
+      "limitErrors": "HTTP 422 CURRENT_RESULT_LIMIT_EXCEEDED or UNION_CELL_LIMIT_EXCEEDED; response is advisory, explicitly incomplete, and contains no partial projection or inferred zero",
+      "forbiddenFields": ["complete", "matchedAll", "canSave", "blocker", "erpWriteAllowed"]
+    }
+  },
+  "pureProjector": {
+    "module": "lib/distributionBaselineReconcile.js",
+    "signature": "reconcileDistributionBaseline({ baseline, bindings = {}, products, customers, currentRows, currentComplete = true }) -> { sheetCandidates, sheets, unclassifiedCurrent, issues }",
+    "baseline": "the public baseline object returned by distributionBaselineStore, including id/year/week/coverage/parsed.sheets[{id,clients,rows}]",
+    "responseProjection": "the pure function returns only {sheetCandidates,sheets,unclassifiedCurrent,issues}; the API wraps it with success, advisoryOnly, baseline{id,year,week,coverage}, scope, catalog, and observedAt"
+  },
+  "criteria": {
+    "baselineAuthority": "load exact year + week + baselineId through distributionBaselineStore; never accept parsed sheets or baseline cells from the browser",
+    "baselinePublicShape": "id matches lowercase /^[0-9a-f]{64}$/ and parsed.sheets contain clients and rows; the panel must retain result.baseline.id after save and restore instead of treating confirmed timestamp as identity",
+    "weekScope": "coverage=single reads the stored week only; coverage=combined is valid only for an -02 baseline and reads -01 plus -02 exactly once; every ERP SELECT includes explicit OrderYear and exact OrderWeek values",
+    "currentProjection": "reuse the SELECT-only current-row shape from distributionChangeFacts: year, week, custKey, prodKey, SdetailKey, SdateKey, shipmentDate, qty, unit; do not invoke history analysis or any write path",
+    "productMetadata": "read Product.CounName and Product.FlowerName directly, as already selected in lib/pivotStats.js near the order projection; never infer category from labels",
+    "scopeInference": "only when every baseline row.key in a sheet resolves uniquely to one active Product, derive the unique set of exact Product CounName + FlowerName pairs; the set may contain 1..10 legitimate groups. Product OutUnit is displayed and confirmed separately. No label inference or free-text group expansion is allowed",
+    "scopeConfirmation": "bindings.sheetScopes[sheetId].confirmed=true is accepted only with bindings.keymapBatch[sheetId].confirmRows=true and when its order-insensitive unique groups set exactly equals the server-derived candidate set. Those groups become ERP append scope; empty bindings previews the same set as ERP_CANDIDATE. Manual row overrides do not silently widen scope",
+    "scopeSafety": "unconfirmed candidate groups may populate ERP_CANDIDATE evidence only; no ERP-only row is presented as a confirmed baseline omission. Current rows outside confirmed groups remain once in top-level unclassifiedCurrent",
+    "keyConfirmation": "the UI first displays every resolved _keymap Product/Customer pair; one unchecked per-sheet batch checkbox may explicitly confirm all displayed non-null candidates. Manual overrides are required for missing or invalid keys",
+    "dateConfirmation": "the UI groups columns by exact displayed raw client.day and lets the user choose one ISO date per group; per-column override is allowed. Weekday, 14/17, and 미정 are hints only, remain visible, and never derive a date",
+    "dateDistinction": "invoice year/week selects ERP rows; shipmentDate selects a cell column. A shipment date is not derived from or required to fall inside the invoice week",
+    "unitConfirmation": "unchecked original-export attestation yields no comparable baseline quantity. Checked means ordinary source cells retain Product.OutUnit and exporter-identified alstro cells normalize raw*16 to OutUnit; an explicit per-row unit may use only positive verified Product conversion ratios",
+    "union": "preserve baseline sheet/row/column order; append only current ProdKeys and CustKey+shipmentDate pairs in that sheet's confirmed CounName+FlowerName group union, deterministically. OutUnit is verified separately and never expands or narrows category scope. Before confirmation show candidate additions as ERP_CANDIDATE; after confirmation mark ERP_ONLY with wording that is not a missing-workbook verdict",
+    "identity": "preserve every current contribution by year|week|custKey|prodKey|SdetailKey|SdateKey; duplicate identity is an issue, never double-counted",
+    "currentLimit": "query TOP 10001; if more than 10000 rows are observed, stop the entire projection with HTTP 422 CURRENT_RESULT_LIMIT_EXCEEDED and currentComplete=false. Never slice, aggregate, infer zero, or return a partial union",
+    "unknownCurrent": "a LEFT JOIN result with null ShipmentDtm, null SdateKey, or null qty is unknown rather than zero and cannot enter an exact-date total. Any such row for the same confirmed ProdKey+CustKey blocks every related cell delta and remains visible as unresolved evidence",
+    "absentCurrent": "erpCurrentQuantity=0 is allowed only when the current query is complete, all row/column/date/unit/group bindings are confirmed, no related unknown-date/quantity row exists, and no exact ProdKey+CustKey+shipmentDate contribution exists",
+    "baselineQuantity": "only a finite numeric workbook value, including numeric zero, can be normalized. null, blank, text, formula-without-cache, NaN, and infinity are unknown and never become zero",
+    "numericComparison": "delta=erpCurrentQuantity-baselineQuantity only when product, customer, exact date, unit, sheet group, and complete current query are confirmed and non-conflicting; valid zero remains numeric",
+    "cellLimit": "sum of projected row-count multiplied by column-count across sheets must not exceed 100000; return HTTP 422 UNION_CELL_LIMIT_EXCEEDED with no partial cells while preserving the baseline and all ERP data",
+    "bindingSafety": "all binding maps must be non-array plain JSON objects inspected through own properties only. Reject __proto__/prototype/constructor, unknown sheet/row/client ids, duplicate date-group column ids, and unexpected values; copy validated entries into Map or null-prototype objects and never spread or assign caller-controlled keys into ordinary prototypes",
+    "truthfulness": "equal totals never mean request handled or workflow complete; missing current history/row never proves an omitted action; unresolved or truncated evidence keeps delta null",
+    "persistence": "all bindings and projections are request-only in this slice; no baseline rewrite, binding store, cache write, lease, LLM call, ERP write, or automatic registration",
+    "workflow": "all responses, validation failures, and request errors are advisory panel state only and never disable or guard existing parse/register/distribute/fix actions"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "A 2025 current row with the same OrderWeek, CustKey, and ProdKey is excluded from a 2026 baseline projection."
+  },
+  "requiredTestFiles": [
+    "__tests__/distributionBaselineReconciliation.test.js",
+    "__tests__/distributionBaselineReconciliationApi.test.js",
+    "__tests__/distributionBaselineReconciliationUi.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": ["GetCustomerList"],
+    "tables": ["ViewShipment", "ShipmentDate", "Product", "Customer"],
+    "note": "The union grid reads current ERP evidence only; it does not replace or guard nenova.exe save/fix behavior."
+  },
+  "requiredCommands": [
+    "node __tests__/distributionBaselineReconciliation.test.js",
+    "node __tests__/distributionBaselineReconciliationApi.test.js",
+    "node __tests__/distributionBaselineReconciliationUi.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
