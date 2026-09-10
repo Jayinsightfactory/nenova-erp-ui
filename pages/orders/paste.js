@@ -6,6 +6,7 @@ import MappingStatusModal from '../../components/orders/MappingStatusModal';
 import PasteHighlight from '../../components/orders/PasteHighlight';
 import PasteExcludeHighlight from '../../components/orders/PasteExcludeHighlight';
 import StockNotePicker from '../../components/orders/StockNotePicker';
+import DistributionBaselinePanel from '../../components/orders/DistributionBaselinePanel';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
@@ -3931,8 +3932,11 @@ export default function PasteOrderPage() {
         </div>
         </CollapsibleTop>
 
+        <DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
+          hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} />
+
         {orders.length > 0 && (
-          <div className="paste-primary-batch-action" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10, padding: '10px 12px', border: '2px solid #1565c0', borderRadius: 8, background: '#eef5ff', flexWrap: 'wrap' }}>
+          <div id="paste-connected-save" tabIndex={-1} className="paste-primary-batch-action" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10, padding: '10px 12px', border: '2px solid #1565c0', borderRadius: 8, background: '#eef5ff', flexWrap: 'wrap' }}>
             <strong style={{ marginRight: 'auto', color: '#1a237e', fontSize: 13 }}>
               1. 전체 확인 → 2. 왼쪽 취소 → 3. 오른쪽 추가·분배
             </strong>
@@ -3953,7 +3957,7 @@ export default function PasteOrderPage() {
           </div>
         )}
 
-        <div className="paste-input-grid" style={{ marginBottom: 12 }}>
+        <div id="paste-connected-input" tabIndex={-1} className="paste-input-grid" style={{ marginBottom: 12 }}>
           {/* 1열: 주문 붙여넣기 */}
           <div className="paste-col paste-col-order">
             <label style={labelS}>
@@ -4061,7 +4065,7 @@ export default function PasteOrderPage() {
               <>
                 <div className="paste-order-results-head">
                   <div>
-                    <b>분석 결과</b>
+                    <b id="paste-connected-preview" tabIndex={-1}>분석 결과</b>
                     <span>입력 오른쪽에서 취소·추가 예상값을 바로 확인하세요.</span>
                   </div>
                   <div className="paste-order-results-summary">
@@ -4477,7 +4481,7 @@ export default function PasteOrderPage() {
         {orders.length > 0 && (
           <>
           {bulkResult?.orderId === 'ALL' && (
-            <div style={{ marginBottom: 16 }}>
+            <div id="paste-connected-result" tabIndex={-1} style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 900, color: bulkResult.rolledBack ? '#c62828' : bulkResult.undone ? '#6a1b9a' : '#1b5e20' }}>
                   {bulkResult.rolledBack
