@@ -44,18 +44,20 @@ function response() {
   };
 }
 
-function makeDeps({ approximate = false, rejectLlm = false, llmError = null, llmText = '{}', schemaError = null, storeFailure = false, missingSourceAt = false, factsFailure = false, manyCandidates = false, conflictingCustomerAliases = false } = {}) {
+function makeDeps({ approximate = false, rejectLlm = false, llmError = null, toolName = 'record_distribution_changes', toolInput = {}, responseContent = null, schemaError = null, storeFailure = false, missingSourceAt = false, factsFailure = false, manyCandidates = false, conflictingCustomerAliases = false } = {}) {
   const saveCalls = [];
+  const messageCalls = [];
   const history = manyCandidates
     ? Array.from({ length: 51 }, (_, index) => ({ eventId: `event-${index + 1}`, before: index, after: index + 1, changeAt: '2026-09-10T10:00:00+09:00', week: '37-01', shipmentDate: '2026-09-10', unit: '단' }))
     : [{ eventId: 'event-1', before: 3, after: 23, changeAt: '2026-09-10T10:00:00+09:00', week: '37-01', shipmentDate: '2026-09-10', unit: '단' }];
   class Anthropic {
     constructor() {
       this.messages = {
-        create: async () => {
+        create: async input => {
+          messageCalls.push(input);
           if (rejectLlm) throw new Error('vendor-header: secret prompt content');
           if (llmError) throw llmError;
-          return { content: [{ type: 'text', text: llmText }] };
+          return { content: responseContent || [{ type: 'tool_use', name: toolName, input: toolInput }] };
         },
       };
     }
@@ -118,6 +120,7 @@ function makeDeps({ approximate = false, rejectLlm = false, llmError = null, llm
       },
     },
     saveCalls,
+    messageCalls,
   };
 }
 
@@ -126,7 +129,7 @@ async function invoke(options) {
   const handler = compileRoute(deps);
   const res = response();
   await handler({ method: 'POST', user: { accountActive: true, userId: 'authenticated-user' }, body: { year: 2026, week: '37-01', messages: [{ identity: 'message-1', message: 'untrusted' }] } }, res);
-  return { res, saveCalls: deps.saveCalls };
+  return { res, saveCalls: deps.saveCalls, messageCalls: deps.messageCalls };
 }
 
 function sdkError({ name, status, code, message = 'vendor detail must not leave the server' }) {
@@ -138,7 +141,7 @@ function sdkError({ name, status, code, message = 'vendor detail must not leave 
 }
 
 (async () => {
-  const { res: exactAliasResponse, saveCalls } = await invoke();
+  const { res: exactAliasResponse, saveCalls, messageCalls } = await invoke();
   assert.equal(exactAliasResponse.statusCode, 200);
   assert.equal(exactAliasResponse.body.advisoryOnly, true);
   assert.match(exactAliasResponse.body.asOf, /^\d{4}-\d{2}-\d{2}T/);
@@ -159,28 +162,47 @@ function sdkError({ name, status, code, message = 'vendor detail must not leave 
   assert.deepEqual(JSON.parse(JSON.stringify(exactAliasResponse.body.findings[0].evidence.candidateEvents)), [{
     eventId: 'event-1', before: 3, after: 23, changeAt: '2026-09-10T10:00:00+09:00', week: '37-01', shipmentDate: '2026-09-10', unit: '단',
   }]);
+  assert.equal(messageCalls.length, 1);
+  assert.equal(messageCalls[0].tool_choice.type, 'tool');
+  assert.equal(messageCalls[0].tool_choice.name, 'record_distribution_changes');
+  assert.equal(messageCalls[0].tool_choice.disable_parallel_tool_use, true);
+  assert.equal(messageCalls[0].tools[0].name, 'record_distribution_changes');
+  assert.deepEqual(JSON.parse(JSON.stringify(messageCalls[0].tools[0].input_schema.required)), ['requests', 'unresolved']);
+  assert.deepEqual(JSON.parse(JSON.stringify(messageCalls[0].tools[0].input_schema.properties.unresolved.items.required)), ['sourceIdentity', 'quote', 'reason']);
 
-  const { res: fencedJsonResponse } = await invoke({ llmText: '```json\n{}\n```' });
-  assert.equal(fencedJsonResponse.statusCode, 200);
-  assert.equal(fencedJsonResponse.body.requests.length, 1);
-  assert.equal(Object.hasOwn(fencedJsonResponse.body, 'extractionErrorCode'), false);
+  const { res: wrongToolResponse } = await invoke({
+    toolName: 'unexpected_tool', toolInput: { requests: [], unresolved: [] },
+  });
+  assert.equal(wrongToolResponse.statusCode, 200);
+  assert.equal(wrongToolResponse.body.requests.length, 0);
+  assert.equal(wrongToolResponse.body.extractionErrorCode, 'EXTRACTION_SCHEMA');
+  assert.equal(wrongToolResponse.body.extractionValidationField, 'shape');
 
-  const { res: prefixedJsonResponse } = await invoke({ llmText: '모델 안내문\n{}' });
-  assert.equal(prefixedJsonResponse.statusCode, 200);
-  assert.equal(prefixedJsonResponse.body.requests.length, 0);
-  assert.equal(prefixedJsonResponse.body.extractionErrorCode, 'JSON_PARSE');
-  assert.match(prefixedJsonResponse.body.warnings[0], /응답 형식/);
-  assert.doesNotMatch(JSON.stringify(prefixedJsonResponse.body), /모델 안내문/);
+  const { res: textOnlyResponse } = await invoke({
+    responseContent: [{ type: 'text', text: '{"rawResponseMarker":"must-not-return"}' }],
+  });
+  assert.equal(textOnlyResponse.body.extractionErrorCode, 'EXTRACTION_SCHEMA');
+  assert.equal(textOnlyResponse.body.extractionValidationField, 'shape');
+  assert.doesNotMatch(JSON.stringify(textOnlyResponse.body), /rawResponseMarker|must-not-return/);
+
+  const { res: multipleToolsResponse } = await invoke({
+    responseContent: [
+      { type: 'tool_use', name: 'record_distribution_changes', input: {} },
+      { type: 'tool_use', name: 'unexpected_tool', input: {} },
+    ],
+  });
+  assert.equal(multipleToolsResponse.body.extractionErrorCode, 'EXTRACTION_SCHEMA');
+  assert.equal(multipleToolsResponse.body.extractionValidationField, 'shape');
 
   const { res: schemaFailureResponse } = await invoke({
-    schemaError: new TypeError('week must be WW-SS or null'), llmText: '{"__schemaFailure":true}',
+    schemaError: new TypeError('week must be WW-SS or null'), toolInput: { __schemaFailure: true },
   });
   assert.equal(schemaFailureResponse.body.extractionErrorCode, 'EXTRACTION_SCHEMA');
   assert.equal(schemaFailureResponse.body.extractionValidationField, 'week');
   assert.match(schemaFailureResponse.body.warnings[0], /AI가 차수 형식을 올바르게 반환하지 못했습니다/);
 
   const { res: unknownSchemaFailureResponse } = await invoke({
-    schemaError: new Error('vendor schema details must not leave the server'), llmText: '{"__schemaFailure":true}',
+    schemaError: new Error('vendor schema details must not leave the server'), toolInput: { __schemaFailure: true },
   });
   assert.equal(unknownSchemaFailureResponse.body.extractionErrorCode, 'EXTRACTION_SCHEMA');
   assert.equal(unknownSchemaFailureResponse.body.extractionValidationField, 'other');
