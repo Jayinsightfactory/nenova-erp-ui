@@ -49,7 +49,7 @@ const KO_EN_KEYWORDS = {
   '호주': '호주',
   '소재': '호주',
   '화이트': 'WHITE',
-  '연핑크': 'LIGHT',
+  '연핑크': 'LIGHT PINK',
   '진핑크': 'DEEP PINK',
   '진그린': 'DARK GREEN',
   '연그린': 'LIGHT GREEN',
@@ -79,6 +79,7 @@ const KO_EN_KEYWORDS = {
   '문라이트': 'MOON LIGHT',
   '문골렘': 'MOON GOLEM',
   '돈셀': 'DONCEL',
+  '돈설': 'DONCEL',   // 실제 발주 표기 변형(2026-09-10 초이문 36차 실파일에서 확인)
   '돈페드로': 'DON PEDRO',
   '돈루이스': 'DON LUIS',
   '노비아': 'NOVIA',
