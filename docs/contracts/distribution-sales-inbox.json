@@ -1,0 +1,13 @@
+{
+  "id": "distribution-sales-inbox",
+  "title": "물량표 연결 영업방 수신함",
+  "scope": ["components/orders/DistributionSalesInbox.js", "lib/distributionSalesInbox.js", "pages/api/kakao/sales-feed.js", "pages/orders/paste.js", "__tests__/distributionSalesInbox.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "sourceIdentity": ["source", "chat_id", "external_message_id"],
+  "actions": [{"name":"READ_SALES_FEED","orderDetail":"preserve","shipmentDetail":"preserve","preserve":["all ERP tables"]},{"name":"LOAD_SELECTED_TEXT","orderDetail":"preserve","shipmentDetail":"preserve","preserve":["all ERP tables"]}],
+  "criteria": {"room":"영업방 exact name + server-configured room ID", "upstream":"dedicated authenticated /api/kakao/nenova-sales-feed only; no legacy unauthenticated fallback", "source":"nenovakakao", "token":"NENOVA_SALES_READ_TOKEN server only", "selection":"explicit user text replacement; no automatic analysis or registration", "missingConfig":"503 with Korean setup message", "period":"KST calendar dates converted to timezone-aware ISO, maximum7days", "duplicates":"source message identity de-duplication, never equals ERP committed", "file":"UTF8 Kakao export .txt <=2MiB, no external execution"},
+  "crossYearFixture":{"required":true,"description":"Message text does not silently change selected ERP year/week; selected year explicit."},
+  "requiredTestFiles":["__tests__/distributionSalesInbox.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs","methods":["GetCustomerList"],"tables":["ShipmentDetail","ShipmentDate"],"note":"This connector reads raw chat only; existing ERP analysis/save functions are not invoked automatically or modified."},
+  "requiredCommands":["node __tests__/distributionSalesInbox.test.js","npm run test:ui-layout","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}

@@ -1,0 +1,48 @@
+{
+  "id": "distribution-change-compare",
+  "title": "물량 배분 변경의 자문용 이력 증거 비교",
+  "scope": [
+    "lib/distributionChangeCompare.js",
+    "__tests__/distributionChangeCompare.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "COMPARE_CHANGE_EVIDENCE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": ["all ERP tables", "history source rows", "current rows", "existing parse/register/distribute/fix flows"]
+    }
+  ],
+  "criteria": {
+    "scope": "request and history compare only on exact input year and full WW-SS week with positive customer/product keys; SS accepts 01 through 99, and validated combined scope contains WW-01 plus WW-02",
+    "identity": "sourceIdentity is a string and is not converted to an object or alternate schema",
+    "evidence": "requires mappingConfirmed, explicit exact unit, valid timezone-bearing timestamps, and changeAt >= sourceAt; optional asOf limits evidence only",
+    "date": "a request with a shipment date requires an exact date match; without a date all candidate dates are considered and differing dates are ambiguous",
+    "delta": "ADD is positive qty and CANCEL is negative qty; finite positive qty is required and epsilon=1e-6 compares without rounding or mutation",
+    "ambiguity": "duplicate request id, multiple candidates, or a history event claimed by more than one request makes every affected result AMBIGUOUS; one sourceIdentity may legitimately contain multiple distinct request items",
+    "coverage": "zero candidates returns NO_MATCHING_HISTORY only with historyComplete=true; otherwise it returns NEEDS_REVIEW and cannot establish deletion/orphan evidence",
+    "currentRows": "current rows are non-authoritative context and never create a matching-history, applied, or complete result without an eligible history event",
+    "advisory": "every result has advisoryOnly=true and none of the exports or statuses assert apply, completion, saveability, or an ERP processing result"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "A 2025 same-week history event is excluded from a 2026 request."
+  },
+  "requiredTestFiles": ["__tests__/distributionChangeCompare.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": ["GetCustomerList", "btnSave_Click"],
+    "tables": ["ShipmentDetail", "ShipmentDate", "ShipmentFarm"],
+    "note": "This module is pure comparison code. It has no database, API, or ERP write dependency and returns advisory evidence only."
+  },
+  "requiredCommands": [
+    "node __tests__/distributionChangeCompare.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

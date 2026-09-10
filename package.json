@@ -8,6 +8,8 @@
     "start": "node web.js",
     "audit:prod": "npm audit --omit=dev",
     "test:board": "node __tests__/shillaMiuBoard.test.js",
+    "test:distribution-connection": "node scripts/test-distribution-connection.cjs",
+    "posttest:erp-contract": "npm run test:distribution-connection",
     "test:shilla-pnl": "node __tests__/shillaPnlParse.test.js && node __tests__/shillaPnlImportPolicy.test.js && node __tests__/shillaPnlIntegration.test.js && node __tests__/shillaPnlProductMatch.test.js && node __tests__/shillaPnlHotelMatch.test.js && node __tests__/shillaPnlBulkMatch.test.js && node __tests__/shillaPnlBulkMatchUi.test.js && node __tests__/shillaPnlCombinedPurchaseCost.test.js && node __tests__/shillaPnlSearch.test.js && node __tests__/shillaPnlUi.test.js && node __tests__/shillaPnlUiRender.test.js",
     "pretest:raum-pnl": "npm run test:shilla-pnl && node __tests__/raumPnlHttp.test.js && node __tests__/raumPnlRequestGuard.test.js && node __tests__/pnlUploadNginx.test.js",
     "test:profit-report-excel-design": "node __tests__/profitReportExcelDesign.test.js",

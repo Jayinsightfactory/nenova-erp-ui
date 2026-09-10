@@ -1,0 +1,55 @@
+{
+  "id": "distribution-checklist",
+  "title": "물량 배분 자문 체크리스트 수동 검토 기록",
+  "scope": [
+    "lib/distributionChecklistStore.js",
+    "pages/api/orders/distribution-checklist.js",
+    "__tests__/distributionChecklistStore.test.js",
+    "components/orders/DistributionChecklistReview.js",
+    "__tests__/distributionChecklistUi.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "RECORD_ADVISORY_REVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": ["all ERP tables", "machine findings", "existing parse/register/distribute/fix flows"]
+    },
+    {
+      "name": "READ_ADVISORY_REVIEWS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": ["all ERP tables", "machine findings"]
+    }
+  ],
+  "criteria": {
+    "scope": "authenticated request requires explicit 20xx year and full WW-SS week; short week is never accepted or derived by the API",
+    "manualDisposition": "PENDING, REVIEWED, NOT_NEEDED, or LATER only; memo is a client string of at most 1000 characters",
+    "sourceIdentity": "non-empty safe string retained verbatim and never used as a path",
+    "storage": "append-only private file events under the existing ignored distribution baseline directory; GET selects the latest event per sourceIdentity",
+    "idempotency": "authenticated user plus year/week/requestId has an immutable event ID; same payload returns the existing event and a different payload returns 409",
+    "advisoryOnly": "manual review status neither overwrites a machine finding nor asserts ERP parsing, registration, distribution, fixing, or processing success"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "A 2025 event for the same full week and source identity is never returned by the 2026 query."
+  },
+  "requiredTestFiles": ["__tests__/distributionChecklistStore.test.js", "__tests__/distributionChecklistUi.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": ["GetCustomerList", "btnSave_Click"],
+    "tables": ["ShipmentDetail", "ShipmentDate", "ShipmentFarm"],
+    "note": "The checklist stores advisory-only private review events and has no SQL, ERP module import, or ERP mutation."
+  },
+  "requiredCommands": [
+    "node __tests__/distributionChecklistStore.test.js",
+    "node __tests__/distributionChecklistUi.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

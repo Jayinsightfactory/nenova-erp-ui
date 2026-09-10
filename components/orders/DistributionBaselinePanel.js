@@ -10,6 +10,9 @@ export default function DistributionBaselinePanel({ week, parsing, running, hasA
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmed, setConfirmed] = useState('');
+  const [source, setSource] = useState(null);
+  const [savedItems,setSavedItems] = useState([]);
+  const [coverage,setCoverage] = useState('');
   const seq = useRef(0);
   const scope = useRef(week); scope.current = week;
   const matches = baseline && validateSelectedScope(baseline, week);
@@ -21,14 +24,47 @@ export default function DistributionBaselinePanel({ week, parsing, running, hasA
     setError(''); setBusy(true);
     try {
       if (!/^\d{4}-\d{2}-\w+$/.test(selected)) throw new Error('먼저 등록할 연도와 차수를 선택하세요.');
-      if (file.size > 10485760) throw new Error('10MB 이하 엑셀을 선택하세요.');
+      if (file.size > 524288) throw new Error('서버 보관은 512KB 이하 엑셀을 선택하세요.');
       const XLSX = await import('xlsx');
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellFormula: true });
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const workbook = XLSX.read(bytes, { type: 'array', cellFormula: true });
       const parsed = parseDistributionBaseline(workbook, { year: selected.slice(0,4), week: selected.slice(5), fileName: file.name });
       if (id !== seq.current || selected !== scope.current) return;
       setBaseline(parsed); setActive(0); setConfirmed('');
+      let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
+      setSource({fileName:file.name,fileBase64:btoa(binary),requestId:crypto.randomUUID()});
+      setCoverage(parsed.week.endsWith('-01')?'single':'');
     } catch (err) { if (id === seq.current) setError(err.message || '엑셀을 읽지 못했습니다.'); }
     finally { if (id === seq.current) setBusy(false); }
+  }
+  async function serverCall(query,body) {
+    const response=await fetch(`/api/orders/distribution-baselines${query?`?${new URLSearchParams(query)}`:''}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined);
+    let result;try{result=await response.json();}catch{throw new Error('서버 응답을 확인하지 못했습니다. 같은 입력으로 다시 확인하세요.');}
+    if(!response.ok)throw new Error(result.error?.message||result.error||'기준 보관소에 연결하지 못했습니다.');return result;
+  }
+  async function save() {
+    if(!source||!matches||!coverage)return;
+    const selected=week,id=++seq.current;setBusy(true);setError('');
+    try{
+      const result=await serverCall(null,{...source,year:baseline.year,week:baseline.week,coverage});
+      if(id!==seq.current||selected!==scope.current)return;
+      setConfirmed(result.baseline.createdAt);
+    }catch(e){if(id===seq.current)setError(e.message);}finally{if(id===seq.current)setBusy(false);}
+  }
+  async function listSaved() {
+    const selected=week,id=++seq.current;setBusy(true);setError('');
+    try{
+      const result=await serverCall({year:selected.slice(0,4),week:selected.slice(5)});
+      if(id===seq.current&&selected===scope.current)setSavedItems(result.items);
+    }catch(e){if(id===seq.current)setError(e.message);}finally{if(id===seq.current)setBusy(false);}
+  }
+  async function restore(savedId) {
+    const selected=week,id=++seq.current;setBusy(true);setError('');
+    try{
+      const result=await serverCall({year:selected.slice(0,4),week:selected.slice(5),id:savedId});
+      if(id!==seq.current||selected!==scope.current)return;
+      setBaseline(result.baseline.parsed);setActive(0);setConfirmed(result.baseline.createdAt);setCoverage(result.baseline.coverage);setSource(null);
+    }catch(e){if(id===seq.current)setError(e.message);}finally{if(id===seq.current)setBusy(false);}
   }
   function navigate(index) {
     if (index < 2) { setOpen(true); return; }
@@ -46,14 +82,16 @@ export default function DistributionBaselinePanel({ week, parsing, running, hasA
       <nav className="baseline-steps" aria-label="작업 순서">{steps.map((label,i)=><button key={label} type="button" disabled={(i===3||i===4)&&!hasAnalysis || i===5&&!hasResult} onClick={()=>navigate(i)}>{i+1}. {label}{i===2&&parsing?' 중…':i===4&&running?' 중…':''}</button>)}</nav>
       <div className="baseline-toolbar">
         <label className="baseline-upload">{busy?'읽는 중…':'기준 엑셀 선택'}<input type="file" accept=".xlsx" onChange={load} disabled={busy||running} aria-label="기준 엑셀 선택" /></label>
-        <button type="button" disabled={!matches||busy||running||baseline?.combinedUnknown} onClick={()=>setConfirmed(new Date().toLocaleString('ko-KR'))}>이 화면에서 기준 보관</button>
+        <button type="button" disabled={!matches||!source||!coverage||busy||running} onClick={save}>서버에 원본 보관</button>
+        <button type="button" disabled={!week||busy||running} onClick={listSaved}>보관한 기준 불러오기</button>
         <span>{confirmed&&matches?`기준 보관 ${confirmed}`:'기준 미보관'}</span>
         <input aria-label="물량표 품목 검색" placeholder="품목 검색" value={search} onChange={e=>setSearch(e.target.value)} />
       </div>
-      <p className="baseline-note">선택 파일은 브라우저에서만 읽습니다. 기준은 새로고침하면 사라집니다. 현재 전산 분배·카톡 변경과 자동 대조하는 기능은 아직 연결 전입니다.</p>
+      <p className="baseline-note">‘서버에 원본 보관’을 누르면 엑셀과 차수를 저장하며, 기존 보관본을 덮어쓰지 않습니다. 전산 분배 기준 촬영·자동 대조는 아직 연결 전입니다. 원본 보관은 전산 확정이 아닙니다.</p>
+      {!!savedItems.length&&<div className="baseline-toolbar">{savedItems.filter(s=>`${s.year}-${s.week}`===week).map(s=><button type="button" disabled={busy||running} key={s.id} onClick={()=>restore(s.id)}>{s.fileName} · {s.createdAt}</button>)}</div>}
       {error&&<p role="alert">{error}</p>}
       {baseline&&!matches&&<p role="alert">선택 차수가 바뀌었습니다. 이전 기준표를 현재 차수에 적용하지 않습니다.</p>}
-      {baseline?.combinedUnknown&&<p role="alert">02차 자료입니다. 01·02 합산 여부와 세부 수량 확인 전에는 기준 보관·자동 합산하지 않습니다.</p>}
+      {matches&&baseline?.combinedUnknown&&<div className="baseline-toolbar"><label>이 엑셀의 수량 범위 <select value={coverage} disabled={busy||running||!source} onChange={e=>setCoverage(e.target.value)}><option value="">직접 확인 후 선택</option><option value="single">02만 있는 표</option><option value="combined">이미 01+02를 합친 표</option></select></label><span>합산된 표에 01 수량을 다시 더하지 않습니다. 세부차수 자동 분리는 하지 않습니다.</span></div>}
       {matches&&<div className="baseline-toolbar">{baseline.sheets.map((s,i)=><button key={s.id} type="button" aria-pressed={i===active} onClick={()=>setActive(i)}>{s.name}</button>)}</div>}
       {sheet&&<div className="baseline-scroll" tabIndex={0} aria-label="기준 물량표 가로 세로 스크롤"><table><thead><tr><th className="product">품목</th>{sheet.clients.map(c=><th key={c.id} title={c.label}>{c.label}<small>{c.day||'일정 미지정'}</small></th>)}<th className="remain">엑셀 잔량</th></tr></thead><tbody>{sheet.rows.filter(r=>r.label.toLowerCase().includes(search.toLowerCase())).map(r=><tr key={r.id}><td className="product" title={r.label}>{r.label}</td>{sheet.clients.map(c=><td key={c.id}>{show(r.values[c.id])}</td>)}<td className="remain">{show(r.remaining)}</td></tr>)}</tbody></table></div>}
       {sheet&&<p className="baseline-note">{sheet.rows.length}품목 · {sheet.clients.length}열 · 수량은 원본 표기 그대로이며 단위 환산·전산 일치 판정 전입니다.</p>}

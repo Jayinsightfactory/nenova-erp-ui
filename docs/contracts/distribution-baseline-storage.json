@@ -1,0 +1,52 @@
+{
+  "id": "distribution-baseline-storage",
+  "title": "기준 물량표 불변 서버 보관",
+  "scope": [
+    "lib/distributionBaselineStore.js",
+    "pages/api/orders/distribution-baselines.js",
+    "__tests__/distributionBaselineStore.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {
+      "name": "STORE_DISTRIBUTION_BASELINE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": ["all ERP tables", "Estimate", "WebProfitReport", "ShipmentDate", "ShipmentFarm"]
+    },
+    {
+      "name": "READ_DISTRIBUTION_BASELINE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": ["all ERP tables"]
+    }
+  ],
+  "criteria": {
+    "storage": "private data/distribution-board/baselines only; no DB query or ERP mutation",
+    "identity": "SHA256(year, week, authenticated userId, requestId)",
+    "idempotency": "same payload returns the stored record; a different payload with the same ID returns 409",
+    "sourceValidation": "512KiB maximum, strict base64, xlsx name, ZIP magic, XLSX parse, existing distribution parser year/week validation",
+    "response": "list {items}; get/post {baseline}; baseline has parsed/source/fileName/sha256/createdAt/createdBy/year/week/coverage/id/status",
+    "reconciliation": "erpSnapshot=null and reconciliationStatus=NOT_CAPTURED"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "A workbook titled 2025 cannot be stored for the explicit 2026 selected week."
+  },
+  "requiredTestFiles": ["__tests__/distributionBaselineStore.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": ["GetCustomerList", "btnSave_Click"],
+    "tables": ["ShipmentDetail", "ShipmentDate", "ShipmentFarm"],
+    "note": "This file-only baseline archive performs no ERP query or write and preserves all EXE-facing tables."
+  },
+  "requiredCommands": [
+    "node __tests__/distributionBaselineStore.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

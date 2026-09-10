@@ -46,12 +46,14 @@ jobs:
           ECOUNT_INGEST_TOKEN: ${{ secrets.ECOUNT_INGEST_TOKEN }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           KAKAO_SHEET_ID: ${{ secrets.KAKAO_SHEET_ID }}
+          NENOVA_SALES_READ_TOKEN: ${{ secrets.NENOVA_SALES_READ_TOKEN }}
+          NENOVA_SALES_ROOM_ID: ${{ secrets.NENOVA_SALES_ROOM_ID }}
         with:
           host: 172.233.89.171
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: JWT_SECRET,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID
+          envs: JWT_SECRET,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -175,6 +177,16 @@ jobs:
             else
               echo "ℹ️  KAKAO_SHEET_ID 미설정 — 기본 시트ID 사용"
             fi
+            # Dedicated read-only feed credentials: never print their values.
+            for KEY in NENOVA_SALES_READ_TOKEN NENOVA_SALES_ROOM_ID; do
+              VALUE="$(printenv "$KEY")"
+              if [ -n "$VALUE" ]; then
+                grep -v "^${KEY}=" .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+                printf '%s=%s\n' "$KEY" "$VALUE" >> .env.local
+              fi
+            done
+            unset VALUE
             echo "=== npm install ==="
             mkdir -p public/uploads/catalog/_bulk_import data
             if [ -f public/uploads/catalog/_bulk_import/*통합본*.pptx ] 2>/dev/null || ls public/uploads/catalog/_bulk_import/*통합본*.pptx 1>/dev/null 2>&1; then
