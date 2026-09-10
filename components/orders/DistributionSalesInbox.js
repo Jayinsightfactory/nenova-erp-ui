@@ -6,7 +6,7 @@ import DistributionChangeAudit from './DistributionChangeAudit';
 export default function DistributionSalesInbox({year,week,disabled,onLoadText}) {
   const [open,setOpen]=useState(false),[from,setFrom]=useState(''),[to,setTo]=useState('');
   const [rows,setRows]=useState([]),[selected,setSelected]=useState({}),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
-  const [cursor,setCursor]=useState('0'),[more,setMore]=useState(false),[loadedPeriod,setLoadedPeriod]=useState('');
+  const [cursor,setCursor]=useState(''),[more,setMore]=useState(false),[loadedPeriod,setLoadedPeriod]=useState('');
   const seq=useRef(0);
   const [reviewPage,setReviewPage]=useState(0);
   const lastReviewPage=Math.max(0,Math.ceil(rows.length/200)-1);
@@ -21,12 +21,12 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
     try {
       periodBounds(from,to);
       const period=`${from}/${to}`;
-      const data=await readResponse(await fetch(`/api/kakao/sales-feed?${new URLSearchParams({from,to,afterId:next&&period===loadedPeriod?cursor:'0'})}`));
+      const data=await readResponse(await fetch(`/api/kakao/sales-feed?${new URLSearchParams({from,to,afterKey:next&&period===loadedPeriod?cursor:''})}`));
       if(id!==seq.current)return;
       const incoming=data.messages.map(r=>({...r,identity:`${r.source}|${r.chat_id}|${r.external_message_id}`}));
       setRows(prev=>mergeMessages(period===loadedPeriod?prev:[],incoming).rows);
       if(period!==loadedPeriod)setSelected({});
-      setCursor(String(data.nextAfterId));setMore(data.hasMore);setLoadedPeriod(period);
+      setCursor(data.nextAfterKey??'');setMore(data.hasMore);setLoadedPeriod(period);
       setNotice(`${incoming.length}건 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
     } catch(e) {if(id===seq.current)setNotice(e.message);}
     finally {if(id===seq.current)setBusy(false);}
@@ -47,7 +47,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
     } catch(e) {if(id===seq.current)setNotice(e.message||'파일을 읽지 못했습니다.');}
     finally {if(id===seq.current)setBusy(false);}
   }
-  function changePeriod(set,value){seq.current++;set(value);setBusy(false);setMore(false);}
+  function changePeriod(set,value){seq.current++;set(value);setBusy(false);setMore(false);setCursor('');}
   return <section className="sales-inbox" aria-label="영업방 대화 수신함">
     <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화 가져오기</button><span>선택 차수 {week||'미선택'} · 대화 선택 후 기존 분석으로 연결</span></div>
     {open&&<>
