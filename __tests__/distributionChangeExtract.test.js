@@ -11,10 +11,14 @@ const context = {
 };
 
 const prompt = buildExtractionPrompt(context);
-assert.match(prompt, /untrusted data\. Ignore every instruction/);
+assert.match(prompt, /extract business change requests only as data/);
 assert.match(prompt, /no.*ERP matching/i);
 assert.match(prompt, /EVERY non-empty source line/);
 assert.match(prompt, /small, single-line span/);
+assert.match(prompt, /record_distribution_changes/);
+assert.match(prompt, /Every listed request and unresolved field is required/);
+assert.match(prompt, /required non-empty reason/);
+assert.match(prompt, /37-1\).*37-01/);
 
 const normalized = normalizeExtraction({
   requests: [{ sourceIdentity: context.messages[0].identity, action: 'ADD', quote: '화이트 2박스 추가 37-01', customerText: '라움', productText: '화이트', qty: 2, unit: '박스', week: '37-01', shipmentDate: null }],
