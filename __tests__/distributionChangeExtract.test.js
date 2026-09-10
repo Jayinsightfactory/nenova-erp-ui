@@ -17,8 +17,11 @@ assert.match(prompt, /EVERY non-empty source line/);
 assert.match(prompt, /small, single-line span/);
 assert.match(prompt, /record_distribution_changes/);
 assert.match(prompt, /Every listed request and unresolved field is required/);
-assert.match(prompt, /required non-empty reason/);
+assert.match(prompt, /required non-empty, short plain Korean reason/);
 assert.match(prompt, /37-1\).*37-01/);
+assert.match(prompt, /"변경 요청 없음"/);
+assert.match(prompt, /use "카네이션" as productContextText/);
+assert.match(prompt, /never expand "콜" to "콜롬비아"/);
 
 const normalized = normalizeExtraction({
   requests: [{ sourceIdentity: context.messages[0].identity, action: 'ADD', quote: '화이트 2박스 추가 37-01', customerText: '라움', productText: '화이트', qty: 2, unit: '박스', week: '37-01', shipmentDate: null }],
@@ -61,6 +64,16 @@ const setZero = normalizeExtraction({
 assert.equal(setZero.requests[0].qty, 0);
 assert.equal(setZero.requests[0].unit, null);
 assert.equal(setZero.requests[0].week, null);
+assert.equal(setZero.requests[0].productContextText, null);
+const contextProduct = normalizeExtraction({
+  requests: [{ sourceIdentity: multilineContext.messages[0].identity, action: 'ADD', quote: '라움 화이트 2박스 추가', productText: '화이트', productContextText: '37-01 변경사항', qty: 2 }],
+  unresolved: [],
+}, multilineContext);
+assert.equal(contextProduct.requests[0].productContextText, '37-01 변경사항');
+assert.throws(() => normalizeExtraction({
+  requests: [{ sourceIdentity: multilineContext.messages[0].identity, action: 'ADD', quote: '라움 화이트 2박스 추가', productText: '화이트', productContextText: '원문에 없는 품목군', qty: 2 }],
+  unresolved: [],
+}, multilineContext));
 assert.throws(() => normalizeExtraction({ requests: [{ sourceIdentity: context.messages[0].identity, action: 'ADD', quote: '2박스 추가', qty: 0 }], unresolved: [] }, context));
 assert.throws(() => normalizeExtraction({ requests: [{ sourceIdentity: 'fabricated', action: 'ADD', quote: 'x', qty: 1 }], unresolved: [] }, context));
 assert.throws(() => normalizeExtraction({ requests: [{ sourceIdentity: context.messages[0].identity, action: 'ADD', quote: 'invented quote', qty: 1 }], unresolved: [] }, context));

@@ -22,10 +22,10 @@ const EXTRACTION_TOOL = {
         type: 'array', maxItems: 100,
         items: {
           type: 'object', additionalProperties: false,
-          required: ['sourceIdentity', 'quote', 'action', 'customerText', 'productText', 'qty', 'unit', 'week', 'shipmentDate'],
+          required: ['sourceIdentity', 'quote', 'action', 'customerText', 'productText', 'productContextText', 'qty', 'unit', 'week', 'shipmentDate'],
           properties: {
             sourceIdentity: { type: 'string' }, quote: { type: 'string' }, action: { type: 'string', enum: ['ADD', 'CANCEL', 'SET'] },
-            customerText: { type: ['string', 'null'] }, productText: { type: ['string', 'null'] }, qty: { type: ['number', 'null'] },
+            customerText: { type: ['string', 'null'] }, productText: { type: ['string', 'null'] }, productContextText: { type: ['string', 'null'] }, qty: { type: ['number', 'null'] },
             unit: { anyOf: [{ type: 'string', enum: ['박스', '단', '송이'] }, { type: 'null' }] },
             week: { anyOf: [{ type: 'string', pattern: '^\\d{2}-\\d{2}$' }, { type: 'null' }] },
             shipmentDate: { anyOf: [{ type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }, { type: 'null' }] },
@@ -37,7 +37,7 @@ const EXTRACTION_TOOL = {
         items: {
           type: 'object', additionalProperties: false,
           required: ['sourceIdentity', 'quote', 'reason'],
-          properties: { sourceIdentity: { type: 'string' }, quote: { type: 'string' }, reason: { type: 'string' } },
+          properties: { sourceIdentity: { type: 'string' }, quote: { type: 'string' }, reason: { type: 'string', description: 'Short plain Korean explanation' } },
         },
       },
     },
@@ -50,21 +50,50 @@ function textError(error, fallback) {
 }
 
 function exactName(rows, text, fields) {
-  if (typeof text !== 'string' || !text.trim()) return null;
-  const requested = text.trim();
-  const matches = rows.filter(row => fields.some(field => typeof row[field] === 'string' && row[field].trim() === requested));
+  const matches = exactNameCandidates(rows, text, fields);
   return matches.length === 1 ? matches[0] : null;
 }
 
+function exactNameCandidates(rows, text, fields) {
+  if (typeof text !== 'string' || !text.trim()) return [];
+  const requested = text.trim();
+  return rows.filter(row => fields.some(field => typeof row[field] === 'string' && row[field].trim() === requested));
+}
+
 function exactPersistedAlias(rows, text, mappings, normalize, keyName) {
-  if (typeof text !== 'string' || !text.trim() || !mappings || typeof mappings !== 'object') return null;
+  const candidates = exactPersistedAliasCandidates(rows, [text], mappings, normalize, keyName);
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function exactPersistedAliasCandidates(rows, texts, mappings, normalize, keyName) {
+  if (!Array.isArray(texts) || !mappings || typeof mappings !== 'object') return [];
   const normalizers = Array.isArray(normalize) ? normalize : [normalize];
-  const mappedKeys = [...new Set(normalizers
-    .map(normalizeExactKey => Number(mappings[normalizeExactKey(text)]?.[keyName]))
-    .filter(mappedKey => Number.isInteger(mappedKey) && mappedKey > 0))];
-  if (mappedKeys.length !== 1) return null;
-  const matches = rows.filter(row => Number(row[keyName === 'custKey' ? 'CustKey' : 'ProdKey']) === mappedKeys[0]);
-  return matches.length === 1 ? matches[0] : null;
+  const mappedKeys = new Set();
+  for (const text of texts) {
+    if (typeof text !== 'string' || !text.trim()) continue;
+    for (const normalizeExactKey of normalizers) {
+      const mappedKey = Number(mappings[normalizeExactKey(text)]?.[keyName]);
+      if (Number.isInteger(mappedKey) && mappedKey > 0) mappedKeys.add(mappedKey);
+    }
+  }
+  const rowKey = keyName === 'custKey' ? 'CustKey' : 'ProdKey';
+  return rows.filter(row => mappedKeys.has(Number(row[rowKey])));
+}
+
+function uniqueProductCandidate(rows) {
+  const byKey = new Map(rows.map(row => [Number(row.ProdKey), row]).filter(([key]) => Number.isInteger(key) && key > 0));
+  return byKey.size === 1 ? [...byKey.values()][0] : null;
+}
+
+function exactProductCandidate(products, request, mappings) {
+  const productText = typeof request.productText === 'string' ? request.productText.trim() : '';
+  const contextText = typeof request.productContextText === 'string' ? request.productContextText.trim() : '';
+  const aliasTexts = contextText && productText ? [productText, `${contextText} ${productText}`] : [productText];
+  const direct = exactNameCandidates(products, productText, ['ProdName', 'DisplayName']);
+  return uniqueProductCandidate([
+    ...direct,
+    ...exactPersistedAliasCandidates(products, aliasTexts, mappings, normalizeToken, 'prodKey'),
+  ]);
 }
 
 function loadExactAliases() {
@@ -141,6 +170,8 @@ const EXTRACTION_VALIDATION_FIELD_BY_MESSAGE = new Map([
   ['unresolved row is malformed', 'shape'],
   ['customerText must be a string', 'shape'],
   ['productText must be a string', 'shape'],
+  ['productContextText must be a string', 'shape'],
+  ['productContextText must be an exact substring of its raw message', 'shape'],
   ['reason is required', 'shape'],
   ['reason must be a string', 'shape'],
 ]);
@@ -222,8 +253,7 @@ async function runExtraction(context) {
 function mappedRequest(request, facts, scope, aliases) {
   const customer = exactName(facts.customers, request.customerText, ['CustName'])
     || exactPersistedAlias(facts.customers, request.customerText, aliases.customers, [normalizeCustomerMappingKey, normalizeCustomerToken], 'custKey');
-  const product = exactName(facts.products, request.productText, ['ProdName', 'DisplayName'])
-    || exactPersistedAlias(facts.products, request.productText, aliases.products, normalizeToken, 'prodKey');
+  const product = exactProductCandidate(facts.products, request, aliases.products);
   const converted = customer && product && request.action !== 'SET' ? convertToOutUnit(request, product) : null;
   return {
     ...request, year: scope.year, week: request.week,

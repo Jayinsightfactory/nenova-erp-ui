@@ -121,4 +121,7 @@ for (const result of compare([request({ mappingConfirmed: false })], [event()]))
   assert.equal('blocker' in result, false);
 }
 
+const [unmapped] = compare([request({ prodKey: null, mappingConfirmed: false })], [event()]);
+assert.equal(unmapped.reasonKorean, '업체와 품목을 먼저 연결해야 변경 이력을 비교할 수 있습니다.');
+
 console.log('distribution change compare tests passed');
