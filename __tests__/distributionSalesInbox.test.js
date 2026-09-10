@@ -1,5 +1,6 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const vm=require('node:vm');
 const {periodBounds,parseSalesExport,mergeMessages,selectedText}=require('../lib/distributionSalesInbox');
 assert.deepEqual(periodBounds('2026-09-10','2026-09-10'),{from:'2026-09-09T15:00:00.000Z',to:'2026-09-10T15:00:00.000Z'});
 assert.throws(()=>periodBounds('2026-02-30','2026-03-01'));
@@ -17,5 +18,40 @@ assert.equal(mergeMessages([a],[a,b]).duplicateCount,1);assert.equal(mergeMessag
 assert.equal(selectedText([a,b],{b:true}),'1단 취소');
 const api=fs.readFileSync(require.resolve('../pages/api/kakao/sales-feed.js'),'utf8');
 assert.match(api,/withAuth/);assert.match(api,/NENOVA_SALES_READ_TOKEN/);assert.match(api,/r.chat_id!==roomId/);assert.doesNotMatch(api,/googleSheets|\/api\/kakao\/messages/);
+assert.match(api,/function validAfterKey/);assert.match(api,/const afterKey=req\.query\.afterKey\?\?''/);assert.match(api,/nextAfterKey/);assert.doesNotMatch(api,/afterId|nextAfterId/);
 const ui=fs.readFileSync(require.resolve('../components/orders/DistributionSalesInbox.js'),'utf8');assert.doesNotMatch(ui,/adjust-batch|method:\s*['"]POST/);
-console.log('distributionSalesInbox tests passed');
+assert.match(ui,/afterKey:next&&period===loadedPeriod\?cursor:''/);assert.match(ui,/data\.nextAfterKey\?\?''/);assert.doesNotMatch(ui,/afterId|nextAfterId/);
+
+function compileSalesFeed(fetchImpl) {
+  const transformed=api
+    .replace("import { withAuth } from '../../../lib/auth';",'const {withAuth}=deps.auth;')
+    .replace("import { periodBounds } from '../../../lib/distributionSalesInbox';",'const {periodBounds}=deps.inbox;')
+    .replace('export default withAuth','module.exports=withAuth');
+  const module={exports:null};
+  vm.runInNewContext(transformed,{module,deps:{auth:{withAuth:handler=>handler},inbox:{periodBounds}},process:{env:{NENOVA_SALES_READ_TOKEN:'test-token',NENOVA_SALES_ROOM_ID:'room-1'}},URL,AbortController,setTimeout:()=>null,clearTimeout:()=>{},fetch:fetchImpl});
+  return module.exports;
+}
+function response() { return {statusCode:200,body:null,setHeader(){},status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}}; }
+function upstream(data) { return {ok:true,json:async()=>data}; }
+
+(async()=>{
+  let requestedUrl='';
+  const handler=compileSalesFeed(async url=>{
+    requestedUrl=String(url);
+    return upstream({ok:true,messages:[{id:null,chatroom:'영업방',chat_id:'room-1',source:'nenovakakao',external_message_id:'external /?키'}],hasMore:true,nextAfterKey:'next /?키'});
+  });
+  const ok=response();
+  await handler({method:'GET',query:{from:'2026-09-10',to:'2026-09-10',afterKey:'external /?키'}},ok);
+  assert.equal(ok.statusCode,200);assert.equal(ok.body.messages[0].id,null);assert.equal(ok.body.nextAfterKey,'next /?키');
+  const url=new URL(requestedUrl);assert.equal(url.searchParams.get('afterKey'),'external /?키');assert.equal(url.searchParams.get('afterId'),null);
+
+  let called=false;
+  const invalidCursor=response();
+  await compileSalesFeed(async()=>{called=true;return upstream({});})({method:'GET',query:{from:'2026-09-10',to:'2026-09-10',afterKey:'bad\nkey'}},invalidCursor);
+  assert.equal(invalidCursor.statusCode,400);assert.equal(called,false);
+
+  const invalidNext=response();
+  await compileSalesFeed(async()=>upstream({ok:true,messages:[],hasMore:true,nextAfterKey:null}))({method:'GET',query:{from:'2026-09-10',to:'2026-09-10',afterKey:''}},invalidNext);
+  assert.equal(invalidNext.statusCode,502);
+  console.log('distributionSalesInbox tests passed');
+})().catch(error=>{console.error(error);process.exitCode=1;});
