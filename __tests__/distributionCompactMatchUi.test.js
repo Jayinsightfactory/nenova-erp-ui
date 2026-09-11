@@ -4,6 +4,10 @@ const assert = require('node:assert/strict');
 const { classifyMessage, summarizeMessage, matchingSummary } = require('../lib/distributionCompactMatchUi');
 
 assert.equal(classifyMessage({ message: '37-1 잔량\n수국 3\n장미 2' }), 'STOCK');
+assert.equal(classifyMessage('*호주 36차 잔량\n소재2호\n에뮤그라스 2\n반커부쉬 1+3단\n37-1 베트남 호접 잔량\n화이트 8F - 41 box (655st)'), 'STOCK', 'stock table separator is not a signed cancellation');
+assert.equal(classifyMessage('@담당자\n메시지가 삭제되었습니다.'), 'REVIEW', 'Kakao tombstone is not an ERP deletion request');
+assert.equal(classifyMessage('메시지가 삭제되었습니다.\n라움\n화이트 1박스 취소'), 'REQUEST', 'actual remaining request is preserved');
+assert.equal(classifyMessage('재고\n화이트 -1박스'), 'REQUEST', 'attached negative quantity remains reviewable as a request');
 assert.equal(classifyMessage({ message: '출고 후 잔량\n화이트 2' }), 'STOCK', '출고 is a noun here, not a distribution action');
 assert.equal(classifyMessage({ message: '재고\n화이트 +1' }), 'REQUEST', 'signed changes must not disappear into stock');
 assert.equal(classifyMessage({ message: '변화\n화이트 1' }), 'REQUEST');
