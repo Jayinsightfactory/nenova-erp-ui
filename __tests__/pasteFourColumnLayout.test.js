@@ -14,6 +14,9 @@ assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?grid-template-columns
 assert.match(page, /@media \(max-width: 768px\) \{[\s\S]*?\.paste-input-grid \{ grid-template-columns: 1fr; \}/);
 assert.match(page, /\.paste-col-work-results \{ grid-column: 4; grid-row: 1 \/ span 2;/);
 assert.match(page, /max-height: calc\(100vh - 230px\); overflow: auto/);
+assert.match(page, /height: calc\(100vh - 310px\); max-height: calc\(100vh - 310px\); min-height: 0;/);
+assert.match(page, /\.paste-input-grid > \.paste-col > \* \{ flex-shrink: 0; \}/);
+assert.match(page, /\.paste-work-history \{ margin-top: 8px; min-width: 0; min-height: 120px; max-height: 260px; overflow: auto;/);
 assert.match(page, /paste-connected-save[\s\S]*작업 결과 · 진행 상태/);
 assert.match(page, /paste-connected-result-details/);
 assert.match(page, /최근 붙여넣기 작업 이력/);
@@ -37,6 +40,10 @@ assert.match(operationHistory, /\{ initial = \{\}, compact = false \}/);
 assert.match(operationHistory, /if \(compact\) return <section aria-label="최근 붙여넣기 작업 이력">/);
 assert.match(operationHistory, /<details style=\{\{ marginTop: 5 \}\}>/);
 assert.match(operationHistory, /filters\.year}년 \{filters\.week \|\| '전체 차수'\}/);
+assert.match(operationHistory, /filters\.who === 'mine' \? '내 작업' : '전체 작업'/);
+assert.match(operationHistory, /현재 조회 구간에는 붙여넣기 작업 이력이 없습니다/);
+assert.match(operationHistory, /onClick=\{\(\) => load\(data\.nextCursor\)\}/);
+assert.match(operationHistory, />다음 기록 검색<\/button>/);
 assert.match(operationHistory, /useEffect\(\(\) => \{ load\(\); return \(\) => \{ seq\.current \+= 1; \}; \}, \[\]\);/);
 
 const loaderStart = page.indexOf('  const loadOrderHistorySummary = async');

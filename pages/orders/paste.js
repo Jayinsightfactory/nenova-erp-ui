@@ -4378,7 +4378,7 @@ export default function PasteOrderPage() {
           .paste-col-work-results .paste-work-success-row > * { min-width: 0; overflow-wrap: anywhere; }
           .paste-work-rollback { display: grid; gap: 4px; margin-bottom: 8px; padding: 8px 9px; border: 2px solid #c62828; border-radius: 7px; background: #ffebee; color: #b71c1c; font-size: 12px; }
           .paste-work-empty { color: #64748b; font-size: 11px; line-height: 1.4; }
-          .paste-work-history { margin-top: 8px; min-width: 0; max-height: 360px; overflow: auto; overflow-x: hidden; }
+          .paste-work-history { margin-top: 8px; min-width: 0; min-height: 120px; max-height: 260px; overflow: auto; overflow-x: hidden; }
           .paste-work-history > strong { display: block; margin-bottom: 5px; color: #263238; font-size: 12px; }
           .paste-work-history section { min-width: 0; font-size: 11px; }
           .paste-order-results-head {
@@ -4489,7 +4489,9 @@ export default function PasteOrderPage() {
             background: #fff;
           }
           @media (min-width: 1600px) {
-            .paste-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+            .paste-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 310px); max-height: calc(100vh - 310px); min-height: 0; align-items: stretch; }
+            .paste-input-grid > .paste-col > * { flex-shrink: 0; }
+            .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: auto; }
             .paste-col-baseline { grid-column: 1; grid-row: 1 / span 2; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
             .paste-column-order-input { grid-column: 2; grid-row: 1; }
             .paste-column-base-input { grid-column: 2; grid-row: 2; }

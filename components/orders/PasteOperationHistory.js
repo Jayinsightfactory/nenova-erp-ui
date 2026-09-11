@@ -29,11 +29,11 @@ export default function PasteOperationHistory({ initial = {}, compact = false })
     <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap', marginBottom: 7, fontSize: 11, color: '#455a64' }}>
       <span><b>{filters.year}년 {filters.week || '전체 차수'}</b></span>
       {filters.custName && <span>· {filters.custName}</span>}
-      <span>· 최근 실행 단위</span>
+      <span>· {filters.who === 'mine' ? '내 작업' : '전체 작업'} · 최근 실행 단위</span>
       <button type="button" onClick={() => load()} disabled={loading} style={{ marginLeft: 'auto', ...field, padding: '3px 7px', fontSize: 10, cursor: loading ? 'wait' : 'pointer' }}>{loading ? '조회 중…' : '새로고침'}</button>
     </div>
     {error && <p role="alert" style={{ color: '#c62828', fontSize: 11 }}>조회 실패: {error}</p>}
-    {!loading && !error && data.operations.length === 0 && <p style={{ color: '#78909c', fontSize: 11 }}>이 범위의 붙여넣기 작업 이력이 없습니다.</p>}
+    {!loading && !error && data.operations.length === 0 && <p style={{ color: '#78909c', fontSize: 11 }}>현재 조회 구간에는 붙여넣기 작업 이력이 없습니다.{data.hasMore && ' 다음 기록을 검색할 수 있습니다.'}</p>}
     <div style={{ display: 'grid', gap: 6 }}>
       {data.operations.slice(0, 6).map(operation => {
         const cancelCount = operation.entries.filter(entry => entry.type === 'CANCEL').length;
@@ -55,7 +55,7 @@ export default function PasteOperationHistory({ initial = {}, compact = false })
         </article>;
       })}
     </div>
-    {data.hasMore && <p style={{ marginTop: 6, color: '#64748b', fontSize: 10 }}>최근 6개만 표시합니다. 전체 작업 이력에서 더 볼 수 있습니다.</p>}
+    {data.hasMore && <button type="button" disabled={loading} onClick={() => load(data.nextCursor)} style={{ marginTop: 6, ...field, padding: '3px 7px', fontSize: 10, cursor: loading ? 'wait' : 'pointer' }}>다음 기록 검색</button>}
   </section>;
 
   return <section>
