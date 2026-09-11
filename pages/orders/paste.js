@@ -3953,9 +3953,9 @@ export default function PasteOrderPage() {
         </CollapsibleTop>
 
         <div id="paste-connected-input" tabIndex={-1} className="paste-input-grid" style={{ marginBottom: 12 }}>
-          {/* 1열: 기준 원본과 영업방 수신함 */}
+          {/* 왼쪽 두 열: 원문과 실제 최신 주문·분배 이력을 한 행에서 대조 */}
           <div className="paste-col paste-col-baseline">
-            <div className="paste-column-title">① 기준 · 영업방</div>
+            <div className="paste-column-title">① 영업방 원문 · 최신 전산 이력</div>
             <DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
               hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} />
             <DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} onLoadText={({text}) => {
@@ -4348,7 +4348,10 @@ export default function PasteOrderPage() {
                 <PasteOperationHistory compact key={`paste-operation-history:${selectedYearFromWeek(week)}:${week}:${matchedCustomerKey}:${bulkResult?.orderId || ''}:${bulkResult?.okCount || 0}:${bulkResult?.undone ? 'undo' : ''}`} initial={{ year: String(selectedYearFromWeek(week)), week, custName: orders.length === 1 ? (orders[0].custMatch?.CustName || orders[0].custName || '') : '' }} />
               ) : <div className="paste-side-off">차수를 선택하면 해당 차수의 최근 붙여넣기 작업 이력을 불러옵니다.</div>}
             </section>
-            <OrderHistoryPanel loading={orderHistoryLoading} error={orderHistoryError} rows={orderHistoryRows} week={week} onOpenDetail={openOrderHistoryDetail} />
+            <details className="paste-order-history-reference">
+              <summary>전체 주문 변경 이력 · 참고</summary>
+              <OrderHistoryPanel loading={orderHistoryLoading} error={orderHistoryError} rows={orderHistoryRows} week={week} onOpenDetail={openOrderHistoryDetail} />
+            </details>
           </div>
         </div>
 
@@ -4489,15 +4492,15 @@ export default function PasteOrderPage() {
             background: #fff;
           }
           @media (min-width: 1600px) {
-            .paste-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 310px); max-height: calc(100vh - 310px); min-height: 0; align-items: stretch; }
+            .paste-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 310px); max-height: calc(100vh - 310px); min-height: 0; align-items: stretch; }
             .paste-input-grid > .paste-col > * { flex-shrink: 0; }
             .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: auto; }
-            .paste-col-baseline { grid-column: 1; grid-row: 1 / span 2; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
-            .paste-column-order-input { grid-column: 2; grid-row: 1; }
-            .paste-column-base-input { grid-column: 2; grid-row: 2; }
-            .paste-column-analysis { grid-column: 3; grid-row: 1; }
-            .paste-column-helper { grid-column: 3; grid-row: 2; }
-            .paste-col-work-results { grid-column: 4; grid-row: 1 / span 2; }
+            .paste-col-baseline { grid-column: 1 / span 2; grid-row: 1 / span 3; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
+            .paste-column-order-input { grid-column: 3; grid-row: 1; }
+            .paste-column-base-input { grid-column: 3; grid-row: 2; }
+            .paste-column-helper { grid-column: 3; grid-row: 3; }
+            .paste-column-analysis { grid-column: 4; grid-row: 1; }
+            .paste-col-work-results { grid-column: 4; grid-row: 2 / span 2; }
           }
           @media (max-width: 1500px) {
             .paste-col-baseline, .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper, .paste-col-work-results { grid-column: auto; grid-row: auto; max-height: none; }

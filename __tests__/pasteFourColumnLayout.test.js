@@ -4,15 +4,19 @@ import fs from 'node:fs';
 const page = fs.readFileSync('pages/orders/paste.js', 'utf8');
 const operationHistory = fs.readFileSync('components/orders/PasteOperationHistory.js', 'utf8');
 
-assert.match(page, /① 기준 · 영업방/);
+assert.match(page, /① 영업방 원문 · 최신 전산 이력/);
 assert.match(page, /<DistributionSalesInbox key=\{`\$\{selectedYearFromWeek\(week\)\}:\$\{week\}`\}/);
 assert.match(page, /disabled=\{parsing \|\| bulkRunning \|\| adjustSaving \|\| orders\.some\(order => order\.saving\)\}/);
 assert.match(page, /② 입력/);
 assert.match(page, /③ 분석 · 검토/);
 assert.match(page, /④ 결과 · 최근 이력/);
-assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-template-rows: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1fr\)/);
 assert.match(page, /@media \(max-width: 768px\) \{[\s\S]*?\.paste-input-grid \{ grid-template-columns: 1fr; \}/);
-assert.match(page, /\.paste-col-work-results \{ grid-column: 4; grid-row: 1 \/ span 2;/);
+assert.match(page, /\.paste-col-baseline \{ grid-column: 1 \/ span 2; grid-row: 1 \/ span 3;/);
+assert.match(page, /\.paste-column-order-input \{ grid-column: 3; grid-row: 1;/);
+assert.match(page, /\.paste-column-base-input \{ grid-column: 3; grid-row: 2;/);
+assert.match(page, /\.paste-column-analysis \{ grid-column: 4; grid-row: 1;/);
+assert.match(page, /\.paste-col-work-results \{ grid-column: 4; grid-row: 2 \/ span 2;/);
 assert.match(page, /max-height: calc\(100vh - 230px\); overflow: auto/);
 assert.match(page, /height: calc\(100vh - 310px\); max-height: calc\(100vh - 310px\); min-height: 0;/);
 assert.match(page, /\.paste-input-grid > \.paste-col > \* \{ flex-shrink: 0; \}/);
@@ -26,7 +30,9 @@ assert.match(page, /<PasteOperationHistory compact key=\{`paste-operation-histor
 assert.match(page, /\.paste-work-success-row \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important; \}/);
 assert.match(page, /처리 실패 · 전산 변경 없음/);
 assert.match(page, /실패 \{bulkResult\.failCount\}건 · 성공 0건 · 전체 롤백되었습니다/);
-assert.match(page, /<OrderHistoryPanel loading=\{orderHistoryLoading\} error=\{orderHistoryError\}/);
+assert.match(page, /<details className="paste-order-history-reference">\s*<summary>전체 주문 변경 이력 · 참고<\/summary>\s*<OrderHistoryPanel loading=\{orderHistoryLoading\} error=\{orderHistoryError\}/);
+assert.doesNotMatch(page, /<details className="paste-order-history-reference" open/);
+assert.ok(page.indexOf('최근 붙여넣기 작업 이력') < page.indexOf('paste-order-history-reference'), '붙여넣기 작업 이력은 전체 주문 이력 참고 영역 밖에서 계속 보인다.');
 assert.match(page, /주문 원장 변경만 표시합니다/);
 assert.match(page, /!loading && !error && rows\.length === 0/);
 

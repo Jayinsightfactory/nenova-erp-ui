@@ -250,3 +250,17 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 - native `usp_StockCalculation`의 직전 StockMaster, 확정출고 차감, StockType 조정만
   사용하는 공식을 유지한다. 미확정 예약분은 현재 부모차수 01부터 목표 차수까지 별도
   차감하고, 다음 차수에 이미 포함된 이월을 두 번 가용량으로 계산하지 않는다.
+
+## 2026-09-11 카톡과 변경 이력 읽기 전용 대조
+
+- 로컬 `nenova-decompiled/Nenova/FormOrderAdd.cs`의 이력 저장을 확인했다.
+  `ColumName=주문수량`은 `OutQuantity` 전후값이며 `미발주수량`과 별도다.
+- `FormOrderHistory.GetData`는 OrderHistory를 ViewOrder의 OrderDetailKey로
+  연결한다. 따라서 주문 이력만으로 분배 완료를 판정하면 안 된다.
+- `FormShipmentHistory.GetData`는 ShipmentHistory → ShipmentDetail →
+  ShipmentMaster 및 Product/Customer를 연결한다. 원문과 동일한 연도·전체
+  차수·업체·품목의 원문 시각 이후 기록만 대조 대상으로 삼는다.
+- 0→0 기록, 단위 환산 근거 누락, 복수 날짜의 의미 불명확, 같은 이력을 요구하는
+  여러 원문은 완료 근거가 아니다. 이력 부재도 미적용의 증거가 아니다.
+- 이번 기능은 이 SELECT 연결 의미를 사용한 참고 대조이며 확정·주문·분배·
+  재고 프로시저와 원장 쓰기 경로를 변경하지 않는다.

@@ -1,6 +1,7 @@
 {
   "id": "distribution-sales-inbox",
   "title": "물량표 연결 영업방 수신함",
+  "liveHistoryPairing": {"contract":"distribution-live-history","source":"Read-only OrderHistory and ShipmentHistory, paired by sourceIdentity next to raw message","notCompletion":"Order-only and missing evidence do not prove distribution applied or omitted","layout":"1920x1080 left two columns pair raw message and matching history; whole order history is folded reference","polling":"visible online screen only, bounded batch of 50, scope and identity response validation, last-good preservation"},
   "scope": ["components/orders/DistributionSalesInbox.js", "lib/distributionSalesInbox.js", "lib/distributionSalesInboxRefresh.js", "pages/api/kakao/sales-feed.js", "pages/orders/paste.js", "pages/api/orders/distribution-change-audits.js", "pages/api/orders/distribution-manual-applications.js", "__tests__/distributionSalesInbox.test.js", "__tests__/distributionSalesInboxRefresh.test.js", "__tests__/distributionMessageApplicationStatus.test.js", "__tests__/pasteFourColumnLayout.test.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "sourceIdentity": ["source", "chat_id", "external_message_id"],

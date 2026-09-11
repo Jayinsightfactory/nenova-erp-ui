@@ -21,12 +21,12 @@ assert.ok(
   baselineIndex >= 0 && pasteInputIndex > baselineIndex && topPreviewIndex > pasteInputIndex && stockInputIndex > topPreviewIndex && helperIndex > stockInputIndex && resultsIndex > helperIndex,
   '4열은 기준·수신함, 주문+기초재고, 분석+보조, 결과·이력 순서로 렌더링해야 한다.',
 );
-assert.match(page, /\.paste-col-baseline \{ grid-column: 1; grid-row: 1 \/ span 2;/);
-assert.match(page, /\.paste-column-order-input \{ grid-column: 2; grid-row: 1; \}/);
-assert.match(page, /\.paste-column-base-input \{ grid-column: 2; grid-row: 2; \}/);
-assert.match(page, /\.paste-column-analysis \{ grid-column: 3; grid-row: 1; \}/);
-assert.match(page, /\.paste-column-helper \{ grid-column: 3; grid-row: 2; \}/);
-assert.match(page, /\.paste-col-work-results \{ grid-column: 4; grid-row: 1 \/ span 2;/);
+assert.match(page, /\.paste-col-baseline \{ grid-column: 1 \/ span 2; grid-row: 1 \/ span 3;/);
+assert.match(page, /\.paste-column-order-input \{ grid-column: 3; grid-row: 1; \}/);
+assert.match(page, /\.paste-column-base-input \{ grid-column: 3; grid-row: 2; \}/);
+assert.match(page, /\.paste-column-analysis \{ grid-column: 4; grid-row: 1; \}/);
+assert.match(page, /\.paste-column-helper \{ grid-column: 3; grid-row: 3; \}/);
+assert.match(page, /\.paste-col-work-results \{ grid-column: 4; grid-row: 2 \/ span 2;/);
 assert.equal(
   page.match(/renderGlobalActionPreviewBoard\(\{ compact: true \}\)/g)?.length,
   1,
@@ -40,6 +40,9 @@ assert.match(page, /기초재고 변동 예상/);
 assert.match(page, /예상잔량 = 기초재고 \+ 취소 − 추가/);
 assert.match(page, /최근 붙여넣기 작업 이력/);
 assert.match(page, /주문 변경 이력/);
+assert.match(page, /<details className="paste-order-history-reference">\s*<summary>전체 주문 변경 이력 · 참고<\/summary>/);
+assert.doesNotMatch(page, /<details className="paste-order-history-reference" open/);
+assert.match(page, /<OrderHistoryPanel loading=\{orderHistoryLoading\} error=\{orderHistoryError\} rows=\{orderHistoryRows\} week=\{week\} onOpenDetail=\{openOrderHistoryDetail\}/);
 assert.match(page, /주문 원장 변경만 표시합니다/);
 assert.match(page, /저장본 불러오기/);
 assert.match(page, /저장본 선택/);

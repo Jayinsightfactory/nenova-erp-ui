@@ -1,0 +1,39 @@
+{
+  "id": "distribution-live-history",
+  "title": "카톡 원문과 실시간 주문·분배 이력의 읽기 전용 대조",
+  "scope": [
+    "lib/distributionLiveHistory.js",
+    "pages/api/orders/distribution-live-history.js",
+    "__tests__/distributionLiveHistory.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{
+    "name": "PAIR_LIVE_HISTORY",
+    "orderDetail": "preserve",
+    "shipmentDetail": "preserve",
+    "preserve": ["all ERP tables", "OrderHistory", "ShipmentHistory", "raw chat", "existing APIs"]
+  }],
+  "criteria": {
+    "scope": "One exact OrderYear and full OrderWeek with a maximum seven-day ChangeDtm range; no combined-week inference.",
+    "orderHistory": "Only OrderHistory.ColumName=주문수량 with non-no-op finite BeforeValue/AfterValue is order evidence; BeforeValue is original order and AfterValue is OrderDetail.OutQuantity, never 미발주수량.",
+    "matching": "Exact catalog name or saved alias, exact identity, explicit unit conversion, and source-time-before-event are required. Ambiguous, approximate, date-only, deleted, complex, multi-date, competing, or truncated evidence never claims application.",
+    "advisory": "POST is read-only and returns erpAction NONE; every status is evidence only."
+  },
+  "crossYearFixture": { "required": true, "description": "A prior-year same-week event does not pair with the selected year." },
+  "requiredTestFiles": ["__tests__/distributionLiveHistory.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderAdd.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormOrderAdd.cs",
+    "methods": ["btnSave_Click", "GetDataProduct"],
+    "tables": ["OrderHistory", "OrderDetail", "OrderMaster", "ShipmentHistory", "ShipmentDetail", "ShipmentMaster"],
+    "note": "Main decompile review confirms FormOrderAdd records 주문수량 as BeforeValue original order and AfterValue OrderDetail.OutQuantity; 미발주수량 remains a separate history column."
+  },
+  "requiredCommands": [
+    "node __tests__/distributionLiveHistory.test.js",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
