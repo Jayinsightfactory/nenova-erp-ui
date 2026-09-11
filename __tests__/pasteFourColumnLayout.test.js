@@ -52,10 +52,11 @@ assert.match(operationHistory, /onClick=\{\(\) => load\(data\.nextCursor\)\}/);
 assert.match(operationHistory, />다음 기록 검색<\/button>/);
 assert.match(operationHistory, /useEffect\(\(\) => \{ load\(\); return \(\) => \{ seq\.current \+= 1; \}; \}, \[\]\);/);
 
-const loaderStart = page.indexOf('  const loadOrderHistorySummary = async');
-const loaderEnd = page.indexOf('\n\n  useEffect(() => {', loaderStart);
+const normalizedPage = page.replace(/\r\n/g, '\n');
+const loaderStart = normalizedPage.indexOf('  const loadOrderHistorySummary = async');
+const loaderEnd = normalizedPage.indexOf('\n\n  useEffect(() => {', loaderStart);
 assert.ok(loaderStart >= 0 && loaderEnd > loaderStart, 'history loader must remain directly executable for its read-only race contract');
-const loaderSource = page.slice(loaderStart, loaderEnd);
+const loaderSource = normalizedPage.slice(loaderStart, loaderEnd);
 
 function deferred() {
   let resolve; let reject;

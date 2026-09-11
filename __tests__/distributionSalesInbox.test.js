@@ -21,8 +21,8 @@ assert.match(api,/withAuth/);assert.match(api,/NENOVA_SALES_READ_TOKEN/);assert.
 assert.match(api,/function validAfterKey/);assert.match(api,/const afterKey=req\.query\.afterKey\?\?''/);assert.match(api,/nextAfterKey/);assert.doesNotMatch(api,/afterId|nextAfterId/);
 const ui=fs.readFileSync(require.resolve('../components/orders/DistributionSalesInbox.js'),'utf8');assert.doesNotMatch(ui,/adjust-batch|\/api\/orders\/(?:index|parse-paste)|handleAllMixedDistribute/);
 assert.match(ui,/fetch\('\/api\/orders\/distribution-manual-applications',\{method:'POST'/);
-const automaticApplicationRead=ui.match(/async function refreshApplicationStatus[\s\S]*?\n  }\n  useEffect/)[0];assert.doesNotMatch(automaticApplicationRead,/method:\s*['"]POST/);
-const automaticLiveHistoryRead=ui.match(/async function refreshLiveHistory[\s\S]*?\n  }\n  async function refreshApplicationStatus/)[0];
+const automaticApplicationRead=ui.match(/async function refreshApplicationStatus[\s\S]*?\r?\n  }\r?\n  useEffect/)[0];assert.doesNotMatch(automaticApplicationRead,/method:\s*['"]POST/);
+const automaticLiveHistoryRead=ui.match(/async function refreshLiveHistory[\s\S]*?\r?\n  }\r?\n  async function refreshApplicationStatus/)[0];
 assert.match(automaticLiveHistoryRead,/fetch\('\/api\/orders\/distribution-live-history',\{method:'POST'/);
 assert.match(automaticLiveHistoryRead,/advisoryOnly!==true/);assert.match(automaticLiveHistoryRead,/erpAction!=='NONE'/);
 assert.match(automaticLiveHistoryRead,/messages\.slice\(0,50\)\.map/);assert.match(automaticLiveHistoryRead,/liveHistoryScopeEpoch/);assert.match(automaticLiveHistoryRead,/liveHistoryBatchKeyRef/);assert.match(automaticLiveHistoryRead,/12000/);
