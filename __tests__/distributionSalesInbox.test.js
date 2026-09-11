@@ -19,7 +19,15 @@ assert.equal(selectedText([a,b],{b:true}),'1단 취소');
 const api=fs.readFileSync(require.resolve('../pages/api/kakao/sales-feed.js'),'utf8');
 assert.match(api,/withAuth/);assert.match(api,/NENOVA_SALES_READ_TOKEN/);assert.match(api,/r.chat_id!==roomId/);assert.doesNotMatch(api,/googleSheets|\/api\/kakao\/messages/);
 assert.match(api,/function validAfterKey/);assert.match(api,/const afterKey=req\.query\.afterKey\?\?''/);assert.match(api,/nextAfterKey/);assert.doesNotMatch(api,/afterId|nextAfterId/);
-const ui=fs.readFileSync(require.resolve('../components/orders/DistributionSalesInbox.js'),'utf8');assert.doesNotMatch(ui,/adjust-batch|method:\s*['"]POST/);
+const ui=fs.readFileSync(require.resolve('../components/orders/DistributionSalesInbox.js'),'utf8');assert.doesNotMatch(ui,/adjust-batch|\/api\/orders\/(?:index|parse-paste)|handleAllMixedDistribute/);
+assert.match(ui,/fetch\('\/api\/orders\/distribution-manual-applications',\{method:'POST'/);
+const automaticApplicationRead=ui.match(/async function refreshApplicationStatus[\s\S]*?\n  }\n  useEffect/)[0];assert.doesNotMatch(automaticApplicationRead,/method:\s*['"]POST/);
+assert.match(ui,/Object\.prototype\.hasOwnProperty\.call\(draft,'expectedCurrentEventId'\)/);
+assert.match(ui,/수동 적용 저장이 18초 안에 끝나지 않았습니다/);assert.match(ui,/적용 상태 조회가 8초 안에 끝나지 않았습니다/);
+assert.match(ui,/applicationScopeEpoch/);assert.match(ui,/applicationSaveInFlight\.current\)\{applicationRefreshQueued/);assert.match(ui,/loaded:false/);
+assert.match(ui,/applicationRefreshQueued/);assert.match(ui,/applicationStatus\.loaded\?'최근 비교 결과 없음':'아직 확인하지 못함'/);assert.match(ui,/setApplicationStatus\(previous=>\(\{\.\.\.previous,loading:false\}\)\)/);
+assert.match(ui,/priorApplicationController=applicationController\.current;priorApplicationController\?\.abort\(\);if\(applicationController\.current===priorApplicationController\)\{applicationController\.current=null;applicationInFlight\.current=false;setApplicationStatus/);
+assert.match(ui,/<style jsx global>/);assert.match(ui,/\.sales-inbox \.application-panel button/);
 assert.match(ui,/<div hidden=\{!open\}>/);assert.doesNotMatch(ui,/\{open&&<>/);
 const uploadUpdater=ui.match(/setRows\((previous=>mergeMessages\(previous,identified\)\.rows)\)/);
 assert.ok(uploadUpdater,'upload must merge against latest committed state');
@@ -30,7 +38,7 @@ const refresh=fs.readFileSync(require.resolve('../lib/distributionSalesInboxRefr
 assert.match(ui,/readSalesFeedPage/);assert.match(ui,/refreshSalesFeed/);assert.match(ui,/startBoundedAutoRefresh/);assert.match(ui,/새 대화 \{pendingRows\.length\}건 보기/);assert.doesNotMatch(ui,/afterId|nextAfterId/);
 assert.match(ui,/refreshSeq/);assert.match(ui,/activeRefreshScope/);assert.match(ui,/requestOwner/);assert.match(ui,/자동 확인이 끝난 뒤 다시 시도하세요/);
 assert.match(ui,/open,setOpen\]=useState\(true\)/);assert.match(ui,/autoRefresh,setAutoRefresh\]=useState\(true\)/);assert.doesNotMatch(ui,/if\(open\)setAutoRefresh\(true\)/);assert.match(ui,/현재 표시 원문 기간/);assert.match(ui,/입력한 조회 기간/);
-assert.match(ui,/입력칸으로/);assert.match(ui,/비교 선택/);assert.match(ui,/검토·비교/);assert.match(ui,/displayRows\.map/);assert.match(ui,/reviewMounted&&<div>/);assert.match(ui,/max-height:400px/);assert.match(ui,/immediate:initialLoad/);assert.match(ui,/loadedPeriod,year,week/);assert.match(ui,/영업방 자동 확인을 기다리는 중입니다/);
+assert.match(ui,/입력칸으로/);assert.match(ui,/비교 선택/);assert.match(ui,/검토·비교/);assert.match(ui,/수동 적용함/);assert.match(ui,/미적용 표시/);assert.match(ui,/표시 해제/);assert.match(ui,/실제 등록·분배·취소를 실행하거나 확인하지 않습니다/);assert.match(ui,/data-manual-application-refresh/);assert.match(ui,/displayRows\.map/);assert.match(ui,/reviewMounted&&<div>/);assert.match(ui,/max-height:420px/);assert.match(ui,/immediate:initialLoad/);assert.match(ui,/loadedPeriod,year,week/);assert.match(ui,/영업방 자동 확인을 기다리는 중입니다/);
 assert.match(refresh,/isAutoRefreshEligible/);assert.match(refresh,/isCurrentRefresh/);assert.match(refresh,/shouldBufferIncoming/);assert.match(refresh,/afterKey/);assert.match(refresh,/new URLSearchParams\(\{from,to,afterKey\}\)/);assert.match(refresh,/DEFAULT_MAX_PAGES/);assert.doesNotMatch(refresh,/method:\s*['"]POST/);
 
 function compileSalesFeed(fetchImpl) {

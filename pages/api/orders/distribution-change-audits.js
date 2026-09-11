@@ -1,12 +1,17 @@
 import { withAuth } from '../../../lib/auth';
-import { listAudits, getAudit } from '../../../lib/distributionAuditStore';
+import { listAudits, listAuditReports, getAudit } from '../../../lib/distributionAuditStore';
+import { MAX_AUDIT_REPORTS, summarizeAuditReports } from '../../../lib/distributionMessageApplicationStatus';
 
 export default withAuth(async function handler(req,res){
  res.setHeader('Cache-Control','private, no-store');
  if(req.method!=='GET')return res.status(405).json({error:'저장된 비교 결과는 조회만 가능합니다.'});
  try{
-  const {year,week,id}=req.query||{};
+  const {year,week,id,mode}=req.query||{};
   if(id!==undefined)return res.json({audit:await getAudit({year,week,id})});
+  if(mode==='message-status') {
+   const reports=await listAuditReports({year,week});
+   return res.json({items:summarizeAuditReports(reports),limit:MAX_AUDIT_REPORTS,asOf:reports[0]?.report?.asOf||null,advisoryOnly:true,erpAction:'NONE'});
+  }
   return res.json({items:await listAudits({year,week})});
  }catch(e){
   const status=e.statusCode||500;
