@@ -1,7 +1,24 @@
 const assert=require('node:assert/strict');
-const {DEFAULT_MAX_PAGES,kstCalendarDate,readSalesFeedPage,refreshSalesFeed,startBoundedAutoRefresh}=require('../lib/distributionSalesInboxRefresh');
+const {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,kstCalendarDate,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh,validKstPeriod}=require('../lib/distributionSalesInboxRefresh');
 
 assert.equal(kstCalendarDate(new Date('2026-09-10T15:30:00.000Z')),'2026-09-11');
+assert.equal(validKstPeriod('2026-09-11/2026-09-11'),true);assert.equal(validKstPeriod('/'),false);assert.equal(validKstPeriod('2026-02-30/2026-03-01'),false);
+assert.equal(validKstPeriod('2026-13-01/2026-13-01'),false);
+assert.equal(isAutoRefreshEligible({open:true,autoRefresh:true,disabled:false,visible:true,online:true,year:'2025',week:'2026-37-01',period:'2026-09-11/2026-09-11',loadedPeriod:''}),false);
+const todayScope={open:true,autoRefresh:true,disabled:false,visible:true,online:true,year:'2026',week:'2026-37-01',period:'2026-09-11/2026-09-11',loadedPeriod:''};
+assert.equal(isAutoRefreshEligible(todayScope),true);
+assert.equal(isAutoRefreshEligible({...todayScope,visible:false}),false);
+assert.equal(isAutoRefreshEligible({...todayScope,online:false}),false);
+assert.equal(isAutoRefreshEligible({...todayScope,autoRefresh:false}),false);
+assert.equal(isAutoRefreshEligible({...todayScope,disabled:true}),false);
+assert.equal(isAutoRefreshEligible({...todayScope,week:'37-01'}),false);
+assert.equal(isAutoRefreshEligible({...todayScope,loadedPeriod:'2026-09-10/2026-09-10'}),false);
+assert.equal(isCurrentRefresh({sequence:2,currentSequence:2,scope:'today',currentScope:'today'}),true);
+assert.equal(isCurrentRefresh({sequence:2,currentSequence:3,scope:'today',currentScope:'today'}),false);
+assert.equal(isCurrentRefresh({sequence:2,currentSequence:2,scope:'today',currentScope:'edited'}),false);
+assert.equal(shouldBufferIncoming({selectedCount:0,reviewOpen:false}),false);
+assert.equal(shouldBufferIncoming({selectedCount:1,reviewOpen:false}),true);
+assert.equal(shouldBufferIncoming({selectedCount:0,reviewOpen:true}),true);
 
 (async()=>{
   const requested=[];
@@ -28,5 +45,8 @@ assert.equal(kstCalendarDate(new Date('2026-09-10T15:30:00.000Z')),'2026-09-11')
   let retryTimer,retries=0,clock=0;
   const stopRetry=startBoundedAutoRefresh({run:async()=>{retries++;throw new Error('offline');},now:()=>clock,setIntervalImpl:fn=>{retryTimer=fn;return 8;},clearIntervalImpl:()=>{}});
   await Promise.resolve();retryTimer();assert.equal(retries,1);clock=30_000;retryTimer();assert.equal(retries,2);stopRetry();
+  let delayedTimer,delayedRuns=0;
+  const stopDelayed=startBoundedAutoRefresh({immediate:false,run:async()=>{delayedRuns++;},setIntervalImpl:fn=>{delayedTimer=fn;return 10;},clearIntervalImpl:()=>{}});
+  assert.equal(delayedRuns,0);delayedTimer();await Promise.resolve();assert.equal(delayedRuns,1);stopDelayed();
   console.log('distribution sales inbox refresh tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
