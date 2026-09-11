@@ -20,7 +20,7 @@ function requestId() {
   return globalThis.crypto&&typeof globalThis.crypto.randomUUID==='function'?globalThis.crypto.randomUUID():'';
 }
 
-export default function DistributionChecklistReview({year,week,messages=[],totalMessages=0,disabled}) {
+export default function DistributionChecklistReview({year,week,messages=[],totalMessages=0,disabled,onReviewSaved}) {
   const [reviews,setReviews]=useState({}),[drafts,setDrafts]=useState({}),[openRows,setOpenRows]=useState({});
   const [loading,setLoading]=useState(false),[loadError,setLoadError]=useState(''),[saving,setSaving]=useState({}),[saveErrors,setSaveErrors]=useState({});
   const loadSequence=useRef(0);
@@ -77,6 +77,7 @@ export default function DistributionChecklistReview({year,week,messages=[],total
       if(!data.review||typeof data.review.sourceIdentity!=='string'||data.review.sourceIdentity!==identity||!CHECKLIST_STATUSES.includes(data.review.status)) {setSaveErrors(previous=>({...previous,[identity]:'저장 응답 형식이 올바르지 않습니다. 메모는 유지됩니다. 다시 시도하세요.'}));return;}
       setReviews(previous=>({...previous,[identity]:data.review}));
       setDrafts(previous=>{const next={...previous};delete next[identity];return next;});
+      if(typeof onReviewSaved==='function') onReviewSaved(data.review);
     } catch {if(mounted.current&&activeScope.current===saveScope)setSaveErrors(previous=>({...previous,[identity]:'저장하지 못했습니다. 메모는 유지됩니다. 다시 시도하세요.'}));}
     finally {if(mounted.current&&activeScope.current===saveScope)setSaving(previous=>({...previous,[identity]:false}));}
   }

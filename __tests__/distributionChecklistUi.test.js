@@ -20,5 +20,6 @@ assert.doesNotMatch(review,/\bthrow\b|onError|onSaveError/);
 assert.match(inbox,/DistributionChecklistReview key=\{`review:\$\{year\|\|''\}:\$\{week\|\|''\}`\}/);
 assert.match(inbox,/rows\.slice\(currentReviewPage\*200,\(currentReviewPage\+1\)\*200\)/);
 assert.match(inbox,/다음 검토 목록/);
-assert.doesNotMatch(inbox,/method:\s*['"]POST/);
+assert.match(inbox,/fetch\('\/api\/orders\/distribution-manual-applications',\{method:'POST'/);
+assert.doesNotMatch(inbox,/adjust-batch|\/api\/orders\/(?:index|parse-paste)|handleAllMixedDistribute/);
 console.log('distribution checklist UI tests passed');

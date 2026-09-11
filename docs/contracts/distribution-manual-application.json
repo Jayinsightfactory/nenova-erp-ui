@@ -1,0 +1,37 @@
+{
+  "id": "distribution-manual-application",
+  "title": "영업방 원문 수동 적용 표시 원장",
+  "scope": [
+    "lib/distributionManualApplicationStore.js",
+    "pages/api/orders/distribution-manual-applications.js",
+    "components/orders/DistributionSalesInbox.js",
+    "__tests__/distributionManualApplicationStore.test.js",
+    "__tests__/distributionManualApplicationApi.test.js",
+    "__tests__/distributionMessageApplicationStatus.test.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "sourceIdentity": ["source", "chat_id", "external_message_id"],
+  "actions": [
+    {"name": "READ_MANUAL_APPLICATION_EVENTS", "orderDetail": "preserve", "shipmentDetail": "preserve", "preserve": ["all ERP tables", "checklist review events", "audit snapshots"]},
+    {"name": "RECORD_MANUAL_APPLICATION_EVENT", "orderDetail": "preserve", "shipmentDetail": "preserve", "preserve": ["all ERP tables", "checklist review events", "audit snapshots"]}
+  ],
+  "criteria": {
+    "scope": "authenticated request requires explicit 20xx year and full WW-SS week; 01~53 major and 01~99 subweek are accepted",
+    "event": "append-only event has MANUALLY_APPLIED, MANUALLY_NOT_APPLIED, or CLEAR status; sourceIdentity remains verbatim safe data; memo is at most 1000 characters",
+    "concurrency": "POST requires nullable expectedCurrentEventId as an explicitly present field. Events are isolated under private year/week directories. A deterministic sourceIdentity+expectedCurrentEventId transition file is exclusively hard-linked from a durable UUID receipt, so exactly one competing transition can append; a conflicting transition returns 409. Receipt files make same UUID/payload retries immutable and resumable after interruption. There is no TTL or stale-lock takeover, so a live writer is never stolen and no global lock can permanently block unrelated source identities.",
+    "idempotency": "authenticated user plus year/week/requestId maps to immutable payload; same payload returns its event and another payload returns 409",
+    "cas": "nonmatching current event ID returns a conflict without appending an event",
+    "safety": "server supplies actor and timestamp, advisoryOnly=true and erpAction=NONE; no ERP query, mutation, LLM, or checklist status update occurs"
+  },
+  "crossYearFixture": {"required": true, "description": "The same source identity under 2025 or a different full week never becomes the 2026 current application event."},
+  "requiredTestFiles": ["__tests__/distributionManualApplicationStore.test.js", "__tests__/distributionManualApplicationApi.test.js", "__tests__/distributionMessageApplicationStatus.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": ["GetCustomerList", "btnSave_Click"],
+    "tables": ["ShipmentDetail", "ShipmentDate", "ShipmentFarm"],
+    "note": "This separate private file ledger records only advisory sourceIdentity events. It imports no ERP module, executes no SQL, and cannot create or modify shipment, order, stock, estimate, settlement, or registration data."
+  },
+  "requiredCommands": ["node __tests__/distributionManualApplicationStore.test.js", "node __tests__/distributionManualApplicationApi.test.js", "node __tests__/distributionMessageApplicationStatus.test.js", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"]
+}

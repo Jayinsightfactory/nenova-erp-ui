@@ -38,7 +38,7 @@ function validReport(report) {
   return !!report&&report.advisoryOnly===true&&report.scope&&typeof report.scope==='object'&&Array.isArray(report.findings)&&Array.isArray(report.requests)&&Array.isArray(report.unresolved)&&Array.isArray(report.warnings);
 }
 
-export default function DistributionChangeAudit({year,week,messages=[],disabled}) {
+export default function DistributionChangeAudit({year,week,messages=[],disabled,onAuditSaved}) {
   const [from,setFrom]=useState(''),[to,setTo]=useState(''),[combined,setCombined]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[audit,setAudit]=useState(null);
   const [historyItems,setHistoryItems]=useState([]),[historyBusy,setHistoryBusy]=useState(false),[historyError,setHistoryError]=useState(''),[snapshotLabel,setSnapshotLabel]=useState('');
@@ -74,6 +74,7 @@ export default function DistributionChangeAudit({year,week,messages=[],disabled}
       }
       setAudit(data);
       setSnapshotLabel(data.snapshot?.id?`비교 결과 저장됨 · ${data.snapshot.createdAt}`:'');
+      if(typeof onAuditSaved==='function') onAuditSaved(data.snapshot||null);
     } catch {if(activeContext.current===runContext)setError('카톡 변경사항을 비교하지 못했습니다. 네트워크를 확인한 뒤 다시 시도하세요.');}
     finally {if(activeContext.current===runContext)setBusy(false);}
   }
