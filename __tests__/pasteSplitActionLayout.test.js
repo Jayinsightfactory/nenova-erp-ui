@@ -5,19 +5,28 @@ const page = fs.readFileSync('pages/orders/paste.js', 'utf8');
 assert.match(page, /className="paste-action-split"/);
 assert.match(page, /paste-global-action-board-top/);
 assert.match(page, /className="paste-primary-batch-action"/);
-assert.match(page, /1\. 전체 확인 → 2\. 왼쪽 취소 → 3\. 오른쪽 추가·분배/);
 assert.ok(
-  page.indexOf('className="paste-primary-batch-action"') < page.indexOf('className="paste-input-grid"'),
-  '전체 일괄 등록·분배 버튼은 붙여넣기 입력 영역보다 위에 있어야 한다.',
+  page.indexOf('className="paste-primary-batch-action"') > page.indexOf('className="paste-input-grid"'),
+  '전체 일괄 등록·분배 버튼은 4열 작업 결과 영역 안에 있어야 한다.',
 );
-assert.match(page, /\.paste-input-grid \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-const pasteInputIndex = page.indexOf('className="paste-col paste-col-order"');
+assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?\.paste-input-grid \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+assert.match(page, /@media \(max-width: 768px\) \{[\s\S]*?\.paste-input-grid \{ grid-template-columns: 1fr; \}/);
+const baselineIndex = page.indexOf('className="paste-col paste-col-baseline"');
+const pasteInputIndex = page.indexOf('className="paste-col paste-col-order paste-column-order-input"');
 const topPreviewIndex = page.indexOf('renderGlobalActionPreviewBoard({ compact: true })');
-const stockInputIndex = page.indexOf('className="paste-col paste-col-stock"');
+const stockInputIndex = page.indexOf('className="paste-col paste-col-stock paste-column-base-input"');
+const helperIndex = page.indexOf('className="paste-col paste-col-stock-side paste-column-helper"');
+const resultsIndex = page.indexOf('className="paste-col paste-col-work-results"');
 assert.ok(
-  pasteInputIndex >= 0 && topPreviewIndex > pasteInputIndex && topPreviewIndex < stockInputIndex,
-  '취소·추가 예상 결과는 붙여넣기 입력 바로 오른쪽, 기초재고 영역보다 위에 렌더링해야 한다.',
+  baselineIndex >= 0 && pasteInputIndex > baselineIndex && topPreviewIndex > pasteInputIndex && stockInputIndex > topPreviewIndex && helperIndex > stockInputIndex && resultsIndex > helperIndex,
+  '4열은 기준·수신함, 주문+기초재고, 분석+보조, 결과·이력 순서로 렌더링해야 한다.',
 );
+assert.match(page, /\.paste-col-baseline \{ grid-column: 1; grid-row: 1 \/ span 2;/);
+assert.match(page, /\.paste-column-order-input \{ grid-column: 2; grid-row: 1; \}/);
+assert.match(page, /\.paste-column-base-input \{ grid-column: 2; grid-row: 2; \}/);
+assert.match(page, /\.paste-column-analysis \{ grid-column: 3; grid-row: 1; \}/);
+assert.match(page, /\.paste-column-helper \{ grid-column: 3; grid-row: 2; \}/);
+assert.match(page, /\.paste-col-work-results \{ grid-column: 4; grid-row: 1 \/ span 2;/);
 assert.equal(
   page.match(/renderGlobalActionPreviewBoard\(\{ compact: true \}\)/g)?.length,
   1,
@@ -29,6 +38,9 @@ assert.match(page, /className="paste-order-helper-details"/);
 assert.match(page, /StockImpactSummary[\s\S]*draft=\{stockDraft\}[\s\S]*selectedWeek=\{week\}/);
 assert.match(page, /기초재고 변동 예상/);
 assert.match(page, /예상잔량 = 기초재고 \+ 취소 − 추가/);
+assert.match(page, /최근 붙여넣기 작업 이력/);
+assert.match(page, /주문 변경 이력/);
+assert.match(page, /주문 원장 변경만 표시합니다/);
 assert.match(page, /저장본 불러오기/);
 assert.match(page, /저장본 선택/);
 assert.match(page, /새 기록으로 저장/);

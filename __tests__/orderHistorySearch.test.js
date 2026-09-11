@@ -42,7 +42,9 @@ async function main() {
   rows=[];assert.equal((await invoke({year:'2026'})).body.hasMore,false);
   context.query=async()=>{throw Error('read failed');};assert.equal((await invoke({year:'2026'})).statusCode,500);
   const page=fs.readFileSync(path.join(__dirname,'../pages/orders/paste.js'),'utf8');assert.ok(page.includes('📋 작업 히스토리'));
-  assert.ok(page.indexOf('📋 작업 히스토리')<page.indexOf('{(orders.length > 0 || orderHistoryRows.length > 0)'));
+  assert.ok(page.indexOf('📋 작업 히스토리')<page.indexOf('className="paste-input-grid"'));
+  assert.ok(page.includes('<OrderHistoryPanel loading={orderHistoryLoading} error={orderHistoryError}'));
+  assert.ok(!page.includes('{(orders.length > 0 || orderHistoryRows.length > 0)'));
   console.log('order history search: year/week, keywords/escape, pagination, read-only handler and entry passed');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

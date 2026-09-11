@@ -8,6 +8,7 @@ import PasteExcludeHighlight from '../../components/orders/PasteExcludeHighlight
 import StockNotePicker from '../../components/orders/StockNotePicker';
 import DistributionBaselinePanel from '../../components/orders/DistributionBaselinePanel';
 import DistributionSalesInbox from '../../components/orders/DistributionSalesInbox';
+import PasteOperationHistory from '../../components/orders/PasteOperationHistory';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
@@ -1106,11 +1107,13 @@ export default function PasteOrderPage() {
   const [bulkUnitEdits, setBulkUnitEdits] = useState({});
   const [orderHistoryRows, setOrderHistoryRows] = useState([]);
   const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
-  const [orderHistoryOpen, setOrderHistoryOpen] = useState(false);
+  const [orderHistoryError, setOrderHistoryError] = useState('');
   const [pastePresenceByCust, setPastePresenceByCust] = useState({});
   const [pastePresenceRefreshRevision, setPastePresenceRefreshRevision] = useState(0);
   const pasteExplicitRefreshCustKeysRef = useRef(new Set());
   const pasteSavingCustRef = useRef(new Set());
+  const orderHistoryRequestRef = useRef(0);
+  const orderHistoryRowsScopeRef = useRef('');
   const pasteClientId = getErpEditClientId();
 
   const pasteScopeFor = (custKey) => ({
@@ -3336,38 +3339,54 @@ export default function PasteOrderPage() {
 
   const loadOrderHistorySummary = async (targetWeek = week, sourceOrders = orders) => {
     if (!targetWeek) {
+      orderHistoryRequestRef.current += 1;
       setOrderHistoryRows([]);
+      setOrderHistoryError('');
+      orderHistoryRowsScopeRef.current = '';
       return;
     }
+    const names = new Set(
+      (sourceOrders || [])
+        .map(o => o.custMatch?.CustName || o.custName)
+        .filter(Boolean)
+    );
+    const year = resolveOrderWeekQuery(targetWeek).year;
+    const scope = `${year}:${targetWeek}:${[...names].sort().join('|')}`;
+    const requestId = ++orderHistoryRequestRef.current;
+    if (orderHistoryRowsScopeRef.current !== scope) setOrderHistoryRows([]);
+    orderHistoryRowsScopeRef.current = scope;
     setOrderHistoryLoading(true);
+    setOrderHistoryError('');
     try {
-      const names = new Set(
-        (sourceOrders || [])
-          .map(o => o.custMatch?.CustName || o.custName)
-          .filter(Boolean)
-      );
       const d = await apiGet('/api/orders/history', {
         week: targetWeek,
-        year: resolveOrderWeekQuery(targetWeek).year,
+        year,
         custNames: names.size > 0 ? [...names].join('|') : '',
       });
-      const rows = (d.history || []).slice(0, 12);
+      if (requestId !== orderHistoryRequestRef.current) return;
+      if (d.success !== true || !Array.isArray(d.history)) throw new Error(d.error || '주문 변경이력 응답 형식이 올바르지 않습니다.');
+      const rows = d.history.slice(0, 12);
       setOrderHistoryRows(rows);
-    } catch {
-      setOrderHistoryRows([]);
+    } catch (error) {
+      if (requestId !== orderHistoryRequestRef.current) return;
+      // 같은 연도·차수·거래처 범위에서 이미 본 목록은 오류 때문에 지우지 않는다.
+      setOrderHistoryError(error?.message || '주문 변경이력 조회 실패');
     } finally {
-      setOrderHistoryLoading(false);
+      if (requestId === orderHistoryRequestRef.current) setOrderHistoryLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!orders.length || !week) {
+    if (!week) {
+      orderHistoryRequestRef.current += 1;
       setOrderHistoryRows([]);
-      return;
+      setOrderHistoryError('');
+      return () => { orderHistoryRequestRef.current += 1; };
     }
     loadOrderHistorySummary(week, orders);
+    return () => { orderHistoryRequestRef.current += 1; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [week, matchedCustomerKey, orders.length]);
+  }, [week, matchedCustomerKey]);
 
   useEffect(() => {
     if (!week || !matchedProductKey) {
@@ -3793,7 +3812,7 @@ export default function PasteOrderPage() {
           </button>
           <button type="button" onClick={() => openOrderHistoryDetail('')}
             style={{ padding: '8px 16px', background: '#37474f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
-            title="분석 없이 주문 변경이력을 차수·거래처·품목별로 조회합니다.">
+            title="선택 차수의 붙여넣기 실행 단위 작업 이력을 조회합니다.">
             📋 작업 히스토리
           </button>
           <button
@@ -3933,40 +3952,23 @@ export default function PasteOrderPage() {
         </div>
         </CollapsibleTop>
 
-        <DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
-          hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} />
-        <DistributionSalesInbox year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning} onLoadText={({text}) => {
-          if (pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
-          setPasteText(text); setOrders([]); setParseError(''); setQueueIdx(0);
-          setBulkResult(null); setDetectedWeek(''); setStockDraft(null); setBulkCompletionNotice(null); setBulkProgress('');
-          document.getElementById('paste-connected-input')?.scrollIntoView({block:'start'});
-        }} />
-
-        {orders.length > 0 && (
-          <div id="paste-connected-save" tabIndex={-1} className="paste-primary-batch-action" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10, padding: '10px 12px', border: '2px solid #1565c0', borderRadius: 8, background: '#eef5ff', flexWrap: 'wrap' }}>
-            <strong style={{ marginRight: 'auto', color: '#1a237e', fontSize: 13 }}>
-              1. 전체 확인 → 2. 왼쪽 취소 → 3. 오른쪽 추가·분배
-            </strong>
-            {globalBatchIntent.issues.length > 0 && <span role="alert" style={{ fontSize: 12, fontWeight: 800, color: '#b71c1c' }}>
-              업체·품목·수량 미확인 {globalBatchIntent.issues.length}건
-            </span>}
-            {globalBatchStartBlocker && globalBatchStartBlocker.code !== 'RUNNING' && <span role="alert" style={{ fontSize: 12, fontWeight: 800, color: '#b71c1c' }}>
-              {globalBatchStartBlocker.message}
-            </span>}
-            <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning}
-              aria-disabled={Boolean(globalBatchStartBlocker)} title={globalBatchProcessed ? '처리 완료 — 새 입력 또는 다시 분석 후 실행할 수 있습니다.' : globalBatchStartBlocker?.message || '취소 전체 처리 후 추가·분배 전체 처리'}
-              style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: globalBatchStartBlocker || globalBatchProcessed ? '#78909c' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : globalBatchProcessed ? 'not-allowed' : globalBatchStartBlocker ? 'help' : 'pointer' }}>
-              {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : globalBatchProcessed ? `✅ 처리 완료 (${bulkResult.okCount}건)` : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
-            </button>
-            {bulkProgress && <span role="status" aria-live="polite" style={{ width: '100%', fontSize: 12, fontWeight: 900, color: bulkProgress.startsWith('중단') ? '#b71c1c' : '#0d47a1' }}>
-              처리 로그: {bulkProgress}
-            </span>}
-          </div>
-        )}
-
         <div id="paste-connected-input" tabIndex={-1} className="paste-input-grid" style={{ marginBottom: 12 }}>
-          {/* 1열: 주문 붙여넣기 */}
-          <div className="paste-col paste-col-order">
+          {/* 1열: 기준 원본과 영업방 수신함 */}
+          <div className="paste-col paste-col-baseline">
+            <div className="paste-column-title">① 기준 · 영업방</div>
+            <DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
+              hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} />
+            <DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} onLoadText={({text}) => {
+              if (pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
+              setPasteText(text); setOrders([]); setParseError(''); setQueueIdx(0);
+              setBulkResult(null); setDetectedWeek(''); setStockDraft(null); setBulkCompletionNotice(null); setBulkProgress('');
+              document.getElementById('paste-connected-input')?.scrollIntoView({block:'start'});
+            }} />
+          </div>
+
+          {/* 2열 상단: 주문 원문과 Claude 분석 */}
+          <div className="paste-col paste-col-order paste-column-order-input">
+            <div className="paste-column-title">② 입력</div>
             <label style={labelS}>
               붙여넣기 주문등록
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
@@ -4066,8 +4068,9 @@ export default function PasteOrderPage() {
             </div>
           </div>
 
-          {/* 2열: 분석 즉시 취소/추가 예상 결과 — 입력창과 같은 첫 화면에서 확인 */}
-          <div className={`paste-col paste-col-order-side${orders.length > 0 ? ' paste-col-order-results' : ''}`}>
+          {/* 3열 상단: 분석 미리보기 */}
+          <div className={`paste-col paste-col-order-side paste-column-analysis${orders.length > 0 ? ' paste-col-order-results' : ''}`}>
+            <div className="paste-column-title">③ 분석 · 검토</div>
             {orders.length > 0 ? (
               <>
                 <div className="paste-order-results-head">
@@ -4089,29 +4092,7 @@ export default function PasteOrderPage() {
                 {globalBatchStartBlocker && globalBatchStartBlocker.code !== 'RUNNING' && (
                   <div role="alert" className="paste-order-results-blocker">{globalBatchStartBlocker.message}</div>
                 )}
-                {globalBatchProcessed && (
-                  <section aria-label="일괄 등록 분배 성공 결과" style={{ marginBottom: 8, border: '2px solid #2e7d32', borderRadius: 8, overflow: 'hidden', background: '#f1f8e9' }}>
-                    <div style={{ padding: '7px 10px', background: '#2e7d32', color: '#fff', fontSize: 12, fontWeight: 900 }}>
-                      ✅ 저장 완료 결과 — 아래 수량이 현재 전산에 반영되었습니다.
-                    </div>
-                    <div style={{ maxHeight: 180, overflow: 'auto' }}>
-                      {(bulkResult.details || []).filter(row => row.ok).map((row, index) => (
-                        <div key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px,.8fr) minmax(130px,1.4fr) minmax(105px,.9fr) minmax(105px,.9fr)', gap: 7, alignItems: 'center', padding: '6px 9px', borderTop: index ? '1px solid #c8e6c9' : 0, fontSize: 11 }}>
-                          <b style={{ color: '#1a237e' }}>{row.custName}</b>
-                          <span>{row.displayName || row.prodName}</span>
-                          <span><b>주문</b> {batchResultQty(row.orderQtyBefore, row.orderQtyAfter, row.unit)}</span>
-                          <span style={{ color: '#1565c0', fontWeight: 800 }}><b>분배</b> {batchResultQty(row.outQtyBefore, row.outQtyAfter, row.unit)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
                 {renderGlobalActionPreviewBoard({ compact: true })}
-                <StockImpactSummary
-                  draft={stockDraft}
-                  selectedWeek={week}
-                  processed={Boolean(bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone)}
-                />
                 <details className="paste-order-helper-details">
                   <summary>제외·색상 미리보기</summary>
                   <div className="paste-col-side-scroll paste-order-helper-content">
@@ -4164,8 +4145,8 @@ export default function PasteOrderPage() {
             )}
           </div>
 
-          {/* 3열: 기초재고 */}
-          <div className="paste-col paste-col-stock">
+          {/* 2열 하단: 기초재고 입력 */}
+          <div className="paste-col paste-col-stock paste-column-base-input">
             <label style={{ ...labelS, marginBottom: 4 }}>
               기초재고 입력·저장
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
@@ -4283,8 +4264,8 @@ export default function PasteOrderPage() {
             />
           </div>
 
-          {/* 4열: 기초재고 제외·품목매칭 */}
-          <div className="paste-col paste-col-stock-side">
+          {/* 3열 하단: 기초재고 제외·품목매칭 */}
+          <div className="paste-col paste-col-stock-side paste-column-helper">
             <label style={{ ...labelS, marginBottom: 6 }}>
               기초재고 보조
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
@@ -4320,6 +4301,55 @@ export default function PasteOrderPage() {
               )}
             </div>
           </div>
+
+          {/* 4열: 실제 작업 결과·진행·읽기 전용 이력 */}
+          <div className="paste-col paste-col-work-results">
+            <div className="paste-column-title">④ 결과 · 최근 이력</div>
+            <div id="paste-connected-save" tabIndex={-1} className="paste-primary-batch-action" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10, padding: '10px 12px', border: '2px solid #1565c0', borderRadius: 8, background: '#eef5ff', flexWrap: 'wrap' }}>
+              <strong style={{ marginRight: 'auto', color: '#1a237e', fontSize: 13 }}>작업 결과 · 진행 상태</strong>
+              {orders.length > 0 && <>
+                {globalBatchIntent.issues.length > 0 && <span role="alert" style={{ fontSize: 12, fontWeight: 800, color: '#b71c1c' }}>업체·품목·수량 미확인 {globalBatchIntent.issues.length}건</span>}
+                {globalBatchStartBlocker && globalBatchStartBlocker.code !== 'RUNNING' && <span role="alert" style={{ fontSize: 12, fontWeight: 800, color: '#b71c1c' }}>{globalBatchStartBlocker.message}</span>}
+                <button type="button" onClick={() => handleAllMixedDistribute()} disabled={bulkRunning}
+                  aria-disabled={Boolean(globalBatchStartBlocker)} title={globalBatchProcessed ? '처리 완료 — 새 입력 또는 다시 분석 후 실행할 수 있습니다.' : globalBatchStartBlocker?.message || '취소 전체 처리 후 추가·분배 전체 처리'}
+                  style={{ padding: '10px 18px', border: 0, borderRadius: 7, background: globalBatchStartBlocker || globalBatchProcessed ? '#78909c' : '#1565c0', color: '#fff', fontSize: 14, fontWeight: 900, cursor: bulkRunning ? 'wait' : globalBatchProcessed ? 'not-allowed' : globalBatchStartBlocker ? 'help' : 'pointer' }}>
+                  {bulkRunning ? '⏳ 전체 업체 취소→추가 처리중...' : globalBatchProcessed ? `✅ 처리 완료 (${bulkResult.okCount}건)` : `🚀 추가·취소 전체 일괄 등록·분배 (${globalActionEntries.length}건)`}
+                </button>
+              </>}
+              {bulkProgress && <span role="status" aria-live="polite" style={{ width: '100%', fontSize: 12, fontWeight: 900, color: bulkProgress.startsWith('중단') ? '#b71c1c' : '#0d47a1' }}>처리 로그: {bulkProgress}</span>}
+              {!orders.length && !bulkRunning && <span className="paste-work-empty">분석 전입니다. 기준 원본 또는 영업방 내용을 불러온 뒤 Claude 분석을 실행하세요.</span>}
+            </div>
+
+            {globalBatchProcessed && (
+              <section id="paste-connected-result" tabIndex={-1} aria-label="일괄 등록 분배 성공 결과" style={{ marginBottom: 8, border: '2px solid #2e7d32', borderRadius: 8, overflow: 'hidden', background: '#f1f8e9' }}>
+                <div style={{ padding: '7px 10px', background: '#2e7d32', color: '#fff', fontSize: 12, fontWeight: 900 }}>✅ 저장 완료 결과 — 아래 수량이 현재 전산에 반영되었습니다.</div>
+                <div style={{ maxHeight: 180, overflow: 'auto' }}>
+                  {(bulkResult.details || []).filter(row => row.ok).map((row, index) => (
+                    <div className="paste-work-success-row" key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px,.8fr) minmax(130px,1.4fr) minmax(105px,.9fr) minmax(105px,.9fr)', gap: 7, alignItems: 'center', padding: '6px 9px', borderTop: index ? '1px solid #c8e6c9' : 0, fontSize: 11 }}>
+                      <b style={{ color: '#1a237e' }}>{row.custName}</b><span>{row.displayName || row.prodName}</span>
+                      <span><b>주문</b> {batchResultQty(row.orderQtyBefore, row.orderQtyAfter, row.unit)}</span>
+                      <span style={{ color: '#1565c0', fontWeight: 800 }}><b>분배</b> {batchResultQty(row.outQtyBefore, row.outQtyAfter, row.unit)}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+            {bulkResult?.orderId === 'ALL' && bulkResult.rolledBack && (
+              <section role="alert" className="paste-work-rollback">
+                <strong>처리 실패 · 전산 변경 없음</strong>
+                <span>실패 {bulkResult.failCount}건 · 성공 0건 · 전체 롤백되었습니다.</span>
+              </section>
+            )}
+            <StockImpactSummary draft={stockDraft} selectedWeek={week} processed={Boolean(bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone)} />
+            {bulkResult?.orderId === 'ALL' && <a href="#paste-connected-result-details" style={{ margin: '2px 0 6px', fontSize: 11, color: '#1565c0', fontWeight: 800 }}>전체 저장 내역 아래에서 계속 보기 ↓</a>}
+            <section className="paste-work-history" aria-label="최근 붙여넣기 작업 이력">
+              <strong>최근 붙여넣기 작업 이력</strong>
+              {week && selectedYearFromWeek(week) ? (
+                <PasteOperationHistory compact key={`paste-operation-history:${selectedYearFromWeek(week)}:${week}:${matchedCustomerKey}:${bulkResult?.orderId || ''}:${bulkResult?.okCount || 0}:${bulkResult?.undone ? 'undo' : ''}`} initial={{ year: String(selectedYearFromWeek(week)), week, custName: orders.length === 1 ? (orders[0].custMatch?.CustName || orders[0].custName || '') : '' }} />
+              ) : <div className="paste-side-off">차수를 선택하면 해당 차수의 최근 붙여넣기 작업 이력을 불러옵니다.</div>}
+            </section>
+            <OrderHistoryPanel loading={orderHistoryLoading} error={orderHistoryError} rows={orderHistoryRows} week={week} onOpenDetail={openOrderHistoryDetail} />
+          </div>
         </div>
 
         <style jsx global>{`
@@ -4336,11 +4366,21 @@ export default function PasteOrderPage() {
             padding: 8px;
             border-radius: 8px;
           }
+          .paste-column-title { margin: 0 0 7px; color: #1a237e; font-size: 13px; font-weight: 900; }
           .paste-col-order { border: 1px solid #c5cae9; background: #f7f8ff; }
+          .paste-col-baseline { border: 1px solid #bfdbd0; background: #f5fbf7; }
           .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; min-height: min(320px, calc(100vh - 420px)); }
           .paste-col-order-side.paste-col-order-results { min-height: 0; background: #fff; border-color: #9fa8da; }
           .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: 270px; }
           .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; min-height: 270px; }
+          .paste-col-work-results { border: 2px solid #1565c0; background: #f8fbff; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
+          .paste-col-work-results .paste-work-success-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .paste-col-work-results .paste-work-success-row > * { min-width: 0; overflow-wrap: anywhere; }
+          .paste-work-rollback { display: grid; gap: 4px; margin-bottom: 8px; padding: 8px 9px; border: 2px solid #c62828; border-radius: 7px; background: #ffebee; color: #b71c1c; font-size: 12px; }
+          .paste-work-empty { color: #64748b; font-size: 11px; line-height: 1.4; }
+          .paste-work-history { margin-top: 8px; min-width: 0; max-height: 360px; overflow: auto; overflow-x: hidden; }
+          .paste-work-history > strong { display: block; margin-bottom: 5px; color: #263238; font-size: 12px; }
+          .paste-work-history section { min-width: 0; font-size: 11px; }
           .paste-order-results-head {
             display: flex;
             align-items: center;
@@ -4386,6 +4426,8 @@ export default function PasteOrderPage() {
           .paste-stock-impact-head > strong { color: #0f5132; font-size: 11px; }
           .paste-stock-impact-head > span { border: 1px solid #b7d7c4; border-radius: 9px; padding: 1px 6px; background: #fff; }
           .paste-stock-impact-head > small { margin-left: auto; color: #527566; }
+          .paste-col-work-results .paste-stock-impact-head { flex-wrap: wrap; white-space: normal; }
+          .paste-col-work-results .paste-stock-impact-head > small { width: 100%; margin-left: 0; }
           .paste-stock-impact-scroll { max-height: 132px; overflow: auto; }
           .paste-stock-impact-row {
             display: grid;
@@ -4446,7 +4488,17 @@ export default function PasteOrderPage() {
             line-height: 1.45;
             background: #fff;
           }
+          @media (min-width: 1600px) {
+            .paste-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+            .paste-col-baseline { grid-column: 1; grid-row: 1 / span 2; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
+            .paste-column-order-input { grid-column: 2; grid-row: 1; }
+            .paste-column-base-input { grid-column: 2; grid-row: 2; }
+            .paste-column-analysis { grid-column: 3; grid-row: 1; }
+            .paste-column-helper { grid-column: 3; grid-row: 2; }
+            .paste-col-work-results { grid-column: 4; grid-row: 1 / span 2; }
+          }
           @media (max-width: 1500px) {
+            .paste-col-baseline, .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper, .paste-col-work-results { grid-column: auto; grid-row: auto; max-height: none; }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 260px; }
             .paste-col-order-side.paste-col-order-results { min-height: 0; }
             .paste-global-action-board-top { grid-template-columns: 1fr !important; }
@@ -4457,7 +4509,7 @@ export default function PasteOrderPage() {
             .paste-input-grid { grid-template-columns: 1fr; }
             .paste-action-split { grid-template-columns: 1fr !important; }
             .paste-global-action-board { grid-template-columns: 1fr !important; }
-            .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 280px; }
+            .paste-col-baseline, .paste-col-order-side, .paste-col-stock, .paste-col-stock-side, .paste-col-work-results { min-height: 280px; }
             .paste-col-order-side.paste-col-order-results { min-height: 0; }
             .paste-order-results-head { align-items: flex-start; }
             .paste-order-results-head > div:first-child > span { white-space: normal; }
@@ -4488,7 +4540,7 @@ export default function PasteOrderPage() {
         {orders.length > 0 && (
           <>
           {bulkResult?.orderId === 'ALL' && (
-            <div id="paste-connected-result" tabIndex={-1} style={{ marginBottom: 16 }}>
+            <div id="paste-connected-result-details" tabIndex={-1} style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 900, color: bulkResult.rolledBack ? '#c62828' : bulkResult.undone ? '#6a1b9a' : '#1b5e20' }}>
                   {bulkResult.rolledBack
@@ -5163,17 +5215,6 @@ export default function PasteOrderPage() {
         )}
       </div>
 
-      {(orders.length > 0 || orderHistoryRows.length > 0) && (
-        <OrderHistorySideTab
-          open={orderHistoryOpen}
-          setOpen={setOrderHistoryOpen}
-          loading={orderHistoryLoading}
-          rows={orderHistoryRows}
-          week={week}
-          onOpenDetail={openOrderHistoryDetail}
-        />
-      )}
-
       {/* ── 분배조정(ADD/CANCEL) 모달 ── */}
       {adjustModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -5709,56 +5750,20 @@ function shortHistoryValue(value) {
   return raw.length > 18 ? `${raw.slice(0, 18)}...` : raw;
 }
 
-function OrderHistorySideTab({ open, setOpen, loading, rows, week, onOpenDetail }) {
+function OrderHistoryPanel({ loading, error, rows, week, onOpenDetail }) {
   const count = rows.length;
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        style={{
-          position: 'fixed',
-          right: 0,
-          top: 170,
-          zIndex: 620,
-          padding: '11px 9px',
-          border: '1px solid #90a4ae',
-          borderRight: 'none',
-          borderRadius: '8px 0 0 8px',
-          background: '#263238',
-          color: '#fff',
-          fontSize: 12,
-          fontWeight: 800,
-          cursor: 'pointer',
-          writingMode: 'vertical-rl',
-          textOrientation: 'mixed',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-        }}
-        title="주문 변경이력 요약"
-      >
-        주문 변경이력 {loading ? '조회중' : count}
-      </button>
-    );
-  }
-
   return (
     <div style={{
-      position: 'fixed',
-      right: 12,
-      top: 118,
-      bottom: 24,
-      width: 370,
-      maxWidth: 'calc(100vw - 24px)',
-      zIndex: 620,
+      marginTop: 8,
       background: '#fff',
       border: '1px solid #b0bec5',
-      borderRadius: 10,
-      boxShadow: '0 10px 28px rgba(0,0,0,0.2)',
+      borderRadius: 8,
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
     }}>
       <div style={{ padding: '10px 12px', background: '#263238', color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <strong style={{ fontSize: 14 }}>주문 변경이력</strong>
+        <strong style={{ fontSize: 14 }}>주문 변경 이력</strong>
         <span style={{ fontSize: 11, opacity: 0.85 }}>{week ? formatWeekDisplay(week) : '차수 미선택'}</span>
         <button
           onClick={() => onOpenDetail('')}
@@ -5766,24 +5771,22 @@ function OrderHistorySideTab({ open, setOpen, loading, rows, week, onOpenDetail 
         >
           자세히
         </button>
-        <button
-          onClick={() => setOpen(false)}
-          aria-label="주문 변경이력 닫기"
-          style={{ border: 'none', background: 'transparent', color: '#fff', fontSize: 20, lineHeight: 1, cursor: 'pointer', padding: '0 2px' }}
-        >
-          ×
-        </button>
       </div>
       <div style={{ padding: '9px 10px', borderBottom: '1px solid #eceff1', background: '#f8fbff', fontSize: 12, color: '#455a64' }}>
-        현재 붙여넣기 화면의 거래처 기준 최근 변경 {loading ? '조회 중' : `${count}건`}입니다.
+        주문 원장 변경만 표시합니다. 분배 실행 결과는 위 최근 붙여넣기 작업 이력을 확인하세요. {loading ? '조회 중' : `${count}건`}
       </div>
       <div style={{ overflowY: 'auto', flex: 1, background: '#fafafa' }}>
         {loading && (
           <div style={{ padding: 16, fontSize: 13, color: '#607d8b' }}>변경이력을 불러오는 중입니다.</div>
         )}
-        {!loading && rows.length === 0 && (
+        {!loading && !error && rows.length === 0 && (
           <div style={{ padding: 16, fontSize: 13, color: '#78909c' }}>
             표시할 주문 변경이력이 없습니다.
+          </div>
+        )}
+        {error && (
+          <div role="alert" style={{ padding: 12, fontSize: 12, color: '#b71c1c', background: '#fff5f5' }}>
+            조회 실패: {error}{rows.length > 0 ? ' — 같은 범위에서 마지막으로 확인한 목록을 유지합니다.' : ''}
           </div>
         )}
         {!loading && rows.map((row, idx) => (

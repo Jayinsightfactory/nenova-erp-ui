@@ -4,7 +4,7 @@ import { normalizeOrderHistorySearch } from '../../lib/orderHistorySearch';
 
 const field = { padding: 8, border: '1px solid #b0bec5', borderRadius: 5, minWidth: 0 };
 const labels = { committed: '저장 완료', failed: '실패 · 저장 성공 아님', unknown: '처리 결과 확인 필요' };
-export default function PasteOperationHistory({ initial = {} }) {
+export default function PasteOperationHistory({ initial = {}, compact = false }) {
   const [filters, setFilters] = useState({ year: initial.year || String(new Date().getFullYear()), week: initial.week || '', custName: initial.custName || '', prodName: initial.prodName || '', who: 'mine' });
   const [data, setData] = useState({ operations: [] });
   const [loading, setLoading] = useState(false);
@@ -25,6 +25,39 @@ export default function PasteOperationHistory({ initial = {} }) {
     finally { if (id === seq.current) setLoading(false); }
   }
   useEffect(() => { load(); return () => { seq.current += 1; }; }, []);
+  if (compact) return <section aria-label="최근 붙여넣기 작업 이력">
+    <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap', marginBottom: 7, fontSize: 11, color: '#455a64' }}>
+      <span><b>{filters.year}년 {filters.week || '전체 차수'}</b></span>
+      {filters.custName && <span>· {filters.custName}</span>}
+      <span>· 최근 실행 단위</span>
+      <button type="button" onClick={() => load()} disabled={loading} style={{ marginLeft: 'auto', ...field, padding: '3px 7px', fontSize: 10, cursor: loading ? 'wait' : 'pointer' }}>{loading ? '조회 중…' : '새로고침'}</button>
+    </div>
+    {error && <p role="alert" style={{ color: '#c62828', fontSize: 11 }}>조회 실패: {error}</p>}
+    {!loading && !error && data.operations.length === 0 && <p style={{ color: '#78909c', fontSize: 11 }}>이 범위의 붙여넣기 작업 이력이 없습니다.</p>}
+    <div style={{ display: 'grid', gap: 6 }}>
+      {data.operations.slice(0, 6).map(operation => {
+        const cancelCount = operation.entries.filter(entry => entry.type === 'CANCEL').length;
+        const addCount = operation.entries.filter(entry => entry.type === 'ADD').length;
+        return <article key={operation.key} style={{ border: '1px solid #c5cfe0', borderRadius: 6, background: '#fff', padding: '7px 8px', minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', fontSize: 10, color: '#455a64' }}>
+            <b style={{ color: '#1a237e' }}>#{operation.key}</b><span>{operation.actor} · {operation.at}</span>
+            <span style={{ marginLeft: 'auto', color: operation.status === 'committed' ? '#2e7d32' : '#c62828', fontWeight: 800 }}>{labels[operation.status]}</span>
+          </div>
+          <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 11 }}>
+            <span style={{ color: '#c62828' }}>취소 {cancelCount}</span><span style={{ color: '#2e7d32' }}>추가 {addCount}</span>
+            {operation.committedCount != null && <span>저장 {operation.committedCount}건</span>}
+          </div>
+          <details style={{ marginTop: 5 }}>
+            <summary style={{ cursor: 'pointer', color: '#546e7a', fontSize: 10 }}>상세 항목 보기</summary>
+            {operation.incomplete && <p role="status" style={{ color: '#a65b00', fontSize: 10 }}>과거 상세 기록이 잘려 전체 작업이 아닐 수 있습니다.</p>}
+            {operation.entries.map((entry, index) => <div key={index} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6, marginTop: 4, fontSize: 10 }}><span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{entry.type === 'CANCEL' ? '취소' : entry.type === 'ADD' ? '추가' : '확인'} · {entry.custName} · {entry.prodName}</span><b>{entry.qty ?? '?'} {entry.unit}</b></div>)}
+          </details>
+        </article>;
+      })}
+    </div>
+    {data.hasMore && <p style={{ marginTop: 6, color: '#64748b', fontSize: 10 }}>최근 6개만 표시합니다. 전체 작업 이력에서 더 볼 수 있습니다.</p>}
+  </section>;
+
   return <section>
     <p style={{ color: '#546e7a', fontSize: 13 }}>붙여넣기 실행 한 번을 한 건으로 묶습니다. 검색에 맞는 항목이 있으면 같은 작업의 취소·추가를 함께 표시합니다.</p>
     <form onSubmit={event => { event.preventDefault(); load(); }} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end', marginBottom: 12 }}>

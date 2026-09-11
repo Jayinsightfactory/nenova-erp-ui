@@ -20,7 +20,11 @@ const api=fs.readFileSync(require.resolve('../pages/api/kakao/sales-feed.js'),'u
 assert.match(api,/withAuth/);assert.match(api,/NENOVA_SALES_READ_TOKEN/);assert.match(api,/r.chat_id!==roomId/);assert.doesNotMatch(api,/googleSheets|\/api\/kakao\/messages/);
 assert.match(api,/function validAfterKey/);assert.match(api,/const afterKey=req\.query\.afterKey\?\?''/);assert.match(api,/nextAfterKey/);assert.doesNotMatch(api,/afterId|nextAfterId/);
 const ui=fs.readFileSync(require.resolve('../components/orders/DistributionSalesInbox.js'),'utf8');assert.doesNotMatch(ui,/adjust-batch|method:\s*['"]POST/);
-assert.match(ui,/afterKey:next&&period===loadedPeriod\?cursor:''/);assert.match(ui,/data\.nextAfterKey\?\?''/);assert.doesNotMatch(ui,/afterId|nextAfterId/);
+const refresh=fs.readFileSync(require.resolve('../lib/distributionSalesInboxRefresh'),'utf8');
+assert.match(ui,/readSalesFeedPage/);assert.match(ui,/refreshSalesFeed/);assert.match(ui,/startBoundedAutoRefresh/);assert.match(ui,/새 대화 \{pendingRows\.length\}건 보기/);assert.doesNotMatch(ui,/afterId|nextAfterId/);
+assert.match(ui,/refreshSeq/);assert.match(ui,/activeRefreshScope/);assert.match(ui,/requestOwner/);assert.match(ui,/자동 확인이 끝난 뒤 다시 시도하세요/);assert.match(ui,/먼저 영업방 불러오기를 누르면/);
+assert.match(ui,/autoRefresh,setAutoRefresh\]=useState\(true\)/);assert.doesNotMatch(ui,/if\(open\)setAutoRefresh\(true\)/);assert.match(ui,/현재 표시 원문 기간/);assert.match(ui,/입력한 조회 기간/);
+assert.match(refresh,/afterKey/);assert.match(refresh,/new URLSearchParams\(\{from,to,afterKey\}\)/);assert.match(refresh,/DEFAULT_MAX_PAGES/);assert.doesNotMatch(refresh,/method:\s*['"]POST/);
 
 function compileSalesFeed(fetchImpl) {
   const transformed=api
