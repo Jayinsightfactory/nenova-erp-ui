@@ -294,6 +294,7 @@ export default function DistributeImport() {
   const handlePreview = async (options = {}) => {
     if (!weekInput.value) { setError('차수를 입력하세요.'); return; }
     if (!file) { setError('업로드할 엑셀 파일을 선택하세요.'); return; }
+    if (options.requireConfirmation && !confirm(`선택 차수: ${weekInput.value}\n업로드 파일: ${file.name}\n\n해당 차수에 이 파일이 맞습니까?\n확인을 누르면 검증을 시작합니다.`)) return;
     setLoading(true);
     setError('');
     if (!options.preserveMessage) setMessage('');
@@ -531,7 +532,7 @@ export default function DistributeImport() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ week: preview.week, year: preview.orderYear, rows, fullCategoryReplacement: true, ackQtyWarnings, jobId }),
+          body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, fullCategoryReplacement: true, ackQtyWarnings, jobId }),
         });
       } catch {
         data = await recoverApplyResult();
@@ -646,7 +647,7 @@ export default function DistributeImport() {
           >
             {preAligning ? '일괄분배 중...' : '업로드 품종 일괄분배'}
           </button>
-          <button style={st.primaryBtn} onClick={handlePreview} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
+          <button style={st.primaryBtn} onClick={() => handlePreview({ requireConfirmation: true })} disabled={loading}>{loading ? '읽는 중...' : '검증하기'}</button>
           <button style={st.secondaryBtn} onClick={toggleImportHistory} disabled={historyLoading}>{historyOpen ? '업로드 이력 닫기' : '업로드 이력·전체 되돌리기'}</button>
           <button style={st.applyBtn} onClick={handleApply} disabled={applying || !preview}>
             {applying ? '적용 중...' : '승인 후 주문등록+분배'}
@@ -716,7 +717,7 @@ export default function DistributeImport() {
             </div>
             <div style={{ maxHeight: 260, overflow: 'auto' }}>
               <table style={st.table}>
-                <thead><tr><th>시각</th><th>차수</th><th>작업자</th><th>방식</th><th>처리</th><th>상태</th><th>되돌리기</th></tr></thead>
+                <thead><tr><th>시각</th><th>차수</th><th>업로드 파일</th><th>작업자</th><th>방식</th><th>처리</th><th>상태</th><th>되돌리기</th></tr></thead>
                 <tbody>
                   {historyRows.map(row => {
                     const rolledBack = String(row.RollbackStatus || '') === 'ROLLED_BACK' || String(row.AuditStatus || '') === 'ROLLED_BACK';
@@ -725,6 +726,7 @@ export default function DistributeImport() {
                       <tr key={row.AuditKey}>
                         <td>{row.CreatedDtm ? new Date(row.CreatedDtm).toLocaleString('ko-KR') : '-'}</td>
                         <td><b>{row.OrderYear}-{row.OrderWeek}</b></td>
+                        <td title={row.SourceFileName || ''}>{row.SourceFileName || '기존 이력 · 파일명 없음'}</td>
                         <td>{row.ActorName || row.ActorUserId || '-'}</td>
                         <td>{row.ApplyMode === 'SHIPMENT_ONLY' ? '분배만' : '주문+분배'}</td>
                         <td>{fmt(row.AppliedCount)}건</td>
@@ -733,8 +735,8 @@ export default function DistributeImport() {
                       </tr>
                     );
                   })}
-                  {!historyLoading && historyRows.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: 18, color: '#64748b' }}>표시할 업로드 이력이 없습니다.</td></tr>}
-                  {historyLoading && <tr><td colSpan={7} style={{ textAlign: 'center', padding: 18 }}>이력을 확인하는 중…</td></tr>}
+                  {!historyLoading && historyRows.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 18, color: '#64748b' }}>표시할 업로드 이력이 없습니다.</td></tr>}
+                  {historyLoading && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 18 }}>이력을 확인하는 중…</td></tr>}
                 </tbody>
               </table>
             </div>

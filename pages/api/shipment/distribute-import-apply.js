@@ -20,6 +20,7 @@ async function handler(req, res) {
       rawWeek: req.body?.week,
       rawYear: req.body?.year,
       rows: req.body?.rows,
+      sourceFileName: req.body?.sourceFileName,
       fullCategoryReplacement: req.body?.fullCategoryReplacement === true,
       user: req.user,
       ackQtyWarnings: !!req.body?.ackQtyWarnings,
