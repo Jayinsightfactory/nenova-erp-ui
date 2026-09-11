@@ -27,6 +27,32 @@ export default withAuth(async function handler(req, res) {
     }
     const active = await query(`SELECT TOP 1 CustKey FROM Customer WHERE CustKey=@ck AND ISNULL(isDeleted,0)=0`, { ck: { type: sql.Int, value: custKey } });
     if (!active.recordset[0]) return res.status(404).json({ success: false, error: '사용 가능한 업체가 아닙니다.' });
+    if (req.query.view === 'previous-order') {
+      const { orderYear, orderWeek } = requireOrderYear(req.query.week || '', req.query.year || '');
+      const previous = await query(`SELECT TOP 1 om.OrderMasterKey, om.OrderYear, om.OrderWeek, om.OrderDtm
+        FROM OrderMaster om
+        WHERE om.CustKey=@ck AND om.OrderYear=@year AND om.OrderWeek < @week AND ISNULL(om.isDeleted,0)=0
+          AND EXISTS (SELECT 1 FROM OrderDetail od WHERE od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0 AND ISNULL(od.OutQuantity,0)>0)
+        ORDER BY om.OrderWeek DESC, om.OrderMasterKey DESC`, {
+        ck: { type: sql.Int, value: custKey }, year: { type: sql.NVarChar, value: orderYear }, week: { type: sql.NVarChar, value: orderWeek },
+      });
+      const master = previous.recordset[0];
+      if (!master) return res.status(200).json({ success: true, order: null });
+      const details = await query(`SELECT od.ProdKey, p.ProdName, p.DisplayName, p.FlowerName,
+          COALESCE(NULLIF(LTRIM(RTRIM(p.CountryFlower)),''), ISNULL(p.CounName,'') + ISNULL(p.FlowerName,'')) AS CountryFlower,
+          p.CounName, p.OutUnit, ISNULL(od.OutQuantity,0) AS Qty
+        FROM OrderDetail od
+        JOIN Product p ON p.ProdKey=od.ProdKey AND ISNULL(p.isDeleted,0)=0
+        WHERE od.OrderMasterKey=@masterKey AND ISNULL(od.isDeleted,0)=0 AND ISNULL(od.OutQuantity,0)>0
+        ORDER BY p.CountryFlower, p.FlowerName, p.ProdName, od.OrderDetailKey`, {
+        masterKey: { type: sql.Int, value: master.OrderMasterKey },
+      });
+      return res.status(200).json({ success: true, order: {
+        id: master.OrderMasterKey, year: String(master.OrderYear || ''), week: master.OrderWeek, date: master.OrderDtm,
+        items: details.recordset.map(row => ({ prodKey: row.ProdKey, prodName: row.ProdName, displayName: row.DisplayName,
+          flowerName: row.FlowerName, countryFlower: row.CountryFlower, counName: row.CounName, unit: row.OutUnit, qty: Number(row.Qty) })),
+      } });
+    }
     if (req.query.view === 'history') {
       const { orderYear, orderWeek } = requireOrderYear(req.query.week || '', req.query.year || '');
       const h = await query(`SELECT om.OrderMasterKey, om.OrderYear, om.OrderWeek, om.OrderDtm,
