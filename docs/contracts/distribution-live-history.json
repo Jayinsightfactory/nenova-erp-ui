@@ -2,6 +2,9 @@
   "id": "distribution-live-history",
   "title": "카톡 원문과 실시간 주문·분배 이력의 읽기 전용 대조",
   "scope": [
+    "lib/distributionRequestBalance.js",
+    "lib/distributionRequestBalanceComparisonUi.js",
+    "__tests__/distributionRequestBalance.test.js",
     "lib/distributionLiveHistory.js",
     "pages/api/orders/distribution-live-history.js",
     "__tests__/distributionLiveHistory.test.js"
@@ -14,13 +17,15 @@
     "preserve": ["all ERP tables", "OrderHistory", "ShipmentHistory", "raw chat", "existing APIs"]
   }],
   "criteria": {
+    "requestBalance": "Read-only comparison of each unambiguous signed request and its unique ShipmentHistory change. Order history is never distribution evidence. All candidates, including partial changes, compete for event claims. A cancel/add transfer may have zero net stock effect without implying completion. Missing or competing evidence stays visible.",
+    "currentBalance": "One exact OrderYear+OrderWeek+ProdKey ProductStock snapshot is a stored value, not historical proof or predicted availability. Missing/duplicate/non-finite snapshot is null, actual zero is valid. Current ViewShipment quantity is grouped without ShipmentDate multiplication. Never subtract requests again or mutate stock.",
     "scope": "One exact OrderYear and full OrderWeek with a maximum seven-day ChangeDtm range; no combined-week inference.",
     "orderHistory": "Only OrderHistory.ColumName=주문수량 with non-no-op finite BeforeValue/AfterValue is order evidence; BeforeValue is original order and AfterValue is OrderDetail.OutQuantity, never 미발주수량.",
     "matching": "Exact catalog name or saved alias, exact identity, explicit unit conversion, and source-time-before-event are required. Ambiguous, approximate, date-only, deleted, complex, multi-date, competing, or truncated evidence never claims application.",
     "advisory": "POST is read-only and returns erpAction NONE; every status is evidence only."
   },
   "crossYearFixture": { "required": true, "description": "A prior-year same-week event does not pair with the selected year." },
-  "requiredTestFiles": ["__tests__/distributionLiveHistory.test.js"],
+  "requiredTestFiles": ["__tests__/distributionLiveHistory.test.js", "__tests__/distributionRequestBalance.test.js"],
   "dnspyEvidence": {
     "required": true,
     "record": "docs/exe-golden/FormOrderAdd.md",
