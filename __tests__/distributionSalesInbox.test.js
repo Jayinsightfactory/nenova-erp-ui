@@ -2,6 +2,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const {periodBounds,parseSalesExport,mergeMessages,selectedText}=require('../lib/distributionSalesInbox');
+const {comparisonForIdentity,differenceDelta,isException,isValidBalanceComparison,reasonLabel,shouldHideConsistentIdentity}=require('../lib/distributionRequestBalanceComparisonUi');
 assert.deepEqual(periodBounds('2026-09-10','2026-09-10'),{from:'2026-09-09T15:00:00.000Z',to:'2026-09-10T15:00:00.000Z'});
 assert.throws(()=>periodBounds('2026-02-30','2026-03-01'));
 assert.throws(()=>periodBounds('2026-99-30','2026-03-01'),/조회 시작일/);
@@ -46,7 +47,20 @@ const refresh=fs.readFileSync(require.resolve('../lib/distributionSalesInboxRefr
 assert.match(ui,/readSalesFeedPage/);assert.match(ui,/refreshSalesFeed/);assert.match(ui,/startBoundedAutoRefresh/);assert.match(ui,/새 대화 \{pendingRows\.length\}건 보기/);assert.doesNotMatch(ui,/afterId|nextAfterId/);
 assert.match(ui,/refreshSeq/);assert.match(ui,/activeRefreshScope/);assert.match(ui,/requestOwner/);assert.match(ui,/자동 확인이 끝난 뒤 다시 시도하세요/);
 assert.match(ui,/open,setOpen\]=useState\(true\)/);assert.match(ui,/autoRefresh,setAutoRefresh\]=useState\(true\)/);assert.doesNotMatch(ui,/if\(open\)setAutoRefresh\(true\)/);assert.match(ui,/현재 표시 원문 기간/);assert.match(ui,/입력한 조회 기간/);
-assert.match(ui,/입력칸으로/);assert.match(ui,/비교 선택/);assert.match(ui,/검토·비교/);assert.match(ui,/수동 적용함/);assert.match(ui,/미적용 표시/);assert.match(ui,/표시 해제/);assert.match(ui,/실제 등록·분배·취소를 실행하거나 확인하지 않습니다/);assert.match(ui,/data-manual-application-refresh/);assert.match(ui,/data-live-history-refresh/);assert.match(ui,/displayRows\.map/);assert.match(ui,/reviewMounted&&<div>/);assert.match(ui,/message-pair/);assert.match(ui,/live-history-panel/);assert.match(ui,/이번 자동 대조 범위 밖/);assert.match(ui,/이전 50건 대조/);assert.match(ui,/최신 이력 조회 경고/);assert.match(ui,/grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);assert.match(ui,/ORDER_AND_DISTRIBUTION/);assert.match(ui,/NO_LIVE_EVIDENCE:'대응 이력 미확인'/);assert.match(ui,/저장된 AI 비교 보고서 \(참고\)/);assert.match(ui,/immediate:initialLoad/);assert.match(ui,/loadedPeriod,year,week/);assert.match(ui,/영업방 자동 확인을 기다리는 중입니다/);
+assert.match(ui,/입력칸으로/);assert.match(ui,/비교 선택/);assert.match(ui,/검토·비교/);assert.match(ui,/수동 적용함/);assert.match(ui,/미적용 표시/);assert.match(ui,/표시 해제/);assert.match(ui,/실제 등록·분배·취소를 실행하거나 확인하지 않습니다/);assert.match(ui,/data-manual-application-refresh/);assert.match(ui,/data-live-history-refresh/);assert.match(ui,/visibleDisplayRows\.map/);assert.match(ui,/일치 \{foldedConsistentRowCount\}건 접힘/);assert.match(ui,/요청별 변화량 · 분배 합계와 저장 잔량은 선택 차수의 품목 전체 기준/);assert.match(ui,/차수 품목 전체 분배 합계/);assert.doesNotMatch(ui,/currentCalculatedBalance|currentDistributionTotal|balanceStatus/);assert.match(ui,/reviewMounted&&<div>/);assert.match(ui,/message-pair/);assert.match(ui,/live-history-panel/);assert.match(ui,/이번 자동 대조 범위 밖/);assert.match(ui,/이전 50건 대조/);assert.match(ui,/최신 이력 조회 경고/);assert.match(ui,/grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);assert.match(ui,/ORDER_AND_DISTRIBUTION/);assert.match(ui,/NO_LIVE_EVIDENCE:'대응 이력 미확인'/);assert.match(ui,/저장된 AI 비교 보고서 \(참고\)/);assert.match(ui,/immediate:initialLoad/);assert.match(ui,/loadedPeriod,year,week/);assert.match(ui,/영업방 자동 확인을 기다리는 중입니다/);
+const balanceComparison={products:[{prodKey:7,prodName:'수국',unit:'단',requestedSignedDelta:3,observedSignedDelta:3,actualDistributionTotal:12,storedStockSnapshot:8,evidenceStatus:'CONSISTENT',snapshotStatus:'AVAILABLE',sourceIdentities:['chat-1'],reasonCodes:[],requests:[{requestId:'r-1',sourceIdentity:'chat-1',custKey:null,prodKey:7,requestedSignedDelta:3,observedSignedDelta:3,evidenceStatus:'CONSISTENT',reasonCodes:[]}]}]};
+assert.equal(isValidBalanceComparison(balanceComparison),true,'nullable custKey is valid for an ambiguous parser context');
+const legacyBalanceComparison={products:balanceComparison.products.map(({requests,...product})=>product)};
+assert.equal(isValidBalanceComparison(legacyBalanceComparison),true,'request rows may be absent during a safe rolling deployment');
+assert.equal(shouldHideConsistentIdentity(legacyBalanceComparison,'chat-1',{status:'ORDER_AND_DISTRIBUTION',requests:[{id:'r-1'}]}),false,'missing request rows must not hide the original chat row');
+assert.equal(comparisonForIdentity(balanceComparison,'chat-1').totalCount,1,'only the source identity request is displayed');
+assert.equal(differenceDelta({requestedSignedDelta:3,observedSignedDelta:1}),2);
+assert.equal(shouldHideConsistentIdentity(balanceComparison,'chat-1',{status:'ORDER_AND_DISTRIBUTION',requests:[{id:'r-1'}]}),true);
+assert.equal(shouldHideConsistentIdentity(balanceComparison,'chat-1',{status:'ORDER_AND_DISTRIBUTION',requests:[{id:'r-1'},{id:'unmatched'}]}),false,'unmatched original request must remain visible');
+assert.equal(shouldHideConsistentIdentity(balanceComparison,'chat-1',{status:'AMBIGUOUS',requests:[{id:'r-1'}]}),false,'ambiguous paired history must remain visible');
+assert.equal(isException({...balanceComparison.products[0],actualDistributionTotal:null}),true,'missing all-product distribution total is an exception');
+assert.equal(reasonLabel('AMBIGUOUS_DISTRIBUTION_UNIT'),'분배 단위 확인 필요');
+assert.equal(reasonLabel('AMBIGUOUS_STOCK_MASTER_SCOPE'),'같은 차수 재고 원장 중복 확인');
 assert.match(refresh,/isAutoRefreshEligible/);assert.match(refresh,/isCurrentRefresh/);assert.match(refresh,/shouldBufferIncoming/);assert.match(refresh,/afterKey/);assert.match(refresh,/new URLSearchParams\(\{from,to,afterKey\}\)/);assert.match(refresh,/DEFAULT_MAX_PAGES/);assert.doesNotMatch(refresh,/method:\s*['"]POST/);
 
 function compileSalesFeed(fetchImpl) {

@@ -253,6 +253,16 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 
 ## 2026-09-11 카톡과 변경 이력 읽기 전용 대조
 
+- 후속 요청·잔량 대조도 모든 원장을 보존한다. 실제 decompile `GetProductList`
+  178~257행의 선택 차수 `StockMaster + ProductStock.Stock`과 전체 `ViewShipment.OutQuantity`
+  합계를 별도 사실로 사용한다. 현재 저장 잔량에서 요청을 다시 가감하지 않는다.
+- 운영 `/stock` 읽기 대조에서 2026-37-01 SALAL TIPS의 전차수44/출고7/저장재고44를
+  확인했다. `/shipment/stock-status`의 계산잔량37과 같지 않으므로 저장 snapshot을
+  자동 적용 완료 또는 현재 분배를 모두 뺀 가용잔량이라고 부르지 않는다.
+- 분배 변경 이력만 요청 변화량과 비교한다. 주문만 변경되거나 같은 이벤트가 여러
+  요청과 경쟁하면 완료로 판정하지 않는다. A취소1/B추가1의 순효과0은 각각의 근거를
+  확인한 뒤에만 일치로 표시하며, 조회 결과로 등록·확정 동작을 막지 않는다.
+
 - 로컬 `nenova-decompiled/Nenova/FormOrderAdd.cs`의 이력 저장을 확인했다.
   `ColumName=주문수량`은 `OutQuantity` 전후값이며 `미발주수량`과 별도다.
 - `FormOrderHistory.GetData`는 OrderHistory를 ViewOrder의 OrderDetailKey로

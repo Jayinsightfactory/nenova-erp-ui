@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { normalizeScope, parseMessages, pairRequests, toFacts, loadLiveHistoryFacts } = require('../lib/distributionLiveHistory');
+const balance = require('../lib/distributionRequestBalance');
 
 const scope = normalizeScope({ year: 2026, week: '37-01', from: '2026-09-10', to: '2026-09-11' });
 const facts = toFacts({
@@ -126,30 +127,42 @@ const route = source
   .replace("import { loadMappings } from '../../../lib/parseMappings';", 'const { loadMappings } = deps.products;')
   .replace("import { loadCustomerMappings } from '../../../lib/customerMappings';", 'const { loadCustomerMappings } = deps.customers;')
   .replace("import { normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } from '../../../lib/distributionLiveHistory';", 'const { normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } = deps.live;')
+  .replace("import { cloneParsedItems, loadDistributionRequestBalanceFacts, buildDistributionRequestBalanceComparison } from '../../../lib/distributionRequestBalance';", 'const { cloneParsedItems, loadDistributionRequestBalanceFacts, buildDistributionRequestBalanceComparison } = deps.balance;')
   .replace('export const config', 'const config')
   .replace('export default withAuth', 'module.exports = withAuth');
 const compiledModule = { exports: null };
 let routeFactCalls = 0;
 let routeFailure = false;
+let routeBalanceFailure = false;
 const routeDbRequests = [];
 vm.runInNewContext(route, { module: compiledModule, deps: {
   db: { getPool: async () => ({ request: () => {
-    const request = { timeout: null, bindings: [], input(name, type, value) { this.bindings.push({ name, type, value }); return this; }, async query(statement) { routeDbRequests.push({ timeout: this.timeout, bindings: this.bindings, statement }); return { recordset: [] }; } };
+    const request = { timeout: null, bindings: [], input(name, type, value) { this.bindings.push({ name, type, value }); return this; }, async query(statement) { routeDbRequests.push({ timeout: this.timeout, bindings: this.bindings, statement }); if (routeBalanceFailure && statement.includes('FROM StockMaster')) throw new Error('balance facts unavailable'); return { recordset: [] }; } };
     return request;
   } }), sql: {} }, auth: { withAuth: handler => handler },
   products: { loadMappings: () => aliases.products }, customers: { loadCustomerMappings: () => aliases.customers },
   live: { normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts: async (q, sqlArg, requestedScope) => { routeFactCalls += 1; await q('SELECT 1', { scopeYear: { type: sqlArg.NVarChar, value: requestedScope.year } }); if (routeFailure) throw new Error('mock failure'); return facts; } },
+  balance,
 }, URL, Date, JSON, String, Number, Array, Object, Set });
 const res = { statusCode: 200, setHeader() {}, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
 compiledModule.exports({ method: 'POST', headers: { origin: 'https://board.example', host: 'board.example' }, user: { accountActive: true }, body: { year: 2026, week: '37-01', from: '2026-09-10', to: '2026-09-11', messages: [{ identity: 'm5', message: '라움 화이트 2박스 추가', created_at: '2026-09-10T09:00:00+09:00' }] } }, res).then(async () => {
   assert.equal(res.statusCode, 200); assert.equal(res.body.erpAction, 'NONE'); assert.equal(res.body.advisoryOnly, true);
+  assert.equal(res.body.balanceComparison.products[0].actualDistributionTotal, 0);
+  assert.equal(res.body.balanceComparison.products[0].snapshotStatus, 'UNKNOWN');
+  assert.deepEqual(JSON.parse(JSON.stringify(res.body.balanceComparison.products[0].requests.map(row => row.sourceIdentity))), ['m5']);
   const cacheRequest = (overrides = {}) => ({ method: 'POST', headers: { origin: 'https://board.example', host: 'board.example' }, user: { accountActive: true }, body: { year: 2026, week: '37-01', from: '2026-09-10', to: '2026-09-11', messages: [{ identity: `cache-${Math.random()}`, message: '라움 화이트 2박스 추가', created_at: '2026-09-10T09:00:00+09:00' }], ...overrides } });
   const cacheResponse = () => ({ statusCode: 200, setHeader() {}, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
   await Promise.all([compiledModule.exports(cacheRequest(), cacheResponse()), compiledModule.exports(cacheRequest(), cacheResponse())]);
   assert.equal(routeFactCalls, 1, 'same-scope concurrent requests must share one in-flight facts load');
-  assert.equal(routeDbRequests[0].timeout, 8000);
-  assert.equal(routeDbRequests[0].statement, 'SELECT 1');
-  assert.deepEqual(JSON.parse(JSON.stringify(routeDbRequests[0].bindings)), [{ name: 'scopeYear', value: '2026' }]);
+  const liveQuery = routeDbRequests.find(call => call.statement === 'SELECT 1');
+  assert.equal(liveQuery.timeout, 8000);
+  assert.deepEqual(JSON.parse(JSON.stringify(liveQuery.bindings)), [{ name: 'scopeYear', value: '2026' }]);
+  const snapshotQuery = routeDbRequests.find(call => call.statement.includes('JOIN ProductStock'));
+  const distributionQuery = routeDbRequests.find(call => call.statement.includes('FROM ViewShipment'));
+  assert.ok(snapshotQuery && distributionQuery, 'API must read snapshot and current distribution through its local mock DB adapter');
+  assert.match(snapshotQuery.statement, /COUNT_BIG\(DISTINCT sm\.StockKey\)/);
+  assert.match(distributionQuery.statement, /JOIN Product p ON p\.ProdKey=vs\.ProdKey/);
+  assert.doesNotMatch(distributionQuery.statement, /ShipmentDate|vs\.OutUnit/);
   await compiledModule.exports(cacheRequest(), cacheResponse());
   assert.equal(routeFactCalls, 1, 'successful same-scope facts stay private for the TTL');
   await compiledModule.exports(cacheRequest({ week: '38-01' }), cacheResponse());
@@ -162,6 +175,20 @@ compiledModule.exports({ method: 'POST', headers: { origin: 'https://board.examp
   const retried = cacheResponse();
   await compiledModule.exports(cacheRequest({ week: '39-01' }), retried);
   assert.equal(retried.statusCode, 200); assert.equal(routeFactCalls, 4, 'failed loads must not be cached');
+  routeBalanceFailure = true;
+  const historyOnly = cacheResponse();
+  await compiledModule.exports(cacheRequest({ week: '40-01' }), historyOnly);
+  assert.equal(historyOnly.statusCode, 200, 'balance facts failing alone must preserve live-history response');
+  assert.equal(historyOnly.body.balanceComparison, undefined);
+  assert.ok(historyOnly.body.items.length > 0);
+  assert.ok(historyOnly.body.warnings.some(warning => /잔량 비교를 생략/.test(warning)));
+  assert.equal(routeFactCalls, 5);
+  routeBalanceFailure = false;
+  const balanceRetried = cacheResponse();
+  await compiledModule.exports(cacheRequest({ week: '40-01' }), balanceRetried);
+  assert.equal(balanceRetried.statusCode, 200);
+  assert.ok(balanceRetried.body.balanceComparison, 'partial balance failure must not be cached as a complete scope');
+  assert.equal(routeFactCalls, 6);
   const sqlCalls = [];
   const adapterFacts = await loadLiveHistoryFacts(async (statement, params) => {
     sqlCalls.push({ statement, params });
