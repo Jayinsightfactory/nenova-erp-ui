@@ -73,6 +73,32 @@ const nearMiss = parseMessages([{ identity: 'm7-near', message: '새라움플라
 assert.equal(nearMiss[0].requests[0].status, 'AMBIGUOUS');
 const exactDirect = parseMessages([{ identity: 'm7-exact', message: '라움 화이트 2박스 추가', created_at: '2026-09-10T09:00:00+09:00' }], facts, {}, scope);
 assert.equal(exactDirect[0].requests[0].status, 'PENDING');
+const productionFacts = toFacts({
+  customers: [{ CustKey: 1, CustName: '친구플라워' }, { CustKey: 2, CustName: '대구희경' }, { CustKey: 3, CustName: '그린' }, { CustKey: 4, CustName: '수연' }],
+  products: [
+    { ProdKey: 1411, ProdName: 'ROSE Lollipop White Blue 40cm', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 },
+    { ProdKey: 3086, ProdName: '미디오(연블루)', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 },
+    { ProdKey: 866, ProdName: 'Hydrangea Blue', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 },
+    { ProdKey: 2255, ProdName: '레몬잎 운송료', OutUnit: '박스', BunchOf1Box: 1, SteamOf1Box: 1 },
+    { ProdKey: 502, ProdName: 'CARNATION Yukari Cherry', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 },
+    { ProdKey: 890, ProdName: 'Hydrangea GOLD PEACH', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 },
+  ],
+});
+const productionAliases = { products: {
+  '콜롬비아 장미 롤리팝 화이트 블루': { prodKey: 1411 }, '블루': { prodKey: 3086 }, '레몬잎': { prodKey: 2255 },
+  '유카리체리': { prodKey: 502 }, '콜롬비아 수국 피치': { prodKey: 890 }, '콜롬비아 수국 블루': { prodKey: 866 },
+} };
+const lollipop = parseMessages([{ identity: 'm-prod-1', message: '37-1 콜 장미 변경사항\n친구플라워\n롤리팝 화이트 블루 10단 취소\n대구희경\n롤리팝 화이트 블루 10단 추가', created_at: '2026-09-10T09:00:00+09:00' }], productionFacts, productionAliases, scope);
+assert.deepEqual(lollipop[0].requests.map(request => [request.custKey, request.prodKey, request.action]), [[1, 1411, 'CANCEL'], [2, 1411, 'ADD']]);
+const fee = parseMessages([{ identity: 'm-prod-2', message: '친구플라워\n레몬잎 1박스 추가', created_at: '2026-09-10T09:00:00+09:00' }], productionFacts, productionAliases, scope);
+assert.equal(fee[0].requests[0].status, 'AMBIGUOUS'); assert.match(fee[0].requests[0].reason, /비물리 품목/);
+const unknownCustomer = parseMessages([{ identity: 'm-prod-3', message: '그린\n유카리체리1박스취소\n청지\n유카리체리1박스추가', created_at: '2026-09-10T09:00:00+09:00' }], productionFacts, productionAliases, scope);
+assert.equal(unknownCustomer[0].requests[0].custKey, 3);
+assert.equal(unknownCustomer[0].requests[1].status, 'AMBIGUOUS');
+const colombiaPeach = parseMessages([{ identity: 'm-prod-4', message: '37-1 콜 수국 변경사항\n수연\n피치1박스추가', created_at: '2026-09-10T09:00:00+09:00' }], productionFacts, productionAliases, scope);
+assert.deepEqual(colombiaPeach[0].requests.map(request => [request.status, request.prodKey]), [['PENDING', 890]]);
+const familyBlue = parseMessages([{ identity: 'm-prod-5', message: '37-1 콜 수국 변경사항\n수연\n블루1박스추가', created_at: '2026-09-10T09:00:00+09:00' }], productionFacts, productionAliases, scope);
+assert.deepEqual(familyBlue[0].requests.map(request => [request.status, request.prodKey]), [['PENDING', 866]]);
 const familyFacts = toFacts({ customers: facts.customers, products: [{ ProdKey: 22, ProdName: 'ERP-WHITE', OutUnit: '단', BunchOf1Box: 10, SteamOf1Box: 100 }] });
 const family = parseMessages([{ identity: 'm8', message: '라움\n수국\n취소\n화이트 1박스', created_at: '2026-09-10T09:00:00+09:00' }], familyFacts, { products: { '수국 화이트': { prodKey: 22 } } }, scope);
 assert.deepEqual(family[0].requests.map(request => [request.prodKey, request.action]), [[22, 'CANCEL']]);
