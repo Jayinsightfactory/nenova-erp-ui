@@ -28,6 +28,12 @@ export const MENU_ITEMS = [
     ]
   },
   {
+    group: '업무 매뉴얼',
+    items: [
+      { href: '/work/manuals', labelKey: '부서별 업무 매뉴얼', popup: false },
+    ]
+  },
+  {
     group: '주문관리',
     items: [
       { href: '/orders/new',   labelKey: '주문등록',          popup: false },
