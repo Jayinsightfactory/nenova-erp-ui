@@ -186,8 +186,10 @@ async function main() {
   const uiSrc = fs.readFileSync('pages/shipment/distribute-import.js', 'utf8');
   assertLabel(
     'UI apply 요청이 preview.orderYear 를 함께 보냄(서버가 추정하지 않도록)',
-    /body: JSON\.stringify\(\{ week: preview\.week, year: preview\.orderYear, rows, fullCategoryReplacement: true/.test(uiSrc),
+    /body: JSON\.stringify\(\{ week: preview\.week, year: preview\.orderYear, sourceFileName: file\?\.name \|\| '', rows, fullCategoryReplacement: true/.test(uiSrc),
   );
+  assertLabel('검증 버튼은 차수·파일명을 확인한 뒤에만 분석을 시작', uiSrc.includes('해당 차수에 이 파일이 맞습니까?') && uiSrc.includes('requireConfirmation: true'));
+  assertLabel('업로드 이력은 파일명과 차수를 함께 표시', uiSrc.includes('업로드 파일') && uiSrc.includes('SourceFileName'));
   assertLabel(
     'UI도 엑셀누락 행을 분배 0 적용대상에 포함',
     /const applyTarget = r => !r\.fixBlocked && \(orderChanged\(r\) \|\| shipmentNeedsApply\(r\)\);/.test(uiSrc),
