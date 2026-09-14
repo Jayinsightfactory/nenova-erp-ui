@@ -1,5 +1,6 @@
 // Local-only Puppeteer smoke for the EXE-compatible pivot UI.
-// No network, ERP/DB access, downloads, installs, or mutation requests are allowed.
+// Only localhost assets and local XLSX downloads. No ERP/DB, external network,
+// installs, or mutation requests are allowed.
 // Exact data-testid values may be supplied as JSON in PIVOT_EXE_SMOKE_TESTIDS.
 // Missing values use only observable current-route labels; no future selector
 // names are invented or made mandatory.
@@ -225,8 +226,59 @@ function assertFieldManifest() {
     await click(page, testids.expandAll, 'expand all', '모두 펼침');
     assert((await page.$$eval('tbody tr', nodes => nodes.length)) === expandedRows, 'expand did not restore rows');
     await click(page, 'pivot-exe-field-CounName', 'open sort field');
-    await click(page, null, 'sort', '정렬');
-    await click(page, null, 'close menu', '닫기');
+    await click(page, null, 'sort ascending', '오름차순');
+    assert((await page.$eval('table tbody tr th', node => node.textContent)).includes('에콰도르'), 'ascending country order not applied');
+    assert((await page.$eval('[data-testid="pivot-exe-field-CounName"]', node => node.textContent)).includes('▲'), 'ascending indicator missing');
+    await click(page, 'pivot-exe-field-CounName', 'open descending sort');
+    await click(page, null, 'sort descending', '내림차순');
+    assert((await page.$eval('table tbody tr th', node => node.textContent)).includes('콜롬비아'), 'descending country order not applied');
+    assert((await page.$eval('[data-testid="pivot-exe-field-CounName"]', node => node.textContent)).includes('▼'), 'descending indicator missing');
+    await click(page, 'pivot-exe-field-CounName', 'open clear sort');
+    await click(page, null, 'clear sort', '정렬 해제');
+
+    // Grouped headers, true cell grid and display-only precision.
+    assert((await page.$$eval('table thead tr', nodes => nodes.length)) >= 3, 'column headers must be hierarchical');
+    assert((await page.$$eval('table th[colspan]', nodes => nodes.some(n => Number(n.colSpan) > 1))), 'column groups are not merged');
+    assert((await page.$$eval('table tbody [rowspan]', nodes => nodes.some(n => Number(n.rowSpan) > 1))), 'row ancestors are not merged');
+    const initialGrid = await page.$eval('table', node => node.innerText);
+    await click(page, 'pivot-exe-decimals-toggle', 'hide decimals');
+    assert(!(await page.$eval('table', node => node.innerText)).includes('12.50'), 'decimal hide did not change display');
+    await click(page, 'pivot-exe-decimals-toggle', 'restore decimals');
+    assert((await page.$eval('table', node => node.innerText)) === initialGrid, 'precision toggle mutated pivot values');
+
+    // Resize via left-click controls and retain preferences across reload.
+    const setControl = async (id, value) => {
+      const element = await page.$(selector(id));
+      const tag = await element.evaluate(node => node.tagName);
+      if (tag === 'SELECT') await element.select(String(value));
+      else { await element.click(); await page.keyboard.down('Control'); await page.keyboard.press('KeyA'); await page.keyboard.up('Control'); await page.keyboard.type(String(value)); await page.keyboard.press('Tab'); }
+      await delay(100);
+    };
+    await setControl('pivot-exe-row-height', 32);
+    await setControl('pivot-exe-data-width', 120);
+    const measured = await page.evaluate(() => {
+      const table = document.querySelector('table');
+      const row = table.querySelector('tbody tr');
+      return {height:row.getBoundingClientRect().height,border:getComputedStyle(row.lastElementChild).borderRightWidth};
+    });
+    assert(measured.height >= 31 && measured.height <= 34, `row height control ineffective: ${measured.height}`);
+    assert(parseFloat(measured.border) > 0, 'vertical cell borders missing');
+
+    for (const width of [1920,1366]) {
+      await page.setViewport({width,height:width===1920?1080:768,deviceScaleFactor:1});
+      await click(page,'pivot-exe-filter-ListType','anchored type filter');
+      const bounds = await page.evaluate(() => {
+        const anchor=document.querySelector('[data-testid="pivot-exe-filter-ListType"]').getBoundingClientRect();
+        const popup=document.querySelector('[data-testid="pivot-exe-value-filter"]').getBoundingClientRect();
+        return {ax:anchor.left,ay:anchor.bottom,x:popup.left,y:popup.top,right:popup.right,bottom:popup.bottom,w:innerWidth,h:innerHeight};
+      });
+      assert(bounds.x>=0 && bounds.y>=0 && bounds.right<=bounds.w && bounds.bottom<=bounds.h, `filter outside ${width} viewport`);
+      assert(Math.abs(bounds.x-bounds.ax)<350 && Math.abs(bounds.y-bounds.ay)<350, 'filter popup detached from clicked field');
+      await page.screenshot({path:path.resolve(`outputs/pivot-exe-filter-${width}.png`),fullPage:false});
+      await page.keyboard.press('Escape');
+      assert(!(await page.$('[data-testid="pivot-exe-value-filter"]')), 'Escape did not close filter');
+    }
+    await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
     const downloads = path.resolve('outputs/pivot-exe-downloads', String(Date.now()));
     fs.mkdirSync(downloads, { recursive: true });
     const client = await page.createCDPSession();
@@ -245,6 +297,14 @@ function assertFieldManifest() {
     await page.waitForSelector('[data-testid="pivot-exe-error"]');
     const after = await page.$eval('table', node => node.innerText);
     assert(after === before, 'last good data was not preserved after scope-changing 503');
+
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.waitForSelector('[data-testid="pivot-exe-row-height"]');
+    await waitFor(async () => await page.$eval('[data-testid="pivot-exe-row-height"]', node => node.value === '32'), 'saved row height hydration');
+    assert((await page.$eval('[data-testid="pivot-exe-data-width"]', node => node.value)) === '120', 'saved width lost after reload');
+    await click(page,testids.refresh,'reload current data');
+    await page.waitForSelector('[data-testid="pivot-exe-grid"]');
+    await waitFor(async () => (await page.$eval('table',node=>node.innerText)).includes('수국 화이트'), 'reloaded fixture');
 
     for (const width of [1366, 1920]) {
       await page.setViewport({ width, height: width === 1920 ? 1080 : 768, deviceScaleFactor: 1 });

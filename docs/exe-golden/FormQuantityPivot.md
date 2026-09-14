@@ -1,5 +1,15 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-14 표시 후속 수정 경계
+
+- 사용자 EXE/웹 비교 화면을 기준으로 국가·꽃 행 병합, 연도/차수/구분/업체 다단 머리글,
+  셀 테두리, 열 너비/행 높이, 버튼 인접 필터와 명시 정렬을 보완한다.
+- 저장된 decompile `FormQuantityPivot.cs`의 `GetData` 및 `btnExcel_Click`을 재확인했다.
+  조회 원본은 그대로이며 XLSX WYSIWYG 의미에 맞춰 표시 병합·숫자 형식을 내보낸다.
+- 수량/입고단가/합계의 원본 number를 소수점 표시 설정으로 반올림 저장하지 않는다.
+- 이번 수정에는 API/SQL/SP/ERP 원장 변경이 없으므로 새로운 DB 보정은 실행하지 않는다.
+  원본 SQL 전수 대조 완료라는 의미가 아니며 표시와 조작 검증 범위다.
+
 ## 2026-09-14 전산 피벗 모드 실제 근거
 
 - 재확인 CLI: `C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe --no-color -t FormQuantityPivot "C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe"`.
