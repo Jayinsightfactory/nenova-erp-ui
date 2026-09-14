@@ -21,6 +21,7 @@ import {
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
 import { deriveSupportProcessingStatus, isSupportManualCompleteSelectable, isSupportProcessingComplete, supportCarryoverFromLabel, supportProcessingLabel, supportRegisterUsageNotice, supportRegistrationDecisionLabel, supportStatusDetail, buildSupportEstimateCapture } from '../lib/salesDefectSupportStatus.js';
 import { buildEstimateCustomerUrl } from '../lib/estimateFixStatusLink.js';
+import { incomingGroupKey, sortIncomingRows } from '../lib/salesDefectIncomingGroup.js';
 import {
   parseQuantityCell,
   parseSalesDefectWorkbook,
@@ -99,6 +100,24 @@ const defectApiSource = fs.readFileSync('pages/api/sales/defect-deductions.js', 
 const pageSource = fs.readFileSync('pages/sales/defect-deductions.js', 'utf8');
 const supportReviewSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const deductionContract = JSON.parse(fs.readFileSync('docs/contracts/sales-defect-deduction.json', 'utf8'));
+const incomingFixture = [
+  { deductionKey: 31, customerName: '서부꽃집', productName: '수국' },
+  { deductionKey: 11, customerName: '양재동', productName: '장미' },
+  { deductionKey: 12, customerName: '양재동', productName: '수국' },
+  { deductionKey: 21, customerName: '꽃길', productName: '장미' },
+];
+const byCustomer = sortIncomingRows(incomingFixture, 'customer');
+assert.deepEqual(byCustomer.map(({ row }) => row.deductionKey), [21, 31, 12, 11], '기본값은 거래처별로 묶고 같은 거래처 안에서 품종순이어야 한다.');
+const byProduct = sortIncomingRows(incomingFixture, 'product');
+assert.deepEqual(byProduct.map(({ row }) => row.deductionKey), [31, 12, 21, 11], '품종 버튼은 같은 품종을 묶고 거래처순으로 보여야 한다.');
+assert.deepEqual(byProduct.map(({ sourceIndex }) => sourceIndex), [0, 2, 3, 1], '표시 정렬 후에도 저장·확정은 원본 행 인덱스를 유지해야 한다.');
+assert.deepEqual(byProduct.filter(({ isGroupStart }) => isGroupStart).map(({ groupLabel }) => groupLabel), ['수국', '장미']);
+assert.equal(incomingGroupKey({ customerName: '' }, 'customer'), '거래처 미확인');
+assert.equal(incomingGroupKey({ productName: '', matchedFlowerName: '' }, 'product'), '품종 미확인');
+assert.ok(deductionContract.actions.some((item) => item.name === 'INCOMING_GROUP_VIEW'), '수입부 거래처/품종 묶음 표시 계약이 있어야 한다.');
+assert.match(pageSource, /incomingGroupMode === 'customer'/);
+assert.match(pageSource, /incomingGroupMode === 'product'/);
+assert.match(pageSource, /updateIncomingRow\(sourceIndex/);
 assert.ok(deductionContract.actions.some((item) => item.name === 'MANUAL_PROCESSING_COMPLETE'), '수동처리완료 계약 동작이 있어야 한다.');
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /수동처리완료/);
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /ImportConfirmed 값과 무관하게 표시/);
