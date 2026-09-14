@@ -8,6 +8,8 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   page.on('pageerror',e=>errors.push(e.message));
   const cases=['NEW','WAITING','WAITING','ANSWERED','OBSERVING','CLOSED','RECURRED'].map((Status,i)=>({CaseKey:`10000000-0000-4000-8000-00000000000${i}`,OrderYear:2026,Status,FarmName:`농장 ${i+1}`,ProductName:'CARNATION / Novia 긴 품목명 확인',Title:'꽃잎 손상 반복 · 품질 확인',DueDate:i===2?'2025-01-01':'2099-01-01',Version:2,CreatedByName:'홍길동',UpdatedAt:'2026-09-14T01:00:00Z',LatestBody:'영업부 현장 상태 추가 확인했습니다.',LatestAuthor:'홍길동',LatestDepartment:'영업부'}));
   const groups=[{key:'a',farmName:'농장 1',productName:'CARNATION / Novia',quantity:15,unit:'박스',sourceKey:10,prodKey:2,weeks:{35:5,36:10}}];
+  const farmTrends=[{farmName:'농장 1',unit:'박스',totalDefect:15,totalIncoming:150,defectRate:10,points:[{week:35,defectQuantity:5,incomingQuantity:100,defectRate:5},{week:36,defectQuantity:10,incomingQuantity:50,defectRate:20}]}];
+  const issueCandidates=[{key:'a:36',farmName:'농장 1',productName:'CARNATION / Novia',unit:'박스',prodKey:2,week:36,defectQuantity:10,incomingQuantity:50,defectRate:20,sourceKey:10,sourceKeys:[10]}];
   await page.setRequestInterception(true);
   page.on('request',r=>{
    if(!r.url().includes('/api/'))return r.continue();
@@ -16,7 +18,7 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    if(r.url().includes('/api/sales/farm-quality')){
     if(r.method()==='POST'){posts++;requests.push(JSON.parse(r.postData()));if(posts===1){status=503;data={error:'테스트 저장 실패'};}else data.caseKey=cases[0].CaseKey;}
     else if(r.url().includes('caseKey='))data.events=[{EventKey:1,AuthorName:'홍길동',Department:'영업부',Kind:'COMMENT',Body:'추가 불량 상태 확인 요청',CreatedAt:'2026-09-14T01:00:00Z',AfterStatus:'WAITING'}];
-    else Object.assign(data,{cases,groups,excluded:2,canManage:true,author:{name:'테스트 수입부',department:'수입부'}});
+    else Object.assign(data,{cases,groups,farmTrends,issueCandidates,excluded:2,canManage:true,author:{name:'테스트 수입부',department:'수입부'}});
    }
    r.respond({status,contentType:'application/json',body:JSON.stringify(data)});
   });
@@ -28,6 +30,10 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    await page.waitForSelector('.chart-panels');
    assert.equal(await page.$eval('main nav button[aria-pressed=true]',e=>e.textContent),'불량 그래프');
    assert.equal(await page.$eval('.analysis-source-count',e=>e.textContent.trim()),'기존 불량 분석 · 농장·품목 1개');
+   assert.equal(await page.$eval('[aria-label="불량률 농장 선택"]',e=>e.value),'농장 1');
+   assert.equal(await page.$eval('[aria-label="이슈 후보 차수 선택"]',e=>e.value),'36');
+   assert.equal(await page.$eval('.issue-rate strong',e=>e.textContent.trim()),'20%');
+   assert.equal(await page.$eval('.issue-list article button',e=>e.textContent.trim()),'이슈로 처리');
    await page.evaluate(()=>[...document.querySelectorAll('main nav button')].find(e=>e.textContent==='피드백 · 개선 추적').click());
    await page.waitForSelector('.case');
    const dims=await page.evaluate(()=>({w:innerWidth,doc:document.documentElement.scrollWidth,side:document.querySelectorAll('[data-ui-sidebar]').length,top:document.querySelectorAll('[data-ui-topbar]').length}));
