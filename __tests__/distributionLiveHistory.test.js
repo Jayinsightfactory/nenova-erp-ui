@@ -35,6 +35,24 @@ assert.equal(missingConversion[0].requests[0].inputUnit, '단');
 assert.equal(missingConversion[0].requests[0].unit, '송이');
 assert.equal(missingConversion[0].requests[0].shipmentEvents[0].after, 20);
 assert.match(missingConversion[0].requests[0].reason, /적용 확정이 아니라 확인 후보/);
+const productHistoryCandidate = pairRequests(parseMessages([{ identity: 'm-product-candidate', message: '37-1 에콰도르 변경사항\n라움\n플라야블랑카 20단 추가', created_at: '2026-09-10T09:00:00+09:00' }], missingConversionFacts, {}, scope), missingConversionFacts, scope);
+assert.equal(productHistoryCandidate[0].status, 'PRODUCT_HISTORY_CANDIDATE');
+assert.equal(productHistoryCandidate[0].requests[0].customerText, '주식회사 트라움에스앤씨 (라움)');
+assert.equal(productHistoryCandidate[0].requests[0].productText, 'Ecuador Playa Blanca (rosaprima)');
+assert.equal(productHistoryCandidate[0].requests[0].prodKey, 1540);
+assert.equal(productHistoryCandidate[0].requests[0].matchState, 'NUMERIC_HISTORY_CANDIDATE');
+assert.match(productHistoryCandidate[0].requests[0].reason, /정확 품목 별칭은 없지만/);
+const ambiguousProductHistoryFacts = toFacts({
+  customers: missingConversionFacts.customers,
+  products: [...missingConversionFacts.products, { ProdKey: 1541, ProdName: 'Ecuador Other', OutUnit: '송이' }],
+  shipmentRows: [
+    { eventId: 15401, year: '2026', week: '37-01', custKey: 11, prodKey: 1540, prodName: 'Ecuador Playa Blanca (rosaprima)', unit: '송이', before: 0, after: 20, changeLocal: '2026-09-10T10:01:00.000', shipmentDate: '2026-09-11', shipmentDateCount: 1 },
+    { eventId: 15402, year: '2026', week: '37-01', custKey: 11, prodKey: 1541, prodName: 'Ecuador Other', unit: '송이', before: 0, after: 20, changeLocal: '2026-09-10T10:02:00.000', shipmentDate: '2026-09-11', shipmentDateCount: 1 },
+  ],
+});
+const ambiguousProductHistory = pairRequests(parseMessages([{ identity: 'm-product-ambiguous', message: '라움\n플라야블랑카 20단 추가', created_at: '2026-09-10T09:00:00+09:00' }], ambiguousProductHistoryFacts, {}, scope), ambiguousProductHistoryFacts, scope);
+assert.equal(ambiguousProductHistory[0].requests[0].status, 'AMBIGUOUS');
+assert.match(ambiguousProductHistory[0].requests[0].reason, /한 품목으로 확정할 수 없습니다/);
 const wrongNumericFacts = toFacts({
   customers: missingConversionFacts.customers, products: missingConversionFacts.products,
   shipmentRows: [{ eventId: 15402, year: '2026', week: '37-01', custKey: 11, prodKey: 1540, unit: '송이', before: 0, after: 200, changeLocal: '2026-09-10T10:01:00.000', shipmentDate: '2026-09-11', shipmentDateCount: 1 }],
