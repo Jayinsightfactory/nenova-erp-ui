@@ -8,6 +8,7 @@ export default function CollapsibleTop({ storageKey, summary = null, children, d
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   useEffect(() => {
+    if (defaultCollapsed) { setCollapsed(true); return; }
     let init = null;
     try {
       const saved = localStorage.getItem(`nvTopCollapse:${storageKey}`);
