@@ -139,7 +139,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     const batchKey=messages.map(row=>`${row.identity}:${row.created_at||''}:${row.message||''}`).join('\u001e');
     const sequence=++liveHistorySequence.current,epoch=liveHistoryScopeEpoch.current;
     const controller=new AbortController();let timedOut=false;
-    const timeout=setTimeout(()=>{timedOut=true;controller.abort();},12000);
+    const timeout=setTimeout(()=>{timedOut=true;controller.abort();},30000);
     liveHistoryController.current=controller;liveHistoryInFlight.current=true;
     setLiveHistoryStatus(previous=>({...previous,loading:true,error:''}));
     try {
@@ -156,7 +156,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       setLiveBalanceComparison(data.balanceComparison||null);
       setLiveHistoryStatus({loading:false,error:'',asOf:typeof data.asOf==='string'?data.asOf:'',loaded:true,warnings:data.warnings.map(warning=>typeof warning==='string'?warning:typeof warning?.message==='string'?warning.message:'조회 경고 확인 필요').slice(0,10),scope});
     } catch(error) {
-      if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current&&(error?.name!=='AbortError'||timedOut)) setLiveHistoryStatus(previous=>({...previous,loading:false,error:timedOut?'최신 전산 이력 조회가 12초 안에 끝나지 않았습니다. 기존 이력은 유지됩니다.':error.message||'최신 전산 이력을 읽지 못했습니다. 기존 이력은 유지됩니다.'}));
+      if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current&&(error?.name!=='AbortError'||timedOut)) setLiveHistoryStatus(previous=>({...previous,loading:false,error:timedOut?'최신 전산 이력 조회가 30초 안에 끝나지 않았습니다. 기존 이력은 유지됩니다.':error.message||'최신 전산 이력을 읽지 못했습니다. 기존 이력은 유지됩니다.'}));
     } finally {
       clearTimeout(timeout);
       if(liveHistoryController.current===controller) {liveHistoryController.current=null;liveHistoryInFlight.current=false;}

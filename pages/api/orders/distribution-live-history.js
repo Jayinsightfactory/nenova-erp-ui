@@ -46,7 +46,7 @@ function aliases() {
 async function queryLiveHistory(statement, params = {}) {
   const pool = await getPool();
   const request = pool.request();
-  request.timeout = 8000;
+  request.timeout = 25000;
   for (const [name, { type, value }] of Object.entries(params)) request.input(name, type, value);
   return request.query(statement);
 }
