@@ -21,8 +21,8 @@ async function main() {
     '라움과 초이문 같은 차수는 PartnerCode로 분리되어야 합니다.');
   assert.match(source, /preserv(?:e|ation)|기존.*(?:단가|수기|매칭)|CostPrice[\s\S]{0,180}ProdKey/s,
     '재업로드 시 수기단가·IsCustom·ProdKey를 병합 보존하는 명시적 경로가 필요합니다.');
-  assert.match(api, /verification[\s\S]{0,500}(?:ok|fail|검증)/i,
-    'API는 검증 결과를 받아 실패한 배치를 저장 전에 차단해야 합니다.');
+  assert.match(api, /evaluateRaumPnlImportReview[\s\S]{0,500}raumPnlImportSaveError/,
+    'API는 공용 검증·수동확인 정책으로 저장 전에 차단해야 합니다.');
   console.log('Raum P&L preservation contract tests passed');
 }
 

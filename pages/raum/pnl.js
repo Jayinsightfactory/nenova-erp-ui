@@ -15,6 +15,7 @@ import ShillaProductMatchModal from '../../components/raum/ShillaProductMatchMod
 import ShillaBulkMatchModal from '../../components/raum/ShillaBulkMatchModal';
 import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHttp';
 import { createRaumPnlRequestGuard, isRaumPnlPartnerMatch } from '../../lib/raumPnlRequestGuard';
+import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../lib/raumPnlImportReview';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -1163,6 +1164,19 @@ const st = {
   badge: { display: 'inline-block', padding: '2px 8px', borderRadius: 999, fontSize: 11.5, fontWeight: 600 },
 };
 
+function GangnamMergeConfirmation({ decision, confirmed, onChange }) {
+  if (!decision?.requiresConfirmation || decision.blocking.length) return null;
+  return <div style={{ ...st.warn, margin: 0, whiteSpace: 'normal' }}>
+    <label style={{ display: 'flex', gap: 7, alignItems: 'flex-start', cursor: 'pointer', fontWeight: 700 }}>
+      <input data-testid="raum-pnl-merge-confirm" type="checkbox" checked={confirmed === true} onChange={event => onChange(event.target.checked === true)} />
+      <span>강남 복수 시트의 원본 목록과 합산 수량·금액을 확인했습니다. 이 확인 후에만 수동 저장합니다.</span>
+    </label>
+    {decision.review.map(({ batch, check }, index) => <div key={`${batch.orderYear}-${batch.major}-${index}`} style={{ marginTop: 5, paddingLeft: 23, fontSize: 12 }}>
+      {Number(batch.major)}차 · {(check.sheetNames || []).join(' · ') || '원본 시트명 없음'} · 합산 수량 {fmt((batch.items || []).reduce((sum, item) => sum + Number(item.qty || 0), 0))} · 매출 {fmt((batch.items || []).reduce((sum, item) => sum + Number(item.supply || 0), 0))}원
+    </div>)}
+  </div>;
+}
+
 export default function RaumPnlPage() {
   const [partnerCode, setPartnerCode] = useState('raum');
   const [partnerReady, setPartnerReady] = useState(false);
@@ -1175,6 +1189,7 @@ export default function RaumPnlPage() {
   const [uploading, setUploading] = useState(false);
   const [retryUploadFile, setRetryUploadFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [gangnamMergeConfirmed, setGangnamMergeConfirmed] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
   const [assigningMonthKey, setAssigningMonthKey] = useState(null);
   // 여러 차수 XLSX는 편집본을 브라우저에 신뢰하지 않는다. 저장 시 원본 파일을 다시
@@ -1256,6 +1271,7 @@ export default function RaumPnlPage() {
     try { window.localStorage.setItem('nenova.raumPnl.partner', next); } catch { /* private mode */ }
     setDetail(null);
     setBulkPreview(null);
+    setGangnamMergeConfirmed(false);
     setList([]);
     setLoadingList(false);
     setRetryUploadFile(null);
@@ -1266,6 +1282,16 @@ export default function RaumPnlPage() {
   };
   const partner = resolvePnlPartner(partnerCode);
   const isShilla = partner.code === 'shilla';
+  const detailReview = evaluateRaumPnlImportReview(detail ? [{
+    partnerCode: detail.meta?.partnerCode, orderYear: detail.meta?.orderYear, major: detail.meta?.major,
+    verification: detail.verification, items: detail.items,
+  }] : [], gangnamMergeConfirmed);
+  const bulkReviewBatches = isShilla
+    ? (bulkPreview?.batches || []).filter(batch => (bulkPreview.selectedMajors || []).includes(String(batch.major)))
+    : (bulkPreview?.batches || []);
+  const bulkReview = evaluateRaumPnlImportReview(bulkReviewBatches, gangnamMergeConfirmed);
+  const detailSaveReason = detail ? raumPnlImportSaveError(detailReview) : null;
+  const bulkSaveReason = bulkPreview ? raumPnlImportSaveError(bulkReview) : null;
   const shillaDetailSaved = isShilla && Number.isInteger(Number(detail?.meta?.pnlKey)) && Number(detail.meta.pnlKey) > 0;
   const shillaStoredItems = shillaDetailSaved ? detail.items.filter(item => !item.isCustom && !item.isImageRow && Number(item.itemKey ?? item.ItemKey) > 0) : [];
   const shillaMatchedCount = shillaStoredItems.filter(item => Number(item.prodKey ?? item.ProdKey) > 0).length;
@@ -1278,6 +1304,7 @@ export default function RaumPnlPage() {
     const next = String(value || '').replace(/[^0-9]/g, '').slice(0, 4);
     if (next === importYear) return;
     setImportYear(next);
+    setGangnamMergeConfirmed(false);
     setRetryUploadFile(null);
     if (fileRef.current) fileRef.current.value = '';
     if (bulkPreview) {
@@ -1365,7 +1392,7 @@ export default function RaumPnlPage() {
     return result;
   };
 
-  const persistImportFile = async (file, previewToken, selectedMajors = null, orderYear = importYear) => {
+  const persistImportFile = async (file, previewToken, selectedMajors = null, orderYear = importYear, confirmGangnamMerge = false) => {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('mode', 'save');
@@ -1373,6 +1400,7 @@ export default function RaumPnlPage() {
     fd.append('partner', partnerCode);
     fd.append('orderYear', orderYear);
     if (Array.isArray(selectedMajors)) fd.append('selectedMajors', JSON.stringify(selectedMajors));
+    if (confirmGangnamMerge === true) fd.append('confirmGangnamMerge', 'true');
     return fetchRaumPnlJson('/api/raum/pnl-import', { method: 'POST', body: fd }, { operation: 'save' });
   };
 
@@ -1380,6 +1408,7 @@ export default function RaumPnlPage() {
     const requestedPartner = partnerCode;
     if (requestedPartner !== partnerCodeRef.current) return false;
     const token = detailRequestGuard.current.begin(requestedPartner);
+    setGangnamMergeConfirmed(false);
     setError('');
     if (!opts.keepMessage) setMessage('');
     try {
@@ -1420,6 +1449,7 @@ export default function RaumPnlPage() {
 
   const onUpload = async (file) => {
     if (!file) return;
+    setGangnamMergeConfirmed(false);
     if (Number(file.size) > MAX_RAUM_PNL_UPLOAD_BYTES) {
       setError(`선택한 파일이 ${(Number(file.size) / 1024 / 1024).toFixed(1)}MB입니다. 미리보기는 30MB 이하 파일만 보낼 수 있습니다. 파일을 자동으로 줄이거나 변경하지 않았습니다.`);
       setRetryUploadFile(file);
@@ -1455,7 +1485,9 @@ export default function RaumPnlPage() {
         previewReady = true;
         return;
       }
-      if (isShilla || batches.length > 1) {
+      // A single Gangnam multi-sheet review must keep the original multipart file,
+      // preview token, and snapshot guard; it must not fall through to general detail save.
+      if (isShilla || batches.length > 1 || evaluateRaumPnlImportReview(batches).requiresConfirmation) {
         setDetail(null);
         const selectedMajors = batches
           .filter(batch => (batch.verification || []).every(check => check?.ok))
@@ -1508,7 +1540,15 @@ export default function RaumPnlPage() {
       return;
     }
     const selectedMajors = (bulkPreview.selectedMajors || []).map(String);
-    const selected = bulkPreview.batches.filter(batch => selectedMajors.includes(String(batch.major)));
+    const selected = isShilla
+      ? bulkPreview.batches.filter(batch => selectedMajors.includes(String(batch.major)))
+      : bulkPreview.batches;
+    const selectedReview = evaluateRaumPnlImportReview(selected, gangnamMergeConfirmed);
+    const selectedReviewError = raumPnlImportSaveError(selectedReview);
+    if (selectedReviewError) {
+      setError(selectedReviewError);
+      return;
+    }
     if (isShilla && !selected.length) {
       setError('저장할 검증 통과 차수를 하나 이상 선택하세요.');
       return;
@@ -1527,8 +1567,10 @@ export default function RaumPnlPage() {
         bulkPreview.previewToken,
         isShilla ? selectedMajors : null,
         isShilla ? bulkPreview.orderYear : importYear,
+        gangnamMergeConfirmed,
       );
       setBulkPreview(null);
+      setGangnamMergeConfirmed(false);
       setMessage(`${j.batchCount}개 차수를 검증 후 한 번에 저장했습니다. 전산 품목 매칭과 매입단가를 확인하세요.`);
       await loadList();
       const firstKey = j.saved?.[0]?.pnlKey;
@@ -1548,11 +1590,12 @@ export default function RaumPnlPage() {
       return;
     }
     if (!meta.major) { setError('차수를 입력하세요 (예: 27).'); return; }
+    if (detailSaveReason) { setError(detailSaveReason); return; }
     if (detail.existingDiff?.hasChanges && !window.confirm(`${Number(meta.major)}차 기존 저장본이 업로드 내용으로 변경됩니다. 비교 내용을 확인했으며 저장할까요?`)) return;
     setSaving(true);
     setError('');
     try {
-      const r = await fetch('/api/raum/pnl', {
+      const j = await fetchRaumPnlJson('/api/raum/pnl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1568,11 +1611,11 @@ export default function RaumPnlPage() {
           images: detail.images || [],
           items,
           verification: detail.verification || null,
+          confirmGangnamMerge: gangnamMergeConfirmed === true,
         }),
-      });
-      const j = await r.json();
-      if (!j.success) throw new Error(j.error || '저장 실패');
+      }, { operation: 'save' });
       setDetail(d => ({ ...d, meta: { ...d.meta, pnlKey: j.pnlKey }, unsaved: false }));
+      setGangnamMergeConfirmed(false);
       setCostHistoryRevision(value => value + 1);
       setMessage(`저장 완료 — ${Number(meta.major)}차 손익계산서가 히스토리에 기록되었습니다.`);
       loadList();
@@ -1584,6 +1627,7 @@ export default function RaumPnlPage() {
   };
 
   const openImagePreview = ({ items, images, orderYear, major, sourceFile }) => {
+    setGangnamMergeConfirmed(false);
     setDetail({
       meta: {
         partnerCode,
@@ -2105,6 +2149,7 @@ export default function RaumPnlPage() {
         <input
           ref={fileRef}
           type="file"
+          data-testid="raum-pnl-upload"
           accept=".xlsx,.xls"
           style={{ display: 'none' }}
           onChange={e => onUpload(e.target.files?.[0])}
@@ -2118,8 +2163,8 @@ export default function RaumPnlPage() {
         {!isShilla ? <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button> : null}
         {detail ? (
           <>
-            <button style={st.btn} disabled={shillaMatching} onClick={() => { setDetail(null); setMessage(''); setError(''); }}>← 결산 목록</button>
-            {!isShilla ? <button style={st.btnPrimary} disabled={saving} onClick={save}>{saving ? '저장 중…' : '💾 저장'}</button> : <span style={{ ...st.badge, background: '#ecfeff', color: '#0f766e' }}>신라 원가 수정은 차수별 매입단가 관리에서만 저장됩니다</span>}
+            <button style={st.btn} disabled={shillaMatching} onClick={() => { setDetail(null); setGangnamMergeConfirmed(false); setMessage(''); setError(''); }}>← 결산 목록</button>
+            {!isShilla ? <><button data-testid="raum-pnl-save" style={st.btnPrimary} disabled={saving || !!detailSaveReason} onClick={save}>{saving ? '저장 중…' : '💾 저장'}</button><span data-testid="raum-pnl-save-reason" style={{ fontSize: 12, color: detailSaveReason ? '#b45309' : '#64748b' }}>{detailSaveReason || (detailReview.requiresConfirmation ? '강남 복수 시트 확인 완료 — 수동 저장 가능' : '')}</span><GangnamMergeConfirmation decision={detailReview} confirmed={gangnamMergeConfirmed} onChange={setGangnamMergeConfirmed} /></> : <span style={{ ...st.badge, background: '#ecfeff', color: '#0f766e' }}>신라 원가 수정은 차수별 매입단가 관리에서만 저장됩니다</span>}
             <button
               style={st.btn}
               onClick={() => printInIframe(buildDetailPrintHtml(detail.meta, detail.items, totals, branches))}
@@ -2135,10 +2180,12 @@ export default function RaumPnlPage() {
           </>
         ) : bulkPreview ? (
           <>
-            <button style={st.btn} onClick={() => setBulkPreview(null)}>← 결산 목록</button>
-            <button style={st.btnPrimary} disabled={saving || (isShilla ? !(bulkPreview.selectedMajors || []).length : bulkPreview.batches.some(batch => (batch.verification || []).some(check => !check.ok)))} onClick={saveBulkPreview}>
+            <button style={st.btn} onClick={() => { setBulkPreview(null); setGangnamMergeConfirmed(false); }}>← 결산 목록</button>
+            <button data-testid="raum-pnl-bulk-save" style={st.btnPrimary} disabled={saving || !!bulkSaveReason || (isShilla ? !(bulkPreview.selectedMajors || []).length : false)} onClick={saveBulkPreview}>
               {saving ? '저장 중…' : isShilla ? `💾 선택 ${bulkPreview.selectedMajors?.length || 0}개 차수 저장` : `💾 ${bulkPreview.batches.length}개 차수 전체 저장`}
             </button>
+            <span data-testid="raum-pnl-save-reason" style={{ fontSize: 12, color: bulkSaveReason ? '#b45309' : '#64748b' }}>{bulkSaveReason || (bulkReview.requiresConfirmation ? '강남 복수 시트 확인 완료 — 수동 저장 가능' : '')}</span>
+            {!isShilla ? <GangnamMergeConfirmation decision={bulkReview} confirmed={gangnamMergeConfirmed} onChange={setGangnamMergeConfirmed} /> : null}
             <span style={{ ...st.badge, background: '#fef3c7', color: '#92400e' }}>다차수 저장 전</span>
           </>
         ) : (

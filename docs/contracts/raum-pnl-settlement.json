@@ -2,6 +2,7 @@
   "id": "raum-pnl-settlement",
   "title": "라움·초이문·신라 손익계산서 결산 미리보기 계약",
   "scope": [
+    "lib/raumPnlImportReview.js",
     "lib/shillaPnlBulkMatchState.js",
     "lib/shillaPnlBulkMatch.js",
     "pages/api/raum/shilla-bulk-mapping.js",
@@ -57,7 +58,8 @@
     "source": "User request 2026-09-14: sheet names containing 강남 use the same 강남 branch",
     "helper": "lib/raumPnlParse.js detectBranch (shared by preview/save parsers)",
     "gangnam": "Normalize sheet names containing 강남 to branch 강남; require an explicit major token; preserve original sheetName",
-    "preserve": ["major separation", "partner isolation", "same-major same-branch duplicate rejection", "quantity and amount verification", "existing-save comparison"],
+    "manualGangnamMerge": "Same-major Raum Gangnam sheets require explicit confirmGangnamMerge boolean true for manual save; never auto-commit. Keep source sheet names and totals; amount failures and other duplicate branches remain blocking. UI, API and save core share lib/raumPnlImportReview.js. Reset confirmation on new upload/detail/partner/year; show blocking reason beside save.",
+    "preserve": ["major separation", "partner isolation", "non-Gangnam duplicate rejection", "quantity and amount verification", "existing-save comparison", "preview token and locked snapshot"],
     "regressionTest": "__tests__/raumPnlPartner.test.js"
   },
   "actions": [
@@ -117,6 +119,7 @@
     "preserve": ["Qty", "SalePrice", "SaleAmount", "IsConsigned", "ProdKey identity for rows that have one"]
   },
   "requiredTestFiles": [
+    "__tests__/raumPnlImportReview.test.js",
     "__tests__/shillaPnlBulkMatch.test.js",
     "__tests__/shillaPnlBulkMatchUi.test.js",
     "__tests__/shillaPnlHotelMatch.test.js",

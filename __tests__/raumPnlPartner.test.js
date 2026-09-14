@@ -25,6 +25,7 @@ function addQuoteSheet(wb, name, { remark, items }) {
 async function main() {
   const { parseRaumQuoteWorkbook, parseRaumQuoteWorkbookGroups } = await import('../lib/raumPnlParse.js');
   const { canAutoCommitRaumPnlImport, defaultPnlTitle, resolvePnlPartner } = await import('../lib/raumPnlPartner.js');
+  const { evaluateRaumPnlImportReview, RAUM_GANGNAM_MULTISHEET } = await import('../lib/raumPnlImportReview.js');
 
   assert.equal(resolvePnlPartner().code, 'raum');
   assert.equal(resolvePnlPartner('CHOIMUN').label, '초이문');
@@ -113,7 +114,12 @@ async function main() {
   assert.ok(major35.verification.every(check => check.ok), '행사명만으로 분류한 35차는 검증을 통과해야 한다.');
   assert.equal(canAutoCommitRaumPnlImport([major35]), true, '중복이 없는 35차는 자동 등록할 수 있어야 한다.');
   assert.equal(canAutoCommitRaumPnlImport([major34]), false, '같은 차수의 강남 기본·콘서트 중복 시트는 자동 등록하면 안 된다.');
-  assert.ok(major34.verification.some(check => check.group === '강남' && check.label === '동일 차수·지점 시트' && !check.ok), '같은 차수 강남 기본·행사 시트 중복을 표시해야 한다.');
+  const gangnamReview = major34.verification.find(check => check.code === RAUM_GANGNAM_MULTISHEET);
+  assert.deepEqual(gangnamReview?.sheetNames, ['34차강남', '34차 강남 콘서트', '34차 강남(콘서트)']);
+  assert.equal(gangnamReview?.ok, true);
+  assert.equal(gangnamReview?.requiresConfirmation, true);
+  assert.equal(evaluateRaumPnlImportReview([major34], false).allowManual, false, '강남 기본·행사 합산은 확인 전 저장하지 않는다.');
+  assert.equal(evaluateRaumPnlImportReview([major34], true).allowManual, true, '강남 기본·행사 합산의 수량 15는 명시 확인 뒤 수동 저장한다.');
   assert.equal(parseRaumQuoteWorkbook(XLSX, gangnamWb).sheets.find(sheet => sheet.sheetName === '35차 강남콘서트').branch, '강남', '기존 단일 차수 파서도 강남 행사명을 정규화한다.');
 
   const gangnamAsChoimun = parseRaumQuoteWorkbookGroups(XLSX, gangnamWb, { partnerCode: 'choimun' });
