@@ -1,6 +1,6 @@
 // 영업수입불량차감 — 원본 양식 업로드/수정/이력/견적서관리 일괄 등록
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
@@ -1532,7 +1532,9 @@ export default function SalesDefectDeductionsPage() {
           <table className="data-table defect-grid incoming-grid" onFocusCapture={handleGridFocusCapture}>
             <colgroup><col style={{ width: '3%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '8%' }} /><col style={{ width: '19%' }} /><col style={{ width: '7%' }} /><col style={{ width: '15%' }} /><col style={{ width: '6%' }} /><col style={{ width: '6%' }} /><col style={{ width: '10%' }} /><col style={{ width: '7%' }} /></colgroup>
             <thead><tr><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장 검색/선택</th><th>크레딧 가능</th><th>보완 필요</th><th>비고</th><th>확정</th></tr></thead>
-            <tbody>{displayedIncomingRows.map(({ row, sourceIndex, displayIndex, isGroupStart, groupLabel }) => <tr className={`defect-row ${isGroupStart ? 'incoming-group-start' : ''}`} data-group-label={groupLabel} key={row.deductionKey || `incoming-${sourceIndex}`}>
+            <tbody>{displayedIncomingRows.map(({ row, sourceIndex, displayIndex, isGroupStart, isCountryStart, groupLabel, countryLabel }) => <Fragment key={row.deductionKey || `incoming-${sourceIndex}`}>
+              {incomingGroupMode === 'product' && isCountryStart && <tr className="incoming-country-divider"><td colSpan="11"><strong>{countryLabel}</strong><span>국가별 품종</span></td></tr>}
+              <tr className={`defect-row ${isGroupStart ? 'incoming-group-start' : ''}`} data-group-label={groupLabel}>
               <td>{displayIndex + 1}</td>
               <td>{row.managerName || '-'}</td>
               <td>{row.customerName || '-'}</td>
@@ -1553,7 +1555,8 @@ export default function SalesDefectDeductionsPage() {
                 {row.importConfirmed ? <button type="button" className="btn btn-xs" onClick={() => cancelIncomingRow(sourceIndex)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정 취소'}</button> : <button type="button" className="btn btn-primary btn-xs" onClick={() => confirmIncomingRow(sourceIndex)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정'}</button>}
                 <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : '확인 필요'}</div>
               </td>
-            </tr>)}
+              </tr>
+            </Fragment>)}
             {!incomingRows.length && <tr><td colSpan="11" className="empty-row-cell">선택한 차수의 저장된 불량 차감이 없습니다.</td></tr>}
             </tbody>
           </table>
@@ -1865,6 +1868,9 @@ export default function SalesDefectDeductionsPage() {
         .incoming-group-toggle > span { padding: 0 5px; font-weight: 700; color: #334155; }
         .incoming-group-toggle .btn { min-width: 62px; border-color: transparent; background: transparent; }
         .incoming-group-toggle .btn.is-active { color: #fff; border-color: #1d4ed8; background: #1d4ed8; box-shadow: 0 1px 2px rgba(30, 64, 175, .25); }
+        .incoming-grid tr.incoming-country-divider td { padding: 4px 10px; border-top: 1px solid #5f86bd; border-bottom: 1px solid #b8cbe5; background: #e7effa; color: #173d72; text-align: left; }
+        .incoming-country-divider strong { margin-right: 8px; font-size: 13px; }
+        .incoming-country-divider span { color: #5a708e; font-size: 11px; font-weight: 700; }
         .incoming-grid tr.incoming-group-start td { border-top: 3px solid #93b4de; }
         .incoming-review-note { color: #64748b !important; }
         .incoming-grid-scroll { max-height: calc(100vh - 330px); }
