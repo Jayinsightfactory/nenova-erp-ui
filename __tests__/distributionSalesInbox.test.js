@@ -21,6 +21,15 @@ const api=fs.readFileSync(require.resolve('../pages/api/kakao/sales-feed.js'),'u
 assert.match(api,/withAuth/);assert.match(api,/NENOVA_SALES_READ_TOKEN/);assert.match(api,/r.chat_id!==roomId/);assert.doesNotMatch(api,/googleSheets|\/api\/kakao\/messages/);
 assert.match(api,/function validAfterKey/);assert.match(api,/const afterKey=req\.query\.afterKey\?\?''/);assert.match(api,/nextAfterKey/);assert.doesNotMatch(api,/afterId|nextAfterId/);
 const ui=fs.readFileSync(require.resolve('../components/orders/DistributionSalesInbox.js'),'utf8');assert.doesNotMatch(ui,/adjust-batch|\/api\/orders\/(?:index|parse-paste)|handleAllMixedDistribute/);
+assert.match(ui,/AI 분석·분배 준비/);
+assert.match(ui,/sourceWeekFromMessage\(row\.message,String\(year\|\|''\)\)\|\|week/);
+assert.match(ui,/sourceWeek,autoAnalyze:true/);
+const detailAction = ui.match(/onClick=\{\(\)=>onLoadText\((\{text:row\.message,messages:\[row\],sourceWeek,autoAnalyze:true\})\)\}/);
+assert.ok(detailAction, 'AI 작업은 목록 요약이 아니라 펼친 상세 원문 전체를 전달해야 한다.');
+const detailRow = { identity: 'detail-two-changes', message: '초이문\n화이트 7단 취소\n블루 2단 추가' };
+const detailPayload = vm.runInNewContext(`(${detailAction[1]})`, {row: detailRow, sourceWeek: '2026-37-01'});
+assert.equal(detailPayload.text, detailRow.message);
+assert.ok(detailPayload.text.includes('화이트 7단 취소') && detailPayload.text.includes('블루 2단 추가'));
 assert.match(ui,/fetch\('\/api\/orders\/distribution-manual-applications',\{method:'POST'/);
 const automaticApplicationRead=ui.match(/async function refreshApplicationStatus[\s\S]*?\r?\n  }\r?\n  useEffect/)[0];assert.doesNotMatch(automaticApplicationRead,/method:\s*['"]POST/);
 const automaticLiveHistoryRead=ui.match(/async function refreshLiveHistory[\s\S]*?\r?\n  }\r?\n  async function refreshApplicationStatus/)[0];
