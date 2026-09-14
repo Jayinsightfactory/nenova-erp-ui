@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { buildPivotModel, EXE_FIELDS, pivotAxisKey } from '../lib/pivotExeModel.js';
 import {
   buildPivotExePresentation,
+  buildPivotExeStructure,
   buildPivotExeRowHeaderCells,
   formatPivotExeNumber,
   getPivotExeDataColumnId,
   getPivotExeGroupKeys,
   getPivotExeDataWidth,
+  getPivotExePresentationDimensions,
 } from '../lib/pivotExePresentation.js';
 
 const layout = {
@@ -41,6 +43,15 @@ assert.equal(presentation.rowHeaderCells[subtotalIndex][1].rowSpan, 1, 'subtotal
 assert.equal(buildPivotExeRowHeaderCells(model.rowAxis, layout.row)[subtotalIndex][1].label, '장미 합계');
 assert.equal(formatPivotExeNumber(0, 2, false), '', 'zero hiding remains presentation-only');
 assert.equal(formatPivotExeNumber(1.25, 2, true), '1.25', 'formatting does not change the raw number');
+assert.equal(formatPivotExeNumber(1.25, 1.9, true), '1.3', 'fractional precision follows Intl integer coercion without growing the formatter cache');
+
+const modelBeforeStructure = JSON.stringify(model);
+const gridStructure = buildPivotExeStructure(model);
+const gridDimensions = getPivotExePresentationDimensions(gridStructure, { widths: { CounName: 101, FlowerName: 102, [dataId]: 137 }, rowHeight: 28 });
+assert.equal(JSON.stringify(model), modelBeforeStructure, 'grid structure never mutates the pivot model');
+assert.deepEqual(gridDimensions.stickyOffsets, [0, 101, 203], 'dimension offsets drive the body sticky CSS variables');
+assert.equal(gridStructure.rowHeaderCells[0][1].stickyStyle['--pivot-sticky-left'], 'var(--pivot-sticky-left-1)', 'body cells retain a stable CSS-variable reference across resize');
+assert.equal(gridStructure.bodyRows[0].dataCells[0].value, 1.25, 'raw body values are captured with the model structure, not dimensions');
 
 const multiYear = buildPivotModel([
   { CounName: 'A', FlowerName: '장미', ProdName: 'R', OrderYear: 2025, OrderWeek: '36-01', Quantity: 1 },
