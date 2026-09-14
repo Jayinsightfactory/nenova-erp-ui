@@ -62,7 +62,7 @@ assert.match(source, /sameOrigin/);
 assert.match(source, /erpAction: 'NONE'/);
 assert.match(source, /FACT_CACHE_TTL_MS = 30000/);
 assert.match(source, /FACT_CACHE_MAX = 24/);
-assert.match(source, /request\.timeout = 8000/);
+assert.match(source, /request\.timeout = 25000/);
 assert.match(source, /const MAX_MESSAGES = 200/);
 assert.match(source, /sizeLimit: '256kb'/);
 const liveSource = fs.readFileSync(require.resolve('../lib/distributionLiveHistory'), 'utf8');
@@ -185,7 +185,7 @@ compiledModule.exports({ method: 'POST', headers: { origin: 'https://board.examp
   await Promise.all([compiledModule.exports(cacheRequest(), cacheResponse()), compiledModule.exports(cacheRequest(), cacheResponse())]);
   assert.equal(routeFactCalls, 1, 'same-scope concurrent requests must share one in-flight facts load');
   const liveQuery = routeDbRequests.find(call => call.statement === 'SELECT 1');
-  assert.equal(liveQuery.timeout, 8000);
+  assert.equal(liveQuery.timeout, 25000);
   assert.deepEqual(JSON.parse(JSON.stringify(liveQuery.bindings)), [{ name: 'scopeYear', value: '2026' }]);
   const snapshotQuery = routeDbRequests.find(call => call.statement.includes('JOIN ProductStock'));
   const distributionQuery = routeDbRequests.find(call => call.statement.includes('FROM ViewShipment'));
