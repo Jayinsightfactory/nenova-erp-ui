@@ -1,6 +1,6 @@
 // 영업수입불량차감 — 원본 양식 업로드/수정/이력/견적서관리 일괄 등록
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
@@ -1401,6 +1401,7 @@ export default function SalesDefectDeductionsPage() {
         <button type="button" role="tab" aria-selected={activeTab === 'incoming'} className={`btn ${activeTab === 'incoming' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('incoming')}>수입부 확인</button>
         <button type="button" role="tab" aria-selected={activeTab === 'support'} className={`btn ${activeTab === 'support' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('support')}>영업지원 전산등록</button>
         <button type="button" role="tab" aria-selected={activeTab === 'carryover'} className={`btn ${activeTab === 'carryover' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('carryover')}>미처리·다음 차수 재시도</button>
+        <a role="tab" aria-selected="false" className="btn" href="/sales/farm-quality">농장 불량 피드백</a>
         {activeTab === 'incoming' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량을 확인합니다.</span>}
         {activeTab === 'support' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량 중 선택한 행만 견적서관리에 등록합니다.</span>}
         {activeTab === 'carryover' && <span className="incoming-tab-help">수입부 컨펌 완료 건만 선택할 수 있고, 해당 차수 판매행이 없는 건은 미처리로 남아 다음 차수에 재시도합니다.</span>}
@@ -1472,7 +1473,6 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading || activeTab === 'carryover'}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
-          <a className="btn" href="/sales/farm-quality?popup=1" target="_blank" rel="noreferrer">불량 그래프 · 농장 피드백</a>
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
         <div style={{ marginTop: 7, color: '#475569', fontSize: 12 }}>
@@ -1532,7 +1532,9 @@ export default function SalesDefectDeductionsPage() {
           <table className="data-table defect-grid incoming-grid" onFocusCapture={handleGridFocusCapture}>
             <colgroup><col style={{ width: '3%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '8%' }} /><col style={{ width: '19%' }} /><col style={{ width: '7%' }} /><col style={{ width: '15%' }} /><col style={{ width: '6%' }} /><col style={{ width: '6%' }} /><col style={{ width: '10%' }} /><col style={{ width: '7%' }} /></colgroup>
             <thead><tr><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장 검색/선택</th><th>크레딧 가능</th><th>보완 필요</th><th>비고</th><th>확정</th></tr></thead>
-            <tbody>{displayedIncomingRows.map(({ row, sourceIndex, displayIndex, isGroupStart, groupLabel }) => <tr className={`defect-row ${isGroupStart ? 'incoming-group-start' : ''}`} data-group-label={groupLabel} key={row.deductionKey || `incoming-${sourceIndex}`}>
+            <tbody>{displayedIncomingRows.map(({ row, sourceIndex, displayIndex, isGroupStart, isCountryStart, groupLabel, countryLabel }) => <Fragment key={row.deductionKey || `incoming-${sourceIndex}`}>
+              {incomingGroupMode === 'product' && isCountryStart && <tr className="incoming-country-divider"><td colSpan="11"><strong>{countryLabel}</strong><span>국가별 품종</span></td></tr>}
+              <tr className={`defect-row ${isGroupStart ? 'incoming-group-start' : ''}`} data-group-label={groupLabel}>
               <td>{displayIndex + 1}</td>
               <td>{row.managerName || '-'}</td>
               <td>{row.customerName || '-'}</td>
@@ -1553,7 +1555,8 @@ export default function SalesDefectDeductionsPage() {
                 {row.importConfirmed ? <button type="button" className="btn btn-xs" onClick={() => cancelIncomingRow(sourceIndex)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정 취소'}</button> : <button type="button" className="btn btn-primary btn-xs" onClick={() => confirmIncomingRow(sourceIndex)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정'}</button>}
                 <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : '확인 필요'}</div>
               </td>
-            </tr>)}
+              </tr>
+            </Fragment>)}
             {!incomingRows.length && <tr><td colSpan="11" className="empty-row-cell">선택한 차수의 저장된 불량 차감이 없습니다.</td></tr>}
             </tbody>
           </table>
@@ -1865,6 +1868,9 @@ export default function SalesDefectDeductionsPage() {
         .incoming-group-toggle > span { padding: 0 5px; font-weight: 700; color: #334155; }
         .incoming-group-toggle .btn { min-width: 62px; border-color: transparent; background: transparent; }
         .incoming-group-toggle .btn.is-active { color: #fff; border-color: #1d4ed8; background: #1d4ed8; box-shadow: 0 1px 2px rgba(30, 64, 175, .25); }
+        .incoming-grid tr.incoming-country-divider td { padding: 4px 10px; border-top: 1px solid #5f86bd; border-bottom: 1px solid #b8cbe5; background: #e7effa; color: #173d72; text-align: left; }
+        .incoming-country-divider strong { margin-right: 8px; font-size: 13px; }
+        .incoming-country-divider span { color: #5a708e; font-size: 11px; font-weight: 700; }
         .incoming-grid tr.incoming-group-start td { border-top: 3px solid #93b4de; }
         .incoming-review-note { color: #64748b !important; }
         .incoming-grid-scroll { max-height: calc(100vh - 330px); }
