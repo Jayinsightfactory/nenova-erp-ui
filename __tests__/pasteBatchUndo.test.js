@@ -7,12 +7,13 @@ async function main() {
   const undo = normalizePasteUndoBatch({
     year: '2026', week: '33-02', entries: [
       { originalType: 'CANCEL', custKey: 1, prodKey: 10, qty: 2, unit: '박스', orderQtyAfter: 7, outQtyAfter: 1, editGuard: { token: 'lease-1' } },
-      { originalType: 'ADD', custKey: 2, prodKey: 20, qty: 2, unit: '박스', orderQtyAfter: 20, outQtyAfter: 20 },
+      { originalType: 'ADD', custKey: 2, prodKey: 20, qty: 2, unit: '박스', orderQtyAfter: 20, outQtyAfter: 20, sourceIdentity: 'sales|room|message-1' },
     ],
   });
   assert.deepEqual(undo.entries.map(row => row.originalType), ['ADD', 'CANCEL'], '되돌리기는 원래 ADD 제거 후 원래 CANCEL 복원 순서여야 한다.');
   assert.equal(undo.entries[0].body.mode, 'PASTE_UNDO_BOTH');
   assert.equal(undo.entries[0].body.type, 'CANCEL');
+  assert.equal(undo.entries[0].body.sourceIdentity, 'sales|room|message-1', '되돌리기 감사도 같은 영업방 원문과 연결되어야 한다.');
   assert.equal(undo.entries[1].body.mode, 'PASTE_UNDO_SHIPMENT_ONLY');
   assert.equal(undo.entries[1].body.type, 'ADD');
   assert.ok(undo.entries.every(row => row.body.force === false));

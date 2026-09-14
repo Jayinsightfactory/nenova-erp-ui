@@ -41,7 +41,10 @@ assert.match(automaticLiveHistoryRead,/completeUniqueIdentitySet/);assert.match(
 assert.match(automaticLiveHistoryRead,/warnings:data\.warnings[\s\S]*?scope\}/);assert.match(ui,/hasAcceptedLiveHistoryScope=liveHistoryStatus\.scope===liveScope&&loadedPeriod===livePeriod/);assert.match(ui,/if\(!hasAcceptedLiveHistoryScope\)return null/);assert.match(ui,/hasAcceptedLiveHistoryScope&&matchingSummary/);
 assert.doesNotMatch(automaticLiveHistoryRead,/distribution-change-audits|distribution-manual-applications|parse-paste|adjust-batch|llm|openai/i);
 assert.match(ui,/Object\.prototype\.hasOwnProperty\.call\(draft,'expectedCurrentEventId'\)/);
-assert.match(ui,/수동 적용 저장이 18초 안에 끝나지 않았습니다/);assert.match(ui,/적용 상태 조회가 8초 안에 끝나지 않았습니다/);
+assert.match(ui,/수동 적용 저장이 18초 안에 끝나지 않았습니다/);assert.match(ui,/적용 상태 조회가 30초 안에 끝나지 않았습니다/);
+assert.match(ui,/\/api\/orders\/paste-history/);
+assert.match(ui,/붙여넣기 전산 적용 완료/);
+assert.match(ui,/operationStates/);assert.match(ui,/undone:operation\.undo===true/);assert.match(ui,/filter\(\(\[,operation\]\)=>!operation\.undone\)/);
 assert.match(ui,/applicationScopeEpoch/);assert.match(ui,/applicationSaveInFlight\.current\)\{applicationRefreshQueued/);assert.match(ui,/loaded:false/);
 assert.match(ui,/applicationRefreshQueued/);assert.match(ui,/저장된 AI 비교 보고서 \(참고\)/);assert.match(ui,/setApplicationStatus\(previous=>\(\{\.\.\.previous,loading:false\}\)\)/);
 assert.match(ui,/const auditEntries=Array\.isArray\(audit\?\.entries\)\?audit\.entries:\[\]/);assert.match(ui,/const auditUnresolved=Array\.isArray\(audit\?\.unresolved\)\?audit\.unresolved:\[\]/);assert.match(ui,/Array\.isArray\(entry\.candidateEvents\)\?entry\.candidateEvents:\[\]/);
