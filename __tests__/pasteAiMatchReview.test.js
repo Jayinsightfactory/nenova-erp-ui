@@ -9,12 +9,15 @@ const customers = [
   { CustKey: 686, CustName: '양재동', CustArea: '양재동' },
   { CustKey: 325, CustName: '남촌양재', CustArea: '양재동' },
   { CustKey: 671, CustName: '부산 서부꽃집' }, { CustKey: 405, CustName: '서부청과(주)' },
+  { CustKey: 500, CustName: '주식회사 트라움에스앤씨 (라움)' }, { CustKey: 501, CustName: '아이엠（미우）' },
 ];
 const mappings = { '양재동': { custKey: 325 }, '서부꽃집': { custKey: 671 }, '서부청과': { custKey: 671 } };
 assert.equal(customerReviewCandidates('양재동', customers, mappings, 325).lockedKey, 686);
 assert.equal(customerReviewCandidates('서부꽃집', customers, mappings, 405).lockedKey, 671);
 assert.equal(customerReviewCandidates('서부청과(주)', customers, mappings, 671).lockedKey, 405);
 assert.equal(customerReviewCandidates('서부', customers, mappings, 405).lockedKey, null);
+assert.equal(customerReviewCandidates('라움', customers, mappings, null).lockedKey, 500);
+assert.equal(customerReviewCandidates('미우', customers, mappings, null).lockedKey, 501);
 const products = [{ ProdKey: 1255, ProdName: 'ROSE / Pink Mondial 50cm', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
   { ProdKey: 1437, ProdName: 'ROSE / Pink Mondial 40cm', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' }];
 assert.equal(productReviewAllowed('콜롬비아 장미 Pink Mondial 50cm', products[1]), false);

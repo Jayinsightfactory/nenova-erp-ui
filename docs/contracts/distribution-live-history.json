@@ -25,7 +25,7 @@
     "currentBalance": "One exact OrderYear+OrderWeek+ProdKey ProductStock snapshot is a stored value, not historical proof or predicted availability. Missing/duplicate/non-finite snapshot is null, actual zero is valid. Current ViewShipment quantity is grouped without ShipmentDate multiplication. Never subtract requests again or mutate stock.",
     "scope": "One exact OrderYear and full OrderWeek with a maximum seven-day ChangeDtm range and one global batch of at most 200 messages; no combined-week inference. All messages in the batch compete for the same history events.",
     "orderHistory": "Only OrderHistory.ColumName=주문수량 with non-no-op finite BeforeValue/AfterValue is order evidence; BeforeValue is original order and AfterValue is OrderDetail.OutQuantity, never 미발주수량.",
-    "matching": "Exact catalog name or saved alias, exact identity, explicit unit conversion, and source-time-before-event are required. Ambiguous, approximate, date-only, deleted, complex, multi-date, competing, or truncated evidence never claims application.",
+    "matching": "Exact catalog name, a unique exact parenthetical customer label, or saved alias, exact identity, explicit unit conversion, and source-time-before-event are required. Parenthetical matching accepts ASCII/full-width parentheses but never a loose substring. Ambiguous, approximate, date-only, deleted, complex, multi-date, competing, or truncated evidence never claims application.",
     "advisory": "POST is read-only and returns erpAction NONE; every status is evidence only."
   },
   "crossYearFixture": { "required": true, "description": "A prior-year same-week event does not pair with the selected year." },
