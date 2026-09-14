@@ -119,6 +119,7 @@ export default withAuth(async function handler(req, res) {
     ...(facts.queryTruncated ? ['주문 또는 분배 이력 조회가 1,000건 제한에 도달했습니다. 강한 이력 증거 판정을 하지 않았습니다.'] : []),
     ...(balanceUnavailable ? ['현재 분배·전산 저장 잔량 자료를 불러오지 못해 이번 응답에서는 잔량 비교를 생략했습니다.'] : []),
     ...(items.some(item => item.requests.some(request => !request.sourceAt || request.timestamp_approximate)) ? ['원문 시각이 없거나 근사값인 항목은 날짜만으로 이력 연결하지 않았습니다.'] : []),
+    ...(items.some(item => item.requests.some(request => request.status === 'UNIT_HISTORY_CANDIDATE')) ? ['품목 환산계수가 없는 단위 불일치는 같은 수량·방향의 전산 이력을 확인 후보로만 표시하며 적용 완료로 판정하지 않습니다.'] : []),
     ...(items.some(item => item.requests.some(request => request.shipmentEvents.some(event => event.multiDate))) ? ['여러 출고일이 연결된 분배 이력은 원래 전후수량을 보존하고 자동 연결하지 않았습니다.'] : []),
   ];
   return res.json({ success: true, advisoryOnly: true, erpAction: 'NONE', scope, asOf, items, ...(balanceComparison ? { balanceComparison } : {}), warnings });

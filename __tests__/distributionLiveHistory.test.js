@@ -21,6 +21,28 @@ assert.equal(items[0].requests[0].orderEvents[0].before, 3);
 assert.equal(items[0].requests[0].shipmentEvents[0].after, 21);
 assert.equal(items[0].requests[0].matchState, 'MATCHING_HISTORY');
 
+const missingConversionFacts = toFacts({
+  customers: [{ CustKey: 11, CustName: '주식회사 트라움에스앤씨 (라움)' }],
+  products: [{ ProdKey: 1540, ProdName: 'Ecuador Playa Blanca (rosaprima)', OutUnit: '송이', BunchOf1Box: 0, SteamOf1Box: 0 }],
+  shipmentRows: [{ eventId: 15401, year: '2026', week: '37-01', custKey: 11, prodKey: 1540, custName: '주식회사 트라움에스앤씨 (라움)', prodName: 'Ecuador Playa Blanca (rosaprima)', unit: '송이', before: 0, after: 20, changeLocal: '2026-09-10T10:01:00.000', shipmentDate: '2026-09-11', shipmentDateCount: 1 }],
+});
+const missingConversion = pairRequests(parseMessages([{ identity: 'm-unit-candidate', message: '라움\n플라야블랑카 20단 추가', created_at: '2026-09-10T09:00:00+09:00' }], missingConversionFacts, { products: { 플라야블랑카: { prodKey: 1540 } } }, scope), missingConversionFacts, scope);
+assert.equal(missingConversion[0].status, 'UNIT_HISTORY_CANDIDATE');
+assert.equal(missingConversion[0].requests[0].matchState, 'NUMERIC_HISTORY_CANDIDATE');
+assert.equal(missingConversion[0].requests[0].customerText, '주식회사 트라움에스앤씨 (라움)');
+assert.equal(missingConversion[0].requests[0].productText, 'Ecuador Playa Blanca (rosaprima)');
+assert.equal(missingConversion[0].requests[0].inputUnit, '단');
+assert.equal(missingConversion[0].requests[0].unit, '송이');
+assert.equal(missingConversion[0].requests[0].shipmentEvents[0].after, 20);
+assert.match(missingConversion[0].requests[0].reason, /적용 확정이 아니라 확인 후보/);
+const wrongNumericFacts = toFacts({
+  customers: missingConversionFacts.customers, products: missingConversionFacts.products,
+  shipmentRows: [{ eventId: 15402, year: '2026', week: '37-01', custKey: 11, prodKey: 1540, unit: '송이', before: 0, after: 200, changeLocal: '2026-09-10T10:01:00.000', shipmentDate: '2026-09-11', shipmentDateCount: 1 }],
+});
+const wrongNumeric = pairRequests(parseMessages([{ identity: 'm-unit-near-miss', message: '라움\n플라야블랑카 20단 추가', created_at: '2026-09-10T09:00:00+09:00' }], wrongNumericFacts, { products: { 플라야블랑카: { prodKey: 1540 } } }, scope), wrongNumericFacts, scope);
+assert.equal(wrongNumeric[0].requests[0].status, 'AMBIGUOUS');
+assert.doesNotMatch(wrongNumeric[0].requests[0].reason, /확인 후보/);
+
 const priorYear = toFacts({ customers: facts.customers, products: facts.products, orderRows: [{ ...facts.orderEvents[0], year: '2025', changeAt: '2026-09-10T10:00:00+09:00' }] });
 const crossYear = pairRequests(parseMessages([{ identity: 'm2', message: '라움 화이트 2박스 추가', created_at: '2026-09-10T09:00:00+09:00' }], priorYear, {}, scope), priorYear, scope);
 assert.equal(crossYear[0].requests[0].status, 'NO_LIVE_EVIDENCE');
