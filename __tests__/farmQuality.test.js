@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {qualityScope,qualityWeek,qualityGroups,qualityAnalytics,qualityStatus,transitionQuality} from '../lib/farmQuality.js';
+import {qualityScope,qualityWeek,qualityGroups,qualityAnalytics,qualitySignals,qualityStatus,transitionQuality} from '../lib/farmQuality.js';
 const scope=qualityScope({year:2026,from:35,to:37});
 const base={OrderYear:2026,OrderWeek:'36',ProdKey:5,FarmName:'Farm A',SourceUnit:'박스',Quantity:2,ImportConfirmed:true,IsDeleted:false};
 const rows=[{...base,DeductionKey:1},{...base,DeductionKey:1},
@@ -54,6 +54,23 @@ assert.equal(product35.incomingQuantity,100);assert.equal(product35.defectRate,1
 const stem36=analytics.issueCandidates.find(c=>c.prodKey===2&&c.week===36);
 assert.equal(stem36.incomingQuantity,25,'different units must never mix');assert.equal(stem36.defectRate,20);
 assert.equal(analytics.issueCandidates.find(c=>c.prodKey===3).defectRate,null,'missing denominator must stay unknown, not zero percent');
+const signalRows=[
+ {...base,DeductionKey:201,OrderWeek:'35-01',CustKey:10,ProdKey:1,ProductName:'A품목',Quantity:1},
+ {...base,DeductionKey:202,OrderWeek:'36-01',CustKey:10,ProdKey:1,ProductName:'A품목',Quantity:2},
+ {...base,DeductionKey:203,OrderWeek:'36-02',CustKey:11,ProdKey:1,ProductName:'A품목',Quantity:3},
+ {...base,DeductionKey:204,OrderWeek:'36-01',CustKey:12,ProdKey:2,ProductName:'B품목',Quantity:4},
+ {...base,DeductionKey:205,OrderWeek:'37-01',CustKey:12,ProdKey:2,ProductName:'B품목',Quantity:5},
+ {...base,DeductionKey:205,OrderWeek:'37-01',CustKey:99,ProdKey:2,ProductName:'B품목',Quantity:999},
+ {...base,DeductionKey:206,OrderYear:2025,OrderWeek:'36-01',CustKey:13,ProdKey:3,ProductName:'전년도',Quantity:9}
+];
+const signals=qualitySignals(signalRows,scope);
+assert.deepEqual(new Set(signals.map(s=>s.kind)),new Set(['SAME_ITEM_WEEK','FARM_WEEK_CLUSTER','ITEM_PERSISTENT','FARM_RECURRING']));
+const repeated=signals.find(s=>s.kind==='SAME_ITEM_WEEK');
+assert.equal(repeated.sourceCount,2,'headline count is distinct defect source rows, not customer count');
+assert.deepEqual(repeated.breakdown.map(row=>[row.week,row.count,row.quantity]),[[36,2,5]]);
+assert(!JSON.stringify(signals).includes('customerIdentity'),'customer identity must stay inside detection and never reach the API projection');
+assert(signals.every(s=>s.sourceKeys.length===new Set(s.sourceKeys).size),'duplicate source keys must not inflate counts');
+assert(!signals.some(s=>s.productName==='전년도'),'same major week in another year must be isolated');
 const store=fs.readFileSync('lib/farmQualityStore.js','utf8');
 const page=fs.readFileSync('pages/sales/farm-quality.js','utf8');
 assert.match(store,/RequestKey=@req/);assert.match(store,/PayloadHash!==hash/);
@@ -61,8 +78,12 @@ assert.match(store,/WITH\(UPDLOCK,HOLDLOCK\)/);assert.match(store,/OrderYear=@ye
 assert.match(store,/FROM dbo\.ViewWarehouse vw/);assert.match(store,/p\.OutUnit/);
 assert.match(store,/kind!=='COMMENT'&&Number\(input.version\)!==current.Version/);
 assert.doesNotMatch(store,/(INSERT|UPDATE|DELETE)\s+(?:dbo\.)?(?:Estimate|OrderDetail|ShipmentDetail|StockHistory|WebSalesDefectDeduction)\b/i);
-assert.doesNotMatch(store,/CustName|CustKey|Customer/);
+assert.match(store,/d\.CustKey/,'CustKey is read only for server-side distinct-order detection');
+assert.match(store,/qualitySignals\(sources\.recordset,scope\)/);
+assert.doesNotMatch(store,/CustName|Customer/);
 assert.match(page,/useState\('graph'\)/,'기존 불량 분석값이 진입 즉시 보여야 한다.');
 assert.match(page,/기존 불량 분석 · 농장·품목 \{groups\.length\}개/,'분석에 반영된 농장·품목 수를 표시해야 한다.');
 assert.match(page,/특정 농장 · 차수별 불량률 추이/);assert.match(page,/특정 차수 · 품목 불량 이슈 후보/);assert.match(page,/이슈로 처리/);
+assert.match(page,/자동 감지 이슈/);assert.match(page,/불량 \{s\.sourceCount\}건/);assert.match(page,/<details className=/);
+assert.doesNotMatch(page,/다중\s*거래처/);
 console.log('Farm quality: cross-year, source, units, status and write boundaries passed');
