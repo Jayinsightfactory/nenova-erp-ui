@@ -36,6 +36,12 @@ const matched = matchingSummary({ products: [{ prodKey: 7, prodName: '화이트'
 assert.equal(matched.status, 'MATCHED'); assert.equal(matched.label, '매칭');
 assert.equal(matched.operationSummary, '라움 · 화이트 · 분배 추가');
 
+const numericCandidate = matchingSummary({ products: [] }, 'm-candidate', {
+  sourceIdentity: 'm-candidate', status: 'UNIT_HISTORY_CANDIDATE',
+  requests: [{ id: 'candidate-1', customerText: '라움', productText: '플라야블랑카', action: 'ADD', inputUnit: '단', unit: '송이', status: 'UNIT_HISTORY_CANDIDATE', matchState: 'NUMERIC_HISTORY_CANDIDATE', shipmentEvents: [{ eventId: 's1' }] }],
+});
+assert.deepEqual(numericCandidate, { status: 'CANDIDATE', label: '이력 후보', matchedCount: 1, totalCount: 1, operationSummary: '라움 · 플라야블랑카 · 분배 추가 후보 · 단→송이' });
+
 const observedCancel = matchingSummary({ products: [{ requests: [consistent('r1', 'm1', 'CONSISTENT', -1, -1)] }] }, 'm1', { sourceIdentity: 'm1', status: 'DISTRIBUTION_EVIDENCE', requests: [request('r1', 'ADD')] });
 assert.equal(observedCancel.operationSummary, '라움 · 화이트 · 분배 취소', 'summary direction comes from observed evidence, not the request action');
 
