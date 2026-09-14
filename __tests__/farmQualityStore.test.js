@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import {qualityScope,qualityGroups,transitionQuality} from '../lib/farmQuality.js';
+import {qualityScope,qualityGroups,qualityAnalytics,qualitySignals,transitionQuality} from '../lib/farmQuality.js';
 import {normalizeEvidenceKeys} from '../lib/farmQualityEvidence.js';
 const source=fs.readFileSync('lib/farmQualityStore.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
@@ -12,6 +12,13 @@ const q=async(sql,p={})=>{
  if(sql.includes('OBJECT_ID'))return {recordset:[{id:1,caseId:1,evidenceId:1}]};
  if(sql.includes('SELECT CaseKey,PayloadHash'))return {recordset:events.filter(e=>e.RequestKey===v('req'))};
  if(sql.includes('FROM dbo.WebSalesDefectDeduction'))return {recordset:[{DeductionKey:10,OrderYear:2026,OrderWeek:'36',ProdKey:5,ProductName:'Novia',FarmName:'Farm',FarmKey:2,SourceUnit:'박스',Quantity:1,ImportConfirmed:true}]};
+ if(sql.includes('FROM dbo.ViewWarehouse vw'))return {recordset:[]};
+ if(sql.includes('SELECT c.*, latest.Body'))return {recordset:[{...cases[0],FarmName:'Farm',ProdKey:5,ProductName:'Novia',Title:'손상',CreatedByName:'담당자',DueDate:null,UpdatedAt:new Date('2026-09-14T01:00:00Z')}]};
+ if(sql.includes('WITH RankedEvents'))return {recordset:[
+  {CaseKey:cases[0].CaseKey,EventKey:2,Kind:'REQUEST',Body:'농장 확인 요청',EventNo:2,EventCount:4,CreatedAt:new Date('2026-09-14T01:01:00Z')},
+  {CaseKey:cases[0].CaseKey,EventKey:3,Kind:'RESPONSE',Body:'농장 답변',EventNo:3,EventCount:4,CreatedAt:new Date('2026-09-14T01:02:00Z')},
+  {CaseKey:cases[0].CaseKey,EventKey:4,Kind:'COMMENT',Body:'추가 코멘트',EventNo:4,EventCount:4,CreatedAt:new Date('2026-09-14T01:03:00Z')}
+ ]};
  if(sql.includes('INSERT dbo.WebFarmQualityCase')){cases.push({CaseKey:v('key'),OrderYear:v('year'),Status:'NEW',Version:1});return {recordset:[]};}
  if(sql.includes('SELECT * FROM dbo.WebFarmQualityCase'))return {recordset:cases.filter(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'))};
  if(sql.includes('INSERT dbo.WebFarmQualityEvent')){const EventKey=events.length+1;events.push({EventKey,CaseKey:v('key'),RequestKey:v('req'),PayloadHash:v('hash'),Kind:v('kind'),Body:v('body'),AuthorName:v('name'),Department:v('dept')});return {recordset:[{EventKey}]};}
@@ -21,7 +28,7 @@ const q=async(sql,p={})=>{
  throw Error('Unexpected SQL '+sql);
 };
 const tx=async fn=>{const snapshot=structuredClone({cases,events,evidence});try{return await fn(q);}catch(e){cases=snapshot.cases;events=snapshot.events;evidence=snapshot.evidence;rollbacks++;throw e;}};
-const {saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','qualityScope','qualityGroups','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys',source+';return {saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,qualityScope,qualityGroups,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys);
+const {loadQuality,saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','qualityScope','qualityGroups','qualityAnalytics','qualitySignals','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys',source+';return {loadQuality,saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys);
 const create={action:'create',year:2026,sourceKey:10,title:'손상',body:'관찰',requestId:crypto.randomUUID()};
 const first=await saveQuality(create,incoming);
 assert.equal(cases.length,1);assert.equal(events.length,1);
@@ -45,5 +52,8 @@ assert.equal(evidence[0].EventKey,events.at(-1).EventKey,'evidence must bind to 
 const foreignImage=crypto.randomUUID();evidence.push({EvidenceKey:foreignImage,OrderYear:2025,CreatedBy:'u1',EventKey:null});
 await assert.rejects(saveQuality({...request,version:6,kind:'COMMENT',body:'다른 연도 사진',evidenceKeys:[foreignImage],requestId:crypto.randomUUID()},incoming));
 assert.equal(evidence.at(-1).EventKey,null,'cross-year evidence must remain unbound after rollback');
+const loaded=await loadQuality({year:2026,from:1,to:53});
+assert.equal(loaded.cases[0].EventCount,4);
+assert.deepEqual(loaded.cases[0].RecentEvents.map(event=>[event.EventNo,event.Kind,event.Body]),[[2,'REQUEST','농장 확인 요청'],[3,'RESPONSE','농장 답변'],[4,'COMMENT','추가 코멘트']]);
 assert(rollbacks>=4);
-console.log('Farm quality transaction mock: idempotent create/replay, state version, comment, author, permissions and year isolation passed');
+console.log('Farm quality transaction mock: idempotent write and year-scoped recent comment previews passed');

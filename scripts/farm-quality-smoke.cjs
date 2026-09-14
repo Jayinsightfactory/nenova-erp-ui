@@ -6,7 +6,12 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
  try{
   const page=await browser.newPage();let posts=0,uploads=0;const requests=[];const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  const cases=['NEW','WAITING','WAITING','ANSWERED','OBSERVING','CLOSED','RECURRED'].map((Status,i)=>({CaseKey:`10000000-0000-4000-8000-00000000000${i}`,OrderYear:2026,Status,FarmName:`농장 ${i+1}`,ProductName:'CARNATION / Novia 긴 품목명 확인',Title:'꽃잎 손상 반복 · 품질 확인',DueDate:i===2?'2025-01-01':'2099-01-01',Version:2,CreatedByName:'홍길동',UpdatedAt:'2026-09-14T01:00:00Z',LatestBody:'영업부 현장 상태 추가 확인했습니다.',LatestAuthor:'홍길동',LatestDepartment:'영업부'}));
+  const preview=[
+   {EventKey:2,EventNo:2,EventCount:4,Kind:'REQUEST',Body:'농장에 손상 원인과 개선 계획을 요청했습니다.'},
+   {EventKey:3,EventNo:3,EventCount:4,Kind:'RESPONSE',Body:'선별 공정을 강화하겠다는 답변을 받았습니다.'},
+   {EventKey:4,EventNo:4,EventCount:4,Kind:'COMMENT',Body:'영업부 현장 상태를 추가 확인했습니다.'}
+  ];
+  const cases=['NEW','WAITING','WAITING','ANSWERED','OBSERVING','CLOSED','RECURRED'].map((Status,i)=>({CaseKey:`10000000-0000-4000-8000-00000000000${i}`,OrderYear:2026,Status,FarmName:`농장 ${i+1}`,ProductName:'CARNATION / Novia 긴 품목명 확인',Title:'꽃잎 손상 반복 · 품질 확인',DueDate:i===2?'2025-01-01':'2099-01-01',Version:2,CreatedByName:'홍길동',UpdatedAt:'2026-09-14T01:00:00Z',EventCount:4,RecentEvents:preview}));
   const groups=[{key:'a',farmName:'농장 1',productName:'CARNATION / Novia',quantity:15,unit:'박스',sourceKey:10,prodKey:2,weeks:{35:5,36:10}}];
   const farmTrends=[{farmName:'농장 1',unit:'박스',totalDefect:15,totalIncoming:150,defectRate:10,points:[{week:35,defectQuantity:5,incomingQuantity:100,defectRate:5},{week:36,defectQuantity:10,incomingQuantity:50,defectRate:20}]}];
   const issueCandidates=[{key:'a:36',farmName:'농장 1',productName:'CARNATION / Novia',unit:'박스',prodKey:2,week:36,defectQuantity:10,incomingQuantity:50,defectRate:20,sourceKey:10,sourceKeys:[10]}];
@@ -23,7 +28,7 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    if(r.url().includes('/api/auth/me'))data.user={userId:'fixture',userName:'테스트 수입부',deptName:'수입부',authority:1};
    if(r.url().includes('/api/sales/farm-quality')){
     if(r.method()==='POST'){posts++;requests.push(JSON.parse(r.postData()));if(posts===1){status=503;data={error:'테스트 저장 실패'};}else data.caseKey=cases[0].CaseKey;}
-    else if(r.url().includes('caseKey='))data.events=[{EventKey:1,AuthorName:'홍길동',Department:'영업부',Kind:'COMMENT',Body:'추가 불량 상태 확인 요청',CreatedAt:'2026-09-14T01:00:00Z',AfterStatus:'WAITING',Evidence:[{EvidenceKey:'90000000-0000-4000-8000-000000000000',FileName:'기존증거.png'}]}];
+    else if(r.url().includes('caseKey='))data.events=[{EventKey:1,EventNo:1,AuthorName:'홍길동',Department:'영업부',Kind:'COMMENT',Body:'추가 불량 상태 확인 요청',CreatedAt:'2026-09-14T01:00:00Z',AfterStatus:'WAITING',Evidence:[{EvidenceKey:'90000000-0000-4000-8000-000000000000',FileName:'기존증거.png'}]}];
     else Object.assign(data,{cases,groups,farmTrends,issueCandidates,signals,excluded:2,canManage:true,author:{name:'테스트 수입부',department:'수입부'}});
    }
    r.respond({status,contentType:'application/json',body:JSON.stringify(data)});
@@ -46,9 +51,17 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    assert.equal(await page.$eval('.signal-breakdown>div span:nth-of-type(2)',e=>e.textContent.trim()),'3건');
    await page.evaluate(()=>[...document.querySelectorAll('main nav button')].find(e=>e.textContent==='피드백 · 개선 추적').click());
    await page.waitForSelector('.case');
+   assert.equal(await page.$eval('.comment-count',e=>e.textContent.trim()),'코멘트 4건');
+   assert.deepEqual(await page.$$eval('.case:first-child .case-event',rows=>rows.map(row=>row.textContent.trim())),[
+    '2농장 요청 / 재요청농장에 손상 원인과 개선 계획을 요청했습니다.',
+    '3농장 답변선별 공정을 강화하겠다는 답변을 받았습니다.',
+    '4코멘트영업부 현장 상태를 추가 확인했습니다.'
+   ]);
+   assert.equal(await page.$eval('.case:first-child .case-events>small',e=>e.textContent.trim()),'이전 1건 · 열어서 전체 보기');
    const dims=await page.evaluate(()=>({w:innerWidth,doc:document.documentElement.scrollWidth,side:document.querySelectorAll('[data-ui-sidebar]').length,top:document.querySelectorAll('[data-ui-topbar]').length}));
    assert(dims.doc<=width+2,JSON.stringify(dims));assert.equal(dims.side,0);
    await page.click('.case');await page.waitForSelector('.event-list article');
+   assert.equal(await page.$eval('.event-heading strong',e=>e.textContent.trim()),'1코멘트');
    assert(await page.$('.composer textarea'));
    assert(await page.$('.evidence-box'));assert(await page.$('.event-images img'));
    await page.screenshot({path:`outputs/farm-quality/${width}.png`,fullPage:true});
@@ -80,6 +93,6 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   assert(chartBounds.right<=1920&&chartBounds.scroll<=chartBounds.client+2,JSON.stringify(chartBounds));
   await page.screenshot({path:'outputs/farm-quality/graphs-1920.png',fullPage:true});
   assert.equal(errors.length,0,errors.join('\n'));
-  console.log('PASS: 1920x1080 / 760 / 390; evidence file/paste UI, authenticated history thumbnail, shell, overflow, failure preservation and idempotent retry');
+  console.log('PASS: 1920x1080 / 760 / 390; numbered highlighted comment previews, evidence file/paste UI, shell, overflow, failure preservation and idempotent retry');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
