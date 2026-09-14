@@ -4383,6 +4383,10 @@ export default function PasteOrderPage() {
             border-radius: 8px;
           }
           .paste-column-title { margin: 0 0 7px; color: #1a237e; font-size: 13px; font-weight: 900; }
+          .paste-column-analysis { container-type: inline-size; }
+          .paste-global-action-board-top input,.paste-global-action-board-top select { max-width:100%;box-sizing:border-box; }
+          .paste-global-action-board-top [title] { white-space:normal !important; overflow-wrap:anywhere; }
+          @container (max-width: 780px) { .paste-global-action-board-top { grid-template-columns:minmax(0,1fr) !important; } }
           .paste-baseline-toggle { display: flex; align-items: center; gap: 9px; margin: -4px 0 7px; }
           .paste-baseline-toggle button { padding: 4px 9px; border: 1px solid #b8c4d8; border-radius: 6px; background: #fff; color: #334155; font-size: 11.5px; font-weight: 700; cursor: pointer; }
           .paste-baseline-toggle small { color: #64748b; }
@@ -4518,6 +4522,7 @@ export default function PasteOrderPage() {
             .paste-column-helper { grid-column: 3; grid-row: 3; }
             .paste-column-analysis { grid-column: 4; grid-row: 1; }
             .paste-col-work-results { grid-column: 4; grid-row: 2 / span 2; }
+            .paste-input-grid { grid-template-columns: minmax(0,.16fr) minmax(0,.16fr) minmax(0,.23fr) minmax(0,.45fr); }
             .paste-input-grid.paste-baseline-collapsed { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
             .paste-input-grid.paste-baseline-collapsed .paste-column-order-input { grid-column: 1; grid-row: 1; }
             .paste-input-grid.paste-baseline-collapsed .paste-column-base-input { grid-column: 1; grid-row: 2; }

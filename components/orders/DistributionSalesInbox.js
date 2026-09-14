@@ -284,7 +284,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
     const sequence=++refreshSeq.current,scope=period;
     activeRefreshScope.current=scope;
     const stop=startBoundedAutoRefresh({
-      immediate:initialLoad,
+      immediate:true,
       isEligible:()=>!requestBusy.current&&isAutoRefreshEligible({open,autoRefresh,disabled,visible:document.visibilityState==='visible',online:navigator.onLine!==false,year,week,period,loadedPeriod}),
       run:async()=>{
         const owner=`auto:${sequence}`;let controller=null;requestBusy.current=true;requestOwner.current=owner;setRefreshStatus(previous=>({...previous,error:'',loading:true}));
@@ -319,7 +319,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
       <details className="inbox-tools" open={controlsOpen} onToggle={event=>setControlsOpen(event.currentTarget.open)}><summary>조회·불러오기·비교 도구 {controlsOpen?'접기':'펼치기'}</summary>
       <div className="bar inbox-controls"><label>시작일 <input type="date" value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
         <button type="button" disabled={busy||disabled||!from||!to} onClick={()=>loadRemote()}>영업방 불러오기</button>
-        <label><input type="checkbox" checked={autoRefresh} disabled={disabled} onChange={event=>setAutoRefresh(event.target.checked)}/> 15초마다 자동 확인</label>
+        <label><input type="checkbox" checked={autoRefresh} disabled={disabled} onChange={event=>setAutoRefresh(event.target.checked)}/> 5초마다 새 대화 확인</label>
         <button type="button" data-live-history-refresh disabled={disabled||liveHistoryStatus.loading||loadedPeriod!==livePeriod||!applicationWeek||!liveBatch.length} onClick={()=>refreshLiveHistory(liveScope,liveBatch)}>최신 이력 새로고침</button>
         <button type="button" data-manual-application-refresh disabled={disabled||applicationStatus.loading||!applicationWeek} onClick={()=>refreshApplicationStatus(applicationScope,{force:true})}>상태 새로고침</button>
         <button type="button" disabled={disabled} onClick={()=>{setReviewMounted(true);setReviewOpen(value=>!value);}}>검토·비교 {reviewOpen?'닫기':'열기'}</button>
