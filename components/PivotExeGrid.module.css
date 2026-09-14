@@ -4,7 +4,7 @@
 .table thead th { position: sticky; background: #dce5f0; border-top: 0; text-align: left; font-weight: 700; }
 .axisHead { z-index: 20; padding: 0 12px 0 6px; text-align: left !important; }
 .fieldHead { position: sticky; padding: 0 15px 0 5px; background: #cfdae8 !important; }
-.rowHead { position: sticky; vertical-align: top; background: #fff; padding: 3px 6px 0; text-align: left; font-weight: 400; }
+.rowHead { position: sticky; left: var(--pivot-sticky-left); z-index: var(--pivot-sticky-z-index); vertical-align: top; background: #fff; padding: 3px 6px 0; text-align: left; font-weight: 400; }
 .totalRow .rowHead, .totalRow .numberCell { background: #eef3f8; font-weight: 700; }
 .numberCell { padding: 0 6px; text-align: right; font-variant-numeric: tabular-nums; }
 .headerButton, .rowButton { display: block; width: 100%; overflow: hidden; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: inherit; text-overflow: ellipsis; white-space: nowrap; }

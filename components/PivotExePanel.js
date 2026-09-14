@@ -6,6 +6,7 @@ import { getPivotExeGroupKeys } from '../lib/pivotExePresentation';
 import { normalizePivotExeRange } from '../lib/pivotExeRange';
 import { normalizePivotExeView } from '../lib/pivotExeViewState';
 import PivotExeFavorites from './PivotExeFavorites';
+import { createPivotPreferenceWriter, createPivotResizeSession } from '../lib/pivotExeInteraction';
 
 // The field ids deliberately match FormQuantityPivot.GetData verbatim.
 const FIELDS = EXE_FIELDS;
@@ -162,6 +163,8 @@ export default function PivotExePanel() {
   const [exporting, setExporting] = useState(false);
   const request = useRef({id:0,controller:null});
   const autoQueryTimer = useRef(null);
+  const preferenceWriter = useRef(null);
+  const cancelResize = useRef(null);
   const closeFieldMenu = useCallback(() => setFieldMenu(null), []);
   const closeValueFilter = useCallback(() => setFilterField(null), []);
   const [fieldMenuRef, fieldMenuPosition] = useAnchoredPopup(Boolean(fieldMenu), fieldMenu?.anchor, closeFieldMenu);
@@ -222,8 +225,18 @@ export default function PivotExePanel() {
   }, [applyView]);
   useEffect(() => {
     if (!layoutHydrated || !preferenceKey) return;
-    try { localStorage.setItem(preferenceKey, JSON.stringify(currentView)); } catch { setPreferenceError('이 브라우저에서 마지막 화면을 저장할 수 없습니다. 즐겨찾기에 저장해 주세요.'); }
+    const writer = createPivotPreferenceWriter({
+      write: (view) => localStorage.setItem(preferenceKey, JSON.stringify(view)),
+      onError: () => setPreferenceError('이 브라우저에서 마지막 화면을 저장할 수 없습니다. 즐겨찾기에 저장해 주세요.'),
+    });
+    preferenceWriter.current = writer;
+    window.addEventListener('pagehide', writer.flush);
+    return () => { window.removeEventListener('pagehide', writer.flush); writer.dispose(); preferenceWriter.current = null; };
+  }, [layoutHydrated,preferenceKey]);
+  useEffect(() => {
+    if (layoutHydrated && preferenceKey) preferenceWriter.current?.schedule(currentView);
   }, [layoutHydrated,preferenceKey,currentView]);
+  useEffect(() => () => cancelResize.current?.(), []);
   useEffect(() => () => request.current.controller?.abort(), []);
   useEffect(() => {
     if (!/^\d{4}$/.test(range.fromYear) || !/^\d{4}$/.test(range.toYear)) return undefined;
@@ -298,9 +311,20 @@ export default function PivotExePanel() {
   const dirty = successRange && Object.keys(range).some((key) => range[key] !== successRange[key]);
   const updateRange = (key, value) => setRange((previous) => ({...previous,[key]:value}));
   const changeWidth = useCallback((id, startX, startWidth) => {
-    const move = (event) => setWidths((previous) => ({...previous,[id]:Math.max(48,Math.min(400,startWidth + event.clientX - startX))}));
-    const done = () => { window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',done); };
-    window.addEventListener('mousemove',move); window.addEventListener('mouseup',done);
+    cancelResize.current?.();
+    const guide = document.createElement('div');
+    guide.dataset.testid = 'pivot-exe-resize-preview';
+    guide.setAttribute('aria-hidden', 'true');
+    Object.assign(guide.style, {position:'fixed',top:'0',bottom:'0',left:'0',borderLeft:'2px solid #2563eb',pointerEvents:'none',zIndex:'10000',willChange:'transform'});
+    const label = document.createElement('span');
+    Object.assign(label.style, {position:'fixed',right:'16px',top:'12px',background:'#1558a6',color:'white',fontSize:'12px',padding:'5px 8px',borderRadius:'3px',pointerEvents:'none',zIndex:'10001'});
+    document.body.append(guide, label);
+    cancelResize.current = createPivotResizeSession({
+      target: window, startX, startWidth,
+      onPreview: (width, x) => { guide.style.transform = `translateX(${x}px)`; label.textContent = `너비 ${Math.round(width)}px · 놓으면 적용 · Esc 취소`; },
+      onFinish: () => { guide.remove(); label.remove(); cancelResize.current = null; },
+      onCommit: (width) => setWidths((previous) => width === startWidth || previous[id] === width ? previous : {...previous,[id]:width}),
+    });
   }, []);
   const bestFit = useCallback((id) => {
     const field = BY_ID[id];
@@ -320,16 +344,18 @@ export default function PivotExePanel() {
     try { const { buildPivotExeWorkbook } = await import('../lib/pivotExeExport'); const bytes = await buildPivotExeWorkbook(pivotModel, {sheetName:'전산 피벗',decimalPlaces:decimals,blankZero:!zeroVisible,columnWidths:widths,rowHeight}); const href = URL.createObjectURL(new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); const link = document.createElement('a'); link.href=href; link.download=`전산피벗_${successRange.fromYear}_${successRange.fromWeek}-${successRange.toYear}_${successRange.toWeek}.xlsx`; link.click(); URL.revokeObjectURL(href); } catch (cause) { setError(`엑셀 생성 실패: ${cause.message}`); } finally { setExporting(false); }
   }, [successRange,pivotModel,decimals,zeroVisible,widths,rowHeight]);
 
-  const openFieldMenu = (id, event) => {
+  const openFieldMenu = useCallback((id, event) => {
     event.stopPropagation();
     setFilterField(null);
     setFieldMenu({ id, anchor:event.currentTarget });
-  };
-  const openValueFilter = (id, event, anchor = event.currentTarget) => {
+  }, []);
+  const openValueFilter = useCallback((id, event, anchor = event.currentTarget) => {
     event.stopPropagation();
     setFieldMenu(null);
     setFilterField({ id, anchor });
-  };
+  }, []);
+  const toggleRow = useCallback((key) => setCollapsedRows((previous) => { const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next; }), []);
+  const toggleColumn = useCallback((key) => setCollapsedCols((previous) => { const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next; }), []);
   const zoneChip = (id, zone) => {
     const active = filterActive && Object.prototype.hasOwnProperty.call(selections, id);
     return <span key={`${zone}-${id}`} draggable onDragStart={(event)=>{event.dataTransfer.setData('application/x-nenova-pivot-field',id);event.dataTransfer.effectAllowed='move';setDraggedField(id);}} onDragEnd={()=>setDraggedField(null)} title="끌어서 행·열·값·필터로 이동하거나 클릭하여 설정" style={{...chipStyle,cursor:'grab'}}><button data-testid={`pivot-exe-field-${id}`} data-zone={zone} type="button" onClick={(event) => openFieldMenu(id, event)}>{BY_ID[id].label}{sorts[id] === 'asc' ? ' ▲' : sorts[id] === 'desc' ? ' ▼' : ''}</button><button data-testid={`pivot-exe-filter-${id}`} type="button" title={`${BY_ID[id].label} 값 필터${active ? ' 적용됨' : ''}`} aria-label={`${BY_ID[id].label} 값 필터`} style={{...filterChipButton,...(active ? filterChipActive : null)}} onClick={(event) => openValueFilter(id, event)}>{active ? '●' : '⌄'}</button><small>{zone === 'values' ? zones.values.find((value)=>value.id===id)?.aggregation : ''}</small></span>;
@@ -338,7 +364,8 @@ export default function PivotExePanel() {
   const setWidth = (id, value, min = 48, max = 400) => {
     const number = Number(value);
     if (!Number.isFinite(number)) return;
-    setWidths((previous) => ({ ...previous, [id]:Math.max(min, Math.min(max, number)) }));
+    const width = Math.max(min, Math.min(max, number));
+    setWidths((previous) => previous[id] === width ? previous : { ...previous, [id]:width });
   };
   const changeDecimals = (next) => {
     const value = Number(next);
@@ -369,7 +396,7 @@ export default function PivotExePanel() {
     <details style={{fontSize:11,marginBottom:6}}><summary>EXE 원본 수량 안내</summary>미발주 구분은 EXE처럼 <code>NoneOutQuantity &gt; 0</code>일 때의 <code>OutQuantity</code>를 표시합니다. 수량 의미를 웹에서 변경하지 않습니다.</details>
     {successRange && <div style={{display:'flex',gap:5,marginBottom:5}}><button data-testid="pivot-exe-expand-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(new Set());setCollapsedCols(new Set());}}>모두 펼침</button><button data-testid="pivot-exe-collapse-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(getPivotExeGroupKeys(pivotModel,'row'));setCollapsedCols(getPivotExeGroupKeys(pivotModel,'column'));}}>모두 접기</button><span style={{fontSize:11,color:'#667',paddingTop:4}}>표시 행 {pivotModel.rowAxis.length} / 필터 결과 {pivotModel.filteredRowCount}행</span></div>}
     {successRange && renderLimitError && <div style={noticeError}>{renderLimitError} 범위를 좁히거나 필터를 적용하세요. 데이터는 잘리지 않았습니다.</div>}
-    {successRange && !renderLimitError && <PivotExeGrid model={pivotModel} zones={zones} decimals={decimals} zeroVisible={zeroVisible} widths={widths} rowHeight={rowHeight} onResize={changeWidth} onFieldMenu={openFieldMenu} onFilter={openValueFilter} onBestFit={bestFit} onToggleRow={(key)=>setCollapsedRows((previous)=>{const next=new Set(previous);next.has(key)?next.delete(key):next.add(key);return next;})} onToggleColumn={(key)=>setCollapsedCols((previous)=>{const next=new Set(previous);next.has(key)?next.delete(key):next.add(key);return next;})} sorts={sorts} selections={selections} filterActive={filterActive} />}
+    {successRange && !renderLimitError && <PivotExeGrid model={pivotModel} zones={zones} decimals={decimals} zeroVisible={zeroVisible} widths={widths} rowHeight={rowHeight} onResize={changeWidth} onFieldMenu={openFieldMenu} onFilter={openValueFilter} onBestFit={bestFit} onToggleRow={toggleRow} onToggleColumn={toggleColumn} sorts={sorts} selections={selections} filterActive={filterActive} />}
     {fieldMenu && <FieldMenu field={BY_ID[fieldMenu.id]} aggregation={zones.values.find((value)=>value.id===fieldMenu.id)?.aggregation} sort={sorts[fieldMenu.id]} popupRef={fieldMenuRef} position={fieldMenuPosition} onAggregation={(id,aggregation)=>setZones((previous)=>({...previous,values:previous.values.map((value)=>value.id===id?{...value,aggregation}:value)}))} onClose={closeFieldMenu} onMove={moveField} onHide={hideField} onSort={(id,direction)=>setSorts((previous)=>{const next={...previous}; if (direction) next[id]=direction; else delete next[id]; return next;})} onBestFit={bestFit} onFilter={(id,event)=>openValueFilter(id,event,fieldMenu.anchor)} onReorder={reorder} />}
     {filterField && <FilterValueDialog field={BY_ID[filterField.id]} values={valuesByField[filterField.id] || []} selected={selections[filterField.id]} popupRef={valueFilterRef} position={valueFilterPosition} onClose={closeValueFilter} onClear={()=>{setSelections((previous)=>{const next={...previous}; delete next[filterField.id]; return next;});closeValueFilter();}} onApply={(accepted)=>{setSelections((previous)=>({...previous,[filterField.id]:accepted}));closeValueFilter();}} />}
     {fieldList && <FieldList zones={zones} hidden={hidden} onClose={()=>setFieldList(false)} onMove={moveField} onHide={hideField} />}

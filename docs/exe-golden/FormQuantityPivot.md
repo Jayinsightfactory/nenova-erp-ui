@@ -1,5 +1,11 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-14 간격 조절 성능 경계
+
+- 저장된 FormQuantityPivot_Load/GetData/btnExcel_Click 근거와 동일 원본 조회를 보존한다. UI 폭·높이 성능 개선에는 SQL/SP 변경이 없다.
+- 너비 드래그 중에는 안내선만 표시하고 놓을 때 최종 폭을 적용한다. 숫자·병합 구조와 크기 표시를 분리하며 엑셀은 기존 전체 모델/최종 크기를 사용한다.
+- 같은 세션 운영 GET 2026-37-01 2,517행은 읽기 확인 근거다. 성능 비교는 비식별 localhost fixture로 하고 ERP 원장은 보존한다.
+
 ## 2026-09-14 자동 조회·개인 조합 후속
 
 - 저장된 dnSpy 소스 FormQuantityPivot_Load 25~29행은 SetCombo 다음 GetData를 실행한다. 웹도 페이지 진입 시 자동 조회한다.
