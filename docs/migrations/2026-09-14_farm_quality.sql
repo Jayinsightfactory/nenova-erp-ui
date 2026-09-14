@@ -28,4 +28,22 @@ BEGIN
  );
  CREATE INDEX IX_WebFarmQualityEvent_Case ON dbo.WebFarmQualityEvent(CaseKey,EventKey);
 END;
+IF OBJECT_ID(N'dbo.WebFarmQualityEvidence',N'U') IS NULL
+BEGIN
+ CREATE TABLE dbo.WebFarmQualityEvidence (
+ EvidenceKey UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+ OrderYear INT NOT NULL,
+ EventKey BIGINT NULL,
+ FileName NVARCHAR(200) NOT NULL,
+ MimeType NVARCHAR(40) NOT NULL,
+ ByteSize INT NOT NULL,
+ Content VARBINARY(MAX) NOT NULL,
+ CreatedBy NVARCHAR(100) NOT NULL,
+ CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+ ExpiresAt DATETIME2 NOT NULL,
+ CONSTRAINT FK_WebFarmQualityEvidence_Event FOREIGN KEY(EventKey) REFERENCES dbo.WebFarmQualityEvent(EventKey)
+ );
+ CREATE INDEX IX_WebFarmQualityEvidence_Event ON dbo.WebFarmQualityEvidence(EventKey,EvidenceKey);
+ CREATE INDEX IX_WebFarmQualityEvidence_Draft ON dbo.WebFarmQualityEvidence(OrderYear,CreatedBy,ExpiresAt) WHERE EventKey IS NULL;
+END;
 COMMIT;

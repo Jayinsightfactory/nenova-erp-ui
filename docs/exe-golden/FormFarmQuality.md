@@ -19,6 +19,9 @@ ProdKey. Box/bunch/stem units are never converted or mixed. A missing denominato
 is displayed as unknown rather than as a zero-percent defect rate.
 It does not call FormSalesDefectView financial calculations or write Estimate.
 Writes are exclusively new WebFarmQualityCase and WebFarmQualityEvent tables.
+Evidence image drafts and their immutable event links are stored only in
+`WebFarmQualityEvidence`; the authenticated web endpoint checks file signatures,
+uploader identity and `OrderYear`. No image bytes or references are written to EXE tables.
 OrderDetail, ShipmentDetail (Amount/Vat/isFix included), ShipmentDate,
 StockHistory, Estimate, WebProfitReport and the original deduction rows are preserved.
 Customer identifiers/names and source notes are not included in the API projection.
@@ -43,6 +46,7 @@ original-unit quantity only. This GET projection creates no case or event. A
 | load automatic signals | SELECT only | SELECT only | ViewWarehouse SELECT only; all ledgers preserved |
 | expand signal details | browser state only | preserved | preserved |
 | explicitly create/open feedback | source SELECT only | existing guarded Case/Event write | preserved |
+| attach evidence image | preserved | WebFarmQualityEvidence draft then same-transaction EventKey link | preserved |
 
 ## Evidence limitations
 
