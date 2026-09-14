@@ -1466,6 +1466,7 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading || activeTab === 'carryover'}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
+          <a className="btn" href="/sales/farm-quality?popup=1" target="_blank" rel="noreferrer">불량 그래프 · 농장 피드백</a>
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
         <div style={{ marginTop: 7, color: '#475569', fontSize: 12 }}>
