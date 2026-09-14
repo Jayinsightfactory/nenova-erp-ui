@@ -6,6 +6,7 @@ const operationHistory = fs.readFileSync('components/orders/PasteOperationHistor
 
 assert.match(page, /① 영업방 원문 · 최신 전산 이력/);
 assert.match(page, /<DistributionSalesInbox key=\{`\$\{selectedYearFromWeek\(week\)\}:\$\{week\}`\}/);
+assert.match(page, /evidenceMessages=\{evidenceMessages\} evidenceOrders=\{orders\}/);
 assert.match(page, /const \[baselineCollapsed, setBaselineCollapsed\] = useState\(false\)/, '영업방 원문·전산이력 목록은 기본 펼침이어야 한다.');
 assert.match(page, /영업방 원문 · 최신 전산 이력 펼치기/);
 assert.match(page, /paste-col-baseline\$\{baselineCollapsed \? ' is-collapsed' : ''\}/);
