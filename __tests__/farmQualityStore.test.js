@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import {qualityScope,qualityGroups,qualityAnalytics,qualitySignals,transitionQuality} from '../lib/farmQuality.js';
+import {canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,transitionQuality} from '../lib/farmQuality.js';
 import {normalizeEvidenceKeys} from '../lib/farmQualityEvidence.js';
 const source=fs.readFileSync('lib/farmQualityStore.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
@@ -21,14 +21,19 @@ const q=async(sql,p={})=>{
  ]};
  if(sql.includes('INSERT dbo.WebFarmQualityCase')){cases.push({CaseKey:v('key'),OrderYear:v('year'),Status:'NEW',Version:1});return {recordset:[]};}
  if(sql.includes('SELECT * FROM dbo.WebFarmQualityCase'))return {recordset:cases.filter(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'))};
+ if(sql.includes('SELECT CaseKey,Version,Title FROM dbo.WebFarmQualityCase'))return {recordset:cases.filter(c=>String(c.CaseKey).toLowerCase()===String(v('key')).toLowerCase()&&c.OrderYear===v('year'))};
+ if(sql.includes('SELECT EventKey FROM dbo.WebFarmQualityEvent'))return {recordset:events.filter(e=>String(e.CaseKey).toLowerCase()===String(v('key')).toLowerCase()).map(e=>({EventKey:e.EventKey}))};
  if(sql.includes('INSERT dbo.WebFarmQualityEvent')){const EventKey=events.length+1;events.push({EventKey,CaseKey:v('key'),RequestKey:v('req'),PayloadHash:v('hash'),Kind:v('kind'),Body:v('body'),AuthorName:v('name'),Department:v('dept')});return {recordset:[{EventKey}]};}
  if(sql.includes('SELECT EvidenceKey FROM dbo.WebFarmQualityEvidence'))return {recordset:evidence.filter(e=>e.EvidenceKey===v('evidence')&&e.OrderYear===v('year')&&e.CreatedBy===v('author')&&e.EventKey==null)};
  if(sql.includes('UPDATE dbo.WebFarmQualityEvidence SET EventKey')){const e=evidence.find(e=>e.EvidenceKey===v('evidence')&&e.EventKey==null);if(e)e.EventKey=v('event');return {recordset:[]};}
+ if(sql.includes('DELETE FROM dbo.WebFarmQualityEvidence')){evidence=evidence.filter(e=>e.EventKey!==v('event'));return {recordset:[]};}
+ if(sql.includes('DELETE FROM dbo.WebFarmQualityEvent')){events=events.filter(e=>String(e.CaseKey).toLowerCase()!==String(v('key')).toLowerCase());return {recordset:[]};}
+ if(sql.includes('DELETE FROM dbo.WebFarmQualityCase')){const before=cases.length;cases=cases.filter(c=>!(String(c.CaseKey).toLowerCase()===String(v('key')).toLowerCase()&&c.OrderYear===v('year')&&c.Version===v('version')));return {recordset:[],rowsAffected:[before-cases.length]};}
  if(sql.includes('UPDATE dbo.WebFarmQualityCase')){const c=cases.find(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'));c.Status=v('status');c.Version++;return {recordset:[]};}
  throw Error('Unexpected SQL '+sql);
 };
 const tx=async fn=>{const snapshot=structuredClone({cases,events,evidence});try{return await fn(q);}catch(e){cases=snapshot.cases;events=snapshot.events;evidence=snapshot.evidence;rollbacks++;throw e;}};
-const {loadQuality,saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','qualityScope','qualityGroups','qualityAnalytics','qualitySignals','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys',source+';return {loadQuality,saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys);
+const {deleteQualityCase,loadQuality,saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','canDeleteFarmQuality','qualityScope','qualityGroups','qualityAnalytics','qualitySignals','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys',source+';return {deleteQualityCase,loadQuality,saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys);
 const create={action:'create',year:2026,sourceKey:10,title:'손상',body:'관찰',requestId:crypto.randomUUID()};
 const first=await saveQuality(create,incoming);
 assert.equal(cases.length,1);assert.equal(events.length,1);
@@ -55,5 +60,10 @@ assert.equal(evidence.at(-1).EventKey,null,'cross-year evidence must remain unbo
 const loaded=await loadQuality({year:2026,from:1,to:53});
 assert.equal(loaded.cases[0].EventCount,4);
 assert.deepEqual(loaded.cases[0].RecentEvents.map(event=>[event.EventNo,event.Kind,event.Body]),[[2,'REQUEST','농장 확인 요청'],[3,'RESPONSE','농장 답변'],[4,'COMMENT','추가 코멘트']]);
+await assert.rejects(deleteQualityCase({year:2026,caseKey:first.caseKey,version:cases[0].Version},{userId:'admin'}),error=>error.code==='FARM_QUALITY_DELETE_ADMIN_ONLY');
+await assert.rejects(deleteQualityCase({year:2025,caseKey:first.caseKey,version:cases[0].Version},{userId:'nenovaSS3'}));
+await assert.rejects(deleteQualityCase({year:2026,caseKey:first.caseKey,version:cases[0].Version-1},{userId:'nenovaSS3'}),error=>error.code==='QUALITY_STALE');
+const deleted=await deleteQualityCase({year:2026,caseKey:first.caseKey,version:cases[0].Version},{userId:'nenovaSS3',userName:'관리자'});
+assert.equal(deleted.deleted,true);assert.equal(cases.length,0);assert.equal(events.length,0);assert.equal(evidence.length,1,'연결된 이미지만 삭제하고 다른 연도 임시 이미지는 보존한다.');
 assert(rollbacks>=4);
-console.log('Farm quality transaction mock: idempotent write and year-scoped recent comment previews passed');
+console.log('Farm quality transaction mock: idempotent write, year-scoped previews and guarded case deletion passed');
