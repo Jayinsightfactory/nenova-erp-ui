@@ -46,6 +46,7 @@ export default function MyCustomerOrders() {
   const [favorites, setFavorites] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [templateBusy, setTemplateBusy] = useState(false);
+  const [previousOrderWeek, setPreviousOrderWeek] = useState('');
   const [orderMode, setOrderMode] = useState('ADD');
   const [loadedScope, setLoadedScope] = useState('');
   const [needsReload, setNeedsReload] = useState(false);
@@ -89,6 +90,8 @@ export default function MyCustomerOrders() {
     finally { if (sequence === loadSequenceRef.current) { setBusy(false); scrollAfterLoadRef.current = false; } }
   };
   useEffect(() => { load(); }, [custKey, year, week]);
+  // 차수 또는 업체를 새로 고르면 이전 탐색은 해당 선택 차수부터 다시 시작한다.
+  useEffect(() => { setPreviousOrderWeek(''); }, [custKey, year, week]);
 
   const changed = useMemo(() => products.filter(p => Number(qty[p.ProdKey] || 0) > 0), [products, qty]);
   const entryRows = useMemo(() => orderMode === 'REPLACE'
@@ -160,12 +163,14 @@ export default function MyCustomerOrders() {
   const loadPreviousOrderDraft = async () => {
     if (!custKey || !week || submitting || busy || loadedScope !== scopeKey) return;
     const requestedScope = scopeKey;
+    const beforeWeek = previousOrderWeek || week;
     if (Object.keys(qty).some(key => String(qty[key]) !== '') && !window.confirm('입력 중인 초안을 직전 차수 주문으로 바꿀까요?')) return;
-    setTemplateBusy(true); setMessage('바로 이전 차수 주문을 불러오는 중입니다.');
+    setTemplateBusy(true); setMessage(`${previousOrderWeek ? '그 이전' : '바로 이전'} 차수 주문을 불러오는 중입니다.`);
     try {
-      const data = await apiGet('/api/orders/my-customers', { view: 'previous-order', custKey, year, week });
+      const data = await apiGet('/api/orders/my-customers', { view: 'previous-order', custKey, year, week, beforeWeek });
       if (scopeRef.current !== requestedScope) return;
-      if (!data.order) return setMessage('같은 연도에서 이 업체의 바로 이전 입력 차수 주문이 없습니다.');
+      if (!data.order) return setMessage(`같은 연도에서 이 업체의 ${previousOrderWeek ? '더 이전' : '바로 이전'} 입력 차수 주문이 없습니다.`);
+      setPreviousOrderWeek(data.order.week);
       applyTemplate({ ...data.order, name: `${data.order.year}년 ${data.order.week} 바로 이전 주문` });
     } catch (e) { setMessage(`바로 이전 차수 주문 불러오기 실패: ${e.message}`); }
     finally { setTemplateBusy(false); }
@@ -269,7 +274,7 @@ export default function MyCustomerOrders() {
   return <>
     <Head><title>내 업체 주문등록</title></Head>
     <main className="my-order-page">
-      <div className="title-row"><div><h1>내 업체 주문등록</h1><p>차수와 업체를 고른 뒤, 품목을 세 열로 빠르게 입력합니다.</p><nav className="entry-tabs" aria-label="주문 입력 방식"><span aria-current="page">수량 직접 입력</span><Link href="/orders/sales-paste">붙여서 주문등록</Link></nav></div><div className="page-actions"><button onClick={loadPreviousOrderDraft} disabled={busy||templateBusy||submitting||loadedScope!==scopeKey}>{templateBusy?'불러오는 중':'바로 이전 차수 주문 불러오기'}</button><button onClick={loadTemplates} disabled={busy||templateBusy||submitting}>과거·고정 주문</button><button onClick={()=>load({confirmDraft:true})} disabled={busy||submitting}>최신 다시불러오기</button><button type="button" onClick={()=>setShowExecutionLog(true)}>실행 로그</button></div></div>
+      <div className="title-row"><div><h1>내 업체 주문등록</h1><p>차수와 업체를 고른 뒤, 품목을 세 열로 빠르게 입력합니다.</p><nav className="entry-tabs" aria-label="주문 입력 방식"><span aria-current="page">수량 직접 입력</span><Link href="/orders/sales-paste">붙여서 주문등록</Link></nav></div><div className="page-actions"><button onClick={loadPreviousOrderDraft} disabled={busy||templateBusy||submitting||loadedScope!==scopeKey}>{templateBusy?'불러오는 중':previousOrderWeek?'더 이전 차수 주문 불러오기':'바로 이전 차수 주문 불러오기'}</button><button onClick={loadTemplates} disabled={busy||templateBusy||submitting}>과거·고정 주문</button><button onClick={()=>load({confirmDraft:true})} disabled={busy||submitting}>최신 다시불러오기</button><button type="button" onClick={()=>setShowExecutionLog(true)}>실행 로그</button></div></div>
       {selectionCollapsed&&selectedCustomer&&<section className="selection-summary"><div><b>{year}년 {week}</b><span>{selectedCustomer.CustName}{selectedCustomer.OrderCode?` · ${selectedCustomer.OrderCode}`:''}</span></div><button type="button" onClick={()=>setSelectionCollapsed(false)}>차수·업체 변경</button></section>}
       {!selectionCollapsed&&<section className="filters">
         <div className="pick-group"><b>등록 차수</b><div className="choice-buttons">{weekChoices.map(w=><button disabled={submitting} key={`${w.year}-${w.week}`} className={year===w.year&&week===w.week?'active':''} aria-pressed={year===w.year&&week===w.week} onClick={()=>{if(Object.keys(qty).some(k=>String(qty[k])!== '')&&!window.confirm('입력 중인 초안을 지우고 차수를 변경할까요?'))return;setSelectionCollapsed(false);setYear(w.year);setWeek(w.week)}}>{w.year!==String(currentYear)&&<small>{w.year}년 </small>}{w.label}</button>)}</div><small>현재 차수 -2부터 표시합니다. 기본 선택은 +2차이며, 각 차수의 1·2 세부차수입니다.</small></div>

@@ -29,12 +29,20 @@ export default withAuth(async function handler(req, res) {
     if (!active.recordset[0]) return res.status(404).json({ success: false, error: '사용 가능한 업체가 아닙니다.' });
     if (req.query.view === 'previous-order') {
       const { orderYear, orderWeek } = requireOrderYear(req.query.week || '', req.query.year || '');
+      // 반복 불러오기는 직전에 불러온 차수를 다음 기준점으로 삼는다. 기준점도
+      // 같은 연도로 엄격 검증해 전년도 같은 차수가 섞이지 않게 한다.
+      const beforeWeek = req.query.beforeWeek
+        ? requireOrderYear(req.query.beforeWeek, orderYear).orderWeek
+        : orderWeek;
+      if (beforeWeek > orderWeek) {
+        return res.status(400).json({ success: false, error: '이전 주문 기준 차수는 현재 선택 차수보다 뒤일 수 없습니다.' });
+      }
       const previous = await query(`SELECT TOP 1 om.OrderMasterKey, om.OrderYear, om.OrderWeek, om.OrderDtm
         FROM OrderMaster om
-        WHERE om.CustKey=@ck AND om.OrderYear=@year AND om.OrderWeek < @week AND ISNULL(om.isDeleted,0)=0
+        WHERE om.CustKey=@ck AND om.OrderYear=@year AND om.OrderWeek < @beforeWeek AND ISNULL(om.isDeleted,0)=0
           AND EXISTS (SELECT 1 FROM OrderDetail od WHERE od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0 AND ISNULL(od.OutQuantity,0)>0)
         ORDER BY om.OrderWeek DESC, om.OrderMasterKey DESC`, {
-        ck: { type: sql.Int, value: custKey }, year: { type: sql.NVarChar, value: orderYear }, week: { type: sql.NVarChar, value: orderWeek },
+        ck: { type: sql.Int, value: custKey }, year: { type: sql.NVarChar, value: orderYear }, beforeWeek: { type: sql.NVarChar, value: beforeWeek },
       });
       const master = previous.recordset[0];
       if (!master) return res.status(200).json({ success: true, order: null });
@@ -64,7 +72,7 @@ export default withAuth(async function handler(req, res) {
         JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey AND ISNULL(od.isDeleted,0)=0
         JOIN Product p ON p.ProdKey=od.ProdKey AND ISNULL(p.isDeleted,0)=0
         WHERE om.CustKey=@ck AND om.OrderYear=@year AND om.OrderWeek < @week AND ISNULL(om.isDeleted,0)=0
-        ORDER BY om.OrderDtm DESC, om.OrderMasterKey DESC, od.OrderDetailKey`, {
+        ORDER BY om.OrderWeek DESC, om.OrderMasterKey DESC, od.OrderDetailKey`, {
         ck: { type: sql.Int, value: custKey }, year: { type: sql.NVarChar, value: orderYear }, week: { type: sql.NVarChar, value: orderWeek },
       });
       const orders = [];
