@@ -9,6 +9,7 @@ import StockNotePicker from '../../components/orders/StockNotePicker';
 import DistributionBaselinePanel from '../../components/orders/DistributionBaselinePanel';
 import DistributionSalesInbox from '../../components/orders/DistributionSalesInbox';
 import PasteOperationHistory from '../../components/orders/PasteOperationHistory';
+import PasteErpHistoryEvidence from '../../components/orders/PasteErpHistoryEvidence';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
@@ -1109,6 +1110,7 @@ export default function PasteOrderPage() {
   const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
   const [orderHistoryError, setOrderHistoryError] = useState('');
   const [baselineCollapsed, setBaselineCollapsed] = useState(false);
+  const [evidenceMessages, setEvidenceMessages] = useState([]);
   const [pastePresenceByCust, setPastePresenceByCust] = useState({});
   const [pastePresenceRefreshRevision, setPastePresenceRefreshRevision] = useState(0);
   const pasteExplicitRefreshCustKeysRef = useRef(new Set());
@@ -3719,7 +3721,7 @@ export default function PasteOrderPage() {
           <div style={{ position: 'sticky', top: 0, zIndex: 2, padding: compact ? '7px 9px' : '9px 12px', background: group.bg, color: group.color, fontSize: compact ? 12 : 14, fontWeight: 900, borderBottom: `1px solid ${group.color}44` }}>
             {group.title}
           </div>
-          <div style={{ maxHeight: compact ? 'min(330px, calc(100vh - 430px))' : '55vh', overflow: 'auto' }}>
+          <div style={{ maxHeight: compact ? 'none' : '55vh', overflow: 'auto' }}>
             {group.entries.length === 0 ? (
               <div style={{ padding: compact ? 16 : 24, textAlign: 'center', color: '#9e9e9e', fontSize: 12 }}>해당 품목 없음</div>
             ) : group.entries.map(({ order, item: it, itemIdx }) => {
@@ -3968,9 +3970,10 @@ export default function PasteOrderPage() {
             <div className="paste-column-title">① 영업방 원문 · 최신 전산 이력</div>
             <DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
               hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} />
-            <DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} onLoadText={({text,sourceWeek,autoAnalyze}) => {
+            <DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} onLoadText={({text,messages,sourceWeek,autoAnalyze}) => {
               if (pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
               const nextWeek = sourceWeek || week;
+              setEvidenceMessages(messages || []);
               if (sourceWeek && sourceWeek !== week) setWeek(sourceWeek);
               setPasteText(text); setOrders([]); setParseError(''); setQueueIdx(0);
               setBulkResult(null); setDetectedWeek(''); setStockDraft(null); setBulkCompletionNotice(null); setBulkProgress('');
@@ -4355,6 +4358,7 @@ export default function PasteOrderPage() {
             )}
             <StockImpactSummary draft={stockDraft} selectedWeek={week} processed={Boolean(bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone)} />
             {bulkResult?.orderId === 'ALL' && <a href="#paste-connected-result-details" style={{ margin: '2px 0 6px', fontSize: 11, color: '#1565c0', fontWeight: 800 }}>전체 저장 내역 아래에서 계속 보기 ↓</a>}
+            <PasteErpHistoryEvidence week={week} text={pasteText} messages={evidenceMessages} disabled={parsing || bulkRunning} revision={`${bulkResult?.okCount || 0}:${bulkResult?.undone || false}`} />
             <section className="paste-work-history" aria-label="최근 붙여넣기 작업 이력">
               <strong>최근 붙여넣기 작업 이력</strong>
               {week && selectedYearFromWeek(week) ? (
@@ -4523,6 +4527,9 @@ export default function PasteOrderPage() {
             .paste-column-analysis { grid-column: 4; grid-row: 1; }
             .paste-col-work-results { grid-column: 4; grid-row: 2 / span 2; }
             .paste-input-grid { grid-template-columns: minmax(0,.16fr) minmax(0,.16fr) minmax(0,.23fr) minmax(0,.45fr); }
+            .paste-input-grid { grid-template-rows: minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr); }
+            .paste-input-grid .paste-column-analysis { grid-row: 1 / span 2; }
+            .paste-input-grid .paste-col-work-results { grid-row: 3; }
             .paste-input-grid.paste-baseline-collapsed { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
             .paste-input-grid.paste-baseline-collapsed .paste-column-order-input { grid-column: 1; grid-row: 1; }
             .paste-input-grid.paste-baseline-collapsed .paste-column-base-input { grid-column: 1; grid-row: 2; }
