@@ -1,5 +1,18 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-14 전산 피벗 모드 실제 근거
+
+- 재확인 CLI: `C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe --no-color -t FormQuantityPivot "C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe"`.
+- `FormQuantityPivot.GetData`의 원본 필드 `ProdName`은 Product.ProdName 그대로다. 아래 과거 검색 표시 원칙의 접두어 제거는 웹 확장 화면에 한정하며 새 전산 피벗에는 적용하지 않는다.
+- `StockMaster` 전체에서 LAG(StockKey) OVER(ORDER BY OrderYearWeek)를 구한 뒤 선택 시작~종료 완전키 범위를 읽는다. 전재고는 PrevStockKey, 현재고는 StockKey의 ProductStock.Stock != 0이다.
+- 주문은 ViewOrder.OutQuantity > 0, 미발주수량은 ViewOrder.NoneOutQuantity > 0인 행의 OutQuantity(원본 특이사항), 출고는 ViewShipment+ShipmentDate+PeriodDay+CodeInfo의 양수 ShipmentQuantity, 입고는 ViewWarehouse.OutQuantity다.
+- `FormQuantityPivot.btnExcel_Click`은 ExportType.WYSIWYG의 XLSX를 저장한다. 조회 결과와 원장은 변경하지 않는다.
+- 전산 표에는 CounName/FlowerName/ProdName 기본 행, OrderYear/OrderWeek/ListType/CustName 기본 열, Quantity 값과 나머지 필터가 있다. 실제 화면 사용자가 CustName을 필터로 옮긴 상태도 확인했다.
+- 네이티브 실행 화면에서 국가/꽃/구분 필터 조합과 2025~2026 교차연도 열을 읽기 확인했다. 웹 운영 2026-37-01 조회 표도 정상 렌더를 확인했다. 원천 SQL 전체 행 DB 대조는 아직 미실행이며 화면 조회만으로 숫자 전부 일치 판정하지 않는다.
+- 표 필드 메뉴의 Reload Data/Best Fit/Order(처음·왼쪽·오른쪽·끝)/Show Field List/Show Filter Editor를 확인했다. 웹 정식 접근은 최신 사용자 지시에 따라 모두 좌클릭이다.
+- 새 API /api/stats/pivot-exe는 기존 sqlQuantityPivotGetData만 호출하며 별도 원장 쓰기·재계산·필터 SQL 조립을 하지 않는다. 시작/종료 연도를 각각 검증한다.
+- 모든 조작에서 OrderMaster/OrderDetail, ShipmentMaster/Detail/Date/Farm, WarehouseMaster/Detail, ProductStock/StockHistory, Estimate/WebProfitReport 보존.
+
 source: `C:\Users\USER\nenova-decompiled\Nenova\FormQuantityPivot.cs`
 verification: `docs/exe-golden/README.md`의 FormQuantityPivot 등록 및 기존 피벗 계약·읽기 전용 조회 구조
 
