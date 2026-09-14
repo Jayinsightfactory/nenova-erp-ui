@@ -1,0 +1,13 @@
+const assert = require('node:assert/strict');
+const {visibleChanges} = require('../lib/distributionVisibleChanges');
+const rows = visibleChanges('37-2 덴파레 변경사항\n초이문\n화이트 7단 취소\n라움\n블루 2단 추가', '2026-37-01');
+assert.equal(rows.length, 2);
+assert.equal(rows[0].week, '37-02');
+assert.equal(rows[0].customer, '초이문');
+assert.match(rows[0].change, /화이트 7단 취소/);
+assert.equal(rows[1].customer, '라움');
+assert.match(rows[1].change, /블루 2단 추가/);
+assert.equal(visibleChanges('라움\n취소\n화이트 7단\n블루 2단', '2025-37-01')[1].change, '블루 2단 취소');
+assert.match(visibleChanges('확인 필요한 원문', '2025-37-01')[0].week, /2025/);
+assert.equal(visibleChanges('확인 필요한 원문', '')[0].change, '확인 필요한 원문');
+console.log('visible change grouping passed');

@@ -1108,7 +1108,7 @@ export default function PasteOrderPage() {
   const [orderHistoryRows, setOrderHistoryRows] = useState([]);
   const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
   const [orderHistoryError, setOrderHistoryError] = useState('');
-  const [baselineCollapsed, setBaselineCollapsed] = useState(true);
+  const [baselineCollapsed, setBaselineCollapsed] = useState(false);
   const [pastePresenceByCust, setPastePresenceByCust] = useState({});
   const [pastePresenceRefreshRevision, setPastePresenceRefreshRevision] = useState(0);
   const pasteExplicitRefreshCustKeysRef = useRef(new Set());
@@ -4509,7 +4509,7 @@ export default function PasteOrderPage() {
             background: #fff;
           }
           @media (min-width: 1600px) {
-            .paste-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 310px); max-height: calc(100vh - 310px); min-height: 0; align-items: stretch; }
+            .paste-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 170px); max-height: calc(100vh - 170px); min-height: 0; align-items: stretch; }
             .paste-input-grid > .paste-col > * { flex-shrink: 0; }
             .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: auto; }
             .paste-col-baseline { grid-column: 1 / span 2; grid-row: 1 / span 3; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }

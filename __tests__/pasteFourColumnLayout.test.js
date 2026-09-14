@@ -6,7 +6,7 @@ const operationHistory = fs.readFileSync('components/orders/PasteOperationHistor
 
 assert.match(page, /① 영업방 원문 · 최신 전산 이력/);
 assert.match(page, /<DistributionSalesInbox key=\{`\$\{selectedYearFromWeek\(week\)\}:\$\{week\}`\}/);
-assert.match(page, /const \[baselineCollapsed, setBaselineCollapsed\] = useState\(true\)/, '영업방 원문·전산이력 영역은 기본 접힘이어야 한다.');
+assert.match(page, /const \[baselineCollapsed, setBaselineCollapsed\] = useState\(false\)/, '영업방 원문·전산이력 목록은 기본 펼침이어야 한다.');
 assert.match(page, /영업방 원문 · 최신 전산 이력 펼치기/);
 assert.match(page, /paste-col-baseline\$\{baselineCollapsed \? ' is-collapsed' : ''\}/);
 assert.match(page, /\.paste-col-baseline\.is-collapsed \{ display: none; \}/);
@@ -24,7 +24,7 @@ assert.match(page, /\.paste-column-base-input \{ grid-column: 3; grid-row: 2;/);
 assert.match(page, /\.paste-column-analysis \{ grid-column: 4; grid-row: 1;/);
 assert.match(page, /\.paste-col-work-results \{ grid-column: 4; grid-row: 2 \/ span 2;/);
 assert.match(page, /max-height: calc\(100vh - 230px\); overflow: auto/);
-assert.match(page, /height: calc\(100vh - 310px\); max-height: calc\(100vh - 310px\); min-height: 0;/);
+assert.match(page, /height: calc\(100vh - 170px\); max-height: calc\(100vh - 170px\); min-height: 0;/);
 assert.match(page, /\.paste-input-grid > \.paste-col > \* \{ flex-shrink: 0; \}/);
 assert.match(page, /\.paste-work-history \{ margin-top: 8px; min-width: 0; min-height: 120px; max-height: 260px; overflow: auto;/);
 assert.match(page, /paste-connected-save[\s\S]*작업 결과 · 진행 상태/);
