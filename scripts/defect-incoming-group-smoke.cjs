@@ -31,6 +31,12 @@ const puppeteer = require(process.env.PUPPETEER_CORE_PATH || 'puppeteer-core');
 
     const base = process.env.SMOKE_BASE_URL || 'http://localhost:3017';
     await page.goto(`${base}/sales/defect-deductions?popup=1`, { waitUntil: 'networkidle0' });
+    const feedbackTab = await page.$eval('.defect-tabs a[href="/sales/farm-quality"]', (link) => ({
+      label: link.textContent.trim(),
+      previousLabel: link.previousElementSibling?.textContent.trim(),
+      target: link.getAttribute('target'),
+    }));
+    assert.deepEqual(feedbackTab, { label: '농장 불량 피드백', previousLabel: '미처리·다음 차수 재시도', target: null });
     await page.evaluate(() => [...document.querySelectorAll('[role=tab]')].find((button) => button.textContent === '수입부 확인').click());
     await page.waitForFunction(() => document.querySelectorAll('.incoming-grid tbody tr.defect-row').length === 4);
     const order = () => page.$$eval('.incoming-grid tbody tr.defect-row', (items) => items.map((row) => ({

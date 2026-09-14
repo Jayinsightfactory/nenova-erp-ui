@@ -1401,6 +1401,7 @@ export default function SalesDefectDeductionsPage() {
         <button type="button" role="tab" aria-selected={activeTab === 'incoming'} className={`btn ${activeTab === 'incoming' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('incoming')}>수입부 확인</button>
         <button type="button" role="tab" aria-selected={activeTab === 'support'} className={`btn ${activeTab === 'support' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('support')}>영업지원 전산등록</button>
         <button type="button" role="tab" aria-selected={activeTab === 'carryover'} className={`btn ${activeTab === 'carryover' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('carryover')}>미처리·다음 차수 재시도</button>
+        <a role="tab" aria-selected="false" className="btn" href="/sales/farm-quality">농장 불량 피드백</a>
         {activeTab === 'incoming' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량을 확인합니다.</span>}
         {activeTab === 'support' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량 중 선택한 행만 견적서관리에 등록합니다.</span>}
         {activeTab === 'carryover' && <span className="incoming-tab-help">수입부 컨펌 완료 건만 선택할 수 있고, 해당 차수 판매행이 없는 건은 미처리로 남아 다음 차수에 재시도합니다.</span>}
@@ -1472,7 +1473,6 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading || activeTab === 'carryover'}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
-          <a className="btn" href="/sales/farm-quality?popup=1" target="_blank" rel="noreferrer">불량 그래프 · 농장 피드백</a>
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
         <div style={{ marginTop: 7, color: '#475569', fontSize: 12 }}>

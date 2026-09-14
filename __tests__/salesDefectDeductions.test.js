@@ -121,6 +121,10 @@ assert.deepEqual(sortIncomingRows([...incomingFixture, { deductionKey: 99, custo
 assert.ok(deductionContract.actions.some((item) => item.name === 'INCOMING_GROUP_VIEW'), '수입부 거래처/품종 묶음 표시 계약이 있어야 한다.');
 assert.match(pageSource, /incomingGroupMode === 'customer'/);
 assert.match(pageSource, /incomingGroupMode === 'product'/);
+const carryoverTabIndex = pageSource.indexOf('>미처리·다음 차수 재시도</button>');
+const farmFeedbackTabIndex = pageSource.indexOf('href="/sales/farm-quality">농장 불량 피드백</a>');
+assert.ok(carryoverTabIndex >= 0 && farmFeedbackTabIndex > carryoverTabIndex, '농장 불량 피드백은 미처리·다음 차수 재시도 바로 다음 탭이어야 한다.');
+assert.doesNotMatch(pageSource, /불량 그래프 · 농장 피드백/, '농장 피드백 바로가기를 작업 도구줄에 중복 표시하지 않는다.');
 assert.match(pageSource, /updateIncomingRow\(sourceIndex/);
 assert.ok(deductionContract.actions.some((item) => item.name === 'MANUAL_PROCESSING_COMPLETE'), '수동처리완료 계약 동작이 있어야 한다.');
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /수동처리완료/);
