@@ -18,5 +18,8 @@ export default withAuth(async(req,res)=>{
    return res.json({success:true,...await deleteQualityCase(req.body,req.user)});
   }
   res.setHeader('Allow','GET, POST, DELETE');return res.status(405).json({success:false,error:'GET/POST/DELETE만 지원합니다.'});
- }catch(e){return res.status(e.code==='QUALITY_STALE'?409:400).json({success:false,error:e.message,code:e.code==='QUALITY_STALE'?e.code:undefined});}
+ }catch(e){
+  if(req.method==='POST')console.error('[farm-quality-save-error]',JSON.stringify({action:req.body?.action,caseKey:req.body?.caseKey||null,orderYear:req.body?.year||null,requestId:req.body?.requestId||null,actorId:req.user?.userId,error:e.message,number:e.number||e.originalError?.number||null}));
+  return res.status(e.code==='QUALITY_STALE'?409:400).json({success:false,error:e.message,code:e.code==='QUALITY_STALE'?e.code:undefined});
+ }
 });

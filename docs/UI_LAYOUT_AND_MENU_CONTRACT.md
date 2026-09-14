@@ -24,6 +24,8 @@ export default function NewPage() {
 - 일반 URL: 공통 shell 1개, 왼쪽 메뉴 1개, 상단바 1개입니다.
 - `?popup=1`: 공통 `Layout`이 팝업 모드로 바뀌며 간소화 상단바 1개만 표시합니다. 왼쪽 메뉴는 0개입니다.
 - iframe 또는 자식창도 기존 자동 접기 계약을 유지합니다.
+- `MENU_ITEMS`에 등록된 모든 페이지는 `data-ui-back-button` 뒤로가기 동작을 제공합니다. 공통 Layout 페이지는 일반/팝업 상단바에 표시하고, `NO_LAYOUT` 자체 화면틀 메뉴는 작은 고정 버튼으로 표시합니다.
+- 뒤로갈 브라우저 이력이 없으면 자식창은 닫고, 일반 창은 대시보드로 이동합니다. 저장 중인 페이지의 기존 `beforeunload` 확인은 그대로 존중합니다.
 
 DOM 회귀 검사는 `data-ui-shell`, `data-ui-sidebar`, `data-ui-topbar`, `data-ui-popupbar`, `data-ui-page-title`로 개수를 확인합니다. 스타일로 숨겨 중복을 가리지 않고 실제 DOM 개수를 검사합니다.
 

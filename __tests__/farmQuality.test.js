@@ -87,6 +87,8 @@ assert.match(store,/qualitySignals\(sources\.recordset,scope\)/);
 assert.match(store,/ROW_NUMBER\(\) OVER\(PARTITION BY e\.CaseKey ORDER BY e\.EventKey\) EventNo/);
 assert.match(store,/FROM RankedEvents WHERE RecentRank<=3/);
 assert.match(store,/RecentEvents,EventCount:Number/);
+assert.match(store,/OUTPUT INSERTED\.EventKey,INSERTED\.Kind,INSERTED\.Body/,'저장 응답은 새 코멘트를 즉시 화면에 반영할 수 있어야 한다.');
+assert.match(store,/OUTPUT INSERTED\.Version,INSERTED\.Status/,'저장 응답은 갱신된 버전과 상태를 반환해야 한다.');
 assert.match(store,/DELETE FROM dbo\.WebFarmQualityEvidence WHERE EventKey=@event/);
 assert.match(store,/DELETE FROM dbo\.WebFarmQualityEvent WHERE CaseKey=@key/);
 assert.match(store,/DELETE FROM dbo\.WebFarmQualityCase WHERE CaseKey=@key AND OrderYear=@year AND Version=@version/);
@@ -100,6 +102,8 @@ assert.match(page,/Ctrl\+V/);assert.match(page,/이미지 선택/);assert.match(
 assert.match(page,/코멘트 \{c\.EventCount\|\|0\}건/);
 assert.match(page,/className="case-events"/);assert.match(page,/e\.EventNo/);
 assert.match(page,/event-kind-REQUEST/);assert.match(page,/event-heading/);
+assert.match(page,/새 코멘트가 즉시 반영되었습니다/);
+assert.match(page,/disabled=\{saving\|\|uploading\|\|loading\|\|eventLoading/,'조회 중 저장 버튼이 무응답 상태로 눌리면 안 된다.');
 assert.match(page,/data\.canDelete/);assert.match(page,/피드백 삭제/);
 assert.match(api,/if\(!canDeleteFarmQuality\(req\.user\)\)return res\.status\(403\)/,'DELETE는 화면 표시와 별개로 서버에서도 nenovaSS3를 검증해야 한다.');
 assert.match(api,/deleteQualityCase\(req\.body,req\.user\)/);

@@ -27,12 +27,14 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    let data={success:true};let status=200;
    if(r.url().includes('/api/auth/me'))data.user={userId:'fixture',userName:'테스트 수입부',deptName:'수입부',authority:1};
    if(r.url().includes('/api/sales/farm-quality')){
-    if(r.method()==='POST'){posts++;requests.push(JSON.parse(r.postData()));if(posts===1){status=503;data={error:'테스트 저장 실패'};}else data.caseKey=cases[0].CaseKey;}
+    if(r.method()==='POST'){posts++;requests.push(JSON.parse(r.postData()));if(posts===1){status=503;data={error:'테스트 저장 실패'};}else Object.assign(data,{caseKey:cases[0].CaseKey,caseVersion:3,caseStatus:'NEW',updatedAt:'2026-09-14T02:00:00Z',event:{EventKey:'99',Kind:'COMMENT',Body:'보존되는 코멘트',AuthorName:'테스트 수입부',Department:'수입부',AfterStatus:'NEW',CreatedAt:'2026-09-14T02:00:00Z',Evidence:[]}});}
     else if(r.method()==='DELETE'){deletes++;data={success:true,deleted:true,eventCount:4};}
     else if(r.url().includes('caseKey='))data.events=[{EventKey:1,EventNo:1,AuthorName:'홍길동',Department:'영업부',Kind:'COMMENT',Body:'추가 불량 상태 확인 요청',CreatedAt:'2026-09-14T01:00:00Z',AfterStatus:'WAITING',Evidence:[{EvidenceKey:'90000000-0000-4000-8000-000000000000',FileName:'기존증거.png'}]}];
     else Object.assign(data,{cases,groups,farmTrends,issueCandidates,signals,excluded:2,canManage:true,canDelete:true,author:{name:'테스트 수입부',department:'수입부'}});
    }
-   r.respond({status,contentType:'application/json',body:JSON.stringify(data)});
+   const response={status,contentType:'application/json',body:JSON.stringify(data)};
+   if(posts>=2&&r.method()==='GET'&&r.url().includes('/api/sales/farm-quality'))return setTimeout(()=>r.respond(response),800);
+   r.respond(response);
   });
   fs.mkdirSync('outputs/farm-quality',{recursive:true});
   const base=process.env.SMOKE_BASE_URL||'http://localhost:3015';
@@ -59,8 +61,8 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
     '4코멘트영업부 현장 상태를 추가 확인했습니다.'
    ]);
    assert.equal(await page.$eval('.case:first-child .case-events>small',e=>e.textContent.trim()),'이전 1건 · 열어서 전체 보기');
-   const dims=await page.evaluate(()=>({w:innerWidth,doc:document.documentElement.scrollWidth,side:document.querySelectorAll('[data-ui-sidebar]').length,top:document.querySelectorAll('[data-ui-topbar]').length}));
-   assert(dims.doc<=width+2,JSON.stringify(dims));assert.equal(dims.side,0);
+   const dims=await page.evaluate(()=>({w:innerWidth,doc:document.documentElement.scrollWidth,side:document.querySelectorAll('[data-ui-sidebar]').length,top:document.querySelectorAll('[data-ui-topbar]').length,back:document.querySelectorAll('[data-ui-back-button]').length}));
+   assert(dims.doc<=width+2,JSON.stringify(dims));assert.equal(dims.side,0);assert.equal(dims.back,1,'팝업 메뉴 상단바에는 뒤로가기가 하나 있어야 한다.');
    await page.click('.case');await page.waitForSelector('.event-list article');
    assert(await page.$('.detail-actions .danger'),'nenovaSS3 관리자에게만 내려오는 삭제 권한이면 버튼이 보여야 한다.');
    assert.equal(await page.$eval('.event-heading strong',e=>e.textContent.trim()),'1코멘트');
@@ -74,7 +76,8 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   await page.waitForSelector('.chart-panels');
   await page.evaluate(()=>[...document.querySelectorAll('main nav button')].find(e=>e.textContent==='피드백 · 개선 추적').click());
   await page.waitForSelector('.case');
-  assert.equal(await page.$$eval('[data-ui-topbar]',a=>a.length),1);
+   assert.equal(await page.$$eval('[data-ui-topbar]',a=>a.length),1);
+   assert.equal(await page.$$eval('[data-ui-back-button]',a=>a.length),1,'일반 메뉴 상단바에는 뒤로가기가 하나 있어야 한다.');
   await page.click('.case');await page.waitForSelector('.event-list article');
   await page.$eval('.composer textarea',element=>{const raw=atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));const transfer=new DataTransfer();transfer.items.add(new File([bytes],'clipboard.png',{type:'image/png'}));element.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,clipboardData:transfer}));});
   await page.waitForSelector('.draft-images img');assert.equal(uploads,1,'clipboard image must upload once');
@@ -83,7 +86,8 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   await page.type('.composer textarea','보존되는 코멘트');await page.click('.composer .primary');
   await page.waitForFunction(()=>document.querySelector('[role=alert]')?.textContent.includes('테스트 저장 실패'));
   assert.equal(await page.$eval('.composer textarea',e=>e.value),'보존되는 코멘트');
-  await page.click('.composer .primary');await page.waitForFunction(()=>document.querySelector('.success')?.textContent.includes('저장 완료'));
+   await page.click('.composer .primary');await page.waitForFunction(()=>document.querySelector('.success')?.textContent.includes('새 코멘트가 즉시 반영'));
+   await page.waitForFunction(()=>[...document.querySelectorAll('.event-list article p')].some(node=>node.textContent==='보존되는 코멘트'));
   assert.equal(requests[0].requestId,requests[1].requestId,'retry must reuse request id');assert.equal(requests[0].evidenceKeys.length,1);
   assert.equal(posts,2);
   await page.waitForSelector('.status-filters');
