@@ -12,7 +12,7 @@
   "preserves":["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentFarm","Estimate","ProductStock","StockHistory","WebProfitReport"],
   "criteria": {
     "grouping":"LogKey only; same timestamp/user must never merge operations",
-    "success":"Result SUCCESS and committedCount > 0; committed=0 is preview, not successful work",
+    "success":"Result SUCCESS and committedCount > 0; committed=0 is preview, not successful work. A batch launched from exactly one sales-room source stores its bounded sourceIdentity on each audit entry so the inbox can show the verified operation beside that exact message; no raw chat is stored. A later committed undo for the same sourceIdentity suppresses the applied label.",
     "legacy":"4000-character truncated payloads explicitly incomplete, never pretend complete or infer rows; exclude unknown/conflicting year from selected scope",
     "privacy":"Never return raw Payload, editGuard, lease token, IP, user agent, auth data",
     "ui":"Paste entry defaults grouped operations; retain original row-history view as separate tab. 1920x1080 responsive cancel/add columns",

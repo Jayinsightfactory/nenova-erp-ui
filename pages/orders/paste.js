@@ -2542,6 +2542,7 @@ export default function PasteOrderPage() {
       counName: it.counName,
       qty: parseFloat(it.qty) || 0,
       unit: resolvePasteOrderUnit({ prod, parsedUnit: it.unit, unitExplicit: it.unitExplicit, prodUnitMap }),
+      sourceIdentity: evidenceMessages.length === 1 && typeof evidenceMessages[0]?.identity === 'string' ? evidenceMessages[0].identity.slice(0, 512) : '',
       action: it.action || '추가',  // 기본 추가
     };
     }).filter(x => x.qty > 0 && (
@@ -2608,6 +2609,7 @@ export default function PasteOrderPage() {
               type,
               qty: t.qty,
               unit: t.unit,
+              ...(t.sourceIdentity ? { sourceIdentity: t.sourceIdentity } : {}),
               ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
               memo: `붙여넣기 일괄${type === 'ADD' ? '추가' : '취소'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
               force: false,
@@ -2758,6 +2760,7 @@ export default function PasteOrderPage() {
           counName: it.counName,
           qty: parseFloat(it.qty) || 0,
           unit: resolvePasteOrderUnit({ prod, parsedUnit: it.unit, unitExplicit: it.unitExplicit, prodUnitMap }),
+          sourceIdentity: evidenceMessages.length === 1 && typeof evidenceMessages[0]?.identity === 'string' ? evidenceMessages[0].identity.slice(0, 512) : '',
           action: it.action || '추가',
         };
       });
@@ -2816,6 +2819,7 @@ export default function PasteOrderPage() {
               type,
               qty: t.qty,
               unit: t.unit,
+              ...(t.sourceIdentity ? { sourceIdentity: t.sourceIdentity } : {}),
               ...(type === 'CANCEL' ? { mode: 'AUTO_CANCEL' } : {}),
               memo: `붙여넣기 전체 일괄${type === 'CANCEL' ? '취소' : '추가'}: ${t.inputName || t.prodName} ${t.qty}${t.unit}`,
               force: false,
@@ -2983,6 +2987,7 @@ export default function PasteOrderPage() {
             entries: rows.map(row => ({
               originalType: row.type, custKey: row.custKey, prodKey: row.prodKey,
               prodName: row.displayName || row.prodName, qty: row.qty, unit: row.unit,
+              ...(row.sourceIdentity ? { sourceIdentity: row.sourceIdentity } : {}),
               orderQtyAfter: row.orderQtyAfter, outQtyAfter: row.outQtyAfter,
               editGuard: guardByCust.get(String(row.custKey)),
             })),
