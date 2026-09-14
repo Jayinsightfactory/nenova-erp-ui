@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { buildPivotModel, EXE_FIELDS, pivotCellKey } from '../lib/pivotExeModel.js';
 import { buildPivotExeWorkbook } from '../lib/pivotExeExport.js';
-import { buildPivotExePresentation } from '../lib/pivotExePresentation.js';
+import { buildPivotExePresentation, getPivotExeDataColumnId } from '../lib/pivotExePresentation.js';
 
 const layout = { row: ['ProdName'], column: ['OrderYear'], filter: EXE_FIELDS.map(field => field.id).filter(id => !['ProdName', 'OrderYear', 'Quantity'].includes(id)), data: ['Quantity'] };
 const model = buildPivotModel([
   { ProdName: '=formula-looking', OrderYear: 2025, Quantity: 1.25 },
   { ProdName: '=formula-looking', OrderYear: 2026, Quantity: 2.5 },
 ], { layout, showGrandTotals: false, showRowTotals: false, showColumnTotals: false });
-const widths = { ProdName: 220, __data: 111, [`${model.columnAxis[0].key}-${model.measures[0].key}`]: 137 };
+const widths = { ProdName: 220, __data: 111, [getPivotExeDataColumnId(model.columnAxis[0],model.measures[0])]: 137 };
 const buffer = await buildPivotExeWorkbook(model, { decimalPlaces: 2, columnWidths: widths, rowHeight: 28 });
 const workbook = new ExcelJS.Workbook();
 await workbook.xlsx.load(buffer);

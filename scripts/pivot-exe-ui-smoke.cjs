@@ -68,6 +68,10 @@ let rawDataReads = 0;
 let failNextRawData = false;
 let saw503 = false;
 let exportEvents = 0;
+let currentMockUserId = 'pivot-exe-ui-smoke';
+let nextFavoriteKey = 1001;
+const mockFavoritesByUser = new Map();
+const favoriteMutations = [];
 
 function bodyOf(request) {
   try { return request.postData() ? JSON.parse(request.postData()) : {}; } catch { return {}; }
@@ -130,6 +134,113 @@ function assertFieldManifest() {
   return Array.isArray(testids.filterValues) && testids.filterValues.length > 0 && Array.isArray(testids.recursiveFilterFields) && testids.recursiveFilterFields.length > 0;
 }
 
+async function runDelayedAuthLayoutRegression(browser) {
+  const context = await browser.createBrowserContext();
+  const page = await context.newPage();
+  await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+  const userId = 'pivot-exe-ui-delayed-auth';
+  const layoutKey = `pivotExeLayout:v2:${encodeURIComponent(userId)}`;
+  const savedView = {
+    schemaVersion: 1,
+    zones: {
+      rows: ['CounName'],
+      cols: ['OrderYear'],
+      filters: [],
+      values: [{ id: 'Quantity', aggregation: 'sum' }],
+    },
+    rowHeight: 33,
+    decimals: 2,
+    previousNonzeroDecimals: 2,
+    zeroVisible: false,
+  };
+  await page.evaluateOnNewDocument((key, view, authenticatedUserId) => {
+    localStorage.setItem('nenovaUser', JSON.stringify({ userId: authenticatedUserId, userName: authenticatedUserId, role: 'admin' }));
+    localStorage.setItem(key, JSON.stringify(view));
+  }, layoutKey, savedView, userId);
+
+  let nextAuthGate = null;
+  let authIsPending = false;
+  let rawReadsDuringReloadDelay = 0;
+  const unexpectedRequests = [];
+  const json = (request, payload, status = 200) => request.respond({
+    status,
+    contentType: 'application/json',
+    body: JSON.stringify(payload),
+  });
+
+  await page.setRequestInterception(true);
+  page.on('request', async request => {
+    let url;
+    try { url = new URL(request.url()); } catch { unexpectedRequests.push(request.url()); return request.abort('blockedbyclient'); }
+    if (url.protocol === 'data:' || url.protocol === 'blob:') return request.continue();
+    if (url.origin !== targetUrl.origin) { unexpectedRequests.push(request.url()); return request.abort('blockedbyclient'); }
+    if (!url.pathname.startsWith('/api/')) return request.continue();
+    const method = request.method().toUpperCase();
+    if (url.pathname === '/api/auth/me' && method === 'GET') {
+      const gate = nextAuthGate;
+      nextAuthGate = null;
+      if (gate) {
+        authIsPending = true;
+        gate.signal();
+        await gate.promise;
+        authIsPending = false;
+      }
+      return json(request, { success: true, user: { userId, role: 'admin' } });
+    }
+    if (url.pathname === '/api/favorites' && method === 'GET') return json(request, { success: true, favorites: [] });
+    if (url.pathname === '/api/stats/pivot-exe' && method === 'GET') {
+      if (url.searchParams.get('mode') === 'weeks') return json(request, { success: true, weeks: [
+        { OrderYear: '2026', OrderWeek: '37-01', OrderYearWeek: '20263701' },
+        { OrderYear: '2026', OrderWeek: '37-02', OrderYearWeek: '20263702' },
+      ] });
+      if (authIsPending) rawReadsDuringReloadDelay += 1;
+      return json(request, { success: true, mode: 'rawdata', columns, rows, range: {
+        fromYear: '2026', fromWeek: '37-01', toYear: '2026', toWeek: '37-02',
+      } });
+    }
+    unexpectedRequests.push(`${method} ${url.pathname}`);
+    return json(request, { success: false, error: 'DELAYED_AUTH_FIXTURE_UNEXPECTED_REQUEST' }, 405);
+  });
+
+  try {
+    await page.goto(targetUrl.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForSelector('[data-testid="pivot-exe-field-CounName"]', { visible: true, timeout: 30000 });
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-row-height"]', node => node.value === '33'), 'user A rowHeight=33 before delayed reload');
+    await waitFor(() => page.evaluate(key => {
+      try { return JSON.parse(localStorage.getItem(key))?.rowHeight === 33; } catch { return false; }
+    }, layoutKey), 'user A layout stored before delayed reload');
+
+    let releaseAuth;
+    let signalAuthPending;
+    const authPending = new Promise(resolve => { signalAuthPending = resolve; });
+    const authGate = new Promise(resolve => { releaseAuth = resolve; });
+    nextAuthGate = { signal: signalAuthPending, promise: authGate };
+    const readsBeforeReload = rawReadsDuringReloadDelay;
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await waitFor(() => authPending.then(() => true), 'delayed auth request on reload');
+    await page.waitForSelector('[data-testid="pivot-exe-hydrating"]', { visible: true, timeout: 10000 });
+    assert(!(await page.$('[data-testid="pivot-exe-reset"]')), 'reset control must not render while user layout authentication is pending');
+    const earlyControls = await page.$$eval('[data-testid^="pivot-exe-field-"]', nodes => nodes.filter(node => {
+      const rect = node.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && getComputedStyle(node).visibility !== 'hidden';
+    }).length);
+    assert(earlyControls === 0, `pivot field controls rendered before auth/layout hydration (${earlyControls})`);
+    await waitFor(() => rawReadsDuringReloadDelay > readsBeforeReload, 'automatic raw-data query remains parallel to delayed auth');
+    await delay(500);
+    releaseAuth();
+    await page.waitForSelector('[data-testid="pivot-exe-field-CounName"]', { visible: true, timeout: 30000 });
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-row-height"]', node => node.value === '33'), 'user A rowHeight=33 after delayed auth');
+    await waitFor(() => page.evaluate(key => {
+      try { return JSON.parse(localStorage.getItem(key))?.rowHeight === 33; } catch { return false; }
+    }, layoutKey), 'user A stored rowHeight remains 33 after delayed auth');
+    assert(unexpectedRequests.length === 0, `delayed-auth fixture made unexpected requests: ${unexpectedRequests.join(', ')}`);
+    return { delayedAuthMs: 500, hydratingStatusVisible: true, resetAbsentBeforeAuth: true, blockedFieldControlsBeforeAuth: earlyControls === 0, rawReadsDuringReloadDelay, restoredRowHeight: 33, storedRowHeight: 33, unexpectedRequests };
+  } finally {
+    nextAuthGate?.signal();
+    await context.close();
+  }
+}
+
 (async () => {
   const hasCompleteFieldManifest = assertFieldManifest();
   const browser = await puppeteer.launch({ executablePath, args: ['--no-sandbox', '--disable-dev-shm-usage', '--headless=new'] });
@@ -141,6 +252,8 @@ function assertFieldManifest() {
     page.on('console', message => { if (message.type() === 'error' && !/Failed to load resource/.test(message.text())) problems.push(`console: ${message.text()}`); });
     await page.evaluateOnNewDocument(() => localStorage.setItem('nenovaUser', JSON.stringify({ userId: 'pivot-exe-ui-smoke', userName: 'pivot-exe-ui-smoke', role: 'admin' })));
     await page.setRequestInterception(true);
+    let favoriteDeleteConfirmation = '';
+    page.on('dialog', async dialog => { favoriteDeleteConfirmation = dialog.message(); await dialog.accept(); });
     page.on('request', async request => {
       const requestUrl = request.url();
       if (requestUrl.startsWith('data:') || requestUrl.startsWith('blob:')) { if (requestUrl.startsWith('blob:')) exportEvents += 1; return request.continue(); }
@@ -151,8 +264,36 @@ function assertFieldManifest() {
       const method = request.method().toUpperCase();
       const body = bodyOf(request);
       requests.push({ method, path: parsed.pathname, query: Object.fromEntries(parsed.searchParams), body });
+      if (parsed.pathname === '/api/favorites') {
+        const pageName = parsed.searchParams.get('page') || body.page;
+        if (pageName && pageName !== 'stats-pivot-exe') return request.respond({ status: 400, contentType: 'application/json', body: JSON.stringify({ success: false, error: 'SMOKE_UNEXPECTED_FAVORITE_PAGE' }) });
+        const userFavorites = mockFavoritesByUser.get(currentMockUserId) || [];
+        if (method === 'GET') return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, favorites: userFavorites }) });
+        favoriteMutations.push({ method, body, userId: currentMockUserId });
+        if (method === 'POST') {
+          if (body.page !== 'stats-pivot-exe' || typeof body.name !== 'string' || typeof body.filterData !== 'string') return request.respond({ status: 400, contentType: 'application/json', body: JSON.stringify({ success: false, error: 'SMOKE_INVALID_FAVORITE_POST' }) });
+          const favoriteKey = nextFavoriteKey++;
+          userFavorites.push({ FavoriteKey: favoriteKey, FavName: body.name, FilterData: body.filterData });
+          mockFavoritesByUser.set(currentMockUserId, userFavorites);
+          return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, favoriteKey }) });
+        }
+        if (method === 'PUT') {
+          const favorite = userFavorites.find(item => String(item.FavoriteKey) === String(body.favoriteKey));
+          if (!favorite || typeof body.name !== 'string' || typeof body.filterData !== 'string') return request.respond({ status: 404, contentType: 'application/json', body: JSON.stringify({ success: false, error: 'SMOKE_FAVORITE_NOT_FOUND' }) });
+          favorite.FavName = body.name; favorite.FilterData = body.filterData;
+          return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+        }
+        if (method === 'DELETE') {
+          const index = userFavorites.findIndex(item => String(item.FavoriteKey) === String(body.favoriteKey));
+          if (index < 0) return request.respond({ status: 404, contentType: 'application/json', body: JSON.stringify({ success: false, error: 'SMOKE_FAVORITE_NOT_FOUND' }) });
+          userFavorites.splice(index, 1);
+          mockFavoritesByUser.set(currentMockUserId, userFavorites);
+          return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+        }
+        return request.respond({ status: 405, contentType: 'application/json', body: JSON.stringify({ success: false, error: 'SMOKE_FAVORITE_METHOD_NOT_ALLOWED' }) });
+      }
       if (method !== 'GET') { forbiddenMutations.push({ method, path: parsed.pathname, body }); return request.respond({ status: 405, contentType: 'application/json', body: JSON.stringify({ error: 'SMOKE_MUTATIONS_FORBIDDEN' }) }); }
-      if (parsed.pathname === '/api/auth/me') return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, user: { userId: 'pivot-exe-ui-smoke', role: 'admin' } }) });
+      if (parsed.pathname === '/api/auth/me') return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, user: { userId: currentMockUserId, role: 'admin' } }) });
       if (parsed.pathname === '/api/stats/pivot-weeks') return request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, weeks: [{OrderYear:'2026',OrderWeek:'37-01',OrderYearWeek:'20263701'},{OrderYear:'2026',OrderWeek:'37-02',OrderYearWeek:'20263702'}], orderYear: '2026' }) });
       if (parsed.pathname === '/api/stats/pivot-data') {
         rawDataReads += 1;
@@ -169,9 +310,39 @@ function assertFieldManifest() {
 
     await page.goto(targetUrl.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForSelector(testids.root ? selector(testids.root) : 'body', { visible: true, timeout: 30000 });
-    await click(page, testids.refresh, 'initial refresh', '새로고침');
     await waitFor(() => rawDataReads > 0, 'initial pivot data read');
+    await page.waitForSelector('[data-testid="pivot-exe-grid"]', { visible: true, timeout: 30000 });
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-select"]', node => !node.disabled), 'authenticated per-user layout hydration');
     if (testids.dataRows) assert((await visibleCount(page, testids.dataRows)) > 0, 'mock rawdata rows are not displayed');
+
+    // Exercise actual HTML5 drops and assert the rendered pivot changes without a new raw-data read.
+    const initialLiveTable = await page.$eval('table', node => node.innerText);
+    assert(initialLiveTable.includes('27.50'), 'four-row fixture sum must be 27.50 before layout changes');
+    const dropField = async (field, zone, zoneId) => {
+      const beforeReads = rawDataReads;
+      await page.evaluate(({ fieldId, destination }) => {
+        const source = document.querySelector(`[data-testid="pivot-exe-field-${fieldId}"]`)?.closest('[draggable="true"]');
+        const target = document.querySelector(`[data-testid="${destination}"]`);
+        if (!source || !target) throw new Error(`Missing live drag source/target: ${fieldId} -> ${destination}`);
+        const transfer = new DataTransfer();
+        source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
+        target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+        target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+        source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: transfer }));
+      }, { fieldId: field, destination: zoneId });
+      await waitFor(() => page.$eval(`[data-testid="${zoneId}"]`, (node, fieldId) => Boolean(node.querySelector(`[data-testid="pivot-exe-field-${fieldId}"]`)), field), `${field} drop into ${zone}`);
+      assert(rawDataReads === beforeReads, `dragging ${field} into ${zone} unexpectedly fetched raw data`);
+    };
+    await dropField('CustName', 'rows', 'pivot-exe-zone-rows');
+    await dropField('CounName', 'columns', 'pivot-exe-zone-cols');
+    await dropField('ListType', 'filters', 'pivot-exe-zone-filters');
+    await dropField('UPrice', 'values', 'pivot-exe-zone-values');
+    const liveTable = await page.$eval('table', node => node.innerText);
+    assert(liveTable !== initialLiveTable, 'field drops must change actual table headers or grouped values');
+    assert(liveTable.includes('거래처A') && liveTable.includes('콜롬비아'), 'row/column drops must change visible group labels');
+    assert(liveTable.includes('입고단가') && liveTable.includes('1,900.00'), 'numeric field drop must add the correct fixture sum');
+    assert(rawDataReads === 1, `layout-only drops must not reread raw rows (reads: ${rawDataReads})`);
+    await click(page, 'pivot-exe-reset', 'restore native layout after live drops');
 
     // Every field move is a left-click on a UI-worker-supplied control; no drag or context menu.
     if (hasCompleteFieldManifest) for (const [field, moves] of Object.entries(testids.fieldMoves)) {
@@ -264,6 +435,83 @@ function assertFieldManifest() {
     assert(measured.height >= 31 && measured.height <= 34, `row height control ineffective: ${measured.height}`);
     assert(parseFloat(measured.border) > 0, 'vertical cell borders missing');
 
+    const readDecimals = () => page.evaluate(() => {
+      const label = [...document.querySelectorAll('label')].find(node => node.textContent.includes('소수 자릿수'));
+      return label?.querySelector('select')?.value;
+    });
+    const writeDecimals = async value => {
+      await page.evaluate(next => {
+        const label = [...document.querySelectorAll('label')].find(node => node.textContent.includes('소수 자릿수'));
+        const select = label?.querySelector('select');
+        if (!select) throw new Error('decimal precision selector not found');
+        select.value = String(next);
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }, value);
+      await waitFor(async () => (await readDecimals()) === String(value), `decimal precision ${value}`);
+    };
+    const setInput = async (id, value) => page.$eval(selector(id), (node, next) => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      if (!setter) throw new Error(`Cannot set ${node.dataset.testid}`);
+      setter.call(node, String(next));
+      node.dispatchEvent(new Event('input', { bubbles: true }));
+      node.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+    await writeDecimals(0);
+    await setInput('pivot-exe-favorite-name', 'Smoke zero-decimal layout');
+    await click(page, 'pivot-exe-favorite-save', 'save mock favorite');
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('저장했습니다')), 'favorite save');
+    assert(favoriteMutations.at(-1)?.method === 'POST' && favoriteMutations.at(-1)?.body.page === 'stats-pivot-exe', 'favorite POST must follow the mocked page/name/filterData contract');
+    const savedFavoriteUser = favoriteMutations.at(-1).userId;
+    const postedView = JSON.parse(favoriteMutations.at(-1).body.filterData);
+    assert(postedView.decimals === 0 && postedView.zeroVisible === false, 'favorite must preserve explicit 0 decimals and false zeroVisible');
+    const favoriteKey = await page.$eval(selector('pivot-exe-favorite-select'), node => node.value);
+    assert(favoriteKey, 'newly saved mock favorite must be selected');
+
+    await click(page, 'pivot-exe-reset', 'reset before favorite reload');
+    assert((await readDecimals()) !== '0', 'reset should restore the default decimal precision');
+    await click(page, 'pivot-exe-favorite-load', 'load mock favorite');
+    await waitFor(async () => (await readDecimals()) === '0', 'favorite decimals=0 restore');
+    assert((await page.$eval('[data-testid="pivot-exe-zone-rows"]', node => node.innerText)).includes('국가'), 'favorite load must restore the saved row layout');
+    assert((await page.$eval('[data-testid="pivot-exe-row-height"]', node => node.value)) === '32', 'favorite load must restore saved row height');
+
+    await setControl('pivot-exe-row-height', 33);
+    await click(page, 'pivot-exe-favorite-update', 'update mock favorite');
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('덮어썼습니다')), 'favorite update');
+    assert(favoriteMutations.at(-1)?.method === 'PUT' && String(favoriteMutations.at(-1)?.body.favoriteKey) === String(favoriteKey), 'favorite PUT must target the selected fixture key');
+
+    // Reauthentication scopes both local preferences and favorite lists to the current mock user.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-row-height"]', node => node.value === '33'), 'user A local settings after reload');
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-select"]', node => [...node.options].some(option => option.textContent === 'Smoke zero-decimal layout')), 'user A favorite after reload');
+    currentMockUserId = 'pivot-exe-ui-user-b';
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-select"]', node => !node.disabled), 'user B authenticated layout hydration');
+    const userBLayoutKey = `pivotExeLayout:v2:${encodeURIComponent(currentMockUserId)}`;
+    await waitFor(() => page.evaluate(key => {
+      try { const view = JSON.parse(localStorage.getItem(key)); return view?.rowHeight === 24 && view?.decimals === 2; }
+      catch { return false; }
+    }, userBLayoutKey), 'user B default layout persisted after hydration');
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-select"]', node => node.options.length === 1), 'user B has no user A favorites');
+    const storedViewsAfterUserSwitch = await page.evaluate(({ userAKey, userBKey }) => ({
+      userA: JSON.parse(localStorage.getItem(userAKey) || 'null'),
+      userB: JSON.parse(localStorage.getItem(userBKey) || 'null'),
+    }), {
+      userAKey: `pivotExeLayout:v2:${encodeURIComponent(savedFavoriteUser)}`,
+      userBKey: userBLayoutKey,
+    });
+    assert(storedViewsAfterUserSwitch.userA?.rowHeight === 33 && storedViewsAfterUserSwitch.userA?.decimals === 0, 'switching users must retain user A saved layout');
+    assert(storedViewsAfterUserSwitch.userB?.rowHeight === 24 && storedViewsAfterUserSwitch.userB?.decimals === 2, 'user B must persist its own default layout, not inherit user A view');
+
+    currentMockUserId = savedFavoriteUser;
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-select"]', node => [...node.options].some(option => option.value)), 'return to user A favorite');
+    await page.select(selector('pivot-exe-favorite-select'), favoriteKey);
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-delete"]', node => !node.disabled), 'user A delete control enabled');
+    await click(page, 'pivot-exe-favorite-delete', 'delete mock favorite');
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('삭제했습니다')), 'favorite delete');
+    assert(favoriteDeleteConfirmation.includes('Smoke zero-decimal layout'), 'favorite delete must ask for confirmation naming only the mock fixture');
+    assert(favoriteMutations.at(-1)?.method === 'DELETE' && String(favoriteMutations.at(-1)?.body.favoriteKey) === String(favoriteKey), 'favorite DELETE must target the selected fixture key');
+
     for (const width of [1920,1366]) {
       await page.setViewport({width,height:width===1920?1080:768,deviceScaleFactor:1});
       await click(page,'pivot-exe-filter-ListType','anchored type filter');
@@ -292,7 +540,6 @@ function assertFieldManifest() {
     failNextRawData = true;
     const rangeSelects = await page.$$('main > div:first-child select');
     await rangeSelects[1].select('37-02');
-    await click(page, testids.refresh, 'refresh after scope change', '새로고침');
     await waitFor(() => saw503, '503 race response');
     await page.waitForSelector('[data-testid="pivot-exe-error"]');
     const after = await page.$eval('table', node => node.innerText);
@@ -300,9 +547,8 @@ function assertFieldManifest() {
 
     await page.reload({waitUntil:'domcontentloaded'});
     await page.waitForSelector('[data-testid="pivot-exe-row-height"]');
-    await waitFor(async () => await page.$eval('[data-testid="pivot-exe-row-height"]', node => node.value === '32'), 'saved row height hydration');
+    await waitFor(async () => await page.$eval('[data-testid="pivot-exe-row-height"]', node => node.value === '33'), 'saved row height hydration');
     assert((await page.$eval('[data-testid="pivot-exe-data-width"]', node => node.value)) === '120', 'saved width lost after reload');
-    await click(page,testids.refresh,'reload current data');
     await page.waitForSelector('[data-testid="pivot-exe-grid"]');
     await waitFor(async () => (await page.$eval('table',node=>node.innerText)).includes('수국 화이트'), 'reloaded fixture');
 
@@ -312,10 +558,12 @@ function assertFieldManifest() {
       if (overflow) problems.push(`${width}px horizontal overflow`);
       if (width === 1920) { fs.mkdirSync(path.dirname(screenshotPath), { recursive: true }); await page.screenshot({ path: screenshotPath, fullPage: false }); }
     }
+    const delayedAuthRegression = await runDelayedAuthLayoutRegression(browser);
     if (forbiddenMutations.length) problems.push(`forbidden mutation requests: ${forbiddenMutations.map(r => `${r.method} ${r.path}`).join(', ')}`);
+    assert(favoriteMutations.every(item => ['POST', 'PUT', 'DELETE'].includes(item.method) && item.userId === savedFavoriteUser), 'all favorite mutations must remain scoped to user A in the in-memory fixture');
     if (externalRequests.length) problems.push(`external requests: ${externalRequests.join(', ')}`);
     if (problems.length) process.exitCode = 1;
-    console.log(JSON.stringify({ target: targetUrl.href, viewports: ['1920x1080', '1366x768'], columns, rawDataReads, hasCompleteFieldManifest, requests: requests.map(r => `${r.method} ${r.path}?mode=${r.query.mode || ''}`), forbiddenMutations, externalRequests, problems, screenshotPath }, null, 2));
+    console.log(JSON.stringify({ target: targetUrl.href, viewports: ['1920x1080', '1366x768'], columns, rawDataReads, hasCompleteFieldManifest, delayedAuthRegression, favoriteMutations: favoriteMutations.map(item => `${item.method} ${item.userId}`), requests: requests.map(r => `${r.method} ${r.path}?mode=${r.query.mode || ''}`), forbiddenMutations, externalRequests, problems, screenshotPath }, null, 2));
   } catch (error) {
     const failedPage = (await browser.pages()).at(-1);
     const failurePath = screenshotPath.replace(/\.png$/i, '-failure.png');

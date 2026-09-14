@@ -3,7 +3,7 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
-    "test:pivot-exe": "node __tests__/pivotExeRange.test.js && node __tests__/pivotExeModel.test.js && node __tests__/pivotExePresentation.test.js && node __tests__/pivotExeExport.test.js",
+    "test:pivot-exe": "node __tests__/pivotExeRange.test.js && node __tests__/pivotExeModel.test.js && node __tests__/pivotExePresentation.test.js && node __tests__/pivotExeExport.test.js && node __tests__/pivotExeViewState.test.js && node __tests__/pivotExeLiveLayout.test.js && node __tests__/pivotExeFavoriteOwnership.test.js",
     "pretest:pivot": "npm run test:pivot-exe",
     "pretest:erp-manifest": "npm run test:pivot-exe",
     "dev": "next dev",
@@ -70,6 +70,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
+    "@noble/hashes": "1.8.0",
     "exceljs": "^4.4.0",
     "formidable": "^3.5.4",
     "jsonwebtoken": "^9.0.2",

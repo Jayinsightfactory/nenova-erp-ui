@@ -3,6 +3,9 @@ import { getCurrentWeek } from '../lib/useWeekInput';
 import { EXE_FIELDS, assertPivotRenderLimit, buildPivotModel, filterRows, normalizeLayout } from '../lib/pivotExeModel';
 import PivotExeGrid from './PivotExeGrid';
 import { getPivotExeGroupKeys } from '../lib/pivotExePresentation';
+import { normalizePivotExeRange } from '../lib/pivotExeRange';
+import { normalizePivotExeView } from '../lib/pivotExeViewState';
+import PivotExeFavorites from './PivotExeFavorites';
 
 // The field ids deliberately match FormQuantityPivot.GetData verbatim.
 const FIELDS = EXE_FIELDS;
@@ -70,7 +73,7 @@ function FieldMenu({ field, aggregation, sort, popupRef, position, onAggregation
       <button onClick={() => onReorder(field.id, 'next')}>다음</button><button onClick={() => onReorder(field.id, 'last')}>끝</button>
       <button onClick={() => onBestFit(field.id)}>너비 자동맞춤</button><button onClick={() => { onHide(field.id); onClose(); }}>숨김</button>
     </div>
-    {aggregation && <label style={{display:'block',fontSize:11,marginTop:7}}>집계 <select value={aggregation} onChange={(event)=>onAggregation(field.id,event.target.value)}><option value="sum">합계</option><option value="avg">평균</option><option value="min">최소</option><option value="max">최대</option><option value="count">개수</option></select></label>}
+    {aggregation && <label style={{display:'block',fontSize:11,marginTop:7}}>집계 <select value={aggregation} onChange={(event)=>onAggregation(field.id,event.target.value)}>{field.numeric && <><option value="sum">합계</option><option value="avg">평균</option><option value="min">최소</option><option value="max">최대</option></>}<option value="count">개수</option></select></label>}
     <button style={{width:'100%',marginTop:5}} onClick={onClose}>닫기</button>
   </div>;
 }
@@ -152,13 +155,27 @@ export default function PivotExePanel() {
   const [rowHeight, setRowHeight] = useState(24);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [layoutHydrated, setLayoutHydrated] = useState(false);
+  const [preferenceKey, setPreferenceKey] = useState(null);
+  const [preferenceError, setPreferenceError] = useState('');
+  const [draggedField, setDraggedField] = useState(null);
   const [sorts, setSorts] = useState({});
   const [exporting, setExporting] = useState(false);
   const request = useRef({id:0,controller:null});
+  const autoQueryTimer = useRef(null);
   const closeFieldMenu = useCallback(() => setFieldMenu(null), []);
   const closeValueFilter = useCallback(() => setFilterField(null), []);
   const [fieldMenuRef, fieldMenuPosition] = useAnchoredPopup(Boolean(fieldMenu), fieldMenu?.anchor, closeFieldMenu);
   const [valueFilterRef, valueFilterPosition] = useAnchoredPopup(Boolean(filterField), filterField?.anchor, closeValueFilter);
+  const applyView = useCallback((input) => {
+    const view = normalizePivotExeView(input);
+    setZones(view.zones); setHidden(view.hidden); setDecimals(view.decimals);
+    setPreviousNonzeroDecimals(view.previousNonzeroDecimals); setZeroVisible(view.zeroVisible);
+    setWidths(view.widths); setRowHeight(view.rowHeight); setSorts(view.sorts);
+    setSelections(view.selections); setAst(view.ast); setFilterActive(view.filterActive);
+    setShowRowTotals(view.showRowTotals); setShowColumnTotals(view.showColumnTotals); setShowGrandTotals(view.showGrandTotals);
+    setCollapsedRows(new Set()); setCollapsedCols(new Set()); setFieldMenu(null); setFilterField(null);
+  }, []);
+  const currentView = useMemo(() => ({schemaVersion:1,zones,hidden,decimals,previousNonzeroDecimals,zeroVisible,widths,rowHeight,sorts,selections,ast,filterActive,showRowTotals,showColumnTotals,showGrandTotals}), [zones,hidden,decimals,previousNonzeroDecimals,zeroVisible,widths,rowHeight,sorts,selections,ast,filterActive,showRowTotals,showColumnTotals,showGrandTotals]);
 
   useEffect(() => {
     if (!fieldMenu && !filterField) return undefined;
@@ -183,69 +200,52 @@ export default function PivotExePanel() {
     };
   }, [fieldMenu, filterField, fieldMenuRef, valueFilterRef, closeFieldMenu, closeValueFilter]);
 
-  // Do not persist the deterministic SSR defaults before browser preferences finish loading.
+  // Authenticate the owner before reading/writing local preferences; never migrate a shared key.
   useEffect(() => {
     setRange(currentRange());
-    try {
-      const stored = JSON.parse(localStorage.getItem('pivotExeLayout') || 'null');
-      const storedHidden = Array.isArray(stored?.hidden) ? stored.hidden.filter((id) => BY_ID[id]) : [];
-      if (stored?.zones && ['rows','cols','filters','values'].every((key) => Array.isArray(stored.zones[key]))) {
-        const clean = normalizeLayout({ row:stored.zones.rows, column:stored.zones.cols, filter:stored.zones.filters, data:stored.zones.values.map((value) => value?.id) });
-        const savedValues = new Map(stored.zones.values.filter((value) => value && BY_ID[value.id]).map((value) => [value.id, value.aggregation]));
-        const validAggregation = new Set(['sum','avg','min','max','count']);
-        const hiddenIds = new Set(storedHidden);
-        const visible = {
-          row:clean.row.filter((id) => !hiddenIds.has(id)),
-          column:clean.column.filter((id) => !hiddenIds.has(id)),
-          filter:clean.filter.filter((id) => !hiddenIds.has(id)),
-          data:clean.data.filter((id) => !hiddenIds.has(id)),
-        };
-        setZones({
-          rows:visible.row,
-          cols:visible.column,
-          filters:visible.filter,
-          values:visible.data.map((id) => {
-            const saved = savedValues.get(id);
-            return { id, aggregation:validAggregation.has(saved) ? saved : (BY_ID[id].numeric ? 'sum' : 'count') };
-          }),
-        });
-      }
-      setHidden(storedHidden);
-      if ([0,1,2].includes(stored?.decimals)) setDecimals(stored.decimals);
-      if ([1,2].includes(stored?.previousNonzeroDecimals)) setPreviousNonzeroDecimals(stored.previousNonzeroDecimals);
-      else if ([1,2].includes(stored?.decimals)) setPreviousNonzeroDecimals(stored.decimals);
-      if (typeof stored?.zeroVisible === 'boolean') setZeroVisible(stored.zeroVisible);
-      if (stored?.rowHeight !== null && stored?.rowHeight !== '' && Number.isFinite(Number(stored?.rowHeight))) setRowHeight(Math.max(18, Math.min(48, Number(stored.rowHeight))));
-      if (stored?.widths && typeof stored.widths === 'object') {
-        setWidths(Object.fromEntries(Object.entries(stored.widths).filter(([id, value]) => (id === '__data' || BY_ID[id] || id.includes('-')) && value !== null && value !== '' && Number.isFinite(Number(value))).map(([id, value]) => [id, Math.max(48, Math.min(400, Number(value)))])));
-      }
-    } catch {}
-    setLayoutHydrated(true);
-  }, []);
+    const controller = new AbortController();
+    let alive = true;
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    fetch('/api/auth/me', {credentials:'include',cache:'no-store',signal:controller.signal})
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok || !payload.success || !payload.user?.userId) throw new Error('사용자 확인 실패');
+        if (!alive) return;
+        const key = `pivotExeLayout:v2:${encodeURIComponent(payload.user.userId)}`;
+        try { const stored = localStorage.getItem(key); if (stored) applyView(JSON.parse(stored)); }
+        catch { setPreferenceError('이전에 저장한 화면 설정을 불러오지 못했습니다. 기본 배치로 표시합니다.'); }
+        setPreferenceKey(key);
+      })
+      .catch(() => { if (alive) setPreferenceError('사용자를 확인하지 못해 마지막 화면 자동 저장은 일시 중단했습니다.'); })
+      .finally(() => { clearTimeout(timeout); if (alive) setLayoutHydrated(true); });
+    return () => { alive = false; clearTimeout(timeout); controller.abort(); };
+  }, [applyView]);
   useEffect(() => {
-    if (!layoutHydrated) return;
-    try { localStorage.setItem('pivotExeLayout', JSON.stringify({zones,hidden,decimals,previousNonzeroDecimals,zeroVisible,widths,rowHeight})); } catch {}
-  }, [layoutHydrated,zones,hidden,decimals,previousNonzeroDecimals,zeroVisible,widths,rowHeight]);
+    if (!layoutHydrated || !preferenceKey) return;
+    try { localStorage.setItem(preferenceKey, JSON.stringify(currentView)); } catch { setPreferenceError('이 브라우저에서 마지막 화면을 저장할 수 없습니다. 즐겨찾기에 저장해 주세요.'); }
+  }, [layoutHydrated,preferenceKey,currentView]);
   useEffect(() => () => request.current.controller?.abort(), []);
   useEffect(() => {
-    if (!range.fromYear) return undefined;
+    if (!/^\d{4}$/.test(range.fromYear) || !/^\d{4}$/.test(range.toYear)) return undefined;
     const controller = new AbortController();
     let alive = true;
     fetch(`/api/stats/pivot-exe?${new URLSearchParams({mode:'weeks',fromYear:range.fromYear,toYear:range.toYear || range.fromYear})}`, {credentials:'include',signal:controller.signal})
       .then(async (response) => { const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error || '조회 가능 차수를 불러오지 못했습니다.'); return payload; })
-      .then((payload) => { if (alive) setWeeks(payload.weeks || []); })
+      .then((payload) => { if (alive) { setWeeks(payload.weeks || []); setWeeksError(''); } })
       .catch((cause) => { if (alive && cause.name !== 'AbortError') setWeeksError(cause.message || '조회 가능 차수를 불러오지 못했습니다.'); });
     return () => { alive = false; controller.abort(); };
   }, [range.fromYear, range.toYear]);
+  useEffect(() => { setCollapsedRows(new Set()); setCollapsedCols(new Set()); }, [zones]);
 
   const moveField = useCallback((id, target) => {
-    const field = BY_ID[id]; if (!field) return;
+    const field = BY_ID[id]; if (!field || !['rows','cols','values','filters'].includes(target)) return;
     setZones((previous) => {
       const next = { rows:previous.rows.filter((item) => item !== id), cols:previous.cols.filter((item) => item !== id), filters:previous.filters.filter((item) => item !== id), values:previous.values.filter((item) => item.id !== id) };
       if (target === 'values') next.values.push({id,aggregation:field.numeric ? 'sum' : 'count'}); else next[target].push(id);
       return next;
     });
     setHidden((previous) => previous.filter((item) => item !== id));
+    setCollapsedRows(new Set()); setCollapsedCols(new Set());
   }, []);
   const hideField = useCallback((id) => { setZones((previous) => ({rows:previous.rows.filter((item)=>item!==id),cols:previous.cols.filter((item)=>item!==id),filters:previous.filters.filter((item)=>item!==id),values:previous.values.filter((item)=>item.id!==id)})); setHidden((previous) => previous.includes(id) ? previous : [...previous,id]); }, []);
   const reorder = useCallback((id, direction) => setZones((previous) => {
@@ -260,17 +260,31 @@ export default function PivotExePanel() {
     list.splice(index, 1); list.splice(target, 0, id); return {...previous,[zoneName]:list};
   }), []);
   const refresh = useCallback(async () => {
-    if (!range.fromYear || !range.fromWeek || !range.toYear || !range.toWeek) { setError('시작/종료 연도와 차수를 모두 선택하세요.'); return; }
+    clearTimeout(autoQueryTimer.current);
+    try { normalizePivotExeRange(range); } catch (cause) { setError(cause.message); return; }
     request.current.controller?.abort(); const controller = new AbortController(); const id = request.current.id + 1; request.current = {id,controller}; setBusy(true); setError('');
     try {
       const params = new URLSearchParams(range).toString();
       const response = await fetch(`/api/stats/pivot-exe?${params}`, {credentials:'include',signal:controller.signal});
-      const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error || '전산 피벗을 불러오지 못했습니다.');
+      let payload;
+      try { payload = await response.json(); } catch { throw new Error('서버 응답이 지연되거나 갱신 중입니다. 잠시 후 새로고침해 주세요.'); }
+      if (!response.ok || !payload.success) throw new Error(payload.error || '전산 피벗을 불러오지 못했습니다.');
       if (request.current.id !== id) return;
       setRows(Array.isArray(payload.rows) ? payload.rows : []); setSuccessRange(payload.range || {...range}); setSource(payload.source || 'nenova.exe FormQuantityPivot');
     } catch (cause) { if (cause.name !== 'AbortError' && request.current.id === id) setError(cause.message || '조회 실패'); }
     finally { if (request.current.id === id) setBusy(false); }
   }, [range]);
+
+  // Scope changes fetch once after a short input debounce; field moves only recalculate locally.
+  useEffect(() => {
+    request.current.controller?.abort();
+    request.current.id += 1;
+    setBusy(false);
+    if (!range.fromYear && !range.toYear) return undefined;
+    try { normalizePivotExeRange(range); } catch (cause) { setError(cause.message); return undefined; }
+    const timer = setTimeout(refresh, 350); autoQueryTimer.current = timer;
+    return () => { clearTimeout(timer); request.current.controller?.abort(); request.current.id += 1; };
+  }, [refresh,range]);
 
   const valuesByField = useMemo(() => Object.fromEntries(FIELDS.map((field) => [field.id, [...new Set(rows.map((row) => cleanText(row[field.id])))].sort((a,b) => a.localeCompare(b,'ko'))])), [rows]);
   // The UI only chooses controls; the shared pure model owns grouping, totals,
@@ -318,8 +332,9 @@ export default function PivotExePanel() {
   };
   const zoneChip = (id, zone) => {
     const active = filterActive && Object.prototype.hasOwnProperty.call(selections, id);
-    return <span key={`${zone}-${id}`} style={chipStyle}><button data-testid={`pivot-exe-field-${id}`} data-zone={zone} type="button" onClick={(event) => openFieldMenu(id, event)}>{BY_ID[id].label}{sorts[id] === 'asc' ? ' ▲' : sorts[id] === 'desc' ? ' ▼' : ''}</button><button data-testid={`pivot-exe-filter-${id}`} type="button" title={`${BY_ID[id].label} 값 필터${active ? ' 적용됨' : ''}`} aria-label={`${BY_ID[id].label} 값 필터`} style={{...filterChipButton,...(active ? filterChipActive : null)}} onClick={(event) => openValueFilter(id, event)}>{active ? '●' : '⌄'}</button><small>{zone === 'values' ? zones.values.find((value)=>value.id===id)?.aggregation : ''}</small></span>;
+    return <span key={`${zone}-${id}`} draggable onDragStart={(event)=>{event.dataTransfer.setData('application/x-nenova-pivot-field',id);event.dataTransfer.effectAllowed='move';setDraggedField(id);}} onDragEnd={()=>setDraggedField(null)} title="끌어서 행·열·값·필터로 이동하거나 클릭하여 설정" style={{...chipStyle,cursor:'grab'}}><button data-testid={`pivot-exe-field-${id}`} data-zone={zone} type="button" onClick={(event) => openFieldMenu(id, event)}>{BY_ID[id].label}{sorts[id] === 'asc' ? ' ▲' : sorts[id] === 'desc' ? ' ▼' : ''}</button><button data-testid={`pivot-exe-filter-${id}`} type="button" title={`${BY_ID[id].label} 값 필터${active ? ' 적용됨' : ''}`} aria-label={`${BY_ID[id].label} 값 필터`} style={{...filterChipButton,...(active ? filterChipActive : null)}} onClick={(event) => openValueFilter(id, event)}>{active ? '●' : '⌄'}</button><small>{zone === 'values' ? zones.values.find((value)=>value.id===id)?.aggregation : ''}</small></span>;
   };
+  const zoneArea = (zone,label) => <span data-testid={`pivot-exe-zone-${zone}`} onDragOver={(event)=>{event.preventDefault();event.dataTransfer.dropEffect='move';}} onDrop={(event)=>{event.preventDefault();const id=event.dataTransfer.getData('application/x-nenova-pivot-field');if(BY_ID[id])moveField(id,zone);setDraggedField(null);}} style={{display:'inline-flex',alignItems:'center',flexWrap:'wrap',gap:2,minHeight:30,minWidth:100,padding:'3px 5px',border:`1px ${draggedField?'dashed':'solid'} ${draggedField?'#2563eb':'#bdcadb'}`,background:draggedField?'#eaf3ff':'#f5f8fc',borderRadius:3}}><b>{label}</b>{zones[zone].map((item)=>zoneChip(typeof item==='string'?item:item.id,zone))}{zones[zone].length===0 && <small style={{color:'#6b7280'}}>여기로 이동</small>}</span>;
   const setWidth = (id, value, min = 48, max = 400) => {
     const number = Number(value);
     if (!Number.isFinite(number)) return;
@@ -335,6 +350,7 @@ export default function PivotExePanel() {
     if (decimals === 0) setDecimals(previousNonzeroDecimals || 2);
     else { setPreviousNonzeroDecimals(decimals); setDecimals(0); }
   };
+  if (!layoutHydrated) return <main data-testid="pivot-exe-hydrating" role="status" style={{padding:12}}>사용자별 피벗 설정과 현재 차수 자료를 자동으로 불러오는 중…</main>;
   return <main style={{padding:'8px 12px 14px',minWidth:0}}>
     <div style={toolbarStyle}><b style={{fontSize:14}}>전산 피벗</b><span style={{fontSize:11,color:'#667'}}>nenova.exe FormQuantityPivot · 읽기 전용</span>
       <RangeSelect label="시작" year={range.fromYear} week={range.fromWeek} weeks={weeks} onYear={(value)=>updateRange('fromYear',value)} onWeek={(value)=>updateRange('fromWeek',value)} />
@@ -342,11 +358,14 @@ export default function PivotExePanel() {
       <button data-testid="pivot-exe-refresh" className="btn btn-primary btn-sm" onClick={refresh} disabled={busy}>{busy ? '조회 중…' : '새로고침'}</button><button data-testid="pivot-exe-export" className="btn btn-sm" onClick={exportVisible} disabled={!successRange || exporting}>{exporting ? '엑셀 생성…' : '엑셀'}</button>
       <button data-testid="pivot-exe-field-list" className="btn btn-sm" onClick={()=>setFieldList(true)}>필드 목록</button><button data-testid="pivot-exe-filter-editor" className="btn btn-sm" onClick={()=>{setDraftAst(ast);setFilterOpen(true);}}>필터 편집</button><button className="btn btn-sm" onClick={()=>typeof window !== 'undefined' && window.close()}>닫기</button>
     </div>
-    <div style={{display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',fontSize:11,margin:'6px 0'}}><span>행 {zones.rows.map((id)=>zoneChip(id,'rows'))}</span><span>열 {zones.cols.map((id)=>zoneChip(id,'cols'))}</span><span>값 {zones.values.map((value)=>zoneChip(value.id,'values'))}</span><span>필터 {zones.filters.map((id)=>zoneChip(id,'filters'))}</span><span style={{marginLeft:'auto'}}><label><input type="checkbox" checked={filterActive} onChange={(event)=>setFilterActive(event.target.checked)} /> 필터 활성</label><button className="btn btn-sm" onClick={()=>{setAst(EMPTY_AST());setSelections({});}}>필터 지우기</button><button data-testid="pivot-exe-decimals-toggle" className="btn btn-sm" onClick={toggleDecimals}>{decimals === 0 ? '소수점 표시' : '소수점 숨기기'}</button><label><input type="checkbox" checked={zeroVisible} onChange={(event)=>setZeroVisible(event.target.checked)} /> 0 표시</label><button data-testid="pivot-exe-settings-toggle" className="btn btn-sm" onClick={()=>setSettingsOpen((previous)=>!previous)}>표시 설정</button><label><input type="checkbox" checked={showRowTotals} onChange={(event)=>setShowRowTotals(event.target.checked)} /> 행 소계</label><label><input type="checkbox" checked={showColumnTotals} onChange={(event)=>setShowColumnTotals(event.target.checked)} /> 열 소계</label><label><input type="checkbox" checked={showGrandTotals} onChange={(event)=>setShowGrandTotals(event.target.checked)} /> 총계</label></span></div>
+    <div style={{display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',fontSize:11,margin:'6px 0'}}>{zoneArea('rows','행')}{zoneArea('cols','열')}{zoneArea('values','값')}{zoneArea('filters','필터')}<span style={{marginLeft:'auto'}}><label><input type="checkbox" checked={filterActive} onChange={(event)=>setFilterActive(event.target.checked)} /> 필터 활성</label><button className="btn btn-sm" onClick={()=>{setAst(EMPTY_AST());setSelections({});}}>필터 지우기</button><button data-testid="pivot-exe-decimals-toggle" className="btn btn-sm" onClick={toggleDecimals}>{decimals === 0 ? '소수점 표시' : '소수점 숨기기'}</button><label><input type="checkbox" checked={zeroVisible} onChange={(event)=>setZeroVisible(event.target.checked)} /> 0 표시</label><button data-testid="pivot-exe-settings-toggle" className="btn btn-sm" onClick={()=>setSettingsOpen((previous)=>!previous)}>표시 설정</button><label><input type="checkbox" checked={showRowTotals} onChange={(event)=>setShowRowTotals(event.target.checked)} /> 행 소계</label><label><input type="checkbox" checked={showColumnTotals} onChange={(event)=>setShowColumnTotals(event.target.checked)} /> 열 소계</label><label><input type="checkbox" checked={showGrandTotals} onChange={(event)=>setShowGrandTotals(event.target.checked)} /> 총계</label></span></div>
     {settingsOpen && <div style={settingsStyle}><label>행 높이 <NumberSetting testId="pivot-exe-row-height" value={rowHeight} min={18} max={48} onCommit={(value)=>setRowHeight(Math.max(18,Math.min(48,value)))} /></label><label>데이터 열 너비 <NumberSetting testId="pivot-exe-data-width" value={widths.__data ?? 96} min={48} max={400} onCommit={(value)=>setWidth('__data',value)} /></label><label>소수 자릿수 <select value={decimals} onChange={(event)=>changeDecimals(event.target.value)}><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label>{zones.rows.map((id)=><label key={id}>{BY_ID[id].label} 너비 <NumberSetting testId={`pivot-exe-row-width-${id}`} value={widths[id] ?? ({CounName:90,FlowerName:90,ProdName:220}[id] || 120)} min={48} max={400} onCommit={(value)=>setWidth(id,value)} /></label>)}</div>}
-    <button data-testid="pivot-exe-reset" className="btn btn-sm" onClick={()=>{setZones(DEFAULT_ZONES);setHidden([]);setSelections({});setAst(EMPTY_AST());setSorts({});setWidths({});setRowHeight(24);setDecimals(2);setPreviousNonzeroDecimals(2);setZeroVisible(false);setCollapsedRows(new Set());setCollapsedCols(new Set());setShowRowTotals(true);setShowColumnTotals(true);setShowGrandTotals(true);}}>기본 배치 복원</button>
+    <button data-testid="pivot-exe-reset" className="btn btn-sm" onClick={()=>{setZones(DEFAULT_ZONES);setHidden([]);setSelections({});setAst(EMPTY_AST());setFilterActive(true);setSorts({});setWidths({});setRowHeight(24);setDecimals(2);setPreviousNonzeroDecimals(2);setZeroVisible(false);setCollapsedRows(new Set());setCollapsedCols(new Set());setShowRowTotals(true);setShowColumnTotals(true);setShowGrandTotals(true);}}>기본 배치 복원</button>
+    <PivotExeFavorites view={currentView} onApply={applyView} disabled={!layoutHydrated || !preferenceKey} />
+    {zones.values.length === 0 && <div role="status" style={{fontSize:12,color:'#805500',padding:5}}>집계할 값이 없습니다. ‘수량’ 또는 ‘입고총단가’를 값 영역으로 옮기세요.</div>}
+    {preferenceError && <div role="status" style={noticeError}>{preferenceError}</div>}
     {weeksError && <div style={noticeError}>{weeksError}</div>}{error && <div data-testid="pivot-exe-error" role="alert" style={noticeError}>{error}</div>}
-    {successRange ? <div style={{fontSize:11,marginBottom:6,color:dirty?'#9b4c00':'#276749'}}>마지막 성공 범위: {successRange.fromYear} {successRange.fromWeek} ~ {successRange.toYear} {successRange.toWeek} · {rows.length.toLocaleString()}행 {source && ` · ${source}`} {dirty && '— 현재 입력 범위는 아직 조회하지 않았습니다.'}</div> : <div style={{fontSize:11,marginBottom:6,color:'#667'}}>시작/종료 범위를 고른 뒤 새로고침을 누르세요. 조회 전에는 데이터가 전송되지 않습니다.</div>}
+    {successRange ? <div data-testid="pivot-exe-load-status" style={{fontSize:11,marginBottom:6,color:dirty?'#9b4c00':'#276749'}}>마지막 성공 범위: {successRange.fromYear} {successRange.fromWeek} ~ {successRange.toYear} {successRange.toWeek} · {rows.length.toLocaleString()}행 {source && ` · ${source}`} {dirty && '— 변경 범위 조회 전까지 이전 결과를 표시합니다.'} · 배치 변경 시 즉시 재집계</div> : <div style={{fontSize:11,marginBottom:6,color:'#667'}}>선택한 연도·차수의 자료를 자동으로 불러옵니다.</div>}
     <details style={{fontSize:11,marginBottom:6}}><summary>EXE 원본 수량 안내</summary>미발주 구분은 EXE처럼 <code>NoneOutQuantity &gt; 0</code>일 때의 <code>OutQuantity</code>를 표시합니다. 수량 의미를 웹에서 변경하지 않습니다.</details>
     {successRange && <div style={{display:'flex',gap:5,marginBottom:5}}><button data-testid="pivot-exe-expand-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(new Set());setCollapsedCols(new Set());}}>모두 펼침</button><button data-testid="pivot-exe-collapse-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(getPivotExeGroupKeys(pivotModel,'row'));setCollapsedCols(getPivotExeGroupKeys(pivotModel,'column'));}}>모두 접기</button><span style={{fontSize:11,color:'#667',paddingTop:4}}>표시 행 {pivotModel.rowAxis.length} / 필터 결과 {pivotModel.filteredRowCount}행</span></div>}
     {successRange && renderLimitError && <div style={noticeError}>{renderLimitError} 범위를 좁히거나 필터를 적용하세요. 데이터는 잘리지 않았습니다.</div>}
@@ -358,7 +377,7 @@ export default function PivotExePanel() {
   </main>;
 }
 
-function RangeSelect({ label, year, week, weeks, onYear, onWeek }) { const relevant = weeks.filter((item)=>!year || String(item.OrderYear) === String(year)); return <label style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:11}}>{label}<input value={year} onChange={(event)=>onYear(event.target.value.replace(/\D/g,'').slice(0,4))} placeholder="연도" style={{width:48}} /><select value={week} onChange={(event)=>onWeek(event.target.value)}><option value="">차수</option>{relevant.map((item)=>{const value=item.OrderWeek || normalizeWeek(item.OrderYearWeek);return <option key={`${item.OrderYear}-${value}`} value={value}>{item.OrderYear} {value}</option>;})}</select></label>; }
+function RangeSelect({ label, year, week, weeks, onYear, onWeek }) { const relevant = weeks.filter((item)=>!year || String(item.OrderYear) === String(year)); return <label style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:11}}>{label}<input value={year} onChange={(event)=>onYear(event.target.value.replace(/\D/g,'').slice(0,4))} placeholder="연도" style={{width:48}} /><select value={week} onChange={(event)=>onWeek(event.target.value)}><option value="">차수</option>{week && !relevant.some((item)=>(item.OrderWeek || normalizeWeek(item.OrderYearWeek))===week) && <option value={week}>{year} {week}</option>}{relevant.map((item)=>{const value=item.OrderWeek || normalizeWeek(item.OrderYearWeek);return <option key={`${item.OrderYear}-${value}`} value={value}>{item.OrderYear} {value}</option>;})}</select></label>; }
 function NumberSetting({ testId, value, min, max, onCommit }) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
