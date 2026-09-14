@@ -10,6 +10,7 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   const groups=[{key:'a',farmName:'농장 1',productName:'CARNATION / Novia',quantity:15,unit:'박스',sourceKey:10,prodKey:2,weeks:{35:5,36:10}}];
   const farmTrends=[{farmName:'농장 1',unit:'박스',totalDefect:15,totalIncoming:150,defectRate:10,points:[{week:35,defectQuantity:5,incomingQuantity:100,defectRate:5},{week:36,defectQuantity:10,incomingQuantity:50,defectRate:20}]}];
   const issueCandidates=[{key:'a:36',farmName:'농장 1',productName:'CARNATION / Novia',unit:'박스',prodKey:2,week:36,defectQuantity:10,incomingQuantity:50,defectRate:20,sourceKey:10,sourceKeys:[10]}];
+  const signals=[{key:'2026|SAME_ITEM_WEEK|36|farm|2|박스',kind:'SAME_ITEM_WEEK',kindLabel:'동일 품목 반복',farmName:'농장 1',productName:'CARNATION / Novia',unit:'박스',sourceCount:3,productCount:1,weekCount:1,quantity:10,firstWeek:36,lastWeek:36,weeks:[36],sourceKey:10,sourceKeys:[10,11,12],breakdown:[{week:36,orderWeeks:['36-01','36-02'],prodKey:2,productName:'CARNATION / Novia',count:3,quantity:10,unit:'박스'}]}];
   await page.setRequestInterception(true);
   page.on('request',r=>{
    if(!r.url().includes('/api/'))return r.continue();
@@ -18,7 +19,7 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    if(r.url().includes('/api/sales/farm-quality')){
     if(r.method()==='POST'){posts++;requests.push(JSON.parse(r.postData()));if(posts===1){status=503;data={error:'테스트 저장 실패'};}else data.caseKey=cases[0].CaseKey;}
     else if(r.url().includes('caseKey='))data.events=[{EventKey:1,AuthorName:'홍길동',Department:'영업부',Kind:'COMMENT',Body:'추가 불량 상태 확인 요청',CreatedAt:'2026-09-14T01:00:00Z',AfterStatus:'WAITING'}];
-    else Object.assign(data,{cases,groups,farmTrends,issueCandidates,excluded:2,canManage:true,author:{name:'테스트 수입부',department:'수입부'}});
+    else Object.assign(data,{cases,groups,farmTrends,issueCandidates,signals,excluded:2,canManage:true,author:{name:'테스트 수입부',department:'수입부'}});
    }
    r.respond({status,contentType:'application/json',body:JSON.stringify(data)});
   });
@@ -34,6 +35,10 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    assert.equal(await page.$eval('[aria-label="이슈 후보 차수 선택"]',e=>e.value),'36');
    assert.equal(await page.$eval('.issue-rate strong',e=>e.textContent.trim()),'20%');
    assert.equal(await page.$eval('.issue-list article button',e=>e.textContent.trim()),'이슈로 처리');
+   assert.equal(await page.$eval('.signal summary strong',e=>e.textContent.trim()),'불량 3건');
+   assert.equal(await page.$eval('.signal',e=>e.open),false,'details start collapsed');
+   await page.click('.signal summary');
+   assert.equal(await page.$eval('.signal-breakdown>div span:nth-of-type(2)',e=>e.textContent.trim()),'3건');
    await page.evaluate(()=>[...document.querySelectorAll('main nav button')].find(e=>e.textContent==='피드백 · 개선 추적').click());
    await page.waitForSelector('.case');
    const dims=await page.evaluate(()=>({w:innerWidth,doc:document.documentElement.scrollWidth,side:document.querySelectorAll('[data-ui-sidebar]').length,top:document.querySelectorAll('[data-ui-topbar]').length}));
@@ -67,6 +72,6 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   assert(chartBounds.right<=1920&&chartBounds.scroll<=chartBounds.client+2,JSON.stringify(chartBounds));
   await page.screenshot({path:'outputs/farm-quality/graphs-1920.png',fullPage:true});
   assert.equal(errors.length,0,errors.join('\n'));
-  console.log('PASS: 1920x1080 / 760 / 390; shell, overflow, detail, failure preservation, idempotent retry, unanswered filter, graphs');
+  console.log('PASS: 1920x1080 / 760 / 390; shell, overflow, collapsed issue counts/details, failure preservation, idempotent retry, unanswered filter, graphs');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
