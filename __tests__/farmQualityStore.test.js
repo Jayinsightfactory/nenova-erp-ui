@@ -22,7 +22,8 @@ const {saveQuality}=await new AsyncFunction('crypto','query','sql','withTransact
 const create={action:'create',year:2026,sourceKey:10,title:'손상',body:'관찰',requestId:crypto.randomUUID()};
 const first=await saveQuality(create,incoming);
 assert.equal(cases.length,1);assert.equal(events.length,1);
-assert.equal((await saveQuality(create,incoming)).caseKey,first.caseKey);assert.equal(events.length,1);
+events[0].CaseKey=events[0].CaseKey.toUpperCase();
+assert.equal((await saveQuality(create,incoming)).caseKey,first.caseKey,'SQL GUID casing must not hide saved detail');assert.equal(events.length,1);
 await assert.rejects(saveQuality({...create,body:'달라짐'},incoming));
 const request={action:'event',year:2026,caseKey:first.caseKey,version:2,kind:'REQUEST',body:'농장 확인 요청',eventDate:'2026-09-14',dueDate:'2026-09-18',requestId:crypto.randomUUID()};
 await saveQuality(request,incoming);assert.equal(cases[0].Status,'WAITING');
