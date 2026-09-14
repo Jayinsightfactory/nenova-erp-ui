@@ -76,6 +76,12 @@ const nearMiss = parseMessages([{ identity: 'm7-near', message: '새라움플라
 assert.equal(nearMiss[0].requests[0].status, 'AMBIGUOUS');
 const exactDirect = parseMessages([{ identity: 'm7-exact', message: '라움 화이트 2박스 추가', created_at: '2026-09-10T09:00:00+09:00' }], facts, {}, scope);
 assert.equal(exactDirect[0].requests[0].status, 'PENDING');
+const parentheticalCustomers = toFacts({ customers: [{ CustKey: 11, CustName: '주식회사 트라움에스앤씨 (라움)' }, { CustKey: 12, CustName: '아이엠（미우）' }], products: facts.products });
+const parentheticalExact = parseMessages([{ identity: 'm7-parenthetical', message: '라움\n화이트 2박스 추가', created_at: '2026-09-10T09:00:00+09:00' }], parentheticalCustomers, {}, scope);
+assert.equal(parentheticalExact[0].requests[0].custKey, 11);
+assert.equal(parentheticalExact[0].requests[0].status, 'PENDING');
+const fullwidthParentheticalExact = parseMessages([{ identity: 'm7-parenthetical-wide', message: '미우\n화이트 2박스 취소', created_at: '2026-09-10T09:00:00+09:00' }], parentheticalCustomers, {}, scope);
+assert.equal(fullwidthParentheticalExact[0].requests[0].custKey, 12);
 const productionFacts = toFacts({
   customers: [{ CustKey: 1, CustName: '친구플라워' }, { CustKey: 2, CustName: '대구희경' }, { CustKey: 3, CustName: '그린' }, { CustKey: 4, CustName: '수연' }],
   products: [
