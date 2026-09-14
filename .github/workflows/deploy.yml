@@ -203,6 +203,7 @@ jobs:
             node scripts/apply-pre-shipment-migration.mjs --apply
             echo "=== 자동 중국물량표 웹 스키마 적용 ==="
             node scripts/apply-china-volume-board-migration.mjs --apply
+            node scripts/apply-farm-quality-migration.mjs --apply || exit 1
             echo "=== 엑셀 출고분배 전체 되돌리기 스키마 적용 ==="
             node scripts/apply-shipment-import-snapshot-migration.mjs --apply
             echo "=== build ==="

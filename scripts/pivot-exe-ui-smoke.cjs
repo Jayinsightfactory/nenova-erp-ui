@@ -227,7 +227,7 @@ function assertFieldManifest() {
     await click(page, 'pivot-exe-field-CounName', 'open sort field');
     await click(page, null, 'sort', '정렬');
     await click(page, null, 'close menu', '닫기');
-    const downloads = path.resolve('outputs/pivot-exe-downloads');
+    const downloads = path.resolve('outputs/pivot-exe-downloads', String(Date.now()));
     fs.mkdirSync(downloads, { recursive: true });
     const client = await page.createCDPSession();
     await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
