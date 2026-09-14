@@ -21,7 +21,7 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   assert.equal(await page.$$eval('[role=alert]',a=>a.filter(e=>e.textContent.trim()).length),0);
   assert.equal(await page.$eval('main nav button[aria-pressed=true]',e=>e.textContent),'불량 그래프');
   assert.equal(await page.$eval('.analysis-source-count',e=>e.textContent.trim()),`기존 불량 분석 · 농장·품목 ${data.groups.length}개`);
-  if(data.farmTrends.length)assert(await page.$('[aria-label="불량률 농장 선택"]');
+  if(data.farmTrends.length)assert(await page.$('[aria-label="불량률 농장 선택"]'));
   if(data.issueCandidates.length)assert(await page.$('[aria-label="이슈 후보 차수 선택"]'));
   const bounds=await page.$eval('.chart-panels',e=>({right:e.getBoundingClientRect().right,scroll:e.scrollWidth,client:e.clientWidth}));
   assert(bounds.right<=1920&&bounds.scroll<=bounds.client+2,JSON.stringify(bounds));
