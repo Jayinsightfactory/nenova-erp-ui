@@ -3,7 +3,7 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
-    "test:pivot-exe": "node __tests__/pivotExeRange.test.js && node __tests__/pivotExeModel.test.js && node __tests__/pivotExeExport.test.js",
+    "test:pivot-exe": "node __tests__/pivotExeRange.test.js && node __tests__/pivotExeModel.test.js && node __tests__/pivotExePresentation.test.js && node __tests__/pivotExeExport.test.js",
     "pretest:pivot": "npm run test:pivot-exe",
     "pretest:erp-manifest": "npm run test:pivot-exe",
     "dev": "next dev",

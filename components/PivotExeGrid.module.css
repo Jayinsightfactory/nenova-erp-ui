@@ -1,0 +1,16 @@
+.scroll { max-height: calc(100vh - 255px); overflow: auto; border: 1px solid #aab8c8; background: #fff; }
+.table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; line-height: 1.2; color: #172333; }
+.table th, .table td { box-sizing: border-box; height: var(--pivot-row-height); min-height: var(--pivot-row-height); border-right: 1px solid #aab8c8; border-bottom: 1px solid #aab8c8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table thead th { position: sticky; background: #dce5f0; border-top: 0; text-align: left; font-weight: 700; }
+.axisHead { z-index: 20; padding: 0 12px 0 6px; text-align: left !important; }
+.fieldHead { position: sticky; padding: 0 15px 0 5px; background: #cfdae8 !important; }
+.rowHead { position: sticky; vertical-align: top; background: #fff; padding: 3px 6px 0; text-align: left; font-weight: 400; }
+.totalRow .rowHead, .totalRow .numberCell { background: #eef3f8; font-weight: 700; }
+.numberCell { padding: 0 6px; text-align: right; font-variant-numeric: tabular-nums; }
+.headerButton, .rowButton { display: block; width: 100%; overflow: hidden; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.rowButton { padding: 0; text-align: left; }
+.fieldControls { display: grid; grid-template-columns: minmax(0, 1fr) 14px 14px; align-items: center; gap: 1px; }
+.tinyButton { width: 14px; height: 16px; padding: 0; border: 1px solid #91a4ba; border-radius: 2px; background: #f7fafc; color: #30455e; font-size: 10px; line-height: 12px; cursor: pointer; }
+.resizeHandle { position: absolute; top: 0; right: -3px; z-index: 9; width: 7px; height: 100%; cursor: col-resize; }
+.resizeHandle:hover { background: #5b83ad; }
+.empty { padding: 24px; color: #62758a; text-align: center; }
