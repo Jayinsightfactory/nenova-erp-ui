@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {qualityScope,qualityWeek,qualityGroups,qualityAnalytics,qualitySignals,qualityStatus,transitionQuality} from '../lib/farmQuality.js';
+import {canDeleteFarmQuality,qualityScope,qualityWeek,qualityGroups,qualityAnalytics,qualitySignals,qualityStatus,transitionQuality} from '../lib/farmQuality.js';
 const scope=qualityScope({year:2026,from:35,to:37});
 const base={OrderYear:2026,OrderWeek:'36',ProdKey:5,FarmName:'Farm A',SourceUnit:'박스',Quantity:2,ImportConfirmed:true,IsDeleted:false};
 const rows=[{...base,DeductionKey:1},{...base,DeductionKey:1},
@@ -31,6 +31,9 @@ assert.equal(transitionQuality('OBSERVING','CLOSE',true),'CLOSED');
 assert.equal(transitionQuality('CLOSED','RECUR',true),'RECURRED');
 assert.throws(()=>transitionQuality('NEW','RESPONSE',true));
 assert.throws(()=>transitionQuality('WAITING','CLOSE',true));
+assert.equal(canDeleteFarmQuality({userId:'nenovaSS3'}),true);
+assert.equal(canDeleteFarmQuality({userId:'admin'}),false);
+assert.equal(canDeleteFarmQuality({userId:'nenovaSS3 '}),false,'유사 계정이나 공백 변형을 관리자처럼 허용하면 안 된다.');
 const analyticsGroups=qualityGroups([
  {...base,DeductionKey:101,OrderWeek:'35-01',ProdKey:1,ProductName:'A품목',Quantity:10},
  {...base,DeductionKey:102,OrderWeek:'36-02',ProdKey:1,ProductName:'A품목',Quantity:20},
@@ -73,6 +76,7 @@ assert(signals.every(s=>s.sourceKeys.length===new Set(s.sourceKeys).size),'dupli
 assert(!signals.some(s=>s.productName==='전년도'),'same major week in another year must be isolated');
 const store=fs.readFileSync('lib/farmQualityStore.js','utf8');
 const page=fs.readFileSync('pages/sales/farm-quality.js','utf8');
+const api=fs.readFileSync('pages/api/sales/farm-quality.js','utf8');
 assert.match(store,/RequestKey=@req/);assert.match(store,/PayloadHash!==hash/);
 assert.match(store,/WITH\(UPDLOCK,HOLDLOCK\)/);assert.match(store,/OrderYear=@year/);
 assert.match(store,/FROM dbo\.ViewWarehouse vw/);assert.match(store,/p\.OutUnit/);
@@ -83,6 +87,9 @@ assert.match(store,/qualitySignals\(sources\.recordset,scope\)/);
 assert.match(store,/ROW_NUMBER\(\) OVER\(PARTITION BY e\.CaseKey ORDER BY e\.EventKey\) EventNo/);
 assert.match(store,/FROM RankedEvents WHERE RecentRank<=3/);
 assert.match(store,/RecentEvents,EventCount:Number/);
+assert.match(store,/DELETE FROM dbo\.WebFarmQualityEvidence WHERE EventKey=@event/);
+assert.match(store,/DELETE FROM dbo\.WebFarmQualityEvent WHERE CaseKey=@key/);
+assert.match(store,/DELETE FROM dbo\.WebFarmQualityCase WHERE CaseKey=@key AND OrderYear=@year AND Version=@version/);
 assert.doesNotMatch(store,/CustName|Customer/);
 assert.match(page,/useState\('graph'\)/,'기존 불량 분석값이 진입 즉시 보여야 한다.');
 assert.match(page,/기존 불량 분석 · 농장·품목 \{groups\.length\}개/,'분석에 반영된 농장·품목 수를 표시해야 한다.');
@@ -93,4 +100,7 @@ assert.match(page,/Ctrl\+V/);assert.match(page,/이미지 선택/);assert.match(
 assert.match(page,/코멘트 \{c\.EventCount\|\|0\}건/);
 assert.match(page,/className="case-events"/);assert.match(page,/e\.EventNo/);
 assert.match(page,/event-kind-REQUEST/);assert.match(page,/event-heading/);
+assert.match(page,/data\.canDelete/);assert.match(page,/피드백 삭제/);
+assert.match(api,/if\(!canDeleteFarmQuality\(req\.user\)\)return res\.status\(403\)/,'DELETE는 화면 표시와 별개로 서버에서도 nenovaSS3를 검증해야 한다.');
+assert.match(api,/deleteQualityCase\(req\.body,req\.user\)/);
 console.log('Farm quality: cross-year, source, units, status and write boundaries passed');

@@ -4,7 +4,7 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
 (async()=>{
  const browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
  try{
-  const page=await browser.newPage();let posts=0,uploads=0;const requests=[];const errors=[];
+  const page=await browser.newPage();let posts=0,uploads=0,deletes=0;const requests=[];const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   const preview=[
    {EventKey:2,EventNo:2,EventCount:4,Kind:'REQUEST',Body:'농장에 손상 원인과 개선 계획을 요청했습니다.'},
@@ -28,8 +28,9 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    if(r.url().includes('/api/auth/me'))data.user={userId:'fixture',userName:'테스트 수입부',deptName:'수입부',authority:1};
    if(r.url().includes('/api/sales/farm-quality')){
     if(r.method()==='POST'){posts++;requests.push(JSON.parse(r.postData()));if(posts===1){status=503;data={error:'테스트 저장 실패'};}else data.caseKey=cases[0].CaseKey;}
+    else if(r.method()==='DELETE'){deletes++;data={success:true,deleted:true,eventCount:4};}
     else if(r.url().includes('caseKey='))data.events=[{EventKey:1,EventNo:1,AuthorName:'홍길동',Department:'영업부',Kind:'COMMENT',Body:'추가 불량 상태 확인 요청',CreatedAt:'2026-09-14T01:00:00Z',AfterStatus:'WAITING',Evidence:[{EvidenceKey:'90000000-0000-4000-8000-000000000000',FileName:'기존증거.png'}]}];
-    else Object.assign(data,{cases,groups,farmTrends,issueCandidates,signals,excluded:2,canManage:true,author:{name:'테스트 수입부',department:'수입부'}});
+    else Object.assign(data,{cases,groups,farmTrends,issueCandidates,signals,excluded:2,canManage:true,canDelete:true,author:{name:'테스트 수입부',department:'수입부'}});
    }
    r.respond({status,contentType:'application/json',body:JSON.stringify(data)});
   });
@@ -61,6 +62,7 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    const dims=await page.evaluate(()=>({w:innerWidth,doc:document.documentElement.scrollWidth,side:document.querySelectorAll('[data-ui-sidebar]').length,top:document.querySelectorAll('[data-ui-topbar]').length}));
    assert(dims.doc<=width+2,JSON.stringify(dims));assert.equal(dims.side,0);
    await page.click('.case');await page.waitForSelector('.event-list article');
+   assert(await page.$('.detail-actions .danger'),'nenovaSS3 관리자에게만 내려오는 삭제 권한이면 버튼이 보여야 한다.');
    assert.equal(await page.$eval('.event-heading strong',e=>e.textContent.trim()),'1코멘트');
    assert(await page.$('.composer textarea'));
    assert(await page.$('.evidence-box'));assert(await page.$('.event-images img'));
@@ -91,8 +93,13 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   await page.waitForSelector('.chart-panels');
   const chartBounds=await page.$eval('.chart-panels',e=>({right:e.getBoundingClientRect().right,scroll:e.scrollWidth,client:e.clientWidth}));
   assert(chartBounds.right<=1920&&chartBounds.scroll<=chartBounds.client+2,JSON.stringify(chartBounds));
+  await page.evaluate(()=>[...document.querySelectorAll('main nav button')].find(e=>e.textContent==='피드백 · 개선 추적').click());
+  await page.click('.case');await page.waitForSelector('.detail-actions .danger');
+  page.once('dialog',dialog=>dialog.accept());await page.click('.detail-actions .danger');
+  await page.waitForFunction(()=>document.querySelector('.success')?.textContent.includes('코멘트 4건을 삭제'));
+  assert.equal(deletes,1,'확인한 관리자 삭제는 한 번만 요청되어야 한다.');
   await page.screenshot({path:'outputs/farm-quality/graphs-1920.png',fullPage:true});
   assert.equal(errors.length,0,errors.join('\n'));
-  console.log('PASS: 1920x1080 / 760 / 390; numbered highlighted comment previews, evidence file/paste UI, shell, overflow, failure preservation and idempotent retry');
+  console.log('PASS: 1920x1080 / 760 / 390; comment previews, nenovaSS3 delete confirmation, evidence UI, shell, overflow and idempotent retry');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

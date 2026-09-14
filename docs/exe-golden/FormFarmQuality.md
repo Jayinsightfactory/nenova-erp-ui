@@ -35,6 +35,15 @@ their stable chronological number, kind, author and body preview. Opening the ca
 loads the complete numbered history. This projection does not write or recalculate
 the EXE order, shipment, warehouse, estimate, stock or settlement ledgers.
 
+Only the exact web account `nenovaSS3` can remove a feedback case. The browser
+shows the destructive action only when the authenticated GET returns that exact
+permission, and DELETE repeats the exact-account check on the server. It locks
+the selected `OrderYear + CaseKey + Version`, removes linked evidence first,
+then its web-only events and case in one transaction, and records the actor and
+deleted event count in the server audit log. A stale version or another year is
+rejected. `WebSalesDefectDeduction` and every EXE order, shipment, warehouse,
+stock, estimate, sales and settlement row remain unchanged.
+
 ## 2026-09-14 automatic signal projection
 
 The quality page additionally derives four read-only signals from the same confirmed
@@ -53,6 +62,7 @@ original-unit quantity only. This GET projection creates no case or event. A
 | expand signal details | browser state only | preserved | preserved |
 | explicitly create/open feedback | source SELECT only | existing guarded Case/Event write | preserved |
 | attach evidence image | preserved | WebFarmQualityEvidence draft then same-transaction EventKey link | preserved |
+| delete selected feedback (`nenovaSS3` only) | preserved | linked Evidence → Event → Case DELETE in one transaction | preserved |
 
 ## Evidence limitations
 
