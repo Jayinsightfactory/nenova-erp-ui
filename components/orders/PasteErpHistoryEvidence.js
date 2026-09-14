@@ -1,9 +1,11 @@
 import {useEffect,useState} from 'react';
 import {matchingSummary} from '../../lib/distributionCompactMatchUi';
+import {mappedEvidenceSource} from '../../lib/pasteEvidenceSource';
 
-export default function PasteErpHistoryEvidence({week,text,messages=[],revision='',disabled=false}) {
+export default function PasteErpHistoryEvidence({week,text,messages=[],orders=[],revision='',disabled=false}) {
   const [data,setData]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(false),[refresh,setRefresh]=useState(0);
   const sourceKey=JSON.stringify(messages.map(row=>({identity:row.identity,message:row.message,created_at:row.created_at,timestamp_approximate:row.timestamp_approximate})));
+  const mappedKey=JSON.stringify(mappedEvidenceSource(JSON.parse(sourceKey),orders));
   useEffect(()=>{
     setData(null);setError('');setLoading(false);
     const scope=String(week||'').match(/^(\d{4})-(\d{2}-\d{2})$/);
@@ -22,7 +24,7 @@ export default function PasteErpHistoryEvidence({week,text,messages=[],revision=
       running=true;
       setLoading(true);
       try {
-        const response=await fetch('/api/orders/distribution-live-history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({year:scope[1],week:scope[2],from,to,messages:source}),signal:controller.signal});
+        const response=await fetch('/api/orders/distribution-live-history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({year:scope[1],week:scope[2],from,to,messages:JSON.parse(mappedKey)}),signal:controller.signal});
         const value=await response.json();
         if(!response.ok||!value.success)throw Error(typeof value.error==='string'?value.error:'전산 이력 조회 실패');
         if(value.scope?.year!==scope[1]||value.scope?.weeks?.[0]!==scope[2]||value.erpAction!=='NONE'||!Array.isArray(value.items))throw Error('전산 이력 조회 범위를 확인할 수 없습니다.');
@@ -32,11 +34,12 @@ export default function PasteErpHistoryEvidence({week,text,messages=[],revision=
     };
     void run();const timer=setInterval(run,10000);
     return()=>{active=false;controller.abort();clearInterval(timer);};
-  },[week,text,sourceKey,revision,disabled,refresh]);
+  },[week,text,sourceKey,mappedKey,revision,disabled,refresh]);
   if(!text.trim())return null;
   return <section className="paste-erp-evidence" aria-label="전산 수량 변동 처리 확인">
     <div className="head"><strong>전산 수량 변동 · 기존 처리 확인</strong><button type="button" disabled={loading||disabled} onClick={()=>setRefresh(value=>value+1)}>{loading?'조회 중…':'최신 이력 조회'}</button></div>
     {error&&<p role="status">{error}</p>}
+    {mappedKey!==sourceKey&&<p>현재 분석에서 매칭한 전산 업체·품목·수량 기준입니다. 매칭이 잘못되면 수정 후 다시 확인하세요.</p>}
     {data&&<><small>조회 {data.scope.from} ~ {data.scope.to} · 기준 {new Date(data.asOf).toLocaleTimeString('ko-KR')}</small>{data.items.map(item=>{
       const match=matchingSummary(data.balanceComparison,item.sourceIdentity,item);
       return <div className="evidence-item" key={item.sourceIdentity}><b>{match.status==='MATCHED'?'동일 처리 이력 확인':match.status==='PARTIAL'?'일부 처리 이력 확인':'처리 여부 확인 필요'} ({match.matchedCount}/{match.totalCount})</b>
