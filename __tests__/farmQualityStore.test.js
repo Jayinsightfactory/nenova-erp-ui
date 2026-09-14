@@ -2,23 +2,26 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import {qualityScope,qualityGroups,transitionQuality} from '../lib/farmQuality.js';
+import {normalizeEvidenceKeys} from '../lib/farmQualityEvidence.js';
 const source=fs.readFileSync('lib/farmQualityStore.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const incoming={userId:'u1',userName:'담당자',deptName:'수입부'};
-let cases=[],events=[],rollbacks=0;
+let cases=[],events=[],evidence=[],rollbacks=0;
 const q=async(sql,p={})=>{
  const v=k=>p[k]?.value;
- if(sql.includes('OBJECT_ID'))return {recordset:[{id:1,caseId:1}]};
+ if(sql.includes('OBJECT_ID'))return {recordset:[{id:1,caseId:1,evidenceId:1}]};
  if(sql.includes('SELECT CaseKey,PayloadHash'))return {recordset:events.filter(e=>e.RequestKey===v('req'))};
  if(sql.includes('FROM dbo.WebSalesDefectDeduction'))return {recordset:[{DeductionKey:10,OrderYear:2026,OrderWeek:'36',ProdKey:5,ProductName:'Novia',FarmName:'Farm',FarmKey:2,SourceUnit:'박스',Quantity:1,ImportConfirmed:true}]};
  if(sql.includes('INSERT dbo.WebFarmQualityCase')){cases.push({CaseKey:v('key'),OrderYear:v('year'),Status:'NEW',Version:1});return {recordset:[]};}
  if(sql.includes('SELECT * FROM dbo.WebFarmQualityCase'))return {recordset:cases.filter(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'))};
- if(sql.includes('INSERT dbo.WebFarmQualityEvent')){events.push({CaseKey:v('key'),RequestKey:v('req'),PayloadHash:v('hash'),Kind:v('kind'),Body:v('body'),AuthorName:v('name'),Department:v('dept')});return {recordset:[]};}
+ if(sql.includes('INSERT dbo.WebFarmQualityEvent')){const EventKey=events.length+1;events.push({EventKey,CaseKey:v('key'),RequestKey:v('req'),PayloadHash:v('hash'),Kind:v('kind'),Body:v('body'),AuthorName:v('name'),Department:v('dept')});return {recordset:[{EventKey}]};}
+ if(sql.includes('SELECT EvidenceKey FROM dbo.WebFarmQualityEvidence'))return {recordset:evidence.filter(e=>e.EvidenceKey===v('evidence')&&e.OrderYear===v('year')&&e.CreatedBy===v('author')&&e.EventKey==null)};
+ if(sql.includes('UPDATE dbo.WebFarmQualityEvidence SET EventKey')){const e=evidence.find(e=>e.EvidenceKey===v('evidence')&&e.EventKey==null);if(e)e.EventKey=v('event');return {recordset:[]};}
  if(sql.includes('UPDATE dbo.WebFarmQualityCase')){const c=cases.find(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'));c.Status=v('status');c.Version++;return {recordset:[]};}
  throw Error('Unexpected SQL '+sql);
 };
-const tx=async fn=>{const snapshot=structuredClone({cases,events});try{return await fn(q);}catch(e){cases=snapshot.cases;events=snapshot.events;rollbacks++;throw e;}};
-const {saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','qualityScope','qualityGroups','transitionQuality','canUseDefectIncoming',source+';return {saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3},tx,qualityScope,qualityGroups,transitionQuality,u=>u.deptName==='수입부');
+const tx=async fn=>{const snapshot=structuredClone({cases,events,evidence});try{return await fn(q);}catch(e){cases=snapshot.cases;events=snapshot.events;evidence=snapshot.evidence;rollbacks++;throw e;}};
+const {saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','qualityScope','qualityGroups','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys',source+';return {saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,qualityScope,qualityGroups,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys);
 const create={action:'create',year:2026,sourceKey:10,title:'손상',body:'관찰',requestId:crypto.randomUUID()};
 const first=await saveQuality(create,incoming);
 assert.equal(cases.length,1);assert.equal(events.length,1);
@@ -36,5 +39,11 @@ await assert.rejects(saveQuality({...request,kind:'RESPONSE',requestId:crypto.ra
 assert.equal(events.length,count,'stale response and cross-year must rollback');
 await assert.rejects(saveQuality({...request,version:4,kind:'RESPONSE',requestId:crypto.randomUUID()},{...incoming,deptName:'영업부'}));
 await saveQuality({...request,version:4,kind:'RESPONSE',requestId:crypto.randomUUID()},incoming);assert.equal(cases[0].Status,'ANSWERED');
+const imageKey=crypto.randomUUID();evidence.push({EvidenceKey:imageKey,OrderYear:2026,CreatedBy:'u1',EventKey:null});
+await saveQuality({...request,version:5,kind:'COMMENT',body:'사진 근거',evidenceKeys:[imageKey],requestId:crypto.randomUUID()},incoming);
+assert.equal(evidence[0].EventKey,events.at(-1).EventKey,'evidence must bind to the immutable event inside the transaction');
+const foreignImage=crypto.randomUUID();evidence.push({EvidenceKey:foreignImage,OrderYear:2025,CreatedBy:'u1',EventKey:null});
+await assert.rejects(saveQuality({...request,version:6,kind:'COMMENT',body:'다른 연도 사진',evidenceKeys:[foreignImage],requestId:crypto.randomUUID()},incoming));
+assert.equal(evidence.at(-1).EventKey,null,'cross-year evidence must remain unbound after rollback');
 assert(rollbacks>=4);
 console.log('Farm quality transaction mock: idempotent create/replay, state version, comment, author, permissions and year isolation passed');

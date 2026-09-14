@@ -86,4 +86,5 @@ assert.match(page,/기존 불량 분석 · 농장·품목 \{groups\.length\}개/
 assert.match(page,/특정 농장 · 차수별 불량률 추이/);assert.match(page,/특정 차수 · 품목 불량 이슈 후보/);assert.match(page,/이슈로 처리/);
 assert.match(page,/자동 감지 이슈/);assert.match(page,/불량 \{s\.sourceCount\}건/);assert.match(page,/<details className=/);
 assert.doesNotMatch(page,/다중\s*거래처/);
+assert.match(page,/Ctrl\+V/);assert.match(page,/이미지 선택/);assert.match(page,/첨부 이미지는 유지됩니다/);
 console.log('Farm quality: cross-year, source, units, status and write boundaries passed');
