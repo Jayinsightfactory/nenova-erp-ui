@@ -71,6 +71,7 @@ export const MENU_ITEMS = [
       { href: '/sales/weekly-shipment', labelKey: '차수매출관리',    popup: true  },
       { href: '/sales/registration-history', labelKey: '판매등록 히스토리', popup: true },
       { href: '/sales/defect-deductions', labelKey: '영업수입불량차감', popup: true },
+      { href: '/sales/farm-quality', labelKey: '농장 불량·피드백', popup: true },
       { href: '/sales/profit-report', labelKey: '주차별 매출이익 보고서', popup: true },
       { href: '/raum/pnl',           labelKey: '라움 초이문 손익계산서 · 신라호텔', popup: true },
       { href: '/raum/purchase-costs', labelKey: '라움 초이문 차수별 매입단가 · 신라호텔', popup: true },

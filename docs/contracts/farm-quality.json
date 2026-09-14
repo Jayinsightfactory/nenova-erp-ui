@@ -1,0 +1,12 @@
+{
+  "id":"farm-quality","title":"농장 불량 및 부서별 피드백 추적",
+  "scope":["pages/sales/farm-quality.js","pages/api/sales/farm-quality.js","lib/farmQuality.js","lib/farmQualityStore.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "qualityIdentity":"CaseKey; source DeductionKey; farm+product+symptom, year. Customer identity is not returned.",
+  "actions":[{"name":"QUALITY_READ","orderDetail":"preserve","shipmentDetail":"preserve"},{"name":"QUALITY_EVENT","orderDetail":"preserve","shipmentDetail":"preserve"}],
+  "criteria":{"source":"confirmed active WebSalesDefectDeduction, original parent week, Quantity/OriginalQuantity; no financial status filter","units":"separate original units; no unsupported conversion or rate","state":"COMMENT preserves status; REQUEST creates unanswered round; RESPONSE only incoming/admin; APPLY requires answered; CLOSE manual; recurrence is suspected until reviewed","storage":"WebFarmQualityCase+WebFarmQualityEvent only; immutable events, optimistic version and request idempotency","downstream":"Estimate, Order, Shipment, Warehouse, Stock, WebProfitReport preserved"},
+  "crossYearFixture":{"required":true,"description":"2025 and 2026 same parent week are isolated"},
+  "requiredTestFiles":["__tests__/farmQuality.test.js","__tests__/farmQualityStore.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormFarmQuality.md","source":"C:/Users/USER/nenova-decompiled/Nenova/FormSalesDefectView.cs","methods":["GetData"],"tables":["ShipmentMaster","Estimate"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}

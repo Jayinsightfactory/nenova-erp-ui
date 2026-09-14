@@ -1,0 +1,34 @@
+name: Farm quality read-only schema probe
+on:
+  pull_request:
+    paths:
+      - 'lib/farmQuality*'
+      - 'docs/migrations/*farm_quality*'
+      - '.github/workflows/farm-quality-probe.yml'
+  workflow_dispatch:
+jobs:
+  probe:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            cd /var/www/nenova-erp
+            node --env-file=.env.local --input-type=module <<'NODE'
+            import {query,getPool} from './lib/db.js';
+            try {
+              const columns=await query("SELECT c.name FROM sys.columns c WHERE c.object_id=OBJECT_ID(N'dbo.WebSalesDefectDeduction')");
+              const names=new Set(columns.recordset.map(c=>c.name));
+              const required=['DeductionKey','OrderYear','OrderWeek','ProdKey','ProdName','FarmKey','FarmName','SourceUnit','Quantity','OriginalQuantity','ImportConfirmed','IsDeleted','DeductionType'];
+              const missing=required.filter(c=>!names.has(c));
+              console.log(JSON.stringify({requiredColumns:required,missing}));
+              if(missing.length)throw Error('Source schema incompatible');
+              const result=await query("SELECT d.OrderYear,COUNT(*) SourceRows,SUM(CASE WHEN d.ImportConfirmed=1 AND ISNULL(d.IsDeleted,0)=0 AND d.FarmName<>N'' AND d.ProdKey>0 THEN 1 ELSE 0 END) EligibleRows FROM dbo.WebSalesDefectDeduction d LEFT JOIN Product p ON p.ProdKey=d.ProdKey WHERE d.OrderYear IN(2025,2026) AND d.DeductionType=N'불량차감' GROUP BY d.OrderYear");
+              console.log(JSON.stringify({readOnly:true,aggregate:result.recordset}));
+            } finally {await (await getPool()).close();}
+            NODE
