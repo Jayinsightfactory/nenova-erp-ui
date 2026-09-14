@@ -23,19 +23,20 @@ const q=async(sql,p={})=>{
  if(sql.includes('SELECT * FROM dbo.WebFarmQualityCase'))return {recordset:cases.filter(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'))};
  if(sql.includes('SELECT CaseKey,Version,Title FROM dbo.WebFarmQualityCase'))return {recordset:cases.filter(c=>String(c.CaseKey).toLowerCase()===String(v('key')).toLowerCase()&&c.OrderYear===v('year'))};
  if(sql.includes('SELECT EventKey FROM dbo.WebFarmQualityEvent'))return {recordset:events.filter(e=>String(e.CaseKey).toLowerCase()===String(v('key')).toLowerCase()).map(e=>({EventKey:e.EventKey}))};
- if(sql.includes('INSERT dbo.WebFarmQualityEvent')){const EventKey=events.length+1;events.push({EventKey,CaseKey:v('key'),RequestKey:v('req'),PayloadHash:v('hash'),Kind:v('kind'),Body:v('body'),AuthorName:v('name'),Department:v('dept')});return {recordset:[{EventKey}]};}
+ if(sql.includes('INSERT dbo.WebFarmQualityEvent')){const EventKey=events.length+1;const saved={EventKey,CaseKey:v('key'),RequestKey:v('req'),PayloadHash:v('hash'),Kind:v('kind'),Body:v('body'),AuthorId:v('author'),AuthorName:v('name'),Department:v('dept'),BeforeStatus:v('before'),AfterStatus:v('after'),EventDate:v('date'),DueDate:v('due'),AppliedWeek:v('applied'),CreatedAt:new Date('2026-09-14T01:00:00Z')};events.push(saved);return {recordset:[saved]};}
  if(sql.includes('SELECT EvidenceKey FROM dbo.WebFarmQualityEvidence'))return {recordset:evidence.filter(e=>e.EvidenceKey===v('evidence')&&e.OrderYear===v('year')&&e.CreatedBy===v('author')&&e.EventKey==null)};
  if(sql.includes('UPDATE dbo.WebFarmQualityEvidence SET EventKey')){const e=evidence.find(e=>e.EvidenceKey===v('evidence')&&e.EventKey==null);if(e)e.EventKey=v('event');return {recordset:[]};}
  if(sql.includes('DELETE FROM dbo.WebFarmQualityEvidence')){evidence=evidence.filter(e=>e.EventKey!==v('event'));return {recordset:[]};}
  if(sql.includes('DELETE FROM dbo.WebFarmQualityEvent')){events=events.filter(e=>String(e.CaseKey).toLowerCase()!==String(v('key')).toLowerCase());return {recordset:[]};}
  if(sql.includes('DELETE FROM dbo.WebFarmQualityCase')){const before=cases.length;cases=cases.filter(c=>!(String(c.CaseKey).toLowerCase()===String(v('key')).toLowerCase()&&c.OrderYear===v('year')&&c.Version===v('version')));return {recordset:[],rowsAffected:[before-cases.length]};}
- if(sql.includes('UPDATE dbo.WebFarmQualityCase')){const c=cases.find(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'));c.Status=v('status');c.Version++;return {recordset:[]};}
+ if(sql.includes('UPDATE dbo.WebFarmQualityCase')){const c=cases.find(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'));c.Status=v('status');c.Version++;c.DueDate=v('kind')==='REQUEST'?v('due'):c.DueDate;c.AppliedWeek=v('kind')==='APPLY'?v('applied'):v('kind')==='REQUEST'?null:c.AppliedWeek;c.UpdatedAt=new Date('2026-09-14T01:00:00Z');return {recordset:[{Version:c.Version,Status:c.Status,DueDate:c.DueDate,AppliedWeek:c.AppliedWeek,UpdatedAt:c.UpdatedAt}]};}
  throw Error('Unexpected SQL '+sql);
 };
 const tx=async fn=>{const snapshot=structuredClone({cases,events,evidence});try{return await fn(q);}catch(e){cases=snapshot.cases;events=snapshot.events;evidence=snapshot.evidence;rollbacks++;throw e;}};
 const {deleteQualityCase,loadQuality,saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','canDeleteFarmQuality','qualityScope','qualityGroups','qualityAnalytics','qualitySignals','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys',source+';return {deleteQualityCase,loadQuality,saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys);
 const create={action:'create',year:2026,sourceKey:10,title:'손상',body:'관찰',requestId:crypto.randomUUID()};
 const first=await saveQuality(create,incoming);
+assert.equal(first.caseVersion,2);assert.equal(first.event.Body,'관찰');assert.equal(first.event.EventKey,'1');
 assert.equal(cases.length,1);assert.equal(events.length,1);
 events[0].CaseKey=events[0].CaseKey.toUpperCase();
 assert.equal((await saveQuality(create,incoming)).caseKey,first.caseKey,'SQL GUID casing must not hide saved detail');assert.equal(events.length,1);
@@ -43,7 +44,8 @@ await assert.rejects(saveQuality({...create,body:'달라짐'},incoming));
 const request={action:'event',year:2026,caseKey:first.caseKey,version:2,kind:'REQUEST',body:'농장 확인 요청',eventDate:'2026-09-14',dueDate:'2026-09-18',requestId:crypto.randomUUID()};
 await saveQuality(request,incoming);assert.equal(cases[0].Status,'WAITING');
 const comment={...request,kind:'COMMENT',version:1,requestId:crypto.randomUUID(),body:'영업부 추가 확인'};
-await saveQuality(comment,{...incoming,deptName:'영업부'});assert.equal(cases[0].Status,'WAITING');
+const savedComment=await saveQuality(comment,{...incoming,deptName:'영업부'});assert.equal(cases[0].Status,'WAITING');
+assert.equal(savedComment.event.Body,'영업부 추가 확인');assert.equal(savedComment.caseStatus,'WAITING');
 assert.equal(events.at(-1).Department,'영업부');assert.equal(events.at(-1).AuthorName,'담당자');
 const count=events.length;
 await assert.rejects(saveQuality({...request,year:2025,requestId:crypto.randomUUID()},incoming));

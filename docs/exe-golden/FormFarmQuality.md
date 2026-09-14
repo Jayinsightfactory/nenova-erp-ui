@@ -64,6 +64,20 @@ original-unit quantity only. This GET projection creates no case or event. A
 | attach evidence image | preserved | WebFarmQualityEvidence draft then same-transaction EventKey link | preserved |
 | delete selected feedback (`nenovaSS3` only) | preserved | linked Evidence → Event → Case DELETE in one transaction | preserved |
 
+## 2026-09-14 comment acknowledgement repair
+
+The comment button previously allowed a click while the list/detail refresh flag was active,
+but `save()` returned without any visible result. After a successful transaction, the browser
+also waited for a second list/history GET before it could show the inserted comment. A slow or
+failed refresh therefore looked like a failed write even when the Event row was committed.
+
+The transaction now returns the inserted Event and updated Case version/status. The browser
+renders that result immediately and performs list/history refresh silently afterward. A refresh
+failure is reported as a refresh warning and never relabels the committed write as failed.
+Server logs record request/case/actor metadata without the comment body. The write scope remains
+`WebFarmQualityCase`, `WebFarmQualityEvent`, and explicitly linked `WebFarmQualityEvidence` only;
+all EXE order, shipment, warehouse, stock, estimate, sales, and settlement rows remain preserved.
+
 ## Evidence limitations
 
 Local schema documentation and source were inspected. Production read-only schema

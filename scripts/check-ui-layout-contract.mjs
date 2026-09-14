@@ -32,15 +32,37 @@ for (const file of pageFiles) {
 }
 
 const layoutSource = fs.readFileSync(path.join(root, 'components/Layout.js'), 'utf8');
+const backSource = fs.readFileSync(path.join(root, 'components/MenuBackButton.js'), 'utf8');
 const menuBlock = layoutSource.match(/export const MENU_ITEMS = \[([\s\S]*?)\n\];/);
+let menuHrefs = [];
 if (!menuBlock) violations.push('components/Layout.js: MENU_ITEMS를 찾을 수 없습니다.');
 else {
   const hrefs = [...menuBlock[1].matchAll(/href:\s*['"]([^'"]+)['"]/g)].map((match) => match[1]);
+  menuHrefs = hrefs;
   const labels = [...menuBlock[1].matchAll(/labelKey:\s*['"]([^'"]+)['"]/g)].map((match) => match[1]);
   for (const [kind, values] of [['href', hrefs], ['labelKey', labels]]) {
     const duplicates = [...new Set(values.filter((value, index) => values.indexOf(value) !== index))];
     if (duplicates.length) violations.push(`MENU_ITEMS 중복 ${kind}: ${duplicates.join(', ')}`);
   }
+}
+if ((layoutSource.match(/<MenuBackButton\s*\/>/g) || []).length < 2) {
+  violations.push('components/Layout.js: 일반/팝업 상단바 모두 뒤로가기 버튼을 제공해야 합니다.');
+}
+if (!/needsStandaloneBack\s*&&\s*<MenuBackButton standalone\s*\/>/.test(appSource)) {
+  violations.push('pages/_app.js: 자체 화면틀 메뉴에도 공통 뒤로가기 버튼이 필요합니다.');
+}
+if (!/window\.history\.length>1/.test(backSource) || !/router\.push\('\/dashboard'\)/.test(backSource)) {
+  violations.push('components/MenuBackButton.js: 브라우저 이력과 대시보드 fallback이 필요합니다.');
+}
+const standaloneBlock = appSource.match(/const STANDALONE_MENU_BACK_ROUTES = new Set\(\[([^\]]*)\]\)/);
+const standaloneRoutes = new Set([...(standaloneBlock?.[1] || '').matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1]));
+for (const route of menuHrefs.filter(href => noLayoutRoutes.has(href))) {
+  const routeFile = [path.join(pagesRoot, `${route.slice(1)}.js`), path.join(pagesRoot, route.slice(1), 'index.js')].find(fs.existsSync);
+  const routeSource = routeFile ? fs.readFileSync(routeFile, 'utf8') : '';
+  const ownsBackButton = /import\s+Layout\s+from\s+['"][^'"]*components\/Layout['"]/.test(routeSource)
+    || /import\s+MenuBackButton\s+from\s+['"][^'"]*components\/MenuBackButton['"]/.test(routeSource);
+  if (!ownsBackButton && !standaloneRoutes.has(route)) violations.push(`${route}: 자체 화면틀 메뉴의 뒤로가기 경로가 누락되었습니다.`);
+  if (ownsBackButton && standaloneRoutes.has(route)) violations.push(`${route}: 자체 뒤로가기와 standalone 뒤로가기가 중복됩니다.`);
 }
 
 const mobileSource = fs.readFileSync(path.join(root, 'pages/m/index.js'), 'utf8');

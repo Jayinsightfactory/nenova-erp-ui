@@ -6,6 +6,7 @@
 // NO_LAYOUT(_app.js) + 메뉴 popup 항목(components/Layout.js '연동' 그룹, userIds:['nenovaSS3']).
 import fs from 'fs';
 import path from 'path';
+import MenuBackButton from '../../components/MenuBackButton';
 import { verifyReqUser } from '../../lib/auth';
 import { isOrbitReportViewer } from '../../lib/orbitReportAccess';
 
@@ -31,7 +32,7 @@ export default function OrbitReportPage({ userId, html }) {
         padding: '8px 14px', background: '#171a21', color: '#e7eaf0', borderBottom: '1px solid #262b35',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif', fontSize: 13,
       }}>
-        <a href="/dashboard" style={{ color: '#5b8dff', textDecoration: 'none', fontWeight: 700 }}>← ERP</a>
+        <MenuBackButton />
         <b style={{ fontSize: 14 }}>직원 업무 심화 리포트</b>
         <span style={{ color: '#98a1b2' }}>Orbit AI · 실 관측데이터 · {userId} 전용</span>
       </div>

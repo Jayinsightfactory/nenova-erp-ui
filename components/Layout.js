@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useLang } from '../lib/i18n';
+import MenuBackButton from './MenuBackButton';
 
 // hydration 안전한 날짜 컴포넌트
 function ClientDate() {
@@ -265,6 +266,7 @@ export default function Layout({ children, title }) {
                 {process.env.NEXT_PUBLIC_BUILD_VERSION || 'v?'}
               </span>
               {user && <span style={{fontSize:11, opacity:.8}}>{user.userName}</span>}
+              <MenuBackButton />
               {/* ?popup=1 정식 팝업이 아닌 자동 접힘/강제 접힘일 때만 '메뉴 펼치기' 노출 → 언제든 사이드바 복구 가능 */}
               {!isPopup && (
                 <button onClick={() => setSidebarOverride(false)}
@@ -340,6 +342,7 @@ export default function Layout({ children, title }) {
             <span data-ui-page-title style={{fontWeight:'bold', fontSize:13}}>{t(pageTitle)}</span>
             <span style={{marginLeft:'auto', display:'flex', gap:6, alignItems:'center'}}>
               <ClientDate />
+              <MenuBackButton />
               {/* 언어 전환 버튼 */}
               <button className="btn btn-sm" onClick={toggleLang}
                 style={{
