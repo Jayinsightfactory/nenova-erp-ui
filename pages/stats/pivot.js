@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { apiGet } from '../../lib/useApi';
+import PivotExePanel from '../../components/PivotExePanel';
 import { useColumnResize } from '../../lib/useColumnResize';
 import { useWeekInput, useYearInput, getCurrentWeek, WeekInput, WeekSpinInput, YearInput, formatWeekDisplay } from '../../lib/useWeekInput';
 import { t } from '../../lib/i18n';
@@ -391,12 +392,15 @@ function ColHeader({ label, sortKey, sorts, onSort, filter, onFilter, filterOpti
   );
 }
 
-export default function Pivot() {
+export function LegacyPivot() {
   const router = useRouter();
   const { t } = useLang();
-  const [showDecimals, setShowDecimals] = useState(() => {
-    try { return localStorage.getItem('pivotShowDecimals') !== '0'; } catch { return true; }
-  });
+  // Keep the server and first browser render identical.  Saved display settings
+  // are restored after hydration instead of being read during render.
+  const [showDecimals, setShowDecimals] = useState(true);
+  useEffect(() => {
+    try { setShowDecimals(localStorage.getItem('pivotShowDecimals') !== '0'); } catch {}
+  }, []);
   const fmtNum = useCallback((n) => formatPivotNum(n, showDecimals), [showDecimals]);
   useEffect(() => {
     try { localStorage.setItem('pivotShowDecimals', showDecimals ? '1' : '0'); } catch {}
@@ -2388,6 +2392,34 @@ export default function Pivot() {
       )}
       </div>
     </div>
+    </>
+  );
+}
+
+// New users start with the EXE-compatible pivot.  The legacy screen remains
+// available at the same route and is never mounted until selected, which also
+// keeps its historical browser-only settings out of the initial SSR markup.
+export default function Pivot() {
+  const [mode, setMode] = useState('exe');
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('statsPivotMode');
+      if (saved === 'legacy' || saved === 'exe') setMode(saved);
+    } catch {}
+  }, []);
+  const chooseMode = useCallback((next) => {
+    setMode(next);
+    try { localStorage.setItem('statsPivotMode', next); } catch {}
+  }, []);
+  return (
+    <>
+      <Head><title>피벗 통계</title></Head>
+      <div style={{padding:'8px 12px 0', display:'flex', alignItems:'center', gap:4, background:'#f5f7fa', borderBottom:'1px solid #d8dee8'}}>
+        <span style={{fontSize:12, fontWeight:700, marginRight:4}}>피벗 모드</span>
+        <button type="button" className={`btn btn-sm ${mode === 'exe' ? 'btn-primary' : ''}`} onClick={() => chooseMode('exe')}>전산 피벗</button>
+        <button type="button" className={`btn btn-sm ${mode === 'legacy' ? 'btn-primary' : ''}`} onClick={() => chooseMode('legacy')}>기존 웹 피벗</button>
+      </div>
+      {mode === 'exe' ? <PivotExePanel /> : <LegacyPivot />}
     </>
   );
 }
