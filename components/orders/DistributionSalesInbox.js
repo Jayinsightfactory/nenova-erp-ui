@@ -10,7 +10,7 @@ import DistributionChangeAudit from './DistributionChangeAudit';
 
 const MANUAL_APPLICATION_STATUSES=['MANUALLY_APPLIED','MANUALLY_NOT_APPLIED','CLEAR'];
 const MANUAL_APPLICATION_LABELS={MANUALLY_APPLIED:'적용됨 · 수동 확인',MANUALLY_NOT_APPLIED:'미적용 · 수동 확인',CLEAR:'적용 미확인 · 표시 해제'};
-const LIVE_HISTORY_LABELS={ORDER_AND_DISTRIBUTION:'주문·분배 이력 확인',ORDER_ONLY:'주문 이력 확인',DISTRIBUTION_EVIDENCE:'분배 이력 확인',UNIT_HISTORY_CANDIDATE:'단위 미확정 · 이력 후보',NO_LIVE_EVIDENCE:'대응 이력 미확인',AMBIGUOUS:'확인 필요'};
+const LIVE_HISTORY_LABELS={ORDER_AND_DISTRIBUTION:'주문·분배 이력 확인',ORDER_ONLY:'주문 이력 확인',DISTRIBUTION_EVIDENCE:'분배 이력 확인',UNIT_HISTORY_CANDIDATE:'단위 미확정 · 이력 후보',PRODUCT_HISTORY_CANDIDATE:'품목 미확정 · 이력 후보',NO_LIVE_EVIDENCE:'대응 이력 미확인',AMBIGUOUS:'확인 필요'};
 const LIVE_HISTORY_MESSAGE_LIMIT=200;
 
 function shortApplicationWeek(year,fullWeek) {
