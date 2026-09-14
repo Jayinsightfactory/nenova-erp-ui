@@ -3,6 +3,7 @@
   "title": "영업수입불량차감 양식·견적서관리 등록 계약",
   "scope": [
     "pages/sales/defect-deductions.js",
+    "scripts/defect-incoming-group-smoke.cjs",
     "pages/sales/defect-deduction-register-review.js",
     "pages/estimate.js",
     "pages/api/sales/defect-deductions.js",
@@ -20,6 +21,7 @@
     "lib/defectEstimateTargetScope.js",
     "lib/salesDefectDeductions.js",
     "lib/salesDefectSupportStatus.js",
+    "lib/salesDefectIncomingGroup.js",
     "lib/salesDefectDeductionExcel.js",
     "lib/productSearchRanking.js",
     "lib/orderImportMatch.js",
@@ -47,6 +49,7 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
+    {"name":"INCOMING_GROUP_VIEW", "orderDetail":"preserve", "shipmentDetail":"preserve", "stockMaster":"preserve", "estimate":"preserve", "sideEffect":"수입부 확인 화면의 동일 조회 결과를 기본 거래처별 또는 사용자가 선택한 품종별로 안정 정렬해 표시한다. 원본 incomingRows와 sourceIndex를 보존하여 농장 입력·확정·확정취소 대상 DeductionKey가 바뀌지 않으며 DB·견적·주문·분배·재고를 변경하지 않는다."},
     {"name":"MANUAL_COST_SAVE", "orderDetail":"preserve", "shipmentDetail":"preserve", "stockMaster":"preserve", "estimate":"preserve", "sideEffect":"영업지원 권한으로 미등록 원장의 단가 직접입력/해제만 저장한다. DeductionKey 잠금과 RowVersionNo/업체/품목 검증 후 WebSalesDefectDeduction 감사 버전을 갱신하고 History MANUAL_COST 이벤트에 적용 연도·차수·업체·품목·단위·금액을 기록한다. EstimateCost나 주문/분배 단가는 변경하지 않는다."},
     {"name":"OPEN_SUPPORT_FIX_STATUS", "orderDetail":"preserve", "shipmentDetail":"preserve", "stockMaster":"preserve", "estimate":"preserve"},
     {"name":"OPEN_SUPPORT_CUSTOMER_ESTIMATE", "orderDetail":"preserve", "shipmentDetail":"preserve", "stockMaster":"preserve", "estimate":"preserve", "sideEffect":"선택한 OrderYear+부모 OrderWeek+CustKey로 견적서관리 팝업을 열어 해당 업체 불량차감 행을 강조한다. Estimate/Order/Shipment 원장은 변경하지 않는다."},

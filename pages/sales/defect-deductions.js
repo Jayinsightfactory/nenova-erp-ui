@@ -11,6 +11,7 @@ import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
+import { sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -155,6 +156,7 @@ export default function SalesDefectDeductionsPage() {
   const [activeTab, setActiveTab] = useState('sales');
   const [rows, setRows] = useState([]);
   const [incomingRows, setIncomingRows] = useState([]);
+  const [incomingGroupMode, setIncomingGroupMode] = useState('customer');
   const [supportRows, setSupportRows] = useState([]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
@@ -1337,7 +1339,11 @@ export default function SalesDefectDeductionsPage() {
     .filter((key) => key > 0);
   const supportAllSelected = supportSelectableKeys.length > 0 && supportSelectableKeys.every((key) => supportSelected.has(key));
 
-  const printSourceRows = activeTab === 'incoming' ? incomingRows : rows;
+  const displayedIncomingRows = useMemo(
+    () => sortIncomingRows(incomingRows, incomingGroupMode),
+    [incomingRows, incomingGroupMode],
+  );
+  const printSourceRows = activeTab === 'incoming' ? displayedIncomingRows.map(({ row }) => row) : rows;
   const printRows = Array.from({ length: Math.max(printSourceRows.length, 39) }, (_, index) => printSourceRows[index] || null);
   const printQuantity = (row) => {
     if (!row || row.quantity == null || row.quantity === '') return '';
@@ -1515,14 +1521,19 @@ export default function SalesDefectDeductionsPage() {
       <div className="card incoming-review-card">
         <div className="incoming-review-head">
           <div><strong>수입부 확인 — {year}년 {week}차 전체 불량</strong><span>{incomingLoading ? ' 불러오는 중…' : ` ${incomingRows.length}건`}</span></div>
+          <div className="incoming-group-toggle" role="group" aria-label="수입부 확인 목록 묶음 기준">
+            <span>묶어보기</span>
+            <button type="button" className={`btn btn-xs ${incomingGroupMode === 'customer' ? 'is-active' : ''}`} aria-pressed={incomingGroupMode === 'customer'} onClick={() => setIncomingGroupMode('customer')}>거래처</button>
+            <button type="button" className={`btn btn-xs ${incomingGroupMode === 'product' ? 'is-active' : ''}`} aria-pressed={incomingGroupMode === 'product'} onClick={() => setIncomingGroupMode('product')}>품종</button>
+          </div>
           <span className="incoming-review-note">농장을 선택하면 전체 확정되고, 보완 필요 또는 비고를 남긴 행은 농장 미정이어도 우선 저장할 수 있습니다.</span>
         </div>
         <div className="defect-grid-scroll incoming-grid-scroll">
           <table className="data-table defect-grid incoming-grid" onFocusCapture={handleGridFocusCapture}>
             <colgroup><col style={{ width: '3%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} /><col style={{ width: '8%' }} /><col style={{ width: '19%' }} /><col style={{ width: '7%' }} /><col style={{ width: '15%' }} /><col style={{ width: '6%' }} /><col style={{ width: '6%' }} /><col style={{ width: '10%' }} /><col style={{ width: '7%' }} /></colgroup>
             <thead><tr><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>농장 검색/선택</th><th>크레딧 가능</th><th>보완 필요</th><th>비고</th><th>확정</th></tr></thead>
-            <tbody>{incomingRows.map((row, index) => <tr className="defect-row" key={row.deductionKey || `incoming-${index}`}>
-              <td>{index + 1}</td>
+            <tbody>{displayedIncomingRows.map(({ row, sourceIndex, displayIndex, isGroupStart, groupLabel }) => <tr className={`defect-row ${isGroupStart ? 'incoming-group-start' : ''}`} data-group-label={groupLabel} key={row.deductionKey || `incoming-${sourceIndex}`}>
+              <td>{displayIndex + 1}</td>
               <td>{row.managerName || '-'}</td>
               <td>{row.customerName || '-'}</td>
               <td>{row.productName || '-'}</td>
@@ -1530,16 +1541,16 @@ export default function SalesDefectDeductionsPage() {
               <td>{printQuantity(row)}</td>
               <td>
                 <div className="lookup-inline">
-                  <input data-defect-field={`incoming-farm-${index}`} className="input cell incoming-farm-input" value={valueOf(row, 'farmName')} onChange={(e) => { updateIncomingRow(index, { farmName: e.target.value, farmKey: null, importConfirmed: false }); if (e.target.value.trim()) openLookup(index, 'farm', e.target.value, 'incoming'); else closeLookup(); }} onKeyDown={(e) => handleLookupKeyDown(e, index, 'farm', e.currentTarget.value, null, 'incoming')} />
-                  <button type="button" className="btn btn-xs lookup-btn" onClick={() => runLookup(index, 'farm', '', 'incoming')}>검색</button>
+                  <input data-defect-field={`incoming-farm-${sourceIndex}`} className="input cell incoming-farm-input" value={valueOf(row, 'farmName')} onChange={(e) => { updateIncomingRow(sourceIndex, { farmName: e.target.value, farmKey: null, importConfirmed: false }); if (e.target.value.trim()) openLookup(sourceIndex, 'farm', e.target.value, 'incoming'); else closeLookup(); }} onKeyDown={(e) => handleLookupKeyDown(e, sourceIndex, 'farm', e.currentTarget.value, null, 'incoming')} />
+                  <button type="button" className="btn btn-xs lookup-btn" onClick={() => runLookup(sourceIndex, 'farm', '', 'incoming')}>검색</button>
                 </div>
-                {renderLookupPanel(index, 'farm', 'incoming')}
+                {renderLookupPanel(sourceIndex, 'farm', 'incoming')}
               </td>
-              <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateIncomingRow(index, { creditApplied: e.target.checked, importConfirmed: false })} /> 가능</label></td>
-              <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.importReviewRequired} onChange={(e) => updateIncomingRow(index, { importReviewRequired: e.target.checked, importConfirmed: false })} /> 필요</label></td>
-              <td><input className="input cell incoming-note-input" value={valueOf(row, 'note')} placeholder="비고" onChange={(e) => updateIncomingRow(index, { note: e.target.value, importConfirmed: false })} /></td>
+              <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.creditApplied} onChange={(e) => updateIncomingRow(sourceIndex, { creditApplied: e.target.checked, importConfirmed: false })} /> 가능</label></td>
+              <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.importReviewRequired} onChange={(e) => updateIncomingRow(sourceIndex, { importReviewRequired: e.target.checked, importConfirmed: false })} /> 필요</label></td>
+              <td><input className="input cell incoming-note-input" value={valueOf(row, 'note')} placeholder="비고" onChange={(e) => updateIncomingRow(sourceIndex, { note: e.target.value, importConfirmed: false })} /></td>
               <td>
-                {row.importConfirmed ? <button type="button" className="btn btn-xs" onClick={() => cancelIncomingRow(index)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정 취소'}</button> : <button type="button" className="btn btn-primary btn-xs" onClick={() => confirmIncomingRow(index)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정'}</button>}
+                {row.importConfirmed ? <button type="button" className="btn btn-xs" onClick={() => cancelIncomingRow(sourceIndex)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정 취소'}</button> : <button type="button" className="btn btn-primary btn-xs" onClick={() => confirmIncomingRow(sourceIndex)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정'}</button>}
                 <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : '확인 필요'}</div>
               </td>
             </tr>)}
@@ -1850,6 +1861,11 @@ export default function SalesDefectDeductionsPage() {
         .incoming-review-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
         .incoming-review-head strong { color: #1e3a8a; }
         .incoming-review-head span { color: #475569; font-size: 12px; }
+        .incoming-group-toggle { display: inline-flex; align-items: center; gap: 3px; padding: 3px; border: 1px solid #bfcee2; border-radius: 6px; background: #f8fafc; }
+        .incoming-group-toggle > span { padding: 0 5px; font-weight: 700; color: #334155; }
+        .incoming-group-toggle .btn { min-width: 62px; border-color: transparent; background: transparent; }
+        .incoming-group-toggle .btn.is-active { color: #fff; border-color: #1d4ed8; background: #1d4ed8; box-shadow: 0 1px 2px rgba(30, 64, 175, .25); }
+        .incoming-grid tr.incoming-group-start td { border-top: 3px solid #93b4de; }
         .incoming-review-note { color: #64748b !important; }
         .incoming-grid-scroll { max-height: calc(100vh - 330px); }
         .incoming-grid { width: 100%; min-width: 0; table-layout: fixed; font-size: 12px; }
