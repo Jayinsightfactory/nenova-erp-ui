@@ -4,12 +4,14 @@ import {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,kstCalendarDate
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
 import {classifyMessage,matchingSummary,summarizeMessage} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
+import {mappedEvidenceSource} from '../../lib/pasteEvidenceSource';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 
 const MANUAL_APPLICATION_STATUSES=['MANUALLY_APPLIED','MANUALLY_NOT_APPLIED','CLEAR'];
 const MANUAL_APPLICATION_LABELS={MANUALLY_APPLIED:'적용됨 · 수동 확인',MANUALLY_NOT_APPLIED:'미적용 · 수동 확인',CLEAR:'적용 미확인 · 표시 해제'};
 const LIVE_HISTORY_LABELS={ORDER_AND_DISTRIBUTION:'주문·분배 이력 확인',ORDER_ONLY:'주문 이력 확인',DISTRIBUTION_EVIDENCE:'분배 이력 확인',NO_LIVE_EVIDENCE:'대응 이력 미확인',AMBIGUOUS:'확인 필요'};
+const LIVE_HISTORY_MESSAGE_LIMIT=200;
 
 function shortApplicationWeek(year,fullWeek) {
   const match=/^(\d{4})-(\d{2}-\d{2})$/.exec(String(fullWeek||''));
@@ -47,7 +49,7 @@ function sourceWeekFromMessage(value, year) {
   return unique.length===1&&year?`${year}-${unique[0]}`:'';
 }
 
-export default function DistributionSalesInbox({year,week,disabled,onLoadText}) {
+export default function DistributionSalesInbox({year,week,disabled,onLoadText,evidenceMessages=[],evidenceOrders=[]}) {
   const [controlsOpen,setControlsOpen]=useState(false);
   const [open,setOpen]=useState(true),[from,setFrom]=useState(''),[to,setTo]=useState('');
   const [rows,setRows]=useState([]),[selected,setSelected]=useState({}),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
@@ -57,7 +59,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
   const [autoRefresh,setAutoRefresh]=useState(true),[pendingRows,setPendingRows]=useState([]),[refreshStatus,setRefreshStatus]=useState({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
   const [manualApplications,setManualApplications]=useState({}),[auditApplications,setAuditApplications]=useState({}),[applicationStatus,setApplicationStatus]=useState({loading:false,error:'',limit:20,asOf:'',loaded:false});
   const [applicationDrafts,setApplicationDrafts]=useState({}),[applicationSaving,setApplicationSaving]=useState({}),[applicationErrors,setApplicationErrors]=useState({});
-  const [liveHistory,setLiveHistory]=useState({}),[liveBalanceComparison,setLiveBalanceComparison]=useState(null),[liveHistoryStatus,setLiveHistoryStatus]=useState({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''}),[liveHistoryPage,setLiveHistoryPage]=useState(0),[includeConsistentBalances,setIncludeConsistentBalances]=useState(false),[compactTab,setCompactTab]=useState('REQUEST');
+  const [liveHistory,setLiveHistory]=useState({}),[liveBalanceComparison,setLiveBalanceComparison]=useState(null),[liveHistoryStatus,setLiveHistoryStatus]=useState({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''}),[includeConsistentBalances,setIncludeConsistentBalances]=useState(false),[compactTab,setCompactTab]=useState('REQUEST');
   const requestBusy=useRef(false),requestOwner=useRef(''),refreshSeq=useRef(0),activeRefreshScope=useRef(''),refreshController=useRef(null),rowsRef=useRef(rows),pendingRowsRef=useRef(pendingRows),selectedRef=useRef(selected),reviewOpenRef=useRef(reviewOpen);
   useEffect(()=>{rowsRef.current=rows;},[rows]);
   useEffect(()=>{pendingRowsRef.current=pendingRows;},[pendingRows]);
@@ -72,20 +74,23 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
   const applicationScope=`${String(year||'')}:${String(applicationWeek||'')}`;
   const livePeriod=`${from}/${to}`;
   const liveScope=`${applicationScope}:${livePeriod}`;
-  const liveBatch=[...rows].reverse().slice(liveHistoryPage*50,(liveHistoryPage+1)*50);
+  const mappedSelectedEvidence=mappedEvidenceSource(evidenceMessages,evidenceOrders);
+  const mappedEvidenceByIdentity=new Map(mappedSelectedEvidence.map(row=>[row.identity,row]));
+  const liveBatch=[...rows].reverse().slice(0,LIVE_HISTORY_MESSAGE_LIMIT).map(row=>{
+    const mapped=mappedEvidenceByIdentity.get(row.identity);
+    return mapped&&mapped.message!==row.message?{...row,message:mapped.message}:row;
+  });
   const liveBatchKey=liveBatch.map(row=>`${row.identity}:${row.created_at||''}:${row.message||''}`).join('\u001e');
   const liveBatchIdentities=new Set(liveBatch.map(row=>row.identity));
-  const liveBatchCount=Math.max(1,Math.ceil(rows.length/50));
   const compactRows=displayRows.map(row=>{const kind=classifyMessage(row.message);return {row,kind:['REQUEST','STOCK','REVIEW'].includes(kind)?kind:'REVIEW'};});
   const compactCounts=compactRows.reduce((counts,item)=>({...counts,[item.kind]:counts[item.kind]+1}),{REQUEST:0,STOCK:0,REVIEW:0});
   const visibleDisplayRows=compactRows.filter(item=>item.kind===compactTab).map(item=>item.row);
   const hasAcceptedLiveHistoryScope=liveHistoryStatus.scope===liveScope&&loadedPeriod===livePeriod;
   const applicationSequence=useRef(0),activeApplicationScope=useRef(applicationScope),applicationMounted=useRef(false),applicationController=useRef(null),applicationInFlight=useRef(false),applicationSaveController=useRef(null),applicationSaveInFlight=useRef(false),applicationScopeEpoch=useRef(0),applicationSaveAttempt=useRef(0),applicationRefreshQueued=useRef(null);
-  const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey);
+  const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey),liveHistoryBatchRef=useRef(liveBatch);
   useEffect(()=>{applicationMounted.current=true;activeApplicationScope.current=applicationScope;applicationScopeEpoch.current++;applicationRefreshQueued.current=null;return()=>{applicationMounted.current=false;applicationController.current?.abort();applicationSaveController.current?.abort();applicationController.current=null;applicationSaveController.current=null;applicationInFlight.current=false;applicationSaveInFlight.current=false;};},[applicationScope]);
-  useEffect(()=>{liveHistoryMounted.current=true;activeLiveHistoryScope.current=liveScope;liveHistoryScopeEpoch.current++;liveHistoryRefreshQueued.current=false;setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setLiveHistoryPage(0);setIncludeConsistentBalances(false);return()=>{liveHistoryMounted.current=false;liveHistoryController.current?.abort();liveHistoryController.current=null;liveHistoryInFlight.current=false;clearTimeout(liveHistoryDebounce.current);};},[liveScope]);
-  useEffect(()=>{liveHistoryBatchKeyRef.current=liveBatchKey;},[liveBatchKey]);
-  useEffect(()=>{setLiveHistoryPage(previous=>Math.min(previous,Math.max(0,Math.ceil(rows.length/50)-1)));},[rows.length]);
+  useEffect(()=>{liveHistoryMounted.current=true;activeLiveHistoryScope.current=liveScope;liveHistoryScopeEpoch.current++;liveHistoryRefreshQueued.current=false;setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setIncludeConsistentBalances(false);return()=>{liveHistoryMounted.current=false;liveHistoryController.current?.abort();liveHistoryController.current=null;liveHistoryInFlight.current=false;clearTimeout(liveHistoryDebounce.current);};},[liveScope]);
+  useEffect(()=>{liveHistoryBatchKeyRef.current=liveBatchKey;liveHistoryBatchRef.current=liveBatch;},[liveBatchKey]);
   async function loadRemote(next=false) {
     if(requestBusy.current) {setNotice('자동 확인이 끝난 뒤 다시 시도하세요.');return;}
     const id=++seq.current; setBusy(true); setNotice('');
@@ -138,7 +143,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
     liveHistoryController.current=controller;liveHistoryInFlight.current=true;
     setLiveHistoryStatus(previous=>({...previous,loading:true,error:''}));
     try {
-      const response=await fetch('/api/orders/distribution-live-history',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({year:String(year),week:applicationWeek,from,to,messages:messages.slice(0,50).map(row=>({identity:row.identity,message:row.message,created_at:row.created_at,timestamp_approximate:row.timestamp_approximate===true}))}),signal:controller.signal});
+      const response=await fetch('/api/orders/distribution-live-history',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({year:String(year),week:applicationWeek,from,to,messages:messages.slice(0,LIVE_HISTORY_MESSAGE_LIMIT).map(row=>({identity:row.identity,message:row.message,created_at:row.created_at,timestamp_approximate:row.timestamp_approximate===true}))}),signal:controller.signal});
       const data=await response.json().catch(()=>({}));
       if(!liveHistoryMounted.current||activeLiveHistoryScope.current!==scope||epoch!==liveHistoryScopeEpoch.current||sequence!==liveHistorySequence.current||liveHistoryBatchKeyRef.current!==batchKey||loadedPeriod!==`${from}/${to}`) return;
       const requestedIdentities=new Set(messages.map(row=>row.identity));
@@ -156,7 +161,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
       clearTimeout(timeout);
       if(liveHistoryController.current===controller) {liveHistoryController.current=null;liveHistoryInFlight.current=false;}
       if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current) setLiveHistoryStatus(previous=>({...previous,loading:false}));
-      if(liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,[...rowsRef.current].reverse().slice(0,50));}
+      if(liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,liveHistoryBatchRef.current);}
     }
   }
   async function refreshApplicationStatus(scope=applicationScope,{force=false}={}) {
@@ -245,7 +250,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
     const requestRows=Array.isArray(item?.requests)?item.requests:[];
     const requestContent=requestRows.length?requestRows.map((request,index)=><section className="live-request" key={`${request.id||'request'}:${index}`}><strong>{request.customerText||'업체 확인 필요'} · {request.productText||'품목 확인 필요'} · {request.qty??'?'} {request.unit||''}</strong>{request.quote&&<blockquote>{request.quote}</blockquote>}<small>{request.reason||item?.reason||'연결 사유 확인 필요'}</small>{renderEvents('주문 변경 이력',request.orderEvents,'order')}{renderEvents('분배·출고 이력',request.shipmentEvents,'shipment')}</section>):<p>대응 이력 미확인</p>;
     const requestDetails=<details className="live-request-details"><summary>요청·이력 상세 {requestRows.length}건 보기</summary>{requestContent}</details>;
-    if(!liveBatchIdentities.has(row.identity)) return <aside className="live-history-panel" aria-label="원문과 인접한 최신 전산 이력"><strong>최신 전산 이력</strong><p>이번 자동 대조 범위 밖입니다. 이전 50건 대조로 이동하면 확인할 수 있습니다.</p></aside>;
+    if(!liveBatchIdentities.has(row.identity)) return <aside className="live-history-panel" aria-label="원문과 인접한 최신 전산 이력"><strong>최신 전산 이력</strong><p>최신 {LIVE_HISTORY_MESSAGE_LIMIT}건 자동 대조 범위 밖입니다. 날짜 범위를 좁혀 다시 불러오세요.</p></aside>;
     if(!item) return <aside className="live-history-panel" aria-label="원문과 인접한 최신 전산 이력"><strong>최신 전산 이력</strong>{balanceComparisonPanel(row.identity)}<p>{liveHistoryStatus.loading?'원문별 최신 전산 이력을 확인하는 중입니다.':liveHistoryStatus.error?'최신 전산 이력을 읽지 못했습니다. 기존 이력은 유지합니다.':liveHistoryStatus.loaded?'대응 이력 미확인':'원문을 불러오면 최신 전산 이력과 대조합니다.'}</p></aside>;
     return <aside className="live-history-panel" aria-label="원문과 인접한 최신 전산 이력"><div className="live-history-head"><strong>최신 전산 이력</strong><span className={`live-status live-status-${item.status||'UNKNOWN'}`}>{liveHistoryLabel(item)}</span></div><small>{item.reason||'읽기 전용 대조 결과입니다.'}{liveHistoryStatus.asOf?` · 기준 ${shortKstTime(liveHistoryStatus.asOf)}`:''}</small>{balanceComparisonPanel(row.identity)}{requestDetails}</aside>;
   }
@@ -263,7 +268,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
     </div>;
   }
   function compactMessageRow(row) {
-    const match=(hasAcceptedLiveHistoryScope&&matchingSummary(liveBalanceComparison,row.identity,liveHistory[row.identity]))||{status:'UNCONFIRMED',label:'미확인',matchedCount:0,totalCount:0,operationSummary:'대응 작업 미확인'};
+    const inLiveRange=liveBatchIdentities.has(row.identity);
+    const match=(inLiveRange&&hasAcceptedLiveHistoryScope&&matchingSummary(liveBalanceComparison,row.identity,liveHistory[row.identity]))||{status:'UNCONFIRMED',label:inLiveRange?'미확인':'대조 범위 밖',matchedCount:0,totalCount:0,operationSummary:inLiveRange?'대응 작업 미확인':'날짜 범위를 좁혀 대조'};
     const manual=manualApplications[row.identity];
     const manualLabel=manual?.status==='MANUALLY_APPLIED'?'직접 처리함':manual?.status==='MANUALLY_NOT_APPLIED'?'미처리 표시':null;
     const source=[row.sender,row.created_at?shortKstTime(row.created_at):'시각 확인 필요'].filter(Boolean).join(' · ');
@@ -330,10 +336,10 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
       {loadedPeriod&&loadedPeriod!==`${from}/${to}`&&<p role="status">현재 표시 원문 기간: {loadedPeriod.replace('/',' ~ ')} · 입력한 조회 기간: {from||'미입력'} ~ {to||'미입력'}. 새 기간은 불러오기 전까지 바뀌지 않습니다.</p>}
       {notice&&<p role="status">{notice}</p>}
       {pendingRows.length>0&&<p role="status">새 대화 {pendingRows.length}건을 확인했습니다. <button type="button" disabled={busy||disabled} onClick={revealPending}>새 대화 {pendingRows.length}건 보기</button></p>}
-      {(refreshStatus.autoShown>0||refreshStatus.incomplete||refreshStatus.lastSuccess||liveHistoryStatus.loaded||loadedPeriod!==livePeriod||applicationStatus.loaded)&&<details className="compact-help"><summary>조회 안내</summary>{refreshStatus.autoShown>0&&<p>새 대화 {refreshStatus.autoShown}건을 바로 표시했습니다.</p>}{refreshStatus.incomplete&&<p>자동 확인은 최대 {DEFAULT_MAX_PAGES}페이지(600건)까지만 읽었습니다. 최신 여부를 확정하려면 날짜를 좁히거나 이 기간의 다음 대화를 더 불러오세요.</p>}{refreshStatus.lastSuccess&&<p>자동 확인 {new Date(refreshStatus.lastSuccess).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'})} · 새 대화 {refreshStatus.newCount}건 대기</p>}<p>{liveHistoryStatus.loading?'최신 전산 이력을 읽는 중입니다.':liveHistoryStatus.loaded?`${liveHistoryPage===0?'최신':'선택한'} ${liveBatch.length}건 원문을 읽기 전용으로 대조했습니다.${liveHistoryStatus.asOf?` 기준 ${shortKstTime(liveHistoryStatus.asOf)}`:''}`:loadedPeriod!==livePeriod?'현재 표시 원문 기간과 조회 기간이 같아야 최신 이력을 대조합니다.':'최신 전산 이력을 아직 확인하지 못했습니다.'}</p><p>{applicationStatus.loading?'적용 상태·비교 이력을 확인하는 중입니다.':applicationStatus.loaded?`수동 적용 표시는 현재 선택 범위의 원장을, 자동 비교 이력은 최근 ${applicationStatus.limit}개 저장 보고서 범위를 표시합니다.${applicationStatus.asOf?` 최신 기준 ${shortKstTime(applicationStatus.asOf)}`:''}`:'적용 상태·자동 비교 이력을 아직 확인하지 못했습니다.'}</p></details>}
+      {(refreshStatus.autoShown>0||refreshStatus.incomplete||refreshStatus.lastSuccess||liveHistoryStatus.loaded||loadedPeriod!==livePeriod||applicationStatus.loaded)&&<details className="compact-help"><summary>조회 안내</summary>{refreshStatus.autoShown>0&&<p>새 대화 {refreshStatus.autoShown}건을 바로 표시했습니다.</p>}{refreshStatus.incomplete&&<p>자동 확인은 최대 {DEFAULT_MAX_PAGES}페이지(600건)까지만 읽었습니다. 최신 여부를 확정하려면 날짜를 좁히거나 이 기간의 다음 대화를 더 불러오세요.</p>}{refreshStatus.lastSuccess&&<p>자동 확인 {new Date(refreshStatus.lastSuccess).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'})} · 새 대화 {refreshStatus.newCount}건 대기</p>}<p>{liveHistoryStatus.loading?'최신 전산 이력을 읽는 중입니다.':liveHistoryStatus.loaded?`최신 ${liveBatch.length}건 원문을 한 번에 읽기 전용으로 대조했습니다.${liveHistoryStatus.asOf?` 기준 ${shortKstTime(liveHistoryStatus.asOf)}`:''}`:loadedPeriod!==livePeriod?'현재 표시 원문 기간과 조회 기간이 같아야 최신 이력을 대조합니다.':'최신 전산 이력을 아직 확인하지 못했습니다.'}</p><p>{applicationStatus.loading?'적용 상태·비교 이력을 확인하는 중입니다.':applicationStatus.loaded?`수동 적용 표시는 현재 선택 범위의 원장을, 자동 비교 이력은 최근 ${applicationStatus.limit}개 저장 보고서 범위를 표시합니다.${applicationStatus.asOf?` 최신 기준 ${shortKstTime(applicationStatus.asOf)}`:''}`:'적용 상태·자동 비교 이력을 아직 확인하지 못했습니다.'}</p></details>}
       </details>
       {refreshStatus.error&&<p role="status">{refreshStatus.error}</p>}
-      <div className="bar compact-match-tabs" role="tablist" aria-label="영업방 대화 분류"><button type="button" role="tab" aria-selected={compactTab==='REQUEST'} data-testid="compact-match-tab-request" onClick={()=>setCompactTab('REQUEST')}>변경 요청 {compactCounts.REQUEST}건</button><button type="button" role="tab" aria-selected={compactTab==='STOCK'} data-testid="compact-match-tab-stock" onClick={()=>setCompactTab('STOCK')}>잔량 안내 {compactCounts.STOCK}건</button><button type="button" role="tab" aria-selected={compactTab==='REVIEW'} data-testid="compact-match-tab-review" onClick={()=>setCompactTab('REVIEW')}>분류 확인 {compactCounts.REVIEW}건</button><span>{rows.length?`자동 대조 ${liveHistoryPage*50+1}–${Math.min(rows.length,(liveHistoryPage+1)*50)} / ${rows.length}건`:'자동 대조 원문 없음'}</span><button type="button" disabled={disabled||liveHistoryStatus.loading||liveHistoryPage===0} onClick={()=>setLiveHistoryPage(page=>page-1)}>더 최신 50건</button><button type="button" disabled={disabled||liveHistoryStatus.loading||liveHistoryPage>=liveBatchCount-1} onClick={()=>setLiveHistoryPage(page=>page+1)}>이전 50건 대조</button></div>
+      <div className="bar compact-match-tabs" role="tablist" aria-label="영업방 대화 분류"><button type="button" role="tab" aria-selected={compactTab==='REQUEST'} data-testid="compact-match-tab-request" onClick={()=>setCompactTab('REQUEST')}>변경 요청 {compactCounts.REQUEST}건</button><button type="button" role="tab" aria-selected={compactTab==='STOCK'} data-testid="compact-match-tab-stock" onClick={()=>setCompactTab('STOCK')}>잔량 안내 {compactCounts.STOCK}건</button><button type="button" role="tab" aria-selected={compactTab==='REVIEW'} data-testid="compact-match-tab-review" onClick={()=>setCompactTab('REVIEW')}>분류 확인 {compactCounts.REVIEW}건</button><span>{rows.length?`자동 대조 ${Math.min(rows.length,LIVE_HISTORY_MESSAGE_LIMIT)} / ${rows.length}건${rows.length>LIVE_HISTORY_MESSAGE_LIMIT?' · 날짜를 좁히면 전체 확인 가능':''}`:'자동 대조 원문 없음'}</span></div>
       {liveHistoryStatus.error&&<p className="live-history-batch-status compact-error" role="status">{liveHistoryStatus.error}</p>}
       {liveHistoryStatus.warnings?.length>0&&<details className="compact-help compact-warnings"><summary>최신 이력 조회 경고 {liveHistoryStatus.warnings.length}건</summary>{liveHistoryStatus.warnings.map((warning,index)=><p className="live-history-warning" role="status" key={`live-warning:${index}`}>{warning}</p>)}</details>}
       {applicationStatus.error&&<p className="application-batch-status compact-error" role="status">{applicationStatus.error}</p>}
