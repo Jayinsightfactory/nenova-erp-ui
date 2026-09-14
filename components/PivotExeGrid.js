@@ -43,7 +43,7 @@ export default function PivotExeGrid({
           </th>)}
           {headerCells.map((cell) => <th key={`${cell.level}-${cell.columnStart}-${cell.measure?.key || ''}`} colSpan={cell.columnSpan} className={styles.axisHead} style={{ top: level * headerHeight }}>
             <button type="button" className={styles.headerButton} onClick={(event) => cell.measure ? onFieldMenu?.(cell.measure.field, event) : cell.canToggle ? onToggleColumn?.(cell.axisKey) : undefined} title={cell.title || cell.label || '열 머리글'}>{cell.label || ' '}</button>
-            {cell.measure && <span className={styles.resizeHandle} title="열 너비 조절 · 두 번 클릭하면 자동맞춤" onMouseDown={(event) => { event.preventDefault(); onResize?.(cell.measure ? `${cell.column.key}-${cell.measure.key}` : cell.column.key, event.clientX, presentation.dataColumns[cell.columnStart].width); }} onDoubleClick={(event) => { event.preventDefault(); onBestFit?.(`${cell.column.key}-${cell.measure.key}`); }} />}
+            {cell.measure && <span className={styles.resizeHandle} title="열 너비 조절 · 두 번 클릭하면 자동맞춤" onMouseDown={(event) => { event.preventDefault(); onResize?.(presentation.dataColumns[cell.columnStart].id, event.clientX, presentation.dataColumns[cell.columnStart].width); }} onDoubleClick={(event) => { event.preventDefault(); onBestFit?.(presentation.dataColumns[cell.columnStart].id); }} />}
           </th>)}
         </tr>)}
       </thead>
