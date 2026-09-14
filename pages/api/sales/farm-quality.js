@@ -12,5 +12,5 @@ export default withAuth(async(req,res)=>{
    return res.json({success:true,...await saveQuality(req.body,req.user)});
   }
   res.setHeader('Allow','GET, POST');return res.status(405).json({success:false,error:'GET/POST만 지원합니다.'});
- }catch(e){return res.status(400).json({success:false,error:e.message});}
+ }catch(e){return res.status(e.code==='QUALITY_STALE'?409:400).json({success:false,error:e.message,code:e.code==='QUALITY_STALE'?e.code:undefined});}
 });

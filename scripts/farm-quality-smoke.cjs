@@ -33,6 +33,7 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
    await page.screenshot({path:`outputs/farm-quality/${width}.png`,fullPage:true});
   }
   await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
+  await page.evaluate(()=>sessionStorage.removeItem('nvPopupWin'));
   await page.goto(base+'/sales/farm-quality',{waitUntil:'networkidle0'});
   await page.waitForSelector('.case');
   assert.equal(await page.$$eval('[data-ui-topbar]',a=>a.length),1);
@@ -49,6 +50,8 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   assert.equal(await page.$$eval('.case',a=>a.length),2);
   await page.evaluate(()=>[...document.querySelectorAll('main nav button')].find(e=>e.textContent==='불량 그래프').click());
   await page.waitForSelector('.chart-panels');
+  const chartBounds=await page.$eval('.chart-panels',e=>({right:e.getBoundingClientRect().right,scroll:e.scrollWidth,client:e.clientWidth}));
+  assert(chartBounds.right<=1920&&chartBounds.scroll<=chartBounds.client+2,JSON.stringify(chartBounds));
   await page.screenshot({path:'outputs/farm-quality/graphs-1920.png',fullPage:true});
   assert.equal(errors.length,0,errors.join('\n'));
   console.log('PASS: 1920x1080 / 760 / 390; shell, overflow, detail, failure preservation, idempotent retry, unanswered filter, graphs');
