@@ -26,6 +26,24 @@ No EXE counterpart exists for the new web-only rate view or comment history.
 The rate query is read-only and does not change WarehouseMaster, WarehouseDetail,
 Product, shipment, order, stock, estimate, or settlement rows.
 
+## 2026-09-14 automatic signal projection
+
+The quality page additionally derives four read-only signals from the same confirmed
+`WebSalesDefectDeduction` source: the same farm/product/unit in one parent week across
+at least two `CustKey` values, multiple products from one farm in a parent week, a
+product recurring in adjacent weeks (or three of four weeks), and a farm recurring
+with multiple products under the same cadence. `CustKey` is used only inside the
+server-side distinct-order test. It is not returned to the browser. Signal counts are
+distinct `DeductionKey` counts; expanded evidence contains week, product, count and
+original-unit quantity only. This GET projection creates no case or event. A
+`WebFarmQualityCase/Event` write still requires the user's explicit action.
+
+| action | defect source | quality tables | ERP order/shipment/stock/estimate/settlement |
+|---|---|---|---|
+| load automatic signals | SELECT only | SELECT only | ViewWarehouse SELECT only; all ledgers preserved |
+| expand signal details | browser state only | preserved | preserved |
+| explicitly create/open feedback | source SELECT only | existing guarded Case/Event write | preserved |
+
 ## Evidence limitations
 
 Local schema documentation and source were inspected. Production read-only schema
