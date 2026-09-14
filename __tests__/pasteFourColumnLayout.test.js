@@ -6,6 +6,12 @@ const operationHistory = fs.readFileSync('components/orders/PasteOperationHistor
 
 assert.match(page, /① 영업방 원문 · 최신 전산 이력/);
 assert.match(page, /<DistributionSalesInbox key=\{`\$\{selectedYearFromWeek\(week\)\}:\$\{week\}`\}/);
+assert.match(page, /const \[baselineCollapsed, setBaselineCollapsed\] = useState\(true\)/, '영업방 원문·전산이력 영역은 기본 접힘이어야 한다.');
+assert.match(page, /영업방 원문 · 최신 전산 이력 펼치기/);
+assert.match(page, /paste-col-baseline\$\{baselineCollapsed \? ' is-collapsed' : ''\}/);
+assert.match(page, /\.paste-col-baseline\.is-collapsed \{ display: none; \}/);
+assert.match(page, /\.paste-input-grid\.paste-baseline-collapsed \{ grid-template-columns: repeat\(2,/);
+assert.match(page, /<CollapsibleTop[\s\S]{0,220}defaultCollapsed/, '상단 도구·차수 영역은 기본 접힘이어야 한다.');
 assert.match(page, /disabled=\{parsing \|\| bulkRunning \|\| adjustSaving \|\| orders\.some\(order => order\.saving\)\}/);
 assert.match(page, /② 입력/);
 assert.match(page, /③ 분석 · 검토/);

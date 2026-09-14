@@ -4,8 +4,8 @@
 // - 접어도 children 은 display:none 으로만 숨김 → 파일 input·검증 상태 유지
 import { useEffect, useState } from 'react';
 
-export default function CollapsibleTop({ storageKey, summary = null, children }) {
-  const [collapsed, setCollapsed] = useState(false);
+export default function CollapsibleTop({ storageKey, summary = null, children, defaultCollapsed = false }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   useEffect(() => {
     let init = null;
@@ -13,9 +13,9 @@ export default function CollapsibleTop({ storageKey, summary = null, children })
       const saved = localStorage.getItem(`nvTopCollapse:${storageKey}`);
       if (saved != null) init = saved === '1';
     } catch { /* ignore */ }
-    if (init == null) init = window.innerHeight < 800;
+    if (init == null) init = defaultCollapsed || window.innerHeight < 800;
     setCollapsed(init);
-  }, [storageKey]);
+  }, [storageKey, defaultCollapsed]);
 
   const toggle = () => {
     setCollapsed(prev => {

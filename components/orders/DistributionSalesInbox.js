@@ -36,6 +36,16 @@ function liveHistoryError(data,fallback) {
   return typeof data?.error==='string'?data.error:typeof data?.error?.message==='string'?data.error.message:fallback;
 }
 
+function sourceWeekFromMessage(value, year) {
+  const weeks=[];
+  for(const match of String(value||'').matchAll(/(?:^|\s)(\d{1,2})\s*-\s*(\d{1,2})(?=\s|$|[.,:차])/g)) {
+    const major=Number(match[1]),sub=Number(match[2]);
+    if(major>=1&&major<=53&&sub>=1&&sub<=99) weeks.push(`${String(major).padStart(2,'0')}-${String(sub).padStart(2,'0')}`);
+  }
+  const unique=[...new Set(weeks)];
+  return unique.length===1&&year?`${year}-${unique[0]}`:'';
+}
+
 export default function DistributionSalesInbox({year,week,disabled,onLoadText}) {
   const [open,setOpen]=useState(true),[from,setFrom]=useState(''),[to,setTo]=useState('');
   const [rows,setRows]=useState([]),[selected,setSelected]=useState({}),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
@@ -255,7 +265,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText}) 
     const manual=manualApplications[row.identity];
     const manualLabel=manual?.status==='MANUALLY_APPLIED'?'직접 처리함':manual?.status==='MANUALLY_NOT_APPLIED'?'미처리 표시':null;
     const source=[row.sender,row.created_at?shortKstTime(row.created_at):'시각 확인 필요'].filter(Boolean).join(' · ');
-    return <article className="message compact-match-row" data-testid={`compact-match-row:${row.identity}`} key={row.identity}><details><summary className="compact-match-summary"><span className="compact-message-summary"><small className="compact-row-meta">{source}</small><span className="compact-request-text">{summarizeMessage(row.message)}</span></span><span className="compact-operation-summary">{match.operationSummary||'대응 작업 미확인'}</span><span className={`compact-match-status compact-match-status-${match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{match.label||'미확인'}{match.totalCount>0&&<small>{match.matchedCount??0}/{match.totalCount}</small>}<span className="compact-status-badges">{manualLabel&&<span className="compact-manual-badge">{manualLabel}</span>}<span className="compact-automatic-badge">자동 대조</span></span></span></summary><div className="compact-match-expanded"><div className="message-raw"><small>{row.chatroom} · {source}{row.timestamp_approximate?' · 원문 시각 확인 필요':''}</small><pre>{row.message}</pre><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></details></article>;
+    const sourceWeek=sourceWeekFromMessage(row.message,String(year||''))||week;
+    return <article className="message compact-match-row" data-testid={`compact-match-row:${row.identity}`} key={row.identity}><details><summary className="compact-match-summary"><span className="compact-message-summary"><small className="compact-row-meta">{source}</small><span className="compact-request-text">{summarizeMessage(row.message)}</span></span><span className="compact-operation-summary">{match.operationSummary||'대응 작업 미확인'}</span><span className={`compact-match-status compact-match-status-${match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{match.label||'미확인'}{match.totalCount>0&&<small>{match.matchedCount??0}/{match.totalCount}</small>}<span className="compact-status-badges">{manualLabel&&<span className="compact-manual-badge">{manualLabel}</span>}<span className="compact-automatic-badge">자동 대조</span></span></span></summary><div className="compact-match-expanded"><div className="message-raw"><small>{row.chatroom} · {source}{row.timestamp_approximate?' · 원문 시각 확인 필요':''}</small><pre>{row.message}</pre><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled||!sourceWeek} title={sourceWeek?'원문 차수로 이동해 AI 분석·매칭 후 일괄 분배 사전검증 화면을 엽니다.':'원문에서 차수를 하나로 확인할 수 없습니다.'} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>{sourceWeek&&sourceWeek!==week?`${sourceWeek.slice(5)}로 이동 · `:''}AI 분석·분배 준비</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></details></article>;
   }
   useEffect(()=>{
     const period=`${from}/${to}`;

@@ -1108,6 +1108,7 @@ export default function PasteOrderPage() {
   const [orderHistoryRows, setOrderHistoryRows] = useState([]);
   const [orderHistoryLoading, setOrderHistoryLoading] = useState(false);
   const [orderHistoryError, setOrderHistoryError] = useState('');
+  const [baselineCollapsed, setBaselineCollapsed] = useState(true);
   const [pastePresenceByCust, setPastePresenceByCust] = useState({});
   const [pastePresenceRefreshRevision, setPastePresenceRefreshRevision] = useState(0);
   const pasteExplicitRefreshCustKeysRef = useRef(new Set());
@@ -1870,14 +1871,16 @@ export default function PasteOrderPage() {
     return () => clearTimeout(t);
   }, [baseStockText, baseStockExcludedLines, allProducts.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleParse = async () => {
-    if (!pasteText.trim()) return;
+  const handleParse = async ({ text: overrideText, targetWeek } = {}) => {
+    const inputText = typeof overrideText === 'string' ? overrideText : pasteText;
+    const selectedWeek = targetWeek || week;
+    if (!inputText.trim()) return;
     // 명시적으로 다시 분석한 경우에만 이전 완료 잠금을 해제한다.
     setBulkResult(null);
     setBulkCompletionNotice(null);
     setBulkProgress('');
-    const textForParse = textWithoutExcludedLines(pasteText, pasteExcludedLines);
-    refreshStockDraft(pasteText, baseStockText, week, remainStockText);
+    const textForParse = textWithoutExcludedLines(inputText, typeof overrideText === 'string' ? [] : pasteExcludedLines);
+    refreshStockDraft(inputText, baseStockText, selectedWeek, remainStockText);
     setParsing(true);
     setOrders([]);
     setParseError('');
@@ -1899,20 +1902,20 @@ export default function PasteOrderPage() {
       const customerCache = await loadMergedCustomerMappingCache();
 
       // 감지된 차수 자동 적용 — 등록 차수에 이미 고른 연도(예: 2026)를 유지
-      let effectiveWeek = week;
+      let effectiveWeek = selectedWeek;
       if (d.detectedWeek) {
         setDetectedWeek(d.detectedWeek);
         let detWeekPart = d.detectedWeek;
         try { detWeekPart = validateOrderWeek(d.detectedWeek).week; } catch { /* keep raw */ }
-        const cur = resolveOrderWeekQuery(week);
-        if (week.match(/^\d{4}-/) && cur.week === detWeekPart) {
-          effectiveWeek = week;
+        const cur = resolveOrderWeekQuery(selectedWeek);
+        if (selectedWeek.match(/^\d{4}-/) && cur.week === detWeekPart) {
+          effectiveWeek = selectedWeek;
         } else {
-          const selectedYear = week.match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear());
+          const selectedYear = selectedWeek.match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear());
           const autoWeek = `${selectedYear}-${d.detectedWeek}`;
           setWeek(autoWeek);
           effectiveWeek = autoWeek;
-          refreshStockDraft(pasteText, baseStockText, autoWeek, remainStockText);
+          refreshStockDraft(inputText, baseStockText, autoWeek, remainStockText);
         }
       } else {
         setDetectedWeek('');
@@ -3781,6 +3784,7 @@ export default function PasteOrderPage() {
       <div style={{ padding: '12px 16px', maxWidth: 'min(1920px, 99vw)', margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
         <CollapsibleTop
           storageKey="orders-paste"
+          defaultCollapsed
           summary={(
             <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
               <b>📋 붙여넣기</b>
@@ -3952,17 +3956,26 @@ export default function PasteOrderPage() {
         </div>
         </CollapsibleTop>
 
-        <div id="paste-connected-input" tabIndex={-1} className="paste-input-grid" style={{ marginBottom: 12 }}>
+        <div className="paste-baseline-toggle">
+          <button type="button" onClick={() => setBaselineCollapsed(value => !value)} aria-expanded={!baselineCollapsed}>
+            {baselineCollapsed ? '▸ 영업방 원문 · 최신 전산 이력 펼치기' : '▾ 영업방 원문 · 최신 전산 이력 접기'}
+          </button>
+          {baselineCollapsed && <small>자동 확인은 백그라운드에서 계속됩니다.</small>}
+        </div>
+        <div id="paste-connected-input" tabIndex={-1} className={`paste-input-grid${baselineCollapsed ? ' paste-baseline-collapsed' : ''}`} style={{ marginBottom: 12 }}>
           {/* 왼쪽 두 열: 원문과 실제 최신 주문·분배 이력을 한 행에서 대조 */}
-          <div className="paste-col paste-col-baseline">
+          <div className={`paste-col paste-col-baseline${baselineCollapsed ? ' is-collapsed' : ''}`}>
             <div className="paste-column-title">① 영업방 원문 · 최신 전산 이력</div>
             <DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
               hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} />
-            <DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} onLoadText={({text}) => {
+            <DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} onLoadText={({text,sourceWeek,autoAnalyze}) => {
               if (pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
+              const nextWeek = sourceWeek || week;
+              if (sourceWeek && sourceWeek !== week) setWeek(sourceWeek);
               setPasteText(text); setOrders([]); setParseError(''); setQueueIdx(0);
               setBulkResult(null); setDetectedWeek(''); setStockDraft(null); setBulkCompletionNotice(null); setBulkProgress('');
               document.getElementById('paste-connected-input')?.scrollIntoView({block:'start'});
+              if (autoAnalyze) void handleParse({ text, targetWeek: nextWeek });
             }} />
           </div>
 
@@ -4370,8 +4383,12 @@ export default function PasteOrderPage() {
             border-radius: 8px;
           }
           .paste-column-title { margin: 0 0 7px; color: #1a237e; font-size: 13px; font-weight: 900; }
+          .paste-baseline-toggle { display: flex; align-items: center; gap: 9px; margin: -4px 0 7px; }
+          .paste-baseline-toggle button { padding: 4px 9px; border: 1px solid #b8c4d8; border-radius: 6px; background: #fff; color: #334155; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+          .paste-baseline-toggle small { color: #64748b; }
           .paste-col-order { border: 1px solid #c5cae9; background: #f7f8ff; }
           .paste-col-baseline { border: 1px solid #bfdbd0; background: #f5fbf7; }
+          .paste-col-baseline.is-collapsed { display: none; }
           .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; min-height: min(320px, calc(100vh - 420px)); }
           .paste-col-order-side.paste-col-order-results { min-height: 0; background: #fff; border-color: #9fa8da; }
           .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: 270px; }
@@ -4501,6 +4518,12 @@ export default function PasteOrderPage() {
             .paste-column-helper { grid-column: 3; grid-row: 3; }
             .paste-column-analysis { grid-column: 4; grid-row: 1; }
             .paste-col-work-results { grid-column: 4; grid-row: 2 / span 2; }
+            .paste-input-grid.paste-baseline-collapsed { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
+            .paste-input-grid.paste-baseline-collapsed .paste-column-order-input { grid-column: 1; grid-row: 1; }
+            .paste-input-grid.paste-baseline-collapsed .paste-column-base-input { grid-column: 1; grid-row: 2; }
+            .paste-input-grid.paste-baseline-collapsed .paste-column-helper { grid-column: 1; grid-row: 3; }
+            .paste-input-grid.paste-baseline-collapsed .paste-column-analysis { grid-column: 2; grid-row: 1; }
+            .paste-input-grid.paste-baseline-collapsed .paste-col-work-results { grid-column: 2; grid-row: 2 / span 2; }
           }
           @media (max-width: 1500px) {
             .paste-col-baseline, .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper, .paste-col-work-results { grid-column: auto; grid-row: auto; max-height: none; }
