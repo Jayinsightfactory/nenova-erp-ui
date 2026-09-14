@@ -41,4 +41,7 @@
 - dnSpy evidence, ERP manifest 59개, 변경 API 쓰기 범위 2개 검사: 통과.
 - production webpack build: 통과.
 - 별도 MOYI 통합 HTTP 검사는 로컬 의존성 junction을 Turbopack이 프로젝트 밖 경로로 거부해 실행하지 못했다. 이번 PNL 변경과 무관한 환경 제한이며, 실제 node_modules를 설치하는 PR CI에서 재확인한다.
-- UI 브라우저 smoke와 최종 검토, PR·운영 반영 결과는 완료 후 추가한다.
+- 로컬 실브라우저 smoke 5개 시나리오 통과: 34+35차, 단일34차 원본 import 저장, 실제 합계 불일치 차단, HTTP500 안내+초안 보존, 신라 미선택 불합격 차수와 선택 저장 분리. 모든 저장은 가상 응답이며 외부 요청·실제 결산 쓰기 없음.
+- 1920×1080 및 1366×768, 확대 100%에서 버튼 접근/가로 넘침 검사와 캡처 시각 검토 통과.
+- 최종 검토에서 단일 경고 upload의 일반 detail 저장 경로를 발견해 import 경로로 수정한 뒤 재검토 통과.
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/586. 운영 반영 결과는 완료 후 추가한다.
