@@ -23,7 +23,7 @@ function addQuoteSheet(wb, name, { remark, items }) {
 }
 
 async function main() {
-  const { parseRaumQuoteWorkbookGroups } = await import('../lib/raumPnlParse.js');
+  const { parseRaumQuoteWorkbook, parseRaumQuoteWorkbookGroups } = await import('../lib/raumPnlParse.js');
   const { canAutoCommitRaumPnlImport, defaultPnlTitle, resolvePnlPartner } = await import('../lib/raumPnlPartner.js');
 
   assert.equal(resolvePnlPartner().code, 'raum');
@@ -79,6 +79,53 @@ async function main() {
 
   const raumAsChoimun = parseRaumQuoteWorkbookGroups(XLSX, raumWb, { partnerCode: 'choimun' });
   assert.equal(raumAsChoimun.batches.length, 0, '초이문 선택 시 강남/건대 라움 시트를 합산하면 안 된다.');
+
+  const gangnamWb = XLSX.utils.book_new();
+  addQuoteSheet(gangnamWb, '34차강남', {
+    remark: '강남 라움',
+    items: [{ name: '수국 화이트', origin: '농가보관', unit: '단', qty: 10, price: 2600 }],
+  });
+  addQuoteSheet(gangnamWb, '34차 강남 콘서트', {
+    remark: '강남 라움',
+    items: [{ name: '수국 화이트', origin: '농가보관', unit: '단', qty: 3, price: 2600 }],
+  });
+  addQuoteSheet(gangnamWb, '34차 강남(콘서트)', {
+    remark: '강남 라움',
+    items: [{ name: '수국 화이트', origin: '농가보관', unit: '단', qty: 2, price: 2600 }],
+  });
+  addQuoteSheet(gangnamWb, '35차 강남콘서트', {
+    remark: '',
+    items: [{ name: '수국 화이트', origin: '농가보관', unit: '단', qty: 7, price: 2600 }],
+  });
+  addQuoteSheet(gangnamWb, '35차건대', {
+    remark: '건대 라움',
+    items: [{ name: '수국 화이트', origin: '농가보관', unit: '단', qty: 4, price: 2600 }],
+  });
+  const gangnam = parseRaumQuoteWorkbookGroups(XLSX, gangnamWb, { partnerCode: 'raum' });
+  assert.deepEqual(gangnam.batches.map(batch => batch.major), ['34', '35'], '34차와 35차는 별도 배치여야 한다.');
+  const major34 = gangnam.batches[0];
+  const major35 = gangnam.batches[1];
+  assert.equal(major34.items[0].qty, 15, '같은 34차 강남 기본·콘서트 시트 수량을 합산한다.');
+  assert.deepEqual(Object.keys(major34.items[0].byBranch), ['강남'], '강남 행사명은 별도 지점 키가 되면 안 된다.');
+  assert.equal(major35.items[0].qty, 11, '35차 수량은 34차와 섞이면 안 된다.');
+  assert.equal(major35.items[0].byBranch.강남, 7);
+  assert.equal(major35.items[0].byBranch.건대, 4, '기존 건대 분류를 유지한다.');
+  assert.ok(major35.verification.every(check => check.ok), '행사명만으로 분류한 35차는 검증을 통과해야 한다.');
+  assert.equal(canAutoCommitRaumPnlImport([major35]), true, '중복이 없는 35차는 자동 등록할 수 있어야 한다.');
+  assert.equal(canAutoCommitRaumPnlImport([major34]), false, '같은 차수의 강남 기본·콘서트 중복 시트는 자동 등록하면 안 된다.');
+  assert.ok(major34.verification.some(check => check.group === '강남' && check.label === '동일 차수·지점 시트' && !check.ok), '같은 차수 강남 기본·행사 시트 중복을 표시해야 한다.');
+  assert.equal(parseRaumQuoteWorkbook(XLSX, gangnamWb).sheets.find(sheet => sheet.sheetName === '35차 강남콘서트').branch, '강남', '기존 단일 차수 파서도 강남 행사명을 정규화한다.');
+
+  const gangnamAsChoimun = parseRaumQuoteWorkbookGroups(XLSX, gangnamWb, { partnerCode: 'choimun' });
+  assert.equal(gangnamAsChoimun.batches.length, 0, '초이문은 강남 콘서트 시트를 받으면 안 된다.');
+  const noMajorWb = XLSX.utils.book_new();
+  addQuoteSheet(noMajorWb, '강남 콘서트', {
+    remark: '강남 라움',
+    items: [{ name: '수국 화이트', origin: '농가보관', unit: '단', qty: 1, price: 2600 }],
+  });
+  const noMajor = parseRaumQuoteWorkbookGroups(XLSX, noMajorWb, { partnerCode: 'raum' });
+  assert.equal(noMajor.batches.length, 0, '차수가 없는 강남 행사 시트는 추정해서 받으면 안 된다.');
+  assert.ok(noMajor.warnings.some(w => /차수/.test(w)));
 
   const real = 'C:/Users/USER/Documents/카카오톡 받은 파일/초이문 견적서 양식.xlsx';
   if (fs.existsSync(real)) {

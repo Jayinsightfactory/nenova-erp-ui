@@ -53,6 +53,13 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "settlementIdentity": ["OrderYear", "MajorWeek", "PartnerCode"],
+  "quoteSheetClassification": {
+    "source": "User request 2026-09-14: sheet names containing 강남 use the same 강남 branch",
+    "helper": "lib/raumPnlParse.js detectBranch (shared by preview/save parsers)",
+    "gangnam": "Normalize sheet names containing 강남 to branch 강남; require an explicit major token; preserve original sheetName",
+    "preserve": ["major separation", "partner isolation", "same-major same-branch duplicate rejection", "quantity and amount verification", "existing-save comparison"],
+    "regressionTest": "__tests__/raumPnlPartner.test.js"
+  },
   "actions": [
     { "name": "SHILLA_BULK_UNMATCHED_MATCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit selected year and shilla; GET read-only groups exact normalized source name+unit with unmatched ordinary rows; suggest only unique active saved mappings, never fuzzy auto-select; explicit selected groups and positive Product keys; one atomic POST revalidates complete selected group membership/state under shared year lock before any write; differing existing mapping, stale snapshot, inactive Product or one failed write rolls back all groups; fill null ProdKey only; no auto retry, no unlinks or global name learning; maximum 200 groups and 10000 snapshot rows and 900KiB UTF-8 JSON request, UI rejects oversized selection before POST and preserves drafts", "writeAllowlist": ["WebRaumPnlItem.ProdKey", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
     { "name": "SHILLA_SAME_HOTEL_PRODUCT_MATCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit applySameHotel=true; selected OrderYear+shilla+exact whitespace-normalized name+Unit+ordinary; source snapshot and active Product rechecked; fill unmatched group rows, preserve same key, conflicting different key rolls back; group unlink clears whole same group; absent/false retains single-row scope; common year lock before master/items/product; import preview/save unique active mapping inference and fingerprint recheck; no GET writes", "writeAllowlist": ["WebRaumPnlItem.ProdKey", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
