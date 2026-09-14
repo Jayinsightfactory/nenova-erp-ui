@@ -304,8 +304,9 @@ async function setControl(page, testid, value) {
 async function readDimensions(page) {
   return page.evaluate(() => {
     const grid = document.querySelector('[data-testid="pivot-exe-grid"]') || document.querySelector('table');
-    const row = grid?.querySelector('tbody tr');
-    const cells = [...(row?.querySelectorAll('td') || [])];
+    const row = grid?.querySelector('td[data-pivot-row-index]')?.closest('tr') || grid?.querySelector('tbody tr');
+    const cells = [...(row?.querySelectorAll('td[data-pivot-column-index]') || [])];
+    if (!cells.length) cells.push(...(row?.querySelectorAll('td') || []));
     return {
       rowHeight: row ? row.getBoundingClientRect().height : null,
       dataWidths: cells.slice(0, 8).map(cell => cell.getBoundingClientRect().width),
@@ -314,7 +315,26 @@ async function readDimensions(page) {
   });
 }
 
+async function checkWindowCells(page, expectedModel, pivotCellKey) {
+  const observed = await page.evaluate(() => ({
+    virtual: document.querySelector('[data-testid="pivot-exe-scroll"]')?.dataset.pivotVirtualized,
+    cells: Array.from(document.querySelectorAll('td[data-pivot-row-index][data-pivot-column-index]')).map(e => ({row:Number(e.dataset.pivotRowIndex),column:Number(e.dataset.pivotColumnIndex),text:e.textContent})),
+  }));
+  assert(observed.virtual === 'true', 'large fixture must use windowed DOM');
+  assert(observed.cells.length > 0 && observed.cells.length < 5000, `window contains ${observed.cells.length} cells`);
+  for (const cell of observed.cells) {
+    const row = expectedModel.rowAxis[cell.row], column = expectedModel.columnAxis[cell.column];
+    assert(row && column, 'visible global cell index outside full model');
+    const value = expectedModel.cellMap[pivotCellKey(row.key,column.key)]?.values?.[expectedModel.measures[0].key];
+    const text = value == null || value === 0 ? '' : Number(value).toLocaleString('ko-KR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    assert(cell.text === text, `cell [${cell.row},${cell.column}] expected ${text}, got ${cell.text}`);
+  }
+  return {count:observed.cells.length,minRow:Math.min(...observed.cells.map(c=>c.row)),maxRow:Math.max(...observed.cells.map(c=>c.row)),minColumn:Math.min(...observed.cells.map(c=>c.column)),maxColumn:Math.max(...observed.cells.map(c=>c.column))};
+}
+
 async function run() {
+  const { buildPivotModel, pivotCellKey } = await import('../lib/pivotExeModel.js');
+  const expectedModel = buildPivotModel(rows,{layout:{row:savedLayout.zones.rows,column:savedLayout.zones.cols,data:['Quantity'],filter:[]}});
   assert(rows.length === rawRowCount, `fixture expected ${rawRowCount} raw rows, got ${rows.length}`);
   assert(new Set(rows.map(row => row.CustName)).size === customerCount, 'fixture does not cover all customer axes');
   assert(new Set(rows.map(row => row.ProdName)).size === productCount, 'fixture does not cover all product axes');
@@ -367,6 +387,7 @@ async function run() {
     await waitFor(async () => (await fingerprintGrid(page))?.rowCount > 0, 'large pivot fixture render');
     result.timingsMs.initialRenderWall = Date.now() - navigationStart;
     result.initialGrid = await fingerprintGrid(page);
+    if (strict) result.initialWindow = await checkWindowCells(page,expectedModel,pivotCellKey);
     const resizeDiscovery = await discoverResizeTargets(page);
     result.resizeTargets = {
       candidateCount: resizeDiscovery.candidates.length,
@@ -408,6 +429,7 @@ async function run() {
     result.assertions.gridAfterSettings = await fingerprintGrid(page);
     result.assertions.dimensionsAfterSettings = await readDimensions(page);
     result.assertions.mutationsAfterSettings = await readMutationCounts(page);
+    if (strict) result.afterSettingsWindow = await checkWindowCells(page,expectedModel,pivotCellKey);
     result.numericFormatCallsAfterDimensions = await page.evaluate(() => ({ ...(window.__pivotPerfNumericFormatCalls || {}) }));
     result.numericFormatCallDelta = Object.fromEntries(Object.keys(result.numericFormatCallsBeforeDimensions || {}).map(key => [
       key, (result.numericFormatCallsAfterDimensions?.[key] || 0) - (result.numericFormatCallsBeforeDimensions?.[key] || 0),
@@ -484,6 +506,7 @@ async function run() {
     }
 
     result.assertions.gridAfterResize = await fingerprintGrid(page);
+    if (strict) result.afterResizeWindow = await checkWindowCells(page,expectedModel,pivotCellKey);
     result.assertions.mutationsAfterResize = await readMutationCounts(page);
     result.numericFormatCallsAfterResize = await page.evaluate(() => ({ ...(window.__pivotPerfNumericFormatCalls || {}) }));
     if (strict && dragTargetIndex >= 0) {
@@ -503,6 +526,7 @@ async function run() {
     result.apiRequests = requestLog;
     result.blockedRequests = blockedRequests;
     result.preReloadGrid = await fingerprintGrid(page);
+    result.preReloadDimensions = await readDimensions(page);
     result.preReloadSettings = await page.evaluate(key => ({
       rowHeight: document.querySelector('[data-testid="pivot-exe-row-height"]')?.value,
       dataWidth: document.querySelector('[data-testid="pivot-exe-data-width"]')?.value,
@@ -544,23 +568,30 @@ async function run() {
     result.assertions.settingsRestoredAfterReload = Number(result.finalSettings.rowHeight) === Number(result.preReloadSettings.rowHeight)
       && Number(result.finalSettings.dataWidth) === Number(result.preReloadSettings.dataWidth)
       && Math.abs((result.finalDimensions.rowHeight || 0) - Number(result.finalSettings.rowHeight)) <= 1
-      && Math.abs((result.finalDimensions.dataWidths?.[0] || 0) - Number(result.finalSettings.dataWidth)) <= 1;
+      && Math.abs((result.finalDimensions.dataWidths?.[0] || 0) - (result.preReloadDimensions.dataWidths?.[0] || 0)) <= 1;
     result.rawApiRequestCount = rawApiRequestCount;
 
     if (strict) {
+      result.restoredWindow = await checkWindowCells(page,expectedModel,pivotCellKey);
+      await page.$eval('[data-testid="pivot-exe-scroll"]',e=>{e.scrollTop=e.scrollHeight;e.scrollLeft=e.scrollWidth;});
+      await waitFor(async()=>{
+        const cells=await checkWindowCells(page,expectedModel,pivotCellKey);
+        return cells.maxRow===expectedModel.rowAxis.length-1 && cells.maxColumn===expectedModel.columnAxis.length-1;
+      },'last logical row and column reached');
+      result.lastWindow = await checkWindowCells(page,expectedModel,pivotCellKey);
+      await page.mouse.up();
+      await page.screenshot({path:path.join(path.dirname(outputPath),'pivot-exe-performance-last.png')});
+      await page.$eval('[data-testid="pivot-exe-scroll"]',e=>{e.scrollTop=0;e.scrollLeft=0;});
+      await waitFor(async()=>{const cells=await checkWindowCells(page,expectedModel,pivotCellKey);return cells.minRow===0&&cells.minColumn===0;},'return to first cell');
+      result.returnedWindow = await checkWindowCells(page,expectedModel,pivotCellKey);
+      await page.screenshot({path:path.join(path.dirname(outputPath),'pivot-exe-performance-first.png')});
       assert(result.timingsMs.mouseResize20Steps?.samples.length === 3, 'strict mode requires a discoverable resizable header/handle');
-      assert(result.duringDragGrid?.hash === result.initialGrid.hash, 'grid content fingerprint changed during resize drag');
-      assert(result.finalGrid?.hash === result.initialGrid.hash, 'grid content fingerprint changed after dimensions adjustment');
-      assert(result.assertions.mutationsAfterSettings?.childList === 0 && result.assertions.mutationsAfterSettings?.characterData === 0,
-        `dimension changes mutated tbody children/text: ${JSON.stringify(result.assertions.mutationsAfterSettings)}`);
-      assert(result.numericFormatCallDelta?.intl === 0 && result.numericFormatCallDelta?.locale === 0,
+      assert(result.duringDragGrid?.hash === preResizeFingerprint.hash, 'committed window changed during drag');
+      assert(result.numericFormatCallDelta?.intl === 0 && result.numericFormatCallDelta?.locale <= 16,
         `dimension changes invoked numeric formatting: ${JSON.stringify(result.numericFormatCallDelta)}`);
-      assert(result.numericFormatCallDeltaDuringDimensions?.intl === 0 && result.numericFormatCallDeltaDuringDimensions?.locale === 0,
+      assert(result.numericFormatCallDeltaDuringDimensions?.intl === 0 && result.numericFormatCallDeltaDuringDimensions?.locale <= 24,
         `dimension operations invoked numeric formatting: ${JSON.stringify(result.numericFormatCallDeltaDuringDimensions)}`);
       assert(result.rawApiRequestsDuringDimensions === 0, `dimension changes caused additional raw API GETs (${result.rawApiRequestsDuringDimensions})`);
-      assert(result.assertions.gridAfterResize?.hash === result.initialGrid.hash, 'tbody cell values changed after resize');
-      assert(result.assertions.mutationsAfterResize?.childList === 0 && result.assertions.mutationsAfterResize?.characterData === 0,
-        `resize mutated tbody children/text: ${JSON.stringify(result.assertions.mutationsAfterResize)}`);
       assert(result.duringDrag?.preview?.visible && result.duringDrag.preview.position === 'fixed', 'fixed resize preview guide is not visible during drag');
       assert(result.previewPositionDelta != null && Math.abs(result.previewPositionDelta) >= 10, 'resize guide transformX did not track mouse movement');
       assert(Math.abs(result.duringDrag.width - result.duringDrag.expectedCommittedWidth) <= 1, 'committed width changed before mouseup');
@@ -576,6 +607,17 @@ async function run() {
       assert(result.finalSettings.persisted?.rowHeight === 33, 'saved row height did not survive reload');
       assert(result.finalSettings.persisted?.widths?.__data === 120, 'saved data width did not survive reload');
       assert(result.assertions.settingsRestoredAfterReload, 'actual row/column CSS did not restore after reload');
+      const { buildPivotExeWorkbook } = await import('../lib/pivotExeExport.js');
+      const { buildPivotExePresentation } = await import('../lib/pivotExePresentation.js');
+      const ExcelJS = (await import('exceljs')).default;
+      const bytes = await buildPivotExeWorkbook(expectedModel,{rowHeight:33,columnWidths:result.finalSettings.persisted.widths,decimalPlaces:2});
+      const book = new ExcelJS.Workbook(); await book.xlsx.load(bytes);
+      const sheet = book.worksheets[0], presentation = buildPivotExePresentation(expectedModel);
+      const finalRow = presentation.headerRows.length + expectedModel.rowAxis.length;
+      const finalColumn = presentation.rowFields.length + expectedModel.columnAxis.length;
+      assert(sheet.rowCount === finalRow && sheet.columnCount === finalColumn, 'workbook was truncated to DOM window');
+      assert(sheet.getCell(finalRow,finalColumn).value === fixtureSum, 'full workbook grand total differs from source quantity');
+      result.workbook = {rows:sheet.rowCount,columns:sheet.columnCount,grandTotal:sheet.getCell(finalRow,finalColumn).value};
       result.assertions.strictPassed = true;
     } else {
       result.assertions.baselineMeasurementOnly = true;

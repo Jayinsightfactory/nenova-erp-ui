@@ -7,6 +7,8 @@
 .rowHead { position: sticky; left: var(--pivot-sticky-left); z-index: var(--pivot-sticky-z-index); vertical-align: top; background: #fff; padding: 3px 6px 0; text-align: left; font-weight: 400; }
 .totalRow .rowHead, .totalRow .numberCell { background: #eef3f8; font-weight: 700; }
 .numberCell { padding: 0 6px; text-align: right; font-variant-numeric: tabular-nums; }
+.columnSpacer { padding: 0 !important; border-color: transparent !important; background: transparent !important; }
+.verticalSpacer td { min-height: 0 !important; padding: 0 !important; border: 0 !important; }
 .headerButton, .rowButton { display: block; width: 100%; overflow: hidden; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: inherit; text-overflow: ellipsis; white-space: nowrap; }
 .rowButton { padding: 0; text-align: left; }
 .fieldControls { display: grid; grid-template-columns: minmax(0, 1fr) 14px 14px; align-items: center; gap: 1px; }
