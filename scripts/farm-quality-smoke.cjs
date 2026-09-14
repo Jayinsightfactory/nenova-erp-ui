@@ -46,6 +46,7 @@ const puppeteer=require(process.env.PUPPETEER_CORE_PATH||'puppeteer-core');
   await page.click('.composer .primary');await page.waitForFunction(()=>document.querySelector('.success')?.textContent.includes('저장 완료'));
   assert.equal(requests[0].requestId,requests[1].requestId,'retry must reuse request id');
   assert.equal(posts,2);
+  await page.waitForSelector('.status-filters');
   await page.evaluate(()=>[...document.querySelectorAll('.status-filters button')].find(e=>e.textContent.startsWith('미답변')).click());
   assert.equal(await page.$$eval('.case',a=>a.length),2);
   await page.evaluate(()=>[...document.querySelectorAll('main nav button')].find(e=>e.textContent==='불량 그래프').click());
