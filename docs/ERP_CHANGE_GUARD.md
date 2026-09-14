@@ -6,6 +6,10 @@
 
 문서에만 있던 dnSpy/DB 규칙을 코드 계약, 자동검사, 배포 차단 조건으로 연결한다. 대상은 `OrderMaster`, `OrderDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `WarehouseMaster`, `StockMaster`, `ShipmentDate`, `ProductStock`, `StockHistory`를 읽거나 쓰는 모든 기능이다.
 
+## 2026-09-14 라움 강남 복수시트 저장 차단
+
+강남 행사 시트 정규화는 합산을 허용했으나 동일 지점 중복 검증은 실패로 남아 저장 버튼이 이유 없이 비활성화됐다. 강남 복수시트만 자동 저장 금지·수동 합산 확인 대상으로 분리하며 화면/API/코어가 `raumPnlImportReview` 정책을 공유한다. 실제 금액 불일치와 기타 지점 중복은 계속 차단한다. 기존 preview token·잠금 snapshot·선택연도 결산 저장과 ERP 원장 보존은 유지한다. 실행형 회귀는 `raumPnlImportReview.test.js`와 `raumPnlPartner.test.js`에 둔다.
+
 ## 2026-09-09 다음 세부차수 배정과 단가 통합 저장
 
 통합 저장이 수량부터 호출하지만 overflow UI가 단가 초안 존재를 무조건 거부해 정상 작업도

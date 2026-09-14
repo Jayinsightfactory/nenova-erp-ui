@@ -10,6 +10,7 @@ import {
   prepareRaumPnlImportPreview, saveRaumPnlImportBatch, DEFAULT_NENOVA_PCT,
 } from '../../../lib/raumPnl';
 import { resolvePnlPartner } from '../../../lib/raumPnlPartner';
+import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../../lib/raumPnlImportReview';
 import { parseShillaPnlWorkbookGroups } from '../../../lib/shillaPnlParse';
 import { applyConfirmedShillaSourceNames, selectShillaImportBatches, shillaSettlementItem } from '../../../lib/shillaPnlImportPolicy';
 
@@ -142,11 +143,14 @@ async function handler(req, res) {
           saveBatches = selectShillaImportBatches(canonicalBatches, JSON.parse(String(asField(fields.selectedMajors) || 'null')));
         } catch (error) { return res.status(400).json({ success: false, error: error.message }); }
       }
-      const failed = saveBatches.flatMap(b => b.verification || []).filter(c => !c.ok);
-      if (failed.length) return res.status(400).json({ success: false, error: '합계 검증에 실패해 전체 저장을 차단했습니다.', batches: canonicalBatches, warnings: parsed.warnings });
+      // multipart confirmation is intentionally strict: only the exact literal true is accepted.
+      const confirmGangnamMerge = asField(fields.confirmGangnamMerge) === 'true';
+      const decision = evaluateRaumPnlImportReview(saveBatches, confirmGangnamMerge);
+      const reviewError = raumPnlImportSaveError(decision);
+      if (reviewError) return res.status(400).json({ success: false, error: reviewError, batches: canonicalBatches, warnings: parsed.warnings, review: decision.review.map(({ batch, check }) => ({ major: batch.major, ...check })) });
       const actor = req.user?.userName || req.user?.userId || 'user';
       const saved = await saveRaumPnlImportBatch({
-        batches: saveBatches, sourceFile: file.originalFilename || 'upload.xlsx', actor, expectedSnapshots: snapshots,
+        batches: saveBatches, sourceFile: file.originalFilename || 'upload.xlsx', actor, expectedSnapshots: snapshots, confirmGangnamMerge,
       });
       return res.status(200).json({ success: true, saved, batchCount: saved.length });
     }
