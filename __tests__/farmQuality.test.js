@@ -80,6 +80,9 @@ assert.match(store,/kind!=='COMMENT'&&Number\(input.version\)!==current.Version/
 assert.doesNotMatch(store,/(INSERT|UPDATE|DELETE)\s+(?:dbo\.)?(?:Estimate|OrderDetail|ShipmentDetail|StockHistory|WebSalesDefectDeduction)\b/i);
 assert.match(store,/d\.CustKey/,'CustKey is read only for server-side distinct-order detection');
 assert.match(store,/qualitySignals\(sources\.recordset,scope\)/);
+assert.match(store,/ROW_NUMBER\(\) OVER\(PARTITION BY e\.CaseKey ORDER BY e\.EventKey\) EventNo/);
+assert.match(store,/FROM RankedEvents WHERE RecentRank<=3/);
+assert.match(store,/RecentEvents,EventCount:Number/);
 assert.doesNotMatch(store,/CustName|Customer/);
 assert.match(page,/useState\('graph'\)/,'기존 불량 분석값이 진입 즉시 보여야 한다.');
 assert.match(page,/기존 불량 분석 · 농장·품목 \{groups\.length\}개/,'분석에 반영된 농장·품목 수를 표시해야 한다.');
@@ -87,4 +90,7 @@ assert.match(page,/특정 농장 · 차수별 불량률 추이/);assert.match(pa
 assert.match(page,/자동 감지 이슈/);assert.match(page,/불량 \{s\.sourceCount\}건/);assert.match(page,/<details className=/);
 assert.doesNotMatch(page,/다중\s*거래처/);
 assert.match(page,/Ctrl\+V/);assert.match(page,/이미지 선택/);assert.match(page,/첨부 이미지는 유지됩니다/);
+assert.match(page,/코멘트 \{c\.EventCount\|\|0\}건/);
+assert.match(page,/className="case-events"/);assert.match(page,/e\.EventNo/);
+assert.match(page,/event-kind-REQUEST/);assert.match(page,/event-heading/);
 console.log('Farm quality: cross-year, source, units, status and write boundaries passed');

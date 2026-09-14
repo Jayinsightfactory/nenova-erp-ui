@@ -29,6 +29,12 @@ No EXE counterpart exists for the new web-only rate view or comment history.
 The rate query is read-only and does not change WarehouseMaster, WarehouseDetail,
 Product, shipment, order, stock, estimate, or settlement rows.
 
+The feedback list also projects only the selected year's `WebFarmQualityEvent`
+rows. Each card receives the total event count and the latest three events with
+their stable chronological number, kind, author and body preview. Opening the card
+loads the complete numbered history. This projection does not write or recalculate
+the EXE order, shipment, warehouse, estimate, stock or settlement ledgers.
+
 ## 2026-09-14 automatic signal projection
 
 The quality page additionally derives four read-only signals from the same confirmed
