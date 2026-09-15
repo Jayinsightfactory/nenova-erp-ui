@@ -1,4 +1,15 @@
 const assert=require('node:assert/strict');
+const {recentSalesPeriod}=require('../lib/distributionSalesInboxRefresh');
+const {periodBounds}=require('../lib/distributionSalesInbox');
+for(const [now,from,to] of [
+  ['2026-09-15T00:00:00+09:00','2026-09-09','2026-09-15'],
+  ['2026-09-14T14:59:59Z','2026-09-08','2026-09-14'],
+  ['2026-01-01T00:00:00+09:00','2025-12-26','2026-01-01'],
+  ['2028-03-01T00:00:00+09:00','2028-02-24','2028-03-01']
+]) {
+  assert.deepEqual(recentSalesPeriod(new Date(now)),{from,to});
+  assert.doesNotThrow(()=>periodBounds(from,to));
+}
 const {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,kstCalendarDate,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh,validKstPeriod}=require('../lib/distributionSalesInboxRefresh');
 
 assert.equal(kstCalendarDate(new Date('2026-09-10T15:30:00.000Z')),'2026-09-11');
