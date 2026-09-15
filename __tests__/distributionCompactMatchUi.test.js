@@ -21,13 +21,19 @@ assert.equal(classifyMessage('메시지가 삭제되었습니다.\n라움\n화�
 assert.equal(classifyMessage('재고\n화이트 -1박스'), 'REQUEST', 'attached negative quantity remains reviewable as a request');
 assert.equal(classifyMessage({ message: '출고 후 잔량\n화이트 2' }), 'STOCK', '출고 is a noun here, not a distribution action');
 assert.equal(classifyMessage({ message: '재고\n화이트 +1' }), 'REQUEST', 'signed changes must not disappear into stock');
-assert.equal(classifyMessage({ message: '변화\n화이트 1' }), 'REQUEST');
+assert.equal(classifyMessage({ message: '변화\n화이트 1' }), 'REVIEW');
 for (const action of ['추가', '증가', '늘려', '더해', '플러스', '취소', '감소', '빼', '마이너스', '차감']) {
   assert.equal(classifyMessage({ message: `재고\n화이트 1박스 ${action}` }), 'REQUEST', `${action} is a canonical request action`);
 }
 assert.equal(classifyMessage({ message: '라움\n수국 1박스 취소\n재고로 잡아주세요' }), 'REQUEST', 'a cancellation remains a request even with stock wording');
 assert.equal(classifyMessage({ message: '라움\n수국 1박스 삭제' }), 'REQUEST', 'ambiguous destructive wording remains a request for review, not a stock header');
-assert.equal(classifyMessage({ message: '37-1 분배 요청\n라움 수국' }), 'REQUEST');
+assert.equal(classifyMessage({ message: '37-1 분배 요청\n라움 수국' }), 'REVIEW');
+assert.equal(classifyMessage('소재2호\n레몬잎 5박스\n오늘 출고 부탁합니다'),'REVIEW');
+assert.equal(classifyMessage('37차 레몬잎 추가\n소재2호\n레몬잎 5박스\n-> 오늘 출고입니다'),'REQUEST');
+assert.equal(classifyMessage('네덜란드 잔량\n마트리카리아 50st(검역 -5st)'),'STOCK');
+assert.equal(classifyMessage('37-1 중국잔량 (태림취소분)\n킹스데이 10단\n전산 반영해놨습니다'),'STOCK');
+assert.equal(classifyMessage('추가취소방에 전달 안됐다고 합니다'),'REVIEW');
+assert.equal(classifyMessage('잔량\n화이트 2박스 취소\n라움으로 2박스 추가'),'REQUEST');
 assert.equal(classifyMessage({ message: '재고 확인 부탁드립니다' }), 'REVIEW');
 assert.equal(classifyMessage({ message: '무슨 뜻인지 확인 필요' }), 'REVIEW');
 assert.equal(summarizeMessage({ message: '37-1 카네이션\n라움\n화이트 1박스 추가\n꽃길\n레드 1박스 취소' }), '라움 · 화이트 1박스 추가 외 1건');
