@@ -24,6 +24,9 @@ let failDb=false;
 let fakeRows=[{OrderYear:'2025',OrderWeek:'36-01',ProdKey:12,Quantity:0.125}];
 const context={normalizePivotExeRange,sql:{NVarChar:'NVarChar'},withAuth:h=>h,
   sqlQuantityPivotGetData:()=> 'EXE_READ_ONLY_QUERY',
+  sqlPivotExeDistributionCosts:()=> 'DIST_READ_ONLY_QUERY',
+  getArrivalCostsForWeekRange:async()=>({12:{arrivalCost:17000}}),
+  enrichPivotExeRows:(rows)=>rows.map(row=>({...row,DistCost:null,ArrivalCost:17000})),
   query:async(q,p)=>{calls.push({q,p});if(failDb)throw Error('private database detail');return {recordset:fakeRows};},
   console:{error:()=>{}},handler:null};
 vm.runInNewContext(api.replace(/^import .*;\r?\n/gm,'').replace('export default withAuth','handler = withAuth'),context);
@@ -37,8 +40,8 @@ assert.equal(response.code,405);assert.equal(calls.length,0);
 response=await request('GET',{});assert.equal(response.code,400);assert.equal(calls.length,0);
 response=await request('GET',{fromYear:2025,fromWeek:'36-01',toYear:2026,toWeek:'35-02'});
 assert.equal(response.code,200);assert.equal(calls[0].p.weekFrom.value,'20253601');assert.equal(calls[0].p.weekTo.value,'20263502');
-assert.equal(response.body.rows[0].Quantity,0.125);assert.match(response.headers['Cache-Control'],/no-store/);
-response=await request('GET',{mode:'weeks'});assert.equal(response.code,200);assert.match(calls[1].q,/FROM StockMaster/);
+assert.equal(response.body.rows[0].Quantity,0.125);assert.equal(response.body.rows[0].ArrivalCost,17000);assert.match(response.headers['Cache-Control'],/no-store/);
+response=await request('GET',{mode:'weeks'});assert.equal(response.code,200);assert.match(calls.find(call=>/FROM StockMaster/.test(call.q)).q,/FROM StockMaster/);
 failDb=true;
 response=await request('GET',{mode:'weeks'});assert.equal(response.code,500);assert.doesNotMatch(response.body.error,/private/);
 response=await request('GET',{fromYear:2025,fromWeek:'36-01',toYear:2026,toWeek:'35-02'});assert.equal(response.code,500);assert.doesNotMatch(response.body.error,/private/);

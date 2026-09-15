@@ -28,6 +28,8 @@ assert.deepEqual(precise.selections.CustName, [0, false, '']);
 assert.equal(precise.ast.value, 0);
 assert.equal(precise.showGrandTotals, false);
 assert.equal(precise.rowHeight, 18);
+assert.equal(normalizePivotExeView({custHeaderHeight:500}).custHeaderHeight,120);
+assert.equal(normalizePivotExeView({custHeaderHeight:0}).custHeaderHeight,18);
 
 const numericFallback = normalizePivotExeView({
   zones: { rows: [], cols: [], filters: [], values: [{ id: 'Quantity', aggregation: 'not-valid' }] },

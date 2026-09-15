@@ -8,6 +8,7 @@
     "components/PivotExePanel.js",
     "components/PivotExeGrid.js",
     "lib/pivotExeInteraction.js",
+    "lib/pivotExeSupplement.js",
     "lib/pivotExePresentation.js",
     "lib/pivotAvailableWeeks.js",
     "lib/pivotProductSearch.js",
@@ -61,6 +62,12 @@
       "description": "전산 피벗 배치판은 nenova.exe의 공간 관계처럼 필터를 맨 위, 세로 행을 표 왼쪽, 가로 열을 표 위쪽, 값을 숫자 영역 위치에 고정한다. 필드 버튼 전체를 직접 마우스로 끌어 영역 사이와 같은 영역 안의 정확한 삽입 위치에 놓고, 드래그 중 대상 영역과 파란 삽입선을 표시한다. 가로 데이터 열 하나의 너비를 조절하면 현재 피벗의 모든 가로 데이터 열에 같은 CSS 픽셀 너비를 적용하고 사용자별 브라우저 설정에만 저장한다. 조회 API, 집계 원본값, 엑셀 숫자값과 ERP 원장은 변경하지 않는다.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "PIVOT_EXE_CUSTOMER_HEADER_HEIGHT_AND_PRICE_MEASURES",
+      "description": "거래처명/농장명이 가로 열에 놓인 경우 해당 헤더 단계만 18~120 CSS px 범위에서 세로 드래그 또는 설정값으로 높이를 조절하고 사용자별 화면 설정에 저장한다. 기존 웹 피벗과 같은 정의로 ShipmentDetail.Cost 분배단가를 출고수량 가중평균하고, 운송원가 스냅샷/live 계산의 부가세 별도 도착원가를 품목별 MAX로 읽어 전산 피벗 값 후보에 제공한다. FormQuantityPivot 원본 SQL과 모든 ERP 원장은 보존한다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -69,6 +76,7 @@
   },
   "requiredTestFiles": [
     "__tests__/pivotExeInteraction.test.js",
+    "__tests__/pivotExeSupplement.test.js",
     "__tests__/pivotVolumeCombinedCells.test.js",
     "__tests__/pivotProductSearch.test.js",
     "__tests__/pivotFilterOptions.test.js",
