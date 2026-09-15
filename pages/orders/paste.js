@@ -3975,7 +3975,7 @@ export default function PasteOrderPage() {
             <div className="paste-column-title">① 영업방 원문 · 최신 전산 이력</div>
             <DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
               hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} />
-            <DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} onLoadText={({text,messages,sourceWeek,autoAnalyze}) => {
+            <DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} operationRevision={bulkResult} onLoadText={({text,messages,sourceWeek,autoAnalyze}) => {
               if (pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
               const nextWeek = sourceWeek || week;
               setEvidenceMessages(messages || []);

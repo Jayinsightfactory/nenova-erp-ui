@@ -5,6 +5,7 @@ import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceCompar
 import {classifyMessage,matchingSummary,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
+import {sourceConfirmation} from '../../lib/distributionMessageApplicationStatus';
 import {mappedEvidenceSource} from '../../lib/pasteEvidenceSource';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
@@ -49,7 +50,7 @@ function sourceWeekFromMessage(value, year) {
   return unique.length===1&&year?`${year}-${unique[0]}`:'';
 }
 
-export default function DistributionSalesInbox({year,week,disabled,onLoadText,evidenceMessages=[],evidenceOrders=[]}) {
+export default function DistributionSalesInbox({year,week,disabled,onLoadText,evidenceMessages=[],evidenceOrders=[],operationRevision=null}) {
   const [controlsOpen,setControlsOpen]=useState(false);
   const [open,setOpen]=useState(true),[from,setFrom]=useState(''),[to,setTo]=useState('');
   const [rows,setRows]=useState([]),[selected,setSelected]=useState({}),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
@@ -203,6 +204,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     finally {clearTimeout(timeout);if(applicationController.current===controller){applicationController.current=null;applicationInFlight.current=false;}if(applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current)setApplicationStatus(previous=>({...previous,loading:false}));}
   }
   useEffect(()=>{setManualApplications({});setAuditApplications({});setOperationApplications({});setApplicationDrafts({});setApplicationSaving({});setApplicationErrors({});setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});},[applicationScope]);
+  useEffect(()=>{if(open&&!disabled)refreshApplicationStatus(applicationScope,{force:true});},[applicationScope,open,disabled,operationRevision]);
   useEffect(()=>{if(!open||!autoRefresh||disabled)return()=>{};const eligible=()=>document.visibilityState==='visible'&&navigator.onLine!==false;const run=()=>{if(eligible())refreshApplicationStatus(applicationScope);};run();const timer=setInterval(run,15000);return()=>{const controller=applicationController.current;clearInterval(timer);applicationSequence.current++;controller?.abort();if(applicationController.current===controller){applicationController.current=null;applicationInFlight.current=false;setApplicationStatus(previous=>({...previous,loading:false}));}};},[applicationScope,open,autoRefresh,disabled]);
   useEffect(()=>{
     if(!open||!autoRefresh||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return()=>{};
@@ -290,13 +292,18 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     const source=[row.sender,row.created_at?shortKstTime(row.created_at):'시각 확인 필요'].filter(Boolean).join(' · ');
     const sourceWeek=sourceWeekFromMessage(row.message,String(year||''))||week;
     const changes=visibleChanges(row.message,week);
-    const completed=match.status==='MATCHED'||(operation?.status==='committed'&&!operation.undone&&(operation.entries||[]).filter(entry=>entry.sourceIdentity===row.identity).length===changes.length);
-    return <article className={`message compact-match-row ${completed||match.status==='QUANTITY_MATCHED'?'history-completed':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
-      {completed&&<div className="history-completion-label">✓ 작업완료 · {operation?'등록·분배 작업 로그 확인':'전산 분배 수량 이력 일치'}</div>}
-      {!completed&&match.status==='QUANTITY_MATCHED'&&<div className="history-completion-label">✓ 처리됨 · 변경 방향·수량 일치 (수량 대조 기준)</div>}
+    const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length});
+    const completed=!confirmation.cancelled&&(confirmation.confirmed||match.status==='MATCHED');
+    const highlighted=!confirmation.cancelled&&(completed||match.status==='QUANTITY_MATCHED');
+    return <article className={`message compact-match-row ${highlighted?'history-completed':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
+      {completed&&<div className="history-completion-label">✓ {confirmation.confirmed?confirmation.label:'작업완료 · 전산 분배 수량 이력 일치'}</div>}
+      {!completed&&!confirmation.cancelled&&match.status==='QUANTITY_MATCHED'&&<div className="history-completion-label">✓ 처리됨 · 변경 방향·수량 일치 (수량 대조 기준)</div>}
+      {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
-      <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${completed?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{completed?'작업완료':match.label||'미확인'} {completed?changes.length:match.matchedCount??0}/{match.totalCount||changes.length}{manualLabel&&<span>{manualLabel}</span>}<small>자동 대조</small></span>
+      <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${completed?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{confirmation.cancelled?'확인취소':confirmation.confirmed?'확인완료':completed?'작업완료':match.label||'미확인'} {completed?changes.length:match.matchedCount??0}/{match.totalCount||changes.length}{manualLabel&&<span>{manualLabel}</span>}<small>자동 대조</small></span>
+      <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={highlighted} title="확인 표시만 저장합니다. 확인취소는 주문·분배를 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,highlighted?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':highlighted?'확인취소':'확인처리'}</button>
       <button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>{completed||match.status==='QUANTITY_MATCHED'?'원문 다시 분석':'미확인 원문 AI 분석·매칭'}</button></div>
+      {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
       <div className="visible-change-table">{changes.map((change,index)=><div className="visible-change-line" key={index}><span>{change.week}</span><strong>{change.customer}</strong><span>{change.change}</span></div>)}</div>
       {!completed&&match.status!=='QUANTITY_MATCHED'&&hasAcceptedLiveHistoryScope&&liveHistory[row.identity]&&<div className="history-evidence-reasons" style={{padding:'4px 7px',color:'#805d19',fontSize:11}}>처리 여부 확인 필요 · {[...new Set((liveHistory[row.identity].requests||[]).filter(request=>!quantityProcessed.some(matched=>matched.id===request.id)).map(request=>request.reason).filter(Boolean))].join(' / ')||'대응하는 수량 변경 근거를 찾지 못했습니다.'} (미처리 확정 아님)</div>}
       {!completed&&quantityProcessed.length>0&&<div className="confirmed-request-box quantity-processed-box">{quantityProcessed.map(request=><div key={request.id}>✓ 처리됨 · {request.customerText} · {request.quote}<small>전산: {request.productText} · {request.shipmentEvents[0].before}→{request.shipmentEvents[0].after}{request.unit} · 변경 방향·수량 일치로 우선 처리 표시</small></div>)}</div>}
