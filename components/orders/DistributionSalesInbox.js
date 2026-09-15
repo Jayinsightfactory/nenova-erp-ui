@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {MAX_TEXT_BYTES,periodBounds,parseSalesExport,mergeMessages,selectedText} from '../../lib/distributionSalesInbox';
-import {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,kstCalendarDate,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
+import {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
 import {classifyMessage,matchingSummary,summarizeMessage} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
@@ -65,7 +65,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
   useEffect(()=>{pendingRowsRef.current=pendingRows;},[pendingRows]);
   useEffect(()=>{selectedRef.current=selected;},[selected]);
   useEffect(()=>{reviewOpenRef.current=reviewOpen;},[reviewOpen]);
-  useEffect(()=>{const today=kstCalendarDate();setFrom(previous=>previous||today);setTo(previous=>previous||today);},[]);
+  useEffect(()=>{const period=recentSalesPeriod();setFrom(previous=>previous||period.from);setTo(previous=>previous||period.to);},[]);
   const lastReviewPage=Math.max(0,Math.ceil(rows.length/200)-1);
   const currentReviewPage=Math.min(reviewPage,lastReviewPage);
   const count=rows.filter(r=>selected[r.identity]).length;
@@ -331,7 +331,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     return ()=>{refreshSeq.current++;if(activeRefreshScope.current===scope)activeRefreshScope.current='';refreshController.current?.abort();stop();};
   },[open,autoRefresh,disabled,from,to,loadedPeriod,year,week]);
   return <section className="sales-inbox" aria-label="영업방 대화 수신함">
-    <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span></div>
+    <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 기본 최근 7일</span></div>
     <div hidden={!open}>
       <details className="inbox-tools" open={controlsOpen} onToggle={event=>setControlsOpen(event.currentTarget.open)}><summary>조회·불러오기·비교 도구 {controlsOpen?'접기':'펼치기'}</summary>
       <div className="bar inbox-controls"><label>시작일 <input type="date" value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
