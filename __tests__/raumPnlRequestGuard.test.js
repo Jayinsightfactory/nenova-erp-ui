@@ -9,6 +9,26 @@ for (const partner of ['raum', 'choimun', 'shilla']) {
   }
 }
 
+const customA = 'hotel_012345abcdef';
+const customB = 'hotel_abcdef012345';
+assert.equal(isRaumPnlPartnerMatch(customA, customA), true,
+  'the selected custom hotel code must match itself');
+assert.equal(isRaumPnlPartnerMatch(customB, customA), false,
+  'a response for a different custom hotel must not match the selected hotel');
+assert.equal(isRaumPnlPartnerMatch('hotel_012345abcde', customA), false,
+  'malformed custom hotel codes must not pass the partner guard');
+assert.equal(isRaumPnlPartnerMatch('raum', customA), false,
+  'built-in and custom hotel scopes must not cross-match');
+
+const customGuard = createRaumPnlRequestGuard();
+const customTokenA = customGuard.begin(customA);
+assert.equal(customGuard.isCurrent(customTokenA, customA), true);
+customGuard.invalidate();
+const customTokenB = customGuard.begin(customB);
+assert.equal(customGuard.isCurrent(customTokenA, customA), false,
+  'invalidating a custom hotel request rejects its late response');
+assert.equal(customGuard.isCurrent(customTokenB, customB), true);
+
 const guard = createRaumPnlRequestGuard();
 const applied = [];
 let partner = 'raum';

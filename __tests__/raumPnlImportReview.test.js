@@ -51,7 +51,7 @@ assert.match(core, /saveRaumPnl\([^]*confirmGangnamMerge/, 'core single write mu
 assert.match(singleApi, /req\.body\?\.confirmGangnamMerge === true/, 'single JSON API accepts only boolean true');
 assert.match(importApi, /asField\(fields\.confirmGangnamMerge\) === 'true'/, 'multipart API accepts only exact string true');
 assert.match(importApi, /saveRaumPnlImportBatch\([^]*confirmGangnamMerge/, 'multipart API forwards its strict boolean to the core');
-assert.match(pnlPage, /isShilla \|\| batches\.length > 1 \|\| evaluateRaumPnlImportReview\(batches\)\.requiresConfirmation/,
+assert.match(pnlPage, /isShilla \|\| partner\.customHotel \|\| batches\.length > 1 \|\| evaluateRaumPnlImportReview\(batches\)\.requiresConfirmation/,
   'single Gangnam review imports must retain the multipart preview token and snapshot-protected save path');
 
 console.log('Raum P&L import review tests passed');

@@ -54,6 +54,7 @@ function loadRaumPnl() {
       resolvePnlPartner: partner,
       defaultPnlTitle: (code, major) => `${partner(code).label} ${Number(major)}차`,
     },
+    './pnlHotelRegistry': { requirePnlPartner: async code => partner(code) },
     './raumPnlParse': { parseRaumQuoteWorkbook: () => {}, parseRaumQuoteWorkbookGroups: () => {} },
   };
 

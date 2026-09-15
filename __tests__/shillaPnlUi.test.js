@@ -15,18 +15,27 @@ const combinedCell = read('components/raum/CombinedPurchaseCostCell.js');
 const layout = read('components/Layout.js');
 
 assert.match(pnl, /const \[importYear, setImportYear\]/, 'Shilla import needs an explicit browser year state');
-assert.match(pnl, /aria-label="신라 결산 연도"/, 'Shilla year input must be visible');
+assert.match(pnl, /aria-label=\{isShilla \? '신라 결산 연도' : '호텔 결산 연도'\}/,
+  'Shilla year input must retain its conditional accessible label');
 assert.match(pnl, /fd\.append\('orderYear', importYear\)/, 'preview must send the explicit year');
 assert.match(pnl, /fd\.append\('selectedMajors', JSON\.stringify\(selectedMajors\)\)/, 'save must send selected original weeks');
 assert.match(pnl, /if \(!isShilla && canAutoCommitRaumPnlImport/, 'Shilla must never auto-save');
-assert.match(pnl, /if \(isShilla \|\| batches\.length > 1 \|\| evaluateRaumPnlImportReview\(batches\)\.requiresConfirmation\)/, 'a single Shilla sheet and a confirmation-required Raum import keep the bulk preview save boundary');
+assert.match(pnl, /if \(isShilla \|\| partner\.customHotel \|\| batches\.length > 1 \|\| evaluateRaumPnlImportReview\(batches\)\.requiresConfirmation\)/, 'Shilla, custom hotels, and confirmation-required imports keep the bulk preview save boundary');
 assert.match(pnl, /const bulkReviewBatches = isShilla[\s\S]*filter\(batch =>[\s\S]*bulkPreview\.selectedMajors/, 'Shilla review state must consider only explicitly selected source weeks');
 assert.match(pnl, /const selectedMajors = batches[\s\S]*\.filter\(batch => \(batch\.verification \|\| \[\]\)\.every\(check => check\?\.ok\)\)/, 'passing Shilla weeks are selected explicitly');
 assert.match(pnl, /검증 실패 차수는 저장할 수 없습니다/, 'failed weeks are blocked client-side');
 assert.match(pnl, /원본 \$\{check\.sourceRow\}행/, 'failed checks display their source row');
-assert.match(pnl, /!isShilla \? <ErpSyncModal/, 'Shilla hides ERP sync');
-assert.match(pnl, /!isShilla \? <MatchEditorModal/, 'Shilla hides fuzzy mapping');
-assert.match(pnl, /!isShilla && hasRef/, 'Shilla hides reference-price autofill');
+assert.match(pnl, /canErpSync \? <ErpSyncModal/, 'Shilla and custom hotels hide ERP sync');
+assert.match(pnl, /canErpSync \? <MatchEditorModal/, 'Shilla and custom hotels hide fuzzy mapping');
+assert.match(pnl, /!isShilla && hasRef/, 'Shilla keeps hiding reference-price autofill');
+assert.match(pnl, /const canErpSync = partner\.code === 'raum' \|\| partner\.code === 'choimun'/,
+  'ERP actions are positively capped to the two ERP-backed partners');
+assert.match(pnl, /fetchRaumPnlJson\('\/api\/raum\/pnl-hotels'\)/,
+  'hotel tabs come from the dynamic partner registry');
+assert.match(pnl, /onSubmit=\{addHotel\}/, 'custom hotel dialog submits through the page handler');
+assert.match(pnl, /isShilla \? '📤 신라 업로드' : '📤 견적서 업로드'/,
+  'Shilla uses the bulk upload entry point');
+assert.match(pnl, /isShilla && !bulkPreview/, 'Shilla save remains disabled before upload/selection');
 assert.match(pnl, /readOnly=\{isShilla\}/, 'source profit split is read-only for Shilla');
 assert.match(pnl, /!isShilla \? <>\s*<button data-testid="raum-pnl-save" style=\{st\.btnPrimary\} disabled=\{saving \|\| !!detailSaveReason\} onClick=\{save\}/, 'Shilla hides the general detail save while Raum exposes the confirmation-gated save');
 assert.match(pnl, /신라 원가 수정은 차수별 매입단가 관리에서만 저장됩니다/, 'Shilla directs cost changes to the snapshot endpoint');

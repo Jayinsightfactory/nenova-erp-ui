@@ -13,6 +13,8 @@ import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
 import ShillaProductMatchModal from '../../components/raum/ShillaProductMatchModal';
 import ShillaBulkMatchModal from '../../components/raum/ShillaBulkMatchModal';
+import PnlHotelAddDialog from '../../components/raum/PnlHotelAddDialog';
+import { escapePnlHtml } from '../../lib/raumPnlPrintText';
 import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHttp';
 import { createRaumPnlRequestGuard, isRaumPnlPartnerMatch } from '../../lib/raumPnlRequestGuard';
 import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../lib/raumPnlImportReview';
@@ -618,9 +620,9 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
     const match = raumPnlMatchDisplay(it);
     return `<tr${it.consigned ? ' style="background:#f3f4f6;color:#555"' : ''}>
       <td class="ctr">${i + 1}</td>
-      <td>${it.name}${it.consigned ? ' <small>(사입)</small>' : ''}</td>
-      <td>${match.matched ? match.label : (match.kind === 'consigned' ? '사입' : '미매칭')}</td>
-      <td class="ctr">${it.unit || ''}</td>
+      <td>${escapePnlHtml(it.name)}${it.consigned ? ' <small>(사입)</small>' : ''}</td>
+      <td>${escapePnlHtml(match.matched ? match.label : (match.kind === 'consigned' ? '사입' : '미매칭'))}</td>
+      <td class="ctr">${escapePnlHtml(it.unit)}</td>
       ${branches.map(b => `<td class="num">${fmt(it.byBranch?.[b])}</td>`).join('')}
       <td class="num">${fmt(it.qty)}</td>
       <td class="num">${costCell}</td>
@@ -637,13 +639,13 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
   const consignedNote = totals.consignedSale > 0
     ? `<div class="note">사입 ${totals.consignedCnt}건 매출 ${fmt(totals.consignedSale)}원 — 매입단가를 입력한 사입행은 매입·이익·8:2 분배에 함께 합산됩니다.</div>`
     : '';
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${meta.title}</title><style>${PRINT_CSS}</style></head><body>
-    <h1>${meta.title} 손익계산서</h1>
-    <div class="sub">견적일 ${dateStr(meta.quoteDate) || '-'} · 순익분배 네노바 ${nen}% : 미우 ${100 - nen}% · VAT 별도</div>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapePnlHtml(meta.title)}</title><style>${PRINT_CSS}</style></head><body>
+    <h1>${escapePnlHtml(meta.title)} 손익계산서</h1>
+    <div class="sub">견적일 ${escapePnlHtml(dateStr(meta.quoteDate) || '-')} · 순익분배 네노바 ${nen}% : 미우 ${100 - nen}% · VAT 별도</div>
     <table>
       <thead><tr>
         <th>순번</th><th>품목명</th><th>전산 매칭</th><th>단위</th>
-        ${branches.map(b => `<th>${b}</th>`).join('')}
+        ${branches.map(b => `<th>${escapePnlHtml(b)}</th>`).join('')}
         <th>수량계</th><th>1개당 매입단가<br />(원/VAT별도)</th><th>매입액</th><th>매출단가</th><th>매출액</th>
         <th>이익</th><th>이익율</th><th>네노바이익<br/>(${nen}%)</th><th>미우이익<br/>(${100 - nen}%)</th>
       </tr></thead>
@@ -663,7 +665,7 @@ function buildDetailPrintHtml(meta, items, totals, branches) {
         </tr>
       </tbody>
     </table>
-    ${meta.note ? `<div class="note"><b>특이사항</b> ${meta.note}</div>` : ''}
+    ${meta.note ? `<div class="note"><b>특이사항</b> ${escapePnlHtml(meta.note)}</div>` : ''}
     ${consignedNote}
     ${missingNote}
   </body></html>`;
@@ -683,7 +685,7 @@ function buildSummaryPrintHtml(list, partnerLabel = '라움') {
     const nen = Number(m.NenovaPct);
     return `<tr>
       <td class="ctr">${Number(m.MajorWeek)}차</td>
-      <td class="ctr">${dateStr(m.QuoteDate)}</td>
+      <td class="ctr">${escapePnlHtml(dateStr(m.QuoteDate))}</td>
       <td class="num">${fmt(m.CostTotal)}</td>
       <td class="num">${fmt(m.SaleTotal)}</td>
       <td class="num">${fmt(profit)}</td>
@@ -698,8 +700,8 @@ function buildSummaryPrintHtml(list, partnerLabel = '라움') {
   const totalProfit = list.reduce((a, m) => a + masterProfit(m).profit, 0);
   const totalNen = list.reduce((a, m) => a + masterProfit(m).profit * Number(m.NenovaPct) / 100, 0);
   const year = list[0]?.OrderYear || new Date().getFullYear();
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${partnerLabel} 결산</title><style>${PRINT_CSS}</style></head><body>
-    <h1>${year} ${partnerLabel} 손익 결산</h1>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapePnlHtml(partnerLabel)} 결산</title><style>${PRINT_CSS}</style></head><body>
+    <h1>${escapePnlHtml(year)} ${escapePnlHtml(partnerLabel)} 손익 결산</h1>
     <div class="sub">차수별 합산 · VAT 별도 · 매입은 수기 입력 기준</div>
     <table>
       <thead><tr><th>차수</th><th>견적일</th><th>총 매입</th><th>총 매출(VAT별도)</th><th>총 이익</th><th>이익율</th><th>네노바이익</th><th>미우이익</th></tr></thead>
@@ -1180,6 +1182,12 @@ function GangnamMergeConfirmation({ decision, confirmed, onChange }) {
 export default function RaumPnlPage() {
   const [partnerCode, setPartnerCode] = useState('raum');
   const [partnerReady, setPartnerReady] = useState(false);
+  const [hotelPartners, setHotelPartners] = useState(Object.values(PNL_PARTNERS));
+  const [hotelDialogOpen, setHotelDialogOpen] = useState(false);
+  const [hotelAdding, setHotelAdding] = useState(false);
+  const [hotelError, setHotelError] = useState('');
+  const [hotelRegistryError, setHotelRegistryError] = useState('');
+  const [hotelRegistryRevision, setHotelRegistryRevision] = useState(0);
   // 신라 원본은 연도가 없는 차수명도 있으므로, 미리보기와 저장에 같은 명시 연도를 보낸다.
   const [importYear, setImportYear] = useState(() => String(new Date().getFullYear()));
   const [list, setList] = useState([]);
@@ -1233,15 +1241,26 @@ export default function RaumPnlPage() {
     }
   };
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem('nenova.raumPnl.partner');
-      if (saved === 'raum' || saved === 'choimun' || saved === 'shilla') {
+    let active = true;
+    setPartnerReady(false);
+    setHotelRegistryError('');
+    (async () => {
+      try {
+        const result = await fetchRaumPnlJson('/api/raum/pnl-hotels');
+        if (!Array.isArray(result.partners)) throw new Error('호텔 목록을 확인할 수 없습니다.');
+        const partners = result.partners.map(p => resolvePnlPartner(p.code, p));
+        if (!active) return;
+        setHotelPartners(partners);
+        let saved = partnerCodeRef.current;
+        try { saved = window.localStorage.getItem('nenova.raumPnl.partner') || saved; } catch { /* private mode */ }
+        if (!partners.some(p => p.code === saved)) throw new Error('선택했던 호텔을 찾을 수 없습니다. 호텔 탭을 다시 선택하세요.');
         partnerCodeRef.current = saved;
         setPartnerCode(saved);
-      }
-    } catch { /* private mode */ }
-    setPartnerReady(true);
-  }, []);
+        setPartnerReady(true);
+      } catch (e) { if (active) setHotelRegistryError(e.message); }
+    })();
+    return () => { active = false; };
+  }, [hotelRegistryRevision]);
   useEffect(() => {
     if (!partnerReady) return;
     loadList();
@@ -1255,14 +1274,14 @@ export default function RaumPnlPage() {
     if (filled !== detail.items) setDetail(d => (d ? { ...d, items: filled, unsaved: true } : d));
   }, [detail, partnerCode]);
 
-  const selectPartner = (code) => {
-    const next = resolvePnlPartner(code).code;
+  const selectPartner = (code, addedPartner = null) => {
+    const next = resolvePnlPartner(code, addedPartner || hotelPartners.find(p => p.code === code)).code;
     if (next === partnerCode) return;
     if (uploading || saving || shillaMatching || shillaBulkMatchOpen) {
       setError(shillaMatching || shillaBulkMatchOpen ? '신라 품목 연결이 끝난 뒤 거래처를 바꾸세요.' : '업로드 또는 저장이 끝난 뒤 거래처를 바꾸세요.');
       return;
     }
-    if ((detail?.unsaved || bulkPreview) && typeof window !== 'undefined'
+    if (!addedPartner && (detail?.unsaved || bulkPreview) && typeof window !== 'undefined'
       && !window.confirm('저장하지 않은 업로드가 사라집니다. 거래처를 바꿀까요?')) return;
     listRequestGuard.current.invalidate();
     detailRequestGuard.current.invalidate();
@@ -1280,8 +1299,25 @@ export default function RaumPnlPage() {
     setError('');
     setMessage('');
   };
-  const partner = resolvePnlPartner(partnerCode);
+  const partner = resolvePnlPartner(partnerCode, hotelPartners.find(p => p.code === partnerCode));
   const isShilla = partner.code === 'shilla';
+  const canErpSync = partner.code === 'raum' || partner.code === 'choimun';
+  const addHotel = async (name) => {
+    if (hotelAdding) return;
+    setHotelAdding(true);
+    setHotelError('');
+    try {
+      const result = await fetchRaumPnlJson('/api/raum/pnl-hotels', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+      }, { operation: 'save' });
+      const added = resolvePnlPartner(result.partner?.code, result.partner);
+      setHotelPartners(current => current.some(p => p.code === added.code) ? current : [...current, added]);
+      selectPartner(added.code, added);
+      setHotelDialogOpen(false);
+      setMessage(`${added.label} 호텔 탭을 추가했습니다. 견적서를 업로드하고 확인 후 저장하세요.`);
+    } catch (e) { setHotelError(e.message); }
+    finally { setHotelAdding(false); }
+  };
   const detailReview = evaluateRaumPnlImportReview(detail ? [{
     partnerCode: detail.meta?.partnerCode, orderYear: detail.meta?.orderYear, major: detail.meta?.major,
     verification: detail.verification, items: detail.items,
@@ -1362,7 +1398,7 @@ export default function RaumPnlPage() {
       const response = await fetch('/api/raum/pnl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'assign-month', key: row.PnlKey, assignedMonth }),
+        body: JSON.stringify({ action: 'assign-month', key: row.PnlKey, assignedMonth, partnerCode }),
       });
       const result = await response.json();
       if (!result.success) throw new Error(result.error || '월 배정 저장 실패');
@@ -1412,7 +1448,7 @@ export default function RaumPnlPage() {
     setError('');
     if (!opts.keepMessage) setMessage('');
     try {
-      const r = await fetch(`/api/raum/pnl?key=${pnlKey}`);
+      const r = await fetch(`/api/raum/pnl?key=${pnlKey}&partner=${encodeURIComponent(requestedPartner)}`);
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '조회 실패');
       if (!detailRequestGuard.current.isCurrent(token, partnerCodeRef.current)) return false;
@@ -1426,7 +1462,7 @@ export default function RaumPnlPage() {
           pnlKey: j.master.PnlKey,
           orderYear: j.master.OrderYear,
           major: j.master.MajorWeek,
-          title: j.master.Title || defaultPnlTitle(j.master.PartnerCode || requestedPartner, j.master.MajorWeek),
+          title: j.master.Title || defaultPnlTitle(j.master.PartnerCode || requestedPartner, j.master.MajorWeek, '', partner),
           quoteDate: dateStr(j.master.QuoteDate),
           nenovaPct: Number(j.master.NenovaPct),
           note: j.master.Note || '',
@@ -1448,6 +1484,7 @@ export default function RaumPnlPage() {
   };
 
   const onUpload = async (file) => {
+    if (!partnerReady || hotelAdding || saving || uploading) return;
     if (!file) return;
     setGangnamMergeConfirmed(false);
     if (Number(file.size) > MAX_RAUM_PNL_UPLOAD_BYTES) {
@@ -1466,7 +1503,7 @@ export default function RaumPnlPage() {
       fd.append('file', file);
       fd.append('mode', 'preview');
       fd.append('partner', partnerCode);
-      if (isShilla) {
+      if (isShilla || partner.customHotel) {
         if (!/^\d{4}$/.test(importYear)) throw new Error('신라 결산 연도를 네 자리로 입력하세요.');
         fd.append('orderYear', importYear);
       }
@@ -1487,14 +1524,14 @@ export default function RaumPnlPage() {
       }
       // A single Gangnam multi-sheet review must keep the original multipart file,
       // preview token, and snapshot guard; it must not fall through to general detail save.
-      if (isShilla || batches.length > 1 || evaluateRaumPnlImportReview(batches).requiresConfirmation) {
+      if (isShilla || partner.customHotel || batches.length > 1 || evaluateRaumPnlImportReview(batches).requiresConfirmation) {
         setDetail(null);
         const selectedMajors = batches
           .filter(batch => (batch.verification || []).every(check => check?.ok))
           .map(batch => String(batch.major));
         setBulkPreview({
           file, previewToken: j.previewToken, fileName: j.fileName, batches,
-          warnings: j.warnings || [], orderYear: isShilla ? importYear : null, selectedMajors,
+          warnings: j.warnings || [], orderYear: isShilla || partner.customHotel ? importYear : null, selectedMajors,
         });
         previewReady = true;
         return;
@@ -1508,7 +1545,7 @@ export default function RaumPnlPage() {
           pnlKey: null,
           orderYear: one.orderYear,
           major: one.major || '',
-          title: defaultPnlTitle(partnerCode, one.major),
+          title: defaultPnlTitle(partnerCode, one.major, '', partner),
           quoteDate: one.quoteDate,
           nenovaPct: 80,
           note: '',
@@ -1714,7 +1751,7 @@ export default function RaumPnlPage() {
       const r = await fetch('/api/raum/pnl', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', key: pnlKey }),
+        body: JSON.stringify({ action: 'delete', key: pnlKey, partnerCode }),
       });
       const j = await r.json();
       if (!j.success) throw new Error(j.error || '삭제 실패');
@@ -1760,6 +1797,7 @@ export default function RaumPnlPage() {
   const [matchEdit, setMatchEdit] = useState(null); // { open, name, current }
 
   const applyMatch = async (prodKeyOrNull, prodName) => {
+    if (!canErpSync) return;
     const name = matchEdit?.name;
     if (!name) return;
     try {
@@ -1840,6 +1878,7 @@ export default function RaumPnlPage() {
 
   // ── 수동 사입 지정/해제 — DB 저장(다음 업로드 자동 적용), 같은 품목명 행 전부 반영 ──
   const markConsigned = async (name, on) => {
+    if (!canErpSync) return;
     setError('');
     try {
       const r = await fetch('/api/raum/consigned-item', {
@@ -1868,6 +1907,7 @@ export default function RaumPnlPage() {
   const [sync, setSync] = useState(null); // { open, plan, logs, running, done, results }
 
   const refreshErpCompare = async () => {
+    if (!canErpSync) throw new Error('직접 추가한 호텔은 전산 분배 대조를 사용하지 않습니다.');
     // 최신 전산 행으로 대조값(erpQty/erpSalePrice) 갱신 — { rows, custKey } 반환
     const r = await fetch(`/api/raum/pnl-erp-rows?major=${detail.meta.major}&year=${detail.meta.orderYear}&partner=${encodeURIComponent(partnerCode)}`);
     const j = await r.json();
@@ -1928,6 +1968,7 @@ export default function RaumPnlPage() {
   };
 
   const openErpSync = async () => {
+    if (!canErpSync) return;
     setError('');
     try {
       const ctx = await refreshErpCompare();
@@ -1947,6 +1988,7 @@ export default function RaumPnlPage() {
   };
 
   const applyErpSync = async () => {
+    if (!canErpSync) return;
     if (!sync?.plan) return;
     const addCnt = sync.plan.addEdits?.length || 0;
     const moveCnt = sync.plan.moves?.length || 0;
@@ -2078,11 +2120,11 @@ export default function RaumPnlPage() {
     <div style={st.page}>
       <h1 style={st.h1}>라움 초이문 신라호텔 손익계산서</h1>
       <div style={{ display: 'flex', gap: 8, margin: '0 0 10px', alignItems: 'center', flexWrap: 'wrap' }}>
-        {Object.values(PNL_PARTNERS).map(p => (
+        {hotelPartners.map(p => (
           <button
             key={p.code}
             type="button"
-            disabled={uploading || saving || shillaMatching || shillaBulkMatchOpen}
+            disabled={!partnerReady || hotelAdding || uploading || saving || shillaMatching || shillaBulkMatchOpen}
             onClick={() => selectPartner(p.code)}
             style={{
               ...st.btn,
@@ -2094,8 +2136,13 @@ export default function RaumPnlPage() {
             }}
           >{p.label}</button>
         ))}
+        <button type="button" style={st.btnPrimary} disabled={!partnerReady || hotelAdding || uploading || saving || shillaMatching || shillaBulkMatchOpen} onClick={() => {
+          if ((detail?.unsaved || bulkPreview) && !window.confirm('호텔을 추가하면 새 호텔 탭으로 이동합니다. 현재 저장하지 않은 내용은 사라집니다. 계속할까요?')) return;
+          setHotelError(''); setHotelDialogOpen(true);
+        }}>＋ 호텔 추가</button>
         <button
           type="button"
+          disabled={!partnerReady || partner.customHotel}
           style={{ ...st.btn, fontWeight: 700, borderColor: '#0ea5e9', color: '#0369a1' }}
           onClick={() => {
             const year = detail?.meta?.orderYear || list.find(row => String(row.PartnerCode || '').toLowerCase() === partnerCode)?.OrderYear || '';
@@ -2108,15 +2155,23 @@ export default function RaumPnlPage() {
       <p style={st.desc}>
         {partner.code === 'shilla'
           ? '신라호텔 원본 손익 엑셀을 올리면 모든 차수를 먼저 검증합니다. 저장할 정상 차수만 직접 선택하세요. 원본 매입·매출 단가와 60:40 또는 80:20 배분율을 그대로 보존하며 전산 차수는 참고 정보로만 표시합니다.'
+          : partner.customHotel
+          ? `${partner.label} 전용 견적서(품목명·단위·수량·단가·공급가액)를 업로드하고 확인 후 저장하세요. 매입단가는 이 호텔 결산에만 입력·보관하며 다른 호텔이나 전산에는 반영하지 않습니다.`
           : partner.code === 'choimun'
           ? '초이문 견적서(거래명세표 엑셀, 시트명 32차처럼 차수만)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만들고, 라움과 같은 차수 목록·월별 합계에 남깁니다.'
           : '강남/건대 라움 견적서(거래명세표 엑셀)를 업로드하면 품목+단가가 같은 행을 합산해 차수별 손익계산서를 만듭니다.'}
-        {!isShilla ? <>{' '}매출단가는 견적서 단가, 매입단가는 <b>가장 최근 도착원가(100원 단위 반올림)가 자동 입력</b>되며(🚢), 직접 고치면 그 값을 기억해 다음부터 우선 적용합니다(🧠). 저장하면 차수별 히스토리가 남습니다.</> : null}
+        {canErpSync ? <>{' '}매출단가는 견적서 단가, 매입단가는 <b>가장 최근 도착원가(100원 단위 반올림)가 자동 입력</b>되며(🚢), 직접 고치면 그 값을 기억해 다음부터 우선 적용합니다(🧠). 저장하면 차수별 히스토리가 남습니다.</> : null}
       </p>
 
       {error ? <div style={st.err}>{error}</div> : null}
+      {hotelRegistryError ? <div role="alert" style={st.err}>{hotelRegistryError} <button type="button" style={st.btn} onClick={() => setHotelRegistryRevision(value => value + 1)}>호텔 목록 다시 불러오기</button> <button type="button" style={st.btn} onClick={() => {
+        try { window.localStorage.setItem('nenova.raumPnl.partner', 'raum'); } catch { /* private mode */ }
+        partnerCodeRef.current = 'raum'; setPartnerCode('raum'); setDetail(null); setBulkPreview(null); setList([]);
+        setHotelRegistryRevision(value => value + 1);
+      }}>라움 탭으로 다시 열기</button></div> : null}
+      <PnlHotelAddDialog open={hotelDialogOpen} onClose={() => { if (!hotelAdding) setHotelDialogOpen(false); }} onSubmit={addHotel} busy={hotelAdding} error={hotelError} />
       {message ? <div style={st.ok}>{message}</div> : null}
-      {!isShilla ? <RaumImageOrderPanel
+      {canErpSync ? <RaumImageOrderPanel
         open={imageOpen}
         onClose={() => setImageOpen(false)}
         onPreview={openImagePreview}
@@ -2125,8 +2180,8 @@ export default function RaumPnlPage() {
         custName={partner.custName}
         partnerLabel={partner.label}
       /> : null}
-      {!isShilla ? <ErpSyncModal sync={sync} onApply={applyErpSync} onClose={() => setSync(null)} /> : null}
-      {!isShilla ? <MatchEditorModal
+      {canErpSync ? <ErpSyncModal sync={sync} onApply={applyErpSync} onClose={() => setSync(null)} /> : null}
+      {canErpSync ? <MatchEditorModal
         edit={matchEdit}
         onPick={(p) => applyMatch(p.ProdKey, p.ProdName)}
         onClear={() => applyMatch(null)}
@@ -2154,13 +2209,17 @@ export default function RaumPnlPage() {
           style={{ display: 'none' }}
           onChange={e => onUpload(e.target.files?.[0])}
         />
-        <button style={st.btnPrimary} disabled={uploading || shillaMatching || shillaBulkMatchOpen} onClick={() => fileRef.current?.click()}>
-          {uploading ? '분석 중…' : isShilla ? '📤 신라 원본 엑셀 미리보기' : '📤 견적서 업로드'}
+        <button style={st.btnPrimary} disabled={!partnerReady || hotelAdding || uploading || saving || shillaMatching || shillaBulkMatchOpen} onClick={() => fileRef.current?.click()}>
+          {uploading ? '분석 중…' : isShilla ? '📤 신라 업로드' : '📤 견적서 업로드'}
         </button>
+        {isShilla && !bulkPreview ? <>
+          <button type="button" style={{ ...st.btnPrimary, opacity: 0.45, cursor: 'not-allowed' }} disabled title="신라 파일을 업로드하고 저장할 차수를 선택하면 저장할 수 있습니다.">💾 신라 저장</button>
+          <span style={{ fontSize: 12, color: '#64748b' }}>신라 업로드 → 차수 확인·선택 → 저장</span>
+        </> : null}
         {retryUploadFile ? <button type="button" style={st.btn} disabled={uploading} onClick={() => onUpload(retryUploadFile)}>다시 미리보기</button> : null}
-        {isShilla ? <label style={{ fontSize: 12.5 }}>결산 연도 <input aria-label="신라 결산 연도" value={importYear} disabled={uploading || saving || shillaMatching || shillaBulkMatchOpen} onChange={event => changeImportYear(event.target.value)} inputMode="numeric" placeholder="2026" style={{ ...st.input, width: 62, textAlign: 'center' }} /></label> : null}
+        {isShilla || partner.customHotel ? <label style={{ fontSize: 12.5 }}>결산 연도 <input aria-label={isShilla ? '신라 결산 연도' : '호텔 결산 연도'} value={importYear} disabled={uploading || saving || shillaMatching || shillaBulkMatchOpen} onChange={event => changeImportYear(event.target.value)} inputMode="numeric" placeholder="2026" style={{ ...st.input, width: 62, textAlign: 'center' }} /></label> : null}
         {isShilla ? <button type="button" style={st.btnPrimary} disabled={uploading || saving || shillaMatching || shillaBulkMatchOpen} onClick={openShillaBulkMatch}>미매칭 품목 일괄 연결</button> : null}
-        {!isShilla ? <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button> : null}
+        {canErpSync ? <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button> : null}
         {detail ? (
           <>
             <button style={st.btn} disabled={shillaMatching} onClick={() => { setDetail(null); setGangnamMergeConfirmed(false); setMessage(''); setError(''); }}>← 결산 목록</button>
@@ -2342,7 +2401,7 @@ export default function RaumPnlPage() {
                 style={{ ...st.input, width: 46, textAlign: 'center' }}
                 value={detail.meta.major}
                 readOnly={isShilla}
-                onChange={e => setMeta({ major: e.target.value.replace(/[^0-9]/g, '').slice(0, 2), title: defaultPnlTitle(partnerCode, e.target.value) })}
+                onChange={e => setMeta({ major: e.target.value.replace(/[^0-9]/g, '').slice(0, 2), title: defaultPnlTitle(partnerCode, e.target.value, '', partner) })}
               />차 ({detail.meta.orderYear}년)
             </label>
             <label style={{ fontSize: 13 }}>견적일{' '}
@@ -2368,12 +2427,12 @@ export default function RaumPnlPage() {
             {!isShilla ? <button style={st.btn} onClick={addCustomRow} title="견적서에 없는 행(손실 등)을 직접 추가합니다. 품목명/수량/단가를 입력하면 이익·분배에 반영됩니다. 손실은 매입단가에 손실액, 매출단가 0 으로 넣으면 이익에서 차감됩니다.">
               ＋ 손실/수동 행
             </button> : null}
-            {!isShilla ? <button
+            {canErpSync ? <button
               style={{ ...st.btn, borderColor: '#f59e0b' }}
               onClick={openErpSync}
               title="전산 분배 대조에서 어긋난 품목의 수량·단가를 견적서 값 기준으로 전산에 일괄 반영합니다 (견적서 관리와 동일 수정 로직·확정차수 자동 사이클). 적용 전 변경 목록을 먼저 보여줍니다."
             >⚖ 전산 일괄수정</button> : null}
-            {!isShilla ? <button
+            {canErpSync ? <button
               style={st.btn}
               onClick={async () => {
                 setError('');
@@ -2453,6 +2512,7 @@ export default function RaumPnlPage() {
                       </td>
                       {!isShilla ? <td style={{ ...st.td, whiteSpace: 'normal', minWidth: 140 }}>
                         {(() => {
+                          if (!canErpSync) return <span style={{ color: '#64748b' }}>호텔 별도 결산</span>;
                           const match = raumPnlMatchDisplay(it);
                           if (it.isCustom) return <span style={{ color: '#94a3b8' }}>—</span>;
                           return (
@@ -2461,7 +2521,7 @@ export default function RaumPnlPage() {
                                 {match.matched ? match.label : (match.kind === 'consigned' ? '사입' : '미매칭 ⚪')}
                               </span>
                               {it.matchType && match.matched ? <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 11 }}>{it.matchType}</span> : null}
-                              {!it.consigned ? (
+                              {canErpSync && !it.consigned ? (
                                 <button
                                   style={{ marginLeft: 5, padding: '0 5px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 11, color: '#475569' }}
                                   title={`품목 매칭 ${match.matched ? '수정' : '연결'} — 전산 품목을 검색해서 바꿉니다 (기억됨)`}
@@ -2546,6 +2606,7 @@ export default function RaumPnlPage() {
                         <button style={{ ...st.btnDanger, padding: '2px 8px' }} onClick={() => removeItem(i)} title="이 행 삭제">✕ 삭제</button>
                       </td> : null}
                       {!isShilla ? (() => {
+                        if (!canErpSync) return <td style={st.td}>대조 대상 아님</td>;
                         const cmp = erpCompare(it, erpQtyMap, weekLabels);
                         const smallBtn = { marginLeft: 5, padding: '0 6px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 11 };
                         return (

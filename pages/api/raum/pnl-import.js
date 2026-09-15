@@ -9,7 +9,7 @@ import {
   parseRaumQuoteWorkbookGroups, lookupErpRefPrices, loadLearnedCosts, loadRaumConsignedSet,
   prepareRaumPnlImportPreview, saveRaumPnlImportBatch, DEFAULT_NENOVA_PCT,
 } from '../../../lib/raumPnl';
-import { resolvePnlPartner } from '../../../lib/raumPnlPartner';
+import { requirePnlPartner } from '../../../lib/pnlHotelRegistry';
 import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../../lib/raumPnlImportReview';
 import { parseShillaPnlWorkbookGroups } from '../../../lib/shillaPnlParse';
 import { applyConfirmedShillaSourceNames, selectShillaImportBatches, shillaSettlementItem } from '../../../lib/shillaPnlImportPolicy';
@@ -30,7 +30,28 @@ function previewToken(raw, snapshots, batches) {
 }
 
 async function enrichBatch(parsed, orderYear, partnerCode) {
-  if (partnerCode === 'shilla') {
+  const partner = await requirePnlPartner(partnerCode);
+  if (partner.customHotel === true) {
+    // A custom hotel has no ERP customer and never participates in global
+    // learned-cost, consigned-item, or product-map reads. Re-imported manual
+    // costs are preserved later from this exact hotel's existing settlement.
+    return {
+      ...parsed, orderYear, partnerCode: partner.code, quoteDate: localDate(parsed.quoteDate),
+      items: parsed.items.map(it => ({
+        ...it, consigned: false, consignedManual: false,
+        costPrice: null, costSource: null, costLearned: false,
+        refPrice: null, refSource: null, isArrival: false,
+        erpSalePrice: null, erpQty: null, erpFromPrev: false, erpW2Qty: 0,
+        imChecked: false, imQty: null, imFirstDtm: null, imLastDtm: null, imModCnt: 0,
+        prodKey: null, prodName: null, matchType: null, prodKeySource: null,
+      })),
+      sheets: parsed.sheets.map(s => ({
+        sheetName: s.sheetName, branch: s.branch, itemCount: s.items.length,
+        parsedSupply: s.parsedSupply, summarySupply: s.summarySupply, summaryTotal: s.summaryTotal,
+      })),
+    };
+  }
+  if (partner.code === 'shilla') {
     return { ...parsed, orderYear, partnerCode, quoteDate: localDate(parsed.quoteDate),
       warnings: [...(parsed.warnings || []), ...(parsed.erpWeekNote ? [`전산 차수 참고(엑셀 차수는 변경하지 않음): ${parsed.erpWeekNote}`] : [])],
       items: parsed.items.map(shillaSettlementItem),
@@ -107,14 +128,16 @@ async function handler(req, res) {
   try {
     const raw = fs.readFileSync(file.filepath);
     const workbook = XLSX.read(raw, { type: 'buffer', cellDates: true, cellNF: false, cellStyles: false });
-    const partner = resolvePnlPartner(asField(fields.partner) || asField(fields.partnerCode));
-    const explicitYear = String(asField(fields.orderYear) || '').trim();
-    if (partner.code === 'shilla' && !/^\d{4}$/.test(explicitYear)) return res.status(400).json({ success: false, error: '신라 원본의 결산 연도를 선택하세요.' });
+    const partner = await requirePnlPartner(asField(fields.partner) || asField(fields.partnerCode));
+    const explicitYear = String(asField(fields.importYear) || asField(fields.orderYear) || '').trim();
+    if ((partner.code === 'shilla' || partner.customHotel === true) && !/^\d{4}$/.test(explicitYear)) {
+      return res.status(400).json({ success: false, error: `${partner.label} 원본의 결산 연도를 선택하세요.` });
+    }
     const confirmedNotes = partner.code === 'shilla'
       ? applyConfirmedShillaSourceNames(workbook, crypto.createHash('sha256').update(raw).digest('hex')) : [];
     const parsed = partner.code === 'shilla'
       ? parseShillaPnlWorkbookGroups(XLSX, workbook, { orderYear: explicitYear })
-      : parseRaumQuoteWorkbookGroups(XLSX, workbook, { partnerCode: partner.code });
+      : parseRaumQuoteWorkbookGroups(XLSX, workbook, { partnerCode: partner.code, partner });
     parsed.warnings = [...(parsed.warnings || []), ...confirmedNotes];
     for (const note of confirmedNotes) {
       const confirmed = parsed.batches.find(batch => Number(batch.major) === Number(note.match(/^\d+/)?.[0]));
@@ -123,7 +146,9 @@ async function handler(req, res) {
     if (!parsed.batches.length) return res.status(400).json({ success: false, error: parsed.warnings[0] || '파싱된 품목이 없습니다.', warnings: parsed.warnings });
 
     const batches = await Promise.all(parsed.batches.map(async (batch) => {
-      const orderYear = partner.code === 'shilla' ? explicitYear : batch.quoteDate ? String(batch.quoteDate.getFullYear()) : resolveActiveOrderYear(`${batch.major}-01`);
+      const orderYear = (partner.code === 'shilla' || partner.customHotel === true)
+        ? explicitYear
+        : batch.quoteDate ? String(batch.quoteDate.getFullYear()) : resolveActiveOrderYear(`${batch.major}-01`);
       return enrichBatch(batch, orderYear, partner.code);
     }));
     const prepared = await prepareRaumPnlImportPreview(batches);
@@ -160,7 +185,10 @@ async function handler(req, res) {
       previewToken: token, batches: canonicalBatches, warnings: parsed.warnings,
     });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
+    if (e.code === 'PRESERVATION_COLLISION') {
+      return res.status(409).json({ success: false, code: e.code, error: e.message, details: e.details || [] });
+    }
+    return res.status(e.statusCode || 500).json({ success: false, error: e.message, code: e.code });
   } finally {
     try { fs.unlinkSync(file.filepath); } catch { /* temp cleanup only */ }
   }
