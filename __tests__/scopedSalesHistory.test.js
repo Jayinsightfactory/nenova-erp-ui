@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict');
+const {groupSalesHistoryMessages,readScopedSalesHistory}=require('../lib/scopedSalesHistory');
+const messages=[{identity:'a',message:'37-2차 영림 변경'},{identity:'b',message:'37-01 변경'},{identity:'c',message:'2025-37-02 변경'},{identity:'d',message:'37-02 추가'}];
+assert.deepEqual(groupSalesHistoryMessages(messages,'2026','37-01').map(g=>[g.week,g.messages.map(m=>m.identity)]),[['37-02',['a','d']],['37-01',['b','c']]]);
+assert.equal(groupSalesHistoryMessages([{identity:'mixed',message:'37-01 변경\n37-02 변경'}],'2026','36-01')[0].week,'36-01');
+(async()=>{
+ const body={year:'2026',week:'37-01',from:'2026-09-09',to:'2026-09-15',messages};
+ const calls=[];
+ const read=async b=>{calls.push(b);return {response:{ok:true},data:{success:true,advisoryOnly:true,erpAction:'NONE',scope:{year:b.year,weeks:[b.week],from:b.from,to:b.to},items:b.messages.map(m=>({sourceIdentity:m.identity,requests:[]})),warnings:[],balanceComparison:{products:[]},asOf:'2026-09-15'}}};
+ const result=await readScopedSalesHistory(body,read,()=>true);
+ assert.equal(calls.length,2);assert.equal(result.data.items.length,4);
+ assert.equal(calls[0].messages[0].message,messages[0].message);
+ await assert.rejects(()=>readScopedSalesHistory(body,async b=>{const r=await read(b);r.data.scope.year='2025';return r},()=>true),/범위/);
+ await assert.rejects(()=>readScopedSalesHistory(body,async b=>{const r=await read(b);r.data.items=[];return r},()=>true),/범위/);
+ console.log('scoped history: same-scope competition, explicit year preservation and response isolation passed');
+})().catch(e=>{console.error(e);process.exitCode=1});
