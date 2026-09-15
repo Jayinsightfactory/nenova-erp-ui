@@ -1,17 +1,21 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import {canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,qualitySourceCoverage,transitionQuality} from '../lib/farmQuality.js';
+import {canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,qualitySourceCoverage,qualitySignalCoverage,transitionQuality} from '../lib/farmQuality.js';
 import {normalizeEvidenceKeys} from '../lib/farmQualityEvidence.js';
 const source=fs.readFileSync('lib/farmQualityStore.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const incoming={userId:'u1',userName:'담당자',deptName:'수입부'};
 let cases=[],events=[],evidence=[],rollbacks=0;
+const validSource={DeductionKey:10,OrderYear:2026,OrderWeek:'36',ProdKey:5,ProductName:'Novia',FarmName:'Farm',FarmKey:2,SourceUnit:'박스',Quantity:1,ImportConfirmed:true};
+let mockSources=[validSource];
+const caseEventWriteAttempts=[];
 const q=async(sql,p={})=>{
  const v=k=>p[k]?.value;
+ if(/(?:INSERT|UPDATE|DELETE)\s+(?:FROM\s+)?dbo\.WebFarmQuality(?:Case|Event)\b/i.test(sql))caseEventWriteAttempts.push(sql);
  if(sql.includes('OBJECT_ID'))return {recordset:[{id:1,caseId:1,evidenceId:1}]};
  if(sql.includes('SELECT CaseKey,PayloadHash'))return {recordset:events.filter(e=>e.RequestKey===v('req'))};
- if(sql.includes('FROM dbo.WebSalesDefectDeduction'))return {recordset:[{DeductionKey:10,OrderYear:2026,OrderWeek:'36',ProdKey:5,ProductName:'Novia',FarmName:'Farm',FarmKey:2,SourceUnit:'박스',Quantity:1,ImportConfirmed:true}]};
+ if(sql.includes('FROM dbo.WebSalesDefectDeduction'))return {recordset:mockSources.filter(row=>Number(row.OrderYear)===v('year')&&(v('source')==null||Number(row.DeductionKey)===v('source')))};
  if(sql.includes('FROM dbo.ViewWarehouse vw'))return {recordset:[]};
  if(sql.includes('SELECT c.*, latest.Body'))return {recordset:[{...cases[0],FarmName:'Farm',ProdKey:5,ProductName:'Novia',Title:'손상',CreatedByName:'담당자',DueDate:null,UpdatedAt:new Date('2026-09-14T01:00:00Z')}]};
  if(sql.includes('WITH RankedEvents'))return {recordset:[
@@ -33,8 +37,25 @@ const q=async(sql,p={})=>{
  throw Error('Unexpected SQL '+sql);
 };
 const tx=async fn=>{const snapshot=structuredClone({cases,events,evidence});try{return await fn(q);}catch(e){cases=snapshot.cases;events=snapshot.events;evidence=snapshot.evidence;rollbacks++;throw e;}};
-const {deleteQualityCase,loadQuality,saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','canDeleteFarmQuality','qualityScope','qualityGroups','qualityAnalytics','qualitySignals','qualitySourceCoverage','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys',source+';return {deleteQualityCase,loadQuality,saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,qualitySourceCoverage,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys);
+const {deleteQualityCase,loadQuality,saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','canDeleteFarmQuality','qualityScope','qualityGroups','qualityAnalytics','qualitySignals','qualitySourceCoverage','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys','qualitySignalCoverage',source+';return {deleteQualityCase,loadQuality,saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,qualitySourceCoverage,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys,qualitySignalCoverage);
 const create={action:'create',year:2026,sourceKey:10,title:'손상',body:'관찰',requestId:crypto.randomUUID()};
+for(const scenario of [
+ {label:'unconfirmed',patch:{ImportConfirmed:false},kind:'SAME_ITEM_WEEK'},
+ {label:'missing farm',patch:{FarmName:'',FarmKey:null},kind:'UNASSIGNED_ITEM_WEEK'},
+]){
+ mockSources=[
+  {...validSource,...scenario.patch,CustKey:101,CustName:'업체 A'},
+  {...validSource,...scenario.patch,DeductionKey:11,CustKey:102,CustName:'업체 B'},
+ ];
+ const candidate=qualitySignals(mockSources,qualityScope({year:2026})).find(signal=>signal.kind===scenario.kind);
+ assert(candidate,`${scenario.label} source must still appear in automatic detection`);
+ assert.equal(candidate.canCreate,false);assert.equal(candidate.sourceKey,null);
+ const snapshot=structuredClone({cases,events}),attempts=caseEventWriteAttempts.length;
+ await assert.rejects(saveQuality({...create,sourceKey:10,requestId:crypto.randomUUID()},incoming),/수입부 확인이 완료된 품목·농장만 등록할 수 있습니다/);
+ assert.deepEqual({cases,events},snapshot,`${scenario.label} rejection preserves stored cases/events`);
+ assert.equal(caseEventWriteAttempts.length,attempts,`${scenario.label} must reject before any Case/Event write, even a rolled-back write`);
+}
+mockSources=[validSource];
 const first=await saveQuality(create,incoming);
 assert.equal(first.caseVersion,2);assert.equal(first.event.Body,'관찰');assert.equal(first.event.EventKey,'1');
 assert.equal(cases.length,1);assert.equal(events.length,1);
@@ -60,6 +81,7 @@ const foreignImage=crypto.randomUUID();evidence.push({EvidenceKey:foreignImage,O
 await assert.rejects(saveQuality({...request,version:6,kind:'COMMENT',body:'다른 연도 사진',evidenceKeys:[foreignImage],requestId:crypto.randomUUID()},incoming));
 assert.equal(evidence.at(-1).EventKey,null,'cross-year evidence must remain unbound after rollback');
 const loaded=await loadQuality({year:2026,from:1,to:53});
+assert.equal(loaded.signalCoverage.analyzedSourceCount,1);assert.equal(loaded.signalCoverage.noPatternSourceCount,1);
 assert.equal(loaded.coverage.sourceTotal,1);assert.equal(loaded.coverage.activeTotal,1);assert.equal(loaded.coverage.rows[0].customerName,'업체 미지정');
 assert.equal(loaded.cases[0].EventCount,4);
 assert.deepEqual(loaded.cases[0].RecentEvents.map(event=>[event.EventNo,event.Kind,event.Body]),[[2,'REQUEST','농장 확인 요청'],[3,'RESPONSE','농장 답변'],[4,'COMMENT','추가 코멘트']]);
