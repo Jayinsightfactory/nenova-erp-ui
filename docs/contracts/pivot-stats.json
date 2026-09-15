@@ -5,6 +5,10 @@
     "pages/stats/pivot.js",
     "pages/api/stats/pivot-weeks.js",
     "pages/api/stats/pivot-volume-excel.js",
+    "components/PivotExePanel.js",
+    "components/PivotExeGrid.js",
+    "lib/pivotExeInteraction.js",
+    "lib/pivotExePresentation.js",
     "lib/pivotAvailableWeeks.js",
     "lib/pivotProductSearch.js",
     "lib/pivotFilterOptions.js",
@@ -42,6 +46,12 @@
       "description": "선택 OrderYear의 Order/Shipment/Warehouse/Stock 입력 이력에서 실제 OrderWeek를 읽어 36-01과 36-02를 합치지 않고 별도 선택한다. 선택값은 조회와 물량표 다운로드의 시작·종료 차수에 동일하게 전달한다.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "PIVOT_EXE_FIELD_ZONES_AND_COLLECTIVE_WIDTH",
+      "description": "전산 피벗 필드는 버튼 또는 드래그로 세로 행·가로 열·값·필터 영역 사이를 이동한다. 가로 데이터 열 하나의 너비를 조절하면 현재 피벗의 모든 가로 데이터 열에 같은 CSS 픽셀 너비를 적용하고 사용자별 브라우저 설정에만 저장한다. 조회 API, 집계 원본값, 엑셀 숫자값과 ERP 원장은 변경하지 않는다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -54,6 +64,8 @@
     "__tests__/pivotFilterOptions.test.js",
     "__tests__/pivotVolumeNetherlands.test.js",
     "__tests__/pivotAvailableWeeks.test.js",
+    "__tests__/pivotExeLiveLayout.test.js",
+    "__tests__/pivotExeInteraction.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

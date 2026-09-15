@@ -86,7 +86,7 @@ const PivotExeWindowedBody = memo(function PivotExeWindowedBody({ structure, for
 function AxisHeaderCell({ cell, dimensions, onFieldMenu, onToggleColumn, onResize, onBestFit }) {
   return <th key={`${cell.level}-${cell.columnStart}-${cell.measure?.key || ''}`} colSpan={cell.columnSpan} className={styles.axisHead} style={{ top: cell.level * dimensions.rowHeight }}>
     <button type="button" className={styles.headerButton} onClick={(event) => cell.measure ? onFieldMenu?.(cell.measure.field, event) : cell.canToggle ? onToggleColumn?.(cell.axisKey) : undefined} title={cell.title || cell.label || '열 머리글'}>{cell.label || ' '}</button>
-    {cell.measure && <span className={styles.resizeHandle} title="열 너비 조절 · 두 번 클릭하면 자동맞춤" onMouseDown={(event) => { event.preventDefault(); const column = dimensions.dataColumns[cell.columnStart]; onResize?.(column.id, event.clientX, column.width); }} onDoubleClick={(event) => { event.preventDefault(); onBestFit?.(dimensions.dataColumns[cell.columnStart].id); }} />}
+    {cell.measure && <span className={styles.resizeHandle} title="가로 데이터 열 전체 너비 조절 · 두 번 클릭하면 전체 자동맞춤" onMouseDown={(event) => { event.preventDefault(); const column = dimensions.dataColumns[cell.columnStart]; onResize?.(column.id, event.clientX, column.width); }} onDoubleClick={(event) => { event.preventDefault(); onBestFit?.(dimensions.dataColumns[cell.columnStart].id); }} />}
   </th>;
 }
 
