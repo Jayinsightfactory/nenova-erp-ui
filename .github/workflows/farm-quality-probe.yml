@@ -24,11 +24,21 @@ jobs:
             try {
               const columns=await query("SELECT c.name FROM sys.columns c WHERE c.object_id=OBJECT_ID(N'dbo.WebSalesDefectDeduction')");
               const names=new Set(columns.recordset.map(c=>c.name));
-              const required=['DeductionKey','OrderYear','OrderWeek','ProdKey','ProdName','FarmKey','FarmName','SourceUnit','Quantity','OriginalQuantity','ImportConfirmed','IsDeleted','DeductionType'];
+              const required=['DeductionKey','OrderYear','OrderWeek','CustName','ProdKey','ProdName','FarmKey','FarmName','SourceUnit','Quantity','OriginalQuantity','ImportConfirmed','IsDeleted','DeductionType'];
               const missing=required.filter(c=>!names.has(c));
               console.log(JSON.stringify({requiredColumns:required,missing}));
               if(missing.length)throw Error('Source schema incompatible');
               const result=await query("SELECT d.OrderYear,COUNT(*) SourceRows,SUM(CASE WHEN d.ImportConfirmed=1 AND ISNULL(d.IsDeleted,0)=0 AND d.FarmName<>N'' AND d.ProdKey>0 THEN 1 ELSE 0 END) EligibleRows FROM dbo.WebSalesDefectDeduction d LEFT JOIN Product p ON p.ProdKey=d.ProdKey WHERE d.OrderYear IN(2025,2026) AND d.DeductionType=N'불량차감' GROUP BY d.OrderYear");
               console.log(JSON.stringify({readOnly:true,aggregate:result.recordset}));
+              const coverage=await query(`SELECT OrderYear,COUNT(*) SourceRows,
+                SUM(CASE WHEN ISNULL(IsDeleted,0)=1 THEN 1 ELSE 0 END) DeletedRows,
+                SUM(CASE WHEN ISNULL(IsDeleted,0)=0 THEN 1 ELSE 0 END) ActiveRows,
+                SUM(CASE WHEN ISNULL(IsDeleted,0)=0 AND ISNULL(ImportConfirmed,0)=0 THEN 1 ELSE 0 END) ActiveUnconfirmed,
+                SUM(CASE WHEN ISNULL(IsDeleted,0)=0 AND ISNULL(ProdKey,0)<=0 THEN 1 ELSE 0 END) ActiveMissingProduct,
+                SUM(CASE WHEN ISNULL(IsDeleted,0)=0 AND LTRIM(RTRIM(ISNULL(FarmName,N'')))=N'' THEN 1 ELSE 0 END) ActiveMissingFarm,
+                SUM(CASE WHEN ISNULL(IsDeleted,0)=0 AND ISNULL(OriginalQuantity,Quantity)<=0 THEN 1 ELSE 0 END) ActiveNonPositiveQuantity,
+                SUM(CASE WHEN ISNULL(IsDeleted,0)=0 AND LTRIM(RTRIM(ISNULL(CustName,N'')))=N'' THEN 1 ELSE 0 END) ActiveMissingCustomerName
+                FROM dbo.WebSalesDefectDeduction WHERE OrderYear IN(2025,2026) AND DeductionType=N'불량차감' GROUP BY OrderYear`);
+              console.log(JSON.stringify({readOnly:true,coverage:coverage.recordset,reasonCountsOverlap:true}));
             } finally {await (await getPool()).close();}
             NODE
