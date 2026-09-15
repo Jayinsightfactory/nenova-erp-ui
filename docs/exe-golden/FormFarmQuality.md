@@ -1,5 +1,15 @@
 # Farm quality web-only boundary — 2026-09-14
 
+## 2026-09-15 compact factual summary
+
+The inbox adds only Product.FlowerName to its existing Product LEFT JOIN and safe
+source projection. This is display metadata, never a product/farm identity or
+eligibility change. A browser-safe helper produces deduplicated same-year current
+source quantity/week summaries. Unit-specific top products and quantity shares
+are not incoming-based defect rates. Saved Case.Status alone drives workflow
+labels; new-source badges never overwrite WAITING/CLOSED. All write payloads,
+source/ERP ledgers, case/event histories and rate denominators remain unchanged.
+
 ## 2026-09-15 unified feedback inbox superseding rule
 
 All automatic detections are feedback-needed immediately. The new inbox-only
