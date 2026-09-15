@@ -79,16 +79,16 @@ assert.doesNotMatch(shillaMatchModal, /(?:Qty|SalePrice|SaleAmount|CostPrice)\s*
 assert.match(shillaMatchModal, /product\.DisplayName, product\.FlowerName, product\.CounName, product\.OutUnit/, 'search candidates show disambiguating product fields without changing the source unit');
 assert.doesNotMatch(shillaMatchModal, /fetch\('\/api\/raum\/item-mapping', \{[\s\S]*method: 'POST'/, 'Shilla mapping must never save through global item mapping');
 
-assert.match(costs, /buildRaumPnlCombinedPurchaseCostMatrix\(sharedRows, shillaRows, \{ orderYear \}\)/, 'cost screen co-locates shared and Shilla data through the combined matrix');
+assert.match(costs, /buildRaumPnlCombinedPurchaseCostMatrix\(sharedRows, shillaRows, \{ orderYear, partnerCode: hotelCode, partnerLabel: selectedHotel\.label \}\)/, 'cost screen co-locates shared and the selected isolated hotel through the combined matrix');
 assert.match(costs, /\/api\/raum\/purchase-costs\?year=/, 'shared costs keep their existing GET');
-assert.match(costs, /\/api\/raum\/shilla-purchase-costs\?year=/, 'Shilla costs use an independent GET');
+assert.match(costs, /\/api\/raum\/hotel-purchase-costs\?year=/, 'selected hotel costs use an independent GET');
 assert.match(costs, /fetch\('\/api\/raum\/purchase-costs'/, 'shared costs keep their existing POST');
-assert.match(costs, /fetch\('\/api\/raum\/shilla-purchase-costs'/, 'Shilla costs use an independent POST');
+assert.match(costs, /fetch\('\/api\/raum\/hotel-purchase-costs'/, 'selected hotel costs use an independent POST');
 assert.match(costs, /pnlKey: cell\.pnlKey, major: cell\.major, identity: cell\.identity, expected: cell\.snapshot/, 'Shilla saves the single-partner concurrency snapshot');
 assert.match(costs, /matrixConflicts/, 'ambiguous duplicate Shilla weeks are visible and excluded from edits');
 assert.match(costs, /setSharedRows\(\[\]\)/, 'a failed shared reload clears only stale shared rows');
 assert.match(costs, /setShillaRows\(\[\]\)/, 'a failed Shilla reload clears only stale Shilla rows');
-assert.match(costs, /신라 원본: \{item\.shillaName\}/, 'a differing Shilla source name stays visible beside the shared name');
+assert.match(costs, /\{selectedHotel\.label\} 원본: \{item\.shillaName\}/, 'a differing selected-hotel source name stays visible beside the shared name');
 assert.doesNotMatch(costs, /<ShillaPurchaseCosts/, 'Shilla is no longer rendered as a separate bottom area');
 assert.match(shillaCosts, /수량 .*판매가/, 'compact Shilla cells show quantity and sale price');
 assert.match(shillaCosts, /매입액 .*매출액/, 'compact Shilla cells show purchase and sale amount');

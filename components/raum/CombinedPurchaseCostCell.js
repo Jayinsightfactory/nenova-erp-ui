@@ -43,12 +43,12 @@ function SharedPurchaseCostInput({ item, cell, draft, onChange, disabled, unavai
 }
 
 // 같은 제품·단위·차수에 공통 원가와 신라 원가를 나란히 보여 주되 저장 경계는 섞지 않는다.
-export default function CombinedPurchaseCostCell({ item, cell, sharedDraft, shillaDraft, onSharedChange, onShillaChange, disabled, sharedUnavailable, shillaUnavailable, shillaUnavailableMessage }) {
+export default function CombinedPurchaseCostCell({ item, cell, sharedDraft, shillaDraft, onSharedChange, onShillaChange, disabled, sharedUnavailable, shillaUnavailable, shillaUnavailableMessage, isolatedLabel }) {
   return <div style={{ width: 355, flex: '0 0 355px', padding: 4, border, borderRadius: 5, background: '#fff' }}>
     <b style={{ display: 'block', marginBottom: 3, color: '#334155', fontSize: 11 }}>{cell.major}차</b>
     <div style={{ display: 'flex', alignItems: 'stretch', gap: 4 }}>
       <SharedPurchaseCostInput item={item} cell={cell.shared} draft={sharedDraft} onChange={onSharedChange} disabled={disabled} unavailable={sharedUnavailable} />
-      <ShillaPurchaseCostInput item={item} cell={cell.shilla} draft={shillaDraft} onChange={onShillaChange} disabled={disabled} unavailable={shillaUnavailable} unavailableMessage={shillaUnavailableMessage} />
+      <ShillaPurchaseCostInput item={item} cell={cell.shilla} draft={shillaDraft} onChange={onShillaChange} disabled={disabled} unavailable={shillaUnavailable} unavailableMessage={shillaUnavailableMessage} label={isolatedLabel} />
     </div>
   </div>;
 }

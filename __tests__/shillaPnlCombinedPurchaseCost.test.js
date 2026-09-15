@@ -63,6 +63,12 @@ async function main() {
   assert.ok(sharedAfterShillaConflict.cells[0].shared, 'ambiguous Shilla input preserves the existing shared cell');
   assert.equal(sharedAfterShillaConflict.cells[0].shilla, null, 'ambiguous-major Shilla rows are all omitted rather than silently selecting one');
   assert.deepEqual(buildRaumPnlCombinedPurchaseCostMatrix(sharedRows, shillaRows, { orderYear: 'bad' }), { weeks: [], items: [], conflicts: [] });
+  const customCode = 'hotel_123456789abc';
+  const custom = buildRaumPnlCombinedPurchaseCostMatrix(sharedRows, [
+    row({ pnlKey: 50, itemKey: 50, partnerCode: customCode, qty: 4, costPrice: 777 }),
+  ], { orderYear: '2026', partnerCode: customCode, partnerLabel: '테스트호텔' });
+  assert.equal(custom.items.find(item => item.prodKey === 3170 && item.unit === '단').cells[0].shilla.values[0], 777, 'registered hotel uses the same isolated matrix slot');
+  assert.ok(custom.items.every(item => !item.shilla || item.shilla.partnerCode !== 'shilla'), 'Shilla rows never leak into a selected custom hotel');
   console.log('Shilla combined purchase-cost matrix tests passed');
 }
 

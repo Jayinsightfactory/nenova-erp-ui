@@ -91,3 +91,9 @@
 - `OrderDetail`: `BoxQuantity/BunchQuantity/SteamQuantity/OutQuantity/EstQuantity`가 품목 단위 규칙으로 채워지는지
 - `ShipmentMaster`: 신규 주문 시 빈 마스터만 생성되고 기존 `ShipmentDetail`이 없는지
 - `ShipmentDetail`, `ShipmentDate`, `ShipmentFarm`, `Estimate`, `WebRaumPnl`: 이미지 주문등록 전후 수량/금액/행이 보존되는지
+# 2026-09-15 모든 호텔 차수별 매입단가·도착원가 참조
+
+- 라움·초이문 공통 단가 계약은 유지한다. 신라 및 `WebPnlHotel`의 활성 등록 호텔은 각 `PartnerCode` 안에서만 `WebRaumPnlItem.CostPrice/CostSource`를 수정한다.
+- 상세 웹 표의 도착원가 참조는 `WebArrivalCostLine`을 `OrderYear + 대차수 접두부 + ProdKey + IsCurrent=1`로 읽는 조회 전용 정보다. 전년도·전차수 폴백을 하지 않고, 같은 대차수의 세부차수는 모두 표시한다.
+- 단위 환산은 `Product.SteamOf1Box/BunchOf1Box/SteamOf1Bunch` 근거가 있을 때만 한다. 이 참조값은 `loadRaumPnlDetail` 원장이나 엑셀/인쇄 모델에 저장하지 않는다.
+- EXE 주문·출고·재고·견적 원장은 모두 보존한다.
