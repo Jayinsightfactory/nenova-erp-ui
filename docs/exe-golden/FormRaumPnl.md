@@ -41,6 +41,7 @@
 - 허용 쓰기는 대상 `WebRaumPnlItem.CostPrice/CostSource`와 부모 `WebRaumPnl.UpdatedBy/UpdatedAt`뿐이다. 명시적 0은 보존하고 빈칸은 NULL로 저장한다.
 - 과거 차수 수정은 `WebRaumCostPrice` 학습값을 바꾸지 않는다. `Product`, 주문·출고·분배·재고·견적·`WebProfitReport`도 보존한다.
 - 손익 목록과 상세의 매입액·이익은 `WebRaumPnlItem.CostPrice × Qty`를 조회 시 계산하므로 저장 후 재조회에서 새 단가가 반영된다.
+- 신라 저장 상세에서도 매입단가 칸을 직접 편집할 수 있다. 저장은 전체 결산 재업로드가 아니라 기존 신라 전용 단가 API를 사용하고, 화면을 열 때의 `ItemKey+CostPrice` snapshot을 재검증해 해당 `CostPrice/CostSource`와 부모 수정시각만 변경한다.
 - 화면 표시 전용으로 `WebRaumPnlItem.SalePrice/SaleAmount`를 함께 조회해 각 칸에 견적서 판매가·매입금액(`CostPrice × Qty`, 입력 중에는 draft 값 기준)·견적서 금액·수량을 조밀하게 보여준다. 이 두 컬럼은 GET에서만 읽으며 저장 API/SQL에는 포함하지 않는다.
 - 매입단가 관리 화면은 라움과 초이문을 전환하지 않고 같은 연도·대차수·품목·단위를 한 공통 단가 셀로 표시한다. 판매가·수량·매입액·견적액은 거래처별로 분리해 보여준다.
 - 공통 단가 저장은 해당 연도·대차수의 활성 라움+초이문 결산을 함께 잠근 뒤 `PartnerCode + PnlKey + ItemKey + CostPrice` 전체 snapshot을 대조하고, 존재하는 양쪽 매칭행의 `CostPrice/CostSource`만 한 트랜잭션으로 수정한다. 한쪽 자료가 없을 때 결산이나 품목행을 새로 만들지 않는다.
