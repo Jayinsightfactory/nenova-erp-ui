@@ -27,6 +27,7 @@ export default function CatalogImageCropEditor({
   slideStyle = {},
   busy = false,
   compact = false,
+  frameAspect = 1,
   onPreviewChange,
   onSave,
   onClose,
@@ -114,18 +115,18 @@ export default function CatalogImageCropEditor({
 
   return (
     <div className={`catalog-crop-editor ${compact ? 'compact' : ''}`}>
-      <p className="catalog-crop-wysiwyg-hint">슬롯·PPT와 동일한 정사각 칸 — 조정하면 뒤 슬롯에도 바로 반영됩니다</p>
+      <p className="catalog-crop-wysiwyg-hint">슬롯·PPT와 동일한 이미지 칸 — 조정하면 뒤 슬롯에도 바로 반영됩니다</p>
       {panHint ? (
         <p className="catalog-crop-pan-hint">정사각에 가까운 이미지는 확대(100% 초과) 후 위치 조절이 됩니다</p>
       ) : null}
       <div
         className="catalog-crop-frame"
-        style={{ '--cell-img': `${framePx}px` }}
+        style={{ '--cell-img': `${framePx}px`, '--cell-img-w': `${framePx * Math.min(1, frameAspect)}px`, '--cell-img-h': `${framePx * Math.min(1, 1 / frameAspect)}px` }}
         onPointerDown={onFramePointerDown}
         title="드래그로 상하·좌우 이동"
       >
         <div className="catalog-slide-img">
-          <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} onPanRange={onPanRange} />
+          <CatalogSlideImage source={preview} src={absCatalogUrl(imageUrl)} onPanRange={onPanRange} frameAspect={frameAspect} />
         </div>
       </div>
 

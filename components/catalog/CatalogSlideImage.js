@@ -20,6 +20,7 @@ export default function CatalogSlideImage({
   alt = '',
   className = '',
   onPanRange,
+  frameAspect = 1,
 }) {
   const [aspect, setAspect] = useState(null);
   const imgRef = useRef(null);
@@ -53,19 +54,19 @@ export default function CatalogSlideImage({
 
   useEffect(() => {
     if (!aspect || !onPanRange) return;
-    onPanRange(catalogImagePanRange(aspect, scale));
-  }, [aspect, scale, onPanRange]);
+    onPanRange(catalogImagePanRange(aspect / frameAspect, scale));
+  }, [aspect, scale, frameAspect, onPanRange]);
 
   if (!src) return null;
 
   return (
     <div className={`catalog-slide-img-inner ${className}`.trim()}>
-      <div className="catalog-img-stage" style={catalogImageStageStyle(source)}>
+      <div className="catalog-img-stage" style={catalogImageStageStyle(source, {}, frameAspect)}>
         <img
           ref={imgRef}
           src={src}
           alt={alt}
-          style={catalogImageStyle(source, aspect)}
+          style={catalogImageStyle(source, aspect ? aspect / frameAspect : null)}
           draggable={false}
           onLoad={(e) => applyAspect(e.currentTarget)}
         />

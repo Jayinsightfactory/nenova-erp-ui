@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import CatalogImagePicker from '../../components/catalog/CatalogImagePicker';
 import CatalogLineEditor from '../../components/catalog/CatalogLineEditor';
+import CatalogStyleSettings from '../../components/catalog/CatalogStyleSettings';
+import { CATALOG_STYLE_STORAGE_KEY } from '../../lib/catalogLayout';
 import CatalogSlideComposer, { setCatalogDragData } from '../../components/catalog/CatalogSlideComposer';
 import { exportCatalogPpt } from '../../lib/catalogPptExport';
 import { buildCatalogDraftPayload, normalizeLoadedLines, patchCatalogWorkLines, readCatalogWorkDraft, writeCatalogWorkDraft } from '../../lib/catalogDraft';
@@ -442,7 +444,11 @@ export default function CatalogPage() {
   useEffect(() => {
     try {
       const saved = readCatalogWorkDraft();
-      if (!saved) return;
+      if (!saved) {
+        const defaults = JSON.parse(localStorage.getItem(CATALOG_STYLE_STORAGE_KEY) || 'null');
+        if (defaults) setCatalogFields(normalizeCatalogFields(defaults));
+        return;
+      }
       if (saved.savedDraftId) {
         setSavedDraftId(saved.savedDraftId);
         setSavedDraftName(saved.savedDraftName || '');
@@ -1417,6 +1423,7 @@ export default function CatalogPage() {
             </span>
           )}
           <div className="page-actions catalog-field-toggles">
+            <CatalogStyleSettings fields={catalogFields} onChange={setCatalogFields} />
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>PPT표시:</span>
             {[
               ['showEng', '영문'],
