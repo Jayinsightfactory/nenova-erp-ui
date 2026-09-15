@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {summarizeQualityInbox,feedbackNeedsRequest,feedbackPriority} from '../lib/farmQualityInboxSummary.js';
+import {summarizeQualityInbox,feedbackNeedsRequest,feedbackPriority,compactQualityProductName} from '../lib/farmQualityInboxSummary.js';
+for(const [input,expected] of [['ROSE / Mondial White','Mondial White'],['CARNATION Doncel','Doncel'],['Hydrangea White (화이트)','White (화이트)'],[' rose/ Mama Mia ','Mama Mia'],['MiniCarnation Artic','MiniCarnation Artic'],['ROSEWOOD','ROSEWOOD'],['White ROSE','White ROSE'],['ROSE','ROSE'],['ROSE /','ROSE /']])assert.equal(compactQualityProductName(input),expected);
 const row=(key,w,q,extra={})=>({sourceKey:key,orderYear:2026,orderWeek:`${w}-01`,prodKey:1,productName:'CARNATION Polimnia',flowerName:'카네이션',farmName:'Teucali',unit:'단',quantity:q,...extra});
 const base={orderYear:2026,sources:[row(1,34,10),row(2,35,20),row(3,36,30),row(4,37,40)],cases:[],newSourceKeys:[1,2,3,4]};
 let s=summarizeQualityInbox(base);
