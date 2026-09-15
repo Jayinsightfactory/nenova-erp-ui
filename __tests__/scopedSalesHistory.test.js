@@ -10,6 +10,11 @@ assert.equal(groupSalesHistoryMessages([{identity:'mixed',message:'37-01 변경\
  const result=await readScopedSalesHistory(body,read,()=>true);
  assert.equal(calls.length,2);assert.equal(result.data.items.length,4);
  assert.equal(calls[0].messages[0].message,messages[0].message);
+ const fullMessages=Array.from({length:337},(_,i)=>({identity:`full-${i}`,message:'37-02 변경'}));
+ const full=await readScopedSalesHistory({...body,messages:fullMessages},read,()=>true);
+ assert.equal(full.data.items.length,337);
+ assert.equal(calls.at(-1).messages.length,337,'same-scope requests beyond 200 must compete in one read');
+ assert.equal(full.data.items.at(-1).sourceIdentity,'full-336');
  await assert.rejects(()=>readScopedSalesHistory(body,async b=>{const r=await read(b);r.data.scope.year='2025';return r},()=>true),/범위/);
  await assert.rejects(()=>readScopedSalesHistory(body,async b=>{const r=await read(b);r.data.items=[];return r},()=>true),/범위/);
  console.log('scoped history: same-scope competition, explicit year preservation and response isolation passed');

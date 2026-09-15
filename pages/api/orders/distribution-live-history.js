@@ -5,8 +5,8 @@ import { loadCustomerMappings } from '../../../lib/customerMappings';
 import { normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } from '../../../lib/distributionLiveHistory';
 import { cloneParsedItems, loadDistributionRequestBalanceFacts, buildDistributionRequestBalanceComparison } from '../../../lib/distributionRequestBalance';
 
-export const config = { api: { bodyParser: { sizeLimit: '256kb' } } };
-const MAX_MESSAGES = 200;
+export const config = { api: { bodyParser: { sizeLimit: '1mb' } } };
+const MAX_MESSAGES = 1000;
 const MAX_MESSAGE_CHARS = 200000;
 const FACT_CACHE_TTL_MS = 30000;
 const FACT_CACHE_MAX = 24;
@@ -31,10 +31,10 @@ function validMessage(value) {
 
 function requestMessages(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) || !Array.isArray(body.messages) || body.messages.length > MAX_MESSAGES || !body.messages.every(validMessage)) {
-    throw new TypeError('messages는 최대 200개의 유효한 JSON 메시지여야 합니다.');
+    throw new TypeError('같은 차수 원문이 1,000건을 초과하거나 형식이 잘못되어 전체 대조하지 못했습니다. 날짜 범위를 줄여 주세요. 일부만 잘라 완료 판정하지 않습니다.');
   }
   const characters = body.messages.reduce((sum, message) => sum + message.message.length, 0);
-  if (characters > MAX_MESSAGE_CHARS || JSON.stringify(body).length > 240000) throw new TypeError('메시지 전체는 최대 200,000자여야 합니다.');
+  if (characters > MAX_MESSAGE_CHARS || JSON.stringify(body).length > 900000) throw new TypeError('원문 용량을 초과해 전체 대조하지 못했습니다. 날짜 범위를 줄여 주세요. (최대 200,000자)');
   return body.messages;
 }
 
