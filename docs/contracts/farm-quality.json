@@ -1,12 +1,89 @@
 {
-  "id":"farm-quality","title":"농장 불량 및 부서별 피드백 추적",
-  "scope":["pages/sales/farm-quality.js","pages/api/sales/farm-quality.js","pages/api/sales/farm-quality-evidence.js","lib/farmQuality.js","lib/farmQualityStore.js","lib/farmQualityEvidence.js","docs/migrations/2026-09-14_farm_quality.sql"],
-  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
-  "qualityIdentity":"CaseKey; source DeductionKey; farm+product+symptom, year. Customer identity is not returned.",
-  "actions":[{"name":"QUALITY_READ","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"기존 확정 불량 원장과 같은 연도 ViewWarehouse 입고를 읽기 전용으로 대조해 농장별 대차수 불량률, 차수별 품목 후보, 동일 차수 여러 주문의 동일 농장·품목 반복, 동일 농장 다품목 집중, 연속 차수 품목·농장 반복을 자동 감지한다. 피드백 카드에는 같은 연도 CaseKey별 전체 코멘트 수와 최근 3개 이력의 순번·종류·본문 미리보기를 읽기 전용으로 함께 표시한다. 자동 감지는 불량 원본 건수로 표시하고 거래처 식별정보는 반환하지 않으며 상세는 사용자가 펼칠 때만 보인다."},{"name":"QUALITY_EVIDENCE_DRAFT","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"인증된 사용자가 선택하거나 클립보드에서 붙여넣은 JPG/PNG/WEBP를 WebFarmQualityEvidence 임시행으로 최대 5장 저장한다. 24시간 안에 이력 저장으로 연결되지 않은 임시행만 만료 정리 또는 작성자 삭제가 가능하다."},{"name":"QUALITY_EVENT","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"사용자가 이슈로 처리 또는 이력 저장을 명시적으로 눌렀을 때만 WebFarmQualityCase와 WebFarmQualityEvent를 기록하고, 같은 연도·작성자의 미연결 증거 이미지를 생성된 불변 EventKey에 같은 트랜잭션으로 연결한다."},{"name":"QUALITY_DELETE","orderDetail":"preserve","shipmentDetail":"preserve","sideEffect":"정확한 userId nenovaSS3만 선택 연도+CaseKey+Version을 잠금 재검증한 뒤 연결 증거, 코멘트 이력, 피드백 건을 자식부터 한 트랜잭션에서 삭제한다. 다른 연도·다른 피드백·미연결 임시 증거 및 확정 불량·ERP 원장은 보존한다."}],
-  "criteria":{"source":"confirmed active WebSalesDefectDeduction, original parent week, Quantity/OriginalQuantity; denominator is same-year ViewWarehouse OutQuantity by parent week, normalized FarmName, ProdKey and Product.OutUnit; no financial status filter","signals":"SAME_ITEM_WEEK requires at least two distinct CustKey values for the same parent week+farm+product+unit; FARM_WEEK_CLUSTER requires at least two products for the same parent week+farm+unit; ITEM_PERSISTENT and FARM_RECURRING require adjacent weeks or three occurrences inside four parent weeks. Source count means distinct DeductionKey count, never customer count.","privacy":"CustKey is selected only for server-side distinct-order detection and is never projected in groups, signals, cases or details. Evidence bytes are served only by the authenticated farm-quality endpoint; the public image route is never used. Draft evidence is visible/deletable only to its uploader, and saved evidence requires a same-year Case/Event join.","units":"rates and signals use exact original output unit; no box/bunch/stem conversion; missing or zero incoming denominator is shown as unknown, never 0 percent","rate":"farm trend numerator is all confirmed defects for farm+unit+parent week and denominator is all ViewWarehouse incoming products for the same farm+unit+parent week; item candidate denominator additionally requires exact ProdKey","state":"COMMENT preserves status; REQUEST creates unanswered round; RESPONSE only incoming/admin; APPLY requires answered; CLOSE manual; recurrence is suspected until reviewed","deleteAuthority":"exact userId nenovaSS3 only; similar ids, spaces, authority role alone, incoming/sales/support permissions are insufficient","storage":"automatic signals are a read-only projection of WebSalesDefectDeduction. WebFarmQualityCase+WebFarmQualityEvent are written only by explicit user action; evidence is signature-validated, size/count-limited, linked to immutable EventKey in the event transaction, and guarded by year/uploader; optimistic version and request idempotency remain in force. A successful event transaction returns the inserted event plus the updated case version so the browser confirms the comment immediately without depending on a follow-up GET. Full feedback deletion requires explicit confirmation and version match, deletes Evidence then Event then Case atomically, and logs actor/target/count.","downstream":"Estimate, Order, Shipment, Warehouse, Stock, WebProfitReport preserved"},
-  "crossYearFixture":{"required":true,"description":"2025 and 2026 same parent week are isolated"},
-  "requiredTestFiles":["__tests__/farmQuality.test.js","__tests__/farmQualityStore.test.js","__tests__/farmQualityEvidence.test.js","__tests__/farmQualityCompactUi.test.js"],
-  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormFarmQuality.md","source":"C:/Users/USER/nenova-decompiled/Nenova/FormSalesDefectView.cs","methods":["GetData"],"tables":["ShipmentMaster","Estimate"]},
-  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+  "id": "farm-quality",
+  "title": "농장 불량 및 부서별 피드백 추적",
+  "scope": [
+    "pages/sales/farm-quality.js",
+    "pages/api/sales/farm-quality.js",
+    "pages/api/sales/farm-quality-evidence.js",
+    "lib/farmQuality.js",
+    "lib/farmQualityStore.js",
+    "lib/farmQualityEvidence.js",
+    "docs/migrations/2026-09-14_farm_quality.sql",
+    "components/FarmQualityCoverage.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "qualityIdentity": "CaseKey; source DeductionKey; farm+product+symptom, year. Customer display name is shown in source evidence; internal customer identifiers are not returned.",
+  "actions": [
+    {
+      "name": "QUALITY_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "같은 연도 활성 불량 원본 전체를 읽기 전용으로 조회하고 기간 밖·차수 확인 필요·분석 제외 사유를 구분한다. 확인된 적격 원본으로만 기존 농장별 불량률·품목 후보·반복 이슈를 계산한다. 불량 건수는 원본 DeductionKey 건수이며 펼친 근거에 저장된 업체명과 수량을 표시한다. 내부 CustKey/customerIdentity는 반환하지 않는다. 피드백의 전체 코멘트 수·최근 3개 이력과 기존 상세·저장·삭제 권한은 보존한다."
+    },
+    {
+      "name": "QUALITY_EVIDENCE_DRAFT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "인증된 사용자가 선택하거나 클립보드에서 붙여넣은 JPG/PNG/WEBP를 WebFarmQualityEvidence 임시행으로 최대 5장 저장한다. 24시간 안에 이력 저장으로 연결되지 않은 임시행만 만료 정리 또는 작성자 삭제가 가능하다."
+    },
+    {
+      "name": "QUALITY_EVENT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "사용자가 이슈로 처리 또는 이력 저장을 명시적으로 눌렀을 때만 WebFarmQualityCase와 WebFarmQualityEvent를 기록하고, 같은 연도·작성자의 미연결 증거 이미지를 생성된 불변 EventKey에 같은 트랜잭션으로 연결한다."
+    },
+    {
+      "name": "QUALITY_DELETE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "정확한 userId nenovaSS3만 선택 연도+CaseKey+Version을 잠금 재검증한 뒤 연결 증거, 코멘트 이력, 피드백 건을 자식부터 한 트랜잭션에서 삭제한다. 다른 연도·다른 피드백·미연결 임시 증거 및 확정 불량·ERP 원장은 보존한다."
+    }
+  ],
+  "criteria": {
+    "source": "confirmed active WebSalesDefectDeduction, original parent week, Quantity/OriginalQuantity; denominator is same-year ViewWarehouse OutQuantity by parent week, normalized FarmName, ProdKey and Product.OutUnit; no financial status filter",
+    "signals": "SAME_ITEM_WEEK requires at least two distinct CustKey values for the same parent week+farm+product+unit; FARM_WEEK_CLUSTER requires at least two products for the same parent week+farm+unit; ITEM_PERSISTENT and FARM_RECURRING require adjacent weeks or three occurrences inside four parent weeks. Source count means distinct DeductionKey count, never customer count.",
+    "privacy": "CustKey is used only server-side for distinct-order detection and is never projected in groups, signals, coverage, cases or details. On the user's 2026-09-15 request, snapshot CustName is projected as customerName for authenticated source and expanded signal evidence; no additional contact data or raw source notes are returned. Existing farm-quality role/account gates are unchanged. Evidence bytes stay behind authenticated same-year Case/Event or uploader checks, never public image routes.",
+    "units": "rates and signals use exact original output unit; no box/bunch/stem conversion; missing or zero incoming denominator is shown as unknown, never 0 percent",
+    "rate": "farm trend numerator is all confirmed defects for farm+unit+parent week and denominator is all ViewWarehouse incoming products for the same farm+unit+parent week; item candidate denominator additionally requires exact ProdKey",
+    "state": "COMMENT preserves status; REQUEST creates unanswered round; RESPONSE only incoming/admin; APPLY requires answered; CLOSE manual; recurrence is suspected until reviewed",
+    "deleteAuthority": "exact userId nenovaSS3 only; similar ids, spaces, authority role alone, incoming/sales/support permissions are insufficient",
+    "storage": "automatic signals are a read-only projection of WebSalesDefectDeduction. WebFarmQualityCase+WebFarmQualityEvent are written only by explicit user action; evidence is signature-validated, size/count-limited, linked to immutable EventKey in the event transaction, and guarded by year/uploader; optimistic version and request idempotency remain in force. A successful event transaction returns the inserted event plus the updated case version so the browser confirms the comment immediately without depending on a follow-up GET. Full feedback deletion requires explicit confirmation and version match, deletes Evidence then Event then Case atomically, and logs actor/target/count.",
+    "downstream": "Estimate, Order, Shipment, Warehouse, Stock, WebProfitReport preserved",
+    "coverage": "All distinct same-year active WebSalesDefectDeduction rows, all source units, including unconfirmed/missing farm/product/invalid quantity/week. Each row has IN_RANGE/OUT_OF_RANGE/UNKNOWN_WEEK. Default UI shows in-range plus unknown-week; an explicit filter displays out-of-range rows. sourceTotal=activeTotal+deletedCount; activeTotal=inRangeCount+outOfRangeCount+invalidWeekCount. Coverage is display-only, not eligibility for rates/signals/create; deleted rows counted separately."
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025 and 2026 same parent week are isolated"
+  },
+  "requiredTestFiles": [
+    "__tests__/farmQuality.test.js",
+    "__tests__/farmQualityStore.test.js",
+    "__tests__/farmQualityEvidence.test.js",
+    "__tests__/farmQualityCompactUi.test.js",
+    "__tests__/farmQualityCoverage.test.js",
+    "__tests__/farmQualityCoverageUi.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormFarmQuality.md",
+    "source": "C:/Users/USER/nenova-decompiled/Nenova/FormSalesDefectView.cs",
+    "methods": [
+      "GetData"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "Estimate"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
 }

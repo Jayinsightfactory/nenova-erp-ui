@@ -24,7 +24,9 @@ Evidence image drafts and their immutable event links are stored only in
 uploader identity and `OrderYear`. No image bytes or references are written to EXE tables.
 OrderDetail, ShipmentDetail (Amount/Vat/isFix included), ShipmentDate,
 StockHistory, Estimate, WebProfitReport and the original deduction rows are preserved.
-Customer identifiers/names and source notes are not included in the API projection.
+Internal customer identifiers and source notes are not included in the API projection.
+Snapshot customer names are shown in authenticated source evidence as requested on
+2026-09-15 (see the coverage extension below).
 No EXE counterpart exists for the new web-only rate view or comment history.
 The rate query is read-only and does not change WarehouseMaster, WarehouseDetail,
 Product, shipment, order, stock, estimate, or settlement rows.
@@ -53,7 +55,7 @@ product recurring in adjacent weeks (or three of four weeks), and a farm recurri
 with multiple products under the same cadence. `CustKey` is used only inside the
 server-side distinct-order test. It is not returned to the browser. Signal counts are
 distinct `DeductionKey` counts; expanded evidence contains week, product, count and
-original-unit quantity only. This GET projection creates no case or event. A
+original-unit quantity and snapshot customer names. This GET projection creates no case or event. A
 `WebFarmQualityCase/Event` write still requires the user's explicit action.
 
 | action | defect source | quality tables | ERP order/shipment/stock/estimate/settlement |
@@ -79,6 +81,24 @@ Server logs record request/case/actor metadata without the comment body. The wri
 all EXE order, shipment, warehouse, stock, estimate, sales, and settlement rows remain preserved.
 
 ## Evidence limitations
+
+### 2026-09-15 source coverage extension
+
+The same-year active web defect source is now separately projected for coverage,
+including rows that cannot enter confirmed metrics. IN_RANGE, OUT_OF_RANGE and
+UNKNOWN_WEEK are explicit; out-of-range rows remain available through a UI filter.
+Deleted source rows are counted, not restored. Source and active partitions must
+conserve counts; the trusted qualityGroups/create validation remains unchanged.
+The user explicitly requested customer names in expanded source-count details.
+Only stored CustName is projected; CustKey/customerIdentity and source notes remain
+server-only. Existing role/account checks are unchanged. No ERP writes are added.
+
+Read-only production schema/count probe on 2026-09-15:
+https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/34919316967
+2026 source=436, deleted=24, active=412; active missing farm=80,
+unconfirmed=55 (overlapping), missing product/nonpositive quantity/customer name=0.
+Required source columns including CustName exist. These are web defect source
+counts, not a claim to have imported every legacy financial Estimate deduction.
 
 Local schema documentation and source were inspected. Production read-only schema
 probe and deployment verification must be recorded in the task session before

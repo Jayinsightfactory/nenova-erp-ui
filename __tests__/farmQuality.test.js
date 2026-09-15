@@ -58,9 +58,9 @@ const stem36=analytics.issueCandidates.find(c=>c.prodKey===2&&c.week===36);
 assert.equal(stem36.incomingQuantity,25,'different units must never mix');assert.equal(stem36.defectRate,20);
 assert.equal(analytics.issueCandidates.find(c=>c.prodKey===3).defectRate,null,'missing denominator must stay unknown, not zero percent');
 const signalRows=[
- {...base,DeductionKey:201,OrderWeek:'35-01',CustKey:10,ProdKey:1,ProductName:'A품목',Quantity:1},
+ {...base,DeductionKey:201,OrderWeek:'35-01',CustKey:10,CustName:'가든 A',ProdKey:1,ProductName:'A품목',Quantity:1},
  {...base,DeductionKey:202,OrderWeek:'36-01',CustKey:10,ProdKey:1,ProductName:'A품목',Quantity:2},
- {...base,DeductionKey:203,OrderWeek:'36-02',CustKey:11,ProdKey:1,ProductName:'A품목',Quantity:3},
+ {...base,DeductionKey:203,OrderWeek:'36-02',CustKey:11,CustName:'가든 B',ProdKey:1,ProductName:'A품목',Quantity:3},
  {...base,DeductionKey:204,OrderWeek:'36-01',CustKey:12,ProdKey:2,ProductName:'B품목',Quantity:4},
  {...base,DeductionKey:205,OrderWeek:'37-01',CustKey:12,ProdKey:2,ProductName:'B품목',Quantity:5},
  {...base,DeductionKey:205,OrderWeek:'37-01',CustKey:99,ProdKey:2,ProductName:'B품목',Quantity:999},
@@ -71,7 +71,9 @@ assert.deepEqual(new Set(signals.map(s=>s.kind)),new Set(['SAME_ITEM_WEEK','FARM
 const repeated=signals.find(s=>s.kind==='SAME_ITEM_WEEK');
 assert.equal(repeated.sourceCount,2,'headline count is distinct defect source rows, not customer count');
 assert.deepEqual(repeated.breakdown.map(row=>[row.week,row.count,row.quantity]),[[36,2,5]]);
+assert.deepEqual(repeated.breakdown[0].customers,[{customerName:'가든 B',count:1,quantity:3,unit:'박스'},{customerName:'업체 미지정',count:1,quantity:2,unit:'박스'}],'expanded customer breakdown counts source rows and uses only display names');
 assert(!JSON.stringify(signals).includes('customerIdentity'),'customer identity must stay inside detection and never reach the API projection');
+assert(!JSON.stringify(signals).includes('CustKey'),'customer keys must never reach the API projection');
 assert(signals.every(s=>s.sourceKeys.length===new Set(s.sourceKeys).size),'duplicate source keys must not inflate counts');
 assert(!signals.some(s=>s.productName==='전년도'),'same major week in another year must be isolated');
 const store=fs.readFileSync('lib/farmQualityStore.js','utf8');
@@ -83,6 +85,7 @@ assert.match(store,/FROM dbo\.ViewWarehouse vw/);assert.match(store,/p\.OutUnit/
 assert.match(store,/kind!=='COMMENT'&&Number\(input.version\)!==current.Version/);
 assert.doesNotMatch(store,/(INSERT|UPDATE|DELETE)\s+(?:dbo\.)?(?:Estimate|OrderDetail|ShipmentDetail|StockHistory|WebSalesDefectDeduction)\b/i);
 assert.match(store,/d\.CustKey/,'CustKey is read only for server-side distinct-order detection');
+assert.match(store,/d\.CustName/,'coverage and expanded signal details use the stored customer display-name snapshot');
 assert.match(store,/qualitySignals\(sources\.recordset,scope\)/);
 assert.match(store,/ROW_NUMBER\(\) OVER\(PARTITION BY e\.CaseKey ORDER BY e\.EventKey\) EventNo/);
 assert.match(store,/FROM RankedEvents WHERE RecentRank<=3/);
@@ -92,7 +95,6 @@ assert.match(store,/OUTPUT INSERTED\.Version,INSERTED\.Status/,'저장 응답은
 assert.match(store,/DELETE FROM dbo\.WebFarmQualityEvidence WHERE EventKey=@event/);
 assert.match(store,/DELETE FROM dbo\.WebFarmQualityEvent WHERE CaseKey=@key/);
 assert.match(store,/DELETE FROM dbo\.WebFarmQualityCase WHERE CaseKey=@key AND OrderYear=@year AND Version=@version/);
-assert.doesNotMatch(store,/CustName|Customer/);
 assert.match(page,/useState\('graph'\)/,'기존 불량 분석값이 진입 즉시 보여야 한다.');
 assert.match(page,/기존 불량 분석 · 농장·품목 \{groups\.length\}개/,'분석에 반영된 농장·품목 수를 표시해야 한다.');
 assert.match(page,/특정 농장 · 차수별 불량률 추이/);assert.match(page,/특정 차수 · 품목 불량 이슈 후보/);assert.match(page,/이슈로 처리/);

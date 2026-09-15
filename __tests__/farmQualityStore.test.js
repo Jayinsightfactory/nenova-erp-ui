@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import {canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,transitionQuality} from '../lib/farmQuality.js';
+import {canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,qualitySourceCoverage,transitionQuality} from '../lib/farmQuality.js';
 import {normalizeEvidenceKeys} from '../lib/farmQualityEvidence.js';
 const source=fs.readFileSync('lib/farmQualityStore.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
@@ -33,7 +33,7 @@ const q=async(sql,p={})=>{
  throw Error('Unexpected SQL '+sql);
 };
 const tx=async fn=>{const snapshot=structuredClone({cases,events,evidence});try{return await fn(q);}catch(e){cases=snapshot.cases;events=snapshot.events;evidence=snapshot.evidence;rollbacks++;throw e;}};
-const {deleteQualityCase,loadQuality,saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','canDeleteFarmQuality','qualityScope','qualityGroups','qualityAnalytics','qualitySignals','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys',source+';return {deleteQualityCase,loadQuality,saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys);
+const {deleteQualityCase,loadQuality,saveQuality}=await new AsyncFunction('crypto','query','sql','withTransaction','canDeleteFarmQuality','qualityScope','qualityGroups','qualityAnalytics','qualitySignals','qualitySourceCoverage','transitionQuality','canUseDefectIncoming','normalizeEvidenceKeys',source+';return {deleteQualityCase,loadQuality,saveQuality};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,qualitySourceCoverage,transitionQuality,u=>u.deptName==='수입부',normalizeEvidenceKeys);
 const create={action:'create',year:2026,sourceKey:10,title:'손상',body:'관찰',requestId:crypto.randomUUID()};
 const first=await saveQuality(create,incoming);
 assert.equal(first.caseVersion,2);assert.equal(first.event.Body,'관찰');assert.equal(first.event.EventKey,'1');
@@ -60,6 +60,7 @@ const foreignImage=crypto.randomUUID();evidence.push({EvidenceKey:foreignImage,O
 await assert.rejects(saveQuality({...request,version:6,kind:'COMMENT',body:'다른 연도 사진',evidenceKeys:[foreignImage],requestId:crypto.randomUUID()},incoming));
 assert.equal(evidence.at(-1).EventKey,null,'cross-year evidence must remain unbound after rollback');
 const loaded=await loadQuality({year:2026,from:1,to:53});
+assert.equal(loaded.coverage.sourceTotal,1);assert.equal(loaded.coverage.activeTotal,1);assert.equal(loaded.coverage.rows[0].customerName,'업체 미지정');
 assert.equal(loaded.cases[0].EventCount,4);
 assert.deepEqual(loaded.cases[0].RecentEvents.map(event=>[event.EventNo,event.Kind,event.Body]),[[2,'REQUEST','농장 확인 요청'],[3,'RESPONSE','농장 답변'],[4,'COMMENT','추가 코멘트']]);
 await assert.rejects(deleteQualityCase({year:2026,caseKey:first.caseKey,version:cases[0].Version},{userId:'admin'}),error=>error.code==='FARM_QUALITY_DELETE_ADMIN_ONLY');
