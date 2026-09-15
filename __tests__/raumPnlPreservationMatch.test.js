@@ -42,6 +42,17 @@ const duplicateIncomingContentReversed = matchRaumPnlPreservationRows([
 ], 'shilla');
 assert.deepEqual(duplicateIncomingContentReversed.matches.map(row => row?.ProdKey), [20, 10], 'the same stable-source result is independent of incoming array order');
 
+const partialContentCrossing = matchRaumPnlPreservationRows([
+  incoming({ remark: '신라 12행', qty: 2, supply: 2000 }),
+  incoming({ remark: '신라 13행', qty: 3, supply: 3000 }),
+  incoming({ remark: '신라 14행', qty: 3, supply: 3000 }),
+], [
+  existing({ Remark: '신라 12행', Qty: 1, SaleAmount: 1000, CostPrice: 500, ProdKey: 10 }),
+  existing({ Remark: '신라 13행', Qty: 2, SaleAmount: 2000, CostPrice: 700, ProdKey: 20 }),
+  existing({ Remark: '신라 14행', Qty: 3, SaleAmount: 3000, CostPrice: 900, ProdKey: 30 }),
+], 'shilla');
+assert.deepEqual(partialContentCrossing.matches.map(row => row?.ProdKey), [10, 20, 30], 'a partial content overlap must not cross one source before stable-source matching handles the whole group');
+
 const stableSourceEdit = matchRaumPnlPreservationRows([
   incoming({ remark: '신라 12행', qty: 9, supply: 9000 }),
   incoming({ remark: '신라 13행', qty: 1, supply: 1000 }),
