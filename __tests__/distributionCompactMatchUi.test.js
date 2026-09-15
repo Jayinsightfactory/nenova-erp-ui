@@ -1,5 +1,16 @@
 'use strict';
 
+{
+  const assert=require('node:assert/strict');
+  const {confirmedHistoryRequests}=require('../lib/distributionCompactMatchUi');
+  const comparison={products:[{requests:[{sourceIdentity:'mixed',requestId:'a',evidenceStatus:'CONSISTENT',requestedSignedDelta:-2,observedSignedDelta:-2}]}]};
+  const item={sourceIdentity:'mixed',status:'AMBIGUOUS',requests:[{id:'a',status:'DISTRIBUTION_EVIDENCE'},{id:'b',status:'AMBIGUOUS'}]};
+  assert.deepEqual(confirmedHistoryRequests(comparison,'mixed',item).map(r=>r.id),['a']);
+  assert.equal(confirmedHistoryRequests(comparison,'other',item).length,0);
+  assert.equal(confirmedHistoryRequests(comparison,'mixed',{...item,requests:[...item.requests,item.requests[0]]}).length,0);
+  assert.equal(confirmedHistoryRequests(comparison,'mixed',{...item,requests:[{id:'a',status:'ORDER_ONLY'}]}).length,0);
+}
+
 const assert = require('node:assert/strict');
 const { classifyMessage, summarizeMessage, matchingSummary } = require('../lib/distributionCompactMatchUi');
 
