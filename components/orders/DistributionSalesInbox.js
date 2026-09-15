@@ -281,7 +281,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
   }
   function compactMessageRow(row) {
     const inLiveRange=liveBatchIdentities.has(row.identity);
-    const match=(inLiveRange&&hasAcceptedLiveHistoryScope&&matchingSummary(liveBalanceComparison,row.identity,liveHistory[row.identity]))||{status:'UNCONFIRMED',label:inLiveRange?(liveHistoryStatus.error?'조회 실패':liveHistoryStatus.loading?'조회 중':'조회 대기'):'대조 범위 밖',matchedCount:0,totalCount:0,operationSummary:inLiveRange?'대응 작업 미확인':'날짜 범위를 좁혀 대조'};
+    const match=(inLiveRange&&hasAcceptedLiveHistoryScope&&liveHistory[row.identity]&&matchingSummary(liveBalanceComparison,row.identity,liveHistory[row.identity]))||{status:'UNCONFIRMED',label:inLiveRange?(liveHistoryStatus.error?'조회 실패':liveHistoryStatus.loading?'조회 중':'조회 대기'):'대조 범위 밖',matchedCount:0,totalCount:0,operationSummary:inLiveRange?'대응 작업 미확인':'날짜 범위를 좁혀 대조'};
     const confirmed=inLiveRange&&hasAcceptedLiveHistoryScope?confirmedHistoryRequests(liveBalanceComparison,row.identity,liveHistory[row.identity]):[];
     const manual=manualApplications[row.identity];
     const operation=operationApplications[row.identity];
