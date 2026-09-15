@@ -88,3 +88,23 @@ assert.equal(partialWithoutPublicEvent.status, 'PARTIAL'); assert.equal(partialW
 const invalidComparisonNumbers = matchingSummary({ products: [{ requests: [consistent('r1', 'm1', 'CONSISTENT', 1, '1')] }] }, 'm1', { sourceIdentity: 'm1', status: 'DISTRIBUTION_EVIDENCE', requests: [request('r1')] });
 assert.equal(invalidComparisonNumbers.status, 'UNCONFIRMED');
 console.log('distribution compact match UI tests passed');
+
+{
+  const {quantityProcessedRequests}=require('../lib/distributionCompactMatchUi');
+  const candidate={id:'quantity-1',status:'PRODUCT_HISTORY_CANDIDATE',matchState:'NUMERIC_HISTORY_CANDIDATE',action:'CANCEL',inputQty:2,inputUnit:'박스',unit:'박스',shipmentEvents:[{eventId:'qty-event',before:5,after:3,unit:'박스'}]};
+  const item={sourceIdentity:'quantity-source',status:'PRODUCT_HISTORY_CANDIDATE',requests:[candidate]};
+  assert.equal(quantityProcessedRequests('quantity-source',item).length,1);
+  assert.equal(matchingSummary(null,'quantity-source',item).status,'QUANTITY_MATCHED');
+  assert.equal(quantityProcessedRequests('other-year-source',item).length,0);
+  for(const delta of [{action:'ADD'},{inputQty:3},{inputUnit:'단'},{status:'AMBIGUOUS'},{status:'ORDER_ONLY'},{inputQty:NaN}]) {
+    assert.equal(quantityProcessedRequests('quantity-source',{...item,requests:[{...candidate,...delta}]}).length,0);
+  }
+  assert.equal(quantityProcessedRequests('quantity-source',{...item,requests:[candidate,candidate]}).length,0);
+  const mixed={...item,status:'AMBIGUOUS',requests:[candidate,{id:'pending',status:'AMBIGUOUS'}]};
+  assert.equal(quantityProcessedRequests('quantity-source',mixed).length,1);
+  assert.notEqual(matchingSummary(null,'quantity-source',mixed).status,'QUANTITY_MATCHED');
+  const exact={id:'exact',status:'DISTRIBUTION_EVIDENCE'};
+  const balance={products:[{requests:[consistent('exact','quantity-source')]}]};
+  assert.equal(matchingSummary(balance,'quantity-source',{...item,status:'AMBIGUOUS',requests:[candidate,exact]}).status,'QUANTITY_MATCHED');
+  console.log('user quantity processing policy: positive, near misses, mixed coverage passed');
+}

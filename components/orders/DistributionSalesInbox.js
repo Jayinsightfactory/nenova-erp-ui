@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {MAX_TEXT_BYTES,periodBounds,parseSalesExport,mergeMessages,selectedText} from '../../lib/distributionSalesInbox';
 import {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
-import {classifyMessage,matchingSummary,summarizeMessage,confirmedHistoryRequests} from '../../lib/distributionCompactMatchUi';
+import {classifyMessage,matchingSummary,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
 import {mappedEvidenceSource} from '../../lib/pasteEvidenceSource';
@@ -283,6 +283,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     const inLiveRange=liveBatchIdentities.has(row.identity);
     const match=(inLiveRange&&hasAcceptedLiveHistoryScope&&liveHistory[row.identity]&&matchingSummary(liveBalanceComparison,row.identity,liveHistory[row.identity]))||{status:'UNCONFIRMED',label:inLiveRange?(liveHistoryStatus.error?'조회 실패':liveHistoryStatus.loading?'조회 중':'조회 대기'):'대조 범위 밖',matchedCount:0,totalCount:0,operationSummary:inLiveRange?'대응 작업 미확인':'날짜 범위를 좁혀 대조'};
     const confirmed=inLiveRange&&hasAcceptedLiveHistoryScope?confirmedHistoryRequests(liveBalanceComparison,row.identity,liveHistory[row.identity]):[];
+    const quantityProcessed=inLiveRange&&hasAcceptedLiveHistoryScope?quantityProcessedRequests(row.identity,liveHistory[row.identity]):[];
     const manual=manualApplications[row.identity];
     const operation=operationApplications[row.identity];
     const manualLabel=operation?'전산 적용됨':manual?.status==='MANUALLY_APPLIED'?'직접 처리함':manual?.status==='MANUALLY_NOT_APPLIED'?'미처리 표시':null;
@@ -290,12 +291,14 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     const sourceWeek=sourceWeekFromMessage(row.message,String(year||''))||week;
     const changes=visibleChanges(row.message,week);
     const completed=match.status==='MATCHED'||(operation?.status==='committed'&&!operation.undone&&(operation.entries||[]).filter(entry=>entry.sourceIdentity===row.identity).length===changes.length);
-    return <article className={`message compact-match-row ${completed?'history-completed':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
+    return <article className={`message compact-match-row ${completed||match.status==='QUANTITY_MATCHED'?'history-completed':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
       {completed&&<div className="history-completion-label">✓ 작업완료 · {operation?'등록·분배 작업 로그 확인':'전산 분배 수량 이력 일치'}</div>}
+      {!completed&&match.status==='QUANTITY_MATCHED'&&<div className="history-completion-label">✓ 처리됨 · 변경 방향·수량 일치 (수량 대조 기준)</div>}
       <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${completed?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{completed?'작업완료':match.label||'미확인'} {completed?changes.length:match.matchedCount??0}/{match.totalCount||changes.length}{manualLabel&&<span>{manualLabel}</span>}<small>자동 대조</small></span>
       <button type="button" disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>전체 변경 AI 분석·분배 준비</button></div>
       <div className="visible-change-table">{changes.map((change,index)=><div className="visible-change-line" key={index}><span>{change.week}</span><strong>{change.customer}</strong><span>{change.change}</span></div>)}</div>
-      {!completed&&hasAcceptedLiveHistoryScope&&liveHistory[row.identity]&&<div className="history-evidence-reasons" style={{padding:'4px 7px',color:'#805d19',fontSize:11}}>처리 여부 확인 필요 · {[...new Set((liveHistory[row.identity].requests||[]).map(request=>request.reason).filter(Boolean))].join(' / ')||'대응하는 수량 변경 근거를 찾지 못했습니다.'} (미처리 확정 아님)</div>}
+      {!completed&&match.status!=='QUANTITY_MATCHED'&&hasAcceptedLiveHistoryScope&&liveHistory[row.identity]&&<div className="history-evidence-reasons" style={{padding:'4px 7px',color:'#805d19',fontSize:11}}>처리 여부 확인 필요 · {[...new Set((liveHistory[row.identity].requests||[]).filter(request=>!quantityProcessed.some(matched=>matched.id===request.id)).map(request=>request.reason).filter(Boolean))].join(' / ')||'대응하는 수량 변경 근거를 찾지 못했습니다.'} (미처리 확정 아님)</div>}
+      {!completed&&quantityProcessed.length>0&&<div className="confirmed-request-box quantity-processed-box">{quantityProcessed.map(request=><div key={request.id}>✓ 처리됨 · {request.customerText} · {request.quote}<small>전산: {request.productText} · {request.shipmentEvents[0].before}→{request.shipmentEvents[0].after}{request.unit} · 변경 방향·수량 일치로 우선 처리 표시</small></div>)}</div>}
       {!completed&&confirmed.length>0&&<div className="confirmed-request-box">{confirmed.map(request=><div key={request.id}>✓ 처리 이력 확인 · {request.customerText} · {request.quote}<small>{request.reason}</small></div>)}</div>}
       <details><summary>원문 · 전산 근거 · 비교</summary><div className="compact-match-expanded"><div className="message-raw"><pre>{row.message}</pre><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></details>
     </article>;
@@ -382,6 +385,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       .sales-inbox .visible-change-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 8px;background:#f7faff}
       .sales-inbox .history-completed{border:2px solid #22945b;border-radius:7px;background:#edfaf1;margin:5px 0;overflow:hidden}
       .sales-inbox .history-completed .visible-change-meta{background:#e0f5e7}
+      .sales-inbox .compact-match-status-QUANTITY_MATCHED{background:#e6f5e9;color:#25613d}
       .sales-inbox .history-completion-label{padding:5px 8px;color:#126637;background:#d9f2e2;font-weight:700}
       .sales-inbox .history-partial{border:2px solid #d8a328;border-radius:7px;margin:5px 0}
       .sales-inbox .confirmed-request-box{border:2px solid #22945b;border-radius:6px;background:#edfaf1;color:#126637;margin:5px;padding:6px;font-weight:700}
