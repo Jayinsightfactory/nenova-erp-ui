@@ -21,13 +21,13 @@ function sortArrow(sorts, id) {
   return value === 'asc' ? ' ▲' : value === 'desc' ? ' ▼' : '';
 }
 
-function FieldControls({ id, sorts, onFieldMenu, onFilter, selections, filterActive }) {
-  const active = filterActive && Object.prototype.hasOwnProperty.call(selections || {}, id);
+function FieldControls({ id, sorts, onFieldMenu, onFilter, valueFilterStates }) {
+  const filterState = valueFilterStates?.[id] || { active:false, label:'전체' };
   return <span className={styles.fieldControls}>
     <button type="button" className={styles.headerButton} onClick={(event) => onFieldMenu?.(id, event)} title={`${pivotExeFieldLabel(id)} 설정`}>
       {pivotExeFieldLabel(id)}{sortArrow(sorts, id)}
     </button>
-    <button type="button" className={styles.tinyButton} onClick={(event) => { event.stopPropagation(); onFilter?.(id, event); }} title={`${pivotExeFieldLabel(id)} 필터${active ? ' 적용됨' : ''}`} aria-label={`${pivotExeFieldLabel(id)} 필터`} style={active ? { background: '#dcecff', color: '#1558a6' } : undefined}>{active ? '●' : '⌄'}</button>
+    <button type="button" className={styles.tinyButton} onClick={(event) => { event.stopPropagation(); onFilter?.(id, event); }} title={`${pivotExeFieldLabel(id)}에서 표시할 값: ${filterState.label}`} aria-label={`${pivotExeFieldLabel(id)} 값 필터`} style={filterState.active ? { background: '#dcecff', color: '#1558a6' } : undefined}>{filterState.active ? '●' : '⌄'}</button>
     <button type="button" className={styles.tinyButton} onClick={(event) => { event.stopPropagation(); onFieldMenu?.(id, event); }} title={`${pivotExeFieldLabel(id)} 설정`} aria-label={`${pivotExeFieldLabel(id)} 설정`}>⚙</button>
   </span>;
 }
@@ -94,7 +94,7 @@ function AxisHeaderCell({ cell, dimensions, onFieldMenu, onToggleColumn, onResiz
 const PivotExeGrid = memo(function PivotExeGrid({
   model, decimals = 2, zeroVisible = false, widths = {}, rowHeight,
   onResize, onFieldMenu, onFilter, onBestFit, onToggleRow, onToggleColumn,
-  sorts = {}, selections, filterActive,
+  sorts = {}, selections, filterActive, valueFilterStates,
 }) {
   // Hashing data-column ids and finding merged cells are tied to the model, never to resizing.
   const structure = useMemo(() => buildPivotExeStructure(model), [model]);
@@ -152,7 +152,7 @@ const PivotExeGrid = memo(function PivotExeGrid({
       <thead>
         {structure.headerRows.map((headerCells, level) => <tr key={`header-${level}`}>
           {level === 0 && dimensions.rowWidths.map((field, index) => <th key={field.id} rowSpan={structure.headerRows.length} className={styles.fieldHead} style={{ left: dimensions.stickyOffsets[index], top: 0, zIndex: 30 }}>
-            <FieldControls id={field.id} sorts={sorts} onFieldMenu={onFieldMenu} onFilter={onFilter} selections={selections} filterActive={filterActive} />
+            <FieldControls id={field.id} sorts={sorts} onFieldMenu={onFieldMenu} onFilter={onFilter} valueFilterStates={valueFilterStates} />
             <span className={styles.resizeHandle} title="열 너비 조절 · 두 번 클릭하면 자동맞춤" onMouseDown={(event) => { event.preventDefault(); onResize?.(field.id, event.clientX, field.width); }} onDoubleClick={(event) => { event.preventDefault(); onBestFit?.(field.id); }} />
           </th>)}
           {isVirtualized && <th className={styles.columnSpacer} aria-hidden="true" />}

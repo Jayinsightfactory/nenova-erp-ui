@@ -13,10 +13,19 @@
     "lib/pivotProductSearch.js",
     "lib/pivotFilterOptions.js",
     "lib/pivotVolumeNetherlands.js",
-    "lib/pivotVolumeCombinedCells.js"
+    "lib/pivotVolumeCombinedCells.js",
+    "components/PivotExePanel.js",
+    "components/PivotExeGrid.js",
+    "lib/pivotExeInteraction.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
+    {
+      "name": "PIVOT_EXE_FIELD_VALUE_FILTER",
+      "description": "각 필드의 값 필터 버튼은 현재 조회 결과의 distinct 실제 값 목록을 열고, 체크한 값만 화면 집계와 같은 피벗 모델 기반 엑셀에 반영한다. 필터 영역에서는 필드명 버튼이 값 선택창을 바로 열고 현재 선택 요약을 표시한다. 전체 선택은 필터 초기화와 같고 전체 해제는 의도적인 0행 필터로 보존한다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
     {
       "name": "PIVOT_VOLUME_COMBINED_SUBWEEK_CELLS",
       "quantityDisplay": "합산 수량과 괄호 안 수량은 최대 소수점 1자리 반올림, 정수는 소수점 생략. 숫자 원본값과 수식 보존. 합산(1차,2차) 헤더 안내는 공란.",
@@ -59,6 +68,7 @@
     "description": "같은 품목명·차수명이 여러 연도에 있어도 별칭 검색은 현재 조회된 피벗 rows의 canonical 품목 옵션만 필터링하고 다른 연도 원장을 조회·수정하지 않는다."
   },
   "requiredTestFiles": [
+    "__tests__/pivotExeInteraction.test.js",
     "__tests__/pivotVolumeCombinedCells.test.js",
     "__tests__/pivotProductSearch.test.js",
     "__tests__/pivotFilterOptions.test.js",
