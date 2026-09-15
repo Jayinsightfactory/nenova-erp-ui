@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import {
   estimateCatalogAutoTxtHcm,
+  computeCatalogLayout,
   formatOriginLabel,
   layoutCssVars,
 } from '../../lib/catalogLayout';
@@ -23,7 +24,7 @@ export function useCatalogPages(draft) {
   }, [draft]);
 }
 
-function CatalogSlidePage({ page, slideStyle, fields }) {
+function CatalogSlidePage({ page, slideStyle, fields, frameAspect }) {
   const slots = page.slots || page.lines || [];
 
   return (
@@ -47,7 +48,7 @@ function CatalogSlidePage({ page, slideStyle, fields }) {
             <article key={line.id} className="catalog-slide-item">
               <div className="catalog-slide-img">
                 {renderLine.imageUrl ? (
-                  <CatalogSlideImage source={renderLine} src={absCatalogUrl(renderLine.imageUrl)} />
+                  <CatalogSlideImage source={renderLine} src={absCatalogUrl(renderLine.imageUrl)} frameAspect={frameAspect} />
                 ) : (
                   <span className="catalog-slide-ph">{renderLine.engName?.slice(0, 2) || '품'}</span>
                 )}
@@ -62,7 +63,7 @@ function CatalogSlidePage({ page, slideStyle, fields }) {
                           : row.kind.startsWith('extra') ? 'extra-name'
                             : row.kind === 'kor' ? 'kor-name' : 'eng-name'
                       }
-                      style={row.kind.startsWith('extra') ? { fontSize: '10pt', color: '#000' } : undefined}
+                      style={{ fontSize: `${row.fontSize}pt`, color: '#000', fontWeight: row.bold ? 700 : 400 }}
                     >
                       {row.text}
                     </div>
@@ -86,8 +87,10 @@ export default function CatalogPreviewPages({ draft, mode }) {
   // 텍스트 줄수 기준 자동 여백 — 편집 화면·PPT와 동일 계산
   const allPlaced = pages.flatMap(pg => (pg.slots || pg.lines || []).filter(Boolean));
   const gridCols = draft.gridCols || null;
-  const autoTxtH = estimateCatalogAutoTxtHcm(allPlaced, fields, per, draft.spacing || 'wide', { cols: gridCols });
-  const slideStyle = layoutCssVars(per, draft.spacing || 'wide', { txtHcm: autoTxtH, cols: gridCols });
+  const opts = { cols: gridCols, layout: fields.layout, compactText: !!fields.layout };
+  const autoTxtH = estimateCatalogAutoTxtHcm(allPlaced, fields, per, draft.spacing || 'wide', opts);
+  const renderLayout = computeCatalogLayout(per, draft.spacing || 'wide', { ...opts, txtHcm: autoTxtH });
+  const slideStyle = layoutCssVars(per, draft.spacing || 'wide', { ...opts, txtHcm: autoTxtH });
   const isPreview = mode === 'preview';
 
   const slides = pages.map((page, pi) => (
@@ -96,6 +99,7 @@ export default function CatalogPreviewPages({ draft, mode }) {
       page={page}
       slideStyle={slideStyle}
       fields={fields}
+      frameAspect={renderLayout.imgWcm / renderLayout.imgHcm}
     />
   ));
 

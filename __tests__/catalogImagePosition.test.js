@@ -3,11 +3,23 @@ import {
   catalogCoverBox,
   catalogImagePanRange,
   catalogImageStyle,
+  catalogImageRotatePad,
   lineHasStoredImageTransform,
   mergeLineImageFields,
 } from '../lib/catalogImagePosition.js';
 
 describe('catalogCoverBox', () => {
+  it('keeps photo aspect in a rectangular frame shared by HTML and PPT', () => {
+    for (const photoAspect of [0.5, 1, 2]) {
+      for (const frameAspect of [0.5, 1, 2]) {
+        const box = catalogCoverBox(photoAspect / frameAspect, 100, 50, 50);
+        expect(box.coverW / box.coverH * frameAspect).toBeCloseTo(photoAspect);
+        expect(box.coverW).toBeGreaterThanOrEqual(1);
+        expect(box.coverH).toBeGreaterThanOrEqual(1);
+        expect(catalogImageRotatePad(90, frameAspect)).toBeCloseTo(Math.max(frameAspect, 1 / frameAspect));
+      }
+    }
+  });
   it('square at 100% has no pan overflow', () => {
     const box = catalogCoverBox(1, 100, 50, 50);
     expect(box.overflowX).toBe(0);

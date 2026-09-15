@@ -1,0 +1,12 @@
+{
+  "id":"catalog-layout-controls",
+  "title":"거래처 카탈로그 이미지 배치 및 글씨 기본값",
+  "scope":["pages/catalog/index.js","components/catalog/CatalogStyleSettings.js","components/catalog/CatalogSlideComposer.js","components/catalog/CatalogPreviewPages.js","components/catalog/CatalogSlideImage.js","components/catalog/CatalogImageCropEditor.js","components/catalog/catalogSlideCss.js","lib/catalogLayout.js","lib/catalogImagePosition.js","lib/catalogLineText.js","lib/catalogPptExport.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"EDIT_LAYOUT_AND_FONT_DEFAULTS","orderDetail":"preserve","shipmentDetail":"preserve","preserve":["Product","Warehouse","ProductStock","StockHistory","ShipmentDate","ShipmentFarm","Estimate","WebProfitReport"]},{"name":"SAVE_DRAFT_OR_EXPORT","orderDetail":"preserve","shipmentDetail":"preserve","write":"existing catalog draft JSON or browser localStorage or downloaded file only"}],
+  "criteria":{"legacy":"Missing settings retain square images and existing typography. Explicit zero margins and false header flag are valid.","layout":"Shared normalized cm-based margin/gap/frame position/size policy for composer, preview, print and PPT. Fill mode uses rectangular frame without image distortion. Image crop remains per line.","fonts":"Shared per-field font defaults, 6–48pt, persist in catalogFields; user explicitly saves browser defaults; stored draft overrides defaults.","sideEffects":"No SQL/API write changes; no ERP probe needed for pure client layout. Existing catalog draft persistence is JSON-file based."},
+  "crossYearFixture":{"required":true,"description":"2025 and 2026 identical week drafts preserve year and product/price identity when only layout changes."},
+  "requiredTestFiles":["__tests__/catalogLayoutControls.test.js","__tests__/catalogFontDefaults.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/ProductMatching.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormEstimateView.cs","methods":["FormEstimateView_Load"],"tables":["Product"],"note":"Existing native product identity remains untouched. Web-only catalog presentation settings; no shared MSSQL query or mutation changed and no new native behavior claimed."},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

@@ -7,7 +7,7 @@ import {
 } from '../../lib/catalogUtils';
 import { normalizeCatalogLineForRender, resolveCatalogImageTransform } from '../../lib/catalogImagePosition';
 import { buildCatalogCellLines, hasCatalogCellText } from '../../lib/catalogLineText';
-import { catalogPptImageSizeLabel, estimateCatalogAutoTxtHcm, formatOriginLabel, layoutCssVars, normalizeOriginInput } from '../../lib/catalogLayout';
+import { catalogPptImageSizeLabel, computeCatalogLayout, estimateCatalogAutoTxtHcm, formatOriginLabel, layoutCssVars, normalizeOriginInput } from '../../lib/catalogLayout';
 import { CATALOG_SLIDE_CSS } from './catalogSlideCss';
 import {
   perPageSlotCount,
@@ -69,6 +69,7 @@ function fieldsRenderKey(fields) {
 }
 
 function MiniSlot({
+  frameAspect,
   line,
   slotIndex,
   slideId,
@@ -144,6 +145,7 @@ function MiniSlot({
         {line.imageUrl ? (
           <>
             <CatalogSlideImage
+              frameAspect={frameAspect}
               source={renderLine}
               src={absCatalogUrl(line.imageUrl)}
               key={`${line.id}-${renderLine.imagePosX}-${renderLine.imagePosY}-${renderLine.imageScale}-${renderLine.imageRotate}`}
@@ -161,6 +163,7 @@ function MiniSlot({
           {cellLines.map(row => (
             <div
               key={row.kind}
+              style={{ fontSize: `${row.fontSize}pt`, fontWeight: row.bold ? 700 : 400 }}
               className={
                 row.kind === 'price' ? 'price-name'
                   : row.kind.startsWith('extra') ? 'extra-name'
@@ -208,8 +211,11 @@ export default function CatalogSlideComposer({
 
   // 배치된 품목 텍스트 줄수 기준 자동 여백 (PPT 익스포트와 동일 계산)
   const placedForTxt = slides.flatMap(s => (s.slots || []).map(id => (id ? linesById[id] : null)).filter(Boolean));
-  const autoTxtH = estimateCatalogAutoTxtHcm(placedForTxt, catalogFields, perPage, 'wide', { cols: gridCols });
-  const mirrorVars = layoutCssVars(perPage, 'wide', { txtHcm: autoTxtH, cols: gridCols });
+  const layoutOptions = { cols: gridCols, layout: catalogFields?.layout, compactText: !!catalogFields?.layout };
+  const autoTxtH = estimateCatalogAutoTxtHcm(placedForTxt, catalogFields, perPage, 'wide', layoutOptions);
+  const renderLayout = computeCatalogLayout(perPage, 'wide', { ...layoutOptions, txtHcm: autoTxtH });
+  const mirrorVars = layoutCssVars(perPage, 'wide', { ...layoutOptions, txtHcm: autoTxtH });
+  const frameAspect = renderLayout.imgWcm / renderLayout.imgHcm;
 
   const [expandedSlideId, setExpandedSlideId] = useState(null);
   const [cropDraft, setCropDraft] = useState(null);
@@ -415,7 +421,8 @@ export default function CatalogSlideComposer({
                 <img className="composer-slide-logo" src="/nenova-logo.png" alt="NENOVA" />
               </div>
               <p className="composer-ppt-hint">
-                PPT 미리보기와 동일 · 이미지 칸 {catalogPptImageSizeLabel(perPage, 'wide', { cols: gridCols })} (정사각)
+                PPT 미리보기와 동일 · 이미지 칸 {catalogPptImageSizeLabel(perPage, 'wide', { ...layoutOptions, txtHcm: autoTxtH })}
+                {renderLayout.textOverflow && <strong role="alert"> · 글씨가 칸보다 큽니다. 행 수나 글씨 크기를 줄여주세요.</strong>}
               </p>
               <div className="composer-ppt-viewport">
                 <div className="catalog-slide composer-ppt-mirror" style={mirrorVars}>
@@ -432,6 +439,7 @@ export default function CatalogSlideComposer({
                       const line = lineId ? lineWithCropDraft(linesById[lineId]) : null;
                       return (
                         <MiniSlot
+                          frameAspect={frameAspect}
                           key={`${slide.id}-${idx}`}
                           line={line}
                           slotIndex={idx}
@@ -522,9 +530,10 @@ export default function CatalogSlideComposer({
             {cropLine.imageUrl ? (
               <>
                 <p className="catalog-crop-modal-sub">
-                  PPT 정사각 칸({catalogPptImageSizeLabel(perPage)})과 동일 — 위치/확대는 PPT·인쇄에 그대로 반영
+                  PPT 이미지 칸({catalogPptImageSizeLabel(perPage, 'wide', { ...layoutOptions, txtHcm: autoTxtH })})과 동일 — 위치/확대는 PPT·인쇄에 그대로 반영
                 </p>
                 <CatalogImageCropEditor
+                  frameAspect={frameAspect}
                   key={cropLineId}
                   imageUrl={cropLine.imageUrl}
                   source={lineWithCropDraft(cropLine)}

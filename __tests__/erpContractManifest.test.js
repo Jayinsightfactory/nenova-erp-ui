@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 async function main() {
+  await import('./catalogLayoutControls.test.js');
   await import('./estimateOverflow.test.js');
   await import('./estimateOverflowClient.test.js');
   await import('./pasteOperationAudit.test.js');
