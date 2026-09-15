@@ -19,6 +19,8 @@ for(const token of ['sourceTotal','activeTotal','inRangeCount','outOfRangeCount'
 assert.match(coverage,/setOpen\(true\)/,'out-of-range action opens the source list');
 assert.match(coverage,/원본 범위를 불러오지 못했습니다/,'missing rollout coverage is surfaced, not shown as zero');
 assert.match(coverage,/확인 필요/,'unknown quantity is not rendered as zero');
+assert.match(coverage,/확정 분석 포함/,'trusted rate eligibility must not be confused with expanded automatic detection');
+assert.match(coverage,/보완 필요 원본도 아래 자동감지에서 반복을 확인/,'incomplete source list explains its separate detection scope');
 assert.match(coverage,/customerName,row\.farmName,row\.productName/,'local search includes customer, farm, and product');
 assert.match(coverage,/parentWeek\(right\.orderWeek\)-parentWeek\(left\.orderWeek\)/,'rows sort newest parent week first');
 assert.match(coverage,/max-height:380px;overflow:auto/,'dense source list scrolls');

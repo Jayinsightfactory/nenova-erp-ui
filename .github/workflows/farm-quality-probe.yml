@@ -21,6 +21,7 @@ jobs:
             cd /var/www/nenova-erp
             node --env-file=.env.local --input-type=module <<'NODE'
             import {query,getPool} from './lib/db.js';
+            import * as quality from './lib/farmQuality.js';
             try {
               const columns=await query("SELECT c.name FROM sys.columns c WHERE c.object_id=OBJECT_ID(N'dbo.WebSalesDefectDeduction')");
               const names=new Set(columns.recordset.map(c=>c.name));
@@ -40,5 +41,14 @@ jobs:
                 SUM(CASE WHEN ISNULL(IsDeleted,0)=0 AND LTRIM(RTRIM(ISNULL(CustName,N'')))=N'' THEN 1 ELSE 0 END) ActiveMissingCustomerName
                 FROM dbo.WebSalesDefectDeduction WHERE OrderYear IN(2025,2026) AND DeductionType=N'불량차감' GROUP BY OrderYear`);
               console.log(JSON.stringify({readOnly:true,coverage:coverage.recordset,reasonCountsOverlap:true}));
+              if(typeof quality.qualitySignalCoverage==='function'){
+                const source=await query(`SELECT DeductionKey,OrderYear,OrderWeek,CustKey,CustName,
+                  ProdKey,ProdName,FarmKey,FarmName,SourceUnit,Quantity,OriginalQuantity,ImportConfirmed,IsDeleted
+                  FROM dbo.WebSalesDefectDeduction WHERE OrderYear=2026 AND DeductionType=N'불량차감'`);
+                const scope=quality.qualityScope({year:2026,from:1,to:53});
+                const signals=quality.qualitySignals(source.recordset,scope);
+                const byKind={};for(const signal of signals)byKind[signal.kind]=(byKind[signal.kind]||0)+1;
+                console.log(JSON.stringify({readOnly:true,automatic:quality.qualitySignalCoverage(source.recordset,scope,signals),byKind}));
+              }else console.log(JSON.stringify({readOnly:true,automaticVersion:'pre-all-source-signals'}));
             } finally {await (await getPool()).close();}
             NODE
