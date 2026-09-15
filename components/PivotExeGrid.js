@@ -111,6 +111,7 @@ const PivotExeGrid = memo(function PivotExeGrid({
   // table must only select cached labels, never invoke Intl.NumberFormat for new cells.
   const formattedLabels = useMemo(() => structure.bodyRows.map(({ dataCells }) => dataCells.map(({ value }) => formatPivotExeNumber(value, decimals, zeroVisible))), [structure, decimals, zeroVisible]);
   const isVirtualized = !structure.isEmpty && shouldWindowPivotExe(structure.bodyRows.length, structure.dataColumns.length);
+  const topScrollRef = useRef(null);
   const scrollRef = useRef(null);
   const frameRef = useRef(null);
   const [viewport, setViewport] = useState({ scrollTop: 0, scrollLeft: 0, clientWidth: 0, clientHeight: 0 });
@@ -124,6 +125,19 @@ const PivotExeGrid = memo(function PivotExeGrid({
     if (frameRef.current !== null || typeof window === 'undefined') return;
     frameRef.current = window.requestAnimationFrame(() => { frameRef.current = null; readViewport(); });
   }, [readViewport]);
+  const onBodyScroll = useCallback(() => {
+    const body = scrollRef.current;
+    const top = topScrollRef.current;
+    if (body && top && top.scrollLeft !== body.scrollLeft) top.scrollLeft = body.scrollLeft;
+    if (isVirtualized) onScroll();
+  }, [isVirtualized, onScroll]);
+  const onTopScroll = useCallback(() => {
+    const body = scrollRef.current;
+    const top = topScrollRef.current;
+    if (!body || !top || body.scrollLeft === top.scrollLeft) return;
+    body.scrollLeft = top.scrollLeft;
+    if (isVirtualized) readViewport();
+  }, [isVirtualized, readViewport]);
   useEffect(() => {
     if (!isVirtualized) return undefined;
     readViewport();
@@ -152,8 +166,12 @@ const PivotExeGrid = memo(function PivotExeGrid({
     ? [...dimensions.rowWidths, { id: '__left-spacer', width: columnWindow.leftWidth }, ...dimensions.dataColumns.slice(columnWindow.start, columnWindow.end), { id: '__right-spacer', width: columnWindow.rightWidth }]
     : [...dimensions.rowWidths, ...dimensions.dataColumns];
 
-  return <div ref={scrollRef} onScroll={isVirtualized ? onScroll : undefined} data-testid="pivot-exe-scroll" className={styles.scroll} data-pivot-virtualized={isVirtualized ? 'true' : 'false'} data-pivot-total-rows={structure.bodyRows.length} data-pivot-total-columns={structure.dataColumns.length} data-selection-count={Object.keys(selections || {}).length} data-filter-active={filterActive ? 'true' : 'false'}>
-    <table className={styles.table} data-testid="pivot-exe-grid" style={tableStyle}>
+  return <div className={styles.gridShell}>
+    <div ref={topScrollRef} onScroll={onTopScroll} data-testid="pivot-exe-top-scroll" className={styles.topScroll} role="region" aria-label="피벗 표 상단 가로 이동바">
+      <div className={styles.topScrollTrack} style={{ width: dimensions.tableWidth }} />
+    </div>
+    <div ref={scrollRef} onScroll={onBodyScroll} data-testid="pivot-exe-scroll" className={styles.scroll} data-pivot-virtualized={isVirtualized ? 'true' : 'false'} data-pivot-total-rows={structure.bodyRows.length} data-pivot-total-columns={structure.dataColumns.length} data-selection-count={Object.keys(selections || {}).length} data-filter-active={filterActive ? 'true' : 'false'}>
+      <table className={styles.table} data-testid="pivot-exe-grid" style={tableStyle}>
       <colgroup>{allColumns.map((item) => <col key={item.id} style={{ width: item.width, minWidth: item.width }} />)}</colgroup>
       <thead>
         {structure.headerRows.map((headerCells, level) => <tr key={`header-${level}`} style={{height:headerHeights[level]}}>
@@ -169,7 +187,8 @@ const PivotExeGrid = memo(function PivotExeGrid({
       {isVirtualized
         ? <PivotExeWindowedBody structure={structure} formattedLabels={formattedLabels} rowWindow={rowWindow} columnWindow={columnWindow} windowedRowHeaders={windowedRowHeaders} onToggleRowRef={onToggleRowRef} />
         : <PivotExeBody structure={structure} formattedLabels={formattedLabels} onToggleRowRef={onToggleRowRef} />}
-    </table>
+      </table>
+    </div>
   </div>;
 });
 
