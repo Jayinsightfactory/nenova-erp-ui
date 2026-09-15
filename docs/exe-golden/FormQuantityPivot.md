@@ -48,6 +48,7 @@
 - 표 필드 메뉴의 Reload Data/Best Fit/Order(처음·왼쪽·오른쪽·끝)/Show Field List/Show Filter Editor를 확인했다. 웹 정식 접근은 최신 사용자 지시에 따라 모두 좌클릭이다.
 - 새 API /api/stats/pivot-exe는 기존 sqlQuantityPivotGetData만 호출하며 별도 원장 쓰기·재계산·필터 SQL 조립을 하지 않는다. 시작/종료 연도를 각각 검증한다.
 - 모든 조작에서 OrderMaster/OrderDetail, ShipmentMaster/Detail/Date/Farm, WarehouseMaster/Detail, ProductStock/StockHistory, Estimate/WebProfitReport 보존.
+- 웹의 배치판도 원본 피벗의 공간 관계를 따라 필터는 맨 위, 행 필드는 표 왼쪽, 열 필드는 표 위쪽, 값 필드는 숫자 영역에 고정해 드롭 결과를 위치만으로 이해할 수 있게 한다.
 
 source: `C:\Users\USER\nenova-decompiled\Nenova\FormQuantityPivot.cs`
 verification: `docs/exe-golden/README.md`의 FormQuantityPivot 등록 및 기존 피벗 계약·읽기 전용 조회 구조

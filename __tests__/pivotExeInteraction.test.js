@@ -64,8 +64,12 @@ assert.deepEqual(movePivotField(dragZones,'Quantity','values',0,true).values,[{i
 
 const panelSource = fs.readFileSync(new URL('../components/PivotExePanel.js', import.meta.url), 'utf8');
 const gridSource = fs.readFileSync(new URL('../components/PivotExeGrid.js', import.meta.url), 'utf8');
-assert.match(panelSource, /zoneArea\('rows','세로 행'\)/, '세로 행 영역을 화면에 명확히 표시한다');
-assert.match(panelSource, /zoneArea\('cols','가로 열'\)/, '가로 열 영역을 화면에 명확히 표시한다');
+assert.match(panelSource, /zoneArea\('rows','세로 행','표 왼쪽'\)/, '세로 행 영역을 화면에 명확히 표시한다');
+assert.match(panelSource, /zoneArea\('cols','가로 열','표 위쪽'\)/, '가로 열 영역을 화면에 명확히 표시한다');
+assert.match(panelSource, /gridTemplateAreas:'\"filters filters\" \"rows cols\" \"rows values\"'/, 'EXE처럼 필터는 위, 행은 왼쪽, 열은 위쪽, 값은 데이터 위치에 고정한다');
+assert.match(panelSource, /zoneArea\('rows','세로 행','표 왼쪽'\)/, '행 드롭 위치의 결과 방향을 표시한다');
+assert.match(panelSource, /zoneArea\('cols','가로 열','표 위쪽'\)/, '열 드롭 위치의 결과 방향을 표시한다');
+assert.match(panelSource, /zoneArea\('values','값','표 숫자'\)/, '값 드롭 위치가 숫자 영역임을 표시한다');
 assert.match(panelSource, /필드 버튼 전체를 마우스로 잡아/, 'EXE 방식의 직접 드래그 사용법을 표시한다');
 assert.match(panelSource, /pivot-exe-drop-marker/, '드롭할 정확한 삽입 위치를 안내선으로 표시한다');
 assert.doesNotMatch(panelSource, />⇄<\/button>/, '별도 이동 아이콘을 주 조작으로 노출하지 않는다');
