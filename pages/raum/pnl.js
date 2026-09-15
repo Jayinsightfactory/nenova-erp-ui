@@ -9,6 +9,7 @@ import { buildRaumPnlMonthlySummary } from '../../lib/raumPnlMonthly';
 import { canAutoCommitRaumPnlImport, defaultPnlTitle, PNL_PARTNERS, resolvePnlPartner } from '../../lib/raumPnlPartner';
 import { raumPnlMatchCounts, raumPnlMatchDisplay } from '../../lib/raumPnlMatchDisplay';
 import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
+import { applyShillaDetailCostDraft, buildShillaDetailCostUpdates, withShillaDetailCostBaseline } from '../../lib/shillaPnlDetailCost';
 import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
 import ShillaProductMatchModal from '../../components/raum/ShillaProductMatchModal';
@@ -1493,7 +1494,7 @@ export default function RaumPnlPage() {
           sourceFile: j.master.SourceFile || '',
         },
         sheets: null,
-        items: j.items,
+        items: requestedPartner === 'shilla' ? withShillaDetailCostBaseline(j.items) : j.items,
         images: j.images || [],
         verification: j.verification || null,
         warnings: [],
@@ -1691,6 +1692,41 @@ export default function RaumPnlPage() {
     }
   };
 
+  const shillaCostReview = (() => {
+    if (!isShilla || !detail) return { updates: [], error: '' };
+    try {
+      return { updates: buildShillaDetailCostUpdates(detail.items, {
+        pnlKey: detail.meta?.pnlKey,
+        major: detail.meta?.major,
+      }), error: '' };
+    } catch (cause) {
+      return { updates: [], error: cause.message || '신라 매입단가 입력값을 확인하세요.' };
+    }
+  })();
+
+  const saveShillaDetailCosts = async () => {
+    if (!isShilla || !detail || saving) return;
+    if (shillaCostReview.error) { setError(shillaCostReview.error); return; }
+    if (!shillaCostReview.updates.length) { setMessage('변경된 신라 매입단가가 없습니다.'); return; }
+    const pnlKey = Number(detail.meta?.pnlKey);
+    setSaving(true); setError(''); setMessage('');
+    try {
+      const response = await fetch('/api/raum/shilla-purchase-costs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderYear: detail.meta.orderYear, updates: shillaCostReview.updates }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || result?.success !== true) throw new Error(result?.error || '신라 매입단가 저장에 실패했습니다.');
+      await loadList();
+      const refreshed = await openDetail(pnlKey, { keepMessage: true });
+      setMessage(refreshed
+        ? `${result.changedCells ?? shillaCostReview.updates.length}개 신라 매입단가를 저장했습니다.`
+        : '신라 매입단가는 저장됐지만 화면을 다시 불러오지 못했습니다. 다시 조회해 주세요.');
+    } catch (cause) {
+      setError(cause.message || '신라 매입단가 저장에 실패했습니다. 입력값은 화면에 유지했습니다.');
+    } finally { setSaving(false); }
+  };
+
   const openImagePreview = ({ items, images, orderYear, major, sourceFile }) => {
     setGangnamMergeConfirmed(false);
     setDetail({
@@ -1793,6 +1829,9 @@ export default function RaumPnlPage() {
   const setItem = (idx, patch) => {
     setDetail(d => {
       const items = d.items.slice();
+      if (isShilla && Object.prototype.hasOwnProperty.call(patch, 'costPrice')) {
+        return { ...d, items: applyShillaDetailCostDraft(items, idx, patch.costPrice), unsaved: true };
+      }
       const next = { ...items[idx], ...patch };
       // 수동 행(손실 등)은 수량/매출단가 수정 시 매출액 자동 재계산
       if ((next.isCustom || next.isImageRow) && ('qty' in patch || 'price' in patch)) {
@@ -2266,7 +2305,7 @@ export default function RaumPnlPage() {
         {detail ? (
           <>
             <button style={st.btn} disabled={shillaMatching} onClick={() => { setDetail(null); setGangnamMergeConfirmed(false); setMessage(''); setError(''); }}>← 결산 목록</button>
-            {!isShilla ? <><button data-testid="raum-pnl-save" style={st.btnPrimary} disabled={saving || !!detailSaveReason} onClick={save}>{saving ? '저장 중…' : '💾 저장'}</button><span data-testid="raum-pnl-save-reason" style={{ fontSize: 12, color: detailSaveReason ? '#b45309' : '#64748b' }}>{detailSaveReason || (detailReview.requiresConfirmation ? '강남 복수 시트 확인 완료 — 수동 저장 가능' : '')}</span><GangnamMergeConfirmation decision={detailReview} confirmed={gangnamMergeConfirmed} onChange={setGangnamMergeConfirmed} /></> : <span style={{ ...st.badge, background: '#ecfeff', color: '#0f766e' }}>신라 원가 수정은 차수별 매입단가 관리에서만 저장됩니다</span>}
+            {!isShilla ? <><button data-testid="raum-pnl-save" style={st.btnPrimary} disabled={saving || !!detailSaveReason} onClick={save}>{saving ? '저장 중…' : '💾 저장'}</button><span data-testid="raum-pnl-save-reason" style={{ fontSize: 12, color: detailSaveReason ? '#b45309' : '#64748b' }}>{detailSaveReason || (detailReview.requiresConfirmation ? '강남 복수 시트 확인 완료 — 수동 저장 가능' : '')}</span><GangnamMergeConfirmation decision={detailReview} confirmed={gangnamMergeConfirmed} onChange={setGangnamMergeConfirmed} /></> : <><button data-testid="shilla-detail-cost-save" style={{ ...st.btnPrimary, background: '#0f766e', borderColor: '#0f766e' }} disabled={saving || (!shillaCostReview.updates.length && !shillaCostReview.error)} onClick={saveShillaDetailCosts}>{saving ? '저장 중…' : `💾 신라 매입단가 저장 (${shillaCostReview.updates.length})`}</button><span style={{ fontSize: 12, color: shillaCostReview.error ? '#b91c1c' : '#64748b' }}>{shillaCostReview.error || '이 상세표에서 바로 수정·저장할 수 있습니다.'}</span></>}
             <button
               style={st.btn}
               onClick={() => printInIframe(buildDetailPrintHtml(detail.meta, detail.items, totals, branches))}
@@ -2597,8 +2636,8 @@ export default function RaumPnlPage() {
                         {isShilla ? <input
                           style={{ ...st.input, background: it.costPrice != null && it.costPrice !== '' ? '#ecfdf5' : '#fff' }}
                           value={it.costPrice ?? ''}
-                          readOnly
-                          aria-label="신라 원본 1개당 매입단가"
+                          disabled={saving || !shillaDetailSaved}
+                          aria-label="신라 1개당 매입단가"
                           onChange={e => setItem(i, { costPrice: e.target.value.replace(/[^0-9.\-]/g, ''), costSource: 'manual', costLearned: false })}
                         /> : <RaumCostHistoryPreview item={it} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>
                           {anchorProps => <>
