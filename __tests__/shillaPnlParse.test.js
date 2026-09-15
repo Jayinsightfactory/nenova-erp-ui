@@ -410,8 +410,8 @@ async function main() {
       assert.equal(item35.ok, true);
     }
 
-    // 승인된 SHA256 원본일 때만 메모리 복사본에 적용되는 정책을 별도 확인한다.
-    // 정책 파일은 여기서 수정하지 않으며, 원본 파일에도 쓰지 않는다.
+    // 확인된 원본 업무 셀과 일치하는 행에만 메모리 복사본 보정을 적용한다.
+    // 파일 전체가 이후 편집됐더라도 확인 셀이 그대로면 해당 행만 적용하며 원본 파일에는 쓰지 않는다.
     const approved = parseShillaPnlWorkbookGroups(XLSX, approvedWorkbook, { orderYear: 2026 });
     assert.ok(approvalNotes.length >= 4, '확인된 원본 업무 셀에는 필요한 명시 보정이 적용되어야 한다.');
     assert.ok(approved.batches.length >= 35);
@@ -424,9 +424,16 @@ async function main() {
 
     console.log(`신라 실제 원본: 시트 ${realWb.SheetNames.length}개 중 배치 ${real.batches.length}개, 원본 검증 실패 ${real.verification.filter((c) => !c.ok).length}건 / 승인 정책 적용 후 ${approved.verification.filter((c) => !c.ok).length}건`);
     } else {
-      assert.deepEqual(approvalNotes, [], '수정된 개인 파일에는 과거 SHA 승인 보정을 적용하면 안 된다.');
-      assert.equal(JSON.stringify(approvedWorkbook), beforePolicy, '미승인 원본은 전 셀을 보존한다.');
-      console.log(`신라 개인 파일 업무 셀 변경: 시트 ${realWb.SheetNames.length}개 / 배치 ${real.batches.length}개 일반 검증 완료; 기존 확인사항을 적용하지 않음.`);
+      if (approvalNotes.length) {
+        const approved = parseShillaPnlWorkbookGroups(XLSX, approvedWorkbook, { orderYear: 2026 });
+        assert.notEqual(JSON.stringify(approvedWorkbook), beforePolicy, '확인 셀이 일치하는 행에는 해당 보정만 적용해야 한다.');
+        assert.ok(approved.verification.filter((check) => !check.ok).length <= real.verification.filter((check) => !check.ok).length,
+          '부분 확인 보정이 일반 파싱보다 검증 실패를 늘리면 안 된다.');
+        console.log(`신라 개인 파일 업무 셀 일부 변경: 확인 셀 일치 보정 ${approvalNotes.length}건만 적용, 그 밖의 변경행은 일반 검증 유지.`);
+      } else {
+        assert.equal(JSON.stringify(approvedWorkbook), beforePolicy, '확인 셀이 하나도 일치하지 않는 원본은 전 셀을 보존한다.');
+        console.log(`신라 개인 파일 업무 셀 변경: 시트 ${realWb.SheetNames.length}개 / 배치 ${real.batches.length}개 일반 검증 완료; 확인사항을 적용하지 않음.`);
+      }
     }
   } else {
     console.log('신라 실제 원본 파일 없음 — 합성 fixture 검증만 수행 (미검증: 실제 원본 대조).');

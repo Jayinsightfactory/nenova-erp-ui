@@ -101,7 +101,11 @@ async function main() {
     if(sourceHash===hash || isBusinessRevision(original)) {
       assert.ok(notes.length>=4,'확인된 업무 셀의 필요한 보정 내역이 표시되어야 한다.');
       assert.equal(blocked.length,0,'확인된 source revision은 전체 차수가 검증되어야 한다.');
-    } else assert.deepEqual(notes,[],'업무 셀이 다른 개인 파일은 확인사항을 상속하지 않는다.');
+    } else if(notes.length) {
+      assert.ok(notes.every(note=>/확인된 원본 업무 셀과 일치/.test(note)),'전체 파일이 달라도 정확히 일치한 확인 셀만 보정한다.');
+    } else {
+      assert.deepEqual(notes,[],'확인된 업무 셀이 하나도 일치하지 않는 개인 파일은 확인사항을 상속하지 않는다.');
+    }
     const all=verified.map(b=>({master:{PartnerCode:'shilla',OrderYear:'2026',MajorWeek:b.major,NenovaPct:b.nenovaPct},items:b.items.map(adapt)}));
     const exported=new ExcelJS.Workbook(); await exported.xlsx.load(await buildRaumPnlWorkbook(all));
     for(const [i,b] of verified.entries()) {
@@ -111,7 +115,7 @@ async function main() {
         if(check) assert.ok(Math.abs(row.getCell(col).result-check.parsedVal)<1,`${b.major} ${label} export mismatch`);
       }
     }
-    console.log(`Actual file: ${verified.length} verified weeks parser→storage adapter→Excel totals reconciled; ${blocked.length} unverified weeks; confirmation ${sourceHash===hash ? 'exact SHA' : isBusinessRevision(original) ? 'business-cell revision' : 'not matched'}`);
+    console.log(`Actual file: ${verified.length} verified weeks parser→storage adapter→Excel totals reconciled; ${blocked.length} unverified weeks; confirmation ${sourceHash===hash ? 'exact SHA' : isBusinessRevision(original) ? 'business-cell revision' : notes.length ? `partial ${notes.length}` : 'not matched'}`);
   }
   console.log('Shilla approved corrections, storage adapter, selection and export ratios passed');
 }

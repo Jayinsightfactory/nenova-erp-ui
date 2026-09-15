@@ -9,6 +9,12 @@
     "components/raum/PnlHotelAddDialog.js",
     "docs/migrations/2026-09-15_pnl_hotels.sql",
     "scripts/apply-pnl-hotels-migration.mjs",
+    "lib/raumPnlSpecialNotePolicy.js",
+    "lib/raumPnlSpecialNote.js",
+    "pages/api/raum/pnl-notes.js",
+    "components/raum/PnlSpecialNotesDialog.js",
+    "docs/migrations/2026-09-15_pnl_special_notes.sql",
+    "scripts/apply-pnl-special-notes-migration.mjs",
     "lib/raumPnlImportReview.js",
     "lib/shillaPnlBulkMatchState.js",
     "lib/shillaPnlBulkMatch.js",
@@ -63,6 +69,7 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "settlementIdentity": ["OrderYear", "MajorWeek", "PartnerCode"],
+  "specialNoteIdentity": ["PartnerCode", "OrderYear"],
   "quoteSheetClassification": {
     "source": "User request 2026-09-14: sheet names containing 강남 use the same 강남 branch",
     "helper": "lib/raumPnlParse.js detectBranch (shared by preview/save parsers)",
@@ -72,6 +79,7 @@
     "regressionTest": "__tests__/raumPnlPartner.test.js"
   },
   "actions": [
+    { "name": "RAUM_PNL_SPECIAL_NOTE", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "authenticated explicit active PartnerCode + four-digit OrderYear; GET is read-only; PUT stores at most 5000 characters in the web-only note table, compares the exact expected revision under PartnerCode+OrderYear lock, never automatically retries a failed save, and never changes settlement rows or ERP ledgers", "writeAllowlist": ["WebRaumPnlSpecialNote"] },
     { "name": "SHILLA_BULK_UNMATCHED_MATCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit selected year and shilla; GET read-only groups exact normalized source name+unit with unmatched ordinary rows; suggest only unique active saved mappings, never fuzzy auto-select; explicit selected groups and positive Product keys; one atomic POST revalidates complete selected group membership/state under shared year lock before any write; differing existing mapping, stale snapshot, inactive Product or one failed write rolls back all groups; fill null ProdKey only; no auto retry, no unlinks or global name learning; maximum 200 groups and 10000 snapshot rows and 900KiB UTF-8 JSON request, UI rejects oversized selection before POST and preserves drafts", "writeAllowlist": ["WebRaumPnlItem.ProdKey", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
     { "name": "SHILLA_SAME_HOTEL_PRODUCT_MATCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit applySameHotel=true; selected OrderYear+shilla+exact whitespace-normalized name+Unit+ordinary; source snapshot and active Product rechecked; fill unmatched group rows, preserve same key, conflicting different key rolls back; group unlink clears whole same group; absent/false retains single-row scope; common year lock before master/items/product; import preview/save unique active mapping inference and fingerprint recheck; no GET writes", "writeAllowlist": ["WebRaumPnlItem.ProdKey", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
     { "name": "SHILLA_PRODUCT_SEARCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "GET /api/products/search canonical Korean/English alias search; display top 50 candidates, never auto-select; IME composition Enter does not search, committed Enter reads current input; ignore superseded responses; search never changes any mapping, price or source row", "writeAllowlist": [] },
@@ -165,6 +173,8 @@
     "__tests__/raumPnlPartner.test.js",
     "__tests__/raumPnlMatchDisplay.test.js",
     "__tests__/raumPnlPreservation.test.js",
+    "__tests__/raumPnlSpecialNote.test.js",
+    "__tests__/raumPnlSpecialNoteUi.test.js",
     "__tests__/raumPnlUploadDiff.test.js",
     "__tests__/raumPnlMonthly.test.js",
     "__tests__/raumPnlSettlementContract.test.js",
