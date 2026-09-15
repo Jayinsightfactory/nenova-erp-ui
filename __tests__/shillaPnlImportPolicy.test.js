@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 async function main() {
-  const { applyConfirmedShillaSourceNames: apply, SHILLA_CONFIRMED_SOURCE_SHA256: hash, selectShillaImportBatches: select, shillaSettlementItem: adapt } = await import('../lib/shillaPnlImportPolicy.js');
+  const { applyConfirmedShillaSourceNames: apply, SHILLA_CONFIRMED_SOURCE_SHA256: hash, isConfirmedShillaBusinessRevision: isBusinessRevision, selectShillaImportBatches: select, shillaSettlementItem: adapt } = await import('../lib/shillaPnlImportPolicy.js');
   const source = () => ({ Sheets: {
     '35차': { A8: {v:' '}, B8:{v:'화이트'}, C8:{v:324}, D8:{v:11233} },
     '31차8월': { E9:{v:266400}, E10:{v:6568213}, H10:{v:2468949}, J10:{v:0}, K10:{v:0} },
@@ -22,6 +22,26 @@ async function main() {
   assert.equal(w.Sheets['31차8월'].J10.v,1975159.2);
   assert.equal(w.Sheets['30차'].K6.v,3312); assert.equal(w.Sheets['30차'].L7.v,9360);
   assert.ok(Math.abs(w.Sheets['30차'].K9.v + w.Sheets['30차'].L9.v-1970778)<0.001);
+  const semantic=source();
+  for(const [name,title,pct] of [
+    ['15차','신라호텔 15차(04.14)',60],['30차','신라호텔 30차(7.28)',80],
+    ['31차8월','신라호텔 31차(8.3)',80],['33차','신라호텔 33차(8.18)',80],['35차','신라호텔 35(9.2)',80],
+  ]) Object.assign(semantic.Sheets[name],{A1:{v:title},A2:{v:'품명'},B2:{v:'칼라'},C2:{v:'입고수량'},D2:{v:'매입단가'},J2:{v:`네노바이익\n(${pct}%)`}});
+  semantic.Sheets['30차'].K9.v=1566434.4; semantic.Sheets['30차'].L9.v=404343.6;
+  semantic.Sheets['31차8월'].J10.v=1855479.2; semantic.Sheets['31차8월'].K10.v=463869.8;
+  assert.equal(isBusinessRevision(semantic),true);
+  assert.equal(apply(semantic,'excel-resaved-different-package-hash').length,5,'같은 업무 셀을 가진 Excel 재저장본은 확인사항을 유지한다.');
+  assert.equal(semantic.Sheets['15차'].D4.v,0);
+  assert.equal(semantic.Sheets['30차'].K6.v,3312);
+  assert.equal(semantic.Sheets['31차8월'].E10.v,6834613);
+  assert.equal(semantic.Sheets['33차'].A7.v,'태국샘플');
+  const currentLayout=source();
+  Object.assign(currentLayout.Sheets['30차'],{A1:{v:'신라호텔 30차(7.28)'},A2:{v:'품명'},B2:{v:'칼라'},C2:{v:'입고수량'},D2:{v:'매입단가'},J2:{v:'네노바이익\n(80%)'},H6:{v:4140},H7:{v:46800},H9:{v:1970778},J6:{v:2484},K6:{v:1656},J7:{v:28080},K7:{v:18720},J9:{v:1566434.4},K9:{v:404343.6}});
+  assert.equal(apply(currentLayout,'current-layout-resaved').length,1);
+  assert.equal(currentLayout.Sheets['30차'].J6.v,3312); assert.equal(currentLayout.Sheets['30차'].K7.v,9360);
+  assert.ok(Math.abs(currentLayout.Sheets['30차'].J9.v+currentLayout.Sheets['30차'].K9.v-1970778)<0.001);
+  const nearMiss=source(); Object.assign(nearMiss.Sheets['15차'],semantic.Sheets['15차']); nearMiss.Sheets['15차'].C4.v=49;
+  assert.deepEqual(apply(nearMiss,'excel-resaved-different-package-hash'),[],'확인된 행 값이 달라지면 의미 기반 확인을 상속하지 않는다.');
   const free={Sheets:{'15차':{A4:{v:'호접'},B4:{v:'염색'},C4:{v:48},E4:{v:0}}}};
   assert.equal(apply(free,hash).length,1); assert.equal(free.Sheets['15차'].D4.v,0);
   const a=adapt({name:'장미',color:'쉬머',qty:40,buyPrice:10800,sellPrice:11970,sellAmount:478800});
@@ -73,15 +93,15 @@ async function main() {
     const sourceHash=crypto.createHash('sha256').update(raw).digest('hex');
     const notes=apply(original,sourceHash);
     const parsed=parse(X,original,{orderYear:2026});
-    // Export/storage requires verified batches. A changed personal workbook is
-    // not entitled to the old five corrections (e.g. missing 15차 cost is NOT 0).
+    // Export/storage requires verified batches. Re-saving the same Excel package
+    // must not discard prior user confirmations when the exact source cells agree.
     const verified=parsed.batches.filter(b=>b.verification.length && b.verification.every(c=>c.ok));
     const blocked=parsed.batches.filter(b=>!verified.includes(b));
     for(const batch of blocked) assert.throws(()=>select(parsed.batches,[batch.major]), /원본 확인/);
-    if(sourceHash===hash) {
-      assert.equal(notes.length,5);
-      assert.equal(blocked.length,0,'Approved source must remain fully verified');
-    } else assert.deepEqual(notes,[],'Unapproved personal file must not inherit corrections');
+    if(sourceHash===hash || isBusinessRevision(original)) {
+      assert.ok(notes.length>=4,'확인된 업무 셀의 필요한 보정 내역이 표시되어야 한다.');
+      assert.equal(blocked.length,0,'확인된 source revision은 전체 차수가 검증되어야 한다.');
+    } else assert.deepEqual(notes,[],'업무 셀이 다른 개인 파일은 확인사항을 상속하지 않는다.');
     const all=verified.map(b=>({master:{PartnerCode:'shilla',OrderYear:'2026',MajorWeek:b.major,NenovaPct:b.nenovaPct},items:b.items.map(adapt)}));
     const exported=new ExcelJS.Workbook(); await exported.xlsx.load(await buildRaumPnlWorkbook(all));
     for(const [i,b] of verified.entries()) {
@@ -91,7 +111,7 @@ async function main() {
         if(check) assert.ok(Math.abs(row.getCell(col).result-check.parsedVal)<1,`${b.major} ${label} export mismatch`);
       }
     }
-    console.log(`Actual file: ${verified.length} verified weeks parser→storage adapter→Excel totals reconciled; ${blocked.length} unverified weeks rejected by storage policy; approved snapshot ${sourceHash===hash ? 'verified' : 'NOT verified (SHA differs)'}`);
+    console.log(`Actual file: ${verified.length} verified weeks parser→storage adapter→Excel totals reconciled; ${blocked.length} unverified weeks; confirmation ${sourceHash===hash ? 'exact SHA' : isBusinessRevision(original) ? 'business-cell revision' : 'not matched'}`);
   }
   console.log('Shilla approved corrections, storage adapter, selection and export ratios passed');
 }
