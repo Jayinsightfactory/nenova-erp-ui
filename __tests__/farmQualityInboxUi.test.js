@@ -63,7 +63,13 @@ assert.match(html,/summary-column[\s\S]*badges workflow[\s\S]*products-column/);
 html=render({2:ranked});const aside=html.slice(html.indexOf('<aside>'));assert.match(aside,/>품목1 · 1 송이</);assert.equal((aside.match(/테스트 농장 · 장미류/g)||[]).length,1);assert.match(aside,/자동 발송되지 않음/);
 const sortedItem=(key,lastWeek,status)=>({...ranked,key,lastWeek,cases:[{caseKey:key,status,recentEvents:[{Body:`정렬-${key}`}]}]});
 data.inbox.items=[sortedItem('closed',53,'CLOSED'),sortedItem('b',40,'NEW'),sortedItem('a',40,'NEW'),sortedItem('old',39,'NEW'),sortedItem('waiting',52,'WAITING')];
-html=render();const offsets=['a','b','old','waiting','closed'].map(key=>html.indexOf(`title="정렬-${key} ·`));assert(offsets.every((offset,index)=>offset>=0&&(!index||offset>offsets[index-1])),'priority then descending latest week then stable key');
+html=render();const offsets=['a','b','old','waiting'].map(key=>html.indexOf(`title="정렬-${key} ·`));assert(offsets.every((offset,index)=>offset>=0&&(!index||offset>offsets[index-1])),'lane order then descending latest week then stable key');
+assert.doesNotMatch(html,/title="정렬-closed/);assert.match(html,/그 외 상태 1개/);
+assert.equal((html.match(/class="board-column column-/g)||[]).length,4);
+for(const code of ['NEW','WAITING','ANSWERED','RECURRED'])assert(html.includes(`board-column column-${code}`));
+html=render({0:'CLOSED'});assert.match(html,/title="정렬-closed/);assert.equal((html.match(/class="board-column column-/g)||[]).length,1);
+data.inbox.items=[sortedItem('recurrence',40,'RECURRED')];html=render();assert.match(html,/column-RECURRED[\s\S]*title="정렬-recurrence/);
+assert.equal((html.match(/해당 상태의 피드백이 없습니다/g)||[]).length,3);
 data.inbox.items=savedItems;
 html=render({2:virtual});assert.match(html,/value="REQUEST"/,'first request available to manager');assert.doesNotMatch(html,/value="RESPONSE"/,'first response is not valid');assert.match(html,/고객 가/);
 for(const quantity of [null,undefined,NaN,Infinity]){html=render({2:{...virtual,sources:[{...virtual.sources[0],quantity}]}});assert.match(html,/수량 확인 불가/,'unknown source quantity must not become zero');}
