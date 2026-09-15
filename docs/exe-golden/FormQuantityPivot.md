@@ -1,5 +1,12 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-15 네이티브 필드 드래그 조작 경계
+
+- DevExpress PivotGrid의 필드 버튼은 버튼 자체를 마우스로 잡아 행·열·값·필터 영역 사이로 이동하고, 같은 영역 안에서 순서를 다시 정한다.
+- 웹도 별도 이동 아이콘을 주 조작으로 사용하지 않고 필드 버튼 전체를 HTML drag 대상으로 삼는다. 드래그 중 대상 영역과 정확한 삽입 위치를 파란 선으로 표시한다.
+- 필드 오른쪽 화살표는 위치 이동이 아니라 실제 값 필터를 연다. 드롭 후 집계는 기존 브라우저 피벗 모델만 다시 계산한다.
+- API, SQL, 조회 범위와 ERP 원장에는 변경이 없다. Order/Shipment/Warehouse/ProductStock/Estimate/WebProfitReport를 모두 보존한다.
+
 ## 2026-09-14 간격 조절 성능 경계
 
 - 저장된 FormQuantityPivot_Load/GetData/btnExcel_Click 근거와 동일 원본 조회를 보존한다. UI 폭·높이 성능 개선에는 SQL/SP 변경이 없다.

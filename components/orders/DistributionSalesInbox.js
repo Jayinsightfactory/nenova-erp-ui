@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {MAX_TEXT_BYTES,periodBounds,parseSalesExport,mergeMessages,selectedText} from '../../lib/distributionSalesInbox';
 import {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
-import {classifyMessage,matchingSummary,summarizeMessage} from '../../lib/distributionCompactMatchUi';
+import {classifyMessage,matchingSummary,summarizeMessage,confirmedHistoryRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
 import {mappedEvidenceSource} from '../../lib/pasteEvidenceSource';
@@ -282,7 +282,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
   }
   function compactMessageRow(row) {
     const inLiveRange=liveBatchIdentities.has(row.identity);
-    const match=(inLiveRange&&hasAcceptedLiveHistoryScope&&matchingSummary(liveBalanceComparison,row.identity,liveHistory[row.identity]))||{status:'UNCONFIRMED',label:inLiveRange?'미확인':'대조 범위 밖',matchedCount:0,totalCount:0,operationSummary:inLiveRange?'대응 작업 미확인':'날짜 범위를 좁혀 대조'};
+    const match=(inLiveRange&&hasAcceptedLiveHistoryScope&&matchingSummary(liveBalanceComparison,row.identity,liveHistory[row.identity]))||{status:'UNCONFIRMED',label:inLiveRange?(liveHistoryStatus.error?'조회 실패':liveHistoryStatus.loading?'조회 중':'조회 대기'):'대조 범위 밖',matchedCount:0,totalCount:0,operationSummary:inLiveRange?'대응 작업 미확인':'날짜 범위를 좁혀 대조'};
+    const confirmed=inLiveRange&&hasAcceptedLiveHistoryScope?confirmedHistoryRequests(liveBalanceComparison,row.identity,liveHistory[row.identity]):[];
     const manual=manualApplications[row.identity];
     const operation=operationApplications[row.identity];
     const manualLabel=operation?'전산 적용됨':manual?.status==='MANUALLY_APPLIED'?'직접 처리함':manual?.status==='MANUALLY_NOT_APPLIED'?'미처리 표시':null;
@@ -295,6 +296,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${completed?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{completed?'작업완료':match.label||'미확인'} {completed?changes.length:match.matchedCount??0}/{match.totalCount||changes.length}{manualLabel&&<span>{manualLabel}</span>}<small>자동 대조</small></span>
       <button type="button" disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>전체 변경 AI 분석·분배 준비</button></div>
       <div className="visible-change-table">{changes.map((change,index)=><div className="visible-change-line" key={index}><span>{change.week}</span><strong>{change.customer}</strong><span>{change.change}</span></div>)}</div>
+      {!completed&&confirmed.length>0&&<div className="confirmed-request-box">{confirmed.map(request=><div key={request.id}>✓ 처리 이력 확인 · {request.customerText} · {request.quote}<small>{request.reason}</small></div>)}</div>}
       <details><summary>원문 · 전산 근거 · 비교</summary><div className="compact-match-expanded"><div className="message-raw"><pre>{row.message}</pre><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></details>
     </article>;
   }
@@ -382,6 +384,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       .sales-inbox .history-completed .visible-change-meta{background:#e0f5e7}
       .sales-inbox .history-completion-label{padding:5px 8px;color:#126637;background:#d9f2e2;font-weight:700}
       .sales-inbox .history-partial{border:2px solid #d8a328;border-radius:7px;margin:5px 0}
+      .sales-inbox .confirmed-request-box{border:2px solid #22945b;border-radius:6px;background:#edfaf1;color:#126637;margin:5px;padding:6px;font-weight:700}
+      .sales-inbox .confirmed-request-box small{display:block;font-weight:400;padding:3px 0}
       .sales-inbox .visible-change-meta>button{margin-left:auto}
       .sales-inbox .visible-change-meta .compact-match-status{display:flex;gap:5px}
       .sales-inbox .compact-match-row>details>summary{padding:3px 8px;color:#64748b;cursor:pointer;font-size:11px}
