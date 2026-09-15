@@ -287,7 +287,7 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
   const byKey = {};
   const skip = new Set(excludedLineNos || []);
   let currentFlower = '';
-  String(text || '').split(/\r?\n/).forEach((raw, lineIdx) => {
+  textWithoutExcludedLines(text, excludedLineNos.filter(value => typeof value === 'object')).split(/\r?\n/).forEach((raw, lineIdx) => {
     if (skip.has(lineIdx)) return;
     const line = raw.trim();
     if (!line || isSeparatorLine(line) || /^(잔량|잔량재고|기초재고|기존재고|시작재고|시작잔량|재고)$/i.test(line)) return;
@@ -803,7 +803,7 @@ function buildKakaoStockDraft({
 }) {
   const filteredText = textWithoutExcludedLines(text, pasteExcludedLineNos);
   const filteredBase = textWithoutExcludedLines(baseText, baseExcludedLineNos);
-  const base = parseBaseStockText(filteredBase, { excludedLineNos: baseExcludedLineNos });
+  const base = parseBaseStockText(filteredBase);
   const finalRemain = parseBaseStockText(remainText);
   const parsedChanges = parseKakaoStockRecords(filteredText, selectedWeek);
   const analyzedRecords = buildAnalyzedStockRecords(analysisOrders, selectedWeek);
@@ -1090,6 +1090,8 @@ export default function PasteOrderPage() {
   const [detectedWeek, setDetectedWeek] = useState(''); // Claude가 텍스트에서 감지한 차수
   const [stockBaseWeek, setStockBaseWeek] = useState('');
   const [baseStockText, setBaseStockText] = useState('');
+  useEffect(() => { setPasteExcludedLines([]); }, [pasteText]);
+  useEffect(() => { setBaseStockExcludedLines([]); }, [baseStockText]);
   const [baseStockMatches, setBaseStockMatches] = useState([]);
   const [baseStockMatchEditIdx, setBaseStockMatchEditIdx] = useState(null);
   const [pendingParseAfterLoad, setPendingParseAfterLoad] = useState(false);
@@ -1569,6 +1571,7 @@ export default function PasteOrderPage() {
 
   const handlePasteExcludedLinesChange = (nextLines) => {
     setPasteExcludedLines(nextLines);
+    setOrders([]); setBulkResult(null); setParseError('');
     refreshStockDraft(
       pasteText,
       baseStockText,
@@ -3989,7 +3992,7 @@ export default function PasteOrderPage() {
 
           {/* 2열 상단: 주문 원문과 Claude 분석 */}
           <div className="paste-col paste-col-order paste-column-order-input">
-            <div className="paste-column-title">② 입력</div>
+            <div className="paste-column-title paste-analysis-toolbar">② 입력<button type="button" className="paste-analyze-button" onClick={handleParse} disabled={parsing || !pasteText.trim()}>{parsing ? '🤖 분석 중...' : '🤖 Claude로 분석'}</button></div>
             <label style={labelS}>
               붙여넣기 주문등록
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
@@ -4062,14 +4065,6 @@ export default function PasteOrderPage() {
               onChange={e => { setPasteText(e.target.value); setOrders([]); setParseError(''); setQueueIdx(0); setStockDraft(null); setBulkResult(null); setBulkCompletionNotice(null); setBulkProgress(''); if (currentStockNote) setStockNoteStatus('수정 후 수정저장 필요'); }}
             />
             <div className="paste-order-actions">
-              <button
-                type="button"
-                onClick={handleParse}
-                disabled={parsing || !pasteText.trim()}
-                style={{ width: '100%', padding: '9px 12px', background: '#1a237e', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: parsing || !pasteText.trim() ? 0.55 : 1 }}
-              >
-                {parsing ? '🤖 분석 중...' : '🤖 Claude로 분석'}
-              </button>
               {parseError && <div style={{ color: '#c62828', fontSize: 12, lineHeight: 1.4 }}>❌ {parseError}</div>}
               {orders.length > 0 && (
                 <div style={{ fontSize: 12, color: '#555', lineHeight: 1.45 }}>
@@ -4300,7 +4295,7 @@ export default function PasteOrderPage() {
                   excludedLines={baseStockExcludedLines}
                   onExcludedLinesChange={handleBaseStockExcludedLinesChange}
                   title="제외 하이라이트 (기초재고)"
-                  hint="메모·별도 정보 줄은 드래그로 제외하세요."
+                  hint="메모 단어·문구만 드래그해 제외하세요. 다시 선택하면 해제됩니다."
                   embedded
                 />
               ) : (
@@ -4485,9 +4480,9 @@ export default function PasteOrderPage() {
           /* 붙여넣기 입력은 실제 내용 확인에 필요한 높이만 사용하고 기초재고를 첫 화면으로 당긴다. */
           .paste-col-order .paste-main-ta {
             flex: 0 0 auto;
-            height: clamp(140px, 16vh, 180px);
-            min-height: 120px;
-            max-height: 220px;
+            height: clamp(180px, 24vh, 280px);
+            min-height: 180px;
+            max-height: 280px;
             overflow-y: auto;
           }
           .paste-col:not(.paste-col-order) .paste-main-ta {
@@ -4504,6 +4499,9 @@ export default function PasteOrderPage() {
             border-top: 1px solid #c5cae9;
             background: #f7f8ff;
           }
+          .paste-analysis-toolbar{position:sticky;top:-8px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f7f8ff;padding:5px 0;flex-shrink:0}
+          .paste-analyze-button{padding:9px 12px;border:0;border-radius:6px;background:#1a237e;color:white;font-size:13px;font-weight:700;cursor:pointer}
+          .paste-analyze-button:disabled{opacity:.55;cursor:not-allowed}
           .paste-col-side-scroll {
             flex: 1;
             min-height: 0;
@@ -4532,7 +4530,7 @@ export default function PasteOrderPage() {
             .paste-column-analysis { grid-column: 4; grid-row: 1; }
             .paste-col-work-results { grid-column: 4; grid-row: 2 / span 2; }
             .paste-input-grid { grid-template-columns: minmax(0,.16fr) minmax(0,.16fr) minmax(0,.23fr) minmax(0,.45fr); }
-            .paste-input-grid { grid-template-rows: minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr); }
+            .paste-input-grid { grid-template-rows: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr); }
             .paste-input-grid .paste-column-analysis { grid-row: 1 / span 2; }
             .paste-input-grid .paste-col-work-results { grid-row: 3; }
             .paste-input-grid.paste-baseline-collapsed { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }

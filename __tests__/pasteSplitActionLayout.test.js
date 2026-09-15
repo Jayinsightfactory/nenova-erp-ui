@@ -55,7 +55,7 @@ assert.match(page, /resolveStockProjectionIdentity\(record\.productName, resolve
 assert.match(page, /const analyzedRecords = buildAnalyzedStockRecords\(analysisOrders, selectedWeek\)/);
 assert.match(page, /const records = analyzedRecords\.length > 0 \? analyzedRecords : parsedChanges\.records/);
 assert.match(page, /analysisOrders: ordersForMatch/);
-assert.match(page, /height: clamp\(140px, 16vh, 180px\)/);
+assert.match(page, /height: clamp\(180px, 24vh, 280px\)/);
 assert.match(page, /\.paste-global-action-board-top \{ grid-template-columns: 1fr !important; \}/);
 assert.match(page, /왼쪽 · 취소 먼저 \(\$\{globalCancelEntries\.length\}건\)/);
 assert.match(page, /오른쪽 · 추가·분배 \(\$\{globalAddEntries\.length\}건\)/);
