@@ -14,6 +14,7 @@ import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview
 import ShillaProductMatchModal from '../../components/raum/ShillaProductMatchModal';
 import ShillaBulkMatchModal from '../../components/raum/ShillaBulkMatchModal';
 import PnlHotelAddDialog from '../../components/raum/PnlHotelAddDialog';
+import PnlSpecialNotesDialog from '../../components/raum/PnlSpecialNotesDialog';
 import RaumPnlCollisionLocations from '../../components/raum/RaumPnlCollisionLocations';
 import { escapePnlHtml } from '../../lib/raumPnlPrintText';
 import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHttp';
@@ -1189,6 +1190,7 @@ export default function RaumPnlPage() {
   const [hotelError, setHotelError] = useState('');
   const [hotelRegistryError, setHotelRegistryError] = useState('');
   const [hotelRegistryRevision, setHotelRegistryRevision] = useState(0);
+  const [specialNotesOpen, setSpecialNotesOpen] = useState(false);
   // 신라 원본은 연도가 없는 차수명도 있으므로, 미리보기와 저장에 같은 명시 연도를 보낸다.
   const [importYear, setImportYear] = useState(() => String(new Date().getFullYear()));
   const [list, setList] = useState([]);
@@ -1310,6 +1312,7 @@ export default function RaumPnlPage() {
     setLoadingList(false);
     setRetryUploadFile(null);
     setShillaMatchEdit(null);
+    setSpecialNotesOpen(false);
     if (fileRef.current) fileRef.current.value = '';
     setError('');
     setCollisionAlert(null);
@@ -1318,6 +1321,8 @@ export default function RaumPnlPage() {
   const partner = resolvePnlPartner(partnerCode, hotelPartners.find(p => p.code === partnerCode));
   const isShilla = partner.code === 'shilla';
   const canErpSync = partner.code === 'raum' || partner.code === 'choimun';
+  const specialNoteYear = String(detail?.meta?.orderYear || list?.[0]?.OrderYear || importYear || new Date().getFullYear());
+  const specialNoteYearOptions = [...new Set([specialNoteYear, importYear, ...(list || []).map(row => row.OrderYear)].filter(year => /^\d{4}$/.test(String(year))).map(String))];
   const addHotel = async (name) => {
     if (hotelAdding) return;
     setHotelAdding(true);
@@ -2173,6 +2178,13 @@ export default function RaumPnlPage() {
           }}
           title="선택한 거래처의 품목별 매입단가를 차수별로 한 화면에서 조회·수정합니다."
         >차수별 매입단가 관리</button>
+        <button
+          type="button"
+          disabled={!partnerReady || hotelAdding}
+          style={{ ...st.btn, fontWeight: 700, borderColor: '#f59e0b', color: '#92400e', background: '#fffbeb' }}
+          onClick={() => setSpecialNotesOpen(true)}
+          title="선택한 거래처의 연도별 결산 특이사항을 기록합니다."
+        >📝 특이사항</button>
         <span style={{ fontSize: 12.5, color: '#64748b' }}>{isShilla ? '신라는 원본 엑셀 차수로 보관합니다. 저장된 품목을 전산 품목에 연결해 단가를 비교할 수 있으며, 주문·분배·재고는 변경하지 않습니다.' : '선택한 거래처 견적서만 올리고, 저장·전산대조도 그 거래처 기준으로 봅니다.'}</span>
       </div>
       <p style={st.desc}>
@@ -2193,6 +2205,14 @@ export default function RaumPnlPage() {
         setHotelRegistryRevision(value => value + 1);
       }}>라움 탭으로 다시 열기</button></div> : null}
       <PnlHotelAddDialog open={hotelDialogOpen} onClose={() => { if (!hotelAdding) setHotelDialogOpen(false); }} onSubmit={addHotel} busy={hotelAdding} error={hotelError} />
+      <PnlSpecialNotesDialog
+        open={specialNotesOpen}
+        partnerCode={partnerCode}
+        partnerLabel={partner.label}
+        initialYear={specialNoteYear}
+        yearOptions={specialNoteYearOptions}
+        onClose={() => setSpecialNotesOpen(false)}
+      />
       {message ? <div style={st.ok}>{message}</div> : null}
       {canErpSync ? <RaumImageOrderPanel
         open={imageOpen}

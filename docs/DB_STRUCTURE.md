@@ -217,6 +217,12 @@
 
 **Estimate** — 견적서 (`EstimateKey`, `CustKey`, `ProdKey`, `ShipmentKey`)
 
+**WebRaumPnlSpecialNote** — 호텔 결산 특이사항 웹 전용 메모
+- 업무키: `PartnerCode + OrderYear`; 라움·초이문·신라·등록 호텔별 연도 메모 한 건을 보관한다.
+- `NoteText`는 최대 5,000자이며 `Revision`을 이용해 다른 사용자의 선행 수정을 덮어쓰지 않는다.
+- 조회는 읽기 전용이고, 저장은 이 테이블 한 행만 INSERT/UPDATE한다. `WebRaumPnl/Item`과 주문·출고·재고·견적·손익 원장은 보존한다.
+- 런타임 API는 테이블을 만들지 않는다. `docs/migrations/2026-09-15_pnl_special_notes.sql`을 배포 전에 명시 적용한다.
+
 **WebSalesDefectDeduction** — 영업수입 불량/검역 차감 웹 원장
 - PK: `DeductionKey`; 업무 키: `OrderYear`, `OrderWeek`, `CustKey`, `ProdKey`
 - 입력 스냅샷: 거래처/품목/색상/차감수량/단위/크레딧/농장/비고/차감구분

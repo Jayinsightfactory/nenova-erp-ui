@@ -38,6 +38,13 @@ async function main() {
   const shillaMatch = contract.actions.find(x => x.name === 'SHILLA_PNL_PRODUCT_MATCH');
   assert.deepEqual(shillaMatch.writeAllowlist, ['WebRaumPnlItem.ProdKey', 'WebRaumPnl.UpdatedBy', 'WebRaumPnl.UpdatedAt']);
   assert.ok(contract.actions.find(x => x.name === 'SHILLA_COMBINED_PURCHASE_COST_DISPLAY'));
+  const specialNote = contract.actions.find(x => x.name === 'RAUM_PNL_SPECIAL_NOTE');
+  assert.ok(specialNote, '거래처+연도 특이사항 기능이 결산 계약에 등록되어야 합니다.');
+  assert.deepEqual(specialNote.writeAllowlist, ['WebRaumPnlSpecialNote']);
+  assert.deepEqual(contract.specialNoteIdentity, ['PartnerCode', 'OrderYear']);
+  for (const file of ['__tests__/raumPnlSpecialNote.test.js', '__tests__/raumPnlSpecialNoteUi.test.js']) {
+    assert.ok(contract.requiredTestFiles.includes(file), `${file}가 결산 계약 필수 테스트여야 합니다.`);
+  }
   for (const file of ['__tests__/shillaPnlProductMatch.test.js', '__tests__/shillaPnlCombinedPurchaseCost.test.js']) {
     assert.ok(contract.requiredTestFiles.includes(file));
     assert.ok(JSON.parse(read('package.json')).scripts['test:shilla-pnl'].includes(file));
