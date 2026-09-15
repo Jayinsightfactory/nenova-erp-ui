@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {summarizeQualityInbox,feedbackNeedsRequest,feedbackPriority} from '../lib/farmQualityInboxSummary.js';
+const row=(key,w,q,extra={})=>({sourceKey:key,orderYear:2026,orderWeek:`${w}-01`,prodKey:1,productName:'CARNATION Polimnia',flowerName:'카네이션',farmName:'Teucali',unit:'단',quantity:q,...extra});
+const base={orderYear:2026,sources:[row(1,34,10),row(2,35,20),row(3,36,30),row(4,37,40)],cases:[],newSourceKeys:[1,2,3,4]};
+let s=summarizeQualityInbox(base);
+assert.equal(s.title,'Teucali · 카네이션');assert.equal(s.overview,'34~37차 매 차수 불량 발생');
+assert.equal(s.topGroups[0].products[0].weekText,'34차 10 → 35차 20 → 36차 30 → 37차 40');
+assert.equal(s.topGroups[0].products[0].share,100);assert.equal(s.statuses[0].label,'요청 전');
+s=summarizeQualityInbox({...base,sources:[row(1,34,10),row(2,36,20)]});assert.equal(s.overview,'34·36차에 불량 반복 발생');assert(!s.overview.includes('매 차수'));
+s=summarizeQualityInbox({...base,sources:[row(1,37,10)]});assert.equal(s.overview,'37차에서 불량 발생');
+s=summarizeQualityInbox({...base,sources:[...base.sources,row(1,34,10),row(9,34,500,{orderYear:2025}),row(10,34,500,{historical:true})]});assert.equal(s.products[0].quantity,100);assert.equal(s.totalsText,'불량 4건 · 100 단');
+s=summarizeQualityInbox({...base,sources:[...base.sources,row(5,37,50,{prodKey:2,productName:'Hermes'}),row(6,37,1000,{prodKey:3,productName:'다른 단위',unit:'송이'})]});
+assert.equal(s.topGroups.length,2);assert.equal(s.products.find(p=>p.name==='Hermes').share,33.3);assert.equal(s.products.find(p=>p.unit==='송이').share,100);
+s=summarizeQualityInbox({...base,sources:[1,2,3,4].map(n=>row(n,37,n*10,{prodKey:n,productName:`품목${n}`}))});assert.deepEqual(s.topGroups[0].products.map(p=>p.name),['품목4','품목3','품목2']);assert.equal(s.topGroups[0].remaining,1);assert.equal(s.products.length,4);
+for(const quantity of [null,undefined,NaN,Infinity,-1]){s=summarizeQualityInbox({...base,sources:[row(1,34,quantity)]});assert.equal(s.products[0].quantity,null);assert.equal(s.products[0].share,null);assert(s.totalsText.includes('수량 확인'));}
+s=summarizeQualityInbox({...base,sources:[row(1,34,0)]});assert.equal(s.products[0].quantity,0);assert.equal(s.products[0].share,null);
+const waiting={...base,cases:[{status:'WAITING',recentEvents:[{Body:'예전',CreatedAt:'2026-09-01'},{Body:'최신 답변',AuthorName:'담당자',CreatedAt:'2026-09-15'}]}]};
+s=summarizeQualityInbox(waiting);assert.deepEqual(s.statuses,[{code:'WAITING',label:'답변 대기',count:1}]);assert.equal(s.newCount,4);assert.equal(feedbackNeedsRequest(waiting),false);assert.equal(s.latest.Body,'최신 답변');
+assert(feedbackPriority(base)<feedbackPriority(waiting));assert(feedbackPriority(waiting)<feedbackPriority({...base,cases:[{status:'CLOSED'}]}));
+s=summarizeQualityInbox({...waiting,cases:[...waiting.cases,{status:'CLOSED'}]});assert.equal(s.statuses.length,2);assert.equal(s.statuses[1].label,'완료');
+s=summarizeQualityInbox({...base,sources:[row(1,34,10,{flowerName:'',farmName:''})]});assert.equal(s.title,'농장 미지정 · 1개 품목');assert(s.requestText.includes('농장 정보'));
+s=summarizeQualityInbox({...base,sources:[row(1,34,10,{historical:true})],cases:[{title:'과거 이력',status:'CLOSED'}]});assert.equal(s.products.length,0);assert.equal(s.title,'과거 이력');assert(!s.overview.includes('반복'));
+console.log('Farm quality summary: cadence, top products, year/source dedup, units, unknown quantities and independent workflow status passed');
