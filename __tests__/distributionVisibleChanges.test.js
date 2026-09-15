@@ -1,5 +1,11 @@
 const assert = require('node:assert/strict');
 const {visibleChanges} = require('../lib/distributionVisibleChanges');
+const lemon=visibleChanges('37차 레몬잎 추가\n소재2호\n레몬잎 5박스\n-> 오늘 출고입니다\n-> 총 10박스','2026-37-02');
+assert.equal(lemon.length,1);
+assert.equal(lemon[0].customer,'소재2호');
+assert.match(lemon[0].change,/5박스 추가/);
+assert.equal(lemon[0].week,'2026-37-02 (선택)');
+assert.match(visibleChanges('2025년 37차 레몬잎 추가\n소재2호\n레몬잎 5박스','2025-37-01')[0].change,/추가/);
 assert.equal(visibleChanges('37-1 카네이션 추가\n라움\n화이트 1단\n-> 총 10단','2026-37-01').length,1);
 assert.equal(visibleChanges('-일신\n화이트 -2단','2026-37-01')[0].customer,'일신');
 assert.equal(visibleChanges('라움\n화이트 -2','2026-37-01').length,1);

@@ -63,7 +63,10 @@ assert.match(ui,/refreshSeq/);assert.match(ui,/activeRefreshScope/);assert.match
 assert.match(ui,/open,setOpen\]=useState\(true\)/);assert.match(ui,/autoRefresh,setAutoRefresh\]=useState\(true\)/);assert.doesNotMatch(ui,/if\(open\)setAutoRefresh\(true\)/);assert.match(ui,/현재 표시 원문 기간/);assert.match(ui,/입력한 조회 기간/);
 assert.match(ui,/입력칸으로/);assert.match(ui,/비교 선택/);assert.match(ui,/검토·비교/);assert.match(ui,/처리함/);assert.match(ui,/미처리/);assert.match(ui,/내 표시는 실제 등록·분배·취소를 실행하거나 확인하지 않습니다/);assert.match(ui,/data-manual-application-refresh/);assert.match(ui,/data-live-history-refresh/);assert.match(ui,/classifyMessage,matchingSummary,summarizeMessage/);assert.match(ui,/compact-match-tab-request/);assert.match(ui,/compact-match-tab-stock/);assert.match(ui,/compact-match-tab-review/);assert.match(ui,/compact-match-row:/);assert.match(ui,/compact-match-status:/);assert.match(ui,/compact-manual-menu:/);assert.match(ui,/compactMessageRow/);assert.match(ui,/visibleDisplayRows\.map\(compactMessageRow\)/);assert.match(ui,/요청별 변화량 · 분배 합계와 저장 잔량은 선택 차수의 품목 전체 기준/);assert.match(ui,/차수 품목 전체 분배 합계/);assert.doesNotMatch(ui,/currentCalculatedBalance|currentDistributionTotal|balanceStatus/);assert.match(ui,/reviewMounted&&<div>/);assert.match(ui,/live-history-panel/);assert.match(ui,/아직 대조하지 않은 원문/);assert.doesNotMatch(ui,/이전 50건 대조|liveHistoryPage/);assert.match(ui,/최신 이력 조회 경고/);assert.match(ui,/ORDER_AND_DISTRIBUTION/);assert.match(ui,/NO_LIVE_EVIDENCE:'대응 이력 미확인'/);assert.match(ui,/저장된 AI 비교 보고서 \(참고\)/);assert.match(ui,/immediate:true/);assert.match(ui,/loadedPeriod,year,week/);assert.match(ui,/영업방 자동 확인을 기다리는 중입니다/);
 assert.doesNotMatch(ui,/slice\(0,LIVE_HISTORY_MESSAGE_LIMIT\)/);
-assert.match(ui,/history-evidence-reasons/);
+assert.doesNotMatch(ui,/history-evidence-reasons/);
+assert.match(ui,/className="source-message-context" aria-label="변경 요청 원문">\{row.message\}/);
+assert.match(ui,/className="non-action-reference"/);
+assert.match(ui,/추가·취소 작업/);
 assert.match(ui,/PRODUCT_HISTORY_CANDIDATE:'품목 미확정 · 이력 후보'/);
 assert.match(ui,/mappedEvidenceSource\(evidenceMessages,evidenceOrders\)/);
 assert.match(ui,/mapped&&mapped\.message!==row\.message\?\{\.\.\.row,message:mapped\.message\}:row/);
