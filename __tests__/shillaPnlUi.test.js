@@ -37,8 +37,13 @@ assert.match(pnl, /isShilla \? '📤 신라 업로드' : '📤 견적서 업로�
   'Shilla uses the bulk upload entry point');
 assert.match(pnl, /isShilla && !bulkPreview/, 'Shilla save remains disabled before upload/selection');
 assert.match(pnl, /readOnly=\{isShilla\}/, 'source profit split is read-only for Shilla');
-assert.match(pnl, /!isShilla \? <>\s*<button data-testid="raum-pnl-save" style=\{st\.btnPrimary\} disabled=\{saving \|\| !!detailSaveReason\} onClick=\{save\}/, 'Shilla hides the general detail save while Raum exposes the confirmation-gated save');
-assert.match(pnl, /신라 원가 수정은 차수별 매입단가 관리에서만 저장됩니다/, 'Shilla directs cost changes to the snapshot endpoint');
+assert.match(pnl, /!isShilla \? <>\s*<button data-testid="raum-pnl-save" style=\{st\.btnPrimary\} disabled=\{saving \|\| !!detailSaveReason\} onClick=\{save\}/, 'Shilla hides the general full-detail save while Raum exposes the confirmation-gated save');
+assert.match(pnl, /data-testid="shilla-detail-cost-save"/, 'saved Shilla detail exposes its isolated purchase-cost save');
+assert.match(pnl, /\/api\/raum\/shilla-purchase-costs/, 'Shilla detail saves through the existing isolated snapshot endpoint');
+assert.match(pnl, /withShillaDetailCostBaseline\(j\.items\)/, 'opened Shilla detail retains the exact saved cost snapshot');
+assert.match(pnl, /applyShillaDetailCostDraft\(items, idx, patch\.costPrice\)/, 'same Shilla identity follows one visible cost edit');
+assert.doesNotMatch(pnl, /신라 원가 수정은 차수별 매입단가 관리에서만 저장됩니다/, 'Shilla detail no longer falsely claims that direct cost save is impossible');
+assert.doesNotMatch(pnl, /aria-label="신라 원본 1개당 매입단가"[\s\S]{0,80}readOnly/, 'Shilla purchase cost is no longer rendered read-only');
 assert.match(pnl, /원본 행·단가·수량·매출·이익을 보존/, 'Shilla detail describes preserved source values');
 assert.match(pnl, /ShillaProductMatchModal/, 'saved Shilla detail uses the dedicated row-mapping modal');
 assert.match(pnl, /shillaDetailSaved/, 'only a saved Shilla detail exposes row mapping');
