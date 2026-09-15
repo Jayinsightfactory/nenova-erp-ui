@@ -3,15 +3,18 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import {canDeleteFarmQuality,qualityScope,qualityGroups,qualityAnalytics,qualitySignals,qualitySourceCoverage,qualitySignalCoverage,transitionQuality} from '../lib/farmQuality.js';
 import {normalizeEvidenceKeys} from '../lib/farmQualityEvidence.js';
-const source=fs.readFileSync('lib/farmQualityStore.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function');
+const source=fs.readFileSync('lib/farmQualityStore.js','utf8').replace(/^(?:import|export \{).*;\r?\n/gm,'').replaceAll('export async function','async function')+'\nconst loadQualityInbox=async()=>({items:[],counts:{total:0}}); const lockQualityInboxYear=async()=>{};';
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const incoming={userId:'u1',userName:'담당자',deptName:'수입부'};
 let cases=[],events=[],evidence=[],rollbacks=0;
+let anchorOwned=false;
 const validSource={DeductionKey:10,OrderYear:2026,OrderWeek:'36',ProdKey:5,ProductName:'Novia',FarmName:'Farm',FarmKey:2,SourceUnit:'박스',Quantity:1,ImportConfirmed:true};
 let mockSources=[validSource];
 const caseEventWriteAttempts=[];
 const q=async(sql,p={})=>{
  const v=k=>p[k]?.value;
+ if(sql.startsWith('SELECT InboxKey FROM dbo.WebFarmQualityInboxSource'))return {recordset:anchorOwned?[{InboxKey:'11111111-1111-4111-8111-111111111111'}]:[]};
+ if(sql.startsWith('DELETE FROM dbo.WebFarmQualityInboxSource'))return {recordset:[]};
  if(/(?:INSERT|UPDATE|DELETE)\s+(?:FROM\s+)?dbo\.WebFarmQuality(?:Case|Event)\b/i.test(sql))caseEventWriteAttempts.push(sql);
  if(sql.includes('OBJECT_ID'))return {recordset:[{id:1,caseId:1,evidenceId:1}]};
  if(sql.includes('SELECT CaseKey,PayloadHash'))return {recordset:events.filter(e=>e.RequestKey===v('req'))};
@@ -63,6 +66,13 @@ events[0].CaseKey=events[0].CaseKey.toUpperCase();
 assert.equal((await saveQuality(create,incoming)).caseKey,first.caseKey,'SQL GUID casing must not hide saved detail');assert.equal(events.length,1);
 await assert.rejects(saveQuality({...create,body:'달라짐'},incoming));
 const request={action:'event',year:2026,caseKey:first.caseKey,version:2,kind:'REQUEST',body:'농장 확인 요청',eventDate:'2026-09-14',dueDate:'2026-09-18',requestId:crypto.randomUUID()};
+for(const mode of ['case','anchor']){
+ if(mode==='case')cases[0].InboxKey='11111111-1111-4111-8111-111111111111';else anchorOwned=true;
+ const writesBefore=caseEventWriteAttempts.length,countBefore=events.length;
+ await assert.rejects(saveQuality({...request,kind:'COMMENT',requestId:crypto.randomUUID()},incoming),e=>e.code==='INBOX_REQUIRED'&&e.message.includes('통합 피드백'));
+ assert.equal(events.length,countBefore);assert.equal(caseEventWriteAttempts.length,writesBefore,'legacy inbox bypass rejects before writes');
+ delete cases[0].InboxKey;anchorOwned=false;
+}
 await saveQuality(request,incoming);assert.equal(cases[0].Status,'WAITING');
 const comment={...request,kind:'COMMENT',version:1,requestId:crypto.randomUUID(),body:'영업부 추가 확인'};
 const savedComment=await saveQuality(comment,{...incoming,deptName:'영업부'});assert.equal(cases[0].Status,'WAITING');

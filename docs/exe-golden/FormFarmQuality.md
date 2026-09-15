@@ -1,5 +1,24 @@
 # Farm quality web-only boundary — 2026-09-14
 
+## 2026-09-15 unified feedback inbox superseding rule
+
+All automatic detections are feedback-needed immediately. The new inbox-only
+event path accepts active valid detected sources even if import confirmation or
+farm attribution is missing. The historical canCreate=false restriction below
+still governs legacy trusted manual creation, not the new inbox. Trusted rate
+helpers and denominator scope remain unchanged.
+
+GET derives source-connected components over the selected year without writes.
+Explicit feedback events materialize WebFarmQualityInbox/InboxSource ownership
+and preserve separate Case/Event histories. Exclusion and restoration are
+reasoned web-only audit actions, not financial cancellation or deletion.
+Source links and membership revisions protect against concurrent duplicate
+first saves. No ERP source rows, quantities, prices, confirmations or SPs change.
+
+Fresh preflight probe 34942295178: existing CaseCount=3, missing same-year anchors=0,
+duplicate anchor groups=0. New inbox schema is additive; no source backfill or
+destructive repair is necessary. All operational smoke writes remain prohibited.
+
 ## Actual dnSpy CLI read
 
 `dnSpy.Console.exe --no-color -t FormSalesDefectView Nenova.exe` was executed locally.
