@@ -1,4 +1,9 @@
-.scroll { max-height: calc(100vh - 255px); overflow: auto; border: 1px solid #aab8c8; background: #fff; }
+.gridShell { min-width: 0; }
+.topScroll { height: 16px; overflow-x: auto; overflow-y: hidden; border: 1px solid #aab8c8; border-bottom: 0; background: #eef3f8; scrollbar-color: #547ca8 #dbe4ee; }
+.topScrollTrack { height: 1px; }
+.topScroll::-webkit-scrollbar, .scroll::-webkit-scrollbar { height: 14px; }
+.topScroll::-webkit-scrollbar-thumb, .scroll::-webkit-scrollbar-thumb { border: 2px solid #e7edf4; border-radius: 8px; background: #547ca8; }
+.scroll { max-height: calc(100vh - 235px); overflow: auto; border: 1px solid #aab8c8; background: #fff; scrollbar-color: #547ca8 #dbe4ee; }
 .table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; line-height: 1.2; color: #172333; }
 .table th, .table td { box-sizing: border-box; height: var(--pivot-row-height); min-height: var(--pivot-row-height); border-right: 1px solid #aab8c8; border-bottom: 1px solid #aab8c8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table thead th { position: sticky; background: #dce5f0; border-top: 0; text-align: left; font-weight: 700; }

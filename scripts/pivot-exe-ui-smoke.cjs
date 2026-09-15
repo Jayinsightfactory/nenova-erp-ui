@@ -344,21 +344,14 @@ async function runDelayedAuthLayoutRegression(browser) {
     assert(rawDataReads === 1, `layout-only drops must not reread raw rows (reads: ${rawDataReads})`);
     await click(page, 'pivot-exe-reset', 'restore native layout after live drops');
 
-    // Every field move is a left-click on a UI-worker-supplied control; no drag or context menu.
+    // Optional external manifests may still exercise explicit controls. The native web contract
+    // itself is covered above by dragging whole field buttons between every zone.
     if (hasCompleteFieldManifest) for (const [field, moves] of Object.entries(testids.fieldMoves)) {
       for (const zone of ['row', 'column', 'filter', 'data']) {
         await click(page, moves[zone], `field ${field} -> ${zone}`);
         assert((await visibleCount(page, testids.fieldZones[zone])) > 0, `field zone ${zone} disappeared after ${field}`);
       }
     }
-    if (!hasCompleteFieldManifest) {
-      const labels = { CustName:['거래처명/농장명','거래처'], CounName:['국가'], OrderWeek:['주문차수','차수'], Quantity:['수량'], FlowerName:['꽃','품종'], ProdName:['품목명(색상)','품목명'], CountryFlower:['품목명(CountryFlower)','국가/품종'], CustArea:['지역'], ListType:['구분'], ShipmentDtm:['출고일'], OrderYear:['주문년도','연도'], UPrice:['입고단가','단가'], OrderNo:['AWB','주문번호'], CustDescr:['비고','거래처 비고'], TPrice:['입고총단가','총단가'] };
-      for (const field of columns) for (const [zone, moveId] of [['row',testids.moveRow],['column',testids.moveColumn],['data',testids.moveValue],['filter',testids.moveFilter]]) {
-        await click(page, `pivot-exe-field-${field}`, `field ${field} -> ${zone}`);
-        await click(page, moveId, `field ${field} -> ${zone} menu`);
-      }
-    }
-
     await click(page, 'pivot-exe-reset', 'restore native layout');
     assert((await text(page)).includes('수국 화이트'), 'raw fixture is not visible after restoring layout');
     if (testids.search) { await fill(page, testids.search, '수국', 'search'); assert((await text(page)).includes('수국'), 'search result does not retain 수국'); }
@@ -379,8 +372,8 @@ async function runDelayedAuthLayoutRegression(browser) {
     // Exercise the actual visible filter controls, not just optional test manifests.
     await click(page, 'pivot-exe-field-CounName', 'country menu');
     await click(page, null, 'value filter', '값 필터…');
-    await click(page, null, 'clear values', '없음');
-    await click(page, null, 'apply empty selection', '적용');
+    await click(page, null, 'clear values', '전체 해제');
+    await click(page, null, 'apply empty selection', '선택값 적용');
     assert((await text(page)).includes('표시할 데이터가 없습니다.'), 'empty filter must show no rows');
     await click(page, null, 'clear filters', '필터 지우기');
     await click(page, testids.filterEditor, 'AST editor');
@@ -527,6 +520,27 @@ async function runDelayedAuthLayoutRegression(browser) {
       assert(!(await page.$('[data-testid="pivot-exe-value-filter"]')), 'Escape did not close filter');
     }
     await page.setViewport({width:1920,height:1080,deviceScaleFactor:1});
+    const wideLayout = await page.evaluate(() => {
+      const deck = document.querySelector('[data-testid="pivot-exe-field-deck"]')?.getBoundingClientRect();
+      const tools = document.querySelector('[data-testid="pivot-exe-view-tools"]')?.getBoundingClientRect();
+      return deck && tools ? { deckRight: deck.right, toolsLeft: tools.left, toolsTop: tools.top, deckTop: deck.top } : null;
+    });
+    assert(wideLayout && wideLayout.toolsLeft >= wideLayout.deckRight && Math.abs(wideLayout.toolsTop - wideLayout.deckTop) <= 2, '1920px layout must place view tools to the right of the field deck');
+    await setControl('pivot-exe-data-width', '400');
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-top-scroll"]', node => node.scrollWidth > node.clientWidth), 'top scrollbar overflow track');
+    await page.$eval('[data-testid="pivot-exe-top-scroll"]', node => { node.scrollLeft = Math.min(240, node.scrollWidth - node.clientWidth); node.dispatchEvent(new Event('scroll')); });
+    await waitFor(() => page.evaluate(() => {
+      const top = document.querySelector('[data-testid="pivot-exe-top-scroll"]');
+      const body = document.querySelector('[data-testid="pivot-exe-scroll"]');
+      return top && body && top.scrollLeft > 0 && body.scrollLeft === top.scrollLeft;
+    }), 'top scrollbar drives body scroll');
+    await page.$eval('[data-testid="pivot-exe-scroll"]', node => { node.scrollLeft = Math.min(420, node.scrollWidth - node.clientWidth); node.dispatchEvent(new Event('scroll')); });
+    await waitFor(() => page.evaluate(() => {
+      const top = document.querySelector('[data-testid="pivot-exe-top-scroll"]');
+      const body = document.querySelector('[data-testid="pivot-exe-scroll"]');
+      return top && body && body.scrollLeft > 0 && top.scrollLeft === body.scrollLeft;
+    }), 'body scrollbar keeps top scrollbar synchronized');
+    await setControl('pivot-exe-data-width', '120');
     const downloads = path.resolve('outputs/pivot-exe-downloads', String(Date.now()));
     fs.mkdirSync(downloads, { recursive: true });
     const client = await page.createCDPSession();

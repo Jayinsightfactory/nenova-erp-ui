@@ -69,6 +69,11 @@ assert.deepEqual(movePivotField(dragZones,'Quantity','values',0,true).values,[{i
 
 const panelSource = fs.readFileSync(new URL('../components/PivotExePanel.js', import.meta.url), 'utf8');
 const gridSource = fs.readFileSync(new URL('../components/PivotExeGrid.js', import.meta.url), 'utf8');
+assert.match(gridSource, /data-testid="pivot-exe-top-scroll"/, 'the grid exposes a top horizontal scrollbar');
+assert.match(gridSource, /body\.scrollLeft = top\.scrollLeft/, 'top scrollbar drives the body scroll position');
+assert.match(gridSource, /top\.scrollLeft = body\.scrollLeft/, 'body scrollbar keeps the top scrollbar synchronized');
+assert.match(panelSource, /data-testid="pivot-exe-view-tools"/, 'display settings and favorites occupy the compact right-side tool region');
+assert.match(panelSource, /@media \(max-width: 1450px\)/, 'the tool region stacks below the field deck on narrower screens');
 assert.match(panelSource, /zoneArea\('rows','세로 행','표 왼쪽'\)/, '세로 행 영역을 화면에 명확히 표시한다');
 assert.match(panelSource, /zoneArea\('cols','가로 열','표 위쪽'\)/, '가로 열 영역을 화면에 명확히 표시한다');
 assert.match(panelSource, /gridTemplateAreas:'\"filters filters\" \"rows cols\" \"rows values\"'/, 'EXE처럼 필터는 위, 행은 왼쪽, 열은 위쪽, 값은 데이터 위치에 고정한다');
