@@ -101,6 +101,9 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (e) {
+    if (e.code === 'PRESERVATION_COLLISION') {
+      return res.status(409).json({ success: false, code: e.code, error: e.message, details: e.details || [] });
+    }
     return res.status(e.statusCode || 500).json({ success: false, error: e.message, code: e.code });
   }
 });

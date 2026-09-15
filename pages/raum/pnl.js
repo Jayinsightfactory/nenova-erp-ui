@@ -14,6 +14,7 @@ import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview
 import ShillaProductMatchModal from '../../components/raum/ShillaProductMatchModal';
 import ShillaBulkMatchModal from '../../components/raum/ShillaBulkMatchModal';
 import PnlHotelAddDialog from '../../components/raum/PnlHotelAddDialog';
+import RaumPnlCollisionLocations from '../../components/raum/RaumPnlCollisionLocations';
 import { escapePnlHtml } from '../../lib/raumPnlPrintText';
 import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHttp';
 import { createRaumPnlRequestGuard, isRaumPnlPartnerMatch } from '../../lib/raumPnlRequestGuard';
@@ -1193,6 +1194,7 @@ export default function RaumPnlPage() {
   const [list, setList] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
   const [error, setError] = useState('');
+  const [collisionAlert, setCollisionAlert] = useState(null);
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [retryUploadFile, setRetryUploadFile] = useState(null);
@@ -1218,12 +1220,25 @@ export default function RaumPnlPage() {
   const costComparisonScrollRef = useRef(null);
   const fileRef = useRef(null);
 
+  const reportPnlError = (caught) => {
+    const details = caught?.code === 'PRESERVATION_COLLISION' && Array.isArray(caught?.details) ? caught.details : null;
+    if (details?.length) {
+      const message = '기존 저장본의 수기원가 또는 품목 연결을 안전하게 보존할 수 없어 저장하지 않았습니다.';
+      setError(message);
+      setCollisionAlert({ message, details });
+      return;
+    }
+    setCollisionAlert(null);
+    setError(caught?.message || '요청 처리에 실패했습니다.');
+  };
+
   const loadList = async () => {
     const requestedPartner = partnerCode;
     // 이전 렌더의 저장 후 콜백이 새 거래처 목록 세대를 덮어쓰지 못하게 한다.
     if (requestedPartner !== partnerCodeRef.current) return false;
     const token = listRequestGuard.current.begin(requestedPartner);
     setLoadingList(true);
+    setCollisionAlert(null);
     setError('');
     try {
       const r = await fetch(`/api/raum/pnl?view=list&partner=${encodeURIComponent(requestedPartner)}`);
@@ -1297,6 +1312,7 @@ export default function RaumPnlPage() {
     setShillaMatchEdit(null);
     if (fileRef.current) fileRef.current.value = '';
     setError('');
+    setCollisionAlert(null);
     setMessage('');
   };
   const partner = resolvePnlPartner(partnerCode, hotelPartners.find(p => p.code === partnerCode));
@@ -1341,6 +1357,8 @@ export default function RaumPnlPage() {
     if (next === importYear) return;
     setImportYear(next);
     setGangnamMergeConfirmed(false);
+    setCollisionAlert(null);
+    setError('');
     setRetryUploadFile(null);
     if (fileRef.current) fileRef.current.value = '';
     if (bulkPreview) {
@@ -1445,6 +1463,7 @@ export default function RaumPnlPage() {
     if (requestedPartner !== partnerCodeRef.current) return false;
     const token = detailRequestGuard.current.begin(requestedPartner);
     setGangnamMergeConfirmed(false);
+    setCollisionAlert(null);
     setError('');
     if (!opts.keepMessage) setMessage('');
     try {
@@ -1487,6 +1506,7 @@ export default function RaumPnlPage() {
     if (!partnerReady || hotelAdding || saving || uploading) return;
     if (!file) return;
     setGangnamMergeConfirmed(false);
+    setCollisionAlert(null);
     if (Number(file.size) > MAX_RAUM_PNL_UPLOAD_BYTES) {
       setError(`선택한 파일이 ${(Number(file.size) / 1024 / 1024).toFixed(1)}MB입니다. 미리보기는 30MB 이하 파일만 보낼 수 있습니다. 파일을 자동으로 줄이거나 변경하지 않았습니다.`);
       setRetryUploadFile(file);
@@ -1561,7 +1581,7 @@ export default function RaumPnlPage() {
       });
       previewReady = true;
     } catch (e) {
-      setError(e.message);
+      reportPnlError(e);
       // 일반 업체 자동 저장을 시작한 뒤에는 같은 파일로 다시 미리보기를
       // 노출하지 않는다. 저장이 완료됐을 수도 있으므로 목록 확인이 먼저다.
       if (!saveAttempted) setRetryUploadFile(file);
@@ -1572,6 +1592,8 @@ export default function RaumPnlPage() {
   };
 
   const saveBulkPreview = async () => {
+    setCollisionAlert(null);
+    setError('');
     if (!bulkPreview?.file || !bulkPreview.previewToken) {
       setError('미리보기 정보가 없습니다. 파일을 다시 업로드하세요.');
       return;
@@ -1613,7 +1635,7 @@ export default function RaumPnlPage() {
       const firstKey = j.saved?.[0]?.pnlKey;
       if (firstKey) await openDetail(firstKey, { keepMessage: true });
     } catch (e) {
-      setError(e.message);
+      reportPnlError(e);
     } finally {
       setSaving(false);
     }
@@ -1621,6 +1643,7 @@ export default function RaumPnlPage() {
 
   const save = async () => {
     if (!detail) return;
+    setCollisionAlert(null);
     const { meta, items } = detail;
     if (!isRaumPnlPartnerMatch(meta.partnerCode, partnerCodeRef.current)) {
       setError('선택한 업체와 편집 중인 자료가 달라 저장하지 않았습니다. 업체를 다시 선택해 주세요.');
@@ -1657,7 +1680,7 @@ export default function RaumPnlPage() {
       setMessage(`저장 완료 — ${Number(meta.major)}차 손익계산서가 히스토리에 기록되었습니다.`);
       loadList();
     } catch (e) {
-      setError(e.message);
+      reportPnlError(e);
     } finally {
       setSaving(false);
     }
@@ -2163,7 +2186,7 @@ export default function RaumPnlPage() {
         {canErpSync ? <>{' '}매출단가는 견적서 단가, 매입단가는 <b>가장 최근 도착원가(100원 단위 반올림)가 자동 입력</b>되며(🚢), 직접 고치면 그 값을 기억해 다음부터 우선 적용합니다(🧠). 저장하면 차수별 히스토리가 남습니다.</> : null}
       </p>
 
-      {error ? <div style={st.err}>{error}</div> : null}
+      {error ? <div style={st.err}>{error}{collisionAlert?.message === error ? <RaumPnlCollisionLocations details={collisionAlert.details} /> : null}</div> : null}
       {hotelRegistryError ? <div role="alert" style={st.err}>{hotelRegistryError} <button type="button" style={st.btn} onClick={() => setHotelRegistryRevision(value => value + 1)}>호텔 목록 다시 불러오기</button> <button type="button" style={st.btn} onClick={() => {
         try { window.localStorage.setItem('nenova.raumPnl.partner', 'raum'); } catch { /* private mode */ }
         partnerCodeRef.current = 'raum'; setPartnerCode('raum'); setDetail(null); setBulkPreview(null); setList([]);

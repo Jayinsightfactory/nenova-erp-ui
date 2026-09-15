@@ -119,6 +119,18 @@ await rejects(
   /저장 완료되지 않았습니다.*파일 크기/,
 );
 
+const collisionDetails = [{ location: { hotel: '신라호텔', orderYear: '2025', major: '12', itemName: '장미', originalSource: '12차!A16', salePrice: 0 } }];
+await assert.rejects(
+  () => readRaumPnlJsonResponse(new Response(JSON.stringify({ success: false, code: 'PRESERVATION_COLLISION', error: 'internal detail', details: collisionDetails }), { status: 409 }), { operation: 'preview' }),
+  error => error.code === 'PRESERVATION_COLLISION' && error.status === 409 && JSON.stringify(error.details) === JSON.stringify(collisionDetails),
+  '409 collision responses must preserve their structured location details',
+);
+await assert.rejects(
+  () => readRaumPnlJsonResponse(new Response(JSON.stringify({ success: false, code: 'PRESERVATION_COLLISION', error: 'internal detail', details: collisionDetails }), { status: 200 }), { operation: 'save' }),
+  error => error.code === 'PRESERVATION_COLLISION' && JSON.stringify(error.details) === JSON.stringify(collisionDetails),
+  'success:false collision responses must preserve the same details',
+);
+
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async () => { throw new TypeError('browser network detail'); };
 try {
