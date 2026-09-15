@@ -41,6 +41,16 @@ jobs:
                 SUM(CASE WHEN ISNULL(IsDeleted,0)=0 AND LTRIM(RTRIM(ISNULL(CustName,N'')))=N'' THEN 1 ELSE 0 END) ActiveMissingCustomerName
                 FROM dbo.WebSalesDefectDeduction WHERE OrderYear IN(2025,2026) AND DeductionType=N'불량차감' GROUP BY OrderYear`);
               console.log(JSON.stringify({readOnly:true,coverage:coverage.recordset,reasonCountsOverlap:true}));
+              const feedback=await query(`SELECT COUNT(*) CaseCount,
+                SUM(CASE WHEN d.DeductionKey IS NULL THEN 1 ELSE 0 END) MissingAnchors
+                FROM dbo.WebFarmQualityCase c LEFT JOIN dbo.WebSalesDefectDeduction d
+                ON d.OrderYear=c.OrderYear AND d.DeductionKey=c.SourceKey`);
+              const duplicates=await query(`SELECT COUNT(*) DuplicateAnchorGroups FROM
+                (SELECT OrderYear,SourceKey FROM dbo.WebFarmQualityCase GROUP BY OrderYear,SourceKey HAVING COUNT(*)>1) d`);
+              const schema=await query(`SELECT OBJECT_ID(N'dbo.WebFarmQualityInbox',N'U') InboxTable,
+                OBJECT_ID(N'dbo.WebFarmQualityInboxSource',N'U') SourceLinkTable,
+                COL_LENGTH(N'dbo.WebFarmQualityCase',N'InboxKey') CaseInboxColumn`);
+              console.log(JSON.stringify({readOnly:true,feedback:feedback.recordset,duplicateAnchors:duplicates.recordset,inboxSchema:schema.recordset}));
               if(typeof quality.qualitySignalCoverage==='function'){
                 const source=await query(`SELECT DeductionKey,OrderYear,OrderWeek,CustKey,CustName,
                   ProdKey,ProdName,FarmKey,FarmName,SourceUnit,Quantity,OriginalQuantity,ImportConfirmed,IsDeleted
