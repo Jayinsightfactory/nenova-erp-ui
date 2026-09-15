@@ -39,4 +39,17 @@ activeTotal=inRangeCount+outOfRangeCount+invalidWeekCount.
 
 ## 검증 상태
 
-구현·테스트·배포 후 결과를 아래에 추가한다. 사전 probe만으로 운영 완료를 주장하지 않는다.
+- core/transaction/coverage/UI/compact tests, 전체 `test:erp-contract`, manifest 60개,
+  dnSpy evidence, ERP write guard, 최신 master 통합 build 통과.
+- 로컬 synthetic fixture만 사용하는 실제 Chrome 검증: 1920×1080, 100%.
+  전체 원본 66=활성65+삭제1, 36~37 범위의 활성65=기간내63+기간밖1+미상1.
+  기간 밖 버튼은 12차 1행, 보완 필요는 미확인·농장 미지정·차수 미상 3행,
+  전체 활성은 단위와 무관하게 65행을 표시했다.
+- 표 높이378px, scrollHeight2824px, sticky header; 문서 가로폭1920px, overflow없음.
+- 실브라우저에서 업체 상세가 48px grid 칸으로 잘리는 것을 발견해 전체행 span으로 수정.
+  재빌드 후 gridColumn='1 / -1', 업체 상세폭886px 확인.
+- 기존 피드백 24개 fixture 행117.5px, 선택 상세 전체 이력8개 유지.
+- 760×900: 문서폭760px, 표만 내부 가로스크롤; 주요 필터/접기 버튼 화면내 접근 확인.
+- 모든 로컬 API를 fixture로 가로채고 GET 외418로 막았다. 운영 저장/삭제/ERP 쓰기 없음.
+- 고성능 검토: 연도 선필터 후 dedupe, 표시명만 projection, 업체 grid span 확인. 잔여P0/P1 없음.
+- PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/610. 운영 스모크는 배포 후 기록.

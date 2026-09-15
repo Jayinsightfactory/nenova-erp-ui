@@ -36,4 +36,9 @@
 
 ## 구현·검증 결과
 
-완료 후 PR/배포와 UI 검증 결과를 추가한다. `outputs/`의 로컬 fixture와 생성물은 커밋하지 않는다.
+PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/610.
+전체 ERP 계약, manifest/dnSpy/쓰기 guard, 최신 master 통합 build 통과.
+실제 Chrome 1920×1080 및760×900에서 전체/기간밖/보완필요 목록과 스크롤 검증.
+업체 상세폭886px, 기존 피드백24개 행117.5px/전체상세8개 보존.
+원본·ERP 운영 쓰기 없음. 배포 결과는 PR의 최종 운영 검증 코멘트 참조.
+`outputs/`의 로컬 fixture와 생성물은 커밋하지 않는다.
