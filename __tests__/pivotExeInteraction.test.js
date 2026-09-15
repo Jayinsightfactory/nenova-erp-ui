@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createPivotPreferenceWriter, createPivotResizeSession, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction.js';
+import { applyPivotValueSelection, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction.js';
 
 function fakeWindow() {
   const listeners = new Map(), frames = new Map(); let id = 0;
@@ -46,11 +46,25 @@ assert.deepEqual(
 assert.deepEqual(withCollectivePivotWidth({CounName:90,__data:96}, 'CounName', 120), {CounName:120,__data:96});
 assert.deepEqual(normalizeCollectivePivotWidths({CounName:90,'col-first':72,'col-second':140}), {CounName:90,__data:72}, '기존 개별 열 설정은 첫 너비를 전체 너비로 승격한다');
 
+const countries = ['국내','중국','콜롬비아'];
+assert.deepEqual(describePivotValueSelection(countries, undefined, true), {active:false,label:'전체',selectedCount:3,totalCount:3});
+assert.deepEqual(describePivotValueSelection(countries, [], true), {active:true,label:'선택 없음',selectedCount:0,totalCount:3});
+assert.deepEqual(describePivotValueSelection(countries, ['콜롬비아'], true), {active:true,label:'콜롬비아',selectedCount:1,totalCount:3});
+assert.deepEqual(describePivotValueSelection(countries, ['중국','콜롬비아'], true), {active:true,label:'중국 외 1',selectedCount:2,totalCount:3});
+assert.deepEqual(describePivotValueSelection(countries, ['콜롬비아'], false), {active:false,label:'필터 꺼짐',selectedCount:1,totalCount:3});
+assert.deepEqual(applyPivotValueSelection({FlowerName:['장미']}, 'CounName', countries, countries), {FlowerName:['장미']}, '전체 선택은 활성 필터를 남기지 않는다');
+assert.deepEqual(applyPivotValueSelection({}, 'CounName', [], countries), {CounName:[]}, '전체 해제는 0행 필터로 보존한다');
+assert.deepEqual(applyPivotValueSelection({}, 'CounName', ['콜롬비아'], countries), {CounName:['콜롬비아']});
+
 const panelSource = fs.readFileSync(new URL('../components/PivotExePanel.js', import.meta.url), 'utf8');
 const gridSource = fs.readFileSync(new URL('../components/PivotExeGrid.js', import.meta.url), 'utf8');
 assert.match(panelSource, /zoneArea\('rows','세로 행'\)/, '세로 행 영역을 화면에 명확히 표시한다');
 assert.match(panelSource, /zoneArea\('cols','가로 열'\)/, '가로 열 영역을 화면에 명확히 표시한다');
 assert.match(panelSource, /영역 이동.*⇄|⇄.*영역 이동/s, '필드 칩에 버튼형 영역 이동 진입점을 표시한다');
+assert.match(panelSource, /필터 영역의 필드명/, '필터 영역 버튼을 누르면 값 목록이 열린다는 안내를 표시한다');
+assert.match(panelSource, /체크한 값만 피벗 표와 엑셀에 표시됩니다/, '값 선택 결과의 적용 범위를 명확히 안내한다');
+assert.match(panelSource, /zone === 'filters' \? openValueFilter : openFieldMenu/, '필터 영역의 기본 버튼은 실제 값 선택창을 바로 연다');
+assert.match(panelSource, /key=\{filterField\.id\}/, '다른 필드 필터를 열면 초안 값이 해당 필드 기준으로 초기화된다');
 assert.match(gridSource, /가로 데이터 열 전체 너비 조절/, '가로 데이터 열 핸들은 일괄 조절임을 안내한다');
 
 const options = (write) => ({write,setTimer:(callback)=>{timers.set(++nextTimer,callback);return nextTimer;},clearTimer:(id)=>timers.delete(id)});
