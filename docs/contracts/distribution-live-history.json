@@ -2,6 +2,7 @@
   "id": "distribution-live-history",
   "title": "카톡 원문과 실시간 주문·분배 이력의 읽기 전용 대조",
   "scope": [
+    "lib/historyReposts.js",
     "lib/combinedHistoryEvidence.js",
     "__tests__/combinedHistoryEvidence.test.js",
     "lib/pasteEvidenceSource.js",
@@ -22,6 +23,9 @@
     "preserve": ["all ERP tables", "OrderHistory", "ShipmentHistory", "raw chat", "existing APIs"]
   }],
   "criteria": {
+    "sourceInterpretation":"Title action is retained across customer headers separately from local customer actions. 대 uses the established paste-order 송이 unit. Signed quantities without units require an exact product OutUnit. Unique registered customer-name suffix aliases and bullet prefixes are recognized; conflicting labels remain unresolved. Known shipping notes, total-summary lines after requests and non-product annotations are excluded without altering stored raw chat.",
+    "repostPolicy":"Same-room identical normalized original text with identical timestamp, or only a deletion notice difference within five minutes, shares one canonical evidence request. Different timestamps without deletion notice, rooms, quantities and approximate timestamps remain separate. Responses preserve all source identities and mark repostOf; stock and request aggregate totals are not duplicated.",
+    "eventWindows":"Combined evidence now evaluates the complete same-key request set between consecutive native event times. Each window must contain at least two same-direction requests and exactly match its event delta. Duplicate event timestamps, mixed actions, partial sums and truncated evidence are excluded. This supersedes the previous single-event-per-entire-range restriction.",
     "quantityProcessedPolicy":"User instruction 2026-09-15: matching change direction and quantity is provisionally processed. UI QUANTITY_MATCHED and individual green boxes accept unique PRODUCT_HISTORY_CANDIDATE distribution evidence only when input quantity, same unit and signed event delta match. Exact product-name mapping is not required for this distinct operational label. API evidence statuses, ERP writes and exact MATCHED remain unchanged. Different units, duplicate claims/ids and ambiguous or truncated evidence remain excluded. This UI policy supersedes the older candidate-display-only wording below; it does not create an exact source-linked audit record.",
     "performance":"Bounded caches hold only pure normalized strings and exact phrase regular expressions, never entity identities or completion decisions. The matching semantics and ambiguity guards are unchanged.",
     "partialDisplay":"Each uniquely identified request with consistent signed quantity evidence and native distribution status can have a green evidence box even when other requests in its message remain unresolved. Never infer entire-message completion from that box. Waiting and failed reads are labeled separately from unconfirmed evidence.",

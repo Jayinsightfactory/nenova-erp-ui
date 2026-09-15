@@ -14,6 +14,20 @@ const facts = toFacts({
   shipmentRows: [{ eventId: 2, year: '2026', week: '37-01', custKey: 11, prodKey: 22, custName: '라움', prodName: '화이트', unit: '단', before: 1, after: 21, changeLocal: '2026-09-10T10:01:00.000', shipmentDate: '2026-09-11', shipmentDateCount: 1 }],
 });
 const aliases = { customers: { '라움별칭': { custKey: 11 } }, products: { '화이트별칭': { prodKey: 22 } } };
+{
+  const contextFacts={...facts,customers:[...facts.customers,{CustKey:12,CustName:'꽃길원예'}]};
+  const parse=text=>parseMessages([{identity:'context',message:text,created_at:'2026-09-10T09:00:00+09:00'}],contextFacts,aliases,scope)[0].requests;
+  assert.deepEqual(parse('37-1 카네이션 추가\n라움\n화이트 1단\n꽃길\n화이트 2단').map(r=>[r.custKey,r.action,r.qty]),[[11,'ADD',1],[12,'ADD',2]]);
+  assert.equal(parse('라움\n화이트 1단 취소\n꽃길\n화이트 1단')[1].status,'AMBIGUOUS','customer-specific cancellation must not leak');
+  assert.equal(parse('-라움\n화이트 5대 취소')[0].inputUnit,'송이');
+  assert.equal(parse('라움\n화이트 -2단')[0].action,'CANCEL');
+  assert.equal(parse('라움\n화이트 -2')[0].unit,'단');
+  assert.equal(parse('라움\n미등록품목 -2')[0].status,'AMBIGUOUS');
+  assert.equal(parse('37-1 추가\n라움\n화이트 2단\n-> 오늘 출고입니다\n-> 총 10단').length,1);
+  assert.equal(parse('라움\n화이트 2단 추가 (잔량분)')[0].prodKey,22);
+  const collision={...contextFacts,customers:[...contextFacts.customers,{CustKey:13,CustName:'꽃길플라워'}]};
+  assert.equal(parseMessages([{identity:'collision',message:'꽃길\n화이트 1단 추가'}],collision,aliases,scope)[0].requests[0].status,'AMBIGUOUS');
+}
 const items = pairRequests(parseMessages([{ identity: 'm1', message: '라움별칭\n화이트별칭 2박스 추가', created_at: '2026-09-10T09:00:00+09:00', timestamp_approximate: false }], facts, aliases, scope), facts, scope);
 assert.equal(items[0].status, 'ORDER_AND_DISTRIBUTION');
 assert.equal(items[0].requests[0].qty, 20);
@@ -193,6 +207,7 @@ const mixed = pairRequests([{ sourceIdentity: 'mixed', requests: [
 ] }], facts, scope);
 assert.equal(mixed[0].status, 'AMBIGUOUS');
 const route = source
+  .replace("import { groupHistoryReposts, expandHistoryReposts } from '../../../lib/historyReposts';", 'const { groupHistoryReposts, expandHistoryReposts } = deps.reposts;')
   .replace("import { getPool, sql } from '../../../lib/db';", 'const { getPool, sql } = deps.db;')
   .replace("import { withAuth } from '../../../lib/auth';", 'const { withAuth } = deps.auth;')
   .replace("import { loadMappings } from '../../../lib/parseMappings';", 'const { loadMappings } = deps.products;')
@@ -207,6 +222,7 @@ let routeFailure = false;
 let routeBalanceFailure = false;
 const routeDbRequests = [];
 vm.runInNewContext(route, { module: compiledModule, deps: {
+  reposts: require('../lib/historyReposts'),
   db: { getPool: async () => ({ request: () => {
     const request = { timeout: null, bindings: [], input(name, type, value) { this.bindings.push({ name, type, value }); return this; }, async query(statement) { routeDbRequests.push({ timeout: this.timeout, bindings: this.bindings, statement }); if (routeBalanceFailure && statement.includes('FROM StockMaster')) throw new Error('balance facts unavailable'); return { recordset: [] }; } };
     return request;

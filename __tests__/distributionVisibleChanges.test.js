@@ -1,5 +1,9 @@
 const assert = require('node:assert/strict');
 const {visibleChanges} = require('../lib/distributionVisibleChanges');
+assert.equal(visibleChanges('37-1 카네이션 추가\n라움\n화이트 1단\n-> 총 10단','2026-37-01').length,1);
+assert.equal(visibleChanges('-일신\n화이트 -2단','2026-37-01')[0].customer,'일신');
+assert.equal(visibleChanges('라움\n화이트 -2','2026-37-01').length,1);
+assert.equal(visibleChanges('라움\n화이트 1단 취소\n꽃길\n화이트 1단','2026-37-01')[1].change,'화이트 1단');
 const rows = visibleChanges('37-2 덴파레 변경사항\n초이문\n화이트 7단 취소\n라움\n블루 2단 추가', '2026-37-01');
 assert.equal(rows.length, 2);
 assert.equal(rows[0].week, '37-02');

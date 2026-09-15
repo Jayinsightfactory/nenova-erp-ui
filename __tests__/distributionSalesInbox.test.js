@@ -21,7 +21,8 @@ const api=fs.readFileSync(require.resolve('../pages/api/kakao/sales-feed.js'),'u
 assert.match(api,/withAuth/);assert.match(api,/NENOVA_SALES_READ_TOKEN/);assert.match(api,/r.chat_id!==roomId/);assert.doesNotMatch(api,/googleSheets|\/api\/kakao\/messages/);
 assert.match(api,/function validAfterKey/);assert.match(api,/const afterKey=req\.query\.afterKey\?\?''/);assert.match(api,/nextAfterKey/);assert.doesNotMatch(api,/afterId|nextAfterId/);
 const ui=fs.readFileSync(require.resolve('../components/orders/DistributionSalesInbox.js'),'utf8');assert.doesNotMatch(ui,/adjust-batch|\/api\/orders\/(?:index|parse-paste)|handleAllMixedDistribute/);
-assert.match(ui,/AI 분석·분배 준비/);
+assert.match(ui,/미확인 원문 AI 분석·매칭/);
+assert.match(ui,/기존 처리 근거 공유/);
 assert.match(ui,/sourceWeekFromMessage\(row\.message,String\(year\|\|''\)\)\|\|week/);
 assert.match(ui,/sourceWeek,autoAnalyze:true/);
 const detailAction = ui.match(/onClick=\{\(\)=>onLoadText\((\{text:row\.message,messages:\[row\],sourceWeek,autoAnalyze:true\})\)\}/);
