@@ -47,6 +47,7 @@
 - 네이티브 실행 화면에서 국가/꽃/구분 필터 조합과 2025~2026 교차연도 열을 읽기 확인했다. 웹 운영 2026-37-01 조회 표도 정상 렌더를 확인했다. 원천 SQL 전체 행 DB 대조는 아직 미실행이며 화면 조회만으로 숫자 전부 일치 판정하지 않는다.
 - 표 필드 메뉴의 Reload Data/Best Fit/Order(처음·왼쪽·오른쪽·끝)/Show Field List/Show Filter Editor를 확인했다. 웹 정식 접근은 최신 사용자 지시에 따라 모두 좌클릭이다.
 - 새 API /api/stats/pivot-exe는 기존 sqlQuantityPivotGetData만 호출하며 별도 원장 쓰기·재계산·필터 SQL 조립을 하지 않는다. 시작/종료 연도를 각각 검증한다.
+- 2026-09-15 웹 확장: FormQuantityPivot 원본 UNION/수량 의미는 변경하지 않는다. 기존 웹 피벗에서 이미 사용하던 읽기 전용 값만 후처리로 보강한다. `분배단가`는 `ShipmentDetail.Cost`를 `OutQuantity`로 가중평균하고 `OrderYear + OrderWeek + CustKey + ProdKey`로 결합한다. `도착원가`는 운송원가 스냅샷/live 계산 결과의 품목별 최고 표시원가(부가세 별도)를 입고 행에만 결합한다. 보강 조회가 실패하면 EXE 원본 표는 유지하고 누락 값을 경고한다.
 - 모든 조작에서 OrderMaster/OrderDetail, ShipmentMaster/Detail/Date/Farm, WarehouseMaster/Detail, ProductStock/StockHistory, Estimate/WebProfitReport 보존.
 - 웹의 배치판도 원본 피벗의 공간 관계를 따라 필터는 맨 위, 행 필드는 표 왼쪽, 열 필드는 표 위쪽, 값 필드는 숫자 영역에 고정해 드롭 결과를 위치만으로 이해할 수 있게 한다.
 

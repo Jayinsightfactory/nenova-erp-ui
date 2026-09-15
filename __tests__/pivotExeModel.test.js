@@ -9,11 +9,11 @@ const rows = [
   { CounName: '콜롬비아', FlowerName: '수국', ProdName: '블루', OrderYear: 2026, OrderWeek: '01-01', ListType: '02. 주문', CustName: 'B', Quantity: 0, UPrice: 0, CustDescr: '=unsafe' },
 ];
 
-assert.equal(EXE_FIELDS.length, 15, 'all native EXE columns are exposed');
+assert.equal(EXE_FIELDS.length, 17, 'all native EXE columns and the two legacy web price measures are exposed');
 assert.deepEqual(normalizeLayout(EXE_DEFAULT_LAYOUT), EXE_DEFAULT_LAYOUT, 'default layout is stable');
 const moved = moveField(EXE_DEFAULT_LAYOUT, 'CustName', 'row', 1);
 assert.equal(moved.row[1], 'CustName');
-assert.equal(new Set(Object.values(moved).flat()).size, 15, 'a moved field has exactly one zone');
+assert.equal(new Set(Object.values(moved).flat()).size, 17, 'a moved field has exactly one zone');
 
 assert.equal(filterRows(rows, { fieldFilters: { OrderYear: [2026] } }).length, 2, 'numeric field filters retain the selected year only');
 assert.equal(filterRows(rows, { fieldFilters: { OrderYear: [] } }).length, 0, 'an explicit empty checkbox selection means no values');
@@ -44,6 +44,12 @@ const grandRow = model.rowAxis.find(axis => axis.isGrandTotal);
 const grandColumn = model.columnAxis.find(axis => axis.isGrandTotal);
 assert.equal(model.cellMap[pivotCellKey(grandRow.key, grandColumn.key)].values['Quantity:sum'], 3.75, 'grand total comes from original fractional rows');
 assert.equal(model.cellMap[pivotCellKey(grandRow.key, grandColumn.key)].values['Quantity:avg'], 1.25, 'average is not an average of subtotals');
+const priceLayout = { row:['ProdName'], column:[], filter:EXE_FIELDS.map(field=>field.id).filter(id=>!['ProdName','DistCost'].includes(id)), data:['DistCost'] };
+const weightedPrice = buildPivotModel([
+  {ProdName:'A',DistCost:100,Quantity:1},{ProdName:'A',DistCost:200,Quantity:3},
+], {layout:priceLayout,showGrandTotals:true,showRowTotals:false,showColumnTotals:false});
+assert.equal(weightedPrice.measures[0].summary,'weightedavg');
+assert.equal(weightedPrice.cellMap[pivotCellKey(weightedPrice.rowAxis.find(axis=>axis.isGrandTotal).key,weightedPrice.columnAxis.find(axis=>axis.isGrandTotal).key)].value,175,'분배단가는 출고수량 가중평균으로 집계한다');
 assert.ok(pivotModelToAoA(model).some(row => row.includes(0)), 'an actual zero remains numeric in the visible AOA');
 assert.ok(model.aoa[0].some(header => header.includes('주문년도: 2025')), 'AOA headers retain the complete column hierarchy');
 const sparseModel = buildPivotModel([{ProdName:'A',OrderYear:2025,Quantity:1},{ProdName:'B',OrderYear:2026,Quantity:1}], { layout, showGrandTotals:false, showRowTotals:false, showColumnTotals:false });

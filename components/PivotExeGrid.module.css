@@ -15,4 +15,6 @@
 .tinyButton { width: 14px; height: 16px; padding: 0; border: 1px solid #91a4ba; border-radius: 2px; background: #f7fafc; color: #30455e; font-size: 10px; line-height: 12px; cursor: pointer; }
 .resizeHandle { position: absolute; top: 0; right: -3px; z-index: 9; width: 7px; height: 100%; cursor: col-resize; }
 .resizeHandle:hover { background: #5b83ad; }
+.rowResizeHandle { position: absolute; right: 0; bottom: -3px; left: 0; z-index: 10; height: 7px; cursor: row-resize; }
+.rowResizeHandle:hover { background: #5b83ad; }
 .empty { padding: 24px; color: #62758a; text-align: center; }

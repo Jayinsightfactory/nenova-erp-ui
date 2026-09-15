@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { applyPivotValueSelection, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction.js';
+import { applyPivotValueSelection, createPivotHeaderHeightResizeSession, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction.js';
 
 function fakeWindow() {
   const listeners = new Map(), frames = new Map(); let id = 0;
@@ -33,6 +33,11 @@ for (const [x, expected] of [[-1000,48],[9999,400],[100,96]]) {
   const target = fakeWindow(); let result;
   createPivotResizeSession({target,startX:100,startWidth:96,onPreview(){},onFinish(){},onCommit:(width)=>result=width});
   target.emit('mouseup',{clientX:x}); assert.equal(result,expected);
+}
+for (const [y, expected] of [[-1000,18],[9999,120],[100,24]]) {
+  const target = fakeWindow(); let result;
+  createPivotHeaderHeightResizeSession({target,startY:100,startHeight:24,onPreview(){},onFinish(){},onCommit:(height)=>result=height});
+  target.emit('mouseup',{clientY:y}); assert.equal(result,expected);
 }
 const timers = new Map(); let nextTimer = 0; const storedA = [], storedB = [];
 
@@ -78,6 +83,7 @@ assert.match(panelSource, /체크한 값만 피벗 표와 엑셀에 표시됩니
 assert.match(panelSource, /zone === 'filters' \? openValueFilter : openFieldMenu/, '필터 영역의 기본 버튼은 실제 값 선택창을 바로 연다');
 assert.match(panelSource, /key=\{filterField\.id\}/, '다른 필드 필터를 열면 초안 값이 해당 필드 기준으로 초기화된다');
 assert.match(gridSource, /가로 데이터 열 전체 너비 조절/, '가로 데이터 열 핸들은 일괄 조절임을 안내한다');
+assert.match(gridSource, /거래처명\/농장명 헤더 높이 조절/, '거래처명/농장명 단계만 세로 드래그 높이 조절을 제공한다');
 
 const options = (write) => ({write,setTimer:(callback)=>{timers.set(++nextTimer,callback);return nextTimer;},clearTimer:(id)=>timers.delete(id)});
 const a = createPivotPreferenceWriter(options((v)=>storedA.push(v)));

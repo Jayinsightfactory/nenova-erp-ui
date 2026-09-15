@@ -83,22 +83,28 @@ const PivotExeWindowedBody = memo(function PivotExeWindowedBody({ structure, for
   </tbody>;
 });
 
-function AxisHeaderCell({ cell, dimensions, onFieldMenu, onToggleColumn, onResize, onBestFit }) {
-  return <th key={`${cell.level}-${cell.columnStart}-${cell.measure?.key || ''}`} colSpan={cell.columnSpan} className={styles.axisHead} style={{ top: cell.level * dimensions.rowHeight }}>
+function AxisHeaderCell({ cell, dimensions, headerHeights, headerOffsets, columnFields, onFieldMenu, onToggleColumn, onResize, onBestFit, onCustHeaderResize }) {
+  const fieldId = columnFields[cell.level];
+  const canResizeHeight = fieldId === 'CustName';
+  return <th key={`${cell.level}-${cell.columnStart}-${cell.measure?.key || ''}`} colSpan={cell.columnSpan} className={styles.axisHead} style={{ top: headerOffsets[cell.level], height: headerHeights[cell.level] }}>
     <button type="button" className={styles.headerButton} onClick={(event) => cell.measure ? onFieldMenu?.(cell.measure.field, event) : cell.canToggle ? onToggleColumn?.(cell.axisKey) : undefined} title={cell.title || cell.label || '열 머리글'}>{cell.label || ' '}</button>
     {cell.measure && <span className={styles.resizeHandle} title="가로 데이터 열 전체 너비 조절 · 두 번 클릭하면 전체 자동맞춤" onMouseDown={(event) => { event.preventDefault(); const column = dimensions.dataColumns[cell.columnStart]; onResize?.(column.id, event.clientX, column.width); }} onDoubleClick={(event) => { event.preventDefault(); onBestFit?.(dimensions.dataColumns[cell.columnStart].id); }} />}
+    {canResizeHeight && <span data-testid="pivot-exe-cust-header-resize" className={styles.rowResizeHandle} title="거래처명/농장명 헤더 높이 조절" onMouseDown={(event) => { event.preventDefault(); onCustHeaderResize?.(event.clientY, headerHeights[cell.level]); }} />}
   </th>;
 }
 
 /** Presentational EXE-like hierarchy grid. Parent owns every interaction and persisted state. */
 const PivotExeGrid = memo(function PivotExeGrid({
-  model, decimals = 2, zeroVisible = false, widths = {}, rowHeight,
-  onResize, onFieldMenu, onFilter, onBestFit, onToggleRow, onToggleColumn,
+  model, decimals = 2, zeroVisible = false, widths = {}, rowHeight, custHeaderHeight = 24,
+  onResize, onCustHeaderResize, onFieldMenu, onFilter, onBestFit, onToggleRow, onToggleColumn,
   sorts = {}, selections, filterActive, valueFilterStates,
 }) {
   // Hashing data-column ids and finding merged cells are tied to the model, never to resizing.
   const structure = useMemo(() => buildPivotExeStructure(model), [model]);
   const dimensions = useMemo(() => getPivotExePresentationDimensions(structure, { widths, rowHeight }), [structure, widths, rowHeight]);
+  const headerHeights = useMemo(() => structure.headerRows.map((_, level) => structure.columnFields[level] === 'CustName' ? Math.max(18, Math.min(120, Number(custHeaderHeight) || 24)) : dimensions.rowHeight), [structure.headerRows, structure.columnFields, custHeaderHeight, dimensions.rowHeight]);
+  const headerOffsets = useMemo(() => headerHeights.map((_, level) => headerHeights.slice(0, level).reduce((sum, height) => sum + height, 0)), [headerHeights]);
+  const totalHeaderHeight = headerHeights.reduce((sum, height) => sum + height, 0);
   const onToggleRowRef = useRef(onToggleRow);
   onToggleRowRef.current = onToggleRow;
   // Formatting is intentionally independent of dimensions and scroll state: scrolling a large
@@ -137,7 +143,7 @@ const PivotExeGrid = memo(function PivotExeGrid({
 
   const dataPrefix = useMemo(() => buildPivotExeColumnPrefix(dimensions.dataColumns.map((column) => column.width)), [dimensions.dataColumns]);
   const rowHeaderWidth = dimensions.rowWidths.reduce((sum, column) => sum + column.width, 0);
-  const rowWindow = useMemo(() => getPivotExeRowWindow({ totalRows: structure.bodyRows.length, scrollTop: viewport.scrollTop, clientHeight: viewport.clientHeight, headerHeight: structure.headerRows.length * dimensions.rowHeight, rowHeight: dimensions.rowHeight }), [structure.bodyRows.length, structure.headerRows.length, viewport.scrollTop, viewport.clientHeight, dimensions.rowHeight]);
+  const rowWindow = useMemo(() => getPivotExeRowWindow({ totalRows: structure.bodyRows.length, scrollTop: viewport.scrollTop, clientHeight: viewport.clientHeight, headerHeight: totalHeaderHeight, rowHeight: dimensions.rowHeight }), [structure.bodyRows.length, viewport.scrollTop, viewport.clientHeight, totalHeaderHeight, dimensions.rowHeight]);
   const columnWindow = useMemo(() => getPivotExeColumnWindow({ widths: dimensions.dataColumns.map((column) => column.width), prefix: dataPrefix, scrollLeft: viewport.scrollLeft, clientWidth: viewport.clientWidth, rowHeaderWidth }), [dimensions.dataColumns, dataPrefix, viewport.scrollLeft, viewport.clientWidth, rowHeaderWidth]);
   const windowedRowHeaders = useMemo(() => getPivotExeWindowedRowHeaderCells(structure.rowHeaderCells, rowWindow.start, rowWindow.end), [structure.rowHeaderCells, rowWindow.start, rowWindow.end]);
   const tableStyle = { '--pivot-row-height': `${dimensions.rowHeight}px`, width: `${dimensions.tableWidth}px` };
@@ -150,13 +156,13 @@ const PivotExeGrid = memo(function PivotExeGrid({
     <table className={styles.table} data-testid="pivot-exe-grid" style={tableStyle}>
       <colgroup>{allColumns.map((item) => <col key={item.id} style={{ width: item.width, minWidth: item.width }} />)}</colgroup>
       <thead>
-        {structure.headerRows.map((headerCells, level) => <tr key={`header-${level}`}>
+        {structure.headerRows.map((headerCells, level) => <tr key={`header-${level}`} style={{height:headerHeights[level]}}>
           {level === 0 && dimensions.rowWidths.map((field, index) => <th key={field.id} rowSpan={structure.headerRows.length} className={styles.fieldHead} style={{ left: dimensions.stickyOffsets[index], top: 0, zIndex: 30 }}>
             <FieldControls id={field.id} sorts={sorts} onFieldMenu={onFieldMenu} onFilter={onFilter} valueFilterStates={valueFilterStates} />
             <span className={styles.resizeHandle} title="열 너비 조절 · 두 번 클릭하면 자동맞춤" onMouseDown={(event) => { event.preventDefault(); onResize?.(field.id, event.clientX, field.width); }} onDoubleClick={(event) => { event.preventDefault(); onBestFit?.(field.id); }} />
           </th>)}
           {isVirtualized && <th className={styles.columnSpacer} aria-hidden="true" />}
-          {(isVirtualized ? clipPivotExeHeaderCells(headerCells, columnWindow.start, columnWindow.end) : headerCells).map((cell) => <AxisHeaderCell key={`${cell.level}-${cell.columnStart}-${cell.measure?.key || ''}`} cell={cell} dimensions={dimensions} onFieldMenu={onFieldMenu} onToggleColumn={onToggleColumn} onResize={onResize} onBestFit={onBestFit} />)}
+          {(isVirtualized ? clipPivotExeHeaderCells(headerCells, columnWindow.start, columnWindow.end) : headerCells).map((cell) => <AxisHeaderCell key={`${cell.level}-${cell.columnStart}-${cell.measure?.key || ''}`} cell={cell} dimensions={dimensions} headerHeights={headerHeights} headerOffsets={headerOffsets} columnFields={structure.columnFields} onFieldMenu={onFieldMenu} onToggleColumn={onToggleColumn} onResize={onResize} onBestFit={onBestFit} onCustHeaderResize={onCustHeaderResize} />)}
           {isVirtualized && <th className={styles.columnSpacer} aria-hidden="true" />}
         </tr>)}
       </thead>
