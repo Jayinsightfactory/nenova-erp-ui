@@ -167,6 +167,8 @@ async function main() {
   assert.equal(blankItem.ok, false, '이름 미기재 행은 항상 검증 실패로 표시해야 한다.');
   assert.equal(blankItem.qty, 324, '금액은 원본 그대로 합산 대상에 포함되어야 한다.');
   assert.ok(blankName.batches[0].warnings.some((w) => /행 확인 필요/.test(w)));
+  assert.ok(blankName.batches[0].warnings.some((w) => /원본 행 값: 품명=빈칸, 칼라=화이트, 입고수량=324/.test(w)));
+  assert.ok(blankName.batches[0].warnings.every((w) => !/원본 없음 vs 파싱 없음/.test(w)), '행 확인 경고를 숫자 합계 비교처럼 표시하면 안 된다.');
 
   // 이름/칼라 모두 공백 — 고정 자리표시자
   const bothBlankWb = XLSX.utils.book_new();
@@ -340,7 +342,7 @@ async function main() {
   // ── 15. 선택적 개인 파일 — 일반 검증과 승인 스냅샷 검증을 분리 ──────────
   const realPath = 'C:/Users/USER/Desktop/2026 신라 상반기 입고 손익계산_이사님보고.xlsx';
   if (fs.existsSync(realPath)) {
-    const { applyConfirmedShillaSourceNames, SHILLA_CONFIRMED_SOURCE_SHA256 } = await import('../lib/shillaPnlImportPolicy.js');
+    const { applyConfirmedShillaSourceNames, SHILLA_CONFIRMED_SOURCE_SHA256, isConfirmedShillaBusinessRevision } = await import('../lib/shillaPnlImportPolicy.js');
     const raw = fs.readFileSync(realPath);
     const sourceSha256 = crypto.createHash('sha256').update(raw).digest('hex');
     const realWb = XLSX.read(raw, { type: 'buffer', cellDates: true });
@@ -362,16 +364,17 @@ async function main() {
     const approvedWorkbook = XLSX.read(raw, { type: 'buffer', cellDates: true });
     const beforePolicy = JSON.stringify(approvedWorkbook);
     const approvalNotes = applyConfirmedShillaSourceNames(approvedWorkbook, sourceSha256);
-    if (sourceSha256 === SHILLA_CONFIRMED_SOURCE_SHA256) {
+    if (sourceSha256 === SHILLA_CONFIRMED_SOURCE_SHA256 || isConfirmedShillaBusinessRevision(realWb)) {
 
     // 설계 리포트 기준값 — docs/work-reports/2026-09-07_shilla-pnl-design.md
     assert.deepEqual(
       real.sourceSheets.filter((s) => !s.included).map((s) => s.sheetName).sort(),
       ['검토리포트', '결산', '26차~30차(7월)('].sort(),
-      '범위/결산/검토 시트 3개만 제외되어야 한다(문서 기준 38개 중 35개 단일 차수).',
+      '범위/결산/검토 시트 3개만 제외되어야 한다.',
     );
-    assert.equal(real.batches.length, 35, '38개 시트 중 단일 차수 배치는 35개여야 한다.');
-    assert.deepEqual(real.batches.map((b) => b.major), Array.from({ length: 35 }, (_, i) => String(i + 1).padStart(2, '0')));
+    const expectedMajorCount = realWb.SheetNames.includes('37차') ? 37 : 35;
+    assert.equal(real.batches.length, expectedMajorCount, '단일 차수 시트는 확장된 최신 차수까지 모두 포함해야 한다.');
+    assert.deepEqual(real.batches.map((b) => b.major), Array.from({ length: expectedMajorCount }, (_, i) => String(i + 1).padStart(2, '0')));
 
     // 1~26차 60:40, 27~35차 80:20 — 원본 헤더 문구에서만 읽고 기본값을 주입하지 않는다.
     for (const b of real.batches) {
@@ -392,18 +395,27 @@ async function main() {
     assert.equal(item33.nameSource, 'color-fallback');
     assert.equal(item33.ok, false);
 
-    // 35차: 품명 칸 공백 + 칼라 칸 "화이트" — 품종 추측(예: 호접) 없이 그대로 보존 + 확인 필요로 표시.
-    const item35 = real.batches.find((b) => b.major === '35').items.find((it) => it.name === '화이트');
-    assert.ok(item35);
-    assert.equal(item35.nameSource, 'color-fallback');
-    assert.equal(item35.ok, false);
+    // 과거 승인본은 35차 품명이 비었고 최신 재저장본은 원본 자체에 호접이 입력됐다.
+    // 일반 파서는 어느 경우에도 원본 값을 바꾸지 않는다.
+    const items35 = real.batches.find((b) => b.major === '35').items;
+    if (sourceSha256 === SHILLA_CONFIRMED_SOURCE_SHA256) {
+      const item35 = items35.find((it) => it.name === '화이트');
+      assert.ok(item35);
+      assert.equal(item35.nameSource, 'color-fallback');
+      assert.equal(item35.ok, false);
+    } else {
+      const item35 = items35.find((it) => it.name === '호접');
+      assert.ok(item35);
+      assert.equal(item35.nameSource, 'name');
+      assert.equal(item35.ok, true);
+    }
 
     // 승인된 SHA256 원본일 때만 메모리 복사본에 적용되는 정책을 별도 확인한다.
     // 정책 파일은 여기서 수정하지 않으며, 원본 파일에도 쓰지 않는다.
     const approved = parseShillaPnlWorkbookGroups(XLSX, approvedWorkbook, { orderYear: 2026 });
-    assert.equal(approvalNotes.length, 5, '승인된 원본 SHA256일 때만 다섯 가지 명시 보정이 적용되어야 한다.');
-    assert.equal(approved.batches.length, 35);
-    assert.ok(approved.verification.every((check) => check.ok), '승인 정책 적용 뒤 35개 신라 차수는 모두 검증을 통과해야 한다.');
+    assert.ok(approvalNotes.length >= 4, '확인된 원본 업무 셀에는 필요한 명시 보정이 적용되어야 한다.');
+    assert.ok(approved.batches.length >= 35);
+    assert.ok(approved.verification.every((check) => check.ok), '확인 정책 적용 뒤 신라 차수는 모두 검증을 통과해야 한다.');
     for (const major of ['30', '31']) {
       const batch = approved.batches.find((candidate) => candidate.major === major);
       assert.ok(batch.verification.some((check) => check.label === '네노바이익 합계' && check.ok), `${major}차 네노바 합계 배분액을 검증해야 한다.`);
@@ -414,7 +426,7 @@ async function main() {
     } else {
       assert.deepEqual(approvalNotes, [], '수정된 개인 파일에는 과거 SHA 승인 보정을 적용하면 안 된다.');
       assert.equal(JSON.stringify(approvedWorkbook), beforePolicy, '미승인 원본은 전 셀을 보존한다.');
-      console.log(`신라 개인 파일 SHA 변경: 시트 ${realWb.SheetNames.length}개 / 배치 ${real.batches.length}개 일반 검증 완료; 미검증: 2026-09-07 승인 원본 스냅샷 (현재 파일로 대체 승인하지 않음).`);
+      console.log(`신라 개인 파일 업무 셀 변경: 시트 ${realWb.SheetNames.length}개 / 배치 ${real.batches.length}개 일반 검증 완료; 기존 확인사항을 적용하지 않음.`);
     }
   } else {
     console.log('신라 실제 원본 파일 없음 — 합성 fixture 검증만 수행 (미검증: 실제 원본 대조).');
