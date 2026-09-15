@@ -2,6 +2,13 @@
   "id": "raum-pnl-settlement",
   "title": "라움·초이문·신라 손익계산서 결산 미리보기 계약",
   "scope": [
+    "lib/raumPnlPrintText.js",
+    "lib/pnlHotelRegistry.js",
+    "lib/raumPnlPreservationMatch.js",
+    "pages/api/raum/pnl-hotels.js",
+    "components/raum/PnlHotelAddDialog.js",
+    "docs/migrations/2026-09-15_pnl_hotels.sql",
+    "scripts/apply-pnl-hotels-migration.mjs",
     "lib/raumPnlImportReview.js",
     "lib/shillaPnlBulkMatchState.js",
     "lib/shillaPnlBulkMatch.js",
@@ -111,6 +118,13 @@
     "preserve": ["WebRaumCostPrice", "Product", "OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Estimate", "ProductStock", "StockHistory", "WebProfitReport"],
     "nearMissFixtures": ["same MajorWeek in prior year", "one partner missing the product", "one partner added the product after preview", "deleted master", "same name with different ProdKey", "same ProdKey with different Unit", "custom versus ordinary", "stale value in either partner", "explicit zero", "empty NULL", "negative invalid"]
   },
+  "customHotelRegistry": {
+    "identity": "Typed hotel name is normalized server-side and assigned hotel_<12 lowercase hex>; WebPnlHotel only, never Customer creation. Same normalized name is idempotent; conflicting code/name is rejected.",
+    "scope": "Every request reloads the active registry descriptor. Custom settlement identity remains OrderYear + MajorWeek + PartnerCode. Request-supplied capabilities or labels are not trusted.",
+    "capabilities": "Standard quotation upload, explicit selected year, preview and manual save only. No ERP synchronization, image-order lookup, global item mapping, learned purchase-cost sharing, or automatic import commit.",
+    "preservation": "Repeated source rows remain separate. A saved row can match at most once across exact and fallback identities; distinct manual costs or product mappings require unambiguous source/content evidence. Unresolved collisions return readable 409 and preserve every saved row.",
+    "migration": "Explicit idempotent WebPnlHotel schema migration before deployment; GET does not create registry tables. Existing hotel codes and shared Raum+Choimun purchase-cost scope are unchanged."
+  },
   "consignedCostLinking": {
     "helper": "lib/raumPnlConsignedCost.js — pure, no DB access; shared by pages/raum/pnl.js (live edit), lib/raumPnl.js (single-week save and multi-week import save/preview), and lib/raumPnlCostComparison.js (shared purchase-cost matrix identity)",
     "rule": "an ordinary WebRaumPnlItem row and its IsConsigned(사입) counterpart never merge Qty/SalePrice/SaleAmount/IsConsigned — only CostPrice links, by exact whitespace-normalized ItemName with a trailing (사입)/사입 display suffix stripped for matching only, plus exact Unit",
@@ -119,6 +133,11 @@
     "preserve": ["Qty", "SalePrice", "SaleAmount", "IsConsigned", "ProdKey identity for rows that have one"]
   },
   "requiredTestFiles": [
+    "__tests__/raumPnlPrintText.test.js",
+    "__tests__/pnlHotelRegistry.test.js",
+    "__tests__/pnlCustomHotelIntegration.test.js",
+    "__tests__/raumPnlPreservationMatch.test.js",
+    "__tests__/raumPnlHotelAddDialog.test.js",
     "__tests__/raumPnlImportReview.test.js",
     "__tests__/shillaPnlBulkMatch.test.js",
     "__tests__/shillaPnlBulkMatchUi.test.js",

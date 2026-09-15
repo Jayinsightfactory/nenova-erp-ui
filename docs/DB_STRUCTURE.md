@@ -1,5 +1,11 @@
 # nenova ERP DB 구조 (확립본)
 
+## 2026-09-15 웹 호텔 결산 등록부 추가
+
+`WebPnlHotel`은 사용자가 직접 입력한 호텔 이름을 손익계산서 탭으로 보관한다. `PartnerCode NVARCHAR(20)`는 `hotel_`+12자리 식별키이며 기본키다. `Name/NormalizedName NVARCHAR(80)`, `IsActive`, `CreatedAt/CreatedBy`를 보관한다. 정규화 이름은 중복 생성 방지용 유일키다. 스키마는 `docs/migrations/2026-09-15_pnl_hotels.sql`을 명시 실행하며 조회에서 생성하지 않는다.
+
+새 호텔도 결산은 기존 `WebRaumPnl/Item`에서 `OrderYear+MajorWeek+PartnerCode`로 분리한다. `Customer` 생성·ERP 동기화·전역 품목 매칭·전역 매입단가 학습은 하지 않는다. 라움·초이문 공통 매입단가 적용 범위는 기존 두 호텔만 유지한다.
+
 > 최종 갱신 2026-04-22. 실제 운영 MSSQL 기준 + 13/14차 이후 트러블 이력에서 얻은
 > "절대 원칙" 을 합본. 스키마 수정 전 이 문서를 먼저 읽고, 여기 명시된 규칙에
 > 어긋나는 수정은 하지 말 것.

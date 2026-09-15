@@ -65,3 +65,11 @@ assert.match(html, /value="0"/);
 assert.match(html, /1,248,000/);
 assert.match(html, /600/);
 console.log('Shilla purchase-cost real React server render passed (zero/free, draft, invalid, disabled, absent)');
+
+const Dialog = loadJsx('../components/raum/PnlHotelAddDialog.js').default;
+const dialogHtml = renderToStaticMarkup(React.createElement(Dialog, { open: true }));
+assert.match(dialogHtml, /role="dialog"/);
+assert.match(dialogHtml, /호텔 결산 탭 추가/);
+assert.match(dialogHtml, /전산 거래처는 만들지 않습니다/);
+assert.match(dialogHtml, /호텔명/);
+console.log('Pnl hotel add dialog server render passed with default optional props');
