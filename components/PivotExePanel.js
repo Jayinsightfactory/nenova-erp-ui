@@ -6,7 +6,7 @@ import { getPivotExeGroupKeys } from '../lib/pivotExePresentation';
 import { normalizePivotExeRange } from '../lib/pivotExeRange';
 import { normalizePivotExeView } from '../lib/pivotExeViewState';
 import PivotExeFavorites from './PivotExeFavorites';
-import { createPivotPreferenceWriter, createPivotResizeSession } from '../lib/pivotExeInteraction';
+import { createPivotPreferenceWriter, createPivotResizeSession, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction';
 
 // The field ids deliberately match FormQuantityPivot.GetData verbatim.
 const FIELDS = EXE_FIELDS;
@@ -68,7 +68,7 @@ function FieldMenu({ field, aggregation, sort, popupRef, position, onAggregation
     <div style={menuGrid}>
       <button onClick={(event) => onFilter(field.id, event)}>값 필터…</button><button onClick={() => { onSort(field.id, 'asc'); onClose(); }}>오름차순</button>
       <button onClick={() => { onSort(field.id, 'desc'); onClose(); }}>내림차순</button><button onClick={() => { onSort(field.id, null); onClose(); }}>정렬 해제</button>
-      <button data-testid="pivot-exe-move-row" onClick={() => move('rows')}>행으로 이동</button><button data-testid="pivot-exe-move-column" onClick={() => move('cols')}>열로 이동</button>
+      <button data-testid="pivot-exe-move-row" onClick={() => move('rows')}>세로 행으로 이동</button><button data-testid="pivot-exe-move-column" onClick={() => move('cols')}>가로 열로 이동</button>
       <button data-testid="pivot-exe-move-value" onClick={() => move('values')}>값으로 이동{field.numeric ? '' : ' (개수)'}</button><button data-testid="pivot-exe-move-filter" onClick={() => move('filters')}>필터로 이동</button>
       <button onClick={() => onReorder(field.id, 'first')}>처음</button><button onClick={() => onReorder(field.id, 'prev')}>이전</button>
       <button onClick={() => onReorder(field.id, 'next')}>다음</button><button onClick={() => onReorder(field.id, 'last')}>끝</button>
@@ -173,7 +173,7 @@ export default function PivotExePanel() {
     const view = normalizePivotExeView(input);
     setZones(view.zones); setHidden(view.hidden); setDecimals(view.decimals);
     setPreviousNonzeroDecimals(view.previousNonzeroDecimals); setZeroVisible(view.zeroVisible);
-    setWidths(view.widths); setRowHeight(view.rowHeight); setSorts(view.sorts);
+    setWidths(normalizeCollectivePivotWidths(view.widths)); setRowHeight(view.rowHeight); setSorts(view.sorts);
     setSelections(view.selections); setAst(view.ast); setFilterActive(view.filterActive);
     setShowRowTotals(view.showRowTotals); setShowColumnTotals(view.showColumnTotals); setShowGrandTotals(view.showGrandTotals);
     setCollapsedRows(new Set()); setCollapsedCols(new Set()); setFieldMenu(null); setFilterField(null);
@@ -311,6 +311,7 @@ export default function PivotExePanel() {
   const dirty = successRange && Object.keys(range).some((key) => range[key] !== successRange[key]);
   const updateRange = (key, value) => setRange((previous) => ({...previous,[key]:value}));
   const changeWidth = useCallback((id, startX, startWidth) => {
+    const preferenceKey = pivotResizePreferenceKey(id, zones.rows);
     cancelResize.current?.();
     const guide = document.createElement('div');
     guide.dataset.testid = 'pivot-exe-resize-preview';
@@ -321,24 +322,23 @@ export default function PivotExePanel() {
     document.body.append(guide, label);
     cancelResize.current = createPivotResizeSession({
       target: window, startX, startWidth,
-      onPreview: (width, x) => { guide.style.transform = `translateX(${x}px)`; label.textContent = `너비 ${Math.round(width)}px · 놓으면 적용 · Esc 취소`; },
+      onPreview: (width, x) => { guide.style.transform = `translateX(${x}px)`; label.textContent = `${preferenceKey === '__data' ? '가로 열 전체' : BY_ID[id]?.label || '열'} ${Math.round(width)}px · 놓으면 적용 · Esc 취소`; },
       onFinish: () => { guide.remove(); label.remove(); cancelResize.current = null; },
-      onCommit: (width) => setWidths((previous) => width === startWidth || previous[id] === width ? previous : {...previous,[id]:width}),
+      onCommit: (width) => setWidths((previous) => withCollectivePivotWidth(previous, preferenceKey, width)),
     });
-  }, []);
+  }, [zones.rows]);
   const bestFit = useCallback((id) => {
-    const field = BY_ID[id];
-    const measure = field ? null : pivotModel.measures.find((item) => id.endsWith(`-${item.key}`));
-    const header = field?.label || (measure ? `${measure.field} ${measure.summary}` : '데이터');
-    const samples = field
-      ? rows.slice(0, 500).map((row) => cleanText(row[id]))
-      : pivotModel.cells.slice(0, 500).map((cell) => {
-        const value = cell.values?.[measure?.key];
-        return value == null || (value === 0 && !zeroVisible) ? '' : Number(value).toLocaleString('ko-KR', {minimumFractionDigits:decimals,maximumFractionDigits:decimals});
-      });
+    const preferenceKey = pivotResizePreferenceKey(id, zones.rows);
+    const field = preferenceKey === '__data' ? null : BY_ID[id];
+    const header = field?.label || pivotModel.measures.map((measure) => BY_ID[measure.field]?.label || measure.field).join(' / ') || '데이터';
+    const samples = field ? rows.slice(0, 500).map((row) => cleanText(row[id])) : pivotModel.cells.slice(0, 500).flatMap((cell) => pivotModel.measures.map((measure) => {
+      const value = cell.values?.[measure.key];
+      return value == null || (value === 0 && !zeroVisible) ? '' : Number(value).toLocaleString('ko-KR', {minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+    }));
     const chars = Math.max(header.length, ...samples.map((value) => String(value).length));
-    setWidths((previous) => ({...previous,[id]:Math.min(400,Math.max(field ? 48 : 96,chars*9+30))}));
-  }, [rows,pivotModel,decimals,zeroVisible]);
+    const width = Math.min(400, Math.max(field ? 48 : 96, chars * 9 + 30));
+    setWidths((previous) => withCollectivePivotWidth(previous, preferenceKey, width));
+  }, [rows,pivotModel,decimals,zeroVisible,zones.rows]);
   const exportVisible = useCallback(async () => {
     if (!successRange) return; setExporting(true);
     try { const { buildPivotExeWorkbook } = await import('../lib/pivotExeExport'); const bytes = await buildPivotExeWorkbook(pivotModel, {sheetName:'전산 피벗',decimalPlaces:decimals,blankZero:!zeroVisible,columnWidths:widths,rowHeight}); const href = URL.createObjectURL(new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); const link = document.createElement('a'); link.href=href; link.download=`전산피벗_${successRange.fromYear}_${successRange.fromWeek}-${successRange.toYear}_${successRange.toWeek}.xlsx`; link.click(); URL.revokeObjectURL(href); } catch (cause) { setError(`엑셀 생성 실패: ${cause.message}`); } finally { setExporting(false); }
@@ -358,7 +358,7 @@ export default function PivotExePanel() {
   const toggleColumn = useCallback((key) => setCollapsedCols((previous) => { const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next; }), []);
   const zoneChip = (id, zone) => {
     const active = filterActive && Object.prototype.hasOwnProperty.call(selections, id);
-    return <span key={`${zone}-${id}`} draggable onDragStart={(event)=>{event.dataTransfer.setData('application/x-nenova-pivot-field',id);event.dataTransfer.effectAllowed='move';setDraggedField(id);}} onDragEnd={()=>setDraggedField(null)} title="끌어서 행·열·값·필터로 이동하거나 클릭하여 설정" style={{...chipStyle,cursor:'grab'}}><button data-testid={`pivot-exe-field-${id}`} data-zone={zone} type="button" onClick={(event) => openFieldMenu(id, event)}>{BY_ID[id].label}{sorts[id] === 'asc' ? ' ▲' : sorts[id] === 'desc' ? ' ▼' : ''}</button><button data-testid={`pivot-exe-filter-${id}`} type="button" title={`${BY_ID[id].label} 값 필터${active ? ' 적용됨' : ''}`} aria-label={`${BY_ID[id].label} 값 필터`} style={{...filterChipButton,...(active ? filterChipActive : null)}} onClick={(event) => openValueFilter(id, event)}>{active ? '●' : '⌄'}</button><small>{zone === 'values' ? zones.values.find((value)=>value.id===id)?.aggregation : ''}</small></span>;
+    return <span key={`${zone}-${id}`} draggable onDragStart={(event)=>{event.dataTransfer.setData('application/x-nenova-pivot-field',id);event.dataTransfer.effectAllowed='move';setDraggedField(id);}} onDragEnd={()=>setDraggedField(null)} title="끌어서 이동하거나 ⇄ 버튼으로 세로 행·가로 열·값·필터를 선택" style={{...chipStyle,cursor:'grab'}}><button data-testid={`pivot-exe-field-${id}`} data-zone={zone} type="button" onClick={(event) => openFieldMenu(id, event)}>{BY_ID[id].label}{sorts[id] === 'asc' ? ' ▲' : sorts[id] === 'desc' ? ' ▼' : ''}</button><button type="button" aria-label={`${BY_ID[id].label} 영역 이동`} title="영역 이동" style={moveChipButton} onClick={(event)=>openFieldMenu(id,event)}>⇄</button><button data-testid={`pivot-exe-filter-${id}`} type="button" title={`${BY_ID[id].label} 값 필터${active ? ' 적용됨' : ''}`} aria-label={`${BY_ID[id].label} 값 필터`} style={{...filterChipButton,...(active ? filterChipActive : null)}} onClick={(event) => openValueFilter(id, event)}>{active ? '●' : '⌄'}</button><small>{zone === 'values' ? zones.values.find((value)=>value.id===id)?.aggregation : ''}</small></span>;
   };
   const zoneArea = (zone,label) => <span data-testid={`pivot-exe-zone-${zone}`} onDragOver={(event)=>{event.preventDefault();event.dataTransfer.dropEffect='move';}} onDrop={(event)=>{event.preventDefault();const id=event.dataTransfer.getData('application/x-nenova-pivot-field');if(BY_ID[id])moveField(id,zone);setDraggedField(null);}} style={{display:'inline-flex',alignItems:'center',flexWrap:'wrap',gap:2,minHeight:30,minWidth:100,padding:'3px 5px',border:`1px ${draggedField?'dashed':'solid'} ${draggedField?'#2563eb':'#bdcadb'}`,background:draggedField?'#eaf3ff':'#f5f8fc',borderRadius:3}}><b>{label}</b>{zones[zone].map((item)=>zoneChip(typeof item==='string'?item:item.id,zone))}{zones[zone].length===0 && <small style={{color:'#6b7280'}}>여기로 이동</small>}</span>;
   const setWidth = (id, value, min = 48, max = 400) => {
@@ -385,8 +385,9 @@ export default function PivotExePanel() {
       <button data-testid="pivot-exe-refresh" className="btn btn-primary btn-sm" onClick={refresh} disabled={busy}>{busy ? '조회 중…' : '새로고침'}</button><button data-testid="pivot-exe-export" className="btn btn-sm" onClick={exportVisible} disabled={!successRange || exporting}>{exporting ? '엑셀 생성…' : '엑셀'}</button>
       <button data-testid="pivot-exe-field-list" className="btn btn-sm" onClick={()=>setFieldList(true)}>필드 목록</button><button data-testid="pivot-exe-filter-editor" className="btn btn-sm" onClick={()=>{setDraftAst(ast);setFilterOpen(true);}}>필터 편집</button><button className="btn btn-sm" onClick={()=>typeof window !== 'undefined' && window.close()}>닫기</button>
     </div>
-    <div style={{display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',fontSize:11,margin:'6px 0'}}>{zoneArea('rows','행')}{zoneArea('cols','열')}{zoneArea('values','값')}{zoneArea('filters','필터')}<span style={{marginLeft:'auto'}}><label><input type="checkbox" checked={filterActive} onChange={(event)=>setFilterActive(event.target.checked)} /> 필터 활성</label><button className="btn btn-sm" onClick={()=>{setAst(EMPTY_AST());setSelections({});}}>필터 지우기</button><button data-testid="pivot-exe-decimals-toggle" className="btn btn-sm" onClick={toggleDecimals}>{decimals === 0 ? '소수점 표시' : '소수점 숨기기'}</button><label><input type="checkbox" checked={zeroVisible} onChange={(event)=>setZeroVisible(event.target.checked)} /> 0 표시</label><button data-testid="pivot-exe-settings-toggle" className="btn btn-sm" onClick={()=>setSettingsOpen((previous)=>!previous)}>표시 설정</button><label><input type="checkbox" checked={showRowTotals} onChange={(event)=>setShowRowTotals(event.target.checked)} /> 행 소계</label><label><input type="checkbox" checked={showColumnTotals} onChange={(event)=>setShowColumnTotals(event.target.checked)} /> 열 소계</label><label><input type="checkbox" checked={showGrandTotals} onChange={(event)=>setShowGrandTotals(event.target.checked)} /> 총계</label></span></div>
-    {settingsOpen && <div style={settingsStyle}><label>행 높이 <NumberSetting testId="pivot-exe-row-height" value={rowHeight} min={18} max={48} onCommit={(value)=>setRowHeight(Math.max(18,Math.min(48,value)))} /></label><label>데이터 열 너비 <NumberSetting testId="pivot-exe-data-width" value={widths.__data ?? 96} min={48} max={400} onCommit={(value)=>setWidth('__data',value)} /></label><label>소수 자릿수 <select value={decimals} onChange={(event)=>changeDecimals(event.target.value)}><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label>{zones.rows.map((id)=><label key={id}>{BY_ID[id].label} 너비 <NumberSetting testId={`pivot-exe-row-width-${id}`} value={widths[id] ?? ({CounName:90,FlowerName:90,ProdName:220}[id] || 120)} min={48} max={400} onCommit={(value)=>setWidth(id,value)} /></label>)}</div>}
+    <div style={{fontSize:11,color:'#52647a',margin:'6px 0 3px'}}>필드 버튼을 끌거나 <b>⇄</b>를 눌러 <b>세로 행 · 가로 열 · 값 · 필터</b> 사이에서 이동할 수 있습니다.</div>
+    <div style={{display:'flex',flexWrap:'wrap',gap:5,alignItems:'center',fontSize:11,margin:'3px 0 6px'}}>{zoneArea('rows','세로 행')}{zoneArea('cols','가로 열')}{zoneArea('values','값')}{zoneArea('filters','필터')}<span style={{marginLeft:'auto'}}><label><input type="checkbox" checked={filterActive} onChange={(event)=>setFilterActive(event.target.checked)} /> 필터 활성</label><button className="btn btn-sm" onClick={()=>{setAst(EMPTY_AST());setSelections({});}}>필터 지우기</button><button data-testid="pivot-exe-decimals-toggle" className="btn btn-sm" onClick={toggleDecimals}>{decimals === 0 ? '소수점 표시' : '소수점 숨기기'}</button><label><input type="checkbox" checked={zeroVisible} onChange={(event)=>setZeroVisible(event.target.checked)} /> 0 표시</label><button data-testid="pivot-exe-settings-toggle" className="btn btn-sm" onClick={()=>setSettingsOpen((previous)=>!previous)}>표시 설정</button><label><input type="checkbox" checked={showRowTotals} onChange={(event)=>setShowRowTotals(event.target.checked)} /> 행 소계</label><label><input type="checkbox" checked={showColumnTotals} onChange={(event)=>setShowColumnTotals(event.target.checked)} /> 열 소계</label><label><input type="checkbox" checked={showGrandTotals} onChange={(event)=>setShowGrandTotals(event.target.checked)} /> 총계</label></span></div>
+    {settingsOpen && <div style={settingsStyle}><label>행 높이 <NumberSetting testId="pivot-exe-row-height" value={rowHeight} min={18} max={48} onCommit={(value)=>setRowHeight(Math.max(18,Math.min(48,value)))} /></label><label title="한 값을 바꾸면 모든 가로 데이터 열에 같은 너비가 적용됩니다.">가로 열 전체 너비 <NumberSetting testId="pivot-exe-data-width" value={widths.__data ?? 96} min={48} max={400} onCommit={(value)=>setWidths((previous)=>withCollectivePivotWidth(previous,'__data',value))} /></label><label>소수 자릿수 <select value={decimals} onChange={(event)=>changeDecimals(event.target.value)}><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label>{zones.rows.map((id)=><label key={id}>{BY_ID[id].label} 너비 <NumberSetting testId={`pivot-exe-row-width-${id}`} value={widths[id] ?? ({CounName:90,FlowerName:90,ProdName:220}[id] || 120)} min={48} max={400} onCommit={(value)=>setWidth(id,value)} /></label>)}</div>}
     <button data-testid="pivot-exe-reset" className="btn btn-sm" onClick={()=>{setZones(DEFAULT_ZONES);setHidden([]);setSelections({});setAst(EMPTY_AST());setFilterActive(true);setSorts({});setWidths({});setRowHeight(24);setDecimals(2);setPreviousNonzeroDecimals(2);setZeroVisible(false);setCollapsedRows(new Set());setCollapsedCols(new Set());setShowRowTotals(true);setShowColumnTotals(true);setShowGrandTotals(true);}}>기본 배치 복원</button>
     <PivotExeFavorites view={currentView} onApply={applyView} disabled={!layoutHydrated || !preferenceKey} />
     {zones.values.length === 0 && <div role="status" style={{fontSize:12,color:'#805500',padding:5}}>집계할 값이 없습니다. ‘수량’ 또는 ‘입고총단가’를 값 영역으로 옮기세요.</div>}
@@ -419,11 +420,12 @@ function NumberSetting({ testId, value, min, max, onCommit }) {
   };
   return <input data-testid={testId} type="number" min={min} max={max} value={draft} style={{width:60}} onChange={(event)=>setDraft(event.target.value)} onBlur={commit} onKeyDown={(event)=>{if(event.key==='Enter') event.currentTarget.blur();}} />;
 }
-function FieldList({ zones,hidden,onClose,onMove,onHide }) { const [search,setSearch]=useState(''); const findZone=(id)=>hidden.includes(id)?'hidden':['rows','cols','values','filters'].find((zone)=>zones[zone].some((item)=>typeof item==='string'?item===id:item.id===id)) || 'hidden'; return <Modal title="필드 목록" onClose={onClose} width={620}><input autoFocus value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="필드 검색" style={inputStyle}/><div style={{maxHeight:'55vh',overflow:'auto'}}>{FIELDS.filter((field)=>field.label.includes(search)||field.id.toLowerCase().includes(search.toLowerCase())).map((field)=>{const zone=findZone(field.id);return <div key={field.id} style={{display:'grid',gridTemplateColumns:'1fr 110px 55px',gap:5,alignItems:'center',padding:'5px 0',borderBottom:'1px solid #eef1f5'}}><label><input type="checkbox" checked={zone!=='hidden'} onChange={(event)=>event.target.checked?onMove(field.id,'filters'):onHide(field.id)}/>{field.label} <small style={{color:'#778'}}>({field.id})</small></label><select value={zone} onChange={(event)=>event.target.value==='hidden'?onHide(field.id):onMove(field.id,event.target.value)}><option value="hidden">숨김</option><option value="rows">행</option><option value="cols">열</option><option value="filters">필터</option><option value="values">값 {field.numeric ? '' : '(개수)'}</option></select><button onClick={()=>onHide(field.id)}>숨김</button></div>})}</div><ModalButtons onCancel={onClose} onApply={onClose} applyLabel="완료" /></Modal>; }
+function FieldList({ zones,hidden,onClose,onMove,onHide }) { const [search,setSearch]=useState(''); const findZone=(id)=>hidden.includes(id)?'hidden':['rows','cols','values','filters'].find((zone)=>zones[zone].some((item)=>typeof item==='string'?item===id:item.id===id)) || 'hidden'; return <Modal title="필드 목록" onClose={onClose} width={620}><p style={{margin:'0 0 7px',fontSize:11,color:'#5f6f82'}}>각 필드의 표시 위치를 세로 행·가로 열·값·필터 중에서 바로 선택하세요.</p><input autoFocus value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="필드 검색" style={inputStyle}/><div style={{maxHeight:'55vh',overflow:'auto'}}>{FIELDS.filter((field)=>field.label.includes(search)||field.id.toLowerCase().includes(search.toLowerCase())).map((field)=>{const zone=findZone(field.id);return <div key={field.id} style={{display:'grid',gridTemplateColumns:'1fr 130px 55px',gap:5,alignItems:'center',padding:'5px 0',borderBottom:'1px solid #eef1f5'}}><label><input type="checkbox" checked={zone!=='hidden'} onChange={(event)=>event.target.checked?onMove(field.id,'filters'):onHide(field.id)}/>{field.label} <small style={{color:'#778'}}>({field.id})</small></label><select aria-label={`${field.label} 표시 위치`} value={zone} onChange={(event)=>event.target.value==='hidden'?onHide(field.id):onMove(field.id,event.target.value)}><option value="hidden">숨김</option><option value="rows">세로 행</option><option value="cols">가로 열</option><option value="filters">필터</option><option value="values">값 {field.numeric ? '' : '(개수)'}</option></select><button onClick={()=>onHide(field.id)}>숨김</button></div>})}</div><ModalButtons onCancel={onClose} onApply={onClose} applyLabel="완료" /></Modal>; }
 
 const toolbarStyle={display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',padding:'7px 8px',background:'#edf2f7',border:'1px solid #d8e0ea'};
 const chipStyle={display:'inline-flex',alignItems:'center',marginLeft:3,border:'1px solid #b9c7d9',borderRadius:3,background:'#fff'};
 const filterChipButton={border:0,borderLeft:'1px solid #d5dfe9',background:'#f4f7fb',color:'#54708e',cursor:'pointer',fontSize:10,lineHeight:'18px',padding:'0 4px'};
+const moveChipButton={border:0,borderLeft:'1px solid #d5dfe9',background:'#eef4fb',color:'#245a91',cursor:'pointer',fontSize:11,lineHeight:'18px',padding:'0 5px',fontWeight:800};
 const filterChipActive={background:'#dcecff',color:'#1558a6'};
 const settingsStyle={display:'flex',gap:9,flexWrap:'wrap',alignItems:'center',padding:'6px 8px',marginBottom:6,background:'#f6f8fb',border:'1px solid #d8e0ea',fontSize:11};
 const menuStyle={position:'fixed',zIndex:1000,width:260,padding:9,background:'#fff',border:'1px solid #93a5bb',boxShadow:'0 5px 18px #0003',borderRadius:4};

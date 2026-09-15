@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { createPivotPreferenceWriter, createPivotResizeSession } from '../lib/pivotExeInteraction.js';
+import fs from 'node:fs';
+import { createPivotPreferenceWriter, createPivotResizeSession, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction.js';
 
 function fakeWindow() {
   const listeners = new Map(), frames = new Map(); let id = 0;
@@ -34,6 +35,24 @@ for (const [x, expected] of [[-1000,48],[9999,400],[100,96]]) {
   target.emit('mouseup',{clientX:x}); assert.equal(result,expected);
 }
 const timers = new Map(); let nextTimer = 0; const storedA = [], storedB = [];
+
+assert.equal(pivotResizePreferenceKey('CounName', ['CounName','FlowerName']), 'CounName', '세로 행 머리글은 개별 너비를 유지한다');
+assert.equal(pivotResizePreferenceKey('col-abc-Quantity:sum', ['CounName','FlowerName']), '__data', '가로 데이터 열은 공통 너비 키를 사용한다');
+assert.deepEqual(
+  withCollectivePivotWidth({CounName:90,'col-old-a':72,'col-old-b':140,__data:96}, '__data', 118),
+  {CounName:90,__data:118},
+  '가로 열 일괄 조정 시 과거 개별 열 너비를 제거하고 공통 너비만 저장한다',
+);
+assert.deepEqual(withCollectivePivotWidth({CounName:90,__data:96}, 'CounName', 120), {CounName:120,__data:96});
+assert.deepEqual(normalizeCollectivePivotWidths({CounName:90,'col-first':72,'col-second':140}), {CounName:90,__data:72}, '기존 개별 열 설정은 첫 너비를 전체 너비로 승격한다');
+
+const panelSource = fs.readFileSync(new URL('../components/PivotExePanel.js', import.meta.url), 'utf8');
+const gridSource = fs.readFileSync(new URL('../components/PivotExeGrid.js', import.meta.url), 'utf8');
+assert.match(panelSource, /zoneArea\('rows','세로 행'\)/, '세로 행 영역을 화면에 명확히 표시한다');
+assert.match(panelSource, /zoneArea\('cols','가로 열'\)/, '가로 열 영역을 화면에 명확히 표시한다');
+assert.match(panelSource, /영역 이동.*⇄|⇄.*영역 이동/s, '필드 칩에 버튼형 영역 이동 진입점을 표시한다');
+assert.match(gridSource, /가로 데이터 열 전체 너비 조절/, '가로 데이터 열 핸들은 일괄 조절임을 안내한다');
+
 const options = (write) => ({write,setTimer:(callback)=>{timers.set(++nextTimer,callback);return nextTimer;},clearTimer:(id)=>timers.delete(id)});
 const a = createPivotPreferenceWriter(options((v)=>storedA.push(v)));
 a.schedule({width:100}); a.schedule({width:120}); a.schedule({width:0,zeroVisible:false});
