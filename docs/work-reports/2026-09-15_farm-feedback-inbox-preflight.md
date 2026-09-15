@@ -12,6 +12,7 @@ Automatic detections are feedback-needed work immediately, without a transfer/cr
 - No native EXE feedback counterpart: source/financial calculations remain separate.
 - Read-only production probe 34923042310: source436, deleted24, active412, farm-missing80, unconfirmed55 (overlapping), 162 signals covering324 distinct sources. Required source columns present.
 - GitHub CLI authenticated; no credentials read or changed.
+- Fresh read-only probe `34942295178` on this draft PR: existing cases=3, missing same-year source anchors=0, duplicate anchor groups=0. New inbox tables/Case.InboxKey are absent as expected. Source counts unchanged. Additive migration requires no destructive backfill.
 
 ## Side effects
 

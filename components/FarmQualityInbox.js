@@ -1,0 +1,138 @@
+import {useEffect,useRef,useState} from 'react';
+import {apiGet,apiPost} from '../lib/useApi';
+import {QUALITY_STATUSES,QUALITY_KINDS,QUALITY_SIGNAL_KINDS} from '../lib/farmQuality';
+import {resizeImageFile} from '../lib/catalogImageClient';
+import {QUALITY_EVIDENCE_MAX_BYTES,QUALITY_EVIDENCE_MAX_FILES} from '../lib/farmQualityEvidence';
+import {parseJsonResponse} from '../lib/parseJsonResponse';
+
+const day=()=>new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
+const count=value=>Number(value||0).toLocaleString('ko-KR',{maximumFractionDigits:1});
+const status=value=>value==='NEW'?'피드백 필요':QUALITY_STATUSES[value]||'상태 확인 필요';
+const feedbackNeeded=item=>!item.cases?.length||item.cases.some(c=>c.status==='NEW')||(item.newSourceKeys||[]).length>0;
+const names=item=>[...new Set((item.sources||[]).map(row=>`${row.farmName||'농장 미지정'} · ${row.productName||'품목 미지정'}`))].join(' / ')||item.cases?.map(c=>c.title).join(' / ')||'기존 피드백';
+export const inboxActive=item=>!item.excluded||(item.newSourceKeys||[]).length>0;
+export function inboxTarget(item,caseKey,cases){
+ const histories=item.cases||[];
+ if(histories.length>1&&!caseKey)throw new Error('기록할 이력을 선택하세요.');
+ const chosen=histories.find(c=>String(c.caseKey)===String(caseKey));
+ if(histories.length&&!chosen)throw new Error('기록할 이력을 다시 선택하세요.');
+ const full=cases.find(c=>String(c.CaseKey)===String(caseKey));
+ const anchorSourceKey=full?.SourceKey??item.sourceKeys?.[0];
+ if(!anchorSourceKey||!item.revision)throw new Error('원본과 목록을 새로고침해 주세요.');
+ const scope=(item.exclusionScopes||[]).find(scope=>scope.caseKeys?.some(key=>String(key).toLowerCase()===String(caseKey).toLowerCase()));
+ const inboxKey=full?.InboxKey||scope?.inboxKey||(item.inboxKeys?.length===1?item.inboxKeys[0]:undefined);
+ return {anchorSourceKey,inboxKey,caseKey:chosen?.caseKey,revision:item.revision};
+}
+
+export default function FarmQualityInbox({data,year,from,to,search='',focus,onDirty,onBusy,refresh}){
+ const [filter,setFilter]=useState('ALL'),[unit,setUnit]=useState('ALL'),[selected,setSelected]=useState(null),[caseKey,setCaseKey]=useState('');
+ const [body,setBody]=useState(''),[kind,setKind]=useState('COMMENT'),[eventDate,setEventDate]=useState(day),[dueDate,setDueDate]=useState(''),[appliedWeek,setAppliedWeek]=useState(''),[reason,setReason]=useState('');
+ const [events,setEvents]=useState([]),[historyLoading,setHistoryLoading]=useState(false),[historyError,setHistoryError]=useState('');
+ const [images,setImages]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[stale,setStale]=useState(false);
+ const lock=useRef(false),pending=useRef(null),historySeq=useRef(0),fileInput=useRef(null);
+ const dirty=Boolean(body||reason||images.length);
+ useEffect(()=>{onDirty(dirty);},[dirty,onDirty]);
+ useEffect(()=>{onBusy(busy);},[busy,onBusy]);
+ useEffect(()=>()=>{historySeq.current++;onDirty(false);onBusy(false);},[]);
+ const items=data.inbox?.items||[],fullCases=data.cases||[];
+ const units=[...new Set(items.flatMap(item=>(item.sources||[]).map(row=>row.unit)).filter(Boolean))];
+ const visible=items.filter(item=>{
+  const text=[names(item),...(item.sources||[]).map(row=>row.customerName),...(item.cases||[]).map(c=>c.title)].join(' ').toLowerCase();
+  const inPeriod=!item.firstWeek||item.lastWeek>=Number(from)&&item.firstWeek<=Number(to);
+  return text.includes(search.trim().toLowerCase())&&inPeriod&&(unit==='ALL'||item.sources?.some(row=>row.unit===unit));
+ });
+ const matches=(item,value)=>value==='EXCLUDED'?!inboxActive(item):inboxActive(item)&&(value==='ALL'||value==='NEW'&&feedbackNeeded(item)||value==='MANUAL'&&!item.patternKinds?.length||value==='SUSPECTED'&&item.suspectedRecurrence||item.cases?.some(c=>c.status===value));
+ const rows=visible.filter(item=>matches(item,filter));
+ const chosen=selected?.cases?.find(c=>String(c.caseKey)===String(caseKey));
+ const full=fullCases.find(c=>String(c.CaseKey)===String(caseKey));
+ const capabilities=selected?.capabilities||{};
+ const canManage=Boolean(data.canManage&&capabilities.canManage!==false);
+ const availableKinds=Object.entries(QUALITY_KINDS).filter(([key])=>(key==='COMMENT'||canManage)&&(!selected?.cases?.length?['COMMENT','REQUEST'].includes(key):!['EXCLUDE','RESTORE'].includes(key)));
+ const evidenceUrl=image=>`/api/sales/farm-quality-evidence?year=${year}&evidenceKey=${encodeURIComponent(image.EvidenceKey||image.evidenceKey)}`;
+ async function loadHistory(key){
+  const id=++historySeq.current;setEvents([]);setHistoryError('');if(!key){setHistoryLoading(false);return;}
+  setHistoryLoading(true);try{const result=await apiGet('/api/sales/farm-quality',{year,caseKey:key});if(id===historySeq.current)setEvents(result.events||[]);}catch(e){if(id===historySeq.current)setHistoryError(e.message);}finally{if(id===historySeq.current)setHistoryLoading(false);}
+ }
+ function openItem(item){
+  if(lock.current)return;if(dirty&&!window.confirm('작성 내용과 첨부 이미지를 비우고 다른 피드백을 볼까요?'))return;
+  const target=item.cases?.length===1?item.cases[0].caseKey:'';
+  setSelected(item);setCaseKey(target);setBody('');setReason('');setImages([]);setKind('COMMENT');setError('');setMessage('');setStale(false);pending.current=null;loadHistory(target);
+ }
+ useEffect(()=>{if(focus){const item=items.find(item=>item.key===focus.key);if(item)openItem(item);}},[focus]);
+ function selectHistory(value){if(lock.current)return;if(dirty){if(!window.confirm('작성 내용과 첨부 이미지를 비우고 기록 대상을 바꿀까요?'))return;setBody('');setReason('');setImages([]);}setCaseKey(value);setKind('COMMENT');pending.current=null;loadHistory(value);}
+ async function evidenceRequest(url,options){const response=await fetch(url,{credentials:'include',...options});const result=await parseJsonResponse(response);if(!response.ok)throw new Error(result.error||'이미지 처리에 실패했습니다.');return result;}
+ async function upload(files){
+  if(lock.current)return;const picked=[...(files||[])].filter(file=>file.type.startsWith('image/'));if(!picked.length)return;
+  if(images.length+picked.length>QUALITY_EVIDENCE_MAX_FILES){setError(`이미지는 최대 ${QUALITY_EVIDENCE_MAX_FILES}장까지 첨부할 수 있습니다.`);return;}
+  lock.current=true;setBusy(true);setError('');try{const form=new FormData();for(const file of picked){if(file.size>QUALITY_EVIDENCE_MAX_BYTES*4)throw new Error('원본 이미지 한 장은 40MB 이하만 선택하세요.');form.append('files',await resizeImageFile(file,{maxSize:1920,quality:.88}));}const result=await evidenceRequest(`/api/sales/farm-quality-evidence?year=${year}`,{method:'POST',body:form});setImages(previous=>[...previous,...(result.images||[])]);pending.current=null;}catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);if(fileInput.current)fileInput.current.value='';}
+ }
+ function paste(event){const files=[...(event.clipboardData?.items||[])].filter(item=>item.kind==='file'&&item.type.startsWith('image/')).map(item=>item.getAsFile()).filter(Boolean);if(files.length){event.preventDefault();upload(files);}}
+ async function removeImage(image){if(lock.current)return;lock.current=true;setBusy(true);try{await evidenceRequest(evidenceUrl(image),{method:'DELETE'});setImages(previous=>previous.filter(item=>item.evidenceKey!==image.evidenceKey));pending.current=null;}catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);}}
+ async function mutate(action){
+  if(lock.current||!selected||stale)return;
+  setError('');let payload;
+  try{
+   const target=inboxTarget(selected,caseKey,fullCases),caseVersion=chosen?.version??full?.Version;
+   const selectedScope=selected.exclusionScopes?.find(scope=>String(scope.inboxKey).toLowerCase()===String(target.inboxKey).toLowerCase());
+   const inboxVersion=selectedScope?.version;
+   if(selected.inboxKeys?.length>1&&(!target.inboxKey||!target.caseKey))throw new Error('변경할 인박스에 연결된 이력을 선택하세요.');
+   if(action==='inboxEvent'){
+    if(!capabilities.canComment)throw new Error('현재 피드백에 기록할 권한이 없습니다.');
+    if(!body.trim())throw new Error('내용을 입력하세요.');
+    if(!availableKinds.some(([key])=>key===kind))throw new Error('기록 종류를 다시 선택하세요.');
+    if(historyLoading||historyError)throw new Error('선택한 이력을 먼저 불러와 주세요.');
+    payload={action,year,target,caseVersion,inboxVersion,kind,body,eventDate:kind==='COMMENT'?'':eventDate,dueDate:kind==='REQUEST'?dueDate:'',appliedWeek:kind==='APPLY'?appliedWeek:'',evidenceKeys:images.map(image=>image.evidenceKey)};
+   }else{
+    if(!data.canManage||!(action==='inboxExclude'?capabilities.canExclude:capabilities.canRestore))throw new Error('제외/복원 권한이 없습니다.');
+    if(!reason.trim())throw new Error('제외 또는 복원 사유를 입력하세요.');
+    payload={action,year,target,caseVersion,inboxVersion,reason};
+   }
+  }catch(e){setError(e.message);return;}
+  const signature=JSON.stringify(payload);if(pending.current?.signature!==signature)pending.current={signature,payload,requestId:crypto.randomUUID()};
+  lock.current=true;setBusy(true);
+  try{
+   const result=await apiPost('/api/sales/farm-quality',{...pending.current.payload,requestId:pending.current.requestId});
+   // A committed acknowledgement is displayed before any optional refresh.
+   if(result.event){const acknowledged={...result.event,Evidence:result.event.Evidence?.length?result.event.Evidence:images.map(image=>({EvidenceKey:image.evidenceKey,FileName:image.fileName}))};setEvents(previous=>previous.some(e=>e.EventKey===acknowledged.EventKey)?previous:[...previous,acknowledged]);}
+   setMessage(result.replayed?'저장 완료 · 이미 처리된 기록입니다.':'저장 완료 · 기록이 반영되었습니다.');
+   if(action==='inboxEvent'){setBody('');setImages([]);}else setReason('');
+   pending.current=null;
+   const updated=result.inbox?.items?.find(item=>item.sourceKeys?.includes(payload.target.anchorSourceKey))||result.inbox?.item||(result.inbox?.key?result.inbox:null);
+   if(updated){setSelected(updated);setStale(false);}else setStale(true);
+   if(result.caseKey)setCaseKey(result.caseKey);
+   Promise.resolve(refresh()).then(ok=>{if(!ok)setError('저장은 완료됐지만 목록을 새로고침하지 못했습니다.');}).catch(()=>setError('저장은 완료됐지만 목록을 새로고침하지 못했습니다.'));
+  }catch(e){if(e.code==='INBOX_STALE'||e.code==='QUALITY_STALE'){setStale(true);pending.current=null;}setError(`${e.message} 입력 내용과 첨부 이미지는 유지됩니다.`);}finally{lock.current=false;setBusy(false);}
+ }
+ function reviewLatest(){
+  const latest=items.find(item=>item.key===selected?.key)||items.find(item=>item.sourceKeys?.some(key=>selected?.sourceKeys?.includes(key)));
+  if(!latest){setError('현재 목록에서 피드백을 찾지 못했습니다. 새로고침해 주세요.');return;}
+  setSelected(latest);setStale(false);pending.current=null;
+  if(!latest.cases?.some(c=>String(c.caseKey)===String(caseKey))){setCaseKey('');loadHistory('');}
+ }
+ return <section className="inbox" aria-label="통합 피드백 목록">
+  <div className="filters">{[['ALL','전체 활성'],['NEW','피드백 필요'],['WAITING','미답변'],['ANSWERED','답변 도착'],['OBSERVING','관찰 중'],['CLOSED','개선 확인'],['SUSPECTED','재발 의심'],['MANUAL','수동·과거'],['EXCLUDED','제외됨']].map(([value,label])=><button key={value} aria-pressed={filter===value} onClick={()=>setFilter(value)}>{label} {visible.filter(item=>matches(item,value)).length}</button>)}<label>단위 <select value={unit} onChange={e=>setUnit(e.target.value)}><option value="ALL">전체 단위</option>{units.map(value=><option key={value}>{value}</option>)}</select></label></div>
+  <small>자동 감지 후보는 바로 피드백 필요로 표시됩니다. 원본 확인 상태와 관계없이 기록할 수 있습니다.</small>
+  {!data.inbox&&<p role="status">통합 피드백 목록을 불러오는 중입니다.</p>}
+  <div className={`workspace ${selected?'expanded':''}`}><div className="rows">{rows.map(item=><button disabled={busy} className={`row ${selected?.key===item.key?'selected':''}`} key={item.key} onClick={()=>openItem(item)}>
+   <strong>{names(item)}</strong><span className="badges">{feedbackNeeded(item)&&<b>피드백 필요</b>}{item.sourceReviewRequired&&<b>원본 확인 필요</b>}{item.newSourceKeys?.length>0&&<b>{item.sourceReviewReasons?.includes('제외 이후 새 원본')?'제외 이후 새 원본':'새 원본'} {item.newSourceKeys.length}</b>}{item.suspectedRecurrence&&<b>재발 의심</b>}{!inboxActive(item)&&<b>제외됨</b>}</span>
+   <span>원본 {item.sourceCount}건 · {item.firstWeek?`${item.firstWeek}~${item.lastWeek}차`:'과거 이력'} · {item.quantitiesByUnit?.map(total=>`${count(total.quantity)} ${total.unit}`).join(' / ')}</span><span className="patterns">{item.patternKinds?.map(key=>QUALITY_SIGNAL_KINDS[key]||key).join(' · ')||'수동·과거 피드백'}</span>
+   <span className="histories">{item.cases?.map(c=><span key={c.caseKey} title={c.recentEvents?.at(-1)?.Body||c.title}>{c.title} · {status(c.status)} · 기록 {c.eventCount}건{c.recentEvents?.at(-1)?.Body&&<small className="latest-comment">{c.recentEvents.at(-1).Body}</small>}</span>)}</span>
+  </button>)}{data.inbox&&!rows.length&&<p>선택 조건에 해당하는 피드백이 없습니다.</p>}</div>
+  {selected&&<aside><div className="heading"><h2>{names(selected)}</h2><button disabled={busy} onClick={()=>{if(dirty&&!window.confirm('작성 내용을 비우고 닫을까요?'))return;setSelected(null);setBody('');setReason('');setImages([]);historySeq.current++;}}>닫기</button></div>
+   <details><summary>원본 근거 {selected.sourceCount}건 · 패턴 {selected.patternKinds?.length||0}개</summary><p>{selected.patternKinds?.map(key=>QUALITY_SIGNAL_KINDS[key]||key).join(' · ')}</p>{selected.sourceReviewRequired&&<p className="warning">{selected.sourceReviewReasons?.join(' · ')} · 피드백 기록 가능</p>}<div className="sources">{selected.sources?.map((row,index)=><div key={`${row.sourceKey}-${index}`}><b>{row.orderWeek} · {row.farmName||'농장 미지정'} · {row.productName}</b><span>업체 {row.customerName||'거래처 미상'} · {row.quantity==null||!Number.isFinite(Number(row.quantity))?'수량 확인 불가':`${count(row.quantity)} ${row.unit}`}</span>{(row.historical||row.isHistorical)&&<small>과거 연결 원본</small>}{row.reasons?.length>0&&<small>{row.reasons.join(' · ')}</small>}</div>)}</div></details>
+   {selected.cases?.length>0&&<label>조회·기록 대상 이력 <select aria-label="기록 대상 이력" disabled={busy} value={caseKey} onChange={e=>selectHistory(e.target.value)}><option value="">이력을 선택하세요</option>{selected.cases.map((c,index)=><option key={c.caseKey} value={c.caseKey}>{c.title} · {status(c.status)} · 이력 {index+1}</option>)}</select></label>}
+   {selected.cases?.length>1&&!caseKey&&<p className="warning">여러 기존 이력이 연결되어 있습니다. 조회하고 기록할 대상을 직접 선택하세요.</p>}
+   <div className="events" aria-live="polite">{historyLoading?<p>이력 불러오는 중…</p>:events.map((event,index)=><article key={event.EventKey||index}><b>{QUALITY_KINDS[event.Kind]||({EXCLUDE:'제외',RESTORE:'복원'})[event.Kind]||'기록'} · {event.AuthorName}</b><small>{event.CreatedAt?new Date(event.CreatedAt).toLocaleString('ko-KR'):''}</small><p>{event.Body}</p>{event.EventDate&&<small>업무일 {String(event.EventDate).slice(0,10)}</small>}{event.DueDate&&<small>답변기한 {String(event.DueDate).slice(0,10)}</small>}<div className="images">{event.Evidence?.map(image=><a href={evidenceUrl(image)} key={image.EvidenceKey} target="_blank" rel="noreferrer"><img src={evidenceUrl(image)} alt={image.FileName||'증거 이미지'}/></a>)}</div></article>)}</div>
+   {historyError&&<p role="alert">{historyError} <button onClick={()=>loadHistory(caseKey)}>이력 다시 조회</button></p>}
+   {message&&<p role="status" className="success">{message}</p>}{error&&<p role="alert" className="warning">{error}</p>}
+   {stale&&<div className="warning">최신 원본과 이력을 다시 확인한 뒤 저장하세요. 입력 내용은 유지됩니다. <button disabled={busy} onClick={async()=>{await refresh();}}>목록 새로고침</button> <button disabled={busy} onClick={reviewLatest}>최신 대상 확인</button></div>}
+   <fieldset disabled={busy} onPaste={paste}><legend>피드백 기록</legend><label>기록 종류<select value={kind} onChange={e=>setKind(e.target.value)}>{availableKinds.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>{kind!=='COMMENT'&&<label>업무일<input type="date" value={eventDate} onChange={e=>setEventDate(e.target.value)}/></label>}{kind==='REQUEST'&&<label>답변기한<input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label>}{kind==='APPLY'&&<label>적용 차수<input type="number" min="1" max="53" value={appliedWeek} onChange={e=>setAppliedWeek(e.target.value)}/></label>}<label>내용<textarea maxLength="4000" value={body} onChange={e=>setBody(e.target.value)}/></label><div className="images">{images.map(image=><figure key={image.evidenceKey}><img src={evidenceUrl(image)} alt={image.fileName||'첨부 예정 이미지'}/><button onClick={()=>removeImage(image)}>첨부 제거</button></figure>)}</div><input hidden ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={e=>upload(e.target.files)}/><button onClick={()=>fileInput.current?.click()}>증거 이미지 첨부 · Ctrl+V</button><button className="primary" disabled={stale||historyLoading||Boolean(historyError)||!body.trim()||!capabilities.canComment||Boolean(selected.cases?.length&&!caseKey)} onClick={()=>mutate('inboxEvent')}>{busy?'저장 중…':'이력 저장'}</button></fieldset>
+   {data.canManage&&(capabilities.canExclude||capabilities.canRestore)&&<fieldset disabled={busy}><legend>목록 제외 · 복원</legend>{selected.exclusionScopes?.map(scope=><p key={scope.inboxKey}>{scope.caseKeys?.map(key=>selected.cases?.find(c=>c.caseKey===key)?.title||'기존 이력').join(' / ')} · {scope.excluded?'제외됨':'활성'}{scope.reason?` · ${scope.reason}`:''}</p>)}{selected.exclusionReason&&<p>최근 제외·복원 사유: {selected.exclusionReason}</p>}<label>사유<input maxLength="1000" value={reason} onChange={e=>setReason(e.target.value)}/></label>{capabilities.canExclude&&<button disabled={stale||!reason.trim()} onClick={()=>mutate('inboxExclude')}>사유를 남기고 제외</button>}{capabilities.canRestore&&<button disabled={stale||!reason.trim()} onClick={()=>mutate('inboxRestore')}>사유를 남기고 복원</button>}</fieldset>}
+  </aside>}</div>
+  <style jsx>{`
+   .inbox{font-size:13px;min-width:0}.filters{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}.filters label{margin-left:auto}button,input,select,textarea{font:inherit;color:#19304f;border:1px solid #c4d2e5;border-radius:5px;padding:5px 7px;background:white;max-width:100%;box-sizing:border-box}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}button[aria-pressed=true],.primary{background:#205db5;color:white}.workspace{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;height:calc(100vh - 248px);min-height:450px;margin-top:7px}.workspace.expanded{grid-template-columns:minmax(0,1fr) minmax(400px,32%)}.rows{overflow:auto;display:grid;align-content:start;gap:4px}.row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) auto;gap:4px 10px;text-align:left;padding:8px;border-left:4px solid #819dc1;min-width:0}.row.selected{border-color:#205db5;background:#eef5ff}.row>strong{overflow-wrap:anywhere}.badges{display:flex;gap:4px;flex-wrap:wrap}.badges b{font-size:11px;background:#fff1cf;color:#75520b;border-radius:4px;padding:2px 4px}.patterns{grid-column:1/-1;color:#5b6d82;font-size:11px}.histories{grid-column:1/-1;display:flex;gap:5px;flex-wrap:wrap;font-size:12px}.histories span{background:#edf3fa;padding:3px 5px;border-radius:4px;min-width:0;max-width:100%}.latest-comment{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;line-height:1.25;color:#50637b}aside{min-width:0;overflow:auto;border:1px solid #c4d2e5;border-radius:6px;padding:8px;background:#fff}.heading{display:flex;gap:7px;align-items:flex-start;justify-content:space-between}h2{font-size:14px;margin:0 0 8px;overflow-wrap:anywhere}.heading button{flex-shrink:0}label{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:5px 0}aside label{flex-direction:column;align-items:stretch}.sources{max-height:220px;overflow:auto}.sources>div{display:grid;gap:3px;border-bottom:1px solid #dce5ef;padding:6px;overflow-wrap:anywhere}.events{max-height:300px;overflow:auto}.events article{background:#f0f6fc;border-left:3px solid #739aca;padding:6px;margin:5px 0}.events small{display:block;color:#65748a}.events p{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0}.images{display:flex;gap:5px;flex-wrap:wrap}.images img{width:90px;height:65px;object-fit:cover}.images figure{margin:0;display:grid}.warning{background:#fff2da;color:#78530c;padding:7px;overflow-wrap:anywhere}.success{background:#e5f6ea;color:#23673a;padding:7px}fieldset{border:1px solid #d4e0ed;border-radius:5px;margin:8px 0;padding:7px;min-width:0}fieldset>button{margin:3px}textarea{width:100%;height:70px;resize:vertical}summary{cursor:pointer;padding:6px;background:#f4f7fc}details p{overflow-wrap:anywhere}
+   @media(max-width:1100px){.workspace.expanded{grid-template-columns:minmax(0,1fr) minmax(350px,42%)}.row{grid-template-columns:minmax(0,1fr)}.patterns,.histories{grid-column:1}}
+   @media(max-width:760px){.workspace,.workspace.expanded{height:auto;grid-template-columns:minmax(0,1fr);min-height:0}.rows{max-height:420px}.row{grid-template-columns:minmax(0,1fr)}aside{max-height:none}.filters label{margin-left:0;width:100%}.events{max-height:260px}}
+  `}</style>
+ </section>;
+}

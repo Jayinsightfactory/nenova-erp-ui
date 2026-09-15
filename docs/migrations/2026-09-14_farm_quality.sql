@@ -46,4 +46,29 @@ BEGIN
  CREATE INDEX IX_WebFarmQualityEvidence_Event ON dbo.WebFarmQualityEvidence(EventKey,EvidenceKey);
  CREATE INDEX IX_WebFarmQualityEvidence_Draft ON dbo.WebFarmQualityEvidence(OrderYear,CreatedBy,ExpiresAt) WHERE EventKey IS NULL;
 END;
+IF OBJECT_ID(N'dbo.WebFarmQualityInbox',N'U') IS NULL
+BEGIN
+ CREATE TABLE dbo.WebFarmQualityInbox (
+  InboxKey UNIQUEIDENTIFIER NOT NULL PRIMARY KEY, OrderYear INT NOT NULL,
+  Version INT NOT NULL DEFAULT 1, Excluded BIT NOT NULL DEFAULT 0,
+  ExclusionReason NVARCHAR(1000) NULL, ExcludedAt DATETIME2 NULL, ExcludedBy NVARCHAR(100) NULL,
+  CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(), UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(), CreatedBy NVARCHAR(100) NOT NULL,
+  CONSTRAINT UQ_WebFarmQualityInbox_Year UNIQUE(InboxKey,OrderYear)
+ );
+END;
+IF COL_LENGTH(N'dbo.WebFarmQualityCase',N'InboxKey') IS NULL
+ ALTER TABLE dbo.WebFarmQualityCase ADD InboxKey UNIQUEIDENTIFIER NULL;
+IF NOT EXISTS(SELECT 1 FROM sys.foreign_keys WHERE name=N'FK_WebFarmQualityCase_Inbox')
+ EXEC(N'ALTER TABLE dbo.WebFarmQualityCase ADD CONSTRAINT FK_WebFarmQualityCase_Inbox FOREIGN KEY(InboxKey,OrderYear) REFERENCES dbo.WebFarmQualityInbox(InboxKey,OrderYear)');
+IF OBJECT_ID(N'dbo.WebFarmQualityInboxSource',N'U') IS NULL
+BEGIN
+ CREATE TABLE dbo.WebFarmQualityInboxSource (
+  OrderYear INT NOT NULL, SourceKey INT NOT NULL, InboxKey UNIQUEIDENTIFIER NOT NULL,
+  LinkedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(), LinkedEventKey BIGINT NOT NULL,
+  CONSTRAINT PK_WebFarmQualityInboxSource PRIMARY KEY(OrderYear,SourceKey),
+  CONSTRAINT FK_WebFarmQualityInboxSource_Inbox FOREIGN KEY(InboxKey,OrderYear) REFERENCES dbo.WebFarmQualityInbox(InboxKey,OrderYear),
+  CONSTRAINT FK_WebFarmQualityInboxSource_Event FOREIGN KEY(LinkedEventKey) REFERENCES dbo.WebFarmQualityEvent(EventKey)
+ );
+ CREATE INDEX IX_WebFarmQualityInboxSource_Inbox ON dbo.WebFarmQualityInboxSource(InboxKey);
+END;
 COMMIT;

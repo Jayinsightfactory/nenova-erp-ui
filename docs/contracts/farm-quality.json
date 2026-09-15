@@ -7,6 +7,9 @@
     "pages/api/sales/farm-quality-evidence.js",
     "lib/farmQuality.js",
     "lib/farmQualityStore.js",
+    "lib/farmQualityInbox.js",
+    "lib/farmQualityInboxStore.js",
+    "components/FarmQualityInbox.js",
     "lib/farmQualityEvidence.js",
     "docs/migrations/2026-09-14_farm_quality.sql",
     "components/FarmQualityCoverage.js"
@@ -17,7 +20,7 @@
     "CustKey",
     "ProdKey"
   ],
-  "qualityIdentity": "CaseKey; source DeductionKey; farm+product+symptom, year. Customer display name is shown in source evidence; internal customer identifiers are not returned.",
+  "qualityIdentity": "CaseKey preserves each history. Automatic feedback identity uses year-scoped connected source components and durable InboxKey/InboxSource ownership, never farm or product labels alone. Customer display names are safe evidence; internal customer identifiers are not returned.",
   "actions": [
     {
       "name": "QUALITY_READ",
@@ -38,6 +41,18 @@
       "sideEffect": "사용자가 이슈로 처리 또는 이력 저장을 명시적으로 눌렀을 때만 WebFarmQualityCase와 WebFarmQualityEvent를 기록하고, 같은 연도·작성자의 미연결 증거 이미지를 생성된 불변 EventKey에 같은 트랜잭션으로 연결한다."
     },
     {
+      "name": "QUALITY_INBOX_EVENT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "자동감지 원본은 즉시 피드백 필요 목록에 표시된다. GET은 저장하지 않는다. 사용자의 명시적 코멘트·요청 저장에서만 연도·구성 revision·대상 이력·권한을 잠금 재검증한 후 WebFarmQualityInbox/InboxSource/Case/Event 및 증거 연결을 원자적으로 저장한다. 미확정·농장 미지정도 이 피드백 전용 경로로 관리하며 기존 확정 불량률과 legacy create 조건은 보존한다."
+    },
+    {
+      "name": "QUALITY_INBOX_EXCLUSION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "수입 관리 권한 사용자의 명시적 제외·복구와 사유를 웹 전용 이력으로 기록한다. 기존 업무 상태 및 코멘트를 보존하고 새 원본은 과거 제외에 자동 포함하지 않는다. 복수 이력은 임의 병합·삭제하지 않는다."
+    },
+    {
       "name": "QUALITY_DELETE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -45,6 +60,7 @@
     }
   ],
   "criteria": {
+    "inbox": "buildQualityInbox and resolveQualityInboxTarget use the selected year across weeks 1..53 before display filters. Overlap is based on actual source identity; source counts are deduplicated, units are not mixed. New unlinked sources remain visible until explicit reviewed mutation. Existing saved histories survive disappearing signals. Multiple histories require explicit target choice. Missing-farm evidence does not imply farm attribution. GET does not create, acknowledge, exclude or resolve any feedback. The feedback-only policy supersedes old canCreate=false only for inbox actions; trusted manual create and rates remain unchanged.",
     "source": "confirmed active WebSalesDefectDeduction, original parent week, Quantity/OriginalQuantity; denominator is same-year ViewWarehouse OutQuantity by parent week, normalized FarmName, ProdKey and Product.OutUnit; no financial status filter",
     "signals": "All same-year in-range active valid product/positive quantity source facts, including unconfirmed. Known farms retain SAME_ITEM_WEEK (2 distinct customers), FARM_WEEK_CLUSTER (2 products), ITEM_PERSISTENT and FARM_RECURRING (adjacent weeks or 3 in 4). Missing farms only yield UNASSIGNED_ITEM_WEEK (same product/unit/week, 2 known customers) or UNASSIGNED_ITEM_PERSISTENT (same known customer/product/unit cadence), never farm attribution. Any unconfirmed or missing-farm fact marks reviewRequired and canCreate=false; sourceKey is null. Internal customer identity is not included in public signal keys. Signal coverage counts unique source IDs, not overlapping signal totals; analyzed=detected+noPattern. Automatic unit filter defaults to all, separate from trusted rate units.",
     "privacy": "CustKey is used only server-side for distinct-order detection and is never projected in groups, signals, coverage, cases or details. On the user's 2026-09-15 request, snapshot CustName is projected as customerName for authenticated source and expanded signal evidence; no additional contact data or raw source notes are returned. Existing farm-quality role/account gates are unchanged. Evidence bytes stay behind authenticated same-year Case/Event or uploader checks, never public image routes.",
@@ -68,7 +84,10 @@
     "__tests__/farmQualityCoverage.test.js",
     "__tests__/farmQualityCoverageUi.test.js",
     "__tests__/farmQualityAllSourceSignals.test.js",
-    "__tests__/farmQualityAllSourceUi.test.js"
+    "__tests__/farmQualityAllSourceUi.test.js",
+    "__tests__/farmQualityInbox.test.js",
+    "__tests__/farmQualityInboxStore.test.js",
+    "__tests__/farmQualityInboxUi.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

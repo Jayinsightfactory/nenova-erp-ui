@@ -24,8 +24,8 @@ assert.match(source,/SIGNAL_ATTRIBUTION\[s\.attribution\]/,'farm, product, and c
 assert.match(source,/function create\(g\)\{if\(saveLock\.current\|\|uploading\)return;if\(needsSignalReview\(g\)\)/,'create is defensively gated');
 assert.match(source,/if\(existing\)\{setTab\('feedback'\);open\(existing\);return;\}if\(needsSignalReview\(candidate\)\)/,'existing issues remain openable before the review gate');
 assert.match(source,/if\(draft&&needsSignalReview\(draft\)\)/,'save is defensively gated');
-assert.match(source,/<Link className="source-review-link" href="\/sales\/defect-deductions">원본 확인<\/Link>/,'review candidates only navigate to the valid source route');
-assert.doesNotMatch(source,/review\?<button onClick=\{\(\)=>issueAction\(s\)\}/,'review candidates cannot render a create action');
+assert.match(source,/<button onClick=\{\(\)=>viewInbox\(s\)\}>피드백 보기<\/button>/,'all candidates open the unified inbox including review candidates');
+assert.doesNotMatch(source,/피드백 이슈로 처리/,'automatic transfer action removed; legacy trusted create gates remain');
 
 assert.match(source,/max-width:1920px/,'1920px desktop layout stays bounded');
 assert.match(source,/\.signal-list\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,'1920px desktop shows dense two-column signals');
