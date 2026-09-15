@@ -11,3 +11,26 @@ const mismatched = summarizeAuditReports([report('wrong-id', '2026-09-11T00:43:0
 const duplicate = summarizeAuditReports([report('duplicate', '2026-09-11T00:44:00.000Z', { requests: [request('a'), request('a')], findings: [finding('a', 'MATCHING_HISTORY')], unresolved: [] })])[0]; assert.equal(duplicate.allMatchingHistory, false, 'one finding cannot be reused for duplicate requests');
 const extra = summarizeAuditReports([report('extra', '2026-09-11T00:45:00.000Z', { requests: [request('a')], findings: [finding('a', 'MATCHING_HISTORY'), finding('unrequested', 'MATCHING_HISTORY')], unresolved: [] })])[0]; assert.equal(extra.allMatchingHistory, false, 'an unpaired finding prevents a whole-message match');
 console.log('distribution message application status tests passed');
+
+const {sourceConfirmation}=require('../lib/distributionMessageApplicationStatus');
+const scope={identity,year:'2026',week:'37-01',requestCount:2};
+const operation={sourceIdentity:identity,year:'2026',week:'37-01',status:'committed',committedCount:2,at:'2026-09-15 11:00:00',entries:[{sourceIdentity:identity},{sourceIdentity:identity}]};
+const manual={sourceIdentity:identity,year:'2026',week:'37-01',status:'MANUALLY_APPLIED',createdAt:'2026-09-15T02:01:00Z'};
+assert.equal(sourceConfirmation(scope).confirmed,false);
+assert.equal(sourceConfirmation({...scope,manual}).confirmed,true);
+assert.equal(sourceConfirmation({...scope,operation}).confirmed,true);
+for(const patch of [{status:'preview'},{status:'failed'},{undo:true},{undone:true},{incomplete:true},{committedCount:1},{year:'2025'},{week:'37-02'},{entries:[{sourceIdentity:identity}]}]) {
+  assert.equal(sourceConfirmation({...scope,operation:{...operation,...patch}}).confirmed,false,JSON.stringify(patch));
+}
+const cancelled={...manual,status:'MANUALLY_NOT_APPLIED'};
+assert.equal(sourceConfirmation({...scope,manual:cancelled,operation}).cancelled,true,'later cancellation overrides automatic completion');
+assert.equal(sourceConfirmation({...scope,manual:cancelled,operation:{...operation,at:'2026-09-15 11:02:00'}}).confirmed,true,'new successful operation reconfirms using KST vs UTC');
+assert.equal(sourceConfirmation({...scope,manual:{...manual,year:'2025'}}).confirmed,false);
+assert.equal(sourceConfirmation({...scope,manual:{...manual,status:'CLEAR'}}).confirmed,false);
+assert.equal(sourceConfirmation({...scope,operation,requestCount:0}).confirmed,false);
+const ui=require('node:fs').readFileSync(require('node:path').join(__dirname,'../components/orders/DistributionSalesInbox.js'),'utf8');
+assert.match(ui,/source-confirm-toggle:/);
+assert.match(ui,/highlighted\?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED'/);
+assert.match(ui,/role="alert"/);
+assert.match(ui,/applicationScope,open,disabled,operationRevision/);
+console.log('source confirmation toggle and successful-operation tests passed');

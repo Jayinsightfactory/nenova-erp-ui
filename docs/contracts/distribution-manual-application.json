@@ -3,6 +3,7 @@
   "title": "영업방 원문 수동 적용 표시 원장",
   "scope": [
     "lib/distributionManualApplicationStore.js",
+    "lib/distributionMessageApplicationStatus.js",
     "pages/api/orders/distribution-manual-applications.js",
     "components/orders/DistributionSalesInbox.js",
     "__tests__/distributionManualApplicationStore.test.js",
@@ -16,6 +17,7 @@
     {"name": "RECORD_MANUAL_APPLICATION_EVENT", "orderDetail": "preserve", "shipmentDetail": "preserve", "preserve": ["all ERP tables", "checklist review events", "audit snapshots"]}
   ],
   "criteria": {
+    "confirmationToggle": "Visible per-source confirm/cancel button reuses MANUALLY_APPLIED/MANUALLY_NOT_APPLIED with CAS. Cancellation overrides prior completion highlighting but never undoes ERP. Complete same-scope committed non-undo non-incomplete operation with exact source request count auto-confirms; newer manual cancellation wins until a later committed operation. Analysis, preview, failures and partial operations do not auto-confirm. Operation result changes refresh persisted status even with automatic polling disabled.",
     "scope": "authenticated request requires explicit 20xx year and full WW-SS week; 01~53 major and 01~99 subweek are accepted",
     "event": "append-only event has MANUALLY_APPLIED, MANUALLY_NOT_APPLIED, or CLEAR status; sourceIdentity remains verbatim safe data; memo is at most 1000 characters",
     "concurrency": "POST requires nullable expectedCurrentEventId as an explicitly present field. Events are isolated under private year/week directories. A deterministic sourceIdentity+expectedCurrentEventId transition file is exclusively hard-linked from a durable UUID receipt, so exactly one competing transition can append; a conflicting transition returns 409. Receipt files make same UUID/payload retries immutable and resumable after interruption. There is no TTL or stale-lock takeover, so a live writer is never stolen and no global lock can permanently block unrelated source identities.",
