@@ -31,6 +31,18 @@ const localToday = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+function ArrivalCostReference({ item, error }) {
+  if (error) return <span style={{ color: '#b91c1c' }} title={error}>조회 실패</span>;
+  if (!(Number(item?.prodKey) > 0)) return <span style={{ color: '#b45309' }}>품목 연결 필요</span>;
+  const refs = Array.isArray(item?.arrivalReferences) ? item.arrivalReferences : [];
+  if (!refs.length) return <span style={{ color: '#94a3b8' }}>해당 차수 없음</span>;
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 112 }}>
+    {refs.map(ref => <span key={`${ref.week}|${ref.cost}`} style={{ whiteSpace: 'nowrap' }} title={`도착원가 원본 ${fmt1(ref.rawCost)}원/${ref.rawUnit || ref.unit || '단위 없음'}`}>
+      <b style={{ color: '#0369a1' }}>{ref.week}</b> {fmt1(ref.cost)}원/{ref.unit || '단위'}
+    </span>)}
+  </div>;
+}
+
 // 행 계산 — 매입액/이익/분배 (사입도 매입단가를 입력하면 일반 품목과 함께 손익에 포함)
 function computeItemRow(it, nenovaPct) {
   const cost = it.costPrice != null && it.costPrice !== '' ? Number(it.costPrice) : null;
@@ -1497,6 +1509,7 @@ export default function RaumPnlPage() {
         items: requestedPartner === 'shilla' ? withShillaDetailCostBaseline(j.items) : j.items,
         images: j.images || [],
         verification: j.verification || null,
+        arrivalReferenceError: j.arrivalReferenceError || '',
         warnings: [],
         unsaved: false,
       });
@@ -2563,6 +2576,7 @@ export default function RaumPnlPage() {
                   {branches.map(b => <th key={b} style={st.th}>{b}</th>)}
                   <th style={st.th}>수량계</th>
                   <th style={st.th} title="1개당 매입단가 · 원화 · 부가세 별도">1개당 매입단가<br />(원/VAT별도) ✏️</th>
+                  <th style={{ ...st.th, background: '#ecfeff' }} title="선택 연도·대차수의 세부차수별 현재 도착원가입니다. 웹 확인용이며 엑셀·인쇄에는 포함되지 않습니다.">해당 차수 도착원가<br />(웹 확인용)</th>
                   <th style={st.th}>매입액</th>
                   <th style={st.th}>매출단가</th>
                   <th style={st.th}>매출액</th>
@@ -2661,6 +2675,9 @@ export default function RaumPnlPage() {
                           </>}
                         </RaumCostHistoryPreview>}
                       </td>
+                      <td style={{ ...st.td, ...st.num, background: '#f0fdfa', fontSize: 11 }}>
+                        <ArrivalCostReference item={it} error={detail.arrivalReferenceError} />
+                      </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.costAmount)}</td>
                       <td style={{ ...st.td, ...st.num }} title={!isShilla && erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : ''}>
                         {it.isCustom || it.isImageRow ? (
@@ -2729,6 +2746,7 @@ export default function RaumPnlPage() {
                   ))}
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(detail.items.reduce((a, it) => a + Number(it.qty || 0), 0))}</td>
                   <td style={st.td}></td>
+                  <td style={{ ...st.td, background: '#f0fdfa' }}></td>
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.cost)}</td>
                   <td style={st.td}></td>
                   <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(totals.sale)}</td>

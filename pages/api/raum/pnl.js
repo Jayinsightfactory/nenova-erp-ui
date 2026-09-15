@@ -9,6 +9,7 @@ import { defaultPnlTitle } from '../../../lib/raumPnlPartner';
 import { requirePnlPartner } from '../../../lib/pnlHotelRegistry';
 import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../../lib/raumPnlImportReview';
 import { loadRaumPnlCostComparisonRows } from '../../../lib/raumPnlCostComparisonServer';
+import { loadRaumPnlArrivalReferences } from '../../../lib/raumPnlArrivalReference';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -42,7 +43,25 @@ export default withAuth(async function handler(req, res) {
         const partner = await requirePnlPartner(req.query.partner);
         const detail = await loadRaumPnlDetail(req.query.key, { partnerCode: partner.code });
         if (!detail) return res.status(404).json({ success: false, error: '해당 손익계산서가 없습니다.' });
-        return res.status(200).json({ success: true, ...detail });
+        // Transient web reference only. Excel export deliberately calls
+        // loadRaumPnlDetail directly and never receives this property.
+        let arrivalReferences = {};
+        let arrivalReferenceError = null;
+        try {
+          arrivalReferences = await loadRaumPnlArrivalReferences({
+            orderYear: detail.master.OrderYear,
+            major: detail.master.MajorWeek,
+            items: detail.items,
+          });
+        } catch (error) {
+          // A read-only reference must never make the saved hotel detail unusable.
+          arrivalReferenceError = '도착원가를 지금 확인할 수 없습니다.';
+        }
+        detail.items = detail.items.map(item => ({
+          ...item,
+          arrivalReferences: arrivalReferences[item.itemKey] || [],
+        }));
+        return res.status(200).json({ success: true, ...detail, arrivalReferenceError });
       }
       const partner = await requirePnlPartner(req.query.partner);
       const list = await loadRaumPnlList(partner.code);

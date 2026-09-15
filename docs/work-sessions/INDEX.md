@@ -92,6 +92,7 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
+| [2026-09-15_all-hotel-purchase-cost-arrival-reference](./2026-09-15_all-hotel-purchase-cost-arrival-reference.md) | 모든 호텔 차수별 매입단가 수정 및 상세 웹 전용 해당 차수 도착원가 표시 | 구현·전체 검증 완료, 배포 진행 |
 | [2026-09-14_paste-system-application-comparison](./2026-09-14_paste-system-application-comparison.md) | 전산 수정 적용 건이 붙여넣기 자동 대조에서 미확인으로 남는 문제 | 원인 재현·200건 전역 대조·AI 매칭 연계·전체 검증 완료 |
 | [2026-09-07_shipment-import-final-state-drift](./2026-09-07_shipment-import-final-state-drift.md) | 36-01 카네이션 EXE/웹 출고분배 차이의 저장 원인 확인·재발 방지 | 원인 확인·전체 검증 완료, 운영 원장 보정 없음 |
 | [2026-09-03_exe-web-stock-fix-parity](./2026-09-03_exe-web-stock-fix-parity.md) | EXE에서 0인 소수잔량·웹 음수차단·공용 SP 영향 등 이번 세션 오류를 후속 작업 필수 기준으로 저장 | 운영 읽기 전용 확인·설계 기준 기록, 원장/SP 쓰기 없음 |

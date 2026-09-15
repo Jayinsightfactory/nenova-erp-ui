@@ -249,7 +249,10 @@ async function main() {
   assert.match(cells, /판매가/);
   assert.match(cells, /매입액/);
   assert.match(cells, /매출액/);
-  assert.doesNotMatch(page, /partnerCode\s*:/i, 'shared save payload must never send partnerCode');
+  const sharedSaveBlock = page.slice(page.indexOf('const saveShared'), page.indexOf('const saveShilla'));
+  assert.doesNotMatch(sharedSaveBlock, /partnerCode\s*:/i, 'shared save payload must never send partnerCode');
+  assert.match(page, /hotel-purchase-costs/);
+  assert.match(page, /partnerCode:\s*hotelCode/, 'isolated hotel save must carry the selected server-validated partner');
   assert.doesNotMatch(page, /salePrice\s*:/i, 'page save payload must not send SalePrice');
   assert.doesNotMatch(page, /saleAmount\s*:/i, 'page save payload must not send SaleAmount');
   assert.match(pnlPage, /차수별 매입단가 관리/);

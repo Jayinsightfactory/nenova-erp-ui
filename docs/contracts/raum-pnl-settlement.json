@@ -1,6 +1,6 @@
 {
   "id": "raum-pnl-settlement",
-  "title": "라움·초이문·신라 손익계산서 결산 미리보기 계약",
+  "title": "라움·초이문·신라·등록 호텔 손익계산서 결산 계약",
   "scope": [
     "lib/raumPnlPrintText.js",
     "lib/pnlHotelRegistry.js",
@@ -37,6 +37,8 @@
     "lib/shillaPnlDetailCost.js",
     "components/raum/ShillaPurchaseCosts.js",
     "pages/api/raum/shilla-purchase-costs.js",
+    "pages/api/raum/hotel-purchase-costs.js",
+    "lib/raumPnlArrivalReference.js",
     "pages/raum/pnl.js",
     "components/raum/RaumImageOrderPanel.js",
     "components/raum/RaumCostHistoryPreview.js",
@@ -91,6 +93,8 @@
     { "name": "SHILLA_PNL_IMPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit year + Excel MajorWeek + shilla; source header split 60:40 before July, 80:20 from July; previously confirmed exceptions are matched by exact source sheet title+headers+business-cell values so an Excel package re-save does not discard confirmation, while any changed source row stays blocked; corrections visibly annotated and never mutate the uploaded file; info-only row failures show original row values without fake '원본 없음 vs 파싱 없음'; selected verified batches only, preview-token and locked snapshot, no automatic commit; ERP week notes never remap Excel weeks", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
     { "name": "SHILLA_PURCHASE_COST_EDIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "isolated shilla + year + major + item identity and complete expected snapshot; never update Raum/Choimun shared costs or global learned costs", "writeAllowlist": ["WebRaumPnlItem.CostPrice", "WebRaumPnlItem.CostSource", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
     { "name": "SHILLA_DETAIL_PURCHASE_COST_EDIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "saved Shilla detail only; editable cost uses the same isolated shilla-purchase-costs endpoint; exact opened ItemKey+old CostPrice snapshot and OrderYear+MajorWeek+PnlKey+identity are revalidated; same identity rows follow one visible edit; invalid, stale or failed saves keep the draft and never retry automatically", "writeAllowlist": ["WebRaumPnlItem.CostPrice", "WebRaumPnlItem.CostSource", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
+    { "name": "HOTEL_PURCHASE_COST_EDIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit active non-Raum/non-Choimun PartnerCode + exact OrderYear + MajorWeek + PnlKey + item identity and complete expected snapshot; Shilla and every registered hotel remain isolated from each other and from shared Raum/Choimun; no global learned-cost write", "writeAllowlist": ["WebRaumPnlItem.CostPrice", "WebRaumPnlItem.CostSource", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
+    { "name": "HOTEL_PNL_ARRIVAL_REFERENCE", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "read-only active WebArrivalCostLine by exact OrderYear + numeric MajorWeek prefix + positive ProdKey; show every matching subweek, use the highest current per-unit cost for duplicate farm lines, convert only through Product unit metadata; no prior-week/year fallback; attached only to detail JSON and excluded from Excel/print", "writeAllowlist": [] },
     { "name": "RAUM_PNL_COST_HISTORY", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "SELECT-only stored CostPrice by active settlement + selected OrderYear + PartnerCode; same product and unit; browser comparison only", "writeAllowlist": [] },
     { "name": "RAUM_PNL_PURCHASE_COST_EDIT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit OrderYear+MajorWeek and product identity; lock and compare the complete Raum+Choimun matching-row snapshot; one shared cost is written atomically to every existing matching row in both partners; 0 preserved and empty becomes NULL", "writeAllowlist": ["WebRaumPnlItem.CostPrice", "WebRaumPnlItem.CostSource", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
     { "name": "RAUM_PNL_MULTI_WEEK_IMPORT", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "all-or-nothing", "writeAllowlist": ["WebRaumPnl", "WebRaumPnlItem"] },
@@ -119,8 +123,8 @@
     "preserve": ["Estimate", "ShipmentDetail.Amount", "ShipmentDetail.Vat", "ShipmentDetail.isFix", "WebProfitReport", "OrderDetail", "ShipmentDate", "ShipmentFarm", "StockHistory", "ProductStock"]
   },
   "purchaseCostManagement": {
-    "shillaCombinedDisplay": "same positive ProdKey + normalized Unit + IsCustom appears on the same product row with independent shared Raum/Choimun and Shilla week subcells; different units and unmapped Shilla names stay separate; only actual week cells render; each partner keeps its own quantity, sale price and amounts; a failed request is visibly failed, never labelled absent",
-    "shillaWriteSeparation": "Shilla uses only its existing isolated cost endpoint; SHARED_PARTNERS and shared snapshot/transaction remain Raum+Choimun only; no copy/average/implicit conversion; separate drafts and save buttons",
+    "shillaCombinedDisplay": "same positive ProdKey + normalized Unit + IsCustom appears on the same product row with independent shared Raum/Choimun and selected isolated-hotel week subcells; different units and unmapped hotel names stay separate; only actual week cells render; each partner keeps its own quantity, sale price and amounts; a failed request is visibly failed, never labelled absent",
+    "shillaWriteSeparation": "Shilla and every active registered hotel use the isolated hotel cost endpoint; SHARED_PARTNERS and shared snapshot/transaction remain Raum+Choimun only; no cross-hotel copy/average/implicit conversion; separate drafts and save buttons",
     "display": "one combined Raum+Choimun matrix for the exact selected OrderYear, compressed per product row: product rows preserve the newest existing estimate's saved Seq then ItemKey order (new identities first encountered in later available estimates append in that source order) and are never alphabetically resorted; only the MajorWeek cells that actually have data render, newest first and packed with no blank filler columns; each populated cell has one shared editable purchase cost and separate read-only Raum/Choimun SalePrice, Qty, purchase amount, and SaleAmount; a mismatch visibly lists every distinct stored cost under its partner name beside the input; distinct prices are never averaged; missing partner rows are shown as absent rather than created",
     "identity": "OrderYear + MajorWeek + positive ProdKey + normalized Unit + IsCustom; if ProdKey is absent, exact whitespace-normalized ItemName (trailing (사입)/사입 suffix stripped for matching only) + Unit + IsCustom; PartnerCode is deliberately excluded from the shared cost identity",
     "writeScope": "for the selected OrderYear+MajorWeek+identity, update CostPrice/CostSource on every existing matching WebRaumPnlItem row under active Raum and Choimun masters, then update only those touched parents; never create a missing item or settlement",
@@ -133,7 +137,7 @@
   "customHotelRegistry": {
     "identity": "Typed hotel name is normalized server-side and assigned hotel_<12 lowercase hex>; WebPnlHotel only, never Customer creation. Same normalized name is idempotent; conflicting code/name is rejected.",
     "scope": "Every request reloads the active registry descriptor. Custom settlement identity remains OrderYear + MajorWeek + PartnerCode. Request-supplied capabilities or labels are not trusted.",
-    "capabilities": "Standard quotation upload, explicit selected year, preview and manual save only. No ERP synchronization, image-order lookup, global item mapping, learned purchase-cost sharing, or automatic import commit.",
+    "capabilities": "Standard quotation upload, explicit selected year, preview, manual save, and isolated historical purchase-cost edit. No ERP synchronization, image-order lookup, global item mapping, learned purchase-cost sharing, cross-hotel cost sharing, or automatic import commit.",
     "preservation": "Repeated source rows remain separate. A saved row can match at most once across exact and fallback identities; distinct manual costs or product mappings require unambiguous source/content evidence. Unresolved collisions return readable 409 and preserve every saved row.",
     "migration": "Explicit idempotent WebPnlHotel schema migration before deployment; GET does not create registry tables. Existing hotel codes and shared Raum+Choimun purchase-cost scope are unchanged."
   },
@@ -169,6 +173,7 @@
     "__tests__/shillaPnlIntegration.test.js",
     "__tests__/shillaPnlImportPolicy.test.js",
     "__tests__/raumPnlCostComparison.test.js",
+    "__tests__/raumPnlArrivalReference.test.js",
     "__tests__/raumPnlPurchaseCost.test.js",
     "__tests__/raumPnlImage.test.js",
     "__tests__/raumPnlExcel.test.js",
