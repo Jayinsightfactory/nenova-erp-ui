@@ -4,6 +4,7 @@ import { loadMappings } from '../../../lib/parseMappings';
 import { loadCustomerMappings } from '../../../lib/customerMappings';
 import { normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } from '../../../lib/distributionLiveHistory';
 import { cloneParsedItems, loadDistributionRequestBalanceFacts, buildDistributionRequestBalanceComparison } from '../../../lib/distributionRequestBalance';
+import { groupHistoryReposts, expandHistoryReposts } from '../../../lib/historyReposts';
 
 export const config = { api: { bodyParser: { sizeLimit: '1mb' } } };
 const MAX_MESSAGES = 1000;
@@ -106,14 +107,17 @@ export default withAuth(async function handler(req, res) {
   let asOf;
   try { ({ facts, balanceFacts, balanceUnavailable, asOf } = await loadScopedFacts(scope)); }
   catch { return res.status(503).json({ success: false, advisoryOnly: true, erpAction: 'NONE', error: 'ERP 읽기 자료를 불러오지 못했습니다.' }); }
-  const parsedItems = parseMessages(messages, facts, aliases(), scope);
+  const reposts = groupHistoryReposts(messages);
+  const parsedItems = parseMessages(reposts.map(group=>group.message), facts, aliases(), scope);
   // pairRequests mutates its request rows for backwards-compatible public events.
   // The balance comparison must instead retain the parser result and private facts.
-  const balanceComparison = balanceFacts ? buildDistributionRequestBalanceComparison({
+  const canonicalComparison = balanceFacts ? buildDistributionRequestBalanceComparison({
     parsedItems: cloneParsedItems(parsedItems), facts, balanceFacts, scope,
   }) : undefined;
-  const items = pairRequests(parsedItems, facts, scope);
+  const canonicalItems = pairRequests(parsedItems, facts, scope);
+  const {items,balanceComparison}=expandHistoryReposts(reposts,canonicalItems,canonicalComparison);
   const warnings = [
+    ...(reposts.length<messages.length?['동일 원문·시각 또는 삭제 안내만 다른 5분 이내 재전송은 하나의 요청 근거를 공유합니다. 수량은 중복 합산하지 않습니다.']:[]),
     '자동 대조는 참고용이며 ERP 변경·적용·완료를 수행하거나 뜻하지 않습니다.',
     '원본 삭제 또는 확정 시점 때문에 이력이 없을 수 있으며, 대응 이력 부재는 미처리 증거가 아닙니다.',
     ...(facts.queryTruncated ? ['주문 또는 분배 이력 조회가 1,000건 제한에 도달했습니다. 강한 이력 증거 판정을 하지 않았습니다.'] : []),
