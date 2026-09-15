@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import './pasteExcludeText.test.js';
 
 const page = fs.readFileSync('pages/orders/paste.js', 'utf8');
 const operationHistory = fs.readFileSync('components/orders/PasteOperationHistory.js', 'utf8');
@@ -15,6 +16,9 @@ assert.match(page, /\.paste-input-grid\.paste-baseline-collapsed \{ grid-templat
 assert.match(page, /<CollapsibleTop[\s\S]{0,220}defaultCollapsed/, '상단 도구·차수 영역은 기본 접힘이어야 한다.');
 assert.match(page, /disabled=\{parsing \|\| bulkRunning \|\| adjustSaving \|\| orders\.some\(order => order\.saving\)\}/);
 assert.match(page, /② 입력/);
+assert.match(page,/paste-analysis-toolbar/);
+assert.match(page,/className="paste-analyze-button"/);
+assert.match(page,/grid-template-rows: minmax\(0,1.6fr\) minmax\(0,1fr\) minmax\(0,1fr\)/);
 assert.match(page, /③ 분석 · 검토/);
 assert.match(page, /④ 결과 · 최근 이력/);
 assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-template-rows: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1fr\)/);

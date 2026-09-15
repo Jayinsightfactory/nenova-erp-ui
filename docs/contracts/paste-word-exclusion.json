@@ -1,0 +1,12 @@
+{
+  "id":"paste-word-exclusion",
+  "title":"붙여넣기 단어 제외와 상단 분석 버튼",
+  "scope":["lib/pasteExcludeText.js","components/orders/PasteExcludeHighlight.js","pages/orders/paste.js","__tests__/pasteExcludeText.test.js","__tests__/pasteFourColumnLayout.test.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"SELECT_EXCLUDED_TEXT","orderDetail":"preserve","shipmentDetail":"preserve","preserve":["all ERP tables","original input"]},{"name":"RESTORE_EXCLUDED_TEXT","orderDetail":"preserve","shipmentDetail":"preserve","preserve":["all ERP tables","original input"]}],
+  "criteria":{"selection":"Native browser text selection maps to exact UTF-16 start/end with selected text fingerprint. Range toggle excludes/restores only selected characters, preserves newlines and neighboring quantities. Cross-panel selections and stale text ranges are ignored. Editing original clears ranges. Legacy numeric line exclusions remain supported by helper.","consumers":"AI input, base-stock matching and projected draft use textWithoutExcludedLines. Exclusion changes invalidate previous analyzed orders. No AI call or ERP write on selection.","layout":"1920x1080: larger first grid row, analyze button in sticky input header. Smaller responsive layouts retain the same header button."},
+  "crossYearFixture":{"required":true,"description":"Text filtering preserves year/week headers outside the exact selected range and never changes selected ERP year."},
+  "requiredTestFiles":["__tests__/pasteExcludeText.test.js","__tests__/pasteFourColumnLayout.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs","methods":["GetCustomerList","btnSave_Click"],"tables":["ShipmentDetail","ShipmentDate"],"note":"UI-only draft filtering; existing ERP saving and native methods unchanged."},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from HEAD^","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}
