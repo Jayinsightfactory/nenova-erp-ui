@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { applyPivotValueSelection, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction.js';
+import { applyPivotValueSelection, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction.js';
 
 function fakeWindow() {
   const listeners = new Map(), frames = new Map(); let id = 0;
@@ -56,12 +56,20 @@ assert.deepEqual(applyPivotValueSelection({FlowerName:['장미']}, 'CounName', c
 assert.deepEqual(applyPivotValueSelection({}, 'CounName', [], countries), {CounName:[]}, '전체 해제는 0행 필터로 보존한다');
 assert.deepEqual(applyPivotValueSelection({}, 'CounName', ['콜롬비아'], countries), {CounName:['콜롬비아']});
 
+const dragZones = {rows:['CounName','FlowerName'],cols:['OrderYear','OrderWeek'],values:[{id:'Quantity',aggregation:'sum'}],filters:['CustArea']};
+assert.deepEqual(movePivotField(dragZones,'CustArea','rows',1,false).rows,['CounName','CustArea','FlowerName'],'영역 사이 드롭은 정확한 삽입 위치를 사용한다');
+assert.deepEqual(movePivotField(dragZones,'OrderWeek','cols',0,false).cols,['OrderWeek','OrderYear'],'같은 영역 안에서도 드래그로 순서를 바꾼다');
+assert.deepEqual(movePivotField(dragZones,'Quantity','filters',0,true).values,[],'값 필드를 다른 영역으로 옮기면 이전 영역에서 제거한다');
+assert.deepEqual(movePivotField(dragZones,'Quantity','values',0,true).values,[{id:'Quantity',aggregation:'sum'}],'값 영역 재정렬은 기존 집계 방식을 보존한다');
+
 const panelSource = fs.readFileSync(new URL('../components/PivotExePanel.js', import.meta.url), 'utf8');
 const gridSource = fs.readFileSync(new URL('../components/PivotExeGrid.js', import.meta.url), 'utf8');
 assert.match(panelSource, /zoneArea\('rows','세로 행'\)/, '세로 행 영역을 화면에 명확히 표시한다');
 assert.match(panelSource, /zoneArea\('cols','가로 열'\)/, '가로 열 영역을 화면에 명확히 표시한다');
-assert.match(panelSource, /영역 이동.*⇄|⇄.*영역 이동/s, '필드 칩에 버튼형 영역 이동 진입점을 표시한다');
-assert.match(panelSource, /필터 영역의 필드명/, '필터 영역 버튼을 누르면 값 목록이 열린다는 안내를 표시한다');
+assert.match(panelSource, /필드 버튼 전체를 마우스로 잡아/, 'EXE 방식의 직접 드래그 사용법을 표시한다');
+assert.match(panelSource, /pivot-exe-drop-marker/, '드롭할 정확한 삽입 위치를 안내선으로 표시한다');
+assert.doesNotMatch(panelSource, />⇄<\/button>/, '별도 이동 아이콘을 주 조작으로 노출하지 않는다');
+assert.match(panelSource, /오른쪽.*실제 값 필터/, '필드 오른쪽 화살표가 실제 값 목록을 연다는 안내를 표시한다');
 assert.match(panelSource, /체크한 값만 피벗 표와 엑셀에 표시됩니다/, '값 선택 결과의 적용 범위를 명확히 안내한다');
 assert.match(panelSource, /zone === 'filters' \? openValueFilter : openFieldMenu/, '필터 영역의 기본 버튼은 실제 값 선택창을 바로 연다');
 assert.match(panelSource, /key=\{filterField\.id\}/, '다른 필드 필터를 열면 초안 값이 해당 필드 기준으로 초기화된다');
