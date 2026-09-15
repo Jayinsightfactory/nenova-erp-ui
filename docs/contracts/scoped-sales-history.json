@@ -1,0 +1,12 @@
+{
+  "id":"scoped-sales-history",
+  "title":"영업방 원문 차수별 처리 이력 대조",
+  "scope":["lib/scopedSalesHistory.js","__tests__/scopedSalesHistory.test.js","components/orders/DistributionSalesInbox.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"READ_SOURCE_SCOPED_HISTORY","orderDetail":"preserve","shipmentDetail":"preserve","preserve":["all ERP tables","Estimate","StockHistory","WebProfitReport"]}],
+  "criteria":{"scope":"One explicit original-message week in the selected year uses that week for read-only evidence. Missing, mixed or different-year markers retain selected scope and remain subject to existing server rejection. Same-scope messages compete together for history events.","response":"Each scope response must match year/week/date and exact unique source identities before combining display results. A failed group cannot display completion.","completion":"Green box requires full MATCHED quantity evidence or a committed, non-undone source-linked operation with entry count equal to visible changes. Manual marks and numeric candidates alone never imply completion."},
+  "crossYearFixture":{"required":true,"description":"2025 explicit original scope is never reinterpreted as a 2026 request."},
+  "requiredTestFiles":["__tests__/scopedSalesHistory.test.js","__tests__/distributionCompactMatchUi.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs","methods":["GetCustomerList"],"tables":["ShipmentDetail","ShipmentDate"],"note":"Client-only routing reuses existing read-only native quantity history API; no SQL or ERP writes modified."},
+  "requiredCommands":["node __tests__/scopedSalesHistory.test.js","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}

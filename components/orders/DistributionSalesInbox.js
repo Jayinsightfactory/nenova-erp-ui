@@ -4,6 +4,7 @@ import {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeri
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
 import {classifyMessage,matchingSummary,summarizeMessage} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
+import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
 import {mappedEvidenceSource} from '../../lib/pasteEvidenceSource';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
@@ -143,8 +144,10 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     liveHistoryController.current=controller;liveHistoryInFlight.current=true;
     setLiveHistoryStatus(previous=>({...previous,loading:true,error:''}));
     try {
-      const response=await fetch('/api/orders/distribution-live-history',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({year:String(year),week:applicationWeek,from,to,messages:messages.slice(0,LIVE_HISTORY_MESSAGE_LIMIT).map(row=>({identity:row.identity,message:row.message,created_at:row.created_at,timestamp_approximate:row.timestamp_approximate===true}))}),signal:controller.signal});
-      const data=await response.json().catch(()=>({}));
+      const {response,data}=await readScopedSalesHistory({year:String(year),week:applicationWeek,from,to,messages:messages.slice(0,LIVE_HISTORY_MESSAGE_LIMIT).map(row=>({identity:row.identity,message:row.message,created_at:row.created_at,timestamp_approximate:row.timestamp_approximate===true}))},async body=>{
+        const response=await fetch('/api/orders/distribution-live-history',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
+        return {response,data:await response.json().catch(()=>({}))};
+      },isValidBalanceComparison);
       if(!liveHistoryMounted.current||activeLiveHistoryScope.current!==scope||epoch!==liveHistoryScopeEpoch.current||sequence!==liveHistorySequence.current||liveHistoryBatchKeyRef.current!==batchKey||loadedPeriod!==`${from}/${to}`) return;
       const requestedIdentities=new Set(messages.map(row=>row.identity));
       const returnedIdentities=new Set(Array.isArray(data?.items)?data.items.map(item=>item?.sourceIdentity):[]);
@@ -286,7 +289,9 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     const source=[row.sender,row.created_at?shortKstTime(row.created_at):'시각 확인 필요'].filter(Boolean).join(' · ');
     const sourceWeek=sourceWeekFromMessage(row.message,String(year||''))||week;
     const changes=visibleChanges(row.message,week);
-    return <article className="message compact-match-row" data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
+    const completed=match.status==='MATCHED'||(operation?.status==='committed'&&!operation.undone&&(operation.entries||[]).filter(entry=>entry.sourceIdentity===row.identity).length===changes.length);
+    return <article className={`message compact-match-row ${completed?'history-completed':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
+      {completed&&<div className="history-completion-label">✓ 작업완료 · {operation?'등록·분배 작업 로그 확인':'전산 분배 수량 이력 일치'}</div>}
       <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{match.label||'미확인'} {match.matchedCount??0}/{match.totalCount||changes.length}{manualLabel&&<span>{manualLabel}</span>}<small>자동 대조</small></span>
       <button type="button" disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>전체 변경 AI 분석·분배 준비</button></div>
       <div className="visible-change-table">{changes.map((change,index)=><div className="visible-change-line" key={index}><span>{change.week}</span><strong>{change.customer}</strong><span>{change.change}</span></div>)}</div>
@@ -373,6 +378,10 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       .sales-inbox .compact-match-column-head{position:sticky;top:0;z-index:2}
       .sales-inbox .visible-change-line{padding:5px 8px;border-top:1px solid #edf0f4;overflow-wrap:anywhere;line-height:1.5}
       .sales-inbox .visible-change-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 8px;background:#f7faff}
+      .sales-inbox .history-completed{border:2px solid #22945b;border-radius:7px;background:#edfaf1;margin:5px 0;overflow:hidden}
+      .sales-inbox .history-completed .visible-change-meta{background:#e0f5e7}
+      .sales-inbox .history-completion-label{padding:5px 8px;color:#126637;background:#d9f2e2;font-weight:700}
+      .sales-inbox .history-partial{border:2px solid #d8a328;border-radius:7px;margin:5px 0}
       .sales-inbox .visible-change-meta>button{margin-left:auto}
       .sales-inbox .visible-change-meta .compact-match-status{display:flex;gap:5px}
       .sales-inbox .compact-match-row>details>summary{padding:3px 8px;color:#64748b;cursor:pointer;font-size:11px}
