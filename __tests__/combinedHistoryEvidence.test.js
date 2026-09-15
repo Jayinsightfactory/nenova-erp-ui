@@ -22,3 +22,6 @@ assert.equal(combinedHistoryEvidence([requests[0],{...requests[1],action:'ADD'}]
 const collision=parseMessages(messages,{...facts,customers:[...facts.customers,{CustKey:479,CustName:'다른업체'}]},{customers:{영림원예:{custKey:478},영림:{custKey:479}}},scope);
 assert.equal(collision[0].requests[0].status,'AMBIGUOUS');
 console.log('saved customer alias and 2+16=18 native aggregate evidence: positive and safety cases passed');
+const inlineUnknown=parseMessages([{...messages[1],message:'37-02\n영림 : 휘슬러 1박스 취소\n미등록업체 : 휘슬러 2단 추가'}],facts,{customers:{영림원예:{custKey:478}}},scope);
+assert.equal(inlineUnknown[0].requests[1].custKey,undefined);
+assert.equal(inlineUnknown[0].requests[1].status,'AMBIGUOUS');
