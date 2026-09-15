@@ -82,6 +82,21 @@ all EXE order, shipment, warehouse, stock, estimate, sales, and settlement rows 
 
 ## Evidence limitations
 
+### 2026-09-15 automatic all-source follow-up
+
+The coverage-only extension below did not broaden automatic detection. This
+follow-up separates automatic eligibility from confirmed rate/create eligibility.
+Active same-year in-range rows with valid source/product IDs and positive original
+quantity enter detection even when unconfirmed or missing a farm. Known-farm
+patterns are unchanged; missing-farm rows only form same-product/week multi-customer
+or same-customer/product recurring-week review candidates, never inferred farm
+clusters. Any incomplete confirmation or farm attribution disables case creation
+for that candidate. Existing trusted qualityGroups, rate denominators and POST
+source revalidation are unchanged. Customer IDs stay server-only including keys.
+Signal coverage uses unique source IDs so overlapping patterns cannot inflate the
+source count. Automatic unit selection defaults to all and is independent of rates.
+All source and ERP tables remain read-only; no migration or automatic case writes.
+
 ### 2026-09-15 source coverage extension
 
 The same-year active web defect source is now separately projected for coverage,
