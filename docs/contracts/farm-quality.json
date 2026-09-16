@@ -10,6 +10,7 @@
     "lib/farmQualityInbox.js",
     "lib/farmQualityInboxSummary.js",
     "lib/farmQualityInboxStore.js",
+    "lib/farmQualityRequest.js",
     "components/FarmQualityInbox.js",
     "lib/farmQualityEvidence.js",
     "docs/migrations/2026-09-14_farm_quality.sql",
@@ -61,6 +62,7 @@
     }
   ],
   "criteria": {
+    "requestCycle": "Inbox authorized sales/incoming/support may append REQUEST; it transitions to WAITING. RESPONSE retains incoming permission and requires WAITING, then becomes ANSWERED. UI defaults NEW to REQUEST and WAITING incoming to RESPONSE; answered cases offer REQUEST again. Explicit COMMENT remains a state-preserving memo. REQUEST_EDIT appends an audit event referencing original REQUEST; exact original AuthorId only, same year/case and optimistic versions, no admin bypass. It preserves workflow/due date/source membership and original event/evidence. No auto-send or ERP writes.",
     "commentPresentation": "WAITING/ANSWERED/RECURRED cards prioritize the latest saved comment preview. Detail order is suggestion, target selection and feedback composer, actual latest REQUEST and history, products and source evidence. Every details section opens by default when a different card is selected; keyed aside resets scroll/disclosure state without changing draft guards. Actual REQUEST uses full selected-case history with explicit loading/error/no-request states and no generated-text fallback. Display only; source and ERP writes preserved.",
     "board": "Default ALL view shows four simultaneous lanes NEW, WAITING, ANSWERED, RECURRED using the same saved-status predicate as filters. No-case items are NEW; new sources never reset saved status. Multiple histories may place the same immutable item in multiple lanes. Counts are lane item counts, not summed unique totals. Other statuses remain accessible with existing filters and an other-status count. Lane browsing never mutates data.",
     "presentation": "Display summary uses same-year distinct current detected source IDs, Product.FlowerName labels only, exact units for top-3 quantity ranking and share denominator, actual weeks for continuous versus intermittent wording. Missing quantities are not zero. Workflow labels derive only from saved Case.Status and appear beside the farm summary; new sources do not relabel WAITING/CLOSED as NEW. Leading ROSE/CARNATION/HYDRANGEA prefixes are shortened only in list labels; full names remain in tooltips, search and details. Sources, identities, rate calculations and mutation policies are preserved.",
@@ -92,6 +94,7 @@
     "__tests__/farmQualityInbox.test.js",
     "__tests__/farmQualityInboxStore.test.js",
     "__tests__/farmQualityInboxUi.test.js",
+    "__tests__/farmQualityRequest.test.js",
     "__tests__/farmQualityInboxSummary.test.js"
   ],
   "dnspyEvidence": {

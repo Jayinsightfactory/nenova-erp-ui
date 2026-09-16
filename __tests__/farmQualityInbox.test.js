@@ -42,4 +42,9 @@ assert.equal(qualityInboxMutationPolicy({action:'event',user:sales,item:first,ki
 assert.throws(()=>qualityInboxMutationPolicy({action:'exclude',user:sales,reason:'제외'}),e=>e.code==='INBOX_FORBIDDEN');
 assert.throws(()=>qualityInboxMutationPolicy({action:'restore',user:incoming,reason:' '}));
 assert.equal(qualityInboxMutationPolicy({action:'event',user:incoming,item:first,kind:'REQUEST'}).manage,true);
+for(const user of [sales,incoming,{userId:'support',deptName:'영업지원부'}]){
+ assert.equal(qualityInboxMutationPolicy({action:'event',user,item:first,kind:'REQUEST'}).kind,'REQUEST');
+}
+assert.equal(qualityInboxMutationPolicy({action:'event',user:sales,item:{excluded:true},kind:'REQUEST_EDIT'}).kind,'REQUEST_EDIT');
+assert.throws(()=>qualityInboxMutationPolicy({action:'event',user:sales,kind:'RESPONSE'}),e=>e.code==='INBOX_FORBIDDEN');
 console.log('Farm inbox pure: overlap, stable identity, legacy acknowledgement, conflict and policy passed');

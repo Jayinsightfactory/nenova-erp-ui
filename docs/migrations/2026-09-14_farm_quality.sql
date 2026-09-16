@@ -71,4 +71,6 @@ BEGIN
  );
  CREATE INDEX IX_WebFarmQualityInboxSource_Inbox ON dbo.WebFarmQualityInboxSource(InboxKey);
 END;
+IF COL_LENGTH(N'dbo.WebFarmQualityEvent',N'RequestEventKey') IS NULL
+ ALTER TABLE dbo.WebFarmQualityEvent ADD RequestEventKey BIGINT NULL;
 COMMIT;
