@@ -1,7 +1,13 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 (async () => {
-  const { sortCustomerProducts, sortMyCustomersFirst, compactCustomerProductLabel, quantitiesMatch, buildForwardOrderWeeks, productAlphabetInitial, customerOrderDraft } = await import('../lib/myCustomerOrderEntry.js');
+  const { sortCustomerProducts, sortMyCustomersFirst, compactCustomerProductLabel, quantitiesMatch, buildForwardOrderWeeks, productAlphabetInitial, customerOrderDraft, customerOrderApprovalFingerprint } = await import('../lib/myCustomerOrderEntry.js');
+  const approvalItem={prodKey:2101,qty:7,unit:'단',expectedCurrentQty:10};
+  const approval=customerOrderApprovalFingerprint('565|2026|40-01','REPLACE',[approvalItem]);
+  assert.equal(approval,customerOrderApprovalFingerprint('565|2026|40-01','REPLACE',[{...approvalItem}]));
+  for(const patch of [{qty:8},{unit:'박스'},{expectedCurrentQty:11},{prodKey:2102}]) assert.notEqual(approval,customerOrderApprovalFingerprint('565|2026|40-01','REPLACE',[{...approvalItem,...patch}]));
+  for(const scope of ['565|2025|40-01','566|2026|40-01','565|2026|40-02']) assert.notEqual(approval,customerOrderApprovalFingerprint(scope,'REPLACE',[approvalItem]));
+  assert.notEqual(approval,customerOrderApprovalFingerprint('565|2026|40-01','ADD',[approvalItem]));
   const existing = { ProdKey: 2101, CurrentQty: 10 };
   const draft = (add, final, convert = n=>n) => customerOrderDraft(existing, add, final, convert);
   assert.equal(draft(undefined,undefined).touched, false, 'loaded orders must never become write targets');
@@ -83,6 +89,11 @@ const fs = require('node:fs');
   assert.match(page,/live-order-item[^\n]*gap:12px/);
   assert.match(page,/submit\('ADD'\)/); assert.match(page,/submit\('REPLACE'\)/);
   assert.match(page,/executionLog/); assert.match(page,/submitLockRef/);
+  assert.match(page,/approvedFingerprint !== fingerprint/);
+  assert.match(page,/승인하고 주문등록 시작/);
+  assert.match(page,/approval-table/);
+  assert.doesNotMatch(page.slice(page.indexOf('const submit ='),page.indexOf('return <>')),/window\.confirm/);
+  assert.ok(page.indexOf("status:'awaiting-approval'")<page.indexOf("await apiPost('/api/orders'"),'approval preview must precede order write');
   assert.match(page,/loadedScope===scopeKey/); assert.match(page,/needsReload/);
   assert.match(page,/className="product-name"/); assert.match(page,/white-space:nowrap/); assert.doesNotMatch(page,/<small>\{p\.CounName\} · \{p\.ProdName\}<\/small>/);
   assert.match(page,/entry-layout/); assert.match(page,/grid-template-columns:minmax\(0,1fr\) 320px/); assert.match(page,/max-width:1920px/); assert.match(page,/왼쪽에서 수량을 입력하면 바로 이곳에 표시됩니다/);
