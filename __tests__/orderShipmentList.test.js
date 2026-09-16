@@ -21,7 +21,7 @@ const parsedOrderRows = parseOrderImportSheetRows([
 ], { sourceName:'남대문청화 fixture' }).rows;
 assert.equal(parsedOrderRows.length, 2, '품명 세부정보와 합계행은 별도 주문 품목이 아니어야 한다');
 assert.equal(parsedOrderRows[0].inputName, '프리덤');
-assert.equal(parsedOrderRows[0].matchName, '장미 프리덤', '규격/도착문구는 제외하고 화종만 품목 매칭 문맥에 사용해야 한다');
+assert.equal(parsedOrderRows[0].matchName, '콜롬비아 장미 50cm 프리덤', '국가·화종·규격 문맥을 유지해 동명 품목 오매칭을 막아야 한다');
 assert.equal(parsedOrderRows[0].qty, 30, '같은 실제 품목의 수량은 합산해야 한다');
 assert.deepEqual(parsedOrderRows[0].detailLabels, ['콜롬비아 장미 *50cm', '주말도착건']);
 assert.equal(parsedOrderRows[1].inputName, '수국 블루', '주말도착건은 수국 블루의 매칭어에 포함되면 안 된다');
@@ -75,4 +75,8 @@ assert.match(page, /주문등록 결과/, '주문등록 후 결과를 화면에 
 assert.match(page, /apiGet\('\/api\/orders', \{ custName: cust\.CustName, week, year: weekQuery\.year \}\)/,
   '등록 결과 조회는 OrderYear와 차수를 함께 써야 한다');
 assert.match(page, /현재 DB 주문 내역/, '등록 후 ViewOrder 기준 주문 내역을 보여줘야 한다');
+assert.match(page, /원본 Excel 시트/, '업로드한 실제 Excel 시트를 매칭 결과 옆에 보여줘야 한다');
+assert.match(page, /합산된 매칭수량/, '등록 전 합산 품목과 수량을 보여줘야 한다');
+assert.match(page, /주문등록 시작/, '등록은 사용자가 명시적으로 시작해야 한다');
+assert.match(page, /주문등록 진행 로그/, '등록 처리 단계와 종료 상태를 화면에 남겨야 한다');
 console.log('order shipment list tests passed');

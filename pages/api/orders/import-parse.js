@@ -152,6 +152,7 @@ async function handler(req, res) {
   let parsedRows = [];
   let parsedMetadata = null;
   let parsedSheetName = null;
+  let sheetPreview = null;
   let sourceType = 'excel';
 
   try {
@@ -174,6 +175,7 @@ async function handler(req, res) {
       parsedRows = parsed.rows;
       parsedMetadata = parsed.metadata || null;
       parsedSheetName = parsed.sheetName || null;
+      sheetPreview = parsed.sheetPreview || null;
       logs.push(...parsed.logs);
     } else {
       return res.status(400).json({ success: false, error: '지원 형식: xlsx, xls, csv, png, jpg, webp' });
@@ -245,6 +247,7 @@ async function handler(req, res) {
       sheetName: sourceType === 'excel' ? parsedSheetName : null,
       metadata: parsedMetadata,
       matchedCustomer,
+      sheetPreview: sourceType === 'excel' ? sheetPreview : null,
       items,
       summary,
       logs,

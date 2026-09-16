@@ -6,6 +6,8 @@ import {
   pickImportRegisteredOrder,
   importWriteStatusLabel,
   buildImportRegisterResult,
+  buildImportMatchAggregates,
+  findImportMixedUnitProducts,
 } from '../lib/orderImportRegister.js';
 
 const rows = [
@@ -43,5 +45,18 @@ assert.equal(result.orderMasterKey, 88);
 assert.equal(result.writeRows.length, 1);
 assert.equal(result.dbItems.length, 1);
 assert.equal(result.skippedItems[0].reason, '제외');
+
+const aggregates = buildImportMatchAggregates([
+  { rowNo: 4, inputName: 'Novia', prodKey: 456, prodName: 'CARNATION Novia', displayName: 'Novia', flowerName: '카네이션', counName: '콜롬비아', qty: 10, unit: '박스' },
+  { rowNo: 8, inputName: '노비아', prodKey: 456, prodName: 'CARNATION Novia', displayName: 'Novia', flowerName: '카네이션', counName: '콜롬비아', qty: 3, unit: '박스' },
+]);
+assert.equal(aggregates.length, 1);
+assert.equal(aggregates[0].qty, 13, '같은 품목·단위는 화면 합산수량으로 묶어야 한다');
+assert.deepEqual(aggregates[0].sourceRows, [4, 8]);
+assert.equal(findImportMixedUnitProducts(aggregates).length, 0);
+assert.equal(findImportMixedUnitProducts([
+  ...aggregates,
+  { ...aggregates[0], unit: '단' },
+]).length, 1, '같은 품목에 서로 다른 단위가 있으면 등록 전 차단 표시');
 
 console.log('order import register helpers passed');

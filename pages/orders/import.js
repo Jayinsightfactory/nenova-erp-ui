@@ -15,6 +15,8 @@ import {
   pickImportRegisteredOrder,
   importWriteStatusLabel,
   buildImportRegisterResult,
+  buildImportMatchAggregates,
+  findImportMixedUnitProducts,
 } from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
@@ -85,7 +87,7 @@ function unitSourceLabel(source) {
 }
 
 const st = {
-  page: { maxWidth: 1100, margin: '0 auto', padding: '16px 20px 120px' },
+  page: { maxWidth: 1840, margin: '0 auto', padding: '12px 16px 120px' },
   card: { background: '#fff', border: '1px solid #dbe3ef', borderRadius: 8, padding: 16, marginBottom: 14 },
   title: { fontSize: 18, fontWeight: 700, color: '#0f172a', marginBottom: 4 },
   sub: { fontSize: 12, color: '#64748b', marginBottom: 12 },
@@ -113,6 +115,102 @@ const st = {
   kpi: { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 },
   kpiBox: { padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12 },
 };
+
+function ExcelSheetPreview({ preview, matchedRows }) {
+  if (!preview?.rows?.length) {
+    return (
+      <div style={{ ...st.card, marginBottom: 0, minHeight: 220 }}>
+        <strong>원본 Excel 시트</strong>
+        <div style={{ marginTop: 12, color: '#64748b', fontSize: 12 }}>
+          Excel 파일을 업로드하면 실제 시트와 매칭된 행을 여기에 함께 표시합니다.
+        </div>
+      </div>
+    );
+  }
+  const matched = new Set(matchedRows || []);
+  return (
+    <div style={{ ...st.card, marginBottom: 0, padding: 12, minWidth: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+        <strong>원본 Excel 시트</strong>
+        <span style={{ fontSize: 11, color: '#64748b' }}>
+          {preview.sheetName || 'Sheet1'} · {preview.sourceRange || ''} · {preview.rowCount}행 × {preview.columnCount}열
+        </span>
+      </div>
+      <div style={{ maxHeight: 660, overflow: 'auto', border: '1px solid #cbd5e1', borderRadius: 6 }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: '100%', fontSize: 11 }}>
+          <tbody>
+            {preview.rows.map((row) => {
+              const isHeader = Number(row.rowNo) === Number(preview.headerRow);
+              const isMatched = matched.has(Number(row.rowNo));
+              return (
+                <tr key={row.rowNo} style={{ background: isHeader ? '#dbeafe' : isMatched ? '#ecfdf5' : '#fff' }}>
+                  <th style={{ position: 'sticky', left: 0, zIndex: 2, minWidth: 42, padding: '5px 6px', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', background: isHeader ? '#bfdbfe' : isMatched ? '#d1fae5' : '#f8fafc', color: '#64748b', textAlign: 'right' }}>
+                    {row.rowNo}
+                  </th>
+                  {(row.cells || []).map((cell, colIdx) => (
+                    <td key={`${row.rowNo}-${colIdx}`} title={String(cell ?? '')} style={{ minWidth: 72, maxWidth: 220, padding: '5px 7px', borderRight: '1px solid #eef2f7', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isHeader ? 700 : 400 }}>
+                      {String(cell ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {(preview.truncatedRows || preview.truncatedColumns) && (
+        <div style={{ marginTop: 6, fontSize: 11, color: '#b45309' }}>화면 속도를 위해 일부 행·열만 미리보기로 표시합니다. 주문등록은 전체 파싱 결과를 기준으로 합니다.</div>
+      )}
+      <div style={{ marginTop: 6, fontSize: 11, color: '#047857' }}>연두색은 주문 매칭에 사용된 원본 행입니다.</div>
+    </div>
+  );
+}
+
+function MatchAggregateTable({ rows }) {
+  const unitTotals = (rows || []).reduce((acc, row) => {
+    acc[row.unit] = (acc[row.unit] || 0) + Number(row.qty || 0);
+    return acc;
+  }, {});
+  return (
+    <div style={{ marginBottom: 12, border: '1px solid #93c5fd', borderRadius: 7, overflow: 'hidden' }}>
+      <div style={{ padding: '8px 10px', background: '#eff6ff', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <strong style={{ color: '#1e40af' }}>합산된 매칭수량 {rows.length}품목</strong>
+        {Object.entries(unitTotals).map(([unit, qty]) => <span key={unit} style={{ ...st.badgeOk, fontSize: 11 }}>{unit} {qty.toLocaleString()}</span>)}
+      </div>
+      <div style={{ maxHeight: 230, overflow: 'auto' }}>
+        <table style={st.table}>
+          <thead><tr><th style={st.th}>매칭 품목</th><th style={st.th}>원본 행</th><th style={{ ...st.th, textAlign: 'right' }}>합산수량</th></tr></thead>
+          <tbody>{rows.map(row => (
+            <tr key={`${row.prodKey}-${row.unit}`}>
+              <td style={st.td}><b>{row.displayName || row.prodName}</b><div style={{ fontSize: 10, color: '#64748b' }}>{[row.counName, row.flowerName].filter(Boolean).join(' · ')}</div></td>
+              <td style={st.td}>{row.sourceRows.length ? `${row.sourceRows.join(', ')}행` : `${row.sourceCount}건`}</td>
+              <td style={{ ...st.td, textAlign: 'right', fontWeight: 800, color: '#1d4ed8' }}>{Number(row.qty).toLocaleString()} {row.unit}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function RegisterProgressLog({ entries, running }) {
+  if (!entries.length && !running) return null;
+  return (
+    <div style={{ ...st.card, border: `2px solid ${running ? '#2563eb' : '#94a3b8'}`, background: '#f8fafc' }} aria-live="polite">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <strong>주문등록 진행 로그</strong>
+        <span style={{ ...st.badgeOk, background: running ? '#dbeafe' : '#e2e8f0', color: running ? '#1d4ed8' : '#475569' }}>{running ? '처리 중' : '처리 종료'}</span>
+      </div>
+      <div style={{ maxHeight: 210, overflow: 'auto', fontSize: 12 }}>
+        {entries.map(entry => (
+          <div key={entry.id} style={{ padding: '6px 8px', marginBottom: 4, borderLeft: `4px solid ${entry.type === 'error' ? '#dc2626' : entry.type === 'success' ? '#16a34a' : '#3b82f6'}`, background: '#fff' }}>
+            <span style={{ color: '#64748b', marginRight: 8 }}>{entry.time}</span>{entry.message}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function CustomerSearchSelect({ value, onChange, placeholder }) {
   const [query, setQuery] = useState('');
@@ -334,6 +432,8 @@ export default function OrderImportPage() {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [sheetPreview, setSheetPreview] = useState(null);
+  const [registerLogs, setRegisterLogs] = useState([]);
   const [fileName, setFileName] = useState('');
   const [sourceType, setSourceType] = useState('');
   const [loading, setLoading] = useState(false);
@@ -351,6 +451,15 @@ export default function OrderImportPage() {
   const [allProducts, setAllProducts] = useState([]);
   const [editProdIdx, setEditProdIdx] = useState(null);
   const fileRef = useRef(null);
+
+  const appendRegisterLog = useCallback((message, type = 'info') => {
+    setRegisterLogs((prev) => [...prev, {
+      id: `${Date.now()}-${prev.length}`,
+      time: new Date().toLocaleTimeString('ko-KR', { hour12: false }),
+      message,
+      type,
+    }]);
+  }, []);
 
   useEffect(() => {
     const draft = loadImportDraft();
@@ -525,6 +634,8 @@ export default function OrderImportPage() {
     setLoading(true);
     setResultMsg('');
     setRegisteredResult(null);
+    setSheetPreview(null);
+    setRegisterLogs([]);
     const fd = new FormData();
     fd.append('file', file);
     try {
@@ -541,6 +652,7 @@ export default function OrderImportPage() {
       setItems(d.items || []);
       setSummary(d.summary || null);
       setLogs(d.logs || []);
+      setSheetPreview(d.sheetPreview || null);
       setFileName(d.fileName || file.name);
       setSourceType(d.sourceType || '');
       const meta = d.metadata || {};
@@ -713,8 +825,12 @@ export default function OrderImportPage() {
     setRegistering(true);
     setResultMsg('');
     setRegisteredResult(null);
+    setRegisterLogs([]);
     const skippedItems = items.filter(it => it.skip || !it.prodKey || Number(it.qty) <= 0);
+    appendRegisterLog(`주문등록 시작 — ${cust.CustName} / ${formatWeekDisplay(week)}`);
+    appendRegisterLog(`매칭 원본 ${matchedSourceRows.length}행 → 합산 ${registerItems.length}품목 · 제외 ${skippedItems.length}행`);
     try {
+      appendRegisterLog('서버 트랜잭션으로 주문등록 요청 중입니다.');
       const d = await apiPost('/api/orders', {
         custKey: cust.CustKey,
         week,
@@ -730,6 +846,7 @@ export default function OrderImportPage() {
       });
       if (!d.success) throw new Error(d.error || '저장 실패');
       const okCount = d.results?.filter(r => ['OK', 'UPDATED', 'ADDED', 'DELETED'].includes(r.status)).length ?? registerItems.length;
+      appendRegisterLog(`서버 저장 완료 — ${okCount}품목${d.warning ? ` · 경고: ${d.warning}` : ''}`, d.warning ? 'info' : 'success');
       setResultMsg(`✅ ${okCount}개 저장 완료 — OrderKey ${d.orderMasterKey}${d.warning ? ` / ⚠ ${d.warning}` : ''}`);
       setRegisteredResult(buildImportRegisterResult({
         apiResults: d.results,
@@ -738,6 +855,7 @@ export default function OrderImportPage() {
         warning: d.warning,
       }));
       try {
+        appendRegisterLog('저장된 주문을 DB에서 다시 읽어 최종값을 확인합니다.');
         const od = await apiGet('/api/orders', { custName: cust.CustName, week, year: weekQuery.year });
         const matched = pickImportRegisteredOrder(od.orders, cust.CustName, week);
         if (matched) {
@@ -748,15 +866,29 @@ export default function OrderImportPage() {
             orderMasterKey: d.orderMasterKey,
             warning: d.warning,
           }));
+          appendRegisterLog(`최종 확인 완료 — 현재 주문 ${matched.items?.length || 0}품목`, 'success');
+        } else {
+          appendRegisterLog('저장은 완료됐지만 DB 재조회에서 대상 주문을 찾지 못했습니다. 결과표의 저장 응답을 확인하세요.', 'error');
         }
-      } catch { /* 저장은 완료. 조회 실패해도 방금 쓴 결과 행은 유지 */ }
+      } catch (readError) {
+        appendRegisterLog(`저장은 완료됐지만 DB 재조회에 실패했습니다 — ${readError.message || '조회 오류'}`, 'error');
+      }
       clearImportDraft();
     } catch (e) {
       setResultMsg(`❌ ${e.message}`);
+      appendRegisterLog(`주문등록 실패 — ${e.message}`, 'error');
     } finally {
       setRegistering(false);
     }
   };
+
+  const matchAggregates = useMemo(() => buildImportMatchAggregates(items), [items]);
+  const mixedUnitProducts = useMemo(() => findImportMixedUnitProducts(matchAggregates), [matchAggregates]);
+  const matchedSourceRows = useMemo(() => items.flatMap((item) => {
+    if (item.skip || !item.prodKey) return [];
+    if (Array.isArray(item.sourceDetails) && item.sourceDetails.length) return item.sourceDetails.map(detail => Number(detail.rowNo));
+    return [Number(item.rowNo)];
+  }).filter(Number.isFinite), [items]);
 
   const liveSummary = useMemo(() => {
     const active = items.filter(it => !it.skip);
@@ -1082,6 +1214,8 @@ export default function OrderImportPage() {
             </div>
           )}
 
+          <RegisterProgressLog entries={registerLogs} running={registering} />
+
           {logs.length > 0 && (
             <details style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>
               <summary>파싱 로그 ({logs.length})</summary>
@@ -1116,9 +1250,11 @@ export default function OrderImportPage() {
         </div>
 
         {items.length > 0 && (
-          <div style={st.card}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(620px, 100%), 1fr))', gap: 12, alignItems: 'start' }}>
+            <ExcelSheetPreview preview={sheetPreview} matchedRows={matchedSourceRows} />
+          <div style={{ ...st.card, marginBottom: 0, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-              <strong style={{ fontSize: 14 }}>품목 매칭 결과</strong>
+              <strong style={{ fontSize: 14 }}>품목 매칭 결과 · 매칭 원본 {matchedSourceRows.length}행 → 합산 {matchAggregates.length}품목</strong>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button
                   type="button"
@@ -1139,15 +1275,22 @@ export default function OrderImportPage() {
                 </button>
                 <button
                   type="button"
-                  style={{ ...st.btn, ...st.btnPrimary, opacity: liveSummary.unmatched || registering || !liveSummary.registerable ? 0.6 : 1 }}
-                  disabled={!!liveSummary.unmatched || registering || !liveSummary.registerable}
+                  style={{ ...st.btn, ...st.btnPrimary, opacity: liveSummary.unmatched || mixedUnitProducts.length || registering || !liveSummary.registerable ? 0.6 : 1 }}
+                  disabled={!!liveSummary.unmatched || !!mixedUnitProducts.length || registering || !liveSummary.registerable}
                   onClick={handleRegister}
-                  title={liveSummary.unmatched ? '미매칭 품목을 먼저 지정하거나 제외하세요' : (!liveSummary.registerable ? '등록할 품목이 없습니다' : '')}
+                  title={liveSummary.unmatched ? '미매칭 품목을 먼저 지정하거나 제외하세요' : (mixedUnitProducts.length ? '같은 품목에 서로 다른 단위가 매칭되었습니다' : (!liveSummary.registerable ? '등록할 품목이 없습니다' : ''))}
                 >
-                  {registering ? '등록 중…' : `주문등록 (${liveSummary.registerable}품목)`}
+                  {registering ? '주문등록 처리 중…' : `주문등록 시작 (${matchAggregates.length}품목)`}
                 </button>
               </div>
             </div>
+
+            {mixedUnitProducts.length > 0 && (
+              <div style={{ padding: 9, marginBottom: 10, borderRadius: 6, background: '#fef2f2', color: '#b91c1c', fontSize: 12, fontWeight: 700 }}>
+                같은 품목에 서로 다른 단위가 있습니다. 상세 행에서 단위를 통일한 뒤 등록하세요.
+              </div>
+            )}
+            <MatchAggregateTable rows={matchAggregates} />
 
             <div style={{ overflowX: 'auto' }}>
               <table style={st.table}>
@@ -1262,6 +1405,7 @@ export default function OrderImportPage() {
                 </tbody>
               </table>
             </div>
+          </div>
           </div>
         )}
 
