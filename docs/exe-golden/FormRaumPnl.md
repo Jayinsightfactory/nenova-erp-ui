@@ -94,6 +94,6 @@
 # 2026-09-15 모든 호텔 차수별 매입단가·도착원가 참조
 
 - 라움·초이문 공통 단가 계약은 유지한다. 신라 및 `WebPnlHotel`의 활성 등록 호텔은 각 `PartnerCode` 안에서만 `WebRaumPnlItem.CostPrice/CostSource`를 수정한다.
-- 상세 웹 표의 도착원가 참조는 `WebArrivalCostLine`을 `OrderYear + 대차수 접두부 + ProdKey + IsCurrent=1`로 읽는 조회 전용 정보다. 전년도·전차수 폴백을 하지 않고, 같은 대차수의 세부차수는 모두 표시한다.
+- 상세 웹 표의 도착원가 참조는 `WebArrivalCostLine`을 `OrderYear + ProdKey + IsCurrent=1`로 읽는 조회 전용 정보다. 선택 대차수 자료가 있으면 그 세부차수를 모두 표시하고, 해당 품목에 선택 대차수 자료가 없을 때만 같은 연도의 가장 가까운 이전 대차수 세부차수를 `이전 최신 차수`로 표시한다. 미래 차수와 이전 연도 값은 사용하지 않는다.
 - 단위 환산은 `Product.SteamOf1Box/BunchOf1Box/SteamOf1Bunch` 근거가 있을 때만 한다. 이 참조값은 `loadRaumPnlDetail` 원장이나 엑셀/인쇄 모델에 저장하지 않는다.
 - EXE 주문·출고·재고·견적 원장은 모두 보존한다.
