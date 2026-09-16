@@ -5,6 +5,23 @@ import { buildPivotExeWorkbook } from '../lib/pivotExeExport.js';
 import { buildPivotExePresentation, getPivotExeDataColumnId } from '../lib/pivotExePresentation.js';
 
 const layout = { row: ['ProdName'], column: ['OrderYear'], filter: EXE_FIELDS.map(field => field.id).filter(id => !['ProdName', 'OrderYear', 'Quantity'].includes(id)), data: ['Quantity'] };
+{
+  const ordered = buildPivotModel([
+    { ProdName: 'first', OrderYear: 2025, Quantity: 1 },
+    { ProdName: 'second', OrderYear: 2026, Quantity: 2 },
+    { ProdName: 'new', OrderYear: 2027, Quantity: 3 },
+  ], { layout, valueOrders: { ProdName: ['second', 'first'], OrderYear: [2026, 2025] }, showGrandTotals: false });
+  const book = new ExcelJS.Workbook();
+  await book.xlsx.load(await buildPivotExeWorkbook(ordered));
+  const sheet = book.worksheets[0];
+  const presentation = buildPivotExePresentation(ordered);
+  assert.deepEqual([2, 3, 4].map(c => sheet.getCell(1, c).value), ['2026', '2025', '2027']);
+  assert.deepEqual([1, 2, 3].map(r => sheet.getCell(presentation.headerRows.length + r, 1).value), ['second', 'first', 'new']);
+  for (const [r, axis] of ordered.rowAxis.entries()) for (const [c, column] of presentation.dataColumns.entries()) {
+    assert.equal(sheet.getCell(presentation.headerRows.length + r + 1, c + 2).value,
+      ordered.cellMap[pivotCellKey(axis.key, column.column.key)]?.values?.[column.measure.key] ?? '');
+  }
+}
 const model = buildPivotModel([
   { ProdName: '=formula-looking', OrderYear: 2025, Quantity: 1.25 },
   { ProdName: '=formula-looking', OrderYear: 2026, Quantity: 2.5 },
