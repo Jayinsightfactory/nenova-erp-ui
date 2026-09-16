@@ -78,6 +78,7 @@ assert.match(page, /현재 DB 주문 내역/, '등록 후 ViewOrder 기준 주�
 assert.match(page, /원본 Excel 시트/, '업로드한 실제 Excel 시트를 매칭 결과 옆에 보여줘야 한다');
 assert.match(page, /원본 Excel 시트 \+ 행별 ERP 매칭/, '원본 Excel 행과 ERP 매칭값을 한 표의 인접 셀로 보여줘야 한다');
 assert.match(page, /ERP 매칭 품목/, '원본 시트 오른쪽에 매칭 품목 열이 있어야 한다');
+assert.match(page, /findOrderImportMatchInsertIndex\(preview\)/, '매칭 열은 발주수량 위치를 찾아 그 바로 뒤에 삽입해야 한다');
 assert.match(page, /최종수량/, '원본 시트 오른쪽에서 합산 최종수량을 확인하고 수정할 수 있어야 한다');
 assert.match(page, /전체 상세 편집표 열기/, '복잡한 입력명과 추천 후보는 접을 수 있는 상세 편집표로 남겨야 한다');
 assert.match(page, /합산된 매칭수량/, '등록 전 합산 품목과 수량을 보여줘야 한다');

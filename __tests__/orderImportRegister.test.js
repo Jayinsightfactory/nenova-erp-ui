@@ -8,6 +8,7 @@ import {
   buildImportRegisterResult,
   buildImportMatchAggregates,
   buildImportInlineMatchRows,
+  findOrderImportMatchInsertIndex,
   findImportMixedUnitProducts,
 } from '../lib/orderImportRegister.js';
 
@@ -74,5 +75,18 @@ assert.equal(inlineRows[0].matches[0].sourceCount, 2);
 assert.equal(inlineRows[1].matches[0].isPrimary, false, '후속 원본 행은 같은 합산 품목에 포함된 행임을 구분해야 한다');
 assert.equal(inlineRows[1].matches[0].sourceQty, 10, '원본 행별 수량은 합산 최종수량과 별도로 보존해 표시해야 한다');
 assert.equal(inlineRows[2].matches[0].itemIndex, 1, '미매칭 행도 원본 시트 옆에서 바로 수정할 수 있어야 한다');
+
+assert.equal(findOrderImportMatchInsertIndex({
+  headerRow: 3,
+  rows: [{ rowNo: 3, cells: ['품명', '컬러', '발주수량', '출고수량', '단가', '비고'] }],
+}), 3, 'ERP 매칭 셀은 발주수량 바로 뒤에 삽입해야 한다');
+assert.equal(findOrderImportMatchInsertIndex({
+  headerRow: 1,
+  rows: [{ rowNo: 1, cells: ['품명', '주문 수량', '단가'] }],
+}), 2, '발주수량 명칭이 없는 양식은 주문수량 바로 뒤에 삽입해야 한다');
+assert.equal(findOrderImportMatchInsertIndex({
+  headerRow: 1,
+  rows: [{ rowNo: 1, cells: ['품명', '컬러', '비고'] }],
+}), 3, '수량 헤더가 없는 예외 양식만 원본 열 끝에 표시해야 한다');
 
 console.log('order import register helpers passed');
