@@ -423,6 +423,7 @@ export default function CatalogSlideComposer({
               <p className="composer-ppt-hint">
                 PPT 미리보기와 동일 · 이미지 칸 {catalogPptImageSizeLabel(perPage, 'wide', { ...layoutOptions, txtHcm: autoTxtH })}
                 {renderLayout.textOverflow && <strong role="alert"> · 글씨가 칸보다 큽니다. 행 수나 글씨 크기를 줄여주세요.</strong>}
+                {renderLayout.imageAutoLimited && <span> · 겹침 방지를 위해 이미지 크기 자동 맞춤</span>}
               </p>
               <div className="composer-ppt-viewport">
                 <div className="catalog-slide composer-ppt-mirror" style={mirrorVars}>

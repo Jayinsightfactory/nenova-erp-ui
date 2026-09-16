@@ -102,7 +102,13 @@ export const CATALOG_SLIDE_CSS = `
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    gap: 0.05cm;
+    gap: 0.1cm;
+  }
+  .catalog-slide-names > div {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    flex-shrink: 0;
   }
   .catalog-slide-grid > .catalog-slide-item > .catalog-slide-img {
     position: absolute;
@@ -121,7 +127,7 @@ export const CATALOG_SLIDE_CSS = `
     font-weight: 700;
     color: #000;
     line-height: 1.2;
-    word-break: keep-all;
+    word-break: break-word;
     overflow-wrap: anywhere;
   }
   .catalog-slide-names .extra-name {
@@ -135,7 +141,7 @@ export const CATALOG_SLIDE_CSS = `
     font-weight: 700;
     color: #000;
     line-height: 1.2;
-    margin-top: 0.05cm;
+    margin-top: 0;
   }
   @media print {
     .catalog-slide {

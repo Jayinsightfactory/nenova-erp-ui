@@ -25,7 +25,8 @@ const square100=computeCatalogLayout(8,'wide',{layout:{frame:'square',imageSize:
 for (const size of [125,150,200]) {
   const enlarged=computeCatalogLayout(8,'wide',{layout:{frame:'square',imageSize:size}});
   assert.equal(enlarged.imgWcm,enlarged.imgHcm);
-  assert.ok(Math.abs(enlarged.imgWcm-square100.imgWcm*size/100)<0.00001);
+  assert.ok(enlarged.imgWcm <= square100.imgWcm + 0.00001);
+  assert.ok(enlarged.imageAutoLimited);
   assert.equal(normalizeCatalogLayoutSettings(JSON.parse(JSON.stringify({frame:'square',imageSize:size}))).imageSize,size);
   assert.equal(layoutCssVars(8,'wide',{layout:{frame:'square',imageSize:size}})['--cell-img-w'],`${enlarged.imgWcm}cm`);
 }
@@ -42,6 +43,18 @@ const line={id:'fixture',prodKey:17,engName:'Rose',korName:'장미',salePrice:10
 const small = estimateCatalogAutoTxtHcm([line],{fontSizes:{kor:10}},8);
 const big = estimateCatalogAutoTxtHcm([line],{fontSizes:{kor:30}},8);
 assert.ok(big>small);
+const richLine={...line,engName:'Hydrangea GOLD PEACH (FLOWER)',extra1:'기타 1 안내\n두 번째 줄',extra2:'기타 2 안내'};
+const richFields={showEng:true,showKor:true,showPrice:true,showExtra1:true,showExtra2:true};
+const richHeight=estimateCatalogAutoTxtHcm([richLine],richFields,10,'wide',{cols:5});
+assert.ok(richHeight>estimateCatalogAutoTxtHcm([{...richLine,extra1:'안내'}],richFields,10,'wide',{cols:5}));
+for(const size of [100,125,200]) for(const imageY of [0,50,100]) {
+  const l=computeCatalogLayout(10,'wide',{cols:5,txtHcm:richHeight,compactText:true,layout:{frame:'square',imageSize:size,imageY,txtGap:0,vgap:0}});
+  assert.ok(!l.textOverflow);
+  for(const c of l.cells){
+    assert.ok(c.txtYcm-c.imgYcm-c.imgHcm>=0.24999);
+    assert.ok(c.txtYcm+c.txtHcm <= l.spacing.top+(c.row+1)*c.cellHcm+c.row*l.spacing.vgap+0.00001);
+  }
+}
 assert.ok(computeCatalogLayout(100,'wide',{txtHcm:10}).textOverflow);
 for(const year of [2025,2026]) {
   const draft=buildCatalogDraftPayload({orderYear:year,selectedWeek:'37-02',catalogFields:{layout:max,fontSizes:{kor:22}},lines:[line]});
