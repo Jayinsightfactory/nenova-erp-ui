@@ -1,9 +1,15 @@
 import {useRouter} from 'next/router';
+import {takePreviousMenuRoute} from '../lib/menuNavigationHistory';
 
 export function goBackFromMenu(router){
   if(typeof window==='undefined')return;
-  if(window.history.length>1){router.back();return;}
-  try{if(window.opener&&window.opener!==window){window.close();return;}}catch{}
+  const previous=takePreviousMenuRoute(router.asPath,window.sessionStorage);
+  if(previous){router.push(previous);return;}
+  let childWindow=false;
+  try{childWindow=Boolean(window.opener&&window.opener!==window);}catch{childWindow=true;}
+  // 새창의 history에는 about:blank/로그인 redirect가 섞일 수 있어 back()이 창을 닫을 수 있다.
+  // 메뉴 이동 기록이 없는 새창에서는 닫지 않고 ERP 홈으로 이동한다.
+  if(!childWindow&&window.history.length>1){router.back();return;}
   router.push('/dashboard');
 }
 
