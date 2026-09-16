@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { createPivotValueOrderComparator, movePivotValue } from '../lib/pivotExeValueOrder.js';
+import { collectPivotOrderValues, createPivotValueOrderComparator, movePivotValue } from '../lib/pivotExeValueOrder.js';
+
+const groups = collectPivotOrderValues([{v:'B'},{v:0},{v:'0'},{v:'A'},{v:null},{v:''},{v:0}], 'v', value=>value===null?'(null)':String(value));
+assert.deepEqual(groups.get('0'), [0,'0'], 'display-equivalent raw values are all preserved');
+assert.deepEqual([...groups.keys()], ['B','0','A','(null)',''], 'default choices preserve source encounter order');
+const movedRaw = movePivotValue([...groups.keys()],1,-1).flatMap(label=>groups.get(label));
+assert.deepEqual(movedRaw,[0,'0','B','A',null,'']);
+assert.deepEqual(['B','A'].sort(createPivotValueOrderComparator([],null)),['B','A'],'default reset keeps source order');
 
 const typed = [null, '', 0, false, '00', '0', true, 1, '1'];
 assert.deepEqual([...typed].reverse().sort(createPivotValueOrderComparator(typed)), typed);

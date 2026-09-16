@@ -5,7 +5,7 @@ import PivotExeGrid from './PivotExeGrid';
 import { getPivotExeGroupKeys } from '../lib/pivotExePresentation';
 import { normalizePivotExeRange } from '../lib/pivotExeRange';
 import { normalizePivotExeView } from '../lib/pivotExeViewState';
-import { createPivotValueOrderComparator, movePivotValue } from '../lib/pivotExeValueOrder';
+import { collectPivotOrderValues, createPivotValueOrderComparator, movePivotValue } from '../lib/pivotExeValueOrder';
 import PivotExeFavorites from './PivotExeFavorites';
 import { applyPivotValueSelection, createPivotHeaderHeightResizeSession, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction';
 
@@ -81,19 +81,19 @@ function FieldMenu({ field, aggregation, sort, popupRef, position, onAggregation
   </div>;
 }
 
-function FilterValueDialog({ field, values, selected, valueOrder, sort, rawValue, popupRef, position, onApply, onClear, onClose }) {
+function FilterValueDialog({ field, values, selected, valueOrder, sort, rawValue, rawValues, popupRef, position, onApply, onClear, onClose }) {
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState(() => new Set(Array.isArray(selected) ? selected.filter((value) => values.includes(value)) : values));
   const [draftOrder, setDraftOrder] = useState(valueOrder || []);
   const [draftSort, setDraftSort] = useState(sort || null);
   const ordered = useMemo(() => {
-    const compare = createPivotValueOrderComparator(draftOrder, draftSort || 'asc');
+    const compare = createPivotValueOrderComparator(draftOrder, draftSort || (draftOrder.length ? 'asc' : null));
     return [...values].sort((a,b) => compare(rawValue(a),rawValue(b)));
   }, [values,draftOrder,draftSort,rawValue]);
   const visible = ordered.filter((value) => cleanText(value).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   const changeSort = (direction) => { setDraftSort(direction); setDraftOrder([]); };
   const moveValue = (value, offset) => {
-    setDraftOrder(movePivotValue(ordered, ordered.indexOf(value), offset).map(rawValue));
+    setDraftOrder(movePivotValue(ordered, ordered.indexOf(value), offset).flatMap(rawValues));
     setDraftSort(null);
   };
   const toggle = (value) => setDraft((previous) => { const next = new Set(previous); next.has(value) ? next.delete(value) : next.add(value); return next; });
@@ -325,12 +325,13 @@ export default function PivotExePanel() {
     return () => { clearTimeout(timer); request.current.controller?.abort(); request.current.id += 1; };
   }, [refresh,range]);
 
-  const valuesByField = useMemo(() => Object.fromEntries(FIELDS.map((field) => [field.id, [...new Set(rows.map((row) => cleanText(row[field.id])))].sort((a,b) => a.localeCompare(b,'ko'))])), [rows]);
-  const rawValuesByField = useMemo(() => Object.fromEntries(FIELDS.map((field) => [field.id, new Map(rows.map((row) => [cleanText(row[field.id]),row[field.id] ?? null]))])), [rows]);
-  const rawOrderValue = useCallback((value) => {
+  const rawValuesByField = useMemo(() => Object.fromEntries(FIELDS.map((field) => [field.id, collectPivotOrderValues(rows,field.id,cleanText)])), [rows]);
+  const valuesByField = useMemo(() => Object.fromEntries(FIELDS.map((field) => [field.id, [...rawValuesByField[field.id].keys()]])), [rawValuesByField]);
+  const rawOrderValues = useCallback((value) => {
     const map = rawValuesByField[filterField?.id];
-    return map?.has(value) ? map.get(value) : (rawFilterValue(value) ?? null);
+    return map?.has(value) ? map.get(value) : [rawFilterValue(value) ?? null];
   }, [rawValuesByField,filterField?.id]);
+  const rawOrderValue = useCallback((value) => rawOrderValues(value)[0], [rawOrderValues]);
   const valueFilterStates = useMemo(() => Object.fromEntries(FIELDS.map((field) => [field.id, describePivotValueSelection(valuesByField[field.id] || [], selections[field.id], filterActive)])), [valuesByField,selections,filterActive]);
   // The UI only chooses controls; the shared pure model owns grouping, totals,
   // averages, collapse state, and the exportable visible result.
@@ -480,7 +481,7 @@ export default function PivotExePanel() {
     {successRange && renderLimitError && <div style={noticeError}>{renderLimitError} 범위를 좁히거나 필터를 적용하세요. 데이터는 잘리지 않았습니다.</div>}
     {successRange && !renderLimitError && <PivotExeGrid model={pivotModel} zones={zones} decimals={decimals} zeroVisible={zeroVisible} widths={widths} rowHeight={rowHeight} custHeaderHeight={custHeaderHeight} onResize={changeWidth} onCustHeaderResize={changeCustHeaderHeight} onFieldMenu={openFieldMenu} onFilter={openValueFilter} onBestFit={bestFit} onToggleRow={toggleRow} onToggleColumn={toggleColumn} sorts={sorts} selections={selections} filterActive={filterActive} valueFilterStates={valueFilterStates} />}
     {fieldMenu && <FieldMenu field={BY_ID[fieldMenu.id]} aggregation={zones.values.find((value)=>value.id===fieldMenu.id)?.aggregation} sort={sorts[fieldMenu.id]} popupRef={fieldMenuRef} position={fieldMenuPosition} onAggregation={(id,aggregation)=>setZones((previous)=>({...previous,values:previous.values.map((value)=>value.id===id?{...value,aggregation}:value)}))} onClose={closeFieldMenu} onMove={moveField} onHide={hideField} onSort={(id,direction)=>{setValueOrders((previous)=>{const next={...previous};delete next[id];return next;});setSorts((previous)=>{const next={...previous}; if (direction) next[id]=direction; else delete next[id]; return next;});}} onBestFit={bestFit} onFilter={(id,event)=>openValueFilter(id,event,fieldMenu.anchor)} onReorder={reorder} />}
-    {filterField && <FilterValueDialog key={filterField.id} field={BY_ID[filterField.id]} values={valuesByField[filterField.id] || []} selected={selections[filterField.id]} valueOrder={valueOrders[filterField.id]} sort={sorts[filterField.id]} rawValue={rawOrderValue} popupRef={valueFilterRef} position={valueFilterPosition} onClose={closeValueFilter} onClear={()=>{setSelections((previous)=>{const next={...previous}; delete next[filterField.id]; return next;});closeValueFilter();}} onApply={(accepted,order,direction)=>{setSelections((previous)=>applyPivotValueSelection(previous,filterField.id,accepted,valuesByField[filterField.id] || []));setValueOrders((previous)=>{const next={...previous};if(order.length) next[filterField.id]=order;else delete next[filterField.id];return next;});setSorts((previous)=>{const next={...previous};if(direction) next[filterField.id]=direction;else delete next[filterField.id];return next;});closeValueFilter();}} />}
+    {filterField && <FilterValueDialog key={filterField.id} field={BY_ID[filterField.id]} values={valuesByField[filterField.id] || []} selected={selections[filterField.id]} valueOrder={valueOrders[filterField.id]} sort={sorts[filterField.id]} rawValue={rawOrderValue} rawValues={rawOrderValues} popupRef={valueFilterRef} position={valueFilterPosition} onClose={closeValueFilter} onClear={()=>{setSelections((previous)=>{const next={...previous}; delete next[filterField.id]; return next;});closeValueFilter();}} onApply={(accepted,order,direction)=>{setSelections((previous)=>applyPivotValueSelection(previous,filterField.id,accepted,valuesByField[filterField.id] || []));setValueOrders((previous)=>{const next={...previous};if(order.length) next[filterField.id]=order;else delete next[filterField.id];return next;});setSorts((previous)=>{const next={...previous};if(direction) next[filterField.id]=direction;else delete next[filterField.id];return next;});closeValueFilter();}} />}
     {fieldList && <FieldList zones={zones} hidden={hidden} onClose={()=>setFieldList(false)} onMove={moveField} onHide={hideField} />}
     {filterOpen && <Modal title="전체 필터 편집" onClose={()=>setFilterOpen(false)} width={760}><p style={{marginTop:0,fontSize:11,color:'#667'}}>AND / OR / NOT 조건을 안전한 데이터 비교로 적용합니다. 코드나 SQL은 실행하지 않습니다.</p><AstEditor ast={draftAst} setAst={setDraftAst} /><ModalButtons onCancel={()=>setFilterOpen(false)} onApply={()=>{setAst(draftAst);setFilterOpen(false);}} /></Modal>}
     <style jsx>{`
