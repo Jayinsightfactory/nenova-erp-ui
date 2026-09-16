@@ -381,4 +381,5 @@ Farm(FarmKey) ── FarmCredit(CreditKey)
 
 미매칭 일괄 연결은 선택 연도 신라의 같은 원본명·단위 그룹을 읽기 전용으로 모은다. 사용자가 선택한 그룹 모두를 한 트랜잭션에서 재검증한 뒤, 미연결 `ProdKey`와 해당 부모 수정시각/수정자만 기록한다. 그룹 구성이나 연결이 조회 후 바뀌면 전체 취소한다. 이미 다른 품목으로 연결된 행과 모든 수량·단가·금액·ERP 원장은 보존하며 신규 테이블이나 전역 별칭 학습을 만들지 않는다.
 - **WebFarmQualityCase / WebFarmQualityEvent / WebFarmQualityEvidence** — 농장 불량 피드백 웹 전용 원장. 증거 이미지는 인증된 전용 API만 조회하며, 임시 업로드는 작성자·연도 기준으로 제한하고 이력 저장 시 불변 `EventKey`에 연결한다. EXE 주문·출고·재고·견적 원장은 변경하지 않는다.
+  - `WebFarmQualityEvent.RequestEventKey BIGINT NULL`: REQUEST_EDIT가 원본 REQUEST를 참조한다. 작성자 본인만 수정 이벤트를 추가하며 원본 이벤트·증거는 보존한다. UI가 최신 수정 본문과 수정 전 본문을 구분한다.
 - **WebFarmQualityInbox / WebFarmQualityInboxSource** — 자동감지 피드백 연결용 웹 전용 원장. 목록 GET은 가상 연결만 계산하며, 명시적 이력 저장에서만 연결을 기록한다. 원본 연결은 `OrderYear + SourceKey`별 단일 소유이며 `Case.InboxKey`는 nullable 연결이다. 기존 코멘트·상태·증거와 ERP 불량 원본을 보존한다. 제외·복구는 사유를 남기는 관리 표시이며 불량차감 취소가 아니다.

@@ -4,14 +4,18 @@ import crypto from 'node:crypto';
 import {qualityScope,qualitySignals,transitionQuality} from '../lib/farmQuality.js';
 import {buildQualityInbox,resolveQualityInboxTarget,qualityInboxMutationPolicy,inboxError} from '../lib/farmQualityInbox.js';
 import {normalizeEvidenceKeys} from '../lib/farmQualityEvidence.js';
+import {assertQualityRequestEditor} from '../lib/farmQualityRequest.js';
 const code=fs.readFileSync('lib/farmQualityInboxStore.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function','async function');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const source=(key,extra={})=>({DeductionKey:key,OrderYear:2026,OrderWeek:'12',ProdKey:1,ProductName:'장미',FarmName:'',FarmKey:null,SourceUnit:'박스',Quantity:2,ImportConfirmed:false,CustKey:key,CustName:`업체 ${key}`,...extra});
 let sources=[source(1),source(2)],inboxes=[],links=[],cases=[],events=[],evidence=[],writes=[],failLinks=false,lockCount=0;
-let schema={inboxId:1,sourceId:2,caseInboxLength:16};
+let schema={inboxId:1,sourceId:2,caseInboxLength:16,requestEventLength:8};
+let failUpdate=false;
 const q=async(text,p={})=>{
  const v=k=>p[k]?.value;
  if(text.includes('OBJECT_ID'))return {recordset:[schema]};
+ if(text.includes('AS requestEventLength'))return {recordset:[schema]};
+ if(text.includes('WHERE e.EventKey=@requestEvent'))return {recordset:events.filter(e=>String(e.EventKey)===v('requestEvent')&&e.CaseKey===v('key')&&cases.some(c=>c.CaseKey===e.CaseKey&&c.OrderYear===v('year')))};
  if(text.includes('sp_getapplock')){lockCount++;assert.equal(v('resource'),'farm-quality-inbox:2026');return {recordset:[{LockResult:0}]};}
  if(text.includes('WHERE e.RequestKey=@req'))return {recordset:events.filter(e=>e.RequestKey===v('req')).map(e=>({...e,OrderYear:cases.find(c=>c.CaseKey===e.CaseKey)?.OrderYear}))};
  if(text.includes('FROM dbo.WebSalesDefectDeduction'))return {recordset:sources.filter(s=>s.OrderYear===v('year'))};
@@ -27,9 +31,9 @@ const q=async(text,p={})=>{
  }
  if(text.startsWith('INSERT dbo.WebFarmQualityInbox(')){inboxes.push({InboxKey:v('inbox'),OrderYear:v('year'),Version:1,Excluded:0});return {recordset:[]};}
  if(text.startsWith('INSERT dbo.WebFarmQualityCase')){cases.push({CaseKey:v('key'),OrderYear:v('year'),SourceKey:v('source'),ProdKey:v('prod'),FarmName:v('farm'),FarmKey:v('fk'),ProductName:v('product'),Title:v('title'),Status:'NEW',Version:1,InboxKey:v('inbox')});return {recordset:[]};}
- if(text.startsWith('INSERT dbo.WebFarmQualityEvent')){const e={EventKey:events.length+1,CaseKey:v('key'),RequestKey:v('req'),PayloadHash:v('hash'),Kind:v('kind'),Body:v('body'),AfterStatus:v('after'),BeforeStatus:v('before'),AuthorName:v('name'),CreatedAt:new Date('2026-09-15T00:00:00Z')};events.push(e);return {recordset:[e]};}
+ if(text.startsWith('INSERT dbo.WebFarmQualityEvent')){const e={EventKey:events.length+1,CaseKey:v('key'),RequestKey:v('req'),PayloadHash:v('hash'),Kind:v('kind'),Body:v('body'),RequestEventKey:v('requestEvent')??null,AuthorId:v('actor'),EventDate:v('date'),DueDate:v('due'),AfterStatus:v('after'),BeforeStatus:v('before'),AuthorName:v('name'),CreatedAt:new Date('2026-09-15T00:00:00Z')};events.push(e);return {recordset:[e]};}
  if(text.startsWith('UPDATE dbo.WebFarmQualityCase SET InboxKey')){cases.find(c=>c.CaseKey===v('key')).InboxKey=v('inbox');return {recordset:[]};}
- if(text.startsWith('UPDATE dbo.WebFarmQualityCase')){const c=cases.find(c=>c.CaseKey===v('key'));c.Status=v('status');c.Version++;return {recordset:[]};}
+ if(text.startsWith('UPDATE dbo.WebFarmQualityCase')){if(failUpdate)throw Error('injected update failure');const c=cases.find(c=>c.CaseKey===v('key'));c.Status=v('status');c.Version++;if(v('kind')==='REQUEST'){c.DueDate=v('due');c.AppliedWeek=null;}if(v('kind')==='APPLY')c.AppliedWeek=v('applied');return {recordset:[]};}
  if(text.startsWith('UPDATE dbo.WebFarmQualityInbox')){const i=inboxes.find(i=>i.InboxKey===v('inbox'));i.Version++;if(v('reactivate')===1)i.Excluded=0;if(p.excluded){i.Excluded=v('excluded');i.ExclusionReason=v('reason');}return {recordset:[]};}
  if(text.startsWith('SELECT EvidenceKey'))return {recordset:evidence.filter(e=>e.EvidenceKey===v('evidence')&&e.OrderYear===v('year')&&e.CreatedBy===v('actor')&&!e.EventKey)};
  if(text.startsWith('UPDATE dbo.WebFarmQualityEvidence')){evidence.find(e=>e.EvidenceKey===v('evidence')).EventKey=v('event');return {recordset:[]};}
@@ -38,7 +42,7 @@ const q=async(text,p={})=>{
 // Serialize fake transactions exactly as the transaction-owned year lock does.
 let queue=Promise.resolve();
 const tx=fn=>{const run=queue.then(async()=>{const snap=structuredClone({inboxes,links,cases,events,evidence});try{return await fn(q);}catch(e){({inboxes,links,cases,events,evidence}=snap);throw e;}});queue=run.catch(()=>{});return run;};
-const api=await new AsyncFunction('crypto','query','sql','withTransaction','qualityScope','qualitySignals','transitionQuality','buildQualityInbox','resolveQualityInboxTarget','qualityInboxMutationPolicy','inboxError','normalizeEvidenceKeys',code+';return {loadQualityInbox,saveQualityInboxEvent,setQualityInboxExclusion};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,qualityScope,qualitySignals,transitionQuality,buildQualityInbox,resolveQualityInboxTarget,qualityInboxMutationPolicy,inboxError,normalizeEvidenceKeys);
+const api=await new AsyncFunction('crypto','query','sql','withTransaction','qualityScope','qualitySignals','transitionQuality','buildQualityInbox','resolveQualityInboxTarget','qualityInboxMutationPolicy','inboxError','normalizeEvidenceKeys','assertQualityRequestEditor',code+';return {loadQualityInbox,saveQualityInboxEvent,setQualityInboxExclusion};')(crypto,q,{NVarChar:1,Int:2,UniqueIdentifier:3,BigInt:4},tx,qualityScope,qualitySignals,transitionQuality,buildQualityInbox,resolveQualityInboxTarget,qualityInboxMutationPolicy,inboxError,normalizeEvidenceKeys,assertQualityRequestEditor);
 const sales={userId:'s',deptName:'영업부'},manager={userId:'m',deptName:'수입부'};
 const item=()=>api.loadQualityInbox({year:2026}).then(r=>r.items[0]);
 const target=i=>({anchorSourceKey:i.sourceKeys[0],revision:i.revision,...(i.inboxKeys.length?{inboxKey:i.inboxKeys[0]}:{}),...(i.caseKeys.length?{caseKey:i.caseKeys[0]}:{})});
@@ -73,7 +77,49 @@ await api.saveQualityInboxEvent(input(await item()),sales);assert.equal(links.le
 const invalidEvidence={...input(await item()),evidenceKeys:[crypto.randomUUID()]},eventCount=events.length;
 await assert.rejects(api.saveQualityInboxEvent(invalidEvidence,sales));assert.equal(events.length,eventCount);
 const request={...input(await item()),kind:'REQUEST',eventDate:'2026-09-15',dueDate:'2026-09-20'};
-await api.saveQualityInboxEvent(request,manager);assert.equal(cases[0].Status,'WAITING');
+const savedRequest=await api.saveQualityInboxEvent(request,sales);assert.equal(cases[0].Status,'WAITING');
+assert.equal(savedRequest.event.CanEditRequest,true);
+const editInput=async()=>({...input(await item()),kind:'REQUEST_EDIT',requestEventKey:savedRequest.eventKey,body:'수정 요청'});
+const original=structuredClone(events.find(e=>String(e.EventKey)===savedRequest.eventKey));
+await assert.rejects(api.saveQualityInboxEvent(await editInput(),manager),e=>e.code==='INBOX_FORBIDDEN');
+await assert.rejects(api.saveQualityInboxEvent({...await editInput(),requestEventKey:'1'},sales),e=>e.code==='INBOX_INVALID');
+for(const other of [{CaseKey:crypto.randomUUID(),OrderYear:2026},{CaseKey:crypto.randomUUID(),OrderYear:2025}]){
+ cases.push({...other,SourceKey:999,Version:1,Status:'WAITING'});
+ const foreign={...original,EventKey:900,CaseKey:other.CaseKey};events.push(foreign);
+ await assert.rejects(api.saveQualityInboxEvent({...await editInput(),requestEventKey:'900'},sales),e=>e.code==='INBOX_INVALID');
+ events.pop();cases.pop();
+}
+const staleEdit=await editInput();
+for(const change of [{caseVersion:0},{inboxVersion:0},{target:{...staleEdit.target,revision:'stale'}}])await assert.rejects(api.saveQualityInboxEvent({...staleEdit,...change},sales),e=>e.code==='INBOX_STALE');
+await assert.rejects(api.saveQualityInboxEvent({...await editInput(),evidenceKeys:[crypto.randomUUID()]},sales),e=>e.code==='INBOX_INVALID');
+schema.requestEventLength=null;await item();await assert.rejects(api.saveQualityInboxEvent(await editInput(),sales),e=>e.code==='INBOX_NOT_READY');schema.requestEventLength=8;
+await api.setQualityInboxExclusion({...input(await item()),action:'exclude',reason:'수정 중 제외 유지'},manager);
+await api.saveQualityInboxEvent(await editInput(),sales);assert.equal(inboxes[0].Excluded,1);
+sources.push(source(777));
+const edit=await editInput(),editSnapshot=structuredClone({inboxes,links,cases,events,evidence});
+failUpdate=true;await assert.rejects(api.saveQualityInboxEvent(edit,sales),/injected update/);failUpdate=false;
+assert.deepEqual({inboxes,links,cases,events,evidence},editSnapshot);
+const edited=await api.saveQualityInboxEvent(edit,sales);
+assert.equal(edited.event.RequestEventKey,savedRequest.eventKey);assert.equal(edited.event.CanEditRequest,false);
+const editReplay=await api.saveQualityInboxEvent(edit,sales);
+assert.equal(editReplay.replayed,true);assert.equal(editReplay.caseStatus,edited.caseStatus);assert.equal(editReplay.caseVersion,edited.caseVersion);
+await assert.rejects(api.saveQualityInboxEvent({...edit,body:'다른 수정'},sales),e=>e.code==='INBOX_INVALID');
+assert.deepEqual(events.find(e=>String(e.EventKey)===savedRequest.eventKey),original);
+assert.equal(inboxes[0].Excluded,1);assert.deepEqual(links,editSnapshot.links);
+assert.equal(cases[0].DueDate,editSnapshot.cases[0].DueDate);assert.equal(cases[0].AppliedWeek,editSnapshot.cases[0].AppliedWeek);assert.equal(cases[0].Status,'WAITING');
+await api.setQualityInboxExclusion({...input(await item()),action:'restore',reason:'답변 진행'},manager);
+const response=async()=>({...input(await item()),kind:'RESPONSE',eventDate:'2026-09-16'});
+await assert.rejects(api.saveQualityInboxEvent(await response(),sales),e=>e.code==='INBOX_FORBIDDEN');
+await api.saveQualityInboxEvent(await response(),manager);assert.equal(cases[0].Status,'ANSWERED');
+const laterReplay=await api.saveQualityInboxEvent(edit,sales);
+assert.equal(laterReplay.caseStatus,'ANSWERED','replay returns current case status, not original edit status');
+assert.equal(laterReplay.caseVersion,cases[0].Version);
+await assert.rejects(api.saveQualityInboxEvent(await response(),manager));
+await api.saveQualityInboxEvent(await editInput(),sales);assert.equal(cases[0].Status,'ANSWERED');
+cases[0].AppliedWeek=22;
+await api.saveQualityInboxEvent(await editInput(),sales);assert.equal(cases[0].AppliedWeek,22);assert.equal(cases[0].Status,'ANSWERED');
+await api.saveQualityInboxEvent(input(await item()),sales);assert.equal(cases[0].Status,'ANSWERED');
+await api.saveQualityInboxEvent({...input(await item()),kind:'REQUEST',eventDate:'2026-09-16',dueDate:'2026-09-20'},sales);assert.equal(cases[0].Status,'WAITING');
 for(const kind of ['COMMENT','REQUEST']){
  await api.setQualityInboxExclusion({...input(await item()),action:'exclude',reason:`${kind} 이전 제외 사유`},manager);
  assert((await item()).excluded);
@@ -91,7 +137,7 @@ for(const kind of ['COMMENT','REQUEST']){
 // Fresh first REQUEST with unknown farm succeeds; overlapping first saves stale.
 inboxes=[];links=[];cases=[];events=[];
 const virtual=await item(),a={...input(virtual),kind:'REQUEST',eventDate:'2026-09-15',dueDate:'2026-09-20'},b=input(virtual);
-const concurrent=await Promise.allSettled([api.saveQualityInboxEvent(a,manager),api.saveQualityInboxEvent(b,sales)]);
+const concurrent=await Promise.allSettled([api.saveQualityInboxEvent(a,sales),api.saveQualityInboxEvent(b,sales)]);
 assert.equal(concurrent.filter(r=>r.status==='fulfilled').length,1);assert.equal(cases.length,1);assert.equal(cases[0].Status,'WAITING');
 assert.equal(new Set(links.map(l=>l.SourceKey)).size,sources.length);assert(lockCount>0);
 // A stale cross-year anchor cannot materialize another year's source.

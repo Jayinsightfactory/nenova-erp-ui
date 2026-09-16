@@ -16,6 +16,7 @@ const serverImages=[{EvidenceKey:'server-image',FileName:'서버.png'}];
 assert.deepEqual(acknowledge({event:{...event,Evidence:serverImages}},drafts).Evidence,serverImages,'nonempty server evidence takes precedence');
 assert.deepEqual(acknowledge({event},[]).Evidence,[],'no attachments remains empty');
 let stateOverrides={},stateIndex=0;
+let apiMocks={};
 const summaryFilename=path.resolve(__dirname,'../lib/farmQualityInboxSummary.js');
 const summaryModule=new Module(summaryFilename,module);
 summaryModule._compile(transformSync(fs.readFileSync(summaryFilename,'utf8'),{filename:summaryFilename,jsc:{parser:{syntax:'ecmascript'},target:'es2022'},module:{type:'commonjs'}}).code,summaryFilename);
@@ -23,7 +24,8 @@ const compiled=transformSync(source,{filename,jsc:{parser:{syntax:'ecmascript',j
 const loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));
 loaded.require=name=>{
  if(name==='../lib/farmQualityInboxSummary')return summaryModule.exports;
- if(name==='react')return {...React,useEffect(){},useRef(value){return {current:value};},useState(value){const index=stateIndex++;return [Object.hasOwn(stateOverrides,index)?stateOverrides[index]:typeof value==='function'?value():value,()=>{}];}};
+ if(name==='react')return {...React,useEffect(){},useRef(value){return {current:value};},useState(value){const index=stateIndex++;const initial=Object.hasOwn(stateOverrides,index)?stateOverrides[index]:typeof value==='function'?value():value;return [initial,next=>{stateOverrides[index]=typeof next==='function'?next(Object.hasOwn(stateOverrides,index)?stateOverrides[index]:initial):next;}];}};
+ if(name==='../lib/useApi')return {apiGet:(...args)=>apiMocks.get(...args),apiPost:(...args)=>apiMocks.post(...args)};
  if(name==='../lib/farmQuality')return {QUALITY_STATUSES:{NEW:'요청 필요',CLOSED:'개선 확인',WAITING:'미답변'},QUALITY_KINDS:{COMMENT:'코멘트',REQUEST:'요청',RESPONSE:'답변',APPLY:'개선 적용',CLOSE:'개선 확인'},QUALITY_SIGNAL_KINDS:{UNASSIGNED_ITEM_WEEK:'농장 미지정 품목 반복'}};
  if(name==='../lib/farmQualityEvidence')return {QUALITY_EVIDENCE_MAX_BYTES:10485760,QUALITY_EVIDENCE_MAX_FILES:5};
  if(name.startsWith('../lib/'))return {};
@@ -98,5 +100,67 @@ for(const selected of [virtual,closed,multiple])for(const filter of ['ALL','NEW'
  const disclosures=detail.match(/<details[^>]*>/g)||[];assert.equal(disclosures.length,3);assert(disclosures.every(tag=>tag.includes('open=""')),'all detail disclosures default open');
  assert.equal(detail.split('<legend>피드백 기록</legend>').length-1,1,'one composer retains existing handlers');
 }
-assert(source.includes('<aside key={selected.key}>'),'switching cards resets detail scroll and disclosure DOM');
+assert(source.includes('<aside key={selected.key} ref={detailRef}>'),'switching cards resets detail scroll and disclosure DOM');
+assert.equal(loaded.exports.defaultFeedbackKind('NEW',false),'REQUEST');
+assert.equal(loaded.exports.defaultFeedbackKind('WAITING',true),'RESPONSE');
+assert.equal(loaded.exports.defaultFeedbackKind('WAITING',false),'REQUEST');
+assert.equal(loaded.exports.defaultFeedbackKind('ANSWERED',true),'REQUEST');
+assert.equal(loaded.exports.feedbackActionLabel('REQUEST','WAITING'),'요청 추가');
+assert.equal(loaded.exports.feedbackActionLabel('REQUEST','ANSWERED'),'재요청');
+const managerFlag=data.canManage;data.canManage=false;
+html=render({2:virtual,5:'REQUEST'});assert.match(html,/요청 저장 · 답변 대기로/);assert.match(html,/value="REQUEST"/);assert.doesNotMatch(html,/value="RESPONSE"/);
+data.canManage=managerFlag;
+html=render({2:closed,3:'c1',10:[{EventKey:7,Kind:'REQUEST',Body:'내 요청',CanEditRequest:true},{EventKey:8,Kind:'REQUEST',Body:'남의 요청',CanEditRequest:false}]});assert.equal(html.split('>내 요청 수정<').length-1,1);
+html=render({2:closed,3:'c1',5:'REQUEST_EDIT',18:'7',10:[{EventKey:7,Kind:'REQUEST',Body:'수정 후',OriginalBody:'수정 전',RequestEdited:true,CanEditRequest:true}]});assert.match(html,/요청 수정 저장/);assert.match(html,/수정 전 요청 보기/);
 console.log('Farm inbox UI: render, target conflicts, new-source exclusion, manager restore, first kinds, preserved drafts and responsive contracts passed');
+
+// Exercise the real handlers, not only source strings or static markup.
+async function regressionHandlers(){
+ const props={data,year:2026,from:1,to:53,onDirty(){},onBusy(){},refresh:async()=>true};
+ const tree=()=>{stateIndex=0;return Inbox(props);};
+ const nodes=(node)=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes(node.props?.children)];
+ const button=(root,label)=>nodes(root).find(n=>n.type==='button'&&n.props.children===label);
+ const owner={EventKey:'7',Kind:'REQUEST',Body:'내 요청',CanEditRequest:true};
+ const other={EventKey:'8',Kind:'REQUEST',Body:'다른 요청',CanEditRequest:false};
+ stateOverrides={2:excluded,3:'c1',10:[owner,other]};
+ let root=tree(),edit=button(root,'내 요청 수정');
+ assert(edit&&!edit.props.disabled,'excluded owner request edit entry stays enabled');
+ edit.props.onClick();
+ assert.equal(stateOverrides[18],'7');assert.equal(stateOverrides[5],'REQUEST_EDIT');assert.equal(stateOverrides[4],'내 요청');
+ let sent=[],resolveGet;
+ apiMocks.post=async(url,payload)=>{sent.push(payload);return {caseKey:'c1',caseStatus:'CLOSED',inbox:excluded,event:{EventKey:'9',Kind:'REQUEST_EDIT',Body:payload.body,RequestEventKey:'7'}};};
+ apiMocks.get=()=>new Promise(resolve=>{resolveGet=resolve;});
+ root=tree();let save=button(root,'요청 수정 저장');assert.equal(save.props.disabled,false);
+ await save.props.onClick();
+ assert.equal(sent.length,1);assert.equal(sent[0].requestEventKey,'7');assert.equal(sent[0].kind,'REQUEST_EDIT');
+ assert.equal(sent[0].eventDate,'');assert.equal(sent[0].dueDate,'');assert.equal(sent[0].appliedWeek,null);assert.deepEqual(sent[0].evidenceKeys,[]);
+ assert.deepEqual(stateOverrides[10].map(e=>e.EventKey),['7','8','9'],'pending refresh preserves committed acknowledgement and history');
+ assert(nodes(tree()).some(n=>n.type==='article'&&n.key==='9'),'pending refresh still renders acknowledgement');
+ const refreshed=[owner,other,{EventKey:'9',Kind:'REQUEST_EDIT',Body:'server projection'}];
+ resolveGet({events:refreshed});await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(stateOverrides[10],refreshed,'successful GET replaces history');
+ stateOverrides={2:excluded,3:'c1',4:'수정',5:'REQUEST_EDIT',18:'7',10:[owner]};
+ apiMocks.get=async()=>{throw Error('history offline');};
+ await button(tree(),'요청 수정 저장').props.onClick();await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(stateOverrides[10].map(e=>e.EventKey),['7','9'],'failed GET keeps committed acknowledgement');
+ assert.equal(stateOverrides[12],'history offline');assert.match(stateOverrides[16],/저장 완료/);
+ const before=sent.length;
+ for(const kind of ['REQUEST','COMMENT','REQUEST_EDIT']){
+  stateOverrides={2:excluded,3:'c1',4:'차단 대상',5:kind,18:kind==='REQUEST_EDIT'?'8':'',10:[owner,other]};
+  const primary=nodes(tree()).find(n=>n.type==='button'&&n.props.className==='primary');
+  assert.equal(primary.props.disabled,true,`${kind}: ordinary additions and non-owner edits stay disabled`);
+  await primary.props.onClick();assert.equal(sent.length,before,'handler also rejects a forced disabled-button invocation');
+ }
+ // Ordinary selection clears another case's history; stale responses cannot overwrite it.
+ const historyCode=source.slice(source.indexOf(' async function loadHistory'),source.indexOf(' function openItem'));
+ let history=[owner],error='',loading=false,pendingGets=[];const seq={current:0};
+ const load=new Function('historySeq','setEvents','setHistoryError','setHistoryLoading','apiGet','year',historyCode+';return loadHistory;')(seq,v=>history=v,v=>error=v,v=>loading=v,()=>new Promise((resolve,reject)=>pendingGets.push({resolve,reject})),2026);
+ const previous=load('c1',{preserve:true});assert.deepEqual(history,[owner]);
+ const current=load('c2');assert.deepEqual(history,[]);
+ pendingGets[1].resolve({events:[other]});await current;
+ pendingGets[0].resolve({events:[owner]});await previous;
+ assert.deepEqual(history,[other]);assert.equal(error,'');assert.equal(loading,false);
+ assert(source.includes('loadHistory(result.caseKey,{preserve:true})'));
+ console.log('Farm inbox regressions: preserved refresh success/failure/race, excluded owner edit payload and ordinary-write denial passed');
+}
+regressionHandlers().catch(error=>{console.error(error);process.exitCode=1;});
