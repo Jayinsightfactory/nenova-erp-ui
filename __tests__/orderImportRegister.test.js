@@ -10,6 +10,7 @@ import {
   buildImportInlineMatchRows,
   findOrderImportMatchInsertIndex,
   findImportMixedUnitProducts,
+  sortImportRowsByProductOrder,
 } from '../lib/orderImportRegister.js';
 
 const rows = [
@@ -61,6 +62,24 @@ assert.equal(findImportMixedUnitProducts([
   ...aggregates,
   { ...aggregates[0], unit: '단' },
 ]).length, 1, '같은 품목에 서로 다른 단위가 있으면 등록 전 차단 표시');
+
+const sourceOrdered = buildImportMatchAggregates([
+  { rowNo: 20, inputName: '가나다', prodKey: 20, displayName: '가나다', flowerName: '가', qty: 1, unit: '단' },
+  { rowNo: 4, inputName: '하늘', prodKey: 4, displayName: '하늘', flowerName: '하', qty: 1, unit: '단' },
+  { rowNo: 10, inputName: '노랑', prodKey: 10, displayName: '노랑', flowerName: '나', qty: 1, unit: '단' },
+]);
+assert.deepEqual(sourceOrdered.map(row => row.prodKey), [4, 10, 20], '합산표는 품명 정렬이 아니라 Excel 첫 원본 행 순서를 따라야 한다');
+const registerOrdered = mergeRegisterItems([
+  { rowNo: 20, prodKey: 20, prodName: '가나다', qty: 1, unit: '단' },
+  { rowNo: 4, prodKey: 4, prodName: '하늘', qty: 1, unit: '단' },
+  { rowNo: 10, prodKey: 10, prodName: '노랑', qty: 1, unit: '단' },
+]);
+assert.deepEqual(registerOrdered.map(row => row.prodKey), [4, 10, 20], '주문등록 요청도 Excel 원본 행 순서를 따라야 한다');
+assert.deepEqual(
+  sortImportRowsByProductOrder([{ prodKey: 10 }, { prodKey: 99 }, { prodKey: 4 }], registerOrdered).map(row => row.prodKey),
+  [4, 10, 99],
+  '등록 결과는 Excel에 있는 품목을 원본 순서로 먼저 표시하고 파일 밖 기존 품목은 뒤에 유지해야 한다',
+);
 
 const inlineRows = buildImportInlineMatchRows([
   {
