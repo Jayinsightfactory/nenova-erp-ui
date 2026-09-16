@@ -3741,46 +3741,50 @@ export default function PasteOrderPage() {
                 error: pasteIncoming.error,
                 entry: pasteIncoming.map[Number(it.prodKey)],
               });
-              return <div key={`${group.key}-${order.id}-${itemIdx}`} style={{ display: 'grid', gridTemplateColumns: compact ? 'minmax(62px,.58fr) minmax(100px,1.42fr) 46px 58px 64px' : 'minmax(95px, .65fr) minmax(180px, 1.35fr) 58px 66px 78px', alignItems: 'center', gap: compact ? 3 : 5, padding: compact ? '5px 6px' : '6px 8px', borderBottom: '1px solid #eee', background: it.prodKey ? '#fff' : '#fff8e1' }}>
-                <div title={`${order.custName || ''} → ${order.custMatch?.CustName || '확인 필요'} · ${order.custMatchReason || ''}`} style={{ overflowWrap: 'anywhere', fontSize: compact ? 10 : 11, fontWeight: 900, color: '#1a237e' }}>
-                  {order.custMatch?.CustName || order.custName || '업체 미확인'}
-                  {order.custMatchReason && <div style={{ fontWeight: 400, marginTop: 3 }}>입력: {order.custName}<br />{order.custMatchReason}</div>}
+              return <div key={`${group.key}-${order.id}-${itemIdx}`} className="paste-preview-row" style={{ background: it.prodKey ? '#fff' : '#fff8e1' }}>
+                <div className="paste-preview-main">
+                  <strong className="paste-preview-customer" title={`${order.custName || ''} → ${order.custMatch?.CustName || '확인 필요'}`}>{order.custMatch?.CustName || order.custName || '업체 미확인'}</strong>
+                  <strong className="paste-preview-product" style={{ color: group.color }}>{it.inputName}</strong>
+                  {!order.custMatch?.CustKey && <span className="paste-preview-warning">업체 확인</span>}
+                  {!it.prodKey && <span className="paste-preview-warning">품목 매칭 필요</span>}
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <div title={it.inputName} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: compact ? 11 : 12, fontWeight: 700, color: group.color }}>{it.inputName}</div>
-                  <div title={it.displayName || it.prodName || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: it.prodKey ? '#607d8b' : '#e65100' }}>
-                    {it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}
-                  </div>
-                  {it.matchReason && <div style={{ fontSize: 10, color: it.prodKey ? '#455a64' : '#c62828', overflowWrap: 'anywhere' }}>{it.matchReason}</div>}
-                  {it.prodKey && <div title={`${formatWeekDisplay(week)} 전산 입고수량`} style={{ marginTop: 2, fontSize: 10, fontWeight: 900, color: incomingState.kind === 'error' ? '#c62828' : incomingState.kind === 'zero' ? '#78909c' : '#00695c' }}>
-                    {incomingState.label}
-                  </div>}
-                  {it.prodKey && <div style={{ marginTop: 2, fontSize: 10, fontWeight: 800, color: preview?.error ? '#c62828' : '#455a64', whiteSpace: compact ? 'normal' : 'nowrap', lineHeight: 1.25 }}>
+                <div className="paste-preview-controls">
+                <input type="number" min="0" step="0.5" value={it.qty} aria-label={`${it.inputName} 수량`}
+                  onChange={e => updateItem(order.id, itemIdx, { qty: parseFloat(e.target.value) || 0 })}
+                  className="paste-preview-qty" />
+                <select value={normalizeOrderUnit(it.unit)} aria-label={`${it.inputName} 단위`}
+                  onChange={e => updateItem(order.id, itemIdx, { unit: e.target.value, unitExplicit: true })}
+                  className="paste-preview-unit">
+                  <option>박스</option><option>단</option><option>송이</option>
+                </select>
+                <button type="button" onClick={() => openDetailedMatchEditor(order.id, itemIdx)}
+                  className="paste-preview-edit">
+                  {it.prodKey ? '상세수정' : '매칭하기'}
+                </button>
+                </div>
+                <div className="paste-preview-meta">
+                  <span className="paste-preview-matched">{it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}</span>
+                  {it.prodKey && <span style={{ color: incomingState.kind === 'error' ? '#c62828' : '#00695c' }}>{incomingState.label}</span>}
+                  {it.prodKey && <span className={preview?.error ? 'paste-preview-warning' : ''}>
                     {preview?.error
                       ? `적용 예상 오류 · ${preview.error}`
                       : preview
                         ? `적용 예상 · 주문 ${previewQty(preview.orderBefore)}→${previewQty(preview.orderAfter)} / 분배 ${previewQty(preview.shipmentBefore)}→${previewQty(preview.shipmentAfter)}`
                         : '적용 예상 수량 조회 중'}
-                  </div>}
+                  </span>}
+                  <details className="paste-preview-evidence">
+                    <summary>근거</summary>
+                    <div>입력 업체: {order.custName} · {order.custMatchReason || '업체 매칭 근거 없음'}</div>
+                    <div>입력 품목: {it.inputName} → {it.displayName || it.prodName || '미매칭'}</div>
+                    <div>{it.matchReason || '품목 매칭 근거 없음'}</div>
+                  </details>
+                </div>
                   {it.prodKey && preview?.error && shipmentDiagnostic && <div style={{ marginTop: 2, fontSize: 9, lineHeight: 1.25, color: '#ad1457', whiteSpace: 'normal' }}>
                     전산키 P#{it.prodKey} · S#{shipmentDiagnostic.ShipmentKey || '-'} / D#{shipmentDiagnostic.SdetailKey || '-'} · Out {previewQty(shipmentDiagnostic.OutQuantity)} · Box {previewQty(shipmentDiagnostic.BoxQuantity)} · 단 {previewQty(shipmentDiagnostic.BunchQuantity)} · 송이 {previewQty(shipmentDiagnostic.SteamQuantity)}
                     {(shipmentDiagnostic.sameNameAlternatives || []).map(candidate => <div key={`${candidate.ProdKey}-${candidate.SdetailKey}`} style={{ fontWeight: 900 }}>
                       동일품명 실제분배 → P#{candidate.ProdKey} · {candidate.ProdName} · {previewQty(candidate.OutQuantity)} · S#{candidate.ShipmentKey}/D#{candidate.SdetailKey}
                     </div>)}
                   </div>}
-                </div>
-                <input type="number" min="0" step="0.5" value={it.qty} aria-label={`${it.inputName} 수량`}
-                  onChange={e => updateItem(order.id, itemIdx, { qty: parseFloat(e.target.value) || 0 })}
-                  style={{ width: compact ? 44 : 54, padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4, textAlign: 'right', fontSize: compact ? 11 : 12 }} />
-                <select value={normalizeOrderUnit(it.unit)} aria-label={`${it.inputName} 단위`}
-                  onChange={e => updateItem(order.id, itemIdx, { unit: e.target.value, unitExplicit: true })}
-                  style={{ width: compact ? 56 : 64, padding: '3px 2px', border: '1px solid #ccc', borderRadius: 4, fontSize: compact ? 10 : 11 }}>
-                  <option>박스</option><option>단</option><option>송이</option>
-                </select>
-                <button type="button" onClick={() => openDetailedMatchEditor(order.id, itemIdx)}
-                  style={{ padding: '3px 4px', border: '1px solid #b0bec5', borderRadius: 4, background: '#fff', color: '#455a64', cursor: 'pointer', fontSize: 10 }}>
-                  {it.prodKey ? '상세수정' : '매칭하기'}
-                </button>
               </div>;
             })}
           </div>
@@ -4389,7 +4393,21 @@ export default function PasteOrderPage() {
           .paste-column-title { margin: 0 0 7px; color: #1a237e; font-size: 13px; font-weight: 900; }
           .paste-column-analysis { container-type: inline-size; }
           .paste-global-action-board-top input,.paste-global-action-board-top select { max-width:100%;box-sizing:border-box; }
-          .paste-global-action-board-top [title] { white-space:normal !important; overflow-wrap:anywhere; }
+          .paste-global-action-board-top { width:100%; max-width:680px; grid-template-columns:1fr !important; }
+          .paste-preview-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 8px; padding:7px 8px; border-bottom:1px solid #e2e8f0; }
+          .paste-preview-main { display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; min-width:0; font-size:16px; line-height:1.35; overflow-wrap:anywhere; }
+          .paste-preview-customer { color:#1a237e; }
+          .paste-preview-controls { display:flex; align-items:center; gap:4px; }
+          .paste-preview-controls input,.paste-preview-controls select,.paste-preview-controls button { min-height:28px; padding:3px 5px; border:1px solid #b0bec5; border-radius:4px; background:white; font-size:14px; }
+          .paste-preview-qty { width:48px; text-align:right; }
+          .paste-preview-unit { width:58px; }
+          .paste-preview-edit { white-space:nowrap; color:#334155; cursor:pointer; }
+          .paste-preview-meta { grid-column:1 / -1; display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 9px; font-size:12px; line-height:1.4; color:#475569; overflow-wrap:anywhere; }
+          .paste-preview-warning { color:#c62828; font-weight:800; }
+          .paste-preview-evidence { margin-left:auto; }
+          .paste-preview-evidence summary { cursor:pointer; color:#475569; }
+          .paste-preview-evidence[open] { flex-basis:100%; padding:5px; background:#f8fafc; }
+          @container (max-width: 420px) { .paste-preview-row { grid-template-columns:minmax(0,1fr); } .paste-preview-controls { justify-content:flex-end; } }
           @container (max-width: 780px) { .paste-global-action-board-top { grid-template-columns:minmax(0,1fr) !important; } }
           .paste-baseline-toggle { display: flex; align-items: center; gap: 9px; margin: -4px 0 7px; }
           .paste-baseline-toggle button { padding: 4px 9px; border: 1px solid #b8c4d8; border-radius: 6px; background: #fff; color: #334155; font-size: 11.5px; font-weight: 700; cursor: pointer; }

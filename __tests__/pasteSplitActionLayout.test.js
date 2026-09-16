@@ -128,3 +128,9 @@ assert.deepEqual(contract.pastePreviewPlacementPolicy.preserve, [
   'ShipmentFarm', 'Stock', 'Estimate', 'WebProfitReport',
 ]);
 console.log('paste split action layout tests passed');
+assert.match(page, /className="paste-preview-main"/);
+assert.match(page, /className="paste-preview-meta"/);
+assert.match(page, /max-width:680px/);
+assert.match(page, /paste-preview-main[^\n]*font-size:16px/);
+assert.match(page, /<details className="paste-preview-evidence">/);
+assert.doesNotMatch(page, /<details className="paste-preview-evidence" open/);
