@@ -54,6 +54,9 @@ if (!/needsStandaloneBack\s*&&\s*<MenuBackButton standalone\s*\/>/.test(appSourc
 if (!/takePreviousMenuRoute/.test(backSource) || !/window\.history\.length>1/.test(backSource) || !/router\.push\('\/dashboard'\)/.test(backSource)) {
   violations.push('components/MenuBackButton.js: 메뉴 이동 이력과 브라우저 이력, 대시보드 fallback이 필요합니다.');
 }
+if (!/requestContextualMenuBack/.test(backSource)) {
+  violations.push('components/MenuBackButton.js: 현재 페이지의 내부 초기 화면 복귀 요청이 메뉴 이동보다 먼저 실행되어야 합니다.');
+}
 if (/window\.close\s*\(/.test(backSource)) {
   violations.push('components/MenuBackButton.js: 뒤로가기 버튼은 새창을 닫으면 안 됩니다.');
 }

@@ -40,6 +40,9 @@
     "pages/api/raum/hotel-purchase-costs.js",
     "lib/raumPnlArrivalReference.js",
     "pages/raum/pnl.js",
+    "components/MenuBackButton.js",
+    "lib/menuNavigationHistory.js",
+    "__tests__/contextualMenuBack.test.js",
     "components/raum/RaumImageOrderPanel.js",
     "components/raum/RaumCostHistoryPreview.js",
     "pages/raum/purchase-costs.js",
@@ -72,6 +75,7 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "settlementIdentity": ["OrderYear", "MajorWeek", "PartnerCode"],
+  "contextualBack": {"priority":"before menu or browser navigation","detail":"return to the settlement list on the same page","uploadPreview":"return to the settlement list after explicit unsaved confirmation","duringWork":"block while upload, save, or Shilla matching is running","writes":"none","preserve":["WebRaumPnl","WebRaumPnlItem","OrderDetail","ShipmentDetail","StockHistory","Estimate","WebProfitReport"]},
   "specialNoteIdentity": ["PartnerCode", "OrderYear"],
   "quoteSheetClassification": {
     "source": "User request 2026-09-14: sheet names containing 강남 use the same 강남 branch",
@@ -186,6 +190,7 @@
     "__tests__/raumPnlUploadDiff.test.js",
     "__tests__/raumPnlMonthly.test.js",
     "__tests__/raumPnlSettlementContract.test.js",
+    "__tests__/contextualMenuBack.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/raumPnlConsignedCost.test.js"
   ],

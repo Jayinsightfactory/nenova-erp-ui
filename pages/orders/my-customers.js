@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { buildForwardOrderWeeks, compactCustomerProductLabel, productAlphabetInitial, sortMyCustomersFirst } from '../../lib/myCustomerOrderEntry';
 import { convertSalesPasteQtyToOutUnit, salesPasteUnitOptions } from '../../lib/salesPasteOrder';
+import { MENU_BACK_REQUEST_EVENT } from '../../lib/menuNavigationHistory';
 
 const currentYear = new Date().getFullYear();
 const label = p => p.DisplayName || p.ProdName;
@@ -72,6 +73,24 @@ export default function MyCustomerOrders() {
       setCustomers(ordered); if (ordered[0]) setCustKey(String(ordered[0].CustKey));
     }).catch(e => setMessage(e.message));
   }, []);
+
+  useEffect(() => {
+    const handleContextualBack = (event) => {
+      if (!selectionCollapsed && !showTemplates && !showExecutionLog) return;
+      event.preventDefault();
+      if (submitting) {
+        setMessage('주문 처리가 끝난 뒤 차수·업체 선택으로 돌아가세요.');
+        return;
+      }
+      setSelectionCollapsed(false);
+      setShowTemplates(false);
+      setSelectedTemplate(null);
+      setShowExecutionLog(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    window.addEventListener(MENU_BACK_REQUEST_EVENT, handleContextualBack);
+    return () => window.removeEventListener(MENU_BACK_REQUEST_EVENT, handleContextualBack);
+  }, [selectionCollapsed, showTemplates, showExecutionLog, submitting]);
 
   const load = async ({ preserveDraft = false, confirmDraft = false } = {}) => {
     if (!custKey || !week) return;
