@@ -115,6 +115,7 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
+| [2026-09-16_contextual-menu-back](./2026-09-16_contextual-menu-back.md) | 모든 메뉴에서 상세·수정·선택 화면을 먼저 메뉴 초기 화면으로 복귀 | 전 메뉴 공통 처리·자동검사 완료, 배포 진행 |
 | [2026-09-16_menu-back-navigation](./2026-09-16_menu-back-navigation.md) | 새창의 메뉴별 뒤로가기가 창을 닫지 않고 직전 메뉴로 복귀 | 구현·회귀검증 완료, 배포 진행 |
 | [2026-09-15_all-hotel-purchase-cost-arrival-reference](./2026-09-15_all-hotel-purchase-cost-arrival-reference.md) | 모든 호텔 차수별 매입단가 수정 및 상세 웹 전용 해당 차수 도착원가 표시 | 구현·전체 검증 완료, 배포 진행 |
 | [2026-09-14_paste-system-application-comparison](./2026-09-14_paste-system-application-comparison.md) | 전산 수정 적용 건이 붙여넣기 자동 대조에서 미확인으로 남는 문제 | 원인 재현·200건 전역 대조·AI 매칭 연계·전체 검증 완료 |

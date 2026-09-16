@@ -1,8 +1,10 @@
 const assert = require('assert');
 const {
   MENU_BACK_REQUEST_EVENT,
+  MENU_PAGE_RESET_EVENT,
   MENU_HISTORY_KEY,
   requestContextualMenuBack,
+  requestMenuPageReset,
   rememberMenuRoute,
   takePreviousMenuRoute,
 } = require('../lib/menuNavigationHistory');
@@ -40,10 +42,15 @@ assert.equal(requestContextualMenuBack(eventTarget(event => {
   assert.equal(event.type, MENU_BACK_REQUEST_EVENT);
   event.preventDefault();
 })), true);
+let resetEvent = '';
+assert.equal(requestMenuPageReset(eventTarget(event => { resetEvent = event.type; })), true);
+assert.equal(resetEvent, MENU_PAGE_RESET_EVENT);
 
 const component = require('fs').readFileSync(require('path').join(__dirname, '../components/MenuBackButton.js'), 'utf8');
 assert(!/window\.close\s*\(/.test(component), '뒤로가기는 자식창을 닫으면 안 됩니다.');
 assert(/requestContextualMenuBack/.test(component), '현재 페이지의 내부 초기 화면 복귀를 메뉴 이동보다 먼저 요청해야 합니다.');
+assert(/pageInteractedRef/.test(component) && /requestMenuPageReset/.test(component), '모든 메뉴는 내부 작업 후 공통 초기 화면 복귀를 제공해야 합니다.');
+assert(/data-ui-page-content/.test(require('fs').readFileSync(require('path').join(__dirname, '../pages/_app.js'), 'utf8')), '모든 메뉴 페이지의 사용자 작업 영역을 공통으로 추적해야 합니다.');
 assert(/takePreviousMenuRoute/.test(component), '같은 창의 메뉴 이동 기록을 우선 사용해야 합니다.');
 
 console.log('menuNavigationHistory tests passed');
