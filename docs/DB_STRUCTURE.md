@@ -190,6 +190,9 @@
 - 같은 `OrderYear + OrderWeek + CountryName`을 재업로드하면 이전 웹 행만 `IsCurrent=0`으로
   만들고 새 revision을 기본 표시한다. 기존 `Warehouse*`, `Product.Cost`, `Shipment*`,
   `Estimate`, `ProductStock`, `WebProfitReport`에는 자동 반영하지 않는다.
+- 호텔 손익 상세의 웹 전용 참고값은 같은 `OrderYear + ProdKey`에서 선택 대차수를 우선한다.
+  선택 대차수 자료가 없을 때만 그보다 작은 대차수 중 가장 큰 값의 세부차수를 표시하며,
+  미래 차수나 다른 연도는 대체값으로 사용하지 않는다. 이 조회는 원장과 엑셀/인쇄를 변경하지 않는다.
 
 **WebStockPriceEvidence** — 주차별 매출이익보고서 재고단가 증거
 - 업무키: `OrderYear + OrderWeek + ProdKey`; `Price`, `SourceRef`, `EffectiveAt`, `EvidenceStatus`, 확정자·확정시각을 보존한다.

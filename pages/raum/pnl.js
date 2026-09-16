@@ -35,10 +35,12 @@ function ArrivalCostReference({ item, error }) {
   if (error) return <span style={{ color: '#b91c1c' }} title={error}>조회 실패</span>;
   if (!(Number(item?.prodKey) > 0)) return <span style={{ color: '#b45309' }}>품목 연결 필요</span>;
   const refs = Array.isArray(item?.arrivalReferences) ? item.arrivalReferences : [];
-  if (!refs.length) return <span style={{ color: '#94a3b8' }}>해당 차수 없음</span>;
+  if (!refs.length) return <span style={{ color: '#94a3b8' }}>현재·이전 차수 없음</span>;
+  const isFallback = refs.some(ref => ref?.isFallback);
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 112 }}>
-    {refs.map(ref => <span key={`${ref.week}|${ref.cost}`} style={{ whiteSpace: 'nowrap' }} title={`도착원가 원본 ${fmt1(ref.rawCost)}원/${ref.rawUnit || ref.unit || '단위 없음'}`}>
-      <b style={{ color: '#0369a1' }}>{ref.week}</b> {fmt1(ref.cost)}원/{ref.unit || '단위'}
+    {isFallback && <span style={{ alignSelf: 'flex-start', padding: '1px 4px', borderRadius: 4, background: '#fff7ed', color: '#c2410c', fontWeight: 700 }}>이전 최신 차수</span>}
+    {refs.map(ref => <span key={`${ref.week}|${ref.cost}`} style={{ whiteSpace: 'nowrap' }} title={`${ref.isFallback ? '현재 차수 자료 없음 · 이전 최신 차수 / ' : ''}도착원가 원본 ${fmt1(ref.rawCost)}원/${ref.rawUnit || ref.unit || '단위 없음'}`}>
+      <b style={{ color: ref.isFallback ? '#c2410c' : '#0369a1' }}>{ref.week}</b> {fmt1(ref.cost)}원/{ref.unit || '단위'}
     </span>)}
   </div>;
 }
