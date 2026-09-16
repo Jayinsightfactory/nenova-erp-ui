@@ -59,6 +59,8 @@ assert.match(page, /save-mapping/, '중국 품목 수동 매칭을 전용 저장
 assert.match(page, /\/api\/stats\/china-volume-products/, '선택 차수 피벗에 없는 전산 중국 품목도 읽기 전용 후보에서 찾는다');
 assert.match(page, /normalizeChinaText\(search\)/, '품목 검색은 괄호·공백·화종 표기를 정규화한다');
 assert.match(page, /mergeChinaProductCandidates/, '현재 차수 품목과 전산 중국 품목 후보를 ProdKey로 안전하게 합친다');
+assert.match(page, /existing\?\.orders \|\| \{\}/, '품목 후보 병합 시 확정 전 전산 주문(orders)도 outOrders처럼 빈 값으로 덮어쓰지 않는다');
+assert.match(page, /chinaSystemOrderQuantity/, '확정 출고 전에는 전산 주문(orders)까지 내려가는 공용 정책으로 물량표를 채운다');
 assert.match(productApi, /withAuth/, '중국 품목 후보 조회는 로그인 사용자만 가능하다');
 assert.match(productApi, /p\.isDeleted = 0 AND p\.CounName = N'중국'/, '활성 중국 Product만 읽는다');
 assert.doesNotMatch(productApi, /\b(?:INSERT|UPDATE|DELETE|MERGE)\b/i, '중국 품목 후보 API는 ERP 원장을 변경하지 않는다');

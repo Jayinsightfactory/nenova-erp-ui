@@ -9,6 +9,7 @@ import {
   applyChinaPackingCustomerMatch,
   canApplyChinaPackingRows,
   chinaPackingDistributions,
+  chinaSystemOrderQuantity,
   chinaVolumeProductLabel,
   matchChinaPackingRows,
   mergeChinaPackingIntoPivotCells,
@@ -52,10 +53,12 @@ function mergeChinaProductCandidates(pivotData, productCatalog = []) {
     .filter(row => /중국/i.test(String(row?.country || '')))
     .forEach(row => {
       const key = Number(row.prodKey);
-      const existingOutOrders = byKey.get(key)?.outOrders;
-      // 품목 마스터 후보(outOrders 없음)가 이미 채워진 이번 차수 실제 주문수량을 빈 값으로 덮어쓰지 않는다.
-      const outOrders = Object.keys(row.outOrders || {}).length ? row.outOrders : (existingOutOrders || {});
-      byKey.set(key, { ...row, outOrders });
+      const existing = byKey.get(key);
+      // 품목 마스터 후보(outOrders/orders 없음)가 이미 채워진 이번 차수 실제 확정출고·주문수량을
+      // 빈 값으로 덮어쓰지 않는다 (확정 전 주문만 있는 품목도 매칭 후보에서 사라지면 안 됨).
+      const outOrders = Object.keys(row.outOrders || {}).length ? row.outOrders : (existing?.outOrders || {});
+      const orders = Object.keys(row.orders || {}).length ? row.orders : (existing?.orders || {});
+      byKey.set(key, { ...row, outOrders, orders });
     });
   return [...byKey.values()];
 }
@@ -205,10 +208,10 @@ function PackingDistributionModal({ draft, customers, products, onChange, onClos
         {draft.distributions.map((item, index) => {
           const [custKey = '', prodKey = ''] = String(item.cellKey || '').split(':');
           const selectedCustomer = customerOptions.find(customer => String(customer.custKey) === String(custKey));
-          const orderedProducts = [...productOptions].sort((left, right) => Number(right.outOrders?.[selectedCustomer?.custName] || 0) - Number(left.outOrders?.[selectedCustomer?.custName] || 0));
+          const orderedProducts = [...productOptions].sort((left, right) => chinaSystemOrderQuantity(right, selectedCustomer?.custName) - chinaSystemOrderQuantity(left, selectedCustomer?.custName));
           return <div className="distribution-row" key={index}>
             <label>전산 업체<select value={custKey} onChange={event => update(index, { cellKey: `${event.target.value}:${prodKey}` })}><option value="">업체 선택</option>{customerOptions.map(customer => <option key={customer.custKey} value={customer.custKey}>{customer.custName} · {customer.orderCode || '코드없음'}</option>)}</select></label>
-            <label>전산 품목<select value={prodKey} onChange={event => update(index, { cellKey: `${custKey}:${event.target.value}` })}><option value="">품목 선택</option>{orderedProducts.map(product => { const orderQuantity = Number(product.outOrders?.[selectedCustomer?.custName] || 0); return <option key={product.prodKey} value={product.prodKey}>{chinaVolumeProductLabel(product.prodName)} · 주문 {fmt(orderQuantity)}</option>; })}</select></label>
+            <label>전산 품목<select value={prodKey} onChange={event => update(index, { cellKey: `${custKey}:${event.target.value}` })}><option value="">품목 선택</option>{orderedProducts.map(product => { const orderQuantity = chinaSystemOrderQuantity(product, selectedCustomer?.custName); return <option key={product.prodKey} value={product.prodKey}>{chinaVolumeProductLabel(product.prodName)} · 주문 {fmt(orderQuantity)}</option>; })}</select></label>
             <label>분배수량<input type="number" min="0.001" step="0.001" value={item.quantity} onChange={event => update(index, { quantity: Number(event.target.value) })} /></label>
             <button className="remove" onClick={() => onChange({ ...draft, distributions: draft.distributions.filter((_, itemIndex) => itemIndex !== index) })}>삭제</button>
           </div>;
@@ -364,17 +367,21 @@ export default function ChinaVolumeBoard() {
   const matchProducts = useMemo(() => mergeChinaProductCandidates(data, productCatalog), [data, productCatalog]);
   const chinaRows = useMemo(() => {
     const byKey = new Map((data?.rows || []).filter(row => /중국/i.test(String(row.country || ''))).map(row => [Number(row.prodKey), row]));
-    packingRows.forEach(row => row.product?.prodKey && !byKey.has(Number(row.product.prodKey)) && byKey.set(Number(row.product.prodKey), { ...row.product, outOrders: {} }));
+    packingRows.forEach(row => row.product?.prodKey && !byKey.has(Number(row.product.prodKey)) && byKey.set(Number(row.product.prodKey), { ...row.product, outOrders: {}, orders: {} }));
     packingRows.flatMap(chinaPackingDistributions).forEach(distribution => {
       const prodKey = Number(String(distribution.cellKey || '').split(':')[1]);
       const product = productCatalog.find(item => Number(item.prodKey) === prodKey);
-      if (product && !byKey.has(prodKey)) byKey.set(prodKey, { ...product, outOrders: {} });
+      if (product && !byKey.has(prodKey)) byKey.set(prodKey, { ...product, outOrders: {}, orders: {} });
     });
     return [...byKey.values()];
   }, [data, packingRows, productCatalog]);
   const customers = useMemo(() => {
     const used = new Set();
-    chinaRows.forEach(row => Object.entries(row.outOrders || {}).forEach(([name, qty]) => Number(qty || 0) > 0 && used.add(name)));
+    chinaRows.forEach(row => {
+      // 확정 출고(outOrders)뿐 아니라 확정 전 전산 주문(orders)만 있는 거래처도 화면에 나와야 한다.
+      Object.entries(row.outOrders || {}).forEach(([name, qty]) => Number(qty || 0) > 0 && used.add(name));
+      Object.entries(row.orders || {}).forEach(([name, qty]) => Number(qty || 0) > 0 && used.add(name));
+    });
     packingRows.forEach(row => row.customer?.custName && used.add(row.customer.custName));
     packingRows.flatMap(chinaPackingDistributions).forEach(distribution => {
       const custKey = Number(String(distribution.cellKey || '').split(':')[0]);
@@ -429,7 +436,7 @@ export default function ChinaVolumeBoard() {
 
   const openCell = (row, customer) => {
     const key = `${customer.custKey}:${row.prodKey}`;
-    const currentQty = Number(row.outOrders?.[customer.custName] || 0);
+    const currentQty = chinaSystemOrderQuantity(row, customer.custName);
     const saved = cells[key];
     setSelectedKey(key);
     setDraft({
@@ -705,7 +712,7 @@ export default function ChinaVolumeBoard() {
                     <th title={chinaVolumeProductLabel(row.prodName)}><small>{row.flower}</small><span>{chinaVolumeProductLabel(row.prodName)}</span></th>
                     {customers.map(customer => {
                       const key = `${customer.custKey}:${row.prodKey}`;
-                      const originalQty = Number(row.outOrders?.[customer.custName] || 0);
+                      const originalQty = chinaSystemOrderQuantity(row, customer.custName);
                       const saved = cells[key];
                       const quantity = saved?.quantity ?? originalQty;
                       const orderQuantity = saved?.orderQuantity ?? originalQty;
