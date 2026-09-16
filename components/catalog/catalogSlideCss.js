@@ -81,6 +81,7 @@ export const CATALOG_SLIDE_CSS = `
     align-items: center;
     justify-content: center;
     position: relative;
+    scale: var(--catalog-image-zoom, 1);
   }
   .catalog-img-stage {
     position: relative;
@@ -102,7 +103,7 @@ export const CATALOG_SLIDE_CSS = `
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    gap: 0.1cm;
+    gap: 0.04cm;
   }
   .catalog-slide-names > div {
     white-space: pre-wrap;
