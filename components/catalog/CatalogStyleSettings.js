@@ -7,7 +7,7 @@ export default function CatalogStyleSettings({ fields, onChange }) {
   const [message, setMessage] = useState('');
   const f = normalizeCatalogFields(fields);
   const layout = normalizeCatalogLayoutSettings(f.layout);
-  const update = (patch) => { onChange({ ...f, layout: { ...layout, ...patch } }); setMessage(''); };
+  const update = (patch) => { onChange({ ...f, layout: normalizeCatalogLayoutSettings({ ...layout, ...patch }) }); setMessage(''); };
   const saveDefaults = () => {
     try {
       localStorage.setItem(CATALOG_STYLE_STORAGE_KEY, JSON.stringify({ fontSizes: f.fontSizes, layout }));
@@ -32,9 +32,10 @@ export default function CatalogStyleSettings({ fields, onChange }) {
       <button type="button" className="btn btn-sm" onClick={() => update({ frame: 'fill', top: 0, bottom: 0, side: 0, hgap: 0, vgap: 0, txtGap: 0, imageSize: 100, imageX: 50, imageY: 0, showHeader: false })}>여백 없이 이미지 최대화</button>
       <p>채우기는 사진 비율을 유지하며 가장자리를 자릅니다. 사진 내부 위치는 이미지 클릭 후 조절하세요.</p>
       {[
-        ['imageSize', '이미지 크기', 20, 100], ['imageX', '가로 위치', 0, 100], ['imageY', '세로 위치', 0, 100],
+        ['imageSize', '이미지 크기', 20, layout.frame === 'square' ? 200 : 100], ['imageX', '가로 위치', 0, 100], ['imageY', '세로 위치', 0, 100],
       ].map(([key, label, min, max]) => <label key={key}>{label}<input aria-label={label} type="range" min={min} max={max} value={layout[key]} onChange={e => update({ [key]: Number(e.target.value) })}/><output>{layout[key]}%</output></label>)}
       <p>위치: 가로 0% 왼쪽 / 100% 오른쪽, 세로 0% 위 / 100% 아래. 꽉 찬 축은 크기를 줄이면 이동 공간이 생깁니다.</p>
+      {layout.imageSize > 100 && <p role="status">100% 초과 확대: 이미지·글씨가 인접 칸과 겹치거나 슬라이드 밖으로 잘릴 수 있습니다. 가로·세로 위치와 여백을 조절하고 미리보기를 확인하세요.</p>}
       <h3>슬라이드 여백·간격 (cm)</h3>
       <label className="check"><input type="checkbox" checked={layout.showHeader} onChange={e => update({ showHeader: e.target.checked })}/>제목·원산지·로고 표시</label>
       <div className="number-grid">{[
