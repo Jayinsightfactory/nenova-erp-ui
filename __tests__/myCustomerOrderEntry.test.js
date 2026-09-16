@@ -60,6 +60,8 @@ const fs = require('node:fs');
   assert.match(page,/loadSequenceRef/); assert.match(page,/sequence !== loadSequenceRef\.current/);
   assert.match(page,/window\.alert\(resultMessage\)/); assert.match(page,/live-order/); assert.match(page,/입력 품목/); assert.match(page,/입력 수량 지우기/);
   assert.match(page,/className="live-order-quantity"/);
+  assert.match(page,/\.product-row \.product-name\{grid-column:1 \/ -1;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere/);
+  assert.match(page,/\.live-order-name,\.live-order-name strong\{white-space:normal;overflow:visible/);
   assert.match(page,/className="live-order-remove"/);
   assert.match(page,/p\.ProdKey === editingQtyKey/);
   assert.match(page,/qtyBeforeEdit\.current/);
