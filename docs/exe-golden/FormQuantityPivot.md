@@ -76,6 +76,12 @@ verification: `docs/exe-golden/README.md`의 FormQuantityPivot 등록 및 기존
 
 ## 검색·표시 원칙
 
+### 2026-09-16 페이지 스크롤 표시 변경
+
+- 로컬 dnSpy CLI 실제 설치본의 `FormQuantityPivot.GetData`, `btnExcel_Click` / `ExportToXlsx(ExportType.WYSIWYG)`를 재확인했다.
+- 이번 변경은 웹 표의 세로 스크롤 소유권과 렌더링 구간만 바꾼다. 기존 원본 조회·연도/차수·집계·엑셀 모델은 보존하며 API/DB 호출을 추가하지 않는다.
+- 직전 거래처 주문코드 작업의 2026-37-01 운영 GET 2,604행 근거를 재사용한다. 이번 표시 검증은 DB 대신 12,000건 합성 fixture로 수행한다.
+
 - 피벗 행의 업무 식별자는 `OrderYear`, `OrderWeek`, `ProdKey`를 포함한다.
 - 화면의 품목명(색상)은 `Product.ProdName`에서 꽃 접두어를 제거한 canonical 값으로 표시한다.
 - 검색어는 표시값만 변경하지 않고 국가·품종·영문 품목명·한글 표시명을 별칭으로 추가한다.

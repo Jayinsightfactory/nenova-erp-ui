@@ -10,6 +10,7 @@ import {
   buildPivotExeColumnPrefix,
   clipPivotExeHeaderCells,
   getPivotExeColumnWindow,
+  getPivotExePageViewport,
   getPivotExeRowWindow,
   getPivotExeWindowedRowHeaderCells,
   shouldWindowPivotExe,
@@ -112,15 +113,19 @@ const PivotExeGrid = memo(function PivotExeGrid({
   const formattedLabels = useMemo(() => structure.bodyRows.map(({ dataCells }) => dataCells.map(({ value }) => formatPivotExeNumber(value, decimals, zeroVisible))), [structure, decimals, zeroVisible]);
   const isVirtualized = !structure.isEmpty && shouldWindowPivotExe(structure.bodyRows.length, structure.dataColumns.length);
   const topScrollRef = useRef(null);
+  const pinnedHeaderRef = useRef(null);
   const scrollRef = useRef(null);
   const frameRef = useRef(null);
-  const [viewport, setViewport] = useState({ scrollTop: 0, scrollLeft: 0, clientWidth: 0, clientHeight: 0 });
+  const [viewport, setViewport] = useState({ scrollTop: 0, scrollLeft: 0, clientWidth: 0, clientHeight: 0, headerPinned: false });
   const readViewport = useCallback(() => {
     const node = scrollRef.current;
     if (!node) return;
-    const next = { scrollTop: node.scrollTop, scrollLeft: node.scrollLeft, clientWidth: node.clientWidth, clientHeight: node.clientHeight };
-    setViewport((current) => current.scrollTop === next.scrollTop && current.scrollLeft === next.scrollLeft && current.clientWidth === next.clientWidth && current.clientHeight === next.clientHeight ? current : next);
-  }, []);
+    // Vertical coordinates belong to the document, not the horizontal scroll container.
+    const rect = node.getBoundingClientRect();
+    const pageViewport = getPivotExePageViewport({ tableTop: rect.top + node.clientTop, headerHeight: totalHeaderHeight, viewportHeight: window.innerHeight });
+    const next = { ...pageViewport, scrollLeft: node.scrollLeft, clientWidth: node.clientWidth, headerPinned: rect.top < 16 && rect.bottom > totalHeaderHeight + 16 };
+    setViewport((current) => current.scrollTop === next.scrollTop && current.scrollLeft === next.scrollLeft && current.clientWidth === next.clientWidth && current.clientHeight === next.clientHeight && current.headerPinned === next.headerPinned ? current : next);
+  }, [totalHeaderHeight]);
   const onScroll = useCallback(() => {
     if (frameRef.current !== null || typeof window === 'undefined') return;
     frameRef.current = window.requestAnimationFrame(() => { frameRef.current = null; readViewport(); });
@@ -129,35 +134,38 @@ const PivotExeGrid = memo(function PivotExeGrid({
     const body = scrollRef.current;
     const top = topScrollRef.current;
     if (body && top && top.scrollLeft !== body.scrollLeft) top.scrollLeft = body.scrollLeft;
-    if (isVirtualized) onScroll();
-  }, [isVirtualized, onScroll]);
+    onScroll();
+  }, [onScroll]);
   const onTopScroll = useCallback(() => {
     const body = scrollRef.current;
     const top = topScrollRef.current;
     if (!body || !top || body.scrollLeft === top.scrollLeft) return;
     body.scrollLeft = top.scrollLeft;
-    if (isVirtualized) readViewport();
-  }, [isVirtualized, readViewport]);
+    readViewport();
+  }, [readViewport]);
   useEffect(() => {
-    if (!isVirtualized) return undefined;
     readViewport();
     const node = scrollRef.current;
-    if (!node || typeof ResizeObserver === 'undefined') return () => {
-      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
-      frameRef.current = null;
-    };
-    const observer = new ResizeObserver(onScroll);
-    observer.observe(node);
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onScroll);
+    if (node) observer?.observe(node);
+    if (node?.parentElement?.parentElement) observer?.observe(node.parentElement.parentElement);
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     };
   }, [isVirtualized, onScroll, readViewport]);
+  useEffect(() => {
+    if (pinnedHeaderRef.current) pinnedHeaderRef.current.scrollLeft = viewport.scrollLeft;
+  }, [viewport.scrollLeft, viewport.headerPinned, dimensions.tableWidth]);
 
   const dataPrefix = useMemo(() => buildPivotExeColumnPrefix(dimensions.dataColumns.map((column) => column.width)), [dimensions.dataColumns]);
   const rowHeaderWidth = dimensions.rowWidths.reduce((sum, column) => sum + column.width, 0);
-  const rowWindow = useMemo(() => getPivotExeRowWindow({ totalRows: structure.bodyRows.length, scrollTop: viewport.scrollTop, clientHeight: viewport.clientHeight, headerHeight: totalHeaderHeight, rowHeight: dimensions.rowHeight }), [structure.bodyRows.length, viewport.scrollTop, viewport.clientHeight, totalHeaderHeight, dimensions.rowHeight]);
+  const rowWindow = useMemo(() => getPivotExeRowWindow({ totalRows: structure.bodyRows.length, scrollTop: viewport.scrollTop, clientHeight: viewport.clientHeight, rowHeight: dimensions.rowHeight }), [structure.bodyRows.length, viewport.scrollTop, viewport.clientHeight, dimensions.rowHeight]);
   const columnWindow = useMemo(() => getPivotExeColumnWindow({ widths: dimensions.dataColumns.map((column) => column.width), prefix: dataPrefix, scrollLeft: viewport.scrollLeft, clientWidth: viewport.clientWidth, rowHeaderWidth }), [dimensions.dataColumns, dataPrefix, viewport.scrollLeft, viewport.clientWidth, rowHeaderWidth]);
   const windowedRowHeaders = useMemo(() => getPivotExeWindowedRowHeaderCells(structure.rowHeaderCells, rowWindow.start, rowWindow.end), [structure.rowHeaderCells, rowWindow.start, rowWindow.end]);
   const tableStyle = { '--pivot-row-height': `${dimensions.rowHeight}px`, width: `${dimensions.tableWidth}px` };
@@ -166,14 +174,8 @@ const PivotExeGrid = memo(function PivotExeGrid({
     ? [...dimensions.rowWidths, { id: '__left-spacer', width: columnWindow.leftWidth }, ...dimensions.dataColumns.slice(columnWindow.start, columnWindow.end), { id: '__right-spacer', width: columnWindow.rightWidth }]
     : [...dimensions.rowWidths, ...dimensions.dataColumns];
 
-  return <div className={styles.gridShell}>
-    <div ref={topScrollRef} onScroll={onTopScroll} data-testid="pivot-exe-top-scroll" className={styles.topScroll} role="region" aria-label="피벗 표 상단 가로 이동바">
-      <div className={styles.topScrollTrack} style={{ width: dimensions.tableWidth }} />
-    </div>
-    <div ref={scrollRef} onScroll={onBodyScroll} data-testid="pivot-exe-scroll" className={styles.scroll} data-pivot-virtualized={isVirtualized ? 'true' : 'false'} data-pivot-total-rows={structure.bodyRows.length} data-pivot-total-columns={structure.dataColumns.length} data-selection-count={Object.keys(selections || {}).length} data-filter-active={filterActive ? 'true' : 'false'}>
-      <table className={styles.table} data-testid="pivot-exe-grid" style={tableStyle}>
-      <colgroup>{allColumns.map((item) => <col key={item.id} style={{ width: item.width, minWidth: item.width }} />)}</colgroup>
-      <thead>
+  const columns = <colgroup>{allColumns.map((item) => <col key={item.id} style={{ width: item.width, minWidth: item.width }} />)}</colgroup>;
+  const header = <thead>
         {structure.headerRows.map((headerCells, level) => <tr key={`header-${level}`} style={{height:headerHeights[level]}}>
           {level === 0 && dimensions.rowWidths.map((field, index) => <th key={field.id} rowSpan={structure.headerRows.length} className={styles.fieldHead} style={{ left: dimensions.stickyOffsets[index], top: 0, zIndex: 30 }}>
             <FieldControls id={field.id} sorts={sorts} onFieldMenu={onFieldMenu} onFilter={onFilter} valueFilterStates={valueFilterStates} />
@@ -183,7 +185,19 @@ const PivotExeGrid = memo(function PivotExeGrid({
           {(isVirtualized ? clipPivotExeHeaderCells(headerCells, columnWindow.start, columnWindow.end) : headerCells).map((cell) => <AxisHeaderCell key={`${cell.level}-${cell.columnStart}-${cell.measure?.key || ''}`} cell={cell} dimensions={dimensions} headerHeights={headerHeights} headerOffsets={headerOffsets} columnFields={structure.columnFields} onFieldMenu={onFieldMenu} onToggleColumn={onToggleColumn} onResize={onResize} onBestFit={onBestFit} onCustHeaderResize={onCustHeaderResize} />)}
           {isVirtualized && <th className={styles.columnSpacer} aria-hidden="true" />}
         </tr>)}
-      </thead>
+      </thead>;
+  return <div className={styles.gridShell}>
+    <div className={styles.stickyTools}>
+      <div ref={topScrollRef} onScroll={onTopScroll} data-testid="pivot-exe-top-scroll" className={styles.topScroll} role="region" aria-label="피벗 표 상단 가로 이동바">
+        <div className={styles.topScrollTrack} style={{ width: dimensions.tableWidth }} />
+      </div>
+      {viewport.headerPinned && !structure.isEmpty && <div ref={pinnedHeaderRef} className={styles.pinnedHeader} data-testid="pivot-exe-pinned-header" style={{ maxHeight: '45vh' }}>
+        <table className={styles.table} style={tableStyle} aria-label="고정된 피벗 열 제목">{columns}{header}</table>
+      </div>}
+    </div>
+    <div ref={scrollRef} onScroll={onBodyScroll} data-testid="pivot-exe-scroll" className={styles.scroll} data-pivot-virtualized={isVirtualized ? 'true' : 'false'} data-pivot-total-rows={structure.bodyRows.length} data-pivot-total-columns={structure.dataColumns.length} data-selection-count={Object.keys(selections || {}).length} data-filter-active={filterActive ? 'true' : 'false'}>
+      <table className={styles.table} data-testid="pivot-exe-grid" style={tableStyle}>
+      {columns}{header}
       {isVirtualized
         ? <PivotExeWindowedBody structure={structure} formattedLabels={formattedLabels} rowWindow={rowWindow} columnWindow={columnWindow} windowedRowHeaders={windowedRowHeaders} onToggleRowRef={onToggleRowRef} />
         : <PivotExeBody structure={structure} formattedLabels={formattedLabels} onToggleRowRef={onToggleRowRef} />}
