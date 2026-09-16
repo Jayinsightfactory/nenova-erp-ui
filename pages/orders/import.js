@@ -17,6 +17,7 @@ import {
   buildImportRegisterResult,
   buildImportMatchAggregates,
   buildImportInlineMatchRows,
+  findOrderImportMatchInsertIndex,
   findImportMixedUnitProducts,
 } from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
@@ -140,6 +141,7 @@ function ExcelSheetPreview({
     );
   }
   const inlineByRow = new Map((inlineRows || []).map(row => [Number(row.rowNo), row.matches || []]));
+  const matchInsertIndex = findOrderImportMatchInsertIndex(preview);
   const matchCell = {
     minWidth: 150,
     maxWidth: 260,
@@ -184,7 +186,7 @@ function ExcelSheetPreview({
                   <th style={{ position: 'sticky', left: 0, zIndex: 2, minWidth: 42, padding: '5px 6px', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', background: isHeader ? '#bfdbfe' : isMatched ? '#d1fae5' : '#f8fafc', color: '#64748b', textAlign: 'right' }}>
                     {row.rowNo}
                   </th>
-                  {(row.cells || []).map((cell, colIdx) => (
+                  {(row.cells || []).slice(0, matchInsertIndex).map((cell, colIdx) => (
                     <td key={`${row.rowNo}-${colIdx}`} title={String(cell ?? '')} style={{ minWidth: 72, maxWidth: 220, padding: '5px 7px', borderRight: '1px solid #eef2f7', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isHeader ? 700 : 400 }}>
                       {String(cell ?? '')}
                     </td>
@@ -262,6 +264,14 @@ function ExcelSheetPreview({
                       </td>
                     </>
                   )}
+                  {(row.cells || []).slice(matchInsertIndex).map((cell, colIdx) => {
+                    const originalColIdx = matchInsertIndex + colIdx;
+                    return (
+                      <td key={`${row.rowNo}-${originalColIdx}`} title={String(cell ?? '')} style={{ minWidth: 72, maxWidth: 220, padding: '5px 7px', borderRight: '1px solid #eef2f7', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isHeader ? 700 : 400 }}>
+                        {String(cell ?? '')}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
@@ -271,7 +281,7 @@ function ExcelSheetPreview({
       {(preview.truncatedRows || preview.truncatedColumns) && (
         <div style={{ marginTop: 6, fontSize: 11, color: '#b45309' }}>화면 속도를 위해 일부 행·열만 미리보기로 표시합니다. 주문등록은 전체 파싱 결과를 기준으로 합니다.</div>
       )}
-      <div style={{ marginTop: 6, fontSize: 11, color: '#047857' }}>연두색 원본 행 오른쪽의 파란 구분선부터 ERP 매칭값입니다. 품목·수량·단위를 같은 행에서 바로 확인하고 수정할 수 있습니다.</div>
+      <div style={{ marginTop: 6, fontSize: 11, color: '#047857' }}>연두색 원본 행의 발주수량 바로 오른쪽, 파란 구분선부터 ERP 매칭값입니다. 품목·수량·단위를 같은 행에서 바로 확인하고 수정할 수 있습니다.</div>
     </div>
   );
 }
