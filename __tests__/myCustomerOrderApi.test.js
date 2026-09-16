@@ -141,6 +141,18 @@ function makeDb(initial = baseState()) {
       return { recordset: row ? [{ ProdKey: row.ProdKey }] : [] };
     }
 
+    if (/SELECT od\.ProdKey, od\.OutQuantity/i.test(text) && /JOIN OrderDetail od/i.test(text) && /om\.OrderYear=@year/i.test(text)) {
+      const masters = s.masters.filter(x => String(x.OrderYear) === String(p.year) && x.OrderWeek === p.wk
+        && Number(x.CustKey) === Number(p.ck) && Number(x.isDeleted || 0) === 0);
+      const rows = s.details.filter(x => masters.some(m => Number(m.OrderMasterKey) === Number(x.OrderMasterKey)) && Number(x.isDeleted || 0) === 0)
+        .sort((a, b) => Number(a.ProdKey) - Number(b.ProdKey) || Number(a.OrderDetailKey) - Number(b.OrderDetailKey))
+        .map(x => {
+          const product = s.products.find(productRow => Number(productRow.ProdKey) === Number(x.ProdKey));
+          return { ProdKey: x.ProdKey, OutQuantity: x.OutQuantity, ProdName: product?.ProdName || '', OutUnit: product?.OutUnit || '' };
+        });
+      return { recordset: rows };
+    }
+
     // The my-customer path locks every active row across all current-year
     // masters before deciding whether a single detail is safe to update.
     if (/JOIN OrderDetail od/i.test(text) && /od\.ProdKey=@pk/i.test(text) && /om\.OrderYear=@year/i.test(text)) {
@@ -238,7 +250,7 @@ function loadCreateOrder(db) {
   source = source.replace(/export\s*\{[^}]*\};?/g, '');
   const policySource = fs.readFileSync(path.join(process.cwd(), 'lib/myCustomerOrderWritePolicy.js'), 'utf8')
     .replace(/export\s+(?=const|function)/g, '');
-  const policy = new Function(`${policySource}\nreturn { MY_CUSTOMER_ORDER_MODE, assertMyCustomerExpectedCurrentQty, isMyCustomerOrderSource, planMyCustomerOrderWrite, validateMyCustomerOrderWriteRequest };`)();
+  const policy = new Function(`${policySource}\nreturn { MY_CUSTOMER_ORDER_MODE, assertMyCustomerExpectedCurrentQty, expandFinalSnapshotItems, isAbsoluteOrderMode, isFinalSnapshotOrderSource, isMyCustomerOrderSource, planMyCustomerOrderWrite, validateMyCustomerOrderWriteRequest };`)();
   const dependencies = {
     query: db.query,
     withTransaction: db.withTransaction,
@@ -320,6 +332,53 @@ async function main() {
     assert.equal(response.statusCode, 400, JSON.stringify(response.payload));
     assert.deepEqual(initial.state, before, 'shipment-protected zero must rollback staged updates');
     assert.equal(initial.committed, false);
+  }
+
+  // FINAL_SNAPSHOT: uploaded products become exact quantities and omitted
+  // current products are deleted atomically. Replaying the same file is a no-op.
+  {
+    const db = makeDb({
+      masters: [
+        { OrderMasterKey: 100, OrderYear: '2026', OrderWeek: '32-01', CustKey: 317, isDeleted: 0, Manager: 'admin', OrderCode: 'C317' },
+        { OrderMasterKey: 101, OrderYear: '2025', OrderWeek: '32-01', CustKey: 317, isDeleted: 0, Manager: 'admin', OrderCode: 'C317' },
+      ],
+      details: [
+        { OrderDetailKey: 200, OrderMasterKey: 100, ProdKey: 53, BoxQuantity: 0.2, BunchQuantity: 2, SteamQuantity: 20, OutQuantity: 2, EstQuantity: 20, isDeleted: 0 },
+        { OrderDetailKey: 201, OrderMasterKey: 100, ProdKey: 55, BoxQuantity: 7, BunchQuantity: 7, SteamQuantity: 7, OutQuantity: 7, EstQuantity: 7, isDeleted: 0 },
+        { OrderDetailKey: 202, OrderMasterKey: 101, ProdKey: 55, BoxQuantity: 70, BunchQuantity: 70, SteamQuantity: 70, OutQuantity: 70, EstQuantity: 70, isDeleted: 0 },
+      ],
+    });
+    const createOrder = loadCreateOrder(db);
+    const body = { source: 'order-import-final', custKey: 317, week: '32-01', year: '2026', orderMode: 'FINAL_SNAPSHOT', items: [{ prodKey: 53, qty: 3, unit: '단' }] };
+    const first = await call(createOrder, db, body);
+    assert.equal(first.statusCode, 201, JSON.stringify(first.payload));
+    assert.equal(detail(db, 53)[0].OutQuantity, 3, 'uploaded quantity must replace instead of add');
+    assert.equal(detail(db, 55).length, 0, 'omitted active product must be removed from the final snapshot');
+    assert.equal(detail(db, 55, '2025')[0].OutQuantity, 70, 'prior-year same week must remain untouched');
+    assert.equal(first.payload.results.find(x => Number(x.prodKey) === 55).status, 'DELETED');
+    const historyCount = db.state.histories.length;
+    const second = await call(createOrder, db, body);
+    assert.equal(second.statusCode, 201, JSON.stringify(second.payload));
+    assert.equal(detail(db, 53)[0].OutQuantity, 3, 'replay must not double the order');
+    assert.equal(second.payload.results.find(x => Number(x.prodKey) === 53).status, 'UNCHANGED');
+    assert.equal(db.state.histories.length, historyCount, 'replay must not append unchanged history');
+    assert.equal(db.queries.filter(q => /usp_StockCalculation/i.test(q.sql)).length, 0, 'final snapshot must preserve stock ledger');
+  }
+
+  // An omitted order that already has shipment distribution blocks the whole snapshot.
+  {
+    const db = makeDb({
+      details: [
+        { OrderDetailKey: 200, OrderMasterKey: 100, ProdKey: 53, BoxQuantity: 0.2, BunchQuantity: 2, SteamQuantity: 20, OutQuantity: 2, EstQuantity: 20, isDeleted: 0 },
+        { OrderDetailKey: 201, OrderMasterKey: 100, ProdKey: 55, BoxQuantity: 7, BunchQuantity: 7, SteamQuantity: 7, OutQuantity: 7, EstQuantity: 7, isDeleted: 0 },
+      ],
+      shipmentDetails: [{ CustKey: 317, OrderYear: '2026', OrderWeek: '32-01', ProdKey: 55, OutQuantity: 1 }],
+    });
+    const before = clone(db.state); const createOrder = loadCreateOrder(db);
+    const response = await call(createOrder, db, { source: 'order-import-final', custKey: 317, week: '32-01', year: '2026', orderMode: 'FINAL_SNAPSHOT', items: [{ prodKey: 53, qty: 3, unit: '단' }] });
+    assert.equal(response.statusCode, 400, JSON.stringify(response.payload));
+    assert.match(response.payload.error, /출고가 있는 품목/);
+    assert.deepEqual(db.state, before, 'shipment-protected omitted item must rollback the whole final snapshot');
   }
 
   // Explicit zero with no shipment detail soft-deletes only that product.

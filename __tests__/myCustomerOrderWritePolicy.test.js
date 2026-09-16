@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
     assertMyCustomerExpectedCurrentQty,
     validateMyCustomerOrderWriteRequest,
     planMyCustomerOrderWrite,
+    expandFinalSnapshotItems,
   } = await import('../lib/myCustomerOrderWritePolicy.js');
 
   const validAdd = validateMyCustomerOrderWriteRequest({
@@ -15,6 +16,8 @@ const assert = require('node:assert/strict');
   assert.equal(validAdd.orderMode, MY_CUSTOMER_ORDER_MODE.ADD, 'my-customer의 생략 모드는 ADD여야 한다.');
   assert.equal(validateMyCustomerOrderWriteRequest({ source: 'my-customer', orderMode: 'ADD', items: [{ prodKey: 2, qty: 1, expectedCurrentQty: 0 }] }).orderMode, 'ADD');
   assert.equal(validateMyCustomerOrderWriteRequest({ source: 'sales-paste', orderMode: 'ADD', items: [{ prodKey: 2, qty: 1, expectedCurrentQty: 0 }] }).isMyCustomerSource, true, '영업부 붙여넣기도 주문전용 optimistic-lock 정책을 사용해야 합니다.');
+  const finalRequest = validateMyCustomerOrderWriteRequest({ source: 'order-import-final', orderMode: 'FINAL_SNAPSHOT', items: [{ prodKey: 2, qty: 7 }] });
+  assert.equal(finalRequest.orderMode, MY_CUSTOMER_ORDER_MODE.FINAL_SNAPSHOT);
   assert.deepEqual(planMyCustomerOrderWrite({ ...validAdd.items[0], orderMode: validAdd.orderMode, inputOutQty: 2, previousQty: 32, hasActiveOrderDetail: true }), {
     action: 'UPDATE', previousQty: 32, inputQty: 2, deltaQty: 2, finalQty: 34,
   });
@@ -34,15 +37,27 @@ const assert = require('node:assert/strict');
   assert.deepEqual(planMyCustomerOrderWrite({ orderMode: 'REPLACE', inputOutQty: 0, previousQty: 3, hasActiveOrderDetail: true, hasShipmentDetail: false }), {
     action: 'DELETE_ZERO', previousQty: 3, inputQty: 0, deltaQty: -3, finalQty: 0,
   });
+  assert.deepEqual(planMyCustomerOrderWrite({ orderMode: 'FINAL_SNAPSHOT', inputOutQty: 3, previousQty: 3, hasActiveOrderDetail: true, hasShipmentDetail: false }), {
+    action: 'UNCHANGED', previousQty: 3, inputQty: 3, deltaQty: 0, finalQty: 3,
+  }, '같은 최종본을 다시 적용하면 주문수량과 이력을 다시 쓰지 않아야 한다.');
+  assert.deepEqual(expandFinalSnapshotItems({
+    uploadedItems: [{ prodKey: 2, prodName: 'Novia', qty: 7, unit: '박스' }],
+    activeItems: [{ ProdKey: 2, ProdName: 'Novia', OutQuantity: 3, OutUnit: '박스' }, { ProdKey: 9, ProdName: 'Doncel', OutQuantity: 2, OutUnit: '박스' }],
+  }), [
+    { prodKey: 2, prodName: 'Novia', qty: 7, unit: '박스', expectedCurrentQty: 3 },
+    { prodKey: 9, prodName: 'Doncel', qty: 0, unit: '박스', expectedCurrentQty: 2, omittedFromSnapshot: true },
+  ], '업로드 품목은 절대수량, 파일에서 빠진 기존 품목은 0 삭제 대상으로 확장해야 한다.');
+  assert.throws(() => expandFinalSnapshotItems({ uploadedItems: [], activeItems: [{ ProdKey: 2, OutQuantity: 1 }, { ProdKey: 2, OutQuantity: 2 }] }), { code: 'DUPLICATE_ACTIVE_ORDER_DETAIL' });
 
   assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'my-customer', items: [{ prodKey: 1, qty: '', expectedCurrentQty: 0 }] }), /빈 값/);
-  assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'my-customer', orderMode: false, items: [{ prodKey: 1, qty: 1, expectedCurrentQty: 0 }] }), /ADD 또는 REPLACE/);
+  assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'my-customer', orderMode: false, items: [{ prodKey: 1, qty: 1, expectedCurrentQty: 0 }] }), /ADD, REPLACE 또는 FINAL_SNAPSHOT/);
+  assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'my-customer', orderMode: 'FINAL_SNAPSHOT', items: [{ prodKey: 1, qty: 1, expectedCurrentQty: 0 }] }), /업로드 주문 최종본/);
   assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'my-customer', items: [{ prodKey: 1, qty: true, expectedCurrentQty: 0 }] }), /숫자 또는 숫자 문자열/);
   assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'my-customer', items: [{ prodKey: 1, qty: 1, expectedCurrentQty: [] }] }), /숫자 또는 숫자 문자열/);
   assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'my-customer', items: [{ prodKey: 1, qty: 0, expectedCurrentQty: 0 }] }), /0보다 커야/);
   assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'my-customer', orderMode: 'REPLACE', items: [{ prodKey: 1, qty: -1, expectedCurrentQty: 0 }] }), /0 이상/);
   assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'my-customer', items: [{ prodKey: 1, qty: 1, expectedCurrentQty: 0 }, { prodKey: 1, qty: 2, expectedCurrentQty: 0 }] }), /한 번만/);
-  assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'paste', orderMode: 'REPLACE', items: [] }), /내 업체 주문등록/);
+  assert.throws(() => validateMyCustomerOrderWriteRequest({ source: 'paste', orderMode: 'REPLACE', items: [] }), /지정된 주문등록 화면/);
   assert.throws(() => planMyCustomerOrderWrite({ orderMode: 'REPLACE', inputOutQty: 0, previousQty: 2, hasActiveOrderDetail: true, hasShipmentDetail: true }), /출고가 있는/);
   assert.throws(() => assertMyCustomerExpectedCurrentQty(2, 3), { code: 'STALE_CURRENT_QTY' });
 

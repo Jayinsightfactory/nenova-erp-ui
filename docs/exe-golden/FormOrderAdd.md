@@ -5,6 +5,7 @@
 - 확인 메서드: `btnSave_Click`, `UnitQuantity`, `MergeDataBefore`
 - `btnSave_Click`는 `OrderMaster`에 연도·차수·담당자·업체를 저장한 뒤 `OrderDetail` 수량과 `OrderHistory`를 저장한다.
 - 웹 메뉴 `source=my-customer`는 ADD(기존 수량 가산)와 REPLACE(명시 입력한 품목만 절대수량 변경)를 구분한다. `OrderMaster`/`OrderDetail`/`OrderHistory`만 직접 변경하고 출고·견적·손익 원장은 보존한다. REPLACE는 EXE EditMode=2처럼 재고계산을 실행하지 않는다. ADD의 기존 재고계산 경로는 유지한다.
+- 업로드 주문등록 `source=order-import-final`은 사용자가 확인한 파일을 해당 `OrderYear+OrderWeek+CustKey`의 전체 최종본으로 취급한다. 파일 안의 같은 `ProdKey` 행은 합산한 절대수량으로 저장하고, 파일에 없는 기존 활성 주문은 0/삭제한다. 단, 누락 품목에 `ShipmentDetail`이 있으면 FormOrderAdd의 0수량 방어와 동일하게 전체 트랜잭션을 거부한다. 같은 파일 재실행은 수량을 가산하지 않으며 `Shipment*`, `Stock*`, `Estimate`, `WebProfitReport`를 변경하지 않는다.
 - 출고분배 엑셀 업로드는 ADD 경로가 아니다. 엑셀에 명시된 양수 셀을 `OrderDetail.OutQuantity`의 최종값으로 저장하고 같은 업로드를 반복하면 변경 없음이어야 한다. 0·빈칸·파일 범위 안의 행누락은 기존 주문을 보존하고 분배만 0으로 만든다. 출고분배와 양수 주문 변경은 같은 웹 트랜잭션에서 검증되며 한쪽만 성공하지 않는다.
 - 업무키는 `OrderYear + OrderWeek + CustKey + ProdKey`이며 이전 연도 같은 차수 Master를 재사용하지 않는다.
 - EXE의 지난 주문 불러오기는 선택 업체의 `CustKey`, 선택 `OrderYear`, 현재 `OrderWeek`보다 작은 주문 중 `ORDER BY OrderWeek DESC`의 `TOP 1 OrderMasterKey`를 찾고 `MergeDataBefore`로 품목별 수량을 현재 입력 그리드에 복사한다. 2026-09-11 dnSpy CLI 재확인에서는 선택 SQL이 `CustKey + OrderYear + OrderWeek < current + isDeleted=0`이고, 저장 호출은 없다. 웹도 같은 연도·정확한 업체·가장 큰 이전 세부차수의 활성 양수 `OrderDetail`만 조회하며, 불러온 값의 삭제는 초안에서 제외하는 동작일 뿐 기존 `OrderDetail`을 삭제하지 않는다.
