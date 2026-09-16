@@ -35,7 +35,7 @@ export default function CatalogStyleSettings({ fields, onChange }) {
         ['imageSize', '이미지 크기', 20, layout.frame === 'square' ? 200 : 100], ['imageX', '가로 위치', 0, 100], ['imageY', '세로 위치', 0, 100],
       ].map(([key, label, min, max]) => <label key={key}>{label}<input aria-label={label} type="range" min={min} max={max} value={layout[key]} onChange={e => update({ [key]: Number(e.target.value) })}/><output>{layout[key]}%</output></label>)}
       <p>위치: 가로 0% 왼쪽 / 100% 오른쪽, 세로 0% 위 / 100% 아래. 꽉 찬 축은 크기를 줄이면 이동 공간이 생깁니다.</p>
-      <p role="status">자동 간격 보호: 글씨와 다음 행의 공간을 먼저 확보합니다. 100% 초과 확대도 남는 공간 안에서 자동 맞춤되며, 글씨가 늘면 이미지가 줄어듭니다.</p>
+      <p role="status">100%까지 사진 칸 크기를 조절합니다. 100% 초과는 정사각형 안의 사진을 확대하며 가장자리가 잘립니다. 글씨와는 최소 간격만 유지합니다.</p>
       <h3>슬라이드 여백·간격 (cm)</h3>
       <label className="check"><input type="checkbox" checked={layout.showHeader} onChange={e => update({ showHeader: e.target.checked })}/>제목·원산지·로고 표시</label>
       <div className="number-grid">{[
