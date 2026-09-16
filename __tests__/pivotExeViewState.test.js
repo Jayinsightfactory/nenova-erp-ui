@@ -9,6 +9,14 @@ assert.deepEqual(defaults.zones.rows, EXE_DEFAULT_LAYOUT.row);
 assert.equal(defaults.decimals, 2);
 assert.equal(defaults.filterActive, true);
 assert.deepEqual(defaults.ast, { kind: 'group', op: 'AND', children: [] });
+const oldView=normalizePivotExeView({zones:{rows:['CustName'],cols:['OrderYear'],filters:['CustArea'],values:[{id:'Quantity',aggregation:'sum'}]}});
+assert.deepEqual(oldView.zones.rows,['CustName']);
+assert.deepEqual(oldView.zones.cols,['OrderYear']);
+assert.ok(oldView.zones.filters.includes('CustOrderCode'),'old favorites gain the new dimension without moving existing axes');
+const codeView=normalizePivotExeView({zones:{rows:['CustOrderCode'],cols:['OrderYear'],filters:[],values:[{id:'Quantity',aggregation:'sum'}]},selections:{CustOrderCode:['0017','',null]},sorts:{CustOrderCode:'desc'}});
+assert.deepEqual(normalizePivotExeView(JSON.parse(JSON.stringify(codeView))),codeView);
+assert.deepEqual(codeView.selections.CustOrderCode,['0017','',null]);
+assert.equal(codeView.sorts.CustOrderCode,'desc');
 
 const precise = normalizePivotExeView({
   zones: { rows: [], cols: [], filters: ['CustName'], values: [{ id: 'OrderYear', aggregation: 'sum' }] },

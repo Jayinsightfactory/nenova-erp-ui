@@ -3,7 +3,7 @@ import { query, sql } from '../../../lib/db';
 import { sqlQuantityPivotGetData } from '../../../lib/exeQuantityPivotSql';
 import { normalizePivotExeRange } from '../../../lib/pivotExeRange';
 import { getArrivalCostsForWeekRange } from '../../../lib/pivotFreightArrival';
-import { enrichPivotExeRows, sqlPivotExeDistributionCosts } from '../../../lib/pivotExeSupplement';
+import { enrichPivotExeRows, sqlPivotExeDistributionCosts, sqlPivotExeCustomerOrderCodes } from '../../../lib/pivotExeSupplement';
 
 // Read only. Do not substitute the legacy web aggregation or execute any stock SP.
 export default withAuth(async function handler(req, res) {
@@ -35,22 +35,25 @@ export default withAuth(async function handler(req, res) {
     const result = await query(sqlQuantityPivotGetData(), params);
     // Never silently truncate a report or start expensive supplement reads for a rejected range.
     if (result.recordset.length > 200000) return res.status(422).json({ success: false, error: '조회 원본이 20만 행을 넘었습니다. 차수 범위를 나누어 조회하세요.' });
-    const [distributionResult, arrivalResult] = await Promise.allSettled([
+    const [distributionResult, arrivalResult, customerResult] = await Promise.allSettled([
       query(sqlPivotExeDistributionCosts(), params),
       getArrivalCostsForWeekRange({
         weekStart: `${range.fromYear}-${range.fromWeek}`,
         weekEnd: `${range.toYear}-${range.toWeek}`,
       }),
+      query(sqlPivotExeCustomerOrderCodes()),
     ]);
     const warnings = [];
     if (distributionResult.status === 'rejected') warnings.push('분배단가를 불러오지 못했습니다.');
     if (arrivalResult.status === 'rejected') warnings.push('도착원가를 불러오지 못했습니다.');
+    if (customerResult.status === 'rejected') warnings.push('거래처 주문코드를 불러오지 못했습니다.');
     const rows = enrichPivotExeRows(
       result.recordset,
       distributionResult.status === 'fulfilled' ? distributionResult.value.recordset : [],
       arrivalResult.status === 'fulfilled' ? arrivalResult.value : {},
+      customerResult.status === 'fulfilled' ? customerResult.value.recordset : [],
     );
-    return res.status(200).json({ success: true, rows, range, warnings, source: 'nenova.exe FormQuantityPivot + 웹 분배단가/도착원가' });
+    return res.status(200).json({ success: true, rows, range, warnings, source: 'nenova.exe FormQuantityPivot + 웹 분배단가/도착원가/거래처 주문코드' });
   } catch (err) {
     console.error('[pivot-exe]', err.message);
     return res.status(500).json({ success: false, error: '전산 피벗 원본을 조회하지 못했습니다. 차수 범위를 확인하고 다시 조회하세요. 반복되면 관리자에게 발생 시각과 조회 범위를 알려주세요.' });
