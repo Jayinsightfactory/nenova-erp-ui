@@ -12,7 +12,7 @@ const SAMPLE_ROWS = [
 ];
 
 async function main() {
-  const { parseOrderImportSheetRows, normalizeVisionItems, parseRaumOrderQty } = await import('../lib/orderImportParse.js');
+  const { parseOrderImportSheetRows, normalizeVisionItems, parseRaumOrderQty, parseOrderImportMetadata, buildOrderImportSheetPreview } = await import('../lib/orderImportParse.js');
   const {
     normalizeImportUnit,
     inferImportUnitFromName,
@@ -66,6 +66,43 @@ async function main() {
   assert(raum.rows[2].inputName === '몬디알 화이트', `raum rose display: ${raum.rows[2]?.inputName}`);
   assert(raum.rows[2].matchName === '장미 몬디알 화이트', `raum rose match context: ${raum.rows[2]?.matchName}`);
   assert(raum.rows[2].qty === 16, `raum rose qty: ${raum.rows[2]?.qty}`);
+
+  const COLOR_AND_GROUP_UNIT = [
+    ['품 명', '컬러', '주문수량', '출고수량', '단가', '비 고'],
+    ['콜롬비아 카네이션', 'Novia', 3, '', 11500, '9/17 출고'],
+    ['', 'Doncel', 2, '', 11500, ''],
+    ['', '합계(박스)', 5, '', '', ''],
+    ['콜롬비아 장미 *50cm', 'Proud', 10, '', 12700, ''],
+    ['', '합계(단)', 10, '', '', ''],
+    ['중국 장미 *50cm', 'Proud', 20, '', 9000, ''],
+    ['', '합계(단)', 20, '', '', ''],
+  ];
+  const colorParsed = parseOrderImportSheetRows(COLOR_AND_GROUP_UNIT, { sourceName: '컬러 fixture' });
+  assert(colorParsed.rows.length === 4, `컬러 헤더와 국가별 동명 품목 expected 4, got ${colorParsed.rows.length}`);
+  assert(colorParsed.rows[0].unit === '박스' && colorParsed.rows[1].unit === '박스', '합계(박스)는 앞 그룹 단위로 적용');
+  assert(colorParsed.rows[2].unit === '단' && colorParsed.rows[3].unit === '단', '합계(단)는 앞 그룹 단위로 적용');
+  assert(colorParsed.rows[2].matchName !== colorParsed.rows[3].matchName, '콜롬비아/중국 동명 품목은 별도 매칭 문맥');
+  assert(colorParsed.rows[0].note === '9/17 출고', '비고는 단가 옆 열 추정이 아니라 실제 비고 열 사용');
+
+  const fileMeta = parseOrderImportMetadata([['']], { sourceName: '37차 원협가빈 출고 내역서.xlsx' });
+  assert(fileMeta.majorWeek === '37' && fileMeta.customerName === '원협가빈', '파일명으로 차수·업체 보완');
+  const preview = buildOrderImportSheetPreview(COLOR_AND_GROUP_UNIT, { sheetName: 'Sheet1', sourceRange: 'A1:F8', header: colorParsed.header });
+  assert(preview.rows[0].rowNo === 1 && Array.isArray(preview.rows[0].cells), '시트 미리보기 행 번호와 셀');
+  assert(preview.headerRow === 1 && preview.rowCount === 8 && preview.columnCount === 6, '시트 미리보기 범위 정보');
+
+  const SPECIAL_GROUP = [
+    ['품명', '컬러', '발주수량', '출고수량', '단가', '비고'],
+    ['제주 특별 주문건', '프리덤', 10, '', 11000, ''],
+    ['', '만달라', 20, '', 11400, ''],
+    ['', '합계(박스)', 30, '', '', ''],
+    ['총 박스 수량', '', '', 30, '', ''],
+    ['주말도착건', '태국 덴파레 화이트L', 10, '', 9500, ''],
+    ['', '태국 덴파레 피치L', 10, '', 10500, ''],
+    ['', '합계(단)', 20, '', '', ''],
+  ];
+  const specialParsed = parseOrderImportSheetRows(SPECIAL_GROUP, { sourceName: '특별 주문 fixture' });
+  assert(specialParsed.rows.length === 4, `특별/주말 주문의 이어진 빈 품명 행도 포함: ${specialParsed.rows.length}`);
+  assert(specialParsed.rows.every(row => ['박스', '단'].includes(row.unit)), '특별/주말 그룹 단위 합계 적용');
 
   assert(parseRaumOrderQty('67박스(2010대)').qty === 67, 'parse box qty');
   assert(parseRaumOrderQty('16박스(160단)').unit === '박스', 'parse box unit');
