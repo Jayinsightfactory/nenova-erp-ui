@@ -119,7 +119,7 @@
 
 | 세션 | 사용자 요청 한 줄 | 상태 |
 |------|-------------------|------|
-| [2026-09-16_order-import-preview-and-registration-log](./2026-09-16_order-import-preview-and-registration-log.md) | 업로드 원본 Excel·매칭·합산수량 동시표시 및 등록 진행로그·결과 | 구현·실파일 6종·ERP 계약·빌드 검증 완료, 배포 진행 |
+| [2026-09-16_order-import-preview-and-registration-log](./2026-09-16_order-import-preview-and-registration-log.md) | 업로드 원본 Excel·매칭·품목별 최종수량 동시표시 및 전체 최종본 등록 | 최종본 절대수량·누락삭제·재실행 무변경·교차연도·전체롤백 검증 완료, 배포 진행 |
 | [2026-09-16_contextual-menu-back](./2026-09-16_contextual-menu-back.md) | 모든 메뉴에서 상세·수정·선택 화면을 먼저 메뉴 초기 화면으로 복귀 | 전 메뉴 공통 처리·자동검사 완료, 배포 진행 |
 | [2026-09-16_menu-back-navigation](./2026-09-16_menu-back-navigation.md) | 새창의 메뉴별 뒤로가기가 창을 닫지 않고 직전 메뉴로 복귀 | 구현·회귀검증 완료, 배포 진행 |
 | [2026-09-15_all-hotel-purchase-cost-arrival-reference](./2026-09-15_all-hotel-purchase-cost-arrival-reference.md) | 모든 호텔 차수별 매입단가 수정 및 상세 웹 전용 해당 차수 도착원가 표시 | 구현·전체 검증 완료, 배포 진행 |

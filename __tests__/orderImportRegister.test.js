@@ -34,6 +34,7 @@ assert.equal(picked.items[0].qty, 5);
 
 assert.equal(importWriteStatusLabel('ADDED'), '추가');
 assert.equal(importWriteStatusLabel('OK'), '신규');
+assert.equal(importWriteStatusLabel('UNCHANGED'), '동일');
 
 const result = buildImportRegisterResult({
   apiResults: [{ prodKey: 1, prodName: 'Doncel', previousQty: 0, deltaQty: 2, finalQty: 2, status: 'OK', unit: '박스' }],

@@ -820,17 +820,17 @@ export default function OrderImportPage() {
     if (!registerItems.length) { alert('등록할 매칭 품목이 없습니다. (수량 0·미매칭·제외 행 확인)'); return; }
 
     const weekQuery = resolveOrderWeekQuery(week);
-    if (!confirm(`${cust.CustName} / ${formatWeekDisplay(week)}\n${registerItems.length}개 품목 주문등록 (delta 추가)?`)) return;
+    if (!confirm(`${cust.CustName} / ${formatWeekDisplay(week)}\n업로드 ${registerItems.length}개 품목을 이 차수의 최종 주문수량으로 적용하시겠습니까?\n\n파일 안의 같은 품목 행은 합산해 최종수량이 됩니다. 파일에 없는 기존 주문 품목은 삭제 대상이며, 이미 출고분배가 있으면 전체 적용이 중단됩니다.`)) return;
 
     setRegistering(true);
     setResultMsg('');
     setRegisteredResult(null);
     setRegisterLogs([]);
     const skippedItems = items.filter(it => it.skip || !it.prodKey || Number(it.qty) <= 0);
-    appendRegisterLog(`주문등록 시작 — ${cust.CustName} / ${formatWeekDisplay(week)}`);
-    appendRegisterLog(`매칭 원본 ${matchedSourceRows.length}행 → 합산 ${registerItems.length}품목 · 제외 ${skippedItems.length}행`);
+    appendRegisterLog(`최종본 주문 적용 시작 — ${cust.CustName} / ${formatWeekDisplay(week)}`);
+    appendRegisterLog(`파일 원본 ${matchedSourceRows.length}행 → 품목별 최종수량 ${registerItems.length}개 · 최종본 제외 ${skippedItems.length}행`);
     try {
-      appendRegisterLog('서버 트랜잭션으로 주문등록 요청 중입니다.');
+      appendRegisterLog('서버 트랜잭션으로 기존 주문을 업로드 최종본에 맞추는 중입니다.');
       const d = await apiPost('/api/orders', {
         custKey: cust.CustKey,
         week,
@@ -841,13 +841,14 @@ export default function OrderImportPage() {
           qty: it.qty,
           unit: it.unit,
         })),
-        delta: true,
-        source: 'import',
+        orderMode: 'FINAL_SNAPSHOT',
+        source: 'order-import-final',
       });
       if (!d.success) throw new Error(d.error || '저장 실패');
-      const okCount = d.results?.filter(r => ['OK', 'UPDATED', 'ADDED', 'DELETED'].includes(r.status)).length ?? registerItems.length;
-      appendRegisterLog(`서버 저장 완료 — ${okCount}품목${d.warning ? ` · 경고: ${d.warning}` : ''}`, d.warning ? 'info' : 'success');
-      setResultMsg(`✅ ${okCount}개 저장 완료 — OrderKey ${d.orderMasterKey}${d.warning ? ` / ⚠ ${d.warning}` : ''}`);
+      const appliedCount = d.results?.filter(r => ['OK', 'UPDATED', 'ADDED', 'DELETED'].includes(r.status)).length ?? registerItems.length;
+      const unchangedCount = d.results?.filter(r => r.status === 'UNCHANGED').length || 0;
+      appendRegisterLog(`최종본 적용 완료 — 변경 ${appliedCount}품목 · 동일 ${unchangedCount}품목${d.warning ? ` · 경고: ${d.warning}` : ''}`, d.warning ? 'info' : 'success');
+      setResultMsg(`✅ 최종본 적용 완료 — 변경 ${appliedCount}개 · 동일 ${unchangedCount}개 · OrderKey ${d.orderMasterKey}${d.warning ? ` / ⚠ ${d.warning}` : ''}`);
       setRegisteredResult(buildImportRegisterResult({
         apiResults: d.results,
         skippedItems,

@@ -43,3 +43,26 @@
 - ERP 계약·dnSpy 근거·manifest·write scope guard 통과
 - Next.js 운영 빌드 통과
 
+## 추가 합의 — 업로드 파일은 추가분이 아니라 전체 최종본
+
+- 질문: 주문등록 프로세스가 기존 수량에 더하는 방식인지, 업로드 파일의 수량이 해당 업체·해당 차수의 최종수량인지 확인 요청.
+- 답변/결정: 업로드 파일은 `OrderYear + OrderWeek + CustKey` 전체 주문 최종본이다. 파일 내부에서 같은 ERP 품목으로 매칭된 여러 행만 합산하고, 그 합계가 해당 `ProdKey`의 절대 최종수량이 된다.
+- 기존 `delta:true / source=import` 가산 호출은 요구와 달라 즉시 사용 중지를 안내하고 `source=order-import-final / orderMode=FINAL_SNAPSHOT` 전용 정책으로 교체했다.
+
+### 최종본 적용 계약
+
+- 파일에 있는 품목: 현재 주문에 더하지 않고 최종수량으로 교체한다.
+- 파일에 없는 현재연도·현재차수·현재업체 활성 주문 품목: 같은 트랜잭션에서 0/삭제 처리한다.
+- 누락 품목에 이미 `ShipmentDetail`이 있으면 주문과 분배가 어긋나므로 품목을 표시하고 전체 롤백한다.
+- 동일 파일 재실행: 수량을 다시 더하지 않으며, 동일 품목은 `UNCHANGED`로 반환해 `OrderDetail`과 `OrderHistory`를 다시 쓰지 않는다.
+- 2025 같은 차수는 변경하지 않는다. 업무키는 `OrderYear + OrderWeek + CustKey + ProdKey`다.
+- 직접 변경 범위는 `OrderMaster`, `OrderDetail`, `OrderHistory`뿐이다. `Shipment*`, `Stock*`, `Estimate`, `WebProfitReport`는 보존한다.
+
+### 실행형 회귀 검증
+
+- 기존 2 → 업로드 3이 5가 아니라 정확히 3이 되는지 확인.
+- 파일 누락 기존 품목이 삭제되는지 확인.
+- 누락 품목에 출고분배가 있으면 앞선 변경까지 전부 롤백되는지 확인.
+- 같은 파일 두 번 적용 시 수량과 이력이 변하지 않는지 확인.
+- 2026 적용 중 2025 동일 차수 주문이 보존되는지 확인.
+- 전체 ERP 계약, dnSpy 근거, manifest, write scope guard, Next.js production build 통과.

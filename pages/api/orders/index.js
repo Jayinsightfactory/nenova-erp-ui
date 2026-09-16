@@ -16,6 +16,9 @@ import {
 } from '../../../lib/exeOrderAddSql.js';
 import {
   assertMyCustomerExpectedCurrentQty,
+  expandFinalSnapshotItems,
+  isAbsoluteOrderMode,
+  isFinalSnapshotOrderSource,
   isMyCustomerOrderSource,
   MY_CUSTOMER_ORDER_MODE,
   planMyCustomerOrderWrite,
@@ -391,7 +394,7 @@ async function verifyCreatedOrdersInTransaction(tQuery, { orderYear, orderWeek, 
 }
 
 // ── 등록: 정식 테이블 (OrderMaster + OrderDetail) ──────────────────────────
-// 웹 주문등록은 기존 OrderDetail 수량에 입력값을 가산한다. (기존 2 + 신규 3 → 5)
+// 일반 주문등록은 delta 가산, 명시된 전용 모드는 절대수량/업로드 최종본으로 저장한다.
 async function createOrder(req, res) {
   const { custName, custKey, week, year, manager, orderCode, items, source } = req.body;
   let myCustomerPolicy;
@@ -401,6 +404,7 @@ async function createOrder(req, res) {
     return res.status(error.statusCode || 400).json({ success: false, code: error.code, error: error.message });
   }
   const isMyCustomerSource = myCustomerPolicy.isMyCustomerSource;
+  const isFinalSnapshotSource = isFinalSnapshotOrderSource(source);
   const isSalesPasteSource = String(source || '').trim().toLowerCase() === 'sales-paste';
   const orderMode = myCustomerPolicy.orderMode;
   const writeItems = isMyCustomerSource ? myCustomerPolicy.items : items;
@@ -408,7 +412,7 @@ async function createOrder(req, res) {
   const ensureShipmentMaster = !isMyCustomerSource
     && (String(source || '').toLowerCase() === 'raum-pnl' || req.body?.ensureShipmentMaster === true);
   const isDelta = true; // 웹/붙여넣기 주문등록은 기존 수량을 덮어쓰지 않고 항상 가산한다.
-  const historyDescr = isSalesPasteSource ? '영업부 붙여넣기 주문등록' : String(source || '').toLowerCase() === 'paste' ? '붙여넣기 주문등록' : '주문등록';
+  const historyDescr = isFinalSnapshotSource ? '업로드 주문등록 최종본' : isSalesPasteSource ? '영업부 붙여넣기 주문등록' : String(source || '').toLowerCase() === 'paste' ? '붙여넣기 주문등록' : '주문등록';
 
   if (!writeItems || writeItems.length === 0) {
     return res.status(400).json({ success: false, error: '품목을 입력하세요.' });
@@ -444,7 +448,7 @@ async function createOrder(req, res) {
         ck: { type: sql.Int, value: Number(resolvedCustKey) },
       });
       if (!activeCustomer.recordset[0]) return res.status(404).json({ success: false, error: '사용 가능한 업체가 아닙니다.' });
-      if (writeItems.some(item => item.expectedCurrentQty === undefined)) return res.status(400).json({ success: false, error: '중복 등록 방지를 위한 현재 수량이 필요합니다.' });
+      if (!isFinalSnapshotSource && writeItems.some(item => item.expectedCurrentQty === undefined)) return res.status(400).json({ success: false, error: '중복 등록 방지를 위한 현재 수량이 필요합니다.' });
     }
 
     // OrderWeek 형식 검증 + 정규화 (NN-NN 또는 YYYY-NN-NN 만 허용)
@@ -601,10 +605,29 @@ async function createOrder(req, res) {
         }
       }
 
+      let scopedWriteItems = writeItems;
+      if (isFinalSnapshotSource) {
+        const activeSnapshot = await tQuery(
+          `SELECT od.ProdKey, od.OutQuantity, ISNULL(p.ProdName,N'') AS ProdName, ISNULL(p.OutUnit,N'') AS OutUnit
+             FROM OrderMaster om WITH (UPDLOCK, HOLDLOCK)
+             JOIN OrderDetail od WITH (UPDLOCK, HOLDLOCK) ON od.OrderMasterKey=om.OrderMasterKey
+             LEFT JOIN Product p ON p.ProdKey=od.ProdKey
+            WHERE om.CustKey=@ck AND om.OrderYear=@year AND om.OrderWeek=@wk
+              AND ISNULL(om.isDeleted,0)=0 AND ISNULL(od.isDeleted,0)=0
+            ORDER BY od.ProdKey, od.OrderDetailKey`,
+          {
+            ck: { type: sql.Int, value: Number(resolvedCustKey) },
+            year: { type: sql.NVarChar, value: orderYear },
+            wk: { type: sql.NVarChar, value: orderWeek },
+          }
+        );
+        scopedWriteItems = expandFinalSnapshotItems({ uploadedItems: writeItems, activeItems: activeSnapshot.recordset });
+      }
+
       const detailResults = [];
       const changedProdKeys = new Set();
       const touchedOrderMasterKeys = new Set([Number(mk)]);
-      for (const item of writeItems) {
+      for (const item of scopedWriteItems) {
         let prodKey = item.prodKey;
         if (!prodKey && item.prodName) {
           const pr = await tQuery(
@@ -694,7 +717,7 @@ async function createOrder(req, res) {
         let myWritePlan = null;
         if (isMyCustomerSource) {
           let hasShipmentDetail = false;
-          if (orderMode === MY_CUSTOMER_ORDER_MODE.REPLACE && outQty === 0) {
+          if (isAbsoluteOrderMode(orderMode) && outQty === 0) {
             const shipment = await tQuery(
               `SELECT COUNT(*) AS ShipmentDetailCount
                  FROM ShipmentMaster sm WITH (UPDLOCK, HOLDLOCK)
@@ -712,6 +735,10 @@ async function createOrder(req, res) {
             hasActiveOrderDetail: Boolean(existRow && !reviveDeleted),
             hasShipmentDetail,
           });
+          if (myWritePlan.action === 'UNCHANGED') {
+            detailResults.push({ prodKey, prodName: item.prodName || prod.ProdName || '', qty: outQty, inputQty: outQty, unit: normalizeOrderUnit(prod.OutUnit, '박스'), status: 'UNCHANGED', ...myWritePlan });
+            continue;
+          }
           if (myWritePlan.action === 'SKIP_ZERO') {
             detailResults.push({ prodKey, prodName: item.prodName || prod.ProdName || '', qty: outQty, inputQty: outQty, unit: normalizeOrderUnit(prod.OutUnit, '박스'), status: 'SKIPPED', ...myWritePlan });
             continue;
@@ -933,7 +960,7 @@ async function createOrder(req, res) {
     });
 
     // FormOrderAdd EditMode=2(변경등록)는 재고 재계산을 하지 않는다. 기존 ADD 경로는 유지한다.
-    const stockWarning = isMyCustomerSource && orderMode === MY_CUSTOMER_ORDER_MODE.REPLACE
+    const stockWarning = isMyCustomerSource && isAbsoluteOrderMode(orderMode)
       ? null
       : await runStockCalculation(orderYear, orderWeek, uid, prodKeys);
     const modeWarning = isMyCustomerSource && orderMode === MY_CUSTOMER_ORDER_MODE.ADD
@@ -947,7 +974,7 @@ async function createOrder(req, res) {
       source: 'real_db',
       orderMasterKey,
       shipmentMasterKey: shipmentMasterKey || null,
-      message: `주문 등록 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'CANCELLED' || r.status === 'DELETED').length}개 품목`,
+      message: `주문 적용 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'CANCELLED' || r.status === 'DELETED' || r.status === 'UNCHANGED').length}개 품목 확인`,
       warning: stockWarning?.message || modeWarning,
       orderMode: isMyCustomerSource ? orderMode : undefined,
       results,
