@@ -7,6 +7,7 @@ import {
   importWriteStatusLabel,
   buildImportRegisterResult,
   buildImportMatchAggregates,
+  buildImportInlineMatchRows,
   findImportMixedUnitProducts,
 } from '../lib/orderImportRegister.js';
 
@@ -59,5 +60,19 @@ assert.equal(findImportMixedUnitProducts([
   ...aggregates,
   { ...aggregates[0], unit: '단' },
 ]).length, 1, '같은 품목에 서로 다른 단위가 있으면 등록 전 차단 표시');
+
+const inlineRows = buildImportInlineMatchRows([
+  {
+    inputName: '프리덤', prodKey: 101, displayName: 'ROSE / Freedom 50cm', qty: 30, unit: '단',
+    sourceDetails: [{ rowNo: 4, qty: 20 }, { rowNo: 5, qty: 10 }],
+  },
+  { rowNo: 8, inputName: '미매칭', prodKey: null, qty: 2, unit: '박스' },
+]);
+assert.deepEqual(inlineRows.map(row => row.rowNo), [4, 5, 8]);
+assert.equal(inlineRows[0].matches[0].isPrimary, true, '합산 품목의 첫 원본 행에서 최종수량을 편집해야 한다');
+assert.equal(inlineRows[0].matches[0].sourceCount, 2);
+assert.equal(inlineRows[1].matches[0].isPrimary, false, '후속 원본 행은 같은 합산 품목에 포함된 행임을 구분해야 한다');
+assert.equal(inlineRows[1].matches[0].sourceQty, 10, '원본 행별 수량은 합산 최종수량과 별도로 보존해 표시해야 한다');
+assert.equal(inlineRows[2].matches[0].itemIndex, 1, '미매칭 행도 원본 시트 옆에서 바로 수정할 수 있어야 한다');
 
 console.log('order import register helpers passed');
