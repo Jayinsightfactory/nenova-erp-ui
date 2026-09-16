@@ -88,6 +88,14 @@ assert.match(page, /findOrderImportMatchInsertIndex\(preview\)/, '매칭 열은 
 assert.match(page, /최종수량/, '원본 시트 오른쪽에서 합산 최종수량을 확인하고 수정할 수 있어야 한다');
 assert.match(page, /전체 상세 편집표 열기/, '복잡한 입력명과 추천 후보는 접을 수 있는 상세 편집표로 남겨야 한다');
 assert.match(page, /합산된 매칭수량/, '등록 전 합산 품목과 수량을 보여줘야 한다');
+assert.match(page, /Σ \{aggregateEntry\.sourceCount\}행 → \{aggregateEntry\.item\.qty\}/,
+  '합산된 품목은 원본 발주수량 셀 안에서 합산 행수와 최종수량을 바로 보여줘야 한다');
+assert.match(page, /Excel 행 순서 · 합산된 매칭수량/,
+  '주문등록 시작 옆 합산표는 Excel 미리보기의 원본 행 순서임을 표시해야 한다');
+assert.match(page, /sortImportRowsByProductOrder\(d\.results, registerItems\)/,
+  '주문등록 결과도 Excel 원본 품목 순서로 다시 정렬해야 한다');
+assert.match(page, /compact\s*\/>/,
+  '원본 미리보기와 상세 편집의 품목 매칭 셀은 한 줄 밀집 모드를 사용해야 한다');
 assert.match(page, /주문등록 시작/, '등록은 사용자가 명시적으로 시작해야 한다');
 assert.match(page, /주문등록 진행 로그/, '등록 처리 단계와 종료 상태를 화면에 남겨야 한다');
 console.log('order shipment list tests passed');
