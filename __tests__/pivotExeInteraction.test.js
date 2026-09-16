@@ -72,6 +72,14 @@ const gridSource = fs.readFileSync(new URL('../components/PivotExeGrid.js', impo
 assert.match(gridSource, /data-testid="pivot-exe-top-scroll"/, 'the grid exposes a top horizontal scrollbar');
 assert.match(gridSource, /body\.scrollLeft = top\.scrollLeft/, 'top scrollbar drives the body scroll position');
 assert.match(gridSource, /top\.scrollLeft = body\.scrollLeft/, 'body scrollbar keeps the top scrollbar synchronized');
+assert.match(gridSource, /window\.addEventListener\('scroll', onScroll/, 'document scrolling updates the virtual row window');
+assert.match(gridSource, /window\.removeEventListener\('scroll', onScroll, true\)/, 'document listener is cleaned up');
+assert.match(gridSource, /getPivotExePageViewport/, 'virtual rows use page-relative body coordinates');
+assert.match(gridSource, /data-testid="pivot-exe-pinned-header"/, 'page scroll retains a synchronized column header');
+assert.match(gridSource, /pinnedHeaderRef\.current\.scrollLeft = viewport\.scrollLeft/, 'pinned header follows the same horizontal position');
+const gridCss = fs.readFileSync(new URL('../components/PivotExeGrid.module.css', import.meta.url), 'utf8');
+assert.doesNotMatch(gridCss, /max-height:\s*calc\(100vh/, 'the table must not own a bounded vertical viewport');
+assert.match(gridCss, /\.scroll\s*\{\s*overflow-x: auto; overflow-y: hidden;/, 'only horizontal overflow stays inside the table');
 assert.match(panelSource, /data-testid="pivot-exe-view-tools"/, 'display settings and favorites occupy the compact right-side tool region');
 assert.match(panelSource, /@media \(max-width: 1450px\)/, 'the tool region stacks below the field deck on narrower screens');
 assert.match(panelSource, /zoneArea\('rows','세로 행','표 왼쪽'\)/, '세로 행 영역을 화면에 명확히 표시한다');

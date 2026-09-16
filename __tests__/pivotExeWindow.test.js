@@ -5,6 +5,7 @@ import {
   buildPivotExeColumnPrefix,
   clipPivotExeHeaderCells,
   getPivotExeColumnWindow,
+  getPivotExePageViewport,
   getPivotExeRowWindow,
   getPivotExeWindowedRowHeaderCells,
   shouldWindowPivotExe,
@@ -12,6 +13,28 @@ import {
 
 assert.equal(shouldWindowPivotExe(100, 50), false, 'exactly 5,000 logical cells keep the native DOM');
 assert.equal(shouldWindowPivotExe(100, 51), true, 'more than 5,000 logical cells use a window');
+
+assert.deepEqual(getPivotExePageViewport(), { scrollTop: 0, clientHeight: 0 }, 'omitted geometry defaults to zero');
+assert.deepEqual(getPivotExePageViewport({}), { scrollTop: 0, clientHeight: 0 }, 'omitted fields default to zero');
+const pageCases = [
+  ['top', { tableTop: 120, headerHeight: 48, viewportHeight: 1080 }, { scrollTop: 0, clientHeight: 912 }, 0, 38],
+  ['table below screen', { tableTop: 1200, headerHeight: 48, viewportHeight: 1080 }, { scrollTop: 0, clientHeight: 0 }, 0, 1],
+  ['partially visible', { tableTop: 960, headerHeight: 48, viewportHeight: 1080 }, { scrollTop: 0, clientHeight: 72 }, 0, 3],
+  ['middle', { tableTop: -1248, headerHeight: 48, viewportHeight: 1080 }, { scrollTop: 1200, clientHeight: 1080 }, 50, 95],
+  ['bottom', { tableTop: -1368, headerHeight: 48, viewportHeight: 1080 }, { scrollTop: 1320, clientHeight: 1080 }, 55, 100],
+  ['tall header covering screen', { tableTop: 0, headerHeight: 1200, viewportHeight: 1080 }, { scrollTop: 0, clientHeight: 0 }, 0, 1],
+  ['tall header scrolled away', { tableTop: -2520, headerHeight: 1200, viewportHeight: 1080 }, { scrollTop: 1320, clientHeight: 1080 }, 55, 100],
+  ['body at viewport origin', { tableTop: -48, headerHeight: 48, viewportHeight: 1080 }, { scrollTop: 0, clientHeight: 1080 }, 0, 45],
+];
+for (const [label, geometry, expectedViewport, start, end] of pageCases) {
+  const beforeGeometry = { ...geometry };
+  const viewport = getPivotExePageViewport(geometry);
+  assert.deepEqual(viewport, expectedViewport, `${label}: body-relative page geometry`);
+  assert.deepEqual(geometry, beforeGeometry, `${label}: input geometry is unchanged`);
+  const window = getPivotExeRowWindow({ totalRows: 100, ...viewport, headerHeight: 0, rowHeight: 24, overscan: 0 });
+  assert.deepEqual(window, { start, end, topHeight: start * 24, bottomHeight: (100 - end) * 24 }, `${label}: header is accounted for exactly once`);
+  assert.equal(window.topHeight / 24 + window.end - window.start + window.bottomHeight / 24, 100, `${label}: total logical row count is unchanged`);
+}
 
 assert.deepEqual(getPivotExeRowWindow({ totalRows: 100, scrollTop: 0, clientHeight: 124, headerHeight: 48, rowHeight: 24 }), { start: 0, end: 10, topHeight: 0, bottomHeight: 2160 }, 'first viewport reserves sticky-header height only from the visible body area and adds six rows of overscan');
 assert.deepEqual(getPivotExeRowWindow({ totalRows: 100, scrollTop: 1248, clientHeight: 144, headerHeight: 48, rowHeight: 24 }), { start: 46, end: 62, topHeight: 1104, bottomHeight: 912 }, 'middle viewport uses scroll coordinates beneath the sticky overlay exactly once');
@@ -54,6 +77,9 @@ const model = buildPivotModel([{ CounName: 'A', OrderYear: 2026, Quantity: 1 }],
 const before = JSON.stringify(model);
 buildPivotExeStructure(model);
 getPivotExeColumnWindow({ widths: [96] });
+for (const [, geometry] of pageCases) {
+  getPivotExeRowWindow({ totalRows: model.rows.length, ...getPivotExePageViewport(geometry), headerHeight: 0, rowHeight: 24 });
+}
 assert.equal(JSON.stringify(model), before, 'window calculations leave the full model untouched for Excel and aggregation');
 
 console.log('pivotExeWindow tests passed');
