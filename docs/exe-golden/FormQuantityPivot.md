@@ -1,5 +1,13 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-16 거래처 주문코드 표시 필드
+
+- 설치 EXE를 `dnSpy.Console.exe --no-color -t FormQuantityPivot` 및 `-t ClassCustomer`로 재확인. 피벗 GetData는 주문/미발주/출고에 CustKey, 전재고/입고/현재고에는 NULL CustKey를 반환한다.
+- ClassCustomer.OrderCode는 Customer에서 읽는 문자열이며 CustCode와 별개다. ViewOrder.OrderCode는 주문별 값이므로 사용자 요청인 거래처 정보 값으로 대체해서 추정하지 않는다.
+- 웹 원본 피벗 SQL을 보존하고 활성 Customer(CustKey,OrderCode) SELECT 후 일대일 map 보강한다. 신규 필드 CustOrderCode(거래처 주문코드)는 기본 필터이며 다른 필드와 동일하게 행/열/값/필터 배치·정렬·엑셀·개인 조합 저장이 가능하다.
+- 2026-09-16 운영 거래처관리 읽기 전용 확인: 673행 및 주문코드 CL22/CL77/CL88 확인. 원장 쓰기 없음. 코드 필드 추가는 native EXE 자체의 UI 변경이 아니다.
+- Customer, Order, Shipment, Warehouse, ProductStock, Estimate, WebProfitReport 보존. 수량·원본 행수 불변, 보강 실패는 경고하며 기존 표 유지.
+
 ## 2026-09-15 상단 가로 이동바·도구 공간 재배치
 
 - 긴 피벗 표의 본문 가로 스크롤과 동일한 위치를 공유하는 상단 이동바를 제공한다. 어느 쪽을 움직여도 다른 쪽과 가상 열 창이 즉시 동기화된다.

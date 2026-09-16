@@ -123,6 +123,7 @@
 **Customer** — 거래처
 - PK: `CustKey`
 - `CustName`, `CustArea`, `CounKey`
+- `OrderCode`: 거래처 정보의 주문코드(문자열). 전산 피벗 웹 보강 `CustOrderCode`는 현재 활성 Customer 값을 CustKey로 읽기만 하며 OrderMaster.OrderCode/CustCode와 혼용하지 않는다.
 - `isDeleted`
 
 **Flower** — 꽃 카테고리

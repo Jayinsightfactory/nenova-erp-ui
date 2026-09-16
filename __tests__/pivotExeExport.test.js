@@ -48,3 +48,14 @@ assert.equal(emptyBook.worksheets[0].rowCount,buildPivotExePresentation(empty).h
 const sparseLarge = buildPivotModel(Array.from({length:501},(_,i)=>({ProdName:`P${i}`,CustName:`C${i}`,Quantity:1})),{layout:{row:['ProdName'],column:['CustName'],data:['Quantity']},showRowTotals:false,showColumnTotals:false,showGrandTotals:false});
 await assert.rejects(buildPivotExeWorkbook(sparseLarge),error=>error.code==='PIVOT_RENDER_CELL_LIMIT','export must refuse giant cross products before creating Excel cells');
 console.log('pivotExeExport tests passed');
+for (const zone of ['row','column']) {
+  const codeModel=buildPivotModel([{CustOrderCode:'0017',OrderYear:2025,Quantity:1.25},{CustOrderCode:'0017',OrderYear:2026,Quantity:2.5}],{
+    layout:{row:zone==='row'?['CustOrderCode']:['OrderYear'],column:zone==='column'?['CustOrderCode']:['OrderYear'],data:['Quantity']},showGrandTotals:false,
+  });
+  const codeBook=new ExcelJS.Workbook();
+  await codeBook.xlsx.load(await buildPivotExeWorkbook(codeModel));
+  const cellValues=[];
+  codeBook.worksheets[0].eachRow(row=>row.eachCell(cell=>cellValues.push(cell.value)));
+  assert.ok(cellValues.includes('0017'),'customer order code remains text with leading zeros in XLSX axes');
+  assert.ok(cellValues.includes(1.25)&&cellValues.includes(2.5),'cross-year quantities remain separate in XLSX');
+}

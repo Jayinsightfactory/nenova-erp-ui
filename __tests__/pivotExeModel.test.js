@@ -9,11 +9,36 @@ const rows = [
   { CounName: '콜롬비아', FlowerName: '수국', ProdName: '블루', OrderYear: 2026, OrderWeek: '01-01', ListType: '02. 주문', CustName: 'B', Quantity: 0, UPrice: 0, CustDescr: '=unsafe' },
 ];
 
-assert.equal(EXE_FIELDS.length, 17, 'all native EXE columns and the two legacy web price measures are exposed');
+assert.equal(EXE_FIELDS.length, 18, 'native columns, web prices and customer master order code are exposed');
 assert.deepEqual(normalizeLayout(EXE_DEFAULT_LAYOUT), EXE_DEFAULT_LAYOUT, 'default layout is stable');
+const codeRows = [
+  {CustOrderCode:'0017',OrderYear:2025,OrderWeek:'37-01',Quantity:1.25},
+  {CustOrderCode:'0017',OrderYear:2026,OrderWeek:'37-01',Quantity:2.5},
+  {CustOrderCode:'CL88',OrderYear:2026,OrderWeek:'37-01',Quantity:4},
+  {CustOrderCode:'',OrderYear:2026,OrderWeek:'37-01',Quantity:0},
+  {CustOrderCode:null,OrderYear:2026,OrderWeek:'37-01',Quantity:-1},
+];
+assert.equal(EXE_FIELDS.find(f=>f.id==='CustOrderCode').label,'거래처 주문코드');
+assert.equal(EXE_DEFAULT_LAYOUT.filter[EXE_DEFAULT_LAYOUT.filter.indexOf('CustArea')+1],'CustOrderCode');
+for (const zone of ['row','column','filter','data']) {
+  const next=moveField(EXE_DEFAULT_LAYOUT,'CustOrderCode',zone,0);
+  assert.equal(next[zone][0],'CustOrderCode');
+  assert.equal(Object.values(next).flat().filter(id=>id==='CustOrderCode').length,1);
+}
+for (const zone of ['row','column']) {
+  const codeModel=buildPivotModel(codeRows,{layout:{row:zone==='row'?['CustOrderCode']:['OrderYear'],column:zone==='column'?['CustOrderCode']:['OrderYear'],data:['Quantity']},fieldFilters:{CustOrderCode:['0017']},showGrandTotals:false});
+  assert.equal(codeModel.filteredRowCount,2);
+  assert.deepEqual(codeModel.cells.map(c=>c.value),[1.25,2.5],'same week remains separated across years');
+  assert.ok(JSON.stringify(pivotModelToAoA(codeModel)).includes('0017'));
+}
+assert.equal(filterRows(codeRows,{fieldFilters:{CustOrderCode:['']}}).length,1);
+assert.equal(filterRows(codeRows,{fieldFilters:{CustOrderCode:[null]}}).length,1);
+const codeCount=buildPivotModel(codeRows,{layout:{row:[],column:[],data:['CustOrderCode']},showGrandTotals:true});
+assert.equal(codeCount.measures[0].summary,'count');
+assert.equal(codeCount.cellMap[pivotCellKey(codeCount.rowAxis.find(a=>a.isGrandTotal).key,codeCount.columnAxis.find(a=>a.isGrandTotal).key)].value,3,'code count includes populated source rows, excludes null and empty, and does not count distinct codes');
 const moved = moveField(EXE_DEFAULT_LAYOUT, 'CustName', 'row', 1);
 assert.equal(moved.row[1], 'CustName');
-assert.equal(new Set(Object.values(moved).flat()).size, 17, 'a moved field has exactly one zone');
+assert.equal(new Set(Object.values(moved).flat()).size, 18, 'a moved field has exactly one zone');
 
 assert.equal(filterRows(rows, { fieldFilters: { OrderYear: [2026] } }).length, 2, 'numeric field filters retain the selected year only');
 assert.equal(filterRows(rows, { fieldFilters: { OrderYear: [] } }).length, 0, 'an explicit empty checkbox selection means no values');

@@ -8,11 +8,11 @@ import { normalizePivotExeView } from '../lib/pivotExeViewState';
 import PivotExeFavorites from './PivotExeFavorites';
 import { applyPivotValueSelection, createPivotHeaderHeightResizeSession, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction';
 
-// The field ids deliberately match FormQuantityPivot.GetData verbatim.
+// Native field ids match FormQuantityPivot.GetData; supplements use explicit web ids.
 const FIELDS = EXE_FIELDS;
 const BY_ID = Object.fromEntries(FIELDS.map((field) => [field.id, field]));
 const SUMMARY_LABELS = {sum:'합계',avg:'평균',weightedavg:'수량가중평균',min:'최소',max:'최대',count:'개수'};
-const DEFAULT_ZONES = { rows: ['CounName', 'FlowerName', 'ProdName'], cols: ['OrderYear', 'OrderWeek', 'ListType', 'CustName'], values: [{ id: 'Quantity', aggregation: 'sum' }], filters: ['CountryFlower', 'CustArea', 'ShipmentDtm', 'UPrice', 'TPrice', 'DistCost', 'ArrivalCost', 'OrderNo', 'CustDescr'] };
+const DEFAULT_ZONES = { rows: ['CounName', 'FlowerName', 'ProdName'], cols: ['OrderYear', 'OrderWeek', 'ListType', 'CustName'], values: [{ id: 'Quantity', aggregation: 'sum' }], filters: ['CountryFlower', 'CustArea', 'CustOrderCode', 'ShipmentDtm', 'UPrice', 'TPrice', 'DistCost', 'ArrivalCost', 'OrderNo', 'CustDescr'] };
 const EMPTY_AST = () => ({ kind: 'group', op: 'AND', children: [] });
 const cleanText = (value) => value === null ? '(null)' : value === undefined ? '(undefined)' : value === '' ? '(빈값)' : String(value);
 const rawFilterValue = (value) => value === '(null)' ? null : value === '(undefined)' ? undefined : value === '(빈값)' ? '' : value;
