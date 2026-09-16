@@ -48,12 +48,13 @@ export default function MenuBackButton({standalone=false}){
       formChangedRef.current=false;
       return;
     }
-    if(!pageInteractedRef.current){goBackFromMenu(router);return;}
+    const liveQuery=new URLSearchParams(window.location.search);
+    const hasDetailQuery=[...liveQuery.keys()].some(key=>key!=='popup');
+    if(!pageInteractedRef.current&&!hasDetailQuery){goBackFromMenu(router);return;}
     if(formChangedRef.current&&!window.confirm('입력·선택한 내용을 초기화하고 이 메뉴의 처음 화면으로 돌아갈까요?'))return;
     pageInteractedRef.current=false;
     formChangedRef.current=false;
-    const keepPopup=router.query?.popup==='1';
-    const hasDetailQuery=Object.keys(router.query||{}).some(key=>key!=='popup');
+    const keepPopup=liveQuery.get('popup')==='1'||router.query?.popup==='1';
     if(hasDetailQuery){
       await router.replace({pathname:router.pathname,query:keepPopup?{popup:'1'}:{}},undefined,{scroll:false});
     }
