@@ -332,12 +332,14 @@ export default function MyCustomerOrders() {
       .live-order-quantity input::-webkit-inner-spin-button,.live-order-quantity input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
       .live-order-quantity input:hover,.live-order-quantity input:focus{border-color:#84adff;background:#eff8ff;outline:2px solid #dbe7ff}
       .live-order-quantity b{font-size:12px}.live-order button.live-order-remove{display:block;width:28px;min-height:28px;padding:0;text-align:center;color:#b42318;background:#fff5f5;border-color:#fecdca;font-size:18px}
-      .product-row{grid-template-columns:minmax(0,1fr) 76px 60px minmax(0,1fr);gap:3px 6px;padding:5px 7px;align-content:start}
-      .product-row .product-name{grid-column:1 / -1;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.4;font-size:13px}
+      .flower-products{align-items:start}
+      @media(min-width:761px) and (max-width:1500px){.flower-products{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      .product-row{grid-template-columns:minmax(0,1fr) max-content 60px 56px max-content;gap:3px 5px;padding:3px 6px;align-content:start;min-height:33px}
+      .product-row .product-name{grid-column:auto;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.35;font-size:13px}
       .product-row .product-name b{white-space:normal;overflow-wrap:anywhere}
-      .product-row strong{font-size:12px}.product-row input{width:100%;box-sizing:border-box}
+      .product-row strong{font-size:11px;color:#475467}.product-row input{width:100%;box-sizing:border-box}.product-row:hover{background:#f8fbff}.product-row.has-input{background:#eff8ff}
       .live-order-name,.live-order-name strong{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.4}
-      @media(max-width:760px){.product-row{grid-template-columns:minmax(0,1fr) 76px 60px minmax(0,1fr)}}
+      @media(max-width:760px){.product-row{grid-template-columns:minmax(0,1fr) max-content 54px 52px max-content;gap:3px}}
     `}</style>
   </>;
 }
