@@ -35,7 +35,7 @@ import {
 const DEFAULT_CUST_SEARCH = '라움';
 const IMPORT_CUST_STORAGE_KEY = 'nenova_import_last_cust';
 
-async function persistItemMapping(item, prod, { force = true } = {}) {
+async function persistItemMapping(item, prod, { force = true, custKey = null, custName = '' } = {}) {
   if (!item?.inputName || !prod?.ProdKey) return false;
   try {
     await apiPost('/api/orders/mappings', {
@@ -47,6 +47,8 @@ async function persistItemMapping(item, prod, { force = true } = {}) {
       counName: prod.CounName,
       unit: item.unit,
       force,
+      custKey,
+      custName,
     });
     if (item.unit) {
       await apiPost('/api/orders/import-units', {
@@ -162,6 +164,7 @@ function ExcelSheetPreview({
     if (item.skip) return <span style={st.badgeErr}>제외</span>;
     if (!item.prodKey) return <span style={st.badgeWarn}>미매칭</span>;
     if (Number(item.qty) <= 0) return <span style={st.badgeWarn}>수량0</span>;
+    if (item.mappingScope === 'customer') return <span style={st.badgeOk}>업체 저장매칭</span>;
     if (item.fromMapping) return <span style={st.badgeOk}>저장매칭</span>;
     if (item.mappingMatchType === 'manual') return <span style={st.badgeOk}>수동</span>;
     return <span style={st.badgeOk}>자동</span>;
@@ -174,7 +177,7 @@ function ExcelSheetPreview({
           {preview.sheetName || 'Sheet1'} · {preview.sourceRange || ''} · {preview.rowCount}행 × {preview.columnCount}열
         </span>
       </div>
-      <div style={{ maxHeight: 660, overflow: 'auto', border: '1px solid #cbd5e1', borderRadius: 6 }}>
+      <div style={{ overflowX: 'auto', overflowY: 'visible', border: '1px solid #cbd5e1', borderRadius: 6 }}>
         <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: '100%', fontSize: 11 }}>
           <tbody>
             {preview.rows.map((row) => {
@@ -297,7 +300,7 @@ function MatchAggregateTable({ rows }) {
         <strong style={{ color: '#1e40af' }}>합산된 매칭수량 {rows.length}품목</strong>
         {Object.entries(unitTotals).map(([unit, qty]) => <span key={unit} style={{ ...st.badgeOk, fontSize: 11 }}>{unit} {qty.toLocaleString()}</span>)}
       </div>
-      <div style={{ maxHeight: 230, overflow: 'auto' }}>
+      <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
         <table style={st.table}>
           <thead><tr><th style={st.th}>매칭 품목</th><th style={st.th}>원본 행</th><th style={{ ...st.th, textAlign: 'right' }}>합산수량</th></tr></thead>
           <tbody>{rows.map(row => (
@@ -321,7 +324,7 @@ function RegisterProgressLog({ entries, running }) {
         <strong>주문등록 진행 로그</strong>
         <span style={{ ...st.badgeOk, background: running ? '#dbeafe' : '#e2e8f0', color: running ? '#1d4ed8' : '#475569' }}>{running ? '처리 중' : '처리 종료'}</span>
       </div>
-      <div style={{ maxHeight: 210, overflow: 'auto', fontSize: 12 }}>
+      <div style={{ fontSize: 12 }}>
         {entries.map(entry => (
           <div key={entry.id} style={{ padding: '6px 8px', marginBottom: 4, borderLeft: `4px solid ${entry.type === 'error' ? '#dc2626' : entry.type === 'success' ? '#16a34a' : '#3b82f6'}`, background: '#fff' }}>
             <span style={{ color: '#64748b', marginRight: 8 }}>{entry.time}</span>{entry.message}
@@ -758,6 +761,8 @@ export default function OrderImportPage() {
     setRegisterLogs([]);
     const fd = new FormData();
     fd.append('file', file);
+    if (cust?.CustKey) fd.append('custKey', String(cust.CustKey));
+    if (cust?.CustName) fd.append('custName', cust.CustName);
     try {
       const res = await fetch('/api/orders/import-parse', {
         method: 'POST',
@@ -797,7 +802,7 @@ export default function OrderImportPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cust]);
 
   const prepareShipmentList = async () => {
     let sourceItems = items;
@@ -871,8 +876,12 @@ export default function OrderImportPage() {
   };
 
   const handlePersistMapping = useCallback((row, prod) => {
-    return persistItemMapping(row, prod, { force: true });
-  }, []);
+    return persistItemMapping(row, prod, {
+      force: true,
+      custKey: cust?.CustKey || null,
+      custName: cust?.CustName || '',
+    });
+  }, [cust?.CustKey, cust?.CustName]);
 
   const pickProduct = (idx, prod) => {
     const current = items[idx];
@@ -888,6 +897,7 @@ export default function OrderImportPage() {
       mappingMatchType: 'manual',
       confidence: 1,
       confidenceLabel: 'high',
+      mappingScope: cust?.CustKey ? 'customer' : 'global',
     };
     updateItem(idx, {
       prodKey: nextRow.prodKey,
@@ -900,6 +910,7 @@ export default function OrderImportPage() {
       mappingMatchType: 'manual',
       confidence: 1,
       confidenceLabel: 'high',
+      mappingScope: nextRow.mappingScope,
     });
     setEditProdIdx(null);
   };

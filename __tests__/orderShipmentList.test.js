@@ -55,8 +55,10 @@ assert.match(api,/om\.OrderYear=@year AND om\.OrderWeek=@week AND om\.CustKey=@c
 assert.match(api,/sm\.OrderYear=@year AND sm\.OrderWeek=@week AND sm\.CustKey=@ck/);
 const parseApi = fs.readFileSync(path.join(process.cwd(),'pages/api/orders/import-parse.js'),'utf8');
 assert.match(parseApi,/resolveImportCustomer\(parsedMetadata\.customerName/);
+assert.match(parseApi, /mergeCustomerProductMappings\(globalMappings, custKey, true\)/,
+  '업로드 파싱은 선택·자동매칭된 업체의 품목 매칭을 공용매칭보다 우선해야 한다');
 const persistSource = fs.readFileSync(path.join(process.cwd(),'lib/persistImportMappings.js'),'utf8');
-assert.match(persistSource, /mappingMatchType === 'manual' \|\| it\.fromMapping/,
+assert.match(persistSource, /mappingMatchType === 'manual'[\s\S]*it\.fromMapping && it\.mappingScope !== 'customer'/,
   '자동 추론 결과는 저장매핑으로 강제 학습하지 않아야 한다');
 assert.doesNotMatch(persistSource, /confidenceLabel === 'high'/,
   '신뢰도만으로 자동 매칭을 영구 저장하면 오매칭이 자기강화된다');
@@ -65,8 +67,12 @@ assert.ok(page.indexOf('1. 파일을 드래그하거나 클릭하여 업로드')
 assert.ok(page.indexOf('📥 출고리스트 엑셀 만들기') < page.indexOf('품목 매칭 결과'), '출고리스트 생성 UI가 품목 매칭표보다 위에 있어야 한다');
 assert.match(page, /const saved = onPersistMapping \? await onPersistMapping\(row, prod\) : true;/,
   '품목 선택 UI는 서버 저장매핑 완료를 기다린 뒤 현재 품목을 확정해야 한다');
-assert.match(page, /return persistItemMapping\(row, prod, \{ force: true \}\);/,
+assert.match(page, /return persistItemMapping\(row, prod, \{[\s\S]*custKey: cust\?\.CustKey \|\| null/,
   '수동 품목 변경 저장 결과가 선택 UI까지 전달돼야 한다');
+assert.match(page, /fd\.append\('custKey', String\(cust\.CustKey\)\)/,
+  '업로드 파싱에도 선택 업체를 전달해 업체별 저장매칭을 적용해야 한다');
+assert.doesNotMatch(page, /maxHeight: 660|[Mm]axHeight: 230|[Mm]axHeight: 210/,
+  '원본 시트·합산표·진행 로그는 내부 세로 스크롤 대신 페이지 전체 스크롤을 사용해야 한다');
 assert.match(page, /e\.target\.value = '';/, '같은 엑셀 파일을 다시 선택해도 onChange가 재실행되도록 파일 입력을 초기화해야 한다');
 assert.match(page, /전체 제외/, '업로드 매칭표에서 전체 제외가 가능해야 한다');
 assert.match(page, /전체 제외 해제/, '전체 제외를 한 번에 해제할 수 있어야 한다');
