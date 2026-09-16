@@ -18,7 +18,17 @@ assert.equal(moved.cells[0].imgYcm,SLIDE_H_CM/2);
 assert.equal(layoutCssVars(1,'wide',{layout:max,compactText:true})['--grid-bottom'],'0cm');
 assert.equal(normalizeCatalogLayoutSettings({side:0,showHeader:false}).side,0);
 assert.equal(normalizeCatalogLayoutSettings({side:'bad'}).side,null);
-assert.equal(normalizeCatalogLayoutSettings({imageSize:1000}).imageSize,100);
+assert.equal(normalizeCatalogLayoutSettings({imageSize:1000}).imageSize,200);
+assert.equal(normalizeCatalogLayoutSettings({frame:'fill',imageSize:150}).imageSize,100);
+assert.equal(normalizeCatalogLayoutSettings({frame:'square',imageSize:150}).imageSize,150);
+const square100=computeCatalogLayout(8,'wide',{layout:{frame:'square',imageSize:100}});
+for (const size of [125,150,200]) {
+  const enlarged=computeCatalogLayout(8,'wide',{layout:{frame:'square',imageSize:size}});
+  assert.equal(enlarged.imgWcm,enlarged.imgHcm);
+  assert.ok(Math.abs(enlarged.imgWcm-square100.imgWcm*size/100)<0.00001);
+  assert.equal(normalizeCatalogLayoutSettings(JSON.parse(JSON.stringify({frame:'square',imageSize:size}))).imageSize,size);
+  assert.equal(layoutCssVars(8,'wide',{layout:{frame:'square',imageSize:size}})['--cell-img-w'],`${enlarged.imgWcm}cm`);
+}
 assert.equal(normalizeCatalogLayoutSettings(null).imageX,50);
 for (const n of [1,8,20,100]) {
   const l=computeCatalogLayout(n,'wide',{cols:Math.min(n,10),layout:{...max,hgap:2,vgap:2}});
