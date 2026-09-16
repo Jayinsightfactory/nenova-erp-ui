@@ -71,6 +71,14 @@ html=render({0:'CLOSED'});assert.match(html,/title="정렬-closed/);assert.equal
 data.inbox.items=[sortedItem('recurrence',40,'RECURRED')];html=render();assert.match(html,/column-RECURRED[\s\S]*title="정렬-recurrence/);
 assert.equal((html.match(/해당 상태의 피드백이 없습니다/g)||[]).length,3);
 data.inbox.items=savedItems;
+for(const lane of ['WAITING','ANSWERED','RECURRED']){html=render({0:lane});if(lane==='WAITING')assert.match(html,/row comment-first/);}
+html=render({0:'NEW'});assert.doesNotMatch(html,/class="row comment-first/);
+const requestHistory=[{EventKey:1,Kind:'REQUEST',Body:'최초 실제 요청',AuthorName:'요청자'},{EventKey:2,Kind:'RESPONSE',Body:'첫 답변'},{EventKey:3,Kind:'REQUEST',Body:'최근 실제 재요청',AuthorName:'재요청자',DueDate:'2026-09-20'},{EventKey:4,Kind:'COMMENT',Body:'후속 메모1'},{EventKey:5,Kind:'COMMENT',Body:'후속 메모2'},{EventKey:6,Kind:'COMMENT',Body:'후속 메모3'}];
+html=render({2:closed,3:'c1',10:requestHistory});let requestPanel=html.slice(html.indexOf('class="saved-request"'),html.indexOf('class="full-products"'));
+assert.match(requestPanel,/최근 실제 재요청/);assert.doesNotMatch(requestPanel,/최초 실제 요청|후속 메모|주요 불량 품목의/);assert.match(requestPanel,/재요청자/);assert.match(requestPanel,/2026-09-20/);
+html=render({2:closed,3:'c1',10:requestHistory,11:true});requestPanel=html.slice(html.indexOf('class="saved-request"'),html.indexOf('class="full-products"'));assert.match(requestPanel,/불러오는 중/);assert.doesNotMatch(requestPanel,/최근 실제 재요청/);
+html=render({2:closed,3:'c1',12:'조회 실패'});assert.match(html,/요청 내용을 불러오지 못했습니다/);
+html=render({2:closed,3:'c1',10:[{Kind:'COMMENT',Body:'요청 아닌 일반 메모'}]});requestPanel=html.slice(html.indexOf('class="saved-request"'),html.indexOf('class="full-products"'));assert.match(requestPanel,/아직 저장된 요청이 없습니다/);assert.doesNotMatch(requestPanel,/요청 아닌 일반 메모/);
 html=render({2:virtual});assert.match(html,/value="REQUEST"/,'first request available to manager');assert.doesNotMatch(html,/value="RESPONSE"/,'first response is not valid');assert.match(html,/고객 가/);
 for(const quantity of [null,undefined,NaN,Infinity]){html=render({2:{...virtual,sources:[{...virtual.sources[0],quantity}]}});assert.match(html,/수량 확인 불가/,'unknown source quantity must not become zero');}
 html=render({2:{...virtual,sources:[{...virtual.sources[0],quantity:0}]}});assert.match(html,/0 송이/,'a known zero remains zero');
