@@ -21,6 +21,7 @@ import { escapePnlHtml } from '../../lib/raumPnlPrintText';
 import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHttp';
 import { createRaumPnlRequestGuard, isRaumPnlPartnerMatch } from '../../lib/raumPnlRequestGuard';
 import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../lib/raumPnlImportReview';
+import { MENU_BACK_REQUEST_EVENT } from '../../lib/menuNavigationHistory';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -2197,6 +2198,35 @@ export default function RaumPnlPage() {
     return values.map(value => Number(value) === 0 ? '0' : Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })).join(' / ');
   };
 
+  const returnToSettlementList = () => {
+    if (uploading || saving || shillaMatching) {
+      setError('진행 중인 작업이 끝난 뒤 결산 목록으로 돌아가세요.');
+      return false;
+    }
+    if ((detail?.unsaved || bulkPreview) && !window.confirm('저장하지 않은 상세 또는 업로드 미리보기가 사라집니다. 결산 목록으로 돌아갈까요?')) return false;
+    detailRequestGuard.current.invalidate();
+    setDetail(null);
+    setBulkPreview(null);
+    setGangnamMergeConfirmed(false);
+    setShillaMatchEdit(null);
+    setMatchEdit(null);
+    setSync(null);
+    setError('');
+    setMessage('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return true;
+  };
+
+  useEffect(() => {
+    const handleContextualBack = (event) => {
+      if (!detail && !bulkPreview) return;
+      event.preventDefault();
+      returnToSettlementList();
+    };
+    window.addEventListener(MENU_BACK_REQUEST_EVENT, handleContextualBack);
+    return () => window.removeEventListener(MENU_BACK_REQUEST_EVENT, handleContextualBack);
+  }, [detail, bulkPreview, uploading, saving, shillaMatching]);
+
   // ── 렌더 ──
   return (
     <div style={st.page}>
@@ -2319,7 +2349,7 @@ export default function RaumPnlPage() {
         {canErpSync ? <button style={st.btnPrimary} onClick={() => setImageOpen(true)}>📷 이미지 주문등록</button> : null}
         {detail ? (
           <>
-            <button style={st.btn} disabled={shillaMatching} onClick={() => { setDetail(null); setGangnamMergeConfirmed(false); setMessage(''); setError(''); }}>← 결산 목록</button>
+            <button style={st.btn} disabled={shillaMatching} onClick={returnToSettlementList}>← 결산 목록</button>
             {!isShilla ? <><button data-testid="raum-pnl-save" style={st.btnPrimary} disabled={saving || !!detailSaveReason} onClick={save}>{saving ? '저장 중…' : '💾 저장'}</button><span data-testid="raum-pnl-save-reason" style={{ fontSize: 12, color: detailSaveReason ? '#b45309' : '#64748b' }}>{detailSaveReason || (detailReview.requiresConfirmation ? '강남 복수 시트 확인 완료 — 수동 저장 가능' : '')}</span><GangnamMergeConfirmation decision={detailReview} confirmed={gangnamMergeConfirmed} onChange={setGangnamMergeConfirmed} /></> : <><button data-testid="shilla-detail-cost-save" style={{ ...st.btnPrimary, background: '#0f766e', borderColor: '#0f766e' }} disabled={saving || (!shillaCostReview.updates.length && !shillaCostReview.error)} onClick={saveShillaDetailCosts}>{saving ? '저장 중…' : `💾 신라 매입단가 저장 (${shillaCostReview.updates.length})`}</button><span style={{ fontSize: 12, color: shillaCostReview.error ? '#b91c1c' : '#64748b' }}>{shillaCostReview.error || '이 상세표에서 바로 수정·저장할 수 있습니다.'}</span></>}
             <button
               style={st.btn}
@@ -2336,7 +2366,7 @@ export default function RaumPnlPage() {
           </>
         ) : bulkPreview ? (
           <>
-            <button style={st.btn} onClick={() => { setBulkPreview(null); setGangnamMergeConfirmed(false); }}>← 결산 목록</button>
+            <button style={st.btn} onClick={returnToSettlementList}>← 결산 목록</button>
             <button data-testid="raum-pnl-bulk-save" style={st.btnPrimary} disabled={saving || !!bulkSaveReason || (isShilla ? !(bulkPreview.selectedMajors || []).length : false)} onClick={saveBulkPreview}>
               {saving ? '저장 중…' : isShilla ? `💾 선택 ${bulkPreview.selectedMajors?.length || 0}개 차수 저장` : `💾 ${bulkPreview.batches.length}개 차수 전체 저장`}
             </button>

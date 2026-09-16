@@ -1,5 +1,5 @@
 import {useRouter} from 'next/router';
-import {takePreviousMenuRoute} from '../lib/menuNavigationHistory';
+import {requestContextualMenuBack,takePreviousMenuRoute} from '../lib/menuNavigationHistory';
 
 export function goBackFromMenu(router){
   if(typeof window==='undefined')return;
@@ -13,13 +13,19 @@ export function goBackFromMenu(router){
   router.push('/dashboard');
 }
 
+export function handleMenuBack(router){
+  if(typeof window==='undefined')return;
+  if(requestContextualMenuBack(window))return;
+  goBackFromMenu(router);
+}
+
 export default function MenuBackButton({standalone=false}){
   const router=useRouter();
   return <><button
       type="button"
       data-ui-back-button
       className={standalone?'nv-standalone-back':''}
-      onClick={()=>goBackFromMenu(router)}
+      onClick={()=>handleMenuBack(router)}
       title="이전 화면으로"
       aria-label="뒤로가기"
     >← 뒤로가기</button>{standalone&&<style jsx>{`
