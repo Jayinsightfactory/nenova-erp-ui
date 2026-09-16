@@ -1,7 +1,25 @@
 import assert from 'node:assert/strict';
+import { createPivotValueOrderComparator } from '../lib/pivotExeValueOrder.js';
+import './pivotExeValueOrder.test.js';
 import {
   EXE_DEFAULT_LAYOUT, EXE_FIELDS, assertPivotRenderLimit, buildPivotModel, filterRows, matchesFilterCondition, moveField, normalizeLayout, pivotAxisKey, pivotCellKey, pivotModelToAoA,
 } from '../lib/pivotExeModel.js';
+
+// Custom ranks use the filter list's ascending natural fallback on both axes.
+for (const zone of ['row', 'column']) {
+  const values = ['값10', '우선', '값2', '값1'];
+  const source = values.map(CustName => ({ CustName, Quantity: 1 }));
+  const options = { layout: { row: [], column: [], [zone]: ['CustName'], data: ['Quantity'] }, showGrandTotals: false };
+  const axis = zone === 'row' ? 'rowAxis' : 'columnAxis';
+  const paths = model => model[axis].map(item => item.path[0]);
+  const order = ['우선'];
+  const custom = buildPivotModel(source, { ...options, valueOrders: { CustName: order } });
+  assert.deepEqual(paths(custom), ['우선', '값1', '값2', '값10']);
+  assert.deepEqual(paths(custom), [...values].sort(createPivotValueOrderComparator(order, 'asc')));
+  assert.deepEqual(paths(buildPivotModel(source, { ...options, valueOrders: { CustName: order }, sort: { CustName: 'desc' } })), ['우선', '값10', '값2', '값1']);
+  assert.deepEqual(paths(buildPivotModel(source, options)), values, 'no custom order preserves encounter order');
+  assert.deepEqual(paths(buildPivotModel(source, { ...options, valueOrders: { CustName: [] } })), values);
+}
 
 const rows = [
   { CounName: '콜롬비아', FlowerName: '수국', ProdName: '화이트', OrderYear: 2025, OrderWeek: '01-01', ListType: '02. 주문', CustName: 'A', Quantity: 1.5, UPrice: 1.25, CustDescr: '' },
@@ -18,6 +36,27 @@ const codeRows = [
   {CustOrderCode:'',OrderYear:2026,OrderWeek:'37-01',Quantity:0},
   {CustOrderCode:null,OrderYear:2026,OrderWeek:'37-01',Quantity:-1},
 ];
+
+{
+  const source = [];
+  for (const CounName of ['A', 'B', 'C']) for (const ProdName of ['p1', 'p2'])
+    for (const OrderYear of [2025, 2026]) for (const OrderWeek of ['37-01', '38-01'])
+      source.push(Object.freeze({ CounName, ProdName, OrderYear, OrderWeek, Quantity: source.length + 1 }));
+  Object.freeze(source);
+  const snapshot = JSON.stringify(source);
+  const options = { layout: { row: ['CounName', 'ProdName'], column: ['OrderYear', 'OrderWeek'], data: ['Quantity'] } };
+  const baseline = buildPivotModel(source, options);
+  const custom = buildPivotModel(source, { ...options, valueOrders: { CounName: ['B'], ProdName: ['p2'], OrderYear: [2026], OrderWeek: ['38-01'] }, sort: { CounName: 'desc', ProdName: 'asc', OrderYear: 'asc' } });
+  assert.deepEqual(custom.rowAxis.filter(a => !a.isTotal).map(a => a.path), [['B','p2'],['B','p1'],['C','p2'],['C','p1'],['A','p2'],['A','p1']]);
+  assert.deepEqual(custom.columnAxis.filter(a => !a.isTotal).map(a => a.path), [[2026,'38-01'],[2026,'37-01'],[2025,'38-01'],[2025,'37-01']]);
+  assert.equal(new Set(custom.columnAxis.map(a => a.key)).size, custom.columnAxis.length);
+  assert.deepEqual(custom.cellMap, baseline.cellMap, 'reordering cannot alter any aggregate or cross-year identity');
+  assert.equal(JSON.stringify(source), snapshot);
+  assert.deepEqual(buildPivotModel(source, { ...options, valueOrders: { CounName: [] } }).rowAxis, baseline.rowAxis);
+  const typed = [null, '', 0, false, '00', '0'];
+  const typedModel = buildPivotModel(typed.map(CustName => ({ CustName, Quantity: 1 })), { layout: { row: ['CustName'], column: [], data: ['Quantity'] }, valueOrders: { CustName: [...typed].reverse() }, showGrandTotals: false });
+  assert.deepEqual(typedModel.rowAxis.map(a => a.path[0]), [...typed].reverse());
+}
 assert.equal(EXE_FIELDS.find(f=>f.id==='CustOrderCode').label,'거래처 주문코드');
 assert.equal(EXE_DEFAULT_LAYOUT.filter[EXE_DEFAULT_LAYOUT.filter.indexOf('CustArea')+1],'CustOrderCode');
 for (const zone of ['row','column','filter','data']) {

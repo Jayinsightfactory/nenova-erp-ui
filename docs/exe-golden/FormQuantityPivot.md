@@ -1,5 +1,11 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-16 필터 값 사용자 순서
+
+- 실제 dnSpy.Console -t FormQuantityPivot 재확인: GetData 조회 및 btnExcel_Click의 ExportToXlsx. SQL/원장 쓰기는 변경하지 않는다.
+- 웹에서 필터 값 순서를 사용자 지정하며 피벗 양 축과 WYSIWYG XLSX는 같은 모델을 소비한다. EXE 자체에 개인 순서를 저장한다는 의미는 아니다.
+- 개인 설정 valueOrders만 확장하며 주문·분배·재고·견적·매출 및 원본 수량은 보존한다. 2026 37-01 운영 읽기 2,604행/거래처 코드58개는 직전 동일 세션 근거다.
+
 ## 2026-09-16 거래처 주문코드 표시 필드
 
 - 설치 EXE를 `dnSpy.Console.exe --no-color -t FormQuantityPivot` 및 `-t ClassCustomer`로 재확인. 피벗 GetData는 주문/미발주/출고에 CustKey, 전재고/입고/현재고에는 NULL CustKey를 반환한다.

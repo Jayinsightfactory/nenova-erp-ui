@@ -4,6 +4,14 @@ import { normalizePivotExeView, parsePivotExeFavoriteView } from '../lib/pivotEx
 import { getPivotExeDataColumnId, getPivotExeDataWidth } from '../lib/pivotExePresentation.js';
 
 const defaults = normalizePivotExeView();
+assert.deepEqual(defaults.valueOrders, {});
+assert.deepEqual(parsePivotExeFavoriteView('{}').valueOrders, {});
+const orderedView = normalizePivotExeView({ valueOrders: { CustName: [null, '', 0, false, '00', '0', null, 0], Unknown: [{}], OrderYear: [] } });
+assert.deepEqual(orderedView.valueOrders, { CustName: [null, '', 0, false, '00', '0'], OrderYear: [] });
+assert.deepEqual(parsePivotExeFavoriteView(JSON.stringify(orderedView)), orderedView);
+for (const valueOrders of [null, [], 'bad', { CustName: null }, { CustName: [undefined] }, { CustName: [{}] }, { CustName: [NaN] }, { CustName: [Infinity] }, { CustName: new Array(2) }, { CustName: Array(200001).fill('x') }, { CustName: Array(100001).fill('x'), ProdName: Array(100000).fill('y') }]) {
+  assert.throws(() => normalizePivotExeView({ valueOrders }), /FAVORITE/);
+}
 assert.equal(defaults.schemaVersion, 1);
 assert.deepEqual(defaults.zones.rows, EXE_DEFAULT_LAYOUT.row);
 assert.equal(defaults.decimals, 2);

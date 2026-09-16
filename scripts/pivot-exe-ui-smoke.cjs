@@ -373,7 +373,7 @@ async function runDelayedAuthLayoutRegression(browser) {
     await click(page, 'pivot-exe-field-CounName', 'country menu');
     await click(page, null, 'value filter', '값 필터…');
     await click(page, null, 'clear values', '전체 해제');
-    await click(page, null, 'apply empty selection', '선택값 적용');
+    await click(page, null, 'apply empty selection', '선택·순서 적용');
     assert((await text(page)).includes('표시할 데이터가 없습니다.'), 'empty filter must show no rows');
     await click(page, null, 'clear filters', '필터 지우기');
     await click(page, testids.filterEditor, 'AST editor');
