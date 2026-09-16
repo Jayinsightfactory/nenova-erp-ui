@@ -1,5 +1,6 @@
 import {useRouter} from 'next/router';
-import {requestContextualMenuBack,takePreviousMenuRoute} from '../lib/menuNavigationHistory';
+import {useEffect,useRef} from 'react';
+import {requestContextualMenuBack,requestMenuPageReset,takePreviousMenuRoute} from '../lib/menuNavigationHistory';
 
 export function goBackFromMenu(router){
   if(typeof window==='undefined')return;
@@ -21,11 +22,48 @@ export function handleMenuBack(router){
 
 export default function MenuBackButton({standalone=false}){
   const router=useRouter();
+  const pageInteractedRef=useRef(false);
+  const formChangedRef=useRef(false);
+
+  useEffect(()=>{
+    pageInteractedRef.current=Object.keys(router.query||{}).some(key=>key!=='popup');
+    formChangedRef.current=false;
+  },[router.asPath]);
+
+  useEffect(()=>{
+    const markInteraction=event=>{
+      const target=event.target;
+      if(!target?.closest?.('[data-ui-page-content]')||target.closest('[data-ui-back-button]'))return;
+      pageInteractedRef.current=true;
+      if(event.type==='input'||event.type==='change'||event.type==='paste'||event.type==='drop')formChangedRef.current=true;
+    };
+    const events=['click','input','change','paste','drop'];
+    events.forEach(type=>document.addEventListener(type,markInteraction,true));
+    return()=>events.forEach(type=>document.removeEventListener(type,markInteraction,true));
+  },[]);
+
+  const resetCurrentMenu=async()=>{
+    if(requestContextualMenuBack(window)){
+      pageInteractedRef.current=false;
+      formChangedRef.current=false;
+      return;
+    }
+    if(!pageInteractedRef.current){goBackFromMenu(router);return;}
+    if(formChangedRef.current&&!window.confirm('입력·선택한 내용을 초기화하고 이 메뉴의 처음 화면으로 돌아갈까요?'))return;
+    pageInteractedRef.current=false;
+    formChangedRef.current=false;
+    const keepPopup=router.query?.popup==='1';
+    const hasDetailQuery=Object.keys(router.query||{}).some(key=>key!=='popup');
+    if(hasDetailQuery){
+      await router.replace({pathname:router.pathname,query:keepPopup?{popup:'1'}:{}},undefined,{scroll:false});
+    }
+    requestMenuPageReset(window);
+  };
   return <><button
       type="button"
       data-ui-back-button
       className={standalone?'nv-standalone-back':''}
-      onClick={()=>handleMenuBack(router)}
+      onClick={resetCurrentMenu}
       title="이전 화면으로"
       aria-label="뒤로가기"
     >← 뒤로가기</button>{standalone&&<style jsx>{`

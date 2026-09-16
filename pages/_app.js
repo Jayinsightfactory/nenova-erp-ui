@@ -2,6 +2,8 @@ import Layout, { MENU_ITEMS } from '../components/Layout';
 import MenuBackButton from '../components/MenuBackButton';
 import '../styles/globals.css';
 import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
+import { MENU_PAGE_RESET_EVENT } from '../lib/menuNavigationHistory';
 
 const NO_LAYOUT = [
   '/login',
@@ -26,6 +28,18 @@ const STANDALONE_MENU_BACK_ROUTES = new Set(['/shipment/week-pivot', '/stats/piv
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
+  const [menuPageRevision, setMenuPageRevision] = useState(0);
+  useEffect(() => {
+    const resetPage = () => setMenuPageRevision(value => value + 1);
+    window.addEventListener(MENU_PAGE_RESET_EVENT, resetPage);
+    return () => window.removeEventListener(MENU_PAGE_RESET_EVENT, resetPage);
+  }, []);
+  useEffect(() => { setMenuPageRevision(0); }, [router.pathname]);
+  const page = (
+    <div data-ui-page-content style={{display:'contents'}}>
+      <Component key={`${router.pathname}:${menuPageRevision}`} {...pageProps} />
+    </div>
+  );
   // 정확 매칭 + /m/* 접두사 매칭 (모바일 전용 페이지는 레이아웃 없음)
   const isNoLayout =
     NO_LAYOUT.includes(router.pathname) || router.pathname === '/m' || router.pathname.startsWith('/m/');
@@ -37,14 +51,14 @@ export default function App({ Component, pageProps }) {
       <>
         <style>{`body { background: #F0F0F0; }`}</style>
         {needsStandaloneBack && <MenuBackButton standalone />}
-        <Component {...pageProps} />
+        {page}
       </>
     );
   }
 
   return (
     <Layout>
-      <Component {...pageProps} />
+      {page}
     </Layout>
   );
 }
