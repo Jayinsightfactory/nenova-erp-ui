@@ -2,7 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
-import { buildForwardOrderWeeks, compactCustomerProductLabel, productAlphabetInitial, sortMyCustomersFirst } from '../../lib/myCustomerOrderEntry';
+import { buildForwardOrderWeeks, compactCustomerProductLabel, productAlphabetInitial, sortMyCustomersFirst, customerOrderDraft } from '../../lib/myCustomerOrderEntry';
 import { convertSalesPasteQtyToOutUnit, salesPasteUnitOptions } from '../../lib/salesPasteOrder';
 import { MENU_BACK_REQUEST_EVENT } from '../../lib/menuNavigationHistory';
 
@@ -34,6 +34,7 @@ export default function MyCustomerOrders() {
   const [custKey, setCustKey] = useState('');
   const [products, setProducts] = useState([]);
   const [qty, setQty] = useState({});
+  const [finalQty, setFinalQty] = useState({});
   const [editingQtyKey, setEditingQtyKey] = useState(null);
   const qtyBeforeEdit = useRef('');
   const [units, setUnits] = useState({});
@@ -94,7 +95,7 @@ export default function MyCustomerOrders() {
 
   const load = async ({ preserveDraft = false, confirmDraft = false } = {}) => {
     if (!custKey || !week) return;
-    if (confirmDraft && !preserveDraft && Object.keys(qty).some(k => String(qty[k]) !== '')) {
+    if (confirmDraft && !preserveDraft && (Object.keys(finalQty).length || Object.keys(qty).some(k => String(qty[k]) !== ''))) {
       if (!window.confirm('입력 중인 초안을 지우고 최신 수량을 다시 불러올까요?')) return false;
     }
     const sequence = ++loadSequenceRef.current;
@@ -103,7 +104,7 @@ export default function MyCustomerOrders() {
     try {
       const d = await apiGet('/api/orders/my-customers', { custKey, year, week });
       if (sequence !== loadSequenceRef.current || scopeRef.current !== requestedScope) return false;
-      setProducts(d.products || []); if (!preserveDraft) { setQty({}); setUnits({}); } setLoadedScope(requestedScope); setNeedsReload(false);
+      setProducts(d.products || []); if (!preserveDraft) { setQty({}); setFinalQty({}); setUnits({}); } setLoadedScope(requestedScope); setNeedsReload(false);
       setCollapsedFlowers({}); setProductQuery(''); setProductLetter('');
       if (scrollAfterLoadRef.current) setTimeout(()=>productAreaRef.current?.scrollIntoView({behavior:'smooth',block:'start'}),0);
       return true;
@@ -116,12 +117,13 @@ export default function MyCustomerOrders() {
   useEffect(() => { setPreviousOrderWeek(''); }, [custKey, year, week]);
 
   const changed = useMemo(() => products.filter(p => Number(qty[p.ProdKey] || 0) > 0), [products, qty]);
-  const entryRows = useMemo(() => orderMode === 'REPLACE'
-    ? products.filter(p => Object.prototype.hasOwnProperty.call(qty, p.ProdKey) && String(qty[p.ProdKey]) !== '')
-    : changed, [products, qty, orderMode, changed]);
-  const enteredRows = useMemo(() => products.filter(p => p.ProdKey === editingQtyKey || (Object.prototype.hasOwnProperty.call(qty, p.ProdKey) && String(qty[p.ProdKey]) !== '')), [products, qty, editingQtyKey]);
+  const enteredRows = useMemo(() => loadedScope !== scopeKey ? [] : products.filter(p => Number(p.CurrentQty)>0 || p.ProdKey === editingQtyKey || finalQty[p.ProdKey] !== undefined || (Object.prototype.hasOwnProperty.call(qty, p.ProdKey) && String(qty[p.ProdKey]) !== '')), [products, qty, finalQty, editingQtyKey, loadedScope, scopeKey]);
   const selectedUnit = p => units[p.ProdKey] || p.OutUnit || '박스';
   const convertedInputQty = p => convertSalesPasteQtyToOutUnit(Number(qty[p.ProdKey] || 0), selectedUnit(p), p);
+  const draftFor = p => customerOrderDraft(p, qty[p.ProdKey], finalQty[p.ProdKey], n => convertSalesPasteQtyToOutUnit(n, selectedUnit(p), p));
+  const draftRows = products.filter(p => draftFor(p).touched);
+  const editAdditional = (p, value) => { setQty(v=>({...v,[p.ProdKey]:value})); setFinalQty(v=>{const next={...v};delete next[p.ProdKey];return next;}); };
+  const resetDraft = p => { editAdditional(p, ''); setEditingQtyKey(null); };
   const productGroups = useMemo(() => {
     const groups = new Map();
     products.forEach(product => {
@@ -179,14 +181,14 @@ export default function MyCustomerOrders() {
     const nextQty = {};
     const nextUnits = {};
     for (const item of template.items || []) if (valid.has(Number(item.prodKey)) && Number(item.qty) > 0) { nextQty[item.prodKey] = String(Number(item.qty)); nextUnits[item.prodKey] = salesPasteUnitOptions().includes(item.unit) ? item.unit : valid.get(Number(item.prodKey)).OutUnit; }
-    setQty(nextQty); setUnits(nextUnits); setShowTemplates(false); setSelectedTemplate(null);
+    setQty(nextQty); setFinalQty({}); setUnits(nextUnits); setShowTemplates(false); setSelectedTemplate(null);
     setMessage(`${template.name || `${template.year}년 ${template.week}`} 주문 ${Object.keys(nextQty).length}개 품목을 불러왔습니다. 수량 수정·삭제 후 주문등록하세요.`);
   };
   const loadPreviousOrderDraft = async () => {
     if (!custKey || !week || submitting || busy || loadedScope !== scopeKey) return;
     const requestedScope = scopeKey;
     const beforeWeek = previousOrderWeek || week;
-    if (Object.keys(qty).some(key => String(qty[key]) !== '') && !window.confirm('입력 중인 초안을 직전 차수 주문으로 바꿀까요?')) return;
+    if ((Object.keys(finalQty).length || Object.keys(qty).some(key => String(qty[key]) !== '')) && !window.confirm('입력 중인 초안을 직전 차수 주문으로 바꿀까요?')) return;
     setTemplateBusy(true); setMessage(`${previousOrderWeek ? '그 이전' : '바로 이전'} 차수 주문을 불러오는 중입니다.`);
     try {
       const data = await apiGet('/api/orders/my-customers', { view: 'previous-order', custKey, year, week, beforeWeek });
@@ -218,7 +220,7 @@ export default function MyCustomerOrders() {
   useEffect(() => { setCustomerCursor(visibleCustomers.length ? 0 : -1); }, [customerQuery, showAllCustomers]);
   const selectCustomer = key => {
     if (submitting) return;
-    if (String(key) !== String(custKey) && Object.keys(qty).some(k => String(qty[k]) !== '') && !window.confirm('입력 중인 초안을 지우고 업체를 변경할까요?')) return;
+    if (String(key) !== String(custKey) && (Object.keys(finalQty).length || Object.keys(qty).some(k => String(qty[k]) !== '')) && !window.confirm('입력 중인 초안을 지우고 업체를 변경할까요?')) return;
     scrollAfterLoadRef.current = false;
     if (String(key) === String(custKey)) setTimeout(()=>productAreaRef.current?.scrollIntoView({behavior:'smooth',block:'nearest'}),0);
     else setCustKey(String(key));
@@ -263,25 +265,24 @@ export default function MyCustomerOrders() {
   };
   const submit = async (requestedMode = orderMode) => {
     if (submitLockRef.current || submitting || needsReload || loadedScope !== scopeKey) return setMessage('현재 업체·차수 수량을 다시 불러온 뒤 등록하세요.');
-    const rows = requestedMode === 'REPLACE'
-      ? products.filter(p => Object.prototype.hasOwnProperty.call(qty, p.ProdKey) && String(qty[p.ProdKey]) !== '')
-      : products.filter(p => Number(qty[p.ProdKey] || 0) > 0);
+    if (requestedMode === 'ADD' && Object.keys(finalQty).length) return setMessage('최종 수량을 수정한 품목이 있습니다. 변경등록으로 저장하세요.');
+    const rows = draftRows.filter(p => draftFor(p).changed || draftFor(p).finalQty === null);
     if (!rows.length) return setMessage(requestedMode === 'REPLACE' ? '변경할 수량을 입력하세요. 0도 변경값으로 등록됩니다.' : '추가할 수량을 입력하세요.');
-    const invalid = rows.filter(p => convertedInputQty(p) === null);
+    const invalid = rows.filter(p => draftFor(p).finalQty === null);
     if (invalid.length) return setMessage(`단위 환산값이 없어 등록할 수 없습니다: ${invalid.map(p => `${label(p)} (${selectedUnit(p)}→${p.OutUnit})`).join(', ')}`);
     const customer = customers.find(c => String(c.CustKey) === String(custKey));
-    const summary = rows.map(p => `${label(p)}: 기존 ${Number(p.CurrentQty || 0)}${p.OutUnit || ''} → 입력 ${qty[p.ProdKey]}${selectedUnit(p)} (= ${convertedInputQty(p)}${p.OutUnit}) → ${requestedMode === 'ADD' ? `최종 ${Number(p.CurrentQty || 0)+Number(convertedInputQty(p)||0)}` : `변경후 ${convertedInputQty(p)}`}${p.OutUnit || ''}`).join('\n');
+    const summary = rows.map(p => `${label(p)}: 기존 ${draftFor(p).current}${p.OutUnit} → 최종 ${draftFor(p).finalQty}${p.OutUnit}`).join('\n');
     if (!window.confirm(`${customer?.CustName} / ${year}년 ${week}\n\n${summary}\n\n${requestedMode === 'ADD' ? '입력 수량을 기존 주문에 추가' : '입력한 품목만 주문 수량을 변경'}합니다. 빈 칸 품목과 다른 업체·차수 주문은 보존됩니다. 계속할까요?`)) return;
     submitLockRef.current = true; setSubmitting(true); setShowExecutionLog(true); setExecutionLog({ startedAt: new Date().toISOString(), mode: requestedMode, scope: scopeKey, customerName: customer?.CustName, year, week, status: 'working', rows: [] }); setMessage('주문 등록을 처리 중입니다…');
     try {
       const d = await apiPost('/api/orders', { source: 'my-customer', orderMode: requestedMode, custKey: Number(custKey), custName: customer?.CustName, year, week,
-        items: rows.map(p => ({ prodKey: p.ProdKey, prodName: p.ProdName, qty: Number(qty[p.ProdKey]), unit: selectedUnit(p), expectedCurrentQty: Number(p.CurrentQty || 0) })) });
+        items: rows.map(p => ({ prodKey: p.ProdKey, prodName: p.ProdName, qty: requestedMode === 'REPLACE' ? draftFor(p).finalQty : Number(qty[p.ProdKey]), unit: requestedMode === 'REPLACE' ? p.OutUnit : selectedUnit(p), expectedCurrentQty: Number(p.CurrentQty || 0) })) });
       if (d.success === false || d.verified === false || (Object.prototype.hasOwnProperty.call(d, 'verified') && !d.verified)) {
         const verificationError = new Error(d.error || '주문 반영 검증에 실패했습니다. 입력 초안은 유지됩니다.'); verificationError.status = 422; throw verificationError;
       }
-      const resultRows = (d.results || []).map(r => { const sourceRow = rows.find(p => Number(p.ProdKey) === Number(r.prodKey)); return { ...r, prodName: r.prodName || sourceRow?.ProdName || '', unit: sourceRow ? selectedUnit(sourceRow) : '', inputQty: r.inputQty ?? r.qty ?? qty[r.prodKey] }; });
+      const resultRows = (d.results || []).map(r => { const sourceRow = rows.find(p => Number(p.ProdKey) === Number(r.prodKey)); return { ...r, prodName: r.prodName || sourceRow?.ProdName || '', unit: sourceRow?.OutUnit || '', inputQty: r.inputQty ?? r.qty ?? (sourceRow ? requestedMode === 'REPLACE' ? draftFor(sourceRow).finalQty : convertedInputQty(sourceRow) : '') }; });
       setExecutionLog(v => ({ ...v, finishedAt: new Date().toISOString(), status: 'committed', rows: resultRows, warning: d.warning || '' }));
-      setQty({}); setMessage(`${d.message || '주문 등록 완료'} · 결과를 재조회 중입니다.`);
+      setQty({}); setFinalQty({}); setMessage(`${d.message || '주문 등록 완료'} · 결과를 재조회 중입니다.`);
       const reloaded = await load({ preserveDraft: false });
       if (!reloaded) { setExecutionLog(v => ({ ...v, status: 'committed-reload-failed' })); setMessage('주문은 반영됐지만 화면 재조회에 실패했습니다. 새로고침해 확인하세요.'); return; }
       const resultMessage = `${d.message || '주문 등록 완료'} · 주문원장 재조회 완료`; setMessage(resultMessage); window.alert(resultMessage);
@@ -299,7 +300,7 @@ export default function MyCustomerOrders() {
       <div className="title-row"><div><h1>내 업체 주문등록</h1><p>차수와 업체를 고른 뒤, 품목을 세 열로 빠르게 입력합니다.</p><nav className="entry-tabs" aria-label="주문 입력 방식"><span aria-current="page">수량 직접 입력</span><Link href="/orders/sales-paste">붙여서 주문등록</Link></nav></div><div className="page-actions"><button onClick={loadPreviousOrderDraft} disabled={busy||templateBusy||submitting||loadedScope!==scopeKey}>{templateBusy?'불러오는 중':previousOrderWeek?'더 이전 차수 주문 불러오기':'바로 이전 차수 주문 불러오기'}</button><button onClick={loadTemplates} disabled={busy||templateBusy||submitting}>과거·고정 주문</button><button onClick={()=>load({confirmDraft:true})} disabled={busy||submitting}>최신 다시불러오기</button><button type="button" onClick={()=>setShowExecutionLog(true)}>실행 로그</button></div></div>
       {selectionCollapsed&&selectedCustomer&&<section className="selection-summary"><div><b>{year}년 {week}</b><span>{selectedCustomer.CustName}{selectedCustomer.OrderCode?` · ${selectedCustomer.OrderCode}`:''}</span></div><button type="button" onClick={()=>setSelectionCollapsed(false)}>차수·업체 변경</button></section>}
       {!selectionCollapsed&&<section className="filters">
-        <div className="pick-group"><b>등록 차수</b><div className="choice-buttons">{weekChoices.map(w=><button disabled={submitting} key={`${w.year}-${w.week}`} className={year===w.year&&week===w.week?'active':''} aria-pressed={year===w.year&&week===w.week} onClick={()=>{if(Object.keys(qty).some(k=>String(qty[k])!== '')&&!window.confirm('입력 중인 초안을 지우고 차수를 변경할까요?'))return;setSelectionCollapsed(false);setYear(w.year);setWeek(w.week)}}>{w.year!==String(currentYear)&&<small>{w.year}년 </small>}{w.label}</button>)}</div><small>현재 차수 -2부터 표시합니다. 기본 선택은 +2차이며, 각 차수의 1·2 세부차수입니다.</small></div>
+        <div className="pick-group"><b>등록 차수</b><div className="choice-buttons">{weekChoices.map(w=><button disabled={submitting} key={`${w.year}-${w.week}`} className={year===w.year&&week===w.week?'active':''} aria-pressed={year===w.year&&week===w.week} onClick={()=>{if((Object.keys(finalQty).length || Object.keys(qty).some(k=>String(qty[k])!== ''))&&!window.confirm('입력 중인 초안을 지우고 차수를 변경할까요?'))return;setSelectionCollapsed(false);setYear(w.year);setWeek(w.week)}}>{w.year!==String(currentYear)&&<small>{w.year}년 </small>}{w.label}</button>)}</div><small>현재 차수 -2부터 표시합니다. 기본 선택은 +2차이며, 각 차수의 1·2 세부차수입니다.</small></div>
         <div className="pick-group"><b>업체 선택 <em>{customers.length}곳 · 최근 주문순</em></b><div className="customer-tools"><input value={customerQuery} onChange={e=>setCustomerQuery(e.target.value)} onKeyDown={moveCustomer} placeholder="업체명·담당자 검색" aria-label="업체 검색" aria-activedescendant={customerCursor>=0?`customer-${visibleCustomers[customerCursor]?.CustKey}`:undefined}/><button onClick={()=>setShowAllCustomers(v=>!v)}>{showAllCustomers?'최근 업체만':'전체 업체 보기'}</button></div><small>업체명 입력 후 ↑↓로 이동하고 Enter로 선택하세요.</small><div className="choice-buttons customers">{visibleCustomers.map((c,i)=><button ref={el=>customerRefs.current[c.CustKey]=el} id={`customer-${c.CustKey}`} key={c.CustKey} className={`${String(custKey)===String(c.CustKey)?'active':''} ${i===customerCursor?'cursor':''}`} aria-pressed={String(custKey)===String(c.CustKey)} onMouseEnter={()=>setCustomerCursor(i)} onClick={()=>selectCustomer(c.CustKey)}><span>{c.CustName}{c.OrderCode&&<mark>{c.OrderCode}</mark>}{Number(c.IsMine)===1&&<i>내 업체</i>}</span><small>{c.ManagerName}{c.CustArea?` · ${c.CustArea}`:''}{c.LastOrderWeek?` · 최근 ${c.LastOrderWeek}`:' · 주문이력 없음'}</small></button>)}</div>{!customers.length&&<small>선택 가능한 활성 업체가 없습니다.</small>}{!customerQuery&&!showAllCustomers&&customers.length>30&&<small>최근 주문업체 30곳만 표시 중입니다. 검색하거나 전체 업체 보기를 누르세요.</small>}</div>
       </section>}
       {favorites.length>0&&<div className="pinned-favorites"><b>★ 고정 주문</b>{favorites.map(fav=><button type="button" key={fav.favoriteKey} disabled={submitting} onClick={()=>{setSelectedTemplate(fav);setShowTemplates(true)}}>{fav.name}<small>{fav.items?.length||0}개</small></button>)}</div>}
@@ -313,24 +314,24 @@ export default function MyCustomerOrders() {
       <div ref={productAreaRef} className="grid-head"><span>품목</span><span>기존 주문 · 추가 입력 · 최종 수량</span></div>
       {loadedScope===scopeKey&&<div className="loaded-summary">현재 주문 {products.filter(p=>Number(p.CurrentQty||0)>0).length}개 품목 · {year}년 {week} · {selectedCustomer?.CustName||'업체'}{selectedCustomer?.OrderCode?` · ${selectedCustomer.OrderCode}`:''}</div>}
       {busy&&<div className="empty">{year}년 {week} · {selectedCustomer?.CustName||'업체'} 수량을 불러오는 중입니다…</div>}
-      <div className="product-list">{loadedScope===scopeKey&&filteredProductGroups.map(group=>{ const collapsed=Boolean(collapsedFlowers[group.flowerName]); const entered=group.products.filter(p=>String(qty[p.ProdKey] ?? '')!==''); const panelId=`flower-${String(group.flowerName).replace(/[^a-zA-Z0-9가-힣_-]/g,'-')}`; return <section ref={el=>groupRefs.current[group.flowerName]=el} className={`flower-group ${entered.length?'has-entered':''}`} key={group.flowerName}><button type="button" className="flower-toggle" disabled={submitting} aria-expanded={!collapsed} aria-controls={panelId} onClick={()=>setCollapsedFlowers(v=>({...v,[group.flowerName]:!v[group.flowerName]}))}><span><b>{group.flowerName}</b><small>{group.products.length}개 품목{entered.length>0?` · 입력 ${entered.length}개`:''}</small></span><strong>{collapsed?'열기':'닫기'} <i aria-hidden="true">{collapsed?'▾':'▴'}</i></strong></button>{!collapsed&&<div className="flower-products" id={panelId}>{group.products.map(p=>{ const hasInput=String(qty[p.ProdKey] ?? '')!==''; const converted=hasInput?convertedInputQty(p):0; return <div className={`product-row ${hasInput?'has-input':''}`} key={p.ProdKey} title={label(p)}><span className="product-name"><b>{displayLabel(p)}</b></span><strong className={Number(p.CurrentQty||0)>0?'current-positive':''}>기존 {Number(p.CurrentQty||0)}{p.OutUnit}</strong><input ref={el=>refs.current[p.ProdKey]=el} value={qty[p.ProdKey] ?? ''} onChange={e=>setQty(v=>({...v,[p.ProdKey]:e.target.value}))} onKeyDown={e=>move(e,p.ProdKey)} disabled={submitting||loadedScope!==scopeKey} type="number" min="0" step="any" placeholder="+ 수량" aria-label={`${displayLabel(p)} 추가 입력수량`}/><select value={selectedUnit(p)} onChange={e=>setUnits(v=>({...v,[p.ProdKey]:e.target.value}))} disabled={submitting||loadedScope!==scopeKey} aria-label={`${displayLabel(p)} 입력단위`}>{salesPasteUnitOptions().map(unit=><option key={unit} value={unit}>{unit}</option>)}</select><strong className={converted===null?'conversion-error':''}>{converted===null?'환산 불가':`최종 ${Number(p.CurrentQty||0)+Number(converted||0)}${p.OutUnit}`}</strong></div>})}</div>}</section>})}</div>
+      <div className="product-list">{loadedScope===scopeKey&&filteredProductGroups.map(group=>{ const collapsed=Boolean(collapsedFlowers[group.flowerName]); const entered=group.products.filter(p=>String(qty[p.ProdKey] ?? '')!==''); const panelId=`flower-${String(group.flowerName).replace(/[^a-zA-Z0-9가-힣_-]/g,'-')}`; return <section ref={el=>groupRefs.current[group.flowerName]=el} className={`flower-group ${entered.length?'has-entered':''}`} key={group.flowerName}><button type="button" className="flower-toggle" disabled={submitting} aria-expanded={!collapsed} aria-controls={panelId} onClick={()=>setCollapsedFlowers(v=>({...v,[group.flowerName]:!v[group.flowerName]}))}><span><b>{group.flowerName}</b><small>{group.products.length}개 품목{entered.length>0?` · 입력 ${entered.length}개`:''}</small></span><strong>{collapsed?'열기':'닫기'} <i aria-hidden="true">{collapsed?'▾':'▴'}</i></strong></button>{!collapsed&&<div className="flower-products" id={panelId}>{group.products.map(p=>{ const hasInput=String(qty[p.ProdKey] ?? '')!==''; const converted=hasInput?convertedInputQty(p):0; return <div className={`product-row ${hasInput?'has-input':''}`} key={p.ProdKey} title={label(p)}><span className="product-name"><b>{displayLabel(p)}</b></span><strong className={Number(p.CurrentQty||0)>0?'current-positive':''}>기존 {Number(p.CurrentQty||0)}{p.OutUnit}</strong><input ref={el=>refs.current[p.ProdKey]=el} value={qty[p.ProdKey] ?? ''} onChange={e=>editAdditional(p,e.target.value)} onKeyDown={e=>move(e,p.ProdKey)} disabled={submitting||loadedScope!==scopeKey} type="number" min="0" step="any" placeholder="+ 수량" aria-label={`${displayLabel(p)} 추가 입력수량`}/><select value={selectedUnit(p)} onChange={e=>setUnits(v=>({...v,[p.ProdKey]:e.target.value}))} disabled={submitting||loadedScope!==scopeKey} aria-label={`${displayLabel(p)} 입력단위`}>{salesPasteUnitOptions().map(unit=><option key={unit} value={unit}>{unit}</option>)}</select><strong className={converted===null?'conversion-error':''}>{converted===null?'환산 불가':`최종 ${draftFor(p).finalQty ?? '확인필요'}${p.OutUnit}`}</strong></div>})}</div>}</section>})}</div>
       {products.length>0&&filteredProductGroups.length===0&&<div className="empty">검색 또는 알파벳 조건에 맞는 품목이 없습니다.</div>}
       {!busy && loadedScope===scopeKey && products.length===0 && <div className="empty">이 업체의 기존 주문 품목이 없습니다. 검색으로 품목을 추가하세요.</div>}</div></section>
-      <aside className="side-tools"><div className="live-order" aria-live="polite"><strong>입력 품목 {enteredRows.length}개</strong>{enteredRows.length>0?<div>{enteredRows.map(p=><div className="live-order-item" key={p.ProdKey}>
-        <span className="live-order-name" title={label(p)}><strong>{displayLabel(p)}</strong></span>
+      <aside className="side-tools"><div className="live-order" aria-live="polite"><strong>주문 품목 {enteredRows.length}개</strong><p>기존 주문 포함 · 우측 수량은 최종 주문수량</p><small>추가 입력 품목 {changed.length}개 · 최종 수정 {Object.keys(finalQty).length}개</small>{enteredRows.length>0?<div>{enteredRows.map(p=><div className="live-order-item" key={p.ProdKey}>
+        <span className="live-order-name" title={label(p)}><strong>{displayLabel(p)}</strong><small>기존 {Number(p.CurrentQty||0)}{p.OutUnit}{draftFor(p).touched ? ` → 최종 ${draftFor(p).finalQty ?? '확인필요'}${p.OutUnit}` : ''}</small></span>
         <label className="live-order-quantity">
-          <input type="number" min="0" step="any" value={qty[p.ProdKey] ?? ''} disabled={submitting||loadedScope!==scopeKey}
-            aria-label={`${displayLabel(p)} 입력 품목 수량`} title="클릭하여 수량 수정 · Enter 완료 · Esc 취소"
-            onFocus={e=>{qtyBeforeEdit.current=qty[p.ProdKey] ?? '';setEditingQtyKey(p.ProdKey);e.target.select();}}
-            onChange={e=>setQty(v=>({...v,[p.ProdKey]:e.target.value}))}
+          <input type="number" min="0" step="any" value={finalQty[p.ProdKey] ?? draftFor(p).finalQty ?? ''} disabled={submitting||loadedScope!==scopeKey}
+            aria-label={`${displayLabel(p)} 최종 주문수량`} title="최종 수량 수정 · 변경등록으로 저장 · Esc 취소"
+            onFocus={e=>{qtyBeforeEdit.current=finalQty[p.ProdKey];setEditingQtyKey(p.ProdKey);e.target.select();}}
+            onChange={e=>setFinalQty(v=>({...v,[p.ProdKey]:e.target.value}))}
             onBlur={()=>setEditingQtyKey(null)}
-            onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setQty(v=>({...v,[p.ProdKey]:qtyBeforeEdit.current}));e.currentTarget.blur();}else if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}}/>
-          <b>{selectedUnit(p)}</b>
+            onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setFinalQty(v=>{const n={...v};if(qtyBeforeEdit.current===undefined)delete n[p.ProdKey];else n[p.ProdKey]=qtyBeforeEdit.current;return n;});e.currentTarget.blur();}else if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}}/>
+          <b>{p.OutUnit}</b>
         </label>
-        <button className="live-order-remove" type="button" disabled={submitting||loadedScope!==scopeKey} onClick={()=>setQty(v=>({...v,[p.ProdKey]:''}))} title={`${label(p)} 입력 수량 지우기`} aria-label={`${displayLabel(p)} 입력 수량 지우기`}>×</button>
+        <button className="live-order-remove" type="button" disabled={submitting||loadedScope!==scopeKey||!draftFor(p).touched} onClick={()=>resetDraft(p)} title={`${label(p)} 입력 수량 지우기`} aria-label={`${displayLabel(p)} 수정 취소`}>×</button>
       </div>)}</div>:<p>왼쪽에서 수량을 입력하면 바로 이곳에 표시됩니다.</p>}</div><nav className="variety-nav" aria-label="품종 바로가기"><strong>품종 바로가기</strong><div>{filteredProductGroups.map(group=><button type="button" key={group.flowerName} onClick={()=>jumpToFlower(group.flowerName)}><span>{group.flowerName}</span><small>{group.products.length}</small></button>)}</div></nav></aside></div>
 {showExecutionLog&&<section className="execution-log" role="dialog" aria-label="주문 실행 로그"><div className="execution-log-head"><b>주문 실행 로그</b><button type="button" onClick={()=>setShowExecutionLog(false)}>닫기</button></div>{executionLog?<><small>{logTime(executionLog.startedAt)} · {executionLog.mode === 'REPLACE' ? '변경등록' : '추가등록'} · {executionLog.customerName || '업체'} / {executionLog.year}년 {executionLog.week} · {executionLog.status}</small>{executionLog.error&&<p className="log-error">오류: {executionLog.error}</p>}{executionLog.warning&&<p className="log-warn">주의: {executionLog.warning}</p>}{executionLog.status==='committed-reload-failed'&&<p className="log-warn">DB 반영은 완료됐지만 재조회가 실패했습니다. 새로고침으로 확인하세요.</p>}{executionLog.status==='unknown-commit-reload-required'&&<p className="log-warn">반영 결과를 확인하지 못했습니다. 재조회 전 재등록하지 마세요.</p>}<div className="log-rows">{executionLog.rows?.map((r,i)=><div key={`${r.prodKey}-${i}`}><b>{r.prodName||r.prodKey}</b><span>{r.unit} · 기존 {r.previousQty ?? '-'} · 입력 {r.inputQty ?? r.qty ?? '-'} · 최종 {r.finalQty ?? '-'}</span><strong>{r.status||''}</strong></div>)}</div></>:<p>아직 실행한 작업이 없습니다.</p>}</section>}
-      <div className="submit"><span>{entryRows.length}개 품목 {orderMode==='ADD'?'추가':'변경'}</span><button type="button" className={orderMode==='ADD'?'mode-active':''} onClick={()=>{setOrderMode('ADD');submit('ADD')}} disabled={submitting||needsReload||loadedScope!==scopeKey||!changed.length}>추가등록</button><button type="button" className={orderMode==='REPLACE'?'mode-active':''} onClick={()=>{setOrderMode('REPLACE');submit('REPLACE')}} disabled={submitting||needsReload||loadedScope!==scopeKey||!products.some(p=>Object.prototype.hasOwnProperty.call(qty,p.ProdKey)&&String(qty[p.ProdKey])!=='')}>변경등록</button></div>
+      <div className="submit"><span>{draftRows.filter(p=>draftFor(p).changed).length}개 품목 수정{Object.keys(finalQty).length?' · 변경등록으로 저장':''}</span><button type="button" className={orderMode==='ADD'?'mode-active':''} onClick={()=>{setOrderMode('ADD');submit('ADD')}} disabled={submitting||needsReload||loadedScope!==scopeKey||!changed.length||Object.keys(finalQty).length>0}>추가등록</button><button type="button" className={orderMode==='REPLACE'?'mode-active':''} onClick={()=>{setOrderMode('REPLACE');submit('REPLACE')}} disabled={submitting||needsReload||loadedScope!==scopeKey||!draftRows.length}>변경등록</button></div>
     </main>
     <style jsx>{`
       .entry-tabs{display:flex;gap:4px}.entry-tabs :global(a),.entry-tabs span{padding:6px 11px;border:1px solid #d0d5dd;border-radius:7px;text-decoration:none;color:#344054;background:#fff;font-weight:800}.entry-tabs span{background:#155eef;color:#fff;border-color:#155eef}
@@ -344,7 +345,7 @@ export default function MyCustomerOrders() {
       .product-row select{min-height:28px;height:28px;padding:1px 5px;border:1px solid #84adff;border-radius:8px;background:#fff;font-size:15px}.conversion-error{color:#b42318}
       .grid-head{padding-block:2px}.product-row{grid-template-columns:minmax(142px,1fr) 62px 62px 53px 68px;gap:2px;min-height:27px;padding:0 3px}.product-row input{min-height:23px;height:23px;padding-inline:4px}.product-row strong{font-size:11px;letter-spacing:-.25px}.live-order{padding:5px}.live-order>strong{margin-bottom:3px}.live-order>div{gap:2px}.live-order button{grid-template-columns:minmax(0,1fr) auto 14px;gap:4px;min-height:27px;padding:2px 5px}.live-order button span{display:block}.live-order button span strong{display:block;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.live-order button b{font-size:12px}.live-order button i{font-size:14px}
       @media(max-width:1050px){.entry-layout{grid-template-columns:1fr}.side-tools{position:static;max-height:none;order:2}.variety-nav>div{flex-direction:row;overflow-x:auto}.variety-nav button{flex:0 0 auto;gap:8px}.live-order{max-height:260px;overflow:auto}.live-order>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.product-row{grid-template-columns:1fr 1fr}}@media(max-width:620px){.live-order>div{grid-template-columns:1fr}}
-      .live-order-item{display:grid;grid-template-columns:minmax(0,1fr) auto 28px;align-items:center;gap:12px;padding:3px 5px;background:white;border:1px solid #e4e7ec;border-radius:6px;min-width:0}
+      .live-order .live-order-name small{display:block;font-size:11px;color:#667085}.live-order>div{max-height:55vh;overflow:auto}.live-order-item{display:grid;grid-template-columns:minmax(0,1fr) auto 28px;align-items:center;gap:12px;padding:3px 5px;background:white;border:1px solid #e4e7ec;border-radius:6px;min-width:0}
       .live-order-name{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:12px}
       .live-order-quantity{display:flex;align-items:center;gap:3px;color:#155eef;white-space:nowrap}
       .live-order-quantity input{width:62px;min-width:0;min-height:28px;box-sizing:border-box;padding:2px 4px;text-align:right;font-size:14px;font-weight:700;color:#155eef;border:1px solid transparent;border-radius:4px;appearance:textfield}
