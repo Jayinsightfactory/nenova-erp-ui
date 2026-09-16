@@ -9,6 +9,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useLang } from '../lib/i18n';
 import MenuBackButton from './MenuBackButton';
+import { rememberMenuRoute } from '../lib/menuNavigationHistory';
 
 // hydration 안전한 날짜 컴포넌트
 function ClientDate() {
@@ -238,14 +239,20 @@ export default function Layout({ children, title }) {
   const pageTitle = title || MENU_ITEMS.flatMap(g => g.items)
     .find(i => i.href === router.pathname)?.labelKey || 'nenova ERP';
   const favoriteHrefs = new Set(sidebarFavorites.map(item => item.href));
+  const navigateInsideChildWindow = (event, item) => {
+    event.preventDefault();
+    rememberMenuRoute(router.asPath, window.sessionStorage);
+    router.push({ pathname: item.href, query: { popup: '1' } });
+  };
   const renderNavItem = item => item.fullscreen ? (
     <a key={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`} href="#"
-      onClick={e => { e.preventDefault(); window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`); }}>{t(item.labelKey)}</a>
+      onClick={e => (isPopup || isChildWindow) ? navigateInsideChildWindow(e, item) : (e.preventDefault(), window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`))}>{t(item.labelKey)}</a>
   ) : item.popup ? (
     <a key={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`} href="#"
-      onClick={e => { e.preventDefault(); openPopup(item.href, t(item.labelKey)); }}>{t(item.labelKey)}</a>
+      onClick={e => (isPopup || isChildWindow) ? navigateInsideChildWindow(e, item) : (e.preventDefault(), openPopup(item.href, t(item.labelKey)))}>{t(item.labelKey)}</a>
   ) : (
-    <Link key={item.href} href={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}>{t(item.labelKey)}</Link>
+    <Link key={item.href} href={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}
+      onClick={e => { if (isPopup || isChildWindow) navigateInsideChildWindow(e, item); }}>{t(item.labelKey)}</Link>
   );
 
   // ── 팝업 모드 (?popup=1 이거나, 자식창 자동 접힘 / 사용자 강제 접힘)

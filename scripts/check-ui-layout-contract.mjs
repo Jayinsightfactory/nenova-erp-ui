@@ -51,8 +51,14 @@ if ((layoutSource.match(/<MenuBackButton\s*\/>/g) || []).length < 2) {
 if (!/needsStandaloneBack\s*&&\s*<MenuBackButton standalone\s*\/>/.test(appSource)) {
   violations.push('pages/_app.js: 자체 화면틀 메뉴에도 공통 뒤로가기 버튼이 필요합니다.');
 }
-if (!/window\.history\.length>1/.test(backSource) || !/router\.push\('\/dashboard'\)/.test(backSource)) {
-  violations.push('components/MenuBackButton.js: 브라우저 이력과 대시보드 fallback이 필요합니다.');
+if (!/takePreviousMenuRoute/.test(backSource) || !/window\.history\.length>1/.test(backSource) || !/router\.push\('\/dashboard'\)/.test(backSource)) {
+  violations.push('components/MenuBackButton.js: 메뉴 이동 이력과 브라우저 이력, 대시보드 fallback이 필요합니다.');
+}
+if (/window\.close\s*\(/.test(backSource)) {
+  violations.push('components/MenuBackButton.js: 뒤로가기 버튼은 새창을 닫으면 안 됩니다.');
+}
+if (!/navigateInsideChildWindow/.test(layoutSource) || !/rememberMenuRoute/.test(layoutSource)) {
+  violations.push('components/Layout.js: 자식창 메뉴는 같은 창에서 이동 기록을 남겨야 합니다.');
 }
 const standaloneBlock = appSource.match(/const STANDALONE_MENU_BACK_ROUTES = new Set\(\[([^\]]*)\]\)/);
 const standaloneRoutes = new Set([...(standaloneBlock?.[1] || '').matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1]));
