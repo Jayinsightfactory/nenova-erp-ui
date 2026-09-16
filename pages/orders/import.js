@@ -16,6 +16,7 @@ import {
   importWriteStatusLabel,
   buildImportRegisterResult,
   buildImportMatchAggregates,
+  buildImportInlineMatchRows,
   findImportMixedUnitProducts,
 } from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
@@ -116,7 +117,18 @@ const st = {
   kpiBox: { padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12 },
 };
 
-function ExcelSheetPreview({ preview, matchedRows }) {
+function ExcelSheetPreview({
+  preview,
+  inlineRows,
+  allProducts,
+  editProdIdx,
+  onEditProdIdx,
+  onUpdateItem,
+  onChangeUnit,
+  onPickProduct,
+  onClearProduct,
+  onPersistMapping,
+}) {
   if (!preview?.rows?.length) {
     return (
       <div style={{ ...st.card, marginBottom: 0, minHeight: 220 }}>
@@ -127,11 +139,35 @@ function ExcelSheetPreview({ preview, matchedRows }) {
       </div>
     );
   }
-  const matched = new Set(matchedRows || []);
+  const inlineByRow = new Map((inlineRows || []).map(row => [Number(row.rowNo), row.matches || []]));
+  const matchCell = {
+    minWidth: 150,
+    maxWidth: 260,
+    padding: '5px 7px',
+    borderRight: '1px solid #bfdbfe',
+    borderBottom: '1px solid #cbd5e1',
+    background: '#f8fbff',
+    verticalAlign: 'top',
+  };
+  const matchHead = {
+    ...matchCell,
+    background: '#1e3a8a',
+    color: '#fff',
+    fontWeight: 800,
+    whiteSpace: 'nowrap',
+  };
+  const statusBadge = (item) => {
+    if (item.skip) return <span style={st.badgeErr}>제외</span>;
+    if (!item.prodKey) return <span style={st.badgeWarn}>미매칭</span>;
+    if (Number(item.qty) <= 0) return <span style={st.badgeWarn}>수량0</span>;
+    if (item.fromMapping) return <span style={st.badgeOk}>저장매칭</span>;
+    if (item.mappingMatchType === 'manual') return <span style={st.badgeOk}>수동</span>;
+    return <span style={st.badgeOk}>자동</span>;
+  };
   return (
     <div style={{ ...st.card, marginBottom: 0, padding: 12, minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-        <strong>원본 Excel 시트</strong>
+        <strong>원본 Excel 시트 + 행별 ERP 매칭</strong>
         <span style={{ fontSize: 11, color: '#64748b' }}>
           {preview.sheetName || 'Sheet1'} · {preview.sourceRange || ''} · {preview.rowCount}행 × {preview.columnCount}열
         </span>
@@ -141,7 +177,8 @@ function ExcelSheetPreview({ preview, matchedRows }) {
           <tbody>
             {preview.rows.map((row) => {
               const isHeader = Number(row.rowNo) === Number(preview.headerRow);
-              const isMatched = matched.has(Number(row.rowNo));
+              const rowMatches = inlineByRow.get(Number(row.rowNo)) || [];
+              const isMatched = rowMatches.some(entry => !entry.item.skip && entry.item.prodKey);
               return (
                 <tr key={row.rowNo} style={{ background: isHeader ? '#dbeafe' : isMatched ? '#ecfdf5' : '#fff' }}>
                   <th style={{ position: 'sticky', left: 0, zIndex: 2, minWidth: 42, padding: '5px 6px', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', background: isHeader ? '#bfdbfe' : isMatched ? '#d1fae5' : '#f8fafc', color: '#64748b', textAlign: 'right' }}>
@@ -152,6 +189,79 @@ function ExcelSheetPreview({ preview, matchedRows }) {
                       {String(cell ?? '')}
                     </td>
                   ))}
+                  {isHeader ? (
+                    <>
+                      <th style={{ ...matchHead, borderLeft: '3px solid #2563eb', minWidth: 235 }}>ERP 매칭 품목</th>
+                      <th style={{ ...matchHead, minWidth: 126 }}>최종수량</th>
+                      <th style={{ ...matchHead, minWidth: 82 }}>단위</th>
+                      <th style={{ ...matchHead, minWidth: 112 }}>상태 · 수정</th>
+                    </>
+                  ) : (
+                    <>
+                      <td style={{ ...matchCell, borderLeft: '3px solid #2563eb', minWidth: 235 }}>
+                        {rowMatches.map((entry, matchIdx) => {
+                          const item = entry.item;
+                          return (
+                            <div key={`${entry.itemIndex}-${matchIdx}`} style={{ paddingBottom: matchIdx < rowMatches.length - 1 ? 6 : 0, marginBottom: matchIdx < rowMatches.length - 1 ? 6 : 0, borderBottom: matchIdx < rowMatches.length - 1 ? '1px dashed #bfdbfe' : 'none' }}>
+                              {entry.isPrimary ? (
+                                <ProductMatchCell
+                                  row={item}
+                                  idx={entry.itemIndex}
+                                  allProducts={allProducts}
+                                  editing={editProdIdx === entry.itemIndex}
+                                  onToggleEdit={() => onEditProdIdx(editProdIdx === entry.itemIndex ? null : entry.itemIndex)}
+                                  onPick={(product) => onPickProduct(entry.itemIndex, product)}
+                                  onClear={() => onClearProduct(entry.itemIndex)}
+                                  onPersistMapping={onPersistMapping}
+                                />
+                              ) : (
+                                <>
+                                  <div style={{ fontWeight: 700, color: item.prodKey ? '#1e40af' : '#b45309' }}>{item.displayName || item.prodName || '미매칭'}</div>
+                                  <div style={{ fontSize: 10, color: '#64748b' }}>같은 품목 합산행</div>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </td>
+                      <td style={{ ...matchCell, minWidth: 126 }}>
+                        {rowMatches.map((entry) => entry.isPrimary ? (
+                          <div key={entry.itemIndex}>
+                            <input
+                              type="number"
+                              min={0}
+                              value={entry.item.qty}
+                              onChange={(e) => onUpdateItem(entry.itemIndex, { qty: e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0) })}
+                              onBlur={(e) => { if (e.target.value === '' || Number(e.target.value) <= 0) onUpdateItem(entry.itemIndex, { qty: 0 }); }}
+                              style={{ ...st.input, width: 78, padding: '5px 7px' }}
+                            />
+                            {entry.sourceCount > 1 && <div style={{ marginTop: 3, fontSize: 10, color: '#1d4ed8' }}>{entry.sourceCount}행 합산 · 이 행 {entry.sourceQty}</div>}
+                          </div>
+                        ) : (
+                          <div key={entry.itemIndex} style={{ color: '#475569' }}>이 행 {entry.sourceQty}<div style={{ fontSize: 10, color: '#64748b' }}>→ 합산 {entry.item.qty}</div></div>
+                        ))}
+                      </td>
+                      <td style={{ ...matchCell, minWidth: 82 }}>
+                        {rowMatches.map((entry) => entry.isPrimary ? (
+                          <select key={entry.itemIndex} style={{ ...st.input, padding: '5px 6px' }} value={entry.item.unit || '박스'} onChange={(e) => onChangeUnit(entry.itemIndex, e.target.value)}>
+                            {['박스', '단', '송이'].map(unit => <option key={unit} value={unit}>{unit}</option>)}
+                          </select>
+                        ) : <div key={entry.itemIndex}>{entry.item.unit}</div>)}
+                      </td>
+                      <td style={{ ...matchCell, minWidth: 112 }}>
+                        {rowMatches.map((entry) => (
+                          <div key={entry.itemIndex} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                            {statusBadge(entry.item)}
+                            {entry.isPrimary && (
+                              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#475569' }}>
+                                <input type="checkbox" checked={!!entry.item.skip} onChange={(e) => onUpdateItem(entry.itemIndex, { skip: e.target.checked })} /> 제외
+                              </label>
+                            )}
+                          </div>
+                        ))}
+                      </td>
+                    </>
+                  )}
                 </tr>
               );
             })}
@@ -161,7 +271,7 @@ function ExcelSheetPreview({ preview, matchedRows }) {
       {(preview.truncatedRows || preview.truncatedColumns) && (
         <div style={{ marginTop: 6, fontSize: 11, color: '#b45309' }}>화면 속도를 위해 일부 행·열만 미리보기로 표시합니다. 주문등록은 전체 파싱 결과를 기준으로 합니다.</div>
       )}
-      <div style={{ marginTop: 6, fontSize: 11, color: '#047857' }}>연두색은 주문 매칭에 사용된 원본 행입니다.</div>
+      <div style={{ marginTop: 6, fontSize: 11, color: '#047857' }}>연두색 원본 행 오른쪽의 파란 구분선부터 ERP 매칭값입니다. 품목·수량·단위를 같은 행에서 바로 확인하고 수정할 수 있습니다.</div>
     </div>
   );
 }
@@ -884,6 +994,7 @@ export default function OrderImportPage() {
   };
 
   const matchAggregates = useMemo(() => buildImportMatchAggregates(items), [items]);
+  const inlineMatchRows = useMemo(() => buildImportInlineMatchRows(items), [items]);
   const mixedUnitProducts = useMemo(() => findImportMixedUnitProducts(matchAggregates), [matchAggregates]);
   const matchedSourceRows = useMemo(() => items.flatMap((item) => {
     if (item.skip || !item.prodKey) return [];
@@ -1251,8 +1362,19 @@ export default function OrderImportPage() {
         </div>
 
         {items.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(620px, 100%), 1fr))', gap: 12, alignItems: 'start' }}>
-            <ExcelSheetPreview preview={sheetPreview} matchedRows={matchedSourceRows} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.65fr) minmax(420px, 0.75fr)', gap: 12, alignItems: 'start' }}>
+            <ExcelSheetPreview
+              preview={sheetPreview}
+              inlineRows={inlineMatchRows}
+              allProducts={allProducts}
+              editProdIdx={editProdIdx}
+              onEditProdIdx={setEditProdIdx}
+              onUpdateItem={updateItem}
+              onChangeUnit={changeUnit}
+              onPickProduct={pickProduct}
+              onClearProduct={clearProduct}
+              onPersistMapping={handlePersistMapping}
+            />
           <div style={{ ...st.card, marginBottom: 0, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
               <strong style={{ fontSize: 14 }}>품목 매칭 결과 · 매칭 원본 {matchedSourceRows.length}행 → 합산 {matchAggregates.length}품목</strong>
@@ -1293,7 +1415,11 @@ export default function OrderImportPage() {
             )}
             <MatchAggregateTable rows={matchAggregates} />
 
-            <div style={{ overflowX: 'auto' }}>
+            <details style={{ border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff' }}>
+              <summary style={{ padding: '9px 10px', cursor: 'pointer', fontWeight: 700, color: '#334155', background: '#f8fafc' }}>
+                전체 상세 편집표 열기 · 입력 품목명/추천 후보 확인
+              </summary>
+            <div style={{ overflowX: 'auto', padding: '0 8px 8px' }}>
               <table style={st.table}>
                 <thead>
                   <tr>
@@ -1406,6 +1532,7 @@ export default function OrderImportPage() {
                 </tbody>
               </table>
             </div>
+            </details>
           </div>
           </div>
         )}
