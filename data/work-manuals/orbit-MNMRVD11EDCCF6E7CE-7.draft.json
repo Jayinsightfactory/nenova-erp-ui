@@ -1,0 +1,38 @@
+{
+  "id": "orbit-MNMRVD11EDCCF6E7CE-7",
+  "dept": "수입부",
+  "owner": "김원빈",
+  "title": "수입 원가계산서 작성",
+  "summary": "중국발 화훼(장미/카네이션 등) 수입 건의 원가를 산출해야 할 때 / 1건 관찰",
+  "frequency": "1건 관찰",
+  "tools": [
+    "Microsoft Excel(원가계산서)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Excel 원가계산서에서 품목별 수량 셀 확인(예: L10 EUCALYP",
+      "detail": "Excel 원가계산서에서 품목별 수량 셀 확인(예: L10 EUCALYPTUS=50)",
+      "app": "Microsoft Excel(원가계산서)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "환율·운임비·통관비를 반영해 품목별 도착원가 및 판매가 산출",
+      "detail": "환율·운임비·통관비를 반영해 품목별 도착원가 및 판매가 산출",
+      "app": "Microsoft Excel(원가계산서)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-09T05:27:38 원가계산서 L10=50 확인, 환율·운임비·통관비 기반 산출"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T12:44:48.187Z"
+}

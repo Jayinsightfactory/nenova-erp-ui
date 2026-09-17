@@ -1,0 +1,39 @@
+{
+  "id": "orbit-MNMRVD11EDCCF6E7CE-6",
+  "dept": "수입부",
+  "owner": "김원빈",
+  "title": "원산지증명서(CO) 확인 및 오류 정정 요청",
+  "summary": "원산지증명서(Certificate of Origin) 내용에 오류가 발견될 때 / 1건 관찰",
+  "frequency": "1건 관찰",
+  "tools": [
+    "PDFgear",
+    "WhatsApp"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "PDFgear로 원산지증명서 스캔 PDF를 확대(예: 231%)해 항목별",
+      "detail": "PDFgear로 원산지증명서 스캔 PDF를 확대(예: 231%)해 항목별 내용 확인",
+      "app": "PDFgear",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "수출자명 등 오류 항목 발견 시 WhatsApp으로 공급업체에 정정 요청",
+      "detail": "수출자명 등 오류 항목 발견 시 WhatsApp으로 공급업체에 정정 요청 메시지 작성/전송 (예: 수출자명을 'COLON'으로 정정 요청)",
+      "app": "PDFgear",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-09T05:10:26 원산지증명서 오류 확인·정정 요청 메시지 작성, 04:51:38 CO PDF 확대 확인"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T12:44:48.187Z"
+}

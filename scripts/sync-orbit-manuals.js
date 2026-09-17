@@ -16,6 +16,12 @@ const ALIAS = {
   'ㅋㅋ': '조현욱',
   'ᄏᄏ': '조현욱',
   'jaeyong lim': '임재용',
+  // 2026-09-17 관측 로그 근거: wbk = userName '김원빈' 200건 기록(확신 높음).
+  'wbk': '김원빈',
+};
+// Orbit 에 이름이 없는 계정 → userId 로 직접 매핑. 화면에 "담당자 정재훈" 반복(확신 중간) — 틀리면 여기서 고침.
+const USER_ID_ALIAS = {
+  'MN0B1204A46C4B8EAC': '정재훈',
 };
 
 const DEPARTMENTS = [
@@ -118,7 +124,9 @@ async function main() {
   const written = [];
 
   for (const person of data.people) {
-    const mapped = resolveMember(person.name);
+    // Orbit 이 실명을 못 찾으면 name 이 null 이거나 userId 그대로 옴 → userId 별칭으로 대체
+    const rawName = person.name && person.name !== person.userId ? person.name : null;
+    const mapped = resolveMember(rawName || USER_ID_ALIAS[person.userId]);
     if (!person.name || !mapped) {
       unmapped.push(person.name || person.userId);
       continue;

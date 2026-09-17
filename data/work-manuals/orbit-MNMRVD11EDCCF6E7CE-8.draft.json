@@ -1,0 +1,45 @@
+{
+  "id": "orbit-MNMRVD11EDCCF6E7CE-8",
+  "dept": "수입부",
+  "owner": "김원빈",
+  "title": "결제·선적서류 관련 사내/외부 이메일 발송",
+  "summary": "중국 공급업체(CLOUDLAND) 결제증빙 또는 선적서류(AWB)를 사내 관계자에게 공유해야 할 때 / 2건 관찰",
+  "frequency": "2건 관찰",
+  "tools": [
+    "Google Chrome - NAVER WORKS 메일"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "NAVER WORKS 메일에서 결제증빙 PDF 또는 AWB PDF를 첨부",
+      "detail": "NAVER WORKS 메일에서 결제증빙 PDF 또는 AWB PDF를 첨부",
+      "app": "Google Chrome - NAVER WORKS 메일",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "CNY 결제내역 또는 중국 스케줄 정보를 본문에 기재",
+      "detail": "CNY 결제내역 또는 중국 스케줄 정보를 본문에 기재",
+      "app": "Google Chrome - NAVER WORKS 메일",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "여러 수신자에게 메일 발송",
+      "detail": "여러 수신자에게 메일 발송",
+      "app": "Google Chrome - NAVER WORKS 메일",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-09T04:12:38, 02:41:54 NAVER WORKS 메일 작성/발송"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T12:44:48.187Z"
+}

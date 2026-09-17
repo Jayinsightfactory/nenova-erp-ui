@@ -1,0 +1,52 @@
+{
+  "id": "orbit-MNMRVD11EDCCF6E7CE-4",
+  "dept": "수입부",
+  "owner": "김원빈",
+  "title": "PedidosHome 발주서 생성",
+  "summary": "Nenova Master Invoice 데이터가 정리된 후 정식 발주서를 만들어야 할 때 / 실행 완료 1건 + 대기상태 1건 관찰",
+  "frequency": "실행 완료 1건 + 대기상태 1건 관찰",
+  "tools": [
+    "PedidosHome(Generador de Pedidos)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "PedidosHome(Generador de Pedidos)에서 국가 카",
+      "detail": "PedidosHome(Generador de Pedidos)에서 국가 카드 선택",
+      "app": "PedidosHome(Generador de Pedidos)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "주차(Semana) 입력",
+      "detail": "주차(Semana) 입력",
+      "app": "PedidosHome(Generador de Pedidos)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "관련 Excel 파일 업로드",
+      "detail": "관련 Excel 파일 업로드",
+      "app": "PedidosHome(Generador de Pedidos)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "GENERAR PEDIDO 버튼 실행",
+      "detail": "GENERAR PEDIDO 버튼 실행",
+      "app": "PedidosHome(Generador de Pedidos)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-10T02:27:39 GENERAR PEDIDO 실행, 2026-09-09T02:34:24 국가/주차/파일 미입력 대기 상태"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T12:44:48.187Z"
+}

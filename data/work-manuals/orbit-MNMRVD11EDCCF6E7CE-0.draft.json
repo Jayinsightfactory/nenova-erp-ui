@@ -1,0 +1,54 @@
+{
+  "id": "orbit-MNMRVD11EDCCF6E7CE-0",
+  "dept": "수입부",
+  "owner": "김원빈",
+  "title": "콜롬비아 장미 발주 수량 확정 및 Excel 반영",
+  "summary": "WhatsApp/카카오톡으로 공급업체(Karen)가 발주서 엑셀(오더번호 37-2, 38-1)과 수량표를 보내오거나, 카카오톡 수입팀 단톡방에 발주 로트(CL73, CL66) 메시지가 올라올 때 / 관찰 14일 중 09-10 새벽~오전 시간대에 반복 다수 발생",
+  "frequency": "관찰 14일 중 09-10 새벽~오전 시간대에 반복 다수 발생",
+  "tools": [
+    "WhatsApp Desktop",
+    "카카오톡",
+    "Microsoft Excel(PEDIDO COLOMBIA)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "WhatsApp에서 공급업체가 보낸 발주서 엑셀과 수량표 확인",
+      "detail": "WhatsApp에서 공급업체가 보낸 발주서 엑셀과 수량표 확인",
+      "app": "WhatsApp Desktop",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "카카오톡 수입팀 단톡방의 발주 로트 메시지와 대조",
+      "detail": "카카오톡 수입팀 단톡방의 발주 로트 메시지와 대조",
+      "app": "WhatsApp Desktop",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "Excel 'confirmado' 열에 확정 수량 입력/대조 (예: E4",
+      "detail": "Excel 'confirmado' 열에 확정 수량 입력/대조 (예: E4셀 Pink Dubai SELECT=12)",
+      "app": "WhatsApp Desktop",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "Excel과 WhatsApp을 동시에 열어 품종별 수량을 실시간으로 맞춰",
+      "detail": "Excel과 WhatsApp을 동시에 열어 품종별 수량을 실시간으로 맞춰가며 입력",
+      "app": "WhatsApp Desktop",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-10T08:40~08:49 Excel confirmado 열/E4셀 확인, 08:45 WhatsApp 발주서+카카오톡 로트 대조"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T12:44:48.187Z"
+}

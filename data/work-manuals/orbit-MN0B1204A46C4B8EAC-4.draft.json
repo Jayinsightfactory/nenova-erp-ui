@@ -1,0 +1,45 @@
+{
+  "id": "orbit-MN0B1204A46C4B8EAC-4",
+  "dept": "영업부",
+  "owner": "정재훈",
+  "title": "매출표 정산(거래처별 매출 합계 관리)",
+  "summary": "매출 정리 시점(관찰상 새벽 시간대) / 관찰 14일 중 1회(09-11 05:41)",
+  "frequency": "관찰 14일 중 1회(09-11 05:41)",
+  "tools": [
+    "Microsoft Excel"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "'26년도 매출표' 엑셀 시트 열기",
+      "detail": "'26년도 매출표' 엑셀 시트 열기",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "거래처별(경남꽃도매, 친구플라워, 신라호텔 등) 매출 합계 셀을 선택",
+      "detail": "거래처별(경남꽃도매, 친구플라워, 신라호텔 등) 매출 합계 셀을 선택",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "합계 수식을 복사(채우기)하여 인접 셀/열로 확장 적용",
+      "detail": "합계 수식을 복사(채우기)하여 인접 셀/열로 확장 적용",
+      "app": "Microsoft Excel",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-11 05:41 AJ40→AJ43 합계 셀 채우기"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-16T21:36:59.248Z"
+}

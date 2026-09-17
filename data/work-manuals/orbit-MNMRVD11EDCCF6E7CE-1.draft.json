@@ -1,0 +1,47 @@
+{
+  "id": "orbit-MNMRVD11EDCCF6E7CE-1",
+  "dept": "수입부",
+  "owner": "김원빈",
+  "title": "품종 사진·품질 불량 대조 확인",
+  "summary": "WhatsApp에 장미 사진이 오거나 카카오톡 불량공유방에 '중국' 등 키워드로 검색된 불량 사진이 공유될 때 / 1건 관찰",
+  "frequency": "1건 관찰",
+  "tools": [
+    "WhatsApp",
+    "카카오톡",
+    "Microsoft Excel"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "WhatsApp으로 수신한 장미 사진 확대 확인",
+      "detail": "WhatsApp으로 수신한 장미 사진 확대 확인",
+      "app": "WhatsApp",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "카카오톡 불량공유방에서 국가 키워드(예: '중국')로 검색해 불량 사진 ",
+      "detail": "카카오톡 불량공유방에서 국가 키워드(예: '중국')로 검색해 불량 사진 조회",
+      "app": "WhatsApp",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "배경에 열어둔 발주서 Excel(PEDIDO COLOMBIA)과 연결해 ",
+      "detail": "배경에 열어둔 발주서 Excel(PEDIDO COLOMBIA)과 연결해 어느 오더 건인지 확인",
+      "app": "WhatsApp",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-10T08:36:12 WhatsApp+카카오톡 불량공유방 '36-2 중국 불량' 대조"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T12:44:48.187Z"
+}

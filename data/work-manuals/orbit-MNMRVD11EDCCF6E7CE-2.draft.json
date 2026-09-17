@@ -1,0 +1,38 @@
+{
+  "id": "orbit-MNMRVD11EDCCF6E7CE-2",
+  "dept": "수입부",
+  "owner": "김원빈",
+  "title": "해상운송 클레임 서류 전달",
+  "summary": "손상화물 클레임이 발생해 관련 서류(zip)를 정리해야 할 때 / 1건 관찰(연속 업로드)",
+  "frequency": "1건 관찰(연속 업로드)",
+  "tools": [
+    "WeChat(微信)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "해상운송 손상화물 클레임 서류(zip 파일)를 하나씩 준비",
+      "detail": "해상운송 손상화물 클레임 서류(zip 파일)를 하나씩 준비",
+      "app": "WeChat(微信)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "WeChat 'cloud-korea claim chatroom'에 순차 ",
+      "detail": "WeChat 'cloud-korea claim chatroom'에 순차 업로드/전송 (예: 36-2 claim ocean song 5bch 은성.zip → 36-2 proud redbox 2bch.zip)",
+      "app": "WeChat(微信)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-10T08:49:42 WeChat claim chatroom 파일 순차 전송"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T12:44:48.187Z"
+}
