@@ -1,0 +1,45 @@
+{
+  "id": "orbit-MNMS93EB30F11EF433-3",
+  "dept": "영업부",
+  "owner": "조현욱",
+  "title": "라인별·사이즈별 수량/가격 데이터 입력 및 확인",
+  "summary": "ROSE / Pro / SPRAY 등 라인 단위로 사이즈별 단가·수량을 정리해야 할 때 / 관찰된 22개 중 2개(08-12 03:00, 08-12 01:00)",
+  "frequency": "관찰된 22개 중 2개(08-12 03:00, 08-12 01:00)",
+  "tools": [
+    "nenova ERP"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "nenova ERP에서 해당 라인(ROSE, Pro, SPRAY)의 상품",
+      "detail": "nenova ERP에서 해당 라인(ROSE, Pro, SPRAY)의 상품 목록 화면을 연다",
+      "app": "nenova ERP",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "각 상품의 사이즈별 수량과 가격 데이터를 확인한다",
+      "detail": "각 상품의 사이즈별 수량과 가격 데이터를 확인한다",
+      "app": "nenova ERP",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "빠졌거나 변경된 사이즈별 수량·가격을 입력한다",
+      "detail": "빠졌거나 변경된 사이즈별 수량·가격을 입력한다",
+      "app": "nenova ERP",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-08-12T03:00Z 'ROSE, Pro, SPRAY 라인의 여러 꽃/식물 상품에 대한 사이즈별 수량·가격 데이터 확인 및 입력', 2026-08-12T01:00Z '카카오톡 메시지 확인하면서 nenova ERP에서 상품 수량/가격 관리'"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-08-12T12:15:16.310Z"
+}

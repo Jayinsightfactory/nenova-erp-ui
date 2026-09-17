@@ -1,0 +1,47 @@
+{
+  "id": "orbit-MNMSAQJD78E544A631-1",
+  "dept": "경영지원",
+  "owner": "강명훈",
+  "title": "견적서 금액 합계 수동 검산",
+  "summary": "견적서조회 목록에서 거래처별 견적금액합계를 확정해야 할 때 / 관찰 기간 중 2회 이상 연속 작업",
+  "frequency": "관찰 기간 중 2회 이상 연속 작업",
+  "tools": [
+    "Excel",
+    "ECOUNT ERP",
+    "Windows 계산기"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Excel 또는 ECOUNT 견적서조회 시트에서 거래처(경주신화꽃도매, ",
+      "detail": "Excel 또는 ECOUNT 견적서조회 시트에서 거래처(경주신화꽃도매, CARNATION Doncel 등)별 견적 내역 확인",
+      "app": "Excel",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "Windows 계산기를 열어 건별 금액을 순서대로 누적 합산 (예: 10",
+      "detail": "Windows 계산기를 열어 건별 금액을 순서대로 누적 합산 (예: 10,603,900+27,471,000=38,074,900 → +12,330,100=50,405,000 → +10,635,800=61,040,800)",
+      "app": "Excel",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "F30셀(35차 종합견적서) 등 해당 셀에 검산 결과 대조",
+      "detail": "F30셀(35차 종합견적서) 등 해당 셀에 검산 결과 대조",
+      "app": "Excel",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-02T07:14 '견적서조회 목록의 견적금액합계(7건)를 윈도우 계산기로 직접 더해 합산 검산'"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T04:47:16.455Z"
+}

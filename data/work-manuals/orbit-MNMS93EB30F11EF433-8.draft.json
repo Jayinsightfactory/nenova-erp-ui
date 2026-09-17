@@ -1,0 +1,38 @@
+{
+  "id": "orbit-MNMS93EB30F11EF433-8",
+  "dept": "영업부",
+  "owner": "조현욱",
+  "title": "월간 작업 일정 Excel 작성",
+  "summary": "월 전환 시점(관찰: 7월 말에 8월분 작성) / 관찰된 22개 중 1개(07-31 05:56)",
+  "frequency": "관찰된 22개 중 1개(07-31 05:56)",
+  "tools": [
+    "Microsoft Excel"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Excel에서 월간 작업 일정 시트를 연다",
+      "detail": "Excel에서 월간 작업 일정 시트를 연다",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "8월 작업 일정 및 업무 내용을 텍스트로 입력·편집한다",
+      "detail": "8월 작업 일정 및 업무 내용을 텍스트로 입력·편집한다",
+      "app": "Microsoft Excel",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-07-31T05:56Z '8월 작업 일정 및 업무 내용 텍스트 입력/편집'"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-08-12T12:15:16.310Z"
+}

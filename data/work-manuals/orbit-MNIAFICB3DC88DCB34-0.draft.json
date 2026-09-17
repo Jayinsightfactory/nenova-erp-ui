@@ -1,0 +1,60 @@
+{
+  "id": "orbit-MNIAFICB3DC88DCB34-0",
+  "dept": "영업지원",
+  "owner": "설연주",
+  "title": "법인카드 매입 내역 계정과목 분류 입력 (매입매출장 정리)",
+  "summary": "월별 카드매입 거래내역이 쌓였을 때(관찰기간 중 6~8월분 처리) / 관찰기간 내 Excel 사용 806 units 중 다수, 타이핑 약 3만 회로 최대 비중 업무",
+  "frequency": "관찰기간 내 Excel 사용 806 units 중 다수, 타이핑 약 3만 회로 최대 비중 업무",
+  "tools": [
+    "Microsoft Excel(매입 매출장 시트)",
+    "nenova ERP(카드매입 원천 데이터)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Excel '매입 매출장' 시트를 열어 카드매입 거래내역(거래처/금액/일",
+      "detail": "Excel '매입 매출장' 시트를 열어 카드매입 거래내역(거래처/금액/일자)을 스크롤하며 확인",
+      "app": "Microsoft Excel(매입 매출장 시트)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "각 거래 행의 D열(계정과목)에 경비 분류를 수동 입력 (예: '지급수수",
+      "detail": "각 거래 행의 D열(계정과목)에 경비 분류를 수동 입력 (예: '지급수수료(판)', '주유비(판)')",
+      "app": "Microsoft Excel(매입 매출장 시트)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "G열에 =LEFT(A열,10) 수식을 걸어 거래일자를 텍스트로 추출",
+      "detail": "G열에 =LEFT(A열,10) 수식을 걸어 거래일자를 텍스트로 추출",
+      "app": "Microsoft Excel(매입 매출장 시트)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "작업표시줄 시계로 알림센터/캘린더를 열어 월을 이동하며 거래일자 요일을 ",
+      "detail": "작업표시줄 시계로 알림센터/캘린더를 열어 월을 이동하며 거래일자 요일을 대조·확인",
+      "app": "Microsoft Excel(매입 매출장 시트)",
+      "check": ""
+    },
+    {
+      "no": 5,
+      "title": "월계/누계 금액 행까지 스크롤해 합계 확인",
+      "detail": "월계/누계 금액 행까지 스크롤해 합계 확인",
+      "app": "Microsoft Excel(매입 매출장 시트)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-14T08:02:36 D33셀 '지급수수료(판)' 입력 / 07:20:36 동일 반복 / 04:24:31 G313 =LEFT(A313,10) 수식 입력 + 캘린더로 요일 대조"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-16T01:35:08.781Z"
+}

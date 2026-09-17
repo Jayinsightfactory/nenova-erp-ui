@@ -1,0 +1,46 @@
+{
+  "id": "orbit-MN8232D542A97C0862-1",
+  "dept": "수입부",
+  "owner": "가브리엘",
+  "title": "해외 발주서(Pedido) 생성",
+  "summary": "고정발주 배분표에서 주문수량이 확정되고 해당 주차(Semana)가 결정된 시점 / vision 1회 관찰(09-02 07:17), apps 사용 이력상 'pedido semana ...' 파일 다수 존재(52-1, 50-2, ",
+  "frequency": "vision 1회 관찰(09-02 07:17), apps 사용 이력상 'pedido semana ...' 파일 다수 존재(52-1, 50-2, ",
+  "tools": [
+    "Generador de Pedidos(커스텀 파이썬 도구)",
+    "원본 주문 Excel"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "바탕화면에서 콜롬비아/NL(네덜란드) 주문 원본 엑셀 파일 선택",
+      "detail": "바탕화면에서 콜롬비아/NL(네덜란드) 주문 원본 엑셀 파일 선택",
+      "app": "Generador de Pedidos(커스텀 파이썬 도구)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "Generador de Pedidos(커스텀 파이썬 프로그램)에 Sema",
+      "detail": "Generador de Pedidos(커스텀 파이썬 프로그램)에 Semana(주차) 값 입력",
+      "app": "Generador de Pedidos(커스텀 파이썬 도구)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "주문서(Pedido) 생성 실행",
+      "detail": "주문서(Pedido) 생성 실행",
+      "app": "Generador de Pedidos(커스텀 파이썬 도구)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-09-02T07:17:00; apps 목록의 pedido semana 파일들"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-08T12:02:56.115Z"
+}

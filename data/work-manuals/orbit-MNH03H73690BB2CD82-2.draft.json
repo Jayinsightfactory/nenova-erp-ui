@@ -1,0 +1,38 @@
+{
+  "id": "orbit-MNH03H73690BB2CD82-2",
+  "dept": "영업지원",
+  "owner": "임재용",
+  "title": "nenova ERP 상품 검색 (거래처 요청 대응)",
+  "summary": "카카오톡으로 거래처 상품 문의가 들어왔을 때 / 관찰 1건",
+  "frequency": "관찰 1건",
+  "tools": [
+    "Nenova ERP"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Nenova ERP 화면에서 상품명을 입력하여 검색",
+      "detail": "Nenova ERP 화면에서 상품명을 입력하여 검색",
+      "app": "Nenova ERP",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "일치하는 상품 목록(관찰 시점 18개 꽃/조화 상품)을 확인",
+      "detail": "일치하는 상품 목록(관찰 시점 18개 꽃/조화 상품)을 확인",
+      "app": "Nenova ERP",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-11T06:32 'Nenova ERP 상품명 입력 후 일치하는 18개 꽃/조화 상품 검색결과 조회 (카톡 거래처 요청 처리)'"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-15T17:33:50.905Z"
+}

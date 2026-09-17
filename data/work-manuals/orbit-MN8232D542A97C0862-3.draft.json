@@ -1,0 +1,45 @@
+{
+  "id": "orbit-MN8232D542A97C0862-3",
+  "dept": "수입부",
+  "owner": "가브리엘",
+  "title": "공급업체와의 주문 협상 및 확인",
+  "summary": "시즌성 추가 주문(예: 크리스마스) 또는 공급업체 가격표 확인이 필요할 때 / 2026-08-31 07:18~08:30 사이 다수 관찰",
+  "frequency": "2026-08-31 07:18~08:30 사이 다수 관찰",
+  "tools": [
+    "WhatsApp Desktop"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "WhatsApp에서 공급업체명(예: 'verd' → Verdnatura)",
+      "detail": "WhatsApp에서 공급업체명(예: 'verd' → Verdnatura) 검색으로 채팅방을 찾아 가격표/메시지 확인",
+      "app": "WhatsApp Desktop",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "크리스마스 시즌 장미(Freedom 품종) 색상·길이(50cm/60cm)",
+      "detail": "크리스마스 시즌 장미(Freedom 품종) 색상·길이(50cm/60cm)·수량을 배송 주차별로 정리해 메시지 입력창에 작성",
+      "app": "WhatsApp Desktop",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "Alstromeria 등 품목의 주문/배정 정보 메시지를 확인하고 클릭해",
+      "detail": "Alstromeria 등 품목의 주문/배정 정보 메시지를 확인하고 클릭해 세부 내용 열람",
+      "app": "WhatsApp Desktop",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-08-31T07:18:32, 08:17~08:30 (Freedom rose, Verdnatura 가격표)"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-08T12:02:56.115Z"
+}

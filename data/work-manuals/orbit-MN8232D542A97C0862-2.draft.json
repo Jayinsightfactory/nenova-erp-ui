@@ -1,0 +1,52 @@
+{
+  "id": "orbit-MN8232D542A97C0862-2",
+  "dept": "수입부",
+  "owner": "가브리엘",
+  "title": "입고 대조 및 입고 상세 등록",
+  "summary": "새 입고 건이 원장에 등록되거나 카카오톡으로 재고 문의가 들어올 때 / 2026-09-01~02 사이 최소 9건 관찰",
+  "frequency": "2026-09-01~02 사이 최소 9건 관찰",
+  "tools": [
+    "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "nenova ERP(화훼 관리 프로그램) 입고 원장에서 기간·농장명(예:",
+      "detail": "nenova ERP(화훼 관리 프로그램) 입고 원장에서 기간·농장명(예: Holex, Cloudland, 2026-06-02~2026-09-02)으로 필터링해 조회",
+      "app": "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "농장/거래처별(Grupo Valores → C.",
+      "detail": "농장/거래처별(Grupo Valores → C.I SURANDINA → Princess Farms, Antioquia Floral S 등) 입고 행을 순서대로 클릭",
+      "app": "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "우측 입고 상세 목록에서 품목(Hydrangea White/Blue/에스",
+      "detail": "우측 입고 상세 목록에서 품목(Hydrangea White/Blue/에스메랄/틴티드라임그린, ROSE 등)별 박스수·단수(송이수)·단가·총단가 확인",
+      "app": "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "입고 상세 등록 팝업에서 품목명 드롭다운(국가/꽃종류/색상)을 열어 해당",
+      "detail": "입고 상세 등록 팝업에서 품목명 드롭다운(국가/꽃종류/색상)을 열어 해당 품목 선택 후 등록",
+      "app": "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-09-02T06:48~07:32, 2026-09-01T05:38~09:04 등 다수"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-08T12:02:56.115Z"
+}

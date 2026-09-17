@@ -1,0 +1,52 @@
+{
+  "id": "orbit-MN8232D542A97C0862-0",
+  "dept": "수입부",
+  "owner": "가브리엘",
+  "title": "품목별 고정발주(PEDIDO FIJO) 배분표 관리",
+  "summary": "아침 시간대 정기적으로(관찰 07:39~08:03), 주차별 발주 확정 전 / 2026-09-02 07:39~08:03 사이 8건 연속 관찰",
+  "frequency": "2026-09-02 07:39~08:03 사이 8건 연속 관찰",
+  "tools": [
+    "Microsoft Excel (PEDIDO FIJO 시트)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Excel PEDIDO FIJO 시트에서 품종별 행(예: Crimea, ",
+      "detail": "Excel PEDIDO FIJO 시트에서 품종별 행(예: Crimea, Mariposa, Megan, Moon Light, Novia, Polimnia, Doncel, Brut)과 공급업체별 열(COLIBRI, FILLCO, DON EUSEBIO, TURFLOR, TEUCALI, ZORRO, SERREZUELA, VERDNATURA, AYURA)이 만나는 셀을 선택",
+      "app": "Microsoft Excel (PEDIDO FIJO 시트)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "해당 셀에 CANTIDAD PEDIDO(주문수량)를 입력/수정",
+      "detail": "해당 셀에 CANTIDAD PEDIDO(주문수량)를 입력/수정",
+      "app": "Microsoft Excel (PEDIDO FIJO 시트)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "같은 표의 SOBRA(잔여수량) 열을 함께 확인해 주문수량과 남은 재고가",
+      "detail": "같은 표의 SOBRA(잔여수량) 열을 함께 확인해 주문수량과 남은 재고가 맞는지 대조",
+      "app": "Microsoft Excel (PEDIDO FIJO 시트)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "불필요한 열(예: B열 CANTIDAD PEDIDO)은 열머리글 우클릭 ",
+      "detail": "불필요한 열(예: B열 CANTIDAD PEDIDO)은 열머리글 우클릭 → '숨기기'로 처리",
+      "app": "Microsoft Excel (PEDIDO FIJO 시트)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-09-02T07:39:32~08:03:32 (카네이션 PEDIDO FIJO 배분표 8건)"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-08T12:02:56.115Z"
+}

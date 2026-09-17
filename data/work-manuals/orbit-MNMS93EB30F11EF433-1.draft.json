@@ -1,0 +1,53 @@
+{
+  "id": "orbit-MNMS93EB30F11EF433-1",
+  "dept": "영업부",
+  "owner": "조현욱",
+  "title": "품목별 일자별 재고 수량 조회·합계 검토",
+  "summary": "거래처가 특정 품목의 입고/잔량을 묻거나, 주문 입력 전 가용 수량을 확인해야 할 때 / 관찰된 22개 중 2개(07-31 00:56 ROSE CHINA, 07-30 07:50 CARNATION)",
+  "frequency": "관찰된 22개 중 2개(07-31 00:56 ROSE CHINA, 07-30 07:50 CARNATION)",
+  "tools": [
+    "nenova ERP(브라우저) 재고 조회 테이블",
+    "카카오톡"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "nenova ERP에서 해당 품목 재고 화면을 연다 (관찰: ROSE C",
+      "detail": "nenova ERP에서 해당 품목 재고 화면을 연다 (관찰: ROSE CHINA, CARNATION)",
+      "app": "nenova ERP(브라우저) 재고 조회 테이블",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "조회 조건을 날짜별로 지정한다 (관찰 예: 2025-07-27, 08-0",
+      "detail": "조회 조건을 날짜별로 지정한다 (관찰 예: 2025-07-27, 08-08, 08-11 등 복수 날짜)",
+      "app": "nenova ERP(브라우저) 재고 조회 테이블",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "품목 코드별 / 날짜별 수량이 나열된 테이블을 읽고 합계를 검토한다",
+      "detail": "품목 코드별 / 날짜별 수량이 나열된 테이블을 읽고 합계를 검토한다",
+      "app": "nenova ERP(브라우저) 재고 조회 테이블",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "확인 중에도 카카오톡 창을 함께 열어 거래처 문의에 응답한다",
+      "detail": "확인 중에도 카카오톡 창을 함께 열어 거래처 문의에 응답한다",
+      "app": "nenova ERP(브라우저) 재고 조회 테이블",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-07-31T00:56Z 'ROSE CHINA 제품의 날짜별 수량 및 코드별 재고를 테이블 형식으로 조회/검토 중', 2026-07-30T07:50Z 'CARNATION 꽃 제품 전체의 일별 재고 수량을 다중 날짜별로 조회 및 합계 검토 중. 카카오톡 동시 소통'"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-08-12T12:15:16.310Z"
+}
