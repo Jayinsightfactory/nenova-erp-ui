@@ -83,6 +83,13 @@ const historySuggestions = matchImportRow({ rowNo: 1, inputName: '수국 화이�
 }).suggestedProducts;
 assert.equal(historySuggestions[0].prodKey, 101, '선택 업체가 최근 주문한 동일 후보를 추천 1순위로 올려야 합니다.');
 assert.equal(historySuggestions[0].customerUsageCount, 12, '추천 후보에 업체별 기존 주문 횟수를 보존해 매칭 근거를 표시해야 합니다.');
+const coral40 = { ProdKey: 141, ProdName: 'ROSE / Coral Reef 40cm', DisplayName: 'ROSE / Coral Reef 40cm', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' };
+const coral60 = { ProdKey: 142, ProdName: 'ROSE / Coral Reef 60cm', DisplayName: 'ROSE / Coral Reef 60cm', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' };
+const coralHistoryMatch = matchImportRow({ rowNo: 2, inputName: 'Coral Reef', qty: 1, unit: '단' }, {
+  allProducts: [coral40, coral60], productByKey: new Map([[141, coral40], [142, coral60]]), prodUnitMap: {}, savedMappings: {}, unitCatalog: {},
+  usageByProdKey: new Map([[142, { usageCount: 24, recentUsageCount: 8 }]]),
+});
+assert.equal(coralHistoryMatch.prodKey, 142, '장미 세부길이가 없는 입력은 해당 업체가 실제로 많이 쓴 Coral Reef 품목을 우선 매칭해야 합니다.');
 const jamoProducts = [
   { ProdKey: 201, ProdName: 'CARNATION Jinda Sweet', DisplayName: '카네이션 진다스위트', FlowerName: '카네이션', CounName: '콜롬비아', OutUnit: '단' },
   { ProdKey: 202, ProdName: 'ROSE Jinda Sweet', DisplayName: '장미 진다스위트', FlowerName: '장미', CounName: '콜롬비아', OutUnit: '단' },
