@@ -57,6 +57,12 @@ const parseApi = fs.readFileSync(path.join(process.cwd(),'pages/api/orders/impor
 assert.match(parseApi,/resolveImportCustomer\(parsedMetadata\.customerName/);
 assert.match(parseApi, /mergeCustomerProductMappings\(globalMappings, custKey, true\)/,
   '업로드 파싱은 선택·자동매칭된 업체의 품목 매칭을 공용매칭보다 우선해야 한다');
+assert.match(parseApi, /CustomerUsageCount/,
+  'Excel 업로드도 선택 업체의 기존 주문이력 횟수를 집계해야 한다');
+assert.match(parseApi, /CustomerRecentUsageCount/,
+  'Excel 업로드도 선택 업체의 최근 주문이력을 집계해야 한다');
+assert.match(parseApi, /usageByProdKey:\s*customerUsageByProdKey/,
+  '업체별 주문이력 집계를 공통 품목 매칭 엔진에 전달해야 한다');
 const persistSource = fs.readFileSync(path.join(process.cwd(),'lib/persistImportMappings.js'),'utf8');
 assert.match(persistSource, /mappingMatchType === 'manual'[\s\S]*it\.fromMapping && it\.mappingScope !== 'customer'/,
   '자동 추론 결과는 저장매핑으로 강제 학습하지 않아야 한다');
