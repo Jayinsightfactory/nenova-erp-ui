@@ -102,7 +102,10 @@ console.log('distribution compact match UI tests passed');
   assert.equal(quantityProcessedRequests('quantity-source',item).length,1);
   assert.equal(matchingSummary(null,'quantity-source',item).status,'QUANTITY_MATCHED');
   assert.equal(quantityProcessedRequests('other-year-source',item).length,0);
-  for(const delta of [{action:'ADD'},{inputQty:3},{inputUnit:'단'},{status:'AMBIGUOUS'},{status:'ORDER_ONLY'},{inputQty:NaN}]) {
+  // Display-unit differences are valid when the normalized ERP quantity is the
+  // same (e.g. 1박스 versus 10단). Keep true near-misses covered separately.
+  assert.equal(quantityProcessedRequests('quantity-source',{...item,requests:[{...candidate,inputUnit:'단',unit:'단',qty:2}]}).length,1);
+  for(const delta of [{action:'ADD'},{inputQty:3,qty:3},{status:'AMBIGUOUS'},{status:'ORDER_ONLY'},{inputQty:NaN,qty:NaN}]) {
     assert.equal(quantityProcessedRequests('quantity-source',{...item,requests:[{...candidate,...delta}]}).length,0);
   }
   assert.equal(quantityProcessedRequests('quantity-source',{...item,requests:[candidate,candidate]}).length,0);
