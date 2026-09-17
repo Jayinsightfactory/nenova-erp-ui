@@ -543,6 +543,11 @@ function ProductMatchCell({ row, idx, allProducts, editing, onToggleEdit, onPick
         <span title={[row.displayName || row.prodName, row.counName, row.flowerName].filter(Boolean).join(' · ')} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 700, color: '#1e40af' }}>
           {row.displayName || row.prodName}
         </span>
+        {Number(row.customerUsageCount || 0) > 0 && (
+          <span title={`이 업체의 기존 주문이력 ${row.customerUsageCount}회${Number(row.customerRecentUsageCount || 0) > 0 ? ` · 최근 ${row.customerRecentUsageCount}회` : ''}`} style={{ flex: '0 0 auto', fontSize: 9, color: '#166534', background: '#dcfce7', borderRadius: 7, padding: '1px 4px', fontWeight: 800 }}>
+            업체이력 {row.customerUsageCount}
+          </span>
+        )}
         <button type="button" style={st.editBtn} onClick={onToggleEdit}>변경</button>
       </div>
     );
@@ -793,6 +798,8 @@ export default function OrderImportPage() {
     fd.append('file', file);
     if (cust?.CustKey) fd.append('custKey', String(cust.CustKey));
     if (cust?.CustName) fd.append('custName', cust.CustName);
+    const selectedOrderYear = String(week || '').match(/^(\d{4})-/)?.[1];
+    if (selectedOrderYear) fd.append('orderYear', selectedOrderYear);
     try {
       const res = await fetch('/api/orders/import-parse', {
         method: 'POST',

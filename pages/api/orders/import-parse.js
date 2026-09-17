@@ -6,7 +6,7 @@ import formidable from 'formidable';
 import XLSX from 'xlsx';
 import Anthropic from '@anthropic-ai/sdk';
 import { withAuth } from '../../../lib/auth';
-import { query } from '../../../lib/db';
+import { query, sql } from '../../../lib/db';
 import { trackLLMCall } from '../../../lib/chat/costTracker';
 import {
   parseOrderImportWorkbook,
@@ -93,8 +93,11 @@ async function parseImageWithVision(file) {
   return normalizeVisionItems(parsed.items || parsed.rows || []);
 }
 
-async function loadMatchContext(custKey = null) {
-  const [prodRes, unitRes] = await Promise.all([
+async function loadMatchContext(custKey = null, orderYear = new Date().getFullYear()) {
+  const safeOrderYear = Number(orderYear) >= 2000 && Number(orderYear) <= 2100
+    ? Number(orderYear)
+    : new Date().getFullYear();
+  const [prodRes, unitRes, customerUsageRes] = await Promise.all([
     query(`SELECT ProdKey, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName,
            FlowerName, CounName, OutUnit
            FROM Product WHERE isDeleted = 0 ORDER BY ProdName`),
@@ -103,6 +106,16 @@ async function loadMatchContext(custKey = null) {
              SUM(ISNULL(BunchQuantity,0)) AS TotalBunch,
              SUM(ISNULL(SteamQuantity,0)) AS TotalSteam
            FROM OrderDetail WHERE isDeleted = 0 AND ProdKey IS NOT NULL GROUP BY ProdKey`),
+    Number(custKey) > 0 ? query(`SELECT od.ProdKey,
+             COUNT_BIG(*) AS CustomerUsageCount,
+             SUM(CASE WHEN ISNULL(om.OrderYear, 0) >= @recentYear THEN 1 ELSE 0 END) AS CustomerRecentUsageCount
+           FROM OrderMaster om
+           JOIN OrderDetail od ON od.OrderMasterKey = om.OrderMasterKey AND od.isDeleted = 0
+           WHERE om.isDeleted = 0 AND om.CustKey = @custKey AND od.ProdKey IS NOT NULL
+           GROUP BY od.ProdKey`, {
+             custKey: { type: sql.Int, value: Number(custKey) },
+             recentYear: { type: sql.Int, value: safeOrderYear - 1 },
+           }) : Promise.resolve({ recordset: [] }),
   ]);
 
   const allProducts = prodRes.recordset || [];
@@ -119,10 +132,15 @@ async function loadMatchContext(custKey = null) {
   });
 
   const globalMappings = loadMappings(true);
+  const customerUsageByProdKey = new Map((customerUsageRes.recordset || []).map(row => [Number(row.ProdKey), {
+    usageCount: Number(row.CustomerUsageCount || 0),
+    recentUsageCount: Number(row.CustomerRecentUsageCount || 0),
+  }]));
   return {
     allProducts,
     productByKey,
     prodUnitMap,
+    usageByProdKey: customerUsageByProdKey,
     savedMappings: custKey
       ? mergeCustomerProductMappings(globalMappings, custKey, true)
       : globalMappings,
@@ -233,7 +251,8 @@ async function handler(req, res) {
       }
     }
 
-    const ctx = await loadMatchContext(matchedCustomer?.CustKey || null);
+    const requestedOrderYear = Number(fieldVal(fields, 'orderYear') || new Date().getFullYear());
+    const ctx = await loadMatchContext(matchedCustomer?.CustKey || null, requestedOrderYear);
     ctx.unitCatalog = loadImportUnits(true);
     let items = matchImportRows(parsedRows, ctx);
 
