@@ -14,7 +14,8 @@ const rows = enrichPivotExeRows(source, [
 assert.equal(rows[0].DistCost,12500);
 assert.equal(rows[1].DistCost,9000,'같은 차수 번호라도 연도가 다르면 분배단가를 섞지 않는다');
 assert.equal(rows[2].ArrivalCost,17300);
-assert.equal(rows[3].DistCost,null,'분배단가는 출고 행에만 붙여 수량가중 집계를 중복시키지 않는다');
+assert.equal(rows[3].DistCost,12500,'분배단가는 같은 업체·품목·차수의 주문 열에서도 표시한다');
+assert.equal(enrichPivotExeRows([{...source[2],ListType:'03. 미발주수량'}], [{OrderYear:'2026',OrderWeek:'37-01',CustKey:7,ProdKey:10,DistCost:12500}])[0].DistCost, null, '미발주수량에는 분배단가를 복제하지 않는다');
 assert.match(sqlPivotExeDistributionCosts(),/sm\.OrderYear \+ REPLACE\(sm\.OrderWeek,'-',''\).*BETWEEN @weekFrom AND @weekTo/s);
 assert.match(sqlPivotExeDistributionCosts(),/SUM\(CONVERT\(float, ISNULL\(sd\.OutQuantity,0\)\) \* CONVERT\(float, ISNULL\(sd\.Cost,0\)\)\)/);
 assert.doesNotMatch(sqlPivotExeDistributionCosts(),/\b(?:INSERT|UPDATE|DELETE|EXEC)\b/i);
