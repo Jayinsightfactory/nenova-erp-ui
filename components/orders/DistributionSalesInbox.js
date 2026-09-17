@@ -131,7 +131,11 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     setPendingRows([]);setRefreshStatus(previous=>({...previous,newCount:0}));
   }
   async function refreshLiveHistory(scope=liveScope,messages=liveBatch) {
-    if(liveHistoryInFlight.current) {liveHistoryRefreshQueued.current=true;return;}
+    // A full SQL history comparison can take longer than the 15s polling interval.
+    // Do not queue another identical comparison while one is still running: the
+    // old queue caused an endless loading state (each timeout immediately
+    // started the next request before the UI could show the timeout/error).
+    if(liveHistoryInFlight.current) return;
     const currentPeriod=`${from}/${to}`;
     if(!applicationWeek||loadedPeriod!==currentPeriod||!messages.length) {
       setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});
@@ -165,7 +169,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       clearTimeout(timeout);
       if(liveHistoryController.current===controller) {liveHistoryController.current=null;liveHistoryInFlight.current=false;}
       if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current) setLiveHistoryStatus(previous=>({...previous,loading:false}));
-      if(liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,liveHistoryBatchRef.current);}
+      liveHistoryRefreshQueued.current=false;
     }
   }
   async function refreshApplicationStatus(scope=applicationScope,{force=false}={}) {
