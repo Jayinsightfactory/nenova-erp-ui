@@ -1,0 +1,53 @@
+{
+  "id": "orbit-MNMSAQJD78E544A631-2",
+  "dept": "경영지원",
+  "owner": "강명훈",
+  "title": "지출결의서 작성 및 해외 송금 대사",
+  "summary": "물류비·거래처 대금 등 경비 청구가 발생했을 때 / 관찰 기간 중 다수 반복 (하루 5회 이상 관찰)",
+  "frequency": "관찰 기간 중 다수 반복 (하루 5회 이상 관찰)",
+  "tools": [
+    "Excel(OneDrive/Google Drive)",
+    "Windows 계산기"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Excel 지출결의서 양식에 날짜, 사원명(예: 진현철/윤현위), 거래처",
+      "detail": "Excel 지출결의서 양식에 날짜, 사원명(예: 진현철/윤현위), 거래처명(예: APOLLO FREIGHT ECUADOR AFREC SA) 입력",
+      "app": "Excel(OneDrive/Google Drive)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "Windows 계산기로 금액 계산 후 해당 셀에 입력 (예: 5,600,",
+      "detail": "Windows 계산기로 금액 계산 후 해당 셀에 입력 (예: 5,600,000원)",
+      "app": "Excel(OneDrive/Google Drive)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "해외 꽃 거래처별 외화 결제 금액(D열)과 은행송금코드 매칭표(I~J열)",
+      "detail": "해외 꽃 거래처별 외화 결제 금액(D열)과 은행송금코드 매칭표(I~J열)를 대조",
+      "app": "Excel(OneDrive/Google Drive)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "비고란(E~H열)에 송금일자 입력/확인, 비어있는 행(예: ZELECTA",
+      "detail": "비고란(E~H열)에 송금일자 입력/확인, 비어있는 행(예: ZELECTA TRADING GROUP E10) 채움",
+      "app": "Excel(OneDrive/Google Drive)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-02T04:45 'APOLLO FREIGHT 물류비용 입력, 계산기로 금액 5,600,000 계산 및 셀 입력'; 2026-09-02T05:08 'ZELECTA TRADING GROUP 행(E10)에 날짜를 입력하려고... 확인 중'"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T04:47:16.455Z"
+}

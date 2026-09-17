@@ -1,0 +1,46 @@
+{
+  "id": "orbit-MNMS93EB30F11EF433-5",
+  "dept": "영업부",
+  "owner": "조현욱",
+  "title": "수입 화훼 일일 도매가격 시트 관리 + 카톡 주문 상담",
+  "summary": "매일 수입 화훼 도매가가 갱신될 때 / 거래처가 가격을 물어볼 때 / 관찰된 22개 중 1개(07-31 06:56) — '일일'이라는 시트 성격상 매일로 추정되나 관찰은 1회",
+  "frequency": "관찰된 22개 중 1개(07-31 06:56) — '일일'이라는 시트 성격상 매일로 추정되나 관찰은 1회",
+  "tools": [
+    "Google Sheets",
+    "카카오톡"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Google Sheets의 수입 화훼 일일 도매가격 시트를 연다",
+      "detail": "Google Sheets의 수입 화훼 일일 도매가격 시트를 연다",
+      "app": "Google Sheets",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "당일 도매가격을 시트에 반영·관리한다",
+      "detail": "당일 도매가격을 시트에 반영·관리한다",
+      "app": "Google Sheets",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "카카오톡으로 들어온 고객 주문 상담에 이 가격 기준으로 응대한다",
+      "detail": "카카오톡으로 들어온 고객 주문 상담에 이 가격 기준으로 응대한다",
+      "app": "Google Sheets",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-07-31T06:56Z '수입 화훼의 일일 도매가격을 스프레드시트에서 관리하고, 카카오톡으로 고객 주문 상담 진행 중'"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-08-12T12:15:16.310Z"
+}

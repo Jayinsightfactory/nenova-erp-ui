@@ -1,0 +1,38 @@
+{
+  "id": "orbit-MN9B6750A0A37D561D-3",
+  "dept": "영업부",
+  "owner": "박성수",
+  "title": "해외 수입 화훼 인보이스 확인",
+  "summary": "해외 공급처(Holex Flower B.V.)로부터 프로포마 인보이스 수신 시 / 관찰 기간 중 1회",
+  "frequency": "관찰 기간 중 1회",
+  "tools": [
+    "PDF 편집기(Foxit/PDFelement 계열)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Holex Flower B.",
+      "detail": "Holex Flower B.V.발 프로포마 인보이스 PDF를 열어 주문 리스트 조회",
+      "app": "PDF 편집기(Foxit/PDFelement 계열)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "PDF 내 검색 기능으로 특정 품목명(예: 'love') 검색해 대조 확",
+      "detail": "PDF 내 검색 기능으로 특정 품목명(예: 'love') 검색해 대조 확인",
+      "app": "PDF 편집기(Foxit/PDFelement 계열)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-08-28T09:31:32.039Z"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-06T04:03:33.690Z"
+}

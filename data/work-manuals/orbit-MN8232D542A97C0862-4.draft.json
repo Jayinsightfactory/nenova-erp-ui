@@ -1,0 +1,55 @@
+{
+  "id": "orbit-MN8232D542A97C0862-4",
+  "dept": "수입부",
+  "owner": "가브리엘",
+  "title": "해외 송금 및 결제 처리",
+  "summary": "월별 결제 주기(운임/포징 등) 또는 송금 요청이 발생했을 때 / 2026-08-31~09-01 사이 다수 관찰",
+  "frequency": "2026-08-31~09-01 사이 다수 관찰",
+  "tools": [
+    "Gmail",
+    "Google WorkMail",
+    "Microsoft Excel",
+    "Google Drive"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Gmail에서 지급증명서(Comprobante de Pago) 및 PAY",
+      "detail": "Gmail에서 지급증명서(Comprobante de Pago) 및 PAYMENT 테이블(환율·금액·수령인 정보) 메일을 검토/작성",
+      "app": "Gmail",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "송금 대상 수취인(예: Iván Felipe Castellanos)의 은",
+      "detail": "송금 대상 수취인(예: Iván Felipe Castellanos)의 은행 정보를 확인·검증",
+      "app": "Gmail",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "Excel에서 항공사 AWB별 결제 데이터를 필터링해 가격 비교 검증 및",
+      "detail": "Excel에서 항공사 AWB별 결제 데이터를 필터링해 가격 비교 검증 및 운임비 합계 확인",
+      "app": "Gmail",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "Google Drive 경영지원부 결제 폴더에서 월별(예: 9월 포징) ",
+      "detail": "Google Drive 경영지원부 결제 폴더에서 월별(예: 9월 포징) 결제 엑셀 파일 조회",
+      "app": "Gmail",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-09-01T05:45~06:52, 2026-08-31T23:44, 06:41~06:50 등"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-08T12:02:56.115Z"
+}

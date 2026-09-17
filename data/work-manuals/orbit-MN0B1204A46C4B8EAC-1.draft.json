@@ -1,0 +1,60 @@
+{
+  "id": "orbit-MN0B1204A46C4B8EAC-1",
+  "dept": "영업부",
+  "owner": "정재훈",
+  "title": "신라호텔 SRM 발주현황 조회 및 ERP 반영",
+  "summary": "신라호텔 발주 확인이 필요한 시점(관찰상 09-11, 09-15 새벽 시간대) / 관찰 14일 중 2회(09-11 07:01~07:03, 09-15 02:22)",
+  "frequency": "관찰 14일 중 2회(09-11 07:01~07:03, 09-15 02:22)",
+  "tools": [
+    "Chrome/Edge (신라호텔 통합SRM)",
+    "nenova ERP"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Edge/Chrome으로 'THE SHILLA 호텔신라통합SRM' 접속",
+      "detail": "Edge/Chrome으로 'THE SHILLA 호텔신라통합SRM' 접속",
+      "app": "Chrome/Edge (신라호텔 통합SRM)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "발주현황 조회 화면에서 입고일자 기간(약 1개월 범위)을 설정",
+      "detail": "발주현황 조회 화면에서 입고일자 기간(약 1개월 범위)을 설정",
+      "app": "Chrome/Edge (신라호텔 통합SRM)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "자재(꽃)별 발주 목록의 수량·단가·금액을 확인",
+      "detail": "자재(꽃)별 발주 목록의 수량·단가·금액을 확인",
+      "app": "Chrome/Edge (신라호텔 통합SRM)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "필요시 발주현황 엑셀 다운로드(예: 발주현황_1789110060000.",
+      "detail": "필요시 발주현황 엑셀 다운로드(예: 발주현황_1789110060000.xlsx)",
+      "app": "Chrome/Edge (신라호텔 통합SRM)",
+      "check": ""
+    },
+    {
+      "no": 5,
+      "title": "nenova ERP의 신라호텔 거래처 신규 주문 등록 화면으로 이동해 네",
+      "detail": "nenova ERP의 신라호텔 거래처 신규 주문 등록 화면으로 이동해 네덜란드/중국기타/콜롬비아장미/콜롬비아수국 등 품목별 수량 입력",
+      "app": "Chrome/Edge (신라호텔 통합SRM)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-11 07:01 발주현황 엑셀 다운로드, 2026-09-15 02:22 입고일자 2026-09-15~2026-10-15 조회"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-16T21:36:59.248Z"
+}

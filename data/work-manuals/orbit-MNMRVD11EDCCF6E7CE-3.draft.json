@@ -1,0 +1,61 @@
+{
+  "id": "orbit-MNMRVD11EDCCF6E7CE-3",
+  "dept": "수입부",
+  "owner": "김원빈",
+  "title": "Nenova Packing List 품종 매칭·배정",
+  "summary": "여러 공급업체의 발주서(인보이스)를 검토해야 할 때, 특히 미확인 품종이 있을 때 / 2건 관찰",
+  "frequency": "2건 관찰",
+  "tools": [
+    "Nenova ERP(Packing List)",
+    "Chrome(Nenova Packing List Generator)",
+    "메모장(품종 대체표 참고)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Nenova ERP(Packing List HTML)에서 공급업체 발주서",
+      "detail": "Nenova ERP(Packing List HTML)에서 공급업체 발주서를 순회하며 상품 항목·수량 검토",
+      "app": "Nenova ERP(Packing List)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "Invos Flowers 제품군 등 미확인 품종을 하나씩 클릭해 카탈로그",
+      "detail": "Invos Flowers 제품군 등 미확인 품종을 하나씩 클릭해 카탈로그와 매칭 확인",
+      "app": "Nenova ERP(Packing List)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "중국측 인보이스 품종명(예: 紫喜仙子ROSE Nightingale Pur",
+      "detail": "중국측 인보이스 품종명(예: 紫喜仙子ROSE Nightingale Purple fairy)을 자사 카탈로그 후보와 대조",
+      "app": "Nenova ERP(Packing List)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "일치하는 품종을 'Esta es' 버튼으로 확정",
+      "detail": "일치하는 품종을 'Esta es' 버튼으로 확정",
+      "app": "Nenova ERP(Packing List)",
+      "check": ""
+    },
+    {
+      "no": 5,
+      "title": "확정된 상품을 배정(Designar) 처리",
+      "detail": "확정된 상품을 배정(Designar) 처리",
+      "app": "Nenova ERP(Packing List)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-10T04:35:40 Designar 배정, 04:26:40·02:36:28 'Esta es' 품종 확정"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T12:44:48.187Z"
+}

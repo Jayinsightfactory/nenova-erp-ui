@@ -1,0 +1,45 @@
+{
+  "id": "orbit-MN506C7A6A710A046E-5",
+  "dept": "영업부",
+  "owner": "조현욱",
+  "title": "차수별 발주 현황 피벗 조회",
+  "summary": "특정 차수(예: 37-01차)의 거래처별·일자별 발주 물량을 확인해야 할 때 / 관찰 기간 내 간헐적(2건 관찰)",
+  "frequency": "관찰 기간 내 간헐적(2건 관찰)",
+  "tools": [
+    "화훼 관리 프로그램(Pivot 통계)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "화훼 관리 프로그램 'Pivot 통계' 화면 진입",
+      "detail": "화훼 관리 프로그램 'Pivot 통계' 화면 진입",
+      "app": "화훼 관리 프로그램(Pivot 통계)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "거래처(C.",
+      "detail": "거래처(C.N. 코드)·일자 기준으로 피벗테이블 조회",
+      "app": "화훼 관리 프로그램(Pivot 통계)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "품목(예: 콜롬비아수국)의 차수별 합계 수량 확인",
+      "detail": "품목(예: 콜롬비아수국)의 차수별 합계 수량 확인",
+      "app": "화훼 관리 프로그램(Pivot 통계)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "09-03 00:14 37-01차 콜롬비아수국 거래처별/일자별 피벗 조회; 09-02 07:03 일신원예 37-02차 Lollipop White 수량 입력"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-05T16:03:52.592Z"
+}

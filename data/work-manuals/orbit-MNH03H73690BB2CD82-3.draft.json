@@ -1,0 +1,46 @@
+{
+  "id": "orbit-MNH03H73690BB2CD82-3",
+  "dept": "영업지원",
+  "owner": "임재용",
+  "title": "거래처발 파일(엑셀/PDF) 정리",
+  "summary": "카카오톡 채널로 거래처 또는 관련자로부터 파일을 수신했을 때 / 9/14~9/11 사이 산발적 관찰(3건)",
+  "frequency": "9/14~9/11 사이 산발적 관찰(3건)",
+  "tools": [
+    "Google Drive",
+    "Windows 파일 탐색기"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Google Drive에서 카카오톡 채널로 받은 Excel/PDF 파일 ",
+      "detail": "Google Drive에서 카카오톡 채널로 받은 Excel/PDF 파일 목록을 조회",
+      "app": "Google Drive",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "Windows 다운로드 폴더에서 관련 파일을 탐색",
+      "detail": "Windows 다운로드 폴더에서 관련 파일을 탐색",
+      "app": "Google Drive",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "필요 시 파일을 규칙에 맞는 이름(예: '3702_골동비아양미')으로 저",
+      "detail": "필요 시 파일을 규칙에 맞는 이름(예: '3702_골동비아양미')으로 저장",
+      "app": "Google Drive",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-14T07:31 'Google Drive 카카오톡 채널에서 받은 Excel, PDF 파일들 목록 조회 및 관리'; 2026-09-14T05:16 '다운로드 폴더 Excel 파일 탐색'; 2026-09-14T05:01 '3702_골동비아양미 이름으로 Excel 저장'"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-15T17:33:50.905Z"
+}

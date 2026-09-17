@@ -1,0 +1,38 @@
+{
+  "id": "orbit-MNIAFICB3DC88DCB34-3",
+  "dept": "영업지원",
+  "owner": "설연주",
+  "title": "nenova ERP 전산등록 배치 확인",
+  "summary": "차수 마감 시점(예: 37차) / 관찰기간 내 1회",
+  "frequency": "관찰기간 내 1회",
+  "tools": [
+    "nenova ERP"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "nenova ERP에서 해당 차수(예: 37차 95건)의 전산등록 사전검",
+      "detail": "nenova ERP에서 해당 차수(예: 37차 95건)의 전산등록 사전검증 배치 실행",
+      "app": "nenova ERP",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "자동 처리 팝업 안내를 보며 완료까지 대기",
+      "detail": "자동 처리 팝업 안내를 보며 완료까지 대기",
+      "app": "nenova ERP",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-15T04:30:31 '2026년 37차 95건 전산등록 사전검증 배치가 자동 처리 중이며 팝업 안내를 보고 대기'"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-16T01:35:08.781Z"
+}

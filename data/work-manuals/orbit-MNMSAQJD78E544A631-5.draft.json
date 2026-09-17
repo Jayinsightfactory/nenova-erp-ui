@@ -1,0 +1,39 @@
+{
+  "id": "orbit-MNMSAQJD78E544A631-5",
+  "dept": "경영지원",
+  "owner": "강명훈",
+  "title": "세금계산서 및 거래처 도매 목록 확인",
+  "summary": "거래 완료 후 세금계산서 발행·정산 시 / 관찰 기간 중 2회",
+  "frequency": "관찰 기간 중 2회",
+  "tools": [
+    "nenova ERP",
+    "nenovaweb"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "nenova ERP에서 세금계산서 필드(공급자/공급받는자 정보) 입력 및",
+      "detail": "nenova ERP에서 세금계산서 필드(공급자/공급받는자 정보) 입력 및 금액 검증",
+      "app": "nenova ERP",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "nenovaweb에서 거래처 도매 목록을 필터 적용해 거래처별 금액/수량",
+      "detail": "nenovaweb에서 거래처 도매 목록을 필터 적용해 거래처별 금액/수량 확인",
+      "app": "nenova ERP",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-03T02:23 '세금계산서 필드 입력 및 데이터 확인 중 (공급자/공급받는자 정보, 금액 검증)'"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T04:47:16.455Z"
+}

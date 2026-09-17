@@ -1,0 +1,57 @@
+{
+  "id": "orbit-MNH03H73690BB2CD82-0",
+  "dept": "영업지원",
+  "owner": "임재용",
+  "title": "ERP/자동화 시스템 코드 리뷰 및 수정",
+  "summary": "GitHub PR이 올라오거나 기존 모듈(재고관리, farm-quality, 주문처리 등)에 버그·개선사항이 발견될 때 / 관찰 기간(14일) 중 vision 스냅샷의 절반 이상 비중, 9/14~9/15에 특히 집중",
+  "frequency": "관찰 기간(14일) 중 vision 스냅샷의 절반 이상 비중, 9/14~9/15에 특히 집중",
+  "tools": [
+    "VS Code",
+    "GitHub",
+    "Claude.ai",
+    "ChatGPT",
+    "Codex",
+    "PowerShell"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "VS Code에서 변경 대상 파일(components/MenuBackBu",
+      "detail": "VS Code에서 변경 대상 파일(components/MenuBackButton.js, lib/farmQualityStore.js, parse-paste.js, distributionSalesInbox.test.js 등)을 열고 git diff로 변경 라인(+/-) 확인",
+      "app": "VS Code",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "Chrome에서 GitHub 이슈/PR(예: PR #612, PR #55",
+      "detail": "Chrome에서 GitHub 이슈/PR(예: PR #612, PR #558)을 열어 연결된 코드 변경사항과 리뷰 코멘트를 검토",
+      "app": "VS Code",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "Claude/ChatGPT/Codex AI 어시스턴트 패널에 코드 내용을",
+      "detail": "Claude/ChatGPT/Codex AI 어시스턴트 패널에 코드 내용을 붙여넣거나 질문하며 수정 방향을 상의",
+      "app": "VS Code",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "한국어로 리뷰 의견을 작성하고, 필요 시 PowerShell에서 git ",
+      "detail": "한국어로 리뷰 의견을 작성하고, 필요 시 PowerShell에서 git push로 브랜치(예: codex/my-customer-compact-entry)를 업로드",
+      "app": "VS Code",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-15T02:30 'PR #612 리뷰'; 2026-09-14T06:51 '재고관리 모듈 코드 수정 (+404 -334)'; 2026-09-11T06:00 'deep-investigator.js 편집 + PR #558 리뷰'; 2026-09-11T03:32 'codex/my-customer-compact-entry 브랜치 git push'"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-15T17:33:50.905Z"
+}

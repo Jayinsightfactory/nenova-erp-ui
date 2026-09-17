@@ -1,0 +1,48 @@
+{
+  "id": "orbit-MNH03H73690BB2CD82-1",
+  "dept": "영업지원",
+  "owner": "임재용",
+  "title": "품목별 주차/월별 판매·출고 수량 분석",
+  "summary": "정기적으로(주차 마감 시점 추정) 품목별 재고·발주 판단을 위해 / 9/14 하루 동안 장미·카네이션·수국·크리스탈 4개 품목 연속 조회",
+  "frequency": "9/14 하루 동안 장미·카네이션·수국·크리스탈 4개 품목 연속 조회",
+  "tools": [
+    "Microsoft Excel",
+    "Ecount ERP",
+    "Google Sheets",
+    "Pivot 통계"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Excel 또는 Ecount ERP에서 대상 품목(장미/카네이션/수국/크",
+      "detail": "Excel 또는 Ecount ERP에서 대상 품목(장미/카네이션/수국/크리스탈)의 주차별 또는 월별 출고·판매 수량 테이블을 연다",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "TOP10 제품 또는 채널별(FIORI COLOM, Flores Tiba",
+      "detail": "TOP10 제품 또는 채널별(FIORI COLOM, Flores Tiba, Invos Flowers 등)로 피벗해 수량·증감·비율을 확인",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "Google Sheets에서 장기 추이(예: 2025년 36주~2026년",
+      "detail": "Google Sheets에서 장기 추이(예: 2025년 36주~2026년 33주, 총 52주)를 차트와 KPI로 재확인",
+      "app": "Microsoft Excel",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-14T08:11 '장미 TOP10 주차별 출고량'; 2026-09-14T07:53 '37주차 Rose 채널별 판매 수량(FIORI COLOM, Flores Tiba, Invos Flowers)'; 2026-09-14T06:10 '수국 2025년 36~52주차 출고수량'; 2026-09-14T06:08 '카네이션 9-10월 판매 수량'; 2026-09-14T05:28 '크리스탈 채널별 수량'; 2026-09-14T02:43 'Ecount ERP 상품별 월간 판매 수량'; 2026-09-11T01:34 'Google Sh"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-15T17:33:50.905Z"
+}

@@ -1,0 +1,47 @@
+{
+  "id": "orbit-MNMRVD11EDCCF6E7CE-5",
+  "dept": "수입부",
+  "owner": "김원빈",
+  "title": "수출입 서류(AWB/CI/CO/PHYTO/PL) 점검",
+  "summary": "중국·콜롬비아발 오더(예: 36-2, 37-1)가 진행 중일 때, 서류 구비 여부를 확인해야 할 때 / 여러 건 반복 관찰(09-09일 새벽 시간대 집중)",
+  "frequency": "여러 건 반복 관찰(09-09일 새벽 시간대 집중)",
+  "tools": [
+    "Windows File Explorer",
+    "Microsoft Excel",
+    "OneDrive 동기화 폴더"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Windows 파일 탐색기에서 오더번호별 폴더(예: 37-1, 36-2)",
+      "detail": "Windows 파일 탐색기에서 오더번호별 폴더(예: 37-1, 36-2)를 열어 AWB/CI/CO/PHYTO/PL 서류 존재 여부 점검",
+      "app": "Windows File Explorer",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "CI(상업송장) 엑셀 파일을 선택해 목록/내용 확인 (예: 'CLOUD ",
+      "detail": "CI(상업송장) 엑셀 파일을 선택해 목록/내용 확인 (예: 'CLOUD CI' 56,963KB)",
+      "app": "Windows File Explorer",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "필요 시 CI 문서를 프린터(SINDOH D450)로 출력",
+      "detail": "필요 시 CI 문서를 프린터(SINDOH D450)로 출력",
+      "app": "Windows File Explorer",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-09T04:47:08, 04:36:38, 04:32:47 서류 폴더 점검; 04:29:47 CI 3페이지 출력"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-10T12:44:48.187Z"
+}

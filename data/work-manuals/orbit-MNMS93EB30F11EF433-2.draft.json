@@ -1,0 +1,46 @@
+{
+  "id": "orbit-MNMS93EB30F11EF433-2",
+  "dept": "영업부",
+  "owner": "조현욱",
+  "title": "신규 품종·색상명 nenova 상품 테이블 등록",
+  "summary": "카톡으로 새 품종/색상명 목록이 전달될 때 / 관찰된 22개 중 1개(07-30 06:50)",
+  "frequency": "관찰된 22개 중 1개(07-30 06:50)",
+  "tools": [
+    "카카오톡",
+    "nenova ERP(브라우저) 상품 테이블"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "카카오톡에서 전달받은 꽃 색상명 목록을 확인한다 (관찰 예: Lindas",
+      "detail": "카카오톡에서 전달받은 꽃 색상명 목록을 확인한다 (관찰 예: Lindas Gitte, Fondant, Orange Lion)",
+      "app": "카카오톡",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "nenova ERP 상품 테이블 화면을 연다",
+      "detail": "nenova ERP 상품 테이블 화면을 연다",
+      "app": "카카오톡",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "색상명을 상품 테이블에 하나씩 입력한다",
+      "detail": "색상명을 상품 테이블에 하나씩 입력한다",
+      "app": "카카오톡",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-07-30T06:50Z '카톡에서 받은 꽃 색상명들(Lindas Gitte, Fondant, Orange Lion 등)을 nenova 상품 테이블에 입력 중'"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-08-12T12:15:16.310Z"
+}

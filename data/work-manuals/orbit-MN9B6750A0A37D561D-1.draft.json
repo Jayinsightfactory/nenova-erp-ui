@@ -1,0 +1,53 @@
+{
+  "id": "orbit-MN9B6750A0A37D561D-1",
+  "dept": "영업부",
+  "owner": "박성수",
+  "title": "nenova ERP 신규 주문 입력",
+  "summary": "카카오톡으로 확정된 주문 수량이 정리된 직후 / vision 캡처는 2건뿐이나 erpManagerEvents 1488건으로 실제 빈도는 매우 높음(캡처율 낮음)",
+  "frequency": "vision 캡처는 2건뿐이나 erpManagerEvents 1488건으로 실제 빈도는 매우 높음(캡처율 낮음)",
+  "tools": [
+    "nenovaweb ERP",
+    "nenova(앱)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "nenovaweb ERP 신규 주문 등록 화면에서 거래처 선택(예: 주식",
+      "detail": "nenovaweb ERP 신규 주문 등록 화면에서 거래처 선택(예: 주식회사 트라움예스앤씨-라움)",
+      "app": "nenovaweb ERP",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "품목(예: 콜롬비아카네이션, 콜롬비아수국, 콜롬비아장미) 및 품종·색상 ",
+      "detail": "품목(예: 콜롬비아카네이션, 콜롬비아수국, 콜롬비아장미) 및 품종·색상 선택",
+      "app": "nenovaweb ERP",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "품목별 입력수량 Box 항목에 수량 입력(예: 콜롬비아수국 48, 콜롬비",
+      "detail": "품목별 입력수량 Box 항목에 수량 입력(예: 콜롬비아수국 48, 콜롬비아장미 100)",
+      "app": "nenovaweb ERP",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "총합계 확인(예: 148)",
+      "detail": "총합계 확인(예: 148)",
+      "app": "nenovaweb ERP",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-08-28T11:37:32.676Z, 2026-08-28T11:40:32.699Z"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-06T04:03:33.690Z"
+}

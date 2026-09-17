@@ -1,0 +1,52 @@
+{
+  "id": "orbit-MNMRX6SR07F5FF7C0C-5",
+  "dept": "영업지원",
+  "owner": "강현우",
+  "title": "nenovaweb ERP 웹 대시보드/변경사항 일괄 처리",
+  "summary": "영업방 카톡 대화로 변경사항(취소/추가)이 텍스트로 전달될 때 / 관찰기간 내 소수(명확히 1회 관찰)",
+  "frequency": "관찰기간 내 소수(명확히 1회 관찰)",
+  "tools": [
+    "nenova ERP 웹(Chrome, nenovaweb)"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Chrome에서 nenovaweb ERP 접속",
+      "detail": "Chrome에서 nenovaweb ERP 접속",
+      "app": "nenova ERP 웹(Chrome, nenovaweb)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "영업방 원문 대화를 붙여넣어 변경사항(취소/추가) 자동 인식 결과 확인",
+      "detail": "영업방 원문 대화를 붙여넣어 변경사항(취소/추가) 자동 인식 결과 확인",
+      "app": "nenova ERP 웹(Chrome, nenovaweb)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "일괄 등록·분배 실행 후 전산 대조 완료 확인(선택한 영업방 대화로 입력",
+      "detail": "일괄 등록·분배 실행 후 전산 대조 완료 확인(선택한 영업방 대화로 입력 내용을 바꿀지 확인하는 팝업 응답)",
+      "app": "nenova ERP 웹(Chrome, nenovaweb)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "대시보드에서 해당 차수 매출/주문/재고부족/미확정출고, 지역별 매출, 거",
+      "detail": "대시보드에서 해당 차수 매출/주문/재고부족/미확정출고, 지역별 매출, 거래처 매출 TOP5 조회",
+      "app": "nenova ERP 웹(Chrome, nenovaweb)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-14 06:48:13 AI분석 일괄등록·분배, 06:46:17 대시보드 조회, 06:44:16 변경이력 팝업 응답 대기, 05:49:43 Pivot 통계 조회"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-15T21:35:33.197Z"
+}

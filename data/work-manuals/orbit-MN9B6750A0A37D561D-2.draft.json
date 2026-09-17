@@ -1,0 +1,47 @@
+{
+  "id": "orbit-MN9B6750A0A37D561D-2",
+  "dept": "영업부",
+  "owner": "박성수",
+  "title": "거래명세서 작성 및 미수금 관리",
+  "summary": "출고 확정 후 또는 거래처가 명세서/미수금 확인을 요청할 때 / 관찰 기간 중 명확한 사례 2건",
+  "frequency": "관찰 기간 중 명확한 사례 2건",
+  "tools": [
+    "nenova ERP",
+    "KakaoTalk",
+    "PDF 뷰어"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "카카오톡에서 받은 주문 정보(수량·금액·카테고리)를 nenova 거래명세",
+      "detail": "카카오톡에서 받은 주문 정보(수량·금액·카테고리)를 nenova 거래명세서 화면에 입력",
+      "app": "nenova ERP",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "거래명세서 PDF(예: 34차 거래명세서, 관리대장)를 카카오톡으로 거래",
+      "detail": "거래명세서 PDF(예: 34차 거래명세서, 관리대장)를 카카오톡으로 거래처(예: 존버)에 공유",
+      "app": "nenova ERP",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "잔액(예: 3,243,000원) 확인 후 미수금 입금 요청 메시지 작성·",
+      "detail": "잔액(예: 3,243,000원) 확인 후 미수금 입금 요청 메시지 작성·전송",
+      "app": "nenova ERP",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-02T11:11:52.730Z(거래명세서 입력), 2026-08-28T09:03:01.739Z(34차 거래명세서 미수금 요청)"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-06T04:03:33.690Z"
+}

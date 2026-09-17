@@ -1,0 +1,60 @@
+{
+  "id": "orbit-MNMRX6SR07F5FF7C0C-1",
+  "dept": "영업지원",
+  "owner": "강현우",
+  "title": "엑셀 물량표 작성·대사(품종×거래처 배분)",
+  "summary": "신규 차수 물량 확정 또는 카톡 변경 반영 후 대사가 필요할 때 / 하루 중 가장 높은 빈도(관찰 로그의 다수를 차지)",
+  "frequency": "하루 중 가장 높은 빈도(관찰 로그의 다수를 차지)",
+  "tools": [
+    "Microsoft Excel",
+    "Windows 계산기"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "해당 차수 엑셀 시트(예: '태림 콜 수국', '콜롬비아수국 3801차수",
+      "detail": "해당 차수 엑셀 시트(예: '태림 콜 수국', '콜롬비아수국 3801차수') 열기",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "품종·색상별 행에서 거래처/노선(경부선·호남선·지방 등) 열에 배분 수량",
+      "detail": "품종·색상별 행에서 거래처/노선(경부선·호남선·지방 등) 열에 배분 수량 입력",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "주문·입고·재고 합계 셀 확인, 잔량 계산 수식(예: =SUM(AT5)-",
+      "detail": "주문·입고·재고 합계 셀 확인, 잔량 계산 수식(예: =SUM(AT5)-SUM(AS5)+SUM(AU5))을 해당 셀에 입력",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "계산기로 검산(예: 25×6=150, 75÷15=5) 후 셀 값 확정",
+      "detail": "계산기로 검산(예: 25×6=150, 75÷15=5) 후 셀 값 확정",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 5,
+      "title": "마이너스 재고 품목(예: Polimnia -5, Wedding -4) 발",
+      "detail": "마이너스 재고 품목(예: Polimnia -5, Wedding -4) 발생 여부 점검",
+      "app": "Microsoft Excel",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-15 00:05~04:52 사이 Excel 활동 다수(수국/장미/카네이션 배분표), AV5·V33·L3 등 셀 입력 근거"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-15T21:35:33.197Z"
+}

@@ -1,0 +1,47 @@
+{
+  "id": "orbit-MNMRX6SR07F5FF7C0C-3",
+  "dept": "영업지원",
+  "owner": "강현우",
+  "title": "항공편 입고 일정 대조",
+  "summary": "콜롬비아산 신규 차수 입고 예정 시 / 차수당 1~2회 관찰",
+  "frequency": "차수당 1~2회 관찰",
+  "tools": [
+    "nenova ERP(Pivot 테이블)",
+    "Microsoft Excel",
+    "메모장"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "nenova ERP에서 Pivot 테이블로 차수별 품목(수국/알스트로/장",
+      "detail": "nenova ERP에서 Pivot 테이블로 차수별 품목(수국/알스트로/장미/카네이션) 입고 수량 조회",
+      "app": "nenova ERP(Pivot 테이블)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "별도 메모창의 항공편(MAS AIR, CATHAY) 도착 예정 일정과 대",
+      "detail": "별도 메모창의 항공편(MAS AIR, CATHAY) 도착 예정 일정과 대조 확인",
+      "app": "nenova ERP(Pivot 테이블)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "엑셀 물량표의 도착 예정 일자 항목과 재대조",
+      "detail": "엑셀 물량표의 도착 예정 일자 항목과 재대조",
+      "app": "nenova ERP(Pivot 테이블)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-15 02:08:49 Pivot 조회+항공편 대조, 02:05:48 동일 항공편 대조"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-15T21:35:33.197Z"
+}

@@ -1,0 +1,47 @@
+{
+  "id": "orbit-MNMS93EB30F11EF433-4",
+  "dept": "영업부",
+  "owner": "조현욱",
+  "title": "Excel 재고·금액 대장 정리 및 대조",
+  "summary": "카톡으로 들어온 상품/재고 정보를 사내 기록으로 남겨야 할 때, ERP 입력과 병행 / 관찰된 22개 중 3개(08-12 04:00, 08-12 02:00, 07-30 01:50)",
+  "frequency": "관찰된 22개 중 3개(08-12 04:00, 08-12 02:00, 07-30 01:50)",
+  "tools": [
+    "Microsoft Excel",
+    "카카오톡",
+    "nenova ERP"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Excel 재고 시트를 열어 상품명·수량·단위·가격 열을 테이블 형식으로",
+      "detail": "Excel 재고 시트를 열어 상품명·수량·단위·가격 열을 테이블 형식으로 정리한다 (관찰 예: 루스커스, 오주)",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "카카오톡 주문/재고 메시지를 옆에 띄우고 Excel의 상품명·수량·단가·",
+      "detail": "카카오톡 주문/재고 메시지를 옆에 띄우고 Excel의 상품명·수량·단가·금액을 한 줄씩 대조 검토한다",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "ERP 입력 건은 Excel에도 함께 기록한다",
+      "detail": "ERP 입력 건은 Excel에도 함께 기록한다",
+      "app": "Microsoft Excel",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "vision 2026-08-12T04:00Z '루스커스/오주 상품의 수량, 단위, 가격 재고 정보를 테이블 형식으로 정리 및 입력', 2026-08-12T02:00Z '카카오톡에서 주문/재고 관련 메시지 확인하면서 Excel의 상품명·수량·단가·금액 데이터 검토', 2026-07-30T01:50Z '카톡 주문정보를 nenova ERP에 입력/확인하고 엑셀에 기록'"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-08-12T12:15:16.310Z"
+}

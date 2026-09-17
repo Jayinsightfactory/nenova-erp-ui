@@ -1,0 +1,46 @@
+{
+  "id": "orbit-MN9B6750A0A37D561D-4",
+  "dept": "영업부",
+  "owner": "박성수",
+  "title": "출고/재고 불량·냉해 이슈 대응",
+  "summary": "단톡방(현장단체방, 영업방팀 발주 및 추가 재고확인 등)에 불량/냉해 수량 공지가 올라올 때 / kakaoResponder 기준 2건(현장단체방 불량, 영업방팀 6-2차 불량)",
+  "frequency": "kakaoResponder 기준 2건(현장단체방 불량, 영업방팀 6-2차 불량)",
+  "tools": [
+    "KakaoTalk",
+    "스티키노트"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "단톡방에서 불량/냉해 품목명과 취소 수량 공지 확인",
+      "detail": "단톡방에서 불량/냉해 품목명과 취소 수량 공지 확인",
+      "app": "KakaoTalk",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "좌측 스티키노트의 재고 수량표와 대조",
+      "detail": "좌측 스티키노트의 재고 수량표와 대조",
+      "app": "KakaoTalk",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "확인 후 대응 완료 회신",
+      "detail": "확인 후 대응 완료 회신",
+      "app": "KakaoTalk",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "kakaoResponder: 현장단체방 '불량' 대응완료 1건, 영업방팀 발주 및 추가 재고확인 '6-2차 불량' 대응완료 1건; 관련 vision 2026-08-28T09:13/09:19"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-06T04:03:33.690Z"
+}
