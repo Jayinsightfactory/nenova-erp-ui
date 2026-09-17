@@ -162,7 +162,6 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       const completeUniqueIdentitySet=returnedIdentities.size===requestedIdentities.size&&Array.isArray(data?.items)&&data.items.length===returnedIdentities.size&&[...requestedIdentities].every(identity=>returnedIdentities.has(identity));
       if(!response.ok||data?.success!==true||data?.advisoryOnly!==true||data?.erpAction!=='NONE'||!validScope||!Array.isArray(data?.items)||!data.items.every(validItem)||!completeUniqueIdentitySet||!Array.isArray(data?.warnings)||!isValidBalanceComparison(data.balanceComparison)) throw new Error(liveHistoryError(data,'최신 전산 이력 응답 범위 또는 식별값이 올바르지 않습니다.'));
       setLiveHistory(byIdentity(data.items));
-      return data;
       setLiveBalanceComparison(data.balanceComparison||null);
       setLiveHistoryStatus({loading:false,error:'',asOf:typeof data.asOf==='string'?data.asOf:'',loaded:true,warnings:data.warnings.map(warning=>typeof warning==='string'?warning:typeof warning?.message==='string'?warning.message:'조회 경고 확인 필요').slice(0,10),scope});
     } catch(error) {
@@ -288,21 +287,6 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       <details className="application-history application-archive"><summary>저장된 AI 비교 보고서 (참고) {audit?`${auditEntries.length}건`:'없음'}</summary>{audit?<><div className="application-line audit-line"><span>{audit.allMatchingHistory?'전체 동일 이력(자문)':audit.partialRequestCount>0?'일부 이력(자문)':audit.requestCount>0?'확인 필요(자문)':'원문 요청 없음'}</span><small>기준 {shortKstTime(audit.asOf||audit.archiveCreatedAt)} · 요청 {audit.requestCount??0} · 미해결 {audit.unresolvedCount??0}</small></div>{auditEntries.map(entry=><div className="application-entry" key={`${entry.requestId||'missing'}:${entry.sourceIdentity}`}><strong>{entry.customerText||'업체 확인 필요'} · {entry.productText||'품목 확인 필요'} · {entry.inputQty??'?'} {entry.inputUnit||''}</strong><span>{entry.status==='MATCHING_HISTORY'?'동일 변동 이력':entry.status==='PARTIAL_HISTORY'?'일부 이력':'확인 필요'} · {entry.reasonKorean}</span>{entry.quote&&<blockquote>{entry.quote}</blockquote>}{(Array.isArray(entry.candidateEvents)?entry.candidateEvents:[]).map((event,index)=><small key={`${event.changeAt||'time'}:${index}`}>{event.before??'?'} → {event.after??'?'} {event.unit||''} · {event.week||'차수 확인 필요'} · {event.shipmentDate||'출고일 확인 필요'} · {event.changeAt||'변경 시각 확인 필요'}</small>)}{entry.candidateEventsTruncated&&<small>이력 근거는 최대 3건만 표시합니다.</small>}</div>)}{audit.entriesTruncated&&<p>원문 요청은 최대 5건만 표시합니다.</p>}{auditUnresolved.map((item,index)=><p className="application-unresolved" key={`unresolved:${index}`}>{item.quote?`“${item.quote}” · `:''}{item.reason||'추가 확인 필요'}</p>)}{audit.unresolvedTruncated&&<p>미해결 항목은 최대 5건만 표시합니다.</p>}</>:<p>{applicationStatus.loaded?'최근 저장 보고서가 없습니다.':'저장 보고서를 아직 확인하지 못했습니다.'}</p>}</details>
     </div>;
   }
-  async function verifyAndConfirm(row) {
-    if (!applicationWeek || applicationStatus.loading || liveHistoryStatus.loading) return;
-    try {
-      const refreshed = await refreshLiveHistory(liveScope, liveBatch);
-      const latest = refreshed?.items?.find(item => item?.sourceIdentity === row.identity);
-      const summary = latest && matchingSummary(refreshed.balanceComparison || liveBalanceComparison, row.identity, latest);
-      if (summary?.status === 'MATCHED' || summary?.status === 'QUANTITY_MATCHED') {
-        await saveManualApplication(row.identity, 'MANUALLY_APPLIED');
-      } else {
-        setApplicationErrors(previous => ({...previous, [row.identity]: '최신 전산 이력에서 동일한 품목·방향·수량을 찾지 못해 확인처리하지 않았습니다.'}));
-      }
-    } catch {
-      setApplicationErrors(previous => ({...previous, [row.identity]: '최신 전산 이력을 읽지 못해 확인처리하지 않았습니다.'}));
-    }
-  }
   function compactMessageRow(row) {
     const inLiveRange=liveBatchIdentities.has(row.identity);
     const match=(inLiveRange&&hasAcceptedLiveHistoryScope&&liveHistory[row.identity]&&matchingSummary(liveBalanceComparison,row.identity,liveHistory[row.identity]))||{status:'UNCONFIRMED',label:inLiveRange?(liveHistoryStatus.error?'조회 실패':liveHistoryStatus.loading?'조회 중':'조회 대기'):'대조 범위 밖',matchedCount:0,totalCount:0,operationSummary:inLiveRange?'대응 작업 미확인':'날짜 범위를 좁혀 대조'};
@@ -315,15 +299,18 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     const sourceWeek=sourceWeekFromMessage(row.message,String(year||''))||week;
     const changes=visibleChanges(row.message,week);
     const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length});
-    const completed=!confirmation.cancelled&&(confirmation.confirmed||match.status==='MATCHED');
-    const highlighted=!confirmation.cancelled&&(completed||match.status==='QUANTITY_MATCHED');
-    return <article className={`message compact-match-row ${highlighted?'history-completed':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
+    const quantityCompleted=match.status==='QUANTITY_MATCHED';
+    const candidateCompleted=match.status==='CANDIDATE';
+    const completed=!confirmation.cancelled&&(confirmation.confirmed||match.status==='MATCHED'||quantityCompleted||candidateCompleted);
+    const highlighted=!confirmation.cancelled&&(confirmation.confirmed||quantityCompleted);
+    return <article className={`message compact-match-row ${highlighted?'history-completed':candidateCompleted?'history-candidate':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
       {completed&&<div className="history-completion-label">✓ {confirmation.confirmed?confirmation.label:'작업완료 · 전산 분배 수량 이력 일치'}</div>}
-      {!completed&&!confirmation.cancelled&&match.status==='QUANTITY_MATCHED'&&<div className="history-completion-label">✓ 처리됨 · 변경 방향·수량 일치 (수량 대조 기준)</div>}
+      {!confirmation.confirmed&&!confirmation.cancelled&&quantityCompleted&&<div className="history-completion-label">✓ 작업완료 · 변경 방향·환산수량 합계 일치</div>}
+      {!confirmation.confirmed&&!confirmation.cancelled&&candidateCompleted&&<div className="history-candidate-label">◐ 작업완료 후보 · 전산 이력 1건과 수량·방향 일치</div>}
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
-      <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${completed?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{confirmation.cancelled?'확인취소':confirmation.confirmed?'확인완료':completed?'작업완료':match.label||'미확인'} {completed?changes.length:match.matchedCount??0}/{match.totalCount||changes.length}{manualLabel&&<span>{manualLabel}</span>}<small>자동 대조</small></span>
-      <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={highlighted} title="확인 표시만 저장합니다. 확인취소는 주문·분배를 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,highlighted?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':highlighted?'확인취소':'확인처리'}</button><button type="button" className="source-history-confirm" data-testid={`source-history-confirm:${row.identity}`} title="최신 전산 작업이력을 다시 조회하고 일치할 때만 확인처리합니다." disabled={disabled||!!applicationSaving[row.identity]||liveHistoryStatus.loading||!applicationWeek||!applicationStatus.loaded} onClick={()=>verifyAndConfirm(row)}>{liveHistoryStatus.loading?'이력 조회 중…':'작업이력 확인 후 처리'}</button>
+      <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${completed?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{confirmation.cancelled?'확인취소':confirmation.confirmed?'확인완료':quantityCompleted?'작업완료':candidateCompleted?'작업완료 후보':completed?'작업완료':match.label||'미확인'} {completed?changes.length:match.matchedCount??0}/{match.totalCount||changes.length}{manualLabel&&<span>{manualLabel}</span>}<small>자동 대조</small></span>
+      <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={highlighted} title="확인 표시만 저장합니다. 확인취소는 주문·분배를 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,highlighted?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':highlighted?'확인취소':'확인처리'}</button>
       <button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>{completed||match.status==='QUANTITY_MATCHED'?'원문 다시 분석':'미확인 원문 AI 분석·매칭'}</button></div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
       <blockquote className="source-message-context" aria-label="변경 요청 원문">{row.message}</blockquote>
