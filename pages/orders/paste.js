@@ -4558,7 +4558,10 @@ export default function PasteOrderPage() {
             .paste-input-grid.paste-baseline-collapsed .paste-column-analysis { grid-column: 2; grid-row: 1; }
             .paste-input-grid.paste-baseline-collapsed .paste-col-work-results { grid-column: 2; grid-row: 2 / span 2; }
           }
-          @media (max-width: 1500px) {
+          /* Keep the four-column desktop structure on the 1499px capture size.
+             Collapsing every column below 1500px pushed analysis/results below
+             the fold and made the page appear to lose its right panels. */
+          @media (max-width: 1100px) {
             .paste-col-baseline, .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper, .paste-col-work-results { grid-column: auto; grid-row: auto; max-height: none; }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 260px; }
             .paste-col-order-side.paste-col-order-results { min-height: 0; }
