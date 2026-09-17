@@ -194,7 +194,7 @@ function ExcelSheetPreview({
                     const aggregateEntry = rowMatches.find(entry => entry.sourceCount > 1);
                     const isQtyCell = !isHeader && colIdx === matchInsertIndex - 1 && aggregateEntry;
                     return (
-                      <td key={`${row.rowNo}-${colIdx}`} title={String(cell ?? '')} style={{ minWidth: isQtyCell ? 170 : 72, maxWidth: 220, padding: '2px 4px', borderRight: '1px solid #eef2f7', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isHeader ? 700 : 400, lineHeight: 1.15 }}>
+                      <td key={`${row.rowNo}-${colIdx}`} title={String(cell ?? '')} style={{ minWidth: isQtyCell ? 150 : 56, maxWidth: isQtyCell ? 190 : 165, padding: '2px 4px', borderRight: '1px solid #eef2f7', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isHeader ? 700 : 400, lineHeight: 1.15 }}>
                         <span>{String(cell ?? '')}</span>
                         {isQtyCell && (
                           <span title={`원본 ${aggregateEntry.sourceCount}행을 합산한 최종수량`} style={{ marginLeft: 5, padding: '1px 4px', borderRadius: 8, background: '#dbeafe', color: '#1d4ed8', fontSize: 9, fontWeight: 800 }}>
@@ -206,14 +206,14 @@ function ExcelSheetPreview({
                   })}
                   {isHeader ? (
                     <>
-                      <th style={{ ...matchHead, borderLeft: '3px solid #2563eb', minWidth: 235 }}>ERP 매칭 품목</th>
+                      <th style={{ ...matchHead, borderLeft: '3px solid #2563eb', minWidth: 330, width: 330 }}>ERP 매칭 품목</th>
                       <th style={{ ...matchHead, minWidth: 126 }}>최종수량</th>
                       <th style={{ ...matchHead, minWidth: 82 }}>단위</th>
                       <th style={{ ...matchHead, minWidth: 112 }}>상태 · 수정</th>
                     </>
                   ) : (
                     <>
-                      <td style={{ ...matchCell, borderLeft: '3px solid #2563eb', minWidth: 235 }}>
+                      <td style={{ ...matchCell, borderLeft: '3px solid #2563eb', minWidth: 330, width: 330 }}>
                         {rowMatches.map((entry, matchIdx) => {
                           const item = entry.item;
                           return (
@@ -280,7 +280,7 @@ function ExcelSheetPreview({
                   {(row.cells || []).slice(matchInsertIndex).map((cell, colIdx) => {
                     const originalColIdx = matchInsertIndex + colIdx;
                     return (
-                      <td key={`${row.rowNo}-${originalColIdx}`} title={String(cell ?? '')} style={{ minWidth: 72, maxWidth: 220, padding: '2px 4px', borderRight: '1px solid #eef2f7', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isHeader ? 700 : 400, lineHeight: 1.15 }}>
+                      <td key={`${row.rowNo}-${originalColIdx}`} title={String(cell ?? '')} style={{ minWidth: 56, maxWidth: 165, padding: '2px 4px', borderRight: '1px solid #eef2f7', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isHeader ? 700 : 400, lineHeight: 1.15 }}>
                         {String(cell ?? '')}
                       </td>
                     );
