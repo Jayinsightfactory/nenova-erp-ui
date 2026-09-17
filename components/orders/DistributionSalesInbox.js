@@ -88,7 +88,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
   const visibleDisplayRows=compactRows.filter(item=>item.kind===compactTab).map(item=>item.row);
   const hasAcceptedLiveHistoryScope=liveHistoryStatus.scope===liveScope&&loadedPeriod===livePeriod;
   const applicationSequence=useRef(0),activeApplicationScope=useRef(applicationScope),applicationMounted=useRef(false),applicationController=useRef(null),applicationInFlight=useRef(false),applicationSaveController=useRef(null),applicationSaveInFlight=useRef(false),applicationScopeEpoch=useRef(0),applicationSaveAttempt=useRef(0),applicationRefreshQueued=useRef(null);
-  const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey),liveHistoryBatchRef=useRef(liveBatch);
+  const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryInFlightBatchKey=useRef(''),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey),liveHistoryBatchRef=useRef(liveBatch);
   useEffect(()=>{applicationMounted.current=true;activeApplicationScope.current=applicationScope;applicationScopeEpoch.current++;applicationRefreshQueued.current=null;return()=>{applicationMounted.current=false;applicationController.current?.abort();applicationSaveController.current?.abort();applicationController.current=null;applicationSaveController.current=null;applicationInFlight.current=false;applicationSaveInFlight.current=false;};},[applicationScope]);
   useEffect(()=>{liveHistoryMounted.current=true;activeLiveHistoryScope.current=liveScope;liveHistoryScopeEpoch.current++;liveHistoryRefreshQueued.current=false;setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setIncludeConsistentBalances(false);return()=>{liveHistoryMounted.current=false;liveHistoryController.current?.abort();liveHistoryController.current=null;liveHistoryInFlight.current=false;clearTimeout(liveHistoryDebounce.current);};},[liveScope]);
   useEffect(()=>{liveHistoryBatchKeyRef.current=liveBatchKey;liveHistoryBatchRef.current=liveBatch;},[liveBatchKey]);
@@ -131,21 +131,23 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     setPendingRows([]);setRefreshStatus(previous=>({...previous,newCount:0}));
   }
   async function refreshLiveHistory(scope=liveScope,messages=liveBatch) {
-    // A full SQL history comparison can take longer than the 15s polling interval.
-    // Do not queue another identical comparison while one is still running: the
-    // old queue caused an endless loading state (each timeout immediately
-    // started the next request before the UI could show the timeout/error).
-    if(liveHistoryInFlight.current) return;
     const currentPeriod=`${from}/${to}`;
+    const batchKey=messages.map(row=>`${row.identity}:${row.created_at||''}:${row.message||''}`).join('\u001e');
+    // A full SQL history comparison can take longer than the 15s polling interval.
+    // Ignore identical polling requests, but preserve the queue for genuinely new
+    // incoming rows so a refresh is not lost.
+    if(liveHistoryInFlight.current) {
+      if(liveHistoryInFlightBatchKey.current!==batchKey) liveHistoryRefreshQueued.current=true;
+      return;
+    }
     if(!applicationWeek||loadedPeriod!==currentPeriod||!messages.length) {
       setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});
       return;
     }
-    const batchKey=messages.map(row=>`${row.identity}:${row.created_at||''}:${row.message||''}`).join('\u001e');
     const sequence=++liveHistorySequence.current,epoch=liveHistoryScopeEpoch.current;
     const controller=new AbortController();let timedOut=false;
     const timeout=setTimeout(()=>{timedOut=true;controller.abort();},30000);
-    liveHistoryController.current=controller;liveHistoryInFlight.current=true;
+    liveHistoryController.current=controller;liveHistoryInFlight.current=true;liveHistoryInFlightBatchKey.current=batchKey;
     setLiveHistoryStatus(previous=>({...previous,loading:true,error:''}));
     try {
       const {response,data}=await readScopedSalesHistory({year:String(year),week:applicationWeek,from,to,messages:messages.map(row=>({identity:row.identity,message:row.message,created_at:row.created_at,timestamp_approximate:row.timestamp_approximate===true}))},async body=>{
@@ -169,7 +171,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       clearTimeout(timeout);
       if(liveHistoryController.current===controller) {liveHistoryController.current=null;liveHistoryInFlight.current=false;}
       if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current) setLiveHistoryStatus(previous=>({...previous,loading:false}));
-      liveHistoryRefreshQueued.current=false;
+      if(liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,liveHistoryBatchRef.current);}
     }
   }
   async function refreshApplicationStatus(scope=applicationScope,{force=false}={}) {
