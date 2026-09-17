@@ -2,6 +2,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const page = fs.readFileSync('pages/orders/paste.js', 'utf8');
+const highlight = fs.readFileSync('lib/pasteOrderHighlight.js', 'utf8');
+assert.match(page, /pasteOrderHighlightState/);
+assert.match(page, /orderOnlyRegistered: true/);
+assert.match(page, /data-paste-order-status=\{highlight\.key\}/);
+assert.match(page, /orderOnlyRegistered \? highlight\.color/);
+assert.match(highlight, /key: 'ORDER_ONLY'/);
+assert.match(highlight, /color: '#1565c0'/);
 assert.match(page, /className="paste-action-split"/);
 assert.match(page, /paste-global-action-board-top/);
 assert.match(page, /className="paste-primary-batch-action"/);
