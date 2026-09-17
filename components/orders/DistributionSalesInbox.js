@@ -88,9 +88,9 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
   const visibleDisplayRows=compactRows.filter(item=>item.kind===compactTab).map(item=>item.row);
   const hasAcceptedLiveHistoryScope=liveHistoryStatus.scope===liveScope&&loadedPeriod===livePeriod;
   const applicationSequence=useRef(0),activeApplicationScope=useRef(applicationScope),applicationMounted=useRef(false),applicationController=useRef(null),applicationInFlight=useRef(false),applicationSaveController=useRef(null),applicationSaveInFlight=useRef(false),applicationScopeEpoch=useRef(0),applicationSaveAttempt=useRef(0),applicationRefreshQueued=useRef(null);
-  const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryInFlightBatchKey=useRef(''),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey),liveHistoryBatchRef=useRef(liveBatch);
+  const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryInFlightBatchKey=useRef(''),liveHistoryAutoBlocked=useRef(false),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey),liveHistoryBatchRef=useRef(liveBatch);
   useEffect(()=>{applicationMounted.current=true;activeApplicationScope.current=applicationScope;applicationScopeEpoch.current++;applicationRefreshQueued.current=null;return()=>{applicationMounted.current=false;applicationController.current?.abort();applicationSaveController.current?.abort();applicationController.current=null;applicationSaveController.current=null;applicationInFlight.current=false;applicationSaveInFlight.current=false;};},[applicationScope]);
-  useEffect(()=>{liveHistoryMounted.current=true;activeLiveHistoryScope.current=liveScope;liveHistoryScopeEpoch.current++;liveHistoryRefreshQueued.current=false;setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setIncludeConsistentBalances(false);return()=>{liveHistoryMounted.current=false;liveHistoryController.current?.abort();liveHistoryController.current=null;liveHistoryInFlight.current=false;clearTimeout(liveHistoryDebounce.current);};},[liveScope]);
+  useEffect(()=>{liveHistoryMounted.current=true;activeLiveHistoryScope.current=liveScope;liveHistoryScopeEpoch.current++;liveHistoryRefreshQueued.current=false;liveHistoryAutoBlocked.current=false;setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setIncludeConsistentBalances(false);return()=>{liveHistoryMounted.current=false;liveHistoryController.current?.abort();liveHistoryController.current=null;liveHistoryInFlight.current=false;clearTimeout(liveHistoryDebounce.current);};},[liveScope]);
   useEffect(()=>{liveHistoryBatchKeyRef.current=liveBatchKey;liveHistoryBatchRef.current=liveBatch;},[liveBatchKey]);
   async function loadRemote(next=false) {
     if(requestBusy.current) {setNotice('자동 확인이 끝난 뒤 다시 시도하세요.');return;}
@@ -165,7 +165,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       setLiveBalanceComparison(data.balanceComparison||null);
       setLiveHistoryStatus({loading:false,error:'',asOf:typeof data.asOf==='string'?data.asOf:'',loaded:true,warnings:data.warnings.map(warning=>typeof warning==='string'?warning:typeof warning?.message==='string'?warning.message:'조회 경고 확인 필요').slice(0,10),scope});
     } catch(error) {
-      if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current&&(error?.name!=='AbortError'||timedOut)) setLiveHistoryStatus(previous=>({...previous,loading:false,error:timedOut?'최신 전산 이력 조회가 30초 안에 끝나지 않았습니다. 기존 이력은 유지됩니다.':error.message||'최신 전산 이력을 읽지 못했습니다. 기존 이력은 유지됩니다.'}));
+      if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current&&(error?.name!=='AbortError'||timedOut)) {liveHistoryAutoBlocked.current=true;setLiveHistoryStatus(previous=>({...previous,loading:false,error:timedOut?'최신 전산 이력 조회가 30초 안에 끝나지 않았습니다. 기존 이력은 유지됩니다.':error.message||'최신 전산 이력을 읽지 못했습니다. 기존 이력은 유지됩니다.'}));}
     } finally {
       clearTimeout(timeout);
       if(liveHistoryController.current===controller) {liveHistoryController.current=null;liveHistoryInFlight.current=false;}
@@ -215,7 +215,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
   useEffect(()=>{
     if(!open||!autoRefresh||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return()=>{};
     const eligible=()=>document.visibilityState==='visible'&&navigator.onLine!==false;
-    const run=()=>{if(eligible())refreshLiveHistory(liveScope,liveBatch);};
+    const run=()=>{if(eligible()&&!liveHistoryAutoBlocked.current)refreshLiveHistory(liveScope,liveBatch);};
     clearTimeout(liveHistoryDebounce.current);
     liveHistoryDebounce.current=setTimeout(run,250);
     const timer=setInterval(run,15000);
@@ -361,7 +361,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       <div className="bar inbox-controls"><label>시작일 <input type="date" value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
         <button type="button" disabled={busy||disabled||!from||!to} onClick={()=>loadRemote()}>영업방 불러오기</button>
         <label><input type="checkbox" checked={autoRefresh} disabled={disabled} onChange={event=>setAutoRefresh(event.target.checked)}/> 5초마다 새 대화 확인</label>
-        <button type="button" data-live-history-refresh disabled={disabled||liveHistoryStatus.loading||loadedPeriod!==livePeriod||!applicationWeek||!liveBatch.length} onClick={()=>refreshLiveHistory(liveScope,liveBatch)}>최신 이력 새로고침</button>
+        <button type="button" data-live-history-refresh disabled={disabled||liveHistoryStatus.loading||loadedPeriod!==livePeriod||!applicationWeek||!liveBatch.length} onClick={()=>{liveHistoryAutoBlocked.current=false;refreshLiveHistory(liveScope,liveBatch);}}>최신 이력 새로고침</button>
         <button type="button" data-manual-application-refresh disabled={disabled||applicationStatus.loading||!applicationWeek} onClick={()=>refreshApplicationStatus(applicationScope,{force:true})}>상태 새로고침</button>
         <button type="button" disabled={disabled} onClick={()=>{setReviewMounted(true);setReviewOpen(value=>!value);}}>검토·비교 {reviewOpen?'닫기':'열기'}</button>
         <label className="upload">대화 파일 올리기<input type="file" accept=".txt" disabled={busy||disabled} onChange={upload} aria-label="영업방 대화 파일 올리기"/></label>
