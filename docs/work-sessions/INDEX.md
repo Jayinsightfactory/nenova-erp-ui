@@ -139,6 +139,7 @@
 | [2026-08-31_china-volume-subweek-navigation](./2026-08-31_china-volume-subweek-navigation.md) | 자동 중국물량표를 실제 DB 세부차수 순서로 이동 | 구현·전체 계약·빌드 통과, 배포 진행 |
 | [2026-08-27_paste-incoming-display](./2026-08-27_paste-incoming-display.md) | 붙여넣기 품목 매칭 시 선택 차수 전산 입고수량 표시 | 로컬 ERP 계약·빌드 통과, 배포 준비 |
 | [2026-08-26_estimate-directional-quantity](./2026-08-26_estimate-directional-quantity.md) | 증가만 부족재고 검사·기존 수량 확정 유지·변경 품목 재고 반영 | 배포 지시·통합 검사 완료, EXE/웹 저장 중지 확인 대기·미배포 |
+| [2026-09-17_my-order-paste-highlight](./2026-09-17_my-order-paste-highlight.md) | 내 업체 주문등록 주문만 등록 시 빨간 강조를 파란색 분배 대기 상태로 전환 | 구현·ERP 계약 회귀검증 완료 |
 | [2026-08-26_estimate-category-buttons](./2026-08-26_estimate-category-buttons.md) | 수국만 확정취소·모든 재조회 업체 유지·검색 초안 분리·버튼 검사 | 로컬 수정·자동검사 완료, 후속 화면 클릭 미검증·미배포 |
 | [2026-08-26_pivot-display-export](./2026-08-26_pivot-display-export.md) | 차수 제목 대비·비고 토글·엑셀 수량 변경내역 | 로컬 검증 중 |
 | [2026-08-26_pricing-drag-select](./2026-08-26_pricing-drag-select.md) | 업체별 단가 셀 드래그·선택영역 일괄 적용 | 구현/검증 중 |

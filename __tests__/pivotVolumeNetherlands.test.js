@@ -22,7 +22,10 @@ async function main() {
   assert.ok(source.includes("aoa[2][idx] = '꽃'"), '네덜란드 꽃 열 헤더가 있어야 한다.');
   assert.ok(source.includes('line.push(pivotVolumeFlowerLabel(row))'), '꽃 열은 피벗 Product.FlowerName 값을 사용해야 한다.');
   assert.ok(source.includes('xSplit: isNetherlandsVolume(meta) ? 3 : 1'), '네덜란드 식별 3열을 고정해야 한다.');
-  assert.ok(source.includes("\\n품종("), '모든 물량표 제목은 차수와 품종을 두 줄로 표시해야 한다.');
+  assert.ok(source.includes('shortVolumeFlowerLabel') && source.includes('replace(/-/g, \'\')'), '물량표 제목은 차수-품종 축약 표기를 사용해야 한다.');
+  assert.ok(source.includes("colPlan.push({ type: 'farm-total', label: '입고' })"), '농장 우측 끝에 입고 합계 열을 추가해야 한다.');
+  assert.ok(source.includes("col.type === 'summary' && col.label === '재고') line.push('')"), '재고 열은 공란이어야 한다.');
+  assert.ok(source.includes('F1F3F5') && source.includes('border: BORDER'), '품목 행 교차색과 모든 셀 테두리를 적용해야 한다.');
   assert.ok(source.includes("[{ hpt: 32 }, { hpt: 20 }, { hpt: 44 }]"), '두 줄 제목이 잘리지 않도록 제목 행 높이를 확보해야 한다.');
 
   console.log('pivot Netherlands flower column tests passed');

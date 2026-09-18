@@ -20,6 +20,7 @@ import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
 import { applyPasteCustomerMappings, pasteCustomerMappingKey } from '../../lib/pasteCustomerMapping.js';
 import { buildPasteMixedActionPreview, getPasteMixedBatchStartBlocker, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, pasteShipmentLookupProdKeys, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
+import { pasteOrderHighlightState } from '../../lib/pasteOrderHighlight.js';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/pasteIncomingDisplay.js';
 import CollapsibleTop from '../../components/CollapsibleTop';
@@ -2003,7 +2004,7 @@ export default function PasteOrderPage() {
   const updateItem = (oid, idx, patch) => {
     setOrders(prev => prev.map(o =>
       o.id === oid
-        ? { ...o, items: o.items.map((it, i) => i === idx ? { ...it, ...patch } : it) }
+        ? { ...o, orderOnlyRegistered: false, items: o.items.map((it, i) => i === idx ? { ...it, ...patch } : it) }
         : o
     ));
   };
@@ -3115,6 +3116,7 @@ export default function PasteOrderPage() {
     }
 
     updateOrder(oid, {
+      orderOnlyRegistered: okCount > 0 && failCount === 0,
       resultMsg: okCount > 0
         ? `일괄 분배 완료: 성공 ${okCount}건${failCount ? ` / 실패 ${failCount}건` : ''}`
         : `일괄 분배 실패: ${failCount}건`,
@@ -3303,7 +3305,11 @@ export default function PasteOrderPage() {
       const orderResults = d.results || [];
       const okCount = orderResults.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'DELETED').length + cancelResults.length;
       const cancelText = cancelResults.length ? ` / 취소 자동분기 ${cancelResults.length}건` : '';
-      updateOrder(oid, { saving: false, resultMsg: `✅ ${okCount}개 저장 완료${cancelText} (${order.custMatch.CustName} / ${formatWeekDisplay(week)})${d.orderMasterKey ? ` — OrderKey: ${d.orderMasterKey}` : ''}${d.warning ? ` / ⚠️ ${d.warning}` : ''}` });
+      updateOrder(oid, {
+        saving: false,
+        orderOnlyRegistered: true,
+        resultMsg: `✅ ${okCount}개 주문만 등록 완료${cancelText} (${order.custMatch.CustName} / ${formatWeekDisplay(week)})${d.orderMasterKey ? ` — OrderKey: ${d.orderMasterKey}` : ''}${d.warning ? ` / ⚠️ ${d.warning}` : ''}`,
+      });
 
       // 취소는 분배만 바뀔 수 있으므로 저장 직후 화면 임시값을 만들지 않고 DB를 재조회한다.
       if (!cancelItems.length) {
@@ -3670,7 +3676,7 @@ export default function PasteOrderPage() {
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey && (it.flowerName || '기타') === flower);
     if (!targets.length) { alert('해당 품종의 매칭 품목이 없습니다.'); return; }
     setOrders(prev => prev.map(o => o.id === oid
-      ? { ...o, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? { ...it, unit, unitExplicit: true } : it) }
+      ? { ...o, orderOnlyRegistered: false, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? { ...it, unit, unitExplicit: true } : it) }
       : o
     ));
     await Promise.all(targets.map(it => fetch('/api/orders/prod-units', {
@@ -4655,18 +4661,20 @@ export default function PasteOrderPage() {
           const orderPresence = pastePresenceByCust[String(order.custMatch?.CustKey)] || {};
           const orderLocked = Boolean(orderPresence.active && !orderPresence.ownedByMe);
           const orderBlocked = Boolean(orderPresence.loading || orderLocked || orderPresence.stale || orderPresence.error);
+          const highlight = pasteOrderHighlightState(order);
 
           return (
-            <div key={order.id} style={{ border: '1px solid #c5cae9', borderRadius: 8, marginBottom: 16, overflow: 'hidden' }}>
+            <div key={order.id} data-paste-order-status={highlight.key} style={{ border: `2px solid ${order.orderOnlyRegistered ? highlight.border : '#c5cae9'}`, background: order.orderOnlyRegistered ? highlight.background : '#fff', borderRadius: 8, marginBottom: 16, overflow: 'hidden' }}>
               {/* 거래처 헤더 */}
               <div id={`paste-customer-${order.id}`} style={{
-                background: order.custMatch ? '#1a237e' : '#e65100',
+                background: order.orderOnlyRegistered ? highlight.color : (order.custMatch ? '#1a237e' : '#e65100'),
                 color: '#fff', padding: '10px 16px',
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
                 {order.custMatch ? (
                   <>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>✅ {order.custMatch.CustName}</span>
+                    {order.orderOnlyRegistered && <span role="status" style={{ fontSize: 11, background: '#fff', color: highlight.color, border: `1px solid ${highlight.border}`, borderRadius: 10, padding: '2px 8px', fontWeight: 900 }}>{highlight.label}</span>}
                     <span style={{ fontSize: 12, opacity: 0.8 }}>{order.custMatch.CustArea}</span>
                     {orderLocked && <span role="alert" style={{fontSize:11, background:'#fff3cd', color:'#7c2d12', border:'1px solid #fbbf24', borderRadius:4, padding:'3px 7px', fontWeight:900}}>{orderPresence.ownerName || '다른 사용자'}님이 이 업체를 작업 중</span>}
                     {orderPresence.loading && <span style={{fontSize:11, background:'#e3f2fd', color:'#0d47a1', border:'1px solid #90caf9', borderRadius:4, padding:'3px 7px', fontWeight:900}}>작업 상태 확인 중</span>}
