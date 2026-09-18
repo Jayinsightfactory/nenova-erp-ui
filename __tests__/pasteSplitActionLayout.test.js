@@ -16,7 +16,7 @@ assert.ok(
   page.indexOf('className="paste-primary-batch-action"') > page.indexOf('className={`paste-input-grid'),
   '전체 일괄 등록·분배 버튼은 4열 작업 결과 영역 안에 있어야 한다.',
 );
-assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?\.paste-input-grid \{ grid-template-columns: minmax\\(0,1\\.15fr\\) minmax\\(0,1\\.35fr\\) minmax\\(0,1fr\\) minmax\\(0,1\\.2fr\\) minmax\\(0,1\\.2fr\\)/);
+assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?\.paste-input-grid \{ grid-template-columns: minmax\(0,1fr\) minmax\(0,2\.2fr\) minmax\(0,1fr\) minmax\(0,1fr\) minmax\(0,1fr\)/);
 assert.match(page, /@media \(max-width: 768px\) \{[\s\S]*?\.paste-input-grid \{ grid-template-columns: 1fr; \}/);
 const baselineIndex = page.indexOf('className={`paste-col paste-col-baseline');
 const pasteInputIndex = page.indexOf('className="paste-col paste-col-order paste-column-order-input"');
