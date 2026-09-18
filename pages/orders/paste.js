@@ -2958,7 +2958,7 @@ export default function PasteOrderPage() {
           {/* 2열: 주문 제외·하이라이트 */}
           <div className="paste-col paste-col-order-side">
             <label style={{ ...labelS, marginBottom: 6 }}>
-              주문 보조
+              영업방 원문
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
                 제외 · 색상 미리보기
               </span>
@@ -3087,7 +3087,7 @@ export default function PasteOrderPage() {
           {/* 4열: 기초재고 제외·품목매칭 */}
           <div className="paste-col paste-col-stock-side">
             <label style={{ ...labelS, marginBottom: 6 }}>
-              기초재고 보조
+              잔량 · 변경이력 히스토리
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
                 제외 · 품목 매칭
               </span>
@@ -3119,13 +3119,24 @@ export default function PasteOrderPage() {
               ) : (
                 <div className="paste-side-off">기초재고를 입력하면 품목 매칭이 표시됩니다.</div>
               )}
+              {stockDraft?.historyRows?.length > 0 && (
+                <div style={{ border: '1px solid #b8c7d9', borderRadius: 6, background: '#fff', padding: 10, fontSize: 11, lineHeight: 1.55 }}>
+                  <b>변경이력 히스토리</b>
+                  {stockDraft.historyRows.slice(0, 8).map(row => (
+                    <div key={`history-${row.id}`} style={{ marginTop: 5, borderTop: '1px solid #eef2f7', paddingTop: 4 }}>
+                      {row.changeNo ? `변${row.changeNo} ` : ''}{row.productName} {row.start != null ? `${fmtStockQty(row.start)}>` : ''}{row.closeRemain != null ? fmtStockQty(row.closeRemain) : '-'}
+                      {row.changes.length > 0 && <span style={{ color: '#1565c0' }}> ({row.changes.reduce((n, c) => n + Math.abs(Number(c.delta) || 0), 0)})</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           {/* 5열: 분석·검토 요약 */}
           <div className="paste-col paste-col-analysis">
             <label style={{ ...labelS, marginBottom: 6 }}>
-              분석 · 검토
+              분석 · 검토 결과
               <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
                 매칭·잔량·변경 결과
               </span>
@@ -3172,11 +3183,11 @@ export default function PasteOrderPage() {
           .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: min(500px, calc(100vh - 260px)); }
           .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; min-height: min(500px, calc(100vh - 260px)); }
           .paste-col-analysis { border: 1px solid #c5cae9; background: #fbfaff; min-height: min(500px, calc(100vh - 260px)); }
-          .paste-col-order { grid-column: 1; }
+          .paste-col-stock { grid-column: 1; }
           .paste-col-order-side { grid-column: 2; }
-          .paste-col-stock { grid-column: 3; }
-          .paste-col-stock-side { grid-column: 4; }
-          .paste-col-analysis { grid-column: 5; }
+          .paste-col-order { grid-column: 3; }
+          .paste-col-analysis { grid-column: 4; }
+          .paste-col-stock-side { grid-column: 5; }
           /* 1열: textarea 고정 높이 — 다른 열 높이에 끌려가지 않게 */
           .paste-col-order .paste-main-ta {
             flex: 0 0 auto;
