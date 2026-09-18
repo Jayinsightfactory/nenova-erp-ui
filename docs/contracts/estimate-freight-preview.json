@@ -1,11 +1,14 @@
 {
   "id": "estimate-freight-preview",
   "title": "견적 운임비 계산 미리보기",
-  "scope": ["pages/estimate.js", "components/estimate/FreightChargePreviewModal.js", "lib/estimateFreightPolicy.js"],
+  "scope": ["pages/estimate.js", "components/estimate/FreightChargePreviewModal.js", "lib/estimateFreightPolicy.js", "lib/estimateFreightApply.js", "pages/api/estimate/freight-apply.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
-  "actions": [{"name":"FREIGHT_PREVIEW_READ_ONLY","orderDetail":"preserve","shipmentDetail":"preserve","estimate":"preserve","stock":"preserve"}],
+  "actions": [
+    {"name":"FREIGHT_PREVIEW_READ_ONLY","orderDetail":"preserve","shipmentDetail":"preserve","estimate":"preserve","stock":"preserve"},
+    {"name":"FREIGHT_APPLY_SEPARATE_SUBWEEK","orderDetail":"preserve","shipmentMaster":"existing active master only; fixed master rejects","shipmentDetail":"increase","shipmentDate":"insert/synchronize exactly one date row per inserted detail","estimate":"preserve","stock":"preserve; no StockHistory/ProductStock mutation","webProfitReport":"preserve","guard":"new freight Product rows only; existing matching row is skipped; no update/delete; one transaction with ERP edit lease, exact OrderYear+OrderWeek+CustKey+ProdKey scope, post-write ShipmentDetail↔ShipmentDate verification"}
+  ],
   "crossYearFixture": {"required": true, "description":"같은 차수명이 다른 연도에 존재해도 현재 연도·업체·차수의 화면 행만 미리 계산한다."},
-  "requiredTestFiles": ["__tests__/estimateFreightPolicy.test.js"],
-  "dnspyEvidence": {"required": true,"record":"docs/exe-golden/FormEstimateView.md","source":"기존 견적 운임행을 읽기 전용으로 표시하며 저장하지 않는다.","methods":["FormEstimateView GetData","FormEstimateView GetDetail"],"tables":["Estimate","ShipmentDetail","ShipmentDate","Product"]},
+  "requiredTestFiles": ["__tests__/estimateFreightPolicy.test.js", "__tests__/estimateFreightApply.test.js"],
+  "dnspyEvidence": {"required": true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"FormShipmentDistribution.btnSave_Click/ClassShipmentDetail.Insert/ClassShipmentDate.Insert 구조와 견적 GetDetail의 기존 운임행 조회를 교차 확인한다. 웹 운임 적용은 주문·재고·확정 원장을 보존하는 제한된 신규 ShipmentDetail/ShipmentDate 행만 허용한다.","methods":["FormShipmentDistribution.btnSave_Click","ClassShipmentDetail.Insert","ClassShipmentDate.Insert","FormEstimateView GetDetail"],"tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","Product"]},
   "requiredCommands": ["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
 }

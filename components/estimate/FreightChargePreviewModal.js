@@ -3,7 +3,7 @@ import { buildFreightPreview, freightKind, isFreightRow, FREIGHT_ROUNDING } from
 
 const fmt = value => Number(value || 0).toLocaleString('ko-KR');
 
-export default function FreightChargePreviewModal({ open, onClose, items = [], selectedShip }) {
+export default function FreightChargePreviewModal({ open, onClose, items = [], selectedShip, onApply, applyBusy = false }) {
   const [rounding, setRounding] = useState(FREIGHT_ROUNDING.CEIL);
   // 세부차수별 분리가 안전한 기본값이다. 37차 인터넷공판장처럼 1차/2차
   // 운임이 별도 ShipmentDetail 행으로 존재하는 업체가 있기 때문이다.
@@ -52,9 +52,9 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], s
           {preview.existing.length > 0 && <div style={{ padding:10, border:'1px solid #fbbf24', background:'#fffbeb', borderRadius:8, fontSize:12 }}><b>기존 운임 행 {preview.existing.length}건 · 신규 계산에서 중복 제외</b><div style={{ marginTop:5, display:'grid', gap:3 }}>{preview.existing.map((row, i) => <div key={`${row.name}-${i}`}>이미 입력됨 · {row.name} · {row.week || '합산'} · {fmt(row.quantity)}박스 × {fmt(row.unitPrice)}원</div>)}</div></div>}
           <table className="tbl" style={{ fontSize:12 }}><thead><tr><th>적용 범위</th><th>품종/국가</th><th>원시 박스</th><th>적용 박스</th><th>상차운임</th><th>운송료</th></tr></thead><tbody>{preview.rows.map(row => <tr key={row.key}><td>{row.key}</td><td>{row.categories.map(category => `${category.category} ${fmt(category.boxes)}박스`).join(' · ') || '-'}</td><td>{fmt(row.rawBoxes)}</td><td>{fmt(row.boxes)}</td><td>{fmt(row.loadingAmount)}원</td><td>{fmt(row.transportAmount)}원</td></tr>)}{preview.rows.length===0&&<tr><td colSpan="6">계산 가능한 정상 출고 품목이 없습니다.</td></tr>}</tbody></table>
           <div style={{ padding:10, border:'1px solid #cbd5e1', background:'#f8fafc', borderRadius:8, fontSize:12, color:'#475569' }}>
-            운임 원장 적용은 기존 운임행·세부차수·ShipmentDate·재고 영향에 대한 서버 계약 검증 후 별도 제공됩니다. 현재 화면의 `확인`은 계산 결과만 닫습니다.
+            적용 시 세부차수별 기존 출고마스터·확정상태·운임 품목·ShipmentDate를 서버에서 다시 잠그고 확인합니다. 기존 운임행은 건너뛰며, 한 건이라도 검증에 실패하면 전체를 롤백합니다. 합산 미리보기는 저장 대상이 아니므로 적용 전 세부차수별 분리로 바꿔주세요.
           </div>
-          <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}><button type="button" className="btn btn-sm" onClick={onClose}>확인</button><button type="button" className="btn btn-sm" disabled title="원장 쓰기 계약과 서버 트랜잭션 검증 후 제공">운송비 적용 (검증 대기)</button></div>
+          <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}><button type="button" className="btn btn-sm" onClick={onClose}>닫기</button><button type="button" className="btn btn-sm" disabled={applyBusy || aggregate || preview.rows.length === 0} onClick={()=>onApply?.({ rounding, aggregate, loadingUnitPrice, transportUnitPrice })} title={aggregate ? '합산은 미리보기 전용입니다. 세부차수별 분리로 바꾸세요.' : '검증 후 운임 원장에 추가합니다.'}>{applyBusy ? '운송비 적용 중…' : '운송비 적용'}</button></div>
         </div>
       </div>
     </div>

@@ -1353,6 +1353,7 @@ export default function Estimate() {
   const [successMsg, setSuccessMsg] = useState('');
   const [showAdditionalProduct, setShowAdditionalProduct] = useState(false);
   const [showFreightPreview, setShowFreightPreview] = useState(false);
+  const [freightApplying, setFreightApplying] = useState(false);
   const [pendingAdds, setPendingAdds] = useState([]);
   const [defectContext, setDefectContext] = useState(null);
   const [defectContextLoading, setDefectContextLoading] = useState(false);
@@ -1811,6 +1812,42 @@ export default function Estimate() {
       shouldApply: () => shouldReloadCapturedEstimateSelection(captured.scope, renderedSelectionScopeRef.current),
     });
     return isCapturedEstimateScopeCurrent(captured) ? refreshed : { skipped: true };
+  };
+  const applyFreightCharges = async ({ rounding, aggregate, loadingUnitPrice, transportUnitPrice }) => {
+    if (!selectedShip || freightApplying) return;
+    if (aggregate) {
+      alert('합산 미리보기는 저장할 수 없습니다. 세부차수별 분리로 바꿔주세요.');
+      return;
+    }
+    const captured = captureEstimateRefresh();
+    if (!captured || !ensureEstimateEditAllowed()) return;
+    const weeks = String(selectedShip.SubWeeks || `${String(selectedShip.ParentWeek || weekNum).padStart(2, '0')}-01`)
+      .split(',').map((week) => week.trim()).filter(Boolean);
+    setFreightApplying(true);
+    estimateEditPresence.beginSaving();
+    try {
+      const data = await apiPost('/api/estimate/freight-apply', {
+        orderYear: yearStr,
+        parentWeek: selectedShip.ParentWeek || weekNum,
+        custKey: selectedShip.CustKey,
+        weeks,
+        rounding,
+        aggregate: false,
+        loadingUnitPrice,
+        transportUnitPrice,
+        editGuard: estimateEditGuard(),
+      });
+      setShowFreightPreview(false);
+      setSuccessMsg(`✅ 운임비 적용 완료 · 신규 ${data.appliedCount || 0}건 · 기존 건너뜀 ${data.skippedCount || 0}건`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+      await refreshCapturedEstimate(captured);
+    } catch (error) {
+      if (error?.code === 'ERP_EDIT_STALE' || error?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
+      setErr(error?.message || '운임비 적용에 실패했습니다.');
+    } finally {
+      setFreightApplying(false);
+      await estimateEditPresence.endSaving({ refreshBaseline: isCapturedEstimateScopeCurrent(captured) });
+    }
   };
   const deductionDeleteScope = `${yearStr}|${String(weekNum || '')}|${selectedShip?.CustKey || ''}|${selectedId || ''}|${selectedCust?.CustKey || ''}|${[...activeWD].sort().join(',')}`;
   // 연도·차수·업체·상세 필터가 바뀌면 다른 범위의 숨은 선택을 절대 유지하지 않는다.
@@ -5319,7 +5356,7 @@ export default function Estimate() {
                 ＋ 판매요청
               </button>
               <button className="btn btn-sm" style={{background:'#7c3aed',color:'#fff',borderColor:'#6d28d9'}} disabled={deductionDeleting || !selectedShip || estimateEditPresence.blocked} onClick={()=>setShowAdditionalProduct(true)} title="추가 품목을 목록에 담은 뒤 수량/단가와 한 번에 저장합니다.">＋ 추가 품목등록{pendingAdds.length ? ` (${pendingAdds.length})` : ''}</button>
-              <button className="btn btn-sm" style={{background:'#0f766e',color:'#fff',borderColor:'#115e59'}} disabled={deductionDeleting || !selectedShip || itemLoading || estimateEditPresence.blocked} onClick={()=>setShowFreightPreview(true)} title="현재 업체의 정상출고 품목을 박스로 환산해 상차운임·운송료를 읽기 전용으로 계산합니다.">🚚 운임비 추가</button>
+              <button className="btn btn-sm" style={{background:'#0f766e',color:'#fff',borderColor:'#115e59'}} disabled={deductionDeleting || freightApplying || !selectedShip || itemLoading || estimateEditPresence.blocked} onClick={()=>setShowFreightPreview(true)} title="현재 업체의 정상출고 품목을 박스로 환산해 상차운임·운송료를 계산하고, 확인 후 원장에 추가합니다.">🚚 운임비 추가</button>
               <button className="btn btn-sm"
                 disabled={deductionDeleting || !selectedItemForEdit || itemEditorSaving || estimateEditPresence.blocked}
                 onClick={() => openItemEditor(selectedItemForEdit)}
@@ -5360,7 +5397,7 @@ export default function Estimate() {
           )}
 
           <OrderRegisterDistributeModal open={showAdditionalProduct} onClose={()=>setShowAdditionalProduct(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} editBlocked={estimateEditPresence.blocked} editPresence={estimateEditPresence} onQueue={(rows)=>{setPendingAdds(prev=>[...prev,...rows]);setShowAdditionalProduct(false);}} />
-          <FreightChargePreviewModal open={showFreightPreview} onClose={()=>setShowFreightPreview(false)} items={items} selectedShip={selectedShip} />
+          <FreightChargePreviewModal open={showFreightPreview} onClose={()=>setShowFreightPreview(false)} items={items} selectedShip={selectedShip} onApply={applyFreightCharges} applyBusy={freightApplying} />
           {pendingAdds.length > 0 && (
             <div style={{margin:'8px 12px 0',padding:'8px 10px',borderRadius:8,background:'#f5f3ff',border:'1px solid #ddd6fe',fontSize:12}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
