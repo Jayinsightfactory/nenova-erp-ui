@@ -4543,7 +4543,7 @@ export default function PasteOrderPage() {
             background: #fff;
           }
           @media (min-width: 1600px) {
-            .paste-input-grid { grid-template-columns: minmax(0,1.15fr) minmax(0,1.35fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.2fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 170px); max-height: calc(100vh - 170px); min-height: 0; align-items: stretch; }
+            .paste-input-grid { grid-template-columns: minmax(0,1fr) minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 170px); max-height: calc(100vh - 170px); min-height: 0; align-items: stretch; }
             .paste-input-grid > .paste-col > * { flex-shrink: 0; }
             .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: auto; }
             .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
@@ -4563,7 +4563,7 @@ export default function PasteOrderPage() {
              원문과 매칭 결과를 나란히 유지한다. 기본 2열로 되돌아가면
              차수/업체/변경내역 열이 과도하게 좁아진다. */
           @media (min-width: 1101px) and (max-width: 1599px) {
-            .paste-input-grid { grid-template-columns: minmax(0,1.05fr) minmax(0,1.35fr) minmax(0,1fr) minmax(0,1.15fr) minmax(0,1.15fr); grid-template-rows: auto auto; align-items: stretch; }
+            .paste-input-grid { grid-template-columns: minmax(0,.9fr) minmax(0,2.2fr) minmax(0,1fr) minmax(0,.95fr) minmax(0,1fr); grid-template-rows: auto auto; align-items: stretch; }
             .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-width: 0; max-height: calc(100vh - 230px); overflow: auto; }
             .paste-column-order-input { grid-column: 3; grid-row: 1 / span 2; }
             .paste-column-base-input { grid-column: 1; grid-row: 1; }
