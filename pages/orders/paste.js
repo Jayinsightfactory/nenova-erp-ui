@@ -307,6 +307,15 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
     }
 
     const cleaned = line.replace(/^[-*•]\s*/, '').trim();
+    const mixed = cleaned.match(/^(.+?)[\s:：]*(\d+(?:\.\d+)?)\s*(?:박스)?\s*\+\s*(\d+(?:\.\d+)?)\s*(스팀|송이|단|개|stem|stems|bunch|ea)$/i);
+    if (mixed) {
+      const name = mixed[1].trim();
+      const boxQty = parseStockNumber(mixed[2]);
+      const detailQty = parseStockNumber(mixed[3]);
+      const matchName = applyFlowerContext(name, currentFlower);
+      const row = { name, matchName, flowerContext: currentFlower, qty: boxQty, boxQty, detailQty, detailUnit: mixed[4], unit: '박스', displayQty: `${fmtStockQty(boxQty)}박스 + ${fmtStockQty(detailQty)}${mixed[4]}`, idx: lineIdx };
+      rows.push(row); byKey[stockNorm(matchName)] = row; byKey[stockNorm(name)] = row; return;
+    }
     const m = cleaned.match(/^(.+?)[\s:：]*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개)?$/);
     if (!m) return;
     const name = m[1].trim();
@@ -326,6 +335,13 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
     byKey[stockNorm(name)] = row;
   });
   return { rows, byKey };
+}
+
+function stockRowQuantityLabel(row, quantity = row?.qty) {
+  if (row?.boxQty != null && row?.detailQty != null) {
+    return `${fmtStockQty(row.boxQty)}박스 + ${fmtStockQty(row.detailQty)}${row.detailUnit || ''}`;
+  }
+  return fmtStockQty(quantity);
 }
 
 function loadStockBaseWeek(defaultWeek) {
@@ -917,6 +933,9 @@ function buildKakaoStockDraft({
       week: selectedWeek || '',
       weekLabel: shortWeekLabel(selectedWeek || ''),
       productName: row.name,
+      boxQty: row.boxQty,
+      detailQty: row.detailQty,
+      detailUnit: row.detailUnit,
       reportedRemain: row.qty,
       reportedRemainSource: 'remainInput',
       unit: row.unit || '',
@@ -959,6 +978,9 @@ function buildKakaoStockDraft({
       week: selectedWeek || '',
       weekLabel: shortWeekLabel(selectedWeek || ''),
       productName: row.name,
+      boxQty: row.boxQty,
+      detailQty: row.detailQty,
+      detailUnit: row.detailUnit,
       reportedRemain: row.qty,
       reportedRemainSource: 'baseInput',
       unit: row.unit || '',
@@ -1004,7 +1026,7 @@ function buildKakaoStockDraft({
         const mismatch = row.reportedRemain != null && row.calcRemain != null && Math.abs(row.reportedRemain - row.calcRemain) > 0.001
           ? ` (계산 ${fmtStockQty(row.calcRemain)} 확인)`
           : '';
-        copyLines.push(`${row.productName} ${fmtStockQty(remain)}${mismatch}`);
+        copyLines.push(`${row.productName} ${stockRowQuantityLabel(row, remain)}${mismatch}`);
       });
     });
   }
@@ -1014,7 +1036,7 @@ function buildKakaoStockDraft({
     copyLines.push('여분주문');
     [...extraByWeek.entries()].forEach(([weekLabel, rows]) => {
       copyLines.push(weekLabel);
-      rows.forEach(row => copyLines.push(`${row.productName}${row.qty != null ? ` ${fmtStockQty(row.qty)}` : ''}`));
+      rows.forEach(row => copyLines.push(`${row.productName}${row.qty != null ? ` ${stockRowQuantityLabel(row)}` : ''}`));
     });
   }
 
@@ -1671,6 +1693,8 @@ export default function PasteOrderPage() {
         setPasteText(hit.data.pasteText || '');
         setBaseStockText(hit.data.baseStockText || '');
         setRemainStockText(hit.data.remainStockText || '');
+        setPasteExcludedLines(Array.isArray(hit.data.pasteExcludedLines) ? hit.data.pasteExcludedLines : []);
+        setBaseStockExcludedLines(Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : []);
         selectStockBaseWeek(hit.data.baseWeek || targetBaseWeek);
         const cache = { ...mappingCache, ...loadCache() };
         const matches = buildBaseStockMatchRows(
@@ -1678,6 +1702,7 @@ export default function PasteOrderPage() {
           allProducts,
           cache,
           hit.data.baseStockMatches || [],
+          Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : [],
         );
         setBaseStockMatches(matches);
         setOrders([]);
@@ -1690,7 +1715,8 @@ export default function PasteOrderPage() {
           week,
           hit.data.remainStockText || '',
           hit.data.baseWeek || targetBaseWeek,
-          [],
+          Array.isArray(hit.data.pasteExcludedLines) ? hit.data.pasteExcludedLines : [],
+          Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : [],
           matches,
         );
         const savedOrderWeek = hit.data.orderWeek;
@@ -1760,6 +1786,8 @@ export default function PasteOrderPage() {
     baseStockText,
     remainStockText,
     baseStockMatches: baseStockMatches.filter(m => m.prodKey),
+    pasteExcludedLines,
+    baseStockExcludedLines,
     changeLogs: savedStockNote?.data?.changeLogs || [],
     savedAt: new Date().toISOString(),
   });
@@ -4532,7 +4560,7 @@ export default function PasteOrderPage() {
           .paste-col-side-scroll {
             flex: 1;
             min-height: 0;
-            overflow: auto;
+            overflow: visible;
             display: flex;
             flex-direction: column;
             gap: 8px;
@@ -4550,8 +4578,8 @@ export default function PasteOrderPage() {
             .paste-col-baseline { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.35fr); gap: 8px; align-content: start; }
             .paste-input-grid { grid-template-columns: minmax(0,1fr) minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 170px); max-height: calc(100vh - 170px); min-height: 0; align-items: stretch; }
             .paste-input-grid > .paste-col > * { flex-shrink: 0; }
-            .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: auto; }
-            .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
+            .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: visible; }
+            .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-height: 0; max-height: none; overflow: visible; }
             .paste-column-order-input { grid-column: 3; grid-row: 1 / span 2; }
             .paste-column-base-input { grid-column: 1; grid-row: 1; }
             .paste-column-helper { grid-column: 1; grid-row: 2; }
