@@ -21,7 +21,7 @@ assert.match(page,/className="paste-analyze-button"/);
 assert.match(page,/grid-template-rows: minmax\(0,1.6fr\) minmax\(0,1fr\) minmax\(0,1fr\)/);
 assert.match(page, /③ 분석 · 검토/);
 assert.match(page, /④ 결과 · 최근 이력/);
-assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-template-rows: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?grid-template-columns: minmax\(0,1\.15fr\) minmax\(0,1\.35fr\) minmax\(0,1fr\) minmax\(0,1\.2fr\) minmax\(0,1\.2fr\)/);
 assert.match(page, /@media \(max-width: 768px\) \{[\s\S]*?\.paste-input-grid \{ grid-template-columns: 1fr; \}/);
 assert.match(page, /\.paste-col-baseline \{ grid-column: 1 \/ span 2; grid-row: 1 \/ span 3;/);
 assert.match(page, /\.paste-column-order-input \{ grid-column: 3; grid-row: 1;/);
