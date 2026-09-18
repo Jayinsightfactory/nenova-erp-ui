@@ -337,6 +337,13 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
   return { rows, byKey };
 }
 
+function stockRowQuantityLabel(row, quantity = row?.qty) {
+  if (row?.boxQty != null && row?.detailQty != null) {
+    return `${fmtStockQty(row.boxQty)}박스 + ${fmtStockQty(row.detailQty)}${row.detailUnit || ''}`;
+  }
+  return fmtStockQty(quantity);
+}
+
 function loadStockBaseWeek(defaultWeek) {
   try {
     return localStorage.getItem(STOCK_BASE_WEEK_KEY) || defaultWeek || '';
@@ -926,6 +933,9 @@ function buildKakaoStockDraft({
       week: selectedWeek || '',
       weekLabel: shortWeekLabel(selectedWeek || ''),
       productName: row.name,
+      boxQty: row.boxQty,
+      detailQty: row.detailQty,
+      detailUnit: row.detailUnit,
       reportedRemain: row.qty,
       reportedRemainSource: 'remainInput',
       unit: row.unit || '',
@@ -968,6 +978,9 @@ function buildKakaoStockDraft({
       week: selectedWeek || '',
       weekLabel: shortWeekLabel(selectedWeek || ''),
       productName: row.name,
+      boxQty: row.boxQty,
+      detailQty: row.detailQty,
+      detailUnit: row.detailUnit,
       reportedRemain: row.qty,
       reportedRemainSource: 'baseInput',
       unit: row.unit || '',
@@ -1013,7 +1026,7 @@ function buildKakaoStockDraft({
         const mismatch = row.reportedRemain != null && row.calcRemain != null && Math.abs(row.reportedRemain - row.calcRemain) > 0.001
           ? ` (계산 ${fmtStockQty(row.calcRemain)} 확인)`
           : '';
-        copyLines.push(`${row.productName} ${fmtStockQty(remain)}${mismatch}`);
+        copyLines.push(`${row.productName} ${stockRowQuantityLabel(row, remain)}${mismatch}`);
       });
     });
   }
@@ -1023,7 +1036,7 @@ function buildKakaoStockDraft({
     copyLines.push('여분주문');
     [...extraByWeek.entries()].forEach(([weekLabel, rows]) => {
       copyLines.push(weekLabel);
-      rows.forEach(row => copyLines.push(`${row.productName}${row.qty != null ? ` ${fmtStockQty(row.qty)}` : ''}`));
+      rows.forEach(row => copyLines.push(`${row.productName}${row.qty != null ? ` ${stockRowQuantityLabel(row)}` : ''}`));
     });
   }
 
