@@ -674,8 +674,7 @@ function parseKakaoStockRecords(text, selectedWeek) {
 }
 
 function formatChange(change) {
-  const sign = change.delta > 0 ? '+' : '';
-  const delta = `${sign}${fmtStockQty(change.delta)}`;
+  const delta = `${change.delta < 0 ? '-' : ''}${fmtStockQty(Math.abs(change.delta))}`;
   if (change.kind === 'arrow') {
     return `${change.customer} ${fmtStockQty(change.before)}>${fmtStockQty(change.after)}(${delta})`;
   }
@@ -3119,12 +3118,42 @@ export default function PasteOrderPage() {
               )}
             </div>
           </div>
+
+          {/* 5열: 분석·검토 요약 */}
+          <div className="paste-col paste-col-analysis">
+            <label style={{ ...labelS, marginBottom: 6 }}>
+              분석 · 검토
+              <span style={{ fontWeight: 400, color: '#667085', fontSize: 11, marginLeft: 6 }}>
+                매칭·잔량·변경 결과
+              </span>
+            </label>
+            <div className="paste-col-side-scroll">
+              <div style={{ border: '1px solid #c5cae9', borderRadius: 6, background: '#fff', padding: 10, fontSize: 12, lineHeight: 1.7 }}>
+                <div><b>분석 상태</b> {parsing ? '분석 중' : orders.length > 0 ? '분석 완료' : '대기'}</div>
+                <div>거래처 <b>{orders.length}</b>개</div>
+                <div style={{ color: '#2e7d32' }}>추가 <b>{totalAdd}</b></div>
+                <div style={{ color: '#c62828' }}>취소 <b>{totalCancel}</b></div>
+                <div style={{ color: '#e65100' }}>미매칭 <b>{unmatchedQueue.length}</b></div>
+              </div>
+              {stockDraft ? (
+                <div style={{ border: '1px solid #b8c7d9', borderRadius: 6, background: '#fff', padding: 10, fontSize: 11, lineHeight: 1.55 }}>
+                  <b>잔량 히스토리</b>
+                  {stockDraft.historyRows.slice(0, 6).map(row => (
+                    <div key={row.id} style={{ marginTop: 6, borderTop: '1px solid #eef2f7', paddingTop: 5 }}>
+                      {row.productName} {row.start != null && `${fmtStockQty(row.start)}>`}{row.closeRemain != null ? fmtStockQty(row.closeRemain) : '-'}
+                      {row.changes.length > 0 && <span style={{ color: '#1565c0' }}> ({row.changes.reduce((n, c) => n + Math.abs(Number(c.delta) || 0), 0)})</span>}
+                    </div>
+                  ))}
+                </div>
+              ) : <div className="paste-side-off">기초재고와 변경사항을 입력하면 잔량 히스토리가 표시됩니다.</div>}
+            </div>
+          </div>
         </div>
 
         <style jsx global>{`
           .paste-input-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
             gap: 10px;
             align-items: start;
           }
@@ -3139,6 +3168,12 @@ export default function PasteOrderPage() {
           .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; min-height: min(500px, calc(100vh - 260px)); }
           .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: min(500px, calc(100vh - 260px)); }
           .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; min-height: min(500px, calc(100vh - 260px)); }
+          .paste-col-analysis { border: 1px solid #c5cae9; background: #fbfaff; min-height: min(500px, calc(100vh - 260px)); }
+          .paste-col-order { grid-column: 1; }
+          .paste-col-order-side { grid-column: 2; }
+          .paste-col-stock { grid-column: 3; }
+          .paste-col-stock-side { grid-column: 4; }
+          .paste-col-analysis { grid-column: 5; }
           /* 1열: textarea 고정 높이 — 다른 열 높이에 끌려가지 않게 */
           .paste-col-order .paste-main-ta {
             flex: 0 0 auto;
@@ -3178,12 +3213,14 @@ export default function PasteOrderPage() {
             line-height: 1.45;
             background: #fff;
           }
-          @media (max-width: 1500px) {
-            .paste-input-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          @media (max-width: 1600px) {
+            .paste-input-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .paste-col-analysis { grid-column: 1 / -1; }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 380px; }
           }
           @media (max-width: 768px) {
             .paste-input-grid { grid-template-columns: 1fr; }
+            .paste-col-order, .paste-col-order-side, .paste-col-stock, .paste-col-stock-side, .paste-col-analysis { grid-column: 1; }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 280px; }
             .paste-col-order .paste-main-ta { height: min(220px, calc(100vh - 420px)); }
           }
