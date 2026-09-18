@@ -2981,6 +2981,15 @@ export default function PasteOrderPage() {
                 <div className="paste-side-off">🖍 하이라이트 OFF — 차수/거래처/품목 색 표시</div>
               )}
             </div>
+            <div style={{ marginTop: 8, border: '1px solid #b8c7d9', borderRadius: 6, background: '#fff', overflow: 'hidden' }}>
+              <div style={{ padding: '6px 8px', background: '#eef4ff', color: '#1e3a8a', fontSize: 11, fontWeight: 800 }}>작업 전 · 작업 후 분배수량</div>
+              {stockDraft?.historyRows?.length ? stockDraft.historyRows.flatMap(row => row.changes.map((change, idx) => {
+                const before = change.before != null ? change.before : row.start;
+                const after = change.after != null ? change.after : row.closeRemain;
+                const delta = Number(change.delta) || 0;
+                return <div key={`distribution-${row.id}-${idx}`} style={{ display: 'grid', gridTemplateColumns: '1fr 42px 42px 38px', gap: 4, padding: '5px 7px', borderBottom: '1px solid #eef2f7', fontSize: 11 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.changeNo ? `변${row.changeNo} ` : ''}{change.customer}</span><span style={{ textAlign: 'right' }}>{before == null ? '-' : fmtStockQty(before)}</span><span style={{ textAlign: 'right', fontWeight: 800, color: '#1d4ed8' }}>{after == null ? '-' : fmtStockQty(after)}</span><span style={{ textAlign: 'right', color: delta >= 0 ? '#15803d' : '#b91c1c' }}>{delta > 0 ? '+' : ''}{fmtStockQty(delta)}</span></div>;
+              })) : <div style={{ padding: 9, color: '#94a3b8', fontSize: 11 }}>분석 후 작업 전·후 수량이 표시됩니다.</div>}
+            </div>
           </div>
 
           {/* 3열: 기초재고 */}
@@ -3902,9 +3911,9 @@ export default function PasteOrderPage() {
               <div style={{ color: '#1565c0', marginTop: 3 }}>
                 다음 분석부터 저장매칭으로 적용됩니다. 저장키: {mappingNotice.savedKey}
               </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
       )}
 
       {/* ── 미매칭 질문 패널 (sticky bottom) ── */}
