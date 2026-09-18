@@ -4559,9 +4559,20 @@ export default function PasteOrderPage() {
             .paste-input-grid.paste-baseline-collapsed .paste-column-analysis { grid-column: 3; grid-row: 1; }
             .paste-input-grid.paste-baseline-collapsed .paste-col-work-results { grid-column: 4; grid-row: 1 / span 2; }
           }
-          /* Keep the four-column desktop structure on the 1499px capture size.
-             Collapsing every column below 1500px pushed analysis/results below
-             the fold and made the page appear to lose its right panels. */
+          /* 1920 기준뿐 아니라 캡처에 자주 쓰는 1280~1599px에서도
+             원문과 매칭 결과를 나란히 유지한다. 기본 2열로 되돌아가면
+             차수/업체/변경내역 열이 과도하게 좁아진다. */
+          @media (min-width: 1101px) and (max-width: 1599px) {
+            .paste-input-grid { grid-template-columns: minmax(0,1.05fr) minmax(0,1.35fr) minmax(0,1fr) minmax(0,1.15fr) minmax(0,1.15fr); grid-template-rows: auto auto; align-items: stretch; }
+            .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-width: 0; max-height: calc(100vh - 230px); overflow: auto; }
+            .paste-column-order-input { grid-column: 3; grid-row: 1 / span 2; }
+            .paste-column-base-input { grid-column: 1; grid-row: 1; }
+            .paste-column-helper { grid-column: 1; grid-row: 2; }
+            .paste-column-analysis { grid-column: 4; grid-row: 1; }
+            .paste-col-work-results { grid-column: 5; grid-row: 1 / span 2; }
+            .paste-col-baseline .paste-work-history { min-width: 0; }
+          }
+          /* 1100px 이하에서는 세로 배치로 전환해 작은 화면의 조작성을 보장한다. */
           @media (max-width: 1100px) {
             .paste-col-baseline, .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper, .paste-col-work-results { grid-column: auto; grid-row: auto; max-height: none; }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 260px; }
