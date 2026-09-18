@@ -1680,6 +1680,8 @@ export default function PasteOrderPage() {
         setPasteText(hit.data.pasteText || '');
         setBaseStockText(hit.data.baseStockText || '');
         setRemainStockText(hit.data.remainStockText || '');
+        setPasteExcludedLines(Array.isArray(hit.data.pasteExcludedLines) ? hit.data.pasteExcludedLines : []);
+        setBaseStockExcludedLines(Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : []);
         selectStockBaseWeek(hit.data.baseWeek || targetBaseWeek);
         const cache = { ...mappingCache, ...loadCache() };
         const matches = buildBaseStockMatchRows(
@@ -1687,6 +1689,7 @@ export default function PasteOrderPage() {
           allProducts,
           cache,
           hit.data.baseStockMatches || [],
+          Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : [],
         );
         setBaseStockMatches(matches);
         setOrders([]);
@@ -1699,7 +1702,8 @@ export default function PasteOrderPage() {
           week,
           hit.data.remainStockText || '',
           hit.data.baseWeek || targetBaseWeek,
-          [],
+          Array.isArray(hit.data.pasteExcludedLines) ? hit.data.pasteExcludedLines : [],
+          Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : [],
           matches,
         );
         const savedOrderWeek = hit.data.orderWeek;
@@ -1769,6 +1773,8 @@ export default function PasteOrderPage() {
     baseStockText,
     remainStockText,
     baseStockMatches: baseStockMatches.filter(m => m.prodKey),
+    pasteExcludedLines,
+    baseStockExcludedLines,
     changeLogs: savedStockNote?.data?.changeLogs || [],
     savedAt: new Date().toISOString(),
   });
