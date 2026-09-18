@@ -743,6 +743,8 @@ function buildKakaoStockDraft({
   const base = parseBaseStockText(filteredBase, { excludedLineNos: baseExcludedLineNos });
   const finalRemain = parseBaseStockText(remainText);
   const { records, extraRows } = parseKakaoStockRecords(filteredText, selectedWeek);
+  // 카톡으로 이어 붙인 변경 블록을 입력 순서대로 고유 번호화해 이력에서 추적 가능하게 한다.
+  records.forEach((record, index) => { record.changeNo = index + 1; });
   const confirmRows = [];
   const productWeekCounts = {};
 
@@ -945,7 +947,8 @@ function buildKakaoStockDraft({
     historyRows.forEach(row => {
       const start = row.start != null ? `시작${fmtStockQty(row.start)} ` : '';
       const close = row.closeRemain != null ? ` => 잔량${fmtStockQty(row.closeRemain)}` : '';
-      copyLines.push(`${row.weekLabel || '선택차수'} ${row.productName} ${start}${row.changes.map(formatChange).join(' ')}${close}`);
+      const changeLabel = row.changeNo ? `변${row.changeNo} ` : '';
+      copyLines.push(`${changeLabel}${row.weekLabel || '선택차수'} ${row.productName} ${start}${row.changes.map(formatChange).join(' ')}${close}`);
     });
   }
 
@@ -4179,7 +4182,7 @@ function StockDraftPanel({ draft, copied, onCopy }) {
               <div style={{ border: '1px solid #eceff1', borderRadius: 6, overflow: 'hidden' }}>
                 {draft.historyRows.slice(0, 8).map(row => (
                   <div key={row.id} style={{ padding: '7px 9px', borderBottom: '1px solid #eceff1', fontSize: 12, color: '#263238', background: row.warnings.length ? '#fff8e1' : '#fff' }}>
-                    <strong>{row.weekLabel || '선택차수'} {row.productName}</strong>
+                    <strong>{row.changeNo ? `변${row.changeNo} ` : ''}{row.weekLabel || '선택차수'} {row.productName}</strong>
                     <span style={{ marginLeft: 8, color: '#546e7a' }}>
                       {row.start != null && `시작 ${fmtStockQty(row.start)} / `}
                       {row.changes.map(formatChange).join(' ')}
