@@ -81,3 +81,6 @@ data/distribution-board/baselines/
 # 업무 매뉴얼 직원 수정본·아이콘 배치 (런타임). 초안 *.draft.json 은 커밋 대상
 data/work-manuals/_state.json
 data/work-manuals/_state.json.tmp
+
+# nenovaweb 화면 기록(rrweb) 런타임 파일 — 계정별 세션, 커밋 금지
+data/replay/

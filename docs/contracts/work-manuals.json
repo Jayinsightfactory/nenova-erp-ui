@@ -6,14 +6,50 @@
     "pages/api/work/manuals.js",
     "lib/workManuals.js",
     "scripts/sync-orbit-manuals.js",
-    "components/Layout.js"
+    "components/Layout.js",
+    "pages/api/work/replay.js",
+    "lib/workReplay.js",
+    "components/ReplayRecorder.js",
+    "pages/my-work.js",
+    "pages/_app.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
-    { "name": "MANUAL_LIST_OWN_OR_ADMIN", "orderDetail": "preserve", "shipmentDetail": "preserve" },
-    { "name": "MANUAL_EDIT_CONFIRM_FILE_ONLY", "orderDetail": "preserve", "shipmentDetail": "preserve" },
-    { "name": "MANUAL_ICON_LAYOUT_PER_USER", "orderDetail": "preserve", "shipmentDetail": "preserve" },
-    { "name": "MANUAL_DRAFT_SYNC_FROM_ORBIT", "orderDetail": "preserve", "shipmentDetail": "preserve" }
+    {
+      "name": "MANUAL_LIST_OWN_OR_ADMIN",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "MANUAL_EDIT_CONFIRM_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "MANUAL_ICON_LAYOUT_PER_USER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "MANUAL_DRAFT_SYNC_FROM_ORBIT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "REPLAY_RECORD_WHITELIST_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "REPLAY_VIEW_ADMIN_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
   ],
   "crossYearFixture": {
     "required": true,
@@ -22,7 +58,8 @@
   "requiredTestFiles": [
     "__tests__/workManuals.test.js",
     "__tests__/nenovaSs3AdminAccess.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/workReplay.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
