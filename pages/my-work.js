@@ -15,9 +15,41 @@ const ORBIT = process.env.ORBIT_SERVER_URL || 'https://mindmap-viewer-production
 export async function getServerSideProps({ req }) {
   const user = verifyReqUser(req);
   if (!isOrbitReportViewer(user)) return { notFound: true };
-  let data = null;
-  try { data = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'work-feature-proposals.json'), 'utf8')); } catch { data = null; }
-  return { props: { userId: user.userId, data, orbit: ORBIT } };
+  const readJson = (f) => { try { return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', f), 'utf8')); } catch { return null; } };
+  return { props: { userId: user.userId, data: readJson('work-feature-proposals.json'), boards: readJson('work-feature-storyboards.json'), orbit: ORBIT } };
+}
+
+// 캡처식 워크플로우 — 제안 하나를 고르면 실제 관찰 세션(시간순 장면)을 필름처럼 보여준다.
+// 이미지는 저장되지 않는 구조라 장면 = 화면 해독 텍스트(시각·앱·화면·행동·자동화 힌트). ● = 제안 키워드에 걸린 장면.
+function Storyboards({ boards, data }) {
+  const [who, setWho] = useState(boards?.people?.[0]?.name || '');
+  const [bi, setBi] = useState(0);
+  const [si, setSi] = useState(0);
+  if (!boards) return <p className="warn">data/work-feature-storyboards.json 이 없습니다.</p>;
+  const person = boards.people.find((p) => p.name === who) || boards.people[0];
+  const board = person.boards[bi] || person.boards[0];
+  const sess = board.sessions[si] || board.sessions[0];
+  const prop = data?.people?.find((p) => p.name === person.name)?.proposals?.rows?.[bi];
+  return (
+    <div className="doc">
+      <h1>캡처식 워크플로우 — 제안 근거 장면</h1>
+      <p className="dim">{boards.note} · 생성 {String(boards.generatedAt).slice(0, 10)}</p>
+      <div className="jump">{boards.people.map((p) => <a key={p.name} href="#" className={p.name === person.name ? 'on' : ''} onClick={(e) => { e.preventDefault(); setWho(p.name); setBi(0); setSi(0); }}>{p.name} <em>{p.events}장면 · {p.sessions}세션</em></a>)}</div>
+      <div className="jump">{person.boards.map((b, i) => <a key={i} href="#" className={i === bi ? 'on' : ''} onClick={(e) => { e.preventDefault(); setBi(i); setSi(0); }}>{b.title} <em>{b.matchedSessions}</em></a>)}</div>
+      {prop && <div className="prop"><div><b>관찰된 수작업</b> {prop.observed}</div><div><b>제안</b> {prop.proposal} <span className="chip">{prop.menu}</span></div></div>}
+      {!sess ? <p className="warn">이 제안에 맞는 관찰 세션이 없습니다(키워드 미검출). 매뉴얼·전산 기록 근거만 있음.</p> : <>
+        <div className="jump">{board.sessions.map((s, i) => <a key={i} href="#" className={i === si ? 'on' : ''} onClick={(e) => { e.preventDefault(); setSi(i); }}>{s.from} ~ {s.to.slice(6)} <em>{s.frames}장면 · 해당 {s.hits}</em></a>)}</div>
+        <div className="film">{sess.steps.map((st, i) => (
+          <div key={i} className={'frame' + (st.hit ? ' hit' : '')}>
+            <div className="fhead"><span className="t">{st.t}</span><span className="app">{st.app}</span>{st.hit && <span className="dot">●</span>}</div>
+            <div className="screen">{st.screen || '(화면 제목 없음)'}</div>
+            <div className="act">{st.act}</div>
+            {st.hint && <div className={'hint' + (st.auto ? ' auto' : '')}>{st.auto ? '자동화 가능 · ' : ''}{st.hint}</div>}
+          </div>
+        ))}</div>
+      </>}
+    </div>
+  );
 }
 
 const STAGES = ['발주', '입고', '분배', '현장출고', '견적서', '거래처전달', '입금', '해외송금', '이익', '메신저', '엑셀', '기타'];
@@ -94,11 +126,12 @@ function Proposals({ data }) {
   );
 }
 
-export default function MyWorkPage({ userId, data, orbit }) {
+export default function MyWorkPage({ userId, data, boards, orbit }) {
   const [tab, setTab] = useState('unified');
   const TABS = [
     { id: 'unified', label: '업무 통합본 (최신)' },
     { id: 'proposals', label: '기능 추가 후보 (조사)' },
+    { id: 'story', label: '캡처식 워크플로우' },
     { id: 'orbit', label: 'Orbit 작업 데이터 전체' },
   ];
   return (
@@ -114,6 +147,7 @@ export default function MyWorkPage({ userId, data, orbit }) {
         {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html'} />}
         {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html'} />}
         {tab === 'proposals' && <Proposals data={data} />}
+        {tab === 'story' && <Storyboards boards={boards} data={data} />}
       </div>
       <style jsx global>{`
         html,body{margin:0;height:100%}
@@ -141,6 +175,15 @@ export default function MyWorkPage({ userId, data, orbit }) {
         .shared li{margin:6px 0}
         .jump{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}.jump a{color:#58a6ff;border:1px solid #2c3340;border-radius:6px;padding:3px 10px;text-decoration:none}
         .person{margin-top:28px;padding-top:6px}
+        .jump a.on{background:#1c2633;border-color:#58a6ff;color:#fff}.jump a em{color:#98a1b2;font-style:normal;font-size:11px;margin-left:4px}
+        .prop{border:1px solid #2c3340;border-radius:8px;padding:8px 12px;margin:8px 0 12px;background:#12151c}.prop div{margin:3px 0}
+        .film{display:flex;gap:10px;overflow-x:auto;padding:8px 0 14px;scroll-snap-type:x proximity}
+        .frame{flex:0 0 250px;scroll-snap-align:start;border:1px solid #2c3340;border-radius:10px;background:#12151c;padding:8px 10px;display:flex;flex-direction:column;gap:5px;min-height:170px}
+        .frame.hit{border-color:#e3b341;box-shadow:0 0 0 1px #e3b34155}
+        .fhead{display:flex;gap:6px;align-items:center;font-size:11px;color:#98a1b2}.fhead .t{font-weight:700;color:#e7eaf0}.fhead .app{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.fhead .dot{color:#e3b341}
+        .screen{font-weight:600;font-size:12px;line-height:1.35;border-bottom:1px dashed #262b35;padding-bottom:4px}
+        .act{font-size:11.5px;line-height:1.4;color:#c9d1d9}
+        .hint{font-size:10.5px;color:#8b949e;margin-top:auto;padding-top:4px;border-top:1px dashed #262b35}.hint.auto{color:#3fb950}
         .bars{display:inline-flex;width:180px;height:10px;border-radius:3px;overflow:hidden;vertical-align:middle;background:#1f2430}
         .bars i{display:block;height:100%}
         .s0{background:#58a6ff}.s1{background:#3fb950}.s2{background:#d29922}.s3{background:#f778ba}.s4{background:#a371f7}.s5{background:#79c0ff}.s6{background:#56d364}.s7{background:#ffa657}.s8{background:#ff7b72}.s9{background:#8b949e}.s10{background:#6e7681}.s11{background:#484f58}
