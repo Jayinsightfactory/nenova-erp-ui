@@ -5,7 +5,7 @@
 // 탭3 Orbit 전체: /my-work.html(작업 흐름·시간표·화면 타임라인 등).
 import fs from 'fs';
 import path from 'path';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import MenuBackButton from '../components/MenuBackButton';
 import { verifyReqUser } from '../lib/auth';
@@ -112,6 +112,47 @@ function Storyboards({ boards, data }) {
   );
 }
 
+// nenovaweb 화면 재생 — rrweb 기록(화면 구조+클릭·입력·이동)을 그대로 재생. 화면 해독이 아니라 실제 기록이라 값이 정확하다.
+// 왼쪽: 세션 목록 → 재생기, 오른쪽: 단계 목록(이동·클릭·입력값). 단계를 누르면 그 시각으로 이동.
+function Replay() {
+  const [sessions, setSessions] = useState(null);
+  const [cur, setCur] = useState(null);
+  const [msg, setMsg] = useState('');
+  const boxRef = useRef(null), playerRef = useRef(null);
+  useEffect(() => { fetch('/api/work/replay?list=1').then((r) => r.json()).then((j) => setSessions(j.sessions || [])).catch(() => setSessions([])); }, []);
+  const fmt = (t) => new Date(t).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const open = async (s) => {
+    setMsg('불러오는 중…'); setCur(null);
+    try {
+      const j = await (await fetch(`/api/work/replay?user=${encodeURIComponent(s.userId)}&session=${encodeURIComponent(s.sessionId)}`)).json();
+      if (!j.success) throw new Error(j.error || '실패');
+      if (j.events.length < 2) { setMsg('이벤트가 너무 적어 재생할 수 없습니다.'); return; }
+      const [{ default: Player }] = await Promise.all([import('rrweb-player'), import('rrweb-player/dist/style.css')]);
+      if (boxRef.current) boxRef.current.innerHTML = '';
+      const w = Math.min(1100, (boxRef.current?.clientWidth || 1000));
+      playerRef.current = new Player({ target: boxRef.current, props: { events: j.events, width: w, height: Math.round(w * 0.56), autoPlay: false, showController: true, speedOption: [1, 2, 4, 8], skipInactive: true } });
+      setCur({ ...s, steps: j.meta?.steps || [], t0: j.events[0].timestamp }); setMsg('');
+    } catch (e) { setMsg('불러오기 실패: ' + e.message); }
+  };
+  const seek = (t) => { try { playerRef.current?.goto(Math.max(0, t - cur.t0 - 500), false); } catch {} };
+  const KIND = { route: '이동', click: '클릭', input: '입력' };
+  return (
+    <div className="doc wide">
+      <h1>nenovaweb 화면 재생</h1>
+      <p className="dim">네노바웹에서 한 작업을 화면 구조와 클릭·입력·이동 이벤트로 기록해 그대로 재생합니다(영상·화면 해독 아님, 값이 정확). 현재 시범: nenovaSS3 본인 계정만 기록. 비밀번호 입력은 항상 가립니다. 보관 14일.</p>
+      {sessions === null ? <p className="dim">목록 불러오는 중…</p> : sessions.length === 0 ? <p className="warn">아직 기록된 세션이 없습니다. 네노바웹의 다른 메뉴에서 작업한 뒤 다시 열어 보세요(이 화면과 로그인 화면은 기록하지 않습니다).</p> :
+        <div className="jump">{sessions.map((s) => <a key={s.userId + s.sessionId} href="#" className={cur?.sessionId === s.sessionId ? 'on' : ''} onClick={(e) => { e.preventDefault(); open(s); }}>{fmt(s.from)} <em>{s.userName || s.userId} · {Math.max(1, Math.round((s.to - s.from) / 60000))}분 · 단계 {s.stepCount} · {(s.size / 1024 / 1024).toFixed(1)}MB · {s.routes.slice(0, 4).join(' → ')}{s.routes.length > 4 ? ' …' : ''}</em></a>)}</div>}
+      {msg && <p className="warn">{msg}</p>}
+      <div className="rp">
+        <div className="rpl" ref={boxRef} />
+        {cur && <div className="rpr"><b>단계 {cur.steps.length}</b>
+          <ol>{cur.steps.map((st, i) => <li key={i} onClick={() => seek(st.t)} className={'k-' + st.kind}><span className="t2">{fmt(st.t).slice(-8)}</span><span className="chip">{KIND[st.kind] || st.kind}</span> {st.kind === 'route' ? st.path : <>{st.label || <span className="dim">({st.tag})</span>}{st.kind === 'input' && <span className="val"> = {st.value}</span>}<span className="dim"> · {st.path}</span></>}</li>)}</ol>
+        </div>}
+      </div>
+    </div>
+  );
+}
+
 const STAGES = ['발주', '입고', '분배', '현장출고', '견적서', '거래처전달', '입금', '해외송금', '이익', '메신저', '엑셀', '기타'];
 const sum = (m) => Object.values(m || {}).reduce((a, b) => a + b, 0);
 
@@ -192,6 +233,7 @@ export default function MyWorkPage({ userId, data, boards, orbit, tab: tab0 }) {
     { id: 'unified', label: '업무 통합본 (최신)' },
     { id: 'proposals', label: '기능 추가 후보 (조사)' },
     { id: 'story', label: '캡처식 워크플로우' },
+    { id: 'replay', label: 'nenovaweb 화면 재생' },
     { id: 'orbit', label: 'Orbit 작업 데이터 전체' },
   ];
   return (
@@ -208,6 +250,7 @@ export default function MyWorkPage({ userId, data, boards, orbit, tab: tab0 }) {
         {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html'} />}
         {tab === 'proposals' && <Proposals data={data} />}
         {tab === 'story' && <Storyboards boards={boards} data={data} />}
+        {tab === 'replay' && <Replay />}
       </div>
       <style jsx global>{`
         html,body{margin:0;height:100%}
@@ -259,6 +302,9 @@ export default function MyWorkPage({ userId, data, boards, orbit, tab: tab0 }) {
         .t2{color:#8b949e;font-variant-numeric:tabular-nums;margin-right:4px}
         .chip.auto{color:#3fb950;border-color:#3fb95066}
         .framev .hint{margin-top:2px;font-size:11.5px}
+        .rp{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:10px}.rpl{flex:1 1 640px;min-width:0}
+        .rpr{flex:0 0 380px;max-height:720px;overflow:auto;border:1px solid #2c3340;border-radius:8px;background:#12151c;padding:8px 10px;font-size:12px}
+        .rpr ol{margin:6px 0 0;padding-left:22px}.rpr li{margin:3px 0;cursor:pointer;line-height:1.45}.rpr li:hover{color:#58a6ff}.rpr .val{color:#e3b341}.rpr li.k-route{color:#79c0ff}
         .kv span{display:block;margin:2px 0}.kv b{color:#98a1b2;font-weight:600;margin-right:6px}.kv .ok{color:#3fb950}
         .ft{border-collapse:collapse;font-size:11px;margin-top:4px}.ft th,.ft td{border:1px solid #262b35;padding:2px 6px;text-align:left;vertical-align:top}.ft th{background:#171a21;color:#98a1b2}
         .ft .val{color:#e3b341;max-width:320px;word-break:break-all}.tw{overflow-x:auto}
