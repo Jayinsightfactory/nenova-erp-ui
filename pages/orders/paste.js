@@ -3985,9 +3985,9 @@ export default function PasteOrderPage() {
           {/* 왼쪽 두 열: 원문과 실제 최신 주문·분배 이력을 한 행에서 대조 */}
           <div className={`paste-col paste-col-baseline${baselineCollapsed ? ' is-collapsed' : ''}`}>
             <div className="paste-column-title">① 영업방 원문 · 최신 전산 이력</div>
-            <DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
-              hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} />
-            <DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} operationRevision={bulkResult} onLoadText={({text,messages,sourceWeek,autoAnalyze}) => {
+            <div className="paste-baseline-panel"><DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
+              hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} /></div>
+            <div className="paste-sales-inbox"><DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} operationRevision={bulkResult} onLoadText={({text,messages,sourceWeek,autoAnalyze}) => {
               if (pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
               const nextWeek = sourceWeek || week;
               setEvidenceMessages(messages || []);
@@ -3996,7 +3996,7 @@ export default function PasteOrderPage() {
               setBulkResult(null); setDetectedWeek(''); setStockDraft(null); setBulkCompletionNotice(null); setBulkProgress('');
               document.getElementById('paste-connected-input')?.scrollIntoView({block:'start'});
               if (autoAnalyze) void handleParse({ text, targetWeek: nextWeek });
-            }} />
+            }} /></div>
           </div>
 
           {/* 2열 상단: 주문 원문과 Claude 분석 */}
@@ -4419,6 +4419,10 @@ export default function PasteOrderPage() {
           .paste-baseline-toggle small { color: #64748b; }
           .paste-col-order { border: 1px solid #c5cae9; background: #f7f8ff; }
           .paste-col-baseline { border: 1px solid #bfdbd0; background: #f5fbf7; }
+          .paste-col-baseline > .paste-column-title,
+          .paste-col-baseline > .paste-baseline-toggle { grid-column: 1 / -1; }
+          .paste-col-baseline > .paste-baseline-panel,
+          .paste-col-baseline > .paste-sales-inbox { min-width: 0; }
           .paste-col-baseline.is-collapsed { display: none; }
           .paste-col-order-side { border: 1px solid #d5d9e8; background: #fafbff; min-height: min(320px, calc(100vh - 420px)); }
           .paste-col-order-side.paste-col-order-results { min-height: 0; background: #fff; border-color: #9fa8da; }
@@ -4543,6 +4547,7 @@ export default function PasteOrderPage() {
             background: #fff;
           }
           @media (min-width: 1600px) {
+            .paste-col-baseline { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.35fr); gap: 8px; align-content: start; }
             .paste-input-grid { grid-template-columns: minmax(0,1fr) minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 170px); max-height: calc(100vh - 170px); min-height: 0; align-items: stretch; }
             .paste-input-grid > .paste-col > * { flex-shrink: 0; }
             .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: auto; }
@@ -4563,6 +4568,7 @@ export default function PasteOrderPage() {
              원문과 매칭 결과를 나란히 유지한다. 기본 2열로 되돌아가면
              차수/업체/변경내역 열이 과도하게 좁아진다. */
           @media (min-width: 1101px) and (max-width: 1599px) {
+            .paste-col-baseline { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.35fr); gap: 8px; align-content: start; }
             .paste-input-grid { grid-template-columns: minmax(0,.9fr) minmax(0,2.2fr) minmax(0,1fr) minmax(0,.95fr) minmax(0,1fr); grid-template-rows: auto auto; align-items: stretch; }
             .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-width: 0; max-height: calc(100vh - 230px); overflow: auto; }
             .paste-column-order-input { grid-column: 3; grid-row: 1 / span 2; }
