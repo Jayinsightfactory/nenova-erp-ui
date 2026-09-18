@@ -95,6 +95,7 @@ import {
 } from '../lib/estimateManagerPrint';
 import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../components/ShipmentFixLogPanel';
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
+import FreightChargePreviewModal from '../components/estimate/FreightChargePreviewModal';
 import ErpEditPresenceBanner from '../components/ErpEditPresenceBanner';
 import EstimateOverflowPreview from '../components/EstimateOverflowPreview';
 import useErpEditPresence from '../hooks/useErpEditPresence';
@@ -1351,6 +1352,7 @@ export default function Estimate() {
   const [err, setErr] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [showAdditionalProduct, setShowAdditionalProduct] = useState(false);
+  const [showFreightPreview, setShowFreightPreview] = useState(false);
   const [pendingAdds, setPendingAdds] = useState([]);
   const [defectContext, setDefectContext] = useState(null);
   const [defectContextLoading, setDefectContextLoading] = useState(false);
@@ -5317,6 +5319,7 @@ export default function Estimate() {
                 ＋ 판매요청
               </button>
               <button className="btn btn-sm" style={{background:'#7c3aed',color:'#fff',borderColor:'#6d28d9'}} disabled={deductionDeleting || !selectedShip || estimateEditPresence.blocked} onClick={()=>setShowAdditionalProduct(true)} title="추가 품목을 목록에 담은 뒤 수량/단가와 한 번에 저장합니다.">＋ 추가 품목등록{pendingAdds.length ? ` (${pendingAdds.length})` : ''}</button>
+              <button className="btn btn-sm" style={{background:'#0f766e',color:'#fff',borderColor:'#115e59'}} disabled={deductionDeleting || !selectedShip || itemLoading || estimateEditPresence.blocked} onClick={()=>setShowFreightPreview(true)} title="현재 업체의 정상출고 품목을 박스로 환산해 상차운임·운송료를 읽기 전용으로 계산합니다.">🚚 운임비 추가</button>
               <button className="btn btn-sm"
                 disabled={deductionDeleting || !selectedItemForEdit || itemEditorSaving || estimateEditPresence.blocked}
                 onClick={() => openItemEditor(selectedItemForEdit)}
@@ -5357,6 +5360,7 @@ export default function Estimate() {
           )}
 
           <OrderRegisterDistributeModal open={showAdditionalProduct} onClose={()=>setShowAdditionalProduct(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} editBlocked={estimateEditPresence.blocked} editPresence={estimateEditPresence} onQueue={(rows)=>{setPendingAdds(prev=>[...prev,...rows]);setShowAdditionalProduct(false);}} />
+          <FreightChargePreviewModal open={showFreightPreview} onClose={()=>setShowFreightPreview(false)} items={items} selectedShip={selectedShip} />
           {pendingAdds.length > 0 && (
             <div style={{margin:'8px 12px 0',padding:'8px 10px',borderRadius:8,background:'#f5f3ff',border:'1px solid #ddd6fe',fontSize:12}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
