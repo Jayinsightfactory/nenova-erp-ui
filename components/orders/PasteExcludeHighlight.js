@@ -1,9 +1,19 @@
-import {useRef} from 'react';
+import {useEffect,useRef} from 'react';
 import {excludedTextRanges,toggleExcludedText} from '../../lib/pasteExcludeText';
 
 export default function PasteExcludeHighlight({text,excludedLines=[],onExcludedLinesChange,title='제외 하이라이트',hint='단어·문구를 드래그해 제외 · 제외된 부분을 다시 선택하면 해제',embedded=false}) {
   const contentRef=useRef(null);
   const source=String(text||'');
+  const dictionaryKey=`nenova-exclude-words:${title}`;
+  useEffect(()=>{
+    if(!source||!onExcludedLinesChange)return;
+    try {
+      const words=JSON.parse(localStorage.getItem(dictionaryKey)||'[]').filter(word=>typeof word==='string'&&word.trim());
+      if(!words.length)return;
+      const next=[...new Set(source.split(/\r?\n/).flatMap((line,index)=>words.some(word=>line.includes(word))?[...excludedLines,index]:[]))];
+      if(next.length!==excludedLines.length||next.some((value,index)=>value!==excludedLines[index]))onExcludedLinesChange(next);
+    } catch {}
+  },[source,dictionaryKey]);
   const ranges=excludedTextRanges(source,excludedLines);
   const finishSelection=()=>{
     const selection=window.getSelection();const root=contentRef.current;
@@ -12,6 +22,10 @@ export default function PasteExcludeHighlight({text,excludedLines=[],onExcludedL
     if(!root.contains(selected.startContainer)||!root.contains(selected.endContainer))return;
     const prefix=selected.cloneRange();prefix.selectNodeContents(root);prefix.setEnd(selected.startContainer,selected.startOffset);
     const start=prefix.toString().length,end=start+selected.toString().length;
+    try {
+      const word=selected.toString().trim();
+      if(word){const words=JSON.parse(localStorage.getItem(dictionaryKey)||'[]');if(!words.includes(word))localStorage.setItem(dictionaryKey,JSON.stringify([...words,word].slice(-100)));}
+    } catch {}
     onExcludedLinesChange?.(toggleExcludedText(source,excludedLines,start,end));
     selection.removeAllRanges();
   };
