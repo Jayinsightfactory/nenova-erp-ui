@@ -13,12 +13,23 @@ import { isOrbitReportViewer } from '../lib/orbitReportAccess';
 
 const ORBIT = process.env.ORBIT_SERVER_URL || 'https://mindmap-viewer-production-adb2.up.railway.app';
 
+// 스토리보드(10MB)는 프로세스 안에 한 번만 파싱해 두고 파일 수정 시각이 바뀌면 다시 읽는다
+let _sb = { mtime: 0, data: null };
+function readStoryboards() {
+  const f = path.join(process.cwd(), 'data', 'work-feature-storyboards.json');
+  try {
+    const m = fs.statSync(f).mtimeMs;
+    if (m !== _sb.mtime) _sb = { mtime: m, data: JSON.parse(fs.readFileSync(f, 'utf8')) };
+    return _sb.data;
+  } catch { return null; }
+}
+
 export async function getServerSideProps({ req, query }) {
   const user = verifyReqUser(req);
   if (!isOrbitReportViewer(user)) return { notFound: true };
   const readJson = (f) => { try { return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', f), 'utf8')); } catch { return null; } };
-  // 스토리보드 파일은 3MB(장면마다 창 제목·입력·전산 융합) → 선택된 사람·제안·세션의 장면만 내려보내고 나머지는 목차만
-  const full = readJson('work-feature-storyboards.json');
+  // 스토리보드 파일은 10MB(장면마다 창 제목·입력·전산 융합) → 선택된 사람·제안·세션의 장면만 내려보내고 나머지는 목차만
+  const full = readStoryboards();
   let boards = null;
   if (full) {
     const who = full.people.find((p) => p.name === query.who) || full.people[0];
@@ -56,6 +67,10 @@ function Storyboards({ boards, data }) {
         <b>이 제안의 관찰 총량</b> 세션 {board.matchedSessions} · {board.summary.minutes}분 · 장면 {board.summary.frames} · 자동화 가능 판정 {board.summary.automatable}장면
         <div className="dim">앱별 시간: {board.summary.apps.join(' · ')}</div>
         <div className="dim">주로 나오는 시각: {board.summary.hours.join(' · ')} · 검출 키워드: {board.keywords.join(', ')}</div>
+        {board.summary.products?.length > 0 && <div className="dim">화면에 자주 보인 품목: {board.summary.products.join(' · ')}</div>}
+        {board.summary.customers?.length > 0 && <div className="dim">화면에 자주 보인 거래처: {board.summary.customers.join(' · ')}</div>}
+        {board.summary.autoAreas?.length > 0 && <div><b>해독기가 반복해서 자동화 가능이라 본 영역:</b> {board.summary.autoAreas.join(' · ')}</div>}
+        <div className="dim">읽힌 화면 필드값 {board.summary.fieldsWithValue ?? 0}개 · 읽힌 표 {board.summary.tables ?? 0}개</div>
       </div>}
       {!sess ? <p className="warn">이 제안에 맞는 관찰 세션이 없습니다(키워드 미검출). 매뉴얼·전산 기록 근거만 있음.</p> : <>
         <div className="jump">{board.sessions.map((s, i) => <a key={i} href="#" className={i === boards.si ? 'on' : ''} onClick={(e) => { e.preventDefault(); go({ s: i }); }}>{s.from} ~ {s.to.slice(6)} <em>{s.minutes}분 · {s.frames}장면 · 해당 {s.hits}</em></a>)}</div>
@@ -63,6 +78,9 @@ function Storyboards({ boards, data }) {
           <b>세션 요약</b> {sess.day} {sess.from.slice(6)}~{sess.to.slice(6)} ({sess.minutes}분) · 장면 {sess.frames} · 캡처 {sess.captures}장 · 클릭 {sess.clicksTotal}회 · 업무앱 입력 {sess.typedTotal}건 · 자동화 가능 {sess.automatable}장면
           {Object.keys(sess.erp || {}).length > 0 && <span> · 같은 시간대 전산 저장: {Object.entries(sess.erp).map(([k, v]) => `${k} ${v}건`).join(', ')}</span>}
           <div className="dim">앱별 체류: {sess.apps.join(' · ')}</div>
+          {sess.stages && Object.keys(sess.stages).length > 0 && <div className="dim">사업 단계(장면 수): {Object.entries(sess.stages).map(([k, v]) => `${k} ${v}`).join(' · ')}</div>}
+          {(sess.cycles?.length > 0 || sess.products?.length > 0 || sess.customers?.length > 0) && <div className="dim">{sess.cycles?.length > 0 && <span>차수 {sess.cycles.join(', ')} · </span>}{sess.customers?.length > 0 && <span>거래처 {sess.customers.join(', ')} · </span>}{sess.products?.length > 0 && <span>품목 {sess.products.join(', ')}</span>}</div>}
+          <div className="dim">읽힌 필드값 {sess.fieldsWithValue ?? 0}개 · 표 {sess.tablesTotal ?? 0}개</div>
         </div>
         <h3 className="tog" onClick={() => setOpenAll((v) => !v)}>{openAll ? '▾' : '▸'} 세션 서사(장면 {sess.frames}개를 순서대로 이어 쓴 설명)</h3>
         {openAll && <pre className="narr">{sess.narrative}</pre>}
@@ -72,6 +90,17 @@ function Storyboards({ boards, data }) {
             <div className="fhead"><span className="no">{i + 1}</span><span className="t">{st.t}</span>{st.dur > 0 && <span className="dim">{st.dur}분 체류</span>}<span className="app">{st.app}</span>{st.trig && <span className="chip">{st.trig}</span>}{st.hit && <span className="dot">● 제안 관련</span>}{st.auto && <span className="chip auto">자동화 가능</span>}</div>
             <div className="screen">{st.screen || '(화면 제목 없음)'}</div>
             <div className="act">{st.act}</div>
+            {(st.stage || st.purpose || st.from || st.to || st.output) && <div className="sub kv">
+              {st.stage && <span><b>단계</b> {st.stage}</span>}{st.purpose && <span><b>목적</b> {st.purpose}</span>}{st.from && <span><b>입력 출처</b> {st.from}</span>}{st.to && <span><b>전달처</b> {st.to}</span>}{st.output && <span><b>결과물</b> {st.output}</span>}
+            </div>}
+            {(st.cycle || st.farm || st.customers?.length > 0 || st.products?.length > 0 || st.qty?.length > 0 || st.amounts?.length > 0) && <div className="sub kv">
+              <b>화면에 보인 것</b>{st.cycle && <span>차수 {st.cycle}</span>}{st.farm && <span>농장 {st.farm}</span>}{st.customers?.length > 0 && <span>거래처 {st.customers.join(', ')}</span>}{st.products?.length > 0 && <span>품목 {st.products.join(', ')}</span>}{st.qty?.length > 0 && <span>수량 {st.qty.join(', ')}</span>}{st.amounts?.length > 0 && <span>금액 {st.amounts.join(', ')}</span>}
+            </div>}
+            {st.fields?.length > 0 && <div className="sub"><b>화면 필드 ({st.fields.length})</b><table className="ft"><tbody>{st.fields.map((f, j) => <tr key={j}><td className="dim">{f.type}</td><td>{f.name}</td><td className="val">{f.value || <span className="dim">—</span>}</td><td className="dim">{f.src}{f.xy ? ` · 클릭(${f.xy})` : ''}</td><td className="dim">{f.human ? '사람: ' + (f.why || '판단 필요') : '자동 가능'}</td></tr>)}</tbody></table></div>}
+            {st.tables?.length > 0 && st.tables.map((tb, j) => <div className="sub" key={j}><b>표 {tb.name}</b>{tb.truncated && <span className="dim"> (일부)</span>}<div className="tw"><table className="ft"><thead><tr>{tb.columns.map((c, k) => <th key={k}>{c}</th>)}</tr></thead><tbody>{tb.rows.map((r, k) => <tr key={k}>{r.map((c, m) => <td key={m}>{c}</td>)}</tr>)}</tbody></table></div></div>)}
+            {(st.done || st.change || st.next) && <div className="sub kv">{st.done && <span><b>완료 동작</b> {st.done}</span>}{st.change && <span><b>직전 대비 변화</b> {st.change}</span>}{st.next && <span><b>다음 예상</b> {st.next}</span>}</div>}
+            {(st.autoAreas?.length > 0 || st.humanAreas?.length > 0) && <div className="sub kv">{st.autoAreas?.length > 0 && <span className="ok"><b>자동화 가능</b> {st.autoAreas.join(' · ')}</span>}{st.humanAreas?.length > 0 && <span><b>사람 판단</b> {st.humanAreas.join(' · ')}</span>}</div>}
+            {st.nenovaAction && <div className="sub dim">전산 동작: {st.nenovaAction}{st.inputMap?.length > 0 ? ' · 입력맵 ' + st.inputMap.join(' | ') : ''}</div>}
             {st.titles.length > 0 && <div className="sub"><b>창 흐름 ({st.titles.length})</b><ol>{st.titles.map((x, j) => <li key={j}><span className="t2">{x.t}</span> {x.lab}{x.trig ? <em> · {x.trig}</em> : null}</li>)}</ol></div>}
             {st.typed.length > 0 && <div className="sub"><b>업무 앱 입력 ({st.typed.length})</b><ol>{st.typed.map((x, j) => <li key={j}><span className="t2">{x.t}</span> <em>{x.app}</em> “{x.text}”</li>)}</ol></div>}
             {(st.erp.length > 0 || st.clicks > 0) && <div className="sub dim">{st.erp.length > 0 && <span>전산 저장(같은 시각): {st.erp.join(', ')} · </span>}클릭 {st.clicks}회</div>}
@@ -230,6 +259,10 @@ export default function MyWorkPage({ userId, data, boards, orbit, tab: tab0 }) {
         .t2{color:#8b949e;font-variant-numeric:tabular-nums;margin-right:4px}
         .chip.auto{color:#3fb950;border-color:#3fb95066}
         .framev .hint{margin-top:2px;font-size:11.5px}
+        .kv span{display:block;margin:2px 0}.kv b{color:#98a1b2;font-weight:600;margin-right:6px}.kv .ok{color:#3fb950}
+        .ft{border-collapse:collapse;font-size:11px;margin-top:4px}.ft th,.ft td{border:1px solid #262b35;padding:2px 6px;text-align:left;vertical-align:top}.ft th{background:#171a21;color:#98a1b2}
+        .ft .val{color:#e3b341;max-width:320px;word-break:break-all}.tw{overflow-x:auto}
+        .doc .ft tbody tr,.doc .ft tbody tr:nth-child(even){background:#0e1016!important}.doc .ft td{background:transparent!important;color:#e7eaf0!important}
         .bars{display:inline-flex;width:180px;height:10px;border-radius:3px;overflow:hidden;vertical-align:middle;background:#1f2430}
         .bars i{display:block;height:100%}
         .s0{background:#58a6ff}.s1{background:#3fb950}.s2{background:#d29922}.s3{background:#f778ba}.s4{background:#a371f7}.s5{background:#79c0ff}.s6{background:#56d364}.s7{background:#ffa657}.s8{background:#ff7b72}.s9{background:#8b949e}.s10{background:#6e7681}.s11{background:#484f58}
