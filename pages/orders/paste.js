@@ -719,10 +719,9 @@ function buildAnalyzedStockRecords(analysisOrders, selectedWeek) {
 }
 
 function formatChange(change) {
-  const sign = change.delta > 0 ? '+' : '';
-  const delta = `${sign}${fmtStockQty(change.delta)}`;
+  const delta = `${change.delta < 0 ? '-' : ''}${fmtStockQty(Math.abs(change.delta))}`;
   if (change.kind === 'arrow') {
-    return `${change.customer} ${fmtStockQty(change.before)}>${fmtStockQty(change.after)}(${delta})`;
+    return `${change.customer} ${fmtStockQty(change.before)}>${fmtStockQty(change.after)}(재고)`;
   }
   const label = change.kind === 'cancel' ? '취소' : change.kind === 'add' ? '추가' : '추정';
   return `${change.customer} ${delta}(${label})`;
