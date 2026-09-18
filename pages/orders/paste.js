@@ -4543,25 +4543,21 @@ export default function PasteOrderPage() {
             background: #fff;
           }
           @media (min-width: 1600px) {
-            .paste-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 170px); max-height: calc(100vh - 170px); min-height: 0; align-items: stretch; }
+            .paste-input-grid { grid-template-columns: minmax(0,1.15fr) minmax(0,1.35fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.2fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 170px); max-height: calc(100vh - 170px); min-height: 0; align-items: stretch; }
             .paste-input-grid > .paste-col > * { flex-shrink: 0; }
             .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: auto; }
-            .paste-col-baseline { grid-column: 1 / span 2; grid-row: 1 / span 3; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
-            .paste-column-order-input { grid-column: 3; grid-row: 1; }
-            .paste-column-base-input { grid-column: 3; grid-row: 2; }
-            .paste-column-helper { grid-column: 3; grid-row: 3; }
+            .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
+            .paste-column-order-input { grid-column: 3; grid-row: 1 / span 2; }
+            .paste-column-base-input { grid-column: 1; grid-row: 1; }
+            .paste-column-helper { grid-column: 1; grid-row: 2; }
             .paste-column-analysis { grid-column: 4; grid-row: 1; }
-            .paste-col-work-results { grid-column: 4; grid-row: 2 / span 2; }
-            .paste-input-grid { grid-template-columns: minmax(0,.16fr) minmax(0,.16fr) minmax(0,.23fr) minmax(0,.45fr); }
-            .paste-input-grid { grid-template-rows: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr); }
-            .paste-input-grid .paste-column-analysis { grid-row: 1 / span 2; }
-            .paste-input-grid .paste-col-work-results { grid-row: 3; }
-            .paste-input-grid.paste-baseline-collapsed { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }
-            .paste-input-grid.paste-baseline-collapsed .paste-column-order-input { grid-column: 1; grid-row: 1; }
-            .paste-input-grid.paste-baseline-collapsed .paste-column-base-input { grid-column: 1; grid-row: 2; }
-            .paste-input-grid.paste-baseline-collapsed .paste-column-helper { grid-column: 1; grid-row: 3; }
-            .paste-input-grid.paste-baseline-collapsed .paste-column-analysis { grid-column: 2; grid-row: 1; }
-            .paste-input-grid.paste-baseline-collapsed .paste-col-work-results { grid-column: 2; grid-row: 2 / span 2; }
+            .paste-col-work-results { grid-column: 5; grid-row: 1 / span 2; }
+            .paste-input-grid.paste-baseline-collapsed { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+            .paste-input-grid.paste-baseline-collapsed .paste-column-order-input { grid-column: 2; grid-row: 1 / span 2; }
+            .paste-input-grid.paste-baseline-collapsed .paste-column-base-input { grid-column: 1; grid-row: 1; }
+            .paste-input-grid.paste-baseline-collapsed .paste-column-helper { grid-column: 1; grid-row: 2; }
+            .paste-input-grid.paste-baseline-collapsed .paste-column-analysis { grid-column: 3; grid-row: 1; }
+            .paste-input-grid.paste-baseline-collapsed .paste-col-work-results { grid-column: 4; grid-row: 1 / span 2; }
           }
           /* Keep the four-column desktop structure on the 1499px capture size.
              Collapsing every column below 1500px pushed analysis/results below
