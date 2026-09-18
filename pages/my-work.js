@@ -169,6 +169,9 @@ export default function MyWorkPage({ userId, data, boards, orbit }) {
         .stats div{margin:3px 0}
         .tbl{width:100%;border-collapse:collapse;font-size:12.5px}.tbl th,.tbl td{border:1px solid #262b35;padding:6px 8px;vertical-align:top;text-align:left}
         .tbl th{background:#171a21;color:#98a1b2;font-weight:600}.tbl.small{font-size:11.5px}
+        /* 전역 CSS의 짝수행 흰 배경(글씨 안 보임) 차단 — 이 화면은 어두운 배경 고정 */
+        .doc .tbl tbody tr,.doc .tbl tbody tr:nth-child(even),.doc .tbl tbody tr:hover{background:#0e1016!important}
+        .doc .tbl td{background:transparent!important;color:#e7eaf0!important}
         .pri{color:#e3b341;white-space:nowrap}
         .manual{border:1px solid #262b35;border-radius:8px;padding:8px 12px;margin:6px 0;background:#12151c}
         .manual ol{margin:4px 0 0;padding-left:20px}.manual li{margin:2px 0}
