@@ -676,7 +676,7 @@ function parseKakaoStockRecords(text, selectedWeek) {
 function formatChange(change) {
   const delta = `${change.delta < 0 ? '-' : ''}${fmtStockQty(Math.abs(change.delta))}`;
   if (change.kind === 'arrow') {
-    return `${change.customer} ${fmtStockQty(change.before)}>${fmtStockQty(change.after)}(${delta})`;
+    return `${change.customer} ${fmtStockQty(change.before)}>${fmtStockQty(change.after)}(재고)`;
   }
   const label = change.kind === 'cancel' ? '취소' : change.kind === 'add' ? '추가' : '추정';
   return `${change.customer} ${delta}(${label})`;
