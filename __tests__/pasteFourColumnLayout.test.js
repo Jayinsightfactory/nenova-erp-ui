@@ -18,7 +18,7 @@ assert.match(page, /disabled=\{parsing \|\| bulkRunning \|\| adjustSaving \|\| o
 assert.match(page, /② 입력/);
 assert.match(page,/paste-analysis-toolbar/);
 assert.match(page,/className="paste-analyze-button"/);
-assert.match(page,/grid-template-rows: minmax\(0,1.6fr\) minmax\(0,1fr\) minmax\(0,1fr\)/);
+assert.match(page,/grid-template-rows: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
 assert.match(page, /③ 분석 · 검토/);
 assert.match(page, /④ 결과 · 최근 이력/);
 assert.match(page, /@media \(min-width: 1600px\) \{[\s\S]*?grid-template-columns: minmax\(0,1\.15fr\) minmax\(0,1\.35fr\) minmax\(0,1fr\) minmax\(0,1\.2fr\) minmax\(0,1\.2fr\)/);
