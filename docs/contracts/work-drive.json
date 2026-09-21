@@ -1,0 +1,68 @@
+{
+  "id": "work-drive",
+  "title": "업무 드라이브(데몬 자동 업로드·분류·부서 접근, 파일 전용) 계약",
+  "scope": [
+    "pages/work/drive.js",
+    "pages/api/work/drive.js",
+    "pages/api/work/drive-ingest.js",
+    "lib/workDrive.js",
+    "components/Layout.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "DRIVE_INGEST_TOKEN_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "DRIVE_CLASSIFY_CYCLE_STAGE_DEPT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "DRIVE_LIST_DEPT_ACCESS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "DRIVE_DOWNLOAD_LOGGED",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "업무 드라이브는 ERP 원장을 읽거나 쓰지 않는다. 저장소는 data/drive 의 파일과 index.jsonl 뿐이며 MSSQL 연결을 열지 않는다. 파일명의 차수는 표시·분류용 문자열이고 OrderYear/OrderWeek 키를 만들지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/workDrive.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "nenova.exe 기능이 아닌 웹 전용 화면. ERP 테이블 side effect 는 모두 preserve.",
+    "methods": [
+      "ORBIT_DRIVE_INGEST_TOKEN timing-safe compare (pages/api/work/drive-ingest.js)",
+      "NenovaWeb JWT userName→부서 접근 규칙 (lib/workDrive.canView/canDownload)",
+      "File-only persistence under data/drive (no SQL)"
+    ],
+    "tables": [
+      "UserInfo (login source only; no write)",
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

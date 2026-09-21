@@ -84,3 +84,6 @@ data/work-manuals/_state.json.tmp
 
 # nenovaweb 화면 기록(rrweb) 런타임 파일 — 계정별 세션, 커밋 금지
 data/replay/
+
+# 업무 드라이브 자동 업로드 파일(직원 PC → 데몬) — 런타임, 커밋 금지
+data/drive/
