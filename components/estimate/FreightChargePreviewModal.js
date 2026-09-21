@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { isFreightRow, FREIGHT_ROUNDING } from '../../lib/estimateFreightPolicy';
-import { freightSourceRows, buildFreightDraftRows, validateFreightDraft } from '../../lib/estimateFreightDraft';
+import { freightSourceRows, buildFreightDraftRows, validateFreightDraft, groupFreightSources } from '../../lib/estimateFreightDraft';
 import styles from './FreightChargePreviewModal.module.css';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 3 });
+const tones = [ ['#eff6ff','#2563eb'], ['#fff1f2','#be123c'], ['#ecfdf5','#047857'], ['#fff7ed','#c2410c'], ['#f5f3ff','#7c3aed'], ['#ecfeff','#0e7490'], ['#fefce8','#a16207'], ['#fdf4ff','#a21caf'] ];
 export default function FreightChargePreviewModal({ open, onClose, items = [], products = [], year, parentWeek, selectedShip, onApply, applyBusy = false }) {
   const [excluded, setExcluded] = useState({});
   const [edits, setEdits] = useState({});
@@ -13,6 +14,8 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
   useEffect(() => { if (open) { setExcluded({}); setEdits({}); setError(''); setConfirmed(false); } }, [open, year, parentWeek, selectedShip?.CustKey, items]);
   const sources = useMemo(() => freightSourceRows(items, year, parentWeek), [items, year, parentWeek]);
   const selected = sources.filter(row => !excluded[row.sourceKey]);
+  const groups = groupFreightSources(sources, excluded);
+  const unknownCount = selected.filter(row => row.boxes == null).length;
   const freightProducts = products.filter(p => isFreightRow(p) && p.OutUnit === '박스');
   const existing = items.filter(isFreightRow);
   const drafts = buildFreightDraftRows(selected, freightProducts, rounding).map(row => {
@@ -37,14 +40,16 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
       {error && <div role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:12,marginBottom:10}}>{error}</div>}
       <div>
         <section>
-          <div className={styles.sectionHeading}><b>견적서 품목 · 박스수량 확인 ({sources.length}개)</b><b>선택 합계 {fmt(selected.reduce((sum,row)=>sum+(row.boxes||0),0))}박스</b></div>
+          <div className={styles.sectionHeading}><b>견적서 품목 · 박스수량 확인 ({sources.length}개)</b><b>{unknownCount ? '확인된 소계' : '선택 합계'} {fmt(selected.reduce((sum,row)=>sum+(row.boxes||0),0))}박스{unknownCount > 0 && ` · 환산 확인 ${unknownCount}개`}</b></div>
           <div className={styles.sources}>
-            {sources.map(row => <div key={row.sourceKey} className={styles.sourceRow} style={{background:excluded[row.sourceKey]?'#f1f5f9':row.boxes==null?'#fee2e2':'#eff6ff'}}>
+            {groups.map((group, index) => <section key={group.label} className={styles.group} style={{'--group-bg':tones[index % tones.length][0], '--group-accent':tones[index % tones.length][1]}}>
+              <div className={styles.groupHeading}><b>{group.label} <small>{group.rows.length}개</small></b><strong>{fmt(group.boxes)}박스{group.unknown > 0 && ` + 확인 ${group.unknown}개`}</strong></div>
+              <div className={styles.rowHeading}><span>포함 · 품목명</span><span>입력수량</span><span>환산 박스</span></div>
+            {group.rows.map(row => <div key={row.sourceKey} className={styles.sourceRow} style={{background:excluded[row.sourceKey]?'#f1f5f9':row.boxes==null?'#fee2e2':'var(--group-bg)'}}>
               <input aria-label={row.ProdName+' 계산 포함'} type="checkbox" checked={!excluded[row.sourceKey]} onChange={e=>{setExcluded(prev=>({...prev,[row.sourceKey]:!e.target.checked}));setConfirmed(false);}} />
-              <span className={styles.sourceName} title={row.ProdName}>{row.ProdName}</span>
-              <span className={styles.date} title={`${row.OrderWeek} · ${row.outDate}`}>{row.OrderWeek} · {String(row.outDate || '').slice(5)}</span>
+              <span className={styles.sourceName} title={`${row.ProdName} · ${row.OrderWeek} · ${row.outDate}`}>{row.ProdName}</span>
               <span className={styles.quantity}>{fmt(row.Quantity)}{row.Unit}</span><strong className={styles.boxes}>{row.boxes==null?'확인 필요':`${fmt(row.boxes)}박스`}</strong>
-            </div>)}
+            </div>)}</section>)}
           </div>
         </section>
         <section className={styles.settings}>
