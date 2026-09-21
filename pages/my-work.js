@@ -126,20 +126,23 @@ function Replay() {
     try {
       const j = await (await fetch(`/api/work/replay?user=${encodeURIComponent(s.userId)}&session=${encodeURIComponent(s.sessionId)}`)).json();
       if (!j.success) throw new Error(j.error || '실패');
-      if (j.events.length < 2) { setMsg('이벤트가 너무 적어 재생할 수 없습니다.'); return; }
-      const [{ default: Player }] = await Promise.all([import('rrweb-player'), import('rrweb-player/dist/style.css')]);
+      // 큰 화면·메모리 부족 구간은 lite(단계만)로 기록된다 → 화면 구조(전체 스냅샷)가 있는 지점부터만 재생기에 넣는다
+      const start = j.events.findIndex((e) => e.type === 4);
+      const playable = start >= 0 && j.events.some((e) => e.type === 2) ? j.events.slice(start) : [];
       if (boxRef.current) boxRef.current.innerHTML = '';
+      if (playable.length < 2) { setCur({ ...s, steps: j.meta?.steps || [], t0: j.events[0]?.timestamp || s.from }); setMsg('이 세션은 단계만 기록됐습니다(화면이 크거나 PC 메모리 여유가 적어 화면 구조 기록을 생략). 오른쪽 단계 목록을 보세요.'); return; }
+      const [{ default: Player }] = await Promise.all([import('rrweb-player'), import('rrweb-player/dist/style.css')]);
       const w = Math.min(1100, (boxRef.current?.clientWidth || 1000));
-      playerRef.current = new Player({ target: boxRef.current, props: { events: j.events, width: w, height: Math.round(w * 0.56), autoPlay: false, showController: true, speedOption: [1, 2, 4, 8], skipInactive: true } });
-      setCur({ ...s, steps: j.meta?.steps || [], t0: j.events[0].timestamp }); setMsg('');
+      playerRef.current = new Player({ target: boxRef.current, props: { events: playable, width: w, height: Math.round(w * 0.56), autoPlay: false, showController: true, speedOption: [1, 2, 4, 8], skipInactive: true } });
+      setCur({ ...s, steps: j.meta?.steps || [], t0: playable[0].timestamp }); setMsg('');
     } catch (e) { setMsg('불러오기 실패: ' + e.message); }
   };
   const seek = (t) => { try { playerRef.current?.goto(Math.max(0, t - cur.t0 - 500), false); } catch {} };
-  const KIND = { route: '이동', click: '클릭', input: '입력' };
+  const KIND = { route: '이동', click: '클릭', input: '입력', mode: '기록 방식' };
   return (
     <div className="doc wide">
       <h1>nenovaweb 화면 재생</h1>
-      <p className="dim">네노바웹에서 한 작업을 화면 구조와 클릭·입력·이동 이벤트로 기록해 그대로 재생합니다(영상·화면 해독 아님, 값이 정확). 현재 시범: nenovaSS3 본인 계정만 기록. 비밀번호 입력은 항상 가립니다. 보관 14일.</p>
+      <p className="dim">네노바웹에서 한 작업을 화면 구조와 클릭·입력·이동 이벤트로 기록해 그대로 재생합니다(영상·화면 해독 아님, 값이 정확). 기록 대상: 직원 계정 전부(사장님·관리 계정 제외). 비밀번호 입력은 항상 가립니다. 보관 14일.</p>
       {sessions === null ? <p className="dim">목록 불러오는 중…</p> : sessions.length === 0 ? <p className="warn">아직 기록된 세션이 없습니다. 네노바웹의 다른 메뉴에서 작업한 뒤 다시 열어 보세요(이 화면과 로그인 화면은 기록하지 않습니다).</p> :
         <div className="jump">{sessions.map((s) => <a key={s.userId + s.sessionId} href="#" className={cur?.sessionId === s.sessionId ? 'on' : ''} onClick={(e) => { e.preventDefault(); open(s); }}>{fmt(s.from)} <em>{s.userName || s.userId} · {Math.max(1, Math.round((s.to - s.from) / 60000))}분 · 단계 {s.stepCount} · {(s.size / 1024 / 1024).toFixed(1)}MB · {s.routes.slice(0, 4).join(' → ')}{s.routes.length > 4 ? ' …' : ''}</em></a>)}</div>}
       {msg && <p className="warn">{msg}</p>}
