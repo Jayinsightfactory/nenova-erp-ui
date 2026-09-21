@@ -63,6 +63,14 @@ assert.strictEqual(wd.classifyStage('중국MELODY_CNY 210,173.5_14-1차 수입_(
 assert.strictEqual(wd.extractCycle('FL68KFM75D8G547.xlsx'), '', '무작위 ID는 차수 아님');
 assert.strictEqual(wd.extractCycle('AYURA 17-1 HERMES.pdf'), '17-1');
 assert.strictEqual(wd.isSensitive('AYURA 17-1 HERMES.pdf', '입고'), true, '농장 인보이스 PDF는 민감');
+// 영업부(박성수·NENOVA2025) 실측 미분류 보강
+assert.strictEqual(wd.classifyStage('44차 양재동 차감내역.xlsx'), '출고');
+assert.strictEqual(wd.classifyStage('16차 대구희경-175박스.xlsx'), '출고');
+assert.strictEqual(wd.classifyStage('26년 1차 울산신화 어버이날 물량-70.xlsx'), '출고');
+assert.strictEqual(wd.classifyStage('46-1차 예상 가격표.xlsx'), '견적·거래처');
+assert.strictEqual(wd.classifyStage('중국 38-2차 패킹리스트.xlsx'), '입고');
+assert.strictEqual(wd.classifyStage('2026년 지역별 매출액 정리.xlsx'), '송금·경영');
+assert.strictEqual(wd.classifyStage('강동동86-6 사업자등록.pdf'), '송금·경영');
 
 // 민감
 assert.strictEqual(wd.isSensitive('★외화송금결제 지출결의서.xlsx', '송금·경영'), true);
@@ -83,6 +91,8 @@ const rS = wd.ingestFile({ buffer: Buffer.from('ship'), filename: '40-1 영남�
 assert.strictEqual(rS.classification.uploaderName, '정재훈', 'userId 별칭'); assert.strictEqual(rS.classification.dept, '영업부');
 const rAlias = wd.ingestFile({ buffer: Buffer.from('q'), filename: '38-1 불량 이미지 정리.xlsx', userName: 'ㅋㅋ' });
 assert.strictEqual(rAlias.classification.uploaderName, '조현욱');
+const rHost = wd.ingestFile({ buffer: Buffer.from('h'), filename: '44차 양재동 차감내역.xlsx', userName: '설연주', hostname: 'NENOVA2025' });
+assert.strictEqual(rHost.classification.uploaderName, '정재훈', 'PC 별칭이 토큰 이름보다 우선'); assert.strictEqual(rHost.classification.dept, '영업부');
 assert.strictEqual(wd.ingestFile({ buffer: Buffer.alloc(0), filename: 'x.xlsx' }).status, 400);
 assert.strictEqual(fs.existsSync(path.join(tmp, 'data', 'drive', '38-2')), true, '차수 폴더에 저장');
 assert.deepStrictEqual(fs.readdirSync(path.join(tmp, 'data')), ['drive'], '저장 위치는 data/drive 뿐');
@@ -96,7 +106,7 @@ const kmh = { userId: 'kmh', userName: '강명훈' };
 const vis = (u) => wd.listVisible(u).map((f) => f.filename);
 const rF = wd.ingestFile({ buffer: Buffer.from('freight'), filename: '38차 운임비.xlsx', userName: '정재훈' });
 assert.strictEqual(rF.classification.stage, '원가·운임'); assert.strictEqual(rF.classification.sensitive, false, '운임은 금액 아님');
-assert.strictEqual(vis(boss).length, 6, '사장 전체(원가자료 v1·v2 + 결의서 + 출고 + 불량 + 운임)');
+assert.strictEqual(vis(boss).length, 7, '사장 전체(원가자료 v1·v2 + 결의서 + 출고 + 불량 + 차감 + 운임)');
 assert.ok(vis(seol).includes('38-2 NL 원가자료.xlsx'), '본인 파일');
 assert.ok(!vis(gab).includes('38-2 NL 원가자료.xlsx'), '원가(금액)는 민감 → 타부서 불가');
 assert.ok(vis(gab).includes('38차 운임비.xlsx'), '수입부는 원가·운임 단계의 비민감 파일 인수인계 열람');
@@ -120,6 +130,7 @@ assert.ok(!wd.listVisible(boss).some((f) => f.id === r1.id), '숨김');
 // 일괄 재분류: 사장만, 손으로 고친 행(r1: 입고로 교정됨)은 제외
 assert.strictEqual(wd.reclassifyAll(seol).status, 403);
 const ra = wd.reclassifyAll(boss); assert.strictEqual(ra.ok, true); assert.ok(ra.scanned >= 4);
+const ra2 = wd.reclassifyAll(boss); assert.strictEqual(ra2.changed, 0, '두 번째 실행은 변화 없음(자동행 재적용 가능하되 멱등)');
 
 process.chdir(cwd);
 console.log('workDrive tests passed: 차수 정규화 5종, 단계 분류, 민감, 중복/버전, 부서 접근, 내려받기 기록, 교정');
