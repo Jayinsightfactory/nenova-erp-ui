@@ -6,9 +6,10 @@
 .group { break-inside:avoid; display:inline-block; vertical-align:top; width:100%; margin-bottom:6px; border:1px solid var(--group-accent); border-radius:5px; overflow:hidden; box-sizing:border-box; }
 .groupHeading { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 7px; background:var(--group-bg); border-left:5px solid var(--group-accent); color:var(--group-accent); font-size:13px; }
 .groupHeading small { font-weight:normal; font-size:11px; }
-.rowHeading { display:grid; grid-template-columns:minmax(0,1fr) 70px 78px; gap:4px; padding:3px 5px; font-size:11px; color:#52657b; background:#fff; }
+.rowHeading { display:grid; grid-template-columns:minmax(0,1fr) 55px 65px 70px; gap:4px; padding:3px 5px; font-size:11px; color:#52657b; background:#fff; }
 .rowHeading span:not(:first-child) { text-align:right; }
-.sourceRow { display:grid; grid-template-columns:18px minmax(0,1fr) 70px 78px; align-items:center; gap:4px; min-height:26px; padding:2px 5px; box-sizing:border-box; border-bottom:1px solid #d8e2ef; font-size:12px; }
+.sourceRow { display:grid; grid-template-columns:18px minmax(0,1fr) 55px 65px 70px; align-items:center; gap:4px; min-height:26px; padding:2px 5px; box-sizing:border-box; border-bottom:1px solid #d8e2ef; font-size:12px; }
+.topActions { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:8px; margin-top:6px; background:#eef5ff; border:1px solid #b8cce5; font-size:12px; }
 .sourceName { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .date { color:#60718a; font-size:11px; white-space:nowrap; }
 .quantity,.boxes { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }

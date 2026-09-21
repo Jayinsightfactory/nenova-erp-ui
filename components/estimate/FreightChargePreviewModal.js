@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { isFreightRow, FREIGHT_ROUNDING } from '../../lib/estimateFreightPolicy';
-import { freightSourceRows, buildFreightDraftRows, validateFreightDraft, groupFreightSources, freightDraftGroupIndex } from '../../lib/estimateFreightDraft';
+import { freightSourceRows, buildFreightDraftRows, validateFreightDraft, groupFreightSources, freightDraftGroupIndex, combineCarnationFreight, cumulativeFreightRows } from '../../lib/estimateFreightDraft';
 import styles from './FreightChargePreviewModal.module.css';
 import { apiGet } from '../../lib/useApi';
 import { freightEvidenceRows, freightPriceSuggestion, freightCategoryFromEvidence } from '../../lib/estimateFreightEvidence';
@@ -13,6 +13,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
   const [rounding, setRounding] = useState(FREIGHT_ROUNDING.CEIL);
   const [error, setError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const [combineCarnation, setCombineCarnation] = useState(true);
   const [history, setHistory] = useState({ scope: '', rows: [], loading: true, error: '' });
   const historyScope = `${year}|${parentWeek}|${selectedShip?.CustKey}`;
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
   const historyReady = history.scope === historyScope && !history.loading && !history.error;
   const evidence = freightEvidenceRows(historyReady ? history.rows : [], {year,custKey:selectedShip?.CustKey,parentWeek});
   const existing = items.filter(row=>isFreightRow(row) && !row.EstimateKey && Number(row.Quantity)>0);
-  const drafts = buildFreightDraftRows(selected, freightProducts, rounding, row=>freightCategoryFromEvidence(row,evidence)).map(row => {
+  const drafts = combineCarnationFreight(buildFreightDraftRows(selected, freightProducts, rounding, row=>freightCategoryFromEvidence(row,evidence)), sources, parentWeek, rounding, combineCarnation).map(row => {
     const saved = existing.find(item => item.OrderWeek === row.weekShort && Number(item.ProdKey) === Number(row.prodKey));
     const edited = {...row,...edits[row.key]};
     const price = freightPriceSuggestion(evidence,edited.prodKey,row.weekShort,selectedShip,freightProducts);
@@ -57,6 +58,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
     <label><input aria-label={row.weekShort+' '+row.name+' 박스'} type="number" min="0" step="any" value={row.qty} onChange={e=>update(row.key,{qty:e.target.value})}/>박스</label>
     <label><input aria-label={row.weekShort+' '+row.name+' 단가'} type="number" min="0" value={row.cost} onChange={e=>update(row.key,{cost:e.target.value})}/>원/박스</label>
     <small className={styles.draftScope}>{row.weekShort} · {row.shipmentDate.slice(5)}</small>
+    {row.combined && <small style={{gridColumn:'1 / -1',color:'#1250a0'}}>1·2차 합산 {fmt(row.rawBoxes)}박스 → {row.weekShort} 한 건 등록{row.scopeError && ` · ${row.scopeError}`}</small>}
     <small style={{gridColumn:'1 / -1',color:'#475569'}} title={row.evidence}>{row.evidence}{row.saved ? ' · 현재 차수 등록됨 (중복 제외)' : ''}</small>
   </div>;
   async function submit() {
@@ -65,7 +67,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
       if (!historyReady) throw new Error('업체 운임 이력 조회 완료 후 다시 확인해 주세요.');
       if (!confirmed) throw new Error('품목별 박스수량과 등록 내용을 확인해 주세요.');
       if (selected.some(row => row.boxes == null)) throw new Error('박스 환산을 확인할 수 없는 품목이 있습니다. 해당 품목을 제외하거나 품목 정보를 확인하세요.');
-      const rows = validateFreightDraft(drafts.filter(row => row.enabled), { year, parentWeek, custKey: selectedShip?.CustKey, products: freightProducts });
+      const rows = validateFreightDraft(drafts.filter(row => row.enabled), { year, parentWeek, custKey: selectedShip?.CustKey, products: freightProducts, existing });
       await onApply(rows);
     } catch (e) { setError(e.message || '운임 등록을 시작하지 못했습니다.'); }
   }
@@ -73,8 +75,14 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
   return <div role="dialog" aria-modal="true" aria-label="운임비 추가" className={styles.backdrop}>
     <div className={styles.panel}>
       <div style={{display:'flex',justifyContent:'space-between',gap:12}}><h3 style={{margin:0}}>운임비 추가 · {selectedShip?.CustName} · {year}년 {parentWeek}차</h3><button disabled={applyBusy} onClick={onClose}>닫기</button></div>
+      <div className={styles.topActions}>
+        <label><input type="checkbox" checked={combineCarnation} onChange={e=>{setCombineCarnation(e.target.checked);setEdits(prev=>Object.fromEntries(Object.entries(prev).filter(([key])=>!key.endsWith('|카네이션 운송료'))));setConfirmed(false);}}/> 카네이션 1·2차 합산 → {String(parentWeek).padStart(2,'0')}-01 등록</label>
+        <label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> 박스수량·등록 차수·단가 확인</label>
+        <b>등록 예상 {fmt(drafts.filter(r=>r.enabled).reduce((s,r)=>s+Number(r.qty)*Number(r.cost),0))}원</b>
+        <button className="btn btn-primary" disabled={applyBusy||!historyReady||!confirmed||!drafts.some(r=>r.enabled)} onClick={submit}>{applyBusy?'등록 준비 중…':'운임비 등록 시작'}</button>
+      </div>
       <p className={styles.help}>품목별 박스 환산 확인 → 운임 선택·단가 확인 → 등록. 기존 추가 품목과 동일하게 확정 해제 → 주문·분배 등록 → 원래 확정 상태 복원.</p>
-      <div role="status" className={styles.help}>{!historyReady ? (history.error ? `업체 이력 조회 실패: ${history.error} · 창을 다시 열어 재시도하세요.` : '이 업체의 최근 8개 차수 운임 이력 확인 중…') : `이 업체 · ${year}년 ${Math.max(1,Number(parentWeek)-7)}~${parentWeek}차 실적 ${evidence.length}건 확인. 단가는 참고값이며 등록할 항목을 직접 선택하세요.`} 세부차수·출고일은 분리 유지합니다. 기존 한 행만으로 1·2차 합산 여부를 추정하지 않습니다.</div>
+      <div role="status" className={styles.help}>{!historyReady ? (history.error ? `업체 이력 조회 실패: ${history.error} · 창을 다시 열어 재시도하세요.` : '이 업체의 최근 8개 차수 운임 이력 확인 중…') : `이 업체 · ${year}년 ${Math.max(1,Number(parentWeek)-7)}~${parentWeek}차 실적 ${evidence.length}건 확인. 단가는 참고값이며 등록할 항목을 직접 선택하세요.`} 카네이션 합산은 상단에서 선택하며, 다른 운임·상차운임은 기존 차수와 출고일을 유지합니다.</div>
       {error && <div role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:12,marginBottom:10}}>{error}</div>}
       <div>
         <section>
@@ -84,11 +92,12 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
               <div className={styles.groupHeading}><b>{group.label} <small>{group.rows.length}개</small></b><strong>{fmt(group.boxes)}박스{group.unknown > 0 && ` + 확인 ${group.unknown}개`}</strong></div>
               {drafts.filter(row=>freightDraftGroupIndex(groups,row)===index).map(renderDraft)}
               {drafts.filter(row=>freightDraftGroupIndex([group],row)===0 && freightDraftGroupIndex(groups,row)!==index).map(row=><div key={row.key} className={styles.sharedNotice}>{row.name} · {groups[freightDraftGroupIndex(groups,row)]?.label}에서 합산 설정</div>)}
-              <div className={styles.rowHeading}><span>포함 · 품목명</span><span>입력수량</span><span>환산 박스</span></div>
-            {group.rows.map(row => <div key={row.sourceKey} className={styles.sourceRow} style={{background:excluded[row.sourceKey]?'#f1f5f9':row.boxes==null?'#fee2e2':'var(--group-bg)'}}>
+              <div className={styles.rowHeading}><span>포함 · 품목명</span><span>입력수량</span><span>환산 박스</span><span>누적 합계</span></div>
+            {cumulativeFreightRows(group.rows,excluded).map(row => <div key={row.sourceKey} className={styles.sourceRow} style={{background:excluded[row.sourceKey]?'#f1f5f9':row.boxes==null?'#fee2e2':'var(--group-bg)'}}>
               <input aria-label={row.ProdName+' 계산 포함'} type="checkbox" checked={!excluded[row.sourceKey]} onChange={e=>{setExcluded(prev=>({...prev,[row.sourceKey]:!e.target.checked}));setConfirmed(false);}} />
               <span className={styles.sourceName} title={`${row.ProdName} · ${row.OrderWeek} · ${row.outDate}`}>{row.ProdName}</span>
               <span className={styles.quantity}>{fmt(row.Quantity)}{row.Unit}</span><strong className={styles.boxes}>{row.boxes==null?'확인 필요':`${fmt(row.boxes)}박스`}</strong>
+              <strong className={styles.boxes} title={row.cumulativeUnknown?'환산 미확인 품목 제외 소계':''}>{fmt(row.cumulativeBoxes)}박스{row.cumulativeUnknown>0?' + ?':''}</strong>
             </div>)}</section>)}
           </div>
         </section>
@@ -99,9 +108,6 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
           <span className={styles.help}> 필요한 운임만 체크 · 박스수/박스당 단가 수정 가능 · 부가세 포함 단가</span>
           <div className={styles.commonFreight}><b>공통 상차운임</b>{drafts.filter(row=>freightDraftGroupIndex(groups,row)===-1).map(renderDraft)}</div>
           {existing.length>0 && <div className={styles.existing}><b>기존 운임 {existing.length}건 · 중복 제외</b>{existing.map((r,i)=><span key={i}>{r.OrderWeek} {r.ProdName} {fmt(r.Quantity)}{r.Unit} × {fmt(r.Cost)}원</span>)}</div>}
-          <div className={styles.footer}><label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> 품목별 박스수량·차수·운임 단가를 확인했습니다.</label>
-          <b>등록 예상 {fmt(drafts.filter(r=>r.enabled).reduce((s,r)=>s+Number(r.qty)*Number(r.cost),0))}원</b>
-          <button className="btn btn-primary" disabled={applyBusy||!historyReady||!confirmed||!drafts.some(r=>r.enabled)} onClick={submit}>{applyBusy?'등록 준비 중…':'운임비 등록 시작'}</button></div>
         </section>
       </div>
     </div>

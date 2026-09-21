@@ -29,6 +29,33 @@ test('customer freight evidence excludes cross year, customer, deductions and fu
 });
 import { freightRowBoxes, freightSourceRows, buildFreightDraftRows, validateFreightDraft, additionalCycleWeek, groupFreightSources, freightDraftGroupIndex } from '../lib/estimateFreightDraft.js';
 import { mapExeDetailRowToWebItem, sqlEstimateGetDetail } from '../lib/exeEstimateViewSql.js';
+import { combineCarnationFreight, cumulativeFreightRows } from '../lib/estimateFreightDraft.js';
+
+test('approved carnation 30+31 combines once into 01 and preserves other freight scopes', () => {
+  const sources=[{sourceKey:'a',OrderWeek:'38-01',outDate:'2026-09-19',boxes:30},{sourceKey:'b',OrderWeek:'38-02',outDate:'2026-09-20',boxes:31}];
+  const rows=sources.map(row=>({name:'카네이션 운송료',key:row.sourceKey,weekShort:row.OrderWeek,shipmentDate:row.outDate,sourceKeys:[row.sourceKey],rawBoxes:row.boxes,prodKey:1}));
+  const loading={...rows[1],name:'현지상차운임'};
+  const result=combineCarnationFreight([...rows,loading],sources,38,'CEIL');
+  assert.equal(result.length,2); assert.equal(result[0].qty,61); assert.equal(result[0].weekShort,'38-01');
+  assert.equal(result[0].shipmentDate,'2026-09-19'); assert.deepEqual(result[0].sourceKeys,['a','b']);
+  assert.equal(result[1],loading);
+  assert.equal(freightDraftGroupIndex([{rows:sources}],result[0]),0);
+  const options={year:2026,parentWeek:38,custKey:12,products:[{ProdKey:1,ProdName:'카네이션 운송료',OutUnit:'박스'}]};
+  assert.equal(validateFreightDraft([{...result[0],cost:3000}],options)[0].week,'2026-38-01');
+  assert.throws(()=>validateFreightDraft([{...result[0],cost:3000}],{...options,existing:[{ProdKey:1,OrderWeek:'38-02'}]}),/기존 운임/);
+  const missing=combineCarnationFreight(rows,sources.slice(1),38,'CEIL')[0];
+  assert.throws(()=>validateFreightDraft([{...missing,cost:3000}],options),/출고일/);
+  const ambiguous=combineCarnationFreight(rows,[...sources,{...sources[0],outDate:'2026-09-21'}],38,'CEIL')[0];
+  assert.ok(ambiguous.scopeError);
+  assert.equal(combineCarnationFreight(rows,sources,38,'CEIL',false),rows);
+  assert.equal(combineCarnationFreight(rows.map(r=>({...r,rawBoxes:0.4})),sources,38,'CEIL')[0].qty,1);
+});
+
+test('running boxes follow visual order, exclusions and unknown quantities', () => {
+  const rows=[{sourceKey:'a',boxes:1},{sourceKey:'b',boxes:2},{sourceKey:'c',boxes:null},{sourceKey:'d',boxes:3}];
+  assert.deepEqual(cumulativeFreightRows(rows).map(r=>[r.cumulativeBoxes,r.cumulativeUnknown]),[[1,0],[3,0],[3,1],[6,1]]);
+  assert.deepEqual(cumulativeFreightRows(rows,{b:true,c:true}).map(r=>r.cumulativeBoxes),[1,1,1,4]);
+});
 
 test('inline freight has one owner across shared country varieties; scope is unchanged', () => {
   const rows = [{CounName:'중국',FlowerName:'장미',OrderWeek:'37-01',outDate:'2026-09-13',boxes:2},

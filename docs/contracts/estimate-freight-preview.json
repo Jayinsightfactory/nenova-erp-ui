@@ -2,6 +2,7 @@
   "id": "estimate-freight-preview",
   "title": "견적 운임 계산 확인 및 기존 추가 품목 저장",
   "customerDefaults": "User confirmed Youngnam flower material exact customer names only: box transport 1500, loading 2000. Manual edits override including zero/empty (save validator still rejects invalid). All other customers retain evidence prices. No master price or ERP writes on preview.",
+  "combinedTransport": "User approved carnation transport 01+02 combined into one 01 row. Sum raw boxes then round once. Preserve source keys/weeks; require unique existing 01 shipment date; missing/ambiguous date blocks. Other freight and loading remain separate. Cumulative display ignores excluded rows and marks unknown totals. Existing freight in either contributing subweek blocks combined registration rather than overwriting or double charging.",
   "scope": [
     "lib/estimateFreightEvidence.js",
     "pages/estimate.js",
@@ -23,7 +24,7 @@
   "actions": [
     {
       "name": "FREIGHT_PREVIEW_READ_ONLY",
-      "presentation": "Same-customer selected-year recent eight parent weeks from existing EXE-parity GET supply positive normal freight evidence. No common price fallback or auto-selection. Country transport candidates require customer evidence; exact product recent-parent/same-subweek prices are suggestions, conflicting prices require input. Subweeks/dates never auto-combine. All ledger write policies preserved.",
+      "presentation": "Same-customer selected-year recent eight parent weeks supply freight evidence, with explicit Youngnam defaults. Customer-approved carnation 01+02 combination is selectable, targeting a verified 01 date; other freight remains separate. Top sticky submit and per-group cumulative boxes. Existing additional-item ledger write policies preserved.",
       "guard": "1920x1080 compact 3-column country/variety color groups and selected box subtotals. Hide repeated source-row date/week visually only, preserve original identity and registration scope. EXE detail mapper preserves date quantity/unit conversion. Unknown quantities are explicitly counted beside known subtotal. No SQL writes or changes to existing save flow.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
