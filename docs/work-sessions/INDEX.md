@@ -171,3 +171,6 @@
 | [2026-08-20_arrival-cost-matching-search](./2026-08-20_arrival-cost-matching-search.md) | 도착원가 매칭검색·품종 버튼·수국 엑셀·HTML JSON, 이후 세션별 Q&A 기본화 | 배포됨 |
 # 2026-09-21 운임 박스수 한 화면 비교
 - [운임 박스수 밀집 표시 및 실제 견적 mapper 환산정보 누락 수정](2026-09-21_freight-compact-count.md)
+
+## 2026-09-21 거래처관리 EXE 대조
+- [거래처관리 목록·입력·수정 API 개편](2026-09-21_customer-dnspy-layout.md): 로컬 구현·검증 완료, GitHub 게시 인증 대기.
