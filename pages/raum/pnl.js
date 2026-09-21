@@ -12,6 +12,7 @@ import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
 import { applyShillaDetailCostDraft, buildShillaDetailCostUpdates, withShillaDetailCostBaseline } from '../../lib/shillaPnlDetailCost';
 import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
+import HotelArrivalCostReference from '../../components/raum/HotelArrivalCostReference';
 import ShillaProductMatchModal from '../../components/raum/ShillaProductMatchModal';
 import ShillaBulkMatchModal from '../../components/raum/ShillaBulkMatchModal';
 import PnlHotelAddDialog from '../../components/raum/PnlHotelAddDialog';
@@ -32,19 +33,7 @@ const localToday = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-function ArrivalCostReference({ item, error }) {
-  if (error) return <span style={{ color: '#b91c1c' }} title={error}>조회 실패</span>;
-  if (!(Number(item?.prodKey) > 0)) return <span style={{ color: '#b45309' }}>품목 연결 필요</span>;
-  const refs = Array.isArray(item?.arrivalReferences) ? item.arrivalReferences : [];
-  if (!refs.length) return <span style={{ color: '#94a3b8' }}>현재·이전 차수 없음</span>;
-  const isFallback = refs.some(ref => ref?.isFallback);
-  return <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 112 }}>
-    {isFallback && <span style={{ alignSelf: 'flex-start', padding: '1px 4px', borderRadius: 4, background: '#fff7ed', color: '#c2410c', fontWeight: 700 }}>이전 최신 차수</span>}
-    {refs.map(ref => <span key={`${ref.week}|${ref.cost}`} style={{ whiteSpace: 'nowrap' }} title={`${ref.isFallback ? '현재 차수 자료 없음 · 이전 최신 차수 / ' : ''}도착원가 원본 ${fmt1(ref.rawCost)}원/${ref.rawUnit || ref.unit || '단위 없음'}`}>
-      <b style={{ color: ref.isFallback ? '#c2410c' : '#0369a1' }}>{ref.week}</b> {fmt1(ref.cost)}원/{ref.unit || '단위'}
-    </span>)}
-  </div>;
-}
+// HotelArrivalCostReference shows the exact major or 이전 최신 차수, web-only.
 
 // 행 계산 — 매입액/이익/분배 (사입도 매입단가를 입력하면 일반 품목과 함께 손익에 포함)
 function computeItemRow(it, nenovaPct) {
@@ -1391,7 +1380,7 @@ export default function RaumPnlPage() {
   // Saved purchase-cost history is read-only here. It is intentionally fetched only
   // when the opened detail/year/partner changes, or after a successful save.
   useEffect(() => {
-    if (!detail || isShilla) {
+    if (!detail) {
       costHistoryRequest.current.controller?.abort();
       setCostHistoryRows([]);
       setCostHistoryState({ loading: false, error: '' });
@@ -2679,13 +2668,14 @@ export default function RaumPnlPage() {
                         ) : fmt(it.qty)}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>
-                        {isShilla ? <input
+                        {isShilla ? <RaumCostHistoryPreview item={it} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>{anchorProps => <input
+                          {...anchorProps}
                           style={{ ...st.input, background: it.costPrice != null && it.costPrice !== '' ? '#ecfdf5' : '#fff' }}
                           value={it.costPrice ?? ''}
                           disabled={saving || !shillaDetailSaved}
                           aria-label="신라 1개당 매입단가"
                           onChange={e => setItem(i, { costPrice: e.target.value.replace(/[^0-9.\-]/g, ''), costSource: 'manual', costLearned: false })}
-                        /> : <RaumCostHistoryPreview item={it} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>
+                        />}</RaumCostHistoryPreview> : <RaumCostHistoryPreview item={it} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>
                           {anchorProps => <>
                         <input
                           {...anchorProps}
@@ -2708,7 +2698,7 @@ export default function RaumPnlPage() {
                         </RaumCostHistoryPreview>}
                       </td>
                       <td style={{ ...st.td, ...st.num, background: '#f0fdfa', fontSize: 11 }}>
-                        <ArrivalCostReference item={it} error={detail.arrivalReferenceError} />
+                        <HotelArrivalCostReference key={`${it.itemKey}|${it.prodKey}|${detail.meta?.pnlKey}`} item={it} error={detail.arrivalReferenceError} />
                       </td>
                       <td style={{ ...st.td, ...st.num }}>{fmt(r.costAmount)}</td>
                       <td style={{ ...st.td, ...st.num }} title={!isShilla && erpMismatch ? `전산 분배단가 ${fmt1(it.erpSalePrice)}원과 다름` : ''}>

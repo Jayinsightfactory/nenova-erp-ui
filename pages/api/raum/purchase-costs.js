@@ -1,4 +1,5 @@
 import { withAuth } from '../../../lib/auth';
+import { withHotelArrivalReferences } from '../../../lib/raumPnlArrivalReference';
 import { PNL_PARTNERS } from '../../../lib/raumPnlPartner';
 import { loadRaumPnlPurchaseCostRows } from '../../../lib/raumPnlCostComparisonServer';
 import {
@@ -31,7 +32,7 @@ export default withAuth(async function handler(req, res) {
         success: true,
         orderYear,
         years,
-        rows,
+        rows: await withHotelArrivalReferences(rows, orderYear),
         partners: Object.values(PNL_PARTNERS).map(p => ({ code: p.code, label: p.label })),
       });
     }
@@ -44,7 +45,7 @@ export default withAuth(async function handler(req, res) {
         actor,
       });
       const rows = await loadRaumPnlPurchaseCostRows({ orderYear });
-      return res.status(200).json({ success: true, ...result, rows });
+      return res.status(200).json({ success: true, ...result, rows: await withHotelArrivalReferences(rows, orderYear) });
     }
 
     return res.status(405).json({ success: false, error: 'GET 또는 POST만 사용할 수 있습니다.' });

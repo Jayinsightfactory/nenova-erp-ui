@@ -1,4 +1,5 @@
 import { withAuth } from '../../../lib/auth.js';
+import { withHotelArrivalReferences } from '../../../lib/raumPnlArrivalReference.js';
 import { requirePnlPartner } from '../../../lib/pnlHotelRegistry.js';
 import { loadRaumPnlCostComparisonRows } from '../../../lib/raumPnlCostComparisonServer.js';
 import { loadRaumPnlPurchaseCostYears, saveRaumPnlPurchaseCosts } from '../../../lib/raumPnlPurchaseCost.js';
@@ -25,7 +26,7 @@ export default withAuth(async function handler(req, res) {
       loadRaumPnlCostComparisonRows({ orderYear, partnerCode: partner.code }),
       loadRaumPnlPurchaseCostYears(partner.code),
     ]);
-    return res.status(200).json({ success: true, ...saved, rows, years, orderYear, partner });
+    return res.status(200).json({ success: true, ...saved, rows: await withHotelArrivalReferences(rows, orderYear), years, orderYear, partner });
   } catch (error) {
     return res.status(Number(error.statusCode) || 500).json({ success: false, error: error.message, code: error.code || null });
   }

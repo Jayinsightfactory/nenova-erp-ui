@@ -1,5 +1,9 @@
 # 라움 손익계산서·이미지 주문등록 — nenova.exe 근거
 
+## 2026-09-21 도착원가·환율 비교
+
+로컬 dnSpy CLI로 FormWarehouseView.GetDetail의 WarehouseDetail.UPrice/TPrice 조회를 재확인했다. 호텔 원가 참조는 WebArrivalCostLine + Product SELECT만 추가하며 EXE 저장/SP 경로는 추가하지 않는다. 운영 읽기 probe에서 라움37차 수국의 결산 단위 `대`와 원가 단위 `단`을 확인했다. 참조 계산에서만 대/st를 송이로 정규화하고 Product 환산필드를 사용한다. 단위 불명은 원본값과 경고를 표시한다. 신라 cost history의 화면 제외 분기를 제거하되 PartnerCode/OrderYear 조건은 유지한다. 환율 비교는 브라우저 추정이고 저장/엑셀에 포함하지 않는다. Estimate, ShipmentDetail.Amount/Vat/isFix, WebProfitReport 보존.
+
 ## 기능 경계
 
 라움·초이문 손익계산서와 이미지 OCR 초안은 웹 전용 화면이다. 이미지·가격·적요·결산 미리보기는 `WebRaumPnl`/`WebRaumPnlItem`에 저장하며(`PartnerCode`로 라움/초이문 분리), 품목 선택은 기존 `Product` 마스터를 조회한다. 전산 분배 대조·이미지 주문등록의 거래처는 `Customer.CustName` LIKE(라움/트라움 또는 초이문)로 고르고, `OrderWeek`만으로 Master를 찾지 않는다.

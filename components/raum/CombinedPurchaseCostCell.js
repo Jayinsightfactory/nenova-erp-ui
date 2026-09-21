@@ -1,4 +1,6 @@
 import ShillaPurchaseCostInput from './ShillaPurchaseCosts';
+import HotelArrivalCostReference from './HotelArrivalCostReference';
+import RaumCostHistoryPreview from './RaumCostHistoryPreview';
 
 const border = '1px solid #cbd5e1';
 
@@ -44,11 +46,15 @@ function SharedPurchaseCostInput({ item, cell, draft, onChange, disabled, unavai
 
 // 같은 제품·단위·차수에 공통 원가와 신라 원가를 나란히 보여 주되 저장 경계는 섞지 않는다.
 export default function CombinedPurchaseCostCell({ item, cell, sharedDraft, shillaDraft, onSharedChange, onShillaChange, disabled, sharedUnavailable, shillaUnavailable, shillaUnavailableMessage, isolatedLabel }) {
+  const arrival = cell.shared || cell.shilla;
+  const history = (item.cells || []).filter(Boolean);
+  const weeks = history.map(value => ({ key: String(value.major), label: `${value.major}차` }));
   return <div style={{ width: 355, flex: '0 0 355px', padding: 4, border, borderRadius: 5, background: '#fff' }}>
     <b style={{ display: 'block', marginBottom: 3, color: '#334155', fontSize: 11 }}>{cell.major}차</b>
     <div style={{ display: 'flex', alignItems: 'stretch', gap: 4 }}>
-      <SharedPurchaseCostInput item={item} cell={cell.shared} draft={sharedDraft} onChange={onSharedChange} disabled={disabled} unavailable={sharedUnavailable} />
-      <ShillaPurchaseCostInput item={item} cell={cell.shilla} draft={shillaDraft} onChange={onShillaChange} disabled={disabled} unavailable={shillaUnavailable} unavailableMessage={shillaUnavailableMessage} label={isolatedLabel} />
+      <RaumCostHistoryPreview item={item} weeks={weeks} valuesByWeek={history.map(value => value.shared?.values || [])} error={sharedUnavailable ? '공통 단가 조회 실패' : ''}>{anchorProps => <div {...anchorProps} style={{ flex: 1, minWidth: 0 }}><SharedPurchaseCostInput item={item} cell={cell.shared} draft={sharedDraft} onChange={onSharedChange} disabled={disabled} unavailable={sharedUnavailable} /></div>}</RaumCostHistoryPreview>
+      <RaumCostHistoryPreview item={item} weeks={weeks} valuesByWeek={history.map(value => value.shilla?.values || [])} error={shillaUnavailable ? '호텔 단가 조회 실패' : ''}>{anchorProps => <div {...anchorProps} style={{ flex: 1, minWidth: 0 }}><ShillaPurchaseCostInput item={item} cell={cell.shilla} draft={shillaDraft} onChange={onShillaChange} disabled={disabled} unavailable={shillaUnavailable} unavailableMessage={shillaUnavailableMessage} label={isolatedLabel} /></div>}</RaumCostHistoryPreview>
     </div>
+    <div style={{ borderTop: border, marginTop: 4, paddingTop: 4 }}><b style={{ fontSize: 10 }}>도착원가 · 웹 비교용</b><HotelArrivalCostReference item={{ ...item, arrivalReferences: arrival?.arrivalReferences || [] }} error={arrival?.arrivalReferenceError || (sharedUnavailable && shillaUnavailable ? '조회 실패' : '')} /></div>
   </div>;
 }
