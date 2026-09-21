@@ -2,6 +2,8 @@
 
 ## 2026-09-21 도착원가·환율 비교
 
+후속 read-only probe: 수국 Product.SteamOf1Bunch=0이나 원가 RawJson.cells의 단당 수량=1 확인. 원본 명시 포장수만 참조 단가 환산에 사용한다. 원본 송이원가×포장수와 원본 단원가가 대조되는 경우에만 통관비의 송이→단 환산을 FX 미리보기에 적용한다. 불명확한 비용 단위는 비교 계산을 차단한다.
+
 로컬 dnSpy CLI로 FormWarehouseView.GetDetail의 WarehouseDetail.UPrice/TPrice 조회를 재확인했다. 호텔 원가 참조는 WebArrivalCostLine + Product SELECT만 추가하며 EXE 저장/SP 경로는 추가하지 않는다. 운영 읽기 probe에서 라움37차 수국의 결산 단위 `대`와 원가 단위 `단`을 확인했다. 참조 계산에서만 대/st를 송이로 정규화하고 Product 환산필드를 사용한다. 단위 불명은 원본값과 경고를 표시한다. 신라 cost history의 화면 제외 분기를 제거하되 PartnerCode/OrderYear 조건은 유지한다. 환율 비교는 브라우저 추정이고 저장/엑셀에 포함하지 않는다. Estimate, ShipmentDetail.Amount/Vat/isFix, WebProfitReport 보존.
 
 ## 기능 경계

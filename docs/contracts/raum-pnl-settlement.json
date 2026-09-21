@@ -118,6 +118,7 @@
     "description": "같은 라움 차수와 품목이 2025·2026에 있어도 주문등록과 결산 저장은 선택한 OrderYear를 유지한다."
   },
   "costComparison": {
+    "sourceUnitEvidence": "Reference conversion can use the original RawJson.cells explicit 단당수량 (unique positive value) for per-stem conversion; no Product changes. FX fixed charges from SOURCE per-stem columns are scaled only when original per-stem cost times source pack count reconciles with displayed raw cost. Unknown expense units block FX preview. The comparison remains a fixed-charge estimate, not a re-execution of variable duty formulas.",
     "hotelArrivalPreview": "Detail and purchase-cost management share read-only source references. 대/st/stem/스팀 normalize to 송이 only for reference conversion. Unknown unit/metadata failure stays visible with raw source cost; it is never shown as absent or 0. Shilla also loads its isolated stored weekly history. FX comparison preserves fixed KRW charges and labels the remaining currency-ratio calculation as an estimate, not workbook formula recalculation. No save/export/ERP effects. Source file/sheet/row and original FX remain inspectable.",
     "preview": "purchase-cost input hover/focus shows nearby viewport-clamped portal preview from the SAME costComparison matrix; Escape dismisses; no additional requests or writes; excluded from print",
     "source": "WebRaumPnlItem.CostPrice, not arrival reference price or WebRaumCostPrice latest learned value",
