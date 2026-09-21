@@ -21,6 +21,7 @@
   "actions": [
     {
       "name": "FREIGHT_PREVIEW_READ_ONLY",
+      "presentation": "Transport controls are rendered once in the first matching country/variety card. Shared China/Thailand transport keeps existing aggregate calculation and links other cards to its owner. Common loading controls stay separate. Payload and write policy unchanged.",
       "guard": "1920x1080 compact 3-column country/variety color groups and selected box subtotals. Hide repeated source-row date/week visually only, preserve original identity and registration scope. EXE detail mapper preserves date quantity/unit conversion. Unknown quantities are explicitly counted beside known subtotal. No SQL writes or changes to existing save flow.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",

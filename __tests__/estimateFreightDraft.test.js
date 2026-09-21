@@ -1,7 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { freightRowBoxes, freightSourceRows, buildFreightDraftRows, validateFreightDraft, additionalCycleWeek, groupFreightSources } from '../lib/estimateFreightDraft.js';
+import { freightRowBoxes, freightSourceRows, buildFreightDraftRows, validateFreightDraft, additionalCycleWeek, groupFreightSources, freightDraftGroupIndex } from '../lib/estimateFreightDraft.js';
 import { mapExeDetailRowToWebItem, sqlEstimateGetDetail } from '../lib/exeEstimateViewSql.js';
+
+test('inline freight has one owner across shared country varieties; scope is unchanged', () => {
+  const rows = [{CounName:'중국',FlowerName:'장미',OrderWeek:'37-01',outDate:'2026-09-13',boxes:2},
+    {CounName:'중국',FlowerName:'기타',OrderWeek:'37-01',outDate:'2026-09-13',boxes:1}];
+  const groups = groupFreightSources(rows);
+  const drafts = buildFreightDraftRows(rows,[], 'CEIL');
+  assert.deepEqual(drafts.map(d=>freightDraftGroupIndex(groups,d)),[-1,0]);
+  assert.equal(drafts[1].qty,3);
+  assert.equal(freightDraftGroupIndex(groups,{...drafts[1],weekShort:'37-02'}),-1);
+  assert.equal(freightDraftGroupIndex(groups,{...drafts[1],shipmentDate:'2025-09-13'}),-1);
+});
 
 test('display groups preserve original subweeks and separate countries; exclusion and unknown subtotals', () => {
   const rows = [

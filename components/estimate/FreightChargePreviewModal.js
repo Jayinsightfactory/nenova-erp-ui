@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { isFreightRow, FREIGHT_ROUNDING } from '../../lib/estimateFreightPolicy';
-import { freightSourceRows, buildFreightDraftRows, validateFreightDraft, groupFreightSources } from '../../lib/estimateFreightDraft';
+import { freightSourceRows, buildFreightDraftRows, validateFreightDraft, groupFreightSources, freightDraftGroupIndex } from '../../lib/estimateFreightDraft';
 import styles from './FreightChargePreviewModal.module.css';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 3 });
@@ -23,6 +23,13 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
     return { ...row, enabled: row.name === '현지상차운임' && !saved, cost: Number(saved?.Cost || (row.name === '현지상차운임' ? 2000 : 1500)), ...edits[row.key] };
   });
   const update = (key, values) => { setEdits(prev => ({ ...prev, [key]: { ...prev[key], ...values } })); setConfirmed(false); };
+  const renderDraft = row => <div key={row.key} className={styles.inlineDraft}>
+    <input type="checkbox" aria-label={row.weekShort+' '+row.name+' 등록'} checked={row.enabled} onChange={e=>update(row.key,{enabled:e.target.checked})}/>
+    <select aria-label={row.weekShort+' '+row.name+' 품목'} value={row.prodKey} onChange={e=>update(row.key,{prodKey:Number(e.target.value)})}><option value="">품목 선택 · {row.name}</option>{freightProducts.map(p=><option key={p.ProdKey} value={p.ProdKey}>{p.ProdName}</option>)}</select>
+    <label><input aria-label={row.weekShort+' '+row.name+' 박스'} type="number" min="0" step="any" value={row.qty} onChange={e=>update(row.key,{qty:e.target.value})}/>박스</label>
+    <label><input aria-label={row.weekShort+' '+row.name+' 단가'} type="number" min="0" value={row.cost} onChange={e=>update(row.key,{cost:e.target.value})}/>원/박스</label>
+    <small className={styles.draftScope}>{row.weekShort} · {row.shipmentDate.slice(5)}</small>
+  </div>;
   async function submit() {
     setError('');
     try {
@@ -44,6 +51,8 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
           <div className={styles.sources}>
             {groups.map((group, index) => <section key={group.label} className={styles.group} style={{'--group-bg':tones[index % tones.length][0], '--group-accent':tones[index % tones.length][1]}}>
               <div className={styles.groupHeading}><b>{group.label} <small>{group.rows.length}개</small></b><strong>{fmt(group.boxes)}박스{group.unknown > 0 && ` + 확인 ${group.unknown}개`}</strong></div>
+              {drafts.filter(row=>freightDraftGroupIndex(groups,row)===index).map(renderDraft)}
+              {drafts.filter(row=>freightDraftGroupIndex([group],row)===0 && freightDraftGroupIndex(groups,row)!==index).map(row=><div key={row.key} className={styles.sharedNotice}>{row.name} · {groups[freightDraftGroupIndex(groups,row)]?.label}에서 합산 설정</div>)}
               <div className={styles.rowHeading}><span>포함 · 품목명</span><span>입력수량</span><span>환산 박스</span></div>
             {group.rows.map(row => <div key={row.sourceKey} className={styles.sourceRow} style={{background:excluded[row.sourceKey]?'#f1f5f9':row.boxes==null?'#fee2e2':'var(--group-bg)'}}>
               <input aria-label={row.ProdName+' 계산 포함'} type="checkbox" checked={!excluded[row.sourceKey]} onChange={e=>{setExcluded(prev=>({...prev,[row.sourceKey]:!e.target.checked}));setConfirmed(false);}} />
@@ -57,13 +66,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
             <option value="CEIL">올림 (4.5 → 5)</option><option value="FLOOR">버림 (4.5 → 4)</option><option value="EXACT">실수량 유지</option>
           </select></label>
           <span className={styles.help}> 필요한 운임만 체크 · 박스수/박스당 단가 수정 가능 · 부가세 포함 단가</span>
-          <div className={styles.drafts}>{drafts.map(row=><div key={row.key} className={styles.draftRow}>
-              <input type="checkbox" aria-label={row.weekShort+' '+row.name+' 등록'} checked={row.enabled} onChange={e=>update(row.key,{enabled:e.target.checked})}/>
-              <span title={row.shipmentDate}>{row.weekShort} · {row.shipmentDate.slice(5)}</span>
-              <select aria-label={row.weekShort+' '+row.name+' 품목'} value={row.prodKey} onChange={e=>update(row.key,{prodKey:Number(e.target.value)})}><option value="">품목 선택 · {row.name}</option>{freightProducts.map(p=><option key={p.ProdKey} value={p.ProdKey}>{p.ProdName}</option>)}</select>
-              <label><input aria-label={row.weekShort+' '+row.name+' 박스'} type="number" min="0" step="any" value={row.qty} onChange={e=>update(row.key,{qty:e.target.value})}/> 박스</label>
-              <label><input aria-label={row.weekShort+' '+row.name+' 단가'} type="number" min="0" value={row.cost} onChange={e=>update(row.key,{cost:e.target.value})}/> 원</label>
-            </div>)}</div>
+          <div className={styles.commonFreight}><b>공통 상차운임</b>{drafts.filter(row=>freightDraftGroupIndex(groups,row)===-1).map(renderDraft)}</div>
           {existing.length>0 && <div className={styles.existing}><b>기존 운임 {existing.length}건 · 중복 제외</b>{existing.map((r,i)=><span key={i}>{r.OrderWeek} {r.ProdName} {fmt(r.Quantity)}{r.Unit} × {fmt(r.Cost)}원</span>)}</div>}
           <div className={styles.footer}><label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> 품목별 박스수량·차수·운임 단가를 확인했습니다.</label>
           <b>등록 예상 {fmt(drafts.filter(r=>r.enabled).reduce((s,r)=>s+Number(r.qty)*Number(r.cost),0))}원</b>
