@@ -34,9 +34,18 @@
 - post-write: ViewOrder/ViewShipment/PeriodDay/날짜수량·단가·금액·확정 일치 후만 성공.
 
 ## 진행 상태
-구현 및 로컬 검증 완료. 배포·브라우저 검증은 아직 진행 전이다.
+구현·로컬 검증·배포·실브라우저 검증 완료.
 - ERP 전체 계약, manifest 66개, 신규 API 포함 쓰기 가드, dnSpy evidence, production build 통과.
 - 전용 localhost SQL2022 임시 fixture: 31→61, 기존 주문/날짜 보존, 신규 양수 주문/분배, 다른 업체/2025년 보존, native 실패/두 번째 행 실패/저장 후 대조 실패 전체 롤백 통과.
 - 8개 client/입력 테스트: 명시 0/false/누락, 승인 취소, 응답 유실 후 영수증 조회, 같은 UUID 재시도, busy 결과 미확정 보존 통과.
 - 실제 DB prepareFreight SELECT: 38-01 카네이션 운송료 31→61, 기존 09-17 유지, 주문 신규 불필요 확인. 운영 저장은 실행하지 않았다.
 - 기준 검토: 전체 카테고리 확정해제 없음, 수량 0 가짜 주문 없음, 재고 강제 조정 없음, 02 기존 운임/여러 출고일은 자동 변경하지 않고 차단한다.
+
+## 배포 추적
+- PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/709
+- 최종 CI 35563692153 성공, master squash 438a76a1f543e60d3332f792cdd910e1413c093c.
+- Cafe24 배포 35563786489 성공(3분43초), hydration smoke 성공.
+- 실제 화면 버전 438a76a1, 1920×1080 viewport: 업체 515의 38차 카네이션 61박스 합산/품목별 누적 박스/상단 등록 버튼/기존 최종수량 수정 안내 확인.
+- 카네이션만 선택 → 서버 preview 성공 → native confirm 도착 → dismiss. 화면은 “등록을 취소했습니다. 저장된 운임은 없습니다.” 표시. 확인창 문구는 브라우저 도구가 본문을 노출하지 않아 직접 캡처하지 못했으며, 수량·날짜는 prepareFreight 읽기 probe 및 코드/fixture로 확인했다.
+- 모달 닫은 뒤 견적서 카네이션 운송료 31박스, 17(목), 3,000원, 공급가84,545/VAT8,455 보존 확인. 실제 apply POST는 실행하지 않았다.
+- 임시 viewport 원복. 격리 fixture DB는 시험 후 삭제, 이 작업에서 켰던 전용 SQL 컨테이너는 중지해 원래 상태로 복원.
