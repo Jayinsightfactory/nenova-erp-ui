@@ -163,3 +163,5 @@
 | [2026-08-24_import-skip-all-result](./2026-08-24_import-skip-all-result.md) | 업로드 주문등록 전체 제외·등록 후 결과 표시 | 진행 |
 | [2026-08-24_arrival-cost-week-farm-group](./2026-08-24_arrival-cost-week-farm-group.md) | 도착원가 차수 정렬·농장별 원가·품종만 조회, 이어서 농장 이어받기·단/박스·CW/GW(콜롬비아), 업로드 502, 문라이트 단원가·한눈에, 33-2 빈국가 유령 476원 | 진행 |
 | [2026-08-20_arrival-cost-matching-search](./2026-08-20_arrival-cost-matching-search.md) | 도착원가 매칭검색·품종 버튼·수국 엑셀·HTML JSON, 이후 세션별 Q&A 기본화 | 배포됨 |
+# 2026-09-21 운임 박스수 한 화면 비교
+- [운임 박스수 밀집 표시 및 실제 견적 mapper 환산정보 누락 수정](2026-09-21_freight-compact-count.md)

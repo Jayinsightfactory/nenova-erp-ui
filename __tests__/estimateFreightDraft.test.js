@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { freightRowBoxes, freightSourceRows, buildFreightDraftRows, validateFreightDraft, additionalCycleWeek } from '../lib/estimateFreightDraft.js';
+import { mapExeDetailRowToWebItem, sqlEstimateGetDetail } from '../lib/exeEstimateViewSql.js';
+
+test('real EXE detail mapper preserves date quantity and conversion for freight preview', () => {
+  const row = mapExeDetailRowToWebItem({ Sort:0, DetailKey:1, ProdKey:2, OrderWeek:'37-01', DateShipQty:2,
+    EstQuantity:30, Unit:'단', OutUnit:'박스', BunchOf1Box:15, SteamOf1Box:300 });
+  assert.equal(freightRowBoxes(row),2);
+  assert.equal(freightRowBoxes({...row,DateShipQty:null}),null);
+  assert.equal(freightRowBoxes({...row,DateShipQty:undefined}),null);
+  assert.equal(freightRowBoxes({...row,DateShipQty:0}),0);
+  assert.equal(freightRowBoxes({...row,DateShipQty:'bad'}),null);
+  assert.match(sqlEstimateGetDetail({}), /sd\.ShipmentQuantity AS DateShipQty/);
+  const current = freightSourceRows([row,{...row,OrderYear:'2025'}],'2026','37');
+  assert.deepEqual(current.map(r=>r.boxes),[2,null]);
+});
 
 test('date rows count only that date, not repeated detail totals', () => {
   const base = { SdateKey: 1, DateShipQty: 2, Quantity: 30, Unit: '단', OutUnit: '박스', BoxQty: 8 };
