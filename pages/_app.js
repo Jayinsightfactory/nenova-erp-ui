@@ -1,5 +1,6 @@
 import Layout, { MENU_ITEMS } from '../components/Layout';
 import MenuBackButton from '../components/MenuBackButton';
+import ReplayRecorder from '../components/ReplayRecorder';
 import '../styles/globals.css';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
@@ -52,6 +53,7 @@ export default function App({ Component, pageProps }) {
       <>
         <style>{`body { background: #F0F0F0; }`}</style>
         {needsStandaloneBack && <MenuBackButton standalone />}
+        <ReplayRecorder />
         {page}
       </>
     );
@@ -59,6 +61,7 @@ export default function App({ Component, pageProps }) {
 
   return (
     <Layout>
+      <ReplayRecorder />
       {page}
     </Layout>
   );

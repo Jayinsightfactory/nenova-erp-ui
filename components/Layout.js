@@ -32,6 +32,7 @@ export const MENU_ITEMS = [
     group: '업무 매뉴얼',
     items: [
       { href: '/work/manuals', labelKey: '부서별 업무 매뉴얼', popup: false },
+      { href: '/work/drive', labelKey: '업무 드라이브', popup: false },
     ]
   },
   {
