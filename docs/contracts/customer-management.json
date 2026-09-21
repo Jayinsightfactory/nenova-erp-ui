@@ -1,0 +1,12 @@
+{
+  "id": "customer-management",
+  "title": "EXE 거래처관리 필드 및 수정 계약",
+  "scope": ["pages/master/customers.js", "pages/api/master/customers.js", "lib/customerEditor.js", "__tests__/customerEditor.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "effectiveMasterIdentity": ["CustKey"],
+  "actions": [{"name":"CUSTOMER_SAVE", "customer":"insert or update exact CustKey", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouse":"preserve", "stock":"preserve"}],
+  "crossYearFixture": {"required":true,"description":"거래처는 연도 공통 CustKey 기준정보. 어떤 연도의 주문·분배·재고·견적도 직접 수정하지 않는다."},
+  "requiredTestFiles": ["__tests__/customerEditor.test.js"],
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormCustomerInfo.md","source":"C:/Users/USER/nenova-decompiled/Nenova/FormCustomerAdd.cs","methods":["GetData","btnSave_Click"],"tables":["Customer"]},
+  "requiredCommands": ["node __tests__/customerEditor.test.js","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}
