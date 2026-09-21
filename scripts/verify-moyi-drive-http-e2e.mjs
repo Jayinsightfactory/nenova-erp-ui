@@ -137,6 +137,8 @@ try {
   assert.equal(captured.join('\n').match(/e2e-connection-secret|sig=/), null);
   record('token·서명 기록 비노출', true);
 } catch (error) {
+  console.error('Next E2E server diagnostics:', nextLogs.join('').slice(-6000)
+    .replaceAll(jwtSecret, '[fixture-secret]').replaceAll('e2e-connection-secret', '[fixture-token]').replaceAll('sig=fixture', 'sig=[redacted]'));
   record('HTTP E2E', false, String(error.message || error).slice(0, 300));
   throw error;
 } finally {
