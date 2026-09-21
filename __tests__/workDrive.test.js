@@ -18,7 +18,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8')
   .replace(/^import \{ isOrbitReportViewer \} from '\.\/orbitReportAccess';/m,
     "const isOrbitReportViewer = (u) => String(u?.userId || '').toLowerCase() === 'nenovass3';")
   .replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, canView, canDownload, listVisible, getFile, downloadLog };';
+  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, reclassifyAll, canView, canDownload, listVisible, getFile, downloadLog };';
 const modPath = path.join(tmp, 'workDrive.cjs');
 fs.writeFileSync(modPath, src);
 const wd = require(modPath);
@@ -44,6 +44,16 @@ assert.strictEqual(wd.classifyStage('강남,건대 라움 견적서 양식.xlsx'
 assert.strictEqual(wd.classifyStage('★2026 지출결의서.xlsx'), '송금·경영');
 assert.strictEqual(wd.classifyStage('38-1 Colombian Hydrangea Quality Issue.pdf'), '품질');
 assert.strictEqual(wd.classifyStage('aaaaaaaaaaaa'), '미분류');
+// backfill 실측 미분류 보강
+assert.strictEqual(wd.classifyStage('6월 매출이익 보고서(22차~26차).xlsx'), '송금·경영');
+assert.strictEqual(wd.classifyStage('23차 라움 판매현황.xlsx'), '견적·거래처');
+assert.strictEqual(wd.classifyStage('23-1 콜카장 tiba.pdf'), '입고');
+assert.strictEqual(wd.classifyStage('10-2 Rosas.xlsx'), '발주');
+assert.strictEqual(wd.classifyStage('10-2 Clavel.xlsx'), '발주');
+assert.strictEqual(wd.classifyStage('china defectuosos 11-1.xlsx'), '품질');
+assert.strictEqual(wd.classifyStage('10차 국가 및 풍목별 컨펌률.xlsx'), '발주');
+assert.strictEqual(wd.classifyStage('위임장_2509.pdf'), '송금·경영');
+assert.strictEqual(wd.classifyStage('(주)네노바_하나은행_중국 cloud 선결제 해외송금증빙_26.06.17.pdf'), '송금·경영');
 
 // 민감
 assert.strictEqual(wd.isSensitive('★외화송금결제 지출결의서.xlsx', '송금·경영'), true);
@@ -97,6 +107,10 @@ assert.strictEqual(wd.reclassify(seol, r1.id, { stage: '입고' }).ok, true);
 assert.strictEqual(wd.listVisible(seol).find((f) => f.id === r1.id).stage, '입고');
 assert.strictEqual(wd.reclassify(boss, r1.id, { deleted: true }).ok, true);
 assert.ok(!wd.listVisible(boss).some((f) => f.id === r1.id), '숨김');
+
+// 일괄 재분류: 사장만, 손으로 고친 행(r1: 입고로 교정됨)은 제외
+assert.strictEqual(wd.reclassifyAll(seol).status, 403);
+const ra = wd.reclassifyAll(boss); assert.strictEqual(ra.ok, true); assert.ok(ra.scanned >= 4);
 
 process.chdir(cwd);
 console.log('workDrive tests passed: 차수 정규화 5종, 단계 분류, 민감, 중복/버전, 부서 접근, 내려받기 기록, 교정');
