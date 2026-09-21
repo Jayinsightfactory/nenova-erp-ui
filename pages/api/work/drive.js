@@ -4,10 +4,11 @@
 // GET ?download=<id>  → 파일 스트림 (내려받기 기록 남김)
 // GET ?log=<id>       → 내려받기 기록 (사장만)
 // POST { id, cycle?, stage?, deleted? } → 차수·단계 교정 / 숨김 (사장 또는 올린 본인)
+// POST { action:'reclassifyAll' } → 규칙 변경 후 전체 재분류 (사장만, 손으로 고친 행 제외)
 import fs from 'fs';
 import path from 'path';
 import { withAuth } from '../../../lib/auth';
-import { listVisible, getFile, reclassify, downloadLog, deptOfName, STAGES } from '../../../lib/workDrive';
+import { listVisible, getFile, reclassify, reclassifyAll, downloadLog, deptOfName, STAGES } from '../../../lib/workDrive';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
 
 export default withAuth(async function handler(req, res) {
@@ -27,6 +28,7 @@ export default withAuth(async function handler(req, res) {
   }
   if (req.method === 'POST') {
     const b = req.body || {};
+    if (b.action === 'reclassifyAll') { const r = reclassifyAll(user); return r.ok ? res.status(200).json({ success: true, ...r }) : res.status(r.status).json({ success: false, error: r.error }); }
     const r = reclassify(user, String(b.id || ''), b);
     return r.ok ? res.status(200).json({ success: true, item: r.item }) : res.status(r.status).json({ success: false, error: r.error });
   }
