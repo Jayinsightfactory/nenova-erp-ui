@@ -3,7 +3,7 @@ import { isFreightRow, FREIGHT_ROUNDING } from '../../lib/estimateFreightPolicy'
 import { freightSourceRows, buildFreightDraftRows, validateFreightDraft, groupFreightSources, freightDraftGroupIndex } from '../../lib/estimateFreightDraft';
 import styles from './FreightChargePreviewModal.module.css';
 import { apiGet } from '../../lib/useApi';
-import { freightEvidenceRows, freightPriceEvidence, freightCategoryFromEvidence } from '../../lib/estimateFreightEvidence';
+import { freightEvidenceRows, freightPriceSuggestion, freightCategoryFromEvidence } from '../../lib/estimateFreightEvidence';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 3 });
 const tones = [ ['#eff6ff','#2563eb'], ['#fff1f2','#be123c'], ['#ecfdf5','#047857'], ['#fff7ed','#c2410c'], ['#f5f3ff','#7c3aed'], ['#ecfeff','#0e7490'], ['#fefce8','#a16207'], ['#fdf4ff','#a21caf'] ];
@@ -47,13 +47,13 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
   const drafts = buildFreightDraftRows(selected, freightProducts, rounding, row=>freightCategoryFromEvidence(row,evidence)).map(row => {
     const saved = existing.find(item => item.OrderWeek === row.weekShort && Number(item.ProdKey) === Number(row.prodKey));
     const edited = {...row,...edits[row.key]};
-    const price = freightPriceEvidence(evidence,edited.prodKey,row.weekShort);
+    const price = freightPriceSuggestion(evidence,edited.prodKey,row.weekShort,selectedShip,freightProducts);
     return { ...row, enabled: false, ...price, ...edits[row.key], saved: Boolean(saved) };
   });
   const update = (key, values) => { setEdits(prev => ({ ...prev, [key]: { ...prev[key], ...values } })); setConfirmed(false); };
   const renderDraft = row => <div key={row.key} className={styles.inlineDraft}>
     <input type="checkbox" aria-label={row.weekShort+' '+row.name+' 등록'} checked={row.enabled} onChange={e=>update(row.key,{enabled:e.target.checked})}/>
-    <select aria-label={row.weekShort+' '+row.name+' 품목'} value={row.prodKey} onChange={e=>update(row.key,{prodKey:Number(e.target.value),cost:freightPriceEvidence(evidence,Number(e.target.value),row.weekShort).cost})}><option value="">품목 선택 · {row.name}</option>{freightProducts.map(p=><option key={p.ProdKey} value={p.ProdKey}>{p.ProdName}</option>)}</select>
+    <select aria-label={row.weekShort+' '+row.name+' 품목'} value={row.prodKey} onChange={e=>update(row.key,{prodKey:Number(e.target.value),cost:freightPriceSuggestion(evidence,Number(e.target.value),row.weekShort,selectedShip,freightProducts).cost})}><option value="">품목 선택 · {row.name}</option>{freightProducts.map(p=><option key={p.ProdKey} value={p.ProdKey}>{p.ProdName}</option>)}</select>
     <label><input aria-label={row.weekShort+' '+row.name+' 박스'} type="number" min="0" step="any" value={row.qty} onChange={e=>update(row.key,{qty:e.target.value})}/>박스</label>
     <label><input aria-label={row.weekShort+' '+row.name+' 단가'} type="number" min="0" value={row.cost} onChange={e=>update(row.key,{cost:e.target.value})}/>원/박스</label>
     <small className={styles.draftScope}>{row.weekShort} · {row.shipmentDate.slice(5)}</small>

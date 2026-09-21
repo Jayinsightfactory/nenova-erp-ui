@@ -1,6 +1,7 @@
 {
   "id": "estimate-freight-preview",
   "title": "견적 운임 계산 확인 및 기존 추가 품목 저장",
+  "customerDefaults": "User confirmed Youngnam flower material exact customer names only: box transport 1500, loading 2000. Manual edits override including zero/empty (save validator still rejects invalid). All other customers retain evidence prices. No master price or ERP writes on preview.",
   "scope": [
     "lib/estimateFreightEvidence.js",
     "pages/estimate.js",

@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { freightEvidenceRows, freightPriceEvidence, freightCategoryFromEvidence } from '../lib/estimateFreightEvidence.js';
+import { freightEvidenceRows, freightPriceEvidence, freightPriceSuggestion, freightCategoryFromEvidence } from '../lib/estimateFreightEvidence.js';
+
+test('Youngnam approved defaults override historical prices only for named customer and freight; edits including zero survive', () => {
+  const products=[{ProdKey:1,ProdName:'태국 운송료',OutUnit:'박스'},{ProdKey:2,ProdName:'현지상차운임',OutUnit:'박스'},{ProdKey:3,ProdName:'SERVICE FEE',OutUnit:'박스'}];
+  const history=[{ProdKey:1,OrderWeek:'37-01',Cost:3000,Quantity:2}];
+  const suggest=(customer,key=1)=>freightPriceSuggestion(history,key,'38-01',customer,products);
+  assert.equal(suggest({CustName:'(주)영남꽃소재'}).cost,1500);
+  assert.equal(suggest({CustName:'영남꽃소재'},2).cost,2000);
+  assert.equal(suggest({CustName:'부산 서부꽃집'}).cost,3000);
+  assert.equal(suggest({CustName:'인터넷공판장 (영남가빈)'}).cost,3000);
+  assert.equal(suggest(undefined).cost,3000);
+  assert.equal(suggest({CustName:'영남꽃소재'},3).cost,'');
+  for (const cost of [0,'',1750]) assert.equal({...suggest({CustName:'영남꽃소재'}),cost}.cost,cost);
+});
 
 test('customer freight evidence excludes cross year, customer, deductions and future weeks', () => {
   const row={OrderYear:'2026',OrderWeek:'36-01',CustKey:12,ProdKey:1,ProdName:'태국 운송료',Quantity:3,Cost:3000,Unit:'박스',EstimateType:'정상출고'};
