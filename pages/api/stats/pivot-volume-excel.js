@@ -15,6 +15,27 @@ import {
 } from '../../../lib/pivotVolumeNetherlands';
 const ALSTRO_DIVISOR = 16;
 const CUSTOMER_COL_WCH = 4;
+// Excel does not auto-fit a row with an explicit height when wrapText is enabled.
+// Estimate at 96dpi with conservative glyph widths for the 9pt Korean header font.
+function wrappedHeaderHeight(text, width, fontSize = 9) {
+  const availablePx = Math.max(8, width * 7 - 4);
+  let lines = 0;
+  for (const paragraph of String(text || '').split(/\r?\n/)) {
+    let used = 0;
+    lines += 1;
+    for (const character of paragraph) {
+      const glyphPx = /[^\u0000-\u007f]/.test(character)
+        ? fontSize * 4 / 3
+        : /[MW@%]/.test(character) ? fontSize * 1.15 : fontSize * 0.8;
+      if (used && used + glyphPx > availablePx) {
+        lines += 1;
+        used = 0;
+      }
+      used += glyphPx;
+    }
+  }
+  return lines * fontSize * 1.5 + 8;
+}
 function shortVolumeFlowerLabel(value) {
   const raw = String(value || '').trim();
   const known = [
@@ -448,6 +469,10 @@ function makeSheet(rows, customers, farms, meta) {
       ws['!cols'][idx].wch = width;
     });
   }
+
+  // Calculate after combined-cell widths are finalized; include explicit CL line breaks.
+  ws['!rows'][2].hpt = Math.max(44, ...colPlan.map((col, idx) =>
+    wrappedHeaderHeight(aoa[2][idx], ws['!cols'][idx].wch)));
 
   // 재업로드(출고분배) 정확 매칭용 키맵: 셀 "텍스트"(업체명/품목명)→키.
   // 위치(컬럼/행 index)가 아니라 실제 셀 텍스트로 매칭 → 중간 품목열 삽입 등 레이아웃 변화에도 안 깨짐.
