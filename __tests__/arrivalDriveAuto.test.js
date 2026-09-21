@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { arrivalDriveCandidate, selectArrivalDriveCandidates, scopeArrivalDriveRows } from '../lib/arrivalDrivePolicy.js';
+// xlsx's ESM entry has named exports only; instrumentation resolves that entry.
+assert.match(fs.readFileSync(new URL('../lib/arrivalCostExcel.js', import.meta.url), 'utf8'), /import \* as XLSX from 'xlsx'/);
+const xlsxEsm = await import('xlsx/xlsx.mjs');
+assert.equal(typeof xlsxEsm.read, 'function');
+assert.equal(xlsxEsm.default, undefined);
 const config = { year: '2026', countries: ['네덜란드'] };
 const file = (id, name, mtime='2026-09-14T03:16:00Z') => ({ id, filename: name, mtime, sha: id });
 const a = file('a', '37-2 NL 원가자료.xlsx');
