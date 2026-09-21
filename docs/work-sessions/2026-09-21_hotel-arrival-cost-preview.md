@@ -28,6 +28,10 @@ A. Shilla를 제외하던 history effect/input 분기를 해제했다. 관리표
 - Estimate, ShipmentDetail.Amount/Vat/isFix, WebProfitReport, 주문·분배·재고 전부 보존.
 
 ## 남은 검증
+- PR720 병합315ae305 / Cafe24 run35577442324 성공. 1920×1080 실제 신라37차 이력 tooltip 및 핑크몬디알 환율1450→1500 비교10,705.7원/단 표시, 기존매입10,600원 보존 확인.
+- 추가 SELECT: 수국889/866/883/871는 SteamOf1Bunch=0, BunchOf1Box=0, SteamOf1Box=30. RawJson.cells의 단당 수량=1이 명시됨. 원본 단당수량을 참조 환산에 사용하며 Product/원본 원장은 보존한다. 단당수량 헤더의 상충값은 사용하지 않는다.
+- 관리표 tooltip 연도를 선택연도로 전달하는 후속 보완 포함.
+- 최종 소스 환산 probe: 라움 수국화이트889의37-1 참조1977원/대(원본 단당1송이, Balverde324행). 송이 통관비와 단 원가가 섞이지 않도록, 원본 송이원가×단당수량 대조가 되는 행에서만 비용 단위를 환산해 비교한다. 앞선 핑크몬디알10,705.7 테스트값은 비용 단위 보완 전이며 최종 검증값으로 사용하지 않는다.
 - test:erp-contract 전체, test:nenova-dnspy-evidence, test:erp-manifest(기준d90d49b5), guard:erp-writes, test:ui-layout, build 통과. 배포/브라우저 확인은 후속.
 - 로컬 Downloads/37-1 NL 원가자료.xlsx 읽기 확인: 37-1 시트 C7=1600, J15=H15*$C$7, K15는J15에 품목별 관세율 적용, L15=$Q$10*G15/E15, M15=J15+K15+L15, O15=M15*N15. 따라서 고정 통관비 기반 환율 비교는 엑셀 전체 관세 수식 재계산과 같다고 주장하지 않는다. 업무드라이브37-2 파일 본문은 내려받기 경로가 로컬에 확인되지 않아 수식 대조 미완료.
 - 임시 probe-hotel-arrival.cjs는 커밋 대상 아님. 비밀값은 메모리에서 읽고 출력하지 않는다.

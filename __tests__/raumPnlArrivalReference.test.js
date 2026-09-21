@@ -43,6 +43,13 @@ async function main() {
   ], rows, 37);
   assert.equal(aliases[21][0].cost, 100, '대 is one stem, not one bunch');
   assert.equal(aliases[22][0].cost, 100);
+  const sourceUnit = buildRaumPnlArrivalReferences([{itemKey: 21, prodKey: 456, unit: '대'}], [{OrderWeek:'37-1',ProdKey:456,ArrivalUnit:'단',SelectedArrivalCostKRW:1846,SourceStemsPerBunch:1,SteamOf1Bunch:0}],37);
+  assert.equal(sourceUnit[21][0].cost,1846, 'original workbook explicitly says one stem per bunch; never changes Product');
+  const sourceFive = buildRaumPnlArrivalReferences([{itemKey: 21, prodKey:456,unit:'st'}],[{OrderWeek:'37-1',ProdKey:456,ArrivalUnit:'단',SelectedArrivalCostKRW:5000,SourceStemsPerBunch:5,SteamOf1Bunch:10}],37);
+  assert.equal(sourceFive[21][0].cost,1000,'original bundle size controls original cost, not a different catalog pack');
+  const fxUnit = buildRaumPnlArrivalReferences([{itemKey:21,prodKey:456,unit:'단'}],[{OrderWeek:'37-1',ProdKey:456,ArrivalUnit:'단',SelectedArrivalCostKRW:5000,SourceStemsPerBunch:5,SourceCostPerStem:1000,AllocationBasis:'SOURCE'}],37);
+  assert.equal(fxUnit[21][0].fxExpenseFactor,5,'per-stem fixed expenses scale to the original bunch unit');
+  assert.equal(sourceFive[21][0].fxExpenseFactor,null,'unverified expense unit must not be guessed');
   assert.match(aliases[23][0].conversionError, /환산 확인 필요/);
   assert.equal(aliases[23][0].cost, null, 'unknown units never silently become an empty source or 0 cost');
   const { withHotelArrivalReferences } = await import('../lib/raumPnlArrivalReference.js');
