@@ -2,8 +2,13 @@
 .panel { width:100%; max-width:1880px; max-height:calc(100dvh - 24px); overflow:auto; background:white; border-radius:10px; padding:14px; box-sizing:border-box; color:#17365d; }
 .help { font-size:12px; color:#52657b; margin:6px 0; }
 .sectionHeading { display:flex; justify-content:space-between; padding:6px 8px; background:#e0edff; border:1px solid #c4d5ed; }
-.sources { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:2px 8px; margin:5px 0 10px; }
-.sourceRow { display:grid; grid-template-columns:18px minmax(0,1fr) 96px 66px 66px; align-items:center; gap:4px; min-height:28px; padding:2px 5px; box-sizing:border-box; border-bottom:1px solid #d8e2ef; font-size:12px; }
+.sources { columns:3; column-gap:10px; margin:5px 0 10px; }
+.group { break-inside:avoid; display:inline-block; vertical-align:top; width:100%; margin-bottom:6px; border:1px solid var(--group-accent); border-radius:5px; overflow:hidden; box-sizing:border-box; }
+.groupHeading { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 7px; background:var(--group-bg); border-left:5px solid var(--group-accent); color:var(--group-accent); font-size:13px; }
+.groupHeading small { font-weight:normal; font-size:11px; }
+.rowHeading { display:grid; grid-template-columns:minmax(0,1fr) 70px 78px; gap:4px; padding:3px 5px; font-size:11px; color:#52657b; background:#fff; }
+.rowHeading span:not(:first-child) { text-align:right; }
+.sourceRow { display:grid; grid-template-columns:18px minmax(0,1fr) 70px 78px; align-items:center; gap:4px; min-height:26px; padding:2px 5px; box-sizing:border-box; border-bottom:1px solid #d8e2ef; font-size:12px; }
 .sourceName { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .date { color:#60718a; font-size:11px; white-space:nowrap; }
 .quantity,.boxes { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
@@ -19,5 +24,5 @@
 .existing { display:flex; flex-wrap:wrap; gap:4px 8px; padding:6px; background:#f1f5f9; font-size:11px; }
 .existing span { padding:2px 5px; background:white; border:1px solid #dbe3ef; border-radius:4px; }
 .footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding-top:9px; }
-@media(max-width:1400px) { .sources { grid-template-columns:repeat(2,minmax(0,1fr)); } .drafts { grid-template-columns:1fr; } }
-@media(max-width:850px) { .sources { grid-template-columns:1fr; } .sourceRow { grid-template-columns:18px minmax(0,1fr) 88px 60px 60px; } .draftRow { grid-template-columns:18px 92px minmax(100px,1fr); } .panel { padding:8px; } }
+@media(max-width:1400px) { .sources { columns:2; } .drafts { grid-template-columns:1fr; } }
+@media(max-width:850px) { .sources { columns:1; } .draftRow { grid-template-columns:18px 92px minmax(100px,1fr); } .panel { padding:8px; } }

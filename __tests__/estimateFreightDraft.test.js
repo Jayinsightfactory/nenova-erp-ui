@@ -1,7 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { freightRowBoxes, freightSourceRows, buildFreightDraftRows, validateFreightDraft, additionalCycleWeek } from '../lib/estimateFreightDraft.js';
+import { freightRowBoxes, freightSourceRows, buildFreightDraftRows, validateFreightDraft, additionalCycleWeek, groupFreightSources } from '../lib/estimateFreightDraft.js';
 import { mapExeDetailRowToWebItem, sqlEstimateGetDetail } from '../lib/exeEstimateViewSql.js';
+
+test('display groups preserve original subweeks and separate countries; exclusion and unknown subtotals', () => {
+  const rows = [
+    {sourceKey:'a',CounName:'콜롬비아',FlowerName:'장미',boxes:2,OrderWeek:'37-01'},
+    {sourceKey:'b',CounName:'중국',FlowerName:'장미',boxes:3,OrderWeek:'37-01'},
+    {sourceKey:'c',CounName:'콜롬비아',FlowerName:'장미',boxes:1,OrderWeek:'37-02'},
+    {sourceKey:'d',CounName:'콜롬비아',FlowerName:'장미',boxes:null},
+  ];
+  const result = groupFreightSources(rows,{a:true});
+  assert.deepEqual(result.map(g=>[g.label,g.boxes,g.unknown]),[['콜롬비아 · 장미',1,1],['중국 · 장미',3,0]]);
+  assert.equal(result[0].rows[0],rows[0]);
+  assert.equal(result[0].rows[1].OrderWeek,'37-02');
+  assert.equal(groupFreightSources(rows,{d:true})[0].unknown,0);
+  assert.equal(groupFreightSources(rows)[0].boxes,3);
+  assert.deepEqual(groupFreightSources([]),[]);
+});
 
 test('real EXE detail mapper preserves date quantity and conversion for freight preview', () => {
   const row = mapExeDetailRowToWebItem({ Sort:0, DetailKey:1, ProdKey:2, OrderWeek:'37-01', DateShipQty:2,

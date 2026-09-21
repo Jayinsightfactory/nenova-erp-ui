@@ -21,7 +21,7 @@
   "actions": [
     {
       "name": "FREIGHT_PREVIEW_READ_ONLY",
-      "guard": "1920x1080 compact 3-column product count; EXE detail mapper must preserve ShipmentDate.ShipmentQuantity and Product unit conversion. Missing quantity is unknown, never zero. No SQL writes or changes to existing save flow.",
+      "guard": "1920x1080 compact 3-column country/variety color groups and selected box subtotals. Hide repeated source-row date/week visually only, preserve original identity and registration scope. EXE detail mapper preserves date quantity/unit conversion. Unknown quantities are explicitly counted beside known subtotal. No SQL writes or changes to existing save flow.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "estimate": "preserve",

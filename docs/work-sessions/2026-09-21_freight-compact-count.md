@@ -22,6 +22,13 @@
 **A.** 실제 API는 loadExeDetailItems → sqlEstimateGetDetail → mapExeDetailRowToWebItem 경로인데 기존 계산 테스트는 다른 조회 경로의 DateShipQty 필드를 가정했다. 실제 mapper가 출고수량·환산값을 전달하지 않아 Number(undefined) 실패를 0으로 표시했다. 기존 JOIN의 ShipmentDate와 Product 열을 SELECT에 추가하고 mapper로 전달한다. WHERE/JOIN 및 인쇄값·수량 원장 변경 없음.
 
 ## 부작용 / 증거
+### 후속: 색상 그룹과 단순 수량 대조
+- 사용자 요청: 품종별로 다른 색으로 묶고 `품목명 · 입력수량 · 박스수`만 행에 표시.
+- `CounName + FlowerName` 기준 묶음, 품종명/소계 텍스트도 제공해 색상에만 의존하지 않는다. 국가가 다른 같은 품종은 별도 그룹이다.
+- 체크 제외는 소계에 반영하고 환산 미확인은 확인된 소계 옆에 별도 건수로 표시한다.
+- 원본 sourceKey/OrderWeek/outDate는 변경하지 않는다. 실제 운임 등록 행에는 세부차수·날짜를 계속 표시해 저장 대상을 오인하지 않게 한다. 원장/SQL/등록 정책 변경 없음.
+- 실행 회귀: 국가 분리, 체크 제외, 미확인 집계, 원본 참조와 세부차수 보존.
+
 | 동작 | Order/Shipment/Date/Farm | Stock/Estimate/WebProfitReport |
 |---|---|---|
 | 박스 미리보기·체크·반올림 | SELECT 및 화면 상태만 | 모두 보존 |
