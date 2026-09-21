@@ -64,6 +64,7 @@ export default function WorkDrivePage() {
     .filter((f) => !sensF || (sensF === 'sens' ? f.sensitive : !f.sensitive))
     .filter((f) => !verF || verCount[f.uploaderName + '|' + f.filename] > 1)
     .filter((f) => !q || f.filename.toLowerCase().includes(q.toLowerCase()) || (f.uploaderName || '').includes(q) || (f.cycle || '') === q), [files, scope, who, q, data, deptF, extF, dirF, since, sensF, verF, verCount]);
+  const dirs = useMemo(() => { const m = {}; for (const f of files) if (f.sourceDir) m[f.sourceDir] = (m[f.sourceDir] || 0) + 1; return Object.entries(m).filter(([, n]) => n >= 5).sort((a, b) => b[1] - a[1]).slice(0, 30); }, [files]); // 5건 이상 폴더만, 많은 순 30개
   const anyF = !!(deptF || extF || dirF || periodF || sensF || verF || stageF);
   const clearF = () => { setDeptF(''); setExtF(''); setDirF(''); setPeriodF(''); setSensF(''); setVerF(''); setStageF(''); };
 
@@ -138,7 +139,7 @@ export default function WorkDrivePage() {
         <select value={deptF} onChange={(e) => setDeptF(e.target.value)}><option value="">부서 전체</option>{[...new Set(files.map((f) => f.dept).filter(Boolean))].map((d) => <option key={d}>{d}</option>)}</select>
         <select value={stageF} onChange={(e) => setStageF(e.target.value)}><option value="">단계 전체</option>{stages.map((s) => <option key={s}>{s}</option>)}</select>
         <select value={extF} onChange={(e) => setExtF(e.target.value)}><option value="">종류 전체</option><option value="xls">엑셀·CSV</option><option value="pdf">PDF</option><option value="doc">문서·PPT</option><option value="img">이미지</option><option value="etc">기타</option></select>
-        <select value={dirF} onChange={(e) => setDirF(e.target.value)}><option value="">폴더 전체</option>{[...new Set(files.map((f) => f.sourceDir).filter(Boolean))].map((d) => <option key={d}>{d}</option>)}</select>
+        <select value={dirF} onChange={(e) => setDirF(e.target.value)}><option value="">폴더 전체</option>{dirs.map(([d, n]) => <option key={d} value={d}>{d} ({n})</option>)}</select>
         <select value={periodF} onChange={(e) => setPeriodF(e.target.value)}><option value="">올린 기간 전체</option><option value="1">오늘(24시간)</option><option value="7">최근 7일</option><option value="30">최근 30일</option></select>
         <select value={sensF} onChange={(e) => setSensF(e.target.value)}><option value="">민감 여부 전체</option><option value="sens">🔒 민감만</option><option value="plain">일반만</option></select>
         <select value={verF} onChange={(e) => setVerF(e.target.value)}><option value="">버전 전체</option><option value="multi">버전 2개 이상</option></select>
@@ -206,7 +207,7 @@ export default function WorkDrivePage() {
         .bar input{padding:5px 8px;border:1px solid #ccc;border-radius:6px;min-width:200px}.bar button{padding:5px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer}.bar button:disabled{color:#999}
         .seg{display:flex;border:1px solid #ccc;border-radius:6px;overflow:hidden}.seg button{border:0;border-right:1px solid #ccc;border-radius:0}.seg button:last-child{border-right:0}.seg button.on{background:#2f6feb;color:#fff}
         .chips{display:flex;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #eee;background:#fff;flex-wrap:wrap}.chips button{padding:3px 9px;border:1px solid #ddd;border-radius:14px;background:#fff;cursor:pointer}.chips button.on{border-color:#2f6feb;background:#e8f0fe;font-weight:700}.chips em{font-style:normal;color:#777;font-size:11px}
-        .filters{display:flex;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #eee;background:#fcfcfc;flex-wrap:wrap}.filters select,.filters button{padding:3px 6px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:12px}
+        .filters{display:flex;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #eee;background:#fcfcfc;flex-wrap:wrap}.filters select,.filters button{max-width:200px;padding:3px 6px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:12px}
         .dim{color:#777}.warn{color:#b45309;padding:6px 12px}.lock{color:#b45309}.r{text-align:right}
         .body{display:flex;flex:1 1 auto;min-height:0}
         .left{flex:0 0 220px;border-right:1px solid #e3e3e3;overflow:auto;padding:8px;background:#fafafa;display:flex;flex-direction:column;min-height:0}
