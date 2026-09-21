@@ -17,6 +17,7 @@ const source = arrivalDriveCandidate(a,'2026');
 const row = { orderYear:'2026', orderWeek:'37-2', countryName:'네덜란드', quantity:10, sourceArrivalCostKRW:1800, matchStatus:'MATCHED' };
 const parsed = { rows:[row,{...row,orderWeek:'36-1'}], sheetStats:[], rejectedRows:[] };
 assert.equal(scopeArrivalDriveRows(parsed,source).rows.length,1);
+assert.equal(scopeArrivalDriveRows({...parsed,rows:[{...row,orderWeek:'37-02'}]},source).rows[0].orderWeek,'37-2');
 assert.throws(()=>scopeArrivalDriveRows({...parsed,rows:[{...row,orderYear:'2025'}]},source),/연도/);
 assert.throws(()=>scopeArrivalDriveRows({...parsed,rows:[{...row,countryName:'콜롬비아'}]},source),/국가/);
 assert.throws(()=>scopeArrivalDriveRows({...parsed,rejectedRows:[{orderWeek:'37-2'}]},source),/계산/);
