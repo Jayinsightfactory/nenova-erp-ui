@@ -23,6 +23,9 @@ const yearOf = (f) => {
 const icon = (f) => (f.ext === 'pdf' ? '📄' : /xls|csv/.test(f.ext) ? '📊' : /doc|hwp|txt/.test(f.ext) ? '📝' : /png|jpg|jpeg/.test(f.ext) ? '🖼' : '📁');
 const dayKey = (t) => String(t || '').slice(0, 10);
 const NONE = '__none';
+// 차수 → 기준 수요일 (루트 CLAUDE.md 규칙 3: Week N 시작일 = 1/1 + (N-1)*7일, 그 날과 같거나 바로 앞의 수요일). 정오로 만들어 시간대 밀림 방지
+const cycleWed = (year, cycle) => { const n = parseInt(String(cycle || '').split('-')[0], 10); if (!(year > 2000) || !(n > 0)) return null; const d = new Date(year, 0, (n - 1) * 7 + 1, 12); d.setDate(d.getDate() - ((d.getDay() - 3 + 7) % 7)); return d; };
+const fmtMD = (d) => d ? `${d.getMonth() + 1}/${d.getDate()}` : '';
 
 export default function WorkDrivePage() {
   const [data, setData] = useState(null);
@@ -129,6 +132,7 @@ export default function WorkDrivePage() {
   );
   const Sel = ({ value, onChange, children }) => <select className={'sel' + (value ? ' on' : '')} value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>;
 
+  const curWed = cur && cur !== NONE ? cycleWed(parseInt(cur.split(':')[0], 10), cur.split(':')[1]) : null;
   const curLabel = cur === NONE ? '차수 없는 파일' : cur ? `${cur.split(':')[0]}년 ${cur.split(':')[1]}차` : '';
   const sc = stageCount(inCycle);
   const stale = (t) => Date.now() - new Date(t) > 3 * 86400e3;
@@ -176,7 +180,7 @@ export default function WorkDrivePage() {
             <div className="sec">차수 <span>{allCk.length}</span></div>
             <div className="cyc">
               {years.length === 0 && <div className="dim pad">차수 파일 없음</div>}
-              {years.map((y) => <div key={y.year}><div className="yr">{y.year}</div>{y.cycles.map((c, i) => <button key={c.ck} className={c.ck === cur ? 'on' : ''} onClick={() => { setCycle(c.ck); if (view === 'recent') setView('kanban'); }}><span>{c.c}차{y === years[0] && i === 0 && <em className="now">현재</em>}</span><span className="n">{c.n}</span></button>)}</div>)}
+              {years.map((y) => <div key={y.year}><div className="yr">{y.year}</div>{y.cycles.map((c, i) => <button key={c.ck} className={c.ck === cur ? 'on' : ''} onClick={() => { setCycle(c.ck); if (view === 'recent') setView('kanban'); }}><span>{c.c}차<small className="wd-date">{fmtMD(cycleWed(y.year, c.c))}</small>{y === years[0] && i === 0 && <em className="now">현재</em>}</span><span className="n">{c.n}</span></button>)}</div>)}
             </div>
             <button className={'nonebtn' + (cur === NONE ? ' on' : '')} onClick={() => { setCycle(NONE); if (view === 'recent') setView('list'); }}><span>차수 없음</span><span className="n">{noCycle.length}</span></button>
           </section>
@@ -188,11 +192,11 @@ export default function WorkDrivePage() {
             <div className="h2">최근 올라온 파일 <span className="dim">{listRows.length}건 · 최신순</span></div>
             {Object.entries(listRows.reduce((m, f) => { (m[dayKey(f.uploadedAt)] ||= []).push(f); return m; }, {})).map(([d, rows]) => <section key={d} className="daysec"><div className="day">{d === today ? '오늘' : fmtD(d)} <em>{rows.length}</em></div><Table rows={rows} withCycle /></section>)}
           </> : !cur ? <div className="empty-state">파일이 아직 없습니다. 직원 PC에서 업무 파일이 저장되면 자동으로 여기에 쌓입니다.</div> : <>
-            <div className="h2">{q ? <>&ldquo;{q}&rdquo; 검색 결과</> : curLabel} <span className="dim">{(q ? scoped : inCycle).length}개</span></div>
-            {!q && <div className="strip">{stages.map((s) => (sc[s] > 0 || s !== '미분류') && <button key={s} className={'stg-chip' + (stageF === s ? ' on' : '') + (sc[s] === 0 ? ' zero' : '')} onClick={() => setStageF(stageF === s ? '' : s)}><Dot s={s} />{s}<em>{sc[s]}</em></button>)}</div>}
+            <div className="h2">{q ? <>&ldquo;{q}&rdquo; 검색 결과</> : curLabel}{!q && curWed && <span className="wed">기준 수요일 {curWed.getMonth() + 1}월 {curWed.getDate()}일</span>} <span className="dim">{(q ? scoped : inCycle).length}개</span></div>
+            {!q && <div className="strip">{[...stages.filter((s) => sc[s] > 0), ...stages.filter((s) => sc[s] === 0 && s !== '미분류')].map((s) => <button key={s} className={'stg-chip' + (stageF === s ? ' on' : '') + (sc[s] === 0 ? ' zero' : '')} onClick={() => setStageF(stageF === s ? '' : s)}><Dot s={s} />{s}<em>{sc[s]}</em></button>)}</div>}
             {showList ? <Table rows={listRows} withCycle={!!q || cur === NONE} /> : (
               <div className="kanban">
-                {stages.filter((s) => (s !== '미분류' || sc[s] > 0) && (!stageF || s === stageF)).map((s) => <div className={'col' + (s === '미분류' ? ' un' : '')} key={s}><div className="ch"><Dot s={s} />{s}<em>{sc[s]}</em></div>{sc[s] === 0 ? <div className="empty">비어 있음</div> : inCycle.filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
+                {[...stages.filter((s) => sc[s] > 0), ...stages.filter((s) => sc[s] === 0 && s !== '미분류')].filter((s) => !stageF || s === stageF).map((s) => <div className={'col' + (s === '미분류' ? ' un' : '') + (sc[s] === 0 ? ' zero' : '')} key={s}><div className="ch"><Dot s={s} />{s}<em>{sc[s]}</em></div>{sc[s] === 0 ? <div className="empty">비어 있음</div> : inCycle.filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
               </div>)}
           </>}
         </main>
@@ -273,7 +277,8 @@ button{font:inherit;color:inherit}
 .wd :global(.dot){display:inline-block;width:8px;height:8px;border-radius:50%;flex:0 0 8px}.wd :global(.stg){display:inline-flex;align-items:center;gap:6px}
         /* 칸반 */
 .kanban{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding-bottom:12px}
-.col{flex:0 0 250px;background:#eef0f3;border-radius:12px;padding:8px;max-height:calc(100vh - 250px);overflow:auto}.col.un{background:#f3f4f6;outline:1px dashed #d1d5db}
+.col.zero{flex:0 0 150px;opacity:.7}.wd :global(.wd-date){margin-left:6px;color:var(--mu);font-weight:400;font-size:11px}.wed{margin-left:8px;font-size:12.5px;font-weight:500;color:#2450c8;background:var(--acs);padding:2px 8px;border-radius:10px;vertical-align:2px}
+        .col{flex:0 0 250px;background:#eef0f3;border-radius:12px;padding:8px;max-height:calc(100vh - 250px);overflow:auto}.col.un{background:#f3f4f6;outline:1px dashed #d1d5db}
 .ch{display:flex;align-items:center;gap:6px;font-weight:600;padding:4px 6px 8px;position:sticky;top:0;background:inherit;z-index:1}.ch em{font-style:normal;margin-left:auto;font-size:11.5px;color:var(--mu);background:var(--sf);padding:1px 7px;border-radius:10px}
 .empty{color:#9ca3af;text-align:center;padding:14px;font-size:12px}
 .wd :global(.card){background:var(--sf);border:1px solid transparent;border-radius:10px;padding:8px 10px;margin-bottom:6px;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.05);transition:box-shadow .12s,border-color .12s}
