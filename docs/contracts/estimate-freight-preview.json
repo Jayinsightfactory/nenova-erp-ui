@@ -1,0 +1,69 @@
+{
+  "id": "estimate-freight-preview",
+  "title": "견적 운임 계산 확인 및 기존 추가 품목 저장",
+  "scope": [
+    "pages/estimate.js",
+    "components/estimate/FreightChargePreviewModal.js",
+    "lib/estimateFreightPolicy.js",
+    "lib/estimateFreightApply.js",
+    "pages/api/estimate/freight-apply.js",
+    "lib/estimateFreightDraft.js",
+    "pages/api/estimate/additional-product-context.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "FREIGHT_PREVIEW_READ_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "estimate": "preserve",
+      "stock": "preserve"
+    },
+    {
+      "name": "FREIGHT_ESTIMATE_ADDITIONAL_FLOW",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "increase",
+      "shipmentDate": "existing adjustment API synchronizes verified date",
+      "estimate": "preserve",
+      "stock": "existing scoped fix-cancel/fix SP and stock recalculation; no force override",
+      "guard": "same-year selected subweek, customer, freight product; read context before existing additional-product cycle; existing freight skipped; former freight direct write endpoint returns 410"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "같은 차수명이 다른 연도에 존재해도 현재 연도·업체·차수의 화면 행만 미리 계산한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/estimateFreightPolicy.test.js",
+    "__tests__/estimateFreightApply.test.js",
+    "__tests__/estimateFreightDraft.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "FormShipmentDistribution.btnSave_Click/ClassShipmentDetail/ClassShipmentDate; existing estimate additional workflow uses scoped cancel/fix and PIVOT_DISTRIBUTION ADD (order created only if missing). Read-only 2026 37차 영남꽃소재 estimate verified existing freight lines.",
+    "methods": [
+      "FormShipmentDistribution.btnSave_Click",
+      "ClassShipmentDetail.Insert",
+      "ClassShipmentDate.Insert",
+      "FormEstimateView GetDetail"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "Product"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
