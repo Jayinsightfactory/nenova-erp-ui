@@ -93,6 +93,7 @@ console.info = (...args) => captured.push(args.join(' '));
 try {
   const pcPage = await fetch(`http://127.0.0.1:${nextPort}/integrations/moyi-drive`);
   const mobilePage = await fetch(`http://127.0.0.1:${nextPort}/m`);
+  if (!pcPage.ok) console.error('PC page error response:', (await pcPage.clone().text()).slice(-9000).replaceAll(jwtSecret, '[fixture-secret]'));
   assert.equal(pcPage.status, 200);
   assert.equal(mobilePage.status, 200);
   assert.match(await pcPage.text(), /MOYI Drive 관리/);

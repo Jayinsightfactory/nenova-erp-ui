@@ -3,8 +3,10 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'edge') return;
   try {
-    const { startArrivalDriveScheduler } = await import('./lib/arrivalDriveAuto');
-    startArrivalDriveScheduler();
+    if (process.env.NODE_ENV === 'production' && process.env.DB_SERVER) {
+      const { startArrivalDriveScheduler } = await import('./lib/arrivalDriveAuto');
+      startArrivalDriveScheduler();
+    }
   } catch (e) {
     console.warn('[instrumentation] arrival-drive 시작 실패:', e.message);
   }
