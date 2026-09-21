@@ -36,6 +36,28 @@ async function main() {
   const exactWins = buildRaumPnlArrivalReferences(items, [...fallbackRows, ...rows], 37);
   assert.deepEqual(exactWins[10].map(row => row.week), ['37-1', '37-2'], 'requested major always wins over prior data');
   assert.ok(exactWins[10].every(row => row.isFallback === false));
+  const aliases = buildRaumPnlArrivalReferences([
+    { itemKey: 21, prodKey: 456, unit: '대' },
+    { itemKey: 22, prodKey: 456, unit: 'st' },
+    { itemKey: 23, prodKey: 456, unit: '묶음' },
+  ], rows, 37);
+  assert.equal(aliases[21][0].cost, 100, '대 is one stem, not one bunch');
+  assert.equal(aliases[22][0].cost, 100);
+  assert.match(aliases[23][0].conversionError, /환산 확인 필요/);
+  assert.equal(aliases[23][0].cost, null, 'unknown units never silently become an empty source or 0 cost');
+  const { withHotelArrivalReferences } = await import('../lib/raumPnlArrivalReference.js');
+  const batch = await withHotelArrivalReferences([{itemKey: 10, prodKey: 456, unit: '단', major: 37}, {itemKey: 11, prodKey: 456, unit: '단', major: 36}], '2026', async (query, params) => {
+    assert.equal(params.yr.value, '2026');
+    assert.equal(params.major.value, 37);
+    return {recordset: [...rows, ...fallbackRows]};
+  });
+  assert.equal(batch[0].arrivalReferences[0].sourceMajor, 37);
+  assert.equal(batch[1].arrivalReferences[0].sourceMajor, 36);
+  const failed = await withHotelArrivalReferences([{ itemKey: 10, prodKey: 456, major: 37 }], '2026', async () => {throw Error('offline');});
+  assert.match(failed[0].arrivalReferenceError, /조회 실패/);
+  const fx = await import('../lib/arrivalCostFxPreview.js');
+  const preview = fx.recalcArrivalCostWithFx({selectedArrivalCostKRW: 1700, exchangeRate: 1500, customsPerUnitKRW: 100, otherPerUnitKRW: 100}, 1450);
+  assert.equal(preview.cost, 1650, 'fixed KRW charges stay fixed');
 
   let captured = null;
   const loaded = await loadRaumPnlArrivalReferences({ orderYear: '2026', major: 37, items }, async (sqlText, params) => {
@@ -58,6 +80,10 @@ async function main() {
   assert.match(page, /해당 차수 도착원가/);
   assert.match(page, /웹 확인용/);
   assert.match(page, /이전 최신 차수/);
+  assert.doesNotMatch(page, /if \(!detail \|\| isShilla\)/, 'Shilla also reads stored history');
+  const component = fs.readFileSync(path.join(__dirname, '../components/raum/HotelArrivalCostReference.js'), 'utf8');
+  assert.match(component, /환율로 원가 비교/);
+  assert.doesNotMatch(component, /fetch\(|onSave|method:\s*['"]POST/, 'FX is a browser-only comparison');
   const hotelApi = fs.readFileSync(path.join(__dirname, '../pages/api/raum/hotel-purchase-costs.js'), 'utf8');
   assert.match(hotelApi, /requirePnlPartner/);
   assert.match(hotelApi, /\['raum', 'choimun'\]\.includes\(partner\.code\)/, 'shared partners cannot bypass the shared write contract');
