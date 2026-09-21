@@ -58,7 +58,7 @@
       "name": "QUALITY_DELETE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "sideEffect": "정확한 userId nenovaSS3만 선택 연도+CaseKey+Version을 잠금 재검증한 뒤 연결 증거, 코멘트 이력, 피드백 건을 자식부터 한 트랜잭션에서 삭제한다. 다른 연도·다른 피드백·미연결 임시 증거 및 확정 불량·ERP 원장은 보존한다."
+      "sideEffect": "정확한 활성 userId nenovaSS3만 선택 연도+CaseKey+Version을 잠금 재검증한 뒤 연결 증거·코멘트 이력과 그 이벤트의 InboxSource 연결을 삭제하고 Case는 NEW로 초기화한다. 원본 앵커/제목 보존, 기한/개선차수 초기화, Version 증가. 단일 Case Inbox는 제외 해제; 여러 Case 공유 Inbox는 안전하게 차단. 다른 연도·다른 피드백·미연결 임시 증거 및 불량·ERP 원장은 보존한다."
     }
   ],
   "criteria": {
@@ -73,8 +73,8 @@
     "units": "rates and signals use exact original output unit; no box/bunch/stem conversion; missing or zero incoming denominator is shown as unknown, never 0 percent",
     "rate": "farm trend numerator is all confirmed defects for farm+unit+parent week and denominator is all ViewWarehouse incoming products for the same farm+unit+parent week; item candidate denominator additionally requires exact ProdKey",
     "state": "COMMENT preserves status; REQUEST creates unanswered round; RESPONSE only incoming/admin; APPLY requires answered; CLOSE manual; recurrence is suspected until reviewed",
-    "deleteAuthority": "exact userId nenovaSS3 only; similar ids, spaces, authority role alone, incoming/sales/support permissions are insufficient",
-    "storage": "automatic signals are a read-only projection of WebSalesDefectDeduction. WebFarmQualityCase+WebFarmQualityEvent are written only by explicit user action; evidence is signature-validated, size/count-limited, linked to immutable EventKey in the event transaction, and guarded by year/uploader; optimistic version and request idempotency remain in force. A successful event transaction returns the inserted event plus the updated case version so the browser confirms the comment immediately without depending on a follow-up GET. Full feedback deletion requires explicit confirmation and version match, deletes Evidence then Event then Case atomically, and logs actor/target/count.",
+    "deleteAuthority": "exact active userId nenovaSS3 only; similar ids, spaces, authority role alone, incoming/sales/support permissions are insufficient. Unified detail exposes reset-to-NEW only for an explicitly chosen saved history. No automatic production deletion.",
+    "storage": "Automatic signals are read-only. Explicit events use WebFarmQualityCase/Event with immutable evidence links, year/uploader guards, versions and request identity. Confirmed exact-admin deletion removes selected event source-links/evidence/events atomically, preserves the Case anchor as NEW with cleared due/applied values and increments versions; selected Inbox exclusion is cleared only when no other case shares it. Other histories and ERP sources are preserved. Actor/target/count are logged. UI returns to NEW and differentiates deletion success from refresh failure.",
     "downstream": "Estimate, Order, Shipment, Warehouse, Stock, WebProfitReport preserved",
     "coverage": "All distinct same-year active WebSalesDefectDeduction rows, all source units, including unconfirmed/missing farm/product/invalid quantity/week. Each row has IN_RANGE/OUT_OF_RANGE/UNKNOWN_WEEK. Default UI shows in-range plus unknown-week; an explicit filter displays out-of-range rows. sourceTotal=activeTotal+deletedCount; activeTotal=inRangeCount+outOfRangeCount+invalidWeekCount. Coverage does not relax rates/create eligibility. Automatic signal eligibility is separately validated and summarized. Deleted rows are counted separately, never restored."
   },

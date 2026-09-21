@@ -28,7 +28,7 @@ const q=async(sql,p={})=>{
  ]};
  if(sql.includes('INSERT dbo.WebFarmQualityCase')){cases.push({CaseKey:v('key'),OrderYear:v('year'),Status:'NEW',Version:1});return {recordset:[]};}
  if(sql.includes('SELECT * FROM dbo.WebFarmQualityCase'))return {recordset:cases.filter(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'))};
- if(sql.includes('SELECT CaseKey,Version,Title FROM dbo.WebFarmQualityCase'))return {recordset:cases.filter(c=>String(c.CaseKey).toLowerCase()===String(v('key')).toLowerCase()&&c.OrderYear===v('year'))};
+ if(sql.includes('SELECT CaseKey,Version,Title,InboxKey FROM dbo.WebFarmQualityCase'))return {recordset:cases.filter(c=>String(c.CaseKey).toLowerCase()===String(v('key')).toLowerCase()&&c.OrderYear===v('year'))};
  if(sql.includes('SELECT EventKey FROM dbo.WebFarmQualityEvent'))return {recordset:events.filter(e=>String(e.CaseKey).toLowerCase()===String(v('key')).toLowerCase()).map(e=>({EventKey:e.EventKey}))};
  if(sql.includes('INSERT dbo.WebFarmQualityEvent')){const EventKey=events.length+1;const saved={EventKey,CaseKey:v('key'),RequestKey:v('req'),PayloadHash:v('hash'),Kind:v('kind'),Body:v('body'),AuthorId:v('author'),AuthorName:v('name'),Department:v('dept'),BeforeStatus:v('before'),AfterStatus:v('after'),EventDate:v('date'),DueDate:v('due'),AppliedWeek:v('applied'),CreatedAt:new Date('2026-09-14T01:00:00Z')};events.push(saved);return {recordset:[saved]};}
  if(sql.includes('SELECT EvidenceKey FROM dbo.WebFarmQualityEvidence'))return {recordset:evidence.filter(e=>e.EvidenceKey===v('evidence')&&e.OrderYear===v('year')&&e.CreatedBy===v('author')&&e.EventKey==null)};
@@ -36,6 +36,7 @@ const q=async(sql,p={})=>{
  if(sql.includes('DELETE FROM dbo.WebFarmQualityEvidence')){evidence=evidence.filter(e=>e.EventKey!==v('event'));return {recordset:[]};}
  if(sql.includes('DELETE FROM dbo.WebFarmQualityEvent')){events=events.filter(e=>String(e.CaseKey).toLowerCase()!==String(v('key')).toLowerCase());return {recordset:[]};}
  if(sql.includes('DELETE FROM dbo.WebFarmQualityCase')){const before=cases.length;cases=cases.filter(c=>!(String(c.CaseKey).toLowerCase()===String(v('key')).toLowerCase()&&c.OrderYear===v('year')&&c.Version===v('version')));return {recordset:[],rowsAffected:[before-cases.length]};}
+ if(sql.includes("SET Status=N'NEW'")){const c=cases.find(c=>c.CaseKey===v('key')&&c.OrderYear===v('year')&&c.Version===v('version'));if(c){c.Status='NEW';c.Version++;c.DueDate=null;c.AppliedWeek=null;}return {recordset:[],rowsAffected:[c?1:0]};}
  if(sql.includes('UPDATE dbo.WebFarmQualityCase')){const c=cases.find(c=>c.CaseKey===v('key')&&c.OrderYear===v('year'));c.Status=v('status');c.Version++;c.DueDate=v('kind')==='REQUEST'?v('due'):c.DueDate;c.AppliedWeek=v('kind')==='APPLY'?v('applied'):v('kind')==='REQUEST'?null:c.AppliedWeek;c.UpdatedAt=new Date('2026-09-14T01:00:00Z');return {recordset:[{Version:c.Version,Status:c.Status,DueDate:c.DueDate,AppliedWeek:c.AppliedWeek,UpdatedAt:c.UpdatedAt}]};}
  throw Error('Unexpected SQL '+sql);
 };
@@ -99,6 +100,6 @@ await assert.rejects(deleteQualityCase({year:2026,caseKey:first.caseKey,version:
 await assert.rejects(deleteQualityCase({year:2025,caseKey:first.caseKey,version:cases[0].Version},{userId:'nenovaSS3'}));
 await assert.rejects(deleteQualityCase({year:2026,caseKey:first.caseKey,version:cases[0].Version-1},{userId:'nenovaSS3'}),error=>error.code==='QUALITY_STALE');
 const deleted=await deleteQualityCase({year:2026,caseKey:first.caseKey,version:cases[0].Version},{userId:'nenovaSS3',userName:'관리자'});
-assert.equal(deleted.deleted,true);assert.equal(cases.length,0);assert.equal(events.length,0);assert.equal(evidence.length,1,'연결된 이미지만 삭제하고 다른 연도 임시 이미지는 보존한다.');
+assert.equal(deleted.deleted,true);assert.equal(deleted.reset,true);assert.equal(cases.length,1);assert.equal(cases[0].Status,'NEW');assert.equal(cases[0].DueDate,null);assert.equal(cases[0].AppliedWeek,null);assert.equal(events.length,0);assert.equal(evidence.length,1,'연결된 이미지만 삭제하고 다른 연도 임시 이미지는 보존한다.');
 assert(rollbacks>=4);
 console.log('Farm quality transaction mock: idempotent write, year-scoped previews and guarded case deletion passed');

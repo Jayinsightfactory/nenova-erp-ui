@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {apiGet,apiPost} from '../lib/useApi';
+import {apiGet,apiPost,apiDelete} from '../lib/useApi';
 import {QUALITY_KINDS,QUALITY_SIGNAL_KINDS} from '../lib/farmQuality';
 import {summarizeQualityInbox,feedbackStatusLabel,feedbackNeedsRequest,feedbackPriority,compactQualityProductName} from '../lib/farmQualityInboxSummary';
 import {resizeImageFile} from '../lib/catalogImageClient';
@@ -35,6 +35,7 @@ export default function FarmQualityInbox({data,year,from,to,search='',focus,onDi
  const [events,setEvents]=useState([]),[historyLoading,setHistoryLoading]=useState(false),[historyError,setHistoryError]=useState('');
  const [images,setImages]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[stale,setStale]=useState(false);
  const [editRequestKey,setEditRequestKey]=useState('');
+ const [resetNotice,setResetNotice]=useState('');
  const lock=useRef(false),pending=useRef(null),historySeq=useRef(0),fileInput=useRef(null);
  const detailRef=useRef(null);
  const dirty=Boolean(body||reason||images.length);
@@ -124,7 +125,22 @@ export default function FarmQualityInbox({data,year,from,to,search='',focus,onDi
   setSelected(latest);setStale(false);pending.current=null;
   if(!latest.cases?.some(c=>String(c.caseKey)===String(caseKey))){setCaseKey('');loadHistory('');}
  }
+ async function resetFeedback(){
+  if(lock.current||!data.canDelete||!chosen||stale||historyLoading||historyError)return;
+  if(!window.confirm(`'${chosen.title}'의 요청·답변·코멘트와 첨부 이미지를 삭제하고 요청 전으로 돌아갈까요?\n불량 원본과 다른 이력은 유지됩니다. 삭제한 기록은 복구할 수 없습니다.${dirty?'\n작성 중인 미저장 내용도 비워집니다.':''}`))return;
+  lock.current=true;setBusy(true);setError('');setResetNotice('');
+  try{
+   const result=await apiDelete('/api/sales/farm-quality',{year,caseKey:chosen.caseKey,version:chosen.version});
+   if(!result.success||!result.reset||result.caseStatus!=='NEW')throw new Error('요청 전 복귀 결과를 확인하지 못했습니다. 새로고침 후 확인하세요.');
+   historySeq.current++;setSelected(null);setCaseKey('');setEvents([]);setBody('');setReason('');setImages([]);setEditRequestKey('');setStale(false);pending.current=null;setFilter('NEW');
+   setResetNotice(`피드백 기록 ${result.eventCount||0}건을 삭제하고 요청 전으로 돌렸습니다. 불량 원본은 유지됩니다.`);
+   try{if(await refresh()===false)setResetNotice('삭제·요청 전 복귀는 완료됐지만 목록 조회에 실패했습니다. 새로고침해 주세요.');}
+   catch{setResetNotice('삭제·요청 전 복귀는 완료됐지만 목록 조회에 실패했습니다. 새로고침해 주세요.');}
+  }catch(e){setStale(true);setError(`${e.message} 새로고침해 실제 상태를 확인한 뒤 다시 선택하세요.`);}
+  finally{lock.current=false;setBusy(false);}
+ }
  return <section className="inbox" aria-label="통합 피드백 목록">
+  {resetNotice&&<p role="status" className="success">{resetNotice}</p>}
   <div className="filters">{[['ALL','전체 활성'],...['NEW','WAITING','ANSWERED','OBSERVING','CLOSED','RECURRED'].map(code=>[code,status(code)]),['SUSPECTED','재발 의심'],['MANUAL','수동·과거'],['EXCLUDED','제외됨']].map(([value,label])=><button key={value} aria-pressed={filter===value} onClick={()=>setFilter(value)}>{label} {visible.filter(item=>matches(item,value)).length}</button>)}<label>단위 <select value={unit} onChange={e=>setUnit(e.target.value)}><option value="ALL">전체 단위</option>{units.map(value=><option key={value}>{value}</option>)}</select></label></div>
   <small>진행 상태는 저장된 이력 기준입니다. 새 불량은 별도로 표시되며, 원본 확인 상태와 관계없이 기록할 수 있습니다.</small>
   {!data.inbox&&<p role="status">통합 피드백 목록을 불러오는 중입니다.</p>}
@@ -133,7 +149,7 @@ export default function FarmQualityInbox({data,year,from,to,search='',focus,onDi
    <span className="summary-column"><strong>{summary.title}</strong><span className="badges workflow">{summary.statuses.map(state=><b className={`status-${state.code}`} key={state.code}>{state.label}{state.count>1?` ${state.count}건`:''}</b>)}{summary.newCount>0&&<small>새 불량 {summary.newCount}</small>}{summary.reviewRequired&&<b>원본 확인 필요</b>}{!inboxActive(item)&&<b>제외됨</b>}</span><small>{summary.overview} · {summary.totalsText}</small>{summary.latest&&<span className="latest-comment" title={`${summary.latest.Body} · ${summary.latest.AuthorName||'작성자 미상'} · ${commentDate(summary.latest.CreatedAt)}`}>{summary.latest.Body}</span>}</span>
    <span className="products-column">{summary.topGroups.map(group=><span className="product-group" key={group.unit}>{group.products.map(product=><span className="product-line" key={product.key}><span title={product.name}><b>{compactQualityProductName(product.name)}</b> · {productQuantity({...product,unit:group.unit})}{product.share!=null&&<small> · {count(product.share)}%</small>}</span><small className="week-breakdown">{product.weekText}</small></span>)}{group.remaining>0&&<small>외 {group.remaining}개 품목 · 상세에서 전체 보기</small>}</span>)}{!summary.topGroups.length&&<small>현재 집계할 품목 없음 · 상세 이력 확인</small>}</span>
   </button>;})}{data.inbox&&!column.items.length&&<p className="empty-column">해당 상태의 피드백이 없습니다.</p>}</div></section>)}</div>
-  {selected&&<aside key={selected.key} ref={detailRef}><div className="heading"><h2>{selectedSummary.title}</h2><button disabled={busy} onClick={()=>{if(dirty&&!window.confirm('작성 내용을 비우고 닫을까요?'))return;setSelected(null);setBody('');setReason('');setImages([]);historySeq.current++;}}>닫기</button></div>
+  {selected&&<aside key={selected.key} ref={detailRef}><div className="heading"><h2>{selectedSummary.title}</h2>{data.canDelete&&selected.cases?.length>0&&<button style={{color:'#b91c1c',borderColor:'#fca5a5',whiteSpace:'nowrap'}} disabled={busy||!chosen||stale||historyLoading||Boolean(historyError)} onClick={resetFeedback}>피드백 삭제 · 요청 전</button>}<button disabled={busy} onClick={()=>{if(dirty&&!window.confirm('작성 내용을 비우고 닫을까요?'))return;setSelected(null);setBody('');setReason('');setImages([]);historySeq.current++;}}>닫기</button></div>
    <details open className="request-suggestion"><summary>요청 문구 제안 · 자동 발송되지 않음</summary><p>{selectedSummary.requestText}</p><small>참고용 문구입니다. 외부 발송이나 요청 이력 저장은 자동으로 실행되지 않습니다.</small></details>
    {selected.cases?.length>0&&<label>조회·기록 대상 이력 <select aria-label="기록 대상 이력" disabled={busy} value={caseKey} onChange={e=>selectHistory(e.target.value)}><option value="">이력을 선택하세요</option>{selected.cases.map((c,index)=><option key={c.caseKey} value={c.caseKey}>{c.title} · {status(c.status)} · 이력 {index+1}</option>)}</select></label>}
    {selected.cases?.length>1&&!caseKey&&<p className="warning">여러 기존 이력이 연결되어 있습니다. 조회하고 기록할 대상을 직접 선택하세요.</p>}
