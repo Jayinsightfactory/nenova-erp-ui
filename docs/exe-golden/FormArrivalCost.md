@@ -1,5 +1,13 @@
 # FormArrivalCost — 도착원가 웹 전용 원장 경계
 
+## 2026-09-21 업무드라이브 자동 원가 반영
+
+동일 dnSpy CLI `-t FormWarehouseView`를 재실행해 GetData/GetDetail의 WarehouseMaster/Detail 경계를 확인했다.
+운영 SELECT는 2025/2026 × 37-1/37-2/37-01/37-02 현재 원가 중 2026 37-1 콜롬비아 335행만 반환했다.
+자동 반영은 EXE 입력 경로를 호출하지 않고 기존 WebArrivalCost revision을 사용한다.
+동작/부작용/기준은 `docs/work-reports/2026-09-21_arrival-drive-auto.md`에 기록했다.
+`arrivalDriveAuto.test.js`는 실제 import core를 격리 트랜잭션 fixture로 실행해 중복·롤백·교차연도 보존을 확인한다.
+
 ## dnSpy CLI 확인
 
 ```powershell

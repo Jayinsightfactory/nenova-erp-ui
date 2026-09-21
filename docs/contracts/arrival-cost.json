@@ -2,6 +2,11 @@
   "id": "arrival-cost",
   "title": "차수별 도착원가 웹 전용 원장 계약",
   "scope": [
+    "lib/arrivalDrivePolicy.js",
+    "lib/arrivalDriveAuto.js",
+    "pages/api/arrival-cost/drive-auto.js",
+    "components/ArrivalDriveAutoPanel.js",
+    "instrumentation.js",
     "pages/arrival-cost.js",
     "pages/api/arrival-cost/index.js",
     "pages/api/arrival-cost/upload.js",
@@ -22,6 +27,12 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "DRIVE_AUTO_ARRIVAL_IMPORT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "관리자 명시 활성화. 국가별 최신 연도·세부차수·원본 수정시각을 공통 순수 정책으로 선택한다. 과거 시트 제외, 국가·연도 불일치 및 원가 누락은 보류. 수동 현재본/수동 매칭 수정 보존. WebArrivalCost 3개 테이블만 트랜잭션 저장하며 DRIVE_IMPORT hash 이력과 sp_getapplock으로 재시작·중복 작업을 멱등 처리한다. 파일 원본/ERP 원장/호텔 매입단가는 보존."
+    },
     {
       "name": "ARRIVAL_COST_SEARCH",
       "orderDetail": "preserve",
@@ -57,6 +68,7 @@
     "description": "같은 차수명이 여러 연도에 있어도 도착원가 원장은 OrderYear를 함께 사용하며 다른 연도의 입고·주문·출고·재고 원장을 수정하지 않는다. 같은 연도·차수·국가 재업로드만 해당 scope의 현재본을 교체한다."
   },
   "requiredTestFiles": [
+    "__tests__/arrivalDriveAuto.test.js",
     "__tests__/arrivalCostExcel.test.js",
     "__tests__/arrivalCostPage.test.js",
     "__tests__/arrivalCostPerformance.test.js",

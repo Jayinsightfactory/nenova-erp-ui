@@ -3,6 +3,12 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'edge') return;
   try {
+    const { startArrivalDriveScheduler } = await import('./lib/arrivalDriveAuto');
+    startArrivalDriveScheduler();
+  } catch (e) {
+    console.warn('[instrumentation] arrival-drive 시작 실패:', e.message);
+  }
+  try {
     const { startSalesSnapshotScheduler } = await import('./lib/salesSnapshot');
     startSalesSnapshotScheduler();
   } catch (e) {
