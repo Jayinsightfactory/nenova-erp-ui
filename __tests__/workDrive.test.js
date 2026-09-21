@@ -54,6 +54,15 @@ assert.strictEqual(wd.classifyStage('china defectuosos 11-1.xlsx'), '품질');
 assert.strictEqual(wd.classifyStage('10차 국가 및 풍목별 컨펌률.xlsx'), '발주');
 assert.strictEqual(wd.classifyStage('위임장_2509.pdf'), '송금·경영');
 assert.strictEqual(wd.classifyStage('(주)네노바_하나은행_중국 cloud 선결제 해외송금증빙_26.06.17.pdf'), '송금·경영');
+// 농장 사전·결제·무작위 ID
+assert.strictEqual(wd.classifyStage('AYURA 17-1 HERMES ORANGE.pdf'), '입고');
+assert.strictEqual(wd.classifyStage('CIRCASIA 13-1 CORAL.pdf'), '입고');
+assert.strictEqual(wd.classifyStage('22-1 FLORENTINA credito.xlsx'), '송금·경영');
+assert.strictEqual(wd.classifyStage('외상매출금 입금내역_25년 1분기.pdf'), '송금·경영');
+assert.strictEqual(wd.classifyStage('중국MELODY_CNY 210,173.5_14-1차 수입_(주)네노바.pdf'), '송금·경영');
+assert.strictEqual(wd.extractCycle('FL68KFM75D8G547.xlsx'), '', '무작위 ID는 차수 아님');
+assert.strictEqual(wd.extractCycle('AYURA 17-1 HERMES.pdf'), '17-1');
+assert.strictEqual(wd.isSensitive('AYURA 17-1 HERMES.pdf', '입고'), true, '농장 인보이스 PDF는 민감');
 
 // 민감
 assert.strictEqual(wd.isSensitive('★외화송금결제 지출결의서.xlsx', '송금·경영'), true);
