@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { isFreightRow, FREIGHT_ROUNDING } from '../../lib/estimateFreightPolicy';
 import { freightSourceRows, buildFreightDraftRows, validateFreightDraft, groupFreightSources, freightDraftGroupIndex } from '../../lib/estimateFreightDraft';
 import styles from './FreightChargePreviewModal.module.css';
+import { apiGet } from '../../lib/useApi';
+import { freightEvidenceRows, freightPriceEvidence, freightCategoryFromEvidence } from '../../lib/estimateFreightEvidence';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 3 });
 const tones = [ ['#eff6ff','#2563eb'], ['#fff1f2','#be123c'], ['#ecfdf5','#047857'], ['#fff7ed','#c2410c'], ['#f5f3ff','#7c3aed'], ['#ecfeff','#0e7490'], ['#fefce8','#a16207'], ['#fdf4ff','#a21caf'] ];
@@ -11,28 +13,56 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
   const [rounding, setRounding] = useState(FREIGHT_ROUNDING.CEIL);
   const [error, setError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const [history, setHistory] = useState({ scope: '', rows: [], loading: true, error: '' });
+  const historyScope = `${year}|${parentWeek}|${selectedShip?.CustKey}`;
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setHistory({scope:historyScope,rows:[],loading:true,error:''});
+    async function load() {
+      const rows = [];
+      try {
+        // Existing EXE-parity GET only. Sequential bounded reads avoid a query burst.
+        for (let week = Number(parentWeek); week >= Math.max(1, Number(parentWeek) - 7); week--) {
+          if (!active) return;
+          const data = await apiGet('/api/estimate', {year,week:String(week).padStart(2,'0'),custKey:selectedShip.CustKey,byDate:1,itemsOnly:1});
+          if (data.success === false || !Array.isArray(data.items)) throw new Error('업체 운임 이력 응답을 확인하지 못했습니다.');
+          rows.push(...data.items.map(row=>({...row,OrderYear:year,CustKey:selectedShip.CustKey})));
+        }
+        if (active) setHistory({scope:historyScope,rows,loading:false,error:''});
+      } catch (e) { if (active) setHistory({scope:historyScope,rows:[],loading:false,error:e.message}); }
+    }
+    load();
+    return () => { active = false; };
+  }, [open, historyScope, year, parentWeek, selectedShip?.CustKey]);
   useEffect(() => { if (open) { setExcluded({}); setEdits({}); setError(''); setConfirmed(false); } }, [open, year, parentWeek, selectedShip?.CustKey, items]);
   const sources = useMemo(() => freightSourceRows(items, year, parentWeek), [items, year, parentWeek]);
   const selected = sources.filter(row => !excluded[row.sourceKey]);
   const groups = groupFreightSources(sources, excluded);
   const unknownCount = selected.filter(row => row.boxes == null).length;
   const freightProducts = products.filter(p => isFreightRow(p) && p.OutUnit === '박스');
-  const existing = items.filter(isFreightRow);
-  const drafts = buildFreightDraftRows(selected, freightProducts, rounding).map(row => {
+  const historyReady = history.scope === historyScope && !history.loading && !history.error;
+  const evidence = freightEvidenceRows(historyReady ? history.rows : [], {year,custKey:selectedShip?.CustKey,parentWeek});
+  const existing = items.filter(row=>isFreightRow(row) && !row.EstimateKey && Number(row.Quantity)>0);
+  const drafts = buildFreightDraftRows(selected, freightProducts, rounding, row=>freightCategoryFromEvidence(row,evidence)).map(row => {
     const saved = existing.find(item => item.OrderWeek === row.weekShort && Number(item.ProdKey) === Number(row.prodKey));
-    return { ...row, enabled: row.name === '현지상차운임' && !saved, cost: Number(saved?.Cost || (row.name === '현지상차운임' ? 2000 : 1500)), ...edits[row.key] };
+    const edited = {...row,...edits[row.key]};
+    const price = freightPriceEvidence(evidence,edited.prodKey,row.weekShort);
+    return { ...row, enabled: false, ...price, ...edits[row.key], saved: Boolean(saved) };
   });
   const update = (key, values) => { setEdits(prev => ({ ...prev, [key]: { ...prev[key], ...values } })); setConfirmed(false); };
   const renderDraft = row => <div key={row.key} className={styles.inlineDraft}>
     <input type="checkbox" aria-label={row.weekShort+' '+row.name+' 등록'} checked={row.enabled} onChange={e=>update(row.key,{enabled:e.target.checked})}/>
-    <select aria-label={row.weekShort+' '+row.name+' 품목'} value={row.prodKey} onChange={e=>update(row.key,{prodKey:Number(e.target.value)})}><option value="">품목 선택 · {row.name}</option>{freightProducts.map(p=><option key={p.ProdKey} value={p.ProdKey}>{p.ProdName}</option>)}</select>
+    <select aria-label={row.weekShort+' '+row.name+' 품목'} value={row.prodKey} onChange={e=>update(row.key,{prodKey:Number(e.target.value),cost:freightPriceEvidence(evidence,Number(e.target.value),row.weekShort).cost})}><option value="">품목 선택 · {row.name}</option>{freightProducts.map(p=><option key={p.ProdKey} value={p.ProdKey}>{p.ProdName}</option>)}</select>
     <label><input aria-label={row.weekShort+' '+row.name+' 박스'} type="number" min="0" step="any" value={row.qty} onChange={e=>update(row.key,{qty:e.target.value})}/>박스</label>
     <label><input aria-label={row.weekShort+' '+row.name+' 단가'} type="number" min="0" value={row.cost} onChange={e=>update(row.key,{cost:e.target.value})}/>원/박스</label>
     <small className={styles.draftScope}>{row.weekShort} · {row.shipmentDate.slice(5)}</small>
+    <small style={{gridColumn:'1 / -1',color:'#475569'}} title={row.evidence}>{row.evidence}{row.saved ? ' · 현재 차수 등록됨 (중복 제외)' : ''}</small>
   </div>;
   async function submit() {
     setError('');
     try {
+      if (!historyReady) throw new Error('업체 운임 이력 조회 완료 후 다시 확인해 주세요.');
       if (!confirmed) throw new Error('품목별 박스수량과 등록 내용을 확인해 주세요.');
       if (selected.some(row => row.boxes == null)) throw new Error('박스 환산을 확인할 수 없는 품목이 있습니다. 해당 품목을 제외하거나 품목 정보를 확인하세요.');
       const rows = validateFreightDraft(drafts.filter(row => row.enabled), { year, parentWeek, custKey: selectedShip?.CustKey, products: freightProducts });
@@ -44,6 +74,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
     <div className={styles.panel}>
       <div style={{display:'flex',justifyContent:'space-between',gap:12}}><h3 style={{margin:0}}>운임비 추가 · {selectedShip?.CustName} · {year}년 {parentWeek}차</h3><button disabled={applyBusy} onClick={onClose}>닫기</button></div>
       <p className={styles.help}>품목별 박스 환산 확인 → 운임 선택·단가 확인 → 등록. 기존 추가 품목과 동일하게 확정 해제 → 주문·분배 등록 → 원래 확정 상태 복원.</p>
+      <div role="status" className={styles.help}>{!historyReady ? (history.error ? `업체 이력 조회 실패: ${history.error} · 창을 다시 열어 재시도하세요.` : '이 업체의 최근 8개 차수 운임 이력 확인 중…') : `이 업체 · ${year}년 ${Math.max(1,Number(parentWeek)-7)}~${parentWeek}차 실적 ${evidence.length}건 확인. 단가는 참고값이며 등록할 항목을 직접 선택하세요.`} 세부차수·출고일은 분리 유지합니다. 기존 한 행만으로 1·2차 합산 여부를 추정하지 않습니다.</div>
       {error && <div role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:12,marginBottom:10}}>{error}</div>}
       <div>
         <section>
@@ -70,7 +101,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
           {existing.length>0 && <div className={styles.existing}><b>기존 운임 {existing.length}건 · 중복 제외</b>{existing.map((r,i)=><span key={i}>{r.OrderWeek} {r.ProdName} {fmt(r.Quantity)}{r.Unit} × {fmt(r.Cost)}원</span>)}</div>}
           <div className={styles.footer}><label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> 품목별 박스수량·차수·운임 단가를 확인했습니다.</label>
           <b>등록 예상 {fmt(drafts.filter(r=>r.enabled).reduce((s,r)=>s+Number(r.qty)*Number(r.cost),0))}원</b>
-          <button className="btn btn-primary" disabled={applyBusy||!confirmed||!drafts.some(r=>r.enabled)} onClick={submit}>{applyBusy?'등록 준비 중…':'운임비 등록 시작'}</button></div>
+          <button className="btn btn-primary" disabled={applyBusy||!historyReady||!confirmed||!drafts.some(r=>r.enabled)} onClick={submit}>{applyBusy?'등록 준비 중…':'운임비 등록 시작'}</button></div>
         </section>
       </div>
     </div>

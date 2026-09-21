@@ -1,5 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { freightEvidenceRows, freightPriceEvidence, freightCategoryFromEvidence } from '../lib/estimateFreightEvidence.js';
+
+test('customer freight evidence excludes cross year, customer, deductions and future weeks', () => {
+  const row={OrderYear:'2026',OrderWeek:'36-01',CustKey:12,ProdKey:1,ProdName:'태국 운송료',Quantity:3,Cost:3000,Unit:'박스',EstimateType:'정상출고'};
+  const rows=[row,{...row,OrderYear:'2025'},{...row,CustKey:13},{...row,Quantity:-1},{...row,EstimateKey:99},{...row,Descr:'단가차감'},{...row,OrderWeek:'38-01'}];
+  assert.deepEqual(freightEvidenceRows(rows,{year:2026,custKey:12,parentWeek:37}),[row]);
+  assert.equal(freightPriceEvidence([row],1,'37-01').cost,3000);
+  assert.equal(freightPriceEvidence([{...row,Cost:1000}],1,'37-01').cost,1000);
+  assert.equal(freightPriceEvidence([],1,'37-01').cost,'');
+  assert.equal(freightPriceEvidence([row,{...row,Cost:2000}],1,'37-01').cost,'');
+  assert.equal(freightPriceEvidence([row,{...row,OrderWeek:'36-02',Cost:1500}],1,'37-02').cost,1500);
+  assert.equal(freightCategoryFromEvidence({CounName:'태국',FlowerName:'덴파레'},[row]),'태국 운송료');
+  assert.equal(freightCategoryFromEvidence({CounName:'태국',FlowerName:'덴파레'},[]),'덴파레 운송료');
+});
 import { freightRowBoxes, freightSourceRows, buildFreightDraftRows, validateFreightDraft, additionalCycleWeek, groupFreightSources, freightDraftGroupIndex } from '../lib/estimateFreightDraft.js';
 import { mapExeDetailRowToWebItem, sqlEstimateGetDetail } from '../lib/exeEstimateViewSql.js';
 
