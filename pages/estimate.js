@@ -1835,6 +1835,9 @@ export default function Estimate() {
       window.alert(message);
       try { await refreshCapturedEstimate(captured); }
       catch { setFreightStatus(message+'\n저장은 완료됐지만 화면 재조회에 실패했습니다. 새로고침해 주세요.'); }
+    } catch (error) {
+      setFreightStatus(`운임 처리 중단 · ${error.message}`);
+      throw error;
     } finally { freightApplyingRef.current=false;setFreightApplying(false); }
   };
   const deductionDeleteScope = `${yearStr}|${String(weekNum || '')}|${selectedShip?.CustKey || ''}|${selectedId || ''}|${selectedCust?.CustKey || ''}|${[...activeWD].sort().join(',')}`;
