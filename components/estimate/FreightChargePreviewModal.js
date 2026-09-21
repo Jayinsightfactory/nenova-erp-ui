@@ -7,7 +7,7 @@ import { freightEvidenceRows, freightPriceSuggestion, freightCategoryFromEvidenc
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 3 });
 const tones = [ ['#eff6ff','#2563eb'], ['#fff1f2','#be123c'], ['#ecfdf5','#047857'], ['#fff7ed','#c2410c'], ['#f5f3ff','#7c3aed'], ['#ecfeff','#0e7490'], ['#fefce8','#a16207'], ['#fdf4ff','#a21caf'] ];
-export default function FreightChargePreviewModal({ open, onClose, items = [], products = [], year, parentWeek, selectedShip, onApply, applyBusy = false }) {
+export default function FreightChargePreviewModal({ open, onClose, items = [], products = [], year, parentWeek, selectedShip, onApply, applyBusy = false, applyStatus = '' }) {
   const [excluded, setExcluded] = useState({});
   const [edits, setEdits] = useState({});
   const [rounding, setRounding] = useState(FREIGHT_ROUNDING.CEIL);
@@ -59,7 +59,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
     <label><input aria-label={row.weekShort+' '+row.name+' 단가'} type="number" min="0" value={row.cost} onChange={e=>update(row.key,{cost:e.target.value})}/>원/박스</label>
     <small className={styles.draftScope}>{row.weekShort} · {row.shipmentDate.slice(5)}</small>
     {row.combined && <small style={{gridColumn:'1 / -1',color:'#1250a0'}}>1·2차 합산 {fmt(row.rawBoxes)}박스 → {row.weekShort} 한 건 등록{row.scopeError && ` · ${row.scopeError}`}</small>}
-    <small style={{gridColumn:'1 / -1',color:'#475569'}} title={row.evidence}>{row.evidence}{row.saved ? ' · 현재 차수 등록됨 (중복 제외)' : ''}</small>
+    <small style={{gridColumn:'1 / -1',color:'#475569'}} title={row.evidence}>{row.evidence}{row.saved ? ' · 기존 운임 있음: 최종 수량으로 수정 · 출고일 유지' : ''}</small>
   </div>;
   async function submit() {
     setError('');
@@ -81,7 +81,8 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
         <b>등록 예상 {fmt(drafts.filter(r=>r.enabled).reduce((s,r)=>s+Number(r.qty)*Number(r.cost),0))}원</b>
         <button className="btn btn-primary" disabled={applyBusy||!historyReady||!confirmed||!drafts.some(r=>r.enabled)} onClick={submit}>{applyBusy?'등록 준비 중…':'운임비 등록 시작'}</button>
       </div>
-      <p className={styles.help}>품목별 박스 환산 확인 → 운임 선택·단가 확인 → 등록. 기존 추가 품목과 동일하게 확정 해제 → 주문·분배 등록 → 원래 확정 상태 복원.</p>
+      <p className={styles.help}>품목별 박스 확인 → 서버의 변경 전·후 확인 → 전체 저장. 기존 운임은 최종값으로 수정하고 출고일·확정 상태를 유지합니다. 다른 업체의 확정을 해제하지 않습니다.</p>
+      {applyStatus && <div role="status" style={{padding:8,background:'#eff6ff',color:'#174575',whiteSpace:'pre-line'}}>{applyStatus}</div>}
       <div role="status" className={styles.help}>{!historyReady ? (history.error ? `업체 이력 조회 실패: ${history.error} · 창을 다시 열어 재시도하세요.` : '이 업체의 최근 8개 차수 운임 이력 확인 중…') : `이 업체 · ${year}년 ${Math.max(1,Number(parentWeek)-7)}~${parentWeek}차 실적 ${evidence.length}건 확인. 단가는 참고값이며 등록할 항목을 직접 선택하세요.`} 카네이션 합산은 상단에서 선택하며, 다른 운임·상차운임은 기존 차수와 출고일을 유지합니다.</div>
       {error && <div role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:12,marginBottom:10}}>{error}</div>}
       <div>
@@ -107,7 +108,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
           </select></label>
           <span className={styles.help}> 필요한 운임만 체크 · 박스수/박스당 단가 수정 가능 · 부가세 포함 단가</span>
           <div className={styles.commonFreight}><b>공통 상차운임</b>{drafts.filter(row=>freightDraftGroupIndex(groups,row)===-1).map(renderDraft)}</div>
-          {existing.length>0 && <div className={styles.existing}><b>기존 운임 {existing.length}건 · 중복 제외</b>{existing.map((r,i)=><span key={i}>{r.OrderWeek} {r.ProdName} {fmt(r.Quantity)}{r.Unit} × {fmt(r.Cost)}원</span>)}</div>}
+          {existing.length>0 && <div className={styles.existing}><b>기존 운임 {existing.length}건 · 선택한 운임만 최종값 수정</b>{existing.map((r,i)=><span key={i}>{r.OrderWeek} {r.ProdName} {fmt(r.Quantity)}{r.Unit} × {fmt(r.Cost)}원</span>)}</div>}
         </section>
       </div>
     </div>

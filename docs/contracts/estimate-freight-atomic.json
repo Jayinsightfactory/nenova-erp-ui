@@ -1,0 +1,16 @@
+{
+  "id": "estimate-freight-atomic",
+  "title": "견적 운임 최종값 원자적 등록",
+  "scope": ["lib/estimateFreightAtomic.js", "lib/estimateFreightClient.js", "pages/api/estimate/freight-register.js", "pages/estimate.js", "components/estimate/FreightChargePreviewModal.js", "lib/estimateFreightDraft.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name":"PREVIEW", "orderDetail":"preserve", "shipmentDetail":"preserve", "stock":"preserve"},
+    {"name":"UPDATE_FINAL_FREIGHT", "orderDetail":"preserve", "shipmentDetail":"set-final-nonnegative", "shipmentDate":"single selected date, preserve existing date", "stock":"confirmed delta and native product recalculation in same transaction", "estimate":"preserve", "webProfitReport":"preserve"},
+    {"name":"CREATE_FREIGHT_WITHOUT_ORDER", "orderDetail":"create-positive", "shipmentDetail":"increase", "stock":"same atomic confirmed delta and native calculation; existing positive orders remain unchanged"},
+    {"name":"REPLAY", "orderDetail":"preserve", "shipmentDetail":"preserve", "stock":"preserve"}
+  ],
+  "crossYearFixture":{"required":true,"description":"2025 identical week/customer/product cannot be mutated by 2026 freight request"},
+  "requiredTestFiles":["__tests__/estimateFreightAtomic.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"local dnSpy ClassShipmentDetail and production read-only SP probe 2026-09-21","methods":["btnSave_Click","ClassShipmentDetail.Insert","ClassShipmentDate.Insert"],"tables":["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","Product","StockHistory","ProductStock"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build","node scripts/test-estimate-freight-sql.cjs"]
+}
