@@ -25,7 +25,7 @@ const loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=M
 loaded.require=name=>{
  if(name==='../lib/farmQualityInboxSummary')return summaryModule.exports;
  if(name==='react')return {...React,useEffect(){},useRef(value){return {current:value};},useState(value){const index=stateIndex++;const initial=Object.hasOwn(stateOverrides,index)?stateOverrides[index]:typeof value==='function'?value():value;return [initial,next=>{stateOverrides[index]=typeof next==='function'?next(Object.hasOwn(stateOverrides,index)?stateOverrides[index]:initial):next;}];}};
- if(name==='../lib/useApi')return {apiGet:(...args)=>apiMocks.get(...args),apiPost:(...args)=>apiMocks.post(...args)};
+ if(name==='../lib/useApi')return {apiGet:(...args)=>apiMocks.get(...args),apiPost:(...args)=>apiMocks.post(...args),apiDelete:(...args)=>apiMocks.delete(...args)};
  if(name==='../lib/farmQuality')return {QUALITY_STATUSES:{NEW:'요청 필요',CLOSED:'개선 확인',WAITING:'미답변'},QUALITY_KINDS:{COMMENT:'코멘트',REQUEST:'요청',RESPONSE:'답변',APPLY:'개선 적용',CLOSE:'개선 확인'},QUALITY_SIGNAL_KINDS:{UNASSIGNED_ITEM_WEEK:'농장 미지정 품목 반복'}};
  if(name==='../lib/farmQualityEvidence')return {QUALITY_EVIDENCE_MAX_BYTES:10485760,QUALITY_EVIDENCE_MAX_FILES:5};
  if(name.startsWith('../lib/'))return {};
@@ -161,6 +161,22 @@ async function regressionHandlers(){
  pendingGets[0].resolve({events:[owner]});await previous;
  assert.deepEqual(history,[other]);assert.equal(error,'');assert.equal(loading,false);
  assert(source.includes('loadHistory(result.caseKey,{preserve:true})'));
+ // Exact permission supplied by the authenticated API; no implicit first history.
+ stateOverrides={2:closed,3:'c1'};data.canDelete=false;
+ assert.equal(button(tree(),'피드백 삭제 · 요청 전'),undefined);
+ data.canDelete=true;stateOverrides={2:multiple,3:''};
+ assert.equal(button(tree(),'피드백 삭제 · 요청 전').props.disabled,true);
+ stateOverrides={2:closed,3:'c1'};let deletes=[];
+ global.window={confirm:()=>false};
+ apiMocks.delete=async(url,payload)=>{deletes.push(payload);return {success:true,reset:true,caseStatus:'NEW',eventCount:2};};
+ await button(tree(),'피드백 삭제 · 요청 전').props.onClick();assert.equal(deletes.length,0);
+ global.window.confirm=()=>true;
+ await button(tree(),'피드백 삭제 · 요청 전').props.onClick();
+ assert.deepEqual(deletes,[{year:2026,caseKey:'c1',version:3}]);assert.equal(stateOverrides[0],'NEW');assert.equal(stateOverrides[2],null);assert.deepEqual(stateOverrides[10],[]);assert.match(stateOverrides[19],/요청 전/);
+ stateOverrides={2:multiple,3:'c2'};await button(tree(),'피드백 삭제 · 요청 전').props.onClick();assert.equal(deletes.at(-1).caseKey,'c2');
+ stateOverrides={2:closed,3:'c1'};apiMocks.delete=async()=>{throw Error('stale');};
+ await button(tree(),'피드백 삭제 · 요청 전').props.onClick();assert.equal(stateOverrides[2],closed);assert.equal(stateOverrides[17],true);assert.match(stateOverrides[15],/실제 상태/);
+ delete global.window;delete data.canDelete;
  console.log('Farm inbox regressions: preserved refresh success/failure/race, excluded owner edit payload and ordinary-write denial passed');
 }
 regressionHandlers().catch(error=>{console.error(error);process.exitCode=1;});

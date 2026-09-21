@@ -1,5 +1,20 @@
 # Farm quality web-only boundary — 2026-09-14
 
+## 2026-09-21 deletion means return to request-before
+
+Supersedes the physical Case deletion described below: the same exact account
+`nenovaSS3` can clear a selected history from the unified inbox. Linked source
+ownership, evidence and events are removed before resetting the retained Case to
+NEW (due/applied fields cleared, Version incremented). Its source anchor remains,
+so historical/manual cases still appear even without a current detection signal.
+An exclusively owned Inbox is reactivated; shared-case Inboxes are rejected.
+The original WebSalesDefectDeduction and every EXE ledger are untouched. No native
+Form or SP behavior changes, and no schema migration is needed.
+Read-only production preflight: 2026 has 5 cases, 0 NEW, 0 shared-case Inboxes;
+InboxSource.LinkedEventKey is NOT NULL. Real SQL2022 disposable fixture verifies
+permission/year/version denial, rollback after child deletion, simultaneous reset,
+NEW list reconstruction and preservation of other-year history and image drafts.
+
 ## 2026-09-15 compact factual summary
 
 The inbox adds only Product.FlowerName to its existing Product LEFT JOIN and safe

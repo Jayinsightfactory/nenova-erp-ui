@@ -94,7 +94,8 @@ assert.match(store,/OUTPUT INSERTED\.EventKey,INSERTED\.Kind,INSERTED\.Body/,'�
 assert.match(store,/OUTPUT INSERTED\.Version,INSERTED\.Status/,'저장 응답은 갱신된 버전과 상태를 반환해야 한다.');
 assert.match(store,/DELETE FROM dbo\.WebFarmQualityEvidence WHERE EventKey=@event/);
 assert.match(store,/DELETE FROM dbo\.WebFarmQualityEvent WHERE CaseKey=@key/);
-assert.match(store,/DELETE FROM dbo\.WebFarmQualityCase WHERE CaseKey=@key AND OrderYear=@year AND Version=@version/);
+assert.match(store,/UPDATE dbo\.WebFarmQualityCase SET Status=N'NEW',DueDate=NULL,AppliedWeek=NULL,Version=Version\+1[\s\S]*WHERE CaseKey=@key AND OrderYear=@year AND Version=@version/);
+assert.doesNotMatch(store,/DELETE FROM dbo\.WebFarmQualityCase/,'삭제 후 요청 전 복귀를 위해 원본 앵커를 남긴다.');
 assert.match(page,/useState\('inbox'\)/,'자동감지와 기존 피드백이 진입 즉시 한 목록에 보여야 한다.');
 assert.match(page,/기존 불량 분석 · 농장·품목 \{groups\.length\}개/,'분석에 반영된 농장·품목 수를 표시해야 한다.');
 assert.match(page,/특정 농장 · 차수별 불량률 추이/);assert.match(page,/특정 차수 · 품목 불량 이슈 후보/);assert.match(page,/피드백 보기/);

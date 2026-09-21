@@ -76,7 +76,7 @@ export default function FarmQuality(){
  }
  async function removeCase(){
   if(!current||!data.canDelete||saveLock.current||loading)return;
-  if(!window.confirm(`'${current.Title}' 피드백과 코멘트 ${current.EventCount||events.length}건을 모두 삭제할까요?\n삭제한 내용과 증거 이미지는 복구할 수 없습니다.`))return;
+  if(!window.confirm(`'${current.Title}' 피드백 기록 ${current.EventCount||events.length}건을 삭제하고 요청 전으로 돌아갈까요?\n불량 원본은 유지됩니다. 삭제한 내용과 증거 이미지는 복구할 수 없습니다.`))return;
   saveLock.current=true;setSaving(true);setError('');setMessage('');
   try{const response=await fetch('/api/sales/farm-quality',{method:'DELETE',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({year,caseKey:current.CaseKey,version:current.Version})});const result=await parseJsonResponse(response);if(!response.ok){const failure=new Error(result.error||'피드백 삭제에 실패했습니다.');failure.code=result.code;throw failure;}eventSequence.current++;setSelected(null);setEvents([]);clearComposer();setMessage(`피드백과 코멘트 ${result.eventCount||0}건을 삭제했습니다.`);await load();}catch(e){setError(e.message);}finally{setSaving(false);saveLock.current=false;}
  }
