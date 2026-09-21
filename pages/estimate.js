@@ -1,3 +1,4 @@
+import { additionalCycleWeek } from '../lib/estimateFreightDraft';
 // pages/estimate.js
 // 견적서 관리
 // 수정이력: 2026-03-27 — 차수/업체 검색 추가, 불량/검역 모달 품목 검색 드롭다운, 검색가능 드롭다운 컴포넌트 추가
@@ -1813,41 +1814,28 @@ export default function Estimate() {
     });
     return isCapturedEstimateScopeCurrent(captured) ? refreshed : { skipped: true };
   };
-  const applyFreightCharges = async ({ rounding, aggregate, loadingUnitPrice, transportUnitPrice }) => {
-    if (!selectedShip || freightApplying) return;
-    if (aggregate) {
-      alert('합산 미리보기는 저장할 수 없습니다. 세부차수별 분리로 바꿔주세요.');
-      return;
-    }
+  const applyFreightCharges = async (rows) => {
+    if (!selectedShip || freightApplying || costApplying || qtyApplying) return;
+    if (editedCount || editedQtyCount || pendingAdds.length) throw new Error('기존 수량·단가·추가 품목 초안을 먼저 저장하거나 취소한 뒤 운임을 등록하세요.');
+    if (!ensureEstimateEditAllowed()) throw new Error('현재 업체의 작업 상태를 확인해 주세요. 창을 닫으면 자세한 상태를 볼 수 있습니다.');
     const captured = captureEstimateRefresh();
-    if (!captured || !ensureEstimateEditAllowed()) return;
-    const weeks = String(selectedShip.SubWeeks || `${String(selectedShip.ParentWeek || weekNum).padStart(2, '0')}-01`)
-      .split(',').map((week) => week.trim()).filter(Boolean);
     setFreightApplying(true);
-    estimateEditPresence.beginSaving();
     try {
-      const data = await apiPost('/api/estimate/freight-apply', {
-        orderYear: yearStr,
-        parentWeek: selectedShip.ParentWeek || weekNum,
-        custKey: selectedShip.CustKey,
-        weeks,
-        rounding,
-        aggregate: false,
-        loadingUnitPrice,
-        transportUnitPrice,
-        editGuard: estimateEditGuard(),
-      });
+      const targets = [];
+      for (const row of rows) {
+        const context = await apiGet('/api/estimate/additional-product-context', {
+          year: yearStr, week: row.weekShort, custKey: selectedShip.CustKey,
+          prodKey: row.prodKey, purpose: 'freight', shipmentDate: row.shipmentDate,
+        });
+        if (!context.success) throw new Error(context.error || '운임 등록 대상을 확인하지 못했습니다.');
+        if (context.existingSdetailKey) continue;
+        targets.push({ ...row, shipmentDate: context.shipmentDate });
+      }
+      if (!isCapturedEstimateScopeCurrent(captured)) throw new Error('조회 업체·차수가 변경되었습니다. 운임비 추가를 다시 열어 주세요.');
+      if (!targets.length) throw new Error('선택한 운임은 해당 차수에 이미 등록되어 있습니다. 기존 견적서에서 수량·단가를 수정하세요.');
       setShowFreightPreview(false);
-      setSuccessMsg(`✅ 운임비 적용 완료 · 신규 ${data.appliedCount || 0}건 · 기존 건너뜀 ${data.skippedCount || 0}건`);
-      setTimeout(() => setSuccessMsg(''), 4000);
-      await refreshCapturedEstimate(captured);
-    } catch (error) {
-      if (error?.code === 'ERP_EDIT_STALE' || error?.data?.code === 'ERP_EDIT_STALE') estimateEditPresence.markStale();
-      setErr(error?.message || '운임비 적용에 실패했습니다.');
-    } finally {
-      setFreightApplying(false);
-      await estimateEditPresence.endSaving({ refreshBaseline: isCapturedEstimateScopeCurrent(captured) });
-    }
+      await applyAllEdits(undefined, targets);
+    } finally { setFreightApplying(false); }
   };
   const deductionDeleteScope = `${yearStr}|${String(weekNum || '')}|${selectedShip?.CustKey || ''}|${selectedId || ''}|${selectedCust?.CustKey || ''}|${[...activeWD].sort().join(',')}`;
   // 연도·차수·업체·상세 필터가 바뀌면 다른 범위의 숨은 선택을 절대 유지하지 않는다.
@@ -3048,8 +3036,8 @@ export default function Estimate() {
     }
   }
 
-  async function applyAllEdits(modeOverride) {
-    if (editedCount === 0 && editedQtyCount === 0 && pendingAdds.length === 0) return;
+  async function applyAllEdits(modeOverride, additionalRows = pendingAdds) {
+    if (editedCount === 0 && editedQtyCount === 0 && additionalRows.length === 0) return;
     if (!selectedShipmentKeys.length) { setErr('선택된 견적서 없음'); return; }
     if (!ensureEstimateEditAllowed()) return;
     const capturedRefresh = captureEstimateRefresh();
@@ -3057,11 +3045,11 @@ export default function Estimate() {
     let saveSucceeded = false;
     let automaticProgressId = '';
     const effectiveCostMode = normalizeEstimateCombinedCostMode(modeOverride, costMode);
-    const usesFixCycle = pendingAdds.length > 0;
+    const usesFixCycle = additionalRows.length > 0;
 
     setQtyApplying(true);
     setCostApplying(true);
-    setEditApplyTitle(pendingAdds.length ? '단가/수량/추가품목 저장' : '단가/수량 수정 저장');
+    setEditApplyTitle(additionalRows.length ? '단가/수량/추가품목 저장' : '단가/수량 수정 저장');
     setQtyResult(null);
     setCostResult(null);
     setCostApplyLog([{
@@ -3127,7 +3115,7 @@ export default function Estimate() {
         }
       });
 
-      if (qtyPending.length === 0 && costItems.length === 0 && pendingAdds.length === 0) throw new Error('수정 대상이 없습니다.');
+      if (qtyPending.length === 0 && costItems.length === 0 && additionalRows.length === 0) throw new Error('수정 대상이 없습니다.');
 
       // 긴 저장 도중 사용자가 다시 편집했을 수 있으므로, 실제로 전송했던 초안값과
       // 아직 같은 키만 제거한다. 이미 커밋된 단계는 뒤 단계 실패와 무관하게 즉시
@@ -3150,9 +3138,9 @@ export default function Estimate() {
       const atomicDateItems = qtyPending.filter(p => p.isDateQuantity).map(p => p.item);
       const atomicDateWeeks = getFixCycleWeeksForEditedItems(atomicDateItems, selectedShip);
       const addWeekShort = `${String(weekNum).padStart(2, '0')}-02`;
-      const addCycleItems = pendingAdds.map((t) => ({ OrderWeek: addWeekShort, ProdKey: t.prodKey }));
+      const addCycleItems = additionalRows.map((t) => ({ OrderWeek: additionalCycleWeek(t, yearStr, weekNum), ProdKey: t.prodKey }));
       const cycleItems = addCycleItems;
-      const existingQtyChanged = pendingAdds.length > 0;
+      const existingQtyChanged = additionalRows.length > 0;
       const skipStockCalc = shouldSkipFixCycleStockCalc({ existingQtyChanged });
       const cycleStockFlags = confirmedWeekFixCycleStockFlags({ existingQtyChanged });
       const derivedCycleWeeks = getFixCycleWeeksForEditedItems(cycleItems, selectedShip);
@@ -3186,6 +3174,7 @@ export default function Estimate() {
         });
       }
 
+      const committedAddResults = new Map();
       const runCombinedUpdate = async () => {
         const combinedCosts = costItems.length > 0 ? {
           items: costItems.map(({ OrderWeek, ProdName, CountryFlower, editKey, draftValue, ...it }) => it),
@@ -3266,8 +3255,10 @@ export default function Estimate() {
           }
         }
         const addResults = [];
-        if (pendingAdds.length > 0) {
-          for (const t of pendingAdds) {
+        if (additionalRows.length > 0) {
+          for (const t of additionalRows) {
+            const addKey = t;
+            if (committedAddResults.has(addKey)) { addResults.push(committedAddResults.get(addKey)); continue; }
             setCostApplyLog(prev => [...prev, {
               step: 'save',
               label: `${t.weekShort || addWeekShort} ${t.prodName} 추가 품목 저장 — +${t.qty}${t.unit} / ${Number(t.cost).toLocaleString()}원`,
@@ -3290,7 +3281,12 @@ export default function Estimate() {
                 force: false,
                 editGuard: estimateEditGuard(),
               });
-              addResults.push({ ...t, ok: !!d.success, error: d.error });
+              const result = { ...t, ok: !!d.success, error: d.error };
+              addResults.push(result);
+              if (result.ok) {
+                committedAddResults.set(addKey, result);
+                setPendingAdds(prev => prev.filter(row => row !== t));
+              }
             } catch (e) {
               addResults.push({ ...t, ok: false, code: e?.code || e?.data?.code, error: e.message });
             }
@@ -5397,7 +5393,7 @@ export default function Estimate() {
           )}
 
           <OrderRegisterDistributeModal open={showAdditionalProduct} onClose={()=>setShowAdditionalProduct(false)} yearStr={yearStr} weekNum={weekNum} selectedShip={selectedShip} products={products} editBlocked={estimateEditPresence.blocked} editPresence={estimateEditPresence} onQueue={(rows)=>{setPendingAdds(prev=>[...prev,...rows]);setShowAdditionalProduct(false);}} />
-          <FreightChargePreviewModal open={showFreightPreview} onClose={()=>setShowFreightPreview(false)} items={items} selectedShip={selectedShip} onApply={applyFreightCharges} applyBusy={freightApplying} />
+          <FreightChargePreviewModal open={showFreightPreview} onClose={()=>setShowFreightPreview(false)} items={items} products={products} year={yearStr} parentWeek={weekNum} selectedShip={selectedShip} onApply={applyFreightCharges} applyBusy={freightApplying} />
           {pendingAdds.length > 0 && (
             <div style={{margin:'8px 12px 0',padding:'8px 10px',borderRadius:8,background:'#f5f3ff',border:'1px solid #ddd6fe',fontSize:12}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>

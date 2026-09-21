@@ -1,62 +1,70 @@
 import { useEffect, useMemo, useState } from 'react';
-import { buildFreightPreview, freightKind, isFreightRow, FREIGHT_ROUNDING } from '../../lib/estimateFreightPolicy';
+import { isFreightRow, FREIGHT_ROUNDING } from '../../lib/estimateFreightPolicy';
+import { freightSourceRows, buildFreightDraftRows, validateFreightDraft } from '../../lib/estimateFreightDraft';
 
-const fmt = value => Number(value || 0).toLocaleString('ko-KR');
-
-export default function FreightChargePreviewModal({ open, onClose, items = [], selectedShip, onApply, applyBusy = false }) {
+const fmt = n => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 3 });
+export default function FreightChargePreviewModal({ open, onClose, items = [], products = [], year, parentWeek, selectedShip, onApply, applyBusy = false }) {
+  const [excluded, setExcluded] = useState({});
+  const [edits, setEdits] = useState({});
   const [rounding, setRounding] = useState(FREIGHT_ROUNDING.CEIL);
-  // 세부차수별 분리가 안전한 기본값이다. 37차 인터넷공판장처럼 1차/2차
-  // 운임이 별도 ShipmentDetail 행으로 존재하는 업체가 있기 때문이다.
-  const [aggregate, setAggregate] = useState(false);
-  const [loadingUnitPrice, setLoadingUnitPrice] = useState(2000);
-  const [transportUnitPrice, setTransportUnitPrice] = useState(1500);
-  const existingRates = useMemo(() => {
-    const rows = items.filter(isFreightRow);
-    const latest = kind => rows
-      .filter(row => freightKind(row) === kind && Number(row.Cost) > 0)
-      .sort((a, b) => String(b.OrderWeek || b.week || '').localeCompare(String(a.OrderWeek || a.week || '')))[0];
-    return {
-      loading: Number(latest('LOADING')?.Cost || 0),
-      transport: Number(latest('TRANSPORT')?.Cost || 0),
-    };
-  }, [items]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (existingRates.loading > 0) setLoadingUnitPrice(existingRates.loading);
-    if (existingRates.transport > 0) setTransportUnitPrice(existingRates.transport);
-    setAggregate(false);
-  }, [open, existingRates.loading, existingRates.transport]);
-  const preview = useMemo(() => buildFreightPreview(items, {
-    rounding, aggregate, loadingUnitPrice, transportUnitPrice,
-  }), [items, rounding, aggregate, loadingUnitPrice, transportUnitPrice]);
+  const [error, setError] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => { if (open) { setExcluded({}); setEdits({}); setError(''); setConfirmed(false); } }, [open, year, parentWeek, selectedShip?.CustKey, items]);
+  const sources = useMemo(() => freightSourceRows(items, year, parentWeek), [items, year, parentWeek]);
+  const selected = sources.filter(row => !excluded[row.sourceKey]);
+  const freightProducts = products.filter(p => isFreightRow(p) && p.OutUnit === '박스');
+  const existing = items.filter(isFreightRow);
+  const drafts = buildFreightDraftRows(selected, freightProducts, rounding).map(row => {
+    const saved = existing.find(item => item.OrderWeek === row.weekShort && Number(item.ProdKey) === Number(row.prodKey));
+    return { ...row, enabled: row.name === '현지상차운임' && !saved, cost: Number(saved?.Cost || (row.name === '현지상차운임' ? 2000 : 1500)), ...edits[row.key] };
+  });
+  const update = (key, values) => { setEdits(prev => ({ ...prev, [key]: { ...prev[key], ...values } })); setConfirmed(false); };
+  async function submit() {
+    setError('');
+    try {
+      if (!confirmed) throw new Error('품목별 박스수량과 등록 내용을 확인해 주세요.');
+      if (selected.some(row => row.boxes == null)) throw new Error('박스 환산을 확인할 수 없는 품목이 있습니다. 해당 품목을 제외하거나 품목 정보를 확인하세요.');
+      const rows = validateFreightDraft(drafts.filter(row => row.enabled), { year, parentWeek, custKey: selectedShip?.CustKey, products: freightProducts });
+      await onApply(rows);
+    } catch (e) { setError(e.message || '운임 등록을 시작하지 못했습니다.'); }
+  }
   if (!open) return null;
-  return (
-    <div role="dialog" aria-modal="true" style={{ position:'fixed', inset:0, zIndex:1400, background:'rgba(15,23,42,.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-      <div style={{ width:'min(900px,100%)', maxHeight:'90vh', overflow:'auto', background:'#fff', borderRadius:12, boxShadow:'0 16px 48px rgba(15,23,42,.25)' }}>
-        <div style={{ padding:'14px 18px', borderBottom:'1px solid #e2e8f0', display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ flex:1 }}><b style={{ fontSize:17 }}>🚚 운임비 계산 미리보기</b><div style={{ fontSize:12, color:'#64748b', marginTop:4 }}>{selectedShip?.CustName || '선택 업체'} · {selectedShip?.ParentWeek || ''}차</div></div>
-          <button type="button" className="btn btn-sm" onClick={onClose}>닫기</button>
-        </div>
-        <div style={{ padding:18, display:'grid', gap:12 }}>
-          <div style={{ padding:10, background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, fontSize:12, color:'#1e3a8a' }}>
-            현재는 안전한 읽기 전용 미리보기입니다. 기존 `운송료`·`현지상차운임` 행과 단가를 우선 표시하고, 세부차수별로 중복 여부를 점검합니다. 주문·출고·재고·견적 원장은 변경하지 않습니다.
-          </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,minmax(0,1fr))', gap:8 }}>
-            <label style={{ fontSize:12 }}>단 잔량 처리<select value={rounding} onChange={e=>setRounding(e.target.value)} style={{ width:'100%', marginTop:4 }}><option value={FREIGHT_ROUNDING.CEIL}>올림 (4.5→5)</option><option value={FREIGHT_ROUNDING.FLOOR}>버림 (4.5→4)</option><option value={FREIGHT_ROUNDING.EXACT}>실수량 유지 (4.5)</option></select></label>
-            <label style={{ fontSize:12 }}>세부차수 처리<select value={aggregate ? 'aggregate' : 'separate'} onChange={e=>setAggregate(e.target.value === 'aggregate')} style={{ width:'100%', marginTop:4 }}><option value="separate">세부차수별 분리 (기본)</option><option value="aggregate">1·2차 합산 (사용자 선택)</option></select></label>
-            <label style={{ fontSize:12 }}>상차운임/박스<input type="number" min="0" value={loadingUnitPrice} onChange={e=>setLoadingUnitPrice(Number(e.target.value))} style={{ width:'100%', marginTop:4 }} /></label>
-            <label style={{ fontSize:12 }}>운송료/박스<input type="number" min="0" value={transportUnitPrice} onChange={e=>setTransportUnitPrice(Number(e.target.value))} style={{ width:'100%', marginTop:4 }} /></label>
-          </div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontSize:13 }}><span style={{ padding:'4px 8px', background:'#f1f5f9', borderRadius:12 }}>원시 박스환산 {fmt(preview.totalRawBoxes)}박스</span><span style={{ padding:'4px 8px', background:'#dcfce7', borderRadius:12 }}>적용 박스 {fmt(preview.totalBoxes)}박스</span><span style={{ padding:'4px 8px', background:'#fef3c7', borderRadius:12 }}>상차운임 {fmt(preview.totalLoadingAmount)}원</span><span style={{ padding:'4px 8px', background:'#fef3c7', borderRadius:12 }}>운송료 {fmt(preview.totalTransportAmount)}원</span></div>
-          {preview.existing.length > 0 && <div style={{ padding:10, border:'1px solid #fbbf24', background:'#fffbeb', borderRadius:8, fontSize:12 }}><b>기존 운임 행 {preview.existing.length}건 · 신규 계산에서 중복 제외</b><div style={{ marginTop:5, display:'grid', gap:3 }}>{preview.existing.map((row, i) => <div key={`${row.name}-${i}`}>이미 입력됨 · {row.name} · {row.week || '합산'} · {fmt(row.quantity)}박스 × {fmt(row.unitPrice)}원</div>)}</div></div>}
-          <table className="tbl" style={{ fontSize:12 }}><thead><tr><th>적용 범위</th><th>품종/국가</th><th>원시 박스</th><th>적용 박스</th><th>상차운임</th><th>운송료</th></tr></thead><tbody>{preview.rows.map(row => <tr key={row.key}><td>{row.key}</td><td>{row.categories.map(category => `${category.category} ${fmt(category.boxes)}박스`).join(' · ') || '-'}</td><td>{fmt(row.rawBoxes)}</td><td>{fmt(row.boxes)}</td><td>{fmt(row.loadingAmount)}원</td><td>{fmt(row.transportAmount)}원</td></tr>)}{preview.rows.length===0&&<tr><td colSpan="6">계산 가능한 정상 출고 품목이 없습니다.</td></tr>}</tbody></table>
-          <div style={{ padding:10, border:'1px solid #cbd5e1', background:'#f8fafc', borderRadius:8, fontSize:12, color:'#475569' }}>
-            적용 시 세부차수별 기존 출고마스터·확정상태·운임 품목·ShipmentDate를 서버에서 다시 잠그고 확인합니다. 기존 운임행은 건너뛰며, 한 건이라도 검증에 실패하면 전체를 롤백합니다. 합산 미리보기는 저장 대상이 아니므로 적용 전 세부차수별 분리로 바꿔주세요.
-          </div>
-          <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}><button type="button" className="btn btn-sm" onClick={onClose}>닫기</button><button type="button" className="btn btn-sm" disabled={applyBusy || aggregate || preview.rows.length === 0} onClick={()=>onApply?.({ rounding, aggregate, loadingUnitPrice, transportUnitPrice })} title={aggregate ? '합산은 미리보기 전용입니다. 세부차수별 분리로 바꾸세요.' : '검증 후 운임 원장에 추가합니다.'}>{applyBusy ? '운송비 적용 중…' : '운송비 적용'}</button></div>
-        </div>
+  return <div role="dialog" aria-modal="true" aria-label="운임비 추가" style={{position:'fixed',inset:0,zIndex:1400,background:'rgba(15,23,42,.45)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+    <div style={{width:'min(1500px,100%)',maxHeight:'94vh',overflow:'auto',background:'#fff',borderRadius:10,padding:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:12}}><h3 style={{margin:0}}>운임비 추가 · {selectedShip?.CustName} · {year}년 {parentWeek}차</h3><button disabled={applyBusy} onClick={onClose}>닫기</button></div>
+      <p>품목별 박스 환산과 등록할 운임을 확인하세요. 등록하면 기존 추가 품목과 동일하게 확정 해제 → 주문·분배 등록 → 원래 확정 상태 복원을 진행합니다.</p>
+      {error && <div role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:12,marginBottom:10}}>{error}</div>}
+      <div style={{display:'flex',flexWrap:'wrap',gap:16}}>
+        <section style={{flex:'1 1 600px',minWidth:0}}>
+          <b>견적서 품목 · 박스수량 확인</b>
+          <table className="tbl" style={{width:'100%',fontSize:12}}><thead><tr><th>포함</th><th>차수 / 출고일</th><th>품목</th><th>견적수량</th><th>환산 박스</th></tr></thead>
+            <tbody>{sources.map(row => <tr key={row.sourceKey} style={{background:excluded[row.sourceKey]?'#f1f5f9':row.boxes==null?'#fee2e2':'#eff6ff'}}>
+              <td><input aria-label={row.ProdName+' 계산 포함'} type="checkbox" checked={!excluded[row.sourceKey]} onChange={e=>{setExcluded(prev=>({...prev,[row.sourceKey]:!e.target.checked}));setConfirmed(false);}} /></td>
+              <td>{row.OrderWeek}<br/>{row.outDate}</td><td>{row.ProdName}</td><td>{fmt(row.Quantity)} {row.Unit}</td><td>{row.boxes==null?'환산 확인 필요':fmt(row.boxes)}</td>
+            </tr>)}</tbody>
+          </table>
+          <b>선택 합계 {fmt(selected.reduce((sum,row)=>sum+(row.boxes||0),0))}박스</b>
+        </section>
+        <section style={{flex:'1 1 560px',minWidth:0}}>
+          <label>잔량 처리 <select value={rounding} onChange={e=>{setRounding(e.target.value);setConfirmed(false);}}>
+            <option value="CEIL">올림 (4.5 → 5)</option><option value="FLOOR">버림 (4.5 → 4)</option><option value="EXACT">실수량 유지</option>
+          </select></label>
+          <p style={{fontSize:12}}>상차운임·운송료는 필요한 항목만 체크하세요. 수량·단가를 직접 수정할 수 있습니다. 단가는 기존 견적서와 동일한 부가세 포함 기준입니다.</p>
+          <table className="tbl" style={{width:'100%',fontSize:12}}><thead><tr><th>등록</th><th>등록 차수 / 출고일</th><th>운임 품목</th><th>박스</th><th>박스당 단가</th></tr></thead>
+            <tbody>{drafts.map(row=><tr key={row.key}>
+              <td><input type="checkbox" aria-label={row.weekShort+' '+row.name+' 등록'} checked={row.enabled} onChange={e=>update(row.key,{enabled:e.target.checked})}/></td>
+              <td>{row.weekShort}<br/>{row.shipmentDate}</td>
+              <td><select style={{maxWidth:220,width:'100%'}} aria-label={row.weekShort+' '+row.name+' 품목'} value={row.prodKey} onChange={e=>update(row.key,{prodKey:Number(e.target.value)})}><option value="">품목 선택 · {row.name}</option>{freightProducts.map(p=><option key={p.ProdKey} value={p.ProdKey}>{p.ProdName}</option>)}</select></td>
+              <td><input aria-label={row.weekShort+' '+row.name+' 박스'} type="number" min="0" step="any" value={row.qty} style={{width:65}} onChange={e=>update(row.key,{qty:e.target.value})}/></td>
+              <td><input aria-label={row.weekShort+' '+row.name+' 단가'} type="number" min="0" value={row.cost} style={{width:85}} onChange={e=>update(row.key,{cost:e.target.value})}/></td>
+            </tr>)}</tbody>
+          </table>
+          <p>등록 예상금액 <b>{fmt(drafts.filter(r=>r.enabled).reduce((s,r)=>s+Number(r.qty)*Number(r.cost),0))}원</b></p>
+          {existing.length>0 && <details open><summary>기존 운임 내역 {existing.length}건 · 중복 등록 제외</summary>{existing.map((r,i)=><div key={i} style={{fontSize:12,padding:3}}>{r.OrderWeek} · {r.ProdName} · {fmt(r.Quantity)}{r.Unit} × {fmt(r.Cost)}원</div>)}</details>}
+          <div style={{padding:'12px 0'}}><label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> 품목별 박스수량·차수·운임 단가를 확인했습니다.</label></div>
+          <button className="btn btn-primary" disabled={applyBusy||!confirmed||!drafts.some(r=>r.enabled)} onClick={submit}>{applyBusy?'등록 준비 중…':'운임비 등록 시작'}</button>
+        </section>
       </div>
     </div>
-  );
+  </div>;
 }
