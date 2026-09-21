@@ -8,7 +8,10 @@ async function handler(req, res) {
   const week = String(req.query.week || '').trim();
   const custKey = Number(req.query.custKey);
   const prodKey = Number(req.query.prodKey);
-  if (!/^\d{4}$/.test(year) || !/^\d{2}-02$/.test(week) || !(custKey > 0) || !(prodKey > 0)) {
+  const freight = req.query.purpose === 'freight';
+  const requestedDate = String(req.query.shipmentDate || '');
+  const validWeek = freight ? /^\d{2}-0[1-3]$/.test(week) : /^\d{2}-02$/.test(week);
+  if (!/^\d{4}$/.test(year) || !validWeek || !(custKey > 0) || !(prodKey > 0)) {
     return res.status(400).json({ success: false, error: '연도·검증된 02차·거래처·품목이 필요합니다.' });
   }
   try {
@@ -29,7 +32,8 @@ async function handler(req, res) {
         WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND sm.CustKey=@ck AND ISNULL(sm.isDeleted,0)=0 AND sd.ShipmentDtm IS NOT NULL`,
       { yr:{type:sql.NVarChar,value:year}, wk:{type:sql.NVarChar,value:week}, ck:{type:sql.Int,value:custKey} },
     );
-    if (dates.recordset.length !== 1) return res.status(409).json({ success:false, code:'SHIPMENT_DATE_AMBIGUOUS', error:`${year}년 ${week}차 출고일이 ${dates.recordset.length ? '여러 개라' : '없어'} 자동 저장할 수 없습니다.` });
+    const matchedDate = freight ? dates.recordset.find(row => row.ShipmentDate === requestedDate) : dates.recordset.length === 1 ? dates.recordset[0] : null;
+    if (!matchedDate) return res.status(409).json({ success:false, code:'SHIPMENT_DATE_AMBIGUOUS', error:`${year}년 ${week}차 기존 출고일과 선택한 운임 출고일을 확인해 주세요.` });
 
     const official = await query(
       `SELECT TOP 1 c.CustName, cpc.Cost
@@ -81,7 +85,7 @@ async function handler(req, res) {
       success: true,
       year,
       week,
-      shipmentDate: dates.recordset[0].ShipmentDate,
+      shipmentDate: matchedDate.ShipmentDate,
       fixed: Boolean(scope.recordset[0].DetailFix || scope.recordset[0].MasterFix),
       existingSdetailKey: scope.recordset[0].SdetailKey || null,
       priceSources: [...officialSource, ...historical],
