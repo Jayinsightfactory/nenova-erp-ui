@@ -43,10 +43,12 @@ test('approved carnation 30+31 combines once into 01 and preserves other freight
   const options={year:2026,parentWeek:38,custKey:12,products:[{ProdKey:1,ProdName:'카네이션 운송료',OutUnit:'박스'}]};
   assert.equal(validateFreightDraft([{...result[0],cost:3000}],options)[0].week,'2026-38-01');
   assert.throws(()=>validateFreightDraft([{...result[0],cost:3000}],{...options,existing:[{ProdKey:1,OrderWeek:'38-02'}]}),/기존 운임/);
-  const missing=combineCarnationFreight(rows,sources.slice(1),38,'CEIL')[0];
+  const missing=combineCarnationFreight(rows.slice(1),sources.slice(1),38,'CEIL')[0];
   assert.throws(()=>validateFreightDraft([{...missing,cost:3000}],options),/출고일/);
-  const ambiguous=combineCarnationFreight(rows,[...sources,{...sources[0],outDate:'2026-09-21'}],38,'CEIL')[0];
+  const ambiguous=combineCarnationFreight([...rows,{...rows[0],shipmentDate:'2026-09-21'}],sources,38,'CEIL')[0];
   assert.ok(ambiguous.scopeError);
+  const unrelated=combineCarnationFreight(rows,[...sources,{...sources[0],outDate:'2026-09-21'}],38,'CEIL')[0];
+  assert.equal(unrelated.shipmentDate,'2026-09-19'); assert.equal(unrelated.scopeError,'');
   assert.equal(combineCarnationFreight(rows,sources,38,'CEIL',false),rows);
   assert.equal(combineCarnationFreight(rows.map(r=>({...r,rawBoxes:0.4})),sources,38,'CEIL')[0].qty,1);
 });
