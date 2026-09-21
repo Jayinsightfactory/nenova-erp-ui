@@ -8,6 +8,8 @@
     "lib/estimateFreightApply.js",
     "pages/api/estimate/freight-apply.js",
     "lib/estimateFreightDraft.js",
+    "components/estimate/FreightChargePreviewModal.module.css",
+    "lib/exeEstimateViewSql.js",
     "pages/api/estimate/additional-product-context.js"
   ],
   "businessIdentity": [
@@ -19,6 +21,7 @@
   "actions": [
     {
       "name": "FREIGHT_PREVIEW_READ_ONLY",
+      "guard": "1920x1080 compact 3-column product count; EXE detail mapper must preserve ShipmentDate.ShipmentQuantity and Product unit conversion. Missing quantity is unknown, never zero. No SQL writes or changes to existing save flow.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "estimate": "preserve",
