@@ -63,6 +63,14 @@ assert.strictEqual(wd.classifyStage('중국MELODY_CNY 210,173.5_14-1차 수입_(
 assert.strictEqual(wd.extractCycle('FL68KFM75D8G547.xlsx'), '', '무작위 ID는 차수 아님');
 assert.strictEqual(wd.extractCycle('AYURA 17-1 HERMES.pdf'), '17-1');
 assert.strictEqual(wd.isSensitive('AYURA 17-1 HERMES.pdf', '입고'), true, '농장 인보이스 PDF는 민감');
+// 영업부(박성수·NENOVA2025) 실측 미분류 보강
+assert.strictEqual(wd.classifyStage('44차 양재동 차감내역.xlsx'), '출고');
+assert.strictEqual(wd.classifyStage('16차 대구희경-175박스.xlsx'), '출고');
+assert.strictEqual(wd.classifyStage('26년 1차 울산신화 어버이날 물량-70.xlsx'), '출고');
+assert.strictEqual(wd.classifyStage('46-1차 예상 가격표.xlsx'), '견적·거래처');
+assert.strictEqual(wd.classifyStage('중국 38-2차 패킹리스트.xlsx'), '입고');
+assert.strictEqual(wd.classifyStage('2026년 지역별 매출액 정리.xlsx'), '송금·경영');
+assert.strictEqual(wd.classifyStage('강동동86-6 사업자등록.pdf'), '송금·경영');
 
 // 민감
 assert.strictEqual(wd.isSensitive('★외화송금결제 지출결의서.xlsx', '송금·경영'), true);
