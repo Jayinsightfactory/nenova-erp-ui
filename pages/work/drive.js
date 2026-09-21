@@ -32,7 +32,13 @@ export default function WorkDrivePage() {
   const [who, setWho] = useState('');           // 올린 사람 필터
   const [q, setQ] = useState('');
   const [view, setView] = useState('kanban');   // kanban | list | recent
-  const [stageF, setStageF] = useState('');     // 표 보기 단계 필터
+  const [stageF, setStageF] = useState('');     // 단계 필터
+  const [deptF, setDeptF] = useState('');       // 부서
+  const [extF, setExtF] = useState('');         // 종류: xls | pdf | doc | img | etc
+  const [dirF, setDirF] = useState('');         // 폴더: Desktop | Documents | Downloads
+  const [periodF, setPeriodF] = useState('');   // 올린 기간: 1 | 7 | 30 (일)
+  const [sensF, setSensF] = useState('');       // '' | 'sens' | 'plain'
+  const [verF, setVerF] = useState('');         // '' | 'multi'(버전 2개 이상)
   const [sort, setSort] = useState(['uploadedAt', -1]);
   const [sel, setSel] = useState(null);
   const [log, setLog] = useState(null);
@@ -43,15 +49,26 @@ export default function WorkDrivePage() {
     catch (e) { setErr(e.message); }
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (data?.isAdmin) setScope('all'); }, [data?.isAdmin]);
 
   const files = useMemo(() => (data?.files || []).map((f) => ({ ...f, year: yearOf(f), ck: f.cycle ? `${yearOf(f)}:${f.cycle}` : NONE })), [data]);
+  const extKind = (f) => (/xls|csv/.test(f.ext) ? 'xls' : f.ext === 'pdf' ? 'pdf' : /doc|hwp|txt|ppt/.test(f.ext) ? 'doc' : /png|jpg|jpeg/.test(f.ext) ? 'img' : 'etc');
+  const verCount = useMemo(() => { const m = {}; for (const f of files) { const k = f.uploaderName + '|' + f.filename; m[k] = (m[k] || 0) + 1; } return m; }, [files]);
+  const since = periodF ? Date.now() - Number(periodF) * 86400e3 : 0;
   const scoped = useMemo(() => files
-    .filter((f) => scope === 'all' ? true : scope === 'mine' ? f.uploaderName === data?.me : (f.dept === data?.dept || f.uploaderName === data?.me))
-    .filter((f) => !who || f.uploaderName === who)
-    .filter((f) => !q || f.filename.toLowerCase().includes(q.toLowerCase()) || (f.uploaderName || '').includes(q) || (f.cycle || '') === q), [files, scope, who, q, data]);
+    .filter((f) => who ? f.uploaderName === who : scope === 'all' ? true : scope === 'mine' ? f.uploaderName === data?.me : (f.dept === data?.dept || f.uploaderName === data?.me))
+    .filter((f) => !deptF || f.dept === deptF)
+    .filter((f) => !extF || extKind(f) === extF)
+    .filter((f) => !dirF || f.sourceDir === dirF)
+    .filter((f) => !since || new Date(f.uploadedAt).getTime() >= since)
+    .filter((f) => !sensF || (sensF === 'sens' ? f.sensitive : !f.sensitive))
+    .filter((f) => !verF || verCount[f.uploaderName + '|' + f.filename] > 1)
+    .filter((f) => !q || f.filename.toLowerCase().includes(q.toLowerCase()) || (f.uploaderName || '').includes(q) || (f.cycle || '') === q), [files, scope, who, q, data, deptF, extF, dirF, since, sensF, verF, verCount]);
+  const anyF = !!(deptF || extF || dirF || periodF || sensF || verF || stageF);
+  const clearF = () => { setDeptF(''); setExtF(''); setDirF(''); setPeriodF(''); setSensF(''); setVerF(''); setStageF(''); };
 
   // 사람 칩(범위 안에서) · 연도별 차수 · PC별 업로드 현황(사장)
-  const people = useMemo(() => { const m = new Map(); for (const f of files) if (f.uploaderName) { const p = m.get(f.uploaderName) || { name: f.uploaderName, dept: f.dept, n: 0, last: '' }; p.n++; if (f.uploadedAt > p.last) p.last = f.uploadedAt; m.set(f.uploaderName, p); } return [...m.values()].sort((a, b) => b.n - a.n); }, [files]);
+  const people = useMemo(() => { const m = new Map(); for (const f of files.filter((f) => scope === 'all' ? true : scope === 'mine' ? f.uploaderName === data?.me : (f.dept === data?.dept || f.uploaderName === data?.me))) if (f.uploaderName) { const p = m.get(f.uploaderName) || { name: f.uploaderName, dept: f.dept, n: 0, last: '' }; p.n++; if (f.uploadedAt > p.last) p.last = f.uploadedAt; m.set(f.uploaderName, p); } return [...m.values()].sort((a, b) => b.n - a.n); }, [files, scope, data]);
   const years = useMemo(() => {
     const m = new Map();
     for (const f of scoped) if (f.cycle) { const y = m.get(f.year) || new Map(); y.set(f.cycle, (y.get(f.cycle) || 0) + 1); m.set(f.year, y); }
@@ -116,6 +133,18 @@ export default function WorkDrivePage() {
         {data?.isAdmin && <button onClick={reclassAll} disabled={!!busy}>{busy || '일괄 재분류'}</button>}
       </div>
       {people.length > 1 && <div className="chips"><span className="dim">사람</span><button className={!who ? 'on' : ''} onClick={() => setWho('')}>전체</button>{people.map((p) => <button key={p.name} className={who === p.name ? 'on' : ''} onClick={() => setWho(who === p.name ? '' : p.name)} title={`${p.dept || ''} · 마지막 ${fmtT(p.last)}`}>{p.name} <em>{p.n}</em></button>)}</div>}
+      <div className="filters">
+        <span className="dim">필터</span>
+        <select value={deptF} onChange={(e) => setDeptF(e.target.value)}><option value="">부서 전체</option>{[...new Set(files.map((f) => f.dept).filter(Boolean))].map((d) => <option key={d}>{d}</option>)}</select>
+        <select value={stageF} onChange={(e) => setStageF(e.target.value)}><option value="">단계 전체</option>{stages.map((s) => <option key={s}>{s}</option>)}</select>
+        <select value={extF} onChange={(e) => setExtF(e.target.value)}><option value="">종류 전체</option><option value="xls">엑셀·CSV</option><option value="pdf">PDF</option><option value="doc">문서·PPT</option><option value="img">이미지</option><option value="etc">기타</option></select>
+        <select value={dirF} onChange={(e) => setDirF(e.target.value)}><option value="">폴더 전체</option>{[...new Set(files.map((f) => f.sourceDir).filter(Boolean))].map((d) => <option key={d}>{d}</option>)}</select>
+        <select value={periodF} onChange={(e) => setPeriodF(e.target.value)}><option value="">올린 기간 전체</option><option value="1">오늘(24시간)</option><option value="7">최근 7일</option><option value="30">최근 30일</option></select>
+        <select value={sensF} onChange={(e) => setSensF(e.target.value)}><option value="">민감 여부 전체</option><option value="sens">🔒 민감만</option><option value="plain">일반만</option></select>
+        <select value={verF} onChange={(e) => setVerF(e.target.value)}><option value="">버전 전체</option><option value="multi">버전 2개 이상</option></select>
+        {anyF && <button onClick={clearF}>필터 지우기</button>}
+        <span className="dim">{scoped.length}건</span>
+      </div>
       {err && <p className="warn">{err}</p>}
       <div className="body">
         <aside className="left">
@@ -136,11 +165,11 @@ export default function WorkDrivePage() {
             {Object.entries(listRows.reduce((m, f) => { (m[dayKey(f.uploadedAt)] ||= []).push(f); return m; }, {})).map(([d, rows]) => <div key={d}><div className="day">{d === today ? '오늘' : fmtD(d)} <em>{rows.length}</em></div><Table rows={rows} withCycle /></div>)}
           </> : !cur ? <p className="dim">파일이 아직 없습니다. 직원 PC에서 업무 파일이 저장되면 자동으로 여기에 쌓입니다.</p> : <>
             <div className="h2">{q ? `"${q}" 검색 결과` : curLabel} <span className="dim">파일 {(q ? scoped : inCycle).length}</span></div>
-            {!q && <div className="strip">{stages.map((s) => (sc[s] > 0 || s !== '미분류') && <button key={s} className={'tag s' + stages.indexOf(s) + (stageF === s ? ' on' : '')} onClick={() => { setStageF(stageF === s ? '' : s); if (view === 'kanban' && stageF !== s) setView('list'); }}>{s} <em>{sc[s]}</em></button>)}</div>}
+            {!q && <div className="strip">{stages.map((s) => (sc[s] > 0 || s !== '미분류') && <button key={s} className={'tag s' + stages.indexOf(s) + (stageF === s ? ' on' : '')} onClick={() => setStageF(stageF === s ? '' : s)}>{s} <em>{sc[s]}</em></button>)}</div>}
             {showList ? <Table rows={listRows} withCycle={!!q || cur === NONE} /> : (
               <div className="kanban">
-                {stages.filter((s) => s !== '미분류').map((s) => <div className="col" key={s}><div className="ch">{s} <em>{sc[s]}</em></div>{sc[s] === 0 ? <div className="empty">—</div> : inCycle.filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
-                {sc['미분류'] > 0 && <div className="col un"><div className="ch">미분류 <em>{sc['미분류']}</em></div>{inCycle.filter((f) => f.stage === '미분류').map((f) => <Card key={f.id} f={f} />)}</div>}
+                {stages.filter((s) => s !== '미분류' && (!stageF || s === stageF)).map((s) => <div className="col" key={s}><div className="ch">{s} <em>{sc[s]}</em></div>{sc[s] === 0 ? <div className="empty">—</div> : inCycle.filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
+                {sc['미분류'] > 0 && (!stageF || stageF === '미분류') && <div className="col un"><div className="ch">미분류 <em>{sc['미분류']}</em></div>{inCycle.filter((f) => f.stage === '미분류').map((f) => <Card key={f.id} f={f} />)}</div>}
               </div>)}
           </>}
         </main>
@@ -177,6 +206,7 @@ export default function WorkDrivePage() {
         .bar input{padding:5px 8px;border:1px solid #ccc;border-radius:6px;min-width:200px}.bar button{padding:5px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer}.bar button:disabled{color:#999}
         .seg{display:flex;border:1px solid #ccc;border-radius:6px;overflow:hidden}.seg button{border:0;border-right:1px solid #ccc;border-radius:0}.seg button:last-child{border-right:0}.seg button.on{background:#2f6feb;color:#fff}
         .chips{display:flex;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #eee;background:#fff;flex-wrap:wrap}.chips button{padding:3px 9px;border:1px solid #ddd;border-radius:14px;background:#fff;cursor:pointer}.chips button.on{border-color:#2f6feb;background:#e8f0fe;font-weight:700}.chips em{font-style:normal;color:#777;font-size:11px}
+        .filters{display:flex;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #eee;background:#fcfcfc;flex-wrap:wrap}.filters select,.filters button{padding:3px 6px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:12px}
         .dim{color:#777}.warn{color:#b45309;padding:6px 12px}.lock{color:#b45309}.r{text-align:right}
         .body{display:flex;flex:1 1 auto;min-height:0}
         .left{flex:0 0 220px;border-right:1px solid #e3e3e3;overflow:auto;padding:8px;background:#fafafa;display:flex;flex-direction:column;min-height:0}
