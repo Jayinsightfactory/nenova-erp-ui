@@ -10,7 +10,16 @@ const fmtD = (t) => { try { return new Date(t).toLocaleDateString('ko-KR', { mon
 const ago = (t) => { const s = (Date.now() - new Date(t).getTime()) / 1000; if (!(s >= 0)) return ''; if (s < 90) return '방금'; if (s < 3600) return Math.round(s / 60) + '분 전'; if (s < 86400) return Math.round(s / 3600) + '시간 전'; return Math.round(s / 86400) + '일 전'; };
 const fmtS = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB');
 const cycleKey = (c) => { const m = String(c || '').match(/^(\d+)(?:-(\d+))?$/); return m ? parseInt(m[1], 10) * 10 + (parseInt(m[2] || '0', 10)) : -1; };
-const yearOf = (f) => { const d = new Date(f.mtime || f.uploadedAt); const y = d.getFullYear(); return Number.isFinite(y) && y > 2000 ? y : new Date(f.uploadedAt).getFullYear(); };
+// 차수의 연도: ① 파일명에 적힌 연도(2025년·2024-46차·25년) ② 파일 수정시각 연도 — 단, 차수가 그 시점 주차보다 한참 크면(연말 차수를 1월에 손댄 파일) 전년
+const weekOf = (d) => Math.ceil(((d - new Date(d.getFullYear(), 0, 1)) / 864e5 + 1) / 7);
+const yearOf = (f) => {
+  const m = String(f.filename || '').match(/(?:^|[^\d])(20(2\d))(?:년|-\d{2}차|\s*\d{2}차)/) || String(f.filename || '').match(/(?:^|[^\d])(2\d)년/);
+  if (m) return m[1].length === 4 ? parseInt(m[1], 10) : 2000 + parseInt(m[1], 10);
+  const d = new Date(f.mtime || f.uploadedAt); let y = d.getFullYear(); if (!(y > 2000)) { return new Date(f.uploadedAt).getFullYear(); }
+  const major = parseInt(String(f.cycle || '').split('-')[0], 10);
+  if (major > weekOf(d) + 2) y -= 1;
+  return y;
+};
 const icon = (f) => (f.ext === 'pdf' ? '📄' : /xls|csv/.test(f.ext) ? '📊' : /doc|hwp|txt/.test(f.ext) ? '📝' : /png|jpg|jpeg/.test(f.ext) ? '🖼' : '📁');
 const dayKey = (t) => String(t || '').slice(0, 10);
 const NONE = '__none';
@@ -110,16 +119,16 @@ export default function WorkDrivePage() {
       {err && <p className="warn">{err}</p>}
       <div className="body">
         <aside className="left">
+          {data?.isAdmin && <>
+            <div className="h">PC별 업로드 <span className="dim">오늘/전체 · 마지막</span></div>
+            <table className="hosts"><tbody>{hosts.map((h) => <tr key={h.name + h.host} className={Date.now() - new Date(h.last) > 3 * 86400e3 ? 'stale' : ''}><td>{h.name}<div className="dim">{h.host}</div></td><td className="r">{h.today}/{h.n}</td><td className="dim r">{ago(h.last)}</td></tr>)}</tbody></table>
+          </>}
           <div className="h">차수 <span className="dim">{allCk.length}개</span></div>
           <div className="cyc">
             {years.length === 0 && <div className="dim">차수 파일 없음</div>}
             {years.map((y) => <div key={y.year}><div className="yr">{y.year}년</div>{y.cycles.map((c, i) => <button key={c.ck} className={c.ck === cur ? 'on' : ''} onClick={() => { setCycle(c.ck); if (view === 'recent') setView('kanban'); }}>{c.c}차{y === years[0] && i === 0 ? ' ▶' : ''} <em>{c.n}</em></button>)}</div>)}
-            <button className={'none' + (cur === NONE ? ' on' : '')} onClick={() => { setCycle(NONE); if (view === 'recent') setView('list'); }}>차수 없음 <em>{noCycle.length}</em></button>
           </div>
-          {data?.isAdmin && <>
-            <div className="h">PC별 업로드 <span className="dim">오늘/전체</span></div>
-            <table className="hosts"><tbody>{hosts.map((h) => <tr key={h.name + h.host} className={Date.now() - new Date(h.last) > 3 * 86400e3 ? 'stale' : ''}><td>{h.name}<div className="dim">{h.host}</div></td><td className="r">{h.today}/{h.n}</td><td className="dim r">{ago(h.last)}</td></tr>)}</tbody></table>
-          </>}
+          <button className={'nonebtn' + (cur === NONE ? ' on' : '')} onClick={() => { setCycle(NONE); if (view === 'recent') setView('list'); }}>차수 없음 <em>{noCycle.length}</em></button>
         </aside>
         <main className="main">
           {view === 'recent' ? <>
@@ -135,8 +144,8 @@ export default function WorkDrivePage() {
               </div>)}
           </>}
         </main>
-        <aside className="right">
-          {!sel ? <div className="dim">파일을 누르면 상세가 보입니다.<br /><br />🔒 = 금액·계약 파일(경영지원·본인·사장만)<br />v2 = 같은 이름의 새 버전</div> : <>
+        {sel && <aside className="right">
+            <button className="x" onClick={() => setSel(null)} title="닫기">✕</button>
             <div className="h">{icon(sel)} {sel.filename}</div>
             <table className="kv"><tbody>
               <tr><td>올린 사람</td><td>{sel.uploaderName || '?'} {sel.dept && <span className="dim">({sel.dept})</span>}</td></tr>
@@ -159,8 +168,8 @@ export default function WorkDrivePage() {
             </div>}
             {log && <div className="log"><b>내려받기 {log.length}건</b>{log.length === 0 && <div className="dim">없음</div>}{log.map((l, i) => <div key={i} className="dim">{fmtT(l.at)} {l.byName || l.by}</div>)}</div>}
             <div className="vers"><b>같은 이름 버전</b>{files.filter((f) => f.filename === sel.filename && f.uploaderName === sel.uploaderName).sort((a, b) => b.version - a.version).map((f) => <div key={f.id} className={f.id === sel.id ? 'on' : ''} onClick={() => pick(f)}>v{f.version} · {fmtT(f.uploadedAt)} · {fmtS(f.size)}</div>)}</div>
-          </>}
-        </aside>
+            <div className="dim legend">🔒 = 금액·계약 파일(경영지원·본인·사장만) · v2 = 같은 이름의 새 버전</div>
+        </aside>}
       </div>
       <style jsx>{`
         .wd{display:flex;flex-direction:column;height:calc(100vh - 60px);font-size:13px;color:#222}
@@ -170,12 +179,12 @@ export default function WorkDrivePage() {
         .chips{display:flex;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #eee;background:#fff;flex-wrap:wrap}.chips button{padding:3px 9px;border:1px solid #ddd;border-radius:14px;background:#fff;cursor:pointer}.chips button.on{border-color:#2f6feb;background:#e8f0fe;font-weight:700}.chips em{font-style:normal;color:#777;font-size:11px}
         .dim{color:#777}.warn{color:#b45309;padding:6px 12px}.lock{color:#b45309}.r{text-align:right}
         .body{display:flex;flex:1 1 auto;min-height:0}
-        .left{flex:0 0 250px;border-right:1px solid #e3e3e3;overflow:auto;padding:8px;background:#fafafa}
+        .left{flex:0 0 220px;border-right:1px solid #e3e3e3;overflow:auto;padding:8px;background:#fafafa;display:flex;flex-direction:column;min-height:0}
         .main{flex:1 1 auto;overflow:auto;padding:10px 12px;min-width:0}
-        .right{flex:0 0 340px;border-left:1px solid #e3e3e3;overflow:auto;padding:10px;background:#fafafa}
+        .right{flex:0 0 330px;border-left:1px solid #e3e3e3;overflow:auto;padding:10px;background:#fafafa;position:relative}.x{position:absolute;right:8px;top:8px;border:0;background:transparent;cursor:pointer;font-size:14px;color:#777}.legend{margin-top:14px;font-size:11.5px}
         .h{font-weight:700;margin:6px 0 6px;word-break:break-all}.h em{font-style:normal;color:#2f6feb;margin-left:4px}.h2{font-size:16px;font-weight:700;margin:0 0 8px}
         .yr{font-size:11px;color:#999;margin:8px 4px 3px;letter-spacing:.5px}
-        .cyc{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}.cyc button{text-align:left;width:100%;padding:5px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;margin-bottom:3px}.cyc button.on{border-color:#2f6feb;background:#e8f0fe;font-weight:700}.cyc em{float:right;font-style:normal;color:#777}.cyc .none{margin-top:8px;border-style:dashed}
+        .cyc{flex:1 1 auto;min-height:120px;overflow:auto;display:flex;flex-direction:column;gap:3px;margin-bottom:6px}.cyc button{text-align:left;width:100%;padding:5px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;margin-bottom:3px}.cyc button.on{border-color:#2f6feb;background:#e8f0fe;font-weight:700}.cyc em{float:right;font-style:normal;color:#777}.nonebtn{text-align:left;padding:5px 8px;border:1px dashed #bbb;border-radius:6px;background:#fff;cursor:pointer}.nonebtn.on{border-color:#2f6feb;background:#e8f0fe;font-weight:700}.nonebtn em{float:right;font-style:normal;color:#777}
         .hosts{width:100%;border-collapse:collapse;font-size:12px}.hosts td{padding:3px 4px;border-bottom:1px solid #eee;vertical-align:top}.hosts tr.stale td{color:#b45309}.hosts .dim{font-size:10.5px}
         .strip{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}.strip button{cursor:pointer;border:1px solid transparent}.strip button.on{outline:2px solid #2f6feb}
         .tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;background:#eee}.tag em{font-style:normal;font-weight:700;margin-left:3px}
@@ -184,14 +193,15 @@ export default function WorkDrivePage() {
         .col{flex:0 0 230px;background:#f3f4f6;border-radius:8px;padding:6px;max-height:calc(100vh - 230px);overflow:auto}.col.un{background:#f8f8f8;border:1px dashed #ccc}.ch{font-weight:700;margin:2px 4px 6px;position:sticky;top:0;background:inherit}.ch em{font-style:normal;color:#2f6feb;margin-left:4px}.empty{color:#bbb;text-align:center;padding:8px}
         .card{background:#fff;border:1px solid #e3e3e3;border-radius:7px;padding:6px 8px;margin-bottom:6px;cursor:pointer}.card:hover{border-color:#2f6feb}.card.on{border-color:#2f6feb;box-shadow:0 0 0 2px #e8f0fe}.card.sens{border-left:3px solid #b45309}
         .fn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{color:#777;font-size:11.5px;margin-top:2px}
-        .lst{width:100%;border-collapse:collapse;background:#fff;table-layout:fixed}.lst th{text-align:left;padding:6px 8px;border-bottom:2px solid #ddd;cursor:pointer;white-space:nowrap;font-size:12px;color:#555;position:sticky;top:0;background:#fff}.lst th.on{color:#2f6feb}
+        .lst{width:100%;min-width:640px;border-collapse:collapse;background:#fff;table-layout:fixed}.lst th{text-align:left;padding:6px 8px;border-bottom:2px solid #ddd;cursor:pointer;white-space:nowrap;font-size:12px;color:#555;position:sticky;top:0;background:#fff}.lst th.on{color:#2f6feb}
         .lst td{padding:5px 8px;border-bottom:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lst tr{cursor:pointer}.lst tr:hover td{background:#f5f8ff}.lst tr.on td{background:#e8f0fe}.lst tr.sens td.fn{border-left:3px solid #b45309}
         .lst th:nth-child(1){width:auto}.lst th:nth-child(n+2){width:96px}.lst .v{margin-left:4px;font-size:11px;color:#2f6feb}
         .day{font-weight:700;margin:12px 0 4px}.day em{font-style:normal;color:#2f6feb}
         .kv{width:100%;border-collapse:collapse;margin:6px 0}.kv td{padding:3px 4px;vertical-align:top;border-bottom:1px solid #eee;word-break:break-all}.kv td:first-child{color:#777;width:80px;white-space:nowrap}
         .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}.acts.edit{padding:8px;background:#f3f4f6;border-radius:8px}.btn{background:#2f6feb;color:#fff;padding:5px 12px;border-radius:6px;text-decoration:none}.acts select,.acts input,.acts button{padding:4px 6px;border:1px solid #ccc;border-radius:6px;background:#fff}.cy{width:90px}
         .log,.vers{margin-top:10px;font-size:12px}.vers div{padding:3px 4px;cursor:pointer;border-radius:4px}.vers div.on{background:#e8f0fe}.vers div:hover{background:#eef}
-        @media (max-width:900px){.body{flex-direction:column}.left,.right{flex:0 0 auto;border:0;border-bottom:1px solid #e3e3e3;max-height:40vh}.right{border-top:1px solid #e3e3e3}}
+        @media (max-width:1200px){.right{position:fixed;right:0;top:60px;bottom:0;width:min(360px,92vw);box-shadow:-4px 0 16px rgba(0,0,0,.12);z-index:20}}
+        @media (max-width:900px){.body{flex-direction:column}.left{flex:0 0 auto;border:0;border-bottom:1px solid #e3e3e3;max-height:38vh}}
       `}</style>
     </div>
   );
