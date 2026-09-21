@@ -98,141 +98,214 @@ export default function WorkDrivePage() {
   const pick = (f) => { setSel(f); setLog(null); };
   const th = (k, label) => <th onClick={() => setSort(([pk, pd]) => [k, pk === k ? -pd : -1])} className={sort[0] === k ? 'on' : ''}>{label}{sort[0] === k ? (sort[1] < 0 ? ' ▼' : ' ▲') : ''}</th>;
 
+
+  // ── 표시 요소 (참고 구조: Google Drive 툴바+종류 배지 / Linear 사이드바 섹션·밀도 / Notion 표면감) ──
+  const kind = (f) => extKind(f);
+  const KIND = { xls: ['XLS', '#1e7e4a', '#dcf3e6'], pdf: ['PDF', '#c2410c', '#ffe4d6'], doc: ['DOC', '#2f5fd0', '#dfe8ff'], img: ['IMG', '#7c3aed', '#ede4ff'], etc: ['FILE', '#6b7280', '#eceef2'] };
+  const Badge = ({ f, sm }) => { const [t, c, bg] = KIND[kind(f)]; return <span className={'badge' + (sm ? ' sm' : '')} style={{ color: c, background: bg }}>{t}</span>; };
+  const Avatar = ({ name }) => <span className="av">{String(name || '?').slice(0, 1)}</span>;
+  const STAGE_C = ['#3b6cf6', '#16a34a', '#ea580c', '#7c3aed', '#dc2626', '#ca8a04', '#0891b2', '#9ca3af'];
+  const Dot = ({ s }) => <i className="dot" style={{ background: STAGE_C[stages.indexOf(s)] || '#9ca3af' }} />;
+
   const Card = ({ f }) => (
-    <div className={'card' + (sel?.id === f.id ? ' on' : '') + (f.sensitive ? ' sens' : '')} onClick={() => pick(f)} title={f.filename}>
-      <div className="fn">{icon(f)} {f.filename}</div>
-      <div className="meta">{f.uploaderName || '?'} · {fmtT(f.uploadedAt)}{f.version > 1 ? ` · v${f.version}` : ''}{f.sensitive ? ' · 🔒' : ''}</div>
+    <div className={'card' + (sel?.id === f.id ? ' on' : '')} onClick={() => pick(f)} title={f.filename}>
+      <div className="row"><Badge f={f} sm /><span className="fn">{f.filename}</span></div>
+      <div className="meta"><Avatar name={f.uploaderName} />{f.uploaderName || '?'}<span>·</span>{fmtT(f.uploadedAt)}{f.version > 1 && <span className="pill">v{f.version}</span>}{f.sensitive && <span className="pill lock">🔒 민감</span>}</div>
     </div>
   );
   const Row = ({ f, withCycle }) => (
-    <tr className={(sel?.id === f.id ? 'on' : '') + (f.sensitive ? ' sens' : '')} onClick={() => pick(f)}>
-      <td className="fn" title={f.filename}>{icon(f)} {f.filename}{f.version > 1 && <span className="v">v{f.version}</span>}{f.sensitive && ' 🔒'}</td>
-      <td>{f.uploaderName || '?'}</td>
-      {withCycle && <td>{f.cycle || '—'}</td>}
-      <td><span className={'tag s' + stages.indexOf(f.stage)}>{f.stage}</span></td>
+    <tr className={sel?.id === f.id ? 'on' : ''} onClick={() => pick(f)}>
+      <td className="fn" title={f.filename}><Badge f={f} sm /><span className="name">{f.filename}</span>{f.version > 1 && <span className="pill">v{f.version}</span>}{f.sensitive && <span className="pill lock">🔒</span>}</td>
+      <td><span className="who"><Avatar name={f.uploaderName} />{f.uploaderName || '?'}</span></td>
+      {withCycle && <td>{f.cycle ? <span className="pill cyc">{f.cycle}</span> : <span className="dim">—</span>}</td>}
+      <td><span className="stg"><Dot s={f.stage} />{f.stage}</span></td>
       <td className="dim" title={fmtT(f.uploadedAt)}>{view === 'recent' ? ago(f.uploadedAt) : fmtT(f.uploadedAt)}</td>
       <td className="dim r">{fmtS(f.size)}</td>
     </tr>
   );
-  const Table = ({ rows, withCycle }) => rows.length === 0 ? <p className="dim">파일 없음</p> : (
-    <table className="lst"><thead><tr>{th('filename', '파일')}{th('uploaderName', '올린 사람')}{withCycle && th('cycle', '차수')}{th('stage', '단계')}{th('uploadedAt', '올린 시각')}{th('size', '크기')}</tr></thead>
-      <tbody>{rows.map((f) => <Row key={f.id} f={f} withCycle={withCycle} />)}</tbody></table>
+  const Table = ({ rows, withCycle }) => rows.length === 0 ? <div className="empty-state">조건에 맞는 파일이 없습니다</div> : (
+    <div className="tbl-wrap"><table className="lst"><thead><tr>{th('filename', '파일')}{th('uploaderName', '올린 사람')}{withCycle && th('cycle', '차수')}{th('stage', '단계')}{th('uploadedAt', '올린 시각')}{th('size', '크기')}</tr></thead>
+      <tbody>{rows.map((f) => <Row key={f.id} f={f} withCycle={withCycle} />)}</tbody></table></div>
   );
+  const Sel = ({ value, onChange, children }) => <select className={'sel' + (value ? ' on' : '')} value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>;
 
   const curLabel = cur === NONE ? '차수 없는 파일' : cur ? `${cur.split(':')[0]}년 ${cur.split(':')[1]}차` : '';
   const sc = stageCount(inCycle);
+  const stale = (t) => Date.now() - new Date(t) > 3 * 86400e3;
 
   return (
     <div className="wd">
-      <div className="bar">
-        <b>업무 드라이브</b>
-        <span className="dim">{data ? `${data.me}${data.dept ? ' · ' + data.dept : ''} · 파일 ${files.length}` : '불러오는 중…'}</span>
-        <div className="seg">{[['mine', '내 파일'], ['dept', '부서'], ['all', '볼 수 있는 전체']].map(([k, l]) => <button key={k} className={scope === k ? 'on' : ''} onClick={() => { setScope(k); setWho(''); }}>{l}</button>)}</div>
-        <input placeholder="파일명 · 이름 · 차수(38-2)" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="seg">{[['kanban', '칸반'], ['list', '목록'], ['recent', '최근 올라온']].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
-        <button onClick={load}>새로고침</button>
-        {data?.isAdmin && <button onClick={reclassAll} disabled={!!busy}>{busy || '일괄 재분류'}</button>}
-      </div>
-      {people.length > 1 && <div className="chips"><span className="dim">사람</span><button className={!who ? 'on' : ''} onClick={() => setWho('')}>전체</button>{people.map((p) => <button key={p.name} className={who === p.name ? 'on' : ''} onClick={() => setWho(who === p.name ? '' : p.name)} title={`${p.dept || ''} · 마지막 ${fmtT(p.last)}`}>{p.name} <em>{p.n}</em></button>)}</div>}
+      {/* ── 툴바 ── */}
+      <header className="top">
+        <div className="title">
+          <h1>업무 드라이브</h1>
+          <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{files.length.toLocaleString()}</b>개 파일</> : '불러오는 중…'}</span>
+        </div>
+        <label className="search"><span className="ico">⌕</span><input placeholder="파일명 · 이름 · 차수(38-2) 검색" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button className="clr" onClick={() => setQ('')}>✕</button>}</label>
+        <div className="seg">{[['kanban', '칸반'], ['list', '목록'], ['recent', '최근']].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
+        <div className="grow" />
+        <button className="ghost" onClick={load} title="새로고침">↻</button>
+        {data?.isAdmin && <button className="ghost" onClick={reclassAll} disabled={!!busy}>{busy || '일괄 재분류'}</button>}
+      </header>
+
+      {/* ── 범위 · 사람 · 필터 ── */}
       <div className="filters">
-        <span className="dim">필터</span>
-        <select value={deptF} onChange={(e) => setDeptF(e.target.value)}><option value="">부서 전체</option>{[...new Set(files.map((f) => f.dept).filter(Boolean))].map((d) => <option key={d}>{d}</option>)}</select>
-        <select value={stageF} onChange={(e) => setStageF(e.target.value)}><option value="">단계 전체</option>{stages.map((s) => <option key={s}>{s}</option>)}</select>
-        <select value={extF} onChange={(e) => setExtF(e.target.value)}><option value="">종류 전체</option><option value="xls">엑셀·CSV</option><option value="pdf">PDF</option><option value="doc">문서·PPT</option><option value="img">이미지</option><option value="etc">기타</option></select>
-        <select value={dirF} onChange={(e) => setDirF(e.target.value)}><option value="">폴더 전체</option>{dirs.map(([d, n]) => <option key={d} value={d}>{d} ({n})</option>)}</select>
-        <select value={periodF} onChange={(e) => setPeriodF(e.target.value)}><option value="">올린 기간 전체</option><option value="1">오늘(24시간)</option><option value="7">최근 7일</option><option value="30">최근 30일</option></select>
-        <select value={sensF} onChange={(e) => setSensF(e.target.value)}><option value="">민감 여부 전체</option><option value="sens">🔒 민감만</option><option value="plain">일반만</option></select>
-        <select value={verF} onChange={(e) => setVerF(e.target.value)}><option value="">버전 전체</option><option value="multi">버전 2개 이상</option></select>
-        {anyF && <button onClick={clearF}>필터 지우기</button>}
-        <span className="dim">{scoped.length}건</span>
+        <div className="seg soft">{[['mine', '내 파일'], ['dept', '내 부서'], ['all', '전체']].map(([k, l]) => <button key={k} className={scope === k && !who ? 'on' : ''} onClick={() => { setScope(k); setWho(''); }}>{l}</button>)}</div>
+        {people.length > 1 && <div className="chips">{people.map((p) => <button key={p.name} className={who === p.name ? 'on' : ''} onClick={() => setWho(who === p.name ? '' : p.name)} title={`${p.dept || ''} · 마지막 ${fmtT(p.last)}`}><Avatar name={p.name} />{p.name}<em>{p.n}</em></button>)}</div>}
+        <span className="sep" />
+        <Sel value={deptF} onChange={setDeptF}><option value="">부서</option>{[...new Set(files.map((f) => f.dept).filter(Boolean))].map((d) => <option key={d}>{d}</option>)}</Sel>
+        <Sel value={stageF} onChange={setStageF}><option value="">단계</option>{stages.map((s) => <option key={s}>{s}</option>)}</Sel>
+        <Sel value={extF} onChange={setExtF}><option value="">종류</option><option value="xls">엑셀·CSV</option><option value="pdf">PDF</option><option value="doc">문서·PPT</option><option value="img">이미지</option><option value="etc">기타</option></Sel>
+        <Sel value={dirF} onChange={setDirF}><option value="">폴더</option>{dirs.map(([d, n]) => <option key={d} value={d}>{d} ({n})</option>)}</Sel>
+        <Sel value={periodF} onChange={setPeriodF}><option value="">기간</option><option value="1">오늘</option><option value="7">최근 7일</option><option value="30">최근 30일</option></Sel>
+        <Sel value={sensF} onChange={setSensF}><option value="">민감</option><option value="sens">🔒 민감만</option><option value="plain">일반만</option></Sel>
+        <Sel value={verF} onChange={setVerF}><option value="">버전</option><option value="multi">2개 이상</option></Sel>
+        {anyF && <button className="link" onClick={clearF}>초기화</button>}
+        <span className="cnt">{scoped.length.toLocaleString()}건</span>
       </div>
       {err && <p className="warn">{err}</p>}
+
       <div className="body">
+        {/* ── 사이드바 ── */}
         <aside className="left">
-          {data?.isAdmin && <>
-            <div className="h">PC별 업로드 <span className="dim">오늘/전체 · 마지막</span></div>
-            <table className="hosts"><tbody>{hosts.map((h) => <tr key={h.name + h.host} className={Date.now() - new Date(h.last) > 3 * 86400e3 ? 'stale' : ''}><td>{h.name}<div className="dim">{h.host}</div></td><td className="r">{h.today}/{h.n}</td><td className="dim r">{ago(h.last)}</td></tr>)}</tbody></table>
-          </>}
-          <div className="h">차수 <span className="dim">{allCk.length}개</span></div>
-          <div className="cyc">
-            {years.length === 0 && <div className="dim">차수 파일 없음</div>}
-            {years.map((y) => <div key={y.year}><div className="yr">{y.year}년</div>{y.cycles.map((c, i) => <button key={c.ck} className={c.ck === cur ? 'on' : ''} onClick={() => { setCycle(c.ck); if (view === 'recent') setView('kanban'); }}>{c.c}차{y === years[0] && i === 0 ? ' ▶' : ''} <em>{c.n}</em></button>)}</div>)}
-          </div>
-          <button className={'nonebtn' + (cur === NONE ? ' on' : '')} onClick={() => { setCycle(NONE); if (view === 'recent') setView('list'); }}>차수 없음 <em>{noCycle.length}</em></button>
+          {data?.isAdmin && <section>
+            <div className="sec">PC별 업로드</div>
+            <div className="hosts">{hosts.map((h) => <div key={h.name + h.host} className="host"><i className={'st' + (stale(h.last) ? ' off' : '')} /><div className="hn">{h.name}<small>{h.host}</small></div><div className="hv"><b>{h.today}</b>/{h.n}<small>{ago(h.last)}</small></div></div>)}</div>
+          </section>}
+          <section className="grow">
+            <div className="sec">차수 <span>{allCk.length}</span></div>
+            <div className="cyc">
+              {years.length === 0 && <div className="dim pad">차수 파일 없음</div>}
+              {years.map((y) => <div key={y.year}><div className="yr">{y.year}</div>{y.cycles.map((c, i) => <button key={c.ck} className={c.ck === cur ? 'on' : ''} onClick={() => { setCycle(c.ck); if (view === 'recent') setView('kanban'); }}><span>{c.c}차{y === years[0] && i === 0 && <em className="now">현재</em>}</span><span className="n">{c.n}</span></button>)}</div>)}
+            </div>
+            <button className={'nonebtn' + (cur === NONE ? ' on' : '')} onClick={() => { setCycle(NONE); if (view === 'recent') setView('list'); }}><span>차수 없음</span><span className="n">{noCycle.length}</span></button>
+          </section>
         </aside>
+
+        {/* ── 본문 ── */}
         <main className="main">
           {view === 'recent' ? <>
-            <div className="h2">최근 올라온 파일 <span className="dim">{listRows.length}건 · 범위 안 최신순</span></div>
-            {Object.entries(listRows.reduce((m, f) => { (m[dayKey(f.uploadedAt)] ||= []).push(f); return m; }, {})).map(([d, rows]) => <div key={d}><div className="day">{d === today ? '오늘' : fmtD(d)} <em>{rows.length}</em></div><Table rows={rows} withCycle /></div>)}
-          </> : !cur ? <p className="dim">파일이 아직 없습니다. 직원 PC에서 업무 파일이 저장되면 자동으로 여기에 쌓입니다.</p> : <>
-            <div className="h2">{q ? `"${q}" 검색 결과` : curLabel} <span className="dim">파일 {(q ? scoped : inCycle).length}</span></div>
-            {!q && <div className="strip">{stages.map((s) => (sc[s] > 0 || s !== '미분류') && <button key={s} className={'tag s' + stages.indexOf(s) + (stageF === s ? ' on' : '')} onClick={() => setStageF(stageF === s ? '' : s)}>{s} <em>{sc[s]}</em></button>)}</div>}
+            <div className="h2">최근 올라온 파일 <span className="dim">{listRows.length}건 · 최신순</span></div>
+            {Object.entries(listRows.reduce((m, f) => { (m[dayKey(f.uploadedAt)] ||= []).push(f); return m; }, {})).map(([d, rows]) => <section key={d} className="daysec"><div className="day">{d === today ? '오늘' : fmtD(d)} <em>{rows.length}</em></div><Table rows={rows} withCycle /></section>)}
+          </> : !cur ? <div className="empty-state">파일이 아직 없습니다. 직원 PC에서 업무 파일이 저장되면 자동으로 여기에 쌓입니다.</div> : <>
+            <div className="h2">{q ? <>&ldquo;{q}&rdquo; 검색 결과</> : curLabel} <span className="dim">{(q ? scoped : inCycle).length}개</span></div>
+            {!q && <div className="strip">{stages.map((s) => (sc[s] > 0 || s !== '미분류') && <button key={s} className={'stg-chip' + (stageF === s ? ' on' : '') + (sc[s] === 0 ? ' zero' : '')} onClick={() => setStageF(stageF === s ? '' : s)}><Dot s={s} />{s}<em>{sc[s]}</em></button>)}</div>}
             {showList ? <Table rows={listRows} withCycle={!!q || cur === NONE} /> : (
               <div className="kanban">
-                {stages.filter((s) => s !== '미분류' && (!stageF || s === stageF)).map((s) => <div className="col" key={s}><div className="ch">{s} <em>{sc[s]}</em></div>{sc[s] === 0 ? <div className="empty">—</div> : inCycle.filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
-                {sc['미분류'] > 0 && (!stageF || stageF === '미분류') && <div className="col un"><div className="ch">미분류 <em>{sc['미분류']}</em></div>{inCycle.filter((f) => f.stage === '미분류').map((f) => <Card key={f.id} f={f} />)}</div>}
+                {stages.filter((s) => (s !== '미분류' || sc[s] > 0) && (!stageF || s === stageF)).map((s) => <div className={'col' + (s === '미분류' ? ' un' : '')} key={s}><div className="ch"><Dot s={s} />{s}<em>{sc[s]}</em></div>{sc[s] === 0 ? <div className="empty">비어 있음</div> : inCycle.filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
               </div>)}
           </>}
         </main>
+
+        {/* ── 상세 서랍 ── */}
         {sel && <aside className="right">
-            <button className="x" onClick={() => setSel(null)} title="닫기">✕</button>
-            <div className="h">{icon(sel)} {sel.filename}</div>
-            <table className="kv"><tbody>
-              <tr><td>올린 사람</td><td>{sel.uploaderName || '?'} {sel.dept && <span className="dim">({sel.dept})</span>}</td></tr>
-              <tr><td>PC · 폴더</td><td>{sel.hostname} · {sel.sourceDir}</td></tr>
-              <tr><td>차수 / 단계</td><td>{sel.cycle ? `${sel.year}년 ${sel.cycle}차` : '—'} / {sel.stage}</td></tr>
-              <tr><td>크기 · 버전</td><td>{fmtS(sel.size)} · v{sel.version}</td></tr>
-              <tr><td>파일 수정</td><td>{sel.mtime ? fmtT(sel.mtime) : '—'}</td></tr>
-              <tr><td>올린 시각</td><td>{fmtT(sel.uploadedAt)} <span className="dim">({ago(sel.uploadedAt)})</span></td></tr>
-              <tr><td>분류</td><td>{sel.correctedBy && sel.correctedBy !== 'auto-reclassify' ? '사람이 교정' : `자동 ${Math.round((sel.confidence || 0) * 100)}%`}{sel.sensitive && <span className="lock"> · 🔒 민감</span>}</td></tr>
-            </tbody></table>
-            <div className="acts">
-              {sel.canDownload ? <a className="btn" href={'/api/work/drive?download=' + encodeURIComponent(sel.id)}>내려받기</a> : <span className="dim">내려받기 권한 없음</span>}
-              {data?.isAdmin && <button onClick={() => openLog(sel.id)}>기록</button>}
-            </div>
-            {(data?.isAdmin || sel.uploaderName === data?.me) && <div className="acts edit">
-              <span className="dim">교정</span>
+          <div className="dh"><Badge f={sel} /><div className="dn">{sel.filename}</div><button className="x" onClick={() => setSel(null)} title="닫기">✕</button></div>
+          <div className="dact">
+            {sel.canDownload ? <a className="btn" href={'/api/work/drive?download=' + encodeURIComponent(sel.id)}>내려받기</a> : <span className="btn dis">내려받기 권한 없음</span>}
+            {data?.isAdmin && <button className="ghost" onClick={() => openLog(sel.id)}>기록</button>}
+          </div>
+          <dl className="kv">
+            <dt>올린 사람</dt><dd><Avatar name={sel.uploaderName} />{sel.uploaderName || '?'} {sel.dept && <span className="dim">· {sel.dept}</span>}</dd>
+            <dt>PC · 폴더</dt><dd>{sel.hostname} <span className="dim">· {sel.sourceDir}</span></dd>
+            <dt>차수</dt><dd>{sel.cycle ? `${sel.year}년 ${sel.cycle}차` : <span className="dim">없음</span>}</dd>
+            <dt>단계</dt><dd><span className="stg"><Dot s={sel.stage} />{sel.stage}</span> <span className="dim">{sel.correctedBy && sel.correctedBy !== 'auto-reclassify' ? '· 사람이 교정' : `· 자동 ${Math.round((sel.confidence || 0) * 100)}%`}</span></dd>
+            <dt>크기 · 버전</dt><dd>{fmtS(sel.size)} · v{sel.version}</dd>
+            <dt>파일 수정</dt><dd>{sel.mtime ? fmtT(sel.mtime) : '—'}</dd>
+            <dt>올린 시각</dt><dd>{fmtT(sel.uploadedAt)} <span className="dim">({ago(sel.uploadedAt)})</span></dd>
+            {sel.sensitive && <><dt>보안</dt><dd className="lock">🔒 민감(금액·계약) — 경영지원·본인·사장만</dd></>}
+          </dl>
+          {(data?.isAdmin || sel.uploaderName === data?.me) && <div className="edit">
+            <div className="sec">분류 교정</div>
+            <div className="erow">
               <select value={sel.stage} onChange={(e) => fix(sel.id, { stage: e.target.value })}>{stages.map((s) => <option key={s}>{s}</option>)}</select>
               <input className="cy" placeholder="차수 38-2" defaultValue={sel.cycle} onBlur={(e) => e.target.value !== sel.cycle && fix(sel.id, { cycle: e.target.value })} />
-              <button onClick={() => confirm('목록에서 숨길까요? (파일은 보관됩니다)') && fix(sel.id, { deleted: true })}>숨김</button>
-            </div>}
-            {log && <div className="log"><b>내려받기 {log.length}건</b>{log.length === 0 && <div className="dim">없음</div>}{log.map((l, i) => <div key={i} className="dim">{fmtT(l.at)} {l.byName || l.by}</div>)}</div>}
-            <div className="vers"><b>같은 이름 버전</b>{files.filter((f) => f.filename === sel.filename && f.uploaderName === sel.uploaderName).sort((a, b) => b.version - a.version).map((f) => <div key={f.id} className={f.id === sel.id ? 'on' : ''} onClick={() => pick(f)}>v{f.version} · {fmtT(f.uploadedAt)} · {fmtS(f.size)}</div>)}</div>
-            <div className="dim legend">🔒 = 금액·계약 파일(경영지원·본인·사장만) · v2 = 같은 이름의 새 버전</div>
+              <button className="ghost danger" onClick={() => confirm('목록에서 숨길까요? (파일은 보관됩니다)') && fix(sel.id, { deleted: true })}>숨김</button>
+            </div>
+          </div>}
+          {log && <div className="log"><div className="sec">내려받기 {log.length}건</div>{log.length === 0 && <div className="dim">없음</div>}{log.map((l, i) => <div key={i} className="dim">{fmtT(l.at)} · {l.byName || l.by}</div>)}</div>}
+          <div className="vers"><div className="sec">같은 이름 버전</div>{files.filter((f) => f.filename === sel.filename && f.uploaderName === sel.uploaderName).sort((a, b) => b.version - a.version).map((f) => <div key={f.id} className={'ver' + (f.id === sel.id ? ' on' : '')} onClick={() => pick(f)}><span className="pill">v{f.version}</span>{fmtT(f.uploadedAt)}<span className="dim">· {fmtS(f.size)}</span></div>)}</div>
         </aside>}
       </div>
+
       <style jsx>{`
-        .wd{display:flex;flex-direction:column;height:calc(100vh - 60px);font-size:13px;color:#222}
-        .bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #e3e3e3;background:#fff;flex-wrap:wrap}
-        .bar input{padding:5px 8px;border:1px solid #ccc;border-radius:6px;min-width:200px}.bar button{padding:5px 10px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer}.bar button:disabled{color:#999}
-        .seg{display:flex;border:1px solid #ccc;border-radius:6px;overflow:hidden}.seg button{border:0;border-right:1px solid #ccc;border-radius:0}.seg button:last-child{border-right:0}.seg button.on{background:#2f6feb;color:#fff}
-        .chips{display:flex;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #eee;background:#fff;flex-wrap:wrap}.chips button{padding:3px 9px;border:1px solid #ddd;border-radius:14px;background:#fff;cursor:pointer}.chips button.on{border-color:#2f6feb;background:#e8f0fe;font-weight:700}.chips em{font-style:normal;color:#777;font-size:11px}
-        .filters{display:flex;gap:6px;align-items:center;padding:6px 12px;border-bottom:1px solid #eee;background:#fcfcfc;flex-wrap:wrap}.filters select,.filters button{max-width:200px;padding:3px 6px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:12px}
-        .dim{color:#777}.warn{color:#b45309;padding:6px 12px}.lock{color:#b45309}.r{text-align:right}
+        .wd{--bg:#f6f7f9;--sf:#fff;--ln:#e6e8ec;--tx:#1a1d21;--mu:#6b7280;--ac:#3b6cf6;--acs:#eaf0ff;--r:10px;
+            display:flex;flex-direction:column;height:calc(100vh - 60px);font-size:13px;color:var(--tx);background:var(--bg);
+            font-family:Inter,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+        .dim{color:var(--mu)}.r{text-align:right}.grow{flex:1 1 auto}.warn{color:#b45309;padding:6px 16px;margin:0}
+        button{font:inherit;color:inherit}
+        /* 툴바 */
+        .top{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--sf);border-bottom:1px solid var(--ln);flex-wrap:wrap}
+        .title h1{font-size:16px;font-weight:700;margin:0;letter-spacing:-.2px}.title .sub{font-size:12px;color:var(--mu)}.title .sub b{color:var(--tx);font-weight:600}
+        .search{display:flex;align-items:center;gap:6px;flex:1 1 260px;max-width:460px;padding:6px 10px;border:1px solid var(--ln);border-radius:var(--r);background:var(--bg)}
+        .search:focus-within{border-color:var(--ac);background:var(--sf);box-shadow:0 0 0 3px var(--acs)}.search .ico{color:var(--mu);font-size:15px}
+        .search input{flex:1;border:0;background:transparent;outline:0;font:inherit;min-width:0}.search .clr{border:0;background:transparent;color:var(--mu);cursor:pointer}
+        .seg{display:inline-flex;padding:3px;border-radius:var(--r);background:#eceef2;gap:2px}.seg button{border:0;background:transparent;padding:5px 11px;border-radius:7px;cursor:pointer;color:var(--mu);font-weight:500}
+        .seg button.on{background:var(--sf);color:var(--tx);box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:600}
+        .ghost{border:1px solid var(--ln);background:var(--sf);padding:6px 11px;border-radius:8px;cursor:pointer}.ghost:hover{border-color:#cfd3da;background:#fafbfc}.ghost:disabled{color:var(--mu)}.ghost.danger{color:#b91c1c}
+        .link{border:0;background:transparent;color:var(--ac);cursor:pointer;padding:4px 6px}
+        /* 필터 행 */
+        .filters{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--sf);border-bottom:1px solid var(--ln);flex-wrap:wrap}
+        .sep{width:1px;height:20px;background:var(--ln);margin:0 2px}
+        .chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 4px;border:1px solid var(--ln);border-radius:20px;background:var(--sf);cursor:pointer}
+        .chips button:hover{border-color:#cfd3da}.chips button.on{border-color:var(--ac);background:var(--acs);color:#2450c8;font-weight:600}.chips em{font-style:normal;color:var(--mu);font-size:11px}
+        .av{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#dfe3ea;color:#3c4452;font-size:11px;font-weight:700;flex:0 0 20px}
+        .sel{appearance:none;-webkit-appearance:none;padding:5px 24px 5px 10px;border:1px solid var(--ln);border-radius:8px;background:var(--sf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 9px center;font:inherit;max-width:180px;cursor:pointer}
+        .sel.on{border-color:var(--ac);background-color:var(--acs);color:#2450c8;font-weight:600}
+        .cnt{margin-left:auto;color:var(--mu);font-variant-numeric:tabular-nums}
+        /* 레이아웃 */
         .body{display:flex;flex:1 1 auto;min-height:0}
-        .left{flex:0 0 220px;border-right:1px solid #e3e3e3;overflow:auto;padding:8px;background:#fafafa;display:flex;flex-direction:column;min-height:0}
-        .main{flex:1 1 auto;overflow:auto;padding:10px 12px;min-width:0}
-        .right{flex:0 0 330px;border-left:1px solid #e3e3e3;overflow:auto;padding:10px;background:#fafafa;position:relative}.x{position:absolute;right:8px;top:8px;border:0;background:transparent;cursor:pointer;font-size:14px;color:#777}.legend{margin-top:14px;font-size:11.5px}
-        .h{font-weight:700;margin:6px 0 6px;word-break:break-all}.h em{font-style:normal;color:#2f6feb;margin-left:4px}.h2{font-size:16px;font-weight:700;margin:0 0 8px}
-        .yr{font-size:11px;color:#999;margin:8px 4px 3px;letter-spacing:.5px}
-        .cyc{flex:1 1 auto;min-height:120px;overflow:auto;display:flex;flex-direction:column;gap:3px;margin-bottom:6px}.cyc button{text-align:left;width:100%;padding:5px 8px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;margin-bottom:3px}.cyc button.on{border-color:#2f6feb;background:#e8f0fe;font-weight:700}.cyc em{float:right;font-style:normal;color:#777}.nonebtn{text-align:left;padding:5px 8px;border:1px dashed #bbb;border-radius:6px;background:#fff;cursor:pointer}.nonebtn.on{border-color:#2f6feb;background:#e8f0fe;font-weight:700}.nonebtn em{float:right;font-style:normal;color:#777}
-        .hosts{width:100%;border-collapse:collapse;font-size:12px}.hosts td{padding:3px 4px;border-bottom:1px solid #eee;vertical-align:top}.hosts tr.stale td{color:#b45309}.hosts .dim{font-size:10.5px}
-        .strip{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}.strip button{cursor:pointer;border:1px solid transparent}.strip button.on{outline:2px solid #2f6feb}
-        .tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;background:#eee}.tag em{font-style:normal;font-weight:700;margin-left:3px}
-        .tag.s0{background:#e0ecff}.tag.s1{background:#dff5e3}.tag.s2{background:#ffe9cc}.tag.s3{background:#e9e2ff}.tag.s4{background:#fde2e2}.tag.s5{background:#fff3c4}.tag.s6{background:#e2f2f5}.tag.s7{background:#eee;color:#777}
-        .kanban{display:flex;gap:10px;align-items:flex-start;overflow-x:auto;padding-bottom:10px}
-        .col{flex:0 0 230px;background:#f3f4f6;border-radius:8px;padding:6px;max-height:calc(100vh - 230px);overflow:auto}.col.un{background:#f8f8f8;border:1px dashed #ccc}.ch{font-weight:700;margin:2px 4px 6px;position:sticky;top:0;background:inherit}.ch em{font-style:normal;color:#2f6feb;margin-left:4px}.empty{color:#bbb;text-align:center;padding:8px}
-        .card{background:#fff;border:1px solid #e3e3e3;border-radius:7px;padding:6px 8px;margin-bottom:6px;cursor:pointer}.card:hover{border-color:#2f6feb}.card.on{border-color:#2f6feb;box-shadow:0 0 0 2px #e8f0fe}.card.sens{border-left:3px solid #b45309}
-        .fn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{color:#777;font-size:11.5px;margin-top:2px}
-        .lst{width:100%;min-width:640px;border-collapse:collapse;background:#fff;table-layout:fixed}.lst th{text-align:left;padding:6px 8px;border-bottom:2px solid #ddd;cursor:pointer;white-space:nowrap;font-size:12px;color:#555;position:sticky;top:0;background:#fff}.lst th.on{color:#2f6feb}
-        .lst td{padding:5px 8px;border-bottom:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lst tr{cursor:pointer}.lst tr:hover td{background:#f5f8ff}.lst tr.on td{background:#e8f0fe}.lst tr.sens td.fn{border-left:3px solid #b45309}
-        .lst th:nth-child(1){width:auto}.lst th:nth-child(n+2){width:96px}.lst .v{margin-left:4px;font-size:11px;color:#2f6feb}
-        .day{font-weight:700;margin:12px 0 4px}.day em{font-style:normal;color:#2f6feb}
-        .kv{width:100%;border-collapse:collapse;margin:6px 0}.kv td{padding:3px 4px;vertical-align:top;border-bottom:1px solid #eee;word-break:break-all}.kv td:first-child{color:#777;width:80px;white-space:nowrap}
-        .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}.acts.edit{padding:8px;background:#f3f4f6;border-radius:8px}.btn{background:#2f6feb;color:#fff;padding:5px 12px;border-radius:6px;text-decoration:none}.acts select,.acts input,.acts button{padding:4px 6px;border:1px solid #ccc;border-radius:6px;background:#fff}.cy{width:90px}
-        .log,.vers{margin-top:10px;font-size:12px}.vers div{padding:3px 4px;cursor:pointer;border-radius:4px}.vers div.on{background:#e8f0fe}.vers div:hover{background:#eef}
-        @media (max-width:1200px){.right{position:fixed;right:0;top:60px;bottom:0;width:min(360px,92vw);box-shadow:-4px 0 16px rgba(0,0,0,.12);z-index:20}}
-        @media (max-width:900px){.body{flex-direction:column}.left{flex:0 0 auto;border:0;border-bottom:1px solid #e3e3e3;max-height:38vh}}
+        .left{flex:0 0 232px;display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--ln);background:var(--sf);overflow:auto}
+        .left section{padding:10px 10px 6px}.left section.grow{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+        .sec{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--mu);margin:0 4px 6px;display:flex;justify-content:space-between}
+        .hosts{display:flex;flex-direction:column;gap:2px}.host{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:8px}.host:hover{background:var(--bg)}
+        .st{width:8px;height:8px;border-radius:50%;background:#22c55e;flex:0 0 8px}.st.off{background:#f59e0b}
+        .hn{flex:1;min-width:0;line-height:1.15}.hn small,.hv small{display:block;color:var(--mu);font-size:10.5px}.hv{text-align:right;font-variant-numeric:tabular-nums;line-height:1.15}.hv b{font-weight:600}
+        .cyc{flex:1 1 auto;min-height:140px;overflow:auto;display:flex;flex-direction:column}.yr{font-size:11px;color:var(--mu);margin:8px 6px 3px}
+        .cyc button,.nonebtn{display:flex;justify-content:space-between;align-items:center;width:100%;padding:6px 8px 6px 10px;border:0;border-left:2px solid transparent;border-radius:0 8px 8px 0;background:transparent;cursor:pointer;text-align:left}
+        .cyc button:hover,.nonebtn:hover{background:var(--bg)}.cyc button.on,.nonebtn.on{background:var(--acs);border-left-color:var(--ac);color:#2450c8;font-weight:600}
+        .n{color:var(--mu);font-size:11.5px;font-variant-numeric:tabular-nums}.now{font-style:normal;margin-left:6px;font-size:10px;padding:1px 6px;border-radius:10px;background:var(--ac);color:#fff;font-weight:600;vertical-align:1px}
+        .nonebtn{margin-top:6px;border-top:1px dashed var(--ln);border-radius:0}
+        .main{flex:1 1 auto;min-width:0;overflow:auto;padding:14px 16px}
+        .h2{font-size:17px;font-weight:700;margin:0 0 10px;letter-spacing:-.2px}.h2 .dim{font-size:12.5px;font-weight:500;margin-left:6px}
+        .strip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+        .stg-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--ln);border-radius:20px;background:var(--sf);cursor:pointer}
+        .stg-chip.zero{color:var(--mu)}.stg-chip.on{border-color:var(--ac);background:var(--acs);color:#2450c8;font-weight:600}.stg-chip em{font-style:normal;font-weight:600;font-variant-numeric:tabular-nums}
+        .dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:0 0 8px}.stg{display:inline-flex;align-items:center;gap:6px}
+        /* 칸반 */
+        .kanban{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding-bottom:12px}
+        .col{flex:0 0 250px;background:#eef0f3;border-radius:12px;padding:8px;max-height:calc(100vh - 250px);overflow:auto}.col.un{background:#f3f4f6;outline:1px dashed #d1d5db}
+        .ch{display:flex;align-items:center;gap:6px;font-weight:600;padding:4px 6px 8px;position:sticky;top:0;background:inherit;z-index:1}.ch em{font-style:normal;margin-left:auto;font-size:11.5px;color:var(--mu);background:var(--sf);padding:1px 7px;border-radius:10px}
+        .empty{color:#9ca3af;text-align:center;padding:14px;font-size:12px}
+        .card{background:var(--sf);border:1px solid transparent;border-radius:10px;padding:8px 10px;margin-bottom:6px;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.05);transition:box-shadow .12s,border-color .12s}
+        .card:hover{box-shadow:0 3px 10px rgba(16,24,40,.10)}.card.on{border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)}
+        .card .row{display:flex;align-items:center;gap:7px;min-width:0}.fn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+        .meta{display:flex;align-items:center;gap:5px;color:var(--mu);font-size:11.5px;margin-top:5px;flex-wrap:wrap}.meta .av{width:16px;height:16px;flex-basis:16px;font-size:9.5px}
+        .badge{display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.3px;border-radius:6px;padding:0 6px;height:24px;min-width:34px;flex:0 0 auto}.badge.sm{height:18px;font-size:9px;min-width:30px;border-radius:5px}
+        .pill{display:inline-block;font-size:10.5px;padding:1px 6px;border-radius:10px;background:#eceef2;color:#3c4452;margin-left:6px;font-weight:600}.pill.lock{background:#fff1e6;color:#b45309}.pill.cyc{margin:0;background:var(--acs);color:#2450c8}
+        /* 표 */
+        .tbl-wrap{background:var(--sf);border:1px solid var(--ln);border-radius:12px;overflow:auto}
+        .lst{width:100%;min-width:680px;border-collapse:collapse;table-layout:fixed}
+        .lst th{text-align:left;padding:8px 12px;font-size:11.5px;font-weight:600;color:var(--mu);border-bottom:1px solid var(--ln);cursor:pointer;white-space:nowrap;position:sticky;top:0;background:var(--sf);user-select:none}.lst th.on{color:var(--ac)}
+        .lst td{padding:7px 12px;border-bottom:1px solid #f0f1f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}.lst tr:last-child td{border-bottom:0}
+        .lst tr{cursor:pointer}.lst tbody tr:hover td{background:#f8f9fb}.lst tr.on td{background:var(--acs)}
+        .lst th:nth-child(1){width:auto}.lst th:nth-child(n+2){width:104px}.lst th:last-child{width:76px}
+        .lst td.fn{display:flex;align-items:center;gap:8px;font-weight:500}.lst .name{overflow:hidden;text-overflow:ellipsis}.who{display:inline-flex;align-items:center;gap:6px}
+        .daysec{margin-bottom:16px}.day{font-weight:600;margin:0 0 6px;color:var(--tx)}.day em{font-style:normal;color:var(--mu);margin-left:6px;font-weight:500}
+        .empty-state{color:var(--mu);text-align:center;padding:48px 20px;background:var(--sf);border:1px dashed var(--ln);border-radius:12px}
+        .pad{padding:6px 10px}
+        /* 상세 서랍 */
+        .right{flex:0 0 340px;border-left:1px solid var(--ln);background:var(--sf);overflow:auto;padding:14px 16px;position:relative}
+        .dh{display:flex;align-items:flex-start;gap:10px}.dn{flex:1;font-weight:700;font-size:14px;line-height:1.3;word-break:break-all}
+        .x{border:0;background:transparent;color:var(--mu);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:6px}.x:hover{background:var(--bg)}
+        .dact{display:flex;gap:8px;margin:12px 0 14px}
+        .btn{display:inline-block;background:var(--ac);color:#fff;padding:7px 14px;border-radius:8px;text-decoration:none;font-weight:600}.btn:hover{background:#2f5be0}.btn.dis{background:#eceef2;color:var(--mu);font-weight:500}
+        .kv{display:grid;grid-template-columns:76px 1fr;gap:7px 10px;margin:0;font-size:12.5px}.kv dt{color:var(--mu)}.kv dd{margin:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;word-break:break-all}.kv .av{width:18px;height:18px;flex-basis:18px;font-size:10px}
+        .lock{color:#b45309}
+        .edit{margin-top:16px;padding:10px;border-radius:10px;background:var(--bg)}.erow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+        .erow select,.erow input{padding:5px 8px;border:1px solid var(--ln);border-radius:8px;background:var(--sf);font:inherit}.cy{width:96px}
+        .log,.vers{margin-top:16px;font-size:12px}.ver{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px;cursor:pointer}.ver .pill{margin:0}.ver:hover{background:var(--bg)}.ver.on{background:var(--acs)}
+        @media (max-width:1200px){.right{position:fixed;right:0;top:60px;bottom:0;width:min(360px,92vw);box-shadow:-8px 0 24px rgba(16,24,40,.12);z-index:20}}
+        @media (max-width:900px){.body{flex-direction:column}.left{flex:0 0 auto;border-right:0;border-bottom:1px solid var(--ln);max-height:38vh}.left section.grow{min-height:160px}}
       `}</style>
     </div>
   );
