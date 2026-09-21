@@ -27,3 +27,10 @@
 - PASS: farmQualityStore / farmQualityInboxUi 실제 핸들러 회귀 검사.
 - PASS: `node scripts/test-farm-quality-reset-sql.cjs` — 폐기 가능한 SQL2022 별도 DB에서 정확 계정·연도·버전·공유 이력 보호, 트리거 실패 전체 롤백, 동시 요청 1건만 성공, 요청 전 목록 재등장 확인.
 - 운영 원본은 읽기만 수행했고 시험 삭제하지 않았다. 배포 및 운영 버튼 확인 진행 중.
+
+## 배포 결과
+- PR #719: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/719 (CI verify/probe PASS), master `d90d49b57dd670770ea49b86c6a542b2230de315` 병합.
+- Cafe24 run `35572915099` SUCCESS: 서버 계약검사, SSH 배포, hydration smoke 모두 통과.
+- 운영 브라우저 1920×1080에서 새 버전 `d90d49b5`, nenovaSS3 로그인, Antioquia 상세의 `피드백 삭제 · 요청 전` 버튼과 기존 기록 표시 확인.
+- 삭제 확인창 점검 중 브라우저 CDP 입력 시간초과. 확인 승인 또는 DELETE 호출은 수행하지 않음. 운영 확인창 취소 동작/스크린샷 검증은 완료 판정하지 않는다. 확인 취소·성공·실패 동작은 UI 핸들러 fixture에서 통과.
+- 검증용 SQL2022 컨테이너 정지 완료. 운영 원본/피드백을 테스트 삭제하지 않았다.
