@@ -44,6 +44,7 @@ jobs:
           MOYI_API_TOKEN: ${{ secrets.MOYI_API_TOKEN }}
           MOYI_BRIDGE_TOKEN: ${{ secrets.MOYI_BRIDGE_TOKEN }}
           ECOUNT_INGEST_TOKEN: ${{ secrets.ECOUNT_INGEST_TOKEN }}
+          ORBIT_DRIVE_INGEST_TOKEN: ${{ secrets.ORBIT_DRIVE_INGEST_TOKEN }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           KAKAO_SHEET_ID: ${{ secrets.KAKAO_SHEET_ID }}
           NENOVA_SALES_READ_TOKEN: ${{ secrets.NENOVA_SALES_READ_TOKEN }}
@@ -53,7 +54,7 @@ jobs:
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
-          envs: JWT_SECRET,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
+          envs: JWT_SECRET,PUBLIC_API_KEY,ANTHROPIC_API_KEY,AUTOMATION_API_TOKEN,MOYI_API_TOKEN,MOYI_BRIDGE_TOKEN,ECOUNT_INGEST_TOKEN,ORBIT_DRIVE_INGEST_TOKEN,GOOGLE_SERVICE_ACCOUNT_JSON,KAKAO_SHEET_ID,NENOVA_SALES_READ_TOKEN,NENOVA_SALES_ROOM_ID
           script: |
             export PATH=$PATH:/root/.nvm/versions/node/$(ls /root/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:/usr/local/bin
             cd /var/www/nenova-erp
@@ -129,6 +130,15 @@ jobs:
               fi
               echo "ECOUNT_INGEST_TOKEN=$ECOUNT_INGEST_TOKEN" >> .env.local
               echo "✅ ECOUNT_INGEST_TOKEN synced (len=${#ECOUNT_INGEST_TOKEN})"
+            fi
+            echo "=== .env.local 환경변수 동기화 (ORBIT_DRIVE_INGEST_TOKEN — 업무 드라이브 데몬 업로드) ==="
+            if [ -n "$ORBIT_DRIVE_INGEST_TOKEN" ]; then
+              if grep -q '^ORBIT_DRIVE_INGEST_TOKEN=' .env.local 2>/dev/null; then
+                grep -v '^ORBIT_DRIVE_INGEST_TOKEN=' .env.local > .env.local.tmp || true
+                mv .env.local.tmp .env.local
+              fi
+              echo "ORBIT_DRIVE_INGEST_TOKEN=$ORBIT_DRIVE_INGEST_TOKEN" >> .env.local
+              echo "✅ ORBIT_DRIVE_INGEST_TOKEN synced (len=${#ORBIT_DRIVE_INGEST_TOKEN})"
             fi
             if [ -z "$AUTOMATION_API_TOKEN" ]; then
               echo "ℹ️  AUTOMATION_API_TOKEN GitHub Secret 미설정 — n8n 브리지 API 비활성(503)"
