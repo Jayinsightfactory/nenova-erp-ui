@@ -3,6 +3,23 @@
 source: `C:\Users\USER\nenova-decompiled\Nenova\FormShipmentDistribution.cs`
 verification: read-only decompile source and SQL structure inspection
 
+## 2026-09-21 운임 최종수량 원자성
+
+- 실제 CLI 재실행: `dnSpy.Console.exe --no-color -t ClassShipmentDetail "C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe"`.
+  Insert/Update는 OutQuantity/EstQuantity/BoxQuantity/BunchQuantity/SteamQuantity,
+  Cost/Amount/Vat/isFix를 저장한다. ClassShipmentDate는 별도 날짜 행을 사용한다.
+- 운영 SELECT로 usp_ShipmentFix/Cancel 정의와 38-01 영남가빈 카네이션 운송료의
+  Detail/Date/Order 연결을 대조했다. 해당 운임은 CountryFlower=국내왁스로 다른
+  업체 35개 상세와 확정 범위를 공유한다. UI 품종명으로 공용 SP 범위를 추정하지 않는다.
+- 운임 전용 freight-register는 기존 확정 유지 수량 계약과 같은 native Cancel(old)+Fix(new)
+  순효과를 선택 품목 Product.Stock/StockHistory에 기록하고 같은 트랜잭션에서
+  usp_StockCalculation(@ProdKey)를 실행한다. 다른 업체/품종 확정 해제는 하지 않는다.
+- 기존 주문은 보존, 없을 때만 양수 주문 생성. 기존 날짜는 보존. 신규 날짜는 실제
+  PeriodDay와 해당 차수 업체 출고 날짜에 동시에 존재해야 한다. 02 기존 운임의 임의
+  이동/삭제는 하지 않는다. ViewOrder/ViewShipment/ShipmentDate 금액/확정 확인 뒤 commit.
+- 격리 SQL fixture에서 31→61, 신규 양수 주문, 중간 실패·native 실패 전체 롤백,
+  작업번호 재시도, 기존 주문/다른 업체/2025 동일 차수 보존을 실행했다. 운영 시험 쓰기 없음.
+
 ## 견적 수정 품종 범위 재검증 (2026-08-26)
 
 - 실제 dnSpy CLI의 `btnFix_Click/btnFixCancel_Click`은 `lueCountry.EditValue`를

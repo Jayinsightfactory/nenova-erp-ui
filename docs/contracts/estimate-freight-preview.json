@@ -1,8 +1,8 @@
 {
   "id": "estimate-freight-preview",
-  "title": "견적 운임 계산 확인 및 기존 추가 품목 저장",
+  "title": "견적 운임 계산 확인 및 최종값 원자적 저장 연결",
   "customerDefaults": "User confirmed Youngnam flower material exact customer names only: box transport 1500, loading 2000. Manual edits override including zero/empty (save validator still rejects invalid). All other customers retain evidence prices. No master price or ERP writes on preview.",
-  "combinedTransport": "User approved carnation transport 01+02 combined into one 01 row. Sum raw boxes then round once. Preserve source keys/weeks; require unique existing 01 shipment date; missing/ambiguous date blocks. Other freight and loading remain separate. Cumulative display ignores excluded rows and marks unknown totals. Existing freight in either contributing subweek blocks combined registration rather than overwriting or double charging.",
+  "combinedTransport": "Carnation 01+02 combines into one 01 final-value row. Existing 01 freight retains its shipment date and changes to the final total, not an increment. Existing 02 freight blocks combination. Missing or ambiguous dates block. Other freight stays separate; cumulative boxes exclude unchecked rows.",
   "scope": [
     "lib/estimateFreightEvidence.js",
     "pages/estimate.js",
@@ -32,13 +32,13 @@
       "stock": "preserve"
     },
     {
-      "name": "FREIGHT_ESTIMATE_ADDITIONAL_FLOW",
+      "name": "FREIGHT_ESTIMATE_ATOMIC_FLOW",
       "orderDetail": "create-positive",
-      "shipmentDetail": "increase",
-      "shipmentDate": "existing adjustment API synchronizes verified date",
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentDate": "atomic final quantity and amount; preserve existing date",
       "estimate": "preserve",
-      "stock": "existing scoped fix-cancel/fix SP and stock recalculation; no force override",
-      "guard": "same-year selected subweek, customer, freight product; read context before existing additional-product cycle; existing freight skipped; former freight direct write endpoint returns 410"
+      "stock": "fixed-status-preserving delta plus native product recalculation in one transaction; no force",
+      "guard": "Delegates to estimate-freight-atomic contract. Existing positive orders preserved; missing orders created positive. Receipt and all rows commit atomically. Former freight direct write endpoint remains 410. No category-wide unfix/fix."
     }
   ],
   "crossYearFixture": {

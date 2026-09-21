@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './estimateFreightAtomic.test.js';
 import assert from 'node:assert/strict';
 import { freightEvidenceRows, freightPriceEvidence, freightPriceSuggestion, freightCategoryFromEvidence } from '../lib/estimateFreightEvidence.js';
 
