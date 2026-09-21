@@ -93,6 +93,7 @@ console.info = (...args) => captured.push(args.join(' '));
 try {
   const pcPage = await fetch(`http://127.0.0.1:${nextPort}/integrations/moyi-drive`);
   const mobilePage = await fetch(`http://127.0.0.1:${nextPort}/m`);
+  if (!pcPage.ok) console.error('PC page error response:', (await pcPage.clone().text()).slice(-9000).replaceAll(jwtSecret, '[fixture-secret]'));
   assert.equal(pcPage.status, 200);
   assert.equal(mobilePage.status, 200);
   assert.match(await pcPage.text(), /MOYI Drive 관리/);
@@ -137,6 +138,8 @@ try {
   assert.equal(captured.join('\n').match(/e2e-connection-secret|sig=/), null);
   record('token·서명 기록 비노출', true);
 } catch (error) {
+  console.error('Next E2E server diagnostics:', nextLogs.join('').slice(-6000)
+    .replaceAll(jwtSecret, '[fixture-secret]').replaceAll('e2e-connection-secret', '[fixture-token]').replaceAll('sig=fixture', 'sig=[redacted]'));
   record('HTTP E2E', false, String(error.message || error).slice(0, 300));
   throw error;
 } finally {
