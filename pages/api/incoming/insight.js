@@ -37,6 +37,8 @@ async function board(year, week) {
             WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
             GROUP BY sd.ProdKey`, P),
   ]);
+  // 운임·중량 항목(Chargeable/Gross weight·운송료·Doc fee)은 품목이 아니라 인보이스 부대비용 행 → 보드/대사에서 제외 (실측 38-02: '국내 13,494' 오염)
+  const isFreight = (name) => /weight|운송료|운임|freight|doc\s*fee|handling|surcharge|통관|customs/i.test(String(name || ''));
   const shpBy = new Map(shp.recordset.map((r) => [r.ProdKey, Number(r.Qty) || 0]));
   const ordBy = new Map(ord.recordset.map((r) => [r.ProdKey, r]));
   // 품목 단위 대사 행
@@ -47,7 +49,7 @@ async function board(year, week) {
     row.received += Number(r.Qty) || 0; row.farms.push({ farm: r.FarmName, qty: Number(r.Qty) || 0, box: Number(r.Box) || 0, uprice: r.UPrice == null ? null : Number(r.UPrice) });
   }
   for (const [k, q] of shpBy) if (!prodMap.has(k)) prodMap.set(k, { prodKey: k, name: `#${k}`, country: '', flower: '', ordered: 0, received: 0, farms: [], shipped: q });
-  const items = [...prodMap.values()].map((r) => {
+  const items = [...prodMap.values()].filter((r) => !isFreight(r.name)).map((r) => {
     const diff = r.received - r.ordered;
     const tag = r.ordered === 0 && r.received > 0 ? '미발주' : r.received === 0 && r.ordered > 0 ? '미입고' : diff < 0 ? '부족' : diff > 0 ? '초과' : '일치';
     return { ...r, diff, tag, fill: r.ordered ? Math.round(100 * r.received / r.ordered) : null, shipRate: r.received ? Math.round(100 * r.shipped / r.received) : null };
