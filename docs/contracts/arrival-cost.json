@@ -29,6 +29,12 @@
   ],
   "actions": [
     {
+      "name": "DRIVE_SELECTED_RUN_NOW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "nenovaSS3 관리자 명시 확인으로 선택된 id/sha/year/week/country 최신 후보 한 건만 24시간 대기를 건너뛴다. resolveArrivalDriveSelection을 최초/저장 전 공유하고 기존 scopeArrivalDriveRows/createArrivalCostImport 잠금·hash 멱등·수동 현재본/매칭 보호를 재사용한다. 자동 예약/등록시각 불변. 기존 DRIVE_IMPORT 감사에 manual-now/요청자/시각을 기록. 오류는 저장 완료로 표시하지 않고 파일별 보류/오류 유지. ERP·호텔 수기 매입단가 보존."
+    },
+    {
       "name": "HOTEL_ARRIVAL_IDENTITY_REPAIR",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -87,6 +93,7 @@
     "description": "같은 차수명이 여러 연도에 있어도 도착원가 원장은 OrderYear를 함께 사용하며 다른 연도의 입고·주문·출고·재고 원장을 수정하지 않는다. 같은 연도·차수·국가 재업로드만 해당 scope의 현재본을 교체한다."
   },
   "requiredTestFiles": [
+    "__tests__/arrivalDriveRunNow.test.js",
     "__tests__/arrivalImportPolicy.test.js",
     "__tests__/arrivalDriveSchedule.test.js",
     "__tests__/arrivalDriveAuto.test.js",

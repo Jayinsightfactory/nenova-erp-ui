@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import './arrivalDriveSchedule.test.js';
+import './arrivalDriveRunNow.test.js';
 import { arrivalDriveCandidate, selectArrivalDriveCandidates, scopeArrivalDriveRows, arrivalDriveTiming, ARRIVAL_DRIVE_DELAY_MS } from '../lib/arrivalDrivePolicy.js';
 // xlsx's ESM entry has named exports only; instrumentation resolves that entry.
 assert.match(fs.readFileSync(new URL('../lib/arrivalCostExcel.js', import.meta.url), 'utf8'), /import \* as XLSX from 'xlsx'/);
