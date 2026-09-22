@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const XLSX = require('xlsx');
 
 async function main() {
+  await import('./arrivalImportPolicy.test.js');
   await import('./arrivalDriveAuto.test.js');
   const { parseArrivalCostWorkbook } = await import('../lib/arrivalCostExcel.js');
   const wb = XLSX.utils.book_new();
@@ -54,6 +55,15 @@ async function main() {
   assert.equal(dutchParsed.rows[0].orderWeek, '35-2');
   assert.equal(dutchParsed.rows[0].countryName, '네덜란드');
   assert.equal(dutchParsed.rows[0].orderYear, '2026', '네덜란드 원가자료는 화면의 잔존 연도와 무관하게 2026년 원장에 저장해야 한다.');
+
+  XLSX.utils.book_append_sheet(dutchWb, XLSX.utils.aoa_to_sheet([
+    ['NETHERLANDS 원가자료'], ['품목명', '수량', '단위', '도착원가(단)'],
+    ['Example cost must never be imported', 300, '단', 9553],
+  ]), '08-1(예시)');
+  const withExample = parseArrivalCostWorkbook(XLSX.write(dutchWb, { type: 'buffer', bookType: 'xlsx' }), { fileName: '35-2 NL 원가자료.xlsx', orderYear: '2026' });
+  assert.equal(withExample.rows.length, 1, '수동·자동 공통 파서에서 예시행을 제외한다');
+  assert.deepEqual(withExample.skippedSheets, [{ sheetName: '08-1(예시)', reason: '예시·견본 시트 제외' }]);
+  assert.ok(withExample.rows.every(r => r.sheetName !== '08-1(예시)'));
 
   const emptyCost = [
     ['COLOMBIA'],

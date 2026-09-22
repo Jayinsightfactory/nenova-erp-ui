@@ -2,6 +2,7 @@
   "id": "arrival-cost",
   "title": "차수별 도착원가 웹 전용 원장 계약",
   "scope": [
+    "lib/arrivalImportPolicy.js",
     "lib/arrivalDrivePolicy.js",
     "lib/arrivalDriveAuto.js",
     "pages/api/arrival-cost/drive-auto.js",
@@ -27,6 +28,12 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "ARRIVAL_IMPORT_EXAMPLE_AND_VIEW_GUARD",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "예시/견본/example/sample/template 명시 시트는 공통 파서에서 제외하고 skippedSheets를 반환한다. 정상 과거 시트 업로드 정책은 유지. 업로드 성공 후 파일명 차수가 실제 저장행에 있으면 선택, 없으면 저장행 최신 연도/숫자 차수로 조회한다. 기존 품목/농장 필터를 초기화한다. 목록·품종·누락 조회는 arrivalWeekPredicate로 37-2와 37-02를 동일 판정하며 연도 조건을 보존. 운영 보정은 배포 후 확인된 ImportKey 22/23의 예시 32행만 비활성화하고 전후 감사 기록을 보존한다. ERP 및 호텔 매입단가는 변경하지 않는다."
+    },
     {
       "name": "DRIVE_AUTO_ARRIVAL_IMPORT",
       "orderDetail": "preserve",
@@ -68,6 +75,7 @@
     "description": "같은 차수명이 여러 연도에 있어도 도착원가 원장은 OrderYear를 함께 사용하며 다른 연도의 입고·주문·출고·재고 원장을 수정하지 않는다. 같은 연도·차수·국가 재업로드만 해당 scope의 현재본을 교체한다."
   },
   "requiredTestFiles": [
+    "__tests__/arrivalImportPolicy.test.js",
     "__tests__/arrivalDriveSchedule.test.js",
     "__tests__/arrivalDriveAuto.test.js",
     "__tests__/arrivalCostExcel.test.js",
