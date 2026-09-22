@@ -54,3 +54,10 @@ console.log('incoming insight contract tests passed: 읽기전용·OutUnit 수�
 }
 // 9) AWB는 WarehouseMaster.OrderNo (컬럼명 AWB 없음 → 'Invalid column name' 500)
 for (const s of [src, eta]) assert.ok(!/wm\.AWB\b|SELECT AWB FROM WarehouseMaster|\bAWB IS NOT NULL/.test(s), 'AWB 컬럼은 OrderNo AS AWB 로');
+// 10) 계산기 저장은 웹 파일 전용(DB 접근 없음) + lista Variedad는 한글 품목군 접두 제거
+{
+  const fc = fs.readFileSync(path.join(root, 'pages/api/incoming/freight-calc.js'), 'utf8') + fs.readFileSync(path.join(root, 'lib/awbFreightCalc.js'), 'utf8');
+  assert.ok(!/lib\/db|WebArrivalCost|\bINSERT\b|\bUPDATE\b/.test(fc.replace(/\/\/.*$/gm, '')), '계산기 저장은 DB·도착원가 테이블에 쓰지 않는다');
+  const strip = (n) => n.replace(/^[가-힣()\s]+/, '').trim() || n;
+  assert.deepStrictEqual(['카네이션 novia', '장미 spray fairy lola', 'ruscus', '수국 (콜) blue'].map(strip), ['novia', 'spray fairy lola', 'ruscus', 'blue']);
+}

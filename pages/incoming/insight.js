@@ -116,6 +116,7 @@ export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
     { title: '크레딧', dataIndex: 'credit', align: 'right', width: 80, render: fmt },
     { title: '송금', dataIndex: 'remit', align: 'right', width: 100, render: (v, r) => <>{fmt(v)}{r.pendingN ? <div><Text type="warning" style={{ fontSize: 10 }}>대기 {r.pendingN}건 {fmt(r.pendingRemit)}</Text></div> : null}</> },
     { title: '잔액', dataIndex: 'balance', align: 'right', width: 100, defaultSortOrder: 'descend', sorter: (a, b) => a.balance - b.balance, render: (v) => <Text strong type={v > 0.5 ? 'danger' : v < -0.5 ? 'warning' : 'success'}>{fmt(v)}</Text> },
+    { title: '국내비용(계산기)', dataIndex: 'domesticKRW', align: 'right', width: 110, sorter: (a, b) => a.domesticKRW - b.domesticKRW, render: (v, r) => v ? <Tooltip title={`AWB 운임 계산기 저장분 백상+선율 · AWB ${r.domesticAwbs}건 · ≈ $${fmt(r.domesticUSD)}`}><a href={`/import/freight-calc`}>{fmt(v)}원</a></Tooltip> : <Text type="secondary">–</Text> },
     { title: '지급률', dataIndex: 'paidRate', width: 100, render: (v) => pct(v, [100, 100]) },
     { title: '상태', dataIndex: 'status', width: 80, filters: Object.keys(ST_C).map((s) => ({ text: s, value: s })), onFilter: (v, r) => r.status === v, render: (s) => <Tag color={ST_C[s]}>{s}</Tag> },
     { title: '결제 D-day', key: 'dday', width: 120, sorter: (a, b) => (a.pay?.dday ?? 9999) - (b.pay?.dday ?? 9999), render: (_, r) => <><DDay pay={r.pay} />{r.pay?.overdueUSD > 0.5 && <div><Text type="danger" style={{ fontSize: 10 }}>연체 {fmt(r.pay.overdueUSD)}</Text></div>}</> },

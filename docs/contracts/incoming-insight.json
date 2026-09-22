@@ -11,7 +11,9 @@
     "pages/api/incoming/remit-inbox.js",
     "pages/api/incoming/farm-alias.js",
     "lib/farmAlias.js",
-    "pages/import/freight-calc.js"
+    "pages/import/freight-calc.js",
+    "pages/api/incoming/freight-calc.js",
+    "lib/awbFreightCalc.js"
   ],
   "businessIdentity": [
     "OrderYear",

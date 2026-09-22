@@ -3,22 +3,25 @@
 //   입력: AWB 상 운임비(USD)·박스 토탈·박스 중량(kg)·백상 창고비(원/박스)·선율 비용(원)·환율  ← 원본 시트의 노란 입력칸
 //   원자료: 해당 차수 원장(WarehouseMaster/Detail)에서 AWB별 농장 × 품목군 박스 수 자동 집계(/api/incoming/insight?view=awbcalc)
 //   산식(원본 그대로): 박스당 운임 = 운임비/박스 · 박스당 kg = 중량/박스 · 백상 = 박스×(백상단가) · 선율 = 선율비용×(농장박스/총박스) · 백상+선율
-//   ⚠ 통관비(백상 창고료 410/460, 겸역 차감, 국내운송 정액/트럭 공식)의 정본 규칙은 미확정 → 이 화면은 계산만 하고 어디에도 저장하지 않는다.
+//   저장: 웹 전용 파일(lib/awbFreightCalc) → 정산 탭 '국내비용(계산기)'. ⚠ 통관비 정본 규칙(백상 410/460·겸역·국내운송) 미확정 → 도착원가 테이블에는 쓰지 않는다.
 import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { ConfigProvider, Table, Card, Select, InputNumber, Button, Space, Typography, Alert, Tag, Statistic, Row, Col, theme as antdTheme } from 'antd';
-import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
+import { ConfigProvider, Table, Card, Select, InputNumber, Button, Space, Typography, Alert, Tag, Statistic, Row, Col, Popconfirm, message, theme as antdTheme } from 'antd';
+import { DownloadOutlined, ReloadOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import koKR from 'antd/locale/ko_KR';
 
 const { Text } = Typography;
 const fmt = (n, d = 0) => (n == null || Number.isNaN(n) ? '–' : Number(n).toLocaleString(undefined, { maximumFractionDigits: d }));
 const GROUPS = ['장미', '카네이션', '알스트로', '루스커스', '수국', '기타'];
-const api = async (url) => { const r = await fetch(url); const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error(j.error || `HTTP ${r.status}`); return j; };
+const api = async (url, opt) => { const r = await fetch(url, opt); const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error(j.error || `HTTP ${r.status}`); return j; };
 
 export default function FreightCalcPage() {
   const [weeks, setWeeks] = useState([]); const [year, setYear] = useState(''); const [week, setWeek] = useState('');
   const [data, setData] = useState(null); const [awbIdx, setAwbIdx] = useState(0); const [err, setErr] = useState(''); const [loading, setLoading] = useState(false);
   const [inp, setInp] = useState({ freightUSD: 0, boxes: 0, kg: 0, storagePerBox: 370, sunyul: 77000, fx: 1500 });
+  const [saved, setSaved] = useState([]);
+  const loadSaved = () => year && week && api(`/api/incoming/freight-calc?year=${year}&week=${week}`).then((j) => setSaved(j.rows)).catch(() => {});
+  useEffect(loadSaved, [year, week]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -57,6 +60,8 @@ export default function FreightCalcPage() {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), `${week} ${awb.awb}`.slice(0, 30)); XLSX.writeFile(wb, `${year}_${week}_AWB운임비_${awb.awb.replace(/[^\d-]/g, '')}.xlsx`);
   };
 
+  const savedCur = awb && saved.find((r) => r.awb.replace(/\D/g, '') === awb.awb.replace(/\D/g, ''));
+  const save = async () => { try { await api('/api/incoming/freight-calc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ year, week, awb: awb.awb, inputs: inp, groups: calc.groups, farms: calc.farms, checks: calc.checks }) }); message.success('저장 — 정산 탭 국내비용(계산기)에 반영'); loadSaved(); } catch (e) { message.error(e.message); } };
   const N = (k, step = 1, w = 120) => <InputNumber size="small" style={{ width: w }} value={inp[k]} step={step} onChange={(v) => setInp({ ...inp, [k]: Number(v) || 0 })} formatter={(v) => String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={(v) => v.replace(/,/g, '')} />;
   return (
     <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 12 } }}>
@@ -67,10 +72,14 @@ export default function FreightCalcPage() {
           {data && <Select size="small" style={{ width: 300 }} value={awbIdx} onChange={setAwbIdx} options={data.awbs.map((a, i) => ({ value: i, label: `${a.awb} · 박스 ${fmt(a.box)} · 농장 ${a.farms.length}${a.freightUSD ? ` · 운임행 $${fmt(a.freightUSD, 2)}` : ''}` }))} />}
           <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={load}>새로고침</Button>
           <Button size="small" icon={<DownloadOutlined />} disabled={!calc} onClick={exportXlsx}>엑셀(원본 양식)</Button>
+          <Button size="small" type="primary" icon={<SaveOutlined />} disabled={!calc} onClick={save}>{savedCur ? '다시 저장' : '저장'}</Button>{savedCur && <Tag color={savedCur.allOk ? 'green' : 'orange'}>저장됨 {String(savedCur.savedAt).slice(0, 16).replace('T', ' ')}{savedCur.allOk ? '' : ' · 오류 있음'}</Tag>}
           <Button size="small" href="/import">수입부 통합</Button>
         </Space>
         {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 8 }} />}
-        <Alert type="warning" showIcon style={{ marginBottom: 8 }} message="계산 전용 — 어디에도 저장하지 않습니다. 백상 창고료·겸역 차감·국내운송 규칙(통관비 정본)은 확정 전이라 입력값으로만 다룹니다." />
+        <Alert type="info" showIcon style={{ marginBottom: 8 }} message="저장하면 웹 전용 기록(AWB별)으로 남고 수입부 통합 정산 탭에 농장별 '국내비용(계산기)'로 합산됩니다. 전산·도착원가 테이블에는 쓰지 않습니다(통관비 정본 규칙 확정 후 연결)." />
+        {saved.length > 0 && <Card size="small" title={<Text strong>이 차수 저장된 계산 {saved.length}건</Text>} style={{ marginBottom: 8 }}>
+          <Table size="small" rowKey="key" pagination={false} dataSource={saved} columns={[{ title: 'AWB', dataIndex: 'awb', width: 130 }, { title: '운임 $', key: 'f', align: 'right', width: 90, render: (_, r) => fmt(r.inputs.freightUSD, 2) }, { title: '박스', key: 'b', align: 'right', width: 60, render: (_, r) => fmt(r.inputs.boxes) }, { title: '백상 단가', key: 's', align: 'right', width: 80, render: (_, r) => fmt(r.inputs.storagePerBox) }, { title: '선율', key: 'y', align: 'right', width: 80, render: (_, r) => fmt(r.inputs.sunyul) }, { title: '농장 합계(원)', key: 't', align: 'right', width: 110, render: (_, r) => <Text strong>{fmt(r.farms.reduce((a, f) => a + (f.total || 0), 0))}</Text> }, { title: '오류', key: 'ok', width: 60, render: (_, r) => <Tag color={r.allOk ? 'green' : 'red'}>{r.allOk ? '없음' : '있음'}</Tag> }, { title: '저장', dataIndex: 'savedAt', width: 130, render: (v, r) => `${String(v).slice(0, 16).replace('T', ' ')} ${r.savedBy || ''}` }, { title: '', key: 'd', width: 50, render: (_, r) => <Popconfirm title="저장 삭제?" onConfirm={() => api('/api/incoming/freight-calc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ year, week, awb: r.awb, deleted: true }) }).then(loadSaved)}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm> }]} />
+        </Card>}
         {awb && calc && (
           <Row gutter={8} wrap={false} style={{ alignItems: 'flex-start' }}>
             <Col flex="0 0 300px">

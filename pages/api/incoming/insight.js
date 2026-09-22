@@ -8,6 +8,7 @@
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { makeCanon } from '../../../lib/farmAlias';
+import { readCalcs, domesticByFarm } from '../../../lib/awbFreightCalc';
 import { normalizeOrderWeek } from '../../../lib/orderUtils';
 
 // OutUnit 기준 단일 수량 (DB_STRUCTURE "수량 조회 정답 쿼리")
@@ -160,6 +161,7 @@ async function ledger(months, farmName) {
   }
   for (const c of cl.recordset) { const f = F(c.FarmName); const q = Number(c.Quantity) || 0; const cost = Number(c.EstimateCost) || 0; f.claims.n++; f.claims.qty += q; f.claims.cost += cost; if (c.CreditApplied) f.claims.credited++; if (!c.ImportConfirmed || c.ImportReviewRequired) f.claims.pending++;
     if (f.claims.items.length < 30) f.claims.items.push({ key: c.DeductionKey, week: `${c.OrderYear}-${c.OrderWeek}`, cust: c.CustName, prod: c.ProdName, color: c.ColorName, qty: q, unit: c.SourceUnit, type: c.DeductionType, credited: !!c.CreditApplied, confirmed: !!c.ImportConfirmed, review: !!c.ImportReviewRequired, status: c.Status, note: c.Note, at: c.CreatedAt }); }
+  const domestic = domesticByFarm(readCalcs(), canon, since.toISOString()); // AWB 운임 계산기 저장분(백상+선율, KRW) — 참고값
   const rows = Object.values(farms).map((f) => { const billed = Math.round((f.goods + f.freight) * 100) / 100; const balance = Math.round((billed - f.credit - f.remit) * 100) / 100;
     // FIFO: 크레딧+송금을 오래된 인보이스부터 상계 → 남은 인보이스가 미결. 첫 미결의 만기(결제일)로 D-day, 만기 지난 미결 합이 연체
     const day = payDay.get(f.farm) || null; let paid = f.credit + f.remit; const unpaid = [];
@@ -169,7 +171,7 @@ async function ledger(months, farmName) {
     const lastRemitDays = f.lastRemit ? Math.round((today - new Date(f.lastRemit + 'T00:00:00')) / 86400e3) : null;
     const lastInputDays = f.lastInput ? Math.round((today - new Date(f.lastInput + 'T00:00:00')) / 86400e3) : null;
     const pay = { day, nextDue: first ? first.due : '', dday, overdueUSD, unpaidN: unpaid.length, oldestUnpaid: first ? first.date : '', lastRemitDays, lastInputDays, unpaid: unpaid.slice(0, 12) };
-    return { ...f, pay, invoices: f.invoices.size, billed, balance, paidRate: billed ? Math.round(100 * (f.credit + f.remit) / billed) : null, weeks: Object.values(f.weeks).sort((a, b) => a.week.localeCompare(b.week)), status: billed === 0 ? '청구없음' : balance <= 0.5 ? '완납' : (f.credit + f.remit) > 0 ? '부분송금' : '미송금' }; })
+    const dom = domestic[f.farm] || null; return { domesticKRW: dom ? dom.krw : 0, domesticUSD: dom ? dom.usd : 0, domesticAwbs: dom ? dom.awbs : 0, ...f, pay, invoices: f.invoices.size, billed, balance, paidRate: billed ? Math.round(100 * (f.credit + f.remit) / billed) : null, weeks: Object.values(f.weeks).sort((a, b) => a.week.localeCompare(b.week)), status: billed === 0 ? '청구없음' : balance <= 0.5 ? '완납' : (f.credit + f.remit) > 0 ? '부분송금' : '미송금' }; })
     .sort((a, b) => b.balance - a.balance);
   const t = rows.reduce((a, r) => ({ billed: a.billed + r.billed, credit: a.credit + r.credit, remit: a.remit + r.remit, balance: a.balance + r.balance }), { billed: 0, credit: 0, remit: 0, balance: 0 });
   return { months, rows, totals: { ...t, farms: rows.length, unpaid: rows.filter((r) => r.status === '미송금').length, partial: rows.filter((r) => r.status === '부분송금').length, claims: rows.reduce((a, r) => a + r.claims.n, 0), claimsPending: rows.reduce((a, r) => a + r.claims.pending, 0), pendingRemitN: pendingN, pendingRemitUSD: Math.round(pendingUSD * 100) / 100, overdueFarms: rows.filter((r) => r.pay.overdueUSD > 0.5).length, overdueUSD: Math.round(rows.reduce((a, r) => a + r.pay.overdueUSD, 0) * 100) / 100, dueSoon: rows.filter((r) => r.pay.dday != null && r.pay.dday >= 0 && r.pay.dday <= 7).length, noPayDay: rows.filter((r) => !r.pay.day && r.balance > 0.5).length } };
@@ -187,7 +189,7 @@ async function lista(year, week) {
                           WHERE ISNULL(d.IsDeleted,0)=0 AND d.OrderYear=@yr AND (d.OrderWeek=@wk OR d.OrderWeek=@major)
                           ORDER BY d.CustName, d.FarmName, d.ProdName`, { ...weekParams(year, week), major: { type: sql.NVarChar, value: String(week).split('-')[0] } }); // 불량차감 OrderWeek는 대차수('38')로 저장됨
   const short = String(week).replace(/^(\d{1,2})-0?(\d)$/, '$1-$2');
-  const rows = r.recordset.map((d) => ({ key: d.DeductionKey, lote: `${LOTE_PREFIX(d.Flower)}${short}`, farm: canon(d.FarmName || ''), farmRaw: d.FarmName || '', variedad: [d.ProdName, d.ColorName].filter(Boolean).join(' ').toLowerCase(), cantidad: Number(d.Quantity) || 0, unidad: UNIDAD(d.SourceUnit, d.Quantity), nombre: d.CustName || '', observacion: d.Note || '', tipo: d.DeductionType || '', flower: d.Flower, confirmed: !!d.ImportConfirmed, credited: !!d.CreditApplied }));
+  const rows = r.recordset.map((d) => ({ key: d.DeductionKey, lote: `${LOTE_PREFIX(d.Flower)}${short}`, farm: canon(d.FarmName || ''), farmRaw: d.FarmName || '', variedad: [String(d.ProdName || '').replace(/^[가-힣()\s]+/, '').trim() || d.ProdName, d.ColorName].filter(Boolean).join(' ').toLowerCase() /* 가브리엘식: 농장 품종명만(한글 품목군 접두 제거) */, cantidad: Number(d.Quantity) || 0, unidad: UNIDAD(d.SourceUnit, d.Quantity), nombre: d.CustName || '', observacion: d.Note || '', tipo: d.DeductionType || '', flower: d.Flower, confirmed: !!d.ImportConfirmed, credited: !!d.CreditApplied }));
   return { rows, noFarm: rows.filter((x) => !x.farm).length, farms: [...new Set(rows.map((x) => x.farm).filter(Boolean))].length };
 }
 
