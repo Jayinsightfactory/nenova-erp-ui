@@ -6,6 +6,8 @@ import fs from 'fs';
 import crypto from 'crypto';
 import formidable from 'formidable';
 import { ingestFile, FILE_MAX } from '../../../lib/workDrive';
+import { importRemitFile } from '../../../lib/farmRemitInbox';
+import { REMIT_FILE_RE } from '../../../lib/farmRemitImport';
 
 export const config = { api: { bodyParser: false } };
 
@@ -34,5 +36,12 @@ export default async function handler(req, res) {
   try { buffer = fs.readFileSync(f.filepath); } finally { try { fs.unlinkSync(f.filepath); } catch {} }
   const r = ingestFile({ buffer, filename: pick('filename') || f.originalFilename, orbitUserId: pick('orbitUserId'), userName: pick('userName'), hostname: pick('hostname'), dir: pick('dir'), mtime: pick('mtime'), eventType: pick('eventType') });
   if (!r.ok) return res.status(r.status || 400).json({ success: false, error: r.error });
-  return res.status(200).json({ success: true, id: r.id, duplicate: r.duplicate, version: r.version, classification: r.classification });
+  // 송금 자동 인식: 경영지원의 '해외건별송금신청*.xlsx'가 올라오면 행을 읽어 농장 송금 대기함(WebFarmRemit PENDING)에 넣는다. 실패는 로그만(업로드는 성공 처리)
+  let remit = null;
+  const _fn = pick('filename') || f.originalFilename || '';
+  if (!r.duplicate && REMIT_FILE_RE.test(_fn) && /\.xlsx?$/i.test(_fn)) {
+    try { remit = await importRemitFile({ buffer, fileId: r.id, fileName: _fn, by: 'drive:' + (r.classification?.uploaderName || '') }); }
+    catch (e) { console.error('[drive-ingest] remit import failed:', e.message); remit = { error: e.message }; }
+  }
+  return res.status(200).json({ success: true, id: r.id, duplicate: r.duplicate, version: r.version, classification: r.classification, remit });
 }
