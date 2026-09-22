@@ -25,4 +25,5 @@ Product/Farm은 읽기 전용. OrderMaster/Detail, ShipmentMaster/Detail/Date/Fa
 - dnSpy 및 읽기 probe: FormArrivalCost golden 기록.
 - 단위/실행 fixture: 선택 한 개, 기본 대기, stale hash/year/week/country/id, 비활성/제외국가/누락시각, 파일군 충돌, 완료 중복, 수동 보호 실패, 처리 중, 관리자/confirm 형식.
 - 기존 저장 코어 fixture: 동일 hash 멱등, 최신 revision, 이전 연도 보존, 오류 rollback, 수동 현재본 보호.
-- 전체 필수 검사·빌드·배포·실브라우저 결과는 완료 후 추가.
+- 전체 필수 검사 및 로컬 빌드 통과. PR744/merge bba79e4d, CI35680087791, deploy35680179456 success.
+- 1920×1080 운영 패널에서 국가별 버튼 노출 확인. 태국 확인창 호출 후 내장 브라우저 제어가 멈춰 사용자에게 확인 요청. 실제 4개 파일 반영 완료/전체 UI smoke는 미확인이다. 이후 읽기 probe의 현재본 집계는 작업 전과 동일. 저장 성공으로 보고하지 않는다.
