@@ -1,0 +1,62 @@
+{
+  "id": "incoming-insight",
+  "title": "입고 인사이트(차수 보드·발주 대 입고 대사·농장·품목 추이·입고 예정) 계약 — 읽기 전용",
+  "scope": [
+    "pages/incoming/insight.js",
+    "pages/api/incoming/insight.js",
+    "pages/api/incoming/eta.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "INSIGHT_BOARD_RECONCILE_SELECT_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "INSIGHT_FARM_PRODUCT_SELECT_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "ETA_FILE_STORE_NO_SQL_WRITE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "차수 보드/대사는 OrderYear+OrderWeek(세부차수)로 OrderMaster·WarehouseMaster·ShipmentMaster를 각각 필터해 ProdKey로 맞춘다. 수량은 Product.OutUnit CASE(정답 쿼리). isDeleted는 om/wm/sm 마스터로만(WarehouseDetail·ShipmentDetail엔 없음). 입고 예정은 data/incoming-eta.json 파일 저장이며 MSSQL 쓰기 없음."
+  },
+  "requiredTestFiles": [
+    "__tests__/incomingInsight.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "nenova.exe FormWarehouse(입고 원장/상세)에는 없는 웹 전용 교차 조회. ERP 테이블 side effect 없음(전부 SELECT).",
+    "methods": [
+      "DB_STRUCTURE 수량 정답 쿼리(Product.OutUnit CASE) 재사용",
+      "ShipmentDetail.OutQuantity 단일값 합산(환산 금지)",
+      "WarehouseMaster 존재 여부로 ETA '입고등록' 판정(읽기)"
+    ],
+    "tables": [
+      "OrderMaster/OrderDetail (read)",
+      "WarehouseMaster/WarehouseDetail (read)",
+      "ShipmentMaster/ShipmentDetail (read)",
+      "Product (read)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
