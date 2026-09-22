@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx';
 
 const fmt = (n) => (n == null || n === '' ? '–' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }));
 const TAG_C = { 미입고: '#dc2626', 부족: '#ea580c', 초과: '#ca8a04', 일치: '#16a34a', 미발주: '#7c3aed' };
-const TABS = [['board', '차수 보드'], ['reconcile', '발주 대 입고 대사'], ['farm', '농장'], ['product', '품목'], ['eta', '입고 예정']];
+const TABS = [['board', '차수 보드'], ['reconcile', '발주·입고 비교'], ['farm', '농장'], ['product', '품목'], ['eta', '입고 예정']];
 const api = async (url, opt) => { const r = await fetch(url, opt); const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error(j.error || `HTTP ${r.status}`); return j; };
 
 export default function IncomingInsight() {
@@ -86,7 +86,7 @@ export default function IncomingInsight() {
           </div>
           <div className="cards">
             {board.cards.map((c) => (
-              <div className="ccard" key={c.country} onClick={() => { setTab('reconcile'); setTagF(''); }} title="클릭하면 대사 탭">
+              <div className="ccard" key={c.country} onClick={() => { setTab('reconcile'); setTagF(''); }} title="클릭하면 발주·입고 비교 탭">
                 <div className="ch"><b>{c.country}</b><span>{c.products}품목{c.missing ? <em style={{ color: TAG_C.미입고 }}> · 미입고 {c.missing}</em> : null}</span></div>
                 <div className="row3"><div><span>발주</span><b>{fmt(c.ordered)}</b></div><div><span>입고</span><b>{fmt(c.received)}</b></div><div><span>분배</span><b>{fmt(c.shipped)}</b></div></div>
                 <div className="bars"><span>입고율</span><Bar v={c.fill} c={c.fill == null ? '#9ca3af' : c.fill < 90 ? TAG_C.부족 : c.fill > 110 ? TAG_C.초과 : TAG_C.일치} /><span>분배율</span><Bar v={c.shipRate} /></div>
@@ -98,12 +98,12 @@ export default function IncomingInsight() {
         </>
       )}
 
-      {/* ── 발주 대 입고 대사 ── */}
+      {/* ── 발주·입고 비교 ── */}
       {tab === 'reconcile' && board && (
         <div className="card" style={{ padding: 0 }}>
-          <div className="card-header"><span className="card-title">발주 대 입고 대사 · {year} {week}</span>
+          <div className="card-header"><span className="card-title">발주·입고 비교 · {year} {week}</span>
             <span className="tagf">{['', '미입고', '부족', '초과', '일치', '미발주'].map((t) => <button key={t} className={tagF === t ? 'on' : ''} onClick={() => setTagF(t)}>{t || '전체'} <em>{t ? board.items.filter((i) => i.tag === t).length : board.items.length}</em></button>)}</span>
-            <button className="btn btn-secondary" onClick={() => exportRows(items.map((i) => ({ 국가: i.country, 꽃: i.flower, 품목: i.name, 발주: i.ordered, 입고: i.received, 차이: i.diff, 입고율: i.fill, 분배: i.shipped, 분배율: i.shipRate, 판정: i.tag, 농장: i.farms.map((f) => `${f.farm}(${f.qty}${f.uprice != null ? '@' + f.uprice : ''})`).join(', ') })), `발주입고대사_${year}_${week}`)}>📊 엑셀</button>
+            <button className="btn btn-secondary" onClick={() => exportRows(items.map((i) => ({ 국가: i.country, 꽃: i.flower, 품목: i.name, 발주: i.ordered, 입고: i.received, 차이: i.diff, 입고율: i.fill, 분배: i.shipped, 분배율: i.shipRate, 판정: i.tag, 농장: i.farms.map((f) => `${f.farm}(${f.qty}${f.uprice != null ? '@' + f.uprice : ''})`).join(', ') })), `발주입고비교_${year}_${week}`)}>📊 엑셀</button>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="tbl" style={{ minWidth: 900 }}>
@@ -124,7 +124,7 @@ export default function IncomingInsight() {
       {/* ── 농장 프로필 ── */}
       {tab === 'farm' && (
         <>
-          <div className="filter-bar"><span className="filter-label">농장명</span><input className="filter-input" style={{ width: 260 }} value={farmName} onChange={(e) => setFarmName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadFarm()} placeholder="예: American Flowers Medellin S.A.S" /><button className="btn btn-primary" onClick={() => loadFarm()}>조회</button><span className="dim">차수 보드·대사 탭의 농장 이름을 눌러도 옵니다</span></div>
+          <div className="filter-bar"><span className="filter-label">농장명</span><input className="filter-input" style={{ width: 260 }} value={farmName} onChange={(e) => setFarmName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadFarm()} placeholder="예: American Flowers Medellin S.A.S" /><button className="btn btn-primary" onClick={() => loadFarm()}>조회</button><span className="dim">차수 보드·비교 탭의 농장 이름을 눌러도 옵니다</span></div>
           {farmData && (
             <div className="grid2">
               <div className="card">
