@@ -4,7 +4,8 @@
   "scope": [
     "pages/incoming/insight.js",
     "pages/api/incoming/insight.js",
-    "pages/api/incoming/eta.js"
+    "pages/api/incoming/eta.js",
+    "pages/import/index.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -25,6 +26,11 @@
     },
     {
       "name": "ETA_FILE_STORE_NO_SQL_WRITE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "LEDGER_FARM_BILLED_CREDIT_REMIT_SELECT_ONLY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
     }
@@ -50,7 +56,9 @@
       "OrderMaster/OrderDetail (read)",
       "WarehouseMaster/WarehouseDetail (read)",
       "ShipmentMaster/ShipmentDetail (read)",
-      "Product (read)"
+      "Product (read)",
+      "FarmCredit (read)",
+      "WebFarmRemit (web-only table, read)"
     ]
   },
   "requiredCommands": [

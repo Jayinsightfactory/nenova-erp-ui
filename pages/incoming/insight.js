@@ -7,11 +7,14 @@ import * as XLSX from 'xlsx';
 
 const fmt = (n) => (n == null || n === '' ? '–' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }));
 const TAG_C = { 미입고: '#dc2626', 부족: '#ea580c', 초과: '#ca8a04', 일치: '#16a34a', 미발주: '#7c3aed' };
-const TABS = [['board', '차수 보드'], ['reconcile', '발주·입고 비교'], ['farm', '농장'], ['product', '품목'], ['eta', '입고 예정']];
+const TABS = [['board', '차수 보드'], ['reconcile', '발주·입고 비교'], ['ledger', '농장 정산·송금'], ['farm', '농장'], ['product', '품목'], ['eta', '입고 예정']];
+const ST_C = { 미송금: '#dc2626', 부분송금: '#ea580c', 완납: '#16a34a', 청구없음: '#9ca3af' };
 const api = async (url, opt) => { const r = await fetch(url, opt); const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error(j.error || `HTTP ${r.status}`); return j; };
 
-export default function IncomingInsight() {
-  const [tab, setTab] = useState('board');
+export function IncomingInsight({ initialTab, hideTabs } = {}) {
+  const [tab, setTab] = useState(initialTab || 'board');
+  const [ledger, setLedger] = useState(null);
+  const [ledgerF, setLedgerF] = useState('');
   const [weeks, setWeeks] = useState([]);
   const [year, setYear] = useState('');
   const [week, setWeek] = useState('');
@@ -44,12 +47,14 @@ export default function IncomingInsight() {
   const loadBoard = async () => { if (!year || !week) return; setLoading(true); setErr(''); try { setBoard(await api(`/api/incoming/insight?view=board&year=${year}&week=${week}`)); } catch (e) { setErr(e.message); } finally { setLoading(false); } };
   const loadFarm = async (f = farmName) => { if (!f) return; setLoading(true); setErr(''); try { setFarmData(await api(`/api/incoming/insight?view=farm&farm=${encodeURIComponent(f)}&months=${months}`)); } catch (e) { setErr(e.message); } finally { setLoading(false); } };
   const loadProd = async (q = prodQ) => { if (!q) return; setLoading(true); setErr(''); try { setProdData(await api(`/api/incoming/insight?view=product&q=${encodeURIComponent(q)}&months=${months}`)); } catch (e) { setErr(e.message); } finally { setLoading(false); } };
+  const loadLedger = async () => { setLoading(true); setErr(''); try { setLedger(await api(`/api/incoming/insight?view=ledger&months=${months}`)); } catch (e) { setErr(e.message); } finally { setLoading(false); } };
   const loadEta = async () => { setLoading(true); setErr(''); try { setEta(await api(`/api/incoming/eta${etaScope === 'week' && year && week ? `?year=${year}&week=${week}` : ''}`)); } catch (e) { setErr(e.message); } finally { setLoading(false); } };
 
   useEffect(() => { if (tab === 'board' || tab === 'reconcile') loadBoard(); }, [year, week, tab === 'board' || tab === 'reconcile']); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (tab === 'farm' && farmName && !farmData) loadFarm(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (tab === 'product' && prodQ && !prodData) loadProd(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (tab === 'eta') loadEta(); }, [tab, etaScope, year, week]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (tab === 'ledger') loadLedger(); }, [tab, months]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const items = useMemo(() => (board?.items || []).filter((i) => !tagF || i.tag === tagF), [board, tagF]);
   const exportRows = (rows, name) => { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), name.slice(0, 30)); XLSX.writeFile(wb, `${name}.xlsx`); };
@@ -70,7 +75,7 @@ export default function IncomingInsight() {
         </select>
         <span className="filter-label" style={{ marginLeft: 6 }}>기간</span>
         <select className="filter-input" value={months} onChange={(e) => setMonths(e.target.value)}><option value="3">3개월</option><option value="6">6개월</option><option value="12">12개월</option><option value="24">24개월</option></select>
-        <div className="tabs">{TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
+        {!hideTabs && <div className="tabs">{TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>}
         <div className="page-actions"><a className="btn btn-secondary" href={`/incoming?from=${new Date(Date.now() - 30 * 86400e3).toISOString().slice(0, 10)}&to=${new Date().toISOString().slice(0, 10)}`}>원장으로</a></div>
       </div>
       {err && <div className="msg err">⚠️ {err}</div>}
@@ -121,6 +126,31 @@ export default function IncomingInsight() {
         </div>
       )}
 
+      {/* ── 농장 정산·송금 ── */}
+      {tab === 'ledger' && ledger && (
+        <div className="card" style={{ padding: 0 }}>
+          <div className="card-header"><span className="card-title">농장 정산·송금 ({months}개월 입고 기준)</span>
+            <span className="tagf">{['', '미송금', '부분송금', '완납'].map((t) => <button key={t} className={ledgerF === t ? 'on' : ''} onClick={() => setLedgerF(t)}>{t || '전체'} <em>{t ? ledger.rows.filter((r) => r.status === t).length : ledger.rows.length}</em></button>)}</span>
+            <span className="dim" style={{ marginLeft: 8 }}>청구 {fmt(ledger.totals.billed)} · 크레딧 {fmt(ledger.totals.credit)} · 송금 {fmt(ledger.totals.remit)} · <b style={{ color: ledger.totals.balance > 0 ? ST_C.미송금 : ST_C.완납 }}>잔액 {fmt(ledger.totals.balance)}</b> (USD)</span>
+            <a className="btn btn-secondary" href="/incoming-price" style={{ marginLeft: 8 }}>송금·크레딧 입력</a>
+            <button className="btn btn-secondary" onClick={() => exportRows(ledger.rows.map((r) => ({ 농장: r.farm, 인보이스: r.invoices, 상품금액: r.goods, 운임: r.freight, 청구: r.billed, 크레딧: r.credit, 송금: r.remit, 잔액: r.balance, 상태: r.status, 마지막입고: r.lastInput, 마지막송금: r.lastRemit })), `농장정산_${months}개월`)}>📊 엑셀</button>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tbl" style={{ minWidth: 980 }}>
+              <thead><tr><th>농장</th><th className="r">인보이스</th><th className="r">상품 금액</th><th className="r">운임</th><th className="r">청구 합계</th><th className="r">크레딧</th><th className="r">송금</th><th className="r">잔액</th><th>지급률</th><th>상태</th><th>마지막 입고</th><th>마지막 송금</th></tr></thead>
+              <tbody>{ledger.rows.filter((r) => !ledgerF || r.status === ledgerF).map((r) => (
+                <tr key={r.farm}>
+                  <td className="name"><button className="lnk" onClick={() => goFarm(r.farm)}>{r.farm}</button></td>
+                  <td className="num">{r.invoices}</td><td className="num">{fmt(r.goods)}</td><td className="num">{fmt(r.freight)}</td><td className="num" style={{ fontWeight: 600 }}>{fmt(r.billed)}</td>
+                  <td className="num">{fmt(r.credit)}</td><td className="num">{fmt(r.remit)}</td><td className="num" style={{ fontWeight: 700, color: r.balance > 0.5 ? ST_C.미송금 : r.balance < -0.5 ? ST_C.부분송금 : ST_C.완납 }}>{fmt(r.balance)}</td>
+                  <td><Bar v={r.paidRate} c={r.paidRate == null ? '#9ca3af' : r.paidRate >= 100 ? ST_C.완납 : ST_C.부분송금} /></td>
+                  <td><span className="tag" style={{ background: ST_C[r.status] }}>{r.status}</span></td><td className="mono">{r.lastInput}</td><td className="mono">{r.lastRemit || '–'}</td>
+                </tr>))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* ── 농장 프로필 ── */}
       {tab === 'farm' && (
         <>
@@ -130,6 +160,16 @@ export default function IncomingInsight() {
               <div className="card">
                 <div className="card-header"><span className="card-title">{farmData.farm} · 차수별 입고 ({months}개월)</span><span className="dim">{farmData.invoices.length}건 인보이스</span></div>
                 <div className="wk">{farmData.weeks.map((w) => <div key={w.week}><span>{w.week}</span><i style={{ width: `${Math.round(100 * w.qty / Math.max(1, ...farmData.weeks.map((x) => x.qty)))}%` }} /><b>{fmt(w.qty)}</b><small>{w.products}품목</small></div>)}{farmData.weeks.length === 0 && <div className="empty">입고 없음</div>}</div>
+                {farmData.ledger && (
+                  <div className="sum" style={{ margin: '0 0 6px', borderLeft: 0, borderRight: 0 }}>
+                    <div><b>{fmt(farmData.ledger.billed)}</b><span>청구(상품+운임, USD)</span></div><div><b>{fmt(farmData.ledger.credit)}</b><span>크레딧</span></div><div><b>{fmt(farmData.ledger.remit)}</b><span>송금</span></div>
+                    <div><b style={{ color: farmData.ledger.balance > 0.5 ? ST_C.미송금 : ST_C.완납 }}>{fmt(farmData.ledger.balance)}</b><span>잔액</span></div><div><span className="tag" style={{ background: ST_C[farmData.ledger.status] }}>{farmData.ledger.status}</span><span>마지막 송금 {farmData.ledger.lastRemit || '–'}</span></div>
+                    <div style={{ marginLeft: 'auto' }}><a className="btn btn-secondary" href="/incoming-price">송금·크레딧 입력</a></div>
+                  </div>
+                )}
+                {farmData.ledger && farmData.ledger.remits.length > 0 && (
+                  <div style={{ padding: '4px 12px 8px', fontSize: 11 }}><b>송금 기록</b> {farmData.ledger.remits.slice(0, 8).map((r) => <span key={r.key} className="pillx">{r.date} · {fmt(r.amount)} USD{r.weeks ? ` (${r.weeks})` : ''}{r.memo ? ` · ${r.memo}` : ''}</span>)}</div>
+                )}
                 <div className="card-header"><span className="card-title">인보이스 · 운임</span><button className="btn btn-secondary" onClick={() => exportRows(farmData.invoices, `농장_${farmData.farm}`)}>📊 엑셀</button></div>
                 <div style={{ overflowX: 'auto' }}><table className="tbl"><thead><tr><th>차수</th><th>인보이스</th><th>AWB</th><th>입력일</th><th className="r">박스</th><th className="r">금액</th><th className="r">GW</th><th className="r">CW</th><th className="r">Rate</th><th className="r">운임(USD)</th></tr></thead>
                   <tbody>{farmData.invoices.map((v) => <tr key={v.WarehouseKey}><td>{v.OrderYear} {v.OrderWeek}</td><td className="mono">{v.InvoiceNo}</td><td className="mono">{v.AWB}</td><td className="mono">{v.InputDate}</td><td className="num">{fmt(v.Box)}</td><td className="num">{fmt(v.Amount)}</td><td className="num">{fmt(v.GrossWeight)}</td><td className="num">{fmt(v.ChargeableWeight)}</td><td className="num">{fmt(v.FreightRateUSD)}</td><td className="num">{fmt(v.freightUSD)}</td></tr>)}</tbody></table></div>
@@ -213,6 +253,7 @@ export default function IncomingInsight() {
         .bar{position:relative;display:inline-block;width:100%;min-width:90px;height:14px;background:#eef0f3;border-radius:4px;font-size:10.5px;line-height:14px;padding-left:4px;overflow:hidden;color:#222}.bar i{position:absolute;left:0;top:0;bottom:0;opacity:.35}
         .farms{display:flex;flex-wrap:wrap;gap:4px}.farms button{border:1px solid var(--border2);background:#f7f8fa;border-radius:10px;padding:1px 8px;font-size:11px;cursor:pointer}.farms em{font-style:normal;color:var(--text3)}
         .tag{display:inline-block;color:#fff;font-size:10.5px;padding:1px 7px;border-radius:10px;font-weight:600}
+        .pillx{display:inline-block;background:#eef0f3;border-radius:10px;padding:1px 8px;margin:2px 4px 2px 0}
         .tagf{display:inline-flex;gap:4px;margin-left:10px}.tagf button{border:1px solid var(--border2);background:#fff;border-radius:10px;padding:1px 8px;font-size:11px;cursor:pointer}.tagf button.on{background:#1166BB;color:#fff;border-color:#1166BB}.tagf em{font-style:normal;opacity:.8}
         .lnk{border:0;background:transparent;color:#1166BB;cursor:pointer;padding:0;font:inherit;text-align:left}.lnk em{font-style:normal;color:var(--text3);margin-left:2px}.lnk+.lnk{margin-left:6px}
         .empty{text-align:center;color:var(--text3);padding:24px}.empty.small{padding:8px}
@@ -228,3 +269,5 @@ export default function IncomingInsight() {
     </div>
   );
 }
+
+export default function IncomingInsightPage() { return <IncomingInsight />; }
