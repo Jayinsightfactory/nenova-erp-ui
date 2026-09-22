@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const XLSX = require('xlsx');
 
 async function main() {
+  await import('./arrivalThaiWeek.test.js');
   await import('./arrivalImportPolicy.test.js');
   await import('./arrivalDriveAuto.test.js');
   const { parseArrivalCostWorkbook } = await import('../lib/arrivalCostExcel.js');

@@ -29,6 +29,12 @@
   ],
   "actions": [
     {
+      "name": "ARRIVAL_THAI_WEEK_PARSE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "공통 파서는 .38-1 차수 셀과 (38-1) 파일명 경계를 인식한다. 시트 명시 차수 우선, 다른 숫자 차수 시트에 파일명 fallback 금지, Plantilla 템플릿 제외. 값/수식 있는 모든 셀 범위만 읽고 빈 행 위치를 보존해 SourceRow를 실제 엑셀 행으로 기록한다. 자동 저장은 기존 scopeArrivalDriveRows의 연도·국가·차수 검증을 유지하고 원가·수량·환율을 변경하지 않는다. ERP 및 호텔 수기단가 원장 보존."
+    },
+    {
       "name": "DRIVE_SELECTED_RUN_NOW",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -93,6 +99,7 @@
     "description": "같은 차수명이 여러 연도에 있어도 도착원가 원장은 OrderYear를 함께 사용하며 다른 연도의 입고·주문·출고·재고 원장을 수정하지 않는다. 같은 연도·차수·국가 재업로드만 해당 scope의 현재본을 교체한다."
   },
   "requiredTestFiles": [
+    "__tests__/arrivalThaiWeek.test.js",
     "__tests__/arrivalDriveRunNow.test.js",
     "__tests__/arrivalImportPolicy.test.js",
     "__tests__/arrivalDriveSchedule.test.js",
