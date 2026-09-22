@@ -89,6 +89,26 @@ async function main() {
   assert.equal(inferArrivalFlower('ROSE / Coral Reef'),'장미');
   assert.equal(inferArrivalFlower('Roselily Aisha'),'백합');
 
+  for (const [name, other] of [
+    ['[MEL] CHINA / 안개꽃 1Kg', 'CHINA / 안개꽃 1Kg'],
+    ['Den. Jinda Sweet (피치) M', 'Den. Jinda Sweet (피치) XL'],
+    ['ROSE / Coral Reef mc 50cm', 'ROSE / Coral Reef 50cm'],
+    ['CARNATION Mix Box A (Doncel, Novia)', 'CARNATION Novia'],
+  ]) {
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
+      ['품목명', '수량', '단위', '도착원가(단)'], [name, 3, '단', 2500],
+    ]), '37-2');
+    const bytes = XLSX.write(book, {type:'buffer',bookType:'xlsx'});
+    const wrong = {ProdKey:1,ProdName:other}, right = {ProdKey:2,ProdName:name};
+    for (const products of [[wrong,right],[right,wrong]]) {
+      const parsed = parseArrivalCostWorkbook(bytes,{products});
+      assert.equal(parsed.rows[0].prodKey,2,name);
+      assert.equal(parsed.rows[0].sourceArrivalCostKRW,2500);
+    }
+    assert.equal(parseArrivalCostWorkbook(bytes,{products:[wrong]}).rows[0].prodKey,null,`${name}: do not substitute another specification`);
+  }
+
   const emptyCost = [
     ['COLOMBIA'],
     ['차수', '34-2'],

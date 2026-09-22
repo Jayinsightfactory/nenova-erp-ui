@@ -1,5 +1,9 @@
 # FormArrivalCost — 도착원가 웹 전용 원장 경계
 
+## 2026-09-22 호텔 관련 품목 연결
+
+FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. 읽기 probe로 호텔 관련 정확원본명 불일치271행, 국가충돌 보류5행 확인. 보정은 배포 후 검토된2026 현재행 ProdKey와 감사만 변경하고 원가/수량/단위/호텔입력/ERP 원장은 보존한다. 엄격 품명 비교에서 브랜드·규격을 제거하지 않는다.
+
 ## 2026-09-22 Aisha 품목 연결
 - dnSpy CLI FormWarehouseView GetData/GetDetail 재확인, ERP 입고 원장 보존.
 - 읽기 전용 probe: 2026 Import23 Aisha 현재11행이1211 ROSE에 연결. 정확명 Product3170은 활성 NL 백합. 수동 매칭 수정0건.
