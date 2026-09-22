@@ -1,0 +1,131 @@
+// pages/api/incoming/insight.js
+// 입고 인사이트(읽기 전용) — nenova.exe 입고 원장에는 없는 교차 보기.
+//   view=board     차수 × 국가·농장: 발주량 → 입고량 → 분배량 (품목 OutUnit 기준 수량, DB_STRUCTURE 규칙)
+//   view=reconcile 차수 품목 단위 대사: 발주·입고·분배 수량과 차이 태그(미입고/부족/초과/미발주)
+//   view=farm      농장 프로필: 차수별 입고 추이·품목 구성·평균 단가·운임(GW/CW/Rate)·인보이스
+//   view=product   품목 단가·수량 추이(차수별, 농장별)
+// GET = SELECT만 (규칙 1). isDeleted 필터는 마스터(om/wm/sm)로만 (ShipmentDetail·WarehouseDetail엔 isDeleted 없음).
+import { query, sql } from '../../../lib/db';
+import { withAuth } from '../../../lib/auth';
+import { normalizeOrderWeek } from '../../../lib/orderUtils';
+
+// OutUnit 기준 단일 수량 (DB_STRUCTURE "수량 조회 정답 쿼리")
+const QTY = (t) => `CASE
+  WHEN p.OutUnit IN (N'박스','BOX','Box')  THEN ${t}.BoxQuantity
+  WHEN p.OutUnit IN (N'단','BUNCH','Bunch') THEN ${t}.BunchQuantity
+  WHEN p.OutUnit IN (N'송이','STEAM','STEM') THEN ${t}.SteamQuantity
+  ELSE ${t}.BoxQuantity END`;
+
+const weekParams = (year, week) => ({ yr: { type: sql.Int, value: parseInt(year, 10) }, wk: { type: sql.NVarChar, value: week } });
+
+async function board(year, week) {
+  const P = weekParams(year, week);
+  // 발주(품목별) / 입고(농장·품목별) / 분배(품목별) 세 집계를 품목으로 맞춘다. 농장은 입고에만 있으므로 국가는 Product.CounName 기준.
+  const [ord, inc, shp] = await Promise.all([
+    query(`SELECT od.ProdKey, ISNULL(p.DisplayName,p.ProdName) AS ProdName, ISNULL(p.CounName,'') AS Country, ISNULL(p.FlowerName,'') AS Flower,
+                  SUM(${QTY('od')}) AS Qty
+             FROM OrderDetail od JOIN OrderMaster om ON om.OrderMasterKey = od.OrderMasterKey JOIN Product p ON p.ProdKey = od.ProdKey
+            WHERE om.OrderYear=@yr AND om.OrderWeek=@wk AND ISNULL(om.isDeleted,0)=0 AND ISNULL(od.isDeleted,0)=0
+            GROUP BY od.ProdKey, p.DisplayName, p.ProdName, p.CounName, p.FlowerName`, P),
+    query(`SELECT wd.ProdKey, ISNULL(p.DisplayName,p.ProdName) AS ProdName, ISNULL(p.CounName,'') AS Country, ISNULL(p.FlowerName,'') AS Flower,
+                  wm.FarmName, SUM(${QTY('wd')}) AS Qty, SUM(ISNULL(wd.BoxQuantity,0)) AS Box, AVG(NULLIF(wd.UPrice,0)) AS UPrice, COUNT(DISTINCT wm.WarehouseKey) AS Invoices
+             FROM WarehouseDetail wd JOIN WarehouseMaster wm ON wm.WarehouseKey = wd.WarehouseKey JOIN Product p ON p.ProdKey = wd.ProdKey
+            WHERE wm.OrderYear=@yr AND wm.OrderWeek=@wk AND ISNULL(wm.isDeleted,0)=0
+            GROUP BY wd.ProdKey, p.DisplayName, p.ProdName, p.CounName, p.FlowerName, wm.FarmName`, P),
+    query(`SELECT sd.ProdKey, SUM(ISNULL(sd.OutQuantity,0)) AS Qty
+             FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sm.ShipmentKey = sd.ShipmentKey
+            WHERE sm.OrderYear=@yr AND sm.OrderWeek=@wk AND ISNULL(sm.isDeleted,0)=0
+            GROUP BY sd.ProdKey`, P),
+  ]);
+  // 운임·중량 항목(Chargeable/Gross weight·운송료·Doc fee)은 품목이 아니라 인보이스 부대비용 행 → 보드/대사에서 제외 (실측 38-02: '국내 13,494' 오염)
+  const isFreight = (name) => /weight|운송료|운임|freight|doc\s*fee|handling|surcharge|통관|customs/i.test(String(name || ''));
+  const shpBy = new Map(shp.recordset.map((r) => [r.ProdKey, Number(r.Qty) || 0]));
+  const ordBy = new Map(ord.recordset.map((r) => [r.ProdKey, r]));
+  // 품목 단위 대사 행
+  const prodMap = new Map();
+  for (const r of ord.recordset) prodMap.set(r.ProdKey, { prodKey: r.ProdKey, name: r.ProdName, country: r.Country, flower: r.Flower, ordered: Number(r.Qty) || 0, received: 0, farms: [], shipped: shpBy.get(r.ProdKey) || 0 });
+  for (const r of inc.recordset) {
+    const row = prodMap.get(r.ProdKey) || (prodMap.set(r.ProdKey, { prodKey: r.ProdKey, name: r.ProdName, country: r.Country, flower: r.Flower, ordered: 0, received: 0, farms: [], shipped: shpBy.get(r.ProdKey) || 0 }), prodMap.get(r.ProdKey));
+    row.received += Number(r.Qty) || 0; row.farms.push({ farm: r.FarmName, qty: Number(r.Qty) || 0, box: Number(r.Box) || 0, uprice: r.UPrice == null ? null : Number(r.UPrice) });
+  }
+  for (const [k, q] of shpBy) if (!prodMap.has(k)) prodMap.set(k, { prodKey: k, name: `#${k}`, country: '', flower: '', ordered: 0, received: 0, farms: [], shipped: q });
+  const items = [...prodMap.values()].filter((r) => !isFreight(r.name)).map((r) => {
+    const diff = r.received - r.ordered;
+    const tag = r.ordered === 0 && r.received > 0 ? '미발주' : r.received === 0 && r.ordered > 0 ? '미입고' : diff < 0 ? '부족' : diff > 0 ? '초과' : '일치';
+    return { ...r, diff, tag, fill: r.ordered ? Math.round(100 * r.received / r.ordered) : null, shipRate: r.received ? Math.round(100 * r.shipped / r.received) : null };
+  }).sort((a, b) => (a.country || '').localeCompare(b.country || '') || (a.flower || '').localeCompare(b.flower || '') || a.name.localeCompare(b.name));
+  // 카드: 국가 × 농장 (발주는 국가 단위로만 붙는다 — 농장은 입고에만 있음)
+  const cards = {};
+  for (const it of items) {
+    const c = cards[it.country || '(국가없음)'] || (cards[it.country || '(국가없음)'] = { country: it.country || '(국가없음)', ordered: 0, received: 0, shipped: 0, products: 0, missing: 0, farms: {} });
+    c.ordered += it.ordered; c.received += it.received; c.shipped += it.shipped; c.products++; if (it.tag === '미입고') c.missing++;
+    for (const f of it.farms) { const fc = c.farms[f.farm] || (c.farms[f.farm] = { farm: f.farm, qty: 0, box: 0, products: 0 }); fc.qty += f.qty; fc.box += f.box; fc.products++; }
+  }
+  const cardList = Object.values(cards).map((c) => ({ ...c, farms: Object.values(c.farms).sort((a, b) => b.qty - a.qty), fill: c.ordered ? Math.round(100 * c.received / c.ordered) : null, shipRate: c.received ? Math.round(100 * c.shipped / c.received) : null })).sort((a, b) => b.ordered - a.ordered);
+  return { cards: cardList, items, totals: { ordered: items.reduce((a, b) => a + b.ordered, 0), received: items.reduce((a, b) => a + b.received, 0), shipped: items.reduce((a, b) => a + b.shipped, 0), missing: items.filter((i) => i.tag === '미입고').length, short: items.filter((i) => i.tag === '부족').length, over: items.filter((i) => i.tag === '초과').length, unordered: items.filter((i) => i.tag === '미발주').length } };
+}
+
+async function farm(farmName, months) {
+  const P = { fm: { type: sql.NVarChar, value: farmName }, since: { type: sql.Date, value: new Date(Date.now() - months * 30 * 86400e3) } };
+  const [inv, prod] = await Promise.all([
+    query(`SELECT wm.WarehouseKey, wm.OrderYear, wm.OrderWeek, wm.InvoiceNo, wm.OrderNo AS AWB, CONVERT(NVARCHAR(10), wm.InputDate, 120) AS InputDate,
+                  wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD, wm.DocFeeUSD,
+                  SUM(ISNULL(wd.BoxQuantity,0)) AS Box, SUM(ISNULL(wd.TPrice,0)) AS Amount, COUNT(wd.WdetailKey) AS Lines
+             FROM WarehouseMaster wm LEFT JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey
+            WHERE wm.FarmName=@fm AND ISNULL(wm.isDeleted,0)=0 AND wm.InputDate >= @since
+            GROUP BY wm.WarehouseKey, wm.OrderYear, wm.OrderWeek, wm.InvoiceNo, wm.OrderNo, wm.InputDate, wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD, wm.DocFeeUSD
+            ORDER BY wm.InputDate DESC`, P),
+    query(`SELECT wd.ProdKey, ISNULL(p.DisplayName,p.ProdName) AS ProdName, ISNULL(p.FlowerName,'') AS Flower, wm.OrderYear, wm.OrderWeek,
+                  SUM(ISNULL(wd.BoxQuantity,0)) AS Box, SUM(${QTY('wd')}) AS Qty, AVG(NULLIF(wd.UPrice,0)) AS UPrice
+             FROM WarehouseDetail wd JOIN WarehouseMaster wm ON wm.WarehouseKey = wd.WarehouseKey JOIN Product p ON p.ProdKey = wd.ProdKey
+            WHERE wm.FarmName=@fm AND ISNULL(wm.isDeleted,0)=0 AND wm.InputDate >= @since
+            GROUP BY wd.ProdKey, p.DisplayName, p.ProdName, p.FlowerName, wm.OrderYear, wm.OrderWeek`, P),
+  ]);
+  const byWeek = {}; const byProd = {};
+  for (const r of prod.recordset) {
+    const wk = `${r.OrderYear}-${r.OrderWeek}`;
+    const w = byWeek[wk] || (byWeek[wk] = { week: wk, box: 0, qty: 0, products: 0 }); w.box += Number(r.Box) || 0; w.qty += Number(r.Qty) || 0; w.products++;
+    const pr = byProd[r.ProdKey] || (byProd[r.ProdKey] = { prodKey: r.ProdKey, name: r.ProdName, flower: r.Flower, box: 0, qty: 0, weeks: [] });
+    pr.box += Number(r.Box) || 0; pr.qty += Number(r.Qty) || 0; pr.weeks.push({ week: wk, qty: Number(r.Qty) || 0, uprice: r.UPrice == null ? null : Number(r.UPrice) });
+  }
+  const invoices = inv.recordset.map((r) => ({ ...r, kgCost: r.ChargeableWeight && r.FreightRateUSD ? Number(r.FreightRateUSD) : null, freightUSD: r.ChargeableWeight && r.FreightRateUSD ? Math.round(Number(r.ChargeableWeight) * Number(r.FreightRateUSD) * 100) / 100 : null }));
+  return { farm: farmName, invoices, weeks: Object.values(byWeek).sort((a, b) => a.week.localeCompare(b.week)), products: Object.values(byProd).map((p) => ({ ...p, weeks: p.weeks.sort((a, b) => a.week.localeCompare(b.week)) })).sort((a, b) => b.qty - a.qty) };
+}
+
+async function product(q, months) {
+  const P = { q: { type: sql.NVarChar, value: `%${q}%` }, since: { type: sql.Date, value: new Date(Date.now() - months * 30 * 86400e3) } };
+  const r = await query(`SELECT wd.ProdKey, ISNULL(p.DisplayName,p.ProdName) AS ProdName, ISNULL(p.CounName,'') AS Country, wm.FarmName, wm.OrderYear, wm.OrderWeek,
+                                SUM(ISNULL(wd.BoxQuantity,0)) AS Box, SUM(${QTY('wd')}) AS Qty, AVG(NULLIF(wd.UPrice,0)) AS UPrice, MIN(NULLIF(wd.UPrice,0)) AS MinP, MAX(NULLIF(wd.UPrice,0)) AS MaxP
+                           FROM WarehouseDetail wd JOIN WarehouseMaster wm ON wm.WarehouseKey = wd.WarehouseKey JOIN Product p ON p.ProdKey = wd.ProdKey
+                          WHERE (p.ProdName LIKE @q OR p.DisplayName LIKE @q OR p.FlowerName LIKE @q) AND ISNULL(wm.isDeleted,0)=0 AND wm.InputDate >= @since
+                          GROUP BY wd.ProdKey, p.DisplayName, p.ProdName, p.CounName, wm.FarmName, wm.OrderYear, wm.OrderWeek
+                          ORDER BY wm.OrderYear, wm.OrderWeek`, P);
+  const prods = {};
+  for (const x of r.recordset) {
+    const pr = prods[x.ProdKey] || (prods[x.ProdKey] = { prodKey: x.ProdKey, name: x.ProdName, country: x.Country, rows: [], farms: new Set() });
+    pr.rows.push({ week: `${x.OrderYear}-${x.OrderWeek}`, farm: x.FarmName, box: Number(x.Box) || 0, qty: Number(x.Qty) || 0, uprice: x.UPrice == null ? null : Math.round(Number(x.UPrice) * 100) / 100, min: x.MinP == null ? null : Number(x.MinP), max: x.MaxP == null ? null : Number(x.MaxP) });
+    pr.farms.add(x.FarmName);
+  }
+  return { q, products: Object.values(prods).map((p) => { const ups = p.rows.filter((r) => r.uprice != null); const last = ups[ups.length - 1], prev = ups[ups.length - 2]; return { ...p, farms: [...p.farms], lastPrice: last ? last.uprice : null, prevPrice: prev ? prev.uprice : null, changePct: last && prev && prev.uprice ? Math.round(1000 * (last.uprice - prev.uprice) / prev.uprice) / 10 : null, totalQty: p.rows.reduce((a, b) => a + b.qty, 0) }; }).sort((a, b) => b.totalQty - a.totalQty).slice(0, 60) };
+}
+
+async function weeks() {
+  const r = await query(`SELECT TOP 30 OrderYear, OrderWeek, COUNT(*) AS n FROM WarehouseMaster WHERE ISNULL(isDeleted,0)=0 GROUP BY OrderYear, OrderWeek ORDER BY OrderYear DESC, OrderWeek DESC`);
+  return { weeks: r.recordset.map((x) => ({ year: x.OrderYear, week: x.OrderWeek, n: x.n })) };
+}
+
+export default withAuth(async function handler(req, res) {
+  if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).json({ success: false, error: 'Method not allowed' }); }
+  const { view = 'board', year, week: rawWeek, farm: farmName, q, months = '6' } = req.query;
+  try {
+    if (view === 'weeks') return res.status(200).json({ success: true, ...(await weeks()) });
+    if (view === 'farm') { if (!farmName) return res.status(400).json({ success: false, error: 'farm 필요' }); return res.status(200).json({ success: true, ...(await farm(String(farmName), Math.min(24, parseInt(months, 10) || 6))) }); }
+    if (view === 'product') { if (!q) return res.status(400).json({ success: false, error: 'q 필요' }); return res.status(200).json({ success: true, ...(await product(String(q), Math.min(24, parseInt(months, 10) || 6))) }); }
+    const week = rawWeek ? normalizeOrderWeek(rawWeek) : '';
+    if (!/^\d{4}$/.test(String(year || '')) || !week) return res.status(400).json({ success: false, error: 'year·week 필요 (예: 2026, 38-02)' });
+    const data = await board(year, week);
+    return res.status(200).json({ success: true, year: Number(year), week, ...(view === 'reconcile' ? { items: data.items, totals: data.totals } : data) });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});

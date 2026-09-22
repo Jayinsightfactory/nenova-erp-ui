@@ -29,6 +29,12 @@
   ],
   "actions": [
     {
+      "name": "ARRIVAL_EXACT_PRODUCT_MATCH",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "공통 파서의 유일한 정규화 품명 정확일치는 fuzzy alias/부분일치보다 우선한다. 정확명 중복이면 자동 선택하지 않는다. Roselily는 백합이며 rose 단어 내부 부분일치로 장미 가점을 주지 않는다. 운영 Aisha 보정은 2026 Import23 현재본11행만 배포 후 감사와 함께1211→3170, 품종백합으로 정정하며 원가/수량/단위/농장 및 ERP 원장은 보존한다."
+    },
+    {
       "name": "ARRIVAL_IMPORT_EXAMPLE_AND_VIEW_GUARD",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
