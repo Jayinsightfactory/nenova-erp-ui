@@ -8,7 +8,10 @@
     "pages/import/index.js",
     "lib/farmRemitImport.js",
     "lib/farmRemitInbox.js",
-    "pages/api/incoming/remit-inbox.js"
+    "pages/api/incoming/remit-inbox.js",
+    "pages/api/incoming/farm-alias.js",
+    "lib/farmAlias.js",
+    "pages/import/freight-calc.js"
   ],
   "businessIdentity": [
     "OrderYear",

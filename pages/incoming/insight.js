@@ -4,8 +4,8 @@
 // 근거: Orbit 실측(수입부가 엑셀·카톡·WhatsApp으로 손대사·ETA 추적) — docs 기획 2026-09-22
 import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { ConfigProvider, Table, Card, Statistic, Tag, Progress, Segmented, Select, Input, Button, Space, Typography, Tooltip, Alert, Empty, Row, Col, DatePicker, message, theme as antdTheme } from 'antd';
-import { DownloadOutlined, ReloadOutlined, CheckOutlined, CloseOutlined, HistoryOutlined } from '@ant-design/icons';
+import { ConfigProvider, Table, Card, Statistic, Tag, Progress, Segmented, Select, Input, Button, Space, Typography, Tooltip, Alert, Empty, Row, Col, DatePicker, Modal, Popconfirm, message, theme as antdTheme } from 'antd';
+import { DownloadOutlined, ReloadOutlined, CheckOutlined, CloseOutlined, HistoryOutlined, MergeCellsOutlined, FileExcelOutlined } from '@ant-design/icons';
 import koKR from 'antd/locale/ko_KR';
 import dayjs from 'dayjs';
 
@@ -37,6 +37,7 @@ export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
   const [farmName, setFarmName] = useState(initialFarm || ''); const [farmData, setFarmData] = useState(null);
   const [prodQ, setProdQ] = useState(''); const [prodData, setProdData] = useState(null);
   const [months, setMonths] = useState('6');
+  const [aliasOpen, setAliasOpen] = useState(false); const [alias, setAlias] = useState(null); const [aliasForm, setAliasForm] = useState({ alias: '', canonical: '' });
   const [eta, setEta] = useState(null); const [etaForm, setEtaForm] = useState({ farm: '', country: '', awb: '', eta: '', stage: '발주', note: '' }); const [etaScope, setEtaScope] = useState('active');
 
   useEffect(() => {
@@ -62,6 +63,21 @@ export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
   const inboxAct = async (body) => { try { await api('/api/incoming/remit-inbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); message.success(body.action === 'confirm' ? '송금 확정 — 잔액에 반영' : '거절 처리'); await loadInbox(); await loadLedger(); } catch (e) { message.error(e.message); } };
   const rescan = () => run(async () => { const r = await api('/api/incoming/remit-inbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'rescan' }) }); message.info(`파일 ${r.files} · 행 ${r.parsed} · 새로 ${r.inserted} · 갱신 ${r.updated} · 농장 미매칭 ${r.unmatched}`); await loadInbox(); await loadLedger(); });
   const saveEta = async (row) => { try { await api('/api/incoming/eta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ year, week, ...row }) }); setEtaForm({ farm: '', country: '', awb: '', eta: '', stage: '발주', note: '' }); loadEta(); } catch (e) { message.error(e.message); } };
+  const loadAlias = async () => { try { setAlias(await api('/api/incoming/farm-alias')); } catch (e) { message.error(e.message); } };
+  const aliasPost = async (body, ok) => { try { await api('/api/incoming/farm-alias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); message.success(ok || '저장'); await loadAlias(); loadLedger(); } catch (e) { message.error(e.message); } };
+  // 가브리엘 lista 엑셀(농장 클레임 리스트) — 불량차감 원장에서 그대로 생성. 파일명·시트명·헤더는 원본 규칙(nenova_26-1_lista.xlsx / 'Lista 26-1차')
+  const exportLista = async () => {
+    if (!year || !week) return message.warning('차수를 선택하세요');
+    try {
+      const j = await api(`/api/incoming/insight?view=lista&year=${year}&week=${week}`);
+      if (!j.rows.length) return message.info(`${year} ${week} 불량차감(클레임) 없음`);
+      const short = week.replace(/^(\d{1,2})-0?(\d)$/, '$1-$2');
+      const aoa = [[`네노바 주문/클레임 리스트 — ${short}차 (${year})`], ['Lote', 'Farm', 'Variedad', 'Cantidad', 'Unidad', 'Nombre (한글)', 'Observación', '유형', '수입부확인'], ...j.rows.map((r) => [r.lote, r.farm || r.farmRaw, r.variedad, r.cantidad, r.unidad, r.nombre, r.observacion, r.tipo, r.confirmed ? 'Y' : ''])];
+      const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{ wch: 8 }, { wch: 18 }, { wch: 22 }, { wch: 9 }, { wch: 8 }, { wch: 14 }, { wch: 40 }, { wch: 8 }, { wch: 8 }];
+      XLSX.utils.book_append_sheet(wb, ws, `Lista ${short}차`); XLSX.writeFile(wb, `nenova_${short}_lista.xlsx`);
+      message.success(`${j.rows.length}행 · 농장 ${j.farms}${j.noFarm ? ` · 농장 미지정 ${j.noFarm}` : ''}`);
+    } catch (e) { message.error(e.message); }
+  };
 
   useEffect(() => { if (tab === 'board' || tab === 'reconcile') loadBoard(); }, [year, week, tab === 'board' || tab === 'reconcile']); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (tab === 'farm' && farmName && !farmData) loadFarm(); }, [tab, farmName]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -167,7 +183,7 @@ export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
       {tab === 'ledger' && ledger && (
         <Card size="small" title={<Space wrap><Text strong>농장 정산·송금 ({months}개월 입고 기준)</Text>{['', '미송금', '부분송금', '완납'].map((t) => <Tag.CheckableTag key={t} checked={ledgerF === t} onChange={() => setLedgerF(t)}>{t || '전체'} {t ? ledger.rows.filter((r) => r.status === t).length : ledger.rows.length}</Tag.CheckableTag>)}
             <Text type="secondary"><Text strong type={ledger.totals.overdueFarms ? 'danger' : 'success'}>연체 {ledger.totals.overdueFarms}농장 {fmt(ledger.totals.overdueUSD)}</Text> · 7일 내 만기 {ledger.totals.dueSoon} · 결제일 미설정 {ledger.totals.noPayDay} · 클레임 {ledger.totals.claims}건(대기 {ledger.totals.claimsPending}) · 청구 {fmt(ledger.totals.billed)} · 크레딧 {fmt(ledger.totals.credit)} · 송금 {fmt(ledger.totals.remit)} · <Text strong type={ledger.totals.balance > 0 ? 'danger' : 'success'}>잔액 {fmt(ledger.totals.balance)}</Text> USD</Text></Space>}
-          extra={<Space><Button size="small" href="/incoming-price">송금·크레딧 입력</Button><Button size="small" icon={<DownloadOutlined />} onClick={() => exportRows(ledger.rows.map((r) => ({ 농장: r.farm, 인보이스: r.invoices, 상품금액: r.goods, 운임: r.freight, 청구: r.billed, 크레딧: r.credit, 송금: r.remit, 잔액: r.balance, 상태: r.status, 결제일: r.pay.day, 다음만기: r.pay.nextDue, Dday: r.pay.dday, 연체USD: r.pay.overdueUSD, 미결인보이스: r.pay.unpaidN, 클레임건수: r.claims.n, 클레임수량: r.claims.qty, 클레임확인대기: r.claims.pending, 마지막입고: r.lastInput, 마지막송금: r.lastRemit })), `농장정산_${months}개월`)}>엑셀</Button></Space>}>
+          extra={<Space><Button size="small" icon={<MergeCellsOutlined />} onClick={() => { setAliasOpen(true); loadAlias(); }}>농장 별칭</Button><Button size="small" icon={<FileExcelOutlined />} onClick={exportLista} title="선택 차수의 불량차감을 농장용 스페인어 클레임 리스트(lista)로 내려받기">lista 엑셀 {week}</Button><Button size="small" href="/import/freight-calc">AWB 운임 계산기</Button><Button size="small" href="/incoming-price">송금·크레딧 입력</Button><Button size="small" icon={<DownloadOutlined />} onClick={() => exportRows(ledger.rows.map((r) => ({ 농장: r.farm, 인보이스: r.invoices, 상품금액: r.goods, 운임: r.freight, 청구: r.billed, 크레딧: r.credit, 송금: r.remit, 잔액: r.balance, 상태: r.status, 결제일: r.pay.day, 다음만기: r.pay.nextDue, Dday: r.pay.dday, 연체USD: r.pay.overdueUSD, 미결인보이스: r.pay.unpaidN, 클레임건수: r.claims.n, 클레임수량: r.claims.qty, 클레임확인대기: r.claims.pending, 마지막입고: r.lastInput, 마지막송금: r.lastRemit })), `농장정산_${months}개월`)}>엑셀</Button></Space>}>
           <Table size="small" rowKey="farm" columns={ledCols} dataSource={ledger.rows.filter((r) => !ledgerF || r.status === ledgerF)} loading={loading} pagination={{ pageSize: 50, size: 'small', showTotal: (n) => `${n}농장` }} scroll={{ x: 1500 }} />
         </Card>
       )}
@@ -266,6 +282,21 @@ export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
           </Row>}
         </>
       )}
+      <Modal title="농장명 별칭 사전 — 표기 변형을 한 농장으로" open={aliasOpen} onCancel={() => setAliasOpen(false)} footer={null} width={860}>
+        <Alert type="info" showIcon style={{ marginBottom: 8 }} message="전산 원장의 농장명은 바꾸지 않습니다. 정산·송금 매칭·클레임 집계에서만 대표명으로 합산됩니다." />
+        {alias && <>
+          <Card size="small" title={<Text strong>자동 제안 {alias.suggestions.length}그룹</Text>} style={{ marginBottom: 8 }}>
+            {alias.suggestions.length === 0 ? <Text type="secondary">겹치는 표기가 없습니다</Text> : <Table size="small" rowKey="key" pagination={false} dataSource={alias.suggestions} columns={[
+              { title: '대표명(짧은 이름)', dataIndex: 'canonical', width: 200, render: (v, g) => <Select size="small" style={{ width: 190 }} value={v} onChange={(nv) => setAlias({ ...alias, suggestions: alias.suggestions.map((x) => x.key === g.key ? { ...x, canonical: nv } : x) })} options={g.names.map((n) => ({ value: n, label: n }))} /> },
+              { title: '표기들', dataIndex: 'names', render: (ns) => <Space wrap size={4}>{ns.map((n) => <Tag key={n}>{n}</Tag>)}</Space> },
+              { title: '', key: 'a', width: 90, render: (_, g) => <Button size="small" type="primary" onClick={() => aliasPost({ group: g.names.filter((n) => n !== g.canonical), canonical: g.canonical }, `${g.names.length}개 → ${g.canonical}`)}>합치기</Button> },
+            ]} />}
+          </Card>
+          <Card size="small" title={<Space><Text strong>등록된 별칭 {alias.aliases.length}</Text><Input size="small" placeholder="별칭(원장 표기)" value={aliasForm.alias} onChange={(e) => setAliasForm({ ...aliasForm, alias: e.target.value })} style={{ width: 200 }} /><Select size="small" showSearch allowClear placeholder="대표 농장" value={aliasForm.canonical || undefined} onChange={(v) => setAliasForm({ ...aliasForm, canonical: v || '' })} style={{ width: 200 }} options={alias.farms.map((f) => ({ value: f.farm, label: `${f.farm} (${f.n})` }))} /><Button size="small" disabled={!aliasForm.alias || !aliasForm.canonical} onClick={() => aliasPost({ alias: aliasForm.alias, canonical: aliasForm.canonical }).then(() => setAliasForm({ alias: '', canonical: '' }))}>추가</Button></Space>}>
+            <Table size="small" rowKey="alias" pagination={{ pageSize: 10, size: 'small' }} dataSource={alias.aliases} columns={[{ title: '별칭', dataIndex: 'alias' }, { title: '→ 대표명', dataIndex: 'canonical' }, { title: '등록', dataIndex: 'at', width: 100, render: (v) => String(v || '').slice(0, 10) }, { title: '', key: 'd', width: 60, render: (_, a) => <Popconfirm title="별칭 삭제?" onConfirm={() => aliasPost({ alias: a.alias, deleted: true }, '삭제')}><Button size="small" danger icon={<CloseOutlined />} /></Popconfirm> }]} />
+          </Card>
+        </>}
+      </Modal>
       <style jsx global>{`.nv-warn td{background:#fff7e6 !important}`}</style>
     </div>
   );

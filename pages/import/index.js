@@ -11,7 +11,7 @@ const { Text } = Typography;
 const fmt = (n) => (n == null || n === '' ? '–' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }));
 const ST_C = { 미송금: 'red', 부분송금: 'orange', 완납: 'green', 청구없음: 'default' };
 const api = async (u, o) => { const r = await fetch(u, o); const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error(j.error || `HTTP ${r.status}`); return j; };
-const LINKS = [['/incoming', '입고 원장'], ['/incoming-price', '단가·송금 입력'], ['/arrival-cost', '도착원가'], ['/freight', '운송기준원가'], ['/stats/pivot-import', '수입 피벗'], ['/stats/pivot-import-farm-settings', '결제일 설정'], ['/sales/farm-quality', '농장 품질'], ['/incoming/kakao-summary', '카톡 수량집계']];
+const LINKS = [['/incoming', '입고 원장'], ['/import/freight-calc', 'AWB 운임 계산기'], ['/incoming-price', '단가·송금 입력'], ['/arrival-cost', '도착원가'], ['/freight', '운송기준원가'], ['/stats/pivot-import', '수입 피벗'], ['/stats/pivot-import-farm-settings', '결제일 설정'], ['/sales/farm-quality', '농장 품질'], ['/incoming/kakao-summary', '카톡 수량집계']];
 const DDayTag = ({ pay }) => { if (!pay || !pay.unpaidN) return <Text type="secondary">–</Text>; if (!pay.day) return <a href="/stats/pivot-import-farm-settings"><Tag>결제일 설정</Tag></a>; const d = pay.dday; return <Tooltip title={`매월 ${pay.day}일 · 가장 오래된 미결 ${pay.oldestUnpaid} → 만기 ${pay.nextDue} · 미결 ${pay.unpaidN}건${pay.overdueUSD > 0.5 ? ` · 연체 $${fmt(pay.overdueUSD)}` : ''}`}><Tag color={d < 0 ? 'red' : d <= 7 ? 'orange' : 'green'} style={{ fontWeight: 700 }}>{d < 0 ? `D+${-d}` : d === 0 ? 'D-DAY' : `D-${d}`}</Tag></Tooltip>; };
 
 export default function ImportOnePage() {
