@@ -75,7 +75,7 @@ export default withAuth(async function handler(req, res) {
       for (const k of wk) {
         const [y, w] = k.split('|');
         try {
-          const r = await query(`SELECT AWB FROM WarehouseMaster WHERE OrderYear=@yr AND OrderWeek=@wk AND ISNULL(isDeleted,0)=0 AND AWB IS NOT NULL`, { yr: { type: sql.Int, value: parseInt(y, 10) }, wk: { type: sql.NVarChar, value: w } });
+          const r = await query(`SELECT OrderNo AS AWB FROM WarehouseMaster WHERE OrderYear=@yr AND OrderWeek=@wk AND ISNULL(isDeleted,0)=0 AND OrderNo IS NOT NULL`, { yr: { type: sql.Int, value: parseInt(y, 10) }, wk: { type: sql.NVarChar, value: w } });
           for (const x of r.recordset) inLedger.add(String(x.AWB || '').replace(/\D/g, ''));
         } catch {}
       }
