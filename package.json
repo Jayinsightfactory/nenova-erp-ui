@@ -71,9 +71,12 @@
     "test:my-customer-orders": "node __tests__/myCustomerOrderEntry.test.js && node __tests__/myCustomerOrderWritePolicy.test.js && node __tests__/myCustomerOrderApi.test.js && node __tests__/salesPasteOrder.test.js && node __tests__/salesPasteOrderUi.test.js"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.3.4",
     "@anthropic-ai/sdk": "^0.89.0",
     "@noble/hashes": "1.8.0",
     "@radix-ui/react-dialog": "1.1.23",
+    "antd": "^6.6.5",
+    "dayjs": "^1.11.23",
     "exceljs": "^4.4.0",
     "formidable": "^3.5.4",
     "jsonwebtoken": "^9.0.2",

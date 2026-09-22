@@ -1,5 +1,24 @@
 # FormArrivalCost — 도착원가 웹 전용 원장 경계
 
+## 2026-09-22 소수점 저장 대조
+
+동일 dnSpy FormWarehouseView 경계를 유지. 배포 후 운영 Import26 태국38-1의19행,
+품목/농장19개 매칭과 수량4300 확인. 원본38!P15=9033.76279932948 대비 저장9034를
+읽기 probe로 확인했다. 도착원가 전용 Decimal 타입의 scale을 명시하며 ERP SQL은 불변.
+원본 매입 USD·중량도 같은 타입 정책을 사용. 이미 저장된 값은 사용자 보정 확인 전 보존.
+
+## 2026-09-22 태국 차수 인식
+
+dnSpy CLI FormWarehouseView GetData/GetDetail 재실행: ERP Warehouse 읽기 경계 유지.
+운영 읽기 probe에서 2025/2026 태국38-1 현재본 없음. 원본38!C5는 `.38-1`이며
+숫자명 과거 시트들과 Plantilla가 포함됨. 공통 파서의 차수/서식 범위만 보완하고
+기존 자동 저장 year/week/country 검증, 수동보호, WebArrivalCost 트랜잭션을 유지한다.
+견적·매출·ERP·호텔 수기단가 쓰기 없음. 상세 기준은 arrival-thai-week 작업 보고서 참조.
+
+## 2026-09-22 선택 파일 지금 처리
+
+dnSpy CLI FormWarehouseView GetData/GetDetail 재실행으로 WarehouseMaster/Detail 경계를 재확인했다. 즉시 처리는 기존 WebArrivalCost 저장 코어만 호출하며 EXE 저장 순서/SQL 변경이 없다. 운영 SELECT로 2025/2026의 28-1/37-1/38-1/13-1(패딩 포함) 현재본을 대조: 2026 중국28-1 #20 11행, 콜롬비아28-1 #19 196행, NL37-1 #23 8행, 콜롬비아37-1 #19 335행. 이전 연도 해당 현재본 없음. 자동/즉시의 차이는 관리자 확인된 파일 한 개의 대기 시간뿐이며 동일 원가 잠금·수동 보호·검증/감사를 사용한다.
+
 ## 2026-09-22 호텔 관련 품목 연결
 
 FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. 읽기 probe로 호텔 관련 정확원본명 불일치271행, 국가충돌 보류5행 확인. 보정은 배포 후 검토된2026 현재행 ProdKey와 감사만 변경하고 원가/수량/단위/호텔입력/ERP 원장은 보존한다. 엄격 품명 비교에서 브랜드·규격을 제거하지 않는다.

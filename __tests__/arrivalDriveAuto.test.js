@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import './arrivalDriveSchedule.test.js';
+import './arrivalDriveRunNow.test.js';
 import { arrivalDriveCandidate, selectArrivalDriveCandidates, scopeArrivalDriveRows, arrivalDriveTiming, ARRIVAL_DRIVE_DELAY_MS } from '../lib/arrivalDrivePolicy.js';
 // xlsx's ESM entry has named exports only; instrumentation resolves that entry.
 assert.match(fs.readFileSync(new URL('../lib/arrivalCostExcel.js', import.meta.url), 'utf8'), /import \* as XLSX from 'xlsx'/);
@@ -72,7 +73,7 @@ const q = async (text,p={}) => {
   throw Error('Unhandled fixture SQL: '+text.slice(0,80));
 };
 const transact = async fn => {const before=structuredClone(state);try{return await fn(q);}catch(e){state=before;rollbacks++;throw e;}};
-const sqlTypes={Int:'Int',NVarChar:'NVarChar',Decimal:'Decimal'};
+const sqlTypes={Int:'Int',NVarChar:'NVarChar',Decimal:(precision,scale)=>({type:'Decimal',precision,scale})};
 const create = await new AsyncFunction('query','withTransaction','sql',executable+'\nreturn createArrivalCostImport;')(q,transact,sqlTypes);
 const input={parsed:scopeArrivalDriveRows(parsed,source),fileName:a.filename,user:{userId:'fixture'},orderYear:'2026',driveSource:source};
 await create(input);

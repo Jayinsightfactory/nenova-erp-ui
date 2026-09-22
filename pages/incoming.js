@@ -3,6 +3,11 @@ import { apiGetExe } from '../lib/exeParity/client.js';
 import { useLang } from '../lib/i18n';
 import * as XLSX from 'xlsx';
 import { parseWarehousePackingWorkbook } from '../lib/warehousePackingImport.js';
+import { ConfigProvider, Table, Card, Tag, Select, Input, Button, Space, Typography, Alert, Empty, Row, Col, DatePicker, theme as antdTheme } from 'antd';
+import { ReloadOutlined, UploadOutlined, DeleteOutlined, DownloadOutlined, DashboardOutlined } from '@ant-design/icons';
+import koKR from 'antd/locale/ko_KR';
+import dayjs from 'dayjs';
+const { Text } = Typography;
 
 const fmt = n => Number(n || 0).toLocaleString();
 
@@ -91,8 +96,8 @@ export default function Warehouse() {
 
   const farmOptions = useMemo(() => [...new Set(masters.map(m => m.FarmName).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [masters]);
   const weekOptions = useMemo(() => [...new Set(masters.map(m => m.OrderWeek).filter(Boolean))].sort().reverse(), [masters]);
-  const toggleSort = (k) => { if (sortKey === k) setSortDir(d => -d); else { setSortKey(k); setSortDir(k === 'FarmName' ? 1 : -1); } };
-  const sortMark = (k) => sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : '';
+  // 정렬은 antd Table sorter로 이동(2026-09-22); sortKey/sortDir는 필터 정렬 기본값에만 사용
+
   const filteredMasters = useMemo(() => {
     const q = masterSearch.toLowerCase();
     const list = masters.filter(m => {
@@ -216,174 +221,73 @@ export default function Warehouse() {
   };
 
   return (
+    <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 12 } }}>
     <div>
-      <div className="filter-bar">
-        <span className="filter-label">업로드일자</span>
-        <input type="date" className="filter-input" value={startDate} onChange={e=>setStartDate(e.target.value)} />
-        <span style={{color:'var(--text3)'}}>~</span>
-        <input type="date" className="filter-input" value={endDate} onChange={e=>setEndDate(e.target.value)} />
-        <span className="filter-label" style={{marginLeft:8}}>농장</span>
-        <select className="filter-input" value={farmFilter} onChange={e=>setFarmFilter(e.target.value)} style={{maxWidth:200}}>
-          <option value="">전체 ({farmOptions.length})</option>
-          {farmOptions.map(f => <option key={f} value={f}>{f}</option>)}
-        </select>
-        <span className="filter-label">차수</span>
-        <select className="filter-input" value={weekFilter} onChange={e=>setWeekFilter(e.target.value)} style={{maxWidth:110}}>
-          <option value="">전체</option>
-          {weekOptions.map(w => <option key={w} value={w}>{w}</option>)}
-        </select>
-        {(farmFilter || weekFilter) && <button className="btn btn-secondary" onClick={()=>{setFarmFilter('');setWeekFilter('');}}>필터 해제</button>}
-        <div className="page-actions">
-          <button className="btn btn-primary" onClick={load} disabled={loading}>{loading?'조회 중...':t('새로고침')}</button>
-          <button className="btn btn-success" disabled={uploading || deleting} onClick={()=>fileRef.current.click()}>📤 업로드 / Subir</button>
-          <input type="file" ref={fileRef} style={{display:'none'}} accept=".xlsx,.xls" onChange={handleFileChange} />
-          <button className="btn btn-danger" disabled={!selectedKey || deleting || uploading} onClick={handleDelete}>{deleting?'삭제 중...':'🗑️ 원장삭제 / Eliminar Reg.'}</button>
-          <a className="btn btn-secondary" href="/incoming/insight" title="차수 보드·발주·입고 비교·농장·품목·입고 예정">🔎 인사이트</a>
-          <button className="btn btn-secondary" disabled={!filteredMasters.length} onClick={handleMasterExcel}>📊 원장 목록 엑셀</button>
-          <button className="btn btn-secondary" disabled={!selectedKey || detailLoading || !details.length} onClick={handleExcel}>📊 선택 상세 엑셀</button>
-          <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
-        </div>
-      </div>
+      <Space wrap style={{ marginBottom: 6, background: '#fff', border: '1px solid var(--border)', padding: '6px 8px', width: '100%' }}>
+        <Text type="secondary">업로드일자</Text>
+        <DatePicker.RangePicker size="small" allowClear={false} value={[startDate ? dayjs(startDate) : null, endDate ? dayjs(endDate) : null]} onChange={(v) => { if (v && v[0] && v[1]) { setStartDate(v[0].format('YYYY-MM-DD')); setEndDate(v[1].format('YYYY-MM-DD')); } }} presets={[{ label: '최근 7일', value: [dayjs().subtract(7, 'day'), dayjs()] }, { label: '최근 30일', value: [dayjs().subtract(30, 'day'), dayjs()] }, { label: '최근 90일', value: [dayjs().subtract(90, 'day'), dayjs()] }]} />
+        <Text type="secondary">농장</Text>
+        <Select size="small" showSearch allowClear placeholder={`전체 (${farmOptions.length})`} style={{ width: 220 }} value={farmFilter || undefined} onChange={(v) => setFarmFilter(v || '')} options={farmOptions.map((f) => ({ value: f, label: f }))} />
+        <Text type="secondary">차수</Text>
+        <Select size="small" allowClear placeholder="전체" style={{ width: 100 }} value={weekFilter || undefined} onChange={(v) => setWeekFilter(v || '')} options={weekOptions.map((w) => ({ value: w, label: w }))} />
+        <Input.Search size="small" allowClear placeholder="농장명·인보이스·AWB·차수" value={masterSearch} onChange={(e) => setMasterSearch(e.target.value)} style={{ width: 220 }} />
+        <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={load}>{t('새로고침')}</Button>
+        <Button size="small" type="primary" icon={<UploadOutlined />} disabled={uploading || deleting} onClick={() => fileRef.current.click()}>업로드 / Subir</Button>
+        <input type="file" ref={fileRef} style={{ display: 'none' }} accept=".xlsx,.xls" onChange={handleFileChange} />
+        <Button size="small" danger icon={<DeleteOutlined />} disabled={!selectedKey || deleting || uploading} onClick={handleDelete} loading={deleting}>원장삭제</Button>
+        <Button size="small" href="/import" icon={<DashboardOutlined />} title="차수 보드·발주 입고 비교·농장 정산·입고 예정">수입부 통합</Button>
+        <Button size="small" icon={<DownloadOutlined />} disabled={!filteredMasters.length} onClick={handleMasterExcel}>원장 목록 엑셀</Button>
+        <Button size="small" icon={<DownloadOutlined />} disabled={!selectedKey || detailLoading || !details.length} onClick={handleExcel}>선택 상세 엑셀</Button>
+        <Button size="small" onClick={() => window.opener ? window.close() : history.back()}>닫기 / Cerrar</Button>
+      </Space>
 
-      {err && <div style={{padding:'8px 14px',background:'var(--red-bg)',color:'var(--red)',borderRadius:8,marginBottom:10,fontSize:13}}>⚠️ {err}</div>}
-      {successMsg && <div style={{padding:'8px 14px',background:'var(--green-bg)',color:'var(--green)',borderRadius:8,marginBottom:10,fontSize:13}}>{successMsg}</div>}
+      {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 6 }} closable onClose={() => setErr('')} />}
+      {successMsg && <Alert type="success" showIcon message={successMsg} style={{ marginBottom: 6 }} />}
+      <Alert type="info" showIcon style={{ marginBottom: 6 }} message={<span>nenova.exe와 동일한 <b>Packing 엑셀(.xlsx/.xls)</b>만 업로드합니다. 품목 하나라도 정확히 일치하지 않으면 전체 저장이 취소됩니다.</span>} />
 
-      {/* 업로드 형식 안내 */}
-      <div style={{padding:'8px 14px',background:'var(--blue-bg)',color:'var(--blue)',borderRadius:8,marginBottom:14,fontSize:12}}>
-        📋 nenova.exe와 동일한 <strong>Packing 엑셀(.xlsx/.xls)</strong>만 업로드합니다. 품목 하나라도 정확히 일치하지 않으면 전체 저장이 취소됩니다.
-      </div>
-
-      <div className="split-panel">
-        {/* 왼쪽: 입고 원장 목록 */}
-        <div className="card" style={{overflow:'hidden',display:'flex',flexDirection:'column'}}>
-          <div className="card-header">
-            <span className="card-title">입고 원장 목록</span>
-            <span style={{fontSize:12,color:'var(--text3)'}}>{filteredMasters.length}/{masters.length}건</span>
-          </div>
-          <div style={{padding:'4px 6px',borderBottom:'1px solid var(--border)',background:'#fff'}}>
-            <input className="filter-input" placeholder="농장명, 인보이스, AWB 검색..."
-              value={masterSearch} onChange={e=>setMasterSearch(e.target.value)}
-              style={{width:'100%',height:22,fontSize:11,border:'1px solid var(--border2)'}} />
-            {recentFarms.length > 0 && (
-              <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4,alignItems:'center'}}>
-                <span style={{fontSize:10,color:'var(--text3)'}}>최근</span>
-                {recentFarms.map(f => (
-                  <button key={f} type="button" onClick={()=>setFarmFilter(farmFilter===f?'':f)}
-                    style={{fontSize:10,padding:'1px 8px',borderRadius:10,border:'1px solid var(--border2)',background:farmFilter===f?'var(--blue-bg)':'#fff',color:farmFilter===f?'var(--blue)':'inherit',cursor:'pointer'}}>{f}</button>
-                ))}
-              </div>
+      <Row gutter={6} wrap={false} style={{ alignItems: 'flex-start' }}>
+        <Col flex="1 1 0" style={{ minWidth: 0 }}>
+          <Card size="small" title={<Space><Text strong>입고 원장 목록</Text><Text type="secondary">{filteredMasters.length}/{masters.length}건</Text>{recentFarms.length > 0 && <Space size={4}><Text type="secondary" style={{ fontSize: 11 }}>최근</Text>{recentFarms.map((f) => <Tag.CheckableTag key={f} checked={farmFilter === f} onChange={() => setFarmFilter(farmFilter === f ? '' : f)}>{f}</Tag.CheckableTag>)}</Space>}</Space>}>
+            <Table size="small" rowKey="WarehouseKey" loading={loading} dataSource={filteredMasters} scroll={{ x: 1000, y: 'calc(100vh - 330px)' }} pagination={{ pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [50, 100, 500], showTotal: (n) => `${n}건` }}
+              rowClassName={(m) => (selectedKey === m.WarehouseKey ? 'ant-table-row-selected' : '')} onRow={(m) => ({ onClick: () => selectMaster(m.WarehouseKey), style: { cursor: 'pointer' } })}
+              summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={6}><Text strong>합계</Text></Table.Summary.Cell><Table.Summary.Cell index={6} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBox || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={7} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalBunch || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={8} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.totalSteam || 0), 0))}</Text></Table.Summary.Cell><Table.Summary.Cell index={9} colSpan={3} /></Table.Summary.Row></Table.Summary>}
+              columns={[
+                { title: '주문년도', dataIndex: 'OrderYear', width: 80, sorter: (a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear)) },
+                { title: '차수', dataIndex: 'OrderWeek', width: 70, sorter: (a, b) => String(a.OrderWeek).localeCompare(String(b.OrderWeek)), render: (v) => <Text strong>{v}</Text> },
+                { title: '농장명', dataIndex: 'FarmName', ellipsis: true, sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },
+                { title: '인보이스', dataIndex: 'InvoiceNo', width: 110, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
+                { title: 'AWB', dataIndex: 'AWB', width: 120, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
+                { title: '입력일자', dataIndex: 'InputDate', width: 100, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
+                { title: '박스', dataIndex: 'totalBox', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBox || 0) - (b.totalBox || 0) },
+                { title: '단', dataIndex: 'totalBunch', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBunch || 0) - (b.totalBunch || 0) },
+                { title: '송이', dataIndex: 'totalSteam', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalSteam || 0) - (b.totalSteam || 0) },
+                { title: 'GW', dataIndex: 'GrossWeight', align: 'right', width: 70, render: (v) => v ?? <Text type="secondary">–</Text>, sorter: (a, b) => (a.GrossWeight || 0) - (b.GrossWeight || 0) },
+                { title: 'CW', dataIndex: 'ChargeableWeight', align: 'right', width: 70, render: (v) => v ?? <Text type="secondary">–</Text> },
+                { title: 'Rate', dataIndex: 'FreightRateUSD', align: 'right', width: 70, render: (v) => v ?? <Text type="secondary">–</Text> },
+              ]} />
+          </Card>
+        </Col>
+        <Col flex="0 0 46%" style={{ minWidth: 0 }}>
+          <Card size="small" title={<Space><Text strong>입고 상세 목록</Text>{selected && <Tag color="blue">{selected.FarmName} · {selected.InvoiceNo}</Tag>}</Space>} extra={selectedKey && <Input.Search size="small" allowClear placeholder="품목명·주문코드" value={detailSearch} onChange={(e) => setDetailSearch(e.target.value)} style={{ width: 180 }} />}>
+            {!selectedKey ? <Empty description="원장을 선택하세요" /> : (
+              <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: 800, y: 'calc(100vh - 330px)' }}
+                summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b[k] || 0), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
+                columns={[
+                  { title: '주문코드', dataIndex: '주문코드', width: 90, render: (v) => <Text style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
+                  { title: '품목명(색상)', key: 'name', ellipsis: true, render: (_, d) => <Text strong>{d.DisplayName || d.ProdName}</Text> },
+                  { title: '단위', dataIndex: '단위', width: 56 },
+                  { title: '단/송이', dataIndex: '단송이', align: 'right', width: 66, render: fmt },
+                  { title: '박스/송이', dataIndex: '박스송이', align: 'right', width: 74, render: fmt },
+                  { title: '박스수량', dataIndex: 'BoxQuantity', align: 'right', width: 74, render: fmt },
+                  { title: '단수량', dataIndex: 'BunchQuantity', align: 'right', width: 70, render: fmt },
+                  { title: '송이수량', dataIndex: 'SteamQuantity', align: 'right', width: 74, render: fmt },
+                  { title: '단가', dataIndex: '단가', align: 'right', width: 70, render: fmt },
+                  { title: '출하단가', dataIndex: '총액', align: 'right', width: 80, render: fmt },
+                ]} />
             )}
-          </div>
-          <div style={{overflowX:'auto',flex:1}}>
-            {loading ? <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div> : (
-              <table className="tbl" style={{minWidth:600}}>
-                <thead>
-                  <tr>
-                    <th style={{width:32}}>선택</th>
-                    {[['OrderYear','주문년도'],['OrderWeek','차수'],['FarmName','농장명'],['InvoiceNo','인보이스'],['AWB','AWB'],['InputDate','입력일자']].map(([k,l]) => (
-                      <th key={k} onClick={()=>toggleSort(k)} style={{cursor:'pointer',whiteSpace:'nowrap',userSelect:'none',color:sortKey===k?'var(--blue)':undefined}} title="클릭하면 정렬">{l}{sortMark(k)}</th>
-                    ))}
-                    {[['totalBox','박스'],['totalBunch','단'],['totalSteam','송이'],['GrossWeight','GW'],['ChargeableWeight','CW'],['FreightRateUSD','Rate']].map(([k,l]) => (
-                      <th key={k} onClick={()=>toggleSort(k)} style={{textAlign:'right',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none',color:sortKey===k?'var(--blue)':undefined}} title="클릭하면 정렬">{l}{sortMark(k)}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMasters.length === 0
-                    ? <tr><td colSpan={13} style={{textAlign:'center',padding:40,color:'var(--text3)'}}>데이터 없음</td></tr>
-                    : filteredMasters.map(m => (
-                      <tr key={m.WarehouseKey} className={selectedKey===m.WarehouseKey?'selected':''} onClick={()=>selectMaster(m.WarehouseKey)} style={{cursor:'pointer'}}>
-                        <td><input type="checkbox" readOnly checked={selectedKey===m.WarehouseKey}/></td>
-                        <td style={{fontFamily:'var(--mono)',fontSize:12}}>{m.OrderYear}</td>
-                        <td style={{fontFamily:'var(--mono)',fontWeight:700}}>{m.OrderWeek}</td>
-                        <td className="name">{m.FarmName}</td>
-                        <td style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)'}}>{m.InvoiceNo}</td>
-                        <td style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)'}}>{m.AWB}</td>
-                        <td style={{fontFamily:'var(--mono)',fontSize:12}}>{m.InputDate}</td>
-                        <td className="num">{fmt(m.totalBox)}</td>
-                        <td className="num">{fmt(m.totalBunch)}</td>
-                        <td className="num">{fmt(m.totalSteam)}</td>
-                        <td className="num" style={{color:m.GrossWeight==null?'var(--text3)':'inherit',fontSize:11}}>{m.GrossWeight ?? '–'}</td>
-                        <td className="num" style={{color:m.ChargeableWeight==null?'var(--text3)':'inherit',fontSize:11}}>{m.ChargeableWeight ?? '–'}</td>
-                        <td className="num" style={{color:m.FreightRateUSD==null?'var(--text3)':'inherit',fontSize:11}}>{m.FreightRateUSD ?? '–'}</td>
-                      </tr>
-                    ))}
-                </tbody>
-                <tfoot>
-                  <tr className="foot">
-                    <td colSpan={7}>합계</td>
-                    <td className="num">{fmt(filteredMasters.reduce((a,b)=>a+(b.totalBox||0),0))}</td>
-                    <td className="num">{fmt(filteredMasters.reduce((a,b)=>a+(b.totalBunch||0),0))}</td>
-                    <td className="num">{fmt(filteredMasters.reduce((a,b)=>a+(b.totalSteam||0),0))}</td>
-                    <td colSpan={3}></td>
-                  </tr>
-                </tfoot>
-              </table>
-            )}
-          </div>
-        </div>
-
-        {/* 오른쪽: 입고 상세 목록 */}
-        <div className="card" style={{overflow:'hidden',display:'flex',flexDirection:'column'}}>
-          <div className="card-header">
-            <span className="card-title">입고 상세 목록</span>
-            {selected && <span style={{fontSize:12,color:'var(--blue)',fontWeight:600}}>{selected.FarmName} · {selected.InvoiceNo}</span>}
-          </div>
-          {selectedKey && (
-            <div style={{padding:'4px 6px',borderBottom:'1px solid var(--border)',background:'#fff'}}>
-              <input className="filter-input" placeholder="품목명, 주문코드 검색..."
-                value={detailSearch} onChange={e=>setDetailSearch(e.target.value)}
-                style={{width:'100%',height:22,fontSize:11,border:'1px solid var(--border2)'}} />
-            </div>
-          )}
-          {!selectedKey ? (
-            <div className="empty-state"><div className="empty-icon">📋</div><div className="empty-text">원장을 선택하세요</div></div>
-          ) : detailLoading ? (
-            <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div>
-          ) : (
-            <div style={{overflowX:'auto',flex:1}}>
-              <table className="tbl" style={{minWidth:700}}>
-                <thead>
-                  <tr>
-                    <th>주문코드</th><th>품목명(색상)</th><th>단위</th>
-                    <th style={{textAlign:'right'}}>단/송이</th><th style={{textAlign:'right'}}>박스/송이</th>
-                    <th style={{textAlign:'right'}}>박스수량</th><th style={{textAlign:'right'}}>단수량</th><th style={{textAlign:'right'}}>송이수량</th>
-                    <th style={{textAlign:'right'}}>단가</th><th style={{textAlign:'right'}}>출하단가</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredDetails.length === 0
-                    ? <tr><td colSpan={10} style={{textAlign:'center',padding:32,color:'var(--text3)'}}>상세 데이터 없음</td></tr>
-                    : filteredDetails.map((d,i) => (
-                      <tr key={i}>
-                        <td style={{fontFamily:'var(--mono)',fontSize:11}}>{d.주문코드}</td>
-                        <td style={{fontSize:12,fontWeight:500}}>{d.DisplayName || d.ProdName}</td>
-                        <td style={{fontSize:12}}>{d.단위}</td>
-                        <td className="num">{fmt(d.단송이)}</td>
-                        <td className="num">{fmt(d.박스송이)}</td>
-                        <td className="num">{fmt(d.BoxQuantity)}</td>
-                        <td className="num">{fmt(d.BunchQuantity)}</td>
-                        <td className="num">{fmt(d.SteamQuantity)}</td>
-                        <td className="num">{fmt(d.단가)}</td>
-                        <td className="num">{fmt(d.총액)}</td>
-                      </tr>
-                    ))}
-                </tbody>
-                <tfoot>
-                  <tr className="foot">
-                    <td colSpan={5}>합계</td>
-                    <td className="num">{fmt(filteredDetails.reduce((a,b)=>a+(b.BoxQuantity||0),0))}</td>
-                    <td className="num">{fmt(filteredDetails.reduce((a,b)=>a+(b.BunchQuantity||0),0))}</td>
-                    <td className="num">{fmt(filteredDetails.reduce((a,b)=>a+(b.SteamQuantity||0),0))}</td>
-                    <td className="num">{fmt(filteredDetails.reduce((a,b)=>a+(b.단가||0),0))}</td>
-                    <td className="num">{fmt(filteredDetails.reduce((a,b)=>a+(b.총액||0),0))}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+          </Card>
+        </Col>
+      </Row>
 
       {/* 업로드 모달 */}
       {showUploadModal && (
@@ -445,5 +349,6 @@ export default function Warehouse() {
         </div>
       )}
     </div>
+    </ConfigProvider>
   );
 }
