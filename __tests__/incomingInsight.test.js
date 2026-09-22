@@ -58,6 +58,6 @@ for (const s of [src, eta]) assert.ok(!/wm\.AWB\b|SELECT AWB FROM WarehouseMaste
 {
   const fc = fs.readFileSync(path.join(root, 'pages/api/incoming/freight-calc.js'), 'utf8') + fs.readFileSync(path.join(root, 'lib/awbFreightCalc.js'), 'utf8');
   assert.ok(!/lib\/db|WebArrivalCost|\bINSERT\b|\bUPDATE\b/.test(fc.replace(/\/\/.*$/gm, '')), '계산기 저장은 DB·도착원가 테이블에 쓰지 않는다');
-  const strip = (n) => n.replace(/^[가-힣()\s]+/, '').trim() || n;
-  assert.deepStrictEqual(['카네이션 novia', '장미 spray fairy lola', 'ruscus', '수국 (콜) blue'].map(strip), ['novia', 'spray fairy lola', 'ruscus', 'blue']);
+  const vari = (p, c) => { const pn = String(p || '').replace(/^[가-힣()\s]+/, '').trim(); return [pn || (c ? '' : p), c].filter(Boolean).join(' ').toLowerCase(); };
+  assert.deepStrictEqual([vari('카네이션 novia', ''), vari('카네이션', 'novia'), vari('장미', 'spray fairy lola'), vari('ruscus', ''), vari('기타', '')], ['novia', 'novia', 'spray fairy lola', 'ruscus', '기타']);
 }
