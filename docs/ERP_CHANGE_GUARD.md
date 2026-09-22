@@ -2,6 +2,9 @@
 
 작성일: 2026-07-20
 
+## 2026-09-22 도착원가 예시 혼입
+`08-1(예시)`가 파일명 차수 fallback으로 실제 원가에 포함됐다. 수동/자동 공통 파서에서 명시 예시 시트를 제외하고 제외 시트명을 알린다. 업로드 후 저장 scope를 선택하고 목록/품종/누락 조회가 숫자 차수 비교를 공유한다. 검증은 행수만 아닌 원본 SheetName/SourceRow를 대조한다. `arrivalImportPolicy.test.js`, `arrivalCostExcel.test.js` 회귀와 작업 보고서 참조. ERP 원장 변경 없이 확인된 예시 현재본만 배포 후 감사와 함께 비활성화한다.
+
 ## 목적
 
 문서에만 있던 dnSpy/DB 규칙을 코드 계약, 자동검사, 배포 차단 조건으로 연결한다. 대상은 `OrderMaster`, `OrderDetail`, `ShipmentMaster`, `ShipmentDetail`, `ShipmentFarm`, `WarehouseMaster`, `StockMaster`, `ShipmentDate`, `ProductStock`, `StockHistory`를 읽거나 쓰는 모든 기능이다.

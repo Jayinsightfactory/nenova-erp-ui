@@ -7,6 +7,7 @@ import { query } from '../../../lib/db.js';
 import { parseArrivalCostWorkbook } from '../../../lib/arrivalCostExcel.js';
 import { createArrivalCostImport } from '../../../lib/arrivalCost.js';
 import { loadMappings } from '../../../lib/parseMappings.js';
+import { arrivalUploadViewScope } from '../../../lib/arrivalImportPolicy.js';
 
 export const config = { api: { bodyParser: false } };
 const MAX_FILE_SIZE = 30 * 1024 * 1024;
@@ -70,6 +71,8 @@ export default withAuth(async function handler(req, res) {
       message: `도착원가 ${saved.rowCount}건을 새 revision으로 저장했습니다.`,
       ...saved,
       sheetStats: parsed.sheetStats,
+      skippedSheets: parsed.skippedSheets,
+      viewScope: arrivalUploadViewScope(parsed.rows, fileName),
       matchedCount: parsed.matchedCount,
       unmatchedCount: parsed.unmatchedCount,
     });

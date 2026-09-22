@@ -208,8 +208,13 @@ export default function ArrivalCostPage() {
       const json = await parseJsonResponse(res);
       if (!res.ok || !json.success) throw new Error(json.error || '업로드 실패');
       formElement.reset();
-      setMessage(`${json.message} · 매칭 ${json.matchedCount}건 / 수동확인 ${json.unmatchedCount}건`);
-      await load(page, appliedFilters);
+      setMessage(`${json.message} · 매칭 ${json.matchedCount}건 / 수동확인 ${json.unmatchedCount}건${json.skippedSheets?.length ? ` · 예시 제외 ${json.skippedSheets.map(s => s.sheetName).join(', ')}` : ''}`);
+      if (json.viewScope) {
+        // The applied-filter effect owns fetching; do not race it with an old-scope load.
+        setFilters(json.viewScope);
+        setAppliedFilters(json.viewScope);
+        setPage(1);
+      } else await load(page, appliedFilters);
     } catch (e) {
       setError(e.message);
     } finally {

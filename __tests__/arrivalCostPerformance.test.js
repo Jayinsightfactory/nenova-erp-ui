@@ -18,7 +18,7 @@ assert.match(page, /\/api\/products\/search\?q=/, '도착원가 품목검색은 
 assert.match(page, /pageSize.*200/, '도착원가 화면은 한 번에 제한된 행만 렌더링해야 합니다.');
 assert.match(api, /lookup === 'varieties'/, '품종 버튼은 distinct 요약 API에서 가져와야 합니다.');
 assert.match(lib, /week: \{ type: sql\.NVarChar, value:/, '품종 요약 SQL은 DB 헬퍼용 typed 연도·차수 파라미터를 사용해야 합니다.');
-assert.match(lib, /wm\.OrderYear\)=@year AND wm\.OrderWeek=@week/, '입고 기대 품목은 연도와 차수를 함께 제한해야 합니다.');
+assert.ok(lib.includes("wm.OrderYear)=@year AND ${arrivalWeekPredicate('wm.OrderWeek')}"), '입고 기대 품목은 연도와 정규화 차수를 함께 제한해야 합니다.');
 assert.match(lib, /COST_NOT_UPLOADED/, '입고 기대 품목의 원가 누락 상태를 반환해야 합니다.');
 assert.match(lib, /buildArrivalCostProductMatch/, '품목 검색은 매칭데이터 ProdKey를 사용해야 합니다.');
 assert.match(lib, /UsageCount,0\)\s*\+\s*ISNULL\(matchStats\.MatchCount,0\)\*2/, '검색 전에는 사용량과 매칭량 우선순위를 적용해야 합니다.');

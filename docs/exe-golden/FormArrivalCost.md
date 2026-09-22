@@ -1,5 +1,10 @@
 # FormArrivalCost — 도착원가 웹 전용 원장 경계
 
+## 2026-09-22 예시 시트·조회 범위
+- dnSpy CLI FormWarehouseView GetData/GetDetail 재실행, Warehouse 원장 변경 없음.
+- 읽기 전용 DB: 2026 #23 37-2 정상53/예시16, #22 38-2 정상18/예시16. 이전 34행 검증을 정정한다.
+- 공통 파서에서 명시 예시 시트 제외, 조회 차수 숫자 비교와 업로드 후 저장 scope 선택. ERP/호텔 매입단가 저장 보존.
+
 ## 2026-09-22 등록 24시간 후 자동반영
 - dnSpy CLI FormWarehouseView GetData/GetDetail 재실행: WarehouseMaster/Detail 원천은 동일. 예약 변경에 SQL/EXE 저장 변경 없음.
 - 운영 읽기 전용 probe: 2025/2026의 38-2/38-02 중 2026 NL 34행, DRIVE_IMPORT #22 1건.
