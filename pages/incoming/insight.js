@@ -230,19 +230,33 @@ export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
               <Input placeholder="농장명*" value={etaForm.farm} onChange={(e) => setEtaForm({ ...etaForm, farm: e.target.value })} style={{ width: 200 }} />
               <Input placeholder="국가" value={etaForm.country} onChange={(e) => setEtaForm({ ...etaForm, country: e.target.value })} style={{ width: 90 }} />
               <Input placeholder="AWB" value={etaForm.awb} onChange={(e) => setEtaForm({ ...etaForm, awb: e.target.value })} style={{ width: 130 }} />
+              <Input placeholder="항공사" value={etaForm.airline || ''} onChange={(e) => setEtaForm({ ...etaForm, airline: e.target.value })} style={{ width: 110 }} />
+              <Input placeholder="편명·도착시각" value={etaForm.flight || ''} onChange={(e) => setEtaForm({ ...etaForm, flight: e.target.value })} style={{ width: 130 }} />
               <DatePicker value={etaForm.eta ? dayjs(etaForm.eta) : null} onChange={(d) => setEtaForm({ ...etaForm, eta: d ? d.format('YYYY-MM-DD') : '' })} placeholder="ETA" />
               <Select value={etaForm.stage} onChange={(v) => setEtaForm({ ...etaForm, stage: v })} options={stages.filter((s) => s !== '입고등록').map((s) => ({ value: s, label: s }))} style={{ width: 100 }} />
               <Input placeholder="메모(예: 통관 지연, 9/29 도착 예정)" value={etaForm.note} onChange={(e) => setEtaForm({ ...etaForm, note: e.target.value })} style={{ width: 260 }} />
               <Button type="primary" disabled={!etaForm.farm} onClick={() => saveEta(etaForm)}>등록</Button>
             </Space>
           </Card>
+          {eta && (eta.suggested || []).length > 0 && (
+            <Alert type="info" showIcon style={{ marginBottom: 8 }} message={<span><b>드라이브에서 자동 인식된 선적 {eta.suggested.length}건</b> — 수입부 운임 시트(<code>차수_포워더_AWB_번호.xlsx</code>) 파일명 기준. 등록하면 보드에 오르고, 원장이 올라오면 자동으로 '입고등록'이 됩니다.</span>}
+              description={<Table size="small" rowKey="id" dataSource={eta.suggested} pagination={eta.suggested.length > 8 ? { pageSize: 8, size: 'small' } : false} columns={[
+                { title: '차수', key: 'w', width: 90, render: (_, s) => `${s.year} ${s.week}` },
+                { title: '포워더', dataIndex: 'farm', width: 140 },
+                { title: 'AWB', dataIndex: 'awb', width: 130, render: (v) => <Text style={{ fontFamily: 'var(--mono)' }}>{v}</Text> },
+                { title: '항공사', dataIndex: 'airline', width: 120, render: (v) => v || <Text type="secondary">—</Text> },
+                { title: '파일일자', dataIndex: 'fileAt', width: 100 },
+                { title: '파일', dataIndex: 'note', ellipsis: true, render: (v) => <Text type="secondary" style={{ fontSize: 11 }}>{v.replace('드라이브 자동 인식 · ', '')}</Text> },
+                { title: '', key: 'a', width: 150, render: (_, s) => <Space size={4}><Button size="small" type="primary" onClick={() => saveEta({ year: s.year, week: s.week, farm: s.farm, country: s.country, awb: s.awb, airline: s.airline, stage: '선적', note: s.note })}>등록</Button><Button size="small" onClick={() => api('/api/incoming/eta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dismiss: true, awb: s.awb }) }).then(loadEta)}>무시</Button></Space> },
+              ]} />} />
+          )}
           {eta && <Row gutter={8} wrap={false} style={{ overflowX: 'auto' }}>
             {stages.map((s, i) => { const rows = eta.rows.filter((r) => r.stage === s); return (
               <Col key={s} flex="0 0 250px"><Card size="small" title={<Space><Tag color={STAGE_C[i]}>{s}</Tag><Text type="secondary">{rows.length}</Text></Space>} styles={{ body: { padding: 6, background: '#f5f6f8' } }}>
                 {rows.map((r) => (
                   <Card key={r.id} size="small" style={{ marginBottom: 6, borderColor: r.late ? '#ff7875' : undefined }}>
                     <div><Text strong>{r.farm}</Text> <Text type="secondary">{r.year} {r.week}{r.country ? ' · ' + r.country : ''}</Text></div>
-                    <div style={{ fontSize: 11 }}>{r.eta ? <Text type={r.late ? 'danger' : undefined}>ETA {r.eta}{r.late ? ' · 지연' : ''}</Text> : <Text type="secondary">ETA 미정</Text>}{r.awb && <Text> · AWB {r.awb}</Text>}</div>
+                    <div style={{ fontSize: 11 }}>{r.eta ? <Text type={r.late ? 'danger' : undefined}>ETA {r.eta}{r.late ? ' · 지연' : ''}</Text> : <Text type="secondary">ETA 미정</Text>}{r.awb && <Text> · AWB {r.awb}</Text>}{r.airline && <Text type="secondary"> · {r.airline}</Text>}{r.flight && <Text type="secondary"> {r.flight}</Text>}</div>
                     {r.note && <div style={{ fontSize: 11 }}>{r.note}</div>}
                     {r.matched && <Text type="success" style={{ fontSize: 11 }}>원장 {r.matched.n}건 · 마지막 입력 {r.matched.lastInput}</Text>}
                     {s !== '입고등록' && <Space size={4} style={{ marginTop: 6 }}><Select size="small" value={r.stage} onChange={(v) => saveEta({ ...r, stage: v })} options={stages.filter((x) => x !== '입고등록').map((x) => ({ value: x, label: x }))} style={{ width: 90 }} /><DatePicker size="small" value={r.eta ? dayjs(r.eta) : null} onChange={(d) => saveEta({ ...r, eta: d ? d.format('YYYY-MM-DD') : '' })} /><Button size="small" danger icon={<CloseOutlined />} onClick={() => api('/api/incoming/eta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: r.id, deleted: true }) }).then(loadEta)} /></Space>}

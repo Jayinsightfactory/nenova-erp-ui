@@ -20,3 +20,11 @@ const tag = (ordered, received) => { const diff = received - ordered; return ord
 assert.deepStrictEqual([tag(10, 0), tag(0, 5), tag(10, 8), tag(10, 12), tag(10, 10)], ['미입고', '미발주', '부족', '초과', '일치']);
 assert.ok(src.includes("'미발주' : r.received === 0 && r.ordered > 0 ? '미입고'"), '판정 규칙이 API에 그대로');
 console.log('incoming insight contract tests passed: 읽기전용·OutUnit 수량·마스터 isDeleted·ETA 파일저장·판정 태그');
+// 6) 드라이브 AWB 시트 파일명 인식(가브리엘 운임 시트 규칙) — 소스에서 정규식·사전을 그대로 평가(DB 불필요)
+{
+  const re = new RegExp(eta.match(/const AWB_FILE_RE = \/(.+)\/i;/)[1], 'i');
+  const ok = ['33-02_Apollo_AWB_006-45462001.xlsx', '21-01_FREIGHTWISE_AWB_992-01528181 (1).xlsx', '26-01_Freightwise Ecuador_AWB_00645434174.xlsx', '30-02_Apollo_AWB_160-10740586 (10).xlsx'];
+  for (const n of ok) assert.ok(re.test(n), 'AWB 파일명 인식: ' + n);
+  for (const n of ['20-02_CO_AYU_13790.xlsx', 'nenova_26-1_lista.xlsx', '22차 콜롬비아 AWB운임비.xlsx']) assert.ok(!re.test(n), 'AWB 아님: ' + n);
+  const m = re.exec(ok[0]); assert.strictEqual(m[1] + '-' + m[2], '33-02'); assert.strictEqual(m[3], 'Apollo'); assert.strictEqual(m[4].replace(/\D/g, ''), '00645462001');
+}
