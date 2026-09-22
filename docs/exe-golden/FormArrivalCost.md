@@ -1,5 +1,12 @@
 # FormArrivalCost — 도착원가 웹 전용 원장 경계
 
+## 2026-09-22 소수점 저장 대조
+
+동일 dnSpy FormWarehouseView 경계를 유지. 배포 후 운영 Import26 태국38-1의19행,
+품목/농장19개 매칭과 수량4300 확인. 원본38!P15=9033.76279932948 대비 저장9034를
+읽기 probe로 확인했다. 도착원가 전용 Decimal 타입의 scale을 명시하며 ERP SQL은 불변.
+원본 매입 USD·중량도 같은 타입 정책을 사용. 이미 저장된 값은 사용자 보정 확인 전 보존.
+
 ## 2026-09-22 태국 차수 인식
 
 dnSpy CLI FormWarehouseView GetData/GetDetail 재실행: ERP Warehouse 읽기 경계 유지.

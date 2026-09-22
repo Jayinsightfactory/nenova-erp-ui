@@ -29,6 +29,12 @@
   ],
   "actions": [
     {
+      "name": "ARRIVAL_DECIMAL_BINDING",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "도착원가 전용 SQL 파라미터는 sql.Decimal(18,scale)로 선언한다. 원가/수량/중량4자리, USD/환율6자리, 배분비8자리를 실제 MSSQL Request.input까지 보존한다. 공통 DB wrapper와 ERP 쓰기는 변경하지 않는다. 기존 현재본 보정은 자동 실행하지 않고 별도 사용자 확인 및 원본/수동이력/교차연도/감사 조건을 요구한다."
+    },
+    {
       "name": "ARRIVAL_THAI_WEEK_PARSE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -99,6 +105,7 @@
     "description": "같은 차수명이 여러 연도에 있어도 도착원가 원장은 OrderYear를 함께 사용하며 다른 연도의 입고·주문·출고·재고 원장을 수정하지 않는다. 같은 연도·차수·국가 재업로드만 해당 scope의 현재본을 교체한다."
   },
   "requiredTestFiles": [
+    "__tests__/arrivalDecimalBinding.test.js",
     "__tests__/arrivalThaiWeek.test.js",
     "__tests__/arrivalDriveRunNow.test.js",
     "__tests__/arrivalImportPolicy.test.js",

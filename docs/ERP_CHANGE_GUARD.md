@@ -1,5 +1,12 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-09-22 도착원가 decimal 바인딩
+
+sql.Decimal 함수와 별도 precision/scale 속성을 넘기면 공통 DB wrapper는 type/value만
+전달해 소수점이 scale0으로 저장됐다. 원가 기능 안에서 sql.Decimal(18,scale) 타입을
+생성하도록 고정한다. 금액4/외화6/배분비8자리와 실제 Request.input 파라미터를 검사한다.
+공통 wrapper를 변경하거나 과거 모든 원가를 일괄 보정하지 않는다.
+
 ## 2026-09-22 태국 원가 차수 미인식
 
 숫자명 시트의 `.38-1`과 파일명의 `(38-1)`을 파서가 놓쳐 전체 차수가 공란이었다.
