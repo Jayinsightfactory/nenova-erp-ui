@@ -184,8 +184,8 @@ async function lista(year, week) {
   const r = await query(`SELECT d.DeductionKey, d.OrderYear, d.OrderWeek, d.FarmName, d.CustName, d.ProdName, d.ColorName, d.Quantity, d.SourceUnit, d.DeductionType, d.Note, d.ImportConfirmed, d.CreditApplied,
                                 ISNULL(p.FlowerName,'') AS Flower, ISNULL(p.DisplayName,'') AS DisplayName
                            FROM WebSalesDefectDeduction d LEFT JOIN Product p ON p.ProdKey = d.ProdKey
-                          WHERE ISNULL(d.IsDeleted,0)=0 AND d.OrderYear=@yr AND d.OrderWeek=@wk
-                          ORDER BY d.CustName, d.FarmName, d.ProdName`, weekParams(year, week));
+                          WHERE ISNULL(d.IsDeleted,0)=0 AND d.OrderYear=@yr AND (d.OrderWeek=@wk OR d.OrderWeek=@major)
+                          ORDER BY d.CustName, d.FarmName, d.ProdName`, { ...weekParams(year, week), major: { type: sql.NVarChar, value: String(week).split('-')[0] } }); // 불량차감 OrderWeek는 대차수('38')로 저장됨
   const short = String(week).replace(/^(\d{1,2})-0?(\d)$/, '$1-$2');
   const rows = r.recordset.map((d) => ({ key: d.DeductionKey, lote: `${LOTE_PREFIX(d.Flower)}${short}`, farm: canon(d.FarmName || ''), farmRaw: d.FarmName || '', variedad: [d.ProdName, d.ColorName].filter(Boolean).join(' ').toLowerCase(), cantidad: Number(d.Quantity) || 0, unidad: UNIDAD(d.SourceUnit, d.Quantity), nombre: d.CustName || '', observacion: d.Note || '', tipo: d.DeductionType || '', flower: d.Flower, confirmed: !!d.ImportConfirmed, credited: !!d.CreditApplied }));
   return { rows, noFarm: rows.filter((x) => !x.farm).length, farms: [...new Set(rows.map((x) => x.farm).filter(Boolean))].length };
@@ -227,9 +227,10 @@ export default withAuth(async function handler(req, res) {
     if (view === 'ledger') return res.status(200).json({ success: true, ...(await ledger(Math.min(24, parseInt(months, 10) || 6), farmName ? String(farmName) : '')) });
     if (view === 'farm') { if (!farmName) return res.status(400).json({ success: false, error: 'farm 필요' }); const m = Math.min(24, parseInt(months, 10) || 6); const [f, l] = await Promise.all([farm(String(farmName), m), ledger(m, String(farmName))]); return res.status(200).json({ success: true, ...f, ledger: l.rows[0] || null }); }
     if (view === 'product') { if (!q) return res.status(400).json({ success: false, error: 'q 필요' }); return res.status(200).json({ success: true, ...(await product(String(q), Math.min(24, parseInt(months, 10) || 6))) }); }
+    if (view === 'lista' && /^\d{1,2}$/.test(String(rawWeek || '')) && /^\d{4}$/.test(String(year || ''))) return res.status(200).json({ success: true, year: Number(year), week: String(rawWeek), ...(await lista(year, String(rawWeek))) });
     const week = rawWeek ? normalizeOrderWeek(rawWeek) : '';
     if (!/^\d{4}$/.test(String(year || '')) || !week) return res.status(400).json({ success: false, error: 'year·week 필요 (예: 2026, 38-02)' });
-    if (view === 'lista') return res.status(200).json({ success: true, year: Number(year), week, ...(await lista(year, week)) });
+    if (view === 'lista') { const wkL = /^\d{1,2}$/.test(String(rawWeek || '')) ? String(rawWeek) : week; return res.status(200).json({ success: true, year: Number(year), week: wkL, ...(await lista(year, wkL)) }); }
     if (view === 'awbcalc') return res.status(200).json({ success: true, year: Number(year), week, ...(await awbcalc(year, week)) });
     const data = await board(year, week);
     return res.status(200).json({ success: true, year: Number(year), week, ...(view === 'reconcile' ? { items: data.items, totals: data.totals } : data) });
