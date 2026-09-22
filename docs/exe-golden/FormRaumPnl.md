@@ -1,5 +1,9 @@
 # 라움 손익계산서·이미지 주문등록 — nenova.exe 근거
 
+## 2026-09-22 복합단위 참조 보정
+
+FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT에서 Aisha 원본 단당1송이, 호텔 단-5스팀, Product 단당5송이 확인. 명시 포장수로 웹 참조만 환산하며 CostPrice/원본원가/ERP 원장은 보존. 01-2/1-2는 숫자 차수로 합쳐 표시한다. 상세 근거는 work-reports/2026-09-22_hotel-arrival-repair.md.
+
 ## 2026-09-21 도착원가·환율 비교
 
 후속 read-only probe: 수국 Product.SteamOf1Bunch=0이나 원가 RawJson.cells의 단당 수량=1 확인. 원본 명시 포장수만 참조 단가 환산에 사용한다. 원본 송이원가×포장수와 원본 단원가가 대조되는 경우에만 통관비의 송이→단 환산을 FX 미리보기에 적용한다. 불명확한 비용 단위는 비교 계산을 차단한다.
