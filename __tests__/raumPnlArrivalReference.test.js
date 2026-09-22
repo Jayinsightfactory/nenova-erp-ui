@@ -47,6 +47,18 @@ async function main() {
   assert.equal(sourceUnit[21][0].cost,1846, 'original workbook explicitly says one stem per bunch; never changes Product');
   const sourceFive = buildRaumPnlArrivalReferences([{itemKey: 21, prodKey:456,unit:'st'}],[{OrderWeek:'37-1',ProdKey:456,ArrivalUnit:'단',SelectedArrivalCostKRW:5000,SourceStemsPerBunch:5,SteamOf1Bunch:10}],37);
   assert.equal(sourceFive[21][0].cost,1000,'original bundle size controls original cost, not a different catalog pack');
+  const bundleRows = [{OrderWeek:'37-02',ProdKey:3170,ArrivalUnit:'단',SelectedArrivalCostKRW:3470,SourceStemsPerBunch:1,SteamOf1Bunch:5}];
+  const bundle = buildRaumPnlArrivalReferences([{itemKey:31,prodKey:3170,unit:'단-5스팀'}],bundleRows,37);
+  assert.equal(bundle[31][0].cost,17350,'Aisha source bundle is one stem; hotel bundle is five');
+  assert.equal(bundle[31][0].rawCost,3470,'source price is preserved');
+  assert.equal(bundle[31][0].unit,'단-5스팀','original target label is preserved');
+  const duplicateWeek = buildRaumPnlArrivalReferences([{itemKey:31,prodKey:3170,unit:'단-10스팀'}],[...bundleRows,{...bundleRows[0],OrderWeek:'37-2'}],37);
+  assert.equal(duplicateWeek[31].length,1,'padded and unpadded subweeks are one reference');
+  assert.equal(duplicateWeek[31][0].cost,34700);
+  for (const unit of ['단-0스팀','단-5~10스팀','단-5스팀?']) {
+    assert.equal(buildRaumPnlArrivalReferences([{itemKey:31,prodKey:3170,unit}],bundleRows,37)[31][0].cost,null);
+  }
+  assert.equal(buildRaumPnlArrivalReferences([{itemKey:31,prodKey:3170,unit:'단-5스팀'}],[{...bundleRows[0],SourceStemsPerBunch:null,SteamOf1Bunch:0}],37)[31][0].cost,null,'missing source pack metadata must not assume one stem');
   const fxUnit = buildRaumPnlArrivalReferences([{itemKey:21,prodKey:456,unit:'단'}],[{OrderWeek:'37-1',ProdKey:456,ArrivalUnit:'단',SelectedArrivalCostKRW:5000,SourceStemsPerBunch:5,SourceCostPerStem:1000,AllocationBasis:'SOURCE'}],37);
   assert.equal(fxUnit[21][0].fxExpenseFactor,5,'per-stem fixed expenses scale to the original bunch unit');
   assert.equal(sourceFive[21][0].fxExpenseFactor,null,'unverified expense unit must not be guessed');

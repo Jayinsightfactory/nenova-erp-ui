@@ -29,6 +29,12 @@
   ],
   "actions": [
     {
+      "name": "HOTEL_ARRIVAL_IDENTITY_REPAIR",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "Strict original product name (keeping MEL/EZ/MC/CHINA and specification) precedes relaxed search normalization. Size/length/mix-box/brand conflicts cannot use learned or fuzzy matches. Post-deploy incident correction is limited to reviewed 2026 current hotel-related arrival keys with unique active exact-name Product, matching country, source-cell proof, no manual MATCH/BASIS_CHANGE, locked review digest, full before audit and all prices/quantities/units/farms/hotel/ERP preservation. Ambiguous/unlinked names and country conflicts remain unchanged."
+    },
+    {
       "name": "ARRIVAL_EXACT_PRODUCT_MATCH",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
