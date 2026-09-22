@@ -238,7 +238,7 @@ export default function Warehouse() {
           <button className="btn btn-success" disabled={uploading || deleting} onClick={()=>fileRef.current.click()}>📤 업로드 / Subir</button>
           <input type="file" ref={fileRef} style={{display:'none'}} accept=".xlsx,.xls" onChange={handleFileChange} />
           <button className="btn btn-danger" disabled={!selectedKey || deleting || uploading} onClick={handleDelete}>{deleting?'삭제 중...':'🗑️ 원장삭제 / Eliminar Reg.'}</button>
-          <a className="btn btn-secondary" href="/incoming/insight" title="차수 보드·발주 대 입고 대사·농장·품목·입고 예정">🔎 인사이트</a>
+          <a className="btn btn-secondary" href="/incoming/insight" title="차수 보드·발주·입고 비교·농장·품목·입고 예정">🔎 인사이트</a>
           <button className="btn btn-secondary" disabled={!filteredMasters.length} onClick={handleMasterExcel}>📊 원장 목록 엑셀</button>
           <button className="btn btn-secondary" disabled={!selectedKey || detailLoading || !details.length} onClick={handleExcel}>📊 선택 상세 엑셀</button>
           <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>

@@ -1,7 +1,8 @@
 {
   "id": "customer-management",
   "title": "EXE 거래처관리 필드 및 수정 계약",
-  "scope": ["pages/master/customers.js", "pages/api/master/customers.js", "lib/customerEditor.js", "__tests__/customerEditor.test.js"],
+  "scope": ["pages/master/customers.js", "pages/api/master/customers.js", "lib/customerEditor.js", "__tests__/customerEditor.test.js", "styles/customerPilot.module.css", "scripts/customer-layout-smoke.cjs"],
+  "uiPilot": {"library":"@radix-ui/react-dialog 1.1.23 (MIT)","preserve":"API, SQL, customerDraft, save payload and all ERP behavior unchanged","viewport":"1920x1080","design":"docs/UI_OPEN_SOURCE_PILOT.md"},
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "effectiveMasterIdentity": ["CustKey"],
   "actions": [{"name":"CUSTOMER_SAVE", "customer":"insert or update exact CustKey", "orderDetail":"preserve", "shipmentDetail":"preserve", "warehouse":"preserve", "stock":"preserve"}],

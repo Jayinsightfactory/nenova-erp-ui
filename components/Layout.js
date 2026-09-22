@@ -49,6 +49,12 @@ export const MENU_ITEMS = [
     ]
   },
   {
+    group: '수입부',
+    items: [
+      { href: '/import',              labelKey: '수입부 통합',   popup: false },
+    ]
+  },
+  {
     group: '입/출고관리',
     items: [
       { href: '/incoming',            labelKey: '입고관리',     popup: true },
