@@ -9,6 +9,14 @@ const fmt = (n) => (n == null || n === '' ? '–' : Number(n).toLocaleString(und
 const TAG_C = { 미입고: '#dc2626', 부족: '#ea580c', 초과: '#ca8a04', 일치: '#16a34a', 미발주: '#7c3aed' };
 const TABS = [['board', '차수 보드'], ['reconcile', '발주·입고 비교'], ['ledger', '농장 정산·송금'], ['farm', '농장'], ['product', '품목'], ['eta', '입고 예정']];
 const ST_C = { 미송금: '#dc2626', 부분송금: '#ea580c', 완납: '#16a34a', 청구없음: '#9ca3af' };
+// 결제 D-day 표기: 음수=지남(연체), 0=오늘, 양수=남음. 결제일 미설정이면 '설정 필요'
+const DDay = ({ pay, small }) => {
+  if (!pay) return null;
+  if (!pay.unpaidN) return <span className="dim">{small ? '' : '미결 없음'}</span>;
+  if (!pay.day) return <a href="/stats/pivot-import-farm-settings" className="dim" title="농장 결제일(5/15/25/30)을 설정하면 D-day가 계산됩니다">결제일 설정 필요</a>;
+  const d = pay.dday; const c = d < 0 ? '#dc2626' : d <= 7 ? '#ea580c' : '#16a34a';
+  return <span style={{ color: c, fontWeight: 700 }} title={`결제일 매월 ${pay.day}일 · 가장 오래된 미결 인보이스 ${pay.oldestUnpaid} → 만기 ${pay.nextDue} · 미결 ${pay.unpaidN}건`}>{d < 0 ? `D+${-d}` : d === 0 ? 'D-DAY' : `D-${d}`}{!small && <small style={{ fontWeight: 400, marginLeft: 4, color: '#6b7280' }}>{pay.nextDue.slice(5)}</small>}{pay.overdueUSD > 0.5 && !small && <small style={{ display: 'block', color: '#dc2626', fontWeight: 400 }}>연체 {Number(pay.overdueUSD).toLocaleString()} </small>}</span>;
+};
 const api = async (url, opt) => { const r = await fetch(url, opt); const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error(j.error || `HTTP ${r.status}`); return j; };
 
 export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
@@ -163,20 +171,20 @@ export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
         <div className="card" style={{ padding: 0 }}>
           <div className="card-header"><span className="card-title">농장 정산·송금 ({months}개월 입고 기준)</span>
             <span className="tagf">{['', '미송금', '부분송금', '완납'].map((t) => <button key={t} className={ledgerF === t ? 'on' : ''} onClick={() => setLedgerF(t)}>{t || '전체'} <em>{t ? ledger.rows.filter((r) => r.status === t).length : ledger.rows.length}</em></button>)}</span>
-            <span className="dim" style={{ marginLeft: 8 }}>클레임 {ledger.totals.claims}건(확인 대기 {ledger.totals.claimsPending}) · 청구 {fmt(ledger.totals.billed)} · 크레딧 {fmt(ledger.totals.credit)} · 송금 {fmt(ledger.totals.remit)} · <b style={{ color: ledger.totals.balance > 0 ? ST_C.미송금 : ST_C.완납 }}>잔액 {fmt(ledger.totals.balance)}</b> (USD)</span>
+            <span className="dim" style={{ marginLeft: 8 }}><b style={{ color: ledger.totals.overdueFarms ? '#dc2626' : '#16a34a' }}>연체 {ledger.totals.overdueFarms}농장 {fmt(ledger.totals.overdueUSD)}</b> · 7일 내 만기 {ledger.totals.dueSoon} · 결제일 미설정 {ledger.totals.noPayDay} · 클레임 {ledger.totals.claims}건(확인 대기 {ledger.totals.claimsPending}) · 청구 {fmt(ledger.totals.billed)} · 크레딧 {fmt(ledger.totals.credit)} · 송금 {fmt(ledger.totals.remit)} · <b style={{ color: ledger.totals.balance > 0 ? ST_C.미송금 : ST_C.완납 }}>잔액 {fmt(ledger.totals.balance)}</b> (USD)</span>
             <a className="btn btn-secondary" href="/incoming-price" style={{ marginLeft: 8 }}>송금·크레딧 입력</a>
-            <button className="btn btn-secondary" onClick={() => exportRows(ledger.rows.map((r) => ({ 농장: r.farm, 인보이스: r.invoices, 상품금액: r.goods, 운임: r.freight, 청구: r.billed, 크레딧: r.credit, 송금: r.remit, 잔액: r.balance, 상태: r.status, 클레임건수: r.claims.n, 클레임수량: r.claims.qty, 클레임확인대기: r.claims.pending, 마지막입고: r.lastInput, 마지막송금: r.lastRemit })), `농장정산_${months}개월`)}>📊 엑셀</button>
+            <button className="btn btn-secondary" onClick={() => exportRows(ledger.rows.map((r) => ({ 농장: r.farm, 인보이스: r.invoices, 상품금액: r.goods, 운임: r.freight, 청구: r.billed, 크레딧: r.credit, 송금: r.remit, 잔액: r.balance, 상태: r.status, 클레임건수: r.claims.n, 클레임수량: r.claims.qty, 클레임확인대기: r.claims.pending, 결제일: r.pay.day, 다음만기: r.pay.nextDue, Dday: r.pay.dday, 연체USD: r.pay.overdueUSD, 미결인보이스: r.pay.unpaidN, 마지막입고: r.lastInput, 마지막송금: r.lastRemit })), `농장정산_${months}개월`)}>📊 엑셀</button>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="tbl" style={{ minWidth: 980 }}>
-              <thead><tr><th>농장</th><th className="r">인보이스</th><th className="r">상품 금액</th><th className="r">운임</th><th className="r">청구 합계</th><th className="r">크레딧</th><th className="r">송금</th><th className="r">잔액</th><th>지급률</th><th>상태</th><th className="r">클레임</th><th>마지막 입고</th><th>마지막 송금</th></tr></thead>
+              <thead><tr><th>농장</th><th className="r">인보이스</th><th className="r">상품 금액</th><th className="r">운임</th><th className="r">청구 합계</th><th className="r">크레딧</th><th className="r">송금</th><th className="r">잔액</th><th>지급률</th><th>상태</th><th>결제 D-day</th><th className="r">클레임</th><th>마지막 입고</th><th>마지막 송금</th></tr></thead>
               <tbody>{ledger.rows.filter((r) => !ledgerF || r.status === ledgerF).map((r) => (
                 <tr key={r.farm}>
                   <td className="name"><button className="lnk" onClick={() => goFarm(r.farm)}>{r.farm}</button></td>
                   <td className="num">{r.invoices}</td><td className="num">{fmt(r.goods)}</td><td className="num">{fmt(r.freight)}</td><td className="num" style={{ fontWeight: 600 }}>{fmt(r.billed)}</td>
                   <td className="num">{fmt(r.credit)}</td><td className="num">{fmt(r.remit)}{r.pendingN ? <div style={{ fontSize: 10, color: '#ea580c' }}>대기 {r.pendingN}건 {fmt(r.pendingRemit)}</div> : null}</td><td className="num" style={{ fontWeight: 700, color: r.balance > 0.5 ? ST_C.미송금 : r.balance < -0.5 ? ST_C.부분송금 : ST_C.완납 }}>{fmt(r.balance)}</td>
                   <td><Bar v={r.paidRate} c={r.paidRate == null ? '#9ca3af' : r.paidRate >= 100 ? ST_C.완납 : ST_C.부분송금} /></td>
-                  <td><span className="tag" style={{ background: ST_C[r.status] }}>{r.status}</span></td><td className="num">{r.claims.n ? <span title={`수량 ${fmt(r.claims.qty)} · 크레딧 반영 ${r.claims.credited} · 수입부 확인 대기 ${r.claims.pending}`}>{r.claims.n}건{r.claims.pending ? <em style={{ color: ST_C.미송금, fontStyle: 'normal' }}> (대기 {r.claims.pending})</em> : null}</span> : <span className="dim">–</span>}</td><td className="mono">{r.lastInput}</td><td className="mono">{r.lastRemit || '–'}</td>
+                  <td><span className="tag" style={{ background: ST_C[r.status] }}>{r.status}</span></td><td><DDay pay={r.pay} /></td><td className="num">{r.claims.n ? <span title={`수량 ${fmt(r.claims.qty)} · 크레딧 반영 ${r.claims.credited} · 수입부 확인 대기 ${r.claims.pending}`}>{r.claims.n}건{r.claims.pending ? <em style={{ color: ST_C.미송금, fontStyle: 'normal' }}> (대기 {r.claims.pending})</em> : null}</span> : <span className="dim">–</span>}</td><td className="mono">{r.lastInput}{r.pay.lastInputDays != null && <small className="dim"> ({r.pay.lastInputDays}일 전)</small>}</td><td className="mono">{r.lastRemit || '–'}{r.pay.lastRemitDays != null && <small className="dim"> ({r.pay.lastRemitDays}일 전)</small>}</td>
                 </tr>))}</tbody>
             </table>
           </div>
@@ -195,9 +203,12 @@ export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
                 {farmData.ledger && (
                   <div className="sum" style={{ margin: '0 0 6px', borderLeft: 0, borderRight: 0 }}>
                     <div><b>{fmt(farmData.ledger.billed)}</b><span>청구(상품+운임, USD)</span></div><div><b>{fmt(farmData.ledger.credit)}</b><span>크레딧</span></div><div><b>{fmt(farmData.ledger.remit)}</b><span>송금</span></div>
-                    <div><b style={{ color: farmData.ledger.balance > 0.5 ? ST_C.미송금 : ST_C.완납 }}>{fmt(farmData.ledger.balance)}</b><span>잔액</span></div><div><span className="tag" style={{ background: ST_C[farmData.ledger.status] }}>{farmData.ledger.status}</span><span>마지막 송금 {farmData.ledger.lastRemit || '–'}</span></div>
+                    <div><b style={{ color: farmData.ledger.balance > 0.5 ? ST_C.미송금 : ST_C.완납 }}>{fmt(farmData.ledger.balance)}</b><span>잔액</span></div><div><b><DDay pay={farmData.ledger.pay} /></b><span>결제 D-day{farmData.ledger.pay?.day ? ` (매월 ${farmData.ledger.pay.day}일)` : ''}</span></div><div><span className="tag" style={{ background: ST_C[farmData.ledger.status] }}>{farmData.ledger.status}</span><span>마지막 송금 {farmData.ledger.lastRemit || '–'}</span></div>
                     <div style={{ marginLeft: 'auto' }}><a className="btn btn-secondary" href="/incoming-price">송금·크레딧 입력</a></div>
                   </div>
+                )}
+                {farmData.ledger && farmData.ledger.pay && farmData.ledger.pay.unpaidN > 0 && (
+                  <div style={{ padding: '0 12px 6px', fontSize: 11 }}><b>미결 인보이스 {farmData.ledger.pay.unpaidN}건</b> {farmData.ledger.pay.unpaid.map((u) => { const late = u.due && u.due < new Date().toISOString().slice(0, 10); return <span key={u.key} className="pillx" style={late ? { background: '#fee2e2', color: '#b91c1c' } : {}}>{u.date} · {fmt(u.amount)} USD{u.due ? ` · 만기 ${u.due.slice(5)}` : ''}</span>; })}</div>
                 )}
                 {farmData.ledger && farmData.ledger.remits.length > 0 && (
                   <div style={{ padding: '4px 12px 8px', fontSize: 11 }}><b>송금 기록</b> {farmData.ledger.remits.slice(0, 8).map((r) => <span key={r.key} className="pillx">{r.date} · {fmt(r.amount)} USD{r.weeks ? ` (${r.weeks})` : ''}{r.memo ? ` · ${r.memo}` : ''}</span>)}</div>

@@ -35,7 +35,7 @@ export default function ImportOnePage() {
   useEffect(refresh, [year, week, months, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const farms = useMemo(() => (ledger?.rows || []).filter((r) => (!q || r.farm.toLowerCase().includes(q.toLowerCase())) && (!stF || r.status === stF))
-    .sort((a, b) => sort === 'balance' ? b.balance - a.balance : sort === 'claims' ? b.claims.pending - a.claims.pending || b.claims.n - a.claims.n : sort === 'recent' ? (b.lastInput || '').localeCompare(a.lastInput || '') : a.farm.localeCompare(b.farm)), [ledger, q, stF, sort]);
+    .sort((a, b) => sort === 'dday' ? ((a.pay?.dday ?? 9999) - (b.pay?.dday ?? 9999)) : sort === 'balance' ? b.balance - a.balance : sort === 'claims' ? b.claims.pending - a.claims.pending || b.claims.n - a.claims.n : sort === 'recent' ? (b.lastInput || '').localeCompare(a.lastInput || '') : a.farm.localeCompare(b.farm)), [ledger, q, stF, sort]);
   const pendingClaims = useMemo(() => (ledger?.rows || []).flatMap((r) => r.claims.items.filter((c) => !c.confirmed || c.review).map((c) => ({ ...c, farm: r.farm }))), [ledger]);
   const etaRows = eta?.rows || []; const lateEta = etaRows.filter((r) => r.late); const missing = (board?.items || []).filter((i) => i.tag === '미입고');
   const inboxRows = inbox?.rows || [];
@@ -56,6 +56,7 @@ export default function ImportOnePage() {
         </>}
         {ledger && <>
           <button className="k" onClick={() => { setStF(''); setSort('balance'); }}><span>청구 − 크레딧 − 송금 = 잔액 (USD)</span><b>{fmt(ledger.totals.billed)} − {fmt(ledger.totals.credit)} − {fmt(ledger.totals.remit)} = <em style={{ color: ledger.totals.balance > 0 ? '#dc2626' : '#16a34a' }}>{fmt(ledger.totals.balance)}</em></b></button>
+          <button className="k" style={{ '--c': ledger.totals.overdueFarms ? '#dc2626' : '#16a34a' }} onClick={() => { setStF(''); setSort('dday'); }}><span>결제 연체 / 7일 내 만기</span><b>{ledger.totals.overdueFarms}농장 ${fmt(ledger.totals.overdueUSD)} / {ledger.totals.dueSoon}</b></button>
           <button className="k" style={{ '--c': inboxRows.length ? '#ea580c' : '#16a34a' }} onClick={() => { setTodo('remit'); setRightOpen(true); }}><span>송금 확인 대기</span><b>{inboxRows.length}건 · ${fmt(inboxRows.reduce((a, r) => a + (r.amountUSD || 0), 0))}</b></button>
           <button className="k" style={{ '--c': pendingClaims.length ? '#dc2626' : '#16a34a' }} onClick={() => { setTodo('claims'); setRightOpen(true); }}><span>클레임 수입부 확인</span><b>{pendingClaims.length} / {ledger.totals.claims}건</b></button>
         </>}
@@ -69,12 +70,12 @@ export default function ImportOnePage() {
         <aside className="left">
           <div className="lh"><input className="filter-input" placeholder="농장 검색" value={q} onChange={(e) => setQ(e.target.value)} />
             <select className="filter-input" value={stF} onChange={(e) => setStF(e.target.value)}><option value="">상태 전체</option>{Object.keys(ST_C).map((s) => <option key={s}>{s}</option>)}</select>
-            <select className="filter-input" value={sort} onChange={(e) => setSort(e.target.value)}><option value="balance">잔액 큰 순</option><option value="claims">클레임 순</option><option value="recent">최근 입고 순</option><option value="name">이름 순</option></select></div>
+            <select className="filter-input" value={sort} onChange={(e) => setSort(e.target.value)}><option value="balance">잔액 큰 순</option><option value="dday">결제 D-day 순</option><option value="claims">클레임 순</option><option value="recent">최근 입고 순</option><option value="name">이름 순</option></select></div>
           <button className={'fm all' + (!farm ? ' on' : '')} onClick={() => { setFarm(''); setView('board'); }}><span>전체 (차수 보드)</span><small>{ledger ? `${ledger.totals.farms}곳` : ''}</small></button>
           <div className="fl">{farms.map((r) => (
             <button key={r.farm} className={'fm' + (farm === r.farm ? ' on' : '')} onClick={() => pick(r.farm)} title={`청구 ${fmt(r.billed)} · 크레딧 ${fmt(r.credit)} · 송금 ${fmt(r.remit)} · 마지막 입고 ${r.lastInput}`}>
               <i style={{ background: ST_C[r.status] }} /><span className="n">{r.farm}</span>
-              <span className="v"><b style={{ color: r.balance > 0.5 ? '#dc2626' : '#16a34a' }}>${fmt(r.balance)}</b>{r.claims.n ? <small style={{ color: r.claims.pending ? '#dc2626' : '#6b7280' }}>클레임 {r.claims.n}{r.claims.pending ? `·대기${r.claims.pending}` : ''}</small> : null}{r.pendingN ? <small style={{ color: '#ea580c' }}>송금대기 {r.pendingN}</small> : null}</span>
+              <span className="v"><b style={{ color: r.balance > 0.5 ? '#dc2626' : '#16a34a' }}>${fmt(r.balance)}</b>{r.pay?.unpaidN && r.pay.day ? <small style={{ color: r.pay.dday < 0 ? '#dc2626' : r.pay.dday <= 7 ? '#ea580c' : '#6b7280', fontWeight: 700 }}>{r.pay.dday < 0 ? `D+${-r.pay.dday}` : r.pay.dday === 0 ? 'D-DAY' : `D-${r.pay.dday}`}</small> : null}{r.claims.n ? <small style={{ color: r.claims.pending ? '#dc2626' : '#6b7280' }}>클레임 {r.claims.n}{r.claims.pending ? `·대기${r.claims.pending}` : ''}</small> : null}{r.pendingN ? <small style={{ color: '#ea580c' }}>송금대기 {r.pendingN}</small> : null}</span>
             </button>))}{ledger && farms.length === 0 && <div className="dim" style={{ padding: 10 }}>해당 농장 없음</div>}</div>
         </aside>
 
