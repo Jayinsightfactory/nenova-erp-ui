@@ -61,3 +61,8 @@ for (const s of [src, eta]) assert.ok(!/wm\.AWB\b|SELECT AWB FROM WarehouseMaste
   const vari = (p, c) => { const pn = String(p || '').replace(/^[가-힣()\s]+/, '').trim(); return [pn || (c ? '' : p), c].filter(Boolean).join(' ').toLowerCase(); };
   assert.deepStrictEqual([vari('카네이션 novia', ''), vari('카네이션', 'novia'), vari('장미', 'spray fairy lola'), vari('ruscus', ''), vari('기타', '')], ['novia', 'novia', 'spray fairy lola', 'ruscus', '기타']);
 }
+// 11) useEffect에 Promise 반환 함수를 직접 넘기지 않는다(React가 cleanup으로 호출 → 't is not a function' 클라이언트 크래시)
+{
+  const page = fs.readFileSync(path.join(root, 'pages/import/freight-calc.js'), 'utf8');
+  assert.ok(!/useEffect\((load|loadSaved),/.test(page), 'useEffect(fn) 직접 전달 금지 — () => { fn(); } 로');
+}

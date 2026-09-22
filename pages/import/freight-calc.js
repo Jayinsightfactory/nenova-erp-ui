@@ -21,14 +21,14 @@ export default function FreightCalcPage() {
   const [inp, setInp] = useState({ freightUSD: 0, boxes: 0, kg: 0, storagePerBox: 370, sunyul: 77000, fx: 1500 });
   const [saved, setSaved] = useState([]);
   const loadSaved = () => year && week && api(`/api/incoming/freight-calc?year=${year}&week=${week}`).then((j) => setSaved(j.rows)).catch(() => {});
-  useEffect(loadSaved, [year, week]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadSaved(); }, [year, week]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     api('/api/incoming/insight?view=weeks').then((j) => { setWeeks(j.weeks); const y = q.get('year'), w = q.get('week'); if (y && w) { setYear(y); setWeek(w); } else if (j.weeks[0]) { setYear(String(j.weeks[0].year)); setWeek(j.weeks[0].week); } }).catch((e) => setErr(e.message));
   }, []);
   const load = () => { if (!year || !week) return; setLoading(true); setErr(''); api(`/api/incoming/insight?view=awbcalc&year=${year}&week=${week}`).then((j) => { setData(j); setAwbIdx(0); }).catch((e) => setErr(e.message)).finally(() => setLoading(false)); };
-  useEffect(load, [year, week]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [year, week]); // eslint-disable-line react-hooks/exhaustive-deps
   const awb = data?.awbs?.[awbIdx] || null;
   // AWB를 고르면 원장 값으로 입력칸을 채운다(원장에 운임행·CW가 있으면). 사람이 고친 값은 유지.
   useEffect(() => { if (!awb) return; setInp((p) => ({ ...p, freightUSD: awb.freightUSD || (awb.rate && awb.cw ? Math.round(awb.rate * awb.cw * 100) / 100 : p.freightUSD), boxes: awb.box || p.boxes, kg: awb.gw || awb.cw || p.kg })); }, [awbIdx, data]); // eslint-disable-line react-hooks/exhaustive-deps
