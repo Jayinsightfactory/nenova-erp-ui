@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { arrivalDriveCandidate, selectArrivalDriveCandidates, scopeArrivalDriveRows } from '../lib/arrivalDrivePolicy.js';
+import './arrivalDriveSchedule.test.js';
+import { arrivalDriveCandidate, selectArrivalDriveCandidates, scopeArrivalDriveRows, arrivalDriveTiming, ARRIVAL_DRIVE_DELAY_MS } from '../lib/arrivalDrivePolicy.js';
 // xlsx's ESM entry has named exports only; instrumentation resolves that entry.
 assert.match(fs.readFileSync(new URL('../lib/arrivalCostExcel.js', import.meta.url), 'utf8'), /import \* as XLSX from 'xlsx'/);
 const xlsxEsm = await import('xlsx/xlsx.mjs');
@@ -9,6 +10,19 @@ assert.equal(xlsxEsm.default, undefined);
 const config = { year: '2026', countries: ['네덜란드'] };
 const file = (id, name, mtime='2026-09-14T03:16:00Z') => ({ id, filename: name, mtime, sha: id });
 const a = file('a', '37-2 NL 원가자료.xlsx');
+const uploaded = Date.parse('2026-09-22T00:00:00Z');
+const delayed = { ...a, uploadedAt: new Date(uploaded).toISOString() };
+assert.equal(arrivalDriveTiming(delayed, {}, uploaded + ARRIVAL_DRIVE_DELAY_MS - 1).ready, false);
+assert.equal(arrivalDriveTiming(delayed, {}, uploaded + ARRIVAL_DRIVE_DELAY_MS).ready, true);
+assert.match(arrivalDriveTiming(a).reason, /등록시각/);
+assert.equal(arrivalDriveTiming(delayed, { status: 'complete' }, uploaded + 3 * ARRIVAL_DRIVE_DELAY_MS).wakeAt, null);
+assert.equal(arrivalDriveTiming(delayed, { status: 'review' }).wakeAt, null);
+assert.equal(arrivalDriveTiming({ ...delayed, reason: '충돌' }).wakeAt, null);
+assert.equal(arrivalDriveTiming(delayed, { status: 'error', at: new Date(uploaded + ARRIVAL_DRIVE_DELAY_MS).toISOString() }, uploaded + ARRIVAL_DRIVE_DELAY_MS).ready, false);
+const newer = { ...file('new', '38-2 NL 원가자료.xlsx'), uploadedAt: new Date(uploaded + ARRIVAL_DRIVE_DELAY_MS).toISOString() };
+const newerChosen = selectArrivalDriveCandidates([delayed, newer], config)[0];
+assert.equal(newerChosen.id, 'new');
+assert.equal(arrivalDriveTiming(newerChosen, {}, uploaded + ARRIVAL_DRIVE_DELAY_MS).ready, false);
 const b = file('b', '37-2 NL 원가자료 (2).xlsx', '2026-09-14T02:01:00Z');
 assert.equal(selectArrivalDriveCandidates([b, a], config)[0].id, 'a');
 assert.equal(selectArrivalDriveCandidates([a, file('c', '36-2 NL 원가자료.xlsx','2026-09-21T00:00:00Z')], config)[0].id, 'a');

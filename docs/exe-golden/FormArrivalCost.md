@@ -1,5 +1,10 @@
 # FormArrivalCost — 도착원가 웹 전용 원장 경계
 
+## 2026-09-22 등록 24시간 후 자동반영
+- dnSpy CLI FormWarehouseView GetData/GetDetail 재실행: WarehouseMaster/Detail 원천은 동일. 예약 변경에 SQL/EXE 저장 변경 없음.
+- 운영 읽기 전용 probe: 2025/2026의 38-2/38-02 중 2026 NL 34행, DRIVE_IMPORT #22 1건.
+- 서버 uploadedAt+24시간을 표시/실행/예약 공통 정책으로 검사. 파일 색인 및 설정 이벤트+단발 타이머 사용, 재시작 시 복원. 기존 저장 원장 및 중복 방지 보존.
+
 ## 2026-09-21 업무드라이브 자동 원가 반영
 
 동일 dnSpy CLI `-t FormWarehouseView`를 재실행해 GetData/GetDetail의 WarehouseMaster/Detail 경계를 확인했다.
