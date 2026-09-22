@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { apiGetExe } from '../lib/exeParity/client.js';
 import { useLang } from '../lib/i18n';
 import * as XLSX from 'xlsx';
@@ -23,6 +23,16 @@ export default function Warehouse() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadData, setUploadData] = useState(null);
   const [uploadMeta, setUploadMeta] = useState({ orderYear:'', orderWeek:'', farmName:'', invoiceNo:'', awb:'', inputDate: '', gw:'', cw:'', rate:'', docFee:'' });
+  // [2026-09-22] 입고 원장 탐색 보강 — nenova.exe에서 농장명 컬럼 필터를 반복 클릭하던 작업(Orbit 실측)을 웹에서 끝내기 위해:
+  //   컬럼 정렬 · 농장/차수 드롭다운 · 최근 본 농장 칩 · 필터 상태 URL 유지 · 원장 목록 엑셀
+  const [sortKey, setSortKey] = useState('InputDate');
+  const [sortDir, setSortDir] = useState(-1);
+  const [farmFilter, setFarmFilter] = useState('');
+  const [weekFilter, setWeekFilter] = useState('');
+  const [recentFarms, setRecentFarms] = useState([]);
+  const [masterSearch, setMasterSearch] = useState('');
+  const [detailSearch, setDetailSearch] = useState('');
+  const urlApplied = useRef(false);
   const fileRef = useRef();
   const loadSeq = useRef(0);
   const detailSeq = useRef(0);
@@ -39,17 +49,37 @@ export default function Warehouse() {
   useEffect(() => {
     const d = new Date();
     const today = d.toISOString().slice(0, 10);
-    setEndDate(today);
+    const q = new URLSearchParams(window.location.search);
+    setEndDate(q.get('to') || today);
     setUploadMeta(m => ({ ...m, inputDate: today }));
     d.setDate(d.getDate() - 7);
-    setStartDate(d.toISOString().slice(0, 10));
+    setStartDate(q.get('from') || d.toISOString().slice(0, 10));
+    if (q.get('farm')) setFarmFilter(q.get('farm'));
+    if (q.get('week')) setWeekFilter(q.get('week'));
+    if (q.get('q')) setMasterSearch(q.get('q'));
+    try { setRecentFarms(JSON.parse(localStorage.getItem('incoming.recentFarms') || '[]')); } catch {}
+    urlApplied.current = true;
   }, []);
+
+  // 필터 상태를 URL에 유지 (새로고침·공유·뒤로가기 후에도 같은 화면)
+  useEffect(() => {
+    if (!urlApplied.current || !startDate || !endDate) return;
+    const q = new URLSearchParams();
+    q.set('from', startDate); q.set('to', endDate);
+    if (farmFilter) q.set('farm', farmFilter);
+    if (weekFilter) q.set('week', weekFilter);
+    if (masterSearch) q.set('q', masterSearch);
+    const next = `${window.location.pathname}?${q.toString()}`;
+    if (next !== window.location.pathname + window.location.search) window.history.replaceState(null, '', next);
+  }, [startDate, endDate, farmFilter, weekFilter, masterSearch]);
 
   useEffect(() => { if (startDate && endDate) load(); }, [startDate, endDate]);
 
   const selectMaster = (wk) => {
     const seq = ++detailSeq.current;
     setSelectedKey(wk);
+    const fm = (masters.find(m => m.WarehouseKey === wk) || {}).FarmName;
+    if (fm) { const next = [fm, ...recentFarms.filter(f => f !== fm)].slice(0, 6); setRecentFarms(next); try { localStorage.setItem('incoming.recentFarms', JSON.stringify(next)); } catch {} }
     setDetailLoading(true);
     apiGetExe(`/api/warehouse/${wk}`)
       .then(d => { if (seq === detailSeq.current) setDetails(d.items||[]); })
@@ -59,18 +89,40 @@ export default function Warehouse() {
 
   const selected = masters.find(m => m.WarehouseKey === selectedKey);
 
-  // 검색 필터
-  const [masterSearch, setMasterSearch] = useState('');
-  const [detailSearch, setDetailSearch] = useState('');
-
-  const filteredMasters = masters.filter(m => {
-    if (!masterSearch) return true;
+  const farmOptions = useMemo(() => [...new Set(masters.map(m => m.FarmName).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [masters]);
+  const weekOptions = useMemo(() => [...new Set(masters.map(m => m.OrderWeek).filter(Boolean))].sort().reverse(), [masters]);
+  const toggleSort = (k) => { if (sortKey === k) setSortDir(d => -d); else { setSortKey(k); setSortDir(k === 'FarmName' ? 1 : -1); } };
+  const sortMark = (k) => sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : '';
+  const filteredMasters = useMemo(() => {
     const q = masterSearch.toLowerCase();
-    return (m.FarmName||'').toLowerCase().includes(q) ||
-           (m.InvoiceNo||'').toLowerCase().includes(q) ||
-           (m.AWB||'').toLowerCase().includes(q) ||
-           (m.OrderWeek||'').includes(q);
-  });
+    const list = masters.filter(m => {
+      if (farmFilter && m.FarmName !== farmFilter) return false;
+      if (weekFilter && m.OrderWeek !== weekFilter) return false;
+      if (!q) return true;
+      return (m.FarmName||'').toLowerCase().includes(q) ||
+             (m.InvoiceNo||'').toLowerCase().includes(q) ||
+             (m.AWB||'').toLowerCase().includes(q) ||
+             (m.OrderWeek||'').includes(q);
+    });
+    const val = (m) => { const v = m[sortKey]; return v == null ? '' : v; };
+    return list.sort((a, b) => { const x = val(a), y = val(b); if (typeof x === 'number' && typeof y === 'number') return (x - y) * sortDir; return String(x).localeCompare(String(y), 'ko') * sortDir; });
+  }, [masters, masterSearch, farmFilter, weekFilter, sortKey, sortDir]);
+
+  // 농장/차수를 고르면 첫 원장을 자동 선택해 상세까지 한 번에
+  useEffect(() => {
+    if (!farmFilter && !weekFilter) return;
+    const first = filteredMasters[0];
+    if (first && first.WarehouseKey !== selectedKey) selectMaster(first.WarehouseKey);
+  }, [farmFilter, weekFilter, masters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleMasterExcel = () => {
+    if (!filteredMasters.length) { alert('내보낼 원장이 없습니다.'); return; }
+    const rows = filteredMasters.map(m => ({ 주문년도:m.OrderYear, 차수:m.OrderWeek, 농장명:m.FarmName, 인보이스:m.InvoiceNo, AWB:m.AWB, 입력일자:m.InputDate,
+      박스:m.totalBox, 단:m.totalBunch, 송이:m.totalSteam, GW:m.GrossWeight, CW:m.ChargeableWeight, Rate:m.FreightRateUSD }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '입고원장');
+    XLSX.writeFile(wb, `입고원장_${startDate}_${endDate}${farmFilter ? '_' + farmFilter : ''}.xlsx`);
+  };
 
   const filteredDetails = details.filter(d => {
     if (!detailSearch) return true;
@@ -170,11 +222,23 @@ export default function Warehouse() {
         <input type="date" className="filter-input" value={startDate} onChange={e=>setStartDate(e.target.value)} />
         <span style={{color:'var(--text3)'}}>~</span>
         <input type="date" className="filter-input" value={endDate} onChange={e=>setEndDate(e.target.value)} />
+        <span className="filter-label" style={{marginLeft:8}}>농장</span>
+        <select className="filter-input" value={farmFilter} onChange={e=>setFarmFilter(e.target.value)} style={{maxWidth:200}}>
+          <option value="">전체 ({farmOptions.length})</option>
+          {farmOptions.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+        <span className="filter-label">차수</span>
+        <select className="filter-input" value={weekFilter} onChange={e=>setWeekFilter(e.target.value)} style={{maxWidth:110}}>
+          <option value="">전체</option>
+          {weekOptions.map(w => <option key={w} value={w}>{w}</option>)}
+        </select>
+        {(farmFilter || weekFilter) && <button className="btn btn-secondary" onClick={()=>{setFarmFilter('');setWeekFilter('');}}>필터 해제</button>}
         <div className="page-actions">
           <button className="btn btn-primary" onClick={load} disabled={loading}>{loading?'조회 중...':t('새로고침')}</button>
           <button className="btn btn-success" disabled={uploading || deleting} onClick={()=>fileRef.current.click()}>📤 업로드 / Subir</button>
           <input type="file" ref={fileRef} style={{display:'none'}} accept=".xlsx,.xls" onChange={handleFileChange} />
           <button className="btn btn-danger" disabled={!selectedKey || deleting || uploading} onClick={handleDelete}>{deleting?'삭제 중...':'🗑️ 원장삭제 / Eliminar Reg.'}</button>
+          <button className="btn btn-secondary" disabled={!filteredMasters.length} onClick={handleMasterExcel}>📊 원장 목록 엑셀</button>
           <button className="btn btn-secondary" disabled={!selectedKey || detailLoading || !details.length} onClick={handleExcel}>📊 선택 상세 엑셀</button>
           <button className="btn btn-secondary" onClick={() => window.opener ? window.close() : history.back()}>✖️ 닫기 / Cerrar</button>
         </div>
@@ -199,6 +263,15 @@ export default function Warehouse() {
             <input className="filter-input" placeholder="농장명, 인보이스, AWB 검색..."
               value={masterSearch} onChange={e=>setMasterSearch(e.target.value)}
               style={{width:'100%',height:22,fontSize:11,border:'1px solid var(--border2)'}} />
+            {recentFarms.length > 0 && (
+              <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:4,alignItems:'center'}}>
+                <span style={{fontSize:10,color:'var(--text3)'}}>최근</span>
+                {recentFarms.map(f => (
+                  <button key={f} type="button" onClick={()=>setFarmFilter(farmFilter===f?'':f)}
+                    style={{fontSize:10,padding:'1px 8px',borderRadius:10,border:'1px solid var(--border2)',background:farmFilter===f?'var(--blue-bg)':'#fff',color:farmFilter===f?'var(--blue)':'inherit',cursor:'pointer'}}>{f}</button>
+                ))}
+              </div>
+            )}
           </div>
           <div style={{overflowX:'auto',flex:1}}>
             {loading ? <div className="skeleton" style={{margin:16,height:300,borderRadius:8}}></div> : (
@@ -206,9 +279,12 @@ export default function Warehouse() {
                 <thead>
                   <tr>
                     <th style={{width:32}}>선택</th>
-                    <th>주문년도</th><th>차수</th><th>농장명</th><th>인보이스</th><th>AWB</th><th>입력일자</th>
-                    <th style={{textAlign:'right'}}>박스</th><th style={{textAlign:'right'}}>단</th><th style={{textAlign:'right'}}>송이</th>
-                    <th style={{textAlign:'right'}}>GW</th><th style={{textAlign:'right'}}>CW</th><th style={{textAlign:'right'}}>Rate</th>
+                    {[['OrderYear','주문년도'],['OrderWeek','차수'],['FarmName','농장명'],['InvoiceNo','인보이스'],['AWB','AWB'],['InputDate','입력일자']].map(([k,l]) => (
+                      <th key={k} onClick={()=>toggleSort(k)} style={{cursor:'pointer',whiteSpace:'nowrap',userSelect:'none',color:sortKey===k?'var(--blue)':undefined}} title="클릭하면 정렬">{l}{sortMark(k)}</th>
+                    ))}
+                    {[['totalBox','박스'],['totalBunch','단'],['totalSteam','송이'],['GrossWeight','GW'],['ChargeableWeight','CW'],['FreightRateUSD','Rate']].map(([k,l]) => (
+                      <th key={k} onClick={()=>toggleSort(k)} style={{textAlign:'right',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none',color:sortKey===k?'var(--blue)':undefined}} title="클릭하면 정렬">{l}{sortMark(k)}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
