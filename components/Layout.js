@@ -52,6 +52,7 @@ export const MENU_ITEMS = [
     group: '수입부',
     items: [
       { href: '/import',              labelKey: '수입부 통합',   popup: false },
+      { href: '/import/finance',      labelKey: '경영지원 통합(송금·채권)', popup: false },
       { href: '/import/freight-calc', labelKey: 'AWB 운임 계산기', popup: false },
     ]
   },

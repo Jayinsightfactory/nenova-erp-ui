@@ -11,20 +11,24 @@ const { Text } = Typography;
 const fmt = (n) => (n == null || n === '' ? '–' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }));
 const ST_C = { 미송금: 'red', 부분송금: 'orange', 완납: 'green', 청구없음: 'default' };
 const api = async (u, o) => { const r = await fetch(u, o); const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error(j.error || `HTTP ${r.status}`); return j; };
+// 역할 프리셋: import(수입부: 가브리엘·김원빈) / finance(경영지원: 강명훈 — 송금·지급·채권·증빙). 같은 데이터, 기본 탭·KPI·바로가기만 다르다.
+const FIN_LINKS = [['/incoming-price', '송금·크레딧 입력'], ['/stats/pivot-import-farm-settings', '결제일 설정'], ['/import/freight-calc', 'AWB 운임 계산기'], ['/sales/ar', '거래처별 채권'], ['/ecount/receivables', 'ECOUNT 채권'], ['/sales/tax-invoice', '세금계산서'], ['/finance/bank', '입/출금 계좌'], ['/finance/exchange', '외화/환율'], ['/sales/profit-report', '주차별 매출이익'], ['/work/drive', '업무 드라이브']];
 const LINKS = [['/incoming', '입고 원장'], ['/import/freight-calc', 'AWB 운임 계산기'], ['/incoming-price', '단가·송금 입력'], ['/arrival-cost', '도착원가'], ['/freight', '운송기준원가'], ['/stats/pivot-import', '수입 피벗'], ['/stats/pivot-import-farm-settings', '결제일 설정'], ['/sales/farm-quality', '농장 품질'], ['/incoming/kakao-summary', '카톡 수량집계']];
 const DDayTag = ({ pay }) => { if (!pay || !pay.unpaidN) return <Text type="secondary">–</Text>; if (!pay.day) return <a href="/stats/pivot-import-farm-settings"><Tag>결제일 설정</Tag></a>; const d = pay.dday; return <Tooltip title={`매월 ${pay.day}일 · 가장 오래된 미결 ${pay.oldestUnpaid} → 만기 ${pay.nextDue} · 미결 ${pay.unpaidN}건${pay.overdueUSD > 0.5 ? ` · 연체 $${fmt(pay.overdueUSD)}` : ''}`}><Tag color={d < 0 ? 'red' : d <= 7 ? 'orange' : 'green'} style={{ fontWeight: 700 }}>{d < 0 ? `D+${-d}` : d === 0 ? 'D-DAY' : `D-${d}`}</Tag></Tooltip>; };
 
-export default function ImportOnePage() {
+export function ImportOnePage({ initialRole = 'import' } = {}) {
   const [weeks, setWeeks] = useState([]); const [year, setYear] = useState(''); const [week, setWeek] = useState(''); const [months, setMonths] = useState('6');
   const [board, setBoard] = useState(null); const [ledger, setLedger] = useState(null); const [inbox, setInbox] = useState(null); const [eta, setEta] = useState(null);
   const [farm, setFarm] = useState(''); const [view, setView] = useState('board'); const [q, setQ] = useState(''); const [stF, setStF] = useState();
+  const [role, setRole] = useState(initialRole);
   const [todo, setTodo] = useState('remit'); const [edit, setEdit] = useState({}); const [tick, setTick] = useState(0); const [loading, setLoading] = useState(false); const [rightOpen, setRightOpen] = useState(true);
 
   useEffect(() => {
     const u = new URLSearchParams(window.location.search); if (u.get('farm')) setFarm(u.get('farm')); if (u.get('view')) setView(u.get('view'));
+    if (u.get('role') === 'finance' || initialRole === 'finance') { setRole('finance'); if (!u.get('view')) setView('ledger'); setTodo('remit'); setRightOpen(true); }
     api('/api/incoming/insight?view=weeks').then((j) => { setWeeks(j.weeks); const w = j.weeks[0]; if (u.get('year') && u.get('week')) { setYear(u.get('year')); setWeek(u.get('week')); } else if (w) { setYear(String(w.year)); setWeek(w.week); } }).catch((e) => message.error(e.message));
   }, []);
-  useEffect(() => { if (!year || !week) return; const u = new URLSearchParams({ year, week }); if (farm) u.set('farm', farm); if (view) u.set('view', view); window.history.replaceState(null, '', `/import?${u}`); }, [year, week, farm, view]);
+  useEffect(() => { if (!year || !week) return; const u = new URLSearchParams({ year, week }); if (farm) u.set('farm', farm); if (view) u.set('view', view); if (role === 'finance') u.set('role', 'finance'); window.history.replaceState(null, '', `${window.location.pathname}?${u}`); }, [year, week, farm, view, role]);
   useEffect(() => {
     setLoading(true);
     Promise.all([year && week ? api(`/api/incoming/insight?view=board&year=${year}&week=${week}`).then(setBoard) : null, api(`/api/incoming/insight?view=ledger&months=${months}`).then(setLedger), api('/api/incoming/remit-inbox').then(setInbox).catch(() => {}), api('/api/incoming/eta').then(setEta).catch(() => {})])
@@ -61,17 +65,24 @@ export default function ImportOnePage() {
             <Segmented size="small" value={months} onChange={setMonths} options={[{ label: '3개월', value: '3' }, { label: '6개월', value: '6' }, { label: '12개월', value: '12' }]} />
             <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={() => setTick((t) => t + 1)} /></Space></Col>
           <Col flex="auto" />
-          <Col><Space size={4} wrap>{LINKS.map(([h, l]) => <Button key={h} size="small" type="text" href={h}>{l}</Button>)}<Button size="small" onClick={() => setRightOpen(!rightOpen)}>{rightOpen ? '할 일 접기' : '할 일 열기'}</Button></Space></Col>
+          <Col><Space size={4} wrap><Segmented size="small" value={role} onChange={(r) => { setRole(r); if (r === 'finance') { setFarm(''); setView('ledger'); setTodo('remit'); setRightOpen(true); } else { setView('board'); } }} options={[{ label: '수입부', value: 'import' }, { label: '경영지원', value: 'finance' }]} />{(role === 'finance' ? FIN_LINKS : LINKS).map(([h, l]) => <Button key={h} size="small" type="text" href={h}>{l}</Button>)}<Button size="small" onClick={() => setRightOpen(!rightOpen)}>{rightOpen ? '할 일 접기' : '할 일 열기'}</Button></Space></Col>
         </Row>
 
-        <Row gutter={[6, 6]} style={{ marginBottom: 6 }}>
+        {role === 'finance' ? <Row gutter={[6, 6]} style={{ marginBottom: 6 }}>
+          <Col flex="1 1 240px"><Card size="small" hoverable onClick={() => { setFarm(''); setView('ledger'); }}><Statistic title="농장 잔액 = 청구 − 크레딧 − 송금 (USD)" value={ledger ? `${fmt(T.balance)}` : '–'} suffix={<Text type="secondary" style={{ fontSize: 12 }}>미송금 {T.unpaid ?? '–'} · 부분 {T.partial ?? '–'}농장</Text>} valueStyle={{ fontSize: 15, color: T.balance > 0 ? '#cf1322' : '#3f8600' }} prefix={<DollarOutlined />} /></Card></Col>
+          <Col flex="1 1 170px"><Card size="small" hoverable onClick={() => { setFarm(''); setView('ledger'); }}><Statistic title="결제 연체 / 7일 내 만기" value={`${T.overdueFarms ?? '–'}농장 $${fmt(T.overdueUSD)} / ${T.dueSoon ?? '–'}`} valueStyle={{ fontSize: 15, color: T.overdueFarms ? '#cf1322' : '#3f8600' }} prefix={<ClockCircleOutlined />} /></Card></Col>
+          <Col flex="1 1 170px"><Card size="small" hoverable onClick={() => { setTodo('remit'); setRightOpen(true); }}><Statistic title="송금신청서 확인 대기" value={inboxRows.length} suffix={<Text type="secondary" style={{ fontSize: 12 }}>건 · ${fmt(inboxRows.reduce((a, r) => a + (r.amountUSD || 0), 0))}</Text>} valueStyle={{ fontSize: 15, color: inboxRows.length ? '#d46b08' : '#3f8600' }} /></Card></Col>
+          <Col flex="1 1 150px"><Card size="small" hoverable onClick={() => { setFarm(''); setView('ledger'); }}><Statistic title="결제일 미설정 농장" value={T.noPayDay ?? '–'} valueStyle={{ fontSize: 15, color: T.noPayDay ? '#d46b08' : '#3f8600' }} prefix={<WarningOutlined />} /></Card></Col>
+          <Col flex="1 1 150px"><Card size="small" hoverable onClick={() => { setTodo('claims'); setRightOpen(true); }}><Statistic title="클레임(크레딧 후보)" value={`${pendingClaims.length} / ${T.claims ?? '–'}`} valueStyle={{ fontSize: 15, color: pendingClaims.length ? '#cf1322' : undefined }} prefix={<ExclamationCircleOutlined />} /></Card></Col>
+          <Col flex="1 1 170px"><Card size="small"><Statistic title="국내비용(계산기 저장분, 원)" value={ledger ? fmt(ledger.rows.reduce((a, r) => a + (r.domesticKRW || 0), 0)) : '–'} valueStyle={{ fontSize: 15 }} prefix={<InboxOutlined />} /></Card></Col>
+        </Row> : <Row gutter={[6, 6]} style={{ marginBottom: 6 }}>
           <Col flex="1 1 200px"><Card size="small" hoverable onClick={() => { setFarm(''); setView('board'); }}><Statistic title={`발주 → 입고 → 분배 (${week})`} value={board ? `${fmt(board.totals.ordered)} → ${fmt(board.totals.received)} → ${fmt(board.totals.shipped)}` : '–'} valueStyle={{ fontSize: 15 }} prefix={<InboxOutlined />} /></Card></Col>
           <Col flex="1 1 120px"><Card size="small" hoverable onClick={() => { setFarm(''); setView('reconcile'); setTodo('missing'); }}><Statistic title="미입고 / 부족 / 초과 품목" value={board ? `${board.totals.missing} / ${board.totals.short} / ${board.totals.over}` : '–'} valueStyle={{ fontSize: 15, color: board?.totals.missing ? '#cf1322' : undefined }} prefix={<WarningOutlined />} /></Card></Col>
           <Col flex="1 1 260px"><Card size="small"><Statistic title="청구 − 크레딧 − 송금 = 잔액 (USD)" value={ledger ? `${fmt(T.billed)} − ${fmt(T.credit)} − ${fmt(T.remit)} = ${fmt(T.balance)}` : '–'} valueStyle={{ fontSize: 15, color: T.balance > 0 ? '#cf1322' : '#3f8600' }} prefix={<DollarOutlined />} /></Card></Col>
           <Col flex="1 1 160px"><Card size="small" hoverable onClick={() => { setTodo('remit'); setRightOpen(true); }}><Statistic title="송금 확인 대기" value={inboxRows.length} suffix={<Text type="secondary" style={{ fontSize: 12 }}>건 · ${fmt(inboxRows.reduce((a, r) => a + (r.amountUSD || 0), 0))}</Text>} valueStyle={{ fontSize: 15, color: inboxRows.length ? '#d46b08' : '#3f8600' }} /></Card></Col>
           <Col flex="1 1 150px"><Card size="small"><Statistic title="결제 연체 / 7일 내 만기" value={`${T.overdueFarms ?? '–'}농장 $${fmt(T.overdueUSD)} / ${T.dueSoon ?? '–'}`} valueStyle={{ fontSize: 15, color: T.overdueFarms ? '#cf1322' : '#3f8600' }} prefix={<ClockCircleOutlined />} /></Card></Col>
           <Col flex="1 1 130px"><Card size="small" hoverable onClick={() => { setTodo('claims'); setRightOpen(true); }}><Statistic title="클레임 수입부 확인" value={`${pendingClaims.length} / ${T.claims ?? '–'}`} valueStyle={{ fontSize: 15, color: pendingClaims.length ? '#cf1322' : undefined }} prefix={<ExclamationCircleOutlined />} /></Card></Col>
-        </Row>
+        </Row>}
 
         <Row gutter={6} wrap={false} style={{ alignItems: 'flex-start' }}>
           <Col flex="0 0 300px">
@@ -80,7 +91,7 @@ export default function ImportOnePage() {
             </Card>
           </Col>
           <Col flex="1 1 0" style={{ minWidth: 0 }}>
-            <Card size="small" title={farm ? <Space><Text strong>{farm}</Text>{cur && <Tag color={ST_C[cur.status]}>{cur.status}</Tag>}{cur && <DDayTag pay={cur.pay} />}</Space> : <Segmented size="small" value={view} onChange={setView} options={[{ label: '차수 보드', value: 'board' }, { label: '발주·입고 비교', value: 'reconcile' }, { label: '품목 추이', value: 'product' }, { label: '입고 예정 칸반', value: 'eta' }]} />} extra={farm && <Button size="small" onClick={() => { setFarm(''); setView('board'); }}>전체로</Button>}>
+            <Card size="small" title={farm ? <Space><Text strong>{farm}</Text>{cur && <Tag color={ST_C[cur.status]}>{cur.status}</Tag>}{cur && <DDayTag pay={cur.pay} />}</Space> : <Segmented size="small" value={view} onChange={setView} options={role === 'finance' ? [{ label: '농장 정산·송금', value: 'ledger' }, { label: '차수 보드', value: 'board' }, { label: '발주·입고 비교', value: 'reconcile' }] : [{ label: '차수 보드', value: 'board' }, { label: '발주·입고 비교', value: 'reconcile' }, { label: '품목 추이', value: 'product' }, { label: '입고 예정 칸반', value: 'eta' }]} />} extra={farm && <Button size="small" onClick={() => { setFarm(''); setView('board'); }}>전체로</Button>}>
               <IncomingInsight key={`${centerTab}|${farm}|${year}|${week}|${tick}`} initialTab={centerTab} initialFarm={farm} hideTabs />
             </Card>
           </Col>
@@ -100,3 +111,5 @@ export default function ImportOnePage() {
     </ConfigProvider>
   );
 }
+
+export default function ImportOnePageDefault() { return <ImportOnePage />; }
