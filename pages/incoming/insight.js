@@ -131,20 +131,20 @@ export function IncomingInsight({ initialTab, hideTabs } = {}) {
         <div className="card" style={{ padding: 0 }}>
           <div className="card-header"><span className="card-title">농장 정산·송금 ({months}개월 입고 기준)</span>
             <span className="tagf">{['', '미송금', '부분송금', '완납'].map((t) => <button key={t} className={ledgerF === t ? 'on' : ''} onClick={() => setLedgerF(t)}>{t || '전체'} <em>{t ? ledger.rows.filter((r) => r.status === t).length : ledger.rows.length}</em></button>)}</span>
-            <span className="dim" style={{ marginLeft: 8 }}>청구 {fmt(ledger.totals.billed)} · 크레딧 {fmt(ledger.totals.credit)} · 송금 {fmt(ledger.totals.remit)} · <b style={{ color: ledger.totals.balance > 0 ? ST_C.미송금 : ST_C.완납 }}>잔액 {fmt(ledger.totals.balance)}</b> (USD)</span>
+            <span className="dim" style={{ marginLeft: 8 }}>클레임 {ledger.totals.claims}건(확인 대기 {ledger.totals.claimsPending}) · 청구 {fmt(ledger.totals.billed)} · 크레딧 {fmt(ledger.totals.credit)} · 송금 {fmt(ledger.totals.remit)} · <b style={{ color: ledger.totals.balance > 0 ? ST_C.미송금 : ST_C.완납 }}>잔액 {fmt(ledger.totals.balance)}</b> (USD)</span>
             <a className="btn btn-secondary" href="/incoming-price" style={{ marginLeft: 8 }}>송금·크레딧 입력</a>
-            <button className="btn btn-secondary" onClick={() => exportRows(ledger.rows.map((r) => ({ 농장: r.farm, 인보이스: r.invoices, 상품금액: r.goods, 운임: r.freight, 청구: r.billed, 크레딧: r.credit, 송금: r.remit, 잔액: r.balance, 상태: r.status, 마지막입고: r.lastInput, 마지막송금: r.lastRemit })), `농장정산_${months}개월`)}>📊 엑셀</button>
+            <button className="btn btn-secondary" onClick={() => exportRows(ledger.rows.map((r) => ({ 농장: r.farm, 인보이스: r.invoices, 상품금액: r.goods, 운임: r.freight, 청구: r.billed, 크레딧: r.credit, 송금: r.remit, 잔액: r.balance, 상태: r.status, 클레임건수: r.claims.n, 클레임수량: r.claims.qty, 클레임확인대기: r.claims.pending, 마지막입고: r.lastInput, 마지막송금: r.lastRemit })), `농장정산_${months}개월`)}>📊 엑셀</button>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="tbl" style={{ minWidth: 980 }}>
-              <thead><tr><th>농장</th><th className="r">인보이스</th><th className="r">상품 금액</th><th className="r">운임</th><th className="r">청구 합계</th><th className="r">크레딧</th><th className="r">송금</th><th className="r">잔액</th><th>지급률</th><th>상태</th><th>마지막 입고</th><th>마지막 송금</th></tr></thead>
+              <thead><tr><th>농장</th><th className="r">인보이스</th><th className="r">상품 금액</th><th className="r">운임</th><th className="r">청구 합계</th><th className="r">크레딧</th><th className="r">송금</th><th className="r">잔액</th><th>지급률</th><th>상태</th><th className="r">클레임</th><th>마지막 입고</th><th>마지막 송금</th></tr></thead>
               <tbody>{ledger.rows.filter((r) => !ledgerF || r.status === ledgerF).map((r) => (
                 <tr key={r.farm}>
                   <td className="name"><button className="lnk" onClick={() => goFarm(r.farm)}>{r.farm}</button></td>
                   <td className="num">{r.invoices}</td><td className="num">{fmt(r.goods)}</td><td className="num">{fmt(r.freight)}</td><td className="num" style={{ fontWeight: 600 }}>{fmt(r.billed)}</td>
                   <td className="num">{fmt(r.credit)}</td><td className="num">{fmt(r.remit)}</td><td className="num" style={{ fontWeight: 700, color: r.balance > 0.5 ? ST_C.미송금 : r.balance < -0.5 ? ST_C.부분송금 : ST_C.완납 }}>{fmt(r.balance)}</td>
                   <td><Bar v={r.paidRate} c={r.paidRate == null ? '#9ca3af' : r.paidRate >= 100 ? ST_C.완납 : ST_C.부분송금} /></td>
-                  <td><span className="tag" style={{ background: ST_C[r.status] }}>{r.status}</span></td><td className="mono">{r.lastInput}</td><td className="mono">{r.lastRemit || '–'}</td>
+                  <td><span className="tag" style={{ background: ST_C[r.status] }}>{r.status}</span></td><td className="num">{r.claims.n ? <span title={`수량 ${fmt(r.claims.qty)} · 크레딧 반영 ${r.claims.credited} · 수입부 확인 대기 ${r.claims.pending}`}>{r.claims.n}건{r.claims.pending ? <em style={{ color: ST_C.미송금, fontStyle: 'normal' }}> (대기 {r.claims.pending})</em> : null}</span> : <span className="dim">–</span>}</td><td className="mono">{r.lastInput}</td><td className="mono">{r.lastRemit || '–'}</td>
                 </tr>))}</tbody>
             </table>
           </div>
@@ -169,6 +169,12 @@ export function IncomingInsight({ initialTab, hideTabs } = {}) {
                 )}
                 {farmData.ledger && farmData.ledger.remits.length > 0 && (
                   <div style={{ padding: '4px 12px 8px', fontSize: 11 }}><b>송금 기록</b> {farmData.ledger.remits.slice(0, 8).map((r) => <span key={r.key} className="pillx">{r.date} · {fmt(r.amount)} USD{r.weeks ? ` (${r.weeks})` : ''}{r.memo ? ` · ${r.memo}` : ''}</span>)}</div>
+                )}
+                {farmData.ledger && farmData.ledger.claims.n > 0 && (
+                  <div style={{ padding: '4px 12px 8px', fontSize: 11 }}><b>클레임(불량차감) {farmData.ledger.claims.n}건 · 수량 {fmt(farmData.ledger.claims.qty)} · 크레딧 반영 {farmData.ledger.claims.credited} · 수입부 확인 대기 {farmData.ledger.claims.pending}</b> <a href="/sales/farm-quality" style={{ marginLeft: 6 }}>농장 품질 화면</a>
+                    <table className="tbl mini" style={{ marginTop: 4 }}><thead><tr><th>차수</th><th>거래처</th><th>품목</th><th className="r">수량</th><th>구분</th><th>크레딧</th><th>수입부 확인</th><th>메모</th></tr></thead>
+                      <tbody>{farmData.ledger.claims.items.map((c) => <tr key={c.key}><td>{c.week}</td><td>{c.cust}</td><td>{c.prod}{c.color ? ` (${c.color})` : ''}</td><td className="num">{fmt(c.qty)} {c.unit}</td><td>{c.type}</td><td>{c.credited ? '반영' : <span style={{ color: ST_C.부분송금 }}>미반영</span>}</td><td>{c.confirmed && !c.review ? '확인' : <span style={{ color: ST_C.미송금 }}>대기</span>}</td><td>{c.note}</td></tr>)}</tbody></table>
+                  </div>
                 )}
                 <div className="card-header"><span className="card-title">인보이스 · 운임</span><button className="btn btn-secondary" onClick={() => exportRows(farmData.invoices, `농장_${farmData.farm}`)}>📊 엑셀</button></div>
                 <div style={{ overflowX: 'auto' }}><table className="tbl"><thead><tr><th>차수</th><th>인보이스</th><th>AWB</th><th>입력일</th><th className="r">박스</th><th className="r">금액</th><th className="r">GW</th><th className="r">CW</th><th className="r">Rate</th><th className="r">운임(USD)</th></tr></thead>
