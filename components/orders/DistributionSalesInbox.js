@@ -298,6 +298,12 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     const source=[row.sender,row.created_at?shortKstTime(row.created_at):'시각 확인 필요'].filter(Boolean).join(' · ');
     const sourceWeek=sourceWeekFromMessage(row.message,String(year||''))||week;
     const changes=visibleChanges(row.message,week);
+    const changeGroups=[];
+    for(const change of changes){
+      const previous=changeGroups[changeGroups.length-1];
+      if(previous&&previous.week===change.week&&previous.customer===change.customer)previous.changes.push(change.change);
+      else changeGroups.push({week:change.week,customer:change.customer,changes:[change.change]});
+    }
     const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length});
     const quantityCompleted=match.status==='QUANTITY_MATCHED';
     const candidateCompleted=match.status==='CANDIDATE';
@@ -313,11 +319,12 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={highlighted} title="확인 표시만 저장합니다. 확인취소는 주문·분배를 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,highlighted?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':highlighted?'확인취소':'확인처리'}</button>
       <button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>{completed||match.status==='QUANTITY_MATCHED'?'원문 다시 분석':'미확인 원문 AI 분석·매칭'}</button></div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
+      <div className="visible-change-table">{changeGroups.map((group,index)=><div className="compact-change-group" key={index}><div className="compact-change-scope"><span>{group.week}</span><strong>{group.customer}</strong></div><div className="compact-change-items">{group.changes.map((change,i)=><span key={i}>{change}</span>)}</div></div>)}</div>
+      <details className="compact-source-evidence"><summary>원문 · 품목별 처리 근거 {confirmed.length+quantityProcessed.length>0?`(${confirmed.length+quantityProcessed.length}건)`:''}</summary>
       <blockquote className="source-message-context" aria-label="변경 요청 원문">{row.message}</blockquote>
-      <div className="visible-change-table">{changes.map((change,index)=><div className="visible-change-line" key={index}><span>{change.week}</span><strong>{change.customer}</strong><span>{change.change}</span></div>)}</div>
       {!completed&&quantityProcessed.length>0&&<div className="confirmed-request-box quantity-processed-box">{quantityProcessed.map(request=><div key={request.id}>✓ 처리됨 · {request.customerText} · {request.quote}<small>전산: {request.productText} · {request.shipmentEvents[0].before}→{request.shipmentEvents[0].after}{request.unit} · 변경 방향·수량 일치로 우선 처리 표시</small></div>)}</div>}
       {!completed&&confirmed.length>0&&<div className="confirmed-request-box">{confirmed.map(request=><div key={request.id}>✓ 처리 이력 확인 · {request.customerText} · {request.quote}<small>{request.reason}</small></div>)}</div>}
-      <details><summary>원문 · 전산 근거 · 비교</summary><div className="compact-match-expanded"><div className="message-raw"><pre>{row.message}</pre><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></details>
+      <div className="compact-match-expanded"><div className="message-raw"><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></details>
     </article>;
   }
   useEffect(()=>{
@@ -413,6 +420,17 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       .sales-inbox .visible-change-meta .compact-match-status{display:flex;gap:5px}
       .sales-inbox .compact-match-row>details>summary{padding:3px 8px;color:#64748b;cursor:pointer;font-size:11px}
       @media(max-width:700px){.sales-inbox .compact-match-column-head,.sales-inbox .visible-change-line{grid-template-columns:82px 90px minmax(0,1fr)}}
+      .sales-inbox .compact-match-column-head{display:none}
+      .sales-inbox .compact-match-row{margin:3px 0;border-width:1px}
+      .sales-inbox .visible-change-meta{padding:3px 6px;gap:4px}
+      .sales-inbox .visible-change-meta>button{margin-left:0;font:inherit;font-size:11px;padding:2px 5px;min-height:23px}
+      .sales-inbox .compact-change-group{padding:3px 6px;border-top:1px solid #e6edf5;line-height:1.5}
+      .sales-inbox .compact-change-scope{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap;color:#35556f}
+      .sales-inbox .compact-change-items{display:flex;flex-wrap:wrap;gap:0 8px;word-break:keep-all;overflow-wrap:anywhere}
+      .sales-inbox .compact-change-items>span+span:before{content:'· ';color:#8a9aab}
+      .sales-inbox .history-completion-label,.sales-inbox .history-candidate-label{padding:2px 6px;font-size:11px}
+      .sales-inbox .compact-source-evidence>summary{padding:2px 6px}
+      .paste-baseline-panel>summary{cursor:pointer;padding:3px 6px;color:#245b93;font-size:11px}
     `}</style>
   </section>;
 }
