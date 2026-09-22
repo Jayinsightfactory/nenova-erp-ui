@@ -65,6 +65,30 @@ async function main() {
   assert.deepEqual(withExample.skippedSheets, [{ sheetName: '08-1(예시)', reason: '예시·견본 시트 제외' }]);
   assert.ok(withExample.rows.every(r => r.sheetName !== '08-1(예시)'));
 
+  const aishaName = 'Lily Oriental Double Roselily Aisha 2+';
+  const aishaWb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(aishaWb, XLSX.utils.aoa_to_sheet([
+    ['NETHERLANDS 원가자료'], ['품목명', '수량', '단위', '도착원가(단)'],
+    [aishaName, 10, '단', 4500],
+  ]), '37-2');
+  const aishaBytes = XLSX.write(aishaWb, {type:'buffer',bookType:'xlsx'});
+  const rose = {ProdKey:1211,ProdName:'ROSE',FlowerName:'장미'};
+  const lily = {ProdKey:3170,ProdName:aishaName,FlowerName:'백합'};
+  for (const products of [[rose,lily],[lily,rose]]) {
+    const result = parseArrivalCostWorkbook(aishaBytes,{fileName:'37-2 NL 원가자료.xlsx',products,mappings:{rose:{prodKey:1211,prodName:'ROSE'}}});
+    assert.equal(result.rows[0].prodKey,3170);
+    assert.equal(result.rows[0].flowerNameRaw,'백합');
+    assert.equal(result.rows[0].sourceArrivalCostKRW,4500);
+    assert.equal(result.rows[0].quantity,10);
+  }
+  const ambiguous = parseArrivalCostWorkbook(aishaBytes,{products:[lily,{...lily,ProdKey:9999}]});
+  assert.equal(ambiguous.rows[0].prodKey,null,'중복 정확명은 배열 순서로 선택 금지');
+  const missingLily = parseArrivalCostWorkbook(aishaBytes,{products:[rose],mappings:{rose:{prodKey:1211,prodName:'ROSE'}}});
+  assert.equal(missingLily.rows[0].prodKey,null,'백합 후보가 없을 때 장미로 대체 금지');
+  const {inferArrivalFlower} = await import('../lib/arrivalCostExcel.js');
+  assert.equal(inferArrivalFlower('ROSE / Coral Reef'),'장미');
+  assert.equal(inferArrivalFlower('Roselily Aisha'),'백합');
+
   const emptyCost = [
     ['COLOMBIA'],
     ['차수', '34-2'],

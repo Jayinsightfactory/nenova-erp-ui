@@ -1,5 +1,10 @@
 # FormArrivalCost — 도착원가 웹 전용 원장 경계
 
+## 2026-09-22 Aisha 품목 연결
+- dnSpy CLI FormWarehouseView GetData/GetDetail 재확인, ERP 입고 원장 보존.
+- 읽기 전용 probe: 2026 Import23 Aisha 현재11행이1211 ROSE에 연결. 정확명 Product3170은 활성 NL 백합. 수동 매칭 수정0건.
+- 정확명 우선/중복 후보 보류, Roselily 품종 경계를 공통 파서에서 검증. 데이터 보정은 배포 후 웹 원장 키와 품종만 감사 기록하며 정정.
+
 ## 2026-09-22 예시 시트·조회 범위
 - dnSpy CLI FormWarehouseView GetData/GetDetail 재실행, Warehouse 원장 변경 없음.
 - 읽기 전용 DB: 2026 #23 37-2 정상53/예시16, #22 38-2 정상18/예시16. 이전 34행 검증을 정정한다.
