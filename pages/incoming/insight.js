@@ -11,7 +11,7 @@ const TABS = [['board', '차수 보드'], ['reconcile', '발주·입고 비교']
 const ST_C = { 미송금: '#dc2626', 부분송금: '#ea580c', 완납: '#16a34a', 청구없음: '#9ca3af' };
 const api = async (url, opt) => { const r = await fetch(url, opt); const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error(j.error || `HTTP ${r.status}`); return j; };
 
-export function IncomingInsight({ initialTab, hideTabs } = {}) {
+export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
   const [tab, setTab] = useState(initialTab || 'board');
   const [ledger, setLedger] = useState(null);
   const [inbox, setInbox] = useState(null);        // 송금 자동 인식 대기함
@@ -25,7 +25,7 @@ export function IncomingInsight({ initialTab, hideTabs } = {}) {
   const [loading, setLoading] = useState(false);
   const [board, setBoard] = useState(null);
   const [tagF, setTagF] = useState('');
-  const [farmName, setFarmName] = useState('');
+  const [farmName, setFarmName] = useState(initialFarm || '');
   const [farmData, setFarmData] = useState(null);
   const [prodQ, setProdQ] = useState('');
   const [prodData, setProdData] = useState(null);
