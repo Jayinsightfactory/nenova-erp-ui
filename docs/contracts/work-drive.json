@@ -6,7 +6,8 @@
     "pages/api/work/drive.js",
     "pages/api/work/drive-ingest.js",
     "lib/workDrive.js",
-    "components/Layout.js"
+    "components/Layout.js",
+    "pages/api/work/drive-egress.js"
   ],
   "businessIdentity": [
     "OrderYear",

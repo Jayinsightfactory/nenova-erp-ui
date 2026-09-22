@@ -18,7 +18,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8')
   .replace(/^import \{ isOrbitReportViewer \} from '\.\/orbitReportAccess';/m,
     "const isOrbitReportViewer = (u) => String(u?.userId || '').toLowerCase() === 'nenovass3';")
   .replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, reclassifyAll, canView, canDownload, listVisible, getFile, downloadLog };';
+  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, reclassifyAll, canView, canDownload, listVisible, getFile, downloadLog, recordEgress, listEgress, fileTimeline };';
 const modPath = path.join(tmp, 'workDrive.cjs');
 fs.writeFileSync(modPath, src);
 const wd = require(modPath);
@@ -138,3 +138,30 @@ const ra2 = wd.reclassifyAll(boss); assert.strictEqual(ra2.changed, 0, '두 번�
 
 process.chdir(cwd);
 console.log('workDrive tests passed: 차수 정규화 5종, 단계 분류, 민감, 중복/버전, 부서 접근, 내려받기 기록, 교정');
+// 유출 이력(egress): 기록·sha 매칭·중복 제거·관리자 전용 조회·파일 타임라인
+{
+  const src2 = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8');
+  assert.ok(/EGRESS_KINDS|recordEgress|listEgress|fileTimeline/.test(src2), 'egress 함수 존재');
+  const api = fs.readFileSync(path.join(cwd, 'pages', 'api', 'work', 'drive-egress.js'), 'utf8');
+  assert.ok(/ORBIT_DRIVE_INGEST_TOKEN/.test(api) && /timingSafeEqual/.test(api), '데몬 POST는 ingest 토큰');
+  assert.ok(/withAuth/.test(api) && /listEgress\(user/.test(api), 'GET은 로그인+관리자(listEgress 내부 canAdmin)');
+  assert.ok(!/(INSERT|UPDATE|DELETE)\s/i.test(api + src2.slice(src2.indexOf('egress ledger'))), 'DB 쓰기 없음(파일 전용)');
+}
+
+// egress 동작: sha 매칭 → fileId 연결, 이름 매칭, dedup, 관리자만 조회, 타임라인 순서
+{
+  const kwy = { userId: 'nenova1', userName: '김원영' };
+  const fi = wd.ingestFile({ buffer: Buffer.from('egress-test-content'), filename: '39-1 주광 단가.xlsx', userName: '설연주', hostname: 'neonva', dir: 'Desktop' });
+  const f = wd.listVisible(boss).find((x) => x.id === fi.id);
+  const r1 = wd.recordEgress({ kind: 'copy', filename: 'x.xlsx', sha: f.sha, userName: f.uploaderName, hostname: 'PC1', destKind: 'usb', dest: 'E:/x.xlsx', dedupKey: 'k1' });
+  assert.ok(r1.ok && r1.row.fileId === f.id && r1.row.matchHow === 'sha', 'sha 매칭: ' + JSON.stringify(r1));
+  assert.ok(wd.recordEgress({ kind: 'copy', filename: 'x.xlsx', sha: f.sha, userName: f.uploaderName, hostname: 'PC1', dedupKey: 'k1' }).dup, '중복 제거');
+  const r2 = wd.recordEgress({ kind: 'print', filename: f.filename, userName: f.uploaderName, hostname: 'PC1', dest: 'HP LaserJet' });
+  assert.strictEqual(r2.row.matchHow, 'name');
+  assert.strictEqual(wd.recordEgress({ kind: 'hack', filename: 'a' }).ok, false, '허용 안 된 kind');
+  assert.strictEqual(wd.listEgress(seol).length, 0, '일반 직원은 못 봄');
+  assert.strictEqual(wd.listEgress(kwy).length, 2, '관리자(김원영) 조회');
+  assert.strictEqual(wd.listEgress(boss, { kind: 'print' }).length, 1);
+  const t = wd.fileTimeline(boss, f.id); assert.ok(t.length >= 3 && t[0].kind === 'upload', '타임라인: 업로드가 먼저');
+}
+console.log('egress tests passed');

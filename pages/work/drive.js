@@ -98,6 +98,14 @@ export default function WorkDrivePage() {
   const fix = async (id, patch) => { const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) }); const j = await r.json(); if (!j.success) { alert(j.error); return; } await load(); if (sel?.id === id) setSel(j.item); };
   const reclassAll = async () => { if (!confirm('규칙으로 전체 재분류할까요? 손으로 고친 파일은 그대로 둡니다.')) return; setBusy('재분류 중…'); const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reclassifyAll' }) }); const j = await r.json(); setBusy(''); alert(j.success ? `검사 ${j.scanned}건 · 바뀜 ${j.changed}건` : j.error); await load(); };
   const openLog = async (id) => { const r = await fetch('/api/work/drive?log=' + encodeURIComponent(id)); const j = await r.json(); setLog(j.log || []); };
+  // 보안 이력(유출 경로): 관리자만. 차단·알림 없이 기록만 본다.
+  const [eg, setEg] = useState(null); const [egKind, setEgKind] = useState(''); const [egWho, setEgWho] = useState(''); const [egDays, setEgDays] = useState('30'); const [egQ, setEgQ] = useState('');
+  const [tl, setTl] = useState(null);
+  const loadEg = async () => { const p = new URLSearchParams({ days: egDays, kind: egKind, who: egWho, q: egQ }); const r = await fetch('/api/work/drive-egress?' + p); const j = await r.json(); setEg(j.rows || []); };
+  const openTl = async (id) => { const r = await fetch('/api/work/drive-egress?timeline=' + encodeURIComponent(id)); const j = await r.json(); setTl(j.timeline || []); };
+  useEffect(() => { if (view === 'security' && data?.isAdmin) loadEg(); }, [view, egKind, egWho, egDays]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setTl(null); if (sel && data?.isAdmin) openTl(sel.id); }, [sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const EG_LABEL = { copy: ['복사 유출', '#b91c1c'], print: ['인쇄', '#9a3412'], email: ['이메일 첨부', '#1d4ed8'], webupload: ['웹 업로드', '#6d28d9'], kakao: ['카톡 전송', '#a16207'], download: ['내려받기', '#047857'], upload: ['업로드', '#374151'] };
   const pick = (f) => { setSel(f); setLog(null); };
   const th = (k, label) => <th onClick={() => setSort(([pk, pd]) => [k, pk === k ? -pd : -1])} className={sort[0] === k ? 'on' : ''}>{label}{sort[0] === k ? (sort[1] < 0 ? ' ▼' : ' ▲') : ''}</th>;
 
@@ -146,7 +154,7 @@ export default function WorkDrivePage() {
           <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{files.length.toLocaleString()}</b>개 파일</> : '불러오는 중…'}</span>
         </div>
         <label className="search"><span className="ico">⌕</span><input placeholder="파일명 · 이름 · 차수(38-2) 검색" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button className="clr" onClick={() => setQ('')}>✕</button>}</label>
-        <div className="seg">{[['kanban', '칸반'], ['list', '목록'], ['recent', '최근']].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
+        <div className="seg">{[['kanban', '칸반'], ['list', '목록'], ['recent', '최근'], ...(data?.isAdmin ? [['security', '보안 이력']] : [])].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
         <div className="grow" />
         <button className="ghost" onClick={load} title="새로고침">↻</button>
         {data?.isAdmin && <button className="ghost" onClick={reclassAll} disabled={!!busy}>{busy || '일괄 재분류'}</button>}
@@ -188,7 +196,27 @@ export default function WorkDrivePage() {
 
         {/* ── 본문 ── */}
         <main className="main">
-          {view === 'recent' ? <>
+          {view === 'security' && data?.isAdmin ? <>
+            <div className="h2">보안 이력 <span className="dim">{eg ? `${eg.length}건` : '…'} · 파일이 어디로 나갔는지(복사·인쇄·이메일·웹·카톡·내려받기). 차단하지 않고 기록만 남깁니다</span></div>
+            <div className="strip">
+              <button className={'stg-chip' + (egKind === '' ? ' on' : '')} onClick={() => setEgKind('')}>전체</button>
+              {Object.entries(EG_LABEL).filter(([k]) => k !== 'upload').map(([k, [l, c]]) => <button key={k} className={'stg-chip' + (egKind === k ? ' on' : '')} style={{ borderColor: c }} onClick={() => setEgKind(k)}>{l}{eg ? ` ${eg.filter((r) => r.kind === k).length}` : ''}</button>)}
+              <select value={egWho} onChange={(e) => setEgWho(e.target.value)}><option value="">직원 전체</option>{[...new Set(files.map((f) => f.uploaderName).filter(Boolean))].sort().map((n) => <option key={n}>{n}</option>)}</select>
+              <select value={egDays} onChange={(e) => setEgDays(e.target.value)}>{[['7', '7일'], ['30', '30일'], ['90', '90일'], ['365', '1년']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              <input className="cy" style={{ width: 200 }} placeholder="파일명·목적지 검색" value={egQ} onChange={(e) => setEgQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadEg()} />
+              <button className="ghost" onClick={loadEg}>↻</button>
+            </div>
+            {eg && eg.length === 0 && <div className="empty-state">기록 없음. 직원 PC 데몬이 복사·인쇄·메일 첨부를 감지하면 여기에 쌓입니다.</div>}
+            {eg && eg.length > 0 && <div className="tbl-wrap"><table className="lst eg"><thead><tr><th>시각</th><th>직원</th><th>유형</th><th>파일</th><th>어디로</th><th>드라이브 파일</th></tr></thead><tbody>
+              {eg.map((r) => <tr key={r.id} className={r.fileSensitive ? 'sens' : ''}>
+                <td className="dim" title={r.at}>{fmtT(r.at)}</td>
+                <td><Avatar name={r.userName} />{r.userName || r.hostname}{r.dept && <span className="dim"> · {r.dept}</span>}</td>
+                <td><span className="stg" style={{ color: (EG_LABEL[r.kind] || [])[1] }}>● {(EG_LABEL[r.kind] || [r.kind])[0]}</span></td>
+                <td title={r.filename}>{r.fileSensitive && '🔒 '}{r.filename}</td>
+                <td className="dim" title={[r.destKind, r.dest, r.app, r.detail].filter(Boolean).join(' · ')}>{[r.destKind, r.dest || r.app, r.detail].filter(Boolean).join(' · ').slice(0, 90)}</td>
+                <td>{r.fileId ? <a onClick={() => { const f = files.find((x) => x.id === r.fileId); if (f) setSel(f); }} style={{ cursor: 'pointer' }}>{r.matchHow === 'sha' ? '내용 일치' : '이름 일치'} · {r.fileStage}</a> : <span className="dim">업무 파일 아님</span>}</td>
+              </tr>)}</tbody></table></div>}
+          </> : view === 'recent' ? <>
             <div className="h2">최근 올라온 파일 <span className="dim">{listRows.length}건 · 최신순</span></div>
             {Object.entries(listRows.reduce((m, f) => { (m[dayKey(f.uploadedAt)] ||= []).push(f); return m; }, {})).map(([d, rows]) => <section key={d} className="daysec"><div className="day">{d === today ? '오늘' : fmtD(d)} <em>{rows.length}</em></div><Table rows={rows} withCycle /></section>)}
           </> : !cur ? <div className="empty-state">파일이 아직 없습니다. 직원 PC에서 업무 파일이 저장되면 자동으로 여기에 쌓입니다.</div> : <>
@@ -226,6 +254,7 @@ export default function WorkDrivePage() {
               <button className="ghost danger" onClick={() => confirm('목록에서 숨길까요? (파일은 보관됩니다)') && fix(sel.id, { deleted: true })}>숨김</button>
             </div>
           </div>}
+          {data?.isAdmin && tl && <div className="log"><div className="sec">파일 흐름 {tl.length}건</div>{tl.map((t, i) => <div key={i} className="dim"><span style={{ color: (EG_LABEL[t.kind] || [])[1] }}>● {(EG_LABEL[t.kind] || [t.kind])[0]}</span> {fmtT(t.at)} · {t.userName} {t.detail && <span>· {t.detail}</span>}</div>)}</div>}
           {log && <div className="log"><div className="sec">내려받기 {log.length}건</div>{log.length === 0 && <div className="dim">없음</div>}{log.map((l, i) => <div key={i} className="dim">{fmtT(l.at)} · {l.byName || l.by}</div>)}</div>}
           <div className="vers"><div className="sec">같은 이름 버전</div>{files.filter((f) => f.filename === sel.filename && f.uploaderName === sel.uploaderName).sort((a, b) => b.version - a.version).map((f) => <div key={f.id} className={'ver' + (f.id === sel.id ? ' on' : '')} onClick={() => pick(f)}><span className="pill">v{f.version}</span>{fmtT(f.uploadedAt)}<span className="dim">· {fmtS(f.size)}</span></div>)}</div>
         </aside>}
@@ -294,6 +323,7 @@ button{font:inherit;color:inherit}
 .wd :global(.lst td){padding:7px 12px;border-bottom:1px solid #f0f1f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}.wd :global(.lst tr:last-child td){border-bottom:0}
 .wd :global(.lst tr){cursor:pointer}.wd :global(.lst tbody tr:hover td){background:#f8f9fb}.wd :global(.lst tr.on td){background:var(--acs)}
 .wd :global(.lst th:nth-child(1)){width:auto}.wd :global(.lst th:nth-child(n+2)){width:104px}.wd :global(.lst th:last-child){width:76px}
+.wd :global(.lst.eg th:nth-child(n+2)){width:auto}.wd :global(.lst.eg th:nth-child(1)){width:96px}.wd :global(.lst.eg th:nth-child(3)){width:96px}.wd :global(.lst.eg tr){cursor:default}.wd :global(.lst.eg tr.sens td){background:#fff7f0}
 .wd :global(.lst td.fn){display:flex;align-items:center;gap:8px;font-weight:500}.wd :global(.lst .name){overflow:hidden;text-overflow:ellipsis}.wd :global(.who){display:inline-flex;align-items:center;gap:6px}
 .daysec{margin-bottom:16px}.day{font-weight:600;margin:0 0 6px;color:var(--tx)}.day em{font-style:normal;color:var(--mu);margin-left:6px;font-weight:500}
 .wd :global(.empty-state){color:var(--mu);text-align:center;padding:48px 20px;background:var(--sf);border:1px dashed var(--ln);border-radius:12px}
