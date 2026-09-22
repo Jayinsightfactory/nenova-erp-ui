@@ -52,3 +52,5 @@ console.log('incoming insight contract tests passed: 읽기전용·OutUnit 수�
   assert.ok(['Colibri', 'Colibri Flowers'].includes(canon('Colibri')), '순환은 3단계에서 멈춘다');
   assert.strictEqual(suggestGroups(['Colibri', 'Colibri Flowers'], m).length, 0, '등록된 별칭은 다시 제안하지 않음');
 }
+// 9) AWB는 WarehouseMaster.OrderNo (컬럼명 AWB 없음 → 'Invalid column name' 500)
+for (const s of [src, eta]) assert.ok(!/wm\.AWB\b|SELECT AWB FROM WarehouseMaster|\bAWB IS NOT NULL/.test(s), 'AWB 컬럼은 OrderNo AS AWB 로');

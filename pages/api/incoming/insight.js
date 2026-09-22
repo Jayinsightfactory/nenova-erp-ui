@@ -196,11 +196,11 @@ async function lista(year, week) {
 const FLOWER_GROUP = (flower, name) => { const t = `${flower} ${name}`; return /카네이션|clavel|carnation/i.test(t) ? '카네이션' : /장미|rosa|rose/i.test(t) ? '장미' : /알스트로|alstro/i.test(t) ? '알스트로' : /루스커스|ruscus/i.test(t) ? '루스커스' : /수국|hydrangea|hortensia/i.test(t) ? '수국' : '기타'; };
 async function awbcalc(year, week) {
   const canon = makeCanon();
-  const r = await query(`SELECT wm.WarehouseKey, wm.FarmName, ISNULL(wm.AWB,'') AS AWB, ISNULL(wm.InvoiceNo,'') AS InvoiceNo, wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD,
+  const r = await query(`SELECT wm.WarehouseKey, wm.FarmName, ISNULL(wm.OrderNo,'') AS AWB, ISNULL(wm.InvoiceNo,'') AS InvoiceNo, wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD,
                                 ISNULL(p.FlowerName,'') AS Flower, ISNULL(p.DisplayName,p.ProdName) AS ProdName, SUM(ISNULL(wd.BoxQuantity,0)) AS Box, SUM(ISNULL(wd.TPrice,0)) AS Amount
                            FROM WarehouseMaster wm JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey LEFT JOIN Product p ON p.ProdKey = wd.ProdKey
                           WHERE ISNULL(wm.isDeleted,0)=0 AND wm.OrderYear=@yr AND wm.OrderWeek=@wk
-                          GROUP BY wm.WarehouseKey, wm.FarmName, wm.AWB, wm.InvoiceNo, wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD, p.FlowerName, p.DisplayName, p.ProdName`, weekParams(year, week));
+                          GROUP BY wm.WarehouseKey, wm.FarmName, wm.OrderNo, wm.InvoiceNo, wm.GrossWeight, wm.ChargeableWeight, wm.FreightRateUSD, p.FlowerName, p.DisplayName, p.ProdName`, weekParams(year, week));
   const awbs = {};
   for (const x of r.recordset) {
     const k = String(x.AWB || '').replace(/\D/g, '') || '(AWB 없음)';
