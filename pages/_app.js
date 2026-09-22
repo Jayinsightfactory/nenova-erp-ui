@@ -2,6 +2,7 @@ import Layout, { MENU_ITEMS } from '../components/Layout';
 import MenuBackButton from '../components/MenuBackButton';
 import ReplayRecorder from '../components/ReplayRecorder';
 import '../styles/globals.css';
+import '../styles/unified-ui.css';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { MENU_PAGE_RESET_EVENT } from '../lib/menuNavigationHistory';

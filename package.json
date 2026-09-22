@@ -49,7 +49,7 @@
     "migrate:erp-edit-presence": "node scripts/apply-erp-edit-presence-migration.mjs",
     "migrate:shipment-import-snapshot": "node scripts/apply-shipment-import-snapshot-migration.mjs",
     "test:moyi-drive-admin": "node __tests__/moyiDriveAdmin.test.js && node __tests__/moyiDriveViewModel.test.js && node __tests__/moyiDriveLayoutContract.test.js",
-    "test:ui-layout": "node scripts/check-ui-layout-contract.mjs && node __tests__/menuNavigationHistory.test.js && node __tests__/contextualMenuBack.test.js && node __tests__/nenovaSs3AdminAccess.test.js",
+    "test:ui-layout": "node __tests__/unifiedUi.test.cjs && node scripts/check-ui-layout-contract.mjs && node __tests__/menuNavigationHistory.test.js && node __tests__/contextualMenuBack.test.js && node __tests__/nenovaSs3AdminAccess.test.js",
     "sync:orbit-manuals": "node scripts/sync-orbit-manuals.js",
     "verify:moyi-drive-integration": "node scripts/verify-moyi-drive-integration.mjs && node scripts/verify-moyi-drive-http-e2e.mjs",
     "test:freight-search": "node __tests__/freightGroupSearch.test.js",
