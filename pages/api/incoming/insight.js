@@ -117,7 +117,7 @@ async function ledger(months, farmName) {
   const P = { since: { type: sql.Date, value: since } };
   let fw = '';
   if (farmName) { fw = ' AND wm.FarmName=@fm'; P.fm = { type: sql.NVarChar, value: farmName }; }
-  const [inv, cr, rm] = await Promise.all([
+  const [inv, cr, rm, cl] = await Promise.all([
     query(`SELECT wm.FarmName, wm.OrderYear, wm.OrderWeek, wm.WarehouseKey, wm.InvoiceNo, CONVERT(NVARCHAR(10), wm.InputDate, 120) AS InputDate,
                   ISNULL(p.ProdName,'') AS ProdName, SUM(ISNULL(wd.TPrice,0)) AS Amount
              FROM WarehouseMaster wm JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey LEFT JOIN Product p ON p.ProdKey = wd.ProdKey
@@ -125,9 +125,12 @@ async function ledger(months, farmName) {
             GROUP BY wm.FarmName, wm.OrderYear, wm.OrderWeek, wm.WarehouseKey, wm.InvoiceNo, wm.InputDate, p.ProdName`, P),
     query(`SELECT FarmName, OrderWeek, CreditUSD, Memo FROM FarmCredit WHERE ISNULL(isDeleted,0)=0${farmName ? ' AND FarmName=@fm' : ''}`, P),
     query(`SELECT AutoKey, OrderYear, Weeks, FarmName, AmountUSD, RemitDate, Memo FROM WebFarmRemit WHERE ISNULL(isDeleted,0)=0 AND CreateDtm >= @since${farmName ? ' AND FarmName=@fm' : ''} ORDER BY RemitDate DESC`, P).catch(() => ({ recordset: [] })),
+    // 클레임(불량차감, 웹 테이블 WebSalesDefectDeduction): 농장 귀속 건만. CreditApplied=농장 크레딧 반영 여부, ImportConfirmed=수입부 확인
+    query(`SELECT DeductionKey, OrderYear, OrderWeek, FarmName, CustName, ProdName, ColorName, Quantity, SourceUnit, CreditApplied, ImportConfirmed, ImportReviewRequired, DeductionType, EstimateCost, Status, Note, CONVERT(NVARCHAR(10), CreatedAt, 120) AS CreatedAt
+             FROM WebSalesDefectDeduction WHERE ISNULL(IsDeleted,0)=0 AND FarmName<>N'' AND CreatedAt >= @since${farmName ? ' AND FarmName=@fm' : ''} ORDER BY CreatedAt DESC`, P).catch(() => ({ recordset: [] })),
   ]);
   const farms = {};
-  const F = (n) => farms[n] || (farms[n] = { farm: n, goods: 0, freight: 0, credit: 0, remit: 0, invoices: new Set(), weeks: {}, remits: [], credits: [], lastInput: '', lastRemit: '' });
+  const F = (n) => farms[n] || (farms[n] = { farm: n, goods: 0, freight: 0, credit: 0, remit: 0, invoices: new Set(), weeks: {}, remits: [], credits: [], lastInput: '', lastRemit: '', claims: { n: 0, qty: 0, cost: 0, credited: 0, pending: 0, items: [] } });
   for (const r of inv.recordset) {
     const f = F(r.FarmName); const amt = Number(r.Amount) || 0; const wk = `${r.OrderYear}-${r.OrderWeek}`;
     const w = f.weeks[wk] || (f.weeks[wk] = { week: wk, goods: 0, freight: 0, credit: 0 });
@@ -137,11 +140,13 @@ async function ledger(months, farmName) {
   const weekSet = new Set(inv.recordset.map((r) => r.OrderWeek));
   for (const c of cr.recordset) { if (!farms[c.FarmName] || !weekSet.has(c.OrderWeek)) continue; const f = farms[c.FarmName]; const v = Number(c.CreditUSD) || 0; f.credit += v; f.credits.push({ week: c.OrderWeek, credit: v, memo: c.Memo || '' }); for (const wk of Object.keys(f.weeks)) if (wk.endsWith('-' + c.OrderWeek)) f.weeks[wk].credit += v; }
   for (const r of rm.recordset) { const f = F(r.FarmName); const v = Number(r.AmountUSD) || 0; f.remit += v; f.remits.push({ key: r.AutoKey, weeks: r.Weeks, amount: v, date: r.RemitDate, memo: r.Memo || '' }); if ((r.RemitDate || '') > f.lastRemit) f.lastRemit = r.RemitDate; }
+  for (const c of cl.recordset) { const f = F(c.FarmName); const q = Number(c.Quantity) || 0; const cost = Number(c.EstimateCost) || 0; f.claims.n++; f.claims.qty += q; f.claims.cost += cost; if (c.CreditApplied) f.claims.credited++; if (!c.ImportConfirmed || c.ImportReviewRequired) f.claims.pending++;
+    if (f.claims.items.length < 30) f.claims.items.push({ key: c.DeductionKey, week: `${c.OrderYear}-${c.OrderWeek}`, cust: c.CustName, prod: c.ProdName, color: c.ColorName, qty: q, unit: c.SourceUnit, type: c.DeductionType, credited: !!c.CreditApplied, confirmed: !!c.ImportConfirmed, review: !!c.ImportReviewRequired, status: c.Status, note: c.Note, at: c.CreatedAt }); }
   const rows = Object.values(farms).map((f) => { const billed = Math.round((f.goods + f.freight) * 100) / 100; const balance = Math.round((billed - f.credit - f.remit) * 100) / 100;
     return { ...f, invoices: f.invoices.size, billed, balance, paidRate: billed ? Math.round(100 * (f.credit + f.remit) / billed) : null, weeks: Object.values(f.weeks).sort((a, b) => a.week.localeCompare(b.week)), status: billed === 0 ? '청구없음' : balance <= 0.5 ? '완납' : (f.credit + f.remit) > 0 ? '부분송금' : '미송금' }; })
     .sort((a, b) => b.balance - a.balance);
   const t = rows.reduce((a, r) => ({ billed: a.billed + r.billed, credit: a.credit + r.credit, remit: a.remit + r.remit, balance: a.balance + r.balance }), { billed: 0, credit: 0, remit: 0, balance: 0 });
-  return { months, rows, totals: { ...t, farms: rows.length, unpaid: rows.filter((r) => r.status === '미송금').length, partial: rows.filter((r) => r.status === '부분송금').length } };
+  return { months, rows, totals: { ...t, farms: rows.length, unpaid: rows.filter((r) => r.status === '미송금').length, partial: rows.filter((r) => r.status === '부분송금').length, claims: rows.reduce((a, r) => a + r.claims.n, 0), claimsPending: rows.reduce((a, r) => a + r.claims.pending, 0) } };
 }
 
 async function weeks() {

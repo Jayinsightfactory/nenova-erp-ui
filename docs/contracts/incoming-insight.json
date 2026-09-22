@@ -58,7 +58,8 @@
       "ShipmentMaster/ShipmentDetail (read)",
       "Product (read)",
       "FarmCredit (read)",
-      "WebFarmRemit (web-only table, read)"
+      "WebFarmRemit (web-only table, read)",
+      "WebSalesDefectDeduction (web-only table, read — 농장 클레임)"
     ]
   },
   "requiredCommands": [
