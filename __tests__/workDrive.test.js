@@ -126,6 +126,10 @@ assert.strictEqual(wd.reclassify(seol, r1.id, { stage: '입고' }).ok, true);
 assert.strictEqual(wd.listVisible(seol).find((f) => f.id === r1.id).stage, '입고');
 assert.strictEqual(wd.reclassify(boss, r1.id, { deleted: true }).ok, true);
 assert.ok(!wd.listVisible(boss).some((f) => f.id === r1.id), '숨김');
+// 업무 드라이브 추가 관리자(김원영 nenova1): 사장과 같이 전 부서 열람·다운로드, orbit-report 권한과는 별개
+const kwy = { userId: 'nenova1', userName: '김원영' };
+assert.deepStrictEqual(vis(kwy).sort(), vis(boss).sort(), '김원영은 사장과 같은 목록');
+assert.ok(!wd.listVisible({ userId: 'nenovaSD1', userName: '정재훈' }).some((f) => f.uploaderName === '강명훈' && f.sensitive), '일반 직원은 타부서 민감 파일 못 봄');
 
 // 일괄 재분류: 사장만, 손으로 고친 행(r1: 입고로 교정됨)은 제외
 assert.strictEqual(wd.reclassifyAll(seol).status, 403);
