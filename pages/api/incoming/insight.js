@@ -109,6 +109,41 @@ async function product(q, months) {
   return { q, products: Object.values(prods).map((p) => { const ups = p.rows.filter((r) => r.uprice != null); const last = ups[ups.length - 1], prev = ups[ups.length - 2]; return { ...p, farms: [...p.farms], lastPrice: last ? last.uprice : null, prevPrice: prev ? prev.uprice : null, changePct: last && prev && prev.uprice ? Math.round(1000 * (last.uprice - prev.uprice) / prev.uprice) / 10 : null, totalQty: p.rows.reduce((a, b) => a + b.qty, 0) }; }).sort((a, b) => b.totalQty - a.totalQty).slice(0, 60) };
 }
 
+// 농장 정산 원장(읽기): 청구 = 입고 상품 금액(TPrice, 운임행 제외) + 운임행 금액 / 크레딧(FarmCredit) / 송금(WebFarmRemit, 웹 전용) → 잔액
+// WebFarmRemit.Weeks는 "38-01,38-02" 같은 목록이라 농장 단위로만 합산한다(차수 귀속은 첫 차수 기준 참고값).
+const FREIGHT_RE = /weight|운송료|운임|freight|doc\s*fee|handling|surcharge|통관|customs/i;
+async function ledger(months, farmName) {
+  const since = new Date(Date.now() - months * 30 * 86400e3);
+  const P = { since: { type: sql.Date, value: since } };
+  let fw = '';
+  if (farmName) { fw = ' AND wm.FarmName=@fm'; P.fm = { type: sql.NVarChar, value: farmName }; }
+  const [inv, cr, rm] = await Promise.all([
+    query(`SELECT wm.FarmName, wm.OrderYear, wm.OrderWeek, wm.WarehouseKey, wm.InvoiceNo, CONVERT(NVARCHAR(10), wm.InputDate, 120) AS InputDate,
+                  ISNULL(p.ProdName,'') AS ProdName, SUM(ISNULL(wd.TPrice,0)) AS Amount
+             FROM WarehouseMaster wm JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey LEFT JOIN Product p ON p.ProdKey = wd.ProdKey
+            WHERE ISNULL(wm.isDeleted,0)=0 AND wm.InputDate >= @since${fw}
+            GROUP BY wm.FarmName, wm.OrderYear, wm.OrderWeek, wm.WarehouseKey, wm.InvoiceNo, wm.InputDate, p.ProdName`, P),
+    query(`SELECT FarmName, OrderWeek, CreditUSD, Memo FROM FarmCredit WHERE ISNULL(isDeleted,0)=0${farmName ? ' AND FarmName=@fm' : ''}`, P),
+    query(`SELECT AutoKey, OrderYear, Weeks, FarmName, AmountUSD, RemitDate, Memo FROM WebFarmRemit WHERE ISNULL(isDeleted,0)=0 AND CreateDtm >= @since${farmName ? ' AND FarmName=@fm' : ''} ORDER BY RemitDate DESC`, P).catch(() => ({ recordset: [] })),
+  ]);
+  const farms = {};
+  const F = (n) => farms[n] || (farms[n] = { farm: n, goods: 0, freight: 0, credit: 0, remit: 0, invoices: new Set(), weeks: {}, remits: [], credits: [], lastInput: '', lastRemit: '' });
+  for (const r of inv.recordset) {
+    const f = F(r.FarmName); const amt = Number(r.Amount) || 0; const wk = `${r.OrderYear}-${r.OrderWeek}`;
+    const w = f.weeks[wk] || (f.weeks[wk] = { week: wk, goods: 0, freight: 0, credit: 0 });
+    if (FREIGHT_RE.test(r.ProdName)) { f.freight += amt; w.freight += amt; } else { f.goods += amt; w.goods += amt; }
+    f.invoices.add(r.WarehouseKey); if (r.InputDate > f.lastInput) f.lastInput = r.InputDate;
+  }
+  const weekSet = new Set(inv.recordset.map((r) => r.OrderWeek));
+  for (const c of cr.recordset) { if (!farms[c.FarmName] || !weekSet.has(c.OrderWeek)) continue; const f = farms[c.FarmName]; const v = Number(c.CreditUSD) || 0; f.credit += v; f.credits.push({ week: c.OrderWeek, credit: v, memo: c.Memo || '' }); for (const wk of Object.keys(f.weeks)) if (wk.endsWith('-' + c.OrderWeek)) f.weeks[wk].credit += v; }
+  for (const r of rm.recordset) { const f = F(r.FarmName); const v = Number(r.AmountUSD) || 0; f.remit += v; f.remits.push({ key: r.AutoKey, weeks: r.Weeks, amount: v, date: r.RemitDate, memo: r.Memo || '' }); if ((r.RemitDate || '') > f.lastRemit) f.lastRemit = r.RemitDate; }
+  const rows = Object.values(farms).map((f) => { const billed = Math.round((f.goods + f.freight) * 100) / 100; const balance = Math.round((billed - f.credit - f.remit) * 100) / 100;
+    return { ...f, invoices: f.invoices.size, billed, balance, paidRate: billed ? Math.round(100 * (f.credit + f.remit) / billed) : null, weeks: Object.values(f.weeks).sort((a, b) => a.week.localeCompare(b.week)), status: billed === 0 ? '청구없음' : balance <= 0.5 ? '완납' : (f.credit + f.remit) > 0 ? '부분송금' : '미송금' }; })
+    .sort((a, b) => b.balance - a.balance);
+  const t = rows.reduce((a, r) => ({ billed: a.billed + r.billed, credit: a.credit + r.credit, remit: a.remit + r.remit, balance: a.balance + r.balance }), { billed: 0, credit: 0, remit: 0, balance: 0 });
+  return { months, rows, totals: { ...t, farms: rows.length, unpaid: rows.filter((r) => r.status === '미송금').length, partial: rows.filter((r) => r.status === '부분송금').length } };
+}
+
 async function weeks() {
   const r = await query(`SELECT TOP 30 OrderYear, OrderWeek, COUNT(*) AS n FROM WarehouseMaster WHERE ISNULL(isDeleted,0)=0 GROUP BY OrderYear, OrderWeek ORDER BY OrderYear DESC, OrderWeek DESC`);
   return { weeks: r.recordset.map((x) => ({ year: x.OrderYear, week: x.OrderWeek, n: x.n })) };
@@ -119,7 +154,8 @@ export default withAuth(async function handler(req, res) {
   const { view = 'board', year, week: rawWeek, farm: farmName, q, months = '6' } = req.query;
   try {
     if (view === 'weeks') return res.status(200).json({ success: true, ...(await weeks()) });
-    if (view === 'farm') { if (!farmName) return res.status(400).json({ success: false, error: 'farm 필요' }); return res.status(200).json({ success: true, ...(await farm(String(farmName), Math.min(24, parseInt(months, 10) || 6))) }); }
+    if (view === 'ledger') return res.status(200).json({ success: true, ...(await ledger(Math.min(24, parseInt(months, 10) || 6), farmName ? String(farmName) : '')) });
+    if (view === 'farm') { if (!farmName) return res.status(400).json({ success: false, error: 'farm 필요' }); const m = Math.min(24, parseInt(months, 10) || 6); const [f, l] = await Promise.all([farm(String(farmName), m), ledger(m, String(farmName))]); return res.status(200).json({ success: true, ...f, ledger: l.rows[0] || null }); }
     if (view === 'product') { if (!q) return res.status(400).json({ success: false, error: 'q 필요' }); return res.status(200).json({ success: true, ...(await product(String(q), Math.min(24, parseInt(months, 10) || 6))) }); }
     const week = rawWeek ? normalizeOrderWeek(rawWeek) : '';
     if (!/^\d{4}$/.test(String(year || '')) || !week) return res.status(400).json({ success: false, error: 'year·week 필요 (예: 2026, 38-02)' });
