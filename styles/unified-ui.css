@@ -1,0 +1,89 @@
+/* Nenova shared screen design. Paint-only: no ERP actions, table geometry,
+   virtual row heights, print styles, or semantic inline status colors changed. */
+@media screen {
+  :root {
+    --bg: #f4f6fa;
+    --surface: #fff;
+    --border: #d7e0eb;
+    --border2: #b9c7d8;
+    --text1: #243247;
+    --text2: #41536b;
+    --text3: #5e7086;
+    --blue: #245bd7;
+    --blue-bg: #edf3ff;
+    --blue-sel: #dfeaff;
+    --green: #167047;
+    --green-bg: #edf8f1;
+    --red: #b42332;
+    --red-bg: #fff0f2;
+    --amber: #885b0b;
+    --amber-bg: #fff7e5;
+    --header-bg: #edf2f8;
+    --row-alt: #f7f9fc;
+    --ui-radius: 6px;
+    --ui-font: system-ui, 'Malgun Gothic', '맑은 고딕', sans-serif;
+  }
+  body { font-family:var(--ui-font); background:var(--bg); }
+  .main-content, .page-area { min-width:0; }
+  .sidebar { background:#fff; }
+  .sidebar-logo { background:#fff; color:var(--text1); padding:12px 10px; }
+  .nav-group { border-color:#e9eef5; }
+  .nav-group-title { background:#f5f7fb; color:var(--text3); letter-spacing:.1px; }
+  .nav-item { border-bottom-color:transparent; margin:1px 5px; border-radius:5px; }
+  .nav-item:hover { background:var(--blue-bg); }
+  .nav-item.active { background:var(--blue-sel); color:#17449f; box-shadow:inset 3px 0 var(--blue); }
+  .topbar { background:#fff; border-bottom-color:var(--border); }
+  [data-ui-popupbar] { background:#214e9b!important; }
+  .page-area { padding:10px; }
+  /* Native controls also inherit the system in standalone/custom pages.
+     Existing inline colors continue to communicate action/status meaning. */
+  [data-ui-page-content] :where(button, input, select, textarea),
+  .modal :where(button, input, select, textarea) {
+    font-family:var(--ui-font);
+    border-radius:var(--ui-radius);
+  }
+  [data-ui-page-content] :where(button:not(:disabled)) { cursor:pointer; }
+  .btn { border-radius:var(--ui-radius); background:#fff; color:var(--text1); border-color:var(--border2); box-shadow:none; font-weight:500; }
+  .btn:hover:not(:disabled) { background:var(--blue-bg); border-color:#8caeee; }
+  .btn:active:not(:disabled) { background:var(--blue-sel); }
+  .btn-primary, .btn-primary:hover:not(:disabled) { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .btn-success, .btn-success:hover:not(:disabled) { background:var(--green); color:#fff; border-color:var(--green); }
+  .btn-danger, .btn-danger:hover:not(:disabled) { background:var(--red); color:#fff; border-color:var(--red); }
+  button:disabled { cursor:not-allowed; }
+  .btn:disabled { opacity:.5; }
+  .filter-bar { background:#fff; border-radius:var(--ui-radius); border-color:var(--border); gap:6px; }
+  .filter-input, .filter-select, .form-control { border-radius:5px; border-color:var(--border2); box-shadow:none; }
+  :where([data-ui-page-content], .modal, .sidebar, .topbar) :is(button, a, input, select, textarea):focus-visible {
+    outline:2px solid var(--blue); outline-offset:1px;
+  }
+  input[type=checkbox], input[type=radio] { accent-color:var(--blue); }
+  .tabs { background:transparent; gap:3px; }
+  .tab-item { border-radius:6px 6px 0 0; background:#f5f7fb; color:var(--text2); }
+  .tab-item.active { background:#fff; color:var(--blue); box-shadow:inset 0 2px var(--blue); }
+  .chip { border-radius:5px; }
+  .chip-inactive { background:#fff; color:var(--text2); }
+  .chip-inactive:hover { background:var(--blue-bg); }
+  .chip-active { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .card, .kpi-card { border-radius:var(--ui-radius); border-color:var(--border); }
+  .card-header { background:var(--header-bg); border-color:var(--border); border-radius:6px 6px 0 0; }
+  .section-header { border-radius:5px; }
+  .tbl th, .tbl tfoot td { color:var(--text1); border-color:var(--border); }
+  .tbl td { border-right-color:var(--border); border-bottom-color:#e5ebf3; }
+  .tbl tbody tr:hover, .tbl tbody tr:nth-child(even):hover { background:var(--blue-bg); }
+  /* Do not assign generic td backgrounds: they would hide shortage/fixed/edit colors. */
+  .table-wrap { border-color:var(--border2); }
+  .modal { border:1px solid var(--border2); border-radius:10px; box-shadow:0 20px 70px #16223635; }
+  .modal-header { background:#fff; border-radius:10px 10px 0 0; border-color:var(--border); }
+  .modal-footer { background:#f7f9fc; border-radius:0 0 10px 10px; border-color:var(--border); }
+  .modal-overlay { background:rgba(22,34,54,.4); }
+  .banner-info, .banner-warn, .banner-ok, .banner-err { border-radius:6px; line-height:1.45; }
+  .banner-info { border-color:#b8caf0; }
+  .banner-warn { border-color:#e9cc91; }
+  .banner-ok { border-color:#aed7bf; }
+  .banner-err { border-color:#edb9c0; }
+  .badge { border-radius:4px; }
+  ::-webkit-scrollbar-track { background:#f1f4f8; border-color:#e0e7f0; }
+  ::-webkit-scrollbar-thumb { background:#aab9cc; border:3px solid #f1f4f8; border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover { background:#7c91ac; }
+  @media(prefers-reduced-motion:reduce) { .skeleton { animation:none; } }
+}

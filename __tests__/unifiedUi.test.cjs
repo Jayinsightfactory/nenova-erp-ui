@@ -1,0 +1,15 @@
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const app = fs.readFileSync('pages/_app.js','utf8');
+const css = fs.readFileSync('styles/unified-ui.css','utf8');
+assert.equal((app.match(/import '..\/styles\/unified-ui.css'/g)||[]).length,1);
+assert.ok(app.indexOf("import '../styles/globals.css'") < app.indexOf("import '../styles/unified-ui.css'"));
+assert.ok(css.includes('@media screen'));
+for(const selector of ['.btn-primary','.btn-success','.btn-danger','.filter-input','.form-control','.tabs','.tbl','.modal','.banner-err','.nav-item','[data-ui-page-content]']) assert.ok(css.includes(selector),selector);
+assert.ok(!/\.tbl[^{}]*\{[^}]*(?:height|width|padding|overflow|position)\s*:/s.test(css),'table geometry preserved');
+assert.ok(!/\.tbl\s+td\s*\{[^}]*background\s*:/s.test(css),'semantic cell backgrounds preserved');
+assert.ok(!/fetch\(|apiPost|window\./.test(css));
+const block = fs.readFileSync('components/Layout.js','utf8').match(/export const MENU_ITEMS = \[([\s\S]*?)\n\];/)[1];
+const routes=[...block.matchAll(/href:\s*'([^']+)'/g)].map(m=>m[1]);
+for(const route of routes) assert.ok([`pages${route}.js`,`pages${route}/index.js`].some(fs.existsSync),route);
+console.log(`Unified UI contract: ${routes.length} menu routes, screen-only theme, table geometry/semantic colors preserved.`);
