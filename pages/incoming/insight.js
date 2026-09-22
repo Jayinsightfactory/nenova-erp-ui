@@ -14,6 +14,9 @@ const api = async (url, opt) => { const r = await fetch(url, opt); const j = awa
 export function IncomingInsight({ initialTab, hideTabs } = {}) {
   const [tab, setTab] = useState(initialTab || 'board');
   const [ledger, setLedger] = useState(null);
+  const [inbox, setInbox] = useState(null);        // 송금 자동 인식 대기함
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxEdit, setInboxEdit] = useState({}); // key → { farmName, weeks }
   const [ledgerF, setLedgerF] = useState('');
   const [weeks, setWeeks] = useState([]);
   const [year, setYear] = useState('');
@@ -48,13 +51,16 @@ export function IncomingInsight({ initialTab, hideTabs } = {}) {
   const loadFarm = async (f = farmName) => { if (!f) return; setLoading(true); setErr(''); try { setFarmData(await api(`/api/incoming/insight?view=farm&farm=${encodeURIComponent(f)}&months=${months}`)); } catch (e) { setErr(e.message); } finally { setLoading(false); } };
   const loadProd = async (q = prodQ) => { if (!q) return; setLoading(true); setErr(''); try { setProdData(await api(`/api/incoming/insight?view=product&q=${encodeURIComponent(q)}&months=${months}`)); } catch (e) { setErr(e.message); } finally { setLoading(false); } };
   const loadLedger = async () => { setLoading(true); setErr(''); try { setLedger(await api(`/api/incoming/insight?view=ledger&months=${months}`)); } catch (e) { setErr(e.message); } finally { setLoading(false); } };
+  const loadInbox = async () => { try { setInbox(await api('/api/incoming/remit-inbox')); } catch (e) { setErr(e.message); } };
+  const inboxAct = async (body) => { try { await api('/api/incoming/remit-inbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); await loadInbox(); await loadLedger(); } catch (e) { alert(e.message); } };
+  const rescan = async () => { if (!confirm('드라이브의 송금신청 파일을 전부 다시 읽어 대기함을 채울까요? (확정/거절한 건은 유지)')) return; setLoading(true); try { const r = await api('/api/incoming/remit-inbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'rescan' }) }); alert(`파일 ${r.files} · 행 ${r.parsed} · 새로 ${r.inserted} · 갱신 ${r.updated} · 농장 미매칭 ${r.unmatched}${r.errors.length ? '\n오류 ' + r.errors.length : ''}`); await loadInbox(); await loadLedger(); } catch (e) { alert(e.message); } finally { setLoading(false); } };
   const loadEta = async () => { setLoading(true); setErr(''); try { setEta(await api(`/api/incoming/eta${etaScope === 'week' && year && week ? `?year=${year}&week=${week}` : ''}`)); } catch (e) { setErr(e.message); } finally { setLoading(false); } };
 
   useEffect(() => { if (tab === 'board' || tab === 'reconcile') loadBoard(); }, [year, week, tab === 'board' || tab === 'reconcile']); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (tab === 'farm' && farmName && !farmData) loadFarm(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (tab === 'product' && prodQ && !prodData) loadProd(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (tab === 'eta') loadEta(); }, [tab, etaScope, year, week]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (tab === 'ledger') loadLedger(); }, [tab, months]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (tab === 'ledger') { loadLedger(); loadInbox(); } }, [tab, months]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const items = useMemo(() => (board?.items || []).filter((i) => !tagF || i.tag === tagF), [board, tagF]);
   const exportRows = (rows, name) => { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), name.slice(0, 30)); XLSX.writeFile(wb, `${name}.xlsx`); };
@@ -127,6 +133,32 @@ export function IncomingInsight({ initialTab, hideTabs } = {}) {
       )}
 
       {/* ── 농장 정산·송금 ── */}
+      {tab === 'ledger' && inbox && (
+        <div className="card" style={{ padding: 8, marginBottom: 6, borderLeft: `4px solid ${inbox.rows.length ? '#ea580c' : '#16a34a'}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <b>송금 자동 인식</b>
+            <span>{inbox.rows.length ? <>확인 대기 <b style={{ color: '#ea580c' }}>{inbox.rows.length}건</b> · {fmt(inbox.rows.reduce((a, r) => a + (r.amountUSD || 0), 0))} USD{inbox.rows.some((r) => !r.farm) ? ` · 농장 미매칭 ${inbox.rows.filter((r) => !r.farm).length}` : ''}</> : <span className="dim">대기 없음 — 경영지원이 '해외건별송금신청' 파일을 저장하면 자동으로 여기 들어옵니다</span>}</span>
+            {inbox.rows.length > 0 && <button className="btn btn-primary" onClick={() => setInboxOpen(!inboxOpen)}>{inboxOpen ? '접기' : '확인하기'}</button>}
+            <button className="btn btn-secondary" onClick={rescan} title="드라이브의 과거 송금신청 파일까지 다시 읽기(사장)">과거 파일 소급</button>
+          </div>
+          {inboxOpen && inbox.rows.length > 0 && (
+            <div style={{ overflowX: 'auto', marginTop: 6 }}>
+              <table className="tbl" style={{ minWidth: 900 }}>
+                <thead><tr><th>송금(예정)일</th><th>받는 분(법인명)</th><th className="r">금액</th><th>통화</th><th>농장 (제안 · 신뢰도)</th><th>차수</th><th>출처 파일</th><th></th></tr></thead>
+                <tbody>{inbox.rows.map((r) => { const ed = inboxEdit[r.key] || {}; const farmV = ed.farmName ?? r.farm ?? ''; return (
+                  <tr key={r.key} style={{ background: r.farm ? 'transparent' : '#fff7ed' }}>
+                    <td className="mono">{r.date}</td><td>{r.payee}</td><td className="num">{fmt(r.amountOrig ?? r.amountUSD)}</td><td>{r.currency}</td>
+                    <td><input className="filter-input" list="farm-dl" value={farmV} onChange={(e) => setInboxEdit({ ...inboxEdit, [r.key]: { ...ed, farmName: e.target.value } })} placeholder="농장명 입력" style={{ width: 200 }} />{r.score != null && <span className="dim" style={{ marginLeft: 4 }}>{Math.round(r.score * 100)}%</span>}</td>
+                    <td><input className="filter-input" value={ed.weeks ?? r.weeks ?? ''} onChange={(e) => setInboxEdit({ ...inboxEdit, [r.key]: { ...ed, weeks: e.target.value } })} placeholder="예: 38-01,38-02" style={{ width: 120 }} /></td>
+                    <td className="dim" style={{ fontSize: 11 }}>{r.fileName}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}><button className="btn btn-primary" disabled={!farmV || r.currency !== 'USD'} title={r.currency !== 'USD' ? 'USD만 자동 확정(다른 통화는 송금 입력 화면에서)' : ''} onClick={() => inboxAct({ action: 'confirm', key: r.key, farmName: farmV, weeks: ed.weeks ?? r.weeks ?? '' })}>확정</button> <button className="btn btn-secondary" onClick={() => confirm('이 행을 거절(무시)할까요?') && inboxAct({ action: 'reject', key: r.key })}>거절</button></td>
+                  </tr>); })}</tbody>
+              </table>
+              <datalist id="farm-dl">{(inbox.farms || []).map((f) => <option key={f} value={f} />)}</datalist>
+            </div>
+          )}
+        </div>
+      )}
       {tab === 'ledger' && ledger && (
         <div className="card" style={{ padding: 0 }}>
           <div className="card-header"><span className="card-title">농장 정산·송금 ({months}개월 입고 기준)</span>
@@ -142,7 +174,7 @@ export function IncomingInsight({ initialTab, hideTabs } = {}) {
                 <tr key={r.farm}>
                   <td className="name"><button className="lnk" onClick={() => goFarm(r.farm)}>{r.farm}</button></td>
                   <td className="num">{r.invoices}</td><td className="num">{fmt(r.goods)}</td><td className="num">{fmt(r.freight)}</td><td className="num" style={{ fontWeight: 600 }}>{fmt(r.billed)}</td>
-                  <td className="num">{fmt(r.credit)}</td><td className="num">{fmt(r.remit)}</td><td className="num" style={{ fontWeight: 700, color: r.balance > 0.5 ? ST_C.미송금 : r.balance < -0.5 ? ST_C.부분송금 : ST_C.완납 }}>{fmt(r.balance)}</td>
+                  <td className="num">{fmt(r.credit)}</td><td className="num">{fmt(r.remit)}{r.pendingN ? <div style={{ fontSize: 10, color: '#ea580c' }}>대기 {r.pendingN}건 {fmt(r.pendingRemit)}</div> : null}</td><td className="num" style={{ fontWeight: 700, color: r.balance > 0.5 ? ST_C.미송금 : r.balance < -0.5 ? ST_C.부분송금 : ST_C.완납 }}>{fmt(r.balance)}</td>
                   <td><Bar v={r.paidRate} c={r.paidRate == null ? '#9ca3af' : r.paidRate >= 100 ? ST_C.완납 : ST_C.부분송금} /></td>
                   <td><span className="tag" style={{ background: ST_C[r.status] }}>{r.status}</span></td><td className="num">{r.claims.n ? <span title={`수량 ${fmt(r.claims.qty)} · 크레딧 반영 ${r.claims.credited} · 수입부 확인 대기 ${r.claims.pending}`}>{r.claims.n}건{r.claims.pending ? <em style={{ color: ST_C.미송금, fontStyle: 'normal' }}> (대기 {r.claims.pending})</em> : null}</span> : <span className="dim">–</span>}</td><td className="mono">{r.lastInput}</td><td className="mono">{r.lastRemit || '–'}</td>
                 </tr>))}</tbody>
