@@ -117,7 +117,7 @@ async function ledger(months, farmName) {
   const P = { since: { type: sql.Date, value: since } };
   let fw = '';
   if (farmName) { fw = ' AND wm.FarmName=@fm'; P.fm = { type: sql.NVarChar, value: farmName }; }
-  const [inv, cr, rm, cl] = await Promise.all([
+  const [inv, cr, rm, cl, pd] = await Promise.all([
     query(`SELECT wm.FarmName, wm.OrderYear, wm.OrderWeek, wm.WarehouseKey, wm.InvoiceNo, CONVERT(NVARCHAR(10), wm.InputDate, 120) AS InputDate,
                   ISNULL(p.ProdName,'') AS ProdName, SUM(ISNULL(wd.TPrice,0)) AS Amount
              FROM WarehouseMaster wm JOIN WarehouseDetail wd ON wd.WarehouseKey = wm.WarehouseKey LEFT JOIN Product p ON p.ProdKey = wd.ProdKey
@@ -128,7 +128,14 @@ async function ledger(months, farmName) {
     // 클레임(불량차감, 웹 테이블 WebSalesDefectDeduction): 농장 귀속 건만. CreditApplied=농장 크레딧 반영 여부, ImportConfirmed=수입부 확인
     query(`SELECT DeductionKey, OrderYear, OrderWeek, FarmName, CustName, ProdName, ColorName, Quantity, SourceUnit, CreditApplied, ImportConfirmed, ImportReviewRequired, DeductionType, EstimateCost, Status, Note, CONVERT(NVARCHAR(10), CreatedAt, 120) AS CreatedAt
              FROM WebSalesDefectDeduction WHERE ISNULL(IsDeleted,0)=0 AND FarmName<>N'' AND CreatedAt >= @since${farmName ? ' AND FarmName=@fm' : ''} ORDER BY CreatedAt DESC`, P).catch(() => ({ recordset: [] })),
+    // 농장별 결제일(5/15/25/30, 웹 전용 설정) — 입고(인보이스 입력일) 이후 첫 결제일을 만기로 본다
+    query(`SELECT FarmName, PaymentDay FROM WebImportFarmPaymentDay`).catch(() => ({ recordset: [] })),
   ]);
+  const payDay = new Map(pd.recordset.map((x) => [x.FarmName, Number(x.PaymentDay) || null]));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const dueOf = (inputDate, day) => { if (!inputDate || !day) return null; const d = new Date(inputDate + 'T00:00:00'); const mk = (y, m) => new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate())); let due = mk(d.getFullYear(), d.getMonth()); if (due <= d) due = mk(d.getFullYear(), d.getMonth() + 1); return due; };
+  const ymd = (d) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+  const invAmt = {}; // farm → [{key, date, amount}]
   const farms = {};
   const F = (n) => farms[n] || (farms[n] = { farm: n, goods: 0, freight: 0, credit: 0, remit: 0, invoices: new Set(), weeks: {}, remits: [], credits: [], lastInput: '', lastRemit: '', claims: { n: 0, qty: 0, cost: 0, credited: 0, pending: 0, items: [] } });
   for (const r of inv.recordset) {
@@ -136,6 +143,7 @@ async function ledger(months, farmName) {
     const w = f.weeks[wk] || (f.weeks[wk] = { week: wk, goods: 0, freight: 0, credit: 0 });
     if (FREIGHT_RE.test(r.ProdName)) { f.freight += amt; w.freight += amt; } else { f.goods += amt; w.goods += amt; }
     f.invoices.add(r.WarehouseKey); if (r.InputDate > f.lastInput) f.lastInput = r.InputDate;
+    (invAmt[r.FarmName] ||= {})[r.WarehouseKey] = { date: r.InputDate, amount: ((invAmt[r.FarmName] || {})[r.WarehouseKey]?.amount || 0) + amt };
   }
   const weekSet = new Set(inv.recordset.map((r) => r.OrderWeek));
   for (const c of cr.recordset) { if (!farms[c.FarmName] || !weekSet.has(c.OrderWeek)) continue; const f = farms[c.FarmName]; const v = Number(c.CreditUSD) || 0; f.credit += v; f.credits.push({ week: c.OrderWeek, credit: v, memo: c.Memo || '' }); for (const wk of Object.keys(f.weeks)) if (wk.endsWith('-' + c.OrderWeek)) f.weeks[wk].credit += v; }
@@ -147,10 +155,18 @@ async function ledger(months, farmName) {
   for (const c of cl.recordset) { const f = F(c.FarmName); const q = Number(c.Quantity) || 0; const cost = Number(c.EstimateCost) || 0; f.claims.n++; f.claims.qty += q; f.claims.cost += cost; if (c.CreditApplied) f.claims.credited++; if (!c.ImportConfirmed || c.ImportReviewRequired) f.claims.pending++;
     if (f.claims.items.length < 30) f.claims.items.push({ key: c.DeductionKey, week: `${c.OrderYear}-${c.OrderWeek}`, cust: c.CustName, prod: c.ProdName, color: c.ColorName, qty: q, unit: c.SourceUnit, type: c.DeductionType, credited: !!c.CreditApplied, confirmed: !!c.ImportConfirmed, review: !!c.ImportReviewRequired, status: c.Status, note: c.Note, at: c.CreatedAt }); }
   const rows = Object.values(farms).map((f) => { const billed = Math.round((f.goods + f.freight) * 100) / 100; const balance = Math.round((billed - f.credit - f.remit) * 100) / 100;
-    return { ...f, invoices: f.invoices.size, billed, balance, paidRate: billed ? Math.round(100 * (f.credit + f.remit) / billed) : null, weeks: Object.values(f.weeks).sort((a, b) => a.week.localeCompare(b.week)), status: billed === 0 ? '청구없음' : balance <= 0.5 ? '완납' : (f.credit + f.remit) > 0 ? '부분송금' : '미송금' }; })
+    // FIFO: 크레딧+송금을 오래된 인보이스부터 상계 → 남은 인보이스가 미결. 첫 미결의 만기(결제일)로 D-day, 만기 지난 미결 합이 연체
+    const day = payDay.get(f.farm) || null; let paid = f.credit + f.remit; const unpaid = [];
+    for (const [k, v] of Object.entries(invAmt[f.farm] || {}).sort((a, b) => a[1].date.localeCompare(b[1].date))) { if (paid >= v.amount - 0.005) { paid -= v.amount; continue; } unpaid.push({ key: Number(k), date: v.date, amount: Math.round((v.amount - Math.max(0, paid)) * 100) / 100, due: ymd(dueOf(v.date, day)) }); paid = 0; }
+    const first = unpaid[0] || null; const dueD = first && first.due ? new Date(first.due + 'T00:00:00') : null; const dday = dueD ? Math.round((dueD - today) / 86400e3) : null;
+    const overdueUSD = Math.round(unpaid.filter((u) => u.due && new Date(u.due + 'T00:00:00') < today).reduce((a, u) => a + u.amount, 0) * 100) / 100;
+    const lastRemitDays = f.lastRemit ? Math.round((today - new Date(f.lastRemit + 'T00:00:00')) / 86400e3) : null;
+    const lastInputDays = f.lastInput ? Math.round((today - new Date(f.lastInput + 'T00:00:00')) / 86400e3) : null;
+    const pay = { day, nextDue: first ? first.due : '', dday, overdueUSD, unpaidN: unpaid.length, oldestUnpaid: first ? first.date : '', lastRemitDays, lastInputDays, unpaid: unpaid.slice(0, 12) };
+    return { ...f, pay, invoices: f.invoices.size, billed, balance, paidRate: billed ? Math.round(100 * (f.credit + f.remit) / billed) : null, weeks: Object.values(f.weeks).sort((a, b) => a.week.localeCompare(b.week)), status: billed === 0 ? '청구없음' : balance <= 0.5 ? '완납' : (f.credit + f.remit) > 0 ? '부분송금' : '미송금' }; })
     .sort((a, b) => b.balance - a.balance);
   const t = rows.reduce((a, r) => ({ billed: a.billed + r.billed, credit: a.credit + r.credit, remit: a.remit + r.remit, balance: a.balance + r.balance }), { billed: 0, credit: 0, remit: 0, balance: 0 });
-  return { months, rows, totals: { ...t, farms: rows.length, unpaid: rows.filter((r) => r.status === '미송금').length, partial: rows.filter((r) => r.status === '부분송금').length, claims: rows.reduce((a, r) => a + r.claims.n, 0), claimsPending: rows.reduce((a, r) => a + r.claims.pending, 0), pendingRemitN: pendingN, pendingRemitUSD: Math.round(pendingUSD * 100) / 100 } };
+  return { months, rows, totals: { ...t, farms: rows.length, unpaid: rows.filter((r) => r.status === '미송금').length, partial: rows.filter((r) => r.status === '부분송금').length, claims: rows.reduce((a, r) => a + r.claims.n, 0), claimsPending: rows.reduce((a, r) => a + r.claims.pending, 0), pendingRemitN: pendingN, pendingRemitUSD: Math.round(pendingUSD * 100) / 100, overdueFarms: rows.filter((r) => r.pay.overdueUSD > 0.5).length, overdueUSD: Math.round(rows.reduce((a, r) => a + r.pay.overdueUSD, 0) * 100) / 100, dueSoon: rows.filter((r) => r.pay.dday != null && r.pay.dday >= 0 && r.pay.dday <= 7).length, noPayDay: rows.filter((r) => !r.pay.day && r.balance > 0.5).length } };
 }
 
 async function weeks() {
