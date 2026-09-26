@@ -36,6 +36,8 @@
     "pages/stock.js",
     "pages/shipment/exe-errors.js",
     "pages/orders/kakao-audit.js",
+    "pages/api/orders/change-queue.js",
+    "pages/orders/change-queue.js",
     "pages/api/shipment/distribute.js",
     "pages/shipment/distribute.js",
     "lib/shipmentDistributionEditPolicy.js",
@@ -163,7 +165,8 @@
     "__tests__/syncShipmentDateEst.test.js",
     "__tests__/shipmentDownstreamImpactContract.test.js",
     "__tests__/nenovaSs3AdminAccess.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/kakaoChangeQueue.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
