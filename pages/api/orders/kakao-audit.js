@@ -74,7 +74,7 @@ function splitInlineCustomer(line) {
   return { customer: m[1].trim(), rest: m[2].trim() };
 }
 
-function parseKakaoRequests(text = '') {
+export function parseKakaoRequests(text = '') {
   const lines = String(text).replace(/\r/g, '').split('\n');
   const requests = [];
   let currentDate = null;
@@ -144,13 +144,13 @@ function parseKakaoRequests(text = '') {
   return requests;
 }
 
-function matchCustomer(customers, inputCustomer) {
+export function matchCustomer(customers, inputCustomer) {
   const matches = customers.filter(c => customerMatchesSearch(c, inputCustomer));
   matches.sort((a, b) => String(a.CustName).length - String(b.CustName).length);
   return matches[0] || null;
 }
 
-function matchProduct(products, inputProduct) {
+export function matchProduct(products, inputProduct) {
   const candidates = filterProducts(products, inputProduct, 0.55)
     .map(p => ({ ...p, _score: scoreMatch(inputProduct, p, inputProduct) }))
     .sort((a, b) => b._score - a._score)
@@ -158,7 +158,7 @@ function matchProduct(products, inputProduct) {
   return { match: candidates[0] || null, candidates };
 }
 
-async function getDbState(reqs, orderYear) {
+export async function getDbState(reqs, orderYear) {
   const pairs = reqs
     .filter(r => r.week && r.custMatch?.CustKey && r.prodMatch?.ProdKey)
     .map(r => `${r.week}|${r.custMatch.CustKey}|${r.prodMatch.ProdKey}`);
@@ -220,13 +220,8 @@ async function getDbState(reqs, orderYear) {
   return new Map(result.recordset.map(r => [`${r.week}|${r.custKey}|${r.prodKey}`, r]));
 }
 
-export default withAuth(async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
-  const { text, orderYear, year } = req.body || {};
-  if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
-  const selectedYear = String(orderYear || year || '').trim();
-  if (!/^\d{4}$/.test(selectedYear)) return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '연도를 선택한 뒤 다시 시도하세요.' });
-
+// parsed → rows(issues/status) 계산을 handler와 change-queue.js API가 공유한다.
+export async function auditText(text, selectedYear) {
   const [custRes, prodRes] = await Promise.all([
     query(`SELECT CustKey, CustCode, CustName, CustArea, Manager, OrderCode FROM Customer WHERE ISNULL(isDeleted,0)=0 ORDER BY CustName`),
     query(`SELECT ProdKey, ProdCode, ProdName, ISNULL(DisplayName, ProdName) AS DisplayName, FlowerName, CounName, OutUnit
@@ -292,5 +287,16 @@ export default withAuth(async function handler(req, res) {
     missingShipment: rows.filter(r => r.db && Number(r.db.shipQty || 0) === 0).length,
   };
 
+  return { summary, rows };
+}
+
+export default withAuth(async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).end();
+  const { text, orderYear, year } = req.body || {};
+  if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
+  const selectedYear = String(orderYear || year || '').trim();
+  if (!/^\d{4}$/.test(selectedYear)) return res.status(400).json({ success: false, code: 'ORDER_YEAR_REQUIRED', error: '연도를 선택한 뒤 다시 시도하세요.' });
+
+  const { summary, rows } = await auditText(text, selectedYear);
   return res.status(200).json({ success: true, summary, rows });
 });
