@@ -103,6 +103,11 @@ export default function WorkDrivePage() {
   const [tl, setTl] = useState(null);
   const loadEg = async () => { const p = new URLSearchParams({ days: egDays, kind: egKind, who: egWho, q: egQ }); const r = await fetch('/api/work/drive-egress?' + p); const j = await r.json(); setEg(j.rows || []); };
   const openTl = async (id) => { const r = await fetch('/api/work/drive-egress?timeline=' + encodeURIComponent(id)); const j = await r.json(); setTl(j.timeline || []); };
+  // 나간 파일의 내용 보기(시트 첫 행) — 관리자. 이력 행 id 기준.
+  const [pv, setPv] = useState(null);
+  const openPv = async (r) => { setPv({ row: r, loading: true }); const x = await fetch('/api/work/drive-egress?preview=' + encodeURIComponent(r.id)); const j = await x.json(); setPv({ row: r, ...j }); };
+  // "어디로" 열: 유형별로 사람이 읽는 문장
+  const egWhere = (r) => r.kind === 'print' ? `${r.destKind === 'print-to-file' ? 'PDF로 인쇄' : '프린터'} ${r.dest || ''} · ${r.detail || ''}` : r.kind === 'email' ? `받는 사람 ${r.dest || '?'} · ${r.detail || ''}` : r.kind === 'copy' ? `${r.destKind || ''} ${r.dest || ''} ${r.detail || ''}` : r.kind === 'kakao' ? `카톡방 ${r.dest || '?'}` : r.kind === 'webupload' ? `사이트 ${r.dest || '?'} · ${r.detail || ''}` : [r.destKind, r.dest || r.app, r.detail].filter(Boolean).join(' · ');
   useEffect(() => { if (view === 'security' && data?.isAdmin) loadEg(); }, [view, egKind, egWho, egDays]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setTl(null); if (sel && data?.isAdmin) openTl(sel.id); }, [sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const EG_LABEL = { copy: ['복사 유출', '#b91c1c'], print: ['인쇄', '#9a3412'], email: ['이메일 첨부', '#1d4ed8'], webupload: ['웹 업로드', '#6d28d9'], kakao: ['카톡 전송', '#a16207'], download: ['내려받기', '#047857'], upload: ['업로드', '#374151'] };
@@ -207,15 +212,26 @@ export default function WorkDrivePage() {
               <button className="ghost" onClick={loadEg}>↻</button>
             </div>
             {eg && eg.length === 0 && <div className="empty-state">기록 없음. 직원 PC 데몬이 복사·인쇄·메일 첨부를 감지하면 여기에 쌓입니다.</div>}
-            {eg && eg.length > 0 && <div className="tbl-wrap"><table className="lst eg"><thead><tr><th>시각</th><th>직원</th><th>유형</th><th>파일</th><th>어디로</th><th>드라이브 파일</th></tr></thead><tbody>
+            {eg && eg.length > 0 && <div className="tbl-wrap"><table className="lst eg"><thead><tr><th>시각</th><th>직원</th><th>유형</th><th>파일</th><th>내용</th><th>어디로</th><th>원본 위치</th></tr></thead><tbody>
               {eg.map((r) => <tr key={r.id} className={r.fileSensitive ? 'sens' : ''}>
                 <td className="dim" title={r.at}>{fmtT(r.at)}</td>
                 <td><Avatar name={r.userName} />{r.userName || r.hostname}{r.dept && <span className="dim"> · {r.dept}</span>}</td>
                 <td><span className="stg" style={{ color: (EG_LABEL[r.kind] || [])[1] }}>● {(EG_LABEL[r.kind] || [r.kind])[0]}</span></td>
-                <td title={r.filename}>{r.fileSensitive && '🔒 '}{r.filename}</td>
-                <td className="dim" title={[r.destKind, r.dest, r.app, r.detail].filter(Boolean).join(' · ')}>{[r.destKind, r.dest || r.app, r.detail].filter(Boolean).join(' · ').slice(0, 90)}</td>
-                <td>{r.fileId ? <a onClick={() => { const f = files.find((x) => x.id === r.fileId); if (f) setSel(f); }} style={{ cursor: 'pointer' }}>{r.matchHow === 'sha' ? '내용 일치' : '이름 일치'} · {r.fileStage}</a> : <span className="dim">업무 파일 아님</span>}</td>
+                <td title={r.filename}>{r.fileSensitive && '🔒 '}{r.filename}
+                  {r.hasFile ? <> <a href={'/api/work/drive-egress?open=' + encodeURIComponent(r.id)} className="pill" style={{ marginLeft: 6 }}>열기</a><span className="dim"> {r.matchHow === 'sha' ? '내용 일치' : '이름 일치'}{r.fileStage ? ' · ' + r.fileStage : ''}</span></>
+                    : <span className="pill" style={{ marginLeft: 6, color: '#9ca3af' }}>원본 없음</span>}</td>
+                <td>{r.hasFile && r.previewKind ? <a onClick={() => openPv(r)} style={{ cursor: 'pointer' }}>{r.previewKind === 'sheet' ? '시트 보기' : '내용 보기'}</a> : r.hasFile ? <span className="dim">열기로 확인</span> : <span className="dim">—</span>}</td>
+                <td className="dim" title={egWhere(r)}>{egWhere(r).slice(0, 100)}</td>
+                <td className="dim" title={r.path || ''}>{r.path ? r.path.replace(/^.*[\\/](?=[^\\/]+[\\/][^\\/]+$)/, '…\\') : (r.hostname || '')}</td>
               </tr>)}</tbody></table></div>}
+            {pv && <div className="modal-bg" onClick={() => setPv(null)}><div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 960, width: '92vw', maxHeight: '85vh', overflow: 'auto' }}>
+              <div className="h2">{pv.row.filename} <span className="dim">· {(EG_LABEL[pv.row.kind] || [pv.row.kind])[0]} · {pv.row.userName} · {fmtT(pv.row.at)}</span>
+                <a href={'/api/work/drive-egress?open=' + encodeURIComponent(pv.row.id)} className="pill" style={{ marginLeft: 8 }}>파일 열기</a><button className="ghost" style={{ float: 'right' }} onClick={() => setPv(null)}>닫기</button></div>
+              {pv.loading ? <div className="dim">불러오는 중…</div> : !pv.success ? <div className="empty-state">{pv.error}</div>
+                : pv.kind === 'sheet' ? <>{pv.sheetCount > pv.sheets.length && <div className="dim">시트 {pv.sheetCount}개 중 {pv.sheets.length}개 표시</div>}
+                  {pv.sheets.map((s) => <section key={s.name} style={{ marginBottom: 12 }}><div className="day">{s.name}</div><div className="tbl-wrap"><table className="lst"><tbody>{s.rows.map((rw, i) => <tr key={i}>{rw.map((c, j) => <td key={j} className={i === 0 ? '' : 'dim'}>{c}</td>)}</tr>)}</tbody></table></div></section>)}</>
+                : pv.kind === 'text' ? <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{pv.lines.join('\n')}</pre> : <div className="dim">{pv.note}</div>}
+            </div></div>}
           </> : view === 'recent' ? <>
             <div className="h2">최근 올라온 파일 <span className="dim">{listRows.length}건 · 최신순</span></div>
             {Object.entries(listRows.reduce((m, f) => { (m[dayKey(f.uploadedAt)] ||= []).push(f); return m; }, {})).map(([d, rows]) => <section key={d} className="daysec"><div className="day">{d === today ? '오늘' : fmtD(d)} <em>{rows.length}</em></div><Table rows={rows} withCycle /></section>)}
@@ -338,6 +354,7 @@ button{font:inherit;color:inherit}
 .lock{color:#b45309}
 .edit{margin-top:16px;padding:10px;border-radius:10px;background:var(--bg)}.erow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .erow select,.erow input{padding:5px 8px;border:1px solid var(--ln);border-radius:8px;background:var(--sf);font:inherit}.cy{width:96px}
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:center;justify-content:center}.modal{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .log,.vers{margin-top:16px;font-size:12px}.ver{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px;cursor:pointer}.wd :global(.ver .pill){margin:0}.ver:hover{background:var(--bg)}.ver.on{background:var(--acs)}
         @media (max-width:1200px){.right{position:fixed;right:0;top:60px;bottom:0;width:min(360px,92vw);box-shadow:-8px 0 24px rgba(16,24,40,.12);z-index:20}}
         @media (max-width:900px){.body{flex-direction:column}.left{flex:0 0 auto;border-right:0;border-bottom:1px solid var(--ln);max-height:38vh}.left section.grow{min-height:160px}}

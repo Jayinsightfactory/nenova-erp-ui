@@ -34,7 +34,7 @@ export default async function handler(req, res) {
   const pick = (k) => { const v = fields[k]; return Array.isArray(v) ? v[0] : v; };
   let buffer;
   try { buffer = fs.readFileSync(f.filepath); } finally { try { fs.unlinkSync(f.filepath); } catch {} }
-  const r = ingestFile({ buffer, filename: pick('filename') || f.originalFilename, orbitUserId: pick('orbitUserId'), userName: pick('userName'), hostname: pick('hostname'), dir: pick('dir'), mtime: pick('mtime'), eventType: pick('eventType') });
+  const r = ingestFile({ buffer, filename: pick('filename') || f.originalFilename, orbitUserId: pick('orbitUserId'), userName: pick('userName'), hostname: pick('hostname'), dir: pick('dir'), mtime: pick('mtime'), eventType: pick('eventType'), egressSnapshot: String(pick('egressSnapshot') || '') === '1' });
   if (!r.ok) return res.status(r.status || 400).json({ success: false, error: r.error });
   // 송금 자동 인식: 경영지원의 '해외건별송금신청*.xlsx'가 올라오면 행을 읽어 농장 송금 대기함(WebFarmRemit PENDING)에 넣는다. 실패는 로그만(업로드는 성공 처리)
   let remit = null;
