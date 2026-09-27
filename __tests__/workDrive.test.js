@@ -18,7 +18,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8')
   .replace(/^import \{ isOrbitReportViewer \} from '\.\/orbitReportAccess';/m,
     "const isOrbitReportViewer = (u) => String(u?.userId || '').toLowerCase() === 'nenovass3';")
   .replace(/^export (const|function) /gm, '$1 ')
-  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, reclassifyAll, canView, canDownload, listVisible, getFile, downloadLog, recordEgress, listEgress, fileTimeline };';
+  + '\nmodule.exports = { STAGES, extractCycle, classifyStage, isSensitive, classify, ingestFile, reclassify, reclassifyAll, canView, canDownload, listVisible, getFile, downloadLog, recordEgress, listEgress, fileTimeline, egressPreview, egressOpen };';
 const modPath = path.join(tmp, 'workDrive.cjs');
 fs.writeFileSync(modPath, src);
 const wd = require(modPath);
@@ -136,7 +136,7 @@ assert.strictEqual(wd.reclassifyAll(seol).status, 403);
 const ra = wd.reclassifyAll(boss); assert.strictEqual(ra.ok, true); assert.ok(ra.scanned >= 4);
 const ra2 = wd.reclassifyAll(boss); assert.strictEqual(ra2.changed, 0, '두 번째 실행은 변화 없음(자동행 재적용 가능하되 멱등)');
 
-process.chdir(cwd);
+// (파일은 cwd 절대경로로 읽으므로 tmp에 그대로 머문다 — 실제 data/drive 오염 방지)
 console.log('workDrive tests passed: 차수 정규화 5종, 단계 분류, 민감, 중복/버전, 부서 접근, 내려받기 기록, 교정');
 // 유출 이력(egress): 기록·sha 매칭·중복 제거·관리자 전용 조회·파일 타임라인
 {
@@ -164,4 +164,24 @@ console.log('workDrive tests passed: 차수 정규화 5종, 단계 분류, 민�
   assert.strictEqual(wd.listEgress(boss, { kind: 'print' }).length, 1);
   const t = wd.fileTimeline(boss, f.id); assert.ok(t.length >= 3 && t[0].kind === 'upload', '타임라인: 업로드가 먼저');
 }
-console.log('egress tests passed');
+// 유출 스냅샷 + 내용 보기 + 파일 열기 (2026-09-27): 데몬이 인쇄 직전 원본을 egressSnapshot으로 올리면 관리자만 보이고, 이력 행에서 시트 첫 행·파일을 볼 수 있다
+{
+  const XLSX = require('xlsx');
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['농장', '박스', '운임'], ['Colibri', 12, 340.5]]), 'AWB');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  const snap = wd.ingestFile({ buffer: buf, filename: '39-2 콜롬비아 AWB운임비.xlsx', userName: '가브리엘', hostname: 'GAB', dir: 'Desktop', eventType: 'egress', egressSnapshot: true });
+  assert.ok(snap.ok && !snap.duplicate, '스냅샷 업로드');
+  assert.ok(!wd.listVisible({ userId: 'g', userName: '가브리엘' }).some((x) => x.id === snap.id), '스냅샷은 올린 본인에게도 안 보임');
+  assert.ok(wd.listVisible(boss).some((x) => x.id === snap.id && x.egressSnapshot && x.sensitive), '관리자에겐 보임(민감)');
+  const sha = require('crypto').createHash('sha256').update(buf).digest('hex');
+  const pr = wd.recordEgress({ kind: 'print', filename: 'Microsoft Excel - 39-2 콜롬비아 AWB운임비.xlsx', sha, path: 'C:\\Users\\gab\\Desktop\\39-2 콜롬비아 AWB운임비.xlsx', snapshot: true, userName: '가브리엘', hostname: 'GAB', dest: 'HP LaserJet', detail: '2쪽 · 시트 AWB' });
+  assert.ok(pr.row.fileId === snap.id && pr.row.matchHow === 'sha' && pr.row.snapshot && /Desktop/.test(pr.row.path), '인쇄 이벤트가 sha로 스냅샷에 연결: ' + JSON.stringify(pr.row));
+  const row = wd.listEgress(boss, { kind: 'print' }).find((x) => x.id === pr.row.id);
+  assert.ok(row.hasFile && row.previewKind === 'sheet', 'hasFile/previewKind');
+  const pv = wd.egressPreview(boss, pr.row.id, { xlsxLib: XLSX });
+  assert.ok(pv.ok && pv.kind === 'sheet' && pv.sheets[0].name === 'AWB' && pv.sheets[0].rows[1][0] === 'Colibri', '시트 미리보기: ' + JSON.stringify(pv));
+  assert.strictEqual(wd.egressPreview(seol, pr.row.id, { xlsxLib: XLSX }).ok, false, '직원은 미리보기 불가');
+  const g = wd.egressOpen(boss, pr.row.id); assert.ok(g && g.row.id === snap.id && fs.existsSync(g.abs), '이력 행에서 파일 열기');
+  assert.strictEqual(wd.egressOpen(seol, pr.row.id), null, '직원은 열기 불가');
+}
+console.log('egress tests passed (+snapshot/preview/open)');
