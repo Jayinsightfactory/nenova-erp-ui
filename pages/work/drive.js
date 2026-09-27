@@ -107,7 +107,18 @@ export default function WorkDrivePage() {
   const [pv, setPv] = useState(null);
   const openPv = async (r) => { setPv({ row: r, loading: true }); const x = await fetch('/api/work/drive-egress?preview=' + encodeURIComponent(r.id)); const j = await x.json(); setPv({ row: r, ...j }); };
   // "어디로" 열: 유형별로 사람이 읽는 문장
-  const egWhere = (r) => r.kind === 'print' ? `${r.destKind === 'print-to-file' ? 'PDF로 인쇄' : '프린터'} ${r.dest || ''} · ${r.detail || ''}` : r.kind === 'email' ? `받는 사람 ${r.dest || '?'} · ${r.detail || ''}` : r.kind === 'copy' ? `${r.destKind || ''} ${r.dest || ''} ${r.detail || ''}` : r.kind === 'kakao' ? `카톡방 ${r.dest || '?'}` : r.kind === 'webupload' ? `사이트 ${r.dest || '?'} · ${r.detail || ''}` : [r.destKind, r.dest || r.app, r.detail].filter(Boolean).join(' · ');
+  // "어디로" — 유형별로 사람이 읽는 문장. 카톡 '받은 파일'(destKind kakao-in / 옛 행은 경로로 판별)은 유출이 아니라 수신.
+  const isInbound = (r) => r.kind === 'copy' && (r.destKind === 'kakao-in' || (r.destKind === 'kakao' && /받은 파일|KakaoTalk Downloads/i.test(r.dest || '')));
+  const DEST_KO = { usb: '이동식 저장장치(USB·외장)', network: '네트워크 공유 드라이브', onedrive: 'OneDrive 동기화 폴더', googledrive: 'Google Drive 동기화 폴더', dropbox: 'Dropbox 동기화 폴더', mybox: '네이버 MYBOX 동기화 폴더', icloud: 'iCloud 동기화 폴더' };
+  const egWhere = (r) => {
+    if (isInbound(r)) return { head: '카카오톡에서 받은 파일 (외부 → 이 PC)', lines: [r.dest] };
+    if (r.kind === 'print') return { head: r.destKind === 'print-to-file' ? `파일로 출력 · ${r.dest || ''}` : `프린터 ${r.dest || '?'}`, lines: [r.detail, r.app && `인쇄한 프로그램 ${r.app}`].filter(Boolean) };
+    if (r.kind === 'email') return { head: `이메일 → ${r.dest || '(받는 사람 미상)'}`, lines: [r.detail].filter(Boolean) };
+    if (r.kind === 'copy') return { head: `${DEST_KO[r.destKind] || r.destKind || '복사'} → ${r.dest || ''}`, lines: [r.detail].filter(Boolean) };
+    if (r.kind === 'kakao') return { head: `카톡방 "${r.dest || '?'}" 으로 전송`, lines: [r.detail].filter(Boolean) };
+    if (r.kind === 'webupload') return { head: `웹사이트 ${r.dest || '?'} 에 업로드`, lines: [r.detail, r.app].filter(Boolean) };
+    return { head: [r.destKind, r.dest || r.app].filter(Boolean).join(' · '), lines: [r.detail].filter(Boolean) };
+  };
   useEffect(() => { if (view === 'security' && data?.isAdmin) loadEg(); }, [view, egKind, egWho, egDays]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setTl(null); if (sel && data?.isAdmin) openTl(sel.id); }, [sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const EG_LABEL = { copy: ['복사 유출', '#b91c1c'], print: ['인쇄', '#9a3412'], email: ['이메일 첨부', '#1d4ed8'], webupload: ['웹 업로드', '#6d28d9'], kakao: ['카톡 전송', '#a16207'], download: ['내려받기', '#047857'], upload: ['업로드', '#374151'] };
@@ -205,7 +216,8 @@ export default function WorkDrivePage() {
             <div className="h2">보안 이력 <span className="dim">{eg ? `${eg.length}건` : '…'} · 파일이 어디로 나갔는지(복사·인쇄·이메일·웹·카톡·내려받기). 차단하지 않고 기록만 남깁니다</span></div>
             <div className="strip">
               <button className={'stg-chip' + (egKind === '' ? ' on' : '')} onClick={() => setEgKind('')}>전체</button>
-              {Object.entries(EG_LABEL).filter(([k]) => k !== 'upload').map(([k, [l, c]]) => <button key={k} className={'stg-chip' + (egKind === k ? ' on' : '')} style={{ borderColor: c }} onClick={() => setEgKind(k)}>{l}{eg ? ` ${eg.filter((r) => r.kind === k).length}` : ''}</button>)}
+              {Object.entries(EG_LABEL).filter(([k]) => k !== 'upload').map(([k, [l, c]]) => <button key={k} className={'stg-chip' + (egKind === k ? ' on' : '')} style={{ borderColor: c }} onClick={() => setEgKind(k)}>{l}{eg ? ` ${eg.filter((r) => r.kind === k && !isInbound(r)).length}` : ''}</button>)}
+              <span className="dim" style={{ marginLeft: 6 }}>카톡 수신 {eg ? eg.filter(isInbound).length : 0}건은 유출 아님</span>
               <select value={egWho} onChange={(e) => setEgWho(e.target.value)}><option value="">직원 전체</option>{[...new Set(files.map((f) => f.uploaderName).filter(Boolean))].sort().map((n) => <option key={n}>{n}</option>)}</select>
               <select value={egDays} onChange={(e) => setEgDays(e.target.value)}>{[['7', '7일'], ['30', '30일'], ['90', '90일'], ['365', '1년']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
               <input className="cy" style={{ width: 200 }} placeholder="파일명·목적지 검색" value={egQ} onChange={(e) => setEgQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadEg()} />
@@ -216,12 +228,12 @@ export default function WorkDrivePage() {
               {eg.map((r) => <tr key={r.id} className={r.fileSensitive ? 'sens' : ''}>
                 <td className="dim" title={r.at}>{fmtT(r.at)}</td>
                 <td><Avatar name={r.userName} />{r.userName || r.hostname}{r.dept && <span className="dim"> · {r.dept}</span>}</td>
-                <td><span className="stg" style={{ color: (EG_LABEL[r.kind] || [])[1] }}>● {(EG_LABEL[r.kind] || [r.kind])[0]}</span></td>
+                <td>{isInbound(r) ? <span className="stg" style={{ color: '#6b7280' }}>○ 카톡 수신</span> : <span className="stg" style={{ color: (EG_LABEL[r.kind] || [])[1] }}>● {(EG_LABEL[r.kind] || [r.kind])[0]}</span>}</td>
                 <td title={r.filename}>{r.fileSensitive && '🔒 '}{r.filename}
                   {r.hasFile ? <> <a href={'/api/work/drive-egress?open=' + encodeURIComponent(r.id)} className="pill" style={{ marginLeft: 6 }}>열기</a><span className="dim"> {r.matchHow === 'sha' ? '내용 일치' : '이름 일치'}{r.fileStage ? ' · ' + r.fileStage : ''}</span></>
                     : <span className="pill" style={{ marginLeft: 6, color: '#9ca3af' }}>원본 없음</span>}</td>
                 <td>{r.hasFile && r.previewKind ? <a onClick={() => openPv(r)} style={{ cursor: 'pointer' }}>{r.previewKind === 'sheet' ? '시트 보기' : '내용 보기'}</a> : r.hasFile ? <span className="dim">열기로 확인</span> : <span className="dim">—</span>}</td>
-                <td className="dim" title={egWhere(r)}>{egWhere(r).slice(0, 100)}</td>
+                <td className="where">{(() => { const w = egWhere(r); return <><div>{w.head}</div>{w.lines.map((l, i) => <div key={i} className="dim">{l}</div>)}</>; })()}</td>
                 <td className="dim" title={r.path || ''}>{r.path ? r.path.replace(/^.*[\\/](?=[^\\/]+[\\/][^\\/]+$)/, '…\\') : (r.hostname || '')}</td>
               </tr>)}</tbody></table></div>}
             {pv && <div className="modal-bg" onClick={() => setPv(null)}><div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 960, width: '92vw', maxHeight: '85vh', overflow: 'auto' }}>
@@ -354,6 +366,7 @@ button{font:inherit;color:inherit}
 .lock{color:#b45309}
 .edit{margin-top:16px;padding:10px;border-radius:10px;background:var(--bg)}.erow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .erow select,.erow input{padding:5px 8px;border:1px solid var(--ln);border-radius:8px;background:var(--sf);font:inherit}.cy{width:96px}
+.wd :global(td.where){white-space:normal;max-width:380px;line-height:1.35}
 .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:center;justify-content:center}.modal{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .log,.vers{margin-top:16px;font-size:12px}.ver{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px;cursor:pointer}.wd :global(.ver .pill){margin:0}.ver:hover{background:var(--bg)}.ver.on{background:var(--acs)}
         @media (max-width:1200px){.right{position:fixed;right:0;top:60px;bottom:0;width:min(360px,92vw);box-shadow:-8px 0 24px rgba(16,24,40,.12);z-index:20}}
