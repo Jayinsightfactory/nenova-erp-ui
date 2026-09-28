@@ -17,8 +17,10 @@
 - 순수 분류 fixture: 규칙 우선순위, 수동 대분류 보존, 합계 일치, 입력 불변성.
 - SSR fixture: 좌→본문→우 배치, 관리자만 PC 표시, 접기, 모든 보기의 필터, 대분류 변경 초기화.
 - 기존 workDrive 접근권한/버전/교정/egress 회귀 통과.
-- 필수 가드/빌드 및 배포 결과는 완료 시 갱신.
-- UI 기준 viewport: 1920×1080 CSS px / 100%; 실브라우저 최종 검증 예정.
+- UI-layout, ERP contract, dnSpy evidence, manifest, ERP writes, production build 통과.
+- PR #769 / merge 5352d502 / deploy 36366951171. 실제 인증 브라우저에서 지출결의 73건과 PC 접기 확인.
+- 첫 실브라우저에서 추출 JSX의 styled-jsx scope 누락을 발견, `.wd :global(...)` 범위로 버튼 간격/활성 색상 보정 및 회귀 assertion 추가.
+- UI 기준 viewport: 1920×1080 CSS px / scale 1; 후속 스타일 배포 후 최종 검증.
 
 ## 다음 작업
 - 세부 분류는 파일 내용을 읽은 확정 분류가 아니라 파일명 기반 탐색임. 서버 대분류를 교정하면 그 범위 안에서 다시 계산된다.

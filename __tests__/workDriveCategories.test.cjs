@@ -59,4 +59,8 @@ function find(el, predicate) {
 const root = tree({ 7: '송금·경영', 18: '지출결의' });
 const major = find(root, e => e.type === 'button' && React.Children.toArray(e.props.children).includes('입고'));
 assert(major); major.props.onClick(); assert.equal(setters[7], '입고'); assert.equal(setters[18], '');
+// Extracted JSX does not receive the return tree's styled-jsx scope class.
+const source = fs.readFileSync(path.resolve(__dirname, '../pages/work/drive.js'), 'utf8');
+assert(source.includes('.wd :global(.category-nav .stg-chip)'));
+assert(source.includes('.wd :global(.subtabs button.on)'));
 console.log('work-drive: subcategories, precedence, immutable major category, count conservation, layout order, permission and all view filters passed');
