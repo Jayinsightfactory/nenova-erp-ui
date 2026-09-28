@@ -15,6 +15,8 @@ import { WORK_DRIVE_ADMIN_USER_IDS } from '../../../lib/workDrive';
 export default withAuth(async function handler(req, res) {
   const user = req.user;
   if (req.method === 'GET') {
+    // 새로고침해도 옛 목록이 보이던 문제(2026-09-28): ETag만 있고 Cache-Control이 없어 브라우저가 304로 옛 응답 재사용 → 항상 새로 받게
+    res.setHeader('Cache-Control', 'no-store');
     if (req.query.download) {
       const g = getFile(user, String(req.query.download));
       if (!g) return res.status(404).json({ success: false, error: '없거나 내려받기 권한이 없습니다' });
