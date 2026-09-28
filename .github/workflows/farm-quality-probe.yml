@@ -53,6 +53,31 @@ jobs:
                 COL_LENGTH(N'dbo.WebFarmQualityEvent',N'RequestEventKey') RequestEventColumn,
                 HAS_PERMS_BY_NAME(N'dbo.WebFarmQualityEvent',N'OBJECT',N'ALTER') CanAlterEvent`);
               console.log(JSON.stringify({readOnly:true,feedback:feedback.recordset,duplicateAnchors:duplicates.recordset,inboxSchema:schema.recordset}));
+              const target=await query(`SELECT d.DeductionKey,d.OrderYear,d.OrderWeek,d.CustName,d.ProdKey,d.ProdName,
+                d.FarmKey,d.FarmName,f.FarmName MasterFarmName,d.SourceUnit,d.Quantity,d.OriginalQuantity,
+                d.ImportConfirmed,d.ImportReviewRequired,d.Note,d.IsDeleted
+                FROM dbo.WebSalesDefectDeduction d LEFT JOIN dbo.Farm f ON f.FarmKey=d.FarmKey
+                WHERE d.OrderYear=2026 AND d.OrderWeek=N'38' AND d.DeductionType=N'불량차감'
+                  AND d.CustName LIKE N'%날마다%' AND (d.ProdName LIKE N'%Blue%' OR d.ProdName LIKE N'%블루%' OR d.ProdKey IN
+                    (SELECT p.ProdKey FROM Product p WHERE p.ProdName LIKE N'%Hydrangea Blue%' OR p.DisplayName LIKE N'%Blue%' OR p.DisplayName LIKE N'%블루%'))`);
+              console.log(JSON.stringify({readOnly:true,targetRows:target.recordset}));
+              if(target.recordset.length){
+                const keys=target.recordset.map(r=>r.DeductionKey);
+                const keyList=keys.map(Number).filter(Number.isSafeInteger).join(',');
+                if(keyList){
+                  const history=await query(`SELECT DeductionKey,ActionType,ChangeSummary,BeforeJson,AfterJson
+                    FROM dbo.WebSalesDefectDeductionHistory WHERE DeductionKey IN (${keyList}) ORDER BY HistoryKey`);
+                  console.log(JSON.stringify({readOnly:true,targetHistory:history.recordset}));
+                }
+                const candidates=await query(`SELECT d.DeductionKey,vw.OrderYear,vw.OrderWeek,vw.ProdKey,vw.FarmName,
+                  f.FarmKey,SUM(ISNULL(vw.OutQuantity,0)) OutQuantity,COUNT_BIG(*) WarehouseRows
+                  FROM dbo.WebSalesDefectDeduction d JOIN dbo.ViewWarehouse vw
+                    ON vw.OrderYear=d.OrderYear AND vw.OrderWeek=d.OrderWeek AND vw.ProdKey=d.ProdKey
+                  LEFT JOIN dbo.Farm f ON f.FarmName=vw.FarmName AND ISNULL(f.isDeleted,0)=0
+                  WHERE d.DeductionKey IN (${keyList}) AND d.OrderYear=2026 AND d.OrderWeek=N'38'
+                  GROUP BY d.DeductionKey,vw.OrderYear,vw.OrderWeek,vw.ProdKey,vw.FarmName,f.FarmKey ORDER BY vw.FarmName`);
+                console.log(JSON.stringify({readOnly:true,sameWeekProductFarmCandidates:candidates.recordset}));
+              }
               if(typeof quality.qualitySignalCoverage==='function'){
                 const source=await query(`SELECT DeductionKey,OrderYear,OrderWeek,CustKey,CustName,
                   ProdKey,ProdName,FarmKey,FarmName,SourceUnit,Quantity,OriginalQuantity,ImportConfirmed,IsDeleted
