@@ -1,0 +1,13 @@
+{
+  "id":"action-log-outcome",
+  "title":"시스템 로그 실패 사유·저장 근거 표시",
+  "scope":["pages/dev/action-log.js","lib/actionLogOutcome.js","lib/pasteOperationAudit.js","__tests__/actionLogOutcome.test.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "requestIdentity":"LogKey only",
+  "actions":[{"name":"READ_LOG_OUTCOME","orderDetail":"preserve","shipmentDetail":"preserve","estimate":"preserve","sideEffect":"Read only existing logs; no replay. Unknown remains unknown; no inference from neighbouring SUCCESS or AffectedCount."},{"name":"CAPTURE_DEFECT_AUDIT","orderDetail":"preserve","shipmentDetail":"preserve","estimate":"preserve","sideEffect":"Existing SystemActionLog Payload only: action, explicit year/week, bounded target identifiers and server response counters. No business API or transaction changes."}],
+  "crossYearFixture":{"required":true,"description":"2025/2026 same38-1 retains explicit Payload year, never derives year from timestamp."},
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormEstimateView.md","source":"Actual ClassEstimate CLI verified 2026-09-28; logs independent of ERP writes","methods":["ClassEstimate.Insert","ClassEstimate.Update","ClassEstimate.Delete"],"tables":["SystemActionLog","Estimate"]},
+  "preserves":["OrderDetail","ShipmentDetail","ShipmentDate","ShipmentFarm","ProductStock","StockHistory","Estimate","WebProfitReport"],
+  "requiredTestFiles":["__tests__/actionLogOutcome.test.js","__tests__/actionLogOutcomeUi.test.cjs","__tests__/pasteOperationAudit.test.js"],
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}

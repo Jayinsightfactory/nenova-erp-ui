@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 async function main() {
+  await import('./actionLogOutcome.test.js');
+  require('./actionLogOutcomeUi.test.cjs');
   const { actionLogPayload } = await import('../lib/pasteOperationAudit.js');
   const entries = Array.from({length: 116}, (_, i) => ({type:i % 2 ? 'ADD' : 'CANCEL', custKey:13, prodKey:i+1, custName:'라움', prodName:'품목 '+i, qty:0.5, unit:'단', sourceIdentity:'sales|room|message-1', editGuard:{leaseToken:'SECRET'}}));
   const raw = actionLogPayload('SHIPMENT_ADJUST_BATCH', {year:'2026',week:'36-01',entries, token:'SECRET'}, {committedCount:116,verified:true});
