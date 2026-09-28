@@ -350,6 +350,25 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       if(pair.comparison)return `${evidenceLabel(pair.comparison.evidenceStatus)} · 참고`;
       return '정확한 요청 이력 미확인';
     };
+    const compactStatusLabel=pair=>{
+      if(pair.duplicateRequest)return 'ID 중복';
+      if(!inLiveRange)return '범위 밖';
+      if(liveHistoryStatus.loading)return '조회 중';
+      if(liveHistoryStatus.error)return '조회 실패';
+      if(!liveHistoryStatus.loaded)return '조회 대기';
+      if(liveItem&&!exactLiveItem)return 'ID 확인';
+      if(pair.unreturnedRequest)return '응답 누락';
+      if(!pair.request)return '이력 없음';
+      if(pair.unparsedRequest)return '원문 미연결';
+      if(!pair.requestId)return '요청 ID 없음';
+      if(pair.request.status==='AMBIGUOUS')return '연결 모호';
+      if(confirmedIds.has(pair.requestId)||['ORDER_AND_DISTRIBUTION','DISTRIBUTION_EVIDENCE'].includes(pair.request.status))return '이력 일치';
+      if(quantityCandidateIds.has(pair.requestId)||['UNIT_HISTORY_CANDIDATE','PRODUCT_HISTORY_CANDIDATE'].includes(pair.request.status))return '수량 후보';
+      if(pair.request.status==='ORDER_ONLY')return '주문만 확인';
+      if(pair.request.status==='NO_LIVE_EVIDENCE')return '이력 없음';
+      if(pair.comparison)return '참고 이력';
+      return '확인 필요';
+    };
     const statusTone=pair=>{
       if(pair.duplicateRequest)return 'review';
       if(!inLiveRange||liveHistoryStatus.loading||liveHistoryStatus.error||!liveHistoryStatus.loaded)return 'pending';
@@ -364,27 +383,27 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       const orders=Array.isArray(request?.orderEvents)?request.orderEvents:[];
       const shipments=Array.isArray(request?.shipmentEvents)?request.shipmentEvents:[];
       const latest=[...shipments,...orders].sort((left,right)=>String(right?.changeAt||'').localeCompare(String(left?.changeAt||'')))[0];
-      if(!latest)return '전산 이벤트 없음';
-      return `${orders.length?`주문 ${orders.length}건`:''}${orders.length&&shipments.length?' · ':''}${shipments.length?`분배·출고 ${shipments.length}건`:''} · ${latest.before??'?'}→${latest.after??'?'} ${latest.unit||''}`;
+      if(!latest)return '연결 이력 없음';
+      const counts=[orders.length?`주문 ${orders.length}`:'',shipments.length?`분배 ${shipments.length}`:''].filter(Boolean).join(' · ');
+      return `${latest.before??'?'}→${latest.after??'?'} ${latest.unit||''}${counts?` · ${counts}`:''}`;
     };
     const highlighted=!confirmation.cancelled&&operationApplied;
     return <article className={`message compact-match-row ${highlighted?'history-completed':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
-      {operationApplied&&<div className="history-completion-label">✓ 붙여넣기 저장 이력 확인 · 메시지 단위 기록이며 아래 개별 요청 매칭과는 별도입니다</div>}
+      {operationApplied&&<div className="history-completion-label" title="저장 기록은 메시지 단위이며 개별 요청 연결 증거와는 별도입니다">✓ 저장 이력</div>}
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
-      <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${operationApplied?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{operationApplied?'전산 저장 확인 · 메시지 단위':confirmation.cancelled?'확인취소':confirmation.confirmed?'수동 확인':match.label||'미확인'}{!operationApplied&&<> {match.matchedCount??0}/{match.totalCount||pairedRequests.length}</>}<small>{operationApplied?'개별 요청 ID 연결 아님':'자동 대조 · 참고용'}</small></span>
+      <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${operationApplied?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{operationApplied?'저장 확인 · 메시지 단위':confirmation.cancelled?'확인취소':confirmation.confirmed?'수동 확인':match.label||'미확인'}{!operationApplied&&<> {match.matchedCount??0}/{match.totalCount||pairedRequests.length}</>}{!operationApplied&&<small>자동 대조 · 참고</small>}</span>
       <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={confirmation.confirmed&&!confirmation.cancelled} title="확인 표시는 실제 주문·분배 적용과 별개입니다. 확인취소는 전산 작업을 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,confirmation.confirmed&&!confirmation.cancelled?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':confirmation.confirmed&&!confirmation.cancelled?'확인취소':'확인처리'}</button>
       <button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button></div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
       <div className="paired-request-list" aria-label="카카오 요청과 최신 전산 이력 대조">{pairedRequests.map(pair=>{
         const request=pair.request;
-        const requestText=request?.quote||pair.change?.change||'원문 요청 문구를 확인하세요.';
         const customer=request?.customerText||pair.change?.customer||'업체 확인 필요';
         const requestMeta=[request?.productText,request?.qty??null,request?.unit].filter(value=>value!==null&&value!==undefined&&value!=='').join(' · ');
-        const pairingNote=pair.duplicateRequest?'같은 원문에서 동일 요청 ID가 중복 반환되어 연결하지 않습니다.':pair.unparsedRequest?'전산 해석 요청 · 카톡 변경 목록과 ID 기준으로 별도 표시합니다.':pair.unreturnedRequest?'전산 응답에 이 요청 ID가 없습니다. 원문에는 있지만 이력 대조가 불완전합니다.':'';
+        const requestSummary=requestMeta||pair.change?.change||'품목·수량 확인 필요';
         return <section className="paired-request" data-request-id={pair.requestId||undefined} key={`${pair.requestId||pair.expectedRequestId||'visible'}:${pair.index}`}>
-          <div className="paired-request-source"><small>카톡 요청</small><strong>{customer}</strong><blockquote>{requestText}</blockquote>{requestMeta&&<small>{requestMeta}</small>}</div>
-          <div className="paired-request-history"><small>최신 전산 이력 · 읽기 전용</small><strong className={`paired-history-status paired-history-${statusTone(pair)}`}>{statusLabel(pair)}</strong>{request&&<><span>{eventSummary(request)}</span><small className="paired-history-reason" title={request.reason||liveItem?.reason||'연결 사유 확인 필요'}>{pairingNote||request.reason||liveItem?.reason||'연결 사유 확인 필요'}{liveHistoryStatus.asOf?` · 기준 ${shortKstTime(liveHistoryStatus.asOf)}`:''}</small></>}{!request&&<small>{pairingNote||liveHistoryStatus.error||'요청 ID로 대응되는 전산 응답이 없습니다.'}</small>}{operationApplied&&<small className="paired-operation-note">메시지 단위 저장 이력 있음 · 이 요청에 대한 개별 적용 증거는 아님</small>}</div>
+          <div className="paired-request-source"><small>요청</small><strong>{customer}</strong><span className="paired-request-summary" data-testid="paired-request-summary">{requestSummary}</span></div>
+          <div className="paired-request-history"><small>전산 이력</small><strong className={`paired-history-status paired-history-${statusTone(pair)}`} title={statusLabel(pair)} aria-label={statusLabel(pair)}>{compactStatusLabel(pair)}</strong>{request&&!pair.unparsedRequest&&<span className="paired-event-summary">{eventSummary(request)}</span>}</div>
         </section>;
       })}</div>
       <details className="compact-source-evidence"><summary>원문 · 품목별 처리 근거 {confirmed.length+quantityProcessed.length>0?`(${confirmed.length+quantityProcessed.length}건)`:''}</summary>
@@ -470,8 +489,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     <style jsx global>{`
       .sales-inbox .inbox-tools>summary{padding:5px 7px;cursor:pointer;color:#245b93}
       .sales-inbox .compact-match-list{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
-      .sales-inbox .compact-match-row{margin:3px 0;border-width:1px;min-width:0}
-      .sales-inbox .visible-change-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:4px 7px;background:#f7faff;font-size:11px}
+      .sales-inbox .compact-match-row{margin:1px 0;border-width:1px;min-width:0}
+      .sales-inbox .visible-change-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:2px 5px;background:#f7faff;font-size:11px}
       .sales-inbox .visible-change-meta>button{margin-left:0;font:inherit;font-size:11px;padding:2px 5px;min-height:23px}
       .sales-inbox .visible-change-meta .compact-match-status{display:flex;gap:5px;align-items:center}
       .sales-inbox .source-message-context{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 8px;padding:6px 9px;border-left:3px solid #91b4d9;background:#f5f9fe;color:#243b53;font-size:13px;line-height:1.45}
@@ -483,16 +502,19 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       .sales-inbox .confirmed-request-box{border:1px solid #9ecdb0;border-radius:5px;background:#edfaf1;color:#126637;margin:5px;padding:5px 6px;font-size:12px;font-weight:600}
       .sales-inbox .confirmed-request-box small{display:block;font-weight:400;padding-top:2px}
       .sales-inbox .compact-match-row>details>summary{padding:3px 7px;color:#64748b;cursor:pointer;font-size:11px}
-      .sales-inbox .paired-request-list{display:grid;gap:3px;padding:3px 6px;background:#fff}
+      .sales-inbox .paired-request-list{display:grid;gap:1px;padding:2px 3px;background:#fff}
       .sales-inbox .paired-request{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;border:1px solid #d6e2ec;border-radius:4px;overflow:hidden;min-width:0}
-      .sales-inbox .paired-request-source,.sales-inbox .paired-request-history{display:grid;align-content:start;gap:2px;min-width:0;padding:5px 7px;font-size:13px;line-height:1.35}
+      .sales-inbox .paired-request-source,.sales-inbox .paired-request-history{display:grid;align-content:center;gap:1px;min-width:0;padding:2px 5px;font-size:12px;line-height:1.2}
       .sales-inbox .paired-request-source{border-right:1px solid #d6e2ec;background:#fbfdff}
-      .sales-inbox .paired-request small{font-size:11px;color:#62798f;overflow-wrap:anywhere}
-      .sales-inbox .paired-request strong{font-size:14px;line-height:1.25;color:#173f69;overflow-wrap:anywhere}
+      .sales-inbox .paired-request small{font-size:10px;color:#62798f;overflow-wrap:anywhere}
+      .sales-inbox .paired-request strong{font-size:13px;line-height:1.15;color:#173f69;overflow-wrap:anywhere}
+      .sales-inbox .paired-request-summary,.sales-inbox .paired-event-summary{min-width:0;overflow-wrap:anywhere}
+      .sales-inbox .paired-request-summary{font-size:13px;font-weight:600;line-height:1.2;color:#243b53}
+      .sales-inbox .paired-event-summary{font-size:12px;line-height:1.2}
       .sales-inbox .paired-request blockquote{margin:0;color:#243b53;white-space:pre-wrap;overflow-wrap:anywhere}
       .sales-inbox .paired-request-history{background:#f8fbfd;color:#35556f}
       .sales-inbox .paired-request-history>span{overflow-wrap:anywhere}
-      .sales-inbox .paired-history-status{font-size:13px!important;font-weight:700;color:#845a11!important}
+      .sales-inbox .paired-history-status{font-size:11px!important;line-height:1.1;font-weight:700;color:#845a11!important}
       .sales-inbox .paired-history-applied{color:#126637!important}
       .sales-inbox .paired-history-evidence{color:#245b93!important}
       .sales-inbox .paired-history-candidate,.sales-inbox .paired-history-review{color:#845a11!important}

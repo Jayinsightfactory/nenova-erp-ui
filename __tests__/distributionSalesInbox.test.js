@@ -73,8 +73,13 @@ assert.match(ui,/AI-reconstructed evidence text can add\/remove lines and shift 
 assert.doesNotMatch(ui,/mappedEvidenceSource/,'request-line indices cannot come from a transformed message');
 const requestStatusBlock=ui.slice(ui.indexOf('const statusLabel=pair=>'),ui.indexOf('const statusTone=pair=>'));
 assert.doesNotMatch(requestStatusBlock,/operationApplied/,'message-level save audit must not mark every child request as applied');
-assert.match(ui,/개별 요청 ID 연결 아님/);
-assert.match(ui,/메시지 단위 저장 이력 있음 · 이 요청에 대한 개별 적용 증거는 아님/);
+assert.match(ui,/paired-request-summary/,'compact paired rows keep product and requested quantity visible beside the company');
+assert.match(ui,/const compactStatusLabel=pair=>/,'paired history has short visible statuses with the full status retained for accessibility');
+assert.doesNotMatch(ui,/blockquote>\{requestText\}/,'verbose request quotes remain in collapsed evidence, not every compact paired row');
+assert.match(ui,/\.sales-inbox \.paired-request-list\{display:grid;gap:1px;padding:2px 3px/,'paired rows use compact vertical spacing');
+assert.match(ui,/저장 확인 · 메시지 단위/);
+assert.match(ui,/저장 기록은 메시지 단위이며 개별 요청 연결 증거와는 별도입니다/);
+assert.doesNotMatch(ui,/메시지 단위 저장 이력 있음 · 이 요청에 대한 개별 적용 증거는 아님/);
 assert.match(ui,/liveHistoryStatus\.error\?'조회 실패':liveHistoryStatus\.loading\?'조회 중':'조회 대기'/);
 assert.match(ui,/:'대조 범위 밖'/);
 assert.match(ui,/refreshLiveHistory\(scope,liveHistoryBatchRef\.current\)/);
