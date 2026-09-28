@@ -28,7 +28,9 @@ assert.match(page, /\.paste-column-order-input \{ grid-column: 3; grid-row: 1 \/
 assert.match(page, /\.paste-column-base-input \{ grid-column: 1; grid-row: 1;/);
 assert.match(page, /\.paste-column-analysis \{ grid-column: 4; grid-row: 1;/);
 assert.match(page, /\.paste-col-work-results \{ grid-column: 5; grid-row: 1 \/ span 2;/);
-assert.match(page, /max-height: calc\(100vh - 230px\); overflow: auto/);
+assert.match(page, /paste-col-baseline \{ grid-column: 2; grid-row: 1 \/ span 2; min-width: 0; min-height: 0; height: calc\(100vh - 230px\); max-height: calc\(100vh - 230px\); overflow: hidden/);
+assert.match(page, /paste-col-baseline > \.paste-sales-inbox \{ min-height: 0; overflow: hidden; \}/);
+assert.match(page, /paste-col-baseline \{[^}]*grid-template-rows: auto auto minmax\(0,1fr\);/);
 assert.match(page, /height: calc\(100vh - 170px\); max-height: calc\(100vh - 170px\); min-height: 0;/);
 assert.match(page, /\.paste-input-grid > \.paste-col > \* \{ flex-shrink: 0; \}/);
 assert.match(page, /\.paste-work-history \{ margin-top: 8px; min-width: 0; min-height: 120px; max-height: 260px; overflow: auto;/);

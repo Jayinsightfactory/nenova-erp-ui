@@ -30,7 +30,7 @@ assert.equal(sourceConfirmation({...scope,manual:{...manual,status:'CLEAR'}}).co
 assert.equal(sourceConfirmation({...scope,operation,requestCount:0}).confirmed,false);
 const ui=require('node:fs').readFileSync(require('node:path').join(__dirname,'../components/orders/DistributionSalesInbox.js'),'utf8');
 assert.match(ui,/source-confirm-toggle:/);
-assert.match(ui,/highlighted\?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED'/);
+assert.match(ui,/confirmation\.confirmed&&!confirmation\.cancelled\?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED'/);
 assert.match(ui,/role="alert"/);
 assert.match(ui,/applicationScope,open,disabled,operationRevision/);
 console.log('source confirmation toggle and successful-operation tests passed');
