@@ -39,7 +39,7 @@ assert.match(automaticLiveHistoryRead,/advisoryOnly!==true/);assert.match(automa
 assert.match(automaticLiveHistoryRead,/messages:messages\.map/);assert.match(automaticLiveHistoryRead,/liveHistoryScopeEpoch/);assert.match(automaticLiveHistoryRead,/liveHistoryBatchKeyRef/);assert.match(automaticLiveHistoryRead,/30000/);
 assert.match(automaticLiveHistoryRead,/data\.scope\.year===String\(year\)/);assert.match(automaticLiveHistoryRead,/data\.scope\.weeks\[0\]===applicationWeek/);assert.match(automaticLiveHistoryRead,/data\.scope\.from===from&&data\.scope\.to===to/);
 assert.match(automaticLiveHistoryRead,/completeUniqueIdentitySet/);assert.match(automaticLiveHistoryRead,/Object\.prototype\.hasOwnProperty\.call\(LIVE_HISTORY_LABELS,item\.status\)/);assert.match(automaticLiveHistoryRead,/Array\.isArray\(data\?\.warnings\)/);
-assert.match(automaticLiveHistoryRead,/warnings:data\.warnings[\s\S]*?scope\}/);assert.match(ui,/hasAcceptedLiveHistoryScope=liveHistoryStatus\.scope===liveScope&&loadedPeriod===livePeriod/);assert.match(ui,/if\(!hasAcceptedLiveHistoryScope\)return null/);assert.match(ui,/hasAcceptedLiveHistoryScope&&liveHistory\[row.identity\]&&matchingSummary/);
+assert.match(automaticLiveHistoryRead,/warnings:data\.warnings[\s\S]*?scope\}/);assert.match(ui,/hasAcceptedLiveHistoryScope=liveHistoryStatus\.scope===liveScope&&loadedPeriod===livePeriod/);assert.match(ui,/if\(!hasAcceptedLiveHistoryScope\)return null/);assert.match(ui,/const item=hasAcceptedLiveHistoryScope\?liveHistory\[row.identity\]/);
 assert.doesNotMatch(automaticLiveHistoryRead,/distribution-change-audits|distribution-manual-applications|parse-paste|adjust-batch|llm|openai/i);
 assert.match(ui,/Object\.prototype\.hasOwnProperty\.call\(draft,'expectedCurrentEventId'\)/);
 assert.match(ui,/수동 적용 저장이 18초 안에 끝나지 않았습니다/);assert.match(ui,/적용 상태 조회가 30초 안에 끝나지 않았습니다/);
@@ -61,28 +61,30 @@ const refresh=fs.readFileSync(require.resolve('../lib/distributionSalesInboxRefr
 assert.match(ui,/readSalesFeedPage/);assert.match(ui,/refreshSalesFeed/);assert.match(ui,/startBoundedAutoRefresh/);assert.match(ui,/새 대화 \{pendingRows\.length\}건 보기/);assert.doesNotMatch(ui,/afterId|nextAfterId/);
 assert.match(ui,/refreshSeq/);assert.match(ui,/activeRefreshScope/);assert.match(ui,/requestOwner/);assert.match(ui,/자동 확인이 끝난 뒤 다시 시도하세요/);
 assert.match(ui,/open,setOpen\]=useState\(true\)/);assert.match(ui,/autoRefresh,setAutoRefresh\]=useState\(true\)/);assert.doesNotMatch(ui,/if\(open\)setAutoRefresh\(true\)/);assert.match(ui,/현재 표시 원문 기간/);assert.match(ui,/입력한 조회 기간/);
-assert.match(ui,/입력칸으로/);assert.match(ui,/비교 선택/);assert.match(ui,/검토·비교/);assert.match(ui,/처리함/);assert.match(ui,/미처리/);assert.match(ui,/내 표시는 실제 등록·분배·취소를 실행하거나 확인하지 않습니다/);assert.match(ui,/data-manual-application-refresh/);assert.match(ui,/data-live-history-refresh/);assert.match(ui,/classifyMessage,matchingSummary,summarizeMessage/);assert.match(ui,/compact-match-tab-request/);assert.match(ui,/compact-match-tab-stock/);assert.match(ui,/compact-match-tab-review/);assert.match(ui,/compact-match-row:/);assert.match(ui,/compact-match-status:/);assert.match(ui,/compact-manual-menu:/);assert.match(ui,/compactMessageRow/);assert.match(ui,/visibleDisplayRows\.map\(compactMessageRow\)/);assert.match(ui,/요청별 변화량 · 분배 합계와 저장 잔량은 선택 차수의 품목 전체 기준/);assert.match(ui,/차수 품목 전체 분배 합계/);assert.doesNotMatch(ui,/currentCalculatedBalance|currentDistributionTotal|balanceStatus/);assert.match(ui,/reviewMounted&&<div>/);assert.match(ui,/live-history-panel/);assert.match(ui,/아직 대조하지 않은 원문/);assert.doesNotMatch(ui,/이전 50건 대조|liveHistoryPage/);assert.match(ui,/최신 이력 조회 경고/);assert.match(ui,/ORDER_AND_DISTRIBUTION/);assert.match(ui,/NO_LIVE_EVIDENCE:'대응 이력 미확인'/);assert.match(ui,/저장된 AI 비교 보고서 \(참고\)/);assert.match(ui,/immediate:true/);assert.match(ui,/loadedPeriod,year,week/);assert.match(ui,/영업방 자동 확인을 기다리는 중입니다/);
+assert.match(ui,/입력칸으로/);assert.match(ui,/비교 선택/);assert.match(ui,/검토·비교/);assert.match(ui,/처리함/);assert.match(ui,/미처리/);assert.match(ui,/내 표시는 실제 등록·분배·취소를 실행하거나 확인하지 않습니다/);assert.match(ui,/data-manual-application-refresh/);assert.match(ui,/data-live-history-refresh/);assert.match(ui,/classifyMessage,summarizeMessage/);assert.match(ui,/compact-match-tab-request/);assert.match(ui,/compact-match-tab-stock/);assert.match(ui,/compact-match-tab-review/);assert.match(ui,/compact-match-row:/);assert.doesNotMatch(ui,/compact-match-status:/,'the old noisy matching badge is not repeated above each whole-message card');assert.match(ui,/compact-manual-menu:/);assert.match(ui,/compactMessageRow/);assert.match(ui,/visibleDisplayRows\.map\(compactMessageRow\)/);assert.match(ui,/요청별 변화량 · 분배 합계와 저장 잔량은 선택 차수의 품목 전체 기준/);assert.match(ui,/차수 품목 전체 분배 합계/);assert.doesNotMatch(ui,/currentCalculatedBalance|currentDistributionTotal|balanceStatus/);assert.match(ui,/reviewMounted&&<div>/);assert.match(ui,/live-history-panel/);assert.match(ui,/아직 대조하지 않은 원문/);assert.doesNotMatch(ui,/이전 50건 대조|liveHistoryPage/);assert.match(ui,/최신 이력 조회 경고/);assert.match(ui,/ORDER_AND_DISTRIBUTION/);assert.match(ui,/NO_LIVE_EVIDENCE:'대응 이력 미확인'/);assert.match(ui,/저장된 AI 비교 보고서 \(참고\)/);assert.match(ui,/immediate:true/);assert.match(ui,/loadedPeriod,year,week/);assert.match(ui,/영업방 자동 확인을 기다리는 중입니다/);
 assert.doesNotMatch(ui,/slice\(0,LIVE_HISTORY_MESSAGE_LIMIT\)/);
 assert.doesNotMatch(ui,/history-evidence-reasons/);
-assert.match(ui,/className="source-message-context" aria-label="변경 요청 원문">\{row.message\}/);
+assert.match(ui,/className="paired-message-original"/,'the complete organized Kakao message is visible on the left');
+assert.match(ui,/data-testid="complete-kakao-message">\{formatKakaoMessage\(row\.message\)\}/,'display preserves all nonblank source lines instead of truncating the Kakao message');
 assert.match(ui,/className="non-action-reference"/);
 assert.match(ui,/추가·취소 작업/);
 assert.match(ui,/PRODUCT_HISTORY_CANDIDATE:'품목 미확정 · 이력 후보'/);
 assert.match(ui,/const liveBatch=\[\.\.\.rows\]\.reverse\(\)/,'live-history request IDs are parsed from the exact displayed Kakao text');
 assert.match(ui,/AI-reconstructed evidence text can add\/remove lines and shift IDs/);
 assert.doesNotMatch(ui,/mappedEvidenceSource/,'request-line indices cannot come from a transformed message');
-const requestStatusBlock=ui.slice(ui.indexOf('const statusLabel=pair=>'),ui.indexOf('const statusTone=pair=>'));
-assert.doesNotMatch(requestStatusBlock,/operationApplied/,'message-level save audit must not mark every child request as applied');
-assert.match(ui,/paired-request-summary/,'compact paired rows keep product and requested quantity visible beside the company');
-assert.match(ui,/const compactStatusLabel=pair=>/,'paired history has short visible statuses with the full status retained for accessibility');
-assert.doesNotMatch(ui,/blockquote>\{requestText\}/,'verbose request quotes remain in collapsed evidence, not every compact paired row');
-assert.match(ui,/\.sales-inbox \.paired-request-list\{display:grid;gap:1px;padding:2px 3px/,'paired rows use compact vertical spacing');
-assert.match(ui,/저장 확인 · 메시지 단위/);
-assert.match(ui,/저장 기록은 메시지 단위이며 개별 요청 연결 증거와는 별도입니다/);
+assert.match(ui,/className="paired-applied-items" aria-label="적용 항목 상태"/,'the right side contains a simple list of applied items');
+assert.match(ui,/appliedOperationEntry\(\{operation,identity:row\.identity/,'an item is colored as applied only from exact verified audit evidence');
+assert.match(ui,/application\.status==='APPLIED'\?'적용':'미확인'/,'uncertain records remain explicitly unconfirmed, not falsely marked unapplied');
+assert.match(ui,/paired-applied-applied/,'verified applied entries receive a green status style');
+assert.match(ui,/paired-applied-unconfirmed/,'unconfirmed entries receive a distinct caution style');
+assert.doesNotMatch(ui,/paired-request-list|paired-request-summary/,'per-request verbose matching panels are not shown in the primary display');
+assert.doesNotMatch(ui,/blockquote>\{requestText\}/,'repeated request quote is not displayed beside the full source message');
+assert.doesNotMatch(ui,/저장 확인 · 메시지 단위/,'source-level save state is not repeated as if it were an item-level result');
+assert.doesNotMatch(ui,/저장 기록은 메시지 단위이며 개별 요청 연결 증거와는 별도입니다/,'message-level completion text is hidden from this concise row');
 assert.doesNotMatch(ui,/메시지 단위 저장 이력 있음 · 이 요청에 대한 개별 적용 증거는 아님/);
-assert.match(ui,/liveHistoryStatus\.error\?'조회 실패':liveHistoryStatus\.loading\?'조회 중':'조회 대기'/);
-assert.match(ui,/:'대조 범위 밖'/);
-assert.match(ui,/refreshLiveHistory\(scope,liveHistoryBatchRef\.current\)/);
+
+
+
 const balanceComparison={products:[{prodKey:7,prodName:'수국',unit:'단',requestedSignedDelta:3,observedSignedDelta:3,actualDistributionTotal:12,storedStockSnapshot:8,evidenceStatus:'CONSISTENT',snapshotStatus:'AVAILABLE',sourceIdentities:['chat-1'],reasonCodes:[],requests:[{requestId:'r-1',sourceIdentity:'chat-1',custKey:null,prodKey:7,requestedSignedDelta:3,observedSignedDelta:3,evidenceStatus:'CONSISTENT',reasonCodes:[]}]}]};
 assert.equal(isValidBalanceComparison(balanceComparison),true,'nullable custKey is valid for an ambiguous parser context');
 const otherMessageWarning=JSON.parse(JSON.stringify(balanceComparison));
