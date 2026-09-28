@@ -12,7 +12,7 @@ const duplicate = summarizeAuditReports([report('duplicate', '2026-09-11T00:44:0
 const extra = summarizeAuditReports([report('extra', '2026-09-11T00:45:00.000Z', { requests: [request('a')], findings: [finding('a', 'MATCHING_HISTORY'), finding('unrequested', 'MATCHING_HISTORY')], unresolved: [] })])[0]; assert.equal(extra.allMatchingHistory, false, 'an unpaired finding prevents a whole-message match');
 console.log('distribution message application status tests passed');
 
-const {sourceConfirmation}=require('../lib/distributionMessageApplicationStatus');
+const {appliedOperationEntry,formatKakaoMessage,sourceConfirmation}=require('../lib/distributionMessageApplicationStatus');
 const scope={identity,year:'2026',week:'37-01',requestCount:2};
 const operation={sourceIdentity:identity,year:'2026',week:'37-01',status:'committed',committedCount:2,at:'2026-09-15 11:00:00',entries:[{sourceIdentity:identity},{sourceIdentity:identity}]};
 const manual={sourceIdentity:identity,year:'2026',week:'37-01',status:'MANUALLY_APPLIED',createdAt:'2026-09-15T02:01:00Z'};
@@ -28,9 +28,25 @@ assert.equal(sourceConfirmation({...scope,manual:cancelled,operation:{...operati
 assert.equal(sourceConfirmation({...scope,manual:{...manual,year:'2025'}}).confirmed,false);
 assert.equal(sourceConfirmation({...scope,manual:{...manual,status:'CLEAR'}}).confirmed,false);
 assert.equal(sourceConfirmation({...scope,operation,requestCount:0}).confirmed,false);
+const appliedRequest={id:`${identity}:4`,action:'ADD',custKey:10,prodKey:20,qty:3,unit:'박스'};
+const appliedEntry={sourceIdentity:identity,type:'ADD',custKey:10,prodKey:20,custName:'업체',prodName:'장미',qty:3,unit:'박스'};
+const exactOperation={sourceIdentity:identity,year:'2026',week:'37-01',status:'committed',verified:true,committedCount:1,entries:[appliedEntry]};
+assert.deepEqual(appliedOperationEntry({operation:exactOperation,identity,year:'2026',week:'37-01',request:appliedRequest,requestId:appliedRequest.id,requests:[appliedRequest]}),{status:'APPLIED',entry:appliedEntry});
+for(const patch of [{verified:false},{sourceIdentity:'other'},{year:'2025'},{week:'37-02'},{undo:true},{undone:true},{incomplete:true},{entries:[{...appliedEntry,type:'CANCEL'}]},{entries:[appliedEntry,appliedEntry],committedCount:2}]) {
+  const changed={...exactOperation,...patch};
+  assert.equal(appliedOperationEntry({operation:changed,identity,year:'2026',week:'37-01',request:appliedRequest,requestId:appliedRequest.id,requests:[appliedRequest]}).status,'UNCONFIRMED',JSON.stringify(patch));
+}
+assert.equal(appliedOperationEntry({operation:exactOperation,identity,year:'2026',week:'37-01',request:appliedRequest,requestId:appliedRequest.id,requests:[appliedRequest,{...appliedRequest,id:`${identity}:5`}]}).status,'UNCONFIRMED','duplicate customer/product/action requests remain unresolved');
+assert.equal(appliedOperationEntry({operation:exactOperation,identity,year:'2026',week:'37-01',request:appliedRequest,requestId:'other:4',requests:[appliedRequest]}).status,'UNCONFIRMED','a request id from another message never pairs');
+const completeMessage='37-01 변경사항\n\n업체 A\n장미 3박스 추가\n\n오늘 출고입니다';
+assert.equal(formatKakaoMessage(completeMessage),'37-01 변경사항\n\n업체 A\n장미 3박스 추가\n\n오늘 출고입니다');
+assert.equal(formatKakaoMessage(`  ${completeMessage}\n\n`),formatKakaoMessage(completeMessage),'formatting whitespace is normalized without removing message lines');
 const ui=require('node:fs').readFileSync(require('node:path').join(__dirname,'../components/orders/DistributionSalesInbox.js'),'utf8');
 assert.match(ui,/source-confirm-toggle:/);
 assert.match(ui,/confirmation\.confirmed&&!confirmation\.cancelled\?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED'/);
 assert.match(ui,/role="alert"/);
 assert.match(ui,/applicationScope,open,disabled,operationRevision/);
+assert.match(ui,/paired-message-original/,'the full organized Kakao message is visible in the left column');
+assert.match(ui,/paired-applied-items/,'the right column shows applied items, not ERP event explanations');
+assert.match(ui,/application\.status==='APPLIED'\?'적용':'미확인'/,'only an exact verified item audit is colored applied');
 console.log('source confirmation toggle and successful-operation tests passed');

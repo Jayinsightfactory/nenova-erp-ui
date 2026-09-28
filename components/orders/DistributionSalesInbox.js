@@ -2,10 +2,10 @@ import {useEffect,useRef,useState} from 'react';
 import {MAX_TEXT_BYTES,periodBounds,parseSalesExport,mergeMessages,selectedText} from '../../lib/distributionSalesInbox';
 import {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
-import {classifyMessage,matchingSummary,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
+import {classifyMessage,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
-import {sourceConfirmation} from '../../lib/distributionMessageApplicationStatus';
+import {appliedOperationEntry,formatKakaoMessage,sourceConfirmation} from '../../lib/distributionMessageApplicationStatus';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 
@@ -286,7 +286,6 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
   }
   function compactMessageRow(row) {
     const inLiveRange=liveBatchIdentities.has(row.identity);
-    const match=(inLiveRange&&hasAcceptedLiveHistoryScope&&liveHistory[row.identity]&&matchingSummary(liveBalanceComparison,row.identity,liveHistory[row.identity]))||{status:'UNCONFIRMED',label:inLiveRange?(liveHistoryStatus.error?'조회 실패':liveHistoryStatus.loading?'조회 중':'조회 대기'):'대조 범위 밖',matchedCount:0,totalCount:0,operationSummary:inLiveRange?'대응 작업 미확인':'날짜 범위를 좁혀 대조'};
     const confirmed=inLiveRange&&hasAcceptedLiveHistoryScope?confirmedHistoryRequests(liveBalanceComparison,row.identity,liveHistory[row.identity]):[];
     const quantityProcessed=inLiveRange&&hasAcceptedLiveHistoryScope?quantityProcessedRequests(row.identity,liveHistory[row.identity]):[];
     const manual=manualApplications[row.identity];
@@ -303,111 +302,57 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     const liveRequests=Array.isArray(exactLiveItem?.requests)?exactLiveItem.requests:[];
     const liveRequestIdCounts=new Map();
     for(const request of liveRequests)if(typeof request?.id==='string'&&request.id)liveRequestIdCounts.set(request.id,(liveRequestIdCounts.get(request.id)||0)+1);
-    const comparisonRows=comparisonForIdentity(liveBalanceComparison,row.identity,{includeConsistent:true}).visible;
-    const comparisonByRequestId=new Map();
-    for(const comparison of comparisonRows){
-      if(typeof comparison?.requestId!=='string'||!comparison.requestId)continue;
-      const rows=comparisonByRequestId.get(comparison.requestId)||[];
-      rows.push(comparison);comparisonByRequestId.set(comparison.requestId,rows);
-    }
-    const confirmedIds=new Set(confirmed.map(request=>request?.id).filter(Boolean));
-    const quantityCandidateIds=new Set(quantityProcessed.map(request=>request?.id).filter(Boolean));
-    const operationApplied=sourceConfirmation({manual:null,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length}).confirmed;
     const usedLiveRequestIds=new Set();
     const pairedRequests=changes.map((change,index)=>{
       const expectedRequestId=Number.isInteger(change.sourceIndex)?`${row.identity}:${change.sourceIndex+1}`:null;
       const idCount=expectedRequestId?liveRequestIdCounts.get(expectedRequestId)||0:0;
       const request=idCount===1?liveRequests.find(item=>item?.id===expectedRequestId):null;
       if(request)usedLiveRequestIds.add(expectedRequestId);
-      const comparison=request&&comparisonByRequestId.get(expectedRequestId)?.length===1?comparisonByRequestId.get(expectedRequestId)[0]:null;
-      return {request,requestId:request?expectedRequestId:null,expectedRequestId,comparison,index,change,duplicateRequest:idCount>1,unreturnedRequest:!!(exactLiveItem&&!request&&!idCount)};
+      return {request,requestId:request?expectedRequestId:null,expectedRequestId,index,change,duplicateRequest:idCount>1,unreturnedRequest:!!(exactLiveItem&&!request&&!idCount)};
     });
     for(const [index,request] of liveRequests.entries()){
       const requestId=typeof request?.id==='string'&&request.id?request.id:null;
       if(requestId&&usedLiveRequestIds.has(requestId))continue;
       const duplicateRequest=!!requestId&&liveRequestIdCounts.get(requestId)>1;
-      const comparison=requestId&&!duplicateRequest&&comparisonByRequestId.get(requestId)?.length===1?comparisonByRequestId.get(requestId)[0]:null;
-      pairedRequests.push({request,requestId:duplicateRequest?null:requestId,expectedRequestId:requestId,comparison,index:index+changes.length,duplicateRequest,unparsedRequest:true});
+      pairedRequests.push({request,requestId:duplicateRequest?null:requestId,expectedRequestId:requestId,index:index+changes.length,duplicateRequest,unparsedRequest:true});
     }
-    const statusLabel=pair=>{
-      if(pair.duplicateRequest)return '요청 ID 중복 · 확인 필요';
-      if(!inLiveRange)return '대조 범위 밖';
-      if(liveHistoryStatus.loading)return '전산 이력 조회 중';
-      if(liveHistoryStatus.error)return '전산 이력 조회 실패';
-      if(!liveHistoryStatus.loaded)return '전산 이력 조회 대기';
-      if(liveItem&&!exactLiveItem)return '전산 응답 식별값 확인 필요';
-      if(pair.unreturnedRequest)return '요청 해석 미반환 · 대조 불가';
-      if(!pair.request)return '대응 전산 요청 없음';
-      if(pair.unparsedRequest)return '원문 변경과 연결 안 됨 · 확인 필요';
-      if(!pair.requestId)return '요청 ID 확인 필요';
-      if(pair.request.status==='AMBIGUOUS')return '연결 모호 · 확인 필요';
-      if(confirmedIds.has(pair.requestId))return '이력 일치 · 참고';
-      if(quantityCandidateIds.has(pair.requestId))return '수량 대조 후보 · 참고';
-      if(['ORDER_AND_DISTRIBUTION','DISTRIBUTION_EVIDENCE'].includes(pair.request.status))return '이력 일치 · 참고';
-      if(pair.request.status==='ORDER_ONLY')return '주문 이력만 확인 · 분배 미확인';
-      if(['UNIT_HISTORY_CANDIDATE','PRODUCT_HISTORY_CANDIDATE'].includes(pair.request.status))return '이력 후보 · 참고';
-      if(pair.request.status==='NO_LIVE_EVIDENCE')return '분배 이력 미확인';
-      if(pair.comparison)return `${evidenceLabel(pair.comparison.evidenceStatus)} · 참고`;
-      return '정확한 요청 이력 미확인';
-    };
-    const compactStatusLabel=pair=>{
-      if(pair.duplicateRequest)return 'ID 중복';
-      if(!inLiveRange)return '범위 밖';
-      if(liveHistoryStatus.loading)return '조회 중';
-      if(liveHistoryStatus.error)return '조회 실패';
-      if(!liveHistoryStatus.loaded)return '조회 대기';
-      if(liveItem&&!exactLiveItem)return 'ID 확인';
-      if(pair.unreturnedRequest)return '응답 누락';
-      if(!pair.request)return '이력 없음';
-      if(pair.unparsedRequest)return '원문 미연결';
-      if(!pair.requestId)return '요청 ID 없음';
-      if(pair.request.status==='AMBIGUOUS')return '연결 모호';
-      if(confirmedIds.has(pair.requestId)||['ORDER_AND_DISTRIBUTION','DISTRIBUTION_EVIDENCE'].includes(pair.request.status))return '이력 일치';
-      if(quantityCandidateIds.has(pair.requestId)||['UNIT_HISTORY_CANDIDATE','PRODUCT_HISTORY_CANDIDATE'].includes(pair.request.status))return '수량 후보';
-      if(pair.request.status==='ORDER_ONLY')return '주문만 확인';
-      if(pair.request.status==='NO_LIVE_EVIDENCE')return '이력 없음';
-      if(pair.comparison)return '참고 이력';
-      return '확인 필요';
-    };
-    const statusTone=pair=>{
-      if(pair.duplicateRequest)return 'review';
-      if(!inLiveRange||liveHistoryStatus.loading||liveHistoryStatus.error||!liveHistoryStatus.loaded)return 'pending';
-      if(pair.request?.status==='AMBIGUOUS')return 'review';
-      if(pair.unreturnedRequest)return 'unmatched';
-      if(confirmedIds.has(pair.requestId)||['ORDER_AND_DISTRIBUTION','DISTRIBUTION_EVIDENCE'].includes(pair.request?.status))return 'evidence';
-      if(quantityCandidateIds.has(pair.requestId)||['UNIT_HISTORY_CANDIDATE','PRODUCT_HISTORY_CANDIDATE'].includes(pair.request?.status))return 'candidate';
-      if(['NO_LIVE_EVIDENCE','ORDER_ONLY'].includes(pair.request?.status))return 'unmatched';
-      return 'review';
-    };
-    const eventSummary=request=>{
-      const orders=Array.isArray(request?.orderEvents)?request.orderEvents:[];
-      const shipments=Array.isArray(request?.shipmentEvents)?request.shipmentEvents:[];
-      const latest=[...shipments,...orders].sort((left,right)=>String(right?.changeAt||'').localeCompare(String(left?.changeAt||'')))[0];
-      if(!latest)return '연결 이력 없음';
-      const counts=[orders.length?`주문 ${orders.length}`:'',shipments.length?`분배 ${shipments.length}`:''].filter(Boolean).join(' · ');
-      return `${latest.before??'?'}→${latest.after??'?'} ${latest.unit||''}${counts?` · ${counts}`:''}`;
-    };
-    const highlighted=!confirmation.cancelled&&operationApplied;
-    return <article className={`message compact-match-row ${highlighted?'history-completed':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
-      {operationApplied&&<div className="history-completion-label" title="저장 기록은 메시지 단위이며 개별 요청 연결 증거와는 별도입니다">✓ 저장 이력</div>}
+    const appliedItems=pairedRequests.map(pair=>({
+      pair,
+      application:pair.request&&!pair.unparsedRequest&&!pair.duplicateRequest
+        ?appliedOperationEntry({operation,identity:row.identity,year,week:applicationWeek,request:pair.request,requestId:pair.requestId,requests:liveRequests})
+        :{status:'UNCONFIRMED',entry:null},
+    }));
+    const appliedCount=appliedItems.filter(item=>item.application.status==='APPLIED').length;
+    return <article className="message compact-match-row" data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
-      <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${operationApplied?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{operationApplied?'저장 확인 · 메시지 단위':confirmation.cancelled?'확인취소':confirmation.confirmed?'수동 확인':match.label||'미확인'}{!operationApplied&&<> {match.matchedCount??0}/{match.totalCount||pairedRequests.length}</>}{!operationApplied&&<small>자동 대조 · 참고</small>}</span>
+      <div className="visible-change-meta"><small>{source}</small>
       <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={confirmation.confirmed&&!confirmation.cancelled} title="확인 표시는 실제 주문·분배 적용과 별개입니다. 확인취소는 전산 작업을 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,confirmation.confirmed&&!confirmation.cancelled?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':confirmation.confirmed&&!confirmation.cancelled?'확인취소':'확인처리'}</button>
       <button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button></div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
-      <div className="paired-request-list" aria-label="카카오 요청과 최신 전산 이력 대조">{pairedRequests.map(pair=>{
-        const request=pair.request;
-        const customer=request?.customerText||pair.change?.customer||'업체 확인 필요';
-        const requestMeta=[request?.productText,request?.qty??null,request?.unit].filter(value=>value!==null&&value!==undefined&&value!=='').join(' · ');
-        const requestSummary=requestMeta||pair.change?.change||'품목·수량 확인 필요';
-        return <section className="paired-request" data-request-id={pair.requestId||undefined} key={`${pair.requestId||pair.expectedRequestId||'visible'}:${pair.index}`}>
-          <div className="paired-request-source"><small>요청</small><strong>{customer}</strong><span className="paired-request-summary" data-testid="paired-request-summary">{requestSummary}</span></div>
-          <div className="paired-request-history"><small>전산 이력</small><strong className={`paired-history-status paired-history-${statusTone(pair)}`} title={statusLabel(pair)} aria-label={statusLabel(pair)}>{compactStatusLabel(pair)}</strong>{request&&!pair.unparsedRequest&&<span className="paired-event-summary">{eventSummary(request)}</span>}</div>
-        </section>;
-      })}</div>
-      <details className="compact-source-evidence"><summary>원문 · 품목별 처리 근거 {confirmed.length+quantityProcessed.length>0?`(${confirmed.length+quantityProcessed.length}건)`:''}</summary>
-      <blockquote className="source-message-context" aria-label="변경 요청 원문">{row.message}</blockquote>
+      <div className="paired-message-layout" aria-label="카카오 원문과 적용 항목">
+        <section className="paired-message-original"><strong>카톡 내용</strong><pre data-testid="complete-kakao-message">{formatKakaoMessage(row.message)}</pre></section>
+        <section className="paired-applied-items" aria-label="적용 항목 상태">
+          <header><strong>적용 항목</strong><span>{applicationStatus.loaded?`${appliedCount}/${appliedItems.length} 적용`:applicationStatus.loading?'조회 중':'확인 필요'}</span></header>
+          <div className="paired-applied-list">{appliedItems.map(({pair,application})=>{
+            const request=pair.request;
+            const entry=application.entry;
+            const customer=entry?.custName||request?.customerText||pair.change?.customer||'업체 확인 필요';
+            const product=entry?.prodName||request?.productText||pair.change?.change||'품목 확인 필요';
+            const qty=entry?.qty??request?.inputQty??request?.qty??pair.change?.quantity;
+            const unit=entry?.unit||request?.inputUnit||request?.unit||pair.change?.unit||'';
+            const action=entry?.type||request?.action||pair.change?.action;
+            const sign=action==='CANCEL'?'−':action==='ADD'?'+':'';
+            const status=application.status==='APPLIED'?'applied':'unconfirmed';
+            return <div className={`paired-applied-item paired-applied-${status}`} data-request-id={pair.requestId||undefined} data-testid={`applied-item:${pair.index}`} key={`${pair.requestId||pair.expectedRequestId||'visible'}:${pair.index}`}>
+              <div><strong>{customer}</strong><span>{product}</span></div>
+              <span className="paired-applied-quantity">{qty===null||qty===undefined?'수량 확인 필요':`${sign}${qty} ${unit}`}</span>
+              <b title={application.status==='APPLIED'?'동일 원문·업체·품목·동작의 검증된 저장 기록':'개별 저장 기록을 정확히 연결하지 못함'}>{application.status==='APPLIED'?'적용':'미확인'}</b>
+            </div>;
+          })}</div>
+        </section>
+      </div>
+      <details className="compact-source-evidence"><summary>상세 전산 이력 · 품목별 근거 {confirmed.length+quantityProcessed.length>0?`(${confirmed.length+quantityProcessed.length}건)`:''}</summary>
       {quantityProcessed.length>0&&<div className="confirmed-request-box quantity-processed-box">{quantityProcessed.map(request=><div key={request.id}>수량 대조 후보 · {request.customerText} · {request.quote}<small>전산: {request.productText} · {request.shipmentEvents[0]?.before}→{request.shipmentEvents[0]?.after} {request.unit||''} · 실제 적용 여부는 전산 적용 이력으로만 확인합니다.</small></div>)}</div>}
       {confirmed.length>0&&<div className="confirmed-request-box">{confirmed.map(request=><div key={request.id}>이력 일치 · 참고 · {request.customerText} · {request.quote}<small>{request.reason}</small></div>)}</div>}
       <div className="compact-match-expanded"><div className="message-raw"><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></details>
@@ -502,32 +447,29 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       .sales-inbox .confirmed-request-box{border:1px solid #9ecdb0;border-radius:5px;background:#edfaf1;color:#126637;margin:5px;padding:5px 6px;font-size:12px;font-weight:600}
       .sales-inbox .confirmed-request-box small{display:block;font-weight:400;padding-top:2px}
       .sales-inbox .compact-match-row>details>summary{padding:3px 7px;color:#64748b;cursor:pointer;font-size:11px}
-      .sales-inbox .paired-request-list{display:grid;gap:1px;padding:2px 3px;background:#fff}
-      .sales-inbox .paired-request{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;border:1px solid #d6e2ec;border-radius:4px;overflow:hidden;min-width:0}
-      .sales-inbox .paired-request-source,.sales-inbox .paired-request-history{display:grid;align-content:center;gap:1px;min-width:0;padding:2px 5px;font-size:12px;line-height:1.2}
-      .sales-inbox .paired-request-source{border-right:1px solid #d6e2ec;background:#fbfdff}
-      .sales-inbox .paired-request small{font-size:10px;color:#62798f;overflow-wrap:anywhere}
-      .sales-inbox .paired-request strong{font-size:13px;line-height:1.15;color:#173f69;overflow-wrap:anywhere}
-      .sales-inbox .paired-request-summary,.sales-inbox .paired-event-summary{min-width:0;overflow-wrap:anywhere}
-      .sales-inbox .paired-request-summary{font-size:13px;font-weight:600;line-height:1.2;color:#243b53}
-      .sales-inbox .paired-event-summary{font-size:12px;line-height:1.2}
-      .sales-inbox .paired-request blockquote{margin:0;color:#243b53;white-space:pre-wrap;overflow-wrap:anywhere}
-      .sales-inbox .paired-request-history{background:#f8fbfd;color:#35556f}
-      .sales-inbox .paired-request-history>span{overflow-wrap:anywhere}
-      .sales-inbox .paired-history-status{font-size:11px!important;line-height:1.1;font-weight:700;color:#845a11!important}
-      .sales-inbox .paired-history-applied{color:#126637!important}
-      .sales-inbox .paired-history-evidence{color:#245b93!important}
-      .sales-inbox .paired-history-candidate,.sales-inbox .paired-history-review{color:#845a11!important}
-      .sales-inbox .paired-history-unmatched{color:#a33b28!important}
-      .sales-inbox .paired-history-pending{color:#62798f!important}
-      .sales-inbox .paired-history-reason{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+      .sales-inbox .paired-message-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:5px;padding:3px 5px;align-items:stretch}
+      .sales-inbox .paired-message-original,.sales-inbox .paired-applied-items{min-width:0;border:1px solid #d6e2ec;border-radius:5px;background:#fff}
+      .sales-inbox .paired-message-original>strong,.sales-inbox .paired-applied-items>header{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:4px 7px;background:#f2f6fb;border-bottom:1px solid #d6e2ec;color:#315879;font-size:11px}
+      .sales-inbox .paired-message-original pre{margin:0;padding:6px 8px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.3;font-family:inherit;color:#183b60}
+      .sales-inbox .paired-applied-items>header>span{font-weight:600;color:#62798f}
+      .sales-inbox .paired-applied-list{display:grid;gap:2px;padding:3px}
+      .sales-inbox .paired-applied-item{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;min-width:0;padding:4px 6px;border:1px solid #e1e8ef;border-left:4px solid #c28718;border-radius:4px;background:#fff8e8;color:#604a21;font-size:12px;line-height:1.2}
+      .sales-inbox .paired-applied-item>div{display:grid;gap:1px;min-width:0}
+      .sales-inbox .paired-applied-item strong,.sales-inbox .paired-applied-item span{min-width:0;overflow-wrap:anywhere}
+      .sales-inbox .paired-applied-item>div>strong{color:#314f6d;font-size:12px}
+      .sales-inbox .paired-applied-quantity{font-weight:700;white-space:nowrap}
+      .sales-inbox .paired-applied-item>b{padding:2px 5px;border-radius:10px;background:#fff0c9;color:#8a5a00;font-size:11px;white-space:nowrap}
+      .sales-inbox .paired-applied-unconfirmed{border-color:#ead7a3;border-left-color:#c28718;background:#fff8e8;color:#604a21}
+      .sales-inbox .paired-applied-unconfirmed>b{background:#fff0c9;color:#8a5a00}
+      .sales-inbox .paired-applied-applied{border-color:#a5d3af;border-left-color:#268344;background:#edf8ef;color:#235c34}
+      .sales-inbox .paired-applied-applied>b{background:#d4f0db;color:#176735}
       .sales-inbox .compact-source-evidence>summary{padding:2px 6px}
       .paste-baseline-panel>summary{cursor:pointer;padding:3px 6px;color:#245b93;font-size:11px}
       @media(max-width:1100px){
         .sales-inbox .compact-match-list{max-height:60vh}
-        .sales-inbox .paired-request{grid-template-columns:1fr}
-        .sales-inbox .paired-request-source{border-right:0;border-bottom:1px solid #d6e2ec}
+        .sales-inbox .paired-message-layout{grid-template-columns:minmax(0,1fr)}
       }
+      @media(max-width:760px){.sales-inbox .paired-message-layout{grid-template-columns:1fr}}
     `}</style>
   </section>;
 }
