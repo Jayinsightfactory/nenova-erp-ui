@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './pivotLinkedFilters.test.js';
 import { buildPivotModel, filterRows, pivotCellKey } from '../lib/pivotExeModel.js';
 
 const rows = [
