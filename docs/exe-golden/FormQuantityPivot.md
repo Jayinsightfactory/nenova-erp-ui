@@ -1,5 +1,11 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-28 필터 요약·메인차수 합산
+
+- 실제 dnSpy.Console --no-color -t FormQuantityPivot 재실행: GetData 입고는 ViewWarehouse.OutQuantity/FarmName, 주문은 ViewOrder.OutQuantity/CustName, btnExcel_Click WYSIWYG 확인.
+- 운영 읽기 probe 2026 01-01~02-02:8,066행. 콜롬비아 장미 입고01-01=4,148/01-02=710, 주문5,010/1,220. 입고 CustKey=NULL. 두 사용자 화면은 필터와 배치가 달랐다.
+- 원본 필터 후 브라우저 합산; OrderYear 격리, 원본/API/ERP 보존. snapshot 수량 합산 경고, 단가 기존 집계 유지. 자세한 기준/부작용은 work-sessions/2026-09-28_pivot-main-week.md.
+
 ## 2026-09-16 필터 값 사용자 순서
 
 - 실제 dnSpy.Console -t FormQuantityPivot 재확인: GetData 조회 및 btnExcel_Click의 ExportToXlsx. SQL/원장 쓰기는 변경하지 않는다.
