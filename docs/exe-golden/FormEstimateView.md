@@ -1,5 +1,11 @@
 # FormEstimateView — exe golden (dnSpy)
 
+2026-09-28 액션 로그: 실제 `dnSpy.Console.exe --no-color -t ClassEstimate` 재확인.
+Insert/Update/Delete는 Estimate 원장 대상이며 웹 SystemActionLog와 별개다.
+이번 변경은 로그 표시 및 불량차감 감사 JSON 직렬화만 변경, 저장 코어와 ERP 원장은 보존.
+운영 SELECT probe에서8577 등은 권한 차단,8576은 SUCCESS21, 기존 Payload는 절단 상태.
+이후 성공으로 앞선 실패 해소를 추정하지 않는다. `docs/work-reports/2026-09-28_action-log-outcome.md` 참조.
+
 2026-09-09 combined overflow 보완: 로컬 `dnSpy.Console.exe --no-color -t ClassShipmentDate`
 실행으로 실제 `Nenova.exe`의 `UpdateCost`를 재확인했다. `SdetailKey`의 모든 출고일
 Cost/Amount/Vat만 저장된 EstQuantity로 갱신한다. 새 웹 결합은 이 가격 core를 수량 저장

@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { buildDefectActionAudit, describeActionLog } from '../lib/actionLogOutcome.js';
+import { actionLogPayload } from '../lib/pasteOperationAudit.js';
+const log=(body,result='SUCCESS',ResultDesc='')=>({ActionType:'SALES_DEFECT_DEDUCTION',Method:'POST',Payload:JSON.stringify(body),Result:result,ResultDesc});
+const permission=describeActionLog({...log({},'FAIL','영업지원 전산등록 권한이 필요합니다.'),Payload:'{"rows":['});
+assert.match(permission.storage,/권한 검사 차단/);assert.equal(permission.incomplete,true);
+assert.match(describeActionLog(log({},'FAIL','다른 오류')).storage,/확인 필요/);
+assert.match(describeActionLog({...log({},'FAIL','영업지원 전산등록 권한이 필요합니다.'),ActionType:'OTHER'}).storage,/확인 필요/);
+assert.match(describeActionLog(log({action:'preflight'})).storage,/저장 작업 아님/);
+assert.match(describeActionLog(log({action:'rematch'},'FAIL')).storage,/저장 작업 아님/);
+assert.match(describeActionLog({...log({}),AffectedCount:21}).storage,/저장 범위 미확인/);
+for(const year of [2025,2026]) {
+  const a=buildDefectActionAudit({action:'save',year,week:38,rows:[{custName:'업체A',prodName:'품목B'}]},{saved:1});
+  const view=describeActionLog(log(a)); assert.match(view.scope,new RegExp(String(year)));assert.match(view.storage,/웹 입력 저장 1건/);
+  assert.equal(view.targets[0],'업체A · 품목B');
+}
+const skipped=buildDefectActionAudit({action:'register',year:2026,week:38,ids:[1,2]},{registered:0,skipped:[{error:'출고 없음'}]});
+assert.match(describeActionLog(log(skipped)).storage,/등록 0건.*대기 1건/);
+assert.match(describeActionLog(log({...skipped,response:{}})).storage,/확인 필요/);
+assert.match(describeActionLog(log(skipped,'FAIL')).storage,/확인 필요/);
+const long=actionLogPayload('SALES_DEFECT_DEDUCTION',{action:'save',rows:Array.from({length:100},()=>({custName:'가'.repeat(300),prodName:'나'.repeat(300),note:'secret'})),token:'secret'},{saved:100});
+assert.ok(long.length<4000);assert.ok(!long.includes('secret'));assert.equal(JSON.parse(long).incomplete,true);
+assert.equal(JSON.parse(long).targetCount,100);
+assert.equal(JSON.parse(actionLogPayload('OTHER',{a:1},{})).a,1);
+assert.equal(JSON.parse(actionLogPayload('SHIPMENT_ADJUST_BATCH',{year:2026,entries:[]},{committedCount:0})).schema,'paste-operation-v1');
+assert.equal(describeActionLog(log({year:2025,week:'38-1'})).scope,'2025 / 38-1');
+assert.equal(describeActionLog({...log({}),Payload:'not json'}).scope,'연도·차수 미기록');
+assert.equal(describeActionLog({...log({}),Payload:'null'}).incomplete,true);
+assert.doesNotThrow(()=>buildDefectActionAudit({rows:[null,false,1]},null));
+console.log('action-log outcome: legacy, permission, unknown, preview, zero, cross-year, bounded audit passed');

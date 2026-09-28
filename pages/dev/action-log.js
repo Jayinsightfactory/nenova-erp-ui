@@ -1,6 +1,7 @@
 // pages/dev/action-log.js — 시스템 액션 로그 & 이상감지 대시보드
 import { useState, useEffect, useCallback } from 'react';
 import { apiGet } from '../../lib/useApi';
+import { describeActionLog } from '../../lib/actionLogOutcome';
 
 const RISK_COLOR = {
   CRITICAL: { bg: '#fff0f0', border: '#ff4444', text: '#cc0000', badge: '#ff4444' },
@@ -39,6 +40,7 @@ export default function ActionLogPage() {
   const [byType,    setByType]    = useState([]);
   const [anomalies, setAnomalies] = useState([]);
   const [loading,   setLoading]   = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [offset,    setOffset]    = useState(0);
   const LIMIT = 50;
 
@@ -53,16 +55,17 @@ export default function ActionLogPage() {
   // 선택된 로그 상세
   const [selected, setSelected] = useState(null);
 
-  const loadAll = useCallback(async (newOffset = 0) => {
+  const loadAll = useCallback(async (newOffset = 0, reset = false) => {
     setLoading(true);
+    setLoadError('');
     try {
       const params = new URLSearchParams({ limit: LIMIT, offset: newOffset });
-      if (filterActor)  params.set('actor', filterActor);
-      if (filterRisk)   params.set('riskLevel', filterRisk);
-      if (filterType)   params.set('actionType', filterType);
-      if (filterResult) params.set('result', filterResult);
-      if (filterStart)  params.set('startDate', filterStart);
-      if (filterEnd)    params.set('endDate', filterEnd);
+      if (!reset && filterActor)  params.set('actor', filterActor);
+      if (!reset && filterRisk)   params.set('riskLevel', filterRisk);
+      if (!reset && filterType)   params.set('actionType', filterType);
+      if (!reset && filterResult) params.set('result', filterResult);
+      if (!reset && filterStart)  params.set('startDate', filterStart);
+      if (!reset && filterEnd)    params.set('endDate', filterEnd);
 
       const [logsData, summaryData, anomalyData] = await Promise.all([
         apiGet(`/api/dev/action-log?${params}`),
@@ -79,6 +82,7 @@ export default function ActionLogPage() {
       setOffset(newOffset);
     } catch (e) {
       console.error(e);
+      setLoadError(e.message || '로그 조회 실패');
     } finally {
       setLoading(false);
     }
@@ -87,6 +91,13 @@ export default function ActionLogPage() {
   useEffect(() => { loadAll(0); }, []);
 
   const handleSearch = () => loadAll(0);
+  const detail = selected ? describeActionLog(selected) : null;
+  useEffect(() => {
+    if (!selected) return;
+    const close = e => { if (e.key === 'Escape') setSelected(null); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [selected]);
 
   return (
     <div style={{ padding: '20px 24px', fontFamily: 'sans-serif', fontSize: 13 }}>
@@ -96,6 +107,11 @@ export default function ActionLogPage() {
           — API 쓰기 작업 자동 기록 (Claude 포함)
         </span>
       </h2>
+      <p style={{ background: '#eef5ff', padding: 10, margin: '0 0 12px' }}>
+        FAIL은 요청 실패입니다. 저장 여부는 아래 근거를 확인하세요. 뒤의 SUCCESS가 앞의 실패를 해결했다는 뜻은 아닙니다.
+        HIGH는 작업 위험도 분류이며 오류 심각도가 아닙니다. 각 행의 ‘상세’를 누르면 대상과 다음 조치를 볼 수 있습니다.
+      </p>
+      {loadError && <div role="alert" style={{ color: '#b91c1c', padding: 12 }}>조회 실패: {loadError} · 기존 표시값은 최신 결과가 아닐 수 있습니다.</div>}
 
       {/* ── 이상감지 알림 */}
       {anomalies.length > 0 && (
@@ -121,7 +137,7 @@ export default function ActionLogPage() {
           })}
         </div>
       )}
-      {anomalies.length === 0 && !loading && (
+      {anomalies.length === 0 && !loading && !loadError && (
         <div style={{ background: '#f0fff4', border: '1px solid #88cc88', borderRadius: 6,
           padding: '8px 14px', marginBottom: 16, color: '#336633' }}>
           ✅ 이상 징후 없음
@@ -201,8 +217,8 @@ export default function ActionLogPage() {
           <select value={filterType} onChange={e => setFilterType(e.target.value)}
             style={{ padding: '5px 8px', border: '1px solid #ccc', borderRadius: 4 }}>
             <option value="">전체</option>
-            {['ECOUNT_PUSH','ECOUNT_SYNC','AR_WRITE','DATA_DELETE','ESTIMATE_WRITE',
-              'SHIPMENT_WRITE','PRODUCT_WRITE','CUSTOMER_WRITE'].map(t => (
+            {[...new Set(['SALES_DEFECT_DEDUCTION','ECOUNT_PUSH','ECOUNT_SYNC','AR_WRITE','DATA_DELETE','ESTIMATE_WRITE',
+              'SHIPMENT_WRITE','PRODUCT_WRITE','CUSTOMER_WRITE', ...byType.map(t => t.ActionType)])].map(t => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
@@ -233,13 +249,13 @@ export default function ActionLogPage() {
         <button onClick={() => {
           setFilterActor(''); setFilterRisk(''); setFilterType('');
           setFilterResult(''); setFilterStart(''); setFilterEnd('');
-          setTimeout(() => loadAll(0), 100);
+          loadAll(0, true);
         }} style={{ padding: '6px 14px', background: '#fff', border: '1px solid #ccc',
           borderRadius: 6, cursor: 'pointer' }}>초기화</button>
       </div>
 
       {/* ── 로그 테이블 */}
-      <div style={{ background: '#fff', border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: '#fff', border: '1px solid #ddd', borderRadius: 8, overflowX: 'auto' }}>
         <div style={{ padding: '8px 14px', background: '#f4f4f4', borderBottom: '1px solid #ddd',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontWeight: 700 }}>액션 로그 ({fmt(total)}건)</span>
@@ -270,7 +286,7 @@ export default function ActionLogPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ background: '#f8f8f8', borderBottom: '2px solid #ddd' }}>
-                {['일시','위험도','결과','Actor','작업유형','엔드포인트','영향건수','영향테이블'].map(h => (
+                {['일시 / 상세','위험도','결과','담당자','업무 / 대상','실패 사유·결과','저장 상태 / 다음 조치'].map(h => (
                   <th key={h} style={{ padding: '7px 10px', textAlign: 'left',
                     fontWeight: 600, color: '#555', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
@@ -280,6 +296,7 @@ export default function ActionLogPage() {
               {logs.map(log => {
                 const c = RISK_COLOR[log.RiskLevel] || RISK_COLOR.LOW;
                 const isClaude = log.Actor?.startsWith('claude:');
+                const outcome = describeActionLog(log);
                 return (
                   <tr key={log.LogKey}
                     onClick={() => setSelected(selected?.LogKey === log.LogKey ? null : log)}
@@ -291,21 +308,21 @@ export default function ActionLogPage() {
                     }}>
                     <td style={{ padding: '7px 10px', whiteSpace: 'nowrap', color: '#555' }}>
                       {fmtDtm(log.ActionDtm)}
+                      <br/><button aria-label={`로그 ${log.LogKey} 상세`} onClick={e => { e.stopPropagation(); setSelected(log); }}>상세 #{log.LogKey}</button>
                     </td>
                     <td style={{ padding: '7px 10px' }}><RiskBadge level={log.RiskLevel} /></td>
                     <td style={{ padding: '7px 10px' }}><ResultBadge result={log.Result} /></td>
                     <td style={{ padding: '7px 10px', color: isClaude ? '#7744cc' : '#333', fontWeight: isClaude ? 700 : 400 }}>
                       {isClaude ? '🤖 ' : '👤 '}{log.Actor}
                     </td>
-                    <td style={{ padding: '7px 10px', fontWeight: 600, color: c.text }}>{log.ActionType}</td>
-                    <td style={{ padding: '7px 10px', color: '#555', maxWidth: 220,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {log.Method} {log.Endpoint}
+                    <td style={{ padding: '7px 10px', minWidth: 170, maxWidth: 260, overflowWrap: 'anywhere' }}>
+                      <b>{outcome.label}</b><div>{outcome.scope}</div>
+                      <div>{outcome.targets.slice(0, 2).join(' / ') || '대상 미기록'}</div>
+                      {outcome.targets.length > 2 && <small>외 {outcome.targets.length - 2}개 · 상세 확인</small>}
+                      {outcome.incomplete && <div style={{ color: '#a16207' }}>요청 정보 일부 누락</div>}
                     </td>
-                    <td style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700 }}>
-                      {log.AffectedCount > 0 ? fmt(log.AffectedCount) : '-'}
-                    </td>
-                    <td style={{ padding: '7px 10px', color: '#888' }}>{log.AffectedTable}</td>
+                    <td style={{ padding: '7px 10px', maxWidth: 320, overflowWrap: 'anywhere', color: log.Result === 'SUCCESS' ? '#166534' : '#b91c1c' }}>{outcome.reason}</td>
+                    <td style={{ padding: '7px 10px', minWidth: 200, maxWidth: 340 }}><b>{outcome.storage}</b><div style={{ color: '#555', marginTop: 4 }}>{outcome.next}</div></td>
                   </tr>
                 );
               })}
@@ -316,16 +333,26 @@ export default function ActionLogPage() {
 
       {/* ── 상세 패널 */}
       {selected && (
-        <div style={{
-          marginTop: 16, background: '#fff', border: `2px solid ${(RISK_COLOR[selected.RiskLevel]||RISK_COLOR.LOW).border}`,
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#0006', display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setSelected(null)}>
+        <section role="dialog" aria-modal="true" aria-label={`로그 ${selected.LogKey} 상세`} onClick={e => e.stopPropagation()} style={{
+          width: 'min(960px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: '#fff', border: `2px solid ${(RISK_COLOR[selected.RiskLevel]||RISK_COLOR.LOW).border}`,
           borderRadius: 8, padding: 16,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <span style={{ fontWeight: 700, fontSize: 14 }}>
               📋 상세 — LogKey #{selected.LogKey}
             </span>
-            <button onClick={() => setSelected(null)}
+            <button autoFocus aria-label="로그 상세 닫기" onClick={() => setSelected(null)}
               style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          </div>
+          <div style={{ background: '#eef5ff', padding: 12, marginBottom: 12, overflowWrap: 'anywhere' }}>
+            <h3 style={{ margin: '0 0 8px' }}>{detail.label} · {detail.scope}</h3>
+            <p><b>저장 상태:</b> {detail.storage}</p>
+            <p><b>다음 조치:</b> {detail.next}</p>
+            <p><b>대상:</b> {detail.targets.join(' / ') || '기존 로그에 대상 정보가 없습니다.'}</p>
+            {detail.incomplete && <p>요청 정보가 잘렸거나 일부만 기록됐습니다. 누락된 대상을 추정하지 않습니다.</p>}
+            {Object.entries(detail.counts).length > 0 && <p>서버 응답 건수: {Object.entries(detail.counts).map(([k,v]) => `${k}=${v}`).join(' · ')}</p>}
+            {detail.reasons.map((reason,i) => <p key={i}>제외·검증 사유: {reason}</p>)}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', marginBottom: 12 }}>
             {[
@@ -338,7 +365,7 @@ export default function ActionLogPage() {
               ['Method', selected.Method],
               ['엔드포인트', selected.Endpoint],
               ['영향테이블', selected.AffectedTable || '-'],
-              ['영향건수', fmt(selected.AffectedCount)],
+              ['기록된 영향건수 (저장 보증 아님)', selected.AffectedCount == null ? '미기록' : fmt(selected.AffectedCount)],
               ['IP', selected.IpAddress || '-'],
             ].map(([k, v]) => (
               <div key={k} style={{ display: 'flex', gap: 8, fontSize: 12 }}>
@@ -356,16 +383,7 @@ export default function ActionLogPage() {
               </div>
             </div>
           )}
-          {selected.Payload && selected.Payload !== '{}' && (
-            <div>
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 3 }}>요청 페이로드</div>
-              <pre style={{ background: '#f8f8f8', border: '1px solid #ddd', borderRadius: 4,
-                padding: '8px 12px', fontSize: 11, overflowX: 'auto', margin: 0,
-                maxHeight: 200, overflowY: 'auto' }}>
-                {(() => { try { return JSON.stringify(JSON.parse(selected.Payload), null, 2); } catch { return selected.Payload; } })()}
-              </pre>
-            </div>
-          )}
+        </section>
         </div>
       )}
 
