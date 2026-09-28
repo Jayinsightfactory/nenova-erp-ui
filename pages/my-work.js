@@ -1,5 +1,7 @@
 // pages/my-work.js
 // 내 작업 데이터 — nenovaSS3 전용(민감: 직원 관측데이터). pages/admin/orbit-report.js 와 같은 게이트(404 은닉).
+// 탭0 업무 흐름(기본): data/work-feature-workflows.json — 직원별 흐름 카드 + 실제 캡처 썸네일(/api/work/orbit-thumbs) + 흐름 기준 인수인계 영상.
+// 탭 기능 추가 후보: data/work-feature-simulations.json 이 있으면 지금↔적용 후 시뮬레이터, 없으면 텍스트 목록.
 // 탭1 업무 통합본: Orbit(/work-unified.html)을 iframe으로 띄워 항상 최신 통합본. Orbit 로그인은 그 안에서 1회.
 // 탭2 기능 추가 후보: 관찰 데이터(매뉴얼·화면 해독·전산 기록)로 뽑은 nenovaweb 기능 후보 + 근거(data/work-feature-proposals.json, 파일만).
 // 탭3 Orbit 전체: /my-work.html(작업 흐름·시간표·화면 타임라인 등).
@@ -45,7 +47,9 @@ export async function getServerSideProps({ req, query }) {
     };
   }
   let proposals = null; try { proposals = JSON.parse(fs.readFileSync(featureFilePath('proposals'), 'utf8')); } catch {}
-  return { props: { userId: user.userId, data: proposals, boards, orbit: ORBIT, tab: query.tab || 'unified' } };
+  let workflows = null; try { workflows = JSON.parse(fs.readFileSync(featureFilePath('workflows'), 'utf8')); } catch {}
+  let simulations = null; try { simulations = JSON.parse(fs.readFileSync(featureFilePath('simulations'), 'utf8')); } catch {}
+  return { props: { userId: user.userId, data: proposals, boards, workflows, simulations, orbit: ORBIT, tab: query.tab || 'workflows' } };
 }
 
 // 캡처식 워크플로우 — 제안 하나를 고르면 실제 관찰 세션을 시간순 장면 필름으로 보여준다. 선택은 URL(?tab=story&who=&b=&s=)로 서버에서 잘라온다.
@@ -232,6 +236,268 @@ function Replay() {
   );
 }
 
+// ───────────────────────── 탭 '업무 흐름' ─────────────────────────
+// data/work-feature-workflows.json — 직원별 역할·주간 리듬·업무 흐름 카드(계기→받는 것→단계→판단→결과물)·확인 필요 질문.
+const BIZ9 = ['발주', '입고', '분배', '현장출고', '견적서', '거래처전달', '입금', '해외송금', '이익'];
+const confScore = (c) => (typeof c === 'number' ? c : typeof c === 'string' ? ({ high: 0.85, medium: 0.6, mid: 0.6, low: 0.3 }[c.toLowerCase()] ?? parseFloat(c)) : NaN);
+const pct = (v) => { const n = confScore(v); return Number.isFinite(n) ? Math.round(n <= 1 ? n * 100 : n) : null; };
+function ConfBadge({ v, label }) {
+  const p = pct(v); if (p == null) return null;
+  return <span className={'conf ' + (p >= 70 ? 'hi' : p >= 40 ? 'mid' : 'lo')} title={label || '신뢰도'}>{p}%</span>;
+}
+const arr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+const fmtTs = (t) => { const d = new Date(t); return Number.isNaN(d.getTime()) ? String(t || '') : d.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }); };
+
+function useThumbs(uid, on) {
+  const [st, setSt] = useState({ loading: false, items: null, error: '' });
+  useEffect(() => {
+    if (!on || !uid) return undefined;
+    let dead = false; setSt({ loading: true, items: null, error: '' });
+    fetch(`/api/work/orbit-thumbs?user=${encodeURIComponent(uid)}&hours=168&limit=60`).then((r) => r.json())
+      .then((j) => { if (!dead) setSt({ loading: false, items: j.items || [], error: j.success ? '' : (j.error || '실패') }); })
+      .catch((e) => { if (!dead) setSt({ loading: false, items: [], error: e.message }); });
+    return () => { dead = true; };
+  }, [uid, on]);
+  return st;
+}
+
+function CaptureGrid({ uid, thumbs }) {
+  if (!uid) return <p className="warn">이 직원은 Orbit 계정(uid)이 연결되지 않아 캡처 화면을 불러올 수 없습니다.</p>;
+  if (thumbs.loading) return <p className="dim">캡처 화면 불러오는 중…</p>;
+  if (thumbs.error && !thumbs.items?.length) return <p className="warn">캡처 화면을 불러오지 못했습니다({thumbs.error}). 캡처는 있으나 해독 안 됨이거나 Orbit 인증이 필요할 수 있습니다.</p>;
+  if (!thumbs.items?.length) return <p className="warn">최근 7일 캡처는 있으나 해독 안 됨 — 해독된 화면이 0건입니다(분석 큐 대기 또는 PC 미연결).</p>;
+  const byDay = {};
+  for (const t of thumbs.items) { const d = String(t.timestamp).slice(0, 10); (byDay[d] = byDay[d] || []).push(t); }
+  return Object.entries(byDay).map(([d, list]) => (
+    <div key={d}><div className="dim" style={{ margin: '6px 0 4px' }}>{d} · {list.length}장</div>
+      <div className="thumbs">{list.map((t) => (
+        <figure key={t.id} className="thumb" title={[t.screen, t.activity, t.hint].filter(Boolean).join('\n')}>
+          <img loading="lazy" src={`/api/work/orbit-thumbs?img=${encodeURIComponent(t.id)}`} alt={t.screen || t.app} />
+          <figcaption><span className="t2">{fmtTs(t.timestamp).slice(-5)}</span>{t.app} · {t.screen || t.activity}</figcaption>
+        </figure>))}</div>
+    </div>));
+}
+
+// 업무 흐름 → 슬라이드(역할/계기/단계별/판단/결과물) + 캡처 썸네일을 그려 넣은 인수인계 영상
+function workflowSlides(person, wf, thumbs) {
+  const s = [{ kicker: '역할', title: `${person.name} · ${person.dept || ''}`, lines: [person.roleSummary] },
+    { kicker: '계기 · 받는 것', title: wf.name, lines: [`계기: ${wf.trigger || '확인되지 않음'}`, `받는 것: ${arr(wf.inputs).join(', ') || '—'}`, wf.why && `왜: ${wf.why}`].filter(Boolean) }];
+  arr(wf.steps).forEach((st, i) => s.push({ kicker: `단계 ${i + 1} / ${arr(wf.steps).length}`, title: wf.name, lines: [st] }));
+  if (arr(wf.decisions).length) s.push({ kicker: '판단', title: wf.name, lines: arr(wf.decisions) });
+  s.push({ kicker: '결과물 · 넘기는 곳', title: wf.name, lines: [...arr(wf.outputs), ...arr(wf.pitfalls).map((p) => '주의: ' + p)] });
+  const imgs = thumbs || [];
+  if (imgs.length) s.forEach((x, i) => { x.img = imgs[Math.floor(i * imgs.length / s.length)]; });
+  return s;
+}
+function drawWfSlide(ctx, W, H, sl, i, n, img) {
+  ctx.fillStyle = '#10151c'; ctx.fillRect(0, 0, W, H);
+  const textW = img ? W * 0.52 : W - 80;
+  ctx.fillStyle = '#7fb3ff'; ctx.font = 'bold 22px sans-serif'; ctx.fillText(sl.kicker, 40, 54);
+  ctx.fillStyle = '#9aa4b2'; ctx.font = '18px sans-serif'; ctx.fillText(`${i + 1} / ${n}`, W - 110, 54);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 32px sans-serif';
+  let y = 116; for (const l of wrapText(ctx, sl.title, textW).slice(0, 2)) { ctx.fillText(l, 40, y); y += 44; }
+  ctx.font = '23px sans-serif'; ctx.fillStyle = '#e6e9ee'; y += 12;
+  for (const line of sl.lines) { for (const l of wrapText(ctx, line, textW).slice(0, 5)) { if (y > H - 50) break; ctx.fillText(l, 40, y); y += 34; } y += 10; }
+  if (img && img.complete && img.naturalWidth) {
+    const bx = W * 0.58, bw = W * 0.39, bh = Math.min(H - 180, bw * img.naturalHeight / img.naturalWidth);
+    ctx.drawImage(img, bx, 100, bw, bh);
+    ctx.strokeStyle = '#2c3340'; ctx.strokeRect(bx, 100, bw, bh);
+    ctx.fillStyle = '#9aa4b2'; ctx.font = '16px sans-serif';
+    ctx.fillText(wrapText(ctx, `실제 화면 ${fmtTs(sl.img.timestamp)} · ${sl.img.screen || sl.img.app}`, bw)[0], bx, 100 + bh + 26);
+  }
+  ctx.fillStyle = '#7fb3ff'; ctx.fillRect(0, H - 4, W * (i + 1) / n, 4);
+}
+function WorkflowVideo({ person, wf, thumbs, onClose }) {
+  const cv = useRef(null); const run = useRef({ id: 0 }); const imgs = useRef({});
+  const slides = workflowSlides(person, wf, thumbs);
+  const n = slides.length; const W = 1280, H = 720;
+  const [i, setI] = useState(0); const [playing, setPlaying] = useState(false);
+  const imgFor = (sl) => {
+    if (!sl.img) return null;
+    let im = imgs.current[sl.img.id];
+    if (!im) { im = new Image(); im.src = `/api/work/orbit-thumbs?img=${encodeURIComponent(sl.img.id)}`; im.onload = () => draw(iRef.current); imgs.current[sl.img.id] = im; }
+    return im;
+  };
+  const iRef = useRef(0);
+  const draw = (k) => { const c = cv.current; if (c) drawWfSlide(c.getContext('2d'), W, H, slides[k], k, n, imgFor(slides[k])); };
+  useEffect(() => { iRef.current = 0; draw(0); return () => { run.current.id++; window.speechSynthesis?.cancel(); }; }, [wf]); // eslint-disable-line react-hooks/exhaustive-deps
+  const go = (k) => { iRef.current = k; setI(k); draw(k); };
+  const stop = () => { run.current.id++; window.speechSynthesis?.cancel(); setPlaying(false); };
+  const say = (text, id) => new Promise((res) => {
+    const ms = Math.min(Math.max(text.length * 110, 3500), 15000);
+    if (!window.speechSynthesis) return setTimeout(res, ms);
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'ko-KR'; u.rate = 1.05;
+    const t = setTimeout(res, ms + 8000); u.onend = u.onerror = () => { clearTimeout(t); res(); };
+    if (run.current.id === id) window.speechSynthesis.speak(u); else res();
+  });
+  async function play() {
+    stop(); const id = ++run.current.id; setPlaying(true);
+    for (let k = i; k < n; k++) { if (run.current.id !== id) return; go(k); await say(`${slides[k].kicker}. ${slides[k].lines.join(' ')}`, id); }
+    if (run.current.id === id) setPlaying(false);
+  }
+  return (
+    <div className="sum">
+      <b>영상으로 인수인계 — {wf.name}</b> <span className="dim">슬라이드 {n}장 · 캡처 화면 {thumbs?.length || 0}장 삽입 · 음성 해설</span>
+      <canvas ref={cv} width={W} height={H} style={{ width: '100%', maxWidth: 960, display: 'block', margin: '8px 0', borderRadius: 8 }} />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button type="button" onClick={() => { stop(); go(Math.max(i - 1, 0)); }}>◀ 이전</button>
+        {playing ? <button type="button" onClick={stop}>■ 멈춤</button> : <button type="button" onClick={play}>▶ 재생</button>}
+        <button type="button" onClick={() => { stop(); go(Math.min(i + 1, n - 1)); }}>다음 ▶</button>
+        <button type="button" onClick={() => { stop(); onClose(); }}>닫기</button>
+        <span className="dim">{i + 1}/{n}</span>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowCard({ person, wf }) {
+  const [open, setOpen] = useState(false); const [video, setVideo] = useState(false);
+  const thumbs = useThumbs(person.uid, open || video);
+  const col = (label, items, cls) => (
+    <div className={'fcol ' + (cls || '')}><div className="fl">{label}</div>{arr(items).length ? arr(items).map((x, k) => <div key={k} className="fi">{x}</div>) : <div className="fi dim">—</div>}</div>);
+  return (
+    <div className="wfc">
+      <div className="wfh">
+        <b className="tog" onClick={() => setOpen((v) => !v)}>{open ? '▾' : '▸'} {wf.name}</b>
+        <ConfBadge v={wf.confidence} />
+        {arr(wf.stage).map((s) => <span key={s} className={'chip st s' + BIZ9.indexOf(s)}>{s}</span>)}
+        <span className="dim">{wf.frequency}</span>
+        <button type="button" className="sm" style={{ marginLeft: 'auto' }} onClick={() => setVideo((v) => !v)}>▶ 영상으로 인수인계</button>
+      </div>
+      <div className="flow">
+        {col('계기', [wf.trigger], 'trg')}<span className="arw">→</span>
+        {col('받는 것', wf.inputs)}<span className="arw">→</span>
+        <div className="fcol steps"><div className="fl">단계</div><ol>{arr(wf.steps).map((s, k) => <li key={k}>{s}</li>)}</ol></div><span className="arw">→</span>
+        {col('판단', wf.decisions, 'dec')}<span className="arw">→</span>
+        {col('결과물 / 넘기는 곳', wf.outputs, 'out')}
+      </div>
+      {video && <WorkflowVideo person={person} wf={wf} thumbs={thumbs.items} onClose={() => setVideo(false)} />}
+      {open && <div className="wfd">
+        {wf.why && <div><b>왜 필요한가</b> {wf.why}</div>}
+        {arr(wf.tools).length > 0 && <div><b>도구</b> {arr(wf.tools).join(' · ')}</div>}
+        {arr(wf.pitfalls).length > 0 && <div><b>주의할 점</b><ul>{arr(wf.pitfalls).map((p, k) => <li key={k}>{p}</li>)}</ul></div>}
+        {wf.evidence && <div className="dim"><b>근거</b> {typeof wf.evidence === 'string' ? wf.evidence : JSON.stringify(wf.evidence)}</div>}
+        <h3>실제 캡처 화면 (최근 7일, 시간순)</h3>
+        <CaptureGrid uid={person.uid} thumbs={thumbs} />
+      </div>}
+    </div>
+  );
+}
+
+function Workflows({ wf }) {
+  const [sel, setSel] = useState(wf?.people?.[0]?.name || '');
+  if (!wf?.people?.length) return <p className="warn" style={{ padding: 20 }}>data/work-feature-workflows.json 이 없습니다(매일 07:00 자동 업로드 대기).</p>;
+  const depts = {};
+  for (const p of wf.people) (depts[p.dept || '미확인'] = depts[p.dept || '미확인'] || []).push(p);
+  const p = wf.people.find((x) => x.name === sel) || wf.people[0];
+  const c = p.confidence || {};
+  return (
+    <div className="wfwrap">
+      <aside className="wfl">
+        <div className="dim" style={{ padding: '4px 6px 8px' }}>생성 {String(wf.generatedAt).slice(0, 10)}{wf.cutoff ? ` · 기준 ${String(wf.cutoff).slice(0, 10)}` : ''}</div>
+        {Object.entries(depts).map(([d, list]) => <div key={d}><div className="dept">{d}</div>
+          {list.map((x) => <button type="button" key={x.name} className={'pp' + (x.name === p.name ? ' on' : '')} onClick={() => setSel(x.name)}>
+            <span>{x.name}</span><span className="cc"><ConfBadge v={x.confidence?.before} label="관찰 개선 전" /><span className="dim">→</span><ConfBadge v={x.confidence?.after} label="관찰 개선 후" /></span></button>)}
+        </div>)}
+      </aside>
+      <main className="wfm">
+        <h1>{p.name} <small className="dim">{p.dept}</small></h1>
+        <div className="sum">{p.roleSummary}
+          <div className="dim">신뢰도 {pct(c.before) ?? '—'}% → {pct(c.after) ?? '—'}%{Array.isArray(c.scenesPerDay) ? ` · 하루 해독 장면 ${c.scenesPerDay[0]} → ${c.scenesPerDay[1]}` : ''}{c.fieldFill != null ? ` · 필드 채움 ${pct(c.fieldFill)}%` : ''}{c.erp != null ? ` · 전산 ${c.erp}` : ''}</div></div>
+        {arr(p.weekRhythm).length > 0 && <><h3>주간 리듬</h3><div className="tl">{p.weekRhythm.map((r, k) => <div key={k} className="tlr"><span className="tlw">{r.when}</span><span className="tld" /><span>{r.what}</span></div>)}</div></>}
+        <h3>업무 흐름 {arr(p.workflows).length}개</h3>
+        {arr(p.workflows).map((w, k) => <WorkflowCard key={p.name + k} person={p} wf={w} />)}
+        {arr(p.unknowns).length > 0 && <><h3>확인 필요 질문</h3><ol className="unk">{p.unknowns.map((u, k) => <li key={k}>{typeof u === 'string' ? u : u.q || JSON.stringify(u)}</li>)}</ol></>}
+      </main>
+    </div>
+  );
+}
+
+// ───────────────────────── 탭 '기능 추가 후보' 시뮬레이터 ─────────────────────────
+// data/work-feature-simulations.json — 지금(수작업) 단계 재생 vs 기능 적용 후 목업 화면, 주간 절감.
+function BeforeRun({ before, k }) {
+  const steps = arr(before?.steps);
+  const elapsed = steps.slice(0, k).reduce((a, s) => a + (Number(s.minutes) || 0), 0);
+  return (
+    <div className="simp">
+      <div className="simh"><b>지금 (수작업)</b><span className="timer">{elapsed.toFixed(1)}분</span><span className="dim">/ {before?.totalMinutes ?? '—'}분 · 주 {before?.perWeek ?? '—'}회</span></div>
+      <ol className="simsteps">{steps.map((s, i) => (
+        <li key={i} className={(i < k ? 'done' : i === k ? 'cur' : 'todo') + (s.pain ? ' pain' : '')}>
+          <div><span className="chip">{s.who}</span><span className="chip">{s.app}</span><b>{s.action}</b><span className="dim"> · {s.minutes}분</span></div>
+          {s.pain && i < k && <div className="painx">⚠ {s.pain}</div>}
+        </li>))}</ol>
+    </div>
+  );
+}
+function AfterRun({ after, k }) {
+  const [modal, setModal] = useState(null);
+  const steps = arr(after?.steps); const sc = after?.screen || {};
+  const elapsed = steps.slice(0, k).reduce((a, s) => a + (Number(s.minutes) || 0), 0);
+  const hl = (r, c) => arr(sc.highlights).find((h) => h.row === r && (h.col === c || h.col == null));
+  return (
+    <div className="simp">
+      <div className="simh"><b>기능 적용 후</b><span className="timer ok">{elapsed.toFixed(1)}분</span><span className="dim">/ {after?.totalMinutes ?? '—'}분</span></div>
+      <div className="mock">
+        <div className="mockt">nenovaweb · {sc.title}</div>
+        {arr(sc.filters).length > 0 && <div className="mockf">{sc.filters.map((f, i) => <label key={i}>{f.label}<span className="inp">{f.value}</span></label>)}</div>}
+        {sc.table && <div className="tw"><table className="mtb"><thead><tr>{arr(sc.table.columns).map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
+          <tbody>{arr(sc.table.rows).map((r, ri) => <tr key={ri}>{arr(r).map((c, ci) => { const h = hl(ri, ci); return <td key={ci} className={h ? 'hl' : ''} title={h?.note}>{c}{h && ci === (h.col ?? 0) && <span className="hln">{h.note}</span>}</td>; })}</tr>)}</tbody></table></div>}
+        {arr(sc.buttons).length > 0 && <div className="mockb">{sc.buttons.map((b, i) => <button type="button" key={i} onClick={() => setModal(b)}>{b.label}</button>)}</div>}
+      </div>
+      <ol className="simsteps">{steps.map((s, i) => <li key={i} className={i < k ? 'done' : i === k ? 'cur' : 'todo'}><b>{s.action}</b><span className="dim"> · {s.minutes}분</span>{s.auto && <span className="chip auto">자동</span>}</li>)}</ol>
+      {modal && <div className="modal" onClick={() => setModal(null)}><div className="modalb" onClick={(e) => e.stopPropagation()}>
+        <b>{modal.label}</b> 결과<textarea readOnly value={String(modal.result || '')} rows={10} />
+        <div style={{ display: 'flex', gap: 8 }}><button type="button" onClick={() => navigator.clipboard?.writeText(String(modal.result || ''))}>복사</button><button type="button" onClick={() => setModal(null)}>닫기</button></div>
+      </div></div>}
+    </div>
+  );
+}
+function Simulator({ sims, fallback }) {
+  const people = arr(sims?.people).filter((p) => arr(p.items).length);
+  const [pi, setPi] = useState(0); const [ii, setIi] = useState(0);
+  const [kb, setKb] = useState(0); const [ka, setKa] = useState(0); const timer = useRef(null);
+  useEffect(() => () => clearInterval(timer.current), []);
+  if (!people.length) return fallback;
+  const p = people[Math.min(pi, people.length - 1)]; const it = p.items[Math.min(ii, p.items.length - 1)];
+  const nb = arr(it.before?.steps).length, na = arr(it.after?.steps).length;
+  const reset = () => { clearInterval(timer.current); setKb(0); setKa(0); };
+  const play = (which) => {
+    reset(); let b = 0, a = 0;
+    timer.current = setInterval(() => {
+      if (which !== 'after' && b < nb) setKb(++b);
+      if (which !== 'before' && a < na) setKa(++a);
+      if ((which === 'after' || b >= nb) && (which === 'before' || a >= na)) clearInterval(timer.current);
+    }, 1200);
+  };
+  const saveH = (Number(it.savingPerWeekMin) || 0) / 60;
+  const beforeW = (Number(it.before?.totalMinutes) || 0) * (Number(it.before?.perWeek) || 0);
+  const afterW = (Number(it.after?.totalMinutes) || 0) * (Number(it.before?.perWeek) || 0);
+  const maxW = Math.max(beforeW, afterW, 1);
+  return (
+    <div className="doc wide">
+      <h1>기능 추가 후보 — 시뮬레이터</h1>
+      <p className="dim">지금 수작업을 한 단계씩 재생하고, 같은 일을 기능 적용 후 화면으로 비교합니다. 생성 {String(sims.generatedAt).slice(0, 10)} · AI 초안(직원 확인 전)</p>
+      <div className="jump">{people.map((x, i) => <a key={x.name} href="#" className={i === pi ? 'on' : ''} onClick={(e) => { e.preventDefault(); setPi(i); setIi(0); reset(); }}>{x.name} <em>{x.items.length}</em></a>)}</div>
+      <div className="jump">{p.items.map((x, i) => <a key={i} href="#" className={i === ii ? 'on' : ''} onClick={(e) => { e.preventDefault(); setIi(i); reset(); }}>{x.title} <em>{x.menu}</em></a>)}</div>
+      <div className="prop"><div><b>관찰된 수작업</b> {it.observed}</div><div><b>제안</b> {it.proposal} <span className="chip">{it.menu}</span></div></div>
+      <div style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
+        <button type="button" className="sm pri2" onClick={() => play('both')}>▶ 비교 재생</button>
+        <button type="button" className="sm" onClick={() => play('before')}>▶ 지금만</button>
+        <button type="button" className="sm" onClick={() => play('after')}>▶ 적용 후만</button>
+        <button type="button" className="sm" onClick={() => { clearInterval(timer.current); setKb((v) => Math.min(v + 1, nb)); setKa((v) => Math.min(v + 1, na)); }}>한 단계 ▶</button>
+        <button type="button" className="sm" onClick={reset}>처음으로</button>
+      </div>
+      <div className="sim"><BeforeRun before={it.before} k={kb} /><AfterRun after={it.after} k={ka} /></div>
+      <h3>주간 소요 시간</h3>
+      <div className="wbar"><span className="wl">지금</span><i className="b1" style={{ width: (100 * beforeW / maxW) + '%' }} /><span>{Math.round(beforeW)}분</span></div>
+      <div className="wbar"><span className="wl">적용 후</span><i className="b2" style={{ width: (100 * afterW / maxW) + '%' }} /><span>{Math.round(afterW)}분</span></div>
+      <p><b>주간 절감 약 {saveH.toFixed(1)}시간</b> ({it.savingPerWeekMin ?? 0}분/주)</p>
+      {arr(it.assumptions).length > 0 && <div className="dim"><b>가정</b><ul>{it.assumptions.map((a, i) => <li key={i}>{a}</li>)}</ul></div>}
+      {it.evidence && <p className="dim"><b>근거</b> {typeof it.evidence === 'string' ? it.evidence : JSON.stringify(it.evidence)}</p>}
+    </div>
+  );
+}
+
 const STAGES = ['발주', '입고', '분배', '현장출고', '견적서', '거래처전달', '입금', '해외송금', '이익', '메신저', '엑셀', '기타'];
 const sum = (m) => Object.values(m || {}).reduce((a, b) => a + b, 0);
 
@@ -306,11 +572,12 @@ function Proposals({ data }) {
   );
 }
 
-export default function MyWorkPage({ userId, data, boards, orbit, tab: tab0 }) {
+export default function MyWorkPage({ userId, data, boards, workflows, simulations, orbit, tab: tab0 }) {
   const [tab, setTab] = useState(tab0);
   const TABS = [
+    { id: 'workflows', label: '업무 흐름' },
+    { id: 'proposals', label: '기능 추가 후보 (시뮬레이션)' },
     { id: 'unified', label: '업무 통합본 (최신)' },
-    { id: 'proposals', label: '기능 추가 후보 (조사)' },
     { id: 'story', label: '캡처식 워크플로우' },
     { id: 'replay', label: 'nenovaweb 화면 재생' },
     { id: 'orbit', label: 'Orbit 작업 데이터 전체' },
@@ -327,7 +594,8 @@ export default function MyWorkPage({ userId, data, boards, orbit, tab: tab0 }) {
       <div className="stage">
         {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html'} />}
         {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html'} />}
-        {tab === 'proposals' && <Proposals data={data} />}
+        {tab === 'workflows' && <Workflows wf={workflows} />}
+        {tab === 'proposals' && <Simulator sims={simulations} fallback={<Proposals data={data} />} />}
         {tab === 'story' && <Storyboards boards={boards} data={data} />}
         {tab === 'replay' && <Replay />}
       </div>
@@ -391,6 +659,42 @@ export default function MyWorkPage({ userId, data, boards, orbit, tab: tab0 }) {
         .bars{display:inline-flex;width:180px;height:10px;border-radius:3px;overflow:hidden;vertical-align:middle;background:#1f2430}
         .bars i{display:block;height:100%}
         .s0{background:#58a6ff}.s1{background:#3fb950}.s2{background:#d29922}.s3{background:#f778ba}.s4{background:#a371f7}.s5{background:#79c0ff}.s6{background:#56d364}.s7{background:#ffa657}.s8{background:#ff7b72}.s9{background:#8b949e}.s10{background:#6e7681}.s11{background:#484f58}
+        .conf{display:inline-block;border-radius:999px;padding:0 7px;font-size:11px;font-weight:700;border:1px solid}.conf.hi{color:#3fb950;border-color:#3fb95066}.conf.mid{color:#e3b341;border-color:#e3b34166}.conf.lo{color:#ff7b72;border-color:#ff7b7266}
+        .wfwrap{display:flex;min-height:100%}.wfl{flex:0 0 230px;border-right:1px solid #262b35;padding:10px 8px;background:#12151c;overflow:auto}
+        .dept{color:#98a1b2;font-size:11.5px;margin:10px 6px 4px;font-weight:600}
+        .pp{display:flex;justify-content:space-between;align-items:center;width:100%;background:none;border:1px solid transparent;color:#e7eaf0;border-radius:6px;padding:5px 8px;cursor:pointer;font:inherit;text-align:left}
+        .pp.on{background:#1c2633;border-color:#58a6ff}.pp .cc{display:flex;gap:3px;align-items:center}
+        .wfm{flex:1;min-width:0;padding:16px 22px 60px;max-width:1300px}.wfm h1{font-size:20px;margin:0 0 6px}.wfm h3{font-size:13.5px;margin:18px 0 6px}
+        .tl{border-left:2px solid #2c3340;margin-left:6px;padding-left:12px}.tlr{position:relative;margin:6px 0;display:flex;gap:10px}.tlw{flex:0 0 190px;color:#79c0ff;font-weight:600}
+        .tld{position:absolute;left:-18px;top:5px;width:10px;height:10px;border-radius:50%;background:#58a6ff}
+        .wfc{border:1px solid #2c3340;border-radius:10px;background:#12151c;padding:10px 12px;margin:10px 0}
+        .wfh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+        .flow{display:flex;gap:6px;align-items:stretch;overflow-x:auto;padding-bottom:4px}.arw{align-self:center;color:#58a6ff;font-size:18px}
+        .fcol{flex:1 1 160px;min-width:150px;background:#0e1016;border:1px solid #262b35;border-radius:8px;padding:6px 8px;font-size:12px}.fcol.steps{flex:2 1 280px}
+        .fcol .fl{color:#98a1b2;font-size:11px;font-weight:700;margin-bottom:3px}.fcol .fi{margin:2px 0;line-height:1.4}.fcol ol{margin:0;padding-left:18px}.fcol li{margin:2px 0;line-height:1.4}
+        .fcol.trg{border-color:#58a6ff55}.fcol.dec{border-color:#e3b34155}.fcol.out{border-color:#3fb95055}
+        .wfd{margin-top:8px;font-size:12.5px}.wfd>div{margin:4px 0}.wfd ul{margin:2px 0;padding-left:20px}
+        .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+        .thumb{margin:0;border:1px solid #262b35;border-radius:6px;overflow:hidden;background:#0b0d12}.thumb img{width:100%;display:block;aspect-ratio:16/10;object-fit:cover;background:#1f2430}
+        .thumb figcaption{font-size:11px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#c9d1d9}
+        .unk li{margin:4px 0}
+        button.sm{background:#1f2430;color:#c9d1d9;border:1px solid #2c3340;border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit;font-size:12px}button.sm.pri2{border-color:#58a6ff;color:#fff;background:#1c2633}
+        .sim{display:flex;gap:14px;flex-wrap:wrap}.simp{flex:1 1 480px;min-width:0;border:1px solid #2c3340;border-radius:10px;background:#12151c;padding:10px 12px}
+        .simh{display:flex;gap:10px;align-items:baseline;margin-bottom:8px}.timer{font-size:22px;font-weight:700;color:#ff7b72;font-variant-numeric:tabular-nums}.timer.ok{color:#3fb950}
+        .simsteps{margin:0;padding-left:22px}.simsteps li{margin:6px 0;transition:opacity .3s}.simsteps li.todo{opacity:.35}.simsteps li.cur{opacity:.7}.simsteps li.done{opacity:1}
+        .simsteps li.pain.done{border-left:3px solid #ff7b72;padding-left:6px}.painx{color:#ff7b72;font-size:12px;margin-top:2px}
+        .mock{border:1px solid #3a4150;border-radius:8px;background:#f6f7f9;color:#1f2328;margin-bottom:10px;overflow:hidden}
+        .mockt{background:#2f5fa7;color:#fff;padding:6px 10px;font-weight:700;font-size:12.5px}.mockf{display:flex;gap:10px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid #d0d7de}
+        .mockf label{font-size:11.5px;color:#57606a;display:flex;gap:4px;align-items:center}.mockf .inp{background:#fff;border:1px solid #d0d7de;border-radius:4px;padding:2px 8px;color:#1f2328}
+        .mtb{width:100%;border-collapse:collapse;font-size:12px}.mtb th,.mtb td{border:1px solid #d0d7de;padding:4px 7px;text-align:left}.mtb th{background:#eaeef2}
+        .doc .mtb tbody tr,.doc .mtb tbody tr:nth-child(even){background:#fff!important}.doc .mtb td{color:#1f2328!important}
+        .doc .mtb td.hl{background:#fff4c2!important;font-weight:700}.hln{display:block;font-size:10.5px;color:#9a6700;font-weight:400}
+        .mockb{display:flex;gap:8px;padding:8px 10px}.mockb button{background:#2f5fa7;color:#fff;border:0;border-radius:5px;padding:5px 12px;cursor:pointer;font:inherit;font-size:12px}
+        .modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:50}.modalb{background:#171a21;border:1px solid #2c3340;border-radius:10px;padding:14px;width:min(640px,92vw);display:flex;flex-direction:column;gap:8px}
+        .modalb textarea{width:100%;background:#0b0d12;color:#e7eaf0;border:1px solid #2c3340;border-radius:6px;font:12px/1.5 monospace;padding:8px;box-sizing:border-box}
+        .wbar{display:flex;align-items:center;gap:8px;margin:4px 0}.wbar .wl{flex:0 0 56px;color:#98a1b2}.wbar i{display:block;height:14px;border-radius:3px;min-width:2px}.wbar .b1{background:#ff7b72}.wbar .b2{background:#3fb950}
+        .st.s0{border-color:#58a6ff}.st.s1{border-color:#3fb950}.st.s2{border-color:#d29922}.st.s3{border-color:#f778ba}.st.s4{border-color:#a371f7}.st.s5{border-color:#79c0ff}.st.s6{border-color:#56d364}.st.s7{border-color:#ffa657}.st.s8{border-color:#ff7b72}
+        @media (max-width:760px){.wfwrap{flex-direction:column}.wfl{flex:none;border-right:0;border-bottom:1px solid #262b35}.tlr{flex-direction:column;gap:2px}.tlw{flex:none}}
       `}</style>
     </div>
   );
