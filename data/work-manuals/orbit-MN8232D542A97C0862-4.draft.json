@@ -2,42 +2,34 @@
   "id": "orbit-MN8232D542A97C0862-4",
   "dept": "수입부",
   "owner": "아드리아나",
-  "title": "해외 송금 및 결제 처리",
-  "summary": "월별 결제 주기(운임/포징 등) 또는 송금 요청이 발생했을 때 / 2026-08-31~09-01 사이 다수 관찰",
-  "frequency": "2026-08-31~09-01 사이 다수 관찰",
+  "title": "ERP(nenovaweb) 상품 조회 후 이메일 정리",
+  "summary": "거래처에 보낼 상품 목록/가격을 정리해야 할 때 / 관찰된 것은 2건 (2026-09-21 00:52, 2026-09-18 08:07)",
+  "frequency": "관찰된 것은 2건 (2026-09-21 00:52, 2026-09-18 08:07)",
   "tools": [
+    "nenova (nenovaweb)",
     "Gmail",
-    "Google WorkMail",
-    "Microsoft Excel",
-    "Google Drive"
+    "Google Chrome"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "Gmail에서 지급증명서(Comprobante de Pago) 및 PAY",
-      "detail": "Gmail에서 지급증명서(Comprobante de Pago) 및 PAYMENT 테이블(환율·금액·수령인 정보) 메일을 검토/작성",
-      "app": "Gmail",
+      "title": "nenovaweb ERP 입고관리 화면에서 SKU, 상품명으로 검색·행 ",
+      "detail": "nenovaweb ERP 입고관리 화면에서 SKU, 상품명으로 검색·행 선택 (예: Lily Zelmia, 에콰도르 공급업체 상품)",
+      "app": "nenova (nenovaweb)",
       "check": ""
     },
     {
       "no": 2,
-      "title": "송금 대상 수취인(예: Iván Felipe Castellanos)의 은",
-      "detail": "송금 대상 수취인(예: Iván Felipe Castellanos)의 은행 정보를 확인·검증",
-      "app": "Gmail",
+      "title": "조회된 정보를 정리해 이메일 작성 화면으로 전환",
+      "detail": "조회된 정보를 정리해 이메일 작성 화면으로 전환",
+      "app": "nenova (nenovaweb)",
       "check": ""
     },
     {
       "no": 3,
-      "title": "Excel에서 항공사 AWB별 결제 데이터를 필터링해 가격 비교 검증 및",
-      "detail": "Excel에서 항공사 AWB별 결제 데이터를 필터링해 가격 비교 검증 및 운임비 합계 확인",
-      "app": "Gmail",
-      "check": ""
-    },
-    {
-      "no": 4,
-      "title": "Google Drive 경영지원부 결제 폴더에서 월별(예: 9월 포징) ",
-      "detail": "Google Drive 경영지원부 결제 폴더에서 월별(예: 9월 포징) 결제 엑셀 파일 조회",
-      "app": "Gmail",
+      "title": "채팅(카카오톡/Gmail)에서 확인한 가격 정보와 함께 이메일 본문 구성",
+      "detail": "채팅(카카오톡/Gmail)에서 확인한 가격 정보와 함께 이메일 본문 구성 후 전달",
+      "app": "nenova (nenovaweb)",
       "check": ""
     }
   ],
@@ -45,11 +37,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "vision 2026-09-01T05:45~06:52, 2026-08-31T23:44, 06:41~06:50 등"
+      "2026-09-21 00:52 에콰도르 공급업체 SKU/상품명 ERP 조회 후 이메일 전송용 수집; 2026-09-18 08:07 nenovaweb Lily Zelmia 검색"
     ]
   },
-  "confidence": "medium",
+  "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-08T12:02:56.115Z"
+  "generatedAt": "2026-09-26T21:35:12.592Z"
 }

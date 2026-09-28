@@ -2,26 +2,33 @@
   "id": "orbit-MNMSAQJD78E544A631-4",
   "dept": "경영지원",
   "owner": "강명훈",
-  "title": "수출 선적서류(AWB/CI/Phyto/CNF) 확인",
-  "summary": "수출 차수 완료 후 관련 서류가 드라이브에 올라왔을 때 / 관찰 기간 중 3회",
-  "frequency": "관찰 기간 중 3회",
+  "title": "해외카드/외화 결제 수수료 및 환율 현황 확인",
+  "summary": "월별 결산 시점(관측: 2026년 8월분 확인) / 1일 관측(월별성 업무로 추정)",
+  "frequency": "1일 관측(월별성 업무로 추정)",
   "tools": [
-    "NAVER Works 드라이브",
-    "Google Drive"
+    "Chrome",
+    "BC카드 Wisebiz(해외매출시스템)"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "NAVER Works 드라이브 또는 Google Drive의 해당 차수 ",
-      "detail": "NAVER Works 드라이브 또는 Google Drive의 해당 차수 폴더(예: 34차 수출 선적서류)에서 무역서류(AWB/CI/Phyto/CNF) 파일 목록 확인",
-      "app": "NAVER Works 드라이브",
+      "title": "BC카드 Wisebiz(해외매출시스템) 접속 시 공동인증서(사업자등록번호",
+      "detail": "BC카드 Wisebiz(해외매출시스템) 접속 시 공동인증서(사업자등록번호) 입력",
+      "app": "Chrome",
       "check": ""
     },
     {
       "no": 2,
-      "title": "파일(예: '34-2 NL AWB - 180-91589072.",
-      "detail": "파일(예: '34-2 NL AWB - 180-91589072.PDF') 선택해 상세정보(위치/크기/수정자/생성일) 조회",
-      "app": "NAVER Works 드라이브",
+      "title": "국제결제 수수료 및 환율 적용 현황을 월별로 조회",
+      "detail": "국제결제 수수료 및 환율 적용 현황을 월별로 조회",
+      "app": "Chrome",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "미국 거래처(San Francisco, Burlingame 등) 해외 소",
+      "detail": "미국 거래처(San Francisco, Burlingame 등) 해외 소프트웨어 매출/송금 기록 확인",
+      "app": "Chrome",
       "check": ""
     }
   ],
@@ -29,11 +36,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "2026-09-02T05:32 '34차 수출 선적서류 폴더에서 34-2 NL AWB - 180-91589072.PDF 파일을 선택해 수정자/수정일 등 상세정보 확인'"
+      "2026-09-21T08:23 '2026년 8월 BC카드 국제결제 수수료 및 환율 적용 현황 조회', 2026-09-21T08:14 '미국 San Francisco 거래처 해외 소프트웨어 매출 현황 월별 조회'"
     ]
   },
-  "confidence": "medium",
+  "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-10T04:47:16.455Z"
+  "generatedAt": "2026-09-26T13:35:09.282Z"
 }

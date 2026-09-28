@@ -1,0 +1,45 @@
+{
+  "id": "orbit-MNMR52IIBE1A1E37A2-1",
+  "dept": "영업부",
+  "owner": "박성수",
+  "title": "거래처 담당 정보 인수인계(설연주/조현욱 ↔ 박성수)",
+  "summary": "설연주·조현욱으로부터 거래처 또는 담당방 정보가 카카오톡으로 전달될 때, 또는 박성수가 설연주 등에게 거래처를 다시 넘길 때 / 14일간 receivesFrom 총 9회(설연주5, 조현욱2, hoon J1, 기타1), handsTo 총 3회(설연주2, 기타1)",
+  "frequency": "14일간 receivesFrom 총 9회(설연주5, 조현욱2, hoon J1, 기타1), handsTo 총 3회(설연주2, 기타1)",
+  "tools": [
+    "카카오톡"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "설연주/조현욱/hoon J로부터 거래처명 또는 담당방 정보 카카오톡으로 ",
+      "detail": "설연주/조현욱/hoon J로부터 거래처명 또는 담당방 정보 카카오톡으로 수신",
+      "app": "카카오톡",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "해당 거래처 관련 방(레바논<CL8>, 양재 아이엠<CL12>, 양재 공",
+      "detail": "해당 거래처 관련 방(레바논<CL8>, 양재 아이엠<CL12>, 양재 공주플라워<CL59> 등)에서 업무 진행",
+      "app": "카카오톡",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "필요 시 설연주에게 거래처 정보 재전달",
+      "detail": "필요 시 설연주에게 거래처 정보 재전달",
+      "app": "카카오톡",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "receivesFrom/handsTo 로그, 담당 거래처방: 레바논<CL8>, 양재 아이엠<CL12>, 양재 공주플라워<CL59>. Vision 캡처는 없어 구체 입력 내용은 확인되지 않음."
+    ]
+  },
+  "confidence": "low",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-25T09:35:04.086Z"
+}

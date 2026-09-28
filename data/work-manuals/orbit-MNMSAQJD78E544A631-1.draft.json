@@ -2,34 +2,39 @@
   "id": "orbit-MNMSAQJD78E544A631-1",
   "dept": "경영지원",
   "owner": "강명훈",
-  "title": "견적서 금액 합계 수동 검산",
-  "summary": "견적서조회 목록에서 거래처별 견적금액합계를 확정해야 할 때 / 관찰 기간 중 2회 이상 연속 작업",
-  "frequency": "관찰 기간 중 2회 이상 연속 작업",
+  "title": "ECOUNT ERP 매입/입고 처리 및 거래처 채권(미수금) 관리",
+  "summary": "해외 입고 발생 시(예: '33차', '33-2차' 입고), 월별 채권 현황 점검 시 / 9/21~9/22 반복 관측",
+  "frequency": "9/21~9/22 반복 관측",
   "tools": [
-    "Excel",
-    "ECOUNT ERP",
-    "Windows 계산기"
+    "ECOUNT ERP"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "Excel 또는 ECOUNT 견적서조회 시트에서 거래처(경주신화꽃도매, ",
-      "detail": "Excel 또는 ECOUNT 견적서조회 시트에서 거래처(경주신화꽃도매, CARNATION Doncel 등)별 견적 내역 확인",
-      "app": "Excel",
+      "title": "ECOUNT 접속 후 특정 일자의 구매/입고 내역을 페이지 단위로 조회",
+      "detail": "ECOUNT 접속 후 특정 일자의 구매/입고 내역을 페이지 단위로 조회",
+      "app": "ECOUNT ERP",
       "check": ""
     },
     {
       "no": 2,
-      "title": "Windows 계산기를 열어 건별 금액을 순서대로 누적 합산 (예: 10",
-      "detail": "Windows 계산기를 열어 건별 금액을 순서대로 누적 합산 (예: 10,603,900+27,471,000=38,074,900 → +12,330,100=50,405,000 → +10,635,800=61,040,800)",
-      "app": "Excel",
+      "title": "해외운송 거래처(APOLLO FREIGHT) 운송료 입고 항목 확인 및 ",
+      "detail": "해외운송 거래처(APOLLO FREIGHT) 운송료 입고 항목 확인 및 필요시 수정",
+      "app": "ECOUNT ERP",
       "check": ""
     },
     {
       "no": 3,
-      "title": "F30셀(35차 종합견적서) 등 해당 셀에 검산 결과 대조",
-      "detail": "F30셀(35차 종합견적서) 등 해당 셀에 검산 결과 대조",
-      "app": "Excel",
+      "title": "거래처 기본정보 목록에서 대상 거래처 검색·조회",
+      "detail": "거래처 기본정보 목록에서 대상 거래처 검색·조회",
+      "app": "ECOUNT ERP",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "거래처별 월별 채권(미수금) 현황을 USD 환산 기준으로 조회하여 정산 ",
+      "detail": "거래처별 월별 채권(미수금) 현황을 USD 환산 기준으로 조회하여 정산 검증",
+      "app": "ECOUNT ERP",
       "check": ""
     }
   ],
@@ -37,11 +42,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "2026-09-02T07:14 '견적서조회 목록의 견적금액합계(7건)를 윈도우 계산기로 직접 더해 합산 검산'"
+      "2026-09-22T02:23 '33-2차 콜롬비아 입고 처리 시 APOLLO FREIGHT 운송료 입고 항목 확인 및 수정', 2026-09-22T05:12 'APOLLO FREIGHT 거래처 2026년 미수금/채권 현황을 USD 환산으로 조회'"
     ]
   },
-  "confidence": "medium",
+  "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-10T04:47:16.455Z"
+  "generatedAt": "2026-09-26T13:35:09.282Z"
 }

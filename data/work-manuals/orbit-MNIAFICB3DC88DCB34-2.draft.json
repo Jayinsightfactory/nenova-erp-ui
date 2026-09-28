@@ -2,33 +2,46 @@
   "id": "orbit-MNIAFICB3DC88DCB34-2",
   "dept": "영업지원",
   "owner": "설연주",
-  "title": "거래처별 발주서 엑셀 파일 조회/준비",
-  "summary": "거래처(라움, 초이문)의 발주 처리가 필요할 때 / 관찰기간 내 파일탐색기 121 units 중 일부",
-  "frequency": "관찰기간 내 파일탐색기 121 units 중 일부",
+  "title": "손익계산서 검증(견적서값 ↔ 전산 분배값 대조)",
+  "summary": "거래처(신라호텔 라움/초이문 등) 행사 손익계산서 작성 후 / 2026-09-21 07:06~08:46 구간에 반복 관찰",
+  "frequency": "2026-09-21 07:06~08:46 구간에 반복 관찰",
   "tools": [
-    "파일 탐색기",
-    "Microsoft Excel"
+    "nenova ERP(Microsoft Edge)"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "파일탐색기에서 거래처별 업무 폴더(예: Desktop\\2025 업무파일\\",
-      "detail": "파일탐색기에서 거래처별 업무 폴더(예: Desktop\\2025 업무파일\\라움)로 이동",
-      "app": "파일 탐색기",
+      "title": "nenova ERP에서 해당 거래처 손익계산서 화면을 열어 매입단가/매출",
+      "detail": "nenova ERP에서 해당 거래처 손익계산서 화면을 열어 매입단가/매출단가 비교",
+      "app": "nenova ERP(Microsoft Edge)",
       "check": ""
     },
     {
       "no": 2,
-      "title": "해당 거래처의 최신 발주서 파일(예: '2026년 라움 발주서.",
-      "detail": "해당 거래처의 최신 발주서 파일(예: '2026년 라움 발주서.xlsx', '2026년 초이문 발주서.xlsx') 선택",
-      "app": "파일 탐색기",
+      "title": "품목표에서 매칭 오류 항목(예: '장미 블루')을 검색어(예: 'roya",
+      "detail": "품목표에서 매칭 오류 항목(예: '장미 블루')을 검색어(예: 'royal blu')로 재검색해 올바른 품목으로 매칭 수정",
+      "app": "nenova ERP(Microsoft Edge)",
       "check": ""
     },
     {
       "no": 3,
-      "title": "Excel로 열어 시트 로딩 확인 (세부 입력 내용은 이번 관찰 데이터에",
-      "detail": "Excel로 열어 시트 로딩 확인 (세부 입력 내용은 이번 관찰 데이터에 없음)",
-      "app": "파일 탐색기",
+      "title": "이익·이익율 항목별로 확인, 검증 통과 여부 판정",
+      "detail": "이익·이익율 항목별로 확인, 검증 통과 여부 판정",
+      "app": "nenova ERP(Microsoft Edge)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "단가가 다른 품목은 별도 확인 필요 항목으로 표시",
+      "detail": "단가가 다른 품목은 별도 확인 필요 항목으로 표시",
+      "app": "nenova ERP(Microsoft Edge)",
+      "check": ""
+    },
+    {
+      "no": 5,
+      "title": "저장 완료 처리",
+      "detail": "저장 완료 처리",
+      "app": "nenova ERP(Microsoft Edge)",
       "check": ""
     }
   ],
@@ -36,11 +49,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "2026-09-14T06:27:42 '2026년 라움 발주서' 파일 선택 / 04:59:36, 04:56:35 '2026년 초이문 발주서' 파일 선택 및 폴더 탐색"
+      "2026-09-21T08:46 37차 신라호텔 라움/초이문 견적서값-전산분배값 대조, '검증 통과, 단가 다른 품목 1건 확인 필요'; 2026-09-21T07:19 '장미 블루' 매칭 수정 팝업에서 'royal blu' 검색"
     ]
   },
   "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-16T01:35:08.781Z"
+  "generatedAt": "2026-09-26T09:35:27.741Z"
 }
