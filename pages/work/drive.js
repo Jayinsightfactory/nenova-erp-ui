@@ -53,7 +53,7 @@ export default function WorkDrivePage() {
   const chooseStage = (value) => { setStageF(value); setSubF(''); };
 
   const load = async () => {
-    try { const r = await fetch('/api/work/drive'); const j = await r.json(); if (!j.success) throw new Error(j.error || '실패'); setData(j); setErr(''); }
+    try { const r = await fetch('/api/work/drive', { cache: 'no-store' }); const j = await r.json(); if (!j.success) throw new Error(j.error || '실패'); setData(j); setErr(''); }
     catch (e) { setErr(e.message); }
   };
   useEffect(() => { load(); }, []);
@@ -118,7 +118,7 @@ export default function WorkDrivePage() {
     try {
       // Fetch the authorized period/person/search once; direction/type counts share this scope.
       const p = new URLSearchParams({ days: egDays, who: egWho, q: egQ });
-      const r = await fetch('/api/work/drive-egress?' + p); const j = await r.json();
+      const r = await fetch('/api/work/drive-egress?' + p, { cache: 'no-store' }); const j = await r.json();
       if (!r.ok || !j.success || !Array.isArray(j.rows)) throw new Error(j.error || '보안이력을 불러오지 못했습니다.');
       if (request === egRequest.current) setEg(j.rows);
     } catch (e) { if (request === egRequest.current) { setEg(null); setEgError(e.message); } }

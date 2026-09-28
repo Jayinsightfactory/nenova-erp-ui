@@ -20,6 +20,7 @@ function tokenOk(req) {
 
 const authed = withAuth(async function get(req, res) {
   const user = req.user || {};
+  res.setHeader('Cache-Control', 'no-store'); // 새로고침 시 옛 이력 재사용(304) 방지
   if (req.query.timeline) return res.status(200).json({ success: true, timeline: fileTimeline(user, String(req.query.timeline)) });
   if (req.query.preview) { const p = egressPreview(user, String(req.query.preview), { xlsxLib: XLSX }); return res.status(p.ok ? 200 : p.status || 400).json({ success: p.ok, ...p }); }
   if (req.query.open) {
