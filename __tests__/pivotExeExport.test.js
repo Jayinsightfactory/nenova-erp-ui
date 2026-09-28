@@ -6,6 +6,17 @@ import { buildPivotExePresentation, getPivotExeDataColumnId } from '../lib/pivot
 
 const layout = { row: ['ProdName'], column: ['OrderYear'], filter: EXE_FIELDS.map(field => field.id).filter(id => !['ProdName', 'OrderYear', 'Quantity'].includes(id)), data: ['Quantity'] };
 {
+  const main = buildPivotModel([
+    {ProdName:'Rose',OrderYear:2026,OrderWeek:'01-01',Quantity:1.25},
+    {ProdName:'Rose',OrderYear:2026,OrderWeek:'01-02',Quantity:2.5},
+    {ProdName:'Rose',OrderYear:2025,OrderWeek:'01-01',Quantity:9},
+  ], {layout:{row:['ProdName'],column:['OrderWeek'],data:['Quantity']},weekGrouping:'main',showGrandTotals:false,showColumnTotals:false});
+  const book=new ExcelJS.Workbook(); await book.xlsx.load(await buildPivotExeWorkbook(main));
+  const values=[]; book.worksheets[0].eachRow(row=>row.eachCell(cell=>values.push(cell.value)));
+  assert.ok(values.includes('2026 01차')&&values.includes('2025 01차'));
+  assert.ok(values.includes(3.75)&&values.includes(9),'main-week XLSX shares exact numeric aggregates and year isolation');
+}
+{
   const ordered = buildPivotModel([
     { ProdName: 'first', OrderYear: 2025, Quantity: 1 },
     { ProdName: 'second', OrderYear: 2026, Quantity: 2 },

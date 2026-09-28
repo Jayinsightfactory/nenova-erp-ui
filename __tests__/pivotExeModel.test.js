@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createPivotValueOrderComparator } from '../lib/pivotExeValueOrder.js';
 import './pivotExeValueOrder.test.js';
+import './pivotExeWeekGrouping.test.js';
 import {
   EXE_DEFAULT_LAYOUT, EXE_FIELDS, assertPivotRenderLimit, buildPivotModel, filterRows, matchesFilterCondition, moveField, normalizeLayout, pivotAxisKey, pivotCellKey, pivotModelToAoA,
 } from '../lib/pivotExeModel.js';
