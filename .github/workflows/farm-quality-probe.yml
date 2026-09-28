@@ -72,7 +72,7 @@ jobs:
                 const candidates=await query(`SELECT d.DeductionKey,vw.OrderYear,vw.OrderWeek,vw.ProdKey,vw.FarmName,
                   f.FarmKey,SUM(ISNULL(vw.OutQuantity,0)) OutQuantity,COUNT_BIG(*) WarehouseRows
                   FROM dbo.WebSalesDefectDeduction d JOIN dbo.ViewWarehouse vw
-                    ON vw.OrderYear=d.OrderYear AND vw.OrderWeek=d.OrderWeek AND vw.ProdKey=d.ProdKey
+                    ON vw.OrderYear=d.OrderYear AND (vw.OrderWeek=d.OrderWeek OR vw.OrderWeek LIKE d.OrderWeek+N'-%') AND vw.ProdKey=d.ProdKey
                   LEFT JOIN dbo.Farm f ON f.FarmName=vw.FarmName AND ISNULL(f.isDeleted,0)=0
                   WHERE d.DeductionKey IN (${keyList}) AND d.OrderYear=2026 AND d.OrderWeek=N'38'
                   GROUP BY d.DeductionKey,vw.OrderYear,vw.OrderWeek,vw.ProdKey,vw.FarmName,f.FarmKey ORDER BY vw.FarmName`);
@@ -86,6 +86,15 @@ jobs:
                   LEFT JOIN dbo.Farm f ON f.FarmKey=sf.FarmKey AND ISNULL(f.isDeleted,0)=0
                   WHERE d.DeductionKey IN (${keyList}) ORDER BY sm.ShipmentKey,sd.SdetailKey,sf.FarmKey`);
                 console.log(JSON.stringify({readOnly:true,linkedShipmentFarmRows:shippedFarm.recordset}));
+                const sameCustomerFarm=await query(`SELECT d.DeductionKey,sm.ShipmentKey,sm.OrderYear,sm.OrderWeek,sm.CustKey,
+                  sd.SdetailKey,sd.ProdKey,sf.FarmKey,f.FarmName,sf.ShipmentQuantity
+                  FROM dbo.WebSalesDefectDeduction d JOIN dbo.ShipmentMaster sm
+                    ON sm.OrderYear=d.OrderYear AND (sm.OrderWeek=d.OrderWeek OR sm.OrderWeek LIKE d.OrderWeek+N'-%') AND sm.CustKey=d.CustKey
+                  JOIN dbo.ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=d.ProdKey
+                  LEFT JOIN dbo.ShipmentFarm sf ON sf.SdetailKey=sd.SdetailKey
+                  LEFT JOIN dbo.Farm f ON f.FarmKey=sf.FarmKey AND ISNULL(f.isDeleted,0)=0
+                  WHERE d.DeductionKey IN (${keyList}) ORDER BY sm.ShipmentKey,sd.SdetailKey,sf.FarmKey`);
+                console.log(JSON.stringify({readOnly:true,sameCustomerWeekProductFarms:sameCustomerFarm.recordset}));
               }
               if(typeof quality.qualitySignalCoverage==='function'){
                 const source=await query(`SELECT DeductionKey,OrderYear,OrderWeek,CustKey,CustName,
