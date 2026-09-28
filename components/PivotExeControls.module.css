@@ -1,0 +1,32 @@
+.fieldButton {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  border-radius: 5px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: grab;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.fieldButton:active { cursor: grabbing; }
+.deck button:hover { background-color: #dceaff; }
+.deck button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.grip { color: #7a8b9f; margin-right: 6px; font-weight: 400; }
+.summary { margin: 0 7px; padding: 3px 6px; border-radius: 4px; background: #edf3f8; color: #52647a; font-size: 11px; white-space: nowrap; }
+.deck > section > div { gap: 6px !important; min-width: 0; }
+.deck > section > div > span { max-width: 100%; }
+.deck > section:nth-child(1) { border-top: 3px solid #8193aa !important; }
+.deck > section:nth-child(2) { border-top: 3px solid #6590c6 !important; }
+.deck > section:nth-child(3) { border-top: 3px solid #709caf !important; }
+.deck > section:nth-child(4) { border-top: 3px solid #58a396 !important; }
+.help { margin: 7px 0; color: #52647a; font-size: 12px; line-height: 1.7; }
+.help summary { cursor: pointer; }
+@media (max-width: 760px) {
+  .deck { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: 'filters' 'rows' 'cols' 'values' !important; }
+}

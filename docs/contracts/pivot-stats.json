@@ -2,6 +2,7 @@
   "id": "pivot-stats",
   "title": "피벗 통계 품목 필터 검색 계약",
   "scope": [
+    "components/PivotExeControls.module.css",
     "lib/pivotExeCalculation.js",
     "lib/pivotExeWorker.js",
     "lib/usePivotExeCalculation.js",

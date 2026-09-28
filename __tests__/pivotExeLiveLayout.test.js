@@ -60,3 +60,11 @@ assert.equal(emptyAxes.columnAxis.length, 1);
 assert.equal(grandCell(emptyAxes), 0, 'empty axes preserve an explicit numeric zero');
 
 console.log('pivotExeLiveLayout tests passed');
+
+// Readable controls must retain the existing active/empty/disabled filter semantics.
+const readableFilter = { CounName: ['콜롬비아'], OrderYear: [2026] };
+const selectedByReadableControls = buildPivotModel(rows, { layout: layout(['CustName'], ['OrderYear']), fieldFilters: readableFilter });
+assert.equal(grandCell(selectedByReadableControls), 2.5);
+assert.equal(selectedByReadableControls.filteredRowCount, 2);
+assert.equal(buildPivotModel(rows, { fieldFilters: { CounName: [] } }).filteredRowCount, 0);
+assert.equal(buildPivotModel(rows, { fieldFilters: readableFilter, filterEnabled: false }).filteredRowCount, 4);
