@@ -65,7 +65,7 @@ export function IncomingInsight({ initialTab, hideTabs, initialFarm } = {}) {
   const saveEta = async (row) => { try { await api('/api/incoming/eta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ year, week, ...row }) }); setEtaForm({ farm: '', country: '', awb: '', eta: '', stage: '발주', note: '' }); loadEta(); } catch (e) { message.error(e.message); } };
   const loadAlias = async () => { try { setAlias(await api('/api/incoming/farm-alias')); } catch (e) { message.error(e.message); } };
   const aliasPost = async (body, ok) => { try { await api('/api/incoming/farm-alias', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); message.success(ok || '저장'); await loadAlias(); loadLedger(); } catch (e) { message.error(e.message); } };
-  // 가브리엘 lista 엑셀(농장 클레임 리스트) — 불량차감 원장에서 그대로 생성. 파일명·시트명·헤더는 원본 규칙(nenova_26-1_lista.xlsx / 'Lista 26-1차')
+  // 아드리아나 lista 엑셀(농장 클레임 리스트) — 불량차감 원장에서 그대로 생성. 파일명·시트명·헤더는 원본 규칙(nenova_26-1_lista.xlsx / 'Lista 26-1차')
   const exportLista = async () => {
     if (!year || !week) return message.warning('차수를 선택하세요');
     try {

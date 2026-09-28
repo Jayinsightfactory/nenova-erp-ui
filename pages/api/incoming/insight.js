@@ -177,7 +177,7 @@ async function ledger(months, farmName) {
   return { months, rows, totals: { ...t, farms: rows.length, unpaid: rows.filter((r) => r.status === '미송금').length, partial: rows.filter((r) => r.status === '부분송금').length, claims: rows.reduce((a, r) => a + r.claims.n, 0), claimsPending: rows.reduce((a, r) => a + r.claims.pending, 0), pendingRemitN: pendingN, pendingRemitUSD: Math.round(pendingUSD * 100) / 100, overdueFarms: rows.filter((r) => r.pay.overdueUSD > 0.5).length, overdueUSD: Math.round(rows.reduce((a, r) => a + r.pay.overdueUSD, 0) * 100) / 100, dueSoon: rows.filter((r) => r.pay.dday != null && r.pay.dday >= 0 && r.pay.dday <= 7).length, noPayDay: rows.filter((r) => !r.pay.day && r.balance > 0.5).length } };
 }
 
-// 농장 클레임 리스트(lista): 가브리엘이 손으로 만들던 `nenova_26-1_lista.xlsx`(Lote/Farm/Variedad/Cantidad/Unidad/Nombre/Observación)를
+// 농장 클레임 리스트(lista): 아드리아나이 손으로 만들던 `nenova_26-1_lista.xlsx`(Lote/Farm/Variedad/Cantidad/Unidad/Nombre/Observación)를
 // 웹 불량차감(WebSalesDefectDeduction, 농장 귀속 건)에서 그대로 생성. Lote 접두 = 품목군(c 카네이션·r 장미·s 수국, 그 외 없음) + 차수.
 const LOTE_PREFIX = (flower) => /카네이션|clavel|carnation/i.test(flower) ? 'c' : /장미|rosa|rose/i.test(flower) ? 'r' : /수국|hortensia|hydrangea/i.test(flower) ? 's' : '';
 const UNIDAD = (unit, qty) => { const one = Math.abs(Number(qty) || 0) === 1; return /송이|stem|tallo/i.test(unit) ? (one ? 'tallo' : 'tallos') : /박스|box|caja/i.test(unit) ? (one ? 'caja' : 'cajas') : (one ? 'ramo' : 'ramos'); };
@@ -189,11 +189,11 @@ async function lista(year, week) {
                           WHERE ISNULL(d.IsDeleted,0)=0 AND d.OrderYear=@yr AND (d.OrderWeek=@wk OR d.OrderWeek=@major)
                           ORDER BY d.CustName, d.FarmName, d.ProdName`, { ...weekParams(year, week), major: { type: sql.NVarChar, value: String(week).split('-')[0] } }); // 불량차감 OrderWeek는 대차수('38')로 저장됨
   const short = String(week).replace(/^(\d{1,2})-0?(\d)$/, '$1-$2');
-  const rows = r.recordset.map((d) => ({ key: d.DeductionKey, lote: `${LOTE_PREFIX(d.Flower)}${short}`, farm: canon(d.FarmName || ''), farmRaw: d.FarmName || '', variedad: (() => { const pn = String(d.ProdName || '').replace(/^[가-힣()\s]+/, '').trim(); const parts = [pn || (d.ColorName ? '' : d.ProdName), d.ColorName].filter(Boolean); return parts.join(' ').toLowerCase(); })() /* 가브리엘식: 농장 품종명만(한글 품목군 접두 제거) */, cantidad: Number(d.Quantity) || 0, unidad: UNIDAD(d.SourceUnit, d.Quantity), nombre: d.CustName || '', observacion: d.Note || '', tipo: d.DeductionType || '', flower: d.Flower, confirmed: !!d.ImportConfirmed, credited: !!d.CreditApplied }));
+  const rows = r.recordset.map((d) => ({ key: d.DeductionKey, lote: `${LOTE_PREFIX(d.Flower)}${short}`, farm: canon(d.FarmName || ''), farmRaw: d.FarmName || '', variedad: (() => { const pn = String(d.ProdName || '').replace(/^[가-힣()\s]+/, '').trim(); const parts = [pn || (d.ColorName ? '' : d.ProdName), d.ColorName].filter(Boolean); return parts.join(' ').toLowerCase(); })() /* 아드리아나식: 농장 품종명만(한글 품목군 접두 제거) */, cantidad: Number(d.Quantity) || 0, unidad: UNIDAD(d.SourceUnit, d.Quantity), nombre: d.CustName || '', observacion: d.Note || '', tipo: d.DeductionType || '', flower: d.Flower, confirmed: !!d.ImportConfirmed, credited: !!d.CreditApplied }));
   return { rows, noFarm: rows.filter((x) => !x.farm).length, farms: [...new Set(rows.map((x) => x.farm).filter(Boolean))].length };
 }
 
-// AWB 운임 계산기 원자료: 가브리엘의 `NN차 콜롬비아 AWB운임비.xlsx`(AWB 상 운임·박스·중량 → 품목군별·농장별 박스 비율로 백상 창고비·선율 비용 분배)를
+// AWB 운임 계산기 원자료: 아드리아나의 `NN차 콜롬비아 AWB운임비.xlsx`(AWB 상 운임·박스·중량 → 품목군별·농장별 박스 비율로 백상 창고비·선율 비용 분배)를
 // 웹에서 재현하기 위해 해당 차수의 AWB별 원장(농장 × 품목군 박스 수, GW/CW/Rate)을 돌려준다. 분배 산식은 화면(클라이언트)에서 입력값으로 계산.
 const FLOWER_GROUP = (flower, name) => { const t = `${flower} ${name}`; return /카네이션|clavel|carnation/i.test(t) ? '카네이션' : /장미|rosa|rose/i.test(t) ? '장미' : /알스트로|alstro/i.test(t) ? '알스트로' : /루스커스|ruscus/i.test(t) ? '루스커스' : /수국|hydrangea|hortensia/i.test(t) ? '수국' : '기타'; };
 async function awbcalc(year, week) {

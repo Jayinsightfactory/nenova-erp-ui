@@ -26,7 +26,7 @@ const USER_ID_ALIAS = {
 
 const DEPARTMENTS = [
   { id: 'sales-support', name: '영업지원', members: ['설연주', '강현우', '임재용'] },
-  { id: 'import', name: '수입부', members: ['가브리엘', '김원빈'] },
+  { id: 'import', name: '수입부', members: ['아드리아나', '김원빈'] },
   { id: 'sales', name: '영업부', members: ['박성수', '정재훈', '조현욱'] },
   { id: 'management', name: '경영지원', members: ['강명훈'] },
 ];

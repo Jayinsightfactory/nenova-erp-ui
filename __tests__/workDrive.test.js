@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8')
   .replace(/^import path from 'path';/m, "const path = require('path');")
   .replace(/^import crypto from 'crypto';/m, "const crypto = require('crypto');")
   .replace(/^import \{ DEPARTMENTS \} from '\.\/workManuals';/m,
-    "const DEPARTMENTS = [{ id: 'sales-support', name: '영업지원', members: ['설연주', '강현우', '임재용'] }, { id: 'import', name: '수입부', members: ['가브리엘', '김원빈'] }, { id: 'sales', name: '영업부', members: ['박성수', '정재훈', '조현욱'] }, { id: 'management', name: '경영지원', members: ['강명훈'] }];")
+    "const DEPARTMENTS = [{ id: 'sales-support', name: '영업지원', members: ['설연주', '강현우', '임재용'] }, { id: 'import', name: '수입부', members: ['아드리아나', '김원빈'] }, { id: 'sales', name: '영업부', members: ['박성수', '정재훈', '조현욱'] }, { id: 'management', name: '경영지원', members: ['강명훈'] }];")
   .replace(/^import \{ isOrbitReportViewer \} from '\.\/orbitReportAccess';/m,
     "const isOrbitReportViewer = (u) => String(u?.userId || '').toLowerCase() === 'nenovass3';")
   .replace(/^export (const|function) /gm, '$1 ')
@@ -100,7 +100,7 @@ assert.deepStrictEqual(fs.readdirSync(path.join(tmp, 'data')), ['drive'], '저�
 // 접근 규칙
 const boss = { userId: 'nenovaSS3', userName: '관리자' };
 const seol = { userId: 'seol', userName: '설연주' };
-const gab = { userId: 'gab', userName: '가브리엘' };
+const gab = { userId: 'gab', userName: '아드리아나' };
 const jae = { userId: 'jae', userName: '정재훈' };
 const kmh = { userId: 'kmh', userName: '강명훈' };
 const vis = (u) => wd.listVisible(u).map((f) => f.filename);
@@ -169,12 +169,12 @@ console.log('workDrive tests passed: 차수 정규화 5종, 단계 분류, 민�
   const XLSX = require('xlsx');
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['농장', '박스', '운임'], ['Colibri', 12, 340.5]]), 'AWB');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-  const snap = wd.ingestFile({ buffer: buf, filename: '39-2 콜롬비아 AWB운임비.xlsx', userName: '가브리엘', hostname: 'GAB', dir: 'Desktop', eventType: 'egress', egressSnapshot: true });
+  const snap = wd.ingestFile({ buffer: buf, filename: '39-2 콜롬비아 AWB운임비.xlsx', userName: '아드리아나', hostname: 'GAB', dir: 'Desktop', eventType: 'egress', egressSnapshot: true });
   assert.ok(snap.ok && !snap.duplicate, '스냅샷 업로드');
-  assert.ok(!wd.listVisible({ userId: 'g', userName: '가브리엘' }).some((x) => x.id === snap.id), '스냅샷은 올린 본인에게도 안 보임');
+  assert.ok(!wd.listVisible({ userId: 'g', userName: '아드리아나' }).some((x) => x.id === snap.id), '스냅샷은 올린 본인에게도 안 보임');
   assert.ok(wd.listVisible(boss).some((x) => x.id === snap.id && x.egressSnapshot && x.sensitive), '관리자에겐 보임(민감)');
   const sha = require('crypto').createHash('sha256').update(buf).digest('hex');
-  const pr = wd.recordEgress({ kind: 'print', filename: 'Microsoft Excel - 39-2 콜롬비아 AWB운임비.xlsx', sha, path: 'C:\\Users\\gab\\Desktop\\39-2 콜롬비아 AWB운임비.xlsx', snapshot: true, userName: '가브리엘', hostname: 'GAB', dest: 'HP LaserJet', detail: '2쪽 · 시트 AWB' });
+  const pr = wd.recordEgress({ kind: 'print', filename: 'Microsoft Excel - 39-2 콜롬비아 AWB운임비.xlsx', sha, path: 'C:\\Users\\gab\\Desktop\\39-2 콜롬비아 AWB운임비.xlsx', snapshot: true, userName: '아드리아나', hostname: 'GAB', dest: 'HP LaserJet', detail: '2쪽 · 시트 AWB' });
   assert.ok(pr.row.fileId === snap.id && pr.row.matchHow === 'sha' && pr.row.snapshot && /Desktop/.test(pr.row.path), '인쇄 이벤트가 sha로 스냅샷에 연결: ' + JSON.stringify(pr.row));
   const row = wd.listEgress(boss, { kind: 'print' }).find((x) => x.id === pr.row.id);
   assert.ok(row.hasFile && row.previewKind === 'sheet', 'hasFile/previewKind');
@@ -185,3 +185,11 @@ console.log('workDrive tests passed: 차수 정규화 5종, 단계 분류, 민�
   assert.strictEqual(wd.egressOpen(seol, pr.row.id), null, '직원은 열기 불가');
 }
 console.log('egress tests passed (+snapshot/preview/open)');
+
+// 이름 변경(2026-09-28): 옛 '가브리엘' 업로드도 별칭으로 아드리아나/수입부로 유지
+{
+  const r = wd.ingestFile({ buffer: Buffer.from('legacy-gabriel'), filename: '40-1 콜롬비아 AWB운임비.xlsx', userName: '가브리엘', hostname: 'GAB' });
+  assert.strictEqual(r.classification.uploaderName, '아드리아나', '가브리엘→아드리아나 별칭');
+  assert.strictEqual(r.classification.dept, '수입부', '수입부 유지');
+}
+console.log('rename alias test passed (가브리엘→아드리아나)');
