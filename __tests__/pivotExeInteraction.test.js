@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './pivotExeCalculation.test.js';
 import fs from 'node:fs';
 import { applyPivotValueSelection, createPivotHeaderHeightResizeSession, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction.js';
 

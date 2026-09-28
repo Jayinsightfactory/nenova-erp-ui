@@ -1,0 +1,12 @@
+.overlay { position:fixed; inset:0; z-index:12000; display:flex; align-items:center; justify-content:center; background:rgba(239,245,252,.78); padding:16px; }
+.card { width:340px; max-width:100%; background:#fff; border:1px solid #b9d3f3; border-radius:16px; box-shadow:0 12px 48px #193d7026; padding:26px 22px; text-align:center; color:#173b70; }
+.logo { width:60px; height:60px; margin:0 auto 16px; position:relative; display:grid; place-items:center; }
+.logo::before { content:''; position:absolute; inset:0; border:4px solid #e0edff; border-top-color:#2367d5; border-radius:50%; animation:pivotSpin .85s linear infinite; }
+.logo span { font:bold 24px sans-serif; color:#2367d5; }
+.percent { font-size:34px; font-weight:700; margin:12px 0; font-variant-numeric:tabular-nums; }
+.track { height:8px; border-radius:8px; background:#e5effa; overflow:hidden; }
+.track span { display:block; height:100%; background:#2367d5; transition:width .18s ease-out; }
+.card p { font-size:12px; margin:13px 0 8px; }
+.card small { display:block; font-size:11px; line-height:1.5; color:#63738b; }
+@keyframes pivotSpin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .logo::before { animation:none; } .track span { transition:none; } }
