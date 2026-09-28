@@ -77,6 +77,15 @@ jobs:
                   WHERE d.DeductionKey IN (${keyList}) AND d.OrderYear=2026 AND d.OrderWeek=N'38'
                   GROUP BY d.DeductionKey,vw.OrderYear,vw.OrderWeek,vw.ProdKey,vw.FarmName,f.FarmKey ORDER BY vw.FarmName`);
                 console.log(JSON.stringify({readOnly:true,sameWeekProductFarmCandidates:candidates.recordset}));
+                const shippedFarm=await query(`SELECT d.DeductionKey,d.Quantity DefectQuantity,d.AppliedShipmentKey,
+                  sm.OrderYear,sm.OrderWeek,sm.CustKey,sd.SdetailKey,sd.ProdKey,sf.FarmKey,f.FarmName,
+                  sf.ShipmentQuantity
+                  FROM dbo.WebSalesDefectDeduction d JOIN dbo.ShipmentMaster sm ON sm.ShipmentKey=d.AppliedShipmentKey
+                  JOIN dbo.ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.ProdKey=d.ProdKey
+                  LEFT JOIN dbo.ShipmentFarm sf ON sf.SdetailKey=sd.SdetailKey
+                  LEFT JOIN dbo.Farm f ON f.FarmKey=sf.FarmKey AND ISNULL(f.isDeleted,0)=0
+                  WHERE d.DeductionKey IN (${keyList}) ORDER BY sm.ShipmentKey,sd.SdetailKey,sf.FarmKey`);
+                console.log(JSON.stringify({readOnly:true,linkedShipmentFarmRows:shippedFarm.recordset}));
               }
               if(typeof quality.qualitySignalCoverage==='function'){
                 const source=await query(`SELECT DeductionKey,OrderYear,OrderWeek,CustKey,CustName,
