@@ -83,6 +83,7 @@ function Storyboards({ boards, data }) {
           {(sess.cycles?.length > 0 || sess.products?.length > 0 || sess.customers?.length > 0) && <div className="dim">{sess.cycles?.length > 0 && <span>차수 {sess.cycles.join(', ')} · </span>}{sess.customers?.length > 0 && <span>거래처 {sess.customers.join(', ')} · </span>}{sess.products?.length > 0 && <span>품목 {sess.products.join(', ')}</span>}</div>}
           <div className="dim">읽힌 필드값 {sess.fieldsWithValue ?? 0}개 · 표 {sess.tablesTotal ?? 0}개</div>
         </div>
+        <HandoverVideo who={boards.who} title={board.title} steps={sess.steps} />
         <h3 className="tog" onClick={() => setOpenAll((v) => !v)}>{openAll ? '▾' : '▸'} 세션 서사(장면 {sess.frames}개를 순서대로 이어 쓴 설명)</h3>
         {openAll && <pre className="narr">{sess.narrative}</pre>}
         <h3>장면 카드 — 시각 · 앱 · 화면 · 행동 · 창 흐름 · 입력 · 전산 · 힌트</h3>
@@ -109,6 +110,80 @@ function Storyboards({ boards, data }) {
           </div>
         ))}</div>
       </>}
+    </div>
+  );
+}
+
+// 인수인계 영상 — 세션 장면을 슬라이드로 그려 한국어 음성 해설과 함께 자동 재생, webm 파일로 저장.
+// 키 입력 내용(st.typed)은 개인 대화가 섞일 수 있어 영상에 넣지 않는다.
+const wrapText = (ctx, text, maxW) => {
+  const lines = []; let cur = '';
+  for (const ch of String(text || '')) { if (ctx.measureText(cur + ch).width > maxW && cur) { lines.push(cur); cur = ch; } else cur += ch; }
+  if (cur) lines.push(cur); return lines;
+};
+function handoverScript(st) {
+  return [st.screen && `화면은 ${st.screen}입니다.`, st.act && st.act + '.', st.purpose && `목적은 ${st.purpose}.`, st.from && `입력은 ${st.from}에서 받습니다.`, st.to && `결과는 ${st.to}로 넘어갑니다.`]
+    .filter(Boolean).join(' ');
+}
+function drawSlide(ctx, W, H, who, title, st, i, n) {
+  ctx.fillStyle = '#10151c'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#7fb3ff'; ctx.font = 'bold 22px sans-serif'; ctx.fillText(`${who} 인수인계 · ${title}`, 40, 50);
+  ctx.fillStyle = '#9aa4b2'; ctx.font = '18px sans-serif'; ctx.fillText(`${i + 1} / ${n}  ·  ${st.t}${st.dur ? ` · ${st.dur}분` : ''}  ·  ${st.app || ''}${st.stage ? '  ·  단계 ' + st.stage : ''}`, 40, 84);
+  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 34px sans-serif';
+  let y = 150; for (const l of wrapText(ctx, st.screen || '(화면 제목 없음)', W - 80).slice(0, 2)) { ctx.fillText(l, 40, y); y += 46; }
+  ctx.font = '26px sans-serif'; ctx.fillStyle = '#e6e9ee'; y += 10;
+  for (const l of wrapText(ctx, st.act, W - 80).slice(0, 4)) { ctx.fillText(l, 40, y); y += 38; }
+  ctx.font = '21px sans-serif'; y += 14;
+  const rows = [['목적', st.purpose], ['입력 출처', st.from], ['전달처', st.to], ['결과물', st.output], ['화면에 보인 것', [st.cycle && '차수 ' + st.cycle, st.customers?.length && '거래처 ' + st.customers.slice(0, 4).join(', '), st.products?.length && '품목 ' + st.products.slice(0, 3).join(', ')].filter(Boolean).join(' · ')]];
+  for (const [k, v] of rows) { if (!v || y > H - 110) continue; ctx.fillStyle = '#7fb3ff'; ctx.fillText(k, 40, y); ctx.fillStyle = '#c9ced6'; for (const l of wrapText(ctx, v, W - 240).slice(0, 2)) { ctx.fillText(l, 200, y); y += 30; } y += 6; }
+  if (st.hint) { ctx.fillStyle = st.auto ? '#1f3d2a' : '#2a2f38'; ctx.fillRect(0, H - 76, W, 76); ctx.fillStyle = st.auto ? '#8fe0a8' : '#c9ced6'; ctx.font = '19px sans-serif'; ctx.fillText((st.auto ? '자동화 가능 · ' : '팁 · ') + wrapText(ctx, st.hint, W - 200)[0], 40, H - 32); }
+  ctx.fillStyle = '#7fb3ff'; ctx.fillRect(0, H - 4, W * (i + 1) / n, 4);
+}
+function HandoverVideo({ who, title, steps }) {
+  const cv = useRef(null); const run = useRef({ id: 0 });
+  const [i, setI] = useState(0); const [state, setState] = useState('idle'); const [voice, setVoice] = useState(true); const [msg, setMsg] = useState('');
+  const W = 1280, H = 720, n = steps.length;
+  const draw = (k) => { const c = cv.current; if (c) drawSlide(c.getContext('2d'), W, H, who, title, steps[k], k, n); };
+  useEffect(() => { draw(0); setI(0); stop(); }, [steps]);
+  function stop() { run.current.id++; if (typeof window !== 'undefined') window.speechSynthesis?.cancel(); setState('idle'); }
+  const say = (text, id) => new Promise((res) => {
+    const ms = Math.min(Math.max(text.length * 110, 4000), 15000);
+    if (!voice || !window.speechSynthesis) return setTimeout(res, ms);
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'ko-KR'; u.rate = 1.05;
+    const t = setTimeout(res, ms + 8000); u.onend = u.onerror = () => { clearTimeout(t); res(); };
+    if (run.current.id === id) window.speechSynthesis.speak(u); else res();
+  });
+  async function play(from = i) {
+    stop(); const id = ++run.current.id; setState('play');
+    for (let k = from; k < n; k++) { if (run.current.id !== id) return; setI(k); draw(k); await say(handoverScript(steps[k]), id); }
+    if (run.current.id === id) setState('idle');
+  }
+  async function record() {
+    stop(); const c = cv.current; if (!c.captureStream || !window.MediaRecorder) { setMsg('이 브라우저는 영상 저장을 지원하지 않습니다(크롬/엣지 사용).'); return; }
+    const id = ++run.current.id; setState('rec'); setMsg('영상 만드는 중… 장면마다 약 6초');
+    const rec = new MediaRecorder(c.captureStream(30), { mimeType: 'video/webm' }); const chunks = [];
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data); rec.start();
+    // 캔버스는 다시 그릴 때만 프레임이 나온다 → 녹화 중엔 0.2초마다 현재 장면을 다시 그려 영상 길이를 채운다
+    let cur = 0; const tick = setInterval(() => draw(cur), 200);
+    for (let k = 0; k < n; k++) { if (run.current.id !== id) break; cur = k; setI(k); draw(k); await new Promise((r) => setTimeout(r, 6000)); }
+    clearInterval(tick);
+    rec.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })); a.download = `인수인계_${who}_${title}.webm`.replace(/[\\/:*?"<>|]/g, '_'); a.click(); setMsg(run.current.id === id ? '저장 완료(음성 없는 자막 영상)' : '중단됨'); setState('idle'); };
+    rec.stop();
+  }
+  const jump = (d) => { stop(); const k = Math.min(Math.max(i + d, 0), n - 1); setI(k); draw(k); };
+  if (!n) return null;
+  return (
+    <div className="sum">
+      <b>인수인계 영상</b> <span className="dim">장면 {n}개 · 음성 해설 자동 재생 · 키 입력 내용은 제외</span>
+      <canvas ref={cv} width={W} height={H} style={{ width: '100%', maxWidth: 960, display: 'block', margin: '8px 0', borderRadius: 8 }} />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button type="button" onClick={() => jump(-1)} disabled={state === 'rec'}>◀ 이전</button>
+        {state === 'play' ? <button type="button" onClick={stop}>■ 멈춤</button> : <button type="button" onClick={() => play()} disabled={state === 'rec'}>▶ 재생</button>}
+        <button type="button" onClick={() => jump(1)} disabled={state === 'rec'}>다음 ▶</button>
+        <label><input type="checkbox" checked={voice} onChange={(e) => setVoice(e.target.checked)} /> 음성 해설</label>
+        {state === 'rec' ? <button type="button" onClick={stop}>녹화 중단</button> : <button type="button" onClick={record}>영상 파일로 저장(.webm)</button>}
+        <span className="dim">{i + 1}/{n} {msg}</span>
+      </div>
     </div>
   );
 }
