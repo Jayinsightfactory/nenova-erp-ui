@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+require('./workDriveSecurity.test.cjs');
 const fs = require('fs'), path = require('path'), Module = require('module');
 const React = require('react'), { renderToStaticMarkup } = require('react-dom/server');
 const { transformSync } = require('next/dist/build/swc');
@@ -10,6 +11,7 @@ function compile(relative, custom) {
   return m.exports;
 }
 const policy = compile('lib/workDriveCategories.js');
+const security = compile('lib/workDriveSecurity.js');
 const { fileSubcategory, filterCategories, subcategoryCounts, subcategories } = policy;
 const examples = [
   ['발주', '38차 발주서.xlsx', '발주·주문서'], ['발주', '컨펌률.xlsx', '컨펌·확정'],
@@ -34,7 +36,7 @@ for (const stage of stages) {
 assert.equal(filterCategories(files, '', 'stale').length, files.length);
 assert.equal(JSON.stringify(files), snapshot);
 let values = {}, index = 0, setters = {};
-const Page = compile('pages/work/drive.js', name => name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : require(name)).default;
+const Page = compile('pages/work/drive.js', name => name === 'react' ? { ...React, useState(v) { const i = index++; return [Object.hasOwn(values, i) ? values[i] : v, n => { setters[i] = n; }]; }, useMemo: f => f(), useRef: v => ({current:v}), useEffect() {} } : name === '../../lib/workDriveCategories' ? policy : name === '../../lib/workDriveSecurity' ? security : require(name)).default;
 const data = { files, stages, me: '담당자', dept: '영업', isAdmin: true };
 function tree(v = {}) { values = { 0: data, ...v }; index = 0; setters = {}; return Page(); }
 function render(v) { return renderToStaticMarkup(tree(v)); }
@@ -63,4 +65,35 @@ assert(major); major.props.onClick(); assert.equal(setters[7], '입고'); assert
 const source = fs.readFileSync(path.resolve(__dirname, '../pages/work/drive.js'), 'utf8');
 assert(source.includes('.wd :global(.category-nav .stg-chip)'));
 assert(source.includes('.wd :global(.subtabs button.on)'));
+const incoming = {id:'in',kind:'copy',destKind:'kakao-in',dest:'C:\\Users\\USER\\Documents\\카카오톡 받은 파일\\received.xlsx',filename:'received.xlsx',fileSensitive:true,at:'2026-09-28T00:00:00Z'};
+const outgoing = {id:'out',kind:'copy',destKind:'usb',dest:'E:\\sent.xlsx',filename:'sent.xlsx',at:'2026-09-28T00:00:00Z'};
+html = render({6:'security',20:[incoming,outgoing]});
+assert.doesNotMatch(html,/received.xlsx/); assert.match(html,/sent.xlsx/); assert.doesNotMatch(html,/복사 유출/);
+html = render({6:'security',20:[incoming,outgoing],26:'reference'});
+assert.match(html,/received.xlsx/); assert.doesNotMatch(html,/sent.xlsx/); assert.match(html,/유출 아님/); assert.match(html,/class="[^"]*inbound/);
+html = render({6:'security',20:[incoming,outgoing],26:'all'});
+assert.match(html,/received.xlsx/); assert.match(html,/sent.xlsx/);
+html = render({6:'security',27:'조회 실패'}); assert.match(html,/role="alert"/); assert.doesNotMatch(html,/선택한 조건의 기록이 없습니다/);
+html = render({6:'security',20:[incoming],28:true}); assert.match(html,/role="status"/); assert.doesNotMatch(html,/received.xlsx/);
+// A file's history and its preview must use the same incoming semantics.
+html = render({15:files[0],25:[incoming]}); assert.match(html,/카카오톡 수신.*유출 아님/);
+const securityRoot = tree({6:'security',20:[incoming,outgoing],21:'copy'});
+const reference = find(securityRoot, e => e.type === 'button' && React.Children.toArray(e.props.children).includes('수신·내부 기록'));
+assert(reference); reference.props.onClick(); assert.equal(setters[26], 'reference'); assert.equal(setters[21], '');
 console.log('work-drive: subcategories, precedence, immutable major category, count conservation, layout order, permission and all view filters passed');
+(async () => {
+  const originalFetch = global.fetch;
+  try {
+    const requestRoot = tree({6:'security',21:'copy'});
+    const refresh = find(requestRoot, e => e.type === 'button' && e.props.onClick?.name === 'loadEg');
+    assert(refresh);
+    global.fetch = async url => { assert(!url.includes('kind=')); return {ok:false,json:async()=>({success:false,error:'권한 오류'})}; };
+    await refresh.props.onClick(); assert.equal(setters[27],'권한 오류'); assert.equal(setters[20],null); assert.equal(setters[28],false);
+    const pending=[]; global.fetch=()=>new Promise(resolve=>pending.push(resolve));
+    const old=refresh.props.onClick(), recent=refresh.props.onClick();
+    pending[1]({ok:true,json:async()=>({success:true,rows:[outgoing]})}); await recent;
+    pending[0]({ok:true,json:async()=>({success:true,rows:[incoming]})}); await old;
+    assert.deepEqual(setters[20],[outgoing], 'older request must not replace newer result');
+  } finally { global.fetch=originalFetch; }
+  console.log('security request failure and stale response tests passed');
+})().catch(error=>{console.error(error);process.exitCode=1;});

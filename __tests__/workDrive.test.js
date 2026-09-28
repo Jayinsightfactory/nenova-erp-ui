@@ -22,6 +22,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8')
 const modPath = path.join(tmp, 'workDrive.cjs');
 fs.writeFileSync(modPath, src);
 const wd = require(modPath);
+require('./workDriveSecurity.test.cjs');
 
 // 차수 정규화 — 실측 표기 5종
 assert.strictEqual(wd.extractCycle('38-2 NL 원가자료.xlsx'), '38-2');
@@ -163,6 +164,12 @@ console.log('workDrive tests passed: 차수 정규화 5종, 단계 분류, 민�
   assert.strictEqual(wd.listEgress(kwy).length, 2, '관리자(김원영) 조회');
   assert.strictEqual(wd.listEgress(boss, { kind: 'print' }).length, 1);
   const t = wd.fileTimeline(boss, f.id); assert.ok(t.length >= 3 && t[0].kind === 'upload', '타임라인: 업로드가 먼저');
+  const received = wd.recordEgress({ kind: 'copy', filename: f.filename, sha: f.sha, userName: f.uploaderName, destKind: 'kakao-in', dest: 'C:/Users/USER/Documents/카카오톡 받은 파일/received.xlsx' });
+  assert.ok(received.ok);
+  const receivedFlow = wd.fileTimeline(boss, f.id).find(x => x.destKind === 'kakao-in');
+  assert.equal(receivedFlow.dest, received.row.dest, '수신 방향을 상세 흐름에도 보존');
+  assert.ok(wd.listEgress(boss).some(x => x.id === received.row.id), '수신 원본 기록 삭제/숨김 없음');
+  assert.deepEqual(wd.fileTimeline(seol, f.id), [], '상세 방향 추가 후에도 관리자 전용');
 }
 // 유출 스냅샷 + 내용 보기 + 파일 열기 (2026-09-27): 데몬이 인쇄 직전 원본을 egressSnapshot으로 올리면 관리자만 보이고, 이력 행에서 시트 첫 행·파일을 볼 수 있다
 {
