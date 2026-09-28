@@ -10,6 +10,8 @@ let cases=[],events=[],evidence=[],rollbacks=0;
 let anchorOwned=false;
 const validSource={DeductionKey:10,OrderYear:2026,OrderWeek:'36',ProdKey:5,ProductName:'Novia',FarmName:'Farm',FarmKey:2,SourceUnit:'박스',Quantity:1,ImportConfirmed:true};
 let mockSources=[validSource];
+const mockFarms=new Map([[2,'Farm']]);
+let sourceSql='';
 const caseEventWriteAttempts=[];
 const q=async(sql,p={})=>{
  const v=k=>p[k]?.value;
@@ -18,7 +20,10 @@ const q=async(sql,p={})=>{
  if(/(?:INSERT|UPDATE|DELETE)\s+(?:FROM\s+)?dbo\.WebFarmQuality(?:Case|Event)\b/i.test(sql))caseEventWriteAttempts.push(sql);
  if(sql.includes('OBJECT_ID'))return {recordset:[{id:1,caseId:1,evidenceId:1}]};
  if(sql.includes('SELECT CaseKey,PayloadHash'))return {recordset:events.filter(e=>e.RequestKey===v('req'))};
- if(sql.includes('FROM dbo.WebSalesDefectDeduction'))return {recordset:mockSources.filter(row=>Number(row.OrderYear)===v('year')&&(v('source')==null||Number(row.DeductionKey)===v('source')))};
+ if(sql.includes('FROM dbo.WebSalesDefectDeduction')){
+  sourceSql=sql;
+  return {recordset:mockSources.filter(row=>Number(row.OrderYear)===v('year')&&(v('source')==null||Number(row.DeductionKey)===v('source'))).map(row=>({...row,FarmName:String(row.FarmName||'').trim()||mockFarms.get(Number(row.FarmKey))||''}))};
+ }
  if(sql.includes('FROM dbo.ViewWarehouse vw'))return {recordset:[]};
  if(sql.includes('SELECT c.*, latest.Body'))return {recordset:[{...cases[0],FarmName:'Farm',ProdKey:5,ProductName:'Novia',Title:'손상',CreatedByName:'담당자',DueDate:null,UpdatedAt:new Date('2026-09-14T01:00:00Z')}]};
  if(sql.includes('WITH RankedEvents'))return {recordset:[
@@ -94,6 +99,14 @@ assert.equal(evidence.at(-1).EventKey,null,'cross-year evidence must remain unbo
 const loaded=await loadQuality({year:2026,from:1,to:53});
 assert.equal(loaded.signalCoverage.analyzedSourceCount,1);assert.equal(loaded.signalCoverage.noPatternSourceCount,1);
 assert.equal(loaded.coverage.sourceTotal,1);assert.equal(loaded.coverage.activeTotal,1);assert.equal(loaded.coverage.rows[0].customerName,'업체 미지정');
+assert.match(sourceSql,/LEFT JOIN dbo\.Farm f ON f\.FarmKey=d\.FarmKey AND ISNULL\(f\.isDeleted,0\)=0/);
+assert.match(sourceSql,/COALESCE\(NULLIF\(LTRIM\(RTRIM\(d\.FarmName\)\),N''\),NULLIF\(LTRIM\(RTRIM\(f\.FarmName\)\),N''\),N''\) FarmName/);
+mockSources=[{...validSource,DeductionKey:12,FarmName:'',FarmKey:2}];
+const farmKeyFallback=await loadQuality({year:2026,from:1,to:53});
+assert.equal(farmKeyFallback.coverage.rows[0].farmName,'Farm','blank saved FarmName falls back to canonical Farm.FarmName by FarmKey');
+mockFarms.delete(2);
+const missingFarmMaster=await loadQuality({year:2026,from:1,to:53});
+assert.equal(missingFarmMaster.coverage.rows[0].farmName,'농장 미지정','missing/deleted Farm master does not invent an attribution');
 assert.equal(loaded.cases[0].EventCount,4);
 assert.deepEqual(loaded.cases[0].RecentEvents.map(event=>[event.EventNo,event.Kind,event.Body]),[[2,'REQUEST','농장 확인 요청'],[3,'RESPONSE','농장 답변'],[4,'COMMENT','추가 코멘트']]);
 await assert.rejects(deleteQualityCase({year:2026,caseKey:first.caseKey,version:cases[0].Version},{userId:'admin'}),error=>error.code==='FARM_QUALITY_DELETE_ADMIN_ONLY');

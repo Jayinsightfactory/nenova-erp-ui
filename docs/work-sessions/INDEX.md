@@ -198,3 +198,5 @@
 
 ## 2026-09-21 거래처관리 EXE 대조
 - [거래처관리 목록·입력·수정 API 개편](2026-09-21_customer-dnspy-layout.md): 로컬 구현·검증 완료, GitHub 게시 인증 대기.
+# 2026-09-28 농장 불량 피드백 농장명 누락
+- `2026-09-28_farm-quality-farm-label.md` — FarmKey가 있으나 WebSalesDefectDeduction.FarmName 스냅샷이 빈 경우 활성 Farm 이름을 조회 표시 fallback으로 사용; ERP 데이터 쓰기 없음.
