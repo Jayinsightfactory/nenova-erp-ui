@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(cwd, 'lib', 'workDrive.js'), 'utf8')
   .replace(/^import path from 'path';/m, "const path = require('path');")
   .replace(/^import crypto from 'crypto';/m, "const crypto = require('crypto');")
   .replace(/^import \{ DEPARTMENTS \} from '\.\/workManuals';/m,
-    "const DEPARTMENTS = [{ id: 'sales-support', name: '영업지원', members: ['설연주', '강현우', '임재용'] }, { id: 'import', name: '수입부', members: ['아드리아나', '김원빈'] }, { id: 'sales', name: '영업부', members: ['박성수', '정재훈', '조현욱'] }, { id: 'management', name: '경영지원', members: ['강명훈'] }];")
+    "const DEPARTMENTS = [{ id: 'sales-support', name: '영업지원', members: ['설연주', '강현우', '임재용', '김도준'] }, { id: 'import', name: '수입부', members: ['아드리아나', '김원빈'] }, { id: 'sales', name: '영업부', members: ['박성수', '정재훈', '조현욱'] }, { id: 'management', name: '경영지원', members: ['강명훈'] }];")
   .replace(/^import \{ isOrbitReportViewer \} from '\.\/orbitReportAccess';/m,
     "const isOrbitReportViewer = (u) => String(u?.userId || '').toLowerCase() === 'nenovass3';")
   .replace(/^export (const|function) /gm, '$1 ')
