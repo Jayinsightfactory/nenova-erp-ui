@@ -1,0 +1,46 @@
+{
+  "id": "orbit-MNH03H73690BB2CD82-6",
+  "dept": "영업지원",
+  "owner": "임재용",
+  "title": "발주·출고 수량 정리 (Sheets/Excel)",
+  "summary": "발주서/견적의뢰서/출고내역서 작성 시점 / 9/18~9/22 산발적",
+  "frequency": "9/18~9/22 산발적",
+  "tools": [
+    "Google Sheets",
+    "Excel"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Google Sheets에서 발주된 꽃의 품종별 구성 수량 입력 및 검토",
+      "detail": "Google Sheets에서 발주된 꽃의 품종별 구성 수량 입력 및 검토",
+      "app": "Google Sheets",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "Excel에서 수입 절화 품목별 수량·견적단가·견적금액을 정리한 견적 의",
+      "detail": "Excel에서 수입 절화 품목별 수량·견적단가·견적금액을 정리한 견적 의뢰서 확인",
+      "app": "Google Sheets",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "Excel에서 출고 내역서의 상품별 수량 및 금액 데이터 검토",
+      "detail": "Excel에서 출고 내역서의 상품별 수량 및 금액 데이터 검토",
+      "app": "Google Sheets",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-22 01:16:27, 2026-09-18 01:41~01:52"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-25T21:35:30.789Z"
+}

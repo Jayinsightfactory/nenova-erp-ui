@@ -1,0 +1,39 @@
+{
+  "id": "orbit-MN0B1204A46C4B8EAC-5",
+  "dept": "영업부",
+  "owner": "정재훈",
+  "title": "거래처 마스터/세금계산서 발행 확인",
+  "summary": "거래처 정보 확인 및 세금계산서 발행 여부 확인이 필요할 때 / 관찰기간 중 1회(추가 관찰 필요)",
+  "frequency": "관찰기간 중 1회(추가 관찰 필요)",
+  "tools": [
+    "nenova(거래처관리)",
+    "카카오톡"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "nenova 거래처관리 화면에서 거래처명 필터(예: '미정')로 대상 거",
+      "detail": "nenova 거래처관리 화면에서 거래처명 필터(예: '미정')로 대상 거래처를 조회한다",
+      "app": "nenova(거래처관리)",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "동시에 카카오톡 네노바 업무방에서 해당 거래처 세금계산서 발행 완료 내역",
+      "detail": "동시에 카카오톡 네노바 업무방에서 해당 거래처 세금계산서 발행 완료 내역을 확인한다",
+      "app": "nenova(거래처관리)",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-14 01:16"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-27T05:35:45.421Z"
+}

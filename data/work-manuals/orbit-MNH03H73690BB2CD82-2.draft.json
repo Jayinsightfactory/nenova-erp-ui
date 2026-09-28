@@ -2,25 +2,39 @@
   "id": "orbit-MNH03H73690BB2CD82-2",
   "dept": "영업지원",
   "owner": "임재용",
-  "title": "nenova ERP 상품 검색 (거래처 요청 대응)",
-  "summary": "카카오톡으로 거래처 상품 문의가 들어왔을 때 / 관찰 1건",
-  "frequency": "관찰 1건",
+  "title": "견적서 확정 (38번대)",
+  "summary": "견적서 번호 부여 후 확정 대기 상태 / 9/21 07:10~09:54, 08:14 사이 집중 반복",
+  "frequency": "9/21 07:10~09:54, 08:14 사이 집중 반복",
   "tools": [
-    "Nenova ERP"
+    "nenova ERP (nenovaweb.com)"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "Nenova ERP 화면에서 상품명을 입력하여 검색",
-      "detail": "Nenova ERP 화면에서 상품명을 입력하여 검색",
-      "app": "Nenova ERP",
+      "title": "nenova ERP 견적서 관리 화면에서 품목(ROSE, Tulip, A",
+      "detail": "nenova ERP 견적서 관리 화면에서 품목(ROSE, Tulip, Anthurium, Campanula, Eryngium, Lily, Delphinium 등)별 판매 단가·수량 조회",
+      "app": "nenova ERP (nenovaweb.com)",
       "check": ""
     },
     {
       "no": 2,
-      "title": "일치하는 상품 목록(관찰 시점 18개 꽃/조화 상품)을 확인",
-      "detail": "일치하는 상품 목록(관찰 시점 18개 꽃/조화 상품)을 확인",
-      "app": "Nenova ERP",
+      "title": "견적서 38-01~38-04 등 라인 아이템의 검증 상태를 검토하고 체크",
+      "detail": "견적서 38-01~38-04 등 라인 아이템의 검증 상태를 검토하고 체크된 라인 확인",
+      "app": "nenova ERP (nenovaweb.com)",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "각 견적서(예: 38-02)의 품목 구성(20+개)을 행별로 수량·단가·",
+      "detail": "각 견적서(예: 38-02)의 품목 구성(20+개)을 행별로 수량·단가·금액 확인",
+      "app": "nenova ERP (nenovaweb.com)",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "최종 구성 확정 후 '확인' 버튼으로 확정 처리",
+      "detail": "최종 구성 확정 후 '확인' 버튼으로 확정 처리",
+      "app": "nenova ERP (nenovaweb.com)",
       "check": ""
     }
   ],
@@ -28,11 +42,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "2026-09-11T06:32 'Nenova ERP 상품명 입력 후 일치하는 18개 꽃/조화 상품 검색결과 조회 (카톡 거래처 요청 처리)'"
+      "2026-09-21 07:10~07:32, 08:14, 견적서 38-01~38-04 확인 화면"
     ]
   },
   "confidence": "medium",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-15T17:33:50.905Z"
+  "generatedAt": "2026-09-25T21:35:30.789Z"
 }

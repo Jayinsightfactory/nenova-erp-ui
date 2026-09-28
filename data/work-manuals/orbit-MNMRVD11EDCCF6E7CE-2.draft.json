@@ -2,25 +2,40 @@
   "id": "orbit-MNMRVD11EDCCF6E7CE-2",
   "dept": "수입부",
   "owner": "김원빈",
-  "title": "해상운송 클레임 서류 전달",
-  "summary": "손상화물 클레임이 발생해 관련 서류(zip)를 정리해야 할 때 / 1건 관찰(연속 업로드)",
-  "frequency": "1건 관찰(연속 업로드)",
+  "title": "수출입 계약서 작성 및 검토",
+  "summary": "발주 물량이 확정되어 계약 체결이 필요할 때 / 관찰 구간 내 1건(09:17~09:59 연속 작업)",
+  "frequency": "관찰 구간 내 1건(09:17~09:59 연속 작업)",
   "tools": [
-    "WeChat(微信)"
+    "Microsoft Word",
+    "WeChat"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "해상운송 손상화물 클레임 서류(zip 파일)를 하나씩 준비",
-      "detail": "해상운송 손상화물 클레임 서류(zip 파일)를 하나씩 준비",
-      "app": "WeChat(微信)",
+      "title": "Word에서 계약번호(예: XJ-2026-HN001, X1-2026-NN",
+      "detail": "Word에서 계약번호(예: XJ-2026-HN001, X1-2026-NN001) 문서를 열어 매도인 법인명·신용코드·서명일자 입력",
+      "app": "Microsoft Word",
       "check": ""
     },
     {
       "no": 2,
-      "title": "WeChat 'cloud-korea claim chatroom'에 순차 ",
-      "detail": "WeChat 'cloud-korea claim chatroom'에 순차 업로드/전송 (예: 36-2 claim ocean song 5bch 은성.zip → 36-2 proud redbox 2bch.zip)",
-      "app": "WeChat(微信)",
+      "title": "Scope of Trade, Price and Payment, Deliv",
+      "detail": "Scope of Trade, Price and Payment, Delivery 섹션 검토",
+      "app": "Microsoft Word",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "인쇄 미리보기로 최종 확인 후 인쇄",
+      "detail": "인쇄 미리보기로 최종 확인 후 인쇄",
+      "app": "Microsoft Word",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "WeChat으로 거래처의 수정 요청(\"Please revise items",
+      "detail": "WeChat으로 거래처의 수정 요청(\"Please revise items and quantities\")을 받으면 계약서 반영 후 재검토",
+      "app": "Microsoft Word",
       "check": ""
     }
   ],
@@ -28,11 +43,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "2026-09-10T08:49:42 WeChat claim chatroom 파일 순차 전송"
+      "09:46 매도인 정보 입력, 09:48 계약 조건 검토, 09:59 수정 요청 수신 후 협의"
     ]
   },
   "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-10T12:44:48.187Z"
+  "generatedAt": "2026-09-26T05:35:09.346Z"
 }

@@ -1,0 +1,64 @@
+{
+  "id": "orbit-MNH03H73690BB2CD82-5",
+  "dept": "영업지원",
+  "owner": "임재용",
+  "title": "nenovaweb/nenova ERP 기능 개발 (주문임포트·도착입고·재고매칭)",
+  "summary": "코드 이슈 발견 또는 신규 기능 요청 시 / 관찰기간 내 가장 높은 빈도로 반복",
+  "frequency": "관찰기간 내 가장 높은 빈도로 반복",
+  "tools": [
+    "VS Code",
+    "Codex",
+    "Claude",
+    "ChatGPT",
+    "Gemini",
+    "GitHub"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "VS Code/Codex에서 order-import, incoming/f",
+      "detail": "VS Code/Codex에서 order-import, incoming/freight API, orderImportMatch.js(주문임포트 매칭 로직) 코드 수정",
+      "app": "VS Code",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "nenovaweb 실제 데이터(pivot-sample 품종·국가 데이터,",
+      "detail": "nenovaweb 실제 데이터(pivot-sample 품종·국가 데이터, 20-1차 데이터)로 우측 테이블 대조하며 검증",
+      "app": "VS Code",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "Claude/ChatGPT/Gemini에 로직 상담 및 코드 리뷰 요청 ",
+      "detail": "Claude/ChatGPT/Gemini에 로직 상담 및 코드 리뷰 요청 (병렬 채팅창 활용)",
+      "app": "VS Code",
+      "check": ""
+    },
+    {
+      "no": 4,
+      "title": "git push 후 PR 생성·병합(예: PR #681, #667), G",
+      "detail": "git push 후 PR 생성·병합(예: PR #681, #667), GitHub Actions 결과 확인",
+      "app": "VS Code",
+      "check": ""
+    },
+    {
+      "no": 5,
+      "title": "재고 매칭 로직 오매칭(Coral Reef 등) 수정 후 Cafe24 배",
+      "detail": "재고 매칭 로직 오매칭(Coral Reef 등) 수정 후 Cafe24 배포 확인",
+      "app": "VS Code",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-18~09-22 다수, order-import/orderImportMatch.js/도착입고 코드 수정"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-25T21:35:30.789Z"
+}

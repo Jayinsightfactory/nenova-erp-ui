@@ -1,0 +1,45 @@
+{
+  "id": "orbit-MNIAFICB3DC88DCB34-4",
+  "dept": "영업지원",
+  "owner": "설연주",
+  "title": "지출내역(매입장) 검토",
+  "summary": "월별 카드매입 정산 검토 시점(관찰: 7~8월 데이터 검토) / 2026-09-21 05:55~06:08 구간에 반복 관찰",
+  "frequency": "2026-09-21 05:55~06:08 구간에 반복 관찰",
+  "tools": [
+    "Microsoft Excel"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "Excel 매입장 시트에서 계정과목별(통신비/복리후생비/지급수수료/소모품",
+      "detail": "Excel 매입장 시트에서 계정과목별(통신비/복리후생비/지급수수료/소모품비/접대비/직원식대 등) 카드매입 내역 확인",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "상대계정명으로 필터링(예: '직원식대(판)')하여 해당 항목만 모아 검토",
+      "detail": "상대계정명으로 필터링(예: '직원식대(판)')하여 해당 항목만 모아 검토",
+      "app": "Microsoft Excel",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "개별 셀(금액) 값을 선택해 확인",
+      "detail": "개별 셀(금액) 값을 선택해 확인",
+      "app": "Microsoft Excel",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-21T06:08 7~8월 카드매입 지출내역 F297셀(쿠팡페이 84,080원) 선택; 2026-09-21T05:55 상대계정명 '직원식대(판)' 필터링 7건 확인"
+    ]
+  },
+  "confidence": "high",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-26T09:35:27.741Z"
+}
