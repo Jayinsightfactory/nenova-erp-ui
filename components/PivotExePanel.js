@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCurrentWeek } from '../lib/useWeekInput';
-import { EXE_FIELDS, assertPivotRenderLimit, buildPivotModel, filterRows, normalizeLayout } from '../lib/pivotExeModel';
+import { EXE_FIELDS, normalizeLayout } from '../lib/pivotExeModel';
 import PivotExeGrid from './PivotExeGrid';
 import { getPivotExeGroupKeys } from '../lib/pivotExePresentation';
 import { normalizePivotExeRange } from '../lib/pivotExeRange';
 import { normalizePivotExeView } from '../lib/pivotExeViewState';
 import { collectPivotOrderValues, createPivotValueOrderComparator, movePivotValue } from '../lib/pivotExeValueOrder';
 import PivotExeFavorites from './PivotExeFavorites';
-import { pivotIncludedWeeks, pivotIncomingSelections } from '../lib/pivotExeWeekGrouping';
+import { pivotIncomingSelections } from '../lib/pivotExeWeekGrouping';
+import { usePivotExeCalculation } from '../lib/usePivotExeCalculation';
+import PivotLoadingOverlay from './PivotLoadingOverlay';
 import { applyPivotValueSelection, createPivotHeaderHeightResizeSession, createPivotPreferenceWriter, createPivotResizeSession, describePivotValueSelection, movePivotField, normalizeCollectivePivotWidths, pivotResizePreferenceKey, withCollectivePivotWidth } from '../lib/pivotExeInteraction';
 
 // Native field ids match FormQuantityPivot.GetData; supplements use explicit web ids.
@@ -339,19 +341,23 @@ export default function PivotExePanel() {
   // The UI only chooses controls; the shared pure model owns grouping, totals,
   // averages, collapse state, and the exportable visible result.
   const modelFieldFilters = useMemo(() => Object.fromEntries(Object.entries(selections).map(([id, selected]) => [id, (selected || []).map(rawFilterValue)])), [selections]);
-  const selectedRows = useMemo(() => filterRows(rows, { fieldFilters:modelFieldFilters, filterTree:ast, filterEnabled:filterActive }), [rows,modelFieldFilters,ast,filterActive]);
   const modelLayout = useMemo(() => normalizeLayout({ row:zones.rows, column:zones.cols, filter:zones.filters, data:zones.values.map((value) => value.id) }), [zones]);
   const summaryTypes = useMemo(() => Object.fromEntries(zones.values.map((value) => [value.id, value.aggregation])), [zones.values]);
-  const pivotModel = useMemo(() => buildPivotModel(selectedRows, { layout:modelLayout, weekGrouping, sort:sorts, valueOrders, collapsedRows, collapsedColumns:collapsedCols, summaryTypes, blankZero:!zeroVisible, showRowTotals, showColumnTotals, showGrandTotals }), [selectedRows,modelLayout,weekGrouping,sorts,valueOrders,collapsedRows,collapsedCols,summaryTypes,zeroVisible,showRowTotals,showColumnTotals,showGrandTotals]);
-  const includedWeeks = useMemo(() => pivotIncludedWeeks(selectedRows), [selectedRows]);
-  const mainStockWarning = weekGrouping === 'main' && selectedRows.some(row => ['01. 전재고','05. 현재고'].includes(row.ListType));
+  const dirty = successRange && Object.keys(range).some((key) => range[key] !== successRange[key]);
+  const calculationOptions = useMemo(() => ({fieldFilters:modelFieldFilters,filterTree:ast,filterEnabled:filterActive,layout:modelLayout,weekGrouping,sort:sorts,valueOrders,collapsedRows,collapsedColumns:collapsedCols,summaryTypes,blankZero:!zeroVisible,showRowTotals,showColumnTotals,showGrandTotals}), [modelFieldFilters,ast,filterActive,modelLayout,weekGrouping,sorts,valueOrders,collapsedRows,collapsedCols,summaryTypes,zeroVisible,showRowTotals,showColumnTotals,showGrandTotals]);
+  const calculation = usePivotExeCalculation(rows, calculationOptions, Boolean(successRange) && layoutHydrated && !busy && !dirty && !error);
+  const pivotModel = calculation.model;
+  const includedWeeks = calculation.includedWeeks;
+  const mainStockWarning = weekGrouping === 'main' && calculation.hasStock;
+  const loadingVisible = busy || (!error && dirty) || calculation.visible;
+  const loadingPercent = busy || dirty ? 0 : calculation.percent;
+  const cancelLoading = () => { request.current.controller?.abort(); request.current.id += 1; clearTimeout(autoQueryTimer.current); setBusy(false); setError('피벗 처리를 취소했습니다. 새로고침으로 다시 조회할 수 있습니다.'); };
   const changeWeekGrouping = (mode) => { setWeekGrouping(mode); setCollapsedRows(new Set()); setCollapsedCols(new Set()); };
   const showIncoming = () => {
     setZones(DEFAULT_ZONES); setHidden([]); setSelections(pivotIncomingSelections(selections));
     setAst(EMPTY_AST()); setFilterActive(true); setCollapsedRows(new Set()); setCollapsedCols(new Set());
   };
-  const renderLimitError = useMemo(() => { try { assertPivotRenderLimit(pivotModel); return ''; } catch (cause) { return cause.message || '표시 가능한 셀 수를 초과했습니다.'; } }, [pivotModel]);
-  const dirty = successRange && Object.keys(range).some((key) => range[key] !== successRange[key]);
+  const renderLimitError = calculation.error;
   const updateRange = (key, value) => setRange((previous) => ({...previous,[key]:value}));
   const changeWidth = useCallback((id, startX, startWidth) => {
     const preferenceKey = pivotResizePreferenceKey(id, zones.rows);
@@ -464,12 +470,13 @@ export default function PivotExePanel() {
     if (decimals === 0) setDecimals(previousNonzeroDecimals || 2);
     else { setPreviousNonzeroDecimals(decimals); setDecimals(0); }
   };
-  if (!layoutHydrated) return <main data-testid="pivot-exe-hydrating" role="status" style={{padding:12}}>사용자별 피벗 설정과 현재 차수 자료를 자동으로 불러오는 중…</main>;
+  if (!layoutHydrated) return <main data-testid="pivot-exe-hydrating" role="status" style={{padding:12}}>사용자별 피벗 설정과 현재 차수 자료를 자동으로 불러오는 중…<PivotLoadingOverlay visible percent={0} /></main>;
   return <main style={{padding:'8px 12px 14px',minWidth:0}}>
+    <PivotLoadingOverlay visible={loadingVisible} percent={loadingPercent} onCancel={loadingPercent<100?cancelLoading:undefined} />
     <div style={toolbarStyle}><b style={{fontSize:14}}>전산 피벗</b><span style={{fontSize:11,color:'#667'}}>nenova.exe FormQuantityPivot · 읽기 전용</span>
       <RangeSelect label="시작" year={range.fromYear} week={range.fromWeek} weeks={weeks} onYear={(value)=>updateRange('fromYear',value)} onWeek={(value)=>updateRange('fromWeek',value)} />
       <RangeSelect label="종료" year={range.toYear} week={range.toWeek} weeks={weeks} onYear={(value)=>updateRange('toYear',value)} onWeek={(value)=>updateRange('toWeek',value)} />
-      <button data-testid="pivot-exe-refresh" className="btn btn-primary btn-sm" onClick={refresh} disabled={busy}>{busy ? '조회 중…' : '새로고침'}</button><button data-testid="pivot-exe-export" className="btn btn-sm" onClick={exportVisible} disabled={!successRange || exporting}>{exporting ? '엑셀 생성…' : '엑셀'}</button>
+      <button data-testid="pivot-exe-refresh" className="btn btn-primary btn-sm" onClick={refresh} disabled={busy}>{busy ? '조회 중…' : '새로고침'}</button><button data-testid="pivot-exe-export" className="btn btn-sm" onClick={exportVisible} disabled={!calculation.ready || calculation.pending || exporting}>{exporting ? '엑셀 생성…' : '엑셀'}</button>
       <button data-testid="pivot-exe-field-list" className="btn btn-sm" onClick={()=>setFieldList(true)}>필드 목록</button><button data-testid="pivot-exe-filter-editor" className="btn btn-sm" onClick={()=>{setDraftAst(ast);setFilterOpen(true);}}>필터 편집</button><button className="btn btn-sm" onClick={()=>typeof window !== 'undefined' && window.close()}>닫기</button>
     </div>
     <div style={{fontSize:11,color:'#52647a',margin:'6px 0 3px'}}>nenova.exe처럼 <b>필드 버튼 전체를 마우스로 잡아</b> 아래 고정된 위치에 놓으세요. <b>행은 왼쪽, 열은 위쪽, 값은 숫자 영역</b>입니다. 파란 삽입선이 실제 위치를 표시하며 오른쪽 <b>▼</b>는 실제 값 필터입니다.</div>
@@ -505,8 +512,8 @@ export default function PivotExePanel() {
     {sourceWarnings.length > 0 && <div data-testid="pivot-exe-source-warning" style={noticeError}>{sourceWarnings.join(' ')}</div>}
     <details style={{fontSize:11,marginBottom:6}}><summary>EXE 원본 수량 안내</summary>미발주 구분은 EXE처럼 <code>NoneOutQuantity &gt; 0</code>일 때의 <code>OutQuantity</code>를 표시합니다. 수량 의미를 웹에서 변경하지 않습니다.</details>
     {successRange && <div style={{display:'flex',gap:5,marginBottom:5}}><button data-testid="pivot-exe-expand-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(new Set());setCollapsedCols(new Set());}}>모두 펼침</button><button data-testid="pivot-exe-collapse-all" className="btn btn-sm" onClick={()=>{setCollapsedRows(getPivotExeGroupKeys(pivotModel,'row'));setCollapsedCols(getPivotExeGroupKeys(pivotModel,'column'));}}>모두 접기</button><span style={{fontSize:11,color:'#667',paddingTop:4}}>표시 행 {pivotModel.rowAxis.length} / 필터 결과 {pivotModel.filteredRowCount}행</span></div>}
-    {successRange && renderLimitError && <div style={noticeError}>{renderLimitError} 범위를 좁히거나 필터를 적용하세요. 데이터는 잘리지 않았습니다.</div>}
-    {successRange && !renderLimitError && <PivotExeGrid model={pivotModel} zones={zones} decimals={decimals} zeroVisible={zeroVisible} widths={widths} rowHeight={rowHeight} custHeaderHeight={custHeaderHeight} onResize={changeWidth} onCustHeaderResize={changeCustHeaderHeight} onFieldMenu={openFieldMenu} onFilter={openValueFilter} onBestFit={bestFit} onToggleRow={toggleRow} onToggleColumn={toggleColumn} sorts={sorts} selections={selections} filterActive={filterActive} valueFilterStates={valueFilterStates} />}
+    {successRange && renderLimitError && <div role="alert" style={noticeError}>{renderLimitError} 범위를 좁히거나 필터를 확인하세요. <button className="btn btn-sm" onClick={calculation.retry}>집계 다시 시도</button></div>}
+    {calculation.ready && !renderLimitError && <PivotExeGrid model={pivotModel} zones={zones} decimals={decimals} zeroVisible={zeroVisible} widths={widths} rowHeight={rowHeight} custHeaderHeight={custHeaderHeight} onResize={changeWidth} onCustHeaderResize={changeCustHeaderHeight} onFieldMenu={openFieldMenu} onFilter={openValueFilter} onBestFit={bestFit} onToggleRow={toggleRow} onToggleColumn={toggleColumn} sorts={sorts} selections={selections} filterActive={filterActive} valueFilterStates={valueFilterStates} />}
     {fieldMenu && <FieldMenu field={BY_ID[fieldMenu.id]} aggregation={zones.values.find((value)=>value.id===fieldMenu.id)?.aggregation} sort={sorts[fieldMenu.id]} popupRef={fieldMenuRef} position={fieldMenuPosition} onAggregation={(id,aggregation)=>setZones((previous)=>({...previous,values:previous.values.map((value)=>value.id===id?{...value,aggregation}:value)}))} onClose={closeFieldMenu} onMove={moveField} onHide={hideField} onSort={(id,direction)=>{setValueOrders((previous)=>{const next={...previous};delete next[id];return next;});setSorts((previous)=>{const next={...previous}; if (direction) next[id]=direction; else delete next[id]; return next;});}} onBestFit={bestFit} onFilter={(id,event)=>openValueFilter(id,event,fieldMenu.anchor)} onReorder={reorder} />}
     {filterField && <FilterValueDialog key={filterField.id} field={BY_ID[filterField.id]} values={valuesByField[filterField.id] || []} selected={selections[filterField.id]} valueOrder={valueOrders[filterField.id]} sort={sorts[filterField.id]} rawValue={rawOrderValue} rawValues={rawOrderValues} popupRef={valueFilterRef} position={valueFilterPosition} onClose={closeValueFilter} onClear={()=>{setSelections((previous)=>{const next={...previous}; delete next[filterField.id]; return next;});closeValueFilter();}} onApply={(accepted,order,direction)=>{setFilterActive(true);setSelections((previous)=>applyPivotValueSelection(previous,filterField.id,accepted,valuesByField[filterField.id] || []));setValueOrders((previous)=>{const next={...previous};if(order.length) next[filterField.id]=order;else delete next[filterField.id];return next;});setSorts((previous)=>{const next={...previous};if(direction) next[filterField.id]=direction;else delete next[filterField.id];return next;});closeValueFilter();}} />}
     {fieldList && <FieldList zones={zones} hidden={hidden} onClose={()=>setFieldList(false)} onMove={moveField} onHide={hideField} />}

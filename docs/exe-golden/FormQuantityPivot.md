@@ -1,5 +1,10 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-28 로딩 표시
+
+- dnSpy.Console FormQuantityPivot GetData/ViewOrder/ViewWarehouse/ExportToXlsx 재확인. 원본8,066행/콜롬비아장미 입고01차4,858·02차4,330 읽기 probe 재확인.
+- 필터·모델 함수를 동일하게 worker에서 호출하고 화면 표시 후만100%. 단계 진행률은 서버 처리량 백분율이 아니다. SQL/ERP/단위/집계 정책 보존. worker 전송에서 lazy aoa 제외.
+
 ## 2026-09-28 필터 요약·메인차수 합산
 
 - 실제 dnSpy.Console --no-color -t FormQuantityPivot 재실행: GetData 입고는 ViewWarehouse.OutQuantity/FarmName, 주문은 ViewOrder.OutQuantity/CustName, btnExcel_Click WYSIWYG 확인.
