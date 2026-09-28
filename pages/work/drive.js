@@ -1,9 +1,10 @@
 // pages/work/drive.js
 // 업무 드라이브 — 직원 PC에서 자동 업로드된 업무 파일을 "연도·차수 × 단계 × 사람"으로 본다.
-// 상단: 범위(내/부서/전체) · 사람 칩 · 검색 · 보기(칸반/목록/최근) / 좌: 연도별 차수 타임라인 + 차수 없음 + (사장) PC별 업로드 현황
+// 상단: 범위·사람·검색·보기 / 좌: 연도별 차수 / 우측 끝: 접을 수 있는 관리자 PC 현황
 // 중: 선택 차수의 단계 요약띠 + 칸반 또는 표 / 우: 파일 상세(버전·내려받기·교정)
 // 접근 범위는 서버(lib/workDrive)가 이미 걸러서 준다 — 화면은 받은 것만 보여준다.
 import { useEffect, useMemo, useState } from 'react';
+import { fileSubcategory, filterCategories, subcategoryCounts } from '../../lib/workDriveCategories';
 
 const fmtT = (t) => { try { return new Date(t).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }); } catch { return ''; } };
 const fmtD = (t) => { try { return new Date(t).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }); } catch { return ''; } };
@@ -46,6 +47,9 @@ export default function WorkDrivePage() {
   const [sel, setSel] = useState(null);
   const [log, setLog] = useState(null);
   const [busy, setBusy] = useState('');
+  const [subF, setSubF] = useState('');
+  const [hostsOpen, setHostsOpen] = useState(true);
+  const chooseStage = (value) => { setStageF(value); setSubF(''); };
 
   const load = async () => {
     try { const r = await fetch('/api/work/drive'); const j = await r.json(); if (!j.success) throw new Error(j.error || '실패'); setData(j); setErr(''); }
@@ -69,7 +73,7 @@ export default function WorkDrivePage() {
     .filter((f) => !q || f.filename.toLowerCase().includes(q.toLowerCase()) || (f.uploaderName || '').includes(q) || (f.cycle || '') === q), [files, scope, who, q, data, deptF, extF, dirF, since, sensF, verF, verCount]);
   const dirs = useMemo(() => { const m = {}; for (const f of files) if (f.sourceDir) m[f.sourceDir] = (m[f.sourceDir] || 0) + 1; return Object.entries(m).filter(([, n]) => n >= 5).sort((a, b) => b[1] - a[1]).slice(0, 30); }, [files]); // 5건 이상 폴더만, 많은 순 30개
   const anyF = !!(deptF || extF || dirF || periodF || sensF || verF || stageF);
-  const clearF = () => { setDeptF(''); setExtF(''); setDirF(''); setPeriodF(''); setSensF(''); setVerF(''); setStageF(''); };
+  const clearF = () => { setDeptF(''); setExtF(''); setDirF(''); setPeriodF(''); setSensF(''); setVerF(''); chooseStage(''); };
 
   // 사람 칩(범위 안에서) · 연도별 차수 · PC별 업로드 현황(사장)
   const people = useMemo(() => { const m = new Map(); for (const f of files.filter((f) => scope === 'all' ? true : scope === 'mine' ? f.uploaderName === data?.me : (f.dept === data?.dept || f.uploaderName === data?.me))) if (f.uploaderName) { const p = m.get(f.uploaderName) || { name: f.uploaderName, dept: f.dept, n: 0, last: '' }; p.n++; if (f.uploadedAt > p.last) p.last = f.uploadedAt; m.set(f.uploaderName, p); } return [...m.values()].sort((a, b) => b.n - a.n); }, [files, scope, data]);
@@ -89,11 +93,13 @@ export default function WorkDrivePage() {
 
   // 표 데이터: 검색 중이거나 차수 없음이거나 목록 보기 → 표, 최근 보기 → 최근 200건
   const showList = view === 'list' || cur === NONE || !!q;
+  const categoryBase = view === 'recent' || q ? scoped : inCycle;
+  const categoryRows = filterCategories(categoryBase, stageF, subF);
   const listRows = useMemo(() => {
-    const base = view === 'recent' ? [...scoped] : (q ? scoped : inCycle).filter((f) => !stageF || f.stage === stageF);
-    const [k, d] = sort; const val = (f) => (k === 'cycle' ? cycleKey(f.cycle) : k === 'size' ? f.size : String(f[k] || ''));
+    const base = filterCategories(view === 'recent' || q ? scoped : inCycle, stageF, subF);
+    const [k, d] = sort; const val = (f) => (k === 'cycle' ? cycleKey(f.cycle) : k === 'size' ? f.size : k === 'stage' ? fileSubcategory(f) : String(f[k] || ''));
     return base.sort((a, b) => (val(a) > val(b) ? d : val(a) < val(b) ? -d : 0)).slice(0, view === 'recent' ? 200 : 2000);
-  }, [scoped, inCycle, view, q, stageF, sort]);
+  }, [scoped, inCycle, view, q, stageF, subF, sort]);
 
   const fix = async (id, patch) => { const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) }); const j = await r.json(); if (!j.success) { alert(j.error); return; } await load(); if (sel?.id === id) setSel(j.item); };
   const reclassAll = async () => { if (!confirm('규칙으로 전체 재분류할까요? 손으로 고친 파일은 그대로 둡니다.')) return; setBusy('재분류 중…'); const r = await fetch('/api/work/drive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reclassifyAll' }) }); const j = await r.json(); setBusy(''); alert(j.success ? `검사 ${j.scanned}건 · 바뀜 ${j.changed}건` : j.error); await load(); };
@@ -137,7 +143,7 @@ export default function WorkDrivePage() {
   const Card = ({ f }) => (
     <div className={'card' + (sel?.id === f.id ? ' on' : '')} onClick={() => pick(f)} title={f.filename}>
       <div className="row"><Badge f={f} sm /><span className="fn">{f.filename}</span></div>
-      <div className="meta"><Avatar name={f.uploaderName} />{f.uploaderName || '?'}<span>·</span>{fmtT(f.uploadedAt)}{f.version > 1 && <span className="pill">v{f.version}</span>}{f.sensitive && <span className="pill lock">🔒 민감</span>}</div>
+      <div className="meta"><span>{fileSubcategory(f)}</span><span>·</span><Avatar name={f.uploaderName} />{f.uploaderName || '?'}<span>·</span>{fmtT(f.uploadedAt)}{f.version > 1 && <span className="pill">v{f.version}</span>}{f.sensitive && <span className="pill lock">🔒 민감</span>}</div>
     </div>
   );
   const Row = ({ f, withCycle }) => (
@@ -145,20 +151,34 @@ export default function WorkDrivePage() {
       <td className="fn" title={f.filename}><Badge f={f} sm /><span className="name">{f.filename}</span>{f.version > 1 && <span className="pill">v{f.version}</span>}{f.sensitive && <span className="pill lock">🔒</span>}</td>
       <td><span className="who"><Avatar name={f.uploaderName} />{f.uploaderName || '?'}</span></td>
       {withCycle && <td>{f.cycle ? <span className="pill cyc">{f.cycle}</span> : <span className="dim">—</span>}</td>}
-      <td><span className="stg"><Dot s={f.stage} />{f.stage}</span></td>
+      <td title={`${f.stage} › ${fileSubcategory(f)}`}><span className="stg"><Dot s={f.stage} />{fileSubcategory(f) || f.stage}</span></td>
       <td className="dim" title={fmtT(f.uploadedAt)}>{view === 'recent' ? ago(f.uploadedAt) : fmtT(f.uploadedAt)}</td>
       <td className="dim r">{fmtS(f.size)}</td>
     </tr>
   );
   const Table = ({ rows, withCycle }) => rows.length === 0 ? <div className="empty-state">조건에 맞는 파일이 없습니다</div> : (
-    <div className="tbl-wrap"><table className="lst"><thead><tr>{th('filename', '파일')}{th('uploaderName', '올린 사람')}{withCycle && th('cycle', '차수')}{th('stage', '단계')}{th('uploadedAt', '올린 시각')}{th('size', '크기')}</tr></thead>
+    <div className="tbl-wrap"><table className="lst"><thead><tr>{th('filename', '파일')}{th('uploaderName', '올린 사람')}{withCycle && th('cycle', '차수')}{th('stage', '세부 분류')}{th('uploadedAt', '올린 시각')}{th('size', '크기')}</tr></thead>
       <tbody>{rows.map((f) => <Row key={f.id} f={f} withCycle={withCycle} />)}</tbody></table></div>
   );
   const Sel = ({ value, onChange, children }) => <select className={'sel' + (value ? ' on' : '')} value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>;
 
   const curWed = cur && cur !== NONE ? cycleWed(parseInt(cur.split(':')[0], 10), cur.split(':')[1]) : null;
   const curLabel = cur === NONE ? '차수 없는 파일' : cur ? `${cur.split(':')[0]}년 ${cur.split(':')[1]}차` : '';
-  const sc = stageCount(inCycle);
+  const sc = stageCount(categoryBase);
+  const visibleCounts = stageCount(categoryRows);
+  const subCounts = subcategoryCounts(categoryBase, stageF);
+  const categoryTabs = <div className="category-nav" aria-label="파일 분류">
+    <div className="strip" role="group" aria-label="대분류">
+      <button className={'stg-chip' + (!stageF ? ' on' : '')} aria-pressed={!stageF} onClick={() => chooseStage('')}>전체 <em>{categoryBase.length}</em></button>
+      {stages.map((s) => <button key={s} className={'stg-chip' + (stageF === s ? ' on' : '') + (!sc[s] ? ' zero' : '')} aria-pressed={stageF === s} onClick={() => chooseStage(s)}><Dot s={s} />{s}<em>{sc[s]}</em></button>)}
+    </div>
+    {stageF ? <div className="subtabs" role="group" aria-label={`${stageF} 세부 분류`}>
+      <strong>{stageF}</strong>
+      <button className={!subF ? 'on' : ''} aria-pressed={!subF} onClick={() => setSubF('')}>전체 {sc[stageF]}</button>
+      {Object.entries(subCounts).map(([label, n]) => <button key={label} className={subF === label ? 'on' : ''} aria-pressed={subF === label} onClick={() => setSubF(label)}>{label} <span>{n}</span></button>)}
+      <small>파일명 기준 · 기존 분류 유지</small>
+    </div> : <div className="category-hint">대분류를 누르면 세부 분류로 좁혀 볼 수 있습니다.</div>}
+  </div>;
   const stale = (t) => Date.now() - new Date(t) > 3 * 86400e3;
 
   return (
@@ -182,7 +202,7 @@ export default function WorkDrivePage() {
         {people.length > 1 && <div className="chips">{people.map((p) => <button key={p.name} className={who === p.name ? 'on' : ''} onClick={() => setWho(who === p.name ? '' : p.name)} title={`${p.dept || ''} · 마지막 ${fmtT(p.last)}`}><Avatar name={p.name} />{p.name}<em>{p.n}</em></button>)}</div>}
         <span className="sep" />
         <Sel value={deptF} onChange={setDeptF}><option value="">부서</option>{[...new Set(files.map((f) => f.dept).filter(Boolean))].map((d) => <option key={d}>{d}</option>)}</Sel>
-        <Sel value={stageF} onChange={setStageF}><option value="">단계</option>{stages.map((s) => <option key={s}>{s}</option>)}</Sel>
+        <Sel value={stageF} onChange={chooseStage}><option value="">대분류</option>{stages.map((s) => <option key={s}>{s}</option>)}</Sel>
         <Sel value={extF} onChange={setExtF}><option value="">종류</option><option value="xls">엑셀·CSV</option><option value="pdf">PDF</option><option value="doc">문서·PPT</option><option value="img">이미지</option><option value="etc">기타</option></Sel>
         <Sel value={dirF} onChange={setDirF}><option value="">폴더</option>{dirs.map(([d, n]) => <option key={d} value={d}>{d} ({n})</option>)}</Sel>
         <Sel value={periodF} onChange={setPeriodF}><option value="">기간</option><option value="1">오늘</option><option value="7">최근 7일</option><option value="30">최근 30일</option></Sel>
@@ -195,11 +215,7 @@ export default function WorkDrivePage() {
 
       <div className="body">
         {/* ── 사이드바 ── */}
-        <aside className="left">
-          {data?.isAdmin && <section>
-            <div className="sec">PC별 업로드</div>
-            <div className="hosts">{hosts.map((h) => <div key={h.name + h.host} className="host"><i className={'st' + (stale(h.last) ? ' off' : '')} /><div className="hn">{h.name}<small>{h.host}</small></div><div className="hv"><b>{h.today}</b>/{h.n}<small>{ago(h.last)}</small></div></div>)}</div>
-          </section>}
+        <aside className="left" aria-label="연도별 차수">
           <section className="grow">
             <div className="sec">차수 <span>{allCk.length}</span></div>
             <div className="cyc">
@@ -212,6 +228,7 @@ export default function WorkDrivePage() {
 
         {/* ── 본문 ── */}
         <main className="main">
+          {view !== 'security' && categoryTabs}
           {view === 'security' && data?.isAdmin ? <>
             <div className="h2">보안 이력 <span className="dim">{eg ? `${eg.length}건` : '…'} · 파일이 어디로 나갔는지(복사·인쇄·이메일·웹·카톡·내려받기). 차단하지 않고 기록만 남깁니다</span></div>
             <div className="strip">
@@ -246,13 +263,13 @@ export default function WorkDrivePage() {
             </div></div>}
           </> : view === 'recent' ? <>
             <div className="h2">최근 올라온 파일 <span className="dim">{listRows.length}건 · 최신순</span></div>
+            {listRows.length === 0 && <div className="empty-state">조건에 맞는 파일이 없습니다</div>}
             {Object.entries(listRows.reduce((m, f) => { (m[dayKey(f.uploadedAt)] ||= []).push(f); return m; }, {})).map(([d, rows]) => <section key={d} className="daysec"><div className="day">{d === today ? '오늘' : fmtD(d)} <em>{rows.length}</em></div><Table rows={rows} withCycle /></section>)}
-          </> : !cur ? <div className="empty-state">파일이 아직 없습니다. 직원 PC에서 업무 파일이 저장되면 자동으로 여기에 쌓입니다.</div> : <>
-            <div className="h2">{q ? <>&ldquo;{q}&rdquo; 검색 결과</> : curLabel}{!q && curWed && <span className="wed">기준 수요일 {curWed.getMonth() + 1}월 {curWed.getDate()}일</span>} <span className="dim">{(q ? scoped : inCycle).length}개</span></div>
-            {!q && <div className="strip">{[...stages.filter((s) => sc[s] > 0), ...stages.filter((s) => sc[s] === 0 && s !== '미분류')].map((s) => <button key={s} className={'stg-chip' + (stageF === s ? ' on' : '') + (sc[s] === 0 ? ' zero' : '')} onClick={() => setStageF(stageF === s ? '' : s)}><Dot s={s} />{s}<em>{sc[s]}</em></button>)}</div>}
+          </> : !cur && !q ? <div className="empty-state">차수 파일이 없습니다. 왼쪽 ‘차수 없음’에서도 확인해 주세요.</div> : <>
+            <div className="h2">{q ? <>&ldquo;{q}&rdquo; 검색 결과</> : curLabel}{!q && curWed && <span className="wed">기준 수요일 {curWed.getMonth() + 1}월 {curWed.getDate()}일</span>} <span className="dim">{categoryRows.length}개{stageF ? ` · ${stageF}${subF ? ' › ' + subF : ''}` : ''}</span></div>
             {showList ? <Table rows={listRows} withCycle={!!q || cur === NONE} /> : (
               <div className="kanban">
-                {[...stages.filter((s) => sc[s] > 0), ...stages.filter((s) => sc[s] === 0 && s !== '미분류')].filter((s) => !stageF || s === stageF).map((s) => <div className={'col' + (s === '미분류' ? ' un' : '') + (sc[s] === 0 ? ' zero' : '')} key={s}><div className="ch"><Dot s={s} />{s}<em>{sc[s]}</em></div>{sc[s] === 0 ? <div className="empty">비어 있음</div> : inCycle.filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
+                {stages.filter((s) => !stageF || s === stageF).map((s) => <div className={'col' + (s === '미분류' ? ' un' : '') + (!visibleCounts[s] ? ' zero' : '')} key={s}><div className="ch"><Dot s={s} />{s}<em>{visibleCounts[s]}</em></div>{!visibleCounts[s] ? <div className="empty">조건에 맞는 파일 없음</div> : categoryRows.filter((f) => f.stage === s).map((f) => <Card key={f.id} f={f} />)}</div>)}
               </div>)}
           </>}
         </main>
@@ -268,6 +285,7 @@ export default function WorkDrivePage() {
             <dt>올린 사람</dt><dd><Avatar name={sel.uploaderName} />{sel.uploaderName || '?'} {sel.dept && <span className="dim">· {sel.dept}</span>}</dd>
             <dt>PC · 폴더</dt><dd>{sel.hostname} <span className="dim">· {sel.sourceDir}</span></dd>
             <dt>차수</dt><dd>{sel.cycle ? `${sel.year}년 ${sel.cycle}차` : <span className="dim">없음</span>}</dd>
+            <dt>세부 분류</dt><dd>{fileSubcategory(sel)} <span className="dim">· 파일명 기준</span></dd>
             <dt>단계</dt><dd><span className="stg"><Dot s={sel.stage} />{sel.stage}</span> <span className="dim">{sel.correctedBy && sel.correctedBy !== 'auto-reclassify' ? '· 사람이 교정' : `· 자동 ${Math.round((sel.confidence || 0) * 100)}%`}</span></dd>
             <dt>크기 · 버전</dt><dd>{fmtS(sel.size)} · v{sel.version}</dd>
             <dt>파일 수정</dt><dd>{sel.mtime ? fmtT(sel.mtime) : '—'}</dd>
@@ -285,6 +303,10 @@ export default function WorkDrivePage() {
           {data?.isAdmin && tl && <div className="log"><div className="sec">파일 흐름 {tl.length}건</div>{tl.map((t, i) => <div key={i} className="dim"><span style={{ color: (EG_LABEL[t.kind] || [])[1] }}>● {(EG_LABEL[t.kind] || [t.kind])[0]}</span> {fmtT(t.at)} · {t.userName} {t.detail && <span>· {t.detail}</span>}</div>)}</div>}
           {log && <div className="log"><div className="sec">내려받기 {log.length}건</div>{log.length === 0 && <div className="dim">없음</div>}{log.map((l, i) => <div key={i} className="dim">{fmtT(l.at)} · {l.byName || l.by}</div>)}</div>}
           <div className="vers"><div className="sec">같은 이름 버전</div>{files.filter((f) => f.filename === sel.filename && f.uploaderName === sel.uploaderName).sort((a, b) => b.version - a.version).map((f) => <div key={f.id} className={'ver' + (f.id === sel.id ? ' on' : '')} onClick={() => pick(f)}><span className="pill">v{f.version}</span>{fmtT(f.uploadedAt)}<span className="dim">· {fmtS(f.size)}</span></div>)}</div>
+        </aside>}
+        {data?.isAdmin && <aside className={'pc-panel' + (hostsOpen ? '' : ' collapsed')} aria-label="PC별 업로드 현황">
+          <button className="pc-toggle" aria-expanded={hostsOpen} onClick={() => setHostsOpen(!hostsOpen)}>{hostsOpen ? 'PC별 업로드 ▸' : 'PC ◂'}</button>
+          {hostsOpen && <><div className="pc-note">오늘 / 전체 파일 · 마지막 업로드</div><div className="hosts">{hosts.map((h) => <div key={h.name + '@' + h.host} className="host"><i className={'st' + (stale(h.last) ? ' off' : '')} /><div className="hn">{h.name}<small title={h.host}>{h.host}</small></div><div className="hv"><b>{h.today}</b>/{h.n}<small>{ago(h.last)}</small></div></div>)}</div></>}
         </aside>}
       </div>
 
@@ -315,7 +337,11 @@ button{font:inherit;color:inherit}
 .cnt{margin-left:auto;color:var(--mu);font-variant-numeric:tabular-nums}
         /* 레이아웃 */
 .body{display:flex;flex:1 1 auto;min-height:0}
-.left{flex:0 0 232px;display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--ln);background:var(--sf);overflow:auto}
+.left{flex:0 0 190px;display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--ln);background:var(--sf);overflow:auto}
+.pc-panel{flex:0 0 196px;min-width:0;overflow:auto;border-left:1px solid var(--ln);padding:10px 6px;background:#fafbfc}.pc-panel.collapsed{flex-basis:54px;padding:10px 3px}
+.pc-toggle{width:100%;text-align:left;border:0;background:transparent;color:var(--mu);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:5px}.pc-note{font-size:10px;color:var(--mu);padding:4px 5px 8px}.hn small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.category-nav{margin-bottom:12px}.category-nav .strip{margin-bottom:6px}.category-hint{font-size:11px;color:var(--mu)}
+.subtabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px;background:var(--sf);border:1px solid var(--ln);border-radius:10px}.subtabs strong{font-size:12px;margin-right:4px}.subtabs button{border:1px solid var(--ln);border-radius:6px;padding:5px 9px;background:var(--sf);font:inherit;cursor:pointer}.subtabs button.on{border-color:var(--ac);background:var(--acs);color:#2450c8;font-weight:600}.subtabs small{font-size:10px;color:var(--mu)}
 .left section{padding:10px 10px 6px}.left section.grow{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
 .sec{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--mu);margin:0 4px 6px;display:flex;justify-content:space-between}
 .hosts{display:flex;flex-direction:column;gap:2px}.host{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:8px}.host:hover{background:var(--bg)}
@@ -369,8 +395,8 @@ button{font:inherit;color:inherit}
 .wd :global(td.where){white-space:normal;max-width:380px;line-height:1.35}
 .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:center;justify-content:center}.modal{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .log,.vers{margin-top:16px;font-size:12px}.ver{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px;cursor:pointer}.wd :global(.ver .pill){margin:0}.ver:hover{background:var(--bg)}.ver.on{background:var(--acs)}
-        @media (max-width:1200px){.right{position:fixed;right:0;top:60px;bottom:0;width:min(360px,92vw);box-shadow:-8px 0 24px rgba(16,24,40,.12);z-index:20}}
-        @media (max-width:900px){.body{flex-direction:column}.left{flex:0 0 auto;border-right:0;border-bottom:1px solid var(--ln);max-height:38vh}.left section.grow{min-height:160px}}
+        @media (max-width:1500px){.right{position:fixed;right:0;top:60px;bottom:0;width:min(360px,92vw);box-shadow:-8px 0 24px rgba(16,24,40,.12);z-index:20}}
+        @media (max-width:900px){.body{flex-direction:column}.left{flex:0 0 auto;border-right:0;border-bottom:1px solid var(--ln);max-height:24vh}.left section.grow{min-height:120px}.cyc{min-height:60px}.pc-panel,.pc-panel.collapsed{flex:0 0 auto;max-height:18vh;border-left:0;border-top:1px solid var(--ln)}.main{min-height:180px}.wd{height:auto;min-height:calc(100vh - 60px)}.body{min-height:0}.main{overflow:visible}.pc-panel .hosts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}}
       `}</style>
     </div>
   );
