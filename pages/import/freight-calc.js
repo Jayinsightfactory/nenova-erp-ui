@@ -1,5 +1,5 @@
 // pages/import/freight-calc.js
-// AWB 항공운임 계산기 — 가브리엘의 `NN차 콜롬비아 AWB운임비.xlsx`(시트마다 AWB 하나)를 웹으로 재현.
+// AWB 항공운임 계산기 — 아드리아나의 `NN차 콜롬비아 AWB운임비.xlsx`(시트마다 AWB 하나)를 웹으로 재현.
 //   입력: AWB 상 운임비(USD)·박스 토탈·박스 중량(kg)·백상 창고비(원/박스)·선율 비용(원)·환율  ← 원본 시트의 노란 입력칸
 //   원자료: 해당 차수 원장(WarehouseMaster/Detail)에서 AWB별 농장 × 품목군 박스 수 자동 집계(/api/incoming/insight?view=awbcalc)
 //   산식(원본 그대로): 박스당 운임 = 운임비/박스 · 박스당 kg = 중량/박스 · 백상 = 박스×(백상단가) · 선율 = 선율비용×(농장박스/총박스) · 백상+선율

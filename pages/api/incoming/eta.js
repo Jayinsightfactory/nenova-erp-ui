@@ -12,7 +12,7 @@ import { normalizeOrderWeek } from '../../../lib/orderUtils';
 import { listVisible } from '../../../lib/workDrive';
 
 const FILE = path.join(process.cwd(), 'data', 'incoming-eta.json');
-// 드라이브 자동 인식: 수입부(가브리엘)가 매 선적마다 만드는 운임 시트 파일명 규칙 `33-02_Apollo_AWB_006-45462001.xlsx`
+// 드라이브 자동 인식: 수입부(아드리아나)가 매 선적마다 만드는 운임 시트 파일명 규칙 `33-02_Apollo_AWB_006-45462001.xlsx`
 //   → 차수·포워더·AWB. 연도는 파일명에 없어 업로드 시각(mtime)의 연도로 본다. 이미 등록된 AWB(또는 원장 AWB)면 제안하지 않는다.
 const AWB_FILE_RE = /^(\d{2})-(\d{2})_(.+?)_AWB_?\.?\s?([\d.\- ]{8,})/i;
 // IATA 항공사 접두 3자리 → 항공사(실제 AWB에서 확인된 것만; 모르면 빈 값)
