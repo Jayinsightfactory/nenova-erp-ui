@@ -2,40 +2,34 @@
   "id": "orbit-MNMSAQJD78E544A631-2",
   "dept": "경영지원",
   "owner": "강명훈",
-  "title": "지출결의서 작성 및 해외 송금 대사",
-  "summary": "물류비·거래처 대금 등 경비 청구가 발생했을 때 / 관찰 기간 중 다수 반복 (하루 5회 이상 관찰)",
-  "frequency": "관찰 기간 중 다수 반복 (하루 5회 이상 관찰)",
+  "title": "해외 발주 ETA 및 선적서류(AWB/CI) 확인",
+  "summary": "해외 공급업체로부터 발주/배송 관련 메일 수신 시 / 거의 매일 관측",
+  "frequency": "거의 매일 관측",
   "tools": [
-    "Excel(OneDrive/Google Drive)",
-    "Windows 계산기"
+    "Naver Worksmobile Mail",
+    "Gmail",
+    "Google Drive (PDF 뷰어)"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "Excel 지출결의서 양식에 날짜, 사원명(예: 진현철/윤현위), 거래처",
-      "detail": "Excel 지출결의서 양식에 날짜, 사원명(예: 진현철/윤현위), 거래처명(예: APOLLO FREIGHT ECUADOR AFREC SA) 입력",
-      "app": "Excel(OneDrive/Google Drive)",
+      "title": "Naver Worksmobile Mail 또는 Gmail 받은메일함에서 ",
+      "detail": "Naver Worksmobile Mail 또는 Gmail 받은메일함에서 'Purchase Order ETA', 'Missing Orders' 관련 메일 목록 확인",
+      "app": "Naver Worksmobile Mail",
       "check": ""
     },
     {
       "no": 2,
-      "title": "Windows 계산기로 금액 계산 후 해당 셀에 입력 (예: 5,600,",
-      "detail": "Windows 계산기로 금액 계산 후 해당 셀에 입력 (예: 5,600,000원)",
-      "app": "Excel(OneDrive/Google Drive)",
+      "title": "Google Drive에서 해당 입고 건의 AWB(항공운송장)/CI(상업",
+      "detail": "Google Drive에서 해당 입고 건의 AWB(항공운송장)/CI(상업송장) 문서를 열람",
+      "app": "Naver Worksmobile Mail",
       "check": ""
     },
     {
       "no": 3,
-      "title": "해외 꽃 거래처별 외화 결제 금액(D열)과 은행송금코드 매칭표(I~J열)",
-      "detail": "해외 꽃 거래처별 외화 결제 금액(D열)과 은행송금코드 매칭표(I~J열)를 대조",
-      "app": "Excel(OneDrive/Google Drive)",
-      "check": ""
-    },
-    {
-      "no": 4,
-      "title": "비고란(E~H열)에 송금일자 입력/확인, 비어있는 행(예: ZELECTA",
-      "detail": "비고란(E~H열)에 송금일자 입력/확인, 비어있는 행(예: ZELECTA TRADING GROUP E10) 채움",
-      "app": "Excel(OneDrive/Google Drive)",
+      "title": "운송번호, 수량, 무게, 통관지 정보를 확인",
+      "detail": "운송번호, 수량, 무게, 통관지 정보를 확인",
+      "app": "Naver Worksmobile Mail",
       "check": ""
     }
   ],
@@ -43,11 +37,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "2026-09-02T04:45 'APOLLO FREIGHT 물류비용 입력, 계산기로 금액 5,600,000 계산 및 셀 입력'; 2026-09-02T05:08 'ZELECTA TRADING GROUP 행(E10)에 날짜를 입력하려고... 확인 중'"
+      "2026-09-22T02:03 '콜롬비아 31-1차 수국 항공운송장(AWB) 조회 - 운송번호, 수량, 무게, 통관지 확인', 2026-09-22T02:14 '33차 다국가 입고 관련 AWB 및 CI 문서 목록 재확인'"
     ]
   },
-  "confidence": "medium",
+  "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-10T04:47:16.455Z"
+  "generatedAt": "2026-09-26T13:35:09.282Z"
 }

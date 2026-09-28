@@ -2,34 +2,34 @@
   "id": "orbit-MNMRVD11EDCCF6E7CE-1",
   "dept": "수입부",
   "owner": "김원빈",
-  "title": "품종 사진·품질 불량 대조 확인",
-  "summary": "WhatsApp에 장미 사진이 오거나 카카오톡 불량공유방에 '중국' 등 키워드로 검색된 불량 사진이 공유될 때 / 1건 관찰",
-  "frequency": "1건 관찰",
+  "title": "중국 공급업체와 WeChat 발주 협의",
+  "summary": "위챗 단톡방(集鲜/BOAT-nenova, Nenova trio China)에 물량·규격·레드박스 여부 관련 메시지가 올라올 때 / 관찰 구간 내 반복(08:44~10:27 사이 다수)",
+  "frequency": "관찰 구간 내 반복(08:44~10:27 사이 다수)",
   "tools": [
+    "WeChat",
     "WhatsApp",
-    "카카오톡",
-    "Microsoft Excel"
+    "카카오톡"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "WhatsApp으로 수신한 장미 사진 확대 확인",
-      "detail": "WhatsApp으로 수신한 장미 사진 확대 확인",
-      "app": "WhatsApp",
+      "title": "단톡방에서 발주 물량 수정, 품종명(예: 百盛美的骄傲/Baishengme",
+      "detail": "단톡방에서 발주 물량 수정, 품종명(예: 百盛美的骄傲/Baishengmei's Pride), 생산기지 여부 확인",
+      "app": "WeChat",
       "check": ""
     },
     {
       "no": 2,
-      "title": "카카오톡 불량공유방에서 국가 키워드(예: '중국')로 검색해 불량 사진 ",
-      "detail": "카카오톡 불량공유방에서 국가 키워드(예: '중국')로 검색해 불량 사진 조회",
-      "app": "WhatsApp",
+      "title": "Chat History > Files 탭에서 발주/PI/은행정보 첨부파일",
+      "detail": "Chat History > Files 탭에서 발주/PI/은행정보 첨부파일 확인",
+      "app": "WeChat",
       "check": ""
     },
     {
       "no": 3,
-      "title": "배경에 열어둔 발주서 Excel(PEDIDO COLOMBIA)과 연결해 ",
-      "detail": "배경에 열어둔 발주서 Excel(PEDIDO COLOMBIA)과 연결해 어느 오더 건인지 확인",
-      "app": "WhatsApp",
+      "title": "필요시 WhatsApp으로 별도 품목/수량 전달 또는 한글버전 계약서 요",
+      "detail": "필요시 WhatsApp으로 별도 품목/수량 전달 또는 한글버전 계약서 요청",
+      "app": "WeChat",
       "check": ""
     }
   ],
@@ -37,11 +37,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "2026-09-10T08:36:12 WhatsApp+카카오톡 불량공유방 '36-2 중국 불량' 대조"
+      "08:47 레드박스 규격 확인 및 회신 작성, 08:56 생산기지명/품종 설명 확인, 09:08 Fade 발주 우선순위 조율 및 서명 요청 확인"
     ]
   },
   "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-10T12:44:48.187Z"
+  "generatedAt": "2026-09-26T05:35:09.346Z"
 }

@@ -2,41 +2,34 @@
   "id": "orbit-MNMRVD11EDCCF6E7CE-0",
   "dept": "수입부",
   "owner": "김원빈",
-  "title": "콜롬비아 장미 발주 수량 확정 및 Excel 반영",
-  "summary": "WhatsApp/카카오톡으로 공급업체(Karen)가 발주서 엑셀(오더번호 37-2, 38-1)과 수량표를 보내오거나, 카카오톡 수입팀 단톡방에 발주 로트(CL73, CL66) 메시지가 올라올 때 / 관찰 14일 중 09-10 새벽~오전 시간대에 반복 다수 발생",
-  "frequency": "관찰 14일 중 09-10 새벽~오전 시간대에 반복 다수 발생",
+  "title": "차수별 수입 물량 거래처 배분표 작성·공유",
+  "summary": "중국/콜롬비아/에콰도르 공급처로부터 차수(예: 37-1, 40-1, 41-1차) 입고·발주 물량이 확정되면 / 관찰 기간 중 거의 매시간대(05시~10시) 반복 등장 — 하루 중 가장 큰 비중",
+  "frequency": "관찰 기간 중 거의 매시간대(05시~10시) 반복 등장 — 하루 중 가장 큰 비중",
   "tools": [
-    "WhatsApp Desktop",
-    "카카오톡",
-    "Microsoft Excel(PEDIDO COLOMBIA)"
+    "Microsoft Excel",
+    "WeChat",
+    "카카오톡"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "WhatsApp에서 공급업체가 보낸 발주서 엑셀과 수량표 확인",
-      "detail": "WhatsApp에서 공급업체가 보낸 발주서 엑셀과 수량표 확인",
-      "app": "WhatsApp Desktop",
+      "title": "Excel에서 해당 차수 품목(장미/카네이션/스프레이장미 등)별 배분 시",
+      "detail": "Excel에서 해당 차수 품목(장미/카네이션/스프레이장미 등)별 배분 시트를 열어 조회",
+      "app": "Microsoft Excel",
       "check": ""
     },
     {
       "no": 2,
-      "title": "카카오톡 수입팀 단톡방의 발주 로트 메시지와 대조",
-      "detail": "카카오톡 수입팀 단톡방의 발주 로트 메시지와 대조",
-      "app": "WhatsApp Desktop",
+      "title": "품종·등급별 수량을 거래처 코드(CL코드)별로 나눠 기입/수정",
+      "detail": "품종·등급별 수량을 거래처 코드(CL코드)별로 나눠 기입/수정",
+      "app": "Microsoft Excel",
       "check": ""
     },
     {
       "no": 3,
-      "title": "Excel 'confirmado' 열에 확정 수량 입력/대조 (예: E4",
-      "detail": "Excel 'confirmado' 열에 확정 수량 입력/대조 (예: E4셀 Pink Dubai SELECT=12)",
-      "app": "WhatsApp Desktop",
-      "check": ""
-    },
-    {
-      "no": 4,
-      "title": "Excel과 WhatsApp을 동시에 열어 품종별 수량을 실시간으로 맞춰",
-      "detail": "Excel과 WhatsApp을 동시에 열어 품종별 수량을 실시간으로 맞춰가며 입력",
-      "app": "WhatsApp Desktop",
+      "title": "배분 결과 이미지 또는 파일을 WeChat/카카오톡으로 거래처 및 영업팀",
+      "detail": "배분 결과 이미지 또는 파일을 WeChat/카카오톡으로 거래처 및 영업팀에 전송",
+      "app": "Microsoft Excel",
       "check": ""
     }
   ],
@@ -44,11 +37,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "2026-09-10T08:40~08:49 Excel confirmado 열/E4셀 확인, 08:45 WhatsApp 발주서+카카오톡 로트 대조"
+      "10:39 중국산 스프레이장미/카네이션 40-1차 배분표 검토, 10:30 41-1차 CLOUD 배분 수정, 08:17/07:58 37차 거래처별 배분 시트 열람"
     ]
   },
   "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-10T12:44:48.187Z"
+  "generatedAt": "2026-09-26T05:35:09.346Z"
 }

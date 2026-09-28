@@ -6,7 +6,6 @@ import {classifyMessage,matchingSummary,summarizeMessage,confirmedHistoryRequest
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
 import {sourceConfirmation} from '../../lib/distributionMessageApplicationStatus';
-import {mappedEvidenceSource} from '../../lib/pasteEvidenceSource';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 
@@ -75,12 +74,10 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
   const applicationScope=`${String(year||'')}:${String(applicationWeek||'')}`;
   const livePeriod=`${from}/${to}`;
   const liveScope=`${applicationScope}:${livePeriod}`;
-  const mappedSelectedEvidence=mappedEvidenceSource(evidenceMessages,evidenceOrders);
-  const mappedEvidenceByIdentity=new Map(mappedSelectedEvidence.map(row=>[row.identity,row]));
-  const liveBatch=[...rows].reverse().map(row=>{
-    const mapped=mappedEvidenceByIdentity.get(row.identity);
-    return mapped&&mapped.message!==row.message?{...row,message:mapped.message}:row;
-  });
+  // The parser assigns request IDs by non-empty source-line index. Keep the
+  // exact Kakao text sent to it identical to the text displayed and indexed
+  // below; AI-reconstructed evidence text can add/remove lines and shift IDs.
+  const liveBatch=[...rows].reverse();
   const liveBatchKey=liveBatch.map(row=>`${row.identity}:${row.created_at||''}:${row.message||''}`).join('\u001e');
   const liveBatchIdentities=new Set(liveBatch.map(row=>row.identity));
   const compactRows=displayRows.map(row=>{const kind=classifyMessage(row.message);return {row,kind:['REQUEST','STOCK','REVIEW'].includes(kind)?kind:'REVIEW'};});
@@ -294,36 +291,106 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     const quantityProcessed=inLiveRange&&hasAcceptedLiveHistoryScope?quantityProcessedRequests(row.identity,liveHistory[row.identity]):[];
     const manual=manualApplications[row.identity];
     const operation=operationApplications[row.identity];
-    const manualLabel=operation?'전산 적용됨':manual?.status==='MANUALLY_APPLIED'?'직접 처리함':manual?.status==='MANUALLY_NOT_APPLIED'?'미처리 표시':null;
     const source=[row.sender,row.created_at?shortKstTime(row.created_at):'시각 확인 필요'].filter(Boolean).join(' · ');
     const sourceWeek=sourceWeekFromMessage(row.message,String(year||''))||week;
     const changes=visibleChanges(row.message,week);
-    const changeGroups=[];
-    for(const change of changes){
-      const previous=changeGroups[changeGroups.length-1];
-      if(previous&&previous.week===change.week&&previous.customer===change.customer)previous.changes.push(change.change);
-      else changeGroups.push({week:change.week,customer:change.customer,changes:[change.change]});
-    }
     const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length});
-    const quantityCompleted=match.status==='QUANTITY_MATCHED';
-    const candidateCompleted=match.status==='CANDIDATE';
-    const completed=!confirmation.cancelled&&(confirmation.confirmed||match.status==='MATCHED'||quantityCompleted||candidateCompleted);
-    const highlighted=!confirmation.cancelled&&(confirmation.confirmed||quantityCompleted);
-    return <article className={`message compact-match-row ${highlighted?'history-completed':candidateCompleted?'history-candidate':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
-      {completed&&<div className="history-completion-label">✓ {confirmation.confirmed?confirmation.label:'작업완료 · 전산 분배 수량 이력 일치'}</div>}
-      {!confirmation.confirmed&&!confirmation.cancelled&&quantityCompleted&&<div className="history-completion-label">✓ 작업완료 · 변경 방향·환산수량 합계 일치</div>}
-      {!confirmation.confirmed&&!confirmation.cancelled&&candidateCompleted&&<div className="history-candidate-label">◐ 작업완료 후보 · 전산 이력 1건과 수량·방향 일치</div>}
+    const liveItem=inLiveRange&&hasAcceptedLiveHistoryScope?liveHistory[row.identity]:null;
+    // A row is rendered next to history only when the API returned the exact
+    // source identity. Request IDs are then the only key used below; names,
+    // product text, and quantities are never used to infer a pairing.
+    const exactLiveItem=liveItem?.sourceIdentity===row.identity?liveItem:null;
+    const liveRequests=Array.isArray(exactLiveItem?.requests)?exactLiveItem.requests:[];
+    const liveRequestIdCounts=new Map();
+    for(const request of liveRequests)if(typeof request?.id==='string'&&request.id)liveRequestIdCounts.set(request.id,(liveRequestIdCounts.get(request.id)||0)+1);
+    const comparisonRows=comparisonForIdentity(liveBalanceComparison,row.identity,{includeConsistent:true}).visible;
+    const comparisonByRequestId=new Map();
+    for(const comparison of comparisonRows){
+      if(typeof comparison?.requestId!=='string'||!comparison.requestId)continue;
+      const rows=comparisonByRequestId.get(comparison.requestId)||[];
+      rows.push(comparison);comparisonByRequestId.set(comparison.requestId,rows);
+    }
+    const confirmedIds=new Set(confirmed.map(request=>request?.id).filter(Boolean));
+    const quantityCandidateIds=new Set(quantityProcessed.map(request=>request?.id).filter(Boolean));
+    const operationApplied=sourceConfirmation({manual:null,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length}).confirmed;
+    const usedLiveRequestIds=new Set();
+    const pairedRequests=changes.map((change,index)=>{
+      const expectedRequestId=Number.isInteger(change.sourceIndex)?`${row.identity}:${change.sourceIndex+1}`:null;
+      const idCount=expectedRequestId?liveRequestIdCounts.get(expectedRequestId)||0:0;
+      const request=idCount===1?liveRequests.find(item=>item?.id===expectedRequestId):null;
+      if(request)usedLiveRequestIds.add(expectedRequestId);
+      const comparison=request&&comparisonByRequestId.get(expectedRequestId)?.length===1?comparisonByRequestId.get(expectedRequestId)[0]:null;
+      return {request,requestId:request?expectedRequestId:null,expectedRequestId,comparison,index,change,duplicateRequest:idCount>1,unreturnedRequest:!!(exactLiveItem&&!request&&!idCount)};
+    });
+    for(const [index,request] of liveRequests.entries()){
+      const requestId=typeof request?.id==='string'&&request.id?request.id:null;
+      if(requestId&&usedLiveRequestIds.has(requestId))continue;
+      const duplicateRequest=!!requestId&&liveRequestIdCounts.get(requestId)>1;
+      const comparison=requestId&&!duplicateRequest&&comparisonByRequestId.get(requestId)?.length===1?comparisonByRequestId.get(requestId)[0]:null;
+      pairedRequests.push({request,requestId:duplicateRequest?null:requestId,expectedRequestId:requestId,comparison,index:index+changes.length,duplicateRequest,unparsedRequest:true});
+    }
+    const statusLabel=pair=>{
+      if(pair.duplicateRequest)return '요청 ID 중복 · 확인 필요';
+      if(!inLiveRange)return '대조 범위 밖';
+      if(liveHistoryStatus.loading)return '전산 이력 조회 중';
+      if(liveHistoryStatus.error)return '전산 이력 조회 실패';
+      if(!liveHistoryStatus.loaded)return '전산 이력 조회 대기';
+      if(liveItem&&!exactLiveItem)return '전산 응답 식별값 확인 필요';
+      if(pair.unreturnedRequest)return '요청 해석 미반환 · 대조 불가';
+      if(!pair.request)return '대응 전산 요청 없음';
+      if(pair.unparsedRequest)return '원문 변경과 연결 안 됨 · 확인 필요';
+      if(!pair.requestId)return '요청 ID 확인 필요';
+      if(pair.request.status==='AMBIGUOUS')return '연결 모호 · 확인 필요';
+      if(confirmedIds.has(pair.requestId))return '이력 일치 · 참고';
+      if(quantityCandidateIds.has(pair.requestId))return '수량 대조 후보 · 참고';
+      if(['ORDER_AND_DISTRIBUTION','DISTRIBUTION_EVIDENCE'].includes(pair.request.status))return '이력 일치 · 참고';
+      if(pair.request.status==='ORDER_ONLY')return '주문 이력만 확인 · 분배 미확인';
+      if(['UNIT_HISTORY_CANDIDATE','PRODUCT_HISTORY_CANDIDATE'].includes(pair.request.status))return '이력 후보 · 참고';
+      if(pair.request.status==='NO_LIVE_EVIDENCE')return '분배 이력 미확인';
+      if(pair.comparison)return `${evidenceLabel(pair.comparison.evidenceStatus)} · 참고`;
+      return '정확한 요청 이력 미확인';
+    };
+    const statusTone=pair=>{
+      if(pair.duplicateRequest)return 'review';
+      if(!inLiveRange||liveHistoryStatus.loading||liveHistoryStatus.error||!liveHistoryStatus.loaded)return 'pending';
+      if(pair.request?.status==='AMBIGUOUS')return 'review';
+      if(pair.unreturnedRequest)return 'unmatched';
+      if(confirmedIds.has(pair.requestId)||['ORDER_AND_DISTRIBUTION','DISTRIBUTION_EVIDENCE'].includes(pair.request?.status))return 'evidence';
+      if(quantityCandidateIds.has(pair.requestId)||['UNIT_HISTORY_CANDIDATE','PRODUCT_HISTORY_CANDIDATE'].includes(pair.request?.status))return 'candidate';
+      if(['NO_LIVE_EVIDENCE','ORDER_ONLY'].includes(pair.request?.status))return 'unmatched';
+      return 'review';
+    };
+    const eventSummary=request=>{
+      const orders=Array.isArray(request?.orderEvents)?request.orderEvents:[];
+      const shipments=Array.isArray(request?.shipmentEvents)?request.shipmentEvents:[];
+      const latest=[...shipments,...orders].sort((left,right)=>String(right?.changeAt||'').localeCompare(String(left?.changeAt||'')))[0];
+      if(!latest)return '전산 이벤트 없음';
+      return `${orders.length?`주문 ${orders.length}건`:''}${orders.length&&shipments.length?' · ':''}${shipments.length?`분배·출고 ${shipments.length}건`:''} · ${latest.before??'?'}→${latest.after??'?'} ${latest.unit||''}`;
+    };
+    const highlighted=!confirmation.cancelled&&operationApplied;
+    return <article className={`message compact-match-row ${highlighted?'history-completed':match.status==='PARTIAL'?'history-partial':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
+      {operationApplied&&<div className="history-completion-label">✓ 붙여넣기 저장 이력 확인 · 메시지 단위 기록이며 아래 개별 요청 매칭과는 별도입니다</div>}
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
-      <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${completed?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{confirmation.cancelled?'확인취소':confirmation.confirmed?'확인완료':quantityCompleted?'작업완료':candidateCompleted?'작업완료 후보':completed?'작업완료':match.label||'미확인'} {completed?changes.length:match.matchedCount??0}/{match.totalCount||changes.length}{manualLabel&&<span>{manualLabel}</span>}<small>자동 대조</small></span>
-      <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={highlighted} title="확인 표시만 저장합니다. 확인취소는 주문·분배를 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,highlighted?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':highlighted?'확인취소':'확인처리'}</button>
-      <button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>{completed||match.status==='QUANTITY_MATCHED'?'원문 다시 분석':'미확인 원문 AI 분석·매칭'}</button></div>
+      <div className="visible-change-meta"><small>{source}</small><span className={`compact-match-status compact-match-status-${operationApplied?'MATCHED':match.status||'UNCONFIRMED'}`} data-testid={`compact-match-status:${row.identity}`}>{operationApplied?'전산 저장 확인 · 메시지 단위':confirmation.cancelled?'확인취소':confirmation.confirmed?'수동 확인':match.label||'미확인'}{!operationApplied&&<> {match.matchedCount??0}/{match.totalCount||pairedRequests.length}</>}<small>{operationApplied?'개별 요청 ID 연결 아님':'자동 대조 · 참고용'}</small></span>
+      <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={confirmation.confirmed&&!confirmation.cancelled} title="확인 표시는 실제 주문·분배 적용과 별개입니다. 확인취소는 전산 작업을 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,confirmation.confirmed&&!confirmation.cancelled?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':confirmation.confirmed&&!confirmation.cancelled?'확인취소':'확인처리'}</button>
+      <button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button></div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
-      <div className="visible-change-table">{changeGroups.map((group,index)=><div className="compact-change-group" key={index}><div className="compact-change-scope"><span>{group.week}</span><strong>{group.customer}</strong></div><div className="compact-change-items">{group.changes.map((change,i)=><span key={i}>{change}</span>)}</div></div>)}</div>
+      <div className="paired-request-list" aria-label="카카오 요청과 최신 전산 이력 대조">{pairedRequests.map(pair=>{
+        const request=pair.request;
+        const requestText=request?.quote||pair.change?.change||'원문 요청 문구를 확인하세요.';
+        const customer=request?.customerText||pair.change?.customer||'업체 확인 필요';
+        const requestMeta=[request?.productText,request?.qty??null,request?.unit].filter(value=>value!==null&&value!==undefined&&value!=='').join(' · ');
+        const pairingNote=pair.duplicateRequest?'같은 원문에서 동일 요청 ID가 중복 반환되어 연결하지 않습니다.':pair.unparsedRequest?'전산 해석 요청 · 카톡 변경 목록과 ID 기준으로 별도 표시합니다.':pair.unreturnedRequest?'전산 응답에 이 요청 ID가 없습니다. 원문에는 있지만 이력 대조가 불완전합니다.':'';
+        return <section className="paired-request" data-request-id={pair.requestId||undefined} key={`${pair.requestId||pair.expectedRequestId||'visible'}:${pair.index}`}>
+          <div className="paired-request-source"><small>카톡 요청</small><strong>{customer}</strong><blockquote>{requestText}</blockquote>{requestMeta&&<small>{requestMeta}</small>}</div>
+          <div className="paired-request-history"><small>최신 전산 이력 · 읽기 전용</small><strong className={`paired-history-status paired-history-${statusTone(pair)}`}>{statusLabel(pair)}</strong>{request&&<><span>{eventSummary(request)}</span><small className="paired-history-reason" title={request.reason||liveItem?.reason||'연결 사유 확인 필요'}>{pairingNote||request.reason||liveItem?.reason||'연결 사유 확인 필요'}{liveHistoryStatus.asOf?` · 기준 ${shortKstTime(liveHistoryStatus.asOf)}`:''}</small></>}{!request&&<small>{pairingNote||liveHistoryStatus.error||'요청 ID로 대응되는 전산 응답이 없습니다.'}</small>}{operationApplied&&<small className="paired-operation-note">메시지 단위 저장 이력 있음 · 이 요청에 대한 개별 적용 증거는 아님</small>}</div>
+        </section>;
+      })}</div>
       <details className="compact-source-evidence"><summary>원문 · 품목별 처리 근거 {confirmed.length+quantityProcessed.length>0?`(${confirmed.length+quantityProcessed.length}건)`:''}</summary>
       <blockquote className="source-message-context" aria-label="변경 요청 원문">{row.message}</blockquote>
-      {!completed&&quantityProcessed.length>0&&<div className="confirmed-request-box quantity-processed-box">{quantityProcessed.map(request=><div key={request.id}>✓ 처리됨 · {request.customerText} · {request.quote}<small>전산: {request.productText} · {request.shipmentEvents[0].before}→{request.shipmentEvents[0].after}{request.unit} · 변경 방향·수량 일치로 우선 처리 표시</small></div>)}</div>}
-      {!completed&&confirmed.length>0&&<div className="confirmed-request-box">{confirmed.map(request=><div key={request.id}>✓ 처리 이력 확인 · {request.customerText} · {request.quote}<small>{request.reason}</small></div>)}</div>}
+      {quantityProcessed.length>0&&<div className="confirmed-request-box quantity-processed-box">{quantityProcessed.map(request=><div key={request.id}>수량 대조 후보 · {request.customerText} · {request.quote}<small>전산: {request.productText} · {request.shipmentEvents[0]?.before}→{request.shipmentEvents[0]?.after} {request.unit||''} · 실제 적용 여부는 전산 적용 이력으로만 확인합니다.</small></div>)}</div>}
+      {confirmed.length>0&&<div className="confirmed-request-box">{confirmed.map(request=><div key={request.id}>이력 일치 · 참고 · {request.customerText} · {request.quote}<small>{request.reason}</small></div>)}</div>}
       <div className="compact-match-expanded"><div className="message-raw"><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></details>
     </article>;
   }
@@ -366,7 +433,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
   },[open,autoRefresh,disabled,from,to,loadedPeriod,year,week]);
   return <section className="sales-inbox" aria-label="영업방 대화 수신함">
     <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 기본 최근 7일</span></div>
-    <div hidden={!open}>
+    <div className="sales-inbox-content" hidden={!open}>
       <details className="inbox-tools" open={controlsOpen} onToggle={event=>setControlsOpen(event.currentTarget.open)}><summary>조회·불러오기·비교 도구 {controlsOpen?'접기':'펼치기'}</summary>
       <div className="bar inbox-controls"><label>시작일 <input type="date" value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
         <button type="button" disabled={busy||disabled||!from||!to} onClick={()=>loadRemote()}>영업방 불러오기</button>
@@ -393,7 +460,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       {rows.length>200&&<div className="bar"><button type="button" disabled={currentReviewPage===0} onClick={()=>setReviewPage(currentReviewPage-1)}>이전 검토 목록</button><span>{currentReviewPage*200+1}–{Math.min(rows.length,(currentReviewPage+1)*200)} / {rows.length}건</span><button type="button" disabled={currentReviewPage===lastReviewPage} onClick={()=>setReviewPage(currentReviewPage+1)}>다음 검토 목록</button></div>}
       <details className="review-details" open={reviewOpen} onToggle={event=>{setReviewOpen(event.currentTarget.open);if(event.currentTarget.open)setReviewMounted(true);}}><summary>원문 수동 확인 및 전산 이력 비교 — 명시 실행만</summary>{reviewMounted&&<div><p>체크리스트 저장과 전산 이력 비교는 아래의 명시 버튼을 눌러야 실행됩니다.</p><DistributionChecklistReview key={`review:${year||''}:${week||''}`} year={year} week={week} messages={rows.slice(currentReviewPage*200,(currentReviewPage+1)*200)} disabled={disabled} onReviewSaved={()=>refreshApplicationStatus(applicationScope,{force:true})}/><DistributionChangeAudit key={`audit:${year||''}:${week||''}`} year={year} week={week} messages={rows.filter(row=>selected[row.identity])} disabled={disabled||busy} onAuditSaved={()=>refreshApplicationStatus(applicationScope,{force:true})}/></div>}</details>
     </div>
-    <style jsx>{`.sales-inbox{border:1px solid #bdcddd;background:#f7faff;margin-bottom:8px;font-size:12px}.bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 7px}.inbox-controls{position:sticky;top:0;z-index:2;background:#f7faff;border-block:1px solid #d9e4ef}button,.upload{font:inherit;background:white;border:1px solid #9db2ca;padding:3px 7px;color:#245b93;cursor:pointer;min-height:25px}button:disabled{opacity:.5;cursor:not-allowed}.upload{position:relative;overflow:hidden}.upload input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}input{font:inherit}p{margin:3px 7px;color:#526b82}.list{max-height:calc(100vh - 420px);min-height:360px;overflow:auto;background:white}.message{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;border-top:1px solid #dae2ed;padding:5px 7px}.message label{white-space:nowrap}.message input{vertical-align:middle}.message-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px;min-width:0}.message-raw,.live-history-panel{min-width:0}.message-raw{padding-right:7px;border-right:1px solid #d7e2ec}small{color:#62798f}pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;margin:2px 0}.message-actions,.application-actions{display:flex;gap:5px;flex-wrap:wrap;align-items:center}.live-history-panel{border:1px solid #bfd4e6;background:#f8fbfd;padding:4px 5px}.live-history-panel>p{margin:3px 0}.live-history-head{display:flex;gap:5px;align-items:center;flex-wrap:wrap}.live-history-head strong{color:#245b93}.live-status{padding:1px 5px;border-radius:8px;background:#edf2f6;color:#35556f}.live-status-NO_LIVE_EVIDENCE{background:#f5eeee;color:#823c35}.live-status-AMBIGUOUS{background:#fff4d8;color:#8a5a00}.live-request{display:grid;gap:2px;margin-top:4px;padding-top:4px;border-top:1px dashed #cbdbe8}.live-request>strong{overflow-wrap:anywhere}.live-request blockquote{margin:0;padding:2px 4px;border-left:2px solid #9ec4df;white-space:pre-wrap;overflow-wrap:anywhere}.live-event-group{display:grid;gap:2px;margin-top:3px;padding:3px 4px;border-radius:3px}.live-event-order{background:#eef5ff}.live-event-shipment{background:#eff8f1}.live-event{display:grid;gap:1px;padding-top:2px;border-top:1px solid #dbe6ef}.live-event small{overflow-wrap:anywhere}.application-panel{min-width:0;border:1px solid #d7e2ec;background:#f8fbfd;padding:4px 5px;margin:3px 0}.application-line{min-width:0;display:flex;gap:5px;align-items:center;flex-wrap:wrap}.application-line strong{color:#385f7d}.application-panel small{min-width:0;overflow-wrap:anywhere}.application-note{display:block;margin-top:2px}.application-status{padding:1px 5px;border-radius:8px;background:#f0f3f6;color:#526779}.status-MANUALLY_APPLIED{background:#e6f5e9;color:#25613d}.status-MANUALLY_NOT_APPLIED{background:#f5eeee;color:#823c35}.application-actions{margin-top:3px}.application-actions label{min-width:0;display:flex;gap:3px;align-items:center}.application-actions input{max-width:150px;min-width:0}.audit-line{margin-top:4px}.application-history{margin-top:3px}.application-history summary{cursor:pointer;color:#245b93}.application-entry{display:grid;gap:2px;padding:3px 0;border-top:1px dashed #d7e2ec}.application-entry blockquote{margin:0;padding:2px 4px;border-left:2px solid #bfd1e0;white-space:pre-wrap;overflow-wrap:anywhere}.application-entry small{overflow-wrap:anywhere}.application-unresolved,.application-error{margin:3px 0;color:#a33b28}.application-batch-status,.live-history-batch-status{font-size:11px}.review-details{margin:6px 7px;border:1px solid #c8d9e7;background:#fbfdff}.review-details summary{padding:5px 8px;color:#245b93;cursor:pointer;font-weight:600}.review-details>div>p{padding-top:3px}@media(max-width:900px){.message{grid-template-columns:1fr}.message label{white-space:normal}.message-pair{grid-template-columns:1fr}.message-raw{padding-right:0;border-right:0}.inbox-controls{position:static}.list{max-height:360px;min-height:0}.application-actions input{max-width:100%}}`}</style>
+    <style jsx>{`.sales-inbox{display:flex;flex-direction:column;min-height:0;height:100%;overflow:hidden;border:1px solid #bdcddd;background:#f7faff;margin-bottom:0;font-size:13px}.sales-inbox-content{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;overflow:hidden}.sales-inbox-content[hidden]{display:none}.bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 7px}.inbox-controls{position:sticky;top:0;z-index:2;background:#f7faff;border-block:1px solid #d9e4ef}button,.upload{font:inherit;background:white;border:1px solid #9db2ca;padding:3px 7px;color:#245b93;cursor:pointer;min-height:25px}button:disabled{opacity:.5;cursor:not-allowed}.upload{position:relative;overflow:hidden}.upload input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}input{font:inherit}p{margin:3px 7px;color:#526b82}.list{max-height:calc(100vh - 420px);min-height:360px;overflow:auto;background:white}.message{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;border-top:1px solid #dae2ed;padding:5px 7px}.message label{white-space:nowrap}.message input{vertical-align:middle}.message-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px;min-width:0}.message-raw,.live-history-panel{min-width:0}.message-raw{padding-right:7px;border-right:1px solid #d7e2ec}small{color:#62798f}pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;margin:2px 0}.message-actions,.application-actions{display:flex;gap:5px;flex-wrap:wrap;align-items:center}.live-history-panel{border:1px solid #bfd4e6;background:#f8fbfd;padding:4px 5px}.live-history-panel>p{margin:3px 0}.live-history-head{display:flex;gap:5px;align-items:center;flex-wrap:wrap}.live-history-head strong{color:#245b93}.live-status{padding:1px 5px;border-radius:8px;background:#edf2f6;color:#35556f}.live-status-NO_LIVE_EVIDENCE{background:#f5eeee;color:#823c35}.live-status-AMBIGUOUS{background:#fff4d8;color:#8a5a00}.live-request{display:grid;gap:2px;margin-top:4px;padding-top:4px;border-top:1px dashed #cbdbe8}.live-request>strong{overflow-wrap:anywhere}.live-request blockquote{margin:0;padding:2px 4px;border-left:2px solid #9ec4df;white-space:pre-wrap;overflow-wrap:anywhere}.live-event-group{display:grid;gap:2px;margin-top:3px;padding:3px 4px;border-radius:3px}.live-event-order{background:#eef5ff}.live-event-shipment{background:#eff8f1}.live-event{display:grid;gap:1px;padding-top:2px;border-top:1px solid #dbe6ef}.live-event small{overflow-wrap:anywhere}.application-panel{min-width:0;border:1px solid #d7e2ec;background:#f8fbfd;padding:4px 5px;margin:3px 0}.application-line{min-width:0;display:flex;gap:5px;align-items:center;flex-wrap:wrap}.application-line strong{color:#385f7d}.application-panel small{min-width:0;overflow-wrap:anywhere}.application-note{display:block;margin-top:2px}.application-status{padding:1px 5px;border-radius:8px;background:#f0f3f6;color:#526779}.status-MANUALLY_APPLIED{background:#e6f5e9;color:#25613d}.status-MANUALLY_NOT_APPLIED{background:#f5eeee;color:#823c35}.application-actions{margin-top:3px}.application-actions label{min-width:0;display:flex;gap:3px;align-items:center}.application-actions input{max-width:150px;min-width:0}.audit-line{margin-top:4px}.application-history{margin-top:3px}.application-history summary{cursor:pointer;color:#245b93}.application-entry{display:grid;gap:2px;padding:3px 0;border-top:1px dashed #d7e2ec}.application-entry blockquote{margin:0;padding:2px 4px;border-left:2px solid #bfd1e0;white-space:pre-wrap;overflow-wrap:anywhere}.application-entry small{overflow-wrap:anywhere}.application-unresolved,.application-error{margin:3px 0;color:#a33b28}.application-batch-status,.live-history-batch-status{font-size:11px}.review-details{margin:6px 7px;border:1px solid #c8d9e7;background:#fbfdff}.review-details summary{padding:5px 8px;color:#245b93;cursor:pointer;font-weight:600}.review-details>div>p{padding-top:3px}@media(max-width:900px){.message{grid-template-columns:1fr}.message label{white-space:normal}.message-pair{grid-template-columns:1fr}.message-raw{padding-right:0;border-right:0}.inbox-controls{position:static}.list{max-height:360px;min-height:0}.application-actions input{max-width:100%}}`}</style>
     <style jsx global>{`.sales-inbox .live-history-panel{min-width:0;border:1px solid #bfd4e6;background:#f8fbfd;padding:4px 5px}.sales-inbox .live-history-panel>p{margin:3px 0}.sales-inbox .live-history-head{display:flex;gap:5px;align-items:center;flex-wrap:wrap}.sales-inbox .live-history-head strong{color:#245b93}.sales-inbox .live-status{padding:1px 5px;border-radius:8px;background:#edf2f6;color:#35556f}.sales-inbox .live-status-NO_LIVE_EVIDENCE{background:#f5eeee;color:#823c35}.sales-inbox .live-status-AMBIGUOUS{background:#fff4d8;color:#8a5a00}.sales-inbox .live-request{display:grid;gap:2px;margin-top:4px;padding-top:4px;border-top:1px dashed #cbdbe8}.sales-inbox .live-request>strong{overflow-wrap:anywhere}.sales-inbox .live-request blockquote{margin:0;padding:2px 4px;border-left:2px solid #9ec4df;white-space:pre-wrap;overflow-wrap:anywhere}.sales-inbox .live-event-group{display:grid;gap:2px;margin-top:3px;padding:3px 4px;border-radius:3px}.sales-inbox .live-event-order{background:#eef5ff}.sales-inbox .live-event-shipment{background:#eff8f1}.sales-inbox .live-event{display:grid;gap:1px;padding-top:2px;border-top:1px solid #dbe6ef}.sales-inbox .live-event small{overflow-wrap:anywhere}.sales-inbox .application-panel{min-width:0;border:1px solid #d7e2ec;background:#f8fbfd;padding:4px 5px;margin:3px 0}.sales-inbox .application-line{min-width:0;display:flex;gap:5px;align-items:center;flex-wrap:wrap}.sales-inbox .application-line strong{color:#385f7d}.sales-inbox .application-panel small{min-width:0;overflow-wrap:anywhere;color:#62798f}.sales-inbox .application-note{display:block;margin-top:2px}.sales-inbox .application-status{padding:1px 5px;border-radius:8px;background:#f0f3f6;color:#526779}.sales-inbox .status-MANUALLY_APPLIED{background:#e6f5e9;color:#25613d}.sales-inbox .status-MANUALLY_NOT_APPLIED{background:#f5eeee;color:#823c35}.sales-inbox .application-actions{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:3px}.sales-inbox .application-actions label{min-width:0;display:flex;gap:3px;align-items:center}.sales-inbox .application-actions input{max-width:150px;min-width:0}.sales-inbox .application-panel button{font:inherit;background:white;border:1px solid #9db2ca;padding:3px 7px;color:#245b93;cursor:pointer;min-height:25px}.sales-inbox .application-panel button:disabled{opacity:.5;cursor:not-allowed}.sales-inbox .audit-line{margin-top:4px}.sales-inbox .application-history{margin-top:3px}.sales-inbox .application-history summary{cursor:pointer;color:#245b93}.sales-inbox .application-entry{display:grid;gap:2px;padding:3px 0;border-top:1px dashed #d7e2ec}.sales-inbox .application-entry blockquote{margin:0;padding:2px 4px;border-left:2px solid #bfd1e0;white-space:pre-wrap;overflow-wrap:anywhere}.sales-inbox .application-entry small{overflow-wrap:anywhere}.sales-inbox .application-unresolved,.sales-inbox .application-error{margin:3px 0;color:#a33b28}@media(max-width:900px){.sales-inbox .application-actions input{max-width:100%}}`}</style>
     <style jsx global>{`.sales-inbox .live-balance-comparison{display:grid;gap:3px;margin-top:4px;padding:4px 5px;border:1px solid #bcd8ea;background:#f4faff}.sales-inbox .live-balance-comparison>strong{color:#245b93}.sales-inbox .live-balance-scope,.sales-inbox .live-balance-hidden{color:#58728a}.sales-inbox .live-balance-row{display:grid;gap:2px;padding:3px 4px;border-top:1px solid #d5e5ef;background:#fff}.sales-inbox .live-balance-row:first-of-type{border-top:0}.sales-inbox .live-balance-row>strong{overflow-wrap:anywhere;color:#315d7e}.sales-inbox .live-balance-row span,.sales-inbox .live-balance-row small{overflow-wrap:anywhere}.sales-inbox .live-request-details{margin-top:4px}.sales-inbox .live-request-details summary{cursor:pointer;color:#245b93}.sales-inbox .live-consistent-folded{padding:1px 5px;border-radius:8px;background:#e6f5e9;color:#25613d}`}</style>
     <style jsx global>{`.sales-inbox .compact-match-tabs{position:sticky;top:33px;z-index:1;background:#f7faff;border-block:1px solid #d9e4ef}.sales-inbox .compact-match-tabs [role="tab"][aria-selected="true"]{background:#245b93;color:#fff;border-color:#245b93}.sales-inbox .compact-help{margin:3px 7px;color:#526b82}.sales-inbox .compact-help summary{cursor:pointer;color:#245b93}.sales-inbox .compact-match-list{min-height:0;max-height:calc(100vh - 330px)}.sales-inbox .compact-match-row{display:block;padding:0}.sales-inbox .compact-match-row>details>summary{list-style:none}.sales-inbox .compact-match-row>details>summary::-webkit-details-marker{display:none}.sales-inbox .compact-match-summary{display:grid;grid-template-columns:minmax(280px,1.7fr) minmax(220px,1fr) minmax(125px,.55fr) auto auto;gap:7px;align-items:center;padding:5px 7px;cursor:pointer}.sales-inbox .compact-match-summary:hover{background:#f4f9fd}.sales-inbox .compact-match-summary strong{display:block;font-size:10px;color:#62798f;font-weight:600}.sales-inbox .compact-message-summary,.sales-inbox .compact-operation-summary{min-width:0;white-space:pre-line;overflow:hidden;text-overflow:ellipsis}.sales-inbox .compact-match-status{display:grid;gap:1px;justify-items:start;padding:2px 5px;border-radius:4px;background:#f5eeee;color:#823c35}.sales-inbox .compact-match-status-MATCHED{background:#e6f5e9;color:#25613d}.sales-inbox .compact-match-status-PARTIAL{background:#fff4d8;color:#8a5a00}.sales-inbox .compact-match-status small{color:inherit}.sales-inbox .compact-automatic-badge,.sales-inbox .compact-manual-badge{white-space:nowrap;border-radius:8px;padding:1px 5px;font-size:10px}.sales-inbox .compact-automatic-badge{background:#e8f1fa;color:#245b93}.sales-inbox .compact-manual-badge{background:#f2edf9;color:#66428c}.sales-inbox .compact-match-expanded{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:7px;padding:5px 7px 7px;border-top:1px solid #d7e2ec;background:#fbfdff}.sales-inbox .compact-match-expanded .message-raw{padding-right:0;border-right:0}.sales-inbox .compact-manual-menu{margin-top:4px}.sales-inbox .compact-manual-menu summary{cursor:pointer;color:#245b93}.sales-inbox .compact-error{color:#a33b28}@media(max-width:900px){.sales-inbox .compact-match-summary{grid-template-columns:minmax(0,1fr) minmax(120px,.5fr);gap:4px}.sales-inbox .compact-operation-summary{display:none}.sales-inbox .compact-match-expanded{grid-template-columns:1fr}.sales-inbox .compact-match-tabs{position:static}}`}</style>
@@ -402,35 +469,43 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
     <style jsx global>{`.sales-inbox .compact-match-status-CANDIDATE,.sales-inbox .live-status-UNIT_HISTORY_CANDIDATE{background:#fff4d8;color:#8a5a00}`}</style>
     <style jsx global>{`
       .sales-inbox .inbox-tools>summary{padding:5px 7px;cursor:pointer;color:#245b93}
-      .sales-inbox .compact-match-list{max-height:none;overflow:visible}
-      .sales-inbox .compact-match-column-head,.sales-inbox .visible-change-line{display:grid;grid-template-columns:110px 130px minmax(0,1fr);gap:8px}
-      .sales-inbox .compact-match-column-head{position:sticky;top:0;z-index:2}
-      .sales-inbox .visible-change-line{padding:5px 8px;border-top:1px solid #edf0f4;overflow-wrap:anywhere;line-height:1.5}
-      .sales-inbox .visible-change-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 8px;background:#f7faff}
-      .sales-inbox .source-message-context{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 8px;padding:6px 9px;border-left:3px solid #91b4d9;background:#f5f9fe;color:#243b53;font-size:12px;line-height:1.45}
-      .sales-inbox .non-action-reference summary{cursor:pointer;color:#62798f;font-size:11px}
-      .sales-inbox .history-completed{border:2px solid #22945b;border-radius:7px;background:#edfaf1;margin:5px 0;overflow:hidden}
-      .sales-inbox .history-completed .visible-change-meta{background:#e0f5e7}
-      .sales-inbox .compact-match-status-QUANTITY_MATCHED{background:#e6f5e9;color:#25613d}
-      .sales-inbox .history-completion-label{padding:5px 8px;color:#126637;background:#d9f2e2;font-weight:700}
-      .sales-inbox .history-partial{border:2px solid #d8a328;border-radius:7px;margin:5px 0}
-      .sales-inbox .confirmed-request-box{border:2px solid #22945b;border-radius:6px;background:#edfaf1;color:#126637;margin:5px;padding:6px;font-weight:700}
-      .sales-inbox .confirmed-request-box small{display:block;font-weight:400;padding:3px 0}
-      .sales-inbox .visible-change-meta>button{margin-left:auto}
-      .sales-inbox .visible-change-meta .compact-match-status{display:flex;gap:5px}
-      .sales-inbox .compact-match-row>details>summary{padding:3px 8px;color:#64748b;cursor:pointer;font-size:11px}
-      @media(max-width:700px){.sales-inbox .compact-match-column-head,.sales-inbox .visible-change-line{grid-template-columns:82px 90px minmax(0,1fr)}}
-      .sales-inbox .compact-match-column-head{display:none}
-      .sales-inbox .compact-match-row{margin:3px 0;border-width:1px}
-      .sales-inbox .visible-change-meta{padding:3px 6px;gap:4px}
+      .sales-inbox .compact-match-list{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+      .sales-inbox .compact-match-row{margin:3px 0;border-width:1px;min-width:0}
+      .sales-inbox .visible-change-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:4px 7px;background:#f7faff;font-size:11px}
       .sales-inbox .visible-change-meta>button{margin-left:0;font:inherit;font-size:11px;padding:2px 5px;min-height:23px}
-      .sales-inbox .compact-change-group{padding:3px 6px;border-top:1px solid #e6edf5;line-height:1.5}
-      .sales-inbox .compact-change-scope{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap;color:#35556f}
-      .sales-inbox .compact-change-items{display:flex;flex-wrap:wrap;gap:0 8px;word-break:keep-all;overflow-wrap:anywhere}
-      .sales-inbox .compact-change-items>span+span:before{content:'· ';color:#8a9aab}
-      .sales-inbox .history-completion-label,.sales-inbox .history-candidate-label{padding:2px 6px;font-size:11px}
+      .sales-inbox .visible-change-meta .compact-match-status{display:flex;gap:5px;align-items:center}
+      .sales-inbox .source-message-context{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 8px;padding:6px 9px;border-left:3px solid #91b4d9;background:#f5f9fe;color:#243b53;font-size:13px;line-height:1.45}
+      .sales-inbox .non-action-reference summary{cursor:pointer;color:#62798f;font-size:11px}
+      .sales-inbox .history-completed{border:2px solid #22945b;border-radius:7px;background:#edfaf1;overflow:hidden}
+      .sales-inbox .history-completed .visible-change-meta{background:#e0f5e7}
+      .sales-inbox .history-completion-label{padding:4px 7px;color:#126637;background:#d9f2e2;font-size:11px;font-weight:700}
+      .sales-inbox .history-partial{border:2px solid #d8a328;border-radius:7px}
+      .sales-inbox .confirmed-request-box{border:1px solid #9ecdb0;border-radius:5px;background:#edfaf1;color:#126637;margin:5px;padding:5px 6px;font-size:12px;font-weight:600}
+      .sales-inbox .confirmed-request-box small{display:block;font-weight:400;padding-top:2px}
+      .sales-inbox .compact-match-row>details>summary{padding:3px 7px;color:#64748b;cursor:pointer;font-size:11px}
+      .sales-inbox .paired-request-list{display:grid;gap:3px;padding:3px 6px;background:#fff}
+      .sales-inbox .paired-request{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;border:1px solid #d6e2ec;border-radius:4px;overflow:hidden;min-width:0}
+      .sales-inbox .paired-request-source,.sales-inbox .paired-request-history{display:grid;align-content:start;gap:2px;min-width:0;padding:5px 7px;font-size:13px;line-height:1.35}
+      .sales-inbox .paired-request-source{border-right:1px solid #d6e2ec;background:#fbfdff}
+      .sales-inbox .paired-request small{font-size:11px;color:#62798f;overflow-wrap:anywhere}
+      .sales-inbox .paired-request strong{font-size:14px;line-height:1.25;color:#173f69;overflow-wrap:anywhere}
+      .sales-inbox .paired-request blockquote{margin:0;color:#243b53;white-space:pre-wrap;overflow-wrap:anywhere}
+      .sales-inbox .paired-request-history{background:#f8fbfd;color:#35556f}
+      .sales-inbox .paired-request-history>span{overflow-wrap:anywhere}
+      .sales-inbox .paired-history-status{font-size:13px!important;font-weight:700;color:#845a11!important}
+      .sales-inbox .paired-history-applied{color:#126637!important}
+      .sales-inbox .paired-history-evidence{color:#245b93!important}
+      .sales-inbox .paired-history-candidate,.sales-inbox .paired-history-review{color:#845a11!important}
+      .sales-inbox .paired-history-unmatched{color:#a33b28!important}
+      .sales-inbox .paired-history-pending{color:#62798f!important}
+      .sales-inbox .paired-history-reason{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
       .sales-inbox .compact-source-evidence>summary{padding:2px 6px}
       .paste-baseline-panel>summary{cursor:pointer;padding:3px 6px;color:#245b93;font-size:11px}
+      @media(max-width:1100px){
+        .sales-inbox .compact-match-list{max-height:60vh}
+        .sales-inbox .paired-request{grid-template-columns:1fr}
+        .sales-inbox .paired-request-source{border-right:0;border-bottom:1px solid #d6e2ec}
+      }
     `}</style>
   </section>;
 }

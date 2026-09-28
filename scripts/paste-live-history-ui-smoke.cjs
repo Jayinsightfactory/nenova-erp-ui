@@ -30,7 +30,7 @@ const messages = [
   {
     source: 'kakao-sales', chat_id: 'live-history-smoke', external_message_id: 'message-001',
     chatroom: '영업방 smoke', sender: '담당자 A', created_at: '2026-09-10T09:00:00+09:00',
-    message: '37-1 변경사항\n서울꽃\n수국 화이트 1박스 추가',
+    message: '37-1 변경사항\n서울꽃\n수국 화이트 1박스 추가\n장미 레드 2박스 추가',
   },
   {
     source: 'kakao-sales', chat_id: 'live-history-smoke', external_message_id: 'message-002',
@@ -41,14 +41,14 @@ const messages = [
 const responseItems = [
   {
     sourceIdentity: firstIdentity, status: 'ORDER_AND_DISTRIBUTION', reason: '동일 원문 이후 주문·분배 이력 모두 확인',
-    requests: [{ id: 'request-001', quote: '서울꽃 · 수국 화이트 1박스 추가', customerText: '서울꽃', productText: '수국 화이트', qty: 1, unit: '박스', status: 'ORDER_AND_DISTRIBUTION', reason: '주문과 분배가 같은 요청에 대응',
+    requests: [{ id: `${firstIdentity}:3`, quote: '수국 화이트 1박스 추가', customerText: '서울꽃', productText: '수국 화이트', qty: 1, unit: '박스', status: 'ORDER_AND_DISTRIBUTION', reason: '주문과 분배가 같은 요청에 대응',
       orderEvents: [{ eventId: 'order-001', before: 0, after: 1, unit: '박스', changeAt: '2026-09-10T10:00:00+09:00', shipmentDate: null, week: '37-01', custName: '서울꽃', prodName: '수국 화이트' }],
       shipmentEvents: [{ eventId: 'ship-001', before: 0, after: 1, unit: '박스', changeAt: '2026-09-10T11:00:00+09:00', shipmentDate: '2026-09-11', week: '37-01', custName: '서울꽃', prodName: '수국 화이트' }],
     }],
   },
   {
     sourceIdentity: secondIdentity, status: 'ORDER_ONLY', reason: '주문 이력만 확인',
-    requests: [{ id: 'request-002', quote: '부산농원 · 장미 레드 2박스 추가', customerText: '부산농원', productText: '장미 레드', qty: 2, unit: '박스', status: 'ORDER_ONLY', reason: '분배 이력 미확인',
+    requests: [{ id: `${secondIdentity}:3`, quote: '장미 레드 2박스 추가', customerText: '부산농원', productText: '장미 레드', qty: 2, unit: '박스', status: 'ORDER_ONLY', reason: '분배 이력 미확인',
       orderEvents: [{ eventId: 'order-002', before: 0, after: 2, unit: '박스', changeAt: '2026-09-11T10:30:00+09:00', shipmentDate: null, week: '37-01', custName: '부산농원', prodName: '장미 레드' }],
       shipmentEvents: [],
     }],
@@ -174,15 +174,37 @@ async function visibleText(page) {
     await waitFor(() => liveHistoryPosts > 0, 'initial live-history POST');
     await waitFor(async () => (await visibleText(page)).includes('서울꽃') && (await visibleText(page)).includes('부산농원'), 'paired history text');
 
+    const originalViewports = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+    const responsiveLayouts = [];
+    for (const viewport of [{ width: 1366, height: 768 }, { width: 1100, height: 768 }]) {
+      await page.setViewport(viewport);
+      await wait(200);
+      const result = await page.$eval('section.sales-inbox', element => {
+        const box = element.getBoundingClientRect();
+        const pair = element.querySelector('.paired-request');
+        const raw = pair?.querySelector('.paired-request-source')?.getBoundingClientRect();
+        const history = pair?.querySelector('.paired-request-history')?.getBoundingClientRect();
+        const list = element.querySelector('.list')?.getBoundingClientRect();
+        return { width: innerWidth, height: innerHeight, documentOverflow: document.documentElement.scrollWidth > innerWidth, inbox: { left: box.left, right: box.right, top: box.top, bottom: box.bottom }, raw: raw && { left: raw.left, right: raw.right }, history: history && { left: history.left, right: history.right }, list: list && { top: list.top, bottom: list.bottom } };
+      });
+      responsiveLayouts.push(result);
+      if (result.documentOverflow || result.inbox.left < 0 || result.inbox.right > viewport.width) problems.push(`inbox overflows at ${viewport.width}x${viewport.height}: ${JSON.stringify(result)}`);
+      if (!result.raw || !result.history || result.raw.left < 0 || result.history.right > viewport.width || (viewport.width > 1100 && result.raw.right > result.history.left)) problems.push(`paired layout is overlapped or off-screen at ${viewport.width}x${viewport.height}: ${JSON.stringify(result)}`);
+      if (!result.list || result.list.bottom > result.inbox.bottom + 1) problems.push(`inbox list escapes its panel at ${viewport.width}x${viewport.height}: ${JSON.stringify(result)}`);
+    }
+    await page.setViewport(originalViewports);
+
     const orderCheck = await page.$$eval('section.sales-inbox article.message', nodes => nodes.map(node => String(node.textContent || '').replace(/\s+/g, ' ').trim()));
     if (orderCheck.length < 2 || !/부산농원/.test(orderCheck[0]) || !/서울꽃/.test(orderCheck[1])) problems.push(`messages are not newest-first: ${JSON.stringify(orderCheck.slice(0, 2))}`);
     if (orderCheck.some(text => /서울꽃/.test(text) && /부산농원/.test(text))) problems.push('history content crossed between the two raw-message cards');
+    const partialResponse = await page.$eval('section.sales-inbox article.message[data-testid*="message-001"]', node => [...node.querySelectorAll('.paired-request')].map(pair => ({ text: String(pair.textContent || '').replace(/\s+/g, ' ').trim(), requestId: pair.dataset.requestId || '' })));
+    if (partialResponse.length !== 2 || !partialResponse.some(pair => !pair.requestId && pair.text.includes('요청 해석 미반환 · 대조 불가') && pair.text.includes('장미 레드 2박스 추가'))) problems.push(`a Kakao request omitted from partial ERP parsing was not retained as unpaired: ${JSON.stringify(partialResponse)}`);
     const returnedHistoryValues = await page.$$eval('section.sales-inbox article.message', nodes => nodes.map(node => String(node.textContent || '').replace(/\s+/g, ' ').trim()));
     const newestHistory = returnedHistoryValues.find(text => text.includes('부산농원')) || '';
     const oldestHistory = returnedHistoryValues.find(text => text.includes('서울꽃')) || '';
-    if (!newestHistory.includes('ORDER_ONLY') && !newestHistory.includes('주문 이력 확인')) problems.push('newest message does not render ORDER_ONLY history status');
-    if (!newestHistory.includes('0 → 2') || !newestHistory.includes('37-01') || !newestHistory.includes('장미 레드') || !newestHistory.includes('분배·출고 이력가 없습니다.')) problems.push(`newest message history values are incomplete: ${newestHistory}`);
-    if (!oldestHistory.includes('주문·분배 이력 확인') || !oldestHistory.includes('0 → 1') || !oldestHistory.includes('37-01') || !oldestHistory.includes('수국 화이트') || !oldestHistory.includes('2026-09-11')) problems.push(`oldest message history values are incomplete: ${oldestHistory}`);
+    if (!newestHistory.includes('주문 이력만 확인 · 분배 미확인')) problems.push('newest message does not render the order-only/unmatched status');
+    if (!newestHistory.includes('0→2') || !newestHistory.includes('장미 레드') || !newestHistory.includes('주문 1건')) problems.push(`newest message history values are incomplete: ${newestHistory}`);
+    if (!oldestHistory.includes('이력 일치 · 참고') || !oldestHistory.includes('0→1') || !oldestHistory.includes('수국 화이트') || !oldestHistory.includes('분배·출고 1건')) problems.push(`oldest message history values are incomplete: ${oldestHistory}`);
     const initialLivePost = apiRequests.find(request => request.path === '/api/orders/distribution-live-history' && request.method === 'POST');
     if (!initialLivePost?.body.messages?.every(message => typeof message.identity === 'string' && message.identity.length > 0)) problems.push('live-history POST did not preserve raw message identities');
     if (!initialLivePost?.body.messages?.some(message => message.identity === firstIdentity) || !initialLivePost?.body.messages?.some(message => message.identity === secondIdentity)) problems.push('live-history POST omitted one raw message');
@@ -211,21 +233,20 @@ async function visibleText(page) {
     const layout = await page.$eval('section.sales-inbox', element => {
       const rect = element.getBoundingClientRect();
       const boxes = [...element.querySelectorAll('button, input, textarea')].map(node => { const box = node.getBoundingClientRect(); return { visible: box.width > 0 && box.height > 0, left: Math.round(box.left), right: Math.round(box.right), top: Math.round(box.top), bottom: Math.round(box.bottom) }; });
-      const pairs = [...element.querySelectorAll('article.message .message-pair')].map(pair => {
+      const pairs = [...element.querySelectorAll('article.message .paired-request')].map(pair => {
         const box = pair.getBoundingClientRect();
-        const raw = pair.querySelector('.message-raw')?.getBoundingClientRect();
-        const history = pair.querySelector('.live-history-panel')?.getBoundingClientRect();
-        const historyNode = pair.querySelector('.live-history-panel');
-        const orderEvent = pair.querySelector('.live-event-order');
-        const shipmentEvent = pair.querySelector('.live-event-shipment');
-        return { pair: { left: Math.round(box.left), right: Math.round(box.right), top: Math.round(box.top), bottom: Math.round(box.bottom), width: Math.round(box.width), height: Math.round(box.height) }, raw: raw && { left: Math.round(raw.left), right: Math.round(raw.right), width: Math.round(raw.width) }, history: history && { left: Math.round(history.left), right: Math.round(history.right), width: Math.round(history.width), background: historyNode ? getComputedStyle(historyNode).backgroundColor : '' }, eventBackgrounds: { order: orderEvent ? getComputedStyle(orderEvent).backgroundColor : '', shipment: shipmentEvent ? getComputedStyle(shipmentEvent).backgroundColor : '' } };
+        const rawNode=pair.querySelector('.paired-request-source');
+        const historyNode=pair.querySelector('.paired-request-history');
+        const raw=rawNode?.getBoundingClientRect();
+        const history=historyNode?.getBoundingClientRect();
+        return { requestId: pair.dataset.requestId || '', pair: { left: Math.round(box.left), right: Math.round(box.right), top: Math.round(box.top), bottom: Math.round(box.bottom), width: Math.round(box.width), height: Math.round(box.height) }, raw: raw && { left: Math.round(raw.left), right: Math.round(raw.right), width: Math.round(raw.width) }, history: history && { left: Math.round(history.left), right: Math.round(history.right), width: Math.round(history.width), background: historyNode ? getComputedStyle(historyNode).backgroundColor : '' } };
       });
       return { left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width), documentOverflow: document.documentElement.scrollWidth > window.innerWidth, controls: boxes, pairs };
     });
     if (layout.documentOverflow) problems.push('1920x1080 live-history UI causes document-level horizontal overflow');
     if (layout.controls.some(box => !box.visible || box.left < 0 || box.right > 1920 || box.top < 0 || box.bottom > 1080)) problems.push(`live-history input/button is outside the viewport: ${JSON.stringify(layout.controls)}`);
-    if (layout.pairs.length !== 2 || layout.pairs.some(pair => pair.pair.width <= 0 || pair.pair.height <= 0 || !pair.raw || !pair.history || pair.raw.width <= 0 || pair.history.width <= 0 || pair.raw.left < 0 || pair.history.right > 1920)) problems.push(`per-message raw/history pair bounding boxes are invalid: ${JSON.stringify(layout.pairs)}`);
-    if (layout.pairs.some(pair => pair.history.background === 'rgba(0, 0, 0, 0)' || pair.history.background === 'transparent' || pair.history.background !== 'rgb(248, 251, 253)' || pair.eventBackgrounds.order !== 'rgb(238, 245, 255)' || pair.eventBackgrounds.shipment !== 'rgb(239, 248, 241)')) problems.push(`live-history computed backgrounds are wrong or transparent: ${JSON.stringify(layout.pairs)}`);
+    if (layout.pairs.length !== 3 || layout.pairs.filter(pair=>pair.requestId).length!==2 || layout.pairs.some(pair => pair.pair.width <= 0 || pair.pair.height <= 0 || !pair.raw || !pair.history || pair.raw.width <= 0 || pair.history.width <= 0 || pair.raw.left < 0 || pair.history.right > 1920 || pair.raw.right > pair.history.left)) problems.push(`per-request raw/history pair bounding boxes, exact IDs or omitted-request visibility are invalid: ${JSON.stringify(layout.pairs)}`);
+    if (layout.pairs.some(pair => pair.history.background === 'rgba(0, 0, 0, 0)' || pair.history.background === 'transparent' || pair.history.background !== 'rgb(248, 251, 253)')) problems.push(`live-history computed backgrounds are wrong or transparent: ${JSON.stringify(layout.pairs)}`);
     if (layout.right > 1920 || layout.left < 0) problems.push(`sales inbox bounds are outside 1920 viewport: ${JSON.stringify(layout)}`);
 
     const forbiddenPosts = apiRequests.filter(request => request.method !== 'GET' && request.path !== '/api/orders/distribution-live-history');
@@ -236,7 +257,7 @@ async function visibleText(page) {
 
     fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath, fullPage: false });
-    console.log(JSON.stringify({ viewport: '1920x1080', target: targetUrl.href, liveHistoryPosts, newestFirst: /부산농원/.test(orderCheck[0] || '') && /서울꽃/.test(orderCheck[1] || ''), layout, forbiddenPosts, blockedExternal, screenshotPath, problems }, null, 2));
+    console.log(JSON.stringify({ viewport: '1920x1080', responsiveViewports: responsiveLayouts, target: targetUrl.href, liveHistoryPosts, newestFirst: /부산농원/.test(orderCheck[0] || '') && /서울꽃/.test(orderCheck[1] || ''), layout, forbiddenPosts, blockedExternal, screenshotPath, problems }, null, 2));
     if (problems.length) process.exitCode = 1;
   } catch (error) {
     const failedPage = (await browser.pages()).at(-1);

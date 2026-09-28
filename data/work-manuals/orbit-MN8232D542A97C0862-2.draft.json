@@ -2,39 +2,41 @@
   "id": "orbit-MN8232D542A97C0862-2",
   "dept": "수입부",
   "owner": "아드리아나",
-  "title": "입고 대조 및 입고 상세 등록",
-  "summary": "새 입고 건이 원장에 등록되거나 카카오톡으로 재고 문의가 들어올 때 / 2026-09-01~02 사이 최소 9건 관찰",
-  "frequency": "2026-09-01~02 사이 최소 9건 관찰",
+  "title": "프로포마 인보이스 및 수출 서류 검토",
+  "summary": "공급처가 프로포마 인보이스(PI) 또는 CI(Commercial Invoice) 문서를 보내온 뒤 / 차수별로 1건 이상 (관찰된 것: 33-1, 38-2, 39-2차 등)",
+  "frequency": "차수별로 1건 이상 (관찰된 것: 33-1, 38-2, 39-2차 등)",
   "tools": [
-    "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)"
+    "Google Drive",
+    "PDF Viewer",
+    "Excel/Google Sheets"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "nenova ERP(화훼 관리 프로그램) 입고 원장에서 기간·농장명(예:",
-      "detail": "nenova ERP(화훼 관리 프로그램) 입고 원장에서 기간·농장명(예: Holex, Cloudland, 2026-06-02~2026-09-02)으로 필터링해 조회",
-      "app": "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)",
+      "title": "Google Drive 또는 PDF Viewer에서 해당 문서 열기 (예",
+      "detail": "Google Drive 또는 PDF Viewer에서 해당 문서 열기 (예: 33-1 Ecuador CI.pdf, 39-2차 네덜란드 프로포마)",
+      "app": "Google Drive",
       "check": ""
     },
     {
       "no": 2,
-      "title": "농장/거래처별(Grupo Valores → C.",
-      "detail": "농장/거래처별(Grupo Valores → C.I SURANDINA → Princess Farms, Antioquia Floral S 등) 입고 행을 순서대로 클릭",
-      "app": "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)",
+      "title": "품목·수량·단가·합계 금액을 페이지별로 확인",
+      "detail": "품목·수량·단가·합계 금액을 페이지별로 확인",
+      "app": "Google Drive",
       "check": ""
     },
     {
       "no": 3,
-      "title": "우측 입고 상세 목록에서 품목(Hydrangea White/Blue/에스",
-      "detail": "우측 입고 상세 목록에서 품목(Hydrangea White/Blue/에스메랄/틴티드라임그린, ROSE 등)별 박스수·단수(송이수)·단가·총단가 확인",
-      "app": "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)",
+      "title": "Excel/Sheets 상 정리한 수량·금액과 대조 검증 (예: 38-2",
+      "detail": "Excel/Sheets 상 정리한 수량·금액과 대조 검증 (예: 38-2 Holex 주문 색상별 품목·단가·합계)",
+      "app": "Google Drive",
       "check": ""
     },
     {
       "no": 4,
-      "title": "입고 상세 등록 팝업에서 품목명 드롭다운(국가/꽃종류/색상)을 열어 해당",
-      "detail": "입고 상세 등록 팝업에서 품목명 드롭다운(국가/꽃종류/색상)을 열어 해당 품목 선택 후 등록",
-      "app": "화훼 관리 프로그램(nenova ERP, nenova.exe, nenovaweb v1.0.15)",
+      "title": "이상 있으면(수량 불일치, 클레임 등) 관련 채팅방에 문의",
+      "detail": "이상 있으면(수량 불일치, 클레임 등) 관련 채팅방에 문의",
+      "app": "Google Drive",
       "check": ""
     }
   ],
@@ -42,11 +44,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "vision 2026-09-02T06:48~07:32, 2026-09-01T05:38~09:04 등 다수"
+      "2026-09-22 07:53 39-2차 프로포마 인보이스 4/5페이지 확인; 2026-09-18 08:24 콜롬비아 Almacenes CL2 주문 PROFORMA 검증"
     ]
   },
-  "confidence": "medium",
+  "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-08T12:02:56.115Z"
+  "generatedAt": "2026-09-26T21:35:12.592Z"
 }

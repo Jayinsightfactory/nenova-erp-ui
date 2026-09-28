@@ -1,0 +1,46 @@
+{
+  "id": "orbit-MNH03H73690BB2CD82-4",
+  "dept": "영업지원",
+  "owner": "임재용",
+  "title": "타사(SHILLA) ERP를 통한 원물 매입처 조회",
+  "summary": "특정 거래처(신라농장)의 매입·발주 현황 확인 필요 시 / 9/21 08:14~08:26 1회 관찰",
+  "frequency": "9/21 08:14~08:26 1회 관찰",
+  "tools": [
+    "SHILLA ERP",
+    "THE SHILLA SRM"
+  ],
+  "steps": [
+    {
+      "no": 1,
+      "title": "SHILLA ERP에서 신라농장(코드 20637)의 입고 물량을 품목별·",
+      "detail": "SHILLA ERP에서 신라농장(코드 20637)의 입고 물량을 품목별·수량별로 상세 조회",
+      "app": "SHILLA ERP",
+      "check": ""
+    },
+    {
+      "no": 2,
+      "title": "THE SHILLA SRM에서 기간(2026-09-14~2026-09-2",
+      "detail": "THE SHILLA SRM에서 기간(2026-09-14~2026-09-25) 입고현황 및 거래 현황 조회",
+      "app": "SHILLA ERP",
+      "check": ""
+    },
+    {
+      "no": 3,
+      "title": "SHILLA ERP 발주 현황 목록을 거래처 필터로 조회",
+      "detail": "SHILLA ERP 발주 현황 목록을 거래처 필터로 조회",
+      "app": "SHILLA ERP",
+      "check": ""
+    }
+  ],
+  "evidence": {
+    "period": "",
+    "eventCount": 0,
+    "sources": [
+      "2026-09-21 08:14:01~08:26:13"
+    ]
+  },
+  "confidence": "medium",
+  "status": "ai_draft",
+  "source": "orbit-duty",
+  "generatedAt": "2026-09-25T21:35:30.789Z"
+}

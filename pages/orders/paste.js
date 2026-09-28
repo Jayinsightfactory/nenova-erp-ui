@@ -4575,11 +4575,12 @@ export default function PasteOrderPage() {
             background: #fff;
           }
           @media (min-width: 1600px) {
-            .paste-col-baseline { display: grid; grid-template-columns: minmax(0,1fr); gap: 4px; align-content: start; }
+            .paste-col-baseline { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: auto auto minmax(0,1fr); gap: 4px; align-content: stretch; }
             .paste-input-grid { grid-template-columns: minmax(0,1fr) minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 170px); max-height: calc(100vh - 170px); min-height: 0; align-items: stretch; }
             .paste-input-grid > .paste-col > * { flex-shrink: 0; }
             .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: visible; }
-            .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-height: 0; max-height: none; overflow: visible; }
+            .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-height: 0; max-height: none; overflow: hidden; }
+            .paste-col-baseline > .paste-sales-inbox { min-height: 0; overflow: hidden; }
             .paste-column-order-input { grid-column: 3; grid-row: 1 / span 2; }
             .paste-column-base-input { grid-column: 1; grid-row: 1; }
             .paste-column-helper { grid-column: 1; grid-row: 2; }
@@ -4596,9 +4597,10 @@ export default function PasteOrderPage() {
              원문과 매칭 결과를 나란히 유지한다. 기본 2열로 되돌아가면
              차수/업체/변경내역 열이 과도하게 좁아진다. */
           @media (min-width: 1101px) and (max-width: 1599px) {
-            .paste-col-baseline { display: grid; grid-template-columns: minmax(0,1fr); gap: 4px; align-content: start; }
+            .paste-col-baseline { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: auto auto minmax(0,1fr); gap: 4px; align-content: stretch; }
             .paste-input-grid { grid-template-columns: minmax(0,.9fr) minmax(0,2.2fr) minmax(0,1fr) minmax(0,.95fr) minmax(0,1fr); grid-template-rows: auto auto; align-items: stretch; }
-            .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-width: 0; max-height: calc(100vh - 230px); overflow: auto; }
+            .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-width: 0; min-height: 0; height: calc(100vh - 230px); max-height: calc(100vh - 230px); overflow: hidden; }
+            .paste-col-baseline > .paste-sales-inbox { min-height: 0; overflow: hidden; }
             .paste-column-order-input { grid-column: 3; grid-row: 1 / span 2; }
             .paste-column-base-input { grid-column: 1; grid-row: 1; }
             .paste-column-helper { grid-column: 1; grid-row: 2; }
@@ -4609,6 +4611,8 @@ export default function PasteOrderPage() {
           /* 1100px 이하에서는 세로 배치로 전환해 작은 화면의 조작성을 보장한다. */
           @media (max-width: 1100px) {
             .paste-col-baseline, .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper, .paste-col-work-results { grid-column: auto; grid-row: auto; max-height: none; }
+            .paste-col-baseline { grid-template-rows: auto auto auto; overflow: visible; }
+            .paste-col-baseline > .paste-sales-inbox { height: min(70vh, 620px); max-height: min(70vh, 620px); }
             .paste-col-order-side, .paste-col-stock, .paste-col-stock-side { min-height: 260px; }
             .paste-col-order-side.paste-col-order-results { min-height: 0; }
             .paste-global-action-board-top { grid-template-columns: 1fr !important; }

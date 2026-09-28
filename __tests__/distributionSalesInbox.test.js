@@ -21,7 +21,7 @@ const api=fs.readFileSync(require.resolve('../pages/api/kakao/sales-feed.js'),'u
 assert.match(api,/withAuth/);assert.match(api,/NENOVA_SALES_READ_TOKEN/);assert.match(api,/r.chat_id!==roomId/);assert.doesNotMatch(api,/googleSheets|\/api\/kakao\/messages/);
 assert.match(api,/function validAfterKey/);assert.match(api,/const afterKey=req\.query\.afterKey\?\?''/);assert.match(api,/nextAfterKey/);assert.doesNotMatch(api,/afterId|nextAfterId/);
 const ui=fs.readFileSync(require.resolve('../components/orders/DistributionSalesInbox.js'),'utf8');assert.doesNotMatch(ui,/adjust-batch|\/api\/orders\/(?:index|parse-paste)|handleAllMixedDistribute/);
-assert.match(ui,/미확인 원문 AI 분석·매칭/);
+assert.match(ui,/원문 AI 분석·매칭/);
 assert.match(ui,/기존 처리 근거 공유/);
 assert.match(ui,/sourceWeekFromMessage\(row\.message,String\(year\|\|''\)\)\|\|week/);
 assert.match(ui,/sourceWeek,autoAnalyze:true/);
@@ -51,7 +51,7 @@ assert.match(ui,/applicationRefreshQueued/);assert.match(ui,/저장된 AI 비교
 assert.match(ui,/const auditEntries=Array\.isArray\(audit\?\.entries\)\?audit\.entries:\[\]/);assert.match(ui,/const auditUnresolved=Array\.isArray\(audit\?\.unresolved\)\?audit\.unresolved:\[\]/);assert.match(ui,/Array\.isArray\(entry\.candidateEvents\)\?entry\.candidateEvents:\[\]/);
 assert.match(ui,/priorApplicationController=applicationController\.current;priorApplicationController\?\.abort\(\);if\(applicationController\.current===priorApplicationController\)\{applicationController\.current=null;applicationInFlight\.current=false;setApplicationStatus/);
 assert.match(ui,/<style jsx global>/);assert.match(ui,/\.sales-inbox \.live-history-panel\{min-width:0;border:1px solid #bfd4e6/);assert.match(ui,/\.sales-inbox \.live-event-order\{background:#eef5ff\}/);assert.match(ui,/\.sales-inbox \.live-event-shipment\{background:#eff8f1\}/);assert.match(ui,/\.sales-inbox \.application-panel button/);
-assert.match(ui,/<div hidden=\{!open\}>/);assert.doesNotMatch(ui,/\{open&&<>/);
+assert.match(ui,/<div className="sales-inbox-content" hidden=\{!open\}>/);assert.doesNotMatch(ui,/\{open&&<>/);
 const uploadUpdater=ui.match(/setRows\((previous=>mergeMessages\(previous,identified\)\.rows)\)/);
 assert.ok(uploadUpdater,'upload must merge against latest committed state');
 const delayedUpload=new Function('mergeMessages','identified',`return ${uploadUpdater[1]}`)(mergeMessages,[b]);
@@ -68,8 +68,13 @@ assert.match(ui,/className="source-message-context" aria-label="변경 요청 �
 assert.match(ui,/className="non-action-reference"/);
 assert.match(ui,/추가·취소 작업/);
 assert.match(ui,/PRODUCT_HISTORY_CANDIDATE:'품목 미확정 · 이력 후보'/);
-assert.match(ui,/mappedEvidenceSource\(evidenceMessages,evidenceOrders\)/);
-assert.match(ui,/mapped&&mapped\.message!==row\.message\?\{\.\.\.row,message:mapped\.message\}:row/);
+assert.match(ui,/const liveBatch=\[\.\.\.rows\]\.reverse\(\)/,'live-history request IDs are parsed from the exact displayed Kakao text');
+assert.match(ui,/AI-reconstructed evidence text can add\/remove lines and shift IDs/);
+assert.doesNotMatch(ui,/mappedEvidenceSource/,'request-line indices cannot come from a transformed message');
+const requestStatusBlock=ui.slice(ui.indexOf('const statusLabel=pair=>'),ui.indexOf('const statusTone=pair=>'));
+assert.doesNotMatch(requestStatusBlock,/operationApplied/,'message-level save audit must not mark every child request as applied');
+assert.match(ui,/개별 요청 ID 연결 아님/);
+assert.match(ui,/메시지 단위 저장 이력 있음 · 이 요청에 대한 개별 적용 증거는 아님/);
 assert.match(ui,/liveHistoryStatus\.error\?'조회 실패':liveHistoryStatus\.loading\?'조회 중':'조회 대기'/);
 assert.match(ui,/:'대조 범위 밖'/);
 assert.match(ui,/refreshLiveHistory\(scope,liveHistoryBatchRef\.current\)/);

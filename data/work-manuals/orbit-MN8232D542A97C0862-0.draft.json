@@ -2,39 +2,48 @@
   "id": "orbit-MN8232D542A97C0862-0",
   "dept": "수입부",
   "owner": "아드리아나",
-  "title": "품목별 고정발주(PEDIDO FIJO) 배분표 관리",
-  "summary": "아침 시간대 정기적으로(관찰 07:39~08:03), 주차별 발주 확정 전 / 2026-09-02 07:39~08:03 사이 8건 연속 관찰",
-  "frequency": "2026-09-02 07:39~08:03 사이 8건 연속 관찰",
+  "title": "해외 공급처 발주 협상 및 수량·가격 확정",
+  "summary": "WhatsApp/카카오톡에 공급처로부터 신규 차수(예: 39-2차, 40-1차) 물량 문의 또는 가용성 회신이 오면 시작 / 관찰 14일 중 다수 시간대에 반복 (특히 2026-09-21 00:30~02:40 구간 집중)",
+  "frequency": "관찰 14일 중 다수 시간대에 반복 (특히 2026-09-21 00:30~02:40 구간 집중)",
   "tools": [
-    "Microsoft Excel (PEDIDO FIJO 시트)"
+    "WhatsApp",
+    "WhatsApp Web",
+    "카카오톡"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "Excel PEDIDO FIJO 시트에서 품종별 행(예: Crimea, ",
-      "detail": "Excel PEDIDO FIJO 시트에서 품종별 행(예: Crimea, Mariposa, Megan, Moon Light, Novia, Polimnia, Doncel, Brut)과 공급업체별 열(COLIBRI, FILLCO, DON EUSEBIO, TURFLOR, TEUCALI, ZORRO, SERREZUELA, VERDNATURA, AYURA)이 만나는 셀을 선택",
-      "app": "Microsoft Excel (PEDIDO FIJO 시트)",
+      "title": "WhatsApp에서 해당 공급처(Holex, Superfresh, Pap",
+      "detail": "WhatsApp에서 해당 공급처(Holex, Superfresh, Papucho, Hortensias, Premium Greens, Aviv Flower 등) 대화방 진입",
+      "app": "WhatsApp",
       "check": ""
     },
     {
       "no": 2,
-      "title": "해당 셀에 CANTIDAD PEDIDO(주문수량)를 입력/수정",
-      "detail": "해당 셀에 CANTIDAD PEDIDO(주문수량)를 입력/수정",
-      "app": "Microsoft Excel (PEDIDO FIJO 시트)",
+      "title": "품목명·색상·규격별 가용 수량과 절단일/ETA 확인 (예: Anthuri",
+      "detail": "품목명·색상·규격별 가용 수량과 절단일/ETA 확인 (예: Anthurium moments, Appian white, Mokara Peach/Ruby Red, Waratah, Hydrangea 색상별 박스)",
+      "app": "WhatsApp",
       "check": ""
     },
     {
       "no": 3,
-      "title": "같은 표의 SOBRA(잔여수량) 열을 함께 확인해 주문수량과 남은 재고가",
-      "detail": "같은 표의 SOBRA(잔여수량) 열을 함께 확인해 주문수량과 남은 재고가 맞는지 대조",
-      "app": "Microsoft Excel (PEDIDO FIJO 시트)",
+      "title": "필요 시 이전 주문 내역을 'order' 등 키워드로 검색해 대조",
+      "detail": "필요 시 이전 주문 내역을 'order' 등 키워드로 검색해 대조",
+      "app": "WhatsApp",
       "check": ""
     },
     {
       "no": 4,
-      "title": "불필요한 열(예: B열 CANTIDAD PEDIDO)은 열머리글 우클릭 ",
-      "detail": "불필요한 열(예: B열 CANTIDAD PEDIDO)은 열머리글 우클릭 → '숨기기'로 처리",
-      "app": "Microsoft Excel (PEDIDO FIJO 시트)",
+      "title": "수량 변경분을 반영해 최종 확정 수량으로 회신 (예: 콜롬비아 Horte",
+      "detail": "수량 변경분을 반영해 최종 확정 수량으로 회신 (예: 콜롬비아 Hortensias 40-1차 625→639박스 확정)",
+      "app": "WhatsApp",
+      "check": ""
+    },
+    {
+      "no": 5,
+      "title": "가격 차이가 있으면 금액 대조 후 거래처에 확인 (예: 33-2 중국 주",
+      "detail": "가격 차이가 있으면 금액 대조 후 거래처에 확인 (예: 33-2 중국 주문 67,592.00→67,357.00 차이 확인)",
+      "app": "WhatsApp",
       "check": ""
     }
   ],
@@ -42,11 +51,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "vision 2026-09-02T07:39:32~08:03:32 (카네이션 PEDIDO FIJO 배분표 8건)"
+      "2026-09-21 01:24~01:36 WhatsApp 콜롬비아 Hortensias 40-1차 색상별 박스 수량 확정; 2026-09-22 00:38~00:53 WhatsApp Papucho/Holex 40-1차·39-2차 협상"
     ]
   },
-  "confidence": "medium",
+  "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-08T12:02:56.115Z"
+  "generatedAt": "2026-09-26T21:35:12.592Z"
 }

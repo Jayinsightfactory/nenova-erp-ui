@@ -2,25 +2,25 @@
   "id": "orbit-MNMRVD11EDCCF6E7CE-7",
   "dept": "수입부",
   "owner": "김원빈",
-  "title": "수입 원가계산서 작성",
-  "summary": "중국발 화훼(장미/카네이션 등) 수입 건의 원가를 산출해야 할 때 / 1건 관찰",
-  "frequency": "1건 관찰",
+  "title": "ERP(nenova)에서 발주 현황 조회",
+  "summary": "특정 차수 발주 확정 여부를 확인해야 할 때 / 관찰 구간 내 1건",
+  "frequency": "관찰 구간 내 1건",
   "tools": [
-    "Microsoft Excel(원가계산서)"
+    "nenova ERP"
   ],
   "steps": [
     {
       "no": 1,
-      "title": "Excel 원가계산서에서 품목별 수량 셀 확인(예: L10 EUCALYP",
-      "detail": "Excel 원가계산서에서 품목별 수량 셀 확인(예: L10 EUCALYPTUS=50)",
-      "app": "Microsoft Excel(원가계산서)",
+      "title": "nenova 프로그램에서 입력일자(예: 2026-09-21~09-22) ",
+      "detail": "nenova 프로그램에서 입력일자(예: 2026-09-21~09-22) 필터 적용",
+      "app": "nenova ERP",
       "check": ""
     },
     {
       "no": 2,
-      "title": "환율·운임비·통관비를 반영해 품목별 도착원가 및 판매가 산출",
-      "detail": "환율·운임비·통관비를 반영해 품목별 도착원가 및 판매가 산출",
-      "app": "Microsoft Excel(원가계산서)",
+      "title": "차수별(41-01차) 품목/거래처별 수량 목록 조회",
+      "detail": "차수별(41-01차) 품목/거래처별 수량 목록 조회",
+      "app": "nenova ERP",
       "check": ""
     }
   ],
@@ -28,11 +28,11 @@
     "period": "",
     "eventCount": 0,
     "sources": [
-      "2026-09-09T05:27:38 원가계산서 L10=50 확인, 환율·운임비·통관비 기반 산출"
+      "09:05 41-01차 발주 품목/거래처별 수량 목록 조회"
     ]
   },
   "confidence": "high",
   "status": "ai_draft",
   "source": "orbit-duty",
-  "generatedAt": "2026-09-10T12:44:48.187Z"
+  "generatedAt": "2026-09-26T05:35:09.346Z"
 }
