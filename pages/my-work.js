@@ -4,22 +4,23 @@
 // 탭2 기능 추가 후보: 관찰 데이터(매뉴얼·화면 해독·전산 기록)로 뽑은 nenovaweb 기능 후보 + 근거(data/work-feature-proposals.json, 파일만).
 // 탭3 Orbit 전체: /my-work.html(작업 흐름·시간표·화면 타임라인 등).
 import fs from 'fs';
-import path from 'path';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import MenuBackButton from '../components/MenuBackButton';
 import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
+import { featureFilePath } from '../lib/workFeatureData';
 
 const ORBIT = process.env.ORBIT_SERVER_URL || 'https://mindmap-viewer-production-adb2.up.railway.app';
 
-// 스토리보드(10MB)는 프로세스 안에 한 번만 파싱해 두고 파일 수정 시각이 바뀌면 다시 읽는다
-let _sb = { mtime: 0, data: null };
+// 스토리보드(16MB)는 프로세스 안에 한 번만 파싱해 두고 파일(경로·수정 시각)이 바뀌면 다시 읽는다.
+// 경로는 매일 자동 갱신본(data/runtime) 우선 — lib/workFeatureData
+let _sb = { key: '', data: null };
 function readStoryboards() {
-  const f = path.join(process.cwd(), 'data', 'work-feature-storyboards.json');
+  const f = featureFilePath('storyboards');
   try {
-    const m = fs.statSync(f).mtimeMs;
-    if (m !== _sb.mtime) _sb = { mtime: m, data: JSON.parse(fs.readFileSync(f, 'utf8')) };
+    const key = f + '|' + fs.statSync(f).mtimeMs;
+    if (key !== _sb.key) _sb = { key, data: JSON.parse(fs.readFileSync(f, 'utf8')) };
     return _sb.data;
   } catch { return null; }
 }
@@ -27,7 +28,6 @@ function readStoryboards() {
 export async function getServerSideProps({ req, query }) {
   const user = verifyReqUser(req);
   if (!isOrbitReportViewer(user)) return { notFound: true };
-  const readJson = (f) => { try { return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', f), 'utf8')); } catch { return null; } };
   // 스토리보드 파일은 10MB(장면마다 창 제목·입력·전산 융합) → 선택된 사람·제안·세션의 장면만 내려보내고 나머지는 목차만
   const full = readStoryboards();
   let boards = null;
@@ -44,7 +44,8 @@ export async function getServerSideProps({ req, query }) {
       session: who.boards[bi]?.sessions[si] || null,
     };
   }
-  return { props: { userId: user.userId, data: readJson('work-feature-proposals.json'), boards, orbit: ORBIT, tab: query.tab || 'unified' } };
+  let proposals = null; try { proposals = JSON.parse(fs.readFileSync(featureFilePath('proposals'), 'utf8')); } catch {}
+  return { props: { userId: user.userId, data: proposals, boards, orbit: ORBIT, tab: query.tab || 'unified' } };
 }
 
 // 캡처식 워크플로우 — 제안 하나를 고르면 실제 관찰 세션을 시간순 장면 필름으로 보여준다. 선택은 URL(?tab=story&who=&b=&s=)로 서버에서 잘라온다.
