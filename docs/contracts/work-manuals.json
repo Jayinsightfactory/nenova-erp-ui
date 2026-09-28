@@ -13,7 +13,8 @@
     "pages/my-work.js",
     "pages/_app.js",
     "lib/workFeatureData.js",
-    "pages/api/work/feature-data-ingest.js"
+    "pages/api/work/feature-data-ingest.js",
+    "pages/api/work/orbit-thumbs.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -62,7 +63,8 @@
     "__tests__/nenovaSs3AdminAccess.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/workReplay.test.js",
-    "__tests__/workFeatureData.test.js"
+    "__tests__/workFeatureData.test.js",
+    "__tests__/orbitThumbs.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

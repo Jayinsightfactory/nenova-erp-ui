@@ -20,6 +20,9 @@ const w = require(modPath);
 // runtime 없으면 저장소 스냅샷 경로
 assert.strictEqual(w.featureFilePath('storyboards'), path.join(tmp, 'data', 'work-feature-storyboards.json'));
 assert.strictEqual(w.featureFilePath('../../etc/passwd'), null, '허용 이름만');
+assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations']);
+assert.strictEqual(w.featureFilePath('workflows'), path.join(tmp, 'data', 'work-feature-workflows.json'));
+assert.strictEqual(w.featureFilePath('simulations'), path.join(tmp, 'data', 'work-feature-simulations.json'));
 
 // 검증: 이름·JSON·generatedAt
 assert.strictEqual(w.saveFeatureFile('evil', Buffer.from('{}')).status, 400);
@@ -34,6 +37,8 @@ const rt = path.join(tmp, 'data', 'runtime', 'work-feature-proposals.json');
 assert.strictEqual(w.featureFilePath('proposals'), rt, 'runtime 우선');
 assert.ok(fs.existsSync(rt) && !fs.existsSync(rt + '.tmp'), '임시 파일 남지 않음');
 assert.deepStrictEqual(fs.readdirSync(path.join(tmp, 'data')), ['runtime'], '저장 위치는 data/runtime 뿐');
+assert.ok(w.saveFeatureFile('simulations', Buffer.from(JSON.stringify({ generatedAt: 'x', people: [] }))).ok);
+assert.strictEqual(w.featureFilePath('simulations'), path.join(tmp, 'data', 'runtime', 'work-feature-simulations.json'), 'simulations 도 runtime 우선');
 process.chdir(cwd);
 
 // API: 토큰 인증·POST 전용·파일 전용(SQL 없음)
