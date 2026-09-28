@@ -11,7 +11,9 @@
     "lib/workReplay.js",
     "components/ReplayRecorder.js",
     "pages/my-work.js",
-    "pages/_app.js"
+    "pages/_app.js",
+    "lib/workFeatureData.js",
+    "pages/api/work/feature-data-ingest.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -59,7 +61,8 @@
     "__tests__/workManuals.test.js",
     "__tests__/nenovaSs3AdminAccess.test.js",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/workReplay.test.js"
+    "__tests__/workReplay.test.js",
+    "__tests__/workFeatureData.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
