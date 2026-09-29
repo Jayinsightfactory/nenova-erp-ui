@@ -217,7 +217,14 @@ async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'GET/POST/DELETE만 지원합니다.' });
   } catch (error) {
     console.error('[sales-defect-deductions]', error);
-    return res.status(Number(error?.statusCode) || 400).json({ success: false, error: error.message || '영업수입불량차감 처리에 실패했습니다.' });
+    const errorCode = /^[A-Z0-9_-]{1,40}$/i.test(String(error?.code || '')) ? String(error.code) : undefined;
+    const statusCode = Number(error?.statusCode) || (errorCode ? 500 : 400);
+    return res.status(statusCode).json({
+      success: false,
+      error: error.message || '영업수입불량차감 처리에 실패했습니다.',
+      ...(error?.operationStage ? { operationStage: error.operationStage } : {}),
+      ...(errorCode ? { errorCode } : {}),
+    });
   }
 }
 
