@@ -41,6 +41,20 @@ export default withAuth(async function handler(req, res) {
 
   const user = String(req.query.user || '').trim();
   if (!user || !ID_RE.test(user)) return res.status(400).json({ success: false, error: 'user 필요' });
+
+  // ?records=1&wf=<업무명>|&stage=<단계> → 업무별 실제 작업 기록(화면·한 일·입력 칸·누른 곳·판단·건). Orbit /api/vision/work-records 중계.
+  if (req.query.records != null) {
+    try {
+      const q = new URLSearchParams({ userId: user, hours: String(clampInt(req.query.hours, 336, 1, 720)), limit: String(clampInt(req.query.limit, 40, 1, 80)) });
+      if (req.query.wf) q.set('wf', String(req.query.wf).slice(0, 120));
+      else if (req.query.stage) q.set('stage', String(req.query.stage).slice(0, 20));
+      const r = await fetch(`${ORBIT()}/api/vision/work-records?${q}`, { headers: orbitHeaders() });
+      if (!r.ok) return res.status(502).json({ success: false, error: `Orbit ${r.status}`, records: [] });
+      const j = await r.json();
+      const records = (j.records || []).filter((x) => x && ID_RE.test(String(x.id)));
+      return res.status(200).json({ success: true, records });
+    } catch (e) { return res.status(502).json({ success: false, error: 'Orbit 연결 실패: ' + e.message, records: [] }); }
+  }
   const hours = clampInt(req.query.hours, 72, 1, 24 * 30);
   const limit = clampInt(req.query.limit, 60, 1, 300);
   try {
