@@ -365,6 +365,14 @@ function WorkflowVideo({ person, wf, thumbs, onClose }) {
   );
 }
 
+// 관찰 절차(stepsDetail): 어디서 보고 → 한 일 → 어디에 넣음. 비어 있는 칸은 생략.
+const ACTION_KO = { read: '확인', type: '입력', copy: '복사', calc: '계산', send: '전달' };
+const place = (p) => (p ? [p.app, p.screen, p.field].filter(Boolean).join(' · ') : '');
+function StepRoute({ d }) {
+  const src = place(d.source), dst = place(d.destination);
+  if (!src && !dst) return null;
+  return <div className="sroute">{src && <span><i>어디서 보고</i> {src}</span>}{src && ' → '}<span><i>한 일</i> {ACTION_KO[d.action] || d.action || '-'}</span>{dst && <> → <span><i>어디에 넣음</i> {dst}</span></>}{d.example && <span className="dim"> (예: {String(d.example).slice(0, 40)})</span>}</div>;
+}
 function WorkflowCard({ person, wf }) {
   const [open, setOpen] = useState(false); const [video, setVideo] = useState(false);
   const thumbs = useThumbs(person.uid, open || video);
@@ -382,7 +390,9 @@ function WorkflowCard({ person, wf }) {
       <div className="flow">
         {col('계기', [wf.trigger], 'trg')}<span className="arw">→</span>
         {col('받는 것', wf.inputs)}<span className="arw">→</span>
-        <div className="fcol steps"><div className="fl">단계</div><ol>{arr(wf.steps).map((s, k) => <li key={k}>{s}</li>)}</ol></div><span className="arw">→</span>
+        <div className="fcol steps"><div className="fl">단계</div><ol>{arr(wf.stepsDetail).length > 0
+          ? arr(wf.stepsDetail).map((d, k) => <li key={k}>{d.text}<StepRoute d={d} /></li>)
+          : arr(wf.steps).map((s, k) => <li key={k}>{s}</li>)}</ol></div><span className="arw">→</span>
         {col('판단', wf.decisions, 'dec')}<span className="arw">→</span>
         {col('결과물 / 넘기는 곳', wf.outputs, 'out')}
       </div>
@@ -907,7 +917,7 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
         .flow{display:flex;gap:6px;align-items:stretch;overflow-x:auto;padding-bottom:4px}.arw{align-self:center;color:#58a6ff;font-size:18px}
         .fcol{flex:1 1 160px;min-width:150px;background:#0e1016;border:1px solid #262b35;border-radius:8px;padding:6px 8px;font-size:12px}.fcol.steps{flex:2 1 280px}
         .fcol .fl{color:#98a1b2;font-size:11px;font-weight:700;margin-bottom:3px}.fcol .fi{margin:2px 0;line-height:1.4}.fcol ol{margin:0;padding-left:18px}.fcol li{margin:2px 0;line-height:1.4}
-        .fcol.trg{border-color:#58a6ff55}.fcol.dec{border-color:#e3b34155}.fcol.out{border-color:#3fb95055}
+        .sroute{font-size:11px;color:#b8c0cc;margin:1px 0 4px}.sroute i{font-style:normal;color:#7d8590;margin-right:2px}.fcol.trg{border-color:#58a6ff55}.fcol.dec{border-color:#e3b34155}.fcol.out{border-color:#3fb95055}
         .wfd{margin-top:8px;font-size:12.5px}.wfd>div{margin:4px 0}.wfd ul{margin:2px 0;padding-left:20px}
         .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
         .thumb{margin:0;border:1px solid #262b35;border-radius:6px;overflow:hidden;background:#0b0d12}.thumb img{width:100%;display:block;aspect-ratio:16/10;object-fit:cover;background:#1f2430}

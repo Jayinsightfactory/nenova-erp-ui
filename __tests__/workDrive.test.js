@@ -200,3 +200,17 @@ console.log('egress tests passed (+snapshot/preview/open)');
   assert.strictEqual(r.classification.dept, '수입부', '수입부 유지');
 }
 console.log('rename alias test passed (가브리엘→아드리아나)');
+
+// 표시 시점 별칭(2026-09-29): 색인에 'hoon J'(옛 uid)로 남은 행도 목록에선 정재훈/영업부. 색인 원문은 그대로.
+{
+  const idx = path.join(tmp, 'data', 'work-drive', 'index.jsonl');
+  const idxPath = fs.existsSync(idx) ? idx : require('child_process').execSync('dir /s /b index.jsonl', { cwd: tmp }).toString().split(/\r?\n/)[0];
+  const raw = { id: 'hoonj-legacy-1', filename: '40-1 출고 정리.xlsx', uploaderName: 'hoon J', orbitUserId: 'MNMR8568CC8950F81D', hostname: 'X', dept: '', deptId: '', stage: '출고', cycle: '40-1', uploadedAt: new Date().toISOString(), version: 1 };
+  fs.appendFileSync(idxPath, JSON.stringify(raw) + '\n');
+  const row = wd.listVisible({ userId: 'nenovass3', userName: '관리자' }).find((r) => r.id === 'hoonj-legacy-1');
+  assert.ok(row, 'hoon J 행이 목록에 있어야');
+  assert.strictEqual(row.uploaderName, '정재훈', 'hoon J → 정재훈 표시');
+  assert.strictEqual(row.dept, '영업부', '부서도 영업부');
+  assert.ok(fs.readFileSync(idxPath, 'utf8').includes('"uploaderName":"hoon J"'), '색인 원문은 변경 안 함');
+}
+console.log('display alias test passed (hoon J→정재훈)');
