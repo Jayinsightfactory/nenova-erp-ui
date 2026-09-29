@@ -1,5 +1,6 @@
 {
   "id": "week-pivot-distribution",
+  "mixedPasteQuantity": "Explicit 6박스+17스팀 retains two source quantity components. A complete natural parse is authoritative over scalar LLM output for mixed expressions; incomplete coverage is rejected. After final Product selection, resolvePasteMixedQuantity converts to one finer input unit with actual positive Product pack factors (30 stems/box => 197 stems), reused after saved/manual product rematching. Missing metadata yields zero plus a visible error and blocks registration; never silently retain only 17. Manual quantity/unit edits explicitly replace the mixed expression. Existing adjust preview/write conversion and year/customer/product scope are unchanged. Parse and preview preserve every ERP table; no automatic repair or registration.",
   "title": "차수피벗 업체 분배수량 변경 계약",
   "scope": [
     "pages/shipment/week-pivot.js",
