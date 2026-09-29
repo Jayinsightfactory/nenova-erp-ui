@@ -593,6 +593,60 @@ function Proposals({ data }) {
 const PL_STAGES = [...BIZ9, '기타'];
 const plStage = (s) => { s = String(s || '').replace(/\(.*?\)/g, '').trim(); s = ({ 견적: '견적서', 출고: '현장출고', 송금: '해외송금', 영업이익: '이익' })[s] || s; return BIZ9.includes(s) ? s : '기타'; };
 const plConf = (c) => { const n = confScore(c); return !Number.isFinite(n) ? 'lo' : (n <= 1 ? n : n / 100) >= 0.7 ? 'hi' : (n <= 1 ? n : n / 100) >= 0.4 ? 'mid' : 'lo'; };
+// 업무별 실제 작업 기록 — 해독기가 이 업무로 표시한 화면(없으면 같은 단계 화면)을 시간순으로:
+// 어느 화면에서 무엇을 했고, 어느 칸에 무슨 값이 있었고, 어디를 눌렀고, 무엇을 판단했는지.
+function WorkRecords({ uid, wfName, stage }) {
+  const [st, setSt] = useState({ loading: true, recs: [], by: '' });
+  const [big, setBig] = useState(null);
+  useEffect(() => {
+    if (!uid) { setSt({ loading: false, recs: [], by: '' }); return undefined; }
+    let dead = false; setSt({ loading: true, recs: [], by: '' });
+    const get = (q) => fetch(`/api/work/orbit-thumbs?user=${encodeURIComponent(uid)}&records=1&${q}`).then((r) => r.json()).then((j) => j.records || []).catch(() => []);
+    (async () => {
+      let recs = await get('wf=' + encodeURIComponent(wfName)); let by = 'wf';
+      if (!recs.length && stage) { recs = await get('stage=' + encodeURIComponent(stage)); by = 'stage'; }
+      if (!dead) setSt({ loading: false, recs: recs.slice().reverse(), by });
+    })();
+    return () => { dead = true; };
+  }, [uid, wfName, stage]);
+  if (!uid) return <p className="dim">이 직원은 화면 기록이 연결되지 않았습니다.</p>;
+  if (st.loading) return <p className="dim">작업 기록 불러오는 중…</p>;
+  if (!st.recs.length) return <p className="dim">아직 이 업무로 읽힌 화면이 없습니다.</p>;
+  const ent = (e) => {
+    if (!e) return [];
+    const out = [];
+    if (e.orderCycle) out.push('차수 ' + e.orderCycle);
+    if (arr(e.customers).length) out.push('거래처 ' + arr(e.customers).join(', '));
+    if (arr(e.quantities).length) out.push(arr(e.quantities).slice(0, 8).map((q) => `${q.item} ${q.qty}${q.unit || ''}`).join(', '));
+    else if (arr(e.products).length) out.push('품목 ' + arr(e.products).slice(0, 8).join(', '));
+    return out;
+  };
+  return (
+    <div className="plrec">
+      {st.by === 'stage' && <p className="dim">이 업무로 표시된 화면이 아직 없어, 같은 단계({stage})에서 읽힌 화면을 보여줍니다.</p>}
+      {st.recs.map((r) => {
+        const clicks = arr(r.fields).filter((f) => f.click);
+        const vals = arr(r.fields).filter((f) => f.value && !f.click);
+        return (
+          <div key={r.id} className="plr">
+            <div className="plrh2"><span className="plt">{fmtTs(r.timestamp)}</span><b>{r.screen || r.app}</b></div>
+            {r.workflow && (r.workflow.step || r.workflow.caseKey) && <div className="dim">{r.workflow.step ? `${r.workflow.step}번째 단계` : ''}{r.workflow.caseKey ? ` · 건: ${r.workflow.caseKey}` : ''}</div>}
+            {r.activity && <div>{r.activity}</div>}
+            {r.done && <div><span className="plk">마친 동작</span>{r.done}</div>}
+            {clicks.length > 0 && <div><span className="plk">누른 곳</span>{clicks.map((f, k) => <span key={k} className="pltag">{f.name}{f.value ? ` — ${String(f.value).slice(0, 40)}` : ''}</span>)}</div>}
+            {vals.length > 0 && <div><span className="plk">화면의 값</span><ul>{vals.slice(0, 6).map((f, k) => <li key={k}>{f.name}: {String(f.value).slice(0, 80)}{f.human ? ' (사람 판단)' : ''}</li>)}</ul></div>}
+            {ent(r.entities).length > 0 && <div><span className="plk">보인 것</span>{ent(r.entities).join(' · ')}</div>}
+            {r.workflow?.decision && <div><span className="plk">판단</span>{r.workflow.decision}</div>}
+            {r.next && <div className="dim"><span className="plk">다음</span>{r.next}</div>}
+            {r.thumb && (big === r.id
+              ? <img className="plimg big" src={`/api/work/orbit-thumbs?img=${encodeURIComponent(r.id)}`} alt={r.screen || ''} onClick={() => setBig(null)} />
+              : <img className="plimg" loading="lazy" src={`/api/work/orbit-thumbs?img=${encodeURIComponent(r.id)}`} alt={r.screen || ''} onClick={() => setBig(r.id)} />)}
+          </div>);
+      })}
+    </div>
+  );
+}
+
 function Pipeline({ wf }) {
   const [stage, setStage] = useState(null);
   const [sel, setSel] = useState(null); // { p, w } 또는 { p }
@@ -655,6 +709,8 @@ function Pipeline({ wf }) {
           </div>
           {show === 'video' && <WorkflowVideo person={sp} wf={sw} thumbs={thumbs.items} onClose={() => setShow('')} />}
           {show === 'cap' && <CaptureGrid uid={sp.uid} thumbs={thumbs} />}
+          <div className="pll" style={{ marginTop: 14 }}>실제 작업 기록 (최근 2주, 시간순 · 사진을 누르면 크게)</div>
+          <WorkRecords uid={sp.uid} wfName={sw.name} stage={stagesOf(sw)[0] !== '기타' ? stagesOf(sw)[0] : ''} />
         </>}
       </aside>
     </div>
@@ -741,6 +797,13 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
         .plrh{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:4px 0}.plrh dt{color:#58a6ff;font-weight:700}.plrh dd{margin:0}
         .plppl{display:flex;flex-wrap:wrap;gap:4px}
         .plppl button,.plact button{font:inherit;font-size:12px;color:#e7eaf0;background:#1f2430;border:1px solid #2c3340;border-radius:99px;padding:2px 10px;cursor:pointer}
+        .plrec{display:grid;gap:8px}
+        .plr{border:1px solid #262b35;border-radius:8px;padding:8px 10px;display:grid;gap:3px;font-size:12.5px;background:#12161e}
+        .plrh2{display:flex;gap:8px;align-items:baseline}.plt{color:#58a6ff;font-size:11.5px;white-space:nowrap}
+        .plk{display:inline-block;min-width:58px;color:#7d8697;font-size:11px;font-weight:700;margin-right:6px}
+        .plr ul{margin:0;padding-left:18px}
+        .plimg{max-width:160px;border-radius:6px;border:1px solid #2c3340;cursor:zoom-in;margin-top:4px}
+        .plimg.big{max-width:100%;cursor:zoom-out}
         .plact{display:flex;gap:6px;margin:12px 0 8px}.plact button.on{border-color:#58a6ff;background:#1c2633}
 
         .doc{max-width:1200px;margin:0 auto;padding:18px 22px 60px}
