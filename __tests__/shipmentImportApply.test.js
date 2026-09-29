@@ -11,6 +11,7 @@ async function main() {
     resolveImportWriteIntent,
     evaluateImportFinalStateStale,
     importProductOverrideKey,
+    buildImportProductSearchHits,
     classifyImportUnmatchedReason,
     isShipmentImportVerificationSuccessful,
   } = await import('../lib/shipmentImportQty.js');
@@ -20,6 +21,17 @@ async function main() {
   assert('업체+품목', classifyImportUnmatchedReason(false, false).matchKind === 'both');
   assert('품목만', classifyImportUnmatchedReason(true, false).matchKind === 'product');
   assert('업체만', classifyImportUnmatchedReason(false, true).matchKind === 'customer');
+  {
+    const hits = buildImportProductSearchHits({
+      query: '',
+      suggested: [{ prodKey: 101, FlowerName: '수국' }],
+      options: [
+        { prodKey: 101, FlowerName: '수국' },
+        { prodKey: 202, FlowerName: '태국품종' },
+      ],
+    });
+    assert('잘못된 수국 추천 아래에도 다른 품종 전체 후보 노출', hits.length === 1 && hits[0].prodKey === 202);
+  }
 
   console.log('\n=== resolveImportOrderSyncPlan ===');
   {
