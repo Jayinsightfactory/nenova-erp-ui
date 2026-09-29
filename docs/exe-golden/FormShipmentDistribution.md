@@ -3,6 +3,18 @@
 source: `C:\Users\USER\nenova-decompiled\Nenova\FormShipmentDistribution.cs`
 verification: read-only decompile source and SQL structure inspection
 
+## 2026-09-29 운임 이전 내역·직접 입력 UI
+
+- `dnSpy.Console.exe --no-color -t ClassShipmentDate`를 실제 Nenova.exe에 재실행.
+  날짜별 Cost/Amount/Vat 저장과 `ROUND(EstQuantity,0)` 금액식을 확인했다.
+- 운영 SELECT (2026, CustKey 515): 37-01 상차운임 181,500원, 37-02 88,000원,
+  38-01 카네이션 31박스×3,000원=93,000원. 각 표본의 ViewOrder/확정 ViewShipment/
+  PeriodDay 연결은 모두 1건. 과거 총액 일괄 입력을 박스단가로 추정·변경하지 않는다.
+- 이전 내역은 기존 견적 GET의 날짜별 Amount+Vat를 표시한다. 현재 차수를 이전
+  차수에 포함하지 않고 선택 연도·업체를 보존한다. 수량 입력은 해당 초안 선택만 한다.
+- 저장 API/트랜잭션/ERP 부작용은 변경하지 않았다. UI 입력 합계만 같은
+  amountVatFromCostEst를 사용한다. 운영 시험 쓰기 없음.
+
 ## 2026-09-21 운임 최종수량 원자성
 
 - 실제 CLI 재실행: `dnSpy.Console.exe --no-color -t ClassShipmentDetail "C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe"`.
