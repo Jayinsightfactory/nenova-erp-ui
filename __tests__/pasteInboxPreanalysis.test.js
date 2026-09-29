@@ -23,6 +23,11 @@ async function main(){
   await bounded.read('1','2026-39-02',{automatic:true});
   await assert.rejects(bounded.read('2','2026-39-02',{automatic:true}),/자동 분석/);
   await bounded.read('2','2026-39-02');
+  let failedCalls=0;
+  const failedBudget=createPreanalysisCache({autoLimit:1,fetcher:async()=>{failedCalls++;throw new Error('model unavailable');}});
+  await assert.rejects(failedBudget.read('fail1','2026-39-02',{automatic:true}),/model unavailable/);
+  await assert.rejects(failedBudget.read('fail2','2026-39-02',{automatic:true}),/자동 분석/);
+  assert.equal(failedCalls,1,'failed automatic attempts must still consume the safety budget');
   let failures=0;const retry=createPreanalysisCache({fetcher:async()=>{if(!failures++)throw new Error('offline');return data;}});
   await assert.rejects(retry.read('x','2026-39-02'),/offline/);await retry.read('x','2026-39-02');
   assert.throws(()=>analysisKey('x','39-02'));
