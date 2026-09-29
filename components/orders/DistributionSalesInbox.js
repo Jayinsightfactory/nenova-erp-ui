@@ -5,7 +5,7 @@ import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceCompar
 import {classifyMessage,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
-import {appliedOperationEntry,formatKakaoMessage,sourceConfirmation} from '../../lib/distributionMessageApplicationStatus';
+import {appliedOperationEntry,formatKakaoMessage,sourceConfirmation,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 
@@ -323,6 +323,24 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
         :{status:'UNCONFIRMED',entry:null},
     }));
     const appliedCount=appliedItems.filter(item=>item.application.status==='APPLIED').length;
+    const {groups,additional}=groupAppliedItems(appliedItems);
+    const renderAppliedItem=({pair,application},showCustomer=false)=>{
+      const request=pair.request;
+      const entry=application.entry;
+      const customer=entry?.custName||request?.customerText||pair.change?.customer||'업체 확인 필요';
+      const product=entry?.prodName||request?.productText||pair.change?.change||'품목 확인 필요';
+      const qty=entry?.qty??request?.inputQty??request?.qty??pair.change?.quantity;
+      const unit=entry?.unit||request?.inputUnit||request?.unit||pair.change?.unit||'';
+      const action=entry?.type||request?.action||pair.change?.action;
+      const sign=action==='CANCEL'?'−':action==='ADD'?'+':'';
+      const status=application.status==='APPLIED'?'applied':'unconfirmed';
+      const quantity=qty===null||qty===undefined?'?':`${sign}${qty} ${unit}`;
+      return <div className={`paired-applied-item paired-applied-${status}`} data-request-id={pair.requestId||undefined} data-testid={`applied-item:${pair.index}`} key={`${pair.requestId||pair.expectedRequestId||'visible'}:${pair.index}`}>
+        <span className="paired-applied-product" title={`${showCustomer?`${customer} · `:''}${product}`}>{showCustomer?`${customer} · `:''}{product}</span>
+        <span className="paired-applied-quantity" title={quantity==='?'?'수량 확인 필요':quantity} aria-label={quantity==='?'?'수량 확인 필요':undefined}>{quantity}</span>
+        <b title={application.status==='APPLIED'?'동일 원문·업체·품목·동작의 검증된 저장 기록':'개별 저장 기록을 정확히 연결하지 못함'}>{application.status==='APPLIED'?'적용':'미확인'}</b>
+      </div>;
+    };
     return <article className="message compact-match-row" data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
@@ -333,23 +351,15 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       <div className="paired-message-layout" aria-label="카카오 원문과 적용 항목">
         <section className="paired-message-original"><strong>카톡 내용</strong><pre data-testid="complete-kakao-message">{formatKakaoMessage(row.message)}</pre></section>
         <section className="paired-applied-items" aria-label="적용 항목 상태">
-          <header><strong>적용 항목</strong><span>{applicationStatus.loaded?`${appliedCount}/${appliedItems.length} 적용`:applicationStatus.loading?'조회 중':'확인 필요'}</span></header>
-          <div className="paired-applied-list">{appliedItems.map(({pair,application})=>{
-            const request=pair.request;
-            const entry=application.entry;
-            const customer=entry?.custName||request?.customerText||pair.change?.customer||'업체 확인 필요';
-            const product=entry?.prodName||request?.productText||pair.change?.change||'품목 확인 필요';
-            const qty=entry?.qty??request?.inputQty??request?.qty??pair.change?.quantity;
-            const unit=entry?.unit||request?.inputUnit||request?.unit||pair.change?.unit||'';
-            const action=entry?.type||request?.action||pair.change?.action;
-            const sign=action==='CANCEL'?'−':action==='ADD'?'+':'';
-            const status=application.status==='APPLIED'?'applied':'unconfirmed';
-            return <div className={`paired-applied-item paired-applied-${status}`} data-request-id={pair.requestId||undefined} data-testid={`applied-item:${pair.index}`} key={`${pair.requestId||pair.expectedRequestId||'visible'}:${pair.index}`}>
-              <div><strong>{customer}</strong><span>{product}</span></div>
-              <span className="paired-applied-quantity">{qty===null||qty===undefined?'수량 확인 필요':`${sign}${qty} ${unit}`}</span>
-              <b title={application.status==='APPLIED'?'동일 원문·업체·품목·동작의 검증된 저장 기록':'개별 저장 기록을 정확히 연결하지 못함'}>{application.status==='APPLIED'?'적용':'미확인'}</b>
-            </div>;
-          })}</div>
+          <header><strong>적용 항목</strong><span>{applicationStatus.loaded?`${appliedCount}/${appliedItems.length-additional.length} 적용`:applicationStatus.loading?'조회 중':'확인 필요'}</span></header>
+          <div className="paired-applied-list">{groups.map((group,index)=><section className="paired-customer-group" key={`${group.key}:${index}`}>
+            <header><strong>{group.customer}</strong><span>{group.items.length}항목</span></header>
+            {group.items.map(item=>renderAppliedItem(item))}
+          </section>)}
+          {additional.length>0&&<details className="paired-additional-items"><summary>추가 확인 {additional.length}건 · 원문 행 연결 미확인</summary>
+            <small>원문과 연결되지 않은 분석 항목입니다. 중복 여부를 확인하세요. 자동 합산·삭제하지 않습니다.</small>
+            {additional.map(item=>renderAppliedItem(item,true))}
+          </details>}</div>
         </section>
       </div>
       <details className="compact-source-evidence"><summary>상세 전산 이력 · 품목별 근거 {confirmed.length+quantityProcessed.length>0?`(${confirmed.length+quantityProcessed.length}건)`:''}</summary>
@@ -453,6 +463,15 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
       .sales-inbox .paired-message-original pre{margin:0;padding:6px 8px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.3;font-family:inherit;color:#183b60}
       .sales-inbox .paired-applied-items>header>span{font-weight:600;color:#62798f}
       .sales-inbox .paired-applied-list{display:grid;gap:2px;padding:3px}
+      .sales-inbox .paired-customer-group{min-width:0;border:1px solid #d6e2ec;border-radius:4px;overflow:hidden}
+      .sales-inbox .paired-customer-group>header{display:flex;justify-content:space-between;gap:6px;padding:3px 5px;background:#f2f6fb;color:#315879;font-size:11px}
+      .sales-inbox .paired-customer-group>header>strong{min-width:0;overflow-wrap:anywhere}
+      .sales-inbox .paired-customer-group>header>span{white-space:nowrap}
+      .sales-inbox .paired-customer-group .paired-applied-item{padding:2px 4px;gap:4px;border-width:0 0 1px 3px;border-radius:0}
+      .sales-inbox .paired-customer-group .paired-applied-item:last-child{border-bottom:0}
+      .sales-inbox .paired-additional-items{min-width:0;color:#805d19;font-size:11px}
+      .sales-inbox .paired-additional-items>summary{cursor:pointer;padding:4px 2px;overflow-wrap:anywhere}
+      .sales-inbox .paired-additional-items>small{display:block;padding:3px;line-height:1.3}
       .sales-inbox .paired-applied-item{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;min-width:0;padding:4px 6px;border:1px solid #e1e8ef;border-left:4px solid #c28718;border-radius:4px;background:#fff8e8;color:#604a21;font-size:12px;line-height:1.2}
       .sales-inbox .paired-applied-item>div{display:grid;gap:1px;min-width:0}
       .sales-inbox .paired-applied-item strong,.sales-inbox .paired-applied-item span{min-width:0;overflow-wrap:anywhere}
