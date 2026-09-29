@@ -2,7 +2,7 @@ import { withAuth } from '../../../lib/auth';
 import { query, sql } from '../../../lib/db';
 import { sqlQuantityPivotGetData } from '../../../lib/exeQuantityPivotSql';
 import { normalizePivotExeRange } from '../../../lib/pivotExeRange';
-import { getArrivalCostsForWeekRange } from '../../../lib/pivotFreightArrival';
+import { loadPivotArrivalLedger } from '../../../lib/pivotArrivalLedger';
 import { enrichPivotExeRows, sqlPivotExeDistributionCosts, sqlPivotExeCustomerOrderCodes } from '../../../lib/pivotExeSupplement';
 
 // Read only. Do not substitute the legacy web aggregation or execute any stock SP.
@@ -37,10 +37,7 @@ export default withAuth(async function handler(req, res) {
     if (result.recordset.length > 200000) return res.status(422).json({ success: false, error: '조회 원본이 20만 행을 넘었습니다. 차수 범위를 나누어 조회하세요.' });
     const [distributionResult, arrivalResult, customerResult] = await Promise.allSettled([
       query(sqlPivotExeDistributionCosts(), params),
-      getArrivalCostsForWeekRange({
-        weekStart: `${range.fromYear}-${range.fromWeek}`,
-        weekEnd: `${range.toYear}-${range.toWeek}`,
-      }),
+      loadPivotArrivalLedger(result.recordset),
       query(sqlPivotExeCustomerOrderCodes()),
     ]);
     const warnings = [];

@@ -2,6 +2,8 @@
   "id": "pivot-stats",
   "title": "피벗 통계 품목 필터 검색 계약",
   "scope": [
+    "lib/pivotArrivalLedger.js",
+    "lib/pivotArrivalReference.js",
     "lib/pivotLinkedFilters.js",
     "components/PivotExeControls.module.css",
     "lib/pivotExeCalculation.js",
@@ -83,6 +85,7 @@
     "description": "같은 품목명·차수명이 여러 연도에 있어도 별칭 검색은 현재 조회된 피벗 rows의 canonical 품목 옵션만 필터링하고 다른 연도 원장을 조회·수정하지 않는다."
   },
   "requiredTestFiles": [
+    "__tests__/pivotArrivalReference.test.js",
     "__tests__/pivotLinkedFilters.test.js",
     "__tests__/pivotExeCalculation.test.js",
     "__tests__/pivotExeWeekGrouping.test.js",

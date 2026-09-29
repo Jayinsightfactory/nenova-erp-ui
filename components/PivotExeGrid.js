@@ -110,7 +110,7 @@ const PivotExeGrid = memo(function PivotExeGrid({
   onToggleRowRef.current = onToggleRow;
   // Formatting is intentionally independent of dimensions and scroll state: scrolling a large
   // table must only select cached labels, never invoke Intl.NumberFormat for new cells.
-  const formattedLabels = useMemo(() => structure.bodyRows.map(({ dataCells }) => dataCells.map(({ value }) => formatPivotExeNumber(value, decimals, zeroVisible))), [structure, decimals, zeroVisible]);
+  const formattedLabels = useMemo(() => structure.bodyRows.map(({ dataCells }) => dataCells.map(({ value, field }) => formatPivotExeNumber(value, decimals, zeroVisible, field))), [structure, decimals, zeroVisible]);
   const isVirtualized = !structure.isEmpty && shouldWindowPivotExe(structure.bodyRows.length, structure.dataColumns.length);
   const topScrollRef = useRef(null);
   const pinnedHeaderRef = useRef(null);

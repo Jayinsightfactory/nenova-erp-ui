@@ -29,7 +29,7 @@ const context={normalizePivotExeRange,sql:{NVarChar:'NVarChar'},withAuth:h=>h,
   sqlQuantityPivotGetData:()=> 'EXE_READ_ONLY_QUERY',
   sqlPivotExeDistributionCosts:()=> 'DIST_READ_ONLY_QUERY',
   sqlPivotExeCustomerOrderCodes:()=> 'CUSTOMER_READ_ONLY_QUERY',
-  getArrivalCostsForWeekRange:async()=>{if(failSupplement==='all')throw Error('private arrival');return {12:{arrivalCost:17000}};},
+  loadPivotArrivalLedger:async()=>{if(failSupplement==='all')throw Error('private arrival');return {'2025|3601|12':{arrivalCost:17000}};},
   enrichPivotExeRows,
   query:async(q,p)=>{calls.push({q,p});if(failDb || (failSupplement && q==='CUSTOMER_READ_ONLY_QUERY') || (failSupplement==='all' && q==='DIST_READ_ONLY_QUERY'))throw Error('private database detail');return {recordset:q==='CUSTOMER_READ_ONLY_QUERY'?[{CustKey:7,OrderCode:'0017'}]:q==='DIST_READ_ONLY_QUERY'?[]:fakeRows};},
   console:{error:()=>{}},handler:null};
