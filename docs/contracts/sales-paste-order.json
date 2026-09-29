@@ -1,5 +1,6 @@
 {
   "id": "sales-paste-order",
+  "mixedQuantitySafety": "parse-paste only returns mixed-unit quantities to a client advertising mixedQuantitySupport=true (the orders/paste screen, which recalculates after product rematching and shows the source expression). Other consumers receive an explicit 400 rather than a silently truncated scalar. 6 boxes + 17 stems must not be treated as 17 stems; this does not change sales-paste order-only writes.",
   "title": "영업부 붙여넣기 주문전용 등록 계약",
   "scope": ["components/Layout.js", "pages/orders/sales-paste.js", "pages/api/orders/index.js", "pages/api/orders/parse-paste.js", "pages/api/orders/my-customers.js", "pages/api/raum/pnl-image-import.js", "pages/api/sales/hotel-miu-parse.js", "lib/salesPasteOrder.js", "lib/orderImportMatch.js", "lib/orderImportParse.js", "lib/orderImportUnits.js", "lib/orderUtils.js", "lib/pasteNaturalInlineOrder.js", "lib/pasteOrderUnit.js", "lib/parseMappings.js", "lib/pasteLocalMapping.js", "lib/displayName.js", "lib/myCustomerOrderWritePolicy.js", "data/order-mappings.json", "__tests__/orderImportParse.test.js", "__tests__/salesPasteOrder.test.js", "__tests__/salesPasteOrderUi.test.js", "__tests__/pasteOrderUnit.test.js", "docs/contracts/sales-paste-order.json", "docs/exe-golden/FormOrderAdd.md"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],

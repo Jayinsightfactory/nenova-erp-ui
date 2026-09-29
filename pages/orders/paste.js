@@ -16,7 +16,7 @@ import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../.
 import { getProductUsageRank, rankProductSearchOptions } from '../../lib/productSearchRanking';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
-import { resolvePasteOrderUnit } from '../../lib/pasteOrderUnit.js';
+import { resolvePasteOrderUnit, resolvePasteMixedQuantity } from '../../lib/pasteOrderUnit.js';
 import { applyPasteCustomerMappings, pasteCustomerMappingKey } from '../../lib/pasteCustomerMapping.js';
 import { buildPasteMixedActionPreview, getPasteMixedBatchStartBlocker, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, pasteShipmentLookupProdKeys, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
@@ -1444,7 +1444,7 @@ export default function PasteOrderPage() {
         ambiguousCountry: false,
         unit: resolvePasteOrderUnit({ prod, parsedUnit: it.unit, unitExplicit: it.unitExplicit, prodUnitMap }),
       };
-    }),
+    }).map(item=>resolvePasteMixedQuantity(item,prods.find(prod=>Number(prod.ProdKey)===Number(item.prodKey)))),
   }));
 
   /** 이번 화면에서 수동 재매칭한 품목 → 재분석 전 캐시에 합침 */
@@ -1933,7 +1933,7 @@ export default function PasteOrderPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ text: textForParse }),
+        body: JSON.stringify({ text: textForParse, mixedQuantitySupport: true }),
       });
       const d = await res.json();
       if (!d.success) { setParseError(d.error || '파싱 실패'); return; }
@@ -2039,7 +2039,14 @@ export default function PasteOrderPage() {
   const updateItem = (oid, idx, patch) => {
     setOrders(prev => prev.map(o =>
       o.id === oid
-        ? { ...o, orderOnlyRegistered: false, items: o.items.map((it, i) => i === idx ? { ...it, ...patch } : it) }
+        ? { ...o, orderOnlyRegistered: false, items: o.items.map((it, i) => {
+          if(i!==idx)return it;
+          const next={...it,...patch};
+          if(Object.hasOwn(patch,'prodKey'))return resolvePasteMixedQuantity(next,allProducts.find(prod=>Number(prod.ProdKey)===Number(next.prodKey)));
+          if(Object.hasOwn(patch,'qty'))return {...next,quantityParts:undefined,quantitySource:undefined,mixedQuantityError:null};
+          if(Object.hasOwn(patch,'unit'))return resolvePasteMixedQuantity(next,allProducts.find(prod=>Number(prod.ProdKey)===Number(next.prodKey)),patch.unit);
+          return next;
+        }) }
         : o
     ));
   };
@@ -2556,6 +2563,7 @@ export default function PasteOrderPage() {
   const [bulkCompletionNotice, setBulkCompletionNotice] = useState(null);
   const handleBulkDistribute = async (oid, { failedOnly = false } = {}) => {
     const order = orders.find(o => o.id === oid);
+    if(order?.items?.some(it=>!it.skip&&it.mixedQuantityError)){alert('혼합수량의 품목 포장수를 확인한 뒤 다시 분석하세요.');return;}
     if (!order || !order.custMatch || !week) { alert('거래처/차수 확인하세요.'); return; }
     if (bulkRunning) return; // 중복 실행 방지 (진행 중 재클릭)
 
@@ -3232,6 +3240,7 @@ export default function PasteOrderPage() {
 
   const handleRegister = async (oid) => {
     const order = orders.find(o => o.id === oid);
+    if(order?.items?.some(it=>!it.skip&&it.mixedQuantityError)){alert('혼합수량의 품목 포장수를 확인한 뒤 다시 분석하세요.');return;}
 
     const allItems  = order?.items || [];
     const activeItems = allItems.filter(it => !it.skip);
@@ -3711,7 +3720,7 @@ export default function PasteOrderPage() {
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey && (it.flowerName || '기타') === flower);
     if (!targets.length) { alert('해당 품종의 매칭 품목이 없습니다.'); return; }
     setOrders(prev => prev.map(o => o.id === oid
-      ? { ...o, orderOnlyRegistered: false, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? { ...it, unit, unitExplicit: true } : it) }
+      ? { ...o, orderOnlyRegistered: false, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? resolvePasteMixedQuantity({ ...it, unit, unitExplicit: true },allProducts.find(prod=>Number(prod.ProdKey)===Number(it.prodKey)),unit) : it) }
       : o
     ));
     await Promise.all(targets.map(it => fetch('/api/orders/prod-units', {
@@ -3804,6 +3813,7 @@ export default function PasteOrderPage() {
                 </button>
                 </div>
                 <div className="paste-preview-meta">
+                  {it.quantitySource&&<span style={{color:it.mixedQuantityError?'#c62828':'#245b93'}}>원문 {it.quantitySource} → {it.mixedQuantityError||`${it.qty}${it.unit}`}</span>}
                   <span className="paste-preview-matched">{it.prodKey ? `✓ ${it.displayName || it.prodName}` : '⚠ 품목 매칭 필요'}</span>
                   {it.prodKey && <span style={{ color: incomingState.kind === 'error' ? '#c62828' : '#00695c' }}>{incomingState.label}</span>}
                   {it.prodKey && <span className={preview?.error ? 'paste-preview-warning' : ''}>

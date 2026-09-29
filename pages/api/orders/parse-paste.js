@@ -18,10 +18,10 @@ import { loadMappings } from '../../../lib/parseMappings';
 import { reviewPasteMatches, PASTE_REVIEW_SYSTEM } from '../../../lib/pasteAiMatchReview.js';
 import { loadCustomerMappings } from '../../../lib/customerMappings';
 import { resolveImportCustomer } from '../../../lib/orderImportCustomerMatch';
-import { parseNaturalInlineOrderLine, parseNaturalSectionActionLine, stripTrailingOrderMemo } from '../../../lib/pasteNaturalInlineOrder';
+import { parseNaturalInlineOrderLine, parseNaturalSectionActionLine, stripTrailingOrderMemo, parseMixedOrderQuantity } from '../../../lib/pasteNaturalInlineOrder';
 import { matchImportRows } from '../../../lib/orderImportMatch';
 import { loadImportUnits } from '../../../lib/orderImportUnits';
-import { parseExplicitOrderUnit } from '../../../lib/pasteOrderUnit.js';
+import { parseExplicitOrderUnit, resolvePasteMixedQuantity } from '../../../lib/pasteOrderUnit.js';
 import { buildSalesPasteMatchName, chooseSalesPasteParsedOrders, normalizeDetectedSalesPasteWeek, normalizeSalesPasteInputText, salesPasteCountryContext } from '../../../lib/salesPasteOrder.js';
 
 const ORDER_PASTE_LLM_MODEL = process.env.ORDER_PASTE_LLM_MODEL || 'claude-sonnet-4-5';
@@ -466,7 +466,7 @@ function parseNaturalSectionOrders(text) {
     // 구분자 주위 공백을 요구해 "남대문-중앙" 같은 실제 업체명의 하이픈은 보존한다.
     // 동작 뒤 괄호는 농장/위치 메모이므로 품목·수량 분석 전에 제거한다.
     // 원문 고객 헤더 판정에는 사용하지 않아 실제 괄호 포함 업체명을 훼손하지 않는다.
-    const orderLine = stripTrailingOrderMemo(line);
+    const orderLine = parseMixedOrderQuantity(line) ? line : stripTrailingOrderMemo(line);
     const inline = parseNaturalInlineOrderLine(orderLine);
     if (inline) {
       const custName = inline.customerName;
@@ -481,6 +481,8 @@ function parseNaturalSectionOrders(text) {
         qty,
         unit,
         unitExplicit: Boolean(inline.unitText),
+        quantityParts: inline.quantityParts,
+        quantitySource: inline.quantitySource,
         action: normalizeAction(inline.action, productName),
         prodKey: null,
         prodName: null,
@@ -489,7 +491,7 @@ function parseNaturalSectionOrders(text) {
       return;
     }
 
-    const actionLine = parseNaturalSectionActionLine(orderLine);
+    const actionLine = parseNaturalSectionActionLine(orderLine) || (sectionAction && parseMixedOrderQuantity(orderLine));
     if (actionLine && (currentCust || sectionAction)) {
       const custName = currentCust || '여분코드';
       const qty = Math.abs(parseCompactQty(actionLine.quantityText)) || 1;
@@ -503,6 +505,8 @@ function parseNaturalSectionOrders(text) {
         qty,
         unit,
         unitExplicit: !!actionLine.unitText,
+        quantityParts: actionLine.quantityParts,
+        quantitySource: actionLine.quantitySource,
         action: actionLine.action || sectionAction,
         prodKey: null,
         prodName: null,
@@ -781,6 +785,9 @@ Caroline | 2
       naturalParsed,
     });
     const baseParsedOrders = selectedParse.orders;
+    if(baseParsedOrders.some(order=>(order.items||[]).some(item=>item.quantityParts))&&req.body.mixedQuantitySupport!==true){
+      return res.status(400).json({success:false,error:'박스+스팀 혼합수량은 붙여넣기 주문등록 화면에서 원문 합산값을 확인해 주세요.'});
+    }
     const mergedParsedOrders = [...baseParsedOrders, ...(compactParsed.orders || [])];
 
     // 거래처·품목 보강
@@ -816,6 +823,8 @@ Caroline | 2
         const parsedExplicitUnit = parseExplicitOrderUnit(item.unit);
         return {
           inputName:   item.inputName,
+          quantityParts: item.quantityParts,
+          quantitySource: item.quantitySource,
           matchName:   item.matchName || item.inputName,
           proposedProdKey: item.prodKey || null,
           qty:         item.qty || 1,
@@ -890,7 +899,7 @@ Caroline | 2
 
     return res.status(200).json({
       success: true,
-      orders,
+      orders: orders.map(order=>({...order,items:order.items.map(item=>resolvePasteMixedQuantity(item,productByKey.get(Number(item.prodKey))))})),
       prodUnitMap,
       detectedWeek,
       parseSource: selectedParse.source,
