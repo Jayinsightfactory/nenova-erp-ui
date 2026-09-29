@@ -1083,13 +1083,14 @@ export default function PasteOrderPage() {
   const [allProducts, setAllProducts] = useState([]);
   const inboxAnalysisCache=useRef(null);
   const prepareInboxMessage=useCallback((text,targetWeek,options={})=>{
-    if(!inboxAnalysisCache.current)inboxAnalysisCache.current=createPreanalysisCache({fetcher:async(raw,fullWeek)=>{
+    if(!inboxAnalysisCache.current)inboxAnalysisCache.current=createPreanalysisCache({persistent:true,fetcher:async(raw,fullWeek,cacheOptions)=>{
       const controller=new AbortController();
       const timer=setTimeout(()=>controller.abort(),120000);
       try {
-        const response=await fetch('/api/orders/parse-paste',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',signal:controller.signal,body:JSON.stringify({text:raw,mixedQuantitySupport:true,selectedOrderYear:fullWeek.slice(0,4)})});
-        if(!response.ok)throw new Error(response.status===401?'로그인이 필요합니다.':`분석 실패 (${response.status}) · 지금 분석으로 재시도하세요.`);
-        return await response.json();
+        const response=await fetch('/api/orders/paste-preanalysis',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',signal:controller.signal,body:JSON.stringify({text:raw,week:fullWeek,...cacheOptions})});
+        const data=await response.json();
+        if(!response.ok)throw new Error(response.status===401?'로그인이 필요합니다.':data.error||`분석 실패 (${response.status}) · 지금 분석으로 재시도하세요.`);
+        return data;
       } finally {clearTimeout(timer);}
     }});
     return inboxAnalysisCache.current.read(text,targetWeek,options);

@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 require('./pasteInboxPreanalysis.test');
+require('./pasteAnalysisStore.test');
 const {groupAppliedItems}=require('../lib/distributionMessageApplicationStatus');
 const groupRow=(index,customer,custKey,extra=false)=>({pair:{index,request:{custKey,customerText:customer,inputQty:index+1},unparsedRequest:extra},application:{status:'UNCONFIRMED',entry:null}});
 const groupedInput=[groupRow(0,'남대문 청화',10),groupRow(1,'남대문 청화',10),groupRow(2,'같은 이름',11),groupRow(3,'같은 이름',12),groupRow(4,'남대문 청화',10),groupRow(5,'업체 확인 필요',null,true)];

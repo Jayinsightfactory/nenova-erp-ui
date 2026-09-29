@@ -551,7 +551,7 @@ function normalizeAction(action, inputName = '') {
   return '추가';
 }
 
-export default withAuth(async function handler(req, res) {
+export async function parsePasteHandler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   const { text, sourceText, selectedCustKey, selectedOrderYear } = req.body;
   if (!text?.trim()) return res.status(400).json({ success: false, error: 'text 필요' });
@@ -911,4 +911,5 @@ Caroline | 2
     console.error('[parse-paste]', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
-});
+}
+export default withAuth(parsePasteHandler);
