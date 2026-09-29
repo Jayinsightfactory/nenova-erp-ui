@@ -1,5 +1,11 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-29 피벗 환율 미리보기
+- 실제 dnSpy.Console.exe --no-color -t FormQuantityPivot 재확인: GetData/ViewWarehouse/ExportToXlsx. native 조회/수량과 모든 원장 보존.
+- 운영 SELECT 2026 current 원가의 RawJson CNF 외화/원화/도착원가/단당수량 확인. 기존 환율 helper의 비용 누락0 역산을 쓰지 않고 원본 대조된 SOURCE 행만 외화 비용 재계산. 관세 포함 KRW 구성은 유지.
+- 기존 국가별 통화 명시 매핑, 연도/품목/세부차수 기준 유지. 38-01 BeSweet50cm 원본1450/10205, 외화 단당6.787302840599327와 KRW363.4108811309761 분리 확인. 복수농장은 새 환율로 각각 계산 후 MAX.
+- UI 메모리만 변경, XLSX 동일 모델 + 환율 기준 시트. 근거 없는 행은 빈칸/이유 표시. pivotArrivalFx.test.js 교차연도·실패·복원·농장MAX·엑셀 실행 검증.
+
 ## 2026-09-29 업로드 도착원가 연결
 
 - 실제 dnSpy.Console FormQuantityPivot GetData/ViewWarehouse/ExportToXlsx 재실행. 원본 피벗 SQL·수량 보존.
