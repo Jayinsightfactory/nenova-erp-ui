@@ -1,0 +1,43 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const {createPasteAnalysisStore} = require('../lib/pasteAnalysisStore');
+const {createPreanalysisCache, TTL_MS} = require('../lib/pasteInboxPreanalysis');
+async function main() {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'nenova-analysis-test-'));
+  const scope = {userId: 'user1', text: '원문 6박스+17스팀', week: '2026-39-02'};
+  let calls = 0;
+  const analyze = async () => { calls++; await new Promise(resolve => setTimeout(resolve, 10)); return {success: true, orders: [{items: [{qty: 197}]}]}; };
+  const store = createPasteAnalysisStore(dir);
+  const [a,b] = await Promise.all([store.read(scope, analyze), store.read(scope, analyze)]);
+  assert.equal(calls, 1); assert.equal(a.analysisStorage.savedAt, b.analysisStorage.savedAt);
+  a.orders[0].items[0].qty = 0; assert.equal(b.orders[0].items[0].qty, 197);
+  const reopened = await createPasteAnalysisStore(dir).read(scope, analyze);
+  assert.equal(calls, 1, 'new store/process lifecycle reuses disk');
+  assert.equal(reopened.analysisStorage.cacheHit, true);
+  assert.equal(reopened.analysisStorage.savedAt, b.analysisStorage.savedAt);
+  await store.read({...scope, week: '2025-39-02'}, analyze);
+  await store.read({...scope, userId: 'user2'}, analyze);
+  await store.read({...scope, text: scope.text + ' 수정'}, analyze);
+  assert.equal(calls, 4, 'year, user and exact source isolation');
+  await assert.rejects(store.read({...scope, force: true}, async () => {throw Error('offline');}), /offline/);
+  assert.equal((await store.read(scope, analyze)).analysisStorage.savedAt, b.analysisStorage.savedAt, 'failed force preserves prior success');
+  await store.read({...scope, force: true}, analyze); assert.equal(calls, 5);
+  await assert.rejects(store.read({...scope, text: 'new', allowAnalyze: false}, analyze), /자동 분석/);
+  await store.read({...scope, allowAnalyze: false}, analyze); assert.equal(calls, 5, 'budget never blocks saved lookup');
+  await assert.rejects(store.read({...scope, userId: ''}, analyze));
+  await assert.rejects(store.read({...scope, week: '39-02'}, analyze));
+  await assert.rejects(store.read({...scope, text: 'failure'}, async () => ({success: false})), /분석 실패/);
+  await store.read({...scope, text: 'failure'}, analyze); assert.equal(calls, 6);
+  let time = 100;
+  const cache = createPreanalysisCache({persistent: true, autoLimit: 0, now: () => time, fetcher: (text, week, options) => store.read({...scope, text, week, ...options}, analyze)});
+  await cache.read(scope.text, scope.week, {automatic: true});
+  time += TTL_MS; await cache.read(scope.text, scope.week, {automatic: true});
+  assert.equal(calls, 6, 'memory expiration never repeats Claude for saved record');
+  await cache.read(scope.text, scope.week, {force: true}); assert.equal(calls, 7, 'force reaches server');
+  console.log('persistent preanalysis: restart, exact identity, cross-year/user, dedup, force, failures, budget passed');
+  // Isolated mkdtemp fixture only; no application/runtime data is removed.
+  await fs.rm(dir, {recursive: true});
+}
+main().catch(error => {console.error(error); process.exitCode = 1;});
