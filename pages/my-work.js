@@ -591,7 +591,7 @@ function Proposals({ data }) {
 // 프로세스 마이닝(Celonis·Disco)식 흐름 지도 + 업무 절차도식 스윔레인. 숫자 통계 없이 "누가 어느 단계에서 무엇을" 만 보인다.
 // 업무를 누르면 계기→받는 것→하는 일→판단→결과물 흐름, 주고받는 사람 강조, 실제 캡처·영상 인수인계.
 const PL_STAGES = [...BIZ9, '기타'];
-const plStage = (s) => { s = String(s || '').trim(); s = ({ 견적: '견적서', 출고: '현장출고', 송금: '해외송금', 영업이익: '이익' })[s] || s; return BIZ9.includes(s) ? s : '기타'; };
+const plStage = (s) => { s = String(s || '').replace(/\(.*?\)/g, '').trim(); s = ({ 견적: '견적서', 출고: '현장출고', 송금: '해외송금', 영업이익: '이익' })[s] || s; return BIZ9.includes(s) ? s : '기타'; };
 const plConf = (c) => { const n = confScore(c); return !Number.isFinite(n) ? 'lo' : (n <= 1 ? n : n / 100) >= 0.7 ? 'hi' : (n <= 1 ? n : n / 100) >= 0.4 ? 'mid' : 'lo'; };
 function Pipeline({ wf }) {
   const [stage, setStage] = useState(null);
