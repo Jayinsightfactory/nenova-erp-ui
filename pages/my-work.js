@@ -64,7 +64,7 @@ export async function getServerSideProps({ req, query }) {
   let workflows = null; try { workflows = JSON.parse(fs.readFileSync(featureFilePath('workflows'), 'utf8')); } catch {}
   let simulations = null; try { simulations = JSON.parse(fs.readFileSync(featureFilePath('simulations'), 'utf8')); } catch {}
   const viewerToken = await orbitViewerToken();
-  return { props: { userId: user.userId, data: proposals, boards, workflows, simulations, orbit: ORBIT, orbitQs: viewerToken ? '?token=' + encodeURIComponent(viewerToken) : '', tab: query.tab || 'workflows' } };
+  return { props: { userId: user.userId, data: proposals, boards, workflows, simulations, orbit: ORBIT, orbitQs: viewerToken ? '?token=' + encodeURIComponent(viewerToken) : '', tab: query.tab || 'pipeline' } };
 }
 
 // 캡처식 워크플로우 — 제안 하나를 고르면 실제 관찰 세션을 시간순 장면 필름으로 보여준다. 선택은 URL(?tab=story&who=&b=&s=)로 서버에서 잘라온다.
@@ -587,9 +587,84 @@ function Proposals({ data }) {
   );
 }
 
+// ───────────────────────── 탭 '업무 파이프라인' ─────────────────────────
+// 프로세스 마이닝(Celonis·Disco)식 흐름 지도 + 업무 절차도식 스윔레인. 숫자 통계 없이 "누가 어느 단계에서 무엇을" 만 보인다.
+// 업무를 누르면 계기→받는 것→하는 일→판단→결과물 흐름, 주고받는 사람 강조, 실제 캡처·영상 인수인계.
+const PL_STAGES = [...BIZ9, '기타'];
+const plStage = (s) => { s = String(s || '').trim(); s = ({ 견적: '견적서', 출고: '현장출고', 송금: '해외송금', 영업이익: '이익' })[s] || s; return BIZ9.includes(s) ? s : '기타'; };
+const plConf = (c) => { const n = confScore(c); return !Number.isFinite(n) ? 'lo' : (n <= 1 ? n : n / 100) >= 0.7 ? 'hi' : (n <= 1 ? n : n / 100) >= 0.4 ? 'mid' : 'lo'; };
+function Pipeline({ wf }) {
+  const [stage, setStage] = useState(null);
+  const [sel, setSel] = useState(null); // { p, w } 또는 { p }
+  const [show, setShow] = useState(''); // '' | 'cap' | 'video'
+  const people = wf?.people || [];
+  const names = people.map((p) => p.name);
+  const sp = sel ? people[sel.p] : null; const sw = sel && sel.w != null ? arr(sp?.workflows)[sel.w] : null;
+  const thumbs = useThumbs(sp?.uid, !!sw && show !== '');
+  if (!people.length) return <p className="warn" style={{ padding: 20 }}>data/work-feature-workflows.json 이 없습니다.</p>;
+  const stagesOf = (w) => [...new Set(arr(w.stage).map(plStage))];
+  const links = sw ? names.filter((n) => n !== sp.name && JSON.stringify([sw.inputs, sw.outputs, sw.trigger]).includes(n)) : [];
+  const used = new Set(people.flatMap((p) => arr(p.workflows).flatMap(stagesOf)));
+  const pick = (p, w) => { setSel({ p, w }); setShow(''); };
+  let dept = null;
+  const list = (a, ol) => { const xs = arr(a); if (!xs.length) return <span className="dim">기록 없음</span>; const L = ol ? 'ol' : 'ul'; return <L>{xs.map((x, k) => <li key={k}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}</L>; };
+  return (
+    <div className="plwrap">
+      <main className="plm">
+        <p className="pllede">위는 회사 흐름(발주부터 이익까지), 아래는 단계마다 누가 어떤 업무를 하는지입니다. 단계를 누르면 그 단계 업무만 남고, 업무를 누르면 오른쪽에 흐름이 나옵니다.</p>
+        <div className="plmap">{PL_STAGES.map((s) => (
+          <button type="button" key={s} className={'plstg' + (stage === s ? ' on' : '') + (used.has(s) ? '' : ' none')} onClick={() => setStage(stage === s ? null : s)}>{s}</button>))}</div>
+        <div className="pllegend"><span><i className="hi" />근거 충분</span><span><i className="mid" />근거 보통</span><span><i className="lo" />근거 부족</span><span><i className="none" />업무가 잡히지 않은 단계</span></div>
+        <div className="pllanes"><table>
+          <thead><tr><th className="plwho">직원</th>{PL_STAGES.map((s) => <th key={s} className={stage === s ? 'hl' : ''}>{s}</th>)}</tr></thead>
+          <tbody>{people.map((p, pi) => {
+            const rows = [];
+            if (p.dept !== dept) { dept = p.dept; rows.push(<tr key={'d' + pi} className="pldept"><td colSpan={PL_STAGES.length + 1}>{dept || '미정'}</td></tr>); }
+            rows.push(<tr key={pi} className={links.includes(p.name) ? 'link' : ''}>
+              <td className="plwho"><button type="button" className="plname" onClick={() => { setSel({ p: pi }); setShow(''); }}>{p.name}</button></td>
+              {PL_STAGES.map((s) => <td key={s} className={stage === s ? 'hl' : ''}>{arr(p.workflows).map((w, wi) => ({ w, wi })).filter(({ w }) => stagesOf(w)[0] === s).map(({ w, wi }) => (
+                <button type="button" key={wi} className={'plchip ' + plConf(w.confidence) + (sel && sel.p === pi && sel.w === wi ? ' on' : '') + (stage && !stagesOf(w).includes(stage) ? ' dim' : '')} onClick={() => pick(pi, wi)}>{w.name}</button>))}</td>)}
+            </tr>);
+            return rows;
+          })}</tbody>
+        </table></div>
+      </main>
+      <aside className="plside">
+        {!sel && <p className="dim">업무나 직원 이름을 누르세요.</p>}
+        {sel && !sw && sp && <>
+          <div className="dim">{sp.dept}</div><h2>{sp.name}</h2>
+          <p>{sp.roleSummary}</p>
+          {arr(sp.weekRhythm).length > 0 && <><div className="pll">한 주의 리듬</div><dl className="plrh">{sp.weekRhythm.flatMap((r, k) => [<dt key={'t' + k}>{r.when}</dt>, <dd key={'d' + k}>{r.what}</dd>])}</dl></>}
+          <div className="pll">하는 업무</div><div className="plppl">{arr(sp.workflows).map((w, wi) => <button type="button" key={wi} onClick={() => pick(sel.p, wi)}>{w.name}</button>)}</div>
+          {arr(sp.unknowns).length > 0 && <><div className="pll">아직 확인이 필요한 것</div>{list(arr(sp.unknowns).map((u) => (typeof u === 'string' ? u : u.q || '')))}</>}
+        </>}
+        {sw && <>
+          <div className="dim">{sp.dept} · {sp.name}</div><h2>{sw.name}</h2>
+          <div className="pltags"><span className={'plbadge ' + plConf(sw.confidence)}>{({ hi: '근거 충분', mid: '근거 보통', lo: '근거 부족' })[plConf(sw.confidence)]}</span>{stagesOf(sw).map((s) => <span key={s} className="pltag">{s}</span>)}</div>
+          {sw.why && <p className="plwhy">{sw.why}</p>}
+          <div className="plflow">
+            {[['시작 계기', sw.trigger ? [sw.trigger] : []], ['받는 것', sw.inputs], ['하는 일', sw.steps, true], ['사람이 판단하는 곳', sw.decisions], ['결과물 · 넘기는 곳', sw.outputs]].map(([t, v, ol], k) => (
+              <div key={k} className="plfs"><span className="pldot">{k + 1}</span><div><div className="pll">{t}</div>{list(v, ol)}</div></div>))}
+          </div>
+          {arr(sw.tools).length > 0 && <div className="pltags">{arr(sw.tools).map((t) => <span key={t} className="pltag">{t}</span>)}</div>}
+          {arr(sw.pitfalls).length > 0 && <><div className="pll">주의할 점</div>{list(sw.pitfalls)}</>}
+          {links.length > 0 && <><div className="pll">주고받는 사람 (표에 노랗게 표시)</div><div className="plppl">{links.map((n) => <button type="button" key={n} onClick={() => { setSel({ p: names.indexOf(n) }); setShow(''); }}>{n}</button>)}</div></>}
+          <div className="plact">
+            <button type="button" className={show === 'cap' ? 'on' : ''} onClick={() => setShow(show === 'cap' ? '' : 'cap')}>실제 화면 보기</button>
+            <button type="button" className={show === 'video' ? 'on' : ''} onClick={() => setShow(show === 'video' ? '' : 'video')}>▶ 영상으로 인수인계</button>
+          </div>
+          {show === 'video' && <WorkflowVideo person={sp} wf={sw} thumbs={thumbs.items} onClose={() => setShow('')} />}
+          {show === 'cap' && <CaptureGrid uid={sp.uid} thumbs={thumbs} />}
+        </>}
+      </aside>
+    </div>
+  );
+}
+
 export default function MyWorkPage({ userId, data, boards, workflows, simulations, orbit, orbitQs = '', tab: tab0 }) {
   const [tab, setTab] = useState(tab0);
   const TABS = [
+    { id: 'pipeline', label: '업무 파이프라인' },
     { id: 'workflows', label: '업무 흐름' },
     { id: 'proposals', label: '기능 추가 후보 (시뮬레이션)' },
     { id: 'unified', label: '업무 통합본 (최신)' },
@@ -609,6 +684,7 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
       <div className="stage">
         {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html' + orbitQs} />}
         {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html' + orbitQs} />}
+        {tab === 'pipeline' && <Pipeline wf={workflows} />}
         {tab === 'workflows' && <Workflows wf={workflows} />}
         {tab === 'proposals' && <Simulator sims={simulations} fallback={<Proposals data={data} />} />}
         {tab === 'story' && <Storyboards boards={boards} data={data} />}
@@ -623,6 +699,50 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
         .bar a{color:#98a1b2;border:1px solid #2c3340;border-radius:6px;padding:4px 9px;text-decoration:none;font-size:12px}
         .stage{flex:1 1 auto;min-height:0;position:relative;overflow:auto}
         .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#0e1016}
+        .plwrap{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;padding:14px;align-items:start}
+        @media(max-width:1100px){.plwrap{grid-template-columns:1fr}}
+        .pllede{color:#98a1b2;margin:0 0 10px;max-width:80ch}
+        .plmap{display:grid;grid-template-columns:repeat(10,minmax(84px,1fr));gap:3px;overflow-x:auto}
+        .plstg{font:inherit;font-weight:700;color:#e7eaf0;background:#1f2a3a;border:0;padding:10px 12px 10px 18px;cursor:pointer;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%,10px 50%)}
+        .plstg:first-child{clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%);padding-left:12px}
+        .plstg.none{background:#191c23;color:#5d6575}.plstg.on{background:#2e5d8f}
+        .plstg:focus-visible,.plchip:focus-visible,.plname:focus-visible{outline:2px solid #58a6ff}
+        .pllegend{display:flex;gap:14px;flex-wrap:wrap;color:#98a1b2;font-size:12px;margin:8px 0 12px}
+        .pllegend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+        .pllegend i.hi{background:#3fb950}.pllegend i.mid{background:#d29922}.pllegend i.lo{background:#6e7681}.pllegend i.none{background:#191c23;border:1px solid #2c3340}
+        .pllanes{border:1px solid #262b35;border-radius:10px;overflow:auto;max-height:calc(100vh - 230px)}
+        .pllanes table{border-collapse:separate;border-spacing:0;min-width:1150px;width:100%}
+        .pllanes th,.pllanes td{border-bottom:1px solid #222733;vertical-align:top;padding:6px}
+        .pllanes thead th{position:sticky;top:0;background:#171a21;z-index:2;color:#98a1b2;font-weight:500;text-align:left;white-space:nowrap}
+        .pllanes th.hl,.pllanes td.hl{background:#152233}
+        .plwho{position:sticky;left:0;background:#12151c;z-index:1;width:92px}
+        thead .plwho{z-index:3}
+        .pldept td{background:#191d26;color:#98a1b2;font-weight:700;font-size:11.5px;padding:4px 8px}
+        tr.link td{background:#3a3313}
+        .plname{font:inherit;font-weight:700;font-size:13.5px;color:#e7eaf0;background:none;border:0;padding:2px 0;cursor:pointer;text-align:left}
+        .plname:hover{color:#58a6ff}
+        .plchip{display:block;width:100%;min-width:96px;text-align:left;font:inherit;font-size:12px;line-height:1.35;color:#e7eaf0;background:#1a1e27;border:1px solid #2c3340;border-left:3px solid #6e7681;border-radius:6px;padding:5px 7px;margin-bottom:4px;cursor:pointer}
+        .plchip.hi{border-left-color:#3fb950}.plchip.mid{border-left-color:#d29922}
+        .plchip:hover{border-color:#58a6ff}.plchip.on{background:#1c2633;border-color:#58a6ff}.plchip.dim{opacity:.3}
+        .plside{position:sticky;top:0;background:#151922;border:1px solid #262b35;border-radius:10px;padding:14px 16px;max-height:calc(100vh - 80px);overflow:auto}
+        .plside h2{margin:2px 0 6px;font-size:16px}
+        .plwhy{color:#c3c9d4}
+        .pll{color:#7d8697;font-size:11.5px;font-weight:700;letter-spacing:.03em;margin:10px 0 3px}
+        .pltags{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+        .pltag{font-size:11px;border:1px solid #2c3340;border-radius:4px;padding:0 6px;color:#aab2c0}
+        .plbadge{font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px}
+        .plbadge.hi{background:#12301c;color:#3fb950}.plbadge.mid{background:#33280f;color:#d29922}.plbadge.lo{background:#23262d;color:#8b949e}
+        .plflow{margin-top:8px}
+        .plfs{display:grid;grid-template-columns:22px 1fr;gap:8px;position:relative;padding-bottom:10px}
+        .plfs::before{content:"";position:absolute;left:10px;top:22px;bottom:0;width:2px;background:#262b35}
+        .plfs:last-child::before{display:none}
+        .pldot{width:22px;height:22px;border-radius:50%;background:#1c2633;color:#58a6ff;font-size:11px;font-weight:700;display:grid;place-items:center}
+        .plfs .pll{margin-top:2px}.plfs ul,.plfs ol,.plside ul{margin:2px 0 0;padding-left:18px}
+        .plrh{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:4px 0}.plrh dt{color:#58a6ff;font-weight:700}.plrh dd{margin:0}
+        .plppl{display:flex;flex-wrap:wrap;gap:4px}
+        .plppl button,.plact button{font:inherit;font-size:12px;color:#e7eaf0;background:#1f2430;border:1px solid #2c3340;border-radius:99px;padding:2px 10px;cursor:pointer}
+        .plact{display:flex;gap:6px;margin:12px 0 8px}.plact button.on{border-color:#58a6ff;background:#1c2633}
+
         .doc{max-width:1200px;margin:0 auto;padding:18px 22px 60px}
         .doc h1{font-size:20px;margin:0 0 6px}.doc h2{font-size:16px;margin:26px 0 8px;border-bottom:1px solid #262b35;padding-bottom:4px}
         .doc h2 small{color:#98a1b2;font-weight:400;font-size:12px;margin-left:8px}
