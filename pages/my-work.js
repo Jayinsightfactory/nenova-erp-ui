@@ -621,26 +621,51 @@ function WorkRecords({ uid, wfName, stage }) {
     else if (arr(e.products).length) out.push('품목 ' + arr(e.products).slice(0, 8).join(', '));
     return out;
   };
+  // 화면마다 작업 순서: order 가 있으면 그 순서, 없으면 클릭한 칸 → 값이 있는 칸 순서
+  const steps = (r) => {
+    const fs2 = arr(r.fields).filter((f) => f.order || f.click || f.box);
+    return fs2.slice().sort((a, b) => (a.order || 99) - (b.order || 99) || (b.click ? 1 : 0) - (a.click ? 1 : 0)).map((f, k) => ({ ...f, no: f.order || k + 1 }));
+  };
+  const Shot = ({ r, size }) => {
+    const ss = steps(r);
+    return (
+      <div className={'ann ' + size} onClick={() => setBig(big === r.id ? null : r.id)} title="누르면 크게/작게">
+        <img loading="lazy" src={`/api/work/orbit-thumbs?img=${encodeURIComponent(r.id)}`} alt={r.screen || ''} />
+        {ss.filter((x) => x.box).map((x, k) => {
+          const [x0, y0, x1, y1] = x.box;
+          return <span key={k}><span className="annbox" style={{ left: x0 / 10 + '%', top: y0 / 10 + '%', width: Math.max(1, (x1 - x0) / 10) + '%', height: Math.max(1, (y1 - y0) / 10) + '%' }} />
+            <span className="annno" style={{ left: x0 / 10 + '%', top: y0 / 10 + '%' }}>{x.no}</span></span>;
+        })}
+      </div>);
+  };
+  const flow = st.recs.filter((r) => r.thumb);
   return (
     <div className="plrec">
       {st.by === 'stage' && <p className="dim">이 업무로 표시된 화면이 아직 없어, 같은 단계({stage})에서 읽힌 화면을 보여줍니다.</p>}
+      {flow.length > 1 && <>
+        <div className="pll">작업 순서 한눈에 (왼쪽부터 시간순 · 빨간 번호 = 그 화면에서 다룬 순서)</div>
+        <div className="annflow">{flow.map((r, k) => (
+          <div key={r.id} className="annstep">
+            <div className="annhead"><b>{k + 1}</b> {r.workflow?.step ? `${r.workflow.step}단계 · ` : ''}{(r.screen || r.app || '').slice(0, 24)}</div>
+            <Shot r={r} size="sm" />
+            <div className="anncap">{(r.done || r.activity || '').slice(0, 50)}</div>
+          </div>))}</div>
+      </>}
       {st.recs.map((r) => {
-        const clicks = arr(r.fields).filter((f) => f.click);
-        const vals = arr(r.fields).filter((f) => f.value && !f.click);
+        const ss = steps(r);
+        const rest = arr(r.fields).filter((f) => f.value && !ss.includes(f) && !ss.some((x) => x.name === f.name));
         return (
           <div key={r.id} className="plr">
             <div className="plrh2"><span className="plt">{fmtTs(r.timestamp)}</span><b>{r.screen || r.app}</b></div>
             {r.workflow && (r.workflow.step || r.workflow.caseKey) && <div className="dim">{r.workflow.step ? `${r.workflow.step}번째 단계` : ''}{r.workflow.caseKey ? ` · 건: ${r.workflow.caseKey}` : ''}</div>}
             {r.activity && <div>{r.activity}</div>}
+            {r.thumb && <Shot r={r} size={big === r.id ? 'lg' : 'md'} />}
+            {ss.length > 0 && <ol className="annlist">{ss.map((x, k) => <li key={k}><span className="annno inl">{x.no}</span><b>{x.name}</b>{x.click ? ' 누름' : ''}{x.value ? ` — ${String(x.value).slice(0, 70)}` : ''}{x.human ? ' (사람 판단)' : ''}</li>)}</ol>}
             {r.done && <div><span className="plk">마친 동작</span>{r.done}</div>}
-            {clicks.length > 0 && <div><span className="plk">누른 곳</span>{clicks.map((f, k) => <span key={k} className="pltag">{f.name}{f.value ? ` — ${String(f.value).slice(0, 40)}` : ''}</span>)}</div>}
-            {vals.length > 0 && <div><span className="plk">화면의 값</span><ul>{vals.slice(0, 6).map((f, k) => <li key={k}>{f.name}: {String(f.value).slice(0, 80)}{f.human ? ' (사람 판단)' : ''}</li>)}</ul></div>}
+            {rest.length > 0 && <div><span className="plk">화면의 값</span><ul>{rest.slice(0, 5).map((f, k) => <li key={k}>{f.name}: {String(f.value).slice(0, 80)}</li>)}</ul></div>}
             {ent(r.entities).length > 0 && <div><span className="plk">보인 것</span>{ent(r.entities).join(' · ')}</div>}
             {r.workflow?.decision && <div><span className="plk">판단</span>{r.workflow.decision}</div>}
             {r.next && <div className="dim"><span className="plk">다음</span>{r.next}</div>}
-            {r.thumb && (big === r.id
-              ? <img className="plimg big" src={`/api/work/orbit-thumbs?img=${encodeURIComponent(r.id)}`} alt={r.screen || ''} onClick={() => setBig(null)} />
-              : <img className="plimg" loading="lazy" src={`/api/work/orbit-thumbs?img=${encodeURIComponent(r.id)}`} alt={r.screen || ''} onClick={() => setBig(r.id)} />)}
           </div>);
       })}
     </div>
@@ -802,6 +827,18 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
         .plrh2{display:flex;gap:8px;align-items:baseline}.plt{color:#58a6ff;font-size:11.5px;white-space:nowrap}
         .plk{display:inline-block;min-width:58px;color:#7d8697;font-size:11px;font-weight:700;margin-right:6px}
         .plr ul{margin:0;padding-left:18px}
+        .ann{position:relative;display:block;cursor:zoom-in;margin-top:4px;line-height:0}
+        .ann img{width:100%;display:block;border-radius:6px;border:1px solid #2c3340}
+        .ann.sm{width:200px}.ann.md{width:100%;max-width:340px}.ann.lg{width:100%;cursor:zoom-out}
+        .annbox{position:absolute;border:2px solid #ff3b30;border-radius:3px;background:rgba(255,59,48,.10);pointer-events:none}
+        .annno{position:absolute;transform:translate(-45%,-45%);min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#ff3b30;color:#fff;font:700 11px/18px sans-serif;text-align:center;box-shadow:0 0 0 2px #0e1016;pointer-events:none}
+        .annno.inl{position:static;display:inline-block;transform:none;margin-right:6px;box-shadow:none}
+        .annlist{list-style:none;margin:6px 0 2px;padding:0;display:grid;gap:3px}
+        .annflow{display:flex;gap:18px;overflow-x:auto;padding:4px 2px 10px}
+        .annstep{flex:0 0 200px;position:relative}
+        .annstep:not(:last-child)::after{content:'→';position:absolute;right:-15px;top:70px;color:#ff3b30;font-weight:700}
+        .annhead{font-size:11.5px;color:#c3c9d4;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.annhead b{color:#ff3b30}
+        .anncap{font-size:11px;color:#98a1b2;margin-top:3px}
         .plimg{max-width:160px;border-radius:6px;border:1px solid #2c3340;cursor:zoom-in;margin-top:4px}
         .plimg.big{max-width:100%;cursor:zoom-out}
         .plact{display:flex;gap:6px;margin:12px 0 8px}.plact button.on{border-color:#58a6ff;background:#1c2633}
