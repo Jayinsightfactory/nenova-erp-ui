@@ -1,0 +1,46 @@
+import {useEffect,useRef,useState} from 'react';
+import {analysisKey,analysisGroups,usableAnalysis} from '../../lib/pasteInboxPreanalysis';
+
+export default function DistributionMessagePreanalysis({text,week,disabled,prepare,onOpen,children}) {
+  const root=useRef(null),current=useRef(null),attempted=useRef(''),mounted=useRef(false);
+  const [visible,setVisible]=useState(false),[enabled,setEnabled]=useState(true);
+  const [pageEligible,setPageEligible]=useState(true);
+  const [state,setState]=useState({status:'waiting'});
+  const key=analysisKey(text,week);
+  current.current={key,disabled,visible,enabled};
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+  useEffect(()=>{const update=()=>setPageEligible(document.visibilityState==='visible'&&navigator.onLine!==false);update();document.addEventListener('visibilitychange',update);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{document.removeEventListener('visibilitychange',update);window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
+  useEffect(()=>{
+    const observer=new IntersectionObserver(entries=>setVisible(entries.some(entry=>entry.isIntersecting)),{root:root.current?.closest('.compact-match-list'),rootMargin:'200px'});
+    if(root.current)observer.observe(root.current);
+    return()=>observer.disconnect();
+  },[]);
+  async function run(automatic=false,force=false) {
+    const requestKey=key;
+    attempted.current=requestKey;
+    setState({key:requestKey,status:'loading'});
+    try {
+      const result=await prepare(text,week,{automatic,force,eligible:()=>mounted.current&&current.current.key===requestKey&&(!automatic||(!current.current.disabled&&current.current.visible&&current.current.enabled&&document.visibilityState==='visible'&&navigator.onLine!==false))});
+      if(mounted.current&&current.current.key===requestKey)setState({key:requestKey,status:'ready',result});
+      return result;
+    } catch(error) {
+      if(mounted.current&&current.current.key===requestKey){if(error.code==='PREANALYSIS_DEFERRED')attempted.current='';setState({key:requestKey,status:'error',error:error.message});}
+      return null;
+    }
+  }
+  useEffect(()=>{
+    if(visible&&enabled&&!disabled&&pageEligible&&attempted.current!==key)void run(true);
+  },[visible,enabled,disabled,pageEligible,key]);
+  const result=state.key===key&&usableAnalysis(state.result,text,week)?state.result:null;
+  const loading=state.key===key&&state.status==='loading';
+  const groups=result?analysisGroups(result.data):[];
+  const items=groups.flatMap(group=>group.items),matched=items.filter(item=>item.matched).length;
+  async function openResult(){const ready=result||await run(false);if(ready&&mounted.current&&current.current.key===key)onOpen(ready);}
+  return <section ref={root} className="preanalysis" aria-label="Claude 사전 매칭">
+    <header><strong>Claude 사전 매칭</strong><label><input type="checkbox" checked={enabled} onChange={event=>setEnabled(event.target.checked)}/>자동</label></header>
+    <div className="analysis-actions"><button type="button" disabled={disabled} onClick={openResult}>{result?'분석 결과 열기':loading?'분석 중 · 완료 후 열기':'지금 분석'}</button>{result&&<button type="button" disabled={disabled||loading} onClick={()=>run(false,true)}>재분석</button>}</div>
+    <small role="status">{loading?'Claude 분석 대기/진행 중…':result?`매칭 ${matched}/${items.length} · ${new Date(result.at).toLocaleTimeString('ko-KR')} · 적용 여부 별도` :state.key===key&&state.error?state.error:'화면에 보이는 원문부터 자동 분석합니다.'}</small>
+    {result?<><div className="analysis-groups">{groups.map((group,index)=><section key={index} className="analysis-group"><header><strong>{group.customer}</strong><span>{group.items.length}항목</span></header>{group.sourceCustomer!==group.customer&&<small>원문 업체: {group.sourceCustomer} → 매칭 확인</small>}{group.items.map((item,itemIndex)=><div key={itemIndex} className={`analysis-item ${item.matched?'matched':'review'}`} title={`${item.source}${item.reason?` · ${item.reason}`:''}`}><span>{item.product}</span><span>{item.action}{item.quantity}</span><b>{item.matched?'매칭':'확인 필요'}</b></div>)}</section>)}</div>{!items.length&&<p role="alert">분석 품목 없음 · 원문을 확인하고 재분석하세요.</p>}<details><summary>전산 적용 여부 · 별도 근거</summary>{children}</details></>:children}
+    <style jsx>{`.preanalysis{min-width:0;border:1px solid #c6d8ef;border-radius:4px;background:#f6faff;padding:4px;font-size:11px}.preanalysis>header,.analysis-group>header{display:flex;justify-content:space-between;gap:6px;align-items:center;color:#245b93}.preanalysis small{display:block;color:#66798d;overflow-wrap:anywhere;margin:3px 0}.analysis-actions{display:flex;gap:4px;margin:3px 0}.analysis-actions button{font:inherit;border:1px solid #9fbddd;border-radius:3px;background:white;color:#245b93;padding:3px 5px;cursor:pointer}.analysis-actions button:disabled{opacity:.55}.analysis-groups{display:grid;gap:4px}.analysis-group{min-width:0;background:white;border:1px solid #d3dfed;border-radius:3px;padding:3px}.analysis-item{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:4px;padding:3px;border-top:1px solid #e4edf5;line-height:1.2}.analysis-item>span:first-child{overflow-wrap:anywhere}.matched{background:#edf5ff;color:#174c86}.review{background:#fff4dd;color:#8a5a00}.analysis-item b{font-size:10px;white-space:nowrap}.preanalysis summary{cursor:pointer;color:#596e85;margin-top:4px}.preanalysis label{white-space:nowrap;font-weight:normal}.preanalysis input{vertical-align:middle}`}</style>
+  </section>;
+}

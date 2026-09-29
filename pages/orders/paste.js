@@ -1,5 +1,6 @@
 // pages/orders/paste.js — 붙여넣기 주문등록 (Claude AI 파싱, 다중거래처/변경사항, 미매칭 질문)
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {createPreanalysisCache,usableAnalysis} from '../../lib/pasteInboxPreanalysis';
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
@@ -1080,6 +1081,19 @@ function buildKakaoStockDraft({
 
 export default function PasteOrderPage() {
   const [allProducts, setAllProducts] = useState([]);
+  const inboxAnalysisCache=useRef(null);
+  const prepareInboxMessage=useCallback((text,targetWeek,options={})=>{
+    if(!inboxAnalysisCache.current)inboxAnalysisCache.current=createPreanalysisCache({fetcher:async(raw,fullWeek)=>{
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),120000);
+      try {
+        const response=await fetch('/api/orders/parse-paste',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',signal:controller.signal,body:JSON.stringify({text:raw,mixedQuantitySupport:true,selectedOrderYear:fullWeek.slice(0,4)})});
+        if(!response.ok)throw new Error(response.status===401?'로그인이 필요합니다.':`분석 실패 (${response.status}) · 지금 분석으로 재시도하세요.`);
+        return await response.json();
+      } finally {clearTimeout(timer);}
+    }});
+    return inboxAnalysisCache.current.read(text,targetWeek,options);
+  },[]);
   const [allCustomers, setAllCustomers] = useState([]);
   const [weeks, setWeeks] = useState([]);
   const [week, setWeek] = useState('');
@@ -1912,7 +1926,7 @@ export default function PasteOrderPage() {
     return () => clearTimeout(t);
   }, [baseStockText, baseStockExcludedLines, allProducts.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleParse = async ({ text: overrideText, targetWeek } = {}) => {
+  const handleParse = async ({ text: overrideText, targetWeek, preparedAnalysis } = {}) => {
     const inputText = typeof overrideText === 'string' ? overrideText : pasteText;
     const selectedWeek = targetWeek || week;
     if (!inputText.trim()) return;
@@ -1929,13 +1943,13 @@ export default function PasteOrderPage() {
     setDisambigSearch('');
     setDisambigResults([]);
     try {
-      const res = await fetch('/api/orders/parse-paste', {
+      const res = usableAnalysis(preparedAnalysis,textForParse,selectedWeek)?null:await fetch('/api/orders/parse-paste', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ text: textForParse, mixedQuantitySupport: true }),
+        body: JSON.stringify({ text: textForParse, mixedQuantitySupport: true, selectedOrderYear: selectedYearFromWeek(selectedWeek) }),
       });
-      const d = await res.json();
+      const d = res?await res.json():structuredClone(preparedAnalysis.data);
       if (!d.success) { setParseError(d.error || '파싱 실패'); return; }
 
       const cache = await loadMergedMappingCache(orders);
@@ -4033,7 +4047,7 @@ export default function PasteOrderPage() {
             <div className="paste-column-title">① 영업방 원문 · 최신 전산 이력</div>
             <details className="paste-baseline-panel"><summary>물량표 연결 · {week} · 설정 펼치기</summary><DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
               hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} /></details>
-            <div className="paste-sales-inbox"><DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} operationRevision={bulkResult} onLoadText={({text,messages,sourceWeek,autoAnalyze}) => {
+            <div className="paste-sales-inbox"><DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} prepareMessage={prepareInboxMessage} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} operationRevision={bulkResult} onLoadText={({text,messages,sourceWeek,autoAnalyze,preparedAnalysis}) => {
               if (pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
               const nextWeek = sourceWeek || week;
               setEvidenceMessages(messages || []);
@@ -4041,7 +4055,7 @@ export default function PasteOrderPage() {
               setPasteText(text); setOrders([]); setParseError(''); setQueueIdx(0);
               setBulkResult(null); setDetectedWeek(''); setStockDraft(null); setBulkCompletionNotice(null); setBulkProgress('');
               document.getElementById('paste-connected-input')?.scrollIntoView({block:'start'});
-              if (autoAnalyze) void handleParse({ text, targetWeek: nextWeek });
+              if (autoAnalyze) void handleParse({ text, targetWeek: nextWeek, preparedAnalysis });
             }} /></div>
           </div>
 
