@@ -8,6 +8,7 @@ import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
 import {appliedOperationEntry,formatKakaoMessage,sourceConfirmation,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
+import DistributionMessagePreanalysis from './DistributionMessagePreanalysis';
 
 const MANUAL_APPLICATION_STATUSES=['MANUALLY_APPLIED','MANUALLY_NOT_APPLIED','CLEAR'];
 const MANUAL_APPLICATION_LABELS={MANUALLY_APPLIED:'적용됨 · 수동 확인',MANUALLY_NOT_APPLIED:'미적용 · 수동 확인',CLEAR:'적용 미확인 · 표시 해제'};
@@ -49,7 +50,7 @@ function sourceWeekFromMessage(value, year) {
   return unique.length===1&&year?`${year}-${unique[0]}`:'';
 }
 
-export default function DistributionSalesInbox({year,week,disabled,onLoadText,evidenceMessages=[],evidenceOrders=[],operationRevision=null}) {
+export default function DistributionSalesInbox({year,week,disabled,onLoadText,prepareMessage,evidenceMessages=[],evidenceOrders=[],operationRevision=null}) {
   const [controlsOpen,setControlsOpen]=useState(false);
   const [open,setOpen]=useState(true),[from,setFrom]=useState(''),[to,setTo]=useState('');
   const [rows,setRows]=useState([]),[selected,setSelected]=useState({}),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
@@ -341,26 +342,27 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,ev
         <b title={application.status==='APPLIED'?'동일 원문·업체·품목·동작의 검증된 저장 기록':'개별 저장 기록을 정확히 연결하지 못함'}>{application.status==='APPLIED'?'적용':'미확인'}</b>
       </div>;
     };
+    const appliedPanel=<section className="paired-applied-items" aria-label="적용 항목 상태">
+      <header><strong>적용 항목</strong><span>{applicationStatus.loaded?`${appliedCount}/${appliedItems.length-additional.length} 적용`:applicationStatus.loading?'조회 중':'확인 필요'}</span></header>
+      <div className="paired-applied-list">{groups.map((group,index)=><section className="paired-customer-group" key={`${group.key}:${index}`}>
+        <header><strong>{group.customer}</strong><span>{group.items.length}항목</span></header>
+        {group.items.map(item=>renderAppliedItem(item))}
+      </section>)}
+      {additional.length>0&&<details className="paired-additional-items"><summary>추가 확인 {additional.length}건 · 원문 행 연결 미확인</summary>
+        <small>원문과 연결되지 않은 분석 항목입니다. 중복 여부를 확인하세요. 자동 합산·삭제하지 않습니다.</small>
+        {additional.map(item=>renderAppliedItem(item,true))}
+      </details>}</div>
+    </section>;
     return <article className="message compact-match-row" data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
       <div className="visible-change-meta"><small>{source}</small>
       <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={confirmation.confirmed&&!confirmation.cancelled} title="확인 표시는 실제 주문·분배 적용과 별개입니다. 확인취소는 전산 작업을 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,confirmation.confirmed&&!confirmation.cancelled?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':confirmation.confirmed&&!confirmation.cancelled?'확인취소':'확인처리'}</button>
-      <button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button></div>
+      {!prepareMessage&&<button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button>}</div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
       <div className="paired-message-layout" aria-label="카카오 원문과 적용 항목">
         <section className="paired-message-original"><strong>카톡 내용</strong><pre data-testid="complete-kakao-message">{formatKakaoMessage(row.message)}</pre></section>
-        <section className="paired-applied-items" aria-label="적용 항목 상태">
-          <header><strong>적용 항목</strong><span>{applicationStatus.loaded?`${appliedCount}/${appliedItems.length-additional.length} 적용`:applicationStatus.loading?'조회 중':'확인 필요'}</span></header>
-          <div className="paired-applied-list">{groups.map((group,index)=><section className="paired-customer-group" key={`${group.key}:${index}`}>
-            <header><strong>{group.customer}</strong><span>{group.items.length}항목</span></header>
-            {group.items.map(item=>renderAppliedItem(item))}
-          </section>)}
-          {additional.length>0&&<details className="paired-additional-items"><summary>추가 확인 {additional.length}건 · 원문 행 연결 미확인</summary>
-            <small>원문과 연결되지 않은 분석 항목입니다. 중복 여부를 확인하세요. 자동 합산·삭제하지 않습니다.</small>
-            {additional.map(item=>renderAppliedItem(item,true))}
-          </details>}</div>
-        </section>
+        {prepareMessage&&sourceWeek&&classifyMessage(row.message)==='REQUEST'?<DistributionMessagePreanalysis key={`${row.identity}:${row.message}`} text={row.message} week={sourceWeek} disabled={disabled||busy} prepare={prepareMessage} onOpen={preparedAnalysis=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true,preparedAnalysis})}>{appliedPanel}</DistributionMessagePreanalysis>:appliedPanel}
       </div>
       <details className="compact-source-evidence"><summary>상세 전산 이력 · 품목별 근거 {confirmed.length+quantityProcessed.length>0?`(${confirmed.length+quantityProcessed.length}건)`:''}</summary>
       {quantityProcessed.length>0&&<div className="confirmed-request-box quantity-processed-box">{quantityProcessed.map(request=><div key={request.id}>수량 대조 후보 · {request.customerText} · {request.quote}<small>전산: {request.productText} · {request.shipmentEvents[0]?.before}→{request.shipmentEvents[0]?.after} {request.unit||''} · 실제 적용 여부는 전산 적용 이력으로만 확인합니다.</small></div>)}</div>}

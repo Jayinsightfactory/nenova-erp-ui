@@ -1,0 +1,12 @@
+{
+  "id": "paste-inbox-preanalysis",
+  "title": "붙여넣기 원문 사전 분석",
+  "scope": ["lib/pasteInboxPreanalysis.js", "components/orders/DistributionMessagePreanalysis.js", "components/orders/DistributionSalesInbox.js", "pages/orders/paste.js", "__tests__/pasteInboxPreanalysis.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name":"PREPARE_CLAUDE_MATCH","orderDetail":"preserve","shipmentDetail":"preserve","preserve":["all ERP tables","manual application events","source text"]},{"name":"OPEN_PREPARED_DRAFT","orderDetail":"preserve","shipmentDetail":"preserve","preserve":["all ERP tables"]}],
+  "crossYearFixture":{"required":true,"description":"Exact raw text + YYYY-WW-SS key; 2025/2026 39-02 never share results."},
+  "requiredTestFiles":["__tests__/pasteInboxPreanalysis.test.js", "__tests__/distributionMessageApplicationStatus.test.js"],
+  "criteria":{"cache":"page-local only, 15 minute TTL, max100 completed entries, duplicate in-flight calls shared and clones returned", "automatic":"one sequential call, max20 automatic calls per page lifetime; near-viewport actionable rows only while visible/online and not saving", "manual":"explicit result opening uses exact valid cached draft; expired/wrong text/week not accepted; mapping and live ERP reads still occur", "application":"matched is advisory, not committed; application audit remains separate", "sideEffects":"existing authenticated parse-paste API only: ERP SELECT and LLM usage accounting; no write/lease/confirmation APIs from automatic preparation"},
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs","methods":["GetCustomerList"],"tables":["ShipmentDetail","ShipmentDate"]},
+  "requiredCommands":["node __tests__/pasteInboxPreanalysis.test.js","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+}
