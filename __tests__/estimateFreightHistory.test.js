@@ -27,7 +27,7 @@ test('typing selects only that freight draft and preserves zero/empty for valida
     assert.equal(next.cost,value);
     assert.equal(next.qty,4);
   }
-  assert.deepEqual(editFreightInput(undefined,{qty:'5'}),{qty:'5',enabled:true});
+  assert.deepEqual(editFreightInput(undefined,{qty:'5'}),{qty:'5',enabled:true,manualQty:true});
   const draft={name:'현지상차운임',weekShort:'38-01',shipmentDate:'2026-09-17',prodKey:2262,qty:5,cost:2000};
   const options={...scope,products:[{ProdKey:2262,ProdName:'현지상차운임',OutUnit:'박스'}]};
   assert.equal(validateFreightDraft([editFreightInput(draft,{qty:6})],options)[0].qty,6);

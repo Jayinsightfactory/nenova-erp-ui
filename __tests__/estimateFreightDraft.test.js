@@ -131,3 +131,4 @@ test('validated draft uses selected year/week, positive cost and freight product
   assert.equal(additionalCycleWeek({week:'2026-37-02'},'2026','37'),'37-02');
   assert.throws(()=>additionalCycleWeek({week:'2025-37-01'},'2026','37'));
 });
+import './estimateFreightFeedback.test.js';

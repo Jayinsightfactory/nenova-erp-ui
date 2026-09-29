@@ -98,6 +98,7 @@ import ShipmentFixLogPanel, { parseStockCalcProgressFromLogs } from '../componen
 import OrderRegisterDistributeModal from '../components/estimate/OrderRegisterDistributeModal';
 import FreightChargePreviewModal from '../components/estimate/FreightChargePreviewModal';
 import { registerFreight } from '../lib/estimateFreightClient';
+import { appendFreightProgress } from '../lib/estimateFreightFeedback';
 import ErpEditPresenceBanner from '../components/ErpEditPresenceBanner';
 import EstimateOverflowPreview from '../components/EstimateOverflowPreview';
 import useErpEditPresence from '../hooks/useErpEditPresence';
@@ -1824,19 +1825,21 @@ export default function Estimate() {
     const captured = captureEstimateRefresh();
     freightApplyingRef.current=true;
     setFreightApplying(true);
+    const progress=message=>setFreightStatus(previous=>appendFreightProgress(previous,message));
+    setFreightStatus('');
     try {
       const result=await registerFreight({input:{year:yearStr,parentWeek:String(weekNum).padStart(2,'0'),custKey:selectedShip.CustKey,rows},
         editGuard:estimateEditGuard(),storage:window.sessionStorage,get:apiGet,post:apiPost,
-        confirm:message=>window.confirm(message),uuid:()=>crypto.randomUUID(),status:setFreightStatus,
+        confirm:message=>window.confirm(message),uuid:()=>crypto.randomUUID(),status:progress,
         isCurrent:()=>isCapturedEstimateScopeCurrent(captured)});
       if(!result) return;
       const message=`운임 ${result.count}건 저장 완료 · 전산 대조 통과\n`+result.rows.map(r=>`${r.week} ${r.prodName} ${r.oldQty}→${r.qty}박스 × ${r.cost.toLocaleString()}원`).join('\n');
-      setFreightStatus(message);
+      progress(message);
       window.alert(message);
       try { await refreshCapturedEstimate(captured); }
-      catch { setFreightStatus(message+'\n저장은 완료됐지만 화면 재조회에 실패했습니다. 새로고침해 주세요.'); }
+      catch { progress('저장은 완료됐지만 화면 재조회에 실패했습니다. 새로고침해 주세요. 다시 등록하지 마세요.'); }
     } catch (error) {
-      setFreightStatus(`운임 처리 중단 · ${error.message}`);
+      progress(`운임 처리 중단 · ${error.message}`);
       throw error;
     } finally { freightApplyingRef.current=false;setFreightApplying(false); }
   };
