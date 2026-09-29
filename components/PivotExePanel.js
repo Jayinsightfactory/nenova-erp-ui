@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCurrentWeek } from '../lib/useWeekInput';
 import { EXE_FIELDS, normalizeLayout } from '../lib/pivotExeModel';
 import PivotExeGrid from './PivotExeGrid';
+import PivotArrivalFxControls from './PivotArrivalFxControls';
+import { applyPivotArrivalFx } from '../lib/pivotArrivalFx';
 import { getPivotExeGroupKeys } from '../lib/pivotExePresentation';
 import { normalizePivotExeRange } from '../lib/pivotExeRange';
 import { normalizePivotExeView } from '../lib/pivotExeViewState';
@@ -164,7 +166,9 @@ export default function PivotExePanel() {
   const [range, setRange] = useState({fromYear:'',fromWeek:'',toYear:'',toWeek:''});
   const [weeks, setWeeks] = useState([]);
   const [weeksError, setWeeksError] = useState('');
-  const [rows, setRows] = useState([]);
+  const [originalRows, setRows] = useState([]);
+  const [arrivalFxRates, setArrivalFxRates] = useState({});
+  const rows = useMemo(() => applyPivotArrivalFx(originalRows, arrivalFxRates), [originalRows, arrivalFxRates]);
   const [successRange, setSuccessRange] = useState(null);
   const [source, setSource] = useState('');
   const [sourceWarnings, setSourceWarnings] = useState([]);
@@ -413,8 +417,8 @@ export default function PivotExePanel() {
   }, [rows,pivotModel,decimals,zeroVisible,zones.rows]);
   const exportVisible = useCallback(async () => {
     if (!successRange) return; setExporting(true);
-    try { const { buildPivotExeWorkbook } = await import('../lib/pivotExeExport'); const bytes = await buildPivotExeWorkbook(pivotModel, {sheetName:'전산 피벗',decimalPlaces:decimals,blankZero:!zeroVisible,columnWidths:widths,rowHeight}); const href = URL.createObjectURL(new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); const link = document.createElement('a'); link.href=href; link.download=`전산피벗_${successRange.fromYear}_${successRange.fromWeek}-${successRange.toYear}_${successRange.toWeek}.xlsx`; link.click(); URL.revokeObjectURL(href); } catch (cause) { setError(`엑셀 생성 실패: ${cause.message}`); } finally { setExporting(false); }
-  }, [successRange,pivotModel,decimals,zeroVisible,widths,rowHeight]);
+    try { const { buildPivotExeWorkbook } = await import('../lib/pivotExeExport'); const bytes = await buildPivotExeWorkbook(pivotModel, {sheetName:'전산 피벗',decimalPlaces:decimals,blankZero:!zeroVisible,columnWidths:widths,rowHeight,arrivalFxRates,arrivalFxRows:rows}); const href = URL.createObjectURL(new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); const link = document.createElement('a'); link.href=href; link.download=`전산피벗_${successRange.fromYear}_${successRange.fromWeek}-${successRange.toYear}_${successRange.toWeek}.xlsx`; link.click(); URL.revokeObjectURL(href); } catch (cause) { setError(`엑셀 생성 실패: ${cause.message}`); } finally { setExporting(false); }
+  }, [successRange,pivotModel,decimals,zeroVisible,widths,rowHeight,arrivalFxRates,rows]);
 
   const openFieldMenu = useCallback((id, event) => {
     event.stopPropagation();
@@ -487,6 +491,7 @@ export default function PivotExePanel() {
       <button data-testid="pivot-exe-refresh" className="btn btn-primary btn-sm" onClick={refresh} disabled={busy}>{busy ? '조회 중…' : '새로고침'}</button><button data-testid="pivot-exe-export" className="btn btn-sm" onClick={exportVisible} disabled={!calculation.ready || calculation.pending || exporting}>{exporting ? '엑셀 생성…' : '엑셀'}</button>
       <button data-testid="pivot-exe-field-list" className="btn btn-sm" onClick={()=>setFieldList(true)}>필드 목록</button><button data-testid="pivot-exe-filter-editor" className="btn btn-sm" onClick={()=>{setDraftAst(ast);setFilterOpen(true);}}>필터 편집</button><button className="btn btn-sm" onClick={()=>typeof window !== 'undefined' && window.close()}>닫기</button>
     </div>
+    <PivotArrivalFxControls rates={arrivalFxRates} onApply={setArrivalFxRates} disabled={busy || Boolean(dirty) || !successRange} rows={rows} />
     <details className={controls.help}><summary>사용 방법 · 버튼을 끌어 배치 / 오른쪽 ▼로 필터</summary>nenova.exe처럼 <b>필드 버튼 전체를 마우스로 잡아</b> 아래 고정된 위치에 놓으세요. <b>행은 왼쪽, 열은 위쪽, 값은 숫자 영역</b>입니다. 파란 삽입선이 실제 위치를 표시하며 오른쪽 <b>▼</b>는 실제 값 필터입니다.</details>
     <div role="group" aria-label="차수 표시 방식" style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',margin:'6px 0'}}>
       <button className={`btn btn-sm ${weekGrouping==='subweek'?'btn-primary':''}`} aria-pressed={weekGrouping==='subweek'} onClick={()=>changeWeekGrouping('subweek')}>세부차수 보기</button>
