@@ -1,9 +1,11 @@
 {
   "id": "estimate-freight-preview",
   "title": "견적 운임 계산 확인 및 최종값 원자적 저장 연결",
+  "historyEntry": "Read-only previous freight within selected-year recent eight parent-week GET scope, strictly earlier than selected parent, same customer, latest available first. Show persisted Amount+Vat, separate subweeks, explicit missing-history range. Direct qty/cost edits select that row without saving; one Apply uses existing server preview and final confirmation, never skips atomic/idempotency guards. Input totals share EXE amountVatFromCostEst integer quantity rounding.",
   "customerDefaults": "User confirmed Youngnam flower material exact customer names only: box transport 1500, loading 2000. Manual edits override including zero/empty (save validator still rejects invalid). All other customers retain evidence prices. No master price or ERP writes on preview.",
   "combinedTransport": "Carnation 01+02 combines into one 01 final-value row. Existing 01 freight retains its shipment date and changes to the final total, not an increment. Existing 02 freight blocks combination. Missing or ambiguous dates block. Other freight stays separate; cumulative boxes exclude unchecked rows.",
   "scope": [
+    "lib/estimateFreightHistory.js",
     "lib/estimateFreightEvidence.js",
     "pages/estimate.js",
     "components/estimate/FreightChargePreviewModal.js",
@@ -46,6 +48,7 @@
     "description": "같은 차수명이 다른 연도에 존재해도 현재 연도·업체·차수의 화면 행만 미리 계산한다."
   },
   "requiredTestFiles": [
+    "__tests__/estimateFreightHistory.test.js",
     "__tests__/estimateFreightPolicy.test.js",
     "__tests__/estimateFreightApply.test.js",
     "__tests__/estimateFreightDraft.test.js"

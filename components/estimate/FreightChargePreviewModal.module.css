@@ -32,6 +32,19 @@
 .draftScope { color:#52657b; font-size:10px; white-space:nowrap; }
 .sharedNotice { padding:3px 7px; font-size:11px; background:var(--group-bg); color:#52657b; }
 .commonFreight { display:grid; grid-template-columns:auto repeat(2,minmax(0,1fr)); align-items:center; gap:8px; margin:7px 0; }
+.entryFields { border:0; padding:0; margin:0; min-width:0; }
+.history { padding:7px 9px; margin:8px 0; border:1px solid #b8cce5; border-radius:6px; background:#f8fafc; font-size:12px; }
+.historyHeading { display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px; margin-bottom:5px; }
+.historyHeading strong { margin-left:auto; color:#1250a0; }
+.historyGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:3px 20px; }
+.historyRow { display:grid; grid-template-columns:44px minmax(80px,1fr) 72px 125px 105px; align-items:center; gap:6px; padding:4px 6px; border-bottom:1px solid #dbe3ef; background:white; font-variant-numeric:tabular-nums; }
+.historyRow b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.historyRow span:nth-child(n+3),.historyRow strong { text-align:right; }
+.history > small { display:block; color:#52657b; margin-top:5px; }
+.selectedDraft { box-shadow:inset 3px 0 #2563eb; }
+.lineTotal { grid-column:1 / -1; text-align:right; color:#1250a0; }
+@media(max-width:1200px) { .historyGrid { grid-template-columns:1fr; } }
+@media(max-width:550px) { .historyRow { grid-template-columns:44px minmax(60px,1fr) 66px; } .historyRow span:nth-child(4) { grid-column:2; } .historyHeading strong { margin-left:0; } .inlineDraft { grid-template-columns:16px minmax(60px,1fr) 75px; } .inlineDraft label:last-of-type { grid-column:2 / -1; } }
 @media(max-width:1100px) { .commonFreight { grid-template-columns:1fr; } .inlineDraft { grid-template-columns:16px minmax(70px,1fr) 75px 110px; } .draftScope { grid-column:2/-1; } }
 @media(max-width:1400px) { .sources { columns:2; } .drafts { grid-template-columns:1fr; } }
 @media(max-width:850px) { .sources { columns:1; } .draftRow { grid-template-columns:18px 92px minmax(100px,1fr); } .panel { padding:8px; } }
