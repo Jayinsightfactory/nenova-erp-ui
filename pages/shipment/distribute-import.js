@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
-import { importProductOverrideKey, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue } from '../../lib/shipmentImportQty';
+import { buildImportProductSearchHits, importProductOverrideKey, IMPORT_IGNORE_CUSTOMER_VALUE, isImportIgnoreCustomerValue } from '../../lib/shipmentImportQty';
 import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
@@ -1583,8 +1583,8 @@ function ProductSearchSelect({ value, onChange, suggested = [], options = [], pl
     return () => clearTimeout(t);
   }, [query, open, contextText]);
 
-  const suggestedIds = new Set(suggested.map(s => String(s.prodKey)));
-  const searchHits = remote.filter(p => !suggestedIds.has(String(p.ProdKey)));
+  const searchHits = buildImportProductSearchHits({ query, remote, options, suggested });
+  const productKey = (product) => product?.prodKey ?? product?.ProdKey;
 
   const dropdown = open && rect && typeof document !== 'undefined' ? createPortal(
     <div
@@ -1611,7 +1611,7 @@ function ProductSearchSelect({ value, onChange, suggested = [], options = [], pl
         </button>
       ))}
       {suggested.length > 0 && (searchHits.length > 0 || loading) && (
-        <div style={st.searchSectionLabel}>검색 결과</div>
+        <div style={st.searchSectionLabel}>{query.trim() ? '전체 품목 검색 결과' : '전체 품목'}</div>
       )}
       {loading && <div style={st.searchHint}>검색 중…</div>}
       {!loading && query.trim() && searchHits.length === 0 && (
@@ -1619,21 +1619,18 @@ function ProductSearchSelect({ value, onChange, suggested = [], options = [], pl
       )}
       {searchHits.map(p => (
         <button
-          key={p.ProdKey}
+          key={productKey(p)}
           type="button"
           style={st.searchPickRow}
           onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; }}
           onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-          onClick={() => { onChange(String(p.ProdKey)); setQuery(''); setOpen(false); }}
+          onClick={() => { onChange(String(productKey(p))); setQuery(''); setOpen(false); }}
         >
           {productOptionLabel(p)}
         </button>
       ))}
       {remote.length >= 200 && (
         <div style={st.searchHint}>결과가 많아 200건까지만 표시 — 검색어를 더 입력하세요</div>
-      )}
-      {!query.trim() && suggested.length === 0 && (
-        <div style={st.searchHint}>품목명·코드·품종 일부를 입력하세요</div>
       )}
     </div>,
     document.body
@@ -1768,7 +1765,7 @@ function UnmatchedMatchingModal({
           ) : (
             <>
               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
-                엑셀 품목명 → DB 품목. 시트·품종별로 구분됩니다. ★ 추천 후보 우선 · 이름/코드/품종 입력으로 전체 검색 가능합니다.
+                엑셀 품목명 → DB 품목. 시트·품종별 추천 후보 아래에 전체 품목이 표시되며, 이름/코드/품종 검색도 전체 품종을 대상으로 합니다.
               </div>
               <table style={st.table}>
                 <thead><tr><th>구분</th><th>시트</th><th>엑셀 품목</th><th>건수</th><th>→ DB 품목 선택</th></tr></thead>
