@@ -15,6 +15,20 @@ import { featureFilePath } from '../lib/workFeatureData';
 
 const ORBIT = process.env.ORBIT_SERVER_URL || 'https://mindmap-viewer-production-adb2.up.railway.app';
 
+// nenovaSS3 로그인만으로 Orbit 화면(통합본·작업 데이터)이 보이게: 서버가 ORBIT_OWNER_TOKEN 으로 12시간 열람 토큰을 받아
+// iframe 주소(?token=)로 넘긴다. 토큰은 만료 1시간 전까지 프로세스에 캐시(발급 하루 2~3회). 실패하면 기존처럼 Orbit 로그인 화면.
+let _viewer = { token: '', exp: 0 };
+async function orbitViewerToken() {
+  if (_viewer.token && Date.now() < _viewer.exp - 3600 * 1000) return _viewer.token;
+  if (!process.env.ORBIT_OWNER_TOKEN) return '';
+  try {
+    const r = await fetch(ORBIT + '/api/auth/viewer-token', { method: 'POST', headers: { Authorization: 'Bearer ' + process.env.ORBIT_OWNER_TOKEN } });
+    const j = await r.json();
+    if (r.ok && j.token) _viewer = { token: j.token, exp: new Date(j.expiresAt).getTime() };
+  } catch {}
+  return _viewer.token;
+}
+
 // 스토리보드(16MB)는 프로세스 안에 한 번만 파싱해 두고 파일(경로·수정 시각)이 바뀌면 다시 읽는다.
 // 경로는 매일 자동 갱신본(data/runtime) 우선 — lib/workFeatureData
 let _sb = { key: '', data: null };
@@ -49,7 +63,8 @@ export async function getServerSideProps({ req, query }) {
   let proposals = null; try { proposals = JSON.parse(fs.readFileSync(featureFilePath('proposals'), 'utf8')); } catch {}
   let workflows = null; try { workflows = JSON.parse(fs.readFileSync(featureFilePath('workflows'), 'utf8')); } catch {}
   let simulations = null; try { simulations = JSON.parse(fs.readFileSync(featureFilePath('simulations'), 'utf8')); } catch {}
-  return { props: { userId: user.userId, data: proposals, boards, workflows, simulations, orbit: ORBIT, tab: query.tab || 'workflows' } };
+  const viewerToken = await orbitViewerToken();
+  return { props: { userId: user.userId, data: proposals, boards, workflows, simulations, orbit: ORBIT, orbitQs: viewerToken ? '?token=' + encodeURIComponent(viewerToken) : '', tab: query.tab || 'workflows' } };
 }
 
 // 캡처식 워크플로우 — 제안 하나를 고르면 실제 관찰 세션을 시간순 장면 필름으로 보여준다. 선택은 URL(?tab=story&who=&b=&s=)로 서버에서 잘라온다.
@@ -572,7 +587,7 @@ function Proposals({ data }) {
   );
 }
 
-export default function MyWorkPage({ userId, data, boards, workflows, simulations, orbit, tab: tab0 }) {
+export default function MyWorkPage({ userId, data, boards, workflows, simulations, orbit, orbitQs = '', tab: tab0 }) {
   const [tab, setTab] = useState(tab0);
   const TABS = [
     { id: 'workflows', label: '업무 흐름' },
@@ -588,12 +603,12 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
         <MenuBackButton />
         <b>내 작업 데이터</b>
         {TABS.map((t) => <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>{t.label}</button>)}
-        <span className="dim" style={{ marginLeft: 'auto' }}>{userId} 전용 · Orbit 통합본은 Orbit 관리자 로그인 1회 필요</span>
-        <a href={orbit + '/my-work.html'} target="_blank" rel="noreferrer">새 창</a>
+        <span className="dim" style={{ marginLeft: 'auto' }}>{userId} 전용</span>
+        <a href={orbit + '/my-work.html' + orbitQs} target="_blank" rel="noreferrer">새 창</a>
       </div>
       <div className="stage">
-        {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html'} />}
-        {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html'} />}
+        {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html' + orbitQs} />}
+        {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html' + orbitQs} />}
         {tab === 'workflows' && <Workflows wf={workflows} />}
         {tab === 'proposals' && <Simulator sims={simulations} fallback={<Proposals data={data} />} />}
         {tab === 'story' && <Storyboards boards={boards} data={data} />}
