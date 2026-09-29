@@ -1,7 +1,8 @@
 {
   "id": "estimate-freight-atomic",
   "title": "견적 운임 최종값 원자적 등록",
-  "scope": ["lib/estimateFreightAtomic.js", "lib/estimateFreightClient.js", "pages/api/estimate/freight-register.js", "pages/estimate.js", "components/estimate/FreightChargePreviewModal.js", "lib/estimateFreightDraft.js"],
+  "feedback": "Failure-only bounded allowlisted audit outside failed transaction; UNKNOWN for lost commit/busy, no receipt overwrite. UI accumulates progress. Explicit manual quantities plus confirmation can replace unknown box counting only; all ERP validations remain.",
+  "scope": ["lib/estimateFreightFeedback.js", "lib/estimateFreightAtomic.js", "lib/estimateFreightClient.js", "pages/api/estimate/freight-register.js", "pages/estimate.js", "components/estimate/FreightChargePreviewModal.js", "lib/estimateFreightDraft.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {"name":"PREVIEW", "orderDetail":"preserve", "shipmentDetail":"preserve", "stock":"preserve"},
@@ -10,7 +11,7 @@
     {"name":"REPLAY", "orderDetail":"preserve", "shipmentDetail":"preserve", "stock":"preserve"}
   ],
   "crossYearFixture":{"required":true,"description":"2025 identical week/customer/product cannot be mutated by 2026 freight request"},
-  "requiredTestFiles":["__tests__/estimateFreightAtomic.test.js"],
+  "requiredTestFiles":["__tests__/estimateFreightAtomic.test.js", "__tests__/estimateFreightFeedback.test.js"],
   "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"local dnSpy ClassShipmentDetail and production read-only SP probe 2026-09-21","methods":["btnSave_Click","ClassShipmentDetail.Insert","ClassShipmentDate.Insert"],"tables":["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","Product","StockHistory","ProductStock"]},
   "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build","node scripts/test-estimate-freight-sql.cjs"]
 }

@@ -1,5 +1,10 @@
 # FormShipmentDistribution — exe golden (dnSpy/CLI)
 
+2026-09-29 운임 피드백 보완: 실제 dnSpy CLI ClassShipmentDate.UpdateCost를 재실행해
+ROUND(EstQuantity,0) 금액 계산을 확인했다. 2026 업체515/38-01 운임 SELECT에서
+ViewOrder/ViewShipment/PeriodDay join 각각1 확인. 원장 저장 코어는 변경하지 않고,
+화면 수기 확인·누적 로그 및 SystemActionLog 실패 전용 감사를 추가한다.
+
 source: `C:\Users\USER\nenova-decompiled\Nenova\FormShipmentDistribution.cs`
 verification: read-only decompile source and SQL structure inspection
 

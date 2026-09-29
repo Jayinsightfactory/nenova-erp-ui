@@ -5,6 +5,7 @@ import styles from './FreightChargePreviewModal.module.css';
 import { apiGet } from '../../lib/useApi';
 import { freightEvidenceRows, freightPriceSuggestion, freightCategoryFromEvidence } from '../../lib/estimateFreightEvidence';
 import { previousFreightHistory, editFreightInput, freightInputTotal } from '../../lib/estimateFreightHistory';
+import { assertFreightCountReady } from '../../lib/estimateFreightFeedback';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 3 });
 const tones = [ ['#eff6ff','#2563eb'], ['#fff1f2','#be123c'], ['#ecfdf5','#047857'], ['#fff7ed','#c2410c'], ['#f5f3ff','#7c3aed'], ['#ecfeff','#0e7490'], ['#fefce8','#a16207'], ['#fdf4ff','#a21caf'] ];
@@ -13,6 +14,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
   const [edits, setEdits] = useState({});
   const [rounding, setRounding] = useState(FREIGHT_ROUNDING.CEIL);
   const [error, setError] = useState('');
+  const [manualConfirmation, setManualConfirmation] = useState('');
   const [historyWeek, setHistoryWeek] = useState('');
   const [combineCarnation, setCombineCarnation] = useState(true);
   const [history, setHistory] = useState({ scope: '', rows: [], loading: true, error: '' });
@@ -57,6 +59,9 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
   const update = (key, values) => { setEdits(prev => ({ ...prev, [key]: { ...prev[key], ...values } })); };
   const input = (key, values) => setEdits(prev => ({...prev, [key]: editFreightInput(prev[key], values)}));
   const selectedDrafts = drafts.filter(row => row.enabled);
+  const countSignature = JSON.stringify([historyScope, excluded, selectedDrafts.map(row=>[row.key,row.qty,row.prodKey,row.manualQty]), items]);
+  const manualConfirmed = manualConfirmation === countSignature;
+  useEffect(()=>setManualConfirmation(''),[open]);
   const totals = selectedDrafts.map(row => freightInputTotal(row.qty, row.cost));
   const renderDraft = row => <div key={row.key} className={`${styles.inlineDraft} ${row.enabled ? styles.selectedDraft : ''}`}>
     <input type="checkbox" aria-label={row.weekShort+' '+row.name+' 등록'} checked={row.enabled} onChange={e=>update(row.key,{enabled:e.target.checked})}/>
@@ -72,7 +77,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
     setError('');
     try {
       if (!historyReady) throw new Error('업체 운임 이력 조회 완료 후 다시 확인해 주세요.');
-      if (selected.some(row => row.boxes == null)) throw new Error('박스 환산을 확인할 수 없는 품목이 있습니다. 해당 품목을 제외하거나 품목 정보를 확인하세요.');
+      assertFreightCountReady(selected, selectedDrafts, manualConfirmed);
       const rows = validateFreightDraft(drafts.filter(row => row.enabled), { year, parentWeek, custKey: selectedShip?.CustKey, products: freightProducts, existing });
       await onApply(rows);
     } catch (e) { setError(e.message || '운임 등록을 시작하지 못했습니다.'); }
@@ -87,7 +92,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
         <button className="btn btn-primary" disabled={applyBusy||!historyReady||!selectedDrafts.length} onClick={submit}>{applyBusy?'운임 처리 중…':'입력 적용'}</button>
       </div>
       <p className={styles.help}>박스수량·박스당 단가 입력 → 입력 적용 → 최종 확인 후 저장. 직접 수정한 행은 자동 선택됩니다. 추천값 그대로 적용할 행은 체크하세요. 기존 운임은 더하지 않고 최종값으로 수정합니다.</p>
-      {applyStatus && <div role="status" style={{padding:8,background:'#eff6ff',color:'#174575',whiteSpace:'pre-line'}}>{applyStatus}</div>}
+      {applyStatus && <div role="log" aria-label="운임 처리 로그" aria-live="polite" style={{padding:8,background:'#eff6ff',color:'#174575',whiteSpace:'pre-line',maxHeight:160,overflowY:'auto'}}>{applyStatus}</div>}
       <div role="status" className={styles.help}>{!historyReady ? (history.error ? `업체 이력 조회 실패: ${history.error} · 창을 다시 열어 재시도하세요.` : '이 업체의 최근 8개 차수 운임 이력 확인 중…') : `이 업체 · ${year}년 ${Math.max(1,Number(parentWeek)-7)}~${parentWeek}차 실적 ${evidence.length}건 확인. 단가는 참고값이며 등록할 항목을 직접 선택하세요.`} 카네이션 합산은 상단에서 선택하며, 다른 운임·상차운임은 기존 차수와 출고일을 유지합니다.</div>
       <section className={styles.history} aria-label="이전 차수 운임 내역">
         <div className={styles.historyHeading}><b>{selectedShip?.CustName} · 이전 차수 운임</b>
@@ -100,6 +105,7 @@ export default function FreightChargePreviewModal({ open, onClose, items = [], p
       </section>
       {error && <div role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:12,marginBottom:10}}>{error}</div>}
       <fieldset disabled={applyBusy||!historyReady} className={styles.entryFields}>
+        {unknownCount>0 && <label style={{display:'block',padding:10,background:'#fff7ed',color:'#9a3412'}}><input type="checkbox" checked={manualConfirmed} onChange={e=>{setManualConfirmation(e.target.checked?countSignature:'');setError('');}}/> 자동 환산 미확인 {unknownCount}개 있음 · 적용할 모든 운임의 박스수를 직접 입력했고 해당 수량으로 청구함을 확인합니다. 단가만 수정한 행은 사용할 수 없습니다.</label>}
         <section>
           <div className={styles.sectionHeading}><b>견적서 품목 · 박스수량 확인 ({sources.length}개)</b><b>{unknownCount ? '확인된 소계' : '선택 합계'} {fmt(selected.reduce((sum,row)=>sum+(row.boxes||0),0))}박스{unknownCount > 0 && ` · 환산 확인 ${unknownCount}개`}</b></div>
           <div className={styles.sources}>
