@@ -30,7 +30,7 @@ export default function DistributionMessagePreanalysis({text,week,disabled,prepa
   }
   useEffect(()=>{
     if(visible&&enabled&&!disabled&&pageEligible&&attempted.current!==key)void run(true);
-  },[visible,enabled,disabled,pageEligible,key]);
+  },[visible,enabled,disabled,pageEligible,key,state.status]);
   const result=state.key===key&&usableAnalysis(state.result,text,week)?state.result:null;
   const loading=state.key===key&&state.status==='loading';
   const groups=result?analysisGroups(result.data):[];

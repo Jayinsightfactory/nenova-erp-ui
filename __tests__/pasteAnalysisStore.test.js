@@ -36,6 +36,19 @@ async function main() {
   time += TTL_MS; await cache.read(scope.text, scope.week, {automatic: true});
   assert.equal(calls, 6, 'memory expiration never repeats Claude for saved record');
   await cache.read(scope.text, scope.week, {force: true}); assert.equal(calls, 7, 'force reaches server');
+  const miss = await store.read({...scope, text: 'lookup-only-missing', lookupOnly: true}, analyze);
+  assert.equal(miss.analysisStorage.cacheMiss, true); assert.equal(calls, 7, 'lookup-only never starts Claude');
+  let release, started;
+  const gate = new Promise(resolve => {release = resolve;});
+  const begun = new Promise(resolve => {started = resolve;});
+  const priority = createPreanalysisCache({persistent: true, fetcher: async (text, week, options) => {
+    if (options.lookupOnly) return text === 'saved' ? {...reopened, analysisStorage: {...reopened.analysisStorage, cacheHit: true}} : {analysisStorage: {cacheMiss: true}};
+    started(); await gate; return {success: true, orders: []};
+  }});
+  const slow = priority.read('new-slow', scope.week); await begun;
+  const fast = await priority.read('saved', scope.week);
+  assert.equal(fast.data.analysisStorage.cacheHit, true, 'saved result bypasses in-flight Claude queue');
+  release(); await slow;
   console.log('persistent preanalysis: restart, exact identity, cross-year/user, dedup, force, failures, budget passed');
   // Isolated mkdtemp fixture only; no application/runtime data is removed.
   await fs.rm(dir, {recursive: true});

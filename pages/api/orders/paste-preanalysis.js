@@ -7,11 +7,11 @@ const store = createPasteAnalysisStore();
 export default withAuth(async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'POST') return res.status(405).end();
-  const {text, week, force, allowAnalyze} = req.body || {};
+  const {text, week, force, allowAnalyze, lookupOnly} = req.body || {};
   try { analysisKey(text, week); }
   catch (error) { return res.status(400).json({success: false, error: error.message}); }
   try {
-    const data = await store.read({userId: req.user.userId, text, week, force: force === true, allowAnalyze: allowAnalyze !== false}, async () => {
+    const data = await store.read({userId: req.user.userId, text, week, force: force === true, allowAnalyze: allowAnalyze !== false, lookupOnly: lookupOnly === true}, async () => {
       let response, status = 200;
       const capture = {status(code) {status = code; return this;}, json(value) {response = value; return value;}};
       await parsePasteHandler({...req, body: {text, mixedQuantitySupport: true, selectedOrderYear: week.slice(0, 4)}}, capture);
