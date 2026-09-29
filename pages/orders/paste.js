@@ -2043,7 +2043,8 @@ export default function PasteOrderPage() {
           if(i!==idx)return it;
           const next={...it,...patch};
           if(Object.hasOwn(patch,'prodKey'))return resolvePasteMixedQuantity(next,allProducts.find(prod=>Number(prod.ProdKey)===Number(next.prodKey)));
-          if(Object.hasOwn(patch,'qty')||Object.hasOwn(patch,'unit'))return {...next,quantityParts:undefined,quantitySource:undefined,mixedQuantityError:null};
+          if(Object.hasOwn(patch,'qty'))return {...next,quantityParts:undefined,quantitySource:undefined,mixedQuantityError:null};
+          if(Object.hasOwn(patch,'unit'))return resolvePasteMixedQuantity(next,allProducts.find(prod=>Number(prod.ProdKey)===Number(next.prodKey)),patch.unit);
           return next;
         }) }
         : o
@@ -3719,7 +3720,7 @@ export default function PasteOrderPage() {
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey && (it.flowerName || '기타') === flower);
     if (!targets.length) { alert('해당 품종의 매칭 품목이 없습니다.'); return; }
     setOrders(prev => prev.map(o => o.id === oid
-      ? { ...o, orderOnlyRegistered: false, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? { ...it, unit, unitExplicit: true } : it) }
+      ? { ...o, orderOnlyRegistered: false, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? resolvePasteMixedQuantity({ ...it, unit, unitExplicit: true },allProducts.find(prod=>Number(prod.ProdKey)===Number(it.prodKey)),unit) : it) }
       : o
     ));
     await Promise.all(targets.map(it => fetch('/api/orders/prod-units', {

@@ -14,6 +14,7 @@ async function main() {
   const mixedProd={ProdKey:889,OutUnit:'박스',SteamOf1Box:30};
   const converted=resolvePasteMixedQuantity(mixedItem,mixedProd);
   assert.equal(converted.qty,197);assert.equal(converted.unit,'송이');
+  assert.ok(Math.abs(resolvePasteMixedQuantity(converted,mixedProd,'박스').qty-(6+17/30))<1e-9,'unit dropdown must convert, never reinterpret 197 stems as 197 boxes');
   const preview=buildPasteMixedActionPreview({type:'ADD',qty:converted.qty,unit:converted.unit,orderQty:40,shipmentQty:40,product:mixedProd});
   assert.ok(Math.abs(preview.shipmentAfter-(46+17/30))<1e-9);
   assert.ok(Math.abs(preview.orderAfter-(46+17/30))<1e-9);
