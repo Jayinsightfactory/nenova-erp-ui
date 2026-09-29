@@ -1,5 +1,12 @@
 # FormQuantityPivot — 피벗 품목 검색 표시 경계
 
+## 2026-09-29 업로드 도착원가 연결
+
+- 실제 dnSpy.Console FormQuantityPivot GetData/ViewWarehouse/ExportToXlsx 재실행. 원본 피벗 SQL·수량 보존.
+- 2026-09-15의 운송원가/입고전용 확장 정의를 대체: 업로드 WebArrivalCostLine 현재본을 OrderYear+정규화 세부차수+ProdKey로 결합, 없으면 같은 연도 이전 최신 세부차수. 복수농장 MAX, Product.OutUnit 환산. 모든 구분의 참고값으로 표시하며 원장 쓰기 없음.
+- 운영 SELECT에서 Be Sweet50cm1330 최신37-1=10,205/9,625,60cm1371=10,495 확인. 38/39 콜롬비아 원가 없음. 화면은 이전차수 참조임을 명시.
+- 그리드·엑셀 도착원가 표시만 소수0자리, 저장 원본과 엑셀 숫자 소수 보존. fixture는 pivotArrivalReference.test.js.
+
 ## 2026-09-28 로딩 표시
 
 - dnSpy.Console FormQuantityPivot GetData/ViewOrder/ViewWarehouse/ExportToXlsx 재확인. 원본8,066행/콜롬비아장미 입고01차4,858·02차4,330 읽기 probe 재확인.

@@ -10,10 +10,12 @@ const source = [
 const rows = enrichPivotExeRows(source, [
   {OrderYear:'2026',OrderWeek:'37-01',CustKey:7,ProdKey:10,DistCost:12500},
   {OrderYear:'2025',OrderWeek:'37-01',CustKey:7,ProdKey:10,DistCost:9000},
-], {10:{arrivalCost:17300}});
+], {'2026|3701|10':{arrivalCost:17300}});
 assert.equal(rows[0].DistCost,12500);
 assert.equal(rows[1].DistCost,9000,'같은 차수 번호라도 연도가 다르면 분배단가를 섞지 않는다');
 assert.equal(rows[2].ArrivalCost,17300);
+assert.equal(rows[3].ArrivalCost,17300,'주문에도 도착원가를 표시한다');
+assert.equal(rows[1].ArrivalCost,null,'전년도 원가를 섞지 않는다');
 assert.equal(rows[3].DistCost,12500,'분배단가는 같은 업체·품목·차수의 주문 열에서도 표시한다');
 assert.equal(enrichPivotExeRows([{...source[2],ListType:'03. 미발주수량'}], [{OrderYear:'2026',OrderWeek:'37-01',CustKey:7,ProdKey:10,DistCost:12500}])[0].DistCost, null, '미발주수량에는 분배단가를 복제하지 않는다');
 assert.match(sqlPivotExeDistributionCosts(),/sm\.OrderYear \+ REPLACE\(sm\.OrderWeek,'-',''\).*BETWEEN @weekFrom AND @weekTo/s);
