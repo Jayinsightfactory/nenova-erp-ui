@@ -1,4 +1,16 @@
 const assert = require('node:assert/strict');
+const {groupAppliedItems}=require('../lib/distributionMessageApplicationStatus');
+const groupRow=(index,customer,custKey,extra=false)=>({pair:{index,request:{custKey,customerText:customer,inputQty:index+1},unparsedRequest:extra},application:{status:'UNCONFIRMED',entry:null}});
+const groupedInput=[groupRow(0,'남대문 청화',10),groupRow(1,'남대문 청화',10),groupRow(2,'같은 이름',11),groupRow(3,'같은 이름',12),groupRow(4,'남대문 청화',10),groupRow(5,'업체 확인 필요',null,true)];
+const groupedBefore=JSON.stringify(groupedInput);
+const groupedResult=groupAppliedItems(groupedInput);
+assert.deepEqual(groupedResult.groups.map(g=>g.items.length),[2,1,1,1]);
+assert.deepEqual(groupedResult.groups.flatMap(g=>g.items),groupedInput.slice(0,5),'source order and every item retained');
+assert.strictEqual(groupedResult.additional[0],groupedInput[5],'unpaired rows retained, not deleted or marked applied');
+assert.equal(JSON.stringify(groupedInput),groupedBefore,'display grouping never mutates quantity or audit evidence');
+assert.equal(groupAppliedItems([groupRow(0,'A'),groupRow(1,'A')]).groups.length,1);
+assert.equal(groupAppliedItems([groupRow(0,'A'),groupRow(1,'B')]).groups.length,2);
+assert.deepEqual(groupAppliedItems([]),{groups:[],additional:[]});
 const { summarizeAuditReports } = require('../lib/distributionMessageApplicationStatus');
 const identity = 'nenovakakao/chat-a/message-1';
 const request = id => ({ id, sourceIdentity: identity, quote: `원문 ${id}`, customerText: '거래처', productText: '품목', inputQty: 2, inputUnit: '박스' });
