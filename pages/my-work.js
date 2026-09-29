@@ -623,7 +623,7 @@ function WorkRecords({ uid, wfName, stage }) {
   };
   // 화면마다 작업 순서: order 가 있으면 그 순서, 없으면 클릭한 칸 → 값이 있는 칸 순서
   const steps = (r) => {
-    const fs2 = arr(r.fields).filter((f) => f.order || f.click || f.box);
+    const fs2 = arr(r.fields).filter((f) => f.order || f.click); // 실제로 다룬 칸만 번호
     return fs2.slice().sort((a, b) => (a.order || 99) - (b.order || 99) || (b.click ? 1 : 0) - (a.click ? 1 : 0)).map((f, k) => ({ ...f, no: f.order || k + 1 }));
   };
   const Shot = ({ r, size }) => {
@@ -780,7 +780,7 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
         .bar a{color:#98a1b2;border:1px solid #2c3340;border-radius:6px;padding:4px 9px;text-decoration:none;font-size:12px}
         .stage{flex:1 1 auto;min-height:0;position:relative;overflow:auto}
         .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#0e1016}
-        .plwrap{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;padding:14px;align-items:start}
+        .plwrap{display:grid;grid-template-columns:minmax(0,1fr) 560px;gap:14px;padding:14px;align-items:start}
         @media(max-width:1100px){.plwrap{grid-template-columns:1fr}}
         .pllede{color:#98a1b2;margin:0 0 10px;max-width:80ch}
         .plmap{display:grid;grid-template-columns:repeat(10,minmax(84px,1fr));gap:3px;overflow-x:auto}
@@ -829,13 +829,13 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
         .plr ul{margin:0;padding-left:18px}
         .ann{position:relative;display:block;cursor:zoom-in;margin-top:4px;line-height:0}
         .ann img{width:100%;display:block;border-radius:6px;border:1px solid #2c3340}
-        .ann.sm{width:200px}.ann.md{width:100%;max-width:340px}.ann.lg{width:100%;cursor:zoom-out}
+        .ann.sm{width:240px}.ann.md{width:100%;max-width:520px}.ann.lg{width:100%;cursor:zoom-out}
         .annbox{position:absolute;border:2px solid #ff3b30;border-radius:3px;background:rgba(255,59,48,.10);pointer-events:none}
         .annno{position:absolute;transform:translate(-45%,-45%);min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#ff3b30;color:#fff;font:700 11px/18px sans-serif;text-align:center;box-shadow:0 0 0 2px #0e1016;pointer-events:none}
         .annno.inl{position:static;display:inline-block;transform:none;margin-right:6px;box-shadow:none}
         .annlist{list-style:none;margin:6px 0 2px;padding:0;display:grid;gap:3px}
         .annflow{display:flex;gap:18px;overflow-x:auto;padding:4px 2px 10px}
-        .annstep{flex:0 0 200px;position:relative}
+        .annstep{flex:0 0 240px;position:relative}
         .annstep:not(:last-child)::after{content:'→';position:absolute;right:-15px;top:70px;color:#ff3b30;font-weight:700}
         .annhead{font-size:11.5px;color:#c3c9d4;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.annhead b{color:#ff3b30}
         .anncap{font-size:11px;color:#98a1b2;margin-top:3px}
