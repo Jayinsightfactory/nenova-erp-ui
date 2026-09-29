@@ -161,6 +161,7 @@ export default function SalesDefectDeductionsPage() {
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportRegistering, setSupportRegistering] = useState(false);
+  const [supportRegistrationOutcomeUnknown, setSupportRegistrationOutcomeUnknown] = useState(false);
   const [supportProcessLogs, setSupportProcessLogs] = useState([]);
   const [manualCostModal, setManualCostModal] = useState(null);
   const [manualCostValue, setManualCostValue] = useState('');
@@ -196,6 +197,9 @@ export default function SalesDefectDeductionsPage() {
   const lookupRequestSeq = useRef(0);
   const salesLoadRequestSeq = useRef(0);
   const supportLoadRequestSeq = useRef(0);
+  const supportReviewWindowRef = useRef(null);
+  const supportReviewMonitorRef = useRef(null);
+  const supportReviewTabRef = useRef('support');
   const viewContextRef = useRef({ year, week, activeTab });
   const savedRowSignaturesRef = useRef(new Map());
 
@@ -1054,6 +1058,21 @@ export default function SalesDefectDeductionsPage() {
     return next;
   });
 
+  const refreshSupportRegistrationOutcome = useCallback(async () => {
+    setError('');
+    try {
+      const data = supportReviewTabRef.current === 'carryover' ? await loadCarryover() : await loadSupport();
+      if (!data) throw new Error('목록 재조회 응답을 받지 못했습니다.');
+      setSupportRegistrationOutcomeUnknown(false);
+      setSupportRegistering(false);
+      setMessage('등록 상태를 서버에서 다시 조회했습니다. 표시된 처리 상태를 확인하세요.');
+    } catch (e) {
+      setSupportRegistrationOutcomeUnknown(true);
+      setSupportRegistering(true);
+      setError(`등록 결과 재조회에 실패했습니다: ${e.message}. 중복 방지를 위해 등록 실행은 계속 잠겨 있습니다.`);
+    }
+  }, [loadCarryover, loadSupport]);
+
   const registerSupport = async () => {
     const selectedRows = supportRows.filter((row) => supportSelected.has(Number(row.deductionKey)) && isSupportRegistrationSelectable(row, activeTab));
     const ids = selectedRows.map((row) => Number(row.deductionKey)).filter((key) => key > 0);
@@ -1066,6 +1085,7 @@ export default function SalesDefectDeductionsPage() {
     reviewWindow.document.body.style.cssText = 'font:16px sans-serif;padding:32px;line-height:1.7;color:#17365d;background:#f4f8fd';
     setSupportProcessLogs([{ at: startedAt, label: `시작 · ${year}년 ${week}차 · 선택 ${ids.length}건` }]);
     setSupportRegistering(true); setError(''); setMessage('영업지원 전산등록 대상 사전검증 중…');
+    let handedOffToReview = false;
     try {
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `서버 사전검증 시작 · ${REGISTRATION_PREFLIGHT_BATCH_SIZE}건씩 출고·단가·중복 확인` }]);
       const checkedRows = [];
@@ -1085,6 +1105,21 @@ export default function SalesDefectDeductionsPage() {
       const validIds = valid.map((row) => Number(row.deductionKey)).filter(Boolean);
       const reviewUrl = `/sales/defect-deduction-register-review?year=${encodeURIComponent(year)}&week=${encodeURIComponent(week)}&ids=${encodeURIComponent(validIds.join(','))}&type=${encodeURIComponent(deductionType)}&support=1`;
       reviewWindow.location.href = reviewUrl;
+      handedOffToReview = true;
+      supportReviewWindowRef.current = reviewWindow;
+      supportReviewTabRef.current = activeTab;
+      setSupportRegistrationOutcomeUnknown(false);
+      if (supportReviewMonitorRef.current) window.clearInterval(supportReviewMonitorRef.current);
+      supportReviewMonitorRef.current = window.setInterval(async () => {
+        if (supportReviewWindowRef.current && !supportReviewWindowRef.current.closed) return;
+        window.clearInterval(supportReviewMonitorRef.current);
+        supportReviewMonitorRef.current = null;
+        supportReviewWindowRef.current = null;
+        setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '검토창 종료 · 최종 완료 통지를 받지 못했습니다. 목록을 다시 조회해 실제 저장 상태를 확인하세요.' }]);
+        setSupportRegistrationOutcomeUnknown(true);
+        setMessage('검토창이 완료 확인 전에 닫혀 저장 결과를 재조회하고 있습니다. 자동 재실행은 하지 않습니다.');
+        await refreshSupportRegistrationOutcome();
+      }, 1000);
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: '검토창 연결 완료 · 이후 등록·재조회 로그를 실시간 수신합니다.' }]);
       setMessage(`영업지원 전산등록 검토창을 열었습니다. ${valid.length}건의 처리로그·전후값·재조회 검증을 진행합니다.${invalid.length ? ` 오류 제외 ${invalid.length}건.` : ''}`);
     } catch (e) {
@@ -1092,7 +1127,7 @@ export default function SalesDefectDeductionsPage() {
       setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: `실패 · ${e.message}` }]);
       setError(e.message);
     }
-    finally { setSupportRegistering(false); }
+    finally { if (!handedOffToReview) setSupportRegistering(false); }
   };
 
   const markSupportManualComplete = async () => {
@@ -1213,17 +1248,36 @@ export default function SalesDefectDeductionsPage() {
         return;
       }
       if (event.data?.type !== 'sales-defect-register-complete') return;
-      setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: event.data.verified === false ? '완료 알림 · 재조회 확인 필요' : `전체 완료 · 등록 ${event.data.registered || 0}건 · 재조회 검증 통과` }]);
-      if (event.data.verified === false) {
+      const isSupportRegistration = Boolean(supportReviewWindowRef.current);
+      if (supportReviewMonitorRef.current) window.clearInterval(supportReviewMonitorRef.current);
+      supportReviewMonitorRef.current = null;
+      supportReviewWindowRef.current = null;
+      const failed = event.data.failed === true;
+      setSupportProcessLogs((current) => [...current, { at: new Date().toLocaleTimeString('ko-KR'), label: failed
+          ? `등록 중단 · 응답 확인 묶음 ${event.data.completedCount || 0}건 · ${event.data.operationStage || '오류 단계 미확인'}${event.data.errorCode ? ` · ${event.data.errorCode}` : ''}`
+        : event.data.verified === false ? '완료 알림 · 재조회 확인 필요' : `전체 완료 · 등록 ${event.data.registered || 0}건 · 재조회 검증 통과` }]);
+      if (failed) {
+        setError(`영업지원 전산등록이 중단되었습니다.${event.data.operationStage ? ` 실패 단계: ${event.data.operationStage}.` : ''}${event.data.errorCode ? ` 오류 코드: ${event.data.errorCode}.` : ''} 검토창의 상세 메시지를 확인하고, 자동 재실행하지 말고 목록 재조회로 현재 상태부터 확인하세요.`);
+      } else if (event.data.verified === false) {
         setError(`견적서 등록 후 재조회 불일치가 ${event.data.mismatches?.length || 0}건 있습니다. 검토창의 오류 내용을 확인하세요.`);
       } else {
         setMessage(`${event.data.registered || 0}건 견적서 등록 적용 및 재조회 검증 완료. 작업로그와 등록 확정 상태를 갱신했습니다.`);
       }
-      if (activeTab === 'support') loadSupport(); else if (activeTab === 'carryover') loadCarryover(); else load();
+      if (isSupportRegistration) {
+        setSupportRegistrationOutcomeUnknown(true);
+        void refreshSupportRegistrationOutcome();
+      } else {
+        const refreshPromise = activeTab === 'support' ? loadSupport() : activeTab === 'carryover' ? loadCarryover() : load();
+        Promise.resolve(refreshPromise).catch((refreshError) => setError(`등록 작업 뒤 목록 갱신에 실패했습니다: ${refreshError.message}.`));
+      }
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [activeTab, load, loadSupport, loadCarryover]);
+  }, [activeTab, load, loadSupport, loadCarryover, refreshSupportRegistrationOutcome]);
+
+  useEffect(() => () => {
+    if (supportReviewMonitorRef.current) window.clearInterval(supportReviewMonitorRef.current);
+  }, []);
 
   const remove = async () => {
     const selectedRows = partitionSelectedDeductionRows(rows, selected);
@@ -1567,7 +1621,7 @@ export default function SalesDefectDeductionsPage() {
       {(activeTab === 'support' || activeTab === 'carryover') && <div className="screenOnly">
       <div className="card support-register-card">
         <div className="support-register-head">
-          <div><strong>{activeTab === 'carryover' ? '미처리·다음 차수 재시도 목록' : `영업지원 전산등록 — ${year}년 ${week}차 전체 불량`}</strong><span>{supportLoading ? ' 불러오는 중…' : supportRegistering ? ' 사전검증 중…' : ` ${supportRows.length}건`}</span></div>
+          <div><strong>{activeTab === 'carryover' ? '미처리·다음 차수 재시도 목록' : `영업지원 전산등록 — ${year}년 ${week}차 전체 불량`}</strong><span>{supportLoading ? ' 불러오는 중…' : supportRegistering ? ' 등록 흐름 진행 중…' : ` ${supportRows.length}건`}</span></div>
           <span className="incoming-review-note">{activeTab === 'carryover' ? '컨펌 완료·현재 차수 판매행 있음 건만 등록 가능합니다. 나머지는 잔여수량이 0이 될 때까지 미처리로 계속 표시됩니다.' : '원차수 불량도 현재 차수에 EXE 판매행이 생기면 이월 등록할 수 있습니다.'}</span>
         </div>
         {activeTab === 'support' && <div className="support-usage-notice" role="note">
@@ -1576,8 +1630,8 @@ export default function SalesDefectDeductionsPage() {
             {SUPPORT_REGISTER_USAGE_STEPS.map((step) => <li key={step}>{step}</li>)}
           </ol>
         </div>}
-        {activeTab === 'support' && <div className="support-live-log" role="log" aria-live="polite" aria-label="영업지원 전산등록 실시간 진행 로그">
-          <div className="support-live-log-head"><strong>실시간 진행 로그</strong><span>{supportLoading || supportRegistering ? '처리 중…' : supportProcessLogs.length ? '최근 작업' : '대기'}</span></div>
+        {(activeTab === 'support' || activeTab === 'carryover') && <div className="support-live-log" role="log" aria-live="polite" aria-label="영업지원 전산등록 실시간 진행 로그">
+          <div className="support-live-log-head"><strong>실시간 진행 로그</strong><span>{supportLoading || supportRegistering ? '처리 중…' : supportProcessLogs.length ? '최근 작업' : '대기'}</span>{supportRegistrationOutcomeUnknown && <button type="button" className="btn btn-xs" onClick={refreshSupportRegistrationOutcome} disabled={supportLoading}>등록 상태 다시 조회</button>}</div>
           {supportProcessLogs.length ? supportProcessLogs.map((log, index) => <div key={`${log.at}-${index}`}><time>{log.at}</time><span>{log.label}</span></div>) : <div className="support-live-log-empty">등록 버튼을 누르면 사전검증부터 최종 재조회까지 단계별로 표시됩니다.</div>}
         </div>}
         {activeTab === 'carryover' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 8, padding: '8px 10px', borderBottom: '1px solid #e2e8f0' }}>

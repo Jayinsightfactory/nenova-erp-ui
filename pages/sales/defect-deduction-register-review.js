@@ -156,6 +156,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
     const originalRowByKey = new Map(activeRows.map((row) => [Number(row.deductionKey), row]));
     appendLog(`전산등록 시작 · 등록 ${activeIds.length}건 · 제외 ${excludedKeys.size}건 · ${REGISTRATION_APPLY_BATCH_SIZE}건씩 처리`);
     let completedCount = 0;
+    let registeredCount = 0;
     try {
       const combined = { registered: 0, rows: [], skipped: [] };
       for (let offset = 0; offset < activeRows.length; offset += REGISTRATION_APPLY_BATCH_SIZE) {
@@ -171,6 +172,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           requestKey: registerRequestKeyRef.current,
         });
         combined.registered += Number(batchData.registered || 0);
+        registeredCount = combined.registered;
         combined.rows.push(...(batchData.rows || []));
         combined.skipped.push(...(batchData.skipped || []));
         (batchData.logs || []).forEach((label) => appendLog(label));
@@ -220,8 +222,21 @@ export default function SalesDefectDeductionRegisterReviewPage() {
       } catch { /* ignore */ }
       registerRequestKeyRef.current = '';
     } catch (e) {
-      appendLog(`전산등록 중단 · 확인 완료 ${completedCount}/${activeRows.length}건 · ${e.message}`);
+      const operationStage = e.data?.operationStage || (completedCount >= activeRows.length ? '등록 후 재조회 검증' : '등록 요청/통신');
+      const errorCode = e.data?.errorCode || e.code || '';
+      appendLog(`전산등록 중단 · 응답 확인 ${completedCount}/${activeRows.length}건 · 실패 단계 ${operationStage}${errorCode ? ` · 오류 코드 ${errorCode}` : ''} · ${e.message}`);
       setError(`${e.message}\n${completedCount ? `앞의 ${completedCount}건은 서버 응답까지 완료되었습니다. 같은 창에서 다시 실행하면 기존 견적서를 재사용하므로 중복 생성하지 않습니다.` : '서버 완료 응답을 받은 묶음이 없습니다. 잠시 후 새로 불러와 현재 상태를 확인하세요.'}`);
+      try {
+        window.opener?.postMessage({
+          type: 'sales-defect-register-complete',
+          failed: true,
+          registered: registeredCount,
+          completedCount,
+          operationStage,
+          errorCode,
+          error: e.message,
+        }, window.location.origin);
+      } catch { /* opener가 닫힌 경우 검토창에 상세 로그를 유지 */ }
     }
     finally { setApplying(false); }
   };

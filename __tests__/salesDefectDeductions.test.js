@@ -134,6 +134,12 @@ assert.match(deductionContract.sideEffects.salesSupportRegistration, /Estimate\.
 assert.match(deductionContract.sideEffects.salesSupportRegistration, /10건씩 나누어 처리/);
 assert.match(pageSource, /REGISTRATION_PREFLIGHT_BATCH_SIZE = 10/);
 assert.match(pageSource, /사전검증 진행 · \$\{completed\}\/\$\{selectedRows\.length\}건/);
+assert.match(pageSource, /handedOffToReview/);
+assert.match(pageSource, /sales-defect-register-complete/);
+assert.match(pageSource, /최종 완료 통지를 받지 못했습니다/);
+assert.match(pageSource, /자동 재실행은 하지 않습니다/);
+assert.match(pageSource, /등록 결과 재조회에 실패했습니다[\s\S]*등록 실행은 계속 잠겨 있습니다/);
+assert.match(pageSource, /등록 상태 다시 조회/);
 assert.match(supportReviewSource, /REGISTRATION_PREVIEW_BATCH_SIZE = 10/);
 assert.match(supportReviewSource, /기존 견적서 조회 진행/);
 assert.match(deductionContract.sideEffects.registrationPartial, /Estimate\.Descr에는 올리지 않는다/);
@@ -143,6 +149,11 @@ assert.match(deductionContract.sideEffects.registrationPartial, /중복 Estimate
 assert.match(supportReviewSource, /REGISTRATION_APPLY_BATCH_SIZE = 10/);
 assert.match(supportReviewSource, /전산등록 진행 · \$\{completedCount\}\/\$\{activeRows\.length\}건/);
 assert.match(supportReviewSource, /진행 대기 중[\s\S]*전산등록 실행 및 검증 ← 클릭/);
+assert.match(supportReviewSource, /failed: true[\s\S]*operationStage[\s\S]*errorCode/);
+assert.match(defectApiSource, /operationStage: error\.operationStage/);
+assert.match(defectApiSource, /errorCode/);
+assert.match(deductionSource, /DB 트랜잭션 시작[\s\S]*DB 트랜잭션 커밋/);
+assert.match(deductionSource, /Estimate 신규 등록/);
 assert.match(deductionContract.sideEffects.supportCustomerEstimate, /불량차감 음수 Estimate 항목만/);
 assert.match(deductionContract.sideEffects.supportCustomerEstimate, /iframe\/딥링크나 previewCapture 요청에 의존하지 않는다/);
 const estimatePageSource = fs.readFileSync('pages/estimate.js', 'utf8');

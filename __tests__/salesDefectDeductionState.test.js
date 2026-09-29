@@ -220,7 +220,8 @@ const registerSource = deductionServiceSource.slice(
 const deleteSource = deductionServiceSource.slice(deductionServiceSource.indexOf('export async function deleteDeductions'));
 assert.match(preflightSource, /assertConfirmedForRegistration\(dbRow\)/, '사전검증도 저장 원장의 수입부 확정 상태를 서버에서 확인해야 한다.');
 assert.match(previewSource, /assertConfirmedForRegistration\(dbRow\)/, '검토 미리보기도 저장 원장의 수입부 확정 상태를 서버에서 확인해야 한다.');
-assert.match(registerSource, /runIsolatedRegistrationTransaction\(withTransaction/, 'deadlock 재시도 결과는 commit된 attempt만 반환해야 한다.');
+assert.match(registerSource, /withTrackedTransaction\s*=\s*\(callback, options\)\s*=>\s*withTransaction/, '등록 트랜잭션은 begin·쿼리·commit 단계를 추적하는 어댑터 안에서 실행해야 한다.');
+assert.match(registerSource, /runIsolatedRegistrationTransaction\(withTrackedTransaction/, 'deadlock 재시도 결과는 commit된 attempt만 반환해야 한다.');
 assert.match(registerSource, /DeductionKey=@key AND RequestKey=@requestKey/, '동일 요청키를 Estimate INSERT 전에 조회해야 한다.');
 assert.ok(
   registerSource.indexOf('DeductionKey=@key AND RequestKey=@requestKey')
