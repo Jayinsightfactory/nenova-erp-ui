@@ -140,6 +140,14 @@
   "pasteBaseStockProjectionPolicy": {
     "formula": "expected = base + cancelled - added",
     "identity": "When both text aliases are confirmed as the same ProdKey, base-stock and analyzed ADD/CANCEL rows share prod:<ProdKey>; unmatched text falls back to its own normalized name and is never fuzzy-merged.",
+    "mixedUnitFormula": "Keep box and explicit detail units (bunch/stem) as independent quantity axes: expectedBox=baseBox+cancelledBox-addedBox; expectedDetail=baseDetail+cancelledDetail-addedDetail. Never convert or add unlike units. Preserve mixed base text such as 1 box + 15 stems through parsing, alias aggregation, projection, and display.",
+    "ambiguousCandidatePolicy": "Any multiple base-stock product candidates remain unresolved regardless of score gap. Show an alert, open the candidate selector, and prompt for one ERP product at a time. Until a ProdKey is selected, do not present a numeric projection as confirmed; show that selection is required. Explicit selection persists only the existing user mapping preference, not ERP stock/order/shipment data. A same-quantity/date ShipmentHistory match may be marked processed under the user's rule; no matching history remains unverified, not definitively unprocessed.",
+    "untrustedProjectionPolicy": "With no confirmed product identity, missing base stock, or incompatible units, display projection as unavailable until corrected; never represent an unmatched product or unlike units as zero-based confirmed stock.",
+    "sideEffectMatrix": {
+      "readInboxAndBaseStock": { "KakaoSource": "read", "UserFavorite": "read", "OrderDetail": "preserve", "ShipmentDetail": "preserve", "StockHistory": "preserve", "ProductStock": "preserve", "Estimate": "preserve", "WebProfitReport": "preserve" },
+      "manualProductMatch": { "KakaoSource": "preserve", "UserFavorite": "upsert mapping preference only", "OrderDetail": "preserve", "ShipmentDetail": "preserve", "StockHistory": "preserve", "ProductStock": "preserve", "Estimate": "preserve", "WebProfitReport": "preserve" },
+      "calculateProjection": { "KakaoSource": "preserve", "UserFavorite": "preserve", "OrderDetail": "preserve", "ShipmentDetail": "preserve", "StockHistory": "preserve", "ProductStock": "preserve", "Estimate": "preserve", "WebProfitReport": "preserve" }
+    },
     "liveRefresh": "Base-stock text, explicit base-week, analysis result, matched product or quantity, and exclusion changes refresh the top projection immediately.",
     "weekLabels": "The top projection displays the order change week and the independently selected base-stock week together. Changing the base week preserves current text and never auto-loads a saved note.",
     "noteControls": "Saved note load is explicit; current save/update and create-new-record remain separate UserFavorite operations with clear labels.",
