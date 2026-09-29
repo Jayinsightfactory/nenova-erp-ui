@@ -26,7 +26,7 @@ import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/past
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 import { buildStockNoteChangeEntry, resolveInitialStockBaseWeek } from '../../lib/pasteStockNote';
-import { resolveStockProjectionIdentity, summarizeStockProjection } from '../../lib/pasteStockProjection';
+import { chooseStockProductCandidate, formatStockDelta, formatStockVector, parseBaseStockQuantityLine, resolveStockProjectionIdentity, summarizeStockProjection } from '../../lib/pasteStockProjection';
 import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence, takeoverErpEditPresence } from '../../hooks/useErpEditPresence';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
@@ -306,28 +306,19 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
       return;
     }
 
-    const cleaned = line.replace(/^[-*•]\s*/, '').trim();
-    const mixed = cleaned.match(/^(.+?)[\s:：]*(\d+(?:\.\d+)?)\s*(?:박스)?\s*\+\s*(\d+(?:\.\d+)?)\s*(스팀|송이|단|개|stem|stems|bunch|ea)$/i);
-    if (mixed) {
-      const name = mixed[1].trim();
-      const boxQty = parseStockNumber(mixed[2]);
-      const detailQty = parseStockNumber(mixed[3]);
-      const matchName = applyFlowerContext(name, currentFlower);
-      const row = { name, matchName, flowerContext: currentFlower, qty: boxQty, boxQty, detailQty, detailUnit: mixed[4], unit: '박스', displayQty: `${fmtStockQty(boxQty)}박스 + ${fmtStockQty(detailQty)}${mixed[4]}`, idx: lineIdx };
-      rows.push(row); byKey[stockNorm(matchName)] = row; byKey[stockNorm(name)] = row; return;
-    }
-    const m = cleaned.match(/^(.+?)[\s:：]*(-?\d+(?:\.\d+)?)\s*(박스|단|송이|개)?$/);
-    if (!m) return;
-    const name = m[1].trim();
-    const qty = parseStockNumber(m[2]);
-    if (!name || qty == null) return;
+    const parsedQuantity = parseBaseStockQuantityLine(line);
+    if (!parsedQuantity) return;
+    const { name, qty, boxQty, detailQty, detailUnit, unit } = parsedQuantity;
     const matchName = applyFlowerContext(name, currentFlower);
     const row = {
       name,
       matchName,
       flowerContext: currentFlower,
       qty,
-      unit: m[3] || '',
+      boxQty,
+      detailQty,
+      detailUnit,
+      unit,
       idx: lineIdx,
     };
     rows.push(row);
@@ -341,7 +332,7 @@ function stockRowQuantityLabel(row, quantity = row?.qty) {
   if (row?.boxQty != null && row?.detailQty != null) {
     return `${fmtStockQty(row.boxQty)}박스 + ${fmtStockQty(row.detailQty)}${row.detailUnit || ''}`;
   }
-  return fmtStockQty(quantity);
+  return `${fmtStockQty(quantity)}${row?.unit || ''}`;
 }
 
 function loadStockBaseWeek(defaultWeek) {
@@ -368,20 +359,8 @@ function resolveProductForStockName(name, products, cache) {
     .map(p => ({ prod: p, score: isMixBoxMismatch(name, p) ? 0 : scoreMatch(name, p, '') }))
     .filter(x => x.score >= 40)
     .sort((a, b) => b.score - a.score);
-  const managed = scored.filter(x => isManagedProduct(x.prod));
-  const pool = managed.length > 0 ? managed : scored;
-  if (pool.length === 1) {
-    return { prod: pool[0].prod, matchStatus: managed.length === 1 ? 'auto' : 'outside' };
-  }
-  if (pool.length > 1) {
-    const top = pool[0];
-    const gap = top.score - (pool[1]?.score || 0);
-    if (top.score >= 50 && gap >= 10) {
-      return { prod: top.prod, matchStatus: managed.some(x => x.prod.ProdKey === top.prod.ProdKey) ? 'auto' : 'outside' };
-    }
-    return { prod: null, matchStatus: 'ambiguous', candidates: pool.slice(0, 8).map(x => x.prod) };
-  }
-  return { prod: null, matchStatus: 'unmatched', candidates: scored.slice(0, 5).map(x => x.prod) };
+  // A score gap is not enough to safely distinguish varieties or colors.
+  return chooseStockProductCandidate(scored, isManagedProduct);
 }
 
 function buildBaseStockMatchRows(text, products, cache, prevMatches = [], excludedLineNos = []) {
@@ -403,6 +382,9 @@ function buildBaseStockMatchRows(text, products, cache, prevMatches = [], exclud
           matchName: lookupName,
           flowerContext: row.flowerContext || '',
           qty: row.qty,
+          boxQty: row.boxQty,
+          detailQty: row.detailQty,
+          detailUnit: row.detailUnit,
           unit: row.unit || prev.unit || '',
           idx: row.idx,
           prodKey: prod.ProdKey,
@@ -420,6 +402,9 @@ function buildBaseStockMatchRows(text, products, cache, prevMatches = [], exclud
         matchName: lookupName,
         flowerContext: row.flowerContext || '',
         qty: row.qty,
+        boxQty: row.boxQty,
+        detailQty: row.detailQty,
+        detailUnit: row.detailUnit,
         unit: row.unit || '',
         idx: row.idx,
         prodKey: resolved.prod.ProdKey,
@@ -434,6 +419,9 @@ function buildBaseStockMatchRows(text, products, cache, prevMatches = [], exclud
       matchName: lookupName,
       flowerContext: row.flowerContext || '',
       qty: row.qty,
+      boxQty: row.boxQty,
+      detailQty: row.detailQty,
+      detailUnit: row.detailUnit,
       unit: row.unit || '',
       idx: row.idx,
       prodKey: null,
@@ -783,10 +771,24 @@ function buildStockRowsByIdentity(parsed, resolvedMatches) {
     const identity = resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
     if (!identity.normalizedName) return;
     const existing = rowsByIdentity.get(identity.key);
+    const existingBoxQty = existing?.boxQty ?? (normalizeOrderUnit(existing?.unit || row.unit) === '박스' ? existing?.qty : 0);
+    const rowBoxQty = row.boxQty ?? (normalizeOrderUnit(row.unit) === '박스' ? row.qty : 0);
+    const mixedUnitsAgree = !existing?.detailUnit || !row.detailUnit
+      || normalizeOrderUnit(existing.detailUnit) === normalizeOrderUnit(row.detailUnit);
     rowsByIdentity.set(identity.key, {
       ...(existing || row),
       ...row,
       qty: Number(existing?.qty || 0) + Number(row.qty || 0),
+      boxQty: row.boxQty == null && existing?.boxQty == null && normalizeOrderUnit(row.unit) !== '박스' && normalizeOrderUnit(existing?.unit) !== '박스'
+        ? null
+        : Number(existingBoxQty || 0) + Number(rowBoxQty || 0),
+      detailQty: mixedUnitsAgree && (row.detailQty != null || existing?.detailQty != null)
+        ? Number(existing?.detailQty || 0) + Number(row.detailQty || 0)
+        : null,
+      detailUnit: mixedUnitsAgree ? (row.detailUnit || existing?.detailUnit || '') : '',
+      unitWarnings: mixedUnitsAgree
+        ? (existing?.unitWarnings || [])
+        : [...(existing?.unitWarnings || []), `혼합재고 세부단위 불일치: ${existing?.detailUnit} / ${row.detailUnit}`],
       identityKey: identity.key,
       match: identity.match,
       sourceNames: [...new Set([...(existing?.sourceNames || []), row.name].filter(Boolean))],
@@ -870,9 +872,11 @@ function buildKakaoStockDraft({
       if (!hasBase && sortedIdx === 0) {
         warnings.push('기초재고 없음, 0으로 계산');
       }
-      if (baseRow?.unit && record.unit && normalizeOrderUnit(baseRow.unit) !== normalizeOrderUnit(record.unit)) {
+      const availableBaseUnits = [baseRow?.unit, baseRow?.detailUnit].filter(Boolean).map(normalizeOrderUnit);
+      if (record.unit && availableBaseUnits.length > 0 && !availableBaseUnits.includes(normalizeOrderUnit(record.unit))) {
         warnings.push(`단위 확인 필요: 기초재고 ${baseRow.unit} / 변경 ${record.unit}`);
       }
+      (baseRow?.unitWarnings || []).forEach(warning => warnings.push(warning));
       if (reportedRemain != null && calcRemain != null && Math.abs(reportedRemain - calcRemain) > 0.001) {
         warnings.push(`계산 ${fmtStockQty(calcRemain)}와 잔량재고 ${fmtStockQty(reportedRemain)} 불일치`);
       }
@@ -897,6 +901,10 @@ function buildKakaoStockDraft({
         reportedRemainSource: record.reportedRemain != null ? 'text' : (finalInputRemain != null ? 'remainInput' : null),
         unit: record.unit || baseRow?.unit || '',
         start: running,
+        baseStart: hasBase ? baseRow.qty : null,
+        baseDetailQty: baseRow?.detailQty ?? null,
+        baseUnit: baseRow?.unit || record.unit || '',
+        detailUnit: baseRow?.detailUnit || '',
         deltaSum,
         calcRemain,
         closeRemain,
@@ -5604,17 +5612,19 @@ function StockImpactSummary({ draft, selectedWeek, processed = false }) {
           </div>
           {rows.map((row) => {
             const needsReview = row.warnings.length > 0 || !row.prodKey;
-            const unit = row.unit || '';
+            const notCalculated = row.unresolved;
             return (
               <div className={`paste-stock-impact-row${needsReview ? ' needs-review' : ''}`} key={row.identityKey}>
                 <span title={row.inputNames.join(' / ')}>
                   <b>{row.productName}</b>
-                  {needsReview && <small>확인필요</small>}
+                  {notCalculated
+                    ? <small style={{ display: 'block', color: '#ad5700' }}>품목 선택 후 계산</small>
+                    : needsReview && <small>확인필요</small>}
                 </span>
-                <span>{fmtStockQty(row.start)}{unit}</span>
-                <span className="stock-cancel">+{fmtStockQty(row.cancelled)}{unit}</span>
-                <span className="stock-add">-{fmtStockQty(row.added)}{unit}</span>
-                <strong>{fmtStockQty(row.expected)}{unit}</strong>
+                <span>{notCalculated ? '—' : formatStockVector(row.start, row.startDetail, row.unit, row.detailUnit)}</span>
+                <span className="stock-cancel">{notCalculated ? '—' : formatStockDelta(row.cancelled, row.cancelledDetail, row.unit, row.detailUnit, '+')}</span>
+                <span className="stock-add">{notCalculated ? '—' : formatStockDelta(row.added, row.addedDetail, row.unit, row.detailUnit, '-')}</span>
+                <strong>{notCalculated ? '—' : formatStockVector(row.expected, row.expectedDetail, row.unit, row.detailUnit)}</strong>
               </div>
             );
           })}
@@ -5631,6 +5641,7 @@ function StockImpactSummary({ draft, selectedWeek, processed = false }) {
 function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch, onPickProduct, buildCandidates, embedded = false }) {
   const [search, setSearch] = useState('');
   const matchedCount = rows.filter(r => r.prodKey).length;
+  const ambiguousRows = rows.map((row, idx) => ({ row, idx })).filter(({ row }) => row.matchStatus === 'ambiguous');
   const statusColor = (s) => {
     if (s === 'matched' || s === 'auto' || s === 'mapping' || s === 'saved' || s === 'manual') return '#2e7d32';
     if (s === 'ambiguous') return '#e65100';
@@ -5646,7 +5657,10 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
     return '미매칭';
   };
 
-  useEffect(() => { if (editIdx == null) setSearch(''); }, [editIdx]);
+  useEffect(() => {
+    if (editIdx == null && ambiguousRows.length > 0) setEditIdx(ambiguousRows[0].idx);
+    if (editIdx == null) setSearch('');
+  }, [editIdx, ambiguousRows.length, rows, setEditIdx]);
 
   const editingRow = editIdx != null ? rows[editIdx] : null;
   const candidates = editingRow
@@ -5680,12 +5694,17 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
           🔄 다시 매칭
         </button>
       </div>
+      {ambiguousRows.length > 0 && (
+        <div role="alert" style={{ padding: '7px 10px', color: '#8a3c00', background: '#fff3e0', borderBottom: '1px solid #ffcc80', fontSize: 11, fontWeight: 700 }}>
+          후보가 여러 개인 기초재고 {ambiguousRows.length}개는 자동 연결하지 않았습니다. 현재 첫 후보의 품목 선택창을 열었습니다. 품목을 하나씩 지정해야 변경내역에 대한 잔량 계산이 표시됩니다.
+        </div>
+      )}
       <div style={{ flex: embedded ? 1 : undefined, minHeight: embedded ? 0 : undefined, maxHeight: embedded ? 'none' : 240, overflowY: 'auto' }}>
         {rows.map((row, idx) => (
-          <div key={`${row.idx}-${row.name}`} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid #f1f5f9', fontSize: 12, flexWrap: 'wrap' }}>
+          <div key={`${row.idx}-${row.name}`} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid #f1f5f9', fontSize: 12, flexWrap: 'wrap', background: row.matchStatus === 'ambiguous' ? '#fff8e8' : '#fff' }}>
             <div style={{ flex: 1, minWidth: 0, lineHeight: 1.45 }}>
               <span style={{ fontWeight: 700, color: '#334155' }}>{row.name}</span>
-              <span style={{ color: '#64748b', marginLeft: 6 }}>{row.qty}{row.unit || ''}</span>
+              <span style={{ color: '#64748b', marginLeft: 6 }}>{stockRowQuantityLabel(row)}</span>
               <span style={{ color: '#94a3b8', margin: '0 8px', fontWeight: 700 }}>=</span>
               <span style={{ color: statusColor(row.matchStatus), fontWeight: 700 }}>
                 {row.prodKey ? (row.displayName || row.prodName) : statusLabel(row.matchStatus)}
@@ -5699,8 +5718,8 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
                 </span>
               ) : null}
             </div>
-            <button type="button" onClick={() => setEditIdx(editIdx === idx ? null : idx)} style={{ flexShrink: 0, fontSize: 11, padding: '2px 8px', border: '1px solid #1565c0', borderRadius: 4, background: '#e3f2fd', color: '#0d47a1', cursor: 'pointer' }}>
-              {editIdx === idx ? '닫기' : '✎ 품목지정'}
+            <button type="button" onClick={() => setEditIdx(editIdx === idx ? null : idx)} style={{ flexShrink: 0, fontSize: 11, padding: '2px 8px', border: row.matchStatus === 'ambiguous' ? '1px solid #ef6c00' : '1px solid #1565c0', borderRadius: 4, background: row.matchStatus === 'ambiguous' ? '#fff3e0' : '#e3f2fd', color: row.matchStatus === 'ambiguous' ? '#8a3c00' : '#0d47a1', cursor: 'pointer' }}>
+              {editIdx === idx ? '선택 중' : row.matchStatus === 'ambiguous' ? '⚠ 후보 선택' : '✎ 품목지정'}
             </button>
           </div>
         ))}
