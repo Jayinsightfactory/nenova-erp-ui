@@ -15,6 +15,8 @@ import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
 import ProfitWorkbookSourcesTab from '../../components/ProfitWorkbookSourcesTab';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 import ProfitAuditIssueList from '../../components/ProfitAuditIssueList';
+import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBanner';
+import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
 import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
 
 function getDefaultYear() {
@@ -378,6 +380,7 @@ export default function ProfitReportPage() {
     const wk = weekOverride ?? weekInput.value;
     const yr = yearOverride ?? reportYear;
     setLoading(true); setError(''); setMessage(''); setEdits({});
+    loadSeqRef.current += 1; setSnapshotBusy(false); setSnapshotResult(null);
     try {
       const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(yr)}`, { credentials: 'same-origin' });
       const d = await res.json();
@@ -387,7 +390,39 @@ export default function ProfitReportPage() {
       setNote(d.note || '');
       setNoteDirty(false);
       loadConfirmStatus(wk, yr);
+      // 원천이 바뀌었거나 처음 보는 차수면 저장본/라이브값을 먼저 보여 주고, 백그라운드로 새 버전을 저장한다.
+      if (d.snapshot?.needsRefresh) refreshSnapshot(d.major || wk, d.orderYear || yr, { auto: true });
     } catch (e) { setError(e.message); } finally { setLoading(false); }
+  };
+
+  // ── 계산 결과 스냅샷 [최신화] — POST snapshotRefresh(동기 재계산 + 새 버전 저장)
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [snapshotResult, setSnapshotResult] = useState(null);
+  const editsRef = useRef(edits);
+  editsRef.current = edits;
+  const loadSeqRef = useRef(0);
+  const refreshSnapshot = async (wk, yr, { auto = false } = {}) => {
+    const seq = ++loadSeqRef.current;
+    setSnapshotBusy(true);
+    try {
+      const res = await fetch('/api/sales/profit-report', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'snapshotRefresh', week: wk, year: yr }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error || '최신화 실패');
+      if (seq !== loadSeqRef.current) return; // 그 사이 다른 차수를 열었으면 버린다
+      if (auto && Object.keys(editsRef.current || {}).length > 0) {
+        setMessage('최신화 계산이 끝났지만 편집 중이라 화면에 반영하지 않았습니다 — 저장 후 [🔄 최신화]를 누르세요.');
+        return;
+      }
+      setData(d);
+      setSnapshotResult({ at: Date.now(), changed: d.snapshot?.changedFromPrev });
+    } catch (e) {
+      if (!auto) setError(e.message);
+    } finally {
+      if (seq === loadSeqRef.current) setSnapshotBusy(false);
+    }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
@@ -1147,6 +1182,13 @@ export default function ProfitReportPage() {
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
 
+      {viewMode === 'category' && data && !data.confirmed && (
+        <ProfitReportSnapshotBanner snapshot={data.snapshot} busy={snapshotBusy} lastResult={snapshotResult}
+          onRefresh={() => refreshSnapshot(data.major, data.orderYear)} />
+      )}
+      {viewMode === 'category' && data && (
+        <ProfitWeekCheckPanel orderYear={data.orderYear} major={data.major} />
+      )}
       {viewMode === 'category' && data?.confirmed && (
         <div style={st.confirmBanner}>
           ✅ <b>확정됨</b> — Revision {data.confirmed.revisionNo} · 확정자 {data.confirmed.confirmedByName || data.confirmed.confirmedBy || '-'} ·{' '}
