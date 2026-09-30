@@ -38,8 +38,8 @@ export default withAuth(async function handler(req, res) {
       query(
         `SELECT sm.OrderYear, sm.OrderWeek, sm.CustKey, sd.ProdKey,
                 SUM(ISNULL(sd.OutQuantity,0)) AS ShipmentOutQuantity,
-                MIN(ISNULL(sd.isFix,0)) AS MinFixed,
-                MAX(ISNULL(sd.isFix,0)) AS MaxFixed,
+                MIN(CAST(ISNULL(sd.isFix,0) AS int)) AS MinFixed,
+                MAX(CAST(ISNULL(sd.isFix,0) AS int)) AS MaxFixed,
                 MAX(p.OutUnit) AS OutUnit,
                 COUNT_BIG(*) AS DetailRows
            FROM ShipmentMaster sm

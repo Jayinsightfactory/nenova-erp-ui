@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { filterWeekdayCompareRows, normalizeWeekdayCompareRequest, normalizeWeekdayUnit, WEEKDAY_ORDER_OUT_QUANTITY_SQL } from '../lib/weekdayEstimateCompare.js';
 
 const scope = normalizeWeekdayCompareRequest({ year: '2026', custKey: '7', orderWeeks: ['38-02', '38-02'], prodKeys: [101, '101'] });
@@ -23,4 +24,11 @@ const fixture = [
   { OrderYear: 2026, OrderWeek: '38-02', CustKey: 7, ProdKey: 102, value: 'other-product near-miss' },
 ];
 assert.deepEqual(filterWeekdayCompareRows(fixture, scope).map((row) => row.value), ['positive']);
+// SQL Server MIN/MAX reject bit operands, even after ISNULL(bit, 0).
+// Keep the int cast inside both aggregates (same contract as shipment/stock-status).
+const compareApi = fs.readFileSync(new URL('../pages/api/estimate/weekday-compare.js', import.meta.url), 'utf8');
+for (const aggregate of ['MIN', 'MAX']) {
+  assert.match(compareApi, new RegExp(`${aggregate}\\(CAST\\(ISNULL\\(sd\\.isFix,0\\) AS int\\)\\)`));
+  assert.doesNotMatch(compareApi, new RegExp(`${aggregate}\\(ISNULL\\(sd\\.isFix`));
+}
 console.log('weekdayEstimateCompare tests passed');
