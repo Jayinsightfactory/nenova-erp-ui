@@ -51,17 +51,17 @@ async function main() {
   const out = buildWeekCheck({ orderYear: '2026', major: '40', sources, colombiaWeeks, report });
   const find = (sub, topic, status) => out.rows.filter((r) => r.subWeek === sub && r.topic === topic && (!status || r.status === status));
 
-  check('40-01 콜롬비아 그외통관비 = 자동처리됨(Apollo GW/CW)', find('40-01', '그외통관비(콜롬비아)', 'auto').some((r) => /Apollo/.test(r.text) && /19,304/.test(r.text)));
+  check('40-01 콜롬비아 그외통관비 전산 자동(Apollo) = 표시 안 함', find('40-01', '그외통관비(콜롬비아)').length === 0);
   check('40-02 콜롬비아 그외통관비 누락 = 입력 필요 + 반차수 링크', find('40-02', '그외통관비(콜롬비아)', 'input').some((r) => /focus=40-02/.test(r.link?.href || '')));
-  check('콜롬비아 장미·수국 = 원가자료 표 자동(8/10, 5.5/6.7)', find('40-01', '박스당 무게/CBM', 'auto').some((r) => /장미 8\/10/.test(r.text) && /수국 5\.5\/6\.7/.test(r.text)));
-  check('중국 기타 = GW/CW 잔여 역산 자동', find('40-01', '중국 박스(단)당 무게', 'auto').some((r) => /잔여 역산/.test(r.text)));
+  check('원가자료 표 적용(정상 경로) = 표시 안 함', find('40-01', '박스당 무게/CBM').length === 0);
+  check('중국 기타 잔여 역산(정상 경로) = 표시 안 함', find('40-01', '중국 박스(단)당 무게').length === 0);
   check('표에 없는 콜롬비아 꽃 + 마스터 없음 = 입력 필요', find('40-02', '박스당 무게/CBM', 'input').some((r) => /희귀꽃/.test(r.text)));
   check('EstQuantity 0 + 박스 = 확인 필요', find('40-01', '입고 입력 형태', 'review').some((r) => /EstQuantity/.test(r.text)));
-  check('품목 없는 0원 행 = 자동처리됨(제외)', find('40-01', '입고 입력 형태', 'auto').some((r) => /0원 상세행 1건/.test(r.text)));
+  check('품목 없는 0원 행(자동 제외) = 표시 안 함', !out.rows.some((r) => /0원 상세행/.test(r.text)));
   check('GW>CW(콜롬비아 clamp 아님) = 확인 필요', find('40-01', '입고 입력 형태', 'review').some((r) => /GW > CW/.test(r.text) && /G1/.test(r.text)));
   check('같은 GW 1420 두 AWB 반복 = 확인 필요', find('40-01', '입고 입력 형태', 'review').some((r) => /1,420kg × 2건/.test(r.text)));
-  check('콜카장수국 혼적 AWB = 자동처리됨(5품목 풀)', find('40-01', '혼적 AWB 구성', 'auto').some((r) => /MIX1/.test(r.text)));
-  check('원가자료 환율 있음 = 자동처리됨 1,450', find('40-01', '환율(원가자료)', 'auto').some((r) => /1,450/.test(r.text)));
+  check('콜카장수국 혼적 AWB(정상 풀) = 표시 안 함', !find('40-01', '혼적 AWB 구성').some((r) => /MIX1/.test(r.text)));
+  check('원가자료 환율 있음 = 표시 안 함', find('40-01', '환율(원가자료)').length === 0);
   check('40-02 콜롬비아 원가자료 없음 = 입력 필요', find('40-02', '환율(원가자료)', 'input').some((r) => /콜롬비아/.test(r.text)));
   check('과세환율 이월값 = 확인 필요', find('대차수', '과세환율(R)', 'review').some((r) => /베트남/.test(r.text)));
   check('과세환율 없음 = 입력 필요', find('대차수', '과세환율(R)', 'input').some((r) => /일본/.test(r.text)));
@@ -69,7 +69,9 @@ async function main() {
   check('콜롬비아 4품목 CUSTOMS 경고는 반차수 행과 중복 표시 안 함', !out.rows.some((r) => r.text.includes('dup')));
   check('최근 4주 매입 없는 출고 품목 = 확인 필요', find('대차수', '최근 4주 매입 없음', 'review').some((r) => /Old Rose/.test(r.text)));
   check('정렬: 반차수 먼저, 대차수 나중', out.rows.at(-1).subWeek === '대차수' && out.rows[0].subWeek === '40-01');
-  check('요약 카운트', out.summary.input >= 4 && out.summary.auto >= 4, JSON.stringify(out.summary));
+  check('요약 = 입력/확인만, 자동·정상 없음', out.summary.input >= 4 && out.summary.review >= 3 && !out.summary.auto && !out.summary.ok && out.rows.every((r) => r.status === 'input' || r.status === 'review'), JSON.stringify(out.summary));
+  const clean = buildWeekCheck({ orderYear: '2026', major: '40', sources: { ...sources, inbound: [], arrival: [], arrivalPrevCountries: [], shipped: [] }, colombiaWeeks: [], report: { categoryRows: [], audit: { issues: [] } } });
+  check('문제 없는 차수 = 행 0', clean.rows.length === 0, JSON.stringify(clean.rows.slice(0, 2)));
 
   if (failed) { console.error(`\n${failed} failed`); process.exit(1); }
   console.log('\nall passed');

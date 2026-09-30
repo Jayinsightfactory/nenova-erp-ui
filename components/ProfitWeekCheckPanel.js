@@ -1,19 +1,16 @@
-// 새 차수 자동 점검 패널 — 반차수별 반복 위험과 자동 처리 결과(자동처리됨 값/출처 · 입력 필요 + 화면 링크 · 확인 필요).
+// 새 차수 자동 점검 패널 — 오류만 표시(입력 필요 + 화면 링크 · 확인 필요). 문제가 없으면 아무것도 렌더하지 않는다.
 // API: GET /api/sales/profit-report-week-check (읽기 전용). 본표 조회를 막지 않게 따로 불러온다.
 import { useEffect, useState } from 'react';
 
 const CHIP = {
   input: { background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' },
   review: { background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' },
-  auto: { background: '#dbeafe', color: '#1e40af', border: '1px solid #93c5fd' },
-  ok: { background: '#dcfce7', color: '#166534', border: '1px solid #86efac' },
 };
 const chip = (status) => ({ ...CHIP[status], borderRadius: 999, padding: '1px 8px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' });
 
 export default function ProfitWeekCheckPanel({ orderYear, major }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState({ loading: false, error: '', data: null });
-  const [showOk, setShowOk] = useState(true);
 
   useEffect(() => {
     if (!orderYear || !major) return undefined;
@@ -31,36 +28,29 @@ export default function ProfitWeekCheckPanel({ orderYear, major }) {
   }, [orderYear, major]);
 
   const d = state.data;
-  const s = d?.summary || {};
-  const rows = (d?.rows || []).filter((r) => showOk || (r.status !== 'ok' && r.status !== 'auto'));
+  const rows = (d?.rows || []).filter((r) => r.status === 'input' || r.status === 'review');
   const groups = [];
   for (const r of rows) {
     const g = groups.at(-1);
     if (g && g.subWeek === r.subWeek) g.rows.push(r); else groups.push({ subWeek: r.subWeek, rows: [r] });
   }
+  // 사장님(2026-09-30): "오류가 없으면 표시할 게 없는 거고 오류만 표시되게". 로딩 중·문제 0건이면 렌더하지 않는다.
+  if (state.error) {
+    return <div style={{ fontSize: 12, color: '#b91c1c', marginBottom: 8 }} data-testid="profit-week-check">🩺 자동 점검 실패: {state.error}</div>;
+  }
+  if (!rows.length) return null;
+  const s2 = { input: rows.filter((r) => r.status === 'input').length, review: rows.filter((r) => r.status === 'review').length };
   return (
     <div style={{ border: '1px solid #cbd5e1', borderRadius: 8, marginBottom: 8, background: '#fff' }} data-testid="profit-week-check">
       <button type="button" onClick={() => setOpen((v) => !v)}
         style={{ width: '100%', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: '8px 12px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontSize: 13 }}>
         <b>🩺 {major ? `${Number(major)}차` : ''} 자동 점검</b>
-        {state.loading && <span style={{ color: '#64748b' }}>점검 중…</span>}
-        {state.error && <span style={{ color: '#b91c1c' }}>점검 실패: {state.error}</span>}
-        {d && (
-          <>
-            <span style={chip('input')}>입력 필요 {s.input || 0}</span>
-            <span style={chip('review')}>확인 필요 {s.review || 0}</span>
-            <span style={chip('auto')}>자동처리됨 {s.auto || 0}</span>
-            <span style={chip('ok')}>정상 {s.ok || 0}</span>
-          </>
-        )}
+        {s2.input > 0 && <span style={chip('input')}>입력 필요 {s2.input}</span>}
+        {s2.review > 0 && <span style={chip('review')}>확인 필요 {s2.review}</span>}
         <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: 12 }}>{open ? '접기 ▲' : '펼치기 ▼'}</span>
       </button>
       {open && d && (
         <div style={{ padding: '0 12px 10px' }}>
-          <label style={{ fontSize: 12, color: '#475569', display: 'inline-flex', gap: 4, alignItems: 'center', marginBottom: 6 }}>
-            <input type="checkbox" checked={showOk} onChange={(e) => setShowOk(e.target.checked)} /> 자동처리됨·정상도 보기
-          </label>
-          {groups.length === 0 && <div style={{ fontSize: 12.5, color: '#166534' }}>처리할 항목이 없습니다.</div>}
           <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12.5 }}>
               <tbody>
