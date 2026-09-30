@@ -27,6 +27,8 @@
 - [ ] 엑셀 물량표 적용은 `uploadQty`만 수량 원천으로 사용하고, 재고/입고/잔량 요약값을 쓰기 계산에 사용하지 않는다.
 - [ ] 엑셀 적용 결과에 원본·환산·주문 전후·분배 전후·사후검증 상태가 행 단위 감사원장으로 남는다.
 - [ ] 0수량·주문만 입력·분배만 입력의 모드를 테스트로 분리해 신규 분배 생성 여부를 확인한다.
+- [ ] 견적서 확정수량 수정은 후속연도 `StockMaster`/`ProductStock` 스냅샷의 존재만으로 선차단하지 않는다. native `usp_StockCalculation`을 현재·후속연도까지 수행한 뒤 영향 `ProdKey`의 `ROUND(ProductStock.Stock,3)<0`일 때만 전체 롤백한다.
+- [ ] 위 견적 수정 경로는 실제 MSSQL fixture에 후속연도 `StockMaster`/`ProductStock`을 넣고, 감소 시 후속연도까지 cascade되며 증가 round-trip 후 원복되는지 검증한다. `FUTURE_STOCK_SNAPSHOT_EXISTS` 류 코드가 재도입되면 계약 테스트를 실패시킨다.
 
 ## 3. 차수피벗 고정 계약
 
