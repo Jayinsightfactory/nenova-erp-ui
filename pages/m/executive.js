@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import ExecutiveReports from '../../components/executive/ExecutiveReports';
 import {verifyReqUser} from '../../lib/auth';
-import {canPreview} from '../../lib/executiveReportPreview';
+import {canPreview} from '../../lib/mobileExecutiveReportPreview';
 
 export async function getServerSideProps({req,res,query}) {
   res.setHeader('Cache-Control','private, no-store');

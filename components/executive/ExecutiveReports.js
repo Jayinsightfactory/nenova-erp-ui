@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {PERIODS,previewReports,filterReports} from '../../lib/executiveReportPreview';
+import {PERIODS,previewReports,filterReports} from '../../lib/mobileExecutiveReportPreview';
 import s from './ExecutiveReports.module.css';
 
 const money = value => `${Math.round(value/10000).toLocaleString('ko-KR')}만원`;

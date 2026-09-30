@@ -5,7 +5,7 @@ const Module = require('node:module');
 const React = require('react');
 const {renderToStaticMarkup} = require('react-dom/server');
 const {transformSync} = require('next/dist/build/swc');
-const {canPreview,previewReports,filterReports} = require('../lib/executiveReportPreview');
+const {canPreview,previewReports,filterReports} = require('../lib/mobileExecutiveReportPreview');
 assert.equal(canPreview({preview:'1'},null),false);
 assert.equal(canPreview({preview:'1'},{userId:'',accountActive:true}),false);
 assert.equal(canPreview({preview:'1'},{userId:'a',accountActive:false}),false);
