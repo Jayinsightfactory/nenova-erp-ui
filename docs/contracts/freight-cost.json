@@ -4,6 +4,7 @@
   "scope": [
     "pages/freight.js",
     "pages/api/freight/index.js",
+    "pages/api/freight/excel.js",
     "lib/freightGroupSearch.js",
     "lib/freightCalc.js"
   ],
@@ -32,6 +33,7 @@
   "requiredTestFiles": [
     "__tests__/freightGroupSearch.test.js",
     "__tests__/freightCalc.test.js",
+    "__tests__/freightGoodsUnit.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
