@@ -1,0 +1,79 @@
+{
+  "id": "profit-workbook",
+  "title": "매출원가 양식 원천시트(판매현황·불량차감·그 외 매출액·구매현황·지역별) + 불변 스냅샷 계약 — ERP 읽기 전용",
+  "scope": [
+    "pages/api/sales/profit-workbook.js",
+    "pages/sales/profit-report.js",
+    "components/ProfitWorkbookSourcesTab.js",
+    "lib/profitWorkbook.js",
+    "lib/profitWorkbookRules.js",
+    "lib/profitWorkbookExcel.js",
+    "scripts/apply-profit-workbook-snapshot-migration.mjs",
+    "docs/migrations/2026-09-30_profit_workbook_snapshot.sql"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "SOURCE_SHEETS_SELECT_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "SNAPSHOT_CONFIRM_REFRESH_EDIT_WEB_TABLE_INSERT_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "TEMPLATE_EXCEL_DOWNLOAD_NO_SQL_WRITE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "rules": {
+    "sales": "수량=sd.EstQuantity, 금액=저장 sd.Amount/sd.Vat(재계산 금지). 필터=본표 N과 동일(sm.OrderYear+OrderWeek LIKE major-%+OrderYearWeek, sm.isDeleted=0, sm.isFix=1, sd.isFix=1, OutQuantity<>0). 운송료/현지상차운임 판매행은 '그 외 매출액'으로.",
+    "deduction": "Estimate 행 단위(ProdKey 조인), CodeInfo EstimateType Descr2='불량차감'→불량차감, 나머지→그 외 매출액. ERP에 없는 행은 수기행(RowKey M:).",
+    "purchase": "WarehouseMaster/Detail TPrice(외화), 수량 wd.EstQuantity, wm.isDeleted=0(wd엔 isDeleted 없음). 국가=PURCHASE_COUNTRIES(국내 비용행 제외).",
+    "region": "Customer.CustArea(ERP 원본) → 경부호남/양재동/지방/기타. 매핑 테이블 없음.",
+    "manualSheets": "재고잔량·그외통관비(콜롬비아 이중소스 미해결)·포워딩·환율은 다루지 않음 — 템플릿 그대로."
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "모든 원천 조회는 sm/wm.OrderYear + OrderWeek LIKE '<major>-%'(+ sm.OrderYearWeek)로 연도를 함께 건다. 스냅샷 키도 (OrderYear, MajorWeek, VersionNo). 전년도 같은 차수와 섞이지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/profitWorkbookGolden.test.js",
+    "__tests__/fixtures/profit-workbook-golden.json",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "nenova.exe에 해당 Form 없음 — 강명훈 수작업 '매출원가 양식 - N차_재고수정.xlsx'(ECOUNT 판매/구매 현황 붙여넣기)를 대체하는 웹 전용 조회. ERP 테이블 side effect 없음.",
+    "methods": [
+      "lib/profitReport.js salesByCategory/estimateByCategory 필터 재사용",
+      "CASE_CATEGORY 품명 분류 재사용",
+      "ShipmentDetail.Amount/Vat 저장값 사용(재계산 금지)"
+    ],
+    "tables": [
+      "ShipmentMaster/ShipmentDetail (read)",
+      "Estimate (read)",
+      "CodeInfo (read)",
+      "WarehouseMaster/WarehouseDetail (read)",
+      "Customer (read — CustArea, Manager)",
+      "Product (read)",
+      "ProfitWorkbookSnapshot (web-only table, INSERT only)",
+      "ProfitWorkbookSnapshotRow (web-only table, INSERT only, immutable trigger)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

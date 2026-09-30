@@ -12,6 +12,7 @@ import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRa
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
 import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
+import ProfitWorkbookSourcesTab from '../../components/ProfitWorkbookSourcesTab';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
 
@@ -954,6 +955,7 @@ export default function ProfitReportPage() {
             <button style={viewMode === 'weeks' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToWeeksView}>차수별</button>
             <button style={viewMode === 'months' ? st.viewToggleOn : st.viewToggleOff} onClick={switchToMonthsView}>월별</button>
             <button style={viewMode === 'analysis' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('analysis')}>원인분석</button>
+            <button style={viewMode === 'sources' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('sources')}>원천시트</button>
           </div>
           {viewMode === 'category' ? (
             <>
@@ -1013,7 +1015,7 @@ export default function ProfitReportPage() {
                 🕘 확정 이력{showConfirmHistory ? ' ▲' : ' ▼'}
               </button>
             </>
-          ) : viewMode === 'analysis' ? (
+          ) : (viewMode === 'analysis' || viewMode === 'sources') ? (
             <>
               <label style={st.label}>연도</label>
               <input
@@ -1797,6 +1799,7 @@ export default function ProfitReportPage() {
       {viewMode === 'months' && monthlyLoading && <div style={st.message}>연간 주차 원장과 PeriodDay를 읽어 월별로 분류하는 중입니다…</div>}
 
       {viewMode === 'analysis' && <ProfitAnalysisTab weekValue={weekInput.value} year={reportYear} />}
+      {viewMode === 'sources' && <ProfitWorkbookSourcesTab weekValue={weekInput.value} year={reportYear} />}
 
       {viewMode === 'category' && data && (
         <div style={{ marginTop: 12 }}>
