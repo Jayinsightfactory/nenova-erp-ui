@@ -24,19 +24,22 @@ async function main() {
   const { formatUnclassifiedNote, composeProfitReportNote } = await import('../lib/profitReportNotes.js');
 
   console.log('=== 22~26차 공통 콜롬비아 배부계수 ===');
-  check('장미 박스당 무게 = 7', RATE_DEFAULTS.BoxWeight_콜롬비아장미 === 7);
-  check('카네이션 박스당 CBM = 11', RATE_DEFAULTS.BoxCBM_콜롬비아카네이션 === 11);
+  // 2026-09-30 사장님 결정: 박스당 무게·CBM = 원가자료 엑셀 표(lib/boxMetricTable.js). 매출원가 양식(장미 7·카네이션 CBM 11)은 폐기.
+  check('장미 박스당 무게 = 8 (원가자료 표)', RATE_DEFAULTS.BoxWeight_콜롬비아장미 === 8);
+  check('카네이션 박스당 CBM = 9 (원가자료 표)', RATE_DEFAULTS.BoxCBM_콜롬비아카네이션 === 9);
+  // 아래 26차 골든값은 매출원가 양식(장미 7·카네이션 CBM 11) 산출 — 배분 공식 동일성만 검증하려고 옛 계수로 재현한다.
+  const LEGACY_WORKBOOK_RATES = { ...RATE_DEFAULTS, BoxWeight_콜롬비아장미: 7, BoxCBM_콜롬비아카네이션: 11 };
 
   console.log('\n=== 26차 콜롬비아 1·2차 H/S 합계 ===');
   const first = computeColombiaAllocation(
     { GW: 6706, CW: 6706, CustomsFee: 3432760 - 6706 * 460, AirRateUSD: 18191.2 },
     { '콜롬비아 장미': 209, '콜롬비아 카네이션': 441, '콜롬비아 알스트로': 16, '콜롬비아 루스커스': 27 },
-    RATE_DEFAULTS,
+    LEGACY_WORKBOOK_RATES,
   );
   const second = computeColombiaAllocation(
     { GW: 655, CW: 670, CustomsFee: 473300 - 655 * 460, AirRateUSD: 1915.5 },
     { '콜롬비아 장미': 27, '콜롬비아 카네이션': 40, '콜롬비아 알스트로': 4, '콜롬비아 루스커스': 0 },
-    RATE_DEFAULTS,
+    LEGACY_WORKBOOK_RATES,
   );
   const expected26 = {
     '콜롬비아 장미': { H: 885183.5906745286, S: 4681.784366047753 },
