@@ -24,6 +24,7 @@ async function main() {
       weightRow({ wh: 4, awb: 'G1', kind: 'gw', kg: 1420 }), weightRow({ wh: 4, awb: 'G1', kind: 'cw', kg: 1000 }),
       weightRow({ wh: 5, awb: 'G2', kind: 'gw', kg: 1420 }),
       flower({ wk: '40-02', awb: 'B2', flower: '장미' }),
+      flower({ wk: '40-02', awb: 'B2', flower: '희귀꽃', name: 'Odd Flower', fw: null, fc: null }),
     ],
     arrival: [{ OrderWeek: '40-1', CountryName: '콜롬비아', n: 3, fxRows: 3, fxMin: 1450, fxMax: 1450 }],
     arrivalPrevCountries: ['콜롬비아'],
@@ -52,8 +53,9 @@ async function main() {
 
   check('40-01 콜롬비아 그외통관비 = 자동처리됨(Apollo GW/CW)', find('40-01', '그외통관비(콜롬비아)', 'auto').some((r) => /Apollo/.test(r.text) && /19,304/.test(r.text)));
   check('40-02 콜롬비아 그외통관비 누락 = 입력 필요 + 반차수 링크', find('40-02', '그외통관비(콜롬비아)', 'input').some((r) => /focus=40-02/.test(r.link?.href || '')));
-  check('수국 박스값 없음 = 기본값 자동처리(5.5/6.7)', find('40-01', '박스당 무게/CBM', 'auto').some((r) => /5\.5/.test(r.text)));
-  check('중국 박스당 무게 없음 = 입력 필요', find('40-01', '중국 박스당 무게', 'input').length === 1);
+  check('콜롬비아 장미·수국 = 원가자료 표 자동(8/10, 5.5/6.7)', find('40-01', '박스당 무게/CBM', 'auto').some((r) => /장미 8\/10/.test(r.text) && /수국 5\.5\/6\.7/.test(r.text)));
+  check('중국 기타 = GW/CW 잔여 역산 자동', find('40-01', '중국 박스(단)당 무게', 'auto').some((r) => /잔여 역산/.test(r.text)));
+  check('표에 없는 콜롬비아 꽃 + 마스터 없음 = 입력 필요', find('40-02', '박스당 무게/CBM', 'input').some((r) => /희귀꽃/.test(r.text)));
   check('EstQuantity 0 + 박스 = 확인 필요', find('40-01', '입고 입력 형태', 'review').some((r) => /EstQuantity/.test(r.text)));
   check('품목 없는 0원 행 = 자동처리됨(제외)', find('40-01', '입고 입력 형태', 'auto').some((r) => /0원 상세행 1건/.test(r.text)));
   check('GW>CW(콜롬비아 clamp 아님) = 확인 필요', find('40-01', '입고 입력 형태', 'review').some((r) => /GW > CW/.test(r.text) && /G1/.test(r.text)));
