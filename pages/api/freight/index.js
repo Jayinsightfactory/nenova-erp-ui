@@ -7,6 +7,7 @@ import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, detectInvoiceCurrency, isGrossWeightItem, isChargeableWeightItem, freightWeightOfRow } from '../../../lib/freightCalc';
 import { loadOverrides } from '../../../lib/categoryOverrides';
+import { loadSourceWorkbookFxRows, resolveFreightExchangeRate } from '../../../lib/sourceWorkbookFx';
 
 const DEFAULT_CUSTOMS = {
   bakSangRate: 460,
@@ -233,6 +234,13 @@ async function loadFreightData(res, keys, awbLabel) {
   // 인보이스 통화 자동 감지 (Product.CounName 기반) + CurrencyMaster 에서 환율 제안
   const invoiceCurrency = detectInvoiceCurrency(rows.map(r => ({ counName: r.CounName })));
   const suggestedExchangeRate = currencyRates[invoiceCurrency] || 0;
+  // 환율 결정: 스냅샷 > 원가자료 차수 환율(EUR) > CurrencyMaster — lib/sourceWorkbookFx.js
+  const workbookFxRows = await loadSourceWorkbookFxRows([master.OrderYear]);
+  const fxResolved = resolveFreightExchangeRate({
+    snapshotRate: existingSnapshot?.ExchangeRate, workbookRows: workbookFxRows,
+    orderYear: master.OrderYear, orderWeek: master.OrderWeek,
+    currency: invoiceCurrency, currencyMasterRate: suggestedExchangeRate,
+  });
   // 감지된 국가 분포 (UI 에서 배지로 표시)
   const counCounter = {};
   for (const r of rows) {
@@ -250,14 +258,16 @@ async function loadFreightData(res, keys, awbLabel) {
     rateUSD: snap?.FreightRateUSD ?? master.FreightRateUSD ?? 0,
     docFeeUSD: snap?.DocFeeUSD ?? master.DocFeeUSD ?? 0,
     // 환율: 스냅샷 > 0 이면 사용, 아니면 CurrencyMaster 의 자동 제안값
-    exchangeRate: (snap?.ExchangeRate > 0 ? snap.ExchangeRate : suggestedExchangeRate) || 0,
+    exchangeRate: fxResolved.rate || 0,
+    exchangeRateSource: fxResolved.source,
+    exchangeRateSourceWeek: fxResolved.sourceWeek,
     invoiceUSD: snap?.InvoiceTotalUSD ?? invoiceUSD,
     itemCount,
     actualFreightUSD: actualFreightUSD > 0 ? actualFreightUSD : null,
     // 통화 정보 (UI 표시용)
     invoiceCurrency,
     suggestedExchangeRate,
-    exchangeRateAutoFilled: !(snap?.ExchangeRate > 0) && suggestedExchangeRate > 0,
+    exchangeRateAutoFilled: !(snap?.ExchangeRate > 0) && fxResolved.rate > 0,
   };
   const customs = snap ? {
     bakSangRate: Number(snap.BakSangRate) || DEFAULT_CUSTOMS.bakSangRate,
