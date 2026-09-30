@@ -1,0 +1,83 @@
+{
+  "id": "profit-report-snapshot",
+  "title": "주차별 매출이익 보고서 계산 결과 스냅샷(원천 지문·변경 감지·연쇄 stale) + 새 차수 자동 점검 — ERP 읽기 전용",
+  "scope": [
+    "pages/api/sales/profit-report.js",
+    "pages/api/sales/profit-report-week-check.js",
+    "pages/sales/profit-report.js",
+    "components/ProfitReportSnapshotBanner.js",
+    "components/ProfitWeekCheckPanel.js",
+    "lib/profitReportSnapshot.js",
+    "lib/profitReportCalcHash.cjs",
+    "lib/profitReportWeekCheck.js",
+    "scripts/apply-profit-report-snapshot-migration.mjs",
+    "scripts/warmup-profit-report-snapshots.mjs",
+    "docs/migrations/2026-09-30_profit_report_snapshot.sql"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "REPORT_GET_SNAPSHOT_READ_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "REPORT_SNAPSHOT_REFRESH_WEB_TABLE_INSERT_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "WEEK_CHECK_SELECT_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    }
+  ],
+  "rules": {
+    "fingerprint": "차수 n 과 앞 4개 차수의 ShipmentMaster/Detail·Estimate·WarehouseMaster/Detail·FreightCost·StockMaster/ProductStock·StockHistory + 웹 입력(WebProfitReport·WebCustomsWeekly·WebForwardingWeekly·WebColombiaWeekly·WebStockPriceEvidence·WebArrivalCostLine·WebTaxableExchangeRate) COUNT/CHECKSUM_AGG/MAX + 전역(CurrencyMaster·Product·통관 단가표·분류 오버라이드 파일) + 계산식 지문(빌드 시 계산 소스 해시).",
+    "fresh": "지문 동일 + 전차수 최신 저장본 결과 해시 == 계산 당시 PrevPayloadHash → 저장본 즉시 반환.",
+    "stale": "다르면 저장본 즉시 반환 + 변경 목록, 화면이 POST snapshotRefresh 로 새 버전 INSERT. E(n)=F(n-1) 연쇄: n-1 결과가 바뀌면 n stale.",
+    "get": "GET 은 SELECT 만(CLAUDE.md 규칙 1). 저장은 POST 와 워밍업 스크립트만.",
+    "confirm": "WebProfitReportConfirm/Detail(웹 전용) 테이블을 같은 마이그레이션으로 생성 — 운영에 없어 확정 기능이 동작하지 않던 문제. FreightCost ALTER 는 포함하지 않음.",
+    "weekCheck": "반차수별 박스당 무게/CBM·그외통관비(Apollo GW/CW 자동)·원가자료 환율·입고 입력 형태(Est 0·0원 무품목 행·GW>CW·반복 GW)·혼적 AWB 구성·과세환율·항공료 전표(PR #815 상세)·최근 4주 매입 없음. 계산값 변경 없음."
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "스냅샷 키 (OrderYear, MajorWeek, VersionNo). 지문 창은 01차에서 전년 52~49차로 넘어간다(__tests__/profitReportSnapshot.test.js). 원천 집계는 모두 OrderYear 로 필터."
+  },
+  "requiredTestFiles": [
+    "__tests__/profitReportSnapshot.test.js",
+    "__tests__/profitReportWeekCheck.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "nenova.exe 에 해당 Form 없음 — 웹 전용 매출이익 보고서의 계산 결과 캐시와 점검 화면. ERP 테이블 side effect 없음.",
+    "methods": [
+      "pages/api/sales/profit-report.js loadReportData 결과를 그대로 저장(계산식 변경 없음)",
+      "lib/customsForwarding.js computeCustomsAndForwarding colombiaWeeks 재사용",
+      "lib/profitReportAuditDetails.js 경고 상세 재사용"
+    ],
+    "tables": [
+      "ShipmentMaster/ShipmentDetail (read)",
+      "Estimate (read)",
+      "WarehouseMaster/WarehouseDetail (read)",
+      "FreightCost (read)",
+      "StockMaster/ProductStock/StockHistory (read)",
+      "CurrencyMaster/Product/Flower (read)",
+      "WebProfitReportSnapshot (web-only table, INSERT only, immutable trigger)",
+      "WebProfitReportConfirm/WebProfitReportConfirmDetail (web-only tables)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
