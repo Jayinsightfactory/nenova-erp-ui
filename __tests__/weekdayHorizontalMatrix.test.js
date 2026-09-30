@@ -33,6 +33,18 @@ assert.equal(matrix.rows.filter((row) => row.prodKey === 101).length, 1);
 assert.equal(matrix.rows[0].blocks[1].currentTotal, 4, 'prior-year quantity and unit excluded');
 assert.equal(matrix.outsideComparisons.length, 3);
 assert.equal(JSON.stringify(cycles), frozen, 'input calendar remains unchanged');
+const prioritySource=[
+  actual({prodKey:501,state:'NO_SHIPMENT',shipmentOutQuantity:null,shipmentDates:[]}),
+  actual({prodKey:502,orderWeek:'37-01',shipmentDates:[{date:'2026-09-10',shipmentQuantity:4}]}),
+  actual({prodKey:503,shipmentOutQuantity:0,shipmentDates:[]}),
+  actual({prodKey:504}),
+];
+const prioritySnapshot=JSON.stringify(prioritySource);
+const prioritized=build(cycles,[plan({prodKey:505})],prioritySource);
+assert.deepEqual(prioritized.rows.map(row=>row.prodKey),[503,504,505,502,501],'current work then adjacent work then order-only; stable equal priority');
+assert.equal(prioritized.rows.length,5,'order-only products remain available, not hidden');
+assert.equal(prioritized.rows[0].blocks[1].currentTotal,0,'zero/cancelled distribution remains visible');
+assert.equal(JSON.stringify(prioritySource),prioritySnapshot,'sorting never mutates ERP input');
 
 const blockFor = (plans = [], comparisons = [actual()]) => build(cycles, plans, comparisons).rows[0].blocks[1];
 const rowFor = (plans = [], comparisons = [actual()]) => build(cycles, plans, comparisons).rows[0];
