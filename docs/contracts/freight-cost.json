@@ -35,7 +35,7 @@
       "name": "FREIGHT_EXCHANGE_RATE_RESOLVE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "notes": "운송기준원가/차수피벗 도착원가 환율 결정(read-only): FreightCost 스냅샷 > (EUR만) WebArrivalCostLine 원가자료 같은 세부차수 > 같은 대차수 > 직전 4주 이월 > CurrencyMaster 제안값. CurrencyMaster·FreightCost·Flower 등 어떤 테이블도 쓰지 않는다. 수국 박스 CBM 6.64/GW 5.5는 lib/freightCalc.js 웹 기준값(마스터 미입력 시)으로만 적용하고 Flower 마스터를 자동 수정하지 않는다."
+      "notes": "운송기준원가/차수피벗 도착원가 환율 결정(read-only): FreightCost 스냅샷 > (EUR만) WebArrivalCostLine 원가자료 같은 세부차수 > 같은 대차수 > 직전 4주 이월 > CurrencyMaster 제안값. CurrencyMaster·FreightCost·Flower 등 어떤 테이블도 쓰지 않는다. 수국 박스 CBM 6.7/GW 5.5(원가자료 엑셀 표)는 lib/freightCalc.js 웹 기준값(마스터 미입력 시)으로만 적용하고 Flower 마스터를 자동 수정하지 않는다."
     }
   ],
   "crossYearFixture": {
