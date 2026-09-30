@@ -5,18 +5,12 @@
 
 import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, detectInvoiceCurrency, isGrossWeightItem, isChargeableWeightItem, freightWeightOfRow } from '../../../lib/freightCalc';
+import { computeFreightCost, normalizeFlower, isFreightForwarder, isFreightRow, FREIGHT_DEFAULT_CUSTOMS, defaultFreightCustoms, autoDetectFlower, detectInvoiceCurrency, isGrossWeightItem, isChargeableWeightItem, freightWeightOfRow } from '../../../lib/freightCalc';
 import { loadOverrides } from '../../../lib/categoryOverrides';
 import { loadSourceWorkbookFxRows, resolveFreightExchangeRate } from '../../../lib/sourceWorkbookFx';
+import { dominantBaseCountry } from '../../../lib/pivotFreightArrival';
 
-const DEFAULT_CUSTOMS = {
-  bakSangRate: 460,
-  handlingFee: 33000,
-  quarantinePerItem: 10000,
-  domesticFreight: 99000,
-  deductFee: 40000,
-  extraFee: 0,
-};
+const DEFAULT_CUSTOMS = { ...FREIGHT_DEFAULT_CUSTOMS };
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -240,6 +234,8 @@ async function loadFreightData(res, keys, awbLabel) {
     snapshotRate: existingSnapshot?.ExchangeRate, workbookRows: workbookFxRows,
     orderYear: master.OrderYear, orderWeek: master.OrderWeek,
     currency: invoiceCurrency, currencyMasterRate: suggestedExchangeRate,
+    country: dominantBaseCountry(rows),
+    hydrangeaOnly: rows.length > 0 && rows.every(r => /수국|hydrangea/i.test(`${r.FlowerName || ''} ${r.ProdName || ''}`)),
   });
   // 감지된 국가 분포 (UI 에서 배지로 표시)
   const counCounter = {};
@@ -269,14 +265,15 @@ async function loadFreightData(res, keys, awbLabel) {
     suggestedExchangeRate,
     exchangeRateAutoFilled: !(snap?.ExchangeRate > 0) && fxResolved.rate > 0,
   };
+  const countryCustoms = defaultFreightCustoms(rows.map(r => r.CounName));
   const customs = snap ? {
-    bakSangRate: Number(snap.BakSangRate) || DEFAULT_CUSTOMS.bakSangRate,
-    handlingFee: Number(snap.HandlingFee) || DEFAULT_CUSTOMS.handlingFee,
-    quarantinePerItem: Number(snap.QuarantinePerItem) || DEFAULT_CUSTOMS.quarantinePerItem,
-    domesticFreight: Number(snap.DomesticFreight) || DEFAULT_CUSTOMS.domesticFreight,
-    deductFee: Number(snap.DeductFee) || DEFAULT_CUSTOMS.deductFee,
-    extraFee: Number(snap.ExtraFee) || DEFAULT_CUSTOMS.extraFee,
-  } : { ...DEFAULT_CUSTOMS };
+    bakSangRate: Number(snap.BakSangRate) || countryCustoms.bakSangRate,
+    handlingFee: Number(snap.HandlingFee) || countryCustoms.handlingFee,
+    quarantinePerItem: Number(snap.QuarantinePerItem) || countryCustoms.quarantinePerItem,
+    domesticFreight: Number(snap.DomesticFreight) || countryCustoms.domesticFreight,
+    deductFee: Number(snap.DeductFee) || countryCustoms.deductFee,
+    extraFee: Number(snap.ExtraFee) || countryCustoms.extraFee,
+  } : { ...countryCustoms };
   const basis = snap?.WeightBasis || 'AUTO';
 
   // Flower 기본값 맵 (normalized key) — steamQty fallback 계산에 필요해서 details 생성 전에 빌드
