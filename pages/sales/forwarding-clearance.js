@@ -7,6 +7,11 @@ import ForwardingClearancePanel from '../../components/ForwardingClearancePanel'
 
 // URL의 ?week= 를 초기값으로 동기 반영 — useEffect로 나중에 setValue 하면 그 사이 잘못된 기본값으로
 // 첫 조회가 나가는 경쟁상태가 생김(2026-07-10 발견, customs-clearance와 동일 패턴).
+function urlParam(name) {
+  if (typeof window === 'undefined') return '';
+  try { return new URLSearchParams(window.location.search).get(name) || ''; } catch { return ''; }
+}
+
 function initialWeek() {
   if (typeof window === 'undefined') return '';
   try {
@@ -19,7 +24,11 @@ function initialWeek() {
 
 export default function ForwardingClearancePage() {
   const weekInput = useWeekInput(initialWeek());
+  // ?year= / ?focus= — 매출이익 보고서 경고의 "새 창에서 열기"가 연도·반차수를 미리 선택해 연다.
+  const [focus] = useState(() => urlParam('focus'));
   const [year, setYear] = useState(() => {
+    const fromUrl = urlParam('year');
+    if (/^\d{4}$/.test(fromUrl)) return fromUrl;
     const m = String(getCurrentWeek() || '').match(/^(\d{4})-/);
     return m ? m[1] : String(new Date().getFullYear());
   });
@@ -37,6 +46,11 @@ export default function ForwardingClearancePage() {
             <button style={st.primaryBtn} onClick={() => setRefreshKey((k) => k + 1)}>조회</button>
           </div>
         </div>
+        {focus && (
+          <div style={{ margin: '0 0 8px', padding: '6px 10px', background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: 6, fontSize: 12.5 }}>
+            매출이익 보고서 경고에서 열림 — 확인 대상: <b>{focus}</b> (해당 반차수의 BILL/AWB 항공료 전표 연결을 확인하세요)
+          </div>
+        )}
         <ForwardingClearancePanel key={refreshKey} week={weekInput.value} year={year} />
       </div>
     </>

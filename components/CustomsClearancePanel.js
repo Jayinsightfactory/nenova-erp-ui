@@ -143,7 +143,9 @@ function HistoryButton({ orderYear, scopeType, scopeKey }) {
   );
 }
 
-export default function CustomsClearancePanel({ week, year, onSaved }) {
+// focus: 매출이익 보고서 경고에서 넘어온 반차수(예: '38-01') 또는 국가 카테고리(예: '태국') —
+// 해당 블록으로 스크롤하고 노란 테두리로 강조한다(값은 바꾸지 않음).
+export default function CustomsClearancePanel({ week, year, onSaved, focus = null }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -155,6 +157,17 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
   const [showAllCats, setShowAllCats] = useState(false);
   const [editWeights, setEditWeights] = useState(false); // 무게는 입고 GW 자동 — 수기 교정할 때만 입력칸 노출
   const [saving, setSaving] = useState('');
+  useEffect(() => {
+    if (!focus || !data) return;
+    if (!/^\d{2}-\d{2}$/.test(String(focus))) setShowAllCats(true);
+    const t = setTimeout(() => {
+      if (typeof document === 'undefined') return;
+      const el = document.querySelector(`[data-customs-focus-key="${String(focus).replace(/"/g, '')}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 120);
+    return () => clearTimeout(t);
+  }, [focus, data]);
+  const focusStyle = (key) => (focus && String(focus) === String(key) ? { outline: '3px solid #f59e0b', outlineOffset: -3 } : null);
 
   const load = useCallback(async () => {
     if (!week) return;
@@ -495,7 +508,7 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
                     const isHistorical = row.totalSource === 'excel_historical_snapshot';
                     const carried = !row.saved && !isHistorical && row.carry;
                     return (
-                      <tr key={row.category} style={{ background: isHistorical ? '#ecfdf5' : carried ? '#fff7ed' : '#fff' }}>
+                      <tr key={row.category} data-customs-focus-key={row.category} style={{ background: isHistorical ? '#ecfdf5' : carried ? '#fff7ed' : '#fff', ...focusStyle(row.category) }}>
                         <td style={st.tdLabel}>
                           {row.category}
                           {isHistorical && <span style={st.baselineBadge} title="운영 DB에 이 차수 입력 이력이 없어, 원본 '매출원가 양식' 엑셀의 구성요소(GW/관세/선율/월드운송료/방역)를 그대로 자동 적용 중입니다. 한 칸이라도 저장하면 이 행 전체가 저장값으로 바뀝니다.">원본 엑셀값</span>}
@@ -598,7 +611,7 @@ export default function CustomsClearancePanel({ week, year, onSaved }) {
               const isHistorical = c.totalSource === 'excel_historical_snapshot';
               const carried = !c.saved && !isHistorical && c.carry;
               return (
-                <div key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: isHistorical ? '#ecfdf5' : carried ? '#fff7ed' : '#fff' }}>
+                <div key={c.orderWeek} data-customs-focus-key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: isHistorical ? '#ecfdf5' : carried ? '#fff7ed' : '#fff', ...focusStyle(c.orderWeek) }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <b style={{ fontSize: 13 }}>{c.orderWeek}</b>
                     {isHistorical && <span style={st.baselineBadge} title="운영 DB에 이 반차수 입력 이력이 없어, 원본 '매출원가 양식' 콜롬비아 시트의 구성요소(GW/통관수수료/품목수/실제 트럭 대수/관세료/소독/검역)와 원본 박스수량을 그대로 자동 적용 중입니다.">원본 엑셀값</span>}

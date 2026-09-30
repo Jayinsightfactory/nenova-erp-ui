@@ -628,6 +628,7 @@ export async function loadReportData(major, orderYear) {
     forwardingReconciliation: customs.sources?.forwardingLedger || null,
     audit: buildProfitReportAudit(rows, {
       major: currentMajor,
+      orderYear: String(orderYear),
       forwardingLedger: customs.sources?.forwardingLedger || null,
       previousMajor: Number(prevMajor),
       previousOrderYear: prevOrderYear,
