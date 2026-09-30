@@ -5,10 +5,10 @@ import WeeklyDemoReport from './WeeklyDemoReport';
 import {weeklyDemoWorkbook} from '../../lib/mobileWeeklyDemo';
 
 const money = value => `${Math.round(value/10000).toLocaleString('ko-KR')}만원`;
-export default function ExecutiveReports({preview=false}) {
-  const [locked,setLocked]=useState(!preview),[period,setPeriod]=useState('2026-39');
+export default function ExecutiveReports({preview=false,weeklyDemoMode=false}) {
+  const [locked,setLocked]=useState(!(preview||weeklyDemoMode)),[period,setPeriod]=useState('2026-39');
   const [category,setCategory]=useState('전체'),[search,setSearch]=useState(''),[expanded,setExpanded]=useState(false);
-  const [selected,setSelected]=useState(null),[view,setView]=useState('reports');
+  const [selected,setSelected]=useState(()=>weeklyDemoMode?previewReports('2026-39')[0]:null),[view,setView]=useState('reports');
   const [downloadBusy,setDownloadBusy]=useState(false),[downloadStatus,setDownloadStatus]=useState(null);
   const downloadLock=useRef(false);
   const heading=useRef(null), restoreFocus=useRef(false);
@@ -32,7 +32,7 @@ export default function ExecutiveReports({preview=false}) {
   const visible=filterReports(rows,category,search);
   return <main className={s.root} data-executive-ui>
     <div className={s.shell}>
-      {preview&&<aside className={s.preview}><span>화면 미리보기 · 실제 자료 아님</span><button onClick={()=>changeScreen(()=>{setLocked(!locked);setSelected(null);})}>{locked?'보고서 화면':'접속 화면'}</button></aside>}
+      {(preview||weeklyDemoMode)&&<aside className={s.preview}><span>{weeklyDemoMode?'공개 예시 체험 · 가상 데이터만 표시':'화면 미리보기 · 실제 자료 아님'}</span><button onClick={()=>changeScreen(()=>{setLocked(!locked);setSelected(null);})}>{locked?'보고서 화면':'접속 화면'}</button></aside>}
       <header className={s.header}><a href="/m/executive" aria-label="경영 보고서 첫 화면" className={s.brand}>NENOVA<span>EXECUTIVE REPORTS</span></a><span className={s.private}>전용 보고실</span></header>
       {locked?<section className={s.login}>
         <div className={s.emblem} aria-hidden="true">N</div><p className={s.eyebrow}>PRIVATE ACCESS</p>
