@@ -83,6 +83,16 @@ async function main() {
   assert.match(api, /assertDirectionalGateCapability/);
   assert.match(api, /lockDirectionalGate/);
   assert.match(api, /usp_StockCalculation/);
+  assert.match(
+    api,
+    /JOIN ProductStock ps WITH \(UPDLOCK,HOLDLOCK\) ON ps\.StockKey=stm\.StockKey[\s\S]*ps\.ProdKey=@pk/,
+    '후속연도 차단은 영향 품목의 실제 ProductStock 스냅샷으로 제한해야 한다.'
+  );
+  assert.doesNotMatch(
+    api,
+    /FROM StockMaster stm WITH \(UPDLOCK,HOLDLOCK\) WHERE TRY_CONVERT\(int,stm\.OrderYear\)>TRY_CONVERT\(int,@yr\)/,
+    '다른 품목의 후속연도 StockMaster만으로 전체 견적 수정을 막으면 안 된다.'
+  );
   assert.doesNotMatch(api, /FIXED_WEEK|EXEC[^\n]*usp_ShipmentFix(?:Cancel)?\b/);
   assert.doesNotMatch(api, /SET\s+isFix\s*=/i);
   assert.match(api, /shipmentUnitsFromUserInput/);
