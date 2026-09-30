@@ -382,6 +382,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
       bunchQty: Number(r.BunchQuantity) || 0,
       steamQty: Number(r.SteamQuantity) || 0,
       fobUSD: pickOv(ovRow.fobUSD, Number(r.UPrice) || 0),
+      fobOverridden: !(ovRow.fobUSD === '' || ovRow.fobUSD == null || Number.isNaN(Number(ovRow.fobUSD))),
       totalPriceUSD: Number(r.TPrice) || 0,
       stemsPerBunch: pickOv(ovRow.stemsPerBunch, Number(r.SteamOf1Bunch) || 0),
       salePriceKRW: pickOv(ovRow.salePriceKRW, Number(r.Cost) || 0),
