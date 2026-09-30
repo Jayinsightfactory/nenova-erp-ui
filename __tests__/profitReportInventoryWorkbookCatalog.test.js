@@ -115,7 +115,7 @@ async function main() {
     reportSource.indexOf('export async function stockSnapshotByCategory'),
     reportSource.indexOf('/** 카테고리별 구매 통화'),
   );
-  check('직접 VERIFIED 단가가 최우선', /const exactPrice = directPrice == null \? exactFallback\?\.price \?\? null : directPrice/.test(snapshotBlock));
+  check('직접 VERIFIED 단가가 최우선', /const exactPrice = directPrice != null \? directPrice : fifo \? fifo\.price : exactFallback\?\.price \?\? null/.test(snapshotBlock));
   check('재고단가 근거 선택은 공용 순수 정책 함수(selectStockPriceEvidence)를 사용',
     /const exactFallback = selectStockPriceEvidence\(\{ arrival, freightArrival, catalogEvidence, carried \}\)/.test(snapshotBlock));
   check('전산 도착원가는 Product.EstUnit 일치 때만 사용',
