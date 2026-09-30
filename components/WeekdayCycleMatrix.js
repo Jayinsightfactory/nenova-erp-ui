@@ -186,7 +186,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       <label>품종<select value={flower} onChange={(event) => setFlower(event.target.value)}>
         <option value="">전체 품종</option>{flowers.map((name) => <option key={name} value={name}>{name}</option>)}
       </select></label>
-      <span className="wcm-muted">품목 {visibleRows.length}/{matrix.rows.length} · 편집은 미적용 초안</span>
+      <span className="wcm-muted">품목 {visibleRows.length}/{matrix.rows.length} · 현재 출고·초안 우선 · 편집은 미적용 초안</span>
       {safePlans.length > 0 && <button type="button" disabled={disabled} onClick={openMove}>초안 날짜·차수 이동</button>}
     </div>
     {selectedInfo && <div className="wcm-selected" role="status">
