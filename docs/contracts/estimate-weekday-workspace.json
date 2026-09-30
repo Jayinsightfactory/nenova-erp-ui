@@ -9,6 +9,12 @@
     "lib/weekdayEstimateCycle.js",
     "lib/weekdayEstimateWorkbook.js",
     "lib/weekdayEstimateCompare.js",
+    "lib/weekdayHorizontalMatrix.js",
+    "lib/weekdayEstimatePrint.js",
+    "pages/api/estimate/weekday-products.js",
+    "pages/api/estimate/weekday-print.js",
+    "__tests__/weekdayHorizontalMatrix.test.js",
+    "__tests__/weekdayEstimatePrint.test.js",
     "pages/api/estimate/weekday-upload-preview.js",
     "pages/api/estimate/weekday-compare.js",
     "pages/api/estimate/weekday-calendar.js",
@@ -20,6 +26,8 @@
     "__tests__/weekdayEstimateCycle.test.js",
     "scripts/probe-weekday-estimate-scope.mjs",
     "scripts/weekday-estimate-browser-smoke.mjs",
+    "scripts/weekday-horizontal-browser-smoke.mjs",
+    "scripts/weekday-horizontal-live-smoke.mjs",
     "docs/contracts/estimate-weekday-workspace.json"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
@@ -63,13 +71,22 @@
       "sideEffect": "브라우저 메모리의 배분 초안만 편집한다. 새로고침 시 사라지며 DB·ERP에 저장하지 않는다."
     },
     {
-      "name": "WEEKDAY_ESTIMATE_APPLY_AND_PRINT",
+      "name": "WEEKDAY_ESTIMATE_APPLY_DISABLED",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "shipmentDate": "preserve",
       "estimateRows": "preserve",
       "stock": "preserve",
-      "sideEffect": "현재 구현 범위 밖. ERP 적용·견적 인쇄 버튼은 비활성 상태여야 한다."
+      "sideEffect": "ERP 적용은 현재 구현 범위 밖이며 비활성. 표 편집은 브라우저 메모리 초안만 변경한다."
+    },
+    {
+      "name": "WEEKDAY_ESTIMATE_PRINT_READ_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "sideEffect": "연도+대차수+거래처의 확정 견적 SELECT. 날짜 출력은 실제 ShipmentDtm 및 EstimateDtm의 선택 날짜만 출력한다. 날짜 미배정 차감은 대차수 전체에서 모든 등록 Estimate 행을 보존한다. 미적용 초안은 제외. 공통 ReportEstimate HTML 글꼴만 적용하며 기존 견적서관리 SQL 기본 정책은 변경하지 않는다."
     }
   ],
   "crossYearFixture": {
@@ -81,6 +98,9 @@
     "__tests__/weekdayEstimateWorkbook.test.js",
     "__tests__/weekdayEstimateCompare.test.js",
     "__tests__/weekdayEstimateCycle.test.js",
+    "__tests__/weekdayHorizontalMatrix.test.js",
+    "__tests__/weekdayEstimatePrint.test.js",
+    "__tests__/estimatePrintTypography.test.js",
     "__tests__/estimatePrintContract.test.js",
     "__tests__/erpContractManifest.test.js"
   ],

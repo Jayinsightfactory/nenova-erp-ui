@@ -1,5 +1,21 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-09-30 요일별 인쇄·글꼴 재확인
+
+설치된 `C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe`를
+`dnSpy-net-win32/dnSpy.Console.exe --no-color -t ReportEstimate`로 읽기 전용 재확인했다.
+`xrLabel13` 제목은 Gulim 16pt bold/underline, `xrTable5` 품목은 Gulim 8pt,
+`xrTable4` 머리글은 Gulim 9pt bold, `xrTable6` 합계는 Gulim 9pt bold,
+금액 `xrTable3`는 Gulim 10pt bold다. 품목 행은 6.35mm이며 A4 좌우15mm/상하10mm다.
+견적서관리와 주광 요일 페이지는 동일한 `lib/estimatePrintHtml.js`를 공유한다.
+브라우저/프린터 축소율은 별개이므로 실제 출력은 A4·100%를 기준으로 확인한다.
+
+주광의 날짜 인쇄는 기존 GetPrintDetail SQL의 **선택적** 확장이다.
+연도+대차수+거래처를 제한하고 정상출고의 실제 ShipmentDtm 및 차감 EstimateDtm을
+선택 날짜로 제한한다. 날짜가 없는 차감은 대차수 전체에서 보며 안내한다.
+대차수 전체와 기존 견적서관리 기본 호출은 모든 등록 Estimate 행 보존 정책을 유지한다.
+이 출력 기능은 SELECT만 수행하며 확정·주문·분배·출고일·재고를 변경하지 않는다.
+
 2026-09-28 액션 로그: 실제 `dnSpy.Console.exe --no-color -t ClassEstimate` 재확인.
 Insert/Update/Delete는 Estimate 원장 대상이며 웹 SystemActionLog와 별개다.
 이번 변경은 로그 표시 및 불량차감 감사 JSON 직렬화만 변경, 저장 코어와 ERP 원장은 보존.
