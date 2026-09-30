@@ -29,7 +29,17 @@ const loaded=new Module(filename,module);
 loaded.filename=filename;
 loaded.paths=Module._nodeModulePaths(path.dirname(filename));
 const original=loaded.require.bind(loaded);
-loaded.require=name=>name.endsWith('.css')?{}:original(name);
+loaded.require=name=>{
+  if(name.endsWith('.css'))return {};
+  if(name==='./WeeklyDemoReport'){
+    const childPath=path.resolve(path.dirname(filename),'WeeklyDemoReport.js');
+    const child=new Module(childPath,module);child.filename=childPath;child.paths=loaded.paths;
+    const childRequire=child.require.bind(child);child.require=n=>n.endsWith('.css')?{}:childRequire(n);
+    child._compile(transformSync(fs.readFileSync(childPath,'utf8'),{filename:childPath,jsc:{parser:{syntax:'ecmascript',jsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}}).code,childPath);
+    return child.exports;
+  }
+  return original(name);
+};
 loaded._compile(compiled,filename);
 const render=preview=>renderToStaticMarkup(React.createElement(loaded.exports.default,{preview}));
 const locked=render(false),open=render(true);
