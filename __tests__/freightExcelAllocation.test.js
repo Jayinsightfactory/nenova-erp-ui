@@ -1,6 +1,6 @@
 // 운송기준원가 분배 규칙 = 직원 원가자료 엑셀 — 2026-09-30 수국 운임 0 / NL 원가 차이 회귀 테스트
 // 실행: node __tests__/freightExcelAllocation.test.js
-//  1) 콜롬비아 혼적 AWB 의 수국(Flower BoxWeight/CBM 미설정) — 운임 0원 금지, 수국 박스당 CBM 6.64(엑셀 36-1·37-1 역산)
+//  1) 콜롬비아 혼적 AWB 의 수국(Flower BoxWeight/CBM 미설정) — 운임 0원 금지, 수국 박스당 CBM 6.7(원가자료 엑셀 36-1·37-1·38-1 박스당 CBM 표)
 //  2) 콜롬비아 통관 = 통관합계 × 무게비율(AD) — 운임만 IF(GW=CW, 무게, CBM)
 //  3) 콜롬비아 BoxQuantity=0 행 — 송이수÷박스당송이 로 박스 환산(엑셀 L = 박스수×박스당송이)
 //  4) 미설정 카테고리 잔여 배분(엑셀 '기타' 잔여 규칙)
@@ -89,9 +89,9 @@ async function main() {
   const cat = (n) => mixed.categories.find((c) => c.flowerName === n);
   // 장미 박스 = 179 + 15700/100
   near(cat('장미').boxCount, 336, 1e-9, '장미 박스 환산');
-  // 수국 박스당 CBM 6.64 기본값 → 운임 0 금지
+  // 수국 박스당 CBM 6.7 기본값 → 운임 0 금지
   assert.ok(cat('수국').freightUSD > 0, '수국 운임 0 금지');
-  near(cat('수국').boxCBM, 6.64, 1e-9);
+  near(cat('수국').boxCBM, 6.7, 1e-9);
   // 엑셀 36-1(37-1 원가자료) 송이당 운임: 수국 0.6046 · 카네이션 0.0820 · 장미 0.2732 · 알스트로 0.1195 · 루스커스 0.0420 (±2%)
   near(cat('수국').freightPerStemUSD, 0.6046, 0.6046 * 0.02, '수국 운임/송이');
   near(cat('카네이션').freightPerStemUSD, 0.0820, 0.0820 * 0.02, '카네이션 운임/송이');
