@@ -5,7 +5,7 @@
 import XLSX from 'xlsx-js-style';  // SheetJS fork with style write support
 import { query, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
-import { normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, getDefaultStemsPerBunch, computeFreightCost, isGrossWeightItem, isChargeableWeightItem, freightWeightOfRow } from '../../../lib/freightCalc';
+import { defaultFreightCustoms, normalizeFlower, isFreightForwarder, isFreightRow, autoDetectFlower, getDefaultStemsPerBunch, computeFreightCost, isGrossWeightItem, isChargeableWeightItem, freightWeightOfRow } from '../../../lib/freightCalc';
 import { loadOverrides as loadCategoryOverrides } from '../../../lib/categoryOverrides';
 
 export default withAuth(async function handler(req, res) {
@@ -306,12 +306,13 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   merges.push({ s:{r:4,c:14}, e:{r:4,c:17} });
 
   // 통관 상수 (오버라이드 우선, 없으면 스냅샷, 없으면 하드코드 기본값)
-  const cBakSang    = pickOv(ovCustoms.bakSangRate,       snap ? Number(snap.BakSangRate)       : 460);
-  const cHandling   = pickOv(ovCustoms.handlingFee,       snap ? Number(snap.HandlingFee)       : 33000);
-  const cQuarantine = pickOv(ovCustoms.quarantinePerItem, snap ? Number(snap.QuarantinePerItem) : 10000);
-  const cDomestic   = pickOv(ovCustoms.domesticFreight,   snap ? Number(snap.DomesticFreight)   : 99000);
-  const cDeduct     = pickOv(ovCustoms.deductFee,         snap ? Number(snap.DeductFee)         : 40000);
-  const cExtra      = pickOv(ovCustoms.extraFee,          snap ? Number(snap.ExtraFee)          : 0);
+  const dCustoms = defaultFreightCustoms(rows.map(r => r.CounName));
+  const cBakSang    = pickOv(ovCustoms.bakSangRate,       snap ? Number(snap.BakSangRate)       : dCustoms.bakSangRate);
+  const cHandling   = pickOv(ovCustoms.handlingFee,       snap ? Number(snap.HandlingFee)       : dCustoms.handlingFee);
+  const cQuarantine = pickOv(ovCustoms.quarantinePerItem, snap ? Number(snap.QuarantinePerItem) : dCustoms.quarantinePerItem);
+  const cDomestic   = pickOv(ovCustoms.domesticFreight,   snap ? Number(snap.DomesticFreight)   : dCustoms.domesticFreight);
+  const cDeduct     = pickOv(ovCustoms.deductFee,         snap ? Number(snap.DeductFee)         : dCustoms.deductFee);
+  const cExtra      = pickOv(ovCustoms.extraFee,          snap ? Number(snap.ExtraFee)          : dCustoms.extraFee);
 
   // 통관 총액 미리 계산 (수식에 cached 값 채움용)
   // itemCount 는 사용자 수동 오버라이드 우선, 없으면 카테고리 자동 집계

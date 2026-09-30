@@ -149,7 +149,8 @@ function colombiaErpFarms(def) {
 }
 function colombiaErpSourceTitle(def) {
   const lines = (def?.sources || []).map((x) => `AWB ${x.awb} ${x.invoice || ''}: GW ${x.gw} / CW ${x.cw}`
-    + (x.mixed ? ` (혼적 AWB ${x.awbGw}/${x.awbCw}kg 중 4품목 ${Math.round(x.share * 1000) / 10}%)` : '')
+    + (x.pooledWithHydrangea ? ` (콜카장수국 혼적 AWB 전체 — 수국 ${Math.round((x.hydrangeaBoxes || 0) * 10) / 10}박스를 5번째 품목으로 같은 풀에서 배분)`
+      : x.mixed ? ` (혼적 AWB ${x.awbGw}/${x.awbCw}kg 중 4품목 ${Math.round(x.share * 1000) / 10}%)` : '')
     + (x.gwClampedToCw ? ' (전산 GW>CW → CW 사용)' : ''));
   return ['전산 입고관리 Gross/Chargeable weight 행 자동값 — 교정은 [무게 수기교정]', ...lines].join(' / ');
 }
