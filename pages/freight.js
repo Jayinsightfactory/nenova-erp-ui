@@ -633,7 +633,7 @@ export default function FreightPage() {
                             <td className="name">
                               <span className="badge badge-purple">{c.flowerName}</span>
                               {!isColombia && c.countryName && <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 4 }}>{c.countryName}</span>}
-                              {c.boxMetricSource === 'web_default' && <span style={{ fontSize: 9, color: 'var(--green, #2e7d32)', fontWeight: 600, marginLeft: 4 }} title="품목/꽃 마스터 값이 비어 웹 기준값 적용(수국 박스당 CBM 6.7 · GW 5.5, 원가자료 엑셀 기준). CBM 칸을 눌러 수정할 수 있습니다.">기준값 적용(마스터 비어있음: CBM {c.boxCBM ?? '–'} · GW {c.boxWeight ?? '–'})</span>}
+                              {c.boxMetricSource === 'excel_table' && <span style={{ fontSize: 9, color: 'var(--green, #2e7d32)', fontWeight: 600, marginLeft: 4 }} title="원가자료 엑셀 박스당(콜롬비아)·단당(중국) 무게/CBM 표 적용 — lib/boxMetricTable.js">원가자료 표(CBM {c.boxCBM ?? '–'} · GW {c.boxWeight ?? '–'})</span>}
                             </td>
                             <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
                               {edit ? <input type="number" step="0.01" style={cellStyle} value={edit.BoxWeight} onChange={e => updCatField(c.flowerName, 'BoxWeight', e.target.value)} /> : (c.boxWeight != null ? `${c.boxWeight}${isColombia ? '㎏/박' : '㎏/단'}` : '–')}

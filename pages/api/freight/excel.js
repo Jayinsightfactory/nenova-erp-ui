@@ -402,6 +402,7 @@ async function buildSheet(warehouseKeys, awbLabel, overrides) {
   const compResult = computeFreightCost({
     master: {
       gw, cw, rateUSD: rate, docFeeUSD: docFee, exchangeRate,
+      orderWeek: primary?.OrderWeek || null,
       invoiceUSD, itemCount: _itemCountEff,
       actualFreightUSD: actualFreightEff || null,
       freightOverrideUSD: freightOverrideUSD,

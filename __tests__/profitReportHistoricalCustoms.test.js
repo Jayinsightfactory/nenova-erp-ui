@@ -92,7 +92,8 @@ async function main() {
     for (const half of ['1', '2']) {
       const wk = `${major}-0${half}`;
       const entry = getHistoricalColombiaWeekly('2026', wk);
-      const rates = effectiveRatesForWeek(RATE_DEFAULTS, '2026', major, 'colombia');
+      // fixture H 는 매출원가 양식(장미 7·카네이션 CBM 11) 산출 — 공식 동일성 검증용으로 옛 계수 재현(현행 기본값은 원가자료 표 8/9)
+      const rates = effectiveRatesForWeek({ ...RATE_DEFAULTS, BoxWeight_콜롬비아장미: 7, BoxCBM_콜롬비아카네이션: 11 }, '2026', major, 'colombia');
       const total = computeColombiaCustomsTotal(entry.row, rates);
       const alloc = computeColombiaAllocationFromTotal(total, 0, entry.boxQty, rates);
       for (const cat of COLOMBIA_ALLOC_CATEGORIES) summedH[cat] += alloc[cat].H;
