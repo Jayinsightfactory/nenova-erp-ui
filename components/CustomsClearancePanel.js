@@ -143,6 +143,17 @@ function HistoryButton({ orderYear, scopeType, scopeKey }) {
   );
 }
 
+function colombiaErpFarms(def) {
+  const farms = [...new Set((def?.sources || []).map((x) => String(x.farm || '').trim()).filter(Boolean))];
+  return farms.join('·') || '입고관리';
+}
+function colombiaErpSourceTitle(def) {
+  const lines = (def?.sources || []).map((x) => `AWB ${x.awb} ${x.invoice || ''}: GW ${x.gw} / CW ${x.cw}`
+    + (x.mixed ? ` (혼적 AWB ${x.awbGw}/${x.awbCw}kg 중 4품목 ${Math.round(x.share * 1000) / 10}%)` : '')
+    + (x.gwClampedToCw ? ' (전산 GW>CW → CW 사용)' : ''));
+  return ['전산 입고관리 Gross/Chargeable weight 행 자동값 — 교정은 [무게 수기교정]', ...lines].join(' / ');
+}
+
 // focus: 매출이익 보고서 경고에서 넘어온 반차수(예: '38-01') 또는 국가 카테고리(예: '태국') —
 // 해당 블록으로 스크롤하고 노란 테두리로 강조한다(값은 바꾸지 않음).
 export default function CustomsClearancePanel({ week, year, onSaved, focus = null }) {
@@ -666,9 +677,12 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                             <label key={f} style={st.rateField}>
                               <span style={{ fontSize: 10, color: '#64748b' }}>{label}</span>
                               <span
-                                title={manualVal > 0 ? '수기 저장값 (입고 자동보다 우선)' : '입고관리 자동값 — 교정은 [무게 수기교정]'}
+                                title={manualVal > 0 ? '수기 저장값 (전산 입고 자동보다 우선)' : colombiaErpSourceTitle(data.autoGw?.colombia?.[c.orderWeek])}
                                 style={{ fontSize: 13, fontWeight: 700, padding: '5px 0', color: manualVal > 0 ? '#b45309' : '#059669' }}>
-                                {Math.round(eff * 10) / 10}{manualVal > 0 ? ' \u270e' : ' (자동)'}
+                                {Math.round(eff * 10) / 10}
+                                <span style={{ fontSize: 10, fontWeight: 600, marginLeft: 4 }}>
+                                  {manualVal > 0 ? '수기 입력' : `전산 입고(${colombiaErpFarms(data.autoGw?.colombia?.[c.orderWeek])}) 자동`}
+                                </span>
                               </span>
                             </label>
                           );

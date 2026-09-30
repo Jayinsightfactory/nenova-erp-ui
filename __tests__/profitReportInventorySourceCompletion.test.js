@@ -73,7 +73,7 @@ check('E/F 검증 문구에 품목명 목록을 붙임',
   /formatMissingProducts\(row\.beginStock\?\.missingPriceItems\)/.test(audit)
   && /formatMissingProducts\(stock\.missingPriceItems\)/.test(audit));
 check('콜롬비아 H/S 검증 문구에 누락 반차수를 붙임',
-  /누락 반차수: \$\{missingColombiaGwWeeks\}/.test(audit)
+  /누락 반차수\(입력 화면·전산 입고 모두 GW 없음\): \$\{missingColombiaGwWeeks\}/.test(audit)
   && /누락 반차수: \$\{missingColombiaAirWeeks\}/.test(audit));
 check('전차수 항공료 누락은 실제 구매범위 목록을 보여줌',
   /missingExpectedScopes/.test(audit)

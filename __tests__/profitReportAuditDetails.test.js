@@ -66,7 +66,7 @@ async function main() {
   const audit = buildProfitReportAudit([colombiaRow('콜롬비아 장미'), colombiaRow('콜롬비아 카네이션')],
     { major: 38, orderYear: '2026', colombiaWeeks: weeks });
   const issue = audit.issues.find((i) => i.code === 'CUSTOMS_INCOMPLETE');
-  check('기존 원문 그대로', issue.message.includes('누락 반차수: 38-01.'), issue.message);
+  check('누락 반차수 문구(입력 화면·전산 모두 없음)', issue.message.includes('누락 반차수(입력 화면·전산 입고 모두 GW 없음): 38-01.'), issue.message);
   check('detail.summary 첨부', issue.detail?.summary?.includes('38-01(GW(kg)·CW(kg)'), issue.detail?.summary);
   check('현재 4품목 H 합계 반영', issue.detail.impact.text.includes('현재 4품목 H 합계 1,354,480원'), issue.detail.impact.text);
   check('상태·건수 불변', audit.status === 'needs_input' && audit.errorCount === 1);

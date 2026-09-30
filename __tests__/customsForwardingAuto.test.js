@@ -118,7 +118,7 @@ async function main() {
   check('콜롬비아 공유 통관비 누락은 품목별 4건이 아니라 1건으로 안내',
     sharedAudit.issues.filter((item) => item.code === 'CUSTOMS_INCOMPLETE').length === 1
       && sharedAudit.issues.find((item) => item.code === 'CUSTOMS_INCOMPLETE')?.category === '콜롬비아 4품목'
-      && /누락 반차수: 33-02/.test(sharedAudit.issues.find((item) => item.code === 'CUSTOMS_INCOMPLETE')?.message || ''));
+      && /누락 반차수\(입력 화면·전산 입고 모두 GW 없음\): 33-02/.test(sharedAudit.issues.find((item) => item.code === 'CUSTOMS_INCOMPLETE')?.message || ''));
   check('콜롬비아 공유 항공료 누락은 품목·범위 중복 없이 1건으로 안내',
     sharedAudit.issues.filter((item) => item.code === 'FORWARDING_INCOMPLETE').length === 1
       && /누락 반차수: 33-02/.test(sharedAudit.issues.find((item) => item.code === 'FORWARDING_INCOMPLETE')?.message || '')
@@ -310,6 +310,31 @@ async function main() {
   check('선율 2차 1/2/3 합계가 SunYul2에 저장', splitInput.SunYul2 === 55);
   check('국가 통관비 계산이 분할 합계를 사용', near(computeCountryCustomsTotal(splitInput, RATE_DEFAULTS, '태국'), 350 + 30 + 385 / 1.1 + 55 / 1.1));
   check('빈 분할칸은 합계 0으로 저장', normalizeCountryInput({ Customs1_1: '', Customs1_2: '', Customs1_3: '' }).Customs1 === 0);
+
+  console.log('\n=== 콜롬비아 AWB GW/CW 전산 원천 규칙 (2026-09-30) ===');
+  const { splitColombiaAwbWeight } = await import('../lib/customsForwarding.js');
+  const pure4 = splitColombiaAwbWeight({ gw: 2856, cw: 2856, hydKg: 0, otherKg: 2000, fallbackCategory: '콜롬비아 수국' });
+  check('4품목 꽃만 있는 AWB는 인보이스 문구(수국)와 무관하게 전량 4품목', pure4.rest.GW === 2856 && pure4.hydrangea.GW === 0 && !pure4.mixed);
+  const pureH = splitColombiaAwbWeight({ gw: 500, cw: 618, hydKg: 495, otherKg: 0 });
+  check('수국만 있는 AWB는 전량 콜롬비아 수국', pureH.hydrangea.GW === 500 && pureH.hydrangea.CW === 618 && pureH.rest.GW === 0);
+  const clamp = splitColombiaAwbWeight({ gw: 1420, cw: 1136, hydKg: 0, otherKg: 800 });
+  check('전산 GW > CW(무효값)는 CW로 대체 (29-02 원장 1420 > 1136)', clamp.rest.GW === 1136 && clamp.gwClampedToCw);
+  const mixed = splitColombiaAwbWeight({ gw: 15296, cw: 15582, hydKg: 25, otherKg: 75 });
+  check('혼적 AWB(38-01 콜카장수국)는 박스무게 비율로 분할', mixed.mixed && near(mixed.rest.GW, 11472) && near(mixed.hydrangea.GW, 3824) && near(mixed.rest.CW + mixed.hydrangea.CW, 15582));
+  const noCtx = splitColombiaAwbWeight({ gw: 100, cw: 120, fallbackCategory: '콜롬비아 4품목' });
+  check('꽃 구성이 없으면 인보이스 추정 카테고리에 전량', noCtx.rest.GW === 100 && noCtx.rest.CW === 120);
+
+  const { colombiaWeekStateText } = await import('../lib/profitReportAuditDetails.js');
+  const erpText = colombiaWeekStateText({ gw: 5076, gwSource: 'erp_inbound', erpWeight: { GW: 5076, CW: 5076, sources: [{ farm: 'Apollo' }] } });
+  check('전산 자동 적용 문구(입력 화면에 없음 → 전산 입고(Apollo) 자동 적용: 값)',
+    erpText.includes('입력 화면에 없음') && erpText.includes('전산 입고(Apollo) 자동 적용') && erpText.includes('5,076'), erpText);
+  check('입력·전산 모두 없음 문구', colombiaWeekStateText({ gw: 0, inbound: true }, true).includes('입력 화면·전산 입고 모두 GW 없음'));
+  check('4품목 입고 없는 반차수는 정상', colombiaWeekStateText({ gw: 0, inbound: false }, false).includes('입고 없음(정상)'));
+  const noInboundAudit = buildProfitReportAudit([
+    { category: '콜롬비아 카네이션', auto: { Q: 100, H: 10 }, manual: {}, source: { H: 'partial' }, stock: {} },
+  ], { colombiaWeeks: [{ orderWeek: '39-01', gw: 0, inbound: false }, { orderWeek: '39-02', gw: 5545, inbound: true }] });
+  const colIssue = (noInboundAudit.issues || []).find((x) => x.code === 'CUSTOMS_INCOMPLETE');
+  check('입고 없는 반차수는 누락 반차수 목록에서 제외', !colIssue || !colIssue.message.includes('39-01'), colIssue?.message);
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);
   process.exit(failed ? 1 : 0);
