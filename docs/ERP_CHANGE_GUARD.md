@@ -2,12 +2,14 @@
 
 ## 2026-09-30 견적 수량 수정의 후속연도 스냅샷 범위
 
-확정 견적 수량 수정의 선차단이 후속연도 `StockMaster` 존재만 검사해, 수정 품목과
-무관한 후속연도 재고 헤더 한 건으로 모든 품목 저장을 막았다. 후속연도 검사는
-`StockMaster + ProductStock`을 결합하고 현재 수정 중인 `ProdKey`까지 일치할 때만
-차단한다. 같은 품목의 실제 후속연도 스냅샷은 연도 범위 재계산으로 갱신할 수 없으므로
-기존처럼 차단하며, 다른 품목의 스냅샷은 보존한 채 저장 대상 판단에서 제외한다.
-`estimateDateQuantityContract.test.js`가 두 SQL 범위를 회귀 검사한다.
+확정 견적 수량 수정의 선차단이 후속연도 `StockMaster` 존재만 검사해 모든 품목 저장을
+막았고, 품목 범위로 좁힌 뒤에도 같은 품목의 후속연도 스냅샷에서 계속 차단됐다. 실제
+운영 `usp_StockCalculation` 원문은 `OrderYearWeek >= 선택차수`인 `StockMaster`를 연도
+경계 뒤까지 순회하고 지정 `ProdKey`의 `ProductStock`을 연쇄 재계산한다. 따라서 존재
+자체를 이유로 한 선차단을 제거한다. 대신 native 계산 후 선택 차수 이상 현재·후속연도
+`ProductStock`에서 영향 품목의 `ROUND(Stock,3)<0`을 검사해 하나라도 음수면 같은
+트랜잭션을 롤백한다. `estimateDateQuantityContract.test.js`가 선차단 부재와 사후 음수
+검증 범위를 함께 회귀 검사한다.
 
 ## 2026-09-28 액션 로그 실패 의미
 

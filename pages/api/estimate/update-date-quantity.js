@@ -86,7 +86,7 @@ function roundOutQuantity(value) {
 export function estimateDateQuantityErrorResponse(error = {}) {
   const status = Number(error.statusCode)
     || Number(error.status)
-    || (['STALE_DATA', 'ERP_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID', 'DIRECTIONAL_YEAR_INVALID', 'STOCK_SHORTAGE', 'FUTURE_STOCK_SNAPSHOT_EXISTS', 'FUTURE_STOCK_SHORTAGE', 'FIX_STATUS_INVALID', 'FIXED_BASELINE_INVALID', 'STOCK_GATE_BUSY'].includes(error.code) ? 409 : 500);
+    || (['STALE_DATA', 'ERP_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID', 'DIRECTIONAL_YEAR_INVALID', 'STOCK_SHORTAGE', 'FUTURE_STOCK_SHORTAGE', 'FIX_STATUS_INVALID', 'FIXED_BASELINE_INVALID', 'STOCK_GATE_BUSY'].includes(error.code) ? 409 : 500);
   const body = {
     success: false,
     code: error.code,
@@ -310,23 +310,6 @@ export default withAuth(async function handler(req, res) {
       if (fixedChanges.length) {
         const codeInfo = await tQ(`SELECT TOP 1 Descr FROM CodeInfo WITH (UPDLOCK,HOLDLOCK) WHERE Category=N'StockType' AND Descr=N'출고'`);
         if (codeInfo.recordset?.length) throw directionalQuantityError('STOCK_HISTORY_TYPE_CONFLICT', 'StockType에 출고가 등록되어 있어 직접 확정수량 저장을 중단했습니다.');
-        for (const group of fixedChanges) {
-          // A later-year StockMaster for another product is unrelated to this edit.
-          // Block only when the affected product itself has a persisted later-year
-          // ProductStock snapshot that the year-scoped native recalculation cannot refresh.
-          const future = await tQ(
-            `SELECT TOP 1 stm.StockKey
-               FROM StockMaster stm WITH (UPDLOCK,HOLDLOCK)
-               JOIN ProductStock ps WITH (UPDLOCK,HOLDLOCK) ON ps.StockKey=stm.StockKey
-              WHERE TRY_CONVERT(int,stm.OrderYear)>TRY_CONVERT(int,@yr)
-                AND ps.ProdKey=@pk`,
-            {
-              yr: { type: sql.NVarChar, value: group.row.OrderYear },
-              pk: { type: sql.Int, value: group.row.ProdKey },
-            },
-          );
-          if (future.recordset?.length) throw directionalQuantityError('FUTURE_STOCK_SNAPSHOT_EXISTS', '후속 연도 재고 스냅샷이 있어 확정 출고를 안전하게 수정할 수 없습니다.');
-        }
       }
       if (overflowMode === 'preview') return {overflowPreview:overflow.preview};
       if (overflow) await materializeOverflowTargets(tQ,sql,overflow.targets,req.user.userId);
