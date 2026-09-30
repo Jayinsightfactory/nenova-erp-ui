@@ -27,7 +27,7 @@ check('외부증거 저장 POST에 year와 evidence 전달',
   /JSON\.stringify\(\{ week: weekInput\.value, year: data\?\.orderYear \|\| reportYear, values, evidence, note \}\)/.test(page));
 check('확정·취소 POST에 year 전달', page.includes("year: reportYear, action: force ? 'force' : 'confirm'") && page.includes("year: reportYear, action: 'cancel'"));
 check('엑셀·재고단가 요청에 year 전달', /&year=.*&excel=1/.test(page) && /&year=.*&stockPrices=1/.test(page));
-check('그외통관비·포워딩 패널도 year를 받음', customsPanel.includes('({ week, year, onSaved })') && forwardingPanel.includes('({ week, year, onSaved })'));
+check('그외통관비·포워딩 패널도 year를 받음', customsPanel.includes('({ week, year, onSaved') && forwardingPanel.includes('({ week, year, onSaved })'));
 
 console.log('\n=== 서버 쓰기 연도 필수 ===');
 check('보고서 POST는 requireOrderYear 사용', /req\.method === 'POST'[\s\S]*requireOrderYear/.test(api));

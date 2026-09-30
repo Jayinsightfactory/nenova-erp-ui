@@ -37,6 +37,7 @@ async function main() {
     'utf8'
   );
   const codeOnly = stripCommentLines(source);
+  const issueListSource = fs.readFileSync(path.join(__dirname, '..', 'components', 'ProfitAuditIssueList.js'), 'utf8');
   // 변환 규칙 자체에는 금지할 원문이 반드시 들어간다. 사용자에게 렌더되는 JSX 문자열만
   // 검사하도록 순수 변환 함수 본문은 제외한다.
   const visibleCode = codeOnly.replace(/function humanizeAuditMessage[\s\S]*?\r?\n}\r?\n/, '');
@@ -69,7 +70,7 @@ async function main() {
   check('확정본에서는 확정 취소 후 입력 가능하다는 안내를 표시',
     source.includes('아래 분류 입력과 저장 버튼이 활성화됩니다'));
   check('CustomsClearancePanel 이 기존 week/year/onSaved=load props 그대로 사용됨',
-    /<CustomsClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{load\} \/>/.test(source));
+    /<CustomsClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{load\}( focus=\{customsFocus\})? \/>/.test(source));
   check('ForwardingClearancePanel 이 기존 week/year/onSaved=load props 그대로 사용됨',
     /<ForwardingClearancePanel week=\{weekInput\.value\} year=\{reportYear\} onSaved=\{load\} \/>/.test(source));
 
@@ -100,11 +101,13 @@ async function main() {
   console.log('\n=== 3) issue.columns 를 원문 열 문자 대신 ISSUE_COLUMN_LABELS 로 렌더링 ===');
   check('ISSUE_COLUMN_LABELS 매핑이 정의됨', /const ISSUE_COLUMN_LABELS = \{/.test(source));
   check('issue.columns 렌더링이 ISSUE_COLUMN_LABELS 를 통해 변환됨',
-    /ISSUE_COLUMN_LABELS\[col\] \|\| col/.test(source));
+    /ISSUE_COLUMN_LABELS\[col\] \|\| col/.test(source)
+      || (source.includes('columnLabels={ISSUE_COLUMN_LABELS}') && /columnLabels\[col\] \|\| col/.test(issueListSource)));
   check('issue.columns.join(\'/\') 원문 그대로 렌더링하는 옛 코드가 남아있지 않음',
     !/\{issue\.columns\.join\('\/'\)\}/.test(source));
   check('서버 감사 메시지도 humanizeAuditMessage를 거쳐 한글 업무 용어로 표시됨',
-    /humanizeAuditMessage\(issue\.message\)/.test(source));
+    /humanizeAuditMessage\(issue\.message\)/.test(source)
+      || (source.includes('humanize={humanizeAuditMessage}') && /humanize\(issue\.message\)/.test(issueListSource)));
   check('감사 메시지 변환기가 VERIFIED와 기초·기말 내부 표기를 변환함',
     /function humanizeAuditMessage/.test(source)
       && /replace\(\/VERIFIED\/g, '확인된'\)/.test(source)

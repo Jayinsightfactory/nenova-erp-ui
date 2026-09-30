@@ -14,6 +14,7 @@ import ForwardingClearancePanel from '../../components/ForwardingClearancePanel'
 import ProfitAnalysisTab from '../../components/ProfitAnalysisTab';
 import ProfitWorkbookSourcesTab from '../../components/ProfitWorkbookSourcesTab';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
+import ProfitAuditIssueList from '../../components/ProfitAuditIssueList';
 import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
 
 function getDefaultYear() {
@@ -284,6 +285,7 @@ export default function ProfitReportPage() {
   // 보고서 진입 시에는 자동값만 읽기전용으로 보여준다. 입력 패널은 필요한 경우에만 연다.
   const [showCustoms, setShowCustoms] = useState(false);
   const [showForwarding, setShowForwarding] = useState(false);
+  const [customsFocus, setCustomsFocus] = useState(null); // 경고 → 그외통관비 입력에서 미리 선택할 반차수/카테고리
   const [rateDrafts, setRateDrafts] = useState({});
   const [rateBusy, setRateBusy] = useState('');
   const [classificationDrafts, setClassificationDrafts] = useState({});
@@ -862,6 +864,18 @@ export default function ProfitReportPage() {
     validationUnclassified
   );
   const auditIssues = data?.audit?.issues || [];
+  // 경고 상세의 "고칠 화면" 버튼 — 같은 보고서 안의 입력 영역을 해당 반차수/카테고리로 열고 스크롤한다.
+  const runIssueFix = (fix) => {
+    if (!fix) return;
+    const scrollTo = (id) => setTimeout(() => {
+      if (typeof document !== 'undefined') document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    if (fix.action === 'customs') { setCustomsFocus(fix.focus || null); setShowCustoms(true); scrollTo('profit-report-required'); return; }
+    if (fix.action === 'forwarding') { setShowForwarding(true); scrollTo('profit-report-required'); return; }
+    if (fix.action === 'stockPrice') { openPriceModal(); return; }
+    if (fix.action === 'rate' || fix.action === 'classification') { scrollTo('profit-report-required'); return; }
+    if (fix.href && typeof window !== 'undefined') window.open(fix.href, '_blank', 'noopener');
+  };
   const directInputCodes = new Set([
     'STOCK_BEGIN_PRICE_EVIDENCE_MISSING',
     'STOCK_END_PRICE_EVIDENCE_MISSING',
@@ -1219,6 +1233,7 @@ export default function ProfitReportPage() {
 
       {viewMode === 'category' && data && (
         <div style={st.requiredWrap}>
+          <span id="profit-report-required" aria-hidden="true" />
           <div style={st.requiredHead}>
             <span style={st.requiredTitle}>📝 입력·확인 필요</span>
             <span style={requiredInputCount > 0 ? st.collapseBadgeWarn : st.collapseBadgeOk}>
@@ -1303,7 +1318,7 @@ export default function ProfitReportPage() {
                 <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
               </div>
               <div style={st.embedPanelBody}>
-                <CustomsClearancePanel week={weekInput.value} year={reportYear} onSaved={load} />
+                <CustomsClearancePanel week={weekInput.value} year={reportYear} onSaved={load} focus={customsFocus} />
               </div>
             </div>
           )}
@@ -1441,16 +1456,8 @@ export default function ProfitReportPage() {
                     ].map(([label, items, color]) => items.length > 0 && (
                       <div key={label} style={{ marginTop: 8 }}>
                         <b style={{ color }}>{label} ({items.length})</b>
-                        <ul style={{ margin: '4px 0 0', paddingLeft: 20, maxHeight: 190, overflowY: 'auto' }}>
-                          {items.map((issue, i) => (
-                            <li key={`${issue.code}-${issue.category}-${i}`}>
-                              <b>{issue.category}</b>
-                              {issue.columns?.length > 0 && (
-                                <span style={{ color: '#78716c' }}> ({(issue.columns || []).map(col => ISSUE_COLUMN_LABELS[col] || col).join(' · ')})</span>
-                              )} {humanizeAuditMessage(issue.message)}
-                            </li>
-                          ))}
-                        </ul>
+                        <ProfitAuditIssueList items={items} columnLabels={ISSUE_COLUMN_LABELS}
+                          humanize={humanizeAuditMessage} onFix={runIssueFix} />
                       </div>
                     ))}
                   </div>

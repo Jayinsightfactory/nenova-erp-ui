@@ -475,8 +475,8 @@ export default function FreightPage() {
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span>환율 (KRW/{apiData?.invoiceCurrency || 'USD'})</span>
                     {master.exchangeRateAutoFilled && (String(master.exchangeRateSource || '').startsWith('source_workbook')
-                      ? <span style={{ fontSize: 9, color: 'var(--green, #2e7d32)', fontWeight: 600 }} title={`원가자료 엑셀 환율 (${master.exchangeRateSourceWeek || ''}차)`}>~원가자료 {master.exchangeRateSourceWeek || ''}</span>
-                      : <span style={{ fontSize: 9, color: 'var(--amber, #f57c00)', fontWeight: 600 }} title="CurrencyMaster 에서 자동 채움">~자동</span>)}
+                      ? <span style={{ fontSize: 9, color: 'var(--green, #2e7d32)', fontWeight: 600 }} title={`원가자료 엑셀 환율 (${master.exchangeRateSourceWeek || ''}차)`}>~원가자료 {master.exchangeRateSourceWeek || ''}차 환율 {master.exchangeRate ?? ''}</span>
+                      : <span style={{ fontSize: 9, color: 'var(--amber, #f57c00)', fontWeight: 600 }} title="CurrencyMaster 에서 자동 채움">~통화마스터 자동 {master.exchangeRate ?? ''}</span>)}
                   </div>
                   {editMode
                     ? <input type="number" step="any" value={master.exchangeRate ?? ''} onChange={e => updMaster('exchangeRate', e.target.value === '' ? null : Number(e.target.value))} style={{ width: '100%', height: 26, border: '1px solid var(--blue)', borderRadius: 4, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', padding: '0 6px', background: master.exchangeRateAutoFilled ? '#fff8e1' : '#e3f2fd' }} />
@@ -633,7 +633,7 @@ export default function FreightPage() {
                             <td className="name">
                               <span className="badge badge-purple">{c.flowerName}</span>
                               {!isColombia && c.countryName && <span style={{ fontSize: 9, color: 'var(--text3)', marginLeft: 4 }}>{c.countryName}</span>}
-                              {c.boxMetricSource === 'web_default' && <span style={{ fontSize: 9, color: 'var(--green, #2e7d32)', fontWeight: 600, marginLeft: 4 }} title="품목/꽃 마스터 값이 비어 웹 기준값 적용(수국 박스당 CBM 6.7 · GW 5.5, 원가자료 엑셀 기준). CBM 칸을 눌러 수정할 수 있습니다.">기준값</span>}
+                              {c.boxMetricSource === 'web_default' && <span style={{ fontSize: 9, color: 'var(--green, #2e7d32)', fontWeight: 600, marginLeft: 4 }} title="품목/꽃 마스터 값이 비어 웹 기준값 적용(수국 박스당 CBM 6.7 · GW 5.5, 원가자료 엑셀 기준). CBM 칸을 눌러 수정할 수 있습니다.">기준값 적용(마스터 비어있음: CBM {c.boxCBM ?? '–'} · GW {c.boxWeight ?? '–'})</span>}
                             </td>
                             <td className="num" onClick={() => !edit && fkId && startCatEdit(c.flowerName, c)} style={{ cursor: fkId ? 'pointer' : 'default', background: edit ? '#fffde7' : undefined }}>
                               {edit ? <input type="number" step="0.01" style={cellStyle} value={edit.BoxWeight} onChange={e => updCatField(c.flowerName, 'BoxWeight', e.target.value)} /> : (c.boxWeight != null ? `${c.boxWeight}${isColombia ? '㎏/박' : '㎏/단'}` : '–')}
