@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet } from '../lib/useApi';
 import WeekdayCycleMatrix from './WeekdayCycleMatrix';
 import { locateShippingDay, moveWeekdayPlan } from '../lib/weekdayEstimateCycle.js';
+import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
+import { buildEstimateHtml } from '../lib/estimatePrintHtml.js';
 
 const initialYear = new Date().getFullYear();
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
-const panel = { border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff', padding: 16 };
-const inputStyle = { border: '1px solid #9aaec4', borderRadius: 6, padding: '8px 10px', minHeight: 38, background: '#fff' };
+const panel = { border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff', padding: 8 };
+const inputStyle = { border: '1px solid #9aaec4', borderRadius: 4, padding: '3px 6px', minHeight: 28, background: '#fff' };
 
 function candidateCells(row) { return (row.cells || []).filter((cell) => cell.kind === 'numeric-candidate' && cell.headerRole === 'date-quantity-candidate'); }
 function draftKey(row) { return `${row.sheet}|${row.row}|${row.cell.address}`; }
@@ -15,7 +17,7 @@ export default function WeekdayEstimateWorkspace() {
   const [year, setYear] = useState(String(initialYear));
   const [majorWeek, setMajorWeek] = useState('38');
   const [shipDate, setShipDate] = useState('');
-  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerQuery, setCustomerQuery] = useState('주광농원');
   const [customers, setCustomers] = useState([]);
   const [customer, setCustomer] = useState(null);
   const [customerError, setCustomerError] = useState('');
@@ -36,6 +38,13 @@ export default function WeekdayEstimateWorkspace() {
   const [sourceLots, setSourceLots] = useState([]);
   const [erpHistory, setErpHistory] = useState([]);
   const [draftHistory, setDraftHistory] = useState([]);
+  const [toolsOpen,setToolsOpen] = useState(false);
+  const [printPreview,setPrintPreview] = useState(null);
+  const [printBusy,setPrintBusy] = useState(false);
+  const defaultCustomerRequest=useRef(0);
+  const printRequest=useRef(0);
+  const printLock=useRef(false);
+  const previewFrame=useRef(null);
   const calendarRequest = useRef(0);
   const comparisonRequest = useRef(0);
   const [busy, setBusy] = useState(false);
@@ -44,6 +53,23 @@ export default function WeekdayEstimateWorkspace() {
   const sourceRows = useMemo(() => (parsed?.sheets || []).flatMap((sheet) => (sheet.rows || [])
     .filter((row) => row.section && row.label && !row.isHeaderRow && (row.cells || []).some((cell) => cell.column === 'B' && cell.raw === row.label))
     .map((row) => ({ ...row, sheet: sheet.name, quantityCells: candidateCells(row) }))), [parsed]);
+
+  useEffect(()=>{
+    const request=++defaultCustomerRequest.current;
+    apiGet('/api/customers/search',{q:'주광농원'}).then(result=>{
+      if(request!==defaultCustomerRequest.current) return;
+      const exact=(result.customers||[]).filter(row=>String(row.CustName||'').replace(/\s/g,'')==='주광농원');
+      if(exact.length===1) {setCustomer(exact[0]);setCustomerQuery(exact[0].CustName);}
+      else {setCustomerError('기본 주광 거래처가 없거나 중복입니다. 업체를 직접 선택해주세요.');setToolsOpen(true);}
+    }).catch(error=>{if(request===defaultCustomerRequest.current){setCustomerError(error.message);setToolsOpen(true);}});
+    return ()=>{defaultCustomerRequest.current+=1;};
+  },[]);
+
+  useEffect(()=>{
+    printRequest.current+=1;setPrintPreview(null);
+    if(customer?.CustKey && cycles.length) refreshErp();
+    return ()=>{comparisonRequest.current+=1;};
+  },[customer?.CustKey,cycles]);
 
   useEffect(() => {
     const request = ++calendarRequest.current;
@@ -93,7 +119,7 @@ export default function WeekdayEstimateWorkspace() {
       try { result = await response.json(); } catch { throw new Error(response.status === 401 ? '로그인이 필요합니다.' : '서버 응답을 읽을 수 없습니다.'); }
       if (!response.ok || !result.success) throw new Error(result.error || '엑셀을 읽지 못했습니다.');
       comparisonRequest.current += 1;
-      setParsed(result); setFileName(file.name); setPlans([]); setMappings({}); setProductNames({}); setCompareRows(null); setSelectedSource(null); setDraftHistory([]); setSourceLots([]); setErpHistory([]);
+      setParsed(result); setFileName(file.name); setPlans([]); setMappings({}); setProductNames({}); setSelectedSource(null); setDraftHistory([]);
       setMessage(`원문 ${result.sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0)}행을 임시로 읽었습니다. 수식·문자 셀은 자동 변환하지 않았습니다.`);
     } catch (error) { setUploadError(error.message); setMessage('업로드 확인 필요'); }
     finally { setBusy(false); }
@@ -125,7 +151,6 @@ export default function WeekdayEstimateWorkspace() {
     })).filter((item) => item.header);
     if (plans.some((item) => additions.some((next) => next.sheet === item.sheet && next.sourceCell === item.sourceCell))) { setMessage('이미 초안에 포함된 원본 셀입니다. 이동/수량 변경으로 수정하세요.'); return; }
     setPlans((current) => [...current, ...additions]);
-    setCompareRows(null);
     setMessage(`${row.label}: 날짜 수량 후보 ${additions.length}건을 검토용 초안에 추가했습니다. ERP에는 저장되지 않았습니다.`);
   }
 
@@ -139,21 +164,28 @@ export default function WeekdayEstimateWorkspace() {
   }
 
   async function compareWithErp() {
-    if (!customer?.CustKey || !plans.length) { setMessage('거래처 선택과 배분 초안이 필요합니다.'); return; }
-    const invalid = plans.filter((plan) => Number(plan.custKey) !== Number(customer.CustKey) || !/^\d{4}$/.test(String(plan.year)) || !/^\d{4}-\d{2}-\d{2}$/.test(plan.date) || !/^\d{2}-\d{2}$/.test(plan.orderWeek) || !Number.isFinite(Number(plan.quantity)) || Number(plan.quantity) < 0 || plan.unit === '확인 필요');
+    if (!customer?.CustKey) { setMessage('실제 거래처를 선택하세요.'); return; }
+    const invalid = plans.filter((plan) => Number(plan.custKey) === Number(customer.CustKey) && (!/^\d{4}$/.test(String(plan.year)) || !/^\d{4}-\d{2}-\d{2}$/.test(plan.date) || !/^\d{2}-\d{2}$/.test(plan.orderWeek) || !Number.isFinite(Number(plan.quantity)) || Number(plan.quantity) < 0 || plan.unit === '확인 필요'));
     if (invalid.length) { setMessage(`차수·날짜·수량·단위 확인이 필요한 행 ${invalid.length}건을 먼저 수정하세요.`); return; }
-    const request = ++comparisonRequest.current;
+    await refreshErp();
+  }
+
+  async function refreshErp() {
+    const request=++comparisonRequest.current;
     setBusy(true); setMessage('앞·현재·뒤 차수의 동일 거래처·품목 전산값을 대조 중…');
     try {
       const ranges = new Map();
       for (const cycle of cycles.filter((item) => item.calendarState === 'FOUND')) {
         ranges.set(cycle.year, [...new Set([...(ranges.get(cycle.year) || []), ...cycle.days.map((day) => day.orderWeek)])]);
       }
-      for (const plan of plans) ranges.set(Number(plan.year), [...new Set([...(ranges.get(Number(plan.year)) || []), plan.orderWeek])]);
+      for (const plan of plans.filter(item=>Number(item.custKey)===Number(customer.CustKey))) ranges.set(Number(plan.year), [...new Set([...(ranges.get(Number(plan.year)) || []), plan.orderWeek])]);
       const results = await Promise.all([...ranges].map(async ([requestYear,orderWeeks]) => {
+        const inventory=await apiGet('/api/estimate/weekday-products',{year:requestYear,custKey:Number(customer.CustKey),orderWeeks:orderWeeks.join(',')});
+        const prodKeys=[...new Set([...(inventory.products||[]).map(item=>Number(item.ProdKey)),...plans.filter(item=>Number(item.custKey)===Number(customer.CustKey)).map(item=>Number(item.prodKey))])];
+        if(!prodKeys.length) return {rows:[],sourceLots:[],history:[]};
         const response = await fetch('/api/estimate/weekday-compare', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ year: requestYear, custKey: Number(customer.CustKey), orderWeeks, prodKeys: [...new Set(plans.map((item) => Number(item.prodKey)))] }),
+        body: JSON.stringify({ year: requestYear, custKey: Number(customer.CustKey), orderWeeks:inventory.scope?.orderWeeks || orderWeeks, prodKeys }),
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || '전산 대조에 실패했습니다.');
@@ -166,41 +198,100 @@ export default function WeekdayEstimateWorkspace() {
     finally { if (request === comparisonRequest.current) setBusy(false); }
   }
 
+  function editGridCell(cell) {
+    const qty=Number(cell.quantity);
+    const destination=locateShippingDay(cycles,cell.date);
+    const normalizedUnit=normalizeWeekdayUnit(cell.unit);
+    if(!customer?.CustKey || !normalizedUnit || !destination || destination.day.calendarState!=='FOUND'
+      || Number(cell.year)!==destination.cycle.year || String(cell.orderWeek).split('-')[0]!==destination.cycle.majorWeek
+      || !Number.isFinite(qty)||qty<0) {setMessage('수량·단위·전산 달력·차수 기준을 확인하세요.');return false;}
+    const matching=plans.filter(item=>Number(item.custKey)===Number(customer.CustKey)&&Number(item.prodKey)===Number(cell.prodKey)&&Number(item.year)===Number(cell.year)&&item.date===cell.date);
+    if(matching.length>1 || matching.some(item=>normalizeWeekdayUnit(item.unit)!==normalizedUnit||item.orderWeek!==cell.orderWeek)) {
+      setMessage('이 날짜에는 복수 초안 또는 다른 업무차수/단위가 있습니다. 상세 초안에서 각각 수정하세요.');return false;
+    }
+    if(matching.length===1) updatePlan(matching[0].id,{quantity:qty});
+    else {
+      const actual=compareRows?.filter(row=>row.year===Number(cell.year)&&row.orderWeek===cell.orderWeek&&row.prodKey===Number(cell.prodKey));
+      const dates=(actual||[]).flatMap(row=>row.shipmentDates||[]).filter(item=>String(item.date).slice(0,10)===cell.date);
+      const before=dates.length?dates.reduce((sum,item)=>sum+Number(item.shipmentQuantity),0):null;
+      const plan={id:`grid|${customer.CustKey}|${cell.year}|${cell.orderWeek}|${cell.prodKey}|${cell.date}`,custKey:Number(customer.CustKey),prodKey:Number(cell.prodKey),prodName:cell.prodName,
+        year:Number(cell.year),orderWeek:cell.orderWeek,date:cell.date,quantity:qty,unit:normalizedUnit,sourceLabel:'표 직접 입력',sheet:'전산 대조',sourceCell:cell.date,raw:before,header:cell.date,sourceYear:null,sourceOrderWeek:null,wdetailKey:null};
+      setPlans(current=>[...current,plan]);
+      setDraftHistory(current=>[{id:crypto.randomUUID(),kind:'GRID_DRAFT_EDIT',applied:false,at:new Date().toISOString(),prodKey:plan.prodKey,
+        before:{year:plan.year,orderWeek:plan.orderWeek,date:plan.date,quantity:before},after:{year:plan.year,orderWeek:plan.orderWeek,date:plan.date,quantity:qty}},...current]);
+    }
+    setMessage('요일 수량 초안을 기록했습니다. 전산 분배·재고는 변경되지 않았습니다.');
+    return true;
+  }
+
+  async function openWeekdayPrint({cycle,dates,mode}) {
+    if(printLock.current||!customer?.CustKey) return;
+    printLock.current=true;setPrintBusy(true);const request=++printRequest.current;
+    try {
+      const response=await fetch('/api/estimate/weekday-print',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({year:cycle.year,majorWeek:cycle.majorWeek,custKey:Number(customer.CustKey),dates,mode})});
+      const result=await response.json();
+      if(!response.ok||!result.success) throw new Error(result.error||'견적 조회 실패');
+      if(request!==printRequest.current) return;
+      if(!result.items?.length) {setMessage('선택 범위의 확정 견적 자료가 없습니다. 미적용 초안은 인쇄하지 않습니다.');return;}
+      let logoDataUrl='';
+      const logo=await fetch('/nenova-logo-estimate.png');
+      if(logo.ok) {
+        const blob=await logo.blob();
+        logoDataUrl=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>resolve('');reader.readAsDataURL(blob);});
+      }
+      if(request!==printRequest.current) return;
+      const label=`${cycle.majorWeek}차 ${mode==='major'?'전체 견적':dates.join(' · ')} · 전산 확정본`;
+      const html=buildEstimateHtml({bigoLabel:label,custName:result.customer.CustName,printDate:new Date().toISOString().slice(0,10),rows:result.items,logoDataUrl});
+      setPrintPreview({html,label,note:result.note,count:result.items.length});
+    } catch(error) {if(request===printRequest.current)setMessage(error.message);}
+    finally {printLock.current=false;setPrintBusy(false);}
+  }
+
   const style = `
-    .weekday-workspace { color:#122033; max-width:100%; margin:0 auto; padding:18px; }
-    .weekday-workspace button { border:1px solid #7892b0; border-radius:6px; padding:8px 12px; color:#16345a; background:#f8fbff; cursor:pointer; font-weight:600; }
+    .weekday-workspace { color:#122033; max-width:100%; margin:0 auto; padding:8px; font-size:13px; }
+    .weekday-workspace button { border:1px solid #7892b0; border-radius:4px; padding:4px 8px; color:#16345a; background:#f8fbff; cursor:pointer; font-weight:600; }
     .weekday-workspace button.primary { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
     .weekday-workspace button:disabled { opacity:.5; cursor:not-allowed; }
     .weekday-workspace input,.weekday-workspace select { font:inherit; color:inherit; }
     .weekday-workspace table { border-collapse:collapse; width:100%; }
-    .weekday-workspace th,.weekday-workspace td { border-bottom:1px solid #dce4ed; text-align:left; padding:8px; vertical-align:top; }
+    .weekday-workspace th,.weekday-workspace td { border-bottom:1px solid #dce4ed; text-align:left; padding:5px; vertical-align:top; }
     .weekday-workspace th { background:#eff5fc; position:sticky; top:0; z-index:1; }
     .weekday-workspace .scroll-table { overflow-x:auto; border:1px solid #dce4ed; border-radius:8px; }
-    .weekday-workspace .grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; }
+    .weekday-workspace .grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:8px; }
     .weekday-workspace .span-12 { grid-column:span 12; }
     .weekday-workspace .span-6 { grid-column:span 6; }
     .weekday-workspace .span-4 { grid-column:span 4; }
     .weekday-workspace .muted { color:#586b80; font-size:13px; }
     .weekday-workspace .tag { display:inline-flex; background:#edf4ff; padding:3px 7px; border-radius:99px; margin:2px; font-size:12px; }
+    .weekday-print-overlay { position:fixed; inset:0; background:#13223888; z-index:3000; display:flex; align-items:center; justify-content:center; padding:12px; }
+    .weekday-print-dialog { background:white; border-radius:6px; width:min(100%,1050px); height:calc(100vh - 24px); display:flex; flex-direction:column; padding:10px; gap:8px; box-sizing:border-box; }
+    .weekday-print-dialog iframe { flex:1; min-height:0; width:100%; border:1px solid #cbd5e1; }
     @media(max-width:900px) { .weekday-workspace .span-6,.weekday-workspace .span-4 { grid-column:span 12; } .weekday-workspace { padding:10px; } }
   `;
 
   return <main className="weekday-workspace">
     <style>{style}</style>
-    <header style={{ ...panel, background:'#f3f8ff', marginBottom:14 }}>
-      <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:10 }}>
-        <div style={{ flex:1, minWidth:280 }}>
-          <div style={{ color:'#16439a', fontSize:22, fontWeight:800 }}>주광 견적서 · 요일별 배분 작업</div>
-          <div className="muted" style={{ marginTop:5 }}>엑셀 기준 → 품목·세부차수 연결 → 요일 계획 → 전산 대조. 현재 단계는 초안/조회 전용입니다.</div>
+    <header style={{ ...panel, background:'#f3f8ff', marginBottom:6 }}>
+      <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:8 }}>
+        <div style={{ flex:1, minWidth:240 }}>
+          <div style={{ color:'#16439a', fontSize:18, fontWeight:800 }}>주광 견적서 · {customer?.CustName || '주광 자동 조회 중'}</div>
         </div>
-        <label>연도 <input style={{ ...inputStyle, width:90 }} value={year} onChange={(e) => setYear(e.target.value)} inputMode="numeric" /></label>
-        <label>대차수 <input style={{ ...inputStyle, width:72 }} value={majorWeek} onChange={(e) => setMajorWeek(e.target.value)} inputMode="numeric" /></label>
-        <label>헤더 날짜 미인식 시 출고일 <input style={inputStyle} type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)} /></label>
+        <label>연도 <input aria-label="조회 연도" style={{ ...inputStyle, width:70 }} value={year} onChange={(e) => setYear(e.target.value)} inputMode="numeric" /></label>
+        <label>중심 차수 <input aria-label="중심 차수" style={{ ...inputStyle, width:50 }} value={majorWeek} onChange={(e) => setMajorWeek(e.target.value)} inputMode="numeric" /></label>
+        <input aria-label="요일별 출고 엑셀 파일" style={{width:230}} type="file" accept=".xlsx,.xls" onChange={(e) => {setToolsOpen(true);uploadWorkbook(e.target.files?.[0]);}} disabled={busy} />
+        <button onClick={compareWithErp} disabled={busy || !customer}>전산 새로고침</button>
+        <button aria-expanded={toolsOpen} onClick={()=>setToolsOpen(value=>!value)}>업체·엑셀 연결 {toolsOpen?'접기':'펼치기'}</button>
       </div>
-      <div role="status" style={{ marginTop:12, padding:'9px 12px', borderRadius:6, background:'#fff7df', color:'#624900', fontWeight:600 }}>{message}</div>
+      <div role="status" style={{ marginTop:5, padding:'3px 6px', borderRadius:4, background:'#fff7df', color:'#624900' }}>{message}</div>
       {calendarError && <div role="alert" style={{color:'#b42318',marginTop:8}}>전산 달력: {calendarError}</div>}
+      {customerError && <div role="alert" style={{color:'#b42318'}}>{customerError}</div>}
+      {uploadError && <div role="alert" style={{color:'#b42318'}}>{uploadError}</div>}
     </header>
 
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={plans.filter((plan)=>Number(plan.custKey)===Number(customer?.CustKey))} comparisonRows={compareRows || []} onMove={moveDraft} busy={busy} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy} customer={customer}/>
+
+    <details open={toolsOpen} onToggle={event=>setToolsOpen(event.currentTarget.open)} style={{marginTop:8}}>
+    <summary style={{cursor:'pointer',padding:'5px 0'}}>업체 변경 · 업로드 연결 · 세부 초안 · 변경 이력 ({plans.length}건)</summary>
     <div className="grid">
       <section className="span-4" style={panel}>
         <h2 style={{ margin:'0 0 10px', fontSize:17 }}>1. 거래처 선택</h2>
@@ -209,13 +300,13 @@ export default function WeekdayEstimateWorkspace() {
           <button onClick={findCustomers}>검색</button>
         </div>
         {customerError && <p style={{ color:'#b42318' }}>{customerError}</p>}
-        {customers.length > 0 && <div style={{ marginTop:8, maxHeight:180, overflow:'auto' }}>{customers.map((item) => <button key={item.CustKey} onClick={() => { comparisonRequest.current += 1; setBusy(false); setCustomer(item); setCustomerQuery(item.CustName); setCustomers([]); setCompareRows(null); setSourceLots([]); setErpHistory([]); }} style={{ display:'block', width:'100%', textAlign:'left', marginBottom:4 }}>{item.CustName} <span className="muted">· {item.CustArea || '지역 미등록'} · {item.CustKey}</span></button>)}</div>}
-        <div style={{ marginTop:10, padding:10, background:'#f4f8fc', borderRadius:6 }}><b>선택 업체:</b> {customer ? `${customer.CustName} (${customer.CustKey})` : '미선택'}<br/><span className="muted">업체를 직접 확인해야 대조가 가능합니다. 기본 자동 선택하지 않습니다.</span></div>
+        {customers.length > 0 && <div style={{ marginTop:8, maxHeight:180, overflow:'auto' }}>{customers.map((item) => <button key={item.CustKey} onClick={() => { defaultCustomerRequest.current += 1; comparisonRequest.current += 1; setBusy(false); setCustomerError('');setCustomer(item); setCustomerQuery(item.CustName); setCustomers([]); setCompareRows(null); setSourceLots([]); setErpHistory([]); }} style={{ display:'block', width:'100%', textAlign:'left', marginBottom:4 }}>{item.CustName} <span className="muted">· {item.CustArea || '지역 미등록'} · {item.CustKey}</span></button>)}</div>}
+        <div style={{ marginTop:10, padding:10, background:'#f4f8fc', borderRadius:6 }}><b>선택 업체:</b> {customer ? `${customer.CustName} (${customer.CustKey})` : '미선택'}<br/><span className="muted">주광농원이 기본값입니다. 다른 거래처도 검색해 선택할 수 있습니다.</span></div>
       </section>
 
       <section className="span-4" style={panel}>
         <h2 style={{ margin:'0 0 10px', fontSize:17 }}>2. 요일별 엑셀 업로드</h2>
-        <input aria-label="요일별 출고 엑셀 파일" type="file" accept=".xlsx,.xls" onChange={(e) => uploadWorkbook(e.target.files?.[0])} disabled={busy} />
+        <label>헤더 날짜 미인식 시 출고일 <input style={inputStyle} type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)} /></label>
         {fileName && <p><b>{fileName}</b> · {parsed?.sheets?.length || 0}개 시트 · 원문 임시 분석</p>}
         {uploadError && <p style={{ color:'#b42318' }}>{uploadError}</p>}
         {parsed && <div className="muted">{parsed.sheets.map((sheet) => <span className="tag" key={sheet.name}>{sheet.name}: {sheet.rows.length}행 · 병합 {sheet.merges.length}</span>)}<p>텍스트·수식은 자동 수량으로 바꾸지 않습니다. 날짜 수량 열로 인식되지 않은 셀은 검토가 필요합니다.</p></div>}
@@ -225,11 +316,6 @@ export default function WeekdayEstimateWorkspace() {
         <h2 style={{ margin:'0 0 10px', fontSize:17 }}>3. 단위 확인</h2>
         <label>업로드 날짜 수량의 단위 확인 <select style={{ ...inputStyle, display:'block', width:'100%', marginTop:7 }} value={unit} onChange={(e) => setUnit(e.target.value)}><option>확인 필요</option><option>박스</option><option>단</option><option>송이</option></select></label>
         <p className="muted">원본 양식에 단위가 확정되지 않은 값은 환산하지 않습니다. 선택은 현재 화면의 초안에만 적용됩니다.</p>
-      </section>
-
-      <section className="span-12" style={panel}>
-        <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'center',marginBottom:10}}><h2 style={{fontSize:17,margin:0}}>목~수 출고 · 앞뒤 차수 연결</h2><button onClick={compareWithErp} disabled={busy || !plans.length}>선택 범위 전산 대조</button></div>
-        <WeekdayCycleMatrix cycles={cycles} plans={plans.filter((plan)=>Number(plan.custKey)===Number(customer?.CustKey))} comparisonRows={compareRows || []} onMove={moveDraft} busy={busy}/>
       </section>
 
       {parsed && <section className="span-12" style={panel}>
@@ -258,7 +344,6 @@ export default function WeekdayEstimateWorkspace() {
           <h2 style={{ margin:0, fontSize:17, flex:1 }}>5. 세부차수·출고일 배분 초안</h2>
           <button onClick={compareWithErp} disabled={busy || !plans.length}>선택 범위 전산 대조</button>
           <button disabled title="전산 쓰기는 후속 안전 검증 후 제공">ERP 적용 · 준비 중</button>
-          <button disabled title="EXE 인쇄 양식 대조 자료 확보 후 제공">요일 견적 인쇄 · 준비 중</button>
         </div>
         <p className="muted">각 원본행은 날짜 수량 후보만 초안에 복사합니다. 연도·세부차수·출고일·단위는 행별로 확인하세요. 단위 환산 및 ERP 저장은 하지 않습니다.</p>
         <div className="scroll-table"><table><thead><tr><th>원본 근거</th><th>ERP 품목</th><th>견적 세부차수</th><th>출고일/요일</th><th>수량</th><th>원본 단위</th><th>제거</th></tr></thead><tbody>
@@ -276,7 +361,7 @@ export default function WeekdayEstimateWorkspace() {
         <h2 style={{ margin:'0 0 10px', fontSize:17 }}>6. 전산 대조 결과 · 읽기 전용</h2>
         <div className="scroll-table"><table><thead><tr><th>연도·세부차수</th><th>거래처</th><th>품목</th><th>계획(선택 단위)</th><th>전산 분배(OutUnit)</th><th>차이</th><th>확정 여부</th><th>날짜별 출고 / 견적수량</th><th>상태</th></tr></thead><tbody>
           {compareRows.map((row) => {
-            const related = plans.filter((item) => Number(item.year) === row.year && item.prodKey === row.prodKey && item.orderWeek === row.orderWeek);
+            const related = plans.filter((item) => Number(item.custKey) === Number(row.custKey) && Number(item.year) === row.year && item.prodKey === row.prodKey && item.orderWeek === row.orderWeek);
             const planned = related.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
             const sameUnit = related.length > 0 && related.every((item) => item.unit === row.outUnit);
             const delta = sameUnit && row.shipmentOutQuantity != null ? planned - row.shipmentOutQuantity : null;
@@ -297,8 +382,16 @@ export default function WeekdayEstimateWorkspace() {
 
       <section className="span-12" style={{ ...panel, borderColor:'#d5a329', background:'#fffbeb' }}>
         <b>현재 제공 범위</b>: 엑셀 원문 파싱, 행별 품목 연결, 초안 편집, 연도·세부차수·거래처·품목 범위의 전산 읽기 대조.<br/>
-        <span className="muted">ERP 적용은 다요일 ShipmentDate 저장/확정 사이클의 실DB·EXE parity 검증이 남아 비활성화했습니다. 견적 인쇄는 EXE 출력 골든 비교 자료를 확인한 뒤 연결합니다. 화면 초안은 페이지를 새로고침하면 사라집니다.</span>
+        <span className="muted">ERP 적용은 다요일 ShipmentDate 저장/확정 사이클 검증이 남아 비활성화했습니다. 상단 요일별 인쇄는 전산 확정본만 출력합니다. 화면 초안은 페이지를 새로고침하면 사라집니다.</span>
       </section>
     </div>
+    </details>
+    {printPreview && <div className="weekday-print-overlay" onKeyDown={event=>{if(event.key==='Escape')setPrintPreview(null);}}>
+      <section role="dialog" aria-modal="true" aria-label="요일 견적서 인쇄 미리보기" className="weekday-print-dialog">
+        <div style={{display:'flex',gap:8,alignItems:'center'}}><b style={{flex:1}}>{printPreview.label} · {printPreview.count}행</b><button className="primary" onClick={()=>previewFrame.current?.contentWindow?.print()}>견적서 출력</button><button autoFocus onClick={()=>setPrintPreview(null)}>닫기</button></div>
+        <div className="muted">{printPreview.note} · 미적용 초안 제외 · A4 / 배율 100% 권장</div>
+        <iframe ref={previewFrame} title="전산 확정 견적서" srcDoc={printPreview.html}/>
+      </section>
+    </div>}
   </main>;
 }

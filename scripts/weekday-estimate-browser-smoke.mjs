@@ -39,6 +39,7 @@ await page.route('**/api/**', async route => {
   if (url.pathname === '/api/auth/me') data.user = { userId: 'fixture', userName: '화면 검사', authority: 3 };
   else if (url.pathname === '/api/favorites') data.favorites = [];
   else if (url.pathname === '/api/estimate/weekday-calendar') data = { success: true, readOnly: true, cycles };
+  else if (url.pathname === '/api/estimate/weekday-products') data.products = [];
   else if (url.pathname === '/api/estimate/weekday-upload-preview') data = { success: true, ...parsed };
   else if (url.pathname === '/api/customers/search') data.customers = [{ CustKey: 533, CustName: '주광농원', CustArea: '광주' }];
   else if (url.pathname === '/api/products/search') data.products = [{ ProdKey: 101, ProdName: 'CARNATION Moon Light', CounName: '콜롬비아', FlowerName: '카네이션' }];
@@ -54,11 +55,8 @@ await page.route('**/api/**', async route => {
 });
 try {
   await page.goto(`${base}/estimate/weekday?popup=1`, { waitUntil: 'networkidle' });
-  await page.getByPlaceholder('주광 또는 거래처명 검색').fill('주광');
-  await page.getByRole('button', { name: '검색', exact: true }).click();
-  await page.getByRole('button', { name: /주광농원.*533/ }).click();
-  await page.getByLabel('업로드 날짜 수량의 단위 확인').selectOption('박스');
   await page.getByLabel('요일별 출고 엑셀 파일').setInputFiles({ name: 'weekday-smoke.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer });
+  await page.getByLabel('업로드 날짜 수량의 단위 확인').selectOption('박스');
   await page.getByRole('button', { name: '연결 선택', exact: true }).click();
   await page.getByPlaceholder('선택한 원본행에 연결할 ERP 품목 검색').fill('Moon Light');
   await page.getByRole('button', { name: '품목 검색', exact: true }).click();
@@ -73,7 +71,7 @@ try {
   await page.getByRole('button', { name: '초안에만 이동 기록', exact: true }).click();
   await page.getByRole('status').filter({ hasText: '출고일 이동 초안을 기록했습니다' }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'ERP 적용 · 준비 중', exact: true }).isDisabled(), true);
-  assert.equal(await page.getByRole('button', { name: '요일 견적 인쇄 · 준비 중', exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole('button', { name: /^\d+차 . 견적 출력$/ }).count(), 21);
   assert.equal(await page.locator('select[aria-label*="입고 원천"]').count(), 0);
   const dimensions = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, documentWidth: document.documentElement.scrollWidth, documentHeight: document.documentElement.scrollHeight }));
   assert.equal(dimensions.width, 1920); assert.equal(dimensions.height, 1080);

@@ -70,7 +70,7 @@ export default withAuth(async function handler(req, res) {
             AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(p.isDeleted,0)=0
             AND EXISTS (SELECT 1 FROM Customer c WHERE c.CustKey=sm.CustKey AND ISNULL(c.isDeleted,0)=0)
           ORDER BY sdd.ShipmentDtm,sdd.SdateKey`, params),
-      query(`SELECT ProdKey,ProdName,OutUnit,EstUnit,BunchOf1Box,SteamOf1Bunch,SteamOf1Box
+      query(`SELECT ProdKey,ProdName,OutUnit,EstUnit,FlowerName,CounName,BunchOf1Box,SteamOf1Bunch,SteamOf1Box
                FROM Product WHERE ProdKey IN (${prodIn}) AND ISNULL(isDeleted,0)=0`, prodParams),
       query(`SELECT wm.OrderYear,wm.OrderWeek,wd.WdetailKey,wd.ProdKey,wm.WarehouseKey,
                     wm.FarmName,wd.OutQuantity,wd.OrderCode
@@ -117,6 +117,8 @@ export default withAuth(async function handler(req, res) {
         shipmentOutQuantity: shipment?.ShipmentOutQuantity ?? null,
         fixed: shipment ? (Number(shipment.MinFixed) === Number(shipment.MaxFixed) ? Number(shipment.MaxFixed) === 1 : 'mixed') : null,
         prodName: product?.ProdName || null,
+        flowerName: product?.FlowerName || null,
+        countryName: product?.CounName || null,
         outUnit: normalizeWeekdayUnit(product?.OutUnit ?? shipment?.OutUnit),
         rawOutUnit: product?.OutUnit ?? shipment?.OutUnit ?? null,
         estUnit: normalizeWeekdayUnit(product?.EstUnit),
