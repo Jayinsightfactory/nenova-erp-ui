@@ -18,6 +18,8 @@
     "lib/profitReportCategoryAnalysis.js",
     "pages/api/sales/profit-analysis-opinion.js",
     "lib/profitReport.js",
+    "lib/pivotFreightArrival.js",
+    "lib/pivotArrivalCalc.js",
     "lib/profitReportExcel.js",
     "lib/profitReportConfirm.js",
     "lib/profitReportClassification.js",
