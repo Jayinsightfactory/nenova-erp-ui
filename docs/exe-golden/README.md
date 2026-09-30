@@ -40,6 +40,7 @@ Registry: `lib/exeParity/registry.js`
 | ProductMatching.md | 품목 매칭 규칙 |
 | FormProfitReport.md | 매출이익 보고서 계산식 |
 | WebSalesRegistrationHistory.md | 웹 전용 판매등록확정 스냅샷. EXE Form 없음. 원장 읽기만, 쓰기는 WebSales* |
+| ProfitWorkbookSnapshot (계약 profit-workbook.json) | 웹 전용 매출원가 양식 원천시트 스냅샷. EXE Form 없음(엑셀 수작업 대체). ShipmentDetail/Estimate/WarehouseDetail 읽기만, 쓰기는 ProfitWorkbookSnapshot(Row) INSERT만(트리거로 UPDATE/DELETE 차단) |
 
 ## Probe 스크립트
 
