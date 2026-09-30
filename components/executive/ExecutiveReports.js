@@ -2,11 +2,13 @@ import {useEffect,useRef,useState} from 'react';
 import {PERIODS,previewReports} from '../../lib/mobileExecutiveReportPreview';
 import {weeklyDemoWorkbook} from '../../lib/mobileWeeklyDemo';
 import WeeklyDemoReport from './WeeklyDemoReport';
+import MonthlyDemoReport from './MonthlyDemoReport';
 import s from './ExecutiveReports.module.css';
 
 export default function ExecutiveReports({preview=false,weeklyDemoMode=false}) {
   const unlocked=preview||weeklyDemoMode;
   const [period,setPeriod]=useState('2026-39'),[selected,setSelected]=useState(null);
+  const [view,setView]=useState('files');
   const [downloadBusy,setDownloadBusy]=useState(false),[downloadStatus,setDownloadStatus]=useState(null);
   const downloadLock=useRef(false),heading=useRef(null),restoreFocus=useRef(false);
   useEffect(()=>{if(restoreFocus.current){heading.current?.focus();restoreFocus.current=false;}},[selected]);
@@ -32,12 +34,14 @@ export default function ExecutiveReports({preview=false,weeklyDemoMode=false}) {
       {!unlocked?<section className={s.login}>
         <form onSubmit={event=>event.preventDefault()}><label htmlFor="executive-password">공용 비밀번호</label><input id="executive-password" type="password" autoComplete="off" placeholder="비밀번호 설정 후 이용할 수 있습니다" disabled/><button className={s.primary} disabled>보고실 접속 준비 중</button></form>
       </section>:<>
+        {!selected&&<nav className={s.fileToolbar} aria-label="보고서 보기 방식"><button aria-pressed={view==='files'} onClick={()=>setView('files')}>파일 목록</button><button aria-pressed={view==='months'} onClick={()=>setView('months')}>월별 보기</button></nav>}
         {downloadStatus&&<p className={s.downloadStatus} role={downloadStatus.error?'alert':'status'}>{downloadStatus.message}</p>}
+        <div hidden={view!=='months'||Boolean(selected)}><MonthlyDemoReport onWeek={value=>{setPeriod(value);openReport(previewReports(value).find(r=>r.id==='weekly-profit'));}}/></div>
         {selected?.id==='weekly-profit'?<WeeklyDemoReport report={selected} periods={PERIODS} headingRef={heading} busy={downloadBusy} onDownload={()=>downloadWeekly(period)} onBack={()=>openReport(null)} onPeriodChange={value=>{setPeriod(value);setSelected(previewReports(value).find(r=>r.id==='weekly-profit'));setDownloadStatus(null);}}/>:selected?<section className={s.detail}>
           <button className={s.back} onClick={()=>openReport(null)}>← 파일 목록</button>
           <h2 ref={heading} tabIndex={-1}>{selected.title} · 예시</h2>
           <dl className={s.breakdown}><div><dt>매출액</dt><dd>{selected.revenue.toLocaleString('ko-KR')}원</dd></div><div><dt>매입 및 비용</dt><dd>{selected.cost.toLocaleString('ko-KR')}원</dd></div><div><dt>이익</dt><dd>{selected.profit.toLocaleString('ko-KR')}원</dd></div></dl>
-        </section>:<>
+        </section>:view==='months'?null:<>
           <div className={s.fileToolbar}><label htmlFor="report-period">차수</label><select id="report-period" value={period} onChange={event=>changePeriod(event.target.value)}>{PERIODS.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select><span>{rows.length}개</span></div>
           <table className={s.fileTable} aria-label="보고서 파일 목록"><thead><tr><th scope="col">파일명</th><th scope="col" className={s.desktopDate}>갱신일</th><th scope="col" className={s.fileActionHeading}>열기 / 받기</th></tr></thead><tbody>
             {rows.map(report=><tr key={report.id}>

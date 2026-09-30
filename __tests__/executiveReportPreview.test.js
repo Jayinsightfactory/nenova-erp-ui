@@ -31,8 +31,8 @@ loaded.paths=Module._nodeModulePaths(path.dirname(filename));
 const original=loaded.require.bind(loaded);
 loaded.require=name=>{
   if(name.endsWith('.css'))return {};
-  if(name==='./WeeklyDemoReport'){
-    const childPath=path.resolve(path.dirname(filename),'WeeklyDemoReport.js');
+  if(name==='./WeeklyDemoReport'||name==='./MonthlyDemoReport'){
+    const childPath=path.resolve(path.dirname(filename),`${name.slice(2)}.js`);
     const child=new Module(childPath,module);child.filename=childPath;child.paths=loaded.paths;
     const childRequire=child.require.bind(child);child.require=n=>n.endsWith('.css')?{}:childRequire(n);
     child._compile(transformSync(fs.readFileSync(childPath,'utf8'),{filename:childPath,jsc:{parser:{syntax:'ecmascript',jsx:true},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}}).code,childPath);
@@ -50,6 +50,7 @@ assert.match(open,/실제 자료 아님/);
 assert.match(open,/라움 순익계산서/);
 assert.match(open,/신라 순익계산서/);
 assert.match(open,/보고서 파일 목록/);
+assert.match(open,/월별 보기/);
 assert.equal((open.match(/\.xlsx/g)||[]).length,3);
 assert.doesNotMatch(open,/10개 확장 보기|SAMPLE WEEKLY REPORT|23,800,000/);
 assert.doesNotMatch(open,/download=|\/api\//);
