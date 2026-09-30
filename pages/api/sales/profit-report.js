@@ -519,6 +519,9 @@ export async function loadReportData(major, orderYear) {
           priceEvidenceSources: resolvedEnd?.sources || [],
           missingPriceCount: resolvedEnd ? 0 : Number(stockEnd.missingPriceCounts?.[key] || 0),
           missingPriceItems: resolvedEnd ? [] : (stockEnd.missingPriceItems?.[key] || []),
+          // FIFO 4차수 내 매입 없음 → 자동평가로 채운 품목(품목별 평가 경로가 채택된 경우만). 값은 반영됨, 입력 필요 표시.
+          needsInputItems: resolvedEnd && resolvedEnd.status !== 'VERIFIED_CATEGORY_AVERAGE' && directEndValue != null
+            && resolvedEnd.value === directEndValue ? (stockEnd.needsInputItems?.[key] || []) : [],
           conversionMissingCount: Number(stockEnd.conversionMissingCounts?.[key] || 0),
           conversionIssues: stockEnd.conversionIssues?.[key] || [],
           unitMismatch: endUnitMismatch,
@@ -537,6 +540,8 @@ export async function loadReportData(major, orderYear) {
           priceEvidenceSources: resolvedBegin?.sources || [],
           missingPriceCount: resolvedBegin ? 0 : Number(stockBegin.missingPriceCounts?.[key] || 0),
           missingPriceItems: resolvedBegin ? [] : (stockBegin.missingPriceItems?.[key] || []),
+          needsInputItems: resolvedBegin && resolvedBegin.status !== 'VERIFIED_CATEGORY_AVERAGE' && directBeginValue != null
+            && resolvedBegin.value === directBeginValue ? (stockBegin.needsInputItems?.[key] || []) : [],
           conversionMissingCount: Number(stockBegin.conversionMissingCounts?.[key] || 0),
           conversionIssues: stockBegin.conversionIssues?.[key] || [],
           unitMismatch: previous.unitMismatch === true,

@@ -216,6 +216,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
     verified_historical_workbook: '2026년 22~28차 원본 엑셀의 기말재고 확정 근거(파일 해시·셀 위치 보존)',
     category_average_fallback: '근사치(원본공식 확대): 품목별 검증 단가가 없어 (매입액+그외통관비) ÷ 매입수량 × ProductStock 수량으로 채움 — 단가 근거 입력 시 정확값으로 대체',
     carried_category_unit_cost: '근사치(단가 이월): 이번 차수 매입이 없어 전차수 재고 평가단가 × 이번 수량으로 채움 — 단가 근거 입력 시 정확값으로 대체',
+    verified_fifo_purchase: '선입선출: EXE ProductStock 수량을 이번 차수→전차수→전전차수→전전전차수 매입(수량·도착원가) 순으로 소진해 평가',
     sales_price_auto: '판매단가 기준 자동평가(2026-08-27 확정): 검증된 매입근거가 없어 최근 확정 판매단가(×1.1) 또는 최근 매입 근사로 자동 평가 — 실제 매입근거 입력 시 대체',
     missing_price_evidence: '⚠ 재고수량은 있으나 동일 스냅샷의 확인된 단가 근거가 부족합니다',
     missing_stock_snapshot: '⚠ EXE ProductStock 차수 스냅샷이 없습니다',
