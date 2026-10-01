@@ -45,3 +45,23 @@ assert.equal(label(null,{flowerNames:['알스트로']},'단'),'—');assert.equa
 assert.equal(name({name:'ROSE / Mondial White 60cm'}),'Mondial White 60cm');assert.equal(name({name:'CARNATION Moon Light'}),'Moon Light');
 assert.equal(name({name:'HYDRANGEA White (화이트)'}),'White (화이트)');assert.equal(name({name:'MiniCarnation Arctic'}),'MiniCarnation Arctic','separate category remains intact');
 console.log('Initial weekday matrix: immutable dated baselines, segment/major remainders, cancellations, drafts,year/unit guards,48(3) and product label passed');
+
+const candidates=current.map(row=>({...entry(row.orderWeek.slice(-2),row.shipmentOutQuantity),provisional:true}));
+const candidateBlock=(records=[],previews=candidates,rows=current)=>build([cycle],[],rows,records,previews).rows[0].blocks[0];
+block=candidateBlock();
+assert.equal(block.provisional01.quantity,48);assert.equal(block.provisional02.quantity,24);
+assert.equal(block.initial01,null);assert.equal(block.initialMajor,null);
+assert.equal(block.initialChange,null);assert.equal(block.remaining01,null);assert.equal(block.remainingMajor,null);
+assert.ok(block.days.every(day=>day.initial===null && day.initialDelta===null),'unconfirmed current quantities never fabricate historical changes');
+block=candidateBlock(bases);assert.equal(block.initial02.quantity,32);assert.equal(block.provisional02,null,'stored immutable baseline wins');
+assert.equal(candidateBlock([],candidates.map(row=>({...row,year:2025}))).provisional01,null);
+assert.equal(candidateBlock([],candidates.map(row=>({...row,orderWeek:'39-01'}))).provisional01,null);
+assert.equal(candidateBlock([],candidates.map(row=>({...row,error:'failed read'}))).provisional01,null);
+assert.equal(candidateBlock([],candidates.map(row=>({...row,provisional:false}))).provisional01,null);
+assert.equal(candidateBlock([],[candidates[0],candidates[0]]).provisional01,null,'duplicate source is ambiguous');
+for(const quantity of [null,'',-1,Infinity])assert.equal(candidateBlock([],candidates.map(row=>({...row,rows:row.rows.map(item=>({...item,quantity}))}))).provisional01,null);
+assert.equal(candidateBlock([],candidates.map(row=>({...row,rows:row.rows.map(item=>({...item,quantity:0}))}))).provisional01.quantity,0);
+assert.equal(candidateBlock([],candidates.map(row=>({...row,rows:row.rows.map(item=>({...item,unit:'박스'}))}))).provisional01,null);
+const missingStoredProduct=bases.map(row=>({...row,rows:[]}));
+assert.equal(candidateBlock(missingStoredProduct).provisional01,null,'a product absent from stored initial snapshot cannot fall back to today');
+console.log('Provisional baseline: display-only current values, immutable priority, no fabricated changes/remainders, year/week/unit/error/zero guards passed');

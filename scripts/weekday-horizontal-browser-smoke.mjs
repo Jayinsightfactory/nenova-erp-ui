@@ -43,6 +43,7 @@ let alstroOverride=null;
 let failComparison=false;
 let failPrint=false;
 let failNote=false;
+let failBaselineWeek=null;
 const productLabel=product=>weekdayProductLabel({name:product.ProdName});
 const comparisonRow=(orderWeek,prodKey)=>{
   const cycle=cycles.find(row=>row.majorWeek===orderWeek.slice(0,2));
@@ -127,6 +128,7 @@ await page.route('**/api/**',async route=>{
       const scope={year:body.year,orderWeek:body.orderWeek,custKey:body.custKey};
       assert.equal(scope.year,2026);assert.equal(scope.custKey,533);
       assert.ok(['preview','confirm'].includes(body.action));
+      if(body.action==='preview' && scope.orderWeek===failBaselineWeek) return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({success:false,error:'fixture 현재 기준 조회 실패'})});
       if(baselineRecords.some(record=>record.year===scope.year&&record.orderWeek===scope.orderWeek&&record.custKey===scope.custKey)) {
         return route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({success:false,code:'BASELINE_ALREADY_CONFIRMED',error:'이미 최초 기준이 확정된 차수입니다.'})});
       }
@@ -174,6 +176,10 @@ try {
   assert.equal(await page.locator('.wcm-table-scroll tbody tr').first().locator('td').count(),33);
   assert.equal(await page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-total').count(),6);
   assert.equal(await page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-initial').count(),6);
+  assert.deepEqual(await page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-initial').allTextContents(),Array(6).fill('32(2)'),'unconfirmed ERP distribution quantities appear immediately');
+  assert.equal(await page.locator('thead .wcm-initial').filter({hasText:'미확정'}).count(),6);
+  assert.equal(baselineRequests.filter(request=>request.action==='preview').length,6);
+  assert.equal(baselineRequests.filter(request=>request.action==='confirm').length,0,'startup must never confirm');
   assert.ok((await page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-total > span').allTextContents()).every(text=>text==='—'),'without stored baselines remaining quantities are unknown');
   assert.equal(printRequests.length,3,'startup now reads three saved quote totals');
   assert.deepEqual(printRequests.map(request=>[request.year,String(request.majorWeek),request.custKey,request.mode]).sort(),
@@ -306,7 +312,7 @@ try {
     assert.ok(await confirmed.count()===0||await confirmed.isDisabled(),'confirmed baseline cannot be confirmed again');
     assert.match(await page.locator('thead .wcm-initial').filter({hasText:`38-${suffix}`}).innerText(),/기준 보관됨/);
   }
-  assert.deepEqual(baselineRequests.map(request=>request.action),['preview','confirm','preview','confirm']);
+  assert.deepEqual(baselineRequests.filter(request=>request.action==='confirm').map(request=>request.orderWeek),['38-01','38-02']);
   assert.ok(baselineRecords.every(record=>record.source==='ERP_DISTRIBUTION'));
   assert.equal(baselineRecords[0].rows.find(row=>row.prodKey===102).quantity,2,'browser draft zero is excluded from ERP initial quantity');
   const savedBaselines=structuredClone(baselineRecords);
@@ -371,7 +377,7 @@ try {
   await page.getByRole('status').filter({hasText:'전후 차수 전산 대조 완료'}).waitFor();
   assert.equal(await changedCell.locator('.wcm-early-label').innerText(),'39차 선출고 16(1)','note GET restores manual declaration');
   assert.deepEqual(baselineRecords,savedBaselines);
-  assert.equal(baselineRequests.length,4,'reload and note saving never issue another preview or confirmation');
+  assert.equal(baselineRequests.filter(request=>request.action==='confirm').length,2,'reload and note saving never auto-confirm');
   assert.equal(noteRequests.length,2,'one failed save plus one explicit retry; reload only reads');
   alstroOverride=8;
   await page.reload({waitUntil:'networkidle'});
@@ -379,6 +385,19 @@ try {
   assert.match(await changedCell.locator('.wcm-early-label').innerText(),/39차 선출고 16\(1\) · 재확인/,'saved manual source is flagged if the real date quantity subsequently drops below it');
   assert.deepEqual(baselineRecords,savedBaselines);
   assert.equal(noteRequests.length,2,'stale source display does not auto rewrite the note');
+  failBaselineWeek='37-01';
+  await page.reload({waitUntil:'networkidle'});
+  await page.getByRole('status').filter({hasText:'전후 차수 전산 대조 완료'}).waitFor();
+  assert.match(await page.locator('thead .wcm-initial').filter({hasText:'37-01'}).innerText(),/조회 실패/);
+  const failedPreviewRow=page.locator('.wcm-table-scroll tbody tr').filter({hasText:productLabel(activeProducts[0])});
+  assert.equal(await failedPreviewRow.locator('.wcm-initial').nth(0).innerText(),'—','failed refresh clears the old provisional value');
+  assert.equal(await failedPreviewRow.locator('.wcm-initial').nth(1).innerText(),'32(2)','other provisional scope remains available');
+  assert.equal(await failedPreviewRow.locator('.wcm-initial').nth(2).innerText(),'32(2)','immutable stored value survives other-scope failure');
+  failBaselineWeek=null;
+  await page.reload({waitUntil:'networkidle'});
+  await page.getByRole('status').filter({hasText:'전후 차수 전산 대조 완료'}).waitFor();
+  assert.equal(await failedPreviewRow.locator('.wcm-initial').nth(0).innerText(),'32(2)','explicit refresh restores the valid preview');
+  assert.equal(baselineRequests.filter(request=>request.action==='confirm').length,2);
   // Calendar fixture intentionally returns the same cycles; assert exact requested target inputs.
   for(const [button,major] of [['이전 차수를 중심으로',37],['다음 차수를 중심으로',39]]) {
     const response=page.waitForResponse(result=>new URL(result.url()).pathname==='/api/estimate/weekday-calendar'

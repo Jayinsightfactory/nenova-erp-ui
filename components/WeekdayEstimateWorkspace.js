@@ -34,6 +34,7 @@ export default function WeekdayEstimateWorkspace() {
   const [plans, setPlans] = useState([]);
   const [compareRows, setCompareRows] = useState(null);
   const [baselines, setBaselines] = useState([]);
+  const [baselineCandidates, setBaselineCandidates] = useState([]);
   const [baselinePreview, setBaselinePreview] = useState(null);
   const [baselineBusy, setBaselineBusy] = useState(false);
   const [baselineError, setBaselineError] = useState('');
@@ -69,7 +70,7 @@ export default function WeekdayEstimateWorkspace() {
     .map((row) => ({ ...row, sheet: sheet.name, quantityCells: candidateCells(row) }))), [parsed]);
 
   useEffect(()=>{
-    baselineRequest.current+=1;setBaselinePreview(null);setBaselineError('');setBaselines([]);
+    baselineRequest.current+=1;setBaselinePreview(null);setBaselineError('');setBaselines([]);setBaselineCandidates([]);
     const request=++defaultCustomerRequest.current;
     apiGet('/api/customers/search',{q:'주광농원'}).then(result=>{
       if(request!==defaultCustomerRequest.current) return;
@@ -81,7 +82,7 @@ export default function WeekdayEstimateWorkspace() {
   },[]);
 
   useEffect(()=>{
-    baselineRequest.current+=1;noteRequest.current+=1;setBaselinePreview(null);setNoteForm(null);setBaselineError('');setNoteError('');setBaselines([]);setPageNotes([]);setQuoteResults([]);setCompareRows(null);
+    baselineRequest.current+=1;noteRequest.current+=1;setBaselinePreview(null);setNoteForm(null);setBaselineError('');setNoteError('');setBaselines([]);setBaselineCandidates([]);setPageNotes([]);setQuoteResults([]);setCompareRows(null);
     printRequest.current+=1;setPrintPreview(null);
     if(customer?.CustKey && cycles.length) refreshErp();
     return ()=>{comparisonRequest.current+=1;};
@@ -89,7 +90,7 @@ export default function WeekdayEstimateWorkspace() {
 
   useEffect(() => {
     const request = ++calendarRequest.current;
-    baselineRequest.current+=1;setBaselinePreview(null);setBaselineError('');setBaselines([]);
+    baselineRequest.current+=1;setBaselinePreview(null);setBaselineError('');setBaselines([]);setBaselineCandidates([]);
     noteRequest.current+=1;setNoteForm(null);setPageNotes([]);setQuoteResults([]);
     comparisonRequest.current += 1;
     setBusy(false);
@@ -190,6 +191,7 @@ export default function WeekdayEstimateWorkspace() {
 
   async function refreshErp(extraProdKeys = []) {
     const request=++comparisonRequest.current;
+    setBaselineCandidates([]);
     setBusy(true);setQuoteResults([]); setMessage('앞·현재·뒤 차수의 동일 거래처·품목 전산값을 대조 중…');
     try {
       const ranges = new Map();
@@ -201,21 +203,34 @@ export default function WeekdayEstimateWorkspace() {
         const inventory=await apiGet('/api/estimate/weekday-products',{year:requestYear,custKey:Number(customer.CustKey),orderWeeks:orderWeeks.join(',')});
         const baselineResult=await apiGet('/api/estimate/weekday-baseline',{year:requestYear,custKey:Number(customer.CustKey),orderWeeks:(inventory.scope?.orderWeeks || orderWeeks).join(',')});
         const savedBaselines=baselineResult.baselines || [];
+        const candidateWeeks=[...new Set(cycles.filter(cycle=>cycle.calendarState==='FOUND' && Number(cycle.year)===Number(requestYear)).flatMap(cycle=>cycle.days.map(day=>day.orderWeek)))];
+        const candidates=await Promise.all(candidateWeeks.filter(orderWeek=>!savedBaselines.some(record=>Number(record.year)===Number(requestYear) && record.orderWeek===orderWeek && Number(record.custKey)===Number(customer.CustKey))).map(async orderWeek=>{
+          const scope={year:Number(requestYear),orderWeek,custKey:Number(customer.CustKey)};
+          try {
+            const response=await fetch('/api/estimate/weekday-baseline',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'preview',...scope})});
+            const result=await response.json();
+            if(!response.ok || !result.success) throw new Error(result.error || '현재 분배 기준 조회 실패');
+            const preview=result.preview;
+            if(result.readOnly!==true || Number(preview?.year)!==scope.year || preview?.orderWeek!==orderWeek || Number(preview?.custKey)!==scope.custKey || !Array.isArray(preview?.rows)) throw new Error('분배 기준 응답 범위 확인 필요');
+            return {...preview,provisional:true};
+          } catch(error) {return {...scope,provisional:true,error:error.message,rows:[]};}
+        }));
         const scope=`${customer.CustKey}|${year}|${majorWeek}`;
         const addedKeys=addedProductScope.current.scope===scope ? addedProductScope.current.keys : [];
         const prodKeys=[...new Set([...(inventory.products||[]).map(item=>Number(item.ProdKey)),...savedBaselines.flatMap(record=>record.rows.map(item=>Number(item.prodKey))),...plans.filter(item=>Number(item.custKey)===Number(customer.CustKey)).map(item=>Number(item.prodKey)),...addedKeys,...(Array.isArray(extraProdKeys)?extraProdKeys:[])])];
-        if(!prodKeys.length) return {rows:[],sourceLots:[],history:[],baselines:savedBaselines};
+        if(!prodKeys.length) return {rows:[],sourceLots:[],history:[],baselines:savedBaselines,candidates};
         const response = await fetch('/api/estimate/weekday-compare', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ year: requestYear, custKey: Number(customer.CustKey), orderWeeks:inventory.scope?.orderWeeks || orderWeeks, prodKeys }),
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || '전산 대조에 실패했습니다.');
-      return {...result,baselines:savedBaselines};
+      return {...result,baselines:savedBaselines,candidates};
       }));
       if (request !== comparisonRequest.current) return false;
       setCompareRows(results.flatMap((result) => result.rows)); setSourceLots(results.flatMap((result) => result.sourceLots || [])); setErpHistory(results.flatMap((result) => result.history || []));
       setBaselines(results.flatMap(result=>result.baselines || []));
+      setBaselineCandidates(results.flatMap(result=>result.candidates || []));
       const ancillary=await Promise.all(cycles.filter(cycle=>cycle.calendarState==='FOUND').map(async cycle=>{
         let notes=[],quote=null;
         try {notes=(await apiGet('/api/estimate/weekday-note',{year:cycle.year,majorWeek:cycle.majorWeek,custKey:Number(customer.CustKey)})).notes || [];}
@@ -418,7 +433,7 @@ export default function WeekdayEstimateWorkspace() {
     </header>
 
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={plans.filter((plan)=>Number(plan.custKey)===Number(customer?.CustKey))} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}/>
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={plans.filter((plan)=>Number(plan.custKey)===Number(customer?.CustKey))} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}/>
 
     {noteForm && <section role="dialog" aria-label="수량 변경 비고" style={{position:'fixed',right:16,bottom:16,zIndex:2200,...panel,width:'min(460px,calc(100% - 32px))',maxHeight:'calc(100vh - 32px)',overflow:'auto',boxShadow:'0 5px 24px #172b4244'}}>
       <div style={{display:'flex',justifyContent:'space-between',gap:8}}><strong>{noteForm.name} · {noteForm.year}/{noteForm.majorWeek}차</strong><button aria-label="비고창 닫기" disabled={noteBusy} onClick={()=>{noteRequest.current+=1;setNoteForm(null);}}>닫기</button></div>

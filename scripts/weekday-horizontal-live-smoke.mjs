@@ -16,6 +16,7 @@ try {
   const page=await context.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
   const comparisonResponses=[];
   const baselineResponses=[];
+  const candidateResponses=[];
   const noteResponses=[];
   const startupQuoteResponses=[];
   const managementResponses=[];
@@ -23,6 +24,7 @@ try {
     const pathname=new URL(response.url()).pathname;
     if(pathname==='/api/estimate/weekday-compare')comparisonResponses.push(response.json());
     if(pathname==='/api/estimate/weekday-baseline'&&response.request().method()==='GET')baselineResponses.push(response.json());
+    if(pathname==='/api/estimate/weekday-baseline'&&response.request().method()==='POST'&&response.request().postDataJSON()?.action==='preview')candidateResponses.push(response.json());
     if(pathname==='/api/estimate/weekday-note'&&response.request().method()==='GET')noteResponses.push(response.json());
     if(pathname==='/api/estimate/weekday-print') {
       const scope=response.request().postDataJSON();
@@ -40,10 +42,11 @@ try {
   const writes=[];
   const readonlyPostPaths=new Set(['/api/estimate/weekday-compare','/api/estimate/weekday-print']);
   const isTelemetry=pathname=>/^\/api\/(?:replay(?:\/|$)|action-log(?:\/|$))/.test(pathname);
-  // A baseline preview is also POST; deliberately do NOT whitelist it or any note write.
+  // Preview is SELECT-only; immutable confirmation and note writes remain blocked.
   await page.route('**/api/**',async route=>{
     const req=route.request();const pathname=new URL(req.url()).pathname;
-    if(!['GET','HEAD'].includes(req.method())&&!readonlyPostPaths.has(pathname)&&!isTelemetry(pathname)) {
+    const previewOnly=pathname==='/api/estimate/weekday-baseline' && req.method()==='POST' && req.postDataJSON()?.action==='preview';
+    if(!['GET','HEAD'].includes(req.method())&&!readonlyPostPaths.has(pathname)&&!previewOnly&&!isTelemetry(pathname)) {
       writes.push({path:pathname,method:req.method()});return route.abort('blockedbyclient');
     }
     return route.continue();
@@ -77,7 +80,11 @@ try {
   assert.equal(managementResults.length,3,'three management GET requests must include byDate=1 and itemsOnly=1');
   assert.ok(managementResults.every(({scope,result})=>scope.year===2026&&scope.custKey===533
     &&scope.byDate==='1'&&scope.itemsOnly==='1'&&result.success===true&&Array.isArray(result.items)));
-  const rawMatrix=buildHorizontalWeekdayMatrix(calendar.cycles,[],comparisons,baselines);
+  const candidateResults=await Promise.all(candidateResponses);
+  assert.equal(candidateResults.length,calendar.cycles.reduce((sum,cycle)=>sum+['01','02'].filter(suffix=>!baselines.some(record=>Number(record.year)===Number(cycle.year)&&record.orderWeek===`${cycle.majorWeek}-${suffix}`)).length,0));
+  assert.ok(candidateResults.every(result=>result.success===true && result.readOnly===true && Array.isArray(result.preview?.rows)),'every unconfirmed scope must load successfully');
+  const candidates=candidateResults.map(result=>({...result.preview,provisional:true}));
+  const rawMatrix=buildHorizontalWeekdayMatrix(calendar.cycles,[],comparisons,baselines,candidates);
   const expectedRows=rawMatrix.rows.filter(hasHorizontalShipmentQuantity);
   assert.equal(rows,expectedRows.length,'Positive current shipment or retained positive baseline products are visible');
   assert.ok(rows<rawMatrix.rows.length,'Live order-only/zero rows are hidden, not removed from ERP sources');
@@ -88,7 +95,7 @@ try {
     assert.match(await tableRow.locator('th').getAttribute('title'),new RegExp(`품목 ${row.prodKey}(?:\\n|$)`));
     assert.ok((await tableRow.locator('th').getAttribute('title')).includes(row.name),'original product identity remains in tooltip');
     for(const [blockIndex,block] of row.blocks.entries()) {
-      for(const [suffixIndex,initial] of [block.initial01,block.initial02].entries()) {
+      for(const [suffixIndex,initial] of [block.initial01 || block.provisional01,block.initial02 || block.provisional02].entries()) {
         assert.equal(await tableRow.locator('.wcm-initial').nth(blockIndex*2+suffixIndex).innerText(),weekdayQuantityLabel(initial?.quantity,row,block.unit));
       }
       const quoteResult=startupQuotes.find(({scope})=>Number(scope.year)===Number(block.cycle.year)&&String(scope.majorWeek)===String(block.cycle.majorWeek));
@@ -150,6 +157,7 @@ try {
     assert.equal(await page.getByLabel('조회 연도').inputValue(),String(target.year));
     assert.equal(await page.getByLabel('중심 차수',{exact:true}).inputValue(),String(target.majorWeek));
     assert.match(await page.locator('.wcm-current-head').innerText(),new RegExp(`${target.year} / ${target.majorWeek}차`));
+    assert.equal(await page.locator('thead .wcm-initial').filter({hasText:'조회 실패'}).count(),0,'all provisional scopes must load after moving center');
     centerMoves.push(`${target.year}/${target.majorWeek}`);
   }
   await page.setViewportSize({width:1280,height:800});
@@ -157,5 +165,5 @@ try {
     overflow:document.querySelector('.wcm-table-scroll').scrollWidth>document.querySelector('.wcm-table-scroll').clientWidth}));
   assert.ok(narrow.width<=1281);assert.equal(narrow.overflow,true);
   assert.deepEqual(errors,[]);assert.deepEqual(writes,[]);
-  console.log(JSON.stringify({livePass:true,viewport:'1920x1080',zoom:'100%',cycleColumns:33,productWidth:260,prefixStrippedLabels:true,rows,sourceRows:rawMatrix.rows.length,hiddenRows:rawMatrix.rows.length-rows,baselineRecords:baselines.length,baselineGetResponses:baselineResults.length,baselinePreviewRows:baselinePreview.preview.rows.length,noteGetResponses:notes.length,startupQuoteRequests:startupQuotes.length,managementGetRequests:managementResults.length,centerMoves,dimensions,narrow,majorPrintRows:major.items.length,dailyPrintRows:dailyRows,errors,noErpWrites:true,noBaselineOrNoteWrites:true}));
+  console.log(JSON.stringify({livePass:true,viewport:'1920x1080',zoom:'100%',cycleColumns:33,productWidth:260,prefixStrippedLabels:true,rows,sourceRows:rawMatrix.rows.length,hiddenRows:rawMatrix.rows.length-rows,baselineRecords:baselines.length,baselineGetResponses:baselineResults.length,automaticProvisionalScopes:candidates.map(record=>`${record.year}/${record.orderWeek}`),provisionalCells:await page.locator('tbody .wcm-provisional').count(),baselinePreviewRows:baselinePreview.preview.rows.length,noteGetResponses:notes.length,startupQuoteRequests:startupQuotes.length,managementGetRequests:managementResults.length,centerMoves,dimensions,narrow,majorPrintRows:major.items.length,dailyPrintRows:dailyRows,errors,noErpWrites:true,noBaselineOrNoteWrites:true}));
 } finally{await browser.close();}
