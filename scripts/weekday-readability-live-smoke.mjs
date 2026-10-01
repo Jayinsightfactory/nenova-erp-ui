@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 const base='https://nenovaweb.com';
 assert.ok(process.env.SMOKE_USER && process.env.SMOKE_PASSWORD && process.env.PLAYWRIGHT_MODULE);
-const {chromium}=await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
+const playwright=await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
+const chromium=playwright.chromium || playwright.default?.chromium || playwright['module.exports']?.chromium;
+assert.ok(chromium, 'the approved Playwright module must expose chromium');
 const browser=await chromium.launch({headless:true,channel:'chrome',ignoreDefaultArgs:['--hide-scrollbars']});
 const context=await browser.newContext({viewport:{width:1920,height:1080},deviceScaleFactor:1});
 try {
