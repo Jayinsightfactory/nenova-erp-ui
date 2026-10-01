@@ -217,6 +217,7 @@ assert.match(html, /FlowerName|CARNATION/);
 assert.match(html, /min-width:3032px/);
 assert.match(html, /tbody tr:is\(:hover,:focus-within\)/);
 assert.match(html, /font-size:13px/);
+assert.match(html, /\.wcm-cell input:disabled \{ opacity:0; pointer-events:none; \}/,'locked cells display only their number span, not a duplicate input');
 assert.match(html, /thead th \{ position:static; top:auto;/);
 assert.match(html, /tbody th \{ position:sticky; top:auto; left:0;/);
 assert.match(html, /aria-label="38차 목 견적 출력"[^>]*>출력<\/button>/);

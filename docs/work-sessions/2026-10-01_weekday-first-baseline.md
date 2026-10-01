@@ -99,6 +99,14 @@ A. 확정 기준이 없는 미확정 preview는 역사 잔량에 쓰지 않았�
 숫자/차이 겹침 없음, 오류0 확인. 최종 build와 독립 읽기 검토 승인.
 배포 여부는 PR 및 Cafe24 workflow 성공과 운영 읽기 전용 smoke로 판정한다.
 
+### 7. 운영 잠긴 셀의 이중 숫자 후속 수정
+
+PR842 배포/운영 smoke는 성공했으나 실제 캡처를 직접 검토하니 업무차수 복수 등으로
+잠긴 셀의 input:disabled opacity1 규칙이 숫자 span과 입력값을 동시에 그렸다.
+잠긴 입력은 opacity0/pointer-events:none으로 고정하고 표시 span만 유지한다.
+업무 가드·원본 수량·잔량 계산·ERP 원장은 변경하지 않는다. source 회귀와 운영의
+실제 disabled 입력 전체의 opacity/pointer-events 검사를 추가한다.
+
 ### 5. 최초분배 칸이 모두 비어 있음 — 후속 수정
 
 Q. 운영 화면의 최초분배 값이 표시되지 않는다.

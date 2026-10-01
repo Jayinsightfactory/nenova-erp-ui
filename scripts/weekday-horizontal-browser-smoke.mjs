@@ -48,7 +48,7 @@ const productLabel=product=>weekdayProductLabel({name:product.ProdName});
 const comparisonRow=(orderWeek,prodKey)=>{
   const cycle=cycles.find(row=>row.majorWeek===orderWeek.slice(0,2));
   assert.ok(cycle,`fixture scope is an existing calendar cycle: ${orderWeek}`);
-  const day=cycle.days[orderWeek.endsWith('01')?0:4];
+  const day=cycle.days[orderWeek.endsWith('01')||prodKey===103?0:4];
   const date=day.date;
   if(prodKey===newCustomerProduct.ProdKey)return {year:2026,orderWeek,custKey:533,prodKey,prodName:newCustomerProduct.ProdName,
     flowerName:newCustomerProduct.FlowerName,outUnit:newCustomerProduct.OutUnit,estUnit:'송이',fixed:false,state:'NO_SHIPMENT',
@@ -200,6 +200,11 @@ try {
   assert.equal(await page.locator('.wcm-number-display').first().evaluate(el=>getComputedStyle(el).fontSize),'13px');
   assert.equal(await page.locator('.wcm-number-display').first().evaluate(el=>getComputedStyle(el).fontWeight),'600');
   assert.equal(await page.locator('.weekday-cycle-matrix').evaluate(el=>getComputedStyle(el).color),'rgb(15, 23, 42)');
+  const locked=page.getByLabel('CARNATION 품목 03 2026/38-01 2026-09-17 미적용 초안 수량',{exact:true});
+  assert.equal(await locked.isDisabled(),true,'two actual business weeks block editing');
+  assert.equal(await locked.evaluate(el=>getComputedStyle(el).opacity),'0','locked input must not overlay the displayed number');
+  assert.equal(await locked.evaluate(el=>getComputedStyle(el).pointerEvents),'none');
+  assert.equal(await locked.locator('..').locator('.wcm-number-display').innerText(),'4','readonly combined quantity remains visible once');
   await page.getByRole('button',{name:'현재 38차 보기',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.wcm-table-scroll').scrollLeft>800);
   await page.getByRole('button',{name:'이전 37차 보기',exact:true}).click();

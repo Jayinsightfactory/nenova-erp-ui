@@ -66,6 +66,9 @@ try {
   assert.equal(await page.locator('.wcm-number-display').first().evaluate(el=>getComputedStyle(el).fontSize),'13px');
   assert.equal(await page.locator('.wcm-number-display').first().evaluate(el=>getComputedStyle(el).fontWeight),'600');
   assert.equal(await page.locator('.weekday-cycle-matrix').evaluate(el=>getComputedStyle(el).color),'rgb(15, 23, 42)');
+  const lockedInputs=await page.locator('.wcm-cell input:disabled').evaluateAll(els=>els.map(el=>({opacity:getComputedStyle(el).opacity,pointerEvents:getComputedStyle(el).pointerEvents})));
+  assert.ok(lockedInputs.length>0,'live guard-disabled business cells must be inspected');
+  assert.ok(lockedInputs.every(input=>input.opacity==='0'&&input.pointerEvents==='none'),'disabled input cannot duplicate the visible quantity');
   const hovered=page.locator('.wcm-table-scroll tbody tr').first();
   await hovered.locator('th').hover();
   assert.ok((await hovered.locator('th,td').evaluateAll(els=>els.map(el=>getComputedStyle(el).boxShadow))).every(value=>value!=='none'));
