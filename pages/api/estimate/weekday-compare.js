@@ -56,7 +56,9 @@ export default withAuth(async function handler(req, res) {
                 CONVERT(nvarchar(10), sdd.ShipmentDtm,120) AS ShipmentDate,
                 CONVERT(nvarchar(23), sdd.ShipmentDtm,121) AS ShipmentTimestamp,
                 pd.WeekDay, ISNULL(sdd.ShipmentQuantity,0) AS ShipmentQuantity,
-                ISNULL(sdd.EstQuantity,0) AS EstimateQuantity
+                ISNULL(sdd.EstQuantity,0) AS EstimateQuantity,
+                CAST(ISNULL(sd.isFix,0) AS int) AS DetailFixed,
+                sdd.Cost, sdd.Amount, sdd.Vat
            FROM ShipmentMaster sm
            JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey AND sd.CustKey = sm.CustKey
            JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
@@ -102,7 +104,8 @@ export default withAuth(async function handler(req, res) {
       const list = dates.get(key) || [];
       list.push({ date: row.ShipmentDate, timestamp: row.ShipmentTimestamp, sdateKey: row.SdateKey,
         sdetailKey: row.SdetailKey, shipmentKey: row.ShipmentKey, weekDay: row.WeekDay,
-        shipmentQuantity: Number(row.ShipmentQuantity) || 0, estimateQuantity: Number(row.EstimateQuantity) || 0 });
+        shipmentQuantity: Number(row.ShipmentQuantity) || 0, estimateQuantity: Number(row.EstimateQuantity) || 0,
+        detailFixed:Number(row.DetailFixed)===1,cost:row.Cost==null?null:Number(row.Cost),amount:row.Amount==null?null:Number(row.Amount),vat:row.Vat==null?null:Number(row.Vat) });
       dates.set(key, list);
     }
     const rows = [];

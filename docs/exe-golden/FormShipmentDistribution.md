@@ -308,3 +308,18 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
   여러 원문은 완료 근거가 아니다. 이력 부재도 미적용의 증거가 아니다.
 - 이번 기능은 이 SELECT 연결 의미를 사용한 참고 대조이며 확정·주문·분배·
   재고 프로시저와 원장 쓰기 경로를 변경하지 않는다.
+
+## 2026-10-01 주광 페이지 최초 기준 / 변경 비교
+
+- 설치 EXE를 로컬 `dnSpy.Console.exe --no-color -t FormShipmentDistribution`으로
+  다시 읽었다. `btnFix_Click`은 미저장 변경을 차단하고 `uspShipmentFix` 다음
+  `uspStockCalculation`을 호출한다. 이 공용 확정 경로는 재고 부작용이 있다.
+- 사용자의 최신 답변은 **주광 페이지에서만 확정**이다. 따라서 새 최초 기준 버튼은
+  공용 SP/isFix를 호출하거나 변경하지 않는다. 실제 현재 분배/날짜별 수량을 동일
+  OrderYear+OrderWeek+CustKey+ProdKey로 SELECT하여 전용 불변 기록에 보관한다.
+- `btnSave_Click`의 기존 날짜 재생성 의미는 보존한다. 다른 화면에서 날짜/수량이
+  바뀌면 새 현재값과 최초 날짜분포를 비교하며, 원장을 자동 복구/재확정하지 않는다.
+- 최초 대비 분배 잔량과 ERP 재고를 구분한다. 미래 입고 원천의 자동 역추정은 하지
+  않으며, 담당자 수동 선출고 기록은 출고 단위/실제 날짜수량/미래 달력 범위를 검사한다.
+- 견적 대조는 `FormEstimateView.GetPrintDetail`의 저장된 EstQuantity·단가별 반올림·
+  Amount/Vat를 기준으로 한다. OutUnit 분배수량과 견적단위를 혼합 합산하지 않는다.
