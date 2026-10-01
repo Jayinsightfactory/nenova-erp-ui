@@ -384,3 +384,14 @@ EXE 호환 조회의 `ViewShipment`와 `ViewOrder` 결합에서 같은 업무키
 하나의 `SdateKey`가 조회 결과에 반복될 수 있다. 이 경우 웹은 같은 실제 기본키만 한 번
 표시한다. 서로 다른 `SdateKey`를 품목명이나 날짜가 같다는 이유로 합치지 않는다.
 이 정리는 조회 결과와 브라우저 입력 상태에만 적용하며 ERP 원장을 추가·수정·삭제하지 않는다.
+
+## 2026-10-01 주광 화면의 견적 관리 합계 대조
+
+- 주광의 요일별 출력은 공통 `GetPrintDetail` SQL과 ReportEstimate HTML을 재사용한다.
+- `GetPrintDetail`은 ProdKey+단가별 EstQuantity를 합산한 뒤 ROUND(...,0),
+  Amount/Vat는 저장 합계를 사용한다. 최초 기준/화면 초안/OutUnit 환산은 포함하지 않는다.
+- 기존 견적관리 `/api/estimate?year&week&custKey&byDate=1&itemsOnly=1`은 `GetDetail`
+  실제 날짜행을 읽으며 상세 Qty 및 등록 차감까지 화면 총수량에 포함한다.
+  주광은 동일 범위의 이 값을 별도 읽어 인쇄 순수량/금액과 대조한다. 날짜별 반올림과
+  단가별 반올림의 차이, 조회 실패 또는 단위 불명은 일치로 덮지 않는다.
+- 이 대조는 SELECT-only이며 Estimate/ShipmentDate/분배 확정·재고에 쓰지 않는다.
