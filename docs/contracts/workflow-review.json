@@ -1,0 +1,37 @@
+{
+  "id": "workflow-review",
+  "title": "직원 본인 업무흐름 확인(웹 전용 저장) 계약",
+  "scope": [
+    "pages/my-work.js",
+    "pages/api/work/workflow-review.js",
+    "lib/workFlowOwners.js",
+    "lib/workflowReviewStore.js",
+    "scripts/apply-workflow-review-migration.mjs"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "WORKFLOW_REVIEW_SAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": ["WebWorkflowReview"] },
+    { "name": "WORKFLOW_REVIEW_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "ERP 주문·출고·재고·견적을 읽거나 쓰지 않는다. 웹 전용 WebWorkflowReview 에 (ErpUserId, WorkflowName) 단위로 저장하며 OrderYear/OrderWeek 와 무관하다."
+  },
+  "requiredTestFiles": [
+    "__tests__/workflowReview.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "업무흐름 확인은 nenova.exe 기능이 아닌 웹 전용 기능이며 ERP 테이블 side effect는 모두 preserve다.",
+    "methods": ["NenovaWeb JWT UserInfo.UserID claim check (본인 판정만 저장)"],
+    "tables": ["UserInfo (login source only; no write)", "OrderDetail (preserve)", "ShipmentDetail (preserve)"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

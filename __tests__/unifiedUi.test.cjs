@@ -11,5 +11,5 @@ assert.ok(!/\.tbl\s+td\s*\{[^}]*background\s*:/s.test(css),'semantic cell backgr
 assert.ok(!/fetch\(|apiPost|window\./.test(css));
 const block = fs.readFileSync('components/Layout.js','utf8').match(/export const MENU_ITEMS = \[([\s\S]*?)\n\];/)[1];
 const routes=[...block.matchAll(/href:\s*'([^']+)'/g)].map(m=>m[1]);
-for(const route of routes) assert.ok([`pages${route}.js`,`pages${route}/index.js`].some(fs.existsSync),route);
+for(const full of routes){ const route=full.split('?')[0]; assert.ok([`pages${route}.js`,`pages${route}/index.js`].some(fs.existsSync),route); }
 console.log(`Unified UI contract: ${routes.length} menu routes, screen-only theme, table geometry/semantic colors preserved.`);

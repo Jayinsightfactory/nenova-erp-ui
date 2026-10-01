@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const api = fs.readFileSync('pages/api/work/workflow-review.js', 'utf8');
+const store = fs.readFileSync('lib/workflowReviewStore.js', 'utf8');
+const owners = fs.readFileSync('lib/workFlowOwners.js', 'utf8');
+const page = fs.readFileSync('pages/my-work.js', 'utf8');
+assert.match(api, /withAuth\(handler\)/);
+assert.match(api, /workflowOwnerOf\(req\.user\)/, '본인 판정은 토큰의 userId 로만 정해야 합니다.');
+assert.doesNotMatch(api, /body\.(userId|personName|erpUserId|name)/, '바디의 사용자 식별값을 쓰면 안 됩니다.');
+assert.match(store, /assertWebSchemaContract\('workflow-review'/);
+assert.match(owners, /nenovaSS1/);
+const mine = page.slice(page.indexOf('function MyFlowTab'), page.indexOf('export default function MyWorkPage'));
+assert.ok(mine.length > 100, 'MyFlowTab 이 있어야 합니다.');
+assert.doesNotMatch(mine, /감시|추적|모니터링/, '직원 대상 문구에 감시·추적·모니터링 금지');
+console.log('workflowReview ok');
