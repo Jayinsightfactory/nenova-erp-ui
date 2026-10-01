@@ -32,9 +32,11 @@ function fakeWorld({ lockedTimes = 0 } = {}) {
   const postOrder = async (body) => {
     posts.push(body);
     if (locked > 0) { locked -= 1; return { status: 409, body: { success: false, code: 'ERP_EDIT_LOCKED' } }; }
+    assert.equal(body.source, 'my-customer'); assert.equal(body.orderMode, 'REPLACE');
     for (const it of body.items) {
       const k = `${body.custKey}|${body.year}|${body.week}|${it.prodKey}`;
-      orders.set(k, Math.max(0, (orders.get(k) || 0) + it.qty)); // 실제 API 처럼 가산
+      if ((orders.get(k) || 0) !== it.expectedCurrentQty) return { status: 409, body: { success: false, code: 'STALE_CURRENT_QTY' } };
+      orders.set(k, it.qty); // 내 업체 REPLACE: 절대수량
     }
     return { status: 201, body: { success: true, orderMasterKey: 6828 } };
   };
@@ -51,7 +53,7 @@ function fakeWorld({ lockedTimes = 0 } = {}) {
   w.orders.set('1|2026|41-01|10', 1);
   let r = await ex.executePlan(w.deps, { ...base, requestId: 'req-a' });
   assert.equal(r.status, 'DONE');
-  assert.deepEqual(w.posts[0].items, [{ prodKey: 10, qty: 2, unit: '단' }], '현재 1 → 목표 3 이면 +2 만 보내야 함');
+  assert.deepEqual(w.posts[0].items, [{ prodKey: 10, qty: 3, unit: '단', expectedCurrentQty: 1 }], '현재 1 → 목표 3 절대값+현재값 잠금');
   assert.equal(w.orders.get('1|2026|41-01|10'), 3);
   assert.equal(w.ledger.get('req-a').Status, 'DONE');
 
@@ -69,7 +71,7 @@ function fakeWorld({ lockedTimes = 0 } = {}) {
   // cancelPlan = 정확한 음수 delta (적용분 +2 만 되돌림 → 1)
   r = await ex.cancelPlan(w.deps, 'req-a');
   assert.equal(r.status, 'DONE');
-  assert.deepEqual(w.posts[1].items, [{ prodKey: 10, qty: -2, unit: '단' }]);
+  assert.deepEqual(w.posts[1].items, [{ prodKey: 10, qty: 1, unit: '단', expectedCurrentQty: 3 }]);
   assert.equal(w.orders.get('1|2026|41-01|10'), 1);
   r = await ex.cancelPlan(w.deps, 'req-a');
   assert.equal(r.status, 'SKIPPED_DUPLICATE', '취소도 멱등');
