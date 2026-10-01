@@ -8,8 +8,8 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
-    { "name": "ORDER_EXEC_TARGET", "orderDetail": "replace-nonnegative", "shipmentDetail": "preserve", "writeAllowlist": ["WebOrderExecLedger"], "via": "POST /api/orders (delta only)" },
-    { "name": "ORDER_EXEC_CANCEL", "orderDetail": "decrease", "shipmentDetail": "preserve", "writeAllowlist": ["WebOrderExecLedger"], "via": "POST /api/orders (exact negative of ledger-applied delta)" },
+    { "name": "ORDER_EXEC_TARGET", "orderDetail": "replace-nonnegative", "shipmentDetail": "preserve", "writeAllowlist": ["WebOrderExecLedger"], "via": "POST /api/orders source=my-customer orderMode=REPLACE (absolute target, expectedCurrentQty=OutQuantity)" },
+    { "name": "ORDER_EXEC_CANCEL", "orderDetail": "decrease", "shipmentDetail": "preserve", "writeAllowlist": ["WebOrderExecLedger"], "via": "POST /api/orders source=my-customer orderMode=REPLACE (target = current - ledger-applied delta)" },
     { "name": "ORDER_EXEC_DRY", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] }
   ],
   "crossYearFixture": {
@@ -23,8 +23,8 @@
   "dnspyEvidence": {
     "required": true,
     "record": "docs/exe-golden/README.md",
-    "source": "실행기는 ERP 를 직접 쓰지 않고 기존 POST /api/orders(createOrder, FormOrderAdd 가산 경로)만 호출한다. 직접 쓰기는 웹 전용 WebOrderExecLedger 뿐이며 분배/출고는 호출하지 않는다.",
-    "methods": ["POST /api/orders createOrder (existing contract)", "usp_StockCalculation (createOrder 내부, ProductStock 불변 실측)"],
+    "source": "실행기는 ERP 를 직접 쓰지 않고 기존 POST /api/orders(createOrder)의 내 업체 절대모드(REPLACE, FormOrderAdd 이식 myCustomerOrderAllUnits 환산, SteamOf1Bunch 반영)만 호출한다. 일반 경로 toAllUnits 는 BunchOf1Box=0 품목 송이->단을 0으로 저장하므로 쓰지 않는다. REPLACE 는 FormOrderAdd EditMode=2 와 같이 runStockCalculation 을 생략한다. 직접 쓰기는 웹 전용 WebOrderExecLedger 뿐이며 분배/출고는 호출하지 않는다.",
+    "methods": ["POST /api/orders createOrder (existing contract)", "myCustomerOrderAllUnits (FormOrderAdd.UnitQuantity 이식)", "usp_StockCalculation 생략(REPLACE, ProductStock 불변 실측)"],
     "tables": ["OrderMaster/OrderDetail (via /api/orders)", "ShipmentMaster (read-only refuse check)", "WebOrderExecLedger (web-only write)"]
   },
   "requiredCommands": [
