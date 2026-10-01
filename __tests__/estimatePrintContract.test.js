@@ -123,13 +123,21 @@ assert.match(sql, /ProductSortLookup/);
 assert.match(sql, /pd\.WeekDay IN \(2,3\)/);
 
 const pageSource = fs.readFileSync(new URL('../pages/estimate.js', import.meta.url), 'utf8');
+const builderSource = fs.readFileSync(new URL('../lib/estimatePrintHtml.js', import.meta.url), 'utf8');
+assert.match(pageSource, /import \{ buildEstimateHtml \} from '\.\.\/lib\/estimatePrintHtml\.js'/,
+  '기존 페이지도 주광 페이지와 공유할 순수 HTML 빌더를 사용한다.');
+assert.doesNotMatch(pageSource, /function buildEstimateHtml\(/, '페이지에 private 빌더를 중복 유지하지 않는다.');
+assert.match(pageSource, /iframe\.onload\s*=\s*\(\)\s*=>/, '인쇄 시점은 caller iframe이 소유한다.');
+assert.match(pageSource, /iframe\.contentWindow\.print\(\)/);
+assert.doesNotMatch(builderSource, /window\.(?:onload|print|close|onafterprint)/,
+  '공통 빌더는 자동 인쇄 또는 부모 페이지 닫기 스크립트를 넣지 않는다.');
 assert.match(pageSource, /showDeductionDescr:\s*false/, '인쇄 표시 옵션은 미표시가 기본값이다.');
 assert.match(pageSource, /불량차감 적요 표시/);
-assert.match(pageSource, /const descr = descLabel\(r\)/, 'EXE 인쇄도 descLabel로 불량차감 적요를 숨긴다.');
+assert.match(builderSource, /const descr = descLabel\(r\)/, 'EXE 인쇄도 descLabel로 불량차감 적요를 숨긴다.');
 assert.match(pageSource, /printDetail:\s*'1'/);
 assert.match(pageSource, /weekDays:\s*\[\.\.\.activeWD\]/);
-assert.match(pageSource, /'견 적 서'/);
-assert.match(pageSource, /UnitQuantity/);
+assert.match(builderSource, /'견 적 서'/);
+assert.match(builderSource, /UnitQuantity/);
 assert.match(pageSource, /setActiveWD\(new Set\(WEEKDAYS\)\)/, '업체 선택 시 전체 출고요일을 기본 활성화한다.');
 assert.doesNotMatch(
   pageSource,
@@ -142,7 +150,7 @@ assert.match(pageSource, /한글입력/, '거래처 검색 입력 모드를 표�
 assert.match(pageSource, /영문입력/, '영문 거래처명과 코드 검색으로 전환할 수 있다.');
 assert.match(pageSource, /showDeductionDescr:\s*false/, '인쇄 불량차감 적요는 미표시가 기본값이다.');
 assert.match(pageSource, /불량차감 적요 표시/, '인쇄 다이얼로그에 불량차감 적요 표시 체크가 있다.');
-assert.doesNotMatch(pageSource, /_exePrint \? \(r\.Descr/, 'EXE 인쇄도 descLabel을 경유해 불량차감 적요 옵션을 따른다.');
+assert.doesNotMatch(builderSource, /_exePrint \? \(r\.Descr/, 'EXE 인쇄도 descLabel을 경유해 불량차감 적요 옵션을 따른다.');
 assert.equal((pageSource.match(/sortEstimateShipmentsForPrint\(/g) || []).length >= 2, true,
   '견적서 인쇄와 동일양식 Excel 모두 같은 담당자 정렬 함수를 사용한다.');
 

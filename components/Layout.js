@@ -76,6 +76,7 @@ export const MENU_ITEMS = [
       { href: '/pre-shipment',           labelKey: '선출고·후출고 관리', popup: false },
       { href: '/shipment/exe-errors',    labelKey: '전산 오류 진단', popup: false },
       { href: '/estimate',            labelKey: '견적서 관리',  popup: true },
+      { href: '/estimate/weekday',    labelKey: '주광 견적서',  popup: true },
     ]
   },
   {

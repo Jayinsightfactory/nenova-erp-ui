@@ -230,6 +230,8 @@ jobs:
             node scripts/apply-pnl-special-notes-migration.mjs --apply || exit 1
             echo "=== 매출원가 원천시트 스냅샷 스키마 적용 ==="
             node scripts/apply-profit-workbook-snapshot-migration.mjs --apply || exit 1
+            echo "=== 매출이익 보고서 계산 스냅샷·확정 스키마 적용 ==="
+            node scripts/apply-profit-report-snapshot-migration.mjs --apply || exit 1
             echo "=== 엑셀 출고분배 전체 되돌리기 스키마 적용 ==="
             node scripts/apply-shipment-import-snapshot-migration.mjs --apply
             echo "=== build ==="

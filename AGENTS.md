@@ -78,6 +78,8 @@ npm run build
 
 확정 시 음수재고가 발생하면 부족 품목·부족수량을 표시하고, 사용자가 명시적으로 확인한 경우에만 부족수량만큼 `StockHistory(ChangeType='재고조정')`를 기록한 뒤 재고 재계산·재확정을 수행한다. 이력 등록과 재계산은 한 트랜잭션으로 묶고 재계산 실패 시 롤백한다.
 
+견적서 확정수량 수정은 후속연도 `StockMaster`/`ProductStock` 스냅샷의 **존재 자체를 오류로 차단하지 않는다**. `usp_StockCalculation`은 `OrderYearWeek >= 선택차수`를 연도 경계 뒤까지 순회해 영향 `ProdKey`를 연쇄 재계산한다. 따라서 저장 전 `FUTURE_STOCK_SNAPSHOT_EXISTS` 류의 선차단은 금지하고, 동일 트랜잭션에서 native 재계산 후 선택차수 이상의 현재·후속연도 `ProductStock`이 `ROUND(Stock,3)<0`인 경우만 전체 롤백한다. 근거는 `docs/ERP_CHANGE_GUARD.md`의 `2026-09-30 견적 수량 수정의 후속연도 스냅샷 범위`와 `docs/contracts/estimate-date-quantity.json`을 따른다.
+
 ## 세션 Q&A 백업 (기본)
 
 의미 있는 작업이 끝나거나 사용자가 백업·컨텍스트 초기화를 말하면 `docs/work-sessions/YYYY-MM-DD_{slug}.md`에 질문→답변을 남기고 `docs/work-sessions/INDEX.md`를 갱신한다. 규칙 `.cursor/rules/session-qa-log.mdc`, 스킬 `.cursor/skills/session-qa-backup/SKILL.md`. 새 채팅은 대화 기억이 아니라 최근 세션 md를 읽는다.

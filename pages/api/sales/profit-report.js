@@ -25,6 +25,7 @@ import { getActiveConfirm } from '../../../lib/profitReportConfirm.js';
 import manualInputManifest from '../../../data/profit-report-evidence/manual-input-manifest.v1.json';
 import { getHistoricalClosingInventoryEvidence } from '../../../lib/profitReportHistoricalInventory';
 import { resolveCarriedRatesForCategories, createWeekContextCache, CARRIED_RATE_SOURCE } from '../../../lib/profitReportTaxableRateCarry.js';
+import { readProfitReportWithSnapshot, refreshProfitReportSnapshot, snapshotHistory } from '../../../lib/profitReportSnapshot.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -710,12 +711,17 @@ async function buildConfirmedPayload(major, orderYear, activeConfirmResult) {
 
 /** GET/엑셀/월별 보기 공용 진입점 — 활성 확정 스냅샷이 있으면 그 저장값만 반환하고,
  * 없으면 loadReportData()의 라이브 미리보기를 반환한다. */
-export async function loadWeeklyReportPayload(major, orderYear) {
+export async function loadWeeklyReportPayload(major, orderYear, { preferLive = true } = {}) {
   const activeConfirm = await getActiveConfirm(orderYear, major);
   if (activeConfirm.initialized && activeConfirm.confirm) {
     return buildConfirmedPayload(major, orderYear, activeConfirm);
   }
-  return loadReportData(major, orderYear);
+  // 계산 결과 스냅샷(웹 전용): 원천 지문이 같으면 저장본을 즉시 반환한다(읽기 전용, INSERT 없음).
+  // preferLive=true(기본): 원천이 바뀌었으면 저장 없이 라이브 계산값 — 엑셀·분석·월별이 항상 최신값을 쓴다.
+  // preferLive=false(보고서 화면): 저장본 즉시 반환 + 변경 내역, 화면이 POST snapshotRefresh 로 새 버전 저장.
+  const data = await readProfitReportWithSnapshot(major, orderYear, loadReportData, { preferLive });
+  if (!data.manualInputManifest) data.manualInputManifest = manualInputManifest;
+  return data;
 }
 
 /**
@@ -779,8 +785,13 @@ export default withAuth(async function handler(req, res) {
         return res.status(200).json({ success: true, ...list });
       }
 
-      // 활성 확정 스냅샷이 있으면 그 저장값만 반환하고, 없으면 라이브 미리보기를 반환한다(화면과 동일 소스).
-      const data = await loadWeeklyReportPayload(major, orderYear);
+      if (req.query.snapshotHistory === '1') {
+        return res.status(200).json({ success: true, major, orderYear, history: await snapshotHistory(orderYear, major) });
+      }
+
+      // 활성 확정 스냅샷이 있으면 그 저장값만 반환하고, 없으면 계산 결과 스냅샷(원천 변경 없으면 저장본 즉시)을 반환한다.
+      // 화면 조회는 변경이 감지돼도 저장본을 먼저 보여 주고(needsRefresh), 엑셀은 항상 최신 계산값을 쓴다.
+      const data = await loadWeeklyReportPayload(major, orderYear, { preferLive: req.query.excel === '1' });
 
       // 엑셀 다운로드 — 원본 양식 템플릿에 값만 채워 100% 동일 구성으로. 화면과 동일하게
       // 확정본이 있으면 그 저장값(재계산 금지)을, 없으면 라이브 계산값을 쓴다.
@@ -808,6 +819,16 @@ export default withAuth(async function handler(req, res) {
       const { orderYear } = requireOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
       const activeConfirm = await getActiveConfirm(orderYear, major);
+      // [최신화] — 동기 재계산 후 웹 전용 스냅샷(WebProfitReportSnapshot)에 새 버전 INSERT. ERP 테이블은 SELECT 만.
+      if (req.body?.action === 'snapshotRefresh') {
+        if (activeConfirm.initialized && activeConfirm.confirm) {
+          const confirmed = await loadWeeklyReportPayload(major, orderYear);
+          return res.status(200).json({ success: true, major, orderYear, ...confirmed });
+        }
+        const data = await refreshProfitReportSnapshot(major, orderYear, loadReportData, { actor });
+        if (!data.manualInputManifest) data.manualInputManifest = manualInputManifest;
+        return res.status(200).json({ success: true, major, orderYear, ...data });
+      }
       if (activeConfirm.initialized && activeConfirm.confirm) {
         return res.status(409).json({ success: false, error: '확정된 보고서는 취소 후 새 revision에서만 입력값을 변경할 수 있습니다.', code: 'REPORT_ALREADY_CONFIRMED' });
       }

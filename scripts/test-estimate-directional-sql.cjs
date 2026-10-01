@@ -322,9 +322,11 @@ async function resetFixture(pool, options = {}) {
         VALUES (2601,2601,1,NULL,0,@incoming,@incoming,@incoming,@incoming,700,@incoming*700,16,1),
                (2501,2501,1,NULL,0,0,0,0,0,700,0,16,1);
       INSERT dbo.StockMaster (StockKey,OrderYear,OrderWeek,OrderYearWeek,isFix,CreateID)
-        VALUES (2501,N'2025',@week,N'20253402',1,N'admin'),(2601,@year,@week,N'20263402',1,N'admin'),(2603,@year,@week,N'20263403',1,N'admin');
+        VALUES (2501,N'2025',@week,N'20253402',1,N'admin'),(2601,@year,@week,N'20263402',1,N'admin'),(2603,@year,@week,N'20263403',1,N'admin'),
+               (2701,N'2027',N'01-01',N'20270101',1,N'admin');
       INSERT dbo.ProductStock (StockKey,ProdKey,Stock)
-        VALUES (2501,1,0),(2501,2,5),(2601,1,@currentSnapshot),(2601,2,5),(2603,1,@currentSnapshot),(2603,2,5);
+        VALUES (2501,1,0),(2501,2,5),(2601,1,@currentSnapshot),(2601,2,5),(2603,1,@currentSnapshot),(2603,2,5),
+               (2701,1,@currentSnapshot),(2701,2,5);
       INSERT dbo.CodeInfo (Category,Descr) VALUES (N'StockType',N'재고조정');
       INSERT dbo.FixtureNativeCalcControl (ControlKey,FailNext,FailureMessage)
         VALUES (1,0,N'fixture forced native calculation failure');
@@ -453,12 +455,20 @@ async function runTests(ctx, adapter) {
   assert(targetAfter.detail.OutQuantity === 9 && targetAfter.date.ShipmentQuantity === 9, 'decrease must update detail/date quantity');
   assert(isTrueBit(targetAfter.detail.isFix), 'decrease must preserve fixed state');
   assert(targetAfter.product.Stock === 11, 'fixed decrease must return one unit to Product.Stock');
+  assert(findOne(after, 'ProductStock', (r) => r.StockKey === 2701 && r.ProdKey === PROD_KEY).Stock
+    !== findOne(before, 'ProductStock', (r) => r.StockKey === 2701 && r.ProdKey === PROD_KEY).Stock,
+  'fixed decrease must cascade the affected ProductStock through the 2027 year boundary');
   await invoke(adapter, { operation: 'increase', ...common, fromOutQuantity: 9, toOutQuantity: 10 });
   const roundTrip = expectedTarget(await fixture.snapshot());
   for (const field of ['OutQuantity','EstQuantity','Amount','Vat','isFix']) assertDeepEqual(roundTrip.detail[field], targetBefore.detail[field], `round-trip detail ${field}`);
   for (const field of ['ShipmentQuantity','EstQuantity','Amount','Vat']) assertDeepEqual(roundTrip.date[field], targetBefore.date[field], `round-trip date ${field}`);
   assertDeepEqual(roundTrip.product.Stock, targetBefore.product.Stock, 'round-trip Product.Stock');
   assertDeepEqual(roundTrip.stock.Stock, targetBefore.stock.Stock, 'round-trip ProductStock');
+  assertDeepEqual(
+    findOne(await fixture.snapshot(), 'ProductStock', (r) => r.StockKey === 2701 && r.ProdKey === PROD_KEY).Stock,
+    findOne(before, 'ProductStock', (r) => r.StockKey === 2701 && r.ProdKey === PROD_KEY).Stock,
+    'round-trip future-year ProductStock',
+  );
 
   await fixture.reset();
   before = await fixture.snapshot();

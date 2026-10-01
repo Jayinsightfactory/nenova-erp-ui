@@ -11,6 +11,10 @@ try {
     .toString().trim();
 } catch (_) { /* ignore */ }
 
+// 매출이익 보고서 계산식 지문 — 계산 소스가 바뀐 배포면 저장된 차수 스냅샷이 자동으로 재계산 대상이 된다.
+let profitReportCalcHash = '';
+try { profitReportCalcHash = require('./lib/profitReportCalcHash.cjs').computeProfitReportCalcHash(__dirname); } catch (_) { /* ignore */ }
+
 const buildVersion = commitSha
   ? `v${pkg.version}·${commitSha}`
   : `v${pkg.version}`;
@@ -39,6 +43,7 @@ const nextConfig = {
   },
   env: {
     NEXT_PUBLIC_BUILD_VERSION: buildVersion,
+    PROFIT_REPORT_CALC_HASH: profitReportCalcHash,
   },
   async redirects() {
     // [2026-08-07] MOYI(업무 학습 도구) 설치를 회사 도메인으로 안내 — nenovaweb.com/install → MOYI 설치.

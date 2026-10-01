@@ -249,6 +249,7 @@ async function loadFreightData(res, keys, awbLabel) {
   const snap = existingSnapshot;
   const liveMaster = {
     warehouseKey: master.WarehouseKey,
+    orderWeek: master.OrderWeek || null, // 원가자료 엑셀 차수별 무게/CBM 표(lib/boxMetricTable.js)
     gw: snap?.GrossWeight ?? master.GrossWeight ?? 0,
     cw: snap?.ChargeableWeight ?? master.ChargeableWeight ?? 0,
     rateUSD: snap?.FreightRateUSD ?? master.FreightRateUSD ?? 0,
