@@ -6,7 +6,7 @@
 | 기간 | 2026-10-01 |
 | 화면 | 임원/대표 모바일 차수별 보고서 `/m/executive-volume` |
 | 원장 부작용 | 없음. ViewOrder/ViewWarehouse/ViewShipment + Product 읽기 전용, 엑셀 다운로드 |
-| 배포/PR | 구현·테스트·빌드 완료. PR/운영 배포/실 DB raw 대조는 미완료 |
+| 배포/PR | PR #844 생성 및 GitHub CI 통과. 운영 DB raw 대조/병합/Cafe24 배포는 미완료 |
 | 다음 채팅 힌트 | 작업 브랜치 `codex/director-volume-report`에서 contract, report, Q&A 및 배포 검증부터 이어간다. |
 
 ## 이어받을 때 고정된 결정
@@ -25,11 +25,11 @@
 
 **A.** Git 문서의 ERP View/품종단위/확정 출고 근거를 사용해 읽기 전용 API와 대표 권한 전용 모바일 페이지, 차수 선택, 표/단위별 그래프, Excel 파일을 구현했다. 운영 원장 저장이나 보정은 없다. 사용자가 “Git에서 데이터확인해서 작업하면 되잖아”라고 해 Git에서 버전 관리되는 SQL/계약/dnSpy 근거를 중심으로 구현을 계속했다. production DB 접속환경은 worktree에 없어서 별도 raw 행 수/합계 대조는 하지 않았다.
 
-**결과.** 순수 정책/교차연도 테스트, `npm run test:erp-contract`, `npm run test:nenova-dnspy-evidence`, 계약 manifest/write guard, `npm run build` 통과. 구현은 worktree branch에 미커밋 상태이며 운영 배포/실브라우저 스모크/PR는 아직 미완료.
+**결과.** 순수 정책/교차연도 테스트, `npm run test:erp-contract`, `npm run test:nenova-dnspy-evidence`, 계약 manifest/write guard, `npm run build`, GitHub PR CI 통과. `codex/director-volume-report`에 커밋 `f8d73bc1`을 푸시하고 PR #844를 열었다. 운영 배포/실브라우저 스모크는 미완료.
 
 ## 미완 / 다음 작업
 
-1. 운영 읽기 전용 DB에서 동일 `OrderYear + OrderWeek + Country + FlowerName + OutUnit` 조건으로 각 View 원천을 비교하고 숫자 대조 결과를 report에 기록한다. 쓰기는 금지.
-2. 실제 사용자 권한/DB 환경에 배포할 PR을 만들고 검증·승인 단계 진행.
-3. 배포 가능 조건 충족 후 Cafe24 배포, 1920×1080 및 모바일 브라우저 스모크, Excel 다운로드 열기 검증.
+1. 운영 읽기 전용 DB 또는 허용된 로그인 웹 조회 경로에서 동일 `OrderYear + OrderWeek + Country + FlowerName + OutUnit` 조건으로 각 View 원천을 비교하고 숫자 대조 결과를 report에 기록한다. 쓰기는 금지.
+2. 현재 열린 PR #844를 DB 대조 결과와 합쳐 재검토한다.
+3. 배포 가능 조건 충족 후 master 병합, Cafe24 배포, 1920×1080 및 모바일 브라우저 스모크, Excel 다운로드 열기 검증.
 4. 이 session note 외에 임시/probe 생성 파일은 없다.

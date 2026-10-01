@@ -35,7 +35,8 @@
 - 독립 계약 `docs/contracts/executive-volume-report.json` 및 교차연도/단위 fixture `__tests__/executiveVolumeReport.test.js`.
 - 기본 차수는 Git에 정의된 View의 실제 차수 중 최신이다. UI는 동일 사용자 인증 세션에서 선택 차수를 조회한다.
 - 수동/운영 데이터 수정 없음. 보고서 읽기 API의 실 DB 실행은 본 구현 환경에서 수행하지 않았다. 기존 웹 화면에서 재고 요약을 읽은 것을 원시 주문/입고/출고 세부행 대조로 주장하지 않는다.
-- 배포 전 필수: 새 기능 테스트, ERP 계약·dnSpy evidence gate, manifest·write-scope guard, Next build. ERP DB probe가 배포 게이트로 요구되는 경우, 운영 쓰기 없이 같은 연도/차수·국가·품종·단위의 View별 raw 합계를 비교할 읽기 전용 증거를 추가해야 한다.
+- 로컬 새 기능/전체 ERP 테스트, 계약·dnSpy evidence gate, manifest·write-scope guard, Next build 및 GitHub PR CI는 통과했다. PR #844 (`codex/director-volume-report` → `master`)은 open 상태다.
+- 배포 차단: 실제 ERP API/DB 연결이 되는 환경에서 동일 연도/차수·국가·품종·단위의 View별 raw 합계 대조를 아직 하지 않았다. 이 환경은 운영 DB 접속 설정이 없고 브라우저의 실시간 조회 API probe도 거부되어 raw 수량을 확인하지 못했다. 운영 데이터처럼 보이는 수치를 생성하지 않는다. PR merge/Cafe24 배포 및 실브라우저 스모크는 이 대조 후 진행한다.
 
 ## 회귀 위험
 
