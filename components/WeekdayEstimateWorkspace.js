@@ -201,7 +201,7 @@ export default function WeekdayEstimateWorkspace() {
     const isCurrent = () => request === carryoverRequest.current && requestedScope === currentScope.current;
     setCarryoverLoading(true); setCarryoverError('');
     try {
-      const result = await apiGet('/api/estimate/weekday-carryover', { year, majorWeek, custKey:Number(customer.CustKey) });
+      const result = await apiGet('/api/estimate/weekday-carryover', { year, majorWeek:String(majorWeek).padStart(2,'0'), custKey:Number(customer.CustKey) });
       if (!isCurrent()) return null;
       if (result.success !== true || result.readOnly !== true || !Array.isArray(result.records)
         || !Array.isArray(result.context?.cycles) || !Array.isArray(result.context?.inputs)

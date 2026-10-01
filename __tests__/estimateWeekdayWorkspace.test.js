@@ -28,6 +28,8 @@ assert.doesNotMatch(workspace, /ERP 적용 · 준비 중/);
 assert.match(workspace, /onPrint=\{openWeekdayPrint\}/);
 assert.match(workspace, /onEditCell=\{editGridCell\}/);
 assert.match(workspace, /q:'주광농원'/);
+assert.match(workspace, /weekday-carryover', \{ year, majorWeek:String\(majorWeek\)\.padStart\(2,'0'\)/,
+  'manual single-digit center input must use the same canonical scope as calendar and draft identity');
 assert.match(workspace, /exact.length===1/);
 assert.match(workspace, /defaultCustomerRequest.current \+= 1/);
 assert.match(workspace, /weekday-products/);
