@@ -62,6 +62,13 @@ try {
   const rows=await page.locator('.wcm-table-scroll tbody tr').count();assert.ok(rows>1);
   const dimensions=await page.evaluate(()=>({width:innerWidth,height:innerHeight,documentWidth:document.documentElement.scrollWidth,tableWidth:document.querySelector('.wcm-table-scroll table').getBoundingClientRect().width,visibleRows:[...document.querySelectorAll('.wcm-table-scroll tbody tr')].filter(row=>row.getBoundingClientRect().bottom<=innerHeight).length}));
   assert.equal(dimensions.width,1920);assert.equal(dimensions.height,1080);assert.ok(dimensions.documentWidth<=1921);
+  assert.ok(dimensions.tableWidth>=3032,'readable connected cycles scroll inside table');
+  assert.equal(await page.locator('.wcm-number-display').first().evaluate(el=>getComputedStyle(el).fontSize),'13px');
+  assert.equal(await page.locator('.wcm-number-display').first().evaluate(el=>getComputedStyle(el).fontWeight),'600');
+  assert.equal(await page.locator('.weekday-cycle-matrix').evaluate(el=>getComputedStyle(el).color),'rgb(15, 23, 42)');
+  const hovered=page.locator('.wcm-table-scroll tbody tr').first();
+  await hovered.locator('th').hover();
+  assert.ok((await hovered.locator('th,td').evaluateAll(els=>els.map(el=>getComputedStyle(el).boxShadow))).every(value=>value!=='none'));
   await page.screenshot({path:path.join(output,'production-1920x1080.png')});
   const calendar=await (await context.request.get(`${base}/api/estimate/weekday-calendar?year=2026&majorWeek=38`)).json();
   const comparisons=(await Promise.all(comparisonResponses)).flatMap(result=>result.rows||[]);
@@ -104,8 +111,12 @@ try {
       assert.ok(management,'management read uses the same year/major/customer business scope');
       const quote=reconcileWeekdayQuote(block,row.prodKey,{year:quoteResult.scope.year,majorWeek:quoteResult.scope.majorWeek,
         items:quoteResult.result.items,managementItems:management.result.items});
-      const expectedQuote=`견 ${quote.managementQuantity??quote.netQuantity??'—'}${quote.state==='견적 일치'?' ✓':quote.state==='견적 불일치'?' !':''}`;
-      assert.equal(await tableRow.locator('.wcm-quote').nth(blockIndex).innerText(),expectedQuote);
+      assert.equal(await tableRow.locator('.wcm-quote').nth(blockIndex).getAttribute('data-quantity'),String(quote.managementQuantity??quote.netQuantity??'—'));
+      for(const [segment,remainder] of [block.remainder01View,block.remainderMajorView].entries()) {
+        const total=tableRow.locator('.wcm-total').nth(blockIndex*2+segment);
+        assert.equal(await total.locator(':scope > span').innerText(),weekdayQuantityLabel(remainder.value,row,block.unit));
+        assert.equal(await total.locator('.wcm-remainder-status').innerText(),remainder.label);
+      }
     }
   }
   for(const cycle of calendar.cycles) {

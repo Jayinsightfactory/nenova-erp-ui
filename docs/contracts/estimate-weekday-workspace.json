@@ -49,7 +49,7 @@
       "shipmentDate": "preserve",
       "estimateRows": "preserve",
       "stock": "preserve",
-      "sideEffect": "확정 기록 없는 연도+전체 세부차수+업체만 기존 preview SELECT를 자동 조회하여 미확정 현재 분배량으로 표시한다. 자동 확정/파일 저장 없음. 최초 잔량/변경량 계산에는 사용하지 않으며 저장된 최초 기준이 우선한다. 늦은 응답과 범위별 실패를 격리한다."
+      "sideEffect": "확정 기록 없는 연도+전체 세부차수+업체만 기존 preview SELECT를 자동 조회하여 미확정 현재 분배량으로 표시한다. 자동 확정/파일 저장 없음. 역사 최초값/변경량에는 사용하지 않으며 미확정 예상잔량만 별도 계산한다. 저장된 최초 기준이 우선한다. 초안 편집 후 예상잔량은 즉시 주 숫자로 표시하며 저장 전산값은 별도 보존한다. CSS 행 hover/focus 강조는 ERP를 변경하지 않는다. 늦은 응답과 범위별 실패를 격리한다."
     },
     {
       "name": "WEEKDAY_PAGE_NOTE_AND_MANUAL_EARLY_SHIPMENT",

@@ -53,7 +53,7 @@ function QuantityCell({ day, row, block, disabled, onEditCell, onSelect, onOpenN
   const early=block.pageNote?.earlyShipment?.date===day.date?block.pageNote.earlyShipment:null;
   const earlyNeedsReview=early && (early.unit!==day.unit || day.displayCurrent==null || early.quantity>day.displayCurrent);
   return <div className={`wcm-cell${day.planned != null ? ' wcm-proposed' : ''}${changed?' wcm-changed':''}${early?' wcm-early':''}`} title={`${description}\n최초 ${numberLabel(day.initial)}${early?`\n수동확인 ${early.sourceYear}/${early.sourceOrderWeek}차 선출고 ${early.quantity} ${early.unit}`:''}${reason ? `\n${reason}` : ''}`}>
-    <span className="wcm-number-display" aria-hidden="true">{weekdayQuantityLabel(visibleQuantity,row,day.unit)}{changed && <small>({weekdayQuantityLabel(day.initial,row,day.unit)})</small>}</span>
+    <span className="wcm-number-display" aria-hidden="true">{weekdayQuantityLabel(visibleQuantity,row,day.unit)}</span>
     <input type="text" inputMode="decimal" value={value} placeholder="—" disabled={disabled || saving || Boolean(reason)}
       aria-label={`${row.name} ${block.cycle.year}/${day.effectiveOrderWeek} ${day.date} 미적용 초안 수량`}
       aria-invalid={Boolean(failure)} onFocus={() => onSelect(description)} onBlur={commit}
@@ -66,9 +66,10 @@ function QuantityCell({ day, row, block, disabled, onEditCell, onSelect, onOpenN
         if (event.key === 'Enter' && !event.nativeEvent?.isComposing) { event.preventDefault(); event.currentTarget.blur(); }
         if (event.key === 'Escape') { setInput(null); setFailure(''); }
       }} />
+    <div className="wcm-cell-detail">{changed && <small className="wcm-original">({weekdayQuantityLabel(day.initial,row,day.unit)})</small>}
     {(day.delta != null && day.delta !== 0 || reason) && <button type="button" className="wcm-cell-info"
       aria-label={`${row.name} ${day.date} 수량 내역`} onClick={() => onSelect(`${description}\n${reason}`)}>
-      {day.delta != null && day.delta !== 0 ? `${day.delta > 0 ? '+' : ''}${numberLabel(day.delta)}` : '!'}</button>}
+      {day.delta != null && day.delta !== 0 ? `Δ${day.delta > 0 ? '+' : ''}${numberLabel(day.delta)}` : '!'}</button>}</div>
     {failure && <span className="wcm-cell-error" role="alert">{failure}</span>}
     {early && <button type="button" className="wcm-early-label" aria-label={`${row.name} ${day.date} 선출고 비고`} onClick={()=>onOpenNote?.({row,block})}>{early.sourceOrderWeek.slice(0,2)}차 선출고 {weekdayQuantityLabel(early.quantity,row,early.unit)}{earlyNeedsReview?' · 재확인':''}</button>}
   </div>;
@@ -102,6 +103,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const [printError, setPrintError] = useState('');
   const [printing, setPrinting] = useState(false);
   const printLock = useRef(false);
+  const tableScroll = useRef(null);
   const [moveOpen, setMoveOpen] = useState(false);
   const [form, setForm] = useState({ id: '', quantity: '', date: '', reason: '' });
   const [error, setError] = useState('');
@@ -302,12 +304,17 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     </section>}
 
     {!matrix.cycles.length && <p className="wcm-muted">전산 달력을 조회하면 이전·현재·다음 차수를 하나의 표로 표시합니다.</p>}
-    {matrix.cycles.length > 0 && <div className="wcm-table-scroll" tabIndex={0} role="region"
-      aria-label="이전·현재·다음 차수 통합 요일표, 작은 화면에서는 가로 스크롤">
+    {matrix.cycles.length > 0 && <nav className="wcm-cycle-jump" aria-label="가로 차수 바로 보기">{matrix.cycles.map((cycle,index)=><button type="button" key={cycleKey(cycle)} onClick={()=>{
+      const scroll=tableScroll.current;
+      const header=scroll?.querySelectorAll('thead tr:first-child > th')[index+1];
+      if(scroll && header) scroll.scrollTo({left:Math.max(0,header.offsetLeft-260),behavior:'smooth'});
+    }}>{cycle.offset<0?'이전':cycle.offset>0?'다음':'현재'} {cycle.majorWeek}차 보기</button>)}<span className="wcm-muted">품목 고정 · 가로 스크롤</span></nav>}
+    {matrix.cycles.length > 0 && <div ref={tableScroll} className="wcm-table-scroll" tabIndex={0} role="region"
+      aria-label="이전·현재·다음 차수 통합 요일표, 가로 스크롤로 연결 차수 보기">
       <table>
-        <caption>목→수 · 최초 기준 대비 분배 잔량(ERP 재고 아님) · 변경값(최초값) · 노랑=변경 · 보라=수동 선출고 · 파랑=미적용 초안 · 잔량 미확인은 기준/단위 확인 필요.
+        <caption>목→수 · 기준 대비 분배 잔량(ERP 재고 아님) · 미확정/초안 예상은 별도 표시 · 변경값 아래 (최초값) · 노랑=변경 · 보라=선출고 · 파랑=미적용 초안 · 품목 행 마우스 강조 · 가로 스크롤로 차수 연결.
           출력은 ERP 저장된 확정 견적만 포함하며 화면 초안은 제외합니다. 기준 화면 1920×1080 / 100%.</caption>
-        <colgroup><col className="wcm-product-col" />{matrix.columns.map((column, index) => <col key={index} className={column.kind==='remainingMajor'?'wcm-summary-col':column.kind.startsWith('initial')?'wcm-baseline-col':column.kind==='remaining01'?'wcm-remainder-col':''} />)}</colgroup>
+        <colgroup><col className="wcm-product-col" />{matrix.columns.map((column, index) => <col key={index} className={column.kind==='remainingMajor'?'wcm-summary-col':column.kind.startsWith('initial')?'wcm-baseline-col':column.kind==='remaining01'?'wcm-remainder-col':'wcm-day-col'} />)}</colgroup>
         <thead>
           <tr><th rowSpan={3} scope="col">품목 <span className="wcm-muted">· 단위</span></th>
             {matrix.cycles.map((cycle) => {
@@ -384,15 +391,17 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 }
                 const initial=column.kind==='initial01'?block.initial01:column.kind==='initial02'?block.initial02:null;
                 const provisional=column.kind==='initial01'?block.provisional01:column.kind==='initial02'?block.provisional02:null;
-                const value=column.kind.startsWith('initial')?(initial || provisional)?.quantity:column.kind==='remaining01'?block.remaining01:block.remainingMajor;
-                const projected=column.kind==='remaining01'?block.projectedRemaining01:column.kind==='remainingMajor'?block.projectedRemainingMajor:null;
+                const remainder=column.kind==='remaining01'?block.remainder01View:column.kind==='remainingMajor'?block.remainderMajorView:null;
+                const value=column.kind.startsWith('initial')?(initial || provisional)?.quantity:remainder?.value;
                 return <td key={column.kind} className={column.kind.startsWith('initial')?`wcm-initial wcm-cycle-start${provisional?' wcm-provisional':''}`:column.kind==='remainingMajor'?'wcm-total wcm-major-total':'wcm-total'} title={`${provisional?'미확정 · 현재 ERP 분배량 (확정 시 최초 기준 고정)':'최초기준 비교값 · ERP재고 아님'}\n전산 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit||''}\n최초 ${numberLabel(block.initialMajor)} · 변경 ${numberLabel(block.initialChange)}\n${block.quote.state}: 관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 순수량 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''} · 총액 ${block.quote.amount ?? '?'}원\n${block.pageNote?.note || ''}`}>
-                  <span>{weekdayQuantityLabel(value,row,block.unit)}</span>
-                  {projected!=null && <small className="wcm-draft wcm-projection">예상 {weekdayQuantityLabel(projected,row,block.unit)}</small>}
-                  {column.kind==='remainingMajor' && <><small className={`wcm-quote ${block.quote.state==='견적 불일치'?'wcm-warning':''}`}>견 {block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'}{block.quote.state==='견적 일치'?' ✓':block.quote.state==='견적 불일치'?' !':''}</small><small className="wcm-cycle-sum">합 {weekdayQuantityLabel(block.currentTotal,row,block.unit)}
+                  <span className={remainder?.hasDraft?'wcm-draft wcm-remainder-value':'wcm-remainder-value'} title={remainder?`${remainder.label} · 저장 전산 기준잔량 ${numberLabel(remainder.savedValue)} · ERP 재고 아님`:undefined}>{weekdayQuantityLabel(value,row,block.unit)}</span>
+                  {remainder && <small className={`wcm-remainder-status${remainder.hasDraft?' wcm-draft':''}`}>{remainder.label}</small>}
+                  {column.kind==='remainingMajor' && <small className="wcm-cycle-sum"><span title="초안이 있으면 예상 합계, 없으면 저장 분배 합계">합 {weekdayQuantityLabel(block.effectiveTotal,row,block.unit)}</span>
                     <button type="button" className="wcm-change-note" title="최초 대비 변경량 · 비고 보기/입력" aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 변경 비고`}
-                      onClick={()=>typeof onOpenNote==='function'?onOpenNote({row,block}):setSelectedInfo(`최초 ${numberLabel(block.initialMajor)} / 현재 ${numberLabel(block.currentTotal)} / 변경 ${numberLabel(block.initialChange)}`)}>{block.initialChange==null?'Δ—':`Δ${block.initialChange>0?'+':''}${numberLabel(block.initialChange)}`}{block.pageNote?.note?' ✎':''}</button>
-                  </small></>}
+                      onClick={()=>typeof onOpenNote==='function'?onOpenNote({row,block}):setSelectedInfo(`최초 ${numberLabel(block.initialMajor)} / 저장 ${numberLabel(block.currentTotal)} / 예상 ${numberLabel(block.effectiveTotal)} / 예상 변경 ${numberLabel(block.effectiveInitialChange)}`)}>{block.effectiveInitialChange==null?'Δ—':`Δ${block.effectiveInitialChange>0?'+':''}${numberLabel(block.effectiveInitialChange)}`}{block.pageNote?.note?' ✎':''}</button>
+                    <button type="button" className={`wcm-quote ${block.quote.state==='견적 불일치'?'wcm-warning':''}`} data-quantity={block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} title={`견 ${block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} · ${block.quote.state} · 저장 견적만 포함`}
+                      aria-label={`${row.name} ${block.cycle.majorWeek}차 견적 대조`} onClick={()=>setSelectedInfo(`${block.quote.state}\n견적관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''}\n저장 분배 ${numberLabel(block.currentTotal)} / 예상 합계 ${numberLabel(block.effectiveTotal)}\n초안은 견적 출력에 포함하지 않습니다.`)}>견{block.quote.state==='견적 일치'?'✓':block.quote.state==='견적 불일치'?'!':'?'}</button>
+                  </small>}
                 </td>;
               })}
             </Fragment>)}
@@ -447,15 +456,15 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     </details>}
 
     <style dangerouslySetInnerHTML={{__html:`
-      .weekday-cycle-matrix { width:100%; min-width:0; box-sizing:border-box; color:#172b42; font-size:12px; line-height:1.4; }
-      .weekday-cycle-matrix td.wcm-provisional { background:#f1f5f9; color:#476785; font-style:italic; }
+      .weekday-cycle-matrix { width:100%; min-width:0; box-sizing:border-box; color:#0f172a; font-size:13px; line-height:1.4; }
+      .weekday-cycle-matrix td.wcm-provisional { background:#f1f5f9; color:#334155; }
       .weekday-cycle-matrix * { box-sizing:border-box; }
       .weekday-cycle-matrix p { margin:6px 0; }
       .weekday-cycle-matrix .wcm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:7px 0; }
       .weekday-cycle-matrix button { border:1px solid #8da5bd; border-radius:4px; background:#fff; color:#172b42; padding:4px 7px; font:inherit; cursor:pointer; }
       .weekday-cycle-matrix button:disabled { opacity:.55; cursor:not-allowed; }
       .weekday-cycle-matrix :is(button,input,select,.wcm-table-scroll):focus-visible { outline:2px solid #2563eb; outline-offset:1px; }
-      .weekday-cycle-matrix .wcm-muted { color:#526277; font-size:11px; }
+      .weekday-cycle-matrix .wcm-muted { color:#334155; font-size:12px; }
       .weekday-cycle-matrix .wcm-draft, .weekday-cycle-matrix .wcm-delta { color:#174e9c; }
       .weekday-cycle-matrix .wcm-warning { color:#805100; overflow-wrap:anywhere; }
       .weekday-cycle-matrix .wcm-error { color:#a51a24; background:#fff0f1; padding:8px; border:1px solid #e5a3a9; }
@@ -467,56 +476,61 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix summary { cursor:pointer; }
       .weekday-cycle-matrix .wcm-detail-record { margin:6px 0; padding:5px 0; border-bottom:1px solid #e6d5a7; }
       .weekday-cycle-matrix .wcm-table-scroll { width:100%; overflow-x:auto; }
+      .weekday-cycle-matrix .wcm-cycle-jump { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:4px 0; }
+      .weekday-cycle-matrix .wcm-cycle-jump button { padding:2px 6px; font-size:12px; }
       .weekday-cycle-matrix .wcm-add { border:1px solid #93b5df; background:#f3f8ff; padding:6px; margin:4px 0; }
       .weekday-cycle-matrix .wcm-add-candidates { display:flex; flex-wrap:wrap; gap:4px; }
       .weekday-cycle-matrix .wcm-add-candidates button { text-align:left; font-size:12px; padding:3px 6px; }
-      .weekday-cycle-matrix table { width:100%; min-width:1780px; border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:12px; }
+      .weekday-cycle-matrix table { width:100%; min-width:3032px; border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:13px; }
       .weekday-cycle-matrix .wcm-product-col { width:260px; }
-      .weekday-cycle-matrix .wcm-summary-col { width:86px; }
-      .weekday-cycle-matrix .wcm-baseline-col { width:50px; }
-      .weekday-cycle-matrix .wcm-remainder-col { width:48px; }
+      .weekday-cycle-matrix .wcm-summary-col { width:160px; }
+      .weekday-cycle-matrix .wcm-baseline-col, .weekday-cycle-matrix .wcm-day-col { width:76px; }
+      .weekday-cycle-matrix .wcm-remainder-col { width:80px; }
       .weekday-cycle-matrix caption { text-align:left; color:#526277; padding:5px 0; font-size:11px; }
       .weekday-cycle-matrix table th, .weekday-cycle-matrix table td { border-right:1px solid #c3cfdb; border-bottom:1px solid #c3cfdb; padding:2px 3px; text-align:center; vertical-align:middle; }
       .weekday-cycle-matrix tr > :first-child { border-left:1px solid #c3cfdb; }
       .weekday-cycle-matrix thead tr:first-child th { border-top:1px solid #c3cfdb; }
       .weekday-cycle-matrix thead th { position:static; top:auto; background:#edf3f9; }
       .weekday-cycle-matrix tbody :is(th,td) { padding:0 3px; }
+      .weekday-cycle-matrix tbody tr:is(:hover,:focus-within) > :is(th,td) { box-shadow:inset 0 2px #60a5fa,inset 0 -2px #60a5fa; }
+      .weekday-cycle-matrix tbody tr:is(:hover,:focus-within) > th { background:#dbeafe; box-shadow:inset 4px 0 #2563eb,inset 0 2px #60a5fa,inset 0 -2px #60a5fa; }
       .weekday-cycle-matrix thead .wcm-current-head { background:#dbeafe; }
       .weekday-cycle-matrix .wcm-cycle-header { display:flex; flex-wrap:wrap; gap:5px 10px; align-items:center; justify-content:center; padding:3px; }
       .weekday-cycle-matrix .wcm-day-print { width:100%; font-size:11px; padding:2px 1px; min-height:24px; }
-      .weekday-cycle-matrix .wcm-day-select { display:flex; flex-direction:row; justify-content:center; align-items:center; gap:3px; font-size:10px; margin-top:3px; }
+      .weekday-cycle-matrix .wcm-day-select { display:flex; flex-direction:row; justify-content:center; align-items:center; gap:3px; font-size:12px; margin-top:3px; }
       .weekday-cycle-matrix .wcm-day-select input { width:auto; margin:0; }
       .weekday-cycle-matrix .wcm-date { display:block; }
       .weekday-cycle-matrix tbody th { position:sticky; top:auto; left:0; z-index:1; text-align:left; font-weight:normal; background:#f8fafc; }
-      .weekday-cycle-matrix .wcm-product { display:flex; gap:4px; align-items:center; min-height:19px; min-width:0; }
-      .weekday-cycle-matrix .wcm-product-name { min-width:0; overflow-wrap:anywhere; white-space:normal; font-size:11px; }
+      .weekday-cycle-matrix .wcm-product { display:flex; gap:4px; align-items:center; min-height:32px; min-width:0; }
+      .weekday-cycle-matrix .wcm-product-name { min-width:0; overflow-wrap:anywhere; white-space:normal; font-size:13px; font-weight:600; }
       .weekday-cycle-matrix .wcm-product small { margin-left:auto; color:#526277; flex-shrink:0; }
       .weekday-cycle-matrix .wcm-badge { font-size:10px; padding:1px 3px; background:#e4ecf5; color:#405774; border-radius:3px; max-width:72px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; flex-shrink:0; }
       .weekday-cycle-matrix .wcm-total { background:#f1f6fb; font-variant-numeric:tabular-nums; }
-      .weekday-cycle-matrix .wcm-initial { background:#edf7f0; font-variant-numeric:tabular-nums; font-size:10px; }
-      .weekday-cycle-matrix .wcm-confirm { padding:1px 3px; font-size:10px; }
-      .weekday-cycle-matrix .wcm-cycle-sum,.weekday-cycle-matrix .wcm-projection { display:block; font-size:9px; white-space:nowrap; }
-      .weekday-cycle-matrix .wcm-change-note { font-size:9px; padding:0 2px; background:#fff7da; }
+      .weekday-cycle-matrix .wcm-initial { background:#edf7f0; font-variant-numeric:tabular-nums; font-size:13px; }
+      .weekday-cycle-matrix .wcm-confirm { padding:1px 3px; font-size:12px; }
+      .weekday-cycle-matrix .wcm-remainder-status { display:block; font-size:12px; line-height:16px; }
+      .weekday-cycle-matrix .wcm-major-total .wcm-remainder-status { display:inline; margin-left:5px; }
+      .weekday-cycle-matrix .wcm-cycle-sum { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:2px 4px; font-size:12px; line-height:16px; }
+      .weekday-cycle-matrix .wcm-change-note { font-size:12px; line-height:16px; padding:0 2px; background:#fff7da; }
       .weekday-cycle-matrix .wcm-cycle-start { border-left:2px solid #8da5bd; }
-      .weekday-cycle-matrix .wcm-cell { display:flex; align-items:center; position:relative; min-height:19px; }
+      .weekday-cycle-matrix .wcm-cell { display:flex; flex-direction:column; align-items:stretch; justify-content:center; position:relative; min-height:32px; font-variant-numeric:tabular-nums; }
       .weekday-cycle-matrix .wcm-changed { background:#fff0b3; }
-      .weekday-cycle-matrix .wcm-early { background:#eadbfa; flex-wrap:wrap; }
-      .weekday-cycle-matrix .wcm-early-label { position:relative; z-index:2; font-size:8px; padding:0; border:0; background:#eadbfa; color:#652397; width:100%; }
-      .weekday-cycle-matrix .wcm-quote { display:block; font-size:9px; }
-      .weekday-cycle-matrix .wcm-major-total { line-height:11px; font-size:11px; }
-      .weekday-cycle-matrix .wcm-major-total .wcm-quote { display:inline; margin-left:4px; }
-      .weekday-cycle-matrix .wcm-major-total .wcm-cycle-sum { display:flex; justify-content:center; align-items:center; gap:2px; height:11px; line-height:11px; padding:0; }
-      .weekday-cycle-matrix .wcm-major-total .wcm-change-note { height:11px; line-height:9px; padding:0 2px; }
-      .weekday-cycle-matrix .wcm-number-display { pointer-events:none; width:100%; text-align:right; font-size:11px; overflow:hidden; }
+      .weekday-cycle-matrix .wcm-early { background:#eadbfa; }
+      .weekday-cycle-matrix .wcm-early-label { position:relative; z-index:2; font-size:12px; line-height:16px; padding:0; border:0; background:#eadbfa; color:#652397; width:100%; white-space:normal; overflow-wrap:anywhere; }
+      .weekday-cycle-matrix .wcm-quote { font-size:12px; padding:0 2px; line-height:16px; }
+      .weekday-cycle-matrix .wcm-major-total { line-height:16px; font-size:13px; }
+      .weekday-cycle-matrix .wcm-number-display { pointer-events:none; width:100%; text-align:right; font-size:13px; font-weight:600; line-height:18px; overflow-wrap:anywhere; }
+      .weekday-cycle-matrix .wcm-remainder-value { font-weight:600; }
       .weekday-cycle-matrix .wcm-proposed .wcm-number-display { color:#174e9c; font-weight:600; }
-      .weekday-cycle-matrix .wcm-number-display small { display:block; font-size:9px; line-height:10px; }
-      .weekday-cycle-matrix .wcm-cell:not(:focus-within) input { position:absolute; opacity:0; inset:0; width:100%; height:100%; }
-      .weekday-cycle-matrix .wcm-cell:focus-within .wcm-number-display { display:none; }
-      .weekday-cycle-matrix .wcm-cell input { padding:0 1px; border:1px solid transparent; height:18px; min-height:18px; line-height:16px; text-align:right; font-size:12px; background:transparent; border-radius:2px; font-variant-numeric:tabular-nums; }
+      .weekday-cycle-matrix .wcm-cell-detail { display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:2px; position:relative; z-index:2; font-size:12px; line-height:16px; }
+      .weekday-cycle-matrix .wcm-original { font-size:12px; overflow-wrap:anywhere; }
+      .weekday-cycle-matrix .wcm-cell input { position:absolute; opacity:0; left:0; top:0; width:100%; padding:0 1px; border:1px solid transparent; height:20px; min-height:20px; line-height:18px; text-align:right; font-size:13px; background:transparent; border-radius:2px; font-variant-numeric:tabular-nums; }
+      .weekday-cycle-matrix .wcm-cell input:focus { position:relative; opacity:1; }
+      .weekday-cycle-matrix .wcm-cell:has(input:focus) .wcm-number-display { display:none; }
       .weekday-cycle-matrix .wcm-cell input:disabled { color:#526277; opacity:1; }
       .weekday-cycle-matrix .wcm-cell input:hover:not(:disabled) { border-color:#93b5df; }
       .weekday-cycle-matrix .wcm-proposed input { color:#174e9c; background:#eaf3ff; }
-      .weekday-cycle-matrix .wcm-cell-info { position:relative; z-index:2; font-size:9px; padding:0 2px; border:0; background:#e2ecfa; max-width:26px; overflow:hidden; flex-shrink:0; }
+      .weekday-cycle-matrix .wcm-cell-info { position:relative; z-index:2; font-size:12px; line-height:16px; padding:0 2px; border:0; background:#e2ecfa; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
       .weekday-cycle-matrix .wcm-cell-error { color:#a51a24; position:absolute; top:100%; right:0; width:180px; z-index:4; background:#fff0f1; border:1px solid #e5a3a9; padding:4px; text-align:left; }
       .weekday-cycle-matrix .wcm-cell input[aria-invalid=true] { border-color:#a51a24; background:#fff0f1; }
       .weekday-cycle-matrix .wcm-move { border:1px solid #7ba0cb; background:#f3f8ff; border-radius:7px; padding:10px; margin:10px 0; }
