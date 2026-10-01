@@ -3,6 +3,7 @@ import Head from 'next/head';
 import MobileShell from '../../components/m/MobileShell';
 import { isAdminUser } from '../../lib/userAccess';
 import { verifyReqUser } from '../../lib/auth';
+import { groupExecutiveVolumeByCountry } from '../../lib/executiveVolumeReport';
 import styles from '../../styles/executive-volume.module.css';
 
 export async function getServerSideProps({ req, res }) {
@@ -45,6 +46,8 @@ export default function ExecutiveVolumePage({ user }) {
 
   useEffect(() => { load(''); }, [load]);
   const rows = report?.rows || [];
+  const countries = useMemo(() => groupExecutiveVolumeByCountry(rows), [rows]);
+  const topRows = useMemo(() => rows.slice().sort((a, b) => b.ordered - a.ordered).slice(0, 12), [rows]);
   const graphsByUnit = useMemo(() => (report?.unitTotals || []).map(total => ({
     unit: total.unit,
     rows: rows.filter(row => row.unit === total.unit).sort((a,b) => b.ordered-a.ordered).slice(0, 12),
@@ -120,7 +123,36 @@ export default function ExecutiveVolumePage({ user }) {
       {report&&<>
         <section className={styles.notes}><strong>비교 기준</strong><span>직전 등록 차수: {report.previousCycle?`${report.previousCycle.year}년 ${report.previousCycle.week}`:'없음'}</span><span>전년 동일 차수: {report.previousYearCycle?`${report.previousYearCycle.year}년 ${report.previousYearCycle.week}`:'없음'}</span><small>미입고 현황은 주문량 대비 입고량의 차이이며, 손실이나 폐기를 뜻하지 않습니다. 입고는 차수 귀속 합계 기준입니다. 출고는 출고 master와 상세가 모두 확정된 행만 포함합니다.</small></section>
         {report.unitTotals.map(total=><section className={styles.total} key={total.unit}><h2>단위별 합계 · {total.unit}</h2><div>주문 {quantity(total.ordered,total.unit)} <b>입고 {quantity(total.inbound,total.unit)}</b> <span>미입고 현황 {quantity(total.missing,total.unit)}</span> <strong>확정 출고 {quantity(total.outbound,total.unit)}</strong></div></section>)}
-        <div className={styles.tableWrap}><table><thead><tr><th>국가</th><th>품종</th><th>단위</th><th>주문</th><th>실입고</th><th>미입고 현황</th><th>미입고 비율</th><th>실출고</th><th>입고 증감<br/>직전 / 전년동차</th><th>출고 증감<br/>직전 / 전년동차</th></tr></thead><tbody>{rows.map(row=><tr key={`${row.country}|${row.flower}|${row.unit}`}><td>{row.country}</td><td>{row.flower}</td><td>{row.unit}</td><td>{number(row.ordered)}</td><td>{number(row.inbound)}</td><td>{number(row.missingQty)}</td><td>{row.missingPct==null?'—':`${number(row.missingPct)}%`}</td><td>{number(row.outbound)}</td><td><Change data={row.inboundVsPrevious}/><br/><Change data={row.inboundVsPreviousYear}/></td><td><Change data={row.outboundVsPrevious}/><br/><Change data={row.outboundVsPreviousYear}/></td></tr>)}</tbody></table>{!rows.length&&<p className={styles.empty}>선택 차수에 보고할 물량이 없습니다.</p>}</div>
+        <section className={styles.countryList} aria-label="국가별 물량 요약">
+          <div className={styles.countryListHeading}><h2>국가별 물량</h2><span>국가를 누르면 품종별 상세를 볼 수 있습니다.</span></div>
+          {countries.map(group => <details className={styles.countryCard} key={group.country}>
+            <summary className={styles.countrySummary}>
+              <span className={styles.countryName}>{group.country}<small>{group.rows.length}개 품종 단위</small></span>
+              <span className={styles.countryTotals}>{group.unitTotals.map(total => <span key={total.unit} className={styles.countryUnit}>
+                <b>{total.unit}</b><span>주문 {number(total.ordered)}</span><span>입고 {number(total.inbound)}</span><span>미입고 {number(total.missing)}</span><span>출고 {number(total.outbound)}</span>
+              </span>)}</span>
+              <span className={styles.expandHint}>품종 보기 <i aria-hidden="true">⌄</i></span>
+            </summary>
+            <div className={styles.varietyList}>
+              {group.rows.map(row => <article className={styles.varietyCard} key={`${row.flower}|${row.unit}`}>
+                <div className={styles.varietyHeading}><strong>{row.flower}</strong><span>{row.unit}</span></div>
+                <div className={styles.varietyMetrics}>
+                  <span>주문 <b>{number(row.ordered)} {row.unit}</b></span>
+                  <span>실입고 <b>{number(row.inbound)} {row.unit}</b></span>
+                  <span>미입고 현황 <b>{number(row.missingQty)} {row.unit}</b>{row.missingPct == null ? '' : ` · ${number(row.missingPct)}%`}</span>
+                  <span>확정 출고 <b>{number(row.outbound)} {row.unit}</b></span>
+                </div>
+                <div className={styles.varietyChanges}>
+                  <span>입고 · 직전 <Change data={row.inboundVsPrevious}/></span>
+                  <span>입고 · 전년동차 <Change data={row.inboundVsPreviousYear}/></span>
+                  <span>출고 · 직전 <Change data={row.outboundVsPrevious}/></span>
+                  <span>출고 · 전년동차 <Change data={row.outboundVsPreviousYear}/></span>
+                </div>
+              </article>)}
+            </div>
+          </details>)}
+          {!countries.length&&<p className={styles.empty}>선택 차수에 보고할 물량이 없습니다.</p>}
+        </section>
         {graphsByUnit.some(group=>group.rows.length>0)&&<section className={styles.graph}><h2>주문 · 입고 · 확정 출고 상위 품종</h2><div className={styles.legend}><span>주문</span><span>입고</span><span>출고</span></div>{graphsByUnit.map(group=>{const peak=Math.max(1,...group.rows.flatMap(row=>[row.ordered,row.inbound,row.outbound]));return <div key={group.unit}><h3>{group.unit} 기준 · 같은 단위 안에서 비교</h3>{group.rows.map(row=><div className={styles.barRow} key={`${row.country}|${row.flower}|${row.unit}`}><div>{row.country} · {row.flower}<small>{group.unit}</small></div><div className={styles.bars}>{[['ordered','#2563eb'],['inbound','#059669'],['outbound','#f59e0b']].map(([key,color])=><div key={key} style={{width:`${Math.max(row[key]?0.5:0,row[key]/peak*100)}%`,backgroundColor:color}} title={`${key}: ${quantity(row[key],row.unit)}`}/>)}</div></div>)}</div>})}</section>}
       </>}
     </main>

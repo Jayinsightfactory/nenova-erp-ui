@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 (async () => {
-  const { parseReportCycle, compareReportCycles, findPreviousCycle, buildExecutiveVolumeRows, summarizeExecutiveVolume } = await import('../lib/executiveVolumeReport.js');
+  const { parseReportCycle, compareReportCycles, findPreviousCycle, buildExecutiveVolumeRows, summarizeExecutiveVolume, groupExecutiveVolumeByCountry } = await import('../lib/executiveVolumeReport.js');
   const cycles = ['2025|40-01','2025|40-02','2026|39-02','2026|40-01'].map(value => { const [year,week]=value.split('|'); return parseReportCycle(year,week); });
   assert.equal(parseReportCycle('2026','40-01').week,'40-01');
   assert.equal(parseReportCycle('2026','40-1'),null);
@@ -21,6 +21,13 @@ const fs = require('node:fs');
   assert.equal(box.inboundVsPreviousYear.state,'new'); assert.equal(box.inboundVsPreviousYear.ratePct,null);
   assert.equal(box.outboundVsPrevious.delta,1); assert.equal(bunch.missingQty,0); assert.equal(bunch.overInboundQty,1);
   assert.deepEqual(summarizeExecutiveVolume(report).map(row=>row.unit),['단','박스']);
+  const grouped = groupExecutiveVolumeByCountry(report);
+  assert.equal(grouped.length,1);
+  assert.equal(grouped[0].country,'콜롬비아');
+  assert.deepEqual(grouped[0].unitTotals.map(row=>[row.unit,row.ordered,row.inbound,row.missing,row.outbound]),[
+    ['단',4,5,0,0], ['박스',10,8,2,3],
+  ], '국가 요약은 단위별로 분리해 서로 다른 단위를 합산하지 않아야 합니다.');
+  assert.deepEqual(grouped[0].rows.map(row=>row.flower),['장미','장미']);
   const api=fs.readFileSync('pages/api/m/executive-volume.js','utf8');
   for(const marker of ['verifyReqUser','isAdminUser','req.method !== \'GET\'','ViewOrder','ViewWarehouse','ViewShipment','MasterFix','DetailFix','OutUnit']) assert(api.includes(marker),`API missing ${marker}`);
   assert(!/\b(INSERT\s+INTO|UPDATE\s+\w|DELETE\s+FROM|MERGE|EXEC\s)/i.test(api));
@@ -28,6 +35,8 @@ const fs = require('node:fs');
   const page=fs.readFileSync('pages/m/executive-volume.js','utf8');
   assert(page.includes('엑셀 + 그래프 받기')); assert(page.includes('비교자료 없음')); assert(page.includes('getServerSideProps')); assert(page.includes('같은 단위 안에서 비교'));
   assert(page.includes('미입고 현황')); assert(page.includes('손실이나 폐기를 뜻하지 않습니다.'));
+  assert(page.includes('국가별 물량 요약')); assert(page.includes('<details'));
+  assert(page.includes('품종별 상세')); assert(page.includes('topRows.forEach'), '엑셀 그래프 데이터도 계산되어야 합니다.');
   assert(!page.includes('참고용 미입고'));
   console.log('executiveVolumeReport: cross-year identity, actual predecessor, product units, missing/over-inbound, zero baseline, readonly/auth, and xlsx chart path passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
