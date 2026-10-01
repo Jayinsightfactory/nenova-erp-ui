@@ -3,6 +3,7 @@ import { apiGetExe } from '../lib/exeParity/client.js';
 import { useLang } from '../lib/i18n';
 import * as XLSX from 'xlsx';
 import { parseWarehousePackingWorkbook } from '../lib/warehousePackingImport.js';
+import WarehousePackingReview from '../components/WarehousePackingReview.js';
 import { ConfigProvider, Table, Card, Tag, Select, Input, Button, Space, Typography, Alert, Empty, Row, Col, DatePicker, theme as antdTheme } from 'antd';
 import { ReloadOutlined, UploadOutlined, DeleteOutlined, DownloadOutlined, DashboardOutlined } from '@ant-design/icons';
 import koKR from 'antd/locale/ko_KR';
@@ -28,6 +29,14 @@ export default function Warehouse() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadData, setUploadData] = useState(null);
   const [uploadMeta, setUploadMeta] = useState({ orderYear:'', orderWeek:'', farmName:'', invoiceNo:'', awb:'', inputDate: '', gw:'', cw:'', rate:'', docFee:'' });
+  const [validation, setValidation] = useState(null);
+  const [validating, setValidating] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [confirmUpload, setConfirmUpload] = useState(false);
+  const uploadRevision = useRef(0);
+  const validateSeq = useRef(0);
+  const fileSeq = useRef(0);
+  const saveBusy = useRef(false);
   // [2026-09-22] 입고 원장 탐색 보강 — nenova.exe에서 농장명 컬럼 필터를 반복 클릭하던 작업(Orbit 실측)을 웹에서 끝내기 위해:
   //   컬럼 정렬 · 농장/차수 드롭다운 · 최근 본 농장 칩 · 필터 상태 URL 유지 · 원장 목록 엑셀
   const [sortKey, setSortKey] = useState('InputDate');
@@ -56,7 +65,6 @@ export default function Warehouse() {
     const today = d.toISOString().slice(0, 10);
     const q = new URLSearchParams(window.location.search);
     setEndDate(q.get('to') || today);
-    setUploadMeta(m => ({ ...m, inputDate: today }));
     d.setDate(d.getDate() - 7);
     setStartDate(q.get('from') || d.toISOString().slice(0, 10));
     if (q.get('farm')) setFarmFilter(q.get('farm'));
@@ -138,62 +146,115 @@ export default function Warehouse() {
 
   // nenova.exe ExcelLoadingPackingList와 같은 Packing 엑셀만 허용한다.
   const handleFileChange = (e) => {
+    if (saveBusy.current || uploading) return;
     const file = e.target.files[0];
     if (!file) return;
+    const seq = ++fileSeq.current;
+    ++uploadRevision.current;
+    ++validateSeq.current;
+    setValidation(null); setUploadError(''); setUploadData(null); setValidating(false); setConfirmUpload(false);
     const ext = file.name.split('.').pop().toLowerCase();
 
     if (ext === 'xlsx' || ext === 'xls') {
       // 엑셀 파일 (Packing 양식)
       const reader = new FileReader();
       reader.onload = (ev) => {
+        if (seq !== fileSeq.current) return;
         try {
           const { meta, rows } = parseWarehousePackingWorkbook(new Uint8Array(ev.target.result), XLSX);
           if (rows.length === 0) { alert('엑셀 파일에서 데이터를 찾을 수 없습니다.'); return; }
           setUploadData(rows);
-          setUploadMeta(m => ({
-            ...m,
+          setUploadMeta({
+            orderYear: meta.orderYear || '',
             fileName: file.name,
-            farmName:  meta.farmName  || m.farmName,
-            orderWeek: meta.orderWeek || m.orderWeek,
-            invoiceNo: meta.invoiceNo || m.invoiceNo,
-            awb:       meta.awb       || m.awb,
-            inputDate: meta.inputDate ? meta.inputDate.replace(/\//g, '-') : m.inputDate,
-          }));
+            farmName: meta.farmName || '', orderWeek: meta.orderWeek || '',
+            invoiceNo: meta.invoiceNo || '', awb: meta.awb || '', orderNo: meta.orderNo || '',
+            inputDate: meta.inputDate ? meta.inputDate.replace(/\//g, '-') : '',
+            gw: '', cw: '', rate: '', docFee: '',
+          });
           setShowUploadModal(true);
-        } catch (err) { alert('엑셀 파일 파싱 오류: ' + err.message); }
+        } catch (err) { setUploadError('엑셀 파일 파싱 오류: ' + err.message); alert('엑셀 파일 파싱 오류: ' + err.message); }
       };
+      reader.onerror = () => { if (seq === fileSeq.current) setUploadError('파일을 읽지 못했습니다. 다시 선택하세요.'); };
       reader.readAsArrayBuffer(file);
     } else alert('nenova.exe Packing 엑셀(.xlsx/.xls) 파일만 업로드할 수 있습니다.');
     e.target.value = '';
   };
 
-  const handleUpload = async () => {
-    if (!uploadData || !/^\d{4}$/.test(uploadMeta.orderYear) || !/^\d{2}-\d{2}$/.test(uploadMeta.orderWeek) || !uploadMeta.farmName || !uploadMeta.inputDate) {
-      alert('주문년도, 차수(예: 33-02), 농장명, 입력일자는 필수입니다.'); return;
-    }
-    setUploading(true);
-    try {
-      const items = uploadData;
+  const changeUploadMeta = (key, value) => {
+    ++uploadRevision.current; ++validateSeq.current;
+    setValidation(previous => previous ? { ...previous, valid: false, stale: true } : null); setUploadError(''); setValidating(false); setConfirmUpload(false);
+    setUploadMeta(current => ({ ...current, [key]: value }));
+  };
 
-      const res = await fetch('/api/warehouse', {
+  const selectUploadProduct = (index, prodKey) => {
+    ++uploadRevision.current; ++validateSeq.current;
+    setValidation(previous => previous ? {
+      ...previous, valid: false, stale: true,
+      rows: previous.rows?.map((row, rowIndex) => rowIndex === index ? { ...row, status: 'pending', error: '' } : row),
+      errors: previous.errors?.filter((error) => error.index == null ? error.row == null || Number(error.row) !== Number(uploadData?.[index]?.sourceRow) : Number(error.index) !== index),
+    } : null); setUploadError(''); setValidating(false); setConfirmUpload(false);
+    setUploadData(current => current.map((item, rowIndex) => rowIndex === index
+      ? (prodKey ? { ...item, selectedProdKey: prodKey } : Object.fromEntries(Object.entries(item).filter(([key]) => key !== 'selectedProdKey')))
+      : item));
+  };
+
+  const uploadPayload = () => ({ ...uploadMeta,
+    gw: uploadMeta.gw === '' ? null : uploadMeta.gw,
+    cw: uploadMeta.cw === '' ? null : uploadMeta.cw,
+    rate: uploadMeta.rate === '' ? null : uploadMeta.rate,
+    docFee: uploadMeta.docFee === '' ? null : uploadMeta.docFee,
+    items: uploadData,
+  });
+
+  const uploadMetaReady = () => /^\d{4}$/.test(String(uploadMeta.orderYear)) && Number(uploadMeta.orderYear) >= 2026
+    && /^\d{2}-\d{2}$/.test(uploadMeta.orderWeek) && !!uploadMeta.farmName?.trim() && !!uploadMeta.inputDate;
+
+  const handleValidate = async () => {
+    setConfirmUpload(false);
+    if (!uploadData?.length || !uploadMetaReady()) { setUploadError('2026년 이후 주문년도, 세부차수(예: 33-02), 농장명, 입력일자를 확인하세요.'); return; }
+    const seq = ++validateSeq.current;
+    const revision = uploadRevision.current;
+    setValidating(true); setValidation(null); setUploadError('');
+    try {
+      const res = await fetch('/api/warehouse/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...uploadMeta,
-          gw:     uploadMeta.gw     === '' ? null : uploadMeta.gw,
-          cw:     uploadMeta.cw     === '' ? null : uploadMeta.cw,
-          rate:   uploadMeta.rate   === '' ? null : uploadMeta.rate,
-          docFee: uploadMeta.docFee === '' ? null : uploadMeta.docFee,
-          items,
-        }),
+        body: JSON.stringify(uploadPayload()),
       });
       const data = await res.json();
-      if (!data.success) throw new Error([data.error, ...(data.errors || []).map(x => `${x.prodName || `${x.row}행`}: ${x.error}`)].join('\n'));
+      if (seq !== validateSeq.current || revision !== uploadRevision.current) return;
+      if (!data.success) { setUploadError(data.error || '검증에 실패했습니다.'); setValidation({ valid: false, rows: data.rows || [], errors: data.errors || [], products: data.products || [] }); return; }
+      setValidation({ ...data, revision });
+    } catch (e) { if (seq === validateSeq.current && revision === uploadRevision.current) setUploadError(`검증 요청을 확인하지 못했습니다: ${e.message}`); }
+    finally { if (seq === validateSeq.current) setValidating(false); }
+  };
+
+  const handleUpload = async (confirmed = false) => {
+    if (saveBusy.current || uploading || validating) return;
+    if (!uploadData?.length || !uploadMetaReady() || !validation?.valid || validation.revision !== uploadRevision.current || validation.rows?.length !== uploadData.length) {
+      setConfirmUpload(false); setUploadError('전체 행을 다시 검증한 뒤 저장하세요.'); return;
+    }
+    if (!confirmed) { setConfirmUpload(true); return; }
+    if (!confirmUpload) return;
+    saveBusy.current = true;
+    setUploading(true); setUploadError(''); setConfirmUpload(false);
+    try {
+      const res = await fetch('/api/warehouse', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(uploadPayload()),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setValidation(previous => ({ ...(previous || {}), valid: false, rows: data.rows || previous?.rows || [], errors: data.errors || [], products: data.products || previous?.products || [] }));
+        setUploadError(data.error || '저장 전 서버 검증에서 실패했습니다. 오류 행을 수정하고 다시 검증하세요.');
+        return;
+      }
       setSuccessMsg(`✅ ${data.message}`);
-      setShowUploadModal(false); setUploadData(null);
+      setShowUploadModal(false); setUploadData(null); setValidation(null);
       setTimeout(() => setSuccessMsg(''), 5000);
       load();
-    } catch (e) { alert(e.message); } finally { setUploading(false); }
+    } catch (e) { setUploadError('저장 응답을 확인하지 못했습니다. 원장 목록에서 동일 입고가 등록됐는지 먼저 확인하세요. 자동 재시도하지 않습니다.'); }
+    finally { saveBusy.current = false; setUploading(false); }
   };
 
   const handleDelete = async () => {
@@ -243,7 +304,7 @@ export default function Warehouse() {
 
       {err && <Alert type="error" showIcon message={err} style={{ marginBottom: 6 }} closable onClose={() => setErr('')} />}
       {successMsg && <Alert type="success" showIcon message={successMsg} style={{ marginBottom: 6 }} />}
-      <Alert type="info" showIcon style={{ marginBottom: 6 }} message={<span>nenova.exe와 동일한 <b>Packing 엑셀(.xlsx/.xls)</b>만 업로드합니다. 품목 하나라도 정확히 일치하지 않으면 전체 저장이 취소됩니다.</span>} />
+      <Alert type="info" showIcon style={{ marginBottom: 6 }} message={<span><b>Packing 엑셀(.xlsx/.xls)</b>의 전체 행을 검토합니다. 미등록 품목은 활성 ERP 품목을 직접 찾아 선택한 뒤 재검증할 수 있으며, 한 행이라도 검증되지 않으면 전체 저장이 취소됩니다.</span>} />
 
       <Row gutter={6} wrap={false} style={{ alignItems: 'flex-start' }}>
         <Col flex="1 1 0" style={{ minWidth: 0 }}>
@@ -292,60 +353,61 @@ export default function Warehouse() {
       {/* 업로드 모달 */}
       {showUploadModal && (
         <div className="modal-overlay" onClick={()=>{}}>
-          <div className="modal" style={{maxWidth:620}} onClick={e=>e.stopPropagation()}>
+          <div className="modal packing-upload-modal" style={{width:'min(1740px, 96vw)', maxWidth:'none', height:'min(940px, calc(100vh - 32px))', maxHeight:'calc(100vh - 32px)', display:'flex', flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">📤 입고 데이터 업로드</span>
             </div>
-            <div className="modal-body">
-              <div style={{padding:'8px 12px',background:'var(--blue-bg)',borderRadius:6,fontSize:12,color:'var(--blue)',marginBottom:14}}>
-                파일에서 <strong>{uploadData?.length}개</strong> 행을 읽었습니다. 아래 정보를 입력 후 저장하세요.
+            <div className="modal-body" style={{flex:'1 1 auto', minHeight:0, maxHeight:'none', overflowY:'auto', padding:'10px 16px'}}>
+              <div style={{padding:'6px 10px',background:'var(--blue-bg)',borderRadius:6,fontSize:12,color:'var(--blue)',marginBottom:8}}>
+                파일에서 <strong>{uploadData?.length}개</strong> 행을 읽었습니다. 원본 수량은 변경하지 않습니다. 전체 행을 검증한 후 저장하세요.
               </div>
-              <div className="form-row">
-                <div className="form-group"><label className="form-label">주문년도 *</label><input className="form-control" value={uploadMeta.orderYear} onChange={e=>setUploadMeta(m=>({...m,orderYear:e.target.value}))} placeholder="2026"/></div>
-                <div className="form-group"><label className="form-label">차수 *</label><input className="form-control" value={uploadMeta.orderWeek} onChange={e=>setUploadMeta(m=>({...m,orderWeek:e.target.value}))} placeholder="13-01"/></div>
+              <div className="packing-meta-grid">
+                <div className="form-group"><label className="form-label">주문년도 *</label><input className="form-control" disabled={uploading} value={uploadMeta.orderYear} onChange={e=>changeUploadMeta('orderYear',e.target.value)} placeholder="2026"/></div>
+                <div className="form-group"><label className="form-label">차수 *</label><input className="form-control" disabled={uploading} value={uploadMeta.orderWeek} onChange={e=>changeUploadMeta('orderWeek',e.target.value)} placeholder="13-01"/></div>
+                <div className="form-group"><label className="form-label">농장명 *</label><input className="form-control" disabled={uploading} value={uploadMeta.farmName} onChange={e=>changeUploadMeta('farmName',e.target.value)} placeholder="FREIGHTWISE"/></div>
+                <div className="form-group"><label className="form-label">인보이스</label><input className="form-control" disabled={uploading} value={uploadMeta.invoiceNo} onChange={e=>changeUploadMeta('invoiceNo',e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">AWB (BILL No)</label><input className="form-control" disabled={uploading} value={uploadMeta.awb} onChange={e=>changeUploadMeta('awb',e.target.value)} placeholder="123-45678901" /></div>
+                <div className="form-group"><label className="form-label">입력일자 *</label><input type="date" className="form-control" disabled={uploading} value={uploadMeta.inputDate} onChange={e=>changeUploadMeta('inputDate',e.target.value)} /></div>
               </div>
-              <div className="form-row">
-                <div className="form-group"><label className="form-label">농장명 *</label><input className="form-control" value={uploadMeta.farmName} onChange={e=>setUploadMeta(m=>({...m,farmName:e.target.value}))} placeholder="FREIGHTWISE"/></div>
-                <div className="form-group"><label className="form-label">인보이스</label><input className="form-control" value={uploadMeta.invoiceNo} onChange={e=>setUploadMeta(m=>({...m,invoiceNo:e.target.value}))} /></div>
-              </div>
-              <div className="form-row">
-                <div className="form-group"><label className="form-label">AWB (BILL No)</label><input className="form-control" value={uploadMeta.awb} onChange={e=>setUploadMeta(m=>({...m,awb:e.target.value}))} placeholder="123-45678901" /></div>
-                <div className="form-group"><label className="form-label">입력일자</label><input type="date" className="form-control" value={uploadMeta.inputDate} onChange={e=>setUploadMeta(m=>({...m,inputDate:e.target.value}))} /></div>
-              </div>
-              <div style={{ margin:'8px 0 4px', fontSize:11, color:'var(--text3)', borderTop:'1px solid var(--border)', paddingTop:8 }}>
+              <div style={{ margin:'7px 0 4px', fontSize:11, color:'var(--text3)', borderTop:'1px solid var(--border)', paddingTop:6 }}>
                 ✈️ 항공 원가 — AWB 문서 확인 후 입력. 운송기준원가 탭에서 재입력/수정 가능.
               </div>
-              <div className="form-row">
-                <div className="form-group"><label className="form-label">GW 실중량 (kg)</label><input type="number" step="0.01" className="form-control" value={uploadMeta.gw} onChange={e=>setUploadMeta(m=>({...m,gw:e.target.value}))} placeholder="976" /></div>
-                <div className="form-group"><label className="form-label">CW 과금중량 (kg)</label><input type="number" step="0.01" className="form-control" value={uploadMeta.cw} onChange={e=>setUploadMeta(m=>({...m,cw:e.target.value}))} placeholder="976" /></div>
-              </div>
-              <div className="form-row">
-                <div className="form-group"><label className="form-label">Rate (USD/kg)</label><input type="number" step="0.01" className="form-control" value={uploadMeta.rate} onChange={e=>setUploadMeta(m=>({...m,rate:e.target.value}))} placeholder="2.85" /></div>
-                <div className="form-group"><label className="form-label">서류비 (USD)</label><input type="number" step="0.01" className="form-control" value={uploadMeta.docFee} onChange={e=>setUploadMeta(m=>({...m,docFee:e.target.value}))} placeholder="90" /></div>
+              <div className="packing-freight-grid">
+                <div className="form-group"><label className="form-label">GW 실중량 (kg)</label><input type="number" step="0.01" className="form-control" disabled={uploading} value={uploadMeta.gw} onChange={e=>changeUploadMeta('gw',e.target.value)} placeholder="976" /></div>
+                <div className="form-group"><label className="form-label">CW 과금중량 (kg)</label><input type="number" step="0.01" className="form-control" disabled={uploading} value={uploadMeta.cw} onChange={e=>changeUploadMeta('cw',e.target.value)} placeholder="976" /></div>
+                <div className="form-group"><label className="form-label">Rate (USD/kg)</label><input type="number" step="0.01" className="form-control" disabled={uploading} value={uploadMeta.rate} onChange={e=>changeUploadMeta('rate',e.target.value)} placeholder="2.85" /></div>
+                <div className="form-group"><label className="form-label">서류비 (USD)</label><input type="number" step="0.01" className="form-control" disabled={uploading} value={uploadMeta.docFee} onChange={e=>changeUploadMeta('docFee',e.target.value)} placeholder="90" /></div>
               </div>
 
-              {/* 미리보기 */}
-              <div style={{marginTop:12}}>
-                <div style={{fontSize:12,fontWeight:600,marginBottom:6,color:'var(--text2)'}}>데이터 미리보기 (상위 5개)</div>
-                <div style={{overflowX:'auto',border:'1px solid var(--border)',borderRadius:6}}>
-                  <table className="tbl" style={{fontSize:11,minWidth:400}}>
-                    <thead>
-                      <tr>{uploadData?.[0] && Object.keys(uploadData[0]).slice(0,6).map(k=><th key={k}>{k}</th>)}</tr>
-                    </thead>
-                    <tbody>
-                      {uploadData?.slice(0,5).map((row,i)=>(
-                        <tr key={i}>{Object.values(row).slice(0,6).map((v,j)=><td key={j} style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{v}</td>)}</tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              {uploadError && <Alert type="error" showIcon message={uploadError} style={{margin:'10px 0'}} />}
+              <WarehousePackingReview items={uploadData} rows={validation?.rows} errors={validation?.errors} products={validation?.products} valid={validation?.valid} stale={validation?.stale} validating={validating} saving={uploading} onSelect={selectUploadProduct} />
             </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" disabled={uploading} onClick={()=>{setShowUploadModal(false);setUploadData(null);}}>취소 / Cancelar</button>
-              <button className="btn btn-primary" onClick={handleUpload} disabled={uploading}>{uploading?'업로드 중...':'📤 업로드 / Subir'}</button>
+            <div className="modal-footer" style={{flex:'0 0 auto',background:'#fff',zIndex:2}}>
+              {confirmUpload && <div role="group" aria-label="입고 저장 확인" className="packing-confirm-strip">
+                <strong>저장 전 확인</strong>
+                <span>{uploadMeta.orderYear}년 · {uploadMeta.orderWeek}차 · 농장 1곳 ({uploadMeta.farmName}) · {uploadData?.length || 0}행</span>
+                <button className="btn btn-secondary" onClick={() => setConfirmUpload(false)}>돌아가기</button>
+                <button className="btn btn-primary" disabled={uploading || validating} onClick={() => handleUpload(true)}>확인 후 입고 저장</button>
+              </div>}
+              <button className="btn btn-secondary" disabled={uploading} onClick={()=>{++fileSeq.current;++validateSeq.current;setShowUploadModal(false);setUploadData(null);setValidation(null);setUploadError('');setConfirmUpload(false);}}>취소 / Cancelar</button>
+              <button className="btn btn-secondary" onClick={handleValidate} disabled={validating || uploading || !uploadData?.length}>{validating?'검증 중...':'전체 행 다시 검증'}</button>
+              <button className="btn btn-primary" onClick={() => handleUpload(false)} disabled={uploading || validating || !validation?.valid || validation.revision !== uploadRevision.current}>{uploading?'업로드 중...':'📤 입고 저장 내용 확인'}</button>
             </div>
           </div>
+          <style jsx>{`
+            .packing-upload-modal .packing-meta-grid { display: grid; grid-template-columns: 110px 110px minmax(190px, 1.7fr) repeat(3, minmax(150px, 1fr)); gap: 8px; }
+            .packing-upload-modal .packing-freight-grid { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 8px; margin-bottom: 8px; }
+            .packing-upload-modal .form-group { min-width: 0; }
+            .packing-upload-modal .form-control { width: 100%; min-width: 0; }
+            .packing-upload-modal .packing-confirm-strip { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 7px; border: 1px solid #91caff; border-radius: 6px; background: #e6f4ff; }
+            .packing-upload-modal .modal-footer { flex-wrap: wrap; }
+            @media (max-width: 900px) {
+              .packing-upload-modal .packing-meta-grid, .packing-upload-modal .packing-freight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            }
+            @media (max-width: 600px) {
+              .packing-upload-modal .packing-meta-grid, .packing-upload-modal .packing-freight-grid { grid-template-columns: minmax(0, 1fr); }
+            }
+          `}</style>
         </div>
       )}
     </div>

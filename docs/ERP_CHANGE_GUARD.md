@@ -1,5 +1,18 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-01 입고 파킹 품목 재매칭
+
+입고 후보·검증·최종 트랜잭션은 `warehouseProductMatching.js`의 native 활성/이름식과
+유일성 검사를 공유한다. 수동 선택은 selectedProdKey를 검증한 뒤 canonical 이름만
+staging에 사용하며 원본 박스/단/송이/가격은 보존한다. 중복 이름은 키 선택으로 우회 불가.
+WarehouseKey는 identity가 아니므로 EXE의 usp_GetNextKey로 채번한다. 공용 staging은
+배타 잠금+저장된 필드 다중집합 대조 후 처리 완료 잔여만 교체하며 미처리 EXE 파일은 보존한다.
+CommonLogic.CheckFixSave의 현재/전/후차수 DetailFix 검사를 잠금 안에서 재실행한다.
+native CreateWarehouse는 Product.Stock와 StockHistory를 변경하므로 이 역시 외부
+트랜잭션 롤백 대상이다. `test-warehouse-rematch-sql.cjs`는 확인된 native 정의를
+세션 임시 테이블/프로시저로만 치환하여 정상/미처리/부분/중복/생성 실패/후속 실패를 검증한다.
+실제 StockCalculation이나 2세션 운영 동시 쓰기 테스트를 수행했다는 뜻은 아니다.
+
 ## 2026-09-30 견적 수량 수정의 후속연도 스냅샷 범위
 
 확정 견적 수량 수정의 선차단이 후속연도 `StockMaster` 존재만 검사해 모든 품목 저장을

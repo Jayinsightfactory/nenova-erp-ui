@@ -1,5 +1,30 @@
 # FormWarehouse 입고 엑셀 업로드 — nenova.exe golden
 
+## 2026-10-01 실제 CLI/SP 재확인 및 재매칭 확장
+
+실제 dnSpy.Console `-t ExcelLoadingPackingList` 재실행 결과와 운영
+OBJECT_DEFINITION(usp_CreateWarehouse, usp_StockCalculation, usp_GetNextKey)를 읽기 전용으로 대조했다.
+MakeTempTable의 WarehouseKey는 usp_GetNextKey('WarehouseKey')에서 생성하며 DB의
+WarehouseMaster.WarehouseKey는 identity가 아니다. KeyNumbering LastKeyNo=7528 확인.
+
+현재 native SP 이름 비교는 `LOWER(REPLACE(LTRIM(RTRIM(ProdName)),NCHAR(160),N' '))`,
+활성 범위는 `isDeleted=0`이다. 웹 후보/재검증/저장에 이 식을 공유한다.
+수동 품목 재선택은 웹 확장이고 원본 수량/가격을 바꾸지 않는다. 이름이 중복된 활성
+Hydrangea 3건은 ProdKey를 골라도 이름 기반 SP가 다시 모호해지므로 차단한다.
+
+native SP는 WarehouseDetail 생성뿐 아니라 Product.Stock 증가, StockHistory 입고 기록을
+수행한다. StockCalculation은 2026 이상, 선택 연도/차수 이후의 재고를 순차 재계산한다.
+주문/분배/확정/견적/매출은 쓰지 않는다. 업로드 전체를 외부 트랜잭션으로 감싸 실패 시 롤백한다.
+EXE는 처리된 TempWarehouseDetail을 남기므로 무조건 비어 있어야 한다는 조건은 틀리다.
+실제 잔여 7528의 2행에 대해 전체 저장 필드+건수 다중집합 대조가 통과함을 SELECT로 확인했다.
+미처리 잔여는 차단, 이미 처리된 잔여만 배타 잠금 안에서 교체한다.
+
+읽기 전용 검증: CARNATION Mandalay(433) 정확 일치/명시 선택 통과, 미등록/활성 동명 중복
+차단. 2026/40-02/433의 ViewOrder=1, ViewShipment=0, DetailFix=1=0,
+ShipmentDate=0, ShipmentFarm=0, Estimate=0, 2026/40 WebProfitReport=0.
+테스트를 위한 운영 원장 쓰기는 하지 않았다. 세부 기준은
+`docs/WAREHOUSE_PRODUCT_REMATCH_DESIGN.md` 참조.
+
 ## dnSpy/CLI 원본
 
 - 실행 파일: `C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe`
