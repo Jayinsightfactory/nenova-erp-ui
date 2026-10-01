@@ -1,0 +1,643 @@
+#!/usr/bin/env node
+/*
+ * Isolated real-MSSQL harness for weekday distribution apply.
+ * It reads no app .env and never connects to an operational endpoint. The
+ * approved Docker fixture is inspected by exact name/image/loopback port, a
+ * fresh guarded database is created, and every business scenario is rolled
+ * back before that database is dropped.
+ */
+
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { spawnSync } = require('node:child_process');
+const sql = require('mssql');
+
+const ROOT = path.resolve(__dirname, '..');
+const CONTAINER = 'nenova-estimate-sql-test-20260826';
+const HOST = '127.0.0.1';
+const PORT = 14339;
+const SCHEMA = path.join(ROOT, '__tests__', 'fixtures', 'estimateDirectionalSchema.sql');
+const MIGRATION = path.join(ROOT, 'docs', 'migrations', '2026-10-01_weekday_distribution_audit.sql');
+const NATIVE = path.join(ROOT, 'docs', 'migrations', 'backup_usp_StockCalculation_2026-08-23_before_stock_week_gate.sql');
+const LEGACY_SHIPMENT_DETAIL_ALLOCATORS = [
+  'pages/api/shipment/adjust.js',
+  'pages/api/shipment/distribute.js',
+  'pages/api/shipment/stock-status.js',
+  'lib/shipmentImport.js',
+];
+
+function fail(message) { throw new Error(`[weekday-distribution-fixture] ${message}`); }
+function splitBatches(text) { return text.split(/^\s*GO\s*;?\s*$/gim).map((part) => part.trim()).filter(Boolean); }
+function loadLocalSafeNextKey(relativePath, sharedAllocator) {
+  const source = fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
+  const start = source.indexOf('async function safeNextKey(');
+  if (start < 0) fail(`${relativePath} safeNextKey function missing`);
+  const functionSource = source.slice(start).match(/^async function safeNextKey\([^\n]+\) \{[\s\S]*?^\}/m)?.[0];
+  if (!functionSource) fail(`${relativePath} safeNextKey extraction failed`);
+  return Function(
+    'safeNextShipmentDetailKey',
+    `'use strict'; ${functionSource}; return safeNextKey;`,
+  )(sharedAllocator);
+}
+function assertDbName(name) {
+  if (!/^NenovaEstimateFixture_[0-9]{8}_[0-9a-f]{8}$/.test(name)) fail('database name guard failed');
+}
+function bracket(name) { assertDbName(name); return `[${name.replace(/]/g, ']]')}]`; }
+
+function inspectFixture() {
+  const result = spawnSync('docker', ['inspect', CONTAINER], { encoding: 'utf8', windowsHide: true });
+  if (result.status !== 0) fail('approved fixture container is not inspectable');
+  const info = JSON.parse(result.stdout)[0];
+  if (!info?.State?.Running || info.Name !== `/${CONTAINER}`) fail('fixture container identity/running guard failed');
+  if (!/^mcr\.microsoft\.com\/mssql\/server:2022(?:-|$)/i.test(String(info.Config?.Image || ''))) fail('fixture image guard failed');
+  if ((info.Mounts || []).length || (info.HostConfig?.Binds || []).length) fail('mounted fixture is not allowed');
+  const bindings = info.HostConfig?.PortBindings?.['1433/tcp'] || [];
+  if (!bindings.some((item) => item.HostIp === HOST && Number(item.HostPort) === PORT)) fail('fixture loopback port guard failed');
+  const passwordEntry = (info.Config?.Env || []).find((item) => String(item).startsWith('MSSQL_SA_PASSWORD='));
+  if (!passwordEntry) fail('fixture-only SA password is absent');
+  return { password: passwordEntry.slice('MSSQL_SA_PASSWORD='.length), image: info.Config.Image };
+}
+
+function request(executor, params = {}) {
+  const req = new sql.Request(executor);
+  for (const [name, spec] of Object.entries(params)) req.input(name, spec.type, spec.value);
+  return req;
+}
+function query(executor, statement, params = {}) { return request(executor, params).query(statement); }
+function tQuery(tx) { return (statement, params = {}) => query(tx, statement, params); }
+
+async function installSchema(pool) {
+  for (const batch of splitBatches(fs.readFileSync(SCHEMA, 'utf8'))) await query(pool, batch);
+  await query(pool, `
+    ALTER TABLE dbo.Customer ADD Manager nvarchar(20) NULL,OrderCode nvarchar(50) NULL,BaseOutDay int NULL;
+    ALTER TABLE dbo.ShipmentDetail ADD EstDescr nvarchar(1000) NULL;
+    CREATE TABLE dbo.PeriodDay (
+      PeriodDayKey int NOT NULL PRIMARY KEY,
+      OrderYearWeek nvarchar(20) NOT NULL,
+      BaseYmd datetime NOT NULL,
+      WeekDay int NOT NULL
+    );
+    CREATE TABLE dbo.KeyNumbering (
+      Category nvarchar(100) NOT NULL PRIMARY KEY,
+      LastKeyNo int NOT NULL,
+      Descr nvarchar(200) NULL
+    );
+  `);
+  await query(pool, `CREATE VIEW dbo.ViewOrder AS
+    SELECT om.OrderMasterKey,od.OrderDetailKey,om.OrderYear,om.OrderWeek,
+           om.OrderYearWeek + RIGHT(om.OrderWeek,2) AS OrderYearWeek2,
+           om.CustKey,od.ProdKey,od.OutQuantity
+      FROM dbo.OrderMaster om
+      JOIN dbo.OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey
+     WHERE ISNULL(om.isDeleted,0)=0 AND ISNULL(od.isDeleted,0)=0;`);
+  for (const batch of splitBatches(fs.readFileSync(MIGRATION, 'utf8'))) await query(pool, batch);
+
+  const nativeSource = fs.readFileSync(NATIVE, 'utf8');
+  const reference = nativeSource.replace(
+    /CREATE\s+PROCEDURE\s+\[dbo\]\.\[usp_StockCalculation\]/i,
+    'CREATE PROCEDURE dbo.usp_StockCalculation_Reference',
+  );
+  if (reference === nativeSource) fail('native calculator declaration was not found');
+  await query(pool, `IF OBJECT_ID(N'dbo.usp_StockCalculation_Reference',N'P') IS NOT NULL DROP PROCEDURE dbo.usp_StockCalculation_Reference;`);
+  for (const batch of splitBatches(reference)) await query(pool, batch);
+}
+
+async function seed(pool) {
+  await query(pool, `
+    INSERT dbo.UserInfo(UserID,UserName) VALUES(N'fixture-user',N'Fixture User');
+    INSERT dbo.Customer(CustKey,CustName,Manager,OrderCode,BaseOutDay)
+      VALUES(533,N'Fixture Cust',N'fixture-user',N'F533',4);
+    INSERT dbo.Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,
+      BunchOf1Box,SteamOf1Bunch,SteamOf1Box,Cost,Stock)
+      VALUES(866,N'Fixture Carnation',N'Colombia Carnation',N'Fixture Country',N'Carnation',
+        N'박스',N'단',30,1,30,2500.1234,0);
+
+    INSERT dbo.OrderMaster(OrderMasterKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,Manager)
+      VALUES(3701,N'2026',N'37-01',N'202637',533,N'fixture-user'),
+            (3702,N'2026',N'37-02',N'202637',533,N'fixture-user');
+    INSERT dbo.OrderDetail(OrderDetailKey,OrderMasterKey,CustKey,ProdKey,BoxQuantity,BunchQuantity,
+      SteamQuantity,OutQuantity,OrderQuantity)
+      VALUES(3701,3701,533,866,25,750,750,25,25),
+            (3702,3702,533,866,5,150,150,5,5);
+
+    INSERT dbo.ShipmentMaster(ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID)
+      VALUES(6266,N'2026',N'37-01',N'202637',533,1,0,1,N'fixture-user'),
+            (6267,N'2026',N'37-02',N'202637',533,1,0,1,N'fixture-user');
+    INSERT dbo.ShipmentDetail(SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,
+      BoxQuantity,BunchQuantity,SteamQuantity,EstQuantity,Cost,Amount,Vat,isFix,Descr,EstDescr)
+      VALUES(89892,6266,533,866,CONVERT(datetime,'2026-09-10 00:00:00.000',121),25,
+        25,750,750,750,2500.1234,1704630,170462.55,1,N'fixture detail',N'');
+    INSERT dbo.ShipmentDate(SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat,Descr)
+      VALUES(119701,89892,CONVERT(datetime,'2026-09-10 00:00:00.000',121),5,150,2500.1234,340926,34092.51,N'first'),
+            (119700,89892,CONVERT(datetime,'2026-09-13 00:00:00.000',121),20,600,2500.1234,1363704,136370.04,N'legacy-preserve');
+
+    INSERT dbo.PeriodDay(PeriodDayKey,OrderYearWeek,BaseYmd,WeekDay)
+      VALUES(1,N'202637',CONVERT(datetime,'2026-09-10 00:00:00.000',121),5),
+            (2,N'202637',CONVERT(datetime,'2026-09-11 00:00:00.000',121),6),
+            (3,N'202637',CONVERT(datetime,'2026-09-13 00:00:00.000',121),1),
+            -- Mon/Tue/Wed can belong to the following PeriodDay parent while
+            -- remaining in the 37 Thu..Wed business cycle.
+            (4,N'202638',CONVERT(datetime,'2026-09-15 00:00:00.000',121),3),
+            (5,N'202638',CONVERT(datetime,'2026-09-16 00:00:00.000',121),4);
+
+    INSERT dbo.WarehouseMaster(WarehouseKey,OrderYear,OrderWeek,UploadDtm,FileName)
+      VALUES(3701,N'2026',N'37-01',GETDATE(),N'fixture.xlsx');
+    INSERT dbo.WarehouseDetail(WdetailKey,WarehouseKey,ProdKey,FarmKey,BoxQuantity,BunchQuantity,
+      SteamQuantity,OutQuantity,EstQuantity,UPrice,TPrice,SteamOf1Box,SteamOf1Bunch)
+      VALUES(3701,3701,866,NULL,25,750,750,25,750,2500.1234,1875093,30,1);
+    INSERT dbo.StockMaster(StockKey,OrderYear,OrderWeek,OrderYearWeek,isFix,CreateID)
+      VALUES(3701,N'2026',N'37-01',N'20263701',1,N'fixture-user'),
+            (3702,N'2026',N'37-02',N'20263702',1,N'fixture-user'),
+            (3901,N'2026',N'39-01',N'20263901',1,N'fixture-user');
+    INSERT dbo.ProductStock(StockKey,ProdKey,Stock) VALUES(3701,866,0),(3702,866,0),(3901,866,0);
+    IF NOT EXISTS(SELECT 1 FROM dbo.CodeInfo WHERE Category=N'StockType' AND Descr=N'재고조정')
+      INSERT dbo.CodeInfo(Category,Descr) VALUES(N'StockType',N'재고조정');
+    IF EXISTS(SELECT 1 FROM dbo.FixtureNativeCalcControl WHERE ControlKey=1)
+      UPDATE dbo.FixtureNativeCalcControl SET FailNext=0,NullNext=0,FailureMessage=N'fixture native failure' WHERE ControlKey=1;
+    ELSE INSERT dbo.FixtureNativeCalcControl(ControlKey,FailNext,FailureMessage)
+      VALUES(1,0,N'fixture native failure');
+    IF EXISTS(SELECT 1 FROM dbo.NenovaStockWeekGate WHERE GateKey='1')
+      UPDATE dbo.NenovaStockWeekGate SET Mode=NULL,PendingCalc=0,OwnerSessionID=NULL,OwnerToken=NULL,
+        LockedAt=NULL,Action=NULL,OrderYear=NULL,OrderWeek=NULL,CalcProdKey=NULL WHERE GateKey='1';
+    ELSE INSERT dbo.NenovaStockWeekGate(GateKey,Mode) VALUES('1',NULL);
+    INSERT dbo.KeyNumbering(Category,LastKeyNo,Descr)
+      VALUES(N'ShipmentDetailKey',89892,N''),
+            (N'OrderMasterKey',3702,N''),(N'OrderDetailKey',3702,N'');
+  `);
+}
+
+async function convertShipmentDateToIdentity(pool) {
+  await query(pool, `
+    CREATE TABLE dbo.ShipmentDateIdentityFixture (
+      SdateKey int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+      SdetailKey int NOT NULL,
+      ShipmentDtm datetime NOT NULL,
+      ShipmentQuantity decimal(18,4) NOT NULL,
+      EstQuantity decimal(18,4) NOT NULL,
+      Cost decimal(18,4) NOT NULL,
+      Amount decimal(18,4) NOT NULL,
+      Vat decimal(18,4) NOT NULL,
+      Descr nvarchar(1000) NULL
+    );
+    SET IDENTITY_INSERT dbo.ShipmentDateIdentityFixture ON;
+    INSERT dbo.ShipmentDateIdentityFixture
+      (SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat,Descr)
+    SELECT SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat,Descr
+      FROM dbo.ShipmentDate;
+    SET IDENTITY_INSERT dbo.ShipmentDateIdentityFixture OFF;
+    DROP TABLE dbo.ShipmentDate;
+    EXEC sys.sp_rename N'dbo.ShipmentDateIdentityFixture',N'ShipmentDate';
+  `);
+}
+
+function leaseDependencies(gate, presence) {
+  return {
+    assertGateCapability: gate.assertDirectionalGateCapability,
+    lockGate: gate.lockDirectionalGate,
+    acquireEditLease: presence.acquireErpEditLease,
+    assertEditGuard: presence.assertErpEditGuard,
+    advanceEditGuard: presence.advanceErpEditGuard,
+    releaseEditLease: presence.releaseErpEditLease,
+  };
+}
+
+function fixtureActual(orderWeek, rows, outQuantity, stock = 0) {
+  const isSource = orderWeek === '37-01';
+  return {
+    detailRows: outQuantity == null ? 0 : 1,
+    shipmentOutQuantity: outQuantity,
+    shipmentDates: rows,
+    master: {
+      ShipmentKey: isSource ? 6266 : 6267,
+      MasterIsFix: 1,
+      OrderYearWeek: '202637',
+    },
+    detail: outQuantity == null ? null : {
+      SdetailKey: 89892, ShipmentKey: 6266, CustKey: 533, ProdKey: 866,
+      OutQuantity: 25, BoxQuantity: 25, BunchQuantity: 750, SteamQuantity: 750,
+      EstQuantity: 750, DetailCost: 2500.1234, DetailAmount: 1704630,
+      DetailVat: 170462.55, DetailIsFix: 1,
+    },
+    product: {
+      ProdKey: 866, OutUnit: '박스', EstUnit: '단', BunchOf1Box: 30,
+      SteamOf1Bunch: 1, SteamOf1Box: 30, Stock: stock,
+    },
+  };
+}
+
+function expectedFromActual(core, orderWeek, actual) {
+  return {
+    detailRows: actual.detailRows,
+    shipmentOutQuantity: actual.shipmentOutQuantity,
+    shipmentDates: actual.shipmentDates,
+    snapshotDigest: core.weekdaySnapshotDigest({
+      year:'2026',orderWeek,custKey:533,prodKey:866,
+    }, actual),
+  };
+}
+
+function expected(core, orderWeek, rows, outQuantity, stock = 0) {
+  return expectedFromActual(core, orderWeek, fixtureActual(orderWeek, rows, outQuantity, stock));
+}
+
+function existingRows() {
+  return [
+    {sdateKey:119701,sdetailKey:89892,shipmentKey:6266,date:'2026-09-10',timestamp:'2026-09-10 00:00:00.000',shipmentQuantity:5,estimateQuantity:150,detailFixed:true,cost:2500.1234,amount:340926,vat:34092.51},
+    {sdateKey:119700,sdetailKey:89892,shipmentKey:6266,date:'2026-09-13',timestamp:'2026-09-13 00:00:00.000',shipmentQuantity:20,estimateQuantity:600,detailFixed:true,cost:2500.1234,amount:1363704,vat:136370.04},
+  ];
+}
+
+function crossWeekBody(core, operationId, reason = 'fixed pure same-total cross-week target') {
+  return {operationId,reason,custKey:533,changes:[
+    {year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:expected(core,'37-01',existingRows(),25),dates:[{date:'2026-09-13',quantity:15}]},
+    {year:'2026',orderWeek:'37-02',prodKey:866,unit:'박스',expected:expected(core,'37-02',[],null),dates:[{date:'2026-09-15',quantity:5}]},
+  ]};
+}
+
+async function expectCode(action, code) {
+  try { await action(); } catch (error) { assert.equal(error?.code,code); return error; }
+  fail(`expected ${code}`);
+}
+
+async function rollbackScenario(pool, run) {
+  const tx = new sql.Transaction(pool);
+  await tx.begin();
+  try { await run(tQuery(tx)); } finally { await tx.rollback().catch(()=>{}); }
+}
+
+async function commitScenario(pool, run) {
+  const tx = new sql.Transaction(pool);
+  await tx.begin();
+  try {
+    const value = await run(tQuery(tx));
+    await tx.commit();
+    return value;
+  } catch (error) {
+    await tx.rollback().catch(()=>{});
+    throw error;
+  }
+}
+
+async function businessFingerprint(pool) {
+  const [details,dates,product,history] = await Promise.all([
+    query(pool,`SELECT SdetailKey,ShipmentKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,
+      EstQuantity,Cost,Amount,Vat,isFix FROM ShipmentDetail ORDER BY SdetailKey`),
+    query(pool,`SELECT SdateKey,SdetailKey,CONVERT(varchar(23),ShipmentDtm,121) ShipmentDtm,
+      ShipmentQuantity,EstQuantity,Cost,Amount,Vat,Descr FROM ShipmentDate ORDER BY SdateKey`),
+    query(pool,`SELECT ProdKey,Stock FROM Product ORDER BY ProdKey`),
+    query(pool,`SELECT ShipmentHistoryKey,SdetailKey,ChangeType,BeforeValue,AfterValue
+      FROM ShipmentHistory ORDER BY ShipmentHistoryKey`),
+  ]);
+  return JSON.stringify({
+    details:details.recordset,dates:dates.recordset,product:product.recordset,history:history.recordset,
+  });
+}
+
+async function runScenarios(pool, core, gate, presence, keyAllocator) {
+  const user = { userId:'fixture-user', userName:'Fixture User' };
+  const dependencies = leaseDependencies(gate,presence);
+
+  await rollbackScenario(pool, async (tQ) => {
+    const operationId = crypto.randomUUID();
+    const body = {operationId,reason:'same-week exact date move',custKey:533,changes:[{
+      year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:expected(core,'37-01',existingRows(),25),
+      dates:[{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:5}],
+    }]};
+    const result = await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
+    assert.equal(result.saved,true); assert.equal(result.appliedCount,1);
+    const dates = (await tQ(`SELECT CONVERT(varchar(10),ShipmentDtm,120) d,ShipmentQuantity,EstQuantity,Cost,Descr FROM ShipmentDate WHERE SdetailKey=89892 ORDER BY ShipmentDtm`)).recordset;
+    assert.deepEqual(dates.map((row)=>[row.d,Number(row.ShipmentQuantity)]),[['2026-09-11',5],['2026-09-13',20]]);
+    const preserved=dates.find((row)=>row.d==='2026-09-13');
+    assert.equal(Number(preserved.EstQuantity),600); assert.equal(Number(preserved.Cost),2500.1234); assert.equal(preserved.Descr,'legacy-preserve');
+    const history=(await tQ(`SELECT ChangeType,BeforeValue,AfterValue,CONVERT(varchar(23),ShipmentDtm,121) dt FROM ShipmentHistory ORDER BY ShipmentHistoryKey`)).recordset;
+    assert.deepEqual(history.map((row)=>[row.ChangeType,row.BeforeValue,row.AfterValue]),[['삭제','5','0'],['신규','0','5']]);
+    const replay=await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
+    assert.deepEqual(replay,result);
+    const status=await core.readWeekdayOperation(tQ,sql,{operationId,custKey:533});
+    assert.deepEqual(status,result);
+  });
+  assert.equal(Number((await query(pool,`SELECT COUNT(*) c FROM dbo.WebWeekdayDistributionOperation`)).recordset[0].c),0,'scenario must roll back audit');
+
+  await rollbackScenario(pool, async (tQ) => {
+    await tQ(`UPDATE Product SET Stock=0.1234 WHERE ProdKey=866`);
+    const operationId = crypto.randomUUID();
+    const body = {operationId,reason:'no stock write preserves raw precision',custKey:533,changes:[{
+      year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:expected(core,'37-01',existingRows(),25,0.1234),
+      dates:[{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:5}],
+    }]};
+    const result = await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
+    assert.equal(result.saved,true);
+    const stock = Number((await tQ(`SELECT Stock FROM Product WHERE ProdKey=866`)).recordset[0].Stock);
+    assert.equal(stock,0.1234,'delta=0 must not round untouched Product.Stock');
+  });
+
+  const beforePriceBlock = await businessFingerprint(pool);
+  await rollbackScenario(pool, async (tQ) => {
+    await tQ(`UPDATE ShipmentDate SET Cost=2000,Amount=272727,Vat=27273 WHERE SdateKey=119701`);
+    const pricedRows = existingRows().map((row) => row.sdateKey === 119701
+      ? {...row,cost:2000,amount:272727,vat:27273} : row);
+    const operationId = crypto.randomUUID();
+    const body = {operationId,reason:'mixed move and increase incompatible date price blocked',custKey:533,changes:[{
+      year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:expected(core,'37-01',pricedRows,25),
+      dates:[{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:6}],
+    }]};
+    await expectCode(
+      () => core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies),
+      'NEEDS_REDESIGN',
+    );
+  });
+  assert.equal(await businessFingerprint(pool),beforePriceBlock,'price-policy failure must roll back every business row');
+
+  const beforeInvalidSource = await businessFingerprint(pool);
+  await rollbackScenario(pool, async (tQ) => {
+    await tQ(`UPDATE ShipmentDetail SET Cost=0 WHERE SdetailKey=89892`);
+    const invalidSourceActual = fixtureActual('37-01',existingRows(),25);
+    invalidSourceActual.detail = {...invalidSourceActual.detail,DetailCost:0};
+    const operationId = crypto.randomUUID();
+    const body = {operationId,reason:'new target invalid source price blocked',custKey:533,changes:[
+      {
+        year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',
+        expected:expectedFromActual(core,'37-01',invalidSourceActual),
+        dates:[{date:'2026-09-10',quantity:0},{date:'2026-09-13',quantity:0}],
+      },
+      {
+        year:'2026',orderWeek:'37-02',prodKey:866,unit:'박스',
+        expected:expected(core,'37-02',[],null),
+        dates:[{date:'2026-09-15',quantity:25}],
+      },
+    ]};
+    await expectCode(
+      () => core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies),
+      'NEEDS_REDESIGN',
+    );
+  });
+  assert.equal(await businessFingerprint(pool),beforeInvalidSource,'invalid source price must roll back every business row');
+
+  await query(pool,`INSERT dbo.WebErpEditLease(OrderYear,OrderWeek,CustKey,LeaseToken,OwnerUserId,OwnerName,
+    ClientId,PageCode,BaselineDigest,Revision,ExpiresAt)
+    VALUES(N'2026',N'37',533,N'foreign-token',N'other-user',N'Other',N'other-client',N'other-page',N'x',0,DATEADD(minute,5,SYSUTCDATETIME()))`);
+  const leaseOperation=crypto.randomUUID();
+  await assert.rejects(
+    () => commitScenario(pool,(tQ)=>core.executeWeekdayDistributionApply(tQ,sql,{
+      operationId:leaseOperation,reason:'foreign active lease conflict',custKey:533,changes:[{
+        year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',
+        expected:expected(core,'37-01',existingRows(),25),dates:[{date:'2026-09-10',quantity:4}],
+      }],
+    },user,dependencies)),
+    (error)=>error?.code==='ERP_EDIT_LOCKED',
+  );
+  await query(pool,`DELETE dbo.WebErpEditLease WHERE OrderYear=N'2026' AND OrderWeek=N'37' AND CustKey=533`);
+  assert.equal(Number((await query(pool,`SELECT COUNT(*) c FROM dbo.WebWeekdayDistributionOperation WHERE UUID=@op`,{
+    op:{type:sql.UniqueIdentifier,value:leaseOperation},
+  })).recordset[0].c),0,'lease conflict rolls back operation reservation');
+
+  {
+    const before=await businessFingerprint(pool);
+    const operationId=crypto.randomUUID();
+    const body={operationId,reason:'date-level nonrepresentable split rollback',custKey:533,changes:[
+      {year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:expected(core,'37-01',existingRows(),25),
+        dates:[{date:'2026-09-13',quantity:19.9}]},
+      {year:'2026',orderWeek:'37-02',prodKey:866,unit:'박스',expected:expected(core,'37-02',[],null),
+        dates:[{date:'2026-09-15',quantity:0.05},{date:'2026-09-16',quantity:0.05}]},
+    ]};
+    await assert.rejects(
+      () => commitScenario(pool,(tQ)=>core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies)),
+      (error)=>error?.code==='UNIT_CONVERSION_ROUNDTRIP_FAILED',
+    );
+    assert.equal(await businessFingerprint(pool),before,'failure after an earlier plan write must roll back every row');
+    assert.equal(Number((await query(pool,`SELECT COUNT(*) c FROM dbo.WebWeekdayDistributionOperation WHERE UUID=@op`,{
+      op:{type:sql.UniqueIdentifier,value:operationId},
+    })).recordset[0].c),0);
+  }
+
+  {
+    const before=await businessFingerprint(pool);
+    const operationId=crypto.randomUUID();
+    await query(pool,`UPDATE dbo.FixtureNativeCalcControl SET FailNext=1 WHERE ControlKey=1`);
+    try {
+      await assert.rejects(() => commitScenario(pool,(tQ)=>core.executeWeekdayDistributionApply(tQ,sql,{
+        operationId,reason:'native failure rollback',custKey:533,changes:[{
+          year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:expected(core,'37-01',existingRows(),25),
+          dates:[{date:'2026-09-10',quantity:4}],
+        }],
+      },user,dependencies)));
+    } finally {
+      await query(pool,`UPDATE dbo.FixtureNativeCalcControl SET FailNext=0 WHERE ControlKey=1`);
+    }
+    assert.equal(await businessFingerprint(pool),before,'native calculator failure must roll back business/history rows');
+    assert.equal(Number((await query(pool,`SELECT COUNT(*) c FROM dbo.WebWeekdayDistributionOperation WHERE UUID=@op`,{
+      op:{type:sql.UniqueIdentifier,value:operationId},
+    })).recordset[0].c),0);
+  }
+
+  {
+    const before=await businessFingerprint(pool);
+    const operationId=crypto.randomUUID();
+    await query(pool,`CREATE TRIGGER dbo.TR_FixtureWeekdayAuditFailure
+      ON dbo.WebWeekdayDistributionChange INSTEAD OF INSERT AS
+      THROW 51001,N'fixture audit failure',1;`);
+    try {
+      await assert.rejects(() => commitScenario(pool,(tQ)=>core.executeWeekdayDistributionApply(tQ,sql,{
+        operationId,reason:'audit failure rollback',custKey:533,changes:[{
+          year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:expected(core,'37-01',existingRows(),25),
+          dates:[{date:'2026-09-10',quantity:4}],
+        }],
+      },user,dependencies)));
+    } finally {
+      await query(pool,`DROP TRIGGER IF EXISTS dbo.TR_FixtureWeekdayAuditFailure`);
+    }
+    assert.equal(await businessFingerprint(pool),before,'audit failure after native work must roll back every business row');
+    assert.equal(Number((await query(pool,`SELECT COUNT(*) c FROM dbo.WebWeekdayDistributionOperation WHERE UUID=@op`,{
+      op:{type:sql.UniqueIdentifier,value:operationId},
+    })).recordset[0].c),0);
+  }
+
+  await rollbackScenario(pool, async (tQ) => {
+    await tQ(`INSERT dbo.ShipmentHistory(SdetailKey,ShipmentDtm,ChangeType,BeforeValue,AfterValue,Descr,ChangeID)
+      VALUES(89893,GETDATE(),N'삭제',N'1',N'0',N'past deleted max key',N'fixture-user');
+      UPDATE dbo.KeyNumbering SET LastKeyNo=89893 WHERE Category=N'ShipmentDetailKey';`);
+    const operationId=crypto.randomUUID();
+    const result=await core.executeWeekdayDistributionApply(
+      tQ,sql,crossWeekBody(core,operationId,'history-safe detail key'),user,dependencies,
+    );
+    const target=(await tQ(`SELECT SdetailKey,OutQuantity FROM ShipmentDetail WHERE ShipmentKey=6267`)).recordset;
+    assert.equal(target.length,1); assert.equal(Number(target[0].SdetailKey),89894);
+    assert.equal(Number(target[0].OutQuantity),5);
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentHistory h
+      LEFT JOIN ShipmentDetail sd ON sd.SdetailKey=h.SdetailKey
+      WHERE h.SdetailKey=89893 AND sd.SdetailKey IS NULL`)).recordset[0].c),1,'past history key remains unowned');
+    const responseTarget=result.changes.find((row)=>row.orderWeek==='37-02');
+    assert.equal(responseTarget.before.detailRows,0); assert.equal(responseTarget.before.detail,null);
+    assert.equal(responseTarget.after.detail.sdetailKey,'89894');
+    assert.equal(responseTarget.after.detail.outQuantity,'5');
+    const audit=(await tQ(`SELECT BeforeJson,AfterJson FROM dbo.WebWeekdayDistributionChange
+      WHERE OperationFK=@op AND [Week]='37-02'`,{op:{type:sql.UniqueIdentifier,value:operationId}})).recordset[0];
+    assert.equal(JSON.parse(audit.BeforeJson).detail,null);
+    assert.equal(JSON.parse(audit.AfterJson).detail.sdetailKey,'89894');
+  });
+
+  await rollbackScenario(pool, async (tQ) => {
+    await tQ(`DELETE FROM OrderDetail WHERE OrderDetailKey=3702`);
+    await expectCode(
+      () => core.executeWeekdayDistributionApply(tQ,sql,crossWeekBody(core,crypto.randomUUID(),'missing positive target order'),user,dependencies),
+      'NEEDS_REDESIGN',
+    );
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM OrderDetail`)).recordset[0].c),1,'missing target order must not be recreated');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentDetail WHERE ShipmentKey=6267`)).recordset[0].c),0);
+  });
+
+  await rollbackScenario(pool, async (tQ) => {
+    const operationId=crypto.randomUUID();
+    const body=crossWeekBody(core,operationId);
+    const result=await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
+    assert.equal(result.saved,true); assert.equal(result.appliedCount,2);
+    const target=(await tQ(`SELECT sd.SdetailKey,sd.OutQuantity,sd.EstQuantity,sd.Cost,sd.isFix,
+      d.SdateKey,d.ShipmentQuantity,d.EstQuantity DateEst,CONVERT(varchar(23),d.ShipmentDtm,121) dt
+      FROM ShipmentDetail sd JOIN ShipmentDate d ON d.SdetailKey=sd.SdetailKey
+      WHERE sd.ShipmentKey=6267 AND sd.ProdKey=866`)).recordset;
+    assert.equal(target.length,1); assert.equal(Number(target[0].OutQuantity),5); assert.equal(Number(target[0].EstQuantity),150);
+    assert.equal(Number(target[0].Cost),2500.1234); assert.equal(target[0].isFix,true); assert.equal(target[0].dt,'2026-09-15 00:00:00.000');
+    assert.equal(Number((await tQ(`SELECT Stock FROM Product WHERE ProdKey=866`)).recordset[0].Stock),0,'pure transfer returns then consumes stock');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM OrderDetail`)).recordset[0].c),2,'target creation must preserve orders and create none');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM dbo.WebWeekdayDistributionChange WHERE OperationFK=@op`,{op:{type:sql.UniqueIdentifier,value:operationId}})).recordset[0].c),2);
+  });
+
+  await rollbackScenario(pool, async (tQ) => {
+    const operationId=crypto.randomUUID();
+    const body={operationId,reason:'quantity zero cleanup',custKey:533,changes:[{
+      year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:expected(core,'37-01',existingRows(),25),
+      dates:[{date:'2026-09-10',quantity:0},{date:'2026-09-13',quantity:0}],
+    }]};
+    const result=await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
+    assert.equal(result.saved,true);
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentDetail WHERE SdetailKey=89892`)).recordset[0].c),0);
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentDate WHERE SdetailKey=89892`)).recordset[0].c),0);
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM OrderDetail`)).recordset[0].c),2,'cleanup preserves OrderDetail');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentHistory WHERE SdetailKey=89892`)).recordset[0].c),2);
+
+    await tQ(`INSERT dbo.Customer(CustKey,CustName) VALUES(777,N'Other Customer');
+      INSERT dbo.Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,
+        BunchOf1Box,SteamOf1Bunch,SteamOf1Box,Cost,Stock)
+      VALUES(999,N'Other Product',N'Other Flower',N'Other Country',N'Other',N'박스',N'단',30,1,30,1000,0);
+      INSERT dbo.ShipmentMaster(ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID)
+      VALUES(7770,N'2026',N'37-01',N'202637',777,0,0,1,N'fixture-user');`);
+    const allocatedKeys=[];
+    for (const relativePath of LEGACY_SHIPMENT_DETAIL_ALLOCATORS) {
+      const localSafeNextKey=loadLocalSafeNextKey(relativePath,keyAllocator.safeNextShipmentDetailKey);
+      const nextKey=await localSafeNextKey(tQ,'ShipmentDetail','SdetailKey');
+      allocatedKeys.push(nextKey);
+      await tQ(`INSERT dbo.ShipmentDetail
+        (SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+         BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
+        VALUES(@sdk,7770,777,999,CONVERT(datetime,'2026-09-10 00:00:00.000',121),
+          1,30,1,30,30,1000,27273,2727,0,@descr)`,{
+        sdk:{type:sql.Int,value:nextKey},
+        descr:{type:sql.NVarChar,value:relativePath},
+      });
+    }
+    assert.deepEqual(allocatedKeys,[89893,89894,89895,89896],
+      'all four local wrappers must reserve above the purged history key');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentDetail
+      WHERE CustKey=777 AND ProdKey=999 AND SdetailKey>89892`)).recordset[0].c),4);
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentDetail WHERE SdetailKey=89892`)).recordset[0].c),0,
+      'purged weekday detail key must never be reused');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentHistory h
+      JOIN ShipmentDetail sd ON sd.SdetailKey=h.SdetailKey
+      WHERE h.SdetailKey=89892 AND (sd.CustKey=777 OR sd.ProdKey=999)`)).recordset[0].c),0,
+      'prior customer history must not attach to another customer/product');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentHistory
+      WHERE SdetailKey=89892 AND ChangeID=N'fixture-user'`)).recordset[0].c),2,
+      'prior customer native history rows remain intact');
+  });
+
+  await convertShipmentDateToIdentity(pool);
+  const identityMode=(await query(pool,`SELECT COLUMNPROPERTY(OBJECT_ID(N'dbo.ShipmentDate'),N'SdateKey','IsIdentity') mode`)).recordset[0].mode;
+  assert.equal(Number(identityMode),1,'second phase must exercise real IDENTITY OUTPUT INTO');
+  const committedOperationId=crypto.randomUUID();
+  const committedBody={operationId:committedOperationId,reason:'committed replay evidence',custKey:533,changes:[{
+    year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:expected(core,'37-01',existingRows(),25),
+    dates:[{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:5}],
+  }]};
+  const committed=await commitScenario(pool,(tQ)=>core.executeWeekdayDistributionApply(tQ,sql,committedBody,user,dependencies));
+  const replayed=await commitScenario(pool,(tQ)=>core.executeWeekdayDistributionApply(tQ,sql,committedBody,user,dependencies));
+  assert.deepEqual(replayed,committed,'committed operation must replay after reconnecting transaction');
+  await assert.rejects(
+    () => commitScenario(pool,(tQ)=>core.executeWeekdayDistributionApply(tQ,sql,committedBody,{userId:'other-user',userName:'Other'},dependencies)),
+    (error)=>error?.code==='WEEKDAY_OPERATION_CONFLICT',
+  );
+  await assert.rejects(
+    () => commitScenario(pool,(tQ)=>core.executeWeekdayDistributionApply(tQ,sql,{...committedBody,reason:'different body'},user,dependencies)),
+    (error)=>error?.code==='WEEKDAY_OPERATION_CONFLICT',
+  );
+  assert.equal(await core.readWeekdayOperation((statement,params)=>query(pool,statement,params),sql,{operationId:committedOperationId,custKey:999}),null,'wrong customer lookup is unknown');
+
+  const concurrentOperationId=crypto.randomUUID();
+  const concurrentExpected={
+    detailRows:committed.changes[0].after.detailRows,
+    shipmentOutQuantity:committed.changes[0].after.shipmentOutQuantity,
+    shipmentDates:committed.changes[0].after.shipmentDates,
+    snapshotDigest:committed.changes[0].after.snapshotDigest,
+  };
+  const concurrentBody={operationId:concurrentOperationId,reason:'concurrent same UUID serialization',custKey:533,changes:[{
+    year:'2026',orderWeek:'37-01',prodKey:866,unit:'박스',expected:concurrentExpected,
+    dates:[{date:'2026-09-11',quantity:0},{date:'2026-09-10',quantity:5}],
+  }]};
+  const tx1=new sql.Transaction(pool); const tx2=new sql.Transaction(pool);
+  await tx1.begin();
+  let firstConcurrent;
+  try {
+    firstConcurrent=await core.executeWeekdayDistributionApply(tQuery(tx1),sql,concurrentBody,user,dependencies);
+    await tx2.begin();
+    const contender=await core.executeWeekdayDistributionApply(tQuery(tx2),sql,concurrentBody,user,dependencies)
+      .then((value)=>({value}), (error)=>({error}));
+    assert.equal(contender.error?.code,'STOCK_GATE_BUSY','concurrent writer must fail before business writes');
+    await tx2.rollback();
+    await tx1.commit();
+    const secondConcurrent=await commitScenario(pool,(tQ)=>core.executeWeekdayDistributionApply(
+      tQ,sql,concurrentBody,user,dependencies,
+    ));
+    assert.deepEqual(secondConcurrent,firstConcurrent,'concurrent same UUID replays the committed response exactly once');
+  } catch (error) {
+    await tx1.rollback().catch(()=>{}); await tx2.rollback().catch(()=>{}); throw error;
+  }
+  assert.equal(Number((await query(pool,`SELECT COUNT(*) c FROM dbo.WebWeekdayDistributionOperation WHERE UUID=@op`,{
+    op:{type:sql.UniqueIdentifier,value:concurrentOperationId},
+  })).recordset[0].c),1);
+  console.log('PASS: weekday distribution actual core on isolated MSSQL (lease/key/unit/native/audit rollback + IDENTITY commit/reconnect/concurrency replay)');
+}
+
+async function main() {
+  const fixture=inspectFixture();
+  const dbName=`NenovaEstimateFixture_${new Date().toISOString().slice(0,10).replace(/-/g,'')}_${crypto.randomBytes(4).toString('hex')}`;
+  assertDbName(dbName);
+  let master; let pool;
+  try {
+    master=await new sql.ConnectionPool({user:'sa',password:fixture.password,server:HOST,port:PORT,database:'master',options:{encrypt:false,trustServerCertificate:true},pool:{max:2,min:0}}).connect();
+    await query(master,`CREATE DATABASE ${bracket(dbName)}`);
+    await query(master,`ALTER DATABASE ${bracket(dbName)} SET COMPATIBILITY_LEVEL=130`);
+    pool=await new sql.ConnectionPool({user:'sa',password:fixture.password,server:HOST,port:PORT,database:dbName,options:{encrypt:false,trustServerCertificate:true},pool:{max:4,min:0}}).connect();
+    await installSchema(pool); await seed(pool);
+    for (const name of ['DB_SERVER','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD']) {
+      if (process.env[name]) fail(`operational ${name} must not be present in the isolated fixture process`);
+    }
+    const core=await import(pathToFileURL(path.join(ROOT,'lib','weekdayDistributionApply.js')).href);
+    const gate=await import(pathToFileURL(path.join(ROOT,'lib','estimateDirectionalQuantity.js')).href);
+    const presence=await import(pathToFileURL(path.join(ROOT,'lib','erpEditPresence.js')).href);
+    const keyAllocator=await import(pathToFileURL(path.join(ROOT,'lib','safeNextKey.js')).href);
+    const mode=(await query(pool,`SELECT COLUMNPROPERTY(OBJECT_ID(N'dbo.ShipmentDate'),N'SdateKey','IsIdentity') mode`)).recordset[0].mode;
+    assert.equal(Number(mode),0,'fixture intentionally exercises non-IDENTITY safeNextKey');
+    console.log(`SETUP: image=${fixture.image}, host=${HOST}:${PORT}, db=${dbName}, ShipmentDateIdentity=${mode}`);
+    await runScenarios(pool,core,gate,presence,keyAllocator);
+  } finally {
+    await pool?.close().catch(()=>{});
+    if (master) {
+      await query(master,`IF DB_ID(N'${dbName}') IS NOT NULL BEGIN ALTER DATABASE ${bracket(dbName)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE ${bracket(dbName)}; END`).catch(()=>{});
+    }
+    await master?.close().catch(()=>{});
+  }
+}
+
+main().catch((error)=>{ console.error(error.stack||error.message); process.exitCode=1; });

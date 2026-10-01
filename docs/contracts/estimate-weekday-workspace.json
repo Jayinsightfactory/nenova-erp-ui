@@ -117,13 +117,13 @@
       "sideEffect": "브라우저 메모리의 배분 초안만 편집한다. 새로고침 시 사라지며 DB·ERP에 저장하지 않는다."
     },
     {
-      "name": "WEEKDAY_ESTIMATE_APPLY_DISABLED",
+      "name": "WEEKDAY_ESTIMATE_EXPLICIT_SAVE",
       "orderDetail": "preserve",
-      "shipmentDetail": "preserve",
-      "shipmentDate": "preserve",
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentDate": "explicit-date-patch-in-one-transaction",
       "estimateRows": "preserve",
-      "stock": "preserve",
-      "sideEffect": "ERP 적용은 현재 구현 범위 밖이며 비활성. 표 편집은 브라우저 메모리 초안만 변경한다."
+      "stock": "fixed-directional-only-native-cascade",
+      "sideEffect": "별도 weekday-distribution-apply 계약의 명시 ERP 저장. 전체 조회 스냅샷/정확한 달력/담당자 사유를 검사하고 변경을 한 거래로 저장한다. SQL 감사 테이블이 준비되지 않으면 실패하며 초안 유지. 응답 불명은 동일 UUID 상태만 확인하고 인쇄를 차단한다. 최초 기준은 보존한다."
     },
     {
       "name": "WEEKDAY_ESTIMATE_PRINT_READ_ONLY",
