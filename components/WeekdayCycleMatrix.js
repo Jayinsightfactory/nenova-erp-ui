@@ -83,7 +83,7 @@ function PrintButton({ label, reason, onClick, className = '', visibleLabel = la
 
 export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparisonRows = [], onMove, busy = false,
   onEditCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
-  onSearchProducts, onAddProduct, baselines = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], quoteResults = [] }) {
+  onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], quoteResults = [] }) {
   const safeCycles = Array.isArray(cycles) ? cycles : [];
   const safePlans = Array.isArray(plans) ? plans : [];
   const safeComparisons = Array.isArray(comparisonRows) ? comparisonRows : [];
@@ -110,7 +110,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const submitLock = useRef(false);
   const pendingEventId = useRef(null);
   const disabled = busy || moving;
-  const matrix = useMemo(() => buildHorizontalWeekdayMatrix(safeCycles, safePlans, safeComparisons,baselines), [cycles, plans, comparisonRows,baselines]);
+  const matrix = useMemo(() => buildHorizontalWeekdayMatrix(safeCycles, safePlans, safeComparisons,baselines,baselineCandidates), [cycles, plans, comparisonRows,baselines,baselineCandidates]);
   for(const row of matrix.rows)for(const block of row.blocks) {
     block.pageNote=pageNotes.find(note=>Number(note.year)===Number(block.cycle.year)&&String(note.majorWeek)===String(block.cycle.majorWeek)&&Number(note.prodKey)===row.prodKey);
     block.quote=reconcileWeekdayQuote(block,row.prodKey,quoteResults.find(result=>Number(result.year)===Number(block.cycle.year)&&String(result.majorWeek)===String(block.cycle.majorWeek)));
@@ -329,9 +329,10 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 const initial=column.kind.startsWith('initial');
                 const suffix=column.kind.endsWith('01')?'01':'02';
                 const saved=baselines.find(record=>Number(record.year)===Number(cycle.year)&&record.orderWeek===`${cycle.majorWeek}-${suffix}`);
+                const candidate=baselineCandidates.find(record=>Number(record.year)===Number(cycle.year)&&record.orderWeek===`${cycle.majorWeek}-${suffix}`);
                 return <th key={column.kind} rowSpan={2} scope="col" className={initial?'wcm-initial wcm-cycle-start':'wcm-total'}>
-                  {initial ? <>{cycle.majorWeek}-{suffix}<br/>최초분배<br/>{saved?<small title={`${saved.confirmedAt} · ${saved.confirmedBy}`}>기준 보관됨</small>:<button type="button" className="wcm-confirm" disabled={busy || baselineBusy || !hasCustomer || cycle.calendarState!=='FOUND' || typeof onConfirmBaseline!=='function'}
-                    aria-label={`${cycle.year}/${cycle.majorWeek}-${suffix} 최초분배 확정`} onClick={()=>onConfirmBaseline({cycle,orderWeek:`${cycle.majorWeek}-${suffix}`})}>확정</button>}</>
+                  {initial ? <>{cycle.majorWeek}-{suffix}<br/>최초분배<br/>{saved?<small title={`${saved.confirmedAt} · ${saved.confirmedBy}`}>기준 보관됨</small>:<><small className={candidate?.error?'wcm-warning':'wcm-muted'} title={candidate?.error || '현재 ERP 분배량 · 확정 시 최초 기준으로 고정'}>{candidate?.error?'조회 실패':candidate?'미확정':busy?'조회 중':'미확정'}</small><br/><button type="button" className="wcm-confirm" disabled={busy || baselineBusy || !hasCustomer || cycle.calendarState!=='FOUND' || typeof onConfirmBaseline!=='function'}
+                    aria-label={`${cycle.year}/${cycle.majorWeek}-${suffix} 최초분배 확정`} onClick={()=>onConfirmBaseline({cycle,orderWeek:`${cycle.majorWeek}-${suffix}`})}>확정</button></>}</>
                     : column.kind==='remaining01' ? <>{cycle.majorWeek}-01<br/>최초기준<br/>잔량</> : <>{cycle.majorWeek}차<br/>잔량<br/><small>합계·변경</small></>}
                 </th>;
               }
@@ -382,9 +383,10 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                   return <td key={day.date || index}><QuantityCell row={row} block={block} day={day} disabled={disabled} onEditCell={onEditCell} onSelect={setSelectedInfo} onOpenNote={onOpenNote}/></td>;
                 }
                 const initial=column.kind==='initial01'?block.initial01:column.kind==='initial02'?block.initial02:null;
-                const value=column.kind.startsWith('initial')?initial?.quantity:column.kind==='remaining01'?block.remaining01:block.remainingMajor;
+                const provisional=column.kind==='initial01'?block.provisional01:column.kind==='initial02'?block.provisional02:null;
+                const value=column.kind.startsWith('initial')?(initial || provisional)?.quantity:column.kind==='remaining01'?block.remaining01:block.remainingMajor;
                 const projected=column.kind==='remaining01'?block.projectedRemaining01:column.kind==='remainingMajor'?block.projectedRemainingMajor:null;
-                return <td key={column.kind} className={column.kind.startsWith('initial')?'wcm-initial wcm-cycle-start':column.kind==='remainingMajor'?'wcm-total wcm-major-total':'wcm-total'} title={`최초기준 비교값 · ERP재고 아님\n전산 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit||''}\n최초 ${numberLabel(block.initialMajor)} · 변경 ${numberLabel(block.initialChange)}\n${block.quote.state}: 관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 순수량 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''} · 총액 ${block.quote.amount ?? '?'}원\n${block.pageNote?.note || ''}`}>
+                return <td key={column.kind} className={column.kind.startsWith('initial')?`wcm-initial wcm-cycle-start${provisional?' wcm-provisional':''}`:column.kind==='remainingMajor'?'wcm-total wcm-major-total':'wcm-total'} title={`${provisional?'미확정 · 현재 ERP 분배량 (확정 시 최초 기준 고정)':'최초기준 비교값 · ERP재고 아님'}\n전산 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit||''}\n최초 ${numberLabel(block.initialMajor)} · 변경 ${numberLabel(block.initialChange)}\n${block.quote.state}: 관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 순수량 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''} · 총액 ${block.quote.amount ?? '?'}원\n${block.pageNote?.note || ''}`}>
                   <span>{weekdayQuantityLabel(value,row,block.unit)}</span>
                   {projected!=null && <small className="wcm-draft wcm-projection">예상 {weekdayQuantityLabel(projected,row,block.unit)}</small>}
                   {column.kind==='remainingMajor' && <><small className={`wcm-quote ${block.quote.state==='견적 불일치'?'wcm-warning':''}`}>견 {block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'}{block.quote.state==='견적 일치'?' ✓':block.quote.state==='견적 불일치'?' !':''}</small><small className="wcm-cycle-sum">합 {weekdayQuantityLabel(block.currentTotal,row,block.unit)}
@@ -446,6 +448,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
 
     <style dangerouslySetInnerHTML={{__html:`
       .weekday-cycle-matrix { width:100%; min-width:0; box-sizing:border-box; color:#172b42; font-size:12px; line-height:1.4; }
+      .weekday-cycle-matrix td.wcm-provisional { background:#f1f5f9; color:#476785; font-style:italic; }
       .weekday-cycle-matrix * { box-sizing:border-box; }
       .weekday-cycle-matrix p { margin:6px 0; }
       .weekday-cycle-matrix .wcm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:7px 0; }

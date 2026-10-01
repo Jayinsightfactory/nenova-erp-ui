@@ -43,6 +43,15 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {
+      "name": "WEEKDAY_PROVISIONAL_BASELINE_AUTO_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "sideEffect": "확정 기록 없는 연도+전체 세부차수+업체만 기존 preview SELECT를 자동 조회하여 미확정 현재 분배량으로 표시한다. 자동 확정/파일 저장 없음. 최초 잔량/변경량 계산에는 사용하지 않으며 저장된 최초 기준이 우선한다. 늦은 응답과 범위별 실패를 격리한다."
+    },
+    {
       "name": "WEEKDAY_PAGE_NOTE_AND_MANUAL_EARLY_SHIPMENT",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
