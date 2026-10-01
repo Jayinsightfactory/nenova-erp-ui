@@ -5,4 +5,5 @@
 .selectionRow strong{font-size:12px;align-self:start;padding-top:6px}
 .selectionRow>div{display:flex;flex-wrap:wrap;gap:4px;min-width:0;max-height:125px;overflow:auto}
 .selectionRow button{font-size:12px;padding:5px 10px}
-.scroller thead th{white-space:normal;overflow-wrap:anywhere;word-break:normal;text-overflow:clip;overflow:visible;height:auto;min-height:29px;line-height:1.4;padding:8px 12px;vertical-align:middle}
+.scroller thead th{white-space:normal;overflow-wrap:anywhere;word-break:normal;text-overflow:clip;overflow:visible;height:auto;min-height:29px;line-height:1.4;padding:6px 4px;vertical-align:middle}
+.scroller td:nth-child(n+3){text-align:center;padding-left:4px;padding-right:4px}
