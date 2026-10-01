@@ -5,7 +5,7 @@
 | 화면 | /estimate/weekday |
 | 원장 부작용 | 표시 전용. 기존 Product SELECT 포장값 전달, DB·수량·출고일·인쇄 보존 |
 | 기준 | 1920×1080 / 100%, 1280×800 |
-| 배포/PR | 검증 후 기록 |
+| 배포/PR | PR848 병합, Cafe24 run36836865961 성공 |
 
 ## 고정된 결정
 
@@ -29,7 +29,17 @@
 **결과.** 최종 `npm run build`, `npm run test:erp-contract` 통과. 단위·API·matrix 회귀 통과.
 1920×1080 / 100%, 1280×800 브라우저 fixture에서 수량 셀 넘침·겹침, 합계/잔량/상태/버튼 분리,
 상하 스크롤 동기화와 원본 입력 보존을 확인했다. 합계·잔량16px, 품목·수량14px, 일반행65px.
-독립 최종 리뷰 P1/P2 0건. 운영 배포 및 읽기 전용 smoke는 PR 병합 후 기록한다.
+독립 최종 리뷰 P1/P2 0건.
+
+## 운영 배포 확인
+
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/848
+- 병합: `07b622fa63b6a60bf01ef01b43bfe6706e618b56`
+- 배포: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/36836865961 성공.
+- 실제 로그인 읽기 전용 smoke: 1920×1080 / 100%, 1280×800 통과.
+- 합계/잔량16px, 요약열200px, 요약 넘침 없음, 상/하/표 스크롤 동기화, 페이지 오류0.
+- 운영 build `build-1790843584331`. 로그인 외 ERP/기준/비고 쓰기 없음.
+- 배포 완료 기록은 로컬 후속 문서 커밋에 보관한다. 기능 배포는 위 병합/배포 기준이다.
 
 ## 제외 산출물
 
