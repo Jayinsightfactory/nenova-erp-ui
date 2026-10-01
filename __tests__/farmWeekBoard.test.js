@@ -12,6 +12,11 @@ const fs = require('node:fs');
  assert.equal(moveFarmWeek('2026-52-04',1),'2027-01-01');assert.equal(moveFarmWeek('2026-01-01',-1),'2025-52-04');
  assert.equal(moveFarmWeek('2026-39-01',1),'2026-39-02');assert.equal(moveFarmWeek('invalid',1),null);
  assert.notEqual(varietyKey(base),varietyKey({...base,country:'중국'}));
+ const page=fs.readFileSync('pages/stats/farm-week-board.js','utf8');
+ assert(page.includes('groups.get(country).push(row)'));
+ assert(page.includes('className={styles.countryGroup}'));
+ const css=fs.readFileSync('components/FarmWeekBoard.module.css','utf8');
+ assert(/\.scroller thead th\{[^}]*white-space:normal;[^}]*overflow-wrap:anywhere/.test(css));
  assert.deepEqual(buildFarmWeekBoard([],{orderYear:'2026',orderWeek:'39-02'}),[]);
  const sql=fs.readFileSync('lib/farmWeekBoardSql.js','utf8');
  for(const alias of ['wm','om','sm','sh']) {assert(sql.includes(`${alias}.OrderYear=@year`));assert(sql.includes(`${alias}.OrderWeek=@week`));}
