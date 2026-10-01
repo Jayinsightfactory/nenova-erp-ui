@@ -10,6 +10,16 @@
     "lib/weekdayEstimateWorkbook.js",
     "lib/weekdayEstimateCompare.js",
     "lib/weekdayHorizontalMatrix.js",
+    "lib/weekdayInitialBaselineStore.js",
+    "lib/weekdayInitialBaselineSql.js",
+    "lib/weekdayQuoteReconciliation.js",
+    "__tests__/weekdayQuoteReconciliation.test.js",
+    "pages/api/estimate/weekday-baseline.js",
+    "__tests__/weekdayInitialBaseline.test.js",
+    "__tests__/weekdayInitialMatrix.test.js",
+    "lib/weekdayPageNoteStore.js",
+    "pages/api/estimate/weekday-note.js",
+    "__tests__/weekdayPageNote.test.js",
     "lib/weekdayEstimatePrint.js",
     "pages/api/estimate/weekday-products.js",
     "pages/api/estimate/weekday-print.js",
@@ -33,13 +43,31 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {
+      "name": "WEEKDAY_PAGE_NOTE_AND_MANUAL_EARLY_SHIPMENT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "sideEffect": "연도+대차수+업체+품목에 대한 비고/담당자 수동 확인 선출고 정보를 private data/runtime 별도 파일로 저장한다. revision 동시수정 보호. 선출고 날짜/원천 연도·세부차수/단위/양수 수량을 명시하며 실제 ERP 농장배정·입고원천·재고/견적 수량으로 자동 적용하지 않는다. 표시에는 수동확인임을 명시."
+    },
+    {
+      "name": "WEEKDAY_PAGE_INITIAL_BASELINE_CONFIRM",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "sideEffect": "주광 페이지 전용 최초 기준 확정. year+OrderWeek+CustKey로 ERP를 SELECT 재검증하고 preview 지문 일치 시 data/runtime/weekday-baselines에 최초 한 번만 불변 저장한다. 공용 확정/SP/SQL schema/isFix를 변경하지 않는다. 품목별 최초수량·단위·담당자·시각을 보관하고 재확정/수량0 삭제 후에도 기준은 보존. 최초01-목일, 최초01+02-목수는 기준 대비 분배 잔량이며 실제 재고/배송완료가 아니다. 초안 예상값은 별도 표시. 알스트로 단의 qty(qty/16)는 표시 전용이다."
+    },
+    {
       "name": "WEEKDAY_HIDE_NO_SHIPMENT_DISPLAY_ONLY",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "shipmentDate": "preserve",
       "estimateRows": "preserve",
       "stock": "preserve",
-      "sideEffect": "hasHorizontalShipmentQuantity로 year+major 범위의 개별 출고총량/일별 출고량 또는 양수 초안이 있는 행만 표시. 0/null/빈값만 있는 행은 숨김. 품목 추가는 기존 품목 검색 및 동일 범위 읽기 전용 대조 후 표 표시만 유지. 명시 추가 행은 0이어도 현재 화면에서 유지. 원문/인쇄/API/단위/확정은 보존."
+      "sideEffect": "hasHorizontalShipmentQuantity로 year+major 범위의 개별 출고총량/일별 출고량 또는 양수 초안/최초 확정 기준이 있는 행만 표시. 최초 양수 품목은 취소/0 후에도 유지해 잔량을 표시. 그 외 0/null/빈값만 있는 행은 숨김. 품목 추가는 기존 품목 검색 및 동일 범위 읽기 전용 대조 후 표 표시만 유지. 명시 추가 행은 0이어도 현재 화면에서 유지. 원문/인쇄/API/단위/ERP확정은 보존."
     },
     {
       "name": "WEEKDAY_CALENDAR_AND_CYCLE_MATRIX",
@@ -103,6 +131,10 @@
     "description": "비교 요청 year=2026, orderWeek=38-02, custKey=7, prodKey=101이면 같은 38-02의 2025년 행은 결과에 포함되지 않는다. 모든 쿼리는 OrderYear/OrderWeek/CustKey/ProdKey를 제한한다."
   },
   "requiredTestFiles": [
+    "__tests__/weekdayQuoteReconciliation.test.js",
+    "__tests__/weekdayInitialBaseline.test.js",
+    "__tests__/weekdayInitialMatrix.test.js",
+    "__tests__/weekdayPageNote.test.js",
     "__tests__/estimateWeekdayWorkspace.test.js",
     "__tests__/weekdayEstimateWorkbook.test.js",
     "__tests__/weekdayEstimateCompare.test.js",

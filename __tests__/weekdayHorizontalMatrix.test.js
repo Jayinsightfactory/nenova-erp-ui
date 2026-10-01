@@ -26,8 +26,8 @@ const matrix = build([cycles[2], cycles[0], cycles[1]], [plan({ prodKey: 303, pr
   actual({ year: 2025, prodKey: 999 }), actual({ orderWeek: '40-01', prodKey: 888 }),
 ]);
 assert.deepEqual(matrix.cycles.map((cycle) => cycle.offset), [-1, 0, 1]);
-assert.equal(matrix.columns.length, 24);
-assert.deepEqual(matrix.columns.map((column) => column.kind), Array.from({ length: 3 }, () => [...Array(7).fill('day'), 'total']).flat());
+assert.equal(matrix.columns.length, 33);
+assert.deepEqual(matrix.columns.map((column) => column.kind), Array.from({ length: 3 }, () => ['initial01',...Array(4).fill('day'),'remaining01','initial02',...Array(3).fill('day'),'remainingMajor']).flat());
 assert.deepEqual(matrix.columns.filter((column) => column.kind === 'day').slice(0, 7).map((column) => column.day.label), ['목', '금', '토', '일', '월', '화', '수']);
 assert.deepEqual(matrix.rows.map((row) => row.prodKey).sort(), [101, 202, 303], 'union includes all three cycles, not prior-year/outside identities');
 assert.equal(matrix.rows.filter((row) => row.prodKey === 101).length, 1);
@@ -211,7 +211,7 @@ assert.equal((html.match(/wcm-day-print/g) || []).length, 22, '21 day buttons pl
 assert.equal((html.match(/type="checkbox"/g) || []).length, 21);
 assert.equal((html.match(/미적용 초안 수량"/g) || []).length, 21);
 assert.equal((html.match(/rowspan="3"/g) || []).length, 1);
-assert.equal((html.match(/colspan="8"/gi) || []).length, 3);
+assert.equal((html.match(/colspan="11"/gi) || []).length, 3);
 assert.match(html, /38차 목 견적 출력/);
 assert.match(html, /FlowerName|CARNATION/);
 assert.match(html, /min-width:1780px/);
@@ -233,7 +233,7 @@ const hiddenComparisons = [
     shipmentDates: [{ date: '2026-09-17', shipmentQuantity: 0 }] }),
 ];
 const visibilityHtml = renderMatrix({ comparisonRows: [...hiddenComparisons, actual()] });
-assert.match(tableBody(visibilityHtml), /CARNATION Blue/);
+assert.match(tableBody(visibilityHtml), /wcm-product-name">Blue<\/span>/);
 assert.doesNotMatch(visibilityHtml, /ORDER_ONLY_HIDDEN|ZERO_SHIPMENT_HIDDEN|HIDDEN_FLOWER/);
 assert.equal((tableBody(visibilityHtml).match(/<tr>/g) || []).length, 1);
 assert.match(visibilityHtml, /품목 1\/1 · 출고 없음 2개 숨김/);
@@ -329,7 +329,7 @@ assert.equal(printRequests[2].mode, 'major');
 assert.deepEqual(printRequests[2].dates, []);
 descendants(mainHost.render()).find((element) => element.type === 'input' && element.props.type === 'search')
   .props.onChange({ target: { value: 'no-match-fixture' } });
-assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td' && element.props.colSpan === 25));
+assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td' && element.props.colSpan === 34));
 assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td'
   && element.props.children === '검색/품종 조건에 맞는 품목이 없습니다.'));
 const filterHost = mount(eventModule.exports.default, { cycles, comparisonRows: [...hiddenComparisons, actual()] });
@@ -441,4 +441,4 @@ assert.equal(pickerRegion(), undefined);
 const missingCustomerHost = mount(eventModule.exports.default, { cycles, onAddProduct() {} });
 assert.equal(descendants(missingCustomerHost.render()).find((element) => element.type === 'button'
   && element.props.children === '품목 추가').props.disabled, true);
-console.log(`Horizontal weekday matrix: ${eligibilityCases.length} raw-shipment eligibility and real SSR fixtures, raw row preservation, hidden count/empty/filter states, async product picker pending/failure/success/zero-row retention, union/24-column ordering, year identity, outside rows, unit/duplicate guards, zero validation, print eligibility and edit/print/search event handlers passed.`);
+console.log(`Horizontal weekday matrix: ${eligibilityCases.length} raw-shipment eligibility and real SSR fixtures, raw row preservation, hidden count/empty/filter states, async product picker pending/failure/success/zero-row retention, union/33-column ordering, year identity, outside rows, unit/duplicate guards, zero validation, print eligibility and edit/print/search event handlers passed.`);
