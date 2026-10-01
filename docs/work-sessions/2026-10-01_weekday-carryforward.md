@@ -5,7 +5,7 @@
 | 화면 | /estimate/weekday |
 | 기본 | 전산 달력 현재 업무주 +1 |
 | 원장 부작용 | ERP/최초 기준 보존, private runtime 마감잔량 이력만 저장 |
-| 배포/PR | 검증 후 기록 |
+| 배포/PR | PR850/851 병합·Cafe24 배포 성공·운영 read-only smoke 통과 |
 
 ## 고정된 결정
 
@@ -39,7 +39,17 @@ Q. 캡처의 38-01 일요일7박스 입력이 안 된다.
 
 A. 운영 read-only 브라우저에서 품목866 / 2026-09-20의 38-01 수량7과 38-02 취소0 원문을 확인했다. actualOrderWeeks에 0 기록도 포함되어 복수 업무차수로 차단됐다. 원문·합계·0 기록을 보존하고 유일 nonzero 차수만 편집 원천으로 선택한다. 양쪽 실제 수량·불명값·단위충돌은 계속 차단.
 
-## 다음 확인
+## 최종 결과
 
-최종 tests/build/PR/배포/운영 read-only smoke 기록. 운영 수량 테스트 쓰기는 하지 않는다.
+- PR [850](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/850), merge `b1895e897da9e1701a9f8d1bf002535db1605b5d`; ERP Contract Guard `36842896819`, Cafe24 `36843069984` 성공.
+- 후속 PR [851](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/851): 수동 중심차수 `8` 입력도 carry API에 `08`로 조회. merge `85e0421fcb5233817a91497c59dc996dbe5a7892`; Guard `36843695662`, Cafe24 `36843941475` 성공.
+- 관련 weekday 회귀·최종 빌드·manifest/write guard 통과. 운영 확인 build `build-1790847523324`.
+- 2026-10-01 실제 PeriodDay 현재40차 → 기본 중심41차. carry GET 성공, context306행. 8 직접입력 →08 정규화 API 조회 성공.
+- 운영 품목866 `Hydrangea Blue (블루）` /38-01/2026-09-20 수량7 입력이 활성·포커스됨. 38-02 취소0 원문 유지.
+- 잔량 수정·이력 팝업이1920×1080/100%,1280×800 화면 안에 위치, 문서 가로 넘침 없음, 상·하단·표 스크롤 동기화. JS 오류0.
+- 이월 저장·이력·5→7→8·동시수정·실패 보존은 격리 fixture 검증. 운영 마감잔량/ERP/최초/비고 테스트 쓰기는 하지 않았다.
+- 로컬 개발 서버와 하위 에이전트 모두 종료. 최종 결과 기록은 로컬 문서 후속 커밋으로 보관하며 재배포하지 않는다.
+
+미완료 별도 항목: 앞서 진단한 `CALENDAR_TIMESTAMP_MISMATCH` ERP 저장 시각 비교 오류는 이번 요청과 분리하여 수정하지 않았다. 운영 출고 수정·재고 보정 없음.
+
 `.next-dev-*`, `.next-validation`, `output` 검증 산출물은 커밋하지 않는다.
