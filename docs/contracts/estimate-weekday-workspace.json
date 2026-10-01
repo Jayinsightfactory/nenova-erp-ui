@@ -33,6 +33,15 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {
+      "name": "WEEKDAY_HIDE_NO_SHIPMENT_DISPLAY_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "sideEffect": "hasHorizontalShipmentQuantity로 year+major 범위의 개별 출고총량/일별 출고량 또는 양수 초안이 있는 행만 표시. 0/null/빈값만 있는 행은 숨김. 품목 추가는 기존 품목 검색 및 동일 범위 읽기 전용 대조 후 표 표시만 유지. 명시 추가 행은 0이어도 현재 화면에서 유지. 원문/인쇄/API/단위/확정은 보존."
+    },
+    {
       "name": "WEEKDAY_CALENDAR_AND_CYCLE_MATRIX",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
