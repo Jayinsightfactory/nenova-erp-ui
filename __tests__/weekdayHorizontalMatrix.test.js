@@ -6,7 +6,8 @@ import * as helper from '../lib/weekdayHorizontalMatrix.js';
 import { SHIPPING_DAYS, shiftDate } from '../lib/weekdayEstimateCycle.js';
 
 const { buildHorizontalWeekdayMatrix: build, horizontalEditPayload: edit,
-  horizontalPrintReason: printReason, validateHorizontalQuantity: validate } = helper;
+  horizontalPrintReason: printReason, validateHorizontalQuantity: validate,
+  hasHorizontalShipmentQuantity: hasShipment } = helper;
 const cycles = [-1, 0, 1].map((offset) => ({ offset, year: 2026, majorWeek: String(38 + offset),
   startDate: shiftDate('2026-09-17', offset * 7), endDate: shiftDate('2026-09-17', offset * 7 + 6), calendarState: 'FOUND',
   days: SHIPPING_DAYS.map((day, index) => ({ ...day, date: shiftDate('2026-09-17', offset * 7 + index),
@@ -48,6 +49,69 @@ assert.equal(JSON.stringify(prioritySource),prioritySnapshot,'sorting never muta
 
 const blockFor = (plans = [], comparisons = [actual()]) => build(cycles, plans, comparisons).rows[0].blocks[1];
 const rowFor = (plans = [], comparisons = [actual()]) => build(cycles, plans, comparisons).rows[0];
+
+// Eligibility filters the UI only; the raw matrix must retain every in-scope row/source.
+const noShipmentActual = (patch = {}) => actual({ state: 'NO_SHIPMENT', shipmentOutQuantity: null,
+  shipmentDates: [], orderOutQuantity: 800, orderEstQuantity: 900, warehouseQuantity: 700, ...patch });
+const eligibilityCases = [
+  { name: 'order-only', comparisons: [noShipmentActual()], visible: false },
+  { name: 'estimate-only', comparisons: [noShipmentActual({ shipmentDates: [
+    { date: '2026-09-17', shipmentQuantity: 0, estimateQuantity: 999 },
+  ] })], visible: false },
+  { name: 'positive-fraction-total', comparisons: [noShipmentActual({ shipmentOutQuantity: 0.125 })], visible: true },
+  { name: 'positive-date-total-null', comparisons: [noShipmentActual({ shipmentDates: [
+    { date: '2026-09-17', shipmentQuantity: 0.25 },
+  ] })], visible: true },
+  ...['37', '39'].map((week) => ({ name: `adjacent-${week}`, comparisons: [noShipmentActual({
+    orderWeek: `${week}-01`, shipmentOutQuantity: 0.5,
+  })], visible: true })),
+  { name: 'outside-date-positive', comparisons: [noShipmentActual({ shipmentDates: [
+    { date: '2026-10-01', shipmentQuantity: 0.5 },
+  ] })], visible: true },
+  { name: 'ambiguous-business-keys', comparisons: [
+    noShipmentActual({ shipmentDates: [{ date: '2026-09-17', shipmentQuantity: 0.5 }] }),
+    noShipmentActual({ orderWeek: '38-02', shipmentDates: [{ date: '2026-09-17', shipmentQuantity: -0.5 }] }),
+  ], visible: true, aggregateUnknown: true },
+  { name: 'mixed-units', comparisons: [noShipmentActual({ shipmentOutQuantity: 0.5, shipmentDates: [
+    { date: '2026-09-17', shipmentQuantity: 0.5 },
+  ] }), noShipmentActual({ outUnit: '단', shipmentOutQuantity: -0.5, shipmentDates: [
+    { date: '2026-09-17', shipmentQuantity: -0.5 },
+  ] })], visible: true, aggregateUnknown: true },
+  { name: 'prior-year-same-week', comparisons: [noShipmentActual(), actual({ year: 2025,
+    orderWeek: '38-02', shipmentOutQuantity: 999, shipmentDates: [{ date: '2026-09-17', shipmentQuantity: 999 }] })], visible: false },
+  { name: 'positive-draft', plans: [plan({ quantity: 0.125 })], comparisons: [], visible: true },
+  { name: 'zero-only-draft', plans: [plan({ quantity: 0 })], comparisons: [], visible: false },
+  { name: 'duplicate-mixed-unit-drafts', plans: [plan({ quantity: 0.5 }),
+    plan({ id: 'F4', unit: '단', quantity: 0 })], comparisons: [], visible: true },
+];
+for (const [index, value] of [0, '0', -1, '-0.5', null, undefined, '', ' ', 'invalid', NaN, Infinity,
+  -Infinity, 'NaN', 'Infinity', '1e999', false].entries()) {
+  eligibilityCases.push({ name: `nonpositive-or-invalid-${index}`, comparisons: [noShipmentActual({
+    shipmentOutQuantity: value, shipmentDates: [{ date: '2026-09-17', shipmentQuantity: value }],
+  })], plans: [plan({ quantity: value })], visible: false });
+}
+for (const fixture of eligibilityCases) {
+  const plans = fixture.plans || [];
+  const snapshot = structuredClone({ plans, comparisons: fixture.comparisons });
+  const raw = build(cycles, plans, fixture.comparisons);
+  assert.equal(raw.rows.length, 1, `${fixture.name}: retain raw product even when hidden`);
+  assert.equal(raw.rows[0].blocks.flatMap((block) => block.productActuals).length,
+    fixture.comparisons.filter((item) => item.year === 2026).length, `${fixture.name}: preserve scoped actuals`);
+  assert.equal(raw.rows[0].blocks.flatMap((block) => block.productPlans).length, plans.length,
+    `${fixture.name}: preserve drafts`);
+  assert.equal(hasShipment(raw.rows[0]), fixture.visible, fixture.name);
+  assert.deepEqual({ plans, comparisons: fixture.comparisons }, snapshot, `${fixture.name}: never mutate inputs`);
+  if (fixture.aggregateUnknown) assert.equal(raw.rows[0].blocks[1].days[0].current, null,
+    `${fixture.name}: raw positive eligibility must not depend on aggregate`);
+}
+assert.equal(hasShipment(null), false);
+assert.equal(hasShipment({ blocks: [] }), false);
+assert.equal(hasShipment({ blocks: [{ currentTotal: 99, plannedTotal: 99, days: [{ current: 99 }] }] }), false,
+  'computed quantities are not raw shipment evidence');
+assert.equal(build(cycles, [], [actual({ year: 2025, orderWeek: '38-02' })]).rows.length, 0,
+  'prior-year-only product never enters the displayed year');
+assert.deepEqual(prioritized.rows.filter(hasShipment).map((row) => row.prodKey), [504, 505, 502]);
+assert.equal(prioritized.rows.length, 5, 'display eligibility never removes raw matrix rows');
 const healthy = blockFor([plan()]);
 assert.equal(healthy.days[0].current, 4);
 assert.equal(healthy.days[0].planned, 6);
@@ -161,6 +225,29 @@ assert.match(disconnected, /출력 불가/);
 assert.match(disconnected, /거래처를 먼저 선택/);
 assert.match(disconnected, /초안 편집 기능 미연결/);
 
+const renderMatrix = (props) => renderToStaticMarkup(React.createElement(Component, { cycles, ...props }));
+const tableBody = (markup) => markup.match(/<tbody>([\s\S]*?)<\/tbody>/)[1];
+const hiddenComparisons = [
+  noShipmentActual({ prodKey: 701, prodName: 'ORDER_ONLY_HIDDEN', flowerName: 'HIDDEN_FLOWER' }),
+  noShipmentActual({ prodKey: 702, prodName: 'ZERO_SHIPMENT_HIDDEN', shipmentOutQuantity: 0,
+    shipmentDates: [{ date: '2026-09-17', shipmentQuantity: 0 }] }),
+];
+const visibilityHtml = renderMatrix({ comparisonRows: [...hiddenComparisons, actual()] });
+assert.match(tableBody(visibilityHtml), /CARNATION Blue/);
+assert.doesNotMatch(visibilityHtml, /ORDER_ONLY_HIDDEN|ZERO_SHIPMENT_HIDDEN|HIDDEN_FLOWER/);
+assert.equal((tableBody(visibilityHtml).match(/<tr>/g) || []).length, 1);
+assert.match(visibilityHtml, /품목 1\/1 · 출고 없음 2개 숨김/);
+const allHiddenHtml = renderMatrix({ comparisonRows: hiddenComparisons });
+assert.match(allHiddenHtml, /품목 0\/0 · 출고 없음 2개 숨김/);
+assert.match(tableBody(allHiddenHtml), /표시 범위에 출고 수량 또는 양수 초안이 있는 품목이 없습니다\. 출고 없는 품목은 숨겼습니다\./);
+assert.doesNotMatch(allHiddenHtml, /ORDER_ONLY_HIDDEN|ZERO_SHIPMENT_HIDDEN/);
+assert.match(tableBody(renderMatrix({})), /조회된 품목 또는 초안이 없습니다\. 재고 0을 의미하지 않습니다\./);
+for (const fixture of eligibilityCases) {
+  const markup = renderMatrix({ plans: fixture.plans || [], comparisonRows: fixture.comparisons });
+  assert.equal(tableBody(markup).includes('wcm-product-name'), fixture.visible, `${fixture.name}: actual component SSR visibility`);
+  assert.match(markup, fixture.visible ? /품목 1\/1 · 출고 없음 0개 숨김/ : /품목 0\/0 · 출고 없음 1개 숨김/);
+}
+
 // Execute the real event handlers with a minimal deterministic hook host.
 // No browser/network or test-only edits to the component are required.
 let activeHost = null;
@@ -243,4 +330,115 @@ assert.deepEqual(printRequests[2].dates, []);
 descendants(mainHost.render()).find((element) => element.type === 'input' && element.props.type === 'search')
   .props.onChange({ target: { value: 'no-match-fixture' } });
 assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td' && element.props.colSpan === 25));
-console.log('Horizontal weekday matrix: union/24-column ordering, year identity, outside rows, safe dated quantities, unit/duplicate guards, zero validation, print eligibility, JSX SSR and edit/print/search event handlers passed.');
+assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td'
+  && element.props.children === '검색/품종 조건에 맞는 품목이 없습니다.'));
+const filterHost = mount(eventModule.exports.default, { cycles, comparisonRows: [...hiddenComparisons, actual()] });
+const filterElements = () => descendants(filterHost.render());
+assert.ok(!filterElements().some((element) => element.type === 'option' && element.props.value === 'HIDDEN_FLOWER'));
+filterElements().find((element) => element.type === 'input' && element.props.type === 'search')
+  .props.onChange({ target: { value: 'ORDER_ONLY_HIDDEN' } });
+assert.ok(filterElements().some((element) => element.type === 'td'
+  && element.props.children === '검색/품종 조건에 맞는 품목이 없습니다.'));
+assert.ok(filterElements().some((element) => element.type === 'span'
+  && React.Children.toArray(element.props.children).join('').includes('품목 0/1 · 출고 없음 2개 숨김')));
+filterElements().find((element) => element.type === 'input' && element.props.type === 'search')
+  .props.onChange({ target: { value: '' } });
+filterElements().find((element) => element.type === 'select')
+  .props.onChange({ target: { value: 'CARNATION' } });
+assert.equal(filterElements().filter((element) => element.props?.className === 'wcm-product-name').length, 1);
+
+// Execute the actual async picker handlers: no fake order/draft or ERP write for explicit display additions.
+const deferred = () => {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+};
+const candidate = { ProdKey: 702, ProdName: 'ZERO_SHIPMENT_HIDDEN', FlowerName: 'CARNATION' };
+const searchedQueries = [], addedProducts = [];
+let searchOutcome = deferred(), addOutcome = deferred();
+const pickerProps = { cycles, customer: { CustKey: 7 }, comparisonRows: [...hiddenComparisons, actual()],
+  onSearchProducts(query) { searchedQueries.push(query); return searchOutcome.promise; },
+  onAddProduct(product) { addedProducts.push(product); return addOutcome.promise; } };
+const pickerSnapshot = structuredClone(pickerProps.comparisonRows);
+const pickerHost = mount(eventModule.exports.default, pickerProps);
+const pickerElements = () => descendants(pickerHost.render());
+const pickerRegion = () => pickerElements().find((element) => element.props?.['aria-label'] === '품목 추가 검색');
+const pickerButton = (label) => descendants(pickerRegion()).find((element) => element.type === 'button'
+  && React.Children.toArray(element.props.children)[0] === label);
+const addedRowNames = () => pickerElements().filter((element) => element.type === 'th' && element.props?.scope === 'row')
+  .map((element) => element.props.title.split('\n')[0]);
+const pickerAlert = (message) => descendants(pickerRegion()).some((element) => element.props?.role === 'alert'
+  && element.props.children === message);
+const typeAddQuery = (value) => descendants(pickerRegion()).find((element) => element.type === 'input')
+  .props.onChange({ target: { value } });
+const openPicker = () => pickerElements().find((element) => element.type === 'button'
+  && element.props.children === '품목 추가');
+assert.equal(openPicker().props.disabled, false);
+openPicker().props.onClick();
+assert.ok(pickerButton('ORDER_ONLY_HIDDEN'), 'opening offers hidden rows without invoking search');
+assert.ok(pickerButton(candidate.ProdName));
+assert.deepEqual(searchedQueries, []);
+assert.deepEqual(addedRowNames(), ['CARNATION Blue']);
+typeAddQuery('  zero product  ');
+const failedSearch = pickerButton('검색').props.onClick();
+assert.equal(pickerButton('검색').props.disabled, true);
+assert.equal(pickerButton('닫기').props.disabled, true);
+assert.equal(pickerButton(candidate.ProdName).props.disabled, true);
+assert.equal(descendants(pickerRegion()).find((element) => element.type === 'input').props.disabled, true);
+searchOutcome.reject(new Error('fixture search failure'));
+await failedSearch;
+assert.deepEqual(searchedQueries, ['zero product']);
+assert.ok(pickerAlert('fixture search failure'));
+assert.equal(pickerButton('검색').props.disabled, false);
+searchOutcome = deferred();
+const emptySearch = pickerButton('검색').props.onClick();
+searchOutcome.resolve([]); await emptySearch;
+assert.ok(pickerAlert('검색된 품목이 없습니다.'));
+searchOutcome = deferred();
+const successfulSearch = pickerButton('검색').props.onClick();
+searchOutcome.resolve([candidate]); await successfulSearch;
+assert.equal(pickerButton(candidate.ProdName).props.disabled, false);
+assert.ok(!descendants(pickerRegion()).some((element) => element.props?.role === 'alert'));
+const candidateHandler = pickerButton(candidate.ProdName).props.onClick;
+const failedAdd = candidateHandler();
+await candidateHandler();
+assert.equal(addedProducts.length, 1, 'pending add lock prevents duplicate callback');
+assert.equal(pickerButton(candidate.ProdName).props.disabled, true);
+assert.deepEqual(addedRowNames(), ['CARNATION Blue'], 'pending add does not reveal zero row');
+addOutcome.resolve({ success: false, error: 'fixture add failure' }); await failedAdd;
+assert.ok(pickerAlert('fixture add failure'));
+assert.deepEqual(addedRowNames(), ['CARNATION Blue'], 'failed add leaves zero row hidden');
+assert.equal(pickerButton(candidate.ProdName).props.disabled, false);
+addOutcome = deferred();
+const rejectedAdd = pickerButton(candidate.ProdName).props.onClick();
+addOutcome.reject(new Error('fixture add rejected')); await rejectedAdd;
+assert.ok(pickerAlert('fixture add rejected'));
+assert.deepEqual(addedRowNames(), ['CARNATION Blue']);
+// A successful explicit addition clears existing display filters, retaining the actual zero source.
+pickerElements().find((element) => element.type === 'input' && element.props.type === 'search')
+  .props.onChange({ target: { value: 'no-match-fixture' } });
+pickerElements().find((element) => element.type === 'select').props.onChange({ target: { value: 'HIDDEN_FLOWER' } });
+addOutcome = deferred();
+const successfulAdd = pickerButton(candidate.ProdName).props.onClick();
+addOutcome.resolve(true); await successfulAdd;
+assert.equal(pickerRegion(), undefined);
+assert.deepEqual(addedProducts, [candidate, candidate, candidate]);
+assert.deepEqual(addedRowNames(), ['ZERO_SHIPMENT_HIDDEN', 'CARNATION Blue']);
+assert.ok(pickerElements().some((element) => element.type === 'span'
+  && React.Children.toArray(element.props.children).join('').includes('품목 2/2 · 출고 없음 1개 숨김')));
+const zeroCell = pickerElements().find((element) => element.props?.row?.prodKey === 702
+  && element.props?.day?.date === '2026-09-17');
+assert.equal(zeroCell.props.day.current, 0);
+assert.equal(zeroCell.props.block.currentTotal, 0);
+assert.equal(zeroCell.props.day.planned, null, 'explicit display addition creates no draft');
+assert.equal(hasShipment(rowFor([], [hiddenComparisons[1]])), false, 'manual addition does not change pure shipment eligibility');
+assert.deepEqual(pickerProps.comparisonRows, pickerSnapshot, 'picker leaves ERP fixture sources untouched');
+assert.equal(addedRowNames().filter((name) => name === candidate.ProdName).length, 1, 'zero row stays on rerender exactly once');
+openPicker().props.onClick();
+assert.equal(pickerButton(candidate.ProdName), undefined, 'added product is no longer offered as hidden');
+pickerButton('닫기').props.onClick();
+assert.equal(pickerRegion(), undefined);
+const missingCustomerHost = mount(eventModule.exports.default, { cycles, onAddProduct() {} });
+assert.equal(descendants(missingCustomerHost.render()).find((element) => element.type === 'button'
+  && element.props.children === '품목 추가').props.disabled, true);
+console.log(`Horizontal weekday matrix: ${eligibilityCases.length} raw-shipment eligibility and real SSR fixtures, raw row preservation, hidden count/empty/filter states, async product picker pending/failure/success/zero-row retention, union/24-column ordering, year identity, outside rows, unit/duplicate guards, zero validation, print eligibility and edit/print/search event handlers passed.`);

@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { buildHorizontalWeekdayMatrix, horizontalCycleKey, horizontalEditPayload,
-  horizontalPrintReason, validateHorizontalQuantity } from '../lib/weekdayHorizontalMatrix.js';
+  horizontalPrintReason, validateHorizontalQuantity, hasHorizontalShipmentQuantity } from '../lib/weekdayHorizontalMatrix.js';
 
 const numberLabel = (value) => value == null || !Number.isFinite(Number(value))
   ? '미확인' : String(Number(value));
@@ -75,12 +75,21 @@ function PrintButton({ label, reason, onClick, className = '', visibleLabel = la
 }
 
 export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparisonRows = [], onMove, busy = false,
-  onEditCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided }) {
+  onEditCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
+  onSearchProducts, onAddProduct }) {
   const safeCycles = Array.isArray(cycles) ? cycles : [];
   const safePlans = Array.isArray(plans) ? plans : [];
   const safeComparisons = Array.isArray(comparisonRows) ? comparisonRows : [];
   const [search, setSearch] = useState('');
   const [flower, setFlower] = useState('');
+  const [addedKeys, setAddedKeys] = useState([]);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addQuery, setAddQuery] = useState('');
+  const [addCandidates, setAddCandidates] = useState([]);
+  const [addError, setAddError] = useState('');
+  const [adding, setAdding] = useState(false);
+  const addRequest = useRef(0);
+  const addLock = useRef(false);
   const [selectedDates, setSelectedDates] = useState({});
   const [selectedInfo, setSelectedInfo] = useState('');
   const [printError, setPrintError] = useState('');
@@ -98,9 +107,10 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const hasCustomer = customerProvided ?? (Number(customer?.CustKey ?? customer?.custKey ?? custKey) > 0);
   const printReason = (cycle, dates, mode) => busy ? '전산 조회/처리 중' : horizontalPrintReason({ cycle, dates, mode, onPrint,
     customerProvided: hasCustomer, printBusy: printBusy || printing });
-  const flowers = [...new Set(matrix.rows.flatMap((row) => row.flowerNames))].sort();
+  const shipmentRows = matrix.rows.filter((row) => hasHorizontalShipmentQuantity(row) || addedKeys.includes(row.prodKey));
+  const flowers = [...new Set(shipmentRows.flatMap((row) => row.flowerNames))].sort();
   const query = search.trim().toLocaleLowerCase();
-  const visibleRows = matrix.rows.filter((row) => (!flower || row.flowerNames.includes(flower))
+  const visibleRows = shipmentRows.filter((row) => (!flower || row.flowerNames.includes(flower))
     && (!query || `${row.prodKey} ${row.name} ${row.flowerNames.join(' ')}`.toLocaleLowerCase().includes(query)));
   const validDestinations = safeCycles.filter((cycle) => cycle.calendarState === 'FOUND')
     .flatMap((cycle) => cycle.days.filter((day) => day.calendarState === 'FOUND')
@@ -110,6 +120,39 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const diagnostics = matrix.rows.flatMap((row) => row.blocks.map((block) => ({ row, block })))
     .filter(({ block }) => block.outside.length || block.outsideDrafts.length || block.unitState !== 'MATCHED'
       && (block.productActuals.length || block.productPlans.length) || block.days.some((day) => day.assignedWeekMismatch || day.drafts.length > 1));
+
+  function openAdd() {
+    addRequest.current += 1; setAddOpen(true); setAddQuery(''); setAddError('');
+    setAddCandidates(matrix.rows.filter((row) => !shipmentRows.includes(row)).slice(0, 20)
+      .map((row) => ({ ProdKey:row.prodKey, ProdName:row.name, FlowerName:row.flowerNames.join(' / ') })));
+  }
+  async function searchAdd() {
+    const query = addQuery.trim();
+    if (!query) { openAdd(); return; }
+    const request = ++addRequest.current; setAdding(true); setAddError('');
+    try {
+      if (typeof onSearchProducts !== 'function') throw new Error('품목 검색 기능 미연결');
+      const candidates = await onSearchProducts(query);
+      if (request !== addRequest.current) return;
+      setAddCandidates((Array.isArray(candidates) ? candidates : []).slice(0,20));
+      if (!candidates?.length) setAddError('검색된 품목이 없습니다.');
+    } catch (failure) { if (request === addRequest.current) {setAddCandidates([]); setAddError(failure.message || '품목 검색 실패');} }
+    finally { if (request === addRequest.current) setAdding(false); }
+  }
+  async function addProduct(product) {
+    if (addLock.current || disabled || adding) return;
+    const key = Number(product.ProdKey);
+    if (!Number.isInteger(key) || key <= 0) {setAddError('품목키를 확인하세요.');return;}
+    addLock.current=true; setAdding(true); setAddError('');
+    try {
+      if (typeof onAddProduct !== 'function') throw new Error('품목 추가 기능 미연결');
+      const result = await onAddProduct(product);
+      if (result === false || result?.success === false || result?.error) throw new Error(result?.error || '품목 추가 조회 실패');
+      setAddedKeys((current) => [...new Set([...current,key])]);
+      setSearch('');setFlower('');setAddOpen(false);
+    } catch (failure) {setAddError(failure.message || '품목 추가 실패');}
+    finally {addLock.current=false;setAdding(false);}
+  }
 
   async function print(cycle, dates, mode) {
     if (printReason(cycle, dates, mode) || printLock.current) return;
@@ -181,14 +224,28 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
 
   return <section className="weekday-cycle-matrix" aria-label="목요일부터 수요일까지 연결 차수 행렬" aria-busy={disabled}>
     <div className="wcm-toolbar">
+      <button type="button" disabled={disabled || adding || !hasCustomer || typeof onAddProduct !== 'function'} onClick={openAdd}>품목 추가</button>
       <label className="wcm-search">품목 검색<input type="search" value={search}
         placeholder="품목명 / 품목키" onChange={(event) => setSearch(event.target.value)} /></label>
       <label>품종<select value={flower} onChange={(event) => setFlower(event.target.value)}>
         <option value="">전체 품종</option>{flowers.map((name) => <option key={name} value={name}>{name}</option>)}
       </select></label>
-      <span className="wcm-muted">품목 {visibleRows.length}/{matrix.rows.length} · 현재 출고·초안 우선 · 편집은 미적용 초안</span>
+      <span className="wcm-muted">품목 {visibleRows.length}/{shipmentRows.length} · 출고 없음 {matrix.rows.length - shipmentRows.length}개 숨김 · 현재 출고·초안 우선 · 편집은 미적용 초안</span>
       {safePlans.length > 0 && <button type="button" disabled={disabled} onClick={openMove}>초안 날짜·차수 이동</button>}
     </div>
+    {addOpen && <div className="wcm-add" role="region" aria-label="품목 추가 검색">
+      <div className="wcm-toolbar">
+        <label>추가할 품목<input type="search" value={addQuery} placeholder="ERP 품목명 검색" disabled={adding}
+          onChange={(event)=>setAddQuery(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.nativeEvent?.isComposing) searchAdd();}} /></label>
+        <button type="button" disabled={adding} onClick={searchAdd}>검색</button>
+        <button type="button" disabled={adding} onClick={()=>{addRequest.current+=1;setAddOpen(false);}}>닫기</button>
+        <span className="wcm-muted">표에만 추가 · 전산 등록 아님 · 최대 20개 후보</span>
+      </div>
+      {addError && <p role="alert" className="wcm-error">{addError}</p>}
+      <div className="wcm-add-candidates">{addCandidates.map((product)=><button type="button" key={product.ProdKey}
+        disabled={adding || disabled} onClick={()=>addProduct(product)}>{product.ProdName} <small>{[product.CounName,product.FlowerName].filter(Boolean).join(' / ')}</small></button>)}</div>
+      {!addCandidates.length && !adding && !addError && <span className="wcm-muted">품목명을 검색해 추가하세요.</span>}
+    </div>}
     {selectedInfo && <div className="wcm-selected" role="status">
       <strong>선택 칸 내역</strong><button type="button" onClick={() => setSelectedInfo('')} aria-label="선택 칸 내역 닫기">닫기</button>
       <pre>{selectedInfo}</pre>
@@ -312,7 +369,9 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
           </tr>;
         })}
           {!visibleRows.length && <tr><td colSpan={matrix.columns.length + 1}>
-            {matrix.rows.length ? '검색/품종 조건에 맞는 품목이 없습니다.' : '조회된 품목 또는 초안이 없습니다. 재고 0을 의미하지 않습니다.'}
+            {shipmentRows.length ? '검색/품종 조건에 맞는 품목이 없습니다.' : matrix.rows.length
+              ? '표시 범위에 출고 수량 또는 양수 초안이 있는 품목이 없습니다. 출고 없는 품목은 숨겼습니다.'
+              : '조회된 품목 또는 초안이 없습니다. 재고 0을 의미하지 않습니다.'}
           </td></tr>}
         </tbody>
       </table>
@@ -374,6 +433,9 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix summary { cursor:pointer; }
       .weekday-cycle-matrix .wcm-detail-record { margin:6px 0; padding:5px 0; border-bottom:1px solid #e6d5a7; }
       .weekday-cycle-matrix .wcm-table-scroll { width:100%; overflow-x:auto; }
+      .weekday-cycle-matrix .wcm-add { border:1px solid #93b5df; background:#f3f8ff; padding:6px; margin:4px 0; }
+      .weekday-cycle-matrix .wcm-add-candidates { display:flex; flex-wrap:wrap; gap:4px; }
+      .weekday-cycle-matrix .wcm-add-candidates button { text-align:left; font-size:12px; padding:3px 6px; }
       .weekday-cycle-matrix table { width:100%; min-width:1780px; border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:12px; }
       .weekday-cycle-matrix .wcm-product-col { width:220px; }
       .weekday-cycle-matrix caption { text-align:left; color:#526277; padding:5px 0; font-size:11px; }

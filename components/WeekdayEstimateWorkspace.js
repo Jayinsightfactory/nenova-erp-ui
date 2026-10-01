@@ -47,6 +47,7 @@ export default function WeekdayEstimateWorkspace() {
   const previewFrame=useRef(null);
   const calendarRequest = useRef(0);
   const comparisonRequest = useRef(0);
+  const addedProductScope = useRef({scope:'', keys:[]});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('엑셀은 임시로 읽기만 합니다. 전산 원장에는 저장하지 않습니다.');
 
@@ -170,7 +171,7 @@ export default function WeekdayEstimateWorkspace() {
     await refreshErp();
   }
 
-  async function refreshErp() {
+  async function refreshErp(extraProdKeys = []) {
     const request=++comparisonRequest.current;
     setBusy(true); setMessage('앞·현재·뒤 차수의 동일 거래처·품목 전산값을 대조 중…');
     try {
@@ -181,7 +182,9 @@ export default function WeekdayEstimateWorkspace() {
       for (const plan of plans.filter(item=>Number(item.custKey)===Number(customer.CustKey))) ranges.set(Number(plan.year), [...new Set([...(ranges.get(Number(plan.year)) || []), plan.orderWeek])]);
       const results = await Promise.all([...ranges].map(async ([requestYear,orderWeeks]) => {
         const inventory=await apiGet('/api/estimate/weekday-products',{year:requestYear,custKey:Number(customer.CustKey),orderWeeks:orderWeeks.join(',')});
-        const prodKeys=[...new Set([...(inventory.products||[]).map(item=>Number(item.ProdKey)),...plans.filter(item=>Number(item.custKey)===Number(customer.CustKey)).map(item=>Number(item.prodKey))])];
+        const scope=`${customer.CustKey}|${year}|${majorWeek}`;
+        const addedKeys=addedProductScope.current.scope===scope ? addedProductScope.current.keys : [];
+        const prodKeys=[...new Set([...(inventory.products||[]).map(item=>Number(item.ProdKey)),...plans.filter(item=>Number(item.custKey)===Number(customer.CustKey)).map(item=>Number(item.prodKey)),...addedKeys,...(Array.isArray(extraProdKeys)?extraProdKeys:[])])];
         if(!prodKeys.length) return {rows:[],sourceLots:[],history:[]};
         const response = await fetch('/api/estimate/weekday-compare', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
@@ -191,11 +194,29 @@ export default function WeekdayEstimateWorkspace() {
       if (!response.ok || !result.success) throw new Error(result.error || '전산 대조에 실패했습니다.');
       return result;
       }));
-      if (request !== comparisonRequest.current) return;
+      if (request !== comparisonRequest.current) return false;
       setCompareRows(results.flatMap((result) => result.rows)); setSourceLots(results.flatMap((result) => result.sourceLots || [])); setErpHistory(results.flatMap((result) => result.history || []));
       setMessage(`전후 차수 전산 대조 완료 · 읽기 전용 · ERP 변경 없음${results.some((result)=>result.historyTruncated) ? ' · 이력 1000건 초과, 일부 표시' : ''}`);
-    } catch (error) { if (request === comparisonRequest.current) setMessage(error.message); }
+      return true;
+    } catch (error) { if (request === comparisonRequest.current) setMessage(error.message); return {success:false,error:error.message}; }
     finally { if (request === comparisonRequest.current) setBusy(false); }
+  }
+
+  async function searchGridProducts(query) {
+    const result=await apiGet('/api/products/search',{q:query});
+    return result.products || [];
+  }
+  async function addGridProduct(product) {
+    if(!customer?.CustKey || !cycles.some(cycle=>cycle.calendarState==='FOUND')) return {success:false,error:'거래처와 전산 달력을 먼저 확인하세요.'};
+    const key=Number(product.ProdKey);
+    if(!Number.isInteger(key)||key<=0) return {success:false,error:'유효한 ERP 품목을 선택하세요.'};
+    const scope=`${customer.CustKey}|${year}|${majorWeek}`;
+    const result=await refreshErp([key]);
+    if(result!==true) return result || false;
+    const previous=addedProductScope.current.scope===scope ? addedProductScope.current.keys : [];
+    addedProductScope.current={scope,keys:[...new Set([...previous,key])]};
+    setMessage('품목을 표에 추가했습니다. 수량 입력은 미적용 초안이며 전산 등록·재고 변경은 하지 않았습니다.');
+    return true;
   }
 
   function editGridCell(cell) {
@@ -288,7 +309,7 @@ export default function WeekdayEstimateWorkspace() {
       {uploadError && <div role="alert" style={{color:'#b42318'}}>{uploadError}</div>}
     </header>
 
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={plans.filter((plan)=>Number(plan.custKey)===Number(customer?.CustKey))} comparisonRows={compareRows || []} onMove={moveDraft} busy={busy} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy} customer={customer}/>
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={plans.filter((plan)=>Number(plan.custKey)===Number(customer?.CustKey))} comparisonRows={compareRows || []} onMove={moveDraft} busy={busy} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}/>
 
     <details open={toolsOpen} onToggle={event=>setToolsOpen(event.currentTarget.open)} style={{marginTop:8}}>
     <summary style={{cursor:'pointer',padding:'5px 0'}}>업체 변경 · 업로드 연결 · 세부 초안 · 변경 이력 ({plans.length}건)</summary>

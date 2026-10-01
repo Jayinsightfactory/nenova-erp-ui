@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {buildHorizontalWeekdayMatrix,hasHorizontalShipmentQuantity} from '../lib/weekdayHorizontalMatrix.js';
 const base='https://nenovaweb.com';
 const {chromium}=await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
 assert.ok(process.env.SMOKE_USER&&process.env.SMOKE_PASSWORD,'Auth must come from environment, never repository');
@@ -12,6 +13,8 @@ try {
   const login=await context.request.post(`${base}/api/auth/login`,{data:{userId:process.env.SMOKE_USER,password:process.env.SMOKE_PASSWORD}});
   assert.equal(login.status(),200);assert.equal((await login.json()).success,true);
   const page=await context.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  const comparisonResponses=[];
+  page.on('response',response=>{if(new URL(response.url()).pathname==='/api/estimate/weekday-compare')comparisonResponses.push(response.json());});
   const writes=[];page.on('request',req=>{if(req.method()==='POST'&&/\/api\//.test(req.url())&&!/weekday-(?:compare|print)|auth|replay|action-log/.test(req.url()))writes.push(new URL(req.url()).pathname);});
   await page.goto(`${base}/estimate/weekday?popup=1`,{waitUntil:'networkidle',timeout:60000});
   await page.getByRole('status').filter({hasText:'전후 차수 전산 대조 완료'}).waitFor({timeout:60000});
@@ -22,6 +25,14 @@ try {
   assert.equal(dimensions.width,1920);assert.equal(dimensions.height,1080);assert.ok(dimensions.documentWidth<=1921);
   await page.screenshot({path:path.join(output,'production-1920x1080.png')});
   const calendar=await (await context.request.get(`${base}/api/estimate/weekday-calendar?year=2026&majorWeek=38`)).json();
+  const comparisons=(await Promise.all(comparisonResponses)).flatMap(result=>result.rows||[]);
+  const rawMatrix=buildHorizontalWeekdayMatrix(calendar.cycles,[],comparisons);
+  const expectedRows=rawMatrix.rows.filter(hasHorizontalShipmentQuantity);
+  assert.equal(rows,expectedRows.length,'Only products with positive shipment quantity are visible');
+  assert.ok(rows<rawMatrix.rows.length,'Live order-only/zero rows are hidden, not removed from ERP sources');
+  assert.equal(await page.locator('.wcm-table-scroll tbody th').count(),expectedRows.length);
+  for(const row of expectedRows)assert.ok(await page.locator('.wcm-table-scroll tbody th').filter({hasText:row.name}).count(),`Missing active product ${row.prodKey}`);
+  assert.match(await page.locator('.wcm-toolbar').innerText(),new RegExp(`출고 없음 ${rawMatrix.rows.length-rows}개 숨김`));
   const current=calendar.cycles.find(row=>row.offset===0);
   const majorResponse=await context.request.post(`${base}/api/estimate/weekday-print`,{data:{year:2026,majorWeek:38,custKey:533,mode:'major'}});
   const major=await majorResponse.json();assert.equal(majorResponse.status(),200,JSON.stringify(major));assert.equal(major.readOnly,true);
@@ -42,5 +53,5 @@ try {
     await page.screenshot({path:path.join(output,'production-print-1920x1080.png')});
   }
   assert.deepEqual(errors,[]);assert.deepEqual(writes,[]);
-  console.log(JSON.stringify({livePass:true,viewport:'1920x1080',zoom:'100%',rows,dimensions,majorPrintRows:major.items.length,dailyPrintRows:dailyRows,errors,noErpWrites:true}));
+  console.log(JSON.stringify({livePass:true,viewport:'1920x1080',zoom:'100%',rows,sourceRows:rawMatrix.rows.length,hiddenRows:rawMatrix.rows.length-rows,dimensions,majorPrintRows:major.items.length,dailyPrintRows:dailyRows,errors,noErpWrites:true}));
 } finally{await browser.close();}
