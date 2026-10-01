@@ -37,10 +37,11 @@ try {
   const summary=await page.locator('.wcm-major-total').first().evaluate(el=>({
     width:el.getBoundingClientRect().width,
     font:parseFloat(getComputedStyle(el.querySelector('.wcm-remainder-value')).fontSize),
+    sumFont:parseFloat(getComputedStyle(el.querySelector('.wcm-sum-value')).fontSize),
     labels:el.innerText,
     overflow:el.scrollWidth>el.clientWidth+1,
   }));
-  assert.ok(summary.width>=199);assert.ok(summary.font>=14);assert.equal(summary.overflow,false);
+  assert.ok(summary.width>=199);assert.ok(summary.font>=14);assert.ok(summary.sumFont>=16,'full-width summary sum must be at least 16px');assert.equal(summary.overflow,false);
   assert.match(summary.labels,/합계/);assert.match(summary.labels,/변경/);assert.match(summary.labels,/견적/);
   await page.setViewportSize({width:1280,height:800});
   await page.waitForFunction(()=>['.wcm-scroll-top','.wcm-scroll-bottom'].every(selector=>Math.abs(document.querySelector(selector).scrollWidth-document.querySelector('.wcm-table-scroll').scrollWidth)<=1));

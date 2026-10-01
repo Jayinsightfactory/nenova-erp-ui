@@ -2,6 +2,8 @@
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
   "scope": [
+    "docs/plans/weekday-quantity-units-2026-10-01.md",
+    "__tests__/weekdayQuantityUnits.test.js",
     "docs/plans/weekday-matrix-readability-2026-10-01.md",
     "scripts/weekday-readability-browser-smoke.mjs",
     "scripts/weekday-readability-live-smoke.mjs",
@@ -45,6 +47,15 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
+    {
+      "name": "WEEKDAY_QUANTITY_UNIT_DISPLAY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "sideEffect": "기존 SELECT Product 포장 metadata를 표시용으로 전달해 소수 박스/단을 정수 단·송이로 분해하고 합계·잔량 숫자를 강조한다. 범위별 metadata 충돌/0/누락은 임의 환산 금지. 알스트로 16단/박스는 사용자 지정 표시 보조만 유지. 원본 입력값, 계산, 저장 payload/digest, 최초 기준, 비고, 인쇄 및 금액은 보존."
+    },
     {
       "name": "WEEKDAY_MATRIX_SCROLL_AND_READABILITY",
       "orderDetail": "preserve",
@@ -152,6 +163,7 @@
     "description": "비교 요청 year=2026, orderWeek=38-02, custKey=7, prodKey=101이면 같은 38-02의 2025년 행은 결과에 포함되지 않는다. 모든 쿼리는 OrderYear/OrderWeek/CustKey/ProdKey를 제한한다."
   },
   "requiredTestFiles": [
+    "__tests__/weekdayQuantityUnits.test.js",
     "__tests__/weekdayQuoteReconciliation.test.js",
     "__tests__/weekdayInitialBaseline.test.js",
     "__tests__/weekdayInitialMatrix.test.js",

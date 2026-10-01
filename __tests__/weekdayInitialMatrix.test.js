@@ -38,7 +38,7 @@ const draft={id:'d',year:2026,orderWeek:'38-01',prodKey:1,quantity:10,unit:'단'
 block=get(current,bases,[draft]);assert.equal(block.remaining01,32);assert.equal(block.projectedRemaining01,38);assert.equal(block.projectedRemainingMajor,14,'draft remaining is separate');
 assert.equal(get(current,bases,[draft,{...draft,id:'d2'}]).projectedRemainingMajor,null,'duplicate proposalsnotcollapsed');
 const outside=[actual('01',48,[['2026-09-24',48]]),actual('02',0,[])];block=get(outside);assert.equal(block.remainingMajor,80,'out-of-cycle allocationnotconsumed in38days');assert.equal(block.currentTotal,48,'business quantity stillpreserved');
-for(const [qty,expected] of [[48,'48(3)'],[16,'16(1)'],[8,'8(0.5)'],[0,'0(0)'],[-16,'-16(-1)']])assert.equal(label(qty,{flowerNames:['알스트로']},'단'),expected);
+for(const [qty,expected] of [[48,'48(3)'],[16,'16(1)'],[8,'8(8단)'],[0,'0(0)'],[-16,'-16(-1)']])assert.equal(label(qty,{flowerNames:['알스트로']},'단'),expected);
 assert.equal(label(48,{flowerNames:['ALSTROMERIA']},'BUNCH'),'48(3)');
 assert.equal(label(48,{flowerNames:['장미']},'단'),'48');assert.equal(label(3,{flowerNames:['알스트로']},'박스'),'3');
 assert.equal(label(null,{flowerNames:['알스트로']},'단'),'—');assert.equal(label('',{flowerNames:['알스트로']},'단'),'—');
@@ -93,3 +93,4 @@ assert.equal(inspect(originalBases.map(record=>({...record,rows:[]})),originalPr
 const malformed=structuredClone(original);malformed[0].shipmentDates[0].shipmentQuantity=null;
 assert.equal(inspect(originalBases,[],[minusOne],malformed).remainder01View.value,null);
 console.log('Readable remainder view:5→4 releases1, provisional/draft labels, historical preservation, invalid/duplicate/unit/year/missing-source guards passed');
+await import('./weekdayQuantityUnits.test.js');

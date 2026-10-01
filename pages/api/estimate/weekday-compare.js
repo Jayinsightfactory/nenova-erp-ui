@@ -169,6 +169,11 @@ export default withAuth(async function handler(req, res) {
         rawOutUnit: product?.OutUnit ?? shipment?.OutUnit ?? null,
         estUnit: normalizeWeekdayUnit(product?.EstUnit),
         rawEstUnit: product?.EstUnit ?? null,
+        packaging: product ? {
+          bunchOf1Box: product.BunchOf1Box ?? null,
+          steamOf1Bunch: product.SteamOf1Bunch ?? null,
+          steamOf1Box: product.SteamOf1Box ?? null,
+        } : null,
         detailRows: shipment ? Number(shipment.DetailRows) : 0,
         shipmentDates: dates.get(key) || [],
         snapshotDigest,

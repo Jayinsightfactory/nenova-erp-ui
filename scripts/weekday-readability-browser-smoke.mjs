@@ -21,7 +21,8 @@ for (let i = -7; i < 14; i += 1) {
 const cycles = buildShippingCycles(periods, normalizeCycleRequest({ year: 2026, majorWeek: 38 }));
 const products = Array.from({ length: 50 }, (_, i) => ({ ProdKey: i + 101,
   ProdName: `${i === 0 ? 'ALSTROEMERIA' : i === 1 ? 'GYPSOPHILA' : 'CARNATION'} 품목 ${String(i + 1).padStart(2, '0')}`,
-  OutUnit: i === 0 ? '단' : '박스', FlowerName: i === 0 ? '알스트로' : '카네이션' }));
+  OutUnit: i === 0 ? '단' : '박스', FlowerName: i === 0 ? '알스트로' : '카네이션',
+  BunchOf1Box: i === 0 ? 16 : 15, SteamOf1Bunch: i === 0 ? 10 : 20, SteamOf1Box: i === 0 ? 160 : 300 }));
 const productByKey = new Map(products.map(row => [row.ProdKey, row]));
 const stockFor = (orderWeek, prodKey) => {
   if (prodKey === 101 && orderWeek === '38-01') return 48;
@@ -40,6 +41,8 @@ const comparisonRow = (orderWeek, prodKey) => {
   return { year: 2026, orderWeek, custKey: 533, prodKey, prodName: productByKey.get(prodKey).ProdName,
     flowerName: prodKey === 101 ? '알스트로' : prodKey < 126 ? '카네이션' : '장미',
     outUnit: prodKey === 101 ? '단' : '박스', estUnit: '송이', fixed: true,
+    packaging: { bunchOf1Box: productByKey.get(prodKey).BunchOf1Box,
+      steamOf1Bunch: productByKey.get(prodKey).SteamOf1Bunch, steamOf1Box: productByKey.get(prodKey).SteamOf1Box },
     state: 'FIXED_REVIEW_REQUIRED', shipmentOutQuantity: quantity, detailRows: 1,
     shipmentDates: [{ date: day.date, shipmentQuantity: quantity, estimateQuantity, detailFixed: true,
       weekDay: day.code, cost: 1234.56, amount, vat: estimateQuantity * 1234.56 - amount }] };
@@ -211,27 +214,38 @@ try {
   check(controlMetrics.every(item => item.left >= -1 && item.right <= 1921 && item.scroll <= item.client + 2),
     'toolbar and jump labels/controls contained without overflow', JSON.stringify(controlMetrics));
   const fontSizes = await page.evaluate(() => ({
-    primary: [...document.querySelectorAll('.wcm-major-total .wcm-remainder-value')].map(el => parseFloat(getComputedStyle(el).fontSize)),
+    primary: [...document.querySelectorAll('.wcm-major-total [data-wcm-label="remainder"]')].map(el => parseFloat(getComputedStyle(el).fontSize)),
+    sum: [...document.querySelectorAll('.wcm-major-total [data-wcm-label="sum"] .wcm-sum-value')].map(el => parseFloat(getComputedStyle(el).fontSize)),
     meta: [...document.querySelectorAll('.wcm-remainder-status, .wcm-cycle-sum')].map(el => parseFloat(getComputedStyle(el).fontSize)),
+    originals: [...document.querySelectorAll('.wcm-number-display, .wcm-original, .wcm-cell input')]
+      .map(el => parseFloat(getComputedStyle(el).fontSize)),
   }));
   check(fontSizes.primary.length > 0 && fontSizes.primary.every(size => size >= 14), 'primary summary typography >=14px', JSON.stringify(fontSizes));
+  check(fontSizes.sum.length > 0 && fontSizes.sum.every(size => size >= 16), 'full-width summary sum typography >=16px', JSON.stringify(fontSizes));
   check(fontSizes.meta.length > 0 && fontSizes.meta.every(size => size >= 12), 'secondary summary typography >=12px', JSON.stringify(fontSizes));
-  const summaryCell = page.locator('.wcm-table-scroll .wcm-major-total').first();
-  const summaryOverlap = await summaryCell.evaluate(el => {
+  check(fontSizes.originals.length > 0 && fontSizes.originals.every(size => size >= 14), 'original/display/input quantity typography >=14px', JSON.stringify(fontSizes));
+  const summaryGeometry = await page.locator('.wcm-table-scroll .wcm-major-total').evaluateAll(cells => cells.map(el => {
     const heading = el.querySelector('.wcm-major-heading');
     const sum = el.querySelector('.wcm-cycle-sum');
     const primary = el.querySelector('.wcm-major-heading .wcm-remainder-value');
     const status = el.querySelector('.wcm-major-heading .wcm-remainder-status');
-    const total = el.querySelector('.wcm-sum-value');
+    const total = el.querySelector('[data-wcm-label="sum"] .wcm-sum-value');
     const actions = el.querySelector('.wcm-summary-actions');
-    if (![heading, sum, primary, status, total, actions].every(Boolean)) return { missing: true };
+    if (![heading, sum, primary, total, actions].every(Boolean)) return { missing: true };
     const inside = node => { const r=node.getBoundingClientRect(), c=el.getBoundingClientRect(); return r.left>=c.left-1&&r.right<=c.right+1&&r.top>=c.top-1&&r.bottom<=c.bottom+1; };
     const noOverlap = (a,b) => { const x=a.getBoundingClientRect(),y=b.getBoundingClientRect(); return x.right<=y.left+1||y.right<=x.left+1||x.bottom<=y.top+1||y.bottom<=x.top+1; };
-    return { missing: false, contained: [heading,sum,primary,status,total,actions].every(inside),
-      separated: noOverlap(heading,sum)&&noOverlap(primary,status)&&noOverlap(total,actions),
-      widths:{cell:el.getBoundingClientRect().width,primary:primary.getBoundingClientRect().width,status:status.getBoundingClientRect().width,actions:actions.getBoundingClientRect().width} };
-  });
-  check(!summaryOverlap.missing && summaryOverlap.contained && summaryOverlap.separated, 'summary primary/meta/actions contained and non-overlapping', JSON.stringify(summaryOverlap));
+    const width=el.getBoundingClientRect().width;
+    const padding=[...getComputedStyle(el).padding.split(' ')].map(value=>parseFloat(value));
+    return { missing:false, contained:[heading,sum,primary,total,actions,...(status?[status]:[])].every(inside),
+      separated:noOverlap(heading,sum)&&(!status||noOverlap(primary,status))&&noOverlap(sum,actions)&&noOverlap(total,actions),
+      fullWidth:sum.getBoundingClientRect().width>=width-12, compactPadding:padding.every(value=>value<=3),
+      sumDisplay:getComputedStyle(sum).display,actionsDisplay:getComputedStyle(actions).display,
+      cell:el.closest('tr')?.firstElementChild?.innerText, sum:total.innerText };
+  }));
+  check(summaryGeometry.length>0 && summaryGeometry.every(item=>!item.missing&&item.contained&&item.separated&&item.fullWidth
+      &&item.compactPadding&&item.sumDisplay==='flex'&&item.actionsDisplay==='flex'),
+    'all full-width flex sums, wrapped remainder/status rows, compact padding, and action rows stay contained/non-overlapping',
+    JSON.stringify(summaryGeometry.filter(item=>item.missing||!item.contained||!item.separated||!item.fullWidth||!item.compactPadding||item.sumDisplay!=='flex'||item.actionsDisplay!=='flex').slice(0,12)));
 
   const row = page.locator('.wcm-table-scroll tbody tr').first();
   await row.locator('th').hover();
@@ -242,12 +256,29 @@ try {
   await alstroCell.press('Enter');
   await page.getByRole('status').filter({ hasText: '요일 수량 초안을 기록했습니다' }).waitFor();
   const alstroRow = page.locator('.wcm-table-scroll tbody tr').filter({ hasText: '품목 01' }).first();
-  check((await alstroCell.locator('..').locator('.wcm-number-display').innerText()) === '50(3.125)', 'Alstro local draft display follows conversion helper');
+  const alstroDraftText = await alstroCell.locator('..').locator('.wcm-number-display').innerText();
+  check(alstroDraftText.replace(/\s+/g, '') === '50(3박스2단)', 'Alstro local draft display avoids decimal-box notation', alstroDraftText);
   check(await alstroRow.locator('.wcm-quote.wcm-warning').count() > 0, 'quote mismatch is visibly marked');
   const decimalCell = page.getByLabel('CARNATION 품목 03 2026/38-01 2026-09-17 미적용 초안 수량', { exact: true });
   const decimalText = await decimalCell.locator('..').locator('.wcm-number-display').innerText();
   const decimalInput = await decimalCell.inputValue();
-  check(decimalInput === '0.1234567890123' && decimalText === '0.123457', 'long-decimal source and display formatting remain distinct', `${decimalInput} → ${decimalText}`);
+  check(decimalInput === '0.1234567890123' && decimalText.replace(/\s+/g, '') === '0.123457박스·환산확인', 'unconvertible decimal shows source-scale review label while input remains raw', `${decimalInput} → ${decimalText}`);
+  const numberOverflow = await page.locator('.wcm-number-display, .wcm-original').evaluateAll(els => els
+    .filter(el => el.getBoundingClientRect().width > 0)
+    .map(el => ({ text: el.innerText, width: el.clientWidth, scroll: el.scrollWidth }))
+    .filter(item => item.scroll > item.width + 1));
+  check(numberOverflow.length === 0, 'formatted original quantities wrap without overlapping adjacent cells', JSON.stringify(numberOverflow.slice(0, 12)));
+  const cellNumberGeometry = await page.locator('.wcm-table-scroll tbody td').evaluateAll(cells => cells.flatMap((cell, column) => {
+    const parent=cell.getBoundingClientRect();
+    return [...cell.querySelectorAll('.wcm-number-display, .wcm-original, .wcm-remainder-value, .wcm-sum-value, .wcm-quantity-part')]
+      .filter(node=>node.getBoundingClientRect().width>0)
+      .map(node=>{const r=node.getBoundingClientRect();return {row:cell.parentElement?.firstElementChild?.innerText,column,text:node.innerText,
+        boundsInsideCell:r.left>=parent.left-1&&r.right<=parent.right+1&&r.top>=parent.top-1&&r.bottom<=parent.bottom+1,
+        clientWidth:node.clientWidth,scrollWidth:node.scrollWidth,scrolls:node.scrollWidth>node.clientWidth+1};})
+      .filter(item=>!item.boundsInsideCell||item.scrolls);
+  }));
+  check(cellNumberGeometry.length===0, 'every rendered numeric part stays inside its own td without client-width overflow (including CARNATION decimal)',
+    JSON.stringify(cellNumberGeometry.slice(0,20)));
   assert.equal(calls.filter(call => call.path === '/api/estimate/weekday-baseline' && call.method === 'POST').length, 5);
 
   await alstroCell.focus();

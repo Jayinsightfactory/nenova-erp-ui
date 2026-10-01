@@ -65,6 +65,7 @@ async function invoke(){
   assert.equal(body.rows.length,1);return body.rows[0];
 }
 const positive=await invoke();
+assert.deepEqual(positive.packaging,{bunchOf1Box:16,steamOf1Bunch:1,steamOf1Box:16},'existing Product SELECT metadata only; no ERP conversion or writes');
 assert.equal(positive.shipmentOutQuantity,5);assert.equal(positive.fixed,true);
 assert.equal(positive.detailRows,1);assert.equal(calls.length,7,'bulk reads, not one query per product/week');
 assert.equal(positive.snapshotDigest,weekdaySnapshotDigest({year:'2026',orderWeek:'38-02',custKey:7,prodKey:101},{detailRows:1,shipmentOutQuantity:5,shipmentDates:positive.shipmentDates,master,detail,product}));
