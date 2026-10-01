@@ -1,0 +1,36 @@
+{
+  "id": "order-executor",
+  "title": "자동 주문 실행기(목표수량 delta·requestId 원장) 계약",
+  "scope": [
+    "lib/orderExecutor.js",
+    "scripts/apply-order-exec-ledger-migration.mjs",
+    "scripts/order-exec-trial.mjs"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "ORDER_EXEC_TARGET", "orderDetail": "replace-nonnegative", "shipmentDetail": "preserve", "writeAllowlist": ["WebOrderExecLedger"], "via": "POST /api/orders (delta only)" },
+    { "name": "ORDER_EXEC_CANCEL", "orderDetail": "decrease", "shipmentDetail": "preserve", "writeAllowlist": ["WebOrderExecLedger"], "via": "POST /api/orders (exact negative of ledger-applied delta)" },
+    { "name": "ORDER_EXEC_DRY", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "현재수량 SELECT 와 출고존재 거부 검사는 CustKey+OrderYear+OrderWeek+ProdKey 로만 조회한다. 허용 범위(allowedScope custKey/year)와 다른 거래처·연도 요청은 DB 접근 전에 ERP_SCOPE_MISMATCH 로 거부된다(__tests__/orderExecutor.test.js)."
+  },
+  "requiredTestFiles": [
+    "__tests__/orderExecutor.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "실행기는 ERP 를 직접 쓰지 않고 기존 POST /api/orders(createOrder, FormOrderAdd 가산 경로)만 호출한다. 직접 쓰기는 웹 전용 WebOrderExecLedger 뿐이며 분배/출고는 호출하지 않는다.",
+    "methods": ["POST /api/orders createOrder (existing contract)", "usp_StockCalculation (createOrder 내부, ProductStock 불변 실측)"],
+    "tables": ["OrderMaster/OrderDetail (via /api/orders)", "ShipmentMaster (read-only refuse check)", "WebOrderExecLedger (web-only write)"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
