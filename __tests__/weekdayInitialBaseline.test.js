@@ -118,6 +118,8 @@ test('single SQL helper reads exact inventory and dated quantities; order-only z
     assert.match(WEEKDAY_INITIAL_BASELINE_SQL, new RegExp(`${alias}\\.OrderYear = @year AND ${alias}\\.OrderWeek = @orderWeek AND ${alias}\\.CustKey = @custKey`));
   }
   assert.match(WEEKDAY_INITIAL_BASELINE_SQL, /sdd\.SdetailKey = sd\.SdetailKey/);
+  assert.match(WEEKDAY_INITIAL_BASELINE_SQL, /CAST\(ISNULL\(\(SELECT a\.\[date\]/);
+  assert.match(WEEKDAY_INITIAL_BASELINE_SQL, /FOR JSON PATH, INCLUDE_NULL_VALUES\), N'\[\]'\) AS nvarchar\(max\)\) AS ShipmentDates/);
   assert.doesNotMatch(WEEKDAY_INITIAL_BASELINE_SQL, /\b(?:INSERT|UPDATE|DELETE|MERGE|EXEC|ALTER|CREATE)\b|sd\.isDeleted|\.isFix|\.Amount|ISNULL\(sd\.OutQuantity/i);
 });
 
@@ -145,6 +147,20 @@ test('ERP rowset fails closed for cross-year/customer/week, mixed invalid quanti
   assert.deepEqual(empty.rows, []);
   assert.equal(empty.canConfirm, false);
   assert.deepEqual(snapshotFromBaselineRowset(scope, [dbRows()[1]]).rows, [sampleRows()[1]]);
+});
+
+test('non-array or contradictory dated rows remain blocked with actionable product context', async () => {
+  const { snapshotFromBaselineRowset } = await sqlModulePromise;
+  for (const ShipmentDates of ['null', '{}', '"[]"']) {
+    assert.throws(() => snapshotFromBaselineRowset(scope, [{ ...dbRows()[0], ShipmentDates }]),
+      error => codeIs('INVALID_ERP_DATES')(error) && error.message.includes('품목 101'));
+  }
+  assert.throws(() => snapshotFromBaselineRowset(scope, [{ ...dbRows()[1],
+    ShipmentDates: JSON.stringify([{ ...allocation, invalidRows: 0 }]) }]),
+    error => codeIs('INVALID_ERP_DATES')(error) && /분배 0행, 날짜 1행/.test(error.message));
+  const noDates = snapshotFromBaselineRowset(scope, [{ ...dbRows()[0], ShipmentDates: '[]' }]);
+  assert.deepEqual(noDates.rows[0].shipmentDates, []);
+  assert.equal(noDates.rows[0].quantity, 8, 'undated saved distribution is not silently replaced with zero');
 });
 
 test('real filesystem capture survives restart and zero/deleted ERP data; scope identities remain independent', async () => temporaryStore(async (store, directory) => {
