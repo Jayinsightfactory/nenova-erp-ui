@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import MobileShell from '../../components/m/MobileShell';
 import { MENU_ITEMS } from '../../components/Layout';
+import { isAdminUser } from '../../lib/userAccess';
 
 // 모바일 전용 (간편) 화면 — 모바일 최적화 페이지
 const MOBILE_ONLY = [
@@ -77,6 +78,19 @@ export default function MobileHome() {
                   <span className="mh-arrow">›</span>
                 </button>
               ))}
+            </div>
+          </section>
+        )}
+
+        {isAdminUser(me) && matches('이사 대표 국가별 물량 보고서') && (
+          <section className="mh-section">
+            <div className="mh-section-title">📊 경영 보고서</div>
+            <div className="mh-list">
+              <button className="mh-row mh-row-mobile" onClick={() => router.push('/m/executive-volume')}>
+                <span className="mh-icon">📈</span>
+                <span className="mh-label">국가별 물량 보고서</span>
+                <span className="mh-arrow">›</span>
+              </button>
             </div>
           </section>
         )}
