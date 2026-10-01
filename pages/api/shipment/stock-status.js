@@ -10,9 +10,13 @@ import { normalizeOrderUnit, normalizeOrderWeek, resolveActiveOrderYear } from '
 import { refreshShipmentDatesAfterDetailChange } from '../../../lib/syncShipmentDateEst.js';
 import { useExeParityFlag, normalizeOrderYearWeek2 } from '../../../lib/exeParity/common.js';
 import { sqlQuantityPivotGetData } from '../../../lib/exeQuantityPivotSql.js';
+import { safeNextShipmentDetailKey } from '../../../lib/safeNextKey.js';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 시 자동 재시도
 async function safeNextKey(tQ, table, keyCol, maxRetries = 3) {
+  if (table === 'ShipmentDetail' && keyCol === 'SdetailKey') {
+    return safeNextShipmentDetailKey(tQ);
+  }
   for (let i = 0; i < maxRetries; i++) {
     const r = await tQ(
       `SELECT ISNULL(MAX(${keyCol}),0)+1 AS nk FROM ${table} WITH (UPDLOCK, HOLDLOCK)`, {}

@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet } from '../lib/useApi';
 import WeekdayCycleMatrix from './WeekdayCycleMatrix';
-import { locateShippingDay, moveWeekdayPlan } from '../lib/weekdayEstimateCycle.js';
+import { locateShippingDay } from '../lib/weekdayEstimateCycle.js';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
-import { buildEstimateHtml } from '../lib/estimatePrintHtml.js';
+import { buildWeekdayPrintRequests, validateWeekdayPrintResponse, buildWeekdayEstimatePrintBundle } from '../lib/weekdayEstimatePrintBundle.js';
+import { buildWeekdayDistributionSubmission, clearSubmittedWeekdayDrafts, checkWeekdayDistributionStatus,
+  saveWeekdayDistribution, weekdayDraftScope, weekdayUnsavedPrintReason, moveWeekdayDistributionDraft, projectWeekdayDistribution,
+  validateWeekdayDistributionCompareResponse, weekdayDistributionPreviewMatches } from '../lib/weekdayDistributionClient.js';
 
 const initialYear = new Date().getFullYear();
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
@@ -12,6 +15,11 @@ const inputStyle = { border: '1px solid #9aaec4', borderRadius: 4, padding: '3px
 
 function candidateCells(row) { return (row.cells || []).filter((cell) => cell.kind === 'numeric-candidate' && cell.headerRole === 'date-quantity-candidate'); }
 function draftKey(row) { return `${row.sheet}|${row.row}|${row.cell.address}`; }
+function historySnapshotLabel(snapshot) {
+  if(!snapshot || typeof snapshot!=='object') return snapshot==null?'기록 없음':String(snapshot);
+  const dates=snapshot.shipmentDates || snapshot.dates;
+  return `${snapshot.shipmentOutQuantity!=null?`총량 ${snapshot.shipmentOutQuantity} · `:''}${Array.isArray(dates)?dates.map(day=>`${day.date} ${day.shipmentQuantity ?? day.quantity}`).join(' / '):JSON.stringify(snapshot)}`;
+}
 
 export default function WeekdayEstimateWorkspace() {
   const [year, setYear] = useState(String(initialYear));
@@ -52,6 +60,21 @@ export default function WeekdayEstimateWorkspace() {
   const [sourceLots, setSourceLots] = useState([]);
   const [erpHistory, setErpHistory] = useState([]);
   const [draftHistory, setDraftHistory] = useState([]);
+  const [savedHistory, setSavedHistory] = useState([]);
+  const [historyError, setHistoryError] = useState('');
+  const [applyPreview, setApplyPreview] = useState(null);
+  const [applyReason, setApplyReason] = useState('');
+  const [applyError, setApplyError] = useState('');
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [pendingApply, setPendingApply] = useState(null);
+  const [recoveryBlocked, setRecoveryBlocked] = useState(false);
+  const applyLock = useRef(false);
+  const pendingOperation = useRef(null);
+  const scopeKey = weekdayDraftScope(customer?.CustKey, year, majorWeek);
+  const currentScope = useRef(scopeKey);
+  currentScope.current = scopeKey;
+  const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
+  const editLocked = applyBusy || Boolean(pendingApply) || Boolean(applyPreview) || recoveryBlocked;
   const [toolsOpen,setToolsOpen] = useState(false);
   const [printPreview,setPrintPreview] = useState(null);
   const [printBusy,setPrintBusy] = useState(false);
@@ -61,6 +84,7 @@ export default function WeekdayEstimateWorkspace() {
   const previewFrame=useRef(null);
   const calendarRequest = useRef(0);
   const comparisonRequest = useRef(0);
+  const uploadRequest = useRef(0);
   const addedProductScope = useRef({scope:'', keys:[]});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('엑셀은 임시로 읽기만 합니다. 전산 원장에는 저장하지 않습니다.');
@@ -70,6 +94,7 @@ export default function WeekdayEstimateWorkspace() {
     .map((row) => ({ ...row, sheet: sheet.name, quantityCells: candidateCells(row) }))), [parsed]);
 
   useEffect(()=>{
+    setApplyPreview(null);setApplyError('');setSavedHistory([]);setHistoryError('');
     baselineRequest.current+=1;setBaselinePreview(null);setBaselineError('');setBaselines([]);setBaselineCandidates([]);
     const request=++defaultCustomerRequest.current;
     apiGet('/api/customers/search',{q:'주광농원'}).then(result=>{
@@ -82,11 +107,26 @@ export default function WeekdayEstimateWorkspace() {
   },[]);
 
   useEffect(()=>{
+    setSavedHistory([]);setHistoryError('');
     baselineRequest.current+=1;noteRequest.current+=1;setBaselinePreview(null);setNoteForm(null);setBaselineError('');setNoteError('');setBaselines([]);setBaselineCandidates([]);setPageNotes([]);setQuoteResults([]);setCompareRows(null);
     printRequest.current+=1;setPrintPreview(null);
     if(customer?.CustKey && cycles.length) refreshErp();
     return ()=>{comparisonRequest.current+=1;};
   },[customer?.CustKey,cycles]);
+
+  useEffect(()=>{setApplyPreview(null);printRequest.current+=1;uploadRequest.current+=1;setPrintPreview(null);},[scopeKey]);
+
+  useEffect(()=>{
+    try {
+      const saved=JSON.parse(sessionStorage.getItem('weekday-pending-erp-operation') || 'null');
+      if(saved && (!saved.payload?.operationId || !Array.isArray(saved.submitted) || !saved.scopeKey)) throw new Error('저장 작업 식별 정보가 불완전합니다.');
+      if(saved?.payload?.operationId && saved?.submitted && saved?.scopeKey) {
+        pendingOperation.current=saved;setPendingApply(saved);
+        setPlans(current=>[...current,...(saved.drafts || []).filter(plan=>!current.some(item=>item.id===plan.id))]);
+        setApplyReason(saved.payload.reason);setApplyError('중단된 저장 작업이 있습니다. 같은 UUID의 저장 상태만 확인하세요.');
+      }
+    } catch {setRecoveryBlocked(true);setApplyError('이전 저장 작업 상태를 읽을 수 없습니다. 중복 저장을 차단했습니다. 담당자 확인이 필요합니다.');}
+  },[]);
 
   useEffect(() => {
     const request = ++calendarRequest.current;
@@ -103,8 +143,9 @@ export default function WeekdayEstimateWorkspace() {
   }, [year, majorWeek]);
 
   function moveDraft(move) {
+    if(editLocked) throw new Error('저장 확인/처리 중에는 초안을 변경할 수 없습니다.');
     try {
-      const result = moveWeekdayPlan(plans, move, cycles);
+      const result = moveWeekdayDistributionDraft({plans,move,cycles,compareRows,custKey:customer?.CustKey,scopeKey});
       setPlans(result.plans); setDraftHistory((current) => [{ ...result.event, at: new Date().toISOString() }, ...current]);
       setMessage('출고일 이동 초안을 기록했습니다. 입고기록은 변경하지 않으며 아직 ERP에는 적용되지 않았습니다.');
     } catch (error) { setMessage(error.message); throw error; }
@@ -129,7 +170,8 @@ export default function WeekdayEstimateWorkspace() {
   }
 
   async function uploadWorkbook(file) {
-    if (!file) return;
+    if (!file || editLocked) return;
+    const request=++uploadRequest.current,uploadScope=scopeKey;
     setBusy(true); setUploadError(''); setMessage('엑셀 구조를 읽는 중…');
     try {
       const form = new FormData(); form.append('file', file);
@@ -137,14 +179,16 @@ export default function WeekdayEstimateWorkspace() {
       let result;
       try { result = await response.json(); } catch { throw new Error(response.status === 401 ? '로그인이 필요합니다.' : '서버 응답을 읽을 수 없습니다.'); }
       if (!response.ok || !result.success) throw new Error(result.error || '엑셀을 읽지 못했습니다.');
+      if(request!==uploadRequest.current || uploadScope!==currentScope.current) return;
       comparisonRequest.current += 1;
       setParsed(result); setFileName(file.name); setPlans([]); setMappings({}); setProductNames({}); setSelectedSource(null); setDraftHistory([]);
       setMessage(`원문 ${result.sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0)}행을 임시로 읽었습니다. 수식·문자 셀은 자동 변환하지 않았습니다.`);
-    } catch (error) { setUploadError(error.message); setMessage('업로드 확인 필요'); }
-    finally { setBusy(false); }
+    } catch (error) { if(request===uploadRequest.current && uploadScope===currentScope.current){setUploadError(error.message); setMessage('업로드 확인 필요');} }
+    finally { if(request===uploadRequest.current && uploadScope===currentScope.current)setBusy(false); }
   }
 
   function addSourceRow(row) {
+    if(editLocked) return;
     if (!customer?.CustKey) { setMessage('먼저 실제 거래처를 선택하세요.'); return; }
     if (!cycles.length) { setMessage('전산 달력을 먼저 확인하세요.'); return; }
     if (unit === '확인 필요') { setMessage('먼저 이 초안의 원본 수량 단위를 확인하세요.'); return; }
@@ -164,6 +208,7 @@ export default function WeekdayEstimateWorkspace() {
       sourceLabel: row.label, raw: cell.raw, quantity: Number(cell.numericCandidate),
       prodKey: Number(prodKey), prodName: productNames[`${row.sheet}|${row.row}`] || '',
       custKey: Number(customer.CustKey),
+      draftScope: scopeKey,
       year: destination.cycle.year, orderWeek: destination.day.orderWeek, date: destination.day.date, unit,
       sourceYear: null, sourceOrderWeek: null, wdetailKey: null,
       header: cell.columnHeader,
@@ -174,6 +219,7 @@ export default function WeekdayEstimateWorkspace() {
   }
 
   function updatePlan(id, patch) {
+    if(editLocked) return;
     const before = plans.find((item) => item.id === id);
     if (before && Object.keys(patch).some((key) => String(before[key] ?? '') !== String(patch[key] ?? ''))) {
       setDraftHistory((current) => [{ id: crypto.randomUUID(), kind:'DRAFT_EDIT', applied:false, at:new Date().toISOString(), prodKey:before.prodKey, before:{year:before.year,orderWeek:before.orderWeek,date:before.date,quantity:before.quantity}, after:{year:before.year,orderWeek:before.orderWeek,date:before.date,quantity:before.quantity,...patch} },...current]);
@@ -184,13 +230,16 @@ export default function WeekdayEstimateWorkspace() {
 
   async function compareWithErp() {
     if (!customer?.CustKey) { setMessage('실제 거래처를 선택하세요.'); return; }
-    const invalid = plans.filter((plan) => Number(plan.custKey) === Number(customer.CustKey) && (!/^\d{4}$/.test(String(plan.year)) || !/^\d{4}-\d{2}-\d{2}$/.test(plan.date) || !/^\d{2}-\d{2}$/.test(plan.orderWeek) || !Number.isFinite(Number(plan.quantity)) || Number(plan.quantity) < 0 || plan.unit === '확인 필요'));
+    const invalid = activePlans.filter((plan) => Number(plan.custKey) === Number(customer.CustKey) && (!/^\d{4}$/.test(String(plan.year)) || !/^\d{4}-\d{2}-\d{2}$/.test(plan.date) || !/^\d{2}-\d{2}$/.test(plan.orderWeek) || !Number.isFinite(Number(plan.quantity)) || Number(plan.quantity) < 0 || plan.unit === '확인 필요'));
     if (invalid.length) { setMessage(`차수·날짜·수량·단위 확인이 필요한 행 ${invalid.length}건을 먼저 수정하세요.`); return; }
     await refreshErp();
   }
 
   async function refreshErp(extraProdKeys = []) {
+    if(!customer?.CustKey) return false;
+    const refreshScope=scopeKey;
     const request=++comparisonRequest.current;
+    const isCurrent=()=>request===comparisonRequest.current && refreshScope===currentScope.current;
     setBaselineCandidates([]);
     setBusy(true);setQuoteResults([]); setMessage('앞·현재·뒤 차수의 동일 거래처·품목 전산값을 대조 중…');
     try {
@@ -198,7 +247,7 @@ export default function WeekdayEstimateWorkspace() {
       for (const cycle of cycles.filter((item) => item.calendarState === 'FOUND')) {
         ranges.set(cycle.year, [...new Set([...(ranges.get(cycle.year) || []), ...cycle.days.map((day) => day.orderWeek)])]);
       }
-      for (const plan of plans.filter(item=>Number(item.custKey)===Number(customer.CustKey))) ranges.set(Number(plan.year), [...new Set([...(ranges.get(Number(plan.year)) || []), plan.orderWeek])]);
+      for (const plan of activePlans) ranges.set(Number(plan.year), [...new Set([...(ranges.get(Number(plan.year)) || []), plan.orderWeek])]);
       const results = await Promise.all([...ranges].map(async ([requestYear,orderWeeks]) => {
         const inventory=await apiGet('/api/estimate/weekday-products',{year:requestYear,custKey:Number(customer.CustKey),orderWeeks:orderWeeks.join(',')});
         const baselineResult=await apiGet('/api/estimate/weekday-baseline',{year:requestYear,custKey:Number(customer.CustKey),orderWeeks:(inventory.scope?.orderWeeks || orderWeeks).join(',')});
@@ -217,22 +266,30 @@ export default function WeekdayEstimateWorkspace() {
         }));
         const scope=`${customer.CustKey}|${year}|${majorWeek}`;
         const addedKeys=addedProductScope.current.scope===scope ? addedProductScope.current.keys : [];
-        const prodKeys=[...new Set([...(inventory.products||[]).map(item=>Number(item.ProdKey)),...savedBaselines.flatMap(record=>record.rows.map(item=>Number(item.prodKey))),...plans.filter(item=>Number(item.custKey)===Number(customer.CustKey)).map(item=>Number(item.prodKey)),...addedKeys,...(Array.isArray(extraProdKeys)?extraProdKeys:[])])];
+        const prodKeys=[...new Set([...(inventory.products||[]).map(item=>Number(item.ProdKey)),...savedBaselines.flatMap(record=>record.rows.map(item=>Number(item.prodKey))),...activePlans.map(item=>Number(item.prodKey)),...addedKeys,...(Array.isArray(extraProdKeys)?extraProdKeys:[])])];
         if(!prodKeys.length) return {rows:[],sourceLots:[],history:[],baselines:savedBaselines,candidates};
+        const compareScope={ year: requestYear, custKey: Number(customer.CustKey), orderWeeks:inventory.scope?.orderWeeks || orderWeeks, prodKeys };
         const response = await fetch('/api/estimate/weekday-compare', {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ year: requestYear, custKey: Number(customer.CustKey), orderWeeks:inventory.scope?.orderWeeks || orderWeeks, prodKeys }),
+        body: JSON.stringify(compareScope),
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || '전산 대조에 실패했습니다.');
+      validateWeekdayDistributionCompareResponse(compareScope,result);
       return {...result,baselines:savedBaselines,candidates};
       }));
-      if (request !== comparisonRequest.current) return false;
+      if (!isCurrent()) return false;
       setCompareRows(results.flatMap((result) => result.rows)); setSourceLots(results.flatMap((result) => result.sourceLots || [])); setErpHistory(results.flatMap((result) => result.history || []));
       setBaselines(results.flatMap(result=>result.baselines || []));
       setBaselineCandidates(results.flatMap(result=>result.candidates || []));
       const ancillary=await Promise.all(cycles.filter(cycle=>cycle.calendarState==='FOUND').map(async cycle=>{
-        let notes=[],quote=null;
+        let notes=[],quote=null,changes=[],changeError='';
+        try {
+          const history=await apiGet('/api/estimate/weekday-changes',{custKey:Number(customer.CustKey),year:cycle.year,majorWeek:cycle.majorWeek});
+          if(history.success!==true || !Array.isArray(history.changes)) throw new Error('영구 이력 응답을 확인할 수 없습니다.');
+          changes=history.changes;
+        }
+        catch(error) {changeError=`${cycle.year}/${cycle.majorWeek} 저장 이력 조회 실패: ${error.message}`;}
         try {notes=(await apiGet('/api/estimate/weekday-note',{year:cycle.year,majorWeek:cycle.majorWeek,custKey:Number(customer.CustKey)})).notes || [];}
         catch(error) {throw new Error(`비고 조회 실패: ${error.message}`);}
         try {
@@ -246,14 +303,15 @@ export default function WeekdayEstimateWorkspace() {
             quote.managementItems=management.items;
           } catch(error) {quote.managementError=error.message;}
         } catch(error) {quote={year:cycle.year,majorWeek:cycle.majorWeek,error:error.message};}
-        return {notes,quote};
+        return {notes,quote,changes,changeError};
       }));
-      if(request!==comparisonRequest.current) return false;
+      if(!isCurrent()) return false;
+      setSavedHistory(ancillary.flatMap(result=>result.changes));setHistoryError(ancillary.map(result=>result.changeError).filter(Boolean).join(' / '));
       setPageNotes(ancillary.flatMap(result=>result.notes));setQuoteResults(ancillary.map(result=>result.quote));
       setMessage(`전후 차수 전산 대조 완료 · 읽기 전용 · ERP 변경 없음${results.some((result)=>result.historyTruncated) ? ' · 이력 1000건 초과, 일부 표시' : ''}`);
       return true;
-    } catch (error) { if (request === comparisonRequest.current) setMessage(error.message); return {success:false,error:error.message}; }
-    finally { if (request === comparisonRequest.current) setBusy(false); }
+    } catch (error) { if (isCurrent()) setMessage(error.message); return {success:false,error:error.message}; }
+    finally { if (isCurrent()) setBusy(false); }
   }
 
   function shiftCenter(offset) {
@@ -341,13 +399,14 @@ export default function WeekdayEstimateWorkspace() {
   }
 
   function editGridCell(cell) {
+    if(editLocked) return false;
     const qty=Number(cell.quantity);
     const destination=locateShippingDay(cycles,cell.date);
     const normalizedUnit=normalizeWeekdayUnit(cell.unit);
     if(!customer?.CustKey || !normalizedUnit || !destination || destination.day.calendarState!=='FOUND'
       || Number(cell.year)!==destination.cycle.year || String(cell.orderWeek).split('-')[0]!==destination.cycle.majorWeek
       || !Number.isFinite(qty)||qty<0) {setMessage('수량·단위·전산 달력·차수 기준을 확인하세요.');return false;}
-    const matching=plans.filter(item=>Number(item.custKey)===Number(customer.CustKey)&&Number(item.prodKey)===Number(cell.prodKey)&&Number(item.year)===Number(cell.year)&&item.date===cell.date);
+    const matching=activePlans.filter(item=>Number(item.custKey)===Number(customer.CustKey)&&Number(item.prodKey)===Number(cell.prodKey)&&Number(item.year)===Number(cell.year)&&item.date===cell.date);
     if(matching.length>1 || matching.some(item=>normalizeWeekdayUnit(item.unit)!==normalizedUnit||item.orderWeek!==cell.orderWeek)) {
       setMessage('이 날짜에는 복수 초안 또는 다른 업무차수/단위가 있습니다. 상세 초안에서 각각 수정하세요.');return false;
     }
@@ -356,7 +415,7 @@ export default function WeekdayEstimateWorkspace() {
       const actual=compareRows?.filter(row=>row.year===Number(cell.year)&&row.orderWeek===cell.orderWeek&&row.prodKey===Number(cell.prodKey));
       const dates=(actual||[]).flatMap(row=>row.shipmentDates||[]).filter(item=>String(item.date).slice(0,10)===cell.date);
       const before=dates.length?dates.reduce((sum,item)=>sum+Number(item.shipmentQuantity),0):null;
-      const plan={id:`grid|${customer.CustKey}|${cell.year}|${cell.orderWeek}|${cell.prodKey}|${cell.date}`,custKey:Number(customer.CustKey),prodKey:Number(cell.prodKey),prodName:cell.prodName,
+      const plan={id:`grid|${scopeKey}|${cell.year}|${cell.orderWeek}|${cell.prodKey}|${cell.date}`,draftScope:scopeKey,custKey:Number(customer.CustKey),prodKey:Number(cell.prodKey),prodName:cell.prodName,
         year:Number(cell.year),orderWeek:cell.orderWeek,date:cell.date,quantity:qty,unit:normalizedUnit,sourceLabel:'표 직접 입력',sheet:'전산 대조',sourceCell:cell.date,raw:before,header:cell.date,sourceYear:null,sourceOrderWeek:null,wdetailKey:null};
       setPlans(current=>[...current,plan]);
       setDraftHistory(current=>[{id:crypto.randomUUID(),kind:'GRID_DRAFT_EDIT',applied:false,at:new Date().toISOString(),prodKey:plan.prodKey,
@@ -368,25 +427,82 @@ export default function WeekdayEstimateWorkspace() {
 
   async function openWeekdayPrint({cycle,dates,mode}) {
     if(printLock.current||!customer?.CustKey) return;
-    printLock.current=true;setPrintBusy(true);const request=++printRequest.current;
+    const draftReason=weekdayUnsavedPrintReason(plans,cycle,customer.CustKey,scopeKey);
+    if(draftReason || pendingApply || applyBusy) {setMessage(draftReason || '저장 결과 확인 후 인쇄하세요.');return {success:false,error:draftReason || '저장 결과 확인 후 인쇄하세요.'};}
+    const requestedScope=scopeKey;
+    printLock.current=true;setPrintBusy(true);setPrintPreview(null);const request=++printRequest.current;
     try {
-      const response=await fetch('/api/estimate/weekday-print',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({year:cycle.year,majorWeek:cycle.majorWeek,custKey:Number(customer.CustKey),dates,mode})});
-      const result=await response.json();
-      if(!response.ok||!result.success) throw new Error(result.error||'견적 조회 실패');
-      if(request!==printRequest.current) return;
-      if(!result.items?.length) {setMessage('선택 범위의 확정 견적 자료가 없습니다. 미적용 초안은 인쇄하지 않습니다.');return;}
+      const requests=buildWeekdayPrintRequests({cycle,dates,mode,custKey:Number(customer.CustKey)});
+      const results=await Promise.all(requests.map(async scope=>{
+        const response=await fetch('/api/estimate/weekday-print',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(scope)});
+        const result=await response.json();
+        if(!response.ok || result.success!==true) throw new Error(`${scope.dates[0] || '전체 차수'}: ${result.error || '견적 조회 실패'} · 전체 미리보기를 열지 않았습니다.`);
+        return validateWeekdayPrintResponse(scope,result);
+      }));
+      if(request!==printRequest.current || requestedScope!==currentScope.current) return;
       let logoDataUrl='';
       const logo=await fetch('/nenova-logo-estimate.png');
       if(logo.ok) {
         const blob=await logo.blob();
         logoDataUrl=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>resolve('');reader.readAsDataURL(blob);});
       }
-      if(request!==printRequest.current) return;
-      const label=`${cycle.majorWeek}차 ${mode==='major'?'전체 견적':dates.join(' · ')} · 전산 확정본`;
-      const html=buildEstimateHtml({bigoLabel:label,custName:result.customer.CustName,printDate:new Date().toISOString().slice(0,10),rows:result.items,logoDataUrl});
-      setPrintPreview({html,label,note:result.note,count:result.items.length});
-    } catch(error) {if(request===printRequest.current)setMessage(error.message);}
+      if(request!==printRequest.current || requestedScope!==currentScope.current) return;
+      const bundle=buildWeekdayEstimatePrintBundle({requests,results,printDate:new Date().toISOString().slice(0,10),logoDataUrl});
+      if(!bundle.html) {setMessage(bundle.note || '선택 범위의 확정 견적 자료가 없습니다. 미적용 초안은 인쇄하지 않습니다.');return {success:true,empty:true};}
+      setPrintPreview(bundle);
+      if(bundle.emptyDates.length)setMessage(bundle.note);
+      return {success:true};
+    } catch(error) {if(request===printRequest.current && requestedScope===currentScope.current){setPrintPreview(null);setMessage(error.message);return {success:false,error:error.message};}}
     finally {printLock.current=false;setPrintBusy(false);}
+  }
+
+  function openErpSave() {
+    if(applyLock.current || pendingOperation.current || recoveryBlocked || busy) return;
+    setApplyError('');
+    try {
+      const submission=buildWeekdayDistributionSubmission({plans:activePlans,compareRows,cycles,custKey:customer?.CustKey,scopeKey,reason:applyReason.trim() || '미리보기',operationId:crypto.randomUUID()});
+      setApplyPreview(submission);printRequest.current+=1;setPrintPreview(null);
+    } catch(error) {setApplyError(error.message);}
+  }
+
+  async function finishErpSave(submission,outcome) {
+    if(outcome.state==='saved') {
+      try {sessionStorage.removeItem('weekday-pending-erp-operation');} catch { /* In-memory identity remains authoritative. */ }
+      pendingOperation.current=null;setPendingApply(null);
+      setPlans(current=>clearSubmittedWeekdayDrafts(current,submission));
+      setApplyPreview(null);setApplyError('');
+      if(submission.scopeKey===currentScope.current) {
+        setApplyReason('');
+        const refreshed=await refreshErp();
+        setMessage(refreshed===true?'ERP 저장 응답을 확인했습니다. 저장된 요일 수량·견적·이력을 다시 조회했습니다. 최초 기준은 보존됩니다.':'ERP 저장은 확인됐으나 최신 자료 재조회에 실패했습니다. 전산 새로고침으로 확인하세요.');
+      } else setMessage('이전 조회 범위의 ERP 저장을 확인했습니다. 제출한 초안만 정리했으며 현재 범위는 변경하지 않았습니다.');
+    } else if(outcome.state==='failed') {
+      try {sessionStorage.removeItem('weekday-pending-erp-operation');} catch { /* Keep drafts and error. */ }
+      pendingOperation.current=null;setPendingApply(null);setApplyError(outcome.error);
+      setApplyPreview(current=>current?{...current,payload:{...current.payload,operationId:crypto.randomUUID()}}:current);
+    } else {setPendingApply(submission);setApplyError(outcome.error);}
+  }
+
+  async function confirmErpSave() {
+    if(applyLock.current || pendingOperation.current || recoveryBlocked || !applyPreview || applyPreview.scopeKey!==currentScope.current) return;
+    let submission;
+    try {submission=buildWeekdayDistributionSubmission({plans:activePlans,compareRows,cycles,custKey:customer?.CustKey,scopeKey,reason:applyReason,operationId:applyPreview.payload.operationId});}
+    catch(error) {setApplyError(error.message);return;}
+    if(!weekdayDistributionPreviewMatches(applyPreview,submission)) {setApplyError('미리보기 후 초안/전산 전체 스냅샷이 변경됐습니다. 닫고 다시 확인하세요.');return;}
+    submission.drafts=activePlans.filter(plan=>submission.submitted.includes(JSON.stringify(plan)));
+    try {sessionStorage.setItem('weekday-pending-erp-operation',JSON.stringify(submission));}
+    catch {setApplyError('작업 UUID를 보관할 수 없습니다. 브라우저 저장소를 확인한 뒤 저장하세요.');return;}
+    applyLock.current=true;pendingOperation.current=submission;setApplyBusy(true);setApplyError('');
+    try {await finishErpSave(submission,await saveWeekdayDistribution(submission));}
+    finally {applyLock.current=false;setApplyBusy(false);}
+  }
+
+  async function recheckErpSave() {
+    const submission=pendingOperation.current;
+    if(!submission || applyLock.current) return;
+    applyLock.current=true;setApplyBusy(true);
+    try {await finishErpSave(submission,await checkWeekdayDistributionStatus(submission));}
+    finally {applyLock.current=false;setApplyBusy(false);}
   }
 
   const style = `
@@ -418,22 +534,35 @@ export default function WeekdayEstimateWorkspace() {
         <div style={{ flex:1, minWidth:240 }}>
           <div style={{ color:'#16439a', fontSize:18, fontWeight:800 }}>주광 견적서 · {customer?.CustName || '주광 자동 조회 중'}</div>
         </div>
-        <label>연도 <input aria-label="조회 연도" style={{ ...inputStyle, width:70 }} value={year} onChange={(e) => setYear(e.target.value)} inputMode="numeric" /></label>
-        <label>중심 차수 <input aria-label="중심 차수" style={{ ...inputStyle, width:50 }} value={majorWeek} onChange={(e) => setMajorWeek(e.target.value)} inputMode="numeric" /></label>
-        <button aria-label="이전 차수를 중심으로" disabled={busy || baselineBusy || noteBusy || !cycles.some(cycle=>cycle.offset===-1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(-1)}>◀</button>
-        <button aria-label="다음 차수를 중심으로" disabled={busy || baselineBusy || noteBusy || !cycles.some(cycle=>cycle.offset===1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(1)}>▶</button>
-        <input aria-label="요일별 출고 엑셀 파일" style={{width:230}} type="file" accept=".xlsx,.xls" onChange={(e) => {setToolsOpen(true);uploadWorkbook(e.target.files?.[0]);}} disabled={busy} />
-        <button onClick={compareWithErp} disabled={busy || !customer}>전산 새로고침</button>
+        <label>연도 <input disabled={applyBusy} aria-label="조회 연도" style={{ ...inputStyle, width:70 }} value={year} onChange={(e) => setYear(e.target.value)} inputMode="numeric" /></label>
+        <label>중심 차수 <input disabled={applyBusy} aria-label="중심 차수" style={{ ...inputStyle, width:50 }} value={majorWeek} onChange={(e) => setMajorWeek(e.target.value)} inputMode="numeric" /></label>
+        <button aria-label="이전 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || !cycles.some(cycle=>cycle.offset===-1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(-1)}>◀</button>
+        <button aria-label="다음 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || !cycles.some(cycle=>cycle.offset===1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(1)}>▶</button>
+        <input aria-label="요일별 출고 엑셀 파일" style={{width:230}} type="file" accept=".xlsx,.xls" onChange={(e) => {setToolsOpen(true);uploadWorkbook(e.target.files?.[0]);}} disabled={busy || editLocked} />
+        <button onClick={compareWithErp} disabled={busy || editLocked || !customer}>전산 새로고침</button>
+        <button className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>ERP 저장 · 변경 확인</button>
         <button aria-expanded={toolsOpen} onClick={()=>setToolsOpen(value=>!value)}>업체·엑셀 연결 {toolsOpen?'접기':'펼치기'}</button>
       </div>
       <div role="status" style={{ marginTop:5, padding:'3px 6px', borderRadius:4, background:'#fff7df', color:'#624900' }}>{message}</div>
+      <div style={{fontSize:13,color:'#122033',marginTop:5}}>전산 현재값 = 저장된 조회값 · 파란 수량 = 미저장 초안 {activePlans.length}건 · 최초 기준 = 이 페이지의 불변 기록{plans.length>activePlans.length && ` · 다른 조회 범위 초안 ${plans.length-activePlans.length}건 보관 (이번 저장 제외)`}</div>
+      {applyError && <div role="alert" style={{color:'#9f1c16',fontSize:13,overflowWrap:'anywhere'}}>{applyError}</div>}
+      {pendingApply && <div style={{fontSize:13,color:'#122033'}}>저장 결과 확인 대기 · 업체 {pendingApply.payload.custKey} · 작업 {pendingApply.payload.operationId} <button disabled={applyBusy} onClick={recheckErpSave}>{applyBusy?'확인 중…':'같은 작업 저장 상태 다시 조회'}</button></div>}
       {calendarError && <div role="alert" style={{color:'#b42318',marginTop:8}}>전산 달력: {calendarError}</div>}
       {customerError && <div role="alert" style={{color:'#b42318'}}>{customerError}</div>}
       {uploadError && <div role="alert" style={{color:'#b42318'}}>{uploadError}</div>}
     </header>
 
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={plans.filter((plan)=>Number(plan.custKey)===Number(customer?.CustKey))} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}/>
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}/>
+
+    {applyPreview && <div className="weekday-print-overlay"><section role="dialog" aria-modal="true" aria-label="ERP 저장 변경 확인" style={{...panel,width:'min(760px,100%)',maxHeight:'calc(100vh - 24px)',overflow:'auto',boxSizing:'border-box',fontSize:13,color:'#122033'}}>
+      <h2 style={{fontSize:17,margin:'0 0 8px'}}>ERP 저장 · {customer?.CustName} · 변경 날짜 {applyPreview.preview.length}건</h2>
+      <p>아래 날짜의 최종 출고수량(OutUnit)만 저장합니다. 누락된 기존 날짜는 보존하고, 명시 수량 0은 취소합니다. 최초 기준을 덮어쓰지 않습니다. 저장 실패 시 초안을 유지합니다.</p>
+      <div className="scroll-table" style={{maxHeight:'45vh',overflow:'auto'}}><table><thead><tr><th>연도/세부차수</th><th>품목</th><th>날짜</th><th>저장 현재 → 초안 최종</th></tr></thead><tbody>{applyPreview.preview.map(cell=><tr key={`${cell.year}|${cell.orderWeek}|${cell.prodName}|${cell.date}`}><td>{cell.year}/{cell.orderWeek}</td><td>{cell.prodName}</td><td>{cell.date}</td><td>{cell.before} → {cell.after} {cell.unit}{cell.after===0?' · 취소':''}</td></tr>)}</tbody></table></div>
+      <label style={{display:'block',marginTop:10}}>ERP 변경 사유 (필수)<textarea autoFocus aria-label="ERP 저장 사유" rows={3} maxLength={1000} disabled={applyBusy || Boolean(pendingApply)} value={applyReason} onChange={event=>setApplyReason(event.target.value)} style={{width:'100%',boxSizing:'border-box',font:'inherit',color:'#122033'}}/></label>
+      {applyError && <p role="alert" style={{color:'#9f1c16',overflowWrap:'anywhere'}}>{applyError}</p>}
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}><button className="primary" onClick={confirmErpSave} disabled={applyBusy || Boolean(pendingApply) || !applyReason.trim()}>{applyBusy?'저장/결과 확인 중…':'변경 확인 · ERP에 저장'}</button>{pendingApply && <button disabled={applyBusy} onClick={recheckErpSave}>저장 상태 다시 조회</button>}<button disabled={applyBusy} onClick={()=>setApplyPreview(null)}>닫기 · 초안 유지</button></div>
+    </section></div>}
 
     {noteForm && <section role="dialog" aria-label="수량 변경 비고" style={{position:'fixed',right:16,bottom:16,zIndex:2200,...panel,width:'min(460px,calc(100% - 32px))',maxHeight:'calc(100vh - 32px)',overflow:'auto',boxShadow:'0 5px 24px #172b4244'}}>
       <div style={{display:'flex',justifyContent:'space-between',gap:8}}><strong>{noteForm.name} · {noteForm.year}/{noteForm.majorWeek}차</strong><button aria-label="비고창 닫기" disabled={noteBusy} onClick={()=>{noteRequest.current+=1;setNoteForm(null);}}>닫기</button></div>
@@ -512,38 +641,38 @@ export default function WeekdayEstimateWorkspace() {
         <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:10 }}>
           <h2 style={{ margin:0, fontSize:17, flex:1 }}>5. 세부차수·출고일 배분 초안</h2>
           <button onClick={compareWithErp} disabled={busy || !plans.length}>선택 범위 전산 대조</button>
-          <button disabled title="전산 쓰기는 후속 안전 검증 후 제공">ERP 적용 · 준비 중</button>
+          <button className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>ERP 저장 · 변경 확인</button>
         </div>
-        <p className="muted">각 원본행은 날짜 수량 후보만 초안에 복사합니다. 연도·세부차수·출고일·단위는 행별로 확인하세요. 단위 환산 및 ERP 저장은 하지 않습니다.</p>
+        <p className="muted">입력은 미저장 초안입니다. 실제 OutUnit과 같은 단위만 명시 ERP 저장할 수 있으며 자동 환산하지 않습니다. 다른 조회 범위의 초안은 이번 저장에 포함하지 않습니다.</p>
         <div className="scroll-table"><table><thead><tr><th>원본 근거</th><th>ERP 품목</th><th>견적 세부차수</th><th>출고일/요일</th><th>수량</th><th>원본 단위</th><th>제거</th></tr></thead><tbody>
-          {plans.map((plan) => <tr key={plan.id}><td>{plan.sourceLabel}<br/><span className="muted">{plan.sheet}!{plan.sourceCell} · {plan.header} · 원문 {plan.raw}</span></td><td>{plan.prodName || `ProdKey ${plan.prodKey}`}</td><td>{plan.year}/{plan.orderWeek}</td><td>{plan.date}<div className="muted">{plan.date ? weekdayLabels[new Date(`${plan.date}T12:00:00`).getDay()] + '요일' : ''} · 날짜 이동은 위 표에서</div></td><td><input style={{ ...inputStyle, width:110 }} type="number" min="0" step="any" value={plan.quantity} onChange={(e) => updatePlan(plan.id, { quantity:e.target.value })} /></td><td>{plan.unit}</td><td><button onClick={() => { setDraftHistory((current)=>[{id:crypto.randomUUID(),kind:'DRAFT_REMOVE',applied:false,at:new Date().toISOString(),prodKey:plan.prodKey,before:{...plan},after:null},...current]);setPlans((current) => current.filter((item) => item.id !== plan.id)); }}>삭제</button></td></tr>)}
-          {!plans.length && <tr><td colSpan={7}>아직 배분 초안이 없습니다. 원본행을 ERP 품목과 연결한 뒤 계획에 추가하세요.</td></tr>}
+          {activePlans.map((plan) => <tr key={plan.id}><td>{plan.sourceLabel}<br/><span className="muted">{plan.sheet}!{plan.sourceCell} · {plan.header} · 원문 {plan.raw}</span></td><td>{plan.prodName || `ProdKey ${plan.prodKey}`}</td><td>{plan.year}/{plan.orderWeek}</td><td>{plan.date}<div className="muted">{plan.date ? weekdayLabels[new Date(`${plan.date}T12:00:00`).getDay()] + '요일' : ''} · 날짜 이동은 위 표에서</div></td><td><input disabled={editLocked} style={{ ...inputStyle, width:110 }} type="number" min="0" step="any" value={plan.quantity} onChange={(e) => updatePlan(plan.id, { quantity:e.target.value })} /></td><td>{plan.unit}</td><td><button disabled={editLocked} onClick={() => { setDraftHistory((current)=>[{id:crypto.randomUUID(),kind:'DRAFT_REMOVE',applied:false,at:new Date().toISOString(),prodKey:plan.prodKey,before:{...plan},after:null},...current]);setPlans((current) => current.filter((item) => item.id !== plan.id)); }}>초안 제거</button></td></tr>)}
+          {!activePlans.length && <tr><td colSpan={7}>현재 조회 범위에 배분 초안이 없습니다. 다른 범위 초안은 원래 업체·연도·중심 차수로 돌아가면 다시 표시됩니다.</td></tr>}
         </tbody></table></div>
       </section>
 
-      {(draftHistory.length > 0 || erpHistory.length > 0) && <section className="span-12" style={panel}>
+      {(draftHistory.length > 0 || erpHistory.length > 0 || savedHistory.length>0 || historyError) && <section className="span-12" style={panel}>
         <h2 style={{fontSize:17,margin:'0 0 10px'}}>변경 이력 · 초안과 전산 기록 구분</h2>
-        <div className="grid"><div className="span-6"><b>현재 화면 초안 (ERP 미적용)</b>{draftHistory.map((event)=><div key={event.id} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13}}>{event.at?.slice(0,19).replace('T',' ')} · 품목 {event.prodKey} · {event.kind}<br/>{event.before?.year}/{event.before?.orderWeek} {event.before?.date} → {event.after ? `${event.after.year}/${event.after.orderWeek} ${event.after.date}` : '초안 제거'} · {event.quantity != null ? `${event.quantity} ${event.unit}` : `${event.before?.quantity ?? '—'} → ${event.after?.quantity ?? '—'}`} {event.reason && `· ${event.reason}`}</div>)}</div><div className="span-6"><b>ERP 확정 시 기록된 출고 변경</b><p className="muted">일자별 신규·수정·삭제 기록입니다. 기존 데이터에는 서로 연결된 이동 ID가 없어 출발/도착을 자동 단정하지 않습니다.</p>{erpHistory.map((event,index)=><div key={`${event.SdetailKey}|${event.ChangeDtm}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13}}>{event.ChangeDtm} · {event.ChangeID} · {event.OrderYear}/{event.OrderWeek} · 품목 {event.ProdKey}<br/>{event.ShipmentDate} {event.ChangeType} · {event.BeforeValue} → {event.AfterValue}</div>)}</div></div>
+        <div className="grid"><div className="span-6"><b>현재 화면 초안 (ERP 미적용)</b>{draftHistory.map((event)=><div key={event.id} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13}}>{event.at?.slice(0,19).replace('T',' ')} · 품목 {event.prodKey} · {event.kind}<br/>{event.before?.year}/{event.before?.orderWeek} {event.before?.date} → {event.after ? `${event.after.year}/${event.after.orderWeek} ${event.after.date}` : '초안 제거'} · {event.quantity != null ? `${event.quantity} ${event.unit}` : `${event.before?.quantity ?? '—'} → ${event.after?.quantity ?? '—'}`} {event.reason && `· ${event.reason}`}</div>)}</div><div className="span-6"><b>EXE 공용 출고 이력 · ShipmentHistory</b><p className="muted">nenova.exe와 공유하는 기존 일자별 신규·수정·삭제 기록입니다. 상세행이 완전히 삭제된 취소건은 기존 EXE 조회에서 빠질 수 있으며, 웹 저장건은 아래 영속 감사에서 조회합니다. 기존 ShipmentHistory 행의 보존과 EXE 화면의 조회 가능 여부는 다릅니다. 명시 작업 UUID가 없는 이력은 이동·웹 감사와 자동 연결하거나 중복 제거하지 않습니다.</p>{erpHistory.map((event,index)=><div key={`${event.SdetailKey}|${event.ChangeDtm}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>EXE 공용 · {event.ChangeDtm} · 담당자 {event.ChangeID} · {event.OrderYear}/{event.OrderWeek} · 품목 {event.ProdKey}<br/>{event.ShipmentDate} {event.ChangeType} · {event.BeforeValue} → {event.AfterValue}{event.Descr && <div>비고: {event.Descr}</div>}</div>)}</div></div>
+        <b style={{display:'block',marginTop:10}}>웹 요일 저장 감사 · 작업 UUID / 전체 거래 보완 기록</b>
+        <p className="muted">기존 EXE 공용 출고 이력은 위에 그대로 표시합니다. 같은 웹 저장이 두 출처에 기록될 수 있으며, 명시 UUID 연결이 없는 기록은 시각·수량으로 추정 중복 제거하지 않습니다.</p>
+        {historyError && <p role="alert" style={{color:'#9f1c16'}}>{historyError}</p>}
+        {savedHistory.map((event,index)=><div key={`${event.operationId}|${event.prodKey}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>웹 감사 · {event.changedAt || event.createdAt || event.at} · 담당자 {event.userName || event.userId || event.changedBy} · {event.year}/{event.orderWeek} · 품목 {event.prodName || event.prodKey} · 사유: {event.reason}<br/>전: {historySnapshotLabel(event.before)}<br/>후: {historySnapshotLabel(event.after)} · 작업 {event.operationId}</div>)}
       </section>}
 
       {compareRows && <section className="span-12" style={panel}>
         <h2 style={{ margin:'0 0 10px', fontSize:17 }}>6. 전산 대조 결과 · 읽기 전용</h2>
-        <div className="scroll-table"><table><thead><tr><th>연도·세부차수</th><th>거래처</th><th>품목</th><th>계획(선택 단위)</th><th>전산 분배(OutUnit)</th><th>차이</th><th>확정 여부</th><th>날짜별 출고 / 견적수량</th><th>상태</th></tr></thead><tbody>
+        <div className="scroll-table"><table><thead><tr><th>연도·세부차수</th><th>거래처</th><th>품목</th><th>저장 후 예상 합계(OutUnit)</th><th>저장 현재 분배(OutUnit)</th><th>전체 변경량</th><th>확정 여부</th><th>날짜별 출고 / 견적수량</th><th>상태</th></tr></thead><tbody>
           {compareRows.map((row) => {
-            const related = plans.filter((item) => Number(item.custKey) === Number(row.custKey) && Number(item.year) === row.year && item.prodKey === row.prodKey && item.orderWeek === row.orderWeek);
-            const planned = related.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-            const sameUnit = related.length > 0 && related.every((item) => item.unit === row.outUnit);
-            const delta = sameUnit && row.shipmentOutQuantity != null ? planned - row.shipmentOutQuantity : null;
-            const plannedByDate = new Map();
-            for (const item of related) plannedByDate.set(item.date, (plannedByDate.get(item.date) || 0) + (Number(item.quantity) || 0));
-            const actualByDate = new Map();
-            for (const item of row.shipmentDates || []) {
-              const date = String(item.date).slice(0, 10);
-              const previous = actualByDate.get(date);
-              actualByDate.set(date, { shipmentQuantity: (previous?.shipmentQuantity ?? 0) + Number(item.shipmentQuantity), estimateQuantity: (previous?.estimateQuantity ?? 0) + Number(item.estimateQuantity) });
-            }
-            const datesToShow = [...new Set([...plannedByDate.keys(), ...actualByDate.keys()])].sort();
-            return <tr key={`${row.year}|${row.orderWeek}|${row.prodKey}`}><td>{row.year} / {row.orderWeek}</td><td>{customer?.CustName}</td><td>{related[0]?.prodName || row.prodName || row.prodKey}</td><td>{related.length ? planned : '초안 없음'} {related[0]?.unit || ''}</td><td>{row.shipmentOutQuantity == null ? '분배 없음' : `${row.shipmentOutQuantity} ${row.outUnit || ''}`}</td><td>{delta == null ? '대조 대상 없음/단위 확인' : delta}</td><td>{row.fixed === 'mixed' ? '혼합 · 검토 필요' : row.fixed == null ? '미확인' : row.fixed ? '확정 · 검토 필요' : '미확정'}</td><td>{datesToShow.length ? datesToShow.map((date) => { const actual = actualByDate.get(date); const dayDelta = sameUnit && actual ? (plannedByDate.get(date) || 0) - actual.shipmentQuantity : null; return <div key={date}>{date} · 계획 {plannedByDate.get(date) || 0} / {actual ? `전산 ${actual.shipmentQuantity} / 차이 ${dayDelta == null ? '단위 확인 필요' : dayDelta} · 견적 ${actual.estimateQuantity}` : '전산 날짜행 없음 · 차이 산출 불가'}</div>; }) : '날짜 계획/전산행 없음'}</td><td>{row.state}</td></tr>;
+            const related = activePlans.filter((item) => Number(item.custKey) === Number(row.custKey) && Number(item.year) === row.year && item.prodKey === row.prodKey && item.orderWeek === row.orderWeek);
+            const projected = projectWeekdayDistribution(row, related);
+            return <tr key={`${row.year}|${row.orderWeek}|${row.prodKey}`}>
+              <td>{row.year} / {row.orderWeek}</td><td>{customer?.CustName}</td><td>{related[0]?.prodName || row.prodName || row.prodKey}</td>
+              <td>{projected.projectedTotal ?? '미확인'} {projected.unit || ''}{!related.length && ' · 초안 없음/현재 유지'}</td>
+              <td>{row.shipmentOutQuantity == null ? '분배 없음/미확인' : `${row.shipmentOutQuantity} ${row.outUnit || ''}`}</td>
+              <td>{projected.delta ?? '미확인'}</td><td>{row.fixed === 'mixed' ? '혼합 · 검토 필요' : row.fixed == null ? '미확인' : row.fixed ? '확정 · 검토 필요' : '미확정'}</td>
+              <td>{projected.valid ? projected.dates.length ? projected.dates.map(day=><div key={day.date}>{day.date} · 예상 {day.projectedQuantity} {day.drafted ? day.projectedQuantity===0?'(명시 취소)':'(미저장 초안)':'(현재 유지)'} / 저장 현재 {day.currentQuantity} · 변경 {day.delta} · 저장 견적 {day.estimateQuantity ?? '미확인'}</div>) : '날짜행 없음' : <span style={{color:'#9f1c16'}}>예상량 미확인 · {projected.error}</span>}</td>
+              <td>{row.state}</td>
+            </tr>;
           })}
         </tbody></table></div>
         <p className="muted">이 결과는 선택한 전후 업무 주기의 현재 조회일 뿐, 요일 계획과 단위가 같다는 보증이나 적용 가능 판정이 아닙니다. 연말에는 연결된 다음 연도 차수도 명시적으로 조회합니다.</p>
@@ -551,13 +680,13 @@ export default function WeekdayEstimateWorkspace() {
 
       <section className="span-12" style={{ ...panel, borderColor:'#d5a329', background:'#fffbeb' }}>
         <b>현재 제공 범위</b>: 엑셀 원문 파싱, 행별 품목 연결, 초안 편집, 연도·세부차수·거래처·품목 범위의 전산 읽기 대조.<br/>
-        <span className="muted">ERP 적용은 다요일 ShipmentDate 저장/확정 사이클 검증이 남아 비활성화했습니다. 상단 요일별 인쇄는 전산 확정본만 출력합니다. 화면 초안은 페이지를 새로고침하면 사라집니다.</span>
+        <span className="muted">명시 ERP 저장은 사유·변경 날짜 확인 후 실행합니다. 해당 차수에 미저장 초안이 있으면 먼저 저장해야 인쇄할 수 있습니다. 저장 결과 불명 시 동일 UUID의 상태만 조회하며 재저장하지 않습니다.</span>
       </section>
     </div>
     </details>
     {printPreview && <div className="weekday-print-overlay" onKeyDown={event=>{if(event.key==='Escape')setPrintPreview(null);}}>
       <section role="dialog" aria-modal="true" aria-label="요일 견적서 인쇄 미리보기" className="weekday-print-dialog">
-        <div style={{display:'flex',gap:8,alignItems:'center'}}><b style={{flex:1}}>{printPreview.label} · {printPreview.count}행</b><button className="primary" onClick={()=>previewFrame.current?.contentWindow?.print()}>견적서 출력</button><button autoFocus onClick={()=>setPrintPreview(null)}>닫기</button></div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}><b style={{flex:1,minWidth:0}}>{printPreview.label} · {printPreview.documentCount}문서 / {printPreview.count}행</b><button className="primary" onClick={()=>previewFrame.current?.contentWindow?.print()}>견적서 출력</button><button autoFocus onClick={()=>setPrintPreview(null)}>닫기</button></div>
         <div className="muted">{printPreview.note} · 미적용 초안 제외 · A4 / 배율 100% 권장</div>
         <iframe ref={previewFrame} title="전산 확정 견적서" srcDoc={printPreview.html}/>
       </section>

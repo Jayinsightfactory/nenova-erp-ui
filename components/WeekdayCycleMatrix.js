@@ -3,6 +3,7 @@ import { buildHorizontalWeekdayMatrix, horizontalCycleKey, horizontalEditPayload
   horizontalPrintReason, validateHorizontalQuantity, hasHorizontalShipmentQuantity } from '../lib/weekdayHorizontalMatrix.js';
 import { horizontalCycleColumns, weekdayQuantityLabel, weekdayProductLabel } from '../lib/weekdayHorizontalMatrix.js';
 import { reconcileWeekdayQuote } from '../lib/weekdayQuoteReconciliation.js';
+import { weekdayUnsavedPrintReason } from '../lib/weekdayDistributionClient.js';
 
 const numberLabel = (value) => value == null || !Number.isFinite(Number(value))
   ? '미확인' : String(Number(value));
@@ -66,7 +67,7 @@ function QuantityCell({ day, row, block, disabled, onEditCell, onSelect, onOpenN
         if (event.key === 'Enter' && !event.nativeEvent?.isComposing) { event.preventDefault(); event.currentTarget.blur(); }
         if (event.key === 'Escape') { setInput(null); setFailure(''); }
       }} />
-    <div className="wcm-cell-detail">{changed && <small className="wcm-original">({weekdayQuantityLabel(day.initial,row,day.unit)})</small>}
+    <div className="wcm-cell-detail">{day.planned!=null && <small className="wcm-original">초안 · 저장 {weekdayQuantityLabel(day.displayCurrent ?? day.current,row,day.unit)}</small>}{changed && <small className="wcm-original">({weekdayQuantityLabel(day.initial,row,day.unit)})</small>}
     {(day.delta != null && day.delta !== 0 || reason) && <button type="button" className="wcm-cell-info"
       aria-label={`${row.name} ${day.date} 수량 내역`} onClick={() => onSelect(`${description}\n${reason}`)}>
       {day.delta != null && day.delta !== 0 ? `Δ${day.delta > 0 ? '+' : ''}${numberLabel(day.delta)}` : '!'}</button>}</div>
@@ -118,8 +119,9 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     block.quote=reconcileWeekdayQuote(block,row.prodKey,quoteResults.find(result=>Number(result.year)===Number(block.cycle.year)&&String(result.majorWeek)===String(block.cycle.majorWeek)));
   }
   const hasCustomer = customerProvided ?? (Number(customer?.CustKey ?? customer?.custKey ?? custKey) > 0);
-  const printReason = (cycle, dates, mode) => busy ? '전산 조회/처리 중' : horizontalPrintReason({ cycle, dates, mode, onPrint,
-    customerProvided: hasCustomer, printBusy: printBusy || printing });
+  const printReason = (cycle, dates, mode) => weekdayUnsavedPrintReason(safePlans,cycle,customer?.CustKey ?? customer?.custKey ?? custKey)
+    || (busy ? '전산 조회/처리 중' : horizontalPrintReason({ cycle, dates, mode, onPrint,
+    customerProvided: hasCustomer, printBusy: printBusy || printing }));
   const shipmentRows = matrix.rows.filter((row) => hasHorizontalShipmentQuantity(row) || addedKeys.includes(row.prodKey));
   const flowers = [...new Set(shipmentRows.flatMap((row) => row.flowerNames))].sort();
   const query = search.trim().toLocaleLowerCase();
@@ -523,7 +525,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-remainder-value { font-weight:600; }
       .weekday-cycle-matrix .wcm-proposed .wcm-number-display { color:#174e9c; font-weight:600; }
       .weekday-cycle-matrix .wcm-cell-detail { display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:2px; position:relative; z-index:2; font-size:12px; line-height:16px; }
-      .weekday-cycle-matrix .wcm-original { font-size:12px; overflow-wrap:anywhere; }
+      .weekday-cycle-matrix .wcm-original { font-size:13px; color:#122033; overflow-wrap:anywhere; }
       .weekday-cycle-matrix .wcm-cell input { position:absolute; opacity:0; left:0; top:0; width:100%; padding:0 1px; border:1px solid transparent; height:20px; min-height:20px; line-height:18px; text-align:right; font-size:13px; background:transparent; border-radius:2px; font-variant-numeric:tabular-nums; }
       .weekday-cycle-matrix .wcm-cell input:focus { position:relative; opacity:1; }
       .weekday-cycle-matrix .wcm-cell:has(input:focus) .wcm-number-display { display:none; }

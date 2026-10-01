@@ -106,6 +106,9 @@ function makeQuery({ facts = baseFacts(), targets = {}, logs = [], failOn = null
       return { recordset: (targets[key] || defaultTarget()).managerRows };
     }
     if (/FROM sys\.columns/.test(text)) return { recordset: [{ is_computed: 0 }] };
+    if (/AS ActiveMax/.test(text) && /AS HistoryMax/.test(text) && /AS NumberingMax/.test(text)) {
+      return { recordset: [{ ActiveMax:900000, HistoryMax:899999, NumberingMax:900000 }] };
+    }
     if (/SELECT ISNULL\(MAX\(/.test(text)) return { recordset: [{ nk: 900001 }] };
     if (/OUTPUT INSERTED\.SdateKey/.test(text)) {
       writes.push({ kind: 'insert', table: 'ShipmentDate', params });

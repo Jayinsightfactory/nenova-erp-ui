@@ -23,9 +23,13 @@ import {
   sqlDistributeGetShipmentFarmGrid,
   sqlDistributeGetPivotData,
 } from '../../../lib/exeShipmentDistributionSql.js';
+import { safeNextShipmentDetailKey } from '../../../lib/safeNextKey.js';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
 async function safeNextKey(tQ, table, keyCol) {
+  if (table === 'ShipmentDetail' && keyCol === 'SdetailKey') {
+    return safeNextShipmentDetailKey(tQ);
+  }
   const r = await tQ(
     `SELECT ISNULL(MAX(${keyCol}),0)+1 AS nk FROM ${table} WITH (UPDLOCK, HOLDLOCK)`, {}
   );

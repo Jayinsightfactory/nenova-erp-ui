@@ -1,6 +1,7 @@
 import { query, sql } from '../../../lib/db.js';
 import { withAuth } from '../../../lib/auth.js';
 import { filterWeekdayCompareRows, normalizeWeekdayCompareRequest, normalizeWeekdayUnit, WEEKDAY_ORDER_OUT_QUANTITY_SQL } from '../../../lib/weekdayEstimateCompare.js';
+import { weekdaySnapshotDigest } from '../../../lib/weekdayDistributionPolicy.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,7 +24,7 @@ export default withAuth(async function handler(req, res) {
   };
 
   try {
-    const [orderResult, shipmentResult, dayResult, productResult, lotResult, historyResult] = await Promise.all([
+    const [orderResult, shipmentDetailResult, shipmentMasterResult, dayResult, productResult, lotResult, historyResult] = await Promise.all([
       query(
         `SELECT om.OrderYear, om.OrderWeek, om.CustKey, od.ProdKey,
                 SUM(${WEEKDAY_ORDER_OUT_QUANTITY_SQL}) AS OrderOutQuantity
@@ -36,20 +37,26 @@ export default withAuth(async function handler(req, res) {
             AND EXISTS (SELECT 1 FROM Customer c WHERE c.CustKey=om.CustKey AND ISNULL(c.isDeleted,0)=0)
           GROUP BY om.OrderYear, om.OrderWeek, om.CustKey, od.ProdKey`, params),
       query(
-        `SELECT sm.OrderYear, sm.OrderWeek, sm.CustKey, sd.ProdKey,
-                SUM(ISNULL(sd.OutQuantity,0)) AS ShipmentOutQuantity,
-                MIN(CAST(ISNULL(sd.isFix,0) AS int)) AS MinFixed,
-                MAX(CAST(ISNULL(sd.isFix,0) AS int)) AS MaxFixed,
-                MAX(p.OutUnit) AS OutUnit,
-                COUNT_BIG(*) AS DetailRows
+        `SELECT sm.OrderYear,sm.OrderWeek,sm.CustKey,sd.ProdKey,
+                sd.SdetailKey,sd.ShipmentKey,sd.OutQuantity,sd.BoxQuantity,
+                sd.BunchQuantity,sd.SteamQuantity,sd.EstQuantity,
+                sd.Cost AS DetailCost,sd.Amount AS DetailAmount,sd.Vat AS DetailVat,
+                sd.isFix AS DetailIsFix,p.OutUnit
            FROM ShipmentMaster sm
            JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey AND sd.CustKey = sm.CustKey
            JOIN Product p ON p.ProdKey = sd.ProdKey
           WHERE sm.OrderYear = @year AND sm.CustKey = @custKey
             AND sm.OrderWeek IN (${weekIn}) AND sd.ProdKey IN (${prodIn})
             AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(p.isDeleted,0)=0
+            AND EXISTS (SELECT 1 FROM Customer c WHERE c.CustKey=sm.CustKey AND ISNULL(c.isDeleted,0)=0)`, params),
+      query(
+        `SELECT sm.OrderYear,sm.OrderWeek,sm.CustKey,sm.ShipmentKey,
+                sm.isFix AS MasterIsFix,sm.OrderYearWeek
+           FROM ShipmentMaster sm
+          WHERE sm.OrderYear=@year AND sm.CustKey=@custKey
+            AND sm.OrderWeek IN (${weekIn}) AND ISNULL(sm.isDeleted,0)=0
             AND EXISTS (SELECT 1 FROM Customer c WHERE c.CustKey=sm.CustKey AND ISNULL(c.isDeleted,0)=0)
-          GROUP BY sm.OrderYear, sm.OrderWeek, sm.CustKey, sd.ProdKey`, params),
+          ORDER BY sm.OrderWeek,sm.ShipmentKey`, params),
       query(
         `SELECT sm.OrderYear, sm.OrderWeek, sm.CustKey, sd.ProdKey,
                 sdd.SdateKey, sd.SdetailKey, sm.ShipmentKey,
@@ -96,7 +103,23 @@ export default withAuth(async function handler(req, res) {
 
     const indexRows = (rows, valueName) => new Map((rows || []).map((row) => [`${row.OrderWeek}|${Number(row.ProdKey)}`, { ...row, [valueName]: row[valueName] == null ? null : Number(row[valueName]) }]));
     const orders = indexRows(filterWeekdayCompareRows(orderResult.recordset, scope), 'OrderOutQuantity');
-    const shipments = indexRows(filterWeekdayCompareRows(shipmentResult.recordset, scope), 'ShipmentOutQuantity');
+    const details = new Map();
+    for (const row of filterWeekdayCompareRows(shipmentDetailResult.recordset, scope)) {
+      const key = `${row.OrderWeek}|${Number(row.ProdKey)}`;
+      const list = details.get(key) || [];
+      list.push(row);
+      details.set(key, list);
+    }
+    const masters = new Map();
+    for (const row of shipmentMasterResult.recordset || []) {
+      if (String(row.OrderYear) !== String(scope.year)
+        || Number(row.CustKey) !== Number(scope.custKey)
+        || !scope.weeks.includes(String(row.OrderWeek))) continue;
+      const key = String(row.OrderWeek);
+      const list = masters.get(key) || [];
+      list.push(row);
+      masters.set(key, list);
+    }
     const productMap = new Map(productResult.recordset.map((row) => [Number(row.ProdKey), row]));
     const dates = new Map();
     for (const row of filterWeekdayCompareRows(dayResult.recordset, scope)) {
@@ -112,8 +135,28 @@ export default withAuth(async function handler(req, res) {
     for (const week of scope.weeks) for (const prodKey of scope.prodKeys) {
       const key = `${week}|${prodKey}`;
       const order = orders.get(key);
-      const shipment = shipments.get(key);
+      const detailRows = details.get(key) || [];
+      const masterRows = masters.get(week) || [];
+      const shipment = detailRows.length ? {
+        ShipmentOutQuantity: detailRows.reduce((sum, row) => sum + Number(row.OutQuantity || 0), 0),
+        MinFixed: Math.min(...detailRows.map((row) => Number(row.DetailIsFix))),
+        MaxFixed: Math.max(...detailRows.map((row) => Number(row.DetailIsFix))),
+        OutUnit: detailRows[0].OutUnit,
+        DetailRows: detailRows.length,
+      } : null;
       const product = productMap.get(prodKey);
+      const writeShapeSafe = masterRows.length === 1 && detailRows.length <= 1 && Boolean(product);
+      const actual = writeShapeSafe ? {
+        detailRows: detailRows.length,
+        shipmentOutQuantity: detailRows.length ? Number(detailRows[0].OutQuantity) : null,
+        shipmentDates: dates.get(key) || [],
+        master: masterRows[0],
+        detail: detailRows[0] || null,
+        product,
+      } : null;
+      const snapshotDigest = actual ? weekdaySnapshotDigest({
+        year: String(scope.year), orderWeek: week, custKey: scope.custKey, prodKey,
+      }, actual) : null;
       rows.push({
         year: scope.year, orderWeek: week, custKey: scope.custKey, prodKey,
         orderOutQuantity: order?.OrderOutQuantity ?? null,
@@ -128,6 +171,7 @@ export default withAuth(async function handler(req, res) {
         rawEstUnit: product?.EstUnit ?? null,
         detailRows: shipment ? Number(shipment.DetailRows) : 0,
         shipmentDates: dates.get(key) || [],
+        snapshotDigest,
         state: !shipment ? 'NO_SHIPMENT' : shipment.MinFixed !== shipment.MaxFixed ? 'MIXED_FIX_REVIEW_REQUIRED' : Number(shipment.MaxFixed) === 1 ? 'FIXED_REVIEW_REQUIRED' : 'FOUND_UNFIXED',
       });
     }
