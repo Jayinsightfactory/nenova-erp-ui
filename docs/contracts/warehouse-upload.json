@@ -4,7 +4,10 @@
   "scope": [
     "pages/incoming.js",
     "pages/api/warehouse/index.js",
-    "lib/warehousePackingImport.js"
+    "lib/warehousePackingImport.js",
+    "lib/warehouseProductMatching.js",
+    "pages/api/warehouse/validate.js",
+    "components/WarehousePackingReview.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "warehouseIdentity": ["OrderYear", "OrderWeek", "WarehouseKey", "ProdKey"],
@@ -18,6 +21,13 @@
     },
     {
       "name": "VALIDATE_EXACT_PRODUCT_MATCHES",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve"
+    },
+    {
+      "name": "REMATCH_PRODUCT_AND_REVALIDATE",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseMaster": "preserve",
@@ -48,10 +58,16 @@
     "productName": "trim(VARIETY NAME) + optional single space + SIZE",
     "orderCode": "COD",
     "productMatch": "case-insensitive exact Product.ProdName match; substring/TOP 1 prohibited",
-    "atomicFailure": "one missing, duplicate, malformed, fixed-category, SP, or stock calculation failure rejects or rolls back the entire file"
+    "atomicFailure": "one missing, duplicate, malformed, fixed-category, SP, or stock calculation failure rejects or rolls back the entire file",
+    "manualRematch": "selectedProdKey revalidated against active unique native-normalized name; canonical name staged, original quantities preserved",
+    "fixEligibility": "CommonLogic.CheckFixSave: current DetailFix=1, previous StockMaster week DetailFix=0, next StockMaster week DetailFix=1 all block; native ViewShipment scope",
+    "sharedCriteria": "lib/warehouseProductMatching.js used by catalog, preview and transaction revalidation"
   },
   "sideEffects": {
-    "TempWarehouseDetail": "stage all parsed rows",
+    "TempWarehouseDetail": "exclusive table lock; replace only proven processed residue; reject pending EXE rows; stage all validated rows",
+    "Product.Stock": "incremented by native usp_CreateWarehouse",
+    "StockHistory": "native usp_CreateWarehouse incoming history",
+    "KeyNumbering": "native usp_GetNextKey WarehouseKey category",
     "WarehouseMaster": "insert one header only after full validation",
     "WarehouseDetail": "created by usp_CreateWarehouse from staged rows",
     "ProductStock": "recalculated by usp_StockCalculation(OrderYear, OrderWeek, 0)",
@@ -70,6 +86,7 @@
   },
   "requiredTestFiles": [
     "__tests__/warehousePackingImport.test.js",
+    "__tests__/warehouseProductMatching.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {

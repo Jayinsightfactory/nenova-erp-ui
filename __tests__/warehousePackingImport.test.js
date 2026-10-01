@@ -32,6 +32,7 @@ async function main() {
     awb: 'AWB-100', orderNo: 'AWB-100', inputDate: '2026/08/17', orderYear: '2026',
   });
   assert.deepEqual(parsed.rows, [{
+    sourceRow: 6,
     prodName: 'CARNATION Doncel 60cm', orderCode: 'C-01', boxQty: 2,
     steamOf1Bunch: 20, steamOf1Box: 200, bunchQty: 40, steamQty: 400,
     unitPrice: 0.15, totalPrice: 60,
@@ -44,7 +45,7 @@ async function main() {
       return { SheetNames: ['PACKING'], Sheets: { PACKING: { grid } } };
     },
     utils: { sheet_to_json(sheet, options) {
-      assert.deepEqual(options, { header: 1, defval: '', raw: true });
+      assert.deepEqual(options, { range: 0, header: 1, defval: '', raw: true });
       return sheet.grid;
     } },
   };
@@ -82,6 +83,19 @@ async function main() {
   assert.equal(current.orderWeek, '33-01');
 
   const badHeader = grid.map((row) => [...row]);
+  const dateGrid = grid.map(row => [...row]);
+  dateGrid[2][6] = new Date(2026, 0, 1);
+  assert.equal(parseWarehousePackingGrid(dateGrid).meta.inputDate, '2026-01-01');
+  assert.equal(parseWarehousePackingGrid(dateGrid).meta.orderYear, '2026', 'Excel local January 1 must not move into prior UTC year');
+  const originalTZ = process.env.TZ;
+  try {
+    process.env.TZ = 'America/Los_Angeles';
+    dateGrid[2][6] = '2027-01-01';
+    assert.equal(parseWarehousePackingGrid(dateGrid).meta.orderYear, '2027', 'ISO calendar year is independent of browser timezone');
+  } finally {
+    if (originalTZ === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTZ;
+  }
   badHeader[4][9] = 'TOTAL STEMS';
   assert.throws(() => parseWarehousePackingGrid(badHeader), /TOTALSTEAM/);
 
