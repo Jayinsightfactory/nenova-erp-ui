@@ -46,6 +46,13 @@ export default function FarmWeekBoard() {
     }
     return [...groups.entries()];
   },[data]);
+  const activeCountry = selected ? JSON.parse(selected)[0] : null;
+  const activeVarieties = countries.find(([country])=>country===activeCountry)?.[1] || [];
+  function selectCountry(country,items) {
+    if (country===activeCountry) return;
+    const first = items.find(item=>(data?.rows || []).some(row=>varietyKey(row)===varietyKey(item))) || items[0];
+    if (first) setSelected(varietyKey(first));
+  }
   const columns = [ ['name','품목',300],['unit','단위',65], ...farms.map(f=>['farm:'+f,f,125]), ['received','입고 합계',110], ...(tab==='farm'?[]:[[tab,tab==='order'?'주문수량':'분배수량',110],['difference',tab==='order'?'입고 − 주문':'입고 − 분배',120]]),['adjustment','재고조정 참고',110] ];
   const nearby = week ? [-2,-1,0,1,2].map(delta=>moveFarmWeek(week,delta)).filter(Boolean) : [];
   function cell(row,key) {
@@ -72,7 +79,10 @@ export default function FarmWeekBoard() {
     <header className={styles.title}><h1 data-ui-page-title>차수별 농장표</h1><span>조회 전용</span><button onClick={()=>setRefresh(v=>v+1)} disabled={busy}>새로고침</button></header>
     <nav className={styles.tabs} aria-label="보기 선택">{tabs.map(([key,label])=><button key={key} aria-pressed={tab===key} onClick={()=>setTab(key)}>{label}</button>)}</nav>
     <div className={styles.week} aria-label="세부차수 선택"><b>차수</b><button aria-label="이전 세부차수" disabled={!week || !moveFarmWeek(week,-1)} onClick={()=>setWeek(moveFarmWeek(week,-1))}>◀</button>{nearby.map(value=><button key={value} aria-pressed={week===value} onClick={()=>setWeek(value)}>{value}</button>)}<button aria-label="다음 세부차수" disabled={!week || !moveFarmWeek(week,1)} onClick={()=>setWeek(moveFarmWeek(week,1))}>▶</button></div>
-    <div className={styles.varieties} aria-label="품종 선택">{countries.map(([country,items])=><section key={country} className={styles.countryGroup} data-active={items.some(row=>varietyKey(row)===selected)} aria-label={country || '국가 미지정'}><h2>{country || '국가 미지정'}</h2><div>{items.map(row=><button key={varietyKey(row)} aria-label={`${country || '국가 미지정'} · ${row.flower || '미분류'}`} aria-pressed={selected===varietyKey(row)} onClick={()=>setSelected(varietyKey(row))}>{row.flower || '미분류'}</button>)}</div></section>)}</div>
+    <div className={styles.selectionPanel}>
+      <div className={styles.selectionRow} role="group" aria-label="국가 선택"><strong>국가</strong><div>{countries.map(([country,items])=><button key={country} aria-pressed={activeCountry===country} onClick={()=>selectCountry(country,items)}>{country || '국가 미지정'}</button>)}</div></div>
+      <div className={styles.selectionRow} role="group" aria-label="품종 선택"><strong>품종</strong><div>{activeVarieties.map(row=><button key={varietyKey(row)} aria-label={`${row.country || '국가 미지정'} · ${row.flower || '미분류'}`} aria-pressed={selected===varietyKey(row)} onClick={()=>setSelected(varietyKey(row))}>{row.flower || '미분류'}</button>)}</div></div>
+    </div>
     <div className={styles.note}>입고: 실제 농장 입고 · 분배: 확정/미확정 포함 · 재고조정은 입고와 별도 표시 · 차이는 당차수 비교이며 가용재고가 아닙니다.</div>
     {busy ? <p role="status">차수별 물량을 불러오는 중…</p> : error ? <p role="alert" className={styles.error}>{error}</p> : <>
       <div className={styles.caption}><strong>{week} · {selected ? JSON.parse(selected).filter(Boolean).join(' · ') : '품종 선택'} · {rows.length}품목</strong><span>열 경계를 끌어 너비 조절 · {data?.loadedAt && new Date(data.loadedAt).toLocaleTimeString('ko-KR')} 조회</span></div>
