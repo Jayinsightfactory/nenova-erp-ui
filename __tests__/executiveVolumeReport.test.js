@@ -27,5 +27,7 @@ const fs = require('node:fs');
   assert(!api.includes('sd.isDeleted'));
   const page=fs.readFileSync('pages/m/executive-volume.js','utf8');
   assert(page.includes('엑셀 + 그래프 받기')); assert(page.includes('비교자료 없음')); assert(page.includes('getServerSideProps')); assert(page.includes('같은 단위 안에서 비교'));
+  assert(page.includes('미입고 현황')); assert(page.includes('손실이나 폐기를 뜻하지 않습니다.'));
+  assert(!page.includes('참고용 미입고'));
   console.log('executiveVolumeReport: cross-year identity, actual predecessor, product units, missing/over-inbound, zero baseline, readonly/auth, and xlsx chart path passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
