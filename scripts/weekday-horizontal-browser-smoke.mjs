@@ -180,7 +180,8 @@ try {
   assert.equal(await page.locator('thead .wcm-initial').filter({hasText:'미확정'}).count(),6);
   assert.equal(baselineRequests.filter(request=>request.action==='preview').length,6);
   assert.equal(baselineRequests.filter(request=>request.action==='confirm').length,0,'startup must never confirm');
-  assert.ok((await page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-total > span').allTextContents()).every(text=>text==='—'),'without stored baselines remaining quantities are unknown');
+  assert.ok((await page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-total > span').allTextContents()).every(text=>text==='0(0)'),'preview permits clearly labeled provisional planning residual only');
+  assert.ok((await page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-remainder-status').allTextContents()).every(text=>text==='미확정 예상'));
   assert.equal(printRequests.length,3,'startup now reads three saved quote totals');
   assert.deepEqual(printRequests.map(request=>[request.year,String(request.majorWeek),request.custKey,request.mode]).sort(),
     [[2026,'37',533,'major'],[2026,'38',533,'major'],[2026,'39',533,'major']]);
@@ -194,9 +195,18 @@ try {
   const dimensions=await page.evaluate(()=>({width:innerWidth,height:innerHeight,documentWidth:document.documentElement.scrollWidth,tableWidth:document.querySelector('.wcm-table-scroll table').getBoundingClientRect().width,visibleRows:[...document.querySelectorAll('.wcm-table-scroll tbody tr')].filter(row=>row.getBoundingClientRect().bottom<=innerHeight).length,rowHeight:document.querySelector('.wcm-table-scroll tbody tr').getBoundingClientRect().height,bodyTop:document.querySelector('.wcm-table-scroll tbody').getBoundingClientRect().top,deltaButtonHeight:document.querySelector('.wcm-change-note').getBoundingClientRect().height,deltaButtonMinHeight:getComputedStyle(document.querySelector('.wcm-change-note')).minHeight}));
   assert.equal(dimensions.width,1920);assert.equal(dimensions.height,1080);assert.ok(dimensions.documentWidth<=1921);
   assert.equal(Math.round(await page.locator('.wcm-product-col').evaluate(el=>el.getBoundingClientRect().width)),260);
-  assert.ok(dimensions.tableWidth<=1905);
-  // Dedicated total width and two compact lines keep at least 28 products on the first screen.
-  assert.ok(dimensions.visibleRows>=28,JSON.stringify(dimensions));
+  assert.ok(dimensions.tableWidth>=3032,'readable columns scroll inside the table instead of shrinking fonts');
+  assert.ok(dimensions.visibleRows>=18,JSON.stringify(dimensions));
+  assert.equal(await page.locator('.wcm-number-display').first().evaluate(el=>getComputedStyle(el).fontSize),'13px');
+  assert.equal(await page.locator('.wcm-number-display').first().evaluate(el=>getComputedStyle(el).fontWeight),'600');
+  assert.equal(await page.locator('.weekday-cycle-matrix').evaluate(el=>getComputedStyle(el).color),'rgb(15, 23, 42)');
+  await page.getByRole('button',{name:'현재 38차 보기',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.wcm-table-scroll').scrollLeft>800);
+  await page.getByRole('button',{name:'이전 37차 보기',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.wcm-table-scroll').scrollLeft<10);
+  const hoverRow=page.locator('.wcm-table-scroll tbody tr').first();
+  await hoverRow.locator('th').hover();
+  assert.ok((await hoverRow.locator('th,td').evaluateAll(els=>els.map(el=>getComputedStyle(el).boxShadow))).every(value=>value!=='none'),'entire row including sticky product highlighted');
   assert.equal(await page.getByRole('button',{name:/^\d+차 . 견적 출력$/}).count(),21);
   await page.screenshot({path:path.join(output,'1920x1080-top.png')});
   const search=page.getByPlaceholder('품목명 / 품목키');
@@ -218,9 +228,9 @@ try {
   assert.equal(await page.locator('.wcm-table-scroll tbody tr').count(),51);
   const addedRow=page.locator('.wcm-table-scroll tbody tr').filter({hasText:manuallyAdded.ProdName});
   assert.equal(await addedRow.count(),1);
-  assert.equal(await addedRow.locator('.wcm-total').nth(3).locator(':scope > span').innerText(),'—');
+  assert.equal(await addedRow.locator('.wcm-total').nth(3).locator(':scope > span').innerText(),'0');
   // The current quote helper returns 0 for no matching saved quote; failed/unverified reads use —.
-  assert.match((await addedRow.locator('.wcm-total').nth(3).innerText()).replace(/\s/g,''),/견(?:—|0)합0Δ—/);
+  assert.match((await addedRow.locator('.wcm-total').nth(3).innerText()).replace(/\s/g,''),/합0Δ—견/);
   assert.match(await page.locator('.weekday-cycle-matrix').innerText(),/품목 51\/51 · 출고 없음 3개 숨김/);
   for(const product of activeProducts)assert.equal(await page.locator('.wcm-table-scroll tbody').getByText(productLabel(product),{exact:true}).count(),1);
   for(const product of hiddenProducts.filter(product=>product.ProdKey!==151))assert.equal(await page.locator('.wcm-table-scroll tbody').getByText(product.ProdName,{exact:true}).count(),0);
@@ -254,9 +264,17 @@ try {
   await page.getByRole('button',{name:'선택 칸 내역 닫기'}).click();
   await page.screenshot({path:path.join(output,'1920x1080-new-customer-product-draft.png')});
   const cell=page.getByLabel('CARNATION 품목 02 2026/38-01 2026-09-17 미적용 초안 수량',{exact:true});
+  const editedRow=cell.locator('xpath=ancestor::tr');
+  await cell.fill('1');await cell.press('Enter');
+  assert.equal(await editedRow.locator('.wcm-total').nth(2).locator(':scope > span').innerText(),'1','decrease2→1 immediately changes01 residual');
+  assert.equal(await editedRow.locator('.wcm-total').nth(3).locator(':scope > span').innerText(),'1','major residual changes too');
+  assert.equal(await editedRow.locator('.wcm-remainder-status').nth(2).innerText(),'미확정·초안');
   await cell.fill('0');await cell.press('Enter');
   await page.getByRole('status').filter({hasText:'요일 수량 초안을 기록했습니다'}).waitFor();
   assert.equal(await cell.inputValue(),'0');
+  assert.equal(await editedRow.locator('.wcm-total').nth(2).locator(':scope > span').innerText(),'2');
+  const numberBounds=await cell.locator('..').evaluate(el=>{const a=el.querySelector('.wcm-number-display').getBoundingClientRect(),b=el.querySelector('.wcm-cell-info').getBoundingClientRect();return {numberBottom:a.bottom,buttonTop:b.top,numberWidth:a.width,cellWidth:el.clientWidth};});
+  assert.ok(numberBounds.numberBottom<=numberBounds.buttonTop+1,'quantity and delta never overlap');
   await page.getByRole('button',{name:'선택 칸 내역 닫기'}).click();
   await page.getByRole('button',{name:'CARNATION 품목 02 2026-09-17 수량 내역',exact:true}).click();
   await page.getByRole('status').filter({hasText:'전산 2 / 미적용 초안 0'}).waitFor();
@@ -289,7 +307,7 @@ try {
   assert.ok(narrow.width<=1281);assert.equal(narrow.overflow,true);
   await page.screenshot({path:path.join(output,'1280x800-table.png')});
   assert.equal(await page.locator('.wcm-table-scroll tbody tr').count(),52,'manual zero/new-customer additions survive later edits/printing');
-  assert.match((await addedRow.locator('.wcm-total').nth(3).innerText()).replace(/\s/g,''),/견(?:—|0)합0Δ—/);
+  assert.match((await addedRow.locator('.wcm-total').nth(3).innerText()).replace(/\s/g,''),/합0Δ—견/);
   assert.equal(await newRow.count(),1);
   assert.equal(await newCell.inputValue(),'2.5','positive browser-only draft remains after printing');
   for(const product of activeProducts)assert.equal(await page.locator('.wcm-table-scroll tbody').getByText(productLabel(product),{exact:true}).count(),1);
@@ -328,10 +346,13 @@ try {
   const changedCell=alstroCell.locator('..');
   assert.equal(await alstroCell.inputValue(),'48');
   assert.match(await changedCell.getAttribute('class'),/wcm-changed/);
-  assert.match((await changedCell.locator('.wcm-number-display').innerText()).replace(/\s/g,''),/^48\(3\)\(32\(2\)\)$/);
+  assert.equal(await changedCell.locator('.wcm-number-display').innerText(),'48(3)');
+  assert.equal(await changedCell.locator('.wcm-original').innerText(),'(32(2))');
   const alstroRow=page.locator('.wcm-table-scroll tbody tr').filter({has:page.getByText('품목 01',{exact:true})});
   assert.equal(await alstroRow.locator('.wcm-initial').nth(2).innerText(),'32(2)');
-  assert.match(await alstroRow.locator('.wcm-quote').nth(1).innerText(),/견 1280 ✓/);
+  assert.match(await alstroRow.locator('.wcm-quote').nth(1).getAttribute('title'),/견 1280 · 견적 일치/);
+  await changedCell.hover();
+  assert.equal(await changedCell.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 240, 179)','hover preserves changed yellow');
   await page.getByRole('button',{name:'ALSTROEMERIA 품목 01 2026/38차 변경 비고',exact:true}).click();
   const notePopup=page.getByRole('dialog',{name:'수량 변경 비고'});
   await notePopup.waitFor();
