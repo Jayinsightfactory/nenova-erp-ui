@@ -157,6 +157,7 @@ try {
     assert.equal(await page.getByLabel('조회 연도').inputValue(),String(target.year));
     assert.equal(await page.getByLabel('중심 차수',{exact:true}).inputValue(),String(target.majorWeek));
     assert.match(await page.locator('.wcm-current-head').innerText(),new RegExp(`${target.year} / ${target.majorWeek}차`));
+    assert.equal(await page.locator('thead .wcm-initial').filter({hasText:'조회 실패'}).count(),0,'all provisional scopes must load after moving center');
     centerMoves.push(`${target.year}/${target.majorWeek}`);
   }
   await page.setViewportSize({width:1280,height:800});
@@ -164,5 +165,5 @@ try {
     overflow:document.querySelector('.wcm-table-scroll').scrollWidth>document.querySelector('.wcm-table-scroll').clientWidth}));
   assert.ok(narrow.width<=1281);assert.equal(narrow.overflow,true);
   assert.deepEqual(errors,[]);assert.deepEqual(writes,[]);
-  console.log(JSON.stringify({livePass:true,viewport:'1920x1080',zoom:'100%',cycleColumns:33,productWidth:260,prefixStrippedLabels:true,rows,sourceRows:rawMatrix.rows.length,hiddenRows:rawMatrix.rows.length-rows,baselineRecords:baselines.length,baselineGetResponses:baselineResults.length,baselinePreviewRows:baselinePreview.preview.rows.length,noteGetResponses:notes.length,startupQuoteRequests:startupQuotes.length,managementGetRequests:managementResults.length,centerMoves,dimensions,narrow,majorPrintRows:major.items.length,dailyPrintRows:dailyRows,errors,noErpWrites:true,noBaselineOrNoteWrites:true}));
+  console.log(JSON.stringify({livePass:true,viewport:'1920x1080',zoom:'100%',cycleColumns:33,productWidth:260,prefixStrippedLabels:true,rows,sourceRows:rawMatrix.rows.length,hiddenRows:rawMatrix.rows.length-rows,baselineRecords:baselines.length,baselineGetResponses:baselineResults.length,automaticProvisionalScopes:candidates.map(record=>`${record.year}/${record.orderWeek}`),provisionalCells:await page.locator('tbody .wcm-provisional').count(),baselinePreviewRows:baselinePreview.preview.rows.length,noteGetResponses:notes.length,startupQuoteRequests:startupQuotes.length,managementGetRequests:managementResults.length,centerMoves,dimensions,narrow,majorPrintRows:major.items.length,dailyPrintRows:dailyRows,errors,noErpWrites:true,noBaselineOrNoteWrites:true}));
 } finally{await browser.close();}
