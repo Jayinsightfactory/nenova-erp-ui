@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 const base='https://nenovaweb.com';
 assert.ok(process.env.SMOKE_USER && process.env.SMOKE_PASSWORD && process.env.PLAYWRIGHT_MODULE);
-const {chromium}=await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
+const playwright=await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
+const chromium=playwright.chromium || playwright.default?.chromium || playwright['module.exports']?.chromium;
+assert.ok(chromium, 'the approved Playwright module must expose chromium');
 const browser=await chromium.launch({headless:true,channel:'chrome',ignoreDefaultArgs:['--hide-scrollbars']});
 const context=await browser.newContext({viewport:{width:1920,height:1080},deviceScaleFactor:1});
 try {
@@ -35,10 +37,11 @@ try {
   const summary=await page.locator('.wcm-major-total').first().evaluate(el=>({
     width:el.getBoundingClientRect().width,
     font:parseFloat(getComputedStyle(el.querySelector('.wcm-remainder-value')).fontSize),
+    sumFont:parseFloat(getComputedStyle(el.querySelector('.wcm-sum-value')).fontSize),
     labels:el.innerText,
     overflow:el.scrollWidth>el.clientWidth+1,
   }));
-  assert.ok(summary.width>=199);assert.ok(summary.font>=14);assert.equal(summary.overflow,false);
+  assert.ok(summary.width>=199);assert.ok(summary.font>=14);assert.ok(summary.sumFont>=16,'full-width summary sum must be at least 16px');assert.equal(summary.overflow,false);
   assert.match(summary.labels,/합계/);assert.match(summary.labels,/변경/);assert.match(summary.labels,/견적/);
   await page.setViewportSize({width:1280,height:800});
   await page.waitForFunction(()=>['.wcm-scroll-top','.wcm-scroll-bottom'].every(selector=>Math.abs(document.querySelector(selector).scrollWidth-document.querySelector('.wcm-table-scroll').scrollWidth)<=1));

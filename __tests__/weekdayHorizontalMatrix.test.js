@@ -222,7 +222,10 @@ assert.match(html, /::-webkit-scrollbar \{ height:16px;/, 'visible scrollbar tra
 assert.match(html, /\.wcm-summary-col \{ width:200px;/);
 assert.match(html, /wcm-major-heading/);
 assert.match(html, /wcm-summary-actions/);
-assert.match(html, /font-size:14px; font-weight:700/);
+assert.match(html, /\.wcm-sum-value[^\n]*font-size:16px; font-weight:700/);
+assert.match(html, /\.wcm-major-total \.wcm-remainder-value \{ font-size:16px; font-weight:700/);
+assert.match(html, /data-wcm-label="sum"/);
+assert.match(html, /data-wcm-label="remainder"/);
 assert.match(html, /tbody tr:is\(:hover,:focus-within\)/);
 assert.match(html, /font-size:13px/);
 assert.match(html, /\.wcm-cell input:disabled \{ opacity:0; pointer-events:none; \}/,'locked cells display only their number span, not a duplicate input');
