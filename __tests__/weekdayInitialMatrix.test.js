@@ -94,3 +94,7 @@ const malformed=structuredClone(original);malformed[0].shipmentDates[0].shipment
 assert.equal(inspect(originalBases,[],[minusOne],malformed).remainder01View.value,null);
 console.log('Readable remainder view:5→4 releases1, provisional/draft labels, historical preservation, invalid/duplicate/unit/year/missing-source guards passed');
 await import('./weekdayQuantityUnits.test.js');
+await import('./weekdayCarryover.test.js');
+await import('./weekdayDefaultCenter.test.js');
+await import('./weekdayCarryoverStore.test.js');
+await import('./weekdayCarryoverApi.test.js');
