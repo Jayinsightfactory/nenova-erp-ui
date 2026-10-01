@@ -53,7 +53,7 @@ export default function FarmWeekBoard() {
     const first = items.find(item=>(data?.rows || []).some(row=>varietyKey(row)===varietyKey(item))) || items[0];
     if (first) setSelected(varietyKey(first));
   }
-  const columns = [ ['name','품목',300],['unit','단위',65], ...farms.map(f=>['farm:'+f,f,125]), ['received','입고 합계',110], ...(tab==='farm'?[]:[[tab,tab==='order'?'주문수량':'분배수량',110],['difference',tab==='order'?'입고 − 주문':'입고 − 분배',120]]),['adjustment','재고조정 참고',110] ];
+  const columns = [ ['name','품목',300],['unit','단위',65], ...farms.map(f=>['farm:'+f,f,75]), ['received','입고 합계',110], ...(tab==='farm'?[]:[[tab,tab==='order'?'주문수량':'분배수량',110],['difference',tab==='order'?'입고 − 주문':'입고 − 분배',120]]),['adjustment','재고조정 참고',110] ];
   const nearby = week ? [-2,-1,0,1,2].map(delta=>moveFarmWeek(week,delta)).filter(Boolean) : [];
   function cell(row,key) {
     if (key==='name') return row.prodName;
