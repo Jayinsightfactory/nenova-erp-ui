@@ -527,7 +527,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-cell input { position:absolute; opacity:0; left:0; top:0; width:100%; padding:0 1px; border:1px solid transparent; height:20px; min-height:20px; line-height:18px; text-align:right; font-size:13px; background:transparent; border-radius:2px; font-variant-numeric:tabular-nums; }
       .weekday-cycle-matrix .wcm-cell input:focus { position:relative; opacity:1; }
       .weekday-cycle-matrix .wcm-cell:has(input:focus) .wcm-number-display { display:none; }
-      .weekday-cycle-matrix .wcm-cell input:disabled { color:#526277; opacity:1; }
+      .weekday-cycle-matrix .wcm-cell input:disabled { opacity:0; pointer-events:none; }
       .weekday-cycle-matrix .wcm-cell input:hover:not(:disabled) { border-color:#93b5df; }
       .weekday-cycle-matrix .wcm-proposed input { color:#174e9c; background:#eaf3ff; }
       .weekday-cycle-matrix .wcm-cell-info { position:relative; z-index:2; font-size:12px; line-height:16px; padding:0 2px; border:0; background:#e2ecfa; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
