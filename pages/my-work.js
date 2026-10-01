@@ -11,6 +11,7 @@ import { useRouter } from 'next/router';
 import MenuBackButton from '../components/MenuBackButton';
 import { verifyReqUser } from '../lib/auth';
 import { isOrbitReportViewer } from '../lib/orbitReportAccess';
+import { workflowOwnerOf } from '../lib/workFlowOwners';
 import { featureFilePath } from '../lib/workFeatureData';
 
 const ORBIT = process.env.ORBIT_SERVER_URL || 'https://mindmap-viewer-production-adb2.up.railway.app';
@@ -43,7 +44,17 @@ function readStoryboards() {
 
 export async function getServerSideProps({ req, query }) {
   const user = verifyReqUser(req);
-  if (!isOrbitReportViewer(user)) return { notFound: true };
+  if (!isOrbitReportViewer(user)) {
+    // 관리자가 아닌 직원: 매핑된 본인 1명분 텍스트(캡처 썸네일 제외)만 내려준다.
+    const owner = workflowOwnerOf(user);
+    if (!owner) return { notFound: true };
+    let wfAll = null; try { wfAll = JSON.parse(fs.readFileSync(featureFilePath('workflows'), 'utf8')); } catch {}
+    const me = wfAll?.people?.find((x) => x.name === owner.name) || null;
+    const mine = me
+      ? { generatedAt: wfAll.generatedAt || null, person: { name: me.name, dept: me.dept || '', roleSummary: me.roleSummary || '', workflows: (me.workflows || []).map((w) => ({ name: w.name, stage: w.stage || [], frequency: w.frequency || '', trigger: w.trigger || '', inputs: w.inputs || [], steps: w.steps || [], stepsDetail: (w.stepsDetail || []).map((d) => ({ text: d.text })), decisions: w.decisions || [], outputs: w.outputs || [] })) } }
+      : { generatedAt: null, person: null };
+    return { props: { userId: user.userId, mine, mineOnly: true, data: null, boards: null, workflows: null, simulations: null, orbit: '', orbitQs: '', tab: 'mine' } };
+  }
   // 스토리보드 파일은 10MB(장면마다 창 제목·입력·전산 융합) → 선택된 사람·제안·세션의 장면만 내려보내고 나머지는 목차만
   const full = readStoryboards();
   let boards = null;
@@ -373,9 +384,9 @@ function StepRoute({ d }) {
   if (!src && !dst) return null;
   return <div className="sroute">{src && <span><i>어디서 보고</i> {src}</span>}{src && ' → '}<span><i>한 일</i> {ACTION_KO[d.action] || d.action || '-'}</span>{dst && <> → <span><i>어디에 넣음</i> {dst}</span></>}{d.example && <span className="dim"> (예: {String(d.example).slice(0, 40)})</span>}</div>;
 }
-function WorkflowCard({ person, wf }) {
+function WorkflowCard({ person, wf, review }) {
   const [open, setOpen] = useState(false); const [video, setVideo] = useState(false);
-  const thumbs = useThumbs(person.uid, open || video);
+  const thumbs = useThumbs(person.uid, !review && (open || video));
   const col = (label, items, cls) => (
     <div className={'fcol ' + (cls || '')}><div className="fl">{label}</div>{arr(items).length ? arr(items).map((x, k) => <div key={k} className="fi">{x}</div>) : <div className="fi dim">—</div>}</div>);
   return (
@@ -385,7 +396,7 @@ function WorkflowCard({ person, wf }) {
         <ConfBadge v={wf.confidence} />
         {arr(wf.stage).map((s) => <span key={s} className={'chip st s' + BIZ9.indexOf(s)}>{s}</span>)}
         <span className="dim">{wf.frequency}</span>
-        <button type="button" className="sm" style={{ marginLeft: 'auto' }} onClick={() => setVideo((v) => !v)}>▶ 영상으로 인수인계</button>
+        {review ? <ReviewButtons wf={wf} review={review} /> : <button type="button" className="sm" style={{ marginLeft: 'auto' }} onClick={() => setVideo((v) => !v)}>▶ 영상으로 인수인계</button>}
       </div>
       <div className="flow">
         {col('계기', [wf.trigger], 'trg')}<span className="arw">→</span>
@@ -402,9 +413,68 @@ function WorkflowCard({ person, wf }) {
         {arr(wf.tools).length > 0 && <div><b>도구</b> {arr(wf.tools).join(' · ')}</div>}
         {arr(wf.pitfalls).length > 0 && <div><b>주의할 점</b><ul>{arr(wf.pitfalls).map((p, k) => <li key={k}>{p}</li>)}</ul></div>}
         {wf.evidence && <div className="dim"><b>근거</b> {typeof wf.evidence === 'string' ? wf.evidence : JSON.stringify(wf.evidence)}</div>}
-        <h3>실제 캡처 화면 (최근 7일, 시간순)</h3>
-        <CaptureGrid uid={person.uid} thumbs={thumbs} />
+        {!review && <><h3>실제 캡처 화면 (최근 7일, 시간순)</h3>
+        <CaptureGrid uid={person.uid} thumbs={thumbs} /></>}
       </div>}
+    </div>
+  );
+}
+
+// 직원 본인 확인: [맞다][틀리다][수정]. review = { saved, save(wf, verdict, steps) }
+const VERDICT_KO = { ok: '맞다고 확인함', reject: '틀리다고 알려줌', fix: '수정해서 알려줌' };
+function ReviewButtons({ wf, review }) {
+  const saved = review.saved[wf.name];
+  const base = arr(wf.stepsDetail).length ? arr(wf.stepsDetail).map((d) => d.text) : arr(wf.steps);
+  const [edit, setEdit] = useState(false); const [steps, setSteps] = useState(saved?.correctedSteps || base);
+  const [busy, setBusy] = useState(false);
+  const send = async (v, st) => { setBusy(true); await review.save(wf, v, st); setBusy(false); if (v === 'fix') setEdit(false); };
+  const setAt = (i, val) => setSteps((a) => a.map((x, k) => (k === i ? val : x)));
+  return (
+    <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+      {saved && <span className="dim">{VERDICT_KO[saved.verdict]}</span>}
+      <button type="button" className={'sm' + (saved?.verdict === 'ok' ? ' pri2' : '')} disabled={busy} onClick={() => send('ok')}>맞다</button>
+      <button type="button" className={'sm' + (saved?.verdict === 'reject' ? ' pri2' : '')} disabled={busy} onClick={() => send('reject')}>틀리다</button>
+      <button type="button" className={'sm' + (saved?.verdict === 'fix' ? ' pri2' : '')} disabled={busy} onClick={() => setEdit((v) => !v)}>수정</button>
+      {edit && <div style={{ flexBasis: '100%', marginTop: 6 }}>
+        <div className="dim">실제 순서대로 고쳐 주세요. 필요 없는 단계는 삭제하고, 빠진 단계는 아래에서 추가하세요.</div>
+        {steps.map((t, i) => <div key={i} style={{ display: 'flex', gap: 4, margin: '4px 0' }}>
+          <span className="dim">{i + 1}.</span>
+          <input style={{ flex: 1, background: '#0d1117', color: '#c9d1d9', border: '1px solid #2c3340', borderRadius: 6, padding: '4px 8px', font: 'inherit' }} value={t} onChange={(e) => setAt(i, e.target.value)} />
+          <button type="button" className="sm" onClick={() => setSteps((a) => a.filter((_, k) => k !== i))}>삭제</button>
+        </div>)}
+        <button type="button" className="sm" onClick={() => setSteps((a) => [...a, ''])}>+ 단계 추가</button>{' '}
+        <button type="button" className="sm pri2" disabled={busy || !steps.some((x) => x.trim())} onClick={() => send('fix', steps.filter((x) => x.trim()))}>수정 내용 보내기</button>
+      </div>}
+    </span>
+  );
+}
+
+// '내 업무흐름' — 직원 본인이 자기 업무흐름을 읽고 맞다/틀리다/수정으로 알려 주는 탭(본인 것만).
+function MyFlowTab({ mine }) {
+  const [saved, setSaved] = useState({}); const [err, setErr] = useState('');
+  useEffect(() => {
+    fetch('/api/work/workflow-review').then((r) => r.json()).then((j) => {
+      if (j.success) setSaved(Object.fromEntries(j.reviews.map((x) => [x.workflowName, x]))); else setErr(j.error || '불러오지 못했습니다.');
+    }).catch(() => setErr('불러오지 못했습니다.'));
+  }, []);
+  const save = async (wf, verdict, correctedSteps) => {
+    setErr('');
+    try {
+      const r = await fetch('/api/work/workflow-review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workflowName: wf.name, verdict, correctedSteps, generatedAt: mine?.generatedAt || '' }) });
+      const j = await r.json();
+      if (!j.success) { setErr(j.error || '저장하지 못했습니다.'); return; }
+      setSaved((s) => ({ ...s, [wf.name]: { workflowName: wf.name, verdict, correctedSteps: correctedSteps || null } }));
+    } catch { setErr('저장하지 못했습니다.'); }
+  };
+  const p = mine?.person;
+  if (!p) return <p className="warn" style={{ padding: 20 }}>아직 정리된 업무흐름이 없습니다.</p>;
+  return (
+    <div className="wfm" style={{ padding: 16 }}>
+      <h1>{p.name}님의 업무흐름 <small className="dim">{p.dept}</small></h1>
+      <div className="sum">정리된 내 업무 순서가 실제와 맞는지 알려 주세요. 알려 주신 내용은 더 정확한 업무 정리에 쓰입니다.</div>
+      {p.roleSummary && <div className="dim" style={{ margin: '8px 0' }}>{p.roleSummary}</div>}
+      {err && <p className="warn">{err}</p>}
+      {arr(p.workflows).map((w, k) => <WorkflowCard key={k} person={p} wf={w} review={{ saved, save }} />)}
     </div>
   );
 }
@@ -752,9 +822,9 @@ function Pipeline({ wf }) {
   );
 }
 
-export default function MyWorkPage({ userId, data, boards, workflows, simulations, orbit, orbitQs = '', tab: tab0 }) {
+export default function MyWorkPage({ userId, data, boards, workflows, simulations, orbit, orbitQs = '', tab: tab0, mine = null, mineOnly = false }) {
   const [tab, setTab] = useState(tab0);
-  const TABS = [
+  const TABS = mineOnly ? [{ id: 'mine', label: '내 업무흐름' }] : [
     { id: 'pipeline', label: '업무 파이프라인' },
     { id: 'workflows', label: '업무 흐름' },
     { id: 'proposals', label: '기능 추가 후보 (시뮬레이션)' },
@@ -770,9 +840,10 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
         <b>내 작업 데이터</b>
         {TABS.map((t) => <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>{t.label}</button>)}
         <span className="dim" style={{ marginLeft: 'auto' }}>{userId} 전용</span>
-        <a href={orbit + '/my-work.html' + orbitQs} target="_blank" rel="noreferrer">새 창</a>
+        {!mineOnly && <a href={orbit + '/my-work.html' + orbitQs} target="_blank" rel="noreferrer">새 창</a>}
       </div>
       <div className="stage">
+        {tab === 'mine' && <MyFlowTab mine={mine} />}
         {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html' + orbitQs} />}
         {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html' + orbitQs} />}
         {tab === 'pipeline' && <Pipeline wf={workflows} />}
