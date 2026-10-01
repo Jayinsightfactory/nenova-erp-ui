@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { apiGet } from '../lib/useApi';
+import { apiGet, apiPost } from '../lib/useApi';
 import WeekdayCycleMatrix from './WeekdayCycleMatrix';
 import { locateShippingDay } from '../lib/weekdayEstimateCycle.js';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
@@ -20,10 +20,12 @@ function historySnapshotLabel(snapshot) {
   const dates=snapshot.shipmentDates || snapshot.dates;
   return `${snapshot.shipmentOutQuantity!=null?`총량 ${snapshot.shipmentOutQuantity} · `:''}${Array.isArray(dates)?dates.map(day=>`${day.date} ${day.shipmentQuantity ?? day.quantity}`).join(' / '):JSON.stringify(snapshot)}`;
 }
+function carryoverHistoryValue(value) { return value == null ? '미등록' : String(typeof value === 'object' ? value.quantity ?? '미확인' : value); }
+function carryoverActorLabel(actor) { return actor == null ? '담당자 미확인' : typeof actor === 'object' ? actor.userName || actor.userId || actor.name || '담당자 미확인' : String(actor); }
 
 export default function WeekdayEstimateWorkspace() {
   const [year, setYear] = useState(String(initialYear));
-  const [majorWeek, setMajorWeek] = useState('38');
+  const [majorWeek, setMajorWeek] = useState('');
   const [shipDate, setShipDate] = useState('');
   const [customerQuery, setCustomerQuery] = useState('주광농원');
   const [customers, setCustomers] = useState([]);
@@ -51,6 +53,17 @@ export default function WeekdayEstimateWorkspace() {
   const [noteBusy, setNoteBusy] = useState(false);
   const [noteError, setNoteError] = useState('');
   const [quoteResults, setQuoteResults] = useState([]);
+  const [carryover, setCarryover] = useState(null);
+  const [carryoverError, setCarryoverError] = useState('');
+  const [carryoverLoading, setCarryoverLoading] = useState(false);
+  const [carryoverForm, setCarryoverForm] = useState(null);
+  const [carryoverFormError, setCarryoverFormError] = useState('');
+  const [carryoverBusy, setCarryoverBusy] = useState(false);
+  const carryoverRequest = useRef(0);
+  const carryoverSaveRequest = useRef(0);
+  const carryoverLock = useRef(false);
+  const carryoverDialog = useRef(null);
+  const carryoverTrigger = useRef(null);
   const noteRequest=useRef(0);
   const noteLock=useRef(false);
   const baselineRequest = useRef(0);
@@ -83,6 +96,9 @@ export default function WeekdayEstimateWorkspace() {
   const printLock=useRef(false);
   const previewFrame=useRef(null);
   const calendarRequest = useRef(0);
+  const defaultCalendarRequest = useRef(0);
+  const centerTouched = useRef(false);
+  const [defaultCalendarError, setDefaultCalendarError] = useState('');
   const comparisonRequest = useRef(0);
   const uploadRequest = useRef(0);
   const addedProductScope = useRef({scope:'', keys:[]});
@@ -116,6 +132,39 @@ export default function WeekdayEstimateWorkspace() {
 
   useEffect(()=>{setApplyPreview(null);printRequest.current+=1;uploadRequest.current+=1;setPrintPreview(null);},[scopeKey]);
 
+  useEffect(() => {
+    const request = ++defaultCalendarRequest.current;
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit' })
+      .formatToParts(new Date()).reduce((parts, part) => ({...parts, [part.type]:part.value}), {});
+    apiGet('/api/estimate/weekday-calendar', { defaultNext:'1', date:`${date.year}-${date.month}-${date.day}` }).then(result => {
+      if (request !== defaultCalendarRequest.current || centerTouched.current) return;
+      if (result.success !== true || !/^\d{4}$/.test(String(result.scope?.year))
+        || !/^\d{1,2}$/.test(String(result.scope?.majorWeek)) || Number(result.scope.majorWeek) < 1
+        || Number(result.scope.majorWeek) > 53 || !Array.isArray(result.cycles)) throw new Error('기본 차수 응답을 확인할 수 없습니다.');
+      setDefaultCalendarError('');
+      setYear(String(result.scope.year)); setMajorWeek(String(result.scope.majorWeek)); setCycles(result.cycles);
+    }).catch(error => {
+      if (request === defaultCalendarRequest.current && !centerTouched.current)
+        setDefaultCalendarError(`${error.message} · 연도와 중심 차수를 직접 선택하세요.`);
+    });
+    return () => { defaultCalendarRequest.current += 1; };
+  }, []);
+
+  useEffect(() => {
+    carryoverRequest.current += 1; carryoverSaveRequest.current += 1;
+    setCarryover(null); setCarryoverError(''); setCarryoverLoading(false);
+    setCarryoverForm(null); setCarryoverFormError(''); setCarryoverBusy(false);
+    if (customer?.CustKey && /^\d{4}$/.test(year) && /^\d{1,2}$/.test(majorWeek)
+      && Number(majorWeek) >= 1 && Number(majorWeek) <= 53) refreshCarryover();
+    return () => { carryoverRequest.current += 1; carryoverSaveRequest.current += 1; };
+  }, [scopeKey]);
+
+  useEffect(() => {
+    if (!carryoverForm) return;
+    const trigger = carryoverTrigger.current;
+    return () => { if (trigger?.isConnected) trigger.focus(); };
+  }, [Boolean(carryoverForm)]);
+
   useEffect(()=>{
     try {
       const saved=JSON.parse(sessionStorage.getItem('weekday-pending-erp-operation') || 'null');
@@ -135,12 +184,113 @@ export default function WeekdayEstimateWorkspace() {
     comparisonRequest.current += 1;
     setBusy(false);
     setCycles([]); setCompareRows(null); setCalendarError(''); setSourceLots([]); setErpHistory([]);
-    if (!/^\d{4}$/.test(year) || Number(majorWeek) < 1 || Number(majorWeek) > 53) return;
+    if (!/^\d{4}$/.test(year) || !/^\d{1,2}$/.test(majorWeek) || Number(majorWeek) < 1 || Number(majorWeek) > 53) return;
     apiGet('/api/estimate/weekday-calendar', { year, majorWeek }).then((result) => {
       if (request === calendarRequest.current) setCycles(result.cycles || []);
     }).catch((error) => { if (request === calendarRequest.current) setCalendarError(error.message); });
     return () => { calendarRequest.current += 1; };
   }, [year, majorWeek]);
+
+  function touchCenter() {
+    centerTouched.current = true; defaultCalendarRequest.current += 1; setDefaultCalendarError('');
+  }
+
+  async function refreshCarryover() {
+    const requestedScope = scopeKey;
+    const request = ++carryoverRequest.current;
+    const isCurrent = () => request === carryoverRequest.current && requestedScope === currentScope.current;
+    setCarryoverLoading(true); setCarryoverError('');
+    try {
+      const result = await apiGet('/api/estimate/weekday-carryover', { year, majorWeek, custKey:Number(customer.CustKey) });
+      if (!isCurrent()) return null;
+      if (result.success !== true || result.readOnly !== true || !Array.isArray(result.records)
+        || !Array.isArray(result.context?.cycles) || !Array.isArray(result.context?.inputs)
+        || Number(result.context.custKey) !== Number(customer.CustKey)) throw new Error('이월 응답의 업체·계산 범위를 확인할 수 없습니다.');
+      const next = { scopeKey:requestedScope, context:result.context, records:result.records };
+      setCarryover(next);
+      return next;
+    } catch (error) {
+      if (isCurrent()) { setCarryover(null); setCarryoverError(error.message); }
+      return null;
+    } finally { if (isCurrent()) setCarryoverLoading(false); }
+  }
+
+  function openCarryover({ row, block, record, trigger }) {
+    if (carryoverLock.current || carryoverLoading || !customer?.CustKey || carryover?.scopeKey !== scopeKey) return;
+    carryoverTrigger.current = trigger;
+    carryoverSaveRequest.current += 1;
+    setCarryoverFormError('');
+    setCarryoverForm({ scopeKey, year:block.cycle.year, majorWeek:block.cycle.majorWeek,
+      custKey:Number(customer.CustKey), prodKey:row.prodKey, name:row.name, unit:block.unit,
+      quantity:record?.quantity == null ? '' : String(record.quantity), reason:'',
+      expectedRevision:record?.revision ?? 0, history:record?.history || [],
+      incoming:block.carryover?.incoming, closing:block.carryover?.closing,
+      source:block.carryover?.source, provisional:block.carryover?.provisional,
+      incomingProvisional:block.carryover?.incomingProvisional, incomingHasDraft:block.carryover?.incomingHasDraft,
+      hasDraft:block.carryover?.hasDraft, error:block.carryover?.error, saved:false });
+  }
+
+  async function saveCarryover(event) {
+    event.preventDefault();
+    if (carryoverLock.current || carryoverBusy || !carryoverForm || carryoverForm.scopeKey !== currentScope.current) return;
+    const form = carryoverForm;
+    const raw = form.quantity.trim();
+    const quantity = Number(raw);
+    if (!raw || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(raw) || !Number.isFinite(quantity)) {
+      setCarryoverFormError('마감 잔량은 유한한 숫자로 입력하세요. 0·음수도 가능하며 빈칸은 0이 아닙니다.'); return;
+    }
+    if (!form.reason.trim()) { setCarryoverFormError('변경 사유를 입력하세요.'); return; }
+    carryoverLock.current = true; setCarryoverBusy(true); setCarryoverFormError('');
+    const request = ++carryoverSaveRequest.current;
+    const isCurrent = () => request === carryoverSaveRequest.current && form.scopeKey === currentScope.current;
+    try {
+      const result = await apiPost('/api/estimate/weekday-carryover', { year:form.year, majorWeek:form.majorWeek,
+        custKey:form.custKey, prodKey:form.prodKey, unit:form.unit, quantity, reason:form.reason.trim(), expectedRevision:form.expectedRevision });
+      if (!isCurrent()) return;
+      if (result.success !== true || result.erpChanged !== false || !result.record) throw new Error('마감 잔량 저장 응답을 확인할 수 없습니다. 재조회 후 이력을 확인하세요.');
+      setCarryoverForm(current => current ? {...current, expectedRevision:result.record.revision,
+        history:result.record.history || [], saved:true} : current);
+      const latest = await refreshCarryover();
+      if (!isCurrent()) return;
+      if (!latest) throw new Error('마감 잔량 저장 응답은 확인했으나 전체 이월 재조회에 실패했습니다. 입력은 유지됩니다. 이월 새로고침 후 확인하세요.');
+      setCarryoverForm(null);
+      setMessage('웹 전용 마감 잔량과 이력을 저장하고 연결 차수를 다시 계산했습니다. ERP 주문·출고·재고·견적은 변경하지 않았습니다.');
+    } catch (error) {
+      if (isCurrent()) setCarryoverFormError(error.status === 409
+        ? `${error.message} · 다른 수정과 충돌했습니다. 입력을 유지했습니다. 최신 이력을 다시 조회하고 확인하세요.` : error.message);
+    } finally {
+      carryoverLock.current = false;
+      if (isCurrent()) setCarryoverBusy(false);
+    }
+  }
+
+  async function reloadCarryoverForm() {
+    if (carryoverLock.current || !carryoverForm) return;
+    const form = carryoverForm;
+    const request = carryoverSaveRequest.current;
+    const latest = await refreshCarryover();
+    if (!latest || request !== carryoverSaveRequest.current || form.scopeKey !== currentScope.current) return;
+    const record = latest.records.find(item => Number(item.year) === Number(form.year)
+      && String(item.majorWeek) === String(form.majorWeek) && Number(item.custKey) === form.custKey && Number(item.prodKey) === form.prodKey);
+    setCarryoverForm(current => current?.scopeKey === form.scopeKey && current.prodKey === form.prodKey
+      ? {...current, expectedRevision:record?.revision ?? 0, history:record?.history || [], closing:record?.quantity ?? current.closing, saved:false} : current);
+    setCarryoverFormError('최신 이력을 조회했습니다. 입력값은 유지했습니다. 변경 전후를 확인한 뒤 저장하세요.');
+  }
+
+  function closeCarryover() {
+    if (carryoverBusy) return;
+    carryoverSaveRequest.current += 1; setCarryoverForm(null); setCarryoverFormError('');
+  }
+
+  function carryoverDialogKeys(event) {
+    if (event.key === 'Escape' && !event.nativeEvent?.isComposing) { event.preventDefault(); closeCarryover(); }
+    if (event.key !== 'Tab') return;
+    const controls = [...(carryoverDialog.current?.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled),[tabindex="0"]') || [])];
+    const first = controls[0], last = controls[controls.length - 1];
+    if (!first) { event.preventDefault(); carryoverDialog.current?.focus(); }
+    else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
 
   function moveDraft(move) {
     if(editLocked) throw new Error('저장 확인/처리 중에는 초안을 변경할 수 없습니다.');
@@ -308,6 +458,8 @@ export default function WeekdayEstimateWorkspace() {
       if(!isCurrent()) return false;
       setSavedHistory(ancillary.flatMap(result=>result.changes));setHistoryError(ancillary.map(result=>result.changeError).filter(Boolean).join(' / '));
       setPageNotes(ancillary.flatMap(result=>result.notes));setQuoteResults(ancillary.map(result=>result.quote));
+      await refreshCarryover();
+      if(!isCurrent()) return false;
       setMessage(`전후 차수 전산 대조 완료 · 읽기 전용 · ERP 변경 없음${results.some((result)=>result.historyTruncated) ? ' · 이력 1000건 초과, 일부 표시' : ''}`);
       return true;
     } catch (error) { if (isCurrent()) setMessage(error.message); return {success:false,error:error.message}; }
@@ -316,7 +468,8 @@ export default function WeekdayEstimateWorkspace() {
 
   function shiftCenter(offset) {
     const target=cycles.find(cycle=>cycle.offset===offset && cycle.calendarState==='FOUND');
-    if(!target || busy || baselineBusy || noteBusy) return;
+    if(!target || busy || baselineBusy || noteBusy || carryoverBusy) return;
+    touchCenter();
     setYear(String(target.year));setMajorWeek(String(target.majorWeek));
   }
 
@@ -376,6 +529,8 @@ export default function WeekdayEstimateWorkspace() {
       if(request!==baselineRequest.current) return;
       setBaselinePreview(null);
       setBaselines(current=>[...current.filter(record=>!(record.year===result.baseline.year && record.orderWeek===result.baseline.orderWeek && record.custKey===result.baseline.custKey)),result.baseline]);
+      await refreshCarryover();
+      if(request!==baselineRequest.current) return;
       setMessage(`${preview.year}/${preview.orderWeek} 최초분배 기준을 보관했습니다. 전산 확정·분배·재고는 변경하지 않았습니다.`);
     } catch(error) {if(request===baselineRequest.current)setBaselineError(error.message);}
     finally {baselineLock.current=false;setBaselineBusy(false);}
@@ -524,6 +679,14 @@ export default function WeekdayEstimateWorkspace() {
     .weekday-print-overlay { position:fixed; inset:0; background:#13223888; z-index:3000; display:flex; align-items:center; justify-content:center; padding:12px; }
     .weekday-print-dialog { background:white; border-radius:6px; width:min(100%,1050px); height:calc(100vh - 24px); display:flex; flex-direction:column; padding:10px; gap:8px; box-sizing:border-box; }
     .weekday-print-dialog iframe { flex:1; min-height:0; width:100%; border:1px solid #cbd5e1; }
+    .weekday-carry-dialog { width:min(620px,100%); max-height:calc(100dvh - 24px); overflow:auto; box-sizing:border-box; font-size:14px; color:#122033; }
+    .weekday-carry-dialog h2 { font-size:18px; margin:0; }
+    .weekday-carry-dialog button { font-size:14px; }
+    .weekday-carry-dialog label { display:block; margin:10px 0; }
+    .weekday-carry-dialog input,.weekday-carry-dialog textarea { display:block; width:100%; min-width:0; box-sizing:border-box; padding:7px; border:1px solid #7892b0; border-radius:4px; font:inherit; color:#122033; background:#fff; }
+    .weekday-carry-dialog :is(button,input,textarea):focus-visible { outline:3px solid #1d4ed8; outline-offset:2px; }
+    .weekday-carry-dialog .carry-history { max-height:250px; overflow:auto; border:1px solid #cbd5e1; padding:8px; overflow-wrap:anywhere; }
+    .weekday-carry-dialog .carry-history p { margin:0; padding:7px 0; border-bottom:1px solid #dce4ed; }
     @media(max-width:900px) { .weekday-workspace .span-6,.weekday-workspace .span-4 { grid-column:span 12; } .weekday-workspace { padding:10px; } }
   `;
 
@@ -534,10 +697,10 @@ export default function WeekdayEstimateWorkspace() {
         <div style={{ flex:1, minWidth:240 }}>
           <div style={{ color:'#16439a', fontSize:18, fontWeight:800 }}>주광 견적서 · {customer?.CustName || '주광 자동 조회 중'}</div>
         </div>
-        <label>연도 <input disabled={applyBusy} aria-label="조회 연도" style={{ ...inputStyle, width:70 }} value={year} onChange={(e) => setYear(e.target.value)} inputMode="numeric" /></label>
-        <label>중심 차수 <input disabled={applyBusy} aria-label="중심 차수" style={{ ...inputStyle, width:50 }} value={majorWeek} onChange={(e) => setMajorWeek(e.target.value)} inputMode="numeric" /></label>
-        <button aria-label="이전 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || !cycles.some(cycle=>cycle.offset===-1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(-1)}>◀</button>
-        <button aria-label="다음 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || !cycles.some(cycle=>cycle.offset===1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(1)}>▶</button>
+        <label>연도 <input disabled={applyBusy || carryoverBusy} aria-label="조회 연도" style={{ ...inputStyle, width:70 }} value={year} onChange={(e) => {touchCenter();setYear(e.target.value);}} inputMode="numeric" /></label>
+        <label>중심 차수 <input disabled={applyBusy || carryoverBusy} aria-label="중심 차수" style={{ ...inputStyle, width:50 }} value={majorWeek} onChange={(e) => {touchCenter();setMajorWeek(e.target.value);}} inputMode="numeric" /></label>
+        <button aria-label="이전 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===-1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(-1)}>◀</button>
+        <button aria-label="다음 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(1)}>▶</button>
         <input aria-label="요일별 출고 엑셀 파일" style={{width:230}} type="file" accept=".xlsx,.xls" onChange={(e) => {setToolsOpen(true);uploadWorkbook(e.target.files?.[0]);}} disabled={busy || editLocked} />
         <button onClick={compareWithErp} disabled={busy || editLocked || !customer}>전산 새로고침</button>
         <button className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>ERP 저장 · 변경 확인</button>
@@ -548,12 +711,43 @@ export default function WeekdayEstimateWorkspace() {
       {applyError && <div role="alert" style={{color:'#9f1c16',fontSize:13,overflowWrap:'anywhere'}}>{applyError}</div>}
       {pendingApply && <div style={{fontSize:13,color:'#122033'}}>저장 결과 확인 대기 · 업체 {pendingApply.payload.custKey} · 작업 {pendingApply.payload.operationId} <button disabled={applyBusy} onClick={recheckErpSave}>{applyBusy?'확인 중…':'같은 작업 저장 상태 다시 조회'}</button></div>}
       {calendarError && <div role="alert" style={{color:'#b42318',marginTop:8}}>전산 달력: {calendarError}</div>}
+      {defaultCalendarError && <div role="alert" style={{color:'#9f1c16',marginTop:8}}>중심 기본값: {defaultCalendarError}</div>}
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginTop:6,fontSize:14}}>
+        <span role="status">{carryoverLoading?'마감 잔량·이월 조회 중…':'웹 전용 마감 잔량 · ERP 수량·재고·견적과 분리'}</span>
+        <button type="button" style={{fontSize:14}} disabled={carryoverLoading || carryoverBusy || !customer?.CustKey || !/^\d{4}$/.test(year) || !/^\d{1,2}$/.test(majorWeek) || Number(majorWeek)<1 || Number(majorWeek)>53} onClick={refreshCarryover}>이월 새로고침</button>
+      </div>
+      {carryoverError && <div role="alert" style={{color:'#9f1c16',marginTop:6,fontSize:14}}>마감 잔량·이월: {carryoverError} · 이월 계산값을 표시하지 않았습니다.</div>}
       {customerError && <div role="alert" style={{color:'#b42318'}}>{customerError}</div>}
       {uploadError && <div role="alert" style={{color:'#b42318'}}>{uploadError}</div>}
     </header>
 
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}/>
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+      carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}
+      editDisabledReason={busy?'전산 조회 중입니다. 조회 완료 후 초안을 입력하세요.':editLocked?'ERP 저장 확인·처리 또는 미확인 작업 상태로 초안 편집이 잠겨 있습니다.':''}/>
+
+    {carryoverForm && carryoverForm.scopeKey===scopeKey && <div className="weekday-print-overlay" onKeyDown={carryoverDialogKeys}>
+      <section ref={carryoverDialog} role="dialog" aria-modal="true" aria-label="웹 전용 마감 잔량 수정·이력" className="weekday-carry-dialog" tabIndex={-1} style={panel}>
+        <div style={{display:'flex',gap:8,justifyContent:'space-between',alignItems:'start'}}><h2>{carryoverForm.name} · {carryoverForm.year}/{carryoverForm.majorWeek}차 마감 잔량</h2><button type="button" disabled={carryoverBusy} onClick={closeCarryover}>닫기</button></div>
+        <p>이 차수의 마감값을 지정하면 다음 차수로 이어집니다. 최초분배·전산 주문·출고·재고·견적 수량 및 금액은 변경하지 않습니다.</p>
+        <p>이월 {carryoverForm.source?`${carryoverForm.source.year}/${carryoverForm.source.majorWeek}차 → `:''}{carryoverForm.incoming ?? '미등록'} {carryoverForm.unit} · 현재 마감 {carryoverForm.closing ?? '미확인'} {carryoverForm.unit}
+          {carryoverForm.incomingProvisional?' · 이월 미확정 예상':''}{carryoverForm.incomingHasDraft?' · 이월 초안 예상':''}
+          {carryoverForm.provisional?' · 미확정 예상':''}{carryoverForm.hasDraft?' · 초안 예상':''}</p>
+        {carryoverForm.error && <p style={{color:'#9f1c16'}}>계산 근거 확인 필요: {typeof carryoverForm.error==='string'?carryoverForm.error:carryoverForm.error.message || '단위·달력·수량 확인 필요'}</p>}
+        <form onSubmit={saveCarryover} noValidate>
+          <label>수동 마감 잔량 ({carryoverForm.unit}) · 0·음수 가능<input autoFocus type="text" inputMode="decimal" aria-label="수동 마감 잔량" aria-required="true" disabled={carryoverBusy || carryoverLoading} value={carryoverForm.quantity} onChange={event=>setCarryoverForm(current=>({...current,quantity:event.target.value,saved:false}))}/></label>
+          <label>변경 사유 (필수)<textarea rows={3} maxLength={1000} aria-label="마감 잔량 변경 사유" aria-required="true" disabled={carryoverBusy || carryoverLoading} value={carryoverForm.reason} onChange={event=>setCarryoverForm(current=>({...current,reason:event.target.value,saved:false}))}/></label>
+          <p>빈칸은 0으로 저장하지 않습니다. 웹 이월 기록만 저장하며 실제 재고가 아닙니다.</p>
+          {carryoverFormError && <p role="alert" style={{color:'#9f1c16',overflowWrap:'anywhere'}}>{carryoverFormError}</p>}
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="submit" className="primary" disabled={carryoverBusy || carryoverLoading || carryoverForm.saved}>{carryoverBusy?'저장·이월 재조회 중…':'웹 마감 잔량 저장'}</button><button type="button" disabled={carryoverBusy || carryoverLoading} onClick={reloadCarryoverForm}>최신 이력 다시 조회 · 입력 유지</button></div>
+        </form>
+        <h3 style={{fontSize:16}}>수정 이력 · 현재 revision {carryoverForm.expectedRevision}</h3>
+        <div className="carry-history" tabIndex={0} aria-label="마감 잔량 전체 수정 이력">{carryoverForm.history.length?carryoverForm.history.map((entry,index)=><p key={`${entry.revision ?? index}|${entry.timestamp ?? ''}`}>
+          {carryoverHistoryValue(entry.before)} → {carryoverHistoryValue(entry.after)} {carryoverForm.unit}<br/>
+          {carryoverActorLabel(entry.actor)} · {entry.timestamp || '시각 미확인'} · revision {entry.revision ?? '미확인'}<br/>사유: {entry.reason || '미확인'}
+        </p>):<p>수동 마감 수정 이력이 없습니다.</p>}</div>
+      </section>
+    </div>}
 
     {applyPreview && <div className="weekday-print-overlay"><section role="dialog" aria-modal="true" aria-label="ERP 저장 변경 확인" style={{...panel,width:'min(760px,100%)',maxHeight:'calc(100vh - 24px)',overflow:'auto',boxSizing:'border-box',fontSize:13,color:'#122033'}}>
       <h2 style={{fontSize:17,margin:'0 0 8px'}}>ERP 저장 · {customer?.CustName} · 변경 날짜 {applyPreview.preview.length}건</h2>

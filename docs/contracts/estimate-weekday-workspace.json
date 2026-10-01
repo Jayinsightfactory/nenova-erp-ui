@@ -2,6 +2,16 @@
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
   "scope": [
+    "docs/plans/weekday-carryforward-2026-10-01.md",
+    "lib/weekdayCarryover.js",
+    "lib/weekdayCarryoverStore.js",
+    "pages/api/estimate/weekday-carryover.js",
+    "__tests__/weekdayCarryover.test.js",
+    "__tests__/weekdayCarryoverStore.test.js",
+    "__tests__/weekdayCarryoverApi.test.js",
+    "__tests__/weekdayDefaultCenter.test.js",
+    "scripts/weekday-carryover-browser-smoke.mjs",
+    "scripts/weekday-carryover-live-smoke.mjs",
     "docs/plans/weekday-quantity-units-2026-10-01.md",
     "__tests__/weekdayQuantityUnits.test.js",
     "docs/plans/weekday-matrix-readability-2026-10-01.md",
@@ -47,6 +57,25 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
+    {
+      "name": "WEEKDAY_MANUAL_CLOSING_CARRYOVER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "webProfitReport": "preserve",
+      "sideEffect": "활성 고객·품목·실제 OutUnit·PeriodDay 달력·동일 scope ERP 또는 최초 기준을 SELECT 재검증 후 private runtime 마감잔량과 전체 변경이력을 원자 저장한다. 명시0/음수 보존, revision 충돌과 저장 실패는 입력 유지. 최초 기준·출고·재고·견적 원장/인쇄는 변경하지 않는다. 수동 마감부터 다음차수 잔량=전차수 이월+당차 기준-출고로 연속 계산하며 단위/달력/기준 불명은 null. 초기 미등록 이월은 실제 재고0으로 표시하지 않는다. 초안은 예상 이월만 계산한다."
+    },
+    {
+      "name": "WEEKDAY_DEFAULT_NEXT_CENTER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "sideEffect": "한국 날짜의 실제 PeriodDay 목요일 업무주에서 다음 목요일 anchor 식별자를 기본 중심으로 SELECT한다. ISO/52주 추정 금지. mount 뒤1회, 명시 사용자 입력·이동은 늦은 기본값 응답으로 덮지 않는다. 달력 부재/중복은 명시 오류."
+    },
     {
       "name": "WEEKDAY_QUANTITY_UNIT_DISPLAY",
       "orderDetail": "preserve",
@@ -137,7 +166,7 @@
       "shipmentDate": "preserve",
       "estimateRows": "preserve",
       "stock": "preserve",
-      "sideEffect": "브라우저 메모리의 배분 초안만 편집한다. 새로고침 시 사라지며 DB·ERP에 저장하지 않는다."
+      "sideEffect": "브라우저 메모리의 배분 초안만 편집한다. 새로고침 시 사라지며 DB·ERP에 저장하지 않는다. 동일 날짜 다른 세부차수의 명시0 취소 기록은 원문·합계에 보존하되 편집 업무키는 유일한 실제 nonzero 차수로 선택한다. 전부0이면 실제 기록 중 달력 권장 차수만 사용한다. 복수 실제 수량·불명 수량·단위 충돌은 계속 차단한다."
     },
     {
       "name": "WEEKDAY_ESTIMATE_EXPLICIT_SAVE",
@@ -163,6 +192,10 @@
     "description": "비교 요청 year=2026, orderWeek=38-02, custKey=7, prodKey=101이면 같은 38-02의 2025년 행은 결과에 포함되지 않는다. 모든 쿼리는 OrderYear/OrderWeek/CustKey/ProdKey를 제한한다."
   },
   "requiredTestFiles": [
+    "__tests__/weekdayCarryover.test.js",
+    "__tests__/weekdayCarryoverStore.test.js",
+    "__tests__/weekdayCarryoverApi.test.js",
+    "__tests__/weekdayDefaultCenter.test.js",
     "__tests__/weekdayQuantityUnits.test.js",
     "__tests__/weekdayQuoteReconciliation.test.js",
     "__tests__/weekdayInitialBaseline.test.js",

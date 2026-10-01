@@ -1,22 +1,34 @@
 import { query, sql } from '../../../lib/db.js';
 import { withAuth } from '../../../lib/auth.js';
-import { normalizeCycleRequest, buildShippingCycles } from '../../../lib/weekdayEstimateCycle.js';
+import { normalizeCycleRequest, buildShippingCycles, normalizeNextCenterDate, selectNextShippingCenter } from '../../../lib/weekdayEstimateCycle.js';
 
-export default withAuth(async function handler(req, res) {
+export function createWeekdayCalendarHandler({ queryFn=query, types=sql }={}) { return async function handler(req, res) {
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).end(); }
   let scope;
-  try { scope = normalizeCycleRequest(req.query); }
+  try {
+    if(req.query.defaultNext !== undefined) {
+      if(req.query.defaultNext!=='1') throw new Error('기본 중심차수 모드가 올바르지 않습니다.');
+      const date=normalizeNextCenterDate(req.query.date);
+      const anchors=await queryFn(`SELECT OrderYearWeek, WeekDay, CONVERT(nvarchar(23),BaseYmd,121) AS BaseYmd
+        FROM PeriodDay WHERE WeekDay=5 AND BaseYmd>=DATEADD(day,-7,CONVERT(date,@date,23))
+          AND BaseYmd<DATEADD(day,8,CONVERT(date,@date,23)) ORDER BY BaseYmd`,
+        {date:{type:types.NVarChar(10),value:date}});
+      scope=selectNextShippingCenter(anchors.recordset,date);
+    } else scope = normalizeCycleRequest(req.query);
+  }
   catch (error) { return res.status(400).json({ success: false, error: error.message }); }
   try {
-    const result = await query(`
+    const result = await queryFn(`
       WITH anchor AS (SELECT BaseYmd FROM PeriodDay WHERE OrderYearWeek=@yearWeek AND WeekDay=5)
       SELECT pd.OrderYearWeek, pd.WeekDay, CONVERT(nvarchar(23),pd.BaseYmd,121) AS BaseYmd
       FROM PeriodDay pd
       WHERE EXISTS (SELECT 1 FROM anchor a WHERE pd.BaseYmd >= DATEADD(day,-7,a.BaseYmd)
         AND pd.BaseYmd < DATEADD(day,14,a.BaseYmd))
-      ORDER BY pd.BaseYmd`, { yearWeek: { type: sql.NVarChar(6), value: scope.orderYearWeek } });
+      ORDER BY pd.BaseYmd`, { yearWeek: { type: types.NVarChar(6), value: scope.orderYearWeek } });
     const cycles = buildShippingCycles(result.recordset, scope);
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ success: true, readOnly: true, scope, cycles });
   } catch (error) { return res.status(409).json({ success: false, error: error.message }); }
-});
+}; }
+
+export default withAuth(createWeekdayCalendarHandler());
