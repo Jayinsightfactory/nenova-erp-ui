@@ -58,7 +58,7 @@
       "shipmentDate": "preserve",
       "estimateRows": "preserve",
       "stock": "preserve",
-      "sideEffect": "주광 페이지 전용 최초 기준 확정. year+OrderWeek+CustKey로 ERP를 SELECT 재검증하고 preview 지문 일치 시 data/runtime/weekday-baselines에 최초 한 번만 불변 저장한다. 공용 확정/SP/SQL schema/isFix를 변경하지 않는다. 품목별 최초수량·단위·담당자·시각을 보관하고 재확정/수량0 삭제 후에도 기준은 보존. 최초01-목일, 최초01+02-목수는 기준 대비 분배 잔량이며 실제 재고/배송완료가 아니다. 초안 예상값은 별도 표시. 알스트로 단의 qty(qty/16)는 표시 전용이다."
+      "sideEffect": "주광 페이지 전용 최초 기준 확정. year+OrderWeek+CustKey로 ERP를 SELECT 재검증하고 preview 지문 일치 시 data/runtime/weekday-baselines에 최초 한 번만 불변 저장한다. SQL 출고일 JSON은 nvarchar(max) 문자열과 빈 배열을 명시하며 NULL·음수 수량 및 비배열/모순된 날짜는 검증을 우회하지 않는다. 공용 확정/SP/SQL schema/isFix를 변경하지 않는다. 품목별 최초수량·단위·담당자·시각을 보관하고 재확정/수량0 삭제 후에도 기준은 보존. 최초01-목일, 최초01+02-목수는 기준 대비 분배 잔량이며 실제 재고/배송완료가 아니다. 초안 예상값은 별도 표시. 알스트로 단의 qty(qty/16)는 표시 전용이다."
     },
     {
       "name": "WEEKDAY_HIDE_NO_SHIPMENT_DISPLAY_ONLY",
