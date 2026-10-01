@@ -214,7 +214,15 @@ assert.equal((html.match(/rowspan="3"/g) || []).length, 1);
 assert.equal((html.match(/colspan="11"/gi) || []).length, 3);
 assert.match(html, /38차 목 견적 출력/);
 assert.match(html, /FlowerName|CARNATION/);
-assert.match(html, /min-width:3032px/);
+assert.match(html, /min-width:3152px/);
+assert.match(html, /aria-label="요일표 상단 가로 스크롤"/);
+assert.match(html, /aria-label="요일표 하단 가로 스크롤"/);
+assert.match(html, /\.wcm-scroll-bottom \{ position:sticky; bottom:0;/);
+assert.match(html, /::-webkit-scrollbar \{ height:16px;/, 'visible scrollbar track/thumb must not rely on auto-hidden Windows overlay');
+assert.match(html, /\.wcm-summary-col \{ width:200px;/);
+assert.match(html, /wcm-major-heading/);
+assert.match(html, /wcm-summary-actions/);
+assert.match(html, /font-size:14px; font-weight:700/);
 assert.match(html, /tbody tr:is\(:hover,:focus-within\)/);
 assert.match(html, /font-size:13px/);
 assert.match(html, /\.wcm-cell input:disabled \{ opacity:0; pointer-events:none; \}/,'locked cells display only their number span, not a duplicate input');
@@ -266,6 +274,8 @@ const testReact = { ...React,
     return host.slots[index];
   },
   useMemo(factory) { return factory(); },
+  // Event-only harness has no mounted DOM; scroll effects run in browser smoke.
+  useEffect() {},
 };
 const eventModule = { exports: {} };
 new Function('require', 'module', 'exports', compiled.code)((name) => name === 'react' ? testReact

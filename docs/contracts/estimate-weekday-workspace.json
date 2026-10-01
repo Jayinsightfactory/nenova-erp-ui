@@ -2,6 +2,9 @@
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
   "scope": [
+    "docs/plans/weekday-matrix-readability-2026-10-01.md",
+    "scripts/weekday-readability-browser-smoke.mjs",
+    "scripts/weekday-readability-live-smoke.mjs",
     "components/Layout.js",
     "pages/estimate/weekday.js",
     "components/WeekdayEstimateWorkspace.js",
@@ -42,6 +45,15 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
+    {
+      "name": "WEEKDAY_MATRIX_SCROLL_AND_READABILITY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "sideEffect": "상·하단 가로 스크롤 DOM 동기화와 잔량/합계/변경/견적 대조의 가독성만 개선한다. 초기 기준·계산 helper·API payload·인쇄·기존 버튼 핸들러 보존. 미확인/미확정/초안 상태를 0으로 치환하지 않는다."
+    },
     {
       "name": "WEEKDAY_PROVISIONAL_BASELINE_AUTO_READ",
       "orderDetail": "preserve",
