@@ -140,7 +140,7 @@ await page.route('**/*', async route => {
   } else if (url.pathname === '/api/estimate/weekday-confirmation') {
     const majorWeek=String(query.majorWeek).padStart(2,'0');
     const summary=buildWeekdayConfirmationSummary({year:Number(query.year),majorWeek},[
-      {OrderYear:Number(query.year),OrderWeek:`${majorWeek}-01`,CountryFlower:'콜롬비아카네이션',TotalCount:5,FixedCount:majorWeek==='38'?2:5,UnknownCount:0},
+      {OrderYear:Number(query.year),OrderWeek:`${majorWeek}-01`,CountryFlower:'콜롬비아카네이션',TotalCount:5,FixedCount:majorWeek==='38'?2:5,UnknownCount:1},
       {OrderYear:Number(query.year),OrderWeek:`${majorWeek}-02`,CountryFlower:'콜롬비아수국',TotalCount:3,FixedCount:3,UnknownCount:0},
     ]);
     body={success:true,readOnly:true,summary};
@@ -183,7 +183,7 @@ try {
     align:getComputedStyle(node).textAlign,size:parseFloat(getComputedStyle(node).fontSize),weight:Number(getComputedStyle(node).fontWeight),
     width:node.clientWidth,scrollWidth:node.scrollWidth,
   }));
-  assert.equal(typography.align,'center');assert.ok(typography.size>=16);assert.ok(typography.weight>=600);
+  assert.equal(typography.align,'center');assert.ok(typography.size>=18);assert.ok(typography.weight>=700);
   assert.ok(typography.scrollWidth<=typography.width+1,'quantity does not overflow its cell');
   await page.screenshot({ path: initialScreenshot });
 

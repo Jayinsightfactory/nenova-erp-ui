@@ -54,29 +54,55 @@ assert.match(html,/aria-haspopup="dialog" aria-expanded="false"/);
 assert.match(html,/01 잔량 내역/); assert.match(html,/기준 확정/);
 assert.match(render(Matrix,{...props,baselines:[]}),/aria-label="2026\/38-01 최초분배 확정"/,'baseline accessible name remains stable');
 assert.match(source,/font-size:14px; line-height:1.4/,'default data font is at least14');
-assert.match(source,/wcm-number-display \{[^\n]*text-align:center; font-size:16px; font-weight:700/);
-assert.match(source,/wcm-cell input \{[^\n]*text-align:center; font-size:16px; font-weight:700/);
+assert.match(source,/tbody td \.wcm-quantity-label \{[^\n]*font-size:18px; font-weight:700;[^\n]*text-align:center; justify-content:center/);
+assert.match(source,/tbody td \.wcm-cell input \{[^\n]*font-size:18px; font-weight:700;[^\n]*text-align:center/);
+assert.match(source,/wcm-early-label \.wcm-quantity-label \{ font-size:18px/);
+assert.match(source,/:is\(\.wcm-cell-info,\.wcm-change-note\) \.wcm-quantity-label \{ font-size:18px/);
+assert.match(source,/wcm-compact-summary \.wcm-quote \.wcm-quantity-label \{ font-size:18px/);
 assert.match(source,/wcm-cell-detail \{[^\n]*justify-content:center/);
 assert.match(source,/wcm-original \{[^\n]*justify-content:center/);
 assert.match(source,/grid-template-columns:36px minmax\(0,1fr\)/);
-assert.match(source,/max-block-size:min\(60vh,500px\)/);
-assert.match(source,/width:min\(600px,calc\(100vw - 32px\)\)/);
-assert.match(source,/wcm-selected \{[^\n]*font-size:16px; line-height:1.5/);
-assert.match(source,/wcm-detail-popover \{[^\n]*font-size:16px; line-height:1.5/);
+assert.equal((source.match(/width:min\(760px,calc\(100vw - 32px\)\)/g)||[]).length,2);
+assert.equal((source.match(/max-block-size:min\(70vh,calc\(100vh - 32px\)\)/g)||[]).length,2);
+assert.match(source,/wcm-selected \{[^\n]*font-size:18px; line-height:1.5/);
+assert.match(source,/wcm-detail-popover \{[^\n]*font-size:18px; line-height:1.5/);
+assert.match(source,/:is\(\.wcm-selected,\.wcm-detail-popover\) strong \{ font-size:20px/);
 assert.match(html,/요일표 상단 가로 스크롤/); assert.match(html,/요일표 하단 가로 스크롤/);
 assert.match(source,/tbody tr:is\(:hover,:focus-within\)/);
 assert.doesNotMatch(source,/\bfetch\s*\(|width:1920px|height:1080px/);
 
 const category = {countryFlower:'콜롬비아장미',state:'FIXED',fixedCount:12,totalCount:12,
-  unknownCount:0,orderWeeks:['38-01','38-02','38-03']};
-const confirmation = {year:2026,majorWeek:'38',state:'FIXED',allCustomers:true,categories:[category]};
-const badges = (states=[confirmation],patch={})=>render(ConfirmationBadges,{cycle:cycles[1],states,...patch});
+  warningCount:0,unknownCount:0,orderWeeks:['38-01','38-02','38-03']};
+const confirmation = {year:2026,majorWeek:'38',state:'FIXED',allCustomers:true,warningCount:0,unknownCount:0,categories:[category]};
+const badgesFor = (cycle,states,patch={})=>render(ConfirmationBadges,{cycle,states,...patch});
+const badges = (states=[confirmation],patch={})=>badgesFor(cycles[1],states,patch);
 html=badges();
 assert.match(html,/콜 장미 ✓/);
 assert.match(html,/콜롬비아장미 · ERP확정/);
-assert.match(html,/전체 거래처·대차수 범위/); assert.match(html,/선택 거래처\/화면 필터와 무관/);
+assert.match(html,/전체 거래처·대차수 전체 세부차수 범위/); assert.match(html,/선택 거래처\/화면 필터와 무관/);
 assert.match(html,/확정 12 \/ 전체 12건/); assert.match(html,/38-01, 38-02, 38-03/);
-assert.match(html,/ERP 출고 상세 확정 · 재고 마감\/인쇄 완전성과 별개/);
+assert.match(html,/ERP 출고 상세 확정 · 저장 가능\/재고 마감\/인쇄 완전성 보장 아님/);
+assert.match(html,/wcm-fixed/);
+const observed39={...confirmation,majorWeek:'39',state:'FIXED',totalCount:998,fixedCount:998,
+  warningCount:606,unknownCount:0,categories:[{...category,totalCount:998,fixedCount:998,warningCount:606,orderWeeks:['39-01','39-02','39-03']}]};
+html=badgesFor(cycles[2],[observed39]);
+assert.match(html,/ERP확정 ✓ · 연결경고 606건/);
+assert.match(html,/콜 장미 확정·연결경고!/);
+assert.match(html,/확정 998 \/ 전체 998건 · 연결경고 606건 · 식별불명 0건/);
+assert.match(html,/2026\/39차 · 전체 거래처·대차수 전체 세부차수 범위/);
+assert.doesNotMatch(html,/wcm-fixed/,'fixed with linkage warnings must not look only green');
+assert.match(html,/wcm-warning/);
+const observed40={...confirmation,majorWeek:'40',state:'PARTIAL',totalCount:1106,fixedCount:334,
+  warningCount:318,unknownCount:0,categories:[{...category,state:'PARTIAL',totalCount:1106,fixedCount:334,warningCount:318,orderWeeks:['40-01','40-02']}]};
+html=badgesFor({...cycles[1],majorWeek:'40'},[observed40]);
+assert.match(html,/ERP부분확정 · 연결경고 318건/);
+assert.match(html,/확정 334 \/ 전체 1106건 · 연결경고 318건 · 식별불명 0건/);
+assert.match(html,/2026\/40차 · 전체 거래처·대차수 전체 세부차수 범위/);
+assert.doesNotMatch(html,/ERP확정 미확인|미확인 \?/,'known category remains partial despite linkage warnings');
+html=badges([{...confirmation,state:'UNKNOWN',unknownCount:1,categories:[
+  {countryFlower:null,state:'UNKNOWN',fixedCount:0,totalCount:1,warningCount:0,unknownCount:1,orderWeeks:['38-01']}]}]);
+assert.match(html,/품종 미확인 미확인 \?/);
+assert.match(html,/식별불명 1건/);
 for(const state of ['PARTIAL','UNFIXED','EMPTY','UNKNOWN']) {
   html=badges([{...confirmation,state,categories:[{...category,state}]}]);
   assert.doesNotMatch(html,/wcm-fixed|✓/);
@@ -153,9 +179,9 @@ const thirteenNames=['콜롬비아장미','콜롬비아수국','콜롬비아카�
   '네덜란드장미','네덜란드수국','네덜란드튤립','중국국화','베트남장미','에콰도르장미','태국난','호주왁스'];
 const thirteen=thirteenNames.map((countryFlower,i)=>({...category,countryFlower,state:i===1?'UNFIXED':'FIXED'}));
 const many=badges([{...confirmation,state:'PARTIAL',categories:thirteen}]);
-assert.equal((many.match(/aria-label="2026\/38차 · 전체 거래처·대차수 범위/g)||[]).length,14,'13 categories and one scope group');
+assert.equal((many.match(/aria-label="2026\/38차 · 전체 거래처·대차수 전체 세부차수 범위/g)||[]).length,14,'13 categories and one scope group');
 for(const countryFlower of thirteenNames) assert.ok(many.includes(countryFlower),'full category identity remains in title/aria');
 assert.match(many,/콜 수국 미확정 !/);assert.match(many,/네덜 튤립 ✓/);
 assert.doesNotMatch(many,/>ERP확정 ·/,'category chips do not repeat ERP prefix');
 
-console.log('Weekday compact summary: SSR three-row density, centered16px quantities, accessible16px popover/focus, authoritative13-category all-customer badges, year/scope/error/empty guards, draft/raw conversions, handler/print preservation passed');
+console.log('Weekday compact summary: SSR three-row density, centered18px quantities, accessible760px/18px popover and focus, fixed/partial linkage warnings, unknown category, scope/error guards, draft/raw conversions, handler/print preservation passed');

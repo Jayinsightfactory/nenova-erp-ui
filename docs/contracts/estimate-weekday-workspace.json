@@ -2,6 +2,7 @@
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
   "scope": [
+    "docs/plans/weekday-confirmation-display-fix-2026-10-02.md",
     "lib/weekdayConfirmation.js",
     "pages/api/estimate/weekday-confirmation.js",
     "__tests__/weekdayConfirmation.test.js",
@@ -66,7 +67,7 @@
       "name": "WEEKDAY_ERP_CATEGORY_CONFIRMATION_DISPLAY",
       "orderDetail": "preserve", "shipmentDetail": "preserve", "shipmentDate": "preserve",
       "estimateRows": "preserve", "stock": "preserve", "webProfitReport": "preserve",
-      "sideEffect": "명시 연도+메인차수의 모든 세부차수·전체 거래처 양수 분배행을 CountryFlower별 SELECT 집계한다. Detail isFix NULL은 미확정, 일부/전체/미확정/자료없음/조회불명을 구분하며 누락 Product/품종/업체키 모순을 불명으로 남긴다. 페이지 최초 기준/재고 마감/인쇄 완전성과 별개다. 클라이언트 scope 및 집계 재검증, stale 응답 차단. 수량 중앙/진한 숫자·압축 요약·접근가능 상세 표시만 변경; ERP 저장/인쇄/확정 API는 보존한다."
+      "sideEffect": "명시 연도+메인차수의 모든 세부차수·전체 거래처 양수 분배행을 CountryFlower별 SELECT 집계한다. 저장 Detail isFix NULL은 미확정. 알려진 품종의 isFix 현황과 업체키 등 연결경고warningCount를 분리해 확정+경고/부분확정+경고/미확정+경고를 모두 표시한다. 품종/품목 식별불명unknownCount 또는 조회불명만 미확인이다. 확정표시는 저장 플래그의 사실이며 적용가능·재고마감·인쇄완전성 보장이 아니다. scope/count/stale 응답 검증 유지. 수량중앙18px, 선택칸/요약내역760px18px 표시만 변경; ERP 저장/인쇄/확정 API는 보존한다."
     },
     {
       "name": "WEEKDAY_MANUAL_CLOSING_CARRYOVER",
