@@ -55,6 +55,9 @@
 - test:erp-contract, test:nenova-dnspy-evidence, test:erp-manifest,
   guard:erp-writes, 별도 dist production build, diff check 모두 exit0.
 - 최종 READ-ONLY 리뷰: P1/P2 0건. PR/병합/배포·운영 읽기 확인은 완료 후 추기한다.
+- PR854의 첫 CI는 마지막 CSS 보완 뒤에도16px을 기대하던 weekdayHorizontalMatrix
+  화면 테스트에서 실패했다. 로컬 전체 게이트는 보완 전 일부 CSS 기대값으로 통과한 결과였으므로,
+  해당 기대값을18px으로 갱신하고 최종 전체 게이트와 CI를 다시 수행한다. 실패를 건너뛰어 병합하지 않는다.
 - 기존 연결 경고 원인별 데이터 보정은 이 작업 범위가 아니다.
 - 기존 부분확정 인쇄 누락 및 날짜 변경 시 ShipmentDtm 대표 날짜 차이 위험은 별도 검토 대상.
   이 표시 수정으로 완전한 EXE 저장·인쇄 호환성을 검증했다고 주장하지 않는다.
