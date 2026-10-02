@@ -21,7 +21,10 @@ try {
     const result=await context.request.get(`${base}/api/estimate/weekday-confirmation?year=2026&majorWeek=${majorWeek}`);
     assert.equal(result.status(),200);
     const summary=validateWeekdayConfirmationResponse({year:2026,majorWeek},await result.json());
-    confirmation.push({majorWeek,state:summary.state,total:summary.totalCount,fixed:summary.fixedCount,categories:summary.categories.length});
+    if(summary.totalCount>0 && summary.unknownCount===0) {
+      assert.equal(summary.state,summary.fixedCount===summary.totalCount?'FIXED':summary.fixedCount>0?'PARTIAL':'UNFIXED');
+    }
+    confirmation.push({majorWeek,state:summary.state,total:summary.totalCount,fixed:summary.fixedCount,unknown:summary.unknownCount,warnings:summary.warningCount,categories:summary.categories.length});
   }
   const page=await context.newPage(),errors=[],blocked=[];
   page.on('pageerror',error=>errors.push(error.message));
@@ -55,11 +58,11 @@ try {
   assert.match(dayProof.title,/전산 원문 38-02: 0 박스/);
   await blueSunday.click();assert.equal(await blueSunday.evaluate(el=>document.activeElement===el),true);
   const typography=await blueSunday.evaluate(el=>({size:parseFloat(getComputedStyle(el).fontSize),weight:Number(getComputedStyle(el).fontWeight),align:getComputedStyle(el).textAlign}));
-  assert.ok(typography.size>=16 && typography.weight>=600 && typography.align==='center');
+  assert.ok(typography.size>=18 && typography.weight>=600 && typography.align==='center');
   const selected=page.locator('.wcm-selected');
   await selected.waitFor();
   const selectedMetrics=await selected.evaluate(el=>({width:el.getBoundingClientRect().width,font:parseFloat(getComputedStyle(el).fontSize)}));
-  assert.ok(selectedMetrics.width>=600 && selectedMetrics.font>=16);
+  assert.ok(selectedMetrics.width>=760 && selectedMetrics.font>=18);
   await page.getByRole('button',{name:'선택 칸 내역 닫기'}).click();
   // No fill/blur-changing edit and no save are performed against operating data.
   await page.getByLabel('중심 차수').click();

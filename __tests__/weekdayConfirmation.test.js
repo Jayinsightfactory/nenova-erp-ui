@@ -16,13 +16,20 @@ assert.equal(partial.categories.find(item=>item.countryFlower==='콜롬비아수
 assert.equal(buildWeekdayConfirmationSummary(scope,rows.filter(row=>row.OrderYear===2025)).state,'EMPTY');
 assert.equal(buildWeekdayConfirmationSummary(scope,[fixture('39-01','장미',4,0)]).state,'UNFIXED');
 assert.equal(buildWeekdayConfirmationSummary(scope,[fixture('39-01','장미',4,4)]).state,'FIXED');
-assert.equal(buildWeekdayConfirmationSummary(scope,[fixture('39-01','장미',4,4,{UnknownCount:1})]).state,'UNKNOWN');
+for(const [fixed,state] of [[4,'FIXED'],[2,'PARTIAL'],[0,'UNFIXED']]) {
+  const warned=buildWeekdayConfirmationSummary(scope,[fixture('39-01','장미',4,fixed,{UnknownCount:1})]);
+  assert.equal(warned.state,state);assert.equal(warned.unknownCount,0);assert.equal(warned.warningCount,1);
+  assert.equal(warned.categories[0].warningCount,1);
+  validateWeekdayConfirmationResponse(scope,{success:true,readOnly:true,summary:warned});
+}
+const productionShape=buildWeekdayConfirmationSummary(scope,[fixture('39-01','카네이션',998,998,{UnknownCount:606})]);
+assert.equal(productionShape.state,'FIXED');assert.equal(productionShape.warningCount,606);
 assert.equal(buildWeekdayConfirmationSummary(scope,[fixture('39-01','',1,1)]).state,'UNKNOWN');
 for(const week of ['39-1','39-AB','39-001']) assert.throws(()=>buildWeekdayConfirmationSummary(scope,[fixture('39-01','장미',4,4),fixture(week,'장미',1,0)]),/세부차수/);
 for(const patch of [{FixedCount:5},{FixedCount:null},{TotalCount:1.5},{UnknownCount:-1}]) assert.throws(()=>buildWeekdayConfirmationSummary(scope,[fixture('39-01','장미',4,4,patch)]));
 const result={success:true,readOnly:true,summary:partial};
 assert.equal(validateWeekdayConfirmationResponse(scope,result),partial);
-for(const mutation of [{...result,readOnly:false},{...result,summary:{...partial,year:2025}},{...result,summary:{...partial,majorWeek:'40'}},{...result,summary:{...partial,allCustomers:false}},{...result,summary:{...partial,state:'FIXED'}},{...result,summary:{...partial,fixedCount:8}},{...result,summary:{...partial,categories:[...partial.categories,rose]}}]) assert.throws(()=>validateWeekdayConfirmationResponse(scope,mutation));
+for(const mutation of [{...result,readOnly:false},{...result,summary:{...partial,year:2025}},{...result,summary:{...partial,majorWeek:'40'}},{...result,summary:{...partial,allCustomers:false}},{...result,summary:{...partial,state:'FIXED'}},{...result,summary:{...partial,fixedCount:8}},{...result,summary:{...partial,warningCount:9}},{...result,summary:{...partial,categories:[...partial.categories,rose]}}]) assert.throws(()=>validateWeekdayConfirmationResponse(scope,mutation));
 assert.match(WEEKDAY_CONFIRMATION_SQL,/sm.OrderYear=@year AND sm.OrderWeek LIKE @weekPrefix/);
 assert.match(WEEKDAY_CONFIRMATION_SQL,/ISNULL\(sd.isFix,0\)=1/);
 assert.match(WEEKDAY_CONFIRMATION_SQL,/sd.OutQuantity>0/);

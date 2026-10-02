@@ -1,5 +1,14 @@
 # FormShipmentDistribution — exe golden (dnSpy/CLI)
 
+## 2026-10-02 확정 플래그와 연결 경고 분리
+
+실제 CLI FormShipmentDistribution 재실행: GetFixStatus는 ViewShipment.DetailFix=1 합계.
+원본연결 경고를 isFix 미확인으로 변환하는 규칙은 없다. 운영 SELECT API39차는
+998/998 확정이지만 기존집계경고606 때문에 UNKNOWN으로 덮였고,40차1106중334는
+경고318 때문에 부분확정이 가려졌다. 저장 isFix 현황과 연결 경고를 분리한다.
+식별할 수 없는 CountryFlower/조회실패는 미확인 유지. 저장·인쇄 권한/eligibility는
+아무것도 완화하지 않는다. 대표출고일·원장키 보정은 실행하지 않는다.
+
 ## 2026-10-02 주광 확정 조건 재감사 / 표시 전용
 
 실제 CLI 재실행: `dnSpy.Console.exe --no-color -t FormShipmentDistribution

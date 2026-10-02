@@ -14,7 +14,7 @@ export default withAuth(async function handler(req,res) {
     const summary=buildWeekdayConfirmationSummary(scope,result.recordset);
     res.setHeader('Cache-Control','no-store');
     return res.status(200).json({success:true,readOnly:true,summary,
-      note:'메인차수의 모든 세부차수·전체 거래처 양수 분배행 기준 ERP 상세 확정 현황. 페이지 최초기준 보관과 별개이며 자동 확정하지 않습니다.'});
+      note:'메인차수 모든 세부차수·전체 거래처 양수 상세의 저장 isFix 현황. 연결 경고는 별도이며 저장·재고·인쇄 가능 판정이 아닙니다. 최초 기준과 별개이며 자동 확정하지 않습니다.'});
   } catch(error) {
     console.error('[weekday-confirmation]',error);
     return res.status(500).json({success:false,error:'ERP 품종별 확정 현황을 조회하지 못했습니다.'});
