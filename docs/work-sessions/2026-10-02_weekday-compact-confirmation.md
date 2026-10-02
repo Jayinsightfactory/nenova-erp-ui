@@ -1,5 +1,10 @@
 # 주광 요일표 가독성 / 확정 선행 조건 재확인
 
+- 날짜: 2026-10-02 / 기준 화면1920×1080 CSS px·100%.
+- 작업공간: C:/Users/USER/Documents/Codex/2026-07-11/new-chat/work/jugwang-weekday-test-deploy.
+- 작업 제목: 주광 요일표 압축·선택칸 확대·ERP 확정 현황.
+- 상태: 구현·로컬/PR 검증·병합·Cafe24 배포·운영 read-only smoke 완료.
+
 ## 사용자 합의와 범위
 
 Q. 작업할 때 확정이면 풀고 수정 후 재확정하는가? 미확정이면 확정 후 처리하는가?
@@ -32,6 +37,12 @@ EXE 인쇄는 각 정상출고행의 DetailFix=1/ViewOrder/정확 PeriodDay/양�
 
 ## UI 구현
 
+Q. 텍스트를 압축하고 품종별 확정을 차수 제목 옆에 표시. 수량은 셀 중앙,
+진하고 큰 글씨로 조절. 선택칸 내역도 더 크게 표시해 달라.
+
+A. 합계·잔량·견적3행 요약, 수량16px/700 및 중앙 정렬, 긴 설명은 내역창으로
+분리. 선택칸/요약 내역 폭600px·본문16px·제목17px 및 화면내 높이 제한으로 구현.
+
 - 수량 셀 중앙, 기본16px 진한 글씨. 합계·마감잔량·변경·견적을 압축 정렬한다.
 - 반복되는 이월/미확정 설명은 accessible 내역 popup에 모으고 오류·초안·수동·불명 표시는 보존한다.
 - 전후 차수 제목 옆 품종별 ERP 상세 확정 상태: 전체 거래처/모든 세부차수의 양수 분배 기준.
@@ -62,3 +73,38 @@ EXE 인쇄는 각 정상출고행의 DetailFix=1/ViewOrder/정확 PeriodDay/양�
   fail-closed로 수정; 다른 차수 조회실패가 정상 배지까지 덮는 위험을 차수별 오류로 수정.
 - 13품종 배지의 전후 차수 헤더 내부 줄바꿈·겹침 검증, 선택칸 창800×800 포함 화면 이탈 없음.
 - ERP 전체 회귀 / dnSpy 근거 / manifest77 / 쓰기 guard(새 읽기 API1개) 통과.
+
+## 통합 / 산출물
+
+- 최종 빌드 통과: .next-compact-validation / 113개 정적 페이지.
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/853.
+- 코드190a42f1, master동기화68bc8958은 트리 변경 없이 기존 squash 이력의 문서 충돌만 해결.
+- PR ERP Contract Guard36949454011 성공; squash e857b2af0143383654bfbf44a4454616177870db 병합.
+- Cafe24 배포36949589616, master검사36949589656은 병합으로 실행.
+- 출력물: output/weekday-readability/1920x1080-selected-detail.png,
+  output/weekday-readability/1280x800.png; 격리 browser script와 live read-only script는 저장소에 보관.
+
+## 새 컨텍스트 이어받기
+
+이 문서와 docs/plans/weekday-compact-confirmation-2026-10-02.md, 대상 계약을 먼저 읽는다.
+이번 수정은 표시와 SELECT만 변경. 저장·출력 payload/SQL과 자동 확정 흐름은 변경하지 않았다.
+대표 ShipmentDetail.ShipmentDtm 갱신과 메인차수 전체확정 출력 정책은 남은 검토 항목이다.
+사용자 정책 합의 없이 운영 확정/재고/수량 보정이나 자동 SP 사이클을 실행하지 않는다.
+
+## 2026-10-02 운영 반영 후속 기록
+
+- master검사36949589656 / Cafe24 배포36949589616 모두 SUCCESS.
+- 운영 build-1790903480023 / 배포 commit e857b2af.
+- 인증된 운영 read-only smoke 통과: 1920×1080·100%,1280×800, 수량16px/700/center,
+  선택칸 창폭600px·본문16px, 기존38-01 일요일7박스 셀 편집 활성 확인(수량 변경/저장 안 함).
+- 기본 중심41차로 현재업무주+1 유지. 이월GET context333개, 마감잔량창 화면 이탈 없음.
+- 실제 새 확정GET 결과39차 total998/fixed998이지만 UnknownCount606,
+  40차 total1106/fixed334/UnknownCount318로 UNKNOWN;41차 EMPTY.
+  UNKNOWN은 isFix값만 모아 전체확정이라고 오표시하지 않도록 품목누락·삭제·품종미지정·
+  Master/Detail업체키 모순을 포함한 보수적 자료 연결 진단이다. 개별 원인을 이 집계만으로
+  단정하지 않는다. 기존fix-status와 새상태의 차이는 경고범위/조회시점 차이를 먼저 조사한다.
+  운영 자료 보정은 하지 않았으며 인쇄 완전성·재고마감을 보장하지 않는다.
+- 운영 source category UNKNOWN 상세GET read-only로 확인, client JS오류0.
+- 결과 문서 후속 커밋은 로컬 보관하여 추가 배포를 만들지 않는다.
+- 최종 로그: output/compact-ci.log,output/compact-deploy.log,output/compact-live.log,
+  output/compact-live-unknown.log. 로그에 인증 비밀값 기록하지 않음.
