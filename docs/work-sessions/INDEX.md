@@ -1,5 +1,8 @@
 # 세션 Q&A 인덱스
 
+- [2026-10-02 native NULL 오탐·반복 오류 웹 수정](2026-10-02_weekday-native-null-fix.md) — 공통 고객 판정·raw 지문·확정 구분·접힌 오류, SQL/브라우저/ERP 검증. 운영 원장 보정 없음.
+- [2026-10-02 native CustKey NULL 판단 정정](../SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md) — EXE 저장 시 미기록이 정상 가능. 주광79건 웹 인쇄 오탐 확인, NULL만으로 SQL 보정 금지. 후속 구현 기록 포함.
+
 - [2026-10-02 주광 요일 저장·견적 EXE 호환](2026-10-02_weekday-exe-compatibility.md) — 확정 상세 저장, 대표 출고일 동기화, 메인차수 전체 확정과 실제 날짜 견적 대조.
 - [2026-10-02 붙여넣기 매칭 응답성 후속](2026-10-02_paste-matching-performance.md) — 검색 Worker·현황40그룹·접힌 상세 지연 렌더, ERP 보존.
 

@@ -1,6 +1,7 @@
 import { query, sql } from '../../../lib/db.js';
 import { withAuth } from '../../../lib/auth.js';
 import { normalizeWeekdayCompareRequest, normalizeWeekdayUnit } from '../../../lib/weekdayEstimateCompare.js';
+import { WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL } from '../../../lib/weekdayCustomerLink.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') { res.setHeader('Allow','GET'); return res.status(405).end(); }
@@ -13,7 +14,7 @@ export default withAuth(async function handler(req, res) {
   const majorIn = majors.map((_,i)=>`@major${i}`).join(',');
   try {
     const result = await query(`WITH selected AS (
-      SELECT sd.ProdKey FROM ShipmentMaster sm JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.CustKey=sm.CustKey
+      SELECT sd.ProdKey FROM ShipmentMaster sm JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND ${WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL}
       WHERE sm.OrderYear=@year AND sm.CustKey=@custKey AND LEFT(sm.OrderWeek,2) IN (${majorIn}) AND ISNULL(sm.isDeleted,0)=0
       UNION
       SELECT od.ProdKey FROM OrderMaster om JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey

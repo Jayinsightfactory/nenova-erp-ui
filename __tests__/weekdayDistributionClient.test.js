@@ -176,6 +176,15 @@ assert.throws(()=>build({...input,plans:[{...plan,quantity:1.2345}]}),/소수 �
 const moveSource={...plan,quantity:5};
 const move={id:plan.id,quantity:5,date:'2026-09-18',reason:'날짜 이동',eventId:'fixture-move'};
 const moved=moveDraft({...input,plans:[moveSource],move});
+assert.throws(()=>moveDraft({...input,plans:[moveSource],compareRows:[{...row,customerLinkError:'wrong customer'}],move}),/거래처 연결 오류/);
+assert.throws(()=>moveDraft({...input,plans:[moveSource],compareRows:[row,{...crossRow,customerLinkError:'wrong customer'}],move:{...move,date:'2027-01-07'}}),/거래처 연결 오류/);
+const subweekTarget={...row,orderWeek:'38-02',shipmentDates:[]};
+assert.throws(()=>moveDraft({...input,plans:[moveSource],compareRows:[{...row,customerLinkError:'wrong source'},subweekTarget],move:{...move,date:'2026-09-21'}}),/거래처 연결 오류/,
+  'a clean destination must not bypass a bad source in another subweek');
+assert.throws(()=>moveDraft({...input,plans:[moveSource],compareRows:[row,subweekTarget,{...row,orderWeek:'38-03',customerLinkError:'wrong legacy',shipmentDates:[{date:'2026-09-21',shipmentQuantity:1}]}],move:{...move,date:'2026-09-21'}}),/거래처 연결 오류/,
+  'bad actual-date parent remains blocked despite a clean canonical destination');
+assert.deepEqual(moveDraft({...input,plans:[moveSource],compareRows:[row,{...row,year:2025,customerLinkError:'unrelated prior year'}],move}),moved,
+  'prior-year errors outside the move scope do not block valid movement');
 assert.equal(moved.plans.find(item=>item.id===plan.id).quantity,0,'full move retains explicit source cancellation');
 assert.equal(moved.plans.find(item=>item.moveEventId===move.eventId).quantity,25,'destination final includes existing 20 plus moved 5');
 assert.deepEqual(build({...input,plans:moved.plans}).payload.changes[0].dates.sort((a,b)=>a.date.localeCompare(b.date)),[{date:'2026-09-17',quantity:0},{date:'2026-09-18',quantity:25}]);

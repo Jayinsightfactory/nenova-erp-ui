@@ -169,17 +169,17 @@ function CompactSummary({ row, block, disabled, carryover, carryoverBusy, carryo
   const description = [
     `${row.name} · ${cycleLabel(block.cycle)} · 최초기준 비교값 · ERP재고 아님`,
     `합계 ${numberLabel(block.effectiveTotal)} / 저장 전산 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit || ''}`,
-    `마감 잔량 ${numberLabel(value)} · ${remainder?.label || '잔량 미확인'} · 저장 전산 기준잔량 ${numberLabel(remainder?.savedValue)}`,
+    `마감 잔량 ${numberLabel(value)} · ${remainder?.label || '잔량 미확인'}${remainder?.hasProvisional ? ' · 기준 미확정' : ''} · 저장 전산 기준잔량 ${numberLabel(remainder?.savedValue)}`,
     carryDescription,
     `최초 ${numberLabel(block.initialMajor)} · 저장 변경 ${numberLabel(block.initialChange)} · 예상 변경 ${numberLabel(block.effectiveInitialChange)}`,
     `${block.quote.state}: 견적관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 순수량 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''} · 총액 ${block.quote.amount ?? '?'}원`,
-    block.quote.error, block.quote.note, block.pageNote?.note,
+    block.quote.note, block.pageNote?.note,
     '초안은 견적 출력에 포함하지 않습니다. 웹 전용 마감 잔량 수정·이력 · ERP 재고 아님',
   ].filter(Boolean).join('\n');
-  const cues = [remainder?.hasDraft ? '초안' : '', remainder?.hasProvisional ? '미확정' : '', carry?.manual ? '수동' : '',
+  const cues = [remainder?.hasDraft ? '초안' : '', remainder?.hasProvisional ? '기준 미확정' : '', carry?.manual ? '수동' : '',
     carry?.incomingHasDraft ? '이월 초안' : '', carry?.incomingProvisional ? '이월 미확정' : '',
     !value && value !== 0 ? '미확인' : ''].filter(Boolean);
-  const quoteStatus = block.quote.state === '견적 일치' ? '일치 ✓' : block.quote.state === '견적 불일치' ? '불일치 !'
+  const quoteStatus = block.quote.error ? '조회실패' : block.quote.state === '견적 일치' ? '일치 ✓' : block.quote.state === '견적 불일치' ? '불일치 !'
     : block.quote.state === '견적 없음' ? '없음' : '확인 필요 ?';
   return <td className="wcm-total wcm-major-total" title={description}>
     <div className="wcm-compact-summary">
@@ -200,20 +200,22 @@ function CompactSummary({ row, block, disabled, carryover, carryoverBusy, carryo
             data-wcm-label="remainder" data-quantity={value ?? '—'}
             disabled={disabled || carryoverBusy || !carryover || !hasCustomer || !block.unit || block.cycle.calendarState !== 'FOUND' || typeof onOpenCarryover !== 'function'}
             aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 마감 잔량 수정·이력`}
-            title={`${remainder?.label || '잔량 미확인'} · 웹 전용 마감 잔량 수정·이력 · ERP 재고 아님`}
+            title={`${remainder?.label || '잔량 미확인'}${remainder?.hasProvisional ? ' · 기준 미확정' : ''} · 웹 전용 마감 잔량 수정·이력 · ERP 재고 아님`}
             onClick={event => onOpenCarryover({row,block,trigger:event.currentTarget,record:carryover.records.find(record => Number(record.year) === Number(block.cycle.year)
               && String(record.majorWeek) === String(block.cycle.majorWeek) && Number(record.custKey) === Number(customer?.CustKey ?? customer?.custKey ?? custKey) && Number(record.prodKey) === row.prodKey)})}>
             <QuantityLabel>{weekdayQuantityLabel(value,row,block.unit,block.packaging)}</QuantityLabel><span aria-hidden="true">✎</span>
           </button>
-          {cues.map(cue => <small key={cue} className={`wcm-inline-status${cue.includes('초안') ? ' wcm-draft' : ''}`} title={remainder?.label}>{cue}</small>)}
+          {cues.map(cue => <small key={cue} className={`wcm-inline-status${cue.includes('초안') ? ' wcm-draft' : ''}`} title={`${remainder?.label || ''}${remainder?.hasProvisional ? ' · 기준 미확정' : ''}`}>{cue}</small>)}
           {carry?.active && carry.incoming !== 0 && carry.incoming != null && <span className="wcm-incoming" title={carryDescription}>이월 <QuantityLabel>{weekdayQuantityLabel(carry.incoming,row,block.unit,block.packaging)}</QuantityLabel></span>}
           {carryoverBusy && <small className="wcm-inline-status">이월 조회 중…</small>}
         </div>
       </div>
       <div className="wcm-summary-row wcm-summary-actions">
         <span className="wcm-summary-label">견적</span><div className="wcm-summary-value"><button type="button" className={`wcm-quote${block.quote.state === '견적 불일치' || block.quote.error ? ' wcm-warning' : ''}`}
-          data-quantity={block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} title={`견 ${block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} · ${block.quote.state} · 저장 견적만 포함`}
-          aria-label={`${row.name} ${block.cycle.majorWeek}차 견적 대조 · ${block.quote.state}`} onClick={() => onSelect(`${block.quote.state}\n견적관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''}\n저장 분배 ${numberLabel(block.currentTotal)} / 예상 합계 ${numberLabel(block.effectiveTotal)}\n초안은 견적 출력에 포함하지 않습니다.`)}>
+          data-quantity={block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} title={`견 ${block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} · ${block.quote.state}${block.quote.error ? ' · 조회 실패 상세는 버튼 클릭' : ''} · 저장 견적만 포함`}
+          aria-label={`${row.name} ${block.cycle.majorWeek}차 견적 대조 · ${block.quote.state}${block.quote.error ? ' · 조회 실패' : ''}`} onClick={() => onSelect(block.quote.error
+            ? `견적 조회 실패 · ${block.cycle.year}/${block.cycle.majorWeek}차\n상태: ${block.quote.state}\n오류: ${String(block.quote.error)}`
+            : `${block.quote.state}\n견적관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''}\n저장 분배 ${numberLabel(block.currentTotal)} / 예상 합계 ${numberLabel(block.effectiveTotal)}\n초안은 견적 출력에 포함하지 않습니다.`)}>
           <QuantityLabel>{block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'}</QuantityLabel><small className="wcm-inline-status">{quoteStatus}</small>
         </button>
           <SummaryDetails label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 요약 내역`} description={description}/>
@@ -221,7 +223,6 @@ function CompactSummary({ row, block, disabled, carryover, carryoverBusy, carryo
       </div>
     </div>
     {carryFailure && <div className="wcm-carry-line wcm-error" role="alert">{carryFailure}</div>}
-    {block.quote.error && <div className="wcm-error" role="alert">견적 조회 실패 · {String(block.quote.error)}</div>}
   </td>;
 }
 
@@ -269,6 +270,8 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     block.pageNote=pageNotes.find(note=>Number(note.year)===Number(block.cycle.year)&&String(note.majorWeek)===String(block.cycle.majorWeek)&&Number(note.prodKey)===row.prodKey);
     block.quote=reconcileWeekdayQuote(block,row.prodKey,quoteResults.find(result=>Number(result.year)===Number(block.cycle.year)&&String(result.majorWeek)===String(block.cycle.majorWeek)));
   }
+  const quoteErrorForCycle = cycle => quoteResults.find(result => Number(result.year) === Number(cycle.year)
+    && String(result.majorWeek) === String(cycle.majorWeek) && result.error);
   const hasCustomer = customerProvided ?? (Number(customer?.CustKey ?? customer?.custKey ?? custKey) > 0);
   const printReason = (cycle, dates, mode) => weekdayUnsavedPrintReason(safePlans,cycle,customer?.CustKey ?? customer?.custKey ?? custKey)
     || (busy ? '전산 조회/처리 중' : horizontalPrintReason({ cycle, dates, mode, onPrint,
@@ -520,10 +523,15 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
           <tr><th rowSpan={3} scope="col">품목 <span className="wcm-muted">· 단위</span></th>
             {matrix.cycles.map((cycle) => {
               const dates = (selectedDates[cycleKey(cycle)] || []).filter((value) => cycle.days.some((day) => day.date === value));
+              const quoteError = quoteErrorForCycle(cycle);
               return <th key={cycleKey(cycle)} colSpan={horizontalCycleColumns(cycle).length} scope="colgroup"
                 className={cycle.offset === 0 ? 'wcm-current-head' : ''}>
                 <div className="wcm-cycle-header"><div className="wcm-cycle-title"><strong>{cycle.offset < 0 ? '이전' : cycle.offset > 0 ? '다음' : '현재'} {cycleLabel(cycle)}</strong>
                   <ConfirmationBadges cycle={cycle} states={confirmationStates} busy={confirmationBusy} error={confirmationError}/></div>
+                  {quoteError && <details className="wcm-quote-error">
+                    <summary>견적 조회 실패 · 상세</summary>
+                    <pre>{String(quoteError.error)}</pre>
+                  </details>}
                   <span className="wcm-muted">{cycle.startDate} ~ {cycle.endDate}</span>
                   <PrintButton label="전체 견적" reason={printReason(cycle, [], 'major')} onClick={() => print(cycle, [], 'major')} />
                   <PrintButton label={'선택요일 출력 (' + dates.length + ')'} reason={printReason(cycle, dates, 'dates')}
@@ -540,7 +548,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 const saved=baselines.find(record=>Number(record.year)===Number(cycle.year)&&record.orderWeek===`${cycle.majorWeek}-${suffix}`);
                 const candidate=baselineCandidates.find(record=>Number(record.year)===Number(cycle.year)&&record.orderWeek===`${cycle.majorWeek}-${suffix}`);
                 return <th key={column.kind} rowSpan={2} scope="col" className={initial?'wcm-initial wcm-cycle-start':'wcm-total'}>
-                  {initial ? <>{cycle.majorWeek}-{suffix}<br/>최초분배<br/>{saved?<small title={`${saved.confirmedAt} · ${saved.confirmedBy}`}>기준 보관됨</small>:<><small className={candidate?.error?'wcm-warning':'wcm-muted'} title={candidate?.error || '현재 ERP 분배량 · 확정 시 최초 기준으로 고정'}>{candidate?.error?'조회 실패':candidate?'미확정':busy?'조회 중':'미확정'}</small><br/><button type="button" className="wcm-confirm" disabled={busy || baselineBusy || !hasCustomer || cycle.calendarState!=='FOUND' || typeof onConfirmBaseline!=='function'}
+                  {initial ? <>{cycle.majorWeek}-{suffix}<br/>최초분배<br/>{saved?<small title={`${saved.confirmedAt} · ${saved.confirmedBy}`}>기준 보관됨</small>:<><small className={candidate?.error?'wcm-warning':'wcm-muted'} title={candidate?.error || '페이지 최초 기준 미확정 · 현재 ERP 분배량 · 확정 시 최초 기준으로 고정'}>{candidate?.error?'조회 실패':candidate?'기준 미확정':busy?'조회 중':'기준 미확정'}</small><br/><button type="button" className="wcm-confirm" disabled={busy || baselineBusy || !hasCustomer || cycle.calendarState!=='FOUND' || typeof onConfirmBaseline!=='function'}
                     aria-label={`${cycle.year}/${cycle.majorWeek}-${suffix} 최초분배 확정`} onClick={()=>onConfirmBaseline({cycle,orderWeek:`${cycle.majorWeek}-${suffix}`})}>기준 확정</button></>}</>
                     : column.kind==='remaining01' ? <>{cycle.majorWeek}-01<br/>최초기준<br/>잔량</> : <>{cycle.majorWeek}차<br/>합계<br/><small>잔량·변경</small></>}
                 </th>;
@@ -599,15 +607,15 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                   disabled={disabled} carryover={carryover} carryoverBusy={carryoverBusy} carryoverError={carryoverError}
                   hasCustomer={hasCustomer} onOpenCarryover={onOpenCarryover} onOpenNote={onOpenNote}
                   onSelect={setSelectedInfo} customer={customer} custKey={custKey}/>;
-                return <td key={column.kind} className={column.kind.startsWith('initial')?`wcm-initial wcm-cycle-start${provisional?' wcm-provisional':''}`:column.kind==='remainingMajor'?'wcm-total wcm-major-total':'wcm-total'} title={`${provisional?'미확정 · 현재 ERP 분배량 (확정 시 최초 기준 고정)':'최초기준 비교값 · ERP재고 아님'}\n전산 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit||''}\n최초 ${numberLabel(block.initialMajor)} · 변경 ${numberLabel(block.initialChange)}\n${block.quote.state}: 관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 순수량 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''} · 총액 ${block.quote.amount ?? '?'}원\n${block.pageNote?.note || ''}`}>
+                return <td key={column.kind} className={column.kind.startsWith('initial')?`wcm-initial wcm-cycle-start${provisional?' wcm-provisional':''}`:column.kind==='remainingMajor'?'wcm-total wcm-major-total':'wcm-total'} title={`${provisional?'기준 미확정 · 현재 ERP 분배량 (확정 시 최초 기준 고정)':'최초기준 비교값 · ERP재고 아님'}\n전산 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit||''}\n최초 ${numberLabel(block.initialMajor)} · 변경 ${numberLabel(block.initialChange)}\n${block.quote.state}: 관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 순수량 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''} · 총액 ${block.quote.amount ?? '?'}원\n${block.pageNote?.note || ''}`}>
                   <div className="wcm-remainder-compact">
                     <span className={remainder?.hasDraft?'wcm-draft wcm-remainder-value':'wcm-remainder-value'} data-wcm-label={remainder?'remainder':'initial'} data-quantity={value ?? '—'} aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 ${remainder?'잔량':'최초분배'}`} title={remainder?`${remainder.label} · 저장 전산 기준잔량 ${numberLabel(remainder.savedValue)} · ERP 재고 아님`:undefined}>
                       <QuantityLabel>{weekdayQuantityLabel(value,row,block.unit,block.packaging)}</QuantityLabel>
                     </span>
-                    {provisional && <small className="wcm-inline-status" title="미확정 · 현재 ERP 분배량">미확정</small>}
+                    {provisional && <small className="wcm-inline-status" title="페이지 최초 기준 미확정 · 현재 ERP 분배량">기준 미확정</small>}
                     {remainder && <SummaryDetails label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 01 잔량 내역`}
-                      visibleLabel={[remainder.hasDraft?'초안':'',remainder.hasProvisional?'미확정':'',remainder.value==null?'미확인':'',block.carryover?.source?'이월':''].filter(Boolean).join('·') || '기준'}
-                      description={`${remainder.label} · 잔량 ${numberLabel(value)} ${block.unit || ''}\n저장 전산 기준잔량 ${numberLabel(remainder.savedValue)} · ERP 재고 아님`}/>}
+                      visibleLabel={[remainder.hasDraft?'초안':'',remainder.hasProvisional?'기준 미확정':'',remainder.value==null?'미확인':'',block.carryover?.source?'이월':''].filter(Boolean).join('·') || '기준'}
+                      description={`${remainder.label}${remainder.hasProvisional?' · 기준 미확정':''} · 잔량 ${numberLabel(value)} ${block.unit || ''}\n저장 전산 기준잔량 ${numberLabel(remainder.savedValue)} · ERP 재고 아님`}/>}
                   </div>
                 </td>;
               })}
@@ -679,6 +687,9 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-draft, .weekday-cycle-matrix .wcm-delta { color:#174e9c; }
       .weekday-cycle-matrix .wcm-warning { color:#805100; overflow-wrap:anywhere; }
       .weekday-cycle-matrix .wcm-error { color:#a51a24; background:#fff0f1; padding:8px; border:1px solid #e5a3a9; }
+      .weekday-cycle-matrix .wcm-quote-error { width:100%; min-width:0; color:#9f1c16; font-size:12px; text-align:left; }
+      .weekday-cycle-matrix .wcm-quote-error summary { cursor:pointer; overflow-wrap:anywhere; }
+      .weekday-cycle-matrix .wcm-quote-error pre { max-block-size:min(144px,24vh); overflow:auto; margin:4px 0 0; padding:5px; border:1px solid #e5a3a9; background:#fff0f1; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }
       .weekday-cycle-matrix .wcm-status { color:#164e63; background:#ecfeff; padding:8px; }
       .weekday-cycle-matrix .wcm-selected { position:fixed; bottom:16px; right:16px; width:min(760px,calc(100vw - 32px)); max-block-size:min(70vh,calc(100vh - 32px)); overflow:auto; z-index:20; border:1px solid #93b5df; padding:12px; background:#f3f8ff; box-shadow:0 4px 16px #172b4233; font-size:18px; line-height:1.5; text-align:center; }
       .weekday-cycle-matrix .wcm-selected button { float:right; }

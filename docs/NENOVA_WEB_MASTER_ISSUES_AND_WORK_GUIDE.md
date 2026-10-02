@@ -66,7 +66,7 @@ deploy_head: f10dcce
 |---|--------|-----------|
 | 1 | `OrderMaster.Manager` = **UserInfo.UserID** (문자열 `'관리자'` 금지) | ViewOrder 탈락 → 분배 grid 거래처 안 보임 |
 | 2 | `OrderYearWeek` = 연도+**대차수** (`23-01`→`202623`, full `20262301` 금지) | 견적서관리 GetData 누락 |
-| 3 | `ShipmentDetail.CustKey` = Master CustKey 강제 | 분배 화면 누락 |
+| 3 | READ 거래처는 ShipmentKey→Master.CustKey. 웹 신규 CustKey 기록 정책과 구분 | native 상세 NULL만으로 누락 판정 금지 ([2026-10-02 정정](SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)) |
 | 4 | `ShipmentDtm` = BaseOutDay 출고일 + **ShipmentDate 재생성** | 견적 INNER JOIN 탈락, 6일 밀림 |
 | 5 | Out/Est/Box/Bunch/Steam 5종, **Est=Out 강제 금지** | 견적 금액·확정 검증 오류 |
 | 6 | ShipmentMaster **재사용** (CustKey+OrderWeek, isFix DESC) | 중복 마스터 |
@@ -113,8 +113,9 @@ deploy_head: f10dcce
 
 | 이슈 | 조치 | 상태 |
 |------|------|------|
-| sd.CustKey 0/NULL | adjust/distribute @ck 강제 | ✅ 신규 경로 |
-| **과거 데이터** | 16~22차 각 200건+ CustKey 누락 | ⚠️ repair 도구로 선택 보정 |
+| 웹 신규 CustKey 기록 | 기존 adjust/distribute @ck 정책 유지 | 기존 원장 READ 조건과 구분 |
+| **과거/native 상세 NULL** | EXE Insert/Update는 CustKey 미기록. 상위 Master와 실제 View 연결로 판정 | NULL 자체 보정 금지 ([근거](SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)) |
+| sd.CustKey 0/다른 양수 키 | 생성·조회 경로와 실제 불일치 원인을 별도 검증 | 이번 NULL 조사로 정상/오류 단정 불가 |
 
 ### F. OutUnit / 10배 버그
 
@@ -232,7 +233,7 @@ deploy_head: f10dcce
 
 ### 운영·데이터
 
-1. **과거 ShipmentDetail.CustKey 누락** — 신규 경로는 OK, legacy row는 `/admin/distribute-repair` 선택 보정
+1. **ShipmentDetail.CustKey NULL 오탐 정정** — native NULL은 정상 저장 가능. 일괄 보정 대상이 아니다. 웹 조회·인쇄 동일성 guard는 [2026-10-02 근거](SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)로 재검토하며 실행 수정은 아직 미적용.
 2. **`StockMaster.isFix=0` after web fix** — UI `FIXED_PENDING_STOCK`; 음수와 별개 ([SHIPMENT_FIX_EXE_RECONCILE](SHIPMENT_FIX_EXE_RECONCILE.md))
 3. **ShipmentFarm(농장 배정)** — 웹 분배가 exe btnSave 수준 미구현 ([PROGRESS 2026-06-04](.claude/PROGRESS.md))
 4. **fix-status 구간 확정취소** — 운영 실측 일부

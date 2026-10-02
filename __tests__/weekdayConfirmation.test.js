@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {normalizeWeekdayConfirmationScope,buildWeekdayConfirmationSummary,validateWeekdayConfirmationResponse,WEEKDAY_CONFIRMATION_SQL} from '../lib/weekdayConfirmation.js';
+import { WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL } from '../lib/weekdayCustomerLink.js';
 
 assert.deepEqual(normalizeWeekdayConfirmationScope({year:'2026',majorWeek:8}),{year:2026,majorWeek:'08',allCustomers:true});
 for(const input of [{majorWeek:39},{year:2026,majorWeek:0},{year:2026,majorWeek:54},{year:2026,majorWeek:'39-%'},{year:['2026','2025'],majorWeek:39}]) assert.throws(()=>normalizeWeekdayConfirmationScope(input));
@@ -33,6 +34,8 @@ for(const mutation of [{...result,readOnly:false},{...result,summary:{...partial
 assert.match(WEEKDAY_CONFIRMATION_SQL,/sm.OrderYear=@year AND sm.OrderWeek LIKE @weekPrefix/);
 assert.match(WEEKDAY_CONFIRMATION_SQL,/ISNULL\(sd.isFix,0\)=1/);
 assert.match(WEEKDAY_CONFIRMATION_SQL,/sd.OutQuantity>0/);
+assert.ok(WEEKDAY_CONFIRMATION_SQL.includes(WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL));
+assert.match(WEEKDAY_CONFIRMATION_SQL,/LEFT JOIN Customer c ON c\.CustKey=sm\.CustKey AND ISNULL\(c\.isDeleted,0\)=0/);
 assert.doesNotMatch(WEEKDAY_CONFIRMATION_SQL,/@custKey|@prodKey|\b(?:INSERT|UPDATE|DELETE|MERGE|EXEC|ALTER|CREATE|DROP)\b/i);
 // Execute the actual API with a SELECT-only adapter: supplied customer/product filters
 // cannot narrow the main-week all-customer confirmation scope.

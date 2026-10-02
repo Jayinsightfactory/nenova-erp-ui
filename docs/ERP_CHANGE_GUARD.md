@@ -1,5 +1,15 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-02 우선 정정: 상세 CustKey NULL은 native 정상 저장 가능
+
+[EXE·운영 조회 근거와 재발 방지 규칙](SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)을 먼저 읽는다.
+ClassShipmentDetail.Insert/Update는 CustKey를 쓰지 않고 ViewShipment는 ShipmentKey를 통해
+상위 Master.CustKey로 거래처를 결정한다. NULL만으로 누락 오류·조회 제외·인쇄 차단·SQL 보정 금지.
+웹 신규 INSERT의 CustKey 기록 정책을 기존 원장 전체의 READ 필수 조건으로 확대하지 않는다.
+실제 다른 업체 키/0, 연결·날짜·금액 오류는 별도 검증하며 기존 쓰기 보호는 유지한다.
+조회·인쇄 guard 수정 전 native NULL 정상 fixture와 교차연도/잘못된 연결 fixture를 추가한다.
+이번 정정은 문서 변경이며 PR #857의 실행 검사 수정이나 새 배포 완료를 뜻하지 않는다.
+
 ## 2026-10-02 붙여넣기 별칭 저장·조회 중복
 
 매칭 현황에서 신규 품목/업체 별칭을 추가할 수 있다. 서버 성공 응답 전에는 로컬 저장 완료로
@@ -641,6 +651,9 @@ BunchQuantity/OutQuantity 10으로 환산한다. 필요한 `BunchOf1Box` 또는 
 29차 이후 엄격 검증, 명시 규칙, BILL/AWB 연결, 빈 상세행 제외, 통화별 합계 일치를 검사한다.
 
 ## 2026-10-02 주광 요일 저장·메인차수 인쇄 호환
+
+**후속 정정:** 아래 출시 검사의 상세 CustKey 동일성 조건은 native NULL을 오차단했다.
+NULL 거래처 키 자체를 연결 오류로 해석하지 말고 이 문서 상단의 2026-10-02 정정을 우선한다.
 
 웹 요일 저장에서 ShipmentDetail.ShipmentDtm이 갱신되지 않던 차이를 실제 CLI로
 확인했다. 최종 양수 날짜의 EXE day1(일)~day7(토) 마지막 순서를 잠긴 PeriodDay로

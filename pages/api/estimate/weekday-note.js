@@ -4,6 +4,7 @@ import pageNoteStore from '../../../lib/weekdayPageNoteStore.js';
 import baselineStore from '../../../lib/weekdayInitialBaselineStore.js';
 import { buildShippingCycles } from '../../../lib/weekdayEstimateCycle.js';
 import { normalizeWeekdayUnit } from '../../../lib/weekdayEstimateCompare.js';
+import { WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL } from '../../../lib/weekdayCustomerLink.js';
 
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
 
@@ -12,7 +13,7 @@ const CUSTOMER_SQL = `SELECT CustKey FROM Customer WHERE CustKey=@custKey AND IS
 const PRODUCT_SCOPE_SQL = `SELECT p.ProdKey,p.OutUnit,
   CASE WHEN EXISTS (
     SELECT 1 FROM ShipmentMaster sm
-    JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.CustKey=sm.CustKey
+    JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND ${WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL}
     WHERE sm.OrderYear=@year AND LEFT(sm.OrderWeek,2)=@majorWeek AND sm.CustKey=@custKey
       AND sd.ProdKey=@prodKey AND ISNULL(sm.isDeleted,0)=0
   ) OR EXISTS (
@@ -30,9 +31,9 @@ const PERIOD_SQL = `WITH anchor AS (
   ) ORDER BY pd.BaseYmd`;
 const DATE_QUANTITY_SQL = `SELECT COUNT_BIG(*) AS DateRows,
     SUM(sdd.ShipmentQuantity) AS ShipmentQuantity,
-    SUM(CASE WHEN sdd.ShipmentQuantity IS NULL OR sdd.ShipmentQuantity<0 THEN 1 ELSE 0 END) AS InvalidQuantityRows
+    SUM(CASE WHEN sdd.ShipmentQuantity IS NULL OR sdd.ShipmentQuantity<0 OR NOT ${WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL} THEN 1 ELSE 0 END) AS InvalidQuantityRows
   FROM ShipmentMaster sm
-  JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.CustKey=sm.CustKey
+  JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey
   JOIN ShipmentDate sdd ON sdd.SdetailKey=sd.SdetailKey
   WHERE sm.OrderYear=@year AND LEFT(sm.OrderWeek,2)=@majorWeek AND sm.CustKey=@custKey
     AND sd.ProdKey=@prodKey AND ISNULL(sm.isDeleted,0)=0

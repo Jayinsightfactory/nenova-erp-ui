@@ -8,6 +8,7 @@ const storeModule = require('../lib/weekdayInitialBaselineStore.js');
 const { SOURCE, WeekdayBaselineError, normalizeBaselineScope, canonicalRows, baselineDigest,
   createWeekdayInitialBaselineStore, validateBaselineRecord } = storeModule;
 const sqlModulePromise = import('../lib/weekdayInitialBaselineSql.js');
+const customerLinkModulePromise = import('../lib/weekdayCustomerLink.js');
 const scope = { year: 2026, orderWeek: '38-02', custKey: 7 };
 const allocation = { date: '2026-09-21', orderWeek: '38-02', quantity: 3.5, estimateQuantity: 56 };
 const sampleRows = () => [{ prodKey: 101, prodName: 'Alstro', flowerName: '알스트로',
@@ -78,6 +79,23 @@ test('canonical digest captures dated allocations and distinct quantity units wi
   assert.equal(baselineDigest(scope, rows), baselineDigest(scope, reversed));
 });
 
+test('native NULL detail key is valid baseline input; wrong non-NULL links fail closed', async () => {
+  const [{ snapshotFromBaselineRowset, WEEKDAY_INITIAL_BASELINE_SQL }, link] = await Promise.all([
+    sqlModulePromise, customerLinkModulePromise,
+  ]);
+  assert.ok(WEEKDAY_INITIAL_BASELINE_SQL.includes(link.WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL));
+  assert.ok(WEEKDAY_INITIAL_BASELINE_SQL.includes(`NOT ${link.WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL}`));
+  const good = { ...dbRows()[0], Quantity: 5, DetailRows: 1, InvalidQuantityRows: 0,
+    ShipmentDates: JSON.stringify([{ date: '2026-09-21', orderWeek: '38-02', quantity: 5, estimateQuantity: 80, invalidRows: 0 }]) };
+  assert.equal(link.weekdayDetailCustomerMatchesMaster(null, 7), true);
+  assert.equal(snapshotFromBaselineRowset(scope, [good]).rows[0].quantity, 5);
+  for (const invalid of [0, 8]) {
+    assert.equal(link.weekdayDetailCustomerMatchesMaster(invalid, 7), false);
+    assert.throws(() => snapshotFromBaselineRowset(scope, [{ ...good, InvalidQuantityRows: 1 }]),
+      error => error.code === 'INVALID_ERP_QUANTITY_OR_UNIT', `invalid detail key ${invalid} is counted as an invalid row`);
+  }
+});
+
 test('invalid quantities, units, duplicate products/dates, empty and all-zero confirmation rejected', () => {
   for (const quantity of [null, undefined, '', '8', NaN, Infinity, -0.1]) {
     assert.throws(() => canonicalRows([{ ...sampleRows()[0], quantity }]));
@@ -113,7 +131,8 @@ test('single SQL helper reads exact inventory and dated quantities; order-only z
   assert.equal(snapshot.canConfirm, true);
   assert.equal(snapshot.source, SOURCE);
   assert.match(WEEKDAY_INITIAL_BASELINE_SQL, /SUM\(sd\.OutQuantity\)/);
-  assert.match(WEEKDAY_INITIAL_BASELINE_SQL, /sd\.CustKey = sm\.CustKey/);
+  const { WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL } = await import('../lib/weekdayCustomerLink.js');
+  assert.ok(WEEKDAY_INITIAL_BASELINE_SQL.includes(WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL));
   for (const alias of ['om', 'sm']) {
     assert.match(WEEKDAY_INITIAL_BASELINE_SQL, new RegExp(`${alias}\\.OrderYear = @year AND ${alias}\\.OrderWeek = @orderWeek AND ${alias}\\.CustKey = @custKey`));
   }

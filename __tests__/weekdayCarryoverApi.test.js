@@ -52,12 +52,13 @@ function baseline(year = 2026, week = '38-01', key = 101, quantity = 10, unit = 
 async function fixture(directory, overrides = {}) {
   const { buildShippingCycles, dateKey, shiftDate } = await import('../lib/weekdayEstimateCycle.js');
   const { normalizeWeekdayUnit } = await import('../lib/weekdayEstimateCompare.js');
+  const { WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL } = await import('../lib/weekdayCustomerLink.js');
   const source = await fs.promises.readFile(path.join(root, 'pages/api/estimate/weekday-carryover.js'), 'utf8');
-  const factory = new Function('query', 'sql', 'withAuth', 'carryoverStore', 'baselineStore', 'buildShippingCycles', 'dateKey', 'shiftDate', 'normalizeWeekdayUnit',
+  const factory = new Function('query', 'sql', 'withAuth', 'carryoverStore', 'baselineStore', 'buildShippingCycles', 'dateKey', 'shiftDate', 'normalizeWeekdayUnit', 'WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL',
     source.replace(/^import .*;\r?\n/gm, '').replace(/export const /g, 'const ').replace(/export function /g, 'function ')
       .replace('export default withAuth(createWeekdayCarryoverHandler());', '') + '\nreturn createWeekdayCarryoverHandler;')(
     () => { throw new Error('Actual DB/network forbidden in fixture'); }, {}, handler => handler, carries, baselineModule,
-    buildShippingCycles, dateKey, shiftDate, normalizeWeekdayUnit);
+    buildShippingCycles, dateKey, shiftDate, normalizeWeekdayUnit, WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL);
   const calls = [], baselineCalls = [];
   const activeProducts = overrides.products ?? [product(), product(102), product(103)];
   const store = overrides.store ?? carries.createWeekdayCarryoverStore({ directory: path.join(directory, 'carries') });
@@ -246,6 +247,28 @@ test('negative/null/unknown units and malformed/outside/mismatched dates produce
   }
   const mismatch = await fixture(directory, { snapshots: [baseline(2026, '38-01', 101, 10, '단')] });
   assert.match((await mismatch.call()).body.context.inputs.find(input => input.majorWeek === '38').error, /BASELINE_UNIT_MISMATCH/);
+}));
+
+test('native NULL customer detail remains in carryover totals; wrong customer link is an invalid aggregate', async () => temporary(async directory => {
+  const { WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL } = await import('../lib/weekdayCustomerLink.js');
+  const nativeNull = await fixture(directory, { erpRows: [erpRow({ DetailCustKey: null })] });
+  const accepted = await nativeNull.call();
+  assert.equal(accepted.statusCode, 200);
+  assert.equal(accepted.body.context.inputs.find(item => item.majorWeek === '38').allocated, 8);
+  const bulk = nativeNull.calls.find(call => call.statement.includes('WITH cycles AS'));
+  assert.ok(bulk.statement.includes(WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL));
+  assert.match(bulk.statement, /NOT \(sm\.CustKey>0 AND \(sd\.CustKey IS NULL OR \(sd\.CustKey>0 AND sd\.CustKey=sm\.CustKey\)\)\)/);
+
+  for (const detailCustKey of [0, 8]) {
+    const invalid = await fixture(directory, { erpRows: [erpRow({ DetailCustKey: detailCustKey, InvalidQuantityRows: 1 })] });
+    const response = await invalid.call();
+    assert.equal(response.statusCode, 200);
+    const affected = response.body.context.inputs.find(item => item.majorWeek === '38');
+    assert.equal(affected.valid, false);
+    assert.match(affected.error, /INVALID_ERP_QUANTITY/);
+    const invalidBulk = invalid.calls.find(call => call.statement.includes('WITH cycles AS'));
+    assert.ok(invalidBulk.statement.includes(WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL));
+  }
 }));
 
 test('GET rejects failed/incomplete/scoped-inconsistent SELECT and file adapter errors instead of missing-zero fallback', async () => temporary(async directory => {

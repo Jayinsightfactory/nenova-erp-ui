@@ -77,22 +77,37 @@ const noteRecords = [{ version: 1, year: 2026, majorWeek: '38', custKey: 533, pr
   earlyShipment: null, updatedAt: '2026-10-01T00:00:00.000Z', updatedBy: 'fixture' }];
 const output = path.resolve('output/weekday-readability');
 fs.mkdirSync(output, { recursive: true });
+let quoteFailureMode = false;
+const quoteFailureMessage = `fixture weekday quote failure — ${'상세 오류 원문 반복 확인용. '.repeat(240)}`;
+const quoteFailureRequests = [];
 const browser = await chromium.launch({ headless: true, channel: 'chrome', ignoreDefaultArgs: ['--hide-scrollbars'] });
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
 const page = await context.newPage();
 const errors = [];
 const consoleErrors = [];
+const expectedQuoteFailureConsoleErrors = [];
 const environmentWarnings = [];
 const calls = [];
+const quoteFailureStatuses = [];
 const unexpectedApiWrites = [];
 const externalRequests = [];
 const assertions = [];
 const previewScopes = new Set();
 page.on('pageerror', error => errors.push(error.message));
+page.on('response', response => {
+  if (quoteFailureMode && new URL(response.url()).pathname === '/api/estimate/weekday-print')
+    quoteFailureStatuses.push(response.status());
+});
 page.on('console', message => {
   if (message.type() === 'error') {
-    if (message.text().includes('/_next/webpack-hmr')) environmentWarnings.push(message.text());
-    else consoleErrors.push(message.text());
+    const text = message.text();
+    const locationUrl = message.location().url;
+    const expectedQuoteUrl = new URL('/api/estimate/weekday-print', base).href;
+    const isInjectedQuote409 = quoteFailureMode && locationUrl === expectedQuoteUrl
+      && /^Failed to load resource: the server responded with a status of 409 \(Conflict\)$/.test(text);
+    if (isInjectedQuote409) expectedQuoteFailureConsoleErrors.push({ url: locationUrl, text });
+    else if (text.includes('/_next/webpack-hmr')) environmentWarnings.push(text);
+    else consoleErrors.push(text);
   }
 });
 await context.route('**/*', async route => {
@@ -145,6 +160,11 @@ await page.route('**/api/**', async route => {
       && row.majorWeek === url.searchParams.get('majorWeek') && row.custKey === Number(url.searchParams.get('custKey'))) };
   else if (url.pathname === '/api/estimate/weekday-print') {
     const scope = req.postDataJSON();
+    if (quoteFailureMode) {
+      quoteFailureRequests.push({ year: scope.year, majorWeek: String(scope.majorWeek), custKey: scope.custKey });
+      return route.fulfill({ status: 409, contentType: 'application/json',
+        body: JSON.stringify({ success: false, error: quoteFailureMessage }) });
+    }
     data = { success: true, readOnly: true, scope, customer: { CustName: '주광농원' },
       draftIncluded: false, items: quoteItems(scope) };
   } else if (url.pathname === '/api/estimate') {
@@ -343,6 +363,99 @@ try {
   assertions.push('filter updates matrix while bottom-bar scrolling remains synchronized');
   await page.getByPlaceholder('품목명 / 품목키').fill('');
   assert.equal(await page.locator('.wcm-table-scroll tbody tr').count(), 50);
+
+  // Final regression stage: inject the same long 409 quote failure for all three cycles.
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.evaluate(() => { window.scrollTo(0, 0); });
+  const successfulRowGeometry = await page.locator('.wcm-table-scroll tbody tr').evaluateAll(rows => rows.map(row => ({
+    product: row.querySelector('th[scope="row"]')?.innerText.trim() || '',
+    height: row.getBoundingClientRect().height,
+    hasDraft: Boolean(row.querySelector('.wcm-draft')),
+    text: row.innerText,
+    inputValues: [...row.querySelectorAll('input')].map(input => input.value),
+  })));
+  assert.equal(successfulRowGeometry.length, 50, 'capture successful-flow row-height baseline for all products');
+  const knownSpecialRows = [
+    successfulRowGeometry.find(row => /품목 01/.test(row.product)),
+    successfulRowGeometry.find(row => /품목 03/.test(row.product)),
+  ];
+  assert.ok(knownSpecialRows.every(Boolean), 'successful-flow baseline includes the two known tall-content fixtures');
+  const [longDraftRow, unconvertibleDecimalRow] = knownSpecialRows;
+  assert.ok(longDraftRow.hasDraft && longDraftRow.text.includes('초안') && longDraftRow.text.includes('50'),
+    `품목 01 remains identified as the long-label draft fixture: ${JSON.stringify(longDraftRow)}`);
+  assert.ok(unconvertibleDecimalRow.text.replace(/\s/g, '').includes('환산확인')
+      && unconvertibleDecimalRow.inputValues.includes('0.1234567890123'),
+    `품목 03 remains identified as the unconvertible decimal fixture: ${JSON.stringify(unconvertibleDecimalRow)}`);
+  const unexpectedTallSuccessfulRows = successfulRowGeometry.filter(row => row.height >= 160
+    && !knownSpecialRows.includes(row));
+  assert.equal(unexpectedTallSuccessfulRows.length, 0,
+    `only known 품목 01/03 fixture rows may reach 160px: ${JSON.stringify(unexpectedTallSuccessfulRows)}`);
+  assert.ok(knownSpecialRows.every(row => row.height < 200)
+      && successfulRowGeometry.every(row => row.height < 160 || knownSpecialRows.includes(row)),
+    `successful-flow default rows stay below 160px; both known special rows stay below 200px: ${JSON.stringify(successfulRowGeometry.map(({product,height}) => ({product,height})))}`);
+
+  quoteFailureMode = true;
+  await page.getByRole('button', { name: '전산 새로고침', exact: true }).click();
+  await page.waitForFunction(() => document.querySelectorAll('thead .wcm-quote-error').length === 3
+    && [...document.querySelectorAll('thead .wcm-quote-error pre')].every(pre => pre.textContent.startsWith('fixture weekday quote failure')));
+  assert.equal(await page.locator('.wcm-table-scroll tbody tr').count(), 50, 'quote failures retain all 50 product rows');
+  assert.deepEqual(quoteFailureRequests.map(scope => `${scope.year}/${scope.majorWeek}`).sort(),
+    ['2026/37', '2026/38', '2026/39'], 'the 409 fixture covers all three cycle scopes exactly once');
+  assert.equal(quoteFailureStatuses.length, 3, 'all three cycle quote requests receive fixture responses');
+  assert.ok(quoteFailureStatuses.every(status => status === 409),
+    `all three quote requests return HTTP 409: ${JSON.stringify(quoteFailureStatuses)}`);
+  assert.equal(await page.locator('thead .wcm-quote-error').count(), 3, 'one quote-error disclosure per cycle header');
+  assert.equal(await page.locator('thead .wcm-quote-error:not([open])').count(), 3, 'all cycle error disclosures start collapsed');
+  const failureMarkup = await page.locator('.weekday-cycle-matrix').evaluate(el => el.innerHTML);
+  assert.equal(failureMarkup.split(quoteFailureMessage).length - 1, 3,
+    'the long identical error is rendered once in each of the three headers only');
+  const failedCells = await page.locator('.wcm-table-scroll tbody .wcm-major-total').evaluateAll(cells => cells.map(cell => ({
+    repeatsError: cell.innerText.includes('fixture weekday quote failure'),
+    hasFailureButton: [...cell.querySelectorAll('.wcm-quote .wcm-inline-status')].some(status => status.textContent === '조회실패'),
+  })));
+  assert.equal(failedCells.length, 150, 'all 50 rows retain three compact summary cells');
+  assert.ok(failedCells.every(cell => !cell.repeatsError && cell.hasFailureButton),
+    'item cells show the failure button without copying the long error');
+  const errorRowGeometry = await page.locator('.wcm-table-scroll tbody tr').evaluateAll(rows => rows.map(row => ({
+    product: row.querySelector('th[scope="row"]')?.innerText.trim() || '',
+    height: row.getBoundingClientRect().height,
+    hasDraft: Boolean(row.querySelector('.wcm-draft')),
+  })));
+  const successHeightByProduct = new Map(successfulRowGeometry.map(row => [row.product, row.height]));
+  const rowHeightChanges = errorRowGeometry.map(row => ({ ...row, successHeight: successHeightByProduct.get(row.product),
+    addedHeight: row.height - (successHeightByProduct.get(row.product) ?? 0) }));
+  assert.ok(errorRowGeometry.length === 50 && errorRowGeometry.every(row => successHeightByProduct.has(row.product)),
+    'failure-flow rows match the successful-flow product baseline');
+  assert.ok(rowHeightChanges.every(row => row.addedHeight <= 1),
+    `quote failures add no material product-row height versus the successful flow: ${JSON.stringify(rowHeightChanges.filter(row => row.addedHeight > 1))}`);
+  assert.ok(knownSpecialRows.every(special => rowHeightChanges.find(row => row.product === special.product)?.height < 200)
+      && rowHeightChanges.every(row => row.height < 160 || knownSpecialRows.some(special => special.product === row.product)),
+    `default rows remain below 160px; known 품목 01/03 special rows stay below 200px: ${JSON.stringify(rowHeightChanges.filter(row => row.height >= 160))}`);
+  check(await page.evaluate(() => innerWidth === 1920 && innerHeight === 1080 && devicePixelRatio === 1),
+    'quote error regression uses 1920x1080 CSS px at 100%');
+  await page.getByRole('button', { name: '현재 38차 보기', exact: true }).click();
+  await page.screenshot({ path: path.join(output, '1920x1080-quote-errors-collapsed.png'), fullPage: false });
+
+  const currentCycleHeader = page.locator('thead tr:first-child th[scope="colgroup"]').filter({ hasText: '현재 2026 / 38차' });
+  const currentQuoteDetails = currentCycleHeader.locator('details.wcm-quote-error');
+  assert.equal(await currentQuoteDetails.count(), 1, 'current cycle header has one error disclosure');
+  await currentQuoteDetails.locator('summary').click();
+  const errorDetailsMetrics = await currentQuoteDetails.locator('pre').evaluate(pre => {
+    const style = getComputedStyle(pre), rect = pre.getBoundingClientRect();
+    return { height: rect.height, maxBlockSize: style.maxBlockSize, overflowY: style.overflowY,
+      scrollHeight: pre.scrollHeight, clientHeight: pre.clientHeight };
+  });
+  assert.ok(errorDetailsMetrics.height <= 146 && errorDetailsMetrics.overflowY === 'auto'
+      && errorDetailsMetrics.scrollHeight > errorDetailsMetrics.clientHeight,
+    `expanded error text stays bounded and internally scrollable: ${JSON.stringify(errorDetailsMetrics)}`);
+  const quoteErrorCell = page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-major-total').nth(1);
+  await quoteErrorCell.locator('button.wcm-quote').click();
+  const selectedQuoteInfo = page.locator('.wcm-selected');
+  await selectedQuoteInfo.waitFor();
+  assert.match(await selectedQuoteInfo.innerText(), /조회 필요[\s\S]*fixture weekday quote failure/,
+    'quote failure button opens selectedInfo with the state and complete error');
+  await page.screenshot({ path: path.join(output, '1920x1080-quote-error-details-selected.png'), fullPage: false });
+
   check(unexpectedApiWrites.length === 0, 'no unexpected API write endpoints', JSON.stringify(unexpectedApiWrites));
   check(externalRequests.length === 0, 'no external network requests', JSON.stringify(externalRequests));
   check(previewScopes.size === 5,
@@ -350,11 +463,15 @@ try {
   assert.ok(!errors.length, `browser page errors: ${errors.join(' | ')}`);
   assert.ok(!consoleErrors.length, `browser console errors: ${consoleErrors.join(' | ')}`);
   console.log(JSON.stringify({ result: 'PASS', base, viewport: '1920x1080 CSS px, deviceScaleFactor=1 (100%)',
-    screenshots: ['1920x1080.png', '1280x800.png', '1920x1080-selected-detail.png', '1920x1080-note-dialog.png', '1280x800-bottom-sticky.png'].map(file => path.join(output, file)),
-    assertions, apiCalls: calls.length, pageErrors: errors, consoleErrors, environmentWarnings, externalRequests }, null, 2));
+    screenshots: ['1920x1080.png', '1280x800.png', '1920x1080-selected-detail.png', '1920x1080-note-dialog.png', '1280x800-bottom-sticky.png',
+      '1920x1080-quote-errors-collapsed.png', '1920x1080-quote-error-details-selected.png'].map(file => path.join(output, file)),
+    assertions, apiCalls: calls.length, quoteFailureRequests, pageErrors: errors, consoleErrors,
+    expectedQuoteFailureConsoleErrors, environmentWarnings, externalRequests }, null, 2));
 } catch (error) {
   await page.screenshot({ path: path.join(output, 'failure.png'), fullPage: false }).catch(() => {});
-  console.error(JSON.stringify({ result: 'FAIL', error: error.stack || String(error), output: path.join(output, 'failure.png'), assertions, calls, externalRequests, environmentWarnings }, null, 2));
+  console.error(JSON.stringify({ result: 'FAIL', error: error.stack || String(error), output: path.join(output, 'failure.png'),
+    assertions, calls, quoteFailureRequests, quoteFailureStatuses, consoleErrors,
+    expectedQuoteFailureConsoleErrors, externalRequests, environmentWarnings }, null, 2));
   process.exitCode = 1;
 } finally {
   const closeTimeout = () => new Promise(resolve => setTimeout(resolve, 5000));

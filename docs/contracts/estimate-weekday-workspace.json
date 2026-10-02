@@ -2,6 +2,9 @@
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
   "scope": [
+    "lib/weekdayCustomerLink.js",
+    "__tests__/weekdayCustomerLink.test.js",
+    "docs/plans/weekday-native-customer-read-2026-10-02.md",
     "__tests__/weekdayPrintEligibility.test.js",
     "docs/plans/weekday-exe-compatibility-2026-10-02.md",
     "docs/plans/weekday-confirmation-display-fix-2026-10-02.md",
@@ -64,6 +67,14 @@
     "docs/contracts/estimate-weekday-workspace.json"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "nativeCustomerLink": {
+    "authority": "ShipmentDetail.ShipmentKey -> ShipmentMaster.CustKey; ClassShipmentDetail Insert/Update omit CustKey",
+    "sharedHelper": "weekdayDetailCustomerMatchesMaster and WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL",
+    "rule": "Explicit raw NULL is native-compatible; preserve raw key in comparison/save snapshot and never fill it. Missing JS field, explicit zero or other non-NULL key are not the native NULL case. True linkage/calendar/amount/fix/cross-year guards remain.",
+    "display": "Cycle-wide quote failure is collapsed once per cycle, not duplicated in each item cell. Page provisional baseline is labelled 기준 미확정, independent of ERP isFix.",
+    "positiveFixture": "Native NULL full-key compare, baseline, confirmation, isolated save/readback and quote preserve exact quantities and NULL",
+    "nearMissFixtures": ["explicit zero", "other customer", "missing raw key", "wrong year", "ambiguous master", "unfixed detail", "calendar or amount mismatch"]
+  },
   "storedMoneyCompatibility": "C# decimal midpoint-to-even(EXE weekday save) 또는 기존 웹/SQL half-up의 완전한 수량/Amount/Vat tuple만 허용. 서로 다른 방식 혼합 금지. 원장 값은 보존, 출력 수량은 기존 EXE 공통 SQL ROUND 집계, 금액은 실제 날짜별 bucket 합계.",
   "actions": [
     {
@@ -207,6 +218,7 @@
     "description": "비교 요청 year=2026, orderWeek=38-02, custKey=7, prodKey=101이면 같은 38-02의 2025년 행은 결과에 포함되지 않는다. 모든 쿼리는 OrderYear/OrderWeek/CustKey/ProdKey를 제한한다."
   },
   "requiredTestFiles": [
+    "__tests__/weekdayCustomerLink.test.js",
     "__tests__/weekdayPrintEligibility.test.js",
     "__tests__/weekdayConfirmation.test.js",
     "__tests__/weekdayCompactSummary.test.js",

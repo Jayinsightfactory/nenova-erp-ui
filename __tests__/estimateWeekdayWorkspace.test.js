@@ -45,7 +45,10 @@ assert.doesNotMatch(uploadApi, /from .*db/);
 assert.match(compareApi, /sm\.OrderYear = @year[\s\S]*sm\.OrderWeek IN/);
 assert.match(compareApi, /om\.OrderYear = @year[\s\S]*om\.OrderWeek IN/);
 assert.match(compareApi, /sm\.CustKey = @custKey/);
-assert.match(compareApi, /sd\.CustKey = sm\.CustKey/);
+assert.match(compareApi, /sd\.CustKey AS DetailCustKey/);
+assert.match(compareApi, /weekdayDetailCustomerMatchesMaster\(row.DetailCustKey,scope.custKey\)/);
+assert.doesNotMatch(compareApi, /sd\.CustKey = sm\.CustKey/,
+  'native NULL must not disappear from the parent-scoped compare read');
 assert.match(compareApi, /filterWeekdayCompareRows\(orderResult\.recordset, scope\)/);
 assert.match(compareHelper, /Number\(row\?\.OrderYear\) === Number\(scope\.year\)/);
 assert.match(compareHelper, /scope\.weeks\.includes/);

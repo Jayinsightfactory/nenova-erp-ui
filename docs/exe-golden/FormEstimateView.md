@@ -1,5 +1,13 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-10-02 native 상세 고객 NULL 정정
+
+ClassShipmentDetail의 정상 저장은 CustKey를 쓰지 않으며 ViewShipment는 ShipmentKey→Master.CustKey로
+거래처를 조회한다. 주광39차 읽기 전용 조사에서 상세 NULL79건은 ERP 표시 가능했고 기존
+EXE 호환 견적은94행을 반환했다. 웹의 상세 NULL 인쇄 거부는 오탐이었다.
+0·타 고객 non-NULL·실제 연결 오류·미확정·날짜/금액 검사는 별개로 유지한다.
+[실제 EXE 해시·조회 근거·수정 범위](../SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)를 참조한다.
+
 ## 2026-10-02 대차수 전체 확정과 인쇄 완전성
 
 실제 CLI `dnSpy.Console.exe --no-color -t FormEstimateView
