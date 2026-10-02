@@ -118,7 +118,7 @@ await page.route('**/api/**', async route => {
   else if (url.pathname === '/api/estimate/weekday-confirmation') {
     const majorWeek=url.searchParams.get('majorWeek');
     const categories=['콜롬비아장미','콜롬비아카네이션','콜롬비아수국','콜롬비아알스트로','중국국화','중국기타','네덜란드수국','네덜란드튤립','에콰도르장미','태국난','케냐장미','일본기타','이스라엘왁스'];
-    data={success:true,readOnly:true,summary:buildWeekdayConfirmationSummary({year:2026,majorWeek},categories.map((CountryFlower,index)=>({OrderYear:2026,OrderWeek:`${majorWeek}-01`,CountryFlower,TotalCount:5,FixedCount:index===0?2:5,UnknownCount:0})))};
+    data={success:true,readOnly:true,summary:buildWeekdayConfirmationSummary({year:2026,majorWeek},categories.map((CountryFlower,index)=>({OrderYear:2026,OrderWeek:`${majorWeek}-01`,CountryFlower,TotalCount:5,FixedCount:index===0&&majorWeek!=='39'?2:5,UnknownCount:index===0?1:0})))};
   }
   else if (url.pathname === '/api/estimate/weekday-products') data = { success: true,
     scope: { year: Number(url.searchParams.get('year')), custKey: Number(url.searchParams.get('custKey')),
@@ -221,8 +221,11 @@ try {
     overflow:el.scrollWidth>el.clientWidth+1,
     height:el.getBoundingClientRect().height,
   })));
-  check(headerGeometry.length===3 && headerGeometry.every(item=>item.badges===15 && !item.overflow && item.height<100),
+  check(headerGeometry.length===3 && headerGeometry.every(item=>item.badges>=14 && item.badges<=16 && !item.overflow && item.height<110),
     '13 category states wrap compactly within all three cycle headers',JSON.stringify(headerGeometry));
+  const fixedWarningHeader=page.locator('thead tr:first-child th').filter({hasText:'다음 2026 / 39차'});
+  check(/ERP확정/.test(await fixedWarningHeader.innerText()) && /연결경고/.test(await fixedWarningHeader.innerText())
+    && !/미확인/.test(await fixedWarningHeader.innerText()),'known fixed flags stay confirmed while link warnings remain visible');
   const controlMetrics = await page.locator('.wcm-toolbar, .wcm-cycle-jump').evaluateAll(els => els.map(el => {
     const r = el.getBoundingClientRect();
     return { name: el.className, left: r.left, right: r.right, width: r.width, scroll: el.scrollWidth, client: el.clientWidth };
@@ -236,10 +239,10 @@ try {
     originals: [...document.querySelectorAll('.wcm-number-display, .wcm-original, .wcm-cell input')]
       .map(el => parseFloat(getComputedStyle(el).fontSize)),
   }));
-  check(fontSizes.primary.length > 0 && fontSizes.primary.every(size => size >= 14), 'primary summary typography >=14px', JSON.stringify(fontSizes));
-  check(fontSizes.sum.length > 0 && fontSizes.sum.every(size => size >= 16), 'full-width summary sum typography >=16px', JSON.stringify(fontSizes));
+  check(fontSizes.primary.length > 0 && fontSizes.primary.every(size => size >= 18), 'primary summary typography >=18px', JSON.stringify(fontSizes));
+  check(fontSizes.sum.length > 0 && fontSizes.sum.every(size => size >= 18), 'full-width summary sum typography >=18px', JSON.stringify(fontSizes));
   check(fontSizes.meta.length > 0 && fontSizes.meta.every(size => size >= 12), 'secondary summary typography >=12px', JSON.stringify(fontSizes));
-  check(fontSizes.originals.length > 0 && fontSizes.originals.every(size => size >= 14), 'original/display/input quantity typography >=14px', JSON.stringify(fontSizes));
+  check(fontSizes.originals.length > 0 && fontSizes.originals.every(size => size >= 18), 'original/display/input quantity typography >=18px', JSON.stringify(fontSizes));
   const summaryGeometry = await page.locator('.wcm-table-scroll .wcm-major-total').evaluateAll(cells => cells.map(el => {
     const heading = el.querySelector('.wcm-major-heading');
     const sum = el.querySelector('.wcm-cycle-sum');
@@ -300,7 +303,7 @@ try {
   const selected = page.locator('.wcm-selected');
   check(await boundsInside(selected), 'selected-cell detail fits viewport');
   const selectedMetrics=await selected.evaluate(el=>({width:el.getBoundingClientRect().width,font:parseFloat(getComputedStyle(el).fontSize)}));
-  check(selectedMetrics.width>=600 && selectedMetrics.font>=16,'selected-cell detail is 600px wide with 16px text',JSON.stringify(selectedMetrics));
+  check(selectedMetrics.width>=760 && selectedMetrics.font>=18,'selected-cell detail is 760px wide with 18px text',JSON.stringify(selectedMetrics));
   await page.setViewportSize({width:1280,height:800});
   check(await boundsInside(selected),'selected-cell detail fits 1280x800');
   await page.setViewportSize({width:800,height:800});
