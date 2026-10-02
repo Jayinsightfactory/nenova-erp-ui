@@ -23,10 +23,11 @@
 저장 분석의 과거 reviewed 선택 유지, 짧은 주기 중복 읽기를 확인·보완했다.
 운영 SELECT 표본69ms는 전체 부하 측정이 아니다. 실제 운영 CPU/SQL wait 수치는 미측정.
 
-**검증.** 실제 dnSpy FormOrderAdd와 교차연도 read-only DB 확인. 1차 전체 ERP 계약/build 통과.
+**검증.** 실제 dnSpy FormOrderAdd와 교차연도 read-only DB 확인. 최신 master 통합 후 전체 ERP 계약/build,
+manifest77건, ERP write scope, dnSpy evidence 통과. 실제 API handler의 수동별칭 보호 fixture 통과.
 로컬 실제 모달 fixture에서1920×1080 품목/업체 추가, 부모 갱신, 재로드 유지,500 오류표시 확인.
 820×900에서도 입력/저장 버튼 접근 확인. 운영 테스트 주문·별칭을 만들지 않았다.
 
 ## 남은 단계
-- 보완 후 최종 계약/build, PR CI, master 병합/Cafe24 배포/운영 읽기 스모크.
+- PR CI, master 병합/Cafe24 배포/운영 읽기 스모크는 GitHub PR/Actions와 최종 응답에서 확인.
 - `.tmp/`의 probe와 브라우저 fixture는 커밋하지 않는다.
