@@ -53,7 +53,8 @@ for (const year of [2025, 2026]) {
   assert.equal(failed[0].items[0].prodKey, null);
 }
 const paste = fs.readFileSync('pages/orders/paste.js', 'utf8');
-assert.ok(paste.includes('if (it.matchReviewed) return it;'));
+assert.ok(paste.includes('if (it.matchReviewed && !manualOverride) return it;'));
+assert.ok(paste.includes('resolveManualMappingOverride(it.inputName, confirmedServerMappings.current, prods, it.matchName || it.inputName)'));
 assert.ok(paste.includes('matchReviewed: !!o.matchReviewed'));
 assert.ok(paste.includes('it.matchReason'));
 const api = fs.readFileSync('pages/api/orders/parse-paste.js', 'utf8');

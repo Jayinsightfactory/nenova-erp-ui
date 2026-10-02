@@ -36,13 +36,19 @@ export default withAuth(function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { inputToken, prodKey, prodName, displayName, flowerName, counName, unit, force, custKey, custName } = req.body;
+    const { inputToken, prodKey, prodName, displayName, flowerName, counName, unit, force, manual, custKey, custName } = req.body;
     if (!inputToken || !prodKey) {
       return res.status(400).json({ success: false, error: 'inputToken, prodKey 필요' });
     }
-    const prodInfo = { prodKey: parseInt(prodKey), prodName, displayName, flowerName, counName };
+    const prodInfo = { prodKey: parseInt(prodKey), prodName, displayName, flowerName, counName, manual: manual === true };
     if (unit) prodInfo.unit = unit;
     const normalizedCustKey = Number(custKey || 0);
+    // Background learning must never replace an explicit correction with a stale result.
+    const previous = normalizedCustKey > 0 ? null : loadMappings(true)[normalizeToken(inputToken)];
+    if (manual !== true && previous?.manual === true) {
+      if (Number(previous.prodKey) !== Number(prodInfo.prodKey)) return res.status(409).json({ success: false, error: '새 수동 매칭이 있어 이전 분석의 자동 학습을 보류했습니다. 매칭 현황에서 확인하세요.' });
+      prodInfo.manual = true;
+    }
     const result = normalizedCustKey > 0
       ? saveCustomerProductMapping(normalizedCustKey, inputToken, prodInfo, { custName })
       : saveMapping(inputToken, prodInfo, { force: !!force });

@@ -11,6 +11,17 @@
 
 ## 2026-09-07 AI 후보 재검증
 
+## 2026-10-02 붙여넣기 매칭 저장 재검증
+
+실제 로컬 dnSpy CLI로 `FormOrderAdd`를 재조회했다. `GetDataProduct`의 활성 Product.ProdKey,
+OrderMasterKey 및 ViewShipment의 연도·차수·업체·품목 연결, `btnSave_Click` 별도 저장을 확인했다.
+읽기 전용 DB 표본: 활성 Product 3,284개, ProdKey447 CARNATION Moon Light/OutUnit박스.
+39-02 동일 품목의 ViewOrder 건수 2025=6/2026=24, ViewShipment 2025=4/2026=24.
+표본 SELECT 69ms이며 전체 페이지 또는 운영 SQL 부하 측정값으로 해석하지 않는다.
+이번 변경은 웹 alias JSON, 표시, 읽기 주기만 대상이다. 기존 ERP 저장 API와 수량·재고·견적·매출 SQL은 변경하지 않는다.
+
+### 2026-09-07 상세
+
 로컬 dnSpy CLI 실행: `dnSpy.Console.exe --no-color -t FormOrderAdd "C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe"`.
 `GetCustomer(false)`는 CustName 표시/CustKey 선택, `GetDataProduct`는 Product.ProdKey와
 OrderMasterKey로 주문을 연결한다. `btnSave_Click`은 별도 주문 저장 이벤트이며 AI 분석은 호출하지 않는다.

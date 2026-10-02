@@ -1,5 +1,12 @@
 const assert=require('node:assert/strict');
-const {recentSalesPeriod}=require('../lib/distributionSalesInboxRefresh');
+const {recentSalesPeriod,REFRESH_INTERVAL_MS,HISTORY_REFRESH_INTERVAL_MS}=require('../lib/distributionSalesInboxRefresh');
+assert.equal(REFRESH_INTERVAL_MS,30000);
+assert.equal(HISTORY_REFRESH_INTERVAL_MS,60000);
+const inboxSource=require('node:fs').readFileSync(require('node:path').join(__dirname,'../components/orders/DistributionSalesInbox.js'),'utf8');
+assert(inboxSource.includes('intervalMs:HISTORY_REFRESH_INTERVAL_MS'),'status/history use tested bounded cadence');
+assert(inboxSource.includes('data-testid="sales-inbox-refresh-cadence"'),'cadence remains visible outside folded tools');
+assert(inboxSource.includes('void refreshLiveHistory(liveScope,liveBatch,{force:true})'),'post-save history refresh bypasses polling delay');
+assert(inboxSource.includes('const liveBatch=[...rows].reverse()'),'full history coverage is preserved');
 const {periodBounds}=require('../lib/distributionSalesInbox');
 for(const [now,from,to] of [
   ['2026-09-15T00:00:00+09:00','2026-09-09','2026-09-15'],
@@ -55,9 +62,21 @@ assert.equal(shouldBufferIncoming({selectedCount:0,reviewOpen:true}),true);
   assert.equal(runs,1);timer();assert.equal(runs,1);resolveRun();await Promise.resolve();timer();assert.equal(runs,2);stop();assert.equal(cleared,true);
   let retryTimer,retries=0,clock=0;
   const stopRetry=startBoundedAutoRefresh({run:async()=>{retries++;throw new Error('offline');},now:()=>clock,setIntervalImpl:fn=>{retryTimer=fn;return 8;},clearIntervalImpl:()=>{}});
-  await Promise.resolve();retryTimer();assert.equal(retries,1);clock=30_000;retryTimer();assert.equal(retries,2);stopRetry();
+  await Promise.resolve();retryTimer();assert.equal(retries,1);clock=30_000;retryTimer();assert.equal(retries,1);clock=60_000;retryTimer();assert.equal(retries,2);stopRetry();
   let delayedTimer,delayedRuns=0;
   const stopDelayed=startBoundedAutoRefresh({immediate:false,run:async()=>{delayedRuns++;},setIntervalImpl:fn=>{delayedTimer=fn;return 10;},clearIntervalImpl:()=>{}});
   assert.equal(delayedRuns,0);delayedTimer();await Promise.resolve();assert.equal(delayedRuns,1);stopDelayed();
+  let historyTick,historyRuns=0,historyClock=0,historyEligible=true,historyRelease;
+  const stopHistory=startBoundedAutoRefresh({intervalMs:HISTORY_REFRESH_INTERVAL_MS,maxBackoffMs:240000,now:()=>historyClock,isEligible:()=>historyEligible,
+    run:()=>{historyRuns++;return new Promise((resolve,reject)=>{historyRelease={resolve,reject};});},
+    setIntervalImpl:(fn,ms)=>{assert.equal(ms,60000);historyTick=fn;return 11;},clearIntervalImpl:()=>{}});
+  assert.equal(historyRuns,1,'complete initial history begins immediately');
+  historyClock=60000;historyTick();assert.equal(historyRuns,1,'slow history never overlaps');
+  historyRelease.reject(Error('offline'));await Promise.resolve();await Promise.resolve();
+  historyClock=120000;historyTick();assert.equal(historyRuns,1,'failure backs off');
+  historyClock=180000;historyEligible=false;historyTick();assert.equal(historyRuns,1,'hidden/offline blocks retry');
+  historyEligible=true;historyTick();assert.equal(historyRuns,2);
+  historyRelease.resolve();await Promise.resolve();await Promise.resolve();
+  stopHistory();historyTick();assert.equal(historyRuns,2,'cleanup blocks further reads');
   console.log('distribution sales inbox refresh tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

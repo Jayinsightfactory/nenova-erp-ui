@@ -1,5 +1,7 @@
 # 세션 Q&A 인덱스
 
+- [2026-10-02 붙여넣기 매칭 저장·조회 부하](2026-10-02_paste-mapping-loading.md) — 신규 별칭 추가, 확인된 저장/재시도, 등록분배하기, 조회 중복 완화.
+
 - [2026-10-02 주광 날짜 이동 저장 시각 오차단](2026-10-02_weekday-calendar-timestamp.md) — nvarchar 달력과 datetime 출고일 표현 통일, exact JOIN·원장 부작용 계약 유지.
 
 - [2026-10-01 주광 차수 잔량 이월·수정 이력](2026-10-01_weekday-carryforward.md) — 전산 달력 중심+1, page-only 마감잔량과 이월, 최초·ERP 원장 보존.

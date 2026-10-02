@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {MAX_TEXT_BYTES,periodBounds,parseSalesExport,mergeMessages,selectedText} from '../../lib/distributionSalesInbox';
-import {DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
+import {REFRESH_INTERVAL_MS,HISTORY_REFRESH_INTERVAL_MS,DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
 import {classifyMessage,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
@@ -128,14 +128,14 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     setRows(previous=>mergeMessages(previous,pendingRowsRef.current).rows);
     setPendingRows([]);setRefreshStatus(previous=>({...previous,newCount:0}));
   }
-  async function refreshLiveHistory(scope=liveScope,messages=liveBatch) {
+  async function refreshLiveHistory(scope=liveScope,messages=liveBatch,{force=false}={}) {
     const currentPeriod=`${from}/${to}`;
     const batchKey=messages.map(row=>`${row.identity}:${row.created_at||''}:${row.message||''}`).join('\u001e');
-    // A full SQL history comparison can take longer than the 15s polling interval.
+    // Never overlap a full SQL history comparison, including post-save refreshes.
     // Ignore identical polling requests, but preserve the queue for genuinely new
     // incoming rows so a refresh is not lost.
     if(liveHistoryInFlight.current) {
-      if(liveHistoryInFlightBatchKey.current!==batchKey) liveHistoryRefreshQueued.current=true;
+      if(force||liveHistoryInFlightBatchKey.current!==batchKey) liveHistoryRefreshQueued.current=true;
       return;
     }
     if(!applicationWeek||loadedPeriod!==currentPeriod||!messages.length) {
@@ -168,13 +168,12 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       clearTimeout(timeout);
       if(liveHistoryController.current===controller) {liveHistoryController.current=null;liveHistoryInFlight.current=false;}
       if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current) setLiveHistoryStatus(previous=>({...previous,loading:false}));
-      if(liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,liveHistoryBatchRef.current);}
+      if(liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,liveHistoryBatchRef.current);}
     }
   }
   async function refreshApplicationStatus(scope=applicationScope,{force=false}={}) {
     if(applicationSaveInFlight.current){applicationRefreshQueued.current={scope,force:true};return;}
-    if(applicationInFlight.current&&!force)return;
-    if(applicationInFlight.current&&force)applicationController.current?.abort();
+    if(applicationInFlight.current){if(force)applicationRefreshQueued.current={scope,force:true};return;}
     const sequence=++applicationSequence.current,epoch=applicationScopeEpoch.current;
     if(!applicationWeek) {
       setManualApplications({});setAuditApplications({});setOperationApplications({});setApplicationStatus({loading:false,error:'선택 연도와 전체 차수가 일치해야 적용 표시를 읽을 수 있습니다.',limit:20,asOf:'',loaded:false});
@@ -204,21 +203,40 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       const operations=Object.fromEntries(Object.entries(operationStates).filter(([,operation])=>!operation.undone));
       setManualApplications(byIdentity(manualData.applications));setAuditApplications(byIdentity(auditData.items));setOperationApplications(operations);
       setApplicationStatus({loading:false,error:'',limit:Number.isInteger(auditData.limit)?auditData.limit:20,asOf:typeof auditData.asOf==='string'?auditData.asOf:'',loaded:true});
-    } catch(error) { if(applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current&&(error?.name!=='AbortError'||timedOut))setApplicationStatus(previous=>({...previous,loading:false,error:timedOut?'적용 상태 조회가 30초 안에 끝나지 않았습니다. 기존 표시는 유지됩니다.':error.message||'적용 표시를 읽지 못했습니다. 기존 표시는 유지합니다.'})); }
-    finally {clearTimeout(timeout);if(applicationController.current===controller){applicationController.current=null;applicationInFlight.current=false;}if(applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current)setApplicationStatus(previous=>({...previous,loading:false}));}
+    } catch(error) { if(applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current&&(error?.name!=='AbortError'||timedOut))setApplicationStatus(previous=>({...previous,loading:false,error:timedOut?'적용 상태 조회가 30초 안에 끝나지 않았습니다. 기존 표시는 유지됩니다.':error.message||'적용 표시를 읽지 못했습니다. 기존 표시는 유지합니다.'})); return false; }
+    finally {
+      clearTimeout(timeout);
+      if(applicationController.current===controller){applicationController.current=null;applicationInFlight.current=false;}
+      if(applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current){
+        setApplicationStatus(previous=>({...previous,loading:false}));
+        const queued=applicationRefreshQueued.current;applicationRefreshQueued.current=null;
+        if(queued?.scope===scope)void refreshApplicationStatus(scope,{force:true});
+      }
+    }
   }
   useEffect(()=>{setManualApplications({});setAuditApplications({});setOperationApplications({});setApplicationDrafts({});setApplicationSaving({});setApplicationErrors({});setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});},[applicationScope]);
   useEffect(()=>{if(open&&!disabled)refreshApplicationStatus(applicationScope,{force:true});},[applicationScope,open,disabled,operationRevision]);
-  useEffect(()=>{if(!open||!autoRefresh||disabled)return()=>{};const eligible=()=>document.visibilityState==='visible'&&navigator.onLine!==false;const run=()=>{if(eligible())refreshApplicationStatus(applicationScope);};run();const timer=setInterval(run,15000);return()=>{const controller=applicationController.current;clearInterval(timer);applicationSequence.current++;controller?.abort();if(applicationController.current===controller){applicationController.current=null;applicationInFlight.current=false;setApplicationStatus(previous=>({...previous,loading:false}));}};},[applicationScope,open,autoRefresh,disabled]);
+  useEffect(()=>{
+    if(!open||!autoRefresh||disabled)return()=>{};
+    return startBoundedAutoRefresh({immediate:false,intervalMs:HISTORY_REFRESH_INTERVAL_MS,maxBackoffMs:240000,
+      isEligible:()=>document.visibilityState==='visible'&&navigator.onLine!==false,
+      run:async()=>{if(await refreshApplicationStatus(applicationScope)===false)throw new Error('application refresh failed');},
+    });
+  },[applicationScope,open,autoRefresh,disabled]);
   useEffect(()=>{
     if(!open||!autoRefresh||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return()=>{};
     const eligible=()=>document.visibilityState==='visible'&&navigator.onLine!==false;
     const run=()=>{if(eligible()&&!liveHistoryAutoBlocked.current)refreshLiveHistory(liveScope,liveBatch);};
     clearTimeout(liveHistoryDebounce.current);
     liveHistoryDebounce.current=setTimeout(run,250);
-    const timer=setInterval(run,15000);
-    return()=>{clearTimeout(liveHistoryDebounce.current);clearInterval(timer);};
+    const stop=startBoundedAutoRefresh({immediate:false,intervalMs:HISTORY_REFRESH_INTERVAL_MS,isEligible:eligible,run:()=>liveHistoryAutoBlocked.current?undefined:refreshLiveHistory(liveScope,liveBatch)});
+    return()=>{clearTimeout(liveHistoryDebounce.current);stop();};
   },[liveScope,liveBatchKey,loadedPeriod,open,autoRefresh,disabled]);
+  useEffect(()=>{
+    if(!operationRevision||!open||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return;
+    liveHistoryAutoBlocked.current=false;
+    void refreshLiveHistory(liveScope,liveBatch,{force:true});
+  },[operationRevision,disabled,open]);
   function updateApplicationDraft(identity,memo) {
     setApplicationDrafts(previous=>({...previous,[identity]:{memo:String(memo||'').slice(0,1000)}}));
     setApplicationErrors(previous=>({...previous,[identity]:''}));
@@ -410,10 +428,11 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   return <section className="sales-inbox" aria-label="영업방 대화 수신함">
     <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 기본 최근 7일</span></div>
     <div className="sales-inbox-content" hidden={!open}>
+      <small data-testid="sales-inbox-refresh-cadence">{autoRefresh?`자동 확인: 새 대화 ${REFRESH_INTERVAL_MS/1000}초 · 전산 이력·상태 ${HISTORY_REFRESH_INTERVAL_MS/1000}초 (오류 시 지연 또는 수동 재시도). 새 원문·저장 후에는 바로 확인합니다.`:'자동 확인 꺼짐 · 최신 자료는 새로고침 버튼으로 확인하세요.'}</small>
       <details className="inbox-tools" open={controlsOpen} onToggle={event=>setControlsOpen(event.currentTarget.open)}><summary>조회·불러오기·비교 도구 {controlsOpen?'접기':'펼치기'}</summary>
       <div className="bar inbox-controls"><label>시작일 <input type="date" value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
         <button type="button" disabled={busy||disabled||!from||!to} onClick={()=>loadRemote()}>영업방 불러오기</button>
-        <label><input type="checkbox" checked={autoRefresh} disabled={disabled} onChange={event=>setAutoRefresh(event.target.checked)}/> 5초마다 새 대화 확인</label>
+        <label><input type="checkbox" checked={autoRefresh} disabled={disabled} onChange={event=>setAutoRefresh(event.target.checked)}/> {REFRESH_INTERVAL_MS/1000}초마다 새 대화 확인</label>
         <button type="button" data-live-history-refresh disabled={disabled||liveHistoryStatus.loading||loadedPeriod!==livePeriod||!applicationWeek||!liveBatch.length} onClick={()=>{liveHistoryAutoBlocked.current=false;refreshLiveHistory(liveScope,liveBatch);}}>최신 이력 새로고침</button>
         <button type="button" data-manual-application-refresh disabled={disabled||applicationStatus.loading||!applicationWeek} onClick={()=>refreshApplicationStatus(applicationScope,{force:true})}>상태 새로고침</button>
         <button type="button" disabled={disabled} onClick={()=>{setReviewMounted(true);setReviewOpen(value=>!value);}}>검토·비교 {reviewOpen?'닫기':'열기'}</button>
