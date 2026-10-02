@@ -7,7 +7,7 @@
 - 작업 ID: 019f5032-9276-72a2-8709-29b719c67702 (현재 작업 컨텍스트)
 - workspace: C:/Users/USER/Documents/Codex/2026-07-11/new-chat/work/jugwang-weekday-test-deploy
 - branch: codex/weekday-confirmation-display-fix; 시작 origin/master e857b2af
-- 상태: 로컬 브라우저·필수 게이트·최종 검토 완료, PR·배포·운영 확인 진행 중
+- 상태: 수정·전체 검증·PR854 병합·Cafe24 배포·운영 읽기/실브라우저 확인 완료
 
 ## 질문 → 답변·조치
 
@@ -68,3 +68,23 @@
 저장 isFix 표시와 연결 경고를 분리한 주광 UI 수정이며 운영 원장을 보정하지 않는다.
 필수 게이트/PR/배포 결과와 운영 read-only 확인 기록을 확인하고 남은 단계만 수행한다.
 확정 배지를 저장/재고/인쇄 eligibility로 재사용하거나 기왕의 원장을 변경하지 않는다.
+
+## 2026-10-02 완료 추기
+
+- 최종 전체 ERP 게이트 재실행 exit0: output/confirmation-fix-final-erp-contract.log
+- 코드8f096994 + 화면 테스트 후속f3b55b3f. PR854:
+  https://github.com/Jayinsightfactory/nenova-erp-ui/pull/854
+- 최종 PR CI36952457681 success; master CI36952594492 success.
+- squash master c92418bf9bdf062d2516bdc412637ca32d287c61; PR HEAD와 master tree 동일.
+- Cafe24 배포36952594505 success (ERP 검증/SSH 배포/hydration smoke 모두 통과).
+- 운영 build-1790905731894. 운영 read-only smoke PASS,
+  output/confirmation-fix-live.log, output/confirmation-fix-header-live.log.
+- 39차998/998확정, 식별불명0/연결경고606 → 실제 화면ERP확정+연결경고 표시.
+- 40차1122/363부분확정, 식별불명0/연결경고335 → 실제 화면ERP부분확정 표시.
+- 41차자료없음. 운영 수치는 조회 시점 값이며 고정 기능 규칙이 아니다.
+- 운영 숫자18px/700/중앙, 선택내역760px/본문18px 확인.
+- 1920×1080/100% 및1280×800, 이월창/상하 스크롤, 브라우저오류0 확인.
+- 캡처: output/confirmation-fix-live-1920x1080.png (상단표시와 숫자 직접 육안 확인).
+- 운영 원장·기준·이월·비고 저장 없음. 인증 외 요청을 읽기·비저장preview로 제한.
+- 연결경고의 원인별 실제 원장 보정 및 기존 저장/인쇄 위험 검토는 계속 별도 범위다.
+- 이 완료 추기는 배포 후 로컬 기록이며 배포 코드에 영향을 주지 않는다.
