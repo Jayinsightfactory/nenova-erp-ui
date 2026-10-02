@@ -8,15 +8,137 @@ import {
   insertWeekdayShipmentDate,
   readWeekdayChanges,
   readWeekdayOperation,
+  readWeekdayCalendar,
   weekdayDistributionErrorResponse,
   weekdayRollbackAcknowledgement,
 } from '../lib/weekdayDistributionApply.js';
 import { materializeOverflowTargets } from '../lib/estimateOverflow.js';
+import { buildWeekdayChangePlan } from '../lib/weekdayDistributionPolicy.js';
 
 const types = {
   Int: 'Int', Float: 'Float', DateTime: 'DateTime', NVarChar: 'NVarChar',
   UniqueIdentifier: 'UniqueIdentifier', Char: (size) => `Char(${size})`, VarChar: (size) => `VarChar(${size})`,
 };
+
+function calendarFixture({ storage = 'nvarchar', anchorRows = 1, dayRows = {}, timestamp = '2026-10-04 00:00:00.000' } = {}) {
+  const calls = [];
+  const change = {
+    year: '2026', orderWeek: '40-01', custKey: 533, prodKey: 866,
+    dates: [{ date: '2026-10-01', quantity: 5 }, { date: '2026-10-04', quantity: 15 }],
+  };
+  const actual = {
+    detailRows: 1, shipmentOutQuantity: 20,
+    detail: { SdetailKey: 93742, DetailIsFix: 1 },
+    master: { ShipmentKey: 1, MasterIsFix: 1 },
+    shipmentDates: [{
+      sdateKey: 124386, sdetailKey: 93742, shipmentKey: 1,
+      date: '2026-10-04', timestamp, shipmentQuantity: 20,
+      estimateQuantity: 600, detailFixed: true, cost: 2500, amount: 1363636, vat: 136364,
+    }],
+  };
+  change.expected = {
+    detailRows: actual.detailRows, shipmentOutQuantity: actual.shipmentOutQuantity,
+    shipmentDates: actual.shipmentDates,
+  };
+  const executor = async (statement, params) => {
+    calls.push({ statement, params });
+    const anchor = Object.hasOwn(params, 'anchorYwk');
+    const date = anchor ? '2026-10-01' : params.date.value;
+    const rawRows = anchor
+      ? Array.from({ length: anchorRows }, () => ({ BaseYmd: storage === 'nvarchar' ? date : `${date} 00:00:00.000`, WeekDay: 5 }))
+      : dayRows[date] ?? [{ BaseYmd: storage === 'nvarchar' ? date : `${date} 00:00:00.000`, WeekDay: date.endsWith('01') ? 5 : 1 }];
+    // Model SQL's type distinction without Date/timezone coercion. The fake
+    // only canonicalizes when the production query explicitly converts first.
+    const converted = /CONVERT\(nvarchar\(23\),CONVERT\(datetime,BaseYmd,121\),121\)/.test(statement);
+    return { recordset: rawRows.map((row) => {
+      const raw = row.BaseYmd;
+      return {
+        Date: raw.slice(0, 10), WeekDay: row.WeekDay,
+        Timestamp: converted && raw.length === 10 ? `${raw} 00:00:00.000` : raw,
+      };
+    }) };
+  };
+  return { calls, change, actual, executor };
+}
+
+for (const storage of ['nvarchar', 'datetime']) {
+  test(`${storage} 달력은 anchor/day 모두 SQL datetime 선변환으로 20→15+5를 허용한다`, async () => {
+    const fixture = calendarFixture({ storage });
+    const calendar = await readWeekdayCalendar(fixture.executor, types, fixture.change, fixture.actual);
+    const plan = buildWeekdayChangePlan(fixture.change, fixture.actual, calendar);
+    assert.equal(plan.newTotal, 20);
+    assert.equal(plan.delta, 0);
+    assert.deepEqual(plan.finalDates.map((row) => [row.timestamp, row.shipmentQuantity]), [
+      ['2026-10-01 00:00:00.000', 5], ['2026-10-04 00:00:00.000', 15],
+    ]);
+    assert.equal(fixture.calls[0].params.anchorYwk.value, '202640');
+    assert.equal(fixture.calls.length, 3);
+    for (const call of fixture.calls) {
+      assert.match(call.statement, /CONVERT\(nvarchar\(10\),CONVERT\(datetime,BaseYmd,121\),120\)/);
+      assert.match(call.statement, /CONVERT\(nvarchar\(23\),CONVERT\(datetime,BaseYmd,121\),121\)/);
+      assert.match(call.statement, /WITH \(UPDLOCK,HOLDLOCK\)/);
+    }
+  });
+}
+
+test('nvarchar에 저장된 실제 nonmidnight 시각은 보존하고 정확히 일치할 때만 허용한다', async () => {
+  const timestamp = '2026-10-04 12:34:56.123';
+  const fixture = calendarFixture({ timestamp, dayRows: {
+    '2026-10-04': [{ BaseYmd: timestamp, WeekDay: 1 }],
+  } });
+  const calendar = await readWeekdayCalendar(fixture.executor, types, fixture.change, fixture.actual);
+  assert.equal(calendar.get('2026-10-04').timestamp, timestamp);
+  fixture.actual.shipmentDates[0].timestamp = '2026-10-04 00:00:00.000';
+  await assert.rejects(readWeekdayCalendar(fixture.executor, types, fixture.change, fixture.actual), {
+    code: 'CALENDAR_TIMESTAMP_MISMATCH',
+  });
+});
+
+test('동일 날짜의 다른 ShipmentDate 시각도 계속 거부한다', async () => {
+  const fixture = calendarFixture({ timestamp: '2026-10-04 12:00:00.000' });
+  await assert.rejects(readWeekdayCalendar(fixture.executor, types, fixture.change, fixture.actual), {
+    code: 'CALENDAR_TIMESTAMP_MISMATCH',
+  });
+});
+
+for (const count of [0, 2]) {
+  test(`목요일 anchor ${count}건은 계속 거부한다`, async () => {
+    const fixture = calendarFixture({ anchorRows: count });
+    await assert.rejects(readWeekdayCalendar(fixture.executor, types, fixture.change, fixture.actual), {
+      code: 'CALENDAR_MISMATCH',
+    });
+  });
+  test(`신규 날짜 달력 ${count}건은 계속 거부한다`, async () => {
+    const fixture = calendarFixture({ dayRows: {
+      '2026-10-01': Array.from({ length: count }, () => ({ BaseYmd: '2026-10-01', WeekDay: 5 })),
+    } });
+    const calendar = await readWeekdayCalendar(fixture.executor, types, fixture.change, fixture.actual);
+    assert.throws(() => buildWeekdayChangePlan(fixture.change, fixture.actual, calendar), {
+      code: 'CALENDAR_MISMATCH',
+    });
+  });
+  test(`기존 출고일 달력 ${count}건도 정확 시각 검증에서 거부한다`, async () => {
+    const fixture = calendarFixture({ dayRows: {
+      '2026-10-04': Array.from({ length: count }, () => ({ BaseYmd: '2026-10-04', WeekDay: 1 })),
+    } });
+    await assert.rejects(readWeekdayCalendar(fixture.executor, types, fixture.change, fixture.actual), {
+      code: 'CALENDAR_TIMESTAMP_MISMATCH',
+    });
+  });
+}
+
+test('업무주 밖 신규 날짜와 기존 출고일은 계속 거부한다', async () => {
+  const fixture = calendarFixture();
+  fixture.change.dates[0].date = '2026-10-08';
+  const calendar = await readWeekdayCalendar(fixture.executor, types, fixture.change, fixture.actual);
+  assert.throws(() => buildWeekdayChangePlan(fixture.change, fixture.actual, calendar), {
+    code: 'CALENDAR_MISMATCH',
+  });
+  fixture.actual.shipmentDates[0].date = '2026-10-08';
+  await assert.rejects(readWeekdayCalendar(fixture.executor, types, fixture.change, fixture.actual), {
+    code: 'CALENDAR_SCOPE_MISMATCH',
+  });
+});
 
 function conversionPlan(overrides = {}) {
   return {

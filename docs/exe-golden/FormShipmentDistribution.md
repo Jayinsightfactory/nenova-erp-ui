@@ -1,5 +1,24 @@
 # FormShipmentDistribution — exe golden (dnSpy/CLI)
 
+## 2026-10-02 주광 요일 저장 달력 시각 표현
+
+실제 CLI `dnSpy.Console.exe --no-color -t ClassShipmentDate
+"C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe"` 재실행:
+Insert는 `ShipmentDtm.ToShortDateString()`을 ShipmentDate 날짜로 저장한다.
+저장된 decompile `FormEstimateView.GetDetail/GetPrintDetail`은
+`sdd.ShipmentDtm = pd.BaseYmd`로 시각 포함 exact JOIN한다.
+
+운영 read-only INFORMATION_SCHEMA: PeriodDay.BaseYmd=nvarchar,
+ShipmentDate.ShipmentDtm=datetime. 2026/40-01/533/866의 SdateKey124386은
+20박스, 기존 ShipmentTimestamp=`2026-10-04 00:00:00.000`,
+직접 변환 CalendarTimestamp=`2026-10-04`, SQL datetime 선변환 후
+`2026-10-04 00:00:00.000`. 실제 exact JOIN의 WeekDay=1,
+ViewOrder/ViewShipment 각1, ShipmentFarm0, DetailFix1이다.
+
+웹의 달력 직렬화에 SQL datetime 선변환을 적용한다. exact comparison과 날짜 저장
+코어는 보존하며 날짜 부분만 같다고 통과시키지 않는다. 운영 원장/스키마/SP 쓰기 없음.
+
+
 2026-09-29 운임 피드백 보완: 실제 dnSpy CLI ClassShipmentDate.UpdateCost를 재실행해
 ROUND(EstQuantity,0) 금액 계산을 확인했다. 2026 업체515/38-01 운임 SELECT에서
 ViewOrder/ViewShipment/PeriodDay join 각각1 확인. 원장 저장 코어는 변경하지 않고,

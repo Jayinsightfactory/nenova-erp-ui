@@ -1,5 +1,17 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-02 주광 달력 문자열 시각 오차단
+
+운영 PeriodDay.BaseYmd는 nvarchar, ShipmentDate.ShipmentDtm은 datetime이다.
+style121 문자열 변환만 적용하면 같은 자정 날짜가 각각 `2026-10-04`와
+`2026-10-04 00:00:00.000`으로 남아 정상 exact JOIN 행도 저장 전 차단됐다.
+요일별 저장의 달력 조회는 BaseYmd를 SQL datetime으로 명시 변환한 뒤 style121로
+직렬화한다. 날짜만 비교하거나 시각 불일치 가드를 삭제하지 않는다. 기존 업무주,
+연도·업체·품목·동시수정·환산·단가·확정·재고·전체 rollback 계약은 유지한다.
+운영 표본 2026/40-01/533/866은 SELECT만 실행하고 임의 보정하지 않았다.
+실제 nvarchar 달력 격리 MSSQL fixture와 정확 시각 near-miss를 회귀로 고정한다.
+
+
 ## 2026-09-30 견적 수량 수정의 후속연도 스냅샷 범위
 
 확정 견적 수량 수정의 선차단이 후속연도 `StockMaster` 존재만 검사해 모든 품목 저장을
