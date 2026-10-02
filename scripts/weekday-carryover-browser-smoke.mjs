@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import XLSX from 'xlsx';
 import { parseWeekdayEstimateBuffer } from '../lib/weekdayEstimateWorkbook.js';
 import { buildShippingCycles, normalizeCycleRequest, shiftDate, SHIPPING_DAYS } from '../lib/weekdayEstimateCycle.js';
+import { buildWeekdayConfirmationSummary } from '../lib/weekdayConfirmation.js';
 
 const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:20768';
 assert.match(base, /^http:\/\/(?:127\.0\.0\.1|localhost):\d+$/);
@@ -136,6 +137,13 @@ await page.route('**/*', async route => {
     const year = Number(query.year), orderWeeks = String(query.orderWeeks || '').split(',').filter(Boolean);
     body = { success: true, scope: { year, custKey: Number(query.custKey), orderWeeks },
       products: [{ ProdKey: 866, ProdName: 'CARNATION carry fixture', OutUnit: '박스', outUnit: '박스', FlowerName: '카네이션', CounName: 'fixture' }] };
+  } else if (url.pathname === '/api/estimate/weekday-confirmation') {
+    const majorWeek=String(query.majorWeek).padStart(2,'0');
+    const summary=buildWeekdayConfirmationSummary({year:Number(query.year),majorWeek},[
+      {OrderYear:Number(query.year),OrderWeek:`${majorWeek}-01`,CountryFlower:'콜롬비아카네이션',TotalCount:5,FixedCount:majorWeek==='38'?2:5,UnknownCount:0},
+      {OrderYear:Number(query.year),OrderWeek:`${majorWeek}-02`,CountryFlower:'콜롬비아수국',TotalCount:3,FixedCount:3,UnknownCount:0},
+    ]);
+    body={success:true,readOnly:true,summary};
   } else if (url.pathname === '/api/estimate/weekday-baseline' && request.method() === 'GET') {
     body = { success: true, baselines: baselineRows(Number(query.year), String(query.orderWeeks || '').split(',').filter(Boolean), Number(query.custKey)) };
   } else if (url.pathname === '/api/estimate/weekday-baseline' && request.method() === 'POST') {
@@ -167,6 +175,16 @@ try {
   assert.match(await sundayCell.getAttribute('title'), /전산 원문 38-02: 0 박스/, JSON.stringify({ compareScopes, title: await sundayCell.getAttribute('title') }),
     'Sunday keeps its 38-01 editing origin and retains the cross-subweek 38-02 zero tombstone');
   const initialScreenshot = path.join(screenshotDirectory, '1920x1080-initial.png');
+  const confirmationHeader=page.locator('thead tr:first-child th').filter({hasText:'현재 2026 / 38차'});
+  await confirmationHeader.locator('.wcm-confirmations').waitFor();
+  assert.match(await confirmationHeader.innerText(),/ERP부분확정/);
+  assert.match(await confirmationHeader.innerText(),/미확정 물량은 견적에서 제외/);
+  const typography=await page.locator('.wcm-number-display').first().evaluate(node=>({
+    align:getComputedStyle(node).textAlign,size:parseFloat(getComputedStyle(node).fontSize),weight:Number(getComputedStyle(node).fontWeight),
+    width:node.clientWidth,scrollWidth:node.scrollWidth,
+  }));
+  assert.equal(typography.align,'center');assert.ok(typography.size>=16);assert.ok(typography.weight>=600);
+  assert.ok(typography.scrollWidth<=typography.width+1,'quantity does not overflow its cell');
   await page.screenshot({ path: initialScreenshot });
 
   const initialState = await page.evaluate(() => ({
@@ -274,11 +292,11 @@ try {
   assert.equal(await historyRegion.evaluate(node => node.scrollHeight > node.clientHeight), true, 'long history remains internally scrollable at the smaller viewport');
   assert.deepEqual(pageErrors, []);
   assert.equal(requests.every(item => item.path.startsWith('/api/')), true);
-  assert.equal(requests.some(item => /apply|confirm|distribution-save/i.test(item.path)), false, 'smoke never calls ERP apply endpoints');
+  assert.equal(requests.some(item => item.method!=='GET' && /apply|confirm|distribution-save/i.test(item.path)), false, 'smoke never calls ERP apply endpoints; confirmation GET is read-only');
   console.log(JSON.stringify({ pass: true, fixtureOnly: true, writes: 'isolated intercepted carryover fixture only',
     viewport: '1920x1080 @100%', responsiveViewport: '1280x800', bounds1920, smallBounds,
     history: savedRecords[0].history, carryAt38BeforeDraft: 7, carryAt38AfterDraft: afterDraft,
-    screenshots: { initial: initialScreenshot, dialog: dialogScreenshot }, initialState, afterSave, pageErrors }));
+    screenshots: { initial: initialScreenshot, dialog: dialogScreenshot }, typography,initialState, afterSave, pageErrors }));
 } finally {
   await context.close();
   await browser.close();

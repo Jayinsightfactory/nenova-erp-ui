@@ -2,6 +2,11 @@
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
   "scope": [
+    "lib/weekdayConfirmation.js",
+    "pages/api/estimate/weekday-confirmation.js",
+    "__tests__/weekdayConfirmation.test.js",
+    "__tests__/weekdayCompactSummary.test.js",
+    "docs/plans/weekday-compact-confirmation-2026-10-02.md",
     "docs/plans/weekday-carryforward-2026-10-01.md",
     "lib/weekdayCarryover.js",
     "lib/weekdayCarryoverStore.js",
@@ -57,6 +62,12 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
+    {
+      "name": "WEEKDAY_ERP_CATEGORY_CONFIRMATION_DISPLAY",
+      "orderDetail": "preserve", "shipmentDetail": "preserve", "shipmentDate": "preserve",
+      "estimateRows": "preserve", "stock": "preserve", "webProfitReport": "preserve",
+      "sideEffect": "명시 연도+메인차수의 모든 세부차수·전체 거래처 양수 분배행을 CountryFlower별 SELECT 집계한다. Detail isFix NULL은 미확정, 일부/전체/미확정/자료없음/조회불명을 구분하며 누락 Product/품종/업체키 모순을 불명으로 남긴다. 페이지 최초 기준/재고 마감/인쇄 완전성과 별개다. 클라이언트 scope 및 집계 재검증, stale 응답 차단. 수량 중앙/진한 숫자·압축 요약·접근가능 상세 표시만 변경; ERP 저장/인쇄/확정 API는 보존한다."
+    },
     {
       "name": "WEEKDAY_MANUAL_CLOSING_CARRYOVER",
       "orderDetail": "preserve",
@@ -192,6 +203,8 @@
     "description": "비교 요청 year=2026, orderWeek=38-02, custKey=7, prodKey=101이면 같은 38-02의 2025년 행은 결과에 포함되지 않는다. 모든 쿼리는 OrderYear/OrderWeek/CustKey/ProdKey를 제한한다."
   },
   "requiredTestFiles": [
+    "__tests__/weekdayConfirmation.test.js",
+    "__tests__/weekdayCompactSummary.test.js",
     "__tests__/weekdayCarryover.test.js",
     "__tests__/weekdayCarryoverStore.test.js",
     "__tests__/weekdayCarryoverApi.test.js",

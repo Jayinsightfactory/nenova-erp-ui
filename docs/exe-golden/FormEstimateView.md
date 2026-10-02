@@ -1,5 +1,17 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-10-02 대차수 전체 확정과 인쇄 완전성
+
+실제 CLI `dnSpy.Console.exe --no-color -t FormEstimateView
+"C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe"`에서 GetPrintDetail의
+ViewShipment.DetailFix=1 및 양수 EstQuantity/정확 날짜/업무키 연결을 재확인했다.
+모든 품종과 세부차수를 완전 확정했는지 확인하는 NOT EXISTS 또는 전체 건수 검사는
+없다. 부분 확정일 때 확정분만 견적에 포함될 수 있다. '메인차수 전체 확정 후 최종
+견적'은 별도 업무 완전성 기준이며 이를 기존 SQL의 전역 선행 조건으로 설명하지 않는다.
+주광 제목 옆 품종별 상태는 양수 출고 상세 전사 범위의 읽기 전용 상태이며,
+기준 보관·StockMaster 마감·ViewOrder/날짜 JOIN 통과를 대신 보증하지 않는다.
+이번 변경은 인쇄 SQL/행 선택/글꼴/차감/확정 사이클을 보존한다.
+
 ## 2026-09-30 요일별 인쇄·글꼴 재확인
 
 설치된 `C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe`를

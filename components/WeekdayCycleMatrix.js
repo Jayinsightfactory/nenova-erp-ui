@@ -103,10 +103,129 @@ function PrintButton({ label, reason, onClick, className = '', visibleLabel = la
   </span>;
 }
 
+const confirmationLabels = {
+  FIXED: 'ERP확정', PARTIAL: 'ERP부분확정', UNFIXED: 'ERP미확정',
+  EMPTY: 'ERP자료 없음', UNKNOWN: 'ERP확정 미확인',
+};
+const compactCategoryLabel = name => String(name).replace(/^(콜롬비아|네덜란드|에콰도르|베트남|이탈리아|중국|태국|호주|일본|케냐)\s*/u,
+  country => `${({'콜롬비아':'콜','네덜란드':'네덜','에콰도르':'에콰','베트남':'베','이탈리아':'이탈','중국':'중','태국':'태','호주':'호','일본':'일','케냐':'케'})[country.trim()]} `);
+
+function ConfirmationBadges({ cycle, states, busy, error }) {
+  const matches = (Array.isArray(states) ? states : []).filter(item =>
+    Number(item.year) === Number(cycle.year) && String(item.majorWeek) === String(cycle.majorWeek));
+  const record = matches.length === 1 && matches[0].allCustomers !== false ? matches[0] : null;
+  const categories = Array.isArray(record?.categories) ? record.categories : [];
+  const scope = `${cycle.year}/${cycle.majorWeek}차 · 전체 거래처·대차수 범위 · 선택 거래처/화면 필터와 무관\nERP 출고 상세 확정 · 재고 마감/인쇄 완전성과 별개`;
+  const stateLabel = state => confirmationLabels[state] || confirmationLabels.UNKNOWN;
+  const scopedError = record?.error || (!record ? error : '');
+  if (busy || scopedError || !record) return <span className="wcm-confirmation wcm-warning" title={`${scope}\n${scopedError || (busy ? '권위 있는 ERP 확정 상태 조회 중' : '확정 상태 미확인 · 확정으로 간주하지 않음')}`}>
+    {scopedError ? 'ERP확정 미확인 · 조회 실패' : busy ? 'ERP확정 조회 중…' : confirmationLabels.UNKNOWN}
+  </span>;
+  return <span className="wcm-confirmations" aria-label={`${scope} · ${stateLabel(record.state)}`}>
+    <span className={`wcm-confirmation${record.state === 'FIXED' ? ' wcm-fixed' : ' wcm-warning'}`} title={`${scope}\n대차수 전체 상태: ${stateLabel(record.state)}`}>{stateLabel(record.state)}{record.state === 'FIXED' ? ' ✓' : ''}</span>
+    {['PARTIAL','UNFIXED'].includes(record.state) && <span className="wcm-confirmation wcm-warning" title={`${scope}\n미확정 출고 상세 물량은 견적에서 제외 · 인쇄 완전성 보장 아님`}>미확정 물량은 견적에서 제외</span>}
+    {categories.map((category, index) => {
+      const name = String(category.countryFlower || '품종 미확인');
+      const state = category.state in confirmationLabels ? category.state : 'UNKNOWN';
+      const title = `${scope}\n${name} · ${stateLabel(state)} · 확정 ${numberLabel(category.fixedCount)} / 전체 ${numberLabel(category.totalCount)}건 · 미확인 ${numberLabel(category.unknownCount)}건 · 세부차수 ${(Array.isArray(category.orderWeeks) ? category.orderWeeks : []).join(', ') || '미확인'}`;
+      return <span key={`${name}|${index}`} className={`wcm-confirmation${state === 'FIXED' ? ' wcm-fixed' : ' wcm-warning'}`}
+        title={title} aria-label={title}>{compactCategoryLabel(name)} {state === 'FIXED' ? '✓' : state === 'PARTIAL' ? '부분 !' : state === 'UNFIXED' ? '미확정 !' : state === 'EMPTY' ? '자료 없음' : '미확인 ?'}</span>;
+    })}
+  </span>;
+}
+
+// A real button/popover supplements title text for touch and keyboard users.
+function SummaryDetails({ label, description, visibleLabel = '내역' }) {
+  const [open, setOpen] = useState(false);
+  const trigger = useRef(null);
+  const panel = useRef(null);
+  useEffect(() => { if (open) panel.current?.focus(); }, [open]);
+  function close() { setOpen(false); trigger.current?.focus(); }
+  return <>
+    <button ref={trigger} type="button" className="wcm-summary-details" aria-label={label}
+      aria-haspopup="dialog" aria-expanded={open} title={description} onClick={() => setOpen(true)}>{visibleLabel}</button>
+    {open && <div ref={panel} className="wcm-detail-popover" role="dialog" aria-modal="false" aria-label={label}
+      tabIndex={-1} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } }}>
+      <div className="wcm-toolbar"><strong>{label}</strong><button type="button" onClick={close} aria-label={`${label} 닫기`}>닫기</button></div>
+      <pre>{description}</pre>
+    </div>}
+  </>;
+}
+
+function CompactSummary({ row, block, disabled, carryover, carryoverBusy, carryoverError, hasCustomer,
+  onOpenCarryover, onOpenNote, onSelect, customer, custKey }) {
+  const remainder = block.remainderMajorView;
+  const value = remainder?.value;
+  const carry = block.carryover;
+  const carryFailure = carryoverError ? '이월 조회 실패 · 새로고침 필요' : carry?.error
+    ? `이월 확인 필요 · ${typeof carry.error === 'string' ? carry.error : carry.error.message || '계산 근거 확인 필요'}` : '';
+  const carryDescription = carryFailure || (carry?.active
+    ? `이월 ${carry.source ? `${carry.source.year ?? '?'} / ${carry.source.majorWeek ?? '?'}차 · ` : ''}${numberLabel(carry.incoming)} ${block.unit || ''}${carry.incomingProvisional ? ' · 이월 미확정 예상' : ''}${carry.incomingHasDraft ? ' · 이월 초안 예상' : ''}${carry.manual ? ' · 수동 마감' : ''}${carry.provisional ? ' · 미확정 예상' : ''}${carry.hasDraft ? ' · 초안 예상' : ''}`
+    : carryoverBusy ? '이월 조회 중…' : carryover ? '이월 미등록' : '이월 조회 필요');
+  const description = [
+    `${row.name} · ${cycleLabel(block.cycle)} · 최초기준 비교값 · ERP재고 아님`,
+    `합계 ${numberLabel(block.effectiveTotal)} / 저장 전산 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit || ''}`,
+    `마감 잔량 ${numberLabel(value)} · ${remainder?.label || '잔량 미확인'} · 저장 전산 기준잔량 ${numberLabel(remainder?.savedValue)}`,
+    carryDescription,
+    `최초 ${numberLabel(block.initialMajor)} · 저장 변경 ${numberLabel(block.initialChange)} · 예상 변경 ${numberLabel(block.effectiveInitialChange)}`,
+    `${block.quote.state}: 견적관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 순수량 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''} · 총액 ${block.quote.amount ?? '?'}원`,
+    block.quote.error, block.quote.note, block.pageNote?.note,
+    '초안은 견적 출력에 포함하지 않습니다. 웹 전용 마감 잔량 수정·이력 · ERP 재고 아님',
+  ].filter(Boolean).join('\n');
+  const cues = [remainder?.hasDraft ? '초안' : '', remainder?.hasProvisional ? '미확정' : '', carry?.manual ? '수동' : '',
+    carry?.incomingHasDraft ? '이월 초안' : '', carry?.incomingProvisional ? '이월 미확정' : '',
+    !value && value !== 0 ? '미확인' : ''].filter(Boolean);
+  const quoteStatus = block.quote.state === '견적 일치' ? '일치 ✓' : block.quote.state === '견적 불일치' ? '불일치 !'
+    : block.quote.state === '견적 없음' ? '없음' : '확인 필요 ?';
+  return <td className="wcm-total wcm-major-total" title={description}>
+    <div className="wcm-compact-summary">
+      <div className="wcm-summary-row wcm-cycle-sum" data-wcm-label="sum" data-quantity={block.effectiveTotal ?? '—'}
+        aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 합계`}>
+        <span className="wcm-summary-label">합계</span><span className="wcm-summary-value wcm-sum-value" title="초안이 있으면 예상 합계, 없으면 저장 분배 합계">
+          <QuantityLabel>{weekdayQuantityLabel(block.effectiveTotal,row,block.unit,block.packaging)}</QuantityLabel>
+          {block.productPlans.length > 0 && <small className="wcm-inline-status wcm-draft">초안</small>}
+          <button type="button" className="wcm-change-note" title={`최초 대비 변경량 · 비고 보기/입력\n${description}`} aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 변경 비고`}
+            onClick={() => typeof onOpenNote === 'function' ? onOpenNote({row,block}) : onSelect(`최초 ${numberLabel(block.initialMajor)} / 저장 ${numberLabel(block.currentTotal)} / 예상 ${numberLabel(block.effectiveTotal)} / 예상 변경 ${numberLabel(block.effectiveInitialChange)}`)}>
+            {block.effectiveInitialChange == null ? 'Δ—' : <>Δ{block.effectiveInitialChange > 0 ? '+' : ''}<QuantityLabel>{weekdayQuantityLabel(block.effectiveInitialChange,row,block.unit,block.packaging)}</QuantityLabel></>}{block.pageNote?.note ? ' ✎' : ''}
+          </button>
+        </span>
+      </div>
+      <div className="wcm-summary-row wcm-major-heading">
+        <span className="wcm-summary-label" title="마감 잔량">잔량</span><div className="wcm-summary-value">
+          <button type="button" className={`wcm-remainder-action wcm-remainder-value${remainder?.hasDraft ? ' wcm-draft' : ''}`}
+            data-wcm-label="remainder" data-quantity={value ?? '—'}
+            disabled={disabled || carryoverBusy || !carryover || !hasCustomer || !block.unit || block.cycle.calendarState !== 'FOUND' || typeof onOpenCarryover !== 'function'}
+            aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 마감 잔량 수정·이력`}
+            title={`${remainder?.label || '잔량 미확인'} · 웹 전용 마감 잔량 수정·이력 · ERP 재고 아님`}
+            onClick={event => onOpenCarryover({row,block,trigger:event.currentTarget,record:carryover.records.find(record => Number(record.year) === Number(block.cycle.year)
+              && String(record.majorWeek) === String(block.cycle.majorWeek) && Number(record.custKey) === Number(customer?.CustKey ?? customer?.custKey ?? custKey) && Number(record.prodKey) === row.prodKey)})}>
+            <QuantityLabel>{weekdayQuantityLabel(value,row,block.unit,block.packaging)}</QuantityLabel><span aria-hidden="true">✎</span>
+          </button>
+          {cues.map(cue => <small key={cue} className={`wcm-inline-status${cue.includes('초안') ? ' wcm-draft' : ''}`} title={remainder?.label}>{cue}</small>)}
+          {carry?.active && carry.incoming !== 0 && carry.incoming != null && <span className="wcm-incoming" title={carryDescription}>이월 <QuantityLabel>{weekdayQuantityLabel(carry.incoming,row,block.unit,block.packaging)}</QuantityLabel></span>}
+          {carryoverBusy && <small className="wcm-inline-status">이월 조회 중…</small>}
+        </div>
+      </div>
+      <div className="wcm-summary-row wcm-summary-actions">
+        <span className="wcm-summary-label">견적</span><div className="wcm-summary-value"><button type="button" className={`wcm-quote${block.quote.state === '견적 불일치' || block.quote.error ? ' wcm-warning' : ''}`}
+          data-quantity={block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} title={`견 ${block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} · ${block.quote.state} · 저장 견적만 포함`}
+          aria-label={`${row.name} ${block.cycle.majorWeek}차 견적 대조 · ${block.quote.state}`} onClick={() => onSelect(`${block.quote.state}\n견적관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''}\n저장 분배 ${numberLabel(block.currentTotal)} / 예상 합계 ${numberLabel(block.effectiveTotal)}\n초안은 견적 출력에 포함하지 않습니다.`)}>
+          <QuantityLabel>{block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'}</QuantityLabel><small className="wcm-inline-status">{quoteStatus}</small>
+        </button>
+          <SummaryDetails label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 요약 내역`} description={description}/>
+        </div>
+      </div>
+    </div>
+    {carryFailure && <div className="wcm-carry-line wcm-error" role="alert">{carryFailure}</div>}
+    {block.quote.error && <div className="wcm-error" role="alert">견적 조회 실패 · {String(block.quote.error)}</div>}
+  </td>;
+}
+
 export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparisonRows = [], onMove, busy = false,
   onEditCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
   onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], quoteResults = [],
-  carryover = null, carryoverPlans = plans, onOpenCarryover, carryoverBusy = false, carryoverError = '', editDisabledReason = '' }) {
+  carryover = null, carryoverPlans = plans, onOpenCarryover, carryoverBusy = false, carryoverError = '', editDisabledReason = '',
+  confirmationStates = [], confirmationBusy = false, confirmationError = '' }) {
   const safeCycles = Array.isArray(cycles) ? cycles : [];
   const safePlans = Array.isArray(plans) ? plans : [];
   const safeComparisons = Array.isArray(comparisonRows) ? comparisonRows : [];
@@ -337,6 +456,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       <pre>{selectedInfo}</pre>
     </div>}
     {printError && <p className="wcm-error" role="alert">{printError}</p>}
+    {confirmationError && <p className="wcm-error" role="alert">ERP확정 조회 실패 · {confirmationError}</p>}
     {(!hasCustomer || typeof onPrint !== 'function') && <p className="wcm-muted">
       출력 불가: {!hasCustomer ? '거래처를 먼저 선택하세요.' : '견적 출력 기능 미연결'}
     </p>}
@@ -398,7 +518,8 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
               const dates = (selectedDates[cycleKey(cycle)] || []).filter((value) => cycle.days.some((day) => day.date === value));
               return <th key={cycleKey(cycle)} colSpan={horizontalCycleColumns(cycle).length} scope="colgroup"
                 className={cycle.offset === 0 ? 'wcm-current-head' : ''}>
-                <div className="wcm-cycle-header"><strong>{cycle.offset < 0 ? '이전' : cycle.offset > 0 ? '다음' : '현재'} {cycleLabel(cycle)}</strong>
+                <div className="wcm-cycle-header"><div className="wcm-cycle-title"><strong>{cycle.offset < 0 ? '이전' : cycle.offset > 0 ? '다음' : '현재'} {cycleLabel(cycle)}</strong>
+                  <ConfirmationBadges cycle={cycle} states={confirmationStates} busy={confirmationBusy} error={confirmationError}/></div>
                   <span className="wcm-muted">{cycle.startDate} ~ {cycle.endDate}</span>
                   <PrintButton label="전체 견적" reason={printReason(cycle, [], 'major')} onClick={() => print(cycle, [], 'major')} />
                   <PrintButton label={'선택요일 출력 (' + dates.length + ')'} reason={printReason(cycle, dates, 'dates')}
@@ -416,7 +537,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 const candidate=baselineCandidates.find(record=>Number(record.year)===Number(cycle.year)&&record.orderWeek===`${cycle.majorWeek}-${suffix}`);
                 return <th key={column.kind} rowSpan={2} scope="col" className={initial?'wcm-initial wcm-cycle-start':'wcm-total'}>
                   {initial ? <>{cycle.majorWeek}-{suffix}<br/>최초분배<br/>{saved?<small title={`${saved.confirmedAt} · ${saved.confirmedBy}`}>기준 보관됨</small>:<><small className={candidate?.error?'wcm-warning':'wcm-muted'} title={candidate?.error || '현재 ERP 분배량 · 확정 시 최초 기준으로 고정'}>{candidate?.error?'조회 실패':candidate?'미확정':busy?'조회 중':'미확정'}</small><br/><button type="button" className="wcm-confirm" disabled={busy || baselineBusy || !hasCustomer || cycle.calendarState!=='FOUND' || typeof onConfirmBaseline!=='function'}
-                    aria-label={`${cycle.year}/${cycle.majorWeek}-${suffix} 최초분배 확정`} onClick={()=>onConfirmBaseline({cycle,orderWeek:`${cycle.majorWeek}-${suffix}`})}>확정</button></>}</>
+                    aria-label={`${cycle.year}/${cycle.majorWeek}-${suffix} 최초분배 확정`} onClick={()=>onConfirmBaseline({cycle,orderWeek:`${cycle.majorWeek}-${suffix}`})}>기준 확정</button></>}</>
                     : column.kind==='remaining01' ? <>{cycle.majorWeek}-01<br/>최초기준<br/>잔량</> : <>{cycle.majorWeek}차<br/>합계<br/><small>잔량·변경</small></>}
                 </th>;
               }
@@ -470,35 +591,20 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 const provisional=column.kind==='initial01'?block.provisional01:column.kind==='initial02'?block.provisional02:null;
                 const remainder=column.kind==='remaining01'?block.remainder01View:column.kind==='remainingMajor'?block.remainderMajorView:null;
                 const value=column.kind.startsWith('initial')?(initial || provisional)?.quantity:remainder?.value;
+                if(column.kind==='remainingMajor') return <CompactSummary key={column.kind} row={row} block={block}
+                  disabled={disabled} carryover={carryover} carryoverBusy={carryoverBusy} carryoverError={carryoverError}
+                  hasCustomer={hasCustomer} onOpenCarryover={onOpenCarryover} onOpenNote={onOpenNote}
+                  onSelect={setSelectedInfo} customer={customer} custKey={custKey}/>;
                 return <td key={column.kind} className={column.kind.startsWith('initial')?`wcm-initial wcm-cycle-start${provisional?' wcm-provisional':''}`:column.kind==='remainingMajor'?'wcm-total wcm-major-total':'wcm-total'} title={`${provisional?'미확정 · 현재 ERP 분배량 (확정 시 최초 기준 고정)':'최초기준 비교값 · ERP재고 아님'}\n전산 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit||''}\n최초 ${numberLabel(block.initialMajor)} · 변경 ${numberLabel(block.initialChange)}\n${block.quote.state}: 관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 순수량 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''} · 총액 ${block.quote.amount ?? '?'}원\n${block.pageNote?.note || ''}`}>
-                  {column.kind==='remainingMajor' && <div className="wcm-cycle-sum" data-wcm-label="sum" data-quantity={block.effectiveTotal ?? '—'} aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 합계`}>
-                    <span className="wcm-sum-value" title="초안이 있으면 예상 합계, 없으면 저장 분배 합계"><span>합계</span>{' '}<QuantityLabel>{weekdayQuantityLabel(block.effectiveTotal,row,block.unit,block.packaging)}</QuantityLabel></span>
-                  </div>}
-                  <div className={column.kind==='remainingMajor'?'wcm-major-heading':undefined}>
-                    {column.kind==='remainingMajor' ? <button type="button" className={`wcm-remainder-action wcm-remainder-value${remainder?.hasDraft?' wcm-draft':''}`}
-                      data-wcm-label="remainder" data-quantity={value ?? '—'}
-                      disabled={disabled || carryoverBusy || !carryover || !hasCustomer || !block.unit || block.cycle.calendarState!=='FOUND' || typeof onOpenCarryover!=='function'}
-                      aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 마감 잔량 수정·이력`}
-                      title={`${remainder?.label || '잔량 미확인'} · 웹 전용 마감 잔량 수정·이력 · ERP 재고 아님`}
-                      onClick={event=>onOpenCarryover({row,block,trigger:event.currentTarget,record:carryover.records.find(record=>Number(record.year)===Number(block.cycle.year)
-                        && String(record.majorWeek)===String(block.cycle.majorWeek) && Number(record.custKey)===Number(customer?.CustKey ?? customer?.custKey ?? custKey) && Number(record.prodKey)===row.prodKey)})}>
-                      <span className="wcm-remainder-label">마감 잔량</span>{' '}<QuantityLabel>{weekdayQuantityLabel(value,row,block.unit,block.packaging)}</QuantityLabel><span aria-hidden="true"> ✎</span>
-                    </button> : <span className={remainder?.hasDraft?'wcm-draft wcm-remainder-value':'wcm-remainder-value'} data-wcm-label={remainder?'remainder':'initial'} data-quantity={value ?? '—'} aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 ${remainder?'잔량':'최초분배'}`} title={remainder?`${remainder.label} · 저장 전산 기준잔량 ${numberLabel(remainder.savedValue)} · ERP 재고 아님`:undefined}>{remainder && <><span className="wcm-remainder-label">잔량</span>{' '}</>}<QuantityLabel>{weekdayQuantityLabel(value,row,block.unit,block.packaging)}</QuantityLabel></span>}
-                    {remainder && <small className={`wcm-remainder-status${remainder.hasDraft?' wcm-draft':''}`}>{remainder.label}</small>}
+                  <div className="wcm-remainder-compact">
+                    <span className={remainder?.hasDraft?'wcm-draft wcm-remainder-value':'wcm-remainder-value'} data-wcm-label={remainder?'remainder':'initial'} data-quantity={value ?? '—'} aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 ${remainder?'잔량':'최초분배'}`} title={remainder?`${remainder.label} · 저장 전산 기준잔량 ${numberLabel(remainder.savedValue)} · ERP 재고 아님`:undefined}>
+                      <QuantityLabel>{weekdayQuantityLabel(value,row,block.unit,block.packaging)}</QuantityLabel>
+                    </span>
+                    {provisional && <small className="wcm-inline-status" title="미확정 · 현재 ERP 분배량">미확정</small>}
+                    {remainder && <SummaryDetails label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 01 잔량 내역`}
+                      visibleLabel={[remainder.hasDraft?'초안':'',remainder.hasProvisional?'미확정':'',remainder.value==null?'미확인':'',block.carryover?.source?'이월':''].filter(Boolean).join('·') || '기준'}
+                      description={`${remainder.label} · 잔량 ${numberLabel(value)} ${block.unit || ''}\n저장 전산 기준잔량 ${numberLabel(remainder.savedValue)} · ERP 재고 아님`}/>}
                   </div>
-                  {column.kind==='remainingMajor' && <div className={`wcm-carry-line${block.carryover?.error || carryoverError?' wcm-error':''}`}>
-                    {carryoverError ? '이월 조회 실패 · 새로고침 필요' : block.carryover?.error ? `이월 확인 필요 · ${typeof block.carryover.error==='string'?block.carryover.error:block.carryover.error.message || '계산 근거 확인 필요'}`
-                      : block.carryover?.active ? <>이월 {block.carryover.source ? `${block.carryover.source.year ?? '?'} / ${block.carryover.source.majorWeek ?? '?'}차 · ` : ''}
-                        <QuantityLabel>{weekdayQuantityLabel(block.carryover.incoming,row,block.unit,block.packaging)}</QuantityLabel>
-                        {block.carryover.incomingProvisional?' · 이월 미확정 예상':''}{block.carryover.incomingHasDraft?' · 이월 초안 예상':''}
-                        {block.carryover.manual?' · 수동 마감':''}{block.carryover.provisional?' · 미확정 예상':''}{block.carryover.hasDraft?' · 초안 예상':''}</> : carryoverBusy?'이월 조회 중…':carryover?'이월 미등록':'이월 조회 필요'}
-                  </div>}
-                  {column.kind==='remainingMajor' && <div className="wcm-summary-actions">
-                    <button type="button" className="wcm-change-note" title="최초 대비 변경량 · 비고 보기/입력" aria-label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 변경 비고`}
-                      onClick={()=>typeof onOpenNote==='function'?onOpenNote({row,block}):setSelectedInfo(`최초 ${numberLabel(block.initialMajor)} / 저장 ${numberLabel(block.currentTotal)} / 예상 ${numberLabel(block.effectiveTotal)} / 예상 변경 ${numberLabel(block.effectiveInitialChange)}`)}>변경 {block.effectiveInitialChange==null?'Δ—':<>Δ{block.effectiveInitialChange>0?'+':''}<QuantityLabel>{weekdayQuantityLabel(block.effectiveInitialChange,row,block.unit,block.packaging)}</QuantityLabel></>}{block.pageNote?.note?' ✎':''}</button>
-                    <button type="button" className={`wcm-quote ${block.quote.state==='견적 불일치'?'wcm-warning':''}`} data-quantity={block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} title={`견 ${block.quote.managementQuantity ?? block.quote.netQuantity ?? '—'} · ${block.quote.state} · 저장 견적만 포함`}
-                      aria-label={`${row.name} ${block.cycle.majorWeek}차 견적 대조`} onClick={()=>setSelectedInfo(`${block.quote.state}\n견적관리 ${block.quote.managementQuantity ?? '?'} / 인쇄 ${block.quote.netQuantity ?? '?'} ${block.quote.unit || ''}\n저장 분배 ${numberLabel(block.currentTotal)} / 예상 합계 ${numberLabel(block.effectiveTotal)}\n초안은 견적 출력에 포함하지 않습니다.`)}>견적 {block.quote.state==='견적 일치'?'✓':block.quote.state==='견적 불일치'?'!':'?'}</button>
-                  </div>}
                 </td>;
               })}
             </Fragment>)}
@@ -557,7 +663,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     </details>}
 
     <style dangerouslySetInnerHTML={{__html:`
-      .weekday-cycle-matrix { width:100%; min-width:0; box-sizing:border-box; color:#0f172a; font-size:13px; line-height:1.4; }
+      .weekday-cycle-matrix { width:100%; min-width:0; box-sizing:border-box; color:#0f172a; font-size:14px; line-height:1.4; }
       .weekday-cycle-matrix td.wcm-provisional { background:#f1f5f9; color:#334155; }
       .weekday-cycle-matrix * { box-sizing:border-box; }
       .weekday-cycle-matrix p { margin:6px 0; }
@@ -570,7 +676,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-warning { color:#805100; overflow-wrap:anywhere; }
       .weekday-cycle-matrix .wcm-error { color:#a51a24; background:#fff0f1; padding:8px; border:1px solid #e5a3a9; }
       .weekday-cycle-matrix .wcm-status { color:#164e63; background:#ecfeff; padding:8px; }
-      .weekday-cycle-matrix .wcm-selected { position:fixed; bottom:16px; right:16px; width:min(430px,calc(100% - 32px)); z-index:20; border:1px solid #93b5df; padding:7px; background:#f3f8ff; box-shadow:0 4px 16px #172b4233; }
+      .weekday-cycle-matrix .wcm-selected { position:fixed; bottom:16px; right:16px; width:min(600px,calc(100vw - 32px)); max-block-size:min(60vh,500px); overflow:auto; z-index:20; border:1px solid #93b5df; padding:12px; background:#f3f8ff; box-shadow:0 4px 16px #172b4233; font-size:16px; line-height:1.5; text-align:center; }
       .weekday-cycle-matrix .wcm-selected button { float:right; }
       .weekday-cycle-matrix .wcm-selected pre { white-space:pre-wrap; overflow-wrap:anywhere; margin:5px 0 0; font:inherit; }
       .weekday-cycle-matrix .wcm-outside { padding:7px; margin:8px 0; background:#fffbeb; border:1px solid #dfc788; overflow-wrap:anywhere; }
@@ -642,18 +748,18 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-carry-line { font-size:14px; line-height:19px; color:#244263; white-space:normal; overflow-wrap:anywhere; }
       .weekday-cycle-matrix .wcm-carry-line.wcm-error { color:#9f1c16; }
       .weekday-cycle-matrix .wcm-remainder-value.wcm-draft, .weekday-cycle-matrix .wcm-major-total .wcm-remainder-value.wcm-draft { color:#174e9c; }
-      .weekday-cycle-matrix .wcm-number-display { pointer-events:none; width:100%; text-align:right; font-size:14px; font-weight:600; line-height:18px; color:#122033; }
+      .weekday-cycle-matrix .wcm-number-display { pointer-events:none; width:100%; text-align:center; font-size:16px; font-weight:700; line-height:20px; color:#122033; }
       .weekday-cycle-matrix .wcm-quantity-label { display:inline-flex; flex-wrap:wrap; align-items:baseline; justify-content:inherit; gap:0 2px; max-width:100%; min-width:0; white-space:normal; word-break:keep-all; overflow-wrap:normal; font-variant-numeric:tabular-nums; }
-      .weekday-cycle-matrix .wcm-quantity-part { flex:0 0 auto; white-space:nowrap; }
+      .weekday-cycle-matrix .wcm-quantity-part { flex:0 1 auto; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
       .weekday-cycle-matrix .wcm-quantity-raw { flex:0 1 auto; min-width:0; max-width:100%; white-space:normal; word-break:normal; overflow-wrap:anywhere; }
-      .weekday-cycle-matrix .wcm-number-display .wcm-quantity-label { width:100%; justify-content:flex-end; }
-      .weekday-cycle-matrix .wcm-remainder-value { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:center; gap:0 3px; min-width:0; font-size:14px; font-weight:600; color:#122033; }
+      .weekday-cycle-matrix .wcm-number-display .wcm-quantity-label { width:100%; justify-content:center; }
+      .weekday-cycle-matrix .wcm-remainder-value { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:center; gap:0 3px; min-width:0; font-size:16px; font-weight:700; color:#122033; }
       .weekday-cycle-matrix .wcm-remainder-label { flex:0 0 auto; }
       .weekday-cycle-matrix .wcm-major-total .wcm-remainder-value { flex:0 1 auto; max-width:100%; justify-content:flex-start; }
-      .weekday-cycle-matrix .wcm-proposed .wcm-number-display { color:#122033; font-weight:600; }
-      .weekday-cycle-matrix .wcm-cell-detail { display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:2px; position:relative; z-index:2; font-size:12px; line-height:16px; }
-      .weekday-cycle-matrix .wcm-original { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:flex-end; min-width:0; max-width:100%; font-size:14px; color:#122033; word-break:keep-all; overflow-wrap:normal; }
-      .weekday-cycle-matrix .wcm-cell input { position:absolute; opacity:0; left:0; top:0; width:100%; padding:1px; border:1px solid transparent; height:22px; min-height:22px; line-height:18px; text-align:right; font-size:14px; background:transparent; color:#122033; border-radius:2px; font-variant-numeric:tabular-nums; }
+      .weekday-cycle-matrix .wcm-proposed .wcm-number-display { color:#122033; font-weight:700; }
+      .weekday-cycle-matrix .wcm-cell-detail { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:2px; position:relative; z-index:2; font-size:12px; line-height:16px; }
+      .weekday-cycle-matrix .wcm-original { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:center; min-width:0; max-width:100%; font-size:14px; font-weight:700; color:#122033; word-break:keep-all; overflow-wrap:normal; }
+      .weekday-cycle-matrix .wcm-cell input { position:absolute; opacity:0; left:0; top:0; width:100%; padding:1px; border:1px solid transparent; height:22px; min-height:22px; line-height:20px; text-align:center; font-size:16px; font-weight:700; background:transparent; color:#122033; border-radius:2px; font-variant-numeric:tabular-nums; }
       .weekday-cycle-matrix .wcm-cell input:focus { position:relative; opacity:1; }
       .weekday-cycle-matrix .wcm-cell:has(input:focus) .wcm-number-display { display:none; }
       .weekday-cycle-matrix .wcm-cell input:disabled { opacity:0; pointer-events:none; }
@@ -671,6 +777,31 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-toolbar label { flex-direction:row; align-items:center; gap:6px; }
       .weekday-cycle-matrix .wcm-toolbar input { width:200px; padding:3px 5px; }
       .weekday-cycle-matrix .wcm-toolbar select { width:105px; padding:3px; }
+      .weekday-cycle-matrix .wcm-cycle-title, .weekday-cycle-matrix .wcm-confirmations { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:4px; min-width:0; }
+      .weekday-cycle-matrix .wcm-confirmation { display:inline-block; border:1px solid #b6c4d5; border-radius:4px; padding:1px 5px; font-size:12px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:#fff8e8; }
+      .weekday-cycle-matrix .wcm-confirmation.wcm-fixed { color:#166534; background:#ecfdf5; border-color:#86b9a1; }
+      .weekday-cycle-matrix .wcm-compact-summary { display:grid; gap:1px; width:100%; min-width:0; }
+      .weekday-cycle-matrix .wcm-summary-row { display:grid; grid-template-columns:36px minmax(0,1fr); align-items:center; gap:3px; width:100%; margin:0; text-align:center; }
+      .weekday-cycle-matrix .wcm-summary-label { font-size:12px; font-weight:600; text-align:center; color:#334155; }
+      .weekday-cycle-matrix .wcm-summary-value { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:1px 4px; min-width:0; width:100%; text-align:center; font-size:16px; font-weight:700; color:#122033; }
+      .weekday-cycle-matrix .wcm-major-total .wcm-remainder-value { justify-content:center; text-align:center; }
+      .weekday-cycle-matrix :is(.wcm-summary-value,.wcm-remainder-value,.wcm-original) .wcm-quantity-label { justify-content:center; }
+      .weekday-cycle-matrix .wcm-inline-status { font-size:12px; line-height:16px; font-weight:600; color:#334155; background:#e4ecf5; border-radius:3px; padding:0 3px; }
+      .weekday-cycle-matrix .wcm-inline-status.wcm-draft { color:#174e9c; background:#eaf3ff; }
+      .weekday-cycle-matrix .wcm-incoming { font-size:14px; font-weight:700; text-align:center; color:#122033; }
+      .weekday-cycle-matrix .wcm-summary-details { padding:0 3px; font-size:13px; line-height:16px; font-weight:600; text-align:center; }
+      .weekday-cycle-matrix .wcm-remainder-compact { display:flex; flex-direction:column; align-items:center; gap:1px; }
+      .weekday-cycle-matrix .wcm-detail-popover { position:fixed; inset:auto 16px 16px auto; width:min(600px,calc(100vw - 32px)); max-block-size:min(60vh,500px); overflow:auto; z-index:30; padding:12px; border:1px solid #93b5df; background:#f3f8ff; box-shadow:0 4px 16px #172b4233; font-size:16px; line-height:1.5; text-align:center; font-weight:400; }
+      .weekday-cycle-matrix .wcm-detail-popover .wcm-toolbar { justify-content:center; }
+      .weekday-cycle-matrix .wcm-detail-popover pre { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; margin:6px 0; text-align:center; }
+      .weekday-cycle-matrix .wcm-form input[type=number] { text-align:center; font-size:16px; font-weight:700; }
+      .weekday-cycle-matrix :is(.wcm-selected,.wcm-detail-popover) strong { font-size:17px; }
+      .weekday-cycle-matrix :is(.wcm-selected,.wcm-detail-popover) button { font-size:14px; padding:5px 10px; }
+      .weekday-cycle-matrix .wcm-confirmations { flex:1 1 auto; gap:3px; }
+      .weekday-cycle-matrix .wcm-confirmation { padding:0 4px; line-height:18px; }
+      .weekday-cycle-matrix .wcm-compact-summary .wcm-remainder-action { padding:0 3px; }
+      .weekday-cycle-matrix .wcm-compact-summary .wcm-quote { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:3px; padding:0 3px; }
+      .weekday-cycle-matrix .wcm-compact-summary .wcm-quote .wcm-quantity-label { font-size:16px; font-weight:700; }
       @media (max-width:1000px) { .weekday-cycle-matrix .wcm-form { grid-template-columns:repeat(2,minmax(0,1fr)); } }
       @media (max-width:560px) { .weekday-cycle-matrix .wcm-form { grid-template-columns:minmax(0,1fr); } }
     `}}/>
