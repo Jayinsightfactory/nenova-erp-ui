@@ -1,5 +1,13 @@
 # FormShipmentDistribution — exe golden (dnSpy/CLI)
 
+## 2026-10-02 native 상세 고객 NULL 정정
+
+설치 EXE SHA256 `4033996D20006213BD7D7C5454396421FC18B3836CCB7F2C47B1CB8C93C1BD63`의
+ClassShipmentDetail을 새로 CLI 추출했다. Insert/Update는 CustKey를 기록하지 않고 ShipmentKey로
+상위를 연결한다. 정상 상세 CustKey=NULL을 일괄 SQL 보정 대상으로 삼지 않는다.
+웹 비교·요일 저장은 상위 고객과 유효 연결을 확인하되 기존 raw NULL을 보존한다.
+[전체 근거·음성 조건·구현 범위](../SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)를 먼저 적용한다.
+
 ## 2026-10-02 요일 저장 EXE 호환 보완
 
 설치 EXE를 CLI로 FormShipmentDistribution, ClassShipmentDetail, FormEstimateView

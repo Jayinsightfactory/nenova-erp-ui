@@ -2,6 +2,8 @@
   "id": "weekday-distribution-apply",
   "title": "주광 요일별 실제 분배·출고일 원자 저장",
   "scope": [
+    "lib/weekdayCustomerLink.js", "__tests__/weekdayCustomerLink.test.js",
+    "docs/plans/weekday-native-customer-read-2026-10-02.md",
     "lib/weekdayErpCompatibility.js", "__tests__/weekdayErpCompatibility.test.js",
     "docs/plans/weekday-exe-compatibility-2026-10-02.md",
     "lib/weekdayDistributionApply.js", "lib/weekdayDistributionPolicy.js",
@@ -27,6 +29,7 @@
     "scripts/probe-weekday-calendar-timestamp.mjs"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "nativeCustomerLink": "Locked Master is the customer authority. Allow native raw detail CustKey NULL through the shared helper while preserving the raw NULL in digests/readback and existing UPDATE. Explicit zero/other non-NULL key and all fix/date/money/stock/stale/atomic rollback checks remain blocked.",
   "calendarTimestampContract": {
     "source": "PeriodDay.BaseYmd (운영 nvarchar) and ShipmentDate.ShipmentDtm (datetime), EXE exact datetime join",
     "serialization": "Convert BaseYmd explicitly to SQL datetime with style 121 before nvarchar(23) style 121; never compare date-only truncations or use JS timezone coercion",

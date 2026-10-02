@@ -16,6 +16,8 @@ Google Play/Expo/Android 15·16 경고, AAB, 네이티브 `.so` 정렬은 MOYI �
 
 ## 작업 전 필수 확인
 
+`ShipmentDetail.CustKey`의 NULL·거래처 누락을 다루면 [2026-10-02 native NULL 정정](docs/SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)을 먼저 읽는다. EXE는 상세 CustKey를 기록하지 않는 정상 경로가 있고 ViewShipment 거래처는 상위 ShipmentMaster에서 결정된다. NULL만으로 오류·조회 제외·인쇄 차단·SQL 보정을 판단하지 않는다. 웹 신규 쓰기 정책과 기존 원장의 읽기 조건은 구분하며, 오래된 MD보다 실제 EXE 저장 SQL과 View 연결을 재확인한다.
+
 1. `docs/ERP_CHANGE_GUARD.md`
 2. `docs/ERP_FEATURE_CHANGE_CHECKLIST.md`
 3. `docs/ERP_COMPAT_INVARIANTS_2026-06-04.md`

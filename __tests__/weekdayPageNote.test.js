@@ -52,12 +52,14 @@ function periods(year = 2026, major = 38, anchor = '2026-09-17') {
 async function apiFixture(directory, overrides = {}) {
   const { buildShippingCycles } = await import('../lib/weekdayEstimateCycle.js');
   const { normalizeWeekdayUnit } = await import('../lib/weekdayEstimateCompare.js');
+  const { WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL } = await import('../lib/weekdayCustomerLink.js');
   const source = await fs.promises.readFile(path.join(root, 'pages/api/estimate/weekday-note.js'), 'utf8');
-  const factory = new Function('query', 'sql', 'withAuth', 'pageNoteStore', 'baselineStore', 'buildShippingCycles', 'normalizeWeekdayUnit',
+  const factory = new Function('query', 'sql', 'withAuth', 'pageNoteStore', 'baselineStore', 'buildShippingCycles', 'normalizeWeekdayUnit', 'WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL',
     source.replace(/^import .*;\r?\n/gm, '').replace(/export const /g, 'const ')
       .replace(/export function /g, 'function ').replace('export default withAuth(createWeekdayNoteHandler());', '')
       + '\nreturn createWeekdayNoteHandler;')(
-    () => { throw new Error('Real DB forbidden'); }, {}, handler => handler, notes, {}, buildShippingCycles, normalizeWeekdayUnit);
+    () => { throw new Error('Real DB forbidden'); }, {}, handler => handler, notes, {}, buildShippingCycles,
+    normalizeWeekdayUnit, WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL);
   const calls = [];
   const baselineCalls = [];
   const queryFn = async (statement, params) => {
@@ -79,13 +81,15 @@ async function apiFixture(directory, overrides = {}) {
       assert.equal(params.custKey.value, 7); assert.equal(params.prodKey.value, 101);
       assert.equal(typeof params.destinationDate.value, 'string');
       assert.match(statement, /sd\.CustKey=sm\.CustKey/);
+      assert.ok(statement.includes(WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL));
       assert.match(statement, /CONVERT\(date,sdd\.ShipmentDtm\)=CONVERT\(date,@destinationDate,23\)/);
       const fixtures = overrides.dateRows ?? [{ ...identity, date: params.destinationDate.value, quantity: 3.5 }];
       const rows = fixtures.filter(row => row.year === params.year.value && row.majorWeek === params.majorWeek.value
         && row.custKey === params.custKey.value && row.prodKey === params.prodKey.value && row.date === params.destinationDate.value);
       return { recordset: overrides.dateResult ?? [{ DateRows: rows.length,
         ShipmentQuantity: rows.length ? rows.reduce((sum, row) => sum + (row.quantity ?? 0), 0) : null,
-        InvalidQuantityRows: rows.length ? rows.filter(row => row.quantity == null || row.quantity < 0).length : null }] };
+        InvalidQuantityRows: rows.length ? rows.filter(row => row.quantity == null || row.quantity < 0
+          || row.detailCustKey != null && Number(row.detailCustKey) !== row.custKey).length : null }] };
     }
     if (statement.includes('FROM PeriodDay')) {
       const key = params.yearWeek.value;
@@ -363,6 +367,15 @@ if (process.argv[2] === '--note-child') {
     ] });
     const ok = await positive.call(input({ earlyShipment: early }));
     assert.equal(ok.statusCode, 200, 'exact saved total is allowed');
+    const nativeNull = await apiFixture(path.join(directory, 'native-null'), { dateResult: [{ DateRows: 1, ShipmentQuantity: 2.5, InvalidQuantityRows: 0 }] });
+    assert.equal((await nativeNull.call(input({ earlyShipment: early }))).statusCode, 200,
+      'native NULL detail customer remains valid saved date quantity');
+    for (const detailCustKey of [0, 8]) {
+      const wrongLink = await apiFixture(path.join(directory, `wrong-${detailCustKey}`), { dateResult: [{ DateRows: 1, ShipmentQuantity: 2.5, InvalidQuantityRows: 1 }] });
+      const rejected = await wrongLink.call(input({ earlyShipment: early }));
+      assert.equal(rejected.statusCode, 409);
+      assert.equal(rejected.body.code, 'EARLY_DATE_QUANTITY_UNVERIFIED');
+    }
     for (const dateRows of [[], [{ ...identity, date: early.date, quantity: 0 }],
       [{ ...identity, date: early.date, quantity: null }], [{ ...identity, date: early.date, quantity: -1 }],
       [{ ...identity, year: 2025, date: early.date, quantity: 100 }],

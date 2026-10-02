@@ -7,6 +7,10 @@ type: reference
 
 # 전산 호환 불변식 (모든 DB 쓰기 버튼이 지켜야 함)
 
+> **2026-10-02 정정:** 기존 3번을 모든 READ/인쇄 조건으로 적용한 판단은 잘못됐다.
+> EXE 상세 저장은 CustKey를 쓰지 않아 NULL이 정상일 수 있다. 상위 ShipmentKey→Master.CustKey가
+> 조회 거래처의 기준이다. [근거·금지 사항](SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md)을 먼저 읽는다.
+
 > 위반하면 데이터는 DB에 있어도 **전산 화면(ViewOrder/ViewShipment/견적)에서 통째로 누락**된다.
 > 전산 뷰들이 INNER JOIN + raw 컬럼 필터를 쓰기 때문. (dnSpy 추출물로 확인)
 
@@ -14,7 +18,7 @@ type: reference
 |---|--------|-------------|------|
 | 1 | **OrderMaster.Manager = 유효한 `UserInfo.UserID`** (관리자 계정 UserID=`'admin'`, `SELECT UserID FROM UserInfo WHERE UserName=N'관리자'` 로 해석, fallback `'admin'`/`req.user.userId`). 문자열 `'관리자'`(=UserName) 직접 넣기 금지 | ViewOrder 가 `INNER JOIN UserInfo ON om.Manager=ui.UserID` → 탈락 → 전산 주문/분배 grid/견적에서 거래처·품목 누락 | [[ordermaster-manager-must-be-userid]] |
 | 2 | **raw `OrderYearWeek` = `OrderYear + 대차수`** (`orderWeek.split('-')[0]`). 예 23-01 → `'202623'`. full(`replace('-','')` = `'20262301'`) 금지 | 견적서관리(GetData/GetDetail)가 raw `sm.OrderYearWeek` 로 필터 → 웹 full 포맷이면 그 차수 조회 시 누락 (확정해도 견적에 안 뜸) | [[ordermaster-orderyearweek-major-not-full]] |
-| 3 | **ShipmentDetail.CustKey = ShipmentMaster.CustKey** (강제 일치, ISNULL-only 갱신 금지) | sd.CustKey 가 0/다른값이면 전산 분배/확정 로직에서 누락. (단 ViewShipment 표시는 sm.CustKey 기준) | distribute-diagnose repairMissingCustKey |
+| 3 | **READ 거래처는 ShipmentKey→ShipmentMaster.CustKey 기준. native 상세 CustKey NULL 허용 가능.** 웹 신규 쓰기의 CustKey 기록 정책은 별도 유지 | 상세 NULL만으로 누락·인쇄 오류·SQL 보정을 판단하지 않는다. 다른 양수 키/0은 별도 원인 검증 | [2026-10-02 실제 EXE·조회 정정](SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md) |
 | 4 | **ShipmentDetail.ShipmentDtm = 업체 BaseOutDay 기준 출고일**(weekToShipDateByBaseOutDay), **ShipmentDate 도 같은 날짜로 재생성**, PeriodDay.BaseYmd 와 **정확(시각 포함) 매칭** 가능해야 | 견적 GetData/GetDetail 이 `ShipmentDtm = pd.BaseYmd` INNER JOIN. 6일 밀림/시각 불일치면 누락. 분배 화면(출고일 그룹핑)도 어긋남 | SHIPMENT_IMPORT_DATE_BASE_OUTDAY_FIX |
 | 5 | **ShipmentDetail 환산필드 전부**: OutQuantity/EstQuantity/BoxQuantity/BunchQuantity/SteamQuantity. **EstQuantity=OutQuantity 강제 금지**(단/송이 환산 품목은 다름) | 견적 금액 깨짐, "출고수량≠출고일지정수량" 오류 | 루트 CLAUDE.md 규칙 2 |
 | 6 | **ShipmentMaster 재사용**: `WHERE CustKey+OrderWeek+isDeleted=0 ORDER BY isFix DESC, ShipmentKey ASC`. 새로 만들지 말고 재사용. WebCreated=1 | 중복 마스터 / 확정 안 됨 / 두 번 보임 | WEB_VS_ERP_CONFLICTS #8 |
@@ -23,6 +27,7 @@ type: reference
 | 9 | **전산 구조 = 1 `ShipmentDetail` + N `ShipmentDate`**. 출고일별 `ShipmentDate.EstQuantity` = `distributeUnits(ShipmentQuantity)` (usp_DistributeOne 동일). Detail 총량을 각 날짜에 복제·비율배분 금지. `ShipmentDetail` 을 출고일마다 쪼개기(split) 금지 | 목요일 견적 5700송이, 전산/웹 불일치 | `lib/syncShipmentDateEst.js`, `lib/distributeUnits.js` |
 
 ## 진단/보정 도구 — `/admin/distribute-repair`
+- 도구가 CustKey 경고를 표시해도 native NULL은 보정 근거가 아니다. 실제 연결 오류 입증과 별도 승인 없이 CustKey를 채우지 않는다.
 - 차수 진단(출고일 6일밀림/CustKey/중복마스터/출고일·수량/Est/키넘버링) + 출고일·CustKey 보정
 - **① Manager 정정** (불변식 1)
 - **주문 vs 분배 대조** (품목/업체) — ViewOrder 탈락/분배 상태
@@ -85,7 +90,7 @@ nenova.exe 에서 23-01 베트남 호접난(ORCHID VIETNAM) 출고분배+확정�
 - `pages/api/public/shipments.js:197` `TOP 1 ... ORDER BY ISNULL(isFix,0) DESC, ShipmentKey ASC` 추가
 
 ## 준수 확인 (위반 없음)
-- 불변식 3(CustKey=Master): adjust(CustKey=@ck 강제), distribute/shipmentImport/stock-status/public 모두 INSERT 시 @ck. ✓
+- 당시 웹 신규 쓰기 감사: adjust(CustKey=@ck), distribute/shipmentImport/stock-status/public INSERT 시 @ck. 이는 웹 쓰기 정책 기록이며 기존 EXE 상세 NULL을 오류·보정 대상으로 판정하는 근거가 아니다(2026-10-02 정정).
 - 불변식 4(ShipmentDtm BaseOutDay + ShipmentDate 재생성): adjust(@dt 강제+ShipmentDate 재생성), distribute(삭제+재생성), shipmentImport/stock-status(calcShipDate BaseOutDay+정오). ✓
 - 불변식 5(환산필드 5종, Est≠Out): 모든 분배 경로 Out/Est/Box/Bunch/Steam 작성, Est=estimateQuantityFromUnits(별도). ✓
 - 불변식 7(sd.isDeleted 없음): 전 파일에서 `sd.isDeleted` 참조 0건 확인. ✓

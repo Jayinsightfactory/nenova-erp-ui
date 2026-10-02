@@ -81,7 +81,8 @@
 
 **ShipmentDetail** — 출고 라인
 - PK: `SdetailKey` INT IDENTITY (소문자 d 주의)
-- FK: `ShipmentKey`, `CustKey`, `ProdKey`
+- 연결 필드: `ShipmentKey`, `CustKey`, `ProdKey` (실제 선언된 FK 제약 전체는 이번 조사 범위 밖).
+- **CustKey 해석 정정(2026-10-02):** 실제 EXE ClassShipmentDetail.Insert/Update는 CustKey를 기록하지 않아 NULL이 정상일 수 있다. ViewShipment 거래처는 ShipmentKey로 연결한 상위 ShipmentMaster.CustKey 기준이다. 상세 CustKey 필수 입력이나 NULL 보정 필요성을 추론하지 않는다. [근거·재발 방지](SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md).
 - **환산 수량 3종** (OrderDetail 과 동일 규칙):
   - `BoxQuantity` / `BunchQuantity` / `SteamQuantity`
 - **`OutQuantity`** — OutUnit 기준 **단일값** (환산 아님, 또 환산 금지)

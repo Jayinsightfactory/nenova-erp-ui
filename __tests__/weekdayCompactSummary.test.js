@@ -52,6 +52,19 @@ assert.match(html,/1박스/); assert.match(html,/3단/,'unit decomposition is re
 assert.match(html,/미적용 초안 수량/); assert.match(html,/wcm-original/);
 assert.match(html,/aria-haspopup="dialog" aria-expanded="false"/);
 assert.match(html,/01 잔량 내역/); assert.match(html,/기준 확정/);
+const quoteError='fixture quote failure: '+('세부 오류 내용 '.repeat(80));
+const quoteFailureProps={...props,comparisonRows:[...comparisons,{...actual,prodKey:102,prodName:'CARNATION White'}],
+  baselineCandidates:[{year:2026,orderWeek:'38-01'}],
+  quoteResults:[{year:2026,majorWeek:'38',error:quoteError}]};
+const quoteFailureHtml=render(Matrix,quoteFailureProps);
+assert.equal((quoteFailureHtml.match(/견적 조회 실패 · 상세/g)||[]).length,1,'cycle-level quote error is summarized once in its header');
+assert.equal((quoteFailureHtml.match(/fixture quote failure:/g)||[]).length,1,'full error content is not copied into product cells');
+assert.match(quoteFailureHtml,/<details class="wcm-quote-error"><summary>견적 조회 실패 · 상세<\/summary>/,'header disclosure is collapsed by default');
+assert.equal((quoteFailureHtml.match(/aria-label="[^"]+견적 대조 · [^"]+ · 조회 실패"/g)||[]).length,2,'both affected product buttons expose their failure state');
+assert.doesNotMatch(quoteFailureHtml,/wcm-error[^>]*role="alert">견적 조회 실패/,'product rows do not contain repeated long quote errors');
+assert.match(quoteFailureHtml,/data-wcm-label="sum" data-quantity="1"/,'quote error does not change summary quantity');
+assert.equal((quoteFailureHtml.match(/aria-label="전체 견적"/g)||[]).length,(html.match(/aria-label="전체 견적"/g)||[]).length,'quote error does not remove existing print actions');
+assert.match(quoteFailureHtml,/기준 미확정/,'page baseline preview is distinct from ERP-unfixed labels');
 assert.match(render(Matrix,{...props,baselines:[]}),/aria-label="2026\/38-01 최초분배 확정"/,'baseline accessible name remains stable');
 assert.match(source,/font-size:14px; line-height:1.4/,'default data font is at least14');
 assert.match(source,/tbody td \.wcm-quantity-label \{[^\n]*font-size:18px; font-weight:700;[^\n]*text-align:center; justify-content:center/);
@@ -128,6 +141,7 @@ assert.doesNotMatch(render(Matrix,{...props,confirmationStates:[]}),/ERP확정 �
 
 const row=helper.buildHorizontalWeekdayMatrix(cycles,[draft],comparisons,props.baselines).rows[0];
 const block={...row.blocks[1],quote:{state:'견적 불일치',managementQuantity:23,netQuantity:22,unit:'송이',amount:12000},
+  remainderMajorView:{...row.blocks[1].remainderMajorView,hasProvisional:true,label:'미확정 예상'},
   pageNote:{note:'수동 비고 근거'},carryover:{active:true,incoming:-2,manual:true,provisional:true,
     hasDraft:true,incomingHasDraft:true,incomingProvisional:true,source:{year:2026,majorWeek:'37'}}};
 const record={year:2026,majorWeek:'38',custKey:7,prodKey:101,quantity:0};
@@ -136,7 +150,7 @@ const summaryProps={row,block,disabled:false,carryover:{records:[record]},hasCus
   onOpenCarryover:value=>events.push(['closing',value]),onOpenNote:value=>events.push(['note',value]),onSelect:value=>events.push(['quote',value])};
 html=render(CompactSummary,summaryProps);
 assert.match(html,/이월 /); assert.match(html,/-2/); assert.match(html,/수동/); assert.match(html,/미확정/);
-assert.match(html,/이월 초안/); assert.match(html,/이월 미확정/); assert.match(html,/불일치 !/);
+assert.match(html,/이월 초안/); assert.match(html,/이월 미확정/); assert.match(html,/기준 미확정/); assert.match(html,/불일치 !/);
 assert.match(html,/data-quantity="23"/); assert.match(html,/수동 비고 근거/);
 assert.doesNotMatch(html,/>이월 미등록</,'benign unregistered carry is not a visible repeated row');
 const nodes = element=>!element || typeof element!=='object'?[]:[element,...React.Children.toArray(element.props?.children).flatMap(nodes)];
@@ -149,8 +163,16 @@ buttons.find(button=>button.props.className.includes('wcm-quote')).props.onClick
 assert.equal(events[0][1].record,record); assert.equal(events[0][1].trigger,trigger);
 assert.equal(events[0][1].row,row); assert.equal(events[0][1].block,block);
 assert.deepEqual(events[1],['note',{row,block}]); assert.match(events[2][1],/견적관리 23 \/ 인쇄 22/);
+const failedQuoteBlock={...block,quote:{state:'조회 필요',error:quoteError}};
+const failedQuoteTree=CompactSummary({...summaryProps,block:failedQuoteBlock});
+const failedQuoteButton=nodes(failedQuoteTree).find(node=>node.type==='button'&&node.props.className.includes('wcm-quote'));
+assert.match(failedQuoteButton.props.children[1].props.children,/조회실패/,'failed quote button displays the failure status');
+failedQuoteButton.props.onClick();
+assert.match(events.at(-1)[1],/상태: 조회 필요[\s\S]*오류: fixture quote failure:/,'failed quote click sends exact state and full error to selectedInfo');
 assert.match(render(CompactSummary,{...summaryProps,carryoverError:'fixture carry error'}),/role="alert">이월 조회 실패/);
-assert.match(render(CompactSummary,{...summaryProps,block:{...block,quote:{state:'조회 필요',error:'fixture quote error'}}}),/role="alert">견적 조회 실패/);
+const failedQuoteMarkup=render(CompactSummary,{...summaryProps,block:{...block,quote:{state:'조회 필요',error:'fixture quote error'}}});
+assert.match(failedQuoteMarkup,/조회실패/,'quote error remains visible in the item button');
+assert.doesNotMatch(failedQuoteMarkup,/wcm-error[^>]*role="alert">견적 조회 실패/,'full quote error is not rendered as a repeated cell alert');
 assert.ok(nodes(CompactSummary({...summaryProps,carryoverBusy:true})).find(node=>node.props?.['data-wcm-label']==='remainder').props.disabled);
 
 // Execute the actual popover handlers with a small hook host, including focus return.

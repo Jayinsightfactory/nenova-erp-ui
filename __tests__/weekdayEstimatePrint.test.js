@@ -45,7 +45,8 @@ for(const file of ['pages/api/estimate/weekday-print.js','pages/api/estimate/wee
 const products=read('pages/api/estimate/weekday-products.js');
 assert.match(products,/sm.OrderYear=@year AND sm.CustKey=@custKey/);
 assert.match(products,/om.OrderYear=@year AND om.CustKey=@custKey/);
-assert.match(products,/sd.CustKey=sm.CustKey/);
+assert.match(products,/\$\{WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL\}/);
+assert.match(read('lib/weekdayCustomerLink.js'),/sd\.CustKey IS NULL/);
 assert.match(products,/TOP 501/);assert.match(products,/length>500/);
 assert.match(products,/LEFT\(sm.OrderWeek,2\) IN/);
 assert.match(products,/LEFT\(om.OrderWeek,2\) IN/);

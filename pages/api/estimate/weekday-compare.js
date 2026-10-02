@@ -2,6 +2,7 @@ import { query, sql } from '../../../lib/db.js';
 import { withAuth } from '../../../lib/auth.js';
 import { filterWeekdayCompareRows, normalizeWeekdayCompareRequest, normalizeWeekdayUnit, WEEKDAY_ORDER_OUT_QUANTITY_SQL } from '../../../lib/weekdayEstimateCompare.js';
 import { weekdaySnapshotDigest } from '../../../lib/weekdayDistributionPolicy.js';
+import { weekdayDetailCustomerMatchesMaster } from '../../../lib/weekdayCustomerLink.js';
 
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -38,13 +39,13 @@ export default withAuth(async function handler(req, res) {
           GROUP BY om.OrderYear, om.OrderWeek, om.CustKey, od.ProdKey`, params),
       query(
         `SELECT sm.OrderYear,sm.OrderWeek,sm.CustKey,sd.ProdKey,
-                sd.SdetailKey,sd.ShipmentKey,sd.OutQuantity,sd.BoxQuantity,
+                sd.SdetailKey,sd.ShipmentKey,sd.CustKey AS DetailCustKey,sd.OutQuantity,sd.BoxQuantity,
                 CONVERT(nvarchar(23),sd.ShipmentDtm,121) AS ShipmentTimestamp,
                 sd.BunchQuantity,sd.SteamQuantity,sd.EstQuantity,
                 sd.Cost AS DetailCost,sd.Amount AS DetailAmount,sd.Vat AS DetailVat,
                 sd.isFix AS DetailIsFix,p.OutUnit
            FROM ShipmentMaster sm
-           JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey AND sd.CustKey = sm.CustKey
+           JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
            JOIN Product p ON p.ProdKey = sd.ProdKey
           WHERE sm.OrderYear = @year AND sm.CustKey = @custKey
             AND sm.OrderWeek IN (${weekIn}) AND sd.ProdKey IN (${prodIn})
@@ -68,7 +69,7 @@ export default withAuth(async function handler(req, res) {
                 CAST(ISNULL(sd.isFix,0) AS int) AS DetailFixed,
                 sdd.Cost, sdd.Amount, sdd.Vat
            FROM ShipmentMaster sm
-           JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey AND sd.CustKey = sm.CustKey
+           JOIN ShipmentDetail sd ON sd.ShipmentKey = sm.ShipmentKey
            JOIN ShipmentDate sdd ON sdd.SdetailKey = sd.SdetailKey
            OUTER APPLY (
              SELECT CASE WHEN COUNT_BIG(*)=1 THEN MAX(calendar.WeekDay) ELSE NULL END AS WeekDay
@@ -94,7 +95,7 @@ export default withAuth(async function handler(req, res) {
                     sh.ChangeID,sh.ChangeType,CONVERT(nvarchar(10),sh.ShipmentDtm,120) AS ShipmentDate,
                     sh.BeforeValue,sh.AfterValue,sh.Descr
                FROM ShipmentHistory sh JOIN ShipmentDetail sd ON sd.SdetailKey=sh.SdetailKey
-               JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey AND sd.CustKey=sm.CustKey
+               JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
                JOIN Product p ON p.ProdKey=sd.ProdKey
               WHERE sm.OrderYear=@year AND sm.CustKey=@custKey AND sm.OrderWeek IN (${weekIn})
                 AND sd.ProdKey IN (${prodIn}) AND ISNULL(sm.isDeleted,0)=0 AND ISNULL(p.isDeleted,0)=0
@@ -146,13 +147,15 @@ export default withAuth(async function handler(req, res) {
         DetailRows: detailRows.length,
       } : null;
       const product = productMap.get(prodKey);
-      const writeShapeSafe = masterRows.length === 1 && detailRows.length <= 1 && Boolean(product);
+      const customerLinkError = detailRows.some(row=>!weekdayDetailCustomerMatchesMaster(row.DetailCustKey,scope.custKey))
+        ? '상세에 명시된 거래처 키가 상위 출고 거래처와 다릅니다. 저장 전 연결을 확인하세요.' : '';
+      const writeShapeSafe = masterRows.length === 1 && detailRows.length <= 1 && Boolean(product) && !customerLinkError;
       const actual = writeShapeSafe ? {
         detailRows: detailRows.length,
         shipmentOutQuantity: detailRows.length ? Number(detailRows[0].OutQuantity) : null,
         shipmentDates: dates.get(key) || [],
         master: masterRows[0],
-        detail: detailRows[0] || null,
+        detail: detailRows.length ? {...detailRows[0],CustKey:detailRows[0].DetailCustKey} : null,
         product,
       } : null;
       const snapshotDigest = actual ? weekdaySnapshotDigest({
@@ -179,6 +182,7 @@ export default withAuth(async function handler(req, res) {
         detailRows: shipment ? Number(shipment.DetailRows) : 0,
         shipmentDates: dates.get(key) || [],
         snapshotDigest,
+        customerLinkError,
         state: !shipment ? 'NO_SHIPMENT' : shipment.MinFixed !== shipment.MaxFixed ? 'MIXED_FIX_REVIEW_REQUIRED' : Number(shipment.MaxFixed) === 1 ? 'FIXED_REVIEW_REQUIRED' : 'FOUND_UNFIXED',
       });
     }

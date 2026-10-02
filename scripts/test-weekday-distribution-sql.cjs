@@ -72,6 +72,7 @@ function tQuery(tx) { return (statement, params = {}) => query(tx, statement, pa
 async function installSchema(pool) {
   for (const batch of splitBatches(fs.readFileSync(SCHEMA, 'utf8'))) await query(pool, batch);
   await query(pool, `
+    ALTER TABLE dbo.ShipmentDetail ALTER COLUMN CustKey int NULL;
     ALTER TABLE dbo.Customer ADD Manager nvarchar(20) NULL,OrderCode nvarchar(50) NULL,BaseOutDay int NULL;
     ALTER TABLE dbo.ShipmentDetail ADD EstDescr nvarchar(1000) NULL;
     ALTER TABLE dbo.CodeInfo ADD DetailCode nvarchar(100) NULL,Descr2 nvarchar(100) NULL;
@@ -293,7 +294,7 @@ async function commitScenario(pool, run) {
 
 async function businessFingerprint(pool) {
   const [details,dates,product,history] = await Promise.all([
-    query(pool,`SELECT SdetailKey,ShipmentKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,
+    query(pool,`SELECT SdetailKey,ShipmentKey,CustKey,OutQuantity,BoxQuantity,BunchQuantity,SteamQuantity,
       EstQuantity,Cost,Amount,Vat,isFix FROM ShipmentDetail ORDER BY SdetailKey`),
     query(pool,`SELECT SdateKey,SdetailKey,CONVERT(varchar(23),ShipmentDtm,121) ShipmentDtm,
       ShipmentQuantity,EstQuantity,Cost,Amount,Vat,Descr FROM ShipmentDate ORDER BY SdateKey`),
@@ -463,7 +464,85 @@ async function runPrintCompatibilityRegressions(pool) {
     await tQ(`UPDATE ShipmentDate SET Amount=Amount-1,Vat=Vat+1 WHERE SdateKey=119701`);
     await assert.rejects(()=>print.readWeekdayPrintInTransaction(scope,tQ,sql),error=>error.status===409&&error.eligibility?.invalidCount>0);
   });
+  await rollbackScenario(pool,async(tQ)=>{
+    await tQ(`UPDATE ShipmentDetail SET CustKey=NULL WHERE SdetailKey=89892`);
+    const raw=(await tQ(`SELECT CustKey,isFix FROM ShipmentDetail WHERE SdetailKey=89892`)).recordset[0];
+    assert.equal(raw.CustKey,null,'native customer key remains raw NULL');
+    assert.equal(raw.isFix,true,'ERP Detail.isFix is independent from page baseline confirmation');
+    const result=await print.readWeekdayPrintInTransaction(scope,tQ,sql);
+    assert.equal(result.eligibility.eligible,true,'native NULL passes locked print eligibility');
+    assert.equal(result.items[0].Quantity,750,'native NULL remains connected to the selected Master customer for quote output');
+  });
+  for(const invalidCustKey of [0,999]) await rollbackScenario(pool,async(tQ)=>{
+    await tQ(`UPDATE ShipmentDetail SET CustKey=@custKey WHERE SdetailKey=89892`,
+      {custKey:{type:sql.Int,value:invalidCustKey}});
+    await assert.rejects(()=>print.readWeekdayPrintInTransaction(scope,tQ,sql),
+      error=>error.status===409&&error.eligibility?.invalidCount>0,
+      `explicit detail customer ${invalidCustKey} must not pass print eligibility`);
+  });
   console.log('PASS: actual MSSQL print SQL, EXE midpoint money, all-main flags, selected customer links/money, date-only quote, prior-year sentinel and result reconciliation');
+}
+
+async function runNativeNullCustomerApplyRegressions(pool,core,user,dependencies) {
+  const baselineSql=await import(pathToFileURL(path.join(ROOT,'lib','weekdayInitialBaselineSql.js')).href);
+  const customerLink=await import(pathToFileURL(path.join(ROOT,'lib','weekdayCustomerLink.js')).href);
+  const carrySource=fs.readFileSync(path.join(ROOT,'pages','api','estimate','weekday-carryover.js'),'utf8');
+  const carryLiteral=carrySource.match(/const CONTEXT_SQL = `([\s\S]*?)`;/)?.[1];
+  if(!carryLiteral) fail('weekday carryover CONTEXT_SQL extraction failed');
+  const carrySql=Function('WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL',`return \`${carryLiteral}\`;`)(customerLink.WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL);
+  const cycleParams={cycles:{type:sql.NVarChar(sql.MAX),value:JSON.stringify([{year:2026,majorWeek:'37'}])},
+    custKey:{type:sql.Int,value:533}};
+  const orderWeek='37-01';
+  const actual=fixtureActual(orderWeek,existingRows(),25);
+  actual.detail.CustKey=null;
+  const operationId=crypto.randomUUID();
+  const body={operationId,reason:'native NULL detail customer raw snapshot',custKey:533,changes:[{
+    year:'2026',orderWeek,prodKey:866,unit:'박스',
+    expected:expectedFromActual(core,orderWeek,actual),
+    dates:[{date:'2026-09-10',quantity:0},{date:'2026-09-13',quantity:25}],
+  }]};
+  const before=await businessFingerprint(pool);
+  await rollbackScenario(pool,async(tQ)=>{
+    await tQ(`UPDATE ShipmentDetail SET CustKey=NULL WHERE SdetailKey=89892`);
+    const result=await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
+    assert.equal(result.success,true,'same-total native NULL date-move snapshot is accepted by the real transaction');
+    const readback=await tQ(`SELECT CustKey,isFix,OutQuantity FROM ShipmentDetail WHERE SdetailKey=89892`);
+    assert.equal(readback.recordset[0].CustKey,null,'apply does not populate or rewrite the raw native NULL key');
+    assert.equal(readback.recordset[0].isFix,true,'apply keeps stored Detail.isFix separate from page baseline state');
+    assert.equal(Number(readback.recordset[0].OutQuantity),25);
+    const moved=(await tQ(`SELECT CONVERT(nvarchar(10),ShipmentDtm,120) [date],ShipmentQuantity
+      FROM ShipmentDate WHERE SdetailKey=89892 ORDER BY ShipmentDtm`)).recordset;
+    assert.deepEqual(moved.map(row=>[row.date,Number(row.ShipmentQuantity)]),[['2026-09-13',25]],
+      'native NULL save moves day-one quantity 5 into day four while preserving total 25');
+    const baseline=await baselineSql.readWeekdayInitialBaselineSnapshot({year:2026,orderWeek,custKey:533},
+      {query:(statement,params)=>tQ(statement,params),sql});
+    assert.equal(baseline.rows.find(row=>row.prodKey===866).quantity,25,'real baseline SQL aggregates native NULL detail');
+    const carry=(await tQ(carrySql,cycleParams)).recordset.find(row=>row.OrderWeek===orderWeek);
+    assert.equal(Number(carry.InvalidQuantityRows),0,'real carryover SQL does not flag native NULL detail');
+    assert.equal(JSON.parse(carry.ShipmentDates).reduce((sum,row)=>sum+Number(row.invalidRows),0),0);
+  });
+  assert.deepEqual(await businessFingerprint(pool),before,'native NULL apply/date move scenario rolls back every ERP and history row');
+
+  for(const invalidCustKey of [0,999]) {
+    const nearMissBody={...body,operationId:crypto.randomUUID()};
+    await assert.rejects(()=>rollbackScenario(pool,async(tQ)=>{
+      await tQ(`UPDATE ShipmentDetail SET CustKey=@custKey WHERE SdetailKey=89892`,
+        {custKey:{type:sql.Int,value:invalidCustKey}});
+      const baselineRows=await tQ(baselineSql.WEEKDAY_INITIAL_BASELINE_SQL,{
+        year:{type:sql.Int,value:2026},orderWeek:{type:sql.NVarChar(10),value:orderWeek},
+        custKey:{type:sql.Int,value:533},
+      });
+      assert.equal(Number(baselineRows.recordset.find(row=>row.ProdKey===866).InvalidQuantityRows),1,
+        'real baseline aggregate counts a wrong non-NULL detail customer');
+      const carryRows=(await tQ(carrySql,cycleParams)).recordset.find(row=>row.OrderWeek===orderWeek);
+      assert.equal(Number(carryRows.InvalidQuantityRows),1,'real carryover aggregate counts a wrong non-NULL detail customer');
+      assert.ok(JSON.parse(carryRows.ShipmentDates).some(row=>Number(row.invalidRows)>0));
+      return core.executeWeekdayDistributionApply(tQ,sql,nearMissBody,user,dependencies);
+    }),error=>error?.code==='SHIPMENT_CUSTOMER_MISMATCH',
+    `explicit detail customer ${invalidCustKey} aborts apply and transaction`);
+    assert.deepEqual(await businessFingerprint(pool),before,'near-miss rollback preserves the raw detail key and all business rows');
+  }
+  console.log('PASS: native NULL customer save/readback preserves raw CustKey and Detail.isFix; zero/foreign customer near-misses fully roll back');
 }
 
 async function runScenarios(pool, core, gate, presence, keyAllocator) {
@@ -472,6 +551,7 @@ async function runScenarios(pool, core, gate, presence, keyAllocator) {
 
   await runCalendarRegressions(pool,core,user,dependencies);
   await runPrintCompatibilityRegressions(pool);
+  await runNativeNullCustomerApplyRegressions(pool,core,user,dependencies);
 
   await rollbackScenario(pool, async (tQ) => {
     const operationId = crypto.randomUUID();

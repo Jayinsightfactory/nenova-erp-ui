@@ -4,6 +4,7 @@ import carryoverStore from '../../../lib/weekdayCarryoverStore.js';
 import baselineStore from '../../../lib/weekdayInitialBaselineStore.js';
 import { buildShippingCycles, dateKey, shiftDate } from '../../../lib/weekdayEstimateCycle.js';
 import { normalizeWeekdayUnit } from '../../../lib/weekdayEstimateCompare.js';
+import { WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL } from '../../../lib/weekdayCustomerLink.js';
 
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
 export const MAX_CONTEXT_WEEKS = 104;
@@ -12,7 +13,7 @@ const CUSTOMER_SQL = `SELECT CustKey FROM Customer WHERE CustKey=@custKey AND IS
 const PRODUCT_SCOPE_SQL = `SELECT p.ProdKey,p.ProdName,p.FlowerName,p.OutUnit,
   CASE WHEN EXISTS (
     SELECT 1 FROM ShipmentMaster sm
-    JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND sd.CustKey=sm.CustKey
+    JOIN ShipmentDetail sd ON sd.ShipmentKey=sm.ShipmentKey AND ${WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL}
     WHERE sm.OrderYear=@year AND LEFT(sm.OrderWeek,2)=@majorWeek AND sm.CustKey=@custKey
       AND sd.ProdKey=@prodKey AND ISNULL(sm.isDeleted,0)=0
   ) OR EXISTS (
@@ -50,16 +51,16 @@ const CONTEXT_SQL = `WITH cycles AS (
   UNION
   SELECT c.[year],c.majorWeek,sm.OrderWeek,sd.ProdKey FROM cycles c
   JOIN ShipmentMaster sm WITH (HOLDLOCK) ON sm.OrderYear=c.[year] AND LEFT(sm.OrderWeek,2)=c.majorWeek
-  JOIN ShipmentDetail sd WITH (HOLDLOCK) ON sd.ShipmentKey=sm.ShipmentKey AND sd.CustKey=sm.CustKey
+  JOIN ShipmentDetail sd WITH (HOLDLOCK) ON sd.ShipmentKey=sm.ShipmentKey
   JOIN Product p WITH (HOLDLOCK) ON p.ProdKey=sd.ProdKey AND ISNULL(p.isDeleted,0)=0
   WHERE sm.CustKey=@custKey AND ISNULL(sm.isDeleted,0)=0
 ), shipment AS (
   SELECT c.[year],c.majorWeek,sm.OrderWeek,sd.ProdKey,SUM(sd.OutQuantity) AS Quantity,
     COUNT_BIG(*) AS DetailRows,
-    SUM(CASE WHEN sd.OutQuantity IS NULL OR sd.OutQuantity<0 THEN 1 ELSE 0 END) AS InvalidQuantityRows
+    SUM(CASE WHEN sd.OutQuantity IS NULL OR sd.OutQuantity<0 OR NOT ${WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL} THEN 1 ELSE 0 END) AS InvalidQuantityRows
   FROM cycles c
   JOIN ShipmentMaster sm WITH (HOLDLOCK) ON sm.OrderYear=c.[year] AND LEFT(sm.OrderWeek,2)=c.majorWeek
-  JOIN ShipmentDetail sd WITH (HOLDLOCK) ON sd.ShipmentKey=sm.ShipmentKey AND sd.CustKey=sm.CustKey
+  JOIN ShipmentDetail sd WITH (HOLDLOCK) ON sd.ShipmentKey=sm.ShipmentKey
   JOIN Product p WITH (HOLDLOCK) ON p.ProdKey=sd.ProdKey AND ISNULL(p.isDeleted,0)=0
   WHERE sm.CustKey=@custKey AND ISNULL(sm.isDeleted,0)=0
   GROUP BY c.[year],c.majorWeek,sm.OrderWeek,sd.ProdKey
@@ -67,10 +68,10 @@ const CONTEXT_SQL = `WITH cycles AS (
   SELECT c.[year],c.majorWeek,sm.OrderWeek,sd.ProdKey,
     CONVERT(nvarchar(10),sdd.ShipmentDtm,120) AS [date],SUM(sdd.ShipmentQuantity) AS quantity,
     SUM(CASE WHEN sdd.ShipmentDtm IS NULL OR sdd.ShipmentQuantity IS NULL
-      OR sdd.ShipmentQuantity<0 THEN 1 ELSE 0 END) AS invalidRows
+      OR sdd.ShipmentQuantity<0 OR NOT ${WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL} THEN 1 ELSE 0 END) AS invalidRows
   FROM cycles c
   JOIN ShipmentMaster sm WITH (HOLDLOCK) ON sm.OrderYear=c.[year] AND LEFT(sm.OrderWeek,2)=c.majorWeek
-  JOIN ShipmentDetail sd WITH (HOLDLOCK) ON sd.ShipmentKey=sm.ShipmentKey AND sd.CustKey=sm.CustKey
+  JOIN ShipmentDetail sd WITH (HOLDLOCK) ON sd.ShipmentKey=sm.ShipmentKey
   JOIN Product p WITH (HOLDLOCK) ON p.ProdKey=sd.ProdKey AND ISNULL(p.isDeleted,0)=0
   JOIN ShipmentDate sdd WITH (HOLDLOCK) ON sdd.SdetailKey=sd.SdetailKey
   WHERE sm.CustKey=@custKey AND ISNULL(sm.isDeleted,0)=0

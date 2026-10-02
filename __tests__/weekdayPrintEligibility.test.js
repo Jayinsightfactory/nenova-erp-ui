@@ -95,6 +95,9 @@ assert.equal(passed.value.items[1].EstimateType,'차감');
 assert.equal(passed.calls[0].statement,'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
 assert.equal(passed.calls.at(-1).params.year.value,2026);
 assert.equal(passed.calls.at(-1).params.custKey.value,533);
+assert.equal(check([row({DetailCustKey:null})]).eligible,true,'native NULL detail customer is printable and raw NULL is not mutated');
+assert.equal(check([row({DetailCustKey:0})]).eligible,false,'explicit zero is not native NULL');
+assert.equal(check([row({DetailCustKey:88})]).eligible,false,'a different positive detail customer is not native NULL');
 const adjacent=await execute([row(),row({OrderYear:2025,OrderYearWeek:'202538',SdetailKey:102,isFix:0})],
   [day(),day({SdetailKey:102,SdateKey:2})]);
 assert.equal(adjacent.value.eligibility.unfixedCount,0,'adjacent-year same week not included');
