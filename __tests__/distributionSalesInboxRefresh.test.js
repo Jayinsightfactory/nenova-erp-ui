@@ -6,7 +6,7 @@ const inboxSource=require('node:fs').readFileSync(require('node:path').join(__di
 assert(inboxSource.includes('intervalMs:HISTORY_REFRESH_INTERVAL_MS'),'status/history use tested bounded cadence');
 assert(inboxSource.includes('data-testid="sales-inbox-refresh-cadence"'),'cadence remains visible outside folded tools');
 assert(inboxSource.includes('void refreshLiveHistory(liveScope,liveBatch,{force:true})'),'post-save history refresh bypasses polling delay');
-assert(inboxSource.includes('const liveBatch=[...rows].reverse()'),'full history coverage is preserved');
+assert(inboxSource.includes('const liveBatch=displayRows')&&inboxSource.includes('()=>[...rows].reverse()'),'full history coverage is preserved');
 const {periodBounds}=require('../lib/distributionSalesInbox');
 for(const [now,from,to] of [
   ['2026-09-15T00:00:00+09:00','2026-09-09','2026-09-15'],

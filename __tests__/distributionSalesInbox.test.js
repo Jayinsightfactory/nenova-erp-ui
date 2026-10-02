@@ -69,7 +69,10 @@ assert.match(ui,/data-testid="complete-kakao-message">\{formatKakaoMessage\(row\
 assert.match(ui,/className="non-action-reference"/);
 assert.match(ui,/추가·취소 작업/);
 assert.match(ui,/PRODUCT_HISTORY_CANDIDATE:'품목 미확정 · 이력 후보'/);
-assert.match(ui,/const liveBatch=\[\.\.\.rows\]\.reverse\(\)/,'live-history request IDs are parsed from the exact displayed Kakao text');
+assert.match(ui,/const displayRows=useMemo\(\(\)=>\[\.\.\.rows\]\.reverse\(\),\[rows\]\)/,'memoized display rows retain exact source objects');
+assert.match(ui,/const liveBatch=displayRows/,'live-history request IDs are parsed from the exact displayed Kakao text');
+assert.match(ui,/expandedEvidence\[row.identity\]&&<>/,'closed evidence details do not eagerly build hidden panels');
+assert.match(ui,/onToggle=.*setExpandedEvidence/,'opening evidence mounts the original controls and panels');
 assert.match(ui,/AI-reconstructed evidence text can add\/remove lines and shift IDs/);
 assert.doesNotMatch(ui,/mappedEvidenceSource/,'request-line indices cannot come from a transformed message');
 assert.match(ui,/className="paired-applied-items" aria-label="적용 항목 상태"/,'the right side contains a simple list of applied items');

@@ -4,6 +4,7 @@ import {createPreanalysisCache,usableAnalysis} from '../../lib/pasteInboxPreanal
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
+import PasteProductSearch from '../../components/orders/PasteProductSearch';
 import { createPasteMappingSaver, uniquePasteMappingItems } from '../../lib/pasteMappingSave.js';
 import { resolveManualMappingOverride } from '../../lib/pasteManualMappingOverride.js';
 import PasteHighlight from '../../components/orders/PasteHighlight';
@@ -16,7 +17,7 @@ import PasteErpHistoryEvidence from '../../components/orders/PasteErpHistoryEvid
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
-import { getProductUsageRank, rankProductSearchOptions } from '../../lib/productSearchRanking';
+import { getProductUsageRank } from '../../lib/productSearchRanking';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
 import { defaultUnit, normalizeOrderUnit, normalizeOrderYear, resolveOrderWeekQuery, orderRowMatchesWeek, validateOrderWeek } from '../../lib/orderUtils';
 import { resolvePasteOrderUnit, resolvePasteMixedQuantity } from '../../lib/pasteOrderUnit.js';
@@ -2184,7 +2185,7 @@ export default function PasteOrderPage() {
                 ...it,
                 prodEditOpen: true,
                 prodSearch: it.inputName || '',
-                prodSearchResults: rankProductSearchOptions(it.inputName || '', allProducts, { limit: 10 }),
+                prodSearchResults: [],
               }
             : it),
         }
@@ -2192,11 +2193,6 @@ export default function PasteOrderPage() {
     requestAnimationFrame(() => {
       document.getElementById(`paste-match-${oid}-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
-  };
-
-  const handleProdSearch = (oid, idx, q) => {
-    const results = q ? rankProductSearchOptions(q, allProducts, { limit: 10 }) : [];
-    updateItem(oid, idx, { prodSearch: q, prodSearchResults: results });
   };
 
   const showMappingNotice = ({ inputName, previous, next, savedKey }) => {
@@ -5018,32 +5014,14 @@ export default function PasteOrderPage() {
                                   <span title={`${formatWeekDisplay(week)} 전산 입고수량`} style={{ fontSize: 10, background: incomingState.kind === 'zero' ? '#eceff1' : '#e0f2f1', color: incomingState.kind === 'error' ? '#c62828' : incomingState.kind === 'zero' ? '#607d8b' : '#00695c', borderRadius: 8, padding: '1px 6px', fontWeight: 800 }}>
                                     {incomingState.label}
                                   </span>
-                                  <button onClick={() => updateItem(order.id, idx, { prodEditOpen: !it.prodEditOpen, prodSearch: it.prodEditOpen ? '' : (it.inputName || ''), prodSearchResults: it.prodEditOpen ? [] : rankProductSearchOptions(it.inputName || '', allProducts, { limit: 10 }) })}
+                                  <button onClick={() => updateItem(order.id, idx, { prodEditOpen: !it.prodEditOpen, prodSearch: it.prodEditOpen ? '' : (it.inputName || ''), prodSearchResults: [] })}
                                     style={{ fontSize: 10, padding: '1px 6px', background: it.prodEditOpen ? '#1565c0' : 'none', color: it.prodEditOpen ? '#fff' : '#777', border: '1px solid #bbb', borderRadius: 3, cursor: 'pointer', marginLeft: 'auto' }}>
                                     {it.prodEditOpen ? '닫기' : '✎ 품목변경'}
                                   </button>
                                 </div>
                                 {it.prodEditOpen && (
                                   <div style={{ marginTop: 5, padding: 6, border: '1px solid #90caf9', borderRadius: 6, background: '#f5fbff' }}>
-                                    <input
-                                      autoFocus
-                                      value={it.prodSearch || ''}
-                                      onChange={e => handleProdSearch(order.id, idx, e.target.value)}
-                                      placeholder="품목명으로 검색 (예: 문라이트, mariposa)"
-                                      style={{ width: '100%', padding: '5px 8px', border: '1px solid #90caf9', borderRadius: 5, fontSize: 12, boxSizing: 'border-box' }}
-                                    />
-                                    <div style={{ maxHeight: 170, overflow: 'auto', marginTop: 4 }}>
-                                      {(it.prodSearchResults || []).length === 0 && (
-                                        <div style={{ fontSize: 11, color: '#90a4ae', padding: 6 }}>검색어를 입력하세요.</div>
-                                      )}
-                                      {(it.prodSearchResults || []).map(p => (
-                                        <button key={p.ProdKey} onClick={() => reassignItemProduct(order.id, idx, p)}
-                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', border: 0, borderBottom: '1px solid #e3f2fd', background: Number(p.ProdKey) === Number(it.prodKey) ? '#e3f2fd' : '#fff', cursor: 'pointer', fontSize: 12 }}>
-                                          <b>{p.DisplayName || p.ProdName}</b>
-                                          <span style={{ color: '#90a4ae', marginLeft: 6, fontSize: 11 }}>{[p.CounName, p.FlowerName].filter(Boolean).join(' · ')}</span>
-                                        </button>
-                                      ))}
-                                    </div>
+                                    <PasteProductSearch products={allProducts} initialQuery={it.prodSearch || ''} selectedKey={it.prodKey} onPick={p => reassignItemProduct(order.id, idx, p)} />
                                     <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
                                       <button onClick={() => clearProductMatchForChange(order.id, idx)}
                                         style={{ fontSize: 11, padding: '3px 8px', background: '#fff', border: '1px solid #e57373', color: '#c62828', borderRadius: 4, cursor: 'pointer' }}>
