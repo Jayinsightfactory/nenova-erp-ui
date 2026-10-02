@@ -130,6 +130,7 @@ async function actualSnapshot(tQ, wk) {
   assert.equal(masters.recordset.length,1,`single fixture master ${wk}`);
   const master=masters.recordset[0];
   const details=await tQ(`SELECT sd.SdetailKey,sd.ShipmentKey,sd.CustKey,sd.ProdKey,sd.ShipmentDtm,sd.OutQuantity,sd.BoxQuantity,sd.BunchQuantity,
+      CONVERT(nvarchar(23),sd.ShipmentDtm,121) ShipmentTimestamp,
       sd.SteamQuantity,sd.EstQuantity,sd.Cost DetailCost,sd.Amount DetailAmount,sd.Vat DetailVat,sd.isFix DetailIsFix,
       ISNULL(sd.Descr,N'') DetailDescr,ISNULL(sd.EstDescr,N'') EstDescr FROM ShipmentDetail sd WHERE sd.ShipmentKey=@sk AND sd.ProdKey=@pk`,
     {...params,sk:{type:sql.Int,value:Number(master.ShipmentKey)}});
@@ -196,6 +197,47 @@ async function run(pool,core,gate,presence){
   const user={userId:'fixture-user',userName:'Fixture User'};const deps=dependencies(gate,presence);
   console.log('CASE: cross-year same-total transfer');
   const prior=await priorYearSnapshot(pool);
+  for (const flag of ['0','NULL']) {
+    console.log(`CASE: ${flag} unfixed detail cannot save or auto-confirm`);
+    await failedAndRolledBack(pool,async(tQ)=>{
+      if (flag==='NULL') await tQ(`ALTER TABLE ShipmentDetail ALTER COLUMN isFix bit NULL`);
+      await tQ(`UPDATE ShipmentDetail SET isFix=${flag} WHERE SdetailKey=89892`);
+      const a=await expected(tQ,'37-01');
+      return core.executeWeekdayDistributionApply(tQ,sql,body([change('37-01',[{date:'2026-09-10',quantity:4}],a)]),user,deps);
+    },'ERP_CONFIRMATION_REQUIRED');
+  }
+  console.log('CASE: representative-only concurrent change rejects stale snapshot');
+  await failedAndRolledBack(pool,async(tQ)=>{
+    const a=await expected(tQ,'37-01');
+    await tQ(`UPDATE ShipmentDetail SET ShipmentDtm=CONVERT(datetime,'2026-09-13 00:00:00.000',121) WHERE SdetailKey=89892`);
+    return core.executeWeekdayDistributionApply(tQ,sql,body([change('37-01',[{date:'2026-09-10',quantity:4}],a)]),user,deps);
+  },'STALE_SNAPSHOT');
+  console.log('CASE: confirmation changed since read rejects stale snapshot');
+  await failedAndRolledBack(pool,async(tQ)=>{
+    const a=await expected(tQ,'37-01');
+    await tQ(`UPDATE ShipmentDetail SET isFix=0 WHERE SdetailKey=89892`);
+    return core.executeWeekdayDistributionApply(tQ,sql,body([change('37-01',[{date:'2026-09-10',quantity:4}],a)]),user,deps);
+  },'STALE_SNAPSHOT');
+  console.log('CASE: representative readback mismatch rolls back quantities and history');
+  await failedAndRolledBack(pool,async(tQ)=>{
+    const a=await expected(tQ,'37-01');
+    await tQ(`CREATE TRIGGER dbo.FixtureWrongRepresentative ON dbo.ShipmentDetail AFTER UPDATE AS
+      BEGIN
+        IF TRIGGER_NESTLEVEL()>1 RETURN;
+        UPDATE d SET ShipmentDtm=CONVERT(datetime,'2026-09-13 00:00:00.000',121)
+        FROM dbo.ShipmentDetail d JOIN inserted i ON i.SdetailKey=d.SdetailKey;
+      END`);
+    return core.executeWeekdayDistributionApply(tQ,sql,body([change('37-01',[{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:5}],a)]),user,deps);
+  },'WEEKDAY_VERIFY_FAILED');
+  console.log('CASE: fixed detail preserves mixed master flag');
+  await rollbackScenario(pool,async(tQ)=>{
+    await tQ(`UPDATE ShipmentMaster SET isFix=0 WHERE ShipmentKey=6266`);
+    const a=await expected(tQ,'37-01');
+    await core.executeWeekdayDistributionApply(tQ,sql,body([change('37-01',[{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:5}],a)]),user,deps);
+    assert.equal((await tQ(`SELECT isFix FROM ShipmentMaster WHERE ShipmentKey=6266`)).recordset[0].isFix,false);
+    assert.equal((await tQ(`SELECT isFix FROM ShipmentDetail WHERE SdetailKey=89892`)).recordset[0].isFix,true);
+  });
+  console.log('CASE: cross-year same-total transfer');
   await rollbackScenario(pool,async(tQ)=>{
     const a=await expected(tQ,'37-01'),b=await expected(tQ,'37-02');
     const request=body([change('37-01',[{date:'2026-09-10',quantity:0},{date:'2026-09-11',quantity:5},{date:'2026-09-13',quantity:15}],a),

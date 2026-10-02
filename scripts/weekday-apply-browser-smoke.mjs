@@ -1,5 +1,5 @@
 // Local fixture only. Every API request is intercepted; no production write is possible.
-// SMOKE_BASE_URL=http://127.0.0.1:20767 PLAYWRIGHT_MODULE=/prepared/playwright/index.mjs node scripts/weekday-apply-browser-smoke.mjs
+// SMOKE_BASE_URL=http://127.0.0.1:20768 PLAYWRIGHT_MODULE=/prepared/playwright/index.mjs node scripts/weekday-apply-browser-smoke.mjs
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,7 +8,7 @@ import { buildShippingCycles, normalizeCycleRequest, shiftDate, SHIPPING_DAYS } 
 import { weekdaySnapshotDigest } from '../lib/weekdayDistributionPolicy.js';
 import { normalizeWeekdayPrintRequest } from '../lib/weekdayEstimatePrint.js';
 
-const base=process.env.SMOKE_BASE_URL || 'http://127.0.0.1:20767';
+const base=process.env.SMOKE_BASE_URL || 'http://127.0.0.1:20768';
 assert.match(base,/^http:\/\/(?:127\.0\.0\.1|localhost):\d+$/);
 assert.ok(process.env.PLAYWRIGHT_MODULE,'NEEDS_MAIN_PREFLIGHT: supply prepared PLAYWRIGHT_MODULE and local Next server');
 const playwright=await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
@@ -22,27 +22,31 @@ const cycles=buildShippingCycles(periods,normalizeCycleRequest({year:2026,majorW
 const stored=new Map(), audit=[], operations=new Map(), requests=[], errors=[];
 const printReads=[];
 let printFailureDate='',printEmptyDate='';
-let behavior='fail', pollCount=0, statusReady=false, omitReadDigest=true;
+let behavior='fail', pollCount=0, statusReady=false, omitReadDigest=false, targetDetailFixed=false;
+const unfixedPrintRejections=[];
 const makeRow=(year,orderWeek,custKey=533)=>{
   const cycle=cycles.find(item=>item.majorWeek===orderWeek.slice(0,2));
   const days=cycle.days.filter(day=>day.orderWeek===orderWeek).slice(0,2);
   const key=`${year}|${orderWeek}|${custKey}`;
+  const fixed=targetDetailFixed || !/^38-/.test(orderWeek);
   if(!stored.has(key))stored.set(key,{
     year,orderWeek,custKey,prodKey:866,prodName:'CARNATION 저장 fixture',flowerName:'카네이션',outUnit:'박스',estUnit:'송이',detailRows:1,
-    shipmentOutQuantity:25,fixed:true,state:'FIXED_REVIEW_REQUIRED',
-    shipmentDates:days.map((day,index)=>({date:day.date,timestamp:`${day.date} 00:00:00.000`,sdateKey:100+cycle.offset*10+index+(orderWeek.endsWith('02')?5:0),sdetailKey:200+cycle.offset+(orderWeek.endsWith('02')?5:0),shipmentKey:300+cycle.offset,weekDay:day.code,shipmentQuantity:index?20:5,estimateQuantity:index?200:50,detailFixed:true,cost:100,amount:index?18182:4545,vat:index?1818:455})),
+    shipmentOutQuantity:25,fixed,state:fixed?'FIXED_REVIEW_REQUIRED':'FOUND_UNFIXED',
+    shipmentDates:days.map((day,index)=>({date:day.date,timestamp:`${day.date} 00:00:00.000`,sdateKey:100+cycle.offset*10+index+(orderWeek.endsWith('02')?5:0),sdetailKey:200+cycle.offset+(orderWeek.endsWith('02')?5:0),shipmentKey:300+cycle.offset,weekDay:day.code,shipmentQuantity:index?20:5,estimateQuantity:index?200:50,detailFixed:fixed,cost:100,amount:index?18182:4545,vat:index?1818:455})),
   });
   const row=structuredClone(stored.get(key));
+  row.fixed=fixed;row.state=fixed?'FIXED_REVIEW_REQUIRED':'FOUND_UNFIXED';
+  row.shipmentDates.forEach(day=>{day.detailFixed=fixed;});
   // Shared server canonical helper; mock DB state only, never production writes.
   const physical={detailRows:row.detailRows,shipmentOutQuantity:row.shipmentOutQuantity,shipmentDates:row.shipmentDates,
-    master:{ShipmentKey:row.shipmentDates[0].shipmentKey,MasterIsFix:row.fixed,OrderYearWeek:`${year}${orderWeek.slice(0,2)}`},
+    master:{ShipmentKey:row.shipmentDates[0].shipmentKey,MasterIsFix:true,OrderYearWeek:`${year}${orderWeek.slice(0,2)}`},
     detail:{SdetailKey:row.shipmentDates[0].sdetailKey,ShipmentKey:row.shipmentDates[0].shipmentKey,CustKey:custKey,ProdKey:row.prodKey,
       OutQuantity:row.shipmentOutQuantity,BoxQuantity:row.shipmentOutQuantity,BunchQuantity:row.shipmentOutQuantity,SteamQuantity:row.shipmentOutQuantity*10,
       EstQuantity:row.shipmentDates.reduce((sum,day)=>sum+day.estimateQuantity,0),DetailCost:100,
       DetailAmount:row.shipmentDates.reduce((sum,day)=>sum+day.amount,0),DetailVat:row.shipmentDates.reduce((sum,day)=>sum+day.vat,0),DetailIsFix:row.fixed},
     product:{ProdKey:row.prodKey,OutUnit:'박스',EstUnit:'송이',BunchOf1Box:1,SteamOf1Bunch:10,SteamOf1Box:10},
   };
-  return {...row,snapshotDigest:weekdaySnapshotDigest({year,orderWeek,custKey,prodKey:row.prodKey},physical)};
+  return {...row,masterFixed:true,snapshotDigest:weekdaySnapshotDigest({year,orderWeek,custKey,prodKey:row.prodKey},physical)};
 };
 const baselines=cycles.flatMap(cycle=>['01','02'].map(suffix=>{
   const row=makeRow(cycle.year,`${cycle.majorWeek}-${suffix}`);
@@ -65,7 +69,15 @@ await page.route('**/api/**',async route=>{
   else if(url.pathname==='/api/favorites')data.favorites=[];
   else if(url.pathname==='/api/work/replay')data={success:true,sessions:[],events:[]};
   else if(url.pathname==='/api/customers/search')data.customers=[{CustKey:533,CustName:'주광농원'}];
-  else if(url.pathname==='/api/estimate/weekday-calendar')data.cycles=cycles;
+  else if(url.pathname==='/api/estimate/weekday-calendar') {
+    const scope=url.searchParams.get('defaultNext')==='1'?{year:2026,majorWeek:'38'}:{year:Number(url.searchParams.get('year')||2026),majorWeek:String(url.searchParams.get('majorWeek')||'38').padStart(2,'0')};
+    data={success:true,readOnly:true,scope,cycles};
+  }
+  else if(url.pathname==='/api/estimate/weekday-carryover')data={success:true,readOnly:true,records:[],context:{custKey:533,cycles,inputs:[]}};
+  else if(url.pathname==='/api/estimate/weekday-confirmation') {
+    const year=Number(url.searchParams.get('year')),majorWeek=String(url.searchParams.get('majorWeek')).padStart(2,'0');
+    data={success:true,readOnly:true,summary:{year,majorWeek,allCustomers:true,totalCount:0,fixedCount:0,unknownCount:0,warningCount:0,state:'EMPTY',categories:[]}};
+  }
   else if(url.pathname==='/api/estimate/weekday-products')data.products=[{ProdKey:866,ProdName:'CARNATION 저장 fixture'}];
   else if(url.pathname==='/api/estimate/weekday-baseline') {
     assert.equal(req.method(),'GET','fixture baselines are immutable; no confirmation POST');
@@ -73,11 +85,15 @@ await page.route('**/api/**',async route=>{
   } else if(url.pathname==='/api/estimate/weekday-note')data.notes=[];
   else if(url.pathname==='/api/estimate/weekday-compare') {
     const body=req.postDataJSON();data={success:true,readOnly:true,scope:body,rows:body.orderWeeks.map(week=>{
-      const row=makeRow(body.year,week,body.custKey);if(omitReadDigest)delete row.snapshotDigest;return row;
+      const row=makeRow(body.year,week,body.custKey);
+      assert.equal(typeof row.fixed,'boolean','compare fixture exposes strict boolean detail confirmation');
+      assert.equal(row.masterFixed,true,'compare fixture keeps master confirmation explicitly true');
+      if(omitReadDigest)delete row.snapshotDigest;return row;
     }),history:[{OrderYear:2026,OrderWeek:'38-01',ProdKey:866,SdetailKey:200,ChangeDtm:'2026-10-01 02:00:00',ChangeID:'exe-fixture-user',ChangeType:'수정',ShipmentDate:'2026-09-17',BeforeValue:4,AfterValue:5,Descr:'기존 EXE fixture 비고'}],sourceLots:[]};
   } else if(url.pathname==='/api/estimate/weekday-print') {
     const scope=normalizeWeekdayPrintRequest(req.postDataJSON());printReads.push(scope);
-    if(scope.mode==='dates' && scope.dates.includes(printFailureDate)) {code=500;data={success:false,error:'fixture weekday print failure'};}
+    if(scope.majorWeek==='38' && !targetDetailFixed) {code=409;data={success:false,error:'fixture ERP 상세 미확정',unfixedCount:1,invalidCount:0,readOnly:true};unfixedPrintRejections.push(scope);}
+    else if(scope.mode==='dates' && scope.dates.includes(printFailureDate)) {code=500;data={success:false,error:'fixture weekday print failure'};}
     else data={success:true,scope,customer:{CustKey:scope.custKey,CustName:'주광농원'},items:scope.mode==='dates'&&scope.dates.includes(printEmptyDate)?[]:quotes(scope),note:'fixture 保存 확정본',readOnly:true,draftIncluded:false};
   } else if(url.pathname==='/api/estimate')data.items=quotes({year:Number(url.searchParams.get('year')),majorWeek:url.searchParams.get('week'),custKey:Number(url.searchParams.get('custKey')),mode:'major'});
   else if(url.pathname==='/api/estimate/weekday-apply') {
@@ -106,10 +122,22 @@ await page.route('**/api/**',async route=>{
 try {
   await page.goto(`${base}/estimate/weekday?popup=1`,{waitUntil:'networkidle'});
   await page.getByRole('status').filter({hasText:'전후 차수 전산 대조 완료'}).waitFor();
+  assert.ok(unfixedPrintRejections.some(scope=>scope.majorWeek==='38'&&scope.mode==='major'&&scope.dates.length===0),'full-main print preflight returns 409 for unfixed positive details');
   await page.getByRole('button',{name:'현재 38차 보기',exact:true}).click();
   const cell=page.getByRole('textbox',{name:'CARNATION 저장 fixture 2026/38-01 2026-09-17 미적용 초안 수량',exact:true});
   await cell.fill('7');await cell.press('Enter');
   assert.equal(await page.getByRole('button',{name:'38차 목 견적 출력',exact:true}).isDisabled(),true);
+  const blockedApplyCount=requests.filter(req=>req.path==='/api/estimate/weekday-apply').length;
+  const blockedDraftValue=await cell.inputValue();
+  await page.getByRole('button',{name:'ERP 저장 · 변경 확인',exact:true}).first().click();
+  await page.getByRole('alert').filter({hasText:'ERP 미확정 분배는 요일·수량을 저장할 수 없습니다'}).waitFor();
+  assert.equal(await page.getByRole('dialog',{name:'ERP 저장 변경 확인'}).count(),0,'unfixed detail is rejected before a save preview or reason edit');
+  assert.equal(await cell.inputValue(),blockedDraftValue,'unfixed preflight preserves the edited draft');
+  assert.equal(requests.filter(req=>req.path==='/api/estimate/weekday-apply').length,blockedApplyCount,'unfixed preflight never POSTs apply');
+  assert.equal(await page.getByRole('textbox',{name:'ERP 저장 사유'}).count(),0,'unfixed preflight does not create or alter a save reason');
+  targetDetailFixed=true;omitReadDigest=true;
+  await page.getByRole('button',{name:'전산 새로고침',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'전후 차수 전산 대조 완료'}).waitFor();
   await page.getByRole('button',{name:'업체·엑셀 연결 펼치기',exact:true}).click();
   const comparison=page.locator('section').filter({has:page.getByRole('heading',{name:'6. 전산 대조 결과 · 읽기 전용',exact:true})});
   const comparisonRow=comparison.getByRole('row').filter({has:page.getByRole('cell',{name:'2026 / 38-01',exact:true})});
@@ -126,6 +154,7 @@ try {
   await page.getByRole('status').filter({hasText:'전후 차수 전산 대조 완료'}).waitFor();
   await page.getByRole('button',{name:'ERP 저장 · 변경 확인',exact:true}).first().click();
   const dialog=page.getByRole('dialog',{name:'ERP 저장 변경 확인'});
+  assert.equal(await dialog.getByRole('textbox',{name:'ERP 저장 사유'}).inputValue(),'','unfixed preflight leaves the later reason field unchanged');
   await dialog.getByRole('textbox',{name:'ERP 저장 사유'}).fill('fixture 날짜 정정');
   const bounds=await dialog.boundingBox();assert.ok(bounds.x>=0&&bounds.y>=0&&bounds.x+bounds.width<=1920&&bounds.y+bounds.height<=1080,'reason dialog fits 1920x1080');
   await page.screenshot({path:path.join(output,'1920x1080-save-preview.png')});
@@ -202,5 +231,5 @@ try {
   const geometry=await page.evaluate(()=>({width:innerWidth,height:innerHeight,scale:visualViewport.scale,pageOverflow:document.documentElement.scrollWidth>innerWidth,tableOverflow:document.querySelector('.wcm-table-scroll').scrollWidth>document.querySelector('.wcm-table-scroll').clientWidth}));
   assert.deepEqual(geometry,{width:1920,height:1080,scale:1,pageOverflow:false,tableOverflow:true});
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({success:true,viewport:'1920x1080 CSS / 100%',fixtures:['server canonical digest','legacy missing digest save blocked','full-date comparison projection','reason preview','failed draft retention','scope switch draft isolation','unknown bounded polling','reload UUID retention','status-only retry','immutable baseline','new saved-day print','selected days separate reads/headers/pages/quantity/amount','common EXE typography','partial print failure blocks all','empty weekday notice','persistent web/native history source labels','deleted detail history notice','page/table overflow'],geometry}));
+  console.log(JSON.stringify({success:true,viewport:'1920x1080 CSS / 100%',fixtures:['defaultNext/carryover/confirmation initialization APIs','boolean compare fixed and masterFixed=true','unfixed draft save rejected without POST; reason/draft retained','full-main unfixed print 409','server canonical digest','legacy missing digest save blocked','full-date comparison projection','reason preview','failed draft retention','scope switch draft isolation','unknown bounded polling','reload UUID retention','status-only retry','immutable baseline','new saved-day print','selected days separate reads/headers/pages/quantity/amount','common EXE typography','partial print failure blocks all','empty weekday notice','persistent web/native history source labels','deleted detail history notice','page/table overflow'],geometry}));
 } finally {await browser.close();}

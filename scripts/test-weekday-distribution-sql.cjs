@@ -74,6 +74,9 @@ async function installSchema(pool) {
   await query(pool, `
     ALTER TABLE dbo.Customer ADD Manager nvarchar(20) NULL,OrderCode nvarchar(50) NULL,BaseOutDay int NULL;
     ALTER TABLE dbo.ShipmentDetail ADD EstDescr nvarchar(1000) NULL;
+    ALTER TABLE dbo.CodeInfo ADD DetailCode nvarchar(100) NULL,Descr2 nvarchar(100) NULL;
+    CREATE TABLE dbo.ProductSort (CounName nvarchar(100),FlowerName nvarchar(100),CountryFlower nvarchar(200),
+      OrderNo int,GroupNo int,GroupName nvarchar(100));
     CREATE TABLE dbo.PeriodDay (
       PeriodDayKey int NOT NULL PRIMARY KEY,
       OrderYearWeek nvarchar(20) NOT NULL,
@@ -93,6 +96,12 @@ async function installSchema(pool) {
       FROM dbo.OrderMaster om
       JOIN dbo.OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey
      WHERE ISNULL(om.isDeleted,0)=0 AND ISNULL(od.isDeleted,0)=0;`);
+  // The directional fixture's minimal ViewShipment lacked the EXE full-week join key.
+  const schemaSource=fs.readFileSync(SCHEMA,'utf8');
+  const view=schemaSource.match(/CREATE VIEW dbo\.ViewShipment AS[\s\S]*?\r?\nGO/)[0]
+    .replace('CREATE VIEW','ALTER VIEW').replace(/\r?\nGO$/,'')
+    .replace('sm.OrderYearWeek,','sm.OrderYearWeek,\n  sm.OrderYearWeek + RIGHT(sm.OrderWeek,2) AS OrderYearWeek2,');
+  await query(pool,view);
   for (const batch of splitBatches(fs.readFileSync(MIGRATION, 'utf8'))) await query(pool, batch);
 
   const nativeSource = fs.readFileSync(NATIVE, 'utf8');
@@ -217,6 +226,7 @@ function fixtureActual(orderWeek, rows, outQuantity, stock = 0) {
     },
     detail: outQuantity == null ? null : {
       SdetailKey: 89892, ShipmentKey: 6266, CustKey: 533, ProdKey: 866,
+      ShipmentTimestamp: '2026-09-10 00:00:00.000',
       OutQuantity: 25, BoxQuantity: 25, BunchQuantity: 750, SteamQuantity: 750,
       EstQuantity: 750, DetailCost: 2500.1234, DetailAmount: 1704630,
       DetailVat: 170462.55, DetailIsFix: 1,
@@ -314,6 +324,7 @@ async function seedCalendarRegression(tQ, timestamp = '2026-10-04 00:00:00.000')
   const actual = fixtureActual('37-01',rows,20);
   actual.master.OrderYearWeek = '202640';
   Object.assign(actual.detail, {
+    ShipmentTimestamp: timestamp,
     OutQuantity:20,BoxQuantity:20,BunchQuantity:600,SteamQuantity:600,EstQuantity:600,
     DetailAmount:1363704,DetailVat:136370.04,
   });
@@ -364,6 +375,9 @@ async function runCalendarRegressions(pool, core, user, dependencies) {
       assert.equal(result.changes[0].oldQuantity,20);
       assert.equal(result.changes[0].newQuantity,20);
       assert.equal(result.changes[0].delta,0);
+      const representative = (await tQ(`SELECT CONVERT(nvarchar(23),ShipmentDtm,121) Timestamp
+        FROM ShipmentDetail WHERE SdetailKey=89892`)).recordset[0].Timestamp;
+      assert.equal(representative,'2026-10-01 00:00:00.000','EXE day5 Thursday wins over day1 Sunday, not chronological last');
       const dates = (await tQ(`SELECT d.SdateKey,CONVERT(nvarchar(23),d.ShipmentDtm,121) Timestamp,
         d.ShipmentQuantity,d.EstQuantity,d.Cost,pd.WeekDay
         FROM ShipmentDate d JOIN PeriodDay pd ON d.ShipmentDtm=pd.BaseYmd
@@ -399,11 +413,65 @@ async function runCalendarRegressions(pool, core, user, dependencies) {
   console.log('PASS: nvarchar calendar 20→15+5 exact datetime JOIN, matching nonmidnight preservation, mismatched clock full rollback');
 }
 
+async function runPrintCompatibilityRegressions(pool) {
+  const print=await import(pathToFileURL(path.join(ROOT,'lib','weekdayEstimatePrint.js')).href);
+  const scope=print.normalizeWeekdayPrintRequest({year:2026,majorWeek:37,custKey:533,mode:'major'});
+  await rollbackScenario(pool,async(tQ)=>{
+    await tQ(`UPDATE Product SET EstUnit=N'박스' WHERE ProdKey=866;
+      UPDATE ShipmentDetail SET OutQuantity=4.5,EstQuantity=4.5,BoxQuantity=4.5,
+        BunchQuantity=135,SteamQuantity=135,Cost=110,Amount=400,Vat=40 WHERE SdetailKey=89892;
+      DELETE ShipmentDate WHERE SdateKey=119700;
+      UPDATE ShipmentDate SET ShipmentQuantity=4.5,EstQuantity=4.5,Cost=110,Amount=400,Vat=40
+        WHERE SdateKey=119701;`);
+    const result=await print.readWeekdayPrintInTransaction(scope,tQ,sql);
+    assert.equal(result.items[0].Quantity,5,'EXE print query SQL ROUND quantity is preserved');
+    assert.equal(result.items[0].Amount,400,'EXE stored decimal midpoint-to-even Amount is preserved');
+    assert.equal(result.items[0].Vat,40);
+  });
+  await rollbackScenario(pool,async(tQ)=>{
+    const result=await print.readWeekdayPrintInTransaction(scope,tQ,sql);
+    assert.equal(result.eligibility.eligible,true);
+    assert.equal(result.items.length,1);
+    assert.equal(result.items[0].Quantity,750);
+    assert.equal(result.items[0].Amount,1704630);
+    assert.equal(result.items[0].Vat,170462.55);
+    // All-main confirmation is separate from other customers' link diagnostics.
+    await tQ(`INSERT ShipmentMaster(ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix,isDeleted,WebCreated,CreateID)
+      VALUES(9001,N'2026',N'37-03',N'202637',999,1,0,1,N'fixture-user');
+      INSERT ShipmentDetail(SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,
+        BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix,Descr)
+      VALUES(99001,9001,999,999,CONVERT(datetime,'2026-09-10',121),1,1,1,1,1,100,91,9,1,N'other customer bad link');`);
+    const warned=await print.readWeekdayPrintInTransaction(scope,tQ,sql);
+    assert.equal(warned.eligibility.eligible,true,'other customer fully fixed link warning cannot block selected customer');
+    await tQ(`UPDATE ShipmentDetail SET isFix=0 WHERE SdetailKey=99001`);
+    await assert.rejects(()=>print.readWeekdayPrintInTransaction(scope,tQ,sql),error=>error.status===409&&error.eligibility?.unfixedCount===1);
+    await tQ(`UPDATE ShipmentMaster SET OrderYear=N'2025',OrderYearWeek=N'202537' WHERE ShipmentKey=9001`);
+    assert.equal((await print.readWeekdayPrintInTransaction(scope,tQ,sql)).items[0].Quantity,750,'prior-year same cycle unfixed sentinel cannot block');
+    await tQ(`INSERT PeriodDay(PeriodDayKey,OrderYearWeek,BaseYmd,WeekDay)
+      VALUES(6,N'202637',N'2026-09-12',7),(7,N'202638',N'2026-09-14',2);`);
+    const dateScope=print.normalizeWeekdayPrintRequest({...scope,mode:'dates',dates:['2026-09-10']});
+    const dated=await print.readWeekdayPrintInTransaction(dateScope,tQ,sql);
+    assert.equal(dated.items[0].Quantity,150);
+    assert.equal(dated.items[0].Amount,340926);
+    assert.equal(dated.items[0].Vat,34092.51);
+    const tamperQuery=async(statement,params)=>{
+      const data=await tQ(statement,params);
+      if(statement.includes('WITH list AS')) data.recordset=data.recordset.map(row=>({...row,EstQuantity:999}));
+      return data;
+    };
+    await assert.rejects(()=>print.readWeekdayPrintInTransaction(dateScope,tamperQuery,sql),error=>error.status===409);
+    await tQ(`UPDATE ShipmentDate SET Amount=Amount-1,Vat=Vat+1 WHERE SdateKey=119701`);
+    await assert.rejects(()=>print.readWeekdayPrintInTransaction(scope,tQ,sql),error=>error.status===409&&error.eligibility?.invalidCount>0);
+  });
+  console.log('PASS: actual MSSQL print SQL, EXE midpoint money, all-main flags, selected customer links/money, date-only quote, prior-year sentinel and result reconciliation');
+}
+
 async function runScenarios(pool, core, gate, presence, keyAllocator) {
   const user = { userId:'fixture-user', userName:'Fixture User' };
   const dependencies = leaseDependencies(gate,presence);
 
   await runCalendarRegressions(pool,core,user,dependencies);
+  await runPrintCompatibilityRegressions(pool);
 
   await rollbackScenario(pool, async (tQ) => {
     const operationId = crypto.randomUUID();
@@ -413,6 +481,9 @@ async function runScenarios(pool, core, gate, presence, keyAllocator) {
     }]};
     const result = await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
     assert.equal(result.saved,true); assert.equal(result.appliedCount,1);
+    assert.equal((await tQ(`SELECT CONVERT(nvarchar(23),ShipmentDtm,121) Timestamp FROM ShipmentDetail WHERE SdetailKey=89892`)).recordset[0].Timestamp,
+      '2026-09-11 00:00:00.000','EXE day6 Friday wins over day1 Sunday');
+    assert.equal(result.changes[0].after.detail.shipmentTimestamp,'2026-09-11 00:00:00.000','permanent audit preserves representative date');
     const dates = (await tQ(`SELECT CONVERT(varchar(10),ShipmentDtm,120) d,ShipmentQuantity,EstQuantity,Cost,Descr FROM ShipmentDate WHERE SdetailKey=89892 ORDER BY ShipmentDtm`)).recordset;
     assert.deepEqual(dates.map((row)=>[row.d,Number(row.ShipmentQuantity)]),[['2026-09-11',5],['2026-09-13',20]]);
     const preserved=dates.find((row)=>row.d==='2026-09-13');

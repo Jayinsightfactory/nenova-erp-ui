@@ -1,5 +1,27 @@
 # FormShipmentDistribution — exe golden (dnSpy/CLI)
 
+## 2026-10-02 요일 저장 EXE 호환 보완
+
+설치 EXE를 CLI로 FormShipmentDistribution, ClassShipmentDetail, FormEstimateView
+재실행했다. 요일 저장은 day1(일)~day7(토) 순으로 양수 날짜마다 대표 ShipmentDtm을
+Update하므로 마지막 양수 WeekDay가 대표일이다. 웹은 잠긴 정확한 PeriodDay로
+같은 대표일을 선택하고 날짜/수량/금액/이력과 한 transaction에 저장/readback한다.
+대표일만 외부에서 바뀐 경우에도 snapshot digest 충돌로 중단한다.
+
+SetButton은 rank=A 확정시 저장을 끄고, 다른 rank는 enable=false로 덮는다.
+요일 저장 이벤트 자체에는 상세 확정 필수 검사가 없다. 웹의 확정 상세 저장 필수 및
+메인차수 전체 확정 후 인쇄는 사용자 추가 안전 정책이며 EXE 원래 전역 검사라고
+주장하지 않는다. 전체 확정취소→재확정은 하지 않고 기존 방향별 stock contract를 유지한다.
+
+같은 업무키 운영 SELECT API 재확인: 2026/40-01/Cust533/Prod866은 주문20,
+분배20, 10월4일 20박스/Est600, 상세 isFix=false. 39차998/998확정,
+40차1122중363확정. 운영은 다른 담당자에 의해 변할 수 있으므로 저장 직전 다시 검사한다.
+정확한 ShipmentDate 시각은 00:00:00.000으로 달력 연결을 유지한다. 운영 쓰기는 하지 않았다.
+
+실제 MSSQL 격리 fixture에서 미확정0/NULL 저장거부, 확정·대표일 stale,
+대표일 trigger 훼손 readback 실패 전체롤백, 상세확정/master미확정 혼합 보존,
+일요일보다 목/금요일 대표순서 우선, 이전연도 주문·분배·날짜·이력 보존을 실행한다.
+
 ## 2026-10-02 확정 플래그와 연결 경고 분리
 
 실제 CLI FormShipmentDistribution 재실행: GetFixStatus는 ViewShipment.DetailFix=1 합계.
