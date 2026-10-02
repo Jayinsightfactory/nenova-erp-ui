@@ -6,7 +6,7 @@
 | 작업공간 | work/jugwang-weekday-test-deploy |
 | 범위 | 정상 출고일의 문자열 표현 차이로 인한 저장 전 차단 수정 |
 | 원장 부작용 | 진단/검증은 운영 SELECT only. 스키마/SP/운영 수량 보정 없음 |
-| 진행 | 로컬 필수 게이트·격리 SQL·독립 검토 통과, 배포 대기 |
+| 진행 | PR852 병합·Cafe24 배포·운영 read-only 검증 완료 |
 
 ## 고정된 결정
 
@@ -63,7 +63,25 @@ manifest77개, 변경 API scope guard(이번 API 파일 변경0), 빌드 모두 
 독립 검토 gpt-6-astra/high/P0_LOCAL: P1/P2 없음, 별도 focused24/24 PASS.
 빌드 exit0은 기계 검증 완료 보고 및 로그를 메인이 확인했다.
 
+## 병합 결과
+
+- PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/852
+- 코드 head cc4459a40a76b0b69b690685ffdec9100aa7c8d1
+- PR ERP Contract Guard 36945343054 SUCCESS
+- squash merge 08470316ca169afc86960dae89499b307d7dbfe0
+- master ERP Contract Guard 36945473112 SUCCESS
+- Cafe24 Deploy 36945473016 SUCCESS (2026-10-02 KST)
+- 운영 공개 버전08470316 및 build-1790900508286 확인.
+- 1920×1080/100%,1280×800 read-only smoke PASS: 기본41, carry GET309행,
+  일요일7박스 입력 enabled/focus, 이월 수정 팝업 화면 안, 상·하단 스크롤 동기화,
+  JS 오류0. 운영 원장/최초/비고/마감 잔량의 테스트 저장 없음.
+- 배포 뒤 같은 SELECT-only helper 날짜 검증 PASS. 저장된20박스와 금액은 그대로,
+  당시 DetailFix0/확정 견적 노출0. 사용자의20→15+5 초안은 자동 저장하지 않았다.
+- 사용자는 화면 새로고침 및 '전산 새로고침'으로 최신 snapshot을 읽은 뒤 저장한다.
+  중간의 실제 확정 상태 변경을 stale 검증으로 보호한다.
+- 최종 결과 문서 후속 커밋은 로컬 보관만 하여 불필요한 재배포를 만들지 않는다.
+
 ## 이어받기
 
-이 문서와 계획·계약을 읽고 최종 테스트/검토/PR/배포 결과부터 확인한다.
-운영 저장을 검증했다거나 사용자 초안이 적용됐다고 추정하지 않는다.
+이 문서와 계획·계약을 읽고 이어서. 이번 코드 수정·배포는 완료다.
+운영 사용자 초안 자체를 저장 시험했다거나 적용됐다고 추정하지 않는다.
