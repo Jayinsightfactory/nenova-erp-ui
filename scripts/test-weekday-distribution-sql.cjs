@@ -77,7 +77,7 @@ async function installSchema(pool) {
     CREATE TABLE dbo.PeriodDay (
       PeriodDayKey int NOT NULL PRIMARY KEY,
       OrderYearWeek nvarchar(20) NOT NULL,
-      BaseYmd datetime NOT NULL,
+      BaseYmd nvarchar(23) NOT NULL,
       WeekDay int NOT NULL
     );
     CREATE TABLE dbo.KeyNumbering (
@@ -135,13 +135,13 @@ async function seed(pool) {
             (119700,89892,CONVERT(datetime,'2026-09-13 00:00:00.000',121),20,600,2500.1234,1363704,136370.04,N'legacy-preserve');
 
     INSERT dbo.PeriodDay(PeriodDayKey,OrderYearWeek,BaseYmd,WeekDay)
-      VALUES(1,N'202637',CONVERT(datetime,'2026-09-10 00:00:00.000',121),5),
-            (2,N'202637',CONVERT(datetime,'2026-09-11 00:00:00.000',121),6),
-            (3,N'202637',CONVERT(datetime,'2026-09-13 00:00:00.000',121),1),
+      VALUES(1,N'202637',N'2026-09-10',5),
+            (2,N'202637',N'2026-09-11',6),
+            (3,N'202637',N'2026-09-13',1),
             -- Mon/Tue/Wed can belong to the following PeriodDay parent while
             -- remaining in the 37 Thu..Wed business cycle.
-            (4,N'202638',CONVERT(datetime,'2026-09-15 00:00:00.000',121),3),
-            (5,N'202638',CONVERT(datetime,'2026-09-16 00:00:00.000',121),4);
+            (4,N'202638',N'2026-09-15',3),
+            (5,N'202638',N'2026-09-16',4);
 
     INSERT dbo.WarehouseMaster(WarehouseKey,OrderYear,OrderWeek,UploadDtm,FileName)
       VALUES(3701,N'2026',N'37-01',GETDATE(),N'fixture.xlsx');
@@ -296,9 +296,114 @@ async function businessFingerprint(pool) {
   });
 }
 
+async function seedCalendarRegression(tQ, timestamp = '2026-10-04 00:00:00.000') {
+  await tQ(`
+    UPDATE OrderMaster SET OrderWeek=N'40-01',OrderYearWeek=N'202640' WHERE OrderMasterKey=3701;
+    UPDATE ShipmentMaster SET OrderWeek=N'40-01',OrderYearWeek=N'202640' WHERE ShipmentKey=6266;
+    DELETE ShipmentDate WHERE SdateKey=119701;
+    UPDATE ShipmentDate SET ShipmentDtm=CONVERT(datetime,@dt,121) WHERE SdateKey=119700;
+    UPDATE ShipmentDetail SET ShipmentDtm=CONVERT(datetime,@dt,121),OutQuantity=20,
+      BoxQuantity=20,BunchQuantity=600,SteamQuantity=600,EstQuantity=600,
+      Amount=1363704,Vat=136370.04 WHERE SdetailKey=89892;
+    DELETE PeriodDay;
+    INSERT PeriodDay(PeriodDayKey,OrderYearWeek,BaseYmd,WeekDay)
+      VALUES(1,N'202640',N'2026-10-01',5),(2,N'202640',N'2026-10-04',1);
+  `, {dt:{type:sql.NVarChar,value:timestamp}});
+  const rows = existingRows().filter((row) => row.sdateKey === 119700)
+    .map((row) => ({...row,date:'2026-10-04',timestamp}));
+  const actual = fixtureActual('37-01',rows,20);
+  actual.master.OrderYearWeek = '202640';
+  Object.assign(actual.detail, {
+    OutQuantity:20,BoxQuantity:20,BunchQuantity:600,SteamQuantity:600,EstQuantity:600,
+    DetailAmount:1363704,DetailVat:136370.04,
+  });
+  return actual;
+}
+
+function calendarRegressionBody(core, actual, operationId = crypto.randomUUID()) {
+  return {operationId,reason:'nvarchar calendar exact timestamp regression',custKey:533,changes:[{
+    year:'2026',orderWeek:'40-01',prodKey:866,unit:'박스',
+    expected:expectedFromActual(core,'40-01',actual),
+    dates:[{date:'2026-10-01',quantity:5},{date:'2026-10-04',quantity:15}],
+  }]};
+}
+
+async function runCalendarRegressions(pool, core, user, dependencies) {
+  const storage = (await query(pool,`SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA=N'dbo' AND TABLE_NAME=N'PeriodDay' AND COLUMN_NAME=N'BaseYmd'`)).recordset[0];
+  assert.equal(storage.DATA_TYPE,'nvarchar','fixture must reproduce the operational string calendar');
+  for (const timestamp of ['2026-10-04 00:00:00.000','2026-10-04 12:34:56.123']) {
+    await rollbackScenario(pool, async (tQ) => {
+      const actual = await seedCalendarRegression(tQ,timestamp);
+      if (timestamp !== '2026-10-04 00:00:00.000') {
+        await tQ(`UPDATE PeriodDay SET BaseYmd=@dt WHERE PeriodDayKey=2`, {
+          dt:{type:sql.NVarChar,value:timestamp},
+        });
+      }
+      const representation = (await tQ(`SELECT pd.BaseYmd RawCalendar,
+        CONVERT(nvarchar(23),pd.BaseYmd,121) DirectCalendar,
+        CONVERT(nvarchar(23),CONVERT(datetime,pd.BaseYmd,121),121) CanonicalCalendar,
+        CONVERT(nvarchar(23),d.ShipmentDtm,121) ShipmentTimestamp,pd.WeekDay
+        FROM ShipmentDate d JOIN PeriodDay pd ON d.ShipmentDtm=pd.BaseYmd
+        WHERE d.SdateKey=119700`)).recordset[0];
+      assert.equal(representation.WeekDay,1);
+      assert.equal(representation.CanonicalCalendar,timestamp);
+      assert.equal(representation.ShipmentTimestamp,timestamp);
+      if (timestamp === '2026-10-04 00:00:00.000') {
+        assert.equal(representation.RawCalendar,'2026-10-04');
+        assert.equal(representation.DirectCalendar,'2026-10-04','direct string conversion must expose the original bug');
+      }
+      const preserved = (await tQ(`SELECT
+        (SELECT OutQuantity FROM OrderDetail WHERE OrderDetailKey=3701) OrderQuantity,
+        (SELECT Stock FROM Product WHERE ProdKey=866) Stock,
+        (SELECT COUNT(*) FROM StockHistory) StockHistoryCount,
+        (SELECT COUNT(*) FROM ShipmentFarm) FarmCount`)).recordset[0];
+      const body = calendarRegressionBody(core,actual);
+      const result = await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
+      assert.equal(result.saved,true);
+      assert.equal(result.changes[0].oldQuantity,20);
+      assert.equal(result.changes[0].newQuantity,20);
+      assert.equal(result.changes[0].delta,0);
+      const dates = (await tQ(`SELECT d.SdateKey,CONVERT(nvarchar(23),d.ShipmentDtm,121) Timestamp,
+        d.ShipmentQuantity,d.EstQuantity,d.Cost,pd.WeekDay
+        FROM ShipmentDate d JOIN PeriodDay pd ON d.ShipmentDtm=pd.BaseYmd
+        WHERE d.SdetailKey=89892 ORDER BY d.ShipmentDtm`)).recordset;
+      assert.deepEqual(dates.map((row) => [row.Timestamp,Number(row.ShipmentQuantity),Number(row.EstQuantity),row.WeekDay]), [
+        ['2026-10-01 00:00:00.000',5,150,5],[timestamp,15,450,1],
+      ]);
+      assert.equal(dates[1].SdateKey,119700,'existing physical date key is preserved');
+      assert.ok(dates.every((row) => Number(row.Cost) === 2500.1234));
+      const detail = (await tQ(`SELECT OutQuantity,EstQuantity,Cost,Amount,Vat,isFix
+        FROM ShipmentDetail WHERE SdetailKey=89892`)).recordset[0];
+      assert.deepEqual([Number(detail.OutQuantity),Number(detail.EstQuantity),Number(detail.Cost),
+        Number(detail.Amount),Number(detail.Vat),detail.isFix], [20,600,2500.1234,1363704,136370.04,true]);
+      const after = (await tQ(`SELECT
+        (SELECT OutQuantity FROM OrderDetail WHERE OrderDetailKey=3701) OrderQuantity,
+        (SELECT Stock FROM Product WHERE ProdKey=866) Stock,
+        (SELECT COUNT(*) FROM StockHistory) StockHistoryCount,
+        (SELECT COUNT(*) FROM ShipmentFarm) FarmCount`)).recordset[0];
+      assert.deepEqual(after,preserved,'same-total move preserves order/stock/farm policies');
+    });
+  }
+
+  const before = await businessFingerprint(pool);
+  const operationId = crypto.randomUUID();
+  await assert.rejects(() => commitScenario(pool, async (tQ) => {
+    const actual = await seedCalendarRegression(tQ,'2026-10-04 12:00:00.000');
+    return core.executeWeekdayDistributionApply(tQ,sql,calendarRegressionBody(core,actual,operationId),user,dependencies);
+  }), (error) => error?.code === 'CALENDAR_TIMESTAMP_MISMATCH');
+  assert.equal(await businessFingerprint(pool),before,'nonmidnight mismatch must roll back business/history changes');
+  assert.equal(Number((await query(pool,`SELECT COUNT(*) c FROM dbo.WebWeekdayDistributionOperation WHERE UUID=@op`, {
+    op:{type:sql.UniqueIdentifier,value:operationId},
+  })).recordset[0].c),0,'timestamp rejection rolls back the operation reservation');
+  console.log('PASS: nvarchar calendar 20→15+5 exact datetime JOIN, matching nonmidnight preservation, mismatched clock full rollback');
+}
+
 async function runScenarios(pool, core, gate, presence, keyAllocator) {
   const user = { userId:'fixture-user', userName:'Fixture User' };
   const dependencies = leaseDependencies(gate,presence);
+
+  await runCalendarRegressions(pool,core,user,dependencies);
 
   await rollbackScenario(pool, async (tQ) => {
     const operationId = crypto.randomUUID();

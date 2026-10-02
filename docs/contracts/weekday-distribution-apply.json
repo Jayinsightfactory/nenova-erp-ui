@@ -21,9 +21,17 @@
     "scripts/apply-weekday-distribution-migration.mjs",
     "scripts/weekday-apply-browser-smoke.mjs",
     "__tests__/weekdayDistributionMigration.test.js",
-    "scripts/test-weekday-distribution-sql.cjs"
+    "scripts/test-weekday-distribution-sql.cjs",
+    "scripts/probe-weekday-calendar-timestamp.mjs"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "calendarTimestampContract": {
+    "source": "PeriodDay.BaseYmd (운영 nvarchar) and ShipmentDate.ShipmentDtm (datetime), EXE exact datetime join",
+    "serialization": "Convert BaseYmd explicitly to SQL datetime with style 121 before nvarchar(23) style 121; never compare date-only truncations or use JS timezone coercion",
+    "preserve": ["exact time equality", "unique calendar day", "selected-year major-week Thursday anchor", "seven-day business scope", "atomic revalidation and rollback"],
+    "positiveFixture": "nvarchar date-only BaseYmd and datetime midnight shipment support same-total 20 to 15 plus 5 day move",
+    "nearMissFixtures": ["different time on same date", "missing or duplicate calendar", "date outside cycle", "prior-year same-week sentinel"]
+  },
   "actions": [
     {"name":"DRAFT_EDIT", "orderDetail":"preserve", "shipmentDetail":"preserve", "shipmentDate":"preserve", "stock":"preserve", "rule":"초안은 명시 ERP 저장 전 원장을 변경하지 않는다. 저장 전 인쇄와 저장 확정본을 구분한다."},
     {"name":"SAVE_EXISTING_DAY_QUANTITY", "orderDetail":"preserve", "shipmentDetail":"set-final-nonnegative", "shipmentDate":"update-insert-delete-explicit-days-only", "shipmentFarm":"preserve-except-zero-detail-purge", "warehouse":"preserve", "estimate":"preserve", "webProfitReport":"preserve", "stock":"fixed old-new Product.Stock/StockHistory and product-scoped native cascade; unfixed no physical stock mutation", "rule":"잠긴 실제 방향·완전한 expected snapshot·PeriodDay 정확 timestamp·단위 검증. 모든 변경과 감사는 같은 transaction."},
