@@ -4,12 +4,13 @@
 //   - 품목별/거래처별로 입력토큰을 묶어 표시
 //   - 한 대상(prodKey/custKey)에 입력이 5개 이상이면 "중복/과다 매핑" 강조
 //   - 입력토큰 개별 삭제(DELETE)
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost, apiDelete } from '../../lib/useApi';
-import { filterProducts, getDisplayName } from '../../lib/displayName';
-import { rankProductSearchOptions } from '../../lib/productSearchRanking';
+import { getDisplayName } from '../../lib/displayName';
+import useRankedProductSearch from '../../lib/useRankedProductSearch';
 
 const FALLBACK_THRESHOLD = 5;
+const GROUP_PAGE_SIZE = 40;
 
 // 거래처명 오염 감지에서 제외할 토큰(국가/꽃/색/수식어) — 거래처가 우연히 같은 이름이어도 오탐 방지
 const POLLUTION_EXCLUDE = new Set([
@@ -21,10 +22,12 @@ const POLLUTION_EXCLUDE = new Set([
 ]);
 
 export default function MappingStatusModal({ open, onClose, onMappingsChanged }) {
+  const bodyRef = useRef(null);
   const [tab, setTab] = useState('product');
   const [prodMap, setProdMap] = useState({});
   const [custMap, setCustMap] = useState({});
   const [search, setSearch] = useState('');
+  const [groupPage, setGroupPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
@@ -98,6 +101,13 @@ export default function MappingStatusModal({ open, onClose, onMappingsChanged })
 
   const total = tab === 'product' ? Object.keys(prodMap).length : Object.keys(custMap).length;
   const dupGroups = groups.filter(g => g.keys.length >= FALLBACK_THRESHOLD).length;
+  const pageCount = Math.max(1, Math.ceil(groups.length / GROUP_PAGE_SIZE));
+  const currentPage = Math.min(groupPage, pageCount);
+  const visibleGroups = useMemo(() => groups.slice((currentPage - 1) * GROUP_PAGE_SIZE, currentPage * GROUP_PAGE_SIZE), [groups, currentPage]);
+  const goToPage = (page) => {
+    setGroupPage(page);
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  };
 
   const del = async (key) => {
     const path = tab === 'product' ? '/api/orders/mappings' : '/api/orders/customer-mappings';
@@ -202,26 +212,18 @@ export default function MappingStatusModal({ open, onClose, onMappingsChanged })
     finally { setSavingEdit(false); }
   };
 
-  // 품목 검색 — 토큰 AND 부분일치(숫자 cm 포함) + 한↔영/자모 보강. "pink mondial 50" 같은 입력도 잡음.
-  const editCandidates = useMemo(() => {
-    if (!editKeys.length || !products) return [];
-    const q = editQuery.trim().toLowerCase();
-    if (!q) return [];
-    const ranked = rankProductSearchOptions(editQuery, products, { limit: 20 });
-    if (ranked.length) return ranked;
-    return filterProducts(products, editQuery).slice(0, 20);
-  }, [editKeys, products, editQuery]);
-
-  const addCandidates = useMemo(() => {
+  // 두 검색은 항상 같은 hook 순서로 실행한다. Worker가 끝나기 전 후보는
+  // 비어 있으므로 입력 변경 직후 오래된 결과를 클릭할 수 없다.
+  const editSearch = useRankedProductSearch(editQuery, products, { enabled: open && editKeys.length > 0, limit: 20, fallback: true });
+  const addSearch = useRankedProductSearch(addQuery, products, { enabled: open && adding && tab === 'product', limit: 20, fallback: true });
+  const editCandidates = editSearch.results;
+  const customerCandidates = useMemo(() => {
     const q = addQuery.trim();
     if (!q) return [];
-    if (tab === 'product') {
-      if (!products) return [];
-      const ranked = rankProductSearchOptions(q, products, { limit: 20 });
-      return ranked.length ? ranked : filterProducts(products, q).slice(0, 20);
-    }
     return custList.filter(c => `${c.CustName || ''} ${c.CustArea || ''} ${c.CustKey || ''}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
-  }, [tab, addQuery, products, custList]);
+  }, [addQuery, custList]);
+  const addCandidates = tab === 'product' ? addSearch.results : customerCandidates;
+  const addSearching = tab === 'product' && addSearch.loading;
 
   // ── 거래처명 오염 감지 (품목 매핑 키에 거래처 이름이 섞인 경우)
   const custNameSet = useMemo(() => {
@@ -310,15 +312,15 @@ export default function MappingStatusModal({ open, onClose, onMappingsChanged })
         </div>
 
         <div style={{ display: 'flex', gap: 6, padding: '8px 10px 0', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => { setTab('product'); cancelEdit(); setSelectedTarget(null); setAddQuery(''); if (adding) ensureProducts(); }} style={tab === 'product' ? S.tabOn : S.tab}>
+          <button onClick={() => { setTab('product'); setGroupPage(1); cancelEdit(); setSelectedTarget(null); setAddQuery(''); if (adding) ensureProducts(); }} style={tab === 'product' ? S.tabOn : S.tab}>
             품목 매핑 {Object.keys(prodMap).length}
           </button>
-          <button onClick={() => { setTab('customer'); cancelEdit(); setSelectedTarget(null); setAddQuery(''); }} style={tab === 'customer' ? S.tabOn : S.tab}>
+          <button onClick={() => { setTab('customer'); setGroupPage(1); cancelEdit(); setSelectedTarget(null); setAddQuery(''); }} style={tab === 'customer' ? S.tabOn : S.tab}>
             거래처 매핑 {Object.keys(custMap).length}
           </button>
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setGroupPage(1); }}
             placeholder="품목/거래처/입력어 검색"
             style={S.search}
           />
@@ -348,7 +350,7 @@ export default function MappingStatusModal({ open, onClose, onMappingsChanged })
         {err && <div style={{ color: '#c0392b', padding: '6px 12px', fontSize: 12 }}>오류: {err}</div>}
         {notice && <div role="status" style={{ color: '#177245', padding: '6px 12px', fontSize: 12 }}>{notice}</div>}
 
-        <div style={S.body}>
+        <div ref={bodyRef} style={S.body}>
           {adding && (
             <div style={S.editor}>
               <div style={S.editorHead}><b style={{ fontSize: 13 }}>{tab === 'product' ? '품목' : '거래처'} 매칭 추가</b></div>
@@ -361,7 +363,9 @@ export default function MappingStatusModal({ open, onClose, onMappingsChanged })
                 </label>
               </div>
               {tab === 'product' && prodLoading && <div style={S.empty}>품목 불러오는 중…</div>}
-              {addQuery.trim() && !prodLoading && addCandidates.length === 0 && <div style={S.empty}>검색 결과가 없습니다. 후보 로드 오류가 있다면 위 메시지를 확인하세요.</div>}
+              {addSearching && <div role="status" style={S.empty}>품목 검색 중…</div>}
+              {tab === 'product' && addSearch.error && <div role="alert" style={S.searchError}>{addSearch.error}</div>}
+              {addQuery.trim() && !addSearching && !prodLoading && !(tab === 'product' && addSearch.error) && addCandidates.length === 0 && <div style={S.empty}>검색 결과가 없습니다. 후보 로드 오류가 있다면 위 메시지를 확인하세요.</div>}
               <div style={S.candList}>
                 {addCandidates.map(item => {
                   const key = tab === 'product' ? item.ProdKey : item.CustKey;
@@ -394,7 +398,9 @@ export default function MappingStatusModal({ open, onClose, onMappingsChanged })
                 style={{ ...S.search, width: '100%' }}
               />
               {prodLoading && <div style={S.empty}>품목 불러오는 중…</div>}
-              {!prodLoading && editQuery.trim() && editCandidates.length === 0 && (
+              {editSearch.loading && <div role="status" style={S.empty}>품목 검색 중…</div>}
+              {editSearch.error && <div role="alert" style={S.searchError}>{editSearch.error}</div>}
+              {!prodLoading && !editSearch.loading && !editSearch.error && editQuery.trim() && editCandidates.length === 0 && (
                 <div style={S.empty}>검색 결과가 없습니다.</div>
               )}
               {!prodLoading && !editQuery.trim() && (
@@ -417,7 +423,14 @@ export default function MappingStatusModal({ open, onClose, onMappingsChanged })
           )}
           {loading && <div style={S.empty}>불러오는 중…</div>}
           {!loading && groups.length === 0 && <div style={S.empty}>매핑이 없습니다.</div>}
-          {!loading && groups.map(g => {
+          {!loading && groups.length > GROUP_PAGE_SIZE && (
+            <div style={S.pager}>
+              <span>전체 {groups.length}그룹 · {currentPage}/{pageCount}쪽</span>
+              <button type="button" disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)} style={S.btn}>이전</button>
+              <button type="button" disabled={currentPage >= pageCount} onClick={() => goToPage(currentPage + 1)} style={S.btn}>다음</button>
+            </div>
+          )}
+          {!loading && visibleGroups.map(g => {
             const dup = g.keys.length >= FALLBACK_THRESHOLD;
             return (
               <div key={String(g.targetId) + g.targetName} style={{ ...S.group, ...(dup ? S.groupDup : {}) }}>
@@ -452,6 +465,13 @@ export default function MappingStatusModal({ open, onClose, onMappingsChanged })
               </div>
             );
           })}
+          {!loading && groups.length > GROUP_PAGE_SIZE && (
+            <div style={S.pager}>
+              <span>전체 {groups.length}그룹 · {currentPage}/{pageCount}쪽</span>
+              <button type="button" disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)} style={S.btn}>이전</button>
+              <button type="button" disabled={currentPage >= pageCount} onClick={() => goToPage(currentPage + 1)} style={S.btn}>다음</button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -488,4 +508,6 @@ const S = {
   candList: { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, maxHeight: 220, overflowY: 'auto' },
   cand: { textAlign: 'left', border: '1px solid #e3e6ea', background: '#fff', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', fontSize: 13 },
   candSel: { background: '#eef2ff', borderColor: '#c5cae9', cursor: 'default' },
+  pager: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '5px 2px 10px', fontSize: 12, color: '#667085' },
+  searchError: { color: '#c0392b', fontSize: 12, padding: '8px 2px' },
 };

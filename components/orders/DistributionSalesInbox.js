@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {MAX_TEXT_BYTES,periodBounds,parseSalesExport,mergeMessages,selectedText} from '../../lib/distributionSalesInbox';
 import {REFRESH_INTERVAL_MS,HISTORY_REFRESH_INTERVAL_MS,DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
@@ -27,9 +27,10 @@ function applicationError(data,fallback) {
   return typeof data?.error==='string'?data.error:typeof data?.error?.message==='string'?data.error.message:fallback;
 }
 
+const kstTimeFormatter=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'short',timeStyle:'short'});
 function shortKstTime(value) {
   const time=Date.parse(value);
-  return Number.isFinite(time)?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'short',timeStyle:'short'}).format(new Date(time)):'시각 확인 필요';
+  return Number.isFinite(time)?kstTimeFormatter.format(new Date(time)):'시각 확인 필요';
 }
 
 function liveHistoryLabel(item) {
@@ -52,6 +53,7 @@ function sourceWeekFromMessage(value, year) {
 
 export default function DistributionSalesInbox({year,week,disabled,onLoadText,prepareMessage,evidenceMessages=[],evidenceOrders=[],operationRevision=null}) {
   const [controlsOpen,setControlsOpen]=useState(false);
+  const [expandedEvidence,setExpandedEvidence]=useState({});
   const [open,setOpen]=useState(true),[from,setFrom]=useState(''),[to,setTo]=useState('');
   const [rows,setRows]=useState([]),[selected,setSelected]=useState({}),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
   const [cursor,setCursor]=useState(''),[more,setMore]=useState(false),[loadedPeriod,setLoadedPeriod]=useState('');
@@ -70,7 +72,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   const lastReviewPage=Math.max(0,Math.ceil(rows.length/200)-1);
   const currentReviewPage=Math.min(reviewPage,lastReviewPage);
   const count=rows.filter(r=>selected[r.identity]).length;
-  const displayRows=[...rows].reverse();
+  const displayRows=useMemo(()=>[...rows].reverse(),[rows]);
   const applicationWeek=shortApplicationWeek(year,week);
   const applicationScope=`${String(year||'')}:${String(applicationWeek||'')}`;
   const livePeriod=`${from}/${to}`;
@@ -78,12 +80,13 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   // The parser assigns request IDs by non-empty source-line index. Keep the
   // exact Kakao text sent to it identical to the text displayed and indexed
   // below; AI-reconstructed evidence text can add/remove lines and shift IDs.
-  const liveBatch=[...rows].reverse();
-  const liveBatchKey=liveBatch.map(row=>`${row.identity}:${row.created_at||''}:${row.message||''}`).join('\u001e');
-  const liveBatchIdentities=new Set(liveBatch.map(row=>row.identity));
-  const compactRows=displayRows.map(row=>{const kind=classifyMessage(row.message);return {row,kind:['REQUEST','STOCK','REVIEW'].includes(kind)?kind:'REVIEW'};});
-  const compactCounts=compactRows.reduce((counts,item)=>({...counts,[item.kind]:counts[item.kind]+1}),{REQUEST:0,STOCK:0,REVIEW:0});
-  const visibleDisplayRows=compactRows.filter(item=>item.kind===compactTab).map(item=>item.row);
+  const liveBatch=displayRows;
+  const liveBatchKey=useMemo(()=>liveBatch.map(row=>`${row.identity}:${row.created_at||''}:${row.message||''}`).join('\u001e'),[liveBatch]);
+  const liveBatchIdentities=useMemo(()=>new Set(liveBatch.map(row=>row.identity)),[liveBatch]);
+  const compactRows=useMemo(()=>displayRows.map(row=>{const kind=classifyMessage(row.message);return {row,kind:['REQUEST','STOCK','REVIEW'].includes(kind)?kind:'REVIEW'};}),[displayRows]);
+  const compactCounts=useMemo(()=>compactRows.reduce((counts,item)=>({...counts,[item.kind]:counts[item.kind]+1}),{REQUEST:0,STOCK:0,REVIEW:0}),[compactRows]);
+  const visibleDisplayRows=useMemo(()=>compactRows.filter(item=>item.kind===compactTab).map(item=>item.row),[compactRows,compactTab]);
+  const sourceChanges=useMemo(()=>new Map(rows.map(row=>[row.identity,visibleChanges(row.message,week)])),[rows,week]);
   const hasAcceptedLiveHistoryScope=liveHistoryStatus.scope===liveScope&&loadedPeriod===livePeriod;
   const applicationSequence=useRef(0),activeApplicationScope=useRef(applicationScope),applicationMounted=useRef(false),applicationController=useRef(null),applicationInFlight=useRef(false),applicationSaveController=useRef(null),applicationSaveInFlight=useRef(false),applicationScopeEpoch=useRef(0),applicationSaveAttempt=useRef(0),applicationRefreshQueued=useRef(null);
   const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryInFlightBatchKey=useRef(''),liveHistoryAutoBlocked=useRef(false),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey),liveHistoryBatchRef=useRef(liveBatch);
@@ -311,7 +314,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     const operation=operationApplications[row.identity];
     const source=[row.sender,row.created_at?shortKstTime(row.created_at):'시각 확인 필요'].filter(Boolean).join(' · ');
     const sourceWeek=sourceWeekFromMessage(row.message,String(year||''))||week;
-    const changes=visibleChanges(row.message,week);
+    const changes=sourceChanges.get(row.identity)||[];
     const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length});
     const liveItem=inLiveRange&&hasAcceptedLiveHistoryScope?liveHistory[row.identity]:null;
     // A row is rendered next to history only when the API returned the exact
@@ -382,10 +385,12 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
         <section className="paired-message-original"><strong>카톡 내용</strong><pre data-testid="complete-kakao-message">{formatKakaoMessage(row.message)}</pre></section>
         {prepareMessage&&sourceWeek&&classifyMessage(row.message)==='REQUEST'?<DistributionMessagePreanalysis key={`${row.identity}:${row.message}`} text={row.message} week={sourceWeek} disabled={disabled||busy} prepare={prepareMessage} onOpen={preparedAnalysis=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true,preparedAnalysis})}>{appliedPanel}</DistributionMessagePreanalysis>:appliedPanel}
       </div>
-      <details className="compact-source-evidence"><summary>상세 전산 이력 · 품목별 근거 {confirmed.length+quantityProcessed.length>0?`(${confirmed.length+quantityProcessed.length}건)`:''}</summary>
+      <details className="compact-source-evidence" onToggle={event=>{const expanded=event.currentTarget.open;setExpandedEvidence(previous=>previous[row.identity]===expanded?previous:{...previous,[row.identity]:expanded});}}><summary>상세 전산 이력 · 품목별 근거 {confirmed.length+quantityProcessed.length>0?`(${confirmed.length+quantityProcessed.length}건)`:''}</summary>
+      {expandedEvidence[row.identity]&&<>
       {quantityProcessed.length>0&&<div className="confirmed-request-box quantity-processed-box">{quantityProcessed.map(request=><div key={request.id}>수량 대조 후보 · {request.customerText} · {request.quote}<small>전산: {request.productText} · {request.shipmentEvents[0]?.before}→{request.shipmentEvents[0]?.after} {request.unit||''} · 실제 적용 여부는 전산 적용 이력으로만 확인합니다.</small></div>)}</div>}
       {confirmed.length>0&&<div className="confirmed-request-box">{confirmed.map(request=><div key={request.id}>이력 일치 · 참고 · {request.customerText} · {request.quote}<small>{request.reason}</small></div>)}</div>}
-      <div className="compact-match-expanded"><div className="message-raw"><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></details>
+      <div className="compact-match-expanded"><div className="message-raw"><div className="message-actions"><label><input type="checkbox" disabled={busy||disabled} checked={!!selected[row.identity]} onChange={event=>setSelected(value=>({...value,[row.identity]:event.target.checked}))}/> 선택</label><button type="button" disabled={busy||disabled} onClick={()=>onLoadText({text:row.message,messages:[row]})}>입력칸으로</button><button type="button" disabled={busy||disabled} onClick={()=>{setSelected(previous=>({...previous,[row.identity]:true}));setReviewMounted(true);setReviewOpen(true);}}>비교 선택</button></div>{applicationPanel(row)}</div>{liveHistoryPanel(row)}</div></>}
+      </details>
     </article>;
   }
   useEffect(()=>{
