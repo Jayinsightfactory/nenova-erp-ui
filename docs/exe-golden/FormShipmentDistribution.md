@@ -1,5 +1,31 @@
 # FormShipmentDistribution — exe golden (dnSpy/CLI)
 
+## 2026-10-02 주광 확정 조건 재감사 / 표시 전용
+
+실제 CLI 재실행: `dnSpy.Console.exe --no-color -t FormShipmentDistribution
+"C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe"`와 `-t FormEstimateView`.
+GetFixStatus는 선택 OrderYear + OrderWeek + CountryFlower에서 DetailFix=1 행을
+COUNT해 하나라도 있으면 isFix=true로 둔다. SetButton은 rankType=A일 때 확정행이
+있으면 btnSave.Enabled=false, 다른 rankType은 enable=false로 덮는 예외가 있다.
+요일 탭 btnSave_Click은 확정 필수 검사를 별도로 하지 않으며 ShipmentDate를
+삭제/재생성하고 ShipmentDetail.ShipmentDtm도 양수 요일마다 Update한다.
+
+GetPrintDetail은 대차수+업체+선택요일+ViewOrder 연결+정확 PeriodDay 연결+
+DetailFix=1 양수 견적행을 읽는다. 전체 세부차수/품종의 확정을 보장하는 전체 검사는
+없다. 따라서 SQL 인쇄 실행 가능과 대차수 전체 견적 완전성은 다른 기준이다.
+
+운영 읽기 전용 `/api/shipment/fix-status?year=2026&fromWeek=39-01&toWeek=41-99`
+조회: 39-01/02의 양수 상세는 전부 확정, 40-01은 상세1095 중330확정으로 PARTIAL,
+40-02는4/4 확정, 41-01/02는 양수 출고 자료 없음. 기존 API Master 집계는 상세 JOIN
+중복 때문에 distinct masterCount와 fixedMasterCount를 직접 비교하면 안 된다.
+새 표시 API는 Master/재고마감이 아니라 실제 양수 상세의 확정 건수만 집계한다.
+
+이번 UI는 같은 연도+대차수의 모든 세부차수·전체 거래처를 CountryFlower별 SELECT해
+전체/부분/미확정/불명/자료 없음을 제목 옆에 표시한다. 최초 기준 보관·재고 마감·
+인쇄 완전성과 별개. 저장/인쇄 core, SP, isFix, 운영 원장은 변경하지 않았다.
+별도 감사 위험: 웹 요일 이동은 날짜행은 바꾸나 대표 ShipmentDetail.ShipmentDtm을
+갱신하지 않는 경로가 있다. 이는 이번 가독성 변경으로 수정하지 않는다.
+
 ## 2026-10-02 주광 요일 저장 달력 시각 표현
 
 실제 CLI `dnSpy.Console.exe --no-color -t ClassShipmentDate

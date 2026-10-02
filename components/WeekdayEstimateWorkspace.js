@@ -3,6 +3,7 @@ import { apiGet, apiPost } from '../lib/useApi';
 import WeekdayCycleMatrix from './WeekdayCycleMatrix';
 import { locateShippingDay } from '../lib/weekdayEstimateCycle.js';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
+import { validateWeekdayConfirmationResponse } from '../lib/weekdayConfirmation.js';
 import { buildWeekdayPrintRequests, validateWeekdayPrintResponse, buildWeekdayEstimatePrintBundle } from '../lib/weekdayEstimatePrintBundle.js';
 import { buildWeekdayDistributionSubmission, clearSubmittedWeekdayDrafts, checkWeekdayDistributionStatus,
   saveWeekdayDistribution, weekdayDraftScope, weekdayUnsavedPrintReason, moveWeekdayDistributionDraft, projectWeekdayDistribution,
@@ -53,6 +54,8 @@ export default function WeekdayEstimateWorkspace() {
   const [noteBusy, setNoteBusy] = useState(false);
   const [noteError, setNoteError] = useState('');
   const [quoteResults, setQuoteResults] = useState([]);
+  const [confirmationStates,setConfirmationStates] = useState([]);
+  const [confirmationError,setConfirmationError] = useState('');
   const [carryover, setCarryover] = useState(null);
   const [carryoverError, setCarryoverError] = useState('');
   const [carryoverLoading, setCarryoverLoading] = useState(false);
@@ -124,6 +127,7 @@ export default function WeekdayEstimateWorkspace() {
 
   useEffect(()=>{
     setSavedHistory([]);setHistoryError('');
+    setConfirmationStates([]);setConfirmationError('');
     baselineRequest.current+=1;noteRequest.current+=1;setBaselinePreview(null);setNoteForm(null);setBaselineError('');setNoteError('');setBaselines([]);setBaselineCandidates([]);setPageNotes([]);setQuoteResults([]);setCompareRows(null);
     printRequest.current+=1;setPrintPreview(null);
     if(customer?.CustKey && cycles.length) refreshErp();
@@ -179,6 +183,7 @@ export default function WeekdayEstimateWorkspace() {
 
   useEffect(() => {
     const request = ++calendarRequest.current;
+    setConfirmationStates([]);setConfirmationError('');
     baselineRequest.current+=1;setBaselinePreview(null);setBaselineError('');setBaselines([]);setBaselineCandidates([]);
     noteRequest.current+=1;setNoteForm(null);setPageNotes([]);setQuoteResults([]);
     comparisonRequest.current += 1;
@@ -391,6 +396,7 @@ export default function WeekdayEstimateWorkspace() {
     const request=++comparisonRequest.current;
     const isCurrent=()=>request===comparisonRequest.current && refreshScope===currentScope.current;
     setBaselineCandidates([]);
+    setConfirmationStates([]);setConfirmationError('');
     setBusy(true);setQuoteResults([]); setMessage('앞·현재·뒤 차수의 동일 거래처·품목 전산값을 대조 중…');
     try {
       const ranges = new Map();
@@ -433,7 +439,15 @@ export default function WeekdayEstimateWorkspace() {
       setBaselines(results.flatMap(result=>result.baselines || []));
       setBaselineCandidates(results.flatMap(result=>result.candidates || []));
       const ancillary=await Promise.all(cycles.filter(cycle=>cycle.calendarState==='FOUND').map(async cycle=>{
-        let notes=[],quote=null,changes=[],changeError='';
+        let notes=[],quote=null,changes=[],changeError='',confirmation=null,confirmationFailure='';
+        try {
+          const confirmationScope={year:cycle.year,majorWeek:cycle.majorWeek};
+          confirmation=validateWeekdayConfirmationResponse(confirmationScope,
+            await apiGet('/api/estimate/weekday-confirmation',confirmationScope));
+        } catch(error) {
+          confirmationFailure=`${cycle.year}/${cycle.majorWeek} ERP 확정 현황 조회 실패: ${error.message}`;
+          confirmation={year:cycle.year,majorWeek:cycle.majorWeek,state:'UNKNOWN',categories:[],error:confirmationFailure};
+        }
         try {
           const history=await apiGet('/api/estimate/weekday-changes',{custKey:Number(customer.CustKey),year:cycle.year,majorWeek:cycle.majorWeek});
           if(history.success!==true || !Array.isArray(history.changes)) throw new Error('영구 이력 응답을 확인할 수 없습니다.');
@@ -453,11 +467,13 @@ export default function WeekdayEstimateWorkspace() {
             quote.managementItems=management.items;
           } catch(error) {quote.managementError=error.message;}
         } catch(error) {quote={year:cycle.year,majorWeek:cycle.majorWeek,error:error.message};}
-        return {notes,quote,changes,changeError};
+        return {notes,quote,changes,changeError,confirmation,confirmationFailure};
       }));
       if(!isCurrent()) return false;
       setSavedHistory(ancillary.flatMap(result=>result.changes));setHistoryError(ancillary.map(result=>result.changeError).filter(Boolean).join(' / '));
       setPageNotes(ancillary.flatMap(result=>result.notes));setQuoteResults(ancillary.map(result=>result.quote));
+      setConfirmationStates(ancillary.map(result=>result.confirmation));
+      setConfirmationError(ancillary.map(result=>result.confirmationFailure).filter(Boolean).join(' / '));
       await refreshCarryover();
       if(!isCurrent()) return false;
       setMessage(`전후 차수 전산 대조 완료 · 읽기 전용 · ERP 변경 없음${results.some((result)=>result.historyTruncated) ? ' · 이력 1000건 초과, 일부 표시' : ''}`);
@@ -723,6 +739,7 @@ export default function WeekdayEstimateWorkspace() {
 
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
     <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+      confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}
       editDisabledReason={busy?'전산 조회 중입니다. 조회 완료 후 초안을 입력하세요.':editLocked?'ERP 저장 확인·처리 또는 미확인 작업 상태로 초안 편집이 잠겨 있습니다.':''}/>
 

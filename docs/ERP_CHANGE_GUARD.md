@@ -1,5 +1,16 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-02 주광 확정 현황과 가독성
+
+페이지 최초분배의 '기준 확정'과 ERP 상세 isFix를 같은 확정으로 표시하지 않는다.
+차수 제목 옆 상태는 명시 OrderYear+대차수의 모든 세부차수·전체 거래처 양수 상세를
+CountryFlower별 집계한다. 현재 업체/화면 품목 필터의 some(fixed)를 전체 확정으로
+표시하는 것은 금지한다. NULL isFix는 미확정, 누락 품종/품목/업체키 모순은 불명,
+자료 없음/조회 실패는 확정이 아니다. 전체/부분 건수 및 응답 scope를 검증한다.
+이 표시는 재고 마감·인쇄 완전성을 보장하지 않고 SP/원장/인쇄 SQL을 변경하지 않는다.
+실제 CLI와 운영 read-only 표본, 위험 기록은
+docs/plans/weekday-compact-confirmation-2026-10-02.md 및 exe-golden에 남긴다.
+
 ## 2026-10-02 주광 달력 문자열 시각 오차단
 
 운영 PeriodDay.BaseYmd는 nvarchar, ShipmentDate.ShipmentDtm은 datetime이다.

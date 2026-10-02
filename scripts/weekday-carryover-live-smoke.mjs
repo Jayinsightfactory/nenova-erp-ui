@@ -1,6 +1,7 @@
 // Authenticated operating READ-ONLY smoke. No ERP, baseline, note or carryover saves.
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
+import { validateWeekdayConfirmationResponse } from '../lib/weekdayConfirmation.js';
 const base='https://nenovaweb.com';
 assert.ok(process.env.SMOKE_USER && process.env.SMOKE_PASSWORD && process.env.PLAYWRIGHT_MODULE);
 const pw=await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
@@ -15,6 +16,13 @@ try {
   const today=`${parts.year}-${parts.month}-${parts.day}`;
   const expected=await (await context.request.get(`${base}/api/estimate/weekday-calendar?defaultNext=1&date=${today}`)).json();
   assert.equal(expected.success,true);assert.equal(expected.readOnly,true);
+  const confirmation=[];
+  for(const majorWeek of ['39','40','41']) {
+    const result=await context.request.get(`${base}/api/estimate/weekday-confirmation?year=2026&majorWeek=${majorWeek}`);
+    assert.equal(result.status(),200);
+    const summary=validateWeekdayConfirmationResponse({year:2026,majorWeek},await result.json());
+    confirmation.push({majorWeek,state:summary.state,total:summary.totalCount,fixed:summary.fixedCount,categories:summary.categories.length});
+  }
   const page=await context.newPage(),errors=[],blocked=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/api/**',async route=>{
@@ -46,6 +54,13 @@ try {
   const dayProof={value:await blueSunday.inputValue(),enabled:await blueSunday.isEnabled(),title:await blueSunday.locator('..').getAttribute('title')};
   assert.match(dayProof.title,/전산 원문 38-02: 0 박스/);
   await blueSunday.click();assert.equal(await blueSunday.evaluate(el=>document.activeElement===el),true);
+  const typography=await blueSunday.evaluate(el=>({size:parseFloat(getComputedStyle(el).fontSize),weight:Number(getComputedStyle(el).fontWeight),align:getComputedStyle(el).textAlign}));
+  assert.ok(typography.size>=16 && typography.weight>=600 && typography.align==='center');
+  const selected=page.locator('.wcm-selected');
+  await selected.waitFor();
+  const selectedMetrics=await selected.evaluate(el=>({width:el.getBoundingClientRect().width,font:parseFloat(getComputedStyle(el).fontSize)}));
+  assert.ok(selectedMetrics.width>=600 && selectedMetrics.font>=16);
+  await page.getByRole('button',{name:'선택 칸 내역 닫기'}).click();
   // No fill/blur-changing edit and no save are performed against operating data.
   await page.getByLabel('중심 차수').click();
   const close=page.getByRole('button',{name:/Hydrangea Blue .*2026\/37차 마감 잔량 수정·이력/});
@@ -67,5 +82,5 @@ try {
   assert.deepEqual(errors,[]);assert.deepEqual(blocked,[]);
   const build=(await page.content()).match(/"buildId":"([^"]+)"/)?.[1] || 'unknown';
   console.log(JSON.stringify({livePass:true,build,viewport:'1920x1080 @100%',narrowViewport:'1280x800',today,
-    defaultCenter:expected.scope,carryGet:true,contextInputs:defaultCarry.context.inputs.length,dayProof,popup1920,popup1280,noOperatingWrites:true,errors}));
+    defaultCenter:expected.scope,carryGet:true,contextInputs:defaultCarry.context.inputs.length,confirmation,typography,selectedMetrics,dayProof,popup1920,popup1280,noOperatingWrites:true,errors}));
 }finally{await context.close();await browser.close();}

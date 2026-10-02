@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { buildShippingCycles, normalizeCycleRequest, shiftDate, SHIPPING_DAYS } from '../lib/weekdayEstimateCycle.js';
 import { weekdayProductLabel } from '../lib/weekdayHorizontalMatrix.js';
 import { baselineDigest, canonicalRows } from '../lib/weekdayInitialBaselineStore.js';
+import { buildWeekdayConfirmationSummary } from '../lib/weekdayConfirmation.js';
 
 const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:20768';
 assert.match(base, /^http:\/\/(?:localhost|127\.0\.0\.1):\d+$/i, 'only a loopback dev server is allowed');
@@ -86,6 +87,7 @@ const calls = [];
 const unexpectedApiWrites = [];
 const externalRequests = [];
 const assertions = [];
+const previewScopes = new Set();
 page.on('pageerror', error => errors.push(error.message));
 page.on('console', message => {
   if (message.type() === 'error') {
@@ -111,7 +113,13 @@ await page.route('**/api/**', async route => {
   if (url.pathname === '/api/auth/me') data.user = { userId: 'fixture', userName: 'QA fixture', authority: 3 };
   else if (url.pathname === '/api/favorites') data.favorites = [];
   else if (url.pathname === '/api/customers/search') data.customers = [{ CustKey: 533, CustName: '주광농원' }];
-  else if (url.pathname === '/api/estimate/weekday-calendar') data = { success: true, readOnly: true, cycles };
+  else if (url.pathname === '/api/estimate/weekday-calendar') data = { success: true, readOnly: true, scope: {year:2026,majorWeek:'38'}, cycles };
+  else if (url.pathname === '/api/estimate/weekday-carryover') data = { success:true,readOnly:true,records:[],context:{custKey:533,cycles,inputs:[]} };
+  else if (url.pathname === '/api/estimate/weekday-confirmation') {
+    const majorWeek=url.searchParams.get('majorWeek');
+    const categories=['콜롬비아장미','콜롬비아카네이션','콜롬비아수국','콜롬비아알스트로','중국국화','중국기타','네덜란드수국','네덜란드튤립','에콰도르장미','태국난','케냐장미','일본기타','이스라엘왁스'];
+    data={success:true,readOnly:true,summary:buildWeekdayConfirmationSummary({year:2026,majorWeek},categories.map((CountryFlower,index)=>({OrderYear:2026,OrderWeek:`${majorWeek}-01`,CountryFlower,TotalCount:5,FixedCount:index===0?2:5,UnknownCount:0})))};
+  }
   else if (url.pathname === '/api/estimate/weekday-products') data = { success: true,
     scope: { year: Number(url.searchParams.get('year')), custKey: Number(url.searchParams.get('custKey')),
       orderWeeks: url.searchParams.get('orderWeeks').split(',') }, products };
@@ -123,6 +131,7 @@ await page.route('**/api/**', async route => {
     else {
       const body = req.postDataJSON();
       assert.equal(body.action, 'preview', 'fixture intercepts preview only; confirm is forbidden');
+      previewScopes.add(`${body.year}|${body.orderWeek}|${body.custKey}`);
       const scope = { year: body.year, orderWeek: body.orderWeek, custKey: body.custKey };
       data = { success: true, readOnly: true, preview: snapshotFor(scope) };
     }
@@ -207,6 +216,13 @@ try {
   assertions.push('cycle jump moves synchronized horizontal surfaces');
 
   const matrix = page.locator('.weekday-cycle-matrix');
+  const headerGeometry=await page.locator('thead .wcm-cycle-title').evaluateAll(headers=>headers.map(el=>({
+    badges:el.querySelectorAll('.wcm-confirmations > span').length,
+    overflow:el.scrollWidth>el.clientWidth+1,
+    height:el.getBoundingClientRect().height,
+  })));
+  check(headerGeometry.length===3 && headerGeometry.every(item=>item.badges===15 && !item.overflow && item.height<100),
+    '13 category states wrap compactly within all three cycle headers',JSON.stringify(headerGeometry));
   const controlMetrics = await page.locator('.wcm-toolbar, .wcm-cycle-jump').evaluateAll(els => els.map(el => {
     const r = el.getBoundingClientRect();
     return { name: el.className, left: r.left, right: r.right, width: r.width, scroll: el.scrollWidth, client: el.clientWidth };
@@ -228,7 +244,6 @@ try {
     const heading = el.querySelector('.wcm-major-heading');
     const sum = el.querySelector('.wcm-cycle-sum');
     const primary = el.querySelector('.wcm-major-heading .wcm-remainder-value');
-    const status = el.querySelector('.wcm-major-heading .wcm-remainder-status');
     const total = el.querySelector('[data-wcm-label="sum"] .wcm-sum-value');
     const actions = el.querySelector('.wcm-summary-actions');
     if (![heading, sum, primary, total, actions].every(Boolean)) return { missing: true };
@@ -236,16 +251,16 @@ try {
     const noOverlap = (a,b) => { const x=a.getBoundingClientRect(),y=b.getBoundingClientRect(); return x.right<=y.left+1||y.right<=x.left+1||x.bottom<=y.top+1||y.bottom<=x.top+1; };
     const width=el.getBoundingClientRect().width;
     const padding=[...getComputedStyle(el).padding.split(' ')].map(value=>parseFloat(value));
-    return { missing:false, contained:[heading,sum,primary,total,actions,...(status?[status]:[])].every(inside),
-      separated:noOverlap(heading,sum)&&(!status||noOverlap(primary,status))&&noOverlap(sum,actions)&&noOverlap(total,actions),
+    return { missing:false, contained:[heading,sum,primary,total,actions].every(inside),
+      separated:noOverlap(heading,sum)&&noOverlap(sum,actions)&&noOverlap(total,actions),
       fullWidth:sum.getBoundingClientRect().width>=width-12, compactPadding:padding.every(value=>value<=3),
       sumDisplay:getComputedStyle(sum).display,actionsDisplay:getComputedStyle(actions).display,
       cell:el.closest('tr')?.firstElementChild?.innerText, sum:total.innerText };
   }));
   check(summaryGeometry.length>0 && summaryGeometry.every(item=>!item.missing&&item.contained&&item.separated&&item.fullWidth
-      &&item.compactPadding&&item.sumDisplay==='flex'&&item.actionsDisplay==='flex'),
-    'all full-width flex sums, wrapped remainder/status rows, compact padding, and action rows stay contained/non-overlapping',
-    JSON.stringify(summaryGeometry.filter(item=>item.missing||!item.contained||!item.separated||!item.fullWidth||!item.compactPadding||item.sumDisplay!=='flex'||item.actionsDisplay!=='flex').slice(0,12)));
+      &&item.compactPadding&&item.sumDisplay==='grid'&&item.actionsDisplay==='grid'),
+    'three summary rows, compact padding, and action rows stay contained/non-overlapping',
+    JSON.stringify(summaryGeometry.filter(item=>item.missing||!item.contained||!item.separated||!item.fullWidth||!item.compactPadding||item.sumDisplay!=='grid'||item.actionsDisplay!=='grid').slice(0,12)));
 
   const row = page.locator('.wcm-table-scroll tbody tr').first();
   await row.locator('th').hover();
@@ -279,11 +294,18 @@ try {
   }));
   check(cellNumberGeometry.length===0, 'every rendered numeric part stays inside its own td without client-width overflow (including CARNATION decimal)',
     JSON.stringify(cellNumberGeometry.slice(0,20)));
-  assert.equal(calls.filter(call => call.path === '/api/estimate/weekday-baseline' && call.method === 'POST').length, 5);
+  assert.equal(previewScopes.size, 5);
 
   await alstroCell.focus();
   const selected = page.locator('.wcm-selected');
   check(await boundsInside(selected), 'selected-cell detail fits viewport');
+  const selectedMetrics=await selected.evaluate(el=>({width:el.getBoundingClientRect().width,font:parseFloat(getComputedStyle(el).fontSize)}));
+  check(selectedMetrics.width>=600 && selectedMetrics.font>=16,'selected-cell detail is 600px wide with 16px text',JSON.stringify(selectedMetrics));
+  await page.setViewportSize({width:1280,height:800});
+  check(await boundsInside(selected),'selected-cell detail fits 1280x800');
+  await page.setViewportSize({width:800,height:800});
+  check(await boundsInside(selected),'selected-cell detail fits 800x800');
+  await page.setViewportSize({width:1920,height:1080});
   await page.screenshot({ path: path.join(output, '1920x1080-selected-detail.png') });
   await page.getByRole('button', { name: '선택 칸 내역 닫기' }).click();
 
@@ -320,7 +342,7 @@ try {
   assert.equal(await page.locator('.wcm-table-scroll tbody tr').count(), 50);
   check(unexpectedApiWrites.length === 0, 'no unexpected API write endpoints', JSON.stringify(unexpectedApiWrites));
   check(externalRequests.length === 0, 'no external network requests', JSON.stringify(externalRequests));
-  check(calls.filter(call => call.path === '/api/estimate/weekday-baseline' && call.method === 'POST').length === 5,
+  check(previewScopes.size === 5,
     'all baseline POSTs are preview-only; no confirmation request');
   assert.ok(!errors.length, `browser page errors: ${errors.join(' | ')}`);
   assert.ok(!consoleErrors.length, `browser console errors: ${consoleErrors.join(' | ')}`);
