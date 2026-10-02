@@ -4,6 +4,8 @@ import {createPreanalysisCache,usableAnalysis} from '../../lib/pasteInboxPreanal
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
+import { createPasteMappingSaver, uniquePasteMappingItems } from '../../lib/pasteMappingSave.js';
+import { resolveManualMappingOverride } from '../../lib/pasteManualMappingOverride.js';
 import PasteHighlight from '../../components/orders/PasteHighlight';
 import PasteExcludeHighlight from '../../components/orders/PasteExcludeHighlight';
 import StockNotePicker from '../../components/orders/StockNotePicker';
@@ -1118,6 +1120,10 @@ export default function PasteOrderPage() {
   const [orders, setOrders] = useState([]);
   const [parseError, setParseError] = useState('');
   const [mappingCache, setMappingCache] = useState({});
+  const [mappingSaveState, setMappingSaveState] = useState({ pending: 0, failures: [] });
+  const [mappingConflict, setMappingConflict] = useState('');
+  const mappingSaver = useRef(null);
+  const confirmedServerMappings = useRef({});
   const [customerMappingCache, setCustomerMappingCache] = useState({});
   const [mappingNotice, setMappingNotice] = useState(null);
   const [mappingChangeLog, setMappingChangeLog] = useState([]);
@@ -1280,12 +1286,17 @@ export default function PasteOrderPage() {
       });
       return next;
     });
-    let cancelled = false;
-    const loadStatuses = () => Promise.all(custKeys.map(async (custKey) => {
+    let cancelled = false, inFlight = false;
+    const controller = new AbortController();
+    const loadStatuses = () => {
+      if (cancelled || inFlight || document.visibilityState !== 'visible' || navigator.onLine === false) return;
+      inFlight = true;
+      return Promise.all(custKeys.map(async (custKey) => {
       const query = new URLSearchParams({ year: scopeYear, week, custKey: String(custKey), pageCode: 'paste', clientId: pasteClientId });
-      const response = await fetch(`/api/erp/edit-presence?${query.toString()}`, { credentials: 'same-origin' });
+      const response = await fetch(`/api/erp/edit-presence?${query.toString()}`, { credentials: 'same-origin', signal: controller.signal });
       let data = await response.json().catch(() => ({}));
       let ok = response.ok && data.success !== false;
+      if (cancelled) return { custKey, data, ok: false, explicitBaselineAccepted: false };
       // 사용자가 [Claude로 분석]을 명시적으로 다시 실행한 경우에는 최신
       // 주문·분배를 화면에 다시 읽은 것이다. 이전 요청이 서버 중단으로 작업권을
       // 반납하지 못해 같은 사용자 계정의 오래된 브라우저 lease가 남아 있으면,
@@ -1372,10 +1383,12 @@ export default function PasteOrderPage() {
         });
         return next;
       });
-    });
+    }).finally(() => { inFlight = false; });
+    };
     loadStatuses();
     const timer = setInterval(loadStatuses, 8_000);
-    return () => { cancelled = true; clearInterval(timer); };
+    document.addEventListener('visibilitychange', loadStatuses);
+    return () => { cancelled = true; controller.abort(); clearInterval(timer); document.removeEventListener('visibilitychange', loadStatuses); };
   }, [week, orders.map(order => order.custMatch?.CustKey || '').join('|'), pastePresenceRefreshRevision]);
 
   useEffect(() => {
@@ -1388,6 +1401,7 @@ export default function PasteOrderPage() {
         if (!d.success) return;
         // 서버 공용 저장값을 사용하고 과거 브라우저 값으로 덮어쓰지 않는다.
         setMappingCache(d.mappings || {});
+        saveCache(d.mappings || {});
       })
       .catch(() => {});
     apiGet('/api/master', { entity: 'customers' }).then(d => setAllCustomers(d.data || []));
@@ -1439,8 +1453,11 @@ export default function PasteOrderPage() {
   const applyCache = (rawOrders, cache, prods) => rawOrders.map(o => ({
     ...o,
     items: o.items.map(it => {
-      if (it.matchReviewed) return it;
-      const resolved = lookupSavedProductMapping(it.inputName, cache, prods);
+      const manualOverride = resolveManualMappingOverride(it.inputName, confirmedServerMappings.current, prods, it.matchName || it.inputName);
+      if (it.matchReviewed && !manualOverride) return it;
+      const resolved = manualOverride
+        ? { ok: true, prod: manualOverride.product, mappingKey: cacheKey(it.inputName) }
+        : lookupSavedProductMapping(it.inputName, cache, prods);
       if (!resolved.ok) return it;
       const prod = resolved.prod;
       return {
@@ -1486,30 +1503,33 @@ export default function PasteOrderPage() {
 
   const loadMergedMappingCache = async (sourceOrders = orders) => {
     const sessionCache = collectSessionMappingCache(sourceOrders);
-    let serverMappings = {};
+    let serverMappings = null;
+    confirmedServerMappings.current = {};
     try {
       const r = await fetch('/api/orders/mappings', { credentials: 'same-origin' });
       const d = await r.json();
-      if (d.success) serverMappings = d.mappings || {};
+      if (r.ok && d.success) {
+        serverMappings = d.mappings || {};
+        confirmedServerMappings.current = serverMappings;
+      }
     } catch { /* offline */ }
     const local = loadCache();
-    const merged = { ...local, ...mappingCache, ...serverMappings, ...sessionCache };
-    if (Object.keys(sessionCache).length > 0) {
-      saveCache({ ...local, ...sessionCache });
-    }
+    // Successful server reads are authoritative, including deleted aliases.
+    const merged = serverMappings ?? { ...local, ...mappingCache, ...sessionCache };
+    saveCache(merged);
     setMappingCache(merged);
     return merged;
   };
 
   const loadMergedCustomerMappingCache = async () => {
-    let serverMappings = {};
+    let serverMappings = null;
     try {
       const r = await fetch('/api/orders/customer-mappings', { credentials: 'same-origin' });
       const d = await r.json();
       if (r.ok && d.success) serverMappings = d.mappings || {};
     } catch { /* local cache remains available */ }
     const local = loadCustomerCache();
-    const merged = { ...local, ...customerMappingCache, ...serverMappings };
+    const merged = serverMappings ?? { ...local, ...customerMappingCache };
     setCustomerMappingCache(merged);
     saveCustomerCache(merged);
     return merged;
@@ -1661,10 +1681,7 @@ export default function PasteOrderPage() {
       };
     }));
     if (saveToCache && sourceRow?.name) {
-      const key = cacheKey(sourceRow.name);
-      const next = { ...mappingCache, ...loadCache(), [key]: { prodKey: prod.ProdKey, prodName: prod.ProdName } };
-      saveCache(next);
-      setMappingCache(next);
+      void learnItemMapping({ inputName: sourceRow.name }, prod);
     }
     setBaseStockMatchEditIdx(null);
     setTimeout(() => {
@@ -2077,9 +2094,6 @@ export default function PasteOrderPage() {
       custName: customer.CustName,
       custArea: customer.CustArea || '',
     };
-    const updated = { ...loadCustomerCache(), [key]: value };
-    setCustomerMappingCache(updated);
-    saveCustomerCache(updated);
     const response = await fetch('/api/orders/customer-mappings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2095,7 +2109,22 @@ export default function PasteOrderPage() {
     if (!response.ok || !data.success) {
       throw new Error(data.error || '업체 저장매칭 저장 실패');
     }
+    setCustomerMappingCache(previous => {
+      const updated = { ...previous, [data.key || key]: value };
+      saveCustomerCache(updated);
+      return updated;
+    });
     return true;
+  };
+
+  const learnPendingCustomer = async order => {
+    if (!order.pendingCustomerLearning) return;
+    try {
+      await learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
+      updateOrder(order.id, { pendingCustomerLearning: null });
+    } catch (error) {
+      setMappingConflict(`주문·분배 결과와 별개로 업체 매칭 저장에 실패했습니다: ${order.pendingCustomerLearning.inputName}. 매칭 현황에서 다시 추가하세요. ${error.message}`);
+    }
   };
 
   const setCustMatch = async (oid, customer) => {
@@ -2241,34 +2270,31 @@ export default function PasteOrderPage() {
 
   const learnItemMapping = (item, prodOverride = null) => {
     const prod = prodOverride || allProducts.find(p => Number(p.ProdKey) === Number(item?.prodKey));
-    if (!item?.inputName || !prod) return null;
-    const key = cacheKey(item.inputName);
-    if (!key) return null;
-    const value = {
-      prodKey: prod.ProdKey,
-      prodName: prod.ProdName,
-      displayName: prod.DisplayName,
-      flowerName: prod.FlowerName,
-      counName: prod.CounName,
-    };
-    const updated = { ...loadCache(), [key]: value };
-    setMappingCache(updated);
-    saveCache(updated);
-    fetch('/api/orders/mappings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({
-        inputToken: item.inputName,
-        prodKey: prod.ProdKey,
-        prodName: prod.ProdName,
-        displayName: prod.DisplayName,
-        flowerName: prod.FlowerName,
-        counName: prod.CounName,
-        force: true,
+    if (!mappingSaver.current) mappingSaver.current = createPasteMappingSaver({
+      post: async body => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+        try {
+          const response = await fetch('/api/orders/mappings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', signal: controller.signal, body: JSON.stringify(body) });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.success) throw new Error(data.error || `매칭 저장 실패 (${response.status})`);
+          return data;
+        } finally { clearTimeout(timer); }
+      },
+      onSaved: ({ key, value }) => setMappingCache(previous => {
+        const next = { ...previous, [key]: value };
+        saveCache(next);
+        return next;
       }),
-    }).catch(() => {});
-    return { key, value };
+      onState: setMappingSaveState,
+    });
+    return mappingSaver.current.save(item, prod);
+  };
+
+  const learnVerifiedMappings = items => {
+    const result = uniquePasteMappingItems(items);
+    setMappingConflict(result.conflicts.length ? `같은 입력어가 다른 품목으로 사용되어 자동 저장을 보류했습니다: ${result.conflicts.join(', ')}. 매칭 현황에서 구체적인 입력어로 추가하세요.` : '');
+    result.items.forEach(item => { void learnItemMapping({ ...item, manualSelection: false }); });
   };
 
   // 미매칭 질문 패널: 사용자가 품목 선택
@@ -2729,11 +2755,8 @@ export default function PasteOrderPage() {
       }
     }
 
-    details.filter(x => x.ok).forEach(x => learnItemMapping(x));
-    if (okCount > 0 && order.pendingCustomerLearning) {
-      await learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
-      updateOrder(oid, { pendingCustomerLearning: null });
-    }
+    learnVerifiedMappings(details.filter(x => x.ok));
+    if (okCount > 0) await learnPendingCustomer(order);
     updateOrder(oid, {
       resultMsg: okCount > 0
         ? `추가·취소 일괄 등록·분배 완료: 성공 ${okCount}건${failCount ? ` / 실패 ${failCount}건` : ''}`
@@ -2942,6 +2965,8 @@ export default function PasteOrderPage() {
         throw new Error('저장 직후 전산 대조가 완료되지 않은 항목이 있어 완료 처리하지 않았습니다.');
       }
       allSucceeded = true;
+      learnVerifiedMappings(details);
+      for (const order of orders.filter(order => details.some(detail => detail.orderId === order.id))) await learnPendingCustomer(order);
       setBulkProgress(`완료: ${details.length}건 저장·검증 성공`);
       setBulkResult({ orderId: 'ALL', okCount: details.length, failCount: 0, details, rolledBack: false });
       // 원장 반영이 전체 성공한 경우에만 DB 저장내역/분배수량/히스토리를 화면에 반영한다.
@@ -3379,10 +3404,7 @@ export default function PasteOrderPage() {
         }));
         await fetchShipmentQtys(order.custMatch.CustKey, week, fallbackPreview.items.map(i => i.prodKey));
       }
-      if (order.pendingCustomerLearning) {
-        await learnCustomerMapping(order.pendingCustomerLearning.inputName, order.pendingCustomerLearning.customer);
-        updateOrder(oid, { pendingCustomerLearning: null });
-      }
+      await learnPendingCustomer(order);
       try {
         const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, ...orderQueryParams(week) });
         if (od.success && od.orders?.length > 0) {
@@ -3395,6 +3417,7 @@ export default function PasteOrderPage() {
       } catch { /* 서버 트랜잭션 내부 전산 대조는 완료됨. 화면 재조회만 실패한 경우다. */ }
       loadOrderHistorySummary(week, orders);
       saveSucceeded = true;
+      learnVerifiedMappings(order.items.filter(it => !it.skip && it.prodKey));
     } catch (e) {
       keepPasteGuardWarning(order.custMatch.CustKey, e);
       const locked = e?.code === 'ERP_EDIT_LOCKED' || e?.data?.code === 'ERP_EDIT_LOCKED';
@@ -3901,8 +3924,9 @@ export default function PasteOrderPage() {
           </button>
           <button
             onClick={() => setShowMapModal(true)}
+            disabled={mappingSaveState.pending > 0 || parsing || bulkRunning || orders.some(order => order.saving)}
             style={{ padding: '6px 16px', background: '#00897b', color: '#fff', border: 'none', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-            title="저장된 품목/거래처 매칭을 보고 중복을 삭제합니다."
+            title="품목/거래처 매칭을 추가·수정·삭제합니다."
           >
             🗂 매칭 현황
           </button>
@@ -3970,6 +3994,11 @@ export default function PasteOrderPage() {
         </div>
 
         {/* 등록 차수 — 주문등록·분배에 사용 (기준차수와 별도) */}
+        {(mappingSaveState.pending > 0 || mappingSaveState.failures.length > 0 || mappingConflict) && <div role="status" style={{ padding: 8, marginBottom: 8, background: mappingSaveState.failures.length ? '#fff1f0' : '#eef6ff', border: '1px solid #b9cfe7', fontSize: 12 }}>
+          {mappingSaveState.pending > 0 && <span>매칭 서버 저장 중 {mappingSaveState.pending}건 · 완료 전에는 창을 닫지 마세요. </span>}
+          {mappingSaveState.failures.length > 0 && <><strong>매칭 미저장 {mappingSaveState.failures.length}건</strong> · 주문·분배 결과와 별개입니다. <button type="button" disabled={mappingSaveState.pending > 0} onClick={() => mappingSaver.current?.retry()}>매칭 저장만 재시도</button><div>{mappingSaveState.failures.map(item => `${item.inputName}: ${item.error}`).join(' / ')}</div></>}
+          {mappingConflict && <div>{mappingConflict}</div>}
+        </div>}
         <div style={{ marginBottom: 12 }}>
           <label style={labelS}>
             등록 차수
@@ -5566,7 +5595,12 @@ export default function PasteOrderPage() {
           </div>
         </div>
       )}
-      <MappingStatusModal open={showMapModal} onClose={() => setShowMapModal(false)} />
+      <MappingStatusModal open={showMapModal} onClose={() => setShowMapModal(false)} onMappingsChanged={({ prodMap, custMap, changedProductKeys }) => {
+        // Modal cannot open while writes are pending. Its fresh values supersede old failed retries.
+        mappingSaver.current?.discardFailures(changedProductKeys);
+        setMappingCache(prodMap); saveCache(prodMap);
+        setCustomerMappingCache(custMap); saveCustomerCache(custMap);
+      }} />
       {bulkCompletionNotice && (
         <div role="presentation" onClick={event => event.target === event.currentTarget && setBulkCompletionNotice(null)} style={{
           position: 'fixed', inset: 0, zIndex: 10020, background: 'rgba(15,23,42,.48)',

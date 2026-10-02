@@ -1,5 +1,5 @@
 // components/orders/MappingStatusModal.js
-// 붙여넣기 주문등록 — 저장된 매칭 현황 보기 + 개별 삭제.
+// 붙여넣기 주문등록 — 매칭 추가, 현황 보기, 수정 및 삭제.
 //   탭: 품목 매핑(order-mappings) / 거래처 매핑(customer-mappings)
 //   - 품목별/거래처별로 입력토큰을 묶어 표시
 //   - 한 대상(prodKey/custKey)에 입력이 5개 이상이면 "중복/과다 매핑" 강조
@@ -20,13 +20,19 @@ const POLLUTION_EXCLUDE = new Set([
   '차', '여분', '여분코드', '변경사항',
 ]);
 
-export default function MappingStatusModal({ open, onClose }) {
+export default function MappingStatusModal({ open, onClose, onMappingsChanged }) {
   const [tab, setTab] = useState('product');
   const [prodMap, setProdMap] = useState({});
   const [custMap, setCustMap] = useState({});
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [notice, setNotice] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [alias, setAlias] = useState('');
+  const [addQuery, setAddQuery] = useState('');
+  const [selectedTarget, setSelectedTarget] = useState(null);
+  const [savingAdd, setSavingAdd] = useState(false);
   // 품목 재지정(잘못 매핑된 입력의 품목만 변경)
   const [products, setProducts] = useState(null);   // null=미로딩
   const [prodLoading, setProdLoading] = useState(false);
@@ -37,18 +43,28 @@ export default function MappingStatusModal({ open, onClose }) {
   const [savingEdit, setSavingEdit] = useState(false);
   const [custList, setCustList] = useState([]);     // 거래처명 오염 감지용 전체 거래처
 
+  // 변경 뒤에는 서버 응답을 다시 읽어 두 탭과 부모 화면을 같은 기준으로 갱신한다.
+  const refreshMappings = async (notifyParent = false, changedProductKeys = []) => {
+    const [p, c] = await Promise.all([
+      apiGet('/api/orders/mappings'),
+      apiGet('/api/orders/customer-mappings'),
+    ]);
+    if (!p.success || !c.success || !p.mappings || !c.mappings) throw new Error('매핑 목록 응답을 확인할 수 없습니다.');
+    setProdMap(p.mappings);
+    setCustMap(c.mappings);
+    if (notifyParent) onMappingsChanged?.({ prodMap: p.mappings, custMap: c.mappings, changedProductKeys });
+    return { prodMap: p.mappings, custMap: c.mappings };
+  };
+
   const load = async () => {
-    setLoading(true); setErr('');
+    setLoading(true); setErr(''); setNotice('');
     try {
-      const [p, c, cu] = await Promise.all([
-        apiGet('/api/orders/mappings').catch(() => ({ mappings: {} })),
-        apiGet('/api/orders/customer-mappings').catch(() => ({ mappings: {} })),
-        apiGet('/api/master', { entity: 'customers' }).catch(() => ({ data: [] })),
-      ]);
-      setCustList(cu.data || cu.customers || []);
-      setProdMap(p.mappings || {});
-      setCustMap(c.mappings || {});
-    } catch (e) { setErr(e.message); }
+      await refreshMappings();
+      try {
+        const cu = await apiGet('/api/master', { entity: 'customers' });
+        setCustList(cu.data || cu.customers || []);
+      } catch (e) { setErr(`거래처 후보 로드 실패: ${e.message}`); }
+    } catch (e) { setErr(`매핑 로드 실패: ${e.message}`); }
     finally { setLoading(false); setEditKeys([]); setEditQuery(''); }
   };
 
@@ -85,11 +101,50 @@ export default function MappingStatusModal({ open, onClose }) {
 
   const del = async (key) => {
     const path = tab === 'product' ? '/api/orders/mappings' : '/api/orders/customer-mappings';
+    setErr(''); setNotice('');
     try {
       await apiDelete(path, { key });
-      if (tab === 'product') setProdMap(prev => { const n = { ...prev }; delete n[key]; return n; });
-      else setCustMap(prev => { const n = { ...prev }; delete n[key]; return n; });
-    } catch (e) { alert(`삭제 실패: ${e.message}`); }
+      await refreshMappings(true, tab === 'product' ? [key] : []);
+      setNotice(`“${key}” 매핑을 삭제했습니다.`);
+    } catch (e) { setErr(`삭제 또는 목록 재조회 실패: ${e.message}`); }
+  };
+
+  const startAdd = () => {
+    setAdding(true); setAlias(''); setAddQuery(''); setSelectedTarget(null);
+    setErr(''); setNotice('');
+    if (tab === 'product') ensureProducts();
+  };
+
+  const saveAdd = async () => {
+    const inputToken = alias.trim();
+    if (!inputToken || !selectedTarget || savingAdd) return;
+    setSavingAdd(true); setErr(''); setNotice('');
+    try {
+      let saved;
+      if (tab === 'product') {
+        const p = selectedTarget;
+        saved = await apiPost('/api/orders/mappings', {
+          inputToken, prodKey: p.ProdKey, prodName: p.ProdName,
+          displayName: p.DisplayName || p.ProdName, flowerName: p.FlowerName,
+          counName: p.CounName, force: true, manual: true,
+        });
+      } else {
+        const c = selectedTarget;
+        saved = await apiPost('/api/orders/customer-mappings', {
+          inputToken, custKey: c.CustKey, custName: c.CustName, custArea: c.CustArea,
+        });
+      }
+      if (!saved.success || !saved.key) throw new Error('서버가 저장을 확인하지 않았습니다.');
+      const refreshed = await refreshMappings(true, tab === 'product' ? [saved.key] : []);
+      const current = tab === 'product' ? refreshed.prodMap[saved.key] : refreshed.custMap[saved.key];
+      const selectedKey = tab === 'product' ? selectedTarget.ProdKey : selectedTarget.CustKey;
+      if (Number(tab === 'product' ? current?.prodKey : current?.custKey) !== Number(selectedKey)) {
+        throw new Error('저장 후 매핑 목록에서 선택한 대상을 확인할 수 없습니다.');
+      }
+      setAdding(false); setAlias(''); setAddQuery(''); setSelectedTarget(null);
+      setNotice(`“${inputToken}” 매칭을 저장했습니다.`);
+    } catch (e) { setErr(`저장 또는 목록 재조회 실패: ${e.message}`); }
+    finally { setSavingAdd(false); }
   };
 
   // 품목 목록 lazy 로드 (재지정 검색용)
@@ -129,17 +184,21 @@ export default function MappingStatusModal({ open, onClose }) {
       flowerName: prod.FlowerName,
       counName: prod.CounName,
     };
+    setErr(''); setNotice('');
+    const changedKeys = [];
     try {
       for (const k of editKeys) {
-        await apiPost('/api/orders/mappings', { inputToken: k, ...next, force: true });
+        const saved = await apiPost('/api/orders/mappings', { inputToken: k, ...next, force: true, manual: true });
+        if (!saved.success || !saved.key) throw new Error('매칭 저장 확인 실패');
+        changedKeys.push(saved.key);
       }
-      setProdMap(prev => {
-        const n = { ...prev };
-        for (const k of editKeys) if (n[k]) n[k] = { ...n[k], ...next };
-        return n;
-      });
+      await refreshMappings(true, changedKeys);
       cancelEdit();
-    } catch (e) { alert(`품목 변경 실패: ${e.message}`); }
+      setNotice('품목 매핑을 변경했습니다.');
+    } catch (e) {
+      setErr(`품목 변경 또는 목록 재조회 실패: ${e.message}`);
+      try { await refreshMappings(true, changedKeys); } catch { /* 앞선 오류를 유지한다 */ }
+    }
     finally { setSavingEdit(false); }
   };
 
@@ -152,6 +211,17 @@ export default function MappingStatusModal({ open, onClose }) {
     if (ranked.length) return ranked;
     return filterProducts(products, editQuery).slice(0, 20);
   }, [editKeys, products, editQuery]);
+
+  const addCandidates = useMemo(() => {
+    const q = addQuery.trim();
+    if (!q) return [];
+    if (tab === 'product') {
+      if (!products) return [];
+      const ranked = rankProductSearchOptions(q, products, { limit: 20 });
+      return ranked.length ? ranked : filterProducts(products, q).slice(0, 20);
+    }
+    return custList.filter(c => `${c.CustName || ''} ${c.CustArea || ''} ${c.CustKey || ''}`.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+  }, [tab, addQuery, products, custList]);
 
   // ── 거래처명 오염 감지 (품목 매핑 키에 거래처 이름이 섞인 경우)
   const custNameSet = useMemo(() => {
@@ -200,8 +270,7 @@ export default function MappingStatusModal({ open, onClose }) {
   const cleanupPolluted = async () => {
     if (!pollutedKeys.length) return;
     if (!window.confirm(`거래처명이 섞인 품목 매핑 ${pollutedKeys.length}개를 삭제할까요?\n(거래처명 없는 깨끗한 입력 매핑은 유지됩니다)`)) return;
-    for (const k of pollutedKeys) { try { await apiDelete('/api/orders/mappings', { key: k }); } catch { /* skip */ } }
-    setProdMap(prev => { const n = { ...prev }; for (const k of pollutedKeys) delete n[k]; return n; });
+    await cleanupKeys(pollutedKeys);
   };
 
   const cleanupLegacyAutoFallback = async () => {
@@ -210,14 +279,21 @@ export default function MappingStatusModal({ open, onClose }) {
       `auto 학습 + 과다매핑(5+키) 의심 ${legacyAutoFallbackKeys.length}개를 삭제할까요?\n\n`
       + 'parse-paste 가 거부하는 오매칭입니다. 삭제 후 다음 붙여넣기에서 정확 매핑을 다시 학습합니다.',
     )) return;
-    for (const k of legacyAutoFallbackKeys) {
-      try { await apiDelete('/api/orders/mappings', { key: k }); } catch { /* skip */ }
+    await cleanupKeys(legacyAutoFallbackKeys);
+  };
+
+  const cleanupKeys = async (keys) => {
+    setErr(''); setNotice('');
+    const failures = [];
+    const changedKeys = [];
+    for (const key of keys) {
+      try { await apiDelete('/api/orders/mappings', { key }); changedKeys.push(key); }
+      catch (e) { failures.push(`${key}: ${e.message}`); }
     }
-    setProdMap(prev => {
-      const n = { ...prev };
-      for (const k of legacyAutoFallbackKeys) delete n[k];
-      return n;
-    });
+    try { await refreshMappings(true, changedKeys); }
+    catch (e) { setErr(`정리 후 목록 재조회 실패: ${e.message}`); return; }
+    if (failures.length) setErr(`${failures.length}개 삭제 실패: ${failures.slice(0, 3).join(', ')}${failures.length > 3 ? '…' : ''}`);
+    else setNotice(`${keys.length}개 매핑을 삭제했습니다.`);
   };
 
   if (!open) return null;
@@ -234,10 +310,10 @@ export default function MappingStatusModal({ open, onClose }) {
         </div>
 
         <div style={{ display: 'flex', gap: 6, padding: '8px 10px 0', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => { setTab('product'); cancelEdit(); }} style={tab === 'product' ? S.tabOn : S.tab}>
+          <button onClick={() => { setTab('product'); cancelEdit(); setSelectedTarget(null); setAddQuery(''); if (adding) ensureProducts(); }} style={tab === 'product' ? S.tabOn : S.tab}>
             품목 매핑 {Object.keys(prodMap).length}
           </button>
-          <button onClick={() => { setTab('customer'); cancelEdit(); }} style={tab === 'customer' ? S.tabOn : S.tab}>
+          <button onClick={() => { setTab('customer'); cancelEdit(); setSelectedTarget(null); setAddQuery(''); }} style={tab === 'customer' ? S.tabOn : S.tab}>
             거래처 매핑 {Object.keys(custMap).length}
           </button>
           <input
@@ -246,6 +322,9 @@ export default function MappingStatusModal({ open, onClose }) {
             placeholder="품목/거래처/입력어 검색"
             style={S.search}
           />
+          <button onClick={adding ? () => { setAdding(false); setSelectedTarget(null); } : startAdd} style={S.addBtn}>
+            {adding ? '추가 취소' : '+ 매칭 추가'}
+          </button>
           <span style={{ fontSize: 12, color: '#667085', marginLeft: 'auto' }}>
             총 {total}개 · <span style={{ color: '#c0392b' }}>중복의심 {dupGroups}그룹</span>
           </span>
@@ -267,8 +346,38 @@ export default function MappingStatusModal({ open, onClose }) {
         )}
 
         {err && <div style={{ color: '#c0392b', padding: '6px 12px', fontSize: 12 }}>오류: {err}</div>}
+        {notice && <div role="status" style={{ color: '#177245', padding: '6px 12px', fontSize: 12 }}>{notice}</div>}
 
         <div style={S.body}>
+          {adding && (
+            <div style={S.editor}>
+              <div style={S.editorHead}><b style={{ fontSize: 13 }}>{tab === 'product' ? '품목' : '거래처'} 매칭 추가</b></div>
+              <div style={S.addFields}>
+                <label style={S.addLabel}>붙여넣기 입력어
+                  <input value={alias} onChange={e => setAlias(e.target.value)} placeholder="원본 입력어" style={{ ...S.search, width: '100%' }} />
+                </label>
+                <label style={S.addLabel}>{tab === 'product' ? '품목' : '거래처'} 검색
+                  <input value={addQuery} onChange={e => { setAddQuery(e.target.value); setSelectedTarget(null); }} placeholder="이름 또는 키 검색" style={{ ...S.search, width: '100%' }} />
+                </label>
+              </div>
+              {tab === 'product' && prodLoading && <div style={S.empty}>품목 불러오는 중…</div>}
+              {addQuery.trim() && !prodLoading && addCandidates.length === 0 && <div style={S.empty}>검색 결과가 없습니다. 후보 로드 오류가 있다면 위 메시지를 확인하세요.</div>}
+              <div style={S.candList}>
+                {addCandidates.map(item => {
+                  const key = tab === 'product' ? item.ProdKey : item.CustKey;
+                  const selected = Number(key) === Number(tab === 'product' ? selectedTarget?.ProdKey : selectedTarget?.CustKey);
+                  return <button key={key} type="button" onClick={() => setSelectedTarget(item)} style={{ ...S.cand, ...(selected ? S.candSel : {}) }}>
+                    <b>{tab === 'product' ? getDisplayName(item) : item.CustName}</b>
+                    <span style={{ color: '#667085', fontSize: 11 }}> · {tab === 'product' ? item.ProdName : (item.CustArea || '')} · key {key}{selected ? ' (선택됨)' : ''}</span>
+                  </button>;
+                })}
+              </div>
+              <div style={S.addFooter}>
+                <span style={{ fontSize: 12, color: '#475467' }}>선택: {selectedTarget ? (tab === 'product' ? getDisplayName(selectedTarget) : selectedTarget.CustName) : '없음'}</span>
+                <button type="button" disabled={!alias.trim() || !selectedTarget || savingAdd} onClick={saveAdd} style={S.addBtn}>{savingAdd ? '저장 중…' : '선택한 매칭 저장'}</button>
+              </div>
+            </div>
+          )}
           {tab === 'product' && editKeys.length > 0 && (
             <div style={S.editor}>
               <div style={S.editorHead}>
@@ -351,13 +460,14 @@ export default function MappingStatusModal({ open, onClose }) {
 
 const S = {
   back: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  modal: { background: '#fff', width: 'min(820px, 94vw)', maxHeight: '86vh', borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  modal: { background: '#fff', width: 'min(980px, 96vw)', maxHeight: 'min(900px, 92vh)', borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid #eceff1' },
   body: { overflowY: 'auto', padding: 10, background: '#fafafa' },
   btn: { border: '1px solid #cfd8dc', background: '#fff', borderRadius: 5, padding: '4px 10px', cursor: 'pointer', fontSize: 12 },
+  addBtn: { border: '1px solid #3949ab', background: '#3949ab', color: '#fff', borderRadius: 5, padding: '5px 11px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
   tab: { border: '1px solid #cfd8dc', background: '#fff', borderRadius: 16, padding: '4px 12px', cursor: 'pointer', fontSize: 12 },
   tabOn: { border: '1px solid #3949ab', background: '#3949ab', color: '#fff', borderRadius: 16, padding: '4px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 },
-  search: { border: '1px solid #cfd8dc', borderRadius: 5, padding: '4px 8px', fontSize: 12, width: 200 },
+  search: { boxSizing: 'border-box', minWidth: 0, border: '1px solid #cfd8dc', borderRadius: 5, padding: '4px 8px', fontSize: 12, width: 200 },
   group: { background: '#fff', border: '1px solid #e3e6ea', borderRadius: 6, padding: 8, marginBottom: 6 },
   groupDup: { borderColor: '#f3b7b1', background: '#fffaf9' },
   groupHead: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 13 },
@@ -371,6 +481,9 @@ const S = {
   chipX: { border: 0, background: '#c5cae9', color: '#1a237e', borderRadius: '50%', width: 16, height: 16, lineHeight: '14px', cursor: 'pointer', fontSize: 12, padding: 0 },
   empty: { color: '#90a4ae', fontSize: 13, padding: 20, textAlign: 'center' },
   editor: { background: '#fffdf5', border: '1px solid #ffe0a3', borderRadius: 8, padding: 10, marginBottom: 8 },
+  addFields: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  addLabel: { display: 'flex', flex: '1 1 240px', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 700 },
+  addFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   editorHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 },
   candList: { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, maxHeight: 220, overflowY: 'auto' },
   cand: { textAlign: 'left', border: '1px solid #e3e6ea', background: '#fff', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', fontSize: 13 },
