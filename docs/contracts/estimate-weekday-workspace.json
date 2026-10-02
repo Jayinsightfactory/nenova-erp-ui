@@ -2,6 +2,8 @@
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
   "scope": [
+    "__tests__/weekdayPrintEligibility.test.js",
+    "docs/plans/weekday-exe-compatibility-2026-10-02.md",
     "docs/plans/weekday-confirmation-display-fix-2026-10-02.md",
     "lib/weekdayConfirmation.js",
     "pages/api/estimate/weekday-confirmation.js",
@@ -62,6 +64,7 @@
     "docs/contracts/estimate-weekday-workspace.json"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "storedMoneyCompatibility": "C# decimal midpoint-to-even(EXE weekday save) 또는 기존 웹/SQL half-up의 완전한 수량/Amount/Vat tuple만 허용. 서로 다른 방식 혼합 금지. 원장 값은 보존, 출력 수량은 기존 EXE 공통 SQL ROUND 집계, 금액은 실제 날짜별 bucket 합계.",
   "actions": [
     {
       "name": "WEEKDAY_ERP_CATEGORY_CONFIRMATION_DISPLAY",
@@ -196,7 +199,7 @@
       "shipmentDate": "preserve",
       "estimateRows": "preserve",
       "stock": "preserve",
-      "sideEffect": "연도+대차수+거래처의 확정 견적 SELECT. 날짜 출력은 실제 ShipmentDtm 및 EstimateDtm의 선택 날짜만 출력한다. 날짜 미배정 차감은 대차수 전체에서 모든 등록 Estimate 행을 보존한다. 미적용 초안은 제외. 공통 ReportEstimate HTML 글꼴만 적용하며 기존 견적서관리 SQL 기본 정책은 변경하지 않는다."
+      "sideEffect": "사용자 안전 정책으로 연도+메인차수 모든 세부차수·전체 거래처 양수 상세 확정을 검사한다. 선택 업체의 EXE 주문·날짜·품목 연결/수량/금액을 일관된 읽기 트랜잭션에서 검증 후 공통 확정 견적 SELECT. 날짜 출력은 실제 ShipmentDtm 및 EstimateDtm의 선택 날짜만 출력한다. 날짜 미배정 차감은 대차수 전체에서 모든 등록 Estimate 행을 보존한다. 미적용 초안은 제외. 자동 확정/확정취소/원장수정 없음. 기존 견적서관리 SQL 기본 정책은 변경하지 않는다."
     }
   ],
   "crossYearFixture": {
@@ -204,6 +207,7 @@
     "description": "비교 요청 year=2026, orderWeek=38-02, custKey=7, prodKey=101이면 같은 38-02의 2025년 행은 결과에 포함되지 않는다. 모든 쿼리는 OrderYear/OrderWeek/CustKey/ProdKey를 제한한다."
   },
   "requiredTestFiles": [
+    "__tests__/weekdayPrintEligibility.test.js",
     "__tests__/weekdayConfirmation.test.js",
     "__tests__/weekdayCompactSummary.test.js",
     "__tests__/weekdayCarryover.test.js",

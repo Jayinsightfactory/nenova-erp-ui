@@ -154,6 +154,23 @@ test('snapshot digest가 없는 legacy payload는 fallback 없이 차단한다',
   }), { code: 'EXPECTED_SNAPSHOT_DIGEST_REQUIRED' });
 });
 
+test('대표 출고일만 외부 변경돼도 전체 snapshot stale로 거부한다', () => {
+  const actual=physical();actual.detail.ShipmentTimestamp='2026-09-10 00:00:00.000';
+  const change=normalizedChange({actual});
+  assert.throws(()=>assertWeekdaySnapshotDigest(change,{...actual,detail:{...actual.detail,ShipmentTimestamp:'2026-09-13 00:00:00.000'}}),{code:'STALE_SNAPSHOT'});
+});
+
+test('미확정 상세는 날짜 이동·수량 감소·전량 취소 모두 서버 정책에서 거부한다', () => {
+  for(const flag of [0,null]) for(const quantity of [4,0]) {
+    const actual=physical();actual.detail.DetailIsFix=flag;
+    actual.shipmentDates=actual.shipmentDates.map(row=>({...row,detailFixed:false}));
+    const change=normalizedChange({actual,dates:[{date:'2026-09-10',quantity}]});
+    assert.throws(()=>buildWeekdayChangePlan(change,actual,calendar()),{code:'ERP_CONFIRMATION_REQUIRED'});
+  }
+  const actual=physical();actual.master.MasterIsFix=0;
+  assert.equal(buildWeekdayChangePlan(normalizedChange({actual,dates:[{date:'2026-09-10',quantity:4}]}),actual,calendar()).newTotal,24);
+});
+
 test('118품목 x 6차수의 708 digest는 DB N+1 없이 순수 bulk row 자료에서 결정된다', () => {
   const weeks = ['37-01','37-02','38-01','38-02','39-01','39-02'];
   const digests = [];

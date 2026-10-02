@@ -66,6 +66,30 @@ const absentProjection=project({...row,detailRows:0,state:'NO_SHIPMENT',shipment
 assert.equal(absentProjection.projectedTotal,2);assert.equal(absentProjection.delta,2,'explicitly absent shipment is a known zero baseline');
 assert.equal(JSON.stringify(projectionRow),beforeProjection,'display projection cannot mutate the ERP snapshot');
 const submission=build(input);
+assert.equal(submission.preview[0].detailFlag,'상세 확정 → 확정 유지');
+assert.equal(build({...input,compareRows:[{...row,masterFixed:false}]}).payload.changes.length,1,
+  'an already-fixed detail remains eligible when its master is mixed/unfixed');
+const draftsBeforeEligibility=JSON.stringify(input.plans);
+for(const fixed of [false,null,undefined,1,'true','mixed']) {
+  assert.throws(()=>build({...input,compareRows:[{...row,fixed}]}),/ERP 미확정 분배/,
+    `changed detail with fixed=${String(fixed)} must be rejected`);
+}
+const newTarget={...row,detailRows:0,state:'NO_SHIPMENT',shipmentOutQuantity:0,shipmentDates:[],fixed:null,masterFixed:true};
+const newTargetSubmission=build({...input,plans:[{...plan,quantity:2}],compareRows:[newTarget]});
+assert.equal(newTargetSubmission.preview[0].detailFlag,'상세 없음 → 신규 확정 상세');
+for(const masterFixed of [false,null,undefined,1,'true']) {
+  assert.throws(()=>build({...input,plans:[{...plan,quantity:2}],compareRows:[{...newTarget,masterFixed}]}),/신규 날짜의 대상 차수.*미확정/,
+    `new target with masterFixed=${String(masterFixed)} must be rejected`);
+}
+const otherFixedRow={...row,prodKey:867};
+const otherChangedPlan={...plan,id:'other-fixed',prodKey:867,quantity:4};
+const unchangedUnfixedPlan={...plan,id:'unchanged-unfixed',date:'2026-09-18',quantity:20};
+const unchangedUnfixedRow={...row,fixed:false};
+assert.deepEqual(build({...input,plans:[unchangedUnfixedPlan,otherChangedPlan],compareRows:[unchangedUnfixedRow,otherFixedRow]}).payload.changes.map(change=>change.prodKey),[867],
+  'an unchanged unfixed draft cannot block a changed fixed row');
+assert.throws(()=>build({...input,plans:[plan,otherChangedPlan],compareRows:[unchangedUnfixedRow,otherFixedRow]}),/ERP 미확정 분배/,
+  'a mixed submission rejects the changed unfixed row, not just the first valid row');
+assert.equal(JSON.stringify(input.plans),draftsBeforeEligibility,'preflight rejection preserves drafts');
 assert.deepEqual(submission.payload,{operationId,reason:'요일 정정',custKey:533,changes:[{
   year:2026,orderWeek:'38-01',prodKey:866,unit:'박스',expected:{snapshotDigest,detailRows:1,shipmentOutQuantity:25,shipmentDates:row.shipmentDates},dates:[{date:'2026-09-17',quantity:0}],
 }]});
@@ -129,7 +153,7 @@ assert.throws(()=>build({...input,plans:[{...plan,draftScope:'533|2025|38'}]}),/
 assert.throws(()=>build({...input,compareRows:[row,{...row,orderWeek:'38-02'}]}),/명시적으로 검토/);
 assert.throws(()=>build({...input,plans:[{...plan,date:'2026-09-21'}]}),/명시적으로 검토/);
 const crossPlan={...plan,id:'cross',year:2027,orderWeek:'01-01',date:'2027-01-07',quantity:2};
-const crossRow={...row,year:2027,orderWeek:'01-01',snapshotDigest:'c3'.repeat(32),detailRows:0,shipmentOutQuantity:0,shipmentDates:[]};
+const crossRow={...row,year:2027,orderWeek:'01-01',snapshotDigest:'c3'.repeat(32),detailRows:0,shipmentOutQuantity:0,shipmentDates:[],masterFixed:true};
 assert.deepEqual(build({...input,plans:[plan,crossPlan],compareRows:[row,crossRow]}).payload.changes.map(item=>[item.year,item.orderWeek]),[[2026,'38-01'],[2027,'01-01']]);
 assert.deepEqual(build({...input,plans:[plan,crossPlan],compareRows:[row,crossRow]}).payload.changes.map(item=>item.expected.snapshotDigest),[snapshotDigest,crossRow.snapshotDigest],'cross-year groups use their own exact read-row digest');
 // Production legacy Sunday belongs to actual 38-02. Amend/cancel that exact row;
@@ -176,6 +200,7 @@ calls=[];
 assert.equal((await save(submission,{fetcher:async(url,options)=>{calls.push({url,options});return reply(409,{success:false,error:'stale snapshot'});}})).state,'failed');
 assert.equal(calls.length,1);
 assert.deepEqual(submission.payload,input && build(input).payload,'failure does not mutate drafts/reason/UUID');
+assert.equal(JSON.stringify(input.plans),draftsBeforeEligibility,'rejected save leaves the editable drafts intact');
 for(const code of [500,503]) {
   calls=[];
   const failed=await save(submission,{fetcher:async(url,options)=>{calls.push({url,options});return reply(code,{success:false,rolledBack:true,error:'confirmed rollback'});}});

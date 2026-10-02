@@ -39,6 +39,7 @@ export default withAuth(async function handler(req, res) {
       query(
         `SELECT sm.OrderYear,sm.OrderWeek,sm.CustKey,sd.ProdKey,
                 sd.SdetailKey,sd.ShipmentKey,sd.OutQuantity,sd.BoxQuantity,
+                CONVERT(nvarchar(23),sd.ShipmentDtm,121) AS ShipmentTimestamp,
                 sd.BunchQuantity,sd.SteamQuantity,sd.EstQuantity,
                 sd.Cost AS DetailCost,sd.Amount AS DetailAmount,sd.Vat AS DetailVat,
                 sd.isFix AS DetailIsFix,p.OutUnit
@@ -162,6 +163,7 @@ export default withAuth(async function handler(req, res) {
         orderOutQuantity: order?.OrderOutQuantity ?? null,
         shipmentOutQuantity: shipment?.ShipmentOutQuantity ?? null,
         fixed: shipment ? (Number(shipment.MinFixed) === Number(shipment.MaxFixed) ? Number(shipment.MaxFixed) === 1 : 'mixed') : null,
+        masterFixed: masterRows.length === 1 ? (masterRows[0].MasterIsFix === true || masterRows[0].MasterIsFix === 1) : null,
         prodName: product?.ProdName || null,
         flowerName: product?.FlowerName || null,
         countryName: product?.CounName || null,

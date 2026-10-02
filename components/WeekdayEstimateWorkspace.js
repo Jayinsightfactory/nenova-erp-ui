@@ -724,6 +724,7 @@ export default function WeekdayEstimateWorkspace() {
       </div>
       <div role="status" style={{ marginTop:5, padding:'3px 6px', borderRadius:4, background:'#fff7df', color:'#624900' }}>{message}</div>
       <div style={{fontSize:13,color:'#122033',marginTop:5}}>전산 현재값 = 저장된 조회값 · 파란 수량 = 미저장 초안 {activePlans.length}건 · 최초 기준 = 이 페이지의 불변 기록{plans.length>activePlans.length && ` · 다른 조회 범위 초안 ${plans.length-activePlans.length}건 보관 (이번 저장 제외)`}</div>
+      <div style={{fontSize:12,color:'#624900',marginTop:3}}>작업 순서: 초안 편집 → 분배관리에서 ERP 상세/대상 차수 확정 확인 → ERP 저장. 최초 기준 확정은 별도 기록이며, 인쇄는 API가 메인차수 전체 확정을 검사합니다.</div>
       {applyError && <div role="alert" style={{color:'#9f1c16',fontSize:13,overflowWrap:'anywhere'}}>{applyError}</div>}
       {pendingApply && <div style={{fontSize:13,color:'#122033'}}>저장 결과 확인 대기 · 업체 {pendingApply.payload.custKey} · 작업 {pendingApply.payload.operationId} <button disabled={applyBusy} onClick={recheckErpSave}>{applyBusy?'확인 중…':'같은 작업 저장 상태 다시 조회'}</button></div>}
       {calendarError && <div role="alert" style={{color:'#b42318',marginTop:8}}>전산 달력: {calendarError}</div>}
@@ -768,8 +769,8 @@ export default function WeekdayEstimateWorkspace() {
 
     {applyPreview && <div className="weekday-print-overlay"><section role="dialog" aria-modal="true" aria-label="ERP 저장 변경 확인" style={{...panel,width:'min(760px,100%)',maxHeight:'calc(100vh - 24px)',overflow:'auto',boxSizing:'border-box',fontSize:13,color:'#122033'}}>
       <h2 style={{fontSize:17,margin:'0 0 8px'}}>ERP 저장 · {customer?.CustName} · 변경 날짜 {applyPreview.preview.length}건</h2>
-      <p>아래 날짜의 최종 출고수량(OutUnit)만 저장합니다. 누락된 기존 날짜는 보존하고, 명시 수량 0은 취소합니다. 최초 기준을 덮어쓰지 않습니다. 저장 실패 시 초안을 유지합니다.</p>
-      <div className="scroll-table" style={{maxHeight:'45vh',overflow:'auto'}}><table><thead><tr><th>연도/세부차수</th><th>품목</th><th>날짜</th><th>저장 현재 → 초안 최종</th></tr></thead><tbody>{applyPreview.preview.map(cell=><tr key={`${cell.year}|${cell.orderWeek}|${cell.prodName}|${cell.date}`}><td>{cell.year}/{cell.orderWeek}</td><td>{cell.prodName}</td><td>{cell.date}</td><td>{cell.before} → {cell.after} {cell.unit}{cell.after===0?' · 취소':''}</td></tr>)}</tbody></table></div>
+      <p>아래 날짜의 최종 출고수량(OutUnit)만 저장합니다. 누락된 기존 날짜는 보존하고, 명시 수량 0은 취소합니다. 기존 상세는 확정 유지, 자동 해제·확정 없음. 신규 상세는 확정된 대상 차수에만 생성하며 대상 차수를 자동 확정하지 않습니다. 최초 기준은 별도 불변 기록으로 보존하고, 저장 실패 시 초안을 유지합니다.</p>
+      <div className="scroll-table" style={{maxHeight:'45vh',overflow:'auto'}}><table><thead><tr><th>연도/세부차수</th><th>품목</th><th>날짜</th><th>저장 현재 → 초안 최종</th><th>ERP 상세 확정 전 → 후</th></tr></thead><tbody>{applyPreview.preview.map(cell=><tr key={`${cell.year}|${cell.orderWeek}|${cell.prodName}|${cell.date}`}><td>{cell.year}/{cell.orderWeek}</td><td>{cell.prodName}</td><td>{cell.date}</td><td>{cell.before} → {cell.after} {cell.unit}{cell.after===0?' · 취소':''}</td><td>{cell.detailFlag}</td></tr>)}</tbody></table></div>
       <label style={{display:'block',marginTop:10}}>ERP 변경 사유 (필수)<textarea autoFocus aria-label="ERP 저장 사유" rows={3} maxLength={1000} disabled={applyBusy || Boolean(pendingApply)} value={applyReason} onChange={event=>setApplyReason(event.target.value)} style={{width:'100%',boxSizing:'border-box',font:'inherit',color:'#122033'}}/></label>
       {applyError && <p role="alert" style={{color:'#9f1c16',overflowWrap:'anywhere'}}>{applyError}</p>}
       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}><button className="primary" onClick={confirmErpSave} disabled={applyBusy || Boolean(pendingApply) || !applyReason.trim()}>{applyBusy?'저장/결과 확인 중…':'변경 확인 · ERP에 저장'}</button>{pendingApply && <button disabled={applyBusy} onClick={recheckErpSave}>저장 상태 다시 조회</button>}<button disabled={applyBusy} onClick={()=>setApplyPreview(null)}>닫기 · 초안 유지</button></div>
