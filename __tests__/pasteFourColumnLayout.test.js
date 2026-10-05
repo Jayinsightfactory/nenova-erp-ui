@@ -40,7 +40,7 @@ assert.match(page, /최근 붙여넣기 작업 이력/);
 assert.match(page, /week && selectedYearFromWeek\(week\) \? \(/);
 assert.match(page, /차수를 선택하면 해당 차수의 최근 붙여넣기 작업 이력을 불러옵니다/);
 assert.match(page, /<PasteOperationHistory compact key=\{`paste-operation-history:[\s\S]*?bulkResult\?\.orderId/);
-assert.match(page, /\.paste-work-success-row \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important; \}/);
+assert.match(page, /\.paste-work-success-row \{ grid-template-columns: minmax\(0, 1fr\) auto !important; \}/);
 assert.match(page, /처리 실패 · 전산 변경 없음/);
 assert.match(page, /실패 \{bulkResult\.failCount\}건 · 성공 0건 · 전체 롤백되었습니다/);
 assert.match(page, /<details className="paste-order-history-reference">\s*<summary>전체 주문 변경 이력 · 참고<\/summary>\s*<OrderHistoryPanel loading=\{orderHistoryLoading\} error=\{orderHistoryError\}/);

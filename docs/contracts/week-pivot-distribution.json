@@ -171,7 +171,7 @@
     "clientPreflightPolicy": "every non-skipped pasted row must have a confirmed CustKey, ProdKey, and positive quantity before the first write; an unmatched ADD may never be omitted while matched CANCEL rows are submitted",
     "forcePolicy": "force is always false for the global paste batch and cannot be enabled by an entry payload",
     "uiRefreshPolicy": "registered order state, shipment quantity state, and order history refresh only after success=true for the whole atomic batch; the post-write shipment refresh has a bounded timeout so the UI cannot remain indefinitely in running state after server verification",
-    "completionNoticePolicy": "after the global batch reaches a final success or rollback result and edit-lease cleanup finishes, the paste page opens a modal showing success/failure counts and the verified or rolled-back outcome",
+    "completionNoticePolicy": "after the global batch reaches a final success or rollback result and edit-lease cleanup finishes, the paste page opens a modal showing success/failure counts and the verified or rolled-back outcome. Successful rows are intentionally dense: show only the original Kakao/source line and the label 기존처리완료, using sourceLine before normalized product fallbacks. The inline 저장 완료 결과 uses the identical two-column presentation so many rows fit without repeating order/shipment before-after quantities.",
     "sideEffects": [
       {
         "phase": "CANCEL",
