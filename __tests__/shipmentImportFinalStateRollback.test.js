@@ -137,7 +137,7 @@ async function main() {
   );
   assertLabel(
     '[요구사항2] 주문 없이 남은 분배도 NOT EXISTS 주문 대조로 비교대상에 포함',
-    /const shipmentOnlyDbResult = await query\(/.test(src) &&
+    /const shipmentOnlyDbResult = await queryFn\(/.test(src) &&
     /AND NOT EXISTS \(\s*SELECT 1\s*FROM OrderMaster om\s*JOIN OrderDetail od/.test(src),
   );
   assertLabel(

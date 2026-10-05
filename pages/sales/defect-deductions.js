@@ -177,6 +177,7 @@ export default function SalesDefectDeductionsPage() {
   const [salesViewMode, setSalesViewMode] = useState('edit');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [periodForm, setPeriodForm] = useState(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [activeSearch, setActiveSearch] = useState(null); // { index, kind, scope }
@@ -1284,18 +1285,17 @@ export default function SalesDefectDeductionsPage() {
     if (!chosen.length || chosen.some(row => salesRowSaveState(row) !== '저장 완료')) {
       setError('저장된 초안만 선택하고 미저장 변경을 먼저 저장하세요.'); return;
     }
-    const target = window.prompt('정정할 연도-차수를 입력하세요 (예: 2026-40)');
-    if (target == null) return;
+    const target = periodForm?.target || '';
     const match = target.trim().match(/^(\d{4})-(\d{1,2})$/);
     if (!match) { setError('연도-차수 형식을 확인하세요.'); return; }
-    const reason = window.prompt('차수 정정 사유를 입력하세요.');
-    if (!reason?.trim()) return;
-    if (!window.confirm(`${chosen.length}건을 ${year}년 ${week}차에서 ${match[1]}년 ${match[2]}차로 정정합니다. 저장번호·업체·품목·수량·담당자는 유지됩니다.`)) return;
+    const reason = periodForm?.reason;
+    if (!reason?.trim()) { setError('차수 정정 사유를 입력하세요.'); return; }
     setSaving(true); setError('');
     try {
       const result = await apiPost('/api/sales/defect-deductions', { action: 'correct-period', year, week,
         targetYear: Number(match[1]), targetWeek: Number(match[2]), reason,
         rows: chosen.map(row => ({ deductionKey: Number(row.deductionKey), expectedRowVersionNo: Number(row.rowVersionNo) })) });
+      setPeriodForm(null);
       setMessage(`${result.corrected}건 차수 정정 완료 · ${match[1]}년 ${match[2]}차 · 수정이력 기록`);
       await load();
     } catch (e) { setError(`정정 결과를 다시 조회해 확인하세요. 자동 재시도하지 않습니다: ${e.message}`); }
@@ -1519,7 +1519,7 @@ export default function SalesDefectDeductionsPage() {
               <button type="button" className={`btn btn-xs ${salesViewMode === 'summary' ? 'btn-primary' : ''}`} onClick={() => setSalesViewMode('summary')}>완료 목록</button>
             </span>
           </>}
-          <button className="btn btn-primary" onClick={activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : activeTab === 'carryover' ? loadCarryover : load} disabled={loading || incomingLoading || supportLoading || supportRegistering}>조회</button>
+          <button className="btn btn-primary" onClick={() => (activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : activeTab === 'carryover' ? loadCarryover : load)()} disabled={loading || incomingLoading || supportLoading || supportRegistering}>조회</button>
           {activeTab === 'sales' && <>
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
@@ -1550,9 +1550,16 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading || activeTab === 'carryover'}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
-          {activeTab === 'sales' && isDefectAdmin(currentUser) && <button className="btn" onClick={correctPeriod} disabled={saving || !selected.size}>선택 차수 정정</button>}
+          {activeTab === 'sales' && isDefectAdmin(currentUser) && <button className="btn" onClick={() => setPeriodForm({ target: '', reason: '' })} disabled={saving || !selected.size}>선택 차수 정정</button>}
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
+        {periodForm && activeTab === 'sales' && <section aria-label="차수 정정" style={{ padding: 12, border: '1px solid #cbd5e1', marginTop: 8 }}>
+          <p>선택 {selected.size}건 · 현재 {year}년 {week}차. 저장번호·업체·품목·수량·담당자는 유지됩니다.</p>
+          <label>정정할 연도-차수 <input aria-label="정정할 연도-차수" placeholder="2026-40" value={periodForm.target} disabled={saving} onChange={e => setPeriodForm({ ...periodForm, target: e.target.value })} /></label>
+          <label>정정 사유 <input aria-label="정정 사유" maxLength={300} value={periodForm.reason} disabled={saving} onChange={e => setPeriodForm({ ...periodForm, reason: e.target.value })} /></label>
+          <button className="btn btn-primary" onClick={correctPeriod} disabled={saving || !selected.size}>차수 정정 적용</button>
+          <button className="btn" onClick={() => setPeriodForm(null)} disabled={saving}>취소</button>
+        </section>}
         <div style={{ marginTop: 7, color: '#475569', fontSize: 12 }}>
           {message && <span role="status" aria-live="polite" style={{ color: '#166534', marginRight: 12 }}>{message}</span>}
           {error && <span role="alert" style={{ color: '#b91c1c', whiteSpace: 'pre-wrap' }}>{error}</span>}

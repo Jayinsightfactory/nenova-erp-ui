@@ -29,8 +29,10 @@ assert.match(page, /availableCycles\.findIndex[\s\S]*availableCycles\[index \+ d
 assert.match(page, /matchChinaHfCode\(row, mapping, report\.products \|\| \[\]\)/, '품목별 HF 매칭에 전체 활성 중국 품목을 전달해 고유 fallback을 판별한다');
 assert.ok(page.includes("row.custName || ''} ${row.custOrderCode || ''} ${row.prodCode || ''} ${row.prodName || ''}"), '검색은 업체명·CL 코드·품목코드·품목명도 대상으로 한다');
 assert.match(page, /customer\.custName \|\| '업체명 미등록'[\s\S]*customer\.custOrderCode \|\| 'CL 미등록'/, '가로 헤더에 업체명(CL)을 함께 표시한다');
-assert.match(page, /row\.hf\.hfCode \|\| 'HF 미매칭'/, '사용자 지정 코드번호는 HF 코드이며 미매칭은 명시한다');
-assert.match(page, /data-quantity=\{row\.total\}[\s\S]*quantity\(row\.total\)/, '품목별 합계를 별도 고정 셀에 표시한다');
+assert.match(page, /row\.hf\.hfCode && <strong/, '품목명에는 명시 HF만 표시한다');
+assert.doesNotMatch(page, /HF 미매칭|미등록 HF 코드|className=\{`match-state/, '품목명에서 HF 미등록·미매칭·검토 문구를 제거한다');
+assert.match(page, /data-quantity=\{row\.total\}[\s\S]*chinaQuantityText\(row\.total, row\.boxTotal\)/, '품목별 수량과 DB 환산 박스 합계를 같은 셀에 표시한다');
+assert.match(page, /data-box-quantity=\{row\.boxQuantities/, '업체별 박스수도 공용 집계 결과를 사용한다');
 assert.match(page, /data-cust-key=\{customer\.custKey\} data-quantity=\{row\.quantities\[String\(customer\.custKey\)\]\}/, '실제 고객키 기반 업체 셀의 수량을 표시한다');
 assert.ok(/localStorage\.getItem[\s\S]*nextMapping = normalizeHfMapping\(saved\.mapping \|\| saved\)[\s\S]*catch \{[\s\S]*nextMapping = normalizeHfMapping\(seedMapping\)/.test(page), '인증된 사용자의 사전이 있을 때만 복원하고 없으면 기본 사전을 사용한다');
 assert.ok(page.indexOf("apiGet('/api/auth/me')") < page.indexOf('localStorage.getItem'), '사용자 인증 확인 후에만 사용자별 브라우저 사전을 읽는다');
@@ -56,7 +58,7 @@ assert.match(page, /setReport\(null\)/, '재조회 시작 시 이전 결과를 �
 assert.match(page, /role="alert"/, '오류를 보조기술에 알린다');
 assert.match(page, /role="status"/, '로딩·빈 결과·상태를 보조기술에 알린다');
 assert.match(page, /font-size:14px;font-weight:900;line-height:20px/, '선택 수량을 진한 14px 숫자로 표시한다');
-assert.match(page, /--product-width:420px;--unit-width:62px;--total-width:98px/, '좌측 고정 정보 폭은 580px로 최소화한다');
+assert.match(page, /--total-width:120px/, '수량(박스수) 고정 합계에 충분한 폭을 제공한다');
 assert.match(page, /\.customer-col\{width:146px\}/, '업체별 수량 열을 고정 크기로 만든다');
 assert.match(page, /\.fixed-product,.fixed-unit,.fixed-total\{position:sticky/, '품목·단위·총수량을 가로 스크롤에도 고정한다');
 assert.match(page, /\.orders-table tbody tr:hover/, '전체 행 hover 상태를 제공한다');

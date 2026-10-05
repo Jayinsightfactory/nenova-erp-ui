@@ -104,7 +104,7 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 # 2026-09-15 모든 호텔 차수별 매입단가·도착원가 참조
 
 - 라움·초이문 공통 단가 계약은 유지한다. 신라 및 `WebPnlHotel`의 활성 등록 호텔은 각 `PartnerCode` 안에서만 `WebRaumPnlItem.CostPrice/CostSource`를 수정한다.
-- 상세 웹 표의 도착원가 참조는 `WebArrivalCostLine`을 `OrderYear + ProdKey + IsCurrent=1`로 읽는 조회 전용 정보다. 선택 대차수 자료가 있으면 그 세부차수를 모두 표시하고, 해당 품목에 선택 대차수 자료가 없을 때만 같은 연도의 가장 가까운 이전 대차수 세부차수를 `이전 최신 차수`로 표시한다. 미래 차수와 이전 연도 값은 사용하지 않는다.
+- 아래 2026-09-15 원가 조회 범위는 2026-10-05 다음1차 참조 보정으로 대체되었다. 상세 웹 표의 도착원가 참조는 `WebArrivalCostLine`을 `OrderYear + ProdKey + IsCurrent=1`로 읽는 조회 전용 정보다. 선택 대차수 자료가 있으면 그 세부차수를 모두 표시하고, 해당 품목에 선택 대차수 자료가 없을 때만 같은 연도의 가장 가까운 이전 대차수 세부차수를 `이전 최신 차수`로 표시한다. 미래 차수와 이전 연도 값은 사용하지 않는다.
 - 단위 환산은 `Product.SteamOf1Box/BunchOf1Box/SteamOf1Bunch` 근거가 있을 때만 한다. 이 참조값은 `loadRaumPnlDetail` 원장이나 엑셀/인쇄 모델에 저장하지 않는다.
 - EXE 주문·출고·재고·견적 원장은 모두 보존한다.
 
@@ -115,3 +115,22 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 읽기 전용 운영 probe: WebPnlHotel 활성 은화 `hotel_87bc41c16ae5`, 2026 결산 1건. Customer 활성 신라호텔 446, 라움 680, 초이문 683, 호텔여분 690. 이름으로 임의 선택하지 않으며 실제 연결은 사용자가 고른 활성 CustKey만 저장한다.
 
 품목 연결 동작은 WebRaumPnlItem.ProdKey와 부모 감사 필드만 변경하고 업체 연결 동작은 WebPnlHotelCustomerMap만 변경한다. Product, Customer, OrderMaster/Detail, ShipmentMaster/Detail, ShipmentDate/Farm, StockHistory, Estimate, WebProfitReport는 보존한다. 품목 연결은 같은 호텔·연도에만 재사용하며 전역 이름 학습 및 ERP 분배 수정은 활성화하지 않는다.
+
+
+### 2026-10-05 호텔 다음1차 도착원가 참조 보정
+
+- 은화호텔 2026년 39차 `ItemKey=7738`, `ProdKey=2330` 왁스 화이트의 매칭·단위(`단`)는 정상이다. 읽기 전용 DB probe에서 같은 연도 `40-1`의 활성 양수 도착원가가 확인되었으나 기존 `MajorWeek<=39` 조건이 이를 제외했다.
+- 명시적인 웹 업무 근거는 `lib/raumPnl.js:lookupErpRefPrices`의 호텔 N차 참조창 `N-02 + (N+1)-01`이다. EXE가 이 웹 전용 원가 참조 정책을 정의한다고 주장하지 않는다. 당차수 기존 표시를 보존하면서 정확히 같은 연도 다음 대차수의 1차만 추가하며, 다음2차·더 먼 미래·다른 연도는 계속 제외한다. 당차수와 다음1차가 모두 없을 때만 이전 최신 대차수로 대체한다.
+- 로컬 dnSpy CLI 재실행(성공): `C:/Users/USER/Desktop/백업/다운로드/dnSpy-net-win32/dnSpy.Console.exe --no-color -t FormWarehouseView "C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe"`. `GetData`의 `wm.OrderYear/OrderWeek`, `GetDetail`의 `WarehouseDetail.UPrice/TPrice` 조회를 확인했다. 저장된 decompile `C:/Users/USER/nenova-decompiled/Nenova/FormWarehouseView.cs`도 대조했다.
+- 실제 helper의 읽기 전용 조회 결과: `7738 → 40-1 / 11450.6709원/단`, `isNextHotelWeek=true`. 같은 세부차수 중 최고 원가를 선택하는 기존 규칙을 보존했다. 출처: `CHINA 중국 원가자료 (40-1차) - 해상.xlsx`, `해상` 42행, `MELODY`.
+- 읽기 범위는 `WebArrivalCostLine + Product`뿐이다. `WebRaumPnlItem.CostPrice`, 원본 도착원가, 주문·분배·입고·재고, `Estimate`, `ShipmentDetail.Amount/Vat/isFix`, `WebProfitReport` 모두 보존한다. 참조는 화면 JSON에만 포함되며 엑셀·인쇄 저장 모델을 바꾸지 않는다.
+- 실행 fixture는 `__tests__/raumPnlArrivalReference.test.js`: 39→40-1, 40-2/41-1 제외, 2025/2027 동일 상품 제외, 현재+다음1차 표시순서, 양쪽 없을 때 이전 최신, 잘못된 차수 문자열, 배치 조회의 품목별 선택차수, source/cost 불변을 확인한다.
+
+
+### 2026-10-05 모든 호텔 저장 매입단가 참조
+
+- `/api/raum/hotel-cost-history?year=2026`은 인증된 GET만 허용한다. `listPnlHotels`의 기본·활성 등록 호텔을 대상으로 해당 연도 활성 `WebRaumPnl`의 저장 `WebRaumPnlItem.CostPrice`만 SELECT한다. NULL은 제외하고 0은 보존하며 호텔 코드와 등록부 이름을 함께 반환한다.
+- 운영 DB 읽기 검증: 2026년 764행(라움 499, 신라 213, 초이문 50, 은화 2), 다른 연도 0행, NULL 원가 0행, 명시적 0원 1행. 은화 39차 왁스 화이트 `ProdKey=2330`의 저장값은 `8280원/단`이다. 별도 도착원가 참조 `11450.6709원/단`으로 덮거나 대신 표시하지 않는다.
+- 같은 상품이라도 다른 단위·수기행은 구분한다. 다른 호텔 간 비교는 같은 양수 ProdKey+단위+수기여부가 모두 맞는 경우만 가능하며 품목 미연결 행의 이름 fallback은 현재 호텔 내부로 제한한다. 저장값의 환산·합산·평균·자동복사는 없다.
+- 이 조회는 EXE 저장 경로를 추가하지 않는다. 위 FormWarehouseView 읽기 근거와 공유 Product 식별자를 사용하며 주문/분배/재고/견적/매출 원장을 모두 보존한다. 기존 현재호텔 비교 API와 가격 편집 동작도 보존한다.
+- `__tests__/pnlHotelCostHistory.test.js`에서 GET-only/auth/year/active registry/0·NULL/서로 다른 저장값 유지/단위·품목키·수기여부 전달/쓰기 SQL 부재를 검증한다.

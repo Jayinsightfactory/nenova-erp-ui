@@ -9,6 +9,7 @@ import { buildRaumPnlMonthlySummary } from '../../lib/raumPnlMonthly';
 import { canAutoCommitRaumPnlImport, defaultPnlTitle, PNL_PARTNERS, resolvePnlPartner } from '../../lib/raumPnlPartner';
 import { raumPnlMatchCounts, raumPnlMatchDisplay } from '../../lib/raumPnlMatchDisplay';
 import { buildRaumPnlCostComparison } from '../../lib/raumPnlCostComparison';
+import { buildPnlHotelCostPreview } from '../../lib/pnlHotelCostPreview';
 import { applyShillaDetailCostDraft, buildShillaDetailCostUpdates, withShillaDetailCostBaseline } from '../../lib/shillaPnlDetailCost';
 import { fillConsignedCostsFromOrdinary } from '../../lib/raumPnlConsignedCost';
 import RaumCostHistoryPreview from '../../components/raum/RaumCostHistoryPreview';
@@ -1404,7 +1405,7 @@ export default function RaumPnlPage() {
     setCostHistoryState({ loading: true, error: '' });
     (async () => {
       try {
-        const response = await fetch(`/api/raum/pnl?view=cost-history&partner=${encodeURIComponent(partnerCode)}&year=${encodeURIComponent(orderYear)}`, { signal: controller.signal });
+        const response = await fetch(`/api/raum/hotel-cost-history?year=${encodeURIComponent(orderYear)}`, { signal: controller.signal });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.error || '차수별 매입단가 조회 실패');
         if (costHistoryRequest.current.sequence !== sequence) return;
@@ -2604,7 +2605,7 @@ export default function RaumPnlPage() {
                   {branches.map(b => <th key={b} style={st.th}>{b}</th>)}
                   <th style={st.th}>수량계</th>
                   <th style={st.th} title="1개당 매입단가 · 원화 · 부가세 별도">1개당 매입단가<br />(원/VAT별도) ✏️</th>
-                  <th style={{ ...st.th, background: '#ecfeff' }} title="선택 연도·대차수의 세부차수별 현재 도착원가입니다. 웹 확인용이며 엑셀·인쇄에는 포함되지 않습니다.">해당 차수 도착원가<br />(웹 확인용)</th>
+                  <th style={{ ...st.th, background: '#ecfeff' }} title="선택 연도의 해당 차수와 호텔 다음 1차 도착원가입니다. 둘 다 없으면 이전 최신 차수를 표시합니다. 저장된 매입단가는 변경하지 않으며 엑셀·인쇄에는 포함되지 않습니다.">해당 차수 도착원가<br />(웹 확인용)</th>
                   <th style={st.th}>매입액</th>
                   <th style={st.th}>매출단가</th>
                   <th style={st.th}>매출액</th>
@@ -2675,14 +2676,14 @@ export default function RaumPnlPage() {
                         ) : fmt(it.qty)}
                       </td>
                       <td style={{ ...st.td, ...st.num }}>
-                        {isShilla ? <RaumCostHistoryPreview item={it} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>{anchorProps => <input
+                        {isShilla ? <RaumCostHistoryPreview item={it} hotels={buildPnlHotelCostPreview(it, costHistoryRows, { orderYear: detail.meta?.orderYear, partnerCode })} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>{anchorProps => <input
                           {...anchorProps}
                           style={{ ...st.input, background: it.costPrice != null && it.costPrice !== '' ? '#ecfdf5' : '#fff' }}
                           value={it.costPrice ?? ''}
                           disabled={saving || !shillaDetailSaved}
                           aria-label="신라 1개당 매입단가"
                           onChange={e => setItem(i, { costPrice: e.target.value.replace(/[^0-9.\-]/g, ''), costSource: 'manual', costLearned: false })}
-                        />}</RaumCostHistoryPreview> : <RaumCostHistoryPreview item={it} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>
+                        />}</RaumCostHistoryPreview> : <RaumCostHistoryPreview item={it} hotels={buildPnlHotelCostPreview(it, costHistoryRows, { orderYear: detail.meta?.orderYear, partnerCode })} valuesByWeek={costComparisonByIndex[i]} weeks={costComparison.weeks} orderYear={detail.meta?.orderYear} loading={costHistoryState.loading} error={costHistoryState.error}>
                           {anchorProps => <>
                         <input
                           {...anchorProps}

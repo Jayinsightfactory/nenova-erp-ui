@@ -10,11 +10,12 @@ export default function HotelArrivalCostReference({ item, error }) {
   if (error) return <span role="status" style={{ color: '#b91c1c' }} title={error}>도착원가 조회 실패</span>;
   if (!(Number(item?.prodKey) > 0)) return <span style={{ color: '#b45309' }}>품목 연결 필요</span>;
   const refs = item?.arrivalReferences || [];
-  if (!refs.length) return <span title="동일 연도·품목의 해당/이전 차수 현재본 원가가 없습니다. 업무드라이브 파일 보관만으로는 도착원가에 등록되지 않습니다." style={{ color: '#64748b' }}>해당·이전 차수 원가 미등록</span>;
+  if (!refs.length) return <span title="동일 연도·품목의 해당 차수·다음 1차 원가가 없으며 이전 최신 원가도 없습니다." style={{ color: '#64748b' }}>해당·다음 1차·이전 원가 미등록</span>;
   return <div style={{ minWidth: 160, fontSize: 11, textAlign: 'left' }}>
     {refs.map(ref => <div key={ref.week} title={`${ref.sourceFile || ''} / ${ref.sourceSheet || ''} ${ref.sourceRow || ''}행 · ${ref.farm || ''} · 원본 ${fmt(ref.rawCost)}원/${ref.rawUnit || '단위 미확인'}${ref.sourceStemsPerBunch ? ` · 원본 단당 ${ref.sourceStemsPerBunch}송이` : ''}`}>
       <b style={{ color: '#0369a1' }}>{ref.week}</b> {ref.conversionError ? <span style={{ color: '#b45309' }}>{ref.conversionError} (원본 {fmt(ref.rawCost)}원/{ref.rawUnit || '?'})</span> : <b>{fmt(ref.cost)}원/{ref.unit}</b>}
       {ref.isFallback && <span style={{ color: '#c2410c' }}> · 이전 최신</span>}
+      {ref.isNextHotelWeek && <span style={{ color: '#0369a1' }}> · 호텔 다음 1차</span>}
     </div>)}
     <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} style={{ fontSize: 11, padding: '2px 6px', marginTop: 3 }}>환율로 원가 비교</button>
     {open && <div style={{ padding: 6, border: '1px solid #99f6e4', background: '#f0fdfa', maxWidth: 290, whiteSpace: 'normal' }}>
