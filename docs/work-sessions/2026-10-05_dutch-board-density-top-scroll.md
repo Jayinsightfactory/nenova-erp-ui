@@ -43,4 +43,4 @@
 
 **A.** 수량 셀을 클릭해 인라인 편집하도록 했다. Enter 또는 포커스 이동 시 유효한 0 이상 수량을 초안에 반영하고, Esc는 취소한다. 셀에는 편집 후 최종 수량을 표시하고 원본 수량은 보조로 남긴다. 변경 시 기존 검증·적용 계획을 무효화하므로 다시 검증한 뒤 별도 승인 절차로 적용해야 한다.
 
-**결과.** 기존 미리보기·승인·ERP 적용 흐름은 유지하고, UI 초안 편집만 추가했다. 기능 테스트·계약 및 빌드 검증과 배포 결과를 확인한 뒤 본 항목을 완료 처리한다.
+**결과.** 기존 미리보기·승인·ERP 적용 흐름은 유지하고 UI 초안 편집만 추가했다. `npm run test:pivot`, `npm run test:erp-contract`, dnSpy 근거·manifest·쓰기 가드, 격리 Dutch 분배 SQL 테스트, `npm run build` 통과. PR [#894](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/894)이 병합되어 커밋 `36511d8a`로 Cafe24에 배포됐고, 배포 hydration smoke도 성공했다(run `37288141421`).
