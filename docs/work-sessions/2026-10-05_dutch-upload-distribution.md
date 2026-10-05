@@ -5,7 +5,8 @@
 | 날짜 | 2026-10-05 |
 | 화면 | /stats/dutch-volume-board |
 | 작업공간 | codex/dutch-upload-distribution, 기준 abd4e8bf |
-| 구현·배포 | 구현 진행 중. 최종 검증·배포 미완료 |
+| 구현·배포 | 구현·로컬 필수 검사·격리 SQL 완료. PR #880 CI·병합·배포 확인 대기 |
+| PR | https://github.com/Jayinsightfactory/nenova-erp-ui/pull/880 |
 | 운영 원장 쓰기 | 없음. SELECT 및 실제 EXE CLI만 실행 |
 
 ## 고정된 결정
@@ -58,10 +59,19 @@
 - 업로드/차수 변경 시 오래된 LIVE 데이터·미리보기 무효화, 주광 재매칭 시 기존 개별단가 제거, 원화 구버전 초안 검증을 적용했다.
 - 2026-10-05 최신 master(3536c2cf)를 합친 뒤 전체 ERP 계약 검사, manifest, 4개 변경 API write guard, dnSpy 근거 검사와 빌드가 통과했다. 마지막 native NULL 보존 수정 뒤 SQL·최종 build 재검증은 아래 배포 결과와 별도로 완료해야 한다.
 
+### 최종 로컬 검증 결과
+
+- native NULL 수정 뒤 `npm run test:erp-contract`, `npm run test:erp-manifest -- --changed-from origin/master`, `npm run guard:erp-writes -- --changed-from origin/master`, `npm run test:nenova-dnspy-evidence`, `npm run build` 모두 exit 0. UI layout 검사도 전체 계약에 포함되어 통과했다.
+- `npm run test:dutch-volume-distribution-sql` 실제 MSSQL 실행 exit 0. 기존 주문77 보존/분배50→60, 없는 양수 주문 생성, 파일 누락50→0(상세·날짜·농장 정리), 다른 품종 및 전년도 원장 보존, 공란단가 보존·명시0원·양수단가·EstUnit 환산을 검증했다.
+- 추가 DB 사례: 출고일별0.4/0.6과 독립 EstQuantity의 가격 전용 저장 보존; 농장 배정 양수 수량변경 차단; PeriodDay datetime 1초 불일치로 전체 롤백; 확정·stale·중복 차단; 두 번째 행 trigger 실패 시 앞행까지 롤백. downstream Estimate/WebProfitReport/Stock/Warehouse와 native NULL도 대조했다.
+- SQL은 127.0.0.1:14339 전용 무마운트 컨테이너의 임시 `NenovaEstimateFixture_dutch_<12hex>` DB만 사용하고 종료 시 삭제했다. 마지막 메인 재실행 DB는 `NenovaEstimateFixture_dutch_afd59face526`이다. 운영 DB 시험 저장은 없다.
+- PR 최초 CI는 테스트의 Node24 전용 registerHooks 때문에 Node20에서 실패했다. 테스트 전용 `module.register` resolver로 수정했고 정책·격리 SQL을 재실행해 통과했다. CI에서 Node20 전체 검사를 다시 확인한다.
+- 별도 MOYI mock 검사는 통과했다. 로컬 HTTP E2E는 worktree node_modules junction을 Turbopack이 거부하여 시작하지 못했다. 이 무관한 개발환경 제한을 업무 코드로 우회하지 않고, 실제 npm ci 의존성을 사용하는 PR CI 결과를 확인한다.
+
 ## 미완료 / 다음 작업
 
 1. 적용 범위는 기존처럼 해당 품종 전체 교체로 확정. 누락 업체·품목0 전후값을 미리보기에서 확인시킨다.
-2. 격리 SQL 실패·롤백 사례 최종 검증, 필수 검사·빌드·PR·병합·Cafe24·1920×1080 smoke.
+2. PR #880의 Node20 CI 통과 확인 → master 병합 → Cafe24 배포 → 1920×1080 실브라우저 읽기 전용 smoke.
 3. 운영 실제 저장 없이 격리 fixture로 롤백·교차연도·단가·확정 경합 검증. 운영 최종 작업 후 readback 기능 구현.
 
 설계 하위작업은 gpt-6-astra/high, P0_LOCAL만 사용했다. 최신 모델 대체는 사용자 AGENTS 지시에 따른다. 원본 orchestration은 주 작업 저장소에서 읽었으며 새 worktree에는 없다.
