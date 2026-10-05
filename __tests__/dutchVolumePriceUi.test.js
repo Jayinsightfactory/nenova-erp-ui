@@ -17,6 +17,13 @@ assert.match(volumeSheet, /data-testid="dutch-volume-top-scroll"/, '가로로 �
 assert.match(volumeSheet, /aria-label="원본 물량표 상단 가로 스크롤"/, '상단 가로 이동바는 스크린 리더에서 구분되어야 합니다.');
 assert.match(volumeSheet, /onScroll=\{\(\) => syncHorizontalScroll\(topScrollRef, scrollRef\)\}/, '상단 가로 이동바를 움직이면 원본 표도 같은 위치로 이동해야 합니다.');
 assert.match(volumeSheet, /onScroll=\{\(\) => syncHorizontalScroll\(scrollRef, topScrollRef\)\}/, '원본 표를 움직여도 상단 가로 이동바가 따라와야 합니다.');
+assert.match(volumeSheet, /className="quantity-edit-trigger"/, '수량이 있는 원본 품목 셀에는 바로 편집할 수 있는 클릭 영역이 있어야 합니다.');
+assert.match(volumeSheet, /onClick=\{\(\) => beginQuantityEdit\(entry\)\}\>\{formatQty\(entry\.quantity\)\}/, '편집 후 셀에는 원본이 아닌 현재 최종 수량이 보여야 합니다.');
+assert.match(volumeSheet, /onQuantityChange = \(\) => \{\}/, '원본 셀에서 확정한 수량은 초안 콜백으로 전달해야 합니다.');
+assert.match(volumeSheet, /onBlur=\{\(\) => finishQuantityEdit\(true\)\}/, '셀 수량 입력은 포커스를 벗어나면 초안에 반영되어야 합니다.');
+assert.match(volumeSheet, /event\.key === 'Escape'\) \{ event\.preventDefault\(\); finishQuantityEdit\(false\); \}/, 'Escape는 셀 편집을 취소해야 합니다.');
+assert.match(volumeSheet, /event\.key === 'Enter'\) \{ event\.preventDefault\(\); finishQuantityEdit\(true, true\); \}/, 'Enter는 검증 가능한 입력만 초안에 반영해야 합니다.');
+assert.match(page, /disabled=\{workBusy \|\| applying\} onQuantityChange=\{\(id, quantity\) => updateEntry\(id, \{ quantity \}\)\}/, '초안 업데이트 경로를 사용해 기존 preview를 무효화해야 합니다.');
 assert.match(page, /addDutchPriceColumns/);
 assert.match(page, /addDutchPriceShapesToXlsx/, '다운로드 XLSX에 실제 단가 도형을 삽입해야 합니다.');
 assert.match(page, /pivot-volume-excel/);
