@@ -6,6 +6,17 @@ import { withTransaction } from '../../../lib/db';
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
 
+export function dutchPreviewComparisonKey(result) {
+  // SQL has no presentation-order contract. Compare the full multiset, not
+  // array positions; keep duplicates and all existing change predicates.
+  const sortTuples = values => values.map(value => JSON.stringify(value)).sort();
+  return JSON.stringify({
+    categories: [...(result.replacementCategories || [])].sort(),
+    rows: sortTuples((result.rows || []).map(row => [row.key, row.orderQty, row.currentOutQty, row.uploadQty, row.fixBlocked, row.shipmentDateIssueCount])),
+    unmatched: sortTuples((result.unmatched || []).map(row => [row.entryId, row.reason])),
+  });
+}
+
 export async function previewDutchVolume(body, user, deps = {}) {
   const buildPreview = deps.buildPreview || buildImportPreview;
   const readSnapshot = deps.readSnapshot || readDutchScopeSnapshot;
@@ -39,12 +50,7 @@ export async function previewDutchVolume(body, user, deps = {}) {
     const { snapshot, digest } = await readSnapshot(tQ, scope, true);
     assertUniqueDutchLedger(snapshot);
     const confirmation = await buildPreview(previewInput);
-    const relevant = result => JSON.stringify({
-      categories: [...(result.replacementCategories || [])].sort(),
-      rows: (result.rows || []).map(row => [row.key, row.orderQty, row.currentOutQty, row.uploadQty, row.fixBlocked, row.shipmentDateIssueCount]),
-      unmatched: (result.unmatched || []).map(row => [row.entryId, row.reason]),
-    });
-    if (relevant(preview) !== relevant(confirmation)) {
+    if (dutchPreviewComparisonKey(preview) !== dutchPreviewComparisonKey(confirmation)) {
       throw dutchError('PREVIEW_CHANGED', '미리보기를 읽는 동안 원장 상태가 변경되었습니다. 다시 검증하세요.', 409);
     }
     return { preview, scoped, scope, snapshot, digest };

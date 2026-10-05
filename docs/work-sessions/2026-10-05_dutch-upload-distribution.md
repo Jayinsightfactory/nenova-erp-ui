@@ -74,6 +74,8 @@
 2. PR #880 Node20 CI 통과, master b2df39ed 병합 및 후속 master efdee1ae Cafe24 배포 성공(run37267869097). 운영 smoke에서 발견한 아래 자동매칭 문제 보완 후 재검증·재배포가 필요하다.
 3. 운영 실제 저장 없이 격리 fixture로 롤백·교차연도·단가·확정 경합 검증. 운영 최종 작업 후 readback 기능 구현.
 
+위 중간 상태는 아래 최종 배포 결과로 갱신됐다. 운영 실제 등록은 사용자의 확인 작업이며 검증 목적으로 대신 실행하지 않았다.
+
 설계 하위작업은 gpt-6-astra/high, P0_LOCAL만 사용했다. 최신 모델 대체는 사용자 AGENTS 지시에 따른다. 원본 orchestration은 주 작업 저장소에서 읽었으며 새 worktree에는 없다.
 `.tmp/dutch-read-probe.cjs` 및 node_modules junction은 커밋하지 않는다. 비밀값은 기록하지 않았다.
 
@@ -86,3 +88,13 @@
 - 추가 단위 검토: pivotStats 원천은 OrderDetail.OutQuantity, pivot-volume-excel q()는 알스트로를16으로 나눈다. 운영 SELECT Prod99/100은 OutUnit단, EstUnit송이, BunchOf1Box16/SteamOf1Bunch10/SteamOf1Box160. 잘못된 기본 단위 SET를 막기 위해 양수 알스트로 입력은 단위를 명시해야 서버 계획이 발행되도록 보완한다. 박스 선택 시 기존 Product 환산계수를 사용하며 무조건16배 추정하지 않는다.
 - 후속 로컬 최종 검사: 전체 ERP 계약, manifest(78), write guard(2 API), dnSpy, build exit0. shared formatter 추출 후 VM 테스트가 함수를 주입하지 못하는 오류 및 async import 이후 cwd 변경 race를 실제 함수 주입/절대경로로 수정했고 전체 재실행을 통과했다.
 - 실제 SQL 후속 fixture DB `NenovaEstimateFixture_dutch_c0c2f1394fda`에서 명시 키 없는 백합/la Nubia 매칭, 중복 수국 별칭 미매칭·계획 없음, 알스트로 빈 단위 차단/명시 단위 통과 및 기존 롤백·교차연도 시나리오 통과. 임시 DB는 정리됐다.
+
+## 최종 배포 및 운영 화면 검증
+
+- PR #884: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/884, code d8daf6ae, master merge c28bedc69dfc902f80bdf0a90708f91298221c18.
+- GitHub 필수 CI run37269572543 성공. Cafe24 deploy run37269747943 성공(서버 및 hydration smoke 포함).
+- 운영 화면 버전 c28bedc6에서2026/40-01 LIVE35행 모두 matched, 미매칭0. 실제 원본 품목명 및 ERP 이름 확인. 확정차단35건으로 적용버튼 disabled, 운영 등록은 실행하지 않았다.
+- 최신 차단 결과는 ‘현재 초안 검증’/‘검증 완료 — 아래 미매칭·차단 사유를 확인하세요’로 표시된다.
+- Chrome100%,1920×1080 CSS에서 popup·일반 메뉴 검증. 일반 header1/home-menu1, popup header1/home-menu0, 문서 가로 overflow 없음. 실제 표 스크롤/미리보기 및 화면 캡처 확인. console error/warn 없음.
+- 임시 viewport override 해제, 검증 결과 popup은 사용자 확인용으로 유지.
+- 자동매칭 미해결·미선택 단위·확정 상태는 작업을 차단하므로 모든 파일을 무조건 저장한다고 보장하지 않는다. 명시적인 사용자 검토 후 적용이 필요하다.
