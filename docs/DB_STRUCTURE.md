@@ -214,6 +214,7 @@
 
 **WebRaumPnl / WebRaumPnlItem / WebRaumCostPrice** — 라움·초이문 웹 손익 원장
 - `WebRaumPnl` 업무키: `OrderYear + MajorWeek + PartnerCode`; 삭제되지 않은 차수 결산 한 건을 나타낸다.
+- 신라의 `MajorWeek`는 원본 시트 기반 웹 결산 기간이다. NVARCHAR(4)에 `39`와 `39-2`를 별도로 보존하며 `39차-2`/`39-2차`는 같은 `39-2`다. 대차수 1..99, 명시 하위 기간 1..9만 허용하고 길이 초과·잘못된 접미사를 자르거나 합치지 않는다. 다른 호텔의 숫자 차수는 유지한다. ERP 참조 경계에서만 baseMajor를 파생하며 결산 기간을 ERP OrderWeek로 추정하지 않는다. 스키마 변경·기존 데이터 변환은 없다.
 - `WebRaumPnlItem`: `PnlKey` 품목행이며 `CostPrice`는 원/VAT별도 매입단가, `CostSource`는 단가 출처다. 손익 목록·상세의 매입액과 이익은 이 값을 조회 시 계산한다.
 - 한 차수의 품목 단가 수정은 `PnlKey + ProdKey + Unit + IsCustom`을 우선 사용하고, `ProdKey`가 없을 때만 정확한 품목명+단위+수동구분을 사용한다.
 - `WebRaumCostPrice`는 다음 업로드 자동입력용 학습값이다. 과거 차수 `WebRaumPnlItem.CostPrice` 수정으로 함께 바꾸지 않는다.

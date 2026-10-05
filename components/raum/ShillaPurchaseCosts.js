@@ -1,3 +1,5 @@
+import { formatPnlPeriod } from '../../lib/raumPnlPeriod';
+
 const border = '1px solid #cbd5e1';
 
 function fmt(value) {
@@ -22,7 +24,7 @@ export default function ShillaPurchaseCostInput({ item, cell, draft, onChange, d
   const storedValues = cell.values.length > 1 ? cell.values.map(fmt).join(' / ') : '';
   return <div style={{ minWidth: 165, flex: '1 1 165px', padding: 4, background: draft ? '#fef3c7' : '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 4 }}>
     <b style={{ color: '#0f766e', fontSize: 10 }}>{label} 별도</b>
-    <input disabled={disabled} value={value} onChange={event => onChange(cell, event.target.value)} inputMode="decimal" placeholder={cell.values.length > 1 ? '원본 단가 다름' : '매입단가'} aria-label={`${item.name} ${cell.major}차 ${label} 매입단가`} style={{ width: '100%', height: 22, boxSizing: 'border-box', marginTop: 3, textAlign: 'right', border: invalid ? '1px solid #dc2626' : border, borderRadius: 3, color: invalid ? '#b91c1c' : '#1e293b' }} />
+    <input disabled={disabled} value={value} onChange={event => onChange(cell, event.target.value)} inputMode="decimal" placeholder={cell.values.length > 1 ? '원본 단가 다름' : '매입단가'} aria-label={`${item.name} ${formatPnlPeriod(cell.major)} ${label} 매입단가`} style={{ width: '100%', height: 22, boxSizing: 'border-box', marginTop: 3, textAlign: 'right', border: invalid ? '1px solid #dc2626' : border, borderRadius: 3, color: invalid ? '#b91c1c' : '#1e293b' }} />
     {storedValues ? <div style={{ marginTop: 2, color: '#9a3412', fontSize: 9 }}>저장 원본 단가 {storedValues}</div> : null}
     <div style={{ marginTop: 3, color: '#475569', fontSize: 9, lineHeight: 1.45 }}>
       수량 {fmt(cell.qty)} · 판매가 {cell.salePrices.length ? cell.salePrices.map(fmt).join('/') : '—'}<br />

@@ -32,7 +32,7 @@ const row = (key, partnerCode = hotel, orderYear = '2026', prodKey = null) => ({
 });
 function harness() {
   const state = { rows: [row(1), row(2), row(3, other), row(4, hotel, '2025')], calls: [], active: true, fail: false, inactiveProduct: false };
-  const sql = new Proxy({}, { get: (_, key) => key });
+  const sql = new Proxy({}, { get: (_, key) => key === 'NVarChar' ? length => `NVarChar(${length})` : key });
   const run = async (statement, params = {}) => {
     state.calls.push({ statement, params });
     if (!/sp_getapplock/.test(statement)) {

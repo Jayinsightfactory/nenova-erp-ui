@@ -92,7 +92,7 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
         body: JSON.stringify({
           partnerCode: edit.partnerCode || 'shilla',
           orderYear: String(edit.orderYear),
-          major: Number(edit.major),
+          major: String(edit.major),
           pnlKey: Number(edit.pnlKey),
           itemKey,
           prodKey,

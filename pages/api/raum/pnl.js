@@ -10,6 +10,7 @@ import { requirePnlPartner } from '../../../lib/pnlHotelRegistry';
 import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../../lib/raumPnlImportReview';
 import { loadRaumPnlCostComparisonRows } from '../../../lib/raumPnlCostComparisonServer';
 import { loadRaumPnlArrivalReferences } from '../../../lib/raumPnlArrivalReference';
+import { comparePnlPeriods, normalizePnlPeriod, parsePnlPeriod, pnlPeriodBaseMajor } from '../../../lib/raumPnlPeriod';
 
 export default withAuth(async function handler(req, res) {
   try {
@@ -26,7 +27,10 @@ export default withAuth(async function handler(req, res) {
         const partner = await requirePnlPartner(req.query.partner);
         const list = await loadRaumPnlList(partner.code);
         if (!list.length) return res.status(400).json({ success: false, error: '저장된 손익계산서가 없습니다.' });
-        const asc = [...list].sort((a, b) => (a.OrderYear + a.MajorWeek).localeCompare(b.OrderYear + b.MajorWeek));
+        const asc = [...list].sort((a, b) => String(a.OrderYear).localeCompare(String(b.OrderYear))
+          || (parsePnlPeriod(a.MajorWeek) && parsePnlPeriod(b.MajorWeek)
+            ? comparePnlPeriods(a.MajorWeek, b.MajorWeek)
+            : String(a.MajorWeek).localeCompare(String(b.MajorWeek))));
         const records = [];
         for (const m of asc) {
           const d = await loadRaumPnlDetail(m.PnlKey, { partnerCode: partner.code });
@@ -50,7 +54,7 @@ export default withAuth(async function handler(req, res) {
         try {
           arrivalReferences = await loadRaumPnlArrivalReferences({
             orderYear: detail.master.OrderYear,
-            major: detail.master.MajorWeek,
+            major: pnlPeriodBaseMajor(detail.master.MajorWeek),
             items: detail.items,
           });
         } catch (error) {
@@ -91,9 +95,9 @@ export default withAuth(async function handler(req, res) {
       if (action === 'save') {
         const { orderYear, major, title, quoteDate, nenovaPct, note, sourceFile, images, verification, partnerCode } = req.body || {};
         const items = req.body?.items;
-        const mj = String(major || '').replace(/[^0-9]/g, '');
-        if (!mj || !orderYear) return res.status(400).json({ success: false, error: '차수(major)와 연도(orderYear) 필요' });
+        if (major == null || !orderYear) return res.status(400).json({ success: false, error: '차수(major)와 연도(orderYear) 필요' });
         const partner = await requirePnlPartner(partnerCode);
+        const mj = normalizePnlPeriod(major, { allowSubPeriod: partner.code === 'shilla' });
         if (!Array.isArray(items) || items.length === 0) {
           return res.status(400).json({ success: false, error: '품목이 없습니다.' });
         }

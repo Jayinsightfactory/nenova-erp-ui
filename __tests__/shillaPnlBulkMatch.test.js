@@ -25,7 +25,7 @@ function load() {
   });
   const state = { queryRows: [], calls: [], transactionCalls: [], lockResult: 0, rows: [], failParent: false, committed: [], itemAffected: 1 };
   const db = {
-    sql: new Proxy({}, { get: (_target, property) => String(property) }),
+    sql: new Proxy({}, { get: (_target, property) => property === 'NVarChar' ? length => `NVarChar(${length})` : String(property) }),
     query: async (statement, params) => { state.calls.push({ statement, params }); return { recordset: state.queryRows }; },
     withTransaction: async callback => {
       const staged = [];

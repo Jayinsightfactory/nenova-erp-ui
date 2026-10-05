@@ -13,6 +13,7 @@ import { requirePnlPartner } from '../../../lib/pnlHotelRegistry';
 import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../../lib/raumPnlImportReview';
 import { parseShillaPnlWorkbookGroups } from '../../../lib/shillaPnlParse';
 import { applyConfirmedShillaSourceNames, selectShillaImportBatches, shillaSettlementItem } from '../../../lib/shillaPnlImportPolicy';
+import { normalizePnlPeriod } from '../../../lib/raumPnlPeriod';
 
 export const config = { api: { bodyParser: false } };
 
@@ -25,7 +26,7 @@ function asField(value) { return Array.isArray(value) ? value[0] : value; }
 
 function previewToken(raw, snapshots, batches) {
   const state = Object.keys(snapshots).sort().map(k => [k, snapshots[k]?.version || 'new']);
-  const groups = batches.map(b => [b.partnerCode, String(b.orderYear), String(b.major), b.nenovaPct, b.itemFingerprint || '', b.preservation || {}]);
+  const groups = batches.map(b => [b.partnerCode, String(b.orderYear), normalizePnlPeriod(b.major, { allowSubPeriod: b.partnerCode === 'shilla' }), b.nenovaPct, b.itemFingerprint || '', b.preservation || {}]);
   return crypto.createHash('sha256').update(raw).update(JSON.stringify({ state, groups })).digest('hex');
 }
 
@@ -140,7 +141,7 @@ async function handler(req, res) {
       : parseRaumQuoteWorkbookGroups(XLSX, workbook, { partnerCode: partner.code, partner });
     parsed.warnings = [...(parsed.warnings || []), ...confirmedNotes];
     for (const note of confirmedNotes) {
-      const confirmed = parsed.batches.find(batch => Number(batch.major) === Number(note.match(/^\d+/)?.[0]));
+      const confirmed = parsed.batches.find(batch => batch.major === String(note.match(/^\d+/)?.[0]).padStart(2, '0'));
       if (confirmed) confirmed.warnings = [...(confirmed.warnings || []), note];
     }
     if (!parsed.batches.length) return res.status(400).json({ success: false, error: parsed.warnings[0] || '파싱된 품목이 없습니다.', warnings: parsed.warnings });
