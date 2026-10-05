@@ -17,6 +17,7 @@
     "pages/stats/pivot.js",
     "pages/api/stats/pivot-weeks.js",
     "pages/api/stats/pivot-volume-excel.js",
+    "lib/pivotVolumeProductLabel.js",
     "components/PivotExePanel.js",
     "components/PivotExeGrid.js",
     "lib/pivotExeInteraction.js",

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildDutchPreviewEntries, editDutchDraftEntry, isDutchPreviewCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../lib/dutchVolumeDraft.js';
+import { buildDutchPreviewEntries, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../lib/dutchVolumeDraft.js';
 
 const entry = { id: 'sheet!D4', product: '품목', color: '빨강', customer: '업체', quantity: 5, unit: '' };
 const key = row => `uniform:${row.product}`;
@@ -29,6 +29,9 @@ assert.equal(isDutchPreviewCurrent(preview, 5, 2026, '40-01', identity), true);
 assert.equal(isDutchPreviewCurrent(preview, 6, 2026, '40-01', identity), false);
 assert.equal(isDutchPreviewCurrent(preview, 5, 2025, '40-01', identity), false);
 assert.equal(isDutchPreviewCurrent({ ...preview, planToken: null }, 5, 2026, '40-01', identity), false);
+assert.equal(isDutchValidationCurrent({ ...preview, planToken: null }, 5, 2026, '40-01', identity), true, '차단된 최신 검증도 과거 검증으로 표시하지 않는다');
+assert.equal(isDutchValidationCurrent(preview, 6, 2026, '40-01', identity), false);
+assert.equal(isDutchValidationCurrent(preview, 5, 2025, '40-01', identity), false);
 const manual = newDutchDraftEntry('manual:2');
 assert.equal(manual.added, true);
 assert.equal(manual.quantity, 0);

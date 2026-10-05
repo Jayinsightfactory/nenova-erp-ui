@@ -71,8 +71,18 @@
 ## 미완료 / 다음 작업
 
 1. 적용 범위는 기존처럼 해당 품종 전체 교체로 확정. 누락 업체·품목0 전후값을 미리보기에서 확인시킨다.
-2. PR #880의 Node20 CI 통과 확인 → master 병합 → Cafe24 배포 → 1920×1080 실브라우저 읽기 전용 smoke.
+2. PR #880 Node20 CI 통과, master b2df39ed 병합 및 후속 master efdee1ae Cafe24 배포 성공(run37267869097). 운영 smoke에서 발견한 아래 자동매칭 문제 보완 후 재검증·재배포가 필요하다.
 3. 운영 실제 저장 없이 격리 fixture로 롤백·교차연도·단가·확정 경합 검증. 운영 최종 작업 후 readback 기능 구현.
 
 설계 하위작업은 gpt-6-astra/high, P0_LOCAL만 사용했다. 최신 모델 대체는 사용자 AGENTS 지시에 따른다. 원본 orchestration은 주 작업 저장소에서 읽었으며 새 worktree에는 없다.
 `.tmp/dutch-read-probe.cjs` 및 node_modules junction은 커밋하지 않는다. 비밀값은 기록하지 않았다.
+
+## 운영 smoke에서 발견한 추가 보완
+
+- 2026/40-01 LIVE35행이 전부 미매칭으로 표시됐다. 원인은 실제 Pivot의 A열은 품종(FlowerName), B열은 실제 품목명인데 strict matcher가 B열 단독을 검색하지 않은 것이다. 적용 계획은 미발행되어 운영 저장은 차단됐다.
+- SELECT-only 대조: 깜바눌라 / Campanula / Campana Pearl Pink → Prod2231, 네리네 / Nerine Bowdenii Biancaperla →2844, 수국 / ClassicPimpurnelAubergine →932(Hydrangea / Classic Pimpurnel Aubergine), Anthurium Graciosa13cm →2150.
+- 품목 칸과 실제 이름 칸을 안전하게 대조하고 애매한 후보는 미매칭으로 남기는 회귀를 추가한다. 최신 차단 검증 결과가 ‘이전 검증’으로 오인되지 않도록 표시와 적용 가능 상태도 분리한다.
+- 사용자가 Chrome 확대를100%로 변경했고 DOM에서1920×1080 CSS, devicePixelRatio1을 확인했다. 실운영 ERP 적용 버튼은 누르지 않았다.
+- 추가 단위 검토: pivotStats 원천은 OrderDetail.OutQuantity, pivot-volume-excel q()는 알스트로를16으로 나눈다. 운영 SELECT Prod99/100은 OutUnit단, EstUnit송이, BunchOf1Box16/SteamOf1Bunch10/SteamOf1Box160. 잘못된 기본 단위 SET를 막기 위해 양수 알스트로 입력은 단위를 명시해야 서버 계획이 발행되도록 보완한다. 박스 선택 시 기존 Product 환산계수를 사용하며 무조건16배 추정하지 않는다.
+- 후속 로컬 최종 검사: 전체 ERP 계약, manifest(78), write guard(2 API), dnSpy, build exit0. shared formatter 추출 후 VM 테스트가 함수를 주입하지 못하는 오류 및 async import 이후 cwd 변경 race를 실제 함수 주입/절대경로로 수정했고 전체 재실행을 통과했다.
+- 실제 SQL 후속 fixture DB `NenovaEstimateFixture_dutch_c0c2f1394fda`에서 명시 키 없는 백합/la Nubia 매칭, 중복 수국 별칭 미매칭·계획 없음, 알스트로 빈 단위 차단/명시 단위 통과 및 기존 롤백·교차연도 시나리오 통과. 임시 DB는 정리됐다.

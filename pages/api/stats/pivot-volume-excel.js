@@ -8,6 +8,7 @@ import { customerDisplayLabel, getPivotStats, makePivotVolumeSheetName } from '.
 import { DAY_ORDER, extractDays, pickDataDay } from '../../../lib/pivotVolumeCustDays';
 import { includePivotVolumeRow, sumIncomingQty, sumOrderQty } from '../../../lib/pivotVolumeRows';
 import { combinedCellContext, combinedParts, combinedNumberFormat, quantityNumberFormat } from '../../../lib/pivotVolumeCombinedCells';
+import { volumeProdLabel } from '../../../lib/pivotVolumeProductLabel';
 import {
   buildPivotVolumeIdentityColumns,
   isNetherlandsVolume,
@@ -51,7 +52,6 @@ function shortVolumeFlowerLabel(value) {
 
 const volumeTitle = meta => `${String(meta?.weekLabel || '').replace(/-/g, '')}-${shortVolumeFlowerLabel(meta?.species || meta?.flower || '')}`;
 const COUNTRY_ONLY_SHEETS = new Set(['중국', '태국', '호주', '네덜란드']);
-const PRODUCT_WORD_RE = /\b(spray\s+rose|rose|hydrangea|alstroe?meria)\b\s*\/?\s*/gi;
 const BORDER = {
   top: { style: 'thin', color: { rgb: 'C8C8C8' } },
   bottom: { style: 'thin', color: { rgb: 'C8C8C8' } },
@@ -144,57 +144,6 @@ function isAlstroRow(row) {
 function q(row, value) {
   const amount = n(value);
   return isAlstroRow(row) ? amount / ALSTRO_DIVISOR : amount;
-}
-
-function cleanProductLabel(name) {
-  return String(name || '')
-    .replace(/mini\s*carnation/gi, 'Mini ')
-    .replace(/\bcarnation\b\s*\/?\s*/gi, ' ')
-    .replace(PRODUCT_WORD_RE, ' ')
-    .replace(/^[\s/／-]+|[\s/／-]+$/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
-// 수국 특이 고정매칭 (원본명 기준 → 고정 표기). 식별: mojito=진, (bw)/화이트베이스=연.
-const HYDRANGEA_FIXED = [
-  { test: /mojito|모히또/i, to: '미니그린모히또(진)' },
-  { test: /\(bw\)|화이트\s*베이스|white\s*base/i, to: '미니그린(연)' },
-];
-
-// flower별 품목명: 수국=한글 색상명만(괄호/슬래시/공백 제거), 장미=cm 제거
-function volumeProdLabel(row) {
-  const raw = String(row?.prodName || '');
-  const fl = String(row?.flower || '');
-  const isHydra = /수국|hydrangea|루스커스|ruscus/i.test(fl);
-  // 수국 특이 고정매칭 (원본명 기준 — mojito/화이트베이스 등 영어 토큰으로 식별)
-  if (isHydra) {
-    const fixed = HYDRANGEA_FIXED.find(m => m.test.test(raw));
-    if (fixed) return fixed.to;
-  }
-  let name = cleanProductLabel(raw);
-  if (isHydra) {
-    const korean = (name.match(/[가-힣][가-힣\s]*/g) || []).join(' ').trim();
-    if (korean) {
-      // 한글 색상명: 내부 공백 제거 (미니 그린 베이스 → 미니그린베이스, 블루, 진그린 …)
-      name = korean.replace(/\s+/g, '');
-      // 한글(괄호) 뒤 라틴 접미는 품종 구분자 — 보존. '(염색연그린) AT' vs '(염색연그린) GL' 이
-      // 같은 '염색연그린'으로 합쳐져 업로드 시 한 품목으로 검증되던 문제 (ProdKey 3208/3209)
-      const suffix = (raw.match(/[가-힣)]\s*([A-Za-z]{1,4})\s*$/) || [])[1];
-      if (suffix && !/^cm$/i.test(suffix)) name += suffix.toUpperCase();
-    } else {
-      // 한글 없음(Ruscus 등): 괄호/슬래시/점 제거, 숫자 앞에만 한 칸 유지 (Ruscus Green→RuscusGreen, rusucus 70 유지)
-      name = name.replace(/[()[\]<>\/／.]/g, ' ')
-        .replace(/\s+/g, ' ').trim()
-        .replace(/\s+(?=\D)/g, '')
-        .replace(/\s+(?=\d)/g, ' ')
-        .trim() || name;
-    }
-  } else if (/장미|rose/i.test(fl)) {
-    // "cm" 글자만 제거, 숫자(50/60)는 유지 (예: "프라우드 60cm" → "프라우드 60")
-    name = name.replace(/\s*cm\b/gi, '').replace(/\s{2,}/g, ' ').trim() || name;
-  }
-  return name;
 }
 
 function dutchColorLabel(descr) {
