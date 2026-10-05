@@ -167,6 +167,77 @@ assert.equal(basis.getRow(3).getCell(2).value, '2026-10-05T01:30:00.000Z');
 assert.equal(basis.getRow(6).getCell(2).value, 'HF 매칭·검토 상태는 참고정보이며 원본 주문과 ERP 원장은 변경하지 않습니다.');
 assert.equal(basis.getRow(7).getCell(2).value, '일부 HF 코드 검토 필요');
 
+const matrixSource = {
+  ...report,
+  orders: [...report.orders.map(order => ({ ...order, country: '중국' })),
+    { country: '중국', orderYear: 2026, orderWeek: '37-03', custKey: 7, custName: '=CMD()', custOrderCode: 'CL2', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 0.5 },
+    { country: '중국', orderYear: 2026, orderWeek: '37-03', custKey: 9, custName: '고객 C', custOrderCode: 'CL2', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 2.75 },
+    { country: '중국', orderYear: 2026, orderWeek: '37-03', custKey: 13, custName: '업체명 헤더가 길어서 여러 줄로 표시되어야 하는 테스트 업체 이름입니다 그리고 추가로 길게 작성된 거래처 이름을 헤더 높이 검증에 사용합니다', custOrderCode: '000000000000000000000000000000000000000000000000000000000000CL', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 0.125 },
+    { country: '중국', orderYear: 2026, orderWeek: '37-03', custKey: 8, custName: '고객 B', custOrderCode: 'CLS', prodKey: 11, prodCode: '0008', prodName: 'Review product', unit: '박스', quantity: 3.5 },
+    { country: '중국', orderYear: 2026, orderWeek: '37-03', custKey: 14, custName: 'CL 누락', custOrderCode: '', prodKey: 12, prodCode: '0012', prodName: 'Blank HF literal', unit: '단', quantity: 0.25 },
+    { country: '중국', orderYear: 2026, orderWeek: '37-03', custKey: 15, custName: '선행제로 코드', custOrderCode: '0008', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 0.375 },
+    { country: '중국', orderYear: 2026, orderWeek: '37-03', custKey: 16, custName: '수식형 CL', custOrderCode: '=CL2()', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 0.25 },
+  ],
+};
+const selectedMatrixReport = selectChinaOrderSubweek(matrixSource, '2026/37-03');
+const matrixWorkbook = await buildChinaOrderWorkbook(selectedMatrixReport, mapping);
+const matrixReopened = new ExcelJS.Workbook();
+await matrixReopened.xlsx.load(await matrixWorkbook.xlsx.writeBuffer());
+assert.deepEqual(matrixReopened.worksheets.map(sheet => sheet.name), ['품목별업체수량', '발주현황', '업체별발주', '주문상세', '조회기준']);
+const matrixSheet = matrixReopened.getWorksheet('품목별업체수량');
+assert.deepEqual(matrixSheet.getRow(1).values.slice(1, 4), ['품목명(HF 코드)', '단위', '총수량']);
+assert.ok(matrixSheet.getRow(1).values.some(value => String(value ?? '').includes('CL2')), 'customer header shows actual CL code');
+assert.ok(matrixSheet.getRow(1).height > 60, 'long customer header gets adaptive, unclipped height');
+assert.equal(matrixSheet.views[0].xSplit, 3, 'first three identity/total columns remain frozen');
+assert.equal(matrixSheet.views[0].ySplit, 1, 'header remains frozen');
+const matrixProduct10 = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2))
+  .find(row => String(row.getCell(1).value).startsWith('=2+2'));
+assert.ok(matrixProduct10, 'formula-like product name is present as literal text');
+assert.equal(matrixProduct10.getCell(1).formula, undefined);
+assert.ok(String(matrixProduct10.getCell(1).value).includes('001234'), 'HF code comes from exact HF mapping, not ProdCode/ProdKey');
+const matrixCustomerColumn = (name, code) => {
+  const index = matrixSheet.getRow(1).values.findIndex(value => String(value ?? '').includes(name) && String(value ?? '').includes(code));
+  assert.ok(index >= 4, `customer column found for ${name}/${code}`);
+  return index;
+};
+const cust7Column = matrixCustomerColumn('=CMD()', 'CL2');
+const cust9Column = matrixCustomerColumn('고객 C', 'CL2');
+const cust8Column = matrixCustomerColumn('고객 B', 'CLS');
+const longCustomerColumn = matrixCustomerColumn('업체명 헤더가 길어서', '000000000000000000000000000000000000000000000000000000000000CL');
+const zeroCodeColumn = matrixCustomerColumn('선행제로 코드', '0008');
+const formulaCodeColumn = matrixCustomerColumn('수식형 CL', '=CL2()');
+assert.equal(matrixSheet.getRow(1).getCell(cust7Column).formula, undefined, 'formula-like customer name remains literal text');
+assert.equal(matrixSheet.getRow(1).getCell(formulaCodeColumn).formula, undefined, 'formula-like CL remains literal text');
+assert.equal(matrixSheet.getRow(1).getCell(zeroCodeColumn).value.includes('0008'), true, 'leading-zero CL stays text');
+assert.equal(matrixProduct10.getCell(3).value.result, 8, 'product total includes all selected customers only');
+assert.equal(matrixProduct10.getCell(3).numFmt, '#,##0', 'integer totals have no trailing decimal separator');
+assert.equal(matrixProduct10.getCell(cust7Column).value, 0.5, 'same-CL customer is kept in its own CustKey column');
+assert.equal(matrixProduct10.getCell(cust7Column).numFmt, '#,##0.###', 'fractional quantities retain decimal format');
+assert.equal(matrixProduct10.getCell(cust8Column).value, 4, 'selected customer quantity is retained');
+assert.equal(matrixProduct10.getCell(cust9Column).value, 2.75);
+assert.equal(matrixProduct10.getCell(longCustomerColumn).value, 0.125, 'decimal quantity remains numeric');
+assert.equal(matrixProduct10.getCell(zeroCodeColumn).value, 0.375);
+assert.equal(matrixProduct10.getCell(longCustomerColumn).type, ExcelJS.ValueType.Number);
+const matrixBoxProduct = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2))
+  .find(row => String(row.getCell(1).value).startsWith('Review product'));
+assert.ok(String(matrixBoxProduct.getCell(1).value).includes('HF002 · 검토 (No match)'), 'HF review warning remains visible');
+assert.equal(matrixBoxProduct.getCell(2).value, '박스');
+const matrixMissingProduct = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2))
+  .find(row => String(row.getCell(1).value).startsWith('Blank HF literal'));
+assert.ok(String(matrixMissingProduct.getCell(1).value).includes('미등록 HF 코드'), 'missing HF is explicit and never replaced by ProdCode');
+const missingClColumn = matrixCustomerColumn('CL 누락', '미등록 CL 코드');
+assert.equal(matrixMissingProduct.getCell(missingClColumn).value, 0.25);
+const unitFooters = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2));
+const bunchFooter = unitFooters.find(row => row.getCell(1).value === '단 합계');
+const boxFooter = unitFooters.find(row => row.getCell(1).value === '박스 합계');
+assert.ok(bunchFooter && boxFooter, 'each unit gets a distinct total footer');
+assert.equal(bunchFooter.getCell(3).value.result, 8.25);
+assert.equal(boxFooter.getCell(3).value.result, 3.5);
+assert.ok(Number.isFinite(bunchFooter.getCell(3).value.result) && Number.isFinite(boxFooter.getCell(3).value.result), 'footer formulas have cached numeric results');
+assert.equal(matrixSheet.getRow(2).getCell(1).border.left.style, 'thin');
+assert.equal(matrixSheet.getRow(2).getCell(1).fill.fgColor.argb, 'FFF3F4F6');
+assert.equal(bunchFooter.getCell(1).font.bold, true);
+
 for (const mutate of [
   candidate => { candidate.columns.pop(); },
   candidate => { candidate.columns[1] = { ...candidate.columns[1], key: candidate.columns[0].key }; },
@@ -215,6 +286,11 @@ const generatedCustomerRow = generatedCustomerSheet.getRows(2, generatedCustomer
 const actualGeneratedColumns = generated.columns.filter(column => !column.empty);
 assert.deepEqual(actualGeneratedColumns.map(column => generatedCustomerRow.getCell(10 + generated.columns.indexOf(column)).value), [2, 3, 5, 7, 11],
   'year collision and uppercase/lowercase suffix weeks map to separate exact columns');
+const crossYearSelected = selectChinaOrderSubweek(generated, '2026/01-03A');
+const crossYearMatrixWorkbook = await buildChinaOrderWorkbook(crossYearSelected, mapping);
+const crossYearMatrixSheet = crossYearMatrixWorkbook.getWorksheet('품목별업체수량');
+assert.ok(crossYearMatrixSheet, 'selected cross-year/suffix report gets a matrix sheet');
+assert.equal(crossYearMatrixSheet.getRow(2).getCell(3).value.result, 7, 'same major week in the prior year and 03 suffix do not leak into the selected total');
 const filteredSubweek = selectChinaOrderSubweek(generated, '2026/01-01', new Set(['7|10|단']));
 const filteredWorkbook = await buildChinaOrderWorkbook(filteredSubweek, mapping);
 const filteredReopened = new ExcelJS.Workbook();

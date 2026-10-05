@@ -1,5 +1,11 @@
 # 중국 발주 현황 읽기/다운로드 근거 — 2026-10-05
 
+## 품목(HF)×업체(CL) 수량표
+- 2026-10-05 main 실제 CLI FormQuantityPivot 재실행: `vo.OutQuantity Quantity`, `vo.OrderYear`, `FROM ViewOrder vo`, `WHERE vo.OutQuantity > 0`, `btnExcel_Click` 확인. 원장 SQL/API/EXE 수정 없이 단일 세부차수 조회 결과만 가로 업체/세로 품목으로 표시한다.
+- 운영 read-only preflight: 중심 2026/40, 37~43 선택 범위, 중국 주문1336행/42업체, 40-03 포함. Excel `Pivot 통계_2026-10-05.xlsx`의 39-01 품목×업체/Total 구조는 양식 참고이며 전산 수량 원천을 대체하지 않는다.
+- 사용자 정정: 품목의 코드번호는 이전 HF 첨부 사전의 HF CODE. Product.ProdCode/ProdKey를 괄호 HF로 표시하지 않는다. 업체 CL은 현재 활성 Customer.OrderCode. 집계키는 ProdKey+unit/CustKey로 분리, 코드/표시명으로 병합 금지.
+- 공용 `buildChinaOrderCustomerMatrix`가 화면/Excel의 실제 orders에서 선택 연도+full OrderWeek, 양수 중국 수량, 고객 표시정보 일치 및 단위별 합계를 검사한다. 기존 견적·확정·출고·입고·재고 원장과 downstream 값은 보존한다.
+
 - 실제 EXE: C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe
 - CLI: C:/Users/USER/Desktop/백업/다운로드/dnSpy-net-win32/dnSpy.Console.exe --no-color -t FormQuantityPivot [EXE]
 - main actual CLI 결과: FormQuantityPivot.GetData 주문 UNION에서 `vo.OutQuantity Quantity`, `FROM ViewOrder vo`, `WHERE vo.OutQuantity > 0`. btnExcel_Click의 ExportToXlsx는 표시 내보내기이며 ERP 쓰기 없음.
