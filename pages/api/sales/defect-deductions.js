@@ -6,6 +6,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import {
+  correctDraftPeriod,
   deleteDeductions,
   cancelIncomingDeductions,
   confirmIncomingDeductions,
@@ -102,6 +103,12 @@ async function handler(req, res) {
       const week = normalizeParentWeek(req.body?.week);
       if (!year || !week) return res.status(400).json({ success: false, error: '연도와 차수를 확인하세요.' });
 
+      if (action === 'correct-period') {
+        if (!isDefectAdmin(req.user)) return res.status(403).json({ success: false, error: '차수 정정은 관리자만 가능합니다.' });
+        const rows = await correctDraftPeriod({ year, week, targetYear: req.body.targetYear,
+          targetWeek: req.body.targetWeek, rows: req.body.rows, reason: req.body.reason, user: req.user });
+        return res.status(200).json({ success: true, corrected: rows.length, rows });
+      }
       if (action === 'manual-cost-save') {
         if (!canUseDefectSupport(req.user)) return res.status(403).json({ success: false, error: '영업지원 전산등록 권한이 필요합니다.' });
         const row = await saveManualCost({

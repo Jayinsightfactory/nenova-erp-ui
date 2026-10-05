@@ -16,6 +16,7 @@ import HotelArrivalCostReference from '../../components/raum/HotelArrivalCostRef
 import ShillaProductMatchModal from '../../components/raum/ShillaProductMatchModal';
 import ShillaBulkMatchModal from '../../components/raum/ShillaBulkMatchModal';
 import PnlHotelAddDialog from '../../components/raum/PnlHotelAddDialog';
+import HotelCustomerMapping from '../../components/raum/HotelCustomerMapping';
 import PnlSpecialNotesDialog from '../../components/raum/PnlSpecialNotesDialog';
 import RaumPnlCollisionLocations from '../../components/raum/RaumPnlCollisionLocations';
 import { escapePnlHtml } from '../../lib/raumPnlPrintText';
@@ -1325,6 +1326,7 @@ export default function RaumPnlPage() {
   };
   const partner = resolvePnlPartner(partnerCode, hotelPartners.find(p => p.code === partnerCode));
   const isShilla = partner.code === 'shilla';
+  const hasHotelRowMapping = isShilla || partner.customHotel;
   const canErpSync = partner.code === 'raum' || partner.code === 'choimun';
   const specialNoteYear = String(detail?.meta?.orderYear || list?.[0]?.OrderYear || importYear || new Date().getFullYear());
   const specialNoteYearOptions = [...new Set([specialNoteYear, importYear, ...(list || []).map(row => row.OrderYear)].filter(year => /^\d{4}$/.test(String(year))).map(String))];
@@ -1686,6 +1688,7 @@ export default function RaumPnlPage() {
         }),
       }, { operation: 'save' });
       setDetail(d => ({ ...d, meta: { ...d.meta, pnlKey: j.pnlKey }, unsaved: false }));
+      if (partner.customHotel) await openDetail(j.pnlKey, { keepMessage: true });
       setGangnamMergeConfirmed(false);
       setCostHistoryRevision(value => value + 1);
       setMessage(`저장 완료 — ${Number(meta.major)}차 손익계산서가 히스토리에 기록되었습니다.`);
@@ -1901,8 +1904,11 @@ export default function RaumPnlPage() {
 
   const openShillaMatch = (item) => {
     if (!detail?.meta?.pnlKey || shillaMatching || item?.isCustom || item?.isImageRow) return;
+    if (detail.unsaved || bulkPreview) { setError('현재 수정 내용을 먼저 저장한 뒤 품목을 연결하세요.'); return; }
     setShillaMatchEdit({
       item,
+      partnerCode,
+      partnerLabel: partner.label,
       pnlKey: detail.meta.pnlKey,
       orderYear: detail.meta.orderYear,
       major: detail.meta.major,
@@ -1910,10 +1916,10 @@ export default function RaumPnlPage() {
   };
   const refreshAfterShillaMatch = async (result = {}) => {
     const pnlKey = Number(shillaMatchEdit?.pnlKey);
-    if (partnerCodeRef.current !== 'shilla' || !Number.isInteger(pnlKey) || pnlKey <= 0) return false;
+    if (partnerCodeRef.current !== shillaMatchEdit?.partnerCode || !Number.isInteger(pnlKey) || pnlKey <= 0) return false;
     setShillaMatchEdit(null);
     const listLoaded = await loadList();
-    const detailLoaded = partnerCodeRef.current === 'shilla'
+    const detailLoaded = partnerCodeRef.current === shillaMatchEdit?.partnerCode
       ? await openDetail(pnlKey, { keepMessage: true })
       : false;
     const changedItemCount = Number.isInteger(Number(result.changedItemCount)) ? Number(result.changedItemCount) : 1;
@@ -1926,7 +1932,7 @@ export default function RaumPnlPage() {
     const sameHotelAction = isUnlink ? '같은 호텔 동일 품목 연결 해제' : '같은 호텔 동일 품목 자동 연결';
     const matchSummary = `${matchAction} ${changedItemCount}건${autoMatchedCount ? ` · ${sameHotelAction} ${autoMatchedCount}건` : ''}${affectedMajors.length ? ` · 적용 차수 ${affectedMajors.join(', ')}` : ''}`;
     setMessage(listLoaded && detailLoaded
-      ? `신라 ${matchSummary}을 갱신했습니다. 원본 수량·단가·분배율은 변경하지 않았습니다.`
+      ? `${partner.label} ${matchSummary}을 갱신했습니다. 원본 수량·단가·분배율은 변경하지 않았습니다.`
       : `${matchSummary}은 저장됐지만 화면을 다시 불러오지 못했습니다. 다시 조회해 주세요`);
     return listLoaded && detailLoaded;
   };
@@ -2243,7 +2249,7 @@ export default function RaumPnlPage() {
         }}>＋ 호텔 추가</button>
         <button
           type="button"
-          disabled={!partnerReady || partner.customHotel}
+          disabled={!partnerReady}
           style={{ ...st.btn, fontWeight: 700, borderColor: '#0ea5e9', color: '#0369a1' }}
           onClick={() => {
             const year = detail?.meta?.orderYear || list.find(row => String(row.PartnerCode || '').toLowerCase() === partnerCode)?.OrderYear || '';
@@ -2260,6 +2266,7 @@ export default function RaumPnlPage() {
         >📝 특이사항</button>
         <span style={{ fontSize: 12.5, color: '#64748b' }}>{isShilla ? '신라는 원본 엑셀 차수로 보관합니다. 저장된 품목을 전산 품목에 연결해 단가를 비교할 수 있으며, 주문·분배·재고는 변경하지 않습니다.' : '선택한 거래처 견적서만 올리고, 저장·전산대조도 그 거래처 기준으로 봅니다.'}</span>
       </div>
+      <HotelCustomerMapping partner={partner} orderYear={detail?.meta?.orderYear} major={detail?.meta?.major} disabled={!partnerReady || hotelAdding || uploading || saving || shillaMatching} />
       <p style={st.desc}>
         {partner.code === 'shilla'
           ? '신라호텔 원본 손익 엑셀을 올리면 모든 차수를 먼저 검증합니다. 저장할 정상 차수만 직접 선택하세요. 원본 매입·매출 단가와 60:40 또는 80:20 배분율을 그대로 보존하며 전산 차수는 참고 정보로만 표시합니다.'
@@ -2303,7 +2310,7 @@ export default function RaumPnlPage() {
         onClear={() => applyMatch(null)}
         onClose={() => setMatchEdit(null)}
       /> : null}
-      {isShilla ? <ShillaProductMatchModal
+      {hasHotelRowMapping ? <ShillaProductMatchModal
         edit={shillaMatchEdit}
         onBusyChange={setShillaMatching}
         onSaved={refreshAfterShillaMatch}
@@ -2629,7 +2636,7 @@ export default function RaumPnlPage() {
                       </td>
                       {!isShilla ? <td style={{ ...st.td, whiteSpace: 'normal', minWidth: 140 }}>
                         {(() => {
-                          if (!canErpSync) return <span style={{ color: '#64748b' }}>호텔 별도 결산</span>;
+                          if (partner.customHotel) return <><span>{it.prodName || '전산 미매칭'}</span>{!it.isCustom ? <button type="button" style={{ ...st.btn, marginLeft: 6 }} disabled={saving || shillaMatching || !detail.meta?.pnlKey || detail.unsaved} onClick={() => openShillaMatch(it)}>{it.prodKey ? '매칭 수정' : '품목 매칭'}</button> : null}{!detail.meta?.pnlKey || detail.unsaved ? <small> 먼저 결산을 저장하세요</small> : null}</>;
                           const match = raumPnlMatchDisplay(it);
                           if (it.isCustom) return <span style={{ color: '#94a3b8' }}>—</span>;
                           return (

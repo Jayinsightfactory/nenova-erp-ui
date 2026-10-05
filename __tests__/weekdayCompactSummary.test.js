@@ -44,7 +44,12 @@ const props = {cycles,comparisonRows:comparisons,plans:[draft],baselines:[baseli
 const snapshot = JSON.stringify(props);
 let html = render(Matrix,props);
 assert.equal(JSON.stringify(props),snapshot,'display never mutates raw quantity/baseline/draft inputs');
-assert.equal((html.match(/class="wcm-compact-summary"/g)||[]).length,3);
+assert.equal((html.match(/class="wcm-compact-summary"/g)||[]).length,9);
+assert.equal((html.match(/<td class="wcm-total wcm-major-total"/g)||[]).length,9,'three actual summary cells per cycle');
+assert.equal((html.match(/colspan="13"/gi)||[]).length,3,'cycle spans expanded summary columns');
+const crossYearMarkup=render(Matrix,{...props,comparisonRows:[...comparisons,{...actual,year:2025,shipmentOutQuantity:999999,shipmentDates:[{date:'2025-09-17',shipmentQuantity:999999}]}]});
+assert.equal((crossYearMarkup.match(/<td class="wcm-total wcm-major-total"/g)||[]).length,9,'prior-year same-week data does not add summary cells');
+assert.match(crossYearMarkup,/data-wcm-label="sum" data-quantity="1"/,'2026 summary preserves its draft projection with a prior-year same-week sentinel');
 assert.equal((html.match(/class="wcm-summary-row /g)||[]).length,9,'exactly three stable rows per cycle');
 assert.match(html,/data-wcm-label="sum" data-quantity="1"/,'sum uses validated draft projection');
 assert.match(html,/data-wcm-label="remainder" data-quantity="0.2"/,'draft remainder preserves calculation');
@@ -133,7 +138,7 @@ assert.match(badges([{...confirmation,error:'fixture query failed'}]),/조회 �
 assert.doesNotMatch(badges([{...confirmation,error:'fixture query failed'}]),/wcm-fixed|✓/);
 assert.match(badges([confirmation],{error:'other cycle query failed'}),/wcm-fixed|✓/);
 const fixedMatrix=render(Matrix,{...props,confirmationStates:[confirmation]});
-assert.match(fixedMatrix,/<strong>현재 2026 \/ 38차<\/strong><span class="wcm-confirmations"/,'badges adjacent to cycle title');
+assert.match(fixedMatrix,/<strong>현재 2026 \/ 38차<\/strong><details class="wcm-confirmation-disclosure"><summary>ERP 확정 상세 · ERP확정/,'collapsed confirmation retains authoritative summary beside cycle title');
 const printButtons=markup=>[...markup.matchAll(/<button[^>]*aria-label="(?:전체 견적|선택요일 출력[^" ]*[^\"]*|\d+차 [^" ]+ 견적 출력)"[^>]*>/g)].map(match=>match[0]);
 assert.deepEqual(printButtons(fixedMatrix),printButtons(render(Matrix,props)),'confirmation is display-only, not a new print gate');
 assert.match(render(Matrix,{...props,confirmationError:'fixture query failed'}),/role="alert">ERP확정 조회 실패/);
@@ -166,7 +171,7 @@ assert.deepEqual(events[1],['note',{row,block}]); assert.match(events[2][1],/견
 const failedQuoteBlock={...block,quote:{state:'조회 필요',error:quoteError}};
 const failedQuoteTree=CompactSummary({...summaryProps,block:failedQuoteBlock});
 const failedQuoteButton=nodes(failedQuoteTree).find(node=>node.type==='button'&&node.props.className.includes('wcm-quote'));
-assert.match(failedQuoteButton.props.children[1].props.children,/조회실패/,'failed quote button displays the failure status');
+assert.match(renderToStaticMarkup(failedQuoteButton),/견적 조회실패/,'failed quote button displays the failure status');
 failedQuoteButton.props.onClick();
 assert.match(events.at(-1)[1],/상태: 조회 필요[\s\S]*오류: fixture quote failure:/,'failed quote click sends exact state and full error to selectedInfo');
 assert.match(render(CompactSummary,{...summaryProps,carryoverError:'fixture carry error'}),/role="alert">이월 조회 실패/);

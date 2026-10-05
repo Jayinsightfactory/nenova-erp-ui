@@ -2,6 +2,14 @@
   "id": "raum-pnl-settlement",
   "title": "라움·초이문·신라·등록 호텔 손익계산서 결산 계약",
   "scope": [
+    "lib/pnlHotelCustomerMap.js",
+    "lib/pnlHotelProductMatch.js",
+    "components/raum/HotelCustomerMapping.js",
+    "pages/api/raum/hotel-customer-mapping.js",
+    "pages/api/raum/hotel-item-mapping.js",
+    "docs/migrations/2026-10-05_pnl_hotel_customer_map.sql",
+    "scripts/apply-pnl-hotel-customer-map-migration.mjs",
+
     "lib/raumPnlPrintText.js",
     "lib/pnlHotelRegistry.js",
     "lib/raumPnlPreservationMatch.js",
@@ -87,6 +95,9 @@
     "regressionTest": "__tests__/raumPnlPartner.test.js"
   },
   "actions": [
+    {"name": "HOTEL_CUSTOMER_MAPPING", "writeAllowlist": ["WebPnlHotelCustomerMap"], "preserve": ["Customer", "Product", "OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "StockHistory", "Estimate", "WebProfitReport"], "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve"},
+    {"name": "HOTEL_PRODUCT_MAPPING", "writeAllowlist": ["WebRaumPnlItem.ProdKey", "WebRaumPnl.UpdatedAt", "WebRaumPnl.UpdatedBy"], "identity": ["PartnerCode", "OrderYear", "MajorWeek", "PnlKey", "ItemKey"], "preserve": ["Qty", "SalePrice", "SaleAmount", "CostPrice", "Customer", "Product", "OrderDetail", "ShipmentDetail", "StockHistory", "Estimate", "WebProfitReport"], "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve"},
+
     { "name": "RAUM_PNL_SPECIAL_NOTE", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "authenticated explicit active PartnerCode + four-digit OrderYear; GET is read-only; PUT stores at most 5000 characters in the web-only note table, compares the exact expected revision under PartnerCode+OrderYear lock, never automatically retries a failed save, and never changes settlement rows or ERP ledgers", "writeAllowlist": ["WebRaumPnlSpecialNote"] },
     { "name": "SHILLA_BULK_UNMATCHED_MATCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit selected year and shilla; GET read-only groups exact normalized source name+unit with unmatched ordinary rows; suggest only unique active saved mappings, never fuzzy auto-select; explicit selected groups and positive Product keys; one atomic POST revalidates complete selected group membership/state under shared year lock before any write; differing existing mapping, stale snapshot, inactive Product or one failed write rolls back all groups; fill null ProdKey only; no auto retry, no unlinks or global name learning; maximum 200 groups and 10000 snapshot rows and 900KiB UTF-8 JSON request, UI rejects oversized selection before POST and preserves drafts", "writeAllowlist": ["WebRaumPnlItem.ProdKey", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
     { "name": "SHILLA_SAME_HOTEL_PRODUCT_MATCH", "orderDetail": "preserve", "shipmentDetail": "preserve", "stock": "preserve", "validation": "explicit applySameHotel=true; selected OrderYear+shilla+exact whitespace-normalized name+Unit+ordinary; source snapshot and active Product rechecked; fill unmatched group rows, preserve same key, conflicting different key rolls back; group unlink clears whole same group; absent/false retains single-row scope; common year lock before master/items/product; import preview/save unique active mapping inference and fingerprint recheck; no GET writes", "writeAllowlist": ["WebRaumPnlItem.ProdKey", "WebRaumPnl.UpdatedBy", "WebRaumPnl.UpdatedAt"] },
@@ -145,7 +156,7 @@
   "customHotelRegistry": {
     "identity": "Typed hotel name is normalized server-side and assigned hotel_<12 lowercase hex>; WebPnlHotel only, never Customer creation. Same normalized name is idempotent; conflicting code/name is rejected.",
     "scope": "Every request reloads the active registry descriptor. Custom settlement identity remains OrderYear + MajorWeek + PartnerCode. Request-supplied capabilities or labels are not trusted.",
-    "capabilities": "Standard quotation upload, explicit selected year, preview, manual save, and isolated historical purchase-cost edit. No ERP synchronization, image-order lookup, global item mapping, learned purchase-cost sharing, cross-hotel cost sharing, or automatic import commit.",
+    "capabilities": "Quotation upload, explicit year, manual save, isolated purchase costs and arrival references, saved row Product mapping reused only within same hotel and year. All builtin/custom hotels can explicitly map an active ERP Customer through a web-only setting and read that exact customer + selected OrderYear + major-week shipment reference. ERP ledger synchronization and global learned mapping remain unchanged.",
     "preservation": "Repeated source rows remain separate. A saved row can match at most once across exact and fallback identities; distinct manual costs or product mappings require unambiguous source/content evidence. Unresolved collisions return readable 409 and preserve every saved row.",
     "migration": "Explicit idempotent WebPnlHotel schema migration before deployment; GET does not create registry tables. Existing hotel codes and shared Raum+Choimun purchase-cost scope are unchanged."
   },
@@ -157,6 +168,9 @@
     "preserve": ["Qty", "SalePrice", "SaleAmount", "IsConsigned", "ProdKey identity for rows that have one"]
   },
   "requiredTestFiles": [
+    "__tests__/pnlHotelCustomerMap.test.js",
+    "__tests__/pnlHotelProductMatch.test.js",
+
     "__tests__/raumPnlPrintText.test.js",
     "__tests__/pnlHotelRegistry.test.js",
     "__tests__/pnlCustomHotelIntegration.test.js",

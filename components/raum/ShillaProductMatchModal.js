@@ -75,22 +75,22 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
     if (saving) return;
     const itemKey = Number(item.itemKey ?? item.ItemKey);
     if (!Number.isInteger(itemKey) || itemKey <= 0) {
-      setError('저장된 신라 행 식별자가 없어 품목을 연결할 수 없습니다.');
+      setError('저장된 호텔 행 식별자가 없어 품목을 연결할 수 없습니다.');
       return;
     }
     if (prodKey == null && applySameHotel && typeof window !== 'undefined'
-      && !window.confirm('선택 연도 신라호텔에서 원본 품목명과 단위가 같은 행의 연결도 함께 해제합니다. 계속할까요?')) return;
+      && !window.confirm('선택 연도 이 호텔에서 원본 품목명과 단위가 같은 행의 연결도 함께 해제합니다. 계속할까요?')) return;
     requestRef.current += 1;
     setSearching(false);
     setSaving(true);
     onBusyChange?.(true);
     setError('');
     try {
-      const result = await fetchRaumPnlJson('/api/raum/shilla-item-mapping', {
+      const result = await fetchRaumPnlJson(edit.partnerCode && edit.partnerCode !== 'shilla' ? '/api/raum/hotel-item-mapping' : '/api/raum/shilla-item-mapping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          partnerCode: 'shilla',
+          partnerCode: edit.partnerCode || 'shilla',
           orderYear: String(edit.orderYear),
           major: Number(edit.major),
           pnlKey: Number(edit.pnlKey),
@@ -112,7 +112,7 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
   const currentKey = productKey(item);
   return <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', background: 'rgba(15,23,42,.45)', padding: 18 }} role="dialog" aria-modal="true" aria-label="신라 품목 연결">
     <div style={{ width: 'min(620px, 100%)', maxHeight: 'min(720px, 100%)', overflow: 'auto', background: '#fff', borderRadius: 8, padding: 14, boxShadow: '0 18px 45px rgba(15,23,42,.3)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><b style={{ fontSize: 16 }}>신라 저장 행 품목 연결</b><span style={{ color: '#64748b', fontSize: 11 }}>{applySameHotel ? '같은 호텔 동일 품목에도 함께 저장됩니다.' : '이 행에만 저장됩니다.'}</span></div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><b style={{ fontSize: 16 }}>호텔 저장 행 품목 연결</b><span style={{ color: '#64748b', fontSize: 11 }}>{applySameHotel ? '같은 호텔 동일 품목에도 함께 저장됩니다.' : '이 행에만 저장됩니다.'}</span></div>
       <div style={{ marginTop: 8, padding: '7px 8px', background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 4, fontSize: 12, lineHeight: 1.55 }}>
         <b>{item.name ?? item.Name}</b> · {(item.unit ?? item.Unit) || '단위 미확인'} · 수량 {item.qty ?? item.Qty ?? '—'}<br />
         원본 판매가 {item.salePrice ?? item.SalePrice ?? item.price ?? item.Price ?? '—'} · 현재 연결 {currentKey ? `${(item.prodName ?? item.ProdName) || `#${currentKey}`} (#${currentKey})` : '미연결'}
@@ -123,7 +123,7 @@ export default function ShillaProductMatchModal({ edit, onSaved, onClose, onBusy
       </div>
       <label style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 8, color: '#334155', fontSize: 12, lineHeight: 1.45 }}>
         <input type="checkbox" checked={applySameHotel} disabled={saving} onChange={event => setApplySameHotel(event.target.checked)} />
-        <span><b>같은 호텔 동일 품목 함께 연결</b><br />선택 연도 신라호텔에서 원본 품목명과 단위가 같은 저장 행에만 적용합니다.</span>
+        <span><b>같은 호텔 동일 품목 함께 연결</b><br />선택 연도 이 호텔에서 원본 품목명과 단위가 같은 저장 행에만 적용합니다.</span>
       </label>
       {error ? <div role="alert" style={{ color: '#b91c1c', fontSize: 12, marginTop: 7 }}>{error}</div> : null}
       <div style={{ marginTop: 8, borderTop: border }}>
