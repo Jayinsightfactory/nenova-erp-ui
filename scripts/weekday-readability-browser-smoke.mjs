@@ -236,6 +236,19 @@ try {
   assertions.push('cycle jump moves synchronized horizontal surfaces');
 
   const matrix = page.locator('.weekday-cycle-matrix');
+  await page.locator('.wcm-table-scroll').evaluate(el=>{el.scrollTop=400;});
+  const stickyHeader=await page.locator('.wcm-table-scroll').evaluate(el=>{
+    const head=el.querySelector('thead'),r=head.getBoundingClientRect(),v=el.getBoundingClientRect();
+    return {top:r.top,viewportTop:v.top,z:Number(getComputedStyle(head).zIndex)};
+  });
+  check(Math.abs(stickyHeader.top-stickyHeader.viewportTop)<2 && stickyHeader.z>4,'vertical scroll keeps header above body controls',JSON.stringify(stickyHeader));
+  await page.locator('.wcm-table-scroll').evaluate(el=>{el.scrollTop=0;});
+  assert.equal(await page.locator('.wcm-confirmation-disclosure:not([open])').count(),3);
+  for(const disclosure of await page.locator('.wcm-confirmation-disclosure').all()) {
+    await disclosure.locator('summary').click();
+    assert.ok(await disclosure.locator('.wcm-confirmations').isVisible());
+    await disclosure.locator('summary').click();
+  }
   const headerGeometry=await page.locator('thead .wcm-cycle-title').evaluateAll(headers=>headers.map(el=>({
     badges:el.querySelectorAll('.wcm-confirmations > span').length,
     overflow:el.scrollWidth>el.clientWidth+1,
@@ -264,26 +277,11 @@ try {
   check(fontSizes.meta.length > 0 && fontSizes.meta.every(size => size >= 12), 'secondary summary typography >=12px', JSON.stringify(fontSizes));
   check(fontSizes.originals.length > 0 && fontSizes.originals.every(size => size >= 18), 'original/display/input quantity typography >=18px', JSON.stringify(fontSizes));
   const summaryGeometry = await page.locator('.wcm-table-scroll .wcm-major-total').evaluateAll(cells => cells.map(el => {
-    const heading = el.querySelector('.wcm-major-heading');
-    const sum = el.querySelector('.wcm-cycle-sum');
-    const primary = el.querySelector('.wcm-major-heading .wcm-remainder-value');
-    const total = el.querySelector('[data-wcm-label="sum"] .wcm-sum-value');
-    const actions = el.querySelector('.wcm-summary-actions');
-    if (![heading, sum, primary, total, actions].every(Boolean)) return { missing: true };
-    const inside = node => { const r=node.getBoundingClientRect(), c=el.getBoundingClientRect(); return r.left>=c.left-1&&r.right<=c.right+1&&r.top>=c.top-1&&r.bottom<=c.bottom+1; };
-    const noOverlap = (a,b) => { const x=a.getBoundingClientRect(),y=b.getBoundingClientRect(); return x.right<=y.left+1||y.right<=x.left+1||x.bottom<=y.top+1||y.bottom<=x.top+1; };
-    const width=el.getBoundingClientRect().width;
-    const padding=[...getComputedStyle(el).padding.split(' ')].map(value=>parseFloat(value));
-    return { missing:false, contained:[heading,sum,primary,total,actions].every(inside),
-      separated:noOverlap(heading,sum)&&noOverlap(sum,actions)&&noOverlap(total,actions),
-      fullWidth:sum.getBoundingClientRect().width>=width-12, compactPadding:padding.every(value=>value<=3),
-      sumDisplay:getComputedStyle(sum).display,actionsDisplay:getComputedStyle(actions).display,
-      cell:el.closest('tr')?.firstElementChild?.innerText, sum:total.innerText };
+    const content=el.querySelector('.wcm-compact-summary'), c=el.getBoundingClientRect(),r=content.getBoundingClientRect();
+    return {contained:r.left>=c.left-1&&r.right<=c.right+1, width:c.width};
   }));
-  check(summaryGeometry.length>0 && summaryGeometry.every(item=>!item.missing&&item.contained&&item.separated&&item.fullWidth
-      &&item.compactPadding&&item.sumDisplay==='grid'&&item.actionsDisplay==='grid'),
-    'three summary rows, compact padding, and action rows stay contained/non-overlapping',
-    JSON.stringify(summaryGeometry.filter(item=>item.missing||!item.contained||!item.separated||!item.fullWidth||!item.compactPadding||item.sumDisplay!=='grid'||item.actionsDisplay!=='grid').slice(0,12)));
+  check(summaryGeometry.length===450 && summaryGeometry.every(item=>item.contained && item.width<90),
+    'three actual narrow summary cells per cycle stay contained',JSON.stringify(summaryGeometry.filter(item=>!item.contained).slice(0,12)));
 
   const row = page.locator('.wcm-table-scroll tbody tr').first();
   await row.locator('th').hover();
@@ -356,6 +354,7 @@ try {
   });
   check(sticky.position === 'sticky' && sticky.visible && sticky.height >= 18, 'bottom horizontal control remains accessible after vertical scroll', JSON.stringify(sticky));
   await page.screenshot({ path: path.join(output, '1280x800-bottom-sticky.png') });
+  await page.locator('.wcm-filter-disclosure > summary').click();
   await page.getByPlaceholder('품목명 / 품목키').fill('GYPSOPHILA');
   assert.equal(await page.locator('.wcm-table-scroll tbody tr').count(), 1, 'filter narrows to matching row');
   await page.locator('.wcm-scroll-bottom').evaluate(el => { el.scrollLeft = 1000; el.dispatchEvent(new Event('scroll')); });
@@ -411,10 +410,10 @@ try {
     'the long identical error is rendered once in each of the three headers only');
   const failedCells = await page.locator('.wcm-table-scroll tbody .wcm-major-total').evaluateAll(cells => cells.map(cell => ({
     repeatsError: cell.innerText.includes('fixture weekday quote failure'),
-    hasFailureButton: [...cell.querySelectorAll('.wcm-quote .wcm-inline-status')].some(status => status.textContent === '조회실패'),
+    hasFailureButton: [...cell.querySelectorAll('.wcm-quote .wcm-inline-status')].some(status => status.textContent === '견적 조회실패'),
   })));
-  assert.equal(failedCells.length, 150, 'all 50 rows retain three compact summary cells');
-  assert.ok(failedCells.every(cell => !cell.repeatsError && cell.hasFailureButton),
+  assert.equal(failedCells.length, 450, 'all 50 rows retain nine compact summary cells');
+  assert.ok(failedCells.every(cell => !cell.repeatsError) && failedCells.filter(cell=>cell.hasFailureButton).length===150,
     'item cells show the failure button without copying the long error');
   const errorRowGeometry = await page.locator('.wcm-table-scroll tbody tr').evaluateAll(rows => rows.map(row => ({
     product: row.querySelector('th[scope="row"]')?.innerText.trim() || '',
@@ -448,7 +447,7 @@ try {
   assert.ok(errorDetailsMetrics.height <= 146 && errorDetailsMetrics.overflowY === 'auto'
       && errorDetailsMetrics.scrollHeight > errorDetailsMetrics.clientHeight,
     `expanded error text stays bounded and internally scrollable: ${JSON.stringify(errorDetailsMetrics)}`);
-  const quoteErrorCell = page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-major-total').nth(1);
+  const quoteErrorCell = page.locator('.wcm-table-scroll tbody tr').first().locator('.wcm-major-total').nth(3);
   await quoteErrorCell.locator('button.wcm-quote').click();
   const selectedQuoteInfo = page.locator('.wcm-selected');
   await selectedQuoteInfo.waitFor();

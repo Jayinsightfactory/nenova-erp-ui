@@ -211,7 +211,7 @@ assert.equal((html.match(/wcm-day-print/g) || []).length, 22, '21 day buttons pl
 assert.equal((html.match(/type="checkbox"/g) || []).length, 21);
 assert.equal((html.match(/미적용 초안 수량"/g) || []).length, 21);
 assert.equal((html.match(/rowspan="3"/g) || []).length, 1);
-assert.equal((html.match(/colspan="11"/gi) || []).length, 3);
+assert.equal((html.match(/colspan="13"/gi) || []).length, 3);
 assert.match(html, /38차 목 견적 출력/);
 assert.match(html, /FlowerName|CARNATION/);
 assert.match(html, /min-width:3152px/);
@@ -219,7 +219,7 @@ assert.match(html, /aria-label="요일표 상단 가로 스크롤"/);
 assert.match(html, /aria-label="요일표 하단 가로 스크롤"/);
 assert.match(html, /\.wcm-scroll-bottom \{ position:sticky; bottom:0;/);
 assert.match(html, /::-webkit-scrollbar \{ height:16px;/, 'visible scrollbar track/thumb must not rely on auto-hidden Windows overlay');
-assert.match(html, /\.wcm-summary-col \{ width:200px;/);
+assert.match(html, /\.wcm-summary-col \{ width:68px;/);
 assert.match(html, /wcm-major-heading/);
 assert.match(html, /wcm-summary-actions/);
 assert.match(html, /\.wcm-sum-value[^\n]*font-size:16px; font-weight:700/);
@@ -233,7 +233,8 @@ assert.match(html, /\.wcm-cell input:disabled \{ opacity:0; pointer-events:none;
 assert.match(html, /thead th \{ position:static; top:auto;/);
 assert.match(html, /tbody th \{ position:sticky; top:auto; left:0;/);
 assert.match(html, /aria-label="38차 목 견적 출력"[^>]*>출력<\/button>/);
-assert.doesNotMatch(html, /wcm-panel|wcm-cycle-links|wcm-heading|max-height/);
+assert.doesNotMatch(html, /wcm-panel|wcm-cycle-links|wcm-heading/);
+assert.match(html, /max-height:calc\(100dvh - 190px\); overflow-y:auto/);
 assert.match(html, /잔량 미확인/);
 const disconnected = renderToStaticMarkup(React.createElement(Component, { cycles, comparisonRows: [actual()] }));
 assert.match(disconnected, /출력 불가/);
@@ -346,7 +347,7 @@ assert.equal(printRequests[2].mode, 'major');
 assert.deepEqual(printRequests[2].dates, []);
 descendants(mainHost.render()).find((element) => element.type === 'input' && element.props.type === 'search')
   .props.onChange({ target: { value: 'no-match-fixture' } });
-assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td' && element.props.colSpan === 34));
+assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td' && element.props.colSpan === 40));
 assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td'
   && element.props.children === '검색/품종 조건에 맞는 품목이 없습니다.'));
 const filterHost = mount(eventModule.exports.default, { cycles, comparisonRows: [...hiddenComparisons, actual()] });

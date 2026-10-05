@@ -266,5 +266,27 @@
     "npm run test:nenova-dnspy-evidence",
     "npm run guard:erp-writes -- --changed-from HEAD^",
     "npm run build"
-  ]
+  ],
+  "displayLayout": {
+    "viewport": {
+      "width": 1920,
+      "height": 1080,
+      "zoom": 100
+    },
+    "guidanceCollapsedByDefault": true,
+    "productFiltersCollapsedByDefault": true,
+    "confirmationDetailsCollapsedByDefault": true,
+    "summaryColumns": [
+      "합계",
+      "잔량",
+      "변경"
+    ],
+    "preserves": [
+      "ERP writes and quantities",
+      "existing print eligibility",
+      "year/customer/product scope",
+      "carryover and note handlers",
+      "errors and pending save status"
+    ]
+  }
 }
