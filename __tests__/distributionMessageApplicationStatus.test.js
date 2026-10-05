@@ -33,8 +33,8 @@ const manual={sourceIdentity:identity,year:'2026',week:'37-01',status:'MANUALLY_
 assert.equal(sourceConfirmation(scope).confirmed,false);
 assert.equal(sourceConfirmation({...scope,manual}).confirmed,true);
 assert.equal(sourceConfirmation({...scope,operation}).confirmed,true);
-assert.equal(sourceConfirmation({...scope,requestCount:2,quantityProcessedCount:2}).confirmed,true,'all source requests with exact quantity deltas auto-confirm');
-assert.equal(sourceConfirmation({...scope,requestCount:2,quantityProcessedCount:1}).confirmed,false,'partial quantity history does not confirm the whole source');
+assert.equal(sourceConfirmation({...scope,requestCount:2,appliedItemCount:2}).confirmed,true,'all source requests covered by exact history evidence auto-confirm');
+assert.equal(sourceConfirmation({...scope,requestCount:2,appliedItemCount:1}).confirmed,false,'partial history coverage does not confirm the whole source');
 for(const patch of [{status:'preview'},{status:'failed'},{undo:true},{undone:true},{incomplete:true},{committedCount:1},{year:'2025'},{week:'37-02'},{entries:[{sourceIdentity:identity}]}]) {
   assert.equal(sourceConfirmation({...scope,operation:{...operation,...patch}}).confirmed,false,JSON.stringify(patch));
 }
@@ -61,8 +61,8 @@ const ui=require('node:fs').readFileSync(require('node:path').join(__dirname,'..
 assert.match(ui,/source-confirm-toggle:/);
 assert.match(ui,/confirmation\.confirmed&&!confirmation\.cancelled\?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED'/);
 assert.match(ui,/compact-match-row \$\{confirmation\.confirmed&&!confirmation\.cancelled\?'history-completed':''\}/,'a confirmed source row receives the completion highlight class');
-assert.match(ui,/quantityHistoryCoverage=pairedRequests\.length===changes\.length\?quantityHistoryAppliedCount:0/,'API-only or missing parsed requests prevent whole-source auto-confirmation');
-assert.match(ui,/quantityProcessedCount:quantityHistoryCoverage/,'exact full quantity-history coverage auto-confirms the source');
+assert.match(ui,/exactHistoryCoverage=pairedRequests\.length===changes\.length\?appliedCount:0/,'API-only or missing parsed requests prevent whole-source auto-confirmation');
+assert.match(ui,/appliedItemCount:exactHistoryCoverage/,'all items can be confirmed by quantity or verified committed history');
 assert.match(ui,/role="alert"/);
 assert.match(ui,/applicationScope,open,disabled,operationRevision/);
 assert.match(ui,/paired-message-original/,'the full organized Kakao message is visible in the left column');

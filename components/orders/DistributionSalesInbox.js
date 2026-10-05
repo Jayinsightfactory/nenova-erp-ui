@@ -347,9 +347,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       return {pair,application:quantityHistoryApplied?{status:'APPLIED',entry:null,matchKind:'QUANTITY_HISTORY'}:application};
     });
     const appliedCount=appliedItems.filter(item=>item.application.status==='APPLIED').length;
-    const quantityHistoryAppliedCount=appliedItems.filter(item=>item.application.matchKind==='QUANTITY_HISTORY').length;
-    const quantityHistoryCoverage=pairedRequests.length===changes.length?quantityHistoryAppliedCount:0;
-    const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length,quantityProcessedCount:quantityHistoryCoverage});
+    const exactHistoryCoverage=pairedRequests.length===changes.length?appliedCount:0;
+    const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length,appliedItemCount:exactHistoryCoverage});
     const {groups,additional}=groupAppliedItems(appliedItems);
     const renderAppliedItem=({pair,application},showCustomer=false)=>{
       const request=pair.request;
