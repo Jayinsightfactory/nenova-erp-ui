@@ -1,5 +1,7 @@
 # 세션 Q&A 인덱스
 
+- [2026-10-05 붙여넣기 영업방 원문 AI 분석 진입](2026-10-05_paste-inbox-analysis-first.md) — 선택한 원문 분석 시 불필요한 교체 확인 제거. 분석/검토까지만 진행하고 주문·분배 원장은 저장하지 않음.
+
 - [2026-10-02 native NULL 오탐·반복 오류 웹 수정](2026-10-02_weekday-native-null-fix.md) — 공통 고객 판정·raw 지문·확정 구분·접힌 오류, SQL/브라우저/ERP 검증. 운영 원장 보정 없음.
 - [2026-10-02 native CustKey NULL 판단 정정](../SHIPMENT_DETAIL_CUSTOMER_NULL_NATIVE_COMPAT_2026-10-02.md) — EXE 저장 시 미기록이 정상 가능. 주광79건 웹 인쇄 오탐 확인, NULL만으로 SQL 보정 금지. 후속 구현 기록 포함.
 
