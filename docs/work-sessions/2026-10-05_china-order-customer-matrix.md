@@ -24,5 +24,23 @@
 ## 배포 단계
 로컬 구현·검증 완료. PR/CI/master 배포 및 운영 브라우저·실제 Pivot/Customer 읽기 대조는 후속 진행 결과로 확인한다. 배포가 검증되기 전 배포 완료라고 해석하지 않는다.
 
+### 최종 배포·운영 검증 기록
+- PR [#871](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/871), 기능 커밋 bf68998be09c8cadc41df63f917e1332513a7c8e. 독립 검토 P0/P1 없음, GitHub ERP Contract Guard run37263585646 성공.
+- master squash abd4e8bf7a7ba401f4f682cbd0bd52ff53a09f43. Cafe24 [run37263739595](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37263739595) 전체 성공(서버 빌드·Hydration smoke 포함). 병합 당시 다른 세션 #870 원문 이력 작업은 보존되며 대상 파일 겹침 없음.
+- 2026-10-05 13:35:46 KST 운영 브라우저1920×1080/100% 최종 통과. 39-01 28품목×5업체,40-01 123품목×34업체,40-03·검색 후 다운로드 모두 동일 집합/수량/HF/CL. 실제 Customer 조회의 CL 번호와 native Pivot 중국 주문 수량을 같은 연도/전체 세부차수/CustKey/ProdKey로 대조해 일치. pageerror0, 프레임 하단1005.30px,1100px 가로 overflow0.
+- 운영 화면·실제 다운로드 Excel5시트 대조 완료. 이 후속 기록은 배포 후 로컬 handoff로 추가했으며 인증정보/원자료는 포함하지 않는다.
+
+## 후속 요청: 박스 병기·코드 전용 업체 열·접두어 그룹
+**Q.** 품목명의 HF 미매칭 문구는 불필요하다. 수량(박스수)을 DB 품목관리 기준으로 표시하고, Excel 업체 열은 BCL77 같은 코드만 표시하며 YCL/KCL 등 문자끼리 묶어 달라.
+**A.** 기본 품목명에는 실제 HF만 남긴다. 단 수량은 현재 Product.BunchOf1Box, 송이는 SteamOf1Box로 나누고 박스 단위는 그대로 병기한다. API는 두 현재 마스터 필드 SELECT만 추가하며 원장 값은 변경하지 않는다. 0/NULL/비정상 분모는 추정하지 않고 수량(—)으로 표시한다. 운영 읽기 사전조회169품목 중147개 단 박스기준 양수,22개 누락 확인. 사용자에게 누락 처리 안내 후 진행.
+- 같은 CustKey/ProdKey/단위 집계, 연도+원본 세부차수/검색/HF 사전 계약 유지. 코드 접두어 먼저, 그룹 안 자연숫자 정렬, 같은 CL의 다른 CustKey는 구분.
+- Excel 기본 수량표 업체 헤더는 코드만, 그룹 경계 테두리 추가. 주문이 없는 업체/품목 교차 셀은 빈칸 유지. 기존4개 감사 시트는 원자료·매칭 상태를 보존한다.
+- 수량(박스수) 표시 수식과 캐시, 별도 숨김 수량원본의 numeric/SUM/DB분모를 보존. 서로 다른 품목 분모의 박스합은 개별 환산 후 합산하며 양수 미환산이 있으면 합계 박스도 —. 다른 단위의 미등록 분모는 해당 단위 footer에 영향을 주지 않는다.
+- 재계산 시 정수의 불필요한 소수점 기호를 방지하는 ROUND 기반 0/1/2/3소수 고정 서식 선택, 원수량0·분모0 및 합계 처리 보강.
+- 독립 검토 후 INDEX 충돌은 양쪽 세션 항목 보존으로 해결. 원본 분모 문자열/0·빈값은 별도 ISNUMBER 기반 환산불가 helper로 처리, 표시도 ISNUMBER로 숫자0과 빈 박스수를 구분. 고객별 행합은 연속 원수량 범위 SUM, 단위 footer는 범위 SUMIF/COUNTIFS로 변경해255개 인수 제한과 다른 단위 누락 전파를 피한다. Excel 실제 열한도 초과는 검색으로 줄이도록 오류 표시.
+- 실제 앱 생성 XLSX를 artifact-tool로 import해 원수량25→50→0, 분모25→0→문자 입력 시 종속 표시/합계 자동 재계산 확인. 전체 수식 오류 검색0건. 260업체 범위 SUM·합계 수량260/박스130 회귀 및 중국 기능20검사 통과.
+- PRD: `docs/plans/china-order-box-code-layout-2026-10-05.md`. 전체 ERP 계약/manifest78/write guard0/API SELECT-only/생산빌드 통과. 브라우저1920×1080/100%·1100×800, 실다운로드39-01/40-01/40-03·검색·실패 차단 확인(pageerror0). 최종 변경 후 재빌드/재검증·CI·배포 결과는 아래 후속 기록으로 판정한다.
+- 지정 분리 구현 모델 미제공 시 gpt-6-luna/high 대체, 최종 검토gpt-5.6-sol/xhigh. Excel worker 파일만 분리, main이 실제dnSpy·운영읽기·API/UI·외부반영 수행. DB/EXE/SP 보정 없음.
+
 ## 이어받기
 이 문서와 `docs/plans/china-order-customer-matrix-2026-10-05.md`, `docs/contracts/china-order-download.json`, `docs/exe-golden/ChinaOrderDownload.md`를 먼저 읽는다. 이전 단일 차수 계약은 [앞선 세션](2026-10-05_china-order-download.md) 참고. 품목 표시 코드=HF, 업체 표시 코드=Customer.OrderCode(CL), 원장 쓰기 없는 작업이라는 결정을 유지한다.

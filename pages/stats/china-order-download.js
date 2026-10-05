@@ -6,6 +6,7 @@ import { buildChinaOrderReport, selectChinaOrderSubweek } from '../../lib/chinaO
 import { normalizeHfMapping, parseChinaHfWorkbook, matchChinaHfCode } from '../../lib/chinaHfCodes';
 import { buildChinaOrderWorkbook } from '../../lib/chinaOrderWorkbook';
 import { buildChinaOrderCustomerMatrix } from '../../lib/chinaOrderCustomerMatrix';
+import { chinaQuantityText } from '../../lib/chinaOrderQuantityPresentation';
 
 const STORAGE_PREFIX = 'nenova.china-order-download.hf.v1:';
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -20,17 +21,8 @@ function cycleLabel(cycle) {
   return `${cycle.year}년 ${cycle.majorWeek}차 (${cycle.startDate} ~ ${cycle.endDate})`;
 }
 
-function quantity(value) {
-  const number = Number(value || 0);
-  return number.toLocaleString('ko-KR', { maximumFractionDigits: 3 });
-}
-
 function mappingRows(mapping) {
   return Array.isArray(mapping?.rows) ? mapping.rows : [];
-}
-
-function statusName(status) {
-  return ({ matched: '일치', review: '검토', missing: '미매칭', conflict: '충돌' })[status] || '미매칭';
 }
 
 export default function ChinaOrderDownloadPage() {
@@ -314,24 +306,24 @@ export default function ChinaOrderDownloadPage() {
       {!loading && authReady && !authError && !error && selectedReport && !annotatedRows.length && <div className="state-card empty" role="status"><b>{selectedReport.customerRows.length ? '조건에 맞는 업체·품목이 없습니다.' : '선택한 세부차수에 중국 주문등록 수량이 없습니다.'}</b><span>{selectedReport.customerRows.length ? '검색어 또는 매칭 상태 필터를 바꿔 보세요.' : '주문등록 수량(OutQuantity) 기준이며 출고·입고·재고 수량은 포함하지 않습니다.'}</span></div>}
 
       {!loading && !error && customerMatrix && customerMatrix.rows.length > 0 && <div className="matrix-section">
-        <div className="matrix-caption"><b>품목(HF 코드) × 업체(CL 번호)</b><span>{query.trim() || statusFilter !== 'all' ? '현재 필터에 포함된 주문의 합계입니다.' : '선택 세부차수의 전체 주문 합계입니다.'} · 단위별 별도 합산 · 좌우로 스크롤하여 업체 비교</span></div>
+        <div className="matrix-caption"><b>품목(HF 코드) × 업체(CL 번호)</b><span>{query.trim() || statusFilter !== 'all' ? '현재 필터에 포함된 주문의 합계입니다.' : '선택 세부차수의 전체 주문 합계입니다.'} · 수량(박스수) · CL 접두어별 묶음 · 단위별 별도 합산{customerMatrix.rows.some(row => row.boxTotal === null) ? ' · (—) 박스 기준 미등록 포함' : ''}</span></div>
         <div className="table-frame" tabIndex={0} role="region" aria-label="품목별 업체 수량표 가로 세로 스크롤">
         <table className="orders-table" data-selected-subweek={visibleReport.selectedColumnKey}>
           <colgroup><col className="product-col" /><col className="unit-col" /><col className="total-col" />{customerMatrix.customers.map(customer => <col key={customer.custKey} className="customer-col" />)}</colgroup>
           <thead><tr><th scope="col" className="fixed-product">품목명 (HF 코드)</th><th scope="col" className="fixed-unit">단위</th><th scope="col" className="fixed-total" data-column-key={visibleReport.selectedColumnKey}>총수량</th>{customerMatrix.customers.map(customer => <th key={customer.custKey} scope="col" className="customer-header" data-cust-key={customer.custKey} title={`${customer.custName} (${customer.custOrderCode || 'CL 미등록'})`}><span>{customer.custName || '업체명 미등록'}</span><strong>({customer.custOrderCode || 'CL 미등록'})</strong></th>)}</tr></thead>
           <tbody>
             {customerMatrix.rows.map(row => <tr key={row.rowKey} data-row-key={row.rowKey}>
-              <th scope="row" className="product-cell fixed-product" title={`${row.prodName} (${row.hf.hfCode || 'HF 미매칭'}) · ${row.hf.label}`}><span className="product-label"><span className="product-name">{row.prodName}</span><strong className={`hf-inline ${row.hf.status}`}>({row.hf.hfCode || 'HF 미매칭'})</strong></span>{row.hf.status !== 'matched' && <small className={`match-state ${row.hf.status}`}>{statusName(row.hf.status)}{row.hf.reviewStatus ? ` · ${row.hf.reviewStatus}` : ''}</small>}</th>
+              <th scope="row" className="product-cell fixed-product" title={`${row.prodName}${row.hf.hfCode ? ` (${row.hf.hfCode})` : ''}`}><span className="product-label"><span className="product-name">{row.prodName}</span>{row.hf.hfCode && <strong className="hf-inline">({row.hf.hfCode})</strong>}</span></th>
               <td className="unit-cell fixed-unit">{row.unit || '—'}</td>
-              <td className="quantity-cell total-cell fixed-total" data-quantity={row.total}><span>{quantity(row.total)}</span></td>
-              {customerMatrix.customers.map(customer => <td key={customer.custKey} className="quantity-cell" data-cust-key={customer.custKey} data-quantity={row.quantities[String(customer.custKey)]} title={`${customer.custName} (${customer.custOrderCode || 'CL 미등록'}) · ${row.prodName} · ${quantity(row.quantities[String(customer.custKey)])}${row.unit}`}><span>{row.quantities[String(customer.custKey)] === 0 ? '—' : quantity(row.quantities[String(customer.custKey)])}</span></td>)}
+              <td className="quantity-cell total-cell fixed-total" data-quantity={row.total} data-box-quantity={row.boxTotal ?? ''} title={row.boxTotal === null ? '박스 환산 기준 미등록' : `${row.boxConversion.source} · 1박스 ${row.boxConversion.unitsPerBox}${row.unit}`}><span>{chinaQuantityText(row.total, row.boxTotal)}</span></td>
+              {customerMatrix.customers.map(customer => <td key={customer.custKey} className="quantity-cell" data-cust-key={customer.custKey} data-quantity={row.quantities[String(customer.custKey)]} data-box-quantity={row.boxQuantities[String(customer.custKey)] ?? ''} title={`${customer.custName} (${customer.custOrderCode || 'CL 미등록'}) · ${row.prodName} · ${row.boxConversion.unitsPerBox ? `1박스 ${row.boxConversion.unitsPerBox}${row.unit}` : '박스 환산 기준 미등록'}`}><span>{row.quantities[String(customer.custKey)] === 0 ? '—' : chinaQuantityText(row.quantities[String(customer.custKey)], row.boxQuantities[String(customer.custKey)])}</span></td>)}
             </tr>)}
           </tbody>
-          <tfoot>{customerMatrix.totals.map(total => <tr key={total.unit} data-unit-total={total.unit}><th scope="row" className="fixed-product">{total.unit || '—'} 합계</th><td className="fixed-unit">{total.unit}</td><td className="quantity-cell total-cell fixed-total" data-quantity={total.total}><span>{quantity(total.total)}</span></td>{customerMatrix.customers.map(customer => <td key={customer.custKey} className="quantity-cell" data-cust-key={customer.custKey} data-quantity={total.quantities[String(customer.custKey)]}><span>{total.quantities[String(customer.custKey)] === 0 ? '—' : quantity(total.quantities[String(customer.custKey)])}</span></td>)}</tr>)}</tfoot>
+          <tfoot>{customerMatrix.totals.map(total => <tr key={total.unit} data-unit-total={total.unit}><th scope="row" className="fixed-product">{total.unit || '—'} 합계</th><td className="fixed-unit">{total.unit}</td><td className="quantity-cell total-cell fixed-total" data-quantity={total.total} data-box-quantity={total.boxTotal ?? ''}><span>{chinaQuantityText(total.total, total.boxTotal)}</span></td>{customerMatrix.customers.map(customer => <td key={customer.custKey} className="quantity-cell" data-cust-key={customer.custKey} data-quantity={total.quantities[String(customer.custKey)]} data-box-quantity={total.boxQuantities[String(customer.custKey)] ?? ''}><span>{total.quantities[String(customer.custKey)] === 0 ? '—' : chinaQuantityText(total.quantities[String(customer.custKey)], total.boxQuantities[String(customer.custKey)])}</span></td>)}</tr>)}</tfoot>
         </table>
         </div>
       </div>}
-      <footer className="page-foot"><span>기본 사전: {seedMapping.sourceFile} · HF CODE {seed.rows.filter(row => String(row.hfCode || '').trim()).length}개 · 원본 Check/No match 검토상태 유지, 빈 HF에 후보 코드를 대신 넣지 않습니다.</span><span>엑셀 첫 시트: 품목별업체수량 · 기존 발주현황/업체별발주/주문상세/조회기준도 포함</span></footer>
+      <footer className="page-foot"><span>HF 사전: {seedMapping.sourceFile} · {seed.rows.filter(row => String(row.hfCode || '').trim()).length}개 · 박스 환산은 현재 DB 품목 기준</span><span>엑셀: 코드별 수량표 · 기존 감사 4시트 · 수량원본(숨김)</span></footer>
     </main>
     <style jsx>{`
       .china-order-page{--ink:#14243a;--muted:#61738a;--line:#d6dfeb;--blue:#174a85;--navy:#102d53;min-width:0;padding:14px 18px 20px;background:#edf2f8;color:var(--ink);font-size:14px;}
@@ -345,6 +337,7 @@ export default function ChinaOrderDownloadPage() {
       .matrix-section{margin-top:9px}.matrix-caption{display:flex;align-items:center;gap:14px;padding:6px 2px;font-size:12px}.matrix-caption b{color:#173e6a}.matrix-caption span{color:#61738a}.table-frame{margin-top:0;max-height:calc(100dvh - 410px);min-height:240px;overflow:auto;overscroll-behavior:contain;outline-offset:2px}.orders-table{--product-width:420px;--unit-width:62px;--total-width:98px;width:max-content;table-layout:fixed}.product-col{width:420px}.unit-col{width:62px}.total-col{width:98px}.customer-col{width:146px}.orders-table th,.orders-table td{height:34px;padding:4px 8px;box-sizing:border-box}.orders-table thead th{height:76px;vertical-align:middle;z-index:5}.customer-header{min-width:146px;max-width:146px;white-space:normal!important;overflow-wrap:anywhere}.customer-header span{display:block;line-height:17px;font-size:12px}.customer-header strong{display:block;margin-top:3px;font-size:13px;color:#173e6a}.orders-table tbody tr{background:#fff}.orders-table tbody tr:nth-child(even){background:#f7f9fc}.orders-table tbody tr:hover{background:#eaf3ff}.fixed-product,.fixed-unit,.fixed-total{position:sticky;z-index:2;background:inherit}.fixed-product{left:0;width:var(--product-width);min-width:var(--product-width);max-width:var(--product-width)}.fixed-unit{left:var(--product-width);width:var(--unit-width);min-width:var(--unit-width)}.fixed-total{left:calc(var(--product-width) + var(--unit-width));width:var(--total-width);min-width:var(--total-width);box-shadow:3px 0 4px #173e6a15;border-right:2px solid #b3c6dd!important}.orders-table thead .fixed-product,.orders-table thead .fixed-unit,.orders-table thead .fixed-total{z-index:8;background:#e8eef6}.product-cell{overflow:hidden;color:#1c2d43;font-size:13px;font-weight:600}.product-label{display:flex;align-items:baseline;gap:5px;min-width:0}.product-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.product-cell .hf-inline{flex-shrink:0;display:inline;color:#174a85;font-size:12px;font-weight:800}.product-cell .hf-inline.missing,.product-cell .hf-inline.conflict{color:#9b382c}.product-cell .match-state{margin-top:1px;font-size:10px;line-height:12px}.quantity-cell{min-width:146px}.quantity-cell.fixed-total{min-width:var(--total-width)}.quantity-cell span{line-height:20px}.total-cell span{font-size:15px;color:#123961}.orders-table tbody .total-cell{background:#edf4fc}.orders-table tbody tr:hover .total-cell{background:#dbeafb}.orders-table tfoot th,.orders-table tfoot td{height:36px;background:#e8eef6}.orders-table tfoot .fixed-unit{text-align:center}.matrix-caption span{font-size:11px}
       @media(max-width:1300px){.control-panel{align-items:flex-start;flex-direction:column}.cycle-controls{flex-wrap:wrap}.cycle-controls label:nth-of-type(2){flex:0 1 190px}.cycle-controls label:nth-of-type(3) select{width:190px}.summary{flex-wrap:wrap}.filter-controls{margin-left:auto}.table-frame{max-height:calc(100dvh - 370px)}.orders-table{--product-width:340px}.product-col{width:340px}}
       @media(max-width:760px){.china-order-page{padding:8px}.hero{align-items:flex-start;flex-direction:column}.hero-badge{white-space:normal}.cycle-controls,.file-controls{width:100%;flex-wrap:wrap}.cycle-controls label:nth-child(2){flex:1}.cycle-controls label:nth-child(2) select{width:100%}.cycle-controls label:nth-of-type(3){flex:1}.cycle-controls label:nth-of-type(3) select{width:100%}.file-controls{align-items:stretch}.mapping-source{max-width:none;width:100%}.summary-title{min-width:100%}.summary-stats{padding-left:0;border:0}.filter-controls{width:100%;margin:0}.filter-controls .search{flex:1}.search input{width:100%}.page-foot{flex-direction:column}.matrix-caption{align-items:flex-start;flex-direction:column;gap:3px}.orders-table{--product-width:220px;--unit-width:48px;--total-width:84px}.product-col{width:220px}.unit-col{width:48px}.total-col{width:84px}.table-frame{max-height:500px}}
+      .orders-table{--total-width:120px}.total-col{width:120px}.quantity-cell span{white-space:nowrap;font-variant-numeric:tabular-nums}
     `}</style>
   </>;
 }
