@@ -4,14 +4,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { apiGet } from '../../lib/useApi';
 import { useWeekInput, WeekInput, getCurrentWeek } from '../../lib/useWeekInput';
 import { resolveFixStatusOrderYear } from '../../lib/fixStatusYearScope';
+import { fixStatusLabel } from '../../lib/fixStatusDisplay';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const qty = n => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 3 });
 const fixedLabel = {
-  FIXED: { text: '확정', bg: '#d1fae5', color: '#065f46' },
-  PARTIAL: { text: '부분확정', bg: '#fef3c7', color: '#92400e' },
-  UNFIXED: { text: '미확정', bg: '#fee2e2', color: '#991b1b' },
-  NO_SHIPMENT: { text: '출고없음', bg: '#e5e7eb', color: '#374151' },
+  FIXED: { text: fixStatusLabel('FIXED'), bg: '#d1fae5', color: '#065f46' },
+  PARTIAL: { text: fixStatusLabel('PARTIAL'), bg: '#fef3c7', color: '#92400e' },
+  UNFIXED: { text: fixStatusLabel('UNFIXED'), bg: '#fee2e2', color: '#991b1b' },
+  NO_SHIPMENT: { text: fixStatusLabel('NO_SHIPMENT'), bg: '#e5e7eb', color: '#374151' },
 };
 
 const MAX_SEQ = 4;
@@ -200,7 +201,7 @@ export default function ShipmentFixStatus() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: 10 }}>
         {[
-          ['확정 차수', summary.fixed, '#065f46'],
+          ['전체확정', summary.fixed, '#065f46'],
           ['부분확정', summary.partial, '#92400e'],
           ['미확정', summary.unfixed, '#991b1b'],
           ['음수재고 품목', summary.negative, '#b91c1c'],

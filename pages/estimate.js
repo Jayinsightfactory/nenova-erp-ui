@@ -36,6 +36,7 @@ import {
   normalizeCategoryList,
   resolveCountryFlowerFilter,
 } from '../lib/fixStatusCategories';
+import { fixStatusLabel } from '../lib/fixStatusDisplay';
 import { formatFixApiErrorMessage } from '../lib/shipmentFixGuards';
 import { formatAutoUnfixSaveLog, getFixCycleWeeksForEditedItems as buildFixCycleWeeks } from '../lib/estimateFixCycle';
 import { runScopedEstimateFixCycle } from '../lib/estimateCategoryCycle.js';
@@ -4365,11 +4366,11 @@ export default function Estimate() {
   const fixStatusNegativeCount = fixStatusRows.reduce((sum, w) => sum + (Number(w.negativeCount) || 0), 0);
   const fixStatusExeMisalignedCount = fixStatusRows.filter(w => w.exeAligned === false && w.shipmentStatus === 'FIXED').length;
   const fixStatusBadge = (status) => {
-    if (status === 'FIXED') return { text: '확정', bg: '#e8f5e9', color: '#2e7d32' };
-    if (status === 'FIXED_PENDING_STOCK') return { text: '출고확정·재고미정합', bg: '#fff3e0', color: '#e65100' };
-    if (status === 'PARTIAL') return { text: '부분확정', bg: '#fff8e1', color: '#ef6c00' };
-    if (status === 'UNFIXED') return { text: '미확정', bg: '#e3f2fd', color: '#1565c0' };
-    return { text: '출고없음', bg: '#f5f5f5', color: '#777' };
+    if (status === 'FIXED') return { text: fixStatusLabel(status), bg: '#e8f5e9', color: '#2e7d32' };
+    if (status === 'FIXED_PENDING_STOCK') return { text: fixStatusLabel(status), bg: '#fff3e0', color: '#e65100' };
+    if (status === 'PARTIAL') return { text: fixStatusLabel(status), bg: '#fff8e1', color: '#ef6c00' };
+    if (status === 'UNFIXED') return { text: fixStatusLabel(status), bg: '#e3f2fd', color: '#1565c0' };
+    return { text: fixStatusLabel(status), bg: '#f5f5f5', color: '#777' };
   };
   const stockFixBadge = (stockFixStatus) => {
     if (stockFixStatus === 'FIXED') return { text: '마감', bg: '#e8f5e9', color: '#2e7d32' };
