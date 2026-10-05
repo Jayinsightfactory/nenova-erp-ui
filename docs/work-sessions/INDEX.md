@@ -285,3 +285,7 @@
 # 2026-10-02 주광 요일표 압축·확정 조건 확인
 
 - [요일표 가독성 및 ERP 확정 선행 조건 재감사](2026-10-02_weekday-compact-confirmation.md)
+
+# 2026-10-05 영업방 원문·붙여넣기 작업이력 교차 연결
+
+- [확인 하이라이트 및 sourceIdentity가 다른 완료 작업의 정확 일치 연결](2026-10-05_paste-confirm-highlight.md)
