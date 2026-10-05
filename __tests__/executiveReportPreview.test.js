@@ -58,6 +58,8 @@ const page=fs.readFileSync(path.resolve(__dirname,'../pages/m/executive.js'),'ut
 assert.match(page,/verifyReqUser\(req\)/);
 assert.match(page,/private, no-store/);
 assert.match(page,/weeklyDemoMode:query.demo==='weekly'/);
+const desktopMenu=fs.readFileSync(path.resolve(__dirname,'../components/Layout.js'),'utf8');
+assert.match(desktopMenu,/href:\s*['"]\/m\/executive\?preview=1['"][^\n]+labelKey:\s*['"]임원 모바일 보고서['"][^\n]+popup:\s*true/);
 const demo=renderToStaticMarkup(React.createElement(loaded.exports.default,{weeklyDemoMode:true}));
 assert.match(demo,/보고서 선택/);
 assert.match(demo,/매출이익자료/);
