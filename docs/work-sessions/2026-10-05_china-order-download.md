@@ -5,7 +5,8 @@
 | 화면 | 중국 발주 현황 다운로드 `/stats/china-order-download` |
 | 기준 브랜치 | origin/master 9916866c, 독립 codex/china-order-download |
 | 원장 부작용 | SQL SELECT만, 기존 EXE/주문/분배/출고/입고/재고/견적/Product 변경 없음 |
-| 구현/배포 | 로컬 기능·ERP 회귀·브라우저·빌드 검증 완료, PR/배포 결과는 후속 기록 확인 |
+| 구현/배포 | 로컬 기능·ERP 회귀·브라우저·빌드 검증 완료, PR #867 검증 후 배포 예정 |
+| PR | https://github.com/Jayinsightfactory/nenova-erp-ui/pull/867 |
 
 ## 고정 결정
 - 중심차수 이전3+현재+다음3, 총7개 **메인차수**. 전체 세부차수 주문을 합산하고 상세 시트에 원래 세부차수·업체 키 보존.
@@ -35,7 +36,8 @@
 - 기능테스트, 전체 test:erp-contract, dnSpy evidence, staged 변경 API1개 write-scope, manifest78개 검사, production build 통과. 최종 HF 경계: 품목키+코드 검증, 중복 검토상태 순서 독립, 숫자 코드0마스크 선행0 보존/안전하지 않은 숫자서식 거부를 회귀검사한다.
 - 브라우저1920×1080/100%: 169품목 7차수 가로 잘림없음, 숫자14px 진한 중앙, popup shell1/sidebar0, 일반 shell1/sidebar1. HF 검색·원본 업로드·실제XLSX 다운로드. 1100×800 문서 폭1100/표 내부 가로1280 정상.
 - malformed storage 복원, 선택 차수 stale/서버scope mismatch/조회500 다운로드 차단, HF 복원이 조회오류를 숨기지 않음 검증.
-- XLSX 네이티브 재독해 숫자/빈HF/원본명/세부차수 검증 및 3시트 렌더. 미리보기 도구의 빈 shared-string 인덱스 오독은 원본 ExcelJS 값으로 미리보기만 교정; 다운로드 파일 빈 HF 정상. 긴 품목명 행 높이 자동 계산.
+- XLSX 네이티브 재독해 숫자/빈HF/원본명/세부차수/실제 CL 코드 검증 및 4시트 렌더. 운영 표본42업체의 CL2/CLS 등 현재 전산코드, 업체별발주579행+헤더, 주문상세1332행+헤더. 미리보기 도구의 빈 shared-string 인덱스 오독은 원본 ExcelJS 값으로 미리보기만 교정; 다운로드 파일 빈 HF 정상. 긴 품목명 행 높이 자동 계산.
+- 최신 master 9c63260b 통합 후 기능15개, 전체 ERP 계약, manifest78개, 변경API1개 write-scope, dnSpy evidence, production build 최종 통과. 배포후 운영 대조 결과는 아래 후속 기록으로 남긴다.
 
 ## 모델·범위
 - 설계/리뷰 gpt-5.6-sol xhigh P0_LOCAL. 지정 구현 gpt-5.6-terra 제공되지 않아 gpt-6-luna high로 대체(분리 UI와 HF/Excel 담당). 메인이 입력/의존성/운영읽기/계약/통합/외부반영 담당.
