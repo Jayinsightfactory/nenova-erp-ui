@@ -34,15 +34,21 @@ try {
     await page.locator(selector).evaluate(el=>{el.scrollLeft=0;});
     await page.waitForFunction(()=>['.wcm-scroll-top','.wcm-scroll-bottom','.wcm-table-scroll'].every(selector=>document.querySelector(selector).scrollLeft===0));
   }
-  const summary=await page.locator('.wcm-major-total').first().evaluate(el=>({
-    width:el.getBoundingClientRect().width,
-    font:parseFloat(getComputedStyle(el.querySelector('.wcm-remainder-value')).fontSize),
-    sumFont:parseFloat(getComputedStyle(el.querySelector('.wcm-sum-value')).fontSize),
-    labels:el.innerText,
-    overflow:el.scrollWidth>el.clientWidth+1,
-  }));
-  assert.ok(summary.width>=199);assert.ok(summary.font>=14);assert.ok(summary.sumFont>=16,'full-width summary sum must be at least 16px');assert.equal(summary.overflow,false);
-  assert.match(summary.labels,/합계/);assert.match(summary.labels,/변경/);assert.match(summary.labels,/견적/);
+  const summary=await page.locator('.wcm-table-scroll tbody tr').first().evaluate(row=>{
+    const cells=[...row.querySelectorAll('.wcm-major-total')];
+    return {count:cells.length,widths:cells.map(cell=>cell.getBoundingClientRect().width),
+      overflow:cells.some(cell=>cell.scrollWidth>cell.clientWidth+1),
+      remainderFont:parseFloat(getComputedStyle(row.querySelector('.wcm-remainder-value')).fontSize),
+      sumFont:parseFloat(getComputedStyle(row.querySelector('.wcm-sum-value')).fontSize)};
+  });
+  assert.equal(summary.count,9);assert.ok(summary.widths.every(width=>width>=67&&width<90));
+  assert.ok(summary.remainderFont>=18&&summary.sumFont>=18);assert.equal(summary.overflow,false);
+  assert.ok(await page.locator('.weekday-guidance:not([open])').count());
+  assert.ok(await page.locator('.wcm-filter-disclosure:not([open])').count());
+  for(const disclosure of await page.locator('.wcm-confirmation-disclosure').all()) {
+    await disclosure.locator('summary').click();assert.ok(await disclosure.locator('.wcm-confirmations').isVisible());
+    await disclosure.locator('summary').click();
+  }
   await page.setViewportSize({width:1280,height:800});
   await page.waitForFunction(()=>['.wcm-scroll-top','.wcm-scroll-bottom'].every(selector=>Math.abs(document.querySelector(selector).scrollWidth-document.querySelector('.wcm-table-scroll').scrollWidth)<=1));
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));

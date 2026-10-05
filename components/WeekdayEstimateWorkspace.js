@@ -723,16 +723,18 @@ export default function WeekdayEstimateWorkspace() {
         <button aria-expanded={toolsOpen} onClick={()=>setToolsOpen(value=>!value)}>업체·엑셀 연결 {toolsOpen?'접기':'펼치기'}</button>
       </div>
       <div role="status" style={{ marginTop:5, padding:'3px 6px', borderRadius:4, background:'#fff7df', color:'#624900' }}>{message}</div>
-      <div style={{fontSize:13,color:'#122033',marginTop:5}}>전산 현재값 = 저장된 조회값 · 파란 수량 = 미저장 초안 {activePlans.length}건 · 최초 기준 = 이 페이지의 불변 기록{plans.length>activePlans.length && ` · 다른 조회 범위 초안 ${plans.length-activePlans.length}건 보관 (이번 저장 제외)`}</div>
+      <details className="weekday-guidance"><summary>안내·작업 기준 펼치기</summary><div style={{fontSize:13,color:'#122033',marginTop:5}}>전산 현재값 = 저장된 조회값 · 파란 수량 = 미저장 초안 {activePlans.length}건 · 최초 기준 = 이 페이지의 불변 기록{plans.length>activePlans.length && ` · 다른 조회 범위 초안 ${plans.length-activePlans.length}건 보관 (이번 저장 제외)`}</div>
       <div style={{fontSize:12,color:'#624900',marginTop:3}}>작업 순서: 초안 편집 → 분배관리에서 ERP 상세/대상 차수 확정 확인 → ERP 저장. 최초 기준 확정은 별도 기록이며, 인쇄는 API가 메인차수 전체 확정을 검사합니다.</div>
+      </details>
       {applyError && <div role="alert" style={{color:'#9f1c16',fontSize:13,overflowWrap:'anywhere'}}>{applyError}</div>}
       {pendingApply && <div style={{fontSize:13,color:'#122033'}}>저장 결과 확인 대기 · 업체 {pendingApply.payload.custKey} · 작업 {pendingApply.payload.operationId} <button disabled={applyBusy} onClick={recheckErpSave}>{applyBusy?'확인 중…':'같은 작업 저장 상태 다시 조회'}</button></div>}
       {calendarError && <div role="alert" style={{color:'#b42318',marginTop:8}}>전산 달력: {calendarError}</div>}
       {defaultCalendarError && <div role="alert" style={{color:'#9f1c16',marginTop:8}}>중심 기본값: {defaultCalendarError}</div>}
-      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginTop:6,fontSize:14}}>
+      <details><summary>마감 잔량·이월 도구 펼치기</summary><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginTop:6,fontSize:14}}>
         <span role="status">{carryoverLoading?'마감 잔량·이월 조회 중…':'웹 전용 마감 잔량 · ERP 수량·재고·견적과 분리'}</span>
         <button type="button" style={{fontSize:14}} disabled={carryoverLoading || carryoverBusy || !customer?.CustKey || !/^\d{4}$/.test(year) || !/^\d{1,2}$/.test(majorWeek) || Number(majorWeek)<1 || Number(majorWeek)>53} onClick={refreshCarryover}>이월 새로고침</button>
       </div>
+      </details>
       {carryoverError && <div role="alert" style={{color:'#9f1c16',marginTop:6,fontSize:14}}>마감 잔량·이월: {carryoverError} · 이월 계산값을 표시하지 않았습니다.</div>}
       {customerError && <div role="alert" style={{color:'#b42318'}}>{customerError}</div>}
       {uploadError && <div role="alert" style={{color:'#b42318'}}>{uploadError}</div>}
