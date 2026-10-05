@@ -1,0 +1,17 @@
+{
+  "id":"china-order-download",
+  "title":"중국 주문등록 7차수 조회와 HF CODE 다운로드",
+  "scope":["pages/stats/china-order-download.js","pages/api/stats/china-order-download.js","lib/chinaOrderDownload.js","lib/chinaOrderDownloadApi.js","lib/chinaHfCodes.js","lib/chinaOrderWorkbook.js","data/china-hf-codes.json","components/Layout.js","__tests__/chinaOrderDownload.test.js","__tests__/chinaHfCodes.test.js","__tests__/chinaOrderDownloadApi.test.js","__tests__/chinaOrderWorkbook.test.js","__tests__/chinaOrderDownloadUi.test.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[
+    {"name":"CHINA_ORDER_READ","source":"PeriodDay native calendar and active Chinese ViewOrder.OutQuantity > 0; selected seven explicit year+major-week pairs; active Customer.OrderCode read by CustKey as custOrderCode, not ViewOrder.OrderCode/CustCode/internal key","orderDetail":"preserve","shipmentDetail":"preserve","warehouseDetail":"preserve","estimate":"preserve","stock":"preserve"},
+    {"name":"HF_BROWSER_UPLOAD","source":"explicit HF code column; exact product identity; only authenticated-user browser-local mapping","orderDetail":"preserve","shipmentDetail":"preserve","warehouseDetail":"preserve","estimate":"preserve","stock":"preserve"},
+    {"name":"CHINA_ORDER_XLSX","source":"same filtered read-only report model, immutable order quantities, customer CL code text and seven-cycle customer/product/unit matrix, original subweek details and mapping warnings; missing CL remains blank","orderDetail":"preserve","shipmentDetail":"preserve","warehouseDetail":"preserve","estimate":"preserve","stock":"preserve"}
+  ],
+  "criteriaLedger":{"viewport":"1920x1080 CSS pixels /100%","cycles":"previous3+center+next3 native PeriodDay weeks, no52-week assumption","quantity":"ViewOrder.OutQuantity, not Shipment or Box+Bunch+Steam sum","country":"exact 中国/중국 is not fuzzy; SQL CounName=N'중국'","mapping":"primary product key and code conflict checks; exact identity only; review catalogue suggestions never replace missing HF CODE","persistence":"bundled source seed + per authenticated-user localStorage upload only, not shared server persistence","units":"separate totals per unit, no mixed-unit grand sum","failure":"no stale/partial/failed/loading export"},
+  "crossYearFixture":{"required":true,"description":"Seven native cycles cross2025/2026 and2026/2027 withoutsame-major-year collision; every SQLORpair hasOrderYear andmajorprefix"},
+  "requiredTestFiles":["__tests__/chinaOrderDownload.test.js","__tests__/chinaHfCodes.test.js","__tests__/chinaOrderDownloadApi.test.js","__tests__/chinaOrderWorkbook.test.js","__tests__/chinaOrderDownloadUi.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/ChinaOrderDownload.md","source":"installed Nenova.exe FormQuantityPivot.GetData actual dnSpy.Console.exe read-only evidence; ClassCustomer.OrderCode verified by existing native customer evidence","methods":["FormQuantityPivot.GetData","FormQuantityPivot.btnExcel_Click"],"tables":["ViewOrder","OrderMaster","OrderDetail","Product","PeriodDay","Customer"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"],
+  "preserves":["OrderMaster","OrderDetail","OrderHistory","Product","ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentFarm","WarehouseMaster","WarehouseDetail","ProductStock","StockHistory","Estimate","WebProfitReport"]
+}

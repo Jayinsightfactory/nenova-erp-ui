@@ -125,6 +125,7 @@ export const MENU_ITEMS = [
       { href: '/stats/farm-week-board', labelKey: '차수별 농장표', popup: false },
       { href: '/stats/dutch-volume-board', labelKey: '네덜란드 물량표', popup: false },
       { href: '/stats/china-volume-board', labelKey: '자동 중국물량표', popup: true },
+      { href: '/stats/china-order-download', labelKey: '중국 발주 현황 다운로드', popup: true },
       { href: '/stats/pivot-import', labelKey: '수입부 Pivot', popup: true },
       { href: '/stats/pivot-import-farm-settings', labelKey: '수입부 농장 결제일 설정', popup: false },
       { href: '/stats/area',     labelKey: '지역별 판매 비교',popup: false },
