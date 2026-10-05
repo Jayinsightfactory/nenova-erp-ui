@@ -109,5 +109,9 @@ assert.equal((await invoke()).snapshotDigest,null,'ambiguous masters must not is
 masterFixture=[];assert.equal((await invoke()).snapshotDigest,null,'missing master must not issue a save digest');
 masterFixture=[master];detailFixture=[];
 const missingDetail=await invoke();assert.equal(missingDetail.state,'NO_SHIPMENT');assert.match(missingDetail.snapshotDigest,/^[0-9a-f]{64}$/);
+masterFixture=[];
+const missingMaster=await invoke();assert.equal(missingMaster.state,'NO_SHIPMENT');
+assert.match(missingMaster.snapshotDigest,/^[0-9a-f]{64}$/,'strict zero-master/zero-detail scope receives a server digest for explicit allocation');
+assert.equal(missingMaster.masterKnownAbsent,true);
 delete globalThis.__weekdayCompareFixture;
 console.log('weekdayEstimateCompare tests passed');

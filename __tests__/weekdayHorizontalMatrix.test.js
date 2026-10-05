@@ -77,6 +77,45 @@ assert.equal(duplicateBusinessDraft.subweek01.effectiveTotal,null,'duplicate dra
 const blockFor = (plans = [], comparisons = [actual()]) => build(cycles, plans, comparisons).rows[0].blocks[1];
 const rowFor = (plans = [], comparisons = [actual()]) => build(cycles, plans, comparisons).rows[0];
 
+const knownEmptyActual = suffix => actual({orderWeek:`38-${suffix}`,state:'NO_SHIPMENT',shipmentOutQuantity:null,
+  shipmentDates:[],detailRows:0});
+const knownEmptyRows = ['01','02'].map(knownEmptyActual);
+const emptyBlock = blockFor([],knownEmptyRows);
+assert.equal(emptyBlock.currentTotal,0,'fully proven empty business sources permit zero forecast basis');
+assert.equal(emptyBlock.days[3].knownEmpty,true);
+assert.equal(emptyBlock.days[3].current,null,'empty source is not relabelled as saved zero');
+assert.equal(emptyBlock.days[3].displayCurrent,null);
+const emptyProjection = blockFor([plan({date:'2026-09-20',quantity:12})],knownEmptyRows);
+assert.equal(emptyProjection.effectiveTotal,12);
+assert.equal(emptyProjection.subweek01.effectiveTotal,12);
+assert.equal(emptyProjection.remainderMajorView.value,null,'missing baseline cannot invent remainder');
+for(const patch of [{detailRows:undefined},{detailRows:[{detailKey:1}]},{shipmentDates:undefined},
+  {shipmentOutQuantity:undefined},{state:'ERROR'},{customerLinkError:'wrong customer'},
+  {outUnit:'unknown'}]) {
+  const block=blockFor([],knownEmptyRows.map(item=>({...item,...patch})));
+  assert.equal(block.days[3].knownEmpty,false,JSON.stringify(patch));
+  assert.equal(block.effectiveTotal,null,JSON.stringify(patch));
+}
+assert.equal(blockFor([],[actual(),...knownEmptyRows.map(item=>({...item,year:2025}))]).days[3].knownEmpty,false,
+  'prior-year empty SELECT never proves current scope');
+assert.equal(blockFor([],[knownEmptyActual('01'),knownEmptyActual('01')]).days[3].knownEmpty,false,
+  'duplicate business rows never prove one empty source');
+assert.equal(blockFor([],[knownEmptyActual('01'),knownEmptyActual('01')]).currentTotal,null);
+assert.equal(blockFor([],[knownEmptyActual('01')]).currentTotal,null,'missing -02 lookup cannot prove the full major cycle empty');
+assert.equal(blockFor([plan({quantity:12})],[knownEmptyActual('01')]).effectiveTotal,null,
+  'partial empty scope keeps whole-cycle forecast unknown');
+assert.equal(blockFor([],[knownEmptyActual('01')]).subweek01.currentTotal,0,'known subweek remains independently zero');
+const allocatedElsewhere=actual({state:'FIXED_REVIEW_REQUIRED',detailRows:1});
+assert.equal(blockFor([],[allocatedElsewhere]).days[3].knownEmpty,true,'a reconciled existing business source permits an empty new date');
+assert.equal(blockFor([],[allocatedElsewhere]).days[0].knownEmpty,false,'existing date remains actual rather than empty');
+for(const patch of [{detailRows:2},{state:'MIXED_FIX_REVIEW_REQUIRED'},{shipmentOutQuantity:5},
+  {shipmentDates:null},{shipmentDates:[{date:'2026-02-30',shipmentQuantity:4}]},
+  {shipmentDates:[{date:'2026-09-17',shipmentQuantity:null}]},
+  {shipmentDates:[{date:'2026-09-17',shipmentQuantity:2},{date:'2026-09-17',shipmentQuantity:2}]},
+  {customerLinkError:'mismatch'},{outUnit:'unknown'}]) {
+  assert.equal(blockFor([],[{...allocatedElsewhere,...patch}]).days[3].knownEmpty,false,JSON.stringify(patch));
+}
+
 // Eligibility filters the UI only; the raw matrix must retain every in-scope row/source.
 const noShipmentActual = (patch = {}) => actual({ state: 'NO_SHIPMENT', shipmentOutQuantity: null,
   shipmentDates: [], orderOutQuantity: 800, orderEstQuantity: 900, warehouseQuantity: 700, ...patch });
@@ -235,7 +274,7 @@ const html = renderToStaticMarkup(React.createElement(Component, {
 }));
 assert.equal((html.match(/<table(?:\s[^>]*)?>/g) || []).length, 1);
 assert.equal((html.match(/wcm-day-print/g) || []).length, 22, '21 day buttons plus CSS selector');
-assert.equal((html.match(/type="checkbox"/g) || []).length, 21);
+assert.equal((html.match(/type="checkbox"/g) || []).length, 22, '21 print selections plus visible unallocated toggle');
 assert.equal((html.match(/미적용 초안 수량"/g) || []).length, 21);
 assert.equal((html.match(/rowspan="3"/g) || []).length, 1);
 assert.equal((html.match(/colspan="18"/gi) || []).length, 3, 'each cycle spans all subweek, Wilson and major summary cells');
@@ -287,8 +326,9 @@ assert.doesNotMatch(allHiddenHtml, /ORDER_ONLY_HIDDEN|ZERO_SHIPMENT_HIDDEN/);
 assert.match(tableBody(renderMatrix({})), /조회된 품목 또는 초안이 없습니다\. 재고 0을 의미하지 않습니다\./);
 for (const fixture of eligibilityCases) {
   const markup = renderMatrix({ plans: fixture.plans || [], comparisonRows: fixture.comparisons });
-  assert.equal(tableBody(markup).includes('wcm-product-name'), fixture.visible, `${fixture.name}: actual component SSR visibility`);
-  assert.match(markup, fixture.visible ? /품목 1\/1 · 출고 없음 0개 숨김/ : /품목 0\/0 · 출고 없음 1개 숨김/);
+  const displayVisible=fixture.visible || !!fixture.plans?.length;
+  assert.equal(tableBody(markup).includes('wcm-product-name'), displayVisible, `${fixture.name}: actual component SSR visibility`);
+  assert.match(markup, displayVisible ? /품목 1\/1 · 출고 없음 0개 숨김/ : /품목 0\/0 · 출고 없음 1개 숨김/);
 }
 
 // Execute the real event handlers with a minimal deterministic hook host.
@@ -322,6 +362,39 @@ let edits = [];
 const cellHost = mount(eventModule.exports.QuantityCell, { row: legacyRow, block: legacyBlock,
   day: legacyBlock.days[0], disabled: false, onSelect: () => {}, onEditCell: (payload) => { edits.push(payload); } });
 const inputFor = (host) => descendants(host.render()).find((element) => element.type === 'input');
+const unallocatedEdits=[];
+const unallocatedCell=mount(eventModule.exports.QuantityCell,{row:rowFor([],knownEmptyRows),block:emptyBlock,
+  day:emptyBlock.days[3],disabled:false,onSelect(){},onEditCell(payload){unallocatedEdits.push(payload);}});
+assert.equal(inputFor(unallocatedCell).props.value,'','empty is blank rather than saved zero');
+assert.equal(inputFor(unallocatedCell).props.disabled,false);
+inputFor(unallocatedCell).props.onChange({target:{value:'12'}});
+await inputFor(unallocatedCell).props.onBlur();
+assert.equal(unallocatedEdits[0].quantity,12);
+assert.equal(unallocatedEdits[0].orderWeek,'38-01');
+const unallocatedHost=mount(eventModule.exports.default,{cycles,comparisonRows:knownEmptyRows,customer:{CustKey:7},onEditCell(){}});
+const unallocatedElements=()=>descendants(unallocatedHost.render());
+assert.equal(unallocatedElements().filter(element=>element.props?.className==='wcm-product-name').length,0);
+unallocatedElements().find(element=>element.props?.['aria-label']==='미분배 품목 표시').props.onChange({target:{checked:true}});
+assert.equal(unallocatedElements().filter(element=>element.props?.className==='wcm-product-name').length,1,
+  'always-visible toggle reveals queried unallocated product without fake order/draft');
+const selectedEmptyGeneral=unallocatedElements().find(element=>element.type?.name==='QuantityCell'
+  && element.props.day.date==='2026-09-20');
+assert.equal(selectedEmptyGeneral.props.day.editDisabledReason,'','selected Wilson weekday permits general quantity from proven empty total');
+assert.equal(selectedEmptyGeneral.props.day.current,null,'general quantity retains blank saved state');
+const selectedEmptyWilson=unallocatedElements().find(element=>element.type?.name==='WilsonCell'
+  && element.props.day.date==='2026-09-20');
+assert.equal(selectedEmptyWilson.props.split.total,0,'proven empty is usable only as proposal arithmetic');
+assert.equal(selectedEmptyWilson.props.split.savedTotal,null,'classification cannot treat empty as a saved zero');
+const allocatedHost=mount(eventModule.exports.default,{cycles,comparisonRows:[allocatedElsewhere],customer:{CustKey:7},onEditCell(){}});
+const allocatedSunday=descendants(allocatedHost.render()).find(element=>element.type?.name==='QuantityCell'
+  && element.props.day.date==='2026-09-20');
+assert.equal(allocatedSunday.props.day.editDisabledReason,'','existing Thursday allocation does not block empty Sunday proposal');
+const unknownSundayHost=mount(eventModule.exports.default,{cycles,comparisonRows:[{...allocatedElsewhere,shipmentOutQuantity:5}],customer:{CustKey:7},onEditCell(){}});
+const unknownSunday=descendants(unknownSundayHost.render()).find(element=>element.type?.name==='QuantityCell'
+  && element.props.day.date==='2026-09-20');
+assert.ok(unknownSunday.props.day.editDisabledReason,'unreconciled source never turns null into usable zero');
+const zeroDraftMarkup=renderMatrix({comparisonRows:knownEmptyRows,plans:[plan({quantity:0})]});
+assert.match(tableBody(zeroDraftMarkup),/wcm-product-name/,'explicit zero draft remains visible after storage recovery');
 inputFor(cellHost).props.onChange({ target: { value: '0' } });
 await inputFor(cellHost).props.onBlur();
 assert.equal(edits.length, 1);
@@ -363,7 +436,8 @@ const printButton = (label) => descendants(mainHost.render()).find((element) => 
 await printButton('38차 목 견적 출력').props.onClick();
 assert.deepEqual(printRequests[0], { cycle: cycles[1], dates: ['2026-09-17'], mode: 'dates' });
 assert.deepEqual(Object.keys(printRequests[0]).sort(), ['cycle', 'dates', 'mode'], 'drafts are never supplied to printer');
-const checkboxes = descendants(mainHost.render()).filter((element) => element.type === 'input' && element.props.type === 'checkbox');
+const checkboxes = descendants(mainHost.render()).filter((element) => element.type === 'input' && element.props.type === 'checkbox'
+  && element.props['aria-label'] !== '미분배 품목 표시');
 checkboxes[7].props.onChange({ target: { checked: true } });
 checkboxes[9].props.onChange({ target: { checked: true } });
 await descendants(mainHost.render()).find((element) => element.props?.label === '선택요일 출력 (2)').props.onClick();

@@ -39,3 +39,24 @@ test('EXE 마지막 순서는 일요일이 아니라 가장 큰 WeekDay 양수�
   const mismatch=new Map(calendar);mismatch.set(rows[1].date,{timestamp:'2026-10-03 00:00:00.000',weekDay:7});
   assert.throws(()=>exeWeekdayRepresentativeTimestamp(rows,mismatch),/달력/);
 });
+
+test('명시 ALLOCATION은 확정 상태를 승격하지 않고 알려진 미확정과 신규 분배를 허용한다',()=>{
+  const mode={mode:'ALLOCATION'};
+  for(const fixed of [true,false,1,0]) {
+    const source={detailRows:1,detail:{DetailIsFix:fixed},master:{MasterIsFix:false}};
+    const original=JSON.stringify(source);
+    assert.equal(weekdaySaveEligibility(source,mode).allowed,true);
+    assert.equal(JSON.stringify(source),original,'eligibility never changes source confirmation');
+    assert.equal(weekdaySaveEligibility({detailRows:0,master:{MasterIsFix:fixed}},mode).allowed,true);
+  }
+  assert.equal(weekdaySaveEligibility({detailRows:0,master:null},mode).allowed,true,'locked known master absence permits native creation');
+  for(const fixed of [null,undefined,'mixed','false','1']) {
+    assert.equal(weekdaySaveEligibility({detailRows:1,fixed},mode).allowed,false);
+    assert.equal(weekdaySaveEligibility({detailRows:0,masterFixed:fixed},mode).allowed,false);
+  }
+  for(const source of [{detailRows:2,fixed:false},{detailRows:'0',master:null},
+    {detailRows:0},{detailRows:1,fixed:false,customerLinkError:'mismatch'}]) {
+    assert.equal(weekdaySaveEligibility(source,mode).allowed,false);
+  }
+  assert.equal(weekdaySaveEligibility({detailRows:1,fixed:true},{mode:'UNKNOWN'}).allowed,false);
+});

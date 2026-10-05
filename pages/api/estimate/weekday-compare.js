@@ -149,12 +149,13 @@ export default withAuth(async function handler(req, res) {
       const product = productMap.get(prodKey);
       const customerLinkError = detailRows.some(row=>!weekdayDetailCustomerMatchesMaster(row.DetailCustKey,scope.custKey))
         ? '상세에 명시된 거래처 키가 상위 출고 거래처와 다릅니다. 저장 전 연결을 확인하세요.' : '';
-      const writeShapeSafe = masterRows.length === 1 && detailRows.length <= 1 && Boolean(product) && !customerLinkError;
+      const writeShapeSafe = masterRows.length <= 1 && detailRows.length <= 1 && Boolean(product) && !customerLinkError
+        && (masterRows.length === 1 || detailRows.length === 0);
       const actual = writeShapeSafe ? {
         detailRows: detailRows.length,
         shipmentOutQuantity: detailRows.length ? Number(detailRows[0].OutQuantity) : null,
         shipmentDates: dates.get(key) || [],
-        master: masterRows[0],
+        master: masterRows[0] || null,
         detail: detailRows.length ? {...detailRows[0],CustKey:detailRows[0].DetailCustKey} : null,
         product,
       } : null;
@@ -167,6 +168,7 @@ export default withAuth(async function handler(req, res) {
         shipmentOutQuantity: shipment?.ShipmentOutQuantity ?? null,
         fixed: shipment ? (Number(shipment.MinFixed) === Number(shipment.MaxFixed) ? Number(shipment.MaxFixed) === 1 : 'mixed') : null,
         masterFixed: masterRows.length === 1 ? (masterRows[0].MasterIsFix === true || masterRows[0].MasterIsFix === 1) : null,
+        masterKnownAbsent: masterRows.length === 0 && Boolean(snapshotDigest),
         prodName: product?.ProdName || null,
         flowerName: product?.FlowerName || null,
         countryName: product?.CounName || null,

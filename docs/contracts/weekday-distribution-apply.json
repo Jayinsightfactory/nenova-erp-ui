@@ -2,21 +2,31 @@
   "id": "weekday-distribution-apply",
   "title": "주광 요일별 실제 분배·출고일 원자 저장",
   "scope": [
-    "lib/weekdayCustomerLink.js", "__tests__/weekdayCustomerLink.test.js",
+    "lib/weekdayCustomerLink.js",
+    "__tests__/weekdayCustomerLink.test.js",
     "docs/plans/weekday-native-customer-read-2026-10-02.md",
-    "lib/weekdayErpCompatibility.js", "__tests__/weekdayErpCompatibility.test.js",
+    "lib/weekdayErpCompatibility.js",
+    "__tests__/weekdayErpCompatibility.test.js",
     "docs/plans/weekday-exe-compatibility-2026-10-02.md",
-    "lib/weekdayDistributionApply.js", "lib/weekdayDistributionPolicy.js",
-    "lib/weekdayDistributionClient.js", "components/WeekdayEstimateWorkspace.js",
-    "components/WeekdayCycleMatrix.js", "pages/api/estimate/weekday-apply.js",
+    "lib/weekdayDistributionApply.js",
+    "lib/weekdayDistributionPolicy.js",
+    "lib/weekdayDistributionClient.js",
+    "components/WeekdayEstimateWorkspace.js",
+    "components/WeekdayCycleMatrix.js",
+    "pages/api/estimate/weekday-apply.js",
     "pages/api/estimate/weekday-changes.js",
-    "pages/api/estimate/weekday-compare.js", "lib/estimateOverflow.js", "lib/safeNextKey.js",
-    "pages/api/shipment/adjust.js", "pages/api/shipment/distribute.js",
-    "pages/api/shipment/stock-status.js", "lib/shipmentImport.js",
+    "pages/api/estimate/weekday-compare.js",
+    "lib/estimateOverflow.js",
+    "lib/safeNextKey.js",
+    "pages/api/shipment/adjust.js",
+    "pages/api/shipment/distribute.js",
+    "pages/api/shipment/stock-status.js",
+    "lib/shipmentImport.js",
     "__tests__/shipmentDetailKeyPreservation.test.js",
     "__tests__/weekdayEstimateCompare.test.js",
     "scripts/test-weekday-distribution-adversarial-sql.cjs",
-    "lib/weekdayEstimatePrintBundle.js", "__tests__/weekdayEstimatePrintBundle.test.js",
+    "lib/weekdayEstimatePrintBundle.js",
+    "__tests__/weekdayEstimatePrintBundle.test.js",
     "docs/migrations/2026-10-01_weekday_distribution_audit.sql",
     "docs/plans/weekday-erp-apply-2026-10-01.md",
     "__tests__/weekdayDistributionPolicy.test.js",
@@ -26,27 +36,183 @@
     "scripts/weekday-apply-browser-smoke.mjs",
     "__tests__/weekdayDistributionMigration.test.js",
     "scripts/test-weekday-distribution-sql.cjs",
-    "scripts/probe-weekday-calendar-timestamp.mjs"
+    "scripts/probe-weekday-calendar-timestamp.mjs",
+    "docs/plans/weekday-preallocation-drafts-2026-10-05.md",
+    "lib/weekdayAllocation.js",
+    "__tests__/weekdayAllocation.test.js",
+    "__tests__/weekdayMetadataOnly.test.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "nativeCustomerLink": "Locked Master is the customer authority. Allow native raw detail CustKey NULL through the shared helper while preserving the raw NULL in digests/readback and existing UPDATE. Explicit zero/other non-NULL key and all fix/date/money/stock/stale/atomic rollback checks remain blocked.",
   "calendarTimestampContract": {
     "source": "PeriodDay.BaseYmd (운영 nvarchar) and ShipmentDate.ShipmentDtm (datetime), EXE exact datetime join",
     "serialization": "Convert BaseYmd explicitly to SQL datetime with style 121 before nvarchar(23) style 121; never compare date-only truncations or use JS timezone coercion",
-    "preserve": ["exact time equality", "unique calendar day", "selected-year major-week Thursday anchor", "seven-day business scope", "atomic revalidation and rollback"],
+    "preserve": [
+      "exact time equality",
+      "unique calendar day",
+      "selected-year major-week Thursday anchor",
+      "seven-day business scope",
+      "atomic revalidation and rollback"
+    ],
     "positiveFixture": "nvarchar date-only BaseYmd and datetime midnight shipment support same-total 20 to 15 plus 5 day move",
-    "nearMissFixtures": ["different time on same date", "missing or duplicate calendar", "date outside cycle", "prior-year same-week sentinel"]
+    "nearMissFixtures": [
+      "different time on same date",
+      "missing or duplicate calendar",
+      "date outside cycle",
+      "prior-year same-week sentinel"
+    ]
   },
   "actions": [
-    {"name":"DRAFT_EDIT", "orderDetail":"preserve", "shipmentDetail":"preserve", "shipmentDate":"preserve", "stock":"preserve", "rule":"초안은 명시 ERP 저장 전 원장을 변경하지 않는다. 저장 전 인쇄와 저장 확정본을 구분한다."},
-    {"name":"SAVE_EXISTING_DAY_QUANTITY", "orderDetail":"preserve", "shipmentDetail":"set-final-nonnegative", "shipmentDate":"update-insert-delete-explicit-days-only", "shipmentFarm":"preserve-except-zero-detail-purge", "warehouse":"preserve", "estimate":"preserve", "webProfitReport":"preserve", "stock":"fixed old-new Product.Stock/StockHistory and product-scoped native cascade; unfixed save rejected", "rule":"공유 weekdaySaveEligibility로 잠긴 상세 isFix=1을 필수 검사한다. 임의 확정 해제/재확정 없음. 대표 출고일도 digest에 포함하고 EXE day1..7 순서의 마지막 양수 PeriodDay 정확 timestamp로 함께 저장/readback한다. 잠긴 실제 방향·완전한 expected snapshot·단위 검증. 모든 변경과 감사는 같은 transaction."},
-    {"name":"MOVE_DAYS_AND_BUSINESS_WEEKS", "orderDetail":"preserve", "shipmentDetail":"set-final-nonnegative", "shipmentDate":"atomic-source-and-target-exact-calendar", "warehouse":"preserve-no-reallocation", "estimate":"preserve", "stock":"actual-fixed-directional-effects-and-native-cascade", "rule":"복수 상세/모호한 단가/날짜/연도는 임의 합산이나 추정 없이 차단. 미지원 신규 대상은 성공으로 처리하지 않는다."},
-    {"name":"OPERATION_REPLAY", "orderDetail":"preserve", "shipmentDetail":"preserve", "shipmentDate":"preserve", "stock":"preserve", "rule":"동일 UUID+사용자+payload hash의 committed 결과만 반환한다. 다른 payload 재사용은409. 응답불명은 status조회만 하며 신규UUID 자동재시도 금지."},
-    {"name":"READ_AUDIT_AND_PRINT", "orderDetail":"preserve", "shipmentDetail":"preserve", "shipmentDate":"preserve", "stock":"preserve", "rule":"연도·차수·업체별 영속 before/after와 사용자·사유 조회. 인쇄는 공통 EXE-compatible 저장 확정본 SQL/HTML. 최초 snapshot은 변경하지 않는다."},
-    {"name":"RESERVE_HISTORY_SAFE_DETAIL_KEY", "orderDetail":"preserve", "shipmentDetail":"preserve", "shipmentDate":"preserve", "shipmentHistory":"read-preserve", "keyNumbering":"reserve-monotonic-next-detail-key-in-existing-transaction", "stock":"preserve", "rule":"주광 완전 취소 후 기존 adjust/distribute/stock-status/import 메뉴도 같은 ShipmentDetail/SdetailKey 전용 allocator로 위임한다. 활성 상세·잔존 이력·KeyNumbering 세 상한보다 큰 키를 사용한다. 다른 테이블 채번과 각 메뉴 주문·분배·확정 정책은 변경하지 않는다."}
+    {
+      "name": "DRAFT_EDIT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "stock": "preserve",
+      "rule": "초안은 명시 ERP 저장 전 원장을 변경하지 않는다. 저장 전 인쇄와 저장 확정본을 구분한다."
+    },
+    {
+      "name": "SAVE_EXISTING_DAY_QUANTITY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentDate": "update-insert-delete-explicit-days-only",
+      "shipmentFarm": "preserve-except-zero-detail-purge",
+      "warehouse": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "stock": "fixed old-new Product.Stock/StockHistory and product-scoped native cascade; unfixed save rejected",
+      "rule": "공유 weekdaySaveEligibility로 잠긴 상세 isFix=1을 필수 검사한다. 임의 확정 해제/재확정 없음. 대표 출고일도 digest에 포함하고 EXE day1..7 순서의 마지막 양수 PeriodDay 정확 timestamp로 함께 저장/readback한다. 잠긴 실제 방향·완전한 expected snapshot·단위 검증. 모든 변경과 감사는 같은 transaction."
+    },
+    {
+      "name": "MOVE_DAYS_AND_BUSINESS_WEEKS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentDate": "atomic-source-and-target-exact-calendar",
+      "warehouse": "preserve-no-reallocation",
+      "estimate": "preserve",
+      "stock": "actual-fixed-directional-effects-and-native-cascade",
+      "rule": "복수 상세/모호한 단가/날짜/연도는 임의 합산이나 추정 없이 차단. 미지원 신규 대상은 성공으로 처리하지 않는다."
+    },
+    {
+      "name": "OPERATION_REPLAY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "stock": "preserve",
+      "rule": "동일 UUID+사용자+payload hash의 committed 결과만 반환한다. 다른 payload 재사용은409. 응답불명은 status조회만 하며 신규UUID 자동재시도 금지."
+    },
+    {
+      "name": "READ_AUDIT_AND_PRINT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "stock": "preserve",
+      "rule": "연도·차수·업체별 영속 before/after와 사용자·사유 조회. 인쇄는 공통 EXE-compatible 저장 확정본 SQL/HTML. 최초 snapshot은 변경하지 않는다."
+    },
+    {
+      "name": "RESERVE_HISTORY_SAFE_DETAIL_KEY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "shipmentHistory": "read-preserve",
+      "keyNumbering": "reserve-monotonic-next-detail-key-in-existing-transaction",
+      "stock": "preserve",
+      "rule": "주광 완전 취소 후 기존 adjust/distribute/stock-status/import 메뉴도 같은 ShipmentDetail/SdetailKey 전용 allocator로 위임한다. 활성 상세·잔존 이력·KeyNumbering 세 상한보다 큰 키를 사용한다. 다른 테이블 채번과 각 메뉴 주문·분배·확정 정책은 변경하지 않는다."
+    },
+    {
+      "name": "APPLY_ALLOCATION_FINAL_QUANTITIES",
+      "mode": "ALLOCATION",
+      "orderDetail": "create-positive",
+      "shipmentMaster": "create missing exact-scope master unfixed; preserve existing confirmation",
+      "shipmentDetail": "set-final-nonnegative",
+      "shipmentDate": "preserve untouched dates; explicit exact-calendar final values",
+      "shipmentFarm": "preserve except native zero-detail purge",
+      "stock": "existing fixed direction and native recalculation; unfixed no confirmed stock mutation, positive availability gate remains",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "customerProdCost": "read unique native price for new detail only; duplicate blocks",
+      "rule": "100 to120 means delta20; reapply120 is no-op. User explicitly requested direct new allocation then final allocation editing. No auto-confirmation. Missing-master absence receives full server snapshot digest and is revalidated under transaction locks; ambiguous scope remains blocked.",
+      "orderPolicy": "ADD with active same-year order preserves it; ADD without active order creates positive order only; CANCEL preserves",
+      "quantityPolicy": "absolute final quantity; preserve existing isFix, new detail isFix0"
+    }
   ],
-  "crossYearFixture": {"required":true,"description":"2025/2026 동일 세부차수·업체·품목 sentinel을 두고 2026 대상만 변경한다. 다차수 작업의 각 항목은 명시 연도와 정확한 PeriodDay를 재검증한다."},
-  "requiredTestFiles": ["__tests__/weekdayErpCompatibility.test.js", "__tests__/weekdayDistributionPolicy.test.js", "__tests__/weekdayDistributionApply.test.js", "__tests__/weekdayDistributionClient.test.js", "__tests__/weekdayDistributionMigration.test.js", "__tests__/shipmentDetailKeyPreservation.test.js", "__tests__/weekdayEstimateCompare.test.js", "__tests__/weekdayEstimatePrintBundle.test.js", "__tests__/weekdayEstimatePrint.test.js", "__tests__/weekdayInitialBaseline.test.js", "__tests__/erpContractManifest.test.js"],
-  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs; C:\\Users\\USER\\nenova-decompiled\\Nenova\\ClassShipmentDate.cs", "methods":["btnSave_Click","ShipmentQuantityToEstQuantity","ClassShipmentDate.Insert","ClassShipmentDate.UpdateCost"], "tables":["ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentHistory","PeriodDay","ProductStock","StockHistory"]},
-  "requiredCommands":["npm run test:erp-contract","npm run test:weekday-distribution-sql","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from HEAD^","npm run build"]
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 동일 세부차수·업체·품목 sentinel을 두고 2026 대상만 변경한다. 다차수 작업의 각 항목은 명시 연도와 정확한 PeriodDay를 재검증한다."
+  },
+  "requiredTestFiles": [
+    "__tests__/weekdayErpCompatibility.test.js",
+    "__tests__/weekdayDistributionPolicy.test.js",
+    "__tests__/weekdayDistributionApply.test.js",
+    "__tests__/weekdayDistributionClient.test.js",
+    "__tests__/weekdayDistributionMigration.test.js",
+    "__tests__/shipmentDetailKeyPreservation.test.js",
+    "__tests__/weekdayEstimateCompare.test.js",
+    "__tests__/weekdayEstimatePrintBundle.test.js",
+    "__tests__/weekdayEstimatePrint.test.js",
+    "__tests__/weekdayInitialBaseline.test.js",
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/weekdayAllocation.test.js",
+    "__tests__/weekdayMetadataOnly.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs; C:\\Users\\USER\\nenova-decompiled\\Nenova\\ClassShipmentDate.cs",
+    "methods": [
+      "btnSave_Click",
+      "ShipmentQuantityToEstQuantity",
+      "ClassShipmentDate.Insert",
+      "ClassShipmentDate.UpdateCost"
+    ],
+    "tables": [
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "ShipmentHistory",
+      "PeriodDay",
+      "ProductStock",
+      "StockHistory"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:weekday-distribution-sql",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ],
+  "allocationMode": {
+    "default": "omitted mode retains legacy fixed-only eligibility and historical request hash",
+    "explicit": "ALLOCATION",
+    "identity": [
+      "OrderYear",
+      "OrderWeek",
+      "CustKey",
+      "ProdKey"
+    ],
+    "newPrice": "unique CustomerProdCost Cost or native absent0; preserve existing physical prices",
+    "transaction": "gate, lease, complete snapshot, absolute dates, native unit conversion, stock, before/after audit and UUID atomically",
+    "positiveFixtures": [
+      "unallocated pre-enter then create unfixed allocation",
+      "allocated100 to120 delta20",
+      "repeat final120 no extra",
+      "existing unfixed modifies without confirming",
+      "no active current-year order positive ADD creates positive order"
+    ],
+    "nearMissFixtures": [
+      "prior-year same-week",
+      "duplicate price",
+      "duplicate master/detail",
+      "stale snapshot or external price/date/unit change",
+      "unsupported conversion",
+      "negative-stock fixed change rollback",
+      "UUID reused with different mode"
+    ]
+  }
 }
