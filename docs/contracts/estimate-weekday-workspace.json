@@ -72,7 +72,11 @@
     "__tests__/weekdayWilson.test.js",
     "__tests__/weekdayWilsonClient.test.js",
     "docs/plans/weekday-wilson-subweek-2026-10-05.md",
-    "docs/plans/weekday-compact-density-2026-10-05.md"
+    "docs/plans/weekday-compact-density-2026-10-05.md",
+    "lib/weekdayDraftStorage.js",
+    "__tests__/weekdayDraftStorage.test.js",
+    "docs/plans/weekday-preallocation-drafts-2026-10-05.md",
+    "__tests__/weekdayMetadataOnly.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -281,7 +285,9 @@
     "__tests__/estimatePrintContract.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/weekdayWilson.test.js",
-    "__tests__/weekdayWilsonClient.test.js"
+    "__tests__/weekdayWilsonClient.test.js",
+    "__tests__/weekdayDraftStorage.test.js",
+    "__tests__/weekdayMetadataOnly.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -375,5 +381,38 @@
     ],
     "defaultDay": "일",
     "persistence": "data/runtime/weekday-wilson"
+  },
+  "preallocationDrafts": {
+    "identity": [
+      "authenticatedUserId",
+      "CustKey",
+      "OrderYear",
+      "actualOrderWeek",
+      "ProdKey",
+      "date",
+      "unit",
+      "draftScope"
+    ],
+    "storage": "user scoped browser localStorage; explicit input-only save, restore never writes ERP",
+    "knownEmpty": "same-key validated NO_SHIPMENT,detailRows0,shipmentOutQuantity null,shipmentDates empty",
+    "actions": {
+      "input": "preserve ERP and metadata files; canonical general+Wilson draft",
+      "store": "browser only; failure retains input",
+      "apply": "explicit ALLOCATION mode; final absolute day quantities, delta only; new allocation and existing unfixed allowed; confirmation flags preserved; audited UUID/latest snapshots and stock guards",
+      "classification": "explicit existing classification action only",
+      "metadataOnly": "explicit confirmation, fresh canonical ERP total+unit+snapshot and Wilson revision; preserve ERP, keep browser inputs on partial failure; recheck authenticated owner before every write"
+    },
+    "nearMissFixtures": [
+      "other user",
+      "cross-year same week",
+      "different customer",
+      "unknown null",
+      "mixed units",
+      "duplicate dates",
+      "storage failure",
+      "corrupt envelope",
+      "pending UUID restore priority",
+      "new upload preserves drafts"
+    ]
   }
 }

@@ -25,7 +25,7 @@ const mixed=structuredClone(current);mixed[1].outUnit='박스';assert.equal(get(
 const unknown=structuredClone(current);unknown[0].shipmentDates[0].shipmentQuantity=null;assert.equal(get(unknown).remainingMajor,null);
 const invalidDate=structuredClone(current);invalidDate[0].shipmentDates[0].date='2026-02-30';assert.equal(get(invalidDate).remainingMajor,null);
 const over=[actual('01',100,[['2026-09-17',100]]),actual('02',0,[])];assert.equal(get(over).remaining01,-52);assert.equal(get(over).remainingMajor,-20,'excess isnegative never clamp0');
-const cancelled=['01','02'].map(suffix=>({...actual(suffix,0,[]),state:'NO_SHIPMENT',shipmentOutQuantity:null}));
+const cancelled=['01','02'].map(suffix=>({...actual(suffix,0,[]),state:'NO_SHIPMENT',detailRows:0,shipmentOutQuantity:null}));
 const cancelledMatrix=build([cycle],[],cancelled,bases);block=cancelledMatrix.rows[0].blocks[0];
 assert.equal(block.currentTotal,0);assert.equal(block.remainingMajor,80);assert.equal(block.initialChange,-80);assert.ok(visible(cancelledMatrix.rows[0]),'initial positive retains cancelled row');
 for(const outUnit of ['박스',null,'mystery']) {

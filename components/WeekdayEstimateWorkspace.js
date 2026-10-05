@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import WeekdayCycleMatrix from './WeekdayCycleMatrix';
+import { readWeekdayStoredInputs, saveWeekdayScopedInputs, mergeWeekdayStoredInputs,
+  clearWeekdayStoredSubmission, weekdayInputStorageKey } from '../lib/weekdayDraftStorage.js';
 import { wilsonRecordKey, wilsonWriteInput, wilsonPendingAfterSave, validateWilsonWriteResponse } from '../lib/weekdayWilsonClient.js';
 import { locateShippingDay } from '../lib/weekdayEstimateCycle.js';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
@@ -44,6 +46,13 @@ export default function WeekdayEstimateWorkspace() {
   const [productNames, setProductNames] = useState({});
   const [unit, setUnit] = useState('확인 필요');
   const [plans, setPlans] = useState([]);
+  const [inputUser, setInputUser] = useState('');
+  const [inputLoaded, setInputLoaded] = useState(false);
+  const [storedInputs, setStoredInputs] = useState(null);
+  const [inputStorageError, setInputStorageError] = useState('');
+  const inputsRef = useRef({ plans: [], wilsonDrafts: [] });
+  const wilsonRecoveryKey = inputUser ? `weekday-pending-wilson:${encodeURIComponent(inputUser)}` : null;
+  const freshCompareRows = useRef(null);
   const [compareRows, setCompareRows] = useState(null);
   const [baselines, setBaselines] = useState([]);
   const [baselineCandidates, setBaselineCandidates] = useState([]);
@@ -99,7 +108,14 @@ export default function WeekdayEstimateWorkspace() {
   const currentScope = useRef(scopeKey);
   currentScope.current = scopeKey;
   const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
-  const editLocked = applyBusy || Boolean(pendingApply) || Boolean(applyPreview) || recoveryBlocked || wilsonBusy;
+  const activeWilsonInputs = wilsonDrafts.filter(record => record.scopeKey === scopeKey && activePlans.some(plan =>
+    Number(plan.year) === record.year && Number(plan.prodKey) === record.prodKey && plan.date === record.date
+    && plan.orderWeek === record.orderWeek && Number(plan.quantity) === record.expectedTotal));
+  inputsRef.current = { plans, wilsonDrafts };
+  const storedScopeInputs = { plans: (storedInputs?.plans || []).filter(plan => plan.draftScope === scopeKey),
+    wilsonDrafts: (storedInputs?.wilsonDrafts || []).filter(record => record.scopeKey === scopeKey) };
+  const inputDirty = JSON.stringify({ plans: activePlans, wilsonDrafts: activeWilsonInputs }) !== JSON.stringify(storedScopeInputs);
+  const editLocked = !inputLoaded || !inputUser || applyBusy || Boolean(pendingApply) || Boolean(applyPreview) || recoveryBlocked || wilsonBusy;
   const [toolsOpen,setToolsOpen] = useState(false);
   const [printPreview,setPrintPreview] = useState(null);
   const [printBusy,setPrintBusy] = useState(false);
@@ -120,6 +136,44 @@ export default function WeekdayEstimateWorkspace() {
   const sourceRows = useMemo(() => (parsed?.sheets || []).flatMap((sheet) => (sheet.rows || [])
     .filter((row) => row.section && row.label && !row.isHeaderRow && (row.cells || []).some((cell) => cell.column === 'B' && cell.raw === row.label))
     .map((row) => ({ ...row, sheet: sheet.name, quantityCells: candidateCells(row) }))), [parsed]);
+
+  useEffect(() => {
+    let alive = true;
+    apiGet('/api/auth/me').then(result => {
+      const userId = result?.success === true ? result.user?.userId : null;
+      weekdayInputStorageKey(userId);
+      if (!alive) return;
+      setInputUser(userId);
+      try {
+        const saved = readWeekdayStoredInputs(localStorage, userId);
+        const merged = mergeWeekdayStoredInputs(inputsRef.current, saved, pendingOperation.current);
+        setPlans(merged.plans); setWilsonDrafts(merged.wilsonDrafts); setStoredInputs(saved);
+        if (saved.plans.length) setMessage(`보관 입력 ${saved.plans.length}건을 복구했습니다. ERP 적용 전에 최신 전산값을 다시 확인합니다.`);
+      } catch (error) { setInputStorageError(error.message); }
+      setInputLoaded(true);
+    }).catch(error => { if (alive) { setInputStorageError(`입력 보관 사용자 확인 실패: ${error.message}`); setInputLoaded(true); } });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (inputLoaded && customer?.CustKey && cycles.length) refreshErp();
+  }, [inputLoaded]);
+  useEffect(() => {
+    if (pendingApply?.payload?.operationId && inputLoaded && customer?.CustKey && cycles.length) refreshErp();
+  }, [pendingApply?.payload?.operationId]);
+
+  async function saveInputOnly() {
+    if (!inputLoaded || !inputUser || editLocked || busy || !customer?.CustKey) return;
+    const requestedScope = scopeKey;
+    try {
+      const authenticated = await apiGet('/api/auth/me');
+      if (authenticated?.success !== true || authenticated.user?.userId !== inputUser) throw new Error('로그인 사용자가 변경되었습니다. 새로고침 후 입력을 확인하세요.');
+      if (requestedScope !== currentScope.current) throw new Error('조회 범위가 변경되었습니다. 현재 범위에서 입력만 저장을 다시 누르세요.');
+      const saved = saveWeekdayScopedInputs(localStorage, inputUser, scopeKey, activePlans, activeWilsonInputs, storedScopeInputs);
+      setStoredInputs(saved); setInputStorageError('');
+      setMessage(`입력 ${activePlans.length}건을 이 브라우저에 보관했습니다. 분배·견적·재고는 변경되지 않았습니다.`);
+    } catch (error) { setInputStorageError(`입력 보관 실패: ${error.message} · 현재 입력을 유지합니다.`); }
+  }
 
   useEffect(()=>{
     setApplyPreview(null);setApplyError('');setSavedHistory([]);setHistoryError('');
@@ -146,12 +200,15 @@ export default function WeekdayEstimateWorkspace() {
   useEffect(()=>{setApplyPreview(null);printRequest.current+=1;uploadRequest.current+=1;setPrintPreview(null);},[scopeKey]);
 
   useEffect(()=>{
-    try {const saved=JSON.parse(sessionStorage.getItem('weekday-pending-wilson') || '[]');
+    if (!inputUser) return;
+    try {const saved=JSON.parse(sessionStorage.getItem(wilsonRecoveryKey) || '[]');
       if(!Array.isArray(saved)) throw new Error();
       setWilsonPending(saved);
       if(saved.length) setWilsonError('ERP 재저장 없이 윌슨 구분값 저장 결과를 확인하세요.');
+      if (!saved.length && sessionStorage.getItem('weekday-pending-wilson') && sessionStorage.getItem('weekday-pending-wilson') !== '[]')
+        setWilsonError('이전 윌슨 복구 기록은 사용자 식별이 없어 자동 복구하지 않았습니다. 원본 기록은 보존됩니다.');
     } catch {setWilsonError('윌슨 복구 기록을 읽을 수 없습니다. 구분값을 확인하세요.');}
-  },[]);
+  },[inputUser]);
 
   useEffect(() => {
     const request = ++defaultCalendarRequest.current;
@@ -187,17 +244,20 @@ export default function WeekdayEstimateWorkspace() {
   }, [Boolean(carryoverForm)]);
 
   useEffect(()=>{
+    if (!inputUser) return;
     try {
       const saved=JSON.parse(sessionStorage.getItem('weekday-pending-erp-operation') || 'null');
       if(saved && (!saved.payload?.operationId || !Array.isArray(saved.submitted) || !saved.scopeKey)) throw new Error('저장 작업 식별 정보가 불완전합니다.');
       if(saved?.payload?.operationId && saved?.submitted && saved?.scopeKey) {
+        const merged = mergeWeekdayStoredInputs(inputsRef.current, { userId: inputUser, plans: [], wilsonDrafts: [] }, saved);
         pendingOperation.current=saved;setPendingApply(saved);
-        setPlans(current=>[...current,...(saved.drafts || []).filter(plan=>!current.some(item=>item.id===plan.id))]);
-        setWilsonDrafts(current=>[...current,...(saved.wilson || []).filter(record=>!current.some(item=>wilsonRecordKey(item)===wilsonRecordKey(record)))]);
-        setApplyReason(saved.payload.reason);setApplyError('중단된 저장 작업이 있습니다. 같은 UUID의 저장 상태만 확인하세요.');
+        setPlans(merged.plans); setWilsonDrafts(merged.wilsonDrafts);
+        setApplyReason(saved.payload.reason);setApplyError(saved.metadataOnly
+          ? '중단된 윌슨 구분 저장이 있습니다. 구분값 저장 결과만 확인하며 ERP 합계는 변경하지 않습니다.'
+          : '중단된 저장 작업이 있습니다. 같은 UUID의 저장 상태만 확인하세요.');
       }
-    } catch {setRecoveryBlocked(true);setApplyError('이전 저장 작업 상태를 읽을 수 없습니다. 중복 저장을 차단했습니다. 담당자 확인이 필요합니다.');}
-  },[]);
+    } catch {setRecoveryBlocked(true);setApplyError('이전 저장 작업의 상태·사용자를 확인할 수 없습니다. 원본 복구 기록을 보존하고 입력 병합·중복 저장을 차단했습니다. 담당자 확인이 필요합니다.');}
+  },[inputUser]);
 
   useEffect(() => {
     const request = ++calendarRequest.current;
@@ -354,7 +414,7 @@ export default function WeekdayEstimateWorkspace() {
       if (!response.ok || !result.success) throw new Error(result.error || '엑셀을 읽지 못했습니다.');
       if(request!==uploadRequest.current || uploadScope!==currentScope.current) return;
       comparisonRequest.current += 1;
-      setParsed(result); setFileName(file.name); setPlans([]); setMappings({}); setProductNames({}); setSelectedSource(null); setDraftHistory([]);
+      setParsed(result); setFileName(file.name); setMappings({}); setProductNames({}); setSelectedSource(null); setDraftHistory([]);
       setMessage(`원문 ${result.sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0)}행을 임시로 읽었습니다. 수식·문자 셀은 자동 변환하지 않았습니다.`);
     } catch (error) { if(request===uploadRequest.current && uploadScope===currentScope.current){setUploadError(error.message); setMessage('업로드 확인 필요');} }
     finally { if(request===uploadRequest.current && uploadScope===currentScope.current)setBusy(false); }
@@ -453,7 +513,8 @@ export default function WeekdayEstimateWorkspace() {
       return {...result,baselines:savedBaselines,candidates};
       }));
       if (!isCurrent()) return false;
-      setCompareRows(results.flatMap((result) => result.rows)); setSourceLots(results.flatMap((result) => result.sourceLots || [])); setErpHistory(results.flatMap((result) => result.history || []));
+      freshCompareRows.current = results.flatMap((result) => result.rows);
+      setCompareRows(freshCompareRows.current); setSourceLots(results.flatMap((result) => result.sourceLots || [])); setErpHistory(results.flatMap((result) => result.history || []));
       setBaselines(results.flatMap(result=>result.baselines || []));
       setBaselineCandidates(results.flatMap(result=>result.candidates || []));
       const ancillary=await Promise.all(cycles.filter(cycle=>cycle.calendarState==='FOUND').map(async cycle=>{
@@ -633,7 +694,16 @@ export default function WeekdayEstimateWorkspace() {
     return true;
   }
 
+  async function assertCurrentInputOwner(owner=inputUser) {
+    if(!owner || owner!==inputUser) throw new Error('입력의 사용자와 현재 화면의 사용자가 다릅니다. 입력을 보존하고 새로고침하세요.');
+    const authenticated=await apiGet('/api/auth/me');
+    if(authenticated?.success!==true || authenticated.user?.userId!==owner) {
+      throw new Error('로그인 사용자가 변경되었습니다. 입력을 보존하고 새로고침 후 확인하세요.');
+    }
+  }
+
   async function writeWilson(record) {
+    await assertCurrentInputOwner();
     const result=await apiPost('/api/estimate/weekday-wilson',wilsonWriteInput(record));
     validateWilsonWriteResponse(record,result);
     setWilsonRecords(current=>[...current.filter(item=>wilsonRecordKey(item)!==wilsonRecordKey(record)),{...result.record,status:result.record.status ?? 'CURRENT'}]);
@@ -652,7 +722,7 @@ export default function WeekdayEstimateWorkspace() {
     if(classificationOnly && activePlans.some(plan=>Number(plan.year)===identity.year && Number(plan.prodKey)===identity.prodKey && plan.date===identity.date)) {
       setWilsonError('미적용 수량 초안을 먼저 저장하거나 제거한 뒤 기존 합계를 분류하세요.');return false;
     }
-    if(classificationOnly || Number(day.current)===total && day.planned==null) {
+    if(classificationOnly) {
       wilsonLock.current=true;setWilsonBusy(true);setWilsonError('');
       try {await writeWilson(record);setMessage('윌슨 구분값을 저장했습니다. ERP 날짜 합계·견적·재고는 변경하지 않았습니다.');return true;}
       catch(error) {setWilsonError(error.message);return false;}
@@ -668,16 +738,18 @@ export default function WeekdayEstimateWorkspace() {
     wilsonLock.current=true;setWilsonBusy(true);
     const remaining=[];
     try {
+      await assertCurrentInputOwner();
       for(const record of pending) {
         try {await writeWilson(record);}
         catch(error) {remaining.push(record);setWilsonError(`윌슨 구분값 저장 확인 필요: ${error.message} · ERP 합계를 다시 저장하지 마세요.`);}
       }
       setWilsonPending(remaining);wilsonPendingRef.current=remaining;
-      try {sessionStorage.setItem('weekday-pending-wilson',JSON.stringify(remaining));}
+      try {sessionStorage.setItem(wilsonRecoveryKey,JSON.stringify(remaining));}
       catch {setWilsonError('ERP 저장은 완료됐지만 윌슨 복구 기록을 보관할 수 없습니다. 이 화면에서 저장 결과를 확인하세요.');return false;}
       if(!remaining.length) setWilsonError('');
-      return true;
-    } finally {wilsonLock.current=false;setWilsonBusy(false);}
+      return remaining.length===0;
+    } catch(error) {setWilsonError(error.message);return false;}
+    finally {wilsonLock.current=false;setWilsonBusy(false);}
   }
 
   async function openWeekdayPrint({cycle,dates,mode}) {
@@ -711,13 +783,17 @@ export default function WeekdayEstimateWorkspace() {
     finally {printLock.current=false;setPrintBusy(false);}
   }
 
-  function openErpSave() {
+  async function openErpSave() {
     if(applyLock.current || pendingOperation.current || recoveryBlocked || busy) return;
+    applyLock.current = true;
     setApplyError('');
     try {
-      const submission=buildWeekdayDistributionSubmission({plans:activePlans,compareRows,cycles,custKey:customer?.CustKey,scopeKey,reason:applyReason.trim() || '미리보기',operationId:crypto.randomUUID()});
+      const requestedScope = scopeKey;
+      if (await refreshErp() !== true || requestedScope !== currentScope.current) throw new Error('최신 전산 조회를 확인한 뒤 분배 적용을 다시 확인하세요.');
+      const submission=buildWeekdayDistributionSubmission({mode:'ALLOCATION',wilsonDrafts,plans:activePlans,compareRows:freshCompareRows.current,cycles,custKey:customer?.CustKey,scopeKey,reason:applyReason.trim() || '미리보기',operationId:crypto.randomUUID()});
       setApplyPreview(submission);printRequest.current+=1;setPrintPreview(null);
     } catch(error) {setApplyError(error.message);}
+    finally { applyLock.current = false; }
   }
 
   async function finishErpSave(submission,outcome) {
@@ -727,7 +803,7 @@ export default function WeekdayEstimateWorkspace() {
       if(splits.length) {
         const pending=[...wilsonPending.filter(item=>!splits.some(split=>wilsonRecordKey(split)===wilsonRecordKey(item))),...splits];
         setWilsonPending(pending);wilsonPendingRef.current=pending;
-        try {sessionStorage.setItem('weekday-pending-wilson',JSON.stringify(pending));}
+        try {sessionStorage.setItem(wilsonRecoveryKey,JSON.stringify(pending));}
         catch {setWilsonError('ERP 저장 완료 · 윌슨 복구 기록 보관 실패. 구분값을 다시 확인하세요.');}
         // The saved UUID is never replayed for a metadata failure.
         applyLock.current=false;
@@ -735,9 +811,13 @@ export default function WeekdayEstimateWorkspace() {
         applyLock.current=true;
         setWilsonDrafts(current=>current.filter(item=>!splits.some(split=>wilsonRecordKey(item)===wilsonRecordKey(split) && item.expectedTotal===split.expectedTotal && item.wilsonQuantity===split.wilsonQuantity)));
       }
-      if(!keepErpRecovery) try {sessionStorage.removeItem('weekday-pending-erp-operation');} catch { /* In-memory identity remains authoritative. */ }
       pendingOperation.current=null;setPendingApply(null);
       setPlans(current=>clearSubmittedWeekdayDrafts(current,submission));
+      if (inputUser) {
+        try { setStoredInputs(clearWeekdayStoredSubmission(localStorage, inputUser, submission)); setInputStorageError(''); }
+        catch (error) { keepErpRecovery = true; setInputStorageError(`ERP 적용은 완료됐지만 보관 입력 정리에 실패했습니다. 새로고침 전에 입력만 저장으로 정리하세요. ${error.message}`); }
+      }
+      if(!keepErpRecovery) try {sessionStorage.removeItem('weekday-pending-erp-operation');} catch { /* In-memory identity remains authoritative. */ }
       setApplyPreview(null);setApplyError('');
       if(submission.scopeKey===currentScope.current) {
         setApplyReason('');
@@ -751,22 +831,58 @@ export default function WeekdayEstimateWorkspace() {
     } else {setPendingApply(submission);setApplyError(outcome.error);}
   }
 
+  async function finishMetadataOnlySave(submission) {
+    await assertCurrentInputOwner(submission.inputUser);
+    const splits=submission.wilson || [];
+    if(!splits.length || submission.payload.changes.length || !submission.metadataChanges?.length
+      || wilsonPendingAfterSave(splits,submission).length!==splits.length) throw new Error('윌슨 구분 저장의 확인 자료가 불완전합니다. 입력을 보존하고 다시 확인하세요.');
+    const pending=[...wilsonPendingRef.current.filter(item=>!splits.some(split=>wilsonRecordKey(split)===wilsonRecordKey(item))),...splits];
+    // Persist metadata recovery before any classification write. No ERP UUID is submitted.
+    sessionStorage.setItem(wilsonRecoveryKey,JSON.stringify(pending));
+    setWilsonPending(pending);wilsonPendingRef.current=pending;
+    applyLock.current=false;
+    let saved;
+    try {saved=await retryWilson(pending);}
+    finally {applyLock.current=true;}
+    if(saved!==true) {setPendingApply(submission);setApplyError('윌슨 구분값 저장 결과를 확인하세요. ERP 날짜 합계는 변경하지 않았으며 입력 초안을 유지했습니다.');return;}
+    // Only successful metadata commits release the unchanged absolute-quantity drafts.
+    setPlans(current=>clearSubmittedWeekdayDrafts(current,submission));
+    setWilsonDrafts(current=>current.filter(item=>!splits.some(split=>wilsonRecordKey(item)===wilsonRecordKey(split)
+      && item.expectedTotal===split.expectedTotal && item.wilsonQuantity===split.wilsonQuantity)));
+    let keepRecovery=false;
+    if(inputUser) {
+      try {setStoredInputs(clearWeekdayStoredSubmission(localStorage,inputUser,submission));setInputStorageError('');}
+      catch(error) {keepRecovery=true;setInputStorageError(`윌슨 구분은 저장됐지만 보관 입력 정리에 실패했습니다. ${error.message}`);}
+    }
+    if(!keepRecovery) sessionStorage.removeItem('weekday-pending-erp-operation');
+    pendingOperation.current=null;setPendingApply(null);setApplyPreview(null);setApplyError('');
+    if(submission.scopeKey===currentScope.current) {setApplyReason('');await refreshErp();}
+    setMessage('윌슨 구분값을 저장했습니다. 기존 ERP 날짜 합계·견적·재고는 그대로 유지했습니다.');
+  }
+
   async function confirmErpSave() {
     if(applyLock.current || pendingOperation.current || recoveryBlocked || !applyPreview || applyPreview.scopeKey!==currentScope.current) return;
+    try {await assertCurrentInputOwner();}
+    catch(error) {setApplyError(error.message);return;}
+    if(applyLock.current || pendingOperation.current || applyPreview.scopeKey!==currentScope.current) return;
     let submission;
-    try {submission=buildWeekdayDistributionSubmission({plans:activePlans,compareRows,cycles,custKey:customer?.CustKey,scopeKey,reason:applyReason,operationId:applyPreview.payload.operationId});}
+    try {submission=buildWeekdayDistributionSubmission({mode:'ALLOCATION',wilsonDrafts,plans:activePlans,compareRows,cycles,custKey:customer?.CustKey,scopeKey,reason:applyReason,operationId:applyPreview.payload.operationId});}
     catch(error) {setApplyError(error.message);return;}
     if(!weekdayDistributionPreviewMatches(applyPreview,submission)) {setApplyError('미리보기 후 초안/전산 전체 스냅샷이 변경됐습니다. 닫고 다시 확인하세요.');return;}
     submission.drafts=activePlans.filter(plan=>submission.submitted.includes(JSON.stringify(plan)));
     submission.wilson=wilsonPendingAfterSave(wilsonDrafts.filter(record=>record.scopeKey===scopeKey),submission);
+    submission.inputUser = inputUser;
     try {
       // A newer ERP UUID must not overwrite the only durable copy of older splits.
-      if(wilsonPendingRef.current.length) sessionStorage.setItem('weekday-pending-wilson',JSON.stringify(wilsonPendingRef.current));
+      if(wilsonPendingRef.current.length) sessionStorage.setItem(wilsonRecoveryKey,JSON.stringify(wilsonPendingRef.current));
       sessionStorage.setItem('weekday-pending-erp-operation',JSON.stringify(submission));
     }
     catch {setApplyError('작업 UUID를 보관할 수 없습니다. 브라우저 저장소를 확인한 뒤 저장하세요.');return;}
     applyLock.current=true;pendingOperation.current=submission;setApplyBusy(true);setApplyError('');
-    try {await finishErpSave(submission,await saveWeekdayDistribution(submission));}
+    try {
+      if(submission.metadataOnly) await finishMetadataOnlySave(submission);
+      else await finishErpSave(submission,await saveWeekdayDistribution(submission));
+    } catch(error) {setPendingApply(submission);setApplyError(error.message);}
     finally {applyLock.current=false;setApplyBusy(false);}
   }
 
@@ -774,7 +890,11 @@ export default function WeekdayEstimateWorkspace() {
     const submission=pendingOperation.current;
     if(!submission || applyLock.current) return;
     applyLock.current=true;setApplyBusy(true);
-    try {await finishErpSave(submission,await checkWeekdayDistributionStatus(submission));}
+    try {
+      await assertCurrentInputOwner(submission.inputUser);
+      if(submission.metadataOnly) await finishMetadataOnlySave(submission);
+      else await finishErpSave(submission,await checkWeekdayDistributionStatus(submission));
+    } catch(error) {setApplyError(error.message);}
     finally {applyLock.current=false;setApplyBusy(false);}
   }
 
@@ -821,15 +941,17 @@ export default function WeekdayEstimateWorkspace() {
         <button aria-label="다음 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(1)}>▶</button>
         <input aria-label="요일별 출고 엑셀 파일" style={{width:230}} type="file" accept=".xlsx,.xls" onChange={(e) => {setToolsOpen(true);uploadWorkbook(e.target.files?.[0]);}} disabled={busy || editLocked} />
         <button onClick={compareWithErp} disabled={busy || editLocked || !customer}>전산 새로고침</button>
-        <button className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>ERP 저장 · 변경 확인</button>
+        <button onClick={saveInputOnly} disabled={!inputLoaded || !inputUser || editLocked || busy || !customer}>입력만 저장</button>
+        <button aria-label="ERP 저장 · 변경 확인" className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>분배 적용 · 변경 확인</button>
         <button aria-expanded={toolsOpen} onClick={()=>setToolsOpen(value=>!value)}>업체·엑셀 연결 {toolsOpen?'접기':'펼치기'}</button>
       </div>
+      <div style={{fontSize:12,marginTop:4,color:inputStorageError?'#b91c1c':'#475569'}} role={inputStorageError?'alert':'status'}>{inputStorageError || (!inputLoaded?'보관 입력 확인 중…':inputDirty?'입력 변경 있음 · 입력만 저장하면 이 브라우저에서 복구됩니다.':'이 브라우저 보관 입력과 일치 · ERP 적용과 별도')}</div>
       <div role="status" style={{ marginTop:5, padding:'3px 6px', borderRadius:4, background:'#fff7df', color:'#624900' }}>{message}</div>
       <details className="weekday-guidance"><summary>안내·작업 기준 펼치기</summary><div style={{fontSize:13,color:'#122033',marginTop:5}}>전산 현재값 = 저장된 조회값 · 파란 수량 = 미저장 초안 {activePlans.length}건 · 최초 기준 = 이 페이지의 불변 기록{plans.length>activePlans.length && ` · 다른 조회 범위 초안 ${plans.length-activePlans.length}건 보관 (이번 저장 제외)`}</div>
-      <div style={{fontSize:12,color:'#624900',marginTop:3}}>작업 순서: 초안 편집 → 분배관리에서 ERP 상세/대상 차수 확정 확인 → ERP 저장. 최초 기준 확정은 별도 기록이며, 인쇄는 API가 메인차수 전체 확정을 검사합니다.</div>
+      <div style={{fontSize:12,color:'#624900',marginTop:3}}>작업 순서: 입력 → 입력만 저장(이 브라우저 보관) → 필요할 때 분배 적용 · 변경 확인. 최초 기준 확정은 별도 기록이며, 인쇄는 API가 메인차수 전체 확정을 검사합니다.</div>
       </details>
       {applyError && <div role="alert" style={{color:'#9f1c16',fontSize:13,overflowWrap:'anywhere'}}>{applyError}</div>}
-      {pendingApply && <div style={{fontSize:13,color:'#122033'}}>저장 결과 확인 대기 · 업체 {pendingApply.payload.custKey} · 작업 {pendingApply.payload.operationId} <button disabled={applyBusy} onClick={recheckErpSave}>{applyBusy?'확인 중…':'같은 작업 저장 상태 다시 조회'}</button></div>}
+      {pendingApply && <div style={{fontSize:13,color:'#122033'}}>저장 결과 확인 대기 · 업체 {pendingApply.payload.custKey} · 작업 {pendingApply.payload.operationId} <button disabled={applyBusy} onClick={recheckErpSave}>{applyBusy?'확인 중…':pendingApply.metadataOnly?'윌슨 저장 결과 확인':'같은 작업 저장 상태 다시 조회'}</button></div>}
       {calendarError && <div role="alert" style={{color:'#b42318',marginTop:8}}>전산 달력: {calendarError}</div>}
       {defaultCalendarError && <div role="alert" style={{color:'#9f1c16',marginTop:8}}>중심 기본값: {defaultCalendarError}</div>}
       <details><summary>마감 잔량·이월 도구 펼치기</summary><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginTop:6,fontSize:14}}>
@@ -875,12 +997,13 @@ export default function WeekdayEstimateWorkspace() {
     </div>}
 
     {applyPreview && <div className="weekday-print-overlay"><section role="dialog" aria-modal="true" aria-label="ERP 저장 변경 확인" style={{...panel,width:'min(760px,100%)',maxHeight:'calc(100vh - 24px)',overflow:'auto',boxSizing:'border-box',fontSize:13,color:'#122033'}}>
-      <h2 style={{fontSize:17,margin:'0 0 8px'}}>ERP 저장 · {customer?.CustName} · 변경 날짜 {applyPreview.preview.length}건</h2>
-      <p>아래 날짜의 최종 출고수량(OutUnit)만 저장합니다. 누락된 기존 날짜는 보존하고, 명시 수량 0은 취소합니다. 기존 상세는 확정 유지, 자동 해제·확정 없음. 신규 상세는 확정된 대상 차수에만 생성하며 대상 차수를 자동 확정하지 않습니다. 최초 기준은 별도 불변 기록으로 보존하고, 저장 실패 시 초안을 유지합니다.</p>
+      <h2 style={{fontSize:17,margin:'0 0 8px'}}>{applyPreview.metadataOnly?'윌슨 구분만 저장':'분배 적용'} · {customer?.CustName} · 확인 날짜 {applyPreview.preview.length}건</h2>
+      {applyPreview.metadataOnly && <p>일반·윌슨 구분만 변경합니다. 기존 ERP 날짜 합계·견적·재고는 그대로 유지합니다.</p>}
+      <p>아래 날짜의 최종 출고수량(OutUnit)을 적용합니다. 예를 들어 현재 100에서 120을 입력하면 20만 증가합니다. 입력하지 않은 기존 날짜는 보존하고, 명시 수량 0은 해당 날짜를 취소합니다. 기존 상세의 확정·미확정 상태를 그대로 유지하며, 신규 상세는 미확정 분배로 등록합니다. 자동 확정은 하지 않습니다. 최초 기준은 보존하고, 실패하면 입력 초안을 유지합니다.</p>
       <div className="scroll-table" style={{maxHeight:'45vh',overflow:'auto'}}><table><thead><tr><th>연도/세부차수</th><th>품목</th><th>날짜</th><th>저장 현재 → 초안 최종</th><th>ERP 상세 확정 전 → 후</th></tr></thead><tbody>{applyPreview.preview.map(cell=><tr key={`${cell.year}|${cell.orderWeek}|${cell.prodName}|${cell.date}`}><td>{cell.year}/{cell.orderWeek}</td><td>{cell.prodName}</td><td>{cell.date}</td><td>{cell.before} → {cell.after} {cell.unit}{cell.after===0?' · 취소':''}</td><td>{cell.detailFlag}</td></tr>)}</tbody></table></div>
       <label style={{display:'block',marginTop:10}}>ERP 변경 사유 (필수)<textarea autoFocus aria-label="ERP 저장 사유" rows={3} maxLength={1000} disabled={applyBusy || Boolean(pendingApply)} value={applyReason} onChange={event=>setApplyReason(event.target.value)} style={{width:'100%',boxSizing:'border-box',font:'inherit',color:'#122033'}}/></label>
       {applyError && <p role="alert" style={{color:'#9f1c16',overflowWrap:'anywhere'}}>{applyError}</p>}
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}><button className="primary" onClick={confirmErpSave} disabled={applyBusy || Boolean(pendingApply) || !applyReason.trim()}>{applyBusy?'저장/결과 확인 중…':'변경 확인 · ERP에 저장'}</button>{pendingApply && <button disabled={applyBusy} onClick={recheckErpSave}>저장 상태 다시 조회</button>}<button disabled={applyBusy} onClick={()=>setApplyPreview(null)}>닫기 · 초안 유지</button></div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}><button className="primary" onClick={confirmErpSave} disabled={applyBusy || Boolean(pendingApply) || !applyReason.trim()}>{applyBusy?'저장/결과 확인 중…':applyPreview.metadataOnly?'확인 · 윌슨 구분만 저장':'변경 확인 · 분배 적용'}</button>{pendingApply && <button disabled={applyBusy} onClick={recheckErpSave}>저장 상태 다시 조회</button>}<button disabled={applyBusy} onClick={()=>setApplyPreview(null)}>닫기 · 초안 유지</button></div>
     </section></div>}
 
     {noteForm && <section role="dialog" aria-label="수량 변경 비고" style={{position:'fixed',right:16,bottom:16,zIndex:2200,...panel,width:'min(460px,calc(100% - 32px))',maxHeight:'calc(100vh - 32px)',overflow:'auto',boxShadow:'0 5px 24px #172b4244'}}>
@@ -960,7 +1083,8 @@ export default function WeekdayEstimateWorkspace() {
         <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:10 }}>
           <h2 style={{ margin:0, fontSize:17, flex:1 }}>5. 세부차수·출고일 배분 초안</h2>
           <button onClick={compareWithErp} disabled={busy || !plans.length}>선택 범위 전산 대조</button>
-          <button className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>ERP 저장 · 변경 확인</button>
+          <button onClick={saveInputOnly} disabled={!inputLoaded || !inputUser || editLocked || busy || !customer}>입력만 저장</button>
+        <button aria-label="ERP 저장 · 변경 확인" className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>분배 적용 · 변경 확인</button>
         </div>
         <p className="muted">입력은 미저장 초안입니다. 실제 OutUnit과 같은 단위만 명시 ERP 저장할 수 있으며 자동 환산하지 않습니다. 다른 조회 범위의 초안은 이번 저장에 포함하지 않습니다.</p>
         <div className="scroll-table"><table><thead><tr><th>원본 근거</th><th>ERP 품목</th><th>견적 세부차수</th><th>출고일/요일</th><th>수량</th><th>원본 단위</th><th>제거</th></tr></thead><tbody>

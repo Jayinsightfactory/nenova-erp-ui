@@ -75,6 +75,15 @@ async function installSchema(pool) {
     ALTER TABLE dbo.ShipmentDetail ALTER COLUMN CustKey int NULL;
     ALTER TABLE dbo.Customer ADD Manager nvarchar(20) NULL,OrderCode nvarchar(50) NULL,BaseOutDay int NULL;
     ALTER TABLE dbo.ShipmentDetail ADD EstDescr nvarchar(1000) NULL;
+    ALTER TABLE dbo.OrderMaster ADD OrderDtm datetime NULL,OrderCode nvarchar(50) NULL,Descr nvarchar(1000) NULL,
+      CreateID nvarchar(20) NULL,CreateDtm datetime NULL,LastUpdateID nvarchar(20) NULL,LastUpdateDtm datetime NULL;
+    ALTER TABLE dbo.OrderDetail ALTER COLUMN CustKey int NULL;
+    ALTER TABLE dbo.OrderDetail ADD EstQuantity decimal(18,4) NULL,NoneOutQuantity decimal(18,4) NULL,
+      Descr nvarchar(1000) NULL,CreateID nvarchar(20) NULL,CreateDtm datetime NULL,LastUpdateID nvarchar(20) NULL,LastUpdateDtm datetime NULL;
+    ALTER TABLE dbo.OrderDetail ADD CONSTRAINT DF_AllocationFixtureOrderQty DEFAULT(0) FOR OrderQuantity;
+    CREATE TABLE dbo.CustomerProdCost (CustKey int,ProdKey int,Cost decimal(18,4));
+    CREATE TABLE dbo.OrderHistory (OrderDetailKey int,ChangeType nvarchar(50),ColumName nvarchar(50),
+      BeforeValue nvarchar(100),AfterValue nvarchar(100),Descr nvarchar(1000),ChangeID nvarchar(20),ChangeDtm datetime);
     ALTER TABLE dbo.CodeInfo ADD DetailCode nvarchar(100) NULL,Descr2 nvarchar(100) NULL;
     CREATE TABLE dbo.ProductSort (CounName nvarchar(100),FlowerName nvarchar(100),CountryFlower nvarchar(200),
       OrderNo int,GroupNo int,GroupName nvarchar(100));
@@ -545,9 +554,129 @@ async function runNativeNullCustomerApplyRegressions(pool,core,user,dependencies
   console.log('PASS: native NULL customer save/readback preserves raw CustKey and Detail.isFix; zero/foreign customer near-misses fully roll back');
 }
 
+async function runAllocationRegressions(pool, core, user, dependencies) {
+  const make = (actual, week, dates) => ({ operationId: crypto.randomUUID(), reason: 'explicit unconfirmed allocation fixture',
+    mode: 'ALLOCATION', custKey: 533, changes: [{ year: '2026', orderWeek: week, prodKey: 866, unit: '박스',
+      expected: expectedFromActual(core, week, actual), dates }] });
+  const priorYear = async tQ => {
+    await tQ(`INSERT OrderMaster(OrderMasterKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,Manager)
+      VALUES(2702,N'2025',N'37-02',N'202537',533,N'fixture-user');
+      INSERT OrderDetail(OrderDetailKey,OrderMasterKey,CustKey,ProdKey,OutQuantity,OrderQuantity)
+      VALUES(2702,2702,533,866,88,88);
+      INSERT ShipmentMaster(ShipmentKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,isFix)
+      VALUES(5267,N'2025',N'37-02',N'202537',533,1);
+      INSERT ShipmentDetail(SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,EstQuantity,BoxQuantity,BunchQuantity,SteamQuantity,Cost,Amount,Vat,isFix)
+      VALUES(59892,5267,NULL,866,CONVERT(datetime,'2025-09-16',121),88,2640,88,2640,2640,333,100,10,1);
+      INSERT ShipmentDate(SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat)
+      VALUES(59700,59892,CONVERT(datetime,'2025-09-16',121),88,2640,333,100,10);`);
+  };
+  const assertPriorYear = async tQ => {
+    const row=(await tQ(`SELECT od.OutQuantity AS OrderQty,sd.OutQuantity AS DetailQty,sd.Cost,sd.isFix,
+      d.ShipmentQuantity AS DateQty FROM OrderDetail od CROSS JOIN ShipmentDetail sd
+      JOIN ShipmentDate d ON d.SdetailKey=sd.SdetailKey WHERE od.OrderDetailKey=2702 AND sd.SdetailKey=59892`)).recordset[0];
+    assert.deepEqual([Number(row.OrderQty),Number(row.DetailQty),Number(row.DateQty),Number(row.Cost),Boolean(row.isFix)],
+      [88,88,88,333,true],'same prior-year order/shipment/date/cost/fix sentinel remains untouched');
+  };
+  for (const absentMaster of [false, true]) await rollbackScenario(pool, async tQ => {
+    await priorYear(tQ);
+    await tQ(`UPDATE Product SET Stock=10000 WHERE ProdKey=866;
+      INSERT CustomerProdCost(CustKey,ProdKey,Cost) VALUES(533,866,700);
+      ${absentMaster ? 'DELETE ShipmentMaster WHERE ShipmentKey=6267;' : ''}`);
+    const actual = fixtureActual('37-02', [], null, 10000);
+    if (absentMaster) actual.master = null;
+    const body = make(actual, '37-02', [{ date: '2026-09-15', quantity: 7 }]);
+    const result = await core.executeWeekdayDistributionApply(tQ, sql, body, user, dependencies);
+    assert.equal(result.saved, true);
+    const detail = (await tQ(`SELECT sd.OutQuantity,sd.EstQuantity,sd.Cost,sd.isFix,sm.isFix AS MasterFix
+      FROM ShipmentDetail sd JOIN ShipmentMaster sm ON sm.ShipmentKey=sd.ShipmentKey
+      WHERE sm.OrderYear=N'2026' AND sm.OrderWeek=N'37-02' AND sm.CustKey=533 AND sd.ProdKey=866`)).recordset[0];
+    assert.equal(Number(detail.OutQuantity), 7); assert.equal(Number(detail.EstQuantity), 210);
+    assert.equal(Number(detail.Cost), 700); assert.equal(Boolean(detail.isFix), false);
+    assert.equal(Boolean(detail.MasterFix), !absentMaster, 'existing master confirmation preserved, new master remains unfixed');
+    assert.equal(Number((await tQ(`SELECT OutQuantity FROM OrderDetail WHERE OrderDetailKey=3702`)).recordset[0].OutQuantity), 5,
+      'existing positive order demand never increases');
+    assert.equal(Number((await tQ(`SELECT Stock FROM Product WHERE ProdKey=866`)).recordset[0].Stock), 10000);
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM StockHistory`)).recordset[0].c), 0);
+    const replay = await core.executeWeekdayDistributionApply(tQ, sql, body, user, dependencies);
+    assert.deepEqual(replay, result, 'same UUID+allocation hash replays without a second addition');
+    await assertPriorYear(tQ);
+  });
+  await rollbackScenario(pool, async tQ => {
+    await priorYear(tQ);
+    await tQ(`UPDATE Product SET Stock=10000 WHERE ProdKey=866;
+      DELETE OrderDetail WHERE OrderMasterKey=3702; DELETE OrderMaster WHERE OrderMasterKey=3702;`);
+    const actual = fixtureActual('37-02', [], null, 10000);
+    const result = await core.executeWeekdayDistributionApply(tQ,sql,make(actual,'37-02',[{date:'2026-09-15',quantity:9}]),user,dependencies);
+    assert.equal(result.saved,true);
+    const order = (await tQ(`SELECT od.OutQuantity,od.EstQuantity,om.Manager,om.OrderYearWeek
+      FROM OrderMaster om JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey
+      WHERE om.OrderYear=N'2026' AND om.OrderWeek=N'37-02' AND om.CustKey=533 AND od.ProdKey=866`)).recordset[0];
+    assert.equal(Number(order.OutQuantity),9);assert.equal(Number(order.EstQuantity),270);
+    assert.equal(order.Manager,'fixture-user');assert.equal(order.OrderYearWeek,'202637');
+    assert.equal(Number((await tQ(`SELECT Cost FROM ShipmentDetail WHERE ShipmentKey=6267 AND ProdKey=866`)).recordset[0].Cost),0,
+      'native missing CPC means zero, never Product.Cost fallback');
+    await assertPriorYear(tQ);
+  });
+  await rollbackScenario(pool, async tQ => {
+    await tQ(`UPDATE Product SET Stock=10000 WHERE ProdKey=866;
+      UPDATE ShipmentMaster SET isFix=0 WHERE ShipmentKey=6266;
+      UPDATE ShipmentDetail SET isFix=0 WHERE SdetailKey=89892;
+      DELETE OrderDetail WHERE OrderMasterKey=3701; DELETE OrderMaster WHERE OrderMasterKey=3701;`);
+    const rows = existingRows().map(row => ({ ...row, detailFixed: false }));
+    const actual = fixtureActual('37-01',rows,25,10000);
+    actual.master.MasterIsFix=0; actual.detail.DetailIsFix=0;
+    const body=make(actual,'37-01',[{date:'2026-09-10',quantity:25}]); // Final45-current25: ADD delta20.
+    const result=await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
+    assert.equal(result.saved,true);
+    const detail=(await tQ(`SELECT OutQuantity,Cost,isFix FROM ShipmentDetail WHERE SdetailKey=89892`)).recordset[0];
+    assert.equal(Number(detail.OutQuantity),45);assert.equal(Number(detail.Cost),2500.1234);assert.equal(Boolean(detail.isFix),false);
+    assert.equal(Number((await tQ(`SELECT od.OutQuantity FROM OrderMaster om JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey
+      WHERE om.OrderYear=N'2026' AND om.OrderWeek=N'37-01' AND om.CustKey=533 AND od.ProdKey=866`)).recordset[0].OutQuantity),20);
+    assert.equal(Number((await tQ(`SELECT ShipmentQuantity FROM ShipmentDate WHERE SdateKey=119700`)).recordset[0].ShipmentQuantity),20,
+      'untouched dates remain unchanged; requested quantity is final, never additive');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM StockHistory`)).recordset[0].c),0);
+  });
+  await rollbackScenario(pool, async tQ => {
+    await tQ(`UPDATE ShipmentMaster SET isFix=0 WHERE ShipmentKey=6266; UPDATE ShipmentDetail SET isFix=0 WHERE SdetailKey=89892;
+      DELETE OrderDetail WHERE OrderMasterKey=3701;`);
+    const actual=fixtureActual('37-01',existingRows().map(row=>({...row,detailFixed:false})),25);
+    actual.master.MasterIsFix=0;actual.detail.DetailIsFix=0;
+    const result=await core.executeWeekdayDistributionApply(tQ,sql,make(actual,'37-01',[{date:'2026-09-10',quantity:0}]),user,dependencies);
+    assert.equal(result.saved,true);
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM OrderDetail WHERE OrderMasterKey=3701`)).recordset[0].c),0,
+      'CANCEL with no order preserves order absence');
+  });
+  await rollbackScenario(pool, async tQ => {
+    await tQ(`UPDATE Product SET Stock=10000 WHERE ProdKey=866;
+      INSERT CustomerProdCost(CustKey,ProdKey,Cost) VALUES(533,866,700),(533,866,701);`);
+    await expectCode(()=>core.executeWeekdayDistributionApply(tQ,sql,make(fixtureActual('37-02',[],null,10000),'37-02',
+      [{date:'2026-09-15',quantity:7}]),user,dependencies),'ALLOCATION_SCOPE_UNVERIFIED');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentDetail WHERE ShipmentKey=6267`)).recordset[0].c),0);
+  });
+  await rollbackScenario(pool, async tQ => {
+    await tQ(`UPDATE ShipmentDetail SET Amount=333,Vat=22,ShipmentDtm=CONVERT(datetime,'2026-09-13 00:00:00.000',121)
+      WHERE SdetailKey=89892;`);
+    const actual=fixtureActual('37-01',existingRows(),25);
+    Object.assign(actual.detail,{DetailAmount:333,DetailVat:22,ShipmentTimestamp:'2026-09-13 00:00:00.000'});
+    const read=async()=> (await tQ(`SELECT SdetailKey,OutQuantity,EstQuantity,Cost,Amount,Vat,isFix,
+      CONVERT(nvarchar(23),ShipmentDtm,121) AS ShipmentTimestamp FROM ShipmentDetail WHERE SdetailKey=89892`)).recordset;
+    const before=await read();
+    const body=make(actual,'37-01',[{date:'2026-09-10',quantity:5}]);
+    const result=await core.executeWeekdayDistributionApply(tQ,sql,body,user,dependencies);
+    assert.equal(result.saved,true);assert.deepEqual(await read(),before,'no-op preserves historical money and representative date exactly');
+    const again={...body,operationId:crypto.randomUUID()};
+    assert.equal((await core.executeWeekdayDistributionApply(tQ,sql,again,user,dependencies)).saved,true);
+    assert.deepEqual(await read(),before,'same fresh final target under a new UUID is still physically unchanged');
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM ShipmentHistory`)).recordset[0].c),0);
+    assert.equal(Number((await tQ(`SELECT COUNT(*) c FROM StockHistory`)).recordset[0].c),0);
+  });
+  console.log('PASS allocation: missing/existing master, CPC/zero cost, unfixed stock preservation, ADD/no-order delta, CANCEL/no-order, untouched dates, UUID replay, duplicate pricing rejection');
+}
+
 async function runScenarios(pool, core, gate, presence, keyAllocator) {
   const user = { userId:'fixture-user', userName:'Fixture User' };
   const dependencies = leaseDependencies(gate,presence);
+  await runAllocationRegressions(pool,core,user,dependencies);
 
   await runCalendarRegressions(pool,core,user,dependencies);
   await runPrintCompatibilityRegressions(pool);

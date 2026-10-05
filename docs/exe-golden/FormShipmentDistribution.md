@@ -1,5 +1,29 @@
 # FormShipmentDistribution — exe golden (dnSpy/CLI)
 
+## 2026-10-05 미분배 사전입력 후 최종 분배 적용
+
+실제 설치 EXE에 dnSpy CLI `-t FormShipmentDistribution` 및 `-t ClassShipmentMaster`를 다시 실행했다.
+FormShipmentDistribution grid 조회는 `ISNULL(vs.Cost,ISNULL(c.Cost,0))`와 CustomerProdCost LEFT JOIN을 사용한다.
+btnSave_Click은 grid 수량으로 상세 환산값과 Cost, Amount, Vat를 저장한다. 미확정 상세를 별도 자동 확정하는 로직은 없다.
+GetShipmentMaster는 선택 OrderYear+OrderWeek+CustKey로 연결한다. ClassShipmentMaster.Insert는 이 업무키와 OrderYearWeek, isFix를 기록한다.
+
+2026-10-05 운영 SELECT: Cust533/2026/41-01 및41-02의 Master 각1개는 미확정,
+2025 동일차수의 Master 각1개는 확정이다. 2026/41-01 품목53/59/66/69/77의
+CustomerProdCost 각1행700,359/365/389 각1행10500을 확인했다. 운영쓰기 없음.
+ShipmentMaster.OrderYearWeek writable, WebCreated 존재; OrderMaster.OrderYearWeek는 없는 설치다.
+
+같은 설치 EXE의 ClassOrderDetail 및 FormOrderAdd도 실제 CLI로 실행했다.
+FormOrderAdd.btnSave_Click는 `OutQuantity=UnitQuantity(true,row)`,
+`EstQuantity=UnitQuantity(false,row)`를 별도로 기록하며 ClassOrderDetail.Insert는 둘을 별도 필드로 저장한다.
+따라서 새 주문의 EstQuantity는 Product.EstUnit 기준 환산값이다. 기존 adjust/overflow의
+EstQuantity=OutQuantity 복사를 새 경로의 근거로 삼지 않는다. 기존 경로는 이번 수정 대상이 아니다.
+
+새 웹 `ALLOCATION` 모드는 사용자 요청에 따라 날짜별 최종 절대수량으로 새 미확정 분배를 등록하거나 기존 분배를 수정한다.
+100에서120은20 증가이며, 동일목표 재적용은 중복 증가하지 않는다. 기존 확정 상태와 단가는 보존한다.
+주문 ADD/CANCEL 정책, 잠긴 최신 snapshot, 달력 exact timestamp, 단위 환산, 재고 방향과 UUID/audit 원자성은 별도 계약으로 검증한다.
+기존 mode 생략 확정 상세 수정 정책은 그대로 유지한다. 전체 ERP 저장이 아닌 초안·입력만 보관은 ERP 원장을 변경하지 않는다.
+[기준 및 부작용표](../plans/weekday-preallocation-drafts-2026-10-05.md).
+
 ## 2026-10-02 native 상세 고객 NULL 정정
 
 설치 EXE SHA256 `4033996D20006213BD7D7C5454396421FC18B3836CCB7F2C47B1CB8C93C1BD63`의

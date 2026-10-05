@@ -17,6 +17,12 @@ zeroSubmission.payload.changes[0].dates[0].quantity=0;
 assert.deepEqual(wilsonPendingAfterSave([zero],zeroSubmission),[zero],'explicit zero is retained');
 assert.deepEqual(wilsonPendingAfterSave([record],{payload:{custKey:533,changes:[]}}),[],
   'classification-only no-op is not attached to an ERP operation');
+const metadataChange={year:record.year,orderWeek:record.orderWeek,prodKey:record.prodKey,unit:record.unit,
+  dates:[{date:record.date,quantity:record.expectedTotal}],wilsonRecord:{...record}};
+assert.deepEqual(wilsonPendingAfterSave([record],{payload:{custKey:533,changes:[]},metadataChanges:[metadataChange]}),[record],
+  'validated unchanged-total classification is included without ERP quantity changes');
+assert.deepEqual(wilsonPendingAfterSave([{...record,wilsonQuantity:6}],{payload:{custKey:533,changes:[]},metadataChanges:[metadataChange]}),[],
+  'classification fingerprint must match the confirmed metadata intent');
 assert.deepEqual(wilsonPendingAfterSave([record],null),[]);
 assert.equal('scopeKey' in wilsonWriteInput(record),false,'UI metadata never leaks into strict API payload');
 const response = {success:true,erpChanged:false,record:{...wilsonWriteInput(record),revision:1}};
@@ -30,5 +36,5 @@ const persisted = JSON.parse(JSON.stringify({...submission,wilson:[record]}));
 assert.deepEqual(wilsonPendingAfterSave(persisted.wilson,persisted),[record],'pending operation retains exact classification on reload');
 const workspace = readFileSync(new URL('../components/WeekdayEstimateWorkspace.js',import.meta.url),'utf8');
 assert.ok(workspace.includes('submission.wilson=wilsonPendingAfterSave'), 'splits included before pending operation persistence');
-assert.ok(workspace.includes('saved.wilson || []'), 'pending operation restoration recovers classification drafts');
+assert.ok(workspace.includes('mergeWeekdayStoredInputs(inputsRef.current'), 'pending operation restoration recovers classification drafts');
 console.log('Wilson client exact year/customer/product/week/date/unit/total, zero, no-op, response and pending recovery passed');

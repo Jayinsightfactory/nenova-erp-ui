@@ -20,6 +20,74 @@ const row={custKey:533,year:2026,orderWeek:'38-01',prodKey:866,outUnit:'박스',
   {date:'2026-09-18',timestamp:'2026-09-18 00:00:00.000',sdateKey:4,sdetailKey:2,shipmentKey:3,weekDay:6,shipmentQuantity:20,estimateQuantity:200,detailFixed:true,cost:100,amount:18182,vat:1818},
 ]};
 const input={plans:[plan],compareRows:[row],cycles,custKey:533,scopeKey,reason:'요일 정정',operationId};
+const allocationInput={...input,mode:'ALLOCATION'};
+const unconfirmed={...row,fixed:false,shipmentDates:row.shipmentDates.map(day=>({...day,detailFixed:false}))};
+const unconfirmedSubmission=build({...allocationInput,compareRows:[unconfirmed],plans:[{...plan,quantity:12}]});
+assert.equal(unconfirmedSubmission.payload.mode,'ALLOCATION');
+assert.equal(unconfirmedSubmission.preview[0].detailFlag,'상세 미확정 → 미확정 유지');
+assert.equal(unconfirmedSubmission.payload.changes[0].expected.shipmentDates[0].detailFixed,false,
+  'existing unfixed source is retained rather than automatically confirmed');
+assert.throws(()=>build({...input,compareRows:[unconfirmed]}),/미확정/,'omitted mode preserves fixed-only legacy policy');
+const emptyAllocation={...row,state:'NO_SHIPMENT',detailRows:0,fixed:null,masterFixed:false,
+  shipmentOutQuantity:null,shipmentDates:[]};
+const newAllocation=build({...allocationInput,compareRows:[emptyAllocation],plans:[{...plan,quantity:12}]});
+assert.equal(newAllocation.preview[0].before,0);
+assert.equal(newAllocation.preview[0].after,12);
+assert.equal(newAllocation.preview[0].detailFlag,'미확정 분배 등록');
+assert.deepEqual(newAllocation.payload.changes[0].dates,[{date:plan.date,quantity:12}]);
+assert.equal(build({...allocationInput,compareRows:[{...emptyAllocation,masterFixed:null}],plans:[{...plan,quantity:12}]}).payload.mode,'ALLOCATION',
+  'server digest plus complete empty source can prove a missing master for native creation');
+for(const patch of [{masterFixed:undefined},{state:'ERROR'},{shipmentOutQuantity:0},{shipmentDates:[row.shipmentDates[0]]},
+  {snapshotDigest:null},{customerLinkError:'wrong customer'}]) {
+  assert.throws(()=>build({...allocationInput,compareRows:[{...emptyAllocation,...patch}],plans:[{...plan,quantity:12}]}),JSON.stringify(patch));
+}
+for(const fixed of [null,undefined,'mixed','false',0,1]) {
+  assert.throws(()=>build({...allocationInput,compareRows:[{...row,fixed}],plans:[{...plan,quantity:12}]}),/확정 상태/);
+}
+assert.throws(()=>build({...input,mode:'UNKNOWN'}),/모드/);
+const absoluteSource={...unconfirmed,shipmentOutQuantity:120,shipmentDates:[
+  {...unconfirmed.shipmentDates[0],shipmentQuantity:100},unconfirmed.shipmentDates[1]]};
+const absolutePlan={...plan,quantity:120};
+const absoluteAllocation=build({...allocationInput,compareRows:[absoluteSource],plans:[absolutePlan]});
+assert.deepEqual(absoluteAllocation.payload.changes[0].dates,[{date:plan.date,quantity:120}],
+  '100 to120 submits final absolute target, not another120 increment');
+assert.equal(project(absoluteSource,[absolutePlan]).delta,20);
+assert.equal(project(absoluteSource,[absolutePlan]).dates.find(day=>day.date==='2026-09-18').projectedQuantity,20,
+  'untouched day is preserved');
+assert.throws(()=>build({...allocationInput,plans:[absolutePlan],compareRows:[{...absoluteSource,shipmentOutQuantity:140,
+  shipmentDates:[{...absoluteSource.shipmentDates[0],shipmentQuantity:120},absoluteSource.shipmentDates[1]]}]}),/다른 날짜 수량/,
+  'reapplying the same120 target never increases quantity again');
+assert.throws(()=>build({...allocationInput,compareRows:[emptyAllocation],plans:[{...plan,quantity:0}]}),/다른 날짜 수량/,
+  'zero input on empty source never creates a fake ERP detail');
+assert.equal(build({...allocationInput,compareRows:[unconfirmed],plans:[{...plan,quantity:0}]}).preview[0].after,0,
+  'explicit zero cancels an existing date while retaining unfixed state');
+assert.throws(()=>build({...allocationInput,compareRows:[{...emptyAllocation,year:2025}],plans:[{...plan,quantity:12}]}),/조회 기준/);
+assert.throws(()=>build({...allocationInput,compareRows:[{...emptyAllocation,custKey:675}],plans:[{...plan,quantity:12}]}),/조회 기준/);
+const unchangedPlan={...plan,quantity:5};
+const unchangedWilson={year:2026,majorWeek:'38',orderWeek:'38-01',custKey:533,prodKey:866,date:plan.date,
+  unit:'박스',wilsonQuantity:2,expectedTotal:5,expectedRevision:0,scopeKey};
+const metadataSubmission=build({...allocationInput,plans:[unchangedPlan],wilsonDrafts:[unchangedWilson]});
+assert.equal(metadataSubmission.metadataOnly,true);
+assert.deepEqual(metadataSubmission.payload.changes,[],'classification-only intent never fabricates an ERP quantity delta');
+assert.equal(metadataSubmission.metadataChanges[0].expected.snapshotDigest,snapshotDigest);
+assert.equal(metadataSubmission.metadataChanges[0].wilsonRecord.wilsonQuantity,2);
+assert.equal(metadataSubmission.preview[0].before,5);assert.equal(metadataSubmission.preview[0].after,5);
+assert.deepEqual(clear([unchangedPlan],metadataSubmission),[],'unchanged absolute plan is releaseable only after its classification commits');
+const mixedSubmission=build({...allocationInput,plans:[unchangedPlan,{...plan,id:'changed',date:'2026-09-18',quantity:21}],wilsonDrafts:[unchangedWilson]});
+assert.equal(mixedSubmission.metadataOnly,false);
+assert.equal(mixedSubmission.payload.changes[0].dates.length,1);
+assert.equal(mixedSubmission.metadataChanges.length,1);
+assert.equal(mixedSubmission.submitted.length,2,'mixed apply includes changed ERP quantity and unchanged-total Wilson classification');
+assert.equal(previewMatches(metadataSubmission,build({...allocationInput,plans:[unchangedPlan],wilsonDrafts:[{...unchangedWilson,wilsonQuantity:3}]})),false,
+  'changing Wilson after preview requires a fresh confirmation');
+for(const patch of [{unit:'단'},{expectedTotal:6},{expectedRevision:null},{wilsonQuantity:6}]) {
+  assert.throws(()=>build({...allocationInput,plans:[unchangedPlan],wilsonDrafts:[{...unchangedWilson,...patch}]}));
+}
+let metadataTransportCalls=0;
+const forbiddenMetadataFetcher=()=>{metadataTransportCalls++;throw Error('ERP transport forbidden');};
+assert.equal((await save(metadataSubmission,{fetcher:forbiddenMetadataFetcher})).state,'failed');
+assert.equal((await status(metadataSubmission,{fetcher:forbiddenMetadataFetcher})).state,'failed');
+assert.equal(metadataTransportCalls,0,'classification-only submission neither POSTs ERP nor polls an unsubmitted UUID');
 const readScope={year:2026,custKey:533,orderWeeks:['38-01'],prodKeys:[866]};
 const readResult={success:true,readOnly:true,scope:readScope,rows:[row]};
 assert.equal(validateCompare(readScope,readResult),readResult,'scope validation preserves the exact server rows and opaque digest');
@@ -154,6 +222,12 @@ assert.throws(()=>build({...input,compareRows:[row,{...row,orderWeek:'38-02'}]})
 assert.throws(()=>build({...input,plans:[{...plan,date:'2026-09-21'}]}),/명시적으로 검토/);
 const crossPlan={...plan,id:'cross',year:2027,orderWeek:'01-01',date:'2027-01-07',quantity:2};
 const crossRow={...row,year:2027,orderWeek:'01-01',snapshotDigest:'c3'.repeat(32),detailRows:0,shipmentOutQuantity:0,shipmentDates:[],masterFixed:true};
+const crossAllocationRow={...crossRow,state:'NO_SHIPMENT',shipmentOutQuantity:null,fixed:null,masterFixed:false};
+assert.deepEqual(build({...allocationInput,plans:[{...plan,quantity:12},crossPlan],compareRows:[unconfirmed,crossAllocationRow]})
+  .payload.changes.map(item=>[item.year,item.orderWeek]),[[2026,'38-01'],[2027,'01-01']],
+  'allocation preserves cross-year identities and each server snapshot');
+assert.equal(previewMatches(newAllocation,{...newAllocation,payload:{...newAllocation.payload,mode:undefined}}),false,
+  'explicit allocation authority cannot be replaced with legacy authority after preview');
 assert.deepEqual(build({...input,plans:[plan,crossPlan],compareRows:[row,crossRow]}).payload.changes.map(item=>[item.year,item.orderWeek]),[[2026,'38-01'],[2027,'01-01']]);
 assert.deepEqual(build({...input,plans:[plan,crossPlan],compareRows:[row,crossRow]}).payload.changes.map(item=>item.expected.snapshotDigest),[snapshotDigest,crossRow.snapshotDigest],'cross-year groups use their own exact read-row digest');
 // Production legacy Sunday belongs to actual 38-02. Amend/cancel that exact row;
