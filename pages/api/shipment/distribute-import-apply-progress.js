@@ -6,5 +6,5 @@ export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'Method not allowed' });
   const jobId = String(req.query.jobId || '').slice(0, 80);
   if (!jobId) return res.status(400).json({ success: false, error: 'jobId 필요' });
-  return res.status(200).json({ success: true, progress: getApplyProgress(jobId) });
+  return res.status(200).json({ success: true, progress: getApplyProgress(jobId, req.user?.userId) });
 });

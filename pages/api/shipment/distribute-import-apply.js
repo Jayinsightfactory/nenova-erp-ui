@@ -15,7 +15,9 @@ async function handler(req, res) {
       error.statusCode = 400;
       throw error;
     }
-    if (jobId) initApplyProgress(jobId, (req.body?.rows || []).length);
+    if (jobId && !initApplyProgress(jobId, (req.body?.rows || []).length)) {
+      return res.status(409).json({ success: false, code: 'JOB_ID_EXISTS', error: '다른 작업에서 사용 중인 작업 ID입니다.' });
+    }
     const result = await applyImportRows({
       rawWeek: req.body?.week,
       rawYear: req.body?.year,
