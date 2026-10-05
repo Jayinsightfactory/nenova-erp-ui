@@ -1,0 +1,10 @@
+IF OBJECT_ID(N'dbo.WebPnlHotelCustomerMap', N'U') IS NULL
+BEGIN
+ CREATE TABLE dbo.WebPnlHotelCustomerMap (
+  PartnerCode NVARCHAR(20) NOT NULL PRIMARY KEY,
+  CustKey INT NULL,
+  Revision INT NOT NULL DEFAULT 1,
+  UpdatedBy NVARCHAR(100) NOT NULL,
+  UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+ );
+END;

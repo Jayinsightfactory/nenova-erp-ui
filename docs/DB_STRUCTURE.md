@@ -385,3 +385,7 @@ Farm(FarmKey) ── FarmCredit(CreditKey)
 - **WebFarmQualityCase / WebFarmQualityEvent / WebFarmQualityEvidence** — 농장 불량 피드백 웹 전용 원장. 증거 이미지는 인증된 전용 API만 조회하며, 임시 업로드는 작성자·연도 기준으로 제한하고 이력 저장 시 불변 `EventKey`에 연결한다. EXE 주문·출고·재고·견적 원장은 변경하지 않는다.
   - `WebFarmQualityEvent.RequestEventKey BIGINT NULL`: REQUEST_EDIT가 원본 REQUEST를 참조한다. 작성자 본인만 수정 이벤트를 추가하며 원본 이벤트·증거는 보존한다. UI가 최신 수정 본문과 수정 전 본문을 구분한다.
 - **WebFarmQualityInbox / WebFarmQualityInboxSource** — 자동감지 피드백 연결용 웹 전용 원장. 목록 GET은 가상 연결만 계산하며, 명시적 이력 저장에서만 연결을 기록한다. 원본 연결은 `OrderYear + SourceKey`별 단일 소유이며 `Case.InboxKey`는 nullable 연결이다. 기존 코멘트·상태·증거와 ERP 불량 원본을 보존한다. 제외·복구는 사유를 남기는 관리 표시이며 불량차감 취소가 아니다.
+
+### 2026-10-05 호텔 업체 연결
+
+`WebPnlHotelCustomerMap`은 기본·등록 호텔의 `PartnerCode`별 명시 선택 `CustKey`와 Revision, 수정자·시각만 보관한다. 활성 Customer를 조회/저장 시 재검증하고 stale Revision은 409로 거부한다. Customer 및 ERP 원장에는 쓰지 않는다. 호텔별 품목 매칭은 WebRaumPnlItem.ProdKey와 부모 수정 이력만 변경하며 같은 호텔·연도의 이름+단위 연결을 다음 업로드에서 재사용한다. 신규 호텔도 차수별 매입단가 화면을 사용한다.

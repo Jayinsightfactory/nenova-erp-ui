@@ -70,7 +70,7 @@ async function main() {
 
   const modal = fs.readFileSync(path.join(root, 'components/raum/ShillaProductMatchModal.js'), 'utf8');
   assert.match(modal, /fetch\(shillaPnlProductSearchUrl\(activeQuery\)\)/, 'search remains a GET fetch');
-  assert.match(modal, /fetchRaumPnlJson\('\/api\/raum\/shilla-item-mapping'/, 'the row-scoped Shilla POST remains unchanged');
+  assert.match(modal, /fetchRaumPnlJson\(edit.partnerCode[\s\S]*'\/api\/raum\/shilla-item-mapping'/, 'the row-scoped Shilla POST remains unchanged');
   assert.doesNotMatch(modal, /fetch\(['"]\/api\/raum\/item-mapping/, 'global Raum item-mapping GET/POST is not used by Shilla search');
   console.log('Shilla P&L Korean product-search tests passed');
 }

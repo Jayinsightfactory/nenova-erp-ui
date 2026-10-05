@@ -107,3 +107,11 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 - 상세 웹 표의 도착원가 참조는 `WebArrivalCostLine`을 `OrderYear + ProdKey + IsCurrent=1`로 읽는 조회 전용 정보다. 선택 대차수 자료가 있으면 그 세부차수를 모두 표시하고, 해당 품목에 선택 대차수 자료가 없을 때만 같은 연도의 가장 가까운 이전 대차수 세부차수를 `이전 최신 차수`로 표시한다. 미래 차수와 이전 연도 값은 사용하지 않는다.
 - 단위 환산은 `Product.SteamOf1Box/BunchOf1Box/SteamOf1Bunch` 근거가 있을 때만 한다. 이 참조값은 `loadRaumPnlDetail` 원장이나 엑셀/인쇄 모델에 저장하지 않는다.
 - EXE 주문·출고·재고·견적 원장은 모두 보존한다.
+
+### 2026-10-05 신규 호텔 매칭
+
+메인 dnSpy CLI 실행: `C:/Users/USER/Desktop/백업/다운로드/dnSpy-net-win32/dnSpy.Console.exe --no-color -t FormOrderAdd "C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe"`. 이번에는 성공하여 FormOrderAdd 소스 출력을 확인했다. GetDataProduct는 Product.ProdKey와 OutUnit/단위환산 필드를 구분한다. 저장된 decompile의 동일 메서드도 재확인했다.
+
+읽기 전용 운영 probe: WebPnlHotel 활성 은화 `hotel_87bc41c16ae5`, 2026 결산 1건. Customer 활성 신라호텔 446, 라움 680, 초이문 683, 호텔여분 690. 이름으로 임의 선택하지 않으며 실제 연결은 사용자가 고른 활성 CustKey만 저장한다.
+
+품목 연결 동작은 WebRaumPnlItem.ProdKey와 부모 감사 필드만 변경하고 업체 연결 동작은 WebPnlHotelCustomerMap만 변경한다. Product, Customer, OrderMaster/Detail, ShipmentMaster/Detail, ShipmentDate/Farm, StockHistory, Estimate, WebProfitReport는 보존한다. 품목 연결은 같은 호텔·연도에만 재사용하며 전역 이름 학습 및 ERP 분배 수정은 활성화하지 않는다.
