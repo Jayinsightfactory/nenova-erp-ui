@@ -3,7 +3,7 @@ import test from 'node:test';
 import fs from 'node:fs';
 import {createChinaOrderDownloadHandler} from '../lib/chinaOrderDownloadApi.js';
 const periods=['202551','202552','202553','202601','202602','202603','202604','202605'].map((OrderYearWeek,i)=>({OrderYearWeek,WeekDay:5,BaseYmd:new Date(Date.UTC(2025,11,11+i*7)).toISOString().slice(0,10)}));
-const record={OrderYear:'2026',OrderWeek:'01-02',CustKey:1,CustName:'업체',CustOrderCode:'CL2',OrderCode:'OLD',CustCode:'OTHER',ProdKey:9,ProdCode:'0009',ProdName:'품목',FlowerName:'기타',CounName:'중국',OutUnit:'단',OutQuantity:48};
+const record={OrderYear:'2026',OrderWeek:'01-02',CustKey:1,CustName:'업체',CustOrderCode:'CL2',OrderCode:'OLD',CustCode:'OTHER',ProdKey:9,ProdCode:'0009',ProdName:'품목',FlowerName:'기타',CounName:'중국',OutUnit:'단',OutQuantity:48,BunchOf1Box:16,SteamOf1Box:80};
 const types={NVarChar:n=>`nvarchar(${n})`};
 function setup({rows=[record],calendar=periods,hidden=0,fail=false,productFail=false,errorMessage='secret-database-string'}={}){
  const calls=[];const handler=createChinaOrderDownloadHandler({types,now:()=>new Date('2026-01-01T16:00:00Z'),queryFn:async(q,p)=>{
@@ -22,12 +22,19 @@ test('GET seven explicit scopes and native current in KST, all read-only',async(
  for(const {q}of s.calls)assert.doesNotMatch(q,/\b(?:UPDATE|INSERT|DELETE|CREATE|ALTER|DROP|EXEC)\b/);
  assert.equal(s.res.headers['Cache-Control'],'private, no-store');
  assert.equal(s.res.body.orders[0].custOrderCode,'CL2');
+ assert.equal(s.res.body.orders[0].bunchOf1Box,16);assert.equal(s.res.body.orders[0].steamOf1Box,80);
+ assert.equal(s.res.body.products[0].bunchOf1Box,16);
+ assert.match(s.calls[1].q,/p.BunchOf1Box,p.SteamOf1Box/);
  assert.match(s.calls[1].q,/c.OrderCode AS CustOrderCode/);
  assert.match(s.calls[1].q,/JOIN Customer c ON c.CustKey=v.CustKey AND c.isDeleted=0/);
 });
 test('missing customer CL is not replaced with order code or internal key',async()=>{
  const s=setup({rows:[{...record,CustOrderCode:null}]});await s.handler({method:'GET',query:{}},s.res);
  assert.equal(s.res.code,200);assert.equal(s.res.body.orders[0].custOrderCode,'');assert.match(s.res.body.warnings[0],/업체 주문코드\(CL\).*1곳/);
+});
+test('missing and zero master box factors remain distinct raw values without a fallback',async()=>{
+ const s=setup({rows:[{...record,BunchOf1Box:0,SteamOf1Box:null}]});await s.handler({method:'GET',query:{}},s.res);
+ assert.equal(s.res.code,200);assert.equal(s.res.body.orders[0].bunchOf1Box,0);assert.equal(s.res.body.orders[0].steamOf1Box,null);assert.equal(s.res.body.orders[0].quantity,48);
 });
 test('invalid incomplete and write requests run zero queries',async()=>{
  for(const req of [{method:'POST',query:{}},{method:'GET',query:{year:2026}},{method:'GET',query:{year:'2026 OR 1=1',majorWeek:'01'}}]){
