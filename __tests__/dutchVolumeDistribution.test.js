@@ -1,16 +1,7 @@
 import assert from 'node:assert/strict';
-import { registerHooks } from 'node:module';
-import path from 'node:path';
+import { register } from 'node:module';
 
-registerHooks({ resolve(specifier, context, nextResolve) {
-  try { return nextResolve(specifier, context); }
-  catch (error) {
-    if ((error.code === 'ERR_MODULE_NOT_FOUND' || error.code === 'ERR_UNSUPPORTED_DIR_IMPORT') && /^\.\.?\//.test(specifier) && !path.extname(specifier)) {
-      return nextResolve(`${specifier}.js`, context);
-    }
-    throw error;
-  }
-} });
+register('./fixtures/dutchVolumeLoaderHook.mjs', import.meta.url);
 
 const {
   normalizeDutchEntries, normalizeDutchPrice, resolveDutchPairPolicy,

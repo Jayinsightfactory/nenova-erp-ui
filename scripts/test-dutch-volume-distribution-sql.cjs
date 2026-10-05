@@ -13,7 +13,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { registerHooks } = require('node:module');
+const { register } = require('node:module');
+const { pathToFileURL } = require('node:url');
 const sql = require('mssql');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -27,17 +28,18 @@ const USER = { userId: 'dutch-fixture', userName: 'Dutch Fixture' };
  * app's source imports omit .js. Add only a workspace-relative .js fallback;
  * do not rewrite app modules or add a test-only copy of the feature logic.
  */
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    try { return nextResolve(specifier, context); }
-    catch (error) {
-      if ((error.code === 'ERR_MODULE_NOT_FOUND' || error.code === 'ERR_UNSUPPORTED_DIR_IMPORT') && /^\.\.?\//.test(specifier) && !path.extname(specifier)) {
-        return nextResolve(`${specifier}.js`, context);
-      }
+register(pathToFileURL(path.join(ROOT, '__tests__/fixtures/dutchVolumeLoaderHook.mjs')).href);
+const originalRequestQuery = sql.Request.prototype.query;
+sql.Request.prototype.query = function fixtureQueryWithErrorSql(...args) {
+  const result = originalRequestQuery.apply(this, args);
+  if (result && typeof result.catch === 'function') {
+    return result.catch((error) => {
+      console.error('[fixture sql failed]', String(args[0]).replace(/\s+/g, ' ').trim());
       throw error;
-    }
-  },
-});
+    });
+  }
+  return result;
+};
 const BASE_FIXTURES = [
   '__tests__/fixtures/estimateDirectionalSchema.sql',
   '__tests__/fixtures/estimateOverflowSchema.sql',
@@ -46,7 +48,7 @@ const BASE_FIXTURES = [
 const SNAPSHOT_MIGRATION = 'docs/migrations/2026-08-31_shipment_import_snapshot_rollback.sql';
 const SNAPSHOT_TABLES = [
   'OrderMaster', 'OrderDetail', 'ShipmentMaster', 'ShipmentDetail', 'ShipmentDate',
-  'ShipmentFarm', 'ShipmentImportAudit', 'ShipmentImportAuditRow', 'ShipmentImportSnapshot',
+  'ShipmentFarm', 'ShipmentImportAudit', 'ShipmentImportAuditRow', 'ShipmentImportSnapshot', 'PeriodDay',
   'Estimate', 'WebProfitReport', 'Product', 'CustomerProdCost', 'ProductStock', 'StockHistory',
   'ShipmentHistory', 'OrderHistory', 'KeyNumbering', 'WarehouseMaster', 'WarehouseDetail', 'SystemActionLog',
 ];
@@ -121,7 +123,7 @@ async function assertNativeReadJoins(pool) {
   assert.equal(Number(joined.recordset[0].JoinedRows), 1, 'fixture must exercise native year/week/customer/product + quote/date join');
 }
 function businessLedgers(state) {
-  const omit = new Set(['ShipmentImportAudit', 'ShipmentImportAuditRow']);
+  const omit = new Set(['ShipmentImportAudit', 'ShipmentImportAuditRow', 'PeriodDay']);
   return Object.fromEntries(Object.entries(state).filter(([table]) => !omit.has(table)));
 }
 function makeBody(entries) { return { year: '2026', week: '40-01', entries }; }
@@ -171,6 +173,7 @@ async function runScenarios(app) {
   const requestBody = makeBody([
     makeEntry('existing-blank', 'Dutch existing-order', 533, 'Dutch Test Rose Red', 2231, 60, '송이'),
     makeEntry('new-order-zero-price', 'Dutch new-order', 534, 'Dutch Test Rose White', 2232, 5, '단', 0),
+    makeEntry('fractional-multi-date', 'Dutch new-order', 534, 'Dutch Fractional Date Product', 2235, 1, '단'),
   ]);
   const before = await snapshot(app.pool);
   console.log('[fixture] baseline snapshot captured; requesting preview');
@@ -191,7 +194,10 @@ async function runScenarios(app) {
   const after = await snapshot(app.pool);
   const orders = after.OrderDetail;
   assert.equal(Number(orders.find((row) => row.OrderDetailKey === 44001).OrderQuantity), 77, 'existing positive order must be preserved');
-  assert.equal(Number(orders.find((row) => row.ProdKey === 2232 && row.CustKey === 534)?.OrderQuantity), 5, 'new positive order must be created');
+  const newOrderMaster = after.OrderMaster.find((row) => String(row.OrderYear) === '2026' && row.OrderWeek === '40-01' && Number(row.CustKey) === 534 && !row.isDeleted);
+  assert(newOrderMaster, 'new current-year order master must be created for the target customer');
+  const newOrderDetail = orders.find((row) => row.OrderMasterKey === newOrderMaster.OrderMasterKey && Number(row.ProdKey) === 2232 && !row.isDeleted);
+  assert.equal(Number(newOrderDetail?.OutQuantity), 5, 'new positive order detail must be created under the correct year/week/customer master');
   assert.equal(orders.filter((row) => Number(row.ProdKey) === 2233).length, 0, 'zero replacement must not create a fake zero order');
   const current = after.ShipmentDetail.find((row) => row.SdetailKey === 64001);
   assert.equal(Number(current.OutQuantity), 60);
@@ -200,7 +206,10 @@ async function runScenarios(app) {
   const zeroPrice = after.ShipmentDetail.find((row) => Number(row.ProdKey) === 2232);
   assert.equal(Number(zeroPrice.Cost), 0, 'explicit KRW zero must be persisted');
   assert.equal(Number(zeroPrice.EstQuantity), 50, 'EstUnit conversion must be retained when OutUnit differs');
-  assert.equal(Number(after.ShipmentDetail.find((row) => row.SdetailKey === 64003).OutQuantity), 0, 'missing category row must become final SET zero');
+  assert.equal(Number(after.ShipmentDetail.find(row => row.SdetailKey === 64004)?.OutQuantity), 13, 'other-category shipment sentinel must survive category replacement');
+  assert(!after.ShipmentDetail.some((row) => row.SdetailKey === 64003), 'missing category row must be purged to final SET zero');
+  assert(!after.ShipmentDate.some((row) => row.SdetailKey === 64003), 'zeroed row dates must be removed');
+  assert(!after.ShipmentFarm.some((row) => row.SdetailKey === 64003), 'zeroed row farm allocations must be removed');
   assert.deepEqual(after.OrderDetail.find((row) => row.OrderDetailKey === 44002), before.OrderDetail.find((row) => row.OrderDetailKey === 44002), 'prior-year same-week order sentinel must remain unchanged');
   assert.deepEqual(after.ShipmentDetail.find((row) => row.SdetailKey === 64002), before.ShipmentDetail.find((row) => row.SdetailKey === 64002), 'prior-year same-week shipment sentinel must remain unchanged');
   for (const table of ['Estimate', 'WebProfitReport', 'ProductStock', 'StockHistory', 'WarehouseMaster', 'WarehouseDetail']) {
@@ -215,6 +224,7 @@ async function runScenarios(app) {
   const priceOnly = await preview(app, makeBody([
     makeEntry('existing-cost-only', 'Dutch existing-order', 533, 'Dutch Test Rose Red', 2231, 60, '송이', 2500),
     makeEntry('new-existing-no-override', 'Dutch new-order', 534, 'Dutch Test Rose White', 2232, 5, '단'),
+    makeEntry('fractional-price-only', 'Dutch new-order', 534, 'Dutch Fractional Date Product', 2235, 1, '단', 1200),
   ]));
   console.log('[fixture] price-only preview returned');
   assert.equal(priceOnly.rows.find(row => row.entryIds?.includes('existing-cost-only'))?.unitPrice, 2500);
@@ -227,6 +237,16 @@ async function runScenarios(app) {
   assert.equal(Number(detailAfterPriceOnly.Cost), 2500);
   assert.equal(Number(detailAfterPriceOnly.Amount), Math.round(2500 * 60 / 1.1));
   assert.equal(Number(detailAfterPriceOnly.Vat), 2500 * 60 - Math.round(2500 * 60 / 1.1));
+  const fractionalAfterPriceOnly = afterPriceOnly.ShipmentDetail.find(row => row.SdetailKey === 64005);
+  const fractionalBeforePriceOnly = beforePriceOnly.ShipmentDetail.find(row => row.SdetailKey === 64005);
+  assert.equal(Number(fractionalAfterPriceOnly.OutQuantity), Number(fractionalBeforePriceOnly.OutQuantity), 'price-only update must preserve fractional multi-date aggregate quantity');
+  assert.equal(Number(fractionalAfterPriceOnly.EstQuantity), Number(fractionalBeforePriceOnly.EstQuantity), 'price-only update must preserve fractional product EstQuantity');
+  assert.equal(Number(fractionalAfterPriceOnly.Cost), 1200);
+  assert.deepEqual(afterPriceOnly.ShipmentDate.filter(row => Number(row.SdetailKey) === 64005).map(row => ({
+    dt: row.ShipmentDtm.getTime(), qty: Number(row.ShipmentQuantity), est: Number(row.EstQuantity),
+  })), beforePriceOnly.ShipmentDate.filter(row => Number(row.SdetailKey) === 64005).map(row => ({
+    dt: row.ShipmentDtm.getTime(), qty: Number(row.ShipmentQuantity), est: Number(row.EstQuantity),
+  })), 'price-only save must preserve every fractional date row and its independent estimate quantity');
   assert.deepEqual(afterPriceOnly.ShipmentDate.filter(row => Number(row.SdetailKey) === 64001).map(row => ({
     dt: row.ShipmentDtm.getTime(), qty: Number(row.ShipmentQuantity), est: Number(row.EstQuantity),
   })), dateBeforePriceOnly.map(row => ({
@@ -236,9 +256,36 @@ async function runScenarios(app) {
     assert.deepEqual(afterPriceOnly[table], beforePriceOnly[table], `${table} remains unchanged after price-only save`);
   }
 
+  // Farm allocations make shipment quantity changes unsafe, while price-only
+  // edits remain covered by the preceding multi-date scenario.
+  await query(app.pool, `INSERT dbo.ShipmentFarm(FarmKey,SdetailKey,ShipmentQuantity) VALUES(1,64001,10)`);
+  const farmBlocked = await preview(app, makeBody([
+    makeEntry('farm-assigned-change', 'Dutch existing-order', 533, 'Dutch Test Rose Red', 2231, 61, '송이', 2500),
+    makeEntry('farm-preserve-new', 'Dutch new-order', 534, 'Dutch Test Rose White', 2232, 5, '단'),
+    makeEntry('farm-preserve-fractional', 'Dutch new-order', 534, 'Dutch Fractional Date Product', 2235, 1, '단'),
+  ]));
+  assert.equal(farmBlocked.planToken, null, 'farm-assigned positive quantity change must not receive an apply token');
+  assert((farmBlocked.blockers || []).some(value => /농장|farm/i.test(value)), 'farm quantity-change blocker must be explicit');
+  await query(app.pool, `DELETE dbo.ShipmentFarm WHERE SdetailKey=64001`);
+
+  // Exact native EXE date visibility is part of commit. A one-second calendar
+  // mismatch is tampered after preview and must roll back business ledgers.
+  const calendarPlan = await preview(app, makeBody([
+    makeEntry('calendar-check', 'Dutch existing-order', 533, 'Dutch Test Rose Red', 2231, 60, '송이', 2600),
+    makeEntry('calendar-check-new', 'Dutch new-order', 534, 'Dutch Test Rose White', 2232, 5, '단'),
+    makeEntry('calendar-check-fractional', 'Dutch new-order', 534, 'Dutch Fractional Date Product', 2235, 1, '단'),
+  ]));
+  const beforeCalendarApply = businessLedgers(await snapshot(app.pool));
+  const priorPeriodDay = (await query(app.pool, `SELECT BaseYmd FROM dbo.PeriodDay WHERE OrderYearWeek=N'202640' AND WeekDay=4`)).recordset[0].BaseYmd;
+  await query(app.pool, `UPDATE dbo.PeriodDay SET BaseYmd=DATEADD(second,1,BaseYmd) WHERE OrderYearWeek=N'202640' AND WeekDay=4`);
+  await assert.rejects(() => apply(app, calendarPlan), /전산|달력|PeriodDay|연결|visibility/i, 'exact PeriodDay datetime mismatch must fail before commit');
+  assert.deepEqual(businessLedgers(await snapshot(app.pool)), beforeCalendarApply, 'calendar mismatch must roll back all business ledgers and snapshots');
+  await query(app.pool, `UPDATE dbo.PeriodDay SET BaseYmd=@prior WHERE OrderYearWeek=N'202640' AND WeekDay=4`, { prior: { type: sql.DateTime, value: priorPeriodDay } });
+
   // Staleness is detected by the server snapshot, not by trusting the client plan.
   const stalePlan = await preview(app, makeBody([
     makeEntry('stale-plan', 'Dutch existing-order', 533, 'Dutch Test Rose Red', 2231, 61, '송이', 2400),
+    makeEntry('stale-plan-fractional', 'Dutch new-order', 534, 'Dutch Fractional Date Product', 2235, 1, '단'),
   ]));
   await query(app.pool, `UPDATE dbo.ShipmentDetail SET Descr=N'external fixture mutation' WHERE SdetailKey=64001`);
   const beforeStaleApply = businessLedgers(await snapshot(app.pool));
@@ -278,7 +325,7 @@ async function runScenarios(app) {
   await query(app.pool, `DROP TRIGGER dbo.TR_DutchFixtureFailSecondRow`);
   assert.deepEqual(businessLedgers(await snapshot(app.pool)), beforeRollback, 'later-row failure must roll back every business ledger and snapshot');
 
-  console.log('PASS Dutch volume SQL: existing-order preservation, positive order creation, CATEGORY_REPLACE missing→0, blank/0/KRW price boundaries, cost-only save, EstUnit conversion, cross-year isolation, fixed/stale/duplicate blockers, atomic later-row rollback, native NULL and downstream preservation');
+  console.log('PASS Dutch volume SQL: existing-order preservation, positive order creation, CATEGORY_REPLACE missing→0 with other-category sentinel, blank/0/KRW prices, fractional multi-date price-only preservation, farm quantity blocker, exact PeriodDay rollback, EstUnit conversion, cross-year isolation, fixed/stale/duplicate blockers, atomic later-row rollback, native NULL and downstream preservation');
 }
 
 async function main() {
@@ -341,7 +388,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+main().then(() => {
+  process.exit(0);
+}).catch((error) => {
   console.error(error?.stack || error?.message || String(error));
-  process.exitCode = 1;
+  process.exit(1);
 });
