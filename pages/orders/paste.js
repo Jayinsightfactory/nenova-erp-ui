@@ -2622,6 +2622,7 @@ export default function PasteOrderPage() {
       return {
       prodKey: it.prodKey, prodName: it.prodName, inputName: it.inputName,
       displayName: it.displayName,
+      sourceLine: it.sourceLine || it.inputName || it.displayName || it.prodName || '',
       flowerName: it.flowerName,
       counName: it.counName,
       qty: parseFloat(it.qty) || 0,
@@ -2837,6 +2838,7 @@ export default function PasteOrderPage() {
           prodName: it.prodName,
           displayName: it.displayName,
           inputName: it.inputName,
+          sourceLine: it.sourceLine || it.inputName || it.displayName || it.prodName || '',
           flowerName: it.flowerName,
           counName: it.counName,
           qty: parseFloat(it.qty) || 0,
@@ -4434,12 +4436,11 @@ export default function PasteOrderPage() {
             {globalBatchProcessed && (
               <section id="paste-connected-result" tabIndex={-1} aria-label="일괄 등록 분배 성공 결과" style={{ marginBottom: 8, border: '2px solid #2e7d32', borderRadius: 8, overflow: 'hidden', background: '#f1f8e9' }}>
                 <div style={{ padding: '7px 10px', background: '#2e7d32', color: '#fff', fontSize: 12, fontWeight: 900 }}>✅ 저장 완료 결과 — 아래 수량이 현재 전산에 반영되었습니다.</div>
-                <div style={{ maxHeight: 180, overflow: 'auto' }}>
+                <div style={{ maxHeight: 320, overflow: 'auto' }}>
                   {(bulkResult.details || []).filter(row => row.ok).map((row, index) => (
-                    <div className="paste-work-success-row" key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px,.8fr) minmax(130px,1.4fr) minmax(105px,.9fr) minmax(105px,.9fr)', gap: 7, alignItems: 'center', padding: '6px 9px', borderTop: index ? '1px solid #c8e6c9' : 0, fontSize: 11 }}>
-                      <b style={{ color: '#1a237e' }}>{row.custName}</b><span>{row.displayName || row.prodName}</span>
-                      <span><b>주문</b> {batchResultQty(row.orderQtyBefore, row.orderQtyAfter, row.unit)}</span>
-                      <span style={{ color: '#1565c0', fontWeight: 800 }}><b>분배</b> {batchResultQty(row.outQtyBefore, row.outQtyAfter, row.unit)}</span>
+                    <div className="paste-work-success-row" key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 6, alignItems: 'center', padding: '3px 8px', borderTop: index ? '1px solid #c8e6c9' : 0, fontSize: 11, lineHeight: 1.25 }}>
+                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{row.sourceLine || row.inputName || row.displayName || row.prodName}</span>
+                      <b style={{ color: '#2e7d32', whiteSpace: 'nowrap' }}>기존처리완료</b>
                     </div>
                   ))}
                 </div>
@@ -4515,7 +4516,7 @@ export default function PasteOrderPage() {
           .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: 270px; }
           .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; min-height: 270px; }
           .paste-col-work-results { border: 2px solid #1565c0; background: #f8fbff; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
-          .paste-col-work-results .paste-work-success-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .paste-col-work-results .paste-work-success-row { grid-template-columns: minmax(0, 1fr) auto !important; }
           .paste-col-work-results .paste-work-success-row > * { min-width: 0; overflow-wrap: anywhere; }
           .paste-work-rollback { display: grid; gap: 4px; margin-bottom: 8px; padding: 8px 9px; border: 2px solid #c62828; border-radius: 7px; background: #ffebee; color: #b71c1c; font-size: 12px; }
           .paste-work-empty { color: #64748b; font-size: 11px; line-height: 1.4; }
@@ -5600,13 +5601,11 @@ export default function PasteOrderPage() {
               </div>
               <div style={{ whiteSpace: 'pre-line', lineHeight: 1.55, color: '#263238' }}>{bulkCompletionNotice.message}</div>
               {bulkCompletionNotice.success && bulkCompletionNotice.details?.length > 0 && (
-                <div style={{ marginTop: 12, maxHeight: 280, overflow: 'auto', border: '1px solid #c8e6c9', borderRadius: 7 }}>
+                <div style={{ marginTop: 10, maxHeight: 420, overflow: 'auto', border: '1px solid #c8e6c9', borderRadius: 7 }}>
                   {bulkCompletionNotice.details.map((row, index) => (
-                    <div key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px,.8fr) minmax(130px,1.4fr) minmax(105px,1fr) minmax(105px,1fr)', gap: 8, padding: '7px 9px', borderTop: index ? '1px solid #e0e0e0' : 0, fontSize: 11 }}>
-                      <b style={{ color: '#1a237e' }}>{row.custName || ''}</b>
-                      <span>{row.displayName || row.prodName}</span>
-                      <span>주문 {batchResultQty(row.orderQtyBefore, row.orderQtyAfter, row.unit)}</span>
-                      <b style={{ color: '#1565c0' }}>분배 {batchResultQty(row.outQtyBefore, row.outQtyAfter, row.unit)}</b>
+                    <div key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 6, alignItems: 'center', padding: '4px 8px', borderTop: index ? '1px solid #e0e0e0' : 0, fontSize: 11, lineHeight: 1.25 }}>
+                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{row.sourceLine || row.inputName || row.displayName || row.prodName}</span>
+                      <b style={{ color: '#2e7d32', whiteSpace: 'nowrap' }}>기존처리완료</b>
                     </div>
                   ))}
                 </div>
