@@ -12,10 +12,10 @@
   "preserves":["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentFarm","Estimate","ProductStock","StockHistory","WebProfitReport"],
   "criteria": {
     "grouping":"LogKey only; same timestamp/user must never merge operations",
-    "success":"Result SUCCESS and committedCount > 0; committed=0 is preview, not successful work. A batch launched from exactly one sales-room source stores its bounded sourceIdentity on each audit entry so the inbox can show the verified operation beside that exact message; no raw chat is stored. A later committed undo for the same sourceIdentity suppresses the applied label.",
+    "success":"Result SUCCESS and committedCount > 0; committed=0 is preview, not successful work. A batch launched from exactly one sales-room source stores its bounded sourceIdentity on each audit entry so the inbox can show the verified operation beside that exact message; no raw chat is stored. A later committed undo for the same sourceIdentity suppresses the applied label. The source auto-completion rule requires every committed entry to link to the exact sourceIdentity, but not raw request-line count equality because one line can expand into multiple mapped products. History reads scope year/full week before TOP 201 so unrelated recent rows cannot crowd out applicable work.",
     "legacy":"4000-character truncated payloads explicitly incomplete, never pretend complete or infer rows; exclude unknown/conflicting year from selected scope",
     "privacy":"Never return raw Payload, editGuard, lease token, IP, user agent, auth data",
-    "ui":"Paste entry defaults grouped operations; retain original row-history view as separate tab. 1920x1080 responsive cancel/add columns",
+    "ui":"Paste entry defaults grouped operations; retain original row-history view as separate tab. Show short week beside operation ID; render N unit 추가 in blue and N unit 취소 in red rather than generic applied wording. Remove redundant polling PasteErpHistoryEvidence panel. 1920x1080 responsive cancel/add columns",
     "scope":"No new history rows fabricated, no operational ERP changes or replay"
   },
   "requiredTestFiles":["__tests__/pasteOperationHistory.test.js","__tests__/pasteOperationAudit.test.js","__tests__/erpContractManifest.test.js"],

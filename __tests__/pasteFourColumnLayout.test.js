@@ -64,8 +64,10 @@ assert.match(operationHistory, /background: completed \? '#e8f5e9' : '#fff5f5'/,
 assert.match(operationHistory, /<details open style=\{\{ marginTop: 5 \}\}>/, '최근 작업의 상세 항목은 기본 펼침이어야 한다.');
 assert.match(operationHistory, /\{data\.operations\.map\(operation =>/, '최근 이력을 6건으로 잘라내지 않고 조회된 작업 전체를 아래로 표시해야 한다.');
 assert.doesNotMatch(operationHistory, /data\.operations\.slice\(0, 6\)/);
-assert.match(operationHistory, /quantityResult\(entry\)/, '각 작업 항목에 적용 수량과 분배 전후 수량을 표시해야 한다.');
-assert.match(operationHistory, /적용 · \$\{before\}\$\{unit\} → \$\{after\}\$\{unit\}/);
+assert.match(operationHistory, /\{quantity\(entry\.qty\) \?\? '\?'\} \{entry\.unit\} \{action\}/, '각 작업 항목은 추가 또는 취소와 수량을 간단히 표시한다.');
+assert.match(operationHistory, /operation\.week\.replace\(\/\^\\d\{4\}-\/, ''\)\}차/, '작업 차수는 작업 번호 바로 옆에 표시한다.');
+assert.match(operationHistory, /entry\.type === 'CANCEL' \? '#c62828' : entry\.type === 'ADD' \? '#1565c0'/, '취소와 추가는 다른 색으로 구분한다.');
+assert.doesNotMatch(page, /PasteErpHistoryEvidence/, '중복 이력 폴링 패널을 입력·결과 사이에 다시 추가하지 않는다.');
 assert.doesNotMatch(operationHistory, /취소 \{cancelCount\}/, '카드 헤더 아래 중복 취소 건수 문구를 제거한다.');
 assert.doesNotMatch(operationHistory, /저장 \{operation\.committedCount\}건/, '저장 완료 라벨과 중복되는 저장 건수를 제거한다.');
 assert.match(operationHistory, /filters\.year}년 \{filters\.week \|\| '전체 차수'\}/);
