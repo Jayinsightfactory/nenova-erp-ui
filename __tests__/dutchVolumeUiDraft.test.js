@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { buildDutchPreviewEntries, editDutchDraftEntry, isDutchPreviewCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../lib/dutchVolumeDraft.js';
+
+const entry = { id: 'sheet!D4', product: '품목', color: '빨강', customer: '업체', quantity: 5, unit: '' };
+const key = row => `uniform:${row.product}`;
+const memory = new Map();
+const storage = { getItem: name => memory.get(name), setItem: (name, value) => memory.set(name, value) };
+
+assert.deepEqual(buildDutchPreviewEntries([entry], {}, key)[0], { id: entry.id, product: '품목', color: '빨강', customer: '업체', quantity: 5, unit: '' });
+assert.equal(buildDutchPreviewEntries([entry], { 'uniform:품목': 0 }, key)[0].unitPrice, 0, '명시 0원은 보존 의미가 아니다');
+assert.equal(buildDutchPreviewEntries([entry], { 'uniform:품목': '' }, key)[0].unitPrice, undefined);
+assert.throws(() => buildDutchPreviewEntries([{ ...entry, quantity: '' }], {}, key), /수량/);
+assert.throws(() => buildDutchPreviewEntries([entry], { 'uniform:품목': -1 }, key), /단가/);
+
+const identity = 'workbook.xlsx:10:123';
+storage.setItem(`nenova.dutch-volume-prices.v1:${identity}`, JSON.stringify({ currency: 'EUR', prices: { 'uniform:품목': 999 } }));
+assert.deepEqual(readDutchDraft(storage, identity, [entry], (_, value) => value).prices, {}, 'EUR 저장값을 원화로 재해석하지 않는다');
+storage.setItem(`nenova.dutch-volume-prices.v1:${identity}`, JSON.stringify({ currency: 'KRW', prices: { 'uniform:품목': 123 } }));
+assert.equal(readDutchDraft(storage, identity, [entry], (_, value) => value).prices['uniform:품목'], 123);
+writeDutchDraft(storage, identity, [{ ...entry, quantity: 0 }, { ...entry, id: 'manual:1', added: true }], { 'uniform:품목': 0 });
+const restored = readDutchDraft(storage, identity, [entry], (_, value) => value);
+assert.equal(restored.entries[0].quantity, 0);
+assert.equal(restored.entries[1].id, 'manual:1');
+assert.equal(restored.prices['uniform:품목'], 0);
+
+const preview = { planToken: 'one', revision: 5, year: 2026, week: '40-01', sourceIdentity: identity };
+assert.equal(isDutchPreviewCurrent(preview, 5, 2026, '40-01', identity), true);
+assert.equal(isDutchPreviewCurrent(preview, 6, 2026, '40-01', identity), false);
+assert.equal(isDutchPreviewCurrent(preview, 5, 2025, '40-01', identity), false);
+assert.equal(isDutchPreviewCurrent({ ...preview, planToken: null }, 5, 2026, '40-01', identity), false);
+const manual = newDutchDraftEntry('manual:2');
+assert.equal(manual.added, true);
+assert.equal(manual.quantity, 0);
+const selected = editDutchDraftEntry([entry, manual], manual.id, { custKey: 12, customer: 'ERP 업체', prodKey: 34, product: 'ERP 품목', quantity: 7 });
+assert.equal(selected[0], entry, '다른 행 원본 객체 보존');
+assert.equal(selected[1].custKey, 12);
+assert.equal(selected[1].prodKey, 34);
+assert.equal(buildDutchPreviewEntries(selected, {}, key)[1].quantity, 7);
+
+const page = readFileSync(new URL('../pages/stats/dutch-volume-board.js', import.meta.url), 'utf8');
+assert.match(page, /sourceModeRef\.current !== 'UPLOAD'/);
+assert.match(page, /request !== loadRequestRef\.current/);
+assert.match(page, /request !== previewRequestRef\.current/);
+assert.match(page, /setMatchCache\(Object\.fromEntries/);
+assert.match(page, /setCustomerOptions\(data\.customerOptions/);
+assert.match(page, /updateEntry\(entry\.id, next\)/, 'ERP 업체·품목 수동 선택은 초안을 갱신한다');
+assert.match(page, /function updateEntry\(id, change\) \{ invalidate\(\)/, '선택·수량 편집은 이전 계획을 무효화한다');
+assert.match(page, /function updatePrice\(entry, value\) \{\s*invalidate\(\)/, '단가 편집은 이전 계획을 무효화한다');
+assert.match(page, /setEntries\(previous => \[\.\.\.previous, newDutchDraftEntry/, '기존 ERP 마스터 선택용 수동행을 추가한다');
+assert.match(page, /planToken: preview\.planToken, jobId, ackQtyWarnings/);
+assert.match(page, /recoverJob\(jobId\)/);
+assert.match(page, /ERP적용초안/);
+assert.match(page, /missingFromExcel/);
+assert.match(page, /row\.estUnit/);
+assert.match(page, /changeWeek\(value\) \{ invalidate\(\); clearLiveSource\(\)/, '차수 변경은 과거 LIVE 초안을 비운다');
+assert.match(page, /changeYear\(value\) \{ invalidate\(\); clearLiveSource\(\)/, '연도 변경은 과거 LIVE 초안을 비운다');
+assert.match(page, /delete updated\[entry\.id\]/, '주광 재매칭은 이전 개별단가를 제거한다');
+assert.match(page, /preview\.blockers\.join/, '서버 적용 차단 사유를 표시한다');
+assert.match(page, /crypto\.randomUUID\(\)/, '작업 ID를 예측 불가능하게 만든다');
+assert.doesNotMatch(page, /unit:\s*item\.outUnit/, '명시 입력단위를 품목 재매칭이 덮지 않는다');
+assert.doesNotMatch(page, /<option>EUR<\/option>|setCurrency\(/);
+console.log('dutch volume UI draft tests passed');
