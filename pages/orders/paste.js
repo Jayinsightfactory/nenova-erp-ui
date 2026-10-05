@@ -4515,12 +4515,12 @@ export default function PasteOrderPage() {
           .paste-col-order-side.paste-col-order-results { min-height: 0; background: #fff; border-color: #9fa8da; }
           .paste-col-stock { border: 1px solid #b8c7d9; background: #f8fbff; min-height: 270px; }
           .paste-col-stock-side { border: 1px solid #c5d5e5; background: #f5f9fc; min-height: 270px; }
-          .paste-col-work-results { border: 2px solid #1565c0; background: #f8fbff; min-height: 0; max-height: calc(100vh - 230px); overflow: auto; }
+          .paste-col-work-results { border: 2px solid #1565c0; background: #f8fbff; min-height: 0; max-height: none; overflow: visible; }
           .paste-col-work-results .paste-work-success-row { grid-template-columns: minmax(0, 1fr) auto !important; }
           .paste-col-work-results .paste-work-success-row > * { min-width: 0; overflow-wrap: anywhere; }
           .paste-work-rollback { display: grid; gap: 4px; margin-bottom: 8px; padding: 8px 9px; border: 2px solid #c62828; border-radius: 7px; background: #ffebee; color: #b71c1c; font-size: 12px; }
           .paste-work-empty { color: #64748b; font-size: 11px; line-height: 1.4; }
-          .paste-work-history { margin-top: 8px; min-width: 0; min-height: 120px; max-height: 260px; overflow: auto; overflow-x: hidden; }
+          .paste-work-history { margin-top: 8px; min-width: 0; min-height: 120px; max-height: none; overflow: visible; }
           .paste-work-history > strong { display: block; margin-bottom: 5px; color: #263238; font-size: 12px; }
           .paste-work-history section { min-width: 0; font-size: 11px; }
           .paste-order-results-head {
@@ -4635,7 +4635,7 @@ export default function PasteOrderPage() {
           }
           @media (min-width: 1600px) {
             .paste-col-baseline { display: grid; grid-template-columns: minmax(0,1fr); grid-template-rows: auto auto minmax(0,1fr); gap: 4px; align-content: stretch; }
-            .paste-input-grid { grid-template-columns: minmax(0,1fr) minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 170px); max-height: calc(100vh - 170px); min-height: 0; align-items: stretch; }
+            .paste-input-grid { grid-template-columns: minmax(0,1fr) minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); min-height: calc(100vh - 170px); height: auto; max-height: none; align-items: stretch; }
             .paste-input-grid > .paste-col > * { flex-shrink: 0; }
             .paste-column-order-input, .paste-column-base-input, .paste-column-analysis, .paste-column-helper { overflow: visible; }
             .paste-col-baseline { grid-column: 2; grid-row: 1 / span 2; min-height: 0; max-height: none; overflow: hidden; }
@@ -5603,11 +5603,19 @@ export default function PasteOrderPage() {
               {bulkCompletionNotice.success && bulkCompletionNotice.details?.length > 0 && (
                 <div style={{ marginTop: 10, maxHeight: 420, overflow: 'auto', border: '1px solid #c8e6c9', borderRadius: 7 }}>
                   {bulkCompletionNotice.details.map((row, index) => (
-                    <div key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 6, alignItems: 'center', padding: '4px 8px', borderTop: index ? '1px solid #e0e0e0' : 0, fontSize: 11, lineHeight: 1.25 }}>
-                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{row.sourceLine || row.inputName || row.displayName || row.prodName}</span>
-                      <b style={{ color: '#2e7d32', whiteSpace: 'nowrap' }}>기존처리완료</b>
+                    <div key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 6, alignItems: 'center', padding: '6px 8px', borderTop: index ? '1px solid #c8e6c9' : 0, background: '#f1f8e9', fontSize: 11, lineHeight: 1.3 }}>
+                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                        <b>{row.custName || row.order?.custMatch?.CustName || '업체 확인'} · {row.prodName || row.displayName || row.inputName}</b>
+                        <small style={{ display: 'block', color: '#607d8b' }}>{row.sourceLine || row.inputName || row.displayName || row.prodName}</small>
+                      </span>
+                      <b style={{ color: '#1b5e20', whiteSpace: 'nowrap', textAlign: 'right' }}>{formatCompletionQuantityChange(row)}</b>
                     </div>
                   ))}
+                </div>
+              )}
+              {bulkCompletionNotice.success && (
+                <div style={{ marginTop: 12 }}>
+                  <StockImpactSummary draft={stockDraft} selectedWeek={week} processed />
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
@@ -5628,6 +5636,25 @@ export default function PasteOrderPage() {
       />
     </Layout>
   );
+}
+
+function formatCompletionQuantity(value) {
+  return Number.isFinite(Number(value))
+    ? Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 3 })
+    : null;
+}
+
+function formatCompletionQuantityChange(row) {
+  const unit = row?.unit || '';
+  const applied = formatCompletionQuantity(row?.qty) ?? '?';
+  const orderBefore = formatCompletionQuantity(row?.orderQtyBefore);
+  const orderAfter = formatCompletionQuantity(row?.orderQtyAfter);
+  const outBefore = formatCompletionQuantity(row?.outQtyBefore);
+  const outAfter = formatCompletionQuantity(row?.outQtyAfter);
+  const parts = [`${applied}${unit} 적용`];
+  if (orderBefore !== null && orderAfter !== null && orderBefore !== orderAfter) parts.push(`주문 ${orderBefore}→${orderAfter}${unit}`);
+  if (outBefore !== null && outAfter !== null) parts.push(`분배 ${outBefore}→${outAfter}${unit}`);
+  return parts.join(' · ');
 }
 
 function StockImpactSummary({ draft, selectedWeek, processed = false }) {

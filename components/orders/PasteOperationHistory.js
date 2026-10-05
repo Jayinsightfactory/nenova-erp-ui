@@ -4,6 +4,15 @@ import { normalizeOrderHistorySearch } from '../../lib/orderHistorySearch';
 
 const field = { padding: 8, border: '1px solid #b0bec5', borderRadius: 5, minWidth: 0 };
 const labels = { committed: '저장 완료', failed: '실패 · 저장 성공 아님', unknown: '처리 결과 확인 필요' };
+const quantity = value => Number.isFinite(Number(value)) ? Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 3 }) : null;
+const quantityResult = entry => {
+  const applied = quantity(entry.qty);
+  const before = quantity(entry.outQtyBefore); const after = quantity(entry.outQtyAfter);
+  const unit = entry.unit || '';
+  return before !== null && after !== null
+    ? `${applied ?? '?'}${unit} 적용 · ${before}${unit} → ${after}${unit}`
+    : `${applied ?? '?'}${unit} 적용`;
+};
 export default function PasteOperationHistory({ initial = {}, compact = false }) {
   const [filters, setFilters] = useState({ year: initial.year || String(new Date().getFullYear()), week: initial.week || '', custName: initial.custName || '', prodName: initial.prodName || '', who: 'mine' });
   const [data, setData] = useState({ operations: [] });
@@ -35,22 +44,17 @@ export default function PasteOperationHistory({ initial = {}, compact = false })
     {error && <p role="alert" style={{ color: '#c62828', fontSize: 11 }}>조회 실패: {error}</p>}
     {!loading && !error && data.operations.length === 0 && <p style={{ color: '#78909c', fontSize: 11 }}>현재 조회 구간에는 붙여넣기 작업 이력이 없습니다.{data.hasMore && ' 다음 기록을 검색할 수 있습니다.'}</p>}
     <div style={{ display: 'grid', gap: 6 }}>
-      {data.operations.slice(0, 6).map(operation => {
-        const cancelCount = operation.entries.filter(entry => entry.type === 'CANCEL').length;
-        const addCount = operation.entries.filter(entry => entry.type === 'ADD').length;
-        return <article key={operation.key} style={{ border: '1px solid #c5cfe0', borderRadius: 6, background: '#fff', padding: '7px 8px', minWidth: 0 }}>
+      {data.operations.map(operation => {
+        const completed = operation.status === 'committed';
+        return <article key={operation.key} data-status={operation.status} style={{ border: completed ? '2px solid #43a047' : '1px solid #ef9a9a', borderRadius: 6, background: completed ? '#e8f5e9' : '#fff5f5', boxShadow: completed ? 'inset 4px 0 #2e7d32' : 'none', padding: '7px 8px', minWidth: 0 }}>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', fontSize: 10, color: '#455a64' }}>
             <b style={{ color: '#1a237e' }}>#{operation.key}</b><span>{operation.actor} · {operation.at}</span>
             <span style={{ marginLeft: 'auto', color: operation.status === 'committed' ? '#2e7d32' : '#c62828', fontWeight: 800 }}>{labels[operation.status]}</span>
           </div>
-          <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 11 }}>
-            <span style={{ color: '#c62828' }}>취소 {cancelCount}</span><span style={{ color: '#2e7d32' }}>추가 {addCount}</span>
-            {operation.committedCount != null && <span>저장 {operation.committedCount}건</span>}
-          </div>
-          <details style={{ marginTop: 5 }}>
-            <summary style={{ cursor: 'pointer', color: '#546e7a', fontSize: 10 }}>상세 항목 보기</summary>
+          <details open style={{ marginTop: 5 }}>
+            <summary style={{ cursor: 'pointer', color: '#546e7a', fontSize: 10 }}>처리 내역</summary>
             {operation.incomplete && <p role="status" style={{ color: '#a65b00', fontSize: 10 }}>과거 상세 기록이 잘려 전체 작업이 아닐 수 있습니다.</p>}
-            {operation.entries.map((entry, index) => <div key={index} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6, marginTop: 4, fontSize: 10 }}><span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{entry.type === 'CANCEL' ? '취소' : entry.type === 'ADD' ? '추가' : '확인'} · {entry.custName} · {entry.prodName}</span><b>{entry.qty ?? '?'} {entry.unit}</b></div>)}
+            {operation.entries.map((entry, index) => <div key={index} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 6, marginTop: 4, fontSize: 10 }}><span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{entry.type === 'CANCEL' ? '취소' : entry.type === 'ADD' ? '추가' : '확인'} · {entry.custName} · {entry.prodName}</span><b style={{ whiteSpace: 'nowrap' }}>{quantityResult(entry)}</b></div>)}
           </details>
         </article>;
       })}

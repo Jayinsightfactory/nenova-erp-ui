@@ -315,7 +315,6 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     const source=[row.sender,row.created_at?shortKstTime(row.created_at):'시각 확인 필요'].filter(Boolean).join(' · ');
     const sourceWeek=sourceWeekFromMessage(row.message,String(year||''))||week;
     const changes=sourceChanges.get(row.identity)||[];
-    const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length});
     const liveItem=inLiveRange&&hasAcceptedLiveHistoryScope?liveHistory[row.identity]:null;
     // A row is rendered next to history only when the API returned the exact
     // source identity. Request IDs are then the only key used below; names,
@@ -338,13 +337,18 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       const duplicateRequest=!!requestId&&liveRequestIdCounts.get(requestId)>1;
       pairedRequests.push({request,requestId:duplicateRequest?null:requestId,expectedRequestId:requestId,index:index+changes.length,duplicateRequest,unparsedRequest:true});
     }
-    const appliedItems=pairedRequests.map(pair=>({
-      pair,
-      application:pair.request&&!pair.unparsedRequest&&!pair.duplicateRequest
+    const quantityProcessedIds=new Set(quantityProcessed.map(request=>request.id));
+    const appliedItems=pairedRequests.map(pair=>{
+      const application=pair.request&&!pair.unparsedRequest&&!pair.duplicateRequest
         ?appliedOperationEntry({operation,identity:row.identity,year,week:applicationWeek,request:pair.request,requestId:pair.requestId,requests:liveRequests})
-        :{status:'UNCONFIRMED',entry:null},
-    }));
+        :{status:'UNCONFIRMED',entry:null};
+      const quantityHistoryApplied=application.status!=='APPLIED'&&pair.request&&pair.requestId===pair.expectedRequestId
+        &&quantityProcessedIds.has(pair.requestId);
+      return {pair,application:quantityHistoryApplied?{status:'APPLIED',entry:null,matchKind:'QUANTITY_HISTORY'}:application};
+    });
     const appliedCount=appliedItems.filter(item=>item.application.status==='APPLIED').length;
+    const exactHistoryCoverage=pairedRequests.length===changes.length?appliedCount:0;
+    const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length,appliedItemCount:exactHistoryCoverage});
     const {groups,additional}=groupAppliedItems(appliedItems);
     const renderAppliedItem=({pair,application},showCustomer=false)=>{
       const request=pair.request;
@@ -360,7 +364,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       return <div className={`paired-applied-item paired-applied-${status}`} data-request-id={pair.requestId||undefined} data-testid={`applied-item:${pair.index}`} key={`${pair.requestId||pair.expectedRequestId||'visible'}:${pair.index}`}>
         <span className="paired-applied-product" title={`${showCustomer?`${customer} · `:''}${product}`}>{showCustomer?`${customer} · `:''}{product}</span>
         <span className="paired-applied-quantity" title={quantity==='?'?'수량 확인 필요':quantity} aria-label={quantity==='?'?'수량 확인 필요':undefined}>{quantity}</span>
-        <b title={application.status==='APPLIED'?'동일 원문·업체·품목·동작의 검증된 저장 기록':'개별 저장 기록을 정확히 연결하지 못함'}>{application.status==='APPLIED'?'적용':'미확인'}</b>
+        <b title={application.matchKind==='QUANTITY_HISTORY'?'전산 수량변경의 방향·정규화 수량이 원문 요청과 일치':'동일 원문·업체·품목·동작의 검증된 저장 기록'}>{application.matchKind==='QUANTITY_HISTORY'?'수량확인':application.status==='APPLIED'?'적용':'미확인'}</b>
       </div>;
     };
     const appliedPanel=<section className="paired-applied-items" aria-label="적용 항목 상태">
@@ -374,7 +378,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
         {additional.map(item=>renderAppliedItem(item,true))}
       </details>}</div>
     </section>;
-    return <article className="message compact-match-row" data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
+    return <article className={`message compact-match-row ${confirmation.confirmed&&!confirmation.cancelled?'history-completed':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
       <div className="visible-change-meta"><small>{source}</small>
