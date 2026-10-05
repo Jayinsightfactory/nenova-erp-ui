@@ -8,6 +8,7 @@ const operationHistory = fs.readFileSync('components/orders/PasteOperationHistor
 assert.match(page, /① 영업방 원문 · 최신 전산 이력/);
 assert.match(page, /<DistributionSalesInbox key=\{`\$\{selectedYearFromWeek\(week\)\}:\$\{week\}`\}/);
 assert.match(page, /evidenceMessages=\{evidenceMessages\} evidenceOrders=\{orders\}/);
+assert.match(page, /if \(!autoAnalyze && pasteText\.trim\(\) && !window\.confirm\('현재 입력 내용을 선택한 영업방 대화로 바꿀까요\? 아직 주문·분배는 처리하지 않습니다\.'\)\) return;/, '명시적인 원문 AI 분석·등록분배 준비는 대화 선택 확인에 막히지 않지만 전산 저장은 시작하지 않는다.');
 assert.match(page, /const \[baselineCollapsed, setBaselineCollapsed\] = useState\(false\)/, '영업방 원문·전산이력 목록은 기본 펼침이어야 한다.');
 assert.match(page, /영업방 원문 · 최신 전산 이력 펼치기/);
 assert.match(page, /paste-col-baseline\$\{baselineCollapsed \? ' is-collapsed' : ''\}/);

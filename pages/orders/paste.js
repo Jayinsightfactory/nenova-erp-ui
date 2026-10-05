@@ -4074,7 +4074,7 @@ export default function PasteOrderPage() {
             <details className="paste-baseline-panel"><summary>물량표 연결 · {week} · 설정 펼치기</summary><DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
               hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} /></details>
             <div className="paste-sales-inbox"><DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} prepareMessage={prepareInboxMessage} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} operationRevision={bulkResult} onLoadText={({text,messages,sourceWeek,autoAnalyze,preparedAnalysis}) => {
-              if (pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
+              if (!autoAnalyze && pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
               const nextWeek = sourceWeek || week;
               setEvidenceMessages(messages || []);
               if (sourceWeek && sourceWeek !== week) setWeek(sourceWeek);
