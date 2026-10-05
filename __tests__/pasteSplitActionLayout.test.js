@@ -96,13 +96,16 @@ assert.match(page, /setBulkCompletionNotice\(completionNotice\)/, '전체 일괄
 assert.match(page, /setBulkCompletionNotice\(\{[\s\S]*order\.custMatch\.CustName[\s\S]*okCount,[\s\S]*failCount/, '업체별 일괄 작업도 완료 알림창에 결과를 전달해야 한다.');
 assert.match(page, /저장 완료 결과 — 아래 수량이 현재 전산에 반영되었습니다/, '전체 성공 직후 입력 옆에 현재 반영 결과를 표시해야 한다.');
 assert.match(page, /row\.sourceLine \|\| row\.inputName \|\| row\.displayName \|\| row\.prodName/, '성공 결과는 카톡 원문 행을 우선 표시해야 한다.');
-assert.ok((page.match(/기존처리완료/g) || []).length >= 2, '입력 옆 결과와 완료 알림창은 동일하게 기존처리완료를 표시해야 한다.');
+assert.ok((page.match(/기존처리완료/g) || []).length >= 1, '입력 옆 조밀한 결과에는 기존처리완료를 표시해야 한다.');
 assert.doesNotMatch(page.slice(page.indexOf('id="paste-connected-result"'), page.indexOf('<StockImpactSummary')), /batchResultQty/, '저장 완료 결과에는 주문·분배 전후 수량을 반복 표시하지 않는다.');
 assert.match(page, /maxHeight: 420/, '완료 알림창은 간단한 결과를 더 많이 볼 수 있어야 한다.');
 assert.match(page, /if \(bulkResult\?\.orderId === 'ALL'[\s\S]*이미 일괄 등록·분배가 완료되었습니다[\s\S]*return;/, '같은 분석 결과의 성공 후 서버 재요청을 막고 중복 가산 안내를 보여야 한다.');
 assert.match(page, /setBulkResult\(null\);[\s\S]*setBulkCompletionNotice\(null\);[\s\S]*setBulkProgress\(''\)/, '다시 분석하면 이전 완료 결과와 실행 잠금을 명시적으로 초기화해야 한다.');
 assert.match(page, /role="dialog"/, '완료 결과는 별도 알림창으로 보여야 한다.');
 assert.match(page, /title: '일괄 등록·분배 완료'/, '완료 알림창은 일괄 작업 완료를 명확히 알려야 한다.');
+assert.match(page, /formatCompletionQuantityChange\(row\)/, '완료창은 업체별 적용량과 주문·분배 전후 수량을 표시해야 한다.');
+assert.match(page, /parts\.push\(`분배 \$\{outBefore\}→\$\{outAfter\}\$\{unit\}`\)/);
+assert.match(page, /<StockImpactSummary draft=\{stockDraft\} selectedWeek=\{week\} processed \/>/, '완료창에도 기초재고 기준 잔량을 표시해야 한다.');
 assert.match(page, /fetch\(`\/api\/shipment\/adjust\?type=current[\s\S]*AbortSignal\.timeout\(20_000\)/, '완료 후 분배 재조회가 무기한 대기해 처리중 상태에 머물면 안 된다.');
 assert.match(page, /const handleUndoAllMixedDistribute = async/);
 assert.match(page, /fetch\('\/api\/shipment\/adjust-batch-undo'/);
