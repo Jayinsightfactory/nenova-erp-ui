@@ -37,6 +37,13 @@ async function run(query = {}, method = 'GET') { let body, status = 200; await c
 const result = await run({ year: '2026', custName: '꽃길' });
 assert.equal(result.body.operations.length, 1); assert.equal(result.body.operations[0].entries.length, 2);
 assert.match(calls[0].statement, /Actor=@actor OR Actor=@actorName/);
+await run({ year: '2026', week: '36-01', who: 'all' });
+const scoped = [...calls].reverse().find(call => call.statement.includes('FROM SystemActionLog'));
+assert.match(scoped.statement, /JSON_VALUE\(CASE WHEN ISJSON\(Payload\)=1 THEN Payload ELSE N'\{\}' END, '\$\.year'\)=@scopeYear/);
+assert.match(scoped.statement, /JSON_VALUE\(CASE WHEN ISJSON\(Payload\)=1 THEN Payload ELSE N'\{\}' END, '\$\.week'\)=@scopeWeek/);
+assert.equal(scoped.params.scopeYear.value, '2026'); assert.equal(scoped.params.scopeWeek.value, '2026-36-01');
+await run({ year: '2026', week: '36', who: 'all' });
+assert.equal([...calls].reverse().find(call => call.statement.includes('FROM SystemActionLog')).params.scopeWeek.value, '2026-36-%');
 assert.equal((await run({ year: '2025' })).body.operations.length, 0);
 assert.equal((await run({ year: '2026', cursor: '-1' })).status, 400);
 const before = calls.length; assert.equal((await run({}, 'POST')).status, 405); assert.equal(calls.length, before);

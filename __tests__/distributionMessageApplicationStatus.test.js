@@ -33,6 +33,8 @@ const manual={sourceIdentity:identity,year:'2026',week:'37-01',status:'MANUALLY_
 assert.equal(sourceConfirmation(scope).confirmed,false);
 assert.equal(sourceConfirmation({...scope,manual}).confirmed,true);
 assert.equal(sourceConfirmation({...scope,operation}).confirmed,true);
+assert.equal(sourceConfirmation({...scope,requestCount:1,operation:{...operation,committedCount:3,entries:[{sourceIdentity:identity},{sourceIdentity:identity},{sourceIdentity:identity}]}}).confirmed,true,'one raw message may expand into multiple successfully committed product rows');
+assert.equal(sourceConfirmation({...scope,operation:{...operation,entries:[{sourceIdentity:identity},{sourceIdentity:'different-message'}]}}).confirmed,false,'mixed-source operation rows never auto-confirm this message');
 assert.equal(sourceConfirmation({...scope,requestCount:2,appliedItemCount:2}).confirmed,true,'all source requests covered by exact history evidence auto-confirm');
 assert.equal(sourceConfirmation({...scope,requestCount:2,appliedItemCount:1}).confirmed,false,'partial history coverage does not confirm the whole source');
 for(const patch of [{status:'preview'},{status:'failed'},{undo:true},{undone:true},{incomplete:true},{committedCount:1},{year:'2025'},{week:'37-02'},{entries:[{sourceIdentity:identity}]}]) {
