@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchRaumPnlJson } from '../../lib/raumPnlHttp';
+import { formatPnlPeriod, pnlPeriodBaseMajor } from '../../lib/raumPnlPeriod';
 
 export default function HotelCustomerMapping({ partner, disabled, orderYear, major }) {
  const [mapping,setMapping]=useState(null), [open,setOpen]=useState(false), [term,setTerm]=useState('');
@@ -17,7 +18,7 @@ export default function HotelCustomerMapping({ partner, disabled, orderYear, maj
  useEffect(()=>{referenceGeneration.current++;setReference(null);},[orderYear,major]);
  const readReference=async()=>{
   const token=generation.current, referenceToken=++referenceGeneration.current; setBusy(true);setError('');
-  try {const result=await fetchRaumPnlJson(`/api/raum/hotel-customer-mapping?reference=1&partner=${encodeURIComponent(partner.code)}&year=${encodeURIComponent(orderYear)}&major=${encodeURIComponent(major)}`);if(token===generation.current && referenceToken===referenceGeneration.current){setMapping(result.mapping);setReference(result.rows);}}
+  try {const result=await fetchRaumPnlJson(`/api/raum/hotel-customer-mapping?reference=1&partner=${encodeURIComponent(partner.code)}&year=${encodeURIComponent(orderYear)}&major=${encodeURIComponent(pnlPeriodBaseMajor(major))}`);if(token===generation.current && referenceToken===referenceGeneration.current){setMapping(result.mapping);setReference(result.rows);}}
   catch(cause){if(token===generation.current)setError(cause.message);}
   finally{if(token===generation.current)setBusy(false);}
  };
@@ -45,7 +46,7 @@ export default function HotelCustomerMapping({ partner, disabled, orderYear, maj
   <button type="button" style={button} disabled={disabled || busy} onClick={()=>{setOpen(true);setTerm(partner.label);setCustomers([]);}}>전산 업체 매칭</button>
   <span style={{fontSize:13}}>연결 업체: {mapping?.active ? `${mapping.custName} (#${mapping.custKey})` : mapping?.custKey ? '비활성 업체 — 다시 연결하세요' : '미매칭'}</span>
   {mapping?.active && orderYear && major ? <button type="button" style={button} disabled={busy || disabled} onClick={readReference}>연결 업체 전산 출고 참조</button> : null}
-  {reference ? <div style={{flexBasis:'100%',maxHeight:220,overflow:'auto',fontSize:12,border:'1px solid #cbd5e1',padding:8}}><b>{mapping?.custName} · {orderYear}년 {Number(major)}차 전산 출고 (전산 단위)</b>{reference.length ? reference.map(row=><div key={`${row.OrderWeek}|${row.ProdKey}`} style={{padding:'4px 0'}}>{row.OrderWeek} · {row.ProdName} · {Number(row.OutQuantity).toLocaleString()} {row.OutUnit}</div>):<div>해당 업체·연도·차수의 출고 자료가 없습니다.</div>}</div> : null}
+  {reference ? <div style={{flexBasis:'100%',maxHeight:220,overflow:'auto',fontSize:12,border:'1px solid #cbd5e1',padding:8}}><b>{mapping?.custName} · {orderYear}년 {formatPnlPeriod(major)} 결산의 전산 {formatPnlPeriod(pnlPeriodBaseMajor(major))} 출고 참조 (전산 단위)</b>{reference.length ? reference.map(row=><div key={`${row.OrderWeek}|${row.ProdKey}`} style={{padding:'4px 0'}}>{row.OrderWeek} · {row.ProdName} · {Number(row.OutQuantity).toLocaleString()} {row.OutUnit}</div>):<div>해당 업체·연도·차수의 출고 자료가 없습니다.</div>}</div> : null}
   {!mapping ? <button type="button" style={button} disabled={busy || disabled} onClick={retry}>업체 연결 다시 조회</button> : null}
   {error && !open ? <span role="alert" style={{color:'#b91c1c'}}>{error}</span>:null}
   {open ? <div role="dialog" aria-modal="true" aria-label="전산 업체 매칭" style={{position:'fixed',inset:0,zIndex:1100,background:'rgba(15,23,42,.45)',display:'grid',placeItems:'center',padding:16}}>

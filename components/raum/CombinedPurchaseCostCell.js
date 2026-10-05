@@ -1,6 +1,7 @@
 import ShillaPurchaseCostInput from './ShillaPurchaseCosts';
 import HotelArrivalCostReference from './HotelArrivalCostReference';
 import RaumCostHistoryPreview from './RaumCostHistoryPreview';
+import { formatPnlPeriod } from '../../lib/raumPnlPeriod';
 
 const border = '1px solid #cbd5e1';
 
@@ -36,7 +37,7 @@ function SharedPurchaseCostInput({ item, cell, draft, onChange, disabled, unavai
   const label = { missing: '미입력', mismatch: '단가 다름', partial: '맞추기 필요' }[cell.state];
   return <div style={{ minWidth: 165, flex: '1 1 165px', padding: 4, background: draft ? '#fef3c7' : '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 4 }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}><b style={{ color: '#1d4ed8', fontSize: 10 }}>라움·초이문 공통</b>{label ? <span style={{ color: '#a16207', fontSize: 9 }}>{label}</span> : null}</div>
-    <input value={value} disabled={disabled} onChange={event => onChange(cell, event.target.value)} inputMode="decimal" aria-label={`${item.name} ${cell.major}차 공통 매입단가`} placeholder={label || '매입단가'} style={{ width: '100%', height: 22, boxSizing: 'border-box', marginTop: 3, textAlign: 'right', border: invalid ? '1px solid #dc2626' : border, borderRadius: 3, color: invalid ? '#b91c1c' : '#1e293b' }} />
+    <input value={value} disabled={disabled} onChange={event => onChange(cell, event.target.value)} inputMode="decimal" aria-label={`${item.name} ${formatPnlPeriod(cell.major)} 공통 매입단가`} placeholder={label || '매입단가'} style={{ width: '100%', height: 22, boxSizing: 'border-box', marginTop: 3, textAlign: 'right', border: invalid ? '1px solid #dc2626' : border, borderRadius: 3, color: invalid ? '#b91c1c' : '#1e293b' }} />
     {cell.state === 'partial' && !draft ? <button type="button" disabled={disabled} onClick={() => onChange(cell, String(cell.singleValue))} style={{ marginTop: 2, padding: '0 4px', border: '1px solid #a16207', borderRadius: 3, background: '#fff', color: '#a16207', fontSize: 9 }}>동일 적용</button> : null}
     {cell.state === 'mismatch' && !draft ? <StoredCostDifference partners={cell.partners} /> : null}
     <PartnerDetails label="라움" detail={cell.partners?.raum} draftText={draft ? text : null} invalid={invalid} />
@@ -48,9 +49,9 @@ function SharedPurchaseCostInput({ item, cell, draft, onChange, disabled, unavai
 export default function CombinedPurchaseCostCell({ item, cell, sharedDraft, shillaDraft, onSharedChange, onShillaChange, disabled, sharedUnavailable, shillaUnavailable, shillaUnavailableMessage, isolatedLabel }) {
   const arrival = cell.shared || cell.shilla;
   const history = (item.cells || []).filter(Boolean);
-  const weeks = history.map(value => ({ key: String(value.major), label: `${value.major}차` }));
+  const weeks = history.map(value => ({ key: String(value.major), label: formatPnlPeriod(value.major) }));
   return <div style={{ width: 355, flex: '0 0 355px', padding: 4, border, borderRadius: 5, background: '#fff' }}>
-    <b style={{ display: 'block', marginBottom: 3, color: '#334155', fontSize: 11 }}>{cell.major}차</b>
+    <b style={{ display: 'block', marginBottom: 3, color: '#334155', fontSize: 11 }}>{formatPnlPeriod(cell.major)}</b>
     <div style={{ display: 'flex', alignItems: 'stretch', gap: 4 }}>
       <RaumCostHistoryPreview item={item} orderYear={item.orderYear} weeks={weeks} valuesByWeek={history.map(value => value.shared?.values || [])} error={sharedUnavailable ? '공통 단가 조회 실패' : ''}>{anchorProps => <div {...anchorProps} style={{ flex: 1, minWidth: 0 }}><SharedPurchaseCostInput item={item} cell={cell.shared} draft={sharedDraft} onChange={onSharedChange} disabled={disabled} unavailable={sharedUnavailable} /></div>}</RaumCostHistoryPreview>
       <RaumCostHistoryPreview item={item} orderYear={item.orderYear} weeks={weeks} valuesByWeek={history.map(value => value.shilla?.values || [])} error={shillaUnavailable ? '호텔 단가 조회 실패' : ''}>{anchorProps => <div {...anchorProps} style={{ flex: 1, minWidth: 0 }}><ShillaPurchaseCostInput item={item} cell={cell.shilla} draft={shillaDraft} onChange={onShillaChange} disabled={disabled} unavailable={shillaUnavailable} unavailableMessage={shillaUnavailableMessage} label={isolatedLabel} /></div>}</RaumCostHistoryPreview>

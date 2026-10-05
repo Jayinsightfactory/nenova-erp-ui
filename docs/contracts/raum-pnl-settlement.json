@@ -2,6 +2,7 @@
   "id": "raum-pnl-settlement",
   "title": "라움·초이문·신라·등록 호텔 손익계산서 결산 계약",
   "scope": [
+    "lib/raumPnlPeriod.js",
     "lib/pnlHotelCostHistory.js",
     "lib/pnlHotelCostPreview.js",
     "pages/api/raum/hotel-cost-history.js",
@@ -87,6 +88,16 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "settlementIdentity": ["OrderYear", "MajorWeek", "PartnerCode"],
+  "shillaSheetPeriod": {
+    "helper": "lib/raumPnlPeriod.js",
+    "source": "Excel sheet name, never ERP notes or title-based reassignment",
+    "identity": "MajorWeek remains NVARCHAR(4): 39 and 39-2 are independent year+partner-scoped settlements. 39차-2 and 39-2차 normalize to 39-2; duplicate aliases in one workbook remain blocked.",
+    "validation": "Positive one/two-digit base 1..99, optional Shilla-only single-digit suffix 1..9; malformed/overflow suffixes are rejected, never stripped or truncated. Existing numeric DTO values remain numeric; subperiod DTO values remain canonical strings.",
+    "consumers": "Preview selection, snapshot/token/save, cost edits, product mapping including bulk membership, history/matrix, title/list/print/Excel all preserve the full period. Dates and assigned months remain per settlement.",
+    "erpReference": "Explicit base-major adapter only at existing read-only ERP/arrival-cost reference boundary; never interpret Shilla -2 as ERP -02. No new reference window or ledger writes.",
+    "preserve": ["existing 39 settlement on 39-2-only import", "prior-year same period", "other hotels", "manual costs and product links", "Order", "Shipment", "Warehouse", "Stock", "Estimate", "WebProfitReport"],
+    "migration": "none; no production data correction or auto-save"
+  },
   "contextualBack": {"priority":"before menu or browser navigation","detail":"return to the settlement list on the same page","uploadPreview":"return to the settlement list after explicit unsaved confirmation","duringWork":"block while upload, save, or Shilla matching is running","writes":"none","preserve":["WebRaumPnl","WebRaumPnlItem","OrderDetail","ShipmentDetail","StockHistory","Estimate","WebProfitReport"]},
   "specialNoteIdentity": ["PartnerCode", "OrderYear"],
   "quoteSheetClassification": {
@@ -172,6 +183,10 @@
     "preserve": ["Qty", "SalePrice", "SaleAmount", "IsConsigned", "ProdKey identity for rows that have one"]
   },
   "requiredTestFiles": [
+    "__tests__/raumPnlPeriod.test.js",
+    "__tests__/shillaPnlPeriodImport.test.js",
+    "__tests__/shillaPnlPeriodConsumers.test.js",
+    "__tests__/shillaPnlPeriodScope.test.js",
     "__tests__/pnlHotelCostHistory.test.js",
     "__tests__/pnlHotelCostPreview.test.js",
     "__tests__/pnlHotelCustomerMap.test.js",

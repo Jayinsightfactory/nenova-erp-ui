@@ -31,7 +31,7 @@ function loadApi() {
     lockResult: 0,
   };
   const db = {
-    sql: new Proxy({}, { get: (_target, key) => String(key) }),
+    sql: new Proxy({}, { get: (_target, key) => key === 'NVarChar' ? length => `NVarChar(${length})` : String(key) }),
     withTransaction: async callback => {
       const staged = { itemProdKey: undefined, parentWrite: false };
       try {
@@ -245,7 +245,7 @@ async function main() {
   current.ProdKey = null;
   state.handler = async (statement, params) => {
     if (statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.master) {
-      const exact = params.yr.value === '2026' && params.major.value === 35 && params.pnlKey.value === 123;
+      const exact = params.yr.value === '2026' && params.major.value === '35' && params.pnlKey.value === 123;
       return { recordset: exact ? [{ PnlKey: 123 }] : [] };
     }
     if (statement === api.SHILLA_PNL_PRODUCT_MATCH_SQL.item) {

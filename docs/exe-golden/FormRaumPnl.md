@@ -1,5 +1,12 @@
 # 라움 손익계산서·이미지 주문등록 — nenova.exe 근거
 
+## 2026-10-05 신라 시트 하위 기간 사전 근거
+
+- 메인이 로컬 dnSpy CLI `dnSpy.Console.exe --no-color -t FormOrderAdd "C:/Program Files (x86)/Wooribnc/Nenova/Nenova.exe"`를 실행해 성공을 확인했다. `CheckExistingOrder`, `btnSave_Click`의 연도+차수 업무키를 확인했다. 웹 전용 신라 결산 시트 `39차-2`를 EXE `39-02`라고 해석하지 않는다.
+- 읽기 전용 운영 SELECT: `WebRaumPnl.MajorWeek` NVARCHAR(4), `OrderYear` NVARCHAR(4). 2026 신라 39차 PnlKey 60, 10개 품목, QuoteDate 2026-09-29, 매출 28,636,904. 같은 조회 범위에서 2025 동일 차수 및 39-2 저장본 없음.
+- 첨부 원본 `39차-2`는 A1에 39-2(10.2), 2개 품목, 매입 299,928, 매출 389,200이다. 기존 parser가 39와 합쳐 호접 행의 보존 충돌을 유발함을 실제 웹 화면에서도 확인했다. 충돌 방어를 해제하지 않고 시트 기간 identity를 분리한다.
+- 설계·기준 ledger·부작용 표: `docs/work-plans/2026-10-05-shilla-sheet-period.md`. 무DDL이며 명시 선택 저장만 WebRaumPnl/Item에 적용한다. 주문/출고/입고/재고, Estimate, ShipmentDetail.Amount/Vat/isFix, WebProfitReport는 보존한다. 운영 보정이나 실제 저장 시험은 수행하지 않았다.
+
 ## 2026-09-22 복합단위 참조 보정
 
 FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT에서 Aisha 원본 단당1송이, 호텔 단-5스팀, Product 단당5송이 확인. 명시 포장수로 웹 참조만 환산하며 CostPrice/원본원가/ERP 원장은 보존. 01-2/1-2는 숫자 차수로 합쳐 표시한다. 상세 근거는 work-reports/2026-09-22_hotel-arrival-repair.md.

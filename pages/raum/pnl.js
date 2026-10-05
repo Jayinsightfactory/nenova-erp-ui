@@ -25,6 +25,7 @@ import { fetchRaumPnlJson, MAX_RAUM_PNL_UPLOAD_BYTES } from '../../lib/raumPnlHt
 import { createRaumPnlRequestGuard, isRaumPnlPartnerMatch } from '../../lib/raumPnlRequestGuard';
 import { evaluateRaumPnlImportReview, raumPnlImportSaveError } from '../../lib/raumPnlImportReview';
 import { MENU_BACK_REQUEST_EVENT } from '../../lib/menuNavigationHistory';
+import { formatPnlPeriod, pnlPeriodBaseMajor, parsePnlPeriod } from '../../lib/raumPnlPeriod';
 
 const fmt = v => (v == null || Number.isNaN(Number(v)) ? '' : Math.round(Number(v)).toLocaleString());
 const fmt1 = v => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
@@ -693,7 +694,7 @@ function buildSummaryPrintHtml(list, partnerLabel = '라움') {
     const { profit, rate } = masterProfit(m);
     const nen = Number(m.NenovaPct);
     return `<tr>
-      <td class="ctr">${Number(m.MajorWeek)}차</td>
+      <td class="ctr">${formatPnlPeriod(m.MajorWeek) || '차수 미상'}</td>
       <td class="ctr">${escapePnlHtml(dateStr(m.QuoteDate))}</td>
       <td class="num">${fmt(m.CostTotal)}</td>
       <td class="num">${fmt(m.SaleTotal)}</td>
@@ -1183,7 +1184,7 @@ function GangnamMergeConfirmation({ decision, confirmed, onChange }) {
       <span>강남 복수 시트의 원본 목록과 합산 수량·금액을 확인했습니다. 이 확인 후에만 수동 저장합니다.</span>
     </label>
     {decision.review.map(({ batch, check }, index) => <div key={`${batch.orderYear}-${batch.major}-${index}`} style={{ marginTop: 5, paddingLeft: 23, fontSize: 12 }}>
-      {Number(batch.major)}차 · {(check.sheetNames || []).join(' · ') || '원본 시트명 없음'} · 합산 수량 {fmt((batch.items || []).reduce((sum, item) => sum + Number(item.qty || 0), 0))} · 매출 {fmt((batch.items || []).reduce((sum, item) => sum + Number(item.supply || 0), 0))}원
+      {formatPnlPeriod(batch.major)} · {(check.sheetNames || []).join(' · ') || '원본 시트명 없음'} · 합산 수량 {fmt((batch.items || []).reduce((sum, item) => sum + Number(item.qty || 0), 0))} · 매출 {fmt((batch.items || []).reduce((sum, item) => sum + Number(item.supply || 0), 0))}원
     </div>)}
   </div>;
 }
@@ -1434,7 +1435,7 @@ export default function RaumPnlPage() {
       const result = await response.json();
       if (!result.success) throw new Error(result.error || '월 배정 저장 실패');
       setList(current => current.map(item => item.PnlKey === row.PnlKey ? { ...item, AssignedMonth: result.assignedMonth, UpdatedAt: new Date().toISOString() } : item));
-      setMessage(`${Number(row.MajorWeek)}차 월 배정을 ${result.assignedMonth ? `${Number(result.assignedMonth.slice(5))}월` : '자동(견적일 기준)'}로 저장했습니다.`);
+      setMessage(`${formatPnlPeriod(row.MajorWeek)} 월 배정을 ${result.assignedMonth ? `${Number(result.assignedMonth.slice(5))}월` : '자동(견적일 기준)'}로 저장했습니다.`);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1446,13 +1447,13 @@ export default function RaumPnlPage() {
   const existingDiffWarnings = (batch) => {
     const diff = batch?.existingDiff;
     if (!diff) return [];
-    if (!diff.hasChanges) return [`${Number(batch.major)}차 기존 저장본과 업로드 내용이 동일합니다.`];
+    if (!diff.hasChanges) return [`${formatPnlPeriod(batch.major)} 기존 저장본과 업로드 내용이 동일합니다.`];
     const summary = [
       diff.added?.length ? `추가 ${diff.added.length}건` : '',
       diff.removed?.length ? `삭제 ${diff.removed.length}건` : '',
       diff.changed?.length ? `수량·매출 변경 ${diff.changed.length}건` : '',
     ].filter(Boolean).join(' · ');
-    const result = [`${Number(batch.major)}차 기존 저장본과 차이가 있습니다: ${summary || '행 구성 변경'} / 총수량 ${diff.counts.qtyDelta > 0 ? '+' : ''}${diff.counts.qtyDelta}, 총매출 ${diff.counts.supplyDelta > 0 ? '+' : ''}${fmt(diff.counts.supplyDelta)}원`];
+    const result = [`${formatPnlPeriod(batch.major)} 기존 저장본과 차이가 있습니다: ${summary || '행 구성 변경'} / 총수량 ${diff.counts.qtyDelta > 0 ? '+' : ''}${diff.counts.qtyDelta}, 총매출 ${diff.counts.supplyDelta > 0 ? '+' : ''}${fmt(diff.counts.supplyDelta)}원`];
     if (diff.added?.length) result.push(`추가: ${diff.added.slice(0, 4).map(x => `${x.name} ${x.qty}${x.unit || ''}`).join(', ')}${diff.added.length > 4 ? ` 외 ${diff.added.length - 4}건` : ''}`);
     if (diff.removed?.length) result.push(`삭제: ${diff.removed.slice(0, 4).map(x => `${x.name} ${x.qty}${x.unit || ''}`).join(', ')}${diff.removed.length > 4 ? ` 외 ${diff.removed.length - 4}건` : ''}`);
     if (diff.changed?.length) result.push(`변경: ${diff.changed.slice(0, 4).map(x => `${x.name} ${x.beforeQty}→${x.afterQty}${x.unit || ''}`).join(', ')}${diff.changed.length > 4 ? ` 외 ${diff.changed.length - 4}건` : ''}`);
@@ -1631,7 +1632,7 @@ export default function RaumPnlPage() {
       return;
     }
     const changedWeeks = selected.filter(batch => batch.existingDiff?.hasChanges);
-    if (changedWeeks.length && !window.confirm(`${changedWeeks.map(batch => `${Number(batch.major)}차`).join(', ')} 기존 저장본이 변경됩니다. 비교 내용을 확인했으며 전체 저장할까요?`)) return;
+    if (changedWeeks.length && !window.confirm(`${changedWeeks.map(batch => formatPnlPeriod(batch.major)).join(', ')} 기존 저장본이 변경됩니다. 비교 내용을 확인했으며 전체 저장할까요?`)) return;
     setSaving(true);
     setError('');
     try {
@@ -1665,7 +1666,7 @@ export default function RaumPnlPage() {
     }
     if (!meta.major) { setError('차수를 입력하세요 (예: 27).'); return; }
     if (detailSaveReason) { setError(detailSaveReason); return; }
-    if (detail.existingDiff?.hasChanges && !window.confirm(`${Number(meta.major)}차 기존 저장본이 업로드 내용으로 변경됩니다. 비교 내용을 확인했으며 저장할까요?`)) return;
+    if (detail.existingDiff?.hasChanges && !window.confirm(`${formatPnlPeriod(meta.major)} 기존 저장본이 업로드 내용으로 변경됩니다. 비교 내용을 확인했으며 저장할까요?`)) return;
     setSaving(true);
     setError('');
     try {
@@ -1692,7 +1693,7 @@ export default function RaumPnlPage() {
       if (partner.customHotel) await openDetail(j.pnlKey, { keepMessage: true });
       setGangnamMergeConfirmed(false);
       setCostHistoryRevision(value => value + 1);
-      setMessage(`저장 완료 — ${Number(meta.major)}차 손익계산서가 히스토리에 기록되었습니다.`);
+      setMessage(`저장 완료 — ${formatPnlPeriod(meta.major)} 손익계산서가 히스토리에 기록되었습니다.`);
       loadList();
     } catch (e) {
       reportPnlError(e);
@@ -1810,7 +1811,7 @@ export default function RaumPnlPage() {
       });
       setCostHistoryRevision(value => value + 1);
       setImageOpen(false);
-      setMessage(`${Number(mj)}차 이미지 결산 초안 저장 완료 — 주문등록은 별도로 실행하세요.`);
+      setMessage(`${formatPnlPeriod(mj)} 이미지 결산 초안 저장 완료 — 주문등록은 별도로 실행하세요.`);
       await loadList();
       return j;
     } finally {
@@ -1926,7 +1927,7 @@ export default function RaumPnlPage() {
     const changedItemCount = Number.isInteger(Number(result.changedItemCount)) ? Number(result.changedItemCount) : 1;
     const autoMatchedCount = Number.isInteger(Number(result.autoMatchedCount)) ? Number(result.autoMatchedCount) : 0;
     const affectedMajors = Array.isArray(result.affectedMajors)
-      ? result.affectedMajors.filter(major => Number.isInteger(Number(major)) && Number(major) > 0).map(major => `${Number(major)}차`)
+      ? result.affectedMajors.filter(major => parsePnlPeriod(major)).map(major => formatPnlPeriod(major))
       : [];
     const isUnlink = result.prodKey === null;
     const matchAction = isUnlink ? '품목 연결 해제' : '품목 연결';
@@ -1948,7 +1949,7 @@ export default function RaumPnlPage() {
     const listLoaded = await loadList();
     const detailLoaded = partnerCodeRef.current === 'shilla' && !detail?.unsaved && Number.isInteger(pnlKey) && pnlKey > 0
       ? await openDetail(pnlKey, { keepMessage: true }) : true;
-    const majors = Array.isArray(result.affectedMajors) ? result.affectedMajors.map(major => `${major}차`).join(', ') : '';
+    const majors = Array.isArray(result.affectedMajors) ? result.affectedMajors.map(major => formatPnlPeriod(major)).filter(Boolean).join(', ') : '';
     setMessage(listLoaded && detailLoaded
       ? `신라 미매칭 품목 ${Number(result.changedGroupCount || 0)}그룹 · ${Number(result.changedItemCount || 0)}행을 연결했습니다${majors ? ` · 적용 차수 ${majors}` : ''}.`
       : '일괄 연결은 저장됐지만 목록 또는 상세를 다시 불러오지 못했습니다. 다시 조회해 주세요.');
@@ -1988,7 +1989,7 @@ export default function RaumPnlPage() {
   const refreshErpCompare = async () => {
     if (!canErpSync) throw new Error('직접 추가한 호텔은 전산 분배 대조를 사용하지 않습니다.');
     // 최신 전산 행으로 대조값(erpQty/erpSalePrice) 갱신 — { rows, custKey } 반환
-    const r = await fetch(`/api/raum/pnl-erp-rows?major=${detail.meta.major}&year=${detail.meta.orderYear}&partner=${encodeURIComponent(partnerCode)}`);
+    const r = await fetch(`/api/raum/pnl-erp-rows?major=${pnlPeriodBaseMajor(detail.meta.major)}&year=${detail.meta.orderYear}&partner=${encodeURIComponent(partnerCode)}`);
     const j = await r.json();
     if (!j.success) throw new Error(j.error || '전산 행 조회 실패');
     // 대조(erpQty): 창(N-02·(N+1)-01) 우선, 창에 없는 품목만 N-01 폴백(쌓아두는 품목)
@@ -2105,7 +2106,7 @@ export default function RaumPnlPage() {
     // 적용 직후 자동 정합검증 (verify:week V1~V3 를 라움 창 범위로) — 견적서 금액이 어긋나면 즉시 드러남
     log('정합검증(V1~V3) 실행 중 — 견적단가·견적금액·출고수량 일치 확인…');
     try {
-      const vr = await fetch(`/api/raum/pnl-verify-erp?major=${detail.meta.major}&year=${detail.meta.orderYear}&partner=${encodeURIComponent(partnerCode)}`).then(r => r.json());
+      const vr = await fetch(`/api/raum/pnl-verify-erp?major=${pnlPeriodBaseMajor(detail.meta.major)}&year=${detail.meta.orderYear}&partner=${encodeURIComponent(partnerCode)}`).then(r => r.json());
       if (vr.success) {
         results.verify = vr;
         if (vr.violations.length) {
@@ -2176,8 +2177,9 @@ export default function RaumPnlPage() {
   );
   const erpQtyMap = useMemo(() => (detail ? quoteQtyByProdKey(detail.items) : {}), [detail]);
   const weekLabels = useMemo(() => {
-    const major = Number(detail?.meta?.major);
-    if (!major) return null;
+    const period = parsePnlPeriod(detail?.meta?.major);
+    if (!period) return null;
+    const major = Number(period.baseMajor);
     const p2 = (n) => String(n).padStart(2, '0');
     return { w1: `${p2(major)}-02`, w2: `${p2(major + 1)}-01` };
   }, [detail?.meta?.major]);
@@ -2403,8 +2405,8 @@ export default function RaumPnlPage() {
                 return (
                   <Fragment key={`${batch.orderYear}-${batch.major}`}>
                     <tr>
-                      {isShilla ? <td style={{ ...st.td, textAlign: 'center' }}><input type="checkbox" aria-label={`${Number(batch.major)}차 저장`} checked={selected} disabled={!selectable || saving} onChange={event => setBulkPreview(current => current ? { ...current, selectedMajors: event.target.checked ? [...new Set([...(current.selectedMajors || []), String(batch.major)])] : (current.selectedMajors || []).filter(major => major !== String(batch.major)) } : current)} title={selectable ? '검증 통과 차수만 저장 대상으로 선택합니다.' : '검증 실패 차수는 저장할 수 없습니다.'} /></td> : null}
-                      <td style={{ ...st.td, fontWeight: 700 }}>{batch.orderYear} {Number(batch.major)}차</td>
+                      {isShilla ? <td style={{ ...st.td, textAlign: 'center' }}><input type="checkbox" aria-label={`${formatPnlPeriod(batch.major)} 저장`} checked={selected} disabled={!selectable || saving} onChange={event => setBulkPreview(current => current ? { ...current, selectedMajors: event.target.checked ? [...new Set([...(current.selectedMajors || []), String(batch.major)])] : (current.selectedMajors || []).filter(major => major !== String(batch.major)) } : current)} title={selectable ? '검증 통과 차수만 저장 대상으로 선택합니다.' : '검증 실패 차수는 저장할 수 없습니다.'} /></td> : null}
+                      <td style={{ ...st.td, fontWeight: 700 }}>{batch.orderYear} {formatPnlPeriod(batch.major)}</td>
                       <td style={st.td}>{batch.quoteDate || '-'}</td>
                       <td style={st.td}>{(batch.sheets || []).map(s => s.sheetName || s.sourceSheet || s.sourceSheetName).filter(Boolean).join(' · ') || batch.sourceSheet || batch.sourceSheetName || '-'}</td>
                       <td style={{ ...st.td, ...st.num }}>{batch.items.length}</td>
@@ -2447,13 +2449,13 @@ export default function RaumPnlPage() {
                 const nen = Number(m.NenovaPct);
                 return (
                   <tr key={m.PnlKey} style={{ cursor: 'pointer' }} onClick={() => openDetail(m.PnlKey)}>
-                    <td style={{ ...st.td, fontWeight: 700 }}>{Number(m.MajorWeek)}차</td>
+                    <td style={{ ...st.td, fontWeight: 700 }}>{formatPnlPeriod(m.MajorWeek)}</td>
                     <td style={st.td} onClick={e => e.stopPropagation()}>
                       <select
                         value={m.AssignedMonth || ''}
                         disabled={assigningMonthKey === m.PnlKey}
                         onChange={e => assignMonth(m, e.target.value)}
-                        aria-label={`${Number(m.MajorWeek)}차 월 배정`}
+                        aria-label={`${formatPnlPeriod(m.MajorWeek)} 월 배정`}
                         style={{ padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', fontSize: 12 }}
                       >
                         <option value="">자동 ({dateStr(m.QuoteDate).slice(5, 7) ? `${Number(dateStr(m.QuoteDate).slice(5, 7))}월` : '날짜 미지정'})</option>
@@ -2479,7 +2481,7 @@ export default function RaumPnlPage() {
                     <td style={{ ...st.td, ...st.num }}>{fmt(profit * (100 - nen) / 100)}</td>
                     <td style={st.td}>{dateStr(m.UpdatedAt || m.CreatedAt)}</td>
                     <td style={st.td} onClick={e => e.stopPropagation()}>
-                      <button style={st.btnDanger} onClick={() => remove(m.PnlKey, `${Number(m.MajorWeek)}차`)}>삭제</button>
+                      <button style={st.btnDanger} onClick={() => remove(m.PnlKey, formatPnlPeriod(m.MajorWeek))}>삭제</button>
                     </td>
                   </tr>
                 );
@@ -2500,7 +2502,7 @@ export default function RaumPnlPage() {
                 ) : monthlySummary.map(month => (
                   <tr key={month.month}>
                     <td style={{ ...st.td, fontWeight: 700 }}>{month.month.replace('-날짜미지정', '년 미지정')}</td>
-                    <td style={{ ...st.td, whiteSpace: 'normal' }}>{month.weeks.map(week => Number(week.slice(5))).join(', ')}</td>
+                    <td style={{ ...st.td, whiteSpace: 'normal' }}>{month.weeks.map(week => formatPnlPeriod(week.slice(5)) || '차수 미상').join(', ')}</td>
                     <td style={{ ...st.td, ...st.num }}>{fmt(month.sale)}</td>
                     <td style={{ ...st.td, ...st.num }}>{fmt(month.cost)}</td>
                     <td style={{ ...st.td, ...st.num, fontWeight: 700 }}>{fmt(month.profit)}</td>
@@ -2522,7 +2524,7 @@ export default function RaumPnlPage() {
           <div style={{ ...st.bar, gap: 14 }}>
             <label style={{ fontSize: 13 }}>차수{' '}
               <input
-                style={{ ...st.input, width: 46, textAlign: 'center' }}
+                style={{ ...st.input, width: isShilla ? 62 : 46, textAlign: 'center' }}
                 value={detail.meta.major}
                 readOnly={isShilla}
                 onChange={e => setMeta({ major: e.target.value.replace(/[^0-9]/g, '').slice(0, 2), title: defaultPnlTitle(partnerCode, e.target.value, '', partner) })}
