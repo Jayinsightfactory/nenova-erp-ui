@@ -26,6 +26,7 @@ const from = '2026-09-22';
 const to = '2026-09-28';
 const firstIdentity = 'kakao-sales|live-history-smoke|message-001';
 const secondIdentity = 'kakao-sales|live-history-smoke|message-002';
+const quantityIdentity = 'kakao-sales|live-history-smoke|message-003';
 const messages = [
   {
     source: 'kakao-sales', chat_id: 'live-history-smoke', external_message_id: 'message-001',
@@ -36,6 +37,11 @@ const messages = [
     source: 'kakao-sales', chat_id: 'live-history-smoke', external_message_id: 'message-002',
     chatroom: '영업방 smoke', sender: '담당자 B', created_at: '2026-09-23T10:00:00+09:00',
     message: '37-1 변경사항\n부산농원\n장미 레드 2박스 추가',
+  },
+  {
+    source: 'kakao-sales', chat_id: 'live-history-smoke', external_message_id: 'message-003',
+    chatroom: '영업방 smoke', sender: '담당자 C', created_at: '2026-09-24T10:00:00+09:00',
+    message: '37-1 변경사항\n양재동\n수국 Blue 1박스 취소',
   },
 ];
 const responseItems = [
@@ -55,6 +61,10 @@ const responseItems = [
       orderEvents: [{ eventId: 'order-002', before: 0, after: 2, unit: '박스', changeAt: '2026-09-23T10:30:00+09:00', shipmentDate: null, week: '37-01', custName: '부산농원', prodName: '장미 레드' }],
       shipmentEvents: [],
     }],
+  },
+  {
+    sourceIdentity: quantityIdentity, status: 'DISTRIBUTION_EVIDENCE', reason: '동일 수량변동 후보',
+    requests: [{ id: `${quantityIdentity}:3`, sourceIdentity:quantityIdentity, action:'CANCEL', custKey:701, prodKey:301, quote:'수국 Blue 1박스 취소', customerText:'양재동', productText:'수국 Blue', inputQty:1, inputUnit:'박스', qty:1, unit:'박스', status:'PRODUCT_HISTORY_CANDIDATE', matchState:'NUMERIC_HISTORY_CANDIDATE', shipmentEvents:[{eventId:'ship-003',before:5,after:4,unit:'박스',changeAt:'2026-09-24T11:00:00+09:00',shipmentDate:'2026-09-25',week:'37-01'}] }],
   },
 ];
 const apiRequests = [];
@@ -198,15 +208,22 @@ async function visibleText(page) {
     await page.setViewport(originalViewports);
 
     const orderCheck = await page.$$eval('section.sales-inbox article.message', nodes => nodes.map(node => String(node.textContent || '').replace(/\s+/g, ' ').trim()));
-    if (orderCheck.length < 2 || !/부산농원/.test(orderCheck[0]) || !/서울꽃/.test(orderCheck[1])) problems.push(`messages are not newest-first: ${JSON.stringify(orderCheck.slice(0, 2))}`);
+    if (orderCheck.length < 3 || !/양재동/.test(orderCheck[0]) || !/부산농원/.test(orderCheck[1]) || !/서울꽃/.test(orderCheck[2])) problems.push(`messages are not newest-first: ${JSON.stringify(orderCheck.slice(0, 3))}`);
     if (orderCheck.some(text => /서울꽃/.test(text) && /부산농원/.test(text))) problems.push('history content crossed between the two raw-message cards');
     const messageCards = await page.$$eval('section.sales-inbox article.message', nodes => nodes.map(node => ({ identity:node.dataset.testid||'', raw:node.querySelector('[data-testid="complete-kakao-message"]')?.innerText||'', items:[...node.querySelectorAll('.paired-applied-item')].map(item=>({text:String(item.innerText||'').replace(/\s+/g,' ').trim(),status:item.querySelector('b')?.innerText||'',requestId:item.dataset.requestId||'',background:getComputedStyle(item).backgroundColor})) })));
     const newestHistory = messageCards.find(item => item.identity.includes('message-002'));
     const oldestHistory = messageCards.find(item => item.identity.includes('message-001'));
-    if (messageCards.length !== 2 || !newestHistory || !oldestHistory) problems.push(`both complete message cards are not present: ${JSON.stringify(messageCards)}`);
+    const quantityHistory = messageCards.find(item => item.identity.includes('message-003'));
+    if (messageCards.length !== 3 || !newestHistory || !oldestHistory || !quantityHistory) problems.push(`all complete message cards are not present: ${JSON.stringify(messageCards)}`);
     if (!oldestHistory?.raw.includes('서울꽃') || !oldestHistory?.raw.includes('수국 화이트 1박스 추가') || !oldestHistory?.raw.includes('장미 레드 2박스 추가')) problems.push(`left side does not show the full Kakao message: ${JSON.stringify(oldestHistory)}`);
     if (oldestHistory?.items.length !== 2 || !oldestHistory.items.some(item=>item.text.includes('수국 화이트')&&item.status==='적용'&&item.requestId.endsWith(':3')) || !oldestHistory.items.some(item=>item.text.includes('장미 레드')&&item.status==='미확인'&&item.requestId.endsWith(':4'))) problems.push(`right side does not show the exact applied/unconfirmed entries: ${JSON.stringify(oldestHistory?.items)}`);
     if (!newestHistory?.raw.includes('부산농원') || !newestHistory?.raw.includes('장미 레드 2박스 추가') || newestHistory?.items.length!==1 || newestHistory.items[0].status!=='미확인') problems.push(`newest full message/unconfirmed item is incomplete: ${JSON.stringify(newestHistory)}`);
+    if (!quantityHistory?.items.some(item=>item.status==='수량확인'&&item.requestId.endsWith(':3')) || !quantityHistory?.raw.includes('수국 Blue 1박스 취소')) problems.push(`exact quantity history was not auto-confirmed: ${JSON.stringify(quantityHistory)}`);
+    const quantityCardClass=await page.$eval(`[data-testid="compact-match-row:${quantityIdentity}"]`,node=>node.className);
+    const quantityConfirmText=await page.$eval(`[data-testid="compact-match-row:${quantityIdentity}"] .source-confirm-toggle`,node=>node.textContent.trim());
+    if (!quantityCardClass.includes('history-completed')||quantityConfirmText!=='확인취소') problems.push(`full quantity coverage did not auto-confirm/highlight the source: ${quantityCardClass} / ${quantityConfirmText}`);
+    const manualConfirmedClass=await page.$eval(`[data-testid="compact-match-row:${firstIdentity}"]`,node=>node.className);
+    if (!manualConfirmedClass.includes('history-completed')) problems.push(`verified confirmation state lacks card highlight: ${manualConfirmedClass}`);
     if (oldestHistory?.items.find(item=>item.status==='적용')?.background!=='rgb(237, 248, 239)' || oldestHistory?.items.find(item=>item.status==='미확인')?.background!=='rgb(255, 248, 232)') problems.push(`applied and unconfirmed item colors are wrong: ${JSON.stringify(oldestHistory?.items)}`);
     const initialLivePost = apiRequests.find(request => request.path === '/api/orders/distribution-live-history' && request.method === 'POST');
     if (!initialLivePost?.body.messages?.every(message => typeof message.identity === 'string' && message.identity.length > 0)) problems.push('live-history POST did not preserve raw message identities');
@@ -250,7 +267,9 @@ async function visibleText(page) {
     });
     if (layout.documentOverflow) problems.push('1920x1080 live-history UI causes document-level horizontal overflow');
     if (layout.controls.some(box => !box.visible || box.left < 0 || box.right > 1920 || box.top < 0 || box.bottom > 1080)) problems.push(`live-history input/button is outside the viewport: ${JSON.stringify(layout.controls)}`);
-    if (layout.pairs.length !== 2 || layout.pairs.some(pair => pair.pair.width <= 0 || pair.pair.height <= 0 || !pair.raw || !pair.applied || pair.raw.width <= 0 || pair.applied.width <= 0 || pair.raw.left < 0 || pair.applied.right > 1920 || pair.raw.right > pair.applied.left)) problems.push(`whole-message/application panes overlap or are out of bounds: ${JSON.stringify(layout.pairs)}`);
+    if (layout.pairs.length !== 3 || layout.pairs.some(pair => pair.pair.width <= 0 || pair.pair.height <= 0 || !pair.raw || !pair.applied || pair.raw.width <= 0 || pair.applied.width <= 0 || pair.raw.left < 0 || pair.applied.right > 1920 || pair.raw.right > pair.applied.left)) problems.push(`whole-message/application panes overlap or are out of bounds: ${JSON.stringify(layout.pairs)}`);
+    const quantityItems=layout.pairs.find(pair=>pair.items.some(item=>item.status==='수량확인'))?.items||[];
+    if (!quantityItems.some(item=>item.status==='수량확인'&&item.background==='rgb(237, 248, 239)')) problems.push(`exact quantity-history match is not green: ${JSON.stringify(layout.pairs)}`);
     const firstItems=layout.pairs.find(pair=>pair.items.some(item=>item.status==='적용'))?.items||[];
     if (!firstItems.some(item=>item.status==='적용'&&item.background==='rgb(237, 248, 239)') || !firstItems.some(item=>item.status==='미확인'&&item.background==='rgb(255, 248, 232)')) problems.push(`applied and unconfirmed item colors are missing or incorrect: ${JSON.stringify(layout.pairs)}`);
     if (layout.right > 1920 || layout.left < 0) problems.push(`sales inbox bounds are outside 1920 viewport: ${JSON.stringify(layout)}`);
