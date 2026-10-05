@@ -211,7 +211,7 @@ assert.ok(zeroCodeColumn >= 4, 'leading-zero CL remains text');
 assert.equal(matrixSheet.getRow(1).getCell(cust7Column).border.left.style, 'medium', 'a medium divider marks the CL prefix-group boundary');
 assert.equal(matrixProduct10.getCell(3).value.result, '8(2)', 'selected total displays original quantity and derived boxes');
 assert.match(matrixProduct10.getCell(3).formula, /TEXT\('수량원본'!/);
-assert.match(matrixProduct10.getCell(3).formula, /ROUND\(.+,3\)=INT\(ROUND\(.+,3\)\)/, 'integer formatting survives Excel recalculation without a trailing decimal point');
+assert.match(matrixProduct10.getCell(3).formula, /ROUND\(.+,3\)=ROUND\(.+,0\)/, 'integer formatting survives Excel recalculation without a trailing decimal point');
 assert.match(matrixProduct10.getCell(cust7Column).formula, /^IF\('수량원본'!.+=0,"",TEXT/, 'empty customer cells stay visually blank');
 assert.equal(matrixProduct10.getCell(cust7Column).value.result, '0.5(0.125)', 'same-CL CustKey 7 remains separately addressable');
 assert.equal(matrixProduct10.getCell(cust9Column).value.result, '2.75(0.688)', 'same-CL CustKey 9 retains its own decimal quantity');
@@ -223,13 +223,13 @@ assert.equal(sourceSheet.getColumn(7).hidden, true, 'raw numbers are hidden from
 const sourceProduct10 = sourceSheet.getRow(2);
 assert.equal(sourceProduct10.getCell(3).value, 4, 'one master divisor is retained for the product row');
 assert.equal(sourceProduct10.getCell(4).value.result, 8, 'numeric source total remains auditable as a SUM formula');
-assert.match(sourceProduct10.getCell(4).formula, /^SUM\(/);
+assert.match(sourceProduct10.getCell(4).formula, /^SUM\(F2:[A-Z]+2\)$/);
 assert.equal(sourceProduct10.getCell(5).value.result, 2, 'box total is calculated from the stored divisor');
 assert.match(sourceProduct10.getCell(5).formula, /D2\/C2/);
 assert.match(sourceProduct10.getCell(5).formula, /^IF\(D2=0,0,/, 'zero raw quantity yields zero boxes even if its master factor is missing');
 const cust7RawColumn = sourceSheet.getRow(1).values.indexOf('7 원수량');
 assert.equal(sourceProduct10.getCell(cust7RawColumn).value, 0.5, 'raw customer quantity is stored numerically');
-assert.equal(sourceProduct10.getCell(cust7RawColumn + 1).value.result, 0.125, 'box formula references the raw number and master factor');
+assert.equal(sourceProduct10.getCell(sourceSheet.getRow(1).values.indexOf('7 박스수')).value.result, 0.125, 'box formula references the raw number and master factor');
 const matrixBoxProduct = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2))
   .find(row => String(row.getCell(1).value).startsWith('Review product'));
 assert.equal(matrixBoxProduct.getCell(1).value, 'Review product (HF002)', 'only an explicit HF code is appended; review status is omitted');
@@ -243,7 +243,7 @@ assert.equal(unknownFactorDisplay.getCell(3).value.result, '2(—)', 'unknown un
 const missingSourceRow = [...Array(sourceSheet.rowCount - 1)].map((_, index) => sourceSheet.getRow(index + 2)).find(row => Number(row.getCell(1).value) === 17);
 assert.equal(missingSourceRow.getCell(3).value, '', 'missing divisor is not guessed or defaulted');
 assert.equal(missingSourceRow.getCell(5).value.result ?? '', '', 'missing-factor box result is blank, not zero');
-assert.match(missingSourceRow.getCell(7).formula, /<=0/);
+assert.match(missingSourceRow.getCell(sourceSheet.columnCount).formula, /ISNUMBER\(C\d+\)/);
 const unitFooters = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2));
 const bunchFooter = unitFooters.find(row => row.getCell(1).value === '단 합계');
 const boxFooter = unitFooters.find(row => row.getCell(1).value === '박스 합계');
@@ -256,9 +256,9 @@ const sourceBunchFooter = sourceSheet.getRows(5, sourceSheet.rowCount - 4).find(
 assert.ok(sourceBunchFooter, 'hidden source keeps the unit footer');
 assert.equal(sourceBunchFooter.getCell(4).value.result, 8.25, 'raw footer quantity is a cached numeric SUM');
 assert.equal(sourceBunchFooter.getCell(5).value.result, 2.125, 'footer SUM uses only its own interleaved unit rows');
-assert.match(sourceBunchFooter.getCell(5).formula, /AND\(OR\(C2="",C2<=0\),D2>0\)/);
-assert.match(sourceBunchFooter.getCell(5).formula, /AND\(OR\(C4="",C4<=0\),D4>0\)/);
-assert.doesNotMatch(sourceBunchFooter.getCell(5).formula, /C3=/, 'interleaved 송이 missing factor is excluded from 단 footer guard');
+assert.match(sourceBunchFooter.getCell(5).formula, /COUNTIFS\(\$B\$2:\$B\$\d+,"단"/);
+assert.match(sourceBunchFooter.getCell(5).formula, /SUMIF\(\$B\$2:\$B\$\d+,"단"/);
+assert.doesNotMatch(sourceBunchFooter.getCell(5).formula, /OR\(/, 'bounded unit ranges avoid Excel 255-argument limits');
 const cust8BoxSourceColumn = sourceSheet.getRow(1).values.indexOf('8 박스수');
 assert.doesNotMatch(sourceBunchFooter.getCell(cust8BoxSourceColumn).formula, /C3=/, 'customer footer guard also considers only same-unit source rows');
 const sourceSteamFooter = sourceSheet.getRows(5, sourceSheet.rowCount - 4).find(row => row.getCell(1).value === '송이 합계');
@@ -338,4 +338,13 @@ assert.equal(filteredReopened.getWorksheet('조회기준').getRow(2).getCell(2).
   '중심차수 2026-01 / 조회차수 범위 2025-51 ~ 2026-04 / 선택 세부차수 2026-01-01');
 const wrongSelectedOrders = { ...filteredSubweek, orders: [...filteredSubweek.orders, generated.orders.find(order => order.orderWeek === '01-03')] };
 await assert.rejects(() => buildChinaOrderWorkbook(wrongSelectedOrders, mapping), /해당 연도·세부차수/);
+const wideReport = buildChinaOrderReport({success:true,readOnly:true,scope:{year:2026,majorWeek:'01'},cycles:spanningCycles,
+  orders:Array.from({length:260},(_,index)=>({country:'중국',orderYear:2026,orderWeek:'01-01',custKey:index+1,custName:`업체${index+1}`,custOrderCode:`YCL${index+1}`,prodKey:10,prodCode:'0010',prodName:'품목',unit:'단',bunchOf1Box:2,quantity:1}))});
+const wideWorkbook = await buildChinaOrderWorkbook(selectChinaOrderSubweek(wideReport,'2026/01-01'),mapping);
+const wideSource = wideWorkbook.getWorksheet('수량원본');
+assert.match(wideSource.getCell('D2').formula,/^SUM\(F2:[A-Z]+2\)$/,'more than255 customers use one bounded raw quantity range');
+assert.equal(wideSource.getCell('D2').value.result,260);
+assert.equal(wideSource.getCell('E2').value.result,130);
+assert.equal(wideWorkbook.getWorksheet('품목별업체수량').getCell('C2').value.result,'260(130)');
+assert.ok(wideSource.getCell('E3').formula.length<200,'unit footer has bounded range formula, not an enumerated argument list');
 console.log('chinaOrderWorkbook tests passed');
