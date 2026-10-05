@@ -42,7 +42,7 @@ try {
       sumFont:parseFloat(getComputedStyle(row.querySelector('.wcm-sum-value')).fontSize)};
   });
   assert.equal(summary.count,9);assert.ok(summary.widths.every(width=>width>=67&&width<90));
-  assert.ok(summary.remainderFont>=18&&summary.sumFont>=18);assert.equal(summary.overflow,false);
+  assert.ok(summary.remainderFont>=14&&summary.sumFont>=14);assert.equal(summary.overflow,false);
   assert.ok(await page.locator('.weekday-guidance:not([open])').count());
   assert.ok(await page.locator('.wcm-filter-disclosure:not([open])').count());
   for(const disclosure of await page.locator('.wcm-confirmation-disclosure').all()) {

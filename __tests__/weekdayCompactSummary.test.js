@@ -72,14 +72,14 @@ assert.equal((quoteFailureHtml.match(/aria-label="전체 견적"/g)||[]).length,
 assert.match(quoteFailureHtml,/기준 미확정/,'page baseline preview is distinct from ERP-unfixed labels');
 assert.match(render(Matrix,{...props,baselines:[]}),/aria-label="2026\/38-01 최초분배 확정"/,'baseline accessible name remains stable');
 assert.match(source,/font-size:14px; line-height:1.4/,'default data font is at least14');
-assert.match(source,/tbody td \.wcm-quantity-label \{[^\n]*font-size:18px; font-weight:700;[^\n]*text-align:center; justify-content:center/);
-assert.match(source,/tbody td \.wcm-cell input \{[^\n]*font-size:18px; font-weight:700;[^\n]*text-align:center/);
-assert.match(source,/wcm-early-label \.wcm-quantity-label \{ font-size:18px/);
-assert.match(source,/:is\(\.wcm-cell-info,\.wcm-change-note\) \.wcm-quantity-label \{ font-size:18px/);
-assert.match(source,/wcm-compact-summary \.wcm-quote \.wcm-quantity-label \{ font-size:18px/);
+assert.match(source,/tbody td \.wcm-quantity-label \{[^\n]*font-size:14px; font-weight:700;[^\n]*text-align:center; justify-content:center/);
+assert.match(source,/tbody td \.wcm-cell input \{[^\n]*font-size:14px; font-weight:700;[^\n]*text-align:center/);
+assert.match(source,/wcm-early-label \.wcm-quantity-label \{ font-size:14px/);
+assert.match(source,/:is\(\.wcm-cell-info,\.wcm-change-note\) \.wcm-quantity-label \{ font-size:14px/);
+assert.match(source,/wcm-compact-summary \.wcm-quote \.wcm-quantity-label \{ font-size:14px/);
 assert.match(source,/wcm-cell-detail \{[^\n]*justify-content:center/);
 assert.match(source,/wcm-original \{[^\n]*justify-content:center/);
-assert.match(source,/grid-template-columns:36px minmax\(0,1fr\)/);
+assert.match(source,/wcm-summary-row \{ display:flex; flex-direction:column/);
 assert.equal((source.match(/width:min\(760px,calc\(100vw - 32px\)\)/g)||[]).length,2);
 assert.equal((source.match(/max-block-size:min\(70vh,calc\(100vh - 32px\)\)/g)||[]).length,2);
 assert.match(source,/wcm-selected \{[^\n]*font-size:18px; line-height:1.5/);
@@ -88,6 +88,18 @@ assert.match(source,/:is\(\.wcm-selected,\.wcm-detail-popover\) strong \{ font-s
 assert.match(html,/요일표 상단 가로 스크롤/); assert.match(html,/요일표 하단 가로 스크롤/);
 assert.match(source,/tbody tr:is\(:hover,:focus-within\)/);
 assert.doesNotMatch(source,/\bfetch\s*\(|width:1920px|height:1080px/);
+assert.match(source,/table \{ min-width:0/,'table minimum does not inflate compact columns');
+assert.match(html,/<table style="width:2642px"/,'three cycles use the sum of actual column widths');
+assert.match(render(Matrix,{...props,cycles:[cycles[1]]}),/<table style="width:994px"/,'one cycle stays narrow without three-cycle minimum');
+assert.match(source,/wcm-product-col \{ width:170px/);
+assert.match(source,/wcm-summary-col \{ width:44px/);
+assert.match(source,/wcm-baseline-col, \.weekday-cycle-matrix \.wcm-day-col \{ width:46px/);
+assert.match(source,/tbody :is\(th,td\) \{ padding:1px; height:52px/,'rows aim at52px and may grow for long units');
+assert.doesNotMatch(source,/\bzoom\s*:|transform\s*:\s*scale\(/,'density uses actual dimensions, not global scaling');
+assert.match(source,/wcm-quantity-part \{[^\n]*white-space:normal; overflow-wrap:anywhere/,'long physical units remain visible');
+assert.match(source,/wcm-quote-status span \{ white-space:nowrap/,'quote identity and concise state occupy exactly two lines');
+assert.match(source,/thead tr:not\(:first-child\) th \{ font-size:10px; line-height:12px/,'dense column headings do not wrap full-size prose');
+assert.equal((source.match(/className="wcm-summary-details"/g)||[]).length,1);
 
 const category = {countryFlower:'콜롬비아장미',state:'FIXED',fixedCount:12,totalCount:12,
   warningCount:0,unknownCount:0,orderWeeks:['38-01','38-02','38-03']};
@@ -155,7 +167,7 @@ const summaryProps={row,block,disabled:false,carryover:{records:[record]},hasCus
   onOpenCarryover:value=>events.push(['closing',value]),onOpenNote:value=>events.push(['note',value]),onSelect:value=>events.push(['quote',value])};
 html=render(CompactSummary,summaryProps);
 assert.match(html,/이월 /); assert.match(html,/-2/); assert.match(html,/수동/); assert.match(html,/미확정/);
-assert.match(html,/이월 초안/); assert.match(html,/이월 미확정/); assert.match(html,/기준 미확정/); assert.match(html,/불일치 !/);
+assert.match(html,/이월 초안/); assert.match(html,/이월 미확정/); assert.match(html,/기준 미확정/); assert.match(html,/<span>불일치<\/span>/);
 assert.match(html,/data-quantity="23"/); assert.match(html,/수동 비고 근거/);
 assert.doesNotMatch(html,/>이월 미등록</,'benign unregistered carry is not a visible repeated row');
 const nodes = element=>!element || typeof element!=='object'?[]:[element,...React.Children.toArray(element.props?.children).flatMap(nodes)];
@@ -171,12 +183,12 @@ assert.deepEqual(events[1],['note',{row,block}]); assert.match(events[2][1],/견
 const failedQuoteBlock={...block,quote:{state:'조회 필요',error:quoteError}};
 const failedQuoteTree=CompactSummary({...summaryProps,block:failedQuoteBlock});
 const failedQuoteButton=nodes(failedQuoteTree).find(node=>node.type==='button'&&node.props.className.includes('wcm-quote'));
-assert.match(renderToStaticMarkup(failedQuoteButton),/견적 조회실패/,'failed quote button displays the failure status');
+assert.match(renderToStaticMarkup(failedQuoteButton),/<span>견적<\/span><span>실패<\/span>/,'failed quote displays its state in exactly two compact lines');
 failedQuoteButton.props.onClick();
 assert.match(events.at(-1)[1],/상태: 조회 필요[\s\S]*오류: fixture quote failure:/,'failed quote click sends exact state and full error to selectedInfo');
 assert.match(render(CompactSummary,{...summaryProps,carryoverError:'fixture carry error'}),/role="alert">이월 조회 실패/);
 const failedQuoteMarkup=render(CompactSummary,{...summaryProps,block:{...block,quote:{state:'조회 필요',error:'fixture quote error'}}});
-assert.match(failedQuoteMarkup,/조회실패/,'quote error remains visible in the item button');
+assert.match(failedQuoteMarkup,/<span>실패<\/span>/,'quote error remains visible in the item button');
 assert.doesNotMatch(failedQuoteMarkup,/wcm-error[^>]*role="alert">견적 조회 실패/,'full quote error is not rendered as a repeated cell alert');
 assert.ok(nodes(CompactSummary({...summaryProps,carryoverBusy:true})).find(node=>node.props?.['data-wcm-label']==='remainder').props.disabled);
 
@@ -211,7 +223,7 @@ for(const countryFlower of thirteenNames) assert.ok(many.includes(countryFlower)
 assert.match(many,/콜 수국 미확정 !/);assert.match(many,/네덜 튤립 ✓/);
 assert.doesNotMatch(many,/>ERP확정 ·/,'category chips do not repeat ERP prefix');
 
-console.log('Weekday compact summary: SSR three-row density, centered18px quantities, accessible760px/18px popover and focus, fixed/partial linkage warnings, unknown category, scope/error guards, draft/raw conversions, handler/print preservation passed');
+console.log('Weekday compact summary: actual column density, centered14px quantities, dynamic one/three-cycle widths, accessible760px/18px popover and focus, fixed/partial linkage warnings, unknown category, scope/error guards, draft/raw conversions, handler/print preservation passed');
 
 // Wilson splits remain web metadata; only one canonical ERP quantity is edited.
 const sunday={...actual,shipmentOutQuantity:10,shipmentDates:[{date:'2026-09-20',shipmentQuantity:10}]};

@@ -71,7 +71,8 @@
     "pages/api/estimate/weekday-wilson.js",
     "__tests__/weekdayWilson.test.js",
     "__tests__/weekdayWilsonClient.test.js",
-    "docs/plans/weekday-wilson-subweek-2026-10-05.md"
+    "docs/plans/weekday-wilson-subweek-2026-10-05.md",
+    "docs/plans/weekday-compact-density-2026-10-05.md"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -336,7 +337,16 @@
       "수국",
       "알스트로",
       "기타"
-    ]
+    ],
+    "density": {
+      "reference": "user 65% screenshot, implemented at CSS viewport zoom100",
+      "pageScaling": false,
+      "quantityFontPx": 14,
+      "productFontPx": 12,
+      "detailFontPx": 18,
+      "target": "approximately two cycles and at least10 ordinary rows at1920x1080 popup",
+      "preserves": "all physical columns, numeric units, failures, accessible details and existing handlers"
+    }
   },
   "wilsonClassification": {
     "positiveFixture": "same total web classification zero or positive preserves all ERP tables",
