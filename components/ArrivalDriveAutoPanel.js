@@ -47,7 +47,7 @@ export default function ArrivalDriveAutoPanel() {
       <button type="button" disabled={busy} onClick={save}>{busy ? '저장 중…' : '자동반영 설정 저장'}</button>
       <button type="button" onClick={load}>상태 새로고침</button>
     </div>
-    <p>업무드라이브 등록 24시간 후 국가별 최신 세부차수만 반영합니다. 수정된 새 버전은 다시 24시간 대기합니다. 과거 시트 제외 · 같은 파일 중복 방지 · 수동 현재본/수동 수정값은 자동 교체하지 않습니다. 매입단가·주문·재고는 변경하지 않습니다.</p>
+    <p>업무드라이브 등록 24시간 후 국가별 최신 세부차수만 반영합니다. 파일명 또는 시트의 연도를 검증하며, 연도가 없거나 서로 다르면 보류합니다. 수정된 새 버전은 다시 24시간 대기합니다. 과거 시트 제외 · 같은 파일 중복 방지 · 수동 현재본/수동 수정값은 자동 교체하지 않습니다. 매입단가·주문·재고는 변경하지 않습니다.</p>
     {error && <div role="alert">{error}</div>}
     {runningId && <div role="status">선택 파일 검증·등록 중입니다. 완료 또는 보류 결과를 아래에 표시합니다.</div>}
     <div className="results">{!data.results.length ? <span>해당 연도·국가에 자동반영 가능한 원가 파일이 없습니다.</span> : data.results.map(r => <div key={r.id} className={r.reason || r.error ? 'review' : r.status === 'complete' ? 'complete' : ''}>

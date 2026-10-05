@@ -4,8 +4,11 @@ const XLSX = require('xlsx');
 async function main() {
   await import('./arrivalDecimalBinding.test.js');
   await import('./arrivalThaiWeek.test.js');
+  await import('./arrivalYearEvidence.test.js');
   await import('./arrivalImportPolicy.test.js');
   await import('./arrivalDriveAuto.test.js');
+  await import('./arrivalVietnamWorkbook.test.js');
+  await import('./arrivalProductCountryTie.test.js');
   const { parseArrivalCostWorkbook } = await import('../lib/arrivalCostExcel.js');
   const wb = XLSX.utils.book_new();
   const standard = [
@@ -56,7 +59,8 @@ async function main() {
   assert.equal(dutchParsed.rowCount, 1);
   assert.equal(dutchParsed.rows[0].orderWeek, '35-2');
   assert.equal(dutchParsed.rows[0].countryName, '네덜란드');
-  assert.equal(dutchParsed.rows[0].orderYear, '2026', '네덜란드 원가자료는 화면의 잔존 연도와 무관하게 2026년 원장에 저장해야 한다.');
+  assert.equal(dutchParsed.rows[0].orderYear, '2025', '명시 연도 없는 네덜란드 자료는 수동 선택 연도를 보존하며 2026으로 강제하지 않는다.');
+  assert.equal(dutchParsed.rows[0].yearEvidence.status, 'unverified');
 
   XLSX.utils.book_append_sheet(dutchWb, XLSX.utils.aoa_to_sheet([
     ['NETHERLANDS 원가자료'], ['품목명', '수량', '단위', '도착원가(단)'],
