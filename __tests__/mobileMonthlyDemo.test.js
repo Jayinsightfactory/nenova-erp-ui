@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
 const {monthlyDemoWeeks}=require('../lib/mobileMonthlyDemo');
 const {buildMonthlyProfitSummary}=require('../lib/profitReportMonthly');
 const {buildRaumPnlMonthlySummary}=require('../lib/raumPnlMonthly');
@@ -28,4 +29,10 @@ assert.equal(boundary.months[9].includedWeeks.length,1);
 assert.equal(boundary.months[8].includedWeeks.length,1);
 assert.equal(boundary.months[9].totals.J,21000000);
 assert.equal(monthlyDemoWeeks('2026')[0].period.endDate,'2026-09-23');
+const monthlyUi=fs.readFileSync('components/executive/MonthlyDemoReport.js','utf8');
+const executiveCss=fs.readFileSync('components/executive/ExecutiveReports.module.css','utf8');
+assert.match(monthlyUi,/useState\('data'\)/);
+assert.match(monthlyUi,/>\s*자료 있는 월\s*</);
+assert.match(monthlyUi,/!visible\.length/);
+assert.match(executiveCss,/max-width:1120px/);
 console.log('Mobile monthly: web shared aggregator, sample totals, empty, cross-year, boundary and immutable fixtures passed');
