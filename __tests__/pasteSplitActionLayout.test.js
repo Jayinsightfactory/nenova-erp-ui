@@ -106,6 +106,7 @@ assert.match(page, /title: '일괄 등록·분배 완료'/, '완료 알림창은
 assert.match(page, /formatCompletionQuantityChange\(row\)/, '완료창은 업체별 적용량과 주문·분배 전후 수량을 표시해야 한다.');
 assert.match(page, /parts\.push\(`분배 \$\{outBefore\}→\$\{outAfter\}\$\{unit\}`\)/);
 assert.match(page, /<StockImpactSummary draft=\{stockDraft\} selectedWeek=\{week\} processed \/>/, '완료창에도 기초재고 기준 잔량을 표시해야 한다.');
+assert.match(page, /summarizeStockProjection\(draft\?\.remainRows \|\| \[\]\)/, '잔량표는 변경행만이 아니라 기초재고 전체를 포함하는 remainRows를 사용해야 한다.');
 assert.match(page, /fetch\(`\/api\/shipment\/adjust\?type=current[\s\S]*AbortSignal\.timeout\(20_000\)/, '완료 후 분배 재조회가 무기한 대기해 처리중 상태에 머물면 안 된다.');
 assert.match(page, /const handleUndoAllMixedDistribute = async/);
 assert.match(page, /fetch\('\/api\/shipment\/adjust-batch-undo'/);

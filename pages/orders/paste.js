@@ -901,6 +901,7 @@ function buildKakaoStockDraft({
       const row = {
         ...record,
         identityKey: productKey,
+        baseInputName: baseRow?.name || '',
         reportedRemain,
         reportedRemainSource: record.reportedRemain != null ? 'text' : (finalInputRemain != null ? 'remainInput' : null),
         unit: record.unit || baseRow?.unit || '',
@@ -945,6 +946,7 @@ function buildKakaoStockDraft({
       week: selectedWeek || '',
       weekLabel: shortWeekLabel(selectedWeek || ''),
       productName: row.name,
+      baseInputName: '',
       boxQty: row.boxQty,
       detailQty: row.detailQty,
       detailUnit: row.detailUnit,
@@ -990,6 +992,7 @@ function buildKakaoStockDraft({
       week: selectedWeek || '',
       weekLabel: shortWeekLabel(selectedWeek || ''),
       productName: row.name,
+      baseInputName: row.name,
       boxQty: row.boxQty,
       detailQty: row.detailQty,
       detailUnit: row.detailUnit,
@@ -5658,7 +5661,9 @@ function formatCompletionQuantityChange(row) {
 }
 
 function StockImpactSummary({ draft, selectedWeek, processed = false }) {
-  const rows = summarizeStockProjection(draft?.historyRows || []);
+  // remainRows includes every parsed base-stock item, including rows with no change.
+  // historyRows contains only changed items and would silently omit untouched base stock.
+  const rows = summarizeStockProjection(draft?.remainRows || []);
   const baseWeek = draft?.stockBaseWeek || '';
   return (
     <section className="paste-stock-impact" aria-label="기초재고 추가 취소 반영 결과">
