@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { buildChinaOrderWorkbook } from '../lib/chinaOrderWorkbook.js';
+import { buildChinaOrderReport, selectChinaOrderSubweek } from '../lib/chinaOrderDownload.js';
 
 const report = {
   scope: { year: 2026, majorWeek: '40' }, queriedAt: '2026-10-05T01:30:00.000Z', warnings: ['일부 HF 코드 검토 필요'],
-  cycles: [37, 38, 39, 40, 41, 42, 43].map(majorWeek => ({ key: `2026${majorWeek}`, year: 2026, majorWeek })),
+  cycles: [37, 38, 39, 40, 41, 42, 43].map((majorWeek, index) => ({ key: `2026${majorWeek}`, year: 2026, majorWeek: String(majorWeek).padStart(2, '0'), offset: index - 3 })),
   rows: [
-    { prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantities: { 202637: 2, 202638: 1 }, total: 3 },
-    { prodKey: 11, prodCode: '0008', prodName: 'Review product 꽃 이름이 길어졌을 때 표 셀 안에서 원문 전체가 줄바꿈되어 읽힐 수 있도록 충분한 행 높이가 자동으로 계산되는 검증용 중국 품목명입니다', unit: '박스', quantities: { 202637: 4, 202638: 0 }, total: 4 },
+    { prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantities: { '2026/37-02': 2, '2026/37-03': 4, '2026/37-03A': 5, '2026/38-01': 3, '2026/38-02': 6, '2026/40-01': 8, '2026/41-01': 9, '2026/42-01': 10 }, total: 47 },
+    { prodKey: 11, prodCode: '0008', prodName: 'Review product 꽃 이름이 길어졌을 때 표 셀 안에서 원문 전체가 줄바꿈되어 읽힐 수 있도록 충분한 행 높이가 자동으로 계산되는 검증용 중국 품목명입니다', unit: '박스', quantities: { '2026/39-01': 7 }, total: 7 },
     { prodKey: 12, prodCode: '0012', prodName: 'Blank HF literal', unit: '단', quantities: { 202637: 0, 202638: 0 }, total: 0 },
   ],
   products: [
@@ -19,15 +20,21 @@ const report = {
     { orderYear: 2026, orderWeek: '37-02', custKey: 7, custName: '=CMD()', custOrderCode: 'CL2', orderCode: 'WRONG-ORDER-CODE', custCode: 'WRONG-CUST-CODE', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 2 },
     { orderYear: 2026, orderWeek: '38-01', custKey: 7, custName: '=CMD()', custOrderCode: 'CL2', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 3 },
     { orderYear: 2026, orderWeek: '37-03', custKey: 8, custName: '고객 B', custOrderCode: 'CLS', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 4 },
+    { orderYear: 2026, orderWeek: '37-03A', custKey: 8, custName: '고객 B', custOrderCode: 'CLS', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 5 },
     { orderYear: 2026, orderWeek: '38-02', custKey: 9, custName: '고객 C', custOrderCode: 'CL2', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 6 },
-    { orderYear: 2026, orderWeek: '39-01', custKey: 7, custName: '=CMD()', custOrderCode: 'CL2', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '박스', quantity: 7 },
+    { orderYear: 2026, orderWeek: '39-01', custKey: 7, custName: '=CMD()', custOrderCode: 'CL2', prodKey: 11, prodCode: '0008', prodName: 'Review product 꽃 이름이 길어졌을 때 표 셀 안에서 원문 전체가 줄바꿈되어 읽힐 수 있도록 충분한 행 높이가 자동으로 계산되는 검증용 중국 품목명입니다', unit: '박스', quantity: 7 },
     { orderYear: 2026, orderWeek: '40-01', custKey: 10, custName: '업체 D', custOrderCode: '', custCode: 'DO-NOT-INFER', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 8 },
     { orderYear: 2026, orderWeek: '41-01', custKey: 11, custName: '업체 E', custOrderCode: '=CL2()', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 9 },
     { orderYear: 2026, orderWeek: '42-01', custKey: 12, custName: '업체 F', custOrderCode: '0008', prodKey: 10, prodCode: '0007', prodName: '=2+2', unit: '단', quantity: 10 },
   ],
+  columns: [
+    ['37-02', '37-03', '37-03A'], ['38-01', '38-02'], ['39-01'], ['40-01'], ['41-01'], ['42-01'], [null],
+  ].flatMap((weeks, index) => weeks.map(week => week == null
+    ? { key: `2026${37 + index}/empty`, cycleKey: `2026${37 + index}`, year: 2026, majorWeek: String(37 + index).padStart(2, '0'), orderWeek: null, label: '주문 없음', offset: index - 3, empty: true }
+    : { key: `2026/${week}`, cycleKey: `2026${37 + index}`, year: 2026, majorWeek: String(37 + index).padStart(2, '0'), orderWeek: week, label: week, offset: index - 3, empty: false })),
   totals: [
-    { unit: '단', quantities: { 202637: 2, 202638: 1 }, total: 3 },
-    { unit: '박스', quantities: { 202637: 4, 202638: 0 }, total: 4 },
+    { unit: '단', quantities: { '2026/37-02': 2, '2026/37-03': 4, '2026/37-03A': 5, '2026/38-01': 3, '2026/38-02': 6, '2026/40-01': 8, '2026/41-01': 9, '2026/42-01': 10 }, total: 47 },
+    { unit: '박스', quantities: { '2026/39-01': 7 }, total: 7 },
   ],
 };
 const mapping = { sourceFile: 'hf.xlsx', sourceSheet: 'Sheet', rows: [
@@ -50,8 +57,12 @@ assert.equal(overview.getColumn(3).alignment.wrapText, true, 'overview product n
 assert.equal(overview.getRow(2).getCell(4).value, '001234');
 assert.equal(overview.getRow(2).getCell(5).value, '일치');
 assert.equal(overview.getRow(2).getCell(7).value, 2, 'quantities remain numeric');
-assert.equal(overview.getRow(2).getCell(8).value, 1);
-assert.equal(overview.getRow(2).getCell(14).value, 3);
+assert.equal(overview.getRow(2).getCell(8).value, 4);
+assert.equal(overview.getRow(2).getCell(17).value, 47);
+assert.equal(overview.getRow(1).getCell(7).value, '2026-37-02');
+assert.equal(overview.getRow(1).getCell(8).value, '2026-37-03');
+assert.equal(overview.getRow(1).getCell(9).value, '2026-37-03A', '03A is a distinct detail-week column');
+assert.equal(overview.getRow(1).getCell(16).value, '2026-43 (주문 없음)');
 assert.equal(overview.getRow(3).getCell(5).value, '검토 (No match)');
 const longName = String(overview.getRow(3).getCell(3).value);
 const nameCapacity = 38 - 2;
@@ -70,7 +81,7 @@ assert.ok(overview.getRow(3).height <= 120, '행 높이는 설정한 상한을 �
 assert.equal(overview.getRow(2).getCell(1).numFmt, '@');
 assert.equal(overview.views[0].state, 'frozen');
 assert.equal(overview.views[0].ySplit, 1);
-assert.equal(overview.autoFilter, 'A1:N6');
+assert.equal(overview.autoFilter, 'A1:Q6');
 assert.equal(overview.getRow(2).getCell(1).border.left.style, 'thin');
 assert.equal(overview.getRow(2).getCell(1).fill.fgColor.argb, 'FFF3F4F6');
 assert.equal(overview.getRow(3).getCell(1).fill.fgColor.argb, 'FFFFFFFF');
@@ -80,13 +91,13 @@ assert.equal(overview.getRow(4).getCell(5).value, '미매칭 (No match)');
 assert.equal(overview.getRow(5).getCell(3).value, '단 합계');
 assert.equal(overview.getRow(5).getCell(6).value, '단');
 assert.equal(overview.getRow(5).getCell(7).value, 2);
-assert.equal(overview.getRow(5).getCell(8).value, 1);
-assert.equal(overview.getRow(5).getCell(14).value, 3);
+assert.equal(overview.getRow(5).getCell(8).value, 4);
+assert.equal(overview.getRow(5).getCell(17).value, 47);
 assert.equal(overview.getRow(6).getCell(3).value, '박스 합계');
 assert.equal(overview.getRow(6).getCell(6).value, '박스');
-assert.equal(overview.getRow(6).getCell(7).value, 4);
+assert.equal(overview.getRow(6).getCell(7).value, 0);
 assert.equal(overview.getRow(6).getCell(8).value, 0);
-assert.equal(overview.getRow(6).getCell(14).value, 4);
+assert.equal(overview.getRow(6).getCell(17).value, 7);
 assert.equal(overview.getRow(5).getCell(3).font.bold, true);
 
 const detail = reopened.getWorksheet('주문상세');
@@ -106,20 +117,20 @@ assert.equal(detail.getRow(3).getCell(5).value, 'CL2');
 assert.equal(detail.getRow(3).getCell(10).value, '단');
 assert.equal(detail.getColumn(8).alignment.wrapText, true, 'detail product names wrap');
 assert.equal(detail.getColumn(5).numFmt, '@', '업체 주문코드는 text format');
-assert.equal(detail.getRow(8).getCell(5).value, '=CL2()', 'formula-looking customer order code stays literal');
-assert.equal(detail.getRow(8).getCell(5).formula, undefined);
-assert.equal(detail.getRow(9).getCell(5).value, '0008', 'leading-zero customer order code preserved');
-assert.equal(detail.getRow(7).getCell(5).value, '', 'missing CL remains blank; custCode is not used as fallback');
+assert.equal(detail.getRow(9).getCell(5).value, '=CL2()', 'formula-looking customer order code stays literal');
+assert.equal(detail.getRow(9).getCell(5).formula, undefined);
+assert.equal(detail.getRow(10).getCell(5).value, '0008', 'leading-zero customer order code preserved');
+assert.equal(detail.getRow(8).getCell(5).value, '', 'missing CL remains blank; custCode is not used as fallback');
 assert.equal(detail.views[0].state, 'frozen');
-assert.equal(detail.autoFilter, 'A1:K9');
+assert.equal(detail.autoFilter, 'A1:K10');
 
 const byCustomerKey = reopened.getWorksheet('업체별발주');
 assert.equal(byCustomerKey.rowCount, 8, '집계는 custKey|prodKey|unit마다 한 행이며 상세행 수에는 영향 없음');
 assert.deepEqual(byCustomerKey.getRow(1).values.slice(1), [
   '업체키(내부)', '업체 주문코드(CL)', '업체명', '품목키', '품목코드', '품목명', 'HF CODE', '매칭상태', '단위',
-  '2026-37', '2026-38', '2026-39', '2026-40', '2026-41', '2026-42', '2026-43', '합계',
+  '2026-37-02', '2026-37-03', '2026-37-03A', '2026-38-01', '2026-38-02', '2026-39-01', '2026-40-01', '2026-41-01', '2026-42-01', '2026-43 (주문 없음)', '합계',
 ]);
-assert.equal(byCustomerKey.autoFilter, 'A1:Q8');
+assert.equal(byCustomerKey.autoFilter, 'A1:T8');
 assert.equal(byCustomerKey.getColumn(2).numFmt, '@');
 assert.equal(byCustomerKey.getColumn(1).numFmt, '@');
 const summaryFor = (custKey, unit) => {
@@ -130,19 +141,21 @@ const summaryFor = (custKey, unit) => {
 const cust7Bunch = summaryFor(7, '단');
 assert.equal(cust7Bunch.getCell(2).value, 'CL2');
 assert.equal(cust7Bunch.getCell(10).value, 2);
-assert.equal(cust7Bunch.getCell(11).value, 3);
-assert.equal(cust7Bunch.getCell(17).value, 5, 'same customer/product/unit orders aggregate across subweeks');
+assert.equal(cust7Bunch.getCell(13).value, 3);
+assert.equal(cust7Bunch.getCell(20).value, 5, 'same customer/product/unit orders aggregate across exact subweeks');
 const cust9Bunch = summaryFor(9, '단');
 assert.equal(cust9Bunch.getCell(2).value, 'CL2');
-assert.equal(cust9Bunch.getCell(17).value, 6, 'same CL but different custKey remains a separate summary');
+assert.equal(cust9Bunch.getCell(20).value, 6, 'same CL but different custKey remains a separate summary');
 assert.notEqual(cust7Bunch.number, cust9Bunch.number);
 assert.equal(summaryFor(8, '단').getCell(2).value, 'CLS');
-assert.equal(summaryFor(7, '박스').getCell(17).value, 7, 'same customer/product with another unit remains separate');
+assert.equal(summaryFor(7, '박스').getCell(20).value, 7, 'same customer/product with another unit remains separate');
 assert.equal(summaryFor(10, '단').getCell(2).value, '', 'missing CL is not inferred from custCode');
 assert.equal(summaryFor(11, '단').getCell(2).value, '=CL2()', 'formula-looking CL summary stays literal');
 assert.equal(summaryFor(11, '단').getCell(2).formula, undefined);
 assert.equal(summaryFor(12, '단').getCell(2).value, '0008', 'leading-zero CL preserved in summary');
-assert.equal([...Array(byCustomerKey.rowCount - 1)].reduce((sum, _, index) => sum + Number(byCustomerKey.getRow(index + 2).getCell(17).value), 0), 49, 'grouped total equals source detail total with no dropped or duplicated orders');
+assert.equal(summaryFor(8, '단').getCell(11).value, 4, '03 remains distinct');
+assert.equal(summaryFor(8, '단').getCell(12).value, 5, '03A remains distinct');
+assert.equal([...Array(byCustomerKey.rowCount - 1)].reduce((sum, _, index) => sum + Number(byCustomerKey.getRow(index + 2).getCell(20).value), 0), 54, 'grouped total equals source detail total with no dropped or duplicated orders');
 assert.ok(byCustomerKey.getRow(2).getCell(1).border.left.style === 'thin');
 assert.ok(byCustomerKey.getRow(2).getCell(1).fill.fgColor.argb === 'FFF3F4F6');
 assert.ok(byCustomerKey.getRow(3).getCell(1).fill.fgColor.argb === 'FFFFFFFF');
@@ -153,4 +166,71 @@ assert.equal(basis.getRow(2).getCell(2).value, '중심차수 2026-40 / 조회차
 assert.equal(basis.getRow(3).getCell(2).value, '2026-10-05T01:30:00.000Z');
 assert.equal(basis.getRow(6).getCell(2).value, 'HF 매칭·검토 상태는 참고정보이며 원본 주문과 ERP 원장은 변경하지 않습니다.');
 assert.equal(basis.getRow(7).getCell(2).value, '일부 HF 코드 검토 필요');
+
+for (const mutate of [
+  candidate => { candidate.columns.pop(); },
+  candidate => { candidate.columns[1] = { ...candidate.columns[1], key: candidate.columns[0].key }; },
+  candidate => { candidate.columns[0] = { ...candidate.columns[0], cycleKey: 'foreign-cycle' }; },
+  candidate => { candidate.columns[0] = { ...candidate.columns[0], label: '37-01' }; },
+  candidate => { candidate.columns[0] = { ...candidate.columns[0], orderWeek: '37-03' }; },
+]) {
+  const invalid = structuredClone(report);
+  mutate(invalid);
+  await assert.rejects(() => buildChinaOrderWorkbook(invalid, mapping), /세부차수 열|세부차수 라벨/);
+}
+
+const selectedEmpty = { ...report, selectedColumnKey: '202643/empty' };
+await assert.rejects(() => buildChinaOrderWorkbook(selectedEmpty, mapping), /실제 세부차수 열/);
+
+const spanningCycles = [
+  [2025, '51'], [2025, '52'], [2025, '53'], [2026, '01'], [2026, '02'], [2026, '03'], [2026, '04'],
+].map(([year, majorWeek], index) => ({ year, majorWeek, key: `${year}${majorWeek}`, offset: index - 3 }));
+const generated = buildChinaOrderReport({
+  success: true,
+  readOnly: true,
+  scope: { year: 2026, majorWeek: '01' },
+  cycles: spanningCycles,
+  orders: [
+    { country: '중국', orderYear: 2025, orderWeek: '51-01', custKey: 7, custName: '업체', custOrderCode: 'CL', prodKey: 10, prodCode: '0010', prodName: '품목', unit: '단', quantity: 2 },
+    { country: '중국', orderYear: 2026, orderWeek: '01-01', custKey: 7, custName: '업체', custOrderCode: 'CL', prodKey: 10, prodCode: '0010', prodName: '품목', unit: '단', quantity: 3 },
+    { country: '중국', orderYear: 2026, orderWeek: '01-01', custKey: 8, custName: '다른 업체', custOrderCode: 'CL8', prodKey: 10, prodCode: '0010', prodName: '품목', unit: '단', quantity: 13 },
+    { country: '중국', orderYear: 2026, orderWeek: '01-03', custKey: 7, custName: '업체', custOrderCode: 'CL', prodKey: 10, prodCode: '0010', prodName: '품목', unit: '단', quantity: 5 },
+    { country: '중국', orderYear: 2026, orderWeek: '01-03A', custKey: 7, custName: '업체', custOrderCode: 'CL', prodKey: 10, prodCode: '0010', prodName: '품목', unit: '단', quantity: 7 },
+    { country: '중국', orderYear: 2026, orderWeek: '01-03a', custKey: 7, custName: '업체', custOrderCode: 'CL', prodKey: 10, prodCode: '0010', prodName: '품목', unit: '단', quantity: 11 },
+  ],
+});
+assert.deepEqual(generated.columns.map(column => column.key), [
+  '2025/51-01', '202552/empty', '202553/empty', '2026/01-01', '2026/01-03', '2026/01-03A', '2026/01-03a',
+  '202602/empty', '202603/empty', '202604/empty',
+]);
+const generatedWorkbook = await buildChinaOrderWorkbook(generated, mapping);
+const generatedReopened = new ExcelJS.Workbook();
+await generatedReopened.xlsx.load(await generatedWorkbook.xlsx.writeBuffer());
+const generatedCustomerSheet = generatedReopened.getWorksheet('업체별발주');
+assert.equal(generatedCustomerSheet.getRow(1).getCell(10).value, '2025-51-01');
+assert.deepEqual(generatedCustomerSheet.getRow(1).values.slice(13, 17), [
+  '2026-01-01', '2026-01-03', '2026-01-03A', '2026-01-03a',
+]);
+const generatedCustomerRow = generatedCustomerSheet.getRows(2, generatedCustomerSheet.rowCount - 1).find(row => row.getCell(1).value === '7');
+const actualGeneratedColumns = generated.columns.filter(column => !column.empty);
+assert.deepEqual(actualGeneratedColumns.map(column => generatedCustomerRow.getCell(10 + generated.columns.indexOf(column)).value), [2, 3, 5, 7, 11],
+  'year collision and uppercase/lowercase suffix weeks map to separate exact columns');
+const filteredSubweek = selectChinaOrderSubweek(generated, '2026/01-01', new Set(['7|10|단']));
+const filteredWorkbook = await buildChinaOrderWorkbook(filteredSubweek, mapping);
+const filteredReopened = new ExcelJS.Workbook();
+await filteredReopened.xlsx.load(await filteredWorkbook.xlsx.writeBuffer());
+const filteredOverview = filteredReopened.getWorksheet('발주현황');
+const filteredCustomers = filteredReopened.getWorksheet('업체별발주');
+assert.equal(filteredOverview.getRow(1).getCell(7).value, '2026-01-01');
+assert.equal(filteredOverview.getRow(1).getCell(8).value, '합계');
+assert.equal(filteredCustomers.getRow(1).getCell(10).value, '2026-01-01');
+assert.equal(filteredCustomers.getRow(1).getCell(11).value, '합계');
+assert.equal(filteredCustomers.rowCount, 2, 'filtered customer rows round-trip as a one-customer export');
+assert.equal(filteredCustomers.getRow(2).getCell(1).value, '7');
+assert.equal(filteredCustomers.getRow(2).getCell(10).value, 3);
+assert.equal(filteredCustomers.getRow(2).getCell(11).value, 3);
+assert.equal(filteredReopened.getWorksheet('조회기준').getRow(2).getCell(2).value,
+  '중심차수 2026-01 / 조회차수 범위 2025-51 ~ 2026-04 / 선택 세부차수 2026-01-01');
+const wrongSelectedOrders = { ...filteredSubweek, orders: [...filteredSubweek.orders, generated.orders.find(order => order.orderWeek === '01-03')] };
+await assert.rejects(() => buildChinaOrderWorkbook(wrongSelectedOrders, mapping), /해당 연도·세부차수/);
 console.log('chinaOrderWorkbook tests passed');

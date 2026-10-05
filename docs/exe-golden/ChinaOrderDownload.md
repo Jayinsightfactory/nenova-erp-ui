@@ -9,3 +9,8 @@
 - 기준 파일 Sheet에는416품목, 명시 HF CODE126개. 보조 review의 closest catalogue code는 후보 참고값이지 확정 HF CODE가 아니다. 이미 입력된HF+No match도 원본검토상태를 숨기지 않는다.
 - 조회/재업로드/내보내기 모두 Order/Shipment/Warehouse/Estimate/재고와 Product 변경 없음. 브라우저 업로드 사전은 ERP나 다른 브라우저에 자동 동기화되지 않는다.
 - 업체 CL 코드 근거: `docs/DB_STRUCTURE.md` Customer.OrderCode 및 `docs/exe-golden/FormQuantityPivot.md` 거래처 주문코드 기록. native ClassCustomer.OrderCode와 같은 현재 활성 Customer.OrderCode를 CustKey로 읽는다. 주문별 ViewOrder.OrderCode/CustCode/내부키와 혼용하지 않는다. 업체별 발주와 주문상세 XLSX에 문자열로 보존하고, 코드 누락은 임의 보정하지 않는다.
+
+## 세부차수 정정 근거
+- 2026-10-05 같은 설치 EXE를 main이 dnSpy CLI로 재확인: GetData의 `vo.OrderYear`, `vo.OrderWeek`, `vo.OutQuantity Quantity`와 `WHERE vo.OutQuantity > 0` 보존. 세부차수 정정은 표시/Excel 집계만 변경하며 API SQL·EXE·DB·SP 변경 없음.
+- 수정 전 운영 읽기 GET 2026/40: 7메인 37~43, 양수 중국주문1,336건/42업체. 실제 40-03 포함 12개 세부차수, 43차 양수 주문 없음. 01/02로 고정하지 않고 정확한 연도+원본 OrderWeek 열을 만든다. 검색 전 전체 결과에서 열을 만들고 필터 후에도 유지한다.
+- `OrderMaster/OrderDetail`, `ShipmentMaster/Detail/Date/Farm`, `WarehouseMaster/Detail`, `ProductStock/StockHistory`, `Estimate`, `WebProfitReport` 부작용 없음. 기존 출고/견적/재고 처리 경로를 호출하지 않는다.
