@@ -26,7 +26,7 @@ const duplicate = summarizeAuditReports([report('duplicate', '2026-09-11T00:44:0
 const extra = summarizeAuditReports([report('extra', '2026-09-11T00:45:00.000Z', { requests: [request('a')], findings: [finding('a', 'MATCHING_HISTORY'), finding('unrequested', 'MATCHING_HISTORY')], unresolved: [] })])[0]; assert.equal(extra.allMatchingHistory, false, 'an unpaired finding prevents a whole-message match');
 console.log('distribution message application status tests passed');
 
-const {appliedOperationEntry,formatKakaoMessage,sourceConfirmation}=require('../lib/distributionMessageApplicationStatus');
+const {appliedOperationEntry,matchOperationByExactContent,formatKakaoMessage,sourceConfirmation}=require('../lib/distributionMessageApplicationStatus');
 const scope={identity,year:'2026',week:'37-01',requestCount:2};
 const operation={sourceIdentity:identity,year:'2026',week:'37-01',status:'committed',committedCount:2,at:'2026-09-15 11:00:00',entries:[{sourceIdentity:identity},{sourceIdentity:identity}]};
 const manual={sourceIdentity:identity,year:'2026',week:'37-01',status:'MANUALLY_APPLIED',createdAt:'2026-09-15T02:01:00Z'};
@@ -54,6 +54,20 @@ for(const patch of [{verified:false},{sourceIdentity:'other'},{year:'2025'},{wee
 }
 assert.equal(appliedOperationEntry({operation:exactOperation,identity,year:'2026',week:'37-01',request:appliedRequest,requestId:appliedRequest.id,requests:[appliedRequest,{...appliedRequest,id:`${identity}:5`}]}).status,'UNCONFIRMED','duplicate customer/product/action requests remain unresolved');
 assert.equal(appliedOperationEntry({operation:exactOperation,identity,year:'2026',week:'37-01',request:appliedRequest,requestId:'other:4',requests:[appliedRequest]}).status,'UNCONFIRMED','a request id from another message never pairs');
+const sourceRow={identity:'chat/source-message',created_at:'2026-10-05T10:00:00+09:00',message:'40-01 변경사항\n업체\n장미 2박스 추가'};
+const sourceRequest={id:`${sourceRow.identity}:3`,sourceIdentity:sourceRow.identity,action:'ADD',custKey:10,prodKey:20,inputQty:2,inputUnit:'박스',timestamp_approximate:false,status:'PENDING'};
+const externalEntry={sourceIdentity:'another/origin',type:'ADD',custKey:10,prodKey:20,custName:'업체',prodName:'장미',qty:2,unit:'박스'};
+const externalOperation={key:9491,sourceIdentity:'another/origin',year:'2026',week:'37-01',at:'2026-10-05 10:05:00',status:'committed',verified:true,committedCount:1,entries:[externalEntry]};
+const contentMatches=matchOperationByExactContent({messages:[sourceRow],changesByIdentity:new Map([[sourceRow.identity,[{sourceIndex:2}]]]),liveHistory:{[sourceRow.identity]:{sourceIdentity:sourceRow.identity,status:'MATCHED',requests:[sourceRequest]}},operations:[externalOperation],year:'2026',week:'37-01'});
+assert.equal(contentMatches.get(`${sourceRow.identity}\u001f${sourceRequest.id}`)?.matchKind,'OPERATION_CONTENT','a unique exact committed entry can pair despite a different Kakao identity');
+assert.equal(sourceConfirmation({...scope,identity:sourceRow.identity,appliedItemCount:contentMatches.size,requestCount:1}).confirmed,true,'exact cross-source operation content confirms and highlights a fully-covered source');
+const duplicateSource={...sourceRow,identity:'chat/duplicate-source'};
+const duplicateRequests={[sourceRow.identity]:{sourceIdentity:sourceRow.identity,status:'MATCHED',requests:[sourceRequest]},[duplicateSource.identity]:{sourceIdentity:duplicateSource.identity,status:'MATCHED',requests:[{...sourceRequest,id:`${duplicateSource.identity}:3`,sourceIdentity:duplicateSource.identity}]} };
+assert.equal(matchOperationByExactContent({messages:[sourceRow,duplicateSource],changesByIdentity:new Map([[sourceRow.identity,[{sourceIndex:2}]],[duplicateSource.identity,[{sourceIndex:2}]]]),liveHistory:duplicateRequests,operations:[externalOperation],year:'2026',week:'37-01'}).size,0,'one operation entry is never reused for duplicate source messages');
+assert.equal(matchOperationByExactContent({messages:[sourceRow],changesByIdentity:new Map([[sourceRow.identity,[{sourceIndex:2}]]]),liveHistory:{[sourceRow.identity]:{sourceIdentity:sourceRow.identity,status:'MATCHED',requests:[sourceRequest]}},operations:[externalOperation,{...externalOperation,key:9492}],year:'2026',week:'37-01'}).size,0,'multiple identical processing candidates remain ambiguous');
+for(const patch of [{verified:false},{week:'37-02'},{at:'2026-10-05 09:59:00'},{entries:[{...externalEntry,qty:3}]},{entries:[{...externalEntry,unit:'단'}]}]) {
+  assert.equal(matchOperationByExactContent({messages:[sourceRow],changesByIdentity:new Map([[sourceRow.identity,[{sourceIndex:2}]]]),liveHistory:{[sourceRow.identity]:{sourceIdentity:sourceRow.identity,status:'MATCHED',requests:[sourceRequest]}},operations:[{...externalOperation,...patch}],year:'2026',week:'37-01'}).size,0,JSON.stringify(patch));
+}
 const completeMessage='37-01 변경사항\n\n업체 A\n장미 3박스 추가\n\n오늘 출고입니다';
 assert.equal(formatKakaoMessage(completeMessage),'37-01 변경사항\n\n업체 A\n장미 3박스 추가\n\n오늘 출고입니다');
 assert.equal(formatKakaoMessage(`  ${completeMessage}\n\n`),formatKakaoMessage(completeMessage),'formatting whitespace is normalized without removing message lines');
@@ -63,6 +77,7 @@ assert.match(ui,/confirmation\.confirmed&&!confirmation\.cancelled\?'MANUALLY_NO
 assert.match(ui,/compact-match-row \$\{confirmation\.confirmed&&!confirmation\.cancelled\?'history-completed':''\}/,'a confirmed source row receives the completion highlight class');
 assert.match(ui,/exactHistoryCoverage=pairedRequests\.length===changes\.length\?appliedCount:0/,'API-only or missing parsed requests prevent whole-source auto-confirmation');
 assert.match(ui,/appliedItemCount:exactHistoryCoverage/,'all items can be confirmed by quantity or verified committed history');
+assert.match(ui,/exactContentOperationMatches\.get\(/,'exact cross-source operation history is shown and included in full-source confirmation');
 assert.match(ui,/role="alert"/);
 assert.match(ui,/applicationScope,open,disabled,operationRevision/);
 assert.match(ui,/paired-message-original/,'the full organized Kakao message is visible in the left column');

@@ -23,3 +23,16 @@
 - PR #864 병합 후 Cafe24 배포와 배포 hydration smoke 통과. 배포 실행: `37251506108`.
 - 로컬 전용 inbox 브라우저 smoke는 fixture가 초기 조회 기간과 고정 기간을 불일치시켜 완료되지 않았다. 체크인을 막는 회귀는 아니며 전체 자동 수량 매칭과 혼합 근거 coverage 회귀를 단위/UI 테스트로 검증했다.
 - 후속 검토에서 서로 다른 근거(수량 이력+검증된 저장 작업)가 한 원문 안에 섞인 전체 일치도 자동 확인으로 처리되도록 보완했다.
+
+## 사용자의 화면 재확인 및 추가 원인
+
+배포 후 사용자는 오른쪽 최근 작업 이력의 초록색 완료 항목과 왼쪽 영업방 원문에 같은 처리가 있는데도 원문에 하이라이트가 없다고 다시 지적했다. 코드를 재확인한 결과 작업 이력 연결이 `sourceIdentity`까지 같아야 해서, 카톡 원문 ID가 달라진 다른 화면/전송 건의 완료 작업은 업체·품목·방향·수량이 같아도 연결되지 않았다.
+
+추가 수정은 정확 원문 ID 연결을 우선 유지하고, ID가 다를 때만 검증된 성공 작업 로그의 같은 연도·차수, CustKey, ProdKey, ADD/CANCEL, 입력 수량·단위가 일대일로 유일하게 일치하며 작업 시각이 원문 이후인 경우에만 적용 표시를 허용한다. 같은 처리 로그를 두 메시지에 재사용하거나, 중복 후보·미검증/취소 작업·단위/수량 불일치로 자동 확인하지 않는다. 전체 요청이 모두 매칭될 때만 원문 전체를 초록 하이라이트하고 부분은 해당 품목만 표시한다. 기존 분배/재고/주문 원장 변경은 없다.
+
+## 추가 검증
+
+- 서로 다른 sourceIdentity의 정확 일치 작업, 중복 원문에 대한 로그 재사용 금지, 중복 후보/차수/시간/단위/수량/검증 부정 fixture를 `distributionMessageApplicationStatus.test.js`에 추가했다.
+- `distributionMessageApplicationStatus`, `pasteOperationHistory`, inbox/read-refresh 회귀 통과.
+- `test:erp-contract`, `test:erp-manifest -- --changed-from HEAD^`, `guard:erp-writes -- --changed-from HEAD^`, `test:nenova-dnspy-evidence`, `test:ui-layout`, `build`, `git diff --check` 통과. 변경 API는 0개이며 ERP 원장 쓰기 범위는 바뀌지 않았다.
+- 아직 PR 생성 및 Cafe24 재배포 전이다.

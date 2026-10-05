@@ -5,7 +5,7 @@ import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceCompar
 import {classifyMessage,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
-import {appliedOperationEntry,formatKakaoMessage,sourceConfirmation,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
+import {appliedOperationEntry,matchOperationByExactContent,formatKakaoMessage,sourceConfirmation,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 import DistributionMessagePreanalysis from './DistributionMessagePreanalysis';
@@ -61,6 +61,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   const [reviewPage,setReviewPage]=useState(0),[reviewOpen,setReviewOpen]=useState(false),[reviewMounted,setReviewMounted]=useState(false);
   const [autoRefresh,setAutoRefresh]=useState(true),[pendingRows,setPendingRows]=useState([]),[refreshStatus,setRefreshStatus]=useState({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
   const [manualApplications,setManualApplications]=useState({}),[auditApplications,setAuditApplications]=useState({}),[operationApplications,setOperationApplications]=useState({}),[applicationStatus,setApplicationStatus]=useState({loading:false,error:'',limit:20,asOf:'',loaded:false});
+  const [operationHistory,setOperationHistory]=useState([]);
   const [applicationDrafts,setApplicationDrafts]=useState({}),[applicationSaving,setApplicationSaving]=useState({}),[applicationErrors,setApplicationErrors]=useState({});
   const [liveHistory,setLiveHistory]=useState({}),[liveBalanceComparison,setLiveBalanceComparison]=useState(null),[liveHistoryStatus,setLiveHistoryStatus]=useState({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''}),[includeConsistentBalances,setIncludeConsistentBalances]=useState(false),[compactTab,setCompactTab]=useState('REQUEST');
   const requestBusy=useRef(false),requestOwner=useRef(''),refreshSeq=useRef(0),activeRefreshScope=useRef(''),refreshController=useRef(null),rowsRef=useRef(rows),pendingRowsRef=useRef(pendingRows),selectedRef=useRef(selected),reviewOpenRef=useRef(reviewOpen);
@@ -87,6 +88,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   const compactCounts=useMemo(()=>compactRows.reduce((counts,item)=>({...counts,[item.kind]:counts[item.kind]+1}),{REQUEST:0,STOCK:0,REVIEW:0}),[compactRows]);
   const visibleDisplayRows=useMemo(()=>compactRows.filter(item=>item.kind===compactTab).map(item=>item.row),[compactRows,compactTab]);
   const sourceChanges=useMemo(()=>new Map(rows.map(row=>[row.identity,visibleChanges(row.message,week)])),[rows,week]);
+  const exactContentOperationMatches=useMemo(()=>matchOperationByExactContent({messages:rows,changesByIdentity:sourceChanges,liveHistory,operations:operationHistory,year,week:applicationWeek}),[rows,sourceChanges,liveHistory,operationHistory,year,applicationWeek]);
   const hasAcceptedLiveHistoryScope=liveHistoryStatus.scope===liveScope&&loadedPeriod===livePeriod;
   const applicationSequence=useRef(0),activeApplicationScope=useRef(applicationScope),applicationMounted=useRef(false),applicationController=useRef(null),applicationInFlight=useRef(false),applicationSaveController=useRef(null),applicationSaveInFlight=useRef(false),applicationScopeEpoch=useRef(0),applicationSaveAttempt=useRef(0),applicationRefreshQueued=useRef(null);
   const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryInFlightBatchKey=useRef(''),liveHistoryAutoBlocked=useRef(false),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey),liveHistoryBatchRef=useRef(liveBatch);
@@ -204,7 +206,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
         identities.forEach(identity=>{if(!operationStates[identity])operationStates[identity]={...operation,sourceIdentity:identity,undone:operation.undo===true};});
       });
       const operations=Object.fromEntries(Object.entries(operationStates).filter(([,operation])=>!operation.undone));
-      setManualApplications(byIdentity(manualData.applications));setAuditApplications(byIdentity(auditData.items));setOperationApplications(operations);
+      const activeOperationHistory=[...new Map(Object.values(operations).map(operation=>[operation.key,operation])).values()];
+      setManualApplications(byIdentity(manualData.applications));setAuditApplications(byIdentity(auditData.items));setOperationApplications(operations);setOperationHistory(activeOperationHistory);
       setApplicationStatus({loading:false,error:'',limit:Number.isInteger(auditData.limit)?auditData.limit:20,asOf:typeof auditData.asOf==='string'?auditData.asOf:'',loaded:true});
     } catch(error) { if(applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current&&(error?.name!=='AbortError'||timedOut))setApplicationStatus(previous=>({...previous,loading:false,error:timedOut?'적용 상태 조회가 30초 안에 끝나지 않았습니다. 기존 표시는 유지됩니다.':error.message||'적용 표시를 읽지 못했습니다. 기존 표시는 유지합니다.'})); return false; }
     finally {
@@ -217,7 +220,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       }
     }
   }
-  useEffect(()=>{setManualApplications({});setAuditApplications({});setOperationApplications({});setApplicationDrafts({});setApplicationSaving({});setApplicationErrors({});setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});},[applicationScope]);
+  useEffect(()=>{setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationDrafts({});setApplicationSaving({});setApplicationErrors({});setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});},[applicationScope]);
   useEffect(()=>{if(open&&!disabled)refreshApplicationStatus(applicationScope,{force:true});},[applicationScope,open,disabled,operationRevision]);
   useEffect(()=>{
     if(!open||!autoRefresh||disabled)return()=>{};
@@ -339,9 +342,12 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     }
     const quantityProcessedIds=new Set(quantityProcessed.map(request=>request.id));
     const appliedItems=pairedRequests.map(pair=>{
-      const application=pair.request&&!pair.unparsedRequest&&!pair.duplicateRequest
+      const directApplication=pair.request&&!pair.unparsedRequest&&!pair.duplicateRequest
         ?appliedOperationEntry({operation,identity:row.identity,year,week:applicationWeek,request:pair.request,requestId:pair.requestId,requests:liveRequests})
         :{status:'UNCONFIRMED',entry:null};
+      const contentMatch=pair.request&&!pair.unparsedRequest&&!pair.duplicateRequest&&pair.requestId
+        ?exactContentOperationMatches.get(`${row.identity}\u001f${pair.requestId}`):null;
+      const application=directApplication.status==='APPLIED'?directApplication:contentMatch||directApplication;
       const quantityHistoryApplied=application.status!=='APPLIED'&&pair.request&&pair.requestId===pair.expectedRequestId
         &&quantityProcessedIds.has(pair.requestId);
       return {pair,application:quantityHistoryApplied?{status:'APPLIED',entry:null,matchKind:'QUANTITY_HISTORY'}:application};
@@ -364,7 +370,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       return <div className={`paired-applied-item paired-applied-${status}`} data-request-id={pair.requestId||undefined} data-testid={`applied-item:${pair.index}`} key={`${pair.requestId||pair.expectedRequestId||'visible'}:${pair.index}`}>
         <span className="paired-applied-product" title={`${showCustomer?`${customer} · `:''}${product}`}>{showCustomer?`${customer} · `:''}{product}</span>
         <span className="paired-applied-quantity" title={quantity==='?'?'수량 확인 필요':quantity} aria-label={quantity==='?'?'수량 확인 필요':undefined}>{quantity}</span>
-        <b title={application.matchKind==='QUANTITY_HISTORY'?'전산 수량변경의 방향·정규화 수량이 원문 요청과 일치':'동일 원문·업체·품목·동작의 검증된 저장 기록'}>{application.matchKind==='QUANTITY_HISTORY'?'수량확인':application.status==='APPLIED'?'적용':'미확인'}</b>
+        <b title={application.matchKind==='QUANTITY_HISTORY'?'전산 수량변경의 방향·정규화 수량이 원문 요청과 일치':application.matchKind==='OPERATION_CONTENT'?'다른 원문 ID의 검증된 작업이력과 차수·업체·품목·방향·수량·단위가 유일하게 일치':'동일 원문·업체·품목·동작의 검증된 저장 기록'}>{application.matchKind==='QUANTITY_HISTORY'?'수량확인':application.matchKind==='OPERATION_CONTENT'?'동일 처리 이력':application.status==='APPLIED'?'적용':'미확인'}</b>
       </div>;
     };
     const appliedPanel=<section className="paired-applied-items" aria-label="적용 항목 상태">
