@@ -9,7 +9,7 @@ import { getCurrentWeek } from '../../lib/useWeekInput';
 import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
-import { isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
+import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 import { sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
 
@@ -1279,6 +1279,29 @@ export default function SalesDefectDeductionsPage() {
     if (supportReviewMonitorRef.current) window.clearInterval(supportReviewMonitorRef.current);
   }, []);
 
+  const correctPeriod = async () => {
+    const chosen = rows.filter((_, index) => selected.has(index));
+    if (!chosen.length || chosen.some(row => salesRowSaveState(row) !== '저장 완료')) {
+      setError('저장된 초안만 선택하고 미저장 변경을 먼저 저장하세요.'); return;
+    }
+    const target = window.prompt('정정할 연도-차수를 입력하세요 (예: 2026-40)');
+    if (target == null) return;
+    const match = target.trim().match(/^(\d{4})-(\d{1,2})$/);
+    if (!match) { setError('연도-차수 형식을 확인하세요.'); return; }
+    const reason = window.prompt('차수 정정 사유를 입력하세요.');
+    if (!reason?.trim()) return;
+    if (!window.confirm(`${chosen.length}건을 ${year}년 ${week}차에서 ${match[1]}년 ${match[2]}차로 정정합니다. 저장번호·업체·품목·수량·담당자는 유지됩니다.`)) return;
+    setSaving(true); setError('');
+    try {
+      const result = await apiPost('/api/sales/defect-deductions', { action: 'correct-period', year, week,
+        targetYear: Number(match[1]), targetWeek: Number(match[2]), reason,
+        rows: chosen.map(row => ({ deductionKey: Number(row.deductionKey), expectedRowVersionNo: Number(row.rowVersionNo) })) });
+      setMessage(`${result.corrected}건 차수 정정 완료 · ${match[1]}년 ${match[2]}차 · 수정이력 기록`);
+      await load();
+    } catch (e) { setError(`정정 결과를 다시 조회해 확인하세요. 자동 재시도하지 않습니다: ${e.message}`); }
+    finally { setSaving(false); }
+  };
+
   const remove = async () => {
     const selectedRows = partitionSelectedDeductionRows(rows, selected);
     const ids = selectedRows.storedKeys;
@@ -1527,6 +1550,7 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading || activeTab === 'carryover'}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
+          {activeTab === 'sales' && isDefectAdmin(currentUser) && <button className="btn" onClick={correctPeriod} disabled={saving || !selected.size}>선택 차수 정정</button>}
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
         <div style={{ marginTop: 7, color: '#475569', fontSize: 12 }}>

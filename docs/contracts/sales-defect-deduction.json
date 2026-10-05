@@ -20,6 +20,7 @@
     "lib/salesDefectManualCost.js",
     "lib/defectEstimateTargetScope.js",
     "lib/salesDefectDeductions.js",
+    "lib/defectPeriodCorrection.js",
     "lib/salesDefectSupportStatus.js",
     "lib/salesDefectIncomingGroup.js",
     "lib/salesDefectDeductionExcel.js",
@@ -227,6 +228,7 @@
     "estimateManagementEntry": "견적서관리에서 기존 불량/검역등록(EstimateType 선택)과 신규 불량차감등록·판매요청·추가 품목등록 진입점을 서로 분리해 유지한다. 기존 불량/검역과 신규 불량차감은 - 체크 필수로 음수 Estimate만 저장하고 판매요청은 양수 Estimate를 저장한다. 품목은 Product DB에서 검색·선택하고 단위는 단/박스/스팀(대) 중 선택하되 Estimate.Unit에는 Product.EstUnit를 우선한다. 품목 선택 즉시 EXE 판매행과 이전 차수 분배단가를 재조회하며, 추가 품목등록의 분배 상태/API가 차감 모달 상태를 덮어쓰지 않는다.",
     "estimateEntryEdit": "Estimate 행 편집은 OrderDetail/ShipmentDetail/ShipmentDate/재고를 건드리지 않고 기존 EstimateKey 한 행만 갱신하며, 저장 전 수량·단가 스냅샷을 검증하고 저장 후 다시 조회한다."
   },
-  "requiredTests": ["__tests__/salesDefectDeductions.test.js", "__tests__/salesDefectDeductionState.test.js", "__tests__/estimateDefectQuarantineContract.test.js", "__tests__/pasteFixStatus.test.js"],
-  "requiredTestFiles": ["__tests__/salesDefectDeductions.test.js", "__tests__/salesDefectDeductionState.test.js", "__tests__/estimateDefectQuarantineContract.test.js", "__tests__/pasteFixStatus.test.js", "__tests__/erpContractManifest.test.js"]
+  "periodCorrection": {"action": "correct-period", "permission": "admin", "writes": ["WebSalesDefectDeduction scope/version/update audit", "WebSalesDefectDeductionHistory"], "preserves": ["DeductionKey", "customer/product/quantity/owner", "Estimate", "ShipmentDetail", "ShipmentDate", "OrderDetail", "Stock", "WebProfitReport"], "guards": ["explicit source and target year/week", "version check", "DRAFT only, no import confirmation, estimate or carryover", "target period open", "whole batch transaction rollback"], "retry": "requery after unknown result; stale version cannot apply twice"},
+  "requiredTests": ["__tests__/defectPeriodCorrection.test.js", "__tests__/salesDefectDeductions.test.js", "__tests__/salesDefectDeductionState.test.js", "__tests__/estimateDefectQuarantineContract.test.js", "__tests__/pasteFixStatus.test.js"],
+  "requiredTestFiles": ["__tests__/defectPeriodCorrection.test.js", "__tests__/salesDefectDeductions.test.js", "__tests__/salesDefectDeductionState.test.js", "__tests__/estimateDefectQuarantineContract.test.js", "__tests__/pasteFixStatus.test.js", "__tests__/erpContractManifest.test.js"]
 }
