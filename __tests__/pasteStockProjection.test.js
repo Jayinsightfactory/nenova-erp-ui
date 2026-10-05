@@ -118,4 +118,12 @@ const unresolved = summarizeStockProjection([{
 }])[0];
 assert.equal(unresolved.unresolved, true, '복수 후보는 품목 선택 전까지 계산결과로 확정 표시하지 않는다.');
 
+const allBaseRows = summarizeStockProjection([
+  { identityKey: 'prod:1', productName: 'DB 변경명 A', baseInputName: '카톡 기초명 A', start: 10, baseStart: 10, unit: '단', changes: [{ delta: 2, unit: '단' }], warnings: [], match: { prodKey: 1, names: ['DB 변경명 A'] } },
+  { identityKey: 'prod:2', productName: 'DB 변경명 B', baseInputName: '카톡 기초명 B', start: 7, baseStart: 7, unit: '단', changes: [], warnings: [], match: { prodKey: 2, names: ['DB 변경명 B'] } },
+]);
+assert.equal(allBaseRows.length, 2, '변경이 없는 항목도 기초재고 전체 목록에서 빠지면 안 된다.');
+assert.deepEqual(allBaseRows.map(row => row.productName), ['카톡 기초명 A', '카톡 기초명 B'], '표시명은 DB 품목명이 아니라 기초재고 원문 텍스트를 사용해야 한다.');
+assert.equal(allBaseRows[1].expected, 7, '변경 없는 기초재고 항목은 원래 잔량을 그대로 표시해야 한다.');
+
 console.log('paste stock projection tests passed');
