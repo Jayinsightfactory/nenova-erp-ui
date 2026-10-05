@@ -1,4 +1,4 @@
-# 네덜란드 물량표 주문·분배 연결 — 사전 조사
+# 네덜란드 물량표 주문·분배 연결 — 구현 및 검증
 
 | 항목 | 상태 |
 |---|---|
@@ -47,10 +47,21 @@
 - 현재 buildImportPreview는 같은 품종 전체 누락행0 확장. apply는 가격 입력을 받지 않음.
 - 추가 검토 필요: 기존 core transaction 내부에서 preflight 확정 maps 재사용, invalid explicit key의 fallback matching, 가격 stale/원자성/DB readback/되돌리기 snapshot.
 
+## 구현과 검증 중 발견·수정한 사항
+
+- 전용 JSON preview/apply와 기존 import 저장 코어를 연결했다. 서버 보관 단일 사용 계획, 소유자별 진행 로그, 잠금 후 전체 범위 지문 재검증을 사용한다.
+- 파일 누락 분배는 최종0, 활성 주문은 보존, 없는 양수 주문만 생성한다. 미리보기는 주문·분배 전후와 단가 전후를 분리한다.
+- 수량/단가만 변경 시 출고일·농장 보존 분기를 구분했다. 확정·중복·농장 배정 수량충돌·단위계수 누락은 전체 적용을 차단한다.
+- 저장 직전 실제 ViewOrder/ViewShipment와 선택 연도 PeriodDay 정확 연결, 상세/날짜 금액 readback을 검증한다. commit 뒤 지문도 별도 조회한다.
+- 격리 SQL 실행으로 같은 트랜잭션에 병렬 요청 시 대기하는 문제를 발견하여 transactional preview 조회를 순차 실행했다.
+- 실제 격리 SQL에서 기존 ShipmentDetail.CustKey=NULL을 덮는 공용 경로를 발견했다. Dutch 수량 변경에만 이 필드 assignment를 생략하여 native 값 보존; 기존 일반 import 동작은 유지한다.
+- 업로드/차수 변경 시 오래된 LIVE 데이터·미리보기 무효화, 주광 재매칭 시 기존 개별단가 제거, 원화 구버전 초안 검증을 적용했다.
+- 2026-10-05 최신 master(3536c2cf)를 합친 뒤 전체 ERP 계약 검사, manifest, 4개 변경 API write guard, dnSpy 근거 검사와 빌드가 통과했다. 마지막 native NULL 보존 수정 뒤 SQL·최종 build 재검증은 아래 배포 결과와 별도로 완료해야 한다.
+
 ## 미완료 / 다음 작업
 
 1. 적용 범위는 기존처럼 해당 품종 전체 교체로 확정. 누락 업체·품목0 전후값을 미리보기에서 확인시킨다.
-2. 설계 확정 후 계약 JSON/실행형 fixture부터 구현, 필수 ERP 검사·빌드·PR·병합·Cafe24·1920×1080 smoke.
+2. 격리 SQL 실패·롤백 사례 최종 검증, 필수 검사·빌드·PR·병합·Cafe24·1920×1080 smoke.
 3. 운영 실제 저장 없이 격리 fixture로 롤백·교차연도·단가·확정 경합 검증. 운영 최종 작업 후 readback 기능 구현.
 
 설계 하위작업은 gpt-6-astra/high, P0_LOCAL만 사용했다. 최신 모델 대체는 사용자 AGENTS 지시에 따른다. 원본 orchestration은 주 작업 저장소에서 읽었으며 새 worktree에는 없다.

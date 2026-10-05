@@ -59,5 +59,8 @@ assert.match(page, /delete updated\[entry\.id\]/, '주광 재매칭은 이전 �
 assert.match(page, /preview\.blockers\.join/, '서버 적용 차단 사유를 표시한다');
 assert.match(page, /crypto\.randomUUID\(\)/, '작업 ID를 예측 불가능하게 만든다');
 assert.doesNotMatch(page, /unit:\s*item\.outUnit/, '명시 입력단위를 품목 재매칭이 덮지 않는다');
+const uploadSource = page.slice(page.indexOf('async function upload(file)'), page.indexOf('function updateEntry'));
+assert.match(uploadSource, /setLoading\(true\)/, '파일 업로드가 진행 상태를 인수한다');
+assert.match(uploadSource, /finally \{ if \(request === loadRequestRef\.current\) setLoading\(false\); \}/, 'LIVE 조회 도중 업로드해도 최신 업로드가 진행 상태를 해제한다');
 assert.doesNotMatch(page, /<option>EUR<\/option>|setCurrency\(/);
 console.log('dutch volume UI draft tests passed');

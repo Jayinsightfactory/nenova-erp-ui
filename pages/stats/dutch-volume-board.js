@@ -177,7 +177,7 @@ export default function DutchVolumeBoard() {
 
   async function upload(file) {
     const request = ++loadRequestRef.current;
-    invalidate(); setError('');
+    invalidate(); setLoading(true); setError('');
     try {
       const nextWorkbook = XLSXStyled.read(await file.arrayBuffer(), { type: 'array', cellStyles: true, cellFormula: true });
       const parsed = parseDutchPivotWorkbook(XLSXStyled, nextWorkbook);
@@ -185,6 +185,7 @@ export default function DutchVolumeBoard() {
       const identity = `${file.name}:${file.size}:${file.lastModified}`;
       await acceptSource(nextWorkbook, file.name, identity, parsed.entries, 'UPLOAD');
     } catch (cause) { if (request === loadRequestRef.current) setError(cause.message || '엑셀 파일을 읽지 못했습니다.'); }
+    finally { if (request === loadRequestRef.current) setLoading(false); }
   }
 
   function updateEntry(id, change) { invalidate(); setEntries(previous => editDutchDraftEntry(previous, id, change)); }
