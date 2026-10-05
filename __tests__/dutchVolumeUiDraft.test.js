@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildDutchPreviewEntries, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../lib/dutchVolumeDraft.js';
+import { buildDutchPreviewEntries, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../lib/dutchVolumeDraft.js';
+import { dutchPriceKey, isDutchIndividualPriceCustomer } from '../lib/dutchVolumePrice.js';
 
 const entry = { id: 'sheet!D4', product: '품목', color: '빨강', customer: '업체', quantity: 5, unit: '' };
 const key = row => `uniform:${row.product}`;
@@ -23,6 +24,20 @@ const restored = readDutchDraft(storage, identity, [entry], (_, value) => value)
 assert.equal(restored.entries[0].quantity, 0);
 assert.equal(restored.entries[1].id, 'manual:1');
 assert.equal(restored.prices['uniform:품목'], 0);
+assert.notEqual(dutchSourceIdentity(identity,[entry],2026,'40-02'), dutchSourceIdentity(identity,[entry],2025,'40-02'));
+assert.notEqual(dutchSourceIdentity(identity,[entry],2026,'40-02'), dutchSourceIdentity(identity,[{...entry,color:'새 품목'}],2026,'40-02'));
+assert.notEqual(dutchSourceIdentity(identity,[entry],2026,'40-02'), dutchSourceIdentity(identity,[{...entry,quantity:6}],2026,'40-02'));
+const v3Identity = dutchSourceIdentity('old',[entry],2026,'40-02');
+storage.setItem('nenova.dutch-volume-krw.v2:old',JSON.stringify({version:2,currency:'KRW',entries:[{...entry,prodKey:999}],prices:{x:12}}));
+const resetDraft=readDutchDraft(storage,v3Identity,[entry],(_,value)=>value);
+assert.equal(resetDraft.draftReset,true);
+assert.equal(resetDraft.entries[0].prodKey,undefined);
+assert.deepEqual(resetDraft.prices,{});
+writeDutchDraft(storage,'immutable',[{...entry,sourceItem:'stale',color:'stale',quantity:0}],{});
+const immutable=readDutchDraft(storage,'immutable',[{...entry,sourceItem:'fresh'}],(_,value)=>value);
+assert.equal(immutable.entries[0].sourceItem,'fresh');
+assert.equal(immutable.entries[0].color,entry.color);
+assert.equal(immutable.entries[0].quantity,0);
 
 const preview = { planToken: 'one', revision: 5, year: 2026, week: '40-01', sourceIdentity: identity };
 assert.equal(isDutchPreviewCurrent(preview, 5, 2026, '40-01', identity), true);
@@ -42,6 +57,50 @@ assert.equal(selected[1].prodKey, 34);
 assert.equal(buildDutchPreviewEntries(selected, {}, key)[1].quantity, 7);
 
 const page = readFileSync(new URL('../pages/stats/dutch-volume-board.js', import.meta.url), 'utf8');
+const pickMasterStart = page.indexOf('function pickMaster(entry, kind, item) {');
+const pickMasterEnd = page.indexOf('function addRow() {', pickMasterStart);
+assert.ok(pickMasterStart >= 0 && pickMasterEnd > pickMasterStart, 'real pickMaster function can be isolated for executable cancel/confirm testing');
+const pickMasterSource = page.slice(pickMasterStart, pickMasterEnd);
+const createPickMaster = (state, confirmResult) => {
+  const windowStub = { confirm: () => { state.confirmCalls += 1; return confirmResult; } };
+  const setPrices = updater => {
+    state.priceSetterCalls += 1;
+    state.prices = typeof updater === 'function' ? updater(state.prices) : updater;
+  };
+  const setRematchNotice = message => { state.noticeCalls += 1; state.notices.push(message); };
+  const updateEntry = (id, change) => {
+    state.updateCalls += 1;
+    state.invalidateCalls += 1;
+    state.entries = editDutchDraftEntry(state.entries, id, change);
+  };
+  const factory = new Function('window', 'prices', 'entries', 'dutchPriceKey', 'isDutchIndividualPriceCustomer', 'setPrices', 'setRematchNotice', 'updateEntry', `${pickMasterSource}\nreturn pickMaster;`);
+  return factory(windowStub, state.prices, state.entries, dutchPriceKey, isDutchIndividualPriceCustomer, setPrices, setRematchNotice, updateEntry);
+};
+const individualEntry = { id: 'ju-1', customer: '주광거래처', custKey: 533, product: 'ARAN Azima', color: '', prodKey: 3441, quantity: 1, unit: '송이' };
+const uniformKey = `uniform:prod:${individualEntry.prodKey}`;
+const initialPickerState = () => ({
+  entries: [individualEntry], prices: { [individualEntry.id]: 100, [uniformKey]: 200 },
+  confirmCalls: 0, priceSetterCalls: 0, noticeCalls: 0, notices: [], updateCalls: 0, invalidateCalls: 0,
+});
+const cancelledPickState = initialPickerState();
+const cancelledPrices = { ...cancelledPickState.prices };
+createPickMaster(cancelledPickState, false)(individualEntry, 'customer', { CustKey: 534, CustName: '일반업체' });
+assert.equal(cancelledPickState.confirmCalls, 1, 'conflicting target uniform price requires confirmation');
+assert.equal(cancelledPickState.priceSetterCalls, 0, 'cancelled overwrite must not call any price setter');
+assert.equal(cancelledPickState.noticeCalls, 0, 'cancelled overwrite must not alter the matching notice');
+assert.equal(cancelledPickState.updateCalls, 0, 'cancelled overwrite must not update the entry');
+assert.deepEqual(cancelledPickState.prices, cancelledPrices, 'cancel leaves the original individual and target uniform prices untouched');
+
+const acceptedPickState = initialPickerState();
+createPickMaster(acceptedPickState, true)(individualEntry, 'customer', { CustKey: 534, CustName: '일반업체' });
+assert.equal(acceptedPickState.confirmCalls, 1);
+assert(acceptedPickState.priceSetterCalls > 0, 'accepted overwrite runs the matching price setters');
+assert.equal(acceptedPickState.prices[individualEntry.id], undefined, 'accepted move from 주광 clears its old per-row individual price');
+assert.equal(acceptedPickState.prices[uniformKey], 200, 'accepted rematch keeps the already-existing target uniform price');
+assert.equal(acceptedPickState.updateCalls, 1, 'accepted selection updates the row');
+assert.equal(acceptedPickState.invalidateCalls, 1, 'accepted selection invalidates stale preview via updateEntry');
+assert.equal(acceptedPickState.entries[0].customer, '일반업체');
+
 assert.match(page, /sourceModeRef\.current !== 'UPLOAD'/);
 assert.match(page, /request !== loadRequestRef\.current/);
 assert.match(page, /request !== previewRequestRef\.current/);
@@ -59,6 +118,14 @@ assert.match(page, /row\.estUnit/);
 assert.match(page, /changeWeek\(value\) \{ invalidate\(\); clearLiveSource\(\)/, '차수 변경은 과거 LIVE 초안을 비운다');
 assert.match(page, /changeYear\(value\) \{ invalidate\(\); clearLiveSource\(\)/, '연도 변경은 과거 LIVE 초안을 비운다');
 assert.match(page, /delete updated\[entry\.id\]/, '주광 재매칭은 이전 개별단가를 제거한다');
+assert.match(page, /const \[activeTab, setActiveTab\] = useState\('sheet'\)/, 'the original workbook tab remains the default');
+assert.match(page, /priceKey=\{dutchPriceKey\}/, 'the workbook tab uses the shared price key');
+assert.match(page, /value=\{prices\[dutchPriceKey\(row\)\] \?\? ''\}/, 'the editor tab reads the same shared price key');
+assert.match(page, /initialQuery=\{row\.sourceItem \|\| row\.color \|\| row\.product\}/, 'the picker starts from the uploaded actual item name');
+const tabButtons = page.slice(page.indexOf('<div className="sheet-tabs"'), page.indexOf("      {activeTab === 'sheet'"));
+assert.match(tabButtons, /setActiveTab\('sheet'\)/);
+assert.match(tabButtons, /setActiveTab\('edit'\)/);
+assert.doesNotMatch(tabButtons, /fetch\(|\/api\/shipment\/dutch-volume-apply|applyDutchVolume/, 'switching tabs never applies ERP data');
 assert.match(page, /preview\.blockers\.join/, '서버 적용 차단 사유를 표시한다');
 assert.match(page, /crypto\.randomUUID\(\)/, '작업 ID를 예측 불가능하게 만든다');
 assert.doesNotMatch(page, /unit:\s*item\.outUnit/, '명시 입력단위를 품목 재매칭이 덮지 않는다');

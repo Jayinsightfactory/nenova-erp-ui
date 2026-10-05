@@ -10,6 +10,26 @@ ws.E4.f = 'SUM(C4:D4)';
 ws['!merges'] = [{ s: { r: 1, c: 2 }, e: { r: 1, c: 3 } }];
 XLSX.utils.book_append_sheet(wb, ws, '네덜란드');
 const parsed = parseDutchPivotWorkbook(XLSX, wb);
+const newWb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet([
+  ['4002-네덜란드'], [], ['꽃','품목명','칼라','검증업체\nCL1','주문','입고'],
+  ['아란','ARAN Azima','레드',50,50,99], ['수국','Royal Princess','화이트',20,20,999], ['', '합계', '',70,70,1098],
+]), '네덜란드');
+XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet([
+  ['type','sheet','label','key'], ['prod','네덜란드','SnowBallWhite',965], ['prod','네덜란드','Royal Princess',965],
+]), '_keymap');
+const newParsed = parseDutchPivotWorkbook(XLSX, newWb);
+assert.equal(newParsed.entries.length, 2, 'summary/incoming quantities are not customers');
+assert.deepEqual(newParsed.entries.map(row => row.cellAddress), ['D4','D5']);
+assert.equal(newParsed.entries[0].sourceItem, 'ARAN Azima');
+assert.equal(newParsed.entries[0].sourceColor, '레드');
+assert.equal(newParsed.entries[0].product, '아란', 'legacy server species transport remains unchanged');
+assert.equal(newParsed.entries[0].color, 'ARAN Azima');
+assert.equal(newParsed.entries[0].layoutVersion, 3);
+assert.equal(newParsed.entries[1].prodKey, undefined, 'stale or manipulated keymap is never a manual ERP override');
+assert.equal(parsed.entries[0].layoutVersion, 2);
+const invalidWb = { SheetNames: ['네덜란드'], Sheets: { 네덜란드: XLSX.utils.aoa_to_sheet([['네덜란드'],[],['꽃','칼라','업체','입고'],['꽃','품명',1,9]]) } };
+assert.throws(() => parseDutchPivotWorkbook(XLSX, invalidWb), /주문/, 'missing customer boundary must not import incoming/farm values');
 assert.equal(parsed.entries.length, 3);
 assert.deepEqual(parsed.entries.map(row => [row.product, row.customer, row.quantity]), [['Tulip Strong Gold', '꽃길\nCL6', 10],['Rose Avalanche', '꽃길\nCL6', 5],['Rose Avalanche', '로뎀농원\nCL99', 7]]);
 const prices = { [dutchPriceKey(parsed.entries[0])]: 1.25, [dutchPriceKey(parsed.entries[1])]: 2 };

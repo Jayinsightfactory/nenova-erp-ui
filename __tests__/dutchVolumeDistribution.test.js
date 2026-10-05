@@ -12,7 +12,7 @@ const {
 } = await import('../lib/dutchVolumeDistributionSnapshot.js');
 const { normalizeUploadQtyForProduct } = await import('../lib/shipmentImportQty.js');
 const { buildImportPreview, matchDutchProductByColor } = await import('../lib/shipmentImport.js');
-const { previewDutchVolume } = await import('../pages/api/shipment/dutch-volume-preview.js');
+const { dutchPreviewComparisonKey, previewDutchVolume } = await import('../pages/api/shipment/dutch-volume-preview.js');
 const { applyDutchVolume } = await import('../pages/api/shipment/dutch-volume-apply.js');
 const { getApplyProgress, initApplyProgress } = await import('../lib/importApplyProgress.js');
 
@@ -66,6 +66,70 @@ assert.equal(matchDutchProductByColor(dutchProducts, { productLabel: '수국', p
 assert.equal(matchDutchProductByColor([...dutchProducts, { ...dutchProducts[1], ProdKey: 9999 }],
   { productLabel: '수국', productColor: 'ClassicPimpurnelAubergine' }), null,
   'duplicate exact names within a species require manual matching');
+
+// Actual Product snapshot: the Netherlands-only terminal country marker may
+// be omitted by the uploaded Pivot, but only within the same FlowerName.
+const aranNl = { ProdKey: 3441, ProdName: 'ARAN Azima (NL)', FlowerName: '아란', CounName: '네덜란드' };
+assert.equal(matchDutchProductByColor([aranNl], { productLabel: '아란', productColor: 'ARAN Azima' })?.ProdKey, 3441,
+  'a terminal (NL) may be omitted for an otherwise exact same-species Netherlands item');
+assert.equal(matchDutchProductByColor([{ ...aranNl, CounName: '벨기에' }], { productLabel: '아란', productColor: 'ARAN Azima' }), null,
+  'terminal (NL) may not be omitted for a product outside the Netherlands');
+assert.equal(matchDutchProductByColor([
+  aranNl,
+  { ProdKey: 3443, ProdName: 'ARAN Azima', FlowerName: '아란', CounName: '네덜란드' },
+], { productLabel: '아란', productColor: 'ARAN Azima' }), null,
+  'with-marker and without-marker aliases that collide within a flower must remain ambiguous');
+for (const nearMiss of ['ARAN Azima 60cm', 'ARAN Azima Pink']) {
+  assert.equal(matchDutchProductByColor([aranNl], { productLabel: '아란', productColor: nearMiss }), null,
+    `terminal country normalization must not erase size or color differences: ${nearMiss}`);
+}
+const leucothoeCandidates = [
+  { ProdKey: 1011, ProdName: 'Leucothoe Tinted Red', FlowerName: '레우코취', CounName: '네덜란드' },
+  { ProdKey: 1012, ProdName: 'Leucothoe Rainbow', FlowerName: '레우코취', CounName: '네덜란드' },
+  { ProdKey: 1013, ProdName: 'Leucothoe Walteri Red', FlowerName: '레우코취', CounName: '네덜란드' },
+  { ProdKey: 1014, ProdName: 'Leucothoe Absorbed red', FlowerName: '레우코취', CounName: '네덜란드' },
+];
+assert.equal(matchDutchProductByColor(leucothoeCandidates, { productLabel: '레우코취', productColor: 'RED' }), null,
+  'multiple Leucothoe red candidates must not be auto-selected from a color fragment');
+
+const compareRow = ({ key = '533|2231', orderQty = 7, currentOutQty = 10, uploadQty = 12, fixBlocked = false, shipmentDateIssueCount = 0 } = {}) => ({
+  key, orderQty, currentOutQty, uploadQty, fixBlocked, shipmentDateIssueCount,
+});
+const comparisonBase = {
+  replacementCategories: ['네덜란드장미', '네덜란드수국'],
+  rows: [compareRow(), compareRow({ key: '534|2232', uploadQty: 0 }), compareRow()],
+  unmatched: [{ entryId: 'missing-a', reason: '품목 미확인' }, { entryId: 'missing-b', reason: '업체 미확인' }],
+};
+const comparisonPermuted = {
+  replacementCategories: ['네덜란드수국', '네덜란드장미'],
+  rows: [comparisonBase.rows[2], comparisonBase.rows[1], comparisonBase.rows[0]],
+  unmatched: [...comparisonBase.unmatched].reverse(),
+};
+assert.equal(dutchPreviewComparisonKey(comparisonBase), dutchPreviewComparisonKey(comparisonPermuted),
+  'row/category/unmatched presentation order does not make the comparison different');
+for (const changedRow of [
+  compareRow({ orderQty: 8 }),
+  compareRow({ currentOutQty: 11 }),
+  compareRow({ uploadQty: 13 }),
+  compareRow({ fixBlocked: true }),
+  compareRow({ shipmentDateIssueCount: 1 }),
+]) {
+  assert.notEqual(dutchPreviewComparisonKey(comparisonBase), dutchPreviewComparisonKey({ ...comparisonBase, rows: [changedRow, ...comparisonBase.rows.slice(1)] }),
+    'each quantity/fix/date predicate participates in the canonical comparison');
+}
+assert.notEqual(dutchPreviewComparisonKey(comparisonBase), dutchPreviewComparisonKey({
+  ...comparisonBase, rows: comparisonBase.rows.slice(1),
+}), 'row membership changes must change the comparison');
+assert.notEqual(dutchPreviewComparisonKey(comparisonBase), dutchPreviewComparisonKey({
+  ...comparisonBase, replacementCategories: ['네덜란드장미'],
+}), 'replacement category membership changes must change the comparison');
+assert.notEqual(dutchPreviewComparisonKey(comparisonBase), dutchPreviewComparisonKey({
+  ...comparisonBase, unmatched: [{ ...comparisonBase.unmatched[0], reason: '다른 미매칭 사유' }, comparisonBase.unmatched[1]],
+}), 'unmatched reason changes must change the comparison');
+assert.notEqual(dutchPreviewComparisonKey({ ...comparisonBase, rows: [comparisonBase.rows[0]] }),
+  dutchPreviewComparisonKey({ ...comparisonBase, rows: [comparisonBase.rows[0], comparisonBase.rows[0]] }),
+  'sorting canonical tuples must preserve duplicate multiplicity');
+
 const alstroInputProduct = { ProdName: 'ALSTROMERIA Lavender', FlowerName: '알스트로', OutUnit: '단', EstUnit: '송이',
   BunchOf1Box: 16, SteamOf1Bunch: 10, SteamOf1Box: 160 };
 assert.match(dutchInputUnitIssue(alstroInputProduct, { quantity: 10, unit: '' }), /입력 단위/);
@@ -148,6 +212,34 @@ const preview = await previewDutchVolume(input(), user, deps);
 assert.ok(preview.planToken, 'matched positive category replacement issues a plan');
 assert.equal(preview.rows[0].orderAfterQty, 7, 'existing order is preserved');
 assert.equal(preview.entryMatches[0].estUnit, '박스');
+
+const buildReorderedPreview = (mutateOnConfirmation = false) => {
+  let calls = 0;
+  return {
+    get calls() { return calls; },
+    buildPreview: ({ parsedRows }) => {
+      calls += 1;
+      const result = fakePreview({ parsedRows });
+      const missing = { ...result.rows[0], key: '534|2231', entryIds: [], custKey: 534,
+        orderQty: 0, currentOutQty: 0, uploadQty: 0, missingFromExcel: true };
+      result.replacementCategories = ['네덜란드장미', '네덜란드수국'];
+      result.rows = calls === 1 ? [result.rows[0], missing] : [missing, result.rows[0]];
+      if (mutateOnConfirmation && calls === 2) result.rows.find(row => row.key === '533|2231').uploadQty += 1;
+      return result;
+    },
+  };
+};
+const reorderedBuild = buildReorderedPreview();
+const reorderedPreview = await previewDutchVolume(input(), user, { ...deps, buildPreview: reorderedBuild.buildPreview });
+assert.equal(reorderedBuild.calls, 2, 'preview is recomputed after locked snapshot capture');
+assert.ok(reorderedPreview.planToken, 'a semantically identical preview with permuted SQL rows remains applicable');
+const changedBuild = buildReorderedPreview(true);
+const planCountBeforeChangedPreview = global._dutchVolumePlans.size;
+await assert.rejects(() => previewDutchVolume(input(), user, { ...deps, buildPreview: changedBuild.buildPreview }), /미리보기|변경|다시|계획/,
+  'a real preview predicate change between the two reads must still be rejected');
+assert.equal(changedBuild.calls, 2, 'changed preview reaches the confirmation read');
+assert.equal(global._dutchVolumePlans.size, planCountBeforeChangedPreview, 'a changed preview must not leave an issued plan behind');
+
 const alstroDeps = { ...deps, readSnapshot: async () => ({ snapshot: {
   ...fixtureLedger, products: [{ ...alstroInputProduct, ProdKey: 2231, CountryFlower: '네덜란드' }],
 }, digest: 'alstro-digest' }) };
