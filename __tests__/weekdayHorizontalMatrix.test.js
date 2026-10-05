@@ -233,7 +233,7 @@ const html = renderToStaticMarkup(React.createElement(Component, {
   cycles, plans: [plan()], comparisonRows: [actual(), actual({ orderWeek: '38-02', state: 'NO_SHIPMENT', shipmentOutQuantity: null, shipmentDates: [] })],
   onEditCell: () => {}, onPrint: () => {}, customer: { CustKey: 7 },
 }));
-assert.equal((html.match(/<table>/g) || []).length, 1);
+assert.equal((html.match(/<table(?:\s[^>]*)?>/g) || []).length, 1);
 assert.equal((html.match(/wcm-day-print/g) || []).length, 22, '21 day buttons plus CSS selector');
 assert.equal((html.match(/type="checkbox"/g) || []).length, 21);
 assert.equal((html.match(/미적용 초안 수량"/g) || []).length, 21);
@@ -241,21 +241,21 @@ assert.equal((html.match(/rowspan="3"/g) || []).length, 1);
 assert.equal((html.match(/colspan="18"/gi) || []).length, 3, 'each cycle spans all subweek, Wilson and major summary cells');
 assert.match(html, /38차 목 견적 출력/);
 assert.match(html, /FlowerName|CARNATION/);
-assert.match(html, /min-width:3152px/);
+assert.match(html, /style="width:2642px"/);
 assert.match(html, /aria-label="요일표 상단 가로 스크롤"/);
 assert.match(html, /aria-label="요일표 하단 가로 스크롤"/);
 assert.match(html, /\.wcm-scroll-bottom \{ position:sticky; bottom:0;/);
 assert.match(html, /::-webkit-scrollbar \{ height:16px;/, 'visible scrollbar track/thumb must not rely on auto-hidden Windows overlay');
-assert.match(html, /\.wcm-summary-col \{ width:68px;/);
+assert.match(html, /\.wcm-summary-col \{ width:44px;/);
 assert.match(html, /wcm-major-heading/);
 assert.match(html, /wcm-summary-actions/);
-assert.match(html, /\.wcm-sum-value[^\n]*font-size:16px; font-weight:700/);
-assert.match(html, /\.wcm-major-total \.wcm-remainder-value \{ font-size:18px; font-weight:700/);
-assert.match(html, /tbody td :is\([^\n]*\.wcm-number-display[^\n]*\) \{ font-size:18px; font-weight:700/);
+assert.match(html, /\.wcm-sum-value[^\n]*font-size:14px; font-weight:700/);
+assert.match(html, /\.wcm-major-total \.wcm-remainder-value \{ font-size:14px; font-weight:700/);
+assert.match(html, /tbody td :is\([^\n]*\.wcm-number-display[^\n]*\) \{ font-size:14px; font-weight:700/);
 assert.match(html, /data-wcm-label="sum"/);
 assert.match(html, /data-wcm-label="remainder"/);
 assert.match(html, /tbody tr:is\(:hover,:focus-within\)/);
-assert.match(html, /font-size:13px/);
+assert.match(html, /font-size:12px/);
 assert.match(html, /\.wcm-cell input:disabled \{ opacity:0; pointer-events:none; \}/,'locked cells display only their number span, not a duplicate input');
 assert.match(html, /thead th \{ position:static; top:auto;/);
 assert.match(html, /tbody th \{ position:sticky; top:auto; left:0;/);

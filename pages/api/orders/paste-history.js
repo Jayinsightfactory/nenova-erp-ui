@@ -12,11 +12,15 @@ export default withAuth(async function handler(req, res) {
     if (!['mine', 'all'].includes(who)) throw Object.assign(new Error('담당자 검색 범위를 확인하세요.'), { statusCode: 400 });
     const cursor = req.query.cursor === undefined ? 2147483647 : Number(req.query.cursor);
     if (!Number.isInteger(cursor) || cursor <= 0 || cursor > 2147483647) throw Object.assign(new Error('조회 위치가 올바르지 않습니다.'), { statusCode: 400 });
-    const params = { cursor: { type: sql.Int, value: cursor }, actor: { type: sql.NVarChar, value: req.user?.userId || '' }, actorName: { type: sql.NVarChar, value: req.user?.userName || req.user?.userId || '' } };
+    const params = { cursor: { type: sql.Int, value: cursor }, actor: { type: sql.NVarChar, value: req.user?.userId || '' }, actorName: { type: sql.NVarChar, value: req.user?.userName || req.user?.userId || '' }, scopeYear: { type: sql.NVarChar, value: scope.year } };
+    const scopedWeek = scope.week ? (scope.majorOnly ? `AND JSON_VALUE(CASE WHEN ISJSON(Payload)=1 THEN Payload ELSE N'{}' END, '$.week') LIKE @scopeWeek` : `AND JSON_VALUE(CASE WHEN ISJSON(Payload)=1 THEN Payload ELSE N'{}' END, '$.week')=@scopeWeek`) : '';
+    if (scope.week) params.scopeWeek = { type: sql.NVarChar, value: `${scope.year}-${scope.week}${scope.majorOnly ? '-%' : ''}` };
     const found = await query(`SELECT TOP 201 LogKey, CONVERT(NVARCHAR(19), ActionDtm, 120) AS ActionDtm,
       Actor, ActionType, Payload, Result, ResultDesc
       FROM SystemActionLog WHERE ActionType IN ('SHIPMENT_ADJUST_BATCH','SHIPMENT_ADJUST_BATCH_UNDO')
-      AND LogKey < @cursor ${who === 'mine' ? 'AND (Actor=@actor OR Actor=@actorName)' : ''}
+      AND LogKey < @cursor
+      AND JSON_VALUE(CASE WHEN ISJSON(Payload)=1 THEN Payload ELSE N'{}' END, '$.year')=@scopeYear
+      ${scopedWeek} ${who === 'mine' ? 'AND (Actor=@actor OR Actor=@actorName)' : ''}
       ORDER BY LogKey DESC`, params);
     const scanned = (found.recordset || []).slice(0, 200);
     const parsed = scanned.map(parsePasteOperation).filter(Boolean);

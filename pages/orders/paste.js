@@ -13,7 +13,6 @@ import StockNotePicker from '../../components/orders/StockNotePicker';
 import DistributionBaselinePanel from '../../components/orders/DistributionBaselinePanel';
 import DistributionSalesInbox from '../../components/orders/DistributionSalesInbox';
 import PasteOperationHistory from '../../components/orders/PasteOperationHistory';
-import PasteErpHistoryEvidence from '../../components/orders/PasteErpHistoryEvidence';
 import { textWithoutExcludedLines } from '../../lib/pasteExcludeText';
 import { resolveCachedProductMapping, lookupSavedProductMapping } from '../../lib/pasteLocalMapping';
 import { filterProducts, jamoSimilarity, getDisplayName, scoreMatch } from '../../lib/displayName';
@@ -4457,7 +4456,6 @@ export default function PasteOrderPage() {
             )}
             <StockImpactSummary draft={stockDraft} selectedWeek={week} processed={Boolean(bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone)} />
             {bulkResult?.orderId === 'ALL' && <a href="#paste-connected-result-details" style={{ margin: '2px 0 6px', fontSize: 11, color: '#1565c0', fontWeight: 800 }}>전체 저장 내역 아래에서 계속 보기 ↓</a>}
-            <PasteErpHistoryEvidence week={week} text={pasteText} messages={evidenceMessages} orders={orders} disabled={parsing || bulkRunning} revision={`${bulkResult?.okCount || 0}:${bulkResult?.undone || false}`} />
             <section className="paste-work-history" aria-label="최근 붙여넣기 작업 이력">
               <strong>최근 붙여넣기 작업 이력</strong>
               {week && selectedYearFromWeek(week) ? (

@@ -19,7 +19,12 @@
     "lib/arrivalCostFxPreview.js",
     "__tests__/arrivalCostFxPreview.test.js",
     "docs/migrations/2026-08-10_web_arrival_cost_schema.sql",
-    "components/Layout.js"
+    "components/Layout.js",
+    "scripts/quarantine-arrival-china-week-20261005.mjs",
+    "__tests__/arrivalYearEvidence.test.js",
+    "__tests__/arrivalVietnamWorkbook.test.js",
+    "__tests__/arrivalProductCountryTie.test.js",
+    "scripts/import-reviewed-vietnam-arrival-20261005.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -80,7 +85,7 @@
       "name": "ARRIVAL_COST_UPLOAD_REVISION",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
-      "notes": "엑셀 도착원가 수식의 계산값이 비어 있으면 그 수식을 계산해 WebArrivalCost에 저장한다. 수식조차 없으면 수국 Color Grade 표시 원가 공식으로 채운다. 농장명은 그룹 첫 행만 있어도 아래 행으로 이어받고, 전산 FarmName과 공백·별칭으로 맞춘다. 입고수량은 엑셀 헤더(단당수량·도착원가(단)/수량(박스))로 단·박스를 분류하며 Product.OutUnit으로 덮어쓰지 않는다. 입고단위가 단/박스이면 저장 원가는 도착원가(단)이다. 시트명 14-1A처럼 접미가 있어도 시트 차수를 파일명보다 우선한다. 16-1B처럼 시트 머리에 COLOMBIA가 없어도 같은 차수·같은 파일의 국가를 이어받는다. 네덜란드로 판별된 원가자료는 화면에 남은 연도값과 무관하게 현재 자료 기준인 OrderYear=2026으로 저장한다. 재업로드는 같은 연도·차수·국가와 그 차수의 빈 국가 현재본을 SUPERSEDE한다. Product/Warehouse/Shipment/Estimate는 보존한다. 엑셀 !merges 농장 칸을 펼치고, 수량 없는 농장 제목 행도 아래 품목에 이어받는다. 시트 머리의 GW/CW 라벨 값을 행에 저장한다. 단위 열이 있으면 단/박스 분류에 쓰고 Product.OutUnit으로 덮지 않는다. 이미 올라간 행은 파일을 다시 올려야 반영된다. 저장은 집합 INSERT/UPDATE 후 40행 단위로 WebArrivalCostLine에 넣고, 행마다 UPLOAD 이력 JSON을 넣지 않아 2천 행 재업로드가 nginx 502가 나지 않게 한다."
+      "notes": "엑셀 도착원가 수식의 계산값이 비어 있으면 그 수식을 계산해 WebArrivalCost에 저장한다. 수식조차 없으면 수국 Color Grade 표시 원가 공식으로 채운다. 농장명은 그룹 첫 행만 있어도 아래 행으로 이어받고, 전산 FarmName과 공백·별칭으로 맞춘다. 입고수량은 엑셀 헤더(단당수량·도착원가(단)/수량(박스))로 단·박스를 분류하며 Product.OutUnit으로 덮어쓰지 않는다. 입고단위가 단/박스이면 저장 원가는 도착원가(단)이다. 시트명 14-1A처럼 접미가 있어도 시트 차수를 파일명보다 우선한다. 16-1B처럼 시트 머리에 COLOMBIA가 없어도 같은 차수·같은 파일의 국가를 이어받는다. 파일명과 시트의 명시 연도 및 실제 날짜를 검증한다. 연도 충돌은 저장 금지, 수동 등록은 명시 선택 연도 필수, 자동 등록은 verified 연도 근거 필수이며 수정시각만으로 확정하지 않는다. 재업로드는 같은 연도·차수·국가와 그 차수의 빈 국가 현재본을 SUPERSEDE한다. Product/Warehouse/Shipment/Estimate는 보존한다. 엑셀 !merges 농장 칸을 펼치고, 수량 없는 농장 제목 행도 아래 품목에 이어받는다. 시트 머리의 GW/CW 라벨 값을 행에 저장한다. 단위 열이 있으면 단/박스 분류에 쓰고 Product.OutUnit으로 덮지 않는다. 이미 올라간 행은 파일을 다시 올려야 반영된다. 저장은 집합 INSERT/UPDATE 후 40행 단위로 WebArrivalCostLine에 넣고, 행마다 UPLOAD 이력 JSON을 넣지 않아 2천 행 재업로드가 nginx 502가 나지 않게 한다."
     },
     {
       "name": "ARRIVAL_COST_MATCH_OR_BASIS_SAVE",
@@ -98,6 +103,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "sideEffect": "화면 표시 전용 what-if 재계산. lib/arrivalCostFxPreview.js는 DB를 조회·저장하지 않는 순수함수로, 이미 화면에 표시된 원가(sourceArrivalCostKRW 또는 selectedArrivalCostKRW)와 원본 ExchangeRate·CustomsPerUnitKRW·OtherPerUnitKRW에서 lib/arrivalCostExcel.js::calculateArrivalCost의 식 cost=(FOB+운임)×환율+통관비+기타 를 역산해 USD 환산분을 구한 뒤 사용자가 입력한 환율로 다시 곱한다. WebArrivalCostLine.SelectedArrivalCostKRW 등 어떤 테이블도 갱신하지 않는다."
+    },
+    {
+      "name": "ARRIVAL_SOURCE_YEAR_WEEK_SAFETY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "notes": "NL 강제2026 제거; 파일명/시트/날짜 연도 충돌 및 혼합연도는 저장 전 차단. 자동반영 미확인 연도 보류.34-2A/B CLOUD는34-2로 파싱. VT Color/송의 헤더 및 베트남 자동반영 국가 지원, kg견적 제외. 품목 국가 충돌/최고점 동률 미매칭. 반복 복사 접미만 파일군 정규화. 운영 China Import33 오류48행은 배포후 검토SHA와 수동이력0 확인 및 fullfieldaudit로 현재본격리; 연도 재배정/삭제 금지. 호텔/ERP/가격/수량/매칭 보존."
     }
   ],
   "crossYearFixture": {
@@ -117,7 +128,10 @@
     "__tests__/arrivalCostProductSearch.test.js",
     "__tests__/arrivalCostView.test.js",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/getReadOnlySchemaContract.test.js"
+    "__tests__/getReadOnlySchemaContract.test.js",
+    "__tests__/arrivalYearEvidence.test.js",
+    "__tests__/arrivalVietnamWorkbook.test.js",
+    "__tests__/arrivalProductCountryTie.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

@@ -1,5 +1,15 @@
 # FormArrivalCost — 도착원가 웹 전용 원장 경계
 
+## 2026-10-05 연도·차수·베트남 원가 안전성
+
+실제 dnSpy CLI FormWarehouseView 재실행: WarehouseMaster/WarehouseDetail 읽기 경계 유지.
+원가 파서와 WebArrivalCost 전용 저장만 변경하며 주문·출고·입고·재고·견적·호텔 저장 단가는 보존한다.
+읽기 전용 DB probe: Import33의 34-2A CLOUD12행/34-2B CLOUD36행이 2026/40-1 현재본으로 저장되어 있고 수동 MATCH/BASIS_CHANGE 이력0건.
+연도 근거가 없는 중국 파일은 2026으로 재배정하지 않는다. 검토 digest·전체 필드 감사·공통 잠금 후 현재본만 격리한다.
+연도 검증은 파일명/시트/실제 Excel 날짜를 대조하며 원본 수정시각과 workbook 생성일은 연도 근거로 쓰지 않는다.
+자동 등록은 verified 연도만 허용하고 수동 등록도 원본 연도 충돌·혼합연도를 거부한다.
+실제 VT SUNPRIDE38-1 파일의 White8 SourceRow19 원가10191.9375와 ProdKey3074를 읽기 재현했다.
+
 ## 2026-09-22 소수점 저장 대조
 
 동일 dnSpy FormWarehouseView 경계를 유지. 배포 후 운영 Import26 태국38-1의19행,

@@ -1,9 +1,10 @@
 // Local-only 1920x1080 smoke for the read-only paired Kakao message/application UI.
-// Every network request is intercepted; only the advisory live-history POST is allowed.
+// Every network request is intercepted; advisory live-history and zero-cost preanalysis fixtures are local only.
 // Usage: NODE_PATH=... node scripts/paste-live-history-ui-smoke.cjs [localhost URL]
 const fs = require('node:fs');
 const path = require('node:path');
 const puppeteer = require('puppeteer-core');
+const jwt = require('jsonwebtoken');
 
 const target = process.argv[2] || process.env.SMOKE_BASE_URL || 'http://127.0.0.1:3007/orders/paste?popup=1';
 const screenshotPath = path.resolve(process.env.SMOKE_SCREENSHOT || 'outputs/paste-live-history-ui-1920.png');
@@ -19,28 +20,29 @@ const chromeCandidates = [
 ].filter(Boolean);
 const executablePath = chromeCandidates.find(candidate => { try { return fs.existsSync(candidate); } catch { return false; } });
 if (!executablePath) throw new Error('Chrome executable not found. Set CHROME_PATH.');
+const jwtSecret = process.env.JWT_SECRET || 'nenova-dev-only-secret-change-me';
 
 const year = '2026';
 const week = '37-01';
-const from = '2026-09-22';
-const to = '2026-09-28';
+const from = '2026-09-29';
+const to = '2026-10-05';
 const firstIdentity = 'kakao-sales|live-history-smoke|message-001';
 const secondIdentity = 'kakao-sales|live-history-smoke|message-002';
 const quantityIdentity = 'kakao-sales|live-history-smoke|message-003';
 const messages = [
   {
     source: 'kakao-sales', chat_id: 'live-history-smoke', external_message_id: 'message-001',
-    chatroom: '영업방 smoke', sender: '담당자 A', created_at: '2026-09-22T09:00:00+09:00',
+    chatroom: '영업방 smoke', sender: '담당자 A', created_at: '2026-10-01T09:00:00+09:00',
     message: '37-1 변경사항\n서울꽃\n수국 화이트 1박스 추가\n장미 레드 2박스 추가',
   },
   {
     source: 'kakao-sales', chat_id: 'live-history-smoke', external_message_id: 'message-002',
-    chatroom: '영업방 smoke', sender: '담당자 B', created_at: '2026-09-23T10:00:00+09:00',
+    chatroom: '영업방 smoke', sender: '담당자 B', created_at: '2026-10-02T10:00:00+09:00',
     message: '37-1 변경사항\n부산농원\n장미 레드 2박스 추가',
   },
   {
     source: 'kakao-sales', chat_id: 'live-history-smoke', external_message_id: 'message-003',
-    chatroom: '영업방 smoke', sender: '담당자 C', created_at: '2026-09-24T10:00:00+09:00',
+    chatroom: '영업방 smoke', sender: '담당자 C', created_at: '2026-10-03T10:00:00+09:00',
     message: '37-1 변경사항\n양재동\n수국 Blue 1박스 취소',
   },
 ];
@@ -67,6 +69,13 @@ const responseItems = [
     requests: [{ id: `${quantityIdentity}:3`, sourceIdentity:quantityIdentity, action:'CANCEL', custKey:701, prodKey:301, quote:'수국 Blue 1박스 취소', customerText:'양재동', productText:'수국 Blue', inputQty:1, inputUnit:'박스', qty:1, unit:'박스', status:'PRODUCT_HISTORY_CANDIDATE', matchState:'NUMERIC_HISTORY_CANDIDATE', shipmentEvents:[{eventId:'ship-003',before:5,after:4,unit:'박스',changeAt:'2026-09-24T11:00:00+09:00',shipmentDate:'2026-09-25',week:'37-01'}] }],
   },
 ];
+responseItems.forEach(item => { item.requests = item.requests.map(request => ({ ...request, year, week, sourceAt: request.sourceAt || request.changeAt || request.orderEvents?.[0]?.changeAt || '2026-10-01T00:00:00+09:00', timestamp_approximate:false, ...(request.shipmentEvents?.length ? {shipmentEvents:request.shipmentEvents.map(event=>({...event,year,custKey:request.custKey,prodKey:request.prodKey}))} : {}) })); });
+const itemRequest = (request) => ({ ...request, year, week, sourceAt: request.sourceAt || request.changeAt, timestamp_approximate:false });
+responseItems.forEach(item => { item.requests = item.requests.map(itemRequest); });
+const balanceComparison = { version:1, defaultFilter:'EXCEPTIONS', summary:{productCount:2,visibleCount:0,consistentHiddenCount:2,unresolvedRequestCount:0}, products:[
+  {prodKey:101,prodName:'수국 화이트',unit:'박스',evidenceStatus:'CONSISTENT',snapshotStatus:'AVAILABLE',sourceIdentities:[firstIdentity],requestedSignedDelta:1,observedSignedDelta:1,actualDistributionTotal:1,storedStockSnapshot:0,requests:[{requestId:`${firstIdentity}:3`,sourceIdentity:firstIdentity,custKey:501,prodKey:101,requestedSignedDelta:1,observedSignedDelta:1,evidenceStatus:'CONSISTENT',reasonCodes:[]}]},
+  {prodKey:301,prodName:'수국 Blue',unit:'박스',evidenceStatus:'CONSISTENT',snapshotStatus:'AVAILABLE',sourceIdentities:[quantityIdentity],requestedSignedDelta:-1,observedSignedDelta:-1,actualDistributionTotal:4,storedStockSnapshot:0,requests:[{requestId:`${quantityIdentity}:3`,sourceIdentity:quantityIdentity,custKey:701,prodKey:301,requestedSignedDelta:-1,observedSignedDelta:-1,evidenceStatus:'CONSISTENT',reasonCodes:[]}]},
+]};
 const apiRequests = [];
 const blockedExternal = [];
 const problems = [];
@@ -102,6 +111,7 @@ async function visibleText(page) {
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+    await page.setCookie({ name: 'nenovaToken', value: jwt.sign({ userId: 'live-history-smoke', userName: 'live-history-smoke', authority: 'admin' }, jwtSecret, { expiresIn: '10m' }), url: targetUrl.origin, httpOnly: true, sameSite: 'Strict' });
     let rejectEarlyPageError;
     const earlyPageError = new Promise((_, reject) => { rejectEarlyPageError = reject; });
     const runtimeClient = await page.target().createCDPSession();
@@ -145,11 +155,17 @@ async function visibleText(page) {
       if (parsed.pathname === '/api/orders/distribution-live-history') {
         if (method !== 'POST') return json(request, { error: { code: 'METHOD_NOT_ALLOWED', message: 'fixture permits POST only' } }, 405);
         liveHistoryPosts += 1;
-        if (String(payload.year) !== year || String(payload.week) !== week || payload.from !== from || payload.to !== to || !Array.isArray(payload.messages)) {
+        if (String(payload.year) !== year || !/^\d{2}-\d{2}$/.test(String(payload.week)) || payload.from !== from || payload.to !== to || !Array.isArray(payload.messages)) {
           return json(request, { error: { code: 'BAD_FIXTURE_SCOPE', message: 'year/week/from/to/messages contract mismatch' } }, 400);
         }
         if (failHistory) return json(request, { error: { code: 'LIVE_HISTORY_READ_FAILED', message: 'fixture history read failure' } }, 503);
-        return json(request, { success: true, advisoryOnly: true, erpAction: 'NONE', scope: { year, weeks: [week], from, to }, asOf: '2026-09-23T02:00:00.000Z', items: responseItems, warnings: ['fixture: 조회 범위가 제한될 수 있습니다.'] });
+        const requestedWeek = String(payload.week);
+        const scopedItems = payload.messages.map(message => responseItems.find(item=>item.sourceIdentity===message.identity) || {sourceIdentity:message.identity,status:'UNCONFIRMED',reason:'fixture',requests:[]});
+        return json(request, { success: true, advisoryOnly: true, erpAction: 'NONE', scope: { year, weeks: [requestedWeek], from, to }, asOf: '2026-10-02T02:00:00.000Z', items: scopedItems, balanceComparison, warnings: ['fixture: 조회 범위가 제한될 수 있습니다.'] });
+      }
+      // The page may auto-request preanalysis. Answer locally so this UI smoke never calls an LLM.
+      if (parsed.pathname === '/api/orders/paste-preanalysis' && method === 'POST') {
+        return json(request, { success: true, orders: [], advisoryOnly: true, cacheHit: true });
       }
       if (method !== 'GET') return json(request, { error: { code: 'FIXTURE_WRITE_BLOCKED', message: `fixture blocks ${method} ${parsed.pathname}` } }, 405);
       if (parsed.pathname === '/api/auth/me') return json(request, { success: true, user: { userId: 'live-history-smoke', userName: 'live-history-smoke', role: 'admin' } });
@@ -192,7 +208,7 @@ async function visibleText(page) {
     for (const viewport of [{ width: 1366, height: 768 }, { width: 1100, height: 768 }]) {
       await page.setViewport(viewport);
       await wait(200);
-      const result = await page.$eval('section.sales-inbox', element => {
+    const result = await page.$eval('section.sales-inbox', element => {
         const box = element.getBoundingClientRect();
         const pair = element.querySelector('.paired-message-layout');
         const raw = pair?.querySelector('.paired-message-original')?.getBoundingClientRect();
@@ -246,7 +262,9 @@ async function visibleText(page) {
     await clickHistoryRefresh(page);
     await waitFor(() => liveHistoryPosts > postsBeforeFailure, 'failed live-history refresh');
     await waitFor(async () => /실패|조회하지 못|유지|다시|fixture history read failure/.test(await visibleText(page)), 'live-history failure notice');
-    await page.$eval('section.sales-inbox details.compact-warnings', node => { node.open = true; });
+    const warningDetails = await page.$('section.sales-inbox details.compact-warnings');
+    if (warningDetails) await warningDetails.evaluate(node => { node.open = true; });
+    else problems.push('compact live-history warning disclosure is not present');
     const afterFailure = await visibleText(page);
     if (!afterFailure.includes('서울꽃') || !afterFailure.includes('부산농원')) problems.push('failed live-history refresh cleared the last good result');
     if (!afterFailure.includes('fixture: 조회 범위가 제한될 수 있습니다.')) problems.push('live-history warnings are not visible');
@@ -274,7 +292,8 @@ async function visibleText(page) {
     if (!firstItems.some(item=>item.status==='적용'&&item.background==='rgb(237, 248, 239)') || !firstItems.some(item=>item.status==='미확인'&&item.background==='rgb(255, 248, 232)')) problems.push(`applied and unconfirmed item colors are missing or incorrect: ${JSON.stringify(layout.pairs)}`);
     if (layout.right > 1920 || layout.left < 0) problems.push(`sales inbox bounds are outside 1920 viewport: ${JSON.stringify(layout)}`);
 
-    const forbiddenPosts = apiRequests.filter(request => request.method !== 'GET' && request.path !== '/api/orders/distribution-live-history');
+    const fixturePosts = ['/api/orders/distribution-live-history', '/api/orders/paste-preanalysis'];
+    const forbiddenPosts = apiRequests.filter(request => request.method !== 'GET' && !fixturePosts.includes(request.path));
     const erpOrLlmPosts = forbiddenPosts.filter(request => /erp|orders$|shipment|llm|ai|openai/i.test(request.path));
     if (forbiddenPosts.length) problems.push(`unexpected non-live-history POSTs: ${forbiddenPosts.map(request => `${request.method} ${request.path}`).join(', ')}`);
     if (erpOrLlmPosts.length) problems.push(`ERP/LLM POSTs observed: ${erpOrLlmPosts.map(request => `${request.method} ${request.path}`).join(', ')}`);
@@ -282,7 +301,7 @@ async function visibleText(page) {
 
     fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath, fullPage: false });
-    console.log(JSON.stringify({ viewport: '1920x1080', responsiveViewports: responsiveLayouts, target: targetUrl.href, liveHistoryPosts, newestFirst: /부산농원/.test(orderCheck[0] || '') && /서울꽃/.test(orderCheck[1] || ''), layout, forbiddenPosts, blockedExternal, screenshotPath, problems }, null, 2));
+    console.log(JSON.stringify({ viewport: '1920x1080', responsiveViewports: responsiveLayouts, target: targetUrl.href, liveHistoryPosts, newestFirst: /양재동/.test(orderCheck[0] || '') && /부산농원/.test(orderCheck[1] || ''), layout, forbiddenPosts, blockedExternal, screenshotPath, problems }, null, 2));
     if (problems.length) process.exitCode = 1;
   } catch (error) {
     const failedPage = (await browser.pages()).at(-1);

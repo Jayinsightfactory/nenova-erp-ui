@@ -272,10 +272,10 @@ try {
     originals: [...document.querySelectorAll('.wcm-number-display, .wcm-original, .wcm-cell input')]
       .map(el => parseFloat(getComputedStyle(el).fontSize)),
   }));
-  check(fontSizes.primary.length > 0 && fontSizes.primary.every(size => size >= 18), 'primary summary typography >=18px', JSON.stringify(fontSizes));
-  check(fontSizes.sum.length > 0 && fontSizes.sum.every(size => size >= 18), 'full-width summary sum typography >=18px', JSON.stringify(fontSizes));
-  check(fontSizes.meta.length > 0 && fontSizes.meta.every(size => size >= 12), 'secondary summary typography >=12px', JSON.stringify(fontSizes));
-  check(fontSizes.originals.length > 0 && fontSizes.originals.every(size => size >= 18), 'original/display/input quantity typography >=18px', JSON.stringify(fontSizes));
+  check(fontSizes.primary.length > 0 && fontSizes.primary.every(size => size >= 14), 'primary summary typography >=14px', JSON.stringify(fontSizes));
+  check(fontSizes.sum.length > 0 && fontSizes.sum.every(size => size >= 14), 'full-width summary sum typography >=14px', JSON.stringify(fontSizes));
+  check(fontSizes.meta.length > 0 && fontSizes.meta.every(size => size >= 10), 'secondary summary typography >=10px', JSON.stringify(fontSizes));
+  check(fontSizes.originals.length > 0 && fontSizes.originals.every(size => size >= 14), 'original/display/input quantity typography >=14px', JSON.stringify(fontSizes));
   const summaryGeometry = await page.locator('.wcm-table-scroll .wcm-major-total').evaluateAll(cells => cells.map(el => {
     const content=el.querySelector('.wcm-compact-summary'), c=el.getBoundingClientRect(),r=content.getBoundingClientRect();
     return {contained:r.left>=c.left-1&&r.right<=c.right+1, width:c.width};
@@ -410,7 +410,7 @@ try {
     'the long identical error is rendered once in each of the three headers only');
   const failedCells = await page.locator('.wcm-table-scroll tbody .wcm-major-total').evaluateAll(cells => cells.map(cell => ({
     repeatsError: cell.innerText.includes('fixture weekday quote failure'),
-    hasFailureButton: [...cell.querySelectorAll('.wcm-quote .wcm-inline-status')].some(status => status.textContent === '견적 조회실패'),
+    hasFailureButton: [...cell.querySelectorAll('.wcm-quote .wcm-inline-status')].some(status => status.textContent === '견적실패'),
   })));
   assert.equal(failedCells.length, 450, 'all 50 rows retain nine compact summary cells');
   assert.ok(failedCells.every(cell => !cell.repeatsError) && failedCells.filter(cell=>cell.hasFailureButton).length===150,

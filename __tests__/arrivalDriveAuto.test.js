@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { validateArrivalImportYear } from '../lib/arrivalImportPolicy.js';
 import './arrivalDriveSchedule.test.js';
 import './arrivalDriveRunNow.test.js';
 import { arrivalDriveCandidate, selectArrivalDriveCandidates, scopeArrivalDriveRows, arrivalDriveTiming, ARRIVAL_DRIVE_DELAY_MS } from '../lib/arrivalDrivePolicy.js';
@@ -34,11 +35,15 @@ assert.equal(arrivalDriveCandidate(file('p','37-2 NL Order.xlsx'),'2026'), null)
 assert.match(arrivalDriveCandidate(file('p','37차 NL 원가자료.xlsx'),'2026').reason, /세부차수/);
 assert.match(selectArrivalDriveCandidates([a, file('z','37-2 NL 원가자료 다른농장.xlsx')], config)[0].reason, /파일군|수정시각/);
 const source = arrivalDriveCandidate(a,'2026');
-const row = { orderYear:'2026', orderWeek:'37-2', countryName:'네덜란드', quantity:10, sourceArrivalCostKRW:1800, matchStatus:'MATCHED' };
+const row = { orderYear:'2026', yearEvidence:{status:'verified'}, orderWeek:'37-2', countryName:'네덜란드', quantity:10, sourceArrivalCostKRW:1800, matchStatus:'MATCHED' };
 const parsed = { rows:[row,{...row,orderWeek:'36-1'}], sheetStats:[], rejectedRows:[] };
 assert.equal(scopeArrivalDriveRows(parsed,source).rows.length,1);
 assert.equal(scopeArrivalDriveRows({...parsed,rows:[{...row,orderWeek:'37-02'}]},source).rows[0].orderWeek,'37-2');
 assert.throws(()=>scopeArrivalDriveRows({...parsed,rows:[{...row,orderYear:'2025'}]},source),/연도/);
+assert.throws(()=>scopeArrivalDriveRows({...parsed,rows:[{...row,yearEvidence:{status:'unverified'}}]},source),/연도 확인/);
+assert.throws(()=>scopeArrivalDriveRows({...parsed,rows:[{...row,yearEvidence:undefined}]},source),/연도 확인/);
+assert.equal(arrivalDriveCandidate(file('v','VT SUNPRIDE 원가자료 (2026) (38-1).xlsx'),'2026').country,'베트남');
+assert.equal(selectArrivalDriveCandidates([a,file('copies','37-2 NL 원가자료 (1) (1).xlsx','2026-09-15T00:00:00Z')],config)[0].reason,'');
 assert.throws(()=>scopeArrivalDriveRows({...parsed,rows:[{...row,countryName:'콜롬비아'}]},source),/국가/);
 assert.throws(()=>scopeArrivalDriveRows({...parsed,rejectedRows:[{orderWeek:'37-2'}]},source),/계산/);
 assert.equal(scopeArrivalDriveRows({...parsed,rejectedRows:[{orderWeek:'36-1'}]},source).rows.length,1);
@@ -74,8 +79,11 @@ const q = async (text,p={}) => {
 };
 const transact = async fn => {const before=structuredClone(state);try{return await fn(q);}catch(e){state=before;rollbacks++;throw e;}};
 const sqlTypes={Int:'Int',NVarChar:'NVarChar',Decimal:(precision,scale)=>({type:'Decimal',precision,scale})};
-const create = await new AsyncFunction('query','withTransaction','sql',executable+'\nreturn createArrivalCostImport;')(q,transact,sqlTypes);
+const create = await new AsyncFunction('query','withTransaction','sql','validateArrivalImportYear',executable+'\nreturn createArrivalCostImport;')(q,transact,sqlTypes,validateArrivalImportYear);
 const input={parsed:scopeArrivalDriveRows(parsed,source),fileName:a.filename,user:{userId:'fixture'},orderYear:'2026',driveSource:source};
+await assert.rejects(create({...input,parsed:{...parsed,rows:[{...row,orderYear:'2025'}]}}),/연도/);
+await assert.rejects(create({...input,parsed:{...parsed,rows:[{...row,yearEvidence:{status:'conflict'}}]}}),/연도/);
+await assert.rejects(create({...input,parsed:{...parsed,rejectedRows:[{orderYear:'2025',orderWeek:'36-1'}]}}),/연도/);
 await create(input);
 assert.equal(state.lines.length,1); assert.equal(state.history.length,1);
 assert.equal((await create(input)).duplicate,true); assert.equal(state.lines.length,1);
