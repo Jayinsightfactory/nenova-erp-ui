@@ -19,6 +19,10 @@ node_modules/
 
 # 에이전트 작업용 임시 산출물 — 운영 DB SP 본문·probe 덤프가 들어오므로 커밋 금지
 .agent_tmp/
+# 로컬 검증용 인증 probe·업무 fixture 및 별도 Next 빌드 — 커밋 금지
+/output/
+/.next-matrix/
+/.next-matrix-final/
 data/.train-queue.json
 *.product-cache.json
 
