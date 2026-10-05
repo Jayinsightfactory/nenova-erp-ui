@@ -47,6 +47,33 @@ assert.equal(prioritized.rows.length,5,'order-only products remain available, no
 assert.equal(prioritized.rows[0].blocks[1].currentTotal,0,'zero/cancelled distribution remains visible');
 assert.equal(JSON.stringify(prioritySource),prioritySnapshot,'sorting never mutates ERP input');
 
+const floral = build(cycles,[],['LILY','ALSTROEMERIA','HYDRANGEA','ROSE','CARNATION'].map((flowerName,index) =>
+  actual({prodKey:600+index,flowerName,prodName:`${flowerName} White`})));
+assert.deepEqual(floral.rows.map(row=>row.flowerNames[0]),['CARNATION','ROSE','HYDRANGEA','ALSTROEMERIA','LILY']);
+assert.equal(helper.weekdayFlowerPriority({flowerNames:['LILY'],name:'ROSE Red'}),4,'authoritative category beats name prefix');
+assert.equal(helper.weekdayFlowerPriority({name:'Primrose Red'}),4,'no substring category match');
+assert.equal(helper.weekdayFlowerPriority({flowerNames:['장미','수국']}),4,'conflicting categories remain other');
+
+const businessBaselines = ['01','02'].map(suffix=>({year:2026,orderWeek:`38-${suffix}`,
+  rows:[{prodKey:101,unit:'박스',quantity:20}]}));
+const sunday = '2026-09-20';
+const businessActuals = [actual(), actual({orderWeek:'38-02',shipmentOutQuantity:7,
+  shipmentDates:[{date:sunday,shipmentQuantity:7}]}),actual({year:2025,shipmentOutQuantity:999})];
+const businessBlock = build(cycles,[],businessActuals,businessBaselines).rows[0].blocks[1];
+assert.equal(businessBlock.subweek01.effectiveTotal,4);
+assert.equal(businessBlock.subweek02.effectiveTotal,7,'Sunday follows actual business -02');
+assert.equal(businessBlock.subweek01.remainderView.value,16);
+assert.equal(businessBlock.subweek02.remainderView.value,13,'standalone -02 baseline minus -02 allocation');
+const businessDraft = build(cycles,[plan({orderWeek:'38-02',date:sunday,quantity:9})],businessActuals,businessBaselines).rows[0].blocks[1];
+assert.equal(businessDraft.subweek01.effectiveTotal,4);
+assert.equal(businessDraft.subweek02.effectiveTotal,9);
+assert.equal(businessDraft.subweek02.remainderView.value,11);
+const mismatchedDates = build(cycles,[],[actual({shipmentOutQuantity:10})],businessBaselines).rows[0].blocks[1];
+assert.equal(mismatchedDates.subweek01.effectiveTotal,10,'raw business total remains visible');
+assert.equal(mismatchedDates.subweek01.remainderView.value,null,'unallocated total cannot invent dated remainder');
+const duplicateBusinessDraft = build(cycles,[plan(),plan({id:'duplicate'})],businessActuals,businessBaselines).rows[0].blocks[1];
+assert.equal(duplicateBusinessDraft.subweek01.effectiveTotal,null,'duplicate draft does not guess allocation');
+
 const blockFor = (plans = [], comparisons = [actual()]) => build(cycles, plans, comparisons).rows[0].blocks[1];
 const rowFor = (plans = [], comparisons = [actual()]) => build(cycles, plans, comparisons).rows[0];
 
@@ -211,7 +238,7 @@ assert.equal((html.match(/wcm-day-print/g) || []).length, 22, '21 day buttons pl
 assert.equal((html.match(/type="checkbox"/g) || []).length, 21);
 assert.equal((html.match(/미적용 초안 수량"/g) || []).length, 21);
 assert.equal((html.match(/rowspan="3"/g) || []).length, 1);
-assert.equal((html.match(/colspan="13"/gi) || []).length, 3);
+assert.equal((html.match(/colspan="18"/gi) || []).length, 3, 'each cycle spans all subweek, Wilson and major summary cells');
 assert.match(html, /38차 목 견적 출력/);
 assert.match(html, /FlowerName|CARNATION/);
 assert.match(html, /min-width:3152px/);
@@ -347,7 +374,8 @@ assert.equal(printRequests[2].mode, 'major');
 assert.deepEqual(printRequests[2].dates, []);
 descendants(mainHost.render()).find((element) => element.type === 'input' && element.props.type === 'search')
   .props.onChange({ target: { value: 'no-match-fixture' } });
-assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td' && element.props.colSpan === 40));
+assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td' && element.props.colSpan === 55),
+  'empty state spans product plus all three expanded cycles');
 assert.ok(descendants(mainHost.render()).some((element) => element.type === 'td'
   && element.props.children === '검색/품종 조건에 맞는 품목이 없습니다.'));
 const filterHost = mount(eventModule.exports.default, { cycles, comparisonRows: [...hiddenComparisons, actual()] });

@@ -64,23 +64,47 @@
     "scripts/weekday-estimate-browser-smoke.mjs",
     "scripts/weekday-horizontal-browser-smoke.mjs",
     "scripts/weekday-horizontal-live-smoke.mjs",
-    "docs/contracts/estimate-weekday-workspace.json"
+    "docs/contracts/estimate-weekday-workspace.json",
+    "lib/weekdayWilson.js",
+    "lib/weekdayWilsonStore.js",
+    "lib/weekdayWilsonClient.js",
+    "pages/api/estimate/weekday-wilson.js",
+    "__tests__/weekdayWilson.test.js",
+    "__tests__/weekdayWilsonClient.test.js",
+    "docs/plans/weekday-wilson-subweek-2026-10-05.md"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "nativeCustomerLink": {
     "authority": "ShipmentDetail.ShipmentKey -> ShipmentMaster.CustKey; ClassShipmentDetail Insert/Update omit CustKey",
     "sharedHelper": "weekdayDetailCustomerMatchesMaster and WEEKDAY_DETAIL_CUSTOMER_MATCH_SQL",
     "rule": "Explicit raw NULL is native-compatible; preserve raw key in comparison/save snapshot and never fill it. Missing JS field, explicit zero or other non-NULL key are not the native NULL case. True linkage/calendar/amount/fix/cross-year guards remain.",
     "display": "Cycle-wide quote failure is collapsed once per cycle, not duplicated in each item cell. Page provisional baseline is labelled 기준 미확정, independent of ERP isFix.",
     "positiveFixture": "Native NULL full-key compare, baseline, confirmation, isolated save/readback and quote preserve exact quantities and NULL",
-    "nearMissFixtures": ["explicit zero", "other customer", "missing raw key", "wrong year", "ambiguous master", "unfixed detail", "calendar or amount mismatch"]
+    "nearMissFixtures": [
+      "explicit zero",
+      "other customer",
+      "missing raw key",
+      "wrong year",
+      "ambiguous master",
+      "unfixed detail",
+      "calendar or amount mismatch"
+    ]
   },
   "storedMoneyCompatibility": "C# decimal midpoint-to-even(EXE weekday save) 또는 기존 웹/SQL half-up의 완전한 수량/Amount/Vat tuple만 허용. 서로 다른 방식 혼합 금지. 원장 값은 보존, 출력 수량은 기존 EXE 공통 SQL ROUND 집계, 금액은 실제 날짜별 bucket 합계.",
   "actions": [
     {
       "name": "WEEKDAY_ERP_CATEGORY_CONFIRMATION_DISPLAY",
-      "orderDetail": "preserve", "shipmentDetail": "preserve", "shipmentDate": "preserve",
-      "estimateRows": "preserve", "stock": "preserve", "webProfitReport": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "webProfitReport": "preserve",
       "sideEffect": "명시 연도+메인차수의 모든 세부차수·전체 거래처 양수 분배행을 CountryFlower별 SELECT 집계한다. 저장 Detail isFix NULL은 미확정. 알려진 품종의 isFix 현황과 업체키 등 연결경고warningCount를 분리해 확정+경고/부분확정+경고/미확정+경고를 모두 표시한다. 품종/품목 식별불명unknownCount 또는 조회불명만 미확인이다. 확정표시는 저장 플래그의 사실이며 적용가능·재고마감·인쇄완전성 보장이 아니다. scope/count/stale 응답 검증 유지. 수량중앙18px, 선택칸/요약내역760px18px 표시만 변경; ERP 저장/인쇄/확정 API는 보존한다."
     },
     {
@@ -182,7 +206,12 @@
       "estimateRows": "preserve",
       "stock": "preserve",
       "webProfitReport": "preserve",
-      "businessKey": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+      "businessKey": [
+        "OrderYear",
+        "OrderWeek",
+        "CustKey",
+        "ProdKey"
+      ],
       "sideEffect": "연도·세부차수·거래처·품목을 명시한 SELECT만 수행. 입고 후보는 year+week+product로 조회하되 실제 원천배정으로 간주하지 않는다. ShipmentHistory는 확정 SP 기록이며 누락/삭제된 이력의 완전성을 보증하지 않는다. OrderWeek 단독 조회, 견적·재고·확정·손익 쓰기는 금지."
     },
     {
@@ -211,6 +240,16 @@
       "estimateRows": "preserve",
       "stock": "preserve",
       "sideEffect": "사용자 안전 정책으로 연도+메인차수 모든 세부차수·전체 거래처 양수 상세 확정을 검사한다. 선택 업체의 EXE 주문·날짜·품목 연결/수량/금액을 일관된 읽기 트랜잭션에서 검증 후 공통 확정 견적 SELECT. 날짜 출력은 실제 ShipmentDtm 및 EstimateDtm의 선택 날짜만 출력한다. 날짜 미배정 차감은 대차수 전체에서 모든 등록 Estimate 행을 보존한다. 미적용 초안은 제외. 자동 확정/확정취소/원장수정 없음. 기존 견적서관리 SQL 기본 정책은 변경하지 않는다."
+    },
+    {
+      "shipmentDate": "preserve",
+      "shipmentDetail": "preserve",
+      "webProfitReport": "preserve",
+      "estimateRows": "preserve",
+      "stock": "preserve",
+      "webOnly": "Revisioned atomic file classification; SELECT fresh exact year/week/customer/product/date/unit/total; idempotent retry; no ERP writes",
+      "orderDetail": "preserve",
+      "name": "CLASSIFY_WILSON_WEB_ONLY"
     }
   ],
   "crossYearFixture": {
@@ -239,7 +278,9 @@
     "__tests__/weekdayEstimatePrint.test.js",
     "__tests__/estimatePrintTypography.test.js",
     "__tests__/estimatePrintContract.test.js",
-    "__tests__/erpContractManifest.test.js"
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/weekdayWilson.test.js",
+    "__tests__/weekdayWilsonClient.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -287,6 +328,42 @@
       "year/customer/product scope",
       "carryover and note handlers",
       "errors and pending save status"
+    ],
+    "subweekSummary": "Actual business OrderWeek independent sum/remainder 01 and02; preserve major carryover",
+    "flowerOrder": [
+      "카네이션",
+      "장미",
+      "수국",
+      "알스트로",
+      "기타"
     ]
+  },
+  "wilsonClassification": {
+    "positiveFixture": "same total web classification zero or positive preserves all ERP tables",
+    "nearMissFixtures": [
+      "cross-year",
+      "stale ERP total",
+      "wrong customer",
+      "mixed business weeks",
+      "wrong unit",
+      "negative quantity",
+      "revision conflict",
+      "tampered file",
+      "lost response"
+    ],
+    "scope": "common selectable weekday for all products",
+    "excelAndQuotation": "combined canonical total once",
+    "canonical": "ERP date total T; general=T-W; one plan.quantity=general+Wilson",
+    "recovery": "UUID submission includes Wilson metadata; retry metadata only after saved ERP",
+    "identity": [
+      "OrderYear",
+      "OrderWeek",
+      "CustKey",
+      "ProdKey",
+      "ShipmentDate",
+      "OutUnit"
+    ],
+    "defaultDay": "일",
+    "persistence": "data/runtime/weekday-wilson"
   }
 }

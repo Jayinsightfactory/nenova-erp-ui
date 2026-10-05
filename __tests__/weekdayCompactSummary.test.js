@@ -13,7 +13,7 @@ const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'li
 const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const filename = fileURLToPath(new URL('../components/WeekdayCycleMatrix.js', import.meta.url));
 const source = readFileSync(filename, 'utf8');
-const compiled = transformSync(source + '\nexport { CompactSummary, SummaryDetails, ConfirmationBadges };', false,
+const compiled = transformSync(source + '\nexport { CompactSummary, SummaryDetails, ConfirmationBadges, WilsonCell, displayCycleColumns };', false,
   Buffer.from(JSON.stringify({ filename, jsc: { target:'es2020', parser:{syntax:'ecmascript',jsx:true},
     transform:{react:{runtime:'automatic'}} }, module:{type:'commonjs'} })));
 const componentRequire = createRequire(filename);
@@ -46,7 +46,7 @@ let html = render(Matrix,props);
 assert.equal(JSON.stringify(props),snapshot,'display never mutates raw quantity/baseline/draft inputs');
 assert.equal((html.match(/class="wcm-compact-summary"/g)||[]).length,9);
 assert.equal((html.match(/<td class="wcm-total wcm-major-total"/g)||[]).length,9,'three actual summary cells per cycle');
-assert.equal((html.match(/colspan="13"/gi)||[]).length,3,'cycle spans expanded summary columns');
+assert.equal((html.match(/colspan="18"/gi)||[]).length,3,'cycle spans expanded summary columns');
 const crossYearMarkup=render(Matrix,{...props,comparisonRows:[...comparisons,{...actual,year:2025,shipmentOutQuantity:999999,shipmentDates:[{date:'2025-09-17',shipmentQuantity:999999}]}]});
 assert.equal((crossYearMarkup.match(/<td class="wcm-total wcm-major-total"/g)||[]).length,9,'prior-year same-week data does not add summary cells');
 assert.match(crossYearMarkup,/data-wcm-label="sum" data-quantity="1"/,'2026 summary preserves its draft projection with a prior-year same-week sentinel');
@@ -212,3 +212,46 @@ assert.match(many,/콜 수국 미확정 !/);assert.match(many,/네덜 튤립 ✓
 assert.doesNotMatch(many,/>ERP확정 ·/,'category chips do not repeat ERP prefix');
 
 console.log('Weekday compact summary: SSR three-row density, centered18px quantities, accessible760px/18px popover and focus, fixed/partial linkage warnings, unknown category, scope/error guards, draft/raw conversions, handler/print preservation passed');
+
+// Wilson splits remain web metadata; only one canonical ERP quantity is edited.
+const sunday={...actual,shipmentOutQuantity:10,shipmentDates:[{date:'2026-09-20',shipmentQuantity:10}]};
+const wilsonRecord={year:2026,majorWeek:'38',orderWeek:'38-01',custKey:7,prodKey:101,date:'2026-09-20',unit:'박스',expectedTotal:10,wilsonQuantity:2,status:'CURRENT'};
+const wilsonMarkup=render(Matrix,{...props,plans:[],comparisonRows:[sunday],wilsonRecords:[wilsonRecord],onEditWilson(){}});
+assert.match(wilsonMarkup,/aria-label="윌슨 구분 요일"/);
+assert.match(wilsonMarkup,/aria-label="CARNATION Blue 2026\/38-01 2026-09-20 미적용 초안 수량"[^>]*value="8"/,'general quantity derives from canonical total minus Wilson');
+assert.match(wilsonMarkup,/aria-label="CARNATION Blue 2026-09-20 윌슨 수량" value="2"/);
+assert.match(wilsonMarkup,/data-wcm-label="sum" data-quantity="10"/,'major total never adds Wilson a second time');
+assert.match(wilsonMarkup,/일반·윌슨 합계 내역/);
+const staleMarkup=render(Matrix,{...props,plans:[],comparisonRows:[sunday],wilsonRecords:[{...wilsonRecord,expectedTotal:9,status:'STALE'}],onEditWilson(){}});
+assert.match(staleMarkup,/재확인 · 분류/);
+assert.match(staleMarkup,/<input(?=[^>]*aria-label="CARNATION Blue 2026\/38-01 2026-09-20 미적용 초안 수량")(?=[^>]*disabled="")[^>]*>/,'stale split blocks general editing');
+const Wilson=load(harness).WilsonCell;
+const wilsonEvents=[];
+const wprops={row,block,day:{date:'2026-09-20',editDisabledReason:''},split:{savedTotal:10,savedWilson:2,total:10,wilson:2,error:'',draft:false},disabled:false,onEditWilson:async value=>{wilsonEvents.push(value);return true;},onSelect(){}};
+const wdraw=patch=>{index=0;effects=[];return Wilson({...wprops,...patch});};
+slots.length=0;
+let wview=wdraw();nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:'5'}});
+wview=wdraw();await nodes(wview).find(node=>node.type==='input').props.onBlur();
+assert.equal(wilsonEvents.at(-1).quantity,5);assert.equal(wilsonEvents.at(-1).totalQuantity,13,'ordinary Wilson edit preserves general 8 and yields canonical13');
+slots.length=0;
+wview=wdraw();nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:'4'}});wview=wdraw();
+await nodes(wview).find(node=>node.type==='button').props.onClick();
+assert.equal(wilsonEvents.at(-1).quantity,4);assert.equal(wilsonEvents.at(-1).totalQuantity,10,'classification-only action preserves saved canonical total');assert.equal(wilsonEvents.at(-1).classificationOnly,true);
+slots.length=0;
+const staleProps={split:{...wprops.split,wilson:null,error:'ERP changed'}};
+wview=wdraw(staleProps);assert.equal(nodes(wview).find(node=>node.type==='input').props.disabled,false,'stale split allows entering a quantity for explicit reclassification');
+nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:'3'}});wview=wdraw(staleProps);
+const before=wilsonEvents.length;await nodes(wview).find(node=>node.type==='input').props.onBlur();assert.equal(wilsonEvents.length,before,'stale regular blur never changes ERP canonical total');
+await nodes(wview).find(node=>node.type==='button').props.onClick();assert.equal(wilsonEvents.at(-1).totalQuantity,10);assert.equal(wilsonEvents.at(-1).quantity,3);
+slots.length=0;
+wview=wdraw();nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:'11'}});wview=wdraw();const count=wilsonEvents.length;
+await nodes(wview).find(node=>node.type==='button').props.onClick();assert.equal(wilsonEvents.length,count,'classification exceeding stored total is rejected');assert.match(renderToStaticMarkup(wdraw()),/role="alert"/);
+console.log('Wilson UI canonical total, split rendering, stale editing and classification-only handlers passed');
+slots.length=0;
+const emptyProps={split:{savedTotal:null,total:0,wilson:0,savedWilson:0,error:'',draft:false}};
+wview=wdraw(emptyProps);
+assert.equal(nodes(wview).find(node=>node.type==='input').props.disabled,false,'guarded empty date permits a new Wilson total draft');
+assert.equal(nodes(wview).find(node=>node.type==='button').props.disabled,true,'unknown saved total cannot be classified');
+nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:'20'}});wview=wdraw(emptyProps);
+await nodes(wview).find(node=>node.type==='input').props.onBlur();
+assert.equal(wilsonEvents.at(-1).totalQuantity,20,'new Wilson quantity creates exactly one canonical20 draft');
