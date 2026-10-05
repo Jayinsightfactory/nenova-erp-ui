@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { createDutchVolumeWorkStore, normalizeDutchWorkSnapshot, resolveDutchWorkOwner, DUTCH_WORK_MAX_BYTES } from '../lib/dutchVolumeWorkStore.js';
+
+const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nenova-dutch-work-'));
+const store = createDutchVolumeWorkStore({ rootDir });
+const input = () => ({ ownerId: 'user/../담당', savedBy: '담당', name: '원본 작업', sourceMode: 'UPLOAD', fileName: '물량표.xlsx', orderYear: 2026, orderWeek: '40-01', sourceIdentity: 'source:2026:40-01', workbook: { SheetNames: ['네덜란드'], Sheets: { 네덜란드: { '!ref': 'A1:D4', A1: { t: 's', v: '원본', s: { font: { bold: true }, fill: { fgColor: { rgb: 'FFFFFF' } } } }, D4: { t: 'n', v: 0, f: 'SUM(A1:C1)' }, '!merges': [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }] } }, Styles: { Fonts: [{ name: 'Arial' }] }, Themes: { themeElements: {} } }, entries: [{ id: '네덜란드!D4', sheetName: '네덜란드', cellAddress: 'D4', quantity: '', product: '장미', sourceFlower: '장미', sourceItem: '품목', sourceColor: 'RED', sourceCustomer: '거래처', sourceRow: 3, sourceColumn: 3, layoutVersion: 3, customer: '거래처', prodKey: 0, custKey: '', added: false }], prices: { uniform: 0, unfinished: '' }, planToken: 'must-not-store', preview: { authorized: true }, result: { jobId: 10 } });
+try {
+  const first = await store.saveDutchWorkSnapshot(input());
+  assert.match(first.id, /^[\da-f-]{36}$/); assert.equal(first.entryCount, 1); assert.equal(first.sheetCount, 1); assert.equal(first.savedBy, '담당');
+  const saved = await store.getDutchWorkSnapshot({ ownerId: input().ownerId, id: first.id });
+  assert.deepEqual(saved.workbook, input().workbook); assert.equal(saved.entries[0].quantity, ''); assert.equal(saved.entries[0].prodKey, 0); assert.equal(saved.prices.uniform, 0); assert.equal(saved.prices.unfinished, '');
+  assert.equal(saved.planToken, undefined); assert.equal(saved.preview, undefined); assert.equal(saved.result, undefined);
+  const second = await store.saveDutchWorkSnapshot({ ...input(), id: first.id, orderYear: 2025, sourceIdentity: 'source:2025:40-01', entries: [{ ...input().entries[0], quantity: 0, authorization: 'never' }] });
+  assert.notEqual(first.id, second.id); assert.equal((await store.getDutchWorkSnapshot({ ownerId: input().ownerId, id: first.id })).orderYear, '2026');
+  assert.equal((await store.getDutchWorkSnapshot({ ownerId: input().ownerId, id: second.id })).entries[0].authorization, undefined);
+  assert.equal((await store.getDutchWorkSnapshot({ ownerId: input().ownerId, id: second.id })).entries[0].quantity, 0);
+  assert.deepEqual(await store.listDutchWorkSnapshots({ ownerId: 'another' }), { items: [], nextCursor: null, corruptCount: 0 });
+  await assert.rejects(store.getDutchWorkSnapshot({ ownerId: 'another', id: first.id }), { code: 'WORK_NOT_FOUND' });
+  for (const id of ['../x', first.id.toUpperCase(), '00000000-0000-0000-0000-000000000000']) await assert.rejects(store.getDutchWorkSnapshot({ ownerId: input().ownerId, id }), { code: 'INVALID_WORK_ID' });
+  for (const user of [{}, { userName: 'admin', authority: 9 }, { userId: '' }, { userId: 10 }]) assert.throws(() => resolveDutchWorkOwner(user), { code: 'WORK_OWNER_REQUIRED' });
+  const page = await store.listDutchWorkSnapshots({ ownerId: input().ownerId, limit: 1 }); assert.equal(page.items.length, 1); assert.ok(page.nextCursor);
+  const last = await store.listDutchWorkSnapshots({ ownerId: input().ownerId, limit: 1, cursor: page.nextCursor }); assert.equal(last.items.length, 1); assert.equal(last.nextCursor, null); assert.notEqual(page.items[0].id, last.items[0].id);
+  await assert.rejects(store.listDutchWorkSnapshots({ ownerId: input().ownerId, cursor: 'broken' }), { code: 'INVALID_WORK_CURSOR' });
+  for (const patch of [{ sourceMode: 'SAVED' }, { orderYear: 1999 }, { orderWeek: '00-01' }, { entries: [] }, { entries: [input().entries[0], input().entries[0]] }, { prices: { bad: '-1' } }, { entries: [{ id: 'x', quantity: false }] }, { workbook: { SheetNames: ['bad'], Sheets: {} } }, { workbook: { SheetNames: ['a'], Sheets: { a: { '!ref': 'A1:SF10000' } } } }, { workbook: { SheetNames: ['a'], Sheets: { a: { '!ref': 'A1:Z10000', '!merges': [{ s: { r: 0, c: 0 }, e: { r: 10000, c: 1 } }] } } } }, { entries: Array.from({ length: 5001 }, (_, i) => ({ id: `${i}`, quantity: 0 })) }]) assert.throws(() => normalizeDutchWorkSnapshot({ ...input(), ...patch }), { code: 'INVALID_WORK_SNAPSHOT' });
+  assert.throws(() => normalizeDutchWorkSnapshot({ ...input(), extra: 'x'.repeat(DUTCH_WORK_MAX_BYTES) }), { code: 'WORK_TOO_LARGE' });
+  assert.throws(() => normalizeDutchWorkSnapshot(JSON.parse('{"__proto__":{},"name":"x"}')), { code: 'INVALID_WORK_SNAPSHOT' });
+  const directory = path.join(rootDir, createHash('sha256').update(input().ownerId).digest('hex'));
+  const file = path.join(directory, `${first.id}.json`), raw = JSON.parse(await fs.readFile(file, 'utf8'));
+  await fs.writeFile(file, JSON.stringify({ ...raw, ownerId: 'another' }));
+  await assert.rejects(store.getDutchWorkSnapshot({ ownerId: input().ownerId, id: first.id }), { code: 'CORRUPT_WORK_SNAPSHOT' });
+  assert.equal((await store.listDutchWorkSnapshots({ ownerId: input().ownerId })).corruptCount, 1);
+  assert.equal((await fs.readdir(directory)).some(name => name.endsWith('.tmp')), false);
+  assert.throws(() => normalizeDutchWorkSnapshot({ ...input(), sourceMode: 'LIVE', workbook: null }), { code: 'INVALID_WORK_SNAPSHOT' });
+  assert.equal(normalizeDutchWorkSnapshot({ ...input(), orderYear: 2100, prices: { exponent: '1e3', decimal: '.5' } }).prices.exponent, '1e3');
+  assert.throws(() => normalizeDutchWorkSnapshot({ ...input(), prices: { huge: 1e9 + 1 } }), { code: 'INVALID_WORK_SNAPSHOT' });
+  console.log('dutchVolumeWorkStore: actual filesystem, isolation, immutable saves, style/formula, blank/zero, cross-year, corruption and limits PASS');
+} finally { await fs.rm(rootDir, { recursive: true, force: true }); }

@@ -63,6 +63,8 @@ assert.ok(pickMasterStart >= 0 && pickMasterEnd > pickMasterStart, 'real pickMas
 const pickMasterSource = page.slice(pickMasterStart, pickMasterEnd);
 const createPickMaster = (state, confirmResult) => {
   const windowStub = { confirm: () => { state.confirmCalls += 1; return confirmResult; } };
+  const workBusyRef = { current: !!state.workBusy };
+  const applyingRef = { current: !!state.applying };
   const setPrices = updater => {
     state.priceSetterCalls += 1;
     state.prices = typeof updater === 'function' ? updater(state.prices) : updater;
@@ -73,8 +75,8 @@ const createPickMaster = (state, confirmResult) => {
     state.invalidateCalls += 1;
     state.entries = editDutchDraftEntry(state.entries, id, change);
   };
-  const factory = new Function('window', 'prices', 'entries', 'dutchPriceKey', 'isDutchIndividualPriceCustomer', 'setPrices', 'setRematchNotice', 'updateEntry', `${pickMasterSource}\nreturn pickMaster;`);
-  return factory(windowStub, state.prices, state.entries, dutchPriceKey, isDutchIndividualPriceCustomer, setPrices, setRematchNotice, updateEntry);
+  const factory = new Function('window', 'prices', 'entries', 'dutchPriceKey', 'isDutchIndividualPriceCustomer', 'setPrices', 'setRematchNotice', 'updateEntry', 'workBusyRef', 'applyingRef', `${pickMasterSource}\nreturn pickMaster;`);
+  return factory(windowStub, state.prices, state.entries, dutchPriceKey, isDutchIndividualPriceCustomer, setPrices, setRematchNotice, updateEntry, workBusyRef, applyingRef);
 };
 const individualEntry = { id: 'ju-1', customer: '주광거래처', custKey: 533, product: 'ARAN Azima', color: '', prodKey: 3441, quantity: 1, unit: '송이' };
 const uniformKey = `uniform:prod:${individualEntry.prodKey}`;
@@ -101,22 +103,31 @@ assert.equal(acceptedPickState.updateCalls, 1, 'accepted selection updates the r
 assert.equal(acceptedPickState.invalidateCalls, 1, 'accepted selection invalidates stale preview via updateEntry');
 assert.equal(acceptedPickState.entries[0].customer, '일반업체');
 
+const busyPickState = { ...initialPickerState(), workBusy: true };
+createPickMaster(busyPickState, true)(individualEntry, 'customer', { CustKey: 534, CustName: '일반업체' });
+assert.equal(busyPickState.confirmCalls, 0, 'busy work blocks manual matching');
+assert.equal(busyPickState.updateCalls, 0, 'busy work leaves entries untouched');
+const applyingPickState = { ...initialPickerState(), applying: true };
+createPickMaster(applyingPickState, true)(individualEntry, 'customer', { CustKey: 534, CustName: '일반업체' });
+assert.equal(applyingPickState.confirmCalls, 0, 'ERP apply blocks manual matching');
+assert.equal(applyingPickState.updateCalls, 0, 'ERP apply leaves entries untouched');
+
 assert.match(page, /sourceModeRef\.current !== 'UPLOAD'/);
 assert.match(page, /request !== loadRequestRef\.current/);
 assert.match(page, /request !== previewRequestRef\.current/);
 assert.match(page, /setMatchCache\(Object\.fromEntries/);
 assert.match(page, /setCustomerOptions\(data\.customerOptions/);
 assert.match(page, /updateEntry\(entry\.id, next\)/, 'ERP 업체·품목 수동 선택은 초안을 갱신한다');
-assert.match(page, /function updateEntry\(id, change\) \{ invalidate\(\)/, '선택·수량 편집은 이전 계획을 무효화한다');
-assert.match(page, /function updatePrice\(entry, value\) \{\s*invalidate\(\)/, '단가 편집은 이전 계획을 무효화한다');
+assert.match(page, /function updateEntry\(id, change\) \{ if \(workBusyRef\.current \|\| applyingRef\.current\) return; invalidate\(\)/, '선택·수량 편집은 이전 계획을 무효화한다');
+assert.match(page, /function updatePrice\(entry, value\) \{\s*if \(workBusyRef\.current \|\| applyingRef\.current\) return;\s*invalidate\(\)/, '단가 편집은 이전 계획을 무효화한다');
 assert.match(page, /setEntries\(previous => \[\.\.\.previous, newDutchDraftEntry/, '기존 ERP 마스터 선택용 수동행을 추가한다');
 assert.match(page, /planToken: preview\.planToken, jobId, ackQtyWarnings/);
 assert.match(page, /recoverJob\(jobId\)/);
 assert.match(page, /ERP적용초안/);
 assert.match(page, /missingFromExcel/);
 assert.match(page, /row\.estUnit/);
-assert.match(page, /changeWeek\(value\) \{ invalidate\(\); clearLiveSource\(\)/, '차수 변경은 과거 LIVE 초안을 비운다');
-assert.match(page, /changeYear\(value\) \{ invalidate\(\); clearLiveSource\(\)/, '연도 변경은 과거 LIVE 초안을 비운다');
+assert.match(page, /function changeWeek\(value\) \{ if \(workBusyRef\.current \|\| applyingRef\.current\) return; invalidate\(\); clearLiveSource\(\)/, '차수 변경은 과거 LIVE 초안을 비운다');
+assert.match(page, /function changeYear\(value\) \{ if \(workBusyRef\.current \|\| applyingRef\.current\) return; invalidate\(\); clearLiveSource\(\)/, '연도 변경은 과거 LIVE 초안을 비운다');
 assert.match(page, /delete updated\[entry\.id\]/, '주광 재매칭은 이전 개별단가를 제거한다');
 assert.match(page, /const \[activeTab, setActiveTab\] = useState\('sheet'\)/, 'the original workbook tab remains the default');
 assert.match(page, /priceKey=\{dutchPriceKey\}/, 'the workbook tab uses the shared price key');

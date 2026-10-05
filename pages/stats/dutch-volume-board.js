@@ -7,6 +7,8 @@ import { addDutchPriceShapesToXlsx } from '../../lib/dutchPriceShapes';
 import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../../lib/dutchVolumeDraft';
 import ErpMatchPicker from '../../components/dutch/ErpMatchPicker';
 import DutchVolumeSheet from '../../components/dutch/DutchVolumeSheet';
+import DutchWorkHistory from '../../components/dutch/DutchWorkHistory';
+import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_BYTES } from '../../lib/dutchVolumeWorkClient';
 
 const customerName = value => String(value || '').split('\n')[0].trim();
 const fmt = value => Number(value || 0).toLocaleString('ko-KR', { maximumFractionDigits: 4 });
@@ -66,6 +68,17 @@ export default function DutchVolumeBoard() {
   const [applying, setApplying] = useState(false);
   const [applyResult, setApplyResult] = useState(null);
   const [activeJobId, setActiveJobId] = useState('');
+  const [workName, setWorkName] = useState('');
+  const [workBusy, setWorkBusy] = useState(false);
+  const [workNotice, setWorkNotice] = useState('');
+  const [workError, setWorkError] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [workHistory, setWorkHistory] = useState([]);
+  const [historyCursor, setHistoryCursor] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const workBusyRef = useRef(false);
+  const historyRequestRef = useRef(0);
+  const reviewRef = useRef(null);
   const inputRefs = useRef([]);
   const revisionRef = useRef(0);
   const loadRequestRef = useRef(0);
@@ -105,6 +118,8 @@ export default function DutchVolumeBoard() {
         if (!active) return;
         const recorded = Array.isArray(result.weeks) ? result.weeks : [];
         setAvailableWeeks(recorded);
+        // An archive is an explicit selected scope, not today's LIVE default.
+        if (sourceModeRef.current === 'SAVED') return;
         if (!recorded.length) { if (sourceModeRef.current !== 'UPLOAD') setError(`${year}년 DB 입력 차수가 없습니다.`); return; }
         const selectedWeek = recorded.includes(week) ? week : recorded[0];
         if (selectedWeek !== weekRef.current) { invalidate(); weekRef.current = selectedWeek; if (sourceModeRef.current === 'UPLOAD') reloadUploadedScope(); }
@@ -139,6 +154,7 @@ export default function DutchVolumeBoard() {
       setCustomerOptions(data.customerOptions || []);
       setProductOptions(data.productOptions || []);
       setPreview({ ...data, revision, year: selectedYear, week: selectedWeek, sourceIdentity: identity });
+      return data;
     } catch (cause) { if (request === previewRequestRef.current && revision === revisionRef.current) setError(cause.message || 'ERP 미리보기 검증에 실패했습니다.'); }
     finally { if (request === previewRequestRef.current && revision === revisionRef.current) setPreviewLoading(false); }
   }
@@ -154,6 +170,7 @@ export default function DutchVolumeBoard() {
     setWorkbook(nextWorkbook); setFileName(name); setStorageKey(identity);
     setEntries(saved.entries); setPrices(saved.prices); setLegacyCurrency(saved.legacyCurrency);
     setDraftReset(!!saved.draftReset); setRematchNotice(''); setActiveTab('sheet'); setActiveEntryId('');
+    setWorkName(''); setWorkNotice(''); setWorkError('');
     setApplyResult(null);
     // Initial matching is a read-only preview. Apply is always a separate, explicit action.
     await runPreview(saved.entries, saved.prices, yearRef.current, weekRef.current, identity, name);
@@ -187,7 +204,7 @@ export default function DutchVolumeBoard() {
   function clearLiveSource() {
     ++loadRequestRef.current;
     setLoading(false);
-    if (sourceModeRef.current !== 'LIVE') return;
+    if (!['LIVE', 'SAVED'].includes(sourceModeRef.current)) return;
     sourceRef.current = ''; sourceBaseRef.current = ''; sourceModeRef.current = '';
     setSourceMode(''); setStorageKey(''); setWorkbook(null); setFileName('');
     setEntries([]); setPrices({}); setMatchCache({}); setApplyResult(null);
@@ -199,10 +216,11 @@ export default function DutchVolumeBoard() {
       void acceptSource(workbook, fileName, sourceBaseRef.current, parsed.entries, 'UPLOAD');
     } catch (cause) { setError(cause.message || '업로드 원본을 다시 읽지 못했습니다.'); }
   }
-  function changeWeek(value) { invalidate(); clearLiveSource(); weekRef.current = value; setWeek(value); reloadUploadedScope(); }
-  function changeYear(value) { invalidate(); clearLiveSource(); yearRef.current = value; setYear(value); reloadUploadedScope(); }
+  function changeWeek(value) { if (workBusyRef.current || applyingRef.current) return; invalidate(); clearLiveSource(); weekRef.current = value; setWeek(value); reloadUploadedScope(); }
+  function changeYear(value) { if (workBusyRef.current || applyingRef.current) return; invalidate(); clearLiveSource(); yearRef.current = value; setYear(value); reloadUploadedScope(); }
 
   async function upload(file) {
+    if (workBusyRef.current || applyingRef.current) return;
     const request = ++loadRequestRef.current;
     invalidate(); setLoading(true); setError('');
     try {
@@ -215,12 +233,14 @@ export default function DutchVolumeBoard() {
     finally { if (request === loadRequestRef.current) setLoading(false); }
   }
 
-  function updateEntry(id, change) { invalidate(); setEntries(previous => editDutchDraftEntry(previous, id, change)); }
+  function updateEntry(id, change) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setEntries(previous => editDutchDraftEntry(previous, id, change)); }
   function updatePrice(entry, value) {
+    if (workBusyRef.current || applyingRef.current) return;
     invalidate();
     setPrices(previous => ({ ...previous, [dutchPriceKey(entry)]: value }));
   }
   function pickMaster(entry, kind, item) {
+    if (workBusyRef.current || applyingRef.current) return;
     const next = kind === 'product'
       ? { prodKey: Number(item.prodKey ?? item.ProdKey), product: String(item.prodName || item.ProdName || item.displayName || item.DisplayName || '') }
       : { custKey: Number(item.custKey ?? item.CustKey), customer: String(item.custName ?? item.CustName) };
@@ -258,12 +278,13 @@ export default function DutchVolumeBoard() {
     updateEntry(entry.id, next);
   }
   function addRow() {
+    if (workBusyRef.current || applyingRef.current) return;
     invalidate();
     const id = `manual:${Date.now()}:${Math.random().toString(36).slice(2)}`;
     setEntries(previous => [...previous, newDutchDraftEntry(id)]);
     setActiveEntryId(id); setActiveTab('edit'); setQuery('');
   }
-  function removeRow(id) { invalidate(); setEntries(previous => previous.filter(row => row.id !== id)); }
+  function removeRow(id) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setEntries(previous => previous.filter(row => row.id !== id)); }
   function moveNext(event, index) { if (event.key === 'Enter') { event.preventDefault(); inputRefs.current[index + 1]?.focus(); inputRefs.current[index + 1]?.select(); } }
 
   async function download() {
@@ -276,6 +297,71 @@ export default function DutchVolumeBoard() {
       const url = URL.createObjectURL(new Blob([shaped], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${fileName.replace(/\.xlsx?$/i, '')}_단가입력.xlsx`; anchor.click(); URL.revokeObjectURL(url);
     } catch (cause) { setError(cause.message || '엑셀 저장에 실패했습니다.'); }
+  }
+
+  async function loadWorkHistory(append = false) {
+    const request = ++historyRequestRef.current;
+    setHistoryLoading(true); setWorkError('');
+    try {
+      const params = append && historyCursor ? `?cursor=${encodeURIComponent(historyCursor)}` : '';
+      const response = await fetch(`/api/shipment/dutch-volume-work${params}`, { credentials: 'same-origin', cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || '작업 이력을 불러오지 못했습니다.');
+      if (request !== historyRequestRef.current) return;
+      setWorkHistory(previous => append ? [...previous, ...(data.items || [])] : (data.items || []));
+      setHistoryCursor(data.nextCursor || null);
+      if (data.corruptCount) setWorkError(`읽을 수 없는 저장본 ${data.corruptCount}건이 있습니다. 관리자 확인이 필요합니다.`);
+    } catch (cause) { if (request === historyRequestRef.current) setWorkError(cause.message); }
+    finally { if (request === historyRequestRef.current) setHistoryLoading(false); }
+  }
+
+  async function persistWork(name = workName) {
+    const payload = buildDutchWorkPayload({ name, sourceMode, fileName, year, week, workbook, entries, prices, sourceIdentity: storageKey });
+    const body = JSON.stringify(payload);
+    if (new Blob([body]).size > DUTCH_WORK_CLIENT_MAX_BYTES) throw new Error('작업 저장 용량은 900KB 이하입니다. 단가표 엑셀로 먼저 보관하고 불필요한 원본 시트를 정리하세요.');
+    const response = await fetch('/api/shipment/dutch-volume-work', { method: 'POST', headers: requestHeaders, credentials: 'same-origin', body });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) throw new Error(data.error || '작업 저장 응답을 확인하지 못했습니다. 저장 이력을 먼저 확인하세요.');
+    setWorkNotice(`작업 저장 완료 · ${data.snapshot.name} · ${new Date(data.snapshot.savedAt).toLocaleString('ko-KR')} (ERP 반영과 별도)`);
+    setHistoryOpen(true);
+    void loadWorkHistory();
+    return data.snapshot;
+  }
+
+  async function saveWork() {
+    if (workBusyRef.current || applyingRef.current || loading) return;
+    workBusyRef.current = true; setWorkBusy(true); setWorkError(''); setWorkNotice('');
+    try { await persistWork(); }
+    catch (cause) { setWorkError(cause.message); }
+    finally { workBusyRef.current = false; setWorkBusy(false); }
+  }
+
+  async function restoreWork(id) {
+    if (workBusyRef.current || applyingRef.current || loading) return;
+    if (!window.confirm('저장본의 연도·차수, 원본 시트, 수량·매칭·단가로 현재 작업을 교체합니다. 아직 저장하지 않은 수정은 먼저 작업 저장하세요. 불러오기만으로 ERP에는 반영되지 않습니다. 계속하시겠습니까?')) return;
+    workBusyRef.current = true; setWorkBusy(true); setWorkError(''); setWorkNotice('');
+    ++loadRequestRef.current; invalidate();
+    try {
+      const response = await fetch(`/api/shipment/dutch-volume-work?id=${encodeURIComponent(id)}`, { credentials: 'same-origin', cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || '저장본을 불러오지 못했습니다.');
+      const restored = restoreDutchWorkSnapshot(data.snapshot);
+      sourceModeRef.current = 'SAVED'; sourceRef.current = restored.identity; sourceBaseRef.current = restored.baseIdentity;
+      yearRef.current = restored.year; weekRef.current = restored.week;
+      setYear(restored.year); setWeek(restored.week); setSourceMode('SAVED'); setStorageKey(restored.identity);
+      setWorkbook(restored.workbook); setEntries(restored.entries); setPrices(restored.prices); setFileName(restored.fileName);
+      setWorkName(restored.name); setMatchCache({}); setProductOptions([]); setCustomerOptions([]);
+      setApplyResult(null); setActiveJobId(''); setLegacyCurrency(''); setDraftReset(false); setRematchNotice('');
+      setQuery(''); setActiveTab('sheet'); setActiveEntryId(''); setError('');
+      setWorkNotice('저장본을 불러왔습니다. ERP 반영 전 ‘작업 완료·업로드 검토’로 현재 DB를 다시 검증하세요.');
+    } catch (cause) { setWorkError(cause.message); }
+    finally { workBusyRef.current = false; setWorkBusy(false); }
+  }
+
+  async function reviewForUpload() {
+    if (workBusyRef.current || applyingRef.current || loading || previewLoading) return;
+    const result = await runPreview();
+    if (result) requestAnimationFrame(() => reviewRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
   }
 
   async function recoverJob(jobId) {
@@ -296,9 +382,14 @@ export default function DutchVolumeBoard() {
   }
 
   async function applyPreview() {
-    if (!previewCurrent || !ackReplacement || (warningRows.length && !ackQtyWarnings) || applyingRef.current) return;
+    if (!previewCurrent || !ackReplacement || (warningRows.length && !ackQtyWarnings) || applyingRef.current || workBusyRef.current) return;
     const summary = `${year}년 ${week} 선택 품종 전체 교체\n대상 품종: ${(preview.replacementCategories || []).join(', ') || '서버 검증 범위'}\n변경 ${changedRows.length}건 / 파일 누락 분배 0 ${missingRows.length}건 / 확정 차단 ${blockedRows.length}건\n기존 주문은 보존, 없는 양수 주문만 생성합니다.\n표에 표시된 기존→최종 수량과 원화 단가를 확인하셨습니까?`;
     if (!window.confirm(summary)) return;
+    // Archive the reviewed input before issuing the existing single-use ERP job.
+    workBusyRef.current = true; setWorkBusy(true); setWorkError('');
+    try { await persistWork(workName || `${year}년 ${week} ${fileName} · ERP 적용 전`); }
+    catch (cause) { setWorkError(`${cause.message} ERP 적용 요청은 보내지 않았습니다.`); return; }
+    finally { workBusyRef.current = false; setWorkBusy(false); }
     const jobId = `dutch_${crypto.randomUUID()}`;
     applyingRef.current = true; setApplying(true); setActiveJobId(jobId); setError(''); setApplyResult({ running: true, progress: { stage: '서버 요청 중', done: 0, total: previewRows.length, logs: ['서버 적용 중입니다. 창을 닫거나 다시 적용하지 마세요.'] } });
     const timer = setInterval(async () => {
@@ -318,17 +409,51 @@ export default function DutchVolumeBoard() {
     finally { clearInterval(timer); applyingRef.current = false; setApplying(false); }
   }
 
-  return <><Head><title>네덜란드 물량표 - nenova ERP</title></Head><section className="dutch-board">
-    <header><div><h1>네덜란드 물량표</h1><p>원본 엑셀을 올리고 ERP 업체·품목 매칭, 최종 분배수량, 원화 단가를 검토합니다.</p></div><label className="upload">엑셀 업로드<input type="file" accept=".xlsx,.xls" disabled={applying} onChange={event => event.target.files?.[0] && upload(event.target.files[0])}/></label></header>
-    <div className="live-load"><label>연도<input aria-label="연도" type="number" min="2000" max="2100" value={year} disabled={applying} onChange={event => changeYear(Number(event.target.value))}/></label><label>DB 입력 차수<div><button aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={applying || weeksLoading || !availableWeeks.length}>‹</button><select aria-label="차수" value={week} onChange={event => changeWeek(event.target.value)} disabled={applying || weeksLoading || !availableWeeks.length}>{weeksLoading && <option value="">조회 중…</option>}{!weeksLoading && !availableWeeks.length && <option value="">입력 이력 없음</option>}{availableWeeks.map(recordedWeek => <option key={recordedWeek} value={recordedWeek}>{recordedWeek}</option>)}</select><button aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={applying || weeksLoading || !availableWeeks.length}>›</button></div></label><button className="load" onClick={() => loadLive(year, week)} disabled={applying || loading || weeksLoading || !availableWeeks.length}>{loading ? '조회 중…' : '네노바웹 물량 바로 불러오기'}</button><span>선택한 연도·세부차수를 모든 ERP 검증에 사용합니다.</span></div>
+  return <><Head><title>네덜란드 물량표 - nenova ERP</title></Head><style jsx>{`
+    .dutch-board{padding:10px;min-height:calc(100vh - 44px)}
+    .dutch-board>header{padding:9px 14px}
+    .board-layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:10px;align-items:start;margin-top:8px}
+    .board-primary{grid-column:1;grid-row:1;min-width:0}
+    .board-side{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+    .side-card{padding:9px;background:#fff;border:1px solid #c9d4e3;border-radius:5px;min-width:0}
+    .side-card h2{font-size:13px;margin:0 0 7px;color:#16335e}
+    .side-source{display:flex;flex-direction:column;gap:8px}
+    .board-side .upload{display:flex;align-items:center;justify-content:center;min-height:32px;padding:5px 10px;border:1px solid #aebbd0;border-radius:4px}
+    .board-side .live-load{display:grid;grid-template-columns:1fr 1fr;align-items:end;gap:6px;margin:0;padding:0;border:0;background:transparent}
+    .board-side .live-load label{display:flex;flex-direction:column;gap:3px;font-size:11px}
+    .board-side .live-load label>input,.board-side .live-load label div{width:100%;box-sizing:border-box}
+    .board-side .live-load label div select{width:auto;flex:1}
+    .board-side .live-load label div button{min-width:27px;padding:0 5px}
+    .board-side .live-load .load,.board-side .live-load>span{grid-column:1/-1}
+    .board-side .live-load .load{width:100%;min-height:34px;border-radius:4px}
+    .board-side .live-load>span{margin:0;line-height:1.35}
+    .board-primary .toolbar{margin-top:0}
+    .board-primary .guide{display:none}
+    .board-primary .actions{display:none}
+    .side-instructions{font-size:11px;color:#3c587d}
+    .side-instructions summary{cursor:pointer;font-weight:700}
+    .side-instructions p{margin:7px 0 0;line-height:1.45}
+    .board-primary .grid-wrap{max-height:calc(100vh - 250px);min-height:calc(100vh - 250px)}
+    .board-primary :global(.sheet-scroll){max-height:calc(100vh - 235px);min-height:calc(100vh - 235px)}
+    .side-history :global(.work-panel){margin:0;padding:8px}
+    .side-history :global(.work-actions){display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .side-history :global(.work-actions input){grid-column:1/-1;min-width:0;width:100%;max-width:none;box-sizing:border-box}
+    .side-history :global(.work-actions .primary){grid-column:1/-1;margin-left:0}
+    .side-history :global(.work-panel button){padding:6px 7px;font-size:11px}
+    .side-history :global(.history-table){max-height:300px}
+    .side-history :global(.history-table td:nth-child(2)){min-width:110px;max-width:150px}
+    @media(max-width:1200px){.board-layout{grid-template-columns:minmax(0,1fr) 320px}.board-primary .grid-wrap{max-height:65vh;min-height:360px}}
+    @media(max-width:900px){.board-layout{display:flex;flex-direction:column}.board-primary{order:0;width:100%}.board-side{order:1;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.board-side .side-source{grid-column:1/-1}.side-history{grid-column:1/-1}}
+    @media(max-width:760px){.board-layout{display:flex}.board-side{display:flex}.board-primary .grid-wrap,.board-primary :global(.sheet-scroll){max-height:55vh;min-height:300px}}
+  `}</style><section className="dutch-board">
+    <header><div><h1>네덜란드 물량표</h1><p>원본 엑셀을 올리고 ERP 업체·품목 매칭, 최종 분배수량, 원화 단가를 검토합니다.</p></div></header>
+    <div className="board-layout"><main className="board-primary" aria-label="네덜란드 물량표">
     {error && <div className="notice error" role="alert">{error}</div>}
     {legacyCurrency && <div className="notice warning">이 파일의 이전 {legacyCurrency} 단가 초안은 원화로 재해석하지 않았습니다. 필요한 원화 단가를 다시 입력하세요.</div>}
     {draftReset && <div className="notice warning">이전 양식 초안은 자동 복원하지 않았습니다. 원본과 단가·매칭을 다시 확인하세요. 이전 저장값은 삭제하지 않았습니다.</div>}
     {rematchNotice && <div className="notice warning" role="status">{rematchNotice}</div>}
     {!entries.length && !loading && <div className="empty">네덜란드 Pivot 엑셀을 올리거나 DB 물량을 조회해 주세요. 조회와 자동 매칭은 읽기 전용이며 적용 버튼을 누르기 전에는 ERP에 저장하지 않습니다.</div>}
     {!!entries.length && <><div className="toolbar"><div><b>{sourceMode === 'LIVE' ? `네노바웹 ${year}년 ${week} 직접 조회` : fileName}</b><span>{entries.length}행 · 원화 단가 입력 {enteredPriceCount}행 · 미입력은 기존 단가 보존</span></div><input aria-label="업체·품목 검색" value={query} onChange={event => { setQuery(event.target.value); if (event.target.value) setActiveTab('edit'); }} placeholder="업체·품목 검색"/><span className="currency">KRW 원화 고정</span><button onClick={download}>단가표 엑셀 저장</button></div>
-      <div className="guide"><b>입력 방법</b><span>주광은 업체별 단가를 입력합니다. 주광 외 업체는 같은 품목·칼라의 균일가가 전체 업체에 함께 적용됩니다. 빈 단가는 ERP 기존값을 보존하며 0원은 명시 변경입니다. Enter를 누르면 다음 단가 칸으로 이동합니다.</span></div>
-      <div className="actions"><button onClick={addRow} disabled={applying}>업체·품목 행 추가</button><button onClick={() => runPreview()} disabled={applying || previewLoading}>{previewLoading ? '검증 중…' : 'ERP 매칭·최종수량 다시 검증'}</button><span>{previewCurrent ? '검증됨 — 아래 전체 교체 범위를 확인하세요.' : validationCurrent ? '검증 완료 — 아래 미매칭·차단 사유를 확인하세요.' : '편집 후에는 다시 검증해야 적용할 수 있습니다.'}</span></div>
       <div className="sheet-tabs" role="tablist" aria-label="물량표 작업 보기">
         <button role="tab" aria-selected={activeTab === 'sheet'} onClick={() => setActiveTab('sheet')}>원본 물량표</button>
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
@@ -342,23 +467,31 @@ export default function DutchVolumeBoard() {
         return <tr key={row.id} ref={node => { editRowRefs.current[row.id] = node; }} className={`${match?.status === 'unmatched' ? 'unmatched' : ''} ${activeEntryId === row.id ? 'selected-entry' : ''}`}>
           <td title={row.sourceItem || row.product}>{row.added ? <input aria-label="추가 품목명" value={row.product} onChange={event => updateEntry(row.id, { product: event.target.value })}/> : <><b>{row.sourceItem || row.color || row.product}</b><small>{row.sourceFlower || row.product} · {row.sourceColor || ''} · {row.sheetName}!{row.cellAddress}</small></>}</td>
           <td title={row.customer}>{row.added ? <input aria-label="추가 업체명" value={row.customer} onChange={event => updateEntry(row.id, { customer: event.target.value })}/> : <b>{customerName(row.customer)}</b>}<small className={individual ? 'individual-price' : 'uniform-price'}>{individual ? '주광 개별단가' : '품목 균일가'}</small></td>
-          <td><ErpMatchPicker kind="product" entryId={row.id} initialQuery={row.sourceItem || row.color || row.product} country="네덜란드" flower={row.sourceFlower || ''} value={row.prodKey || match?.prodKey} label={row.prodKey ? row.product : match?.prodName} options={productOptions} onPick={item => pickMaster(row, 'product', item)} disabled={applying}/></td>
-          <td><ErpMatchPicker kind="customer" entryId={row.id} initialQuery={match?.custName || customerName(row.sourceCustomer || row.customer)} value={row.custKey || match?.custKey} label={row.custKey ? row.customer : match?.custName} options={customerOptions} onPick={item => pickMaster(row, 'customer', item)} disabled={applying}/></td>
-          <td><input aria-label={`${customerName(row.customer)} ${row.product} 수량`} type="number" min="0" step="any" value={row.quantity} disabled={applying} onChange={event => updateEntry(row.id, { quantity: event.target.value })}/></td>
-          <td><select aria-label={`${row.product} 단위`} value={row.unit || ''} disabled={applying} onChange={event => updateEntry(row.id, { unit: event.target.value })}><option value="">ERP 출고단위</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></td>
-          <td><input ref={node => { inputRefs.current[index] = node; priceInputRefs.current[row.id] = node; }} aria-label={`${customerName(row.customer)} ${row.sourceItem || row.color || row.product} ${individual ? '개별단가' : '균일가'}`} type="number" min="0" step="any" value={prices[dutchPriceKey(row)] ?? ''} disabled={applying} onChange={event => updatePrice(row, event.target.value)} onKeyDown={event => moveNext(event, index)} placeholder="미입력: 보존"/><small>{match?.estUnit ? `원/${match.estUnit}` : '견적단위: 검증 후 확인'}</small></td>
-          <td className="status">{match ? `${validationCurrent ? '' : '이전 검증 · '}${match.reason || match.status || '매칭'}` : '검증 전'}{row.added && <button onClick={() => removeRow(row.id)} disabled={applying}>행 삭제</button>}</td>
+          <td><ErpMatchPicker kind="product" entryId={row.id} initialQuery={row.sourceItem || row.color || row.product} country="네덜란드" flower={row.sourceFlower || ''} value={row.prodKey || match?.prodKey} label={row.prodKey ? row.product : match?.prodName} options={productOptions} onPick={item => pickMaster(row, 'product', item)} disabled={workBusy || applying}/></td>
+          <td><ErpMatchPicker kind="customer" entryId={row.id} initialQuery={match?.custName || customerName(row.sourceCustomer || row.customer)} value={row.custKey || match?.custKey} label={row.custKey ? row.customer : match?.custName} options={customerOptions} onPick={item => pickMaster(row, 'customer', item)} disabled={workBusy || applying}/></td>
+          <td><input aria-label={`${customerName(row.customer)} ${row.product} 수량`} type="number" min="0" step="any" value={row.quantity} disabled={workBusy || applying} onChange={event => updateEntry(row.id, { quantity: event.target.value })}/></td>
+          <td><select aria-label={`${row.product} 단위`} value={row.unit || ''} disabled={workBusy || applying} onChange={event => updateEntry(row.id, { unit: event.target.value })}><option value="">ERP 출고단위</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></td>
+          <td><input ref={node => { inputRefs.current[index] = node; priceInputRefs.current[row.id] = node; }} aria-label={`${customerName(row.customer)} ${row.sourceItem || row.color || row.product} ${individual ? '개별단가' : '균일가'}`} type="number" min="0" step="any" value={prices[dutchPriceKey(row)] ?? ''} disabled={workBusy || applying} onChange={event => updatePrice(row, event.target.value)} onKeyDown={event => moveNext(event, index)} placeholder="미입력: 보존"/><small>{match?.estUnit ? `원/${match.estUnit}` : '견적단위: 검증 후 확인'}</small></td>
+          <td className="status">{match ? `${validationCurrent ? '' : '이전 검증 · '}${match.reason || match.status || '매칭'}` : '검증 전'}{row.added && <button onClick={() => removeRow(row.id)} disabled={workBusy || applying}>행 삭제</button>}</td>
         </tr>;
       })}</tbody></table></div></>}
       {entries.some(row => row.added || row.prodKey || row.custKey) && <p className="export-note">원본 Pivot 셀과 단가 도형은 보존됩니다. 수동 추가·ERP 재매칭을 포함한 전체 입력은 내보내기 파일의 ‘ERP적용초안’ 시트에 별도로 기록됩니다. 원본 시트의 업체·품목 표시는 재매칭 결과로 바꾸지 않습니다.</p>}
-      {preview && <section className="review"><div className="review-head"><h2>ERP 최종 적용 미리보기</h2><span>{validationCurrent ? '현재 초안 검증' : '초안 변경으로 무효화됨'}</span></div><p>범위: {preview.orderYear ?? year}년 {preview.week ?? week} · 서버가 판정한 CountryFlower {(preview.replacementCategories || []).join(', ') || '검증 범위'} 전체 교체. 파일에 없는 기존 업체·품목도 최종 0으로 표시됩니다. 표 필터와 무관하게 전체가 적용 대상입니다.</p><div className="kpis"><b>전체 {previewRows.length}</b><b>변경 {changedRows.length}</b><b>누락→0 {missingRows.length}</b><b>확정 차단 {blockedRows.length}</b><b>미매칭 {(preview.unmatched || []).length}</b></div>
+      {preview && <section className="review" ref={reviewRef}><div className="review-head"><h2>ERP 최종 적용 미리보기</h2><span>{validationCurrent ? '현재 초안 검증' : '초안 변경으로 무효화됨'}</span></div><p>범위: {preview.orderYear ?? year}년 {preview.week ?? week} · 서버가 판정한 CountryFlower {(preview.replacementCategories || []).join(', ') || '검증 범위'} 전체 교체. 파일에 없는 기존 업체·품목도 최종 0으로 표시됩니다. 표 필터와 무관하게 전체가 적용 대상입니다.</p><div className="kpis"><b>전체 {previewRows.length}</b><b>변경 {changedRows.length}</b><b>누락→0 {missingRows.length}</b><b>확정 차단 {blockedRows.length}</b><b>미매칭 {(preview.unmatched || []).length}</b></div>
         {(preview.unmatched || []).length > 0 && <div className="notice error">미매칭 {(preview.unmatched || []).length}건. 위 초안에서 ERP 업체·품목을 선택하고 다시 검증하세요. {(preview.unmatched || []).slice(0, 8).map(item => item.reason || item.product || item.customer).join(' / ')}</div>}
         {!!preview.blockers?.length && <div className="notice warning" role="alert">{preview.blockers.join(' / ')}</div>}
         <div className="preview-wrap" aria-label="전체 교체 미리보기 표 가로 세로 스크롤"><table><thead><tr><th>구분</th><th>업체</th><th>품목</th><th>기존 주문</th><th>적용 후 주문</th><th>기존 분배</th><th>최종 분배 (출고단위)</th><th>증감</th><th>기존 단가</th><th>최종 단가 KRW / 견적단위</th><th>상태 / 차단 사유</th></tr></thead><tbody>{previewRows.map((row, index) => <tr key={`${row.custKey}:${row.prodKey}:${index}`} className={dutchPreviewRowKind(row)}><td>{row.missingFromExcel ? '파일 누락→0' : row.priceChanged && !num(row.shipmentDiffQty) ? '단가만' : '입력'}</td><td>{row.custName || row.customer}</td><td>{row.prodName || row.product || row.displayName}</td><td className="number">{fmt(row.orderBeforeQty ?? row.orderQty)}</td><td className="number">{fmt(row.orderAfterQty ?? row.orderBeforeQty ?? row.orderQty)}</td><td className="number">{fmt(row.currentOutQty)}</td><td className="number">{fmt(row.uploadQty)} {row.outUnit || ''}</td><td className="number">{fmt(row.shipmentDiffQty)}</td><td className="number">{row.currentCost == null ? '-' : fmt(row.currentCost)}</td><td className="number">{row.unitPrice == null ? '보존' : `${fmt(row.targetCost ?? row.unitPrice)}${num(row.unitPrice) === 0 ? ' (명시 0원)' : ''}`} {row.estUnit || ''}</td><td>{row.fixBlocked ? '확정 차단' : row.qtyWarnings?.map(item => item.message).join(' / ') || row.status || '검증'} {row.reason || ''}</td></tr>)}</tbody></table></div>
         {!!(preview.logs || []).length && <details><summary>검증 로그</summary><div className="logs">{preview.logs.map((line, index) => <div key={index}>{typeof line === 'string' ? line : JSON.stringify(line)}</div>)}</div></details>}
-        <div className="approval"><label><input type="checkbox" checked={ackReplacement} disabled={!previewCurrent || applying} onChange={event => setAckReplacement(event.target.checked)}/> 파일 누락행의 최종 0과 위 전체 수량·주문·원화 단가를 확인했습니다.</label>{warningRows.length > 0 && <label><input type="checkbox" checked={ackQtyWarnings} disabled={!previewCurrent || applying} onChange={event => setAckQtyWarnings(event.target.checked)}/> 수량 경고 {warningRows.length}건을 확인했습니다.</label>}<button className="apply" disabled={!previewCurrent || !ackReplacement || !!blockedRows.length || !!(preview.unmatched || []).length || !!(warningRows.length && !ackQtyWarnings) || applying} onClick={applyPreview}>{applying ? '적용 중…' : '확인한 전체 범위 ERP 적용'}</button>{!preview?.planToken && <strong>서버가 적용 계획을 발행하지 않았습니다. 사유를 수정하고 다시 검증하세요.</strong>}</div>
+        <div className="approval"><label><input type="checkbox" checked={ackReplacement} disabled={workBusy || !previewCurrent || applying} onChange={event => setAckReplacement(event.target.checked)}/> 파일 누락행의 최종 0과 위 전체 수량·주문·원화 단가를 확인했습니다.</label>{warningRows.length > 0 && <label><input type="checkbox" checked={ackQtyWarnings} disabled={workBusy || !previewCurrent || applying} onChange={event => setAckQtyWarnings(event.target.checked)}/> 수량 경고 {warningRows.length}건을 확인했습니다.</label>}<button className="apply" disabled={workBusy || !previewCurrent || !ackReplacement || !!blockedRows.length || !!(preview.unmatched || []).length || !!(warningRows.length && !ackQtyWarnings) || applying} onClick={applyPreview}>{applying ? '적용 중…' : '확인한 전체 범위 ERP 적용'}</button>{!preview?.planToken && <strong>서버가 적용 계획을 발행하지 않았습니다. 사유를 수정하고 다시 검증하세요.</strong>}</div>
       </section>}
       {applyResult && <section className="result" role="status"><h2>{applyResult.running ? '적용 진행 중' : applyResult.failed ? '적용 실패 또는 결과 확인 필요' : '적용 완료·DB 검증'}</h2><p>작업 ID: {activeJobId}</p>{applyResult.progress && <p>{applyResult.progress.stage} · {applyResult.progress.done}/{applyResult.progress.total}건 {applyResult.progress.current}</p>}{applyResult.error && <p className="error">{applyResult.error}</p>}{!applyResult.running && !applyResult.failed && <p>적용 {applyResult.appliedCount ?? 0}건 · 신규 주문 {applyResult.orderCreatedCount ?? 0}건 · 출고 변경 {applyResult.shipmentChangedCount ?? 0}건 · DB 사후검증 {applyResult.verification?.checked ?? 0}건 / 불일치 {applyResult.verification?.mismatchCount ?? 0}건</p>}<div className="logs">{(applyResult.logs || applyResult.progress?.logs || []).map((line, index) => <div key={index}>{typeof line === 'string' ? line : JSON.stringify(line)}</div>)}</div>{(applyResult.appliedRows || []).length > 0 && <details><summary>행별 적용·검증 결과</summary><div className="logs">{applyResult.appliedRows.map((row, index) => <div key={index}>{row.custName || row.customer} · {row.prodName || row.product} · {JSON.stringify(row)}</div>)}</div></details>}</section>}
     </>}
+    </main><aside className="board-side" aria-label="보조 기능">
+      <section className="side-card side-source"><h2>물량표 입력</h2><label className="upload">엑셀 업로드<input type="file" accept=".xlsx,.xls" disabled={workBusy || applying} onChange={event => event.target.files?.[0] && upload(event.target.files[0])}/></label>
+        <div className="live-load"><label>연도<input aria-label="연도" type="number" min="2000" max="2100" value={year} disabled={workBusy || applying} onChange={event => changeYear(Number(event.target.value))}/></label><label>DB 입력 차수<div><button aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={workBusy || applying || weeksLoading || (!availableWeeks.length && sourceMode !== 'SAVED')}>‹</button><select aria-label="차수" value={week} onChange={event => changeWeek(event.target.value)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>{weeksLoading && <option value="">조회 중…</option>}{!weeksLoading && !availableWeeks.length && <option value="">입력 이력 없음</option>}{(sourceMode === 'SAVED' && !availableWeeks.includes(week) ? [week, ...availableWeeks] : availableWeeks).map(recordedWeek => <option key={recordedWeek} value={recordedWeek}>{recordedWeek}</option>)}</select><button aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={workBusy || applying || weeksLoading || !availableWeeks.length}>›</button></div></label><button className="load" onClick={() => loadLive(year, week)} disabled={workBusy || applying || loading || weeksLoading || !availableWeeks.length}>{loading ? '조회 중…' : '네노바웹 물량 바로 불러오기'}</button><span>선택 연도·차수는 ERP 검증에도 사용됩니다.</span></div>
+      </section>
+      <section className="side-card"><h2>작업 도구</h2><div className="actions"><button onClick={addRow} disabled={workBusy || applying}>업체·품목 행 추가</button><button onClick={() => runPreview()} disabled={workBusy || applying || previewLoading}>{previewLoading ? '검증 중…' : 'ERP 매칭·최종수량 다시 검증'}</button><span>{previewCurrent ? '검증됨 — 아래 전체 교체 범위를 확인하세요.' : validationCurrent ? '검증 완료 — 아래 미매칭·차단 사유를 확인하세요.' : '편집 후에는 다시 검증해야 적용할 수 있습니다.'}</span></div></section>
+      <details className="side-card side-instructions"><summary>입력 안내</summary><p>주광은 업체별 단가를 입력합니다. 그 외 업체는 같은 품목·칼라의 균일가를 사용합니다. 빈 단가는 ERP 기존값을 보존하고 0원은 명시 변경입니다. Enter를 누르면 다음 단가 칸으로 이동합니다.</p></details>
+      <div className="side-history"><DutchWorkHistory name={workName} onName={setWorkName} hasWork={!!entries.length} busy={workBusy || applying || loading || weeksLoading} saving={workBusy} reviewing={previewLoading} notice={workNotice} error={workError} onSave={saveWork} onReview={reviewForUpload} open={historyOpen} onToggle={() => { const next = !historyOpen; setHistoryOpen(next); if (next) void loadWorkHistory(); }} items={workHistory} loading={historyLoading} cursor={historyCursor} onMore={() => loadWorkHistory(true)} onRestore={restoreWork}/></div>
+    </aside></div>
   </section><style jsx>{`.sheet-tabs{display:flex;align-items:center;gap:4px;border-bottom:2px solid #155bd7;margin:8px 0 0}.sheet-tabs button{padding:10px 18px;border:1px solid #c7d6e9;border-bottom:0;border-radius:6px 6px 0 0;background:#f3f6fa;color:#35516f;cursor:pointer;font-weight:800}.sheet-tabs button[aria-selected=true]{background:#155bd7;color:white;border-color:#155bd7}.sheet-tabs span{margin-left:12px;font-size:11px;color:#52647c}.editor-context{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 10px;background:#e8f1ff;border:1px solid #bfcada;font-size:12px}.editor-context button{background:white;color:#155bd7;border:1px solid #8eb2e2;border-radius:4px;padding:5px 9px}.editor-context span{font-size:11px;color:#52647c}.selected-entry{outline:2px solid #155bd7;outline-offset:-2px}@media(max-width:760px){.sheet-tabs{flex-wrap:wrap}.sheet-tabs span{width:100%;margin:5px}.editor-context b{overflow-wrap:anywhere}}.dutch-board{padding:14px;background:#eef2f7;min-height:calc(100vh - 44px);color:#172033;box-sizing:border-box}header{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#102d72,#1676b8);color:#fff;padding:14px 18px;border-radius:5px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0}header p{margin:0;font-size:12px;opacity:.9}.upload{background:#fff;color:#164c94;padding:8px 14px;border-radius:4px;font-weight:800;cursor:pointer}.upload input{display:none}.live-load{display:flex;align-items:end;gap:8px;padding:10px;margin-top:8px;background:#fff;border:1px solid #c9d4e3}.live-load label{font-size:11px;font-weight:800}.live-load label>input{display:block;width:82px}.live-load label div{display:flex}.live-load input,.live-load select,.live-load button{height:31px;border:1px solid #aebbd0;padding:0 7px}.live-load label div select{width:86px;text-align:center;font-weight:800}.live-load .load{background:#148044;color:#fff;font-weight:800;border-color:#148044}.live-load span{color:#617188;font-size:11px;margin-left:5px}.empty,.notice{margin-top:12px;padding:12px;background:#fff;border:1px solid #c9d4e3;border-radius:5px}.error{color:#a61b14;background:#fff1ef}.warning{color:#7a4a00;background:#fff7df}.toolbar{display:flex;gap:8px;align-items:center;margin-top:10px;padding:9px;background:#fff;border:1px solid #c9d4e3}.toolbar>div{display:flex;flex-direction:column;margin-right:auto}.toolbar span{font-size:11px;color:#617188}.toolbar input{width:240px}.toolbar input,.toolbar button{height:32px;border:1px solid #aebbd0;border-radius:3px;padding:0 9px}.toolbar button{background:#155bd7;color:#fff;font-weight:800}.currency{white-space:nowrap;font-weight:800;color:#136239!important}.guide{margin:7px 0;padding:8px 10px;background:#e8f1ff;border:1px solid #a8c7ef;font-size:12px}.guide b{margin-right:12px}.actions{display:flex;align-items:center;gap:8px;margin:8px 0}.actions button{padding:7px 10px;border:1px solid #8aa8cc;border-radius:4px;background:white;color:#164c94;font-weight:800}.actions span{font-size:12px;color:#52647c}.grid-wrap,.preview-wrap{overflow:auto;background:#fff;border:1px solid #bfcada}.grid-wrap{max-height:calc(100vh - 345px);min-height:160px}.preview-wrap{max-height:430px}table{border-collapse:collapse;min-width:100%;width:max-content;font-size:12px}th{position:sticky;top:0;z-index:2;background:#dce6f4;color:#16335e}th,td{height:38px;padding:5px 8px;border-right:1px solid #d4dce7;border-bottom:1px solid #d4dce7;white-space:nowrap}td small{display:block;color:#64748b}td input,td select{width:115px;height:29px;border:1px solid #aebbd0;padding:3px 6px}.number{text-align:right}.status{max-width:230px;white-space:normal}.status button{margin-left:5px}.unmatched,.blocked{background:#fff1ef}.missing{background:#fff6df}.price{background:#eef7ff}.individual-price{color:#7a45b8}.uniform-price{color:#168447}.export-note{font-size:11px;color:#7b4a18}.review,.result{background:#fff;border:1px solid #bfcada;margin-top:12px;padding:12px}.review-head{display:flex;justify-content:space-between}.review p{font-size:12px}.kpis{display:flex;gap:7px;margin:9px 0;flex-wrap:wrap}.kpis b{background:#e8f1ff;padding:6px 10px;border-radius:4px}.approval{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:10px}.approval label{font-size:12px}.approval .apply{background:#148044;color:white;border:0;border-radius:4px;padding:9px 14px;font-weight:900}.approval .apply:disabled{background:#9ca9b7}.approval strong{color:#a61b14;font-size:12px}.logs{max-height:180px;overflow:auto;background:#f6f8fb;padding:8px;font-size:11px;white-space:pre-wrap}details{margin-top:10px;font-size:12px}@media(max-width:760px){.dutch-board{padding:7px}header{align-items:flex-start;gap:10px}header p{display:none}.live-load,.toolbar,.actions{flex-wrap:wrap}.live-load span,.toolbar>div{width:100%}.toolbar input{flex:1;width:auto}.grid-wrap{max-height:500px}.approval{align-items:flex-start;flex-direction:column}}`}</style></>;
 }
