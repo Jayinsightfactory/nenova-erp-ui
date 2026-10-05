@@ -16,6 +16,7 @@ export default function RaumCostHistoryPreview({
   orderYear,
   loading = false,
   error = '',
+  hotels = [],
   children,
 }) {
   const itemIdentity = `${item?.itemKey ?? item?._uid ?? item?.prodKey ?? item?.name ?? ''}|${item?.unit ?? ''}`;
@@ -85,7 +86,7 @@ export default function RaumCostHistoryPreview({
     if (!open) return undefined;
     const frame = window.requestAnimationFrame(place);
     return () => window.cancelAnimationFrame(frame);
-  }, [open, weeks.length, loading, error, place]);
+  }, [open, weeks.length, hotels.length, loading, error, place]);
 
   useEffect(() => {
     if (!open || !position || measuredRef.current) return undefined;
@@ -120,10 +121,17 @@ export default function RaumCostHistoryPreview({
     >
       <div style={{ fontWeight: 700, marginBottom: 3 }}>{item?.name || '품목'} · {orderYear || '연도 미지정'}년</div>
       <div style={{ color: '#475569', marginBottom: 8 }}>차수별 저장 매입단가 (원/VAT별도)</div>
+      {hotels.length ? hotels.map(hotel => <section key={hotel.partnerCode} style={{ marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, color: '#0369a1' }}>{hotel.label} · {item?.unit || '단위 미지정'}</div>
+        <table style={{ borderCollapse: 'collapse', width: '100%' }}><tbody>{hotel.weeks.map((week, index) => <tr key={week.key}>
+          <th style={{ textAlign: 'left', padding: '3px 10px 3px 0' }}>{week.label}</th>
+          <td style={{ textAlign: 'right', padding: '3px 0' }}>{formatValues(hotel.values[index])}</td>
+        </tr>)}</tbody></table>
+      </section>) : null}
       {loading ? <div style={{ color: '#64748b' }}>불러오는 중…</div> : null}
       {error ? <div style={{ color: '#b91c1c' }}>{error}</div> : null}
-      {!loading && !error && !weeks.length ? <div style={{ color: '#64748b' }}>저장된 비교값 없음</div> : null}
-      {!loading && !error && weeks.length ? (
+      {!loading && !error && !weeks.length && !hotels.length ? <div style={{ color: '#64748b' }}>저장된 비교값 없음</div> : null}
+      {!loading && !error && weeks.length && !hotels.length ? (
         <table style={{ borderCollapse: 'collapse', width: '100%' }}>
           <tbody>{weeks.map((week, index) => (
             <tr key={week.key}>

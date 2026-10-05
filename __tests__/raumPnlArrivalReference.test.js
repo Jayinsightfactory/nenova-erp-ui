@@ -21,7 +21,7 @@ async function main() {
   assert.equal(refs[12], undefined, 'unmatched P&L item never receives another product cost');
 
   const fallbackRows = [
-    { OrderWeek: '38-1', ProdKey: 456, ArrivalUnit: '단', SelectedArrivalCostKRW: 3800, SteamOf1Bunch: 10 },
+    { OrderWeek: '38-2', ProdKey: 456, ArrivalUnit: '단', SelectedArrivalCostKRW: 3800, SteamOf1Bunch: 10 },
     { OrderWeek: '36-1', ProdKey: 456, ArrivalUnit: '단', SelectedArrivalCostKRW: 900, SteamOf1Bunch: 10 },
     { OrderWeek: '36-2', ProdKey: 456, ArrivalUnit: '단', SelectedArrivalCostKRW: 950, SteamOf1Bunch: 10 },
     { OrderWeek: '35-2', ProdKey: 456, ArrivalUnit: '단', SelectedArrivalCostKRW: 800, SteamOf1Bunch: 10 },
@@ -36,6 +36,37 @@ async function main() {
   const exactWins = buildRaumPnlArrivalReferences(items, [...fallbackRows, ...rows], 37);
   assert.deepEqual(exactWins[10].map(row => row.week), ['37-1', '37-2'], 'requested major always wins over prior data');
   assert.ok(exactWins[10].every(row => row.isFallback === false));
+  // Regression: 은화호텔 2026 39차 왁스 화이트 has a valid Product mapping;
+  // its same-year 40-1 arrival belongs to the established hotel reference window.
+  const waxItem = [{ itemKey: 7738, prodKey: 2330, unit: '단', costPrice: 7000 }];
+  const waxRow = { OrderYear: '2026', OrderWeek: '40-1', ProdKey: 2330, ArrivalUnit: '단', SelectedArrivalCostKRW: 8641.4405 };
+  const nearMisses = [
+    { ...waxRow, OrderWeek: '40-2', SelectedArrivalCostKRW: 99999 },
+    { ...waxRow, OrderWeek: '41-1', SelectedArrivalCostKRW: 99999 },
+    { ...waxRow, OrderWeek: '40-1-2', SelectedArrivalCostKRW: 99999 },
+    { ...waxRow, OrderYear: '2025', SelectedArrivalCostKRW: 99999 },
+    { ...waxRow, OrderYear: '2027', SelectedArrivalCostKRW: 99999 },
+    { ...waxRow, ProdKey: 2490, SelectedArrivalCostKRW: 99999 },
+    { ...waxRow, SelectedArrivalCostKRW: 0 },
+  ];
+  const sourceSnapshot = JSON.stringify([waxItem, waxRow, nearMisses]);
+  const nextHotel = buildRaumPnlArrivalReferences(waxItem, [waxRow, ...nearMisses], 39, '2026')[7738];
+  assert.deepEqual(nextHotel.map(ref => [ref.week, ref.cost, ref.sourceMajor, ref.isNextHotelWeek, ref.isFallback]), [
+    ['40-1', 8641.4405, 40, true, false],
+  ], 'only same-year next-major first subweek is added; no further future or another Product');
+  assert.equal(JSON.stringify([waxItem, waxRow, nearMisses]), sourceSnapshot, 'references never mutate source or saved CostPrice');
+  const waxCurrent = [{ ...waxRow, OrderWeek: '39-1' }, { ...waxRow, OrderWeek: '39-2' }];
+  const nextAndCurrent = buildRaumPnlArrivalReferences(waxItem, [waxRow, ...waxCurrent], 39, '2026')[7738];
+  assert.deepEqual(nextAndCurrent.map(ref => ref.week), ['39-1', '39-2', '40-1'], 'existing current-major references stay first and next first subweek remains visible');
+  const nextAndPrior = buildRaumPnlArrivalReferences(waxItem, [waxRow, { ...waxRow, OrderWeek: '38-2' }], 39, '2026')[7738];
+  assert.deepEqual(nextAndPrior.map(ref => ref.week), ['40-1'], 'prior fallback is used only when the current hotel window has no reference');
+  const paddedNext = buildRaumPnlArrivalReferences(waxItem, [waxRow, { ...waxRow, OrderWeek: '040-01', SelectedArrivalCostKRW: 9796.8234 }], 39, '2026')[7738];
+  assert.deepEqual(paddedNext.map(ref => [ref.week, ref.cost]), [['40-1', 9796.8234]], 'padded next-first rows share the existing maximum-per-week policy');
+  const yearBoundary = buildRaumPnlArrivalReferences(waxItem, [
+    { ...waxRow, OrderYear: '2027', OrderWeek: '01-1' },
+    { ...waxRow, OrderWeek: '52-2' },
+  ], 53, '2026')[7738];
+  assert.deepEqual(yearBoundary.map(ref => ref.week), ['52-2'], 'year boundary never wraps into the next year');
   const aliases = buildRaumPnlArrivalReferences([
     { itemKey: 21, prodKey: 456, unit: '대' },
     { itemKey: 22, prodKey: 456, unit: 'st' },
@@ -72,6 +103,7 @@ async function main() {
   });
   assert.equal(batch[0].arrivalReferences[0].sourceMajor, 37);
   assert.equal(batch[1].arrivalReferences[0].sourceMajor, 36);
+  assert.deepEqual(batch[1].arrivalReferences.map(ref => ref.week), ['36-1', '36-2', '37-1'], 'batched smaller majors apply their own exact next-first window');
   const failed = await withHotelArrivalReferences([{ itemKey: 10, prodKey: 456, major: 37 }], '2026', async () => {throw Error('offline');});
   assert.match(failed[0].arrivalReferenceError, /조회 실패/);
   const fx = await import('../lib/arrivalCostFxPreview.js');
@@ -86,6 +118,7 @@ async function main() {
   assert.deepEqual(loaded[10].map(row => row.week), ['37-1', '37-2']);
   assert.match(captured.sqlText, /l\.OrderYear=@yr/);
   assert.match(captured.sqlText, /TRY_CONVERT\(INT, LEFT\(l\.OrderWeek[\s\S]*<=@major/);
+  assert.match(captured.sqlText, /=@major\+1[\s\S]*TRY_CONVERT\(INT,SUBSTRING\(l\.OrderWeek,CHARINDEX\(N'-',l\.OrderWeek\)\+1,20\)\)=1/);
   assert.doesNotMatch(captured.sqlText, /TOP\s+1/i);
   assert.equal(captured.params.yr.value, '2026');
   assert.equal(captured.params.major.value, 37);
@@ -108,7 +141,7 @@ async function main() {
   assert.match(hotelApi, /\['raum', 'choimun'\]\.includes\(partner\.code\)/, 'shared partners cannot bypass the shared write contract');
   assert.match(hotelApi, /saveRaumPnlPurchaseCosts\(\{[\s\S]*partnerCode: partner\.code/, 'server-validated hotel code scopes the isolated save');
   assert.doesNotMatch(hotelApi, /WebRaumCostPrice|OrderDetail|ShipmentDetail|StockHistory/, 'isolated API cannot add ERP/global-cost writes');
-  console.log('Hotel P&L exact-or-latest-prior web-only arrival reference tests passed');
+  console.log('Hotel P&L current plus next-first, latest-prior fallback and year-isolated web-only arrival reference tests passed');
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });
