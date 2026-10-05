@@ -32,9 +32,10 @@ assert.match(page, /\.paste-col-work-results \{ grid-column: 5; grid-row: 1 \/ s
 assert.match(page, /paste-col-baseline \{ grid-column: 2; grid-row: 1 \/ span 2; min-width: 0; min-height: 0; height: calc\(100vh - 230px\); max-height: calc\(100vh - 230px\); overflow: hidden/);
 assert.match(page, /paste-col-baseline > \.paste-sales-inbox \{ min-height: 0; overflow: hidden; \}/);
 assert.match(page, /paste-col-baseline \{[^}]*grid-template-rows: auto auto minmax\(0,1fr\);/);
-assert.match(page, /height: calc\(100vh - 170px\); max-height: calc\(100vh - 170px\); min-height: 0;/);
+assert.match(page, /min-height: calc\(100vh - 170px\); height: auto; max-height: none;/);
 assert.match(page, /\.paste-input-grid > \.paste-col > \* \{ flex-shrink: 0; \}/);
-assert.match(page, /\.paste-work-history \{ margin-top: 8px; min-width: 0; min-height: 120px; max-height: 260px; overflow: auto;/);
+assert.match(page, /\.paste-work-history \{ margin-top: 8px; min-width: 0; min-height: 120px; max-height: none; overflow: visible;/);
+assert.match(page, /\.paste-col-work-results \{[^}]*max-height: none; overflow: visible;/);
 assert.match(page, /paste-connected-save[\s\S]*작업 결과 · 진행 상태/);
 assert.match(page, /paste-connected-result-details/);
 assert.match(page, /최근 붙여넣기 작업 이력/);
@@ -58,7 +59,11 @@ assert.match(page, /if \(orderHistoryRowsScopeRef\.current !== scope\) setOrderH
 
 assert.match(operationHistory, /\{ initial = \{\}, compact = false \}/);
 assert.match(operationHistory, /if \(compact\) return <section aria-label="최근 붙여넣기 작업 이력">/);
-assert.match(operationHistory, /<details style=\{\{ marginTop: 5 \}\}>/);
+assert.match(operationHistory, /data-status=\{operation\.status\}/);
+assert.match(operationHistory, /background: completed \? '#e8f5e9' : '#fff5f5'/, '저장 완료 작업은 카드 전체가 녹색으로 하이라이트되어야 한다.');
+assert.match(operationHistory, /<details open style=\{\{ marginTop: 5 \}\}>/, '최근 작업의 상세 항목은 기본 펼침이어야 한다.');
+assert.match(operationHistory, /\{data\.operations\.map\(operation =>/, '최근 이력을 6건으로 잘라내지 않고 조회된 작업 전체를 아래로 표시해야 한다.');
+assert.doesNotMatch(operationHistory, /data\.operations\.slice\(0, 6\)/);
 assert.match(operationHistory, /filters\.year}년 \{filters\.week \|\| '전체 차수'\}/);
 assert.match(operationHistory, /filters\.who === 'mine' \? '내 작업' : '전체 작업'/);
 assert.match(operationHistory, /현재 조회 구간에는 붙여넣기 작업 이력이 없습니다/);
