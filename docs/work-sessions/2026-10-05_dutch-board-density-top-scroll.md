@@ -7,7 +7,7 @@
 | 요청 | 상단의 조작·이력 영역을 줄이고 보조 기능을 우측 세로 패널로 이동, 물량표를 넓게 표시, 상단 가로 이동바 추가 |
 | ERP 부작용 | UI만 변경. 공유 ERP 원장/API 쓰기 로직 변경 없음 |
 | 브랜치 | codex/dutch-volume-board-layout |
-| 상태 | 구현·자동 검증 통과, PR/배포 및 운영 화면 확인 진행 중 |
+| 상태 | PR #890 병합, Cafe24 배포 및 배포 hydration smoke 성공 |
 
 ## 고정 결정
 
@@ -30,9 +30,9 @@
 
 **A.** 표 너비를 측정해 필요한 경우 상단 이동바를 표시하며 하단 이동바와 양방향으로 스크롤 위치가 동기화되도록 했다.
 
-**결과.** `pages/stats/dutch-volume-board.js`, `components/dutch/DutchVolumeSheet.js`, `__tests__/dutchVolumePriceUi.test.js` 변경. 계약·회귀 검사와 빌드 통과. PR·Cafe24 배포·1920×1080 운영 브라우저 확인은 완료 뒤 기록한다.
+**결과.** `pages/stats/dutch-volume-board.js`, `components/dutch/DutchVolumeSheet.js`, `__tests__/dutchVolumePriceUi.test.js` 변경. 계약·회귀 검사와 빌드 통과. PR #890 병합 커밋 `07d0fcb5`, Cafe24 배포 run `37284146151` 성공.
 
 ## 미완 / 다음 단계
 
-- PR 검사와 병합 후 Cafe24 배포 성공 여부 확인.
-- 로그인된 운영 브라우저에서 1920×1080 / 100%로 보조 패널 배치, 표 가로 이동 동기화, 오버플로/가림 smoke 확인.
+- GitHub Deploy to Cafe24의 ERP 계약 검증, SSH 배포, hydration smoke가 모두 통과했다.
+- 1920×1080 운영 화면의 육안 재확인은 미완: 신규 운영 탭은 로그인 페이지로 이동했고, 기존 사용 탭은 배포 전 hash `b298ddd6` 상태여서 입력된 작업을 보존하기 위해 강제 새로고침하지 않았다. 사용자가 최신 페이지를 여는 것으로 확인 필요.
