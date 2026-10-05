@@ -17,7 +17,7 @@ export default function HotelCustomerMapping({ partner, disabled, orderYear, maj
  useEffect(()=>{referenceGeneration.current++;setReference(null);},[orderYear,major]);
  const readReference=async()=>{
   const token=generation.current, referenceToken=++referenceGeneration.current; setBusy(true);setError('');
-  try {const result=await fetchRaumPnlJson(`/api/raum/hotel-customer-mapping?reference=1&partner=${encodeURIComponent(partner.code)}&year=${encodeURIComponent(orderYear)}&major=${encodeURIComponent(major)}`);if(token===generation.current && referenceToken===referenceGeneration.current)setReference(result.rows);}
+  try {const result=await fetchRaumPnlJson(`/api/raum/hotel-customer-mapping?reference=1&partner=${encodeURIComponent(partner.code)}&year=${encodeURIComponent(orderYear)}&major=${encodeURIComponent(major)}`);if(token===generation.current && referenceToken===referenceGeneration.current){setMapping(result.mapping);setReference(result.rows);}}
   catch(cause){if(token===generation.current)setError(cause.message);}
   finally{if(token===generation.current)setBusy(false);}
  };
