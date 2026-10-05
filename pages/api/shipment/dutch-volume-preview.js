@@ -1,6 +1,6 @@
 import { withAuth } from '../../../lib/auth';
 import { buildImportPreview } from '../../../lib/shipmentImport';
-import { normalizeDutchEntries, resolveDutchPairPolicy, issueDutchPlan, dutchError, dutchEstUnitConversionIssue, dutchComputedValueIssue } from '../../../lib/dutchVolumeDistribution';
+import { normalizeDutchEntries, resolveDutchPairPolicy, issueDutchPlan, dutchError, dutchEstUnitConversionIssue, dutchComputedValueIssue, dutchInputUnitIssue } from '../../../lib/dutchVolumeDistribution';
 import { readDutchScopeSnapshot, assertUniqueDutchLedger, findDutchFarmQtyBlockers, findDutchDateIntegrityBlockers } from '../../../lib/dutchVolumeDistributionSnapshot';
 import { withTransaction } from '../../../lib/db';
 
@@ -104,6 +104,11 @@ export async function previewDutchVolume(body, user, deps = {}) {
   // An unmatched positive entry must never make the category look like a
   // complete replacement. Explicitly require every source entry to resolve.
   if (entryMatches.some(item => item.status !== 'matched')) blockers.push('입력 행의 업체·품목 연결이 완료되지 않았습니다.');
+  for (const entry of input.entries) {
+    const row = pricedByEntry.get(String(entry.id));
+    const issue = dutchInputUnitIssue(productByKey.get(Number(row?.prodKey)), entry);
+    if (issue) blockers.push(`${row.custName} / ${row.prodName}: ${issue}`);
+  }
   for (const row of priceRows) {
     const issue = dutchEstUnitConversionIssue(productByKey.get(Number(row.prodKey)), row.uploadQty);
     if (issue) blockers.push(`${row.custName} / ${row.prodName}: ${issue}`);

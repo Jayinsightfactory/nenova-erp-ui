@@ -5,12 +5,13 @@ register('./fixtures/dutchVolumeLoaderHook.mjs', import.meta.url);
 
 const {
   normalizeDutchEntries, normalizeDutchPrice, resolveDutchPairPolicy,
-  dutchEstUnitConversionIssue, assessDutchPriceReadback,
+  dutchEstUnitConversionIssue, dutchInputUnitIssue, assessDutchPriceReadback,
 } = await import('../lib/dutchVolumeDistribution.js');
 const {
   assertUniqueDutchLedger, findDutchFarmQtyBlockers, findDutchDateIntegrityBlockers,
 } = await import('../lib/dutchVolumeDistributionSnapshot.js');
 const { normalizeUploadQtyForProduct } = await import('../lib/shipmentImportQty.js');
+const { buildImportPreview, matchDutchProductByColor } = await import('../lib/shipmentImport.js');
 const { previewDutchVolume } = await import('../pages/api/shipment/dutch-volume-preview.js');
 const { applyDutchVolume } = await import('../pages/api/shipment/dutch-volume-apply.js');
 const { getApplyProgress, initApplyProgress } = await import('../lib/importApplyProgress.js');
@@ -34,6 +35,60 @@ for (const [unit, expected] of [['', 3], ['박스', 3], ['단', 0.1875], ['송�
 }
 assert.match(dutchEstUnitConversionIssue({ OutUnit: '단', EstUnit: '송이', BunchOf1Box: 10, SteamOf1Bunch: 0, SteamOf1Box: 0 }, 10), /환산계수/);
 assert.equal(dutchEstUnitConversionIssue({ ...alstro, OutUnit: '박스' }, 3), '');
+
+const dutchProducts = [
+  { ProdKey: 2231, ProdName: 'Campanula / Campana Pearl Pink', FlowerName: '깜바눌라' },
+  { ProdKey: 932, ProdName: 'Hydrangea / Classic Pimpurnel Aubergine', FlowerName: '수국' },
+  { ProdKey: 2844, ProdName: 'Nerine Bowdenii Biancaperla', FlowerName: '네리네' },
+  { ProdKey: 2150, ProdName: 'Anthurium Graciosa 13cm', FlowerName: '안스리움' },
+  { ProdKey: 1983, ProdName: 'Tulip / Single Crown Dynasty L/Pink', FlowerName: '튤립' },
+  { ProdKey: 3001, ProdName: 'Lily la Nubia', FlowerName: '백합' },
+  { ProdKey: 3002, ProdName: 'Hydrangea / Royal Palace Old Pink/Green 60cm-18cm', FlowerName: '수국' },
+  { ProdKey: 3003, ProdName: 'ROSE / Lily White 60cm', FlowerName: '장미' },
+].map(product => ({ ...product, CounName: '네덜란드', CountryFlower: '네덜란드', OutUnit: '송이', EstUnit: '송이' }));
+for (const [species, color, prodKey] of [
+  ['깜바눌라', 'Campanula / Campana Pearl Pink', 2231],
+  ['수국', 'ClassicPimpurnelAubergine', 932],
+  ['네리네', 'Nerine Bowdenii Biancaperla', 2844],
+  ['안스리움', 'Anthurium Graciosa13cm', 2150],
+  ['튤립', 'Single Crown Dynasty L/Pink', 1983],
+  ['백합', 'la Nubia', 3001],
+  ['수국', 'RoyalPalaceOldPinkGreen 60cm-18cm', 3002],
+  ['장미', 'White 60', 3003],
+]) {
+  assert.equal(matchDutchProductByColor(dutchProducts, { productLabel: species, productColor: color })?.ProdKey, prodKey,
+    'Dutch color exact name or slash-suffix must resolve within the stated flower');
+}
+assert.equal(matchDutchProductByColor(dutchProducts, { productLabel: '수국', productColor: 'Campanula / Campana Pearl Pink' }), null,
+  'unique exact color from another flower is not a valid match');
+assert.equal(matchDutchProductByColor(dutchProducts, { productLabel: '수국', productColor: 'ClassicPimpurnelAubergine typo' }), null,
+  'unknown color must not fall back to a unique species');
+assert.equal(matchDutchProductByColor([...dutchProducts, { ...dutchProducts[1], ProdKey: 9999 }],
+  { productLabel: '수국', productColor: 'ClassicPimpurnelAubergine' }), null,
+  'duplicate exact names within a species require manual matching');
+const alstroInputProduct = { ProdName: 'ALSTROMERIA Lavender', FlowerName: '알스트로', OutUnit: '단', EstUnit: '송이',
+  BunchOf1Box: 16, SteamOf1Bunch: 10, SteamOf1Box: 160 };
+assert.match(dutchInputUnitIssue(alstroInputProduct, { quantity: 10, unit: '' }), /입력 단위/);
+assert.equal(dutchInputUnitIssue(alstroInputProduct, { quantity: 10, unit: '단' }), '');
+assert.equal(dutchInputUnitIssue(alstroInputProduct, { quantity: 0, unit: '' }), '');
+assert.equal(dutchInputUnitIssue(dutchProducts[0], { quantity: 10, unit: '' }), '');
+
+const matchQuery = async statement => ({ recordset: /FROM Product\s+WHERE/i.test(statement) ? dutchProducts
+  : /FROM Customer\s+WHERE/i.test(statement) ? [{ CustKey: 533, CustName: '주광', OrderCode: '주광', BaseOutDay: 1 }]
+  : [] });
+const matchingPreview = async (product, color, sourceType = 'dutch-volume') => buildImportPreview({
+  parsedRows: [{ entryId: 'matched-cell', rowNo: 1, colNo: 1, customerLabel: '주광', productLabel: product,
+    productColor: color, uploadQty: 1, outUnit: '송이', sourceType, hasFinalDistributionDirective: true }],
+  rawYear: '2026', rawWeek: '40-01', strictMatching: true, countryFilter: '네덜란드', queryFn: matchQuery,
+});
+assert.equal((await matchingPreview('수국', 'ClassicPimpurnelAubergine')).rows.find(row => row.entryIds?.includes('matched-cell'))?.prodKey, 932,
+  'actual Dutch preview uses the color matcher');
+assert.equal((await matchingPreview('수국', 'Campanula / Campana Pearl Pink')).unmatched.length, 1,
+  'actual Dutch preview rejects a color belonging to another flower');
+assert.equal((await matchingPreview('수국', 'unknown')).unmatched.length, 1,
+  'actual Dutch preview never falls back to a species-only match');
+assert.equal((await matchingPreview('Nerine Bowdenii Biancaperla', '', 'excel')).rows.find(row => row.entryIds?.includes('matched-cell'))?.prodKey, 2844,
+  'normal strict import retains product-label matching');
 
 const pairRow = { entryIds: ['a', 'b'], custKey: 1, prodKey: 2, custName: 'A', prodName: 'P', outUnit: '박스', uploadQty: 2 };
 assert.equal(resolveDutchPairPolicy([pairRow], [
@@ -93,6 +148,14 @@ const preview = await previewDutchVolume(input(), user, deps);
 assert.ok(preview.planToken, 'matched positive category replacement issues a plan');
 assert.equal(preview.rows[0].orderAfterQty, 7, 'existing order is preserved');
 assert.equal(preview.entryMatches[0].estUnit, '박스');
+const alstroDeps = { ...deps, readSnapshot: async () => ({ snapshot: {
+  ...fixtureLedger, products: [{ ...alstroInputProduct, ProdKey: 2231, CountryFlower: '네덜란드' }],
+}, digest: 'alstro-digest' }) };
+const alstroBlank = await previewDutchVolume(input(), user, alstroDeps);
+assert.equal(alstroBlank.planToken, null, 'positive Alstro quantity with blank input unit cannot be applied');
+assert.match(alstroBlank.blockers.join(' '), /입력 단위/);
+const alstroExplicit = await previewDutchVolume(input([{ ...input().entries[0], unit: '박스' }]), user, alstroDeps);
+assert.ok(alstroExplicit.planToken, 'explicit Alstro input unit can proceed when no other blocker exists');
 const actorArgs = [];
 const result = await applyDutchVolume({ planToken: preview.planToken, jobId: 'dutch-test-job-001', ackQtyWarnings: true }, user, {
   applyImportRows: async args => { actorArgs.push(args); return { success: true, appliedCount: 1 }; },

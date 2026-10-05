@@ -1,10 +1,12 @@
 const assert = require('node:assert/strict');
 const XLSX = require('xlsx-js-style');
 const fs = require('node:fs');
+const path = require('node:path');
 const vm = require('node:vm');
 
 async function main() {
   const helper = await import('../lib/pivotVolumeCombinedCells.js');
+  const { volumeProdLabel } = await import('../lib/pivotVolumeProductLabel.js');
   const { combinedCellContext, combinedParts, combinedNumberFormat } = helper;
   const row = (key, qty) => ({ prodKey: key, prodName: 'same name', orders: { Customer: qty } });
   const data = { orderYear: 2026, weeks: ['36-02', '36-01'], byWeek: {
@@ -38,9 +40,9 @@ async function main() {
     assert.equal(back.Sheets.test.A1.w, expected);
   }
   // Exercise actual production sheet generator, replacing only imported read/presentation dependencies.
-  const source = fs.readFileSync('pages/api/stats/pivot-volume-excel.js','utf8')
+  const source = fs.readFileSync(path.join(__dirname, '../pages/api/stats/pivot-volume-excel.js'),'utf8')
     .split('export default withAuth')[0].replace(/^import[\s\S]*?;\r?\n/gm, '');
-  const context = { XLSX, ...helper, getFarmDisplayName: x=>x, customerDisplayLabel:c=>c.custName,
+  const context = { XLSX, ...helper, volumeProdLabel, getFarmDisplayName: x=>x, customerDisplayLabel:c=>c.custName,
     DAY_ORDER:{}, extractDays:()=>[], pickDataDay:()=>'', isNetherlandsVolume:()=>false,
     buildPivotVolumeIdentityColumns:()=>[{type:'product'}], pivotVolumeFlowerLabel:r=>r.flower,
     sumOrderQty:r=>Object.values(r.orders||{}).reduce((a,b)=>a+b,0), sumIncomingQty:()=>0 };

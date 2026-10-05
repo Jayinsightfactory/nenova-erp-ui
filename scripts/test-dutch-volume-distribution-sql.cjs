@@ -127,9 +127,9 @@ function businessLedgers(state) {
   return Object.fromEntries(Object.entries(state).filter(([table]) => !omit.has(table)));
 }
 function makeBody(entries) { return { year: '2026', week: '40-01', entries }; }
-function makeEntry(id, customer, custKey, product, prodKey, quantity, unit, unitPrice) {
+function makeEntry(id, customer, custKey, product, prodKey, quantity, unit, unitPrice, color = '') {
   return {
-    id, product, color: '', customer, quantity, unit, custKey, prodKey,
+    id, product, color, customer, quantity, unit, custKey, prodKey,
     ...(unitPrice === undefined ? {} : { unitPrice }),
   };
 }
@@ -169,6 +169,33 @@ async function runScenarios(app) {
   if (typeof previewDutchVolume !== 'function' || typeof applyDutchVolume !== 'function') {
     fail('Dutch preview/apply service helpers are not exported for executable integration testing');
   }
+
+  // Exercise the real SQL Product query and API preview without caller-supplied
+  // ERP keys: species plus exporter color must resolve one actual Dutch item,
+  // while duplicate exact aliases remain unmatched and cannot create a plan.
+  const actualNamePreview = await preview(app, makeBody([
+    makeEntry('actual-exporter-lily', 'Dutch existing-order', null, '백합', null, 1, '송이', undefined, 'la Nubia'),
+    makeEntry('ambiguous-hydrangea-color', 'Dutch existing-order', null, '수국', null, 1, '송이', undefined, 'RoyalPalaceOldPinkGreen 60cm-18cm'),
+  ]));
+  const matchedActualName = actualNamePreview.entryMatches.find(row => row.id === 'actual-exporter-lily');
+  assert.equal(matchedActualName?.status, 'matched', 'species plus exporter label must match through SQL Product rows without explicit prodKey');
+  assert.equal(Number(matchedActualName?.prodKey), 2236, 'Lily exporter item must resolve to its actual Dutch ERP Product');
+  const ambiguousActualName = actualNamePreview.entryMatches.find(row => row.id === 'ambiguous-hydrangea-color');
+  assert.equal(ambiguousActualName?.status, 'unmatched', 'duplicate actual Dutch item aliases must remain unmatched');
+  assert.equal(actualNamePreview.planToken, null, 'an ambiguous actual-name match must prevent any apply plan');
+  assert((actualNamePreview.blockers || []).some(value => /미매칭|연결/.test(value)), 'ambiguous item must be an explicit preview blocker');
+
+  const alstroBlankUnitPreview = await preview(app, makeBody([
+    makeEntry('actual-alstro-blank-unit', 'Dutch existing-order', null, '알스트로', null, 1, '', undefined, 'ALSTROMERIA Lavender'),
+  ]));
+  assert.equal(alstroBlankUnitPreview.entryMatches.find(row => row.id === 'actual-alstro-blank-unit')?.status, 'matched', 'Alstro item should resolve from real SQL Product fields');
+  assert((alstroBlankUnitPreview.blockers || []).some(value => /단위를 직접 선택/.test(value)), 'positive Alstro volume with blank unit must be blocked');
+  assert.equal(alstroBlankUnitPreview.planToken, null, 'positive Alstro volume with blank unit must not receive a plan token');
+  const alstroExplicitUnitPreview = await preview(app, makeBody([
+    makeEntry('actual-alstro-explicit-unit', 'Dutch existing-order', null, '알스트로', null, 1, '단', undefined, 'ALSTROMERIA Lavender'),
+  ]));
+  assert.equal(alstroExplicitUnitPreview.entryMatches.find(row => row.id === 'actual-alstro-explicit-unit')?.status, 'matched', 'explicit-unit Alstro row should resolve through real SQL Product fields');
+  assert(!(alstroExplicitUnitPreview.blockers || []).some(value => /단위를 직접 선택/.test(value)), 'explicit Alstro OutUnit must clear the blank-unit blocker');
 
   const requestBody = makeBody([
     makeEntry('existing-blank', 'Dutch existing-order', 533, 'Dutch Test Rose Red', 2231, 60, '송이'),

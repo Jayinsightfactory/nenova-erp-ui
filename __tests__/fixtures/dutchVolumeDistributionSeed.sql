@@ -32,7 +32,11 @@ INSERT dbo.Product(ProdKey,ProdName,DisplayName,CountryFlower,CounName,FlowerNam
          (2232,N'Dutch Test Rose White',N'Dutch Test Rose White',N'fixture-dutch-roses',N'네덜란드',N'Rose',N'단',N'송이',30,10,300,1800,0),
          (2233,N'Dutch Test Rose Pink',N'Dutch Test Rose Pink',N'fixture-dutch-roses',N'네덜란드',N'Rose',N'송이',N'송이',0,0,0,1600,0),
          (2234,N'Dutch Other Flower',N'Dutch Other Flower',N'fixture-dutch-other',N'네덜란드',N'Tulip',N'송이',N'송이',0,0,0,900,0),
-         (2235,N'Dutch Fractional Date Product',N'Dutch Fractional Date Product',N'fixture-dutch-roses',N'네덜란드',N'Rose',N'단',N'송이',30,10,300,1000,0);
+         (2235,N'Dutch Fractional Date Product',N'Dutch Fractional Date Product',N'fixture-dutch-roses',N'네덜란드',N'Rose',N'단',N'송이',30,10,300,1000,0),
+         (2236,N'Lily la Nubia',N'Lily la Nubia',N'fixture-dutch-matchers',N'네덜란드',N'백합',N'송이',N'송이',0,0,0,1200,0),
+         (2237,N'Hydrangea / Royal Palace Old Pink/Green 60cm-18cm',N'Hydrangea / Royal Palace Old Pink/Green 60cm-18cm',N'fixture-dutch-matchers',N'네덜란드',N'수국',N'송이',N'송이',0,0,0,1300,0),
+         (2238,N'Hydrangea / Royal Palace Old Pink/Green 60cm-18cm',N'Hydrangea / Royal Palace Old Pink/Green 60cm-18cm',N'fixture-dutch-matchers',N'네덜란드',N'수국',N'송이',N'송이',0,0,0,1300,0),
+         (2239,N'ALSTROMERIA Lavender',N'ALSTROMERIA Lavender',N'fixture-dutch-matchers',N'네덜란드',N'알스트로',N'단',N'송이',16,10,160,1400,0);
 
 -- 2025 and 2026 deliberately share short week 40-01; only the selected year may change.
 INSERT dbo.OrderMaster(OrderMasterKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,Manager,OrderDtm,CreateID)
