@@ -16,8 +16,8 @@ async function main() {
     { OrderWeek: '37-1', ProdKey: 999, ArrivalUnit: '단', SelectedArrivalCostKRW: 9999, SteamOf1Bunch: 10 },
   ];
   const refs = buildRaumPnlArrivalReferences(items, rows, 37);
-  assert.deepEqual(refs[10].map(row => [row.week, row.cost, row.unit]), [['37-1', 1000, '단'], ['37-2', 1250, '단']]);
-  assert.deepEqual(refs[11].map(row => [row.week, row.cost, row.unit]), [['37-1', 100, '송이'], ['37-2', 125, '송이']]);
+  assert.deepEqual(refs[10].map(row => [row.week, row.cost, row.unit]), [['37-1', 1000, '단'], ['37-2', 1200, '단'], ['37-2', 1250, '단']]);
+  assert.deepEqual(refs[11].map(row => [row.week, row.cost, row.unit]), [['37-1', 100, '송이'], ['37-2', 120, '송이'], ['37-2', 125, '송이']]);
   assert.equal(refs[12], undefined, 'unmatched P&L item never receives another product cost');
 
   const fallbackRows = [
@@ -34,7 +34,7 @@ async function main() {
   assert.ok(fallbackRefs[10].every(row => row.requestedMajor === 37));
 
   const exactWins = buildRaumPnlArrivalReferences(items, [...fallbackRows, ...rows], 37);
-  assert.deepEqual(exactWins[10].map(row => row.week), ['37-1', '37-2'], 'requested major always wins over prior data');
+  assert.deepEqual(exactWins[10].map(row => row.week), ['37-1', '37-2', '37-2'], 'requested major always wins over prior data');
   assert.ok(exactWins[10].every(row => row.isFallback === false));
   // Regression: 은화호텔 2026 39차 왁스 화이트 has a valid Product mapping;
   // its same-year 40-1 arrival belongs to the established hotel reference window.
@@ -61,7 +61,38 @@ async function main() {
   const nextAndPrior = buildRaumPnlArrivalReferences(waxItem, [waxRow, { ...waxRow, OrderWeek: '38-2' }], 39, '2026')[7738];
   assert.deepEqual(nextAndPrior.map(ref => ref.week), ['40-1'], 'prior fallback is used only when the current hotel window has no reference');
   const paddedNext = buildRaumPnlArrivalReferences(waxItem, [waxRow, { ...waxRow, OrderWeek: '040-01', SelectedArrivalCostKRW: 9796.8234 }], 39, '2026')[7738];
-  assert.deepEqual(paddedNext.map(ref => [ref.week, ref.cost]), [['40-1', 9796.8234]], 'padded next-first rows share the existing maximum-per-week policy');
+  assert.deepEqual(paddedNext.map(ref => [ref.week, ref.cost]), [['40-1', 8641.4405], ['40-1', 9796.8234]], 'different source prices survive even when their padded week is equivalent');
+  const farmRows = [
+    { ...waxRow, ArrivalLineKey: 42946, FarmNameRaw: 'MELODY', SourceFileName: 'china.xlsx', SheetName: '해상', SourceRow: 42, SelectedArrivalCostKRW: 11450.6709 },
+    { ...waxRow, ArrivalLineKey: 43046, FarmNameRaw: 'MELODY', SourceFileName: 'china.xlsx', SheetName: '해상 (2)', SourceRow: 42, SelectedArrivalCostKRW: 10886.0779 },
+    { ...waxRow, ArrivalLineKey: 43146, FarmNameRaw: 'MELODY', SourceFileName: 'china.xlsx', SheetName: '40-1 해상', SourceRow: 46, SelectedArrivalCostKRW: 9993.8277 },
+    { ...waxRow, ArrivalLineKey: 43246, FarmNameRaw: 'MELODY', SourceFileName: 'china.xlsx', SheetName: '40-1 해상 (95% 기준)', SourceRow: 46, SelectedArrivalCostKRW: 9796.8234 },
+    { ...waxRow, ArrivalLineKey: 43346, FarmNameRaw: '', SourceFileName: 'china.xlsx', SheetName: '40-1 해상 (95% 기준) (2)', SourceRow: 61, SelectedArrivalCostKRW: 8641.4405 },
+  ];
+  const farmSnapshot = JSON.stringify(farmRows);
+  const farmRefs = buildRaumPnlArrivalReferences(waxItem, farmRows, 39, '2026')[7738];
+  assert.equal(farmRefs.length, 5, 'all four MELODY source sheets and unknown-farm row remain visible');
+  assert.deepEqual(farmRefs.map(ref => ref.rawCost).sort((a,b)=>a-b), [8641.4405,9796.8234,9993.8277,10886.0779,11450.6709]);
+  assert.equal(new Set(farmRefs.map(ref => ref.referenceKey)).size, 5, 'same-week references have stable distinct React keys');
+  assert(farmRefs.every(ref => ref.referenceKey === `arrival:${ref.arrivalLineKey}`));
+  assert.equal(JSON.stringify(farmRows), farmSnapshot, 'source data is read-only');
+  assert.deepEqual(buildRaumPnlArrivalReferences(waxItem, [...farmRows].reverse(), 39, '2026')[7738], farmRefs, 'output order is stable across DB row order');
+  const duplicatedSource = buildRaumPnlArrivalReferences(waxItem, [...farmRows, { ...farmRows[0], ArrivalLineKey: 99999, OrderWeek: '040-01' }], 39, '2026')[7738];
+  assert.equal(duplicatedSource.length, 5, 'exact duplicate source with padded week counts once');
+  assert(duplicatedSource.some(ref=>ref.referenceKey==='arrival:42946'), 'duplicate chooses stable lower DB key');
+  const unknownSources = buildRaumPnlArrivalReferences(waxItem, [
+    { ...farmRows[4], ArrivalLineKey: 43347, SourceRow: 62 }, farmRows[4],
+    { ...waxRow, ArrivalLineKey: 50000, FarmNameRaw: '' },
+    { ...waxRow, ArrivalLineKey: 50001, FarmNameRaw: '' },
+  ], 39, '2026')[7738];
+  assert.equal(unknownSources.length, 4, 'unknown farms retain separate source locations and unlocated DB lines');
+  const differentFarm = buildRaumPnlArrivalReferences(waxItem, [farmRows[0], { ...farmRows[0], ArrivalLineKey: 88888, FarmNameRaw: 'OTHER' }],39,'2026')[7738];
+  assert.equal(differentFarm.length, 2, 'identical cost and source labels never collapse different farms');
+  const fallbackFarm = buildRaumPnlArrivalReferences(waxItem, farmRows.map(row=>({...row,OrderWeek:'38-1'})),39,'2026')[7738];
+  assert.equal(fallbackFarm.length, 5, 'latest-prior references also preserve all farm/source prices');
+  assert(fallbackFarm.every(ref=>ref.isFallback));
+  const noDbKey = buildRaumPnlArrivalReferences(waxItem,[{...farmRows[0],ArrivalLineKey:null}],39,'2026')[7738][0];
+  assert(noDbKey.referenceKey.startsWith('source:'), 'fixtures/import previews without DB key have deterministic composite key');
   const yearBoundary = buildRaumPnlArrivalReferences(waxItem, [
     { ...waxRow, OrderYear: '2027', OrderWeek: '01-1' },
     { ...waxRow, OrderWeek: '52-2' },
@@ -115,7 +146,8 @@ async function main() {
     captured = { sqlText, params };
     return { recordset: rows };
   });
-  assert.deepEqual(loaded[10].map(row => row.week), ['37-1', '37-2']);
+  assert.deepEqual(loaded[10].map(row => row.week), ['37-1', '37-2', '37-2']);
+  assert.match(captured.sqlText, /l\.ArrivalLineKey/);
   assert.match(captured.sqlText, /l\.OrderYear=@yr/);
   assert.match(captured.sqlText, /TRY_CONVERT\(INT, LEFT\(l\.OrderWeek[\s\S]*<=@major/);
   assert.match(captured.sqlText, /=@major\+1[\s\S]*TRY_CONVERT\(INT,SUBSTRING\(l\.OrderWeek,CHARINDEX\(N'-',l\.OrderWeek\)\+1,20\)\)=1/);

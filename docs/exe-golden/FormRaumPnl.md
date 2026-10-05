@@ -134,3 +134,12 @@ FormWarehouseView dnSpy CLI GetData/GetDetail 재실행. WebArrivalCost SELECT�
 - 같은 상품이라도 다른 단위·수기행은 구분한다. 다른 호텔 간 비교는 같은 양수 ProdKey+단위+수기여부가 모두 맞는 경우만 가능하며 품목 미연결 행의 이름 fallback은 현재 호텔 내부로 제한한다. 저장값의 환산·합산·평균·자동복사는 없다.
 - 이 조회는 EXE 저장 경로를 추가하지 않는다. 위 FormWarehouseView 읽기 근거와 공유 Product 식별자를 사용하며 주문/분배/재고/견적/매출 원장을 모두 보존한다. 기존 현재호텔 비교 API와 가격 편집 동작도 보존한다.
 - `__tests__/pnlHotelCostHistory.test.js`에서 GET-only/auth/year/active registry/0·NULL/서로 다른 저장값 유지/단위·품목키·수기여부 전달/쓰기 SQL 부재를 검증한다.
+
+
+### 2026-10-05 농장·원본별 도착원가 전체 표시
+
+- 최신 사용자 지시: 실제 공급 농장을 추적할 수 없으므로 해당/과거 참조 차수의 농장별 원가를 모두 보여 준다. 앞선 최고 원가 한 건 선택 정책을 폐기한다. 당차수+정확한 다음1차, 양쪽 없을 때만 이전 최신 대차수를 사용하는 조회 범위는 유지한다.
+- 코드 변경 전 dnSpy CLI `FormWarehouseView`를 다시 실행하여 성공을 확인했다. `wm.OrderYear`, `wm.OrderWeek`, `wm.FarmName`, `GetDetail`의 `WarehouseDetail.UPrice/TPrice`를 확인했다. 이 정보로 실제 호텔 공급농장을 추정하거나 ERP 원장을 변경하지 않는다.
+- 변경 전 운영 SELECT는 `WebArrivalCostLine WHERE OrderYear='2026' AND ProdKey=2330 AND IsCurrent=1 AND SelectedArrivalCostKRW>0`이며 결과는 40-1차 5행이다. 같은 파일의 MELODY 네 원본 행: 42946/해상42행/11450.6709, 43046/해상(2)42행/10886.0779, 43146/40-1해상46행/9993.8277, 43246/40-1해상(95%기준)46행/9796.8234. 농장 미기재 43346/40-1해상(95%기준)(2)61행/8641.4405도 별도로 보존한다. 단위는 모두 단이다.
+- 동일 연도·품목·숫자 차수·농장·원본 파일/시트/행·원본단위·원가·환산/환율 사실이 같을 때만 중복을 제거한다. 출처가 없는 DB행은 ArrivalLineKey로 구분한다. `referenceKey=arrival:<ArrivalLineKey>` 또는 source composite를 반환한다. 같은 농장의 서로 다른 시트·단가와 농장 미기재의 다른 출처는 합치지 않는다.
+- 원본원가/저장 CostPrice/Order/Shipment/Warehouse/Stock/Estimate/WebProfitReport는 모두 보존한다. 실행 근거: `__tests__/raumPnlArrivalReference.test.js`, UI 렌더 검사 `__tests__/hotelArrivalFarmRender.test.js`, `docs/work-reports/2026-10-05_hotel-arrival-all-farms.md`.
