@@ -5603,11 +5603,19 @@ export default function PasteOrderPage() {
               {bulkCompletionNotice.success && bulkCompletionNotice.details?.length > 0 && (
                 <div style={{ marginTop: 10, maxHeight: 420, overflow: 'auto', border: '1px solid #c8e6c9', borderRadius: 7 }}>
                   {bulkCompletionNotice.details.map((row, index) => (
-                    <div key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 6, alignItems: 'center', padding: '4px 8px', borderTop: index ? '1px solid #e0e0e0' : 0, fontSize: 11, lineHeight: 1.25 }}>
-                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{row.sourceLine || row.inputName || row.displayName || row.prodName}</span>
-                      <b style={{ color: '#2e7d32', whiteSpace: 'nowrap' }}>기존처리완료</b>
+                    <div key={`${row.entryId || row.orderId}-${row.prodKey}-${index}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 6, alignItems: 'center', padding: '6px 8px', borderTop: index ? '1px solid #c8e6c9' : 0, background: '#f1f8e9', fontSize: 11, lineHeight: 1.3 }}>
+                      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                        <b>{row.custName || row.order?.custMatch?.CustName || '업체 확인'} · {row.prodName || row.displayName || row.inputName}</b>
+                        <small style={{ display: 'block', color: '#607d8b' }}>{row.sourceLine || row.inputName || row.displayName || row.prodName}</small>
+                      </span>
+                      <b style={{ color: '#1b5e20', whiteSpace: 'nowrap', textAlign: 'right' }}>{formatCompletionQuantityChange(row)}</b>
                     </div>
                   ))}
+                </div>
+              )}
+              {bulkCompletionNotice.success && (
+                <div style={{ marginTop: 12 }}>
+                  <StockImpactSummary draft={stockDraft} selectedWeek={week} processed />
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
@@ -5628,6 +5636,25 @@ export default function PasteOrderPage() {
       />
     </Layout>
   );
+}
+
+function formatCompletionQuantity(value) {
+  return Number.isFinite(Number(value))
+    ? Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 3 })
+    : null;
+}
+
+function formatCompletionQuantityChange(row) {
+  const unit = row?.unit || '';
+  const applied = formatCompletionQuantity(row?.qty) ?? '?';
+  const orderBefore = formatCompletionQuantity(row?.orderQtyBefore);
+  const orderAfter = formatCompletionQuantity(row?.orderQtyAfter);
+  const outBefore = formatCompletionQuantity(row?.outQtyBefore);
+  const outAfter = formatCompletionQuantity(row?.outQtyAfter);
+  const parts = [`${applied}${unit} 적용`];
+  if (orderBefore !== null && orderAfter !== null && orderBefore !== orderAfter) parts.push(`주문 ${orderBefore}→${orderAfter}${unit}`);
+  if (outBefore !== null && outAfter !== null) parts.push(`분배 ${outBefore}→${outAfter}${unit}`);
+  return parts.join(' · ');
 }
 
 function StockImpactSummary({ draft, selectedWeek, processed = false }) {
