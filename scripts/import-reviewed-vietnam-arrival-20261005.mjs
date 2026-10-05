@@ -17,15 +17,22 @@ try {
   if(crypto.createHash('sha256').update(bytes).digest('hex')!==source.sha)throw Error('Reviewed source hash mismatch');
   const products=(await query('SELECT ProdKey,ProdName,DisplayName,FlowerName,CounName,OutUnit,BunchOf1Box,SteamOf1Box,BoxWeight,BoxCBM FROM Product WHERE isDeleted=0')).recordset;
   const farms=(await query('SELECT FarmKey,FarmName,CounKey FROM Farm WHERE isDeleted=0')).recordset;
-  const parsed=scopeArrivalDriveRows(parseArrivalCostWorkbook(bytes,{fileName:source.filename,orderYear:'2026',products,farms,mappings:{}}),source);
-  const current=(await query(`SELECT COUNT(*) AS n FROM WebArrivalCostLine WHERE OrderYear=N'2026' AND OrderWeek IN(N'38-1',N'38-01',N'038-01') AND CountryName IN(N'베트남',N'') AND IsCurrent=1`)).recordset[0].n;
+  const workbook=parseArrivalCostWorkbook(bytes,{fileName:source.filename,orderYear:'2026',products,farms,mappings:{}});
+  const parsed=scopeArrivalDriveRows(workbook,source);
+  const current=(await query(`SELECT COUNT(*) AS n FROM WebArrivalCostLine WHERE OrderYear=N'2026' AND CountryName IN(N'베트남',N'') AND IsCurrent=1`)).recordset[0].n;
   if(current)throw Error('Existing current scope: preserve and review instead of replacing');
   if(parsed.rows.length!==1||parsed.rows[0].prodKey!==3074||parsed.rows[0].sourceRow!==19||Math.abs(parsed.rows[0].sourceArrivalCostKRW-10191.9375)>0.0001)throw Error('Reviewed row identity changed');
+  if(workbook.rows.length!==28)throw Error('Reviewed workbook row count changed');
+  const plans=[...new Set(workbook.rows.map(r=>r.orderWeek))].map(week=>({source:{...source,week},parsed:scopeArrivalDriveRows(workbook,{...source,week})}));
+  if(plans.some(p=>Number(p.source.week.split('-')[0])>38))throw Error('Unexpected future scope');
   const hotelSQL=`SELECT m.PnlKey,m.OrderYear,m.MajorWeek,m.PartnerCode,i.ItemKey,i.ProdKey,i.CostPrice,i.Qty,i.SaleAmount FROM WebRaumPnl m JOIN WebRaumPnlItem i ON i.PnlKey=m.PnlKey WHERE m.isDeleted=0 ORDER BY m.PnlKey,i.ItemKey`;
   const before=JSON.stringify((await query(hotelSQL)).recordset);
-  console.log(JSON.stringify({mode:process.argv.includes('--apply')?'apply':'review',source,rows:parsed.rows.map(({prodKey,sourceRow,sourceArrivalCostKRW,yearEvidence})=>({prodKey,sourceRow,sourceArrivalCostKRW,yearEvidence})),current}));
+  console.log(JSON.stringify({mode:process.argv.includes('--apply')?'apply':'review',source,rowCount:workbook.rows.length,unmatched:workbook.rows.filter(r=>!r.prodKey).length,plans:plans.map(p=>({week:p.source.week,rows:p.parsed.rows.length})),current}));
   if(process.argv.includes('--apply')){
-    const result=await createArrivalCostImport({parsed,fileName:source.filename,user:{userId:'nenovaSS3',userName:'검토된 베트남 원가 등록'},orderYear:'2026',driveSource:source});
+    const result=[];
+    // Each reviewed sheet scope reuses the transaction's year/week/manual-current guard.
+    // A failure stops subsequent scopes; completed scopes retain their import/hash audit.
+    for(const plan of plans) result.push(await createArrivalCostImport({parsed:plan.parsed,fileName:source.filename,user:{userId:'nenovaSS3',userName:'검토된 베트남 과거 원가 등록'},orderYear:'2026',driveSource:plan.source}));
     if(before!==JSON.stringify((await query(hotelSQL)).recordset))throw Error('Hotel snapshot changed; inspect concurrent activity');
     console.log(JSON.stringify({result,hotelPreserved:true}));
   }
