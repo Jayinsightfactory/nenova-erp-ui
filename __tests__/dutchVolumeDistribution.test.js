@@ -14,7 +14,7 @@ const { normalizeUploadQtyForProduct } = await import('../lib/shipmentImportQty.
 const { buildImportPreview, matchDutchProductByColor } = await import('../lib/shipmentImport.js');
 const { dutchPreviewComparisonKey, previewDutchVolume } = await import('../pages/api/shipment/dutch-volume-preview.js');
 const { applyDutchVolume } = await import('../pages/api/shipment/dutch-volume-apply.js');
-const { getApplyProgress, initApplyProgress } = await import('../lib/importApplyProgress.js');
+const { finishApplyProgress, getApplyProgress, initApplyProgress, progressStep } = await import('../lib/importApplyProgress.js');
 
 const user = { userId: 'dutch-test-user', userName: '테스트' };
 const input = (entries = [{ id: 'cell-1', product: '청화', color: 'Blue', customer: '주광', quantity: 12, unit: '', custKey: 533, prodKey: 2231 }]) => ({
@@ -258,6 +258,16 @@ assert.equal(actorArgs[0].rows.length, preview.rows.length, 'all category scope 
 assert.equal(getApplyProgress('dutch-test-job-001', user.userId)?.finished, true);
 assert.equal(getApplyProgress('dutch-test-job-001', 'other-user'), null);
 assert.equal(initApplyProgress('dutch-test-job-001', 1), false, 'legacy progress may not overwrite owned Dutch job');
+const fullLogJob = 'dutch-full-log-test-5000';
+assert.equal(initApplyProgress(fullLogJob, 5000, user.userId), true);
+for (let index = 1; index <= 5000; index += 1) progressStep(fullLogJob, { done: index, log: `[${index}/5000] 업체 ${index} / 품목 ${index}: 적용` });
+finishApplyProgress(fullLogJob, { log: '적용 및 DB 검증 완료' });
+const fullLog = getApplyProgress(fullLogJob, user.userId)?.logs;
+assert.equal(fullLog.length, 5001, '최대 5,000행의 각 진행 로그와 완료 로그를 모두 보존해야 합니다.');
+assert.match(fullLog[0], /^\[1\/5000\]/);
+assert.match(fullLog[4999], /^\[5000\/5000\]/);
+assert.equal(fullLog[5000], '적용 및 DB 검증 완료');
+assert.equal(getApplyProgress(fullLogJob, 'other-user'), null, '진행 로그는 다른 사용자가 조회할 수 없습니다.');
 await assert.rejects(() => applyDutchVolume({ planToken: preview.planToken, jobId: 'dutch-test-job-002' }, user, { applyImportRows: async () => ({ success: true }) }), /이미 적용/);
 const warningPreview = await previewDutchVolume(input(), user, deps);
 await assert.rejects(() => applyDutchVolume({ planToken: warningPreview.planToken, jobId: 'dutch-warning-job-001' }, user, {

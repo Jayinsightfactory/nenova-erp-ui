@@ -5,23 +5,25 @@ import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_
 const workbook = { SheetNames: ['원본'], Sheets: { 원본: { A1: { v: '품목' } } } };
 const entries = [{ id: '원본!A2', product: '장미', customer: '업체', quantity: 0, unit: '송이', custKey: 533, prodKey: 2231 }];
 const prices = { 'uniform:prod:2231': 0, '원본!A2': '' };
+const bulkPriceConfig = { version: 1, enabled: true, excludedCustomers: ['name:주광농원|cl2'] };
 
 const payload = buildDutchWorkPayload({
   name: '2026년 40-01 작업', sourceMode: 'LIVE', fileName: '40-01.xlsx', year: 2026, week: '40-01',
-  workbook, entries, prices, sourceIdentity: 'live:2026:40-01',
+  workbook, entries, prices, bulkPriceConfig, sourceIdentity: 'live:2026:40-01',
   planToken: 'must-not-save', ackQtyWarnings: true, results: [{ success: true }],
 });
 assert.equal(payload.orderYear, 2026);
 assert.equal(payload.orderWeek, '40-01');
 assert.deepEqual(payload.entries, entries, 'zero quantity and manual keys remain intact');
 assert.deepEqual(payload.prices, prices, 'zero and blank prices remain distinguishable');
+assert.deepEqual(payload.bulkPriceConfig, bulkPriceConfig, '일괄 단가 업체 선택을 저장본에 보존한다.');
 for (const forbidden of ['planToken', 'ackQtyWarnings', 'results', 'jobId', 'preview', 'applyResult']) {
   assert.equal(Object.hasOwn(payload, forbidden), false, `${forbidden} is never persisted in a work archive`);
 }
 
 const restored = restoreDutchWorkSnapshot({
   id: '0f43b19d-3a34-4f02-8f67-8d5d6ea4a540', name: payload.name, sourceMode: 'LIVE', fileName: payload.fileName,
-  orderYear: 2025, orderWeek: '40-01', workbook, entries, prices,
+  orderYear: 2025, orderWeek: '40-01', workbook, entries, prices, bulkPriceConfig,
   planToken: 'stale', preview: { success: true }, results: [{ success: true }],
 });
 assert.equal(restored.year, 2025, 'saved year wins over current UI year');
@@ -30,6 +32,7 @@ assert.equal(restored.baseIdentity, 'saved:0f43b19d-3a34-4f02-8f67-8d5d6ea4a540'
 assert.match(restored.identity, /^saved:0f43b19d-3a34-4f02-8f67-8d5d6ea4a540:/);
 assert.equal(restored.prices['uniform:prod:2231'], 0);
 assert.equal(restored.prices['원본!A2'], '');
+assert.deepEqual(restored.bulkPriceConfig, bulkPriceConfig, '저장본 복원은 당시 일괄 업체 설정을 되살린다.');
 assert.equal(restored.planToken, undefined, 'restore result cannot revive a stale plan token');
 assert.throws(() => restoreDutchWorkSnapshot({ ...payload, id: '' }), /저장본/);
 assert.throws(() => restoreDutchWorkSnapshot({ ...payload, id: 'x', orderWeek: '40' }), /연도·차수/);
@@ -102,7 +105,8 @@ const restoreValues = {
   workBusyRef: { current: false }, applyingRef: { current: false }, loading: false, window: { confirm: () => true }, setWorkBusy: setter('busy'), setWorkError: setter('error'), setWorkNotice: setter('notice'),
   loadRequestRef: { current: 0 }, invalidate: () => { restoreState.invalidated += 1; }, fetch: async (...args) => { restoreState.fetches.push(args); return { ok: true, json: async () => ({ success: true, snapshot: restoredSnapshot }) }; },
   restoreDutchWorkSnapshot, sourceModeRef: {}, sourceRef: {}, sourceBaseRef: {}, yearRef: {}, weekRef: {}, setYear: setter('year'), setWeek: setter('week'), setSourceMode: setter('sourceMode'), setStorageKey: setter('storageKey'),
-  setWorkbook: setter('workbook'), setEntries: setter('entries'), setPrices: setter('prices'), setDayEdits: setter('dayEdits'), setFileName: setter('fileName'), setWorkName: setter('workName'), setMatchCache: setter('matchCache'), setProductOptions: setter('products'), setCustomerOptions: setter('customers'), setApplyResult: setter('applyResult'), setActiveJobId: setter('jobId'), setLegacyCurrency: setter('currency'), setDraftReset: setter('draftReset'), setRematchNotice: setter('rematch'), setQuery: setter('query'), setActiveTab: setter('tab'), setActiveEntryId: setter('entry'), setError: setter('pageError'),
+  setWorkbook: setter('workbook'), setEntries: setter('entries'), setPrices: setter('prices'), setBulkPriceConfig: setter('bulkPriceConfig'), setBulkPriceSettingsDraft: setter('bulkPriceSettingsDraft'), setBulkPriceSettingsOpen: setter('bulkPriceSettingsOpen'), setDayEdits: setter('dayEdits'), setFileName: setter('fileName'), setWorkName: setter('workName'), setMatchCache: setter('matchCache'), setProductOptions: setter('products'), setCustomerOptions: setter('customers'), setApplyResult: setter('applyResult'), setActiveJobId: setter('jobId'), setLegacyCurrency: setter('currency'), setDraftReset: setter('draftReset'), setRematchNotice: setter('rematch'), setQuery: setter('query'), setActiveTab: setter('tab'), setActiveEntryId: setter('entry'), setError: setter('pageError'),
+  normalizeDutchBulkPriceConfig: config => config || { version: 1, enabled: true, excludedCustomers: [] },
 };
 const restoreNames = Object.keys(restoreValues);
 const restoreFn = new Function(...restoreNames, `${restoreFunctionSource}\nreturn restoreWork;`)(...restoreNames.map(name => restoreValues[name]));
@@ -111,6 +115,6 @@ assert.equal(restoreState.invalidated, 1);
 assert.equal(restoreState.fetches.length, 1);
 assert.deepEqual(restoreState.setters.find(([name]) => name === 'year'), ['year', 2025]);
 assert.deepEqual(restoreState.setters.find(([name]) => name === 'week'), ['week', '39-02']);
-for (const name of ['dayEdits', 'matchCache', 'products', 'customers', 'applyResult', 'jobId', 'currency', 'draftReset', 'rematch', 'query', 'tab', 'entry']) assert(restoreState.setters.some(([key]) => key === name), `restore clears ${name}`);
+for (const name of ['dayEdits', 'bulkPriceConfig', 'bulkPriceSettingsDraft', 'bulkPriceSettingsOpen', 'matchCache', 'products', 'customers', 'applyResult', 'jobId', 'currency', 'draftReset', 'rematch', 'query', 'tab', 'entry']) assert(restoreState.setters.some(([key]) => key === name), `restore clears/restores ${name}`);
 
 console.log('dutch volume work client tests passed');

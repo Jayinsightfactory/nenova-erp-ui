@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSXStyled from 'xlsx-js-style';
 import { apiGet } from '../../lib/useApi';
 import { applyDutchWeekdayEdits, attachDutchLiveCustomerKeys } from '../../lib/dutchVolumePrice';
-import { addDutchPriceColumns, buildDutchEntriesFromPivotData, dutchPriceKey, dutchUniformPricePeerKeys, isDutchIndividualPriceCustomer, migrateDutchPriceDraft, parseDutchPivotWorkbook, restoreDutchPriceDraft } from '../../lib/dutchVolumePrice';
+import { addDutchPriceColumns, buildDutchEntriesFromPivotData, createDutchBulkPriceConfig, dutchCustomerIdentity, dutchCustomerLabel, dutchPriceKey, dutchUniformPricePeerKeys, isDutchBulkPriceCustomer, migrateDutchBulkPriceConfig, migrateDutchPriceDraft, normalizeDutchBulkPriceConfig, parseDutchPivotWorkbook, restoreDutchPriceDraft } from '../../lib/dutchVolumePrice';
 import { addDutchPriceShapesToXlsx } from '../../lib/dutchPriceShapes';
 import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../../lib/dutchVolumeDraft';
 import ErpMatchPicker from '../../components/dutch/ErpMatchPicker';
@@ -12,12 +12,13 @@ import DutchWorkHistory from '../../components/dutch/DutchWorkHistory';
 import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_BYTES } from '../../lib/dutchVolumeWorkClient';
 
 const customerName = value => String(value || '').split('\n')[0].trim();
+const BULK_PRICE_CONFIG_KEY = 'nenova.dutch-volume-bulk-price.v1';
 const fmt = value => Number(value || 0).toLocaleString('ko-KR', { maximumFractionDigits: 4 });
 const currentYear = new Date().getFullYear();
 const requestHeaders = { 'Content-Type': 'application/json' };
 const num = value => Number(value ?? 0);
 
-function withEditedWorkbook(workbook, entries, prices) {
+function withEditedWorkbook(workbook, entries, prices, bulkPriceConfig) {
   const copy = { ...workbook, SheetNames: [...workbook.SheetNames], Sheets: { ...workbook.Sheets } };
   const touched = new Set();
   for (const entry of entries) {
@@ -34,7 +35,7 @@ function withEditedWorkbook(workbook, entries, prices) {
     copy.Sheets[sheetName] = XLSXStyled.utils.aoa_to_sheet([
       ['ERP 적용 초안 — 원본 Pivot 셀 및 도형은 별도 보존'],
       ['업체', '업체키', '품목', '품목키', '수량', '단위', 'KRW 입력값(빈칸=기존값 보존)', '원본 위치'],
-      ...entries.map(entry => [entry.customer, entry.custKey || entry.sourceCustKey || '', entry.product, entry.prodKey || '', Number(entry.quantity), entry.unit || 'ERP 출고단위', prices[dutchPriceKey(entry)] ?? '', entry.added ? '수동 추가행' : `${entry.sheetName}!${entry.cellAddress}`]),
+      ...entries.map(entry => [entry.customer, entry.custKey || entry.sourceCustKey || '', entry.product, entry.prodKey || '', Number(entry.quantity), entry.unit || 'ERP 출고단위', prices[dutchPriceKey(entry, bulkPriceConfig)] ?? '', entry.added ? '수동 추가행' : `${entry.sheetName}!${entry.cellAddress}`]),
     ]);
   }
   return copy;
@@ -46,6 +47,10 @@ export default function DutchVolumeBoard() {
   const [workbook, setWorkbook] = useState(null);
   const [entries, setEntries] = useState([]);
   const [prices, setPrices] = useState({});
+  const [bulkPriceConfig, setBulkPriceConfig] = useState(() => createDutchBulkPriceConfig());
+  const [bulkPriceSettingsOpen, setBulkPriceSettingsOpen] = useState(false);
+  const [bulkPriceSettingsDraft, setBulkPriceSettingsDraft] = useState(null);
+  const [bulkCustomerQuery, setBulkCustomerQuery] = useState('');
   const [dayEdits, setDayEdits] = useState({});
   const [legacyCurrency, setLegacyCurrency] = useState('');
   const [query, setQuery] = useState('');
@@ -93,13 +98,19 @@ export default function DutchVolumeBoard() {
   const priceInputRefs = useRef({});
   const previewCurrent = !loading && isDutchPreviewCurrent(preview, revisionRef.current, year, week, storageKey);
   const validationCurrent = !loading && isDutchValidationCurrent(preview, revisionRef.current, year, week, storageKey);
+  const matchStatusUsable = validationCurrent || Boolean(applyResult?.failed);
   const previewRows = preview?.rows || [];
   const missingRows = previewRows.filter(row => row.missingFromExcel);
   const blockedRows = previewRows.filter(row => row.fixBlocked);
   const warningRows = previewRows.filter(row => row.hasQtyWarning);
   const changedRows = previewRows.filter(row => num(row.shipmentDiffQty) !== 0 || row.priceChanged || num(row.orderAfterQty) !== num(row.orderBeforeQty));
   const visibleEntries = useMemo(() => { const token = query.trim().toLowerCase(); return token ? entries.filter(row => `${row.customer} ${row.product} ${row.color}`.toLowerCase().includes(token)) : entries; }, [entries, query]);
-  const enteredPriceCount = entries.filter(row => prices[dutchPriceKey(row)] !== '' && prices[dutchPriceKey(row)] !== undefined).length;
+  const bulkCustomers = useMemo(() => {
+    const seen = new Map();
+    for (const entry of entries) { const id = dutchCustomerIdentity(entry); if (!seen.has(id)) seen.set(id, { id, label: dutchCustomerLabel(entry), defaultExcluded: String(entry.sourceCustomer || entry.customer || '').split('\n')[0].includes('주광') }); }
+    return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+  }, [entries]);
+  const enteredPriceCount = entries.filter(row => prices[dutchPriceKey(row, bulkPriceConfig)] !== '' && prices[dutchPriceKey(row, bulkPriceConfig)] !== undefined).length;
 
   useEffect(() => {
     if (activeTab !== 'edit' || !activeEntryId) return undefined;
@@ -110,7 +121,7 @@ export default function DutchVolumeBoard() {
     return () => cancelAnimationFrame(frame);
   }, [activeTab, activeEntryId]);
 
-  useEffect(() => { if (storageKey && entries.length) writeDutchDraft(localStorage, storageKey, entries, prices, dayEdits); }, [storageKey, entries, prices, dayEdits]);
+  useEffect(() => { if (storageKey && entries.length) writeDutchDraft(localStorage, storageKey, entries, prices, dayEdits, bulkPriceConfig); }, [storageKey, entries, prices, dayEdits, bulkPriceConfig]);
   useEffect(() => {
     let active = true;
     async function loadRecordedWeeks() {
@@ -141,13 +152,13 @@ export default function DutchVolumeBoard() {
     setPreviewLoading(false);
   }
 
-  async function runPreview(nextEntries = entries, nextPrices = prices, selectedYear = year, selectedWeek = week, identity = storageKey, name = fileName) {
+  async function runPreview(nextEntries = entries, nextPrices = prices, selectedYear = year, selectedWeek = week, identity = storageKey, name = fileName, selectedBulkPriceConfig = bulkPriceConfig) {
     if (!nextEntries.length || !identity || applyingRef.current) return;
     const revision = revisionRef.current;
     const request = ++previewRequestRef.current;
     setPreviewLoading(true); setError(''); setPreview(null); setAckReplacement(false); setAckQtyWarnings(false);
     try {
-      const prepared = buildDutchPreviewEntries(nextEntries, nextPrices, dutchPriceKey);
+      const prepared = buildDutchPreviewEntries(nextEntries, nextPrices, entry => dutchPriceKey(entry, selectedBulkPriceConfig));
       const response = await fetch('/api/shipment/dutch-volume-preview', { method: 'POST', headers: requestHeaders, credentials: 'same-origin', body: JSON.stringify({ year: selectedYear, week: selectedWeek, entries: prepared, sourceFileName: name }) });
       const data = await response.json();
       if (request !== previewRequestRef.current || revision !== revisionRef.current || identity !== sourceRef.current || selectedYear !== yearRef.current || selectedWeek !== weekRef.current) return;
@@ -167,16 +178,22 @@ export default function DutchVolumeBoard() {
   async function acceptSource(nextWorkbook, name, baseIdentity, nextEntries, mode) {
     const identity = dutchSourceIdentity(baseIdentity, nextEntries, yearRef.current, weekRef.current);
     const saved = readDutchDraft(localStorage, identity, nextEntries, migrateDutchPriceDraft);
+    let globalBulkPriceConfig = null;
+    try { globalBulkPriceConfig = JSON.parse(localStorage.getItem(BULK_PRICE_CONFIG_KEY) || 'null'); } catch { globalBulkPriceConfig = null; }
+    const previousBulkPriceConfig = saved.bulkPriceConfig || undefined;
+    const nextBulkPriceConfig = normalizeDutchBulkPriceConfig(globalBulkPriceConfig || saved.bulkPriceConfig, nextEntries);
+    const migratedPrices = migrateDutchBulkPriceConfig(saved.entries, saved.prices, previousBulkPriceConfig, nextBulkPriceConfig).prices;
     const restoredWorkbook = applyDutchWeekdayEdits(XLSXStyled, nextWorkbook, saved.dayEdits);
     invalidate(); sourceRef.current = identity; sourceBaseRef.current = baseIdentity; sourceModeRef.current = mode; setSourceMode(mode);
     setMatchCache({}); setCustomerOptions([]); setProductOptions([]);
     setWorkbook(restoredWorkbook); setFileName(name); setStorageKey(identity); setDayEdits(saved.dayEdits || {});
-    setEntries(saved.entries); setPrices(saved.prices); setLegacyCurrency(saved.legacyCurrency);
+    setEntries(saved.entries); setPrices(migratedPrices); setLegacyCurrency(saved.legacyCurrency);
+    setBulkPriceConfig(nextBulkPriceConfig); setBulkPriceSettingsDraft(null); setBulkPriceSettingsOpen(false);
     setDraftReset(!!saved.draftReset); setRematchNotice(''); setActiveTab('sheet'); setActiveEntryId('');
     setWorkName(''); setWorkNotice(''); setWorkError('');
     setApplyResult(null);
     // Initial matching is a read-only preview. Apply is always a separate, explicit action.
-    await runPreview(saved.entries, saved.prices, yearRef.current, weekRef.current, identity, name);
+    await runPreview(saved.entries, migratedPrices, yearRef.current, weekRef.current, identity, name, nextBulkPriceConfig);
   }
 
   async function loadLive(selectedYear = year, selectedWeek = week) {
@@ -212,7 +229,7 @@ export default function DutchVolumeBoard() {
     if (!['LIVE', 'SAVED'].includes(sourceModeRef.current)) return;
     sourceRef.current = ''; sourceBaseRef.current = ''; sourceModeRef.current = '';
     setSourceMode(''); setStorageKey(''); setWorkbook(null); setFileName('');
-    setEntries([]); setPrices({}); setDayEdits({}); setMatchCache({}); setApplyResult(null);
+    setEntries([]); setPrices({}); setDayEdits({}); setBulkPriceConfig(createDutchBulkPriceConfig()); setBulkPriceSettingsDraft(null); setBulkPriceSettingsOpen(false); setMatchCache({}); setApplyResult(null);
   }
   function reloadUploadedScope() {
     if (sourceModeRef.current !== 'UPLOAD' || !workbook || !sourceBaseRef.current) return;
@@ -238,10 +255,10 @@ export default function DutchVolumeBoard() {
     finally { if (request === loadRequestRef.current) setLoading(false); }
   }
 
-  function updateEntry(id, change) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setEntries(previous => editDutchDraftEntry(previous, id, change)); }
+  function updateEntry(id, change) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setApplyResult(null); setEntries(previous => editDutchDraftEntry(previous, id, change)); }
   function updateCellQuantity(id, quantity, newEntry) {
     if (workBusyRef.current || applyingRef.current) return;
-    invalidate();
+    invalidate(); setApplyResult(null);
     setEntries(previous => newEntry && !previous.some(entry => entry.id === id)
       ? [...previous, { ...newEntry, quantity }]
       : editDutchDraftEntry(previous, id, { quantity }));
@@ -255,52 +272,92 @@ export default function DutchVolumeBoard() {
   }
   function updatePrice(entry, value) {
     if (workBusyRef.current || applyingRef.current) return;
-    invalidate();
-    const keys = dutchUniformPricePeerKeys(entries, entry);
+    invalidate(); setApplyResult(null);
+    const keys = dutchUniformPricePeerKeys(entries, entry, bulkPriceConfig);
     setPrices(previous => ({ ...previous, ...Object.fromEntries(keys.map(key => [key, value])) }));
+  }
+  function openBulkPriceSettings() {
+    const config = normalizeDutchBulkPriceConfig(bulkPriceConfig, entries);
+    setBulkPriceSettingsDraft({ ...config, excludedCustomers: [...config.excludedCustomers] }); setBulkCustomerQuery('');
+    setBulkPriceSettingsOpen(true);
+  }
+  function toggleBulkPriceExclusion(customerId) {
+    setBulkPriceSettingsDraft(previous => {
+      if (!previous) return previous;
+      const excluded = new Set(previous.excludedCustomers);
+      if (excluded.has(customerId)) excluded.delete(customerId); else excluded.add(customerId);
+      return { ...previous, excludedCustomers: [...excluded] };
+    });
+  }
+  function saveBulkPriceSettings() {
+    if (!bulkPriceSettingsDraft || workBusyRef.current || applyingRef.current) return;
+    const nextConfig = normalizeDutchBulkPriceConfig(bulkPriceSettingsDraft, entries);
+    const migrated = migrateDutchBulkPriceConfig(entries, prices, bulkPriceConfig, nextConfig);
+    invalidate(); setApplyResult(null); setBulkPriceConfig(nextConfig); setPrices(migrated.prices);
+    try { localStorage.setItem(BULK_PRICE_CONFIG_KEY, JSON.stringify(nextConfig)); } catch { setError('이 브라우저에서 일괄 업체 설정을 저장하지 못했습니다. 브라우저 저장 공간을 확인하세요.'); }
+    setBulkPriceSettingsOpen(false); setBulkPriceSettingsDraft(null);
+    setRematchNotice(migrated.conflicts.length
+      ? `일괄 적용 범위가 저장됐습니다. 업체별 단가가 달라 ${migrated.conflicts.length}개 품목 묶음은 자동 통합하지 않았습니다. 해당 품목 단가를 확인해 주세요.`
+      : `일괄 업체 설정을 저장했습니다. 포함 ${bulkCustomers.filter(item => nextConfig.enabled && !nextConfig.excludedCustomers.includes(item.id)).length}개 · 제외/개별 ${bulkCustomers.filter(item => !nextConfig.enabled || nextConfig.excludedCustomers.includes(item.id)).length}개. 새 설정으로 다시 검증하세요.`);
   }
   function restorePriceDraft(snapshot) {
     if (workBusyRef.current || applyingRef.current) return;
-    invalidate();
+    invalidate(); setApplyResult(null);
     setPrices(previous => restoreDutchPriceDraft(previous, snapshot));
   }
   function pickMaster(entry, kind, item) {
     if (workBusyRef.current || applyingRef.current) return;
     const next = kind === 'product'
       ? { prodKey: Number(item.prodKey ?? item.ProdKey), product: String(item.prodName || item.ProdName || item.displayName || item.DisplayName || '') }
-      : { custKey: Number(item.custKey ?? item.CustKey), customer: String(item.custName ?? item.CustName) };
-    const updatedEntry = { ...entry, ...next };
-    const oldKey = dutchPriceKey(entry);
-    const newKey = dutchPriceKey(updatedEntry);
-    const oldValue = prices[oldKey];
-    const targetValue = prices[newKey];
-    const oldHasPrice = oldValue !== undefined && oldValue !== null && String(oldValue) !== '';
-    const targetHasPrice = targetValue !== undefined && targetValue !== null && String(targetValue) !== '';
-    if (oldKey !== newKey && targetHasPrice && (!oldHasPrice || String(oldValue) !== String(targetValue))) {
-      if (!window.confirm(`선택한 ERP ${kind === 'product' ? '품목' : '업체'}에는 이미 ${targetValue}원 단가가 있습니다. 현재 행에도 이 단가가 적용됩니다. 매칭을 계속하시겠습니까?`)) return;
+      : { custKey: Number(item.custKey ?? item.CustKey) };
+    const masterField = kind === 'product' ? 'prodKey' : 'custKey';
+    const pickedKey = Number(next[masterField]);
+    const oldMasterKey = Number(entry[masterField]) || 0;
+    const sameSource = kind === 'customer'
+      ? row => !!entry.sheetName && row.sheetName === entry.sheetName && row.sourceColumn === entry.sourceColumn && row.sourceCustomer === entry.sourceCustomer
+      : row => !!entry.sheetName && row.sheetName === entry.sheetName && row.sourceRow === entry.sourceRow
+        && row.sourceFlower === entry.sourceFlower && row.sourceItem === entry.sourceItem && row.sourceColor === entry.sourceColor;
+    const targetEntries = entries.filter(row => (row.id === entry.id || (sameSource(row)
+      && (!Number(row[masterField]) || Number(row[masterField]) === oldMasterKey || Number(row[masterField]) === pickedKey))));
+    const targetIds = new Set(targetEntries.map(row => row.id));
+    const updates = targetEntries.map(row => ({ row, updated: { ...row, ...next } }));
+    const priceMoves = updates.map(({ row, updated }) => ({ oldKey: dutchPriceKey(row, bulkPriceConfig), newKey: dutchPriceKey(updated, bulkPriceConfig) }))
+      .filter(move => move.oldKey !== move.newKey);
+    const movesByTarget = new Map();
+    for (const move of priceMoves) {
+      const oldValue = prices[move.oldKey];
+      if (oldValue === undefined || oldValue === null || String(oldValue) === '') continue;
+      const values = movesByTarget.get(move.newKey) || new Set();
+      values.add(String(oldValue));
+      movesByTarget.set(move.newKey, values);
     }
-    if (isDutchIndividualPriceCustomer(entry.customer) || isDutchIndividualPriceCustomer(updatedEntry.customer)) {
-      setPrices(previous => { const updated = { ...previous }; delete updated[entry.id]; return updated; });
-      setRematchNotice('주광 개별 매칭이 바뀌어 이전 개별단가를 해제했습니다. 단가를 다시 확인하세요.');
+    const existingPriceConflicts = [...movesByTarget].filter(([newKey, values]) => {
+      const existing = prices[newKey];
+      return existing !== undefined && existing !== null && String(existing) !== '' && [...values].some(value => value !== String(existing));
+    });
+    if (existingPriceConflicts.length && !window.confirm(`선택한 ERP 품목에는 기존 단가가 있습니다. 해당 ERP 단가를 유지하며 같은 원본 행 ${targetEntries.length}건을 함께 매칭할까요?`)) return;
+
+    const nextPrices = { ...prices };
+    const priceWarnings = [];
+    let carriedPrice = false;
+    for (const [newKey, values] of movesByTarget) {
+      const existing = nextPrices[newKey];
+      if (existing !== undefined && existing !== null && String(existing) !== '') continue;
+      if (values.size === 1) { nextPrices[newKey] = [...values][0]; carriedPrice = true; }
+      else priceWarnings.push('여러 원본 단가가 달라 새 품목 단가로 자동 이동하지 않았습니다.');
     }
-    const canCarryPrice = kind === 'product' && !Number(entry.prodKey) && Number(next.prodKey) > 0
-      && !isDutchIndividualPriceCustomer(entry.customer) && !isDutchIndividualPriceCustomer(updatedEntry.customer)
-      && oldHasPrice && !targetHasPrice;
-    if (oldKey !== newKey) {
-      const oldUsedElsewhere = entries.some(other => other.id !== entry.id && dutchPriceKey(other) === oldKey);
-      setPrices(previous => {
-        const updated = { ...previous };
-        if (canCarryPrice) updated[newKey] = previous[oldKey];
-        if (!oldUsedElsewhere) delete updated[oldKey];
-        return updated;
-      });
-      setRematchNotice(canCarryPrice
-        ? '원본 품목의 단가를 선택한 ERP 품목 단가로 옮겼습니다. 전체 적용 전 다시 검증하세요.'
-        : targetHasPrice
-          ? `선택한 대상의 기존 ${targetValue}원 단가를 사용합니다. 다른 행에도 공유될 수 있으니 확인하세요.`
-          : '매칭이 바뀌어 이 행의 이전 단가는 적용하지 않습니다. 필요한 원화 단가를 다시 입력하고 검증하세요.');
+    const newKeys = new Set(updates.map(({ updated }) => dutchPriceKey(updated, bulkPriceConfig)));
+    const untouched = entries.filter(row => !targetIds.has(row.id));
+    for (const oldKey of new Set(priceMoves.map(move => move.oldKey))) {
+      if (!newKeys.has(oldKey) && !untouched.some(row => dutchPriceKey(row, bulkPriceConfig) === oldKey)) delete nextPrices[oldKey];
     }
-    updateEntry(entry.id, next);
+
+    invalidate(); setApplyResult(null);
+    setEntries(previous => previous.map(row => targetIds.has(row.id) ? { ...row, ...next } : row));
+    if (JSON.stringify(nextPrices) !== JSON.stringify(prices)) setPrices(nextPrices);
+    setRematchNotice(priceWarnings[0] || (carriedPrice
+      ? `단가를 보존하며 같은 원본 ${kind === 'product' ? '품목 행' : '업체 열'} ${targetEntries.length}건을 매칭했습니다.`
+      : `같은 원본 ${kind === 'product' ? '품목 행' : '업체 열'} ${targetEntries.length}건을 함께 매칭했습니다. 전체 적용 전 다시 검증하세요.`));
   }
   function addRow() {
     if (workBusyRef.current || applyingRef.current) return;
@@ -315,10 +372,10 @@ export default function DutchVolumeBoard() {
   async function download() {
     if (!workbook) return;
     try {
-      const edited = withEditedWorkbook(workbook, entries, prices);
-      const priced = addDutchPriceColumns(XLSXStyled, edited, entries, prices, 'KRW');
+      const edited = withEditedWorkbook(workbook, entries, prices, bulkPriceConfig);
+      const priced = addDutchPriceColumns(XLSXStyled, edited, entries, prices, 'KRW', bulkPriceConfig);
       const base = XLSXStyled.write(priced.workbook, { type: 'array', bookType: 'xlsx', compression: true });
-      const shaped = await addDutchPriceShapesToXlsx(XLSXStyled, base, priced.workbook, entries.filter(row => !row.added), prices);
+      const shaped = await addDutchPriceShapesToXlsx(XLSXStyled, base, priced.workbook, entries.filter(row => !row.added), prices, bulkPriceConfig);
       const url = URL.createObjectURL(new Blob([shaped], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${fileName.replace(/\.xlsx?$/i, '')}_입력.xlsx`; anchor.click(); URL.revokeObjectURL(url);
     } catch (cause) { setError(cause.message || '엑셀 저장에 실패했습니다.'); }
@@ -341,7 +398,7 @@ export default function DutchVolumeBoard() {
   }
 
   async function persistWork(name = workName) {
-    const payload = buildDutchWorkPayload({ name, sourceMode, fileName, year, week, workbook, entries, prices, sourceIdentity: storageKey });
+    const payload = buildDutchWorkPayload({ name, sourceMode, fileName, year, week, workbook, entries, prices, bulkPriceConfig, sourceIdentity: storageKey });
     const body = JSON.stringify(payload);
     if (new Blob([body]).size > DUTCH_WORK_CLIENT_MAX_BYTES) throw new Error('작업 저장 용량은 900KB 이하입니다. 단가표 엑셀로 먼저 보관하고 불필요한 원본 시트를 정리하세요.');
     const response = await fetch('/api/shipment/dutch-volume-work', { method: 'POST', headers: requestHeaders, credentials: 'same-origin', body });
@@ -371,10 +428,11 @@ export default function DutchVolumeBoard() {
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || '저장본을 불러오지 못했습니다.');
       const restored = restoreDutchWorkSnapshot(data.snapshot);
+      const restoredBulkConfig = normalizeDutchBulkPriceConfig(restored.bulkPriceConfig, restored.entries);
       sourceModeRef.current = 'SAVED'; sourceRef.current = restored.identity; sourceBaseRef.current = restored.baseIdentity;
       yearRef.current = restored.year; weekRef.current = restored.week;
       setYear(restored.year); setWeek(restored.week); setSourceMode('SAVED'); setStorageKey(restored.identity);
-      setWorkbook(restored.workbook); setEntries(restored.entries); setPrices(restored.prices); setDayEdits({}); setFileName(restored.fileName);
+      setWorkbook(restored.workbook); setEntries(restored.entries); setPrices(restored.prices); setBulkPriceConfig(restoredBulkConfig); setBulkPriceSettingsDraft(null); setBulkPriceSettingsOpen(false); setDayEdits({}); setFileName(restored.fileName);
       setWorkName(restored.name); setMatchCache({}); setProductOptions([]); setCustomerOptions([]);
       setApplyResult(null); setActiveJobId(''); setLegacyCurrency(''); setDraftReset(false); setRematchNotice('');
       setQuery(''); setActiveTab('sheet'); setActiveEntryId(''); setError('');
@@ -430,7 +488,18 @@ export default function DutchVolumeBoard() {
       if (!data.success) throw new Error(data.error || 'ERP 적용 실패');
       setApplyResult({ ...data, running: false });
       invalidate();
-    } catch (cause) { setError(`${cause.message || 'ERP 적용 실패.'} 작업 로그를 확인하고, 재시도할 때는 ‘ERP 매칭·최종수량 다시 검증’을 먼저 실행하세요. 결과 미확인 상태에서는 재적용하지 마세요.`); setApplyResult(previous => ({ ...previous, running: false, failed: true, error: cause.message })); invalidate(); }
+    } catch (cause) {
+      let finalProgress = null;
+      try {
+        const response = await fetch(`/api/shipment/distribute-import-apply-progress?jobId=${encodeURIComponent(jobId)}`, { credentials: 'same-origin' });
+        const payload = await response.json();
+        finalProgress = payload.progress || null;
+      } catch { /* Keep the latest already-polled snapshot if recovery is unavailable. */ }
+      const message = cause.message || 'ERP 적용 실패.';
+      setError(`${message} 작업 로그를 확인하고, 수정 후 다시 적용할 때는 ‘ERP 매칭·최종수량 다시 검증’을 먼저 실행하세요. 결과 미확인 상태에서는 재적용하지 마세요.`);
+      setApplyResult(previous => ({ ...previous, progress: finalProgress || previous.progress, running: false, failed: true, error: message }));
+      invalidate();
+    }
     finally { clearInterval(timer); applyingRef.current = false; setApplying(false); }
   }
 
@@ -492,26 +561,27 @@ export default function DutchVolumeBoard() {
     {draftReset && <div className="notice warning">이전 양식 초안은 자동 복원하지 않았습니다. 원본과 단가·매칭을 다시 확인하세요. 이전 저장값은 삭제하지 않았습니다.</div>}
     {rematchNotice && <div className="notice warning" role="status">{rematchNotice}</div>}
     {!entries.length && !loading && <div className="empty">네덜란드 Pivot 엑셀을 올리거나 DB 물량을 조회해 주세요. 조회와 자동 매칭은 읽기 전용이며 적용 버튼을 누르기 전에는 ERP에 저장하지 않습니다.</div>}
-    {!!entries.length && <><div className="toolbar"><div><b>{sourceMode === 'LIVE' ? `네노바웹 ${year}년 ${week} 직접 조회` : fileName}</b><span>{entries.length}행 · 원화 단가 입력 {enteredPriceCount}행 · 미입력은 기존 단가 보존</span></div><input aria-label="업체·품목 검색" value={query} onChange={event => { setQuery(event.target.value); if (event.target.value) setActiveTab('edit'); }} placeholder="업체·품목 검색"/><span className="currency">KRW 원화 고정</span><button onClick={download}>단가표 엑셀 저장</button></div>
+    {!!entries.length && <><div className="toolbar"><div><b>{sourceMode === 'LIVE' ? `네노바웹 ${year}년 ${week} 직접 조회` : fileName}</b><span>{entries.length}행 · 원화 단가 입력 {enteredPriceCount}행 · 미입력은 기존 단가 보존</span></div><input aria-label="업체·품목 검색" value={query} onChange={event => { setQuery(event.target.value); if (event.target.value) setActiveTab('edit'); }} placeholder="업체·품목 검색"/><span className="currency">KRW 원화 고정</span><button className="bulk-settings-trigger" onClick={openBulkPriceSettings} disabled={workBusy || applying}>일괄업체 설정 · {bulkPriceConfig.enabled ? bulkCustomers.filter(item => !bulkPriceConfig.excludedCustomers.includes(item.id)).length : 0}개 포함</button><button onClick={download}>단가표 엑셀 저장</button></div>
+      {bulkPriceSettingsOpen && bulkPriceSettingsDraft && <div className="bulk-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setBulkPriceSettingsOpen(false); }}><section className="bulk-modal" role="dialog" aria-modal="true" aria-labelledby="bulk-settings-title"><header><div><h2 id="bulk-settings-title">일괄 단가 업체 설정</h2><p>체크한 업체는 일괄 단가에서 제외되어 업체별로 따로 입력됩니다.</p></div><button aria-label="닫기" onClick={() => setBulkPriceSettingsOpen(false)}>×</button></header><label className="bulk-enabled"><input type="checkbox" checked={bulkPriceSettingsDraft.enabled} onChange={event => setBulkPriceSettingsDraft(previous => ({ ...previous, enabled: event.target.checked }))}/> 일괄 단가 사용</label><div className="bulk-modal-count">포함 {bulkCustomers.filter(item => bulkPriceSettingsDraft.enabled && !bulkPriceSettingsDraft.excludedCustomers.includes(item.id)).length}개 · 개별/제외 {bulkCustomers.filter(item => !bulkPriceSettingsDraft.enabled || bulkPriceSettingsDraft.excludedCustomers.includes(item.id)).length}개 <span>주광은 기본 제외이며 변경할 수 있습니다.</span></div><input className="bulk-search" aria-label="업체 설정 검색" placeholder="업체 검색" value={bulkCustomerQuery} onChange={event => setBulkCustomerQuery(event.target.value)}/><div className="bulk-customer-list">{bulkCustomers.filter(item => item.label.toLowerCase().includes(bulkCustomerQuery.trim().toLowerCase())).map(item => <label key={item.id}><input type="checkbox" checked={bulkPriceSettingsDraft.excludedCustomers.includes(item.id)} disabled={!bulkPriceSettingsDraft.enabled} onChange={() => toggleBulkPriceExclusion(item.id)}/><span>{item.label}</span><small>{!bulkPriceSettingsDraft.enabled || bulkPriceSettingsDraft.excludedCustomers.includes(item.id) ? '개별 단가' : '일괄 적용'}</small></label>)}</div><footer><button onClick={() => setBulkPriceSettingsOpen(false)}>취소</button><button className="save-bulk" onClick={saveBulkPriceSettings} disabled={workBusy || applying}>설정 저장</button></footer></section></div>}
       <div className="sheet-tabs" role="tablist" aria-label="물량표 작업 보기">
         <button role="tab" aria-selected={activeTab === 'sheet'} onClick={() => setActiveTab('sheet')}>원본 물량표</button>
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
         <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, 원화 입력·품목 매칭도 여기서 바로 편집</span>
       </div>
-      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={dutchPriceKey} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onEdit={id => { setActiveEntryId(id); setQuery(''); setActiveTab('edit'); }}/>}
+      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onEdit={id => { setActiveEntryId(id); setQuery(''); setActiveTab('edit'); }}/>}
       {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>단가 입력 즉시 원본 시트에 표시 · ERP 저장은 별도 적용</span></div>
       <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table><thead><tr><th>품목 / 원본</th><th>업체 / 원본</th><th>ERP 품목 선택</th><th>ERP 업체 선택</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
-        const individual = isDutchIndividualPriceCustomer(row.customer);
+        const individual = !isDutchBulkPriceCustomer(row, bulkPriceConfig);
         const match = matchCache[row.id];
         return <tr key={row.id} ref={node => { editRowRefs.current[row.id] = node; }} className={`${match?.status === 'unmatched' ? 'unmatched' : ''} ${activeEntryId === row.id ? 'selected-entry' : ''}`}>
           <td title={row.sourceItem || row.product}>{row.added ? <input aria-label="추가 품목명" value={row.product} onChange={event => updateEntry(row.id, { product: event.target.value })}/> : <><b>{row.sourceItem || row.color || row.product}</b><small>{row.sourceFlower || row.product} · {row.sourceColor || ''} · {row.sheetName}!{row.cellAddress}</small></>}</td>
-          <td title={row.customer}>{row.added ? <input aria-label="추가 업체명" value={row.customer} onChange={event => updateEntry(row.id, { customer: event.target.value })}/> : <b>{customerName(row.customer)}</b>}<small className={individual ? 'individual-price' : 'uniform-price'}>{individual ? '주광 개별단가' : '품목 균일가'}</small></td>
+          <td title={row.customer}>{row.added ? <input aria-label="추가 업체명" value={row.customer} onChange={event => updateEntry(row.id, { customer: event.target.value })}/> : <b>{customerName(row.customer)}</b>}<small className={individual ? 'individual-price' : 'uniform-price'}>{individual ? '개별 단가' : '일괄 단가'}</small></td>
           <td><ErpMatchPicker kind="product" entryId={row.id} initialQuery={row.sourceItem || row.color || row.product} country="네덜란드" flower={row.sourceFlower || ''} value={row.prodKey || match?.prodKey} label={row.prodKey ? row.product : match?.prodName} options={productOptions} onPick={item => pickMaster(row, 'product', item)} disabled={workBusy || applying}/></td>
           <td><ErpMatchPicker kind="customer" entryId={row.id} initialQuery={match?.custName || customerName(row.sourceCustomer || row.customer)} value={row.custKey || match?.custKey} label={row.custKey ? row.customer : match?.custName} options={customerOptions} onPick={item => pickMaster(row, 'customer', item)} disabled={workBusy || applying}/></td>
           <td><input aria-label={`${customerName(row.customer)} ${row.product} 수량`} type="number" min="0" step="any" value={row.quantity} disabled={workBusy || applying} onChange={event => updateEntry(row.id, { quantity: event.target.value })}/></td>
           <td><select aria-label={`${row.product} 단위`} value={row.unit || ''} disabled={workBusy || applying} onChange={event => updateEntry(row.id, { unit: event.target.value })}><option value="">ERP 출고단위</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></td>
-          <td><input ref={node => { inputRefs.current[index] = node; priceInputRefs.current[row.id] = node; }} aria-label={`${customerName(row.customer)} ${row.sourceItem || row.color || row.product} ${individual ? '개별단가' : '균일가'}`} type="number" min="0" step="any" value={prices[dutchPriceKey(row)] ?? ''} disabled={workBusy || applying} onChange={event => updatePrice(row, event.target.value)} onKeyDown={event => moveNext(event, index)} placeholder="미입력: 보존"/><small>{match?.estUnit ? `원/${match.estUnit}` : '견적단위: 검증 후 확인'}</small></td>
-          <td className="status">{match ? `${validationCurrent ? '' : '이전 검증 · '}${match.reason || match.status || '매칭'}` : '검증 전'}{row.added && <button onClick={() => removeRow(row.id)} disabled={workBusy || applying}>행 삭제</button>}</td>
+          <td><input ref={node => { inputRefs.current[index] = node; priceInputRefs.current[row.id] = node; }} aria-label={`${customerName(row.customer)} ${row.sourceItem || row.color || row.product} ${individual ? '개별단가' : '균일가'}`} type="number" min="0" step="any" value={prices[dutchPriceKey(row, bulkPriceConfig)] ?? ''} disabled={workBusy || applying} onChange={event => updatePrice(row, event.target.value)} onKeyDown={event => moveNext(event, index)} placeholder="미입력: 보존"/><small>{match?.estUnit ? `원/${match.estUnit}` : '견적단위: 검증 후 확인'}</small></td>
+          <td className="status">{matchStatusUsable && match?.status === 'unmatched' ? <span style={{ color: '#b42318', fontWeight: 800, fontSize: 11 }}>미매칭 · {customerName(row.sourceCustomer || row.customer)}</span> : null}{row.added && <button onClick={() => removeRow(row.id)} disabled={workBusy || applying}>행 삭제</button>}</td>
         </tr>;
       })}</tbody></table></div></>}
       {entries.some(row => row.added || row.prodKey || row.custKey) && <p className="export-note">원본 Pivot 셀과 단가 도형은 보존됩니다. 수동 추가·ERP 재매칭을 포함한 전체 입력은 내보내기 파일의 ‘ERP적용초안’ 시트에 별도로 기록됩니다. 원본 시트의 업체·품목 표시는 재매칭 결과로 바꾸지 않습니다.</p>}
@@ -528,5 +598,5 @@ export default function DutchVolumeBoard() {
       <details className="side-card side-instructions"><summary>입력 안내</summary><p>주광은 업체별 단가를 입력합니다. 그 외 업체는 같은 품목·칼라의 균일가를 사용합니다. 빈 단가는 ERP 기존값을 보존하고 0원은 명시 변경입니다. Enter를 누르면 다음 단가 칸으로 이동합니다.</p></details>
       <div className="side-history"><DutchWorkHistory name={workName} onName={setWorkName} hasWork={!!entries.length} busy={workBusy || applying || loading || weeksLoading} saving={workBusy} reviewing={previewLoading} notice={workNotice} error={workError} onSave={saveWork} onReview={reviewForUpload} open={historyOpen} onToggle={() => { const next = !historyOpen; setHistoryOpen(next); if (next) void loadWorkHistory(); }} items={workHistory} loading={historyLoading} cursor={historyCursor} onMore={() => loadWorkHistory(true)} onRestore={restoreWork}/></div>
     </aside></div>
-  </section><style jsx>{`.sheet-tabs{display:flex;align-items:center;gap:4px;border-bottom:2px solid #155bd7;margin:8px 0 0}.sheet-tabs button{padding:10px 18px;border:1px solid #c7d6e9;border-bottom:0;border-radius:6px 6px 0 0;background:#f3f6fa;color:#35516f;cursor:pointer;font-weight:800}.sheet-tabs button[aria-selected=true]{background:#155bd7;color:white;border-color:#155bd7}.sheet-tabs span{margin-left:12px;font-size:11px;color:#52647c}.editor-context{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 10px;background:#e8f1ff;border:1px solid #bfcada;font-size:12px}.editor-context button{background:white;color:#155bd7;border:1px solid #8eb2e2;border-radius:4px;padding:5px 9px}.editor-context span{font-size:11px;color:#52647c}.selected-entry{outline:2px solid #155bd7;outline-offset:-2px}@media(max-width:760px){.sheet-tabs{flex-wrap:wrap}.sheet-tabs span{width:100%;margin:5px}.editor-context b{overflow-wrap:anywhere}}.dutch-board{padding:14px;background:#eef2f7;min-height:calc(100vh - 44px);color:#172033;box-sizing:border-box}header{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#102d72,#1676b8);color:#fff;padding:14px 18px;border-radius:5px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0}header p{margin:0;font-size:12px;opacity:.9}.upload{background:#fff;color:#164c94;padding:8px 14px;border-radius:4px;font-weight:800;cursor:pointer}.upload input{display:none}.live-load{display:flex;align-items:end;gap:8px;padding:10px;margin-top:8px;background:#fff;border:1px solid #c9d4e3}.live-load label{font-size:11px;font-weight:800}.live-load label>input{display:block;width:82px}.live-load label div{display:flex}.live-load input,.live-load select,.live-load button{height:31px;border:1px solid #aebbd0;padding:0 7px}.live-load label div select{width:86px;text-align:center;font-weight:800}.live-load .load{background:#148044;color:#fff;font-weight:800;border-color:#148044}.live-load span{color:#617188;font-size:11px;margin-left:5px}.empty,.notice{margin-top:12px;padding:12px;background:#fff;border:1px solid #c9d4e3;border-radius:5px}.error{color:#a61b14;background:#fff1ef}.warning{color:#7a4a00;background:#fff7df}.toolbar{display:flex;gap:8px;align-items:center;margin-top:10px;padding:9px;background:#fff;border:1px solid #c9d4e3}.toolbar>div{display:flex;flex-direction:column;margin-right:auto}.toolbar span{font-size:11px;color:#617188}.toolbar input{width:240px}.toolbar input,.toolbar button{height:32px;border:1px solid #aebbd0;border-radius:3px;padding:0 9px}.toolbar button{background:#155bd7;color:#fff;font-weight:800}.currency{white-space:nowrap;font-weight:800;color:#136239!important}.guide{margin:7px 0;padding:8px 10px;background:#e8f1ff;border:1px solid #a8c7ef;font-size:12px}.guide b{margin-right:12px}.actions{display:flex;align-items:center;gap:8px;margin:8px 0}.actions button{padding:7px 10px;border:1px solid #8aa8cc;border-radius:4px;background:white;color:#164c94;font-weight:800}.actions span{font-size:12px;color:#52647c}.grid-wrap,.preview-wrap{overflow:auto;background:#fff;border:1px solid #bfcada}.grid-wrap{max-height:calc(100vh - 345px);min-height:160px}.preview-wrap{max-height:430px}table{border-collapse:collapse;min-width:100%;width:max-content;font-size:12px}th{position:sticky;top:0;z-index:2;background:#dce6f4;color:#16335e}th,td{height:38px;padding:5px 8px;border-right:1px solid #d4dce7;border-bottom:1px solid #d4dce7;white-space:nowrap}td small{display:block;color:#64748b}td input,td select{width:115px;height:29px;border:1px solid #aebbd0;padding:3px 6px}.number{text-align:right}.status{max-width:230px;white-space:normal}.status button{margin-left:5px}.unmatched,.blocked{background:#fff1ef}.missing{background:#fff6df}.price{background:#eef7ff}.individual-price{color:#7a45b8}.uniform-price{color:#168447}.export-note{font-size:11px;color:#7b4a18}.review,.result{background:#fff;border:1px solid #bfcada;margin-top:12px;padding:12px}.review-head{display:flex;justify-content:space-between}.review p{font-size:12px}.kpis{display:flex;gap:7px;margin:9px 0;flex-wrap:wrap}.kpis b{background:#e8f1ff;padding:6px 10px;border-radius:4px}.approval{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:10px}.approval label{font-size:12px}.approval .apply{background:#148044;color:white;border:0;border-radius:4px;padding:9px 14px;font-weight:900}.approval .apply:disabled{background:#9ca9b7}.approval strong{color:#a61b14;font-size:12px}.logs{max-height:180px;overflow:auto;background:#f6f8fb;padding:8px;font-size:11px;white-space:pre-wrap}details{margin-top:10px;font-size:12px}@media(max-width:760px){.dutch-board{padding:7px}header{align-items:flex-start;gap:10px}header p{display:none}.live-load,.toolbar,.actions{flex-wrap:wrap}.live-load span,.toolbar>div{width:100%}.toolbar input{flex:1;width:auto}.grid-wrap{max-height:500px}.approval{align-items:flex-start;flex-direction:column}}`}</style></>;
+  </section><style jsx>{`.bulk-modal-backdrop{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:#0d1b2a80}.bulk-modal{width:min(620px,96vw);max-height:88vh;display:flex;flex-direction:column;background:#fff;border:1px solid #9db2cc;border-radius:8px;box-shadow:0 18px 60px #0d1b2a55;color:#172033;padding:16px}.bulk-modal>header{display:flex;align-items:flex-start;gap:12px;background:#f1f6fc;color:#172033;border-radius:5px;padding:12px}.bulk-modal>header h2{margin:0 0 4px}.bulk-modal>header p{margin:0;color:#52647c;font-size:12px}.bulk-modal>header>button{font-size:21px;border:0;background:transparent;color:#52647c}.bulk-enabled{display:flex;align-items:center;gap:8px;margin:12px 2px;font-weight:800}.bulk-modal-count{font-size:12px;font-weight:800;color:#1a4679;padding:8px;background:#edf5ff;border-radius:4px}.bulk-modal-count span{font-weight:400;color:#52647c;margin-left:8px}.bulk-search{height:34px;margin:9px 0;border:1px solid #bccbdd;border-radius:4px;padding:0 9px}.bulk-customer-list{overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:5px}.bulk-customer-list label{display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 7px;border:1px solid #e1e7ef;border-radius:4px;font-size:12px}.bulk-customer-list label>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.bulk-customer-list small{font-size:10px;color:#64748b}.bulk-modal>footer{display:flex;justify-content:flex-end;gap:7px;padding-top:12px}.bulk-modal>footer button{padding:7px 12px;border:1px solid #b3c0d0;border-radius:4px;background:#fff}.bulk-modal>footer .save-bulk{background:#155bd7;color:#fff;border-color:#155bd7;font-weight:800}.bulk-settings-trigger{white-space:nowrap}.sheet-tabs{display:flex;align-items:center;gap:4px;border-bottom:2px solid #155bd7;margin:8px 0 0}.sheet-tabs button{padding:10px 18px;border:1px solid #c7d6e9;border-bottom:0;border-radius:6px 6px 0 0;background:#f3f6fa;color:#35516f;cursor:pointer;font-weight:800}.sheet-tabs button[aria-selected=true]{background:#155bd7;color:white;border-color:#155bd7}.sheet-tabs span{margin-left:12px;font-size:11px;color:#52647c}.editor-context{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 10px;background:#e8f1ff;border:1px solid #bfcada;font-size:12px}.editor-context button{background:white;color:#155bd7;border:1px solid #8eb2e2;border-radius:4px;padding:5px 9px}.editor-context span{font-size:11px;color:#52647c}.selected-entry{outline:2px solid #155bd7;outline-offset:-2px}@media(max-width:760px){.bulk-customer-list{grid-template-columns:1fr}.sheet-tabs{flex-wrap:wrap}.sheet-tabs span{width:100%;margin:5px}.editor-context b{overflow-wrap:anywhere}}.dutch-board{padding:14px;background:#eef2f7;min-height:calc(100vh - 44px);color:#172033;box-sizing:border-box}header{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#102d72,#1676b8);color:#fff;padding:14px 18px;border-radius:5px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0}header p{margin:0;font-size:12px;opacity:.9}.upload{background:#fff;color:#164c94;padding:8px 14px;border-radius:4px;font-weight:800;cursor:pointer}.upload input{display:none}.live-load{display:flex;align-items:end;gap:8px;padding:10px;margin-top:8px;background:#fff;border:1px solid #c9d4e3}.live-load label{font-size:11px;font-weight:800}.live-load label>input{display:block;width:82px}.live-load label div{display:flex}.live-load input,.live-load select,.live-load button{height:31px;border:1px solid #aebbd0;padding:0 7px}.live-load label div select{width:86px;text-align:center;font-weight:800}.live-load .load{background:#148044;color:#fff;font-weight:800;border-color:#148044}.live-load span{color:#617188;font-size:11px;margin-left:5px}.empty,.notice{margin-top:12px;padding:12px;background:#fff;border:1px solid #c9d4e3;border-radius:5px}.error{color:#a61b14;background:#fff1ef}.warning{color:#7a4a00;background:#fff7df}.toolbar{display:flex;gap:8px;align-items:center;margin-top:10px;padding:9px;background:#fff;border:1px solid #c9d4e3}.toolbar>div{display:flex;flex-direction:column;margin-right:auto}.toolbar span{font-size:11px;color:#617188}.toolbar input{width:240px}.toolbar input,.toolbar button{height:32px;border:1px solid #aebbd0;border-radius:3px;padding:0 9px}.toolbar button{background:#155bd7;color:#fff;font-weight:800}.currency{white-space:nowrap;font-weight:800;color:#136239!important}.guide{margin:7px 0;padding:8px 10px;background:#e8f1ff;border:1px solid #a8c7ef;font-size:12px}.guide b{margin-right:12px}.actions{display:flex;align-items:center;gap:8px;margin:8px 0}.actions button{padding:7px 10px;border:1px solid #8aa8cc;border-radius:4px;background:white;color:#164c94;font-weight:800}.actions span{font-size:12px;color:#52647c}.grid-wrap,.preview-wrap{overflow:auto;background:#fff;border:1px solid #bfcada}.grid-wrap{max-height:calc(100vh - 345px);min-height:160px}.preview-wrap{max-height:430px}table{border-collapse:collapse;min-width:100%;width:max-content;font-size:12px}th{position:sticky;top:0;z-index:2;background:#dce6f4;color:#16335e}th,td{height:38px;padding:5px 8px;border-right:1px solid #d4dce7;border-bottom:1px solid #d4dce7;white-space:nowrap}td small{display:block;color:#64748b}td input,td select{width:115px;height:29px;border:1px solid #aebbd0;padding:3px 6px}.number{text-align:right}.status{max-width:230px;white-space:normal}.status button{margin-left:5px}.unmatched,.blocked{background:#fff1ef}.missing{background:#fff6df}.price{background:#eef7ff}.individual-price{color:#7a45b8}.uniform-price{color:#168447}.export-note{font-size:11px;color:#7b4a18}.review,.result{background:#fff;border:1px solid #bfcada;margin-top:12px;padding:12px}.review-head{display:flex;justify-content:space-between}.review p{font-size:12px}.kpis{display:flex;gap:7px;margin:9px 0;flex-wrap:wrap}.kpis b{background:#e8f1ff;padding:6px 10px;border-radius:4px}.approval{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:10px}.approval label{font-size:12px}.approval .apply{background:#148044;color:white;border:0;border-radius:4px;padding:9px 14px;font-weight:900}.approval .apply:disabled{background:#9ca9b7}.approval strong{color:#a61b14;font-size:12px}.logs{max-height:180px;overflow:auto;background:#f6f8fb;padding:8px;font-size:11px;white-space:pre-wrap}details{margin-top:10px;font-size:12px}@media(max-width:760px){.dutch-board{padding:7px}header{align-items:flex-start;gap:10px}header p{display:none}.live-load,.toolbar,.actions{flex-wrap:wrap}.live-load span,.toolbar>div{width:100%}.toolbar input{flex:1;width:auto}.grid-wrap{max-height:500px}.approval{align-items:flex-start;flex-direction:column}}`}</style></>;
 }
