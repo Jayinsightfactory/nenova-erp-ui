@@ -1,7 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
+import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
+import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
 import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePackingRecord,
-  PACKING_STORAGE_KEYS, isPackingDownloadBlocked } from '../../lib/importPackingState.js';
+  PACKING_STORAGE_KEYS, isPackingDownloadBlocked, previewPackingCatalog,
+  distinctPackingVarieties, packingUnmatchedCounts, PACKING_PDF_MAX_BYTES,
+  readPackingPdfResponse } from '../../lib/importPackingState.js';
 import { ALL_SEED_ALIASES, aliasKey, parseCatalog, parseAliasesXlsx, exportAliasesXlsx,
   genColombia, genNL, genChina, genEcuador, genThailand, genAustralia, genUS, genVN,
   AWB_DEFAULT_COMPANIES, writeAWBWorkbook, parseWeekFromFilename } from '../../lib/importPacking.js';
@@ -128,13 +132,23 @@ function NoMatchItem({ nm, catalogItems, onConfirm }) {
 // =============================================================================
 const I18N = {
   en: {
-    pdfNotice: 'When you click Generate, this PDF is sent through the authenticated server to the AI service. Review the result before use; nothing is posted to the ERP ledger.',
+    pdfNotice: 'PDF up to 20MiB. Known layouts are processed locally first, without AI fees. Only explicit AI analysis sends the PDF to the AI service. Same-account cached results are reused for up to 30 days. Nothing is posted to the ERP ledger.',
+    localUnavailable: 'This layout could not be fully verified locally. Choose AI analysis if needed (may incur a fee).',
+    aiAnalyze: 'AI analysis (may incur a fee)', sourceLocal: 'Local code · no AI call', sourceCache: 'Previous analysis reused · no new AI call', sourceAI: 'AI analysis completed', cacheNotSaved: 'Result not cached; a retry may incur a fee',
     reload: 'Reload shared data', saving: 'Saving shared data…',
     sharedFailure: 'Shared save/load failed. Reload before retrying.',
     appTitle: 'Packing List Generator', appSub: 'Nenova Co. Ltd.',
     catalogLoading: 'Loading catalog...', catalogLoaded: '📚 Catalog loaded', catalogProducts: 'products',
-    catalogMissing: '⚠ Catalog not loaded.', catalogUploadHint: 'Upload', catalogUploadHint2: 'once -- saved automatically.',
-    catalogReplace: 'Replace', catalogLoad: 'Load', catalogClear: 'Clear',
+    catalogMissing: '⚠ Catalog not loaded.', catalogUploadHint: 'Upload', catalogUploadHint2: 'and review before saving.',
+    catalogReplace: 'Upload / preview', catalogLoad: 'Upload / preview', catalogClear: 'Clear',
+    catalogPreview: 'Catalog preview — shared data is unchanged until you confirm.',
+    catalogMerge: 'Merge (default)', catalogReplaceAll: 'Replace all', catalogConfirm: 'Confirm and save', catalogCancel: 'Cancel',
+    catalogColumns: ['Country', 'Existing', 'Uploaded', 'New', 'Updated', 'Result'],
+    catalogMergeHint: 'Merge preserves other countries. Upsert key: country + product code, or normalized name when code is missing.',
+    catalogReplaceWarning: 'I confirm replacement of the entire shared catalog, including deletion of countries/products absent from this upload.',
+    catalogClearWarning: 'Clear the entire shared catalog for everyone? Learned matches are preserved; downloads may be blocked until a catalog is loaded.',
+    catalogDuplicates: n => `${n} duplicate upload rows: last row per key wins.`,
+    catalogRows: n => `${n} unmatched output rows`,
     selectCountry: 'Select origin country', countryReady: 'Ready', back: '← Back',
     uploadLabel: 'Upload invoice (PDF)', uploadClick: 'Click to upload', uploadDrag: 'or drag & drop',
     uploadHint: 'PDF · filename should include week-number (e.g.', uploadRemove: 'Remove',
@@ -142,7 +156,7 @@ const I18N = {
     generatedSection: 'Generated packing lists',
     downloadAll: '⬇ Download all', downloadAllBlocked: '🔒 Download all (blocked)', downloadAllBlockedHint: 'Resolve all issues before downloading.',
     download: '⬇ Download', downloadBlocked: '🔒 Blocked',
-    unmatchedBadge: (n) => `🔒 ${n} not in catalog`,
+    unmatchedBadge: (n) => `🔒 ${n} unconfirmed source varieties`,
     mismatchBadge: '⚠ Total mismatch',
     unmatchedMsg: (n) => `⛔ ${n} product${n > 1 ? 's' : ''} not confirmed in catalog. Confirm each variety before downloading.`,
     mismatchMsg: '🔒 Packing list total does not match the invoice. Download blocked until resolved.',
@@ -161,7 +175,7 @@ const I18N = {
     aliasManagerSub: 'These are the matches you have confirmed manually. Delete any incorrect ones.',
     aliasManagerEmpty: 'No learned aliases yet.', aliasManagerInvoice: 'Invoice description',
     aliasManagerCatalog: 'Catalog name', aliasManagerDelete: 'Delete', aliasManagerClose: 'Close', aliasManagerSeed: 'seed override',
-    steps: ['Reading invoice(s)', 'Extracting data with Claude', 'Building Excel files'],
+    steps: ['Reading invoice(s)', 'Validating extracted data', 'Building Excel files'],
     products: (n) => `${n} product${n === 1 ? '' : 's'}`, stems: 'stems', more: (n) => `+ ${n} more`,
     summaryOk: '✅ All correct -- ready to download.',
     summaryTruncated: ' ⚠ The PDF was too large and the response was truncated -- some invoices may be missing. Re-process or split the PDF.',
@@ -174,13 +188,23 @@ const I18N = {
     matchesCount: (total, base) => `${total} matches loaded${base ? ` · ${base} base` : ''}`,
   },
   es: {
-    pdfNotice: 'Al pulsar Generar, este PDF se envía mediante el servidor autenticado al servicio de IA. Revisa el resultado; no se registra nada en el ERP.',
+    pdfNotice: 'PDF hasta 20MiB. Primero se procesan formatos conocidos localmente, sin coste de IA. Solo el análisis IA explícito envía el PDF al servicio de IA. Se reutilizan resultados de la misma cuenta hasta 30 días. No se registra nada en el ERP.',
+    localUnavailable: 'No se pudo verificar este formato localmente. Puedes elegir análisis IA (puede generar costes).',
+    aiAnalyze: 'Analizar con IA (posible coste)', sourceLocal: 'Código local · sin llamada IA', sourceCache: 'Análisis anterior reutilizado · sin nueva llamada IA', sourceAI: 'Análisis IA completado', cacheNotSaved: 'Resultado no guardado en caché; repetir puede generar costes',
     reload: 'Recargar datos compartidos', saving: 'Guardando datos compartidos…',
     sharedFailure: 'Error al guardar/cargar datos compartidos. Recarga antes de reintentar.',
     appTitle: 'Generador de Packing List', appSub: 'Nenova Co. Ltd.',
     catalogLoading: 'Cargando catálogo...', catalogLoaded: '📚 Catálogo cargado', catalogProducts: 'productos',
-    catalogMissing: '⚠ Catálogo no cargado.', catalogUploadHint: 'Sube', catalogUploadHint2: 'una vez -- se guarda automáticamente.',
-    catalogReplace: 'Reemplazar', catalogLoad: 'Cargar', catalogClear: 'Borrar',
+    catalogMissing: '⚠ Catálogo no cargado.', catalogUploadHint: 'Sube', catalogUploadHint2: 'y revisa antes de guardar.',
+    catalogReplace: 'Subir / revisar', catalogLoad: 'Subir / revisar', catalogClear: 'Borrar',
+    catalogPreview: 'Vista previa — los datos compartidos no cambian hasta confirmar.',
+    catalogMerge: 'Combinar (predeterminado)', catalogReplaceAll: 'Reemplazar todo', catalogConfirm: 'Confirmar y guardar', catalogCancel: 'Cancelar',
+    catalogColumns: ['País', 'Existentes', 'Subidos', 'Nuevos', 'Actualizados', 'Resultado'],
+    catalogMergeHint: 'Combinar conserva los demás países. Clave: país + código de producto, o nombre normalizado si no hay código.',
+    catalogReplaceWarning: 'Confirmo reemplazar TODO el catálogo compartido y borrar los países/productos ausentes de este archivo.',
+    catalogClearWarning: '¿Borrar TODO el catálogo compartido para todos? Los matches se conservan; las descargas pueden quedar bloqueadas hasta cargar un catálogo.',
+    catalogDuplicates: n => `${n} filas duplicadas: se usa la última fila por clave.`,
+    catalogRows: n => `${n} filas de salida sin match`,
     selectCountry: 'Selecciona el país de origen', countryReady: 'Listo', back: '← Atrás',
     uploadLabel: 'Sube el invoice (PDF)', uploadClick: 'Haz clic para subir', uploadDrag: 'o arrastra y suelta',
     uploadHint: 'PDF · el nombre debe incluir el número de semana (ej.', uploadRemove: 'Quitar',
@@ -188,7 +212,7 @@ const I18N = {
     generatedSection: 'Packing lists generados',
     downloadAll: '⬇ Descargar todo', downloadAllBlocked: '🔒 Descargar todo (bloqueado)', downloadAllBlockedHint: 'Resuelve todos los problemas antes de descargar.',
     download: '⬇ Descargar', downloadBlocked: '🔒 Bloqueado',
-    unmatchedBadge: (n) => `🔒 ${n} sin match en catálogo`,
+    unmatchedBadge: (n) => `🔒 ${n} variedades de origen sin confirmar`,
     mismatchBadge: '⚠ Total no cuadra',
     unmatchedMsg: (n) => `⛔ ${n} producto${n > 1 ? 's' : ''} no confirmado${n > 1 ? 's' : ''} en el catálogo. Confirma cada variedad antes de descargar.`,
     mismatchMsg: '🔒 El total del packing list no coincide con el invoice. Descarga bloqueada hasta resolver.',
@@ -207,7 +231,7 @@ const I18N = {
     aliasManagerSub: 'Estas son las coincidencias que has confirmado manualmente. Borra los que sean incorrectos.',
     aliasManagerEmpty: 'Aún no hay aliases aprendidos.', aliasManagerInvoice: 'Descripción del invoice',
     aliasManagerCatalog: 'Nombre en catálogo', aliasManagerDelete: 'Borrar', aliasManagerClose: 'Cerrar', aliasManagerSeed: 'override seed',
-    steps: ['Leyendo invoice(s)', 'Extrayendo datos con Claude', 'Generando archivos Excel'],
+    steps: ['Leyendo invoice(s)', 'Validando los datos', 'Generando archivos Excel'],
     products: (n) => `${n} producto${n === 1 ? '' : 's'}`, stems: 'tallos', more: (n) => `+ ${n} más`,
     summaryOk: '✅ Todo correcto -- listo para descargar.',
     summaryTruncated: ' ⚠ El PDF era demasiado grande y la respuesta se truncó -- pueden faltar invoices. Vuelve a procesar o divide el PDF.',
@@ -220,13 +244,23 @@ const I18N = {
     matchesCount: (total, base) => `${total} matches cargados${base ? ` · ${base} base` : ''}`,
   },
   ko: {
-    pdfNotice: '생성 버튼을 누르면 인증된 서버를 통해 PDF가 AI 서비스로 전송됩니다. 결과를 검토한 뒤 사용하세요. ERP 원장에는 반영되지 않습니다.',
+    pdfNotice: 'PDF 최대 20MiB. 지원 양식은 먼저 코드로 무료 분석합니다. AI 분석을 선택할 때만 PDF를 AI 서비스로 전송하며 비용이 발생할 수 있습니다. 같은 계정의 기존 분석 결과는 최대 30일간 재사용합니다. ERP 원장에는 반영하지 않습니다.',
+    localUnavailable: '이 양식은 무료 분석으로 전체 값을 검증하지 못했습니다. 필요하면 AI 분석을 선택하세요(비용 발생 가능).',
+    aiAnalyze: 'AI 분석 (비용 발생 가능)', sourceLocal: '코드 분석 · AI 호출 없음', sourceCache: '기존 분석 재사용 · 새 AI 호출 없음', sourceAI: 'AI 분석 완료', cacheNotSaved: '결과 캐시 저장 안 됨 · 재시도 시 비용 발생 가능',
     reload: '공동 데이터 다시 불러오기', saving: '공동 데이터 저장 중…',
     sharedFailure: '공동 저장/불러오기 실패. 다시 불러온 뒤 재시도하세요.',
     appTitle: '패킹 리스트 생성기', appSub: '네노바 Co. Ltd.',
     catalogLoading: '카탈로그 불러오는 중...', catalogLoaded: '📚 카탈로그 로드됨', catalogProducts: '개 상품',
-    catalogMissing: '⚠ 카탈로그가 없습니다.', catalogUploadHint: '', catalogUploadHint2: '을(를) 한 번 업로드하면 자동으로 저장됩니다.',
-    catalogReplace: '교체', catalogLoad: '불러오기', catalogClear: '삭제',
+    catalogMissing: '⚠ 카탈로그가 없습니다.', catalogUploadHint: '', catalogUploadHint2: '을(를) 업로드한 뒤 확인하고 저장하세요.',
+    catalogReplace: '업로드 / 미리보기', catalogLoad: '업로드 / 미리보기', catalogClear: '삭제',
+    catalogPreview: '카탈로그 미리보기 — 확인 전에는 공동 자료가 변경되지 않습니다.',
+    catalogMerge: '병합 (기본)', catalogReplaceAll: '전체 교체', catalogConfirm: '확인 후 저장', catalogCancel: '취소',
+    catalogColumns: ['국가', '기존', '업로드', '신규', '갱신', '결과'],
+    catalogMergeHint: '병합은 다른 국가를 보존합니다. 국가 + 품목코드로 갱신하며 코드가 없으면 정규화한 이름을 사용합니다.',
+    catalogReplaceWarning: '업로드에 없는 국가와 품목을 삭제하고 공동 카탈로그 전체를 교체하는 데 동의합니다.',
+    catalogClearWarning: '모든 사용자의 공동 카탈로그 전체를 삭제할까요? 학습된 매칭은 보존되며 카탈로그를 다시 불러오기 전까지 다운로드가 차단될 수 있습니다.',
+    catalogDuplicates: n => `업로드 중복 ${n}행: 같은 키의 마지막 행을 사용합니다.`,
+    catalogRows: n => `미매칭 출력 행 ${n}개`,
     selectCountry: '원산지 국가 선택', countryReady: '준비', back: '← 뒤로',
     uploadLabel: '인보이스 업로드 (PDF)', uploadClick: '클릭하여 업로드', uploadDrag: '또는 드래그 & 드롭',
     uploadHint: 'PDF · 파일명에 주차 번호 포함 필요 (예:', uploadRemove: '제거',
@@ -234,7 +268,7 @@ const I18N = {
     generatedSection: '생성된 패킹 리스트',
     downloadAll: '⬇ 전체 다운로드', downloadAllBlocked: '🔒 전체 다운로드 (차단됨)', downloadAllBlockedHint: '모든 문제를 해결한 후 다운로드하세요.',
     download: '⬇ 다운로드', downloadBlocked: '🔒 차단됨',
-    unmatchedBadge: (n) => `🔒 카탈로그에 없는 상품 ${n}개`,
+    unmatchedBadge: (n) => `🔒 미확인 원문 품종 ${n}개`,
     mismatchBadge: '⚠ 합계 불일치',
     unmatchedMsg: (n) => `⛔ 카탈로그에서 확인되지 않은 상품 ${n}개. 다운로드 전에 각 품종을 확인하세요.`,
     mismatchMsg: '🔒 패킹 리스트 합계가 인보이스와 일치하지 않습니다. 해결될 때까지 다운로드가 차단됩니다.',
@@ -253,7 +287,7 @@ const I18N = {
     aliasManagerSub: '직접 확인한 매칭 목록입니다. 잘못된 항목을 삭제하세요.',
     aliasManagerEmpty: '아직 학습된 별칭이 없습니다.', aliasManagerInvoice: '인보이스 설명',
     aliasManagerCatalog: '카탈로그 이름', aliasManagerDelete: '삭제', aliasManagerClose: '닫기', aliasManagerSeed: '시드 override',
-    steps: ['인보이스 읽는 중', 'Claude로 데이터 추출 중', 'Excel 파일 생성 중'],
+    steps: ['인보이스 읽는 중', '추출값 검증 중', 'Excel 파일 생성 중'],
     products: (n) => `${n}개 상품`, stems: '줄기', more: (n) => `+ ${n}개 더`,
     summaryOk: '✅ 모두 정상 -- 다운로드 준비 완료.',
     summaryTruncated: ' ⚠ PDF가 너무 커서 응답이 잘렸습니다 -- 일부 인보이스가 누락되었을 수 있습니다. 다시 처리하거나 PDF를 분할하세요.',
@@ -366,64 +400,12 @@ function detectAWBCompany(text) {
 }
 
 async function parseAWBPdf(pdfBase64, readAwbPdf) {
-  const out = {};
-  let text;
-  let items;
   try {
     if (!readAwbPdf) return { _error: 'Lector PDF local no disponible. Rellena los campos manualmente.' };
-    ({ text, items = [] } = await readAwbPdf(pdfBase64));
+    return parseAwbFields(await readAwbPdf(pdfBase64));
   } catch (e) {
     return { _error: 'No se pudo leer el PDF: ' + e.message };
   }
-  if (!text || text.trim().length < 30) {
-    return { _error: 'El PDF parece ser una imagen escaneada (sin texto). Rellena los campos manualmente.' };
-  }
-
-  // 1) AWB number ----------------------------------------------------------
-  // DHL / Cathay style: "### XXX ########"  (prefix, airport, 8-digit)
-  let m = text.match(/\b(\d{3})\s+([A-Z]{3})\s*(\d{8})\b/);
-  if (m) {
-    out.awb = `${m[1]}-${m[3]}`;
-  } else {
-    // Delta-style: "006 4534 1166" or "006-4534 1166"
-    m = text.match(/\b(\d{3})[-\s]+(\d{4})[-\s]+(\d{4})\b/);
-    if (m) out.awb = `${m[1]}-${m[2]}${m[3]}`;
-    else {
-      m = text.match(/\b(\d{3})[-\s]?(\d{8})\b/);
-      if (m) out.awb = `${m[1]}-${m[2]}`;
-    }
-  }
-
-  // 2) Company / carrier -------------------------------------------------
-  const detected = detectAWBCompany(text);
-  if (detected) out.company = detected;
-
-  // 3) Weights and unit price — use the column heuristic ----------------
-  const wr = findWeightRow(items);
-  if (wr) {
-    out.gw = wr.gw;
-    out.cw = wr.cw;
-    out.uPrice1 = wr.rate;
-  }
-
-  // 4) Grand total --------------------------------------------------------
-  m = text.match(/Total\s+Prepaid\s+(?:USD\s*)?([\d,]+\.\d{2})/i);
-  if (m) {
-    out.total = parseFloat(m[1].replace(/,/g, ''));
-  } else {
-    // Take the LARGEST money figure before "Shipper's Name" as a fallback.
-    const idxShipper = text.search(/Shipper'?s\s+Name/i);
-    const head = idxShipper > 0 ? text.slice(0, idxShipper) : text;
-    const moneyRe = /\b([\d,]{1,8}\.\d{2})\b/g;
-    let mm, biggest = 0;
-    while ((mm = moneyRe.exec(head)) !== null) {
-      const v = parseFloat(mm[1].replace(/,/g, ''));
-      if (v > biggest && v < 1e7) biggest = v;
-    }
-    if (biggest > 0) out.total = biggest;
-  }
-
-  return out;
 }
 
 // =============================================================================
@@ -437,13 +419,10 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
   // Carrier preferences are session-local; only catalog/matches use team records.
   const [companies, setCompanies] = useState([...AWB_DEFAULT_COMPANIES]);
   const [company, setCompany]   = useState(companies[0] || 'EXCEL');
-  const [weekend, setWeekend]   = useState('21-01');
+  const [weekend, setWeekend]   = useState('');
   const [awb, setAwb]           = useState('');
   const [invoice, setInvoice]   = useState('');
-  const [date, setDate]         = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-  });
+  const [date, setDate]         = useState('');
   const [gw, setGw]             = useState('');
   const [cw, setCw]             = useState('');
   const [total, setTotal]       = useState('');
@@ -457,6 +436,8 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
   const [newCompany, setNewCompany] = useState('');
   const [showCompanyMgr, setShowCompanyMgr] = useState(false);
   const pdfRef = useRef(null);
+  const awbReaderVersion = useRef(0);
+  useEffect(() => () => { ++awbReaderVersion.current; }, []);
   const [pdfDragOver, setPdfDragOver] = useState(false);
 
   // --- Derived: keep T1 = uPrice1 × cw, T2 = total - T1 ---------------------
@@ -472,18 +453,27 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
   // --- PDF handler ---------------------------------------------------------
   const onPdfFile = async (f) => {
     if (!f) return;
-    if (f.size > 10 * 1024 * 1024) {
-      setParseStatus({ kind: 'err', msg: 'PDF: máximo 10MiB.' });
+    const version = ++awbReaderVersion.current;
+    setPdfFile(null); setPdfBase64(null);
+    if (f.size > PACKING_PDF_MAX_BYTES) {
+      setParseStatus({ kind: 'err', msg: 'PDF: máximo 20MiB.' });
+      return;
+    }
+    if (!/\.pdf$/i.test(f.name) || (f.type && f.type !== 'application/pdf')) {
+      setParseStatus({ kind: 'err', msg: 'Solo se aceptan archivos PDF.' });
       return;
     }
     setPdfFile(f);
+    setAwb(''); setDate(''); setGw(''); setCw(''); setTotal(''); setUPrice1(''); setInvoice(''); setWeekend('');
     setParseStatus({ kind: 'loading', msg: 'Leyendo PDF…' });
     const reader = new FileReader();
     reader.onload = async () => {
+      if (awbReaderVersion.current !== version) return;
       try {
         const b64 = reader.result.split(',')[1];
         setPdfBase64(b64);
         const parsed = await parseAWBPdf(b64, readAwbPdf);
+        if (awbReaderVersion.current !== version) return;
         if (parsed._error) {
           // Even if PDF text extraction failed, we can still pull the week
           // from the filename — that doesn't need a text layer.
@@ -504,6 +494,7 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
           filled.push('Semana');
         }
         if (parsed.awb)     { setAwb(parsed.awb);                  filled.push('AWB'); }
+        if (parsed.date)    { setDate(parsed.date);                filled.push('Fecha'); }
         if (parsed.gw)      { setGw(String(parsed.gw));            filled.push('GW'); }
         if (parsed.cw)      { setCw(String(parsed.cw));            filled.push('CW'); }
         if (parsed.uPrice1) { setUPrice1(String(parsed.uPrice1));  filled.push('U.Price'); }
@@ -519,10 +510,12 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
           setParseStatus({ kind: 'ok', msg: `Auto-rellenado: ${filled.join(', ')}. Revísalo y completa lo demás.` });
         }
       } catch (e) {
-        setParseStatus({ kind: 'err', msg: `Error leyendo PDF: ${e.message}` });
+        if (awbReaderVersion.current === version) setParseStatus({ kind: 'err', msg: `Error leyendo PDF: ${e.message}` });
       }
     };
-    reader.onerror = () => setParseStatus({ kind: 'err', msg: 'Error leyendo PDF.' });
+    reader.onerror = () => {
+      if (awbReaderVersion.current === version) setParseStatus({ kind: 'err', msg: 'Error leyendo PDF.' });
+    };
     reader.readAsDataURL(f);
   };
 
@@ -531,6 +524,7 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
   if (!company)       errors.push('Compañía obligatoria.');
   if (!weekend.trim()) errors.push('Semana obligatoria (ej. 21-01).');
   if (!awb.trim())     errors.push('Número de AWB obligatorio.');
+  if (!parsePrintedDate(date)) errors.push('Fecha del documento obligatoria (YYYY/MM/DD).');
   if (gw === '' || cwNum < 0 || isNaN(parseFloat(gw))) errors.push('GW (Gross Weight) obligatorio.');
   if (cw === '' || isNaN(cwNum))   errors.push('CW (Chargeable Weight) obligatorio.');
   if (total === '' || isNaN(totalNum)) errors.push('Total (USD) obligatorio.');
@@ -619,11 +613,7 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
           e.stopPropagation();
           setPdfDragOver(false);
           const f = e.dataTransfer.files && e.dataTransfer.files[0];
-          if (f && f.name.toLowerCase().endsWith('.pdf')) {
-            onPdfFile(f);
-          } else if (f) {
-            setParseStatus({ kind: 'err', msg: 'Solo se aceptan archivos PDF.' });
-          }
+          if (f) onPdfFile(f);
         }}
         style={{
           border: `1.5px dashed ${pdfDragOver ? '#1a56db' : '#ccc'}`,
@@ -635,7 +625,7 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
           marginBottom: 12,
           transition: 'all 0.15s',
         }}>
-        <input ref={pdfRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={(e) => onPdfFile(e.target.files[0])} />
+        <input ref={pdfRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={(e) => { onPdfFile(e.target.files[0]); e.target.value = ''; }} />
         <div style={{ fontSize: 22, marginBottom: 4 }}>📄</div>
         <div style={{ fontSize: 13, color: '#666' }}>
           {pdfFile ? (
@@ -644,6 +634,7 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
             <><strong style={{ color: '#1a1a1a' }}>Click</strong> o arrastra el PDF del AWB aquí (intenta auto-rellenar)</>
           )}
         </div>
+        <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>PDF · máximo 20MiB</div>
       </div>
       {parseStatus && (
         <div style={{
@@ -813,6 +804,23 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   const [catalog, setCatalog] = useState(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState(null);
+  const [catalogDraft, setCatalogDraft] = useState(null);
+  const [catalogParsing, setCatalogParsing] = useState(false);
+  const [catalogMode, setCatalogMode] = useState('merge');
+  const [catalogReplaceConfirmed, setCatalogReplaceConfirmed] = useState(false);
+  const [catalogClearConfirm, setCatalogClearConfirm] = useState(false);
+  // A retained draft is revalidated after every shared reload. Validation errors
+  // are UI data, never render exceptions or permission to save a stale preview.
+  const catalogPreviewState = useMemo(() => {
+    if (!catalogDraft) return { preview: null, error: null };
+    try {
+      return { preview: previewPackingCatalog(catalog, catalogDraft.catalog), error: null };
+    } catch (error) {
+      return { preview: null, error: error.message || String(error) };
+    }
+  }, [catalog, catalogDraft]);
+  const catalogPreview = catalogPreviewState.preview;
+  const catalogPreviewError = catalogPreviewState.error;
   const [allNoMatches, setAllNoMatches] = useState([]);
   // Aliases: { aliasKey(invoiceDesc) → catalogName } — seed + learned matches
   const [aliases, setAliases] = useState({ ...ALL_SEED_ALIASES });
@@ -837,8 +845,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   const [reloadVersion, setReloadVersion] = useState(0);
   const savingRef = useRef(false);
   const readerVersion = useRef(0);
+  const catalogReaderVersion = useRef(0);
+  const sharedScopeVersion = useRef(0);
+  const processingRef = useRef(false);
+  useEffect(() => () => {
+    ++readerVersion.current; ++catalogReaderVersion.current;
+    ++sharedScopeVersion.current;
+  }, []);
 
   const resetResults = () => {
+    setNeedsAI(false); setExtractionSource('');
     setExcels([]); setGenerated({}); setLastExtraction(null);
     setPending([]); setAllNoMatches([]); setMismatches([]);
     setMismatchOverrides(new Set()); setSteps([]);
@@ -853,6 +869,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
 
   useEffect(() => {
     let active = true;
+    ++sharedScopeVersion.current; ++catalogReaderVersion.current;
+    setCatalogParsing(false); setCatalogReplaceConfirmed(false); setCatalogClearConfirm(false);
     setCatalogLoading(true); setSharedReady(false); setSharedError(null);
     readPackingRecords(storage).then(records => {
       if (!active) return;
@@ -866,33 +884,65 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
 
   // Commit UI only after shared save succeeds; serialize rapid confirmations.
   const runSharedWrite = async action => {
-    if (savingRef.current || !sharedReady || processing) return;
+    if (savingRef.current || !sharedReady || processingRef.current || catalogParsing) return;
+    const scope = sharedScopeVersion.current;
     savingRef.current = true; setSaving(true); setSharedError(null);
     try {
       await action();
     } catch (error) {
-      setSharedError(error.message || String(error));
-      setSharedReady(false); // reload revision before retrying after a conflict
+      if (sharedScopeVersion.current === scope) {
+        setSharedError(error.message || String(error));
+        setSharedReady(false); // reload revision before retrying after a conflict; keep drafts
+        setCatalogReplaceConfirmed(false);
+      }
     } finally {
       savingRef.current = false; setSaving(false);
     }
   };
 
   const handleCatalogFile = async f => {
-    if (!f || !xlsxLib) return;
-    await runSharedWrite(async () => {
+    if (!f || !xlsxLib || savingRef.current || processingRef.current || !sharedReady) return;
+    const version = ++catalogReaderVersion.current;
+    setCatalogParsing(true); setCatalogError(null);
+    setCatalogDraft(null); setCatalogClearConfirm(false); setCatalogReplaceConfirmed(false); setCatalogMode('merge');
+    try {
       const parsed = indexPackingCatalog(parseCatalog(xlsxLib, await f.arrayBuffer()));
       if (!parsed.items.length) throw new Error('Empty catalog.');
-      await writePackingRecord(storage, PACKING_STORAGE_KEYS.catalog,
-        { items: parsed.items, savedAt: parsed.savedAt });
-      setCatalogError(null); setCatalog(parsed); resetResults();
+      if (catalogReaderVersion.current !== version) return;
+      previewPackingCatalog(catalog, parsed); // reject before publishing an invalid draft
+      if (catalogReaderVersion.current === version) setCatalogDraft({ catalog: parsed, fileName: f.name });
+    } catch (error) {
+      if (catalogReaderVersion.current === version) setCatalogError(error.message || String(error));
+    } finally {
+      if (catalogReaderVersion.current === version) setCatalogParsing(false);
+    }
+  };
+
+  const cancelCatalogDraft = () => {
+    ++catalogReaderVersion.current;
+    setCatalogDraft(null); setCatalogParsing(false); setCatalogReplaceConfirmed(false); setCatalogClearConfirm(false);
+  };
+
+  const confirmCatalogDraft = () => {
+    if (!catalogPreview || (catalogMode === 'replace' && !catalogReplaceConfirmed)) return;
+    const next = catalogPreview[catalogMode];
+    const scope = sharedScopeVersion.current;
+    return runSharedWrite(async () => {
+      await writePackingRecord(storage, PACKING_STORAGE_KEYS.catalog, { items: next.items, savedAt: next.savedAt });
+      if (sharedScopeVersion.current !== scope) return;
+      setCatalogError(null); setCatalog(next); cancelCatalogDraft(); resetResults();
     });
   };
 
-  const clearCatalog = () => runSharedWrite(async () => {
-    await writePackingRecord(storage, PACKING_STORAGE_KEYS.catalog, null);
-    setCatalog(null); resetResults();
-  });
+  const clearCatalog = () => {
+    if (!catalogClearConfirm) return;
+    const scope = sharedScopeVersion.current;
+    return runSharedWrite(async () => {
+      await writePackingRecord(storage, PACKING_STORAGE_KEYS.catalog, null);
+      if (sharedScopeVersion.current !== scope) return;
+      setCatalog(null); cancelCatalogDraft(); resetResults();
+    });
+  };
 
   const rebuildWithAliases = currentAliases => {
     if (lastExtraction) buildExcels({
@@ -942,11 +992,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   }[country] : null;
 
   const handleFile = (f) => {
-    if (!f || processing || savingRef.current) return;
+    if (!f || processingRef.current || savingRef.current) return;
     const version = ++readerVersion.current;
     setPdfBase64(null); resetResults(); setStatus(null); setFile(null);
-    if (f.size > 10 * 1024 * 1024) {
-      setStatus({ type: 'error', msg: 'PDF: maximum 10MiB / máximo 10MiB / 최대 10MiB' });
+    if (f.size > PACKING_PDF_MAX_BYTES) {
+      setStatus({ type: 'error', msg: 'PDF: maximum 20MiB / máximo 20MiB / 최대 20MiB' });
       return;
     }
     if (!/\.pdf$/i.test(f.name) || (f.type && f.type !== 'application/pdf')) {
@@ -992,19 +1042,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     });
     // Dedup pending/noMatches by aliasKey so the user sees each distinct
     // description only once, even if it appeared in multiple invoices/farms.
-    const dedupByDesc = (arr) => {
-      const seen = new Set();
-      const out = [];
-      for (const e of arr) {
-        const k = aliasKey(e.description);
-        if (seen.has(k)) continue;
-        seen.add(k);
-        out.push(e);
-      }
-      return out;
-    };
-    const dedupedPending = dedupByDesc(allPending);
-    const dedupedNm = dedupByDesc(allNm);
+    const dedupedPending = distinctPackingVarieties(allPending);
+    const dedupedNm = distinctPackingVarieties(allNm);
     if (new Set(builtExcels.map(ex => ex.name)).size !== builtExcels.length) {
       throw new Error('Duplicate output filenames. Verify invoice numbers.');
     }
@@ -1056,14 +1095,19 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     setAliases(newAliases); rebuildWithAliases(newAliases);
   });
 
-  const process = async () => {
-    if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processing) return;
+  const [needsAI, setNeedsAI] = useState(false);
+  const [extractionSource, setExtractionSource] = useState('');
+  const process = async (allowAI = false) => {
+    if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processingRef.current || catalogParsing) return;
     const parsed = parseWeekFromFilename(file.name);
     if (!parsed) {
       setStatus({ type: 'error', msg: t.errWeek(file.name) });
       return;
     }
-    setProcessing(true);
+    processingRef.current = true; setProcessing(true);
+    const version = readerVersion.current;
+    const scope = sharedScopeVersion.current;
+    const isCurrent = () => readerVersion.current === version && sharedScopeVersion.current === scope;
     resetResults();
     setSteps([
       { label: t.steps[0], state: 'active' },
@@ -1072,16 +1116,18 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     ]);
     setStatus({ type: 'info', msg: t.processing });
     try {
-      const res = await fetch('/api/import/tools/parse-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ country, pdfBase64 }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || data.error || data.message || 'API error: ' + res.status);
+      const extraction=await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true});
+      if (!isCurrent()) return;
+      if(extraction.needsAI){
+        setNeedsAI(true);setSteps([]);
+        setStatus({type:'info',msg:t.localUnavailable});return;
+      }
+      const data=extraction.data;
+      const sourceLabel=extraction.source==='local'?t.sourceLocal:extraction.source==='cache'?t.sourceCache:t.sourceAI;
+      setExtractionSource(sourceLabel+(extraction.source==='ai'&&extraction.cacheSaved===false?' · '+t.cacheNotSaved:''));
       setSteps([
         { label: t.steps[0], state: 'done' },
-        { label: t.steps[1], state: 'done' },
+        { label: sourceLabel, state: 'done' },
         { label: t.steps[2], state: 'active' },
       ]);
       const { result, wasTruncated } = parsePackingResponse(data, country);
@@ -1092,10 +1138,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
       setLastExtraction({ result, masterAwb, weekParsed: parsed, wasTruncated });
       buildExcels({ invoices, masterAwb, weekParsed: parsed, currentAliases: aliases, wasTruncated });
     } catch (e) {
-      console.error(e);
-      setStatus({ type: 'error', msg: 'Error: ' + e.message });
+      if (isCurrent()) setStatus({ type: 'error', msg: 'Error: ' + e.message });
+    } finally {
+      processingRef.current = false;
+      setProcessing(false);
     }
-    setProcessing(false);
   };
 
   const isBlocked = excel => !sharedReady || saving || processing || isPackingDownloadBlocked(excel, {
@@ -1130,13 +1177,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     <div style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: '#f5f5f2', minHeight: '100vh', padding: '2rem 1rem', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#1a1a1a' }}>
       <div className="packing-tool-card" style={{ background: '#fff', borderRadius: 16, border: '1px solid #e8e8e4', padding: '1.5rem', maxWidth: 1400, minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-          <button onClick={() => setReloadVersion(v => v + 1)} disabled={saving || processing || catalogLoading}>{t.reload}</button>
+          <button onClick={() => setReloadVersion(v => v + 1)} disabled={saving || processing || catalogLoading || catalogParsing}>{t.reload}</button>
           {saving && <span role="status">{t.saving}</span>}
           {sharedError && <span role="alert" style={{ color: '#c81e1e', overflowWrap: 'anywhere' }}>{t.sharedFailure} {sharedError}</span>}
           {status && screen !== 'upload' && <span role="status" style={{ color: statusColor }}>{status.msg}</span>}
         </div>
-        <fieldset disabled={saving || processing || catalogLoading || !sharedReady}
-          onClickCapture={e => { if (saving || processing || catalogLoading || !sharedReady) { e.preventDefault(); e.stopPropagation(); } }}
+        <fieldset disabled={saving || processing || catalogLoading || catalogParsing || !sharedReady}
+          onClickCapture={e => { if (saving || processing || catalogLoading || catalogParsing || !sharedReady) { e.preventDefault(); e.stopPropagation(); } }}
           style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1160,7 +1207,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
           background: catalog ? '#e8f5ee' : '#fff8e6',
           border: `1px solid ${catalog ? '#b8e0c8' : '#f5d97a'}`,
           borderRadius: 8, padding: '10px 14px', marginBottom: '1rem',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap',
         }}>
           <div style={{ fontSize: 12.5 }}>
             {catalogLoading ? (
@@ -1181,18 +1228,65 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
             )}
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            <input ref={catalogRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={(e) => handleCatalogFile(e.target.files[0])} />
+            <input ref={catalogRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={(e) => { handleCatalogFile(e.target.files[0]); e.target.value = ''; }} />
             <button onClick={() => catalogRef.current?.click()} disabled={!xlsxLib} style={{ padding: '5px 10px', fontSize: 11.5, borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer' }}>
               {catalog ? t.catalogReplace : t.catalogLoad}
             </button>
             {catalog && (
-              <button onClick={clearCatalog} style={{ padding: '5px 10px', fontSize: 11.5, borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', color: '#888' }}>
+              <button onClick={() => { cancelCatalogDraft(); setCatalogClearConfirm(true); }} style={{ padding: '5px 10px', fontSize: 11.5, borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', color: '#888' }}>
                 {t.catalogClear}
               </button>
             )}
           </div>
         </div>
 
+        {catalogParsing && <p role="status" style={{ fontSize: 12 }}>{t.catalogLoading}</p>}
+        {catalogDraft && catalogPreviewError && (
+          <section role="alert" style={{ border: '1px solid #f8b4b4', borderRadius: 8, padding: 14, marginBottom: 16, background: '#fee', fontSize: 12, overflowWrap: 'anywhere' }}>
+            <div style={{ fontWeight: 600 }}>{t.catalogPreview}</div>
+            <p>{catalogDraft.fileName}</p>
+            <p style={{ color: '#9b1c1c' }}>{catalogPreviewError}</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <button onClick={confirmCatalogDraft} disabled>{t.catalogConfirm}</button>
+              <button onClick={cancelCatalogDraft}>{t.catalogCancel}</button>
+            </div>
+          </section>
+        )}
+        {catalogDraft && catalogPreview && (
+          <section aria-label={t.catalogPreview} style={{ border: '1px solid #c3d3fb', borderRadius: 8, padding: 14, marginBottom: 16, background: '#f5f8ff', minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t.catalogPreview}</div>
+            <div style={{ fontSize: 12, marginTop: 6, overflowWrap: 'anywhere' }}>{catalogDraft.fileName}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '12px 0', fontSize: 12 }}>
+              <label><input type="radio" name="packing-catalog-mode" checked={catalogMode === 'merge'} onChange={() => { setCatalogMode('merge'); setCatalogReplaceConfirmed(false); }} /> {t.catalogMerge}</label>
+              <label><input type="radio" name="packing-catalog-mode" checked={catalogMode === 'replace'} onChange={() => { setCatalogMode('replace'); setCatalogReplaceConfirmed(false); }} /> {t.catalogReplaceAll}</label>
+            </div>
+            <div style={{ overflowX: 'auto', maxHeight: 260, overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'right' }}>
+                <thead><tr>{t.catalogColumns.map(label => <th key={label} scope="col" style={{ padding: '6px 8px', whiteSpace: 'nowrap', borderBottom: '1px solid #c3d3fb' }}>{label}</th>)}</tr></thead>
+                <tbody>{catalogPreview.countries.map(row => <tr key={row.country}>
+                  <th scope="row" style={{ padding: '6px 8px' }}>{row.country}</th>
+                  {[row.existing, row.incoming, row.added, row.updated, catalogMode === 'merge' ? row.mergeResult : row.replaceResult].map((count, index) => <td key={index} style={{ padding: '6px 8px' }}>{count.toLocaleString()}</td>)}
+                </tr>)}</tbody>
+              </table>
+            </div>
+            <p style={{ fontSize: 12 }}>{t.catalogMergeHint}</p>
+            {catalogPreview.duplicateRows > 0 && <p style={{ fontSize: 12 }}>{t.catalogDuplicates(catalogPreview.duplicateRows)}</p>}
+            {catalogMode === 'replace' && <label style={{ display: 'block', fontSize: 12, color: '#9b1c1c', marginBottom: 12 }}>
+              <input type="checkbox" checked={catalogReplaceConfirmed} onChange={e => setCatalogReplaceConfirmed(e.target.checked)} /> {t.catalogReplaceWarning}
+            </label>}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <button onClick={confirmCatalogDraft} disabled={catalogMode === 'replace' && !catalogReplaceConfirmed}>{t.catalogConfirm}</button>
+              <button onClick={cancelCatalogDraft}>{t.catalogCancel}</button>
+            </div>
+          </section>
+        )}
+        {catalogClearConfirm && <section role="alert" style={{ border: '1px solid #f8b4b4', borderRadius: 8, padding: 14, marginBottom: 16, background: '#fee', fontSize: 12 }}>
+          <p style={{ marginTop: 0 }}>{t.catalogClearWarning}</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={clearCatalog}>{t.catalogClear}</button>
+            <button onClick={() => setCatalogClearConfirm(false)}>{t.catalogCancel}</button>
+          </div>
+        </section>}
 
         {/* Matches (alias) como Excel editable */}
         {(() => {
@@ -1218,7 +1312,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
         })()}
 
         {catalogError && (
-          <div style={{ background: '#fde8e8', color: '#c81e1e', border: '1px solid #f8b4b4', borderRadius: 8, padding: '8px 12px', fontSize: 12, marginBottom: '1rem' }}>
+          <div role="alert" style={{ background: '#fde8e8', color: '#c81e1e', border: '1px solid #f8b4b4', borderRadius: 8, padding: '8px 12px', fontSize: 12, marginBottom: '1rem', overflowWrap: 'anywhere' }}>
             ⚠ {catalogError}
           </div>
         )}
@@ -1272,10 +1366,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
               onDragLeave={() => setDragOver(false)}
               onDrop={onDrop}
               style={{ border: '1.5px dashed #ccc', borderRadius: 10, padding: '2.5rem 1.5rem', textAlign: 'center', cursor: 'pointer', background: dragOver ? '#f0f0ee' : '#fafaf8', borderColor: dragOver ? '#999' : '#ccc' }}>
-              <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files[0])} />
+              <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={(e) => { handleFile(e.target.files[0]); e.target.value = ''; }} />
               <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
               <div style={{ fontSize: 14, color: '#666' }}><strong style={{ color: '#1a1a1a' }}>{t.uploadClick}</strong> {t.uploadDrag}</div>
-              <div style={{ fontSize: 12, marginTop: 4, color: '#999' }}>{t.uploadHint} <code style={{ background: '#f0f0ee', padding: '1px 5px', borderRadius: 3 }}>16-2 Hortensias.pdf</code>)</div>
+              <div style={{ fontSize: 12, marginTop: 4, color: '#999' }}>PDF · 20MiB · {t.uploadHint} <code style={{ background: '#f0f0ee', padding: '1px 5px', borderRadius: 3 }}>16-2 Hortensias.pdf</code>)</div>
             </div>
             {file && (
               <div style={{ marginTop: 10, background: '#f5f5f2', border: '1px solid #e8e8e4', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1288,10 +1382,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
             )}
             <p role="note" style={{ fontSize: 12, color: '#666', marginTop: 12 }}>{t.pdfNotice}</p>
             <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-              <button onClick={process} disabled={!pdfBase64 || processing || !xlsxLib} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing) ? 'pointer' : 'not-allowed', border: '1px solid #1a1a1a', background: '#1a1a1a', color: '#fff', opacity: (pdfBase64 && !processing) ? 1 : 0.35 }}>
+              <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing) ? 'pointer' : 'not-allowed', border: '1px solid #1a1a1a', background: '#1a1a1a', color: '#fff', opacity: (pdfBase64 && !processing) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
               </button>
+              {needsAI&&<button onClick={()=>process(true)} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{t.aiAnalyze}</button>}
             </div>
+            {extractionSource&&<p role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
             {status && (
               <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: 13, background: statusBg, color: statusColor, border: `1px solid ${statusBorder}` }}>
                 {processing && <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #ddd', borderTopColor: '#1a1a1a', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: 6, verticalAlign: 'middle' }}></span>}
@@ -1333,7 +1429,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.generatedSection}</div>
                 {excels.map((ex) => {
                   const tot = ex.products.reduce((s, p) => s + (p.qty || 0), 0);
-                  const unmatchedCount = ex.products.filter(p => p.unmatched).length;
+                  const unmatched = packingUnmatchedCounts(ex);
+                  const unmatchedCount = unmatched.varieties;
                   const blocked = isBlocked(ex);
                   return (
                     <div key={ex.name} style={{ background: '#fff', border: '1px solid #e8e8e4', borderRadius: 10, padding: '1rem 1.25rem', marginBottom: 8 }}>
@@ -1360,7 +1457,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                           {blocked ? t.downloadBlocked : t.download}
                         </button>
                       </div>
-                      <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>{ex.name} · {t.products(ex.products.length)} · {tot.toLocaleString()} {t.stems}</div>
+                      <div style={{ fontSize: 12, color: '#888', marginBottom: 6, overflowWrap: 'anywhere' }}>{ex.name} · {t.products(ex.products.length)} · {tot.toLocaleString()} {t.stems}{unmatched.rows > 0 && ` · ${t.catalogRows(unmatched.rows)}`}</div>
                       <div style={{ fontSize: 12, color: '#666' }}>
                         {ex.products.slice(0, 5).map((p, i) => (
                           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: i < Math.min(4, ex.products.length - 1) ? '1px solid #f0f0ee' : 'none' }}>
