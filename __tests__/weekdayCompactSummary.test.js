@@ -13,7 +13,7 @@ const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'li
 const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const filename = fileURLToPath(new URL('../components/WeekdayCycleMatrix.js', import.meta.url));
 const source = readFileSync(filename, 'utf8');
-const compiled = transformSync(source + '\nexport { CompactSummary, SummaryDetails, ConfirmationBadges, WilsonCell, displayCycleColumns };', false,
+const compiled = transformSync(source + '\nexport { CompactSummary, SummaryDetails, ConfirmationBadges, WilsonCell, QuantityCell, displayCycleColumns };', false,
   Buffer.from(JSON.stringify({ filename, jsc: { target:'es2020', parser:{syntax:'ecmascript',jsx:true},
     transform:{react:{runtime:'automatic'}} }, module:{type:'commonjs'} })));
 const componentRequire = createRequire(filename);
@@ -219,7 +219,7 @@ const failedQuoteButton=nodes(failedQuoteTree).find(node=>node.type==='button'&&
 assert.match(renderToStaticMarkup(failedQuoteButton),/<span>견적<\/span><span>실패<\/span>/,'failed quote displays its state in exactly two compact lines');
 failedQuoteButton.props.onClick();
 assert.match(events.at(-1)[1],/상태: 조회 필요[\s\S]*오류: fixture quote failure:/,'failed quote click sends exact state and full error to selectedInfo');
-assert.match(render(CompactSummary,{...summaryProps,carryoverError:'fixture carry error'}),/role="alert">이월 조회 실패/);
+assert.match(render(CompactSummary,{...summaryProps,carryoverError:'fixture carry error'}),/role="alert"><button[^>]*이월 확인[^>]*>!<\/button>/);
 const failedQuoteMarkup=render(CompactSummary,{...summaryProps,block:{...block,quote:{state:'조회 필요',error:'fixture quote error'}}});
 assert.match(failedQuoteMarkup,/<span>실패<\/span>/,'quote error remains visible in the item button');
 assert.doesNotMatch(failedQuoteMarkup,/wcm-error[^>]*role="alert">견적 조회 실패/,'full quote error is not rendered as a repeated cell alert');
@@ -264,11 +264,11 @@ const wilsonRecord={year:2026,majorWeek:'38',orderWeek:'38-01',custKey:7,prodKey
 const wilsonMarkup=render(Matrix,{...props,plans:[],comparisonRows:[sunday],wilsonRecords:[wilsonRecord],onEditWilson(){}});
 assert.match(wilsonMarkup,/aria-label="윌슨 구분 요일"/);
 assert.match(wilsonMarkup,/aria-label="CARNATION Blue 2026\/38-01 2026-09-20 미적용 초안 수량"[^>]*value="8"/,'general quantity derives from canonical total minus Wilson');
-assert.match(wilsonMarkup,/aria-label="CARNATION Blue 2026-09-20 윌슨 수량" value="2"/);
+assert.match(wilsonMarkup,/aria-label="CARNATION Blue 2026-09-20 윌슨 수량"[^>]*value="2"/);
 assert.match(wilsonMarkup,/data-wcm-label="sum" data-quantity="10"/,'major total never adds Wilson a second time');
 assert.match(wilsonMarkup,/일반·윌슨 합계 내역/);
 const staleMarkup=render(Matrix,{...props,plans:[],comparisonRows:[sunday],wilsonRecords:[{...wilsonRecord,expectedTotal:9,status:'STALE'}],onEditWilson(){}});
-assert.match(staleMarkup,/재확인 · 분류/);
+assert.match(staleMarkup,/윌슨 재확인/);
 assert.match(staleMarkup,/<input(?=[^>]*aria-label="CARNATION Blue 2026\/38-01 2026-09-20 미적용 초안 수량")(?=[^>]*disabled="")[^>]*>/,'stale split blocks general editing');
 const Wilson=load(harness).WilsonCell;
 const wilsonEvents=[];
@@ -318,3 +318,43 @@ slots.length=0;index=0;effects=[];
 const neutralTree=RetryMatrix({...props,plans:[],quoteResults:[readinessResult({})]});
 assert.equal(nodes(neutralTree).filter(node=>node.type==='button'&&node.props.children==='다시 조회').length,0,
   'expected no-shipment state is not presented as a retriable network error');
+
+// Blank input removes a browser draft; zero remains an explicit quantity.
+const Quantity=load(harness).QuantityCell;
+const qday=row.blocks[1].days[0],qevents=[];
+const qprops={row,block,day:qday,disabled:false,onSelect(){},
+  onEditCell:async payload=>{qevents.push(['edit',payload]);return true;},
+  onClearCell:async payload=>{qevents.push(['clear',payload]);return true;}};
+const qdraw=patch=>{index=0;effects=[];return Quantity({...qprops,...patch});};
+slots.length=0;let qview=qdraw();
+await nodes(qview).find(node=>node.type==='input').props.onBlur();assert.equal(qevents.length,0);
+nodes(qview).find(node=>node.type==='input').props.onChange({target:{value:''}});
+await nodes(qdraw()).find(node=>node.type==='input').props.onBlur();
+assert.equal(qevents.at(-1)[0],'clear');assert.equal(qevents.at(-1)[1].quantity,null);assert.equal(qevents.at(-1)[1].clear,true);
+assert.equal(qevents.at(-1)[1].orderWeek,qday.effectiveOrderWeek);
+slots.length=0;qview=qdraw();nodes(qview).find(node=>node.type==='input').props.onChange({target:{value:'0'}});
+await nodes(qdraw()).find(node=>node.type==='input').props.onBlur();assert.equal(qevents.at(-1)[0],'edit');assert.equal(qevents.at(-1)[1].quantity,0);
+slots.length=0;qview=qdraw();nodes(qview).find(node=>node.type==='input').props.onChange({target:{value:''}});
+const rejected={onClearCell:async()=>({success:false,error:'fixture delete failed '.repeat(40)})};
+await nodes(qdraw(rejected)).find(node=>node.type==='input').props.onBlur();qview=qdraw(rejected);
+assert.equal(nodes(qview).find(node=>node.type==='input').props.value,'','failed delete preserves blank input for retry');
+const alert=nodes(qview).find(node=>node.props?.role==='alert');
+assert.equal(alert.props.children.props.visibleLabel,'!');assert.match(alert.props.children.props.description,/fixture delete failed/);
+assert.doesNotMatch(visibleText(render(CompactSummary,{...summaryProps,carryoverError:'fixture error'})),/이월 조회 실패/,
+  'carry failure is a compact alert rather than long row text');
+console.log('Blank draft deletion, explicit zero, async failure preservation and compact error details passed');
+
+assert.equal(alert.props.children.props.autoOpen,true,'new input failure opens its details automatically');
+slots.length=0;index=0;effects=[];
+Details({...detailsProps,autoOpen:true});effects.forEach(effect=>effect());index=0;effects=[];
+assert.ok(nodes(Details({...detailsProps,autoOpen:true})).some(node=>node.props?.role==='dialog'),'automatic failure alert uses the accessible dialog');
+slots.length=0;let wclear;
+wview=wdraw({onClearCell:async payload=>{wclear=payload;return true;}});
+nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:''}});
+await nodes(wdraw({onClearCell:async payload=>{wclear=payload;return true;}})).find(node=>node.type==='input').props.onBlur();
+assert.equal(wclear.quantity,null);assert.equal(wclear.clear,true,'blank Wilson removes the linked date draft instead of recording zero');
+assert.deepEqual(qevents.find(item=>item[0]==='clear')[1].expectedDrafts,qday.drafts,'deletion carries rendered draft fingerprints');
+console.log('Automatic error dialog, Wilson blank deletion and draft compare evidence passed');
+
+
+assert.match(source,/wcm-cell-error \{[^\n]*z-index:40/,'input error dialog stacking context stays above selected-cell details');

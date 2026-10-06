@@ -22,12 +22,23 @@ function displayCycleColumns(cycle, selectedDay) {
     : column.kind === 'remainingMajor' ? [{...column,kind:'sum02'},{...column,kind:'remaining02'},column] : [column]);
 }
 
-function WilsonCell({row,block,day,split,disabled,onEditWilson,onSelect}) {
+function WilsonCell({row,block,day,split,disabled,onEditWilson,onClearCell,onSelect}) {
   const [input,setInput]=useState(null),[error,setError]=useState(''),[saving,setSaving]=useState(false);
   const lock=useRef(false);
   async function save(classificationOnly=false) {
     if(!classificationOnly && input === null) return;
     if(lock.current || disabled || typeof onEditWilson!=='function' || day.editDisabledReason || split.error && !classificationOnly) return;
+    if(!classificationOnly && input?.trim()==='') {
+      if(typeof onClearCell!=='function'){setError('입력 삭제 기능 미연결');return;}
+      lock.current=true;setSaving(true);setError('');
+      try {
+        const result=await onClearCell({...horizontalEditPayload(row,block,day,'0'),quantity:null,clear:true,expectedDrafts:day.drafts});
+        if(result===false || result?.success===false || result?.error)throw new Error(result?.error || '입력 삭제 실패');
+        setInput(null);
+      }catch(failure){setError(failure.message || '입력 삭제 실패 · 입력 유지');}
+      finally{lock.current=false;setSaving(false);}
+      return;
+    }
     const checked=validateHorizontalQuantity(input ?? String(split.wilson ?? split.savedWilson ?? 0));
     if(checked.state!=='VALID') {if(checked.error)setError(checked.error);return;}
     const total=classificationOnly ? split.savedTotal : split.total-split.wilson+checked.quantity;
@@ -40,14 +51,14 @@ function WilsonCell({row,block,day,split,disabled,onEditWilson,onSelect}) {
     }catch(failure){setError(failure.message || '윌슨 기록 실패 · 입력 유지');}
     finally{lock.current=false;setSaving(false);}
   }
-  return <div className="wcm-wilson-cell"><input type="text" inputMode="decimal" aria-label={`${row.name} ${day.date} 윌슨 수량`} value={input ?? (split.wilson==null?'':String(split.wilson))}
+  return <div className="wcm-wilson-cell"><input type="text" inputMode="decimal" aria-label={`${row.name} ${day.date} 윌슨 수량`} title="빈칸은 이 날짜 입력 삭제 · 0은 수량 0 초안" value={input ?? (split.wilson==null?'':String(split.wilson))}
     disabled={disabled || saving || Boolean(day.editDisabledReason) || split.total==null || typeof onEditWilson!=='function'}
     onChange={event=>setInput(event.target.value)} onBlur={()=>save()} onKeyDown={event=>{if(event.key==='Enter'&&!event.nativeEvent?.isComposing){event.preventDefault();event.currentTarget.blur();}if(event.key==='Escape'){setInput(null);setError('');}}}/>
     <button type="button" disabled={disabled || saving || Boolean(day.editDisabledReason) || split.savedTotal==null || typeof onEditWilson!=='function'}
       onMouseDown={event=>event.preventDefault()} onClick={()=>save(true)} title="ERP 합계를 유지하고 일반·윌슨 분류만 저장">분류</button>
     {split.draft && <small className="wcm-inline-status wcm-draft">초안</small>}
-    {split.error && <button type="button" className="wcm-warning" onClick={()=>onSelect(`${split.error}\n최신 합계 안에서 윌슨 수량을 입력한 뒤 분류 버튼으로 확인하세요.`)}>재확인 · 분류</button>}
-    {error && <small role="alert" className="wcm-error">{error}</small>}
+    {split.error && <SummaryDetails label={`${row.name} ${day.date} 윌슨 재확인`} description={`${split.error}\n최신 합계 안에서 윌슨 수량을 입력한 뒤 분류 버튼으로 확인하세요.`} visibleLabel="!"/>}
+    {error && <span role="alert" className="wcm-error"><SummaryDetails label={`${row.name} ${day.date} 윌슨 입력 오류`} description={error} visibleLabel="!" autoOpen/></span>}
   </div>;
 }
 
@@ -72,7 +83,7 @@ const cellDescription = (row, block, day) => [
   block.fixed ? '확정 전산 포함 · 편집은 미적용 초안만' : '', day.editDisabledReason,
 ].filter(Boolean).join('\n');
 
-function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, onSelect, onOpenNote }) {
+function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, onClearCell, onSelect, onOpenNote }) {
   const [input, setInput] = useState(null);
   const [failure, setFailure] = useState('');
   const [saving, setSaving] = useState(false);
@@ -92,18 +103,21 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
   async function commit() {
     if (input === null || disabled || reason || lock.current) return;
     const validated = validateHorizontalQuantity(input);
-    if (validated.state === 'UNCHANGED') { setInput(null); setFailure(''); return; }
+    const clearing = validated.state === 'UNCHANGED';
+    if (clearing && typeof onClearCell !== 'function') { setFailure('입력 삭제 기능 미연결'); return; }
     if (validated.state === 'INVALID') { setFailure(validated.error); return; }
-    if (validated.quantity === visibleQuantity || validated.quantity === lastSubmitted.current) {
+    if (!clearing && (validated.quantity === visibleQuantity || validated.quantity === lastSubmitted.current)) {
       setInput(null); setFailure(''); return;
     }
     lock.current = true;
     setSaving(true);
     setFailure('');
     try {
-      const result = await onEditCell(horizontalEditPayload(row, block, day, input));
+      const result = clearing
+        ? await onClearCell({...horizontalEditPayload(row, block, day, '0'),quantity:null,clear:true,expectedDrafts:day.drafts})
+        : await onEditCell(horizontalEditPayload(row, block, day, input));
       if (result === false || result?.success === false || result?.error) throw new Error(result?.error || '초안 편집 실패');
-      lastSubmitted.current = validated.quantity;
+      lastSubmitted.current = clearing ? null : validated.quantity;
       setInput(null);
     } catch (error) { setFailure(error?.message || '초안 편집 실패 · 입력값 유지'); }
     finally { lock.current = false; setSaving(false); }
@@ -111,7 +125,7 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
   const changed = day.initialDelta != null && day.initialDelta !== 0;
   const early=block.pageNote?.earlyShipment?.date===day.date?block.pageNote.earlyShipment:null;
   const earlyNeedsReview=early && (early.unit!==day.unit || day.displayCurrent==null || early.quantity>day.displayCurrent);
-  return <div className={`wcm-cell${day.knownEmpty?' wcm-unallocated':''}${day.planned != null ? ' wcm-proposed' : ''}${changed?' wcm-changed':''}${early?' wcm-early':''}${blockedReason?' wcm-readonly':' wcm-editable'}`} onClick={focusQuantity} title={`${day.knownEmpty?'미분배 · ':''}${description}\n최초 ${numberLabel(day.initial)}${early?`\n수동확인 ${early.sourceYear}/${early.sourceOrderWeek}차 선출고 ${early.quantity} ${early.unit}`:''}${blockedReason ? `\n편집 불가: ${blockedReason}` : '\n숫자 클릭: 원본 수량 초안 편집 · Enter/다른 칸 클릭으로 초안 기록'}`}>
+  return <div className={`wcm-cell${day.knownEmpty?' wcm-unallocated':''}${day.planned != null ? ' wcm-proposed' : ''}${changed?' wcm-changed':''}${early?' wcm-early':''}${blockedReason?' wcm-readonly':' wcm-editable'}`} onClick={focusQuantity} title={`${day.knownEmpty?'미분배 · ':''}${description}\n최초 ${numberLabel(day.initial)}${early?`\n수동확인 ${early.sourceYear}/${early.sourceOrderWeek}차 선출고 ${early.quantity} ${early.unit}`:''}${blockedReason ? `\n편집 불가: ${blockedReason}` : '\n숫자 클릭: 원본 수량 초안 편집 · 빈칸은 이 날짜 입력 삭제 · 0은 수량 0 초안 · Enter/다른 칸 클릭으로 초안 기록'}`}>
     <span className="wcm-number-display" aria-hidden="true"><QuantityLabel>{weekdayQuantityLabel(visibleQuantity,row,day.unit,block.packaging)}</QuantityLabel></span>
     <input ref={inputControl} type="text" inputMode="decimal" value={value} placeholder="—" disabled={disabled || saving || Boolean(reason)}
       aria-label={`${row.name} ${block.cycle.year}/${day.effectiveOrderWeek} ${day.date} 미적용 초안 수량`}
@@ -129,7 +143,7 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
     {(day.delta != null && day.delta !== 0 || reason) && <button type="button" className="wcm-cell-info"
       aria-label={`${row.name} ${day.date} 수량 내역`} onClick={() => onSelect(`${description}\n${reason}`)}>
       {day.delta != null && day.delta !== 0 ? <>Δ{day.delta > 0 ? '+' : ''}<QuantityLabel>{weekdayQuantityLabel(day.delta,row,day.unit,block.packaging)}</QuantityLabel></> : '!'}</button>}</div>
-    {failure && <span className="wcm-cell-error" role="alert">{failure}</span>}
+    {failure && <span className="wcm-cell-error" role="alert"><SummaryDetails label={`${row.name} ${day.date} 입력 오류`} description={failure} visibleLabel="!" autoOpen/></span>}
     {early && <button type="button" className="wcm-early-label" aria-label={`${row.name} ${day.date} 선출고 비고`} onClick={()=>onOpenNote?.({row,block})}>{early.sourceOrderWeek.slice(0,2)}차 선출고 <QuantityLabel>{weekdayQuantityLabel(early.quantity,row,early.unit,block.packaging)}</QuantityLabel>{earlyNeedsReview?' · 재확인':''}</button>}
   </div>;
 }
@@ -177,9 +191,10 @@ function ConfirmationBadges({ cycle, states, busy, error }) {
 }
 
 // A real button/popover supplements title text for touch and keyboard users.
-function SummaryDetails({ label, description, visibleLabel = '내역' }) {
+function SummaryDetails({ label, description, visibleLabel = '내역', autoOpen = false }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
+  useEffect(()=>{if(autoOpen && description)setOpen(true);},[autoOpen,description]);
   const panel = useRef(null);
   useEffect(() => { if (open) panel.current?.focus(); }, [open]);
   function close() { setOpen(false); trigger.current?.focus(); }
@@ -265,12 +280,12 @@ function CompactSummary({ row, block, disabled, carryover, carryoverBusy, carryo
 
 
     </div>
-    {carryFailure && <div className="wcm-carry-line wcm-error" role="alert">{carryFailure}</div>}
+    {carryFailure && <span className="wcm-error" role="alert"><SummaryDetails label={`${row.name} ${block.cycle.year}/${block.cycle.majorWeek}차 이월 확인`} description={carryFailure} visibleLabel="!"/></span>}
   </td></Fragment>;
 }
 
 export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparisonRows = [], onMove, busy = false,
-  onEditCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
+  onEditCell, onClearCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
   onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], quoteResults = [],
   carryover = null, carryoverPlans = plans, onOpenCarryover, carryoverBusy = false, carryoverError = '', editDisabledReason = '',
   confirmationStates = [], confirmationBusy = false, confirmationError = '',
@@ -315,6 +330,17 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     const built = buildHorizontalWeekdayMatrix(safeCycles, safePlans, safeComparisons, baselines, baselineCandidates, carryover?.context?.inputs || []);
     return applyWeekdayCarryoverToMatrix(built, carryover?.context, carryover?.records || [], carryoverPlans);
   }, [cycles, plans, comparisonRows, baselines, baselineCandidates, carryover, carryoverPlans]);
+  const [carryAlert,setCarryAlert]=useState('');
+  const lastCarryAlert=useRef(null);
+  const inputRevision=JSON.stringify(safePlans);
+  const carryAlertText=[...new Set(matrix.rows.flatMap(row=>row.blocks.filter(block=>block.carryover?.error)
+    .map(block=>`${row.name} · ${cycleLabel(block.cycle)}\n${block.carryover.error}`)))].join('\n\n');
+  useEffect(()=>{
+    const previous=lastCarryAlert.current;
+    lastCarryAlert.current={inputRevision,carryAlertText};
+    if(previous && previous.inputRevision!==inputRevision && carryAlertText && previous.carryAlertText!==carryAlertText)
+      setCarryAlert(carryAlertText);
+  },[inputRevision,carryAlertText]);
   for(const row of matrix.rows)for(const block of row.blocks) {
     block.pageNote=pageNotes.find(note=>Number(note.year)===Number(block.cycle.year)&&String(note.majorWeek)===String(block.cycle.majorWeek)&&Number(note.prodKey)===row.prodKey);
     const result=quoteResults.find(result=>Number(result.year)===Number(block.cycle.year)&&String(result.majorWeek)===String(block.cycle.majorWeek));
@@ -548,6 +574,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
         disabled={adding || disabled} onClick={()=>addProduct(product)}>{product.ProdName} <small>{[product.CounName,product.FlowerName].filter(Boolean).join(' / ')}</small></button>)}</div>
       {!addCandidates.length && !adding && !addError && <span className="wcm-muted">품목명을 검색해 추가하세요.</span>}
     </div>}
+    {carryAlert && <span className="wcm-error" role="alert"><SummaryDetails label="입력 후 이월 확인" description={carryAlert} visibleLabel="! 이월 확인" autoOpen/></span>}
     {selectedInfo && <div className="wcm-selected" role="status">
       <strong>선택 칸 내역</strong><button type="button" onClick={() => setSelectedInfo('')} aria-label="선택 칸 내역 닫기">닫기</button>
       <pre>{selectedInfo}</pre>
@@ -692,13 +719,13 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 if(['day','wilson','dayTotal'].includes(column.kind)) {
                   const day=block.days.find(item=>item.date===column.day.date);
                   const split=splitFor(row,block,day);
-                  if(column.kind==='wilson')return <td key={`wilson|${day.date}`} className="wcm-wilson-column"><WilsonCell row={row} block={block} day={day} split={split} disabled={disabled || wilsonBusy} onEditWilson={onEditWilson} onSelect={setSelectedInfo}/></td>;
+                  if(column.kind==='wilson')return <td key={`wilson|${day.date}`} className="wcm-wilson-column"><WilsonCell row={row} block={block} day={day} split={split} disabled={disabled || wilsonBusy} onEditWilson={onEditWilson} onClearCell={onClearCell} onSelect={setSelectedInfo}/></td>;
                   if(column.kind==='dayTotal')return <td key={`dayTotal|${day.date}`} className="wcm-total"><SummaryDetails label={`${row.name} ${day.date} 일반·윌슨 합계 내역`} visibleLabel={weekdayQuantityLabel(split.total,row,day.unit,block.packaging)} description={`일반 ${split.error?'재확인':numberLabel(split.total-split.wilson)} / 윌슨 ${split.error?'재확인':numberLabel(split.wilson)} / 합계 ${numberLabel(split.total)} ${day.unit || ''}\n${split.error || '견적은 저장된 합계만 출력합니다.'}`}/></td>;
                   const selected=day.label===wilsonDay;
                   const savedGeneral=split.savedTotal==null || split.error?null:Number((split.savedTotal-split.savedWilson).toFixed(6));
                   const projectedGeneral=split.total==null || split.error?null:split.total-split.wilson;
                   const shown=selected?{...day,current:savedGeneral,displayCurrent:savedGeneral,planned:day.planned==null?null:projectedGeneral,initial:null,initialDelta:null,delta:null,editDisabledReason:day.editDisabledReason || split.error || (split.total==null?'일반·윌슨 날짜 합계 미확인':'')}:day;
-                  return <td key={day.date || index}><QuantityCell row={row} block={block} day={shown} disabled={disabled || selected&&wilsonBusy} disabledReason={moving?'초안 이동 처리 중입니다.':editDisabledReason} onEditCell={selected&&typeof onEditCell==='function'?payload=>onEditCell({...payload,quantity:payload.quantity+split.wilson}):onEditCell} onSelect={setSelectedInfo} onOpenNote={onOpenNote}/></td>;
+                  return <td key={day.date || index}><QuantityCell row={row} block={block} day={shown} disabled={disabled || selected&&wilsonBusy} disabledReason={moving?'초안 이동 처리 중입니다.':editDisabledReason} onEditCell={selected&&typeof onEditCell==='function'?payload=>onEditCell({...payload,quantity:payload.quantity+split.wilson}):onEditCell} onClearCell={onClearCell} onSelect={setSelectedInfo} onOpenNote={onOpenNote}/></td>;
                 }
                 if(['sum01','sum02','remaining02','remaining01'].includes(column.kind)) {
                   const subweek=column.kind.endsWith('01')?block.subweek01:block.subweek02;
@@ -890,7 +917,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-proposed input { color:#122033; background:#eaf3ff; }
       .weekday-cycle-matrix .wcm-cell-info { position:relative; z-index:2; font-size:10px; line-height:12px; padding:0 1px; border:0; background:#e2ecfa; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
       .weekday-cycle-matrix :is(.wcm-cell-info,.wcm-change-note) .wcm-quantity-label { font-size:14px; }
-      .weekday-cycle-matrix .wcm-cell-error { color:#a51a24; position:absolute; top:100%; right:0; width:180px; z-index:4; background:#fff0f1; border:1px solid #e5a3a9; padding:4px; text-align:left; }
+      .weekday-cycle-matrix .wcm-cell-error { color:#a51a24; position:absolute; top:0; right:0; z-index:40; padding:0; }
       .weekday-cycle-matrix .wcm-cell input[aria-invalid=true] { border-color:#a51a24; background:#fff0f1; }
       .weekday-cycle-matrix .wcm-move { border:1px solid #7ba0cb; background:#f3f8ff; border-radius:7px; padding:10px; margin:10px 0; }
       .weekday-cycle-matrix .wcm-form { display:grid; grid-template-columns:minmax(230px,2fr) minmax(100px,.7fr) minmax(210px,1.4fr) minmax(200px,1.5fr); gap:8px; margin:8px 0; }
