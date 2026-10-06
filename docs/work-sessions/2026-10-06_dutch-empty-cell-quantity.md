@@ -5,7 +5,7 @@
 - 사용자 요청: 네덜란드 물량표에서 기존 수량이 비어 있는 고객×품목 셀도 클릭해 수량 입력 가능하게 한다.
 - 대상: `stats/dutch-volume-board` 원본 물량표 편집 UI.
 - 원장 부작용: 편집·저장은 브라우저 초안 및 Excel 파일 좌표에만 반영된다. ERP 반영은 기존 별도 검증·확인 적용 흐름에서만 가능하다.
-- 배포/PR: 구현·테스트 완료 후 기록.
+- 배포/PR: PR [#899](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/899) merged; Cafe24 배포 run `37399952370` success, hydration smoke success. Merge commit `afc8df594384362ff930a7c6734c1cd56d48d3a6`.
 
 ## 이어받을 때 고정할 결정
 
@@ -23,8 +23,8 @@
 
 **A.** 빈 고객×품목 셀을 찾아 기존 인라인 수량 편집기로 연결했다. 양수 입력은 기존 초안/복원 흐름에 들어가며 Excel 내보내기 시 원래 셀 좌표에 쓴다. 표의 합계·요약·헤더·수식 셀은 제외한다.
 
-**결과.** 구현 및 테스트 완료. PR·배포 결과는 완료 시 이 항목을 갱신한다.
+**결과.** PR #899 병합 및 배포 완료. 로컬 테스트·build, ERP contract/manifest/write guards와 원격 ERP Contract Guard 통과. Cafe24 SSH deploy와 hydration smoke 모두 성공.
 
 ## 미완 / 다음 후보
 
-- 배포 워크플로와 운영 화면 스모크 결과 기록.
+- 후속 요청 없음.
