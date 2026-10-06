@@ -13,7 +13,7 @@ const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'li
 const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const filename = fileURLToPath(new URL('../components/WeekdayCycleMatrix.js', import.meta.url));
 const source = readFileSync(filename, 'utf8');
-const compiled = transformSync(source + '\nexport { CompactSummary, SummaryDetails, ConfirmationBadges, WilsonCell, QuantityCell, displayCycleColumns };', false,
+const compiled = transformSync(source + '\nexport { CompactSummary, SummaryDetails, ConfirmationBadges, WilsonCell, QuantityCell, displayCycleColumns, carryoverInputAlerts };', false,
   Buffer.from(JSON.stringify({ filename, jsc: { target:'es2020', parser:{syntax:'ecmascript',jsx:true},
     transform:{react:{runtime:'automatic'}} }, module:{type:'commonjs'} })));
 const componentRequire = createRequire(filename);
@@ -23,7 +23,7 @@ const load = (react = React) => {
     : name.includes('weekdayHorizontalMatrix') ? helper : componentRequire(name), mod, mod.exports);
   return mod.exports;
 };
-const {default:Matrix, CompactSummary, ConfirmationBadges} = load();
+const {default:Matrix, CompactSummary, ConfirmationBadges, carryoverInputAlerts} = load();
 const render = (Component, props) => renderToStaticMarkup(React.createElement(Component, props));
 const cycles = [-1,0,1].map(offset => ({offset,year:2026,majorWeek:String(38+offset),calendarState:'FOUND',
   startDate:shiftDate('2026-09-17',offset*7),endDate:shiftDate('2026-09-17',offset*7+6),
@@ -358,3 +358,8 @@ console.log('Automatic error dialog, Wilson blank deletion and draft compare evi
 
 
 assert.match(source,/wcm-cell-error \{[^\n]*z-index:40/,'input error dialog stacking context stays above selected-cell details');
+
+const unrelatedAlert={name:'Unrelated',blocks:[{cycle:cycles[1],productPlans:[],carryover:{error:'unrelated warning'}}]};
+const inputAlert={name:'Brut',blocks:[{cycle:cycles[1],productPlans:[draft],carryover:{error:'edited input warning'}}]};
+assert.equal(carryoverInputAlerts({rows:[unrelatedAlert,inputAlert]}),'Brut · 2026 / 38차\nedited input warning','automatic carry alert includes only product intervals with unapplied input');
+assert.equal(carryoverInputAlerts({rows:[unrelatedAlert,{...inputAlert,blocks:inputAlert.blocks.map(block=>({...block,productPlans:[]}))}]}),'','deleting the input removes its automatic alert');
