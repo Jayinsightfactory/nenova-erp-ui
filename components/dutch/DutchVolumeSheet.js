@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx-js-style';
-import { parseDutchSheetQuantity } from '../../lib/dutchSheetQuantityEdit';
+import { createDutchBlankCellEntry, parseDutchSheetQuantity } from '../../lib/dutchSheetQuantityEdit';
 
 const formatQty = value => Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 4 });
 const hasPrice = value => value !== undefined && value !== null && String(value) !== '';
@@ -38,8 +38,8 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
     quantityInputRef.current?.select();
   }, [quantityEdit?.entryId]);
 
-  const beginQuantityEdit = entry => {
-    const next = { entryId: entry.id, originalValue: Number(entry.quantity), value: String(entry.quantity) };
+  const beginQuantityEdit = (entry, isNew = false) => {
+    const next = { entryId: entry.id, newEntry: isNew ? entry : null, originalValue: isNew ? null : Number(entry.quantity), value: isNew ? '' : String(entry.quantity) };
     quantityEditRef.current = next;
     setQuantityEdit(next);
   };
@@ -53,6 +53,10 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
           quantityInputRef.current?.focus();
           return;
         }
+      } else if (current.newEntry) {
+        // A blank source cell is only added to the ERP draft for a positive quantity.
+        // Explicit zero is equivalent to leaving that source cell empty.
+        if (parsed.quantity > 0) onQuantityChange(current.entryId, parsed.quantity, current.newEntry);
       } else if (parsed.quantity !== current.originalValue) {
         onQuantityChange(current.entryId, parsed.quantity);
       }
@@ -70,6 +74,13 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
 
   const sheet = workbook?.Sheets?.[sheetName];
   const range = sheet?.['!ref'] ? XLSX.utils.decode_range(sheet['!ref']) : null;
+  let quantitySummaryStart = range ? range.e.c + 1 : 0;
+  if (range) {
+    for (let col = 1; col <= range.e.c; col += 1) {
+      if (String(sheet[XLSX.utils.encode_cell({ r: 2, c: col })]?.v ?? '').trim() === '주문') { quantitySummaryStart = col; break; }
+    }
+  }
+  const quantityMatrixScope = { range, summaryStart: quantitySummaryStart };
   const tooLarge = range && (range.e.r - range.s.r + 1) * (range.e.c - range.s.c + 1) > 100000;
   const sourceEntries = useMemo(() => new Map(entries.filter(entry => !entry.added && entry.sheetName && entry.cellAddress).map(entry => [`${entry.sheetName}!${entry.cellAddress}`, entry])), [entries]);
   const sheetEntries = entries.filter(entry => !entry.added && entry.sheetName === sheetName);
@@ -98,7 +109,7 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
   if (!range || !sheetName) return <div className="sheet-empty">표시할 네덜란드 원본 시트가 없습니다.</div>;
   if (tooLarge) return <div role="alert">원본 시트가 너무 커서 한 번에 표시할 수 없습니다. 단가 수정·매칭 탭을 이용하거나 불필요한 끝 행·열을 정리해 주세요.</div>;
   return <section className="source-sheet" aria-label="원본 물량표 행렬">
-    <div className="sheet-bar"><div><b>원본 물량표 · {sheetName}</b><span>수량 셀을 클릭해 최종수량을 변경할 수 있습니다. 변경은 초안에 저장되며 ERP 반영 전 다시 검증해야 합니다.</span></div>{sheets.length > 1 && <select aria-label="원본 시트 선택" value={sheetName} onChange={event => setSheetName(event.target.value)}>{sheets.map(name => <option key={name} value={name}>{name}</option>)}</select>}</div>
+    <div className="sheet-bar"><div><b>원본 물량표 · {sheetName}</b><span>업체별 수량 셀은 비어 있어도 클릭해 입력할 수 있습니다. 변경은 초안에 저장되며 ERP 반영 전 다시 검증해야 합니다.</span></div>{sheets.length > 1 && <select aria-label="원본 시트 선택" value={sheetName} onChange={event => setSheetName(event.target.value)}>{sheets.map(name => <option key={name} value={name}>{name}</option>)}</select>}</div>
     <div className="sheet-top-scroll" data-testid="dutch-volume-top-scroll" aria-label="원본 물량표 상단 가로 스크롤" role="region" tabIndex={0} hidden={scrollMetrics.content <= scrollMetrics.viewport} ref={topScrollRef} onScroll={() => syncHorizontalScroll(topScrollRef, scrollRef)}><div className="sheet-top-scroll-inner" style={{ width: `${scrollMetrics.content}px` }}/></div>
     <div className="sheet-scroll" ref={scrollRef} aria-label="원본 물량표 가로 세로 스크롤" tabIndex={0} onScroll={() => syncHorizontalScroll(scrollRef, topScrollRef)}><table><colgroup>{Array.from({ length: range.e.c - range.s.c + 1 }, (_, index) => <col key={index} style={{ width: widthOf(index + range.s.c) }}/>)}</colgroup><tbody>
       {Array.from({ length: range.e.r - range.s.r + 1 }, (_, rowOffset) => {
@@ -110,6 +121,8 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
           const address = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
           const cell = sheet[address];
           const entry = sourceEntries.get(`${sheetName}!${address}`);
+          const blankEntry = !entry && !disabled ? createDutchBlankCellEntry(XLSX, sheet, sheetName, rowIndex, colIndex, layoutVersion, quantityMatrixScope) : null;
+          const quantityTarget = entry || blankEntry;
           const price = entry ? prices[priceKey(entry)] : undefined;
           const raw = cell?.v == null ? (cell?.f ? '수식 캐시 없음' : '') : typeof cell.v === 'number' ? formatQty(cell.v) : String(cell.v);
           const edited = entry && Number.isFinite(Number(entry.quantity)) && Number(entry.quantity) !== Number(cell?.v);
@@ -117,11 +130,11 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
           const sticky = colIndex < stickyCount && (!merge || merge.e.c === merge.s.c);
           const style = { width: widthOf(colIndex), minWidth: widthOf(colIndex), maxWidth: widthOf(colIndex) };
           if (sticky) style.left = leftOf(colIndex);
-          const quantityEditable = !!entry && colIndex >= stickyCount && !disabled;
-          const isEditingQuantity = quantityEditable && quantityEdit?.entryId === entry.id;
-          const quantityLabel = `${entry?.sourceFlower || entry?.product} ${entry?.sourceItem || entry?.color} ${entry?.sourceCustomer || entry?.customer} ${address} 수량`;
+          const quantityEditable = !!quantityTarget && colIndex >= stickyCount && !disabled;
+          const isEditingQuantity = quantityEditable && quantityEdit?.entryId === quantityTarget.id;
+          const quantityLabel = `${quantityTarget?.sourceFlower || quantityTarget?.product} ${quantityTarget?.sourceItem || quantityTarget?.color} ${quantityTarget?.sourceCustomer || quantityTarget?.customer} ${address} 수량`;
           return <td key={address} rowSpan={merge ? merge.e.r - merge.s.r + 1 : undefined} colSpan={merge ? merge.e.c - merge.s.c + 1 : undefined}
-            className={`${header ? 'header-cell ' : ''}${sticky ? 'sticky-cell ' : ''}${entry ? 'editable-cell ' : ''}${activeEntryId === entry?.id ? 'active-cell ' : ''}${colIndex >= stickyCount ? 'quantity-cell' : ''}`}
+            className={`${header ? 'header-cell ' : ''}${sticky ? 'sticky-cell ' : ''}${quantityEditable ? 'editable-cell ' : ''}${activeEntryId === entry?.id ? 'active-cell ' : ''}${colIndex >= stickyCount ? 'quantity-cell' : ''}`}
             style={style} title={cell?.f ? `${address} · 수식: ${cell.f}` : address} data-entry-id={entry?.id}>
             {isEditingQuantity
               ? <input ref={quantityInputRef} className="quantity-edit-input" type="number" min="0" step="any" value={quantityEdit.value} aria-label={quantityLabel}
@@ -132,7 +145,7 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
                     if (event.key === 'Escape') { event.preventDefault(); finishQuantityEdit(false); }
                   }}/>
               : quantityEditable
-                ? <button type="button" className="quantity-edit-trigger" title="클릭해 수량 변경" aria-label={`${quantityLabel}, 현재 ${formatQty(entry.quantity)}${entry.unit ? ` ${entry.unit}` : ''}. 클릭해 변경`} onClick={() => beginQuantityEdit(entry)}>{formatQty(entry.quantity)}</button>
+                ? <button type="button" className="quantity-edit-trigger" title={entry ? '클릭해 수량 변경' : '빈 셀을 클릭해 수량 입력'} aria-label={`${quantityLabel}, ${entry ? `현재 ${formatQty(entry.quantity)}${entry.unit ? ` ${entry.unit}` : ''}` : '수량 없음'}. 클릭해 ${entry ? '변경' : '입력'}`} onClick={() => beginQuantityEdit(quantityTarget, !entry)}>{entry ? formatQty(entry.quantity) : ''}</button>
                 : <span className="source-value">{raw}</span>}
             {entry && <><span className="source-link"><button type="button" onClick={() => onEdit(entry.id)} aria-label={`${entry.sourceFlower || entry.product} ${entry.sourceItem || entry.color} ${entry.sourceCustomer || entry.customer} ${address} 단가 및 매칭 편집 열기`}>단가</button></span>
               {edited && <span className="draft-quantity">원본 {raw} {entry.unit || ''}</span>}
