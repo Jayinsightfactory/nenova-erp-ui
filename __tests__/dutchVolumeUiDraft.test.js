@@ -32,6 +32,14 @@ assert.equal(restoredBlankSource?.added, false, '빈 원본 셀 편집을 별도
 assert.notEqual(dutchSourceIdentity(identity,[entry],2026,'40-02'), dutchSourceIdentity(identity,[entry],2025,'40-02'));
 assert.notEqual(dutchSourceIdentity(identity,[entry],2026,'40-02'), dutchSourceIdentity(identity,[{...entry,color:'새 품목'}],2026,'40-02'));
 assert.notEqual(dutchSourceIdentity(identity,[entry],2026,'40-02'), dutchSourceIdentity(identity,[{...entry,quantity:6}],2026,'40-02'));
+assert.notEqual(dutchSourceIdentity(identity,[{...entry,sourceCustKey:13}],2026,'40-02'), dutchSourceIdentity(identity,[{...entry,sourceCustKey:14}],2026,'40-02'), 'LIVE 초안은 재조회된 원천 CustKey가 바뀌면 별도 identity로 격리한다');
+const sourceKeyEntry = { ...entry, sourceCustKey: 13 };
+const sourceKeyIdentity = dutchSourceIdentity(identity,[sourceKeyEntry],2026,'40-02');
+writeDutchDraft(storage, sourceKeyIdentity, [{ ...sourceKeyEntry, custKey: 99, customer: '옛 수동업체' }], {});
+const freshSourceKey = readDutchDraft(storage, sourceKeyIdentity, [sourceKeyEntry], (_, value) => value).entries[0];
+assert.equal(freshSourceKey.custKey, 99, '수동 업체 매칭은 그대로 복원한다');
+assert.equal(freshSourceKey.sourceCustKey, 13, '새 LIVE 원천 키를 저장된 자동/이전 키로 덮지 않는다');
+assert.equal(buildDutchPreviewEntries([sourceKeyEntry], {}, key)[0].custKey, 13, 'LIVE 키는 최종 검증 요청에 사용한다');
 const v3Identity = dutchSourceIdentity('old',[entry],2026,'40-02');
 storage.setItem('nenova.dutch-volume-krw.v2:old',JSON.stringify({version:2,currency:'KRW',entries:[{...entry,prodKey:999}],prices:{x:12}}));
 const resetDraft=readDutchDraft(storage,v3Identity,[entry],(_,value)=>value);

@@ -9,6 +9,7 @@ import { DAY_ORDER, extractDays, pickDataDay } from '../../../lib/pivotVolumeCus
 import { includePivotVolumeRow, sumIncomingQty, sumOrderQty } from '../../../lib/pivotVolumeRows';
 import { combinedCellContext, combinedParts, combinedNumberFormat, quantityNumberFormat } from '../../../lib/pivotVolumeCombinedCells';
 import { volumeProdLabel } from '../../../lib/pivotVolumeProductLabel';
+import { pivotCustomerQuantity } from '../../../lib/pivotCustomerQuantity';
 import {
   buildPivotVolumeIdentityColumns,
   isNetherlandsVolume,
@@ -164,7 +165,7 @@ function extractCustomerAbbr(customer) {
 
 function makeCustomerGroups(rows, customers, flower) {
   const active = customers
-    .filter(customer => rows.some(row => n(row.orders?.[customer.custName]) > 0))
+    .filter(customer => rows.some(row => n(pivotCustomerQuantity(row, customer)) > 0))
     .map(customer => {
       const days = extractDays(customer, flower);
       return {
@@ -260,7 +261,8 @@ function makeSheet(rows, customers, farms, meta) {
       aoa[1][idx] = meta.combined ? '' : col.day || '';
       // 중국·네덜란드 시트: 업체명 아래 줄에 CL(OrderCode) 추가 표시
       const cl = String(col.customer?.orderCode || '').trim();
-      aoa[2][idx] = (showsCustomerCL(meta) && cl) ? `${col.label}\n${cl}` : col.label;
+      const customerName = isNetherlandsVolume(meta) ? String(col.customer?.custName || col.label) : col.label;
+      aoa[2][idx] = (showsCustomerCL(meta) && cl) ? `${customerName}\n${cl}` : col.label;
     } else if (col.type === 'summary') {
       aoa[0][idx] = '';
       aoa[1][idx] = '';
@@ -282,7 +284,7 @@ function makeSheet(rows, customers, farms, meta) {
       if (col.type === 'flower') line.push(pivotVolumeFlowerLabel(row));
       else if (col.type === 'product') line.push(volumeProdLabel(row));
       else if (col.type === 'color') line.push(isNetherlandsVolume(row) ? dutchColorLabel(row.productDescr) : '');
-      else if (col.type === 'customer') line.push(q(row, row.orders?.[col.customer.custName]) || '');
+      else if (col.type === 'customer') line.push(q(row, pivotCustomerQuantity(row, col.customer)) || '');
       else if (col.type === 'summary' && col.label === '주문') line.push(q(row, sumOrderQty(row)) || '');
       else if (col.type === 'summary' && col.label === '입고') line.push(q(row, sumIncomingQty(row)) || '');
       else if (col.type === 'summary' && col.label === '재고') line.push('');
@@ -299,7 +301,7 @@ function makeSheet(rows, customers, farms, meta) {
     if (col.type === 'flower') totals.push('');
     else if (col.type === 'product') totals.push('합계');
     else if (col.type === 'color') totals.push('');
-    else if (col.type === 'customer') totals.push(rows.reduce((sum, row) => sum + q(row, row.orders?.[col.customer.custName]), 0) || '');
+    else if (col.type === 'customer') totals.push(rows.reduce((sum, row) => sum + q(row, pivotCustomerQuantity(row, col.customer)), 0) || '');
     else if (col.type === 'summary' && col.label === '주문') totals.push(rows.reduce((sum, row) => sum + q(row, sumOrderQty(row)), 0) || '');
     else if (col.type === 'summary' && col.label === '입고') totals.push(rows.reduce((sum, row) => sum + q(row, sumIncomingQty(row)), 0) || '');
     else if (col.type === 'summary' && col.label === '재고') totals.push('');
@@ -312,7 +314,7 @@ function makeSheet(rows, customers, farms, meta) {
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = colPlan.map(col => ({
-    wch: col.type === 'flower' ? 12 : col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' || col.type === 'farm-total' ? 8 : col.type === 'customer' ? CUSTOMER_COL_WCH : 5,
+    wch: col.type === 'flower' ? 12 : col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' || col.type === 'farm-total' ? 8 : col.type === 'customer' ? isNetherlandsVolume(meta) ? Math.max(CUSTOMER_COL_WCH, Math.min(24, String(col.customer?.custName || col.label || '').length + 1)) : CUSTOMER_COL_WCH : 5,
   }));
   ws['!rows'] = [{ hpt: 32 }, { hpt: 20 }, { hpt: 44 }];
   ws['!freeze'] = { xSplit: isNetherlandsVolume(meta) ? 3 : 1, ySplit: 3 };
@@ -399,7 +401,7 @@ function makeSheet(rows, customers, farms, meta) {
       const totalsByWeek = meta.combined.weeks.map(() => 0);
       let width = 14;
       rows.forEach((row, rowIdx) => {
-        const parts = combinedParts(meta.combined, row, col.customer.custName, q);
+        const parts = combinedParts(meta.combined, row, col.customer, q);
         parts.forEach((value, i) => { totalsByWeek[i] += value; });
         const cell = ws[encodeCell(dataStart + rowIdx, idx + 1)];
         if (cell.t !== 'n') return;
@@ -448,7 +450,7 @@ export default withAuth(async function handler(req, res) {
     const data = await getPivotStats({ weekStart, weekEnd, orderYear });
     const combined = combinedCellContext(data, req.query.combineSubweeks);
     const wb = XLSX.utils.book_new();
-    const customers = data.customers || [];
+    const customers = data.customersByKey || data.customers || [];
     const farms = data.farms || [];
     const weekLabel = `${data.weekStart}${data.weekEnd !== data.weekStart ? `~${data.weekEnd}` : ''}`;
 
