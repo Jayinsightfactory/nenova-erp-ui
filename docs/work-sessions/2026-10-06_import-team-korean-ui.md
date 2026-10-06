@@ -37,3 +37,17 @@
 
 ### 최종 검토
 gpt-5.6-sol/high 독립 검토 승인. 체크리스트 키/원본113개 항목 불변, 사용자 입력 및 리비전 보호, 추가 외부 호출/ERP 접근 없음 확인. 마지막 배치 변경으로 일일 업무가 미결업무보다 먼저 보이도록 정리했다.
+
+### 병합
+- 전체 ERP 계약·dnSpy evidence·manifest·write guard·UI layout·production build 모두 통과.
+- production 모드 실브라우저도1920/900/480,실파일 AWB/NL/China 통과.
+- PR #912: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/912 (병합 완료).
+- master commit: `3227681b51068c5215099730a551b07ef099b02b`.
+- 운영 배포/스모크 대기. 아래 최종 결과가 없으면 배포 성공을 단정하지 않는다.
+
+### 운영 완료
+- Cafe24 run37418928988 성공: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37418928988
+- 배포 commit `3227681b51068c5215099730a551b07ef099b02b` 확인.
+- 운영 https://nenovaweb.com/import/tools 에서 한국어 기본 및 1920×1080/100%,900/480px 확인. 패킹/AWB/발주서/체크리스트4개하위탭/이력 모두 페이지오류·가로넘침0.
+- 실제샘플 AWB1379.60/2026-10-01,NL7589송이,중국1850단 유지. AI호출0·운영공동자료쓰기0·ERP쓰기0. 다운로드 양식/업무키 보존.
+- 첫 운영확인은 서버 교체 전이라 대기시간 초과. SSH 배포 완료 후 재시도는 전 항목 성공. 미해결 오류 없음.

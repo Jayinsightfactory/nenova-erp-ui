@@ -1,12 +1,14 @@
 import React, { useRef, useState } from 'react';
 import {useImportTeamRecord} from '../../lib/importTeamClient';
 import {
-  MONTHLY_TASKS, EMPLOYEES, PLANT_VARIETIES, SHARED_KEYS,
+  DAYS, MONTHLY_TASKS, EMPLOYEES, PLANT_VARIETIES, SHARED_KEYS,
   getKstDate, isDate, checklistDayKey, checklistMonthKey, checklistVacationKey,
   weekdayForDate, weekDates, dailyTasks, checklistProgress, monthlyTaskKey,
   sortFlights, upsertEntry, deleteEntry, validateVacation, vacationSummary,
   validatePlanting, plantingSummary, groupPlanting, fmtUSD,
   checklistErrorMessage, saveChecklistDraft,
+  checklistTemplateKey, defaultWeekdayTemplate, validateWeekdayTemplate,
+  rebaseChecklistDraft, checkedActorLabel,
 } from '../../lib/importTeamChecklist';
 import {
   checklistTaskLabel, checklistCountryLabel, checklistMonthlyLabel,
@@ -61,46 +63,110 @@ function RecordStatus({ record, dirty = false }) {
   </div>;
 }
 
-function ChecksPanel({ date, month }) {
+function ChecksPanel({ date, month, templateRecord }) {
   const daily = !!date;
   const record = useManagedRecord(daily ? checklistDayKey(date) : checklistMonthKey(month), EMPTY_OBJECT);
   const [draft, setDraft] = useState(null);
   const state = draft?.value ?? record.value;
   const stale = draft !== null && draft.revision !== record.revision;
+  const template = templateRecord?.value;
+  const blocked = record.busy || !!templateRecord?.busy || !!templateRecord?.error;
   function toggle(key, checked) {
-    setDraft(previous => ({ revision: previous?.revision ?? record.revision, value: { ...(previous?.value ?? record.value), [key]: checked } }));
+    setDraft(previous => ({ revision: previous?.revision ?? record.revision, base: previous?.base ?? { ...record.value }, value: { ...(previous?.value ?? record.value), [key]: checked } }));
   }
-  const progress = daily ? checklistProgress(date, state) : null;
+  const progress = daily ? checklistProgress(date, state, template) : null;
   return <section className="panel">
     <h3>{daily ? `${date} · ${checklistWeekdayLabel(weekdayForDate(date), true)}` : `월별 결제 · 콜롬비아 · ${month}`}</h3>
     <RecordStatus record={record} dirty={draft !== null} />
     {stale && <div role="alert" className="warning-message">공동 상태가 바뀌었습니다. 아래 체크 옆의 저장값과 초안을 비교하세요.
-      <button type="button" disabled={record.busy} onClick={() => setDraft(previous => ({ ...previous, revision: record.revision }))}>비교 완료 · 초안 재확인</button>
+      <button type="button" disabled={blocked} onClick={() => setDraft(previous => rebaseChecklistDraft(previous, record.value, record.revision))}>비교 완료 · 초안 재확인</button>
     </div>}
+    {templateRecord && (templateRecord.loading || templateRecord.error) && <RecordStatus record={templateRecord} />}
+    {templateRecord && <WeekdayTemplatePanel weekday={weekdayForDate(date)} record={templateRecord} />}
     {progress && <div className="progress-row"><p>완료 {progress.done} / {progress.total}개 · {progress.percent}% {draft && '(미저장 초안 기준)'}</p><progress max="100" value={progress.percent} aria-label="일일 업무 완료율" /></div>}
-    <fieldset disabled={record.busy}>
+    <fieldset disabled={blocked}>
       <div className="cards">
-        {(daily ? dailyTasks(date) : [{ country: 'Pagos', tasks: MONTHLY_TASKS.map((task, index) => ({ key: monthlyTaskKey(task, index), text: checklistMonthlyLabel(task) })) }]).map(group => <div className="task-group" key={group.country}>
+        {(daily ? dailyTasks(date, template) : [{ country: 'Pagos', tasks: MONTHLY_TASKS.map((task, index) => ({ key: monthlyTaskKey(task, index), text: checklistMonthlyLabel(task) })) }]).map(group => <div className="task-group" key={group.country}>
           <h4>{checklistCountryLabel(group.country)}<small>{group.tasks.length}개 업무</small></h4>
           {group.tasks.map(task => <label className={`check-row ${state[task.key] === true ? 'checked' : ''}`} key={task.key}>
             <input type="checkbox" checked={state[task.key] === true} onChange={event => toggle(task.key, event.target.checked)} />
-            <span>{daily ? checklistTaskLabel(task.text) : task.text}{draft && <small className="saved-value">공동 저장값: {record.value[task.key] === true ? '완료' : '미완료'}</small>}</span>
+            <span>{daily ? checklistTaskLabel(task.text) : task.text}{draft && <small className="saved-value">공동 저장값: {record.value[task.key] === true ? '완료' : '미완료'}</small>}
+              {draft && draft.value[task.key] !== draft.base[task.key] && <small className="saved-value pending-check">체크 변경 미저장 · 저장 후 담당자 확정</small>}
+              {record.value[task.key] === true && <small className="saved-value">{checkedActorLabel(true, record.taskActors?.[task.key])}</small>}
+            </span>
           </label>)}
         </div>)}
       </div>
     </fieldset>
     <div className="actions">
-      <button type="button" className="primary" disabled={record.busy || !draft || stale} onClick={() => record.run(draft.value, () => setDraft(null))}>초안 공동 저장</button>
+      <button type="button" className="primary" disabled={blocked || !draft || stale} onClick={() => record.run(draft.value, () => setDraft(null))}>초안 공동 저장</button>
       <button type="button" disabled={record.busy || !draft} onClick={() => setDraft(null)}>초안 취소</button>
-      <button type="button" className="danger-button" disabled={record.busy} onClick={() => { if (window.confirm(daily ? `${date}의 업무 체크를 모두 초기화할까요?\n공동 저장된 체크와 현재 초안이 초기화됩니다.` : `${month}의 월별 결제 체크를 모두 초기화할까요?\n공동 저장된 체크와 현재 초안이 초기화됩니다.`)) record.run({}, () => setDraft(null)); }}>{daily ? '선택 날짜 체크 초기화' : '월별 결제 체크 초기화'}</button>
+      <button type="button" className="danger-button" disabled={blocked || stale} onClick={() => { if (window.confirm(daily ? `${date}의 업무 체크를 모두 초기화할까요?\n공동 저장된 체크와 현재 초안이 초기화됩니다.` : `${month}의 월별 결제 체크를 모두 초기화할까요?\n공동 저장된 체크와 현재 초안이 초기화됩니다.`)) record.run({}, () => setDraft(null)); }}>{daily ? '선택 날짜 체크 초기화' : '월별 결제 체크 초기화'}</button>
     </div>
   </section>;
+}
+
+function WeekdayTemplatePanel({ weekday, record }) {
+  const [draft, setDraft] = useState(null);
+  const [editId, setEditId] = useState(null);
+  const stale = draft !== null && draft.revision !== record.revision;
+  const tasks = record.value.tasks;
+  function cancel() { setDraft(null); setEditId(null); }
+  function field(name, value) {
+    setDraft(previous => ({ ...(previous ?? { country: '', text: '', revision: record.revision }), [name]: value }));
+  }
+  async function submit(event) {
+    event.preventDefault();
+    if (!draft || stale || record.busy) return;
+    try {
+      const existing = tasks.find(task => task.id === editId);
+      if (editId !== null && !existing) throw new Error('다른 팀원이 이 업무를 삭제했습니다. 입력 초안은 유지됩니다.');
+      // UUIDs never depend on list position or country, so edits/deletes cannot
+      // reassign an old country's ::index check to a different task.
+      const id = editId ?? `task::${globalThis.crypto.randomUUID()}`;
+      const task = { id, country: draft.country.trim(), text: draft.text.trim() };
+      const next = { tasks: existing ? tasks.map(row => row.id === id ? task : row) : [...tasks, task] };
+      validateWeekdayTemplate(weekday.id, next);
+      await record.run(next, cancel);
+    } catch (error) { record.fail(error); }
+  }
+  return <details className="weekday-editor">
+    <summary>요일별 업무 추가·수정·삭제 · {checklistWeekdayLabel(weekday, true)}</summary>
+    <p>이 목록은 선택 날짜만이 아니라 매주 {checklistWeekdayLabel(weekday, true)}에 반복되는 팀 공동 업무 템플릿입니다. 지난 날짜에도 수정된 목록이 표시됩니다. 날짜별 체크·담당자 기록과 미저장 초안은 별도로 유지됩니다.</p>
+    <RecordStatus record={record} dirty={draft !== null} />
+    {stale && <div role="alert" className="warning-message">요일 업무 목록이 바뀌었습니다. 최신 목록과 입력 초안을 비교한 뒤 다시 확인하세요.
+      <button type="button" disabled={record.busy} onClick={() => setDraft(previous => ({ ...previous, revision: record.revision }))}>목록 비교 완료 · 입력 초안 재확인</button>
+    </div>}
+    <form onSubmit={submit}><fieldset disabled={record.busy} className="form-row">
+      <label>국가·분류<input maxLength={80} value={draft?.country ?? ''} onChange={event => field('country', event.target.value)} /></label>
+      <label>반복 업무 내용<textarea rows={2} maxLength={1000} value={draft?.text ?? ''} onChange={event => field('text', event.target.value)} /></label>
+      <button type="submit" className="primary" disabled={!draft || stale}>{editId !== null ? '반복 업무 수정 · 공동 저장' : '반복 업무 추가 · 공동 저장'}</button>
+      <button type="button" onClick={cancel}>입력 초안 취소</button>
+    </fieldset></form>
+    {!tasks.length && <p className="empty-state">등록된 반복 업무가 없습니다. 국가·분류와 업무 내용을 입력하여 추가하세요.</p>}
+    <div className="record-list" role="region" aria-label={`${checklistWeekdayLabel(weekday, true)} 반복 업무 목록`} tabIndex={0}>{tasks.map(task => <div className="entry" key={task.id}>
+      <div>{checklistCountryLabel(task.country)} · {checklistTaskLabel(task.text)}</div>
+      <div className="actions">
+        <button type="button" disabled={record.busy || draft !== null} onClick={() => { setEditId(task.id); setDraft({ country: task.country, text: checklistTaskLabel(task.text), revision: record.revision }); }}>반복 업무 수정</button>
+        <button type="button" className="danger-button" disabled={record.busy || draft !== null} onClick={() => {
+          if (window.confirm(`이 반복 업무를 삭제할까요?\n매주 ${checklistWeekdayLabel(weekday, true)}의 팀 공동 목록에서 삭제됩니다. 날짜별 체크 기록은 삭제하지 않습니다.`)) record.run({ tasks: tasks.filter(row => row.id !== task.id) });
+        }}>반복 업무 삭제</button>
+      </div>
+    </div>)}</div>
+  </details>;
+}
+
+// One shared template scope per weekday; each visited date keeps its own draft.
+function WeekdayChecklist({ weekday, dates, date }) {
+  const record = useManagedRecord(checklistTemplateKey(weekday.id), defaultWeekdayTemplate(weekday.id));
+  return <>{dates.map(value => <div hidden={date !== value} key={value}><ChecksPanel date={value} templateRecord={record} /></div>)}</>;
 }
 
 function NotesPanel({ flights = false }) {
   const record = useManagedRecord(flights ? SHARED_KEYS.flights : SHARED_KEYS.pending, EMPTY_LIST);
   const [text, setText] = useState('');
   const [editId, setEditId] = useState(null);
+  const [pendingCheck, setPendingCheck] = useState(null);
   const list = flights ? sortFlights(record.value) : record.value;
   const count = list.filter(row => flights ? !row.banib : !row.done).length;
   function cancel() { setText(''); setEditId(null); }
@@ -128,7 +194,14 @@ function NotesPanel({ flights = false }) {
       <div className="entry-text">{row.text}</div>
       <div className="actions">
         {(flights ? [{ field: 'llegado', label: '도착 완료' }, { field: 'banib', label: '반입 완료' }] : [{ field: 'done', label: '완료' }]).map(({ field, label }) => <label className="inline-check" key={field}>
-          <input type="checkbox" disabled={record.busy} checked={row[field] === true} onChange={event => record.run(upsertEntry(record.value, { ...row, [field]: event.target.checked }))} /> {label}
+          <input type="checkbox" disabled={record.busy} checked={row[field] === true} onChange={async event => {
+            setPendingCheck(`${row.id}::${field}`);
+            try { await record.run(upsertEntry(record.value, { ...row, [field]: event.target.checked })); }
+            finally { setPendingCheck(null); }
+          }} /> <span>{label}
+            {pendingCheck === `${row.id}::${field}` && <small className="saved-value pending-check">체크 변경 저장 중 · 저장 후 담당자 확정</small>}
+            {row[field] === true && <small className="saved-value">{checkedActorLabel(true, record.taskActors?.[`${row.id}::${field}`])}</small>}
+          </span>
         </label>)}
         <button type="button" disabled={record.busy} onClick={() => { setEditId(row.id); setText(row.text); }}>수정</button>
         <button type="button" className="danger-button" disabled={record.busy} onClick={() => { if (window.confirm(flights ? '이 항공 일정을 삭제할까요?\n팀 공동 목록에서도 삭제됩니다.' : '이 업무를 삭제할까요?\n팀 공동 목록에서도 삭제됩니다.')) record.run(deleteEntry(record.value, row.id), () => { if (editId === row.id) cancel(); }); }}>삭제</button>
@@ -254,7 +327,7 @@ export default function ChecklistTool() {
       <div className="selectors"><label>업무 날짜<input type="date" value={date} onChange={event => chooseDate(event.target.value)} /></label>
         <label>결제 월<input type="month" value={month} onChange={event => chooseMonth(event.target.value)} /></label></div>
       <div className="actions week-picker" aria-label="선택 날짜의 주간 요일">{weekDates(date).map(day => <button type="button" key={day.date} aria-pressed={date === day.date} aria-label={`${day.date} ${checklistWeekdayLabel(day, true)}`} onClick={() => chooseDate(day.date)}>{checklistWeekdayLabel(day)} · {day.date}</button>)}</div>
-      {dates.map(value => <div hidden={date !== value} key={value}><ChecksPanel date={value} /></div>)}
+      {DAYS.filter(day => dates.some(value => weekdayForDate(value).id === day.id)).map(day => <WeekdayChecklist key={day.id} weekday={day} dates={dates.filter(value => weekdayForDate(value).id === day.id)} date={date} />)}
       <NotesPanel />
       {months.map(value => <div hidden={month !== value} key={value}><ChecksPanel month={value} /></div>)}
     </div>
@@ -283,6 +356,9 @@ export default function ChecklistTool() {
       .import-checklist .check-row.checked { background:#ecfdf5; }
       .import-checklist .check-row span { min-width:0; }
       .import-checklist .saved-value { display:block; font-size:12px; }
+      .import-checklist .pending-check { color:#92400e; }
+      .import-checklist .weekday-editor { margin:10px 0; padding:10px; border:1px solid #d5deea; border-radius:6px; min-width:0; overflow-wrap:anywhere; }
+      .import-checklist .weekday-editor summary { cursor:pointer; font-weight:600; min-height:36px; }
       .import-checklist input[type=checkbox] { width:16px; height:16px; min-height:0; flex-shrink:0; margin:3px 0 0; padding:0; accent-color:#2457c5; }
       .import-checklist small { color:#52647c; }
       .import-checklist label { font-size:13px; }
