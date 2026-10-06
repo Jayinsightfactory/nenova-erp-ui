@@ -9,6 +9,10 @@
     "lib/importTeamClient.js",
     "lib/importTeamPdf.js",
     "lib/importTeamPdfQuota.js",
+    "lib/importTeamPdfCache.js",
+    "lib/importPackingExtractClient.js",
+    "lib/importInvoiceLocal.js",
+    "lib/importAwbFields.js",
     "lib/importTeamChecklist.js",
     "lib/importPacking.js",
     "lib/importPackingPrompt.js",
@@ -58,7 +62,12 @@
     "__tests__/importTeamChecklist.test.js",
     "__tests__/importPacking.test.js",
     "__tests__/importPedidos.test.js",
-    "__tests__/importTeamClient.test.js"
+    "__tests__/importTeamClient.test.js",
+    "__tests__/importTeamPdfCache.test.js",
+    "__tests__/importPackingExtractClient.test.js",
+    "__tests__/importAwbFields.test.js",
+    "__tests__/importInvoiceLocal.test.js",
+    "__tests__/importPackingHardening.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

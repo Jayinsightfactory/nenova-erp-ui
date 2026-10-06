@@ -28,7 +28,7 @@ export default function PedidosTool() {
     try {
       const cleanWeek = sanitizePedidosWeek(week);
       const workbook = readPedidosWorkbook(await file.arrayBuffer());
-      const outputs = generatePedidos(workbook, country, cleanWeek);
+      const outputs = generatePedidos(workbook, country, cleanWeek, { year: Number(year) });
       setContext({ country, year, week: cleanWeek, sourceName: file.name });
       setResults(outputs);
     } catch (err) { setError(err.message || '파일 변환에 실패했습니다.'); }
@@ -67,7 +67,7 @@ export default function PedidosTool() {
         </div>
       </fieldset>
     </form>
-    <p className="pedidos-note">활성 시트 정보가 있으면 해당 시트만, 없으면 첫 시트만 읽습니다. 연도는 작업 확인용이며 원본 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p>
+    <p className="pedidos-note">기존 양식은 활성 시트(없으면 첫 시트)를 읽습니다. 중국 행렬은 수량원본과 구조화 시트의 업체키·품목키·숫자 수량을 사용하며 선택 연도·차수를 확인합니다. 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p>
     {busy && <p role="status">Excel을 읽고 발주서를 생성하고 있습니다…</p>}
     {error && <p role="alert" className="pedidos-error">{error}</p>}
     {downloaded && <p role="status">{downloaded}</p>}
@@ -80,6 +80,7 @@ export default function PedidosTool() {
           <div><h4>{output.filename}</h4><p>시트: {output.workbook.SheetNames[0]} · 원본: {output.sourceSheet} · {output.itemCount}품목 · 합계 {output.totalQuantity} {output.unit}{output.totalBoxes != null ? ` · ${output.totalBoxes} cajas` : ''}</p></div>
           <button type="button" onClick={() => download(output)}>Excel 다운로드</button>
         </div>
+        {output.totalQuantity === 0 && <p role="status" className="pedidos-note">숫자 원본의 합계가 0입니다. 정상적인 0 수량 결과도 다운로드할 수 있습니다.</p>}
         {output.warnings.length > 0 && <div className="pedidos-warning"><h5>확인 필요</h5><ul>{output.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></div>}
         {output.itemCount > 0 && <details><summary>품목 미리보기 ({output.itemCount}개, 수식 계산값 표시)</summary>
           <div className="pedidos-preview" tabIndex={0} role="region" aria-label={`${output.filename} 품목 표`}>

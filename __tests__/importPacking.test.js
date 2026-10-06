@@ -11,6 +11,7 @@ async function main() {
   const state = await import('../lib/importPackingState.js');
   const response = await import('../lib/importPackingResponse.js');
   const prompt = await import('../lib/importPackingPrompt.js');
+  const awbFields = await import('../lib/importAwbFields.js');
   const root = path.resolve(__dirname, '..');
   const sourcePath = path.join(root, 'output/import-tool-sources/Packing List Nenova.html');
   // Prepared HTML is ignored by Git. Golden fixtures/hashes run without it in CI.
@@ -188,28 +189,46 @@ async function main() {
   await check('native component syntax and server-only credential boundary', () => {
     babel.transformSync(componentSource, { filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')], configFile: false, babelrc: false });
     assert.doesNotMatch(componentSource, /dangerouslySetInnerHTML|ReactDOM|window\.|localStorage|apiKey|saveApiKey|buildPrompt|cdn\.jsdelivr|api\.anthropic|claude-sonnet/);
-    assert.match(componentSource, /fetch\('\/api\/import\/tools\/parse-pdf'/);
-    assert.match(componentSource, /JSON\.stringify\(\{ country, pdfBase64 \}\)/);
-    assert.match(componentSource, /f\.size > 10 \* 1024 \* 1024/);
+    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true\}\)/);
+    assert.match(componentSource, /onClick=\{\(\) => process\(false\)\}/);
+    assert.match(componentSource, /onClick=\{\(\)=>process\(true\)\}/);
+    assert.match(componentSource, /f\.size > PACKING_PDF_MAX_BYTES/);
+    assert.equal(state.PACKING_PDF_MAX_BYTES, 20 * 1024 * 1024);
+    const extractionSource = fs.readFileSync(path.join(root, 'lib/importPackingExtractClient.js'), 'utf8');
+    assert.match(extractionSource, /fetchImpl\('\/api\/import\/tools\/parse-pdf'/);
+    assert.match(extractionSource, /JSON\.stringify\(\{country,pdfBase64\}\)/);
     for (const notice of ['AI service', 'servicio de IA', 'AI 서비스']) assert.ok(componentSource.includes(notice));
   });
   // Real handler tests with local hooks; no browser, network, or mounted app.
-  await check('UI progress, explicit request, 10MiB limit, and visible save conflict', async () => {
-    const values = [], effects = [], refs = [];
-    let cursor = 0, effectCursor = 0, refCursor = 0;
+  await check('UI local-first progress, explicit AI request, 20MiB limit, and confirmed save conflict', async () => {
+    const values = [], effects = [], refs = [], memos = [];
+    let cursor = 0, effectCursor = 0, refCursor = 0, memoCursor = 0;
     const react = {
       createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
       useState: initial => { const index = cursor++; if (!(index in values)) values[index] = typeof initial === 'function' ? initial() : initial;
         return [values[index], value => { values[index] = typeof value === 'function' ? value(values[index]) : value; }]; },
       useRef: initial => { const index = refCursor++; return refs[index] ||= { current: initial }; },
+      useMemo: (fn, deps) => { const index = memoCursor++; const old = memos[index];
+        if (!old || deps.some((d, i) => !Object.is(d, old.deps[i]))) memos[index] = { deps, value: fn() };
+        return memos[index].value; },
       useEffect: (fn, deps) => { const index = effectCursor++; const old = effects[index];
         if (!old || deps.some((d,i) => d !== old.deps[i])) effects[index] = { fn, deps, pending: true }; },
     };
-    let resolveFetch; const fetchCalls = [];
+    let resolveFetch; const fetchCalls = [], extractionCalls = [], sharedWrites = [];
+    const fetchStub = (url, options) => { fetchCalls.push({ url, options }); return new Promise(resolve => { resolveFetch = resolve; }); };
+    const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI }) {
+      extractionCalls.push({ country, pdfBase64, allowAI });
+      if (allowAI !== true) return { needsAI: true, reason: 'UNSUPPORTED_LAYOUT' };
+      const data = await state.readPackingPdfResponse(await fetchStub('/api/import/tools/parse-pdf', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, pdfBase64 }),
+      }));
+      return { data, source: data.source === 'cache' ? 'cache' : 'ai', cacheSaved: data.cacheSaved };
+    } };
     const storage = { get: async key => key === 'nenova_catalog' ? { value: JSON.stringify({ items: catalog.items }) } : null,
-      set: async () => { throw Error('409 revision conflict'); }, delete: async () => { throw Error('delete failed'); } };
+      set: async (key, value) => { sharedWrites.push({ key, value }); throw Error('409 revision conflict'); }, delete: async () => { throw Error('delete failed'); } };
     const modules = { react, '../../lib/importPacking.js': packing, '../../lib/importPackingState.js': state,
-      '../../lib/importPackingResponse.js': response, 'xlsx-js-style': XLSX };
+      '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
+      '../../lib/importPackingExtractClient.js': extractionMock, 'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
       filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')],
       plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')], configFile: false, babelrc: false,
@@ -218,8 +237,8 @@ async function main() {
     class Reader { readAsDataURL() { this.result = 'data:application/pdf;base64,JVBERi0x'; this.onload(); } }
     new Function('require','module','exports','fetch','FileReader', code + '\nmodule.exports.NoticeText = NoticeText;')(
       key => modules[key], module, module.exports,
-      (url, options) => { fetchCalls.push({ url, options }); return new Promise(resolve => { resolveFetch = resolve; }); }, Reader);
-    const render = () => { cursor = 0; effectCursor = 0; refCursor = 0; return module.exports.default({ storage }); };
+      fetchStub, Reader);
+    const render = () => { cursor = 0; effectCursor = 0; refCursor = 0; memoCursor = 0; return module.exports.default({ storage }); };
     const flatten = node => !node || typeof node !== 'object' ? [] : Array.isArray(node) ? node.flatMap(flatten) : [node, ...flatten(node.props?.children)];
     const text = node => typeof node === 'string' ? node : Array.isArray(node) ? node.map(text).join('') : node?.props ? text(node.props.children) : '';
     const hostileNotice = module.exports.NoticeText({ text: 'Safe <strong>bold</strong><img src=x onerror=alert(1)>' });
@@ -232,19 +251,33 @@ async function main() {
     flatten(tree).find(node => node.type === 'div' && node.props.onClick && text(node).includes('Colombia')).props.onClick();
     tree = render();
     const pdfInput = flatten(tree).find(node => node.type === 'input' && node.props.accept === '.pdf');
-    pdfInput.props.onChange({ target: { files: [{ name: '40-1.pdf', size: 10*1024*1024 + 1, type: 'application/pdf' }] } });
-    tree = render(); assert.ok(text(tree).includes('10MiB')); assert.equal(fetchCalls.length, 0);
-    pdfInput.props.onChange({ target: { files: [{ name: '40-1.pdf', size: 100, type: 'application/pdf' }] } });
+    pdfInput.props.onChange({ target: { files: [{ name: '40-1.pdf', size: state.PACKING_PDF_MAX_BYTES + 1, type: 'application/pdf' }] } });
+    tree = render(); assert.ok(text(tree).includes('20MiB')); assert.equal(fetchCalls.length, 0);
+    pdfInput.props.onChange({ target: { files: [{ name: '40-1.pdf', size: state.PACKING_PDF_MAX_BYTES, type: 'application/pdf' }] } });
     tree = render();
-    const pendingProcess = flatten(tree).find(node => node.type === 'button' && text(node) === 'Generar packing list').props.onClick();
+    const localProcess = flatten(tree).find(node => node.type === 'button' && text(node) === 'Generar packing list').props.onClick();
     tree = render(); assert.ok(text(tree).includes('Procesando'));
+    assert.equal(fetchCalls.length, 0);
+    await localProcess; tree = render();
+    assert.equal(fetchCalls.length, 0, 'default Generate must not call AI');
+    assert.equal(extractionCalls[0].allowAI, false);
+    const pendingProcess = flatten(tree).find(node => node.type === 'button' && text(node) === 'Analizar con IA (posible coste)').props.onClick();
+    tree = render(); assert.ok(text(tree).includes('Procesando'));
+    assert.equal(extractionCalls[1].allowAI, true);
+    assert.equal(fetchCalls.length, 1);
     assert.equal(fetchCalls[0].url, '/api/import/tools/parse-pdf');
     assert.deepEqual(Object.keys(JSON.parse(fetchCalls[0].options.body)).sort(), ['country','pdfBase64']);
-    resolveFetch({ ok: true, json: async () => ai({ invoices: [invoice] }) }); await pendingProcess;
+    resolveFetch({ ok: true, status: 200, json: async () => ({ ...ai({ invoices: [invoice] }), source: 'ai', cacheSaved: true }) }); await pendingProcess;
     tree = render(); assert.ok(text(tree).includes('Todo correcto'));
+    assert.ok(text(tree).includes('Análisis IA completado'));
     const upload = flatten(tree).find(node => node.type === 'input' && node.props.accept === '.xlsx');
-    await upload.props.onChange({ target: { files: [{ arrayBuffer: async () => bufferOf([['No','Code','Name','Flower','Country'], [1,'X','NEW NAME','장미','콜롬비아']]) }] } });
+    upload.props.onChange({ target: { files: [{ name: 'catalog.xlsx', arrayBuffer: async () => bufferOf([['No','Code','Name','Flower','Country'], [1,'X','NEW NAME','장미','콜롬비아']]) }] } });
+    await new Promise(setImmediate); tree = render();
+    assert.ok(text(tree).includes('Vista previa')); assert.equal(sharedWrites.length, 0);
+    assert.equal(values.find(v => v?.byCountry)?.items[0].name, 'CARNATION Doncel');
+    await flatten(tree).find(node => node.type === 'button' && text(node) === 'Confirmar y guardar').props.onClick();
     tree = render(); assert.ok(text(tree).includes('409 revision conflict'));
+    assert.equal(sharedWrites.length, 1); assert.ok(text(tree).includes('Vista previa'));
     assert.equal(flatten(tree).find(node => node.type === 'fieldset').props.disabled, true);
     assert.equal(values.find(v => v?.byCountry)?.items[0].name, 'CARNATION Doncel');
   });

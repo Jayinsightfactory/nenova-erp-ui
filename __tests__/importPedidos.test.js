@@ -5,7 +5,7 @@ import XLSX from 'xlsx-js-style';
 import { generatePedidos, readPedidosWorkbook, serializePedidosWorkbook, sanitizePedidosWeek, calculateEcuadorBoxes } from '../lib/importPedidos.js';
 
 // Synthetic fixtures are local, non-live examples of the static Python contract.
-// Only Colombia has a provided real source workbook; no claim of live parity for others.
+// Colombia and the current China exporter also have optional local real samples.
 function fixture(rows) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Source'); return wb;
@@ -158,8 +158,10 @@ test('Vietnam marker-only, stems/16, no-marker explicit empty summary', () => {
 test('typed numeric quantities and formula caches: cached numeric accepted, absent/string/error blocked', () => {
   const wb = fixture([['name', 'Grand Total'], ['Den. A', 0], ['Den. B', '4']]);
   wb.Sheets.Source.B2 = { t: 'n', f: '2+3', v: 5 };
+  assert.throws(() => generatePedidos(wb, 'Thailand', 'W'), /Source!B3.*숫자형/);
+  wb.Sheets.Source.B3 = { t: 'n', v: 0 };
   const out = generatePedidos(wb, 'Thailand', 'W')[0];
-  assert.equal(out.totalQuantity, 5); assert.equal(out.warnings.length, 1);
+  assert.equal(out.totalQuantity, 5); assert.equal(out.warnings.length, 0);
   for (const cell of [{ t: 'n', f: '2+3' }, { t: 's', f: '2+3', v: '5' }, { t: 'e', f: '1/0', v: 7 }]) {
     wb.Sheets.Source.B2 = cell; assert.throws(() => generatePedidos(wb, 'Thailand', 'W'), /Source!B2.*계산값/);
   }
@@ -221,4 +223,141 @@ test('legacy xls read uses existing SheetJS parser, without Python runtime', () 
   const wb = fixture([['name', 'Grand Total'], ['Den. A', 12]]);
   const input = XLSX.write(wb, { type: 'array', bookType: 'biff8' });
   assert.equal(generatePedidos(readPedidosWorkbook(input), 'Thailand', 'W')[0].totalQuantity, 12);
+});
+
+const chinaGolden = JSON.parse(fs.readFileSync(new URL('./fixtures/importPedidosChinaMatrix.json', import.meta.url), 'utf8'));
+function chinaFixture(names = Object.keys(chinaGolden.sheets)) {
+  const wb = XLSX.utils.book_new();
+  for (const name of names) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(chinaGolden.sheets[name]), name);
+  return wb;
+}
+const chinaOutput = (wb, year = 2026) => generatePedidos(wb, 'China', '42-01', { year });
+
+test('current China numeric matrix: IDs, duplicate codes/names, zero products, ignored box blanks and immutable input', () => {
+  const wb = chinaFixture(), before = JSON.stringify(wb), out = chinaOutput(wb)[0];
+  assert.equal(out.sourceSheet, '수량원본'); assert.equal(out.sourceAdapter, 'china-numeric-v1');
+  assert.equal(out.sourceScope, '2026/42-1'); assert.equal(out.filename, '42-01_Melody.xlsx');
+  assert.equal(out.itemCount, chinaGolden.expectedItems); assert.equal(out.totalQuantity, chinaGolden.expectedQuantity);
+  assert.equal(out.unit, 'bunches'); assert.equal(out.sourceUnit, '단');
+  assert.deepEqual(out.products.map(p => p.prodKey), ['2358', '2329', '3404']);
+  assert.ok(out.preview.rows[0][0].includes('ProdKey:2358')); assert.ok(out.preview.rows[1][0].includes('ProdKey:2329'));
+  const firstK = out.preview.headers.indexOf('K01 [CustKey:565]'), secondK = out.preview.headers.indexOf('K01 [CustKey:689]');
+  assert.ok(firstK > 0 && secondK > 0 && firstK !== secondK);
+  assert.equal(out.preview.rows.reduce((s, row) => s + (row[firstK] ?? 0), 0), 40);
+  assert.equal(out.preview.rows.reduce((s, row) => s + (row[secondK] ?? 0), 0), 30);
+  assert.equal(out.preview.rows[2].at(-1), 0); assert.equal(out.warnings.length, 0);
+  assert.equal(JSON.stringify(wb), before);
+  const reread = readPedidosWorkbook(serializePedidosWorkbook(out.workbook));
+  assert.equal(reread.Sheets['Melody 42-01'].F7.v, 80);
+});
+
+test('China structured detail and customer numeric fallbacks preserve totals; repeated details aggregate', () => {
+  for (const name of ['주문상세', '업체별발주']) {
+    const out = chinaOutput(chinaFixture([name]))[0];
+    assert.equal(out.totalQuantity, 80); assert.equal(out.itemCount, 2); assert.equal(out.sourceSheet, name);
+    assert.equal(out.customers.filter(c => c.code === 'K01').length, 2);
+  }
+  const wb = chinaFixture(['주문상세']);
+  XLSX.utils.sheet_add_aoa(wb.Sheets['주문상세'], [chinaGolden.sheets['주문상세'][1]], { origin: -1 });
+  assert.equal(chinaOutput(wb)[0].totalQuantity, 100);
+});
+
+test('China numeric all-zero, cancelling totals, empty structured and legacy blank cells remain serializable', () => {
+  const wb = chinaFixture();
+  for (let r = 2; r <= 5; r++) wb.Sheets['주문상세'][`K${r}`] = { t: 'n', v: 0 };
+  for (let r = 2; r <= 4; r++) for (const col of ['D', 'F', 'G', 'H', 'I']) wb.Sheets['수량원본'][`${col}${r}`] = { t: 'n', v: 0 };
+  const out = chinaOutput(wb)[0];
+  assert.equal(out.itemCount, 3); assert.equal(out.totalQuantity, 0);
+  assert.ok(serializePedidosWorkbook(out.workbook).length > 0);
+  const detail = chinaFixture(['주문상세']);
+  detail.Sheets['주문상세'].K2.v = -60;
+  assert.equal(chinaOutput(detail)[0].totalQuantity, 0, 'nonzero rows that cancel are legitimate zero totals');
+  const empty = fixture([chinaGolden.sheets['주문상세'][0]]);
+  empty.Sheets['주문상세'] = empty.Sheets.Source; empty.SheetNames = ['주문상세']; delete empty.Sheets.Source;
+  assert.equal(chinaOutput(empty)[0].itemCount, 0);
+  const legacy = generatePedidos(fixture([['header', null, null, 'CL1'], [null, null, 'MEL Zero', 0], [null, null, 'MEL Blank']]), 'China', 'W')[0];
+  assert.equal(legacy.itemCount, 2); assert.equal(legacy.totalQuantity, 0);
+  assert.equal(sheet(legacy).B4.f, '0', 'zero-only legacy has no self-referencing total formula');
+  assert.ok(serializePedidosWorkbook(legacy.workbook).length > 0);
+});
+
+test('China malformed/missing numeric sources fail actionably, never fall back to display text or silently zero', () => {
+  const cases = [
+    [wb => { delete wb.Sheets['수량원본'].F2; }, /수량원본!F2.*숫자형/],
+    [wb => { wb.Sheets['수량원본'].G2 = { t: 's', v: '20(—)' }; }, /수량원본!G2.*숫자형/],
+    [wb => { wb.Sheets['수량원본'].D1.v = 'Missing'; }, /수량원본.*열/],
+    [wb => { wb.Sheets['수량원본'].F1.v = 'Missing'; }, /수량원본.*열.*누락/],
+    [wb => { wb.Sheets['수량원본'].G1.v = '515 원수량'; }, /원수량 열.*중복/],
+    [wb => { wb.Sheets['주문상세'].K1.v = 'Missing'; }, /주문상세.*열/],
+    [wb => { wb.Sheets['주문상세'].K2 = { t: 's', v: '20' }; }, /주문상세!K2.*숫자형/],
+    [wb => { wb.Sheets['수량원본'].D2 = { t: 'n', f: 'SUM(F2:I2)' }; }, /수량원본!D2.*계산값/],
+    [wb => { wb.Sheets['수량원본'].G2 = { t: 'e', v: 7 }; }, /수량원본!G2.*Excel 오류/],
+    [wb => { wb.Sheets['수량원본'].G2.v = 19; }, /일치하지/],
+    [wb => { wb.Sheets['수량원본'].D2.v = 99; }, /총수량.*일치하지/],
+    [wb => { wb.Sheets['수량원본'].B2.v = '송이'; }, /품목명·단위/],
+    [wb => { wb.Sheets['주문상세'].J2.v = 'unknown'; }, /지원하지 않는 단위/],
+  ];
+  for (const [change, expected] of cases) {
+    const wb = chinaFixture(); change(wb); assert.throws(() => chinaOutput(wb), expected);
+  }
+  assert.throws(() => chinaOutput(chinaFixture(['품목별업체수량'])), /표시 수량.*주문상세/);
+  assert.throws(() => generatePedidos(fixture([['name', null, 'MEL A', 'B16'], [null, null, 'MEL A', '20(1)']]), 'China', 'W'), /CL 수량 열/);
+  assert.throws(() => generatePedidos(fixture([['name'], ['Den. A', 5]]), 'Thailand', 'W'), /수량 열.*원본/);
+});
+
+test('China year/week selection excludes prior-year same-week rows and rejects ambiguity/mismatched scope', () => {
+  const wb = chinaFixture(['주문상세']);
+  const prior = [...chinaGolden.sheets['주문상세'][1]]; prior[0] = 2025; prior[10] = 999;
+  XLSX.utils.sheet_add_aoa(wb.Sheets['주문상세'], [prior], { origin: -1 });
+  assert.equal(chinaOutput(wb, 2026)[0].totalQuantity, 80);
+  assert.equal(chinaOutput(wb, 2025)[0].totalQuantity, 999);
+  assert.throws(() => generatePedidos(wb, 'China', '42-01'), /여러 연도/);
+  assert.throws(() => chinaOutput(wb, 2024), /연도·차수/);
+  assert.equal(generatePedidos(wb, 'China', '42-1', { year: 2026 })[0].totalQuantity, 80);
+  const matrix = chinaFixture(); XLSX.utils.sheet_add_aoa(matrix.Sheets['주문상세'], [prior], { origin: -1 });
+  assert.throws(() => chinaOutput(matrix), /단일 연도·차수/);
+  const customer = chinaFixture(['업체별발주']);
+  const rows = chinaGolden.sheets['업체별발주'].map((row, r) => [...row.slice(0, 9), r === 0 ? '2025-42-01' : 999, row[9], r === 0 ? '합계' : 999 + row[10]]);
+  customer.Sheets['업체별발주'] = XLSX.utils.aoa_to_sheet(rows);
+  assert.equal(chinaOutput(customer)[0].totalQuantity, 80);
+  assert.equal(chinaOutput(customer, 2025)[0].totalQuantity, 3996);
+});
+
+test('China mixed units are separate outputs, with no box conversion or cross-unit total', () => {
+  const wb = chinaFixture(['주문상세']);
+  const stems = [...chinaGolden.sheets['주문상세'][1]]; stems[9] = '송이'; stems[10] = 200;
+  XLSX.utils.sheet_add_aoa(wb.Sheets['주문상세'], [stems], { origin: -1 });
+  const outputs = chinaOutput(wb);
+  assert.deepEqual(outputs.map(o => [o.filename, o.unit, o.totalQuantity]), [['42-01_Melody_단.xlsx', 'bunches', 80], ['42-01_Melody_송이.xlsx', 'stems', 200]]);
+  assert.equal(outputs[1].products[0].prodKey, '2358');
+});
+
+const chinaSamplePath = new URL('../output/drive-samples/중국_발주현황_2026-42-01 (1).xlsx', import.meta.url);
+test('actual China sample independent numeric totals: 59 products, 19 CustKeys, 1850 bunches, K01 remains two columns', { skip: !fs.existsSync(chinaSamplePath) }, () => {
+  const wb = readPedidosWorkbook(fs.readFileSync(chinaSamplePath)), before = JSON.stringify(wb);
+  const rows = name => XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true });
+  const detail = rows('주문상세').slice(1), customer = rows('업체별발주').slice(1);
+  const raw = rows('수량원본').slice(1).filter(row => /^\d+$/.test(String(row[0])));
+  assert.equal(detail.length, 123);
+  assert.equal(detail.reduce((s, row) => s + row[10], 0), 1850);
+  assert.equal(customer.reduce((s, row) => s + row[9], 0), 1850);
+  assert.equal(raw.reduce((s, row) => s + row[3], 0), 1850);
+  assert.equal(raw.reduce((s, row) => s + row.slice(5, 24).reduce((s, qty) => s + qty, 0), 0), 1850);
+  const out = chinaOutput(wb)[0];
+  assert.equal(out.itemCount, 59); assert.equal(out.totalQuantity, 1850); assert.equal(out.customers.length, 19);
+  for (const [custKey, total] of [['565', 590], ['689', 200]]) {
+    const column = out.customers.find(c => c.custKey === custKey).column;
+    const c = out.preview.headers.indexOf(column);
+    assert.equal(out.preview.rows.reduce((s, row) => s + (row[c] ?? 0), 0), total);
+  }
+  const saved = readPedidosWorkbook(serializePedidosWorkbook(out.workbook)).Sheets['Melody 42-01'];
+  assert.equal(saved.U63.v, 1850); assert.equal(JSON.stringify(wb), before);
+});
+
+test('Pedidos UI passes year scope and never disables downloads based on zero totals', () => {
+  const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
+  assert.match(ui, /generatePedidos\(workbook, country, cleanWeek, \{ year: Number\(year\) \}\)/);
+  assert.match(ui, /정상적인 0 수량 결과도 다운로드/);
+  assert.match(ui, /<button type="button" onClick=\{\(\) => download\(output\)\}>Excel 다운로드/);
+  assert.doesNotMatch(ui, /if\s*\([^)]*totalQuantity[^)]*\)\s*(?:return|throw)/);
 });
