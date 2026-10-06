@@ -284,6 +284,11 @@ function CompactSummary({ row, block, disabled, carryover, carryoverBusy, carryo
   </td></Fragment>;
 }
 
+function carryoverInputAlerts(matrix) {
+  return [...new Set(matrix.rows.flatMap(row=>row.blocks.filter(block=>block.productPlans.length && block.carryover?.error)
+    .map(block=>`${row.name} · ${cycleLabel(block.cycle)}\n${block.carryover.error}`)))].join('\n\n');
+}
+
 export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparisonRows = [], onMove, busy = false,
   onEditCell, onClearCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
   onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], quoteResults = [],
@@ -333,12 +338,12 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const [carryAlert,setCarryAlert]=useState('');
   const lastCarryAlert=useRef(null);
   const inputRevision=JSON.stringify(safePlans);
-  const carryAlertText=[...new Set(matrix.rows.flatMap(row=>row.blocks.filter(block=>block.carryover?.error)
-    .map(block=>`${row.name} · ${cycleLabel(block.cycle)}\n${block.carryover.error}`)))].join('\n\n');
+  const carryAlertText=carryoverInputAlerts(matrix);
   useEffect(()=>{
     const previous=lastCarryAlert.current;
     lastCarryAlert.current={inputRevision,carryAlertText};
-    if(previous && previous.inputRevision!==inputRevision && carryAlertText && previous.carryAlertText!==carryAlertText)
+    if(!carryAlertText) setCarryAlert('');
+    else if(previous && previous.inputRevision!==inputRevision && previous.carryAlertText!==carryAlertText)
       setCarryAlert(carryAlertText);
   },[inputRevision,carryAlertText]);
   for(const row of matrix.rows)for(const block of row.blocks) {
