@@ -23,6 +23,7 @@ import {
 } from '../../lib/orderImportRegister';
 import { buildStatementRowsFromImportItems, parentWeekFromFullWeek } from '../../lib/importStatementRows';
 import { loadImportDraft, saveImportDraft, clearImportDraft } from '../../lib/orderImportDraft';
+import { presentOrderImportFailure, orderImportWarningMessage } from '../../lib/orderImportFailure';
 import { ESTIMATE_PRINT_FORMAT } from '../../lib/estimatePrintFormats';
 import * as XLSX from 'xlsx';
 import { initializeShipDateAllocations, moveShipmentQuantity, allocationTotal, buildShipmentListRows } from '../../lib/orderShipmentList';
@@ -1016,8 +1017,13 @@ export default function OrderImportPage() {
       const orderedApiResults = sortImportRowsByProductOrder(d.results, registerItems);
       const appliedCount = d.results?.filter(r => ['OK', 'UPDATED', 'ADDED', 'DELETED'].includes(r.status)).length ?? registerItems.length;
       const unchangedCount = d.results?.filter(r => r.status === 'UNCHANGED').length || 0;
-      appendRegisterLog(`최종본 적용 완료 — 변경 ${appliedCount}품목 · 동일 ${unchangedCount}품목${d.warning ? ` · 경고: ${d.warning}` : ''}`, d.warning ? 'info' : 'success');
-      setResultMsg(`✅ 최종본 적용 완료 — 변경 ${appliedCount}개 · 동일 ${unchangedCount}개 · OrderKey ${d.orderMasterKey}${d.warning ? ` / ⚠ ${d.warning}` : ''}`);
+      const warningMessage = d.warning ? orderImportWarningMessage(d.warning) : '';
+      appendRegisterLog(d.warning
+        ? `주문은 저장됐지만 추가 확인이 필요합니다 — ${warningMessage}`
+        : `최종본 적용 완료 — 변경 ${appliedCount}품목 · 동일 ${unchangedCount}품목`, d.warning ? 'info' : 'success');
+      setResultMsg(d.warning
+        ? `⚠ 주문은 저장됐지만 추가 확인이 필요합니다 — 변경 ${appliedCount}개 · 동일 ${unchangedCount}개 · OrderKey ${d.orderMasterKey}. 자동 재전송하지 말고 주문관리에서 현재 주문을 확인하세요. ${warningMessage}`
+        : `✅ 최종본 적용 완료 — 변경 ${appliedCount}개 · 동일 ${unchangedCount}개 · OrderKey ${d.orderMasterKey}`);
       setRegisteredResult(buildImportRegisterResult({
         apiResults: orderedApiResults,
         skippedItems,
@@ -1045,8 +1051,9 @@ export default function OrderImportPage() {
       }
       clearImportDraft();
     } catch (e) {
-      setResultMsg(`❌ ${e.message}`);
-      appendRegisterLog(`주문등록 실패 — ${e.message}`, 'error');
+      const failure = presentOrderImportFailure(e);
+      setResultMsg(failure.message);
+      appendRegisterLog(failure.message, failure.kind === 'ambiguous' ? 'info' : 'error');
     } finally {
       setRegistering(false);
     }
@@ -1284,15 +1291,15 @@ export default function OrderImportPage() {
           )}
 
           {resultMsg && (
-            <div style={{ padding: 10, marginBottom: 10, borderRadius: 6, background: resultMsg.startsWith('✅') ? '#ecfdf5' : '#fef2f2', fontSize: 13 }}>
+            <div role={resultMsg.startsWith('✅') ? 'status' : 'alert'} style={{ padding: 10, marginBottom: 10, borderRadius: 6, background: resultMsg.startsWith('✅') ? '#ecfdf5' : resultMsg.startsWith('⚠') || resultMsg.startsWith('저장 여부 확인 필요') ? '#fffbeb' : '#fef2f2', fontSize: 13 }}>
               {resultMsg}
             </div>
           )}
 
           {registeredResult && (
-            <div style={{ ...st.card, border: '2px solid #2e7d32', background: '#f1f8e9', marginBottom: 14 }}>
+            <div style={{ ...st.card, border: `2px solid ${registeredResult.warning ? '#d97706' : '#2e7d32'}`, background: registeredResult.warning ? '#fffbeb' : '#f1f8e9', marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                <strong style={{ fontSize: 14, color: '#2e7d32' }}>
+                <strong style={{ fontSize: 14, color: registeredResult.warning ? '#92400e' : '#2e7d32' }}>
                   📋 주문등록 결과
                   {registeredResult.custName ? ` — ${registeredResult.custName}` : ''}
                   {registeredResult.week ? ` / ${formatWeekDisplay(registeredResult.week)}` : ` / ${formatWeekDisplay(week)}`}
@@ -1313,6 +1320,11 @@ export default function OrderImportPage() {
                   닫기
                 </button>
               </div>
+              {registeredResult.warning && (
+                <div role="alert" style={{ padding: 9, marginBottom: 10, borderRadius: 6, background: '#fef3c7', color: '#92400e', fontSize: 12, fontWeight: 700 }}>
+                  주문은 저장됐지만 추가 확인이 필요합니다. 자동 재전송하지 말고 주문관리에서 현재 주문을 확인하세요. {orderImportWarningMessage(registeredResult.warning)}
+                </div>
+              )}
               {registeredResult.writeRows.length > 0 && (
                 <div style={{ overflowX: 'auto', marginBottom: registeredResult.dbItems.length ? 10 : 0 }}>
                   <table style={st.table}>
