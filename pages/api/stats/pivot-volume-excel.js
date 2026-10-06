@@ -17,6 +17,7 @@ import {
 } from '../../../lib/pivotVolumeNetherlands';
 const ALSTRO_DIVISOR = 16;
 const CUSTOMER_COL_WCH = 4;
+const DUTCH_CUSTOMER_COL_WCH = 10;
 // Excel does not auto-fit a row with an explicit height when wrapText is enabled.
 // Estimate at 96dpi with conservative glyph widths for the 9pt Korean header font.
 function wrappedHeaderHeight(text, width, fontSize = 9) {
@@ -314,7 +315,7 @@ function makeSheet(rows, customers, farms, meta) {
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = colPlan.map(col => ({
-    wch: col.type === 'flower' ? 12 : col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' || col.type === 'farm-total' ? 8 : col.type === 'customer' ? isNetherlandsVolume(meta) ? Math.max(CUSTOMER_COL_WCH, Math.min(24, String(col.customer?.custName || col.label || '').length + 1)) : CUSTOMER_COL_WCH : 5,
+    wch: col.type === 'flower' ? 12 : col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' || col.type === 'farm-total' ? 8 : col.type === 'customer' ? isNetherlandsVolume(meta) ? DUTCH_CUSTOMER_COL_WCH : CUSTOMER_COL_WCH : 5,
   }));
   ws['!rows'] = [{ hpt: 32 }, { hpt: 20 }, { hpt: 44 }];
   ws['!freeze'] = { xSplit: isNetherlandsVolume(meta) ? 3 : 1, ySplit: 3 };

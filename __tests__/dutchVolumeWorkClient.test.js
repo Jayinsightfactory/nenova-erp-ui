@@ -102,7 +102,7 @@ const restoreValues = {
   workBusyRef: { current: false }, applyingRef: { current: false }, loading: false, window: { confirm: () => true }, setWorkBusy: setter('busy'), setWorkError: setter('error'), setWorkNotice: setter('notice'),
   loadRequestRef: { current: 0 }, invalidate: () => { restoreState.invalidated += 1; }, fetch: async (...args) => { restoreState.fetches.push(args); return { ok: true, json: async () => ({ success: true, snapshot: restoredSnapshot }) }; },
   restoreDutchWorkSnapshot, sourceModeRef: {}, sourceRef: {}, sourceBaseRef: {}, yearRef: {}, weekRef: {}, setYear: setter('year'), setWeek: setter('week'), setSourceMode: setter('sourceMode'), setStorageKey: setter('storageKey'),
-  setWorkbook: setter('workbook'), setEntries: setter('entries'), setPrices: setter('prices'), setFileName: setter('fileName'), setWorkName: setter('workName'), setMatchCache: setter('matchCache'), setProductOptions: setter('products'), setCustomerOptions: setter('customers'), setApplyResult: setter('applyResult'), setActiveJobId: setter('jobId'), setLegacyCurrency: setter('currency'), setDraftReset: setter('draftReset'), setRematchNotice: setter('rematch'), setQuery: setter('query'), setActiveTab: setter('tab'), setActiveEntryId: setter('entry'), setError: setter('pageError'),
+  setWorkbook: setter('workbook'), setEntries: setter('entries'), setPrices: setter('prices'), setDayEdits: setter('dayEdits'), setFileName: setter('fileName'), setWorkName: setter('workName'), setMatchCache: setter('matchCache'), setProductOptions: setter('products'), setCustomerOptions: setter('customers'), setApplyResult: setter('applyResult'), setActiveJobId: setter('jobId'), setLegacyCurrency: setter('currency'), setDraftReset: setter('draftReset'), setRematchNotice: setter('rematch'), setQuery: setter('query'), setActiveTab: setter('tab'), setActiveEntryId: setter('entry'), setError: setter('pageError'),
 };
 const restoreNames = Object.keys(restoreValues);
 const restoreFn = new Function(...restoreNames, `${restoreFunctionSource}\nreturn restoreWork;`)(...restoreNames.map(name => restoreValues[name]));
@@ -111,6 +111,6 @@ assert.equal(restoreState.invalidated, 1);
 assert.equal(restoreState.fetches.length, 1);
 assert.deepEqual(restoreState.setters.find(([name]) => name === 'year'), ['year', 2025]);
 assert.deepEqual(restoreState.setters.find(([name]) => name === 'week'), ['week', '39-02']);
-for (const name of ['matchCache', 'products', 'customers', 'applyResult', 'jobId', 'currency', 'draftReset', 'rematch', 'query', 'tab', 'entry']) assert(restoreState.setters.some(([key]) => key === name), `restore clears ${name}`);
+for (const name of ['dayEdits', 'matchCache', 'products', 'customers', 'applyResult', 'jobId', 'currency', 'draftReset', 'rematch', 'query', 'tab', 'entry']) assert(restoreState.setters.some(([key]) => key === name), `restore clears ${name}`);
 
 console.log('dutch volume work client tests passed');

@@ -19,11 +19,12 @@ storage.setItem(`nenova.dutch-volume-prices.v1:${identity}`, JSON.stringify({ cu
 assert.deepEqual(readDutchDraft(storage, identity, [entry], (_, value) => value).prices, {}, 'EUR 저장값을 원화로 재해석하지 않는다');
 storage.setItem(`nenova.dutch-volume-prices.v1:${identity}`, JSON.stringify({ currency: 'KRW', prices: { 'uniform:품목': 123 } }));
 assert.equal(readDutchDraft(storage, identity, [entry], (_, value) => value).prices['uniform:품목'], 123);
-writeDutchDraft(storage, identity, [{ ...entry, quantity: 0 }, { ...entry, id: 'manual:1', added: true }], { 'uniform:품목': 0 });
+writeDutchDraft(storage, identity, [{ ...entry, quantity: 0 }, { ...entry, id: 'manual:1', added: true }], { 'uniform:품목': 0 }, { '네덜란드!D2': '금요일' });
 const restored = readDutchDraft(storage, identity, [entry], (_, value) => value);
 assert.equal(restored.entries[0].quantity, 0);
 assert.equal(restored.entries[1].id, 'manual:1');
 assert.equal(restored.prices['uniform:품목'], 0);
+assert.deepEqual(restored.dayEdits, { '네덜란드!D2': '금요일' }, '업체별 요일 수정은 로컬 초안에 저장하고 복원한다');
 const blankSource = { id: 'sheet!D5', added: false, sourceCellDraft: true, sheetName: 'sheet', cellAddress: 'D5', product: '꽃', color: '파랑', customer: '업체', quantity: 2 };
 writeDutchDraft(storage, identity, [entry, blankSource], {});
 const restoredBlankSource = readDutchDraft(storage, identity, [entry], (_, value) => value).entries.find(row => row.id === blankSource.id);

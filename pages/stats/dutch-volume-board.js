@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSXStyled from 'xlsx-js-style';
 import { apiGet } from '../../lib/useApi';
-import { attachDutchLiveCustomerKeys } from '../../lib/dutchVolumePrice';
+import { applyDutchWeekdayEdits, attachDutchLiveCustomerKeys } from '../../lib/dutchVolumePrice';
 import { addDutchPriceColumns, buildDutchEntriesFromPivotData, dutchPriceKey, dutchUniformPricePeerKeys, isDutchIndividualPriceCustomer, migrateDutchPriceDraft, parseDutchPivotWorkbook, restoreDutchPriceDraft } from '../../lib/dutchVolumePrice';
 import { addDutchPriceShapesToXlsx } from '../../lib/dutchPriceShapes';
 import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../../lib/dutchVolumeDraft';
@@ -46,6 +46,7 @@ export default function DutchVolumeBoard() {
   const [workbook, setWorkbook] = useState(null);
   const [entries, setEntries] = useState([]);
   const [prices, setPrices] = useState({});
+  const [dayEdits, setDayEdits] = useState({});
   const [legacyCurrency, setLegacyCurrency] = useState('');
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
@@ -109,7 +110,7 @@ export default function DutchVolumeBoard() {
     return () => cancelAnimationFrame(frame);
   }, [activeTab, activeEntryId]);
 
-  useEffect(() => { if (storageKey && entries.length) writeDutchDraft(localStorage, storageKey, entries, prices); }, [storageKey, entries, prices]);
+  useEffect(() => { if (storageKey && entries.length) writeDutchDraft(localStorage, storageKey, entries, prices, dayEdits); }, [storageKey, entries, prices, dayEdits]);
   useEffect(() => {
     let active = true;
     async function loadRecordedWeeks() {
@@ -166,9 +167,10 @@ export default function DutchVolumeBoard() {
   async function acceptSource(nextWorkbook, name, baseIdentity, nextEntries, mode) {
     const identity = dutchSourceIdentity(baseIdentity, nextEntries, yearRef.current, weekRef.current);
     const saved = readDutchDraft(localStorage, identity, nextEntries, migrateDutchPriceDraft);
+    const restoredWorkbook = applyDutchWeekdayEdits(XLSXStyled, nextWorkbook, saved.dayEdits);
     invalidate(); sourceRef.current = identity; sourceBaseRef.current = baseIdentity; sourceModeRef.current = mode; setSourceMode(mode);
     setMatchCache({}); setCustomerOptions([]); setProductOptions([]);
-    setWorkbook(nextWorkbook); setFileName(name); setStorageKey(identity);
+    setWorkbook(restoredWorkbook); setFileName(name); setStorageKey(identity); setDayEdits(saved.dayEdits || {});
     setEntries(saved.entries); setPrices(saved.prices); setLegacyCurrency(saved.legacyCurrency);
     setDraftReset(!!saved.draftReset); setRematchNotice(''); setActiveTab('sheet'); setActiveEntryId('');
     setWorkName(''); setWorkNotice(''); setWorkError('');
@@ -210,7 +212,7 @@ export default function DutchVolumeBoard() {
     if (!['LIVE', 'SAVED'].includes(sourceModeRef.current)) return;
     sourceRef.current = ''; sourceBaseRef.current = ''; sourceModeRef.current = '';
     setSourceMode(''); setStorageKey(''); setWorkbook(null); setFileName('');
-    setEntries([]); setPrices({}); setMatchCache({}); setApplyResult(null);
+    setEntries([]); setPrices({}); setDayEdits({}); setMatchCache({}); setApplyResult(null);
   }
   function reloadUploadedScope() {
     if (sourceModeRef.current !== 'UPLOAD' || !workbook || !sourceBaseRef.current) return;
@@ -243,6 +245,13 @@ export default function DutchVolumeBoard() {
     setEntries(previous => newEntry && !previous.some(entry => entry.id === id)
       ? [...previous, { ...newEntry, quantity }]
       : editDutchDraftEntry(previous, id, { quantity }));
+  }
+  function updateWeekday(sheetName, address, value) {
+    if (workBusyRef.current || applyingRef.current || !workbook) return;
+    const key = `${sheetName}!${address}`;
+    const nextEdits = { ...dayEdits, [key]: String(value ?? '') };
+    setDayEdits(nextEdits);
+    setWorkbook(applyDutchWeekdayEdits(XLSXStyled, workbook, { [key]: value }));
   }
   function updatePrice(entry, value) {
     if (workBusyRef.current || applyingRef.current) return;
@@ -365,7 +374,7 @@ export default function DutchVolumeBoard() {
       sourceModeRef.current = 'SAVED'; sourceRef.current = restored.identity; sourceBaseRef.current = restored.baseIdentity;
       yearRef.current = restored.year; weekRef.current = restored.week;
       setYear(restored.year); setWeek(restored.week); setSourceMode('SAVED'); setStorageKey(restored.identity);
-      setWorkbook(restored.workbook); setEntries(restored.entries); setPrices(restored.prices); setFileName(restored.fileName);
+      setWorkbook(restored.workbook); setEntries(restored.entries); setPrices(restored.prices); setDayEdits({}); setFileName(restored.fileName);
       setWorkName(restored.name); setMatchCache({}); setProductOptions([]); setCustomerOptions([]);
       setApplyResult(null); setActiveJobId(''); setLegacyCurrency(''); setDraftReset(false); setRematchNotice('');
       setQuery(''); setActiveTab('sheet'); setActiveEntryId(''); setError('');
@@ -489,7 +498,7 @@ export default function DutchVolumeBoard() {
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
         <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, 원화 입력·품목 매칭도 여기서 바로 편집</span>
       </div>
-      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={dutchPriceKey} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onEdit={id => { setActiveEntryId(id); setQuery(''); setActiveTab('edit'); }}/>}
+      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={dutchPriceKey} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onEdit={id => { setActiveEntryId(id); setQuery(''); setActiveTab('edit'); }}/>}
       {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>단가 입력 즉시 원본 시트에 표시 · ERP 저장은 별도 적용</span></div>
       <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table><thead><tr><th>품목 / 원본</th><th>업체 / 원본</th><th>ERP 품목 선택</th><th>ERP 업체 선택</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
         const individual = isDutchIndividualPriceCustomer(row.customer);
