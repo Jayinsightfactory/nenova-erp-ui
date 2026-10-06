@@ -441,3 +441,10 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
   않으며, 담당자 수동 선출고 기록은 출고 단위/실제 날짜수량/미래 달력 범위를 검사한다.
 - 견적 대조는 `FormEstimateView.GetPrintDetail`의 저장된 EstQuantity·단가별 반올림·
   Amount/Vat를 기준으로 한다. OutUnit 분배수량과 견적단위를 혼합 합산하지 않는다.
+
+## 2026-10-06 주광 날짜 구간 합계와 전산 업무차수 분리
+
+- 설치 EXE의 FormShipmentDistribution을 dnSpy CLI로 다시 읽었다. 요일 조회는 ShipmentDate.ShipmentQuantity를 PeriodDay의 WeekDay로 SUM(CASE ...)한다. 날짜 수량과 ShipmentDetail.OutQuantity는 별도 축이다.
+- SELECT probe: CustKey533/ProdKey359 CARNATION Brut, 2026/40-01 OutQuantity5에는 2026-10-04 일요일3과 2026-10-06 화요일2가 모두 연결돼 있다. 2025/40-01은 OutQuantity2, 2025-10-01 날짜수량2다. 화면 40-1 합계5/잔량0은 실제 업무키 총량을 날짜 구간 합계로 사용한 결과였다.
+- 최신 사용자 요구에 따라 웹 표시 01은 목~일, 02는 월~수 날짜 합계로 계산한다. 최초분배5에서 일요일3을 빼 01 잔량2를 표시한다. 표시 구간이 바뀌어도 편집·저장·견적의 실제 OrderWeek는 변경하지 않는다.
+- 공유 ERP SQL, 수량, 원장, 확정, 재고·매출과 저장 검증은 모두 보존한다. Wilson은 같은 날짜 총량의 구분값이므로 다시 가산하지 않는다. 범위 밖 날짜는 원문 진단에 남기며 화면 구간 합계에는 넣지 않는다.

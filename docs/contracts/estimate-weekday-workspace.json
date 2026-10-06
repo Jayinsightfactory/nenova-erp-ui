@@ -341,7 +341,7 @@
       "carryover and note handlers",
       "errors and pending save status"
     ],
-    "subweekSummary": "Actual business OrderWeek independent sum/remainder 01 and02; preserve major carryover",
+    "subweekSummary": "Display 01 sum is Thursday-Sunday visible canonical date quantities, 02 sum Monday-Wednesday; each remainder is corresponding initial allocation minus display date sum. Keep actual OrderWeek for editing/saving/printing and raw ShipmentDetail totals separately. Major display sum/remainder uses the seven visible dates; outside dates stay diagnostic evidence, never silently reassigned.",
     "flowerOrder": [
       "카네이션",
       "장미",
