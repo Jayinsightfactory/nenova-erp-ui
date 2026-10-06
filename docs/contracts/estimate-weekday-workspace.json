@@ -352,6 +352,14 @@
       "알스트로",
       "기타"
     ],
+    "flowerGroups": {
+      "priority": ["카네이션", "장미", "수국", "알스트로"],
+      "otherCategories": "Separate actual FlowerName groups below the four priority categories; unknown or conflicting metadata remains 기타",
+      "defaultExpanded": true,
+      "collapse": "Display-only hidden product rows; preserve mounted input controls and pending edits, quantities, drafts, filter/export/print scope and ERP data",
+      "controls": "Sticky first-column category header with count, keyboard button and aria-expanded; only categories matching current filters are listed",
+      "search": "Reveal matching categories when a nonempty search/filter changes; allow subsequent manual collapse and preserve collapse choices when clearing filters"
+    },
     "density": {
       "reference": "user 65% screenshot, implemented at CSS viewport zoom100",
       "pageScaling": false,
