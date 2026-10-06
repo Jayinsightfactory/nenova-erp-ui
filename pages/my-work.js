@@ -30,18 +30,6 @@ async function orbitViewerToken() {
   return _viewer.token;
 }
 
-// 스토리보드(16MB)는 프로세스 안에 한 번만 파싱해 두고 파일(경로·수정 시각)이 바뀌면 다시 읽는다.
-// 경로는 매일 자동 갱신본(data/runtime) 우선 — lib/workFeatureData
-let _sb = { key: '', data: null };
-function readStoryboards() {
-  const f = featureFilePath('storyboards');
-  try {
-    const key = f + '|' + fs.statSync(f).mtimeMs;
-    if (key !== _sb.key) _sb = { key, data: JSON.parse(fs.readFileSync(f, 'utf8')) };
-    return _sb.data;
-  } catch { return null; }
-}
-
 export async function getServerSideProps({ req, query }) {
   const user = verifyReqUser(req);
   if (!isOrbitReportViewer(user)) {
@@ -55,36 +43,51 @@ export async function getServerSideProps({ req, query }) {
       : { generatedAt: null, person: null };
     return { props: { userId: user.userId, mine, mineOnly: true, data: null, boards: null, workflows: null, simulations: null, orbit: '', orbitQs: '', tab: 'mine' } };
   }
-  // 스토리보드 파일은 10MB(장면마다 창 제목·입력·전산 융합) → 선택된 사람·제안·세션의 장면만 내려보내고 나머지는 목차만
-  const full = readStoryboards();
-  let boards = null;
-  if (full) {
-    const who = full.people.find((p) => p.name === query.who) || full.people[0];
-    const bi = Math.min(Math.max(parseInt(query.b, 10) || 0, 0), who.boards.length - 1);
-    const si = Math.min(Math.max(parseInt(query.s, 10) || 0, 0), Math.max((who.boards[bi]?.sessions.length || 1) - 1, 0));
-    boards = {
-      generatedAt: full.generatedAt, note: full.note,
-      people: full.people.map((p) => ({ name: p.name, events: p.events, sessions: p.sessions })),
-      who: who.name, bi, si,
-      boardList: who.boards.map((b) => ({ title: b.title, matchedSessions: b.matchedSessions })),
-      board: who.boards[bi] ? { ...who.boards[bi], sessions: who.boards[bi].sessions.map(({ steps, narrative, ...meta }) => meta) } : null,
-      session: who.boards[bi]?.sessions[si] || null,
-    };
-  }
-  let proposals = null; try { proposals = JSON.parse(fs.readFileSync(featureFilePath('proposals'), 'utf8')); } catch {}
-  let workflows = null; try { workflows = JSON.parse(fs.readFileSync(featureFilePath('workflows'), 'utf8')); } catch {}
-  let simulations = null; try { simulations = JSON.parse(fs.readFileSync(featureFilePath('simulations'), 'utf8')); } catch {}
+  // 탭 데이터(제안·스토리보드·흐름·시뮬레이션)는 SSR props 에 싣지 않고 탭을 열 때 /api/my-work/feature 로 받는다(초기 HTML·하이드레이션 경량화).
   const viewerToken = await orbitViewerToken();
-  return { props: { userId: user.userId, data: proposals, boards, workflows, simulations, orbit: ORBIT, orbitQs: viewerToken ? '?token=' + encodeURIComponent(viewerToken) : '', tab: query.tab || 'pipeline' } };
+  return { props: { userId: user.userId, orbit: ORBIT, orbitQs: viewerToken ? '?token=' + encodeURIComponent(viewerToken) : '', tab: query.tab || 'pipeline' } };
+}
+
+// 탭 데이터 지연 로딩 — /api/my-work/feature (같은 게이트). key 가 바뀔 때만 다시 받는다. 응답은 탭 전환 사이 메모리 캐시.
+const _featCache = {};
+function useFeature(name, params = null, enabled = true) {
+  const qs = new URLSearchParams({ name, ...(params || {}) }).toString();
+  const [st, setSt] = useState(() => (_featCache[qs] ? { loading: false, data: _featCache[qs], error: '' } : { loading: true, data: null, error: '' }));
+  useEffect(() => {
+    if (!enabled) return undefined;
+    if (_featCache[qs]) { setSt({ loading: false, data: _featCache[qs], error: '' }); return undefined; }
+    let alive = true;
+    setSt((p) => ({ ...p, loading: true, error: '' }));
+    fetch('/api/my-work/feature?' + qs, { credentials: 'same-origin' })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => { if (!alive) return; if (!ok || !j.success) throw new Error(j.error || 'load failed'); _featCache[qs] = j.data; setSt({ loading: false, data: j.data, error: '' }); })
+      .catch((e) => { if (alive) setSt({ loading: false, data: null, error: String(e.message || e) }); });
+    return () => { alive = false; };
+  }, [qs, enabled]);
+  return st;
+}
+function Loading({ st, children }) {
+  if (st.loading) return <p className="dim" style={{ padding: 20 }}>불러오는 중…</p>;
+  if (st.error) return <p className="warn">데이터를 불러오지 못했습니다: {st.error}</p>;
+  return children;
 }
 
 // 캡처식 워크플로우 — 제안 하나를 고르면 실제 관찰 세션을 시간순 장면 필름으로 보여준다. 선택은 URL(?tab=story&who=&b=&s=)로 서버에서 잘라온다.
 // 장면 = 화면 해독(화면·행동·힌트 전문) + 그 장면 동안의 창 제목 흐름 + 업무 앱 입력 내용(메신저 제외) + 같은 시간대 전산 저장 기록.
+function StoryTab() {
+  const router = useRouter();
+  const q = router.query;
+  const params = { who: String(q.who || ''), b: String(q.b || 0), s: String(q.s || 0) };
+  const sb = useFeature('storyboards', params, router.isReady);
+  const pr = useFeature('proposals');
+  return <Loading st={sb}><Storyboards boards={sb.data} data={pr.data} /></Loading>;
+}
+
 function Storyboards({ boards, data }) {
   const router = useRouter();
   const [openAll, setOpenAll] = useState(true);
   if (!boards) return <p className="warn">data/work-feature-storyboards.json 이 없습니다.</p>;
-  const go = (q) => router.push({ pathname: '/my-work', query: { tab: 'story', who: boards.who, b: boards.bi, s: 0, ...q } }, undefined, { scroll: false });
+  const go = (q) => router.push({ pathname: '/my-work', query: { tab: 'story', who: boards.who, b: boards.bi, s: 0, ...q } }, undefined, { scroll: false, shallow: true });
   const { board, session: sess } = boards;
   const prop = data?.people?.find((p) => p.name === boards.who)?.proposals?.rows?.[boards.bi];
   return (
@@ -822,7 +825,18 @@ function Pipeline({ wf }) {
   );
 }
 
-export default function MyWorkPage({ userId, data, boards, workflows, simulations, orbit, orbitQs = '', tab: tab0, mine = null, mineOnly = false }) {
+function FeatureTab({ name, render }) {
+  const st = useFeature(name);
+  return <Loading st={st}>{render(st.data)}</Loading>;
+}
+function ProposalsTab() {
+  const sims = useFeature('simulations');
+  const pr = useFeature('proposals', null, !sims.loading && !arr(sims.data?.people).some((p) => arr(p.items).length));
+  if (sims.loading) return <Loading st={sims} />;
+  return <Simulator sims={sims.data} fallback={<Loading st={pr}><Proposals data={pr.data} /></Loading>} />;
+}
+
+export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, mine = null, mineOnly = false }) {
   const [tab, setTab] = useState(tab0);
   const TABS = mineOnly ? [{ id: 'mine', label: '내 업무흐름' }] : [
     { id: 'pipeline', label: '업무 파이프라인' },
@@ -846,10 +860,10 @@ export default function MyWorkPage({ userId, data, boards, workflows, simulation
         {tab === 'mine' && <MyFlowTab mine={mine} />}
         {tab === 'unified' && <iframe title="업무 통합본" src={orbit + '/work-unified.html' + orbitQs} />}
         {tab === 'orbit' && <iframe title="Orbit 작업 데이터" src={orbit + '/my-work.html' + orbitQs} />}
-        {tab === 'pipeline' && <Pipeline wf={workflows} />}
-        {tab === 'workflows' && <Workflows wf={workflows} />}
-        {tab === 'proposals' && <Simulator sims={simulations} fallback={<Proposals data={data} />} />}
-        {tab === 'story' && <Storyboards boards={boards} data={data} />}
+        {tab === 'pipeline' && <FeatureTab name="workflows" render={(wf) => <Pipeline wf={wf} />} />}
+        {tab === 'workflows' && <FeatureTab name="workflows" render={(wf) => <Workflows wf={wf} />} />}
+        {tab === 'proposals' && <ProposalsTab />}
+        {tab === 'story' && <StoryTab />}
         {tab === 'replay' && <Replay />}
       </div>
       <style jsx global>{`
