@@ -29,6 +29,8 @@
     "lib/profitReportNotes.js",
     "lib/profitReportAudit.js",
     "lib/customsForwarding.js",
+    "lib/profitReportCustomsPolicy.js",
+    "__tests__/profitReportExcelPolicyAlignment.test.js",
     "lib/customsFields.js",
     "lib/colombiaTruck.js",
     "lib/colombiaFlowerClassification.js",
@@ -72,6 +74,7 @@
     "scripts/profit-report-acceptance-harness.mjs",
     "scripts/extract-profit-report-workbooks.mjs",
     "components/CustomsClearancePanel.js",
+    "components/ForwardingClearancePanel.js",
     "__tests__/profitReportExcelDesign.test.js"
   ],
   "businessIdentity": [
@@ -81,6 +84,13 @@
     "ProdKey"
   ],
   "actions": [
+    {
+      "name": "REPORT_EXCEL_CALCULATION_POLICY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "erpLedgerWrite": "forbidden",
+      "sideEffect": "전산 원천값을 유지하고 보고서 계산만 매출원가 양식과 정렬한다. 콜롬비아 장미/카네이션/알스트로/루스커스/수국 무게 7/11/9.7/8/5.6, CBM 10/11/7/9.6/7은 profit-report profile에만 적용하며 공용 도착원가 설정은 보존한다. E/F는 표시 전 소수 정밀도를 유지한다. 수기 H/R/S, AC/AJ 및 확정 보고서 스냅샷은 유지한다. 엑셀의 수기 F 값을 복사하거나 ERP 재고수량을 보정하지 않는다. 연도별 원천 조회 범위는 기존 OrderYear+OrderWeek 계약을 유지한다."
+    },
     {
       "name": "REPORT_READ",
       "orderDetail": "preserve",
@@ -425,6 +435,7 @@
     "sideEffect": "read-only UI 표시만 추가하며 WebProfitReportConfirm과 ERP 공유 원장을 변경하지 않는다."
   },
   "requiredCommands": [
+    "node __tests__/profitReportExcelPolicyAlignment.test.js",
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
     "npm run test:profit-report-22-28",

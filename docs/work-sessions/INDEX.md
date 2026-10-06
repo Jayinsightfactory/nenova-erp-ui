@@ -1,5 +1,7 @@
 # 세션 Q&A 인덱스
 
+- [2026-10-06 매출이익 Excel 계산 기준 정렬](2026-10-06_profit-excel-policy-align.md) — 보고서 전용 배분 계수, E/F 정밀도, ERP 원장·수기값·확정본 보존.
+
 - [2026-10-06 주광 품종별 정렬·펼치기](2026-10-06_weekday-flower-groups.md)
 - [2026-10-06 중국 인보이스 Excel·요일별 업무 편집](2026-10-06_import-china-checklist.md) — 50MiB XLSX 로컬 분석, 장미 길이·단수·단가 보존, 반복 업무 CRUD·인증 체크 담당자 표시.
 

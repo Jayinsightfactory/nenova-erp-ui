@@ -4,6 +4,7 @@
 // 저장 시 onSaved() 호출 — 부모가 이걸로 매출이익보고서를 재조회해 자동 재계산에 반영한다.
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { COUNTRY_INPUT_FIELDS, vatInclusiveToNet, vatNetToInclusive } from '../lib/customsFields';
+import { applyProfitReportColombiaRates, PROFIT_REPORT_COLOMBIA_BOX_RATES } from '../lib/profitReportCustomsPolicy';
 // 그외통관비/콜롬비아 배분 순수 계산식(DB 의존 없음) — 서버(lib/customsForwarding.js 실계산)와
 // 정확히 같은 함수를 이 화면의 수기 편집 중 미리보기 합계에도 재사용한다(2026-08-12 결함수정:
 // 이전에는 입력칸을 고쳐도 "합계"·"저장" 버튼 옆 합계가 마지막 조회 시점 값에 멈춰 있어, 화면에
@@ -281,7 +282,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
   // 서버가 실제로 계산할 값과 같은 요율을 쓴다. scope를 반드시 나눈다: 원본 엑셀에서 국가 시트는
   // 22~27차 모두 460원/kg이고 콜롬비아 4품목 반차수 시트만 22차 370원/kg이다(2026-08-12 결함수정).
   const countryRates = data ? effectiveRatesForWeek(data.rates, data.orderYear, data.major, 'country') : null;
-  const colombiaRates = data ? effectiveRatesForWeek(data.rates, data.orderYear, data.major, 'colombia') : null;
+  const colombiaRates = data ? effectiveRatesForWeek(applyProfitReportColombiaRates(data.rates), data.orderYear, data.major, 'colombia') : null;
 
   // 이 국가행의 "지금 화면에 보이는" 합계 — 수기 편집이 없으면 서버가 마지막 조회 시 계산해 준
   // row.total(저장값/자동값/감사기준값 중 하나)을 그대로 쓴다. 편집이 있으면 countryValue()가
@@ -453,7 +454,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
 
       {showRates && data && (
         <div style={st.panel}>
-          <div style={st.panelHead}><strong>⚙ 단가표 (관리자 수정 — 백상/트럭/검역대행/콜롬비아 박스당무게·CBM)</strong></div>
+          <div style={st.panelHead}><strong>⚙ 공용 단가표 (관리자 수정 — 백상/트럭/검역대행/도착원가용 콜롬비아 박스당무게·CBM)</strong></div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, padding: 12 }}>
             {[...RATE_FIELDS, ...COLOMBIA_RATE_FIELDS].map(([key, label]) => (
               <label key={key} style={st.rateField}>
@@ -469,6 +470,14 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
           </div>
           <div style={{ padding: '0 12px 12px' }}>
             <button style={st.primaryBtn} onClick={saveRates} disabled={saving === 'rates'}>단가표 저장</button>
+          </div>
+          <div style={{ padding: '10px 12px', borderTop: '1px solid #e2e8f0', fontSize: 11, color: '#475569' }}>
+            <strong>매출이익보고서 콜롬비아 배분 기준 (읽기 전용 · 매출원가 양식)</strong>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 6 }}>
+              {Object.entries(PROFIT_REPORT_COLOMBIA_BOX_RATES).map(([key, value]) => (
+                <span key={key}>{key.replace('BoxWeight_', '무게 ').replace('BoxCBM_', 'CBM ')}: {value}</span>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -708,6 +717,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                   <div style={{ marginTop: 8, fontSize: 12, color: '#334155' }} title={colombiaHasEdit(c) ? '수기 편집 중 — 저장 전 미리보기(저장하면 이 값 그대로 반영)' : undefined}>
                     배분 미리보기(H): 장미 {fmt(colombiaAllocationH(c)['콜롬비아 장미'])} · 카네이션 {fmt(colombiaAllocationH(c)['콜롬비아 카네이션'])} ·
                     알스트로 {fmt(colombiaAllocationH(c)['콜롬비아 알스트로'])} · 루스커스 {fmt(colombiaAllocationH(c)['콜롬비아 루스커스'])}
+                    {colombiaAllocationH(c)['콜롬비아 수국'] != null && <> · 혼적 수국 {fmt(colombiaAllocationH(c)['콜롬비아 수국'])}</>}
                   </div>
                 </div>
               );
