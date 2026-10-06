@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
+import { isExpectedWeekdayPrintBlock } from '../lib/weekdayPrintReadiness.js';
 import WeekdayCycleMatrix from './WeekdayCycleMatrix';
 import { readWeekdayStoredInputs, saveWeekdayScopedInputs, mergeWeekdayStoredInputs,
   clearWeekdayStoredSubmission, weekdayInputStorageKey } from '../lib/weekdayDraftStorage.js';
@@ -542,9 +543,11 @@ export default function WeekdayEstimateWorkspace() {
         try {
           const response=await fetch('/api/estimate/weekday-print',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({year:cycle.year,majorWeek:cycle.majorWeek,custKey:Number(customer.CustKey),mode:'major',dates:[]})});
           const result=await response.json();
-          if(!response.ok || !result.success) throw new Error(result.error || '견적 조회 실패');
-          quote={year:cycle.year,majorWeek:cycle.majorWeek,items:result.items || []};
-          try {
+          const expectedBlocked=isExpectedWeekdayPrintBlock(response.status,result);
+          if((!response.ok || result.success!==true) && !expectedBlocked) throw new Error(result.error || '견적 조회 실패');
+          quote=expectedBlocked ? {year:cycle.year,majorWeek:cycle.majorWeek,printReadiness:result.printReadiness}
+            : {year:cycle.year,majorWeek:cycle.majorWeek,items:result.items || []};
+          if(!expectedBlocked) try {
             const management=await apiGet('/api/estimate',{year:cycle.year,week:cycle.majorWeek,custKey:Number(customer.CustKey),byDate:1,itemsOnly:1});
             if(!Array.isArray(management.items)) throw new Error('견적 관리 상세를 읽을 수 없습니다.');
             quote.managementItems=management.items;
@@ -967,7 +970,7 @@ export default function WeekdayEstimateWorkspace() {
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
     {wilsonError && <div role="alert" style={{color:'#b42318',padding:6}}>윌슨: {wilsonError}</div>}
     {wilsonPending.length>0 && <button type="button" disabled={applyBusy || wilsonBusy || Boolean(pendingApply)} onClick={()=>retryWilson()}>윌슨 구분값 저장 확인 ({wilsonPending.length})</button>}
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
       wilsonRecords={wilsonRecords.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} wilsonDrafts={wilsonDrafts.filter(record=>record.scopeKey===scopeKey && activePlans.some(plan=>Number(plan.year)===record.year && Number(plan.prodKey)===record.prodKey && plan.date===record.date && Number(plan.quantity)===record.expectedTotal))} wilsonBusy={wilsonBusy} wilsonError={wilsonError} onEditWilson={editWilson}
       confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}

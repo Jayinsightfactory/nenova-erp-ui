@@ -67,6 +67,21 @@ assert.equal((quoteFailureHtml.match(/fixture quote failure:/g)||[]).length,1,'f
 assert.match(quoteFailureHtml,/<details class="wcm-quote-error"><summary>견적 조회 실패 · 상세<\/summary>/,'header disclosure is collapsed by default');
 assert.equal((quoteFailureHtml.match(/aria-label="[^"]+견적 대조 · [^"]+ · 조회 실패"/g)||[]).length,2,'both affected product buttons expose their failure state');
 assert.doesNotMatch(quoteFailureHtml,/wcm-error[^>]*role="alert">견적 조회 실패/,'product rows do not contain repeated long quote errors');
+const readinessResult=patch=>({year:2026,majorWeek:'38',printReadiness:{scope:'ALL_CUSTOMERS_MAJOR_WEEK',
+  positiveCount:0,unfixedCount:0,invalidCount:0,reasons:[],...patch}});
+const emptyReadyMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({})]});
+assert.match(emptyReadyMarkup,/분배·확정 후 견적 출력 가능/);
+assert.match(emptyReadyMarkup,/저장된 출고 없음 · 입력·분배 적용부터 진행/);
+assert.doesNotMatch(emptyReadyMarkup,/견적 조회 실패|<span>실패<\/span>/,'no shipment is an ordinary next-step state');
+const waitingMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({positiveCount:1345,unfixedCount:97})]});
+assert.match(waitingMarkup,/확정 대기 97건 · 해당 연도·차수 전체 업체/);
+assert.match(waitingMarkup,/href="\/shipment\/fix-status\?popup=1"/);
+assert.match(waitingMarkup,/확정 현황에서 2026년 38차를 조회·확정한 뒤 전산 새로고침/);
+assert.doesNotMatch(waitingMarkup,/견적 조회 실패|<span>실패<\/span>/,'unfixed rows give actionable scope rather than a network failure');
+const invalidMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({positiveCount:10,invalidCount:2,reasons:['<script>technical link detail</script>']})]});
+assert.match(invalidMarkup,/견적 연결 확인 2건 · 상세/);
+assert.match(invalidMarkup,/&lt;script&gt;technical link detail&lt;\/script&gt;/);
+assert.doesNotMatch(invalidMarkup,/<script>technical/,'diagnostic reasons are safe text');
 assert.match(quoteFailureHtml,/data-wcm-label="sum" data-quantity="1"/,'quote error does not change summary quantity');
 assert.equal((quoteFailureHtml.match(/aria-label="전체 견적"/g)||[]).length,(html.match(/aria-label="전체 견적"/g)||[]).length,'quote error does not remove existing print actions');
 assert.match(quoteFailureHtml,/기준 미확정/,'page baseline preview is distinct from ERP-unfixed labels');
@@ -270,3 +285,18 @@ assert.equal(nodes(wview).find(node=>node.type==='button').props.disabled,true,'
 nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:'20'}});wview=wdraw(emptyProps);
 await nodes(wview).find(node=>node.type==='input').props.onBlur();
 assert.equal(wilsonEvents.at(-1).totalQuantity,20,'new Wilson quantity creates exactly one canonical20 draft');
+
+// Retry is an actual actionable header control, never a cosmetic failure label.
+harness.useMemo=factory=>factory();
+slots.length=0;index=0;effects=[];
+const RetryMatrix=load(harness).default;
+let retriedCycle;
+const retryTree=RetryMatrix({...props,plans:[],quoteResults:[{year:2026,majorWeek:'38',error:'network fixture'}],
+  onRetryQuote(cycle){retriedCycle=cycle;}});
+const retryButton=nodes(retryTree).find(node=>node.type==='button'&&node.props.children==='다시 조회');
+assert.ok(retryButton);assert.equal(retryButton.props.disabled,false);
+retryButton.props.onClick();assert.equal(retriedCycle.majorWeek,'38');assert.equal(retriedCycle.year,2026);
+slots.length=0;index=0;effects=[];
+const neutralTree=RetryMatrix({...props,plans:[],quoteResults:[readinessResult({})]});
+assert.equal(nodes(neutralTree).filter(node=>node.type==='button'&&node.props.children==='다시 조회').length,0,
+  'expected no-shipment state is not presented as a retriable network error');
