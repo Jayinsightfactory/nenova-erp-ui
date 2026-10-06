@@ -33,7 +33,7 @@ test('shared records preserve actor history, reject stale writes and isolate yea
  assert.equal((await readImportTeamRecord('checklist.day.2025-10-06',{root})).value,null);
  await writeImportTeamRecord(key,{expectedRevision:1,value:null,actor},{root});
  const history=await listImportTeamHistory({root});assert.equal(history.length,2);assert(history.every(e=>e.userId==='staff'));
- const attempts=await Promise.allSettled([1,2].map(n=>writeImportTeamRecord('checklist.pending',{expectedRevision:0,value:[n],actor},{root})));
+ const attempts=await Promise.allSettled([1,2].map(n=>writeImportTeamRecord('checklist.pending',{expectedRevision:0,value:[{id:'pending-'+n,text:'업무 '+n,done:false}],actor},{root})));
  assert.equal(attempts.filter(r=>r.status==='fulfilled').length,1);
  assert.equal((await readImportTeamRecord('checklist.pending',{root})).revision,1);
 }));
@@ -64,10 +64,11 @@ test('a live lock is never expired, while a proven dead or finished owner is rec
 
  const deadKey='checklist.flights';
  await createLock(root,deadKey,{version:1,token:'dead-owner',pid:2147483647,host:os.hostname(),createdAt:new Date(0).toISOString()});
- const attempts=await Promise.allSettled(Array.from({length:8},(_,index)=>writeImportTeamRecord(deadKey,{expectedRevision:0,value:[index],actor},{root})));
+ const flight=text=>[{id:'flight',text,llegado:false,banib:false}];
+ const attempts=await Promise.allSettled(Array.from({length:8},(_,index)=>writeImportTeamRecord(deadKey,{expectedRevision:0,value:flight('일정 '+index),actor},{root})));
  assert.equal(attempts.filter(result=>result.status==='fulfilled').length,1);
  assert.equal((await readImportTeamRecord(deadKey,{root})).revision,1);
- assert.equal((await writeImportTeamRecord(deadKey,{expectedRevision:1,value:['next'],actor},{root})).revision,2);
+ assert.equal((await writeImportTeamRecord(deadKey,{expectedRevision:1,value:flight('next'),actor},{root})).revision,2);
 
  const finishedKey='checklist.planting',token=randomUUID();
  await createLock(root,finishedKey,{version:1,token,pid:process.pid,host:os.hostname(),createdAt:new Date(0).toISOString()},{finished:true});
@@ -80,7 +81,8 @@ test('a stale recovery snapshot cannot unlink a replacement owner directory',()=
  let announceStaleReader,announceReplacement;
  const staleReaderSeen=new Promise(resolve=>{announceStaleReader=resolve;});
  const replacementInstalled=new Promise(resolve=>{announceReplacement=resolve;});
- const staleReader=writeImportTeamRecord(key,{expectedRevision:0,value:['stale-reader'],actor},{
+ const flight=text=>[{id:'flight',text,llegado:false,banib:false}];
+ const staleReader=writeImportTeamRecord(key,{expectedRevision:0,value:flight('stale-reader'),actor},{
   root,
   _lockHooks:{afterRead:async state=>{
    if(state.kind==='owned'&&state.owner.token==='dead-owner'){
@@ -90,14 +92,14 @@ test('a stale recovery snapshot cannot unlink a replacement owner directory',()=
   }}
  });
  await staleReaderSeen;
- const replacement=writeImportTeamRecord(key,{expectedRevision:0,value:['replacement'],actor},{
+ const replacement=writeImportTeamRecord(key,{expectedRevision:0,value:flight('replacement'),actor},{
   root,
   _lockHooks:{afterInstall:()=>announceReplacement()}
  });
  const attempts=await Promise.allSettled([staleReader,replacement]);
  assert.equal(attempts.filter(result=>result.status==='fulfilled').length,1);
  assert.equal((await readImportTeamRecord(key,{root})).revision,1);
- assert.equal((await writeImportTeamRecord(key,{expectedRevision:1,value:['after-race'],actor},{root})).revision,2);
+ assert.equal((await writeImportTeamRecord(key,{expectedRevision:1,value:flight('after-race'),actor},{root})).revision,2);
 }));
 
 test('an unreadable lock is preserved instead of being guessed stale',()=>withRoot(async root=>{
