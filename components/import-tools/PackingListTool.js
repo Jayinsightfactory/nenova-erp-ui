@@ -1,3 +1,4 @@
+import styles from '../../styles/ImportPacking.module.css';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
@@ -10,6 +11,71 @@ import { ALL_SEED_ALIASES, aliasKey, parseCatalog, parseAliasesXlsx, exportAlias
   genColombia, genNL, genChina, genEcuador, genThailand, genAustralia, genUS, genVN,
   AWB_DEFAULT_COMPANIES, writeAWBWorkbook, parseWeekFromFilename } from '../../lib/importPacking.js';
 
+// Additional UI copy; document data, country keys and workbook labels stay unchanged.
+const UI_COPY = {
+  candidates: ["추천 후보","Suggested matches","Candidatos"],
+  confirmMatch: ["이 품목으로 확인","Confirm match","Esta es"],
+  searchFallback: ["후보가 맞지 않으면 카탈로그에서 검색","Search catalog if no candidate fits","Buscar en el catálogo si ninguno es correcto..."],
+  searchCatalog: ["카탈로그 품목 검색","Search catalog","Buscar en el catálogo..."],
+  noResults: ["검색 결과가 없습니다.","No results","Sin resultados"],
+  awbTitle: ["AWB · 항공 운송장","AWB · Air Waybill","AWB · Guía aérea"],
+  awbSub: ["항공 운송료 패킹 리스트 · 로컬 처리, AI 호출 없음","Air freight packing list · local processing, no AI call","Packing list aéreo · proceso local, sin IA"],
+  awbUpload: ["AWB PDF 업로드 (선택)","AWB PDF upload (optional)","PDF del AWB (opcional)"],
+  awbDrop: ["또는 AWB PDF를 끌어 놓으세요 · 자동 입력 후 확인","or drop an AWB PDF here · review auto-filled fields","o arrastra el PDF del AWB aquí (intenta auto-rellenar)"],
+  pdfLimit: ["PDF 최대 20MiB","PDF up to 20MiB","PDF: máximo 20MiB."],
+  pdfOnly: ["PDF 파일만 지원합니다.","Only PDF files are accepted.","Solo se aceptan archivos PDF."],
+  pdfReading: ["PDF 읽는 중…","Reading PDF…","Leyendo PDF…"],
+  pdfReadError: ["PDF를 읽지 못했습니다.","Could not read PDF.","Error leyendo PDF."],
+  localReaderUnavailable: ["로컬 PDF 리더를 사용할 수 없습니다. 직접 입력하세요.","Local PDF reader unavailable. Fill in the fields manually.","Lector PDF local no disponible. Rellena los campos manualmente."],
+  week: ["주차","Week","Semana"],
+  date: ["문서 날짜","Document date","Fecha"],
+  company: ["운송사","Carrier","Compañía"],
+  total: ["합계","Total","Total"],
+  unitPrice: ["운송료 단가","Freight unit price","U.Price"],
+  awbForm: ["운송장 정보","Air waybill details","Datos del AWB"],
+  manageCompanies: ["운송사 관리","Manage carriers","Gestionar compañías"],
+  newCompany: ["새 운송사 (예: KOREAN AIR)","New carrier (e.g. KOREAN AIR)","Nueva compañía (ej. KOREAN AIR)"],
+  add: ["추가","Add","Añadir"],
+  invoice: ["인보이스 번호","Invoice #","Invoice #"],
+  weights: ["중량 및 운송료","Weights and charges","Pesos y total"],
+  gwLabel: ["총중량 (GW) · kg","Gross weight (GW) · kg","GW (Gross Weight) — kg"],
+  cwLabel: ["운임 적용 중량 (CW) · kg","Chargeable weight (CW) · kg","CW (Chargeable Weight) — kg"],
+  priceLabel: ["운송료 1 단가 · USD/kg","Line 1 unit price · USD/kg","U.Price línea 1 (운송료) — USD/kg"],
+  totalLabel: ["인보이스 합계 · USD","Invoice total · USD","Total invoice — USD"],
+  previewCharges: ["패킹 리스트 운송료 미리보기","Packing list charges preview","Cómo quedará en el packing list:"],
+  charge1: ["운송료 1","Freight line 1","운송료 #1"],
+  charge2: ["운송료 2","Freight line 2","운송료 #2"],
+  validationTitle: ["다음 항목을 확인해야 생성할 수 있습니다.","Complete these fields before generating:","No se puede generar todavía:"],
+  companyRequired: ["운송사를 선택하세요.","Carrier is required.","Compañía obligatoria."],
+  weekRequired: ["주차를 입력하세요 (예: 21-01).","Week is required (e.g. 21-01).","Semana obligatoria (ej. 21-01)."],
+  awbRequired: ["AWB 번호를 입력하세요.","AWB number is required.","Número de AWB obligatorio."],
+  dateRequired: ["문서 날짜를 입력하세요 (YYYY/MM/DD).","Document date is required (YYYY/MM/DD).","Fecha del documento obligatoria (YYYY/MM/DD)."],
+  gwRequired: ["총중량 (GW)을 입력하세요.","Gross weight (GW) is required.","GW (Gross Weight) obligatorio."],
+  cwRequired: ["운임 적용 중량 (CW)을 입력하세요.","Chargeable weight (CW) is required.","CW (Chargeable Weight) obligatorio."],
+  totalRequired: ["인보이스 합계 (USD)를 입력하세요.","Invoice total (USD) is required.","Total (USD) obligatorio."],
+  priceRequired: ["운송료 1 단가를 입력하세요.","Line 1 unit price is required.","U.Price línea 1 obligatorio."],
+  negativeCharge: ["운송료 2가 음수입니다. 운송료 1 단가를 낮추세요.","Line 2 is negative. Reduce the line 1 unit price.","U.Price línea 1 demasiado alto: deja la línea 2 negativa. Bájalo."],
+  noFields: ["인식된 항목이 없습니다. 직접 입력하세요.","No fields recognized. Fill in the form manually.","PDF leído pero no se reconocieron campos. Rellena el formulario manualmente."],
+  autoFilled: ["자동 입력됨 · 나머지 항목을 입력하고 값을 확인하세요","Auto-filled · review values and complete remaining fields","Auto-rellenado · revísalo y completa lo demás"],
+  weekFromFile: ["파일명에서 읽은 주차","Week read from filename","Semana leída del nombre del archivo"],
+  totalMismatch: ["합계 불일치","Total mismatch","Total no coincide"],
+  multiFarm: ["여러 농장 인보이스","Multi-farm invoices","Invoices de varias fincas"],
+  autoSupplier: ["인보이스별 공급업체 자동 감지","Auto-detects supplier per invoice","Detecta proveedor por invoice"],
+  autoFarm: ["인보이스별 농장 자동 감지","Auto-detects farm per invoice","Detecta finca por invoice"],
+  perInvoice: ["인보이스별 패킹 리스트 생성","One packing list per invoice","Un packing list por invoice"],
+  awbTile: ["항공 운송료 · EXCEL, FREIGHTWISE","Air freight · EXCEL, FREIGHTWISE","Aviones — EXCEL, FREIGHTWISE"],
+  awbBadge: ["운송장","Air waybill","AWB"],
+  localMode: ["무료 로컬 분석 우선 · AI는 별도 선택","Free local analysis first · AI is optional","Análisis local gratuito primero · IA opcional"],
+  noMatchesFile: ["Excel에 유효한 매칭이 없습니다.","No valid matches in Excel.","No hay matches válidos en Excel."],
+  noInvoices: ["PDF에서 인보이스를 찾지 못했습니다.","No invoices found in PDF","No se encontraron invoices en PDF"],
+  errorPrefix: ["오류: ","Error: ","Error: "],
+  countryNames: [{"NL":"네덜란드","CN":"중국","CO":"콜롬비아","EC":"에콰도르","TH":"태국","AU":"호주","US":"미국","VN":"베트남"},{"NL":"Netherlands","CN":"China","CO":"Colombia","EC":"Ecuador","TH":"Thailand","AU":"Australia","US":"USA","VN":"Vietnam"},{"NL":"Países Bajos","CN":"China","CO":"Colombia","EC":"Ecuador","TH":"Tailandia","AU":"Australia","US":"EE. UU.","VN":"Vietnam"}],
+};
+function packingText(lang) {
+  const index = lang === 'en' ? 1 : lang === 'es' ? 2 : 0;
+  return Object.fromEntries(Object.entries(UI_COPY).map(([key, values]) => [key, values[index]]));
+}
+
 const loadXLSX = () => import('xlsx-js-style').then(m => m.default || m);
 
 // Preserve emphasis in fixed translations without interpreting any HTML.
@@ -21,7 +87,8 @@ function NoticeText({ text }) {
       : <React.Fragment key={index}>{part}</React.Fragment>);
 }
 
-function PendingItem({ nm, catalogItems, onConfirm }) {
+function PendingItem({ nm, catalogItems, onConfirm, lang = 'ko' }) {
+  const t = packingText(lang);
   const [search, setSearch] = useState('');
   const term = search.trim().toLowerCase();
   const filtered = term.length > 0
@@ -30,20 +97,20 @@ function PendingItem({ nm, catalogItems, onConfirm }) {
         .slice(0, 12)
     : [];
   return (
-    <div style={{ background: '#fff', border: '1px solid #e8e8e4', borderRadius: 8, padding: '10px 12px', marginBottom: 6 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-        <span style={{ color: '#888' }}>{nm.farm} · </span>
+    <div style={{ background: '#fff', border: '1px solid #dce4ef', borderRadius: 8, padding: '10px 12px', marginBottom: 6 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+        <span style={{ color: '#526580' }}>{nm.farm} · </span>
         <span>{nm.description}</span>
       </div>
       {nm.candidates && nm.candidates.length > 0 && (
-        <div style={{ fontSize: 11.5, color: '#666' }}>
-          <div style={{ marginBottom: 4, color: '#888' }}>Candidatos:</div>
+        <div style={{ fontSize: 13, color: '#526580' }}>
+          <div style={{ marginBottom: 4, color: '#526580' }}>{t.candidates}:</div>
           {nm.candidates.slice(0, 6).map((c, ci) => (
-            <div key={ci} style={{ padding: '4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderBottom: ci < Math.min(5, nm.candidates.length - 1) ? '1px solid #f0f0ee' : 'none' }}>
-              <span style={{ color: '#333', flex: 1 }}>{c.item.name}</span>
-              <span style={{ color: '#999', fontVariant: 'tabular-nums', fontSize: 10.5 }}>{(c.score * 100).toFixed(0)}%</span>
-              <button onClick={() => onConfirm(nm.description, c.item.name)} style={{ padding: '3px 9px', fontSize: 11, borderRadius: 5, border: '1px solid #1a56db', background: '#1a56db', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>
-                Esta es
+            <div key={ci} style={{ padding: '4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderBottom: ci < Math.min(5, nm.candidates.length - 1) ? '1px solid #edf2f8' : 'none' }}>
+              <span style={{ color: '#172b4d', flex: 1 }}>{c.item.name}</span>
+              <span style={{ color: '#526580', fontVariant: 'tabular-nums', fontSize: 13 }}>{(c.score * 100).toFixed(0)}%</span>
+              <button onClick={() => onConfirm(nm.description, c.item.name)} style={{ padding: '3px 9px', fontSize: 13, borderRadius: 5, border: '1px solid #2457c5', background: '#2457c5', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>
+                {t.confirmMatch}
               </button>
             </div>
           ))}
@@ -55,19 +122,19 @@ function PendingItem({ nm, catalogItems, onConfirm }) {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar en el catálogo si ninguno es correcto..."
-          style={{ width: '100%', padding: '6px 8px', fontSize: 11.5, border: '1px solid #d0d0cc', borderRadius: 5, outline: 'none', boxSizing: 'border-box' }}
+          placeholder={t.searchFallback} aria-label={t.searchFallback}
+          style={{ width: '100%', padding: '6px 8px', fontSize: 13, border: '1px solid #d0d0cc', borderRadius: 5, boxSizing: 'border-box' }}
         />
         {term.length > 0 && (
-          <div style={{ marginTop: 6, fontSize: 11.5, color: '#666', maxHeight: 220, overflowY: 'auto' }}>
+          <div style={{ marginTop: 6, fontSize: 13, color: '#526580', maxHeight: 220, overflowY: 'auto' }}>
             {filtered.length === 0 ? (
-              <div style={{ padding: '6px 0', color: '#999', fontStyle: 'italic' }}>Sin resultados</div>
+              <div style={{ padding: '6px 0', color: '#526580', fontStyle: 'italic' }}>{t.noResults}</div>
             ) : (
               filtered.map((it, ii) => (
-                <div key={ii} style={{ padding: '4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderBottom: ii < filtered.length - 1 ? '1px solid #f0f0ee' : 'none' }}>
-                  <span style={{ color: '#333', flex: 1 }}>{it.name}</span>
-                  <button onClick={() => onConfirm(nm.description, it.name)} style={{ padding: '3px 9px', fontSize: 11, borderRadius: 5, border: '1px solid #1a56db', background: '#1a56db', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>
-                    Esta es
+                <div key={ii} style={{ padding: '4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderBottom: ii < filtered.length - 1 ? '1px solid #edf2f8' : 'none' }}>
+                  <span style={{ color: '#172b4d', flex: 1 }}>{it.name}</span>
+                  <button onClick={() => onConfirm(nm.description, it.name)} style={{ padding: '3px 9px', fontSize: 13, borderRadius: 5, border: '1px solid #2457c5', background: '#2457c5', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>
+                    {t.confirmMatch}
                   </button>
                 </div>
               ))
@@ -82,7 +149,8 @@ function PendingItem({ nm, catalogItems, onConfirm }) {
 // =============================================================================
 // NoMatchItem — like PendingItem but for no-candidates case (yellow panel).
 // =============================================================================
-function NoMatchItem({ nm, catalogItems, onConfirm }) {
+function NoMatchItem({ nm, catalogItems, onConfirm, lang = 'ko' }) {
+  const t = packingText(lang);
   const [search, setSearch] = useState('');
   const term = search.trim().toLowerCase();
   const filtered = term.length > 0
@@ -91,28 +159,28 @@ function NoMatchItem({ nm, catalogItems, onConfirm }) {
         .slice(0, 12)
     : [];
   return (
-    <div style={{ background: '#fff', border: '1px solid #e8e8e4', borderRadius: 8, padding: '8px 12px', marginBottom: 5 }}>
-      <div style={{ fontSize: 12, marginBottom: 6 }}>
-        <span style={{ color: '#888' }}>{nm.farm} · </span>
+    <div style={{ background: '#fff', border: '1px solid #dce4ef', borderRadius: 8, padding: '8px 12px', marginBottom: 5 }}>
+      <div style={{ fontSize: 13, marginBottom: 6 }}>
+        <span style={{ color: '#526580' }}>{nm.farm} · </span>
         <span style={{ color: '#c81e1e' }}>{nm.description}</span>
       </div>
       <input
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar en el catálogo..."
-        style={{ width: '100%', padding: '6px 8px', fontSize: 11.5, border: '1px solid #d0d0cc', borderRadius: 5, outline: 'none', boxSizing: 'border-box' }}
+        placeholder={t.searchCatalog} aria-label={t.searchCatalog}
+        style={{ width: '100%', padding: '6px 8px', fontSize: 13, border: '1px solid #d0d0cc', borderRadius: 5, boxSizing: 'border-box' }}
       />
       {term.length > 0 && (
-        <div style={{ marginTop: 6, fontSize: 11.5, color: '#666', maxHeight: 220, overflowY: 'auto' }}>
+        <div style={{ marginTop: 6, fontSize: 13, color: '#526580', maxHeight: 220, overflowY: 'auto' }}>
           {filtered.length === 0 ? (
-            <div style={{ padding: '6px 0', color: '#999', fontStyle: 'italic' }}>Sin resultados</div>
+            <div style={{ padding: '6px 0', color: '#526580', fontStyle: 'italic' }}>{t.noResults}</div>
           ) : (
             filtered.map((it, ii) => (
-              <div key={ii} style={{ padding: '4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderBottom: ii < filtered.length - 1 ? '1px solid #f0f0ee' : 'none' }}>
-                <span style={{ color: '#333', flex: 1 }}>{it.name}</span>
-                <button onClick={() => onConfirm(nm.description, it.name)} style={{ padding: '3px 9px', fontSize: 11, borderRadius: 5, border: '1px solid #1a56db', background: '#1a56db', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>
-                  Esta es
+              <div key={ii} style={{ padding: '4px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderBottom: ii < filtered.length - 1 ? '1px solid #edf2f8' : 'none' }}>
+                <span style={{ color: '#172b4d', flex: 1 }}>{it.name}</span>
+                <button onClick={() => onConfirm(nm.description, it.name)} style={{ padding: '3px 9px', fontSize: 13, borderRadius: 5, border: '1px solid #2457c5', background: '#2457c5', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>
+                  {t.confirmMatch}
                 </button>
               </div>
             ))
@@ -249,7 +317,7 @@ const I18N = {
     aiAnalyze: 'AI 분석 (비용 발생 가능)', sourceLocal: '코드 분석 · AI 호출 없음', sourceCache: '기존 분석 재사용 · 새 AI 호출 없음', sourceAI: 'AI 분석 완료', cacheNotSaved: '결과 캐시 저장 안 됨 · 재시도 시 비용 발생 가능',
     reload: '공동 데이터 다시 불러오기', saving: '공동 데이터 저장 중…',
     sharedFailure: '공동 저장/불러오기 실패. 다시 불러온 뒤 재시도하세요.',
-    appTitle: '패킹 리스트 생성기', appSub: '네노바 Co. Ltd.',
+    appTitle: '패킹 리스트 생성기', appSub: '네노바 수입부',
     catalogLoading: '카탈로그 불러오는 중...', catalogLoaded: '📚 카탈로그 로드됨', catalogProducts: '개 상품',
     catalogMissing: '⚠ 카탈로그가 없습니다.', catalogUploadHint: '', catalogUploadHint2: '을(를) 업로드한 뒤 확인하고 저장하세요.',
     catalogReplace: '업로드 / 미리보기', catalogLoad: '업로드 / 미리보기', catalogClear: '삭제',
@@ -286,8 +354,8 @@ const I18N = {
     aliasClear: '전체 삭제', aliasManage: '관리', aliasManagerTitle: '학습된 별칭',
     aliasManagerSub: '직접 확인한 매칭 목록입니다. 잘못된 항목을 삭제하세요.',
     aliasManagerEmpty: '아직 학습된 별칭이 없습니다.', aliasManagerInvoice: '인보이스 설명',
-    aliasManagerCatalog: '카탈로그 이름', aliasManagerDelete: '삭제', aliasManagerClose: '닫기', aliasManagerSeed: '시드 override',
-    steps: ['인보이스 읽는 중', '추출값 검증 중', 'Excel 파일 생성 중'],
+    aliasManagerCatalog: '카탈로그 이름', aliasManagerDelete: '삭제', aliasManagerClose: '닫기', aliasManagerSeed: '기본 별칭 수정',
+    steps: ['인보이스 읽는 중', '추출값 검증 중', '엑셀 파일 생성 중'],
     products: (n) => `${n}개 상품`, stems: '줄기', more: (n) => `+ ${n}개 더`,
     summaryOk: '✅ 모두 정상 -- 다운로드 준비 완료.',
     summaryTruncated: ' ⚠ PDF가 너무 커서 응답이 잘렸습니다 -- 일부 인보이스가 누락되었을 수 있습니다. 다시 처리하거나 PDF를 분할하세요.',
@@ -295,8 +363,8 @@ const I18N = {
     summaryNoMatch: (n) => ` 🔒 일치 없음 ${n}개 -- 다운로드 차단.`,
     summaryMismatch: (n) => ` ⚠ 합계 불일치 패킹 리스트 ${n}개 -- 발송 전 확인.`,
     errWeek: (name) => `파일명에 주차 번호가 포함되어야 합니다 (예: "16-2 Hortensias.pdf"). 받은 값: ${name}`,
-    matchesTitle: '매칭(별칭)', matchesImport: 'Excel 가져오기', matchesExport: 'Excel 내보내기',
-    matchesImported: (n) => `Excel에서 매칭 ${n}개를 가져왔습니다.`,
+    matchesTitle: '매칭(별칭)', matchesImport: '엑셀 가져오기', matchesExport: '엑셀 내보내기',
+    matchesImported: (n) => `엑셀에서 매칭 ${n}개를 가져왔습니다.`,
     matchesCount: (total, base) => `매칭 ${total}개 로드됨${base ? ` · 기본 ${base}개` : ''}`,
   },
 };
@@ -399,12 +467,12 @@ function detectAWBCompany(text) {
   return null;
 }
 
-async function parseAWBPdf(pdfBase64, readAwbPdf) {
+async function parseAWBPdf(pdfBase64, readAwbPdf, t) {
   try {
-    if (!readAwbPdf) return { _error: 'Lector PDF local no disponible. Rellena los campos manualmente.' };
+    if (!readAwbPdf) return { _error: t.localReaderUnavailable };
     return parseAwbFields(await readAwbPdf(pdfBase64));
   } catch (e) {
-    return { _error: 'No se pudo leer el PDF: ' + e.message };
+    return { _error: t.pdfReadError + ' ' + e.message };
   }
 }
 
@@ -412,7 +480,8 @@ async function parseAWBPdf(pdfBase64, readAwbPdf) {
 // AWBPanel — the AWB screen.  Self-contained UI.
 // All state lives here; nothing leaks into the farm flow.
 // =============================================================================
-function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
+function AWBPanel({ xlsxLib, lang = 'ko', onBack, readAwbPdf }) {
+  const t = { ...I18N[lang] || I18N.ko, ...packingText(lang) };
   // --- Form state ----------------------------------------------------------
   // Note: storage key is versioned (v2) so we don't read stale company lists
   // from earlier prototypes (those had EXCEL/FREIGHTWISE/DHL/CATHAY).
@@ -456,23 +525,23 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
     const version = ++awbReaderVersion.current;
     setPdfFile(null); setPdfBase64(null);
     if (f.size > PACKING_PDF_MAX_BYTES) {
-      setParseStatus({ kind: 'err', msg: 'PDF: máximo 20MiB.' });
+      setParseStatus({ kind: 'err', msg: t.pdfLimit });
       return;
     }
     if (!/\.pdf$/i.test(f.name) || (f.type && f.type !== 'application/pdf')) {
-      setParseStatus({ kind: 'err', msg: 'Solo se aceptan archivos PDF.' });
+      setParseStatus({ kind: 'err', msg: t.pdfOnly });
       return;
     }
     setPdfFile(f);
     setAwb(''); setDate(''); setGw(''); setCw(''); setTotal(''); setUPrice1(''); setInvoice(''); setWeekend('');
-    setParseStatus({ kind: 'loading', msg: 'Leyendo PDF…' });
+    setParseStatus({ kind: 'loading', msg: t.pdfReading });
     const reader = new FileReader();
     reader.onload = async () => {
       if (awbReaderVersion.current !== version) return;
       try {
         const b64 = reader.result.split(',')[1];
         setPdfBase64(b64);
-        const parsed = await parseAWBPdf(b64, readAwbPdf);
+        const parsed = await parseAWBPdf(b64, readAwbPdf, t);
         if (awbReaderVersion.current !== version) return;
         if (parsed._error) {
           // Even if PDF text extraction failed, we can still pull the week
@@ -480,7 +549,7 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
           const wk = parseWeekFromFilename(f.name);
           if (wk) {
             setWeekend(`${wk.week}-${wk.num}`);
-            setParseStatus({ kind: 'warn', msg: `${parsed._error} (Semana ${wk.week}-${wk.num} leída del nombre del archivo.)` });
+            setParseStatus({ kind: 'warn', msg: `${parsed._error} (${t.weekFromFile}: ${wk.week}-${wk.num})` });
           } else {
             setParseStatus({ kind: 'warn', msg: parsed._error });
           }
@@ -491,52 +560,52 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
         const wk = parseWeekFromFilename(f.name);
         if (wk) {
           setWeekend(`${wk.week}-${wk.num}`);
-          filled.push('Semana');
+          filled.push(t.week);
         }
         if (parsed.awb)     { setAwb(parsed.awb);                  filled.push('AWB'); }
-        if (parsed.date)    { setDate(parsed.date);                filled.push('Fecha'); }
+        if (parsed.date)    { setDate(parsed.date);                filled.push(t.date); }
         if (parsed.gw)      { setGw(String(parsed.gw));            filled.push('GW'); }
         if (parsed.cw)      { setCw(String(parsed.cw));            filled.push('CW'); }
-        if (parsed.uPrice1) { setUPrice1(String(parsed.uPrice1));  filled.push('U.Price'); }
-        if (parsed.total)   { setTotal(parsed.total.toFixed(2));   filled.push('Total'); }
+        if (parsed.uPrice1) { setUPrice1(String(parsed.uPrice1));  filled.push(t.unitPrice); }
+        if (parsed.total)   { setTotal(parsed.total.toFixed(2));   filled.push(t.total); }
         // Only auto-set company if it matches one already in our list
         if (parsed.company && companies.includes(parsed.company)) {
           setCompany(parsed.company);
-          filled.push('Compañía');
+          filled.push(t.company);
         }
         if (filled.length === 0) {
-          setParseStatus({ kind: 'warn', msg: 'PDF leído pero no se reconocieron campos. Rellena el formulario manualmente.' });
+          setParseStatus({ kind: 'warn', msg: t.noFields });
         } else {
-          setParseStatus({ kind: 'ok', msg: `Auto-rellenado: ${filled.join(', ')}. Revísalo y completa lo demás.` });
+          setParseStatus({ kind: 'ok', msg: `${t.autoFilled}: ${filled.join(', ')}` });
         }
       } catch (e) {
-        if (awbReaderVersion.current === version) setParseStatus({ kind: 'err', msg: `Error leyendo PDF: ${e.message}` });
+        if (awbReaderVersion.current === version) setParseStatus({ kind: 'err', msg: `${t.pdfReadError} ${e.message}` });
       }
     };
     reader.onerror = () => {
-      if (awbReaderVersion.current === version) setParseStatus({ kind: 'err', msg: 'Error leyendo PDF.' });
+      if (awbReaderVersion.current === version) setParseStatus({ kind: 'err', msg: t.pdfReadError });
     };
     reader.readAsDataURL(f);
   };
 
   // --- Validation ----------------------------------------------------------
   const errors = [];
-  if (!company)       errors.push('Compañía obligatoria.');
-  if (!weekend.trim()) errors.push('Semana obligatoria (ej. 21-01).');
-  if (!awb.trim())     errors.push('Número de AWB obligatorio.');
-  if (!parsePrintedDate(date)) errors.push('Fecha del documento obligatoria (YYYY/MM/DD).');
-  if (gw === '' || cwNum < 0 || isNaN(parseFloat(gw))) errors.push('GW (Gross Weight) obligatorio.');
-  if (cw === '' || isNaN(cwNum))   errors.push('CW (Chargeable Weight) obligatorio.');
-  if (total === '' || isNaN(totalNum)) errors.push('Total (USD) obligatorio.');
-  if (uPrice1 === '' || isNaN(uPrice1Num)) errors.push('U.Price línea 1 obligatorio.');
+  if (!company)       errors.push(t.companyRequired);
+  if (!weekend.trim()) errors.push(t.weekRequired);
+  if (!awb.trim())     errors.push(t.awbRequired);
+  if (!parsePrintedDate(date)) errors.push(t.dateRequired);
+  if (gw === '' || cwNum < 0 || isNaN(parseFloat(gw))) errors.push(t.gwRequired);
+  if (cw === '' || isNaN(cwNum))   errors.push(t.cwRequired);
+  if (total === '' || isNaN(totalNum)) errors.push(t.totalRequired);
+  if (uPrice1 === '' || isNaN(uPrice1Num)) errors.push(t.priceRequired);
   // Total must match: (uPrice1 × cw) + uPrice2 = total  (uPrice2 is auto)
   const computed = +(t1 + t2).toFixed(2);
   const totalMatches = Math.abs(computed - totalNum) < 0.01;
   if (!totalMatches && total !== '') {
-    errors.push(`Total no coincide: ${computed.toFixed(2)} vs ${totalNum.toFixed(2)}.`);
+    errors.push(`${t.totalMismatch}: ${computed.toFixed(2)} / ${totalNum.toFixed(2)}.`);
   }
   if (t2 < 0) {
-    errors.push('U.Price línea 1 demasiado alto: deja la línea 2 negativa. Bájalo.');
+    errors.push(t.negativeCharge);
   }
   const canDownload = errors.length === 0;
 
@@ -581,29 +650,31 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
   };
 
   // --- UI -------------------------------------------------------------------
-  const fieldLabel = { fontSize: 11, fontWeight: 600, color: '#666', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4, display: 'block' };
-  const fieldInput = { width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid #ddd', borderRadius: 6, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' };
-  const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 };
+  const fieldLabel = { fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4, display: 'block' };
+  const fieldInput = { width: '100%', padding: '8px 10px', fontSize: 14, border: '1px solid #ccd6e5', borderRadius: 6, boxSizing: 'border-box', fontFamily: 'inherit' };
+  const grid2 = { display: 'grid', gap: 12, marginBottom: 12 };
 
   return (
     <>
-      <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#888', cursor: 'pointer', border: 'none', background: 'none', padding: 0, marginBottom: '1.25rem' }}>
-        ← Volver
+      <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#526580', cursor: 'pointer', border: 'none', background: 'none', padding: 0, marginBottom: '1.25rem' }}>
+        {t.back}
       </button>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
         <span style={{ fontSize: 24 }}>✈️</span>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 600 }}>AWB — Air Waybill</div>
-          <div style={{ fontSize: 12, color: '#888' }}>Genera el packing list de los aviones</div>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>{t.awbTitle}</div>
+          <div style={{ fontSize: 13, color: '#526580' }}>{t.awbSub}</div>
         </div>
       </div>
 
       {/* Optional PDF upload */}
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-        PDF del AWB (opcional)
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+        {t.awbUpload}
       </div>
       <div
+        role="button" tabIndex={0} aria-label={t.awbUpload}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pdfRef.current?.click(); } }}
         onClick={() => pdfRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setPdfDragOver(true); }}
         onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setPdfDragOver(true); }}
@@ -616,72 +687,72 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
           if (f) onPdfFile(f);
         }}
         style={{
-          border: `1.5px dashed ${pdfDragOver ? '#1a56db' : '#ccc'}`,
+          border: `1.5px dashed ${pdfDragOver ? '#2457c5' : '#ccc'}`,
           borderRadius: 10,
           padding: '1.25rem 1.5rem',
           textAlign: 'center',
           cursor: 'pointer',
-          background: pdfDragOver ? '#e6edff' : '#fafaf8',
+          background: pdfDragOver ? '#e6edff' : '#f8fafc',
           marginBottom: 12,
           transition: 'all 0.15s',
         }}>
         <input ref={pdfRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={(e) => { onPdfFile(e.target.files[0]); e.target.value = ''; }} />
         <div style={{ fontSize: 22, marginBottom: 4 }}>📄</div>
-        <div style={{ fontSize: 13, color: '#666' }}>
+        <div style={{ fontSize: 13, color: '#526580' }}>
           {pdfFile ? (
-            <><strong style={{ color: '#1a1a1a' }}>{pdfFile.name}</strong> · {(pdfFile.size/1024).toFixed(0)} KB</>
+            <><strong style={{ color: '#172b4d' }}>{pdfFile.name}</strong> · {(pdfFile.size/1024).toFixed(0)} KB</>
           ) : (
-            <><strong style={{ color: '#1a1a1a' }}>Click</strong> o arrastra el PDF del AWB aquí (intenta auto-rellenar)</>
+            <><strong style={{ color: '#172b4d' }}>{t.uploadClick}</strong> {t.awbDrop}</>
           )}
         </div>
-        <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>PDF · máximo 20MiB</div>
+        <div style={{ fontSize: 13, color: '#526580', marginTop: 4 }}>{t.pdfLimit}</div>
       </div>
       {parseStatus && (
-        <div style={{
-          marginTop: -4, marginBottom: 12, padding: '8px 12px', borderRadius: 6, fontSize: 12,
+        <div role={parseStatus.kind === 'err' ? 'alert' : 'status'} style={{
+          marginTop: -4, marginBottom: 12, padding: '8px 12px', borderRadius: 6, fontSize: 13,
           background: parseStatus.kind === 'ok'   ? '#e8f5ee' : parseStatus.kind === 'warn'   ? '#fff8e6' : parseStatus.kind === 'err' ? '#fde8e8' : '#f0f4ff',
-          color:      parseStatus.kind === 'ok'   ? '#057a55' : parseStatus.kind === 'warn'   ? '#92400e' : parseStatus.kind === 'err' ? '#9b1c1c' : '#1a56db',
+          color:      parseStatus.kind === 'ok'   ? '#057a55' : parseStatus.kind === 'warn'   ? '#92400e' : parseStatus.kind === 'err' ? '#9b1c1c' : '#2457c5',
           border:     `1px solid ${parseStatus.kind === 'ok' ? '#b8e0c8' : parseStatus.kind === 'warn' ? '#f5d97a' : parseStatus.kind === 'err' ? '#f8b4b4' : '#c3d3fb'}`,
         }}>{parseStatus.msg}</div>
       )}
 
       {/* Form */}
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 8, marginBottom: 10 }}>
-        Datos del AWB
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 8, marginBottom: 10 }}>
+        {t.awbForm}
       </div>
 
-      <div style={grid2}>
+      <div className={styles.formGrid} style={grid2}>
         <div>
-          <label style={fieldLabel}>Compañía</label>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <select value={company} onChange={(e) => setCompany(e.target.value)} style={{ ...fieldInput, flex: 1 }}>
+          <label style={fieldLabel}>{t.company}</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <select aria-label={t.company} value={company} onChange={(e) => setCompany(e.target.value)} style={{ ...fieldInput, flex: 1 }}>
               {companies.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <button onClick={() => setShowCompanyMgr(v => !v)} style={{ padding: '0 10px', fontSize: 12, borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }} title="Gestionar compañías">
+            <button onClick={() => setShowCompanyMgr(v => !v)} style={{ padding: '0 10px', fontSize: 13, borderRadius: 6, border: '1px solid #ccd6e5', background: '#fff', cursor: 'pointer' }} title={t.manageCompanies} aria-label={t.manageCompanies} aria-expanded={showCompanyMgr}>
               ⚙
             </button>
           </div>
         </div>
         <div>
-          <label style={fieldLabel}>Semana</label>
-          <input value={weekend} onChange={(e) => setWeekend(e.target.value)} placeholder="21-01" style={fieldInput} />
+          <label style={fieldLabel}>{t.week}</label>
+          <input aria-label={t.week} value={weekend} onChange={(e) => setWeekend(e.target.value)} placeholder="21-01" style={fieldInput} />
         </div>
       </div>
 
       {showCompanyMgr && (
-        <div style={{ border: '1px solid #e8e8e4', borderRadius: 8, padding: '10px 12px', marginBottom: 12, background: '#fafaf8' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Gestionar compañías</div>
+        <div style={{ border: '1px solid #dce4ef', borderRadius: 8, padding: '10px 12px', marginBottom: 12, background: '#f8fafc' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{t.manageCompanies}</div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-            <input value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="Nueva compañía (ej. KOREAN AIR)" style={{ ...fieldInput, flex: 1 }}
+            <input value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder={t.newCompany} aria-label={t.newCompany} style={{ ...fieldInput, flex: 1 }}
               onKeyDown={(e) => { if (e.key === 'Enter') addCompany(); }} />
-            <button onClick={addCompany} style={{ padding: '0 14px', fontSize: 12, borderRadius: 6, border: '1px solid #1a1a1a', background: '#1a1a1a', color: '#fff', cursor: 'pointer' }}>Añadir</button>
+            <button onClick={addCompany} style={{ padding: '0 14px', fontSize: 13, borderRadius: 6, border: '1px solid #2457c5', background: '#2457c5', color: '#fff', cursor: 'pointer' }}>{t.add}</button>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {companies.map(c => (
-              <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', fontSize: 11.5, borderRadius: 20, background: '#fff', border: '1px solid #ddd' }}>
+              <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', fontSize: 13, borderRadius: 20, background: '#fff', border: '1px solid #ccd6e5' }}>
                 {c}
                 {companies.length > 1 && (
-                  <button onClick={() => removeCompany(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#c81e1e', padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
+                  <button aria-label={`${t.aliasManagerDelete} ${c}`} onClick={() => removeCompany(c)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#c81e1e', padding: 0, fontSize: 13, lineHeight: 1 }}>×</button>
                 )}
               </span>
             ))}
@@ -689,65 +760,65 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
         </div>
       )}
 
-      <div style={grid2}>
+      <div className={styles.formGrid} style={grid2}>
         <div>
           <label style={fieldLabel}>AWB #</label>
-          <input value={awb} onChange={(e) => setAwb(e.target.value)} placeholder="217-08953641" style={fieldInput} />
+          <input aria-label={t.awbRequired} value={awb} onChange={(e) => setAwb(e.target.value)} placeholder="217-08953641" style={fieldInput} />
         </div>
         <div>
-          <label style={fieldLabel}>Invoice #</label>
-          <input value={invoice} onChange={(e) => setInvoice(e.target.value)} placeholder="217-08953641" style={fieldInput} />
+          <label style={fieldLabel}>{t.invoice}</label>
+          <input aria-label={t.invoice} value={invoice} onChange={(e) => setInvoice(e.target.value)} placeholder="217-08953641" style={fieldInput} />
         </div>
       </div>
 
-      <div style={grid2}>
+      <div className={styles.formGrid} style={grid2}>
         <div>
-          <label style={fieldLabel}>Fecha</label>
-          <input value={date} onChange={(e) => setDate(e.target.value)} placeholder="2026/05/10" style={fieldInput} />
+          <label style={fieldLabel}>{t.date}</label>
+          <input aria-label={t.date} value={date} onChange={(e) => setDate(e.target.value)} placeholder="2026/05/10" style={fieldInput} />
         </div>
         <div></div>
       </div>
 
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 8, marginBottom: 10 }}>
-        Pesos y total
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 8, marginBottom: 10 }}>
+        {t.weights}
       </div>
 
-      <div style={grid2}>
+      <div className={styles.formGrid} style={grid2}>
         <div>
-          <label style={fieldLabel}>GW (Gross Weight) — kg</label>
-          <input value={gw} onChange={(e) => setGw(e.target.value)} placeholder="138" inputMode="decimal" style={fieldInput} />
+          <label style={fieldLabel}>{t.gwLabel}</label>
+          <input aria-label={t.gwLabel} value={gw} onChange={(e) => setGw(e.target.value)} placeholder="138" inputMode="decimal" style={fieldInput} />
         </div>
         <div>
-          <label style={fieldLabel}>CW (Chargeable Weight) — kg</label>
-          <input value={cw} onChange={(e) => setCw(e.target.value)} placeholder="190" inputMode="decimal" style={fieldInput} />
+          <label style={fieldLabel}>{t.cwLabel}</label>
+          <input aria-label={t.cwLabel} value={cw} onChange={(e) => setCw(e.target.value)} placeholder="190" inputMode="decimal" style={fieldInput} />
         </div>
       </div>
 
-      <div style={grid2}>
+      <div className={styles.formGrid} style={grid2}>
         <div>
-          <label style={fieldLabel}>U.Price línea 1 (운송료) — USD/kg</label>
-          <input value={uPrice1} onChange={(e) => setUPrice1(e.target.value)} placeholder="1.85" inputMode="decimal" style={fieldInput} />
+          <label style={fieldLabel}>{t.priceLabel}</label>
+          <input aria-label={t.priceLabel} value={uPrice1} onChange={(e) => setUPrice1(e.target.value)} placeholder="1.85" inputMode="decimal" style={fieldInput} />
         </div>
         <div>
-          <label style={fieldLabel}>Total invoice — USD</label>
-          <input value={total} onChange={(e) => setTotal(e.target.value)} placeholder="676.13" inputMode="decimal" style={fieldInput} />
+          <label style={fieldLabel}>{t.totalLabel}</label>
+          <input aria-label={t.totalLabel} value={total} onChange={(e) => setTotal(e.target.value)} placeholder="676.13" inputMode="decimal" style={fieldInput} />
         </div>
       </div>
 
       {/* Live preview of the two 운송료 lines */}
       {(total !== '' && cw !== '' && uPrice1 !== '') && (
-        <div style={{ background: '#f5f5f2', border: '1px solid #e8e8e4', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12 }}>
-          <div style={{ fontWeight: 600, marginBottom: 6, color: '#666' }}>Cómo quedará en el packing list:</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '4px 12px', fontVariant: 'tabular-nums' }}>
-            <span style={{ color: '#888' }}>운송료 #1</span>
+        <div style={{ background: '#f4f7fb', border: '1px solid #dce4ef', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6, color: '#526580' }}>{t.previewCharges}</div>
+          <div className={styles.chargesScroll} style={{ display: 'grid', minWidth: 0, gridTemplateColumns: 'auto minmax(120px, 1fr) auto', gap: '4px 12px', fontVariant: 'tabular-nums' }}>
+            <span style={{ color: '#526580' }}>{t.charge1}</span>
             <span>J={cwNum} × K={uPrice1Num}</span>
             <span style={{ fontWeight: 600 }}>= {t1.toFixed(2)} USD</span>
-            <span style={{ color: '#888' }}>운송료 #2</span>
+            <span style={{ color: '#526580' }}>{t.charge2}</span>
             <span>J=1 × K={uPrice2.toFixed(2)}</span>
             <span style={{ fontWeight: 600, color: t2 < 0 ? '#c81e1e' : 'inherit' }}>= {t2.toFixed(2)} USD</span>
-            <span style={{ color: '#888', borderTop: '1px solid #ddd', paddingTop: 4 }}>TOTAL</span>
-            <span style={{ borderTop: '1px solid #ddd', paddingTop: 4 }}></span>
-            <span style={{ fontWeight: 700, borderTop: '1px solid #ddd', paddingTop: 4, color: totalMatches ? '#057a55' : '#c81e1e' }}>
+            <span style={{ color: '#526580', borderTop: '1px solid #ccd6e5', paddingTop: 4 }}>{t.total}</span>
+            <span style={{ borderTop: '1px solid #ccd6e5', paddingTop: 4 }}></span>
+            <span style={{ fontWeight: 700, borderTop: '1px solid #ccd6e5', paddingTop: 4, color: totalMatches ? '#057a55' : '#c81e1e' }}>
               {computed.toFixed(2)} {totalMatches ? '✓' : `≠ ${totalNum.toFixed(2)}`}
             </span>
           </div>
@@ -757,8 +828,8 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
       {/* Validation errors */}
       {errors.length > 0 && (
         <div style={{ background: '#fde8e8', border: '1px solid #f8b4b4', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#9b1c1c', marginBottom: 4 }}>No se puede generar todavía:</div>
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: '#9b1c1c' }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#9b1c1c', marginBottom: 4 }}>{t.validationTitle}</div>
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#9b1c1c' }}>
             {errors.map((e, i) => <li key={i}>{e}</li>)}
           </ul>
         </div>
@@ -768,11 +839,11 @@ function AWBPanel({ xlsxLib, lang, onBack, readAwbPdf }) {
         style={{
           padding: '10px 20px', borderRadius: 8, fontSize: 14, fontWeight: 500,
           cursor: canDownload && xlsxLib ? 'pointer' : 'not-allowed',
-          border: '1px solid #1a1a1a',
-          background: canDownload && xlsxLib ? '#1a1a1a' : '#ccc',
+          border: '1px solid #2457c5',
+          background: canDownload && xlsxLib ? '#2457c5' : '#ccc',
           color: '#fff', opacity: canDownload && xlsxLib ? 1 : 0.5,
         }}>
-        Generar packing list ⬇
+        {t.generate} ⬇
       </button>
     </>
   );
@@ -785,8 +856,8 @@ const readLocalAwbPdf = async base64 => (await import('../../lib/importAwbPdf'))
 export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
-  const [lang, setLang] = useState('es');
-  const t = I18N[lang] || I18N.es;
+  const [lang, setLang] = useState('ko');
+  const t = { ...I18N[lang] || I18N.ko, ...packingText(lang) };
   const changeLang = setLang;
   const [file, setFile] = useState(null);
   const [pdfBase64, setPdfBase64] = useState(null);
@@ -956,7 +1027,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     if (!f || !xlsxLib) return;
     await runSharedWrite(async () => {
       const imported = parseAliasesXlsx(xlsxLib, await f.arrayBuffer());
-      if (!Object.keys(imported).length) throw new Error('No valid matches in Excel.');
+      if (!Object.keys(imported).length) throw new Error(t.noMatchesFile);
       const newAliases = { ...aliases, ...imported };
       await savePackingAliases(storage, newAliases);
       setAliases(newAliases); rebuildWithAliases(newAliases);
@@ -967,7 +1038,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   // Export ALL current matches (base + learned) to a visible, editable Excel.
   const exportAliases = () => {
     if (!xlsxLib) return;
-    try { exportAliasesXlsx(xlsxLib, aliases); } catch (e) { setStatus({ type: 'error', msg: 'Error: ' + (e.message || e) }); }
+    try { exportAliasesXlsx(xlsxLib, aliases); } catch (e) { setStatus({ type: 'error', msg: t.errorPrefix + (e.message || e) }); }
   };
 
   const countries = [
@@ -980,6 +1051,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     { code: 'US', flag: '🇺🇸', name: 'USA', desc: 'Hood Canal Evergreens' },
     { code: 'VN', flag: '🇻🇳', name: 'Vietnam', desc: 'Royal Base Corporation' },
   ];
+  const countryLabels = countries.map(c => ({ ...c, name: t.countryNames[c.code], desc: c.code === 'CO' ? t.multiFarm : c.desc }));
   const cfg = country ? {
     NL: ['🇳🇱', 'Netherlands — Holex / EZ Flower', 'Auto-detects supplier per invoice'],
     CN: ['🇨🇳', 'China — Melody / Cloudland', 'Auto-detects supplier per invoice'],
@@ -990,17 +1062,21 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     US: ['🇺🇸', 'USA — Hood Canal', 'One packing list per invoice'],
     VN: ['🇻🇳', 'Vietnam — Royal Base', 'One packing list per invoice'],
   }[country] : null;
+  if (cfg) {
+    cfg[1] = t.countryNames[country] + ' · ' + countries.find(c => c.code === country).desc.replace('Multi-farm invoices', t.multiFarm);
+    cfg[2] = ['NL', 'CN', 'TH'].includes(country) ? t.autoSupplier : country === 'CO' ? t.autoFarm : t.perInvoice;
+  }
 
   const handleFile = (f) => {
     if (!f || processingRef.current || savingRef.current) return;
     const version = ++readerVersion.current;
     setPdfBase64(null); resetResults(); setStatus(null); setFile(null);
     if (f.size > PACKING_PDF_MAX_BYTES) {
-      setStatus({ type: 'error', msg: 'PDF: maximum 20MiB / máximo 20MiB / 최대 20MiB' });
+      setStatus({ type: 'error', msg: t.pdfLimit });
       return;
     }
     if (!/\.pdf$/i.test(f.name) || (f.type && f.type !== 'application/pdf')) {
-      setStatus({ type: 'error', msg: 'PDF only / Solo PDF / PDF 파일만 지원합니다.' });
+      setStatus({ type: 'error', msg: t.pdfOnly });
       return;
     }
     setFile(f);
@@ -1009,7 +1085,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
       if (readerVersion.current === version) setPdfBase64(String(reader.result).split(',')[1]);
     };
     reader.onerror = () => {
-      if (readerVersion.current === version) setStatus({ type: 'error', msg: 'Could not read PDF / No se pudo leer el PDF / PDF 읽기 실패' });
+      if (readerVersion.current === version) setStatus({ type: 'error', msg: t.pdfReadError });
     };
     reader.readAsDataURL(f);
   };
@@ -1133,12 +1209,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
       const { result, wasTruncated } = parsePackingResponse(data, country);
       const invoices = result.invoices || [];
       const masterAwb = result.master_awb || (invoices[0] && invoices[0].awb) || '';
-      if (invoices.length === 0) throw new Error('No invoices found in PDF');
+      if (invoices.length === 0) throw new Error(t.noInvoices);
       // Save extraction for potential re-build after alias updates
       setLastExtraction({ result, masterAwb, weekParsed: parsed, wasTruncated });
       buildExcels({ invoices, masterAwb, weekParsed: parsed, currentAliases: aliases, wasTruncated });
     } catch (e) {
-      if (isCurrent()) setStatus({ type: 'error', msg: 'Error: ' + e.message });
+      if (isCurrent()) setStatus({ type: 'error', msg: t.errorPrefix + e.message });
     } finally {
       processingRef.current = false;
       setProcessing(false);
@@ -1171,11 +1247,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
 
   const statusBg = status?.type === 'error' ? '#fde8e8' : status?.type === 'success' ? '#e8f5ee' : '#e8f0fe';
   const statusBorder = status?.type === 'error' ? '#f8b4b4' : status?.type === 'success' ? '#84e1bc' : '#c3d3fb';
-  const statusColor = status?.type === 'error' ? '#c81e1e' : status?.type === 'success' ? '#057a55' : '#1a56db';
+  const statusColor = status?.type === 'error' ? '#c81e1e' : status?.type === 'success' ? '#057a55' : '#2457c5';
 
   return (
-    <div style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: '#f5f5f2', minHeight: '100vh', padding: '2rem 1rem', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#1a1a1a' }}>
-      <div className="packing-tool-card" style={{ background: '#fff', borderRadius: 16, border: '1px solid #e8e8e4', padding: '1.5rem', maxWidth: 1400, minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+    <div className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
+      <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
           <button onClick={() => setReloadVersion(v => v + 1)} disabled={saving || processing || catalogLoading || catalogParsing}>{t.reload}</button>
           {saving && <span role="status">{t.saving}</span>}
@@ -1185,18 +1261,18 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
         <fieldset disabled={saving || processing || catalogLoading || catalogParsing || !sharedReady}
           onClickCapture={e => { if (saving || processing || catalogLoading || catalogParsing || !sharedReady) { e.preventDefault(); e.stopPropagation(); } }}
           style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 14, gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, background: '#1a1a1a', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16 }}>🌸</div>
+            <div style={{ width: 36, height: 36, background: '#172b4d', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 16 }}>🌸</div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 600 }}>{t.appTitle}</div>
-              <div style={{ fontSize: 12, color: '#888', marginTop: 1 }}>{t.appSub}</div>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>{t.appTitle}</div>
+              <div style={{ fontSize: 13, color: '#526580', marginTop: 1 }}>{t.appSub}</div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             {[['en','EN'],['es','ES'],['ko','한국어']].map(([code, label]) => (
-              <button key={code} onClick={() => changeLang(code)}
-                style={{ padding: '4px 10px', fontSize: 11.5, borderRadius: 20, border: `1px solid ${lang === code ? '#1a1a1a' : '#ddd'}`, background: lang === code ? '#1a1a1a' : '#fff', color: lang === code ? '#fff' : '#666', fontWeight: lang === code ? 600 : 400, cursor: 'pointer' }}>
+              <button key={code} aria-pressed={lang === code} onClick={() => changeLang(code)}
+                style={{ padding: '4px 10px', fontSize: 13, borderRadius: 20, border: `1px solid ${lang === code ? '#172b4d' : '#ccd6e5'}`, background: lang === code ? '#172b4d' : '#fff', color: lang === code ? '#fff' : '#526580', fontWeight: lang === code ? 600 : 400, cursor: 'pointer' }}>
                 {label}
               </button>
             ))}
@@ -1209,14 +1285,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
           borderRadius: 8, padding: '10px 14px', marginBottom: '1rem',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap',
         }}>
-          <div style={{ fontSize: 12.5 }}>
+          <div style={{ fontSize: 13 }}>
             {catalogLoading ? (
-              <span style={{ color: '#888' }}>{t.catalogLoading}</span>
+              <span style={{ color: '#526580' }}>{t.catalogLoading}</span>
             ) : catalog ? (
               <span style={{ color: '#057a55' }}>
                 <strong>{t.catalogLoaded}</strong>: {catalog.items.length.toLocaleString()} {t.catalogProducts}
                 {catalog.byCountry && Object.keys(catalog.byCountry).length > 0 && (
-                  <span style={{ color: '#666', marginLeft: 6 }}>
+                  <span style={{ color: '#526580', marginLeft: 6 }}>
                     ({Object.entries(catalog.byCountry).map(([c, list]) => `${c}:${list.length}`).join(' · ')})
                   </span>
                 )}
@@ -1227,22 +1303,22 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             <input ref={catalogRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={(e) => { handleCatalogFile(e.target.files[0]); e.target.value = ''; }} />
-            <button onClick={() => catalogRef.current?.click()} disabled={!xlsxLib} style={{ padding: '5px 10px', fontSize: 11.5, borderRadius: 6, border: '1px solid #999', background: '#fff', cursor: 'pointer' }}>
+            <button onClick={() => catalogRef.current?.click()} disabled={!xlsxLib} style={{ padding: '5px 10px', fontSize: 13, borderRadius: 6, border: '1px solid #526580', background: '#fff', cursor: 'pointer' }}>
               {catalog ? t.catalogReplace : t.catalogLoad}
             </button>
             {catalog && (
-              <button onClick={() => { cancelCatalogDraft(); setCatalogClearConfirm(true); }} style={{ padding: '5px 10px', fontSize: 11.5, borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', color: '#888' }}>
+              <button onClick={() => { cancelCatalogDraft(); setCatalogClearConfirm(true); }} style={{ padding: '5px 10px', fontSize: 13, borderRadius: 6, border: '1px solid #ccd6e5', background: '#fff', cursor: 'pointer', color: '#526580' }}>
                 {t.catalogClear}
               </button>
             )}
           </div>
         </div>
 
-        {catalogParsing && <p role="status" style={{ fontSize: 12 }}>{t.catalogLoading}</p>}
+        {catalogParsing && <p role="status" style={{ fontSize: 13 }}>{t.catalogLoading}</p>}
         {catalogDraft && catalogPreviewError && (
-          <section role="alert" style={{ border: '1px solid #f8b4b4', borderRadius: 8, padding: 14, marginBottom: 16, background: '#fee', fontSize: 12, overflowWrap: 'anywhere' }}>
+          <section role="alert" style={{ border: '1px solid #f8b4b4', borderRadius: 8, padding: 14, marginBottom: 16, background: '#fee', fontSize: 13, overflowWrap: 'anywhere' }}>
             <div style={{ fontWeight: 600 }}>{t.catalogPreview}</div>
             <p>{catalogDraft.fileName}</p>
             <p style={{ color: '#9b1c1c' }}>{catalogPreviewError}</p>
@@ -1255,13 +1331,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
         {catalogDraft && catalogPreview && (
           <section aria-label={t.catalogPreview} style={{ border: '1px solid #c3d3fb', borderRadius: 8, padding: 14, marginBottom: 16, background: '#f5f8ff', minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{t.catalogPreview}</div>
-            <div style={{ fontSize: 12, marginTop: 6, overflowWrap: 'anywhere' }}>{catalogDraft.fileName}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '12px 0', fontSize: 12 }}>
+            <div style={{ fontSize: 13, marginTop: 6, overflowWrap: 'anywhere' }}>{catalogDraft.fileName}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: '12px 0', fontSize: 13 }}>
               <label><input type="radio" name="packing-catalog-mode" checked={catalogMode === 'merge'} onChange={() => { setCatalogMode('merge'); setCatalogReplaceConfirmed(false); }} /> {t.catalogMerge}</label>
               <label><input type="radio" name="packing-catalog-mode" checked={catalogMode === 'replace'} onChange={() => { setCatalogMode('replace'); setCatalogReplaceConfirmed(false); }} /> {t.catalogReplaceAll}</label>
             </div>
-            <div style={{ overflowX: 'auto', maxHeight: 260, overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'right' }}>
+            <div className={styles.tableScroll} tabIndex={0} role="region" aria-label={t.catalogPreview} style={{ overflowX: 'auto', maxHeight: 260, overflowY: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse', fontSize: 13, textAlign: 'right' }}>
                 <thead><tr>{t.catalogColumns.map(label => <th key={label} scope="col" style={{ padding: '6px 8px', whiteSpace: 'nowrap', borderBottom: '1px solid #c3d3fb' }}>{label}</th>)}</tr></thead>
                 <tbody>{catalogPreview.countries.map(row => <tr key={row.country}>
                   <th scope="row" style={{ padding: '6px 8px' }}>{row.country}</th>
@@ -1269,9 +1345,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                 </tr>)}</tbody>
               </table>
             </div>
-            <p style={{ fontSize: 12 }}>{t.catalogMergeHint}</p>
-            {catalogPreview.duplicateRows > 0 && <p style={{ fontSize: 12 }}>{t.catalogDuplicates(catalogPreview.duplicateRows)}</p>}
-            {catalogMode === 'replace' && <label style={{ display: 'block', fontSize: 12, color: '#9b1c1c', marginBottom: 12 }}>
+            <p style={{ fontSize: 13 }}>{t.catalogMergeHint}</p>
+            {catalogPreview.duplicateRows > 0 && <p style={{ fontSize: 13 }}>{t.catalogDuplicates(catalogPreview.duplicateRows)}</p>}
+            {catalogMode === 'replace' && <label style={{ display: 'block', fontSize: 13, color: '#9b1c1c', marginBottom: 12 }}>
               <input type="checkbox" checked={catalogReplaceConfirmed} onChange={e => setCatalogReplaceConfirmed(e.target.checked)} /> {t.catalogReplaceWarning}
             </label>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -1280,7 +1356,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
             </div>
           </section>
         )}
-        {catalogClearConfirm && <section role="alert" style={{ border: '1px solid #f8b4b4', borderRadius: 8, padding: 14, marginBottom: 16, background: '#fee', fontSize: 12 }}>
+        {catalogClearConfirm && <section role="alert" style={{ border: '1px solid #f8b4b4', borderRadius: 8, padding: 14, marginBottom: 16, background: '#fee', fontSize: 13 }}>
           <p style={{ marginTop: 0 }}>{t.catalogClearWarning}</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button onClick={clearCatalog}>{t.catalogClear}</button>
@@ -1298,50 +1374,50 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
               borderRadius: 8, padding: '10px 14px', marginBottom: '1rem',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap',
             }}>
-              <div style={{ fontSize: 12.5, color: '#1a56db' }}>
+              <div style={{ fontSize: 13, color: '#2457c5' }}>
                 <span style={{ marginRight: 6 }}>{'\u{1F4DA}'}</span>
                 <strong>{t.matchesTitle}</strong> {'\u2014'} {t.matchesCount(total, base)}
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 <input ref={aliasFileRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={(e) => { importAliasesFile(e.target.files[0]); e.target.value = ''; }} />
-                <button onClick={() => aliasFileRef.current && aliasFileRef.current.click()} disabled={!xlsxLib} style={{ padding: '5px 10px', fontSize: 11.5, borderRadius: 6, border: '1px solid #1a56db', background: '#fff', color: '#1a56db', cursor: 'pointer' }}>{t.matchesImport}</button>
-                <button onClick={exportAliases} disabled={!xlsxLib} style={{ padding: '5px 10px', fontSize: 11.5, borderRadius: 6, border: '1px solid #1a56db', background: '#1a56db', color: '#fff', cursor: 'pointer' }}>{t.matchesExport}</button>
+                <button onClick={() => aliasFileRef.current && aliasFileRef.current.click()} disabled={!xlsxLib} style={{ padding: '5px 10px', fontSize: 13, borderRadius: 6, border: '1px solid #2457c5', background: '#fff', color: '#2457c5', cursor: 'pointer' }}>{t.matchesImport}</button>
+                <button onClick={exportAliases} disabled={!xlsxLib} style={{ padding: '5px 10px', fontSize: 13, borderRadius: 6, border: '1px solid #2457c5', background: '#2457c5', color: '#fff', cursor: 'pointer' }}>{t.matchesExport}</button>
               </div>
             </div>
           );
         })()}
 
         {catalogError && (
-          <div role="alert" style={{ background: '#fde8e8', color: '#c81e1e', border: '1px solid #f8b4b4', borderRadius: 8, padding: '8px 12px', fontSize: 12, marginBottom: '1rem', overflowWrap: 'anywhere' }}>
+          <div role="alert" style={{ background: '#fde8e8', color: '#c81e1e', border: '1px solid #f8b4b4', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: '1rem', overflowWrap: 'anywhere' }}>
             ⚠ {catalogError}
           </div>
         )}
 
         {screen === 'country' && (
           <>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.selectCountry}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-              {countries.map((c) => (
-                <div key={c.code} onClick={() => { ++readerVersion.current; resetResults(); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null); }}
-                  style={{ border: '1px solid #e8e8e4', borderRadius: 12, padding: '1.1rem', cursor: 'pointer', position: 'relative', background: '#fff', transition: 'all 0.15s' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#1a1a1a'; e.currentTarget.style.background = '#fafafa'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e8e8e4'; e.currentTarget.style.background = '#fff'; }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.selectCountry}</div>
+            <div className={styles.countryGrid}>
+              {countryLabels.map((c) => (
+                <button type="button" key={c.code} aria-label={c.name} onClick={() => { ++readerVersion.current; resetResults(); setCountry(c.code); setScreen('upload'); setFile(null); setPdfBase64(null); setStatus(null); }}
+                  style={{ border: '1px solid #dce4ef', borderRadius: 12, padding: '16px', textAlign: 'left', cursor: 'pointer', position: 'relative', background: '#fff', transition: 'all 0.15s' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#172b4d'; e.currentTarget.style.background = '#fafafa'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#dce4ef'; e.currentTarget.style.background = '#fff'; }}>
                   <span style={{ fontSize: 26, display: 'block', marginBottom: 7 }}>{c.flag}</span>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</div>
-                  <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{c.desc}</div>
-                  <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '2px 7px', borderRadius: 20, fontWeight: 500, background: '#e8f5ee', color: '#22a355', border: '1px solid #b8e0c8' }}>{t.countryReady}</span>
-                </div>
+                  <div style={{ fontSize: 13, color: '#526580', marginTop: 2 }}>{c.desc}</div>
+                  <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 13, padding: '2px 7px', borderRadius: 20, fontWeight: 500, background: '#e8f5ee', color: '#176039', border: '1px solid #b8e0c8' }}>{t.countryReady}</span>
+                </button>
               ))}
               {/* AWB tile — separate module, not a country */}
-              <div onClick={() => setScreen('awb')}
-                style={{ border: '1px solid #c3d3fb', borderRadius: 12, padding: '1.1rem', cursor: 'pointer', position: 'relative', background: '#f0f4ff', transition: 'all 0.15s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#1a56db'; e.currentTarget.style.background = '#e6edff'; }}
+              <button type="button" aria-label={t.awbTitle} onClick={() => setScreen('awb')}
+                style={{ border: '1px solid #c3d3fb', borderRadius: 12, padding: '16px', textAlign: 'left', cursor: 'pointer', position: 'relative', background: '#f0f4ff', transition: 'all 0.15s' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2457c5'; e.currentTarget.style.background = '#e6edff'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#c3d3fb'; e.currentTarget.style.background = '#f0f4ff'; }}>
                 <span style={{ fontSize: 26, display: 'block', marginBottom: 7 }}>✈️</span>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>AWB</div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>Aviones — EXCEL, FREIGHTWISE</div>
-                <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '2px 7px', borderRadius: 20, fontWeight: 500, background: '#e6edff', color: '#1a56db', border: '1px solid #c3d3fb' }}>Nuevo</span>
-              </div>
+                <div style={{ fontSize: 13, color: '#526580', marginTop: 2 }}>{t.awbTile}</div>
+                <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 13, padding: '2px 7px', borderRadius: 20, fontWeight: 500, background: '#e6edff', color: '#2457c5', border: '1px solid #c3d3fb' }}>{t.awbBadge}</span>
+              </button>
             </div>
           </>
         )}
@@ -1352,50 +1428,51 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
 
         {screen === 'upload' && cfg && (
           <>
-            <button onClick={() => setScreen('country')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#888', cursor: 'pointer', border: 'none', background: 'none', padding: 0, marginBottom: '1.25rem' }}>{t.back}</button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.5rem' }}>
+            <button onClick={() => setScreen('country')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#526580', cursor: 'pointer', border: 'none', background: 'none', padding: 0, marginBottom: '1.25rem' }}>{t.back}</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <span style={{ fontSize: 24 }}>{cfg[0]}</span>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>{cfg[1]}</div>
-                <div style={{ fontSize: 12, color: '#888' }}>{cfg[2]}</div>
+                <div style={{ fontSize: 18, fontWeight: 600 }}>{cfg[1]}</div>
+                <div style={{ fontSize: 13, color: '#526580' }}>{cfg[2]}</div>
               </div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.uploadLabel}</div>
-            <div onClick={() => fileRef.current?.click()}
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.uploadLabel}</div>
+            <div role="button" tabIndex={0} aria-label={t.uploadLabel} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click(); } }} onClick={() => fileRef.current?.click()}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={onDrop}
-              style={{ border: '1.5px dashed #ccc', borderRadius: 10, padding: '2.5rem 1.5rem', textAlign: 'center', cursor: 'pointer', background: dragOver ? '#f0f0ee' : '#fafaf8', borderColor: dragOver ? '#999' : '#ccc' }}>
+              style={{ border: '1.5px dashed #ccc', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: dragOver ? '#edf2f8' : '#f8fafc', borderColor: dragOver ? '#526580' : '#ccc' }}>
               <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={(e) => { handleFile(e.target.files[0]); e.target.value = ''; }} />
               <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
-              <div style={{ fontSize: 14, color: '#666' }}><strong style={{ color: '#1a1a1a' }}>{t.uploadClick}</strong> {t.uploadDrag}</div>
-              <div style={{ fontSize: 12, marginTop: 4, color: '#999' }}>PDF · 20MiB · {t.uploadHint} <code style={{ background: '#f0f0ee', padding: '1px 5px', borderRadius: 3 }}>16-2 Hortensias.pdf</code>)</div>
+              <div style={{ fontSize: 14, color: '#526580' }}><strong style={{ color: '#172b4d' }}>{t.uploadClick}</strong> {t.uploadDrag}</div>
+              <div style={{ fontSize: 13, marginTop: 4, color: '#526580' }}>PDF · 20MiB · {t.uploadHint} <code style={{ background: '#edf2f8', padding: '1px 5px', borderRadius: 3 }}>16-2 Hortensias.pdf</code>)</div>
             </div>
             {file && (
-              <div style={{ marginTop: 10, background: '#f5f5f2', border: '1px solid #e8e8e4', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ marginTop: 10, background: '#f4f7fb', border: '1px solid #dce4ef', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{file.name}</div>
-                  <div style={{ fontSize: 11, color: '#888' }}>{(file.size / 1024).toFixed(0)} KB</div>
+                  <div style={{ fontSize: 13, color: '#526580' }}>{(file.size / 1024).toFixed(0)} KB</div>
                 </div>
-                <button onClick={() => { ++readerVersion.current; resetResults(); setFile(null); setPdfBase64(null); }} style={{ padding: '5px 12px', fontSize: 12, borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>{t.uploadRemove}</button>
+                <button onClick={() => { ++readerVersion.current; resetResults(); setFile(null); setPdfBase64(null); }} style={{ padding: '5px 12px', fontSize: 13, borderRadius: 8, border: '1px solid #ccd6e5', background: '#fff', cursor: 'pointer' }}>{t.uploadRemove}</button>
               </div>
             )}
-            <p role="note" style={{ fontSize: 12, color: '#666', marginTop: 12 }}>{t.pdfNotice}</p>
-            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-              <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing) ? 'pointer' : 'not-allowed', border: '1px solid #1a1a1a', background: '#1a1a1a', color: '#fff', opacity: (pdfBase64 && !processing) ? 1 : 0.35 }}>
+            <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{t.pdfNotice}</p>
+            <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
               </button>
               {needsAI&&<button onClick={()=>process(true)} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{t.aiAnalyze}</button>}
             </div>
-            {extractionSource&&<p role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
+            <div className={styles.modeBadge}>{t.localMode}</div>
+            {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
             {status && (
-              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: 13, background: statusBg, color: statusColor, border: `1px solid ${statusBorder}` }}>
-                {processing && <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #ddd', borderTopColor: '#1a1a1a', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: 6, verticalAlign: 'middle' }}></span>}
+              <div role={status.type === 'error' ? 'alert' : 'status'} aria-live="polite" style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: 13, background: statusBg, color: statusColor, border: `1px solid ${statusBorder}` }}>
+                {processing && <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #ccd6e5', borderTopColor: '#172b4d', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: 6, verticalAlign: 'middle' }}></span>}
                 {status.msg}
                 {steps.length > 0 && (
                   <div style={{ marginTop: 8 }}>
                     {steps.map((s, i) => (
-                      <div key={i} style={{ fontSize: 12, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 6, color: s.state === 'done' ? '#22a355' : s.state === 'active' ? '#1a1a1a' : '#999', fontWeight: s.state === 'active' ? 500 : 400 }}>
+                      <div key={i} style={{ fontSize: 13, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 6, color: s.state === 'done' ? '#22a355' : s.state === 'active' ? '#172b4d' : '#526580', fontWeight: s.state === 'active' ? 500 : 400 }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>{s.label}
                       </div>
                     ))}
@@ -1414,9 +1491,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                       disabled={anyBlocked}
                       title={anyBlocked ? t.downloadAllBlockedHint : ''}
                       style={{
-                        padding: '5px 12px', fontSize: 12, borderRadius: 8,
-                        border: '1px solid ' + (anyBlocked ? '#ccc' : '#1a1a1a'),
-                        background: anyBlocked ? '#ccc' : '#1a1a1a',
+                        padding: '5px 12px', fontSize: 13, borderRadius: 8,
+                        border: '1px solid ' + (anyBlocked ? '#ccc' : '#172b4d'),
+                        background: anyBlocked ? '#ccd6e5' : '#2457c5',
                         color: '#fff', fontWeight: 500,
                         cursor: anyBlocked ? 'not-allowed' : 'pointer',
                         opacity: anyBlocked ? 0.55 : 1,
@@ -1426,19 +1503,19 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                   </div>
                   );
                 })()}
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.generatedSection}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.generatedSection}</div>
                 {excels.map((ex) => {
                   const tot = ex.products.reduce((s, p) => s + (p.qty || 0), 0);
                   const unmatched = packingUnmatchedCounts(ex);
                   const unmatchedCount = unmatched.varieties;
                   const blocked = isBlocked(ex);
                   return (
-                    <div key={ex.name} style={{ background: '#fff', border: '1px solid #e8e8e4', borderRadius: 10, padding: '1rem 1.25rem', marginBottom: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5, gap: 8 }}>
+                    <div key={ex.name} style={{ background: '#fff', border: '1px solid #dce4ef', borderRadius: 10, padding: '1rem 1.25rem', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 5, gap: 8 }}>
                         <div style={{ fontSize: 14, fontWeight: 600 }}>
                           {ex.label}
                           {unmatchedCount > 0 && (
-                            <span style={{ marginLeft: 8, fontSize: 11, padding: '2px 7px', borderRadius: 20, background: '#fde8e8', color: '#c81e1e', border: '1px solid #f8b4b4', fontWeight: 500 }}>
+                            <span style={{ marginLeft: 8, fontSize: 13, padding: '2px 7px', borderRadius: 20, background: '#fde8e8', color: '#c81e1e', border: '1px solid #f8b4b4', fontWeight: 500 }}>
                               {t.unmatchedBadge(unmatchedCount)}
                             </span>
                           )}
@@ -1447,9 +1524,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                           onClick={blocked ? undefined : () => dl(ex.name)}
                           disabled={blocked}
                           style={{
-                            padding: '5px 12px', fontSize: 12, borderRadius: 8,
-                            border: '1px solid ' + (blocked ? '#ccc' : '#1a1a1a'),
-                            background: blocked ? '#ccc' : '#1a1a1a',
+                            padding: '5px 12px', fontSize: 13, borderRadius: 8,
+                            border: '1px solid ' + (blocked ? '#ccc' : '#172b4d'),
+                            background: blocked ? '#ccd6e5' : '#2457c5',
                             color: '#fff', fontWeight: 500,
                             cursor: blocked ? 'not-allowed' : 'pointer',
                             opacity: blocked ? 0.55 : 1,
@@ -1457,15 +1534,15 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                           {blocked ? t.downloadBlocked : t.download}
                         </button>
                       </div>
-                      <div style={{ fontSize: 12, color: '#888', marginBottom: 6, overflowWrap: 'anywhere' }}>{ex.name} · {t.products(ex.products.length)} · {tot.toLocaleString()} {t.stems}{unmatched.rows > 0 && ` · ${t.catalogRows(unmatched.rows)}`}</div>
-                      <div style={{ fontSize: 12, color: '#666' }}>
+                      <div style={{ fontSize: 13, color: '#526580', marginBottom: 6, overflowWrap: 'anywhere' }}>{ex.name} · {t.products(ex.products.length)} · {tot.toLocaleString()} {t.stems}{unmatched.rows > 0 && ` · ${t.catalogRows(unmatched.rows)}`}</div>
+                      <div style={{ fontSize: 13, color: '#526580' }}>
                         {ex.products.slice(0, 5).map((p, i) => (
-                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: i < Math.min(4, ex.products.length - 1) ? '1px solid #f0f0ee' : 'none' }}>
-                            <span style={{ color: p.unmatched ? '#c81e1e' : '#666' }}>{p.unmatched ? '⚠ ' : ''}{p.name}</span>
-                            <span style={{ color: '#1a1a1a', fontWeight: 500 }}>{(p.qty || 0).toLocaleString()}</span>
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: i < Math.min(4, ex.products.length - 1) ? '1px solid #edf2f8' : 'none' }}>
+                            <span style={{ color: p.unmatched ? '#c81e1e' : '#526580' }}>{p.unmatched ? '⚠ ' : ''}{p.name}</span>
+                            <span style={{ color: '#172b4d', fontWeight: 500 }}>{(p.qty || 0).toLocaleString()}</span>
                           </div>
                         ))}
-                        {ex.products.length > 5 && <div style={{ padding: '3px 0', color: '#999' }}>{t.more(ex.products.length - 5)}</div>}
+                        {ex.products.length > 5 && <div style={{ padding: '3px 0', color: '#526580' }}>{t.more(ex.products.length - 5)}</div>}
                       </div>
                     </div>
                   );
@@ -1473,42 +1550,42 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
 
                 {/* Total mismatch warning */}
                 {mismatches.length > 0 && (
-                  <div style={{ marginTop: '1.5rem', background: '#fee', border: '1px solid #f8b4b4', borderRadius: 10, padding: '1rem 1.25rem' }}>
+                  <div style={{ marginTop: 16, background: '#fee', border: '1px solid #f8b4b4', borderRadius: 10, padding: '1rem 1.25rem' }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#9b1c1c', marginBottom: 4 }}>{t.mismatchPanel}</div>
-                    <div style={{ fontSize: 12, color: '#9b1c1c', marginBottom: 10 }}><NoticeText text={t.mismatchPanelSub} /></div>
+                    <div style={{ fontSize: 13, color: '#9b1c1c', marginBottom: 10 }}><NoticeText text={t.mismatchPanelSub} /></div>
                     {mismatches.map((m, idx) => {
                       const diff = m.computed - m.expected;
                       const fmt = (n) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                       const ovKey = `${m.country}|${m.invoice}`;
                       const overridden = mismatchOverrides.has(ovKey);
                       return (
-                        <div key={idx} style={{ background: '#fff', border: '1px solid ' + (overridden ? '#b8e0c8' : '#f8b4b4'), borderRadius: 8, padding: '10px 12px', marginBottom: 6, fontSize: 12 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
-                            <div style={{ fontWeight: 600 }}>{m.country} · Invoice {m.invoice}</div>
+                        <div key={idx} style={{ background: '#fff', border: '1px solid ' + (overridden ? '#b8e0c8' : '#f8b4b4'), borderRadius: 8, padding: '10px 12px', marginBottom: 6, fontSize: 13 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: 4, gap: 8 }}>
+                            <div style={{ fontWeight: 600 }}>{t.countryNames[m.country] || m.country} · {t.invoice} {m.invoice}</div>
                             {!overridden ? (
                               <button onClick={() => {
                                 const next = new Set(mismatchOverrides);
                                 next.add(ovKey);
                                 setMismatchOverrides(next);
-                              }} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 6, border: '1px solid #9b1c1c', background: '#fff', color: '#9b1c1c', cursor: 'pointer', fontWeight: 500 }}>
+                              }} style={{ padding: '3px 10px', fontSize: 13, borderRadius: 6, border: '1px solid #9b1c1c', background: '#fff', color: '#9b1c1c', cursor: 'pointer', fontWeight: 500 }}>
                                 {t.mismatchUnblock}
                               </button>
                             ) : (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#057a55', fontWeight: 500 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#057a55', fontWeight: 500 }}>
                                 {t.mismatchUnblocked}
                                 <button onClick={() => {
                                   const next = new Set(mismatchOverrides);
                                   next.delete(ovKey);
                                   setMismatchOverrides(next);
-                                }} style={{ padding: '2px 8px', fontSize: 10, borderRadius: 6, border: '1px solid #057a55', background: '#fff', color: '#057a55', cursor: 'pointer' }}>↺</button>
+                                }} style={{ padding: '2px 8px', fontSize: 13, borderRadius: 6, border: '1px solid #057a55', background: '#fff', color: '#057a55', cursor: 'pointer' }}>↺</button>
                               </span>
                             )}
                           </div>
-                          <div style={{ color: "#555" }}>
+                          <div style={{ color: "#526580" }}>
                             <NoticeText text={t.mismatchRow(fmt(m.computed), fmt(m.expected), fmt(diff))} />
                             <strong style={{ color: "#9b1c1c" }}>{diff > 0 ? "+" : ""}{fmt(diff)}</strong>
                           </div>
-                          {m.missingTotalValue && <div style={{ marginTop: 6, color: '#92400e', background: '#fef3c7', border: '1px solid #f5d97a', borderRadius: 4, padding: '4px 8px', fontSize: 11 }}>{t.mismatchFallback}</div>}
+                          {m.missingTotalValue && <div style={{ marginTop: 6, color: '#92400e', background: '#fef3c7', border: '1px solid #f5d97a', borderRadius: 4, padding: '4px 8px', fontSize: 13 }}>{t.mismatchFallback}</div>}
                         </div>
                       );
                     })}
@@ -1517,15 +1594,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
 
                 {/* Pending decisions panel */}
                 {pending.length > 0 && (
-                  <div style={{ marginTop: '1.5rem', background: '#eef6ff', border: '1px solid #c3d3fb', borderRadius: 10, padding: '1rem 1.25rem' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1a56db', marginBottom: 4 }}>{t.pendingPanel(pending.length)}</div>
-                    <div style={{ fontSize: 12, color: '#1a56db', marginBottom: 10 }}><NoticeText text={t.pendingPanelSub} /></div>
+                  <div style={{ marginTop: 16, background: '#eef6ff', border: '1px solid #c3d3fb', borderRadius: 10, padding: '1rem 1.25rem' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#2457c5', marginBottom: 4 }}>{t.pendingPanel(pending.length)}</div>
+                    <div style={{ fontSize: 13, color: '#2457c5', marginBottom: 10 }}><NoticeText text={t.pendingPanelSub} /></div>
                     {pending.map((nm, idx) => (
                       <PendingItem
                         key={idx}
                         nm={nm}
                         catalogItems={(catalog && catalog.byCountry && catalog.byCountry[country]) || []}
                         onConfirm={confirmAlias}
+                        lang={lang}
                       />
                     ))}
                   </div>
@@ -1535,13 +1613,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                 {allNoMatches.length > 0 && (
                   <div style={{ marginTop: '1rem', background: '#fef3c7', border: '1px solid #f5d97a', borderRadius: 10, padding: '1rem 1.25rem' }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#92400e', marginBottom: 4 }}>{t.noMatchPanel(allNoMatches.length)}</div>
-                    <div style={{ fontSize: 12, color: '#92400e', marginBottom: 10 }}><NoticeText text={t.noMatchPanelSub} /></div>
+                    <div style={{ fontSize: 13, color: '#92400e', marginBottom: 10 }}><NoticeText text={t.noMatchPanelSub} /></div>
                     {allNoMatches.map((nm, idx) => (
                       <NoMatchItem
                         key={idx}
                         nm={nm}
                         catalogItems={(catalog && catalog.byCountry && catalog.byCountry[country]) || []}
                         onConfirm={confirmAlias}
+                        lang={lang}
                       />
                     ))}
                   </div>
@@ -1553,49 +1632,49 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                   const seedCount = Object.keys(ALL_SEED_ALIASES).length;
                   return (
                     <div style={{ marginTop: '1rem' }}>
-                      <div style={{ fontSize: 11.5, color: '#888', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: 13, color: '#526580', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>{t.aliasFooter(seedCount, userEntries.length)}</span>
                         <div style={{ display: 'flex', gap: 10 }}>
                           {userEntries.length > 0 && (
-                            <button onClick={() => setShowAliasManager(v => !v)} style={{ background: 'none', border: 'none', color: '#1a56db', cursor: 'pointer', fontSize: 11.5, padding: 0, textDecoration: 'underline' }}>
+                            <button onClick={() => setShowAliasManager(v => !v)} style={{ background: 'none', border: 'none', color: '#2457c5', cursor: 'pointer', fontSize: 13, padding: 0, textDecoration: 'underline' }}>
                               {showAliasManager ? t.aliasManagerClose : t.aliasManage} ({userEntries.length})
                             </button>
                           )}
                           {userEntries.length > 0 && (
-                            <button onClick={clearAliases} style={{ background: 'none', border: 'none', color: '#c81e1e', cursor: 'pointer', fontSize: 11.5, padding: 0, textDecoration: 'underline' }}>{t.aliasClear}</button>
+                            <button onClick={clearAliases} style={{ background: 'none', border: 'none', color: '#c81e1e', cursor: 'pointer', fontSize: 13, padding: 0, textDecoration: 'underline' }}>{t.aliasClear}</button>
                           )}
                         </div>
                       </div>
                       {showAliasManager && (
-                        <div style={{ marginTop: 10, border: '1px solid #e8e8e4', borderRadius: 10, overflow: 'hidden' }}>
-                          <div style={{ background: '#f5f5f2', padding: '10px 14px', borderBottom: '1px solid #e8e8e4' }}>
+                        <div style={{ marginTop: 10, border: '1px solid #dce4ef', borderRadius: 10, overflow: 'hidden' }}>
+                          <div style={{ background: '#f4f7fb', padding: '10px 14px', borderBottom: '1px solid #dce4ef' }}>
                             <div style={{ fontSize: 13, fontWeight: 600 }}>{t.aliasManagerTitle}</div>
-                            <div style={{ fontSize: 11.5, color: '#888', marginTop: 2 }}>{t.aliasManagerSub}</div>
+                            <div style={{ fontSize: 13, color: '#526580', marginTop: 2 }}>{t.aliasManagerSub}</div>
                           </div>
                           {userEntries.length === 0 ? (
-                            <div style={{ padding: '14px', fontSize: 12, color: '#aaa', textAlign: 'center' }}>{t.aliasManagerEmpty}</div>
+                            <div style={{ padding: '14px', fontSize: 13, color: '#526580', textAlign: 'center' }}>{t.aliasManagerEmpty}</div>
                           ) : (
-                            <div>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, padding: '7px 14px', background: '#fafaf8', borderBottom: '1px solid #e8e8e4', fontSize: 10.5, fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            <div className={styles.aliasScroll}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, padding: '7px 14px', background: '#f8fafc', borderBottom: '1px solid #dce4ef', fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 <span>{t.aliasManagerInvoice}</span><span>{t.aliasManagerCatalog}</span><span></span>
                               </div>
                               {userEntries.map(([key, catalogName]) => {
                                 const isSeedOverride = ALL_SEED_ALIASES[key] !== undefined;
                                 return (
-                                  <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, padding: '8px 14px', borderBottom: '1px solid #f0f0ee', alignItems: 'center', fontSize: 12 }}>
-                                    <div style={{ color: '#555', wordBreak: 'break-word' }}>
+                                  <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, padding: '8px 14px', borderBottom: '1px solid #edf2f8', alignItems: 'center', fontSize: 13 }}>
+                                    <div style={{ color: '#526580', wordBreak: 'break-word' }}>
                                       {key}
-                                      {isSeedOverride && <span style={{ marginLeft: 5, fontSize: 10, padding: '1px 5px', borderRadius: 10, background: '#fef3c7', color: '#92400e', border: '1px solid #f5d97a' }}>{t.aliasManagerSeed}</span>}
+                                      {isSeedOverride && <span style={{ marginLeft: 5, fontSize: 13, padding: '1px 5px', borderRadius: 10, background: '#fef3c7', color: '#92400e', border: '1px solid #f5d97a' }}>{t.aliasManagerSeed}</span>}
                                     </div>
-                                    <div style={{ color: '#1a1a1a', fontWeight: 500, wordBreak: 'break-word' }}>→ {catalogName}</div>
-                                    <button onClick={() => deleteAlias(key)} style={{ padding: '3px 9px', fontSize: 11, borderRadius: 6, border: '1px solid #f8b4b4', background: '#fde8e8', color: '#c81e1e', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 500 }}>{t.aliasManagerDelete}</button>
+                                    <div style={{ color: '#172b4d', fontWeight: 500, wordBreak: 'break-word' }}>→ {catalogName}</div>
+                                    <button onClick={() => deleteAlias(key)} style={{ padding: '3px 9px', fontSize: 13, borderRadius: 6, border: '1px solid #f8b4b4', background: '#fde8e8', color: '#c81e1e', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 500 }}>{t.aliasManagerDelete}</button>
                                   </div>
                                 );
                               })}
                             </div>
                           )}
-                          <div style={{ padding: '8px 14px', borderTop: '1px solid #e8e8e4', textAlign: 'right' }}>
-                            <button onClick={() => setShowAliasManager(false)} style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', color: '#555' }}>{t.aliasManagerClose}</button>
+                          <div style={{ padding: '8px 14px', borderTop: '1px solid #dce4ef', textAlign: 'right' }}>
+                            <button onClick={() => setShowAliasManager(false)} style={{ padding: '4px 12px', fontSize: 13, borderRadius: 6, border: '1px solid #ccd6e5', background: '#fff', cursor: 'pointer', color: '#526580' }}>{t.aliasManagerClose}</button>
                           </div>
                         </div>
                       )}
@@ -1608,7 +1687,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
         )}
         </fieldset>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} .packing-tool-card *{box-sizing:border-box} .packing-tool-card{overflow-wrap:anywhere} @media(max-width:600px){.packing-tool-card{padding:12px!important}}`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

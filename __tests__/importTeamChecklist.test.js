@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import * as helpers from '../lib/importTeamChecklist.js';
+import * as korean from '../lib/importTeamKorean.js';
 import { validateImportTeamKey, validateImportTeamValue } from '../lib/importTeamStore.js';
 
 const root = new URL('../', import.meta.url);
@@ -171,6 +172,8 @@ function harness(componentName, props, initial = []) {
   const slots = [];
   let cursor = 0;
   const calls = [];
+  const confirmations = [];
+  let confirmResult = true;
   const record = { value: initial, loading: false, saving: false, error: '', revision: 1, reload: async () => {} };
   let saveImpl = async () => {};
   record.save = async next => { calls.push(next); await saveImpl(next); record.value = next; record.revision += 1; };
@@ -186,16 +189,18 @@ function harness(componentName, props, initial = []) {
   const module = { exports: {} };
   vm.runInNewContext(compiled, {
     exports: module.exports, module, Date, Math,
-    window: { confirm: () => true },
+    window: { confirm: message => { confirmations.push(message); return confirmResult; } },
     require(name) {
       if (name === 'react') return hooks;
       if (name === '../../lib/importTeamChecklist') return helpers;
+      if (name === '../../lib/importTeamKorean') return korean;
       if (name === '../../lib/importTeamClient') return { useImportTeamRecord: (key, initialValue) => ({ ...record, value: record.value ?? initialValue }) };
       throw new Error(`Unexpected dependency: ${name}`);
     },
   });
   return {
-    record, calls,
+    record, calls, confirmations,
+    setConfirm(result) { confirmResult = result; },
     setSave(implementation) { saveImpl = implementation; },
     render() { cursor = 0; return module.exports[componentName](props); },
     html() { return renderToStaticMarkup(this.render()); },
@@ -266,7 +271,7 @@ test('pending UI keeps form text on failure and displays it as escaped React tex
   await submit(h);
   assert.equal(h.record.value.length, 1);
   assert.equal(h.record.value[0].text, 'updated');
-  await button(h.render(), 'Eliminar').props.onClick();
+  await button(h.render(), '삭제').props.onClick();
   // The delete handler deliberately returns void; allow the async save to settle.
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(h.record.value.length, 0);
@@ -287,13 +292,13 @@ test('flight status does not show arrived/warehouse success until save resolves'
 
 test('vacation form validation and save failures keep draft; successful CRUD respects year and limits', async () => {
   const h = harness('VacationPanel', { year: '2026' }, []);
-  changeField(h, 'Inicio', '2025-10-06');
-  changeField(h, 'Días', '0.5');
+  changeField(h, '시작일', '2025-10-06');
+  changeField(h, '휴가 일수', '0.5');
   await submit(h);
   assert.equal(h.calls.length, 0);
   assert.match(h.html(), /시작일의 연도/);
-  changeField(h, 'Inicio', '2026-10-06');
-  changeField(h, 'Nota', '휴가 초안');
+  changeField(h, '시작일', '2026-10-06');
+  changeField(h, '메모', '휴가 초안');
   h.setSave(async () => { throw new Error('409 revision conflict'); });
   await submit(h);
   assert.match(h.html(), /휴가 초안/);
@@ -305,20 +310,20 @@ test('vacation form validation and save failures keep draft; successful CRUD res
   assert.equal(helpers.vacationSummary(h.record.value)[0].remaining, 14.5);
   const originalId = h.record.value[0].id;
   button(h.render(), '수정').props.onClick();
-  changeField(h, 'Días', '2');
+  changeField(h, '휴가 일수', '2');
   await submit(h);
   assert.equal(h.record.value[0].id, originalId);
   assert.equal(h.record.value[0].days, 2);
-  button(h.render(), 'Eliminar').props.onClick();
+  button(h.render(), '삭제').props.onClick();
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(h.record.value, []);
 });
 
 test('planting UI uses array, preserves failed form, zero USD price and stable edit identity', async () => {
   const h = harness('PlantingPanel', {}, []);
-  changeField(h, 'Finca', 'Farm');
-  changeField(h, 'Cajas', '50.5');
-  changeField(h, 'USD / tallo', '0');
+  changeField(h, '농장명', 'Farm');
+  changeField(h, '박스 수', '50.5');
+  changeField(h, '줄기당 단가 (USD)', '0');
   h.setSave(async () => { throw new Error('offline'); });
   await submit(h);
   assert.equal(h.record.value.length, 0);
@@ -329,13 +334,13 @@ test('planting UI uses array, preserves failed form, zero USD price and stable e
   assert.equal(h.record.value[0].price, 0);
   const original = { ...h.record.value[0] };
   button(h.render(), '수정').props.onClick();
-  changeField(h, 'Cajas', '25');
+  changeField(h, '박스 수', '25');
   await submit(h);
   assert.equal(h.record.value[0].id, original.id);
   assert.equal(h.record.value[0].createdAt, original.createdAt);
   assert.equal(h.record.value[0].boxes, 25);
   assert.match(h.html(), /\$0.00/);
-  assert.match(h.html(), /USD\/tallo/);
+  assert.match(h.html(), /줄기당 USD/);
 });
 
 test('loading and hook errors are exposed, reload is available, and controls block saves', () => {
@@ -350,6 +355,26 @@ test('loading and hook errors are exposed, reload is available, and controls blo
   assert.match(h.html(), /최신 상태 다시 불러오기/);
 });
 
+test('reset and delete confirmations are Korean; declining leaves shared records unchanged', () => {
+  for (const [name, props, saved, action, expected] of [
+    ['ChecksPanel', { date: '2026-10-06' }, { 'Netherlands::0': true }, '선택 날짜 체크 초기화', /2026-10-06.*초기화/],
+    ['ChecksPanel', { month: '2026-10' }, { day30_4: true }, '월별 결제 체크 초기화', /2026-10.*초기화/],
+    ['NotesPanel', {}, [{ id: 'p', text: '원문', done: false }], '삭제', /이 업무를 삭제/],
+    ['NotesPanel', { flights: true }, [{ id: 'f', text: '항공 원문', llegado: false, banib: false }], '삭제', /이 항공 일정을 삭제/],
+    ['VacationPanel', { year: '2026' }, [{ id: 'v', employee: 'Gabriel', start: '2026-10-06', end: '2026-10-06', days: 1, note: '' }], '삭제', /이 휴가 내역을 삭제/],
+    ['PlantingPanel', {}, [{ id: 's', variety: 'Polimnia', farm: '농장', boxes: 1, price: 0, note: '', createdAt: 1 }], '삭제', /이 배정 내역을 삭제/],
+  ]) {
+    const h = harness(name, props, saved);
+    h.setConfirm(false);
+    button(h.render(), action).props.onClick();
+    assert.equal(h.confirmations.length, 1);
+    assert.match(h.confirmations[0], expected);
+    assert.doesNotMatch(h.confirmations[0], /¿|Eliminar|Reiniciar/);
+    assert.equal(h.calls.length, 0);
+    assert.deepEqual(h.record.value, saved);
+  }
+});
+
 test('native component has no HTML injection/storage/ERP writes and retains keyed visited panels', () => {
   assert.doesNotMatch(uiSource, /dangerouslySetInnerHTML|innerHTML|localStorage|iframe|fetch\(|mssql/);
   assert.match(uiSource, /import \{useImportTeamRecord\} from '\.\.\/\.\.\/lib\/importTeamClient'/);
@@ -360,6 +385,10 @@ test('native component has no HTML injection/storage/ERP writes and retains keye
   assert.doesNotMatch(uiSource, /width:\s*1920px|height:\s*1080px/);
   const h = harness('default', {}, []);
   const before = h.render();
+  const dailyOrder = nodes(before).filter(node => typeof node.type === 'function' && ['ChecksPanel', 'NotesPanel'].includes(node.type.name));
+  assert.ok(dailyOrder[0].props.date, 'primary daily checks are placed before the pending panel');
+  assert.equal(dailyOrder[1].type.name, 'NotesPanel');
+  assert.ok(dailyOrder[2].props.month, 'monthly checks remain after the pending panel');
   const dateInput = find(before, node => node.type === 'input' && node.props.type === 'date');
   const originalDate = dateInput.props.value;
   dateInput.props.onChange({ target: { value: '2025-10-06' } });
