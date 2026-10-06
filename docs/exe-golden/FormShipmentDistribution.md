@@ -1,5 +1,15 @@
 # FormShipmentDistribution — exe golden (dnSpy/CLI)
 
+## 2026-10-06 견적 준비 상태와 조회 오류 구분
+
+설치 EXE에 FormEstimateView dnSpy CLI를 재실행했다. GetPrintDetail은 DetailFix=1을 검사한다.
+웹의 대차수 전 거래처 확정 검사는 기존 사용자 추가 정책으로 그대로 유지한다.
+같은 업무범위 SELECT probe: 2026/40차 양수 상세1345/미확정97/선택업체533 양수105,
+2026/41·42차 양수 상세 없음. 2025 동일40·41·42차 양수396·1054·1192는 전부 확정이다.
+화면에 보이는 미확정82는 조회 시점의 동적 건수이며 고정값으로 표시하지 않는다.
+미분배/확정 대기를 조회 실패로 표시하지 않도록 기존 eligibility 결과의 구조화 정보를 반환한다.
+인쇄 자격, SQL, 원장 및 자동 확정 정책은 변경하지 않는다. 연결/금액 오류와 실제 조회 실패는 보존한다.
+
 ## 2026-10-05 미분배 사전입력 후 최종 분배 적용
 
 실제 설치 EXE에 dnSpy CLI `-t FormShipmentDistribution` 및 `-t ClassShipmentMaster`를 다시 실행했다.

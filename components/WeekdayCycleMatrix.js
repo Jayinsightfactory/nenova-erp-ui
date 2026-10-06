@@ -5,6 +5,7 @@ import { horizontalCycleColumns, weekdayQuantityLabel, weekdayProductLabel } fro
 import { reconcileWeekdayQuote } from '../lib/weekdayQuoteReconciliation.js';
 import { weekdayUnsavedPrintReason } from '../lib/weekdayDistributionClient.js';
 import { applyWeekdayCarryoverToMatrix } from '../lib/weekdayCarryover.js';
+import { resolveWeekdayPrintReadiness } from '../lib/weekdayPrintReadiness.js';
 
 const numberLabel = (value) => value == null || !Number.isFinite(Number(value))
   ? '미확인' : String(Number(value));
@@ -217,7 +218,8 @@ function CompactSummary({ row, block, disabled, carryover, carryoverBusy, carryo
   const cues = [remainder?.hasDraft ? '초안' : '', remainder?.hasProvisional ? '기준 미확정' : '', carry?.manual ? '수동' : '',
     carry?.incomingHasDraft ? '이월 초안' : '', carry?.incomingProvisional ? '이월 미확정' : '',
     !value && value !== 0 ? '미확인' : ''].filter(Boolean);
-  const quoteStatus = block.quote.error ? '실패' : block.quote.state === '견적 일치' ? '일치' : block.quote.state === '견적 불일치' ? '불일치'
+  const quoteStatus = block.quote.readiness?.state==='NO_SHIPMENT' ? '분배 후' : block.quote.readiness?.state==='UNFIXED' ? '확정 대기'
+    : block.quote.readiness?.state==='INVALID' ? '연결 확인' : block.quote.error ? '실패' : block.quote.state === '견적 일치' ? '일치' : block.quote.state === '견적 불일치' ? '불일치'
     : block.quote.state === '견적 없음' ? '없음' : '확인';
   return <Fragment><td className="wcm-total wcm-major-total" title={description}>
     <div className="wcm-compact-summary">
@@ -273,7 +275,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], quoteResults = [],
   carryover = null, carryoverPlans = plans, onOpenCarryover, carryoverBusy = false, carryoverError = '', editDisabledReason = '',
   confirmationStates = [], confirmationBusy = false, confirmationError = '',
-  wilsonRecords = [], wilsonDrafts = [], wilsonError = '', wilsonBusy = false, onEditWilson }) {
+  wilsonRecords = [], wilsonDrafts = [], wilsonError = '', wilsonBusy = false, onEditWilson, onRetryQuote }) {
   const safeCycles = Array.isArray(cycles) ? cycles : [];
   const safePlans = Array.isArray(plans) ? plans : [];
   const safeComparisons = Array.isArray(comparisonRows) ? comparisonRows : [];
@@ -316,12 +318,17 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   }, [cycles, plans, comparisonRows, baselines, baselineCandidates, carryover, carryoverPlans]);
   for(const row of matrix.rows)for(const block of row.blocks) {
     block.pageNote=pageNotes.find(note=>Number(note.year)===Number(block.cycle.year)&&String(note.majorWeek)===String(block.cycle.majorWeek)&&Number(note.prodKey)===row.prodKey);
-    block.quote=reconcileWeekdayQuote(block,row.prodKey,quoteResults.find(result=>Number(result.year)===Number(block.cycle.year)&&String(result.majorWeek)===String(block.cycle.majorWeek)));
+    const result=quoteResults.find(result=>Number(result.year)===Number(block.cycle.year)&&String(result.majorWeek)===String(block.cycle.majorWeek));
+    const readiness=resolveWeekdayPrintReadiness(result);
+    block.quote=readiness && ['NO_SHIPMENT','UNFIXED','INVALID'].includes(readiness.state)
+      ? {state:readiness.label,readiness,quantity:null,unit:null,note:`${readiness.label} · ${readiness.action}`}
+      : reconcileWeekdayQuote(block,row.prodKey,readiness?.state==='ERROR' ? {...result,error:readiness.reason} : result);
   }
-  const quoteErrorForCycle = cycle => quoteResults.find(result => Number(result.year) === Number(cycle.year)
-    && String(result.majorWeek) === String(cycle.majorWeek) && result.error);
+  const quoteReadinessForCycle = cycle => resolveWeekdayPrintReadiness(quoteResults.find(result => Number(result.year) === Number(cycle.year)
+    && String(result.majorWeek) === String(cycle.majorWeek)));
   const hasCustomer = customerProvided ?? (Number(customer?.CustKey ?? customer?.custKey ?? custKey) > 0);
   const printReason = (cycle, dates, mode) => weekdayUnsavedPrintReason(safePlans,cycle,customer?.CustKey ?? customer?.custKey ?? custKey)
+    || (['NO_SHIPMENT','UNFIXED','INVALID'].includes(quoteReadinessForCycle(cycle)?.state) ? quoteReadinessForCycle(cycle).label : '')
     || (busy ? '전산 조회/처리 중' : horizontalPrintReason({ cycle, dates, mode, onPrint,
     customerProvided: hasCustomer, printBusy: printBusy || printing }));
   const shipmentRows = matrix.rows.filter((row) => showUnallocated || hasHorizontalShipmentQuantity(row)
@@ -608,15 +615,15 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
           <tr><th rowSpan={3} scope="col">품목 <span className="wcm-muted">· 단위</span></th>
             {matrix.cycles.map((cycle) => {
               const dates = (selectedDates[cycleKey(cycle)] || []).filter((value) => cycle.days.some((day) => day.date === value));
-              const quoteError = quoteErrorForCycle(cycle);
+              const readiness = quoteReadinessForCycle(cycle);
               return <th key={cycleKey(cycle)} colSpan={displayCycleColumns(cycle,wilsonDay).length + 2} scope="colgroup"
                 className={cycle.offset === 0 ? 'wcm-current-head' : ''}>
                 <div className="wcm-cycle-header"><div className="wcm-cycle-title"><strong>{cycle.offset < 0 ? '이전' : cycle.offset > 0 ? '다음' : '현재'} {cycleLabel(cycle)}</strong>
                   <ConfirmationBadges cycle={cycle} states={confirmationStates} busy={confirmationBusy} error={confirmationError}/></div>
-                  {quoteError && <details className="wcm-quote-error">
-                    <summary>견적 조회 실패 · 상세</summary>
-                    <pre>{String(quoteError.error)}</pre>
-                  </details>}
+                  {readiness?.state==='NO_SHIPMENT' && <span className="wcm-readiness" title={readiness.action}>{readiness.label} · {readiness.action}</span>}
+                  {readiness?.state==='UNFIXED' && <span className="wcm-readiness">{readiness.label} · 해당 연도·차수 전체 업체 · 확정 현황에서 {cycle.year}년 {cycle.majorWeek}차를 조회·확정한 뒤 전산 새로고침 · <a href="/shipment/fix-status?popup=1" target="_blank" rel="noopener noreferrer">확정 현황</a></span>}
+                  {readiness?.state==='INVALID' && <details className="wcm-readiness wcm-warning"><summary>{readiness.label} · 상세</summary><pre>{readiness.reason || readiness.action}</pre></details>}
+                  {readiness?.state==='ERROR' && <div className="wcm-readiness-failure"><details className="wcm-quote-error"><summary>견적 조회 실패 · 상세</summary><pre>{readiness.reason}</pre></details><button type="button" disabled={disabled || typeof onRetryQuote!=='function'} onClick={()=>onRetryQuote(cycle)}>다시 조회</button></div>}
                   <span className="wcm-muted">{cycle.startDate} ~ {cycle.endDate}</span>
                   <PrintButton label="전체 견적" reason={printReason(cycle, [], 'major')} onClick={() => print(cycle, [], 'major')} />
                   <PrintButton label={'선택요일 출력 (' + dates.length + ')'} reason={printReason(cycle, dates, 'dates')}
@@ -943,6 +950,11 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix table button:focus-visible { outline:2px solid #2563eb; outline-offset:1px; }
       .weekday-cycle-matrix .wcm-unallocated-toggle { flex-direction:row; align-items:center; gap:3px; }
       .weekday-cycle-matrix .wcm-unallocated-toggle input { width:auto; margin:0; }
+      .weekday-cycle-matrix .wcm-readiness { width:100%; font-size:11px; line-height:14px; color:#334155; }
+      .weekday-cycle-matrix .wcm-readiness a { color:#1d4ed8; text-decoration:underline; }
+      .weekday-cycle-matrix .wcm-readiness.wcm-warning { color:#805100; }
+      .weekday-cycle-matrix .wcm-readiness pre { margin:3px 0; white-space:pre-wrap; overflow-wrap:anywhere; max-height:120px; overflow:auto; }
+      .weekday-cycle-matrix .wcm-readiness-failure { display:flex; align-items:flex-start; gap:4px; width:100%; }
       @media (max-width:1000px) { .weekday-cycle-matrix .wcm-form { grid-template-columns:repeat(2,minmax(0,1fr)); } }
       @media (max-width:560px) { .weekday-cycle-matrix .wcm-form { grid-template-columns:minmax(0,1fr); } }
     `}}/>
