@@ -79,7 +79,9 @@
     "__tests__/weekdayMetadataOnly.test.js",
     "lib/weekdayPrintReadiness.js",
     "__tests__/weekdayPrintReadiness.test.js",
-    "__tests__/weekdayPrintResponse.test.js"
+    "__tests__/weekdayPrintResponse.test.js",
+    "lib/weekdayDraftDeletion.js",
+    "__tests__/weekdayDraftDeletion.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -292,7 +294,8 @@
     "__tests__/weekdayDraftStorage.test.js",
     "__tests__/weekdayMetadataOnly.test.js",
     "__tests__/weekdayPrintReadiness.test.js",
-    "__tests__/weekdayPrintResponse.test.js"
+    "__tests__/weekdayPrintResponse.test.js",
+    "__tests__/weekdayDraftDeletion.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -419,6 +422,14 @@
       "pending UUID restore priority",
       "new upload preserves drafts"
     ]
+  },
+  "draftDeletionPresentation": {
+    "authority": "Browser-only unapplied inputs; never delete ERP quantities, ShipmentHistory or persistent audit rows",
+    "identity": "authenticated input user + draftScope + year + OrderWeek + CustKey + ProdKey + date + unit + expected draft fingerprint",
+    "blank": "Explicitly emptied quantity field removes matching unapplied date input and linked Wilson draft; zero remains an explicit quantity proposal",
+    "history": "Accessible input list supports exact-row deletion and current-scope clear; unrelated scope/year/customer and newer edits survive stale actions",
+    "persistence": "CAS expected stored scope; clear matching saved browser records before committing React state; failure preserves inputs; pending apply/recovery stays locked",
+    "errorDisplay": "Compact alert trigger and fixed dialog outside table layout; fresh input failures open an alert, persistent row warnings remain reopenable without expanding cells"
   },
   "cellStatusPresentation": {
     "unallocated": "knownEmpty without draft: cell color only, no repeated visible status text",
