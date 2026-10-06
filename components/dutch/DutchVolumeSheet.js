@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { createDutchBlankCellEntry, parseDutchSheetQuantity } from '../../lib/dutchSheetQuantityEdit';
+import { dutchUniformPricePeerKeys, snapshotDutchPriceDraft } from '../../lib/dutchVolumePrice';
 
 const formatQty = value => Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 4 });
 const hasPrice = value => value !== undefined && value !== null && String(value) !== '';
 
-export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, priceKey, onEdit, onQuantityChange = () => {}, activeEntryId = '', disabled = false }) {
+export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, priceKey, onEdit, onQuantityChange = () => {}, onPriceChange = () => {}, onPriceRestore = () => {}, activeEntryId = '', disabled = false }) {
   const sheets = useMemo(() => [...new Set(entries.filter(entry => !entry.added && entry.sheetName && workbook?.Sheets?.[entry.sheetName]).map(entry => entry.sheetName))], [entries, workbook]);
   const [sheetName, setSheetName] = useState('');
   const scrollRef = useRef(null);
   const topScrollRef = useRef(null);
   const quantityInputRef = useRef(null);
+  const priceInputRef = useRef(null);
   const quantityEditRef = useRef(null);
+  const priceEditRef = useRef(null);
   const [quantityEdit, setQuantityEdit] = useState(null);
+  const [priceEdit, setPriceEdit] = useState(null);
   const [scrollMetrics, setScrollMetrics] = useState({ content: 0, viewport: 0 });
   useEffect(() => { if (!sheets.includes(sheetName)) setSheetName(sheets[0] || ''); }, [sheets, sheetName]);
   useEffect(() => {
@@ -37,6 +41,11 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
     quantityInputRef.current?.focus();
     quantityInputRef.current?.select();
   }, [quantityEdit?.entryId]);
+  useEffect(() => {
+    if (!priceEdit) return;
+    priceInputRef.current?.focus();
+    priceInputRef.current?.select();
+  }, [priceEdit?.entryId]);
 
   const beginQuantityEdit = (entry, isNew = false) => {
     const next = { entryId: entry.id, newEntry: isNew ? entry : null, originalValue: isNew ? null : Number(entry.quantity), value: isNew ? '' : String(entry.quantity) };
@@ -70,6 +79,19 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
     const next = { ...current, value };
     quantityEditRef.current = next;
     setQuantityEdit(next);
+  };
+  const beginPriceEdit = entry => {
+    const keys = dutchUniformPricePeerKeys(entries, entry);
+    const next = { entryId: entry.id, originalValue: prices[priceKey(entry)] ?? '', snapshot: snapshotDutchPriceDraft(prices, keys) };
+    priceEditRef.current = next;
+    setPriceEdit(next);
+  };
+  const finishPriceEdit = (entry, commit) => {
+    const current = priceEditRef.current;
+    if (!current) return;
+    priceEditRef.current = null;
+    setPriceEdit(null);
+    if (!commit) onPriceRestore(current.snapshot);
   };
 
   const sheet = workbook?.Sheets?.[sheetName];
@@ -147,9 +169,24 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
               : quantityEditable
                 ? <button type="button" className="quantity-edit-trigger" title={entry ? '클릭해 수량 변경' : '빈 셀을 클릭해 수량 입력'} aria-label={`${quantityLabel}, ${entry ? `현재 ${formatQty(entry.quantity)}${entry.unit ? ` ${entry.unit}` : ''}` : '수량 없음'}. 클릭해 ${entry ? '변경' : '입력'}`} onClick={() => beginQuantityEdit(quantityTarget, !entry)}>{entry ? formatQty(entry.quantity) : ''}</button>
                 : <span className="source-value">{raw}</span>}
-            {entry && <><span className="source-link"><button type="button" onClick={() => onEdit(entry.id)} aria-label={`${entry.sourceFlower || entry.product} ${entry.sourceItem || entry.color} ${entry.sourceCustomer || entry.customer} ${address} 단가 및 매칭 편집 열기`}>단가</button></span>
+            {entry && <>
               {edited && <span className="draft-quantity">원본 {raw} {entry.unit || ''}</span>}
-              {hasPrice(price) && <span className="price-badge">{formatQty(price)}원{Number(price) === 0 ? ' · 명시 0' : ''}</span>}
+              <div className="cell-price">
+                {priceEdit?.entryId === entry.id
+                  ? <input ref={priceInputRef} className="price-edit-input" type="number" min="0" step="any" value={price ?? ''}
+                      aria-label={`${entry.sourceCustomer || entry.customer} ${entry.sourceItem || entry.color || entry.product} 원화 입력`}
+                      onChange={event => onPriceChange(entry, event.target.value)}
+                      onBlur={() => finishPriceEdit(entry, true)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter') { event.preventDefault(); finishPriceEdit(entry, true); }
+                        if (event.key === 'Escape') { event.preventDefault(); finishPriceEdit(entry, false); }
+                      }}/>
+                  : <button type="button" className="price-edit-trigger" disabled={disabled}
+                      title="클릭해 원화 입력" aria-label={`${entry.sourceCustomer || entry.customer} ${entry.sourceItem || entry.color || entry.product} 원화 입력`}
+                      onClick={() => beginPriceEdit(entry)}>{hasPrice(price) ? `${formatQty(price)}원` : '원화 입력'}</button>}
+                <button type="button" className="source-link" disabled={disabled} onClick={() => onEdit(entry.id)}
+                  aria-label={`${entry.sourceFlower || entry.product} ${entry.sourceItem || entry.color} ${entry.sourceCustomer || entry.customer} ${address} 매칭 편집 열기`}>매칭</button>
+              </div>
             </>}
           </td>;
         })}</tr>;
@@ -158,5 +195,6 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
     {entries.some(entry => entry.added) && <p className="manual-note">수동 추가행 {entries.filter(entry => entry.added).length}건은 원본 셀에 삽입하지 않았습니다. ‘단가 수정’ 탭에서 확인하세요.</p>}
     <style jsx>{`@media(max-width:760px){.sheet-scroll .sticky-cell{position:static!important;left:auto!important}.sheet-scroll .header-cell.sticky-cell{position:sticky!important;top:0}}`}</style>
     <style jsx>{`.source-sheet{min-width:0;background:#fff;border:1px solid #bfcada}.sheet-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-bottom:1px solid #cbd5e1}.sheet-bar div{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}.sheet-bar b{font-size:13px;color:#14345b}.sheet-bar span,.manual-note{font-size:11px;color:#52647c}.sheet-bar select{height:30px;border:1px solid #aebbd0}.sheet-top-scroll{height:14px;overflow-x:auto;overflow-y:hidden;scrollbar-gutter:stable;margin:2px 0;overscroll-behavior-x:contain}.sheet-top-scroll[hidden]{display:none}.sheet-top-scroll-inner{height:1px}.sheet-scroll{overflow:auto;max-height:calc(100vh - 338px);min-height:300px;scrollbar-gutter:stable;overscroll-behavior:contain}.sheet-scroll table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%;font-size:11px}.sheet-scroll td{height:35px;box-sizing:border-box;border-right:1px solid #d4dce7;border-bottom:1px solid #d4dce7;padding:4px 6px;vertical-align:middle;background:#fff;white-space:normal;overflow:hidden;overflow-wrap:anywhere}.source-value{font-weight:600}.quantity-cell{text-align:right}.quantity-edit-trigger{display:block;width:100%;min-height:26px;border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:600;text-align:right;cursor:text}.quantity-edit-trigger:hover,.quantity-edit-trigger:focus-visible{background:#e9f2ff;outline:1px solid #83aee7}.quantity-edit-input{box-sizing:border-box;width:100%;min-width:0;height:27px;padding:2px 4px;border:1px solid #155bd7;border-radius:3px;text-align:right;font:inherit}.header-cell{position:sticky;top:0;z-index:3;background:#dce6f4!important;color:#16335e;font-weight:800}.sticky-cell{position:sticky;z-index:2;background:#f7f9fc!important;box-shadow:1px 0 #cbd5e1}.header-cell.sticky-cell{z-index:4;background:#dce6f4!important}.editable-cell{background:#f6fbff!important}.editable-cell.sticky-cell{background:#eef7ff!important}.active-cell{outline:2px solid #155bd7;outline-offset:-2px}.source-link{display:inline-block;margin-left:5px}.source-link button{border:0;background:transparent;color:#155bd7;text-decoration:underline;font-size:10px;cursor:pointer;padding:0}.draft-quantity{display:block;color:#7a4a00;font-size:10px}.price-badge{display:inline-block;margin-top:2px;padding:1px 4px;border-radius:3px;background:#e3f4ec;color:#075c37;font-size:10px;font-weight:800}.manual-note{margin:6px 9px}@media(max-width:760px){.sheet-bar div{display:block}.sheet-top-scroll{height:15px}.sheet-scroll{max-height:550px;min-height:220px}}`}</style>
+    <style jsx>{`.quantity-cell{padding:0!important;text-align:center}.quantity-edit-trigger{min-height:26px;text-align:center}.quantity-edit-input,.price-edit-input{height:27px;padding:0;text-align:center}.header-cell{text-align:center}.cell-price{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0}.price-edit-trigger,.source-link{border:0;background:transparent;color:#155bd7;text-decoration:underline;font-size:10px;cursor:pointer;padding:0;white-space:nowrap}.price-edit-trigger{font-weight:800;color:#075c37}.price-edit-trigger:disabled,.source-link:disabled{cursor:default;opacity:.65}.draft-quantity{text-align:center}`}</style>
   </section>;
 }

@@ -12,7 +12,8 @@ assert.match(page, /className="board-side" aria-label="보조 기능"/, '저장�
 assert.match(page, /grid-template-columns:minmax\(0,1fr\) 370px/, '1920×1080에서 물량표에 가변 폭을 주고 우측 패널 폭을 제한해야 합니다.');
 assert.match(page, /<div className="side-history"><DutchWorkHistory/, '저장 이력은 우측 세로 패널에 있어야 합니다.');
 assert.equal((page.match(/<DutchWorkHistory\b/g) || []).length, 1, '작업 저장 이력 UI를 복제하면 안 됩니다.');
-assert.match(page, /@media\(max-width:900px\)\{\.board-layout\{display:flex;flex-direction:column\}/, '작은 화면에서는 물량표를 보조 패널보다 먼저 보여야 합니다.');
+assert.match(page, /zoom:\.7;width:142\.8571429%/, '데스크톱 화면은 축소된 기본 배율로 넓은 물량표를 보여야 합니다.');
+assert.match(page, /@media\(max-width:1100px\)\{\.dutch-board\{zoom:1;width:100%\}/, '작은 화면에서는 페이지 확대율을 원래대로 복원해야 합니다.');
 assert.match(volumeSheet, /data-testid="dutch-volume-top-scroll"/, '가로로 긴 원본 물량표는 상단 가로 이동바를 제공해야 합니다.');
 assert.match(volumeSheet, /aria-label="원본 물량표 상단 가로 스크롤"/, '상단 가로 이동바는 스크린 리더에서 구분되어야 합니다.');
 assert.match(volumeSheet, /onScroll=\{\(\) => syncHorizontalScroll\(topScrollRef, scrollRef\)\}/, '상단 가로 이동바를 움직이면 원본 표도 같은 위치로 이동해야 합니다.');
@@ -23,6 +24,13 @@ assert.match(volumeSheet, /onClick=\{\(\) => beginQuantityEdit\(quantityTarget, 
 assert.match(volumeSheet, /\{entry \? formatQty\(entry\.quantity\) : ''\}/, '빈 셀은 비어 있는 상태로 보이며 기존 편집 셀은 최종 수량을 보여야 합니다.');
 assert.match(volumeSheet, /onQuantityChange\(current\.entryId, parsed\.quantity, current\.newEntry\)/, '빈 원본 셀은 양수 확정 때에만 새 draft row로 연결해야 합니다.');
 assert.match(volumeSheet, /onQuantityChange = \(\) => \{\}/, '원본 셀에서 확정한 수량은 초안 콜백으로 전달해야 합니다.');
+assert.match(volumeSheet, /onPriceChange = \(\) => \{\}/, '셀의 원화 입력을 공유 가격 초안으로 즉시 전달해야 합니다.');
+assert.match(volumeSheet, /snapshot: snapshotDutchPriceDraft\(prices, keys\)/, '셀 편집 시작 시 공유 대상 모든 가격 상태를 보관해야 합니다.');
+assert.match(volumeSheet, /if \(!commit\) onPriceRestore\(current\.snapshot\)/, 'Escape 취소 시 공유 대상 가격 초안을 원래 상태로 복원해야 합니다.');
+assert.match(page, /onPriceRestore=\{restorePriceDraft\}/, '가격 편집 취소 콜백을 부모 draft 상태에 연결해야 합니다.');
+assert.match(volumeSheet, /onChange=\{event => onPriceChange\(entry, event\.target\.value\)\}/, '셀 원화 입력은 타이핑 즉시 전체 비주광 공통 초안에 반영해야 합니다.');
+assert.match(volumeSheet, /priceKey\(entry\)/, '셀의 원화 입력은 주광 개별·비주광 통합 가격키를 사용해야 합니다.');
+assert.match(volumeSheet, /\.quantity-cell\{padding:0!important;text-align:center\}/, '수량·원화 표시 셀은 여백 없이 가운데 정렬해야 합니다.');
 assert.match(volumeSheet, /onBlur=\{\(\) => finishQuantityEdit\(true\)\}/, '셀 수량 입력은 포커스를 벗어나면 초안에 반영되어야 합니다.');
 assert.match(volumeSheet, /event\.key === 'Escape'\) \{ event\.preventDefault\(\); finishQuantityEdit\(false\); \}/, 'Escape는 셀 편집을 취소해야 합니다.');
 assert.match(volumeSheet, /event\.key === 'Enter'\) \{ event\.preventDefault\(\); finishQuantityEdit\(true, true\); \}/, 'Enter는 검증 가능한 입력만 초안에 반영해야 합니다.');
@@ -32,6 +40,7 @@ assert.match(page, /if \(entry\.added \|\| !entry\.sheetName \|\| !entry\.cellAd
 assert.match(page, /addDutchPriceColumns/);
 assert.match(page, /addDutchPriceShapesToXlsx/, '다운로드 XLSX에 실제 단가 도형을 삽입해야 합니다.');
 assert.match(page, /pivot-volume-excel/);
+assert.match(page, /attachDutchLiveCustomerKeys\(XLSXStyled, nextWorkbook, parsed\.entries, activeCustomerKeys\)/, 'DB 직접조회에서만 현재 범위에 포함된 고유 거래처키를 적용해야 합니다.');
 assert.doesNotMatch(page, /appendDutchPriceSheet|NL_단가표/, '별도 단가 결과 시트를 만들면 안 됩니다.');
 assert.match(page, /localStorage/);
 assert.match(page, /file\.name.*file\.size.*file\.lastModified/, '같은 파일명의 다른 작업본 단가가 섞이면 안 됩니다.');
