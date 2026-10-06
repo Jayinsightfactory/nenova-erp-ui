@@ -21,6 +21,8 @@ async function main() {
   const source = fs.readFileSync(path.join(process.cwd(), 'pages/api/stats/pivot-volume-excel.js'), 'utf8');
   assert.ok(source.includes("aoa[2][idx] = '꽃'"), '네덜란드 꽃 열 헤더가 있어야 한다.');
   assert.ok(source.includes('`${customerName}\\n${cl}`'), '네덜란드 업체명은 윗줄, CL 코드는 아랫줄이어야 한다.');
+  assert.ok(source.includes('const DUTCH_CUSTOMER_COL_WCH = 10'), '네덜란드 업체 열은 한 값으로 통일하고 이름은 셀 폭에 따라 자연스럽게 줄바꿈해야 한다.');
+  assert.ok(source.includes("col.type === 'customer' ? isNetherlandsVolume(meta) ? DUTCH_CUSTOMER_COL_WCH"), '거래처별 이름 길이에 따라 열 폭이 달라지면 안 된다.');
   assert.ok(source.includes('horizontal: \'center\', vertical: \'center\''), '요일·수량·가격 셀은 가운데 기준을 사용해야 한다.');
   assert.ok(source.includes('pivotCustomerQuantity(row, col.customer)'), '업체명 중복을 피하고 CustKey별 수량을 엑셀에 출력해야 한다.');
   assert.ok(source.includes('line.push(pivotVolumeFlowerLabel(row))'), '꽃 열은 피벗 Product.FlowerName 값을 사용해야 한다.');

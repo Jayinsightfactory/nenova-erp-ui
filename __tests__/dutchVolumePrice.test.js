@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { addDutchPriceColumns, attachDutchLiveCustomerKeys, buildDutchEntriesFromPivotData, dutchEntryPrice, dutchPriceKey, dutchUniformPricePeerKeys, isDutchIndividualPriceCustomer, migrateDutchPriceDraft, dutchQuantityPriceNumberFormat, parseDutchPivotWorkbook, priceProgress, restoreDutchPriceDraft, snapshotDutchPriceDraft } from '../lib/dutchVolumePrice.js';
+import { addDutchPriceColumns, applyDutchWeekdayEdits, attachDutchLiveCustomerKeys, buildDutchEntriesFromPivotData, dutchEntryPrice, dutchPriceKey, dutchUniformPricePeerKeys, isDutchIndividualPriceCustomer, migrateDutchPriceDraft, dutchQuantityPriceNumberFormat, parseDutchPivotWorkbook, priceProgress, restoreDutchPriceDraft, snapshotDutchPriceDraft } from '../lib/dutchVolumePrice.js';
 import { addDutchPriceShapesToXlsx } from '../lib/dutchPriceShapes.js';
 import JSZip from 'jszip';
 const wb = XLSX.utils.book_new();
@@ -9,6 +9,17 @@ ws.C4.s = { fill: { fgColor: { rgb: 'ABCDEF' } } };
 ws.E4.f = 'SUM(C4:D4)';
 ws['!merges'] = [{ s: { r: 1, c: 2 }, e: { r: 1, c: 3 } }];
 XLSX.utils.book_append_sheet(wb, ws, '네덜란드');
+const weekdayWorkbook = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(weekdayWorkbook, XLSX.utils.aoa_to_sheet([
+  ['차수(4002) 품종(네덜란드)'], ['', '', '', '월요일', '화요일'], ['꽃', '품목명', '칼라', '업체 A\nCL1', '업체 B\nCL2', '주문'],
+  ['장미', 'Rose', '빨강', '월요일', '화요일', 2], ['Rose', '빨강', '', 1, 1, 2],
+]), '네덜란드');
+const weekdayEdited = applyDutchWeekdayEdits(XLSX, weekdayWorkbook, { '네덜란드!D2': '목요일', '네덜란드!E2': '' , '네덜란드!F2': '금요일' });
+assert.equal(weekdayWorkbook.Sheets['네덜란드'].D2.v, '월요일', '요일 변경은 원본 workbook을 직접 바꾸지 않는다.');
+assert.equal(weekdayEdited.Sheets['네덜란드'].D2.v, '목요일');
+assert.equal(weekdayEdited.Sheets['네덜란드'].E2.v, '', '빈 요일도 명시적으로 지울 수 있다.');
+assert.equal(weekdayEdited.Sheets['네덜란드'].F3.v, '주문', '요약 헤더/데이터 영역은 요일 편집 대상이 아니다.');
+assert.equal(weekdayEdited.Sheets['네덜란드'].D5.v, 1, '요일 편집은 ERP 수량 데이터와 분리한다.');
 const parsed = parseDutchPivotWorkbook(XLSX, wb);
 const newWb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(newWb, XLSX.utils.aoa_to_sheet([
@@ -42,6 +53,10 @@ assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.font.name, '맑은 고�
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.border.left.color.rgb, 'C8C8C8', '브라우저 재저장 뒤에도 Pivot 셀 테두리를 복원해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.v, 10, '단가를 표시해도 수량 셀의 실제 숫자값은 보존해야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].C4.z, dutchQuantityPriceNumberFormat(1.25), '수량 셀 표시형식에는 단가 문자열을 섞지 않아야 합니다.');
+assert.equal(priced.workbook.Sheets['네덜란드'].C4.s.alignment.vertical, 'top', '수량은 셀 위쪽, 단가는 아래쪽에 분리해 서로 가리지 않아야 합니다.');
+assert.equal(priced.workbook.Sheets['네덜란드']['!rows'][3].hpt, 30, '수량과 말풍선 단가가 겹치지 않을 높이를 확보해야 합니다.');
+assert.equal(priced.workbook.Sheets['네덜란드']['!cols'][2].wch, 10, '업로드 파일에서도 거래처 열 폭을 동일하게 맞춰야 합니다.');
+assert.equal(priced.workbook.Sheets['네덜란드']['!cols'][3].wch, 10, '모든 거래처 열은 동일한 폭이어야 합니다.');
 assert.doesNotMatch(priced.workbook.Sheets['네덜란드'].C4.z, /EUR|KRW/, '엑셀 수량 셀의 단가에는 통화 문자를 넣지 않아야 합니다.');
 assert.equal(priced.workbook.Sheets['네덜란드'].E4.f, 'SUM(C4:D4)', '열 삽입 없이 원본 주문 합계 수식을 그대로 보존해야 합니다.');
 assert.deepEqual(priced.workbook.Sheets['네덜란드']['!merges'][0], { s: { r: 1, c: 2 }, e: { r: 1, c: 3 } }, '원본 업체 영역 병합을 그대로 보존해야 합니다.');
@@ -84,12 +99,16 @@ assert.ok(drawingName, '단가는 셀 문자열이 아니라 실제 Excel drawin
 const drawingXml = await shapedZip.file(drawingName).async('string');
 assert.match(drawingXml, /<a:t>1\.25<\/a:t>/, '도형에는 통화나 @ 없이 단가 숫자만 표시해야 합니다.');
 assert.doesNotMatch(drawingXml, /<a:t>[^<]*(?:@|EUR|KRW)[^<]*<\/a:t>/, 'Excel 셀 위에는 통화 문자나 @가 아닌 숫자만 보여야 합니다.');
-assert.match(drawingXml, /prst="rect"/, '단가는 테두리가 있는 사각 텍스트박스로 표시해야 합니다.');
-assert.match(drawingXml, /sz="900"/, '단가 글씨는 수량과 같은 9pt로 표시해야 합니다.');
-assert.match(drawingXml, /<xdr:to>[\s\S]*<xdr:colOff>350000<\/xdr:colOff>/, '긴 단가는 한 셀 경계를 넘어가도록 도형 폭을 확보해야 합니다.');
-assert.match(drawingXml, /name="KRW 1"/, 'Excel 도형 이름에도 단가 문구를 표시하지 않아야 합니다.');
+assert.match(drawingXml, /<a:custGeom>[\s\S]*<a:pt x="50000" y="0"\/>/, '단가는 수량을 가리지 않도록 위쪽을 향한 말풍선으로 표시해야 합니다.');
+assert.match(drawingXml, /<xdr:from><xdr:col>2<\/xdr:col><xdr:colOff>0<\/xdr:colOff><xdr:row>3<\/xdr:row><xdr:rowOff>190500<\/xdr:rowOff>/, '단가 말풍선은 수량과 같은 셀의 아래쪽에 고정해야 합니다.');
+assert.match(drawingXml, /<xdr:to><xdr:col>3<\/xdr:col><xdr:colOff>0<\/xdr:colOff>/, '단가 말풍선은 옆 셀까지 뻗어 다른 수량을 가리면 안 됩니다.');
+assert.match(drawingXml, /sz="800"/, '단가 도형은 작은 여백과 compact한 글씨로 표시해야 합니다.');
+assert.match(drawingXml, /name="Price 1"/, 'Excel 도형은 통화나 단가 캡션 없는 내부 식별명을 사용해야 합니다.');
 assert.match(drawingXml, /lIns="0" rIns="0" tIns="0" bIns="0"/, 'Excel 가격 도형 셀 안쪽 여백은 없애야 합니다.');
 assert.doesNotMatch(drawingXml, /name="단가/, 'Excel selection pane에도 단가 라벨을 노출하지 않습니다.');
+const shapedWorkbook = XLSX.read(shapedBuffer, { type: 'array', cellStyles: true, cellFormula: true });
+assert.equal(shapedWorkbook.Sheets['네덜란드'].C4.v, 10, '도형을 넣은 뒤에도 수량은 원래 숫자값으로 남아야 합니다.');
+assert.equal(shapedWorkbook.Sheets['네덜란드'].E4.f, 'SUM(C4:D4)', '도형을 넣은 뒤에도 주문 합계 수식은 유지되어야 합니다.');
 const live = buildDutchEntriesFromPivotData({ rows: [
   { country: '네덜란드', prodKey: 7, prodName: 'Tulip Gold', productDescr: 'Yellow', orders: { 꽃길: 10, 로뎀: 0 } },
   { country: '중국', prodKey: 8, prodName: 'Rose', orders: { 꽃길: 20 } },

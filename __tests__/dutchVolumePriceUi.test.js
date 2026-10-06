@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const page = fs.readFileSync(new URL('../pages/stats/dutch-volume-board.js', import.meta.url), 'utf8');
 const volumeSheet = fs.readFileSync(new URL('../components/dutch/DutchVolumeSheet.js', import.meta.url), 'utf8');
+const pricing = fs.readFileSync(new URL('../lib/dutchVolumePrice.js', import.meta.url), 'utf8');
 const layout = fs.readFileSync(new URL('../components/Layout.js', import.meta.url), 'utf8');
 assert.match(layout, /\/stats\/dutch-volume-board[^\n]+네덜란드 물량표/);
 assert.doesNotMatch(page, /<Layout|import Layout/);
@@ -32,6 +33,11 @@ assert.match(volumeSheet, /\{entry \? formatQty\(entry\.quantity\) : ''\}/, '빈
 assert.match(volumeSheet, /onQuantityChange\(current\.entryId, parsed\.quantity, current\.newEntry\)/, '빈 원본 셀은 양수 확정 때에만 새 draft row로 연결해야 합니다.');
 assert.match(volumeSheet, /onQuantityChange = \(\) => \{\}/, '원본 셀에서 확정한 수량은 초안 콜백으로 전달해야 합니다.');
 assert.match(volumeSheet, /onPriceChange = \(\) => \{\}/, '셀의 원화 입력을 공유 가격 초안으로 즉시 전달해야 합니다.');
+assert.match(volumeSheet, /weekdayEditable = rowIndex === 1/, '업체별 요일 행은 별도의 클릭 편집 영역이어야 합니다.');
+assert.match(volumeSheet, /onDayChange\(sheetName, current\.key, current\.value\)/, '요일 수정은 업체 셀 주소를 부모 draft로 전달해야 합니다.');
+assert.match(page, /onDayChange=\{updateWeekday\}/, '요일 수정은 웹 로컬 workbook 상태에 반영해야 합니다.');
+assert.match(page, /writeDutchDraft\(localStorage, storageKey, entries, prices, dayEdits\)/, '요일 수정은 로컬 저장본에 보존해야 합니다.');
+assert.match(pricing, /export function applyDutchWeekdayEdits/, '엑셀 내보내기용으로 허용된 요일 행만 복사 편집해야 합니다.');
 assert.match(volumeSheet, /snapshot: snapshotDutchPriceDraft\(prices, keys\)/, '셀 편집 시작 시 공유 대상 모든 가격 상태를 보관해야 합니다.');
 assert.match(volumeSheet, /if \(!commit\) onPriceRestore\(current\.snapshot\)/, 'Escape 취소 시 공유 대상 가격 초안을 원래 상태로 복원해야 합니다.');
 assert.match(page, /onPriceRestore=\{restorePriceDraft\}/, '가격 편집 취소 콜백을 부모 draft 상태에 연결해야 합니다.');
@@ -46,6 +52,8 @@ assert.match(page, /\[\.\.\.previous, \{ \.\.\.newEntry, quantity \}\]/, '빈 �
 assert.match(page, /if \(entry\.added \|\| !entry\.sheetName \|\| !entry\.cellAddress \|\| !copy\.Sheets\[entry\.sheetName\]\) continue/, '빈 원본 셀 초안은 엑셀 저장 시 그 원래 좌표에 기록해야 합니다.');
 assert.match(page, /addDutchPriceColumns/);
 assert.match(page, /addDutchPriceShapesToXlsx/, '다운로드 XLSX에 실제 단가 도형을 삽입해야 합니다.');
+assert.match(pricing, /DUTCH_CUSTOMER_COLUMN_WIDTH = 10/, '네덜란드 업체 열 너비를 통일해야 합니다.');
+assert.match(pricing, /DUTCH_CUSTOMER_COLUMN_WIDTH = 10/, '네덜란드 업체 열 너비를 통일해야 합니다.');
 assert.match(page, /pivot-volume-excel/);
 assert.match(page, /attachDutchLiveCustomerKeys\(XLSXStyled, nextWorkbook, parsed\.entries, activeCustomerKeys\)/, 'DB 직접조회에서만 현재 범위에 포함된 고유 거래처키를 적용해야 합니다.');
 assert.doesNotMatch(page, /appendDutchPriceSheet|NL_단가표/, '별도 단가 결과 시트를 만들면 안 됩니다.');
