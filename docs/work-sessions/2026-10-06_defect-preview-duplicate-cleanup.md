@@ -23,7 +23,7 @@
 
 **A.** 2026년 활성 불량 원장 684행과 실제 음수 Estimate를 읽기 전용 대조했다. 이름·색상 문구보다 전산 품목키·단위·수량을 기준으로 재검토했다. 등록된 정상 원장과 동일한 미등록 초안 8건을 확인했고, 그린화원 초안 658과 견적 9794는 견적 종류가 달라 중복 정리에서 제외했다.
 
-**결과.** 중복 초안 690→정상688, 714~720→정상697~703. 정상 견적 9835, 9843~9849 보존. `lib/defectDuplicateCleanup.js`, `scripts/cleanup-reviewed-defect-drafts.mjs`, `__tests__/defectDuplicateCleanup.test.js` 준비. 운영 정리는 아직 실행하지 않았다.
+**결과.** 중복 초안 690→정상688, 714~720→정상697~703 총 8건을 배포 후 논리 제외했다. 정상 견적 9835, 9843~9849와 정상 원장·이월 적용 이력을 보존했다. `DUPLICATE_CLEANUP` 전후 전체 감사 기록을 남겼다. 검토 SHA `08c6d278776bcde60084262608a0b76c28d4fbd75be8f6afc621a89c0ae5a8f1`이 잠금 트랜잭션에서도 일치했다. 제외 행의 버전은 1→2다.
 
 ### 2. 업체와 차수 지정
 
@@ -38,12 +38,14 @@
 - 실제 설치 EXE의 FormEstimateView, ClassEstimate를 로컬 dnSpy CLI로 읽었다. [근거 기록](../exe-golden/FormEstimateView.md).
 - 중복 정책 8개 허용 쌍과 교차연도·다른 단위/수량/종류·확인/이월/연결·버전 변경 등 거부 fixture 통과.
 - 실제 운영 DB 읽기 전용 dry-run 8쌍 통과. 잠금 전체 스냅샷 SHA 재검증, 정상 8개 원장·8개 견적·적용 이력 보존 검사를 구현했다.
-- 필수 ERP 계약·manifest·쓰기 가드·dnSpy·빌드·UI layout 통과. 독립 최종 검토 통과. 배포·운영 정리는 아직 실행하지 않았다.
+- 필수 ERP 계약·manifest·쓰기 가드·dnSpy·빌드·UI layout 통과. 독립 최종 검토 통과.
+- 수정 PR [#915](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/915) 병합 `6ece3a27`. Cafe24 배포 [37421085286](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37421085286) 성공.
+- 2025/2026 40차 대상 업체의 ViewOrder 381행, ViewShipment 361행을 정리 직전/직후 대조했다. 해시 `cd35a70d6df256099782979068ce81b4ff4620de33457aeaa05718307cf00aca` 동일. 웹 원장·감사 테이블의 DB trigger 없음도 확인했다.
+- 운영 API support 229행에서 중복 8건 제외, 498/501의 현재 40차 실제 견적 0건과 기존38차 연결을 확인했다. 운영 실브라우저 1920×1080·100%에서 동산·꽃길 모두 현재40차 미등록/기존2026년38차 안내 확인, 페이지 오류 0건. 업무 쓰기는 차단했다.
 
 ## 남은 작업·임시 자료
 
 - 실브라우저 fixture 검증: 1920×1080 CSS·100%, 일반/팝업 모두 화면틀·498/501 미등록·과거38차 안내·가상견적 미노출·모달/스크롤 통과. 페이지 오류와 운영 쓰기 0건. 실행: `node scripts/defect-preview-scope-smoke.cjs`.
 
-- 필수 검증 및 최종 검토 후 커밋/PR/병합/배포, 1920×1080·100% 운영 미리보기 smoke.
-- 최신 읽기 전용 스냅샷을 다시 검토한 뒤 8개 중복 초안만 논리 제외하고 정상 원장·견적·ERP 범위의 전후 보존을 확인한다.
+- 요청한 수정·배포·확정 중복8건 정리·운영 검증 완료. 수량·원문·농장/이월 이력이 다른 동산636/662/670 및 과거 완료168/190,242/252는 자동 삭제하지 않았다.
 - `%TEMP%/defect-audit-20261006.json`, `defect-cleanup-reviewed-dry-run-20261006.json` 및 dnSpy 출력은 진단 자료이며 커밋하지 않는다. 인증값·비밀번호는 기록하지 않는다.
