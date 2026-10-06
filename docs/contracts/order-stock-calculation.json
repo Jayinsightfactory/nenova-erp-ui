@@ -1,0 +1,25 @@
+{
+  "id": "order-stock-calculation",
+  "title": "주문 commit 후 CALC 전용 rollback-safe V2 wrapper",
+  "scope": ["pages/api/orders/index.js", "lib/orderStockCalculation.js", "__tests__/orderStockCalculation.test.js", "docs/ORDER_STOCK_CALC_TRANSACTION_CONTRACT.md", "docs/contracts/order-stock-calculation.json"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name": "POST_COMMIT_CALC", "orderDetail": "preserve", "shipmentDetail": "preserve", "stockMasterProductStock": "native changed-product current/future cascade; one outer transaction; retries=0; all native calls in one bounded request"},
+    {"name": "CALC_FAILURE", "orderDetail": "preserve", "shipmentDetail": "preserve", "stockMasterProductStock": "entire calculation batch rollback; already committed orders remain; existing API warning"},
+    {"name": "FOREIGN_OR_PENDING_GATE", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "refuse; never clear, steal or recover, even same SPID/year/week"},
+    {"name": "MY_CUSTOMER_ORDER_ONLY_SKIP", "orderDetail": "preserve", "orderDetailSemantics": "preserve already committed ADD/REPLACE/FINAL_SNAPSHOT orders during postprocessing", "shipmentDetail": "preserve", "stock": "no calculation for any my-customer or final-import order mode; explicit 2026-10-06 user requirement"}
+  ],
+  "criteria": {
+    "gateLock": "GateKey=1 WITH UPDLOCK,HOLDLOCK,NOWAIT before native",
+    "idle": "all eight nullable scope/owner fields NULL; PendingCalc=0; ProtocolVersion=2",
+    "capability": "ProtocolVersion=2/IsReady=1 and actual native six-parameter signature; no fallback",
+    "nativeSuccess": "explicit numeric returnCode=0 and output result=0; verify fully idle gate and original SPID/TRANCOUNT/XACT_STATE/transaction marker after every product",
+    "timeout": "one native SQL request under existing 60000ms requestTimeout; no increased timeout or detached background execution"
+  },
+  "preserves": ["OrderMaster", "OrderDetail", "OrderHistory", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "WarehouseMaster", "WarehouseDetail", "Product.Stock", "StockHistory", "Estimate", "WebProfitReport"],
+  "crossYearFixture": {"required": true, "description": "2025/2026 same 40-01 remain distinct; reject year<=2025 before SQL/native, native receives explicit year/week, foreign prior-year gate is never adopted; future-year native cascade remains unchanged."},
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormOrderAdd.md", "source": "Main-provided current actual CLI FormOrderAdd.btnSave_Click plus 2026-10-06 procedure snapshot; see ORDER_STOCK_CALC_TRANSACTION_CONTRACT.md", "methods": ["btnSave_Click", "usp_StockCalculation"], "tables": ["OrderMaster", "OrderDetail", "NenovaStockWeekGate", "StockMaster", "ProductStock"]},
+  "requiredTestFiles": ["__tests__/orderStockCalculation.test.js", "__tests__/myCustomerOrderApi.test.js", "__tests__/stockGateOwnership.test.js", "scripts/test-order-stock-calculation-sql.cjs", "__tests__/fixtures/orderStockCalculationNative.sql"],
+  "requiredCommands": ["node --test __tests__/orderStockCalculation.test.js", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"],
+  "integrationOwner": "Main owns isolated SQL replay, real gate recovery, integration, deployment; no production probes/writes or SP ALTER in this subtask."
+}

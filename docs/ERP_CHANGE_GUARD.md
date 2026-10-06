@@ -1,5 +1,14 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-06 주문 commit 후 CALC timeout 재발 방지
+
+주문 API의 재고 후처리는 주문 commit을 유지하되, 완전 IDLE/V2 게이트를
+`UPDLOCK,HOLDLOCK,NOWAIT`로 먼저 잠근 별도 외부 transaction 안에서 실행한다.
+결과·게이트·원래 transaction을 검증하고 timeout/오류이면 계산 batch 전체만 rollback한다.
+RUN/WAIT_CALC/고아 owner를 clear하거나 인수하지 않는다. 계약·기준 ledger와
+운영 검증 한계는 `ORDER_STOCK_CALC_TRANSACTION_CONTRACT.md`, 실행형 회귀는
+`__tests__/orderStockCalculation.test.js`를 따른다. SP 변경·운영 recovery는 메인 책임이다.
+
 ## 2026-10-05 붙여넣기 작업 이력 적용량·분배 전후 수량
 
 새 붙여넣기 일괄 작업의 감사 payload는 저장 API가 트랜잭션 안에서 검증한

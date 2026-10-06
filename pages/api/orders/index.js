@@ -3,6 +3,7 @@
 // POST → 정식 테이블에 저장 (OrderMaster + OrderDetail)
 
 import { query, withTransaction, sql } from '../../../lib/db';
+import { runOrderStockCalculationBatch } from '../../../lib/orderStockCalculation.js';
 import { withAuth } from '../../../lib/auth';
 import { normalizeOrderUnit, requireOrderYear } from '../../../lib/orderUtils';
 import { resolveOrderListYearScope } from '../../../lib/orderListYearScope.js';
@@ -959,13 +960,10 @@ async function createOrder(req, res) {
       return { orderMasterKey: mk, results: detailResults, prodKeys: [...changedProdKeys], shipmentMasterKey: ensuredShipmentMasterKey, postWriteVerification, editDigestAfter: editGuardAfter.editDigestAfter, revision: editGuardAfter.revision };
     });
 
-    // FormOrderAdd EditMode=2(변경등록)는 재고 재계산을 하지 않는다. 기존 ADD 경로는 유지한다.
-    const stockWarning = isMyCustomerSource && isAbsoluteOrderMode(orderMode)
+    // 내 업체와 엑셀 최종 주문등록은 주문 전용: ADD/REPLACE/FINAL_SNAPSHOT 모두 재고 보존.
+    const stockWarning = isMyCustomerSource
       ? null
       : await runStockCalculation(orderYear, orderWeek, uid, prodKeys);
-    const modeWarning = isMyCustomerSource && orderMode === MY_CUSTOMER_ORDER_MODE.ADD
-      ? '추가등록은 기존 재고 재계산 절차를 유지했습니다.'
-      : null;
     await appLog('createOrder', '완료', `mk=${orderMasterKey} items=${results.length}`);
     return res.status(201).json({
       success: true,
@@ -975,7 +973,7 @@ async function createOrder(req, res) {
       orderMasterKey,
       shipmentMasterKey: shipmentMasterKey || null,
       message: `주문 적용 완료 — ${results.filter(r => r.status === 'OK' || r.status === 'UPDATED' || r.status === 'ADDED' || r.status === 'CANCELLED' || r.status === 'DELETED' || r.status === 'UNCHANGED').length}개 품목 확인`,
-      warning: stockWarning?.message || modeWarning,
+      warning: stockWarning?.message || null,
       orderMode: isMyCustomerSource ? orderMode : undefined,
       results,
     });
@@ -1097,79 +1095,20 @@ async function updateOrder(req, res) {
 }
 
 async function runStockCalculation(orderYear, orderWeek, uid, prodKeys = []) {
-  const keys = [...new Set((prodKeys || []).map(Number).filter(Boolean))];
-  if (keys.length === 0) return null;
-
   try {
-    for (const prodKey of keys) {
-      await query(
-        stockCalculationSql(),
-        {
-          year: { type: sql.NVarChar, value: String(orderYear) },
-          week: { type: sql.NVarChar, value: orderWeek },
-          uid:  { type: sql.NVarChar, value: uid || 'admin' },
-          pk:   { type: sql.Int, value: prodKey },
-        }
-      );
-    }
+    await runOrderStockCalculationBatch({
+      withTransactionFn: withTransaction,
+      types: sql,
+      orderYear,
+      orderWeek,
+      uid,
+      prodKeys,
+    });
     return null;
   } catch (e) {
     await appLog('usp_StockCalculation', '오류', `${orderYear}/${orderWeek}: ${e.message}`, true);
     return { message: `재고 재계산 경고: ${e.message}` };
   }
-}
-
-function stockCalculationSql() {
-  return `DECLARE @hasProdKey BIT = CASE WHEN EXISTS (
-            SELECT 1 FROM sys.parameters
-             WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
-               AND name = N'@ProdKey'
-          ) THEN 1 ELSE 0 END;
-
-          DECLARE @hasResult BIT = CASE WHEN EXISTS (
-            SELECT 1 FROM sys.parameters
-             WHERE object_id = OBJECT_ID(N'dbo.usp_StockCalculation')
-               AND name = N'@oResult'
-          ) THEN 1 ELSE 0 END;
-
-          IF @hasProdKey = 1 AND @hasResult = 1
-          BEGIN
-            DECLARE @r INT, @m NVARCHAR(MAX);
-            EXEC dbo.usp_StockCalculation
-                 @OrderYear = @year,
-                 @OrderWeek = @week,
-                 @ProdKey   = @pk,
-                 @iUserID   = @uid,
-                 @oResult   = @r OUTPUT,
-                 @oMessage  = @m OUTPUT;
-            SELECT @r AS result, @m AS message;
-          END
-          ELSE IF @hasProdKey = 1
-          BEGIN
-            EXEC dbo.usp_StockCalculation
-                 @OrderYear = @year,
-                 @OrderWeek = @week,
-                 @ProdKey   = @pk,
-                 @iUserID   = @uid;
-          END
-          ELSE IF @hasResult = 1
-          BEGIN
-            DECLARE @r2 INT, @m2 NVARCHAR(MAX);
-            EXEC dbo.usp_StockCalculation
-                 @OrderYear = @year,
-                 @OrderWeek = @week,
-                 @iUserID   = @uid,
-                 @oResult   = @r2 OUTPUT,
-                 @oMessage  = @m2 OUTPUT;
-            SELECT @r2 AS result, @m2 AS message;
-          END
-          ELSE
-          BEGIN
-            EXEC dbo.usp_StockCalculation
-                 @OrderYear = @year,
-                 @OrderWeek = @week,
-                 @iUserID   = @uid;
-          END`;
 }
 
 async function insertOrderHistory(tQuery, detailKey, before, after, descr, uid) {
