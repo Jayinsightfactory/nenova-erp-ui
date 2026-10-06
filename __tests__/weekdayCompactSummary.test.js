@@ -45,10 +45,10 @@ const snapshot = JSON.stringify(props);
 let html = render(Matrix,props);
 assert.equal(JSON.stringify(props),snapshot,'display never mutates raw quantity/baseline/draft inputs');
 assert.equal((html.match(/class="wcm-compact-summary"/g)||[]).length,9);
-assert.equal((html.match(/<td class="wcm-total wcm-major-total"/g)||[]).length,9,'three actual summary cells per cycle');
+assert.equal((html.match(/<td class="wcm-total wcm-major-total(?: [^"]*)?"/g)||[]).length,9,'three actual summary cells per cycle');
 assert.equal((html.match(/colspan="18"/gi)||[]).length,3,'cycle spans expanded summary columns');
 const crossYearMarkup=render(Matrix,{...props,comparisonRows:[...comparisons,{...actual,year:2025,shipmentOutQuantity:999999,shipmentDates:[{date:'2025-09-17',shipmentQuantity:999999}]}]});
-assert.equal((crossYearMarkup.match(/<td class="wcm-total wcm-major-total"/g)||[]).length,9,'prior-year same-week data does not add summary cells');
+assert.equal((crossYearMarkup.match(/<td class="wcm-total wcm-major-total(?: [^"]*)?"/g)||[]).length,9,'prior-year same-week data does not add summary cells');
 assert.match(crossYearMarkup,/data-wcm-label="sum" data-quantity="1"/,'2026 summary preserves its draft projection with a prior-year same-week sentinel');
 assert.equal((html.match(/class="wcm-summary-row /g)||[]).length,9,'exactly three stable rows per cycle');
 assert.match(html,/data-wcm-label="sum" data-quantity="1"/,'sum uses validated draft projection');
@@ -85,6 +85,24 @@ assert.doesNotMatch(invalidMarkup,/<script>technical/,'diagnostic reasons are sa
 assert.match(quoteFailureHtml,/data-wcm-label="sum" data-quantity="1"/,'quote error does not change summary quantity');
 assert.equal((quoteFailureHtml.match(/aria-label="전체 견적"/g)||[]).length,(html.match(/aria-label="전체 견적"/g)||[]).length,'quote error does not remove existing print actions');
 assert.match(quoteFailureHtml,/기준 미확정/,'page baseline preview is distinct from ERP-unfixed labels');
+const visibleText=markup=>markup.replace(/<[^>]*>/g,'');
+const provisionalMarkup=render(Matrix,{...props,plans:[],baselines:[],
+  baselineCandidates:[baseline('01'),baseline('02')].map(record=>({...record,provisional:true}))});
+assert.doesNotMatch(visibleText(provisionalMarkup),/기준 미확정|이월 미확정/,'provisional states use cell color without repeated visible labels');
+assert.match(provisionalMarkup,/<th[^>]*class="wcm-initial wcm-cycle-start wcm-provisional"/);
+assert.match(provisionalMarkup,/<td class="wcm-initial wcm-cycle-start wcm-provisional"/);
+assert.match(provisionalMarkup,/<td class="wcm-total wcm-provisional"/,'subweek remainder uses the same provisional cue');
+assert.match(provisionalMarkup,/<td class="wcm-total wcm-major-total wcm-provisional"/,'major remainder retains provisional color');
+assert.match(provisionalMarkup,/title="기준 미확정/,'accessible detail retains the baseline status');
+const unallocatedMarkup=render(Matrix,{...props,plans:[{...draft,quantity:0}],comparisonRows:comparisons.map(item=>({...item,
+  state:'NO_SHIPMENT',detailRows:0,shipmentOutQuantity:null,shipmentDates:[]})),baselines:[]});
+const bodyText=visibleText(unallocatedMarkup.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1]||'');
+assert.match(unallocatedMarkup,/wcm-cell wcm-unallocated/,'known empty quantities have a color class');
+assert.doesNotMatch(bodyText,/미분배|기준 미확정/,'unallocated rows have no repeated state text');
+assert.match(unallocatedMarkup,/미분배 품목 표시/,'the unallocated row filter remains available');
+assert.match(unallocatedMarkup,/미분배 ·/,'unallocated detail remains available in the title');
+assert.match(source,/wcm-unallocated:not\(\.wcm-proposed\):not\(\.wcm-changed\):not\(\.wcm-early\)/,'draft, change and early cues take precedence');
+assert.match(source,/wcm-provisional:not\(\.wcm-draft\)/,'draft summary styling takes precedence');
 assert.match(render(Matrix,{...props,baselines:[]}),/aria-label="2026\/38-01 최초분배 확정"/,'baseline accessible name remains stable');
 assert.match(source,/font-size:14px; line-height:1.4/,'default data font is at least14');
 assert.match(source,/tbody td \.wcm-quantity-label \{[^\n]*font-size:14px; font-weight:700;[^\n]*text-align:center; justify-content:center/);
@@ -182,7 +200,7 @@ const summaryProps={row,block,disabled:false,carryover:{records:[record]},hasCus
   onOpenCarryover:value=>events.push(['closing',value]),onOpenNote:value=>events.push(['note',value]),onSelect:value=>events.push(['quote',value])};
 html=render(CompactSummary,summaryProps);
 assert.match(html,/이월 /); assert.match(html,/-2/); assert.match(html,/수동/); assert.match(html,/미확정/);
-assert.match(html,/이월 초안/); assert.match(html,/이월 미확정/); assert.match(html,/기준 미확정/); assert.match(html,/<span>불일치<\/span>/);
+assert.match(html,/이월 초안/); assert.doesNotMatch(visibleText(html),/이월 미확정|기준 미확정/); assert.match(html,/이월 미확정/); assert.match(html,/기준 미확정/); assert.match(html,/<span>불일치<\/span>/);
 assert.match(html,/data-quantity="23"/); assert.match(html,/수동 비고 근거/);
 assert.doesNotMatch(html,/>이월 미등록</,'benign unregistered carry is not a visible repeated row');
 const nodes = element=>!element || typeof element!=='object'?[]:[element,...React.Children.toArray(element.props?.children).flatMap(nodes)];
