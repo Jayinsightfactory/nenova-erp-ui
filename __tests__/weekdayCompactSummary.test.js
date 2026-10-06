@@ -227,7 +227,7 @@ assert.ok(nodes(CompactSummary({...summaryProps,carryoverBusy:true})).find(node=
 
 // Execute the actual popover handlers with a small hook host, including focus return.
 const slots=[]; let index=0; let effects=[];
-const harness={...React,useState(initial){const i=index++; if(!(i in slots))slots[i]=initial; return [slots[i],value=>{slots[i]=value;}];},
+const harness={...React,useState(initial){const i=index++; if(!(i in slots))slots[i]=initial; return [slots[i],value=>{slots[i]=typeof value==='function'?value(slots[i]):value;}];},
   useRef(initial){const i=index++; if(!(i in slots))slots[i]={current:initial}; return slots[i];},
   useEffect(effect){effects.push(effect);}};
 const Details=load(harness).SummaryDetails;
@@ -363,3 +363,22 @@ const unrelatedAlert={name:'Unrelated',blocks:[{cycle:cycles[1],productPlans:[],
 const inputAlert={name:'Brut',blocks:[{cycle:cycles[1],productPlans:[draft],carryover:{error:'edited input warning'}}]};
 assert.equal(carryoverInputAlerts({rows:[unrelatedAlert,inputAlert]}),'Brut · 2026 / 38차\nedited input warning','automatic carry alert includes only product intervals with unapplied input');
 assert.equal(carryoverInputAlerts({rows:[unrelatedAlert,{...inputAlert,blocks:inputAlert.blocks.map(block=>({...block,productPlans:[]}))}]}),'','deleting the input removes its automatic alert');
+
+const groupActuals=['CARNATION','ROSE','HYDRANGEA','ALSTROEMERIA','백합','네리네'].map((flowerName,i)=>({...actual,prodKey:700+i,flowerName,prodName:`${flowerName} fixture`}));
+const groupProps={...props,plans:[],comparisonRows:groupActuals,baselines:[]};
+slots.length=0;const groupDraw=()=>{index=0;effects=[];return RetryMatrix(groupProps);};
+let groups=groupDraw();
+const groupButtons=tree=>nodes(tree).filter(node=>node.type==='button'&&/개 품목/.test(node.props['aria-label']||''));
+assert.deepEqual(groupButtons(groups).map(node=>node.props['aria-label'].split(' ')[0]),['카네이션','장미','수국','알스트로','네리네','백합']);
+assert.ok(groupButtons(groups).every(node=>node.props['aria-expanded']===true),'all nonempty groups start expanded');
+const inputCount=nodes(groups).filter(node=>node.type==='input').length;
+groupButtons(groups)[1].props.onClick();groups=groupDraw();
+assert.equal(groupButtons(groups)[1].props['aria-expanded'],false);
+assert.equal(nodes(groups).find(node=>node.type==='tr'&&node.props['data-flower-group']==='장미').props.hidden,true);
+assert.equal(nodes(groups).filter(node=>node.type==='input').length,inputCount,'folding retains mounted input cells and draft state');
+nodes(groups).find(node=>node.type==='input'&&node.props.type==='search').props.onChange({target:{value:'ROSE'}});groups=groupDraw();effects.forEach(effect=>effect());groups=groupDraw();
+assert.ok(groupButtons(groups).every(node=>node.props['aria-expanded']===true),'search changes reveal matching collapsed groups');
+groupButtons(groups)[0].props.onClick();groups=groupDraw();assert.equal(groupButtons(groups)[0].props['aria-expanded'],false,'search results remain independently collapsible');
+assert.match(renderToStaticMarkup(groups),/검색 결과/);
+assert.equal(helper.weekdayFlowerPriority({flowerNames:['SPRAY ROSE'],name:'ROSE fixture'}),4,'unrecognized authoritative metadata stays other rather than guessed from product name');
+console.log('Flower group order, default expansion, mounted hidden cells and search reveal passed');

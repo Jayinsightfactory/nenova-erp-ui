@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { buildHorizontalWeekdayMatrix, horizontalCycleKey, horizontalEditPayload,
-  horizontalPrintReason, validateHorizontalQuantity, hasHorizontalShipmentQuantity } from '../lib/weekdayHorizontalMatrix.js';
+  horizontalPrintReason, validateHorizontalQuantity, hasHorizontalShipmentQuantity, weekdayFlowerPriority } from '../lib/weekdayHorizontalMatrix.js';
 import { horizontalCycleColumns, weekdayQuantityLabel, weekdayProductLabel } from '../lib/weekdayHorizontalMatrix.js';
 import { reconcileWeekdayQuote } from '../lib/weekdayQuoteReconciliation.js';
 import { weekdayUnsavedPrintReason } from '../lib/weekdayDistributionClient.js';
@@ -299,6 +299,14 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const safePlans = Array.isArray(plans) ? plans : [];
   const safeComparisons = Array.isArray(comparisonRows) ? comparisonRows : [];
   const [search, setSearch] = useState('');
+  const [collapsedFlowers,setCollapsedFlowers]=useState({});
+  const flowerGroupLabels=['카네이션','장미','수국','알스트로'];
+  const flowerGroup=row=>{
+    const priority=weekdayFlowerPriority(row);
+    if(priority<4)return flowerGroupLabels[priority];
+    const metadata=[...new Set(row.flowerNames.map(name=>String(name).trim()).filter(Boolean))];
+    return metadata.length===1 && !/^(?:unknown|미확인|품종 미확인|\?)$/i.test(metadata[0]) ? metadata[0] : '기타';
+  };
   const [flower, setFlower] = useState('');
   const [wilsonDay,setWilsonDay]=useState('일');
   const [exportBusy,setExportBusy]=useState(false);
@@ -367,7 +375,13 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const flowers = [...new Set(shipmentRows.flatMap((row) => row.flowerNames))].sort();
   const query = search.trim().toLocaleLowerCase();
   const visibleRows = shipmentRows.filter((row) => (!flower || row.flowerNames.includes(flower))
-    && (!query || `${row.prodKey} ${row.name} ${row.flowerNames.join(' ')}`.toLocaleLowerCase().includes(query)));
+    && (!query || `${row.prodKey} ${row.name} ${row.flowerNames.join(' ')}`.toLocaleLowerCase().includes(query))).sort((a,b)=>weekdayFlowerPriority(a)-weekdayFlowerPriority(b)
+      || flowerGroup(a).localeCompare(flowerGroup(b),'ko'));
+  useEffect(()=>{
+    if(query || flower)setCollapsedFlowers(previous=>{
+      const next={...previous};for(const row of visibleRows)next[flowerGroup(row)]=false;return next;
+    });
+  },[query,flower]);
   function splitFor(row,block,day) {
     const matches=record=>Number(record.year)===Number(block.cycle.year)&&String(record.orderWeek)===String(day.effectiveOrderWeek)
       && Number(record.custKey)===Number(customer?.CustKey ?? customer?.custKey ?? custKey)&&Number(record.prodKey)===row.prodKey&&record.date===day.date;
@@ -708,14 +722,18 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
             </th>)}
           </Fragment>)}</tr>
         </thead>
-        <tbody>{visibleRows.map((row) => {
+        <tbody>{visibleRows.map((row,rowIndex) => {
+          const group=flowerGroup(row);
+          const groupStart=rowIndex===0 || flowerGroup(visibleRows[rowIndex-1])!==group;
+          const groupCount=visibleRows.filter(item=>flowerGroup(item)===group).length;
+          const groupExpanded=collapsedFlowers[group]!==true;
           const badge = row.flowerNames.join(', ');
           const name = weekdayProductLabel(row);
           const units = [...new Set(row.blocks.map((block) => block.unit).filter(Boolean))].join('/');
           const productTitle = [row.name, '품목 ' + row.prodKey, badge, units || '단위 확인 필요',
             ...row.blocks.flatMap((block) => block.sources.map((source) => cycleLabel(block.cycle) + ' 초안 원천: ' + source)),
             '전산 입고 원천 미지정 · 요일별 입고 원천 추정 안 함'].filter(Boolean).join('\n');
-          return <tr key={row.prodKey}>
+          return <Fragment key={row.prodKey}>{groupStart && <tr className="wcm-flower-group"><th scope="row"><button type="button" aria-expanded={groupExpanded} aria-label={`${group} ${groupCount}개 품목 ${groupExpanded?'닫기':'펼치기'}`} onClick={()=>setCollapsedFlowers(value=>({...value,[group]:value[group]!==true}))}>{groupExpanded?'▾':'▸'} {group} <small>{groupCount}개</small></button></th><td colSpan={matrix.cycles.reduce((sum,cycle)=>sum+displayCycleColumns(cycle,wilsonDay).length+2,0)}>{query?'검색 결과':''}</td></tr>}<tr hidden={!groupExpanded} data-flower-group={group}>
             <th scope="row" title={productTitle}><div className="wcm-product">
               <span className="wcm-product-name">{name}</span><small>{units || '?'}</small>
             </div></th>
@@ -758,7 +776,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 </td>;
               })}
             </Fragment>)}
-          </tr>;
+          </tr></Fragment>;
         })}
           {!visibleRows.length && <tr><td colSpan={1 + matrix.cycles.reduce((sum,cycle)=>sum+displayCycleColumns(cycle,wilsonDay).length+2,0)}>
             {shipmentRows.length ? '검색/품종 조건에 맞는 품목이 없습니다.' : matrix.rows.length
@@ -871,6 +889,9 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-day-select { display:flex; flex-direction:row; justify-content:center; align-items:center; gap:1px; font-size:10px; margin-top:1px; }
       .weekday-cycle-matrix .wcm-day-select input { width:auto; margin:0; }
       .weekday-cycle-matrix .wcm-date { display:block; }
+      .weekday-cycle-matrix tbody tr[hidden] { display:none; }
+      .weekday-cycle-matrix tbody .wcm-flower-group > :is(th,td) { height:28px; background:#e4edf7; font-size:12px; }
+      .weekday-cycle-matrix .wcm-flower-group button { width:100%; text-align:left; white-space:nowrap; font-weight:700; }
       .weekday-cycle-matrix tbody th { position:sticky; top:auto; left:0; z-index:3; text-align:left; font-weight:normal; background:#f8fafc; }
       .weekday-cycle-matrix .wcm-product { display:flex; gap:4px; align-items:center; min-height:32px; min-width:0; }
       .weekday-cycle-matrix .wcm-product-name { min-width:0; overflow-wrap:anywhere; white-space:normal; font-size:12px; font-weight:600; color:#122033; }

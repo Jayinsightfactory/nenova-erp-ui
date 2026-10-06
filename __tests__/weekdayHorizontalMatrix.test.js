@@ -345,7 +345,7 @@ const hiddenComparisons = [
 const visibilityHtml = renderMatrix({ comparisonRows: [...hiddenComparisons, actual()] });
 assert.match(tableBody(visibilityHtml), /wcm-product-name">Blue<\/span>/);
 assert.doesNotMatch(visibilityHtml, /ORDER_ONLY_HIDDEN|ZERO_SHIPMENT_HIDDEN|HIDDEN_FLOWER/);
-assert.equal((tableBody(visibilityHtml).match(/<tr>/g) || []).length, 1);
+assert.equal((tableBody(visibilityHtml).match(/<tr data-flower-group=/g) || []).length, 1);
 assert.match(visibilityHtml, /품목 1\/1 · 출고 없음 2개 숨김/);
 const allHiddenHtml = renderMatrix({ comparisonRows: hiddenComparisons });
 assert.match(allHiddenHtml, /품목 0\/0 · 출고 없음 2개 숨김/);
@@ -513,7 +513,7 @@ const pickerElements = () => descendants(pickerHost.render());
 const pickerRegion = () => pickerElements().find((element) => element.props?.['aria-label'] === '품목 추가 검색');
 const pickerButton = (label) => descendants(pickerRegion()).find((element) => element.type === 'button'
   && React.Children.toArray(element.props.children)[0] === label);
-const addedRowNames = () => pickerElements().filter((element) => element.type === 'th' && element.props?.scope === 'row')
+const addedRowNames = () => pickerElements().filter((element) => element.type === 'th' && element.props?.scope === 'row' && element.props.title)
   .map((element) => element.props.title.split('\n')[0]);
 const pickerAlert = (message) => descendants(pickerRegion()).some((element) => element.props?.role === 'alert'
   && element.props.children === message);
