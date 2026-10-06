@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { addDutchPriceColumns, applyDutchWeekdayEdits, attachDutchLiveCustomerKeys, buildDutchEntriesFromPivotData, dutchEntryPrice, dutchPriceKey, dutchUniformPricePeerKeys, isDutchIndividualPriceCustomer, migrateDutchPriceDraft, dutchQuantityPriceNumberFormat, parseDutchPivotWorkbook, priceProgress, restoreDutchPriceDraft, snapshotDutchPriceDraft } from '../lib/dutchVolumePrice.js';
+import { addDutchPriceColumns, applyDutchWeekdayEdits, attachDutchLiveCustomerKeys, buildDutchEntriesFromPivotData, createDutchBulkPriceConfig, dutchCustomerIdentity, dutchEntryPrice, dutchPriceKey, dutchUniformPricePeerKeys, isDutchIndividualPriceCustomer, migrateDutchBulkPriceConfig, migrateDutchPriceDraft, dutchQuantityPriceNumberFormat, parseDutchPivotWorkbook, priceProgress, restoreDutchPriceDraft, snapshotDutchPriceDraft } from '../lib/dutchVolumePrice.js';
 import { addDutchPriceShapesToXlsx } from '../lib/dutchPriceShapes.js';
 import JSZip from 'jszip';
 const wb = XLSX.utils.book_new();
@@ -76,6 +76,23 @@ assert.equal(dutchPriceKey(uniformRows[0]), dutchPriceKey(uniformRows[1]), '주�
 assert.notEqual(dutchPriceKey(uniformRows[0]), dutchPriceKey(uniformRows[2]), '주광은 공통 균일가 키에 포함하지 않는다.');
 assert.deepEqual(uniformRows.map(row => dutchEntryPrice(row, uniformPrices)), [3.5, 3.5, 4.2], '비주광 균일가와 주광 개별단가를 분리한다.');
 assert.equal(dutchEntryPrice({ ...uniformRows[1], color: 'Pink' }, uniformPrices), 0, '같은 품목이라도 칼라가 다르면 균일가를 재사용하지 않는다.');
+const bulkConfig = createDutchBulkPriceConfig(uniformRows);
+const excludeLodum = { ...bulkConfig, excludedCustomers: [...bulkConfig.excludedCustomers, dutchCustomerIdentity(uniformRows[1])] };
+const includedPeer = { id: 'd', product: 'Rose Avalanche', color: 'White', customer: '새 업체\nCL10' };
+assert.equal(bulkConfig.enabled, true);
+assert.equal(bulkConfig.excludedCustomers.includes(dutchCustomerIdentity(uniformRows[2])), true, '주광은 최초 설정에서 일괄 제외 대상이다.');
+assert.notEqual(dutchPriceKey(uniformRows[0], excludeLodum), dutchPriceKey(uniformRows[1], excludeLodum), '제외한 업체는 동일 품목이어도 개별 단가 키를 사용한다.');
+assert.equal(dutchPriceKey(uniformRows[0], excludeLodum), dutchPriceKey(includedPeer, excludeLodum), '포함 업체들은 주광을 제외한 같은 품목의 일괄 단가 키를 공유한다.');
+assert.deepEqual(dutchUniformPricePeerKeys(uniformRows, uniformRows[1], excludeLodum), [dutchPriceKey(uniformRows[1], excludeLodum)], '제외 업체 단가 입력은 다른 업체에 전파되지 않는다.');
+assert.equal(dutchUniformPricePeerKeys(uniformRows, uniformRows[0], excludeLodum).includes(dutchPriceKey(uniformRows[1], excludeLodum)), false, '포함 업체 입력은 제외 업체를 건너뛴다.');
+const splitDraft = migrateDutchBulkPriceConfig(uniformRows, { [dutchPriceKey(uniformRows[0])]: 7 }, bulkConfig, excludeLodum);
+assert.equal(splitDraft.prices[dutchPriceKey(uniformRows[1], excludeLodum)], '7', '공유단가를 제외 업체별 단가로 나눌 때 기존 값을 보존한다.');
+const excludeBoth = { ...bulkConfig, excludedCustomers: [...bulkConfig.excludedCustomers, dutchCustomerIdentity(uniformRows[0]), dutchCustomerIdentity(uniformRows[1])] };
+const conflictDraft = migrateDutchBulkPriceConfig(uniformRows, { [dutchPriceKey(uniformRows[0], excludeBoth)]: 8, [dutchPriceKey(uniformRows[1], excludeBoth)]: 9 }, excludeBoth, bulkConfig);
+assert.equal(conflictDraft.prices[dutchPriceKey(uniformRows[0], bulkConfig)], undefined, '서로 다른 개별 단가는 임의로 일괄 단가에 덮어쓰지 않는다.');
+assert.equal(conflictDraft.conflicts.length, 1, '개별 단가를 합칠 때 충돌을 사용자에게 알린다.');
+const disabledBulk = { ...bulkConfig, enabled: false };
+assert.notEqual(dutchPriceKey(uniformRows[0], disabledBulk), dutchPriceKey(uniformRows[1], disabledBulk), '일괄 기능을 비활성화하면 모든 업체가 개별 키를 사용한다.');
 const mixedMatchRows = [
   { id: 'matched', product: 'ERP Rose', sourceItem: 'Rose Avalanche', sourceColor: 'White', color: 'White', customer: '업체 A', prodKey: 11 },
   { id: 'unmatched', product: 'Rose Avalanche', sourceItem: 'Rose Avalanche', sourceColor: 'White', color: 'White', customer: '업체 B' },
@@ -99,9 +116,10 @@ assert.ok(drawingName, '단가는 셀 문자열이 아니라 실제 Excel drawin
 const drawingXml = await shapedZip.file(drawingName).async('string');
 assert.match(drawingXml, /<a:t>1\.25<\/a:t>/, '도형에는 통화나 @ 없이 단가 숫자만 표시해야 합니다.');
 assert.doesNotMatch(drawingXml, /<a:t>[^<]*(?:@|EUR|KRW)[^<]*<\/a:t>/, 'Excel 셀 위에는 통화 문자나 @가 아닌 숫자만 보여야 합니다.');
-assert.match(drawingXml, /<a:custGeom>[\s\S]*<a:pt x="50000" y="0"\/>/, '단가는 수량을 가리지 않도록 위쪽을 향한 말풍선으로 표시해야 합니다.');
-assert.match(drawingXml, /<xdr:from><xdr:col>2<\/xdr:col><xdr:colOff>0<\/xdr:colOff><xdr:row>3<\/xdr:row><xdr:rowOff>190500<\/xdr:rowOff>/, '단가 말풍선은 수량과 같은 셀의 아래쪽에 고정해야 합니다.');
-assert.match(drawingXml, /<xdr:to><xdr:col>3<\/xdr:col><xdr:colOff>0<\/xdr:colOff>/, '단가 말풍선은 옆 셀까지 뻗어 다른 수량을 가리면 안 됩니다.');
+assert.match(drawingXml, /<a:prstGeom prst="rect">/, '단가 표시는 화살표 없이 단순한 사각형이어야 합니다.');
+assert.doesNotMatch(drawingXml, /<a:custGeom>|<a:pt x="50000" y="0"\/>/, '단가 도형에 말풍선 포인터가 없어야 합니다.');
+assert.match(drawingXml, /<xdr:from><xdr:col>2<\/xdr:col><xdr:colOff>[^<]+<\/xdr:colOff><xdr:row>3<\/xdr:row><xdr:rowOff>190500<\/xdr:rowOff>/, '단가 사각형은 수량과 같은 셀 아래쪽, 숫자에 맞춘 폭으로 배치해야 합니다.');
+assert.match(drawingXml, /<xdr:to><xdr:col>2<\/xdr:col><xdr:colOff>[^<]+<\/xdr:colOff>/, '단가 사각형은 한 수량 셀 안에서만 필요한 폭을 차지해야 합니다.');
 assert.match(drawingXml, /sz="800"/, '단가 도형은 작은 여백과 compact한 글씨로 표시해야 합니다.');
 assert.match(drawingXml, /name="Price 1"/, 'Excel 도형은 통화나 단가 캡션 없는 내부 식별명을 사용해야 합니다.');
 assert.match(drawingXml, /lIns="0" rIns="0" tIns="0" bIns="0"/, 'Excel 가격 도형 셀 안쪽 여백은 없애야 합니다.');

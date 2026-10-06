@@ -7,7 +7,7 @@ import { createDutchVolumeWorkStore, normalizeDutchWorkSnapshot, resolveDutchWor
 
 const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nenova-dutch-work-'));
 const store = createDutchVolumeWorkStore({ rootDir });
-const input = () => ({ ownerId: 'user/../담당', savedBy: '담당', name: '원본 작업', sourceMode: 'UPLOAD', fileName: '물량표.xlsx', orderYear: 2026, orderWeek: '40-01', sourceIdentity: 'source:2026:40-01', workbook: { SheetNames: ['네덜란드'], Sheets: { 네덜란드: { '!ref': 'A1:D4', A1: { t: 's', v: '원본', s: { font: { bold: true }, fill: { fgColor: { rgb: 'FFFFFF' } } } }, D4: { t: 'n', v: 0, f: 'SUM(A1:C1)' }, '!merges': [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }] } }, Styles: { Fonts: [{ name: 'Arial' }] }, Themes: { themeElements: {} } }, entries: [{ id: '네덜란드!D4', sheetName: '네덜란드', cellAddress: 'D4', quantity: '', product: '장미', sourceFlower: '장미', sourceItem: '품목', sourceColor: 'RED', sourceCustomer: '거래처', sourceRow: 3, sourceColumn: 3, layoutVersion: 3, customer: '거래처', prodKey: 0, custKey: '', added: false }], prices: { uniform: 0, unfinished: '' }, planToken: 'must-not-store', preview: { authorized: true }, result: { jobId: 10 } });
+const input = () => ({ ownerId: 'user/../담당', savedBy: '담당', name: '원본 작업', sourceMode: 'UPLOAD', fileName: '물량표.xlsx', orderYear: 2026, orderWeek: '40-01', sourceIdentity: 'source:2026:40-01', bulkPriceConfig: { version: 1, enabled: true, excludedCustomers: ['name:주광농원|cl2'] }, workbook: { SheetNames: ['네덜란드'], Sheets: { 네덜란드: { '!ref': 'A1:D4', A1: { t: 's', v: '원본', s: { font: { bold: true }, fill: { fgColor: { rgb: 'FFFFFF' } } } }, D4: { t: 'n', v: 0, f: 'SUM(A1:C1)' }, '!merges': [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }] } }, Styles: { Fonts: [{ name: 'Arial' }] }, Themes: { themeElements: {} } }, entries: [{ id: '네덜란드!D4', sheetName: '네덜란드', cellAddress: 'D4', quantity: '', product: '장미', sourceFlower: '장미', sourceItem: '품목', sourceColor: 'RED', sourceCustomer: '거래처', sourceRow: 3, sourceColumn: 3, layoutVersion: 3, customer: '거래처', prodKey: 0, custKey: '', added: false }], prices: { uniform: 0, unfinished: '' }, planToken: 'must-not-store', preview: { authorized: true }, result: { jobId: 10 } });
 try {
   const first = await store.saveDutchWorkSnapshot(input());
   assert.match(first.id, /^[\da-f-]{36}$/); assert.equal(first.entryCount, 1); assert.equal(first.sheetCount, 1); assert.equal(first.savedBy, '담당');
@@ -39,6 +39,8 @@ try {
   assert.equal((await fs.readdir(directory)).some(name => name.endsWith('.tmp')), false);
   assert.throws(() => normalizeDutchWorkSnapshot({ ...input(), sourceMode: 'LIVE', workbook: null }), { code: 'INVALID_WORK_SNAPSHOT' });
   assert.equal(normalizeDutchWorkSnapshot({ ...input(), orderYear: 2100, prices: { exponent: '1e3', decimal: '.5' } }).prices.exponent, '1e3');
+  assert.deepEqual(normalizeDutchWorkSnapshot(input()).bulkPriceConfig, input().bulkPriceConfig, '저장본 서버 정규화는 업체별 일괄 선택을 보존한다.');
+  assert.throws(() => normalizeDutchWorkSnapshot({ ...input(), bulkPriceConfig: { version: 1, enabled: 'yes', excludedCustomers: [] } }), { code: 'INVALID_WORK_SNAPSHOT' });
   assert.throws(() => normalizeDutchWorkSnapshot({ ...input(), prices: { huge: 1e9 + 1 } }), { code: 'INVALID_WORK_SNAPSHOT' });
   console.log('dutchVolumeWorkStore: actual filesystem, isolation, immutable saves, style/formula, blank/zero, cross-year, corruption and limits PASS');
 } finally { await fs.rm(rootDir, { recursive: true, force: true }); }

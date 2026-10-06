@@ -6,7 +6,7 @@ import { dutchUniformPricePeerKeys, snapshotDutchPriceDraft } from '../../lib/du
 const formatQty = value => Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 4 });
 const hasPrice = value => value !== undefined && value !== null && String(value) !== '';
 
-export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, priceKey, onEdit, onQuantityChange = () => {}, onPriceChange = () => {}, onPriceRestore = () => {}, onDayChange = () => {}, activeEntryId = '', disabled = false }) {
+export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, priceKey, matchCache = {}, validationCurrent = false, onEdit, onQuantityChange = () => {}, onPriceChange = () => {}, onPriceRestore = () => {}, onDayChange = () => {}, activeEntryId = '', disabled = false }) {
   const sheets = useMemo(() => [...new Set(entries.filter(entry => !entry.added && entry.sheetName && workbook?.Sheets?.[entry.sheetName]).map(entry => entry.sheetName))], [entries, workbook]);
   const [sheetName, setSheetName] = useState('');
   const scrollRef = useRef(null);
@@ -136,8 +136,8 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
   const sheetEntries = entries.filter(entry => !entry.added && entry.sheetName === sheetName);
   const layoutVersion = sheetEntries[0]?.layoutVersion || 3;
   const stickyCount = layoutVersion === 3 ? 3 : 2;
-  const widths = [148, 292, 142];
-  const widthOf = column => column < stickyCount ? widths[column] : 92;
+  const widths = [112, 204, 92];
+  const widthOf = column => column < stickyCount ? widths[column] : 68;
   const leftOf = column => widths.slice(0, column).reduce((sum, width) => sum + width, 0);
   const syncHorizontalScroll = (sourceRef, targetRef) => {
     const source = sourceRef.current;
@@ -180,6 +180,19 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
           const isEditingDay = weekdayEditable && dayEdit?.key === weekdayKey;
           const edited = entry && Number.isFinite(Number(entry.quantity)) && Number(entry.quantity) !== Number(cell?.v);
           const header = rowIndex === 2;
+          const customerColumn = header && colIndex >= stickyCount && colIndex < quantitySummaryStart;
+          const columnEntry = customerColumn ? sheetEntries.find(item => item.sourceColumn === colIndex) : null;
+          const customerUnmatchedEntry = customerColumn && validationCurrent
+            ? sheetEntries.find(item => item.sourceColumn === colIndex && matchCache[item.id]?.status === 'unmatched' && !matchCache[item.id]?.custKey)
+            : null;
+          const productUnmatchedEntry = validationCurrent && colIndex === 1 && rowIndex >= 3
+            ? sheetEntries.find(item => item.sourceRow === rowIndex && matchCache[item.id]?.status === 'unmatched' && !matchCache[item.id]?.prodKey)
+            : null;
+          const customerLines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+          if (customerColumn && customerLines.length === 1) {
+            const code = customerLines[0].match(/\s+(CL\d+)$/i);
+            if (code) { customerLines[0] = customerLines[0].slice(0, code.index).trim(); customerLines.push(code[1]); }
+          }
           const sticky = colIndex < stickyCount && (!merge || merge.e.c === merge.s.c);
           const style = { width: widthOf(colIndex), minWidth: widthOf(colIndex), maxWidth: widthOf(colIndex) };
           if (sticky) style.left = leftOf(colIndex);
@@ -205,7 +218,9 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
                   }}/>
               : quantityEditable
                 ? <button type="button" className="quantity-edit-trigger" title={entry ? '클릭해 수량 변경' : '빈 셀을 클릭해 수량 입력'} aria-label={`${quantityLabel}, ${entry ? `현재 ${formatQty(entry.quantity)}${entry.unit ? ` ${entry.unit}` : ''}` : '수량 없음'}. 클릭해 ${entry ? '변경' : '입력'}`} onClick={() => beginQuantityEdit(quantityTarget, !entry)}>{entry ? formatQty(entry.quantity) : ''}</button>
-                : <span className="source-value">{raw}</span>}
+                : customerColumn
+                  ? <div className="customer-header-label"><span>{customerLines[0] || raw}</span>{customerLines[1] && <small>{customerLines[1]}</small>}{customerUnmatchedEntry && <button type="button" className="unmatched-link" onClick={() => onEdit(customerUnmatchedEntry.id)} title="업체 매칭 수정">미매칭</button>}</div>
+                  : <><span className="source-value">{raw}</span>{productUnmatchedEntry && <button type="button" className="unmatched-link" onClick={() => onEdit(productUnmatchedEntry.id)} title="품목 매칭 수정">미매칭</button>}</>}
             {entry && <>
               {edited && <span className="draft-quantity">원본 {raw} {entry.unit || ''}</span>}
               <div className="cell-price">
@@ -221,8 +236,6 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
                   : <button type="button" className="price-edit-trigger" disabled={disabled}
                       title="클릭해 원화 입력" aria-label={`${entry.sourceCustomer || entry.customer} ${entry.sourceItem || entry.color || entry.product} 원화 입력`}
                       onClick={() => beginPriceEdit(entry)}>{hasPrice(price) ? `${formatQty(price)}원` : '원화 입력'}</button>}
-                <button type="button" className="source-link" disabled={disabled} onClick={() => onEdit(entry.id)}
-                  aria-label={`${entry.sourceFlower || entry.product} ${entry.sourceItem || entry.color} ${entry.sourceCustomer || entry.customer} ${address} 매칭 편집 열기`}>매칭</button>
               </div>
             </>}
           </td>;
@@ -231,7 +244,7 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
     </tbody></table></div>
     {entries.some(entry => entry.added) && <p className="manual-note">수동 추가행 {entries.filter(entry => entry.added).length}건은 원본 셀에 삽입하지 않았습니다. ‘단가 수정’ 탭에서 확인하세요.</p>}
     <style jsx>{`@media(max-width:760px){.sheet-scroll .sticky-cell{position:static!important;left:auto!important}.sheet-scroll .header-cell.sticky-cell{position:sticky!important;top:0}}`}</style>
-    <style jsx>{`.source-sheet{min-width:0;background:#fff;border:1px solid #bfcada}.sheet-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-bottom:1px solid #cbd5e1}.sheet-bar div{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}.sheet-bar b{font-size:13px;color:#14345b}.sheet-bar span,.manual-note{font-size:11px;color:#52647c}.sheet-bar select{height:30px;border:1px solid #aebbd0}.sheet-top-scroll{height:14px;overflow-x:auto;overflow-y:hidden;scrollbar-gutter:stable;margin:2px 0;overscroll-behavior-x:contain}.sheet-top-scroll[hidden]{display:none}.sheet-top-scroll-inner{height:1px}.sheet-scroll{overflow:auto;max-height:calc(100vh - 338px);min-height:300px;scrollbar-gutter:stable;overscroll-behavior:contain}.sheet-scroll table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%;font-size:11px}.sheet-scroll td{height:35px;box-sizing:border-box;border-right:1px solid #d4dce7;border-bottom:1px solid #d4dce7;padding:4px 6px;vertical-align:middle;background:#fff;white-space:normal;overflow:hidden;overflow-wrap:anywhere}.source-value{font-weight:600}.quantity-cell{text-align:right}.quantity-edit-trigger{display:block;width:100%;min-height:26px;border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:600;text-align:right;cursor:text}.quantity-edit-trigger:hover,.quantity-edit-trigger:focus-visible{background:#e9f2ff;outline:1px solid #83aee7}.quantity-edit-input{box-sizing:border-box;width:100%;min-width:0;height:27px;padding:2px 4px;border:1px solid #155bd7;border-radius:3px;text-align:right;font:inherit}.header-cell{position:sticky;top:0;z-index:3;background:#dce6f4!important;color:#16335e;font-weight:800}.sticky-cell{position:sticky;z-index:2;background:#f7f9fc!important;box-shadow:1px 0 #cbd5e1}.header-cell.sticky-cell{z-index:4;background:#dce6f4!important}.editable-cell{background:#f6fbff!important}.editable-cell.sticky-cell{background:#eef7ff!important}.active-cell{outline:2px solid #155bd7;outline-offset:-2px}.source-link{display:inline-block;margin-left:5px}.source-link button{border:0;background:transparent;color:#155bd7;text-decoration:underline;font-size:10px;cursor:pointer;padding:0}.draft-quantity{display:block;color:#7a4a00;font-size:10px}.price-badge{display:inline-block;margin-top:2px;padding:1px 4px;border-radius:3px;background:#e3f4ec;color:#075c37;font-size:10px;font-weight:800}.manual-note{margin:6px 9px}@media(max-width:760px){.sheet-bar div{display:block}.sheet-top-scroll{height:15px}.sheet-scroll{max-height:550px;min-height:220px}}`}</style>
+    <style jsx>{`.source-sheet{min-width:0;background:#fff;border:1px solid #bfcada}.sheet-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 7px;border-bottom:1px solid #cbd5e1}.sheet-bar div{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.sheet-bar b{font-size:12px;color:#14345b}.sheet-bar span,.manual-note{font-size:10px;color:#52647c}.sheet-bar select{height:26px;border:1px solid #aebbd0}.sheet-top-scroll{height:14px;overflow-x:auto;overflow-y:hidden;scrollbar-gutter:stable;margin:2px 0;overscroll-behavior-x:contain}.sheet-top-scroll[hidden]{display:none}.sheet-top-scroll-inner{height:1px}.sheet-scroll{overflow:auto;max-height:calc(100vh - 338px);min-height:300px;scrollbar-gutter:stable;overscroll-behavior:contain}.sheet-scroll table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%;font-size:10px}.sheet-scroll td{height:30px;box-sizing:border-box;border-right:1px solid #d4dce7;border-bottom:1px solid #d4dce7;padding:2px 3px;vertical-align:middle;background:#fff;white-space:normal;overflow:hidden;overflow-wrap:anywhere}.source-value{font-weight:600}.customer-header-label{display:flex;min-height:26px;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;overflow-wrap:anywhere}.customer-header-label>span{max-width:100%;font-weight:800}.customer-header-label small{font-size:9px;font-weight:700;color:#435a79}.quantity-cell{text-align:right}.quantity-edit-trigger{display:block;width:100%;min-height:24px;border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:600;text-align:right;cursor:text}.quantity-edit-trigger:hover,.quantity-edit-trigger:focus-visible{background:#e9f2ff;outline:1px solid #83aee7}.quantity-edit-input{box-sizing:border-box;width:100%;min-width:0;height:25px;padding:1px 2px;border:1px solid #155bd7;border-radius:2px;text-align:right;font:inherit}.header-cell{position:sticky;top:0;z-index:3;background:#dce6f4!important;color:#16335e;font-weight:800}.sticky-cell{position:sticky;z-index:2;background:#f7f9fc!important;box-shadow:1px 0 #cbd5e1}.header-cell.sticky-cell{z-index:4;background:#dce6f4!important}.editable-cell{background:#f6fbff!important}.editable-cell.sticky-cell{background:#eef7ff!important}.active-cell{outline:2px solid #155bd7;outline-offset:-2px}.unmatched-link{display:inline-block;margin-left:3px;border:0;padding:0 2px;background:#fff0ee;color:#bb2920;font-size:9px;font-weight:800;line-height:1.2;cursor:pointer}.draft-quantity{display:block;color:#7a4a00;font-size:9px}.manual-note{margin:5px 7px}@media(max-width:760px){.sheet-bar div{display:block}.sheet-top-scroll{height:15px}.sheet-scroll{max-height:550px;min-height:220px}}`}</style>
     <style jsx>{`.quantity-cell{padding:0!important;text-align:center}.quantity-edit-trigger{min-height:26px;text-align:center}.quantity-edit-input,.price-edit-input{height:27px;padding:0;text-align:center}.weekday-edit-trigger{display:block;width:100%;min-height:20px;border:0;padding:0 3px;background:transparent;color:inherit;font:inherit;text-align:center;cursor:text}.weekday-edit-trigger:hover,.weekday-edit-trigger:focus-visible{background:#e9f2ff;outline:1px solid #83aee7}.day-edit-input{box-sizing:border-box;width:100%;min-width:0;height:22px;padding:0 2px;border:1px solid #155bd7;text-align:center;font:inherit}.header-cell{text-align:center}.cell-price{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0}.price-edit-trigger,.source-link{border:0;background:transparent;color:#155bd7;text-decoration:underline;font-size:10px;cursor:pointer;padding:0;white-space:nowrap}.price-edit-trigger{font-weight:800;color:#075c37}.price-edit-trigger:disabled,.source-link:disabled{cursor:default;opacity:.65}.draft-quantity{text-align:center}`}</style>
   </section>;
 }
