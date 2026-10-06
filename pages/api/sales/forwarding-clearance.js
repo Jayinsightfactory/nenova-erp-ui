@@ -2,14 +2,14 @@
 // 2026-07-10: S는 이제 입고관리(WarehouseDetail '운송료'/'SERVICE FEE' 라인)에서 자동감지가 1순위 —
 // 여기 저장하는 값은 자동감지가 놓쳤을 때(새 농장명 등)만 쓰는 override.
 import { withAuth } from '../../../lib/auth';
+import { applyProfitReportColombiaRates } from '../../../lib/profitReportCustomsPolicy';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
-  FORWARDING_DIRECT_CATEGORIES, COLOMBIA_ALLOC_CATEGORIES,
+  FORWARDING_DIRECT_CATEGORIES, COLOMBIA_POOLED_HYDRANGEA,
   getRateConfig, loadForwardingWeekly, saveForwardingWeekly,
   loadColombiaWeekly, saveColombiaWeekly,
   weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw,
-  computeColombiaAllocation, autoForwardingByCountry,
-  mergeColombiaGw, mergeColombiaTruck,
+  resolveColombiaCustomsAllocation, autoForwardingByCountry,
 } from '../../../lib/customsForwarding';
 
 function parseMajor(raw) {
@@ -54,16 +54,20 @@ export default withAuth(async function handler(req, res) {
         const autoAirTotal = autoFwd.colombiaRest[c.orderWeek] || 0;
         const effectiveAirTotal = c.row?.AirRateUSD != null ? Number(c.row.AirRateUSD) : autoAirTotal;
         const gwDef = autoGw.colombia?.[c.orderWeek];
-        const effectiveRow = mergeColombiaTruck(mergeColombiaGw(c.row, gwDef), gwDef);
-        const alloc = computeColombiaAllocation({ ...effectiveRow, AirRateUSD: effectiveAirTotal }, c.boxQty, rates);
+        const hydBoxes = Number(gwDef?.hydrangeaBoxes) || 0;
+        const boxQty = hydBoxes > 0 ? { ...c.boxQty, [COLOMBIA_POOLED_HYDRANGEA]: hydBoxes } : c.boxQty;
+        const resolved = resolveColombiaCustomsAllocation({
+          orderWeek: c.orderWeek, orderYear, major, colRow: c.row, boxQty, gwDef,
+          airTotal: effectiveAirTotal, rates: applyProfitReportColombiaRates(rates),
+        });
         return {
           orderWeek: c.orderWeek,
           autoAirTotal: Math.round(autoAirTotal * 100) / 100, // 입고관리 자동감지 총액(1순위)
           savedAirRateUSD: c.row?.AirRateUSD ?? null,          // 수기 override
           carryAirRateUSD: (c.row?.AirRateUSD == null && prevColombia[i]?.AirRateUSD != null) ? prevColombia[i].AirRateUSD : null,
-          gw: effectiveRow.GW ?? null, cw: effectiveRow.CW ?? null, // 입고 GW/CW 자동값 또는 수기값 참고 표시(읽기전용)
-          boxQty: c.boxQty,
-          allocationS: Object.fromEntries(COLOMBIA_ALLOC_CATEGORIES.map((cat) => [cat, Math.round(alloc[cat].S * 100) / 100])),
+          gw: resolved.row?.GW ?? null, cw: resolved.row?.CW ?? null, // 실제 보고서와 동일한 유효행
+          boxQty: resolved.boxQty,
+          allocationS: Object.fromEntries(Object.entries(resolved.allocation).map(([cat, value]) => [cat, Math.round(value.S * 100) / 100])),
         };
       });
 

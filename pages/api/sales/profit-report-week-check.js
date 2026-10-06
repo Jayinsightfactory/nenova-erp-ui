@@ -9,7 +9,7 @@ import { parseMajor, loadWeeklyReportPayload } from './profit-report';
 export async function loadWeekCheck(major, orderYear) {
   const [sources, customs, report] = await Promise.all([
     loadWeekCheckSources(major, orderYear),
-    computeCustomsAndForwarding(major, orderYear),
+    computeCustomsAndForwarding(major, orderYear, { profile: 'profit-report' }),
     // 보고서 경고(PR #815 상세)·환율 원천 — 계산 결과 스냅샷이 있으면 그 값(빠름), 읽기 전용
     loadWeeklyReportPayload(major, orderYear, { preferLive: false }),
   ]);

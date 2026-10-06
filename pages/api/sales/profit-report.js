@@ -153,7 +153,7 @@ export async function loadReportData(major, orderYear) {
         invoiceRatesByCategory(major, orderYear),        // R 우선 원천: 입고별 과세환율 스냅샷(FreightCost.ExchangeRate)
         loadManual(major, orderYear),
         loadManual(prevMajor, prevOrderYear), // 당차수 exact 제안 및 무매입 제한 이월 원천 판정에 사용
-        computeCustomsAndForwarding(major, orderYear),      // 그외통관비(H)+포워딩(S) — 그외통관비/포워딩/콜롬비아1·2차 시트 재현
+        computeCustomsAndForwarding(major, orderYear, { profile: 'profit-report' }),      // 그외통관비(H)+포워딩(S) — 보고서 전용 콜롬비아 배분
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
         loadTaxableRates(orderYear, major),                 // R 원천: 이 주차에 저장/캐시된 과세환율(웹 전용, SELECT only)
         kcsRatesByCategory(major, orderYear),                // R 4순위(2026 28차 이후 및 그 다음 연도): KCS InputDate·TPrice 가중평균
@@ -167,7 +167,7 @@ export async function loadReportData(major, orderYear) {
         purchaseQtyByCategory(prevMajor, prevOrderYear),
         forwardingByCategory(prevMajor, prevOrderYear),
         invoiceRatesByCategory(prevMajor, prevOrderYear),
-        computeCustomsAndForwarding(prevMajor, prevOrderYear),
+        computeCustomsAndForwarding(prevMajor, prevOrderYear, { profile: 'profit-report' }),
         loadTaxableRates(prevOrderYear, prevMajor),
         kcsRatesByCategory(prevMajor, prevOrderYear),
       ]);
@@ -330,7 +330,7 @@ export async function loadReportData(major, orderYear) {
           stockSnapshotByCategory(ppMajor, ppYear),
           purchaseByCategory(ppMajor, ppYear),
           purchaseQtyByCategory(ppMajor, ppYear),
-          computeCustomsAndForwarding(ppMajor, ppYear),
+          computeCustomsAndForwarding(ppMajor, ppYear, { profile: 'profit-report' }),
           forwardingByCategory(ppMajor, ppYear),
           loadManual(ppMajor, ppYear),
           invoiceRatesByCategory(ppMajor, ppYear),
@@ -578,8 +578,8 @@ export async function loadReportData(major, orderYear) {
             Q: Number(Q[key] || 0),
             S: autoS,
             H: autoH,                                    // 그외통관비 자동값(그외통관비/포워딩 입력 화면 연동)
-            E: autoE != null ? Math.round(autoE) : null, // 전차수 기말재고 자동계산
-            F: autoF != null ? Math.round(autoF) : null, // 이번 차수 기말재고 자동계산
+            E: autoE != null ? autoE : null, // 전차수 기말재고 소수 금액을 계산까지 보존
+            F: autoF != null ? autoF : null, // 이번 차수 기말재고 소수 금액을 계산까지 보존
             R: autoR,                                    // 당주 exact 원천 → 무매입일 때만 최근 exact R 이월
           },
           // exact resolver 참고 제안. 무매입 제한 이월은 rateCarry로 별도 표시한다.

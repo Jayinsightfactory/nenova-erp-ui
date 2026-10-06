@@ -1,9 +1,10 @@
 // 그외통관비 입력 API — 국가별(백상창고료/관세/선율/월드운송료/한국방역) + 콜롬비아 4품목 무게배분 공유입력.
 // H(그외통관비) 자동값의 소스. 단가표(백상/트럭/검역대행/콜롬비아 박스무게)는 관리자 수정 가능.
 import { withAuth } from '../../../lib/auth';
+import { applyProfitReportColombiaRates } from '../../../lib/profitReportCustomsPolicy';
 import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
 import {
-  COUNTRY_CATEGORIES, COLOMBIA_ALLOC_CATEGORIES,
+  COUNTRY_CATEGORIES, COLOMBIA_POOLED_HYDRANGEA,
   getRateConfig, saveRateConfig,
   loadCustomsWeekly, saveCustomsWeekly, saveCustomsWeeklyBatch,
   loadColombiaWeekly, saveColombiaWeekly,
@@ -72,8 +73,11 @@ export default withAuth(async function handler(req, res) {
 
       const colombiaOut = colombia.map((c, i) => {
         const gwDef = autoGw.colombia?.[c.orderWeek];
+        const hydBoxes = Number(gwDef?.hydrangeaBoxes) || 0;
+        const boxQty = hydBoxes > 0 ? { ...c.boxQty, [COLOMBIA_POOLED_HYDRANGEA]: hydBoxes } : c.boxQty;
         const resolved = resolveColombiaCustomsAllocation({
-          orderWeek: c.orderWeek, orderYear, major, colRow: c.row, boxQty: c.boxQty, gwDef, airTotal: 0, rates,
+          orderWeek: c.orderWeek, orderYear, major, colRow: c.row, boxQty, gwDef, airTotal: 0,
+          rates: applyProfitReportColombiaRates(rates),
         });
         const historical = resolved.source === HISTORICAL_CUSTOMS_SOURCE ? resolved.row : null;
         return {
@@ -89,7 +93,7 @@ export default withAuth(async function handler(req, res) {
           truckActual: resolved.truckActual,         // 실제 차량 대수(저장값/원본) — 합계에 반영된 값
           truckAuto: resolved.truckAuto,             // 합산 GW 용량분해 추천값(참고 표시 전용)
           truckSource: resolved.truckSource,
-          allocationH: Object.fromEntries(COLOMBIA_ALLOC_CATEGORIES.map((cat) => [cat, Math.round(resolved.allocation[cat].H)])),
+          allocationH: Object.fromEntries(Object.entries(resolved.allocation).map(([cat, value]) => [cat, Math.round(value.H)])),
         };
       });
 
