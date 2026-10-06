@@ -1368,6 +1368,7 @@ export default function SalesDefectDeductionsPage() {
       subtitle: capture.subtitle,
       mode: capture.mode,
       rows: capture.rows,
+      previousScopeLabel: capture.previousScopeLabel,
     });
   };
 
@@ -2222,6 +2223,7 @@ export default function SalesDefectDeductionsPage() {
               <div className="support-estimate-preview-empty" role="status">
                 <strong>{estimatePreview.mode === 'manual' ? '수기 처리완료' : '아직 등록되지 않았습니다.'}</strong>
                 <p>{estimatePreview.mode === 'manual' ? '수기 처리된 항목으로 견적서 원장이 생성되지 않았습니다.' : '이 불량차감 항목은 현재 차수 견적서에 아직 등록되지 않았습니다.'}</p>
+                {estimatePreview.previousScopeLabel && <p>{estimatePreview.previousScopeLabel}</p>}
               </div>
             )}
           </section>

@@ -668,10 +668,11 @@ assert.match(supportStatusDetail({ status: 'MANUAL_COMPLETED', processingStatus:
 
 const capturePage = buildSupportEstimateCapture({
   customerName: '청화원예',
+  custKey: 77,
   prodKey: 12,
   estimateKey: 9001,
   existingEstimateRecords: [
-    { estimateKey: 9001, prodKey: 12, estimateTypeLabel: '불량차감', productName: 'CARNATION Kaori', unit: '단', quantity: -4, cost: 1200, amount: -4364 },
+    { estimateKey: 9001, custKey: 77, orderYear: 2026, orderWeek: '33-01', prodKey: 12, estimateTypeLabel: '불량차감', productName: 'CARNATION Kaori', unit: '단', quantity: -4, cost: 1200, amount: -4364 },
     { estimateKey: 9002, prodKey: 99, estimateTypeLabel: '불량차감', productName: 'ROSE Freedom', unit: '단', quantity: -2, cost: 800, amount: -1455 },
     { estimateKey: 9003, prodKey: 100, estimateTypeLabel: '판매요청', productName: 'ROSE Request', unit: '단', quantity: 2, cost: 800, amount: 1455 },
   ],
@@ -682,6 +683,30 @@ assert.equal(capturePage.rows[0].current, true, '현재 행의 견적키가 캡�
 assert.equal(capturePage.rows.some((row) => row.typeLabel === '판매요청'), false, '미리보기는 불량차감된 항목만 보여야 한다.');
 assert.equal(buildSupportEstimateCapture({ status: 'MANUAL_COMPLETED', customerName: '청화원예' }, { year: 2026, week: 33 }).mode, 'manual');
 assert.equal(buildSupportEstimateCapture({ customerName: '청화원예', existingEstimateRecords: [] }, { year: 2026, week: 33 }).mode, 'empty');
+for (const sample of [
+  { deductionKey: 498, custKey: 315, customerName: '동산(꽃동산)', estimateKey: 9534, remainingQuantity: 4 },
+  { deductionKey: 501, custKey: 312, customerName: '꽃길', estimateKey: 9537, remainingQuantity: 15 },
+]) {
+  const carryover = { ...sample, status: 'CARRYOVER', appliedOrderYear: 2026, appliedOrderWeek: '38', existingEstimateRecords: [] };
+  const capture = buildSupportEstimateCapture(carryover, { year: 2026, week: 40 });
+  assert.equal(capture.mode, 'empty', '38차 견적키만으로 40차 견적을 만들어 표시하지 않는다.');
+  assert.deepEqual(capture.rows, []);
+  assert.match(capture.subtitle, /2026년 40차/);
+  assert.match(capture.previousScopeLabel, /2026년 38차/);
+  assert.equal(carryover.remainingQuantity, sample.remainingQuantity, '미리보기는 이월 잔여수량을 변경하지 않는다.');
+}
+const liveRecord = { estimateKey: 9001, custKey: 77, orderYear: 2026, orderWeek: '33-01', quantity: -4, cost: 1200, amount: -4364 };
+for (const badRecord of [
+  { ...liveRecord, orderYear: 2025 },
+  { ...liveRecord, orderWeek: '32-01' },
+  { ...liveRecord, custKey: 78 },
+  { ...liveRecord, quantity: 4 },
+]) {
+  assert.equal(buildSupportEstimateCapture({ custKey: 77, estimateKey: 9001, existingEstimateRecords: [badRecord] }, { year: 2026, week: 33 }).mode, 'empty', '실제 연도·차수·업체와 차감 부호가 모두 일치해야 한다.');
+}
+assert.equal(buildSupportEstimateCapture({ custKey: 77, estimateKey: 9001, status: 'COMPLETED', existingEstimateRecords: [] }, { year: 2026, week: 33 }).mode, 'empty', '삭제되거나 조회되지 않는 견적은 완료 상태만으로 복원 표시하지 않는다.');
+assert.equal(capturePage.rows[0].quantity, -4);
+assert.equal(capturePage.rows[0].amount, -4364);
 
 const customerEstimateUrl = new URL(buildEstimateCustomerUrl({
   year: 2026, week: 33, custKey: 77, customerName: '청화원예',
