@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
+import { parseChinaInvoiceWorkbook, CHINA_INVOICE_MAX_BYTES } from '../../lib/importChinaInvoice.js';
 import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePackingRecord,
   PACKING_STORAGE_KEYS, isPackingDownloadBlocked, previewPackingCatalog,
   distinctPackingVarieties, packingUnmatchedCounts, PACKING_PDF_MAX_BYTES,
@@ -1043,7 +1044,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
 
   const countries = [
     { code: 'NL', flag: '🇳🇱', name: 'Netherlands', desc: 'Holex · EZ Flower' },
-    { code: 'CN', flag: '🇨🇳', name: 'China', desc: 'Melody · Cloudland' },
+    { code: 'CN', flag: '🇨🇳', name: 'China', desc: 'Hubfresh · Melody · Cloudland' },
     { code: 'CO', flag: '🇨🇴', name: 'Colombia', desc: 'Multi-farm invoices' },
     { code: 'EC', flag: '🇪🇨', name: 'Ecuador', desc: 'La Rosaleda' },
     { code: 'TH', flag: '🇹🇭', name: 'Thailand', desc: 'Krung · Super Fresh' },
@@ -1071,12 +1072,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     if (!f || processingRef.current || savingRef.current) return;
     const version = ++readerVersion.current;
     setPdfBase64(null); resetResults(); setStatus(null); setFile(null);
-    if (f.size > PACKING_PDF_MAX_BYTES) {
-      setStatus({ type: 'error', msg: t.pdfLimit });
+    const isChinaExcel = country === 'CN' && /\.xlsx$/i.test(f.name);
+    if (f.size > (isChinaExcel ? CHINA_INVOICE_MAX_BYTES : PACKING_PDF_MAX_BYTES)) {
+      setStatus({ type: 'error', msg: isChinaExcel ? '중국 인보이스 Excel은 최대 50MiB까지 지원합니다.' : t.pdfLimit });
       return;
     }
-    if (!/\.pdf$/i.test(f.name) || (f.type && f.type !== 'application/pdf')) {
-      setStatus({ type: 'error', msg: t.pdfOnly });
+    if (!isChinaExcel && (!/\.pdf$/i.test(f.name) || (f.type && f.type !== 'application/pdf'))) {
+      setStatus({ type: 'error', msg: country === 'CN' ? '중국 인보이스는 PDF 또는 XLSX 파일을 선택하세요.' : t.pdfOnly });
       return;
     }
     setFile(f);
@@ -1085,7 +1087,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
       if (readerVersion.current === version) setPdfBase64(String(reader.result).split(',')[1]);
     };
     reader.onerror = () => {
-      if (readerVersion.current === version) setStatus({ type: 'error', msg: t.pdfReadError });
+      if (readerVersion.current === version) setStatus({ type: 'error', msg: isChinaExcel ? '중국 인보이스 Excel 파일을 읽지 못했습니다.' : t.pdfReadError });
     };
     reader.readAsDataURL(f);
   };
@@ -1192,7 +1194,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     ]);
     setStatus({ type: 'info', msg: t.processing });
     try {
-      const extraction=await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true});
+      const extraction=country === 'CN' && /\.xlsx$/i.test(file.name)
+        ? { source: 'local', data: parseChinaInvoiceWorkbook(xlsxLib, pdfBase64) }
+        : await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true});
       if (!isCurrent()) return;
       if(extraction.needsAI){
         setNeedsAI(true);setSteps([]);
@@ -1436,16 +1440,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                 <div style={{ fontSize: 13, color: '#526580' }}>{cfg[2]}</div>
               </div>
             </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.uploadLabel}</div>
-            <div role="button" tabIndex={0} aria-label={t.uploadLabel} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click(); } }} onClick={() => fileRef.current?.click()}
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{country === 'CN' ? '중국 인보이스 업로드 (Excel · PDF)' : t.uploadLabel}</div>
+            <div role="button" tabIndex={0} aria-label={country === 'CN' ? '중국 인보이스 업로드 (Excel · PDF)' : t.uploadLabel} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click(); } }} onClick={() => fileRef.current?.click()}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={onDrop}
               style={{ border: '1.5px dashed #ccc', borderRadius: 10, padding: '20px 16px', textAlign: 'center', cursor: 'pointer', background: dragOver ? '#edf2f8' : '#f8fafc', borderColor: dragOver ? '#526580' : '#ccc' }}>
-              <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={(e) => { handleFile(e.target.files[0]); e.target.value = ''; }} />
+              <input ref={fileRef} type="file" accept={country === 'CN' ? '.pdf,.xlsx' : '.pdf'} style={{ display: 'none' }} onChange={(e) => { handleFile(e.target.files[0]); e.target.value = ''; }} />
               <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
               <div style={{ fontSize: 14, color: '#526580' }}><strong style={{ color: '#172b4d' }}>{t.uploadClick}</strong> {t.uploadDrag}</div>
-              <div style={{ fontSize: 13, marginTop: 4, color: '#526580' }}>PDF · 20MiB · {t.uploadHint} <code style={{ background: '#edf2f8', padding: '1px 5px', borderRadius: 3 }}>16-2 Hortensias.pdf</code>)</div>
+              <div style={{ fontSize: 13, marginTop: 4, color: '#526580' }}>{country === 'CN' ? 'PDF 20MiB / Excel 50MiB · 예: 41-1 중국 해상 ci1.xlsx' : <>PDF · 20MiB · {t.uploadHint} <code style={{ background: '#edf2f8', padding: '1px 5px', borderRadius: 3 }}>16-2 Hortensias.pdf</code>)</>}</div>
             </div>
             {file && (
               <div style={{ marginTop: 10, background: '#f4f7fb', border: '1px solid #dce4ef', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1456,7 +1460,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                 <button onClick={() => { ++readerVersion.current; resetResults(); setFile(null); setPdfBase64(null); }} style={{ padding: '5px 12px', fontSize: 13, borderRadius: 8, border: '1px solid #ccd6e5', background: '#fff', cursor: 'pointer' }}>{t.uploadRemove}</button>
               </div>
             )}
-            <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{t.pdfNotice}</p>
+            <p className={styles.notice} role="note" style={{ fontSize: 13, color: '#526580', marginTop: 12 }}>{country === 'CN' ? 'Excel은 무료 로컬 분석으로 처리합니다. Total of Flower Material은 단수, Stems는 송이수, Unit Price는 단당 단가로 읽습니다. 장미 길이가 불명확하거나 품목이 미매칭이면 확인 후 다운로드하세요. 주문·분배·재고에는 반영하지 않습니다.' : t.pdfNotice}</p>
             <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
@@ -1465,6 +1469,16 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
             </div>
             <div className={styles.modeBadge}>{t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
+            {lastExtraction?.result?.invoices?.[0]?.source_format === 'china_invoice_xlsx' && (() => {
+              const inv = lastExtraction.result.invoices[0];
+              return <section aria-label="중국 원본 합계 검산" className={styles.sourceBadge}>
+                <strong>원본 합계 검산 · {inv.invoice} · {inv.date}</strong>
+                <div style={{display:'flex',flexWrap:'wrap',gap:'8px 24px',marginTop:6}}>
+                  {[['박스', inv.total_boxes], ['단수', inv.total_bunches], ['송이수', inv.total_stems], ['품목금액 CNY', inv.item_subtotal], ['부대비용 CNY', inv.freight], ['전체금액 CNY', inv.total_value]].map(([label, value]) => <span key={label}>{label} <strong>{Number(value).toLocaleString('ko-KR',{maximumFractionDigits:2})}</strong></span>)}
+                </div>
+                <small>부대비용은 꽃 수량에서 제외합니다. 0원 품목도 포함하며, 미매칭 품목은 아래에서 확인·저장한 뒤 다운로드합니다.</small>
+              </section>;
+            })()}
             {status && (
               <div role={status.type === 'error' ? 'alert' : 'status'} aria-live="polite" style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: 13, background: statusBg, color: statusColor, border: `1px solid ${statusBorder}` }}>
                 {processing && <span style={{ display: 'inline-block', width: 13, height: 13, border: '2px solid #ccd6e5', borderTopColor: '#172b4d', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: 6, verticalAlign: 'middle' }}></span>}
@@ -1534,7 +1548,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                           {blocked ? t.downloadBlocked : t.download}
                         </button>
                       </div>
-                      <div style={{ fontSize: 13, color: '#526580', marginBottom: 6, overflowWrap: 'anywhere' }}>{ex.name} · {t.products(ex.products.length)} · {tot.toLocaleString()} {t.stems}{unmatched.rows > 0 && ` · ${t.catalogRows(unmatched.rows)}`}</div>
+                      <div style={{ fontSize: 13, color: '#526580', marginBottom: 6, overflowWrap: 'anywhere' }}>{ex.name} · {t.products(ex.products.length)} · {tot.toLocaleString()} {country === 'CN' ? '단' : t.stems}{unmatched.rows > 0 && ` · ${t.catalogRows(unmatched.rows)}`}</div>
                       <div style={{ fontSize: 13, color: '#526580' }}>
                         {ex.products.slice(0, 5).map((p, i) => (
                           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: i < Math.min(4, ex.products.length - 1) ? '1px solid #edf2f8' : 'none' }}>

@@ -12,6 +12,7 @@ const tabs=[['packing','패킹리스트','송장 · 항공운송장 변환'],['o
 const recordLabels={'packing.catalog':'품목 카탈로그','packing.aliases':'품목 매칭표','checklist.pending':'미결 업무','checklist.flights':'항공 일정','checklist.planting':'재배 계획'};
 function recordLabel(key){
  if(recordLabels[key])return recordLabels[key];
+ if(key.startsWith('checklist.templates.'))return '요일별 업무 설정 · '+({lunes:'월요일',martes:'화요일',miercoles:'수요일',jueves:'목요일',viernes:'금요일',sabado:'토요일',domingo:'일요일'})[key.slice('checklist.templates.'.length)];
  for(const [prefix,label] of [['checklist.day.','일일 업무'],['checklist.month.','월별 결제'],['checklist.vacations.','휴가 관리']])if(key.startsWith(prefix))return `${label} · ${key.slice(prefix.length)}`;
  return key;
 }

@@ -8,6 +8,7 @@ const modulesReady = Promise.all([
   import('../lib/importPackingState.js'), import('../lib/importPacking.js'),
   import('../lib/importPackingResponse.js'),
   import('../lib/importAwbFields.js'),
+  import('../lib/importChinaInvoice.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -38,7 +39,7 @@ function deferred() {
 
 // Actual component handlers with controlled local hooks. No network, DB or browser.
 async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
-  const [state, packing, response, awbFields] = await modulesReady;
+  const [state, packing, response, awbFields, chinaInvoice] = await modulesReady;
   const slots = [], effects = [], readers = [], writes = [], requests = [], extractionCalls = [];
   let cursor = 0, currentCatalog = catalog, failure = null;
   const react = {
@@ -75,7 +76,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   } };
   const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packing,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
-    '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock };
+    '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
+    '../../lib/importChinaInvoice.js': chinaInvoice };
   const module = { exports: {} };
   new Function('require', 'module', 'exports', 'fetch', 'FileReader', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(
     key => modules[key], module, module.exports, fetchStub, Reader);
@@ -130,6 +132,26 @@ test('Korean is the default and country keys, optional languages and catalog con
   assert.ok(text(h.tree).includes('Generador de Packing List'));
   assert.equal(h.writes.length, 0);
   assert.equal(h.requests.length, 0);
+});
+
+test('China accepts a 33MiB XLSX locally and rejects oversize files without AI requests', async () => {
+  const h = await harness({ lang: 'ko' });
+  h.nodes('button').find(n => n.props['aria-label'] === '중국').props.onClick();
+  h.render();
+  const upload = file => {
+    h.nodes('input').find(n => n.props.accept === '.pdf,.xlsx').props.onChange({ target: { files: [file], value: '' } });
+    h.render();
+  };
+  upload({name:'41-1 중국 해상 ci1.xlsx',size:34304924,type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  assert.equal(h.readers.length, 1);
+  await h.readers[0].complete('fixture'); h.render();
+  assert.ok(text(h.tree).includes('41-1 중국 해상 ci1.xlsx'));
+  upload({name:'41-1 too-large.xlsx',size:50*1024*1024+1});
+  assert.ok(text(h.tree).includes('최대 50MiB'));
+  assert.equal(h.readers.length, 1);
+  assert.equal(h.extractionCalls.length, 0);
+  assert.equal(h.requests.length, 0);
+  assert.equal(h.button('패킹 리스트 생성').props.disabled, true);
 });
 
 test('Korean matching candidates and manual catalog search preserve original product names', async () => {

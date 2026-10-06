@@ -12,6 +12,7 @@
     "lib/importTeamPdfCache.js",
     "lib/importPackingExtractClient.js",
     "lib/importInvoiceLocal.js",
+    "lib/importChinaInvoice.js",
     "lib/importAwbFields.js",
     "lib/importTeamChecklist.js",
     "lib/importTeamKorean.js",
@@ -73,7 +74,9 @@
     "__tests__/importInvoiceLocal.test.js",
     "__tests__/importPackingHardening.test.js",
     "__tests__/importTeamKorean.test.js",
-    "__tests__/importToolsDisplay.test.js"
+    "__tests__/importToolsDisplay.test.js",
+    "__tests__/importChinaInvoice.test.js",
+    "__tests__/importChecklistEditing.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

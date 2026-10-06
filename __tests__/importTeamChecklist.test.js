@@ -247,6 +247,7 @@ test('daily UI preserves checked draft on failure/reload, blocks stale overwrite
   assert.equal(h.calls.length, 2, 'immediate lock prevents a second request');
   finish();
   await saving;
+  assert.equal(h.record.value['General::0'], true, 'concurrent unrelated check survives the reviewed draft');
   assert.match(h.html(), /공동 저장 완료/);
   assert.doesNotMatch(h.html(), /미저장 초안/);
 });
@@ -385,7 +386,7 @@ test('native component has no HTML injection/storage/ERP writes and retains keye
   assert.doesNotMatch(uiSource, /width:\s*1920px|height:\s*1080px/);
   const h = harness('default', {}, []);
   const before = h.render();
-  const dailyOrder = nodes(before).filter(node => typeof node.type === 'function' && ['ChecksPanel', 'NotesPanel'].includes(node.type.name));
+  const dailyOrder = nodes(before).filter(node => typeof node.type === 'function' && ['WeekdayChecklist', 'ChecksPanel', 'NotesPanel'].includes(node.type.name));
   assert.ok(dailyOrder[0].props.date, 'primary daily checks are placed before the pending panel');
   assert.equal(dailyOrder[1].type.name, 'NotesPanel');
   assert.ok(dailyOrder[2].props.month, 'monthly checks remain after the pending panel');
@@ -393,7 +394,7 @@ test('native component has no HTML injection/storage/ERP writes and retains keye
   const originalDate = dateInput.props.value;
   dateInput.props.onChange({ target: { value: '2025-10-06' } });
   const after = h.render();
-  const dayPanels = nodes(after).filter(node => typeof node.type === 'function' && node.type.name === 'ChecksPanel' && node.props.date);
-  assert.deepEqual(dayPanels.map(node => node.props.date), [originalDate, '2025-10-06']);
+  const dayPanels = nodes(after).filter(node => typeof node.type === 'function' && node.type.name === 'WeekdayChecklist');
+  assert.deepEqual(dayPanels.flatMap(node => node.props.dates).sort(), [originalDate, '2025-10-06'].sort());
   assert.equal(find(after, node => node.type === 'input' && node.props.type === 'date').props.value, '2025-10-06');
 });
