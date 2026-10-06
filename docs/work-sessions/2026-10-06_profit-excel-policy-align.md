@@ -26,3 +26,10 @@
 - 수정 후 동일 ERP 입력으로 Excel 본표 498개 수식 전부 일치. 평균원가 산식 17개 최대 오차 0.000000000931원(부동소수점).
 - 새 계수 적용으로 카테고리별 자동 H/S 및 이월 재고평가 금액은 바뀔 수 있다. 이는 재고수량 변경이 아니다. 수기 입력이 있는 칸은 기존 값이 우선한다.
 - 최초 전체 검사에서 기존 2인자 호출을 강제하던 source-contract 테스트 실패. 새 report profile 계약을 명시하도록 테스트를 갱신했고 재검증 중이다.
+
+## 최종 로컬 검증
+- 최신 master(e15a0032) 통합 후 npm ci로 새 의존성을 맞췄다. 최초 통합 빌드의 pdfjs-dist 누락은 의존성 동기화 후 해소됐다.
+- `npm run test:erp-contract`, `npm run test:nenova-dnspy-evidence`, `npm run test:erp-manifest -- --changed-from origin/master`, `npm run guard:erp-writes -- --changed-from origin/master`, `npm run build` 모두 통과. profit-report-22-28과 신규 정책 검사는 ERP 계약 검사에 포함된다.
+- 최종 독립 검토: 차단 결함 없음. 공용 계수/수기값/확정본 보존 확인.
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/922
+- 운영 배포 및 브라우저 스모크는 PR 병합 후 확인한다. 기준 viewport 1920×1080, 확대 100% 확인.
