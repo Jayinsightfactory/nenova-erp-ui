@@ -48,7 +48,9 @@
     "__tests__/salesDefectDeductions.test.js",
     "__tests__/salesDefectDeductionState.test.js",
     "lib/defectDuplicateCleanup.js",
-    "scripts/cleanup-reviewed-defect-drafts.mjs"
+    "scripts/cleanup-reviewed-defect-drafts.mjs",
+    "lib/defectLedgerManagement.js",
+    "scripts/defect-management-smoke.cjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -214,6 +216,16 @@
       "stockMaster": "preserve",
       "estimate": "preserve",
       "sideEffect": "영업지원에서 체크한 WebSalesDefectDeduction을 Status=MANUAL_COMPLETED, RemainingQuantity=0으로 표시하고 History ActionType=MANUAL_COMPLETE만 남긴다. Estimate INSERT/UPDATE를 하지 않으며 OrderDetail, ShipmentDetail, ShipmentDate, ShipmentMaster, Product.Stock, WebProfitReport는 변경하지 않는다. 이미 EstimateKey가 있는 등록행은 거부한다."
+    },
+    {
+      "name": "manage-edit",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "manage-archive",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -297,7 +309,8 @@
     "excelPrintPagination": "수입부 엑셀은 현재 전산 거래처명 뒤에 담당자명을 괄호로 표시하고 다음 거래처 셀에 영업 입력 원본 업체명을 표시한다. 다운로드 파일은 전체품목 워크시트 1개와 담당자별 워크시트를 생성하며, 담당자 시트에는 해당 담당자 행만 포함한다. 각 워크시트는 하나의 시트에서 연속 조회한다. A4 세로 39개 데이터행을 넘으면 업체 묶음을 분리하지 않는 수동 인쇄 페이지 나누기를 넣고, 같은 시트 안의 각 인쇄 페이지에 제목·결재란·로고·헤더와 페이지 번호를 반복한다.",
     "estimateManagementEntry": "견적서관리에서 기존 불량/검역등록(EstimateType 선택)과 신규 불량차감등록·판매요청·추가 품목등록 진입점을 서로 분리해 유지한다. 기존 불량/검역과 신규 불량차감은 - 체크 필수로 음수 Estimate만 저장하고 판매요청은 양수 Estimate를 저장한다. 품목은 Product DB에서 검색·선택하고 단위는 단/박스/스팀(대) 중 선택하되 Estimate.Unit에는 Product.EstUnit를 우선한다. 품목 선택 즉시 EXE 판매행과 이전 차수 분배단가를 재조회하며, 추가 품목등록의 분배 상태/API가 차감 모달 상태를 덮어쓰지 않는다.",
     "estimateEntryEdit": "Estimate 행 편집은 OrderDetail/ShipmentDetail/ShipmentDate/재고를 건드리지 않고 기존 EstimateKey 한 행만 갱신하며, 저장 전 수량·단가 스냅샷을 검증하고 저장 후 다시 조회한다.",
-    "reviewedDuplicateCleanup": "2026/40 검토된 초안 8쌍만 전체 스냅샷 SHA·버전·등록/농장/이월 상태를 재검증한 SERIALIZABLE 트랜잭션에서 soft-delete하고 DUPLICATE_CLEANUP 감사 이력을 보존한다. 정상 원장·Estimate·Application은 전후 해시를 대조하고 주문·출고·재고는 변경하지 않는다."
+    "reviewedDuplicateCleanup": "2026/40 검토된 초안 8쌍만 전체 스냅샷 SHA·버전·등록/농장/이월 상태를 재검증한 SERIALIZABLE 트랜잭션에서 soft-delete하고 DUPLICATE_CLEANUP 감사 이력을 보존한다. 정상 원장·Estimate·Application은 전후 해시를 대조하고 주문·출고·재고는 변경하지 않는다.",
+    "ledgerManagement": "수입부/영업지원/관리자에게 관리 action 한정 원장 수정·목록 제외를 허용한다. 등록 선택과 관리 선택은 분리한다. 선택 연도와 원천 연도 일치, 원천 부모차수<=선택차수, DB 원천키/버전 일치 및 잠금 재검증이 필요하다. 관리 미리보기와 쓰기는 같은 순수 정책을 사용한다. 이미 견적/부분이월/완료 이력이 있으면 비고만 수정한다. 일반 미등록 수정도 기존 소유자와 업로드 원문을 보존한다. 목록 제외는 WebSalesDefectDeduction 논리 제외와 ARCHIVE_PRESERVE_ESTIMATE 감사만 기록하며 연결 Estimate/Application 및 모든 ERP 원장을 보존한다. 기존 일반 DELETE는 변경하지 않는다."
   },
   "periodCorrection": {
     "action": "correct-period",
@@ -331,7 +344,9 @@
     "__tests__/salesDefectDeductionState.test.js",
     "__tests__/estimateDefectQuarantineContract.test.js",
     "__tests__/pasteFixStatus.test.js",
-    "__tests__/defectDuplicateCleanup.test.js"
+    "__tests__/defectDuplicateCleanup.test.js",
+    "__tests__/defectLedgerManagement.test.js",
+    "__tests__/defectLedgerManagementApi.test.js"
   ],
   "requiredTestFiles": [
     "__tests__/defectPeriodCorrection.test.js",
@@ -340,6 +355,8 @@
     "__tests__/estimateDefectQuarantineContract.test.js",
     "__tests__/pasteFixStatus.test.js",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/defectDuplicateCleanup.test.js"
+    "__tests__/defectDuplicateCleanup.test.js",
+    "__tests__/defectLedgerManagement.test.js",
+    "__tests__/defectLedgerManagementApi.test.js"
   ]
 }
