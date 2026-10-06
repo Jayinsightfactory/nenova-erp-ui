@@ -14,6 +14,10 @@
     "lib/importInvoiceLocal.js",
     "lib/importAwbFields.js",
     "lib/importTeamChecklist.js",
+    "lib/importTeamKorean.js",
+    "lib/importToolsDisplay.js",
+    "styles/ImportTools.module.css",
+    "styles/ImportPacking.module.css",
     "lib/importPacking.js",
     "lib/importPackingPrompt.js",
     "lib/importPackingResponse.js",
@@ -67,7 +71,9 @@
     "__tests__/importPackingExtractClient.test.js",
     "__tests__/importAwbFields.test.js",
     "__tests__/importInvoiceLocal.test.js",
-    "__tests__/importPackingHardening.test.js"
+    "__tests__/importPackingHardening.test.js",
+    "__tests__/importTeamKorean.test.js",
+    "__tests__/importToolsDisplay.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
