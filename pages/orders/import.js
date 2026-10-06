@@ -49,6 +49,7 @@ async function persistItemMapping(item, prod, { force = true, custKey = null, cu
       counName: prod.CounName,
       unit: item.unit,
       force,
+      manual: true,
       custKey,
       custName,
     });
