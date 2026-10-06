@@ -174,6 +174,7 @@ export default function ForwardingClearancePanel({ week, year, onSaved }) {
                   <div style={{ fontSize: 12, color: '#334155' }}>
                     배분 미리보기(S, USD): 장미 {fmt2(c.allocationS['콜롬비아 장미'])} · 카네이션 {fmt2(c.allocationS['콜롬비아 카네이션'])} ·
                     알스트로 {fmt2(c.allocationS['콜롬비아 알스트로'])} · 루스커스 {fmt2(c.allocationS['콜롬비아 루스커스'])}
+                    {c.allocationS['콜롬비아 수국'] != null && <> · 혼적 수국 {fmt2(c.allocationS['콜롬비아 수국'])}</>}
                   </div>
                 </div>
               );

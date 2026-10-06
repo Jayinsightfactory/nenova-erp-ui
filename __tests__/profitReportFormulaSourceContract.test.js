@@ -66,7 +66,8 @@ async function main() {
   assert.match(report, /export async function purchaseQtyByCategory/);
   assert.match(report, /export async function invoiceRatesByCategory/);
   assert.match(report, /export async function stockSnapshotByCategory/);
-  assert.match(api, /computeCustomsAndForwarding\(major, orderYear\)/);
+  assert.match(api, /computeCustomsAndForwarding\(major, orderYear, \{ profile: 'profit-report' \}\)/,
+    '보고서 원천은 profit-report 전용 계산 프로파일을 명시');
   assert.match(api, /computeCategoryAverageInventoryValue/);
   assert.match(calc, /const C = N \+ L \+ O/);
   assert.match(calc, /const P = Q \* n0\(R\)/);
