@@ -420,6 +420,11 @@
       "new upload preserves drafts"
     ]
   },
+  "cellStatusPresentation": {
+    "unallocated": "knownEmpty without draft: cell color only, no repeated visible status text",
+    "provisionalBaseline": "header, initial and remainder cell color only; details/accessible descriptions retain status",
+    "preserve": ["quantity including zero and unknown", "draft/change/early-shipment color priority", "unallocated product filter", "confirmation actions", "ERP and print readiness policies"]
+  },
   "printReadinessPresentation": {
     "source": "unchanged assessWeekdayPrintEligibility in serializable read transaction",
     "scope": "ALL_CUSTOMERS_MAJOR_WEEK counts; invalid diagnostics concern selected customer",

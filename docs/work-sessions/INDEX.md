@@ -1,5 +1,7 @@
 # 세션 Q&A 인덱스
 
+- [2026-10-06 주광 셀 상태 색상 표시](2026-10-06_weekday-color-only-status.md) — 미분배·기준 미확정 반복 문구 제거, 셀 색상으로 구분.
+
 - [2026-10-06 주광 견적 준비 상태·행동 안내](2026-10-06_weekday-quote-status.md) — 미분배·확정 대기와 실제 오류 구분, 인쇄 가드·ERP 원장 보존.
 
 - [2026-10-06 Stock gate busy 복구·주문 업로드 재발 방지](2026-10-06_order-stock-gate-recovery.md) — 42-01/2992 전역 RUN, 소유 세션 조회 권한 부재로 복구 미실행; 최종본 CALC 제외 유지·별도 주문 CALC 외부 transaction 보강.
