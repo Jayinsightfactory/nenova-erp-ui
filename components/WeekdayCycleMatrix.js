@@ -206,7 +206,7 @@ function CompactSummary({ row, block, disabled, carryover, carryoverBusy, carryo
     : carryoverBusy ? '이월 조회 중…' : carryover ? '이월 미등록' : '이월 조회 필요');
   const description = [
     `${row.name} · ${cycleLabel(block.cycle)} · 최초기준 비교값 · ERP재고 아님`,
-    `합계 ${numberLabel(block.effectiveTotal)} / 저장 전산 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit || ''}`,
+    `표시 7일 출고 합계 ${numberLabel(block.effectiveTotal)} / 저장 날짜 합계 ${numberLabel(block.datedTotal)} / 전산 분배 총량 ${numberLabel(block.currentTotal)} / 미적용 초안 ${numberLabel(block.plannedTotal)} ${block.unit || ''}`,
     `마감 잔량 ${numberLabel(value)} · ${remainder?.label || '잔량 미확인'}${remainder?.hasProvisional ? ' · 기준 미확정' : ''} · 저장 전산 기준잔량 ${numberLabel(remainder?.savedValue)}`,
     carryDescription,
     `최초 ${numberLabel(block.initialMajor)} · 저장 변경 ${numberLabel(block.initialChange)} · 예상 변경 ${numberLabel(block.effectiveInitialChange)}`,
@@ -704,7 +704,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                   const subweek=column.kind.endsWith('01')?block.subweek01:block.subweek02;
                   const sum=column.kind.startsWith('sum'),view=subweek?.remainderView;
                   const value=sum?subweek?.effectiveTotal:view?.value;
-                  return <td key={column.kind} className={`wcm-total${view?.hasProvisional?' wcm-provisional':''}${view?.hasDraft?' wcm-draft':''}`}><SummaryDetails label={`${row.name} ${block.cycle.year}/${subweek?.orderWeek} ${sum?'합계':'잔량'} 내역`} visibleLabel={weekdayQuantityLabel(value,row,block.unit,block.packaging)} description={`${sum?'합계':'잔량'} ${numberLabel(value)} ${block.unit || ''}\n저장 합계 ${numberLabel(subweek?.currentTotal)}\n${view?.label || '미확인'}${view?.hasProvisional?' · 기준 미확정':''} · ERP 재고 아님`}/>{view?.hasDraft&&<small className="wcm-inline-status wcm-draft">초안</small>}</td>;
+                  return <td key={column.kind} className={`wcm-total${view?.hasProvisional?' wcm-provisional':''}${view?.hasDraft?' wcm-draft':''}`}><SummaryDetails label={`${row.name} ${block.cycle.year}/${subweek?.orderWeek} ${sum?'합계':'잔량'} 내역`} visibleLabel={weekdayQuantityLabel(value,row,block.unit,block.packaging)} description={`${sum?'합계':'잔량'} ${numberLabel(value)} ${block.unit || ''}\n${column.kind.endsWith('01')?'목~일':'월~수'} 저장 출고 합계 ${numberLabel(subweek?.datedTotal)}\n전산 원본 ${subweek?.orderWeek} 분배 총량 ${numberLabel(subweek?.currentTotal)}\n${view?.label || '미확인'}${view?.hasProvisional?' · 기준 미확정':''} · ERP 재고 아님`}/>{view?.hasDraft&&<small className="wcm-inline-status wcm-draft">초안</small>}</td>;
                 }
                 const initial=column.kind==='initial01'?block.initial01:column.kind==='initial02'?block.initial02:null;
                 const provisional=column.kind==='initial01'?block.provisional01:column.kind==='initial02'?block.provisional02:null;
@@ -761,7 +761,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
           {day.date} · 실제 {day.actualOrderWeeks.join(', ') || '없음'} / 달력 권장 {day.orderWeek} · {day.editDisabledReason}
         </div>)}
         {(block.outside.length > 0 || block.outsideDrafts.length > 0) && <div className="wcm-warning">
-          날짜 범위 밖 전산 {block.outside.length}건 / 초안 {block.outsideDrafts.length}건 · 차수 합계에는 포함, 7일 칸에는 미포함
+          날짜 범위 밖 전산 {block.outside.length}건 / 초안 {block.outsideDrafts.length}건 · 전산 원본 총량은 보존, 화면 7일 합계에서는 제외
         </div>}
       </div>)}
     </details>}
