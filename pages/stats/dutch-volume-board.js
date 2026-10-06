@@ -234,6 +234,13 @@ export default function DutchVolumeBoard() {
   }
 
   function updateEntry(id, change) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setEntries(previous => editDutchDraftEntry(previous, id, change)); }
+  function updateCellQuantity(id, quantity, newEntry) {
+    if (workBusyRef.current || applyingRef.current) return;
+    invalidate();
+    setEntries(previous => newEntry && !previous.some(entry => entry.id === id)
+      ? [...previous, { ...newEntry, quantity }]
+      : editDutchDraftEntry(previous, id, { quantity }));
+  }
   function updatePrice(entry, value) {
     if (workBusyRef.current || applyingRef.current) return;
     invalidate();
@@ -459,7 +466,7 @@ export default function DutchVolumeBoard() {
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
         <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, ‘단가’는 단가·매칭 편집</span>
       </div>
-      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={dutchPriceKey} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={(id, quantity) => updateEntry(id, { quantity })} onEdit={id => { setActiveEntryId(id); setQuery(''); setActiveTab('edit'); }}/>}
+      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={dutchPriceKey} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onEdit={id => { setActiveEntryId(id); setQuery(''); setActiveTab('edit'); }}/>}
       {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>단가 입력 즉시 원본 시트에 표시 · ERP 저장은 별도 적용</span></div>
       <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table><thead><tr><th>품목 / 원본</th><th>업체 / 원본</th><th>ERP 품목 선택</th><th>ERP 업체 선택</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
         const individual = isDutchIndividualPriceCustomer(row.customer);
