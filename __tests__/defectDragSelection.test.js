@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { selectDefectRange } from '../lib/defectDragSelection.js';
+const items = [{key:1,eligible:true},{key:2,eligible:false},{key:3,eligible:true},{key:4,eligible:true}];
+const baseline = new Set([99]);
+const select = current => selectDefectRange({baseline,items,anchor:0,current,selected:true});
+assert.deepEqual([...select(3)],[99,1,3,4]);
+assert.deepEqual([...select(0)],[99,1], 'Backtracking retains initial unrelated selections');
+assert.deepEqual([...selectDefectRange({baseline:new Set([1,2,3,4]),items,anchor:3,current:0,selected:false})],[2], 'Deselection skips ineligible rows');
+assert.deepEqual([...baseline],[99], 'Baseline is immutable');
+assert.deepEqual([...selectDefectRange({baseline,items,anchor:3,current:2,selected:true})],[99,3,4]);
+console.log('defect drag selection range, eligibility, deselection and backtracking passed');

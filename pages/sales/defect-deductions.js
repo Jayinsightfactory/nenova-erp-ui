@@ -13,6 +13,7 @@ import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSaved
 import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 import { sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
 import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
+import { selectDefectRange } from '../../lib/defectDragSelection.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -156,6 +157,8 @@ export default function SalesDefectDeductionsPage() {
   const [deductionType, setDeductionType] = useState('불량차감');
   const [activeTab, setActiveTab] = useState('sales');
   const [managementMode, setManagementMode] = useState(false);
+  const selectionDrag = useRef(null);
+  const selectionPointerType = useRef('');
   const [managementSelected, setManagementSelected] = useState(new Set());
   const [managementBusy, setManagementBusy] = useState(false);
   const [managementEdit, setManagementEdit] = useState(null);
@@ -1460,6 +1463,68 @@ export default function SalesDefectDeductionsPage() {
     });
   };
 
+  const endSelectionDrag = () => {
+    const session = selectionDrag.current;
+    if (session?.frame) cancelAnimationFrame(session.frame);
+    if (session?.zone.hasPointerCapture?.(session.pointerId)) session.zone.releasePointerCapture(session.pointerId);
+    selectionDrag.current = null;
+  };
+  useEffect(() => {
+    endSelectionDrag();
+  }, [year, week, activeTab, managementMode, managementBusy, loading, incomingLoading, supportLoading, saving, incomingSaving, incomingConfirming, supportRegistering]);
+  useEffect(() => {
+    const stop = () => endSelectionDrag();
+    window.addEventListener('blur', stop); window.addEventListener('pointerup', stop); window.addEventListener('pointercancel', stop);
+    return () => { stop(); window.removeEventListener('blur', stop); window.removeEventListener('pointerup', stop); window.removeEventListener('pointercancel', stop); };
+  }, []);
+  const updateSelectionDrag = (x, y, recordPointer = true) => {
+    const session = selectionDrag.current;
+    if (!session) return;
+    if (recordPointer) { session.x = x; session.y = y; }
+    const row = document.elementFromPoint(x, y)?.closest('tr');
+    const zone = row?.querySelector(`[data-selection-group="${session.group}"]`);
+    const current = session.zones.indexOf(zone);
+    if (current >= 0) session.current = current;
+    session.setSelection(selectDefectRange({ baseline: session.baseline, items: session.items, anchor: session.anchor, current: session.current, selected: session.selected }));
+  };
+  const startSelectionDrag = (event, group, baseline, setSelection) => {
+    selectionPointerType.current = event.pointerType;
+    if (!['mouse', 'pen'].includes(event.pointerType) || event.button !== 0 || !event.isPrimary
+      || event.currentTarget.querySelector('input')?.disabled) return;
+    event.preventDefault(); endSelectionDrag();
+    const zone = event.currentTarget;
+    const zones = [...document.querySelectorAll(`[data-selection-group="${group}"]`)];
+    const items = zones.map(item => ({ key: Number(item.dataset.selectionKey), eligible: !item.querySelector('input').disabled }));
+    const anchor = zones.indexOf(zone);
+    const session = { zone, zones, items, group, baseline: new Set(baseline), setSelection, anchor, current: anchor,
+      selected: !baseline.has(items[anchor].key), pointerId: event.pointerId, scroll: zone.closest('.defect-grid-scroll'), x: event.clientX, y: event.clientY };
+    selectionDrag.current = session;
+    zone.querySelector('input')?.focus({ preventScroll: true }); zone.setPointerCapture(event.pointerId);
+    updateSelectionDrag(event.clientX, event.clientY);
+    const frame = () => {
+      if (selectionDrag.current !== session) return;
+      const rect = session.scroll?.getBoundingClientRect();
+      if (rect) {
+        const top = Math.max(0, rect.top), bottom = Math.min(innerHeight, rect.bottom);
+        const delta = session.y < top + 44 ? -18 : session.y > bottom - 44 ? 18 : 0;
+        if (delta) {
+          session.scroll.scrollTop += delta;
+          const headerBottom = Math.max(top, ...[...session.scroll.querySelectorAll('thead th')].map(cell => cell.getBoundingClientRect().bottom));
+          updateSelectionDrag(session.x, Math.max(headerBottom + 2, Math.min(bottom - 5, session.y)), false);
+        }
+      }
+      session.frame = requestAnimationFrame(frame);
+    };
+    session.frame = requestAnimationFrame(frame);
+  };
+  const selectionZoneProps = (group, key, baseline, setter) => ({
+    'data-selection-group': group, 'data-selection-key': key,
+    onPointerDown: event => startSelectionDrag(event, group, baseline, setter),
+    onPointerMove: event => { if (selectionDrag.current?.pointerId === event.pointerId) updateSelectionDrag(event.clientX, event.clientY); },
+    onPointerUp: endSelectionDrag, onPointerCancel: endSelectionDrag,
+    onClickCapture: event => { if (event.detail > 0 && ['mouse', 'pen'].includes(selectionPointerType.current)) { event.preventDefault(); event.stopPropagation(); } },
+  });
+
   const toggle = (index) => setSelected((current) => {
     const next = new Set(current); if (next.has(index)) next.delete(index); else next.add(index); return next;
   });
@@ -1619,7 +1684,7 @@ export default function SalesDefectDeductionsPage() {
           </>}
           {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={managementMode || managementBusy || incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           {activeTab === 'support' && <>
-            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
+            <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
             <button type="button" className="btn" onClick={() => {
@@ -1632,7 +1697,7 @@ export default function SalesDefectDeductionsPage() {
             </button>
           </>}
           {activeTab === 'carryover' && <>
-            <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
+            <button className="btn" onClick={toggleAllSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || supportRegistering || !supportSelected.size}>선택 항목 처리 검토</button>
             <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
           </>}
@@ -1713,7 +1778,7 @@ export default function SalesDefectDeductionsPage() {
             <tbody>{displayedIncomingRows.map(({ row, sourceIndex, displayIndex, isGroupStart, isCountryStart, groupLabel, countryLabel }) => <Fragment key={row.deductionKey || `incoming-${sourceIndex}`}>
               {incomingGroupMode === 'product' && isCountryStart && <tr className="incoming-country-divider"><td colSpan="11"><strong>{countryLabel}</strong><span>국가별 품종</span></td></tr>}
               <tr className={`defect-row ${isGroupStart ? 'incoming-group-start' : ''}`} data-group-label={groupLabel}>
-              <td>{displayIndex + 1}{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(Number(row.deductionKey))} disabled={managementLoading} onChange={() => toggleManagement(Number(row.deductionKey))} /><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</td>
+              <td>{displayIndex + 1}{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><label className="defect-select-hit management-select-hit" {...selectionZoneProps('incoming-manage', Number(row.deductionKey), managementSelected, setManagementSelected)}><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(Number(row.deductionKey))} disabled={managementLoading} onChange={() => toggleManagement(Number(row.deductionKey))} /></label><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</td>
               <td>{row.managerName || '-'}</td>
               <td>{row.customerName || '-'}</td>
               <td>{row.productName || '-'}</td>
@@ -1772,7 +1837,7 @@ export default function SalesDefectDeductionsPage() {
         </div>}
         <div className="defect-grid-scroll support-grid-scroll">
           <table className="data-table defect-grid support-grid">
-            <thead><tr><th><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={!supportSelectableKeys.length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
+            <thead><tr><th><label className="defect-select-hit"><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={managementMode || managementBusy || supportLoading || !supportSelectableKeys.length} onChange={toggleAllSupport} /></label></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
               const checkable = !managementMode && !managementBusy && isSupportRegistrationSelectable(row, activeTab);
@@ -1781,8 +1846,8 @@ export default function SalesDefectDeductionsPage() {
               const scopeLabel = supportStatusDetail(row, year, week);
               const estimateCapture = buildSupportEstimateCapture(row, { year, week });
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''} ${row.exactExistingEstimate ? 'support-existing-row' : ''}`} key={key || `support-${index}`}>
-                <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={checkable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!checkable} /></label></td>
-                <td>{index + 1}{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(key)} disabled={managementLoading} onChange={() => toggleManagement(key)} /><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</td>
+                <td className="defect-select-cell"><label className="defect-select-hit" {...selectionZoneProps('support-register', key, supportSelected, setSupportSelected)}><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={checkable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!checkable} /></label></td>
+                <td>{index + 1}{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><label className="defect-select-hit management-select-hit" {...selectionZoneProps('support-manage', key, managementSelected, setManagementSelected)}><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(key)} disabled={managementLoading} onChange={() => toggleManagement(key)} /></label><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</td>
                 <td>{row.managerName || '-'}</td>
                 <td>{row.customerName || '-'}</td>
                 <td>{row.productName || '-'}</td>
@@ -1841,7 +1906,7 @@ export default function SalesDefectDeductionsPage() {
           <thead><tr>
             <th className="defect-header defect-select-cell">
               <label className="defect-select-hit" title="전체 선택">
-                <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAll} />
+                <input type="checkbox" aria-label="영업 입력 전체 선택" checked={rows.length > 0 && selected.size === rows.length} disabled={loading || saving} onChange={toggleAll} />
               </label>
             </th>
             <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품종</th><th className="defect-header">품명</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전/최근 분배단가</th><th className="defect-header">견적서관리 등록</th>
@@ -1854,8 +1919,8 @@ export default function SalesDefectDeductionsPage() {
                 : '미매칭: 품종·품명 매칭 필요';
               return <tr className="defect-row" key={row.deductionKey || `new-${index}`} style={{ background: row.importReviewRequired ? '#fef2f2' : row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
                 <td className="defect-select-cell">
-                  <label className="defect-select-hit" title={`${index + 1}번 행 선택`}>
-                    <input type="checkbox" checked={selected.has(index)} onChange={() => toggle(index)} />
+                  <label className="defect-select-hit" title={`${index + 1}번 행 선택`} {...selectionZoneProps('sales-select', index, selected, setSelected)}>
+                    <input type="checkbox" aria-label={`영업 입력 ${index + 1}행 선택`} checked={selected.has(index)} disabled={loading || saving} onChange={() => toggle(index)} />
                   </label>
                 </td>
                 <td>{index + 1}</td>
@@ -2165,7 +2230,9 @@ export default function SalesDefectDeductionsPage() {
         .defect-header { position: sticky; top: 0; z-index: 4; background: var(--header-bg); box-shadow: 0 1px 0 var(--border2); }
         .defect-row td { min-height: 58px; padding: 5px 6px; vertical-align: top; border-bottom: 1px solid var(--border); }
         .defect-select-cell { width: 58px; min-width: 58px; padding: 3px !important; text-align: center; vertical-align: middle !important; }
-        .defect-select-hit { display: inline-flex; width: 46px; height: 42px; align-items: center; justify-content: center; cursor: pointer; }
+        .defect-select-hit { display: inline-flex; width: 46px; height: 44px; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; cursor: pointer; user-select: none; touch-action: auto; }
+        .management-select-hit { display: flex; margin: 4px auto; }
+        .management-select-hit + button { display: block; margin: 4px auto 0; min-width: 44px; min-height: 32px; }
         .defect-select-hit input[type="checkbox"] { width: 22px; height: 22px; margin: 0; cursor: pointer; accent-color: #2563eb; }
         .cell { min-width: 100px; width: 100%; min-height: 30px; box-sizing: border-box; font-size: 13px; }
         .lookup-inline { display: flex; align-items: center; gap: 4px; width: 100%; }
