@@ -114,3 +114,19 @@
 - 기본 병합은 기존 카탈로그의 중복 행도 보존한다. 업로드가 기존 중복 키를 수정하려는 경우 임의 덮어쓰기 대신 안내 후 저장을 막는다. 업로드 자체의 중복 키는 미리보기에서 안내하는 마지막 행 우선 규칙이다.
 - PDF API는 사용자 ID 누락·빈 값이면 캐시 접근 전에401로 거부한다. 사용자 분리 회귀 테스트를 추가했다.
 - 최종 수입부 테스트93/93 통과. 기존 중복 보존·중복키 거부·재불러오기 후 화면 유지/저장 차단 회귀 포함.
+
+### 병합 및 운영 검증 진행
+
+- 독립 최종 검토 승인. 최신 master 병합 후 전체 ERP 계약·dnSpy 근거·manifest·쓰기 가드·production build 모두 통과.
+- PR #910: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/910
+- master squash: `043aec5fb61e05cc1987463348af93147d2041e8`.
+- 배포 run: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37416272130 (선행 배포 종료 대기 후 자동 실행).
+- 최종 `NODE_ENV=production` 로컬 실행에서도 실제 중국1850단·NL7589송이·AWB1379.60 및 날짜 대조 성공. pageerror0, AI/공동자료/ERP 쓰기0.20MiB 전송 검증 통과.
+
+### 운영 반영 확인
+
+- 선행 deploy run37415943302가 서버에서 최신 master를 가져오며 `043aec5f`(PR910)를 실제 배포했다. 로그 `HEAD is now at 043aec5f Harden import tools uploads and local document conversion (#910)` 확인, run 성공.
+- https://nenovaweb.com/import/tools 실브라우저1920×1080/100%: 중국59품목1850단, AWB1379.60/2026-10-01, NL7589송이 코드추출 통과.900px 가로잘림 없음, pageerror0.
+- 운영20MiB/27,962,064바이트 JSON 요청은413 없이 앱의400 국가검증에 도달. 진단용 잘못된 국가로 AI 호출 전에 거절시켰다.
+- 운영 공동자료는 브라우저 가상 저장으로 격리. AI호출0·공동운영자료쓰기0·ERP쓰기0. 원본 파일/비밀값 미커밋.
+- 동일 커밋의 후속 자동 run37416272130은 중복 배포 진행 중이었다. 성공 판정은 위 실제 커밋 배포 로그 및 운영 스모크를 근거로 한다.

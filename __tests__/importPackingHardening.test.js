@@ -37,7 +37,7 @@ function deferred() {
 }
 
 // Actual component handlers with controlled local hooks. No network, DB or browser.
-async function harness({ catalog = initial, awb = false, readAwbPdf } = {}) {
+async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
   const [state, packing, response, awbFields] = await modulesReady;
   const slots = [], effects = [], readers = [], writes = [], requests = [], extractionCalls = [];
   let cursor = 0, currentCatalog = catalog, failure = null;
@@ -73,15 +73,15 @@ async function harness({ catalog = initial, awb = false, readAwbPdf } = {}) {
     }));
     return { data, source: data.source === 'cache' ? 'cache' : 'ai', cacheSaved: data.cacheSaved };
   } };
-  const modules = { react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packing,
+  const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packing,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock };
   const module = { exports: {} };
-  new Function('require', 'module', 'exports', 'fetch', 'FileReader', code + '\nmodule.exports.AWBPanel = AWBPanel;')(
+  new Function('require', 'module', 'exports', 'fetch', 'FileReader', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(
     key => modules[key], module, module.exports, fetchStub, Reader);
   const h = {
     writes, readers, requests, extractionCalls, tree: null,
-    render() { cursor = 0; this.tree = awb ? module.exports.AWBPanel({ xlsxLib: XLSX, lang: 'es', readAwbPdf, onBack() {} })
+    render() { cursor = 0; this.tree = awb ? module.exports.AWBPanel({ xlsxLib: XLSX, lang, readAwbPdf, onBack() {} })
       : module.exports.default({ storage }); return this.tree; },
     effects() { for (const i of effects.splice(0)) { slots[i].cleanup?.(); slots[i].cleanup = slots[i].fn(); } },
     async refresh() { this.render(); this.effects(); await tick(); return this.render(); },
@@ -95,8 +95,124 @@ async function harness({ catalog = initial, awb = false, readAwbPdf } = {}) {
     setCatalog(next) { currentCatalog = next; },
     unmount() { for (const slot of slots) slot?.cleanup?.(); },
   };
-  await h.refresh(); return h;
+  await h.refresh();
+  if (!awb && lang !== 'ko') await h.click(lang === 'es' ? 'ES' : 'EN');
+  h.matching = (kind, props) => { cursor = 0; return module.exports[kind]({ ...props, lang }); };
+  return h;
 }
+
+test('Korean is the default and country keys, optional languages and catalog confirmations remain intact', async () => {
+  const h = await harness({ lang: 'ko' });
+  assert.equal(h.tree.props.lang, 'ko');
+  assert.ok(text(h.tree).includes('패킹 리스트 생성기'));
+  assert.ok(text(h.tree).includes('네노바 수입부'));
+  assert.equal(h.tree.props.style.background, 'transparent');
+  assert.equal(h.tree.props.style.padding, 0);
+  const card = h.nodes('div').find(node => node.props.className === 'card');
+  assert.equal(card.props.style.border, 0);
+  assert.equal(card.props.style.padding, 0);
+  assert.equal(card.props.style.maxWidth, 'none');
+  assert.equal(h.button('한국어').props['aria-pressed'], true);
+  const co = h.nodes('button').find(node => node.props.type === 'button' && node.props['aria-label'] === '콜롬비아');
+  assert.equal(co.props.type, 'button');
+  co.props.onClick(); h.render();
+  assert.ok(text(h.tree).includes('무료 로컬 분석 우선'));
+  assert.ok(text(h.tree).includes('비용이 발생할 수 있습니다.'));
+  assert.ok(text(h.tree).includes('ERP 원장에는 반영하지 않습니다.'));
+  await h.upload(catalogFile([[1, 'Z', 'Original document name', '', '태국']]));
+  assert.ok(text(h.tree).includes('카탈로그 미리보기'));
+  assert.ok(text(h.tree).includes('전체 교체'));
+  assert.equal(h.writes.length, 0);
+  await h.click('취소');
+  await h.click('EN');
+  assert.ok(text(h.tree).includes('Packing List Generator'));
+  await h.click('ES');
+  assert.ok(text(h.tree).includes('Generador de Packing List'));
+  assert.equal(h.writes.length, 0);
+  assert.equal(h.requests.length, 0);
+});
+
+test('Korean matching candidates and manual catalog search preserve original product names', async () => {
+  const h = await harness({ lang: 'ko' });
+  const props = { nm: { farm: 'Original farm', description: 'Original description',
+    candidates: [{ item: { name: 'CARNATION Doncel' }, score: 0.75 }] },
+    catalogItems: [{ name: 'CARNATION Doncel' }], onConfirm() {} };
+  const pending = h.matching('PendingItem', props);
+  assert.ok(text(pending).includes('추천 후보'));
+  assert.ok(text(pending).includes('이 품목으로 확인'));
+  assert.ok(text(pending).includes('Original description'));
+  assert.ok(text(pending).includes('CARNATION Doncel'));
+  const input = flatten(pending).find(node => node.type === 'input');
+  assert.equal(input.props['aria-label'], '후보가 맞지 않으면 카탈로그에서 검색');
+  input.props.onChange({ target: { value: 'not-in-catalog' } });
+  assert.ok(text(h.matching('PendingItem', props)).includes('검색 결과가 없습니다.'));
+  const unmatched = h.matching('NoMatchItem', props);
+  assert.equal(flatten(unmatched).find(node => node.type === 'input').props.placeholder, '카탈로그 품목 검색');
+});
+
+test('Korean AWB validation and carrier management are local-only and accessible', async () => {
+  const h = await harness({ lang: 'ko', awb: true });
+  assert.ok(text(h.tree).includes('AWB · 항공 운송장'));
+  assert.ok(text(h.tree).includes('로컬 처리, AI 호출 없음'));
+  assert.ok(text(h.tree).includes('AWB 번호를 입력하세요.'));
+  assert.ok(!text(h.tree).includes('Compañía obligatoria'));
+  assert.equal(h.button('패킹 리스트 생성 ⬇').props.disabled, true);
+  for (const input of h.nodes('input').filter(node => node.props.type !== 'file')) assert.ok(input.props['aria-label']);
+  const manager = h.nodes('button').find(node => node.props['aria-label'] === '운송사 관리');
+  manager.props.onClick(); h.render();
+  assert.ok(h.button('추가'));
+  assert.ok(h.nodes('input').some(node => node.props.placeholder === '새 운송사 (예: KOREAN AIR)'));
+  assert.equal(h.writes.length, 0); assert.equal(h.requests.length, 0);
+});
+
+test('Korean AWB PDF errors and auto-fill messages use Korean while preserving AWB values', async () => {
+  const h = await harness({ lang: 'ko', awb: true,
+    readAwbPdf: async () => ({ text: 'EXCEL air waybill 999-12345678 more text for the fixture' }) });
+  h.inputPdf({ name: '40-1.txt', type: 'text/plain', size: 10 });
+  assert.ok(text(h.tree).includes('PDF 파일만 지원합니다.'));
+  h.inputPdf({ name: '40-1.pdf', type: 'application/pdf', size: 10 });
+  await h.readers[0].complete(); h.render();
+  assert.ok(text(h.tree).includes('자동 입력됨'));
+  assert.ok(h.nodes('input').some(node => node.props.value === '999-12345678'));
+  assert.equal(h.requests.length, 0);
+});
+
+test('packing layout at 1920×1080 / 100%, 900px, 480px and 390px has no page overflow', { skip: process.env.PACKING_LAYOUT_TEST !== '1' }, async () => {
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const { chromium } = require('playwright');
+  const css = fs.readFileSync(require('node:path').join(__dirname, '../styles/ImportPacking.module.css'), 'utf8');
+  const toReact = node => node == null || typeof node === 'boolean' || typeof node === 'string' || typeof node === 'number' ? node
+    : Array.isArray(node) ? node.map(toReact)
+      : React.createElement(typeof node.type === 'function' ? node.type : node.type || React.Fragment,
+        { ...node.props, children: undefined }, ...[].concat(node.props.children || []).map(toReact));
+  const country = await harness({ lang: 'ko' });
+  const upload = await harness({ lang: 'ko' });
+  upload.nodes('button').find(node => node.props['aria-label'] === '콜롬비아').props.onClick(); upload.render();
+  await upload.upload(catalogFile([[1, 'X', 'New product', '', '태국']]));
+  const awb = await harness({ lang: 'ko', awb: true });
+  const browser = await chromium.launch({ headless: true, ...(process.env.PACKING_BROWSER_CHANNEL ? { channel: process.env.PACKING_BROWSER_CHANNEL } : {}) });
+  try {
+    const page = await browser.newPage({ deviceScaleFactor: 1 });
+    for (const width of [1920, 900, 480, 390]) {
+      await page.setViewportSize({ width, height: 1080 });
+      for (const [name, tree] of [['country', country.tree], ['upload-preview', upload.tree], ['awb', awb.tree]]) {
+        const content = renderToStaticMarkup(toReact(tree));
+        await page.setContent(`<style>body{margin:0}${css}</style><div class="root">${content}</div>`);
+        const metrics = await page.evaluate(() => ({ viewport: innerWidth, scroll: document.documentElement.scrollWidth,
+          controls: [...document.querySelectorAll('button,input:not([type=file]):not([type=radio]):not([type=checkbox]),select')].map(el => ({
+            height: el.getBoundingClientRect().height, right: el.getBoundingClientRect().right,
+          })) }));
+        assert.ok(metrics.scroll <= width, `${name} at ${width}: horizontal overflow ${metrics.scroll}`);
+        for (const control of metrics.controls) {
+          assert.ok(control.height >= 36, `${name}: control height ${control.height}`);
+          assert.ok(control.right <= width, `${name}: control outside viewport`);
+        }
+        console.log(`LAYOUT PASS ${name} ${width}×1080 / 100%`);
+      }
+    }
+  } finally { await browser.close(); }
+});
 
 test('merge upserts stable code within country, preserves other countries and retained fields', async () => {
   const [state] = await modulesReady;
@@ -360,7 +476,7 @@ test('source descriptions override transformed output names; decision categories
 
 test('invoice PDF accepts exact 20MiB, rejects 20MiB + 1 and only sends on explicit AI', async () => {
   const [state] = await modulesReady; const h = await harness();
-  h.nodes('div').find(n => n.props.onClick && text(n).includes('Colombia')).props.onClick(); h.render();
+  h.nodes('button').find(n => n.props['aria-label'] === 'Colombia').props.onClick(); h.render();
   h.inputPdf({ name: '40-1.pdf', type: 'application/pdf', size: state.PACKING_PDF_MAX_BYTES + 1 });
   assert.equal(h.readers.length, 0); assert.ok(text(h.tree).includes('20MiB'));
   h.inputPdf({ name: '40-1.pdf', type: 'application/pdf', size: state.PACKING_PDF_MAX_BYTES });
@@ -384,7 +500,7 @@ test('invoice PDF accepts exact 20MiB, rejects 20MiB + 1 and only sends on expli
 
 test('invoice PDF race guard ignores a removed file and older FileReader completion', async () => {
   const h = await harness();
-  h.nodes('div').find(n => n.props.onClick && text(n).includes('Colombia')).props.onClick(); h.render();
+  h.nodes('button').find(n => n.props['aria-label'] === 'Colombia').props.onClick(); h.render();
   h.inputPdf({ name: '40-1.pdf', type: 'application/pdf', size: 10 });
   await h.click('Quitar'); await h.readers[0].complete(); h.render();
   assert.equal(h.button('Generar packing list').props.disabled, true);

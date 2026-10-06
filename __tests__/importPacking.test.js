@@ -226,7 +226,7 @@ async function main() {
     } };
     const storage = { get: async key => key === 'nenova_catalog' ? { value: JSON.stringify({ items: catalog.items }) } : null,
       set: async (key, value) => { sharedWrites.push({ key, value }); throw Error('409 revision conflict'); }, delete: async () => { throw Error('delete failed'); } };
-    const modules = { react, '../../lib/importPacking.js': packing, '../../lib/importPackingState.js': state,
+    const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, '../../lib/importPacking.js': packing, '../../lib/importPackingState.js': state,
       '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
       '../../lib/importPackingExtractClient.js': extractionMock, 'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -248,7 +248,10 @@ async function main() {
     render(); for (const effect of effects) { if (effect.pending) { effect.pending = false; effect.fn(); } }
     await new Promise(setImmediate);
     let tree = render(); assert.equal(fetchCalls.length, 0);
-    flatten(tree).find(node => node.type === 'div' && node.props.onClick && text(node).includes('Colombia')).props.onClick();
+    assert.ok(text(tree).includes('패킹 리스트 생성기'), 'Korean is the default');
+    flatten(tree).find(node => node.type === 'button' && text(node) === 'ES').props.onClick();
+    tree = render();
+    flatten(tree).find(node => node.type === 'button' && node.props['aria-label'] === 'Colombia').props.onClick();
     tree = render();
     const pdfInput = flatten(tree).find(node => node.type === 'input' && node.props.accept === '.pdf');
     pdfInput.props.onChange({ target: { files: [{ name: '40-1.pdf', size: state.PACKING_PDF_MAX_BYTES + 1, type: 'application/pdf' }] } });

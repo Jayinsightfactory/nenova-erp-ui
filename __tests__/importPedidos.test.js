@@ -358,6 +358,6 @@ test('Pedidos UI passes year scope and never disables downloads based on zero to
   const ui = fs.readFileSync(new URL('../components/import-tools/PedidosTool.js', import.meta.url), 'utf8');
   assert.match(ui, /generatePedidos\(workbook, country, cleanWeek, \{ year: Number\(year\) \}\)/);
   assert.match(ui, /정상적인 0 수량 결과도 다운로드/);
-  assert.match(ui, /<button type="button" onClick=\{\(\) => download\(output\)\}>Excel 다운로드/);
+  assert.match(ui, /<button type="button" onClick=\{\(\) => download\(output\)\}>엑셀 다운로드/);
   assert.doesNotMatch(ui, /if\s*\([^)]*totalQuantity[^)]*\)\s*(?:return|throw)/);
 });

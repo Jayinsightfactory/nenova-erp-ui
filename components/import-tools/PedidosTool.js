@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PEDIDOS_COUNTRIES, generatePedidos, readPedidosWorkbook, sanitizePedidosWeek, serializePedidosWorkbook } from '../../lib/importPedidos';
+import { importCountryLabel, importUnitLabel, importColumnLabel } from '../../lib/importToolsDisplay';
 
 // Native React, browser-only file conversion. Parent owns menu and shared storage.
 export default function PedidosTool() {
@@ -51,57 +52,65 @@ export default function PedidosTool() {
 
   const noItems = results !== null && (results.length === 0 || results.every(output => output.itemCount === 0));
   return <section className="pedidos-tool" aria-label="국가별 발주서 파일 변환">
-    <h2>국가별 발주서</h2>
-    <p>파일은 브라우저 안에서만 변환됩니다. ERP 주문·입고·재고 등록이나 공동 저장을 하지 않습니다.</p>
+    <div className="pedidos-heading"><div><h2>국가별 발주서</h2><p>원본 엑셀을 국가별 발주 양식으로 변환하고 내려받으세요.</p></div><span className="pedidos-free">무료 · 브라우저 내 처리</span></div>
     <form onSubmit={convert}>
       <fieldset disabled={busy}>
-        <legend>변환할 원본 선택</legend>
+        <legend>1. 국가·차수와 원본 파일 선택</legend>
         <div className="pedidos-fields">
           <label>국가<select value={country} onChange={event => invalidate(setCountry, event.target.value)} required>
-            <option value="">국가 선택</option>{PEDIDOS_COUNTRIES.map(value => <option key={value} value={value}>{value}</option>)}
+            <option value="">국가 선택</option>{PEDIDOS_COUNTRIES.map(value => <option key={value} value={value}>{importCountryLabel(value)}</option>)}
           </select></label>
           <label>연도<input type="number" min="1900" max="9999" step="1" placeholder="2026" value={year} onChange={event => invalidate(setYear, event.target.value)} required /></label>
           <label>차수<input type="text" placeholder="34-1" value={week} onChange={event => invalidate(setWeek, event.target.value)} required /></label>
-          <label className="pedidos-file">Excel 원본 (.xlsx / .xls, 최대 20MB)<input type="file" accept=".xlsx,.xls" onChange={event => invalidate(setFile, event.target.files?.[0] ?? null)} required /></label>
-          <button type="submit" disabled={!country || !year || !week.trim() || !file}>미리보기 생성</button>
+          <label className="pedidos-file">엑셀 원본 (.xlsx / .xls, 최대 20MB)<input type="file" accept=".xlsx,.xls" onChange={event => invalidate(setFile, event.target.files?.[0] ?? null)} required /></label>
+          <button type="submit" disabled={!country || !year || !week.trim() || !file}>{busy?'변환 중…':'미리보기 생성'}</button>
         </div>
       </fieldset>
     </form>
-    <p className="pedidos-note">기존 양식은 활성 시트(없으면 첫 시트)를 읽습니다. 중국 행렬은 수량원본과 구조화 시트의 업체키·품목키·숫자 수량을 사용하며 선택 연도·차수를 확인합니다. 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p>
+    <p className="pedidos-note">주문·입고·재고에 자동 등록되지 않습니다. 원본 파일과 다운로드 양식은 유지됩니다.</p>
+    <details className="pedidos-guide"><summary>지원 양식과 변환 기준 보기</summary><p>기존 양식은 활성 시트(없으면 첫 시트)를 읽습니다. 중국 행렬은 수량원본과 구조화 시트의 업체키·품목키·숫자 수량을 사용하며 선택 연도·차수를 확인합니다. 파일명·시트명은 차수 기준으로 유지합니다. 차수의 공백·구두점은 원본 규칙대로 제거됩니다.</p></details>
     {busy && <p role="status">Excel을 읽고 발주서를 생성하고 있습니다…</p>}
     {error && <p role="alert" className="pedidos-error">{error}</p>}
     {downloaded && <p role="status">{downloaded}</p>}
     {results !== null && <div aria-live="polite">
-      <h3>출력 파일 {results.length}개</h3>
-      <p>{context.country} · {context.year}년 · {context.week}차 · {context.sourceName}</p>
+      <h3>2. 변환 결과 · 파일 {results.length}개</h3>
+      <p>{importCountryLabel(context.country)} · {context.year}년 · {context.week}차 · {context.sourceName}</p>
       {noItems && <p role="status" className="pedidos-warning">변환할 품목이 없습니다. 선택 국가와 원본 시트·양식을 확인하세요. 일부 국가의 원본 규칙은 합계만 있는 빈 파일을 생성합니다.</p>}
       {results.map(output => <article className="pedidos-result" key={output.filename}>
         <div className="pedidos-result-heading">
-          <div><h4>{output.filename}</h4><p>시트: {output.workbook.SheetNames[0]} · 원본: {output.sourceSheet} · {output.itemCount}품목 · 합계 {output.totalQuantity} {output.unit}{output.totalBoxes != null ? ` · ${output.totalBoxes} cajas` : ''}</p></div>
-          <button type="button" onClick={() => download(output)}>Excel 다운로드</button>
+          <div><h4>{output.filename}</h4><p>시트: {output.workbook.SheetNames[0]} · 원본: {output.sourceSheet}</p><div className="pedidos-totals"><span>품목 <strong>{output.itemCount.toLocaleString('ko-KR')}개</strong></span><span>총수량 <strong>{output.totalQuantity.toLocaleString('ko-KR',{maximumFractionDigits:20})} {importUnitLabel(output.unit)}</strong></span>{output.totalBoxes != null&&<span>박스 <strong>{output.totalBoxes.toLocaleString('ko-KR',{maximumFractionDigits:20})}</strong></span>}</div></div>
+          <button type="button" onClick={() => download(output)}>엑셀 다운로드</button>
         </div>
         {output.totalQuantity === 0 && <p role="status" className="pedidos-note">숫자 원본의 합계가 0입니다. 정상적인 0 수량 결과도 다운로드할 수 있습니다.</p>}
         {output.warnings.length > 0 && <div className="pedidos-warning"><h5>확인 필요</h5><ul>{output.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></div>}
         {output.itemCount > 0 && <details><summary>품목 미리보기 ({output.itemCount}개, 수식 계산값 표시)</summary>
           <div className="pedidos-preview" tabIndex={0} role="region" aria-label={`${output.filename} 품목 표`}>
-            <table><thead><tr>{output.preview.headers.map((header, i) => <th key={i} scope="col">{header}</th>)}</tr></thead>
+            <table><colgroup>{output.preview.headers.map((_,i)=><col key={i} style={{width:i===0?320:120}}/>)}</colgroup><thead><tr>{output.preview.headers.map((header, i) => <th key={i} scope="col" title={String(header)}>{importColumnLabel(header)}</th>)}</tr></thead>
               <tbody>{output.preview.rows.map((row, i) => <tr key={i}>{row.map((cell, c) => <td key={c}>{cell == null ? '' : String(cell)}</td>)}</tr>)}</tbody>
             </table>
           </div>
         </details>}
       </article>)}
-      <p className="pedidos-note">Cambios는 빈칸으로 유지됩니다. 다운로드 파일에는 원본 수식과 초기 계산값이 포함되며, Excel에서 편집하면 자동 재계산됩니다. 다운로드 저장 위치는 브라우저 설정을 따릅니다.</p>
+      <p className="pedidos-note">변경량(Cambios)은 빈칸으로 유지됩니다. 다운로드 파일에는 원본 수식과 초기 계산값이 포함되며, 엑셀에서 편집하면 자동 재계산됩니다. 저장 위치는 브라우저 설정을 따릅니다.</p>
     </div>}
     <style jsx>{`
-      .pedidos-tool { width: 100%; min-width: 0; color: #1e293b; }
+      .pedidos-tool { width: 100%; min-width: 0; color: #172b4d; font-size:14px; line-height:1.5; }
+      .pedidos-heading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
+      .pedidos-heading h2 { font-size:18px; } .pedidos-heading p { margin:0; color:#54657d; }
+      .pedidos-free { border-radius:6px; background:#e9f6ee; color:#21653e; padding:5px 10px; font-size:12px; font-weight:600; }
+      .pedidos-guide { margin:0 0 20px; font-size:13px; color:#54657d; }
+      .pedidos-totals { display:flex; gap:10px; flex-wrap:wrap; }
+      .pedidos-totals span { padding:6px 10px; border-radius:6px; background:#edf3ff; color:#38577e; }
+      .pedidos-totals strong { color:#17365f; font-size:16px; margin-left:6px; }
       h2, h3, h4, h5 { margin: 0 0 8px; } p { margin: 8px 0 14px; }
-      fieldset { border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; min-width: 0; }
+      fieldset { border: 1px solid #d5deeb; border-radius: 8px; padding: 16px; min-width: 0; background:#f8faff; }
+      legend { font-weight:700; padding:0 6px; }
       .pedidos-fields { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
       label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; min-width: 130px; }
       .pedidos-file { flex: 1 1 320px; min-width: 0; }
       input, select { border: 1px solid #94a3b8; border-radius: 6px; padding: 9px; max-width: 100%; width: 100%; box-sizing: border-box; background: white; color: #1e293b; }
       input[type=number], input[type=text] { width: 150px; }
-      button { border: 0; border-radius: 6px; padding: 11px 16px; background: #1f4e79; color: white; cursor: pointer; white-space: nowrap; }
+      button { border: 0; border-radius: 7px; padding: 10px 16px; min-height:38px; font:inherit; font-weight:600; background: #2457c5; color: white; cursor: pointer; white-space: nowrap; }
       button:disabled { opacity: .5; cursor: not-allowed; }
       .pedidos-note { color: #64748b; font-size: 13px; }
       .pedidos-error { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; padding: 12px; overflow-wrap: anywhere; }
@@ -111,10 +120,11 @@ export default function PedidosTool() {
       .pedidos-result-heading > div { min-width: 0; overflow-wrap: anywhere; }
       summary { cursor: pointer; padding: 10px 0; }
       .pedidos-preview { max-height: 430px; overflow: auto; width: 100%; }
-      table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
+      table { border-collapse: separate; border-spacing: 0; width: max-content; table-layout:fixed; font-size: 14px; }
       th, td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; white-space: nowrap; }
       th { position: sticky; top: 0; z-index: 1; background: #eef2f7; }
       tbody tr:nth-child(even) { background: #f8fafc; }
+      tbody tr:hover { background:#edf3ff; }
       @media (max-width: 600px) { label { flex: 1 1 100%; min-width: 0; } input[type=number], input[type=text] { width: 100%; } }
     `}</style>
   </section>;
