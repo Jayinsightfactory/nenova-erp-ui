@@ -20,6 +20,9 @@ async function main() {
 
   const source = fs.readFileSync(path.join(process.cwd(), 'pages/api/stats/pivot-volume-excel.js'), 'utf8');
   assert.ok(source.includes("aoa[2][idx] = '꽃'"), '네덜란드 꽃 열 헤더가 있어야 한다.');
+  assert.ok(source.includes('`${customerName}\\n${cl}`'), '네덜란드 업체명은 윗줄, CL 코드는 아랫줄이어야 한다.');
+  assert.ok(source.includes('horizontal: \'center\', vertical: \'center\''), '요일·수량·가격 셀은 가운데 기준을 사용해야 한다.');
+  assert.ok(source.includes('pivotCustomerQuantity(row, col.customer)'), '업체명 중복을 피하고 CustKey별 수량을 엑셀에 출력해야 한다.');
   assert.ok(source.includes('line.push(pivotVolumeFlowerLabel(row))'), '꽃 열은 피벗 Product.FlowerName 값을 사용해야 한다.');
   assert.ok(source.includes('xSplit: isNetherlandsVolume(meta) ? 3 : 1'), '네덜란드 식별 3열을 고정해야 한다.');
   assert.ok(source.includes('shortVolumeFlowerLabel') && source.includes('replace(/-/g, \'\')'), '물량표 제목은 차수-품종 축약 표기를 사용해야 한다.');

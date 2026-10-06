@@ -2,7 +2,8 @@ import Head from 'next/head';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSXStyled from 'xlsx-js-style';
 import { apiGet } from '../../lib/useApi';
-import { addDutchPriceColumns, buildDutchEntriesFromPivotData, dutchPriceKey, isDutchIndividualPriceCustomer, migrateDutchPriceDraft, parseDutchPivotWorkbook } from '../../lib/dutchVolumePrice';
+import { attachDutchLiveCustomerKeys } from '../../lib/dutchVolumePrice';
+import { addDutchPriceColumns, buildDutchEntriesFromPivotData, dutchPriceKey, dutchUniformPricePeerKeys, isDutchIndividualPriceCustomer, migrateDutchPriceDraft, parseDutchPivotWorkbook, restoreDutchPriceDraft } from '../../lib/dutchVolumePrice';
 import { addDutchPriceShapesToXlsx } from '../../lib/dutchPriceShapes';
 import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../../lib/dutchVolumeDraft';
 import ErpMatchPicker from '../../components/dutch/ErpMatchPicker';
@@ -32,8 +33,8 @@ function withEditedWorkbook(workbook, entries, prices) {
     if (!copy.SheetNames.includes(sheetName)) copy.SheetNames.push(sheetName);
     copy.Sheets[sheetName] = XLSXStyled.utils.aoa_to_sheet([
       ['ERP 적용 초안 — 원본 Pivot 셀 및 도형은 별도 보존'],
-      ['업체', '업체키', '품목', '품목키', '수량', '단위', '원화 단가(빈칸=기존값 보존)', '원본 위치'],
-      ...entries.map(entry => [entry.customer, entry.custKey || '', entry.product, entry.prodKey || '', Number(entry.quantity), entry.unit || 'ERP 출고단위', prices[dutchPriceKey(entry)] ?? '', entry.added ? '수동 추가행' : `${entry.sheetName}!${entry.cellAddress}`]),
+      ['업체', '업체키', '품목', '품목키', '수량', '단위', 'KRW 입력값(빈칸=기존값 보존)', '원본 위치'],
+      ...entries.map(entry => [entry.customer, entry.custKey || entry.sourceCustKey || '', entry.product, entry.prodKey || '', Number(entry.quantity), entry.unit || 'ERP 출고단위', prices[dutchPriceKey(entry)] ?? '', entry.added ? '수동 추가행' : `${entry.sheetName}!${entry.cellAddress}`]),
     ]);
   }
   return copy;
@@ -189,7 +190,9 @@ export default function DutchVolumeBoard() {
       const nextWorkbook = XLSXStyled.read(await volumeResponse.arrayBuffer(), { type: 'array', cellStyles: true, cellFormula: true });
       const parsed = parseDutchPivotWorkbook(XLSXStyled, nextWorkbook);
       if (request !== loadRequestRef.current || selectedYear !== yearRef.current || selectedWeek !== weekRef.current) return;
-      await acceptSource(nextWorkbook, `${selectedWeek.replace(/-/g, '')}_네덜란드.xlsx`, `live:${selectedYear}:${selectedWeek}`, parsed.entries, 'LIVE');
+      const activeCustomerKeys = (result.customersByKey || result.customers || []).map(customer => customer.custKey);
+      const liveEntriesWithIdentity = attachDutchLiveCustomerKeys(XLSXStyled, nextWorkbook, parsed.entries, activeCustomerKeys);
+      await acceptSource(nextWorkbook, `${selectedWeek.replace(/-/g, '')}_네덜란드.xlsx`, `live:${selectedYear}:${selectedWeek}`, liveEntriesWithIdentity, 'LIVE');
     } catch (cause) { if (request === loadRequestRef.current) setError(cause.message || '네덜란드 물량표 조회에 실패했습니다.'); }
     finally { if (request === loadRequestRef.current) setLoading(false); }
   }
@@ -244,7 +247,13 @@ export default function DutchVolumeBoard() {
   function updatePrice(entry, value) {
     if (workBusyRef.current || applyingRef.current) return;
     invalidate();
-    setPrices(previous => ({ ...previous, [dutchPriceKey(entry)]: value }));
+    const keys = dutchUniformPricePeerKeys(entries, entry);
+    setPrices(previous => ({ ...previous, ...Object.fromEntries(keys.map(key => [key, value])) }));
+  }
+  function restorePriceDraft(snapshot) {
+    if (workBusyRef.current || applyingRef.current) return;
+    invalidate();
+    setPrices(previous => restoreDutchPriceDraft(previous, snapshot));
   }
   function pickMaster(entry, kind, item) {
     if (workBusyRef.current || applyingRef.current) return;
@@ -302,7 +311,7 @@ export default function DutchVolumeBoard() {
       const base = XLSXStyled.write(priced.workbook, { type: 'array', bookType: 'xlsx', compression: true });
       const shaped = await addDutchPriceShapesToXlsx(XLSXStyled, base, priced.workbook, entries.filter(row => !row.added), prices);
       const url = URL.createObjectURL(new Blob([shaped], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${fileName.replace(/\.xlsx?$/i, '')}_단가입력.xlsx`; anchor.click(); URL.revokeObjectURL(url);
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${fileName.replace(/\.xlsx?$/i, '')}_입력.xlsx`; anchor.click(); URL.revokeObjectURL(url);
     } catch (cause) { setError(cause.message || '엑셀 저장에 실패했습니다.'); }
   }
 
@@ -417,7 +426,7 @@ export default function DutchVolumeBoard() {
   }
 
   return <><Head><title>네덜란드 물량표 - nenova ERP</title></Head><style jsx>{`
-    .dutch-board{padding:10px;min-height:calc(100vh - 44px)}
+    .dutch-board{padding:10px;min-height:calc(100vh - 44px);zoom:.7;width:142.8571429%;box-sizing:border-box}
     .dutch-board>header{padding:9px 14px}
     .board-layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:10px;align-items:start;margin-top:8px}
     .board-primary{grid-column:1;grid-row:1;min-width:0}
@@ -450,7 +459,7 @@ export default function DutchVolumeBoard() {
     .side-history :global(.history-table){max-height:300px}
     .side-history :global(.history-table td:nth-child(2)){min-width:110px;max-width:150px}
     @media(max-width:1200px){.board-layout{grid-template-columns:minmax(0,1fr) 320px}.board-primary .grid-wrap{max-height:65vh;min-height:360px}}
-    @media(max-width:900px){.board-layout{display:flex;flex-direction:column}.board-primary{order:0;width:100%}.board-side{order:1;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.board-side .side-source{grid-column:1/-1}.side-history{grid-column:1/-1}}
+    @media(max-width:1100px){.dutch-board{zoom:1;width:100%}.board-layout{display:flex;flex-direction:column}.board-primary{order:0;width:100%}.board-side{order:1;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.board-side .side-source{grid-column:1/-1}.side-history{grid-column:1/-1}}
     @media(max-width:760px){.board-layout{display:flex}.board-side{display:flex}.board-primary .grid-wrap,.board-primary :global(.sheet-scroll){max-height:55vh;min-height:300px}}
   `}</style><section className="dutch-board">
     <header><div><h1>네덜란드 물량표</h1><p>원본 엑셀을 올리고 ERP 업체·품목 매칭, 최종 분배수량, 원화 단가를 검토합니다.</p></div></header>
@@ -464,9 +473,9 @@ export default function DutchVolumeBoard() {
       <div className="sheet-tabs" role="tablist" aria-label="물량표 작업 보기">
         <button role="tab" aria-selected={activeTab === 'sheet'} onClick={() => setActiveTab('sheet')}>원본 물량표</button>
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
-        <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, ‘단가’는 단가·매칭 편집</span>
+        <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, 원화 입력·품목 매칭도 여기서 바로 편집</span>
       </div>
-      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={dutchPriceKey} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onEdit={id => { setActiveEntryId(id); setQuery(''); setActiveTab('edit'); }}/>}
+      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={dutchPriceKey} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onEdit={id => { setActiveEntryId(id); setQuery(''); setActiveTab('edit'); }}/>}
       {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>단가 입력 즉시 원본 시트에 표시 · ERP 저장은 별도 적용</span></div>
       <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table><thead><tr><th>품목 / 원본</th><th>업체 / 원본</th><th>ERP 품목 선택</th><th>ERP 업체 선택</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
         const individual = isDutchIndividualPriceCustomer(row.customer);
