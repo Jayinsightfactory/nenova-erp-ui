@@ -59,6 +59,7 @@ function makeDb(initial = baseState()) {
     writes: [],
     queries: [],
     committed: false,
+    stockCalls: [],
   };
 
   function paramsOf(params) {
@@ -254,6 +255,13 @@ function loadCreateOrder(db) {
   const dependencies = {
     query: db.query,
     withTransaction: db.withTransaction,
+    // Order semantics fixture; the real transaction helper is executed separately
+    // by orderStockCalculation.test.js. Track even a wrongly attempted skip call.
+    runOrderStockCalculationBatch: async (input) => {
+      db.stockCalls.push(input);
+      if (db.stockFailure) throw db.stockFailure;
+      return [];
+    },
     sql: { Int: 'Int', NVarChar: 'NVarChar', Float: 'Float', Bit: 'Bit', Date: 'Date' },
     withAuth: fn => fn,
     withActionLog: fn => fn,
@@ -363,6 +371,7 @@ async function main() {
     assert.equal(second.payload.results.find(x => Number(x.prodKey) === 53).status, 'UNCHANGED');
     assert.equal(db.state.histories.length, historyCount, 'replay must not append unchanged history');
     assert.equal(db.queries.filter(q => /usp_StockCalculation/i.test(q.sql)).length, 0, 'final snapshot must preserve stock ledger');
+    assert.equal(db.stockCalls.length, 0, 'FINAL_SNAPSHOT must skip the stock helper entirely, on first save and replay');
   }
 
   // An omitted order that already has shipment distribution blocks the whole snapshot.
@@ -449,6 +458,7 @@ async function main() {
     assert.equal(row.OutQuantity, 3);
     assert.equal(row.EstQuantity, 30, '3단 with EstUnit=송이 must persist 30, not OutUnit=단 quantity 3');
     assert.equal(db.queries.filter(q => /usp_StockCalculation/i.test(q.sql)).length, 0, 'REPLACE must skip stock recalculation');
+    assert.equal(db.stockCalls.length, 0, 'my-customer REPLACE must skip the stock helper entirely');
     assert.ok(!db.writes.some(w => /ShipmentMaster|ShipmentDetail|ShipmentDate|ShipmentFarm|Estimate|WebProfitReport/i.test(w.sql)));
   }
 
@@ -460,6 +470,23 @@ async function main() {
     const response = await call(createOrder, db, { source: 'my-customer', custKey: 317, week: '32-01', year: '2026', orderMode: 'REPLACE', items: [{ prodKey: 53, qty: 0.5, unit: '단', expectedCurrentQty: 2 }] });
     assert.equal(response.statusCode, 201, JSON.stringify(response.payload));
     assert.equal(db.state.details.find(x => x.ProdKey === 53).EstQuantity, 5);
+  }
+
+  // My-customer ADD is order-only even when the stock calculator is unavailable.
+  {
+    const db = makeDb();
+    db.stockFailure = Object.assign(new Error('synthetic native timeout'), { code: 'ETIMEOUT' });
+    const createOrder = loadCreateOrder(db);
+    const response = await call(createOrder, db, { source: 'my-customer', custKey: 317,
+      week: '32-01', year: '2026', orderMode: 'ADD',
+      items: [{ prodKey: 53, qty: 3, unit: '단', expectedCurrentQty: 2 }] });
+    assert.equal(response.statusCode, 201, JSON.stringify(response.payload));
+    assert.equal(response.payload.success, true);
+    assert.equal(detail(db, 53)[0].OutQuantity, 5, 'ADD order remains committed after stock warning');
+    assert.equal(db.committed, true);
+    assert.equal(response.payload.warning, null);
+    assert.equal(db.stockCalls.length, 0, 'my-customer ADD must never call stock calculation');
+    assert.ok(!db.writes.some(w => /ShipmentMaster|ShipmentDetail|ShipmentDate|ShipmentFarm|Estimate|WebProfitReport|ProductStock|StockMaster|StockHistory/i.test(w.sql)));
   }
 
   console.log('my customer order API integration tests passed');

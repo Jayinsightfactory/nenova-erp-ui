@@ -1,5 +1,15 @@
 # FormShipmentDistribution — exe golden (dnSpy/CLI)
 
+## 2026-10-06 견적 준비 상태와 조회 오류 구분
+
+설치 EXE에 FormEstimateView dnSpy CLI를 재실행했다. GetPrintDetail은 DetailFix=1을 검사한다.
+웹의 대차수 전 거래처 확정 검사는 기존 사용자 추가 정책으로 그대로 유지한다.
+같은 업무범위 SELECT probe: 2026/40차 양수 상세1345/미확정97/선택업체533 양수105,
+2026/41·42차 양수 상세 없음. 2025 동일40·41·42차 양수396·1054·1192는 전부 확정이다.
+화면에 보이는 미확정82는 조회 시점의 동적 건수이며 고정값으로 표시하지 않는다.
+미분배/확정 대기를 조회 실패로 표시하지 않도록 기존 eligibility 결과의 구조화 정보를 반환한다.
+인쇄 자격, SQL, 원장 및 자동 확정 정책은 변경하지 않는다. 연결/금액 오류와 실제 조회 실패는 보존한다.
+
 ## 2026-10-05 미분배 사전입력 후 최종 분배 적용
 
 실제 설치 EXE에 dnSpy CLI `-t FormShipmentDistribution` 및 `-t ClassShipmentMaster`를 다시 실행했다.
@@ -431,3 +441,10 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
   않으며, 담당자 수동 선출고 기록은 출고 단위/실제 날짜수량/미래 달력 범위를 검사한다.
 - 견적 대조는 `FormEstimateView.GetPrintDetail`의 저장된 EstQuantity·단가별 반올림·
   Amount/Vat를 기준으로 한다. OutUnit 분배수량과 견적단위를 혼합 합산하지 않는다.
+
+## 2026-10-06 주광 날짜 구간 합계와 전산 업무차수 분리
+
+- 설치 EXE의 FormShipmentDistribution을 dnSpy CLI로 다시 읽었다. 요일 조회는 ShipmentDate.ShipmentQuantity를 PeriodDay의 WeekDay로 SUM(CASE ...)한다. 날짜 수량과 ShipmentDetail.OutQuantity는 별도 축이다.
+- SELECT probe: CustKey533/ProdKey359 CARNATION Brut, 2026/40-01 OutQuantity5에는 2026-10-04 일요일3과 2026-10-06 화요일2가 모두 연결돼 있다. 2025/40-01은 OutQuantity2, 2025-10-01 날짜수량2다. 화면 40-1 합계5/잔량0은 실제 업무키 총량을 날짜 구간 합계로 사용한 결과였다.
+- 최신 사용자 요구에 따라 웹 표시 01은 목~일, 02는 월~수 날짜 합계로 계산한다. 최초분배5에서 일요일3을 빼 01 잔량2를 표시한다. 표시 구간이 바뀌어도 편집·저장·견적의 실제 OrderWeek는 변경하지 않는다.
+- 공유 ERP SQL, 수량, 원장, 확정, 재고·매출과 저장 검증은 모두 보존한다. Wilson은 같은 날짜 총량의 구분값이므로 다시 가산하지 않는다. 범위 밖 날짜는 원문 진단에 남기며 화면 구간 합계에는 넣지 않는다.

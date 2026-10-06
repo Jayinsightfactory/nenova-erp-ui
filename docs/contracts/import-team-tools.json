@@ -1,0 +1,102 @@
+{
+  "id": "import-team-tools",
+  "title": "수입부 기존 파일 도구의 웹 통합",
+  "scope": [
+    "pages/import/tools.js",
+    "pages/api/import/tools/state.js",
+    "pages/api/import/tools/parse-pdf.js",
+    "lib/importTeamStore.js",
+    "lib/importTeamClient.js",
+    "lib/importTeamPdf.js",
+    "lib/importTeamPdfQuota.js",
+    "lib/importTeamPdfCache.js",
+    "lib/importPackingExtractClient.js",
+    "lib/importInvoiceLocal.js",
+    "lib/importChinaInvoice.js",
+    "lib/importAwbFields.js",
+    "lib/importTeamChecklist.js",
+    "lib/importTeamKorean.js",
+    "lib/importToolsDisplay.js",
+    "styles/ImportTools.module.css",
+    "styles/ImportPacking.module.css",
+    "lib/importPacking.js",
+    "lib/importPackingPrompt.js",
+    "lib/importPackingResponse.js",
+    "lib/importPackingState.js",
+    "lib/importPedidos.js",
+    "components/import-tools/PackingListTool.js",
+    "components/import-tools/PedidosTool.js",
+    "components/import-tools/ChecklistTool.js",
+    "lib/importAwbPdf.js",
+    "lib/importAwbWorker.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "businessIdentityUse": "ERP identity is preserved and never queried or mutated by these file tools.",
+  "webIdentity": [
+    "recordKey",
+    "revision",
+    "authenticatedUserId"
+  ],
+  "actions": [
+    {
+      "name": "CONVERT_FILES",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve"
+    },
+    {
+      "name": "SAVE_TEAM_STATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "versioned web-only team state and actor history"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "Checklist YYYY-MM-DD/month/year keys isolate 2025 and 2026; file conversion requires explicit year/week; no SQL master queries."
+  },
+  "requiredTestFiles": [
+    "__tests__/importTeamStore.test.js",
+    "__tests__/importTeamTools.test.js",
+    "__tests__/importTeamChecklist.test.js",
+    "__tests__/importPacking.test.js",
+    "__tests__/importPedidos.test.js",
+    "__tests__/importTeamClient.test.js",
+    "__tests__/importTeamPdfCache.test.js",
+    "__tests__/importPackingExtractClient.test.js",
+    "__tests__/importAwbFields.test.js",
+    "__tests__/importInvoiceLocal.test.js",
+    "__tests__/importPackingHardening.test.js",
+    "__tests__/importTeamKorean.test.js",
+    "__tests__/importToolsDisplay.test.js",
+    "__tests__/importChinaInvoice.test.js",
+    "__tests__/importChecklistEditing.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormOrderAdd.md",
+    "source": "Existing verified FormOrderAdd writer is explicitly excluded; this feature uses uploaded files and web runtime records only. See IMPORT_TEAM_TOOLS_PRD.md.",
+    "methods": [
+      "btnSave_Click (not invoked)"
+    ],
+    "tables": [
+      "OrderMaster (preserve)",
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)",
+      "ProductStock (preserve)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}

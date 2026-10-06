@@ -1,5 +1,31 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-10-06 수입부·영업지원 원장 관리의 견적 보존
+
+- 실제 설치 EXE ClassEstimate를 다시 dnSpy CLI로 읽었다. Delete는 `DELETE FROM Estimate WHERE EstimateKey=...`다.
+- 신규 `manage-archive`는 이 삭제를 호출하지 않는 웹 목록 제외다. 연결 견적·부분이월 적용·정상 ERP 원장을 모두 보존한다. 기존 일반 삭제와 화면 문구/작업명을 구분한다.
+- `manage-edit`는 등록·부분이월·완료 이력이 있는 행의 비고만 수정한다. 수량·매칭 변경으로 실제 Estimate와 웹 원장이 달라지지 않도록 동일 관리 정책을 미리보기와 잠금 트랜잭션에서 재검증한다.
+- 읽기 전용 재점검: 활성676행, 같은 이슈 ID 정확중복0. 청화168/190 실제 견적8832/9014는35/36별개, 영남252는 적용37/38·견적 연결해제 이력이 있으므로 단순 동일수량으로 삭제하지 않는다.
+
+## 2026-10-06 불량 미리보기 범위·중복 초안 보존
+
+- 로컬 dnSpy CLI `--no-color -t FormEstimateView`와 `-t ClassEstimate`로 설치 EXE를 다시 읽었다.
+  GetDetail/GetPrintDetail은 ShipmentMaster의 선택 OrderYearWeek와 실제 Estimate 연결을 읽는다.
+  ClassEstimate.Delete는 EstimateKey로 Estimate를 삭제한다. 따라서 웹 중복 초안 정리에
+  연결 견적까지 삭제하는 일반 deleteDeductions 경로를 사용하지 않는다.
+- 같은 날 운영 SELECT에서 **2026/40 꽃길(CustKey=312), 동산(꽃동산)(315)의 실제 음수 Estimate는 0건**이다.
+  지원 목록의 38차 이월 원장은 과거 EstimateKey가 남아 있어도 40차 등록 근거가 아니다.
+  미리보기의 원장 수량/단가 fallback은 실제 견적처럼 보이는 원인이므로 제거하고,
+  선택 연도·대차수·업체와 연결 EstimateKey가 모두 일치하는 실제 행만 표시한다.
+  미등록/다른 차수 연결은 빈 상태와 기존 적용 차수 안내로 구분한다. 조회는 원장에 쓰지 않는다.
+- 검토된 중복 초안은 690→688, 714~720→697~703의 8쌍으로 제한한다.
+  정상 원장과 Estimate 9835/9843~9849, 이월 적용 이력을 보존하며, 미등록 DRAFT 버전1만
+  논리 제외하고 DUPLICATE_CLEANUP 감사에 전체 전후 스냅샷·정상 원장키·견적키를 남긴다.
+  연도·차수·업체·품목·수량·정규화 단위·단가·담당자·15분 이내 반복 입력 근거와
+  미확인/미이월/미연결 상태를 잠금 대조한다. 동산의 수량이 다른 행과 과거 완료 후보는 포함하지 않는다.
+- 읽기 전용 dry-run 8쌍 및 정책 fixture 통과. 전체 검증 진행 중이며 운영 정리·배포는 미실행이다.
+  진행 기록: [세션 Q&A](../work-sessions/2026-10-06_defect-preview-duplicate-cleanup.md).
+
 ## 2026-10-02 native 상세 고객 NULL 정정
 
 ClassShipmentDetail의 정상 저장은 CustKey를 쓰지 않으며 ViewShipment는 ShipmentKey→Master.CustKey로

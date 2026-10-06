@@ -7,6 +7,7 @@ const vm = require('node:vm');
 async function main() {
   const helper = await import('../lib/pivotVolumeCombinedCells.js');
   const { volumeProdLabel } = await import('../lib/pivotVolumeProductLabel.js');
+  const { pivotCustomerQuantity } = await import('../lib/pivotCustomerQuantity.js');
   const { combinedCellContext, combinedParts, combinedNumberFormat } = helper;
   const row = (key, qty) => ({ prodKey: key, prodName: 'same name', orders: { Customer: qty } });
   const data = { orderYear: 2026, weeks: ['36-02', '36-01'], byWeek: {
@@ -19,6 +20,15 @@ async function main() {
   assert.deepEqual(combinedParts(ctx, row(1, 30), 'Customer', (_, n) => n), [10, 20]);
   assert.deepEqual(combinedParts(ctx, row(2, 5), 'Customer', (_, n) => n), [5, 0]);
   assert.deepEqual(combinedParts(ctx, row(1, 30), 'Customer', (_, n) => n / 16), [0.625, 1.25]);
+  const keyedWeekData = { orderYear:2026, weeks:['36-01','36-02'], byWeek:{
+    '36-01':{rows:[{prodKey:7,prodName:'Rose',orders:{Customer:7},ordersByCustKey:{'10':3,'20':4}}]},
+    '36-02':{rows:[{prodKey:7,prodName:'Rose',orders:{Customer:7},ordersByCustKey:{'10':1,'20':6}}]},
+  }};
+  const keyedCtx = combinedCellContext(keyedWeekData, '1');
+  const sameNameA = { prodKey:7, prodName:'Rose', orders:{Customer:14}, ordersByCustKey:{'10':4,'20':10} };
+  assert.deepEqual(combinedParts(keyedCtx, sameNameA, { custKey:10, custName:'Customer' }, (_, n) => n), [3,1]);
+  assert.deepEqual(combinedParts(keyedCtx, sameNameA, { custKey:20, custName:'Customer' }, (_, n) => n), [4,6]);
+  assert.equal(combinedNumberFormat(4, combinedParts(keyedCtx, sameNameA, { custKey:10, custName:'Customer' }, (_, n) => n)), '0"(3,1)";-0"(3,1)"', 'duplicate display names retain separate keyed subweek breakdowns');
   assert.throws(() => combinedParts(ctx, row(1, 31), 'Customer', (_, n) => n), /다릅니다/);
   assert.throws(() => combinedCellContext({...data, weeks:['36-01']}, '1'), /범위/);
   assert.throws(() => combinedCellContext({...data, weeks:['36-01','37-01']}, 'true'), /범위/);
@@ -42,7 +52,7 @@ async function main() {
   // Exercise actual production sheet generator, replacing only imported read/presentation dependencies.
   const source = fs.readFileSync(path.join(__dirname, '../pages/api/stats/pivot-volume-excel.js'),'utf8')
     .split('export default withAuth')[0].replace(/^import[\s\S]*?;\r?\n/gm, '');
-  const context = { XLSX, ...helper, volumeProdLabel, getFarmDisplayName: x=>x, customerDisplayLabel:c=>c.custName,
+  const context = { XLSX, ...helper, volumeProdLabel, pivotCustomerQuantity, getFarmDisplayName: x=>x, customerDisplayLabel:c=>c.custName,
     DAY_ORDER:{}, extractDays:()=>[], pickDataDay:()=>'', isNetherlandsVolume:()=>false,
     buildPivotVolumeIdentityColumns:()=>[{type:'product'}], pivotVolumeFlowerLabel:r=>r.flower,
     sumOrderQty:r=>Object.values(r.orders||{}).reduce((a,b)=>a+b,0), sumIncomingQty:()=>0 };

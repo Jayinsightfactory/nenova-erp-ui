@@ -60,17 +60,45 @@ const sunday = '2026-09-20';
 const businessActuals = [actual(), actual({orderWeek:'38-02',shipmentOutQuantity:7,
   shipmentDates:[{date:sunday,shipmentQuantity:7}]}),actual({year:2025,shipmentOutQuantity:999})];
 const businessBlock = build(cycles,[],businessActuals,businessBaselines).rows[0].blocks[1];
-assert.equal(businessBlock.subweek01.effectiveTotal,4);
-assert.equal(businessBlock.subweek02.effectiveTotal,7,'Sunday follows actual business -02');
-assert.equal(businessBlock.subweek01.remainderView.value,16);
-assert.equal(businessBlock.subweek02.remainderView.value,13,'standalone -02 baseline minus -02 allocation');
+assert.equal(businessBlock.subweek01.effectiveTotal,11);
+assert.equal(businessBlock.subweek02.effectiveTotal,0,'Sunday displays in Thursday–Sunday interval regardless of source key');
+assert.equal(businessBlock.subweek01.remainderView.value,9);
+assert.equal(businessBlock.subweek02.remainderView.value,20,'standalone -02 baseline minus -02 allocation');
 const businessDraft = build(cycles,[plan({orderWeek:'38-02',date:sunday,quantity:9})],businessActuals,businessBaselines).rows[0].blocks[1];
-assert.equal(businessDraft.subweek01.effectiveTotal,4);
-assert.equal(businessDraft.subweek02.effectiveTotal,9);
-assert.equal(businessDraft.subweek02.remainderView.value,11);
+assert.equal(businessDraft.subweek01.effectiveTotal,13);
+assert.equal(businessDraft.subweek02.effectiveTotal,0);
+assert.equal(businessDraft.subweek02.remainderView.value,20);
 const mismatchedDates = build(cycles,[],[actual({shipmentOutQuantity:10})],businessBaselines).rows[0].blocks[1];
-assert.equal(mismatchedDates.subweek01.effectiveTotal,10,'raw business total remains visible');
-assert.equal(mismatchedDates.subweek01.remainderView.value,null,'unallocated total cannot invent dated remainder');
+assert.equal(mismatchedDates.subweek01.effectiveTotal,4,'visible date total is independent of raw detail total');
+assert.equal(mismatchedDates.subweek01.remainderView.value,16,'known dated evidence supports visible remainder');
+assert.equal(businessBlock.days[3].effectiveOrderWeek,'38-02','Sunday editing keeps the actual source business key');
+assert.equal(businessDraft.subweek02.currentTotal,7,'raw detail total remains available independently of display');
+const brutDates=[{date:sunday,shipmentQuantity:3},{date:'2026-09-22',shipmentQuantity:2}];
+const brutBaseline=['01','02'].map(suffix=>({year:2026,orderWeek:`38-${suffix}`,rows:[{prodKey:101,unit:'박스',quantity:suffix==='01'?5:0}]}));
+const brutActual=actual({shipmentOutQuantity:5,shipmentDates:brutDates});
+const brut=build(cycles,[],[brutActual,actual({year:2025,shipmentOutQuantity:999})],brutBaseline).rows[0].blocks[1];
+assert.deepEqual([brut.currentTotal,brut.datedTotal,brut.subweek01.currentTotal,brut.subweek01.datedTotal,
+  brut.subweek01.effectiveTotal,brut.subweek01.remainderView.value,brut.subweek02.effectiveTotal,brut.effectiveTotal],[5,5,5,3,3,2,2,5]);
+const brutDraft=build(cycles,[plan({date:sunday,quantity:4})],[brutActual],brutBaseline).rows[0].blocks[1];
+assert.deepEqual([brutDraft.subweek01.effectiveTotal,brutDraft.subweek01.remainderView.value,brutDraft.effectiveTotal],[4,1,6],
+  'absolute canonical Sunday target replaces3 with4; Wilson already included in canonical target');
+const outsideBrut=build(cycles,[],[actual({shipmentOutQuantity:8,shipmentDates:[...brutDates,{date:'2026-09-30',shipmentQuantity:3}]})],brutBaseline).rows[0].blocks[1];
+assert.equal(outsideBrut.effectiveTotal,5,'outside date evidence is excluded from visible seven-day sum');
+assert.equal(outsideBrut.currentTotal,8); assert.equal(outsideBrut.outside.length,1);
+for(const patch of [{shipmentDates:undefined},{shipmentDates:[{date:null,shipmentQuantity:5}]},
+  {shipmentDates:[{date:sunday,shipmentQuantity:-1}]},{outUnit:'unknown'}]) {
+  assert.equal(build(cycles,[],[actual(patch)],brutBaseline).rows[0].blocks[1].effectiveTotal,null,
+    'malformed dated evidence never invents a visible total: '+JSON.stringify(patch));
+}
+assert.equal(build(cycles,[],[brutActual,{...brutActual}],brutBaseline).rows[0].blocks[1].effectiveTotal,null,
+  'duplicate actual business identities block visible allocation');
+for(const calendarDays of [cycles[1].days.slice(0,4),[...cycles[1].days.slice(0,6),cycles[1].days[0]]]) {
+  const partial=build([{...cycles[1],days:calendarDays}],[],[brutActual],brutBaseline).rows[0].blocks[0];
+  assert.deepEqual([partial.subweek01.datedTotal,partial.subweek02.datedTotal,partial.effectiveTotal,
+    partial.subweek01.remainderView.value,partial.remainderMajorView.value],[null,null,null,null,null],
+    'incomplete or duplicate seven-day calendar cannot prove window or whole-cycle totals');
+  assert.equal(partial.currentTotal,5,'calendar uncertainty never changes raw ERP detail quantity');
+}
 const duplicateBusinessDraft = build(cycles,[plan(),plan({id:'duplicate'})],businessActuals,businessBaselines).rows[0].blocks[1];
 assert.equal(duplicateBusinessDraft.subweek01.effectiveTotal,null,'duplicate draft does not guess allocation');
 
@@ -317,7 +345,7 @@ const hiddenComparisons = [
 const visibilityHtml = renderMatrix({ comparisonRows: [...hiddenComparisons, actual()] });
 assert.match(tableBody(visibilityHtml), /wcm-product-name">Blue<\/span>/);
 assert.doesNotMatch(visibilityHtml, /ORDER_ONLY_HIDDEN|ZERO_SHIPMENT_HIDDEN|HIDDEN_FLOWER/);
-assert.equal((tableBody(visibilityHtml).match(/<tr>/g) || []).length, 1);
+assert.equal((tableBody(visibilityHtml).match(/<tr data-flower-group=/g) || []).length, 1);
 assert.match(visibilityHtml, /품목 1\/1 · 출고 없음 2개 숨김/);
 const allHiddenHtml = renderMatrix({ comparisonRows: hiddenComparisons });
 assert.match(allHiddenHtml, /품목 0\/0 · 출고 없음 2개 숨김/);
@@ -485,7 +513,7 @@ const pickerElements = () => descendants(pickerHost.render());
 const pickerRegion = () => pickerElements().find((element) => element.props?.['aria-label'] === '품목 추가 검색');
 const pickerButton = (label) => descendants(pickerRegion()).find((element) => element.type === 'button'
   && React.Children.toArray(element.props.children)[0] === label);
-const addedRowNames = () => pickerElements().filter((element) => element.type === 'th' && element.props?.scope === 'row')
+const addedRowNames = () => pickerElements().filter((element) => element.type === 'th' && element.props?.scope === 'row' && element.props.title)
   .map((element) => element.props.title.split('\n')[0]);
 const pickerAlert = (message) => descendants(pickerRegion()).some((element) => element.props?.role === 'alert'
   && element.props.children === message);

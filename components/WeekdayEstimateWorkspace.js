@@ -1,5 +1,7 @@
+import { prepareWeekdayDraftDeletion, weekdayCellDrafts } from '../lib/weekdayDraftDeletion.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
+import { isExpectedWeekdayPrintBlock } from '../lib/weekdayPrintReadiness.js';
 import WeekdayCycleMatrix from './WeekdayCycleMatrix';
 import { readWeekdayStoredInputs, saveWeekdayScopedInputs, mergeWeekdayStoredInputs,
   clearWeekdayStoredSubmission, weekdayInputStorageKey } from '../lib/weekdayDraftStorage.js';
@@ -116,6 +118,9 @@ export default function WeekdayEstimateWorkspace() {
     wilsonDrafts: (storedInputs?.wilsonDrafts || []).filter(record => record.scopeKey === scopeKey) };
   const inputDirty = JSON.stringify({ plans: activePlans, wilsonDrafts: activeWilsonInputs }) !== JSON.stringify(storedScopeInputs);
   const editLocked = !inputLoaded || !inputUser || applyBusy || Boolean(pendingApply) || Boolean(applyPreview) || recoveryBlocked || wilsonBusy;
+  const deleteLock = useRef(false);
+  const editState = useRef(null);
+  const [inputListOpen, setInputListOpen] = useState(false);
   const [toolsOpen,setToolsOpen] = useState(false);
   const [printPreview,setPrintPreview] = useState(null);
   const [printBusy,setPrintBusy] = useState(false);
@@ -131,6 +136,7 @@ export default function WeekdayEstimateWorkspace() {
   const uploadRequest = useRef(0);
   const addedProductScope = useRef({scope:'', keys:[]});
   const [busy, setBusy] = useState(false);
+  editState.current = { editLocked, busy, inputUser };
   const [message, setMessage] = useState('엑셀은 임시로 읽기만 합니다. 전산 원장에는 저장하지 않습니다.');
 
   const sourceRows = useMemo(() => (parsed?.sheets || []).flatMap((sheet) => (sheet.rows || [])
@@ -161,6 +167,38 @@ export default function WeekdayEstimateWorkspace() {
   useEffect(() => {
     if (pendingApply?.payload?.operationId && inputLoaded && customer?.CustKey && cycles.length) refreshErp();
   }, [pendingApply?.payload?.operationId]);
+
+  async function deleteInputs(expectedDrafts, all = false) {
+    if (deleteLock.current || applyLock.current || pendingOperation.current || wilsonLock.current || editState.current.editLocked || editState.current.busy) return { success: false, error: '입력 편집이 잠겨 있습니다.' };
+    deleteLock.current = true;
+    const requestedScope = scopeKey, owner = inputUser;
+    const before = JSON.stringify(inputsRef.current);
+    try {
+      const authenticated = await apiGet('/api/auth/me');
+      if (authenticated?.success !== true || authenticated.user?.userId !== owner || editState.current.inputUser !== owner
+        || currentScope.current !== requestedScope || applyLock.current || pendingOperation.current || wilsonLock.current || editState.current.editLocked || editState.current.busy
+        || JSON.stringify(inputsRef.current) !== before) throw new Error('사용자·조회 범위 또는 입력이 변경되었습니다. 다시 확인하세요.');
+      const next = prepareWeekdayDraftDeletion({ userId: owner, scope: requestedScope, current: inputsRef.current,
+        storedScope: storedScopeInputs, expectedDrafts, all });
+      const saved = saveWeekdayScopedInputs(localStorage, owner, requestedScope,
+        next.storedScope.plans, next.storedScope.wilsonDrafts, storedScopeInputs);
+      inputsRef.current = next.current;
+      setPlans(next.current.plans); setWilsonDrafts(next.current.wilsonDrafts); setStoredInputs(saved);
+      setInputStorageError('');
+      setDraftHistory(current => [...next.removed.map(plan => ({ id: crypto.randomUUID(), kind: 'DRAFT_REMOVE',
+        applied: false, at: new Date().toISOString(), prodKey: plan.prodKey, before: { ...plan }, after: null })), ...current]);
+      setMessage(`미적용 입력 ${next.removed.length}건을 삭제했습니다.`);
+      return { success: true };
+    } catch (error) {
+      setInputStorageError(`입력 삭제 실패: ${error.message} · 현재 입력을 유지합니다.`);
+      return { success: false, error: error.message };
+    } finally { deleteLock.current = false; }
+  }
+
+  async function clearGridCell(payload) {
+    try { return await deleteInputs(weekdayCellDrafts(inputsRef.current.plans, scopeKey, {...payload,custKey:Number(customer?.CustKey)})); }
+    catch (error) { setInputStorageError(`입력 삭제 실패: ${error.message}`); return { success: false, error: error.message }; }
+  }
 
   async function saveInputOnly() {
     if (!inputLoaded || !inputUser || editLocked || busy || !customer?.CustKey) return;
@@ -455,7 +493,7 @@ export default function WeekdayEstimateWorkspace() {
     if(editLocked) return;
     const before = plans.find((item) => item.id === id);
     if (before && Object.keys(patch).some((key) => String(before[key] ?? '') !== String(patch[key] ?? ''))) {
-      setDraftHistory((current) => [{ id: crypto.randomUUID(), kind:'DRAFT_EDIT', applied:false, at:new Date().toISOString(), prodKey:before.prodKey, before:{year:before.year,orderWeek:before.orderWeek,date:before.date,quantity:before.quantity}, after:{year:before.year,orderWeek:before.orderWeek,date:before.date,quantity:before.quantity,...patch} },...current]);
+      setDraftHistory((current) => [{ id: crypto.randomUUID(), kind:'DRAFT_EDIT', draftSnapshot:{...before,...patch}, applied:false, at:new Date().toISOString(), prodKey:before.prodKey, before:{year:before.year,orderWeek:before.orderWeek,date:before.date,quantity:before.quantity}, after:{year:before.year,orderWeek:before.orderWeek,date:before.date,quantity:before.quantity,...patch} },...current]);
     }
     setPlans((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
     // Keep last ERP snapshot visible; draft editing must not hide its differences.
@@ -542,9 +580,11 @@ export default function WeekdayEstimateWorkspace() {
         try {
           const response=await fetch('/api/estimate/weekday-print',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({year:cycle.year,majorWeek:cycle.majorWeek,custKey:Number(customer.CustKey),mode:'major',dates:[]})});
           const result=await response.json();
-          if(!response.ok || !result.success) throw new Error(result.error || '견적 조회 실패');
-          quote={year:cycle.year,majorWeek:cycle.majorWeek,items:result.items || []};
-          try {
+          const expectedBlocked=isExpectedWeekdayPrintBlock(response.status,result);
+          if((!response.ok || result.success!==true) && !expectedBlocked) throw new Error(result.error || '견적 조회 실패');
+          quote=expectedBlocked ? {year:cycle.year,majorWeek:cycle.majorWeek,printReadiness:result.printReadiness}
+            : {year:cycle.year,majorWeek:cycle.majorWeek,items:result.items || []};
+          if(!expectedBlocked) try {
             const management=await apiGet('/api/estimate',{year:cycle.year,week:cycle.majorWeek,custKey:Number(customer.CustKey),byDate:1,itemsOnly:1});
             if(!Array.isArray(management.items)) throw new Error('견적 관리 상세를 읽을 수 없습니다.');
             quote.managementItems=management.items;
@@ -679,7 +719,7 @@ export default function WeekdayEstimateWorkspace() {
       const plan={id:`grid|${scopeKey}|${cell.year}|${cell.orderWeek}|${cell.prodKey}|${cell.date}`,draftScope:scopeKey,custKey:Number(customer.CustKey),prodKey:Number(cell.prodKey),prodName:cell.prodName,
         year:Number(cell.year),orderWeek:cell.orderWeek,date:cell.date,quantity:qty,unit:normalizedUnit,sourceLabel:'표 직접 입력',sheet:'전산 대조',sourceCell:cell.date,raw:before,header:cell.date,sourceYear:null,sourceOrderWeek:null,wdetailKey:null};
       setPlans(current=>[...current,plan]);
-      setDraftHistory(current=>[{id:crypto.randomUUID(),kind:'GRID_DRAFT_EDIT',applied:false,at:new Date().toISOString(),prodKey:plan.prodKey,
+      setDraftHistory(current=>[{id:crypto.randomUUID(),kind:'GRID_DRAFT_EDIT',draftSnapshot:{...plan},applied:false,at:new Date().toISOString(),prodKey:plan.prodKey,
         before:{year:plan.year,orderWeek:plan.orderWeek,date:plan.date,quantity:before},after:{year:plan.year,orderWeek:plan.orderWeek,date:plan.date,quantity:qty}},...current]);
     }
     setMessage('요일 수량 초안을 기록했습니다. 전산 분배·재고는 변경되지 않았습니다.');
@@ -964,10 +1004,21 @@ export default function WeekdayEstimateWorkspace() {
       {uploadError && <div role="alert" style={{color:'#b42318'}}>{uploadError}</div>}
     </header>
 
+    <section aria-label="미적용 입력 내역" style={{padding: '4px 8px', background: '#fff', borderBottom: '1px solid #cbd5e1'}}>
+      <button type="button" aria-expanded={inputListOpen} onClick={() => setInputListOpen(value => !value)}>입력 내역 {activePlans.length}건 · {inputListOpen ? '닫기' : '펼치기'}</button>
+      {inputListOpen && <div>
+        <button type="button" disabled={editLocked || busy || !(activePlans.length || storedScopeInputs.plans.length || wilsonDrafts.some(record => record.scopeKey === scopeKey))} onClick={() => deleteInputs(activePlans, true)}>현재 범위 입력 전체 삭제</button>
+        <div style={{maxHeight: 220, overflow: 'auto'}}>{activePlans.map(plan => <div key={plan.id} style={{display: 'flex', gap: 10, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #e2e8f0'}}>
+          <span style={{flex: 1}}>{plan.prodName || `품목 ${plan.prodKey}`} · {plan.year}/{plan.orderWeek} · {plan.date} · {plan.quantity} {plan.unit}</span>
+          <button type="button" disabled={editLocked || busy} onClick={() => deleteInputs([plan])}>입력 삭제</button>
+        </div>)}{!activePlans.length && <p>현재 범위에 미적용 입력이 없습니다.</p>}</div>
+      </div>}
+    </section>
+
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
     {wilsonError && <div role="alert" style={{color:'#b42318',padding:6}}>윌슨: {wilsonError}</div>}
     {wilsonPending.length>0 && <button type="button" disabled={applyBusy || wilsonBusy || Boolean(pendingApply)} onClick={()=>retryWilson()}>윌슨 구분값 저장 확인 ({wilsonPending.length})</button>}
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
       wilsonRecords={wilsonRecords.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} wilsonDrafts={wilsonDrafts.filter(record=>record.scopeKey===scopeKey && activePlans.some(plan=>Number(plan.year)===record.year && Number(plan.prodKey)===record.prodKey && plan.date===record.date && Number(plan.quantity)===record.expectedTotal))} wilsonBusy={wilsonBusy} wilsonError={wilsonError} onEditWilson={editWilson}
       confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}
@@ -1088,14 +1139,14 @@ export default function WeekdayEstimateWorkspace() {
         </div>
         <p className="muted">입력은 미저장 초안입니다. 실제 OutUnit과 같은 단위만 명시 ERP 저장할 수 있으며 자동 환산하지 않습니다. 다른 조회 범위의 초안은 이번 저장에 포함하지 않습니다.</p>
         <div className="scroll-table"><table><thead><tr><th>원본 근거</th><th>ERP 품목</th><th>견적 세부차수</th><th>출고일/요일</th><th>수량</th><th>원본 단위</th><th>제거</th></tr></thead><tbody>
-          {activePlans.map((plan) => <tr key={plan.id}><td>{plan.sourceLabel}<br/><span className="muted">{plan.sheet}!{plan.sourceCell} · {plan.header} · 원문 {plan.raw}</span></td><td>{plan.prodName || `ProdKey ${plan.prodKey}`}</td><td>{plan.year}/{plan.orderWeek}</td><td>{plan.date}<div className="muted">{plan.date ? weekdayLabels[new Date(`${plan.date}T12:00:00`).getDay()] + '요일' : ''} · 날짜 이동은 위 표에서</div></td><td><input disabled={editLocked} style={{ ...inputStyle, width:110 }} type="number" min="0" step="any" value={plan.quantity} onChange={(e) => updatePlan(plan.id, { quantity:e.target.value })} /></td><td>{plan.unit}</td><td><button disabled={editLocked} onClick={() => { setDraftHistory((current)=>[{id:crypto.randomUUID(),kind:'DRAFT_REMOVE',applied:false,at:new Date().toISOString(),prodKey:plan.prodKey,before:{...plan},after:null},...current]);setPlans((current) => current.filter((item) => item.id !== plan.id)); }}>초안 제거</button></td></tr>)}
+          {activePlans.map((plan) => <tr key={plan.id}><td>{plan.sourceLabel}<br/><span className="muted">{plan.sheet}!{plan.sourceCell} · {plan.header} · 원문 {plan.raw}</span></td><td>{plan.prodName || `ProdKey ${plan.prodKey}`}</td><td>{plan.year}/{plan.orderWeek}</td><td>{plan.date}<div className="muted">{plan.date ? weekdayLabels[new Date(`${plan.date}T12:00:00`).getDay()] + '요일' : ''} · 날짜 이동은 위 표에서</div></td><td><input disabled={editLocked} style={{ ...inputStyle, width:110 }} type="number" min="0" step="any" value={plan.quantity} onChange={(e) => updatePlan(plan.id, { quantity:e.target.value })} /></td><td>{plan.unit}</td><td><button disabled={editLocked} onClick={() => deleteInputs([plan])}>초안 제거</button></td></tr>)}
           {!activePlans.length && <tr><td colSpan={7}>현재 조회 범위에 배분 초안이 없습니다. 다른 범위 초안은 원래 업체·연도·중심 차수로 돌아가면 다시 표시됩니다.</td></tr>}
         </tbody></table></div>
       </section>
 
       {(draftHistory.length > 0 || erpHistory.length > 0 || savedHistory.length>0 || historyError) && <section className="span-12" style={panel}>
         <h2 style={{fontSize:17,margin:'0 0 10px'}}>변경 이력 · 초안과 전산 기록 구분</h2>
-        <div className="grid"><div className="span-6"><b>현재 화면 초안 (ERP 미적용)</b>{draftHistory.map((event)=><div key={event.id} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13}}>{event.at?.slice(0,19).replace('T',' ')} · 품목 {event.prodKey} · {event.kind}<br/>{event.before?.year}/{event.before?.orderWeek} {event.before?.date} → {event.after ? `${event.after.year}/${event.after.orderWeek} ${event.after.date}` : '초안 제거'} · {event.quantity != null ? `${event.quantity} ${event.unit}` : `${event.before?.quantity ?? '—'} → ${event.after?.quantity ?? '—'}`} {event.reason && `· ${event.reason}`}</div>)}</div><div className="span-6"><b>EXE 공용 출고 이력 · ShipmentHistory</b><p className="muted">nenova.exe와 공유하는 기존 일자별 신규·수정·삭제 기록입니다. 상세행이 완전히 삭제된 취소건은 기존 EXE 조회에서 빠질 수 있으며, 웹 저장건은 아래 영속 감사에서 조회합니다. 기존 ShipmentHistory 행의 보존과 EXE 화면의 조회 가능 여부는 다릅니다. 명시 작업 UUID가 없는 이력은 이동·웹 감사와 자동 연결하거나 중복 제거하지 않습니다.</p>{erpHistory.map((event,index)=><div key={`${event.SdetailKey}|${event.ChangeDtm}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>EXE 공용 · {event.ChangeDtm} · 담당자 {event.ChangeID} · {event.OrderYear}/{event.OrderWeek} · 품목 {event.ProdKey}<br/>{event.ShipmentDate} {event.ChangeType} · {event.BeforeValue} → {event.AfterValue}{event.Descr && <div>비고: {event.Descr}</div>}</div>)}</div></div>
+        <div className="grid"><div className="span-6"><b>현재 화면 초안 (ERP 미적용)</b>{draftHistory.map((event)=><div key={event.id} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13}}>{event.at?.slice(0,19).replace('T',' ')} · 품목 {event.prodKey} · {event.kind}<br/>{event.before?.year}/{event.before?.orderWeek} {event.before?.date} → {event.after ? `${event.after.year}/${event.after.orderWeek} ${event.after.date}` : '초안 제거'} · {event.quantity != null ? `${event.quantity} ${event.unit}` : `${event.before?.quantity ?? '—'} → ${event.after?.quantity ?? '—'}`} {event.reason && `· ${event.reason}`} {event.draftSnapshot && activePlans.some(plan => JSON.stringify(plan) === JSON.stringify(event.draftSnapshot)) && <button type="button" disabled={editLocked || busy} onClick={() => deleteInputs([event.draftSnapshot])}>연결 입력 삭제</button>}</div>)}</div><div className="span-6"><b>EXE 공용 출고 이력 · ShipmentHistory</b><p className="muted">nenova.exe와 공유하는 기존 일자별 신규·수정·삭제 기록입니다. 상세행이 완전히 삭제된 취소건은 기존 EXE 조회에서 빠질 수 있으며, 웹 저장건은 아래 영속 감사에서 조회합니다. 기존 ShipmentHistory 행의 보존과 EXE 화면의 조회 가능 여부는 다릅니다. 명시 작업 UUID가 없는 이력은 이동·웹 감사와 자동 연결하거나 중복 제거하지 않습니다.</p>{erpHistory.map((event,index)=><div key={`${event.SdetailKey}|${event.ChangeDtm}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>EXE 공용 · {event.ChangeDtm} · 담당자 {event.ChangeID} · {event.OrderYear}/{event.OrderWeek} · 품목 {event.ProdKey}<br/>{event.ShipmentDate} {event.ChangeType} · {event.BeforeValue} → {event.AfterValue}{event.Descr && <div>비고: {event.Descr}</div>}</div>)}</div></div>
         <b style={{display:'block',marginTop:10}}>웹 요일 저장 감사 · 작업 UUID / 전체 거래 보완 기록</b>
         <p className="muted">기존 EXE 공용 출고 이력은 위에 그대로 표시합니다. 같은 웹 저장이 두 출처에 기록될 수 있으며, 명시 UUID 연결이 없는 기록은 시각·수량으로 추정 중복 제거하지 않습니다.</p>
         {historyError && <p role="alert" style={{color:'#9f1c16'}}>{historyError}</p>}

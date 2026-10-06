@@ -18,6 +18,10 @@ export const MANAGED_UPLOAD_ROUTES = [
   { location: '/api/work/drive-ingest', bodyLimit: '32m' },
   // /my-work 탭2 데이터 매일 자동 갱신(스토리보드 16MB, 앱 제한 30MiB)
   { location: '/api/work/feature-data-ingest', bodyLimit: '32m' },
+  // 20MiB PDF -> base64 JSON (~26.7MiB); keep exact route scope.
+  { location: '/api/import/tools/parse-pdf', bodyLimit: '32m' },
+  // Shared catalog JSON is bounded to 6MiB by the application.
+  { location: '/api/import/tools/state', bodyLimit: '8m' },
 ];
 // 하위 호환 별칭 — 기존 테스트/호출부가 참조한다.
 export const PNL_UPLOAD_LOCATION = MANAGED_UPLOAD_ROUTES[0].location;

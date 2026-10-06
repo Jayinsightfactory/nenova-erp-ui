@@ -106,4 +106,20 @@ assert.match(page, /compact\s*\/>/,
   '원본 미리보기와 상세 편집의 품목 매칭 셀은 한 줄 밀집 모드를 사용해야 한다');
 assert.match(page, /주문등록 시작/, '등록은 사용자가 명시적으로 시작해야 한다');
 assert.match(page, /주문등록 진행 로그/, '등록 처리 단계와 종료 상태를 화면에 남겨야 한다');
+const manualProducts = [
+  { ProdKey: 303, ProdName: 'THAI / Orchid', DisplayName: 'Thai Orchid', FlowerName: 'Orchid', CounName: 'Thailand', OutUnit: 'box' },
+];
+const manualRematched = matchImportRows([{ rowNo: 2, inputName: 'thai orchid', qty: 1, unit: 'box' }], {
+  allProducts: manualProducts,
+  productByKey: new Map([[303, manualProducts[0]]]),
+  prodUnitMap: {},
+  unitCatalog: {},
+  savedMappings: { 'thai orchid': { prodKey: 303, manual: true } },
+});
+assert.equal(manualRematched[0].prodKey, 303, 'the next upload must reuse the corrected product');
+assert.equal(manualRematched[0].mappingManual, true, 'manual mapping metadata must survive the next upload');
+assert.match(persistSource, /manual:\s*it\.mappingMatchType === 'manual' \|\| it\.mappingManual === true/,
+  'reusing a stored mapping must not strip its manual marker');
+assert.match(page, /manual:\s*true,[\s\S]*custKey,/,
+  'product corrections must be saved as reviewed manual mappings');
 console.log('order shipment list tests passed');

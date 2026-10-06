@@ -13,7 +13,7 @@ const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'li
 const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const filename = fileURLToPath(new URL('../components/WeekdayCycleMatrix.js', import.meta.url));
 const source = readFileSync(filename, 'utf8');
-const compiled = transformSync(source + '\nexport { CompactSummary, SummaryDetails, ConfirmationBadges, WilsonCell, displayCycleColumns };', false,
+const compiled = transformSync(source + '\nexport { CompactSummary, SummaryDetails, ConfirmationBadges, WilsonCell, QuantityCell, displayCycleColumns, carryoverInputAlerts };', false,
   Buffer.from(JSON.stringify({ filename, jsc: { target:'es2020', parser:{syntax:'ecmascript',jsx:true},
     transform:{react:{runtime:'automatic'}} }, module:{type:'commonjs'} })));
 const componentRequire = createRequire(filename);
@@ -23,7 +23,7 @@ const load = (react = React) => {
     : name.includes('weekdayHorizontalMatrix') ? helper : componentRequire(name), mod, mod.exports);
   return mod.exports;
 };
-const {default:Matrix, CompactSummary, ConfirmationBadges} = load();
+const {default:Matrix, CompactSummary, ConfirmationBadges, carryoverInputAlerts} = load();
 const render = (Component, props) => renderToStaticMarkup(React.createElement(Component, props));
 const cycles = [-1,0,1].map(offset => ({offset,year:2026,majorWeek:String(38+offset),calendarState:'FOUND',
   startDate:shiftDate('2026-09-17',offset*7),endDate:shiftDate('2026-09-17',offset*7+6),
@@ -45,10 +45,10 @@ const snapshot = JSON.stringify(props);
 let html = render(Matrix,props);
 assert.equal(JSON.stringify(props),snapshot,'display never mutates raw quantity/baseline/draft inputs');
 assert.equal((html.match(/class="wcm-compact-summary"/g)||[]).length,9);
-assert.equal((html.match(/<td class="wcm-total wcm-major-total"/g)||[]).length,9,'three actual summary cells per cycle');
+assert.equal((html.match(/<td class="wcm-total wcm-major-total(?: [^"]*)?"/g)||[]).length,9,'three actual summary cells per cycle');
 assert.equal((html.match(/colspan="18"/gi)||[]).length,3,'cycle spans expanded summary columns');
 const crossYearMarkup=render(Matrix,{...props,comparisonRows:[...comparisons,{...actual,year:2025,shipmentOutQuantity:999999,shipmentDates:[{date:'2025-09-17',shipmentQuantity:999999}]}]});
-assert.equal((crossYearMarkup.match(/<td class="wcm-total wcm-major-total"/g)||[]).length,9,'prior-year same-week data does not add summary cells');
+assert.equal((crossYearMarkup.match(/<td class="wcm-total wcm-major-total(?: [^"]*)?"/g)||[]).length,9,'prior-year same-week data does not add summary cells');
 assert.match(crossYearMarkup,/data-wcm-label="sum" data-quantity="1"/,'2026 summary preserves its draft projection with a prior-year same-week sentinel');
 assert.equal((html.match(/class="wcm-summary-row /g)||[]).length,9,'exactly three stable rows per cycle');
 assert.match(html,/data-wcm-label="sum" data-quantity="1"/,'sum uses validated draft projection');
@@ -67,9 +67,42 @@ assert.equal((quoteFailureHtml.match(/fixture quote failure:/g)||[]).length,1,'f
 assert.match(quoteFailureHtml,/<details class="wcm-quote-error"><summary>견적 조회 실패 · 상세<\/summary>/,'header disclosure is collapsed by default');
 assert.equal((quoteFailureHtml.match(/aria-label="[^"]+견적 대조 · [^"]+ · 조회 실패"/g)||[]).length,2,'both affected product buttons expose their failure state');
 assert.doesNotMatch(quoteFailureHtml,/wcm-error[^>]*role="alert">견적 조회 실패/,'product rows do not contain repeated long quote errors');
+const readinessResult=patch=>({year:2026,majorWeek:'38',printReadiness:{scope:'ALL_CUSTOMERS_MAJOR_WEEK',
+  positiveCount:0,unfixedCount:0,invalidCount:0,reasons:[],...patch}});
+const emptyReadyMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({})]});
+assert.match(emptyReadyMarkup,/분배·확정 후 견적 출력 가능/);
+assert.match(emptyReadyMarkup,/저장된 출고 없음 · 입력·분배 적용부터 진행/);
+assert.doesNotMatch(emptyReadyMarkup,/견적 조회 실패|<span>실패<\/span>/,'no shipment is an ordinary next-step state');
+const waitingMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({positiveCount:1345,unfixedCount:97})]});
+assert.match(waitingMarkup,/확정 대기 97건 · 해당 연도·차수 전체 업체/);
+assert.match(waitingMarkup,/href="\/shipment\/fix-status\?popup=1"/);
+assert.match(waitingMarkup,/확정 현황에서 2026년 38차를 조회·확정한 뒤 전산 새로고침/);
+assert.doesNotMatch(waitingMarkup,/견적 조회 실패|<span>실패<\/span>/,'unfixed rows give actionable scope rather than a network failure');
+const invalidMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({positiveCount:10,invalidCount:2,reasons:['<script>technical link detail</script>']})]});
+assert.match(invalidMarkup,/견적 연결 확인 2건 · 상세/);
+assert.match(invalidMarkup,/&lt;script&gt;technical link detail&lt;\/script&gt;/);
+assert.doesNotMatch(invalidMarkup,/<script>technical/,'diagnostic reasons are safe text');
 assert.match(quoteFailureHtml,/data-wcm-label="sum" data-quantity="1"/,'quote error does not change summary quantity');
 assert.equal((quoteFailureHtml.match(/aria-label="전체 견적"/g)||[]).length,(html.match(/aria-label="전체 견적"/g)||[]).length,'quote error does not remove existing print actions');
 assert.match(quoteFailureHtml,/기준 미확정/,'page baseline preview is distinct from ERP-unfixed labels');
+const visibleText=markup=>markup.replace(/<[^>]*>/g,'');
+const provisionalMarkup=render(Matrix,{...props,plans:[],baselines:[],
+  baselineCandidates:[baseline('01'),baseline('02')].map(record=>({...record,provisional:true}))});
+assert.doesNotMatch(visibleText(provisionalMarkup),/기준 미확정|이월 미확정/,'provisional states use cell color without repeated visible labels');
+assert.match(provisionalMarkup,/<th[^>]*class="wcm-initial wcm-cycle-start wcm-provisional"/);
+assert.match(provisionalMarkup,/<td class="wcm-initial wcm-cycle-start wcm-provisional"/);
+assert.match(provisionalMarkup,/<td class="wcm-total wcm-provisional"/,'subweek remainder uses the same provisional cue');
+assert.match(provisionalMarkup,/<td class="wcm-total wcm-major-total wcm-provisional"/,'major remainder retains provisional color');
+assert.match(provisionalMarkup,/title="기준 미확정/,'accessible detail retains the baseline status');
+const unallocatedMarkup=render(Matrix,{...props,plans:[{...draft,quantity:0}],comparisonRows:comparisons.map(item=>({...item,
+  state:'NO_SHIPMENT',detailRows:0,shipmentOutQuantity:null,shipmentDates:[]})),baselines:[]});
+const bodyText=visibleText(unallocatedMarkup.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1]||'');
+assert.match(unallocatedMarkup,/wcm-cell wcm-unallocated/,'known empty quantities have a color class');
+assert.doesNotMatch(bodyText,/미분배|기준 미확정/,'unallocated rows have no repeated state text');
+assert.match(unallocatedMarkup,/미분배 품목 표시/,'the unallocated row filter remains available');
+assert.match(unallocatedMarkup,/미분배 ·/,'unallocated detail remains available in the title');
+assert.match(source,/wcm-unallocated:not\(\.wcm-proposed\):not\(\.wcm-changed\):not\(\.wcm-early\)/,'draft, change and early cues take precedence');
+assert.match(source,/wcm-provisional:not\(\.wcm-draft\)/,'draft summary styling takes precedence');
 assert.match(render(Matrix,{...props,baselines:[]}),/aria-label="2026\/38-01 최초분배 확정"/,'baseline accessible name remains stable');
 assert.match(source,/font-size:14px; line-height:1.4/,'default data font is at least14');
 assert.match(source,/tbody td \.wcm-quantity-label \{[^\n]*font-size:14px; font-weight:700;[^\n]*text-align:center; justify-content:center/);
@@ -167,7 +200,7 @@ const summaryProps={row,block,disabled:false,carryover:{records:[record]},hasCus
   onOpenCarryover:value=>events.push(['closing',value]),onOpenNote:value=>events.push(['note',value]),onSelect:value=>events.push(['quote',value])};
 html=render(CompactSummary,summaryProps);
 assert.match(html,/이월 /); assert.match(html,/-2/); assert.match(html,/수동/); assert.match(html,/미확정/);
-assert.match(html,/이월 초안/); assert.match(html,/이월 미확정/); assert.match(html,/기준 미확정/); assert.match(html,/<span>불일치<\/span>/);
+assert.match(html,/이월 초안/); assert.doesNotMatch(visibleText(html),/이월 미확정|기준 미확정/); assert.match(html,/이월 미확정/); assert.match(html,/기준 미확정/); assert.match(html,/<span>불일치<\/span>/);
 assert.match(html,/data-quantity="23"/); assert.match(html,/수동 비고 근거/);
 assert.doesNotMatch(html,/>이월 미등록</,'benign unregistered carry is not a visible repeated row');
 const nodes = element=>!element || typeof element!=='object'?[]:[element,...React.Children.toArray(element.props?.children).flatMap(nodes)];
@@ -186,7 +219,7 @@ const failedQuoteButton=nodes(failedQuoteTree).find(node=>node.type==='button'&&
 assert.match(renderToStaticMarkup(failedQuoteButton),/<span>견적<\/span><span>실패<\/span>/,'failed quote displays its state in exactly two compact lines');
 failedQuoteButton.props.onClick();
 assert.match(events.at(-1)[1],/상태: 조회 필요[\s\S]*오류: fixture quote failure:/,'failed quote click sends exact state and full error to selectedInfo');
-assert.match(render(CompactSummary,{...summaryProps,carryoverError:'fixture carry error'}),/role="alert">이월 조회 실패/);
+assert.match(render(CompactSummary,{...summaryProps,carryoverError:'fixture carry error'}),/role="alert"><button[^>]*이월 확인[^>]*>!<\/button>/);
 const failedQuoteMarkup=render(CompactSummary,{...summaryProps,block:{...block,quote:{state:'조회 필요',error:'fixture quote error'}}});
 assert.match(failedQuoteMarkup,/<span>실패<\/span>/,'quote error remains visible in the item button');
 assert.doesNotMatch(failedQuoteMarkup,/wcm-error[^>]*role="alert">견적 조회 실패/,'full quote error is not rendered as a repeated cell alert');
@@ -194,7 +227,7 @@ assert.ok(nodes(CompactSummary({...summaryProps,carryoverBusy:true})).find(node=
 
 // Execute the actual popover handlers with a small hook host, including focus return.
 const slots=[]; let index=0; let effects=[];
-const harness={...React,useState(initial){const i=index++; if(!(i in slots))slots[i]=initial; return [slots[i],value=>{slots[i]=value;}];},
+const harness={...React,useState(initial){const i=index++; if(!(i in slots))slots[i]=initial; return [slots[i],value=>{slots[i]=typeof value==='function'?value(slots[i]):value;}];},
   useRef(initial){const i=index++; if(!(i in slots))slots[i]={current:initial}; return slots[i];},
   useEffect(effect){effects.push(effect);}};
 const Details=load(harness).SummaryDetails;
@@ -231,11 +264,11 @@ const wilsonRecord={year:2026,majorWeek:'38',orderWeek:'38-01',custKey:7,prodKey
 const wilsonMarkup=render(Matrix,{...props,plans:[],comparisonRows:[sunday],wilsonRecords:[wilsonRecord],onEditWilson(){}});
 assert.match(wilsonMarkup,/aria-label="윌슨 구분 요일"/);
 assert.match(wilsonMarkup,/aria-label="CARNATION Blue 2026\/38-01 2026-09-20 미적용 초안 수량"[^>]*value="8"/,'general quantity derives from canonical total minus Wilson');
-assert.match(wilsonMarkup,/aria-label="CARNATION Blue 2026-09-20 윌슨 수량" value="2"/);
+assert.match(wilsonMarkup,/aria-label="CARNATION Blue 2026-09-20 윌슨 수량"[^>]*value="2"/);
 assert.match(wilsonMarkup,/data-wcm-label="sum" data-quantity="10"/,'major total never adds Wilson a second time');
 assert.match(wilsonMarkup,/일반·윌슨 합계 내역/);
 const staleMarkup=render(Matrix,{...props,plans:[],comparisonRows:[sunday],wilsonRecords:[{...wilsonRecord,expectedTotal:9,status:'STALE'}],onEditWilson(){}});
-assert.match(staleMarkup,/재확인 · 분류/);
+assert.match(staleMarkup,/윌슨 재확인/);
 assert.match(staleMarkup,/<input(?=[^>]*aria-label="CARNATION Blue 2026\/38-01 2026-09-20 미적용 초안 수량")(?=[^>]*disabled="")[^>]*>/,'stale split blocks general editing');
 const Wilson=load(harness).WilsonCell;
 const wilsonEvents=[];
@@ -270,3 +303,82 @@ assert.equal(nodes(wview).find(node=>node.type==='button').props.disabled,true,'
 nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:'20'}});wview=wdraw(emptyProps);
 await nodes(wview).find(node=>node.type==='input').props.onBlur();
 assert.equal(wilsonEvents.at(-1).totalQuantity,20,'new Wilson quantity creates exactly one canonical20 draft');
+
+// Retry is an actual actionable header control, never a cosmetic failure label.
+harness.useMemo=factory=>factory();
+slots.length=0;index=0;effects=[];
+const RetryMatrix=load(harness).default;
+let retriedCycle;
+const retryTree=RetryMatrix({...props,plans:[],quoteResults:[{year:2026,majorWeek:'38',error:'network fixture'}],
+  onRetryQuote(cycle){retriedCycle=cycle;}});
+const retryButton=nodes(retryTree).find(node=>node.type==='button'&&node.props.children==='다시 조회');
+assert.ok(retryButton);assert.equal(retryButton.props.disabled,false);
+retryButton.props.onClick();assert.equal(retriedCycle.majorWeek,'38');assert.equal(retriedCycle.year,2026);
+slots.length=0;index=0;effects=[];
+const neutralTree=RetryMatrix({...props,plans:[],quoteResults:[readinessResult({})]});
+assert.equal(nodes(neutralTree).filter(node=>node.type==='button'&&node.props.children==='다시 조회').length,0,
+  'expected no-shipment state is not presented as a retriable network error');
+
+// Blank input removes a browser draft; zero remains an explicit quantity.
+const Quantity=load(harness).QuantityCell;
+const qday=row.blocks[1].days[0],qevents=[];
+const qprops={row,block,day:qday,disabled:false,onSelect(){},
+  onEditCell:async payload=>{qevents.push(['edit',payload]);return true;},
+  onClearCell:async payload=>{qevents.push(['clear',payload]);return true;}};
+const qdraw=patch=>{index=0;effects=[];return Quantity({...qprops,...patch});};
+slots.length=0;let qview=qdraw();
+await nodes(qview).find(node=>node.type==='input').props.onBlur();assert.equal(qevents.length,0);
+nodes(qview).find(node=>node.type==='input').props.onChange({target:{value:''}});
+await nodes(qdraw()).find(node=>node.type==='input').props.onBlur();
+assert.equal(qevents.at(-1)[0],'clear');assert.equal(qevents.at(-1)[1].quantity,null);assert.equal(qevents.at(-1)[1].clear,true);
+assert.equal(qevents.at(-1)[1].orderWeek,qday.effectiveOrderWeek);
+slots.length=0;qview=qdraw();nodes(qview).find(node=>node.type==='input').props.onChange({target:{value:'0'}});
+await nodes(qdraw()).find(node=>node.type==='input').props.onBlur();assert.equal(qevents.at(-1)[0],'edit');assert.equal(qevents.at(-1)[1].quantity,0);
+slots.length=0;qview=qdraw();nodes(qview).find(node=>node.type==='input').props.onChange({target:{value:''}});
+const rejected={onClearCell:async()=>({success:false,error:'fixture delete failed '.repeat(40)})};
+await nodes(qdraw(rejected)).find(node=>node.type==='input').props.onBlur();qview=qdraw(rejected);
+assert.equal(nodes(qview).find(node=>node.type==='input').props.value,'','failed delete preserves blank input for retry');
+const alert=nodes(qview).find(node=>node.props?.role==='alert');
+assert.equal(alert.props.children.props.visibleLabel,'!');assert.match(alert.props.children.props.description,/fixture delete failed/);
+assert.doesNotMatch(visibleText(render(CompactSummary,{...summaryProps,carryoverError:'fixture error'})),/이월 조회 실패/,
+  'carry failure is a compact alert rather than long row text');
+console.log('Blank draft deletion, explicit zero, async failure preservation and compact error details passed');
+
+assert.equal(alert.props.children.props.autoOpen,true,'new input failure opens its details automatically');
+slots.length=0;index=0;effects=[];
+Details({...detailsProps,autoOpen:true});effects.forEach(effect=>effect());index=0;effects=[];
+assert.ok(nodes(Details({...detailsProps,autoOpen:true})).some(node=>node.props?.role==='dialog'),'automatic failure alert uses the accessible dialog');
+slots.length=0;let wclear;
+wview=wdraw({onClearCell:async payload=>{wclear=payload;return true;}});
+nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:''}});
+await nodes(wdraw({onClearCell:async payload=>{wclear=payload;return true;}})).find(node=>node.type==='input').props.onBlur();
+assert.equal(wclear.quantity,null);assert.equal(wclear.clear,true,'blank Wilson removes the linked date draft instead of recording zero');
+assert.deepEqual(qevents.find(item=>item[0]==='clear')[1].expectedDrafts,qday.drafts,'deletion carries rendered draft fingerprints');
+console.log('Automatic error dialog, Wilson blank deletion and draft compare evidence passed');
+
+
+assert.match(source,/wcm-cell-error \{[^\n]*z-index:40/,'input error dialog stacking context stays above selected-cell details');
+
+const unrelatedAlert={name:'Unrelated',blocks:[{cycle:cycles[1],productPlans:[],carryover:{error:'unrelated warning'}}]};
+const inputAlert={name:'Brut',blocks:[{cycle:cycles[1],productPlans:[draft],carryover:{error:'edited input warning'}}]};
+assert.equal(carryoverInputAlerts({rows:[unrelatedAlert,inputAlert]}),'Brut · 2026 / 38차\nedited input warning','automatic carry alert includes only product intervals with unapplied input');
+assert.equal(carryoverInputAlerts({rows:[unrelatedAlert,{...inputAlert,blocks:inputAlert.blocks.map(block=>({...block,productPlans:[]}))}]}),'','deleting the input removes its automatic alert');
+
+const groupActuals=['CARNATION','ROSE','HYDRANGEA','ALSTROEMERIA','백합','네리네'].map((flowerName,i)=>({...actual,prodKey:700+i,flowerName,prodName:`${flowerName} fixture`}));
+const groupProps={...props,plans:[],comparisonRows:groupActuals,baselines:[]};
+slots.length=0;const groupDraw=()=>{index=0;effects=[];return RetryMatrix(groupProps);};
+let groups=groupDraw();
+const groupButtons=tree=>nodes(tree).filter(node=>node.type==='button'&&/개 품목/.test(node.props['aria-label']||''));
+assert.deepEqual(groupButtons(groups).map(node=>node.props['aria-label'].split(' ')[0]),['카네이션','장미','수국','알스트로','네리네','백합']);
+assert.ok(groupButtons(groups).every(node=>node.props['aria-expanded']===true),'all nonempty groups start expanded');
+const inputCount=nodes(groups).filter(node=>node.type==='input').length;
+groupButtons(groups)[1].props.onClick();groups=groupDraw();
+assert.equal(groupButtons(groups)[1].props['aria-expanded'],false);
+assert.equal(nodes(groups).find(node=>node.type==='tr'&&node.props['data-flower-group']==='장미').props.hidden,true);
+assert.equal(nodes(groups).filter(node=>node.type==='input').length,inputCount,'folding retains mounted input cells and draft state');
+nodes(groups).find(node=>node.type==='input'&&node.props.type==='search').props.onChange({target:{value:'ROSE'}});groups=groupDraw();effects.forEach(effect=>effect());groups=groupDraw();
+assert.ok(groupButtons(groups).every(node=>node.props['aria-expanded']===true),'search changes reveal matching collapsed groups');
+groupButtons(groups)[0].props.onClick();groups=groupDraw();assert.equal(groupButtons(groups)[0].props['aria-expanded'],false,'search results remain independently collapsible');
+assert.match(renderToStaticMarkup(groups),/검색 결과/);
+assert.equal(helper.weekdayFlowerPriority({flowerNames:['SPRAY ROSE'],name:'ROSE fixture'}),4,'unrecognized authoritative metadata stays other rather than guessed from product name');
+console.log('Flower group order, default expansion, mounted hidden cells and search reveal passed');

@@ -12,6 +12,12 @@ const assert = (label, cond) => {
 const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.0001;
 
 async function main() {
+  const { pivotCustomerQuantity } = await import('../lib/pivotCustomerQuantity.js');
+  const duplicateNameRow = { orders: { '공통상호': 7 }, ordersByCustKey: { '10': 3, '20': 4 } };
+  assert('동일 업체명도 CustKey 10은 자기 주문3만 조회', pivotCustomerQuantity(duplicateNameRow, { custKey: 10, custName: '공통상호' }) === 3);
+  assert('동일 업체명도 CustKey 20은 자기 주문4만 조회', pivotCustomerQuantity(duplicateNameRow, { custKey: 20, custName: '공통상호' }) === 4);
+  assert('기존 피벗 응답은 업체명 fallback 유지', pivotCustomerQuantity({ orders: { '기존업체': 5 } }, { custKey: 30, custName: '기존업체' }) === 5);
+
   // pivotStats.js 는 lib/db 를 번들러 없이 못 불러오므로 순수 모듈을 직접 임포트
   // (pivotStats.js 는 동일 함수를 re-export 함)
   const { aggregateDistCostOrders } = await import('../lib/pivotDistCost.js');

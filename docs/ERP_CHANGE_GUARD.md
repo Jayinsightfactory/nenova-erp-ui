@@ -1,5 +1,20 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-06 영업지원·수입부 불량 원장 관리
+
+등록 선택은 중복/완료/등록 불가 행을 제외하므로 삭제·정리 선택으로 재사용하지 않는다. 관리 선택을 별도로 제공하고 원천 연도·부모차수·버전을 잠금 재검증한다. 관리 권한은 신규 action에만 부여하며 기존 작성자 기반 일반 DELETE를 변경하지 않는다.
+
+`manage-archive`는 웹 원장 논리 제외와 감사 기록만 남긴다. 실제 EXE `ClassEstimate.Delete` 및 기존 generic 삭제는 연결 Estimate 실제 삭제이므로 이 목록 정리에 호출하지 않는다. `manage-edit`는 Estimate/application/완료 이력이 있으면 비고만 갱신한다. 미등록 매칭 변경은 수입확인을 해제하고 원문·소유자·ERP 원장을 보존한다. 동일 정책으로 preview/write를 검증하며 preview는 SELECT만 실행한다. 교차연도, 미래 원차수, stale 버전, 미매칭 비고 수정, 중간 실패 전체 롤백 및 보호필드 SQL 회귀를 검사한다.
+
+## 2026-10-06 주문 commit 후 CALC timeout 재발 방지
+
+주문 API의 재고 후처리는 주문 commit을 유지하되, 완전 IDLE/V2 게이트를
+`UPDLOCK,HOLDLOCK,NOWAIT`로 먼저 잠근 별도 외부 transaction 안에서 실행한다.
+결과·게이트·원래 transaction을 검증하고 timeout/오류이면 계산 batch 전체만 rollback한다.
+RUN/WAIT_CALC/고아 owner를 clear하거나 인수하지 않는다. 계약·기준 ledger와
+운영 검증 한계는 `ORDER_STOCK_CALC_TRANSACTION_CONTRACT.md`, 실행형 회귀는
+`__tests__/orderStockCalculation.test.js`를 따른다. SP 변경·운영 recovery는 메인 책임이다.
+
 ## 2026-10-05 붙여넣기 작업 이력 적용량·분배 전후 수량
 
 새 붙여넣기 일괄 작업의 감사 payload는 저장 API가 트랜잭션 안에서 검증한

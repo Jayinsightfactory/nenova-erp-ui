@@ -12,6 +12,7 @@ import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/e
 import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 import { sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
+import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -154,6 +155,14 @@ export default function SalesDefectDeductionsPage() {
   const [managerEditName, setManagerEditName] = useState('');
   const [deductionType, setDeductionType] = useState('불량차감');
   const [activeTab, setActiveTab] = useState('sales');
+  const [managementMode, setManagementMode] = useState(false);
+  const [managementSelected, setManagementSelected] = useState(new Set());
+  const [managementBusy, setManagementBusy] = useState(false);
+  const [managementEdit, setManagementEdit] = useState(null);
+  const [managementCandidates, setManagementCandidates] = useState([]);
+  const managementSequence = useRef(0);
+  const managementIncomingRequest = useRef(0);
+  const managementAllowed = canUseDefectIncoming(currentUser || {}) || canUseDefectSupport(currentUser || {});
   const [rows, setRows] = useState([]);
   const [incomingRows, setIncomingRows] = useState([]);
   const [incomingGroupMode, setIncomingGroupMode] = useState('customer');
@@ -289,19 +298,21 @@ export default function SalesDefectDeductionsPage() {
 
   const loadIncoming = useCallback(async () => {
     if (!year || !week) return;
+    const requestSeq = ++managementIncomingRequest.current;
     setIncomingLoading(true);
     setError('');
     try {
       const data = await apiGet('/api/sales/defect-deductions', {
         year, week, view: 'incoming', history: '1', manager: '',
       });
+      if (requestSeq !== managementIncomingRequest.current) return data;
       setIncomingRows(data.rows || []);
       setHistory(data.history || []);
       return data;
     } catch (e) {
-      setError(e.message);
+      if (requestSeq === managementIncomingRequest.current) setError(e.message);
     } finally {
-      setIncomingLoading(false);
+      if (requestSeq === managementIncomingRequest.current) setIncomingLoading(false);
     }
   }, [year, week]);
 
@@ -1327,6 +1338,83 @@ export default function SalesDefectDeductionsPage() {
     finally { setSaving(false); }
   };
 
+  useEffect(() => {
+    managementSequence.current += 1;
+    setManagementSelected(new Set());
+    setManagementEdit(null);
+    setManagementCandidates([]);
+  }, [year, week, activeTab, incomingLoading, supportLoading]);
+  useEffect(() => {
+    setManagementMode(false);
+  }, [year, week, activeTab]);
+  const managementLoading = managementBusy || incomingLoading || supportLoading || incomingSaving || supportRegistering;
+  const managementRows = activeTab === 'incoming' ? incomingRows : supportRows;
+  const managementDescriptor = row => ({ deductionKey: Number(row.deductionKey), sourceYear: Number(row.orderYear), sourceWeek: String(row.orderWeek), expectedRowVersionNo: Number(row.rowVersionNo) });
+  const toggleManagement = key => setManagementSelected(current => {
+    const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next;
+  });
+  const refreshManagement = () => activeTab === 'incoming' ? loadIncoming() : loadSupport();
+  const archiveManagement = async () => {
+    const selectedRows = managementRows.filter(row => managementSelected.has(Number(row.deductionKey)));
+    if (!selectedRows.length || managementLoading) return;
+    const payload = { action: 'manage-archive', year, week, rows: selectedRows.map(managementDescriptor) };
+    const seq = managementSequence.current;
+    setManagementBusy(true); setError('');
+    try {
+      await apiPost('/api/sales/defect-deductions', { ...payload, preview: true });
+      if (seq !== managementSequence.current) return;
+      const details = selectedRows.map(row => `${row.customerName} · ${row.orderYear}년 ${row.orderWeek}차 · #${row.deductionKey}${row.estimateKey ? ` · 연결 견적 #${row.estimateKey}` : ''}`).join('\n');
+      if (!window.confirm(`${details}\n\n${selectedRows.length}건을 불량 목록에서 제외할까요? 실제 견적서와 주문·출고·재고는 보존됩니다.`)) return;
+      await apiPost('/api/sales/defect-deductions', { ...payload, preview: false });
+      setManagementSelected(new Set());
+      setMessage(`${selectedRows.length}건 목록 제외 완료. 실제 견적서와 처리 이력은 보존되었습니다.`);
+      if (!await refreshManagement()) setError('목록 제외는 완료했지만 재조회에 실패했습니다. 다시 조회하세요. 제외 요청을 반복하지 마세요.');
+    } catch (error) { setError(`목록 정리: ${error.message} 요청 결과가 불명확하면 새로 조회하여 확인하세요.`); }
+    finally { setManagementBusy(false); }
+  };
+  const openManagementEdit = async row => {
+    const seq = ++managementSequence.current;
+    setManagementBusy(true); setError('');
+    const descriptor = managementDescriptor(row);
+    try {
+      const result = await apiPost('/api/sales/defect-deductions', { action: 'manage-edit', year, week, rows: [descriptor], changes: {}, preview: true });
+      if (seq !== managementSequence.current) return;
+      const plan = result.rows?.[0];
+      const noteOnly = Boolean(plan?.noteOnly || row.estimateKey || ['REGISTERED', 'COMPLETED', 'MANUAL_COMPLETED'].includes(row.status));
+      setManagementEdit({ descriptor, noteOnly, row, changes: { custKey: row.custKey, customerName: row.customerName, prodKey: row.prodKey, productName: row.productName, quantity: row.quantity, sourceUnit: row.sourceUnit, note: row.note || '' }, query: '', kind: 'customer' });
+      setManagementCandidates([]);
+    } catch (error) { setError(`수정 확인: ${error.message}`); }
+    finally { setManagementBusy(false); }
+  };
+  const searchManagement = async () => {
+    const edit = managementEdit, seq = managementSequence.current;
+    if (!edit || edit.noteOnly) return;
+    setManagementBusy(true);
+    try {
+      const data = await apiGet('/api/sales/defect-deductions', { view: 'lookups', kind: edit.kind, q: edit.query });
+      if (seq === managementSequence.current) setManagementCandidates(data[edit.kind === 'customer' ? 'customers' : 'products'] || []);
+    } catch (error) { setError(error.message); }
+    finally { setManagementBusy(false); }
+  };
+  const saveManagementEdit = async () => {
+    const edit = managementEdit;
+    if (!edit || managementLoading) return;
+    const editableChanges = edit.noteOnly ? { note: edit.changes.note } : edit.changes;
+    const changes = Object.fromEntries(Object.entries(editableChanges).filter(([key, value]) => String(value ?? '') !== String(edit.row[key] ?? '')));
+    if (!Object.keys(changes).length) { setError('변경할 내용을 입력하세요.'); return; }
+    const payload = { action: 'manage-edit', year, week, rows: [edit.descriptor], changes };
+    const seq = managementSequence.current;
+    setManagementBusy(true); setError('');
+    try {
+      await apiPost('/api/sales/defect-deductions', { ...payload, preview: true });
+      if (seq !== managementSequence.current) return;
+      await apiPost('/api/sales/defect-deductions', { ...payload, preview: false });
+      setManagementEdit(null); setMessage('불량 목록 수정 완료. 실제 견적서는 변경하지 않았습니다.');
+      if (!await refreshManagement()) setError('수정은 완료했지만 재조회에 실패했습니다. 다시 조회하세요. 저장 요청을 반복하지 마세요.');
+    } catch (error) { setError(`수정: ${error.message} 요청 결과가 불명확하면 새로 조회하여 확인하세요.`); }
+    finally { setManagementBusy(false); }
+  };
+
   const download = async () => {
     try {
       const view = activeTab === 'incoming' ? '&view=incoming' : '';
@@ -1368,6 +1456,7 @@ export default function SalesDefectDeductionsPage() {
       subtitle: capture.subtitle,
       mode: capture.mode,
       rows: capture.rows,
+      previousScopeLabel: capture.previousScopeLabel,
     });
   };
 
@@ -1474,10 +1563,10 @@ export default function SalesDefectDeductionsPage() {
       </div>
 
       <div className="card defect-tabs" role="tablist" aria-label="영업수입불량차감 업무 구분">
-        <button type="button" role="tab" aria-selected={activeTab === 'sales'} className={`btn ${activeTab === 'sales' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('sales')}>영업 입력</button>
-        <button type="button" role="tab" aria-selected={activeTab === 'incoming'} className={`btn ${activeTab === 'incoming' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('incoming')}>수입부 확인</button>
-        <button type="button" role="tab" aria-selected={activeTab === 'support'} className={`btn ${activeTab === 'support' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('support')}>영업지원 전산등록</button>
-        <button type="button" role="tab" aria-selected={activeTab === 'carryover'} className={`btn ${activeTab === 'carryover' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('carryover')}>미처리·다음 차수 재시도</button>
+        <button type="button" role="tab" disabled={managementBusy} aria-selected={activeTab === 'sales'} className={`btn ${activeTab === 'sales' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('sales')}>영업 입력</button>
+        <button type="button" role="tab" disabled={managementBusy} aria-selected={activeTab === 'incoming'} className={`btn ${activeTab === 'incoming' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('incoming')}>수입부 확인</button>
+        <button type="button" role="tab" disabled={managementBusy} aria-selected={activeTab === 'support'} className={`btn ${activeTab === 'support' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('support')}>영업지원 전산등록</button>
+        <button type="button" role="tab" disabled={managementBusy} aria-selected={activeTab === 'carryover'} className={`btn ${activeTab === 'carryover' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('carryover')}>미처리·다음 차수 재시도</button>
         <a role="tab" aria-selected="false" className="btn" href="/sales/farm-quality">농장 불량 피드백</a>
         {activeTab === 'incoming' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량을 확인합니다.</span>}
         {activeTab === 'support' && <span className="incoming-tab-help">담당자 구분 없이 {year}년 {week}차 전체 불량 중 선택한 행만 견적서관리에 등록합니다.</span>}
@@ -1503,11 +1592,11 @@ export default function SalesDefectDeductionsPage() {
 
       <div className="card" style={{ padding: 10, marginBottom: 10 }}>
         <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label>연도 <input className="input" style={{ width: 80 }} value={year} onChange={(e) => setYear(e.target.value)} /></label>
-          <label className="week-nav-field">차수 <input className="input" style={{ width: 60 }} value={week} onChange={(e) => setWeek(e.target.value)} /> 차
+          <label>연도 <input className="input" style={{ width: 80 }} value={year} disabled={managementBusy} onChange={(e) => setYear(e.target.value)} /></label>
+          <label className="week-nav-field">차수 <input className="input" style={{ width: 60 }} value={week} disabled={managementBusy} onChange={(e) => setWeek(e.target.value)} /> 차
             <span className="week-nav-buttons">
-              <button type="button" className="btn btn-xs" onClick={() => moveParentWeek(-1)} disabled={loading || !shiftParentWeek(year, week, -1)}>◀ 이전</button>
-              <button type="button" className="btn btn-xs" onClick={() => moveParentWeek(1)} disabled={loading || !shiftParentWeek(year, week, 1)}>다음 ▶</button>
+              <button type="button" className="btn btn-xs" onClick={() => moveParentWeek(-1)} disabled={managementBusy || loading || !shiftParentWeek(year, week, -1)}>◀ 이전</button>
+              <button type="button" className="btn btn-xs" onClick={() => moveParentWeek(1)} disabled={managementBusy || loading || !shiftParentWeek(year, week, 1)}>다음 ▶</button>
             </span>
           </label>
           {activeTab === 'sales' && <>
@@ -1519,7 +1608,7 @@ export default function SalesDefectDeductionsPage() {
               <button type="button" className={`btn btn-xs ${salesViewMode === 'summary' ? 'btn-primary' : ''}`} onClick={() => setSalesViewMode('summary')}>완료 목록</button>
             </span>
           </>}
-          <button className="btn btn-primary" onClick={() => (activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : activeTab === 'carryover' ? loadCarryover : load)()} disabled={loading || incomingLoading || supportLoading || supportRegistering}>조회</button>
+          <button className="btn btn-primary" onClick={() => (activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : activeTab === 'carryover' ? loadCarryover : load)()} disabled={managementBusy || loading || incomingLoading || supportLoading || supportRegistering}>조회</button>
           {activeTab === 'sales' && <>
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={saving}>엑셀 업로드</button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={(e) => upload(e.target.files?.[0])} />
@@ -1528,11 +1617,11 @@ export default function SalesDefectDeductionsPage() {
           <button className="btn btn-primary" onClick={save} disabled={saving || !rows.length}>저장</button>
           <button className="btn" onClick={register} disabled={saving || !selected.size}>선택 일괄 견적서관리 등록</button>
           </>}
-          {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
+          {activeTab === 'incoming' && <button className="btn btn-primary" onClick={confirmIncoming} disabled={managementMode || managementBusy || incomingSaving || incomingLoading || !incomingRows.length}>전체 미확정 일괄 확정</button>}
           {activeTab === 'support' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
-            <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
-            <button type="button" className="btn" onClick={markSupportManualComplete} disabled={supportLoading || !supportSelected.size}>수동처리완료</button>
+            <button className="btn btn-primary" onClick={registerSupport} disabled={managementMode || managementBusy || supportLoading || supportRegistering || !supportSelected.size}>견적서관리에 불량차감 등록</button>
+            <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
             <button type="button" className="btn" onClick={() => {
               const selectedWeek = `${year}-${String(week).padStart(2, '0')}-01`;
               const url = buildEstimateFixStatusUrl(selectedWeek);
@@ -1545,11 +1634,15 @@ export default function SalesDefectDeductionsPage() {
           {activeTab === 'carryover' && <>
             <button className="btn" onClick={toggleAllSupport} disabled={supportLoading || supportRegistering || !supportSelectableKeys.length}>{supportAllSelected ? '등록 가능 전체 선택 해제' : '등록 가능 전체 선택'}</button>
             <button className="btn btn-primary" onClick={registerSupport} disabled={supportLoading || supportRegistering || !supportSelected.size}>선택 항목 처리 검토</button>
-            <button type="button" className="btn" onClick={markSupportManualComplete} disabled={supportLoading || !supportSelected.size}>수동처리완료</button>
+            <button type="button" className="btn" onClick={markSupportManualComplete} disabled={managementMode || managementBusy || supportLoading || !supportSelected.size}>수동처리완료</button>
           </>}
           <button className="btn" onClick={printForm} disabled={activeTab === 'support' || activeTab === 'carryover' || !printSourceRows.length || (activeTab === 'incoming' && (!incomingRows.length || !incomingRows.every((row) => row.importConfirmed)))}>인쇄</button>
           <button className="btn" onClick={download} disabled={loading || activeTab === 'carryover'}>엑셀 다운로드</button>
           <button className="btn" onClick={() => setShowHistory((v) => !v)}>수정이력 {showHistory ? '닫기' : '보기'}</button>
+          {managementAllowed && ['incoming', 'support'].includes(activeTab) && <>
+            <button type="button" className="btn" aria-pressed={managementMode} disabled={managementLoading} onClick={() => { setManagementMode(!managementMode); setManagementSelected(new Set()); }}>목록 수정·정리{managementMode ? ' 닫기' : ''}</button>
+            {managementMode && <><button type="button" className="btn" disabled={managementLoading || !managementRows.length} onClick={() => setManagementSelected(new Set(managementRows.map(row => Number(row.deductionKey))))}>정리 항목 전체 선택</button><button type="button" className="btn btn-danger" disabled={managementLoading || !managementSelected.size} onClick={archiveManagement}>선택 {managementSelected.size}건 목록에서 제외</button><span>실제 견적서 보존 · 등록 선택과 별도</span></>}
+          </>}
           {activeTab === 'sales' && isDefectAdmin(currentUser) && <button className="btn" onClick={() => setPeriodForm({ target: '', reason: '' })} disabled={saving || !selected.size}>선택 차수 정정</button>}
           {activeTab === 'sales' && <button className="btn btn-danger" onClick={remove} disabled={saving || !selected.size}>선택 삭제</button>}
         </div>
@@ -1620,7 +1713,7 @@ export default function SalesDefectDeductionsPage() {
             <tbody>{displayedIncomingRows.map(({ row, sourceIndex, displayIndex, isGroupStart, isCountryStart, groupLabel, countryLabel }) => <Fragment key={row.deductionKey || `incoming-${sourceIndex}`}>
               {incomingGroupMode === 'product' && isCountryStart && <tr className="incoming-country-divider"><td colSpan="11"><strong>{countryLabel}</strong><span>국가별 품종</span></td></tr>}
               <tr className={`defect-row ${isGroupStart ? 'incoming-group-start' : ''}`} data-group-label={groupLabel}>
-              <td>{displayIndex + 1}</td>
+              <td>{displayIndex + 1}{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(Number(row.deductionKey))} disabled={managementLoading} onChange={() => toggleManagement(Number(row.deductionKey))} /><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</td>
               <td>{row.managerName || '-'}</td>
               <td>{row.customerName || '-'}</td>
               <td>{row.productName || '-'}</td>
@@ -1637,7 +1730,7 @@ export default function SalesDefectDeductionsPage() {
               <td style={{ textAlign: 'center' }}><label className="incoming-check-choice"><input type="checkbox" checked={!!row.importReviewRequired} onChange={(e) => updateIncomingRow(sourceIndex, { importReviewRequired: e.target.checked, importConfirmed: false })} /> 필요</label></td>
               <td><input className="input cell incoming-note-input" value={valueOf(row, 'note')} placeholder="비고" onChange={(e) => updateIncomingRow(sourceIndex, { note: e.target.value, importConfirmed: false })} /></td>
               <td>
-                {row.importConfirmed ? <button type="button" className="btn btn-xs" onClick={() => cancelIncomingRow(sourceIndex)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정 취소'}</button> : <button type="button" className="btn btn-primary btn-xs" onClick={() => confirmIncomingRow(sourceIndex)} disabled={incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정'}</button>}
+                {row.importConfirmed ? <button type="button" className="btn btn-xs" onClick={() => cancelIncomingRow(sourceIndex)} disabled={managementMode || managementBusy || incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정 취소'}</button> : <button type="button" className="btn btn-primary btn-xs" onClick={() => confirmIncomingRow(sourceIndex)} disabled={managementMode || managementBusy || incomingSaving || incomingConfirming.has(Number(row.deductionKey))}>{incomingConfirming.has(Number(row.deductionKey)) ? '저장중…' : '확정'}</button>}
                 <div className={row.importConfirmed ? 'incoming-confirmed' : 'incoming-pending'}>{row.importConfirmed ? `확정${row.importConfirmedByName || row.importConfirmedBy ? ` · ${row.importConfirmedByName || row.importConfirmedBy}` : ''}` : '확인 필요'}</div>
               </td>
               </tr>
@@ -1682,14 +1775,14 @@ export default function SalesDefectDeductionsPage() {
             <thead><tr><th><input type="checkbox" aria-label="등록 가능 항목 전체 선택" checked={supportAllSelected} disabled={!supportSelectableKeys.length} onChange={toggleAllSupport} /></th><th>No</th><th>영업담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>{activeTab === 'carryover' ? '원수량 / 잔여' : '차감수량'}</th><th>분배단가</th><th>농장</th><th>수입부</th><th>처리 상태</th><th>불량차감</th></tr></thead>
             <tbody>{supportRows.map((row, index) => {
               const key = Number(row.deductionKey);
-              const checkable = isSupportRegistrationSelectable(row, activeTab);
+              const checkable = !managementMode && !managementBusy && isSupportRegistrationSelectable(row, activeTab);
               const existingEstimateRecords = Array.isArray(row.existingEstimateRecords) ? row.existingEstimateRecords : [];
               const existingEstimateCount = Number(row.existingEstimateCount ?? existingEstimateRecords.length);
               const scopeLabel = supportStatusDetail(row, year, week);
               const estimateCapture = buildSupportEstimateCapture(row, { year, week });
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''} ${row.exactExistingEstimate ? 'support-existing-row' : ''}`} key={key || `support-${index}`}>
                 <td className="defect-select-cell"><label className="defect-select-hit"><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={checkable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!checkable} /></label></td>
-                <td>{index + 1}</td>
+                <td>{index + 1}{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(key)} disabled={managementLoading} onChange={() => toggleManagement(key)} /><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</td>
                 <td>{row.managerName || '-'}</td>
                 <td>{row.customerName || '-'}</td>
                 <td>{row.productName || '-'}</td>
@@ -2194,6 +2287,23 @@ export default function SalesDefectDeductionsPage() {
           </section>
         </div>
       )}
+      {managementEdit && <div className="support-estimate-preview-modal" role="presentation">
+        <section className="support-estimate-preview-card" role="dialog" aria-modal="true" aria-label="불량 목록 수정" style={{ padding: 16 }}>
+          <h3>불량 목록 수정 · #{managementEdit.row.deductionKey}</h3>
+          {error && <p role="alert" style={{ color: '#b91c1c', whiteSpace: 'pre-wrap' }}>{error}</p>}
+          <p>{managementEdit.row.orderYear}년 {managementEdit.row.orderWeek}차 · {managementEdit.row.customerName} · {managementEdit.row.matchedProductDbName || managementEdit.row.productName}</p>
+          {managementEdit.noteOnly ? <p role="status">견적 연결 또는 처리 이력이 있어 비고만 수정할 수 있습니다. 업체·품목·수량·단위와 실제 견적서는 보존됩니다.</p> : <>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><select aria-label="수정 검색 대상" value={managementEdit.kind} disabled={managementBusy} onChange={e => { setManagementEdit({ ...managementEdit, kind: e.target.value }); setManagementCandidates([]); }}><option value="customer">업체</option><option value="product">품목</option></select><input aria-label="수정 업체 품목 검색" value={managementEdit.query} disabled={managementBusy} onChange={e => setManagementEdit({ ...managementEdit, query: e.target.value })} /><button type="button" className="btn" disabled={managementBusy} onClick={searchManagement}>검색</button></div>
+            <div style={{ maxHeight: 180, overflow: 'auto' }}>{managementCandidates.map(item => <button type="button" className="btn" key={item.CustKey || item.ProdKey} disabled={managementBusy} onClick={() => { const changes = managementEdit.kind === 'customer' ? { custKey: item.CustKey, customerName: item.CustName } : { prodKey: item.ProdKey, productName: item.FlowerName || item.ProdName }; setManagementEdit({ ...managementEdit, changes: { ...managementEdit.changes, ...changes } }); setManagementCandidates([]); }}>{item.CustName || `${item.CounName || ''} ${item.ProdName || ''}`}</button>)}</div>
+            <p>업체: {managementEdit.changes.customerName} · 품목: {managementEdit.changes.productName}</p>
+            <label>수량 <input aria-label="수정 수량" type="number" min="0.001" step="any" disabled={managementBusy} value={managementEdit.changes.quantity} onChange={e => setManagementEdit({ ...managementEdit, changes: { ...managementEdit.changes, quantity: e.target.value } })} /></label>
+            <label>단위 <select aria-label="수정 단위" disabled={managementBusy} value={managementEdit.changes.sourceUnit} onChange={e => setManagementEdit({ ...managementEdit, changes: { ...managementEdit.changes, sourceUnit: e.target.value } })}>{[...new Set([managementEdit.changes.sourceUnit, '단', '박스', '스팀(대)'])].filter(Boolean).map(unit => <option key={unit}>{unit}</option>)}</select></label>
+          </>}
+          <label style={{ display: 'block', margin: '12px 0' }}>비고 <textarea aria-label="수정 비고" rows="3" style={{ width: '100%' }} disabled={managementBusy} value={managementEdit.changes.note} onChange={e => setManagementEdit({ ...managementEdit, changes: { ...managementEdit.changes, note: e.target.value } })} /></label>
+          <button type="button" className="btn btn-primary" disabled={managementLoading} onClick={saveManagementEdit}>목록 수정 저장</button> <button type="button" className="btn" disabled={managementBusy} onClick={() => { managementSequence.current += 1; setManagementEdit(null); }}>닫기</button>
+          <p>원본 파일과 담당자·변경 이력은 보존됩니다.</p>
+        </section>
+      </div>}
       {estimatePreview && (
         <div className="support-estimate-preview-modal" role="presentation" onMouseDown={() => setEstimatePreview(null)}>
           <section className="support-estimate-preview-card" role="dialog" aria-modal="true" aria-labelledby="support-estimate-preview-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -2222,6 +2332,7 @@ export default function SalesDefectDeductionsPage() {
               <div className="support-estimate-preview-empty" role="status">
                 <strong>{estimatePreview.mode === 'manual' ? '수기 처리완료' : '아직 등록되지 않았습니다.'}</strong>
                 <p>{estimatePreview.mode === 'manual' ? '수기 처리된 항목으로 견적서 원장이 생성되지 않았습니다.' : '이 불량차감 항목은 현재 차수 견적서에 아직 등록되지 않았습니다.'}</p>
+                {estimatePreview.previousScopeLabel && <p>{estimatePreview.previousScopeLabel}</p>}
               </div>
             )}
           </section>

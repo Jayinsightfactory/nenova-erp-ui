@@ -1,0 +1,13 @@
+{
+  "source": "Import_Team_Checklist_Diario_2.html: pending Format [{id,text,done}], flights Stored as [{id,text,llegado,banib}], both add functions generate Date.now()+Math.random(). No additional entry fields are generated. Native ChecklistTool uses UUID or timestamp-random string IDs.",
+  "pending": [
+    { "id": 1780000000000.25, "text": "기존 미결 업무", "done": true },
+    { "id": 1780000000001, "text": "기존 정수 ID 업무", "done": false },
+    { "id": "entry-1", "text": "공동 기록의 문자열 ID", "done": false },
+    { "id": "1790000000000-0.125", "text": "네이티브 UUID 미지원 환경 ID", "done": false }
+  ],
+  "flights": [
+    { "id": 1780000000000.5, "text": "22-2차 콜수국 (POLAR)\n5월 30일(토) 12:15 도착 예정\n(992-01527724 PO947 353 BOX)", "llegado": true, "banib": false },
+    { "id": "af141f66-8e3d-4f82-a529-37817303e12a", "text": "기존 항공 일정", "llegado": false, "banib": true }
+  ]
+}

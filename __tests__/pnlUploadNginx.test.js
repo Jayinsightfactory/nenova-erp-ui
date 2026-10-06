@@ -55,8 +55,9 @@ async function main() {
   for (const route of MANAGED_UPLOAD_ROUTES) {
     assert.match(plan.text, new RegExp(`location = ${route.location.replaceAll('/', '\\/')} \\{`));
   }
-  assert.equal((plan.text.match(/client_max_body_size 32m;/g) || []).length, MANAGED_UPLOAD_ROUTES.length,
-    '32m은 관리 대상 경로 수만큼 exact location에 있어야 한다.');
+  for(const bodyLimit of new Set(MANAGED_UPLOAD_ROUTES.map(r=>r.bodyLimit))) {
+    assert.equal(plan.text.split(`client_max_body_size ${bodyLimit};`).length-1,MANAGED_UPLOAD_ROUTES.filter(r=>r.bodyLimit===bodyLimit).length);
+  }
   for (const directive of [
     'auth_request /_auth;',
     'proxy_set_header Host $host;',
@@ -83,7 +84,7 @@ async function main() {
   const completed = buildPnlUploadNginxConfig(onlyFirstRoute.text);
   assert.equal(completed.changed, true, '두 번째 경로가 아직 빠져 있으므로 patch-required여야 한다.');
   assert.equal(completed.status, 'patch-required');
-  assert.equal((completed.text.match(/client_max_body_size 32m;/g) || []).length, MANAGED_UPLOAD_ROUTES.length);
+  assert.equal((completed.text.match(/client_max_body_size 32m;/g) || []).length, MANAGED_UPLOAD_ROUTES.filter(r=>r.bodyLimit==='32m').length);
   assert.equal(
     completed.text.split(`location = ${MANAGED_UPLOAD_ROUTES[0].location} {`).length - 1, 1,
     '이미 있던 첫 번째 경로 location을 중복 삽입하면 안 된다.',
