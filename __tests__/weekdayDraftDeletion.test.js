@@ -72,3 +72,12 @@ test('publication failure preserves saved bytes and caller memory', async () => 
  assert.equal(storage.getItem(h.weekdayInputStorageKey('staff')),bytes);
  assert.equal(JSON.stringify(current),before);
 });
+
+test('actual horizontal blank-cell payload resolves the trusted selected customer', async () => {
+ const d=await helpers; const {horizontalEditPayload}=await import('../lib/weekdayHorizontalMatrix.js');
+ const cell=horizontalEditPayload({prodKey:plan.prodKey,name:plan.prodName},{cycle:{year:plan.year}},{unit:plan.unit,date:plan.date,effectiveOrderWeek:plan.orderWeek},'0');
+ assert.equal(cell.custKey,undefined,'matrix quantity editing intentionally leaves customer authority to workspace');
+ const payload={...cell,quantity:null,clear:true,expectedDrafts:[plan],custKey:plan.custKey};
+ assert.deepEqual(d.weekdayCellDrafts([plan],scope,payload),[plan]);
+ assert.throws(()=>d.weekdayCellDrafts([plan],scope,{...payload,custKey:999}),'different selected customer never removes the original draft');
+});

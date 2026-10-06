@@ -196,7 +196,7 @@ export default function WeekdayEstimateWorkspace() {
   }
 
   async function clearGridCell(payload) {
-    try { return await deleteInputs(weekdayCellDrafts(inputsRef.current.plans, scopeKey, payload)); }
+    try { return await deleteInputs(weekdayCellDrafts(inputsRef.current.plans, scopeKey, {...payload,custKey:Number(customer?.CustKey)})); }
     catch (error) { setInputStorageError(`입력 삭제 실패: ${error.message}`); return { success: false, error: error.message }; }
   }
 
