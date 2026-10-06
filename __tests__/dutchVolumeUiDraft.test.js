@@ -24,6 +24,11 @@ const restored = readDutchDraft(storage, identity, [entry], (_, value) => value)
 assert.equal(restored.entries[0].quantity, 0);
 assert.equal(restored.entries[1].id, 'manual:1');
 assert.equal(restored.prices['uniform:품목'], 0);
+const blankSource = { id: 'sheet!D5', added: false, sourceCellDraft: true, sheetName: 'sheet', cellAddress: 'D5', product: '꽃', color: '파랑', customer: '업체', quantity: 2 };
+writeDutchDraft(storage, identity, [entry, blankSource], {});
+const restoredBlankSource = readDutchDraft(storage, identity, [entry], (_, value) => value).entries.find(row => row.id === blankSource.id);
+assert.equal(restoredBlankSource?.sourceCellDraft, true, '빈 원본 셀에서 추가한 초안 행은 같은 파일을 다시 열어도 유지한다');
+assert.equal(restoredBlankSource?.added, false, '빈 원본 셀 편집을 별도 수동 추가행으로 바꾸지 않는다');
 assert.notEqual(dutchSourceIdentity(identity,[entry],2026,'40-02'), dutchSourceIdentity(identity,[entry],2025,'40-02'));
 assert.notEqual(dutchSourceIdentity(identity,[entry],2026,'40-02'), dutchSourceIdentity(identity,[{...entry,color:'새 품목'}],2026,'40-02'));
 assert.notEqual(dutchSourceIdentity(identity,[entry],2026,'40-02'), dutchSourceIdentity(identity,[{...entry,quantity:6}],2026,'40-02'));
