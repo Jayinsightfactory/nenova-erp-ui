@@ -21,3 +21,5 @@
 새 기능 배포 이전의 편집 draft는 React 메모리에만 있어 이전에 닫은 창 내용을 소급 복원할 수 없다. 기존 서버에 저장된 성공 분석과 확인/작업이력은 보존한다. 초기화나 매핑 변경 요청만으로 운영 차감/주문 원장을 수정·재실행하지 않는다. 임시 인증/probe 자료는TEMP에만 두고 커밋하지 않는다.
 
 **배포 전 완료.** 최신 master8fed49fe 통합 fresh build 및 전체 ERP·dnSpy·manifest81개/write guard(API변경0) 통과.1920×1080 일반·팝업 production-build fixture에서 느린 auth/me 동안 inert 입력보호,25행 완료복원,새 직접분석1회 후 재진입0분석,현재 주문/분배GET,부분완료 전체재실행차단,맨위Enter/Space/Tab/ShiftTab 및 초점복귀 통과. 업무 API 쓰기0·페이지 오류0. 독립 고성능 검토 승인. 운영배포/운영readonly 확인은 후속 기록한다.
+
+**운영 완료.** PR936/8a8d23ca 병합. exact-head CI37563668489와 master CI37563846208 성공, Cafe24 배포37563846218 성공. 운영 일반·팝업1920×1080 CSS100% readonly smoke에서 실제 인증 사용자별 입력 draft 재진입 유지,맨위 실제 스크롤/Enter 초점복귀,버튼 화면내 접근 통과. 페이지 오류0·주문/분배 업무 API쓰기0·새 Claude분석0. 분석 endpoint는 lookupOnly/allowAnalyze=false로 제한했고 시험 입력은 격리 Chrome context localStorage만 사용했다. 기존 사용자 브라우저·운영 원장은 수정하지 않았다. 실제 완료 분배 실행은 운영에서 재현하지 않고 검증된 응답 기반 fixture25행/부분완료 중복 차단으로 검증했다. 정상/팝업 재진입은 실제 운영에서 확인했다. 미완 필수작업 없음.
