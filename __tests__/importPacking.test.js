@@ -11,6 +11,7 @@ async function main() {
   const state = await import('../lib/importPackingState.js');
   const response = await import('../lib/importPackingResponse.js');
   const prompt = await import('../lib/importPackingPrompt.js');
+  const review = await import('../lib/importPackingReview.js');
   const awbFields = await import('../lib/importAwbFields.js');
   const root = path.resolve(__dirname, '..');
   const sourcePath = path.join(root, 'output/import-tool-sources/Packing List Nenova.html');
@@ -28,7 +29,8 @@ async function main() {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'data');
     return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   };
-  await check('all eight original prompts preserved exactly', () => {
+  await check('all eight original prompts preserved with explicit human-review evidence extension', () => {
+    const originalPart = country => prompt.buildPrompt(country).split('\n\nMANDATORY HUMAN REVIEW EVIDENCE')[0];
     const hashes = {
       CO: 'a0c7454452f7fe85d46b6fd5799b8292fe468d03938a8bc6a2b206a4187309a0',
       NL: 'b10cfcaa7bc66b44924bffa6ccee6ee0049e96dc64d25dcf2fb22d1a9647cf75',
@@ -40,12 +42,16 @@ async function main() {
       VN: '2010b95a63ee0da81dd1fd60829956283551a0d4e600fd6af202075d5e14ac29',
     };
     for (const country of prompt.PACKING_COUNTRIES) {
-      assert.equal(crypto.createHash('sha256').update(prompt.buildPrompt(country)).digest('hex'), hashes[country]);
+      assert.equal(crypto.createHash('sha256').update(originalPart(country)).digest('hex'), hashes[country]);
+      assert.match(prompt.buildPrompt(country), /review_evidence/);
+      assert.match(prompt.buildPrompt(country), /Missing\/ambiguous fields MUST use value:null/);
+      assert.match(prompt.buildPrompt(country), /not net weight/);
+      assert.match(prompt.buildPrompt(country), /Never invent a location/);
     }
     if (source) {
       const a = source.indexOf('function buildPrompt('), b = source.indexOf('function parseWeekFromFilename(', a);
       const original = vm.runInNewContext(source.slice(a, b) + '\nbuildPrompt');
-      for (const country of prompt.PACKING_COUNTRIES) assert.equal(prompt.buildPrompt(country), original(country));
+      for (const country of prompt.PACKING_COUNTRIES) assert.equal(originalPart(country), original(country));
     }
     assert.equal(prompt.PACKING_COUNTRIES.length, 8); assert.throws(() => prompt.buildPrompt('XX'), /Unsupported/);
   });
@@ -228,7 +234,8 @@ async function main() {
       set: async (key, value) => { sharedWrites.push({ key, value }); throw Error('409 revision conflict'); }, delete: async () => { throw Error('delete failed'); } };
     const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, '../../lib/importPacking.js': packing, '../../lib/importPackingState.js': state,
       '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
-      '../../lib/importPackingExtractClient.js': extractionMock, 'xlsx-js-style': XLSX };
+      '../../lib/importPackingExtractClient.js': extractionMock, '../../lib/importPackingReview.js': review,
+      './PackingEvidenceReview': { default: 'EvidenceReview', __esModule: true }, 'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
       filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')],
       plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')], configFile: false, babelrc: false,

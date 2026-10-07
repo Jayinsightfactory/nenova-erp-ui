@@ -21,6 +21,10 @@
     "styles/ImportPacking.module.css",
     "lib/importPacking.js",
     "lib/importPackingPrompt.js",
+    "lib/importPackingReview.js",
+    "lib/importPackingPdfPreview.js",
+    "components/import-tools/PackingEvidenceReview.js",
+    "styles/PackingEvidenceReview.module.css",
     "lib/importPackingResponse.js",
     "lib/importPackingState.js",
     "lib/importPedidos.js",
@@ -48,6 +52,13 @@
     "authenticatedUserId"
   ],
   "actions": [
+    {
+      "name": "REVIEW_EXTRACTION_EVIDENCE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "none; local PDF evidence preview and editable GW/CW/freight confirmation; workbook audit sheet only, no ERP save"
+    },
     {
       "name": "PREVIEW_AND_COPY_RESULTS",
       "orderDetail": "preserve",
@@ -78,6 +89,8 @@
     "__tests__/importTeamTools.test.js",
     "__tests__/importTeamChecklist.test.js",
     "__tests__/importPacking.test.js",
+    "__tests__/importPackingReview.test.js",
+    "__tests__/packingEvidenceReview.test.js",
     "__tests__/packingResultsUi.test.js",
     "__tests__/importPedidos.test.js",
     "__tests__/importTeamClient.test.js",
