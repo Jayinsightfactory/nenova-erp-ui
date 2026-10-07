@@ -12,3 +12,4 @@ assert.equal(registered.background, '#e3f2fd');
 assert.match(registered.label, /주문만 등록/);
 
 console.log('paste order highlight tests passed');
+assert.equal(pasteOrderHighlightState({distributionCompleted:true,orderOnlyRegistered:true}).key,'DISTRIBUTED');

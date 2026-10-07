@@ -6,7 +6,7 @@ const highlight = fs.readFileSync('lib/pasteOrderHighlight.js', 'utf8');
 assert.match(page, /pasteOrderHighlightState/);
 assert.match(page, /orderOnlyRegistered: true/);
 assert.match(page, /data-paste-order-status=\{highlight\.key\}/);
-assert.match(page, /orderOnlyRegistered \? highlight\.color/);
+assert.match(page, /orderOnlyRegistered \|\| order\.distributionCompleted \? highlight\.color/);
 assert.match(highlight, /key: 'ORDER_ONLY'/);
 assert.match(highlight, /color: '#1565c0'/);
 assert.match(page, /className="paste-action-split"/);
