@@ -127,7 +127,7 @@ function PendingItem({ nm, catalogItems, onConfirm, lang = 'ko' }) {
           style={{ width: '100%', padding: '6px 8px', fontSize: 13, border: '1px solid #d0d0cc', borderRadius: 5, boxSizing: 'border-box' }}
         />
         {term.length > 0 && (
-          <div style={{ marginTop: 6, fontSize: 13, color: '#526580', maxHeight: 220, overflowY: 'auto' }}>
+          <div style={{ marginTop: 6, fontSize: 13, color: '#526580' }}>
             {filtered.length === 0 ? (
               <div style={{ padding: '6px 0', color: '#526580', fontStyle: 'italic' }}>{t.noResults}</div>
             ) : (
@@ -173,7 +173,7 @@ function NoMatchItem({ nm, catalogItems, onConfirm, lang = 'ko' }) {
         style={{ width: '100%', padding: '6px 8px', fontSize: 13, border: '1px solid #d0d0cc', borderRadius: 5, boxSizing: 'border-box' }}
       />
       {term.length > 0 && (
-        <div style={{ marginTop: 6, fontSize: 13, color: '#526580', maxHeight: 220, overflowY: 'auto' }}>
+        <div style={{ marginTop: 6, fontSize: 13, color: '#526580' }}>
           {filtered.length === 0 ? (
             <div style={{ padding: '6px 0', color: '#526580', fontStyle: 'italic' }}>{t.noResults}</div>
           ) : (
@@ -1340,7 +1340,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
               <label><input type="radio" name="packing-catalog-mode" checked={catalogMode === 'merge'} onChange={() => { setCatalogMode('merge'); setCatalogReplaceConfirmed(false); }} /> {t.catalogMerge}</label>
               <label><input type="radio" name="packing-catalog-mode" checked={catalogMode === 'replace'} onChange={() => { setCatalogMode('replace'); setCatalogReplaceConfirmed(false); }} /> {t.catalogReplaceAll}</label>
             </div>
-            <div className={styles.tableScroll} tabIndex={0} role="region" aria-label={t.catalogPreview} style={{ overflowX: 'auto', maxHeight: 260, overflowY: 'auto' }}>
+            <div className={styles.tableScroll} tabIndex={0} role="region" aria-label={t.catalogPreview} style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse', fontSize: 13, textAlign: 'right' }}>
                 <thead><tr>{t.catalogColumns.map(label => <th key={label} scope="col" style={{ padding: '6px 8px', whiteSpace: 'nowrap', borderBottom: '1px solid #c3d3fb' }}>{label}</th>)}</tr></thead>
                 <tbody>{catalogPreview.countries.map(row => <tr key={row.country}>

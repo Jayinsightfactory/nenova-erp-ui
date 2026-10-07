@@ -153,12 +153,13 @@ test('known validation errors are Korean and unknown labels remain unchanged', (
   assert.match(korean.checklistErrorLabel(canonical.checklistErrorMessage({ status: 409, message: '저장 실패' })), /최신 상태.*초안과 비교/);
 });
 
-test('UI remains responsive with local scroll, distinct states and visible keyboard focus', () => {
+test('UI remains responsive with page scroll, distinct states and visible keyboard focus', () => {
   assert.match(uiSource, /color:#172b4d/);
   assert.match(uiSource, /background:#2457c5/);
   assert.match(uiSource, /font-size:14px/);
   assert.match(uiSource, /min-height:36px/);
-  assert.match(uiSource, /max-height:480px; overflow:auto/);
+  assert.match(uiSource, /\.record-list \{ margin-top:12px; padding:2px; \}/);
+  assert.doesNotMatch(uiSource, /max-height:480px; overflow:auto/);
   assert.match(uiSource, /@media\(max-width:900px\)/);
   assert.match(uiSource, /:focus-visible/);
   for (const state of ['status-success', 'status-warning', 'status-error']) assert.ok(uiSource.includes(state));

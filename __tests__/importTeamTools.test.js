@@ -10,8 +10,9 @@ test('workspace exposes all management tabs and preserves the existing feedback 
  for(const label of ['일일 업무','항공 일정','휴가 관리','재배 계획','불량 피드백'])assert(source.includes(label));
  assert.match(source,/const checklistTabs=\{checklist:'daily',flights:'flights',vacations:'vacations',planting:'planting'\}/);
  assert.equal((source.match(/<ChecklistTool\b/g)||[]).length,1,'one shared mounted instance preserves drafts');
- assert.match(source,/feedbackVisited&&<iframe/);
- assert.match(source,/src="\/sales\/farm-quality\?popup=1"/);
+ assert.match(source,/feedbackVisited&&<FeedbackFrame/);
+ const frame=fs.readFileSync(new URL('../components/import-tools/FeedbackFrame.js',import.meta.url),'utf8');
+ assert.match(frame,/src="\/sales\/farm-quality\?popup=1"/);
  assert.doesNotMatch(source,/\/api\/sales\/|WebFarmQuality|\/api\/shipment/);
 });
 test('PDF parser accepts supported PDFs and rejects arbitrary prompts/files',()=>{

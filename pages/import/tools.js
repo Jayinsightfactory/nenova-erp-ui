@@ -4,6 +4,7 @@ import Head from 'next/head';
 import {verifyReqUser} from '../../lib/auth';
 import {createImportTeamStorage} from '../../lib/importTeamClient';
 import styles from '../../styles/ImportTools.module.css';
+import FeedbackFrame from '../../components/import-tools/FeedbackFrame';
 const loading=()=> <p className={styles.loading} role="status">업무도구를 불러오는 중입니다…</p>;
 const PackingListTool=dynamic(()=>import('../../components/import-tools/PackingListTool'),{ssr:false,loading});
 const PedidosTool=dynamic(()=>import('../../components/import-tools/PedidosTool'),{ssr:false,loading});
@@ -51,7 +52,7 @@ export default function ImportTools(){
    <div id="import-panel-checklist" hidden={!checklistTabs[tab]}><ChecklistTool activeTab={checklistTabs[tab]} hideNavigation onFlightCountChange={setFlightCount}/></div>
    <div id="import-panel-feedback" hidden={tab!=='feedback'}>
     <div className={styles.sectionHeading}><div><h2>불량 피드백 관리</h2><p>기존 농장 불량·피드백과 같은 자료입니다. 등록·수정·처리 및 삭제 권한은 기존 화면 기준을 유지합니다.</p></div><a href="/sales/farm-quality?popup=1" target="_blank" rel="noreferrer">큰 창에서 열기 ↗</a></div>
-    {feedbackVisited&&<iframe className={styles.feedbackFrame} title="기존 농장 불량·피드백 관리" src="/sales/farm-quality?popup=1"/>}
+    {feedbackVisited&&<FeedbackFrame className={styles.feedbackFrame}/>}
    </div>
    <div id="import-panel-handoff" hidden={tab!=='handoff'}><HandoffTool/></div>
    <div id="import-panel-history" hidden={tab!=='history'}>{tab==='history'&&<History/>}</div>

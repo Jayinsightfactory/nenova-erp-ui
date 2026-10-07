@@ -15,7 +15,7 @@ assert.deepEqual(acknowledge({event},drafts),{...event,Evidence:[{EvidenceKey:'s
 const serverImages=[{EvidenceKey:'server-image',FileName:'서버.png'}];
 assert.deepEqual(acknowledge({event:{...event,Evidence:serverImages}},drafts).Evidence,serverImages,'nonempty server evidence takes precedence');
 assert.deepEqual(acknowledge({event},[]).Evidence,[],'no attachments remains empty');
-let stateOverrides={},stateIndex=0;
+let stateOverrides={},stateIndex=0,refOverrides={},refIndex=0,effects=[];
 let apiMocks={};
 const summaryFilename=path.resolve(__dirname,'../lib/farmQualityInboxSummary.js');
 const summaryModule=new Module(summaryFilename,module);
@@ -24,7 +24,7 @@ const compiled=transformSync(source,{filename,jsc:{parser:{syntax:'ecmascript',j
 const loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));
 loaded.require=name=>{
  if(name==='../lib/farmQualityInboxSummary')return summaryModule.exports;
- if(name==='react')return {...React,useEffect(){},useRef(value){return {current:value};},useState(value){const index=stateIndex++;const initial=Object.hasOwn(stateOverrides,index)?stateOverrides[index]:typeof value==='function'?value():value;return [initial,next=>{stateOverrides[index]=typeof next==='function'?next(Object.hasOwn(stateOverrides,index)?stateOverrides[index]:initial):next;}];}};
+ if(name==='react')return {...React,useEffect(effect){effects.push(effect);},useRef(value){return refOverrides[refIndex++]||{current:value};},useState(value){const index=stateIndex++;const initial=Object.hasOwn(stateOverrides,index)?stateOverrides[index]:typeof value==='function'?value():value;return [initial,next=>{stateOverrides[index]=typeof next==='function'?next(Object.hasOwn(stateOverrides,index)?stateOverrides[index]:initial):next;}];}};
  if(name==='../lib/useApi')return {apiGet:(...args)=>apiMocks.get(...args),apiPost:(...args)=>apiMocks.post(...args),apiDelete:(...args)=>apiMocks.delete(...args)};
  if(name==='../lib/farmQuality')return {QUALITY_STATUSES:{NEW:'요청 필요',CLOSED:'개선 확인',WAITING:'미답변'},QUALITY_KINDS:{COMMENT:'코멘트',REQUEST:'요청',RESPONSE:'답변',APPLY:'개선 적용',CLOSE:'개선 확인'},QUALITY_SIGNAL_KINDS:{UNASSIGNED_ITEM_WEEK:'농장 미지정 품목 반복'}};
  if(name==='../lib/farmQualityEvidence')return {QUALITY_EVIDENCE_MAX_BYTES:10485760,QUALITY_EVIDENCE_MAX_FILES:5};
@@ -40,7 +40,8 @@ virtual.sources[0].prodKey=1;
 const excluded={...closed,key:'excluded',excluded:true,capabilities:{canComment:false,canManage:false,canExclude:false,canRestore:true}};
 const multiple={...closed,key:'composite',cases:[...closed.cases,{caseKey:'c2',title:'두 번째 기록',status:'WAITING',version:7,eventCount:3}],inboxKeys:['i1','i2'],exclusionScopes:[...closed.exclusionScopes,{inboxKey:'i2',version:8,caseKeys:['c2'],excluded:false}]};
 const data={canManage:true,cases:[{CaseKey:'c1',SourceKey:1,InboxKey:'i1',Version:3},{CaseKey:'c2',SourceKey:2,InboxKey:'i2',Version:7}],inbox:{items:[virtual,closed,excluded,multiple],counts:{active:3}}};
-const render=(overrides={})=>{stateOverrides=overrides;stateIndex=0;return renderToStaticMarkup(React.createElement(Inbox,{data,year:2026,from:1,to:53,onDirty(){},onBusy(){},refresh(){}}));};
+const render=(overrides={})=>{stateOverrides=overrides;stateIndex=0;refIndex=0;effects=[];return renderToStaticMarkup(React.createElement(Inbox,{data,year:2026,from:1,to:53,onDirty(){},onBusy(){},refresh(){}}));};
+const detailMarkup=markup=>markup.match(/<aside\b[^>]*>([\s\S]*?)<\/aside>/)?.[1]||'';
 assert.deepEqual(inboxTarget(virtual,'',data.cases),{anchorSourceKey:1,inboxKey:undefined,caseKey:undefined,revision:'revision'},'unconfirmed/missing farm can target first inbox event');
 assert.throws(()=>inboxTarget(multiple,'',data.cases),/선택/,'multiple histories never select the first silently');
 assert.equal(inboxTarget(multiple,'c2',data.cases).inboxKey,'i2');
@@ -62,7 +63,7 @@ ranked.sources.push({...ranked.sources[0],sourceKey:5,prodKey:5,productName:'박
 data.inbox.items=[ranked];
 html=render();assert.match(html,/테스트 농장 · 장미류/);assert.match(html,/40%/);assert.match(html,/100%/);assert.doesNotMatch(html,/\(불량수량 비중\)/);assert.match(html,/외 1개 품목/);assert.doesNotMatch(html,/>품목1</);assert.match(html,/35차 4/);assert.equal((html.match(/>테스트 농장 · 장미류</g)||[]).length,1);
 assert.match(html,/summary-column[\s\S]*badges workflow[\s\S]*products-column/);assert.doesNotMatch(html,/class="progress-column"/);
-html=render({2:ranked});const aside=html.slice(html.indexOf('<aside>'));assert.match(aside,/>품목1 · 1 송이</);assert.equal((aside.match(/테스트 농장 · 장미류/g)||[]).length,1);assert.match(aside,/자동 발송되지 않음/);
+html=render({2:ranked});const aside=detailMarkup(html);assert.match(aside,/>품목1 · 1 송이</);assert.equal((aside.match(/테스트 농장 · 장미류/g)||[]).length,1);assert.match(aside,/자동 발송되지 않음/);
 const sortedItem=(key,lastWeek,status)=>({...ranked,key,lastWeek,cases:[{caseKey:key,status,recentEvents:[{Body:`정렬-${key}`}]}]});
 data.inbox.items=[sortedItem('closed',53,'CLOSED'),sortedItem('b',40,'NEW'),sortedItem('a',40,'NEW'),sortedItem('old',39,'NEW'),sortedItem('waiting',52,'WAITING')];
 html=render();const offsets=['a','b','old','waiting'].map(key=>html.indexOf(`title="정렬-${key} ·`));assert(offsets.every((offset,index)=>offset>=0&&(!index||offset>offsets[index-1])),'lane order then descending latest week then stable key');
@@ -87,20 +88,26 @@ html=render({2:{...virtual,sources:[{...virtual.sources[0],quantity:0}]}});asser
 html=render({2:multiple});assert.match(html,/대상을 직접 선택/);assert.match(html,/두 번째 기록/);assert.match(html,/기록 대상 이력/);assert.match(html,/이력 2/);assert.doesNotMatch(html,/#c2/,'case identity stays in option values only');
 html=render({2:excluded,3:'c1'});assert.match(html,/사유를 남기고 복원/,'manager can restore even when event management capability is false');
 html=render({2:closed,3:'c1',10:[{EventKey:'e',Kind:'EXCLUDE',Body:'점검',AuthorName:'담당자'}]});assert.match(html,/제외 · 담당자/);assert.doesNotMatch(html,/>EXCLUDE/);
-for(const token of ['caseVersion,inboxVersion','inboxExclude','inboxRestore','if(dirty){if(!window.confirm','입력 내용과 첨부 이미지는 유지됩니다.','setMessage(result.replayed','@media(max-width:760px)','height:calc(100vh - 248px)'])assert(source.includes(token),token);
+for(const token of ['caseVersion,inboxVersion','inboxExclude','inboxRestore','if(dirty){if(!window.confirm','입력 내용과 첨부 이미지는 유지됩니다.','setMessage(result.replayed','@media(max-width:760px)'])assert(source.includes(token),token);
+assert.doesNotMatch(source,/100vh|max-height\s*:|height:(?:420|560)px|overflow\s*:\s*auto|overflow-x:auto/,'board, cards, details, events and sources use page flow at all breakpoints');
+assert.match(source,/repeat\(4,minmax\(0,1fr\)\)/,'four desktop status lanes remain');
+assert.match(source,/@media\(max-width:1100px\)\{\.rows.board,\.workspace.expanded \.rows.board\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/,'900px uses two wrapping status lanes');
+assert.match(source,/\.rows.board,\.workspace.expanded \.rows.board\{grid-template-columns:minmax\(0,1fr\)\}/,'480px uses one wrapping lane');
 const page=fs.readFileSync(path.resolve(__dirname,'../pages/sales/farm-quality.js'),'utf8');
 assert.match(page,/useState\('inbox'\)/);
 assert.match(page,/<div hidden=\{tab!=='inbox'\}>/,'tab switches preserve mounted inbox drafts');
 const nav=page.match(/<nav>.*?<\/nav>/)[0];assert.equal((nav.match(/<button/g)||[]).length,2,'one unified feedback tab plus analysis');
 transformSync(page,{filename:'farm-quality.js',jsc:{parser:{syntax:'ecmascript',jsx:true},target:'es2022'},module:{type:'commonjs'}});
 for(const selected of [virtual,closed,multiple])for(const filter of ['ALL','NEW','WAITING','ANSWERED','RECURRED']){
- const detail=render({0:filter,2:selected,3:selected===closed?'c1':''}).split('<aside>')[1].split('</aside>')[0];
+ const markup=render({0:filter,2:selected,3:selected===closed?'c1':''}),detail=detailMarkup(markup);
+ assert(markup.indexOf('<aside')<markup.indexOf('class="rows '),'selected detail precedes all board rows in DOM and keyboard order');
+ assert.match(markup,/<aside tabindex="-1" aria-label="피드백 상세">/,'detail is programmatically focusable, not an extra Tab stop');
  const positions=['class="request-suggestion"','<legend>피드백 기록</legend>','class="saved-request"','class="events"','class="full-products"','원본 근거'].map(token=>detail.indexOf(token));
  assert(positions.every((value,index)=>value>=0&&(!index||value>positions[index-1])),'suggestion and composer precede history and expanded evidence in all entry states');
  const disclosures=detail.match(/<details[^>]*>/g)||[];assert.equal(disclosures.length,3);assert(disclosures.every(tag=>tag.includes('open=""')),'all detail disclosures default open');
  assert.equal(detail.split('<legend>피드백 기록</legend>').length-1,1,'one composer retains existing handlers');
 }
-assert(source.includes('<aside key={selected.key} ref={detailRef}>'),'switching cards resets detail scroll and disclosure DOM');
+assert(source.includes('<aside key={selected.key} ref={detailRef} tabIndex={-1}'),'switching cards resets detail disclosure DOM');
 assert.equal(loaded.exports.defaultFeedbackKind('NEW',false),'REQUEST');
 assert.equal(loaded.exports.defaultFeedbackKind('WAITING',true),'RESPONSE');
 assert.equal(loaded.exports.defaultFeedbackKind('WAITING',false),'REQUEST');
@@ -112,16 +119,46 @@ html=render({2:virtual,5:'REQUEST'});assert.match(html,/요청 저장 · 답변 
 data.canManage=managerFlag;
 html=render({2:closed,3:'c1',10:[{EventKey:7,Kind:'REQUEST',Body:'내 요청',CanEditRequest:true},{EventKey:8,Kind:'REQUEST',Body:'남의 요청',CanEditRequest:false}]});assert.equal(html.split('>내 요청 수정<').length-1,1);
 html=render({2:closed,3:'c1',5:'REQUEST_EDIT',18:'7',10:[{EventKey:7,Kind:'REQUEST',Body:'수정 후',OriginalBody:'수정 전',RequestEdited:true,CanEditRequest:true}]});assert.match(html,/요청 수정 저장/);assert.match(html,/수정 전 요청 보기/);
+data.inbox.items=Array.from({length:1200},(_,index)=>({...virtual,key:`long-${index}`}));
+const longEvents=Array.from({length:400},(_,index)=>({EventKey:`event-${index}`,Kind:'COMMENT',Body:`긴 이력 ${index}`}));
+html=render({2:closed,3:'c1',10:longEvents});
+assert(html.indexOf('<aside')<html.indexOf('class="rows '),'detail remains before a 1200-card board');
+assert.equal((html.match(/class="row /g)||[]).length,1200,'whole-page flow never truncates board data');
+assert.match(detailMarkup(html),/긴 이력 399/,'complete history is retained without a nested scroller');
+data.inbox.items=savedItems;
 console.log('Farm inbox UI: render, target conflicts, new-source exclusion, manager restore, first kinds, preserved drafts and responsive contracts passed');
 
 // Exercise the real handlers, not only source strings or static markup.
 async function regressionHandlers(){
  const props={data,year:2026,from:1,to:53,onDirty(){},onBusy(){},refresh:async()=>true};
- const tree=()=>{stateIndex=0;return Inbox(props);};
+ const tree=()=>{stateIndex=0;refIndex=0;effects=[];return Inbox(props);};
  const nodes=(node)=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes(node.props?.children)];
  const button=(root,label)=>nodes(root).find(n=>n.type==='button'&&n.props.children===label);
  const owner={EventKey:'7',Kind:'REQUEST',Body:'내 요청',CanEditRequest:true};
  const other={EventKey:'8',Kind:'REQUEST',Body:'다른 요청',CanEditRequest:false};
+ // Selection scrolls the page only on deliberate open, not every typing/refresh render.
+ let focusCalls=[],returnFocus=0,prevented=0;
+ const detailNode={focus:options=>focusCalls.push(['detail-focus',options]),scrollIntoView:options=>focusCalls.push(['detail-scroll',options])};
+ const composerNode={focus:options=>focusCalls.push(['composer-focus',options]),scrollIntoView:options=>focusCalls.push(['composer-scroll',options])};
+ refOverrides={4:{current:detailNode},5:{current:composerNode},6:{current:false},7:{current:null}};
+ stateOverrides={};apiMocks.get=async()=>({events:[]});
+ let selectionTree=tree(),card=nodes(selectionTree).find(n=>n.type==='button'&&n.props.className?.startsWith('row '));
+ assert(card,'native button remains the card selection control');
+ card.props.onClick({currentTarget:{focus(){returnFocus++;}}});
+ selectionTree=tree();effects[0]();
+ assert.deepEqual(focusCalls,[['detail-focus',{preventScroll:true}],['detail-scroll',{block:'start'}]]);
+ stateOverrides[4]='미저장 초안';tree();effects[0]();assert.equal(focusCalls.length,2,'typing does not steal focus or restart scrolling');
+ global.window={confirm:()=>false};
+ button(tree(),'닫기').props.onClick();assert(stateOverrides[2],'declining close preserves the selected item');assert.equal(stateOverrides[4],'미저장 초안');assert.equal(returnFocus,0);
+ global.window.confirm=()=>true;
+ const selectedAside=nodes(tree()).find(n=>n.type==='aside');
+ selectedAside.props.onKeyDown({key:'Escape',target:{tagName:'TEXTAREA'},preventDefault(){prevented++;}});
+ assert.equal(stateOverrides[2],null);assert.equal(stateOverrides[4],'');assert.equal(returnFocus,1);assert.equal(prevented,1,'Escape closes and returns focus after draft confirmation');
+ stateOverrides={2:closed,3:'c1',10:[owner]};
+ button(tree(),'내 요청 수정').props.onClick();
+ assert.deepEqual(focusCalls.slice(-2),[['composer-focus',{preventScroll:true}],['composer-scroll',{block:'center'}]],'request editing reaches the native textarea without an aside scroller');
+ refOverrides={};delete global.window;
+ await new Promise(resolve=>setImmediate(resolve));
  stateOverrides={2:excluded,3:'c1',10:[owner,other]};
  let root=tree(),edit=button(root,'내 요청 수정');
  assert(edit&&!edit.props.disabled,'excluded owner request edit entry stays enabled');
@@ -176,6 +213,28 @@ async function regressionHandlers(){
  stateOverrides={2:multiple,3:'c2'};await button(tree(),'피드백 삭제 · 요청 전').props.onClick();assert.equal(deletes.at(-1).caseKey,'c2');
  stateOverrides={2:closed,3:'c1'};apiMocks.delete=async()=>{throw Error('stale');};
  await button(tree(),'피드백 삭제 · 요청 전').props.onClick();assert.equal(stateOverrides[2],closed);assert.equal(stateOverrides[17],true);assert.match(stateOverrides[15],/실제 상태/);
+ // Restore focus only after the successful reset's refresh and busy render have finished.
+ apiMocks.delete=async()=>({success:true,reset:true,caseStatus:'NEW',eventCount:2});
+ for(const scenario of ['connected','detached','disabled','no-origin','refresh-failed']){
+  let focused=[],finishRefresh;
+  const original=scenario==='no-origin'?null:{isConnected:scenario!=='detached'&&scenario!=='refresh-failed',disabled:scenario==='disabled',focus(){focused.push('original');}};
+  const fallback={isConnected:true,disabled:false,focus(){focused.push('filter');}};
+  const pendingFocus={current:false},operationLock={current:false};
+  refOverrides={0:operationLock,7:{current:original},8:pendingFocus,9:{current:fallback}};
+  stateOverrides={2:closed,3:'c1'};
+  props.refresh=()=>new Promise((resolve,reject)=>{finishRefresh=scenario==='refresh-failed'?()=>reject(Error('offline')):resolve;});
+  const deletion=button(tree(),'피드백 삭제 · 요청 전').props.onClick();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(stateOverrides[14],true);assert.equal(pendingFocus.current,true);
+  tree();effects[1]();assert.deepEqual(focused,[],'never focus a disabled card during refresh');
+  const filterButton=nodes(tree()).find(n=>n.type==='button'&&n.ref===refOverrides[9]);
+  assert(filterButton,'fallback ref is scoped to the stable NEW filter');
+  finishRefresh();await deletion;
+  assert.equal(stateOverrides[14],false);assert.equal(operationLock.current,false);
+  tree();effects[1]();assert.deepEqual(focused,[scenario==='connected'?'original':'filter'],scenario);
+  tree();effects[1]();assert.equal(focused.length,1,'restore once, not on subsequent renders');
+ }
+ refOverrides={};
  delete global.window;delete data.canDelete;
  console.log('Farm inbox regressions: preserved refresh success/failure/race, excluded owner edit payload and ordinary-write denial passed');
 }

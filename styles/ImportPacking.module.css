@@ -57,7 +57,7 @@
 .modeBadge, .sourceBadge { border-radius: 6px; padding: 8px 12px; font-size: 13px; margin: 10px 0; }
 .modeBadge { background: #edf3fd; color: #2457c5; border: 1px solid #c7d7f7; }
 .sourceBadge { background: #edf8f1; color: #176039; border: 1px solid #b8e0c8; }
-.aliasScroll { max-height: 320px; overflow: auto; }
+.aliasScroll { overflow-x: auto; }
 .chargesScroll { overflow-x: auto; }
 
 @media (max-width: 900px) {
