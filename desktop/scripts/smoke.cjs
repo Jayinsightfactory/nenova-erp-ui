@@ -16,9 +16,13 @@ const USER_DATA = path.join(os.tmpdir(), `nenova-desktop-smoke-${process.pid}`);
 const OUTPUT = path.resolve(__dirname, '..', 'test-output');
 let dialogAnswer = 0;
 let accountActor = 'desktop-test';
+let bootstrapOverride = null;
 let holdAccountBAuth = false;
 let accountBAuthStarted = false;
 let releaseAccountBAuth;
+let holdAccountABootstrap = false;
+let accountABootstrapStarted = false;
+let releaseAccountABootstrap;
 const fixtureRequests = [];
 let main;
 dialog.showMessageBoxSync = () => dialogAnswer;
@@ -70,6 +74,17 @@ function installFixtureProtocol() {
       }
       return Response.json({ success: true, user: { userId: accountActor, userName: accountActor } });
     }
+    if (url.pathname === '/api/desktop/bootstrap') {
+      const bootstrapActor = accountActor;
+      if (bootstrapActor === 'desktop-test' && holdAccountABootstrap) {
+        accountABootstrapStarted = true;
+        await new Promise(resolve => { releaseAccountABootstrap = resolve; });
+      }
+      return Response.json(bootstrapOverride || {
+        success: true, schemaVersion: 1, user: { userId: bootstrapActor }, webVersion: 'web-1',
+        menuVersion: (bootstrapActor === 'desktop-test-b' ? 'd' : 'a').repeat(64), menus: [{ group: '업무', items: [{ href: '/test/fixture', labelKey: 'fixture', popup: false }] }],
+      });
+    }
     if (url.pathname.startsWith('/api/')) return Response.json({ success: true, data: [] });
     if (url.pathname === '/test/popup') {
       return new Response(`<!doctype html><title>동일 출처 팝업</title><script>window.opener.postMessage('nenova-smoke-nonblank-ready', location.origin);</script>`, { headers: { 'content-type': 'text/html; charset=utf-8' } });
@@ -113,6 +128,7 @@ async function run() {
   await waitFor(() => main.snapshot().actor === 'desktop-test', 'fixture authentication');
 
   const sourceWindow = [...main.windows.values()][0];
+  assert.equal(main.command(sourceWindow, 'state', {}).syncStatus, 'ready', 'bootstrap menu is ready after login');
   console.log('Smoke: authenticated');
   sourceWindow.win.setContentSize(1920, 1080);
   sourceWindow.win.show();
@@ -137,6 +153,32 @@ async function run() {
   await first.view.webContents.executeJavaScript(`localStorage.setItem('account-specific-value', 'belongs-to-A')`);
 
   await first.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value = '편집 후에도 유지'`);
+  const bootstrapRequestCount = fixtureRequests.filter(request => request.pathname === '/api/desktop/bootstrap').length;
+  const firstPageRequestCount = fixtureRequests.filter(request => request.pathname === '/test/fixture').length;
+  bootstrapOverride = {
+    success: true, schemaVersion: 1, user: { userId: accountActor }, webVersion: 'web-2',
+    menuVersion: 'b'.repeat(64), menus: [{ group: '업데이트', items: [{ href: '/test/fixture', labelKey: 'fixture', popup: false }, { href: '/test/new-route', labelKey: 'newRoute', popup: true }] }],
+  };
+  await main.verifyAccount();
+  const refreshedState = main.command(sourceWindow, 'state', {});
+  assert.equal(refreshedState.syncStatus, 'ready');
+  assert.equal(refreshedState.menuVersion, 'b'.repeat(64));
+  assert.equal(refreshedState.webVersion, 'web-2');
+  assert.ok(refreshedState.menus[0].items.some(item => item.href === '/test/new-route' && item.labelKey === 'newRoute'));
+  assert.ok(fixtureRequests.filter(request => request.pathname === '/api/desktop/bootstrap').length > bootstrapRequestCount, 'explicit verification refetches bootstrap');
+  assert.equal(fixtureRequests.filter(request => request.pathname === '/test/fixture').length, firstPageRequestCount, 'bootstrap refresh does not reload the business page');
+  assert.equal([...main.tabs.values()].find(tab => tab.id === first.id).view.webContents.id, firstContents.id, 'bootstrap refresh preserves the same WebContents');
+  assert.equal(await first.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value`), '편집 후에도 유지', 'bootstrap refresh preserves the live edited page');
+  bootstrapOverride = { ...bootstrapOverride, user: { userId: 'wrong-actor' } };
+  await main.verifyAccount();
+  const failedSync = main.command(sourceWindow, 'state', {});
+  assert.equal(failedSync.syncStatus, 'error', 'invalid bootstrap reports sync error');
+  assert.deepEqual(failedSync.menus, [], 'invalid bootstrap exposes no partial menu');
+  assert.equal(main.tabs.has(first.id), true, 'bootstrap failure preserves current tabs');
+  bootstrapOverride = null;
+  await main.verifyAccount();
+  assert.equal(main.command(sourceWindow, 'state', {}).syncStatus, 'ready', 'later bootstrap retry recovers');
+  assert.equal(await first.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value`), '편집 후에도 유지');
   main.command(sourceWindow, 'activate', { id: second.id });
   main.command(sourceWindow, 'activate', { id: first.id });
   assert.equal(await first.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value`), '편집 후에도 유지');
@@ -275,7 +317,12 @@ async function run() {
 
   // Change accounts while auth is deliberately pending. The old account is
   // locked immediately, writes are blocked, then its views and origin storage
-  // are cleared before the new account becomes active.
+  // are cleared before the new account becomes active. Keep an A bootstrap
+  // response pending across that transition to prove it cannot overwrite B.
+  holdAccountABootstrap = true;
+  accountABootstrapStarted = false;
+  const accountASync = main.verifyAccount();
+  await waitFor(() => accountABootstrapStarted, 'account A bootstrap request');
   accountActor = 'desktop-test-b';
   holdAccountBAuth = true;
   accountBAuthStarted = false;
@@ -288,6 +335,12 @@ async function run() {
   holdAccountBAuth = false;
   releaseAccountBAuth();
   await waitFor(() => main.snapshot().actor === 'desktop-test-b', 'account B activation');
+  assert.equal(main.command(sourceWindow, 'state', {}).menuVersion, 'd'.repeat(64), 'account B menu wins while the earlier account A bootstrap is pending');
+  holdAccountABootstrap = false;
+  releaseAccountABootstrap();
+  await accountASync;
+  assert.equal(main.snapshot().actor, 'desktop-test-b', 'stale account A response cannot switch the active actor back');
+  assert.equal(main.command(sourceWindow, 'state', {}).menuVersion, 'd'.repeat(64), 'stale account A response cannot overwrite account B menu');
   assert.equal(main.tabs.has(first.id), false, 'account switch removes old WebContents tabs');
   assert.ok(firstContents.isDestroyed(), 'old account WebContents is destroyed');
   main.command(sourceWindow, 'open', { url: '/test/second', title: '계정 B 저장소 확인' });

@@ -45,6 +45,10 @@ function installFixtureProtocol() {
     if (url.origin !== ORIGIN) return new Response('Blocked by restore fixture', { status: 403 });
     requests.push({ method: request.method, pathname: url.pathname });
     if (url.pathname === '/api/auth/me') return Response.json({ success: true, user: { userId: ACTOR, userName: ACTOR } });
+    if (url.pathname === '/api/desktop/bootstrap') return Response.json({
+      success: true, schemaVersion: 1, user: { userId: ACTOR }, webVersion: 'web-1',
+      menuVersion: 'c'.repeat(64), menus: [{ group: '업무', items: [{ href: '/test/orders', labelKey: 'orders', popup: false }] }],
+    });
     if (url.pathname.startsWith('/api/')) return Response.json({ success: true, data: [] });
     return new Response(html(url.href), { headers: { 'content-type': 'text/html; charset=utf-8' } });
   });
