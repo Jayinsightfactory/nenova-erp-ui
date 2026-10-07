@@ -6,7 +6,7 @@
 | 화면 | `/import/tools`, `/sales/farm-quality` |
 | 부작용 | 화면 높이/스크롤/초점만 변경. API·권한·원장·수량·저장 이력 보존 |
 | 브랜치 | `codex/import-page-scroll` |
-| PR/배포 | 검증 후 기록 |
+| PR/배포 | PR #938 병합 `5d005f757bab464a58b614ab75b32c0e07375c8a`, Cafe24 run `37570146215` 성공(5m8s) |
 
 ## 고정된 결정
 - 앞으로 새 페이지는 주 페이지 세로 스크롤이 기본. 작은 목록/상세/이력 내부 스크롤을 중첩하지 않는다.
@@ -27,3 +27,6 @@
 - 독립 검토 gpt-5.6-sol/high/P0_LOCAL: observer 실패 fallback 및 삭제 후 초점 복귀 P2 두 건 발견하여 보완. observer 미지원/등록실패/다른 페이지 이동은 일반 iframe 스크롤로 복구하며 단위4검사 통과.
 - 화면 원장 side-effect: 조회/목록선택/스크롤/상세닫기 → 모든 ERP·피드백 원장 보존. 기존 저장/삭제 API payload와 권한은 변경하지 않음.
 - 최종 전체 ERP 계약·빌드 통과, production Chrome 재검증 통과. API 변경0, manifest 및 쓰기 가드 통과. 배포 결과는 후속 갱신.
+- 최종 독립 재검토 P1/P2 없음. 삭제 후 목록 갱신 실패 시 stale 카드가 남아도 legacy 삭제는 안정적인 새로고침 버튼으로 복귀한다. GitHub ERP Contract Guard `37569977747` 통과, 최신 master 통합 후 build 통과.
+- 배포 후 운영 URL Chrome 1920×1080/100%,900/480 smoke 통과: 긴 fixture 목록·주 페이지 휠·임베드 높이 증감·탭 복귀·독립 피드백 페이지, 내부 세로스크롤0/JS오류0/쓰기0. 초기 smoke의 iframe about:blank→실페이지 전환 대기 timeout은 부모 문서에서 실제 frame DOM 준비를 기다리도록 검증 스크립트를 보완하여 재검증했다.
+- 운영 실제 GET200 확인: 기존 피드백5건/통합71개, 공동 항공/휴가/재배/인수인계 값은 기존 revision0 그대로. 테스트 fixture는 브라우저 응답에만 적용, 운영 저장하지 않음.
