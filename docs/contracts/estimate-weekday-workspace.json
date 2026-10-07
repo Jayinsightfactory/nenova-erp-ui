@@ -86,7 +86,14 @@
     "lib/weekdayWorkbookExportPlan.js",
     "__tests__/weekdayOriginalWorkbook.test.js",
     "__tests__/weekdayWorkbookExportPlan.test.js",
-    "__tests__/weekdayOriginalWorkbookUi.test.js"
+    "__tests__/weekdayOriginalWorkbookUi.test.js",
+    "lib/weekdaySavedTemplate.js",
+    "pages/api/estimate/weekday-template.js",
+    "__tests__/weekdaySavedTemplate.test.js",
+    "__tests__/weekdaySavedTemplateUi.test.js",
+    "scripts/install-weekday-template.cjs",
+    "__tests__/weekdayTemplateInstall.test.js",
+    "data/templates/weekday/jugwang-order.encrypted.json"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -265,6 +272,16 @@
       "webOnly": "Revisioned atomic file classification; SELECT fresh exact year/week/customer/product/date/unit/total; idempotent retry; no ERP writes",
       "orderDetail": "preserve",
       "name": "CLASSIFY_WILSON_WEB_ONLY"
+    },
+    {
+      "sideEffect": "Authenticated read of fixed SHA-verified private template file only; default UI parse does not generate drafts or ERP changes.",
+      "estimateRows": "preserve",
+      "webProfitReport": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "name": "LOAD_SAVED_JUGWANG_TEMPLATE",
+      "shipmentDate": "preserve",
+      "stock": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -303,7 +320,10 @@
     "__tests__/weekdayDraftDeletion.test.js",
     "__tests__/weekdayOriginalWorkbook.test.js",
     "__tests__/weekdayWorkbookExportPlan.test.js",
-    "__tests__/weekdayOriginalWorkbookUi.test.js"
+    "__tests__/weekdayOriginalWorkbookUi.test.js",
+    "__tests__/weekdaySavedTemplate.test.js",
+    "__tests__/weekdaySavedTemplateUi.test.js",
+    "__tests__/weekdayTemplateInstall.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -488,10 +508,18 @@
   "originalWorkbookDownload": {
     "sideEffects": "Browser file download only; preserve OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/StockMaster/ProductStock/Estimate/WebProfitReport and confirmation",
     "layout": "Patch original XLSX ZIP only; preserve merged cells, styles, column widths, print settings, drawings and unrelated entries. No edits returns exact original bytes.",
-    "storage": "No server persistence; refresh requires original re-upload",
-    "source": "Current successful upload File held in browser memory; fresh UUID per upload and exact selected customer/year/center scope",
+    "storage": "Saved Jugwang default is private server runtime, decrypted at deployment from encrypted asset; raw bytes and private deployment key never committed. Manual originals remain browser-memory only.",
+    "source": "Cust533 exact saved SHA default loads for valid scope; user manual uploads take precedence. Default load parses original only and never creates plans/links or ERP writes. Past source quantities and dates are never auto-converted to current cycle.",
     "preserve": "Unlinked order totals, early-shipment, notes and formulas stay original. Duplicate business/cell mapping, moved draft, unknown actual or incompatible unit blocks export",
     "legacy": "XLS original-only; changed XLS requires re-upload as XLSX",
     "quantities": "Explicit connected source date cells only; exact year/week/customer/product/date/unit latest canonical total overridden by absolute draft; Wilson never added twice; mapping survives ERP apply clearing drafts"
+  },
+  "savedWorkbookTemplate": {
+    "storage": "AES-256-GCM envelope in repository, deployment-only private key, exact SHA-verified file data/runtime/weekday-template/jugwang-order.xlsx (600); preserve all15 source sheets",
+    "api": "Authenticated fixed GET, private no-store, query custKey=533; invalid scope400/method405/missing or altered private file503; no caller-controlled path",
+    "autoload": "Valid exactscope only; request ownership rejects stale template/manual upload; scope changes reload default, manual samecustomer original is protected; reset button explicitly returns to saved template",
+    "customer": 533,
+    "effects": "Template GET and auto-load preserve all Order/Shipment/Stock/Estimate/Profit/confirmation data and existing drafts. No auto-link/import/apply.",
+    "sha256": "0D2BF7505BBDB792C43A116DF037BC125E4BE44F05D7519DDFE747EB7D8FDFB3"
   }
 }
