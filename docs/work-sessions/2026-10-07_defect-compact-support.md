@@ -5,7 +5,7 @@
 | 기간 | 2026-10-07 |
 | 화면 | 영업수입불량차감: 영업지원·미처리/이월 표 |
 | ERP 부작용 | 표시 전용, API·원문·매칭·견적·연도 키 보존 |
-| 상태 | 구현·검증 후 배포 진행 |
+| 상태 | PR928/e8a91708 · Cafe2437556466854 성공 · 운영 확인 완료 |
 
 ## 고정 결정
 
@@ -20,10 +20,12 @@
 
 **A.** 지원/이월 표에16px 본문과 고정 열 비율, 여백3px, 가로 선택/상태 액션을 적용했다. 이름 표시 전용 helper는 원문과 업무키를 변경하지 않는다. 일반·팝업100% 및80% 상당 fixture에서 행51px, 가로 overflow없음, 전체명·이월연도 title, 상세·Space·드래그와 화면 오류0/업무 쓰기0를 확인했다. 기존 드래그 일반·팝업 스모크 통과. 기존 source UI 회귀의4×6px/긴 상세 라벨 검사를 새3px/짧은 상세 라벨로 갱신했다.
 
-**결과.** 필수 계약·dnSpy·manifest·write guard·layout·build 및 운영 배포 결과는 완료 시 추가한다. 순수 helper는2025/2026 같은40차 원본 키 보존과 실제 Sweet Rose/China Girl 이름·규격 보존을 검증한다.
+**결과.** 필수 계약·dnSpy·manifest·write guard·layout·build와 exact-head CI 통과. PR928/e8a91708 및 Cafe2437556466854 성공. 순수 helper는2025/2026 같은40차 원본 키 보존과 실제 Sweet Rose/China Girl 이름·규격 보존을 검증한다.
 
 ## 미완
 
-필수 계약·dnSpy·manifest(80개)·write guard(API변경0)·layout 및 build 통과. 배포·운영 읽기 전용 브라우저 확인 진행 중. 인증값과 임시 스모크 원문은 커밋하지 않는다.
+필수 계약·dnSpy·manifest(80개)·write guard(API변경0)·layout 및 build 통과. 운영 배포·읽기 전용 브라우저 확인 완료. 인증값과 임시 스모크 원문은 커밋하지 않는다.
 
-최신 master의 키보드 기준 반영: 항목 선택은↑↓로 같은 그룹 활성 체크박스 이동, Enter/Space 선택. 기존 차감 상세는Enter로 열고Escape로 닫으며summary초점 복귀. 일반/팝업100%·80% 상당 스모크에서 Tab/Shift+Tab·Enter/Space·방향키·Escape/초점 복귀 통과. 최종 fresh build와 계약 재검사 진행 중.
+최신 master의 키보드 기준 반영: 항목 선택은↑↓로 같은 그룹 활성 체크박스 이동, Enter/Space 선택. 기존 차감 상세는Enter로 열고Escape로 닫으며summary초점 복귀. 일반/팝업100%·80% 상당 스모크에서 Tab/Shift+Tab·Enter/Space·방향키·Escape/초점 복귀 통과. 최신 master 통합 fresh build·계약·dnSpy·layout 재검사와 exact-head CI37556251857 통과. PR928/e8a91708 병합 완료. Cafe2437556466854 성공.
+
+운영 검증: 2026/40 일반·팝업100%와80% 상당4개 레이아웃 모두 PASS. 각 첫12행51px·본문16px·여백3px·가로overflow0. 실제 중국장미/콜롬비아장미 묶음과 ROSE 분류 숨김·품목/규격 보존·원문title 확인. 등록 가능 행1개의 선택/해제와 지원·수입 관리3행 범위 선택/해제 통과. 페이지 오류0·업무 API 쓰기0. 데이터 등록/정리 실행은 하지 않았다.
