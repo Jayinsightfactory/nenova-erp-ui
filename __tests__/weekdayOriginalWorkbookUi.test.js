@@ -73,7 +73,7 @@ function downloadEnvironment() {
     originalWorkbook: { current: { fileId: 'file-a', scope, savedTemplate: true, file: { name: '주광.xlsx',
       arrayBuffer: () => new Promise(resolve => { release = () => resolve(bytes); }) } } },
     exportState: { current: { plans: [{ ...linked }], compareRows: [] } },
-    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41',
+    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],exportWilsonDay:'일',
     buildHorizontalWeekdayMatrix: (...args) => { assert.equal(args[1],env.activePlans); assert.equal(args[2],env.compareRows); return {rows:[]}; },
     applyWeekdayCarryoverToMatrix: matrix => matrix,
     buildWeekdayWebExportSnapshot: () => ({rows:[{name:'웹 품목',values:{quantity:3}}]}),
@@ -98,7 +98,7 @@ test('download fills design with full web snapshot, then releases busy state', a
   assert.match(env.message, /전체 1개 품목/);
 });
 test('quantity or ERP snapshot change during file read prevents any download', async () => {
-  for (const changed of ['plans', 'compareRows', 'baselines', 'carryover', 'cycles']) {
+  for (const changed of ['plans', 'compareRows', 'baselines', 'carryover', 'cycles','wilsonRecords','wilsonDrafts','exportWilsonDay']) {
     const env = downloadEnvironment();
     const pending = callback('downloadOriginalWorkbook', 'addSourceRow', env)();
     env.exportState.current = { ...env.exportState.current, [changed]: [{ quantity: 999 }] };

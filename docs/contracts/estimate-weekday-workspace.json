@@ -520,8 +520,8 @@
     "source": "Cust533 exact saved SHA default loads for valid scope; user manual uploads take precedence. Default load parses original only and never creates plans/links or ERP writes. Past source quantities and dates are never auto-converted to current cycle.",
     "preserve": "Preserve formatting assets only; never retain old source names, quantities, shared strings, formulas or unrelated private worksheets in output.",
     "legacy": "Export requires reference XLSX styles; generated output is always XLSX.",
-    "quantities": "All matrix rows before search/collapse; shared canonical current day total overridden by absolute draft includes Wilson once. Use displayed subweek/major summaries and carryover. Unknown stays blank, zero and negative remainder preserved, different units separate rows and category totals.",
-    "routes": "Header and matrix both call full snapshot exporter; stale scope/file/plans/comparison/calendar/baseline/carryover blocks download after awaits."
+    "quantities": "All matrix rows before search/collapse; latest user instruction splits selected weekday into normal/Wilson/day-total columns. Canonical day totals and subweek/major totals include Wilson once. Validate classification unit/expectedTotal/status and prefer matching draft. Unknown stays blank; zero and negative remainders preserved; units separated. Carryover same as matrix.",
+    "routes": "Header and matrix both full snapshot exporter; selected Wilson weekday shared via callback; stale scope/file/plans/comparison/calendar/baseline/carryover/Wilson classification/selected day blocks download after awaits."
   },
   "savedWorkbookTemplate": {
     "storage": "AES-256-GCM envelope in repository, deployment-only private key, exact SHA-verified file data/runtime/weekday-template/jugwang-order.xlsx (600); preserve all15 source sheets",

@@ -87,6 +87,7 @@ export default function WeekdayEstimateWorkspace() {
   const [baselineError, setBaselineError] = useState('');
   const [pageNotes, setPageNotes] = useState([]);
   const [wilsonRecords,setWilsonRecords] = useState([]);
+  const [exportWilsonDay,setExportWilsonDay] = useState('일');
   const [wilsonDrafts,setWilsonDrafts] = useState([]);
   const [wilsonPending,setWilsonPending] = useState([]);
   const [wilsonError,setWilsonError] = useState('');
@@ -135,7 +136,7 @@ export default function WeekdayEstimateWorkspace() {
   currentScope.current = scopeKey;
   const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
   const exportState = useRef(null);
-  exportState.current = { plans: activePlans, compareRows, cycles, baselines, baselineCandidates, carryover, allPlans: plans };
+  exportState.current = { plans: activePlans, compareRows, cycles, baselines, baselineCandidates, carryover, allPlans: plans, wilsonRecords, wilsonDrafts, exportWilsonDay };
   const activeWilsonInputs = wilsonDrafts.filter(record => record.scopeKey === scopeKey && activePlans.some(plan =>
     Number(plan.year) === record.year && Number(plan.prodKey) === record.prodKey && plan.date === record.date
     && plan.orderWeek === record.orderWeek && Number(plan.quantity) === record.expectedTotal));
@@ -537,7 +538,8 @@ export default function WeekdayEstimateWorkspace() {
         baselines.filter(record => Number(record.custKey) === Number(customer?.CustKey)),
         baselineCandidates.filter(record => Number(record.custKey) === Number(customer?.CustKey)), currentCarry?.context?.inputs || []),
         currentCarry?.context, currentCarry?.records || [], plans);
-      const model = buildWeekdayWebExportSnapshot(matrix, `주광 발주내역 · ${year}년 ${majorWeek}차`);
+      const model = buildWeekdayWebExportSnapshot(matrix, `주광 발주내역 · ${year}년 ${majorWeek}차`,
+        {wilsonDay:exportWilsonDay,wilsonRecords,wilsonDrafts,custKey:customer?.CustKey});
       let designBytes;
       if (original.savedTemplate) designBytes = await original.file.arrayBuffer();
       else {
@@ -551,7 +553,7 @@ export default function WeekdayEstimateWorkspace() {
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const anchor = document.createElement('a'); anchor.href = url; anchor.download = `주광_발주내역_${year}_${majorWeek}.xlsx`;
       document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage(`발주 양식으로 웹 작업 전체 ${model.rows.length}개 품목을 다운로드했습니다. 일반·윌슨은 합산되며 미확인 수량은 빈칸입니다.`);
+      setMessage(`발주 양식으로 웹 작업 전체 ${model.rows.length}개 품목을 다운로드했습니다. 기존·윌슨·요일 합계를 구분하며 미확인 수량은 빈칸입니다.`);
     } catch (error) { setDownloadError(error.message || '원본 엑셀을 저장하지 못했습니다.'); }
     finally { setDownloadBusy(false); }
   }
@@ -1133,7 +1135,7 @@ export default function WeekdayEstimateWorkspace() {
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
     {wilsonError && <div role="alert" style={{color:'#b42318',padding:6}}>윌슨: {wilsonError}</div>}
     {wilsonPending.length>0 && <button type="button" disabled={applyBusy || wilsonBusy || Boolean(pendingApply)} onClick={()=>retryWilson()}>윌슨 구분값 저장 확인 ({wilsonPending.length})</button>}
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} exportReady={Boolean(parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy)} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy)} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
       wilsonRecords={wilsonRecords.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} wilsonDrafts={wilsonDrafts.filter(record=>record.scopeKey===scopeKey && activePlans.some(plan=>Number(plan.year)===record.year && Number(plan.prodKey)===record.prodKey && plan.date===record.date && Number(plan.quantity)===record.expectedTotal))} wilsonBusy={wilsonBusy} wilsonError={wilsonError} onEditWilson={editWilson}
       confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}
