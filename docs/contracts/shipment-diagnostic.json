@@ -56,9 +56,16 @@
     "pages/shipment/distribute-import.js",
     "docs/migrations/2026-08-31_shipment_import_snapshot_rollback.sql",
     "__tests__/shipmentImportFinalStateRollback.test.js",
-    "package.json"
+    "package.json",
+    "__tests__/shipmentImportCustomerChoiceUi.test.js",
+    "__tests__/shipmentImportCustomerExclusionPreview.test.js"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
     {
       "name": "DIAGNOSTIC_READ",
@@ -134,7 +141,8 @@
       "categoryReplacement": "selected year/week and matched Product.CountryFlower categories: include every existing customer/product pair, including products entirely removed from the file; send all preview rows and verify the complete category before and after commit; unexpected nonzero pairs fail verification; fixed rows block the whole replacement",
       "priorImportLineageScope": "superseded by categoryReplacement; historical sheet/keymap must not expand the current matched category scope",
       "explicitZero": "preserve_order_set_distribution_zero",
-      "shipmentWithoutOrder": "include_in_preview_and_set_distribution_zero_when_in_file_scope"
+      "shipmentWithoutOrder": "include_in_preview_and_set_distribution_zero_when_in_file_scope",
+      "customerColumnChoice": "Explicit original unmatched customer label only: include by selecting ERP customer, or ignore that source column for this file. Never auto-ignore early-shipment labels; preserve ordinary columns and existing category missing-to-zero policy; canceled choice requires revalidation."
     },
     {
       "name": "DISTRIBUTE_IMPORT_ROLLBACK",
@@ -166,7 +174,9 @@
     "__tests__/shipmentDownstreamImpactContract.test.js",
     "__tests__/nenovaSs3AdminAccess.test.js",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/kakaoChangeQueue.test.js"
+    "__tests__/kakaoChangeQueue.test.js",
+    "__tests__/shipmentImportCustomerChoiceUi.test.js",
+    "__tests__/shipmentImportCustomerExclusionPreview.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
