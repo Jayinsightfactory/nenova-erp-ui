@@ -1,0 +1,237 @@
+{
+  "id": "operations-knowledge",
+  "title": "주의·이슈 및 업무처리 지침 웹 전용 공동 저장 계약",
+  "scope": [
+    "pages/operations-knowledge.js",
+    "styles/OperationsKnowledge.module.css",
+    "components/Layout.js",
+    "pages/api/operations-knowledge/index.js",
+    "pages/api/operations-knowledge/attachments.js",
+    "lib/operationsKnowledgeSchema.js",
+    "lib/operationsKnowledgeStore.js",
+    "lib/operationsKnowledgeApi.js",
+    "lib/operationsKnowledgeAttachments.js",
+    "lib/importTeamStore.js",
+    "pages/api/import/tools/state.js",
+    "scripts/ensure-pnl-upload-nginx.mjs",
+    "__tests__/operationsKnowledgeSchema.test.js",
+    "__tests__/operationsKnowledgeStore.test.js",
+    "__tests__/operationsKnowledgeApi.test.js",
+    "__tests__/operationsKnowledgeAttachments.test.js",
+    "__tests__/operationsKnowledgeUi.test.js",
+    "__tests__/pnlUploadNginx.test.js"
+  ],
+  "route": {
+    "page": "/operations-knowledge",
+    "menuGroup": "업무 매뉴얼",
+    "menuLabel": "주의·이슈 및 업무처리 지침",
+    "standardShell": true,
+    "popupShell": true,
+    "referenceViewport": "1920x1080 CSS pixels at 100% zoom"
+  },
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "businessIdentityUse": "This feature does not read, derive, group, or mutate ERP business identities. Country, flower, farm, and stage values are arbitrary web-only text metadata, not ERP keys.",
+  "webIdentity": [
+    "recordKey=knowledge.guidance",
+    "recordRevision",
+    "itemId",
+    "commentId",
+    "attachmentId",
+    "authenticatedUserId"
+  ],
+  "schema": {
+    "version": 1,
+    "categories": ["SITUATION", "CASE", "SEASON", "HANDOFF", "CHECKLIST"],
+    "statuses": ["CHECK", "CURRENT", "RETIRED"],
+    "priorities": ["NORMAL", "IMPORTANT"],
+    "mutableFields": [
+      "title",
+      "category",
+      "status",
+      "priority",
+      "tags.countries",
+      "tags.flowers",
+      "tags.farms",
+      "tags.stages",
+      "situation",
+      "action",
+      "caution",
+      "checklist",
+      "contact",
+      "reviewDate"
+    ],
+    "serverOnlyFields": [
+      "id",
+      "createdAt",
+      "createdBy",
+      "updatedAt",
+      "updatedBy",
+      "comments[].id",
+      "comments[].createdAt",
+      "comments[].author",
+      "attachments[].id",
+      "attachments[].createdAt",
+      "attachments[].author",
+      "audit",
+      "audit[].changedFields"
+    ],
+    "limits": {
+      "items": 300,
+      "commentsPerItem": 100,
+      "attachmentsPerItem": 20,
+      "auditEvents": 500,
+      "tagsPerDimension": 20,
+      "tagCharacters": 80,
+      "titleCharacters": 160,
+      "bodyCharacters": 4000,
+      "commentCharacters": 2000,
+      "contactCharacters": 300,
+      "jsonRequestBytes": 1048576,
+      "attachmentBytes": 10485760
+    }
+  },
+  "legacyHandoffs": {
+    "sourceKey": "checklist.handoffs",
+    "sourceMode": "read-only projection; no copy, migration, normalization, or write",
+    "newStatus": null,
+    "statusLabel": "기존 자료 · 상태 미분류",
+    "excludedFromCurrentCounts": true,
+    "emptySource": "Revision 0 with an empty list remains empty; no seed or migrated-content claim is created.",
+    "originalEditorPreserved": "/import/tools handoff tab"
+  },
+  "categoryMeaning": {
+    "SEASON": "A user-selected guidance category only; the server does not infer the current season from dates or ERP weeks and does not auto-activate entries."
+  },
+  "api": {
+    "read": "GET /api/operations-knowledge",
+    "mutate": "POST /api/operations-knowledge with expectedRevision and CREATE_ITEM, UPDATE_ITEM, or ADD_COMMENT",
+    "upload": "POST /api/operations-knowledge/attachments multipart with expectedRevision, itemId, and one file",
+    "download": "GET /api/operations-knowledge/attachments?id=<attachmentId>",
+    "directStoreBypass": "pages/api/import/tools/state.js rejects knowledge.guidance for both GET and PUT",
+    "staleWrite": "HTTP 409 and no overwrite",
+    "delete": "not supported; UPDATE_ITEM to RETIRED is the only retirement path"
+  },
+  "security": {
+    "authentication": "withAuth plus accountActive !== false for every endpoint",
+    "authorization": "all existing active authenticated accounts have the same read/write scope",
+    "sameOrigin": "all POST and upload requests require an exact Origin match to normalized forwarded protocol/host and reject Sec-Fetch-Site cross-site",
+    "actor": "JWT actor and server time only; client actor/id/audit fields are rejected. UPDATE_ITEM audit changedFields contains allowlisted field paths, not duplicated before/after body text.",
+    "attachments": "private runtime storage with UUID server filename; record-linked ID lookup only; no client paths or public URLs; MIME, extension, magic bytes, and Office ZIP structure are validated",
+    "allowedAttachments": ["jpeg", "png", "webp", "pdf", "docx", "xlsx", "csv", "txt"],
+    "blockedAttachments": ["svg", "html", "executables", "macro-enabled office documents"],
+    "proxyAllowance": "12 MiB only for the exact /api/operations-knowledge/attachments route; application validation remains 10 MiB",
+    "downloadHeaders": ["Cache-Control: private, no-store", "X-Content-Type-Options: nosniff", "safe Content-Disposition"]
+  },
+  "actions": [
+    {
+      "name": "READ_GUIDANCE_AND_LEGACY_HANDOFFS",
+      "runtimeWrite": "none",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve"
+    },
+    {
+      "name": "CREATE_OR_UPDATE_GUIDANCE",
+      "runtimeWrite": "knowledge.guidance versioned JSON and server audit only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve"
+    },
+    {
+      "name": "ADD_COMMENT",
+      "runtimeWrite": "append-only comment and server audit in knowledge.guidance only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve"
+    },
+    {
+      "name": "ADD_OR_DOWNLOAD_ATTACHMENT",
+      "runtimeWrite": "private attachment file plus linked metadata and server audit only",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve"
+    },
+    {
+      "name": "RETIRE_GUIDANCE",
+      "runtimeWrite": "status becomes RETIRED; item, comments, attachments, and audit remain readable",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve"
+    }
+  ],
+  "preserves": [
+    "checklist.handoffs original value and revision from new feature writes",
+    "UserInfo (login source only; no write)",
+    "Customer",
+    "Product",
+    "OrderMaster",
+    "OrderDetail",
+    "ShipmentMaster",
+    "ShipmentDetail",
+    "ShipmentDate",
+    "ShipmentFarm",
+    "ProductStock",
+    "StockHistory",
+    "Estimate",
+    "WebProfitReport"
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "The feature is web-only and has no OrderYear/OrderWeek lookup or write. Arbitrary season metadata must not be parsed as OrderWeek, and identical text across years stays ordinary tags rather than an ERP join key."
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "The guidance board is a Nenovaweb-only runtime JSON/file feature. No nenova.exe method or MSSQL writer is invoked; all ERP ledgers are preserve.",
+    "methods": [
+      "Nenovaweb JWT authentication boundary only",
+      "Versioned runtime file CAS and private attachment storage only"
+    ],
+    "tables": [
+      "UserInfo (login source only; no write)",
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)",
+      "ProductStock (preserve)",
+      "StockHistory (preserve)",
+      "Estimate (preserve)",
+      "WebProfitReport (preserve)"
+    ]
+  },
+  "acceptance": [
+    "Unauthenticated and inactive accounts are rejected; every active account can read and write.",
+    "Stale expectedRevision returns 409 without changing the current record.",
+    "Client-supplied actor, timestamp, UUID, attachment path, or audit fields never become persisted values.",
+    "Legacy handoffs remain byte-for-byte and revision stable and are never counted as CURRENT.",
+    "No permanent delete API or UI exists; retired items remain readable with comments, attachments, and audit.",
+    "Attachment MIME/extension/signature and Office ZIP structure, size, auth, linked-ID lookup, path traversal, cleanup-on-CAS-failure, and response headers are tested.",
+    "The standard and popup shells pass the UI layout contract and the 1920x1080 browser smoke has no clipping, overlap, sticky obstruction, or modal escape.",
+    "No source file imports the MSSQL query or transaction layer for this feature."
+  ],
+  "requiredTestFiles": [
+    "__tests__/operationsKnowledgeSchema.test.js",
+    "__tests__/operationsKnowledgeStore.test.js",
+    "__tests__/operationsKnowledgeApi.test.js",
+    "__tests__/operationsKnowledgeAttachments.test.js",
+    "__tests__/operationsKnowledgeUi.test.js",
+    "__tests__/pnlUploadNginx.test.js",
+    "__tests__/importTeamStore.test.js",
+    "__tests__/importTeamHandoffs.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "requiredCommands": [
+    "npm run test:operations-knowledge",
+    "node __tests__/pnlUploadNginx.test.js",
+    "npm run test:ui-layout",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build",
+    "1920x1080 real-browser smoke for /operations-knowledge and /operations-knowledge?popup=1"
+  ]
+}
