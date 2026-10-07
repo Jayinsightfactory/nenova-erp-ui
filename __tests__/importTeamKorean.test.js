@@ -27,12 +27,13 @@ function panel(name, props = {}, saved) {
       if (dependency === 'react') return {
         ...React,
         useRef: value => ({ current: value }),
+        useEffect: () => {},
         useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}],
       };
       if (dependency === '../../lib/importTeamChecklist') return canonical;
       if (dependency === '../../lib/importTeamKorean') return korean;
       if (dependency === '../../lib/importTeamClient') return {
-        useImportTeamRecord: (key, initial) => ({ key, value: saved ?? initial, revision: 12, loading: false, saving: false, reload: async () => {}, save: async () => {} }),
+        useImportTeamRecord: (key, initial) => ({ key, value: key.startsWith('checklist.settings.') ? initial : saved ?? initial, revision: 12, loading: false, saving: false, reload: async () => {}, save: async () => {} }),
       };
       throw new Error(`Unexpected dependency: ${dependency}`);
     },
@@ -106,7 +107,7 @@ test('canonical source constants, shared record identities and progress calculat
   assert.equal(canonical.checklistDayKey('2026-10-06'), 'checklist.day.2026-10-06');
   assert.equal(canonical.checklistMonthKey('2026-10'), 'checklist.month.2026-10');
   assert.equal(canonical.checklistVacationKey('2026'), 'checklist.vacations.2026');
-  assert.deepEqual(canonical.SHARED_KEYS, { pending: 'checklist.pending', flights: 'checklist.flights', planting: 'checklist.planting' });
+  assert.deepEqual(canonical.SHARED_KEYS, { pending: 'checklist.pending', flights: 'checklist.flights', planting: 'checklist.planting', plantingSettings: 'checklist.settings.planting' });
   const saved = { 'Netherlands::0': true, 'General::0': true };
   assert.equal(canonical.checklistProgress('2026-10-06', saved).done, 2);
   const tree = panel('ChecksPanel', { date: '2026-10-06' }, saved);

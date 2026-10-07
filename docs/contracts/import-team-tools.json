@@ -27,6 +27,8 @@
     "components/import-tools/PackingListTool.js",
     "components/import-tools/PedidosTool.js",
     "components/import-tools/ChecklistTool.js",
+    "components/import-tools/HandoffTool.js",
+    "lib/importTeamHandoffs.js",
     "lib/importAwbPdf.js",
     "lib/importAwbWorker.js"
   ],
@@ -36,7 +38,7 @@
     "CustKey",
     "ProdKey"
   ],
-  "businessIdentityUse": "ERP identity is preserved and never queried or mutated by these file tools.",
+  "businessIdentityUse": "File tools and checklist runtime state never query or mutate ERP identities. The feedback tab embeds the existing authenticated farm-quality page and delegates its existing read/write scope unchanged to farm-quality.json; no new SQL or duplicated feedback store.",
   "webIdentity": [
     "recordKey",
     "revision",
@@ -76,7 +78,9 @@
     "__tests__/importTeamKorean.test.js",
     "__tests__/importToolsDisplay.test.js",
     "__tests__/importChinaInvoice.test.js",
-    "__tests__/importChecklistEditing.test.js"
+    "__tests__/importChecklistEditing.test.js",
+    "__tests__/importTeamSettings.test.js",
+    "__tests__/importTeamHandoffs.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

@@ -4,6 +4,7 @@ import aliasSeed from '../../../../data/import-team/aliases-seed.json';
 export const config={api:{bodyParser:{sizeLimit:'6mb'},responseLimit:'10mb'}};
 export default withAuth(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
+  if(req.user?.accountActive===false)return res.status(403).json({success:false,error:'비활성 계정은 공동 자료에 접근할 수 없습니다.'});
   try {
     if(req.method==='GET') {
       if(!req.query.key) return res.json({success:true,history:await listImportTeamHistory()});
