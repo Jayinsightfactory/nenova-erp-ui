@@ -1,6 +1,8 @@
 import styles from '../../styles/ImportPacking.module.css';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import PackingResults from './PackingResults.js';
+import PackingEvidenceReview from './PackingEvidenceReview.js';
+import { makePackingReviewRows, applyPackingReview, packingReviewWriter } from '../../lib/importPackingReview.js';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
@@ -910,6 +912,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   const [mismatchOverrides, setMismatchOverrides] = useState(new Set());
   // Last-extracted result so we can rebuild excels after user confirms aliases
   const [lastExtraction, setLastExtraction] = useState(null);
+  const [reviewRows, setReviewRows] = useState(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const reviewButtonRef = useRef(null);
 
 
   const [sharedError, setSharedError] = useState(null);
@@ -927,6 +933,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   }, []);
 
   const resetResults = () => {
+    setReviewRows(null); setReviewOpen(false); setReviewConfirmed(false);
     setNeedsAI(false); setExtractionSource('');
     setExcels([]); setGenerated({}); setLastExtraction(null);
     setPending([]); setAllNoMatches([]); setMismatches([]);
@@ -1113,11 +1120,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
       // abbreviation in the filename (e.g. _BAL_, _FLO_) keeps them unique.
       const fileNum = weekParsed.num;
       const opts = { catalog, masterAwb, aliases: currentAliases };
-      const res = gen(xlsxLib, inv, weekParsed.week, fileNum, opts);
+      const res = gen(packingReviewWriter(xlsxLib, inv, file?.name), inv, weekParsed.week, fileNum, opts);
       if (res.pending && res.pending.length > 0) allPending.push(...res.pending);
       if (res.noMatches && res.noMatches.length > 0) allNm.push(...res.noMatches);
       if (res.totalMismatch) allMismatches.push(res.totalMismatch);
-      return { ...res, wasTruncated };
+      return { ...res, wasTruncated, grossWeight: inv.packingReview?.values.gw ?? inv.gross_weight ?? null,
+        chargeableWeight: inv.packingReview?.values.cw ?? inv.vol_weight ?? null };
     });
     // Dedup pending/noMatches by aliasKey so the user sees each distinct
     // description only once, even if it appeared in multiple invoices/farms.
@@ -1216,8 +1224,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
       const masterAwb = result.master_awb || (invoices[0] && invoices[0].awb) || '';
       if (invoices.length === 0) throw new Error(t.noInvoices);
       // Save extraction for potential re-build after alias updates
-      setLastExtraction({ result, masterAwb, weekParsed: parsed, wasTruncated });
+      setLastExtraction({ result, sourceInvoices: invoices, masterAwb, weekParsed: parsed, wasTruncated });
       buildExcels({ invoices, masterAwb, weekParsed: parsed, currentAliases: aliases, wasTruncated });
+      setReviewRows(makePackingReviewRows(invoices, country)); setReviewOpen(true);
     } catch (e) {
       if (isCurrent()) setStatus({ type: 'error', msg: t.errorPrefix + e.message });
     } finally {
@@ -1226,7 +1235,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     }
   };
 
-  const isBlocked = excel => !sharedReady || saving || processing || isPackingDownloadBlocked(excel, {
+  const isBlocked = excel => !sharedReady || saving || processing || !reviewConfirmed || isPackingDownloadBlocked(excel, {
     pending, noMatches: allNoMatches, overrides: mismatchOverrides,
     truncated: lastExtraction?.wasTruncated,
   });
@@ -1254,8 +1263,21 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   const statusBorder = status?.type === 'error' ? '#f8b4b4' : status?.type === 'success' ? '#84e1bc' : '#c3d3fb';
   const statusColor = status?.type === 'error' ? '#c81e1e' : status?.type === 'success' ? '#057a55' : '#2457c5';
 
+  const closeReview = () => { setReviewOpen(false); setTimeout(() => reviewButtonRef.current?.focus(), 0); };
+  const confirmReview = drafts => {
+    if (!lastExtraction || processingRef.current || savingRef.current || !sharedReady) throw new Error('현재 파일 분석이 완료된 뒤 다시 확인하세요.');
+    const invoices = applyPackingReview(lastExtraction.sourceInvoices, drafts, country);
+    // Build first: a failure preserves the previous extraction and review draft.
+    buildExcels({ invoices, masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
+      currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated });
+    setLastExtraction(current => ({ ...current, result: { ...current.result, invoices } }));
+    setReviewConfirmed(true); closeReview();
+  };
+
   return (
     <div className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
+      {reviewRows && <PackingEvidenceReview rows={reviewRows} open={reviewOpen} onClose={closeReview} onConfirm={confirmReview}
+        fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
           <button onClick={() => setReloadVersion(v => v + 1)} disabled={saving || processing || catalogLoading || catalogParsing}>{t.reload}</button>
@@ -1497,6 +1519,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
             )}
             {excels.length > 0 && (
               <div style={{ marginTop: '1.25rem' }}>
+                <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
+                  <button ref={reviewButtonRef} type="button" onClick={() => setReviewOpen(true)} disabled={processing || saving} data-testid="packing-review-open">GW · CW · 운송비 확인/수정</button>
+                  <span style={{ marginLeft: 12 }}>{reviewConfirmed ? '확인값 적용됨 · 수정 내역은 다운로드의 인식값 확인 시트에 포함' : '인식값 확인 전 다운로드 보류'}</span>
+                  <div>ERP 입고 DB 저장은 아닙니다. 기존 국가별 양식이 지원하지 않는 값은 별도 확인 시트에만 기록됩니다.</div>
+                </div>
                 {excels.length > 1 && (() => {
                   const anyBlocked = excels.some(isBlocked);
                   return (

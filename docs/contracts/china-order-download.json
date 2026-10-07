@@ -1,6 +1,7 @@
 {
   "id":"china-order-download",
   "title":"중국 주문등록 단일 세부차수 품목(HF)×업체(CL) 수량 및 합계 다운로드",
+  "downloadPresentation":{"filename":"short full subweek (42-01 -> 42-1, suffix preserved) + 중국 발주 SEA.xlsx","banner":"matrix row1: short subweek 중국 / ETA / download calendar date in Asia/Seoul / SEA/Air; typed Excel date yyyy-mm-dd","headers":"row2 customer current Customer.OrderCode only, original source and audit schemas preserved","dateMeaning":"user explicitly defines ETA here as download date, not shipment/arrival schedule","sideEffects":"browser file only; no ERP SQL or mutation"},
   "scope":["pages/stats/china-order-download.js","pages/api/stats/china-order-download.js","lib/chinaOrderDownload.js","lib/chinaOrderDownloadApi.js","lib/chinaOrderCustomerMatrix.js","lib/chinaOrderQuantityPresentation.js","lib/chinaHfCodes.js","lib/chinaOrderWorkbook.js","data/china-hf-codes.json","components/Layout.js","__tests__/chinaOrderCustomerMatrix.test.js","__tests__/chinaOrderDownload.test.js","__tests__/chinaHfCodes.test.js","__tests__/chinaOrderDownloadApi.test.js","__tests__/chinaOrderWorkbook.test.js","__tests__/chinaOrderDownloadUi.test.js"],
   "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
   "actions":[

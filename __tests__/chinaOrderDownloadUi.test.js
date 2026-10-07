@@ -48,7 +48,9 @@ assert.match(page, /브라우저 저장은 되지 않았습니다/, '저장 공�
 assert.match(page, /accept="\.xlsx"/, '사전 업로드는 XLSX만 허용한다');
 assert.match(page, /await workbook\.xlsx\.writeBuffer\(\)/, 'ExcelJS workbook을 브라우저에서 생성한다');
 assert.match(page, /disabled=\{busy \|\| !selectedColumn \|\| !visibleReport\?\.rows\.length \|\| !isReportCurrent\}/, '로딩·작업중·빈 결과·미선택 세부차수 또는 오래된 범위에서는 다운로드를 차단한다');
-assert.match(page, /anchor\.download = `중국_발주현황_\$\{selectedColumn\.year\}-\$\{selectedColumn\.orderWeek\}\.xlsx`/, '다운로드 파일명은 선택된 연도와 세부차수를 포함한다');
+assert.match(page, /import \{ buildChinaOrderWorkbook, chinaOrderExportMetadata \} from '\.\.\/\.\.\/lib\/chinaOrderWorkbook'/, '워크북과 파일명이 동일한 메타데이터 helper를 사용한다');
+assert.match(page, /const downloadedAt = new Date\(\);[\s\S]*chinaOrderExportMetadata\(visibleReport, downloadedAt\)[\s\S]*buildChinaOrderWorkbook\(visibleReport, mapping, \{ downloadedAt \}\)/, '다운로드 시각을 한 번만 잡아 파일명과 엑셀 ETA에 함께 전달한다');
+assert.match(page, /anchor\.download = metadata\.filename/, '선택 세부차수 기반 공유 파일명을 적용한다');
 assert.match(page, /업체명, CL 코드, 품목명 또는 HF CODE 검색[\s\S]*disabled=\{!report \|\| busy\}/, '업로드·다운로드 중에는 검색 필터 입력을 잠근다');
 assert.match(page, /매칭 상태 필터[\s\S]*disabled=\{!report \|\| busy\}/, '업로드·다운로드 중에는 상태 필터 변경을 잠근다');
 assert.match(page, /const reportCenter = report\?\.cycles\?\.\[3\]/, '조회결과 기준 차수는 API scope dates가 아니라 실제 중심 달력 행을 쓴다');

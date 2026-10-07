@@ -3,7 +3,7 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
-    "pretest:import-team": "node --test __tests__/packingResultsUi.test.js",
+    "pretest:import-team": "node --test __tests__/packingResultsUi.test.js __tests__/importPackingReview.test.js __tests__/packingEvidenceReview.test.js",
     "test:operations-knowledge": "node --test __tests__/operationsKnowledgeSchema.test.js __tests__/operationsKnowledgeStore.test.js __tests__/operationsKnowledgeApi.test.js __tests__/operationsKnowledgeAttachments.test.js __tests__/operationsKnowledgeUi.test.js",
     "posttest:import-team": "npm run test:operations-knowledge",
     "test:china-order-download": "node --test __tests__/chinaOrderCustomerMatrix.test.js __tests__/chinaOrderDownload.test.js __tests__/chinaOrderDownloadApi.test.js __tests__/chinaHfCodes.test.js __tests__/chinaOrderWorkbook.test.js __tests__/chinaOrderDownloadUi.test.js",

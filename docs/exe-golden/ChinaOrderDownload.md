@@ -1,5 +1,10 @@
 # 중국 발주 현황 읽기/다운로드 근거 — 2026-10-05
 
+## 2026-10-07 예시 다운로드 상단 및 파일명
+- main이 실제 설치 EXE FormQuantityPivot를 dnSpy.Console로 재실행하여 ViewOrder.OutQuantity, FROM ViewOrder, btnExcel_Click 확인. 기존 SQL/API/ERP 저장 경로 변경 없음.
+- 첫 시트 표시 행만 추가: 짧은 세부차수 중국 / ETA / 다운로드 시점 Asia/Seoul 날짜 / SEA/Air. 사용자 명시 기준으로 ETA는 이번 다운로드 날짜이며 실제 운송 예정일 계산이 아니다. Customer.OrderCode만 업체 헤더로 유지한다.
+- 숨김 수량원본 및 구조화 감사 시트 행/숫자/업무키/수식은 보존. 표시 헤더·freeze/autofilter만 2행으로 이동.
+
 ## 수량(박스수)·코드 전용 표시 후속
 - main 실제 dnSpy.Console.exe --no-color -t ClassProduct 설치 EXE 재실행: OutUnit,BunchOf1Box,SteamOf1Bunch,SteamOf1Box decimal 속성 및 SELECT/저장 컬럼 확인. 이번 API 변경은 현재 Product.BunchOf1Box/SteamOf1Box SELECT 컬럼 추가만 수행하며 기존 주문 수량·WHERE·연도 범위는 보존한다.
 - 2026-10-05 운영 read-only 조회 중심40: 중국 주문1337행,169개 관련 품목 모두 OutUnit단,현재 BunchOf1Box 양수147개·0/누락22개. 단 수량/BunchOf1Box를 참고 박스수로 표시한다. 송이는 명시 SteamOf1Box,박스는 그대로. 0분모를 보정하거나16·1 등으로 대체하지 않는다. 이것은 원장 재환산/견적금액 변경이 아닌 다운로드 표시다.

@@ -5,6 +5,7 @@
 // 탭1 업무 통합본: Orbit(/work-unified.html)을 iframe으로 띄워 항상 최신 통합본. Orbit 로그인은 그 안에서 1회.
 // 탭2 기능 추가 후보: 관찰 데이터(매뉴얼·화면 해독·전산 기록)로 뽑은 nenovaweb 기능 후보 + 근거(data/work-feature-proposals.json, 파일만).
 // 탭3 Orbit 전체: /my-work.html(작업 흐름·시간표·화면 타임라인 등).
+// 탭 도입 레이더(관리자 전용): data/runtime/adoption-ledger.json(사장님 PC 장부 업로드) — 레이더 4링·추이·실험·후보·결정·문제 등록부. mineOnly 에는 없음.
 import fs from 'fs';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
@@ -825,6 +826,93 @@ function Pipeline({ wf }) {
   );
 }
 
+// ───────────────────────── 탭 '도입 레이더' (관리자 전용) ─────────────────────────
+// 사장님 PC ~/.orbit/adoption-ledger.json(nenova-work-features/adoption-ledger.js 가 매일 1줄 누적) 을 upload-adoption.js 가
+// data/runtime/adoption-ledger.json 으로 올린다. 읽기는 /api/my-work/feature?name=adoption-ledger (isOrbitReportViewer 게이트, 캐시 5분).
+// 탭 자체는 TABS 에서 mineOnly(관리자 아님)일 때 목록에 넣지 않아 노출되지 않는다. 새 권한 체계 없음.
+const RADAR_RINGS = [['adopt', '도입'], ['trial', '시험'], ['assess', '평가'], ['hold', '보류']];
+const PROBLEM_LABELS = {
+  p1_lowestStaffConfirmedPct: 'p1 최저 직원 확증률(%)', p2_kimwonbinErpPct: 'p2 김원빈 전산 대조율(%)', p3_importHubScreensPerSettlement: 'p3 정산 1건당 화면 수',
+  p4_kakaoRulesPromoted: 'p4 카톡 규칙 승격 건', p5_matchingSuggestions: 'p5 주문매칭 제안 건', p6_screenReadability: 'p6 화면 가독성', p7_quotaHold: 'p7 사용량 홀드',
+};
+const dash = (v) => (v === null || v === undefined || v === '' ? '-' : typeof v === 'boolean' ? (v ? '예' : '아니오') : typeof v === 'object' ? JSON.stringify(v) : String(v));
+// 의존성 없이 SVG 폴리라인 — 두 지표(%·건수)는 축이 달라 각각 0~최댓값으로 정규화해 겹쳐 그린다.
+function TrendChart({ days }) {
+  const rows = arr(days).filter((d) => d?.date).slice(-60);
+  if (!rows.length) return <p className="dim">추이 데이터 없음</p>;
+  const W = 720, H = 180, L = 36, R = 36, T = 12, B = 26, iw = W - L - R, ih = H - T - B;
+  const series = [
+    { key: 'pct', label: '평균 확증률(%)', color: '#58a6ff', vals: rows.map((d) => Number(d.staffConfidence?.avgConfirmedPct)) },
+    { key: 'conf', label: '확증 기록(건)', color: '#3fb950', vals: rows.map((d) => Number(d.evidenceRecords?.confirmed)) },
+  ];
+  const x = (i) => L + (rows.length === 1 ? iw / 2 : (i / (rows.length - 1)) * iw);
+  const drawn = series.map((s) => {
+    const max = Math.max(1, ...s.vals.filter(Number.isFinite));
+    return { ...s, max, pts: s.vals.map((v, i) => (Number.isFinite(v) ? [x(i), T + ih - (v / max) * ih, v] : null)) };
+  });
+  const every = Math.max(1, Math.ceil(rows.length / 12));
+  return (
+    <div className="tw">
+      <svg className="trend" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="확증률·확증기록 추이">
+        {[0, 0.5, 1].map((f) => <line key={f} x1={L} x2={W - R} y1={T + ih - f * ih} y2={T + ih - f * ih} stroke="#262b35" />)}
+        {drawn.map((s, si) => <g key={s.key}>
+          <text x={si === 0 ? L - 4 : W - R + 4} y={T + 4} textAnchor={si === 0 ? 'end' : 'start'} fill={s.color} fontSize="10">{s.max}</text>
+          <text x={si === 0 ? L - 4 : W - R + 4} y={T + ih} textAnchor={si === 0 ? 'end' : 'start'} fill={s.color} fontSize="10">0</text>
+          <polyline fill="none" stroke={s.color} strokeWidth="2" points={s.pts.filter(Boolean).map((p) => p[0] + ',' + p[1]).join(' ')} />
+          {s.pts.map((p, i) => p && <circle key={i} cx={p[0]} cy={p[1]} r="3" fill={s.color}><title>{rows[i].date} {s.label} {p[2]}</title></circle>)}
+        </g>)}
+        {rows.map((d, i) => (i % every === 0 || i === rows.length - 1) && <text key={d.date} x={x(i)} y={H - 8} textAnchor="middle" fill="#98a1b2" fontSize="10">{String(d.date).slice(5)}</text>)}
+      </svg>
+      <div className="chips">{drawn.map((s) => <span key={s.key} className="chip"><i className="sw" style={{ background: s.color }} />{s.label}</span>)}</div>
+    </div>
+  );
+}
+function RadarTab() {
+  const st = useFeature('adoption-ledger');
+  return <Loading st={st}><Radar data={st.data} /></Loading>;
+}
+function Radar({ data }) {
+  if (!data) return <p className="warn">adoption-ledger.json 이 아직 올라오지 않았습니다 (사장님 PC run-all.sh → upload-adoption.js).</p>;
+  const days = arr(data.days);
+  const last = days[days.length - 1] || null;
+  const cands = arr(data.candidates);
+  const decisions = data.decisions && typeof data.decisions === 'object' ? Object.entries(data.decisions) : [];
+  const problems = last?.problemRegister && typeof last.problemRegister === 'object' ? last.problemRegister : null;
+  return (
+    <div className="doc radar">
+      <h1>도입 레이더</h1>
+      <p className="dim">기준일 {dash(data.baselineDate)} · 갱신 {data.updatedAt ? fmtTs(data.updatedAt) : '-'} · 누적 {days.length}일{data.note ? ' · ' + data.note : ''}</p>
+      <h2>레이더 <small>도입 → 시험 → 평가 → 보류</small></h2>
+      <div className="rings">{RADAR_RINGS.map(([k, label]) => <div className="ring" key={k}>
+        <h3>{label} <span className="dim">{arr(data.radar?.[k]).length}</span></h3>
+        {arr(data.radar?.[k]).length ? <ul>{arr(data.radar[k]).map((it, i) => <li key={i}>{dash(it)}</li>)}</ul> : <p className="dim">-</p>}
+      </div>)}</div>
+      <h2>추이 <small>평균 확증률 · 확증 기록(일별)</small></h2>
+      <TrendChart days={days} />
+      <h2>실험 <small>{arr(data.experiments).length}건</small></h2>
+      {arr(data.experiments).length ? <div className="tw"><table className="tbl"><thead><tr><th>ID</th><th>이름</th><th>지표</th><th>기준일</th><th>기준값</th><th>목표</th><th>상태</th></tr></thead>
+        <tbody>{arr(data.experiments).map((e, i) => <tr key={e.id || i}><td>{dash(e.id)}</td><td>{dash(e.name)}</td><td>{dash(e.metric)}</td><td>{dash(e.baselineDate)}</td>
+          <td>{e.baseline && typeof e.baseline === 'object' ? Object.entries(e.baseline).map(([k, v]) => <span key={k} className="chip">{k} <em>{dash(v)}</em></span>) : dash(e.baseline)}</td>
+          <td>{dash(e.target)}</td><td>{dash(e.status)}</td></tr>)}</tbody></table></div> : <p className="dim">실험 없음</p>}
+      <h2>후보 <small>탐색 결과 {cands.length}건</small></h2>
+      {cands.length ? <div className="tw"><table className="tbl small"><thead><tr><th>제목</th><th>출처</th><th>적합도</th><th>문제</th><th>이유</th><th>조치</th></tr></thead>
+        <tbody>{cands.map((c, i) => <tr key={i}><td>{c.url ? <a href={c.url} target="_blank" rel="noreferrer">{dash(c.title)}</a> : dash(c.title)}</td><td>{dash(c.source)}</td><td>{dash(c.fit)}</td><td>{dash(c.problem)}</td><td>{dash(c.why)}</td><td>{dash(c.action)}</td></tr>)}</tbody></table></div>
+        : <p className="dim">탐색 결과 없음</p>}
+      <h2>결정</h2>
+      {decisions.length ? <div className="kv">{decisions.map(([k, v]) => <span key={k}><b>{k}</b>{dash(v)}</span>)}</div> : <p className="dim">-</p>}
+      <h2>문제 등록부 <small>{last ? last.date : '-'}</small></h2>
+      {problems ? <div className="tw"><table className="tbl small"><thead><tr><th>항목</th><th>값</th></tr></thead>
+        <tbody>{Object.keys(PROBLEM_LABELS).map((k) => <tr key={k}><td>{PROBLEM_LABELS[k]}</td><td>{dash(problems[k])}</td></tr>)}
+          {Object.keys(problems).filter((k) => !PROBLEM_LABELS[k]).map((k) => <tr key={k}><td>{k}</td><td>{dash(problems[k])}</td></tr>)}</tbody></table></div> : <p className="dim">-</p>}
+      {last?.staffConfidence?.byEmployee && <>
+        <h2>직원별 확증률 <small>{dash(last.staffConfidence.accuracyDate)} · 최저 {dash(last.staffConfidence.lowest?.name)} {dash(last.staffConfidence.lowest?.confirmedPct)}%</small></h2>
+        <div className="tw"><table className="tbl small"><thead><tr><th>직원</th><th>확증(%)</th><th>전산(%)</th><th>파일(%)</th><th>메시지(%)</th><th>단계</th></tr></thead>
+          <tbody>{Object.entries(last.staffConfidence.byEmployee).map(([n, v]) => <tr key={n}><td>{n}</td><td>{dash(v?.confirmedPct)}</td><td>{dash(v?.erpPct)}</td><td>{dash(v?.filePct)}</td><td>{dash(v?.msgPct)}</td><td>{dash(v?.steps)}</td></tr>)}</tbody></table></div>
+      </>}
+    </div>
+  );
+}
+
 function FeatureTab({ name, render }) {
   const st = useFeature(name);
   return <Loading st={st}>{render(st.data)}</Loading>;
@@ -846,6 +934,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
     { id: 'story', label: '캡처식 워크플로우' },
     { id: 'replay', label: 'nenovaweb 화면 재생' },
     { id: 'orbit', label: 'Orbit 작업 데이터 전체' },
+    { id: 'radar', label: '도입 레이더' }, // 관리자(isOrbitReportViewer) 전용 — mineOnly 목록에는 없음
   ];
   return (
     <div className="wrap">
@@ -865,6 +954,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         {tab === 'proposals' && <ProposalsTab />}
         {tab === 'story' && <StoryTab />}
         {tab === 'replay' && <Replay />}
+        {tab === 'radar' && !mineOnly && <RadarTab />}
       </div>
       <style jsx global>{`
         html,body{margin:0;height:100%}
@@ -958,6 +1048,11 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         .shared li{margin:6px 0}
         .jump{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}.jump a{color:#58a6ff;border:1px solid #2c3340;border-radius:6px;padding:3px 10px;text-decoration:none}
         .person{margin-top:28px;padding-top:6px}
+        .radar .rings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}@media(max-width:900px){.radar .rings{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        .radar .ring{border:1px solid #262b35;border-radius:8px;padding:8px 12px;background:#12151c}.radar .ring h3{margin:0 0 6px}.radar .ring ul{margin:0;padding-left:18px}.radar .ring li{margin:3px 0}
+        .radar .trend{width:100%;max-width:760px;height:auto;display:block;background:#12151c;border:1px solid #262b35;border-radius:8px}
+        .radar .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+        .radar .tw{overflow-x:auto}.radar .kv span{display:block;margin:3px 0}
         .jump a.on{background:#1c2633;border-color:#58a6ff;color:#fff}.jump a em{color:#98a1b2;font-style:normal;font-size:11px;margin-left:4px}
         .prop{border:1px solid #2c3340;border-radius:8px;padding:8px 12px;margin:8px 0 12px;background:#12151c}.prop div{margin:3px 0}
         .film{display:flex;gap:10px;overflow-x:auto;padding:8px 0 14px;scroll-snap-type:x proximity}
