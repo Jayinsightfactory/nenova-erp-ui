@@ -539,7 +539,7 @@ export default function WeekdayEstimateWorkspace() {
         baselineCandidates.filter(record => Number(record.custKey) === Number(customer?.CustKey)), currentCarry?.context?.inputs || []),
         currentCarry?.context, currentCarry?.records || [], plans);
       const model = buildWeekdayWebExportSnapshot(matrix, `주광 발주내역 · ${year}년 ${majorWeek}차`,
-        {wilsonDay:exportWilsonDay,wilsonRecords,wilsonDrafts,custKey:customer?.CustKey});
+        {wilsonDay:exportWilsonDay,wilsonRecords,wilsonDrafts:activeWilsonInputs,custKey:customer?.CustKey});
       let designBytes;
       if (original.savedTemplate) designBytes = await original.file.arrayBuffer();
       else {

@@ -73,10 +73,10 @@ function downloadEnvironment() {
     originalWorkbook: { current: { fileId: 'file-a', scope, savedTemplate: true, file: { name: '주광.xlsx',
       arrayBuffer: () => new Promise(resolve => { release = () => resolve(bytes); }) } } },
     exportState: { current: { plans: [{ ...linked }], compareRows: [] } },
-    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],exportWilsonDay:'일',
+    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],activeWilsonInputs:[],exportWilsonDay:'일',
     buildHorizontalWeekdayMatrix: (...args) => { assert.equal(args[1],env.activePlans); assert.equal(args[2],env.compareRows); return {rows:[]}; },
     applyWeekdayCarryoverToMatrix: matrix => matrix,
-    buildWeekdayWebExportSnapshot: () => ({rows:[{name:'웹 품목',values:{quantity:3}}]}),
+    buildWeekdayWebExportSnapshot: (matrix,title,options) => { assert.equal(options.wilsonDrafts,env.activeWilsonInputs,'same scoped Wilson draft inputs as web matrix'); return {rows:[{name:'웹 품목',values:{quantity:3}}]}; },
     buildWeekdayStyledWebWorkbook: async (input, model) => {
       assert.deepEqual(new Uint8Array(input), bytes, 'export receives original formatting source bytes');
       assert.deepEqual(model.rows,[{name:'웹 품목',values:{quantity:3}}]);
