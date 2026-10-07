@@ -200,6 +200,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
   // 눌러야만(=수기 편집이 되어야만) countryOut()의 저장 대상에 들어간다. 이렇게 해야 입력칸에
   // 보이는 값과 서버가 실제로 총액에 반영한 값(row.total, totalSource)이 항상 일치한다.
   const countryValue = (row, field) => {
+    if (row.weightSource?.[field] === 'erp_inbound') return row.effectiveRow?.[field] ?? '';
     if (countryEdits[row.category]?.[field] !== undefined) return countryEdits[row.category][field];
     const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
     const manualField = isWorldFreight ? `${field}Manual` : '';
@@ -216,6 +217,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
   const countryOut = (row) => {
     const out = {};
     COUNTRY_FIELD_KEYS.forEach((field) => {
+      if (row.weightSource?.[field] === 'erp_inbound') return;
       const isWorldFreight = field === 'WorldFreight1' || field === 'WorldFreight2';
       const manualField = isWorldFreight ? `${field}Manual` : '';
       const hasManualEdit = countryEdits[row.category]?.[field] !== undefined;
@@ -241,6 +243,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
       out.WorldFreight2Manual = 1;
       if (row.historical.BakSangRateApplied != null) out.BakSangRateApplied = row.historical.BakSangRateApplied;
     }
+    if (row.saved?.BakSangRateApplied != null) out.BakSangRateApplied = row.saved.BakSangRateApplied;
     return out;
   };
 
@@ -248,6 +251,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
   // 트럭 대수는 "실제값 우선" — 저장된 실제 대수 > historical snapshot 실제 대수 > 합산 GW 용량분해
   // 추천값. 이전 구현은 추천값이 저장값을 덮어써서 과거 차수의 실제 차량·비용이 사라졌다(2026-08-12 결함수정).
   const colValue = (c, field) => {
+    if ((field === 'GW' || field === 'CW') && c.weight?.source === 'erp_inbound') return c.effectiveRow?.[field] ?? '';
     if (colombiaEdits[c.orderWeek]?.[field] !== undefined) return colombiaEdits[c.orderWeek][field];
     if (c.saved?.[field] != null) return c.saved[field];
     if (c.historical?.[field] != null) return c.historical[field];
@@ -262,6 +266,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
   const colombiaOut = (c) => {
     const out = {};
     COLOMBIA_FIELDS.forEach(([f]) => {
+      if ((f === 'GW' || f === 'CW') && c.weight?.source === 'erp_inbound') return;
       const hasEdit = colombiaEdits[c.orderWeek]?.[f] !== undefined;
       const hasSaved = c.saved?.[f] != null;
       const hasHistorical = c.historical?.[f] != null;
@@ -275,6 +280,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
       out[f] = colValue(c, f);
     });
     if (c.historical?.BakSangRateApplied != null) out.BakSangRateApplied = c.historical.BakSangRateApplied;
+    if (c.saved?.BakSangRateApplied != null) out.BakSangRateApplied = c.saved.BakSangRateApplied;
     return out;
   };
 
@@ -439,7 +445,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
         <b>값의 출처 3가지</b> —
         <b style={{ color: '#0f766e' }}> 원본 엑셀값</b>: 2026년 22~27차처럼 운영 DB에 입력 이력이 없는 차수에, 원본 "매출원가 양식" 시트의 <u>구성요소 그대로</u>를 자동 적용한 값입니다(합계에 이미 반영). 한 칸이라도 저장하면 그 행 전체가 운영자 저장값으로 바뀝니다.
         <b style={{ color: '#e65100' }}> 전차수 참고값(↵)</b>: 저장값·원본 엑셀값이 모두 없을 때만 보이는 제안이며, <u>클릭해 적용하고 저장하기 전까지 합계에 전혀 반영되지 않습니다</u>.
-        <b> 저장값</b>: 담당자가 이 차수에 직접 입력한 값으로 항상 최우선입니다.
+        <b> 저장값</b>: 실제 청구비용·차량은 저장값을 보존합니다. 중량은 해당 차수 입고 GW/CW가 기준이며, 과거 2026년 22~27차 역사값과 국가별 명시적 GW 0은 보존합니다.
         <br />
         <b>값이 없을 때 할 일</b> — 관세·선율은 통관사 청구서 금액을 그대로 입력하고, GW는 입고관리의 Gross weight 라인을 확인하세요(입고 GW 힌트를 클릭하면 그대로 들어갑니다).
         🕘 아이콘으로 수정 이력(누가·언제·얼마→얼마)을 볼 수 있습니다.
@@ -567,12 +573,17 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                           const isWorldFreight = f === 'WorldFreight1' || f === 'WorldFreight2';
                           const auto = isGw ? data.autoGw?.countries?.[row.category]?.[f] : null;
                           const cur = countryValue(row, f);
+                          if (isGw && row.weightSource?.[f] === 'erp_inbound') return (
+                            <td key={f} style={st.tdNum} title="입고관리 GW 적용 — 중량 수정은 입고 원천에서 합니다">
+                              <b style={{ color: '#059669' }}>{fmt(cur)}</b><small> 입고 GW</small>
+                            </td>
+                          );
                           const worldAuto = isWorldFreight ? row.worldFreightAuto?.[f] : null;
                           // 무게(GW)는 입고 자동이 기준 — 기본 화면에선 값 표시만, 값이 아예 없으면 입력칸(⚠)
                           if (isGw && !editWeights) {
                             const manualVal = n0(cur);
                             const autoVal = n0(auto);
-                            const eff = manualVal > 0 ? manualVal : autoVal;
+                            const eff = cur !== '' && cur != null ? n0(cur) : autoVal;
                             if (eff > 0) {
                               return (
                                 <td key={f} style={st.tdNum}>
@@ -652,6 +663,13 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                       const isTruck = COLOMBIA_TRUCK_FIELDS.has(f);
                       const auto = isGw ? data.autoGw?.colombia?.[c.orderWeek]?.[f] : null;
                       const cur = colValue(c, f);
+                      if (isGw && c.weight?.source === 'erp_inbound') return (
+                        <label key={f} style={st.rateField}>
+                          <span style={{ fontSize: 10, color: '#64748b' }}>{label}</span>
+                          <b style={{ color: '#059669' }} title={colombiaErpSourceTitle(data.autoGw?.colombia?.[c.orderWeek])}>{fmt(cur)} · 입고 기준</b>
+                          {c.saved?.[f] != null && Number(c.saved[f]) !== Number(cur) && <small>기존 저장 {fmt(c.saved[f])} (계산 미사용)</small>}
+                        </label>
+                      );
                       if (isTruck) {
                         // 실제 차량 대수는 항상 입력 가능하다(사용자 수정·차수별 저장 지원).
                         // 추천값(합산 GW 용량분해)은 아래에 참고로만 보여주고, 실제값을 덮지 않는다.
@@ -679,19 +697,17 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                         );
                       }
                       if (isGw && !editWeights) {
-                        const manualVal = n0(cur);
-                        const autoVal = n0(auto);
-                        const eff = manualVal > 0 ? manualVal : autoVal;
+                        const eff = n0(cur);
                         if (eff > 0) {
                           return (
                             <label key={f} style={st.rateField}>
                               <span style={{ fontSize: 10, color: '#64748b' }}>{label}</span>
                               <span
-                                title={manualVal > 0 ? '수기 저장값 (전산 입고 자동보다 우선)' : colombiaErpSourceTitle(data.autoGw?.colombia?.[c.orderWeek])}
-                                style={{ fontSize: 13, fontWeight: 700, padding: '5px 0', color: manualVal > 0 ? '#b45309' : '#059669' }}>
+                                title="입고 쌍을 사용할 수 없어 선택된 기존 저장값 또는 역사값"
+                                style={{ fontSize: 13, fontWeight: 700, padding: '5px 0', color: '#b45309' }}>
                                 {Math.round(eff * 10) / 10}
                                 <span style={{ fontSize: 10, fontWeight: 600, marginLeft: 4 }}>
-                                  {manualVal > 0 ? '수기 입력' : `전산 입고(${colombiaErpFarms(data.autoGw?.colombia?.[c.orderWeek])}) 자동`}
+                                  저장값{c.weight?.state !== 'valid' ? ' · 원천 확인 필요' : ''}
                                 </span>
                               </span>
                             </label>
@@ -703,10 +719,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                           <span style={{ fontSize: 10, color: '#64748b' }}>{label}{isGw ? ' \u26a0직접확인' : ''}</span>
                           <input style={st.input} value={cur}
                             onChange={(e) => setColEdit(c.orderWeek, f, e.target.value.replace(/[^0-9.\-]/g, ''))} />
-                          {isGw && (
-                            <GwHint auto={auto} current={cur}
-                              onApply={() => setColEdit(c.orderWeek, f, String(Math.round(Number(auto) * 10) / 10))} />
-                          )}
+                          {isGw && c.weight?.state !== 'valid' && <small style={{ color: '#b91c1c' }}>입고 참고 {fmt(auto)} · GW/CW 쌍 확인 필요 (자동 적용 안 함)</small>}
                           {!isGw && !isHistorical && n0(cur) === 0 && (
                             <CarryHint value={c.carry?.[f]} onApply={() => setColEdit(c.orderWeek, f, String(n0(c.carry?.[f])))} />
                           )}
@@ -715,6 +728,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                     })}
                   </div>
                   <div style={{ marginTop: 8, fontSize: 12, color: '#334155' }} title={colombiaHasEdit(c) ? '수기 편집 중 — 저장 전 미리보기(저장하면 이 값 그대로 반영)' : undefined}>
+                    <div>항공료 배분: {c.weight?.basis === 'CBM' ? 'CW > GW · CBM 비율' : c.weight?.basis === 'GW' ? 'GW = CW · 무게 비율' : 'GW/CW 원천 확인 필요'}. 창고료는 GW 기준 · 실제 차량/비용 보존</div>
                     배분 미리보기(H): 장미 {fmt(colombiaAllocationH(c)['콜롬비아 장미'])} · 카네이션 {fmt(colombiaAllocationH(c)['콜롬비아 카네이션'])} ·
                     알스트로 {fmt(colombiaAllocationH(c)['콜롬비아 알스트로'])} · 루스커스 {fmt(colombiaAllocationH(c)['콜롬비아 루스커스'])}
                     {colombiaAllocationH(c)['콜롬비아 수국'] != null && <> · 혼적 수국 {fmt(colombiaAllocationH(c)['콜롬비아 수국'])}</>}

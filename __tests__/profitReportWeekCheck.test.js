@@ -62,7 +62,7 @@ async function main() {
   check('같은 GW 1420 두 AWB 반복 = 확인 필요', find('40-01', '입고 입력 형태', 'review').some((r) => /1,420kg × 2건/.test(r.text)));
   check('콜카장수국 혼적 AWB(정상 풀) = 표시 안 함', !find('40-01', '혼적 AWB 구성').some((r) => /MIX1/.test(r.text)));
   check('원가자료 환율 있음 = 표시 안 함', find('40-01', '환율(원가자료)').length === 0);
-  check('40-02 콜롬비아 원가자료 없음 = 입력 필요', find('40-02', '환율(원가자료)', 'input').some((r) => /콜롬비아/.test(r.text)));
+  check('40-02 원가자료 없어도 공식 과세환율 있으면 업로드 요구 안 함', find('40-02', '환율(원가자료)').length === 0);
   check('과세환율 이월값 = 확인 필요', find('대차수', '과세환율(R)', 'review').some((r) => /베트남/.test(r.text)));
   check('과세환율 없음 = 입력 필요', find('대차수', '과세환율(R)', 'input').some((r) => /일본/.test(r.text)));
   check('항공료 전표 누락 = 입력 필요 + PR #815 링크', find('대차수', '항공료 전표', 'input').some((r) => /forwarding-clearance/.test(r.link?.href || '')));

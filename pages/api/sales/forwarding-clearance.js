@@ -3,7 +3,7 @@
 // 여기 저장하는 값은 자동감지가 놓쳤을 때(새 농장명 등)만 쓰는 override.
 import { withAuth } from '../../../lib/auth';
 import { applyProfitReportColombiaRates } from '../../../lib/profitReportCustomsPolicy';
-import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { requireOrderYear } from '../../../lib/orderUtils';
 import {
   FORWARDING_DIRECT_CATEGORIES, COLOMBIA_POOLED_HYDRANGEA,
   getRateConfig, loadForwardingWeekly, saveForwardingWeekly,
@@ -22,7 +22,7 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'GET') {
       const major = parseMajor(req.query.week);
       if (!major) return res.status(400).json({ success: false, error: 'week 필요 (예: 27)' });
-      const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);
+      const { orderYear } = requireOrderYear(`${major}-01`, req.query.year);
       const prevMajor = String(Number(major) - 1).padStart(2, '0');
 
       const [rates, fwd, prevFwd, subWeeks, prevSubWeeks, autoFwd, autoGw] = await Promise.all([
@@ -66,6 +66,7 @@ export default withAuth(async function handler(req, res) {
           savedAirRateUSD: c.row?.AirRateUSD ?? null,          // 수기 override
           carryAirRateUSD: (c.row?.AirRateUSD == null && prevColombia[i]?.AirRateUSD != null) ? prevColombia[i].AirRateUSD : null,
           gw: resolved.row?.GW ?? null, cw: resolved.row?.CW ?? null, // 실제 보고서와 동일한 유효행
+          weight: resolved.weight,
           boxQty: resolved.boxQty,
           allocationS: Object.fromEntries(Object.entries(resolved.allocation).map(([cat, value]) => [cat, Math.round(value.S * 100) / 100])),
         };

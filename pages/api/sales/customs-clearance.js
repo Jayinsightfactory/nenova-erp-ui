@@ -2,7 +2,8 @@
 // H(그외통관비) 자동값의 소스. 단가표(백상/트럭/검역대행/콜롬비아 박스무게)는 관리자 수정 가능.
 import { withAuth } from '../../../lib/auth';
 import { applyProfitReportColombiaRates } from '../../../lib/profitReportCustomsPolicy';
-import { requireOrderYear, resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { requireOrderYear } from '../../../lib/orderUtils';
+import { resolveCountryWeight, resolveColombiaWeight, isHistoricalWeightScope, assertInboundWeightUnchanged } from '../../../lib/customsWeightPolicy';
 import {
   COUNTRY_CATEGORIES, COLOMBIA_POOLED_HYDRANGEA,
   getRateConfig, saveRateConfig,
@@ -22,7 +23,7 @@ export default withAuth(async function handler(req, res) {
     if (req.method === 'GET') {
       const major = parseMajor(req.query.week);
       if (!major) return res.status(400).json({ success: false, error: 'week 필요 (예: 27)' });
-      const orderYear = resolveActiveOrderYear(`${major}-01`, req.query.year);
+      const { orderYear } = requireOrderYear(`${major}-01`, req.query.year);
       const prevMajor = String(Number(major) - 1).padStart(2, '0');
 
       const [rates, countryRows, prevCountryRows, subWeeks, prevSubWeeks, autoGw] = await Promise.all([
@@ -48,7 +49,7 @@ export default withAuth(async function handler(req, res) {
       // 항상 같은 값을 보이도록 두 API가 같은 함수 하나만 공유한다.
       //
       // 값의 출처는 3가지로 화면에서 구분된다.
-      //  · saved       — 담당자가 이 차수에 실제로 저장한 값(항상 최우선)
+      //  · saved       — 담당자가 이 차수에 저장한 비용 원본(중량 계산은 effectiveRow 사용)
       //  · historical  — 2026 22~27차 원본 엑셀 historical snapshot의 **구성요소**(저장행이 없을 때만
       //                  자동 적용, totalSource='excel_historical_snapshot'). 합계에 이미 반영돼 있다.
       //  · carry       — 전차수 참고값 제안. 합계 계산에 전혀 들어가지 않으며, 사용자가 "적용"을
@@ -61,6 +62,8 @@ export default withAuth(async function handler(req, res) {
         return {
           category: cat,
           saved: row,
+          effectiveRow: resolved.row,
+          weightSource: resolved.weight.source,
           historical,                                // 원본 엑셀 구성요소(저장값이 없을 때만 채워짐)
           carry: !row && !historical && prevRow ? prevRow : null, // 합계 미반영, 참고 제안일 뿐
           worldFreightAuto: resolved.world.auto,
@@ -83,6 +86,8 @@ export default withAuth(async function handler(req, res) {
         return {
           orderWeek: c.orderWeek,
           saved: c.row,
+          effectiveRow: resolved.row,
+          weight: resolved.weight,
           historical,
           carry: !c.row && !historical && prevColombia[i] ? prevColombia[i] : null, // 합계에는 미반영
           boxQty: resolved.boxQty,
@@ -105,6 +110,25 @@ export default withAuth(async function handler(req, res) {
       if (!major) return res.status(400).json({ success: false, error: 'week 필요' });
       const { orderYear } = requireOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
+
+      if (['saveCountry', 'saveCountries', 'saveColombia'].includes(req.body?.action)) {
+        const autoGw = await loadWarehouseGw(major, orderYear);
+        const options = { preserveSaved: isHistoricalWeightScope(orderYear, major) };
+        if (req.body.action === 'saveColombia') {
+          const target = requireOrderYear(req.body.orderWeek, orderYear);
+          if (parseMajor(req.body.orderWeek) !== major) return res.status(400).json({ success: false, error: '선택 대차수와 저장 차수가 다릅니다' });
+          const saved = await loadColombiaWeekly(req.body.orderWeek, target.orderYear);
+          const weight = resolveColombiaWeight(saved, autoGw.colombia?.[req.body.orderWeek], options);
+          assertInboundWeightUnchanged(req.body.row, weight.row, { GW: weight.source, CW: weight.source });
+        } else {
+          const saved = await loadCustomsWeekly(major, orderYear);
+          const inputs = req.body.action === 'saveCountry' ? [{ category: req.body.category, row: req.body.row }] : Array.isArray(req.body.rows) ? req.body.rows : [];
+          for (const input of inputs) {
+            const weight = resolveCountryWeight(saved[input.category], autoGw.countries?.[input.category], options);
+            assertInboundWeightUnchanged(input.row, weight.row, weight.source);
+          }
+        }
+      }
 
       if (req.body?.action === 'saveRates') {
         await saveRateConfig(req.body?.rates || {}, actor, orderYear, major);
