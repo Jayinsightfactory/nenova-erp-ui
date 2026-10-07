@@ -100,7 +100,9 @@ await assert.rejects(loadWeekdaySavedTemplate({
 }), /확인/);
 // Load the actual endpoint with a controlled authentication wrapper; unauthenticated
 // requests must never reach the private file service.
-const require = createRequire(import.meta.url), swc = require('@next/swc-win32-x64-msvc');
+const require = createRequire(import.meta.url);
+const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '';
+const swc = require(`@next/swc-${process.platform}-${process.arch}${suffix}`);
 const source = readFileSync(new URL('../pages/api/estimate/weekday-template.js', import.meta.url), 'utf8');
 const compiled = swc.transformSync(source, false, Buffer.from(JSON.stringify({
     jsc: {
