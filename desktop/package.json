@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -23,7 +23,7 @@
     "productName": "Nenova Desktop",
     "artifactName": "Nenova-Desktop-Setup-${version}-${arch}.${ext}",
     "directories": {"output": "dist"},
-    "files": ["main.cjs", "policy.cjs", "preload.cjs", "menu.json", "shell/**/*", "assets/**/*", "package.json"],
+    "files": ["main.cjs", "policy.cjs", "preload.cjs", "bootstrap.cjs", "shell/**/*", "assets/**/*", "package.json"],
     "asar": true,
     "electronFuses": {"runAsNode": false, "enableNodeOptionsEnvironmentVariable": false, "enableNodeCliInspectArguments": false, "grantFileProtocolExtraPrivileges": false, "enableCookieEncryption": true, "onlyLoadAppFromAsar": true, "enableEmbeddedAsarIntegrityValidation": true},
     "win": {"target": "nsis", "icon": "assets/icon.ico", "signAndEditExecutable": true},
