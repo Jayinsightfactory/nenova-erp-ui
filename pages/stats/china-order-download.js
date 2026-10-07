@@ -4,7 +4,7 @@ import seedMapping from '../../data/china-hf-codes.json';
 import { apiGet } from '../../lib/useApi';
 import { buildChinaOrderReport, selectChinaOrderSubweek } from '../../lib/chinaOrderDownload';
 import { normalizeHfMapping, parseChinaHfWorkbook, matchChinaHfCode } from '../../lib/chinaHfCodes';
-import { buildChinaOrderWorkbook } from '../../lib/chinaOrderWorkbook';
+import { buildChinaOrderWorkbook, chinaOrderExportMetadata } from '../../lib/chinaOrderWorkbook';
 import { buildChinaOrderCustomerMatrix } from '../../lib/chinaOrderCustomerMatrix';
 import { chinaQuantityText } from '../../lib/chinaOrderQuantityPresentation';
 
@@ -226,14 +226,16 @@ export default function ChinaOrderDownloadPage() {
     setDownloading(true);
     setActionError('');
     try {
-      const workbook = await buildChinaOrderWorkbook(visibleReport, mapping);
+      const downloadedAt = new Date();
+      const metadata = chinaOrderExportMetadata(visibleReport, downloadedAt);
+      const workbook = await buildChinaOrderWorkbook(visibleReport, mapping, { downloadedAt });
       if (id !== downloadId.current) return;
       const bytes = await workbook.xlsx.writeBuffer();
       if (id !== downloadId.current) return;
       const url = URL.createObjectURL(new Blob([bytes], { type: XLSX_MIME }));
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `중국_발주현황_${selectedColumn.year}-${selectedColumn.orderWeek}.xlsx`;
+      anchor.download = metadata.filename;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (downloadError) {
