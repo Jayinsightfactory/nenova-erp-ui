@@ -6,7 +6,7 @@
 | 화면 | 수입 업무도구 / 패킹 리스트 |
 | 작업 공간 | work/import-team-tools |
 | 원장 부작용 | 없음: 파일 추출·브라우저 검토·다운로드만 |
-| 상태 | 구현 및 검증 중; 배포 결과는 후속 기록 |
+| 상태 | PR #949 병합·Cafe24 배포 성공·운영 브라우저 검증 완료 |
 
 ## 이어받을 때 고정된 결정
 - 업로드 추출 후 GW/CW/운송비 확인창을 자동 표시하고 직접 입력·수정한다.
@@ -37,6 +37,11 @@
 - `packingReviewWriter`가 원본 workbook의 최초 write 직전에 확인 시트를 추가한다. 원본 첫 시트 XML(열 너비/값/수식/스타일 참조)과 fonts/borders/fills XML 보존 테스트 통과.
 - 집중 테스트 9/9, import-team 179통과/3선택 스킵, operations-knowledge 17/17. ERP 전체 회귀, dnSpy 증거, manifest, 쓰기 가드 통과.
 - 확인 전 차단, 수정 사유/체크, CW 명시0, 닫기/재열기, Tab/Escape/초점복귀, 텍스트 근거와 AI 추정 영역 구분을 로컬 브라우저에서 확인. 유료 AI/ERP 쓰기 없음.
+- 최종 운영용 빌드 성공. 같은 빌드의 실제 중국 PDF와 XLSX 101품목 결과 화면, 우측 특이사항/카카오톡 복사 회귀 통과. 1920×1080/100%, 900/480px.
+- PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/949 병합; merge `cae8f99caf41dd45a47ea5d982638fabfdc6cf71`.
+- 배포 https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37577216569 성공 확인.
+- 운영 https://nenovaweb.com/import/tools 에서 인증 후 PDF·XLSX smoke 모두 통과. 실제 예시 PDF 7페이지/6페이지 원문 강조, 1920×1080 및 900/480px, 수정 사유/확인/재열기/초점복귀, XLSX101행/복사 회귀 통과.
+- 운영 검사도 catalog 읽기와 AI 응답은 fixture로 대체하고 나머지 변경 요청을 차단했다. 유료 AI 인식 정확도 또는 실제 ERP 저장 검증을 의미하지 않는다. 로그인 외 운영 변경 요청 없음.
 
 ## 다음 작업 인계
 이 문서와 설계 문서를 읽고 검사/배포 결과를 확인한다. 브라우저 파일 확인을 ERP 입고 저장 완료로 설명하지 않는다. 운영 저장 연결은 packing-receipt-workflow 설계의 SQL/재고/동시성 검증 후 별도 진행한다.
