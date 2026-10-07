@@ -42,6 +42,8 @@ assert.match(volumeSheet, /snapshot: snapshotDutchPriceDraft\(prices, keys\)/, '
 assert.match(volumeSheet, /if \(!commit\) onPriceRestore\(current\.snapshot\)/, 'Escape 취소 시 공유 대상 가격 초안을 원래 상태로 복원해야 합니다.');
 assert.match(page, /onPriceRestore=\{restorePriceDraft\}/, '가격 편집 취소 콜백을 부모 draft 상태에 연결해야 합니다.');
 assert.match(volumeSheet, /onChange=\{event => onPriceChange\(entry, event\.target\.value\)\}/, '셀 원화 입력은 타이핑 즉시 전체 비주광 공통 초안에 반영해야 합니다.');
+assert.match(volumeSheet, /hasPrice\(price\) \? formatQty\(price\) : '단가 입력'/, '물량표 셀에는 단가 숫자만 표시하고 원 기호를 덧붙이지 않아야 합니다.');
+assert.doesNotMatch(volumeSheet, /formatQty\(price\)}원/, '단가 수치 뒤에 원 단위를 반복 표시하면 안 됩니다.');
 assert.match(volumeSheet, /priceKey\(entry\)/, '셀의 원화 입력은 주광 개별·비주광 통합 가격키를 사용해야 합니다.');
 assert.match(volumeSheet, /\.quantity-cell\{padding:0!important;text-align:center\}/, '수량·원화 표시 셀은 여백 없이 가운데 정렬해야 합니다.');
 assert.match(volumeSheet, /onBlur=\{\(\) => finishQuantityEdit\(true\)\}/, '셀 수량 입력은 포커스를 벗어나면 초안에 반영되어야 합니다.');
@@ -73,6 +75,7 @@ assert.match(page, /체크한 업체는 일괄 단가에서 제외/, '설정 화
 assert.match(page, /localStorage\.setItem\(BULK_PRICE_CONFIG_KEY/, '일괄 업체 설정은 작업 간에도 브라우저에 저장해야 합니다.');
 assert.match(page, /migrateDutchBulkPriceConfig\(entries, prices, bulkPriceConfig, nextConfig\)/, '설정 변경 때 기존 단가를 안전하게 새 적용범위로 옮겨야 합니다.');
 assert.match(page, /dutchPriceKey\(row, bulkPriceConfig\)/, '단가 입력과 표시가 현재 일괄 업체 설정을 따라야 합니다.');
+assert.match(page, /match\?\.estUnit \? match\.estUnit : '견적단위: 검증 후 확인'/, '편집 표에는 원 기호 대신 견적단위만 표시해야 합니다.');
 assert.match(page, /isDutchBulkPriceCustomer\(row, bulkPriceConfig\)/, '포함 업체만 일괄 단가로 표시해야 합니다.');
 assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, source: 'orders' \}\)/, '선택 연도의 주문 입력 세부차수 목록을 조회해야 합니다.');
 assert.match(page, /\(sourceMode === 'SAVED' && !availableWeeks\.includes\(week\) \? \[week, \.\.\.availableWeeks\] : availableWeeks\)\.map\(recordedWeek/, 'DB 입력 이력은 유지하고 저장본의 현재 차수도 선택지로 보존해야 합니다.');
