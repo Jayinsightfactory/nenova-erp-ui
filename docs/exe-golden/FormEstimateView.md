@@ -1,5 +1,12 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-10-07 이전 차수 실제 등록 안내
+
+실제 설치 EXE를 dnSpy CLI로 ClassEstimate와 FormEstimateView 재확인했다. ClassEstimate는 Estimate PK로 Insert/Update/Delete하고, FormEstimateView는 선택 OrderYearWeek의 견적을 읽는다. 현재40차를 열면 과거38차 Estimate가 없는 것은 정상이다.
+
+운영 SELECT: Deduction428–432의 Estimate9474–9478은 모두2026/38-01 실제 음수 견적이며 수량-2/-1/-1/-10/-9로 원수량과 같다. CarryoverApplication은0건이다. 웹 statusCARRYOVER·잔여원수량만 믿어 재등록을 허용하지 않는다. 새 읽기 metadata는 EstimateKey/ProdKey/음수수량/ShipmentMaster 거래처·활성 상태를 확인하고 실제 연도·차수를 표시한다. 현재40차 링크와 등록된38차 링크를 구분한다. 등록 가능 정책·원장·견적·출고·매출 쓰기는 변경하지 않는다.
+
+
 ## 2026-10-06 수입부·영업지원 원장 관리의 견적 보존
 
 - 실제 설치 EXE ClassEstimate를 다시 dnSpy CLI로 읽었다. Delete는 `DELETE FROM Estimate WHERE EstimateKey=...`다.
