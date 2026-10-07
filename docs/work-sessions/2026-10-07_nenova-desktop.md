@@ -7,6 +7,7 @@
 | 원장 부작용 | 새 SQL·업무 저장 API 없음, 기존 서버 사용 |
 | 설계 | docs/desktop/PRD.md, SECURITY.md |
 | 검증 | docs/desktop/QA_2026-10-07.md |
+| PR | https://github.com/Jayinsightfactory/nenova-erp-ui/pull/951 |
 
 ## 이어받을 때 고정된 결정
 
@@ -23,7 +24,9 @@
 
 **A.** 메뉴 검색·즐겨찾기·독립 탭·이름 변경·드래그 순서 변경·창 분리/이동·재실행 복원을 구현했다. 기존 업무 화면과 서버 검증을 사용한다. 2025/2026 주소를 구분해 보관한다. 로컬 fixture 및 실제 운영 조회, NSIS 설치/실행/제거를 확인했다.
 
-**결과.** desktop 소스, docs/desktop 설계·사용 설명·QA, Windows installer. 세부 배포/PR 결과는 완료 후 갱신한다.
+**결과.** desktop 소스, docs/desktop 설계·사용 설명·QA, Windows installer. PR #951과 연결된 Actions에서 최종 병합·검사·배포 상태를 확인할 수 있다. 최초 Windows CI 실행(37581392400)에서도 단위·Electron 수명주기·인증·별도 프로세스 복원 검사를 통과했다.
+
+최종 사용자 전달 폴더는 `C:/Users/USER/Downloads/Nenova-Desktop-1.0.0`이며 설치파일 SHA256은 `0551EA17C393EADCFDAECBC158E57E072475BB41B7604F721CFF194958CF7FF6`이다. 실제 설치된 app.asar와 최종 빌드 app.asar SHA256 일치, 설치 앱 로그인·메뉴·2개 창 실행도 확인했다.
 
 ## 미포함/다음 단계
 
