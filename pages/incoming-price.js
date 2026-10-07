@@ -298,7 +298,7 @@ export default function IncomingPricePage() {
         {/* 상단 컨트롤 */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a237e' }}>입고단가 / 농장 송금</h2>
+            <h2 data-desktop-chrome style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a237e' }}>입고단가 / 농장 송금</h2>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
               <input type="checkbox" checked={includeFreight} onChange={e => setIncludeFreight(e.target.checked)} />
               국내 운송료 포함

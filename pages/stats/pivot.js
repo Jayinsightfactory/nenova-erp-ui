@@ -1349,7 +1349,7 @@ export function LegacyPivot() {
         height:28, flexShrink:0, background:'linear-gradient(to right,#000080,#1084d0)',
         display:'flex', alignItems:'center', padding:'0 10px', color:'#fff', fontSize:12, fontWeight:'bold', gap:8,
       }}>
-        <span>Pivot 통계</span>
+        <span data-desktop-chrome>Pivot 통계</span>
         <span style={{marginLeft:'auto', display:'flex', gap:6, alignItems:'center'}}>
           <label style={{display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:'normal', cursor:'pointer'}}>
             <input type="checkbox" checked={showDecimals} onChange={e=>setShowDecimals(e.target.checked)} />

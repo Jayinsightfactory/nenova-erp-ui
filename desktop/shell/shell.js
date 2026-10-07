@@ -5,7 +5,7 @@
 
   const desktop = window.desktop;
   const $ = (id) => document.getElementById(id);
-  const state = { windowId: null, windows: [], tabs: [], activeId: null, menuOpen: true, favorites: [], menus: [], online: true, message: '', syncStatus: 'checking' };
+  const state = { windowId: null, windows: [], tabs: [], activeId: null, menuOpen: true, toolsOpen: false, favorites: [], menus: [], online: true, message: '', notice: '', syncStatus: 'checking' };
   let lastMenuTrigger = null;
   let draggingId = null;
   let dropHandled = false;
@@ -201,16 +201,26 @@
 
   function render() {
     const tab = activeTab();
+    document.querySelector('.app-shell').classList.toggle('menu-open', Boolean(state.menuOpen));
+    document.querySelector('.app-shell').classList.toggle('tools-open', Boolean(state.toolsOpen));
     $('home').hidden = !state.menuOpen;
     $('menuButton').setAttribute('aria-pressed', String(state.menuOpen));
+    $('toolsButton').setAttribute('aria-pressed', String(state.toolsOpen));
+    $('toolsButton').setAttribute('aria-label', state.notice ? `알림: ${state.notice}. 도구 펼치기` : state.toolsOpen ? '도구 접기' : '도구 펼치기');
+    $('toolsButton').title = state.notice ? `${state.notice} · 도구를 열어 상태 확인` : '도구 펼치기/접기 (Ctrl+Shift+B)';
+    $('toolsNotice').hidden = !state.notice;
     $('currentTitle').textContent = state.menuOpen ? '업무 메뉴' : (tab?.title || '업무 화면');
     $('currentUrl').textContent = state.menuOpen ? '' : shortUrl(tab?.url);
     const hasTab = Boolean(tab);
+    $('compactFavoriteButton').disabled = !hasTab;
     for (const id of ['backButton', 'forwardButton', 'reloadButton', 'favoriteButton', 'zoomOutButton', 'zoomButton', 'zoomInButton', 'printButton', 'detachButton', 'moveSelect']) $(id).disabled = !hasTab;
     const favorite = hasTab && state.favorites.some((item) => item.url === tab.url);
     $('favoriteButton').textContent = favorite ? '★' : '☆';
     $('favoriteButton').setAttribute('aria-pressed', String(Boolean(favorite)));
     $('favoriteButton').setAttribute('aria-label', favorite ? '즐겨찾기 해제' : '즐겨찾기 추가');
+    $('compactFavoriteButton').textContent = favorite ? '★' : '☆';
+    $('compactFavoriteButton').setAttribute('aria-pressed', String(Boolean(favorite)));
+    $('compactFavoriteButton').setAttribute('aria-label', favorite ? '즐겨찾기 해제' : '즐겨찾기 추가');
     $('zoomButton').textContent = `${Math.round((tab?.zoom || 1) * 100)}%`;
     $('connectionIndicator').className = `connection-indicator ${state.online ? 'online' : 'offline'}`;
     $('connectionText').textContent = state.online ? '로그인됨' : '로그인 필요';
@@ -233,7 +243,7 @@
   function applyState(next) {
     if (!next || typeof next !== 'object') return;
     const wasMenuOpen = state.menuOpen;
-    for (const key of ['windowId', 'activeId', 'menuOpen', 'online', 'message', 'version', 'syncStatus', 'webVersion', 'menuVersion']) if (Object.prototype.hasOwnProperty.call(next, key)) state[key] = next[key];
+    for (const key of ['windowId', 'activeId', 'menuOpen', 'toolsOpen', 'online', 'message', 'notice', 'version', 'syncStatus', 'webVersion', 'menuVersion']) if (Object.prototype.hasOwnProperty.call(next, key)) state[key] = next[key];
     for (const key of ['windows', 'tabs', 'favorites', 'menus']) if (Array.isArray(next[key])) state[key] = next[key];
     render();
     if (!wasMenuOpen && state.menuOpen) requestAnimationFrame(() => $('menuSearch').focus());
@@ -243,6 +253,8 @@
     $('syncButton').addEventListener('click', () => run('sync'));
     $('homeButton').addEventListener('click', () => setMenu(true, true));
     $('menuButton').addEventListener('click', () => setMenu(!state.menuOpen, !state.menuOpen));
+    $('toolsButton').addEventListener('click', () => run('tools'));
+    $('compactFavoriteButton').addEventListener('click', () => { if (state.activeId) run('favorite', { id: state.activeId }); });
     $('addTabButton').addEventListener('click', () => setMenu(true, true));
     $('newWindowButton').addEventListener('click', () => run('newWindow'));
     $('backButton').addEventListener('click', () => run('navigate', { direction: 'back' }));
@@ -275,6 +287,7 @@
       if (id) { dropHandled = true; run('reorder', { id, beforeId: null }); }
     });
     document.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'b') { event.preventDefault(); run('tools'); return; }
       if (event.key === 'Escape' && state.menuOpen) { event.preventDefault(); setMenu(false); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setMenu(true, true); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 't') { event.preventDefault(); setMenu(true, true); return; }

@@ -525,7 +525,7 @@ export default function PasteTemplateWindow() {
     <div style={{ minHeight: '100vh', background: '#f4f6f8', color: '#0f172a' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 5, background: '#ffffff', borderBottom: '1px solid #dbe3ea', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 20, color: '#1f2937' }}>주문 즐겨찾기 크게 보기</h1>
+          <h1 data-desktop-chrome style={{ margin: 0, fontSize: 20, color: '#1f2937' }}>주문 즐겨찾기 크게 보기</h1>
           <div style={{ marginTop: 3, fontSize: 12, color: '#64748b' }}>원본 주문을 불러와 즐겨찾기로 저장하고, 등록대상 차수에 주문등록합니다.</div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
