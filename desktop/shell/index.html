@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <title>Nenova 데스크톱</title>
+  <link rel="stylesheet" href="./shell.css">
+  <script src="./shell.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="brandbar">
+      <button id="homeButton" class="brand" type="button" aria-label="업무 메뉴 열기" title="업무 메뉴 열기 (Ctrl+K)">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span class="brand-name">nenova <strong>ERP</strong></span>
+      </button>
+      <span class="brand-divider" aria-hidden="true"></span>
+      <span class="workspace-label">데스크톱 업무 공간</span>
+      <div class="brand-actions">
+        <span id="windowCount" class="window-count"></span>
+        <button id="newWindowButton" class="top-action" type="button" title="새 창 열기">＋ 새 창</button>
+      </div>
+    </header>
+
+    <div class="toolbar" role="toolbar" aria-label="화면 도구">
+      <button id="menuButton" class="tool-button menu-button" type="button" aria-label="업무 메뉴" aria-pressed="false" title="업무 메뉴 (Ctrl+K)"><span aria-hidden="true">☷</span><span>메뉴</span></button>
+      <span class="tool-separator" aria-hidden="true"></span>
+      <button id="backButton" class="tool-button icon-button" type="button" aria-label="뒤로" title="뒤로">←</button>
+      <button id="forwardButton" class="tool-button icon-button" type="button" aria-label="앞으로" title="앞으로">→</button>
+      <button id="reloadButton" class="tool-button icon-button" type="button" aria-label="새로고침" title="새로고침 (Ctrl+R)">↻</button>
+      <span class="tool-separator" aria-hidden="true"></span>
+      <div class="location" aria-live="polite">
+        <span class="location-dot" aria-hidden="true"></span>
+        <span id="currentTitle" class="location-title">업무 메뉴</span>
+        <span id="currentUrl" class="location-url"></span>
+      </div>
+      <button id="favoriteButton" class="tool-button icon-button" type="button" aria-label="즐겨찾기 추가" aria-pressed="false" title="즐겨찾기 추가/해제">☆</button>
+      <span class="tool-separator" aria-hidden="true"></span>
+      <button id="zoomOutButton" class="tool-button icon-button" type="button" aria-label="화면 축소" title="화면 축소">−</button>
+      <button id="zoomButton" class="tool-button zoom-value" type="button" title="화면 배율 100%로 복원">100%</button>
+      <button id="zoomInButton" class="tool-button icon-button" type="button" aria-label="화면 확대" title="화면 확대">＋</button>
+      <button id="printButton" class="tool-button icon-button" type="button" aria-label="인쇄" title="인쇄 (Ctrl+P)">⎙</button>
+      <span class="tool-separator" aria-hidden="true"></span>
+      <button id="detachButton" class="tool-button labeled-button" type="button" title="현재 탭을 별도 창으로 분리">↗ <span>창 분리</span></button>
+      <label class="move-label" for="moveSelect">창 이동</label>
+      <select id="moveSelect" class="move-select" aria-label="현재 탭을 다른 창으로 이동"><option value="">창 이동</option></select>
+    </div>
+
+    <div class="tabbar">
+      <div id="tabs" class="tabs" role="tablist" aria-label="열린 업무 화면"></div>
+      <button id="addTabButton" class="add-tab" type="button" aria-label="업무 화면 열기" title="업무 화면 열기 (Ctrl+T)">＋</button>
+    </div>
+
+    <main id="home" class="home" aria-label="업무 메뉴">
+      <div class="home-inner">
+        <div class="home-heading">
+          <div>
+            <p class="eyebrow">NENOVA WORKSPACE</p>
+            <h1>오늘의 업무를 시작하세요</h1>
+            <p class="home-subtitle">화면을 탭으로 열고, 필요한 탭은 별도 창으로 옮길 수 있습니다.</p>
+          </div>
+          <div class="search-wrap">
+            <label for="menuSearch">업무 화면 찾기</label>
+            <div class="search-box"><span aria-hidden="true">⌕</span><input id="menuSearch" type="search" placeholder="메뉴 이름 검색" autocomplete="off" spellcheck="false" aria-controls="menuGroups"></div>
+            <kbd>Ctrl K</kbd>
+          </div>
+        </div>
+        <section id="favoritesSection" class="favorites-section" aria-labelledby="favoritesHeading" hidden>
+          <div class="section-heading"><h2 id="favoritesHeading">즐겨찾기</h2><span>자주 쓰는 화면</span></div>
+          <div id="favoritesList" class="favorites-list"></div>
+        </section>
+        <section class="all-menus" aria-labelledby="allMenusHeading">
+          <div class="section-heading"><h2 id="allMenusHeading">모든 업무</h2><span id="resultCount"></span></div>
+          <div id="menuGroups" class="menu-groups"></div>
+          <p id="emptySearch" class="empty-search" hidden>검색 결과가 없습니다. 다른 단어로 찾아보세요.</p>
+        </section>
+        <p class="home-note">열어 둔 탭과 즐겨찾기는 이 PC에 저장됩니다. 저장하지 않은 웹 화면의 입력 내용은 탭을 닫거나 앱을 다시 시작하면 사라질 수 있습니다.</p>
+      </div>
+    </main>
+
+    <footer class="statusbar">
+      <div class="status-left"><span id="connectionIndicator" class="connection-indicator" aria-hidden="true"></span><span id="connectionText">연결 상태 확인 중</span><span class="status-separator" aria-hidden="true">·</span><span id="statusMessage">준비 중</span></div>
+      <div class="status-right"><span id="tabCount">탭 0개</span><span class="status-separator" aria-hidden="true">·</span><span id="windowLabel">업무 창</span></div>
+    </footer>
+  </div>
+</body>
+</html>
