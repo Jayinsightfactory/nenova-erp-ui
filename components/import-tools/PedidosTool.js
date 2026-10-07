@@ -119,7 +119,7 @@ export default function PedidosTool() {
       .pedidos-result-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
       .pedidos-result-heading > div { min-width: 0; overflow-wrap: anywhere; }
       summary { cursor: pointer; padding: 10px 0; }
-      .pedidos-preview { max-height: 430px; overflow: auto; width: 100%; }
+      .pedidos-preview { overflow-x: auto; width: 100%; }
       table { border-collapse: separate; border-spacing: 0; width: max-content; table-layout:fixed; font-size: 14px; }
       th, td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; white-space: nowrap; }
       th { position: sticky; top: 0; z-index: 1; background: #eef2f7; }

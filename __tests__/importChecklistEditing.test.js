@@ -487,11 +487,13 @@ test('browser layout smoke: 1920x1080 at 100% and mobile 390x844, no horizontal 
         overflow: document.documentElement.scrollWidth > innerWidth,
         escaped: [...document.querySelectorAll('input,textarea,button,summary')].some(node => { const box = node.getBoundingClientRect(); return box.left < 0 || box.right > innerWidth + 1; }),
         scrollable: [...document.querySelectorAll('.record-list')].some(node => node.scrollHeight > node.clientHeight),
+        pageScrollable: document.documentElement.scrollHeight > innerHeight,
       }));
       assert.deepEqual([metrics.width, metrics.height, metrics.scale], [viewport.width, viewport.height, 1]);
       assert.equal(metrics.overflow, false, JSON.stringify(metrics));
       assert.equal(metrics.escaped, false, JSON.stringify(metrics));
-      assert.equal(metrics.scrollable, true, 'long template list remains scrollable');
+      assert.equal(metrics.scrollable, false, 'long template list expands instead of nested scrolling');
+      assert.equal(metrics.pageScrollable, true, 'long template is reachable through the page scroll');
       const submit = await page.$('details button[type=submit]');
       await submit.scrollIntoView();
       assert.equal(await submit.isVisible(), true);
