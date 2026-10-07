@@ -245,7 +245,7 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
               <div className="cell-price">
                 {priceEdit?.entryId === entry.id
                   ? <input ref={priceInputRef} className="price-edit-input" type="number" min="0" step="any" value={price ?? ''}
-                      aria-label={`${entry.sourceCustomer || entry.customer} ${entry.sourceItem || entry.color || entry.product} 원화 입력`}
+                      aria-label={`${entry.sourceCustomer || entry.customer} ${entry.sourceItem || entry.color || entry.product} 단가 입력`}
                       onChange={event => onPriceChange(entry, event.target.value)}
                       onBlur={() => finishPriceEdit(entry, true)}
                       onKeyDown={event => {
@@ -253,8 +253,8 @@ export default function DutchVolumeSheet({ workbook, entries = [], prices = {}, 
                         if (event.key === 'Escape') { event.preventDefault(); finishPriceEdit(entry, false); }
                       }}/>
                   : <button type="button" className="price-edit-trigger" disabled={disabled}
-                      title="클릭해 원화 입력" aria-label={`${entry.sourceCustomer || entry.customer} ${entry.sourceItem || entry.color || entry.product} 원화 입력`}
-                      onClick={() => beginPriceEdit(entry)}>{hasPrice(price) ? `${formatQty(price)}원` : '원화 입력'}</button>}
+                      title="클릭해 단가 입력" aria-label={`${entry.sourceCustomer || entry.customer} ${entry.sourceItem || entry.color || entry.product} 단가 입력`}
+                      onClick={() => beginPriceEdit(entry)}>{hasPrice(price) ? formatQty(price) : '단가 입력'}</button>}
               </div>
             </>}
           </td>;
