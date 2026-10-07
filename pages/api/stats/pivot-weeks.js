@@ -6,14 +6,18 @@ export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const orderYear = Number(req.query.orderYear);
-  const source = req.query.source === 'orders' ? 'orders' : 'all';
+  const source = ['orders', 'incoming'].includes(req.query.source) ? req.query.source : 'all';
+  const country = typeof req.query.country === 'string' ? req.query.country.toLowerCase() : '';
   if (!Number.isInteger(orderYear) || orderYear < 2020 || orderYear > 2099) {
     return res.status(400).json({ success: false, error: '조회 연도를 확인하세요.' });
+  }
+  if (source === 'incoming' && !['netherlands', 'china'].includes(country)) {
+    return res.status(400).json({ success: false, error: '입고 조회 국가를 확인하세요.' });
   }
 
   try {
     const result = await query(
-      buildPivotAvailableWeeksSql(source),
+      buildPivotAvailableWeeksSql(source, country),
       { year: { type: sql.Int, value: orderYear } },
     );
     return res.status(200).json({

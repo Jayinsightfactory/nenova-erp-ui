@@ -16,6 +16,7 @@ assert.match(page, /box-badge\[data-digits="1"\]\{width:15px\}/, '고밀도 보�
 assert.match(page, /box-badge\[data-digits="2"\]\{width:19px\}/, '고밀도 보기에서 2자리 번호는 중간 폭을 사용한다');
 assert.match(page, /box-badge\[data-digits="3"\]\{width:24px\}/, '고밀도 보기에서 3자리 번호는 넓은 폭을 사용한다');
 assert.match(page, /font-size:15px;line-height:18px;font-weight:900/, '고밀도 셀에서도 수량을 굵게 표시한다');
+assert.match(page, /\.board td span\.qty\{left:0;width:100%/, '수량 텍스트를 셀 전체 폭 중앙에 정렬한다');
 assert.match(page, /\.qty\{position:absolute;z-index:5;[^}]*pointer-events:none\}/, '박스번호 확장 레이어가 있어도 패킹 수량은 위 레이어에서 항상 표시한다');
 assert.match(page, /order-qty/, '패킹 수량과 다른 전산 주문수량은 비교값으로 함께 표시한다');
 assert.match(page, /\.box-badges\{z-index:3;/, '박스번호는 수량보다 아래 표시 레이어를 사용한다');
@@ -35,8 +36,9 @@ assert.match(page, /grid-template-columns:minmax\(0,1fr\) 292px/, '1920 화면�
 assert.match(page, /\.page,\.toolbar,main,\.board-wrap,aside\{min-width:0\}/, '넓은 물량표가 grid 최소폭을 밀어 우측 인보이스 영역을 화면 밖으로 보내지 않는다');
 assert.match(page, /\/api\/stats\/china-volume-board/, '작업본·입고원장 스냅샷은 중국 전용 API에 저장한다');
 assert.match(page, /작업 저장/, '차수별 작업 저장 버튼을 제공한다');
-assert.match(page, /const DEFAULT_WEEK = '35-01'/, '기본 조회 차수는 35-01이다');
-assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, source: 'orders' \}\)/, '중국 물량표도 선택 연도의 실제 주문 입력 차수를 조회한다');
+assert.match(page, /source: 'orders' \}\),[\s\S]*source: 'incoming', country: 'china'/, '중국 물량표는 주문차수와 중국 실제 입고차수를 함께 조회한다');
+assert.match(page, /\.board td span\.qty\{left:0;width:100%;\}/, '중국 물량표 수량은 셀 전체 너비 기준으로 중앙 정렬한다');
+assert.match(page, /defaultPivotBoardWeek\(incomingWeeks, orderWeeks\)/, '페이지 최초 진입은 최신 중국 입고 차수를 우선 선택한다');
 assert.match(page, /availableWeeks\.map/, 'DB 입력 세부차수를 축약하지 않고 선택지로 표시한다');
 assert.match(page, /baseIndex - delta/, '이전·다음 이동은 계산한 주차가 아니라 DB 입력 차수 배열을 따른다');
 assert.match(page, /aria-label="이전 입력 차수"/, '왼쪽 DB 입력 차수 이동 버튼을 제공한다');
