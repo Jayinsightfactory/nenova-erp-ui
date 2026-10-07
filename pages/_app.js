@@ -3,6 +3,7 @@ import MenuBackButton from '../components/MenuBackButton';
 import ReplayRecorder from '../components/ReplayRecorder';
 import '../styles/globals.css';
 import '../styles/unified-ui.css';
+import '../styles/desktop-workspace.css';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { MENU_PAGE_RESET_EVENT } from '../lib/menuNavigationHistory';
@@ -32,6 +33,13 @@ const STANDALONE_MENU_BACK_ROUTES = new Set(['/shipment/week-pivot', '/stats/piv
 export default function App({ Component, pageProps }) {
   const router = useRouter();
   const [menuPageRevision, setMenuPageRevision] = useState(0);
+  useEffect(() => {
+    // Presentation only: the desktop's session UA survives links and new tabs.
+    // This marker is never an authentication or permission signal.
+    if (/\bNenovaDesktop\/\d+\.\d+\.\d+\b/.test(navigator.userAgent)) {
+      document.documentElement.dataset.nenovaDesktop = 'true';
+    }
+  }, []);
   useEffect(() => {
     const resetPage = () => setMenuPageRevision(value => value + 1);
     window.addEventListener(MENU_PAGE_RESET_EVENT, resetPage);
