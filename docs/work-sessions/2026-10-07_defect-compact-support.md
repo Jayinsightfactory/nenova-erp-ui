@@ -25,3 +25,5 @@
 ## 미완
 
 필수 계약·dnSpy·manifest(80개)·write guard(API변경0)·layout 및 build 통과. 배포·운영 읽기 전용 브라우저 확인 진행 중. 인증값과 임시 스모크 원문은 커밋하지 않는다.
+
+최신 master의 키보드 기준 반영: 항목 선택은↑↓로 같은 그룹 활성 체크박스 이동, Enter/Space 선택. 기존 차감 상세는Enter로 열고Escape로 닫으며summary초점 복귀. 일반/팝업100%·80% 상당 스모크에서 Tab/Shift+Tab·Enter/Space·방향키·Escape/초점 복귀 통과. 최종 fresh build와 계약 재검사 진행 중.

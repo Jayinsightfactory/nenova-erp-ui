@@ -1520,6 +1520,16 @@ export default function SalesDefectDeductionsPage() {
   };
   const selectionZoneProps = (group, key, baseline, setter) => ({
     'data-selection-group': group, 'data-selection-key': key,
+    title: '↑↓ 항목 이동 · Space 또는 Enter 선택',
+    onKeyDown: event => {
+      if (event.target.tagName !== 'INPUT' || event.target.type !== 'checkbox') return;
+      if (event.key === 'Enter') { event.preventDefault(); event.target.click(); return; }
+      if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      const inputs = [...document.querySelectorAll(`[data-selection-group="${group}"] input`)].filter(input => !input.disabled);
+      const index = inputs.indexOf(event.target);
+      const next = inputs[index + (event.key === 'ArrowDown' ? 1 : -1)];
+      event.preventDefault(); next?.focus();
+    },
     onPointerDown: event => startSelectionDrag(event, group, baseline, setter),
     onPointerMove: event => { if (selectionDrag.current?.pointerId === event.pointerId) updateSelectionDrag(event.clientX, event.clientY); },
     onPointerUp: endSelectionDrag, onPointerCancel: endSelectionDrag,
@@ -1874,7 +1884,7 @@ export default function SalesDefectDeductionsPage() {
                     <span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{supportRegistrationDecisionLabel(row)}</span>
                     {Number(row.custKey) > 0 && <button type="button" className="btn btn-xs support-estimate-open" onClick={() => openCustomerEstimate(row)} title={`${year}년 ${week}차 ${row.customerName || '거래처'} 견적서에서 불량차감 현황을 엽니다.`}>견적서</button>}
                     {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
-                    {existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
+                    {existingEstimateCount > 0 && <details className="support-existing-estimates" onKeyDown={event => { if (event.key === 'Escape' && event.currentTarget.open) { event.preventDefault(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}><summary>기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
                   </div>
                   {scopeLabel && <small className="support-scope-label" title={scopeLabel}>{scopeLabel}</small>}
                 </td>
