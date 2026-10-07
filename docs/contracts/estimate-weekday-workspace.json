@@ -353,7 +353,12 @@
       "기타"
     ],
     "flowerGroups": {
-      "priority": ["카네이션", "장미", "수국", "알스트로"],
+      "priority": [
+        "카네이션",
+        "장미",
+        "수국",
+        "알스트로"
+      ],
       "otherCategories": "Separate actual FlowerName groups below the four priority categories; unknown or conflicting metadata remains 기타",
       "defaultExpanded": true,
       "collapse": "Display-only hidden product rows; preserve mounted input controls and pending edits, quantities, drafts, filter/export/print scope and ERP data",
@@ -368,7 +373,8 @@
       "detailFontPx": 18,
       "target": "approximately two cycles and at least10 ordinary rows at1920x1080 popup",
       "preserves": "all physical columns, numeric units, failures, accessible details and existing handlers"
-    }
+    },
+    "compactWarnings": "Errors use their own normal-flow compact slot; do not overlay quantity/remainder/change controls. Early-shipment indication remains visible with full source-year/week/quantity in its accessible detail; never mutates ERP allocation. Recheck uses exact source year/week actual quantity and normalized unit, never the current-day quantity; missing, ambiguous or insufficient source requires review."
   },
   "wilsonClassification": {
     "positiveFixture": "same total web classification zero or positive preserves all ERP tables",
@@ -442,7 +448,13 @@
   "cellStatusPresentation": {
     "unallocated": "knownEmpty without draft: cell color only, no repeated visible status text",
     "provisionalBaseline": "header, initial and remainder cell color only; details/accessible descriptions retain status",
-    "preserve": ["quantity including zero and unknown", "draft/change/early-shipment color priority", "unallocated product filter", "confirmation actions", "ERP and print readiness policies"]
+    "preserve": [
+      "quantity including zero and unknown",
+      "draft/change/early-shipment color priority",
+      "unallocated product filter",
+      "confirmation actions",
+      "ERP and print readiness policies"
+    ]
   },
   "printReadinessPresentation": {
     "source": "unchanged assessWeekdayPrintEligibility in serializable read transaction",
