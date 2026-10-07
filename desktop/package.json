@@ -1,0 +1,33 @@
+{
+  "name": "nenova-desktop",
+  "version": "1.0.0",
+  "description": "Nenova 업무 탭과 창 관리 프로그램",
+  "author": "Nenova",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "menu": "node scripts/generate-menu.cjs",
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "test:smoke": "electron scripts/smoke.cjs",
+    "test:restore": "node scripts/verify-restore.cjs",
+    "dist": "npm run menu && electron-builder --win nsis --x64",
+    "pack": "npm run menu && electron-builder --win --dir --x64"
+  },
+  "devDependencies": {
+    "electron": "44.6.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.nenova.workspace",
+    "productName": "Nenova Desktop",
+    "artifactName": "Nenova-Desktop-Setup-${version}-${arch}.${ext}",
+    "directories": {"output": "dist"},
+    "files": ["main.cjs", "policy.cjs", "preload.cjs", "menu.json", "shell/**/*", "assets/**/*", "package.json"],
+    "asar": true,
+    "electronFuses": {"runAsNode": false, "enableNodeOptionsEnvironmentVariable": false, "enableNodeCliInspectArguments": false, "grantFileProtocolExtraPrivileges": false, "enableCookieEncryption": true, "onlyLoadAppFromAsar": true, "enableEmbeddedAsarIntegrityValidation": true},
+    "win": {"target": "nsis", "icon": "assets/icon.ico", "signAndEditExecutable": true},
+    "nsis": {"oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true, "shortcutName": "네노바 업무", "deleteAppDataOnUninstall": false},
+    "publish": null
+  }
+}
