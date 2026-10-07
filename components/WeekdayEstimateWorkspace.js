@@ -1,4 +1,6 @@
 import { prepareWeekdayDraftDeletion, weekdayCellDrafts } from '../lib/weekdayDraftDeletion.js';
+import { patchOriginalWorkbook } from '../lib/weekdayOriginalWorkbook.js';
+import { buildWeekdayWorkbookExportUpdates } from '../lib/weekdayWorkbookExportPlan.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { isExpectedWeekdayPrintBlock } from '../lib/weekdayPrintReadiness.js';
@@ -38,6 +40,10 @@ export default function WeekdayEstimateWorkspace() {
   const [customer, setCustomer] = useState(null);
   const [customerError, setCustomerError] = useState('');
   const [fileName, setFileName] = useState('');
+  const originalWorkbook = useRef(null);
+  const workbookLinks = useRef([]);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
   const [parsed, setParsed] = useState(null);
   const [uploadError, setUploadError] = useState('');
   const [selectedSource, setSelectedSource] = useState(null);
@@ -110,6 +116,8 @@ export default function WeekdayEstimateWorkspace() {
   const currentScope = useRef(scopeKey);
   currentScope.current = scopeKey;
   const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
+  const exportState = useRef(null);
+  exportState.current = { plans: activePlans, compareRows };
   const activeWilsonInputs = wilsonDrafts.filter(record => record.scopeKey === scopeKey && activePlans.some(plan =>
     Number(plan.year) === record.year && Number(plan.prodKey) === record.prodKey && plan.date === record.date
     && plan.orderWeek === record.orderWeek && Number(plan.quantity) === record.expectedTotal));
@@ -451,11 +459,33 @@ export default function WeekdayEstimateWorkspace() {
       try { result = await response.json(); } catch { throw new Error(response.status === 401 ? '로그인이 필요합니다.' : '서버 응답을 읽을 수 없습니다.'); }
       if (!response.ok || !result.success) throw new Error(result.error || '엑셀을 읽지 못했습니다.');
       if(request!==uploadRequest.current || uploadScope!==currentScope.current) return;
+      originalWorkbook.current = { file, fileId: crypto.randomUUID(), scope: uploadScope };
+      workbookLinks.current = [];
+      setDownloadError('');
       comparisonRequest.current += 1;
       setParsed(result); setFileName(file.name); setMappings({}); setProductNames({}); setSelectedSource(null); setDraftHistory([]);
       setMessage(`원문 ${result.sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0)}행을 임시로 읽었습니다. 수식·문자 셀은 자동 변환하지 않았습니다.`);
     } catch (error) { if(request===uploadRequest.current && uploadScope===currentScope.current){setUploadError(error.message); setMessage('업로드 확인 필요');} }
     finally { if(request===uploadRequest.current && uploadScope===currentScope.current)setBusy(false); }
+  }
+
+  async function downloadOriginalWorkbook() {
+    const original = originalWorkbook.current;
+    if (!original || original.scope !== scopeKey) { setDownloadError('현재 거래처·차수에서 원본 엑셀을 다시 업로드하세요.'); return; }
+    setDownloadBusy(true); setDownloadError('');
+    try {
+      const snapshot = JSON.stringify(exportState.current);
+      const updates = buildWeekdayWorkbookExportUpdates({ links: workbookLinks.current, plans: activePlans,
+        compareRows: compareRows || [], custKey: Number(customer?.CustKey), scopeKey, fileId: original.fileId });
+      const bytes = await patchOriginalWorkbook(await original.file.arrayBuffer(), updates, { filename: original.file.name });
+      if (originalWorkbook.current !== original || currentScope.current !== original.scope) throw new Error('거래처·차수 또는 원본이 변경되었습니다. 다시 다운로드하세요.');
+      if (snapshot !== JSON.stringify(exportState.current)) throw new Error('수량 또는 전산 조회값이 변경되었습니다. 다시 다운로드하세요.');
+      const url = URL.createObjectURL(new Blob([bytes], { type: /\.xls$/i.test(original.file.name) ? 'application/vnd.ms-excel' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = original.file.name.replace(/(\.xlsx?)$/i, '_주광$1');
+      document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setMessage(`원본 양식으로 다운로드했습니다. 연결된 수량 ${updates.length}개 셀 반영 · 그 외 셀은 원문 유지.`);
+    } catch (error) { setDownloadError(error.message || '원본 엑셀을 저장하지 못했습니다.'); }
+    finally { setDownloadBusy(false); }
   }
 
   function addSourceRow(row) {
@@ -484,9 +514,20 @@ export default function WeekdayEstimateWorkspace() {
       sourceYear: null, sourceOrderWeek: null, wdetailKey: null,
       header: cell.columnHeader,
     })).filter((item) => item.header);
-    if (plans.some((item) => additions.some((next) => next.sheet === item.sheet && next.sourceCell === item.sourceCell))) { setMessage('이미 초안에 포함된 원본 셀입니다. 이동/수량 변경으로 수정하세요.'); return; }
-    setPlans((current) => [...current, ...additions]);
-    setMessage(`${row.label}: 날짜 수량 후보 ${additions.length}건을 검토용 초안에 추가했습니다. ERP에는 저장되지 않았습니다.`);
+    const existing = additions.map(next => activePlans.filter(item => item.sheet === next.sheet && item.sourceCell === next.sourceCell));
+    if (existing.some((items,index) => items.length > 1 || items.some(item =>
+      Number(item.custKey)!==Number(additions[index].custKey) || Number(item.prodKey)!==Number(additions[index].prodKey)
+      || Number(item.year)!==Number(additions[index].year) || item.orderWeek!==additions[index].orderWeek
+      || item.date!==additions[index].date || normalizeWeekdayUnit(item.unit)!==normalizeWeekdayUnit(additions[index].unit)))) {
+      setMessage('기존 입력의 품목·날짜·단위가 다릅니다. 원본 연결을 확인하세요.'); return;
+    }
+    if (originalWorkbook.current?.scope === scopeKey) {
+      workbookLinks.current = [...workbookLinks.current.filter(link => !additions.some(item => item.sheet === link.sheet && item.sourceCell === link.sourceCell)),
+        ...additions.map(item => ({ ...item, fileId: originalWorkbook.current.fileId }))];
+    }
+    const fresh = additions.filter((_,index) => !existing[index].length);
+    setPlans((current) => [...current, ...fresh]);
+    setMessage(`${row.label}: 원본 수량 ${additions.length}개 셀 연결 · 새 초안 ${fresh.length}건. 기존 입력 수량은 유지했습니다. ERP에는 저장되지 않았습니다.`);
   }
 
   function updatePlan(id, patch) {
@@ -980,6 +1021,7 @@ export default function WeekdayEstimateWorkspace() {
         <button aria-label="이전 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===-1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(-1)}>◀</button>
         <button aria-label="다음 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(1)}>▶</button>
         <input aria-label="요일별 출고 엑셀 파일" style={{width:230}} type="file" accept=".xlsx,.xls" onChange={(e) => {setToolsOpen(true);uploadWorkbook(e.target.files?.[0]);}} disabled={busy || editLocked} />
+        <button onClick={downloadOriginalWorkbook} disabled={busy || downloadBusy || !parsed || originalWorkbook.current?.scope !== scopeKey} title="업로드한 원본의 셀 양식을 유지합니다. 연결된 날짜 수량만 반영하고 선출고·발주총량·비고·수식은 원문을 유지합니다.">{downloadBusy ? '엑셀 저장 중…' : '원본 양식 엑셀 다운로드'}</button>
         <button onClick={compareWithErp} disabled={busy || editLocked || !customer}>전산 새로고침</button>
         <button onClick={saveInputOnly} disabled={!inputLoaded || !inputUser || editLocked || busy || !customer}>입력만 저장</button>
         <button aria-label="ERP 저장 · 변경 확인" className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>분배 적용 · 변경 확인</button>
@@ -1002,6 +1044,7 @@ export default function WeekdayEstimateWorkspace() {
       {carryoverError && <div role="alert" style={{color:'#9f1c16',marginTop:6,fontSize:14}}>마감 잔량·이월: {carryoverError} · 이월 계산값을 표시하지 않았습니다.</div>}
       {customerError && <div role="alert" style={{color:'#b42318'}}>{customerError}</div>}
       {uploadError && <div role="alert" style={{color:'#b42318'}}>{uploadError}</div>}
+      {downloadError && <div role="alert" style={{color:'#b42318'}}>{downloadError}</div>}
     </header>
 
     <section aria-label="미적용 입력 내역" style={{padding: '4px 8px', background: '#fff', borderBottom: '1px solid #cbd5e1'}}>
@@ -1099,6 +1142,7 @@ export default function WeekdayEstimateWorkspace() {
         <h2 style={{ margin:'0 0 10px', fontSize:17 }}>2. 요일별 엑셀 업로드</h2>
         <label>헤더 날짜 미인식 시 출고일 <input style={inputStyle} type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)} /></label>
         {fileName && <p><b>{fileName}</b> · {parsed?.sheets?.length || 0}개 시트 · 원문 임시 분석</p>}
+        {parsed && <p className="muted">원본 양식 다운로드: 품목을 연결하고 계획에 추가한 날짜 수량만 갱신합니다. 나머지 셀은 업로드 원문 그대로 유지합니다. 새로고침 후에는 원본 파일을 다시 업로드하세요. XLS 수량 반영은 XLSX로 저장 후 업로드하세요.</p>}
         {uploadError && <p style={{ color:'#b42318' }}>{uploadError}</p>}
         {parsed && <div className="muted">{parsed.sheets.map((sheet) => <span className="tag" key={sheet.name}>{sheet.name}: {sheet.rows.length}행 · 병합 {sheet.merges.length}</span>)}<p>텍스트·수식은 자동 수량으로 바꾸지 않습니다. 날짜 수량 열로 인식되지 않은 셀은 검토가 필요합니다.</p></div>}
       </section>

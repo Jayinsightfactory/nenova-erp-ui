@@ -81,7 +81,12 @@
     "__tests__/weekdayPrintReadiness.test.js",
     "__tests__/weekdayPrintResponse.test.js",
     "lib/weekdayDraftDeletion.js",
-    "__tests__/weekdayDraftDeletion.test.js"
+    "__tests__/weekdayDraftDeletion.test.js",
+    "lib/weekdayOriginalWorkbook.js",
+    "lib/weekdayWorkbookExportPlan.js",
+    "__tests__/weekdayOriginalWorkbook.test.js",
+    "__tests__/weekdayWorkbookExportPlan.test.js",
+    "__tests__/weekdayOriginalWorkbookUi.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -295,7 +300,10 @@
     "__tests__/weekdayMetadataOnly.test.js",
     "__tests__/weekdayPrintReadiness.test.js",
     "__tests__/weekdayPrintResponse.test.js",
-    "__tests__/weekdayDraftDeletion.test.js"
+    "__tests__/weekdayDraftDeletion.test.js",
+    "__tests__/weekdayOriginalWorkbook.test.js",
+    "__tests__/weekdayWorkbookExportPlan.test.js",
+    "__tests__/weekdayOriginalWorkbookUi.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -476,5 +484,14 @@
       "no automatic confirmation or ERP/Estimate writes"
     ],
     "criteria": "Only structured 409 eligibility is a business waiting state. invalidCount wins over no shipment/unfixed. Never infer state from Korean error strings or zero unknown counts."
+  },
+  "originalWorkbookDownload": {
+    "sideEffects": "Browser file download only; preserve OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/StockMaster/ProductStock/Estimate/WebProfitReport and confirmation",
+    "layout": "Patch original XLSX ZIP only; preserve merged cells, styles, column widths, print settings, drawings and unrelated entries. No edits returns exact original bytes.",
+    "storage": "No server persistence; refresh requires original re-upload",
+    "source": "Current successful upload File held in browser memory; fresh UUID per upload and exact selected customer/year/center scope",
+    "preserve": "Unlinked order totals, early-shipment, notes and formulas stay original. Duplicate business/cell mapping, moved draft, unknown actual or incompatible unit blocks export",
+    "legacy": "XLS original-only; changed XLS requires re-upload as XLSX",
+    "quantities": "Explicit connected source date cells only; exact year/week/customer/product/date/unit latest canonical total overridden by absolute draft; Wilson never added twice; mapping survives ERP apply clearing drafts"
   }
 }
