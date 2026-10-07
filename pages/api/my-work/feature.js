@@ -4,6 +4,7 @@
 // 경로는 lib/workFeatureData.featureFilePath(data/runtime 최신본 우선). 읽기 전용.
 //   GET ?name=proposals|workflows|simulations      → 파일 전체
 //   GET ?name=storyboards&who=&b=&s=               → 선택한 직원·제안·세션 장면만(+ 직원 목차)
+//   GET ?name=adoption-ledger                      → 도입 레이더 장부(data/runtime/adoption-ledger.json). 브라우저 캐시 5분(하루 1회 갱신 파일)
 import fs from 'fs';
 import { verifyReqUser } from '../../../lib/auth';
 import { isOrbitReportViewer } from '../../../lib/orbitReportAccess';
@@ -41,7 +42,7 @@ export default function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET only' });
   const name = String(req.query.name || '');
   if (!FEATURE_NAMES.includes(name)) return res.status(400).json({ success: false, error: 'name 은 ' + FEATURE_NAMES.join('|') });
-  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Cache-Control', name === 'adoption-ledger' ? 'private, max-age=300' : 'private, no-store');
   const full = readFeature(name);
   const data = name === 'storyboards' ? sliceStoryboards(full, req.query) : full;
   return res.status(200).json({ success: true, name, data });

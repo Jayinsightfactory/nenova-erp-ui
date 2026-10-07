@@ -249,6 +249,7 @@ export default function PivotImport() {
           구분 <b>03. 입고</b> · 값 = <b>입고총단가(USD)</b> · 입고 {rows.length}건 + 수기 {adjustments.length}건 /
           합계 <b>{fmt2(grandTotal)}</b>
           <span style={{ marginLeft: 8, color: 'var(--text3)' }}>행의 [＋]로 Claim·은행수수료 등 수기항목을 추가하세요</span>
+          <a href="/import" style={{ marginLeft: 8, fontSize: 12 }}>허브 정산 탭에서도 입력할 수 있습니다 →</a>
         </div>
       )}
 

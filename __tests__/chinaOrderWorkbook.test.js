@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
-import { buildChinaOrderWorkbook } from '../lib/chinaOrderWorkbook.js';
+import { buildChinaOrderWorkbook, chinaOrderExportMetadata } from '../lib/chinaOrderWorkbook.js';
 import { buildChinaOrderReport, selectChinaOrderSubweek } from '../lib/chinaOrderDownload.js';
 
 const report = {
@@ -182,33 +182,48 @@ const matrixSource = {
   ],
 };
 const selectedMatrixReport = selectChinaOrderSubweek(matrixSource, '2026/37-03');
-const matrixWorkbook = await buildChinaOrderWorkbook(selectedMatrixReport, mapping);
+const downloadedAt = new Date('2026-10-06T15:00:00.000Z');
+assert.deepEqual(
+  { ...chinaOrderExportMetadata(selectedMatrixReport, downloadedAt), date: chinaOrderExportMetadata(selectedMatrixReport, downloadedAt).date.toISOString() },
+  { title: '37-3 중국', filename: '37-3 중국 발주 SEA.xlsx', dateText: '2026-10-07', date: '2026-10-07T00:00:00.000Z' },
+  'export metadata uses the selected short subweek and Seoul download calendar day',
+);
+assert.equal(chinaOrderExportMetadata(selectedMatrixReport, new Date('2026-10-06T14:59:59.000Z')).dateText, '2026-10-06', 'Seoul midnight boundary uses the previous date before 15:00 UTC');
+const matrixWorkbook = await buildChinaOrderWorkbook(selectedMatrixReport, mapping, { downloadedAt });
 const matrixReopened = new ExcelJS.Workbook();
 await matrixReopened.xlsx.load(await matrixWorkbook.xlsx.writeBuffer());
 assert.deepEqual(matrixReopened.worksheets.map(sheet => sheet.name), ['품목별업체수량', '수량원본', '발주현황', '업체별발주', '주문상세', '조회기준']);
 const matrixSheet = matrixReopened.getWorksheet('품목별업체수량');
 const sourceSheet = matrixReopened.getWorksheet('수량원본');
 assert.equal(sourceSheet.state, 'veryHidden', 'numeric source is available for audit but hidden in the workbook UI');
-assert.deepEqual(matrixSheet.getRow(1).values.slice(1, 4), ['품목명(HF 코드)', '단위', '총수량(박스수)']);
-assert.deepEqual(matrixSheet.getRow(1).values.slice(4), ['=CL2()', '000000000000000000000000000000000000000000000000000000000000CL', '0008', 'CL2', 'CL2', 'CLS', 'CL미등록'], 'customer headers contain CL only, in shared-model prefix order');
-assert.ok(matrixSheet.getRow(1).height > 30, 'long CL-only header wraps without a customer name');
+assert.equal(matrixSheet.getCell('A1').value, '37-3 중국');
+assert.equal(matrixSheet.getCell('B1').value, 'ETA');
+assert.ok(matrixSheet.getCell('C1').value instanceof Date, 'banner ETA remains an Excel date after XLSX round-trip');
+assert.equal(matrixSheet.getCell('C1').value.toISOString(), '2026-10-07T00:00:00.000Z');
+assert.equal(matrixSheet.getCell('C1').numFmt, 'yyyy-mm-dd');
+assert.equal(matrixSheet.getCell('D1').value, 'SEA/Air');
+assert.deepEqual(matrixSheet.getRow(2).values.slice(1, 4), ['품목명(HF 코드)', '단위', '총수량(박스수)']);
+assert.deepEqual(matrixSheet.getRow(2).values.slice(4), ['=CL2()', '000000000000000000000000000000000000000000000000000000000000CL', '0008', 'CL2', 'CL2', 'CLS', 'CL미등록'], 'customer headers contain CL only, in shared-model prefix order');
+assert.ok(matrixSheet.getRow(2).height > 30, 'long CL-only header wraps without a customer name');
 assert.equal(matrixSheet.views[0].xSplit, 3, 'first three identity/total columns remain frozen');
-assert.equal(matrixSheet.views[0].ySplit, 1, 'header remains frozen');
-const matrixProduct10 = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2))
+assert.equal(matrixSheet.views[0].ySplit, 2, 'banner and header remain frozen');
+assert.equal(matrixSheet.views[0].topLeftCell, 'D3');
+assert.equal(matrixSheet.autoFilter, `A2:${matrixSheet.getColumn(matrixSheet.columnCount).letter}${matrixSheet.rowCount}`);
+const matrixProduct10 = [...Array(matrixSheet.rowCount - 2)].map((_, index) => matrixSheet.getRow(index + 3))
   .find(row => String(row.getCell(1).value).startsWith('=2+2'));
 assert.ok(matrixProduct10, 'formula-like product name is present as literal text');
 assert.equal(matrixProduct10.getCell(1).formula, undefined);
 assert.ok(String(matrixProduct10.getCell(1).value).includes('001234'), 'HF code comes from exact HF mapping, not ProdCode/ProdKey');
-const duplicateClColumns = matrixSheet.getRow(1).values.flatMap((value, index) => value === 'CL2' ? [index] : []);
+const duplicateClColumns = matrixSheet.getRow(2).values.flatMap((value, index) => value === 'CL2' ? [index] : []);
 const [cust7Column, cust9Column] = duplicateClColumns;
-const cust8Column = matrixSheet.getRow(1).values.indexOf('CLS');
-const longCustomerColumn = matrixSheet.getRow(1).values.indexOf('000000000000000000000000000000000000000000000000000000000000CL');
-const zeroCodeColumn = matrixSheet.getRow(1).values.indexOf('0008');
-const formulaCodeColumn = matrixSheet.getRow(1).values.indexOf('=CL2()');
-const missingClColumn = matrixSheet.getRow(1).values.indexOf('CL미등록');
-assert.equal(matrixSheet.getRow(1).getCell(formulaCodeColumn).formula, undefined, 'formula-looking CL remains literal text');
+const cust8Column = matrixSheet.getRow(2).values.indexOf('CLS');
+const longCustomerColumn = matrixSheet.getRow(2).values.indexOf('000000000000000000000000000000000000000000000000000000000000CL');
+const zeroCodeColumn = matrixSheet.getRow(2).values.indexOf('0008');
+const formulaCodeColumn = matrixSheet.getRow(2).values.indexOf('=CL2()');
+const missingClColumn = matrixSheet.getRow(2).values.indexOf('CL미등록');
+assert.equal(matrixSheet.getRow(2).getCell(formulaCodeColumn).formula, undefined, 'formula-looking CL remains literal text');
 assert.ok(zeroCodeColumn >= 4, 'leading-zero CL remains text');
-assert.equal(matrixSheet.getRow(1).getCell(cust7Column).border.left.style, 'medium', 'a medium divider marks the CL prefix-group boundary');
+assert.equal(matrixSheet.getRow(2).getCell(cust7Column).border.left.style, 'medium', 'a medium divider marks the CL prefix-group boundary');
 assert.equal(matrixProduct10.getCell(3).value.result, '8(2)', 'selected total displays original quantity and derived boxes');
 assert.match(matrixProduct10.getCell(3).formula, /TEXT\('수량원본'!/);
 assert.match(matrixProduct10.getCell(3).formula, /ROUND\(.+,3\)=ROUND\(.+,0\)/, 'integer formatting survives Excel recalculation without a trailing decimal point');
@@ -230,21 +245,21 @@ assert.match(sourceProduct10.getCell(5).formula, /^IF\(D2=0,0,/, 'zero raw quant
 const cust7RawColumn = sourceSheet.getRow(1).values.indexOf('7 원수량');
 assert.equal(sourceProduct10.getCell(cust7RawColumn).value, 0.5, 'raw customer quantity is stored numerically');
 assert.equal(sourceProduct10.getCell(sourceSheet.getRow(1).values.indexOf('7 박스수')).value.result, 0.125, 'box formula references the raw number and master factor');
-const matrixBoxProduct = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2))
+const matrixBoxProduct = [...Array(matrixSheet.rowCount - 2)].map((_, index) => matrixSheet.getRow(index + 3))
   .find(row => String(row.getCell(1).value).startsWith('Review product'));
 assert.equal(matrixBoxProduct.getCell(1).value, 'Review product (HF002)', 'only an explicit HF code is appended; review status is omitted');
 assert.equal(matrixBoxProduct.getCell(2).value, '박스');
-const matrixMissingProduct = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2))
+const matrixMissingProduct = [...Array(matrixSheet.rowCount - 2)].map((_, index) => matrixSheet.getRow(index + 3))
   .find(row => String(row.getCell(1).value).startsWith('Blank HF literal'));
 assert.equal(matrixMissingProduct.getCell(1).value, 'Blank HF literal', 'missing HF adds no placeholder/status text');
 assert.equal(matrixMissingProduct.getCell(missingClColumn).value.result, '0.25(0.125)', 'missing CL is shown with the required label and exact master factor');
-const unknownFactorDisplay = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2)).find(row => row.getCell(1).value === 'A Unknown steam factor');
+const unknownFactorDisplay = [...Array(matrixSheet.rowCount - 2)].map((_, index) => matrixSheet.getRow(index + 3)).find(row => row.getCell(1).value === 'A Unknown steam factor');
 assert.equal(unknownFactorDisplay.getCell(3).value.result, '2(—)', 'unknown unit factor is displayed as unknown, not zero');
 const missingSourceRow = [...Array(sourceSheet.rowCount - 1)].map((_, index) => sourceSheet.getRow(index + 2)).find(row => Number(row.getCell(1).value) === 17);
 assert.equal(missingSourceRow.getCell(3).value, '', 'missing divisor is not guessed or defaulted');
 assert.equal(missingSourceRow.getCell(5).value.result ?? '', '', 'missing-factor box result is blank, not zero');
 assert.match(missingSourceRow.getCell(sourceSheet.columnCount).formula, /ISNUMBER\(C\d+\)/);
-const unitFooters = [...Array(matrixSheet.rowCount - 1)].map((_, index) => matrixSheet.getRow(index + 2));
+const unitFooters = [...Array(matrixSheet.rowCount - 2)].map((_, index) => matrixSheet.getRow(index + 3));
 const bunchFooter = unitFooters.find(row => row.getCell(1).value === '단 합계');
 const boxFooter = unitFooters.find(row => row.getCell(1).value === '박스 합계');
 assert.ok(bunchFooter && boxFooter, 'each unit gets a distinct total footer');
@@ -263,8 +278,8 @@ const cust8BoxSourceColumn = sourceSheet.getRow(1).values.indexOf('8 박스수')
 assert.doesNotMatch(sourceBunchFooter.getCell(cust8BoxSourceColumn).formula, /C3=/, 'customer footer guard also considers only same-unit source rows');
 const sourceSteamFooter = sourceSheet.getRows(5, sourceSheet.rowCount - 4).find(row => row.getCell(1).value === '송이 합계');
 assert.equal(sourceSteamFooter.getCell(5).value.result ?? '', '', 'positive same-unit unknown factor keeps its footer unknown');
-assert.equal(matrixSheet.getRow(2).getCell(1).border.left.style, 'thin');
-assert.equal(matrixSheet.getRow(2).getCell(1).fill.fgColor.argb, 'FFF3F4F6');
+assert.equal(matrixSheet.getRow(3).getCell(1).border.left.style, 'thin');
+assert.equal(matrixSheet.getRow(3).getCell(1).fill.fgColor.argb, 'FFF3F4F6');
 assert.equal(bunchFooter.getCell(1).font.bold, true);
 
 for (const mutate of [
@@ -316,10 +331,11 @@ const actualGeneratedColumns = generated.columns.filter(column => !column.empty)
 assert.deepEqual(actualGeneratedColumns.map(column => generatedCustomerRow.getCell(10 + generated.columns.indexOf(column)).value), [2, 3, 5, 7, 11],
   'year collision and uppercase/lowercase suffix weeks map to separate exact columns');
 const crossYearSelected = selectChinaOrderSubweek(generated, '2026/01-03A');
+assert.equal(chinaOrderExportMetadata(crossYearSelected, downloadedAt).filename, '1-3A 중국 발주 SEA.xlsx', 'suffix and selected-year isolation survive filename shortening');
 const crossYearMatrixWorkbook = await buildChinaOrderWorkbook(crossYearSelected, mapping);
 const crossYearMatrixSheet = crossYearMatrixWorkbook.getWorksheet('품목별업체수량');
 assert.ok(crossYearMatrixSheet, 'selected cross-year/suffix report gets a matrix sheet');
-assert.equal(crossYearMatrixSheet.getRow(2).getCell(3).value.result, '7(—)', 'same major week in the prior year and 03 suffix do not leak into the selected total');
+assert.equal(crossYearMatrixSheet.getRow(3).getCell(3).value.result, '7(—)', 'same major week in the prior year and 03 suffix do not leak into the selected total');
 const filteredSubweek = selectChinaOrderSubweek(generated, '2026/01-01', new Set(['7|10|단']));
 const filteredWorkbook = await buildChinaOrderWorkbook(filteredSubweek, mapping);
 const filteredReopened = new ExcelJS.Workbook();
@@ -345,6 +361,6 @@ const wideSource = wideWorkbook.getWorksheet('수량원본');
 assert.match(wideSource.getCell('D2').formula,/^SUM\(F2:[A-Z]+2\)$/,'more than255 customers use one bounded raw quantity range');
 assert.equal(wideSource.getCell('D2').value.result,260);
 assert.equal(wideSource.getCell('E2').value.result,130);
-assert.equal(wideWorkbook.getWorksheet('품목별업체수량').getCell('C2').value.result,'260(130)');
+assert.equal(wideWorkbook.getWorksheet('품목별업체수량').getCell('C3').value.result,'260(130)');
 assert.ok(wideSource.getCell('E3').formula.length<200,'unit footer has bounded range formula, not an enumerated argument list');
 console.log('chinaOrderWorkbook tests passed');
