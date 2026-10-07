@@ -344,10 +344,10 @@ async function run() {
   shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'T', modifiers: ['control'] });
   await waitFor(() => sourceWindow.menuOpen, 'Ctrl+T menu shortcut');
   console.log('Smoke: keyboard');
-  await shellContents.executeJavaScript('document.querySelector("#menuSearch").focus()');
-  assert.equal(await shellContents.executeJavaScript('document.activeElement.id'), 'menuSearch', 'menu search is keyboard focusable');
+  await waitFor(() => shellContents.executeJavaScript('document.querySelector(".app-shell").classList.contains("menu-open") && document.activeElement.id === "menuSearch"'), 'Ctrl+T moves focus to menu search');
+  await shellContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   await shellContents.executeJavaScript(`document.querySelector('[data-id="${first.id}"] .tab-main').focus()`);
-  assert.equal(await shellContents.executeJavaScript('document.activeElement.matches(".tab-main")'), true, 'tab control receives focus before F2');
+  await waitFor(() => shellContents.executeJavaScript(`document.activeElement.matches('.tab-main') && document.activeElement.closest('.tab')?.dataset.id === ${JSON.stringify(first.id)}`), 'tab focus settles before F2');
   shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'F2' });
   shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'F2' });
   await waitFor(() => shellContents.executeJavaScript('Boolean(document.querySelector(".tab-rename"))'), 'F2 name editor');
