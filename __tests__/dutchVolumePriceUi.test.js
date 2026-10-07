@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { defaultPivotBoardWeek } from '../lib/pivotAvailableWeeks.js';
 const page = fs.readFileSync(new URL('../pages/stats/dutch-volume-board.js', import.meta.url), 'utf8');
 const volumeSheet = fs.readFileSync(new URL('../components/dutch/DutchVolumeSheet.js', import.meta.url), 'utf8');
 const pricing = fs.readFileSync(new URL('../lib/dutchVolumePrice.js', import.meta.url), 'utf8');
@@ -80,6 +81,8 @@ assert.match(page, /dutchPriceKey\(row, bulkPriceConfig\)/, '단가 입력과 �
 assert.match(page, /match\?\.estUnit \? match\.estUnit : '견적단위: 검증 후 확인'/, '편집 표에는 원 기호 대신 견적단위만 표시해야 합니다.');
 assert.match(page, /isDutchBulkPriceCustomer\(row, bulkPriceConfig\)/, '포함 업체만 일괄 단가로 표시해야 합니다.');
 assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, source: 'orders' \}\)/, '선택 연도의 주문 입력 세부차수 목록을 조회해야 합니다.');
+assert.match(page, /source: 'incoming', country: 'netherlands'/, '네덜란드 입고가 존재하는 차수도 조회해야 합니다.');
+assert.equal(defaultPivotBoardWeek(['41-01', '40-02'], ['40-03']), '41-01', '첫 화면은 최신 입고 차수를 선택해야 합니다.');
 assert.match(page, /\(sourceMode === 'SAVED' && !availableWeeks\.includes\(week\) \? \[week, \.\.\.availableWeeks\] : availableWeeks\)\.map\(recordedWeek/, 'DB 입력 이력은 유지하고 저장본의 현재 차수도 선택지로 보존해야 합니다.');
 assert.match(page, /baseIndex - delta/, '이전·다음 버튼은 주차 계산이 아니라 DB 입력 차수 순서를 따라야 합니다.');
 assert.doesNotMatch(page, /let major = Number/, '35-01에서 36-01로 앞자리만 건너뛰는 계산 이동을 다시 사용하면 안 됩니다.');

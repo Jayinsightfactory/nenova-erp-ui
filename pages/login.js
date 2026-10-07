@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import DesktopDownloadButton from '../components/DesktopDownloadButton';
 
 export default function Login() {
   const router = useRouter();
@@ -113,6 +114,13 @@ export default function Login() {
               </button>
             </div>
           </form>
+
+          <div style={{ marginTop:16, paddingTop:12, borderTop:'1px dashed #CCC', textAlign:'center' }}>
+            <DesktopDownloadButton fullWidth />
+            <div style={{ fontSize:11, color:'#666', marginTop:6, lineHeight:1.5 }}>
+              Windows 64비트 · v1.2.1 · 업무 화면을 탭과 창으로 사용
+            </div>
+          </div>
 
           {/* 모바일 로그인 바로가기 */}
           <div style={{ marginTop:16, paddingTop:12, borderTop:'1px dashed #CCC', textAlign:'center' }}>

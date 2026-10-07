@@ -14,7 +14,7 @@ process.on('unhandledRejection', error => { console.error('Unhandled smoke error
 const ORIGIN = 'https://nenovaweb.com';
 const USER_DATA = path.join(os.tmpdir(), `nenova-desktop-smoke-${process.pid}`);
 const OUTPUT = path.resolve(__dirname, '..', 'test-output');
-let dialogAnswer = 0;
+let dialogAnswer = 1;
 let accountActor = 'desktop-test';
 let bootstrapOverride = null;
 let holdAccountBAuth = false;
@@ -153,6 +153,58 @@ async function run() {
   await first.view.webContents.executeJavaScript(`localStorage.setItem('account-specific-value', 'belongs-to-A')`);
 
   await first.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value = '편집 후에도 유지'`);
+  const initialShell = await sourceWindow.win.webContents.executeJavaScript(`(() => ({
+    brand: getComputedStyle(document.querySelector('.brandbar')).visibility,
+    toolbar: getComputedStyle(document.querySelector('.toolbar')).visibility,
+    status: getComputedStyle(document.querySelector('.statusbar')).visibility,
+    tabbar: getComputedStyle(document.querySelector('.tabbar')).visibility,
+    toolsTabIndex: document.querySelector('#toolsButton').tabIndex,
+    toolsTag: document.querySelector('#toolsButton').tagName,
+  }))()`);
+  assert.equal(initialShell.brand, 'hidden', 'compact workspace hides brand bar');
+  assert.equal(initialShell.toolbar, 'hidden', 'compact workspace hides tools toolbar');
+  assert.equal(initialShell.status, 'hidden', 'compact workspace hides status bar');
+  assert.equal(initialShell.tabbar, 'visible', 'compact workspace keeps tabs visible');
+  assert.equal(initialShell.toolsTabIndex, 0, 'tools toggle is keyboard reachable');
+  assert.equal(initialShell.toolsTag, 'BUTTON');
+  assert.match(await first.view.webContents.executeJavaScript('navigator.userAgent'), new RegExp(`NenovaDesktop/${require('../package.json').version.replaceAll('.', '\\.')}`), 'business session UA identifies desktop 1.2');
+  assert.equal(first.view.getBounds().y, 44, 'compact tab workspace starts below the 44px tab bar');
+  assert.equal(first.view.getBounds().height, 1036, 'compact tab workspace uses the remaining 1036px');
+  const shellContents = sourceWindow.win.webContents;
+  const compactFavorite = await shellContents.executeJavaScript(`(() => {
+    const button = document.querySelector('#compactFavoriteButton');
+    return button && { text: button.textContent.trim(), pressed: button.getAttribute('aria-pressed'), visibility: getComputedStyle(button).visibility };
+  })()`);
+  assert.deepEqual(compactFavorite, { text: '☆', pressed: 'false', visibility: 'visible' }, 'compact shell exposes an unselected favorite button');
+  await shellContents.executeJavaScript(`document.querySelector('#compactFavoriteButton').click()`);
+  await waitFor(() => main.snapshot().favorites.some(item => item.url === first.url), 'compact favorite is saved');
+  const selectedCompactFavorite = await shellContents.executeJavaScript(`(() => ({ text: document.querySelector('#compactFavoriteButton').textContent.trim(), pressed: document.querySelector('#compactFavoriteButton').getAttribute('aria-pressed') }))()`);
+  assert.deepEqual(selectedCompactFavorite, { text: '★', pressed: 'true' }, 'compact favorite button reflects selection');
+  main.command(sourceWindow, 'menu', { open: true });
+  await waitFor(() => shellContents.executeJavaScript('document.querySelector("#favoritesSection").hidden === false'), 'home menu shows favorites section');
+  assert.ok(await shellContents.executeJavaScript(`document.querySelectorAll('#favoritesList .favorite-card').length > 0`), 'home favorites list displays the favorited tab');
+  main.command(sourceWindow, 'menu', { open: false });
+  await waitFor(() => shellContents.executeJavaScript('!document.querySelector(".app-shell").classList.contains("menu-open")'), 'return to compact workspace');
+
+  const toggleToolsWithKeyboard = async expectedOpen => {
+    shellContents.focus();
+    await shellContents.executeJavaScript(`document.querySelector('#toolsButton').focus()`);
+    assert.equal(await shellContents.executeJavaScript('document.activeElement.id'), 'toolsButton', 'tools toggle receives keyboard focus');
+    shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'Space' });
+    shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'Space' });
+    await waitFor(() => main.command(sourceWindow, 'state', {}).toolsOpen === expectedOpen, `tools panel ${expectedOpen ? 'opens' : 'closes'} from keyboard`);
+  };
+  await toggleToolsWithKeyboard(true);
+  assert.deepEqual(first.view.getBounds(), { x: 0, y: 128, width: 1920, height: 924 }, 'expanded tools reserve 128px top and 28px bottom');
+  await waitFor(() => first.view.webContents.executeJavaScript(`document.documentElement.dataset.nenovaDesktopTools === 'open'`), 'remote desktop tools marker opens');
+  assert.equal(first.view.webContents.id, firstContents.id, 'opening tools preserves the existing WebContents');
+  assert.equal(await first.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value`), '편집 후에도 유지', 'opening tools preserves the edited input');
+  await toggleToolsWithKeyboard(false);
+  assert.deepEqual(first.view.getBounds(), { x: 0, y: 44, width: 1920, height: 1036 }, 'collapsing tools restores compact workspace bounds');
+  await waitFor(() => first.view.webContents.executeJavaScript(`document.documentElement.dataset.nenovaDesktopTools === 'closed'`), 'remote desktop tools marker closes');
+  assert.equal(first.view.webContents.id, firstContents.id, 'closing tools preserves the existing WebContents');
+  assert.equal(await first.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value`), '편집 후에도 유지', 'closing tools preserves the edited input');
+
   const bootstrapRequestCount = fixtureRequests.filter(request => request.pathname === '/api/desktop/bootstrap').length;
   const firstPageRequestCount = fixtureRequests.filter(request => request.pathname === '/test/fixture').length;
   bootstrapOverride = {
@@ -174,6 +226,22 @@ async function run() {
   const failedSync = main.command(sourceWindow, 'state', {});
   assert.equal(failedSync.syncStatus, 'error', 'invalid bootstrap reports sync error');
   assert.deepEqual(failedSync.menus, [], 'invalid bootstrap exposes no partial menu');
+  assert.match(failedSync.notice, /최신 메뉴 확인에 실패/, 'bootstrap failure creates a shell notice');
+  const noticeButton = await shellContents.executeJavaScript(`(() => ({
+    visible: !document.querySelector('#toolsNotice').hidden,
+    label: document.querySelector('#toolsButton').getAttribute('aria-label'),
+    title: document.querySelector('#toolsButton').title,
+  }))()`);
+  assert.equal(noticeButton.visible, true, 'compact tools button shows its red notice badge');
+  assert.match(noticeButton.label, /최신 메뉴 확인에 실패/, 'tools button accessible name includes the notice');
+  assert.match(noticeButton.title, /최신 메뉴 확인에 실패/, 'tools button title includes the notice');
+  await shellContents.executeJavaScript(`document.querySelector('#toolsButton').click()`);
+  await waitFor(() => main.command(sourceWindow, 'state', {}).notice === '', 'opening tools marks notice handled');
+  assert.equal(main.command(sourceWindow, 'state', {}).message.includes('최신 메뉴 확인에 실패'), true, 'marking the notice handled retains the status message');
+  const clearedNotice = await shellContents.executeJavaScript(`({ hidden: document.querySelector('#toolsNotice').hidden, pressed: document.querySelector('#toolsButton').getAttribute('aria-pressed') })`);
+  assert.deepEqual(clearedNotice, { hidden: true, pressed: 'true' }, 'handled notice badge clears while tools expand');
+  await shellContents.executeJavaScript(`document.querySelector('#toolsButton').click()`);
+  await waitFor(() => main.command(sourceWindow, 'state', {}).toolsOpen === false, 'tools return to compact layout');
   assert.equal(main.tabs.has(first.id), true, 'bootstrap failure preserves current tabs');
   bootstrapOverride = null;
   await main.verifyAccount();
@@ -228,23 +296,40 @@ async function run() {
   await waitFor(() => first.view.webContents.executeJavaScript('window.__nonblankReceived === true'), 'nonblank popup opener message');
   assert.equal(await first.view.webContents.executeJavaScript('window.__nonblankHandle'), true, 'same-origin nonblank popup returns a usable handle');
 
-  const shellContents = sourceWindow.win.webContents;
   console.log('Smoke: popup opener');
   const assertShellWidth = async (width, filename) => {
     sourceWindow.win.setContentSize(width, 1080);
     await delay(150);
-    const dims = await shellContents.executeJavaScript('({innerWidth, documentWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth})');
+    main.command(sourceWindow, 'menu', { open: false });
+    main.command(sourceWindow, 'tools');
+    await delay(100);
+    const dims = await shellContents.executeJavaScript(`(() => {
+      const toolbar = document.querySelector('.toolbar');
+      const controls = [...toolbar.children].filter(el => !el.classList.contains('move-label') && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden');
+      const rects = controls.map(el => ({ name: el.id || el.className, left: el.getBoundingClientRect().left, right: el.getBoundingClientRect().right }));
+      const brandActions = document.querySelector('.brand-actions').getBoundingClientRect();
+      return { innerWidth, documentWidth: document.documentElement.scrollWidth, bodyWidth: document.body.scrollWidth,
+        toolbarVisibility: getComputedStyle(toolbar).visibility, statusVisibility: getComputedStyle(document.querySelector('.statusbar')).visibility, rects, brandActionsRight: brandActions.right };
+    })()`);
     assert.ok(dims.documentWidth <= dims.innerWidth, `${width}px shell horizontal overflow: ${JSON.stringify(dims)}`);
     assert.ok(dims.bodyWidth <= dims.innerWidth, `${width}px body horizontal overflow: ${JSON.stringify(dims)}`);
-    for (const open of [true, false]) {
-      main.command(sourceWindow, 'menu', { open });
-      await delay(50);
-      const footer = await shellContents.executeJavaScript('({top:document.querySelector(".statusbar").getBoundingClientRect().top,bottom:document.querySelector(".statusbar").getBoundingClientRect().bottom,height:innerHeight})');
-      assert.equal(footer.top, footer.height - 28, `footer top, menu=${open}`);
-      assert.equal(footer.bottom, footer.height, `footer bottom, menu=${open}`);
+    assert.equal(dims.toolbarVisibility, 'visible', `${width}px expanded toolbar is visible`);
+    assert.ok(dims.brandActionsRight <= dims.innerWidth - 140 + 0.5, `${width}px expanded brand actions avoid native caption controls: ${dims.brandActionsRight} <= ${dims.innerWidth - 140}`);
+    for (let i = 1; i < dims.rects.length; i++) {
+      assert.ok(dims.rects[i - 1].right <= dims.rects[i].left + 0.5, `${width}px toolbar controls overlap: ${JSON.stringify(dims.rects[i - 1])}, ${JSON.stringify(dims.rects[i])}`);
     }
+    const expandedFooter = await shellContents.executeJavaScript('({top:document.querySelector(".statusbar").getBoundingClientRect().top,bottom:document.querySelector(".statusbar").getBoundingClientRect().bottom,height:innerHeight})');
+    assert.equal(expandedFooter.top, expandedFooter.height - 28, `${width}px expanded footer top`);
+    assert.equal(expandedFooter.bottom, expandedFooter.height, `${width}px expanded footer bottom`);
+    main.command(sourceWindow, 'tools');
+    await delay(100);
+    const compactVisibility = await shellContents.executeJavaScript(`({toolbar:getComputedStyle(document.querySelector('.toolbar')).visibility,status:getComputedStyle(document.querySelector('.statusbar')).visibility})`);
+    assert.deepEqual(compactVisibility, { toolbar: 'hidden', status: 'hidden' }, `${width}px compact shell hides toolbar and status`);
     main.command(sourceWindow, 'menu', { open: true });
     await delay(100);
+    const menuFooter = await shellContents.executeJavaScript('({top:document.querySelector(".statusbar").getBoundingClientRect().top,bottom:document.querySelector(".statusbar").getBoundingClientRect().bottom,height:innerHeight})');
+    assert.equal(menuFooter.top, menuFooter.height - 28, `${width}px menu footer top`);
+    assert.equal(menuFooter.bottom, menuFooter.height, `${width}px menu footer bottom`);
     await capture(sourceWindow.win, filename);
   };
   await assertShellWidth(1920, 'shell-1920x1080.png');
@@ -253,13 +338,16 @@ async function run() {
   // Ctrl+T reopens the menu from a focused workspace.
   console.log('Smoke: shell layout');
   main.command(sourceWindow, 'menu', { open: false });
+  await waitFor(() => shellContents.executeJavaScript('!document.querySelector(".app-shell").classList.contains("menu-open")'), 'compact shell before Ctrl+T');
   shellContents.focus();
   shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'T', modifiers: ['control'] });
   shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'T', modifiers: ['control'] });
   await waitFor(() => sourceWindow.menuOpen, 'Ctrl+T menu shortcut');
   console.log('Smoke: keyboard');
-  await waitFor(() => shellContents.executeJavaScript('document.activeElement.id === "menuSearch"'), 'menu keyboard focus');
+  await waitFor(() => shellContents.executeJavaScript('document.querySelector(".app-shell").classList.contains("menu-open") && document.activeElement.id === "menuSearch"'), 'Ctrl+T moves focus to menu search');
+  await shellContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   await shellContents.executeJavaScript(`document.querySelector('[data-id="${first.id}"] .tab-main').focus()`);
+  await waitFor(() => shellContents.executeJavaScript(`document.activeElement.matches('.tab-main') && document.activeElement.closest('.tab')?.dataset.id === ${JSON.stringify(first.id)}`), 'tab focus settles before F2');
   shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'F2' });
   shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'F2' });
   await waitFor(() => shellContents.executeJavaScript('Boolean(document.querySelector(".tab-rename"))'), 'F2 name editor');
@@ -275,13 +363,13 @@ async function run() {
   await waitFor(() => sourceWindow.ids.indexOf(first.id) === beforeKeyboardReorder - 1, 'keyboard tab reorder');
 
   // A close confirmation can be cancelled, then accepted and completed.
-  dialog.showMessageBoxSync = () => dialogAnswer;
-  dialogAnswer = 0;
+  dialog.showMessageBoxSync = (_window, options) => { assert.deepEqual(options.buttons, ['닫기', '취소']); assert.equal(options.cancelId, 1); assert.equal(options.defaultId, 1); return dialogAnswer; };
+  dialogAnswer = 1;
   console.log('Smoke: cancel close begin');
   main.command(sourceWindow, 'close', { id: second.id });
   console.log('Smoke: cancel close returned');
   assert.ok(main.tabs.has(second.id), 'cancelled close retains tab');
-  dialogAnswer = 1;
+  dialogAnswer = 0;
   second.view.webContents.on('will-prevent-unload', () => console.log('Smoke: second will-prevent-unload'));
   second.view.webContents.on('close', () => console.log('Smoke: second close event'));
   second.view.webContents.on('destroyed', () => console.log('Smoke: second destroyed event'));
@@ -297,14 +385,14 @@ async function run() {
   assert.ok(guardedTab);
   await waitForTab(guardedTab, async tab => !tab.loading && await tab.view.webContents.executeJavaScript('Boolean(document.querySelector("#smoke-input"))'), 'beforeunload fixture content');
   await guardedTab.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value='beforeunload 값'; window.__blockUnload=true`);
-  const confirmAnswers = [1, 0];
-  dialog.showMessageBoxSync = () => confirmAnswers.shift() ?? 0;
+  const confirmAnswers = [0, 1];
+  dialog.showMessageBoxSync = () => confirmAnswers.shift() ?? 1;
   main.command(sourceWindow, 'close', { id: guardedTab.id });
   await delay(400);
   assert.ok(main.tabs.has(guardedTab.id), 'beforeunload cancellation leaves the tab registered');
   assert.equal(await guardedTab.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value`), 'beforeunload 값');
   await guardedTab.view.webContents.executeJavaScript(`window.__blockUnload=false`);
-  dialog.showMessageBoxSync = () => 1;
+  dialog.showMessageBoxSync = () => 0;
   main.command(sourceWindow, 'close', { id: guardedTab.id });
   await waitFor(() => !main.tabs.has(guardedTab.id), 'beforeunload tab close after page allows it');
   console.log('Smoke: unload guard');

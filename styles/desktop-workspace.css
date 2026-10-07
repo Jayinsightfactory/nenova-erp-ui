@@ -1,0 +1,12 @@
+/* Only the PC workspace hides duplicate navigation. The desktop's tools button
+   restores these controls (language, logout, contextual back) without a reload.
+   Business filters, action bars, tables, dialogs and printing are unchanged. */
+@media screen {
+  html[data-nenova-desktop="true"]:not([data-nenova-desktop-tools="open"])
+    :is([data-ui-sidebar], [data-ui-topbar], [data-ui-popupbar], .nv-standalone-back, [data-desktop-chrome]) {
+    display: none !important;
+  }
+  html[data-nenova-desktop="true"] [data-ui-shell="standard"] .main-content {
+    min-width: 0;
+  }
+}

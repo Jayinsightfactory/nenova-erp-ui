@@ -88,3 +88,7 @@ shell preload는 `newTab`, `activateTab`, `closeTab`, `moveTab`, `bookmark`, `ge
 | 패키지 및 로그 비밀값 검사 | 인증/DB 비밀값 없음 |
 
 이 목록은 위험 기반 데스크톱 검증이다. 기존 ERP API나 업무 UI를 변경했다면 저장소의 dnSpy·계약·교차연도·downstream·빌드 검증을 별도로 모두 수행한다.
+
+## 설치기 검증 경계
+
+사용자 PC에 같은 appId의 기존 설치가 있으면 /D로 임시 디렉터리를 지정해도 NSIS가 기존 버전을 제거할 수 있다. 이 경우 설치기를 실행하지 않고 win-unpacked를 별도 userData/sessionData로 실행한다. 설치·제거 시험은 격리 VM에서 한다. 사전 탐지는 버전이 붙는 DisplayName 접두사와 HKCU/HKLM 및 32/64비트 등록을 모두 확인한다. 실행 중인 사용자 프로그램을 중단하지 않는다. 근거: app-builder-lib/templates/nsis/installSection.nsh의 uninstallOldVersion 호출.

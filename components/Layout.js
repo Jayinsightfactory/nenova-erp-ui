@@ -9,6 +9,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useLang } from '../lib/i18n';
 import MenuBackButton from './MenuBackButton';
+import DesktopDownloadButton from './DesktopDownloadButton';
 import { rememberMenuRoute } from '../lib/menuNavigationHistory';
 import { WORKFLOW_OWNERS } from '../lib/workFlowOwners';
 
@@ -371,10 +372,11 @@ export default function Layout({ children, title }) {
         </div>
 
         <div className="main-content">
-          <div className="topbar" data-ui-topbar>
+          <div className="topbar" data-ui-topbar style={{ height:'auto', minHeight:36, flexWrap:'wrap', paddingTop:4, paddingBottom:4 }}>
             <span data-ui-page-title style={{fontWeight:'bold', fontSize:13}}>{t(pageTitle)}</span>
-            <span style={{marginLeft:'auto', display:'flex', gap:6, alignItems:'center'}}>
+            <span style={{marginLeft:'auto', display:'flex', flexWrap:'wrap', gap:6, alignItems:'center'}}>
               <ClientDate />
+              <DesktopDownloadButton />
               <MenuBackButton />
               {/* 언어 전환 버튼 */}
               <button className="btn btn-sm" onClick={toggleLang}

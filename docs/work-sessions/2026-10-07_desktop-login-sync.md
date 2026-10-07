@@ -17,6 +17,9 @@
 
 - 서버 bootstrap 5개, 데스크톱 단위 12개 통과.
 - Electron 1920×1080 및 작은 창 smoke, 별도 프로세스 재시작 복원 통과.
-- 설치·전체 ERP guard·배포 결과는 작업 완료 시 추가한다.
+- Windows 설치·실행·제거, 전체 ERP guard, UI layout, 통합 production build 통과.
+- [PR 953](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/953) 병합 ca21aa5d, [Cafe24 배포 및 hydration smoke](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37584428402) 성공.
+- 실제 운영 로그인 syncStatus=ready / v1.0.2·ca21aa5d, 계정 허용 메뉴 80개 서버와 일치. 주문·불량차감·호텔손익·견적 로드 확인, ERP 업무 쓰기 0건.
+- 설치 파일: C:/Users/USER/Downloads/Nenova-Desktop-1.1.0/Nenova-Desktop-Setup-1.1.0-x64.exe. SHA256 F954ECA118C2A4CC39CD3EF9F257EF4736CB6C0D3B56CE5150A5855B154A7EA4. NotSigned.
 
 설계: [LOGIN_SYNC](../desktop/LOGIN_SYNC.md).

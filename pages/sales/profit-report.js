@@ -17,6 +17,7 @@ import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
 import ProfitAuditIssueList from '../../components/ProfitAuditIssueList';
 import ProfitReportSnapshotBanner from '../../components/ProfitReportSnapshotBanner';
 import ProfitWeekCheckPanel from '../../components/ProfitWeekCheckPanel';
+import ProfitStockAdjustmentNotes from '../../components/ProfitStockAdjustmentNotes';
 import { allowedProfitClassificationTargets } from '../../lib/profitReportClassificationInput';
 
 function getDefaultYear() {
@@ -1874,6 +1875,7 @@ export default function ProfitReportPage() {
               {saving ? '저장 중…' : '비고 저장'}
             </button>
           </div>
+          <ProfitStockAdjustmentNotes orderYear={data.orderYear} major={data.major} confirmed={Boolean(data.confirmed)} refreshToken={data} />
         </div>
       )}
 

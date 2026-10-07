@@ -1930,7 +1930,7 @@ export default function WeekPivot() {
       <div style={{position:'sticky',top:0,zIndex:100,background:'linear-gradient(to right,#1a237e,#1976d2)',
                    color:'#fff',padding:'6px 12px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',
                    boxShadow:'0 2px 8px rgba(0,0,0,0.3)'}}>
-        <span style={{fontWeight:700,fontSize:14,whiteSpace:'nowrap'}}>📊 차수피벗</span>
+        <span data-desktop-chrome style={{fontWeight:700,fontSize:14,whiteSpace:'nowrap'}}>📊 차수피벗</span>
         <span style={{width:1,height:20,background:'rgba(255,255,255,0.3)',margin:'0 4px'}} />
         {/* 양쪽 동시 이동 <<< */}
         <button

@@ -16,6 +16,7 @@ assert.match(page, /box-badge\[data-digits="1"\]\{width:15px\}/, '고밀도 보�
 assert.match(page, /box-badge\[data-digits="2"\]\{width:19px\}/, '고밀도 보기에서 2자리 번호는 중간 폭을 사용한다');
 assert.match(page, /box-badge\[data-digits="3"\]\{width:24px\}/, '고밀도 보기에서 3자리 번호는 넓은 폭을 사용한다');
 assert.match(page, /font-size:15px;line-height:18px;font-weight:900/, '고밀도 셀에서도 수량을 굵게 표시한다');
+assert.match(page, /\.board td span\.qty\{left:0;width:100%/, '수량 텍스트를 셀 전체 폭 중앙에 정렬한다');
 assert.match(page, /\.qty\{position:absolute;z-index:5;[^}]*pointer-events:none\}/, '박스번호 확장 레이어가 있어도 패킹 수량은 위 레이어에서 항상 표시한다');
 assert.match(page, /order-qty/, '패킹 수량과 다른 전산 주문수량은 비교값으로 함께 표시한다');
 assert.match(page, /\.box-badges\{z-index:3;/, '박스번호는 수량보다 아래 표시 레이어를 사용한다');
@@ -35,8 +36,9 @@ assert.match(page, /grid-template-columns:minmax\(0,1fr\) 292px/, '1920 화면�
 assert.match(page, /\.page,\.toolbar,main,\.board-wrap,aside\{min-width:0\}/, '넓은 물량표가 grid 최소폭을 밀어 우측 인보이스 영역을 화면 밖으로 보내지 않는다');
 assert.match(page, /\/api\/stats\/china-volume-board/, '작업본·입고원장 스냅샷은 중국 전용 API에 저장한다');
 assert.match(page, /작업 저장/, '차수별 작업 저장 버튼을 제공한다');
-assert.match(page, /const DEFAULT_WEEK = '35-01'/, '기본 조회 차수는 35-01이다');
-assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, source: 'orders' \}\)/, '중국 물량표도 선택 연도의 실제 주문 입력 차수를 조회한다');
+assert.match(page, /source: 'orders' \}\),[\s\S]*source: 'incoming', country: 'china'/, '중국 물량표는 주문차수와 중국 실제 입고차수를 함께 조회한다');
+assert.match(page, /\.board td span\.qty\{left:0;width:100%;\}/, '중국 물량표 수량은 셀 전체 너비 기준으로 중앙 정렬한다');
+assert.match(page, /defaultPivotBoardWeek\(incomingWeeks, orderWeeks\)/, '페이지 최초 진입은 최신 중국 입고 차수를 우선 선택한다');
 assert.match(page, /availableWeeks\.map/, 'DB 입력 세부차수를 축약하지 않고 선택지로 표시한다');
 assert.match(page, /baseIndex - delta/, '이전·다음 이동은 계산한 주차가 아니라 DB 입력 차수 배열을 따른다');
 assert.match(page, /aria-label="이전 입력 차수"/, '왼쪽 DB 입력 차수 이동 버튼을 제공한다');
@@ -44,7 +46,7 @@ assert.match(page, /aria-label="다음 입력 차수"/, '오른쪽 DB 입력 차
 assert.doesNotMatch(page, /stepChinaOrderWeek/, '35-01에서 36-01로 건너뛰는 계산식 차수 이동을 사용하지 않는다');
 assert.match(page, /적용: \$\{sourceFileName\}/, '현재 적용된 패킹리스트 파일명을 표시한다');
 assert.match(page, /nextRows: matched, nextCells: \{\}[^;]*nextPhase: 'REVIEW'/, '패킹 업로드 직후 전산 물량표를 덮지 않고 매칭 검토 작업본으로 저장한다');
-assert.match(page, /packingPhase === 'APPLIED' \? \{ \.\.\.cells, \.\.\.automatic \} : cells/, '수동 매칭 중에는 확정 물량표를 덮지 않는다');
+assert.match(page, /packingPhase === 'APPLIED' \? \{ \.\.\.automatic, \.\.\.cells \} : cells/, '업로드 적용 후에도 사용자가 직접 고친 셀값을 보존한다');
 assert.match(page, /nextPhase: 'APPLIED'/, '모든 미매칭을 수정한 뒤 명시적으로 매칭 적용 상태를 저장한다');
 assert.match(page, /1\. 전산 물량표 확인/, '전산 물량표→인보이스 대조→미매칭 수정→적용 순서를 안내한다');
 assert.match(page, /인보이스·매칭 대조/, '전산 물량표 옆에서 인보이스 원문과 매칭 결과를 동시에 표시한다');
@@ -75,5 +77,13 @@ assert.match(page, /expectedRowVersion/, '저장·삭제는 작업본 RowVersion
 assert.match(page, /STALE_BOARD_VERSION/, '낡은 작업본 저장 충돌은 재조회 안내로 표시한다');
 assert.ok(!page.includes('localStorage'), '작업본·입고원장은 브라우저 임시 저장소가 아니라 중국 전용 DB API에만 저장한다');
 assert.ok(!page.includes('/api/shipment/'), '웹 물량표 화면은 ERP 출고 쓰기 API를 호출하지 않는다');
+assert.match(page, /박스 일괄 입력/, '셀 편집 외에 품목·업체·수량·박스번호를 모아 입력하는 별도 창을 제공한다');
+assert.match(page, /onKeyDown=\{event => handleEnter\(event, index, [0-3]\)\}/, '일괄 입력창의 Enter 이동을 각 입력칸에 제공한다');
+assert.match(page, /전체 적용/, '일괄 입력 행 전체를 검증한 뒤 한 번에 적용한다');
+assert.match(page, /CellHistoryModal/, '셀에 표시된 수정 횟수를 눌러 변경 이력을 확인한다');
+assert.match(page, /buildChinaVolumeGridTotals/, '수량 편집 때 품목·업체·전체 합계를 셀에서 재계산한다');
+assert.match(page, /품목 합계/, '품목 합계를 그리드에 표시한다');
+assert.match(page, /업체 합계/, '업체별 합계를 그리드 하단에 표시한다');
+assert.match(page, /parseChinaManualBoxNumbers/, '점으로 구분한 박스번호를 숫자 목록으로 정규화한다');
 console.log('chinaVolumeBoard UI contract passed');
 
