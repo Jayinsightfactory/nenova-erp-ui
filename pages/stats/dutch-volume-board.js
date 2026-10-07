@@ -11,6 +11,7 @@ import ErpMatchPicker from '../../components/dutch/ErpMatchPicker';
 import DutchVolumeSheet from '../../components/dutch/DutchVolumeSheet';
 import DutchWorkHistory from '../../components/dutch/DutchWorkHistory';
 import { buildDutchWorkPayload, restoreDutchWorkSnapshot, DUTCH_WORK_CLIENT_MAX_BYTES } from '../../lib/dutchVolumeWorkClient';
+import { defaultPivotBoardWeek, mergePivotAvailableWeeks } from '../../lib/pivotAvailableWeeks';
 
 const customerName = value => String(value || '').split('\n')[0].trim();
 const BULK_PRICE_CONFIG_KEY = 'nenova.dutch-volume-bulk-price.v1';
@@ -67,7 +68,7 @@ export default function DutchVolumeBoard() {
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
   const [year, setYear] = useState(currentYear);
-  const [week, setWeek] = useState('35-01');
+  const [week, setWeek] = useState('');
   const [availableWeeks, setAvailableWeeks] = useState([]);
   const [weeksLoading, setWeeksLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -170,14 +171,20 @@ export default function DutchVolumeBoard() {
     async function loadRecordedWeeks() {
       setWeeksLoading(true);
       try {
-        const result = await apiGet('/api/stats/pivot-weeks', { orderYear: year, source: 'orders' });
+        const [orderResult, incomingResult] = await Promise.all([
+          apiGet('/api/stats/pivot-weeks', { orderYear: year, source: 'orders' }),
+          apiGet('/api/stats/pivot-weeks', { orderYear: year, source: 'incoming', country: 'netherlands' }),
+        ]);
         if (!active) return;
-        const recorded = Array.isArray(result.weeks) ? result.weeks : [];
+        const orderWeeks = Array.isArray(orderResult.weeks) ? orderResult.weeks : [];
+        const incomingWeeks = Array.isArray(incomingResult.weeks) ? incomingResult.weeks : [];
+        const recorded = mergePivotAvailableWeeks(orderWeeks, incomingWeeks);
         setAvailableWeeks(recorded);
         // An archive is an explicit selected scope, not today's LIVE default.
         if (sourceModeRef.current === 'SAVED') return;
         if (!recorded.length) { if (sourceModeRef.current !== 'UPLOAD') setError(`${year}년 DB 입력 차수가 없습니다.`); return; }
-        const selectedWeek = recorded.includes(week) ? week : recorded[0];
+        const selectedWeek = defaultPivotBoardWeek(incomingWeeks, orderWeeks);
+        if (!selectedWeek) { if (sourceModeRef.current !== 'UPLOAD') setError(`${year}년 네덜란드 주문·입고 차수가 없습니다.`); return; }
         if (selectedWeek !== weekRef.current) { invalidate(); weekRef.current = selectedWeek; if (sourceModeRef.current === 'UPLOAD') reloadUploadedScope(); }
         setWeek(selectedWeek);
         if (sourceModeRef.current !== 'UPLOAD') await loadLive(year, selectedWeek);
