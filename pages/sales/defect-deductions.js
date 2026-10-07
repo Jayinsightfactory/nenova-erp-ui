@@ -10,7 +10,7 @@ import { getStatementProductName } from '../../lib/estimatePrintFormats';
 import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
-import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
+import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, getSupportLinkedEstimate, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
 import { sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
 import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
 import { selectDefectRange } from '../../lib/defectDragSelection.js';
@@ -1440,10 +1440,10 @@ export default function SalesDefectDeductionsPage() {
     window.print();
   };
 
-  const openCustomerEstimate = (row) => {
+  const openCustomerEstimate = (row, scope = null) => {
     const url = buildEstimateCustomerUrl({
-      year,
-      week,
+      year: scope?.year || year,
+      week: scope?.week || week,
       custKey: row?.custKey,
       customerName: row?.customerName,
     });
@@ -1857,6 +1857,7 @@ export default function SalesDefectDeductionsPage() {
               const scopeLabel = supportStatusDetail(row, year, week);
               const estimateCapture = buildSupportEstimateCapture(row, { year, week });
               const productDisplay = buildDefectProductDisplay(row);
+              const registeredEstimate = getSupportLinkedEstimate(row);
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''} ${row.exactExistingEstimate ? 'support-existing-row' : ''}`} key={key || `support-${index}`}>
                 <td className="defect-select-cell"><label className="defect-select-hit" {...selectionZoneProps('support-register', key, supportSelected, setSupportSelected)}><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={checkable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!checkable} /></label></td>
                 <td><div className="support-row-number"><span>{index + 1}</span>{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><label className="defect-select-hit management-select-hit" {...selectionZoneProps('support-manage', key, managementSelected, setManagementSelected)}><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(key)} disabled={managementLoading} onChange={() => toggleManagement(key)} /></label><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</div></td>
@@ -1882,7 +1883,8 @@ export default function SalesDefectDeductionsPage() {
                 <td>
                   <div className="support-status-actions">
                     <span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{supportRegistrationDecisionLabel(row)}</span>
-                    {Number(row.custKey) > 0 && <button type="button" className="btn btn-xs support-estimate-open" onClick={() => openCustomerEstimate(row)} title={`${year}년 ${week}차 ${row.customerName || '거래처'} 견적서에서 불량차감 현황을 엽니다.`}>견적서</button>}
+                    {registeredEstimate && <button type="button" className="btn btn-xs support-estimate-registered" onClick={() => openCustomerEstimate(row, registeredEstimate)} title={`${registeredEstimate.year}년 ${registeredEstimate.week}차 실제 등록 견적 #${registeredEstimate.estimateKey}`}>등록 견적</button>}
+                    {Number(row.custKey) > 0 && <button type="button" className="btn btn-xs support-estimate-open" onClick={() => openCustomerEstimate(row)} title={`${year}년 ${week}차 ${row.customerName || '거래처'} 견적서에서 불량차감 현황을 엽니다.`}>{week}차 견적</button>}
                     {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
                     {existingEstimateCount > 0 && <details className="support-existing-estimates" onKeyDown={event => { if (event.key === 'Escape' && event.currentTarget.open) { event.preventDefault(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}><summary>기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
                   </div>
@@ -2205,8 +2207,8 @@ export default function SalesDefectDeductionsPage() {
         .support-row-number { flex-wrap: nowrap; }
         .support-row-number .management-select-hit { display: inline-flex; margin: 0; }
         .support-row-number .management-select-hit + button { display: inline-flex; align-items: center; margin: 0; min-width: 0; min-height: 32px; }
-        .support-grid .defect-row td:nth-child(5) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .support-product-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .support-grid .defect-row td:nth-child(5) { white-space: normal; overflow-wrap: anywhere; }
+        .support-product-name { display: block; white-space: normal; overflow-wrap: anywhere; }
         .support-cost-cell { white-space: nowrap; color: #0f766e; }
         .support-cost-cell strong { font-variant-numeric: tabular-nums; }
         .support-cost-cell small { display: block; margin-top: 1px; color: #64748b; font-size: 12px; }

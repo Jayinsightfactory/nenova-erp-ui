@@ -14,6 +14,7 @@ import {
   shouldResetIncomingConfirmation,
 } from '../lib/salesDefectDeductionState.js';
 import { applyManualCostContext, getManualCostOverride, saveManualCost, validateManualCost } from '../lib/salesDefectManualCost.js';
+import { getSupportLinkedEstimate, supportRegistrationDecisionLabel, supportStatusDetail } from '../lib/salesDefectSupportStatus.js';
 
 assert.equal(shouldResetIncomingConfirmation(
   { custKey: 10, prodKey: 20, quantity: 4, sourceUnit: '단', creditApplied: true, farmName: 'Farm A', note: '확인' },
@@ -85,6 +86,48 @@ assert.equal(evaluateDefectRegistrationEligibility({ row: confirmedRow, context:
 const reviewPageSource = fs.readFileSync('pages/sales/defect-deduction-register-review.js', 'utf8');
 const deductionServiceSource = fs.readFileSync('lib/salesDefectDeductions.js', 'utf8');
 const migrationSource = fs.readFileSync('docs/migrations/2026-07-22_web_sales_defect_deduction.sql', 'utf8');
+
+// 2026/38-01에 실제 음수 견적이 연결된 기존 원장 행은 2026/40 목록에서도
+// 등록 차수를 표시한다. 잔여수량이 남아 보이는 과거 행도 재등록 가능으로 바꾸지 않는다.
+const legacyLinkedRow = {
+  deductionKey: 428, orderYear: 2026, orderWeek: '38', estimateKey: 9474,
+  custKey: 101, prodKey: 202, originalQuantity: 2, remainingQuantity: 2,
+  status: 'CARRYOVER', registrationEligible: false, registrationEligibilityCode: 'ALREADY_REGISTERED',
+  verifiedLinkedEstimate: { estimateKey: 9474, year: 2026, week: '38-01', custKey: 101, prodKey: 202, quantity: -2 },
+};
+assert.deepEqual(getSupportLinkedEstimate(legacyLinkedRow), legacyLinkedRow.verifiedLinkedEstimate);
+assert.equal(supportRegistrationDecisionLabel(legacyLinkedRow), '2026/38 등록됨');
+assert.match(supportStatusDetail(legacyLinkedRow, 2026, 40), /2026년 38-01차 견적 #9474에 등록됨 · 현재 선택 차수와 다름/);
+assert.equal(legacyLinkedRow.registrationEligible, false);
+const partialLinkedRow = { ...legacyLinkedRow, originalQuantity: 10, remainingQuantity: 4 };
+assert.equal(partialLinkedRow.registrationEligible, false, '부분처리 잔여를 표시 정책으로 재등록 가능하게 바꾸지 않는다.');
+assert.equal(supportRegistrationDecisionLabel(partialLinkedRow), '2026/38 등록됨');
+assert.equal(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: null }), null);
+assert.equal(supportRegistrationDecisionLabel({ ...legacyLinkedRow, verifiedLinkedEstimate: null }), '등록 불가');
+assert.equal(supportStatusDetail({ ...legacyLinkedRow, verifiedLinkedEstimate: null }, 2026, 40).includes('견적 #9474'), false);
+assert.equal(supportRegistrationDecisionLabel({ ...legacyLinkedRow, registrationEligibilityCode: 'COST_MISSING' }), '등록 불가');
+assert.equal(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, estimateKey: 9475 } }), null);
+assert.equal(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, custKey: 999 } }), null);
+assert.equal(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, prodKey: 999 } }), null);
+assert.equal(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, quantity: 2 } }), null);
+assert.equal(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, year: 1999 } }), null);
+assert.equal(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, year: 2026.5 } }), null);
+assert.equal(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, week: '54-01' } }), null);
+assert.equal(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, week: '2025-38-01' } }), null, '주차에 들어 있는 다른 연도를 실제 연도로 오인하면 안 된다.');
+assert.deepEqual(getSupportLinkedEstimate({ ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, week: '2026-38-01' } }), legacyLinkedRow.verifiedLinkedEstimate, '일치하는 연도 접두만 제거해 전체 주차를 보존한다.');
+const priorYearLinkedRow = { ...legacyLinkedRow, verifiedLinkedEstimate: { ...legacyLinkedRow.verifiedLinkedEstimate, year: 2025 } };
+assert.equal(supportRegistrationDecisionLabel(priorYearLinkedRow), '2025/38 등록됨');
+assert.match(supportStatusDetail(priorYearLinkedRow, 2026, 38), /2025년 38-01차 견적 #9474에 등록됨 · 현재 선택 차수와 다름/);
+assert.match(deductionServiceSource, /LEFT JOIN Estimate linkedE ON linkedE\.EstimateKey=d\.EstimateKey[\s\S]*linkedE\.ProdKey=d\.ProdKey AND linkedE\.Quantity<0/);
+assert.match(deductionServiceSource, /LEFT JOIN ShipmentMaster linkedSm ON linkedSm\.ShipmentKey=linkedE\.ShipmentKey[\s\S]*linkedSm\.CustKey=d\.CustKey AND ISNULL\(linkedSm\.isDeleted,0\)=0/);
+assert.match(deductionServiceSource, /item\.verifiedLinkedEstimate = getSupportLinkedEstimate\(item\)/);
+const storedSnapshotQuery = deductionServiceSource.split('async function getStoredSnapshot')[1].split('function hasMatchingChange')[0];
+const listQuery = deductionServiceSource.split('export async function listDeductions')[1].split('const managerOptions = await loadManagerOptions()')[0];
+assert.doesNotMatch(storedSnapshotQuery, /linkedE|linkedSm|LinkedEstimate/, '저장 직후 단건 조회에 없는 JOIN 별칭을 사용하면 SQL 오류가 난다.');
+for (const alias of ['Key', 'Year', 'Week', 'CustKey', 'ProdKey', 'Quantity']) {
+  assert.match(listQuery, new RegExp(`AS LinkedEstimate${alias}\\b`), `목록 SELECT에 연결 견적 ${alias}가 있어야 한다.`);
+}
+assert.match(listQuery, /LEFT JOIN Estimate linkedE[\s\S]*LEFT JOIN ShipmentMaster linkedSm/, '연결 견적 별칭과 검증 JOIN은 같은 목록 조회에 있어야 한다.');
 
 // 품목 매칭은 표시/등록 대상의 키만 바꾸는 작업이다. 이미 수입부에서
 // 확정한 Farm/Credit/Note/ImportConfirmed 감사 상태를 매칭 변경만으로
