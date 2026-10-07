@@ -303,6 +303,7 @@ export default function IncomingPricePage() {
               <input type="checkbox" checked={includeFreight} onChange={e => setIncludeFreight(e.target.checked)} />
               국내 운송료 포함
             </label>
+            <a href="/import?role=finance" style={{ fontSize: 12, color: '#1166BB' }}>허브 정산 탭에서도 입력할 수 있습니다 →</a>
             {msg && <span style={{ color: '#388e3c', fontWeight: 600 }}>{msg}</span>}
           </div>
 
