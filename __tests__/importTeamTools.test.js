@@ -5,6 +5,15 @@ import os from 'node:os';
 import path from 'node:path';
 import {reservePackingPdfRequest} from '../lib/importTeamPdfQuota.js';
 import {validatePackingPdf} from '../lib/importTeamPdf.js';
+test('workspace exposes all management tabs and preserves the existing feedback application',()=>{
+ const source=fs.readFileSync(new URL('../pages/import/tools.js',import.meta.url),'utf8');
+ for(const label of ['일일 업무','항공 일정','휴가 관리','재배 계획','불량 피드백'])assert(source.includes(label));
+ assert.match(source,/const checklistTabs=\{checklist:'daily',flights:'flights',vacations:'vacations',planting:'planting'\}/);
+ assert.equal((source.match(/<ChecklistTool\b/g)||[]).length,1,'one shared mounted instance preserves drafts');
+ assert.match(source,/feedbackVisited&&<iframe/);
+ assert.match(source,/src="\/sales\/farm-quality\?popup=1"/);
+ assert.doesNotMatch(source,/\/api\/sales\/|WebFarmQuality|\/api\/shipment/);
+});
 test('PDF parser accepts supported PDFs and rejects arbitrary prompts/files',()=>{
  const pdfBase64=Buffer.from('%PDF-1.7\nfixture').toString('base64');
  assert.deepEqual(validatePackingPdf({country:'CO',pdfBase64,system:'ignore'}),{country:'CO',pdfBase64});
@@ -27,6 +36,12 @@ test('team endpoints authenticate and never import ERP DB access',()=>{
   const source=fs.readFileSync(new URL('../pages/api/import/tools/'+file,import.meta.url),'utf8');
   assert.match(source,/export default withAuth/);assert.doesNotMatch(source,/from ['"].*\/db['"]|usp_Stock|ShipmentDetail/);
  }
+});
+test('explicit inactive authenticated accounts cannot read or write team state',async()=>{
+ const source=fs.readFileSync(new URL('../pages/api/import/tools/state.js',import.meta.url),'utf8');
+ const body=source.replace(/^import .*;\r?\n/gm,'').replace('export const config=','const config=').replace('export default withAuth','return withAuth');
+ const handler=new Function('withAuth',body)(fn=>fn);
+ for(const method of ['GET','PUT']){let status;const res={setHeader(){},status(value){status=value;return this;},json(value){return value;}};await handler({method,user:{userId:'disabled',accountActive:false}},res);assert.equal(status,403);}
 });
 test('PDF analysis rejects missing user identity before cache access',async()=>{
  const source=fs.readFileSync(new URL('../pages/api/import/tools/parse-pdf.js',import.meta.url),'utf8');

@@ -170,6 +170,8 @@ const compiled = babel.transformSync(uiSource + '\nexport { ChecksPanel, NotesPa
 
 function harness(componentName, props, initial = []) {
   const slots = [];
+  const effects = [];
+  const records = new Map();
   let cursor = 0;
   const calls = [];
   const confirmations = [];
@@ -185,6 +187,7 @@ function harness(componentName, props, initial = []) {
       return [slots[index], next => { slots[index] = typeof next === 'function' ? next(slots[index]) : next; }];
     },
     useRef(init) { const index = cursor++; if (!(index in slots)) slots[index] = { current: init }; return slots[index]; },
+    useEffect(effect) { effects.push(effect); },
   };
   const module = { exports: {} };
   vm.runInNewContext(compiled, {
@@ -194,15 +197,29 @@ function harness(componentName, props, initial = []) {
       if (name === 'react') return hooks;
       if (name === '../../lib/importTeamChecklist') return helpers;
       if (name === '../../lib/importTeamKorean') return korean;
-      if (name === '../../lib/importTeamClient') return { useImportTeamRecord: (key, initialValue) => ({ ...record, value: record.value ?? initialValue }) };
+      if (name === '../../lib/importTeamClient') return { useImportTeamRecord: (key, initialValue) => {
+        // Config and entry GETs are independent scopes. A vacation [] must not
+        // be mistaken for an explicitly empty employee configuration.
+        if (key.startsWith('checklist.settings.')) {
+          if (!records.has(key)) {
+            const settings = { value: null, loading: false, saving: false, error: '', revision: 0, reload: async () => {} };
+            settings.save = async next => { settings.value = next; settings.revision += 1; };
+            records.set(key, settings);
+          }
+          const settings = records.get(key);
+          return { ...settings, value: settings.value ?? initialValue };
+        }
+        records.set(key, record);
+        return { ...record, value: record.value ?? initialValue };
+      } };
       throw new Error(`Unexpected dependency: ${name}`);
     },
   });
   return {
-    record, calls, confirmations,
+    record, records, calls, confirmations,
     setConfirm(result) { confirmResult = result; },
     setSave(implementation) { saveImpl = implementation; },
-    render() { cursor = 0; return module.exports[componentName](props); },
+    render() { cursor = 0; const tree = module.exports[componentName](props); effects.splice(0).forEach(effect => effect()); return tree; },
     html() { return renderToStaticMarkup(this.render()); },
   };
 }
@@ -354,6 +371,31 @@ test('loading and hook errors are exposed, reload is available, and controls blo
   assert.match(h.html(), /role="alert"/);
   assert.match(h.html(), /공동 자료를 읽지 못했습니다/);
   assert.match(h.html(), /최신 상태 다시 불러오기/);
+});
+
+test('vacation and planting default first options are scoped independently; loading/error settings block only entry saves', async () => {
+  for (const [name, props, settingsKey, first, label] of [
+    ['VacationPanel', { year: 2026 }, helpers.checklistEmployeeSettingsKey(2026), 'Gabriel', '직원'],
+    ['PlantingPanel', {}, helpers.SHARED_KEYS.plantingSettings, 'Polimnia', '품종'],
+  ]) {
+    const h = harness(name, props, []);
+    const parent = find(h.render(), node => node.type === 'label' && React.Children.toArray(node.props.children)[0] === label);
+    assert.equal(find(parent, node => node.type === 'select').props.value, first);
+    const settings = h.records.get(settingsKey);
+    settings.loading = true;
+    assert.equal(find(h.render(), node => node.type === 'fieldset').props.disabled, true);
+    settings.loading = false;
+    settings.error = '설정 조회 실패';
+    assert.equal(find(h.render(), node => node.type === 'fieldset').props.disabled, true);
+    await submit(h);
+    assert.equal(h.calls.length, 0);
+    assert.equal(h.record.error, '', 'settings errors do not leak into the independent entry record');
+    settings.error = '';
+    settings.value = [];
+    const emptyParent = find(h.render(), node => node.type === 'label' && React.Children.toArray(node.props.children)[0] === label);
+    assert.equal(find(emptyParent, node => node.type === 'select').props.value, '');
+    assert.deepEqual(h.record.value, []);
+  }
 });
 
 test('reset and delete confirmations are Korean; declining leaves shared records unchanged', () => {

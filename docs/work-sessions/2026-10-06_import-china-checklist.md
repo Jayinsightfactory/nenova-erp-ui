@@ -34,3 +34,17 @@
 - production build 통과. production 앱의 실제 Excel 및 CRUD/체크 담당자 smoke 재통과.
 - 기존 AWB1379.60 / NL7589송이 / 중국발주1850단 smoke 재통과, AI0/운영쓰기0.
 - gpt-5.6-sol/high 독립 재검토 승인: 두 지적 해결, 새 차단 이슈 없음. 구현은 gpt-6.1-sol/high 분리 작업, 메인이 계약·통합·운영 배포 담당.
+
+### 병합 및 배포 추적
+- PR #919: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/919 (병합 완료).
+- merge commit `98509838cf1409988c2de723246d1f4ab5940194`.
+- GitHub ERP Contract Guard run37433518811 통과.
+- Cafe24 run37433725302: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37433725302 — 배포 진행 중. 아래 최종 결과를 확인할 것.
+
+### 운영 완료
+- run37433725302 성공, 배포 head `98509838cf1409988c2de723246d1f4ab5940194` 확인.
+- https://nenovaweb.com/import/tools 운영 API에서 새 요일 템플릿 키 GET200 확인.
+- 운영 UI 실제 Excel 업로드/생성 및 fixture 격리 CRUD·체크 계정·새로고침 유지 통과.1920×1080/100%,900/480px 가로넘침0/pageerror0.
+- AI 호출0/ERP 쓰기0/운영 공동자료 쓰기0. 실제 인증 후 서버 읽기, 변경 시나리오는 브라우저 fixture와 로컬 저장소 테스트로 검증하여 운영 업무에 테스트 자료를 넣지 않음.
+- 최초 운영 시도는 서버 교체 전 GET400; 배포 성공 후 재시도 정상. 새 기능 장애로 분류하지 않는다.
+- 미확정 매칭은 자동으로 확정하지 않았다. 두 표본 카탈로그 기준47개 확인항목은 사용자가 실제 품목을 선택해야 다운로드 가능하며, 확인한 family+length 별칭은 다음 파일에 재사용된다.

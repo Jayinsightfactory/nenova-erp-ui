@@ -141,13 +141,15 @@ const compiled = babel.transformSync(uiSource + '\nexport { ChecksPanel, Weekday
   plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')],
 }).code;
 function harness(name, props, initial = {}) {
-  const slots = [], calls = [], confirmations = [];
+  const slots = [], calls = [], confirmations = [], effects = [];
+  const records = new Map();
   let cursor = 0, confirm = true, saveImpl = async () => {};
   const record = { value: initial, taskActors: {}, revision: 1, history: [], loading: false, saving: false, error: '', reload: async () => {} };
   record.save = async value => { calls.push(value); await saveImpl(value); record.value = value; record.revision += 1; };
   const hooks = { ...React,
     useState(init) { const i = cursor++; if (!(i in slots)) slots[i] = typeof init === 'function' ? init() : init; return [slots[i], next => { slots[i] = typeof next === 'function' ? next(slots[i]) : next; }]; },
     useRef(init) { const i = cursor++; if (!(i in slots)) slots[i] = { current: init }; return slots[i]; },
+    useEffect(effect) { effects.push(effect); },
   };
   const module = { exports: {} };
   vm.runInNewContext(compiled, { module, exports: module.exports, crypto: { randomUUID }, Date, Math,
@@ -156,7 +158,19 @@ function harness(name, props, initial = {}) {
       if (name === 'react') return hooks;
       if (name.endsWith('importTeamChecklist')) return helpers;
       if (name.endsWith('importTeamKorean')) return korean;
-      if (name.endsWith('importTeamClient')) return { useImportTeamRecord: (key, initialValue) => ({ ...record, value: record.value ?? initialValue }) };
+      if (name.endsWith('importTeamClient')) return { useImportTeamRecord: (key, initialValue) => {
+        if (key.startsWith('checklist.settings.')) {
+          if (!records.has(key)) {
+            const settings = { value: null, taskActors: {}, revision: 0, history: [], loading: false, saving: false, error: '', reload: async () => {} };
+            settings.save = async value => { settings.value = value; settings.revision += 1; };
+            records.set(key, settings);
+          }
+          const settings = records.get(key);
+          return { ...settings, value: settings.value ?? initialValue };
+        }
+        records.set(key, record);
+        return { ...record, value: record.value ?? initialValue };
+      } };
       throw Error(name);
     },
   });
@@ -164,9 +178,9 @@ function harness(name, props, initial = {}) {
   const managed = { ...record, busy: false, notice: '', fail(error) { localError = error; },
     async run(value, success) { if (managed.busy) return false; managed.busy = true; localError = null; try { await record.save(value); success?.(); return true; } catch (error) { localError = error; return false; } finally { managed.busy = false; } },
   };
-  return { record, calls, confirmations, managed,
+  return { record, records, calls, confirmations, managed,
     setSave(impl) { saveImpl = impl; }, setConfirm(value) { confirm = value; },
-    render() { cursor = 0; Object.assign(managed, record, { error: localError }); return module.exports[name]({ ...props, ...(name === 'WeekdayTemplatePanel' ? { record: managed } : {}) }); },
+    render() { cursor = 0; Object.assign(managed, record, { error: localError }); const tree = module.exports[name]({ ...props, ...(name === 'WeekdayTemplatePanel' ? { record: managed } : {}) }); effects.splice(0).forEach(effect => effect()); return tree; },
     html() { return renderToStaticMarkup(this.render()); },
   };
 }
