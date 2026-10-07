@@ -44,7 +44,7 @@ assert.match(page, /aria-label="다음 입력 차수"/, '오른쪽 DB 입력 차
 assert.doesNotMatch(page, /stepChinaOrderWeek/, '35-01에서 36-01로 건너뛰는 계산식 차수 이동을 사용하지 않는다');
 assert.match(page, /적용: \$\{sourceFileName\}/, '현재 적용된 패킹리스트 파일명을 표시한다');
 assert.match(page, /nextRows: matched, nextCells: \{\}[^;]*nextPhase: 'REVIEW'/, '패킹 업로드 직후 전산 물량표를 덮지 않고 매칭 검토 작업본으로 저장한다');
-assert.match(page, /packingPhase === 'APPLIED' \? \{ \.\.\.cells, \.\.\.automatic \} : cells/, '수동 매칭 중에는 확정 물량표를 덮지 않는다');
+assert.match(page, /packingPhase === 'APPLIED' \? \{ \.\.\.automatic, \.\.\.cells \} : cells/, '업로드 적용 후에도 사용자가 직접 고친 셀값을 보존한다');
 assert.match(page, /nextPhase: 'APPLIED'/, '모든 미매칭을 수정한 뒤 명시적으로 매칭 적용 상태를 저장한다');
 assert.match(page, /1\. 전산 물량표 확인/, '전산 물량표→인보이스 대조→미매칭 수정→적용 순서를 안내한다');
 assert.match(page, /인보이스·매칭 대조/, '전산 물량표 옆에서 인보이스 원문과 매칭 결과를 동시에 표시한다');
@@ -75,5 +75,13 @@ assert.match(page, /expectedRowVersion/, '저장·삭제는 작업본 RowVersion
 assert.match(page, /STALE_BOARD_VERSION/, '낡은 작업본 저장 충돌은 재조회 안내로 표시한다');
 assert.ok(!page.includes('localStorage'), '작업본·입고원장은 브라우저 임시 저장소가 아니라 중국 전용 DB API에만 저장한다');
 assert.ok(!page.includes('/api/shipment/'), '웹 물량표 화면은 ERP 출고 쓰기 API를 호출하지 않는다');
+assert.match(page, /박스 일괄 입력/, '셀 편집 외에 품목·업체·수량·박스번호를 모아 입력하는 별도 창을 제공한다');
+assert.match(page, /onKeyDown=\{event => handleEnter\(event, index, [0-3]\)\}/, '일괄 입력창의 Enter 이동을 각 입력칸에 제공한다');
+assert.match(page, /전체 적용/, '일괄 입력 행 전체를 검증한 뒤 한 번에 적용한다');
+assert.match(page, /CellHistoryModal/, '셀에 표시된 수정 횟수를 눌러 변경 이력을 확인한다');
+assert.match(page, /buildChinaVolumeGridTotals/, '수량 편집 때 품목·업체·전체 합계를 셀에서 재계산한다');
+assert.match(page, /품목 합계/, '품목 합계를 그리드에 표시한다');
+assert.match(page, /업체 합계/, '업체별 합계를 그리드 하단에 표시한다');
+assert.match(page, /parseChinaManualBoxNumbers/, '점으로 구분한 박스번호를 숫자 목록으로 정규화한다');
 console.log('chinaVolumeBoard UI contract passed');
 
