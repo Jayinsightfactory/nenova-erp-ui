@@ -90,7 +90,7 @@ export default function IncomingBoxByCountryPage() {
               <tbody>
                 {report.rows.map((r, i) => (
                   <tr key={`${r.awb}-${i}`} style={{ background: r.needsCheck ? '#fff1f2' : r.source.startsWith('카톡') ? '#eef4ff' : '#fff' }}>
-                    <td style={td}>{r.subWeek}</td><td style={td}>{r.country}</td><td style={td}>{r.item}</td><td style={{ ...td, fontFamily: 'monospace' }}>{r.awb}</td>
+                    <td style={td}>{r.subWeek}</td><td style={td}>{r.country}</td><td style={td}>{r.item}</td><td style={{ ...td, fontFamily: 'JetBrains Mono, Pretendard, Malgun Gothic, monospace' }}>{r.awb}</td>
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{fmt(r.finalBox)}</td><td style={td}>{r.source}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{r.kakaoBox == null ? '' : fmt(r.kakaoBox)}</td><td style={{ ...td, textAlign: 'right' }}>{r.webBox == null ? '' : fmt(r.webBox)}</td>
                     <td style={td}>{r.arrival}</td><td style={{ ...td, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.farms}</td><td style={td}>{r.note}</td>
