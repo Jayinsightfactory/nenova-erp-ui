@@ -8,10 +8,15 @@ const loading=()=> <p className={styles.loading} role="status">업무도구를 �
 const PackingListTool=dynamic(()=>import('../../components/import-tools/PackingListTool'),{ssr:false,loading});
 const PedidosTool=dynamic(()=>import('../../components/import-tools/PedidosTool'),{ssr:false,loading});
 const ChecklistTool=dynamic(()=>import('../../components/import-tools/ChecklistTool'),{ssr:false,loading});
-const tabs=[['packing','패킹리스트','송장 · 항공운송장 변환'],['orders','국가별 발주서','엑셀 변환 · 다운로드'],['checklist','업무 체크리스트','팀 업무 · 일정 관리'],['history','변경 이력','공동 자료 수정 기록']];
+const HandoffTool=dynamic(()=>import('../../components/import-tools/HandoffTool'),{ssr:false,loading});
+const tabs=[['packing','패킹리스트','송장 · 항공운송장 변환'],['orders','국가별 발주서','엑셀 변환 · 다운로드'],['checklist','일일 업무','요일 업무 · 미결 · 결제'],['flights','항공 일정','추가 · 수정 · 도착/반입'],['vacations','휴가 관리','잔여 일수 · 계정 이력'],['planting','재배 계획','배정 추가 · 수정 · 삭제'],['feedback','불량 피드백','기존 피드백 · 처리 이력'],['handoff','인수인계·특이사항','이슈 · 처리 · 주의 · 체크'],['history','변경 이력','공동 자료 수정 기록']];
+const checklistTabs={checklist:'daily',flights:'flights',vacations:'vacations',planting:'planting'};
 const recordLabels={'packing.catalog':'품목 카탈로그','packing.aliases':'품목 매칭표','checklist.pending':'미결 업무','checklist.flights':'항공 일정','checklist.planting':'재배 계획'};
 function recordLabel(key){
  if(recordLabels[key])return recordLabels[key];
+ if(key==='checklist.handoffs')return '인수인계·특이사항';
+ if(key==='checklist.settings.planting')return '재배 품종·목표 설정';
+ if(key.startsWith('checklist.settings.employees.'))return '휴가 직원·연간 한도 · '+key.slice('checklist.settings.employees.'.length);
  if(key.startsWith('checklist.templates.'))return '요일별 업무 설정 · '+({lunes:'월요일',martes:'화요일',miercoles:'수요일',jueves:'목요일',viernes:'금요일',sabado:'토요일',domingo:'일요일'})[key.slice('checklist.templates.'.length)];
  for(const [prefix,label] of [['checklist.day.','일일 업무'],['checklist.month.','월별 결제'],['checklist.vacations.','휴가 관리']])if(key.startsWith(prefix))return `${label} · ${key.slice(prefix.length)}`;
  return key;
@@ -32,15 +37,23 @@ function History(){
 }
 export default function ImportTools(){
  const [tab,setTab]=useState('packing'),[saveError,setSaveError]=useState('');
+ const [feedbackVisited,setFeedbackVisited]=useState(false);
+ const [flightCount,setFlightCount]=useState(null);
+ function selectTab(id){setTab(id);if(id==='feedback')setFeedbackVisited(true);}
  const storage=useMemo(()=>createImportTeamStorage(setSaveError),[]);
  return <><Head><title>수입부 업무도구 | Nenova</title></Head><main className={styles.workspace}>
   <header className={styles.header}><div><span className={styles.eyebrow}>수입 업무</span><h1>수입부 업무도구</h1><p>파일 변환부터 일정 확인까지, 한곳에서 처리하세요.</p></div><div className={styles.headerMeta}><span className={styles.saveBadge}>팀 공동 저장 · 수정자 이력</span><small>주문·분배·재고 자동 등록 없음</small></div></header>
-  <nav aria-label="수입부 업무도구" className={styles.tabs}>{tabs.map(([id,label,description],index)=><button type="button" key={id} onClick={()=>setTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}</strong><small>{description}</small></span></button>)}</nav>
+  <nav aria-label="수입부 업무도구" className={styles.tabs}>{tabs.map(([id,label,description],index)=><button type="button" key={id} onClick={()=>selectTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${checklistTabs[id]?'checklist':id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}{id==='flights'&&flightCount>0&&<span className={styles.flightBadge}>반입 대기 {flightCount}</span>}</strong><small>{description}</small></span></button>)}</nav>
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
    <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool storage={storage}/></div>
    <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool/></div>
-   <div id="import-panel-checklist" hidden={tab!=='checklist'}><ChecklistTool/></div>
+   <div id="import-panel-checklist" hidden={!checklistTabs[tab]}><ChecklistTool activeTab={checklistTabs[tab]} hideNavigation onFlightCountChange={setFlightCount}/></div>
+   <div id="import-panel-feedback" hidden={tab!=='feedback'}>
+    <div className={styles.sectionHeading}><div><h2>불량 피드백 관리</h2><p>기존 농장 불량·피드백과 같은 자료입니다. 등록·수정·처리 및 삭제 권한은 기존 화면 기준을 유지합니다.</p></div><a href="/sales/farm-quality?popup=1" target="_blank" rel="noreferrer">큰 창에서 열기 ↗</a></div>
+    {feedbackVisited&&<iframe className={styles.feedbackFrame} title="기존 농장 불량·피드백 관리" src="/sales/farm-quality?popup=1"/>}
+   </div>
+   <div id="import-panel-handoff" hidden={tab!=='handoff'}><HandoffTool/></div>
    <div id="import-panel-history" hidden={tab!=='history'}>{tab==='history'&&<History/>}</div>
   </div>
  </main></>;
