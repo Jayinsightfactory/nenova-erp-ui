@@ -38,7 +38,7 @@ async function deletionFocusRegression(){
  const handlerCode=source.slice(source.indexOf(' async function removeCase(){'),source.indexOf(' return <>'));
  for(const scenario of ['connected','detached','disabled','no-origin','refresh-failed','delete-failed']){
   const calls=[],pendingFocus={current:false},saveLock={current:false};
-  const original=scenario==='no-origin'?null:{isConnected:scenario!=='detached'&&scenario!=='refresh-failed',disabled:scenario==='disabled',focus(){calls.push('original');}};
+  const original=scenario==='no-origin'?null:{isConnected:scenario!=='detached',disabled:scenario==='disabled',focus(){calls.push('original');}};
   const fallback={isConnected:true,disabled:false,focus(){calls.push('refresh');}};
   let saving=false,loading=false,selected='c1',finishRefresh;
   const invoke=()=>restore(pendingFocus,saving,loading,saveLock,{current:original},{current:fallback});
@@ -52,10 +52,10 @@ async function deletionFocusRegression(){
   invoke();assert.deepEqual(calls,[],'no focus during refresh/saving');
   finishRefresh();await deletion;
   assert.equal(saving,false);assert.equal(loading,false);assert.equal(saveLock.current,false);
-  if(scenario!=='connected'){fallback.disabled=true;invoke();assert.deepEqual(calls,[],'wait for fallback to become enabled');fallback.disabled=false;}
-  invoke();assert.deepEqual(calls,[scenario==='connected'?'original':'refresh'],scenario);
+  fallback.disabled=true;invoke();assert.deepEqual(calls,[],'wait for refresh button to become enabled');fallback.disabled=false;
+  invoke();assert.deepEqual(calls,['refresh'],scenario);
   invoke();assert.equal(calls.length,1,'focus restoration is consumed once');
  }
- console.log('Legacy deletion focus: post-refresh original/fallback, refresh failure and delete failure passed');
+ console.log('Legacy deletion focus: stable refresh target, connected stale card and delete failure passed');
 }
 deletionFocusRegression().catch(error=>{console.error(error);process.exitCode=1;});

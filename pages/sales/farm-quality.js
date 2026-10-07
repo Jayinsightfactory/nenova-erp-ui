@@ -35,8 +35,8 @@ export default function FarmQuality(){
  });
  useEffect(()=>{
   if(!deleteFocusPending.current||saving||loading||saveLock.current)return;
-  const original=selectionTrigger.current;
-  const target=original?.isConnected&&!original.disabled?original:deleteFocusFallback.current;
+  // The deleted card may remain as stale DOM if the refresh fails.
+  const target=deleteFocusFallback.current;
   if(!target?.isConnected||target.disabled)return;
   deleteFocusPending.current=false;target.focus();
  },[saving,loading]);
