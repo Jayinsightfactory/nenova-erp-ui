@@ -136,7 +136,7 @@ export default function WeekdayEstimateWorkspace() {
   currentScope.current = scopeKey;
   const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
   const exportState = useRef(null);
-  exportState.current = { plans: activePlans, compareRows, cycles, baselines, baselineCandidates, carryover, allPlans: plans, wilsonRecords, wilsonDrafts, exportWilsonDay };
+  exportState.current = { plans: activePlans, compareRows, cycles, baselines, baselineCandidates, carryover, allPlans: plans, wilsonRecords, wilsonDrafts, exportWilsonDay, wilsonBusy, wilsonError };
   const activeWilsonInputs = wilsonDrafts.filter(record => record.scopeKey === scopeKey && activePlans.some(plan =>
     Number(plan.year) === record.year && Number(plan.prodKey) === record.prodKey && plan.date === record.date
     && plan.orderWeek === record.orderWeek && Number(plan.quantity) === record.expectedTotal));
@@ -533,6 +533,7 @@ export default function WeekdayEstimateWorkspace() {
     try {
       const snapshot = JSON.stringify(exportState.current);
       if (!compareRows) throw new Error('전산 조회가 완료된 후 다운로드하세요.');
+      if (wilsonBusy || wilsonError) throw new Error(wilsonError || '윌슨 수량 조회가 완료된 후 다운로드하세요.');
       const currentCarry = carryover?.scopeKey === scopeKey ? carryover : null;
       const matrix = applyWeekdayCarryoverToMatrix(buildHorizontalWeekdayMatrix(cycles, activePlans, compareRows,
         baselines.filter(record => Number(record.custKey) === Number(customer?.CustKey)),
@@ -1135,7 +1136,7 @@ export default function WeekdayEstimateWorkspace() {
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
     {wilsonError && <div role="alert" style={{color:'#b42318',padding:6}}>윌슨: {wilsonError}</div>}
     {wilsonPending.length>0 && <button type="button" disabled={applyBusy || wilsonBusy || Boolean(pendingApply)} onClick={()=>retryWilson()}>윌슨 구분값 저장 확인 ({wilsonPending.length})</button>}
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy)} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy && !wilsonBusy && !wilsonError)} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
       wilsonRecords={wilsonRecords.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} wilsonDrafts={wilsonDrafts.filter(record=>record.scopeKey===scopeKey && activePlans.some(plan=>Number(plan.year)===record.year && Number(plan.prodKey)===record.prodKey && plan.date===record.date && Number(plan.quantity)===record.expectedTotal))} wilsonBusy={wilsonBusy} wilsonError={wilsonError} onEditWilson={editWilson}
       confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}

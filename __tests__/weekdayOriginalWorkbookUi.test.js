@@ -73,7 +73,7 @@ function downloadEnvironment() {
     originalWorkbook: { current: { fileId: 'file-a', scope, savedTemplate: true, file: { name: '주광.xlsx',
       arrayBuffer: () => new Promise(resolve => { release = () => resolve(bytes); }) } } },
     exportState: { current: { plans: [{ ...linked }], compareRows: [] } },
-    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],activeWilsonInputs:[],exportWilsonDay:'일',
+    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],activeWilsonInputs:[],exportWilsonDay:'일',wilsonBusy:false,wilsonError:'',
     buildHorizontalWeekdayMatrix: (...args) => { assert.equal(args[1],env.activePlans); assert.equal(args[2],env.compareRows); return {rows:[]}; },
     applyWeekdayCarryoverToMatrix: matrix => matrix,
     buildWeekdayWebExportSnapshot: (matrix,title,options) => { assert.equal(options.wilsonDrafts,env.activeWilsonInputs,'same scoped Wilson draft inputs as web matrix'); return {rows:[{name:'웹 품목',values:{quantity:3}}]}; },
@@ -124,4 +124,22 @@ test('manual imports still download full web work using saved design, not upload
   env.apiGet = async path => { assert.equal(path, '/api/estimate/weekday-template?custKey=533'); return {success:true,custKey:533,base64:'UEsDBA=='}; };
   await callback('downloadOriginalWorkbook','addSourceRow',env)();
   assert.equal(env.patchCalls,1); assert.equal(env.clicked,1); assert.equal(env.error,'');
+});
+test('unknown Wilson classification cannot be exported as zero', async () => {
+  for(const state of [{wilsonBusy:true},{wilsonError:'윌슨 조회 실패'}]) {
+    const env=Object.assign(downloadEnvironment(),state);
+    await callback('downloadOriginalWorkbook','addSourceRow',env)();
+    assert.equal(env.clicked,0);assert.equal(env.patchCalls,0);assert.match(env.error,/윌슨/);
+  }
+});
+test('Wilson selector remount always shares actual selected weekday including storage fallback', () => {
+  const matrixSource=readFileSync(new URL('../components/WeekdayCycleMatrix.js',import.meta.url),'utf8');
+  const effect=matrixSource.split('\n').find(line=>line.includes("useEffect(()=>{let resolved='일'"));
+  for(const stored of ['화',null,'invalid','throws']) {
+    const selected=[],shared=[];
+    new Function('useEffect','localStorage','wilsonWeekdays','setWilsonDay','onWilsonDayChange',effect)(
+      callback=>callback(),{getItem(){if(stored==='throws')throw Error('storage disabled');return stored;}},
+      ['목','금','토','일','월','화','수'],value=>selected.push(value),value=>shared.push(value));
+    assert.deepEqual(selected,[stored==='화'?'화':'일']);assert.deepEqual(shared,selected);
+  }
 });

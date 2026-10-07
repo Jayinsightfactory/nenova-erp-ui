@@ -320,7 +320,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const [wilsonDay,setWilsonDay]=useState('일');
   const [exportBusy,setExportBusy]=useState(false);
   const exportLock=useRef(false);
-  useEffect(()=>{try {const stored=localStorage.getItem('nenova-weekday-wilson-day');if(wilsonWeekdays.includes(stored)){setWilsonDay(stored);onWilsonDayChange?.(stored);}}catch {}},[]);
+  useEffect(()=>{let resolved='일';try {const stored=localStorage.getItem('nenova-weekday-wilson-day');if(wilsonWeekdays.includes(stored))resolved=stored;}catch {}setWilsonDay(resolved);onWilsonDayChange?.(resolved);},[]);
   const changeWilsonDay=value=>{setWilsonDay(value);onWilsonDayChange?.(value);try{localStorage.setItem('nenova-weekday-wilson-day',value);}catch{}};
   const [addedKeys, setAddedKeys] = useState([]);
   const [showUnallocated,setShowUnallocated] = useState(false);
