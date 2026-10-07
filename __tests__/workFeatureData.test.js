@@ -20,7 +20,13 @@ const w = require(modPath);
 // runtime 없으면 저장소 스냅샷 경로
 assert.strictEqual(w.featureFilePath('storyboards'), path.join(tmp, 'data', 'work-feature-storyboards.json'));
 assert.strictEqual(w.featureFilePath('../../etc/passwd'), null, '허용 이름만');
-assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations']);
+assert.deepStrictEqual([...w.FEATURE_NAMES], ['proposals', 'storyboards', 'workflows', 'simulations', 'adoption-ledger']);
+// 도입 레이더 장부: 파일명 adoption-ledger.json, updatedAt 만 있어도 받는다
+assert.strictEqual(w.featureFilePath('adoption-ledger'), path.join(tmp, 'data', 'adoption-ledger.json'));
+assert.strictEqual(w.saveFeatureFile('adoption-ledger', Buffer.from('{"days":[]}')).status, 400, 'adoption-ledger 는 updatedAt 필수');
+const al = w.saveFeatureFile('adoption-ledger', Buffer.from(JSON.stringify({ updatedAt: '2026-10-07T05:00:00Z', days: [] })));
+assert.ok(al.ok && al.generatedAt === '2026-10-07T05:00:00Z', JSON.stringify(al));
+assert.strictEqual(w.featureFilePath('adoption-ledger'), path.join(tmp, 'data', 'runtime', 'adoption-ledger.json'), 'adoption-ledger runtime 우선');
 assert.strictEqual(w.featureFilePath('workflows'), path.join(tmp, 'data', 'work-feature-workflows.json'));
 assert.strictEqual(w.featureFilePath('simulations'), path.join(tmp, 'data', 'work-feature-simulations.json'));
 
@@ -49,7 +55,10 @@ assert.ok(!/from '\.\.\/\.\.\/\.\.\/lib\/db'|\b(SELECT|INSERT|UPDATE|DELETE)\s/i
 
 // 페이지가 runtime 우선 경로를 쓰는지
 const page = fs.readFileSync(path.join(cwd, 'pages', 'my-work.js'), 'utf8');
-assert.ok(/featureFilePath\('storyboards'\)/.test(page) && /featureFilePath\('proposals'\)/.test(page), '/my-work 는 featureFilePath 로 읽음');
+// 2026-10 이후 탭 데이터는 /api/my-work/feature 지연 로딩(그 API 가 featureFilePath 사용). 직원 1인분(mineOnly)만 페이지가 직접 읽는다.
+assert.ok(/featureFilePath\('workflows'\)/.test(page) && /\/api\/my-work\/feature\?/.test(page), '/my-work 는 featureFilePath·/api/my-work/feature 로 읽음');
+const featApi = fs.readFileSync(path.join(cwd, 'pages', 'api', 'my-work', 'feature.js'), 'utf8');
+assert.ok(/featureFilePath\(name\)/.test(featApi) && /isOrbitReportViewer/.test(featApi), '/api/my-work/feature 는 featureFilePath + 관리자 게이트');
 
 // runtime 폴더는 git 추적 제외(배포가 덮어쓰지 않게)
 assert.ok(/^data\/runtime\/$/m.test(fs.readFileSync(path.join(cwd, '.gitignore'), 'utf8')), '.gitignore data/runtime/');
