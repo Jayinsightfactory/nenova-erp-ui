@@ -19,3 +19,5 @@
 ## 경계
 
 새 기능 배포 이전의 편집 draft는 React 메모리에만 있어 이전에 닫은 창 내용을 소급 복원할 수 없다. 기존 서버에 저장된 성공 분석과 확인/작업이력은 보존한다. 초기화나 매핑 변경 요청만으로 운영 차감/주문 원장을 수정·재실행하지 않는다. 임시 인증/probe 자료는TEMP에만 두고 커밋하지 않는다.
+
+**배포 전 완료.** 최신 master8fed49fe 통합 fresh build 및 전체 ERP·dnSpy·manifest81개/write guard(API변경0) 통과.1920×1080 일반·팝업 production-build fixture에서 느린 auth/me 동안 inert 입력보호,25행 완료복원,새 직접분석1회 후 재진입0분석,현재 주문/분배GET,부분완료 전체재실행차단,맨위Enter/Space/Tab/ShiftTab 및 초점복귀 통과. 업무 API 쓰기0·페이지 오류0. 독립 고성능 검토 승인. 운영배포/운영readonly 확인은 후속 기록한다.
