@@ -78,11 +78,14 @@ assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, sou
 assert.match(page, /\(sourceMode === 'SAVED' && !availableWeeks\.includes\(week\) \? \[week, \.\.\.availableWeeks\] : availableWeeks\)\.map\(recordedWeek/, 'DB 입력 이력은 유지하고 저장본의 현재 차수도 선택지로 보존해야 합니다.');
 assert.match(page, /baseIndex - delta/, '이전·다음 버튼은 주차 계산이 아니라 DB 입력 차수 순서를 따라야 합니다.');
 assert.doesNotMatch(page, /let major = Number/, '35-01에서 36-01로 앞자리만 건너뛰는 계산 이동을 다시 사용하면 안 됩니다.');
-assert.match(volumeSheet, /const widths = \[112, 204, 92\]/, '고정 정보 열의 폭을 줄여 업체 수량 열을 한 화면에 더 보여야 합니다.');
-assert.match(volumeSheet, /widthOf = column => column < stickyCount \? widths\[column\] : 68/, '업체별 수량 열은 기존보다 좁고 균일해야 합니다.');
+assert.match(volumeSheet, /const widths = \[96, 160, 76\]/, '고정 정보 열도 컴팩트하게 줄여 업체 수량 열을 더 보여야 합니다.');
+assert.match(volumeSheet, /widthOf = column => column < stickyCount \? widths\[column\] : 52/, '업체별 수량 셀은 더 좁고 균일해야 합니다.');
+assert.match(volumeSheet, /\.sheet-scroll table\{font-size:14px\}/, '좁힌 셀 안에서도 표 글자는 이전보다 커야 합니다.');
+assert.match(volumeSheet, /\.quantity-edit-trigger\{min-height:26px;font-size:15px;font-weight:800\}/, '물량 숫자는 축소된 전체 배율에서도 눈에 띄게 보여야 합니다.');
 assert.match(volumeSheet, /customer-header-label[\s\S]*customerLines\[0\][\s\S]*customerLines\[1\]/, '업체명과 CL 코드는 업체 열에서 위아래로 표시해야 합니다.');
-assert.match(volumeSheet, /productUnmatchedEntry[\s\S]*className="unmatched-link"/, '미매칭 품목은 품목명 옆에서 바로 편집 화면을 열 수 있어야 합니다.');
-assert.match(volumeSheet, /customerUnmatchedEntry[\s\S]*className="unmatched-link"/, '미매칭 업체도 업체 헤더에서 바로 편집할 수 있어야 합니다.');
+assert.match(volumeSheet, /productUnmatchedEntry[\s\S]*onMatch\(productUnmatchedEntry, 'product'/, '미매칭 품목 선택은 표 화면을 유지하고 별도 매칭 창을 열어야 합니다.');
+assert.match(volumeSheet, /customerUnmatchedEntry[\s\S]*onMatch\(customerUnmatchedEntry, 'customer'/, '미매칭 업체 선택은 표 화면을 유지하고 별도 매칭 창을 열어야 합니다.');
+assert.ok(page.indexOf('품목 / 원문') < page.indexOf('ERP 매칭 품목') && page.indexOf('ERP 매칭 품목') < page.indexOf('업체 / 원문') && page.indexOf('업체 / 원문') < page.indexOf('ERP 매칭 업체'), '원본 품목과 매칭 품목, 원본 업체와 매칭 업체를 각각 인접 배치해야 합니다.');
 assert.doesNotMatch(volumeSheet, /className="source-link"/, '매칭 성공 상태를 수량 셀마다 반복해 공간을 차지하면 안 됩니다.');
 assert.match(page, /matchStatusUsable = validationCurrent \|\| Boolean\(applyResult\?\.failed\)/, '적용 오류 후 초안을 고치기 전까지는 실패한 검증에서 미매칭 위치를 유지해야 합니다.');
 assert.match(page, /미매칭 · \{customerName\(row\.sourceCustomer \|\| row\.customer\)\}/, '검토 표에서는 간단히 미매칭과 업체명을 함께 표시해야 합니다.');
