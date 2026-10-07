@@ -1,0 +1,25 @@
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const { decryptTemplate, EXPECTED_SHA } = require('../scripts/install-weekday-template.cjs');
+const bytes = Buffer.from('Synthetic private workbook fixture');
+const key = crypto.randomBytes(32), iv = crypto.randomBytes(12);
+const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+const encrypted = Buffer.concat([cipher.update(bytes), cipher.final()]);
+const envelope = { version: 1, algorithm: 'aes-256-gcm', iv: iv.toString('hex'),
+  tag: cipher.getAuthTag().toString('hex'), data: encrypted.toString('base64') };
+const sha = crypto.createHash('sha256').update(bytes).digest('hex').toUpperCase();
+assert.deepEqual(decryptTemplate(envelope, key.toString('hex'), sha), bytes);
+assert.throws(() => decryptTemplate(envelope, key.toString('hex')));
+assert.throws(() => decryptTemplate(envelope, crypto.randomBytes(32).toString('hex'), sha));
+assert.throws(() => decryptTemplate({ ...envelope, tag: '0'.repeat(32) }, key.toString('hex'), sha));
+assert.throws(() => decryptTemplate(envelope, '', sha));
+assert.throws(() => decryptTemplate({ ...envelope, version: 2 }, key.toString('hex'), sha));
+const repositoryAsset = JSON.parse(fs.readFileSync('data/templates/weekday/jugwang-order.encrypted.json', 'utf8'));
+assert.equal(repositoryAsset.algorithm, 'aes-256-gcm');
+assert.ok(!fs.existsSync('data/templates/weekday/jugwang-order.xlsx'), 'raw workbook must not enter public repository');
+assert.ok(fs.readFileSync('lib/weekdaySavedTemplate.js', 'utf8').includes(EXPECTED_SHA));
+const workflow = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
+assert.match(workflow, /node scripts\/install-weekday-template\.cjs \|\| exit 1/);
+assert.match(workflow, /unset WEEKDAY_TEMPLATE_KEY/);
+console.log('weekday template encryption/integrity/deployment contract PASS');
