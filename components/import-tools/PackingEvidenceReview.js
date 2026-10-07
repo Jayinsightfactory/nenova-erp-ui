@@ -165,6 +165,7 @@ export default function PackingEvidenceReview({
   useEffect(() => {
     if (!open || !preview) return undefined;
     let stale = false;
+    setHighlight({ source: 'none', bbox: null, label: '근거 위치 확인 중' });
     preview.locateEvidence(pageNumber, activeEvidence).then(result => {
       if (!stale) setHighlight(result);
     }).catch(() => {
@@ -332,7 +333,10 @@ export default function PackingEvidenceReview({
           <section className={styles.formPanel} aria-label="인식값 검토">
             {safeRows.length ? <>
               <label className={styles.invoicePicker}>검토할 인보이스
-                <select ref={firstControlRef} value={selectedKey} onChange={event => setSelectedKey(event.target.value)}>
+                <select ref={firstControlRef} value={selectedKey} onChange={event => {
+                  setSelectedKey(event.target.value);
+                  selectEvidence(event.target.value, 'gw');
+                }}>
                   {safeRows.map((row, index) => <option key={rowIdentity(row)} value={rowIdentity(row)}>{row.label || `인보이스 ${index + 1}`}</option>)}
                 </select>
               </label>
