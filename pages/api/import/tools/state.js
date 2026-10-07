@@ -6,6 +6,7 @@ export default withAuth(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   if(req.user?.accountActive===false)return res.status(403).json({success:false,error:'비활성 계정은 공동 자료에 접근할 수 없습니다.'});
   try {
+    if(req.query.key==='knowledge.guidance')return res.status(403).json({success:false,error:'지침 전용 API를 사용하세요.'});
     if(req.method==='GET') {
       if(!req.query.key) return res.json({success:true,history:await listImportTeamHistory()});
       const record=await readImportTeamRecord(req.query.key);

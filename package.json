@@ -3,6 +3,8 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
+    "test:operations-knowledge": "node --test __tests__/operationsKnowledgeSchema.test.js __tests__/operationsKnowledgeStore.test.js __tests__/operationsKnowledgeApi.test.js __tests__/operationsKnowledgeAttachments.test.js __tests__/operationsKnowledgeUi.test.js",
+    "posttest:import-team": "npm run test:operations-knowledge",
     "test:china-order-download": "node --test __tests__/chinaOrderCustomerMatrix.test.js __tests__/chinaOrderDownload.test.js __tests__/chinaOrderDownloadApi.test.js __tests__/chinaHfCodes.test.js __tests__/chinaOrderWorkbook.test.js __tests__/chinaOrderDownloadUi.test.js",
     "posttest:ui-layout": "npm run test:china-order-download",
     "pretest:ui-layout": "node __tests__/farmWeekBoard.test.js",

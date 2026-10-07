@@ -22,6 +22,8 @@ export const MANAGED_UPLOAD_ROUTES = [
   { location: '/api/import/tools/parse-pdf', bodyLimit: '32m' },
   // Shared catalog JSON is bounded to 6MiB by the application.
   { location: '/api/import/tools/state', bodyLimit: '8m' },
+  // Private guidance attachment: 10MiB application limit plus multipart overhead.
+  { location: '/api/operations-knowledge/attachments', bodyLimit: '12m' },
 ];
 // 하위 호환 별칭 — 기존 테스트/호출부가 참조한다.
 export const PNL_UPLOAD_LOCATION = MANAGED_UPLOAD_ROUTES[0].location;
