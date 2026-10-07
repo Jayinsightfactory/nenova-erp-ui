@@ -247,7 +247,7 @@ assert.doesNotMatch(pageSource, /previewCapture\s*:/, '캡쳐 미리보기는 �
 assert.doesNotMatch(pageSource, /<iframe/, '영업지원 미리보기는 iframe 원장 화면을 쓰지 않고 불량차감 목록만 보여야 한다.');
 assert.ok(pageSource.includes('<th>분배단가</th>'), '영업지원 목록은 분배단가 열을 표시해야 한다.');
 assert.ok(pageSource.includes('row.distributionCost'), '영업지원 목록은 EXE 호환 분배단가 조회 결과를 표시해야 한다.');
-assert.ok(pageSource.includes('.support-grid th, .support-grid td { padding: 4px 6px;'), '영업지원 목록은 텍스트 간격을 줄인 compact 행 간격을 사용해야 한다.');
+assert.ok(pageSource.includes('.support-grid th, .support-grid .defect-row td { padding: 3px;'), '영업지원 목록은 큰 본문과 작은 여백의 compact 행 간격을 사용해야 한다.');
 assert.ok(pageSource.includes('toggleAllSupport'), '영업지원 전체 선택/해제를 지원해야 한다.');
 assert.ok(pageSource.includes('support-usage-notice'), '영업지원 화면에 사용 방법 공지가 있어야 한다.');
 assert.ok(pageSource.includes('SUPPORT_REGISTER_USAGE_STEPS'), '영업지원 공지는 공통 사용 방법 단계를 표시해야 한다.');
@@ -263,7 +263,7 @@ assert.ok(pageSource.includes('existingEstimateRecords'), '업체의 기존 음�
 assert.ok(pageSource.includes('supportRegistrationDecisionLabel(row)'), '정확히 일치하는 기존 차감은 처리완료 상태와 견적키로 표시해야 한다.');
 assert.ok(pageSource.includes('supportStatusDetail(row, year, week)'), '처리상태는 이월 원차수를 숨기지 않고 보여야 한다.');
 assert.equal(pageSource.includes('수정 필요'), false, '처리상태는 수정 필요 대신 등록 가능/불가만 보여야 한다.');
-assert.ok(pageSource.includes('이 업체 기존 차감'), '동일 업체의 다른 기존 차감도 펼쳐 확인할 수 있어야 한다.');
+assert.ok(pageSource.includes('<summary>기존 차감 {existingEstimateCount}건</summary>'), '동일 업체의 다른 기존 차감도 펼쳐 확인할 수 있어야 한다.');
 assert.ok(pageSource.includes('&support=1'), '영업지원 등록은 처리로그 검토창 모드로 열려야 한다.');
 assert.ok(pageSource.includes('meaningfulHistory'), '변경없는 수정 이력은 화면에 표시하지 않아야 한다.');
 assert.ok(pageSource.includes('confirmIncomingRow'), '수입부 행별 확정 버튼이 있어야 한다.');

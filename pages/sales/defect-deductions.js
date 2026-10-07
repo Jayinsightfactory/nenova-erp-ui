@@ -14,6 +14,7 @@ import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT
 import { sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
 import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
 import { selectDefectRange } from '../../lib/defectDragSelection.js';
+import { buildDefectProductDisplay } from '../../lib/defectProductDisplay.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const isCarryoverRetrySelectable = (row = {}) => Boolean(
@@ -1845,13 +1846,14 @@ export default function SalesDefectDeductionsPage() {
               const existingEstimateCount = Number(row.existingEstimateCount ?? existingEstimateRecords.length);
               const scopeLabel = supportStatusDetail(row, year, week);
               const estimateCapture = buildSupportEstimateCapture(row, { year, week });
+              const productDisplay = buildDefectProductDisplay(row);
               return <tr className={`defect-row ${supportSelected.has(key) ? 'support-selected-row' : ''} ${row.exactExistingEstimate ? 'support-existing-row' : ''}`} key={key || `support-${index}`}>
                 <td className="defect-select-cell"><label className="defect-select-hit" {...selectionZoneProps('support-register', key, supportSelected, setSupportSelected)}><input type="checkbox" aria-label={`${row.customerName || '업체'} ${row.productName || '품목'} 선택`} checked={checkable && supportSelected.has(key)} onChange={() => toggleSupport(key)} disabled={!checkable} /></label></td>
-                <td>{index + 1}{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><label className="defect-select-hit management-select-hit" {...selectionZoneProps('support-manage', key, managementSelected, setManagementSelected)}><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(key)} disabled={managementLoading} onChange={() => toggleManagement(key)} /></label><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</td>
+                <td><div className="support-row-number"><span>{index + 1}</span>{managementMode && managementAllowed && ['incoming', 'support'].includes(activeTab) && <><label className="defect-select-hit management-select-hit" {...selectionZoneProps('support-manage', key, managementSelected, setManagementSelected)}><input type="checkbox" aria-label={`${row.customerName} 정리 선택`} checked={managementSelected.has(key)} disabled={managementLoading} onChange={() => toggleManagement(key)} /></label><button type="button" className="btn btn-xs" disabled={managementLoading} onClick={() => openManagementEdit(row)}>수정</button></>}</div></td>
                 <td>{row.managerName || '-'}</td>
                 <td>{row.customerName || '-'}</td>
-                <td>{row.productName || '-'}</td>
-                <td><span className="defect-product-match">{[row.countryName, row.matchedProductDbName || row.matchedProductName || row.colorName].filter(Boolean).join(' · ') || row.colorName || '-'}</span></td>
+                <td title={productDisplay.fullName}>{productDisplay.category || '-'}</td>
+                <td title={productDisplay.fullName}><span className="support-product-name">{productDisplay.name || '-'}</span></td>
                 <td>{activeTab === 'carryover' ? `${fmt(row.originalQuantity)} / ${fmt(row.remainingQuantity)}${row.sourceUnit || ''}` : printQuantity(row)}</td>
                 <td className="support-cost-cell">
                   {row.distributionCost ? <><strong>{fmt(row.distributionCost)}원</strong>{row.distributionCostOrderWeek && <small>({row.distributionCostOrderWeek})</small>}</> : <span className="support-cost-missing">확인 필요</span>}
@@ -1868,11 +1870,13 @@ export default function SalesDefectDeductionsPage() {
                   </div>}
                 </td>
                 <td>
-                  <span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{supportRegistrationDecisionLabel(row)}</span>
-                  {scopeLabel && <small className="support-scope-label">{scopeLabel}</small>}
-                  {Number(row.custKey) > 0 && <button type="button" className="btn btn-xs support-estimate-open" onClick={() => openCustomerEstimate(row)} title={`${year}년 ${week}차 ${row.customerName || '거래처'} 견적서에서 불량차감 현황을 엽니다.`}>{row.customerName || '거래처'} 견적서 열기</button>}
-                  {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
-                  {existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>이 업체 기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
+                  <div className="support-status-actions">
+                    <span className={row.exactExistingEstimate ? 'support-existing-status' : row.isCarryover ? 'support-carryover' : ''}>{supportRegistrationDecisionLabel(row)}</span>
+                    {Number(row.custKey) > 0 && <button type="button" className="btn btn-xs support-estimate-open" onClick={() => openCustomerEstimate(row)} title={`${year}년 ${week}차 ${row.customerName || '거래처'} 견적서에서 불량차감 현황을 엽니다.`}>견적서</button>}
+                    {row.registrationEligibilityCode === 'CUSTOMER_SALE_MISSING' && <button type="button" className="btn btn-xs" onClick={() => { setManager(row.managerName || row.managerId || ''); setYear(String(row.orderYear || year)); setWeek(String(row.orderWeek || week)); setActiveTab('sales'); }}>원차수 출고 확인</button>}
+                    {existingEstimateCount > 0 && <details className="support-existing-estimates"><summary>기존 차감 {existingEstimateCount}건</summary>{existingEstimateRecords.map((record, recordIndex) => <div key={Number(record.estimateKey ?? record.EstimateKey ?? 0) || recordIndex}>{existingEstimateLabel(record)}</div>)}</details>}
+                  </div>
+                  {scopeLabel && <small className="support-scope-label" title={scopeLabel}>{scopeLabel}</small>}
                 </td>
                 <td className="support-estimate-preview-cell">
                   <SupportEstimatePreviewButton
@@ -2173,22 +2177,40 @@ export default function SalesDefectDeductionsPage() {
         .support-live-log-head { position: sticky; top: 0; display: flex; justify-content: space-between; padding-bottom: 4px; background: #eff6ff; } .support-live-log-head span { color: #0369a1; font-weight: 800; }
         .support-live-log > div:not(.support-live-log-head):not(.support-live-log-empty) { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 7px; padding: 2px 0; border-top: 1px solid #bfdbfe; } .support-live-log time { color: #64748b; font-variant-numeric: tabular-nums; } .support-live-log-empty { color: #64748b; }
         .support-grid-scroll { max-height: calc(100vh - 260px); }
-        .support-grid th, .support-grid td { padding: 4px 6px; line-height: 1.25; }
-        .support-grid .defect-row td { vertical-align: middle; }
+        .support-grid { min-width: 1450px; table-layout: fixed; font-size: 16px; }
+        .support-grid th, .support-grid .defect-row td { padding: 3px; line-height: 1.2; vertical-align: middle; }
+        .support-grid th:nth-child(1) { width: 4%; }
+        .support-grid th:nth-child(2) { width: 8%; }
+        .support-grid th:nth-child(3) { width: 6%; }
+        .support-grid th:nth-child(4) { width: 9%; }
+        .support-grid th:nth-child(5) { width: 7%; }
+        .support-grid th:nth-child(6) { width: 12%; }
+        .support-grid th:nth-child(7) { width: 7%; }
+        .support-grid th:nth-child(8) { width: 7%; }
+        .support-grid th:nth-child(9) { width: 7%; }
+        .support-grid th:nth-child(10) { width: 10%; }
+        .support-grid th:nth-child(11) { width: 16%; }
+        .support-grid th:nth-child(12) { width: 7%; }
+        .support-row-number, .support-status-actions { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
+        .support-row-number { flex-wrap: nowrap; }
+        .support-row-number .management-select-hit { display: inline-flex; margin: 0; }
+        .support-row-number .management-select-hit + button { display: inline-flex; align-items: center; margin: 0; min-width: 0; min-height: 32px; }
+        .support-grid .defect-row td:nth-child(5) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .support-product-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .support-cost-cell { white-space: nowrap; color: #0f766e; }
         .support-cost-cell strong { font-variant-numeric: tabular-nums; }
-        .support-cost-cell small { display: block; margin-top: 1px; color: #64748b; font-size: 10px; }
+        .support-cost-cell small { display: block; margin-top: 1px; color: #64748b; font-size: 12px; }
         .support-cost-missing { color: #b45309; font-size: 11px; }
         .support-manual-cost-button { display: block; margin-top: 4px; }
         .support-selected-row { background: #ecfdf5; }
         .support-existing-row { background: #fff7ed; }
         .support-existing-status { color: #b45309; font-weight: 800; }
-        .support-existing-estimates { margin-top: 4px; color: #475569; font-size: 10px; }
+        .support-existing-estimates { display: inline-block; color: #475569; font-size: 12px; }
         .support-existing-estimates summary { cursor: pointer; color: #1d4ed8; font-weight: 700; white-space: nowrap; }
-        .support-existing-estimates div { margin-top: 2px; padding-top: 2px; border-top: 1px dashed #cbd5e1; white-space: normal; }
+        .support-existing-estimates div { margin-top: 2px; padding-top: 2px; border-top: 1px dashed #cbd5e1; white-space: normal; overflow-wrap: anywhere; }
         .support-carryover { color: #b45309; font-weight: 700; }
-        .support-scope-label { display: block; margin-top: 1px; color: #64748b; font-size: 10px; white-space: nowrap; }
-        .support-estimate-open { display: inline-block; margin-top: 4px; white-space: nowrap; }
+        .support-scope-label { display: block; margin-top: 2px; color: #64748b; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .support-estimate-open { display: inline-block; white-space: nowrap; }
         .support-estimate-preview-cell { width: 104px; min-width: 104px; text-align: center; white-space: nowrap; }
         .support-estimate-preview { min-width: 84px; color: #92400e; border-color: #f59e0b; background: #fffbeb; }
         .support-estimate-preview:disabled { color: #94a3b8; border-color: #cbd5e1; background: #f8fafc; cursor: not-allowed; }
