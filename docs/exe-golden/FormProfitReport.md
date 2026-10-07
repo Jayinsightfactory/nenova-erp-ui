@@ -1,5 +1,19 @@
 # 주차별 매출이익보고서 — Nenova 호환 근거
 
+## 2026-10-07 중량 원천 정정 (아래 과거 저장값 우선 규칙의 중량 부분 대체)
+
+실제 CLI `dnSpy.Console.exe --no-color -t FormWarehouseView` 재확인:
+GetData는 WarehouseMaster/Detail, 상세 조회는 WarehouseKey+Product JOIN을 사용한다.
+2026/31-01 운영 읽기 조회는 입고 GW1420/CW3342, 웹 저장3342/3342임을 확인했다.
+비역사 차수의 유효 입고중량 우선 규칙과 보호 예외는
+`docs/work-reports/2026-10-07_profit-weight-policy.md`에 기록한다.
+주문/출고/입고/재고/견적 원장 쓰기는 추가하지 않는다. 웹 보고서의 H/S 계산 입력과
+화면 표시만 정정하며 실제 비용과 확정 revision은 보존한다.
+
+배포 후 본표에 기존 수기 H/S가 남는 경우는 `WebProfitReport`의 SourceRef/EffectiveAt/
+ConfirmedBy/ConfirmedAt 근거를 갖춘 수기 override가 우선하기 때문이다. 이를 삭제하지 않고
+자동 원천이 유효한 비역사 미확정 보고서에만 적용값/자동값/차이를 warning으로 표시한다.
+
 ## 기능 성격
 
 ### 2026-10-06 보고서 계산 기준 정렬

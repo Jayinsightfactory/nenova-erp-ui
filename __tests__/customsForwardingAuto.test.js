@@ -318,7 +318,7 @@ async function main() {
   const pureH = splitColombiaAwbWeight({ gw: 500, cw: 618, hydKg: 495, otherKg: 0 });
   check('수국만 있는 AWB는 전량 콜롬비아 수국', pureH.hydrangea.GW === 500 && pureH.hydrangea.CW === 618 && pureH.rest.GW === 0);
   const clamp = splitColombiaAwbWeight({ gw: 1420, cw: 1136, hydKg: 0, otherKg: 800 });
-  check('전산 GW > CW(무효값)는 CW로 대체 (29-02 원장 1420 > 1136)', clamp.rest.GW === 1136 && clamp.gwClampedToCw);
+  check('전산 GW > CW 원천을 보존하고 자동 치환하지 않음 (29-02 원장 1420 > 1136)', clamp.rest.GW === 1420 && !clamp.gwClampedToCw);
   const mixed = splitColombiaAwbWeight({ gw: 15296, cw: 15582, hydKg: 25, otherKg: 75 });
   check('혼적 AWB(38-01 콜카장수국)는 박스무게 비율로 분할', mixed.mixed && near(mixed.rest.GW, 11472) && near(mixed.hydrangea.GW, 3824) && near(mixed.rest.CW + mixed.hydrangea.CW, 15582));
   const noCtx = splitColombiaAwbWeight({ gw: 100, cw: 120, fallbackCategory: '콜롬비아 4품목' });

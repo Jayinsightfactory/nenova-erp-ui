@@ -110,8 +110,8 @@ export default function ForwardingClearancePanel({ week, year, onSaved }) {
       <div style={st.hint}>
         <b style={{ color: '#166534' }}>입고관리에서 자동감지</b>됩니다(WarehouseDetail의 '운송료'/'SERVICE FEE' 라인을 농장·인보이스로 국가 판별).
         회색 자동감지값이 그대로 계산에 쓰이며, 새 농장이라 못 잡혔거나 값을 고칠 땐 아래 입력칸에 직접 넣으면 그 값이 우선(override)됩니다.
-        콜롬비아 카네이션·장미·알스트로·루스커스는 반차수 총액을 [📦 그외통관비 입력]에서 저장한 GW/CW·박스수량 비율로 자동 배분됩니다
-        (GW≈CW면 무게비율, 아니면 CBM비율). 🕘 아이콘으로 수정 이력을 볼 수 있습니다.
+        콜롬비아 카네이션·장미·알스트로·루스커스는 반차수 총액을 [📦 그외통관비 입력]과 같은 유효 GW/CW·박스수량 기준으로 자동 배분합니다.
+        입고 중량이 기준이며 역사값 등 예외는 아래에 구분합니다(GW≈CW면 무게비율, CW&gt;GW면 CBM비율). 🕘 아이콘으로 수정 이력을 볼 수 있습니다.
       </div>
       {loading && <span style={{ fontSize: 12, color: '#64748b' }}>로딩중…</span>}
       {error && <div style={st.error}>{error}</div>}
@@ -159,7 +159,7 @@ export default function ForwardingClearancePanel({ week, year, onSaved }) {
                 <div key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: overridden ? '#fef9c3' : missing ? '#fff7ed' : '#fff' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <b style={{ fontSize: 13 }}>{c.orderWeek}</b>
-                    <span style={{ fontSize: 11, color: '#64748b' }}>GW={c.gw ?? '-'} CW={c.cw ?? '-'} (그외통관비 입력 화면 저장값)</span>
+                    <span style={{ fontSize: 11, color: '#64748b' }}>GW={c.gw ?? '-'} CW={c.cw ?? '-'} ({c.weight?.source === 'erp_inbound' ? '입고 기준' : '저장·역사 기준'}) · {c.weight?.basis === 'CBM' ? 'CW > GW · CBM 배분' : c.weight?.basis === 'GW' ? 'GW = CW · 무게 배분' : '중량 확인 필요'}</span>
                     <span style={{ fontSize: 11, color: '#166534', fontWeight: 700 }}>자동감지 {fmt2(c.autoAirTotal)} USD</span>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', fontSize: 12 }}>
                       항공료 총액 override(USD)
