@@ -11,6 +11,10 @@ GW>CW를 자동으로 CW로 치환하지 않는다. 부분/역전 입고는 감�
 자동 복제하지 않는다. 원가자료 업로드 없이도 통관 시점 과세환율이 있으면 정상이다.
 회귀: `customsWeightPolicy.test.js`, `profitReportWeekCheck.test.js`.
 
+본표 `WebProfitReport`의 근거 있는 수기 H/S는 구조화 통관 자동값보다 우선한다.
+자동값과 다르면 `REPORT_COST_OVERRIDE_DIFF` 경고로 적용 수기값/자동값/차이를
+명시하고 수기값을 조용히 삭제하거나 덮지 않는다. 확정본·역사 차수·불완전 자동 원천은 비교 제외한다.
+
 
 ## 2026-10-06 영업지원·수입부 불량 원장 관리
 

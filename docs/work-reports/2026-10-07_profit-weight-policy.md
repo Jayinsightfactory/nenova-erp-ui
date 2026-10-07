@@ -18,6 +18,20 @@
 | 보고서·통관·포워딩 조회 | SELECT only | 보존 | 공통 유효중량으로 H/S 계산 |
 | 편집 미리보기 | 보존 | 보존 | 서버와 동일 중량 사용 |
 | 기존 비용 저장 | 보존 | 기존 비용/감사 계약만 | 입고 중량을 수기값으로 복제하지 않음 |
-| 배포 후 smoke | 읽기만 | 확정 revision 보존 | draft 재계산 검증 |
+| 배포 후 smoke | 원장 읽기만 | 확정 revision 보존, 기존 화면 기능이 미확정 계산 snapshot 새 버전 저장 가능 | draft 재계산 검증 |
 
 운영 원장 보정·보고서 강제확정·확정취소는 이번 작업에서 실행하지 않는다.
+
+## 검증·배포 결과
+
+- `npm run verify:erp-change` 최종 통과(계약/dnSpy/manifest/쓰기 guard/build).
+- `npm run test:profit-report-22-28` 통과. 기준 d055d316에 대한 manifest/쓰기 guard 추가 통과.
+- 독립 재검토 통과: CW-only 감사 누락 및 거절 원천의 잘못된 자동값 표시를 수정하고 재검증.
+- PR #933: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/933
+- merge: `19f16c3fb76859f364ce135cb54e43602cb90e60`
+- Cafe24 deploy: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37561732026 (성공)
+- 실브라우저 31-01: GW1420/CW3342, 수수료33000/품목4/실제5t1대 보존. S9026.56 USD 보존, 장미2344.04/카네이션5321.48/루스커스1029.38/혼적수국331.66의 CBM 배분 확인.
+- 실브라우저 31-02: GW=CW=909, 무게 배분 유지. 국가 전체 H합계6297840원(국가 GW 정밀값 반영 포함).
+- smoke에서 남아 있던 예전 '저장 GW/CW 기준' 및 '수기교정으로 변경' 안내 문구를 유효 입고 기준과 일치시키는 후속 UI 문구 정리 수행.
+- 31차 자동 점검은 잘못된 환율 입력필요2건/GW선택 경고가 사라지고 샘플입고 EstQuantity0 확인1건만 남았다. 미확정 계산 snapshot은 기존 화면 기능으로 v5가 생성됐다.
+- 본표 기존 H/S가 남는 것은 별도 근거가 있는 WebProfitReport 수기값 우선 경로다. 이를 운영 보정으로 삭제하지 않고 REPORT_COST_OVERRIDE_DIFF warning에 수기 적용값/최신 자동값/차이를 표시하도록 추가 보완한다. 역사/확정/불완전 원천은 비교 제외한다.
