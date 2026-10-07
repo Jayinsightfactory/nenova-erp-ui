@@ -25,6 +25,7 @@
     "lib/importPackingState.js",
     "lib/importPedidos.js",
     "components/import-tools/PackingListTool.js",
+    "components/import-tools/PackingResults.js",
     "components/import-tools/PedidosTool.js",
     "components/import-tools/ChecklistTool.js",
     "components/import-tools/HandoffTool.js",
@@ -48,6 +49,13 @@
   ],
   "actions": [
     {
+      "name": "PREVIEW_AND_COPY_RESULTS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "none; browser-only notes, user-triggered clipboard window, no ERP receipt save"
+    },
+    {
       "name": "CONVERT_FILES",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
@@ -70,6 +78,7 @@
     "__tests__/importTeamTools.test.js",
     "__tests__/importTeamChecklist.test.js",
     "__tests__/importPacking.test.js",
+    "__tests__/packingResultsUi.test.js",
     "__tests__/importPedidos.test.js",
     "__tests__/importTeamClient.test.js",
     "__tests__/importTeamPdfCache.test.js",
