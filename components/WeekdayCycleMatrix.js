@@ -303,7 +303,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], quoteResults = [],
   carryover = null, carryoverPlans = plans, onOpenCarryover, carryoverBusy = false, carryoverError = '', editDisabledReason = '',
   confirmationStates = [], confirmationBusy = false, confirmationError = '',
-  wilsonRecords = [], wilsonDrafts = [], wilsonError = '', wilsonBusy = false, onEditWilson, onRetryQuote }) {
+  wilsonRecords = [], wilsonDrafts = [], wilsonError = '', wilsonBusy = false, onEditWilson, onRetryQuote, onWilsonDayChange }) {
   const safeCycles = Array.isArray(cycles) ? cycles : [];
   const safePlans = Array.isArray(plans) ? plans : [];
   const safeComparisons = Array.isArray(comparisonRows) ? comparisonRows : [];
@@ -320,8 +320,8 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const [wilsonDay,setWilsonDay]=useState('일');
   const [exportBusy,setExportBusy]=useState(false);
   const exportLock=useRef(false);
-  useEffect(()=>{try {const stored=localStorage.getItem('nenova-weekday-wilson-day');if(wilsonWeekdays.includes(stored))setWilsonDay(stored);}catch {}},[]);
-  const changeWilsonDay=value=>{setWilsonDay(value);try{localStorage.setItem('nenova-weekday-wilson-day',value);}catch{}};
+  useEffect(()=>{let resolved='일';try {const stored=localStorage.getItem('nenova-weekday-wilson-day');if(wilsonWeekdays.includes(stored))resolved=stored;}catch {}setWilsonDay(resolved);onWilsonDayChange?.(resolved);},[]);
+  const changeWilsonDay=value=>{setWilsonDay(value);onWilsonDayChange?.(value);try{localStorage.setItem('nenova-weekday-wilson-day',value);}catch{}};
   const [addedKeys, setAddedKeys] = useState([]);
   const [showUnallocated,setShowUnallocated] = useState(false);
   const [addOpen, setAddOpen] = useState(false);

@@ -3,7 +3,8 @@ const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen,
 const fs = require('node:fs');
 const path = require('node:path');
 const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, text } = require('./policy.cjs');
-const menus = require('./menu.json');
+const { parseBootstrap } = require('./bootstrap.cjs');
+let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
 const TOP = 128, BOTTOM = 28;
 const windows = new Map(), tabs = new Map(), auxiliary = new Set();
@@ -18,7 +19,8 @@ app.on('second-instance', () => { const w = [...windows.values()][0]?.win; if (w
 function state(w) {
   return { windowId: w.id, windows: [...windows.values()].map(v => ({ id: v.id, title: `업무 창 ${v.id}` })),
     tabs: w.ids.map(id => tabs.get(id)).filter(Boolean).map(t => ({ id: t.id, title: locked && new URL(t.url).pathname !== '/login' ? '로그인 대기' : t.title, url: locked ? '' : t.url, loading: t.loading, error: t.error, zoom: t.zoom })),
-    activeId: w.activeId, menuOpen: w.menuOpen, favorites: locked ? [] : favorites, menus, version: app.getVersion(), online: !locked,
+    activeId: w.activeId, menuOpen: w.menuOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus, version: app.getVersion(), online: !locked,
+    syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion,
     message: w.message || (locked ? '로그인이 필요합니다. 업무 화면에서 로그인해 주세요.' : '탭 이동은 작업을 유지합니다 · 종료 전 업무 내용을 저장해 주세요.') };
 }
 function broadcast() {
@@ -219,6 +221,7 @@ function command(w, action, p = {}) {
   const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
   switch (action) {
     case 'state': break;
+    case 'sync': verifyAccount().catch(() => {}); break;
     case 'open': openTab(w, p); break;
     case 'activate': activate(w, p.id); break;
     case 'close': if (t?.windowId === w.id) closeTab(t); break;
@@ -255,6 +258,7 @@ function lockAccount() {
 }
 async function verifyAccount(initial = false) {
   const generation = ++authGeneration;
+  syncStatus = 'checking'; broadcast();
   let newActor = '';
   try {
     const response = await webSession.fetch(`${ORIGIN}/api/auth/me`, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(12000) });
@@ -263,12 +267,30 @@ async function verifyAccount(initial = false) {
   } catch { /* Fail closed; the existing login screen remains available. */ }
   if (generation !== authGeneration || quitting) return;
   if (!newActor) {
+    menus = []; syncStatus = 'error';
     lockAccount();
     const w = [...windows.values()][0] || createWindow();
     if (![...tabs.values()].some(t => new URL(t.url).pathname === '/login')) openTab(w, { url: '/login', title: '네노바 로그인' });
     return;
   }
   const changed = actor !== newActor;
+  if (changed) lockAccount();
+  let latest = null;
+  try {
+    const response = await webSession.fetch(`${ORIGIN}/api/desktop/bootstrap`, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(12000) });
+    if (!response.ok) throw new Error('Bootstrap unavailable');
+    const body = await response.text();
+    if (body.length > 256 * 1024) throw new Error('Bootstrap too large');
+    latest = parseBootstrap(JSON.parse(body), newActor);
+    if (generation !== authGeneration || quitting) return;
+    if (!webVersion || latest.webVersion !== webVersion) await webSession.clearCache();
+  } catch { latest = null; }
+  if (generation !== authGeneration || quitting) return;
+  const updatedOpenViews = latest && webVersion && latest.webVersion !== webVersion && !changed && tabs.size > 0;
+  menus = latest?.menus || [];
+  menuVersion = latest?.menuVersion || '';
+  webVersion = latest?.webVersion || '';
+  syncStatus = latest ? 'ready' : 'error';
   if (changed) {
     restoring = true;
     const previousActor = actor || saved?.actor;
@@ -300,6 +322,10 @@ async function verifyAccount(initial = false) {
     }
     saved = null; restoring = false;
   } else locked = false;
+  const count = menus.reduce((sum, group) => sum + group.items.length, 0);
+  for (const w of windows.values()) w.message = latest
+    ? `웹 최신 메뉴 ${count}개 반영 완료${updatedOpenViews ? ' · 작업 중인 화면은 저장 후 새로고침하면 최신 기능이 적용됩니다.' : ' · 새로 여는 화면은 최신 웹 기능을 사용합니다.'}`
+    : '최신 메뉴 확인에 실패했습니다. 업데이트 확인으로 다시 시도하거나 네노바 홈에서 업무를 여세요.';
   for (const w of windows.values()) layout(w);
   broadcast();
 }

@@ -1,0 +1,57 @@
+{
+  "id": "desktop-bootstrap",
+  "title": "Authenticated desktop menu bootstrap",
+  "scope": [
+    "components/Layout.js",
+    "pages/api/desktop/bootstrap.js",
+    "lib/desktopBootstrap.js",
+    "desktop/bootstrap.cjs",
+    "desktop/main.cjs"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "DESKTOP_MENU_BOOTSTRAP_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] },
+    { "name": "DESKTOP_TAB_OPEN_FROM_MENU", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "메뉴 목록은 JWT userId와 코드의 MENU_ITEMS만 사용한다. OrderYear/OrderWeek를 포함한 ERP 업무키나 MSSQL 테이블을 읽거나 쓰지 않으며 연도가 달라도 원장 부작용이 없다."
+  },
+  "requiredTestFiles": [
+    "__tests__/desktopBootstrap.test.mjs",
+    "desktop/tests/bootstrap.test.cjs",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "데스크톱 메뉴 부트스트랩은 nenova.exe 업무 기능이 아닌 웹 메뉴 조회다. JWT 인증과 MENU_ITEMS 필터만 수행하며 ERP 원장을 조회·수정하지 않는다.",
+    "methods": ["NenovaWeb withAuth JWT userId verification and Layout MENU_ITEMS filtering"],
+    "tables": ["UserInfo (login source only; no bootstrap query)", "OrderDetail (preserve)", "ShipmentDetail (preserve)"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "node --test __tests__/desktopBootstrap.test.mjs desktop/tests/bootstrap.test.cjs",
+    "npm run build"
+  ],
+  "route": "GET /api/desktop/bootstrap",
+  "authentication": "Existing nenovaToken cookie or Bearer JWT through withAuth; userId comes only from the verified token",
+  "sourceOfTruth": "components/Layout.js MENU_ITEMS",
+  "response": {
+    "success": true,
+    "schemaVersion": 1,
+    "user": { "userId": "verified JWT userId" },
+    "webVersion": "NEXT_PUBLIC_BUILD_VERSION, falling back to the deployed Next BUILD_ID",
+    "menuVersion": "SHA-256 hex of JSON.stringify(menus)",
+    "menus": [{ "group": "menu group label", "items": [{ "href": "route", "labelKey": "display label key", "popup": false }] }]
+  },
+  "rules": [
+    "Preserve MENU_ITEMS group and item order; omit groups with no visible items.",
+    "A userIds gate passes only if userIds.includes(verified userId) exactly, including case.",
+    "Never expose userIds or other menu metadata in the response.",
+    "Return private no-store responses and vary by Cookie and Authorization, including errors.",
+    "The route reads no database table and writes no ERP ledger."
+  ]
+}

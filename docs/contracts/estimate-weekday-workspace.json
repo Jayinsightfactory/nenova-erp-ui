@@ -94,7 +94,11 @@
     "scripts/install-weekday-template.cjs",
     "__tests__/weekdayTemplateInstall.test.js",
     "data/templates/weekday/jugwang-order.encrypted.json",
-    "__tests__/weekdayTemplateExportRoute.test.js"
+    "__tests__/weekdayTemplateExportRoute.test.js",
+    "lib/weekdayStyledWebWorkbook.js",
+    "lib/weekdayWebExportSnapshot.js",
+    "__tests__/weekdayStyledWebWorkbook.test.js",
+    "__tests__/weekdayWebExportSnapshot.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -325,7 +329,9 @@
     "__tests__/weekdaySavedTemplate.test.js",
     "__tests__/weekdaySavedTemplateUi.test.js",
     "__tests__/weekdayTemplateInstall.test.js",
-    "__tests__/weekdayTemplateExportRoute.test.js"
+    "__tests__/weekdayTemplateExportRoute.test.js",
+    "__tests__/weekdayStyledWebWorkbook.test.js",
+    "__tests__/weekdayWebExportSnapshot.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -509,13 +515,13 @@
   },
   "originalWorkbookDownload": {
     "sideEffects": "Browser file download only; preserve OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/StockMaster/ProductStock/Estimate/WebProfitReport and confirmation",
-    "layout": "Patch original XLSX ZIP only; preserve merged cells, styles, column widths, print settings, drawings and unrelated entries. No edits returns exact original bytes.",
+    "layout": "Generate a current-work worksheet using the saved reference category cell styles, widths, borders and grouped merges; every name and value comes from full web matrix. Remove historical source content and sheets.",
     "storage": "Saved Jugwang default is private server runtime, decrypted at deployment from encrypted asset; raw bytes and private deployment key never committed. Manual originals remain browser-memory only.",
     "source": "Cust533 exact saved SHA default loads for valid scope; user manual uploads take precedence. Default load parses original only and never creates plans/links or ERP writes. Past source quantities and dates are never auto-converted to current cycle.",
-    "preserve": "Unlinked order totals, early-shipment, notes and formulas stay original. Duplicate business/cell mapping, moved draft, unknown actual or incompatible unit blocks export",
-    "legacy": "XLS original-only; changed XLS requires re-upload as XLSX",
-    "quantities": "Explicit connected source date cells only; exact year/week/customer/product/date/unit latest canonical total overridden by absolute draft; Wilson never added twice; mapping survives ERP apply clearing drafts",
-    "routes": "Header and matrix toolbar both call Workspace.downloadOriginalWorkbook. Matrix must never generate generic aoa workbook or fall back to weekday totals sheet. Ready only for current scoped original; export ignores UI search/collapse filters and retains source workbook rows."
+    "preserve": "Preserve formatting assets only; never retain old source names, quantities, shared strings, formulas or unrelated private worksheets in output.",
+    "legacy": "Export requires reference XLSX styles; generated output is always XLSX.",
+    "quantities": "All matrix rows before search/collapse; latest user instruction splits selected weekday into normal/Wilson/day-total columns. Canonical day totals and subweek/major totals include Wilson once. Validate classification unit/expectedTotal/status and prefer matching draft. Unknown stays blank; zero and negative remainders preserved; units separated. Carryover same as matrix.",
+    "routes": "Header and matrix both full snapshot exporter; selected Wilson weekday shared via callback; stale scope/file/plans/comparison/calendar/baseline/carryover/Wilson classification/selected day blocks download after awaits."
   },
   "savedWorkbookTemplate": {
     "storage": "AES-256-GCM envelope in repository, deployment-only private key, exact SHA-verified file data/runtime/weekday-template/jugwang-order.xlsx (600); preserve all15 source sheets",

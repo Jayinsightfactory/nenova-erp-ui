@@ -32,7 +32,7 @@ test('upload request or scope cancellation drops stale response; invalid respons
  for(const invalid of [{...result,custKey:5},{...result,sha256:'bad'},{...result,parsed:null}])
   await assert.rejects(load(args({fetchTemplate:async()=>invalid})));
  assert.match(source,/manualUpload.current = \{ custKey: Number\(customer\?\.CustKey\), request \}/);
- assert.match(source,/기본 양식 엑셀 다운로드/);
+ assert.match(source,/웹 작업 엑셀 다운로드/);
  assert.match(source,/저장 양식 사용/);
 });
 
