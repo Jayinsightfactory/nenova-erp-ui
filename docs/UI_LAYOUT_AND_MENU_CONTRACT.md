@@ -32,6 +32,17 @@ export default function NewPage() {
 
 DOM 회귀 검사는 `data-ui-shell`, `data-ui-sidebar`, `data-ui-topbar`, `data-ui-popupbar`, `data-ui-page-title`로 개수를 확인합니다. 스타일로 숨겨 중복을 가리지 않고 실제 DOM 개수를 검사합니다.
 
+## 모든 페이지의 키보드 조작
+
+모든 신규·수정 페이지에서 마우스 없이 핵심 업무를 완료할 수 있어야 합니다.
+
+- Tab/Shift+Tab 순서는 화면의 시각적·업무 순서와 같고, 버튼·검색·입력·선택 등 주요 조작부는 모두 도달 가능해야 합니다.
+- Enter/Space는 포커스된 컨트롤의 표준 동작을 수행합니다. Escape는 팝업·메뉴·취소 가능한 편집을 닫거나 취소하고 원래 조작 위치로 초점을 돌립니다.
+- 표·목록·검색 후보 등 반복 항목은 방향키 이동과 Enter 선택을 지원합니다. 텍스트/숫자 입력 중 방향키로 커서를 이동하는 브라우저 기본 동작은 보존합니다.
+- 초점 표시를 분명히 하고, 의미 있는 기본 HTML 컨트롤을 우선합니다. 양수 `tabIndex`와 키보드 동작 없는 클릭 전용 요소는 사용하지 않습니다.
+- 키보드 단축키를 추가할 때는 충돌을 확인하고, 화면에서 쉽게 발견할 수 있게 안내합니다.
+- 검증에는 Tab/Shift+Tab, Enter/Space, Escape, 방향키 이동·선택, 팝업 초점 복귀를 포함합니다.
+
 ## 메뉴는 한 곳에 한 번만 등록합니다
 
 새 메뉴는 `components/Layout.js`의 `MENU_ITEMS` 한 곳에만 추가합니다. 모바일 홈도 이 값을 그대로 사용합니다. 같은 `href` 또는 같은 `labelKey`를 두 번 등록하면 `npm run test:ui-layout`이 실패합니다.
