@@ -5,6 +5,7 @@ import { apiGet } from '../../lib/useApi';
 import { applyDutchWeekdayEdits, attachDutchLiveCustomerKeys } from '../../lib/dutchVolumePrice';
 import { addDutchPriceColumns, buildDutchEntriesFromPivotData, createDutchBulkPriceConfig, dutchCustomerIdentity, dutchCustomerLabel, dutchPriceKey, dutchUniformPricePeerKeys, isDutchBulkPriceCustomer, migrateDutchBulkPriceConfig, migrateDutchPriceDraft, normalizeDutchBulkPriceConfig, parseDutchPivotWorkbook, restoreDutchPriceDraft } from '../../lib/dutchVolumePrice';
 import { addDutchPriceShapesToXlsx } from '../../lib/dutchPriceShapes';
+import { appendDutchQuantityHistory, buildDutchQuantitySummaryValues } from '../../lib/dutchSheetQuantityEdit';
 import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../../lib/dutchVolumeDraft';
 import ErpMatchPicker from '../../components/dutch/ErpMatchPicker';
 import DutchVolumeSheet from '../../components/dutch/DutchVolumeSheet';
@@ -26,6 +27,16 @@ function withEditedWorkbook(workbook, entries, prices, bulkPriceConfig) {
     if (!touched.has(entry.sheetName)) { copy.Sheets[entry.sheetName] = { ...copy.Sheets[entry.sheetName] }; touched.add(entry.sheetName); }
     const sheet = copy.Sheets[entry.sheetName];
     sheet[entry.cellAddress] = { ...(sheet[entry.cellAddress] || {}), t: 'n', v: Number(entry.quantity) };
+  }
+  for (const sheetName of copy.SheetNames) {
+    const sourceSheet = copy.Sheets[sheetName];
+    const summaries = buildDutchQuantitySummaryValues(XLSXStyled, sourceSheet, sheetName, entries);
+    if (!summaries.size) continue;
+    if (!touched.has(sheetName)) { copy.Sheets[sheetName] = { ...sourceSheet }; touched.add(sheetName); }
+    for (const [address, value] of summaries) {
+      const targetSheet = copy.Sheets[sheetName];
+      targetSheet[address] = { ...(targetSheet[address] || {}), t: 'n', v: value };
+    }
   }
   const added = entries.filter(entry => entry.added);
   const rematched = entries.some(entry => Number(entry.custKey) > 0 || Number(entry.prodKey) > 0);
@@ -287,13 +298,28 @@ export default function DutchVolumeBoard() {
     finally { if (request === loadRequestRef.current) setLoading(false); }
   }
 
-  function updateEntry(id, change) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setApplyResult(null); setEntries(previous => editDutchDraftEntry(previous, id, change)); }
+  function updateEntry(id, change) {
+    if (workBusyRef.current || applyingRef.current) return;
+    invalidate(); setApplyResult(null);
+    setEntries(previous => {
+      const current = previous.find(entry => entry.id === id);
+      if (Object.hasOwn(change, 'quantity') && current && Number(change.quantity) !== Number(current.quantity)) {
+        return editDutchDraftEntry(previous, id, { ...change, quantityHistory: appendDutchQuantityHistory(current.quantityHistory, Number(current.quantity), Number(change.quantity)) });
+      }
+      return editDutchDraftEntry(previous, id, change);
+    });
+  }
   function updateCellQuantity(id, quantity, newEntry) {
     if (workBusyRef.current || applyingRef.current) return;
     invalidate(); setApplyResult(null);
-    setEntries(previous => newEntry && !previous.some(entry => entry.id === id)
-      ? [...previous, { ...newEntry, quantity }]
-      : editDutchDraftEntry(previous, id, { quantity }));
+    setEntries(previous => {
+      const existing = previous.find(entry => entry.id === id);
+      const from = existing ? Number(existing.quantity) : null;
+      const quantityHistory = appendDutchQuantityHistory(existing?.quantityHistory, from, Number(quantity));
+      return newEntry && !existing
+        ? [...previous, { ...newEntry, quantity, quantityHistory }]
+        : editDutchDraftEntry(previous, id, { quantity, quantityHistory });
+    });
   }
   function updateWeekday(sheetName, address, value) {
     if (workBusyRef.current || applyingRef.current || !workbook) return;
@@ -634,7 +660,7 @@ export default function DutchVolumeBoard() {
           <td><ErpMatchPicker kind="customer" entryId={row.id} initialQuery={match?.custName || customerName(row.sourceCustomer || row.customer)} value={row.custKey || match?.custKey} label={match?.custName || (row.custKey ? row.customer : '')} options={customerOptions} onOpen={openMatchPopup} onPick={item => pickMaster(row, 'customer', item)} disabled={workBusy || applying}/></td>
           <td><input aria-label={`${customerName(row.customer)} ${row.product} 수량`} type="number" min="0" step="any" value={row.quantity} disabled={workBusy || applying} onChange={event => updateEntry(row.id, { quantity: event.target.value })}/></td>
           <td><select aria-label={`${row.product} 단위`} value={row.unit || ''} disabled={workBusy || applying} onChange={event => updateEntry(row.id, { unit: event.target.value })}><option value="">ERP 출고단위</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></td>
-          <td><input ref={node => { inputRefs.current[index] = node; priceInputRefs.current[row.id] = node; }} aria-label={`${customerName(row.customer)} ${row.sourceItem || row.color || row.product} ${individual ? '개별단가' : '균일가'}`} type="number" min="0" step="any" value={prices[dutchPriceKey(row, bulkPriceConfig)] ?? ''} disabled={workBusy || applying} onChange={event => updatePrice(row, event.target.value)} onKeyDown={event => moveNext(event, index)} placeholder="미입력: 보존"/><small>{match?.estUnit ? `원/${match.estUnit}` : '견적단위: 검증 후 확인'}</small></td>
+          <td><input ref={node => { inputRefs.current[index] = node; priceInputRefs.current[row.id] = node; }} aria-label={`${customerName(row.customer)} ${row.sourceItem || row.color || row.product} ${individual ? '개별단가' : '균일가'}`} type="number" min="0" step="any" value={prices[dutchPriceKey(row, bulkPriceConfig)] ?? ''} disabled={workBusy || applying} onChange={event => updatePrice(row, event.target.value)} onKeyDown={event => moveNext(event, index)} placeholder="미입력: 보존"/><small>{match?.estUnit ? match.estUnit : '견적단위: 검증 후 확인'}</small></td>
           <td className="status">{matchStatusUsable && match?.status === 'unmatched' ? <span style={{ color: '#b42318', fontWeight: 800, fontSize: 11 }}>미매칭 · {customerName(row.sourceCustomer || row.customer)}</span> : null}{row.added && <button onClick={() => removeRow(row.id)} disabled={workBusy || applying}>행 삭제</button>}</td>
         </tr>;
       })}</tbody></table></div></>}

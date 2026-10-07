@@ -1,0 +1,40 @@
+{
+  "id": "adoption-radar",
+  "title": "도입 레이더(/my-work 관리자 전용 탭, 웹 전용 파일) 계약",
+  "scope": [
+    "pages/my-work.js",
+    "pages/api/my-work/feature.js",
+    "pages/api/work/feature-data-ingest.js",
+    "lib/workFeatureData.js",
+    "lib/orbitReportAccess.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "ADOPTION_LEDGER_INGEST", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] },
+    { "name": "ADOPTION_LEDGER_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": [] }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "ERP 주문·출고·재고·견적을 읽거나 쓰지 않는다. 사장님 PC 가 매일 올리는 data/runtime/adoption-ledger.json(파일 전용, git 미추적) 을 isOrbitReportViewer(nenovaSS3) 에게만 보여준다. OrderYear/OrderWeek 와 무관하고 MSSQL 에 접근하지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/adoptionRadar.test.js",
+    "__tests__/workFeatureData.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "도입 레이더는 nenova.exe 기능이 아닌 웹 전용 파일 조회 기능이며 ERP 테이블 side effect는 모두 preserve다. 수신은 ORBIT_DRIVE_INGEST_TOKEN(서버 전용 토큰), 열람은 /my-work 와 같은 isOrbitReportViewer 게이트(404 은닉).",
+    "methods": ["NenovaWeb JWT UserInfo.UserID claim check (lib/orbitReportAccess.isOrbitReportViewer)"],
+    "tables": ["UserInfo (login source only; no write)", "OrderDetail (preserve)", "ShipmentDetail (preserve)"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "node __tests__/adoptionRadar.test.js",
+    "node __tests__/workFeatureData.test.js",
+    "npm run build"
+  ]
+}

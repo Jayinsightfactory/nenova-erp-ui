@@ -81,7 +81,20 @@
     "__tests__/weekdayPrintReadiness.test.js",
     "__tests__/weekdayPrintResponse.test.js",
     "lib/weekdayDraftDeletion.js",
-    "__tests__/weekdayDraftDeletion.test.js"
+    "__tests__/weekdayDraftDeletion.test.js",
+    "lib/weekdayOriginalWorkbook.js",
+    "lib/weekdayWorkbookExportPlan.js",
+    "__tests__/weekdayOriginalWorkbook.test.js",
+    "__tests__/weekdayWorkbookExportPlan.test.js",
+    "__tests__/weekdayOriginalWorkbookUi.test.js",
+    "lib/weekdaySavedTemplate.js",
+    "pages/api/estimate/weekday-template.js",
+    "__tests__/weekdaySavedTemplate.test.js",
+    "__tests__/weekdaySavedTemplateUi.test.js",
+    "scripts/install-weekday-template.cjs",
+    "__tests__/weekdayTemplateInstall.test.js",
+    "data/templates/weekday/jugwang-order.encrypted.json",
+    "__tests__/weekdayTemplateExportRoute.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -260,6 +273,16 @@
       "webOnly": "Revisioned atomic file classification; SELECT fresh exact year/week/customer/product/date/unit/total; idempotent retry; no ERP writes",
       "orderDetail": "preserve",
       "name": "CLASSIFY_WILSON_WEB_ONLY"
+    },
+    {
+      "sideEffect": "Authenticated read of fixed SHA-verified private template file only; default UI parse does not generate drafts or ERP changes.",
+      "estimateRows": "preserve",
+      "webProfitReport": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "name": "LOAD_SAVED_JUGWANG_TEMPLATE",
+      "shipmentDate": "preserve",
+      "stock": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -295,7 +318,14 @@
     "__tests__/weekdayMetadataOnly.test.js",
     "__tests__/weekdayPrintReadiness.test.js",
     "__tests__/weekdayPrintResponse.test.js",
-    "__tests__/weekdayDraftDeletion.test.js"
+    "__tests__/weekdayDraftDeletion.test.js",
+    "__tests__/weekdayOriginalWorkbook.test.js",
+    "__tests__/weekdayWorkbookExportPlan.test.js",
+    "__tests__/weekdayOriginalWorkbookUi.test.js",
+    "__tests__/weekdaySavedTemplate.test.js",
+    "__tests__/weekdaySavedTemplateUi.test.js",
+    "__tests__/weekdayTemplateInstall.test.js",
+    "__tests__/weekdayTemplateExportRoute.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -353,7 +383,12 @@
       "기타"
     ],
     "flowerGroups": {
-      "priority": ["카네이션", "장미", "수국", "알스트로"],
+      "priority": [
+        "카네이션",
+        "장미",
+        "수국",
+        "알스트로"
+      ],
       "otherCategories": "Separate actual FlowerName groups below the four priority categories; unknown or conflicting metadata remains 기타",
       "defaultExpanded": true,
       "collapse": "Display-only hidden product rows; preserve mounted input controls and pending edits, quantities, drafts, filter/export/print scope and ERP data",
@@ -368,7 +403,8 @@
       "detailFontPx": 18,
       "target": "approximately two cycles and at least10 ordinary rows at1920x1080 popup",
       "preserves": "all physical columns, numeric units, failures, accessible details and existing handlers"
-    }
+    },
+    "compactWarnings": "Errors use their own normal-flow compact slot; do not overlay quantity/remainder/change controls. Early-shipment indication remains visible with full source-year/week/quantity in its accessible detail; never mutates ERP allocation. Recheck uses exact source year/week actual quantity and normalized unit, never the current-day quantity; missing, ambiguous or insufficient source requires review."
   },
   "wilsonClassification": {
     "positiveFixture": "same total web classification zero or positive preserves all ERP tables",
@@ -442,7 +478,13 @@
   "cellStatusPresentation": {
     "unallocated": "knownEmpty without draft: cell color only, no repeated visible status text",
     "provisionalBaseline": "header, initial and remainder cell color only; details/accessible descriptions retain status",
-    "preserve": ["quantity including zero and unknown", "draft/change/early-shipment color priority", "unallocated product filter", "confirmation actions", "ERP and print readiness policies"]
+    "preserve": [
+      "quantity including zero and unknown",
+      "draft/change/early-shipment color priority",
+      "unallocated product filter",
+      "confirmation actions",
+      "ERP and print readiness policies"
+    ]
   },
   "printReadinessPresentation": {
     "source": "unchanged assessWeekdayPrintEligibility in serializable read transaction",
@@ -464,5 +506,23 @@
       "no automatic confirmation or ERP/Estimate writes"
     ],
     "criteria": "Only structured 409 eligibility is a business waiting state. invalidCount wins over no shipment/unfixed. Never infer state from Korean error strings or zero unknown counts."
+  },
+  "originalWorkbookDownload": {
+    "sideEffects": "Browser file download only; preserve OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/StockMaster/ProductStock/Estimate/WebProfitReport and confirmation",
+    "layout": "Patch original XLSX ZIP only; preserve merged cells, styles, column widths, print settings, drawings and unrelated entries. No edits returns exact original bytes.",
+    "storage": "Saved Jugwang default is private server runtime, decrypted at deployment from encrypted asset; raw bytes and private deployment key never committed. Manual originals remain browser-memory only.",
+    "source": "Cust533 exact saved SHA default loads for valid scope; user manual uploads take precedence. Default load parses original only and never creates plans/links or ERP writes. Past source quantities and dates are never auto-converted to current cycle.",
+    "preserve": "Unlinked order totals, early-shipment, notes and formulas stay original. Duplicate business/cell mapping, moved draft, unknown actual or incompatible unit blocks export",
+    "legacy": "XLS original-only; changed XLS requires re-upload as XLSX",
+    "quantities": "Explicit connected source date cells only; exact year/week/customer/product/date/unit latest canonical total overridden by absolute draft; Wilson never added twice; mapping survives ERP apply clearing drafts",
+    "routes": "Header and matrix toolbar both call Workspace.downloadOriginalWorkbook. Matrix must never generate generic aoa workbook or fall back to weekday totals sheet. Ready only for current scoped original; export ignores UI search/collapse filters and retains source workbook rows."
+  },
+  "savedWorkbookTemplate": {
+    "storage": "AES-256-GCM envelope in repository, deployment-only private key, exact SHA-verified file data/runtime/weekday-template/jugwang-order.xlsx (600); preserve all15 source sheets",
+    "api": "Authenticated fixed GET, private no-store, query custKey=533; invalid scope400/method405/missing or altered private file503; no caller-controlled path",
+    "autoload": "Valid exactscope only; request ownership rejects stale template/manual upload; scope changes reload default, manual samecustomer original is protected; reset button explicitly returns to saved template",
+    "customer": 533,
+    "effects": "Template GET and auto-load preserve all Order/Shipment/Stock/Estimate/Profit/confirmation data and existing drafts. No auto-link/import/apply.",
+    "sha256": "0D2BF7505BBDB792C43A116DF037BC125E4BE44F05D7519DDFE747EB7D8FDFB3"
   }
 }

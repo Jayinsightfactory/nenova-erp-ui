@@ -74,6 +74,20 @@ test('repeated flowers are not expenses; fee-only subtotal and no-expense layout
   assert.equal(inv.invoice_total, 2520); assert.equal(inv.freight, 0);
 });
 
+test('China sheet preview keeps boxes, bunches, stems and zero prices distinct', async () => {
+  const [, packing] = await ready;
+  const inv = await parse(fixture());
+  const { result } = generate(packing, inv);
+  const row = result.products[0];
+  assert.equal(row.qty, 140);
+  assert.equal(row.boxes, 7);
+  assert.equal(row.stems, 2100);
+  assert.equal(row.unitPrice, 0);
+  assert.equal(row.lineAmount, 0);
+  assert.equal(row.stemLength, '70cm');
+  assert.ok(row.sourceName);
+});
+
 test('cached XLSX formula numbers are read and uncached formulas fail closed', async () => {
   const edit = wb => { wb.Sheets.INVOICE.Q12 = { t: 'n', v: 2520, f: 'M12*N12' }; };
   assert.equal((await parse(fixture([flower(undefined, undefined, 18)]), edit)).item_subtotal, 2520);

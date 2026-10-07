@@ -1,4 +1,6 @@
 import { prepareWeekdayDraftDeletion, weekdayCellDrafts } from '../lib/weekdayDraftDeletion.js';
+import { patchOriginalWorkbook } from '../lib/weekdayOriginalWorkbook.js';
+import { buildWeekdayWorkbookExportUpdates } from '../lib/weekdayWorkbookExportPlan.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { isExpectedWeekdayPrintBlock } from '../lib/weekdayPrintReadiness.js';
@@ -29,6 +31,18 @@ function historySnapshotLabel(snapshot) {
 function carryoverHistoryValue(value) { return value == null ? '미등록' : String(typeof value === 'object' ? value.quantity ?? '미확인' : value); }
 function carryoverActorLabel(actor) { return actor == null ? '담당자 미확인' : typeof actor === 'object' ? actor.userName || actor.userId || actor.name || '담당자 미확인' : String(actor); }
 
+export async function loadWeekdaySavedTemplate({ custKey, scopeKey, isCurrent, getOriginal, fetchTemplate }) {
+  if (Number(custKey) !== 533 || !/^533\|(?:20\d{2}|21\d{2}|2200)\|(?:0[1-9]|[1-4]\d|5[0-3])$/.test(scopeKey || '')) return null;
+  const manual = () => { const value = getOriginal(); return value && !value.savedTemplate && Number(value.scope?.split('|')[0]) === 533; };
+  if (manual()) return null;
+  const result = await fetchTemplate();
+  if (!isCurrent() || manual()) return null;
+  if (result?.success !== true || Number(result.custKey) !== 533 || !result.fileName || !/\.xlsx$/i.test(result.fileName)
+    || !/^[a-f0-9]{64}$/i.test(result.sha256 || '') || typeof result.base64 !== 'string' || !result.base64
+    || !Array.isArray(result.parsed?.sheets)) throw new Error(result?.error || '저장 양식 응답을 확인할 수 없습니다.');
+  return result;
+}
+
 export default function WeekdayEstimateWorkspace() {
   const [year, setYear] = useState(String(initialYear));
   const [majorWeek, setMajorWeek] = useState('');
@@ -38,8 +52,16 @@ export default function WeekdayEstimateWorkspace() {
   const [customer, setCustomer] = useState(null);
   const [customerError, setCustomerError] = useState('');
   const [fileName, setFileName] = useState('');
+  const originalWorkbook = useRef(null);
+  const workbookLinks = useRef([]);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
   const [parsed, setParsed] = useState(null);
   const [uploadError, setUploadError] = useState('');
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [templateError, setTemplateError] = useState('');
+  const [templateReload, setTemplateReload] = useState(0);
+  const manualUpload = useRef(null);
   const [selectedSource, setSelectedSource] = useState(null);
   const [productQuery, setProductQuery] = useState('');
   const [products, setProducts] = useState([]);
@@ -110,6 +132,8 @@ export default function WeekdayEstimateWorkspace() {
   const currentScope = useRef(scopeKey);
   currentScope.current = scopeKey;
   const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
+  const exportState = useRef(null);
+  exportState.current = { plans: activePlans, compareRows };
   const activeWilsonInputs = wilsonDrafts.filter(record => record.scopeKey === scopeKey && activePlans.some(plan =>
     Number(plan.year) === record.year && Number(plan.prodKey) === record.prodKey && plan.date === record.date
     && plan.orderWeek === record.orderWeek && Number(plan.quantity) === record.expectedTotal));
@@ -440,9 +464,42 @@ export default function WeekdayEstimateWorkspace() {
     } catch (error) { setProductError(error.message); }
   }
 
+  useEffect(() => {
+    setTemplateError(''); setTemplateBusy(false);
+    const original = originalWorkbook.current;
+    if (original && Number(original.scope?.split('|')[0]) !== Number(customer?.CustKey)) {
+      originalWorkbook.current = null; workbookLinks.current = [];
+      setParsed(null); setFileName(''); setMappings({}); setSelectedSource(null);
+    }
+    if (Number(customer?.CustKey) === 533) loadSavedWorkbook();
+  }, [scopeKey, templateReload]);
+
+  async function loadSavedWorkbook(resetManual = false) {
+    if (Number(customer?.CustKey) !== 533 || !/^533\|\d{4}\|(?:0[1-9]|[1-4]\d|5[0-3])$/.test(scopeKey || '')) return;
+    if (manualUpload.current?.custKey === 533) return;
+    if (resetManual) originalWorkbook.current = null;
+    const request = ++uploadRequest.current, requestedScope = scopeKey;
+    setTemplateBusy(true); setTemplateError('');
+    try {
+      const result = await loadWeekdaySavedTemplate({ custKey: customer.CustKey, scopeKey: requestedScope,
+        getOriginal: () => originalWorkbook.current,
+        isCurrent: () => request === uploadRequest.current && currentScope.current === requestedScope && manualUpload.current?.custKey !== 533,
+        fetchTemplate: () => apiGet('/api/estimate/weekday-template', { custKey: 533 }) });
+      if (!result) return;
+      const binary = atob(result.base64);
+      const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+      const file = new File([bytes], result.fileName, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      originalWorkbook.current = { file, fileId: result.sha256, scope: requestedScope, savedTemplate: true };
+      workbookLinks.current = workbookLinks.current.filter(link => link.fileId === result.sha256 && link.draftScope === requestedScope);
+      setParsed(result.parsed); setFileName(result.fileName); setMappings({}); setProductNames({}); setSelectedSource(null); setDownloadError('');
+    } catch (error) { if (request === uploadRequest.current && requestedScope === currentScope.current) setTemplateError(error.message); }
+    finally { if (request === uploadRequest.current && requestedScope === currentScope.current) setTemplateBusy(false); }
+  }
+
   async function uploadWorkbook(file) {
     if (!file || editLocked) return;
     const request=++uploadRequest.current,uploadScope=scopeKey;
+    manualUpload.current = { custKey: Number(customer?.CustKey), request }; setTemplateBusy(false);
     setBusy(true); setUploadError(''); setMessage('엑셀 구조를 읽는 중…');
     try {
       const form = new FormData(); form.append('file', file);
@@ -451,11 +508,38 @@ export default function WeekdayEstimateWorkspace() {
       try { result = await response.json(); } catch { throw new Error(response.status === 401 ? '로그인이 필요합니다.' : '서버 응답을 읽을 수 없습니다.'); }
       if (!response.ok || !result.success) throw new Error(result.error || '엑셀을 읽지 못했습니다.');
       if(request!==uploadRequest.current || uploadScope!==currentScope.current) return;
+      originalWorkbook.current = { file, fileId: crypto.randomUUID(), scope: uploadScope };
+      workbookLinks.current = [];
+      setDownloadError('');
       comparisonRequest.current += 1;
       setParsed(result); setFileName(file.name); setMappings({}); setProductNames({}); setSelectedSource(null); setDraftHistory([]);
       setMessage(`원문 ${result.sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0)}행을 임시로 읽었습니다. 수식·문자 셀은 자동 변환하지 않았습니다.`);
     } catch (error) { if(request===uploadRequest.current && uploadScope===currentScope.current){setUploadError(error.message); setMessage('업로드 확인 필요');} }
-    finally { if(request===uploadRequest.current && uploadScope===currentScope.current)setBusy(false); }
+    finally {
+      if (manualUpload.current?.request === request) {
+        manualUpload.current = null; setBusy(false);
+        if(uploadScope!==currentScope.current)setTemplateReload(value => value + 1);
+      }
+    }
+  }
+
+  async function downloadOriginalWorkbook() {
+    const original = originalWorkbook.current;
+    if (!original || original.scope !== scopeKey) { setDownloadError('현재 거래처·차수에서 원본 엑셀을 다시 업로드하세요.'); return; }
+    setDownloadBusy(true); setDownloadError('');
+    try {
+      const snapshot = JSON.stringify(exportState.current);
+      const updates = buildWeekdayWorkbookExportUpdates({ links: workbookLinks.current, plans: activePlans,
+        compareRows: compareRows || [], custKey: Number(customer?.CustKey), scopeKey, fileId: original.fileId });
+      const bytes = await patchOriginalWorkbook(await original.file.arrayBuffer(), updates, { filename: original.file.name });
+      if (originalWorkbook.current !== original || currentScope.current !== original.scope) throw new Error('거래처·차수 또는 원본이 변경되었습니다. 다시 다운로드하세요.');
+      if (snapshot !== JSON.stringify(exportState.current)) throw new Error('수량 또는 전산 조회값이 변경되었습니다. 다시 다운로드하세요.');
+      const url = URL.createObjectURL(new Blob([bytes], { type: /\.xls$/i.test(original.file.name) ? 'application/vnd.ms-excel' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = original.file.name.replace(/(\.xlsx?)$/i, '_주광$1');
+      document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setMessage(`원본 양식으로 다운로드했습니다. 연결된 수량 ${updates.length}개 셀 반영 · 그 외 셀은 원문 유지.`);
+    } catch (error) { setDownloadError(error.message || '원본 엑셀을 저장하지 못했습니다.'); }
+    finally { setDownloadBusy(false); }
   }
 
   function addSourceRow(row) {
@@ -484,9 +568,20 @@ export default function WeekdayEstimateWorkspace() {
       sourceYear: null, sourceOrderWeek: null, wdetailKey: null,
       header: cell.columnHeader,
     })).filter((item) => item.header);
-    if (plans.some((item) => additions.some((next) => next.sheet === item.sheet && next.sourceCell === item.sourceCell))) { setMessage('이미 초안에 포함된 원본 셀입니다. 이동/수량 변경으로 수정하세요.'); return; }
-    setPlans((current) => [...current, ...additions]);
-    setMessage(`${row.label}: 날짜 수량 후보 ${additions.length}건을 검토용 초안에 추가했습니다. ERP에는 저장되지 않았습니다.`);
+    const existing = additions.map(next => activePlans.filter(item => item.sheet === next.sheet && item.sourceCell === next.sourceCell));
+    if (existing.some((items,index) => items.length > 1 || items.some(item =>
+      Number(item.custKey)!==Number(additions[index].custKey) || Number(item.prodKey)!==Number(additions[index].prodKey)
+      || Number(item.year)!==Number(additions[index].year) || item.orderWeek!==additions[index].orderWeek
+      || item.date!==additions[index].date || normalizeWeekdayUnit(item.unit)!==normalizeWeekdayUnit(additions[index].unit)))) {
+      setMessage('기존 입력의 품목·날짜·단위가 다릅니다. 원본 연결을 확인하세요.'); return;
+    }
+    if (originalWorkbook.current?.scope === scopeKey) {
+      workbookLinks.current = [...workbookLinks.current.filter(link => !additions.some(item => item.sheet === link.sheet && item.sourceCell === link.sourceCell)),
+        ...additions.map(item => ({ ...item, fileId: originalWorkbook.current.fileId }))];
+    }
+    const fresh = additions.filter((_,index) => !existing[index].length);
+    setPlans((current) => [...current, ...fresh]);
+    setMessage(`${row.label}: 원본 수량 ${additions.length}개 셀 연결 · 새 초안 ${fresh.length}건. 기존 입력 수량은 유지했습니다. ERP에는 저장되지 않았습니다.`);
   }
 
   function updatePlan(id, patch) {
@@ -980,12 +1075,17 @@ export default function WeekdayEstimateWorkspace() {
         <button aria-label="이전 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===-1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(-1)}>◀</button>
         <button aria-label="다음 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(1)}>▶</button>
         <input aria-label="요일별 출고 엑셀 파일" style={{width:230}} type="file" accept=".xlsx,.xls" onChange={(e) => {setToolsOpen(true);uploadWorkbook(e.target.files?.[0]);}} disabled={busy || editLocked} />
+        <button onClick={downloadOriginalWorkbook} disabled={busy || downloadBusy || !parsed || originalWorkbook.current?.scope !== scopeKey} title="업로드한 원본의 셀 양식을 유지합니다. 연결된 날짜 수량만 반영하고 선출고·발주총량·비고·수식은 원문을 유지합니다.">{downloadBusy ? '엑셀 저장 중…' : originalWorkbook.current?.savedTemplate ? '기본 양식 엑셀 다운로드' : '원본 양식 엑셀 다운로드'}</button>
         <button onClick={compareWithErp} disabled={busy || editLocked || !customer}>전산 새로고침</button>
         <button onClick={saveInputOnly} disabled={!inputLoaded || !inputUser || editLocked || busy || !customer}>입력만 저장</button>
         <button aria-label="ERP 저장 · 변경 확인" className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>분배 적용 · 변경 확인</button>
         <button aria-expanded={toolsOpen} onClick={()=>setToolsOpen(value=>!value)}>업체·엑셀 연결 {toolsOpen?'접기':'펼치기'}</button>
       </div>
       <div style={{fontSize:12,marginTop:4,color:inputStorageError?'#b91c1c':'#475569'}} role={inputStorageError?'alert':'status'}>{inputStorageError || (!inputLoaded?'보관 입력 확인 중…':inputDirty?'입력 변경 있음 · 입력만 저장하면 이 브라우저에서 복구됩니다.':'이 브라우저 보관 입력과 일치 · ERP 적용과 별도')}</div>
+      {Number(customer?.CustKey) === 533 && <div style={{fontSize:12,marginTop:4}} role={templateError ? 'alert' : 'status'}>
+        {templateError ? `기본 양식 불러오기 실패: ${templateError}` : templateBusy ? '주광 저장 양식 불러오는 중…' : originalWorkbook.current?.savedTemplate && originalWorkbook.current.scope === scopeKey ? '주광 기본 양식 저장됨 · 원문 수량, 확인한 연결만 반영' : '직접 업로드한 원본을 사용합니다.'}
+        <button type="button" disabled={templateBusy || busy || editLocked} onClick={() => loadSavedWorkbook(true)}>{templateError ? '기본 양식 다시 불러오기' : '저장 양식 사용'}</button>
+      </div>}
       <div role="status" style={{ marginTop:5, padding:'3px 6px', borderRadius:4, background:'#fff7df', color:'#624900' }}>{message}</div>
       <details className="weekday-guidance"><summary>안내·작업 기준 펼치기</summary><div style={{fontSize:13,color:'#122033',marginTop:5}}>전산 현재값 = 저장된 조회값 · 파란 수량 = 미저장 초안 {activePlans.length}건 · 최초 기준 = 이 페이지의 불변 기록{plans.length>activePlans.length && ` · 다른 조회 범위 초안 ${plans.length-activePlans.length}건 보관 (이번 저장 제외)`}</div>
       <div style={{fontSize:12,color:'#624900',marginTop:3}}>작업 순서: 입력 → 입력만 저장(이 브라우저 보관) → 필요할 때 분배 적용 · 변경 확인. 최초 기준 확정은 별도 기록이며, 인쇄는 API가 메인차수 전체 확정을 검사합니다.</div>
@@ -1002,6 +1102,7 @@ export default function WeekdayEstimateWorkspace() {
       {carryoverError && <div role="alert" style={{color:'#9f1c16',marginTop:6,fontSize:14}}>마감 잔량·이월: {carryoverError} · 이월 계산값을 표시하지 않았습니다.</div>}
       {customerError && <div role="alert" style={{color:'#b42318'}}>{customerError}</div>}
       {uploadError && <div role="alert" style={{color:'#b42318'}}>{uploadError}</div>}
+      {downloadError && <div role="alert" style={{color:'#b42318'}}>{downloadError}</div>}
     </header>
 
     <section aria-label="미적용 입력 내역" style={{padding: '4px 8px', background: '#fff', borderBottom: '1px solid #cbd5e1'}}>
@@ -1018,7 +1119,7 @@ export default function WeekdayEstimateWorkspace() {
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
     {wilsonError && <div role="alert" style={{color:'#b42318',padding:6}}>윌슨: {wilsonError}</div>}
     {wilsonPending.length>0 && <button type="button" disabled={applyBusy || wilsonBusy || Boolean(pendingApply)} onClick={()=>retryWilson()}>윌슨 구분값 저장 확인 ({wilsonPending.length})</button>}
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} exportReady={Boolean(parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy)} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
       wilsonRecords={wilsonRecords.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} wilsonDrafts={wilsonDrafts.filter(record=>record.scopeKey===scopeKey && activePlans.some(plan=>Number(plan.year)===record.year && Number(plan.prodKey)===record.prodKey && plan.date===record.date && Number(plan.quantity)===record.expectedTotal))} wilsonBusy={wilsonBusy} wilsonError={wilsonError} onEditWilson={editWilson}
       confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}
@@ -1099,6 +1200,7 @@ export default function WeekdayEstimateWorkspace() {
         <h2 style={{ margin:'0 0 10px', fontSize:17 }}>2. 요일별 엑셀 업로드</h2>
         <label>헤더 날짜 미인식 시 출고일 <input style={inputStyle} type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)} /></label>
         {fileName && <p><b>{fileName}</b> · {parsed?.sheets?.length || 0}개 시트 · 원문 임시 분석</p>}
+        {parsed && <p className="muted">원본 양식 다운로드: 품목을 연결하고 계획에 추가한 날짜 수량만 갱신합니다. 나머지 셀은 업로드 원문 그대로 유지합니다. {originalWorkbook.current?.savedTemplate ? '저장된 주광 기본 양식은 새로고침 후 자동으로 불러옵니다. 품목·날짜 연결은 다시 확인하세요.' : '직접 업로드한 원본은 새로고침 후 다시 업로드하세요.'} XLS 수량 반영은 XLSX로 저장 후 업로드하세요.</p>}
         {uploadError && <p style={{ color:'#b42318' }}>{uploadError}</p>}
         {parsed && <div className="muted">{parsed.sheets.map((sheet) => <span className="tag" key={sheet.name}>{sheet.name}: {sheet.rows.length}행 · 병합 {sheet.merges.length}</span>)}<p>텍스트·수식은 자동 수량으로 바꾸지 않습니다. 날짜 수량 열로 인식되지 않은 셀은 검토가 필요합니다.</p></div>}
       </section>

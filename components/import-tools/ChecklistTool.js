@@ -533,7 +533,7 @@ export default function ChecklistTool({ activeTab, hideNavigation = false, onFli
       .import-checklist .inline-check input[type=checkbox] { margin:0; }
       .import-checklist .progress-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin-bottom:10px; }
       .import-checklist fieldset { border:0; margin:0; padding:0; min-width:0; }
-      .import-checklist .record-list { max-height:480px; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; margin-top:12px; padding:2px; }
+      .import-checklist .record-list { margin-top:12px; padding:2px; }
       .import-checklist .record-list>.task-group { margin-bottom:10px; }
       .import-checklist .entry { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:10px; border-bottom:1px solid #e2e8f0; }
       .import-checklist .entry>div { min-width:0; overflow-wrap:anywhere; }

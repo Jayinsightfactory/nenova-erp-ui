@@ -21,13 +21,20 @@
     "styles/ImportPacking.module.css",
     "lib/importPacking.js",
     "lib/importPackingPrompt.js",
+    "lib/importPackingReview.js",
+    "lib/importPackingPdfPreview.js",
+    "components/import-tools/PackingEvidenceReview.js",
+    "styles/PackingEvidenceReview.module.css",
     "lib/importPackingResponse.js",
     "lib/importPackingState.js",
     "lib/importPedidos.js",
     "components/import-tools/PackingListTool.js",
+    "components/import-tools/PackingResults.js",
     "components/import-tools/PedidosTool.js",
     "components/import-tools/ChecklistTool.js",
     "components/import-tools/HandoffTool.js",
+    "components/import-tools/FeedbackFrame.js",
+    "lib/autoHeightFrame.js",
     "lib/importTeamHandoffs.js",
     "lib/importAwbPdf.js",
     "lib/importAwbWorker.js"
@@ -45,6 +52,20 @@
     "authenticatedUserId"
   ],
   "actions": [
+    {
+      "name": "REVIEW_EXTRACTION_EVIDENCE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "none; local PDF evidence preview and editable GW/CW/freight confirmation; workbook audit sheet only, no ERP save"
+    },
+    {
+      "name": "PREVIEW_AND_COPY_RESULTS",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "none; browser-only notes, user-triggered clipboard window, no ERP receipt save"
+    },
     {
       "name": "CONVERT_FILES",
       "orderDetail": "preserve",
@@ -68,6 +89,9 @@
     "__tests__/importTeamTools.test.js",
     "__tests__/importTeamChecklist.test.js",
     "__tests__/importPacking.test.js",
+    "__tests__/importPackingReview.test.js",
+    "__tests__/packingEvidenceReview.test.js",
+    "__tests__/packingResultsUi.test.js",
     "__tests__/importPedidos.test.js",
     "__tests__/importTeamClient.test.js",
     "__tests__/importTeamPdfCache.test.js",
@@ -80,7 +104,8 @@
     "__tests__/importChinaInvoice.test.js",
     "__tests__/importChecklistEditing.test.js",
     "__tests__/importTeamSettings.test.js",
-    "__tests__/importTeamHandoffs.test.js"
+    "__tests__/importTeamHandoffs.test.js",
+    "__tests__/autoHeightFrame.test.js"
   ],
   "dnspyEvidence": {
     "required": true,

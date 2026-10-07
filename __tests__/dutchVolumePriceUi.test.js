@@ -42,13 +42,17 @@ assert.match(volumeSheet, /snapshot: snapshotDutchPriceDraft\(prices, keys\)/, '
 assert.match(volumeSheet, /if \(!commit\) onPriceRestore\(current\.snapshot\)/, 'Escape 취소 시 공유 대상 가격 초안을 원래 상태로 복원해야 합니다.');
 assert.match(page, /onPriceRestore=\{restorePriceDraft\}/, '가격 편집 취소 콜백을 부모 draft 상태에 연결해야 합니다.');
 assert.match(volumeSheet, /onChange=\{event => onPriceChange\(entry, event\.target\.value\)\}/, '셀 원화 입력은 타이핑 즉시 전체 비주광 공통 초안에 반영해야 합니다.');
+assert.match(volumeSheet, /hasPrice\(price\) \? formatQty\(price\) : '단가 입력'/, '물량표 셀에는 단가 숫자만 표시하고 원 기호를 덧붙이지 않아야 합니다.');
+assert.doesNotMatch(volumeSheet, /formatQty\(price\)}원/, '단가 수치 뒤에 원 단위를 반복 표시하면 안 됩니다.');
 assert.match(volumeSheet, /priceKey\(entry\)/, '셀의 원화 입력은 주광 개별·비주광 통합 가격키를 사용해야 합니다.');
 assert.match(volumeSheet, /\.quantity-cell\{padding:0!important;text-align:center\}/, '수량·원화 표시 셀은 여백 없이 가운데 정렬해야 합니다.');
 assert.match(volumeSheet, /onBlur=\{\(\) => finishQuantityEdit\(true\)\}/, '셀 수량 입력은 포커스를 벗어나면 초안에 반영되어야 합니다.');
 assert.match(volumeSheet, /event\.key === 'Escape'\) \{ event\.preventDefault\(\); finishQuantityEdit\(false\); \}/, 'Escape는 셀 편집을 취소해야 합니다.');
 assert.match(volumeSheet, /event\.key === 'Enter'\) \{ event\.preventDefault\(\); finishQuantityEdit\(true, true\); \}/, 'Enter는 검증 가능한 입력만 초안에 반영해야 합니다.');
 assert.match(page, /disabled=\{workBusy \|\| applying\} onQuantityChange=\{updateCellQuantity\}/, '기존 수량 수정과 빈 셀 추가 모두 preview를 무효화해야 합니다.');
-assert.match(page, /\[\.\.\.previous, \{ \.\.\.newEntry, quantity \}\]/, '빈 원본 셀 입력은 동일한 ERP 적용 entries 초안에만 추가해야 합니다.');
+assert.match(page, /\[\.\.\.previous, \{ \.\.\.newEntry, quantity, quantityHistory \}\]/, '빈 원본 셀 입력은 수정 이력과 함께 동일한 ERP 적용 entries 초안에만 추가해야 합니다.');
+assert.match(page, /buildDutchQuantitySummaryValues/, '수량 변경 뒤 화면과 엑셀에 주문 합계를 반영해야 합니다.');
+assert.match(volumeSheet, /quantity-history-badge/, '수량 수정 이력이 있는 셀에 작은 표시를 제공해야 합니다.');
 assert.match(page, /if \(entry\.added \|\| !entry\.sheetName \|\| !entry\.cellAddress \|\| !copy\.Sheets\[entry\.sheetName\]\) continue/, '빈 원본 셀 초안은 엑셀 저장 시 그 원래 좌표에 기록해야 합니다.');
 assert.match(page, /addDutchPriceColumns/);
 assert.match(page, /addDutchPriceShapesToXlsx/, '다운로드 XLSX에 실제 단가 도형을 삽입해야 합니다.');
@@ -73,6 +77,7 @@ assert.match(page, /체크한 업체는 일괄 단가에서 제외/, '설정 화
 assert.match(page, /localStorage\.setItem\(BULK_PRICE_CONFIG_KEY/, '일괄 업체 설정은 작업 간에도 브라우저에 저장해야 합니다.');
 assert.match(page, /migrateDutchBulkPriceConfig\(entries, prices, bulkPriceConfig, nextConfig\)/, '설정 변경 때 기존 단가를 안전하게 새 적용범위로 옮겨야 합니다.');
 assert.match(page, /dutchPriceKey\(row, bulkPriceConfig\)/, '단가 입력과 표시가 현재 일괄 업체 설정을 따라야 합니다.');
+assert.match(page, /match\?\.estUnit \? match\.estUnit : '견적단위: 검증 후 확인'/, '편집 표에는 원 기호 대신 견적단위만 표시해야 합니다.');
 assert.match(page, /isDutchBulkPriceCustomer\(row, bulkPriceConfig\)/, '포함 업체만 일괄 단가로 표시해야 합니다.');
 assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, source: 'orders' \}\)/, '선택 연도의 주문 입력 세부차수 목록을 조회해야 합니다.');
 assert.match(page, /\(sourceMode === 'SAVED' && !availableWeeks\.includes\(week\) \? \[week, \.\.\.availableWeeks\] : availableWeeks\)\.map\(recordedWeek/, 'DB 입력 이력은 유지하고 저장본의 현재 차수도 선택지로 보존해야 합니다.');
@@ -87,6 +92,10 @@ assert.match(volumeSheet, /productUnmatchedEntry[\s\S]*onMatch\(productUnmatched
 assert.match(volumeSheet, /customerUnmatchedEntry[\s\S]*onMatch\(customerUnmatchedEntry, 'customer'/, '미매칭 업체 선택은 표 화면을 유지하고 별도 매칭 창을 열어야 합니다.');
 assert.ok(page.indexOf('품목 / 원문') < page.indexOf('ERP 매칭 품목') && page.indexOf('ERP 매칭 품목') < page.indexOf('업체 / 원문') && page.indexOf('업체 / 원문') < page.indexOf('ERP 매칭 업체'), '원본 품목과 매칭 품목, 원본 업체와 매칭 업체를 각각 인접 배치해야 합니다.');
 assert.doesNotMatch(volumeSheet, /className="source-link"/, '매칭 성공 상태를 수량 셀마다 반복해 공간을 차지하면 안 됩니다.');
+assert.match(volumeSheet, /buildDutchQuantitySummaryValues/, '수량 편집 뒤 행 주문합계와 주문 총합계를 시트에 즉시 반영해야 합니다.');
+assert.match(volumeSheet, /quantity-history-badge/, '수정 이력이 있는 수량 셀에 작은 이력 표시를 제공해야 합니다.');
+assert.match(volumeSheet, /수량 수정 이력 보기/, '이력 표시를 눌러 수정 내역을 확인할 수 있어야 합니다.');
+assert.match(page, /appendDutchQuantityHistory/, '수량 변경 전후와 시각을 작업 데이터에 기록해야 합니다.');
 assert.match(page, /matchStatusUsable = validationCurrent \|\| Boolean\(applyResult\?\.failed\)/, '적용 오류 후 초안을 고치기 전까지는 실패한 검증에서 미매칭 위치를 유지해야 합니다.');
 assert.match(page, /미매칭 · \{customerName\(row\.sourceCustomer \|\| row\.customer\)\}/, '검토 표에서는 간단히 미매칭과 업체명을 함께 표시해야 합니다.');
 assert.match(page, /finalProgress = payload\.progress \|\| null/, '적용 실패 시 최종 서버 작업 로그를 다시 읽어 표시해야 합니다.');

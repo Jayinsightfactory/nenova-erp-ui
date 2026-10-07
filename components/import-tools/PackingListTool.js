@@ -1,12 +1,15 @@
 import styles from '../../styles/ImportPacking.module.css';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import PackingResults from './PackingResults.js';
+import PackingEvidenceReview from './PackingEvidenceReview.js';
+import { makePackingReviewRows, applyPackingReview, packingReviewWriter } from '../../lib/importPackingReview.js';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
 import { parseChinaInvoiceWorkbook, CHINA_INVOICE_MAX_BYTES } from '../../lib/importChinaInvoice.js';
 import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePackingRecord,
   PACKING_STORAGE_KEYS, isPackingDownloadBlocked, previewPackingCatalog,
-  distinctPackingVarieties, packingUnmatchedCounts, PACKING_PDF_MAX_BYTES,
+  distinctPackingVarieties, PACKING_PDF_MAX_BYTES,
   readPackingPdfResponse } from '../../lib/importPackingState.js';
 import { ALL_SEED_ALIASES, aliasKey, parseCatalog, parseAliasesXlsx, exportAliasesXlsx,
   genColombia, genNL, genChina, genEcuador, genThailand, genAustralia, genUS, genVN,
@@ -127,7 +130,7 @@ function PendingItem({ nm, catalogItems, onConfirm, lang = 'ko' }) {
           style={{ width: '100%', padding: '6px 8px', fontSize: 13, border: '1px solid #d0d0cc', borderRadius: 5, boxSizing: 'border-box' }}
         />
         {term.length > 0 && (
-          <div style={{ marginTop: 6, fontSize: 13, color: '#526580', maxHeight: 220, overflowY: 'auto' }}>
+          <div style={{ marginTop: 6, fontSize: 13, color: '#526580' }}>
             {filtered.length === 0 ? (
               <div style={{ padding: '6px 0', color: '#526580', fontStyle: 'italic' }}>{t.noResults}</div>
             ) : (
@@ -173,7 +176,7 @@ function NoMatchItem({ nm, catalogItems, onConfirm, lang = 'ko' }) {
         style={{ width: '100%', padding: '6px 8px', fontSize: 13, border: '1px solid #d0d0cc', borderRadius: 5, boxSizing: 'border-box' }}
       />
       {term.length > 0 && (
-        <div style={{ marginTop: 6, fontSize: 13, color: '#526580', maxHeight: 220, overflowY: 'auto' }}>
+        <div style={{ marginTop: 6, fontSize: 13, color: '#526580' }}>
           {filtered.length === 0 ? (
             <div style={{ padding: '6px 0', color: '#526580', fontStyle: 'italic' }}>{t.noResults}</div>
           ) : (
@@ -909,6 +912,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   const [mismatchOverrides, setMismatchOverrides] = useState(new Set());
   // Last-extracted result so we can rebuild excels after user confirms aliases
   const [lastExtraction, setLastExtraction] = useState(null);
+  const [reviewRows, setReviewRows] = useState(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const reviewButtonRef = useRef(null);
 
 
   const [sharedError, setSharedError] = useState(null);
@@ -926,6 +933,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   }, []);
 
   const resetResults = () => {
+    setReviewRows(null); setReviewOpen(false); setReviewConfirmed(false);
     setNeedsAI(false); setExtractionSource('');
     setExcels([]); setGenerated({}); setLastExtraction(null);
     setPending([]); setAllNoMatches([]); setMismatches([]);
@@ -1112,11 +1120,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
       // abbreviation in the filename (e.g. _BAL_, _FLO_) keeps them unique.
       const fileNum = weekParsed.num;
       const opts = { catalog, masterAwb, aliases: currentAliases };
-      const res = gen(xlsxLib, inv, weekParsed.week, fileNum, opts);
+      const res = gen(packingReviewWriter(xlsxLib, inv, file?.name), inv, weekParsed.week, fileNum, opts);
       if (res.pending && res.pending.length > 0) allPending.push(...res.pending);
       if (res.noMatches && res.noMatches.length > 0) allNm.push(...res.noMatches);
       if (res.totalMismatch) allMismatches.push(res.totalMismatch);
-      return res;
+      return { ...res, wasTruncated, grossWeight: inv.packingReview?.values.gw ?? inv.gross_weight ?? null,
+        chargeableWeight: inv.packingReview?.values.cw ?? inv.vol_weight ?? null };
     });
     // Dedup pending/noMatches by aliasKey so the user sees each distinct
     // description only once, even if it appeared in multiple invoices/farms.
@@ -1215,8 +1224,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
       const masterAwb = result.master_awb || (invoices[0] && invoices[0].awb) || '';
       if (invoices.length === 0) throw new Error(t.noInvoices);
       // Save extraction for potential re-build after alias updates
-      setLastExtraction({ result, masterAwb, weekParsed: parsed, wasTruncated });
+      setLastExtraction({ result, sourceInvoices: invoices, masterAwb, weekParsed: parsed, wasTruncated });
       buildExcels({ invoices, masterAwb, weekParsed: parsed, currentAliases: aliases, wasTruncated });
+      setReviewRows(makePackingReviewRows(invoices, country)); setReviewOpen(true);
     } catch (e) {
       if (isCurrent()) setStatus({ type: 'error', msg: t.errorPrefix + e.message });
     } finally {
@@ -1225,7 +1235,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     }
   };
 
-  const isBlocked = excel => !sharedReady || saving || processing || isPackingDownloadBlocked(excel, {
+  const isBlocked = excel => !sharedReady || saving || processing || !reviewConfirmed || isPackingDownloadBlocked(excel, {
     pending, noMatches: allNoMatches, overrides: mismatchOverrides,
     truncated: lastExtraction?.wasTruncated,
   });
@@ -1253,8 +1263,21 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   const statusBorder = status?.type === 'error' ? '#f8b4b4' : status?.type === 'success' ? '#84e1bc' : '#c3d3fb';
   const statusColor = status?.type === 'error' ? '#c81e1e' : status?.type === 'success' ? '#057a55' : '#2457c5';
 
+  const closeReview = () => { setReviewOpen(false); setTimeout(() => reviewButtonRef.current?.focus(), 0); };
+  const confirmReview = drafts => {
+    if (!lastExtraction || processingRef.current || savingRef.current || !sharedReady) throw new Error('현재 파일 분석이 완료된 뒤 다시 확인하세요.');
+    const invoices = applyPackingReview(lastExtraction.sourceInvoices, drafts, country);
+    // Build first: a failure preserves the previous extraction and review draft.
+    buildExcels({ invoices, masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
+      currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated });
+    setLastExtraction(current => ({ ...current, result: { ...current.result, invoices } }));
+    setReviewConfirmed(true); closeReview();
+  };
+
   return (
     <div className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
+      {reviewRows && <PackingEvidenceReview rows={reviewRows} open={reviewOpen} onClose={closeReview} onConfirm={confirmReview}
+        fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
           <button onClick={() => setReloadVersion(v => v + 1)} disabled={saving || processing || catalogLoading || catalogParsing}>{t.reload}</button>
@@ -1340,7 +1363,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
               <label><input type="radio" name="packing-catalog-mode" checked={catalogMode === 'merge'} onChange={() => { setCatalogMode('merge'); setCatalogReplaceConfirmed(false); }} /> {t.catalogMerge}</label>
               <label><input type="radio" name="packing-catalog-mode" checked={catalogMode === 'replace'} onChange={() => { setCatalogMode('replace'); setCatalogReplaceConfirmed(false); }} /> {t.catalogReplaceAll}</label>
             </div>
-            <div className={styles.tableScroll} tabIndex={0} role="region" aria-label={t.catalogPreview} style={{ overflowX: 'auto', maxHeight: 260, overflowY: 'auto' }}>
+            <div className={styles.tableScroll} tabIndex={0} role="region" aria-label={t.catalogPreview} style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse', fontSize: 13, textAlign: 'right' }}>
                 <thead><tr>{t.catalogColumns.map(label => <th key={label} scope="col" style={{ padding: '6px 8px', whiteSpace: 'nowrap', borderBottom: '1px solid #c3d3fb' }}>{label}</th>)}</tr></thead>
                 <tbody>{catalogPreview.countries.map(row => <tr key={row.country}>
@@ -1496,6 +1519,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
             )}
             {excels.length > 0 && (
               <div style={{ marginTop: '1.25rem' }}>
+                <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
+                  <button ref={reviewButtonRef} type="button" onClick={() => setReviewOpen(true)} disabled={processing || saving} data-testid="packing-review-open">GW · CW · 운송비 확인/수정</button>
+                  <span style={{ marginLeft: 12 }}>{reviewConfirmed ? '확인값 적용됨 · 수정 내역은 다운로드의 인식값 확인 시트에 포함' : '인식값 확인 전 다운로드 보류'}</span>
+                  <div>ERP 입고 DB 저장은 아닙니다. 기존 국가별 양식이 지원하지 않는 값은 별도 확인 시트에만 기록됩니다.</div>
+                </div>
                 {excels.length > 1 && (() => {
                   const anyBlocked = excels.some(isBlocked);
                   return (
@@ -1518,49 +1546,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                   );
                 })()}
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.generatedSection}</div>
-                {excels.map((ex) => {
-                  const tot = ex.products.reduce((s, p) => s + (p.qty || 0), 0);
-                  const unmatched = packingUnmatchedCounts(ex);
-                  const unmatchedCount = unmatched.varieties;
-                  const blocked = isBlocked(ex);
-                  return (
-                    <div key={ex.name} style={{ background: '#fff', border: '1px solid #dce4ef', borderRadius: 10, padding: '1rem 1.25rem', marginBottom: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 5, gap: 8 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>
-                          {ex.label}
-                          {unmatchedCount > 0 && (
-                            <span style={{ marginLeft: 8, fontSize: 13, padding: '2px 7px', borderRadius: 20, background: '#fde8e8', color: '#c81e1e', border: '1px solid #f8b4b4', fontWeight: 500 }}>
-                              {t.unmatchedBadge(unmatchedCount)}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          onClick={blocked ? undefined : () => dl(ex.name)}
-                          disabled={blocked}
-                          style={{
-                            padding: '5px 12px', fontSize: 13, borderRadius: 8,
-                            border: '1px solid ' + (blocked ? '#ccc' : '#172b4d'),
-                            background: blocked ? '#ccd6e5' : '#2457c5',
-                            color: '#fff', fontWeight: 500,
-                            cursor: blocked ? 'not-allowed' : 'pointer',
-                            opacity: blocked ? 0.55 : 1,
-                          }}>
-                          {blocked ? t.downloadBlocked : t.download}
-                        </button>
-                      </div>
-                      <div style={{ fontSize: 13, color: '#526580', marginBottom: 6, overflowWrap: 'anywhere' }}>{ex.name} · {t.products(ex.products.length)} · {tot.toLocaleString()} {country === 'CN' ? '단' : t.stems}{unmatched.rows > 0 && ` · ${t.catalogRows(unmatched.rows)}`}</div>
-                      <div style={{ fontSize: 13, color: '#526580' }}>
-                        {ex.products.slice(0, 5).map((p, i) => (
-                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: i < Math.min(4, ex.products.length - 1) ? '1px solid #edf2f8' : 'none' }}>
-                            <span style={{ color: p.unmatched ? '#c81e1e' : '#526580' }}>{p.unmatched ? '⚠ ' : ''}{p.name}</span>
-                            <span style={{ color: '#172b4d', fontWeight: 500 }}>{(p.qty || 0).toLocaleString()}</span>
-                          </div>
-                        ))}
-                        {ex.products.length > 5 && <div style={{ padding: '3px 0', color: '#526580' }}>{t.more(ex.products.length - 5)}</div>}
-                      </div>
-                    </div>
-                  );
-                })}
+                <PackingResults
+                  excels={excels}
+                  country={country}
+                  blocked={isBlocked}
+                  onDownload={dl}
+                  truncated={lastExtraction?.wasTruncated === true}
+                />
 
                 {/* Total mismatch warning */}
                 {mismatches.length > 0 && (

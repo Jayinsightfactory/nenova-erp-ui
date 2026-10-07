@@ -316,13 +316,14 @@ export default function DistributeImport() {
       }
       // 이번 검증에 실제로 보낸 override 스냅샷 — 검증 결과의 미매칭과 대조해
       // "지정했는데 반영 안 됨"(회귀)을 조용히 넘기지 않고 잡아낸다.
-      verifiedOverridesRef.current = {
+      const submittedOverrides = {
         cust: { ...custOverridesRef.current },
         prod: { ...prodOverridesRef.current },
       };
       const res = await fetch('/api/shipment/distribute-import-preview', { method: 'POST', body: form, credentials: 'same-origin' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '검증 실패');
+      verifiedOverridesRef.current = submittedOverrides;
       setPreview(data);
       const fixedAlert = buildImportFixBlockedAlert({
         orderYear: data.orderYear,
@@ -670,12 +671,23 @@ export default function DistributeImport() {
             <Kpi label="주문변경" value={changedRows.length} warn={changedRows.length > 0} />
             <Kpi label="분배차이" value={shipmentRows.length} warn={shipmentRows.length > 0} />
             <Kpi label="신규추가" value={orderlessRows.length} warn={orderlessRows.length > 0} />
+            <Kpi label="분배 제외 수량행" value={preview.ignoredCustomerCount || 0} />
             <Kpi label="미매칭" value={preview.unmatched?.length || 0} danger={(preview.unmatched?.length || 0) > 0} />
             <Kpi label="적용가능" value={applyRows.length} warn={applyRows.length > 0} />
             <Kpi label="확정차단" value={fixBlockedRows.length} danger={fixBlockedRows.length > 0} />
             <Kpi label="수량경고" value={qtyWarningRows.length} danger={qtyWarningRows.length > 0} />
           </div>
         )}
+        {preview && Object.keys({ ...verifiedOverridesRef.current.cust, ...custOverrides }).length > 0 && <section style={st.panel} aria-label="업체 분배 선택 내역">
+          <strong>업체 분배 선택 내역 · 이번 업로드에만 적용</strong>
+          <p style={{fontSize:12}}>선택을 바꾼 경우 다시 검증해야 적용할 수 있습니다. 제외는 거래처 연결로 저장되지 않습니다.</p>
+          {Object.keys({ ...verifiedOverridesRef.current.cust, ...custOverrides }).map(label => {
+            const selected = custOverrides[label], verified = verifiedOverridesRef.current.cust[label];
+            const describe = value => isImportIgnoreCustomerValue(value) ? '분배 안 함' : value ? `분배 포함 · ERP 업체 ${value}` : '업체 연결 필요';
+            return <div key={label} style={{padding:'4px 0'}}><b>{label}</b> · 검증된 선택: {describe(verified)}
+              {String(selected || '') !== String(verified || '') && <span style={{color:'#b45309'}}> · 변경 선택(재검증 필요): {describe(selected)}</span>}</div>;
+          })}
+        </section>}
         {preview && (
           <div style={st.grid}>
             <section style={st.panel}>
@@ -1686,21 +1698,38 @@ function UnmatchedMatchingModal({
   onReverify, onClose, loading,
   custPending, prodPending,
 }) {
+  const dialogRef = useRef(null);
+  const closeRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const trigger = document.activeElement;
+    closeRef.current?.focus();
+    return () => { if (trigger?.isConnected) trigger.focus(); };
+  }, [open]);
+  function dialogKeys(event) {
+    if (event.key === 'Escape' && !loading) { event.preventDefault(); event.stopPropagation(); onClose(); }
+    if (event.key !== 'Tab') return;
+    const controls = [...dialogRef.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')]
+      .filter(node => node.getClientRects().length);
+    const first = controls[0], last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  }
   if (!open) return null;
   const custResolved = customerItems.filter(it => custOverrides[it.label]).length;
   const prodResolved = productItems.filter(it => prodOverrides[it.key]).length;
   const canReverify = custResolved + prodResolved > 0;
   return (
     <div style={st.modalOverlay}>
-      <div style={{ ...st.modalCard, width: 'min(1100px, 97vw)' }} role="dialog" aria-modal="true" aria-label="미매칭 매칭">
+      <div ref={dialogRef} onKeyDown={dialogKeys} style={{ ...st.modalCard, width: 'min(1100px, 97vw)' }} role="dialog" aria-modal="true" aria-label="미매칭 매칭">
         <div style={st.modalHead}>
           <div>
             <div style={st.modalTitle}>⚠️ 미매칭 — 업체/품목 수동 매칭</div>
             <div style={{ ...st.modalSubtitle, color: '#b45309' }}>
-              추천 후보를 확인하고 거래처·품목을 지정한 뒤 <b>다시 검증</b>하세요.
+              업체별로 분배 포함(ERP 업체 연결) 또는 분배 안 함을 선택한 뒤 <b>다시 검증</b>하세요.
             </div>
           </div>
-          <button type="button" style={st.modalCloseBtn} onClick={onClose}>닫기</button>
+          <button ref={closeRef} type="button" style={st.modalCloseBtn} disabled={loading} onClick={onClose}>닫기</button>
         </div>
         <div style={st.matchTabRow}>
           <button type="button" style={matchTab === 'customer' ? st.matchTabOn : st.matchTabOff} onClick={() => onTabChange('customer')}>
@@ -1717,10 +1746,10 @@ function UnmatchedMatchingModal({
             ) : (
               <>
                 <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
-                  엑셀 업체명 → 실제 거래처. ★ 추천 후보 우선 · 이름/코드 입력으로 전체 검색 가능합니다.
+                  분배 포함은 실제 ERP 업체를 연결하세요. 제외는 이번 파일의 해당 원문 업체열 수량에만 적용하며 다른 업체열은 유지합니다. 주광 선출고가 이전 차수에 반영되었다면 이번 파일에서는 분배 안 함을 선택하세요. 자동으로 제외하지 않습니다.
                 </div>
                 <table style={st.table}>
-                  <thead><tr><th>구분</th><th>엑셀 업체</th><th>건수</th><th>샘플 품목</th><th>→ 거래처 선택</th><th>제외</th></tr></thead>
+                  <thead><tr><th>구분</th><th>엑셀 업체</th><th>건수</th><th>샘플 품목</th><th>분배 포함 · ERP 업체 연결</th><th>이번 파일 분배 선택</th></tr></thead>
                   <tbody>
                     {customerItems.map(it => {
                       const ignored = isImportIgnoreCustomerValue(custOverrides[it.label]);
@@ -1732,14 +1761,14 @@ function UnmatchedMatchingModal({
                           <td style={{ fontSize: 11, color: '#64748b' }}>{it.sample || '—'}</td>
                           <td>
                             {ignored ? (
-                              <span style={st.ignoreBadge}>제외됨(분배 안 함)</span>
+                              <span style={st.ignoreBadge}>제외됨(이번 차수 분배 안 함)</span>
                             ) : (
                               <CustomerSearchSelect
                                 value={custOverrides[it.label] || ''}
                                 onChange={v => onPickCustomer(it.label, v)}
                                 suggested={it.suggestedCustomers}
                                 options={customerOptions}
-                                placeholder="거래처 검색·선택"
+                                placeholder="분배 포함 · 업체 검색·선택"
                               />
                             )}
                           </td>
@@ -1748,9 +1777,10 @@ function UnmatchedMatchingModal({
                               type="button"
                               style={ignored ? st.unignoreBtn : st.ignoreBtn}
                               onClick={() => onPickCustomer(it.label, ignored ? '' : IMPORT_IGNORE_CUSTOMER_VALUE)}
-                              title="거래처가 아닌 열(농장 등)이면 제외 처리 — 주문·분배 모두 건드리지 않습니다."
+                              disabled={loading}
+                              title="이번 파일의 이 원문 업체열 수량만 분배 대상에서 제외합니다. 다른 업체열의 수량은 유지합니다."
                             >
-                              {ignored ? '제외 취소' : '제외(농장 등)'}
+                              {ignored ? '제외 취소 · 업체 연결' : '분배 안 함'}
                             </button>
                           </td>
                         </tr>

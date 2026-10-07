@@ -382,3 +382,38 @@ groupButtons(groups)[0].props.onClick();groups=groupDraw();assert.equal(groupBut
 assert.match(renderToStaticMarkup(groups),/검색 결과/);
 assert.equal(helper.weekdayFlowerPriority({flowerNames:['SPRAY ROSE'],name:'ROSE fixture'}),4,'unrecognized authoritative metadata stays other rather than guessed from product name');
 console.log('Flower group order, default expansion, mounted hidden cells and search reveal passed');
+
+assert.match(source,/wcm-cell-error \{[^\n]*position:relative;[^\n]*z-index:40/,'failure icon occupies normal flow below the numeric input rather than covering it');
+assert.match(source,/wcm-compact-warning \{[^\n]*display:flex;[^\n]*padding:0; border:0/,'cell warning excludes page-level error padding');
+const warningTree=CompactSummary({...summaryProps,carryoverError:'negative carry failure'});
+const changeCell=React.Children.toArray(warningTree.props.children).at(-1);
+const summaryContainer=React.Children.toArray(changeCell.props.children)[0];
+assert.equal(summaryContainer.props.className,'wcm-compact-summary');
+assert.ok(nodes(summaryContainer).some(node=>node.props?.className==='wcm-compact-warning'),'warning gets its own flow slot beside change action');
+assert.ok(nodes(summaryContainer).some(node=>node.props?.className==='wcm-change-note'),'change action remains available');
+slots.length=0;
+let openedNote;
+const earlyBlock={...block,pageNote:{earlyShipment:{date:qday.date,sourceYear:2026,sourceOrderWeek:'37-01',quantity:999.5,unit:'박스'}}};
+const earlyTree=qdraw({block:earlyBlock,onOpenNote:value=>{openedNote=value;}});
+const earlyButton=nodes(earlyTree).find(node=>node.props?.className==='wcm-early-label');
+assert.ok(earlyButton);assert.match(earlyButton.props.title,/2026\/37-01차 선출고/);
+assert.match(earlyButton.props.title,/재확인/);assert.ok(!nodes(earlyButton).some(node=>node.props?.className==='wcm-quantity-label'),'early label quantity remains in detailed tooltip rather than widening the cell');
+assert.equal(nodes(earlyTree).find(node=>node.type==='input').props.value,String(qday.planned??qday.displayCurrent??qday.current),'compact early status never changes quantity');
+earlyButton.props.onClick();assert.equal(openedNote.block,earlyBlock);
+console.log('Compact warning flow, independent change action and unchanged early quantity/note behavior passed');
+
+assert.match(visibleText(renderToStaticMarkup(earlyTree)),/선출고 ↗/,'compact label still names the early-shipment concept');
+const currentZeroDay={...qday,current:0,displayCurrent:0,planned:null,initialDelta:0};
+const previousSource={...actual,year:2026,orderWeek:'37-01',shipmentOutQuantity:3,outUnit:'박스'};
+const sourceRow={...row,blocks:[{...block,productActuals:[previousSource]}]};
+const noteBlock={...block,pageNote:{earlyShipment:{date:qday.date,sourceYear:2026,sourceOrderWeek:'37-01',quantity:3,unit:'박스'}}};
+const earlyStatus=(sources,patch={})=>{slots.length=0;return qdraw({row:{...sourceRow,blocks:[{...block,productActuals:sources}]},day:currentZeroDay,block:{...noteBlock,...patch}});};
+const statusButton=tree=>nodes(tree).find(node=>node.props?.className==='wcm-early-label');
+assert.doesNotMatch(statusButton(earlyStatus([previousSource])).props.title,/재확인/,'current zero does not invalidate known previous-week quantity3');
+for(const sources of [[],[{...previousSource,shipmentOutQuantity:2}],
+  [{...previousSource,year:2025}], [previousSource,{...previousSource}],
+  [{...previousSource,outUnit:'unknown'}],[{...previousSource,state:'ERROR'}]]) {
+ assert.match(statusButton(earlyStatus(sources)).props.title,/재확인/,'missing, short, cross-year, ambiguous or unknown source remains review-only');
+}
+assert.doesNotMatch(statusButton(earlyStatus([{...previousSource,year:2025}],{pageNote:{earlyShipment:{...noteBlock.pageNote.earlyShipment,sourceYear:2025}}})).props.title,/재확인/,'source identity explicitly supports the exact prior year');
+console.log('Early-shipment source scope, current-zero preservation and review guards passed');

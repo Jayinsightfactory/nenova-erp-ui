@@ -46,6 +46,16 @@ async function main() {
     process.exit(1);
   }
 
+  console.log('\n--- 주광 저장 양식 (읽기 전용) ---');
+  const savedTemplate = await request('/api/estimate/weekday-template?custKey=533', { token });
+  assert('주광 저장 양식 200', savedTemplate.status === 200, `status=${savedTemplate.status}`);
+  const templateBytes = Buffer.from(savedTemplate.json?.base64 || '', 'base64');
+  const templateHash = require('node:crypto').createHash('sha256').update(templateBytes).digest('hex').toUpperCase();
+  assert('저장 양식 원본 무결성', templateHash === '0D2BF7505BBDB792C43A116DF037BC125E4BE44F05D7519DDFE747EB7D8FDFB3');
+  assert('저장 양식 시트 보존', savedTemplate.json?.parsed?.sheets?.length === 15);
+  const anonymousTemplate = await request('/api/estimate/weekday-template?custKey=533');
+  assert('저장 양식 로그인 보호', anonymousTemplate.status === 401);
+
   console.log('\n--- 23-01 주광 Hydrangea 진단 (수정 후 구조) ---');
   const vis = await request(
     `/api/shipment/estimate-visibility?year=${ORDER_YEAR}&week=23-01&q=Hydrangea%20White&cust=주광`,

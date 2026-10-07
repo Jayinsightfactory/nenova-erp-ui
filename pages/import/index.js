@@ -3,9 +3,10 @@
 //   상단 Statistic KPI / 왼쪽 농장 Table(상태·잔액·D-day·클레임) / 가운데 IncomingInsight(농장 흐름 또는 차수 보드) / 오른쪽 할 일 Tabs(송금 확정·클레임·ETA·미입고)
 import { useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Row, Col, Card, Statistic, Table, Tag, Tabs, Button, Input, Select, Space, Typography, Tooltip, Badge, Empty, Segmented, message, theme as antdTheme } from 'antd';
-import { CheckOutlined, CloseOutlined, ReloadOutlined, WarningOutlined, DollarOutlined, InboxOutlined, ClockCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { ReloadOutlined, WarningOutlined, DollarOutlined, InboxOutlined, ClockCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import koKR from 'antd/locale/ko_KR';
 import { IncomingInsight } from '../incoming/insight';
+import { SettlementTab, RemitInboxTable } from '../../components/import/SettlementTab';
 
 const { Text } = Typography;
 const fmt = (n) => (n == null || n === '' ? '–' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }));
@@ -21,7 +22,7 @@ export function ImportOnePage({ initialRole = 'import' } = {}) {
   const [board, setBoard] = useState(null); const [ledger, setLedger] = useState(null); const [inbox, setInbox] = useState(null); const [eta, setEta] = useState(null);
   const [farm, setFarm] = useState(''); const [view, setView] = useState('board'); const [q, setQ] = useState(''); const [stF, setStF] = useState();
   const [role, setRole] = useState(initialRole);
-  const [todo, setTodo] = useState('remit'); const [edit, setEdit] = useState({}); const [tick, setTick] = useState(0); const [loading, setLoading] = useState(false); const [rightOpen, setRightOpen] = useState(true);
+  const [todo, setTodo] = useState('remit'); const [tick, setTick] = useState(0); const [loading, setLoading] = useState(false); const [rightOpen, setRightOpen] = useState(true);
 
   useEffect(() => {
     const u = new URLSearchParams(window.location.search); if (u.get('farm')) setFarm(u.get('farm')); if (u.get('view')) setView(u.get('view'));
@@ -50,11 +51,7 @@ export function ImportOnePage({ initialRole = 'import' } = {}) {
     { title: 'D-day', key: 'dday', width: 74, sorter: (a, b) => (a.pay?.dday ?? 9999) - (b.pay?.dday ?? 9999), render: (_, r) => <DDayTag pay={r.pay} /> },
     { title: '클레임', key: 'claims', width: 70, align: 'right', sorter: (a, b) => a.claims.pending - b.claims.pending || a.claims.n - b.claims.n, render: (_, r) => r.claims.n ? <Badge count={r.claims.pending} size="small" offset={[6, 0]}><span>{r.claims.n}</span></Badge> : <Text type="secondary">–</Text> },
   ];
-  const remitCols = [
-    { title: '받는 분', dataIndex: 'payee', ellipsis: true, render: (v, r) => <><div><Text strong>{v}</Text></div><Text type="secondary" style={{ fontSize: 11 }}>{r.date} · {r.currency} {fmt(r.amountOrig ?? r.amountUSD)}</Text></> },
-    { title: '농장 / 차수', key: 'farm', width: 190, render: (_, r) => { const ed = edit[r.key] || {}; return <Space direction="vertical" size={2} style={{ width: '100%' }}><Select showSearch size="small" style={{ width: '100%' }} placeholder="농장" value={ed.farmName ?? (r.farm || undefined)} onChange={(v) => setEdit({ ...edit, [r.key]: { ...ed, farmName: v } })} options={(inbox?.farms || []).map((f) => ({ value: f, label: f }))} /><Input size="small" placeholder="차수 38-01,38-02" value={ed.weeks ?? r.weeks ?? ''} onChange={(e) => setEdit({ ...edit, [r.key]: { ...ed, weeks: e.target.value } })} />{r.score != null && <Text type="secondary" style={{ fontSize: 10 }}>자동 매칭 {Math.round(r.score * 100)}%</Text>}</Space>; } },
-    { title: '', key: 'act', width: 84, render: (_, r) => { const fv = (edit[r.key] || {}).farmName ?? r.farm; return <Space size={2}><Tooltip title={r.currency !== 'USD' ? 'USD만 자동 확정' : '확정 → 잔액 반영'}><Button type="primary" size="small" icon={<CheckOutlined />} disabled={!fv || r.currency !== 'USD'} onClick={() => act({ action: 'confirm', key: r.key, farmName: fv, weeks: (edit[r.key] || {}).weeks ?? r.weeks ?? '' })} /></Tooltip><Button size="small" danger icon={<CloseOutlined />} onClick={() => act({ action: 'reject', key: r.key })} /></Space>; } },
-  ];
+  // 송금신청서 확정/거절 표는 components/import/SettlementTab.js 의 RemitInboxTable 로 이동(정산 탭과 공유, 데이터 흐름 동일)
 
   return (
     <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 12 } }}>
@@ -98,7 +95,8 @@ export function ImportOnePage({ initialRole = 'import' } = {}) {
           {rightOpen && <Col flex="0 0 380px">
             <Card size="small" styles={{ body: { padding: 6 } }}>
               <Tabs size="small" activeKey={todo} onChange={setTodo} items={[
-                { key: 'remit', label: <Badge count={inboxRows.length} size="small" overflowCount={999} offset={[8, 0]}>송금 확인</Badge>, children: inboxRows.length ? <Table size="small" rowKey="key" columns={remitCols} dataSource={inboxRows} pagination={{ pageSize: 20, size: 'small', simple: true }} scroll={{ y: 'calc(100vh - 380px)' }} rowClassName={(r) => (r.farm ? '' : 'nv-warn')} /> : <Empty description="송금 확인 대기 없음 — 경영지원이 '해외건별송금신청' 파일을 저장하면 자동으로 들어옵니다" /> },
+                { key: 'remit', label: <Badge count={inboxRows.length} size="small" overflowCount={999} offset={[8, 0]}>송금 확인</Badge>, children: inboxRows.length ? <RemitInboxTable rows={inboxRows} farms={inbox?.farms || []} act={act} /> : <Empty description="송금 확인 대기 없음 — 경영지원이 '해외건별송금신청' 파일을 저장하면 자동으로 들어옵니다" /> },
+                { key: 'settle', label: '정산', children: <SettlementTab year={year} week={week} weeks={weeks} farm={farm} inboxRows={inboxRows} inboxFarms={inbox?.farms || []} act={act} onChanged={() => setTick((t) => t + 1)} /> },
                 { key: 'claims', label: <Badge count={pendingClaims.length} size="small" offset={[8, 0]}>클레임</Badge>, children: pendingClaims.length ? <div style={{ maxHeight: 'calc(100vh - 360px)', overflow: 'auto' }}>{pendingClaims.map((c) => <Card key={c.key} size="small" style={{ marginBottom: 6, borderColor: '#ffbb96' }}><Space direction="vertical" size={0}><Space><a onClick={() => pick(c.farm)}><Text strong>{c.farm}</Text></a><Tag>{c.week}</Tag></Space><Text>{c.cust} · {c.prod}{c.color ? ` (${c.color})` : ''} · {fmt(c.qty)} {c.unit}</Text>{c.note && <Text type="secondary">{c.note}</Text>}<Button size="small" href={`/sales/defect-deductions?year=${c.week.split('-')[0]}&week=${c.week.split('-').slice(1).join('-')}`}>불량차감 원장에서 확인</Button></Space></Card>)}</div> : <Empty description="수입부 확인 대기 클레임 없음" /> },
                 { key: 'eta', label: <Badge count={lateEta.length} size="small" offset={[8, 0]}>ETA {etaRows.length}</Badge>, children: etaRows.length ? <div style={{ maxHeight: 'calc(100vh - 360px)', overflow: 'auto' }}>{etaRows.map((r) => <Card key={r.id} size="small" style={{ marginBottom: 6, borderColor: r.late ? '#ff7875' : undefined }}><Space direction="vertical" size={0}><Space><a onClick={() => pick(r.farm)}><Text strong>{r.farm}</Text></a><Tag color={r.stage === '입고등록' ? 'green' : r.late ? 'red' : 'blue'}>{r.stage}</Tag></Space><Text>{r.year} {r.week}{r.country ? ' · ' + r.country : ''} · ETA {r.eta || '미정'}{r.late ? ' · 지연' : ''}{r.awb ? ' · ' + r.awb : ''}</Text>{r.note && <Text type="secondary">{r.note}</Text>}</Space></Card>)}</div> : <Empty description="등록된 입고 예정 없음 — 가운데 '입고 예정 칸반'에서 등록" /> },
                 { key: 'missing', label: <Badge count={missing.length} size="small" overflowCount={999} offset={[8, 0]}>미입고</Badge>, children: missing.length ? <Table size="small" rowKey="prodKey" dataSource={missing} pagination={false} scroll={{ y: 'calc(100vh - 360px)' }} columns={[{ title: '품목', dataIndex: 'name', ellipsis: true, render: (v, r) => <><div>{v}</div><Text type="secondary" style={{ fontSize: 11 }}>{r.country} · {r.flower}</Text></> }, { title: '발주', dataIndex: 'ordered', align: 'right', width: 70, render: fmt }]} /> : <Empty description="미입고 품목 없음" /> },

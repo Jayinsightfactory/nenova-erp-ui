@@ -23,8 +23,11 @@ assert.match(coverage,/확정 분석 포함/,'trusted rate eligibility must not 
 assert.match(coverage,/보완 필요 원본도 아래 자동감지에서 반복을 확인/,'incomplete source list explains its separate detection scope');
 assert.match(coverage,/customerName,row\.farmName,row\.productName/,'local search includes customer, farm, and product');
 assert.match(coverage,/parentWeek\(right\.orderWeek\)-parentWeek\(left\.orderWeek\)/,'rows sort newest parent week first');
-assert.match(coverage,/max-height:380px;overflow:auto/,'dense source list scrolls');
-assert.match(coverage,/position:sticky;top:0/,'source list header stays visible');
+assert.match(coverage,/\.coverage-table-wrap\{overflow-x:auto/,'wide tables scroll horizontally only when needed');
+assert.doesNotMatch(coverage,/max-height\s*:|overflow\s*:\s*auto|position:sticky/,'source table grows vertically at every breakpoint without a trapped sticky header');
+assert.match(coverage,/role="region" aria-label="불량 원본 표 · 필요한 경우 좌우로 스크롤" tabIndex=\{0\}/,'horizontal table is keyboard reachable and named');
+assert.match(coverage,/font-size:14px;line-height:1\.5/,'source table text remains readable');
+assert.match(coverage,/\.coverage td:nth-child\(2\),\.coverage td:nth-child\(3\),\.coverage td:nth-child\(4\)\{white-space:normal;overflow-wrap:anywhere/,'long customer/farm/product names wrap');
 assert.match(coverage,/@media\(max-width:900px\)/,'900px responsive layout');
 assert.match(coverage,/@media\(max-width:760px\)/,'760px responsive layout');
 assert.doesNotMatch(coverage,/CustKey|customerKey|customerIdentity/,'customer identifiers are not rendered');
