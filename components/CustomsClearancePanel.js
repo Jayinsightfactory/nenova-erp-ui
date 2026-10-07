@@ -153,7 +153,7 @@ function colombiaErpSourceTitle(def) {
     + (x.pooledWithHydrangea ? ` (콜카장수국 혼적 AWB 전체 — 수국 ${Math.round((x.hydrangeaBoxes || 0) * 10) / 10}박스를 5번째 품목으로 같은 풀에서 배분)`
       : x.mixed ? ` (혼적 AWB ${x.awbGw}/${x.awbCw}kg 중 4품목 ${Math.round(x.share * 1000) / 10}%)` : '')
     + (x.gwClampedToCw ? ' (전산 GW>CW → CW 사용)' : ''));
-  return ['전산 입고관리 Gross/Chargeable weight 행 자동값 — 교정은 [무게 수기교정]', ...lines].join(' / ');
+  return ['전산 입고관리 Gross/Chargeable weight 행 — 입고 기준 중량의 교정은 입고관리 원천에서 합니다', ...lines].join(' / ');
 }
 
 // focus: 매출이익 보고서 경고에서 넘어온 반차수(예: '38-01') 또는 국가 카테고리(예: '태국') —
@@ -447,7 +447,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
         <b style={{ color: '#e65100' }}> 전차수 참고값(↵)</b>: 저장값·원본 엑셀값이 모두 없을 때만 보이는 제안이며, <u>클릭해 적용하고 저장하기 전까지 합계에 전혀 반영되지 않습니다</u>.
         <b> 저장값</b>: 실제 청구비용·차량은 저장값을 보존합니다. 중량은 해당 차수 입고 GW/CW가 기준이며, 과거 2026년 22~27차 역사값과 국가별 명시적 GW 0은 보존합니다.
         <br />
-        <b>값이 없을 때 할 일</b> — 관세·선율은 통관사 청구서 금액을 그대로 입력하고, GW는 입고관리의 Gross weight 라인을 확인하세요(입고 GW 힌트를 클릭하면 그대로 들어갑니다).
+        <b>값이 없을 때 할 일</b> — 관세·선율은 통관사 청구서 금액을 그대로 입력하고, GW/CW는 입고관리의 Gross/Chargeable weight 라인을 함께 확인하세요. 입고 기준 중량은 이 화면에서 덮어쓰지 않습니다.
         🕘 아이콘으로 수정 이력(누가·언제·얼마→얼마)을 볼 수 있습니다.
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -505,7 +505,7 @@ export default function CustomsClearancePanel({ week, year, onSaved, focus = nul
                 type="button"
                 style={{ marginLeft: 8, fontSize: 11, border: editWeights ? '1px solid #b45309' : '1px dashed #94a3b8', background: editWeights ? '#fff7ed' : '#fff', color: editWeights ? '#b45309' : '#475569', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}
                 onClick={() => setEditWeights((v) => !v)}
-                title="무게(GW/CW)는 입고관리 Gross weight 자동값이 기준 — 교정이 필요할 때만 입력칸을 엽니다">
+                title="역사값·입고 원천이 없는 수기값의 교정만 엽니다. 입고 기준 중량은 입고관리에서 수정하세요.">
                 {editWeights ? '무게 교정 닫기 \u25b2' : '\u2696 무게 수기교정'}
               </button>
               {hiddenCatCnt > 0 && (

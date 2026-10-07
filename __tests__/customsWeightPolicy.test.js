@@ -63,6 +63,18 @@ async function main() {
   assert.ok(cwOnlyAudit.issues.some((issue) => issue.code === 'CUSTOMS_WEIGHT_INVALID'));
   assert.equal(hasColombiaInbound({}, {}, ['31-01'], '31-01'), true);
   assert.equal(hasColombiaInbound({}, {}, [], '31-01'), false);
+  const overrideRow = Object.freeze({ category: '콜롬비아 장미', currency: 'USD', auto: Object.freeze({ N: 1, H: 1000, S: 200 }), manual: Object.freeze({ H: 1500, S: 250 }), source: {} });
+  const overrideContext = { orderYear: '2026', major: '31', automaticSources: { H: { '콜롬비아 장미': 'saved' }, S: { '콜롬비아 장미': 'auto' } } };
+  const overrideIssues = (row, context) => buildProfitReportAudit([row], context).issues.filter(issue => issue.code === 'REPORT_COST_OVERRIDE_DIFF');
+  const overrideWarning = overrideIssues(overrideRow, overrideContext)[0];
+  assert.equal(overrideWarning.severity, 'warning'); assert.deepEqual(overrideWarning.columns, ['H', 'S']);
+  assert.match(overrideWarning.message, /1,500원.*1,000원.*500원/); assert.match(overrideWarning.message, /250USD.*200USD.*50USD/);
+  assert.equal(overrideRow.manual.H, 1500); assert.equal(overrideRow.manual.S, 250);
+  assert.equal(overrideIssues(overrideRow, { ...overrideContext, major: '26' }).length, 0);
+  assert.equal(overrideIssues({ ...overrideRow, confirmed: true }, overrideContext).length, 0);
+  assert.equal(overrideIssues(overrideRow, { ...overrideContext, automaticSources: {} }).length, 0);
+  assert.equal(overrideIssues(overrideRow, { ...overrideContext, colombiaWeeks: [{ inbound: true, weightState: 'invalid' }] }).length, 0);
+  assert.equal(overrideIssues({ ...overrideRow, manual: { H: 1000, S: 200 } }, overrideContext).length, 0);
   const panel = fs.readFileSync(path.join(__dirname, '../components/CustomsClearancePanel.js'), 'utf8');
   assert.ok(!panel.includes('manualVal > 0 ? manualVal : autoVal'), 'rejected inbound must not appear as effective automatic weight');
   const source = fs.readFileSync(path.join(__dirname, '../lib/customsForwarding.js'), 'utf8');

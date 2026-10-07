@@ -631,6 +631,7 @@ export async function loadReportData(major, orderYear) {
       major: currentMajor,
       orderYear: String(orderYear),
       forwardingLedger: customs.sources?.forwardingLedger || null,
+      automaticSources: customs.sources || {},
       previousMajor: Number(prevMajor),
       previousOrderYear: prevOrderYear,
       previousForwardingLedger: prevCustoms.sources?.forwardingLedger || null,
