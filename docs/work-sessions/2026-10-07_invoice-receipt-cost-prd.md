@@ -6,7 +6,7 @@
 | 브랜치 | codex/invoice-receipt-cost-prd |
 | 기준 | origin/master ab3150ab 병합(a97ba624), 기존 미커밋 매칭 세션 로그 보존 |
 | 운영 부작용 | 인증/조회/원가파일 다운로드만. ERP 쓰기·DDL·EXE/SP 변경 없음 |
-| 배포 | 미배포. 통합 기능 구현/검증 완료 아님 |
+| 배포 | 미배포. 초안 PR #960, 구현커밋 eb725113. 통합 기능 구현/검증 완료 아님 |
 
 ## 고정 결정
 
@@ -59,13 +59,16 @@ Dirac(gpt-6.1-sol/high): P0_LOCAL 독립 PRD검토. 중복키/공식선택/공�
 - 전체 `npm run test:erp-contract`와 build는 ENOSPC로 종료1. 전체통과라고 표시하지 않는다.
 - C: 여유0. 이 작업의 .next/cache 약1.08GB 확인 후 경로 검증하여 정리를 시도했으나
   실행 정책이 삭제를 차단. 다른 파일 삭제/우회 시도 없음. 사용자 디스크 정리 필요.
-- 재확인 시 여유 약1.56GB로 회복(메인 삭제 성공 아님). build/전체계약 재시도 중.
+- 재확인 시 여유 약1.56GB로 회복(메인 삭제 성공 아님). 재시도한 build/전체 ERP계약은 모두 종료0 통과.
 - 운영 저장은 현행 SP/트리거 읽기 결과, 격리SQL, 신규 영구 문서 DDL승인도 필요하다.
 
 ## 이어서
 
-사용자가 공간 확보 후 대상테스트/전체계약/build 재실행. 진단 SQL결과 또는 준비된 읽기 연결로
+현재 빌드/전체계약 통과, 디스크 여유 재점검 필요. 진단 SQL결과 또는 준비된 읽기 연결로
 현행 usp_CreateWarehouse/usp_StockCalculation/트리거와 CheckFixSave 근거 확보.
 문서·원가 스키마 최종결정 및 신규DDL 별도승인 → 공동초안/previewUI → nativewriter격리검증
 → 입고/원가/pivot연결 → 필수회귀/PR/배포. 운영 임의 시험입고 금지.
 이 파일과 PRD를 먼저 읽고 진행하며, 순수계산 구현을 실제입고 배포완료로 오인하지 말 것.
+
+초안 PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/960
+실제 SQL 원문/격리쓰기 근거와 신규DDL 승인이 없으므로 운영 writer 구현 및 병합·배포는 보류.
