@@ -110,8 +110,8 @@ export default function ForwardingClearancePanel({ week, year, onSaved }) {
       <div style={st.hint}>
         <b style={{ color: '#166534' }}>입고관리에서 자동감지</b>됩니다(WarehouseDetail의 '운송료'/'SERVICE FEE' 라인을 농장·인보이스로 국가 판별).
         회색 자동감지값이 그대로 계산에 쓰이며, 새 농장이라 못 잡혔거나 값을 고칠 땐 아래 입력칸에 직접 넣으면 그 값이 우선(override)됩니다.
-        콜롬비아 카네이션·장미·알스트로·루스커스는 반차수 총액을 [📦 그외통관비 입력]에서 저장한 GW/CW·박스수량 비율로 자동 배분됩니다
-        (GW≈CW면 무게비율, 아니면 CBM비율). 🕘 아이콘으로 수정 이력을 볼 수 있습니다.
+        콜롬비아 카네이션·장미·알스트로·루스커스는 반차수 총액을 [📦 그외통관비 입력]과 같은 유효 GW/CW·박스수량 기준으로 자동 배분합니다.
+        입고 중량이 기준이며 역사값 등 예외는 아래에 구분합니다(GW≈CW면 무게비율, CW&gt;GW면 CBM비율). 🕘 아이콘으로 수정 이력을 볼 수 있습니다.
       </div>
       {loading && <span style={{ fontSize: 12, color: '#64748b' }}>로딩중…</span>}
       {error && <div style={st.error}>{error}</div>}

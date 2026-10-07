@@ -28,7 +28,7 @@ console.log('distribution message application status tests passed');
 
 const {appliedOperationEntry,matchOperationByExactContent,formatKakaoMessage,sourceConfirmation}=require('../lib/distributionMessageApplicationStatus');
 const scope={identity,year:'2026',week:'37-01',requestCount:2};
-const operation={sourceIdentity:identity,year:'2026',week:'37-01',status:'committed',committedCount:2,at:'2026-09-15 11:00:00',entries:[{sourceIdentity:identity},{sourceIdentity:identity}]};
+const operation={sourceIdentity:identity,year:'2026',week:'37-01',status:'committed',verified:true,committedCount:2,at:'2026-09-15 11:00:00',entries:[{sourceIdentity:identity},{sourceIdentity:identity}]};
 const manual={sourceIdentity:identity,year:'2026',week:'37-01',status:'MANUALLY_APPLIED',createdAt:'2026-09-15T02:01:00Z'};
 assert.equal(sourceConfirmation(scope).confirmed,false);
 assert.equal(sourceConfirmation({...scope,manual}).confirmed,true);
@@ -37,7 +37,7 @@ assert.equal(sourceConfirmation({...scope,requestCount:1,operation:{...operation
 assert.equal(sourceConfirmation({...scope,operation:{...operation,entries:[{sourceIdentity:identity},{sourceIdentity:'different-message'}]}}).confirmed,false,'mixed-source operation rows never auto-confirm this message');
 assert.equal(sourceConfirmation({...scope,requestCount:2,appliedItemCount:2}).confirmed,true,'all source requests covered by exact history evidence auto-confirm');
 assert.equal(sourceConfirmation({...scope,requestCount:2,appliedItemCount:1}).confirmed,false,'partial history coverage does not confirm the whole source');
-for(const patch of [{status:'preview'},{status:'failed'},{undo:true},{undone:true},{incomplete:true},{committedCount:1},{year:'2025'},{week:'37-02'},{entries:[{sourceIdentity:identity}]}]) {
+for(const patch of [{verified:false},{verified:undefined},{status:'preview'},{status:'failed'},{undo:true},{undone:true},{incomplete:true},{committedCount:1},{year:'2025'},{week:'37-02'},{entries:[{sourceIdentity:identity}]}]) {
   assert.equal(sourceConfirmation({...scope,operation:{...operation,...patch}}).confirmed,false,JSON.stringify(patch));
 }
 const cancelled={...manual,status:'MANUALLY_NOT_APPLIED'};
@@ -86,3 +86,34 @@ assert.match(ui,/paired-message-original/,'the full organized Kakao message is v
 assert.match(ui,/paired-applied-items/,'the right column shows applied items, not ERP event explanations');
 assert.match(ui,/application\.status==='APPLIED'\?'적용':'미확인'/,'only an exact verified item audit is colored applied');
 console.log('source confirmation toggle and successful-operation tests passed');
+
+const {readApplicationChannel}=require('../lib/distributionApplicationRefresh');
+(async()=>{
+  const state={manual:{old:true},audit:{old:true},operation:{old:true}};
+  const success=(value)=>({ok:true,json:async()=>value});
+  const errorMessage=(data,fallback)=>data.error||fallback;
+  const channel=(label,fetchImpl,apply,isCurrent=()=>true)=>readApplicationChannel({label,url:'/fixture',fetchImpl,signal:new AbortController().signal,validate:data=>data.valid===true,apply,isCurrent,errorMessage});
+  const results=await Promise.all([
+    channel('manual',async()=>success({valid:true,new:true}),data=>{state.manual=data;}),
+    channel('audit',async()=>({ok:false,json:async()=>({error:'audit unavailable'})}),data=>{state.audit=data;}),
+    channel('operation',async()=>success({valid:true,new:true}),data=>{state.operation=data;}),
+  ]);
+  assert.deepEqual(results.map(result=>result.ok),[true,false,true],'one failed endpoint does not discard independent successes');
+  assert.equal(results[1].error.message,'audit unavailable');
+  assert.deepEqual(state.audit,{old:true},'failed channel keeps its previous same-scope result');
+  assert.equal(state.manual.new,true);assert.equal(state.operation.new,true);
+
+  let releaseLate;
+  let current=true;
+  const late=channel('manual',()=>new Promise(resolve=>{releaseLate=resolve;}),data=>{state.manual=data;},()=>current);
+  current=false;releaseLate(success({valid:true,late:true}));
+  assert.equal((await late).ok,true);
+  assert.equal(state.manual.late,undefined,'a prior-scope response cannot replace the current scope');
+
+  const controller=new AbortController();
+  const timeout=readApplicationChannel({label:'audit',url:'/fixture',signal:controller.signal,fetchImpl:(_url,{signal})=>new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>reject(Object.assign(new Error('aborted'),{name:'AbortError'})))),validate:()=>true,isCurrent:()=>true,apply:()=>{throw Error('aborted response applied');},errorMessage});
+  controller.abort();
+  assert.equal((await timeout).ok,false,'timed-out channel reports failure without replacing prior data');
+  assert.deepEqual(state.audit,{old:true});
+  console.log('independent application channels, endpoint failure, stale scope and timeout fixtures passed');
+})().catch(error=>{console.error(error);process.exitCode=1;});

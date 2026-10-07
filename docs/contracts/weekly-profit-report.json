@@ -1,6 +1,7 @@
 {
   "id": "weekly-profit-report",
   "title": "주차별 매출이익보고서 입고중량·통관비·포워딩 원천 자동대조 계약",
+  "manualCostOverridePolicy": "근거 있는 본표 수기 H/S는 보존한다. 유효한 최신 자동 원천과 차이가 있으면 REPORT_COST_OVERRIDE_DIFF warning으로 적용 수기/자동/차이를 통화와 함께 표시한다. 확정본·2026 22~27 역사 차수·불완전 자동 원천은 비교하지 않는다.",
   "scope": [
     "lib/customsWeightPolicy.js",
     "lib/profitReportWeekCheck.js",

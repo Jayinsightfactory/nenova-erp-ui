@@ -6,6 +6,7 @@ import {classifyMessage,summarizeMessage,confirmedHistoryRequests,quantityProces
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
 import {appliedOperationEntry,matchOperationByExactContent,formatKakaoMessage,sourceConfirmation,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
+import {readApplicationChannel} from '../../lib/distributionApplicationRefresh';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 import DistributionMessagePreanalysis from './DistributionMessagePreanalysis';
@@ -188,27 +189,36 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     setApplicationStatus(previous=>({...previous,loading:true,error:''}));
     try {
       const query=new URLSearchParams({year:String(year),week:applicationWeek});
-      const [manualResponse,auditResponse,operationResponse]=await Promise.all([
-        fetch(`/api/orders/distribution-manual-applications?${query}`,{signal:controller.signal}),
-        fetch(`/api/orders/distribution-change-audits?${new URLSearchParams({year:String(year),week:applicationWeek,mode:'message-status'})}`,{signal:controller.signal}),
-        fetch(`/api/orders/paste-history?${new URLSearchParams({year:String(year),week:applicationWeek,who:'all'})}`,{signal:controller.signal}),
-      ]);
-      const [manualData,auditData,operationData]=await Promise.all([manualResponse.json().catch(()=>({})),auditResponse.json().catch(()=>({})),operationResponse.json().catch(()=>({}))]);
-      if(!applicationMounted.current||activeApplicationScope.current!==scope||epoch!==applicationScopeEpoch.current||sequence!==applicationSequence.current)return;
+      const isCurrent=()=>applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current;
       const validManual=application=>application&&application.year===String(year)&&application.week===applicationWeek&&typeof application.sourceIdentity==='string'&&application.sourceIdentity.length>0&&typeof application.eventId==='string'&&/^[a-f0-9]{64}$/i.test(application.eventId)&&MANUAL_APPLICATION_STATUSES.includes(application.status)&&application.advisoryOnly===true&&application.erpAction==='NONE';
-      const uniqueManual=new Set(Array.isArray(manualData.applications)?manualData.applications.map(application=>application?.sourceIdentity):[]);
-      if(!manualResponse.ok||!Array.isArray(manualData.applications)||!manualData.applications.every(validManual)||uniqueManual.size!==manualData.applications.length) throw new Error(applicationError(manualData,'수동 적용 표시 응답 형식이 올바르지 않습니다.'));
-      if(!auditResponse.ok||!Array.isArray(auditData.items)||!auditData.items.every(item=>item&&typeof item.sourceIdentity==='string'&&item.sourceIdentity.length>0&&item.advisoryOnly===true&&item.erpAction==='NONE')||auditData.advisoryOnly!==true||auditData.erpAction!=='NONE') throw new Error(applicationError(auditData,'저장된 비교 이력을 읽지 못했습니다.'));
-      if(!operationResponse.ok||operationData?.success!==true||!Array.isArray(operationData.operations)) throw new Error(applicationError(operationData,'붙여넣기 적용 이력을 읽지 못했습니다.'));
-      const operationStates={};
-      operationData.operations.filter(operation=>operation?.status==='committed').forEach(operation=>{
-        const identities=[...new Set((operation.entries||[]).map(entry=>entry?.sourceIdentity).filter(identity=>typeof identity==='string'&&identity.length>0))];
-        identities.forEach(identity=>{if(!operationStates[identity])operationStates[identity]={...operation,sourceIdentity:identity,undone:operation.undo===true};});
-      });
-      const operations=Object.fromEntries(Object.entries(operationStates).filter(([,operation])=>!operation.undone));
-      const activeOperationHistory=[...new Map(Object.values(operations).map(operation=>[operation.key,operation])).values()];
-      setManualApplications(byIdentity(manualData.applications));setAuditApplications(byIdentity(auditData.items));setOperationApplications(operations);setOperationHistory(activeOperationHistory);
-      setApplicationStatus({loading:false,error:'',limit:Number.isInteger(auditData.limit)?auditData.limit:20,asOf:typeof auditData.asOf==='string'?auditData.asOf:'',loaded:true});
+      const readChannel=(label,url,validate,apply)=>readApplicationChannel({label,url,signal:controller.signal,fetchImpl:fetch,validate,isCurrent,apply,errorMessage:applicationError});
+      const results=await Promise.all([
+        readChannel('수동 적용 표시',`/api/orders/distribution-manual-applications?${query}`,data=>{
+          const items=data.applications;
+          return Array.isArray(items)&&items.every(validManual)&&new Set(items.map(item=>item.sourceIdentity)).size===items.length;
+        },data=>{setManualApplications(byIdentity(data.applications));setApplicationStatus(previous=>({...previous,loaded:true}));}),
+        readChannel('저장된 비교 이력',`/api/orders/distribution-change-audits?${new URLSearchParams({year:String(year),week:applicationWeek,mode:'message-status'})}`,data=>Array.isArray(data.items)&&data.items.every(item=>item&&typeof item.sourceIdentity==='string'&&item.sourceIdentity.length>0&&item.advisoryOnly===true&&item.erpAction==='NONE')&&data.advisoryOnly===true&&data.erpAction==='NONE',data=>{
+          setAuditApplications(byIdentity(data.items));
+          setApplicationStatus(previous=>({...previous,limit:Number.isInteger(data.limit)?data.limit:20,asOf:typeof data.asOf==='string'?data.asOf:''}));
+        }),
+        readChannel('붙여넣기 적용 이력',`/api/orders/paste-history?${new URLSearchParams({year:String(year),week:applicationWeek,who:'all'})}`,data=>data?.success===true&&Array.isArray(data.operations),data=>{
+          const operationStates={};
+          data.operations.filter(operation=>operation?.status==='committed').forEach(operation=>{
+            const identities=[...new Set((operation.entries||[]).map(entry=>entry?.sourceIdentity).filter(identity=>typeof identity==='string'&&identity.length>0))];
+            identities.forEach(identity=>{if(!operationStates[identity])operationStates[identity]={...operation,sourceIdentity:identity,undone:operation.undo===true};});
+          });
+          const operations=Object.fromEntries(Object.entries(operationStates).filter(([,operation])=>!operation.undone));
+          setOperationApplications(operations);
+          setOperationHistory([...new Map(Object.values(operations).map(operation=>[operation.key,operation])).values()]);
+        }),
+      ]);
+      if(!isCurrent())return;
+      const failed=results.filter(result=>!result.ok);
+      if(failed.length){
+        const details=failed.map(result=>`${result.label}: ${timedOut?'30초 안에 끝나지 않았습니다':result.error?.message||'조회에 실패했습니다'}`).join(' · ');
+        setApplicationStatus(previous=>({...previous,error:`${failed.length<results.length?'일부 적용 상태를 갱신하지 못했습니다.':'적용 상태를 갱신하지 못했습니다.'} ${details} 기존 표시는 유지됩니다.`}));
+        return false;
+      }
     } catch(error) { if(applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current&&(error?.name!=='AbortError'||timedOut))setApplicationStatus(previous=>({...previous,loading:false,error:timedOut?'적용 상태 조회가 30초 안에 끝나지 않았습니다. 기존 표시는 유지됩니다.':error.message||'적용 표시를 읽지 못했습니다. 기존 표시는 유지합니다.'})); return false; }
     finally {
       clearTimeout(timeout);

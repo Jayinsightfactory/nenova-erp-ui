@@ -448,3 +448,6 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 - SELECT probe: CustKey533/ProdKey359 CARNATION Brut, 2026/40-01 OutQuantity5에는 2026-10-04 일요일3과 2026-10-06 화요일2가 모두 연결돼 있다. 2025/40-01은 OutQuantity2, 2025-10-01 날짜수량2다. 화면 40-1 합계5/잔량0은 실제 업무키 총량을 날짜 구간 합계로 사용한 결과였다.
 - 최신 사용자 요구에 따라 웹 표시 01은 목~일, 02는 월~수 날짜 합계로 계산한다. 최초분배5에서 일요일3을 빼 01 잔량2를 표시한다. 표시 구간이 바뀌어도 편집·저장·견적의 실제 OrderWeek는 변경하지 않는다.
 - 공유 ERP SQL, 수량, 원장, 확정, 재고·매출과 저장 검증은 모두 보존한다. Wilson은 같은 날짜 총량의 구분값이므로 다시 가산하지 않는다. 범위 밖 날짜는 원문 진단에 남기며 화면 구간 합계에는 넣지 않는다.
+
+## 2026-10-07 붙여넣기 분석·검토·완료 재진입
+설치 EXE FormShipmentDistribution을 dnSpy CLI로 다시 확인했다(GetCustomerList 및 btnSave_Click). 웹 원문 분석·브라우저 draft 복원과 최상단 이동은 shared ERP INSERT/UPDATE/DELETE 또는 분배 재실행을 하지 않는다. 현재 주문·분배는 명시 연도/세부차수로 다시 읽고 lease/token/live baseline은 복원하지 않는다. 읽기 전용 probe:2025/40-01 활성 ShipmentMaster27건,2026/40-01 69건으로 서로 별도 scope. 최신 batch9898은2026/41-01 verified=true/commit2/source1,40-01에는 source 없는 batch9557도 있으므로 유사 원문으로 확인을 조작하지 않는다. 수동확인 GET2026/40-01 3건,history8건/hasMore=false. 검증된 성공 이후의 표시와 중복실행 잠금만 유지한다. 분석 조회 실패·부분 분배·다른 연도/차수는 완료 근거가 아니다.
