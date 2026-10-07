@@ -14,7 +14,7 @@ process.on('unhandledRejection', error => { console.error('Unhandled smoke error
 const ORIGIN = 'https://nenovaweb.com';
 const USER_DATA = path.join(os.tmpdir(), `nenova-desktop-smoke-${process.pid}`);
 const OUTPUT = path.resolve(__dirname, '..', 'test-output');
-let dialogAnswer = 0;
+let dialogAnswer = 1;
 let accountActor = 'desktop-test';
 let bootstrapOverride = null;
 let holdAccountBAuth = false;
@@ -167,7 +167,7 @@ async function run() {
   assert.equal(initialShell.tabbar, 'visible', 'compact workspace keeps tabs visible');
   assert.equal(initialShell.toolsTabIndex, 0, 'tools toggle is keyboard reachable');
   assert.equal(initialShell.toolsTag, 'BUTTON');
-  assert.match(await first.view.webContents.executeJavaScript('navigator.userAgent'), /NenovaDesktop\/1\.2\.0/, 'business session UA identifies desktop 1.2');
+  assert.match(await first.view.webContents.executeJavaScript('navigator.userAgent'), new RegExp(`NenovaDesktop/${require('../package.json').version.replaceAll('.', '\\.')}`), 'business session UA identifies desktop 1.2');
   assert.equal(first.view.getBounds().y, 44, 'compact tab workspace starts below the 44px tab bar');
   assert.equal(first.view.getBounds().height, 1036, 'compact tab workspace uses the remaining 1036px');
   const shellContents = sourceWindow.win.webContents;
@@ -363,13 +363,13 @@ async function run() {
   await waitFor(() => sourceWindow.ids.indexOf(first.id) === beforeKeyboardReorder - 1, 'keyboard tab reorder');
 
   // A close confirmation can be cancelled, then accepted and completed.
-  dialog.showMessageBoxSync = () => dialogAnswer;
-  dialogAnswer = 0;
+  dialog.showMessageBoxSync = (_window, options) => { assert.deepEqual(options.buttons, ['닫기', '취소']); assert.equal(options.cancelId, 1); assert.equal(options.defaultId, 1); return dialogAnswer; };
+  dialogAnswer = 1;
   console.log('Smoke: cancel close begin');
   main.command(sourceWindow, 'close', { id: second.id });
   console.log('Smoke: cancel close returned');
   assert.ok(main.tabs.has(second.id), 'cancelled close retains tab');
-  dialogAnswer = 1;
+  dialogAnswer = 0;
   second.view.webContents.on('will-prevent-unload', () => console.log('Smoke: second will-prevent-unload'));
   second.view.webContents.on('close', () => console.log('Smoke: second close event'));
   second.view.webContents.on('destroyed', () => console.log('Smoke: second destroyed event'));
@@ -385,14 +385,14 @@ async function run() {
   assert.ok(guardedTab);
   await waitForTab(guardedTab, async tab => !tab.loading && await tab.view.webContents.executeJavaScript('Boolean(document.querySelector("#smoke-input"))'), 'beforeunload fixture content');
   await guardedTab.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value='beforeunload 값'; window.__blockUnload=true`);
-  const confirmAnswers = [1, 0];
-  dialog.showMessageBoxSync = () => confirmAnswers.shift() ?? 0;
+  const confirmAnswers = [0, 1];
+  dialog.showMessageBoxSync = () => confirmAnswers.shift() ?? 1;
   main.command(sourceWindow, 'close', { id: guardedTab.id });
   await delay(400);
   assert.ok(main.tabs.has(guardedTab.id), 'beforeunload cancellation leaves the tab registered');
   assert.equal(await guardedTab.view.webContents.executeJavaScript(`document.querySelector('#smoke-input').value`), 'beforeunload 값');
   await guardedTab.view.webContents.executeJavaScript(`window.__blockUnload=false`);
-  dialog.showMessageBoxSync = () => 1;
+  dialog.showMessageBoxSync = () => 0;
   main.command(sourceWindow, 'close', { id: guardedTab.id });
   await waitFor(() => !main.tabs.has(guardedTab.id), 'beforeunload tab close after page allows it');
   console.log('Smoke: unload guard');
