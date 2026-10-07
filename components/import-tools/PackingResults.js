@@ -34,7 +34,15 @@ function quantityText(product, country) {
 }
 
 function productName(product) {
-  return String(product.name || product.sourceName || '품목명 미상').trim() || '품목명 미상';
+  return String(product.matchedName || product.name || product.sourceName || '품목명 미상').trim() || '품목명 미상';
+}
+
+function sourceProductName(product) {
+  return String(product.sourceName || product.matchingDescription || product.name || '품목명 미상').trim() || '품목명 미상';
+}
+
+function namesMatch(left, right) {
+  return String(left || '').trim().toLocaleUpperCase() === String(right || '').trim().toLocaleUpperCase();
 }
 
 function mismatchText(mismatch) {
@@ -61,7 +69,7 @@ function buildIssueSummary(excels, country, notes, truncated = false) {
 
     lines.push('', excel.label || excel.name || '결과 파일');
     rowIssues.forEach(({ product, key }) => {
-      const reason = String(notes[key] || '').trim() || '카탈로그 미매칭';
+      const reason = String(notes[key] || '').trim() || '전산 미매칭';
       lines.push(`- ${productName(product)} · ${quantityText(product, country)} · 사유: ${reason}`);
       issueCount += 1;
     });
@@ -175,13 +183,21 @@ function populateSummaryWindow(popup, summary, returnFocus) {
   popup.focus();
 }
 
-export default function PackingResults({ excels, country, blocked, onDownload, truncated = false }) {
+export default function PackingResults({
+  excels,
+  country,
+  blocked,
+  onDownload,
+  onMatch,
+  mappingDisabled = false,
+  truncated = false,
+}) {
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState({});
   const [dialogText, setDialogText] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
   const rowRefs = useRef({});
-  const issueButtonRefs = useRef({});
+  const matchButtonRefs = useRef({});
   const summaryButtonRef = useRef(null);
   const dialogRef = useRef(null);
   const dialogTextareaRef = useRef(null);
@@ -223,23 +239,15 @@ export default function PackingResults({ excels, country, blocked, onDownload, t
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [dialogText]);
 
-  const selectIssue = (excelName, key = null, issueKey = key) => {
-    setSelected({ excelName, rowKey: key, issueKey });
-    if (!key) return;
-    setTimeout(() => {
-      const row = rowRefs.current[key];
-      row?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    }, 0);
-  };
-
-  const handleIssueArrow = (event, issueKeys, currentKey) => {
+  const handleMatchArrow = (event, rowKeys, currentKey) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     event.preventDefault();
-    const index = issueKeys.indexOf(currentKey);
-    if (index < 0 || issueKeys.length < 2) return;
+    const enabledKeys = rowKeys.filter(key => matchButtonRefs.current[key] && !matchButtonRefs.current[key].disabled);
+    const index = enabledKeys.indexOf(currentKey);
+    if (index < 0 || enabledKeys.length < 2) return;
     const offset = event.key === 'ArrowDown' ? 1 : -1;
-    const nextKey = issueKeys[(index + offset + issueKeys.length) % issueKeys.length];
-    issueButtonRefs.current[nextKey]?.focus();
+    const nextKey = enabledKeys[(index + offset + enabledKeys.length) % enabledKeys.length];
+    matchButtonRefs.current[nextKey]?.focus();
   };
 
   const openSummary = () => {
@@ -258,7 +266,7 @@ export default function PackingResults({ excels, country, blocked, onDownload, t
       <div className={styles.resultsHeadingRow}>
         <div>
           <h3 className={styles.resultsHeading}>생성 결과</h3>
-          <p className={styles.resultsHint}>전체 행을 확인하고 오른쪽 이슈를 선택하면 연결된 행이 강조됩니다.</p>
+          <p className={styles.resultsHint}>원문 품목을 선택해 전산 품목을 매칭하고, 필요한 행에 확인 메모를 남기세요.</p>
         </div>
         <button ref={summaryButtonRef} type="button" onClick={openSummary} className={styles.summaryButton} data-testid="packing-results-copy-open">
           이슈 요약 새 창
@@ -269,7 +277,6 @@ export default function PackingResults({ excels, country, blocked, onDownload, t
       {safeExcels.map((excel, excelIndex) => {
         const products = Array.isArray(excel.products) ? excel.products : [];
         const include = {
-          sourceName: products.some(product => hasValue(product.sourceName)),
           stemLength: products.some(product => hasValue(product.stemLength ?? product.stem_length)),
           boxes: products.some(product => hasValue(product.boxes)),
           stems: products.some(product => hasValue(product.stems)),
@@ -282,13 +289,7 @@ export default function PackingResults({ excels, country, blocked, onDownload, t
         const mismatch = excel.totalMismatch;
         const resultTruncated = Boolean(truncated || excel.wasTruncated || excel.truncated);
         const issueCount = rowIssues.length + (mismatch ? 1 : 0) + (resultTruncated ? 1 : 0);
-        const mismatchIssueKey = `${excel.name}::total-mismatch`;
-        const truncatedIssueKey = `${excel.name}::truncated`;
-        const issueKeys = [
-          ...rowIssues.map(item => item.key),
-          ...(mismatch ? [mismatchIssueKey] : []),
-          ...(resultTruncated ? [truncatedIssueKey] : []),
-        ];
+        const rowKeys = products.map((product, index) => rowKey(excel, product, index));
         const knownQuantities = products.map(product => finiteNumber(product.qty)).filter(value => value !== null);
         const quantityTotal = knownQuantities.reduce((sum, value) => sum + value, 0);
         const hasUnknownQuantity = knownQuantities.length !== products.length;
@@ -333,22 +334,25 @@ export default function PackingResults({ excels, country, blocked, onDownload, t
                   <thead>
                     <tr>
                       <th scope="col">No.</th>
-                      {include.sourceName && <th scope="col">원문품목</th>}
-                      <th scope="col">{include.sourceName ? '매칭품목' : '품목'}</th>
+                      <th scope="col">원문품목</th>
                       {include.stemLength && <th scope="col">길이</th>}
                       {include.boxes && <th scope="col" className={styles.numberCell}>박스</th>}
                       <th scope="col" className={styles.numberCell}>{country === 'CN' ? '단수' : unit || '수량'}</th>
                       {include.stems && <th scope="col" className={styles.numberCell}>송이</th>}
                       {include.unitPrice && <th scope="col" className={styles.numberCell}>단가</th>}
                       {include.lineAmount && <th scope="col" className={styles.numberCell}>금액</th>}
-                      <th scope="col">상태</th>
+                      <th scope="col" className={styles.matchColumn}>매칭·확인사항</th>
                     </tr>
                   </thead>
                   <tbody>
                     {products.map((product, index) => {
                       const key = rowKey(excel, product, index);
                       const isSelected = selected?.rowKey === key;
-                      const status = product.unmatched ? '확인 필요' : product.viaAlias ? '별칭 매칭' : '자동 매칭';
+                      const sourceName = sourceProductName(product);
+                      const matchedName = productName(product);
+                      const showMatchedName = !product.unmatched && !namesMatch(sourceName, matchedName);
+                      const status = product.unmatched ? '전산 미매칭' : product.viaAlias ? '별칭 매칭' : '자동 매칭';
+                      const matchDisabled = typeof onMatch !== 'function' || mappingDisabled;
                       return (
                         <tr
                           key={key}
@@ -358,15 +362,51 @@ export default function PackingResults({ excels, country, blocked, onDownload, t
                           className={`${product.unmatched ? styles.unmatchedRow : ''}${isSelected ? ` ${styles.selectedRow}` : ''}`}
                         >
                           <td className={styles.rowNumber}>{index + 1}</td>
-                          {include.sourceName && <td>{hasValue(product.sourceName) ? product.sourceName : '—'}</td>}
-                          <td className={styles.productCell}>{productName(product)}</td>
+                          <td className={styles.productCell}>
+                            <button
+                              ref={node => { if (node) matchButtonRefs.current[key] = node; else delete matchButtonRefs.current[key]; }}
+                              type="button"
+                              className={styles.productMatchButton}
+                              data-testid="packing-product-match"
+                              title={sourceName}
+                              aria-label={`${sourceName} 전산 품목 매칭`}
+                              disabled={matchDisabled}
+                              onClick={() => {
+                                if (matchDisabled) return;
+                                setSelected({ excelName: excel.name, rowKey: key });
+                                onMatch(product, excel, index);
+                              }}
+                              onFocus={() => setSelected({ excelName: excel.name, rowKey: key })}
+                              onKeyDown={event => handleMatchArrow(event, rowKeys, key)}
+                            >
+                              {sourceName}
+                            </button>
+                          </td>
                           {include.stemLength && <td>{hasValue(product.stemLength ?? product.stem_length) ? (product.stemLength ?? product.stem_length) : '—'}</td>}
                           {include.boxes && <td className={styles.numberCell}>{formatNumber(product.boxes)}</td>}
                           <td className={styles.numberCell}>{formatNumber(product.qty)}</td>
                           {include.stems && <td className={styles.numberCell}>{formatNumber(product.stems)}</td>}
                           {include.unitPrice && <td className={styles.numberCell}>{formatNumber(product.unitPrice, 3)}</td>}
                           {include.lineAmount && <td className={styles.numberCell}>{formatNumber(product.lineAmount, 2)}</td>}
-                          <td><span className={`${styles.statusChip} ${product.unmatched ? styles.statusIssue : product.viaAlias ? styles.statusAlias : styles.statusMatched}`}>{status}</span></td>
+                          <td className={styles.matchCell}>
+                            <div className={styles.matchSummary}>
+                              {showMatchedName && <strong className={styles.matchTarget} title={matchedName}>{matchedName}</strong>}
+                              <span className={`${styles.statusChip} ${product.unmatched ? styles.statusIssue : product.viaAlias ? styles.statusAlias : styles.statusMatched}`}>{status}</span>
+                              {product.unmatched && (
+                                <label className={styles.inlineNote}>
+                                  <span>사유 메모 (이 화면만)</span>
+                                  <input
+                                    type="text"
+                                    value={notes[key] || ''}
+                                    onFocus={() => setSelected({ excelName: excel.name, rowKey: key })}
+                                    onChange={event => setNotes(current => ({ ...current, [key]: event.target.value }))}
+                                    placeholder="예: 품명 확인 필요"
+                                    aria-label={`${sourceName} 미매칭 사유 메모`}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
@@ -374,65 +414,22 @@ export default function PackingResults({ excels, country, blocked, onDownload, t
                 </table>
               </div>
 
-              <aside className={styles.issueSidebar} aria-label={`${excel.label || excel.name} 이슈`} data-testid="packing-results-issues" data-result-name={excel.name || ''}>
-                <div className={styles.issueSidebarHeader}>
-                  <strong>확인할 이슈</strong>
-                  <span>{issueCount}</span>
+              {(mismatch || resultTruncated) && (
+                <div className={styles.resultNotices} aria-label={`${excel.label || excel.name} 확인 알림`} data-testid="packing-results-issues" data-result-name={excel.name || ''}>
+                  {mismatch && (
+                    <div className={styles.invoiceNotice} role="status">
+                      <strong>인보이스 합계 불일치</strong>
+                      <span>{mismatchText(mismatch)}</span>
+                    </div>
+                  )}
+                  {resultTruncated && (
+                    <div className={styles.truncatedNotice} role="status">
+                      <strong>분석 결과 잘림</strong>
+                      <span>일부 인보이스가 누락되었을 수 있습니다.</span>
+                    </div>
+                  )}
                 </div>
-                {issueCount === 0 && <p className={styles.noIssues}>표시할 이슈가 없습니다.</p>}
-                {rowIssues.map(({ product, index, key }) => (
-                  <div key={key} className={`${styles.issueItem}${selected?.issueKey === key ? ` ${styles.issueItemSelected}` : ''}`}>
-                    <button
-                      ref={node => { if (node) issueButtonRefs.current[key] = node; else delete issueButtonRefs.current[key]; }}
-                      type="button"
-                      onClick={() => selectIssue(excel.name, key, key)}
-                      onFocus={() => selectIssue(excel.name, key, key)}
-                      onKeyDown={event => handleIssueArrow(event, issueKeys, key)}
-                      className={styles.issueLink}
-                    >
-                      <span>행 {index + 1} · 미매칭</span>
-                      <strong>{productName(product)}</strong>
-                      <small>{quantityText(product, country)}</small>
-                    </button>
-                    <label className={styles.noteLabel}>
-                      사유 메모 <span>(이 브라우저 화면에만 유지)</span>
-                      <input
-                        type="text"
-                        value={notes[key] || ''}
-                        onFocus={() => setSelected({ excelName: excel.name, rowKey: key, issueKey: key })}
-                        onChange={event => setNotes(current => ({ ...current, [key]: event.target.value }))}
-                        placeholder="예: 품명 확인 필요"
-                      />
-                    </label>
-                  </div>
-                ))}
-                {mismatch && (
-                  <button
-                    ref={node => { if (node) issueButtonRefs.current[mismatchIssueKey] = node; else delete issueButtonRefs.current[mismatchIssueKey]; }}
-                    type="button"
-                    onClick={() => selectIssue(excel.name, null, mismatchIssueKey)}
-                    onFocus={() => selectIssue(excel.name, null, mismatchIssueKey)}
-                    onKeyDown={event => handleIssueArrow(event, issueKeys, mismatchIssueKey)}
-                    className={`${styles.issueLink} ${styles.invoiceIssue}${selected?.issueKey === mismatchIssueKey ? ` ${styles.issueLinkSelected}` : ''}`}
-                  >
-                    <span>인보이스 합계 불일치</span>
-                    <strong>{mismatchText(mismatch)}</strong>
-                  </button>
-                )}
-                {resultTruncated && (
-                  <button
-                    ref={node => { if (node) issueButtonRefs.current[truncatedIssueKey] = node; else delete issueButtonRefs.current[truncatedIssueKey]; }}
-                    type="button"
-                    onClick={() => selectIssue(excel.name, null, truncatedIssueKey)}
-                    onFocus={() => selectIssue(excel.name, null, truncatedIssueKey)}
-                    onKeyDown={event => handleIssueArrow(event, issueKeys, truncatedIssueKey)}
-                    className={`${styles.issueLink} ${styles.truncatedIssue}${selected?.issueKey === truncatedIssueKey ? ` ${styles.issueLinkSelected}` : ''}`}
-                  >
-                    <span>분석 결과 잘림</span>
-                    <strong>일부 인보이스가 누락되었을 수 있습니다.</strong>
-                  </button>
-                )}
-              </aside>
+              )}
             </div>
           </article>
         );

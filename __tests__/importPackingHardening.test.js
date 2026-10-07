@@ -9,6 +9,8 @@ const modulesReady = Promise.all([
   import('../lib/importPackingResponse.js'),
   import('../lib/importAwbFields.js'),
   import('../lib/importChinaInvoice.js'),
+  import('../lib/importPackingErpMatches.js'),
+  import('../lib/importPackingReview.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -39,9 +41,10 @@ function deferred() {
 
 // Actual component handlers with controlled local hooks. No network, DB or browser.
 async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
-  const [state, packing, response, awbFields, chinaInvoice] = await modulesReady;
-  const slots = [], effects = [], readers = [], writes = [], requests = [], extractionCalls = [];
-  let cursor = 0, currentCatalog = catalog, failure = null;
+  const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review] = await modulesReady;
+  const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [];
+  let cursor = 0, currentCatalog = catalog, failure = null, erpFailure = null;
+  let erpValue = null, erpRevision = 0;
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
     useState(value) { const i = cursor++; if (!(i in slots)) slots[i] = typeof value === 'function' ? value() : value;
@@ -63,7 +66,26 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     readAsDataURL(file) { this.file = file; }
     async complete(base64 = 'JVBERi0x') { this.result = 'data:application/pdf;base64,' + base64; await this.onload(); }
   }
+  const erpProducts = () => erpMatchHelpers.packingErpProducts((currentCatalog?.items ?? []).map((product, index) => ({
+    ProdKey: index + 1,
+    ProdCode: product.code ?? `FIXTURE-${index + 1}`,
+    ProdName: product.name,
+    CounName: erpMatchHelpers.PACKING_COUNTRIES[product.country],
+    FlowerName: product.flowerKr ?? '',
+  })));
   const fetchStub = (url, options) => {
+    if (url === '/api/import/tools/product-matches') {
+      erpRequests.push({ url, options });
+      if (options?.method === 'POST') {
+        if (erpFailure) return Promise.resolve({ ok: false, status: 409, json: async () => ({ success: false, error: erpFailure.message }) });
+        const body = JSON.parse(options.body);
+        const product = erpProducts().find(candidate => candidate.ProdKey === body.prodKey && candidate.country === body.country);
+        erpValue = erpMatchHelpers.upsertPackingErpMatch(erpValue, body, erpProducts());
+        erpRevision += 1;
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, products: erpProducts(), value: erpValue, revision: erpRevision, selected: product }) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, products: erpProducts(), value: erpValue, revision: erpRevision }) });
+    }
     const request = { url, options, ...deferred() }; requests.push(request); return request.promise;
   };
   const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI }) {
@@ -74,15 +96,22 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     }));
     return { data, source: data.source === 'cache' ? 'cache' : 'ai', cacheSaved: data.cacheSaved };
   } };
+  function PackingResultsStub() {}
+  function PackingProductMatchDialogStub() {}
   const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packing,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
-    '../../lib/importChinaInvoice.js': chinaInvoice };
+    '../../lib/importChinaInvoice.js': chinaInvoice, '../../lib/importPackingErpMatches.js': erpMatchHelpers,
+    '../../lib/importPackingReview.js': review,
+    './PackingResults.js': { default: PackingResultsStub, __esModule: true },
+    './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
+    './PackingProductMatchDialog.js': { default: PackingProductMatchDialogStub, __esModule: true } };
   const module = { exports: {} };
   new Function('require', 'module', 'exports', 'fetch', 'FileReader', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(
     key => modules[key], module, module.exports, fetchStub, Reader);
   const h = {
-    writes, readers, requests, extractionCalls, tree: null,
+    writes, readers, requests, erpRequests, extractionCalls, tree: null,
+    components: { PackingResultsStub, PackingProductMatchDialogStub },
     render() { cursor = 0; this.tree = awb ? module.exports.AWBPanel({ xlsxLib: XLSX, lang, readAwbPdf, onBack() {} })
       : module.exports.default({ storage }); return this.tree; },
     effects() { for (const i of effects.splice(0)) { slots[i].cleanup?.(); slots[i].cleanup = slots[i].fn(); } },
@@ -94,6 +123,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     inputPdf(file) { this.nodes('input').find(n => n.props.accept === '.pdf').props.onChange({ target: { files: [file], value: 'file' } }); this.render(); },
     radio(index) { this.nodes('input').filter(n => n.props.type === 'radio')[index].props.onChange(); this.render(); },
     fail(error) { failure = error; },
+    failErp(error) { erpFailure = error; },
     setCatalog(next) { currentCatalog = next; },
     unmount() { for (const slot of slots) slot?.cleanup?.(); },
   };
@@ -132,6 +162,7 @@ test('Korean is the default and country keys, optional languages and catalog con
   assert.ok(text(h.tree).includes('Generador de Packing List'));
   assert.equal(h.writes.length, 0);
   assert.equal(h.requests.length, 0);
+  assert.equal(h.erpRequests.length, 1, 'initial ERP catalog read is tracked separately from AI requests');
 });
 
 test('China accepts a 33MiB XLSX locally and rejects oversize files without AI requests', async () => {
@@ -494,6 +525,48 @@ test('source descriptions override transformed output names; decision categories
   const mismatch = { products: [], totalMismatch: { country: 'CO', invoice: '', expected: 90, computed: 10 } };
   assert.equal(state.isPackingDownloadBlocked(mismatch), true);
   assert.equal(state.isPackingDownloadBlocked(mismatch, { overrides: new Set(['CO|']) }), false);
+});
+
+test('parent ERP matching saves and rebuilds, while a failed save retains the target', async () => {
+  const h = await harness();
+  h.nodes('button').find(n => n.props['aria-label'] === 'Colombia').props.onClick(); h.render();
+  h.inputPdf({ name: '40-1.pdf', type: 'application/pdf', size: 10 });
+  await h.readers[0].complete(); h.render();
+  await h.button('Generar packing list').props.onClick(); h.render();
+  const process = h.button('Analizar con IA (posible coste)').props.onClick();
+  h.requests[0].resolve({ ok: true, status: 200, json: async () => ({
+    source: 'ai', cacheSaved: true, stop_reason: 'end_turn',
+    content: [{ type: 'text', text: JSON.stringify({ invoices: [{
+      invoice: 'INV-ERP-1', supplier: 'Teucali', invoice_total: 120,
+      products: [{ description: 'CARNATION Doncel RAW', pcs: 2, bunch_st: 20,
+        steam_box: 300, total_stems: 600, total_bunch: 30, u_price: 0.2, t_price: 120 }],
+    }] }) }],
+  }) });
+  await process; await h.refresh();
+
+  let results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
+  assert.ok(results, 'parent renders packing results');
+  assert.equal(results.props.excels[0].products[0].unmatched, true);
+  results.props.onMatch({ matchingDescription: 'CARNATION Doncel RAW' }); h.render();
+  let dialog = flatten(h.tree).find(node => node.type === h.components.PackingProductMatchDialogStub);
+  assert.equal(dialog.props.target.description, 'CARNATION Doncel RAW');
+  await dialog.props.onSave(1); await h.refresh();
+  assert.equal(h.erpRequests.filter(request => request.options?.method === 'POST').length, 1);
+  assert.deepEqual(JSON.parse(h.erpRequests.at(-1).options.body), {
+    country: 'CO', description: 'CARNATION Doncel RAW', prodKey: 1, expectedRevision: 0,
+  });
+  assert.equal(flatten(h.tree).some(node => node.type === h.components.PackingProductMatchDialogStub), false);
+  results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
+  assert.equal(results.props.excels[0].products[0].name, 'CARNATION Doncel');
+  assert.notEqual(results.props.excels[0].products[0].unmatched, true);
+
+  results.props.onMatch({ matchingDescription: 'SECOND SOURCE' }); h.render();
+  h.failErp(Error('409 revision conflict'));
+  dialog = flatten(h.tree).find(node => node.type === h.components.PackingProductMatchDialogStub);
+  await dialog.props.onSave(1); await h.refresh();
+  dialog = flatten(h.tree).find(node => node.type === h.components.PackingProductMatchDialogStub);
+  assert.equal(dialog.props.target.description, 'SECOND SOURCE');
+  assert.match(dialog.props.error, /409 revision conflict/);
 });
 
 test('invoice PDF accepts exact 20MiB, rejects 20MiB + 1 and only sends on explicit AI', async () => {
