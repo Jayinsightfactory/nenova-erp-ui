@@ -3,7 +3,6 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
-import { buildWeekdayWorkbookExportUpdates } from '../lib/weekdayWorkbookExportPlan.js';
 
 const require = createRequire(import.meta.url);
 const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '';
@@ -71,13 +70,16 @@ function downloadEnvironment() {
     compareRows: [{ year: 2026, orderWeek: '41-01', custKey: 533, prodKey: 77, outUnit: '송이',
       state: 'FOUND_UNFIXED', detailRows: 1, shipmentDates: [{ date: linked.date, shipmentQuantity: 8 }] }],
     workbookLinks: { current: [{ ...linked, fileId: 'file-a' }] }, currentScope: { current: scope },
-    originalWorkbook: { current: { fileId: 'file-a', scope, file: { name: '주광.xlsx',
+    originalWorkbook: { current: { fileId: 'file-a', scope, savedTemplate: true, file: { name: '주광.xlsx',
       arrayBuffer: () => new Promise(resolve => { release = () => resolve(bytes); }) } } },
-    exportState: { current: { plans: [{ ...linked }], compareRows: [] } }, buildWeekdayWorkbookExportUpdates,
-    patchOriginalWorkbook: async (input, updates, options) => {
-      assert.equal(input, bytes, 'patch receives the retained original bytes');
-      assert.deepEqual(updates, [{ sheetName: '수국', address: 'D8', value: 3 }]);
-      assert.deepEqual(options, { filename: '주광.xlsx' });
+    exportState: { current: { plans: [{ ...linked }], compareRows: [] } },
+    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],activeWilsonInputs:[],exportWilsonDay:'일',wilsonBusy:false,wilsonError:'',
+    buildHorizontalWeekdayMatrix: (...args) => { assert.equal(args[1],env.activePlans); assert.equal(args[2],env.compareRows); return {rows:[]}; },
+    applyWeekdayCarryoverToMatrix: matrix => matrix,
+    buildWeekdayWebExportSnapshot: (matrix,title,options) => { assert.equal(options.wilsonDrafts,env.activeWilsonInputs,'same scoped Wilson draft inputs as web matrix'); return {rows:[{name:'웹 품목',values:{quantity:3}}]}; },
+    buildWeekdayStyledWebWorkbook: async (input, model) => {
+      assert.deepEqual(new Uint8Array(input), bytes, 'export receives original formatting source bytes');
+      assert.deepEqual(model.rows,[{name:'웹 품목',values:{quantity:3}}]);
       env.patchCalls++; return input;
     }, patchCalls: 0, urls: 0, clicked: 0, revoked: 0, Blob,
     URL: { createObjectURL() { env.urls++; return 'blob:fixture'; }, revokeObjectURL() { env.revoked++; } },
@@ -87,16 +89,16 @@ function downloadEnvironment() {
     setMessage(value) { env.message = value; }, release: () => release() };
   return env;
 }
-test('download passes retained original bytes and absolute updates, then releases busy state', async () => {
+test('download fills design with full web snapshot, then releases busy state', async () => {
   const env = downloadEnvironment();
   const pending = callback('downloadOriginalWorkbook', 'addSourceRow', env)();
   assert.equal(env.busy, true); env.release(); await pending;
   assert.equal(env.patchCalls, 1); assert.equal(env.urls, 1); assert.equal(env.clicked, 1);
   assert.equal(env.revoked, 1); assert.equal(env.busy, false); assert.equal(env.error, '');
-  assert.match(env.message, /1개 셀 반영/);
+  assert.match(env.message, /전체 1개 품목/);
 });
 test('quantity or ERP snapshot change during file read prevents any download', async () => {
-  for (const changed of ['plans', 'compareRows']) {
+  for (const changed of ['plans', 'compareRows', 'baselines', 'carryover', 'cycles','wilsonRecords','wilsonDrafts','exportWilsonDay']) {
     const env = downloadEnvironment();
     const pending = callback('downloadOriginalWorkbook', 'addSourceRow', env)();
     env.exportState.current = { ...env.exportState.current, [changed]: [{ quantity: 999 }] };
@@ -114,5 +116,30 @@ test('original file replacement or scope switch during await prevents download',
     env.release(); await pending;
     assert.equal(env.urls, 0); assert.equal(env.clicked, 0); assert.equal(env.message, undefined);
     assert.match(env.error, /원본이 변경/); assert.equal(env.busy, false);
+  }
+});
+
+test('manual imports still download full web work using saved design, not uploaded quantities', async () => {
+  const env = downloadEnvironment(); env.originalWorkbook.current.savedTemplate = false;
+  env.apiGet = async path => { assert.equal(path, '/api/estimate/weekday-template?custKey=533'); return {success:true,custKey:533,base64:'UEsDBA=='}; };
+  await callback('downloadOriginalWorkbook','addSourceRow',env)();
+  assert.equal(env.patchCalls,1); assert.equal(env.clicked,1); assert.equal(env.error,'');
+});
+test('unknown Wilson classification cannot be exported as zero', async () => {
+  for(const state of [{wilsonBusy:true},{wilsonError:'윌슨 조회 실패'}]) {
+    const env=Object.assign(downloadEnvironment(),state);
+    await callback('downloadOriginalWorkbook','addSourceRow',env)();
+    assert.equal(env.clicked,0);assert.equal(env.patchCalls,0);assert.match(env.error,/윌슨/);
+  }
+});
+test('Wilson selector remount always shares actual selected weekday including storage fallback', () => {
+  const matrixSource=readFileSync(new URL('../components/WeekdayCycleMatrix.js',import.meta.url),'utf8');
+  const effect=matrixSource.split('\n').find(line=>line.includes("useEffect(()=>{let resolved='일'"));
+  for(const stored of ['화',null,'invalid','throws']) {
+    const selected=[],shared=[];
+    new Function('useEffect','localStorage','wilsonWeekdays','setWilsonDay','onWilsonDayChange',effect)(
+      callback=>callback(),{getItem(){if(stored==='throws')throw Error('storage disabled');return stored;}},
+      ['목','금','토','일','월','화','수'],value=>selected.push(value),value=>shared.push(value));
+    assert.deepEqual(selected,[stored==='화'?'화':'일']);assert.deepEqual(shared,selected);
   }
 });
