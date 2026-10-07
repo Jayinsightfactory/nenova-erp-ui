@@ -10,5 +10,9 @@ A. 주광 원본을 서버 기본 양식으로 영구 보관하고 CustKey533의
 - 인증된 고정 GET /api/estimate/weekday-template?custKey=533, private no-store. 경로입력 없음. 다른 업체400, POST405, 원본 누락·무결성503. 로그에 원본 수량·키를 출력하지 않는다.
 - 부작용: 파일 저장/조회만. Order/Shipment/Stock/Estimate/Profit/확정 원장과 기존 입력 초안 모두 보존. 같은 날 직전 주광 네이티브/읽기 전용 근거를 재사용하며 API SQL 변경·원장 보정 없음.
 - UI: scope/upload request 및 수동업로드 owner로 경합 차단. 오래된 수동업로드 완료가 새 요청의 busy/잠금을 지우지 못한다. 기본양식 title이 과거라고 현재 달력으로 자동 적용하지 않는다.
-- 검증: 실제 원본 private loader 해시/바이트/15시트 확인. CI는 합성 XLSX 및 임시 암호문 fixture만 사용. auth·고정scope·checksum·encrypt/deploy 계약·autoload/manual우선/경합 테스트 통과. 독립 검토 중대 결함 없음. 전체 필수검사/빌드 진행.
+- 검증: 실제 원본 private loader 해시/바이트/15시트 확인. CI는 합성 XLSX 및 임시 암호문 fixture만 사용. auth·고정scope·checksum·encrypt/deploy 계약·autoload/manual우선/경합 테스트 통과. 독립 검토 중대 결함 없음. 전체 ERP계약/dnSpy/manifest/쓰기 가드 및 master 동기화 후 최종 빌드 통과. 새API1개 read-only 검증.
 - 기준 viewport1920×1080/100%. 직접 화면 검증 도구 kernel 오류는 지속. 배포 후 서버 authenticated GET 원본hash/시트/익명401 smoke 및 Actions hydration/shell 확인 예정.
+
+## PR·배포
+
+PR #942: 초기 CI에서 backend test가 Windows SWC를 고정한 오류를 발견해 플랫폼별 컴파일러로 수정. 재실행 verify37575098180 성공(1m40s). master 병합 b4f9841bacf18b79a782fead340771bc6406cae1, Cafe24 run37575273773 success. 서버 원본 installer 무결성 검증, authenticated template200/원본SHA/15시트/익명401 포함 smoke 15passed0failed, Actions 로그인·차수피벗 hydration/일반·팝업 shell 검사 통과. 운영 반영 완료. 직접 저장양식 화면 조작은 CUA 오류로 미검증.
