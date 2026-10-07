@@ -5,6 +5,7 @@ import { apiGet } from '../../lib/useApi';
 import { applyDutchWeekdayEdits, attachDutchLiveCustomerKeys } from '../../lib/dutchVolumePrice';
 import { addDutchPriceColumns, buildDutchEntriesFromPivotData, createDutchBulkPriceConfig, dutchCustomerIdentity, dutchCustomerLabel, dutchPriceKey, dutchUniformPricePeerKeys, isDutchBulkPriceCustomer, migrateDutchBulkPriceConfig, migrateDutchPriceDraft, normalizeDutchBulkPriceConfig, parseDutchPivotWorkbook, restoreDutchPriceDraft } from '../../lib/dutchVolumePrice';
 import { addDutchPriceShapesToXlsx } from '../../lib/dutchPriceShapes';
+import { appendDutchQuantityHistory, buildDutchQuantitySummaryValues } from '../../lib/dutchSheetQuantityEdit';
 import { buildDutchPreviewEntries, dutchPreviewRowKind, dutchSourceIdentity, editDutchDraftEntry, isDutchPreviewCurrent, isDutchValidationCurrent, newDutchDraftEntry, readDutchDraft, writeDutchDraft } from '../../lib/dutchVolumeDraft';
 import ErpMatchPicker from '../../components/dutch/ErpMatchPicker';
 import DutchVolumeSheet from '../../components/dutch/DutchVolumeSheet';
@@ -26,6 +27,16 @@ function withEditedWorkbook(workbook, entries, prices, bulkPriceConfig) {
     if (!touched.has(entry.sheetName)) { copy.Sheets[entry.sheetName] = { ...copy.Sheets[entry.sheetName] }; touched.add(entry.sheetName); }
     const sheet = copy.Sheets[entry.sheetName];
     sheet[entry.cellAddress] = { ...(sheet[entry.cellAddress] || {}), t: 'n', v: Number(entry.quantity) };
+  }
+  for (const sheetName of copy.SheetNames) {
+    const sourceSheet = copy.Sheets[sheetName];
+    const summaries = buildDutchQuantitySummaryValues(XLSXStyled, sourceSheet, sheetName, entries);
+    if (!summaries.size) continue;
+    if (!touched.has(sheetName)) { copy.Sheets[sheetName] = { ...sourceSheet }; touched.add(sheetName); }
+    for (const [address, value] of summaries) {
+      const targetSheet = copy.Sheets[sheetName];
+      targetSheet[address] = { ...(targetSheet[address] || {}), t: 'n', v: value };
+    }
   }
   const added = entries.filter(entry => entry.added);
   const rematched = entries.some(entry => Number(entry.custKey) > 0 || Number(entry.prodKey) > 0);
@@ -287,13 +298,28 @@ export default function DutchVolumeBoard() {
     finally { if (request === loadRequestRef.current) setLoading(false); }
   }
 
-  function updateEntry(id, change) { if (workBusyRef.current || applyingRef.current) return; invalidate(); setApplyResult(null); setEntries(previous => editDutchDraftEntry(previous, id, change)); }
+  function updateEntry(id, change) {
+    if (workBusyRef.current || applyingRef.current) return;
+    invalidate(); setApplyResult(null);
+    setEntries(previous => {
+      const current = previous.find(entry => entry.id === id);
+      if (Object.hasOwn(change, 'quantity') && current && Number(change.quantity) !== Number(current.quantity)) {
+        return editDutchDraftEntry(previous, id, { ...change, quantityHistory: appendDutchQuantityHistory(current.quantityHistory, Number(current.quantity), Number(change.quantity)) });
+      }
+      return editDutchDraftEntry(previous, id, change);
+    });
+  }
   function updateCellQuantity(id, quantity, newEntry) {
     if (workBusyRef.current || applyingRef.current) return;
     invalidate(); setApplyResult(null);
-    setEntries(previous => newEntry && !previous.some(entry => entry.id === id)
-      ? [...previous, { ...newEntry, quantity }]
-      : editDutchDraftEntry(previous, id, { quantity }));
+    setEntries(previous => {
+      const existing = previous.find(entry => entry.id === id);
+      const from = existing ? Number(existing.quantity) : null;
+      const quantityHistory = appendDutchQuantityHistory(existing?.quantityHistory, from, Number(quantity));
+      return newEntry && !existing
+        ? [...previous, { ...newEntry, quantity, quantityHistory }]
+        : editDutchDraftEntry(previous, id, { quantity, quantityHistory });
+    });
   }
   function updateWeekday(sheetName, address, value) {
     if (workBusyRef.current || applyingRef.current || !workbook) return;
