@@ -1,0 +1,46 @@
+{
+  "id": "incoming-box-by-country",
+  "title": "차수별 국가 입고 박스(전산 입고 + 비행 스케줄 카톡 공지) 집계 계약 — ERP 읽기 전용",
+  "scope": [
+    "lib/incomingBoxByCountry.js",
+    "components/IncomingBoxByCountryTable.js",
+    "pages/api/incoming/box-by-country.js",
+    "pages/incoming/box-by-country.js",
+    "pages/m/incoming-box.js",
+    "pages/m/index.js",
+    "pages/m/executive-volume.js",
+    "components/Layout.js",
+    "__tests__/incomingBoxByCountry.test.js",
+    "docs/migrations/2026-10-07_web_flight_schedule_box.sql",
+    "docs/work-reports/2026-10-07_incoming-box-by-country.md",
+    "package.json"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "INCOMING_BOX_BY_COUNTRY_READ", "orderDetail": "preserve", "shipmentDetail": "preserve",
+      "notes": "WarehouseMaster(isDeleted=0, OrderYear) × WarehouseDetail × Product 를 SELECT 해 AWB(OrderNo)별 Σ BoxQuantity, 장미 박스0 단수를 읽고 WebFlightScheduleBox(웹 전용)와 합산한다. ERP 원장은 쓰지 않는다." },
+    { "name": "INCOMING_BOX_KAKAO_UPLOAD", "orderDetail": "preserve", "shipmentDetail": "preserve",
+      "sideEffect": "비행 스케줄 카톡방 내보내기(txt) 본문을 파싱해 웹 전용 WebFlightScheduleBox 에만 MERGE 한다(관리자). WarehouseMaster/Detail·Order·Shipment·Stock·Estimate 원장은 보존한다." }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025·2026에 같은 OrderWeek가 있어도 선택 OrderYear의 WarehouseMaster/Detail과 같은 OrderYear의 WebFlightScheduleBox 만 읽는다. 카톡 공지 파싱도 메시지 날짜 연도(fromYear) 이후만 사용하며 2025-12월 공지(1-1차)는 범위 밖으로 둔다."
+  },
+  "requiredTestFiles": ["__tests__/incomingBoxByCountry.test.js", "__tests__/erpContractManifest.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseView.md",
+    "source": "FormWarehouseView.GetData/GetDetail 의 WarehouseMaster(OrderYear+OrderWeek, OrderNo=AWB) → WarehouseDetail(BoxQuantity/BunchQuantity) 조회 구조를 그대로 읽는다. 박스 규칙(중복 AWB 제외·웹 박스0은 카톡·콜롬비아 장미 단만 입력은 카톡·그 외 전산)은 docs/work-reports/2026-10-07_incoming-box-by-country.md 에 기록했다.",
+    "methods": ["FormWarehouseView.GetData", "FormWarehouseView.GetDetail", "FormWarehouseView.btnSearch_Click"],
+    "tables": ["WarehouseMaster", "WarehouseDetail", "Product", "WebFlightScheduleBox"]
+  },
+  "preserves": ["OrderMaster", "OrderDetail", "ShipmentMaster", "ShipmentDetail", "ShipmentDate", "WarehouseMaster", "WarehouseDetail", "ProductStock", "StockMaster", "Estimate", "Product"],
+  "requiredCommands": [
+    "npm run test:incoming-box",
+    "npm run test:ui-layout",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
