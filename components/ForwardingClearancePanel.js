@@ -159,7 +159,7 @@ export default function ForwardingClearancePanel({ week, year, onSaved }) {
                 <div key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: overridden ? '#fef9c3' : missing ? '#fff7ed' : '#fff' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <b style={{ fontSize: 13 }}>{c.orderWeek}</b>
-                    <span style={{ fontSize: 11, color: '#64748b' }}>GW={c.gw ?? '-'} CW={c.cw ?? '-'} (그외통관비 입력 화면 저장값)</span>
+                    <span style={{ fontSize: 11, color: '#64748b' }}>GW={c.gw ?? '-'} CW={c.cw ?? '-'} ({c.weight?.source === 'erp_inbound' ? '입고 기준' : '저장·역사 기준'}) · {c.weight?.basis === 'CBM' ? 'CW > GW · CBM 배분' : c.weight?.basis === 'GW' ? 'GW = CW · 무게 배분' : '중량 확인 필요'}</span>
                     <span style={{ fontSize: 11, color: '#166534', fontWeight: 700 }}>자동감지 {fmt2(c.autoAirTotal)} USD</span>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', fontSize: 12 }}>
                       항공료 총액 override(USD)
