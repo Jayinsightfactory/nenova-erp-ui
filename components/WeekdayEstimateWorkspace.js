@@ -1,6 +1,8 @@
 import { prepareWeekdayDraftDeletion, weekdayCellDrafts } from '../lib/weekdayDraftDeletion.js';
-import { patchOriginalWorkbook } from '../lib/weekdayOriginalWorkbook.js';
-import { buildWeekdayWorkbookExportUpdates } from '../lib/weekdayWorkbookExportPlan.js';
+import { buildWeekdayStyledWebWorkbook } from '../lib/weekdayStyledWebWorkbook.js';
+import { buildWeekdayWebExportSnapshot } from '../lib/weekdayWebExportSnapshot.js';
+import { buildHorizontalWeekdayMatrix } from '../lib/weekdayHorizontalMatrix.js';
+import { applyWeekdayCarryoverToMatrix } from '../lib/weekdayCarryover.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { isExpectedWeekdayPrintBlock } from '../lib/weekdayPrintReadiness.js';
@@ -133,7 +135,7 @@ export default function WeekdayEstimateWorkspace() {
   currentScope.current = scopeKey;
   const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
   const exportState = useRef(null);
-  exportState.current = { plans: activePlans, compareRows };
+  exportState.current = { plans: activePlans, compareRows, cycles, baselines, baselineCandidates, carryover, allPlans: plans };
   const activeWilsonInputs = wilsonDrafts.filter(record => record.scopeKey === scopeKey && activePlans.some(plan =>
     Number(plan.year) === record.year && Number(plan.prodKey) === record.prodKey && plan.date === record.date
     && plan.orderWeek === record.orderWeek && Number(plan.quantity) === record.expectedTotal));
@@ -529,15 +531,27 @@ export default function WeekdayEstimateWorkspace() {
     setDownloadBusy(true); setDownloadError('');
     try {
       const snapshot = JSON.stringify(exportState.current);
-      const updates = buildWeekdayWorkbookExportUpdates({ links: workbookLinks.current, plans: activePlans,
-        compareRows: compareRows || [], custKey: Number(customer?.CustKey), scopeKey, fileId: original.fileId });
-      const bytes = await patchOriginalWorkbook(await original.file.arrayBuffer(), updates, { filename: original.file.name });
+      if (!compareRows) throw new Error('전산 조회가 완료된 후 다운로드하세요.');
+      const currentCarry = carryover?.scopeKey === scopeKey ? carryover : null;
+      const matrix = applyWeekdayCarryoverToMatrix(buildHorizontalWeekdayMatrix(cycles, activePlans, compareRows,
+        baselines.filter(record => Number(record.custKey) === Number(customer?.CustKey)),
+        baselineCandidates.filter(record => Number(record.custKey) === Number(customer?.CustKey)), currentCarry?.context?.inputs || []),
+        currentCarry?.context, currentCarry?.records || [], plans);
+      const model = buildWeekdayWebExportSnapshot(matrix, `주광 발주내역 · ${year}년 ${majorWeek}차`);
+      let designBytes;
+      if (original.savedTemplate) designBytes = await original.file.arrayBuffer();
+      else {
+        const savedDesign = await apiGet('/api/estimate/weekday-template?custKey=533');
+        if (!savedDesign?.success || savedDesign.custKey !== 533 || !savedDesign.base64) throw new Error('저장된 발주 디자인을 불러오지 못했습니다.');
+        designBytes = Uint8Array.from(atob(savedDesign.base64), character => character.charCodeAt(0));
+      }
+      const bytes = await buildWeekdayStyledWebWorkbook(designBytes, model);
       if (originalWorkbook.current !== original || currentScope.current !== original.scope) throw new Error('거래처·차수 또는 원본이 변경되었습니다. 다시 다운로드하세요.');
       if (snapshot !== JSON.stringify(exportState.current)) throw new Error('수량 또는 전산 조회값이 변경되었습니다. 다시 다운로드하세요.');
-      const url = URL.createObjectURL(new Blob([bytes], { type: /\.xls$/i.test(original.file.name) ? 'application/vnd.ms-excel' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-      const anchor = document.createElement('a'); anchor.href = url; anchor.download = original.file.name.replace(/(\.xlsx?)$/i, '_주광$1');
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `주광_발주내역_${year}_${majorWeek}.xlsx`;
       document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage(`원본 양식으로 다운로드했습니다. 연결된 수량 ${updates.length}개 셀 반영 · 그 외 셀은 원문 유지.`);
+      setMessage(`발주 양식으로 웹 작업 전체 ${model.rows.length}개 품목을 다운로드했습니다. 일반·윌슨은 합산되며 미확인 수량은 빈칸입니다.`);
     } catch (error) { setDownloadError(error.message || '원본 엑셀을 저장하지 못했습니다.'); }
     finally { setDownloadBusy(false); }
   }
@@ -1075,7 +1089,7 @@ export default function WeekdayEstimateWorkspace() {
         <button aria-label="이전 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===-1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(-1)}>◀</button>
         <button aria-label="다음 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(1)}>▶</button>
         <input aria-label="요일별 출고 엑셀 파일" style={{width:230}} type="file" accept=".xlsx,.xls" onChange={(e) => {setToolsOpen(true);uploadWorkbook(e.target.files?.[0]);}} disabled={busy || editLocked} />
-        <button onClick={downloadOriginalWorkbook} disabled={busy || downloadBusy || !parsed || originalWorkbook.current?.scope !== scopeKey} title="업로드한 원본의 셀 양식을 유지합니다. 연결된 날짜 수량만 반영하고 선출고·발주총량·비고·수식은 원문을 유지합니다.">{downloadBusy ? '엑셀 저장 중…' : originalWorkbook.current?.savedTemplate ? '기본 양식 엑셀 다운로드' : '원본 양식 엑셀 다운로드'}</button>
+        <button onClick={downloadOriginalWorkbook} disabled={busy || downloadBusy || !compareRows || !parsed || originalWorkbook.current?.scope !== scopeKey} title="저장한 발주 양식의 디자인에 웹 전체 품목명·현재 수량·합계·잔량을 채웁니다. 검색이나 접힌 품목도 포함합니다.">{downloadBusy ? '엑셀 저장 중…' : '웹 작업 엑셀 다운로드'}</button>
         <button onClick={compareWithErp} disabled={busy || editLocked || !customer}>전산 새로고침</button>
         <button onClick={saveInputOnly} disabled={!inputLoaded || !inputUser || editLocked || busy || !customer}>입력만 저장</button>
         <button aria-label="ERP 저장 · 변경 확인" className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>분배 적용 · 변경 확인</button>
@@ -1083,7 +1097,7 @@ export default function WeekdayEstimateWorkspace() {
       </div>
       <div style={{fontSize:12,marginTop:4,color:inputStorageError?'#b91c1c':'#475569'}} role={inputStorageError?'alert':'status'}>{inputStorageError || (!inputLoaded?'보관 입력 확인 중…':inputDirty?'입력 변경 있음 · 입력만 저장하면 이 브라우저에서 복구됩니다.':'이 브라우저 보관 입력과 일치 · ERP 적용과 별도')}</div>
       {Number(customer?.CustKey) === 533 && <div style={{fontSize:12,marginTop:4}} role={templateError ? 'alert' : 'status'}>
-        {templateError ? `기본 양식 불러오기 실패: ${templateError}` : templateBusy ? '주광 저장 양식 불러오는 중…' : originalWorkbook.current?.savedTemplate && originalWorkbook.current.scope === scopeKey ? '주광 기본 양식 저장됨 · 원문 수량, 확인한 연결만 반영' : '직접 업로드한 원본을 사용합니다.'}
+        {templateError ? `기본 양식 불러오기 실패: ${templateError}` : templateBusy ? '주광 저장 양식 불러오는 중…' : originalWorkbook.current?.savedTemplate && originalWorkbook.current.scope === scopeKey ? '주광 기본 양식 저장됨 · 웹 전체 품목과 작업 수량으로 다운로드' : '웹 전체 작업을 저장된 발주 디자인으로 다운로드합니다.'}
         <button type="button" disabled={templateBusy || busy || editLocked} onClick={() => loadSavedWorkbook(true)}>{templateError ? '기본 양식 다시 불러오기' : '저장 양식 사용'}</button>
       </div>}
       <div role="status" style={{ marginTop:5, padding:'3px 6px', borderRadius:4, background:'#fff7df', color:'#624900' }}>{message}</div>
