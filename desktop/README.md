@@ -15,7 +15,7 @@ npm start
 npm run dist
 ```
 
-`dist/Nenova-Desktop-Setup-1.2.0-x64.exe` is the NSIS installer. Signing requires a separately provisioned publisher certificate; this initial build is unsigned. CI retains installer artifacts and SHA256 for 30 days, without publishing or auto-installing releases.
+`dist/Nenova-Desktop-Setup-1.2.1-x64.exe` is the NSIS installer. Signing requires a separately provisioned publisher certificate; this initial build is unsigned. CI retains installer artifacts and SHA256 for 30 days, without publishing or auto-installing releases.
 
 The shell uses sandboxed WebContentsView instances with no remote preload. Reparenting retains live pages. Only an authenticated same-account metadata snapshot is restored, with URL query allowlisting and Windows safeStorage encryption. Packaged builds enable cookie encryption. Desktop never replays ERP writes.
 

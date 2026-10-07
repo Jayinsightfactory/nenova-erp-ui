@@ -101,8 +101,8 @@ function createWindow(config = {}) {
   win.once('ready-to-show', () => { if (config.maximized) win.maximize(); win.show(); });
   broadcast(); return w;
 }
-function confirm(w, message) {
-  return dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: ['계속 작업', '진행'], defaultId: 0, cancelId: 0, noLink: true }) === 1;
+function confirm(w, message, actionLabel = '닫기') {
+  return dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: [actionLabel, '취소'], defaultId: 1, cancelId: 1, noLink: true }) === 0;
 }
 function destroyTab(t) {
   if (!t) return;
@@ -151,8 +151,9 @@ function secureContents(wc, owner) {
     if (!e.isMainFrame && !/^(https:|about:blank|blob:https:\/\/nenovaweb\.com\/)/.test(e.url)) e.preventDefault();
   });
   wc.on('will-prevent-unload', e => {
-    if (confirm(owner(), '화면이 저장되지 않은 변경을 감지했습니다. 화면을 떠날까요?')) e.preventDefault();
-    else { const t = [...tabs.values()].find(t => t.view.webContents === wc); if (t) t.closing = false; }
+    const t = [...tabs.values()].find(t => t.view.webContents === wc);
+    if (confirm(owner(), '화면이 저장되지 않은 변경을 감지했습니다. 화면을 떠날까요?', t?.closing ? '닫기' : '이동')) e.preventDefault();
+    else if (t) t.closing = false;
   });
   wc.setWindowOpenHandler(details => {
     const w = owner();
@@ -268,8 +269,8 @@ function command(w, action, p = {}) {
       break;
     case 'favorite': if (t && actor && !locked) { const url = safeSnapshot({ favorites: [t] }).favorites[0]?.url; if (url) favorites = favorites.some(f => f.url === url) ? favorites.filter(f => f.url !== url) : [...favorites, { url, title: t.title, zoom: t.zoom }]; } break;
     case 'rename': if (t?.windowId === w.id && text(p.title)) { t.title = text(p.title); t.customTitle = true; } break;
-    case 'navigate': if (t && !locked && confirm(w, '이전·다음 화면으로 이동할까요?')) { const h = t.view.webContents.navigationHistory; if (p.direction === 'back' && h.canGoBack()) h.goBack(); if (p.direction === 'forward' && h.canGoForward()) h.goForward(); } break;
-    case 'reload': if (t && confirm(w, '현재 화면을 새로고침할까요?')) { w.message = ''; if (locked) verifyAccount(); t.view.webContents.reload(); } break;
+    case 'navigate': if (t && !locked && confirm(w, '이전·다음 화면으로 이동할까요?', '이동')) { const h = t.view.webContents.navigationHistory; if (p.direction === 'back' && h.canGoBack()) h.goBack(); if (p.direction === 'forward' && h.canGoForward()) h.goForward(); } break;
+    case 'reload': if (t && confirm(w, '현재 화면을 새로고침할까요?', '새로고침')) { w.message = ''; if (locked) verifyAccount(); t.view.webContents.reload(); } break;
     case 'zoom': if (t && Number.isFinite(p.value)) { t.zoom = Math.round(Math.min(1.5, Math.max(.5, p.value)) * 100) / 100; t.view.webContents.setZoomFactor(t.zoom); } break;
     case 'print': if (t && !locked) t.view.webContents.print({ silent: false, printBackground: true }, (ok, reason) => { if (!ok && reason !== 'cancelled') { reportFailure(w, '인쇄를 완료하지 못했습니다. 프린터 설정을 확인해 주세요.'); broadcast(); } }); break;
     case 'newWindow': createWindow(); break;
@@ -346,6 +347,7 @@ async function verifyAccount(initial = false) {
         if (existing[i]) { w.win.setBounds(boundsOnScreen(config.bounds)); if (config.maximized) w.win.maximize(); }
         for (const entry of config.tabs) openTab(w, entry);
         if (w.ids.length) activate(w, w.ids[Math.min(config.active, w.ids.length - 1)]);
+        w.menuOpen = true;
       });
     } else {
       for (const w of windows.values()) { w.menuOpen = true; w.message = '로그인되었습니다. 업무 메뉴를 선택해 새 탭을 여세요.'; }
@@ -369,7 +371,7 @@ app.whenReady().then(async () => {
   });
   webSession = session.fromPartition('persist:nenova-work');
   const desktopUa = webSession.getUserAgent();
-  webSession.setUserAgent(/\bNenovaDesktop\/1\.2\.0\b/.test(desktopUa) ? desktopUa : `${desktopUa} NenovaDesktop/1.2.0`);
+  webSession.setUserAgent(/\bNenovaDesktop\/1\.2\.0\b/.test(desktopUa) ? desktopUa : `${desktopUa} NenovaDesktop/1.2.1`);
   webSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   webSession.setPermissionCheckHandler(() => false);
   webSession.webRequest.onBeforeRequest({ urls: [`${ORIGIN}/*`] }, (details, callback) => {

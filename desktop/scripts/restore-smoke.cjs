@@ -144,6 +144,7 @@ async function readPhase() {
   assert.ok(Math.abs(tab2025.view.webContents.getZoomFactor() - 1.2) < 0.001, '2025 tab zoom restores');
   assert.ok(Math.abs(tab2026.view.webContents.getZoomFactor() - 0.9) < 0.001, '2026 tab zoom restores');
   assert.ok(main.snapshot().favorites.some(item => item.title === TITLE_2025), 'favorite restores');
+  assert.ok([...main.windows.values()].every(window => window.menuOpen), 'startup opens menus with favorites while retaining restored tabs');
   assert.equal(new Set(tabs.map(tab => tab.windowId)).size, 2, 'tabs restore across both windows');
   assert.equal(tabs.filter(tab => tab.windowId === tab2025.windowId || tab.windowId === tab2026.windowId).length, 2, 'cross-year tabs remain in their original window');
   assert.equal(await tab2025.view.webContents.executeJavaScript(`document.querySelector('#unsaved-form-value').value`), 'fixture initial form value', 'form fixture starts with its default value, not prior unsaved edits');

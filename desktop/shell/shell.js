@@ -190,7 +190,13 @@
     $('emptySearch').hidden = count > 0;
     const favorites = $('favoritesList'); favorites.replaceChildren();
     const matches = state.favorites.filter((item) => !query || `${item.title || ''} ${item.url || ''}`.toLocaleLowerCase('ko').includes(query));
-    $('favoritesSection').hidden = matches.length === 0;
+    $('favoritesSection').hidden = !state.online;
+    if (!matches.length && state.online) {
+      const hint = document.createElement('p');
+      hint.className = 'home-note';
+      hint.textContent = query ? '검색한 즐겨찾기가 없습니다.' : '업무 화면을 열고 ☆ 또는 Ctrl+D를 누르면 여기에 추가됩니다.';
+      favorites.append(hint);
+    }
     for (const item of matches) {
       const button = makeButton('favorite-card', '', `${item.title || item.url} 열기`, () => openPage({ href: item.url, labelKey: item.title }));
       const star = document.createElement('span'); star.className = 'favorite-star'; star.textContent = '★'; star.setAttribute('aria-hidden', 'true');

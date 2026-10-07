@@ -25,3 +25,29 @@ A. 작업 탭 한 줄 유지로 확정. Ctrl+K 메뉴, Ctrl+Shift+B 도구 복�
 ## 검증 근거
 
 설치기·ERP guard·실브라우저 검증 및 운영 배포 결과는 PR/Actions 기록과 Downloads의 검증기록에 남긴다. 작업 중 임시 probe 스크립트/로그 및 인증 프로필은 커밋하지 않는다.
+
+## 완료
+
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/957
+- 운영 반영: 6134d3d044fd50c1a4166830ac987844db6b7ddb
+- Cafe24 및 hydration smoke 성공: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37588703405
+- Windows CI: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37588703416
+- ERP CI: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37588703495
+
+## 확인 결과
+
+- 단위 12개, 별도 프로세스 복원, compact/expanded/favorites/notice Electron smoke 통과.
+- 키보드 검사에서 renderer 자동초점 이전 검사 race를 수정했고, focus/rename assertions를 유지한 채 로컬 3회 및 Windows CI 통과.
+- ERP contract, dnSpy evidence, manifest 83개, write guard, UI layout, production build 통과.
+- 웹 로그인 1920×1080 및 390×844, 일반 상단바 1920/800폭 다운로드 버튼 확인. PC UA 전용 웹바 숨김/복원, 입력 보존, 인쇄 CSS 범위 확인.
+- 실제 운영 로그인에서 syncStatus=ready, 웹 버전 v1.0.2·6134d3d0, 계정 메뉴80개 일치. 주문붙여넣기·불량차감·호텔손익·견적 로드 성공.
+- PC shell1920×1080, 업무 콘텐츠1920×1036. 도구 펼침 시1920×924, 같은WebContents/입력 유지, 즐겨찾기 추가확인.
+- 운영 UI probe는 인증 후 비읽기 요청 차단, ERP업무 쓰기0건. 모든 업무 저장·확정의 전수검증을 의미하지 않는다.
+- 공개 URL 익명다운로드 및 운영 로그인 버튼 키보드 Enter 다운로드 완료. 원래로그인페이지 유지, 실제파일SHA256 일치.
+- 설치기111,372,563bytes, SHA256 58BCDE9BB04F93828568668ADFCEC6DDA26A9C215A6CB6CD315DD9B0D6EBCB8E, 게시자 서명없음.
+
+## 설치 검증 사고와 복구
+
+기존 설치 확인이 DisplayName 정확일치와 일부레지스트리만 검사하여 버전이붙은 all-users 기존설치를 놓쳤다. 동일appId NSIS설치기는 /D 임시경로여도 기존버전 제거를 수행하므로 기존 Program Files 경로가 변경되었다. 사용자에게 알린 후 C:/Program Files/Nenova Desktop을1.2로복구(설치기exit0), 등록경로·바로가기 및 설치된app.asar와 검증패키지해시 일치를확인했다. workspace.encrypted 설정파일은기존수정시간2026-10-07 16:10:21로남아있다. 미저장입력 복원여부는확인하지못했다. 기존 nenova.exe 원장은수정하지않았다.
+
+앞으로 사용자PC에 같은제품이있으면설치기를실행하지않고별도userData의win-unpacked실행으로검증한다. 설치/제거시험은격리VM에서만한다. 이름에버전이붙는경우와HKCU/HKLM·32/64비트레지스트리모두확인한다.
