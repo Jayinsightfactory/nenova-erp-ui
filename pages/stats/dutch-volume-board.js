@@ -85,6 +85,7 @@ export default function DutchVolumeBoard() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const workBusyRef = useRef(false);
   const historyRequestRef = useRef(0);
+  const matchPopupRequestsRef = useRef(new Map());
   const reviewRef = useRef(null);
   const inputRefs = useRef([]);
   const revisionRef = useRef(0);
@@ -120,6 +121,37 @@ export default function DutchVolumeBoard() {
     });
     return () => cancelAnimationFrame(frame);
   }, [activeTab, activeEntryId]);
+
+  useEffect(() => {
+    const settle = pending => {
+      if (pending?.returnFocusElement?.isConnected) pending.returnFocusElement.focus();
+    };
+    const onMatchPopupMessage = event => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data || {};
+      const pending = matchPopupRequestsRef.current.get(String(data.token || ''));
+      if (!pending || event.source !== pending.popup || data.kind !== pending.kind) return;
+      if (data.type === 'dutch-match-popup-ready') {
+        event.source.postMessage({ type: 'dutch-match-popup-init', token: data.token, kind: pending.kind, options: pending.options }, window.location.origin);
+        return;
+      }
+      if (data.type === 'dutch-match-popup-selected') {
+        const key = Number(pending.kind === 'product' ? data.item?.prodKey ?? data.item?.ProdKey : data.item?.custKey ?? data.item?.CustKey);
+        if (Number.isInteger(key) && key > 0) pending.onPick(data.item);
+      }
+      if (data.type === 'dutch-match-popup-selected' || data.type === 'dutch-match-popup-cancel') {
+        matchPopupRequestsRef.current.delete(String(data.token));
+        settle(pending);
+      }
+    };
+    const cleanClosedPopups = window.setInterval(() => {
+      for (const [token, pending] of matchPopupRequestsRef.current) {
+        if (pending.popup.closed) { matchPopupRequestsRef.current.delete(token); settle(pending); }
+      }
+    }, 500);
+    window.addEventListener('message', onMatchPopupMessage);
+    return () => { window.removeEventListener('message', onMatchPopupMessage); window.clearInterval(cleanClosedPopups); };
+  }, []);
 
   useEffect(() => { if (storageKey && entries.length) writeDutchDraft(localStorage, storageKey, entries, prices, dayEdits, bulkPriceConfig); }, [storageKey, entries, prices, dayEdits, bulkPriceConfig]);
   useEffect(() => {
@@ -359,6 +391,23 @@ export default function DutchVolumeBoard() {
       ? `단가를 보존하며 같은 원본 ${kind === 'product' ? '품목 행' : '업체 열'} ${targetEntries.length}건을 매칭했습니다.`
       : `같은 원본 ${kind === 'product' ? '품목 행' : '업체 열'} ${targetEntries.length}건을 함께 매칭했습니다. 전체 적용 전 다시 검증하세요.`));
   }
+  function openMatchPopup({ kind, entryId, initialQuery, country = '네덜란드', flower = '', options = [], onPick, returnFocusElement } = {}) {
+    if (workBusyRef.current || applyingRef.current || typeof window === 'undefined') return false;
+    const token = window.crypto?.randomUUID?.() || `dutch-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const params = new URLSearchParams({ popup: '1', token, kind, entryId: String(entryId || ''), query: String(initialQuery || ''), country, flower });
+    const popup = window.open(`/stats/dutch-volume-match?${params.toString()}`, `dutch-erp-match-${token}`, 'popup=yes,width=1100,height=820,left=120,top=80,resizable=yes,scrollbars=yes');
+    if (!popup) { setError('매칭 새 창이 브라우저에서 차단되었습니다. 이 사이트의 팝업을 허용한 뒤 다시 선택하세요.'); return false; }
+    setError('');
+    matchPopupRequestsRef.current.set(token, { popup, kind, options: kind === 'customer' ? options : [], onPick, returnFocusElement });
+    popup.focus();
+    return true;
+  }
+  function openUnmatchedEntry(entry, kind, returnFocusElement = typeof document === 'undefined' ? null : document.activeElement) {
+    const initialQuery = kind === 'product'
+      ? (entry.sourceItem || entry.sourceColor || entry.color || entry.product)
+      : customerName(entry.sourceCustomer || entry.customer);
+    openMatchPopup({ kind, entryId: entry.id, initialQuery, country: '네덜란드', flower: entry.sourceFlower || '', options: customerOptions, onPick: item => pickMaster(entry, kind, item), returnFocusElement });
+  }
   function addRow() {
     if (workBusyRef.current || applyingRef.current) return;
     invalidate();
@@ -539,6 +588,11 @@ export default function DutchVolumeBoard() {
     .side-instructions p{margin:7px 0 0;line-height:1.45}
     .board-primary .grid-wrap{max-height:calc(100vh - 250px);min-height:calc(100vh - 250px)}
     .board-primary :global(.sheet-scroll){max-height:calc(100vh - 235px);min-height:calc(100vh - 235px)}
+    .board-primary .mapping-table{table-layout:fixed;width:100%;font-size:15px}
+    .board-primary .mapping-table th,.board-primary .mapping-table td{height:auto;min-height:42px;padding:6px 5px;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
+    .board-primary .mapping-table td input,.board-primary .mapping-table td select{width:100%;min-width:0;box-sizing:border-box;font-size:14px}
+    .board-primary .mapping-table td>small{font-size:12px;line-height:1.25}
+    .board-primary .mapping-table .status{font-size:13px}
     .side-history :global(.work-panel){margin:0;padding:8px}
     .side-history :global(.work-actions){display:grid;grid-template-columns:1fr 1fr;gap:6px}
     .side-history :global(.work-actions input){grid-column:1/-1;min-width:0;width:100%;max-width:none;box-sizing:border-box}
@@ -568,16 +622,16 @@ export default function DutchVolumeBoard() {
         <button role="tab" aria-selected={activeTab === 'edit'} onClick={() => setActiveTab('edit')}>단가 수정·매칭</button>
         <span>같은 초안으로 연결됩니다 · 수량 셀 클릭은 수량 변경, 원화 입력·품목 매칭도 여기서 바로 편집</span>
       </div>
-      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onEdit={id => { setActiveEntryId(id); setQuery(''); setActiveTab('edit'); }}/>}
-      {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>단가 입력 즉시 원본 시트에 표시 · ERP 저장은 별도 적용</span></div>
-      <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table><thead><tr><th>품목 / 원본</th><th>업체 / 원본</th><th>ERP 품목 선택</th><th>ERP 업체 선택</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
+      {activeTab === 'sheet' && <DutchVolumeSheet workbook={workbook} entries={entries} prices={prices} priceKey={entry => dutchPriceKey(entry, bulkPriceConfig)} matchCache={matchCache} validationCurrent={matchStatusUsable} activeEntryId={activeEntryId} disabled={workBusy || applying} onQuantityChange={updateCellQuantity} onPriceChange={updatePrice} onPriceRestore={restorePriceDraft} onDayChange={updateWeekday} onMatch={openUnmatchedEntry}/>}
+      {activeTab === 'edit' && <><div className="editor-context"><b>{activeEntryId ? (() => { const row = entries.find(item => item.id === activeEntryId); return row ? `${row.sourceCustomer || row.customer} · ${row.sourceItem || row.color || row.product} · ${row.cellAddress || '수동 추가'}` : '전체 입력'; })() : '업체·품목별 단가와 매칭 수정'}</b><button onClick={() => setActiveTab('sheet')}>물량표에서 확인 ↗</button><span>원본 품목 옆 ERP 품목, 원본 업체 옆 ERP 업체를 표시합니다. Enter로 선택 창을 열고 Esc로 닫을 수 있습니다.</span></div>
+      <div className="grid-wrap" aria-label="물량 초안 표 가로 세로 스크롤"><table className="mapping-table"><colgroup><col style={{ width: '14%' }}/><col style={{ width: '20%' }}/><col style={{ width: '12%' }}/><col style={{ width: '20%' }}/><col style={{ width: '6%' }}/><col style={{ width: '7%' }}/><col style={{ width: '14%' }}/><col style={{ width: '7%' }}/></colgroup><thead><tr><th>품목 / 원문</th><th>ERP 매칭 품목</th><th>업체 / 원문</th><th>ERP 매칭 업체</th><th>수량</th><th>단위</th><th>단가 (KRW / 견적단위)</th><th>상태</th></tr></thead><tbody>{visibleEntries.map((row, index) => {
         const individual = !isDutchBulkPriceCustomer(row, bulkPriceConfig);
         const match = matchCache[row.id];
         return <tr key={row.id} ref={node => { editRowRefs.current[row.id] = node; }} className={`${match?.status === 'unmatched' ? 'unmatched' : ''} ${activeEntryId === row.id ? 'selected-entry' : ''}`}>
           <td title={row.sourceItem || row.product}>{row.added ? <input aria-label="추가 품목명" value={row.product} onChange={event => updateEntry(row.id, { product: event.target.value })}/> : <><b>{row.sourceItem || row.color || row.product}</b><small>{row.sourceFlower || row.product} · {row.sourceColor || ''} · {row.sheetName}!{row.cellAddress}</small></>}</td>
-          <td title={row.customer}>{row.added ? <input aria-label="추가 업체명" value={row.customer} onChange={event => updateEntry(row.id, { customer: event.target.value })}/> : <b>{customerName(row.customer)}</b>}<small className={individual ? 'individual-price' : 'uniform-price'}>{individual ? '개별 단가' : '일괄 단가'}</small></td>
-          <td><ErpMatchPicker kind="product" entryId={row.id} initialQuery={row.sourceItem || row.color || row.product} country="네덜란드" flower={row.sourceFlower || ''} value={row.prodKey || match?.prodKey} label={row.prodKey ? row.product : match?.prodName} options={productOptions} onPick={item => pickMaster(row, 'product', item)} disabled={workBusy || applying}/></td>
-          <td><ErpMatchPicker kind="customer" entryId={row.id} initialQuery={match?.custName || customerName(row.sourceCustomer || row.customer)} value={row.custKey || match?.custKey} label={row.custKey ? row.customer : match?.custName} options={customerOptions} onPick={item => pickMaster(row, 'customer', item)} disabled={workBusy || applying}/></td>
+          <td title={row.sourceCustomer || row.customer}>{row.added ? <input aria-label="추가 업체명" value={row.customer} onChange={event => updateEntry(row.id, { customer: event.target.value })}/> : <b>{customerName(row.sourceCustomer || row.customer)}</b>}<small className={individual ? 'individual-price' : 'uniform-price'}>{individual ? '개별 단가' : '일괄 단가'}</small></td>
+          <td><ErpMatchPicker kind="product" entryId={row.id} initialQuery={row.sourceItem || row.color || row.product} country="네덜란드" flower={row.sourceFlower || ''} value={row.prodKey || match?.prodKey} label={row.prodKey ? row.product : match?.prodName} options={productOptions} onOpen={openMatchPopup} onPick={item => pickMaster(row, 'product', item)} disabled={workBusy || applying}/></td>
+          <td><ErpMatchPicker kind="customer" entryId={row.id} initialQuery={match?.custName || customerName(row.sourceCustomer || row.customer)} value={row.custKey || match?.custKey} label={match?.custName || (row.custKey ? row.customer : '')} options={customerOptions} onOpen={openMatchPopup} onPick={item => pickMaster(row, 'customer', item)} disabled={workBusy || applying}/></td>
           <td><input aria-label={`${customerName(row.customer)} ${row.product} 수량`} type="number" min="0" step="any" value={row.quantity} disabled={workBusy || applying} onChange={event => updateEntry(row.id, { quantity: event.target.value })}/></td>
           <td><select aria-label={`${row.product} 단위`} value={row.unit || ''} disabled={workBusy || applying} onChange={event => updateEntry(row.id, { unit: event.target.value })}><option value="">ERP 출고단위</option><option value="박스">박스</option><option value="단">단</option><option value="송이">송이</option></select></td>
           <td><input ref={node => { inputRefs.current[index] = node; priceInputRefs.current[row.id] = node; }} aria-label={`${customerName(row.customer)} ${row.sourceItem || row.color || row.product} ${individual ? '개별단가' : '균일가'}`} type="number" min="0" step="any" value={prices[dutchPriceKey(row, bulkPriceConfig)] ?? ''} disabled={workBusy || applying} onChange={event => updatePrice(row, event.target.value)} onKeyDown={event => moveNext(event, index)} placeholder="미입력: 보존"/><small>{match?.estUnit ? `원/${match.estUnit}` : '견적단위: 검증 후 확인'}</small></td>
