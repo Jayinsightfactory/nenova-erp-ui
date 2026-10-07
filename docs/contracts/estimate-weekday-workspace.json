@@ -93,7 +93,8 @@
     "__tests__/weekdaySavedTemplateUi.test.js",
     "scripts/install-weekday-template.cjs",
     "__tests__/weekdayTemplateInstall.test.js",
-    "data/templates/weekday/jugwang-order.encrypted.json"
+    "data/templates/weekday/jugwang-order.encrypted.json",
+    "__tests__/weekdayTemplateExportRoute.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -323,7 +324,8 @@
     "__tests__/weekdayOriginalWorkbookUi.test.js",
     "__tests__/weekdaySavedTemplate.test.js",
     "__tests__/weekdaySavedTemplateUi.test.js",
-    "__tests__/weekdayTemplateInstall.test.js"
+    "__tests__/weekdayTemplateInstall.test.js",
+    "__tests__/weekdayTemplateExportRoute.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -512,7 +514,8 @@
     "source": "Cust533 exact saved SHA default loads for valid scope; user manual uploads take precedence. Default load parses original only and never creates plans/links or ERP writes. Past source quantities and dates are never auto-converted to current cycle.",
     "preserve": "Unlinked order totals, early-shipment, notes and formulas stay original. Duplicate business/cell mapping, moved draft, unknown actual or incompatible unit blocks export",
     "legacy": "XLS original-only; changed XLS requires re-upload as XLSX",
-    "quantities": "Explicit connected source date cells only; exact year/week/customer/product/date/unit latest canonical total overridden by absolute draft; Wilson never added twice; mapping survives ERP apply clearing drafts"
+    "quantities": "Explicit connected source date cells only; exact year/week/customer/product/date/unit latest canonical total overridden by absolute draft; Wilson never added twice; mapping survives ERP apply clearing drafts",
+    "routes": "Header and matrix toolbar both call Workspace.downloadOriginalWorkbook. Matrix must never generate generic aoa workbook or fall back to weekday totals sheet. Ready only for current scoped original; export ignores UI search/collapse filters and retains source workbook rows."
   },
   "savedWorkbookTemplate": {
     "storage": "AES-256-GCM envelope in repository, deployment-only private key, exact SHA-verified file data/runtime/weekday-template/jugwang-order.xlsx (600); preserve all15 source sheets",

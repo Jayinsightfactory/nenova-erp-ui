@@ -298,7 +298,7 @@ function carryoverInputAlerts(matrix) {
     .map(block=>`${row.name} · ${cycleLabel(block.cycle)}\n${block.carryover.error}`)))].join('\n\n');
 }
 
-export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparisonRows = [], onMove, busy = false,
+export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparisonRows = [], onMove, busy = false, onExportWorkbook, exportReady = false,
   onEditCell, onClearCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
   onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], quoteResults = [],
   carryover = null, carryoverPlans = plans, onOpenCarryover, carryoverBusy = false, carryoverError = '', editDisabledReason = '',
@@ -319,6 +319,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const [flower, setFlower] = useState('');
   const [wilsonDay,setWilsonDay]=useState('일');
   const [exportBusy,setExportBusy]=useState(false);
+  const exportLock=useRef(false);
   useEffect(()=>{try {const stored=localStorage.getItem('nenova-weekday-wilson-day');if(wilsonWeekdays.includes(stored))setWilsonDay(stored);}catch {}},[]);
   const changeWilsonDay=value=>{setWilsonDay(value);try{localStorage.setItem('nenova-weekday-wilson-day',value);}catch{}};
   const [addedKeys, setAddedKeys] = useState([]);
@@ -407,16 +408,17 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     return {savedTotal,total,savedWilson:Number(savedWilson),wilson:stale&&!draft?null:Number(amount),draft:Boolean(draft),error:wilsonError || (stale&&!draft?'ERP 수량 또는 단위가 변경되었습니다. 일반·윌슨 분류를 재확인하세요.':invalid?'합계·윌슨 수량 또는 단위를 재확인하세요.':'')};
   }
   async function exportWorkbook() {
-    if(exportBusy)return;setExportBusy(true);
+    if(disabled || exportBusy || exportLock.current || !exportReady || typeof onExportWorkbook!=='function')return;
+    exportLock.current=true;
+    setExportBusy(true);
     try {
-      const imported=await import('xlsx'),XLSX=imported.default || imported;
-      const header=['품목키','품목','단위'];
-      for(const cycle of matrix.cycles){for(const day of cycle.days)header.push(`${day.date} ${day.label} 합계`);header.push(`${cycle.year}/${cycle.majorWeek}-01 합계`,`${cycle.year}/${cycle.majorWeek}-01 잔량`,`${cycle.year}/${cycle.majorWeek}-02 합계`,`${cycle.year}/${cycle.majorWeek}-02 잔량`,`${cycle.year}/${cycle.majorWeek}차 잔량`);}
-      const data=visibleRows.map(row=>{const values=[row.prodKey,row.name,row.blocks.map(block=>block.unit).filter(Boolean).join('/')];for(const block of row.blocks){for(const day of block.days)values.push(day.planned ?? day.displayCurrent ?? day.current);values.push(block.subweek01?.effectiveTotal ?? null,block.subweek01?.remainderView?.value ?? null,block.subweek02?.effectiveTotal ?? null,block.subweek02?.remainderView?.value ?? null,block.remainderMajorView?.value ?? null);}return values;});
-      const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([header,...data]),'요일 합계');
-      XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([['윌슨은 네노바웹에서만 구분하며 이 엑셀과 실제 견적서는 일반·윌슨을 합산합니다.'],['화면에 초안이 있으면 이 엑셀에는 초안 예상 합계가 표시됩니다. 실제 견적서는 저장된 확정 전산값을 출력합니다.']]),'안내');
-      XLSX.writeFile(workbook,`주광_요일합계_${matrix.cycles.find(c=>c.offset===0)?.year || ''}_${matrix.cycles.find(c=>c.offset===0)?.majorWeek || ''}.xlsx`);
-    }catch(error){setSelectedInfo(`엑셀 내보내기 실패: ${error.message}`);}finally{setExportBusy(false);}
+      await onExportWorkbook();
+    }catch(error){
+      setSelectedInfo(`엑셀 내보내기 실패: ${error.message}`);
+    }finally{
+      exportLock.current=false;
+      setExportBusy(false);
+    }
   }
   const validDestinations = safeCycles.filter((cycle) => cycle.calendarState === 'FOUND')
     .flatMap((cycle) => cycle.days.filter((day) => day.calendarState === 'FOUND')
@@ -575,7 +577,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
 
   return <section className="weekday-cycle-matrix" aria-label="목요일부터 수요일까지 연결 차수 행렬" aria-busy={disabled}>
     <div className="wcm-toolbar wcm-wilson-tools"><label>윌슨 요일<select aria-label="윌슨 구분 요일" value={wilsonDay} onChange={event=>changeWilsonDay(event.target.value)}>{wilsonWeekdays.map(day=><option key={day} value={day}>{day}요일</option>)}</select></label>
-      <span className="wcm-muted">일반 + 윌슨 = 실제 견적 합계</span><button type="button" disabled={disabled || exportBusy || !visibleRows.length} onClick={exportWorkbook}>{exportBusy?'엑셀 준비 중…':'합산 엑셀'}</button>
+      <span className="wcm-muted">일반 + 윌슨 = 실제 견적 합계</span><button type="button" disabled={disabled || exportBusy || !exportReady || typeof onExportWorkbook!=='function'} onClick={exportWorkbook}>{exportBusy?'엑셀 준비 중…':'발주내역 엑셀'}</button>
       <label className="wcm-unallocated-toggle"><input type="checkbox" checked={showUnallocated} onChange={event=>setShowUnallocated(event.target.checked)} aria-label="미분배 품목 표시"/>미분배 품목 표시</label></div>
     {wilsonError && <p className="wcm-error" role="alert">윌슨 분류: {wilsonError}</p>}
     <details className="wcm-filter-disclosure"><summary>품목 검색·필터 펼치기 {search || flower ? '· 필터 적용 중' : ''}</summary><div className="wcm-toolbar">
