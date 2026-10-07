@@ -29,6 +29,8 @@
 | Ctrl+D | 즐겨찾기 추가·해제 |
 | Ctrl+R / F5 | 새로고침 확인 |
 | Ctrl+P | 현재 탭 인쇄 |
+| 탭에 초점을 둔 뒤 F2 | 탭 이름 변경, Enter 저장 / Esc 취소 |
+| 탭에서 Ctrl+Shift+← / → | 탭 순서 이동 |
 | Alt+← / Alt+→ | 이전 / 다음 화면 이동 확인 |
 | Tab / Shift+Tab, Enter / Space | 버튼 이동·실행 |
 

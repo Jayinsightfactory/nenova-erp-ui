@@ -216,6 +216,21 @@ async function run() {
   shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'T', modifiers: ['control'] });
   await waitFor(() => sourceWindow.menuOpen, 'Ctrl+T menu shortcut');
   console.log('Smoke: keyboard');
+  await waitFor(() => shellContents.executeJavaScript('document.activeElement.id === "menuSearch"'), 'menu keyboard focus');
+  await shellContents.executeJavaScript(`document.querySelector('[data-id="${first.id}"] .tab-main').focus()`);
+  shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'F2' });
+  shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'F2' });
+  await waitFor(() => shellContents.executeJavaScript('Boolean(document.querySelector(".tab-rename"))'), 'F2 name editor');
+  await shellContents.executeJavaScript('document.querySelector(".tab-rename").value = "키보드 이름"');
+  shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+  shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+  await waitFor(() => first.title === '키보드 이름', 'keyboard rename');
+  const beforeKeyboardReorder = sourceWindow.ids.indexOf(first.id);
+  assert.ok(beforeKeyboardReorder > 0);
+  await shellContents.executeJavaScript(`document.querySelector('[data-id="${first.id}"] .tab-main').focus()`);
+  shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'Left', modifiers: ['control', 'shift'] });
+  shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'Left', modifiers: ['control', 'shift'] });
+  await waitFor(() => sourceWindow.ids.indexOf(first.id) === beforeKeyboardReorder - 1, 'keyboard tab reorder');
 
   // A close confirmation can be cancelled, then accepted and completed.
   dialog.showMessageBoxSync = () => dialogAnswer;

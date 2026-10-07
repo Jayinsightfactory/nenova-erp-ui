@@ -105,6 +105,14 @@
         main.replaceWith(input); input.focus(); input.select();
       });
       main.addEventListener('keydown', (event) => {
+        if (event.key === 'F2') { event.preventDefault(); main.dispatchEvent(new MouseEvent('dblclick')); return; }
+        if (event.ctrlKey && event.shiftKey && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+          event.preventDefault();
+          const index = state.tabs.findIndex((current) => current.id === tab.id);
+          if (event.key === 'ArrowLeft' && index > 0) run('reorder', { id: tab.id, beforeId: state.tabs[index - 1].id });
+          if (event.key === 'ArrowRight' && index < state.tabs.length - 1) run('reorder', { id: tab.id, beforeId: state.tabs[index + 2]?.id || null });
+          return;
+        }
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
         event.preventDefault();
         const index = state.tabs.findIndex((current) => current.id === tab.id);
