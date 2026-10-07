@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {analysisKey,analysisGroups,usableAnalysis} from '../../lib/pasteInboxPreanalysis';
+import {analysisKey,analysisGroups,usablePreparedAnalysis} from '../../lib/pasteInboxPreanalysis';
 
 export default function DistributionMessagePreanalysis({text,week,disabled,prepare,onOpen,children}) {
   const root=useRef(null),current=useRef(null),attempted=useRef(''),mounted=useRef(false);
@@ -31,7 +31,7 @@ export default function DistributionMessagePreanalysis({text,week,disabled,prepa
   useEffect(()=>{
     if(visible&&enabled&&!disabled&&pageEligible&&attempted.current!==key)void run(true);
   },[visible,enabled,disabled,pageEligible,key,state.status]);
-  const result=state.key===key&&usableAnalysis(state.result,text,week)?state.result:null;
+  const result=state.key===key&&usablePreparedAnalysis(state.result,text,week)?state.result:null;
   const loading=state.key===key&&state.status==='loading';
   const groups=result?analysisGroups(result.data):[];
   const items=groups.flatMap(group=>group.items),matched=items.filter(item=>item.matched).length;

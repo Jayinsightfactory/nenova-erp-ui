@@ -1,6 +1,7 @@
 // pages/orders/paste.js — 붙여넣기 주문등록 (Claude AI 파싱, 다중거래처/변경사항, 미매칭 질문)
 import { useState, useEffect, useRef, useCallback } from 'react';
-import {createPreanalysisCache,usableAnalysis} from '../../lib/pasteInboxPreanalysis';
+import {createPreanalysisCache,usablePreparedAnalysis} from '../../lib/pasteInboxPreanalysis';
+import {buildPasteWorkspaceFingerprint,savePasteWorkspace,loadPasteWorkspace} from '../../lib/pasteWorkspace';
 import Layout from '../../components/Layout';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/useApi';
 import MappingStatusModal from '../../components/orders/MappingStatusModal';
@@ -1085,6 +1086,12 @@ function buildKakaoStockDraft({
 }
 
 export default function PasteOrderPage() {
+  const topRef = useRef(null);
+  const workspaceActorRef = useRef('');
+  const completionFingerprintRef = useRef('');
+  const restoredExclusionsRef = useRef({paste:null,base:null});
+  const [workspaceReady,setWorkspaceReady] = useState(false);
+  const [workspaceNotice,setWorkspaceNotice] = useState('');
   const [allProducts, setAllProducts] = useState([]);
   const inboxAnalysisCache=useRef(null);
   const prepareInboxMessage=useCallback((text,targetWeek,options={})=>{
@@ -1103,6 +1110,8 @@ export default function PasteOrderPage() {
   const [allCustomers, setAllCustomers] = useState([]);
   const [weeks, setWeeks] = useState([]);
   const [week, setWeek] = useState('');
+  const currentWeekRef=useRef(week);
+  currentWeekRef.current=week;
   const [weekPage, setWeekPage] = useState(0);
   const WEEK_PAGE_SIZE = 6;
   const [showOldWeeks, setShowOldWeeks] = useState(false);
@@ -1144,8 +1153,8 @@ export default function PasteOrderPage() {
   const [detectedWeek, setDetectedWeek] = useState(''); // Claude가 텍스트에서 감지한 차수
   const [stockBaseWeek, setStockBaseWeek] = useState('');
   const [baseStockText, setBaseStockText] = useState('');
-  useEffect(() => { setPasteExcludedLines([]); }, [pasteText]);
-  useEffect(() => { setBaseStockExcludedLines([]); }, [baseStockText]);
+  useEffect(() => { if(restoredExclusionsRef.current.paste!==pasteText)setPasteExcludedLines([]); restoredExclusionsRef.current.paste=null; }, [pasteText]);
+  useEffect(() => { if(restoredExclusionsRef.current.base!==baseStockText)setBaseStockExcludedLines([]); restoredExclusionsRef.current.base=null; }, [baseStockText]);
   const [baseStockMatches, setBaseStockMatches] = useState([]);
   const [baseStockMatchEditIdx, setBaseStockMatchEditIdx] = useState(null);
   const [pendingParseAfterLoad, setPendingParseAfterLoad] = useState(false);
@@ -1411,7 +1420,8 @@ export default function PasteOrderPage() {
     apiGet('/api/master', { entity: 'products'  }).then(d => setAllProducts(d.data  || []));
     apiGet('/api/orders/prod-units').then(d => { if (d.success) setProdUnitMap(d.units || {}); });
     loadOrderTemplates();
-    apiGet('/api/orders/weeks').then(d => {
+    Promise.all([apiGet('/api/orders/weeks'),apiGet('/api/auth/me')]).then(([d,identity]) => {
+      workspaceActorRef.current = identity.success && typeof identity.user?.userId==='string' ? identity.user.userId : '';
       if (d.success) {
         const def = getDefaultWeek();
         const nearby = getNearby2026Weeks(4); // 2026 최근 ±4주
@@ -1419,12 +1429,19 @@ export default function PasteOrderPage() {
         // 2026 차수 먼저, 그 다음 DB 구형식(25년도) 차수
         const ws = [...nearby, ...dbWeeks];
         setWeeks(ws);
-        setWeek(def);
-        setStockBaseWeek(resolveInitialStockBaseWeek(def));
-        saveStockBaseWeek(def);
+        let saved=null;
+        try { if(workspaceActorRef.current)saved=loadPasteWorkspace(localStorage,{actorId:workspaceActorRef.current}); }
+        catch {setWorkspaceNotice('이전 작업을 불러오지 못했습니다. 원문을 확인해주세요.');}
+        const initialWeek=saved?.week||def;
+        setWeek(initialWeek);
+        setStockBaseWeek(resolveInitialStockBaseWeek(initialWeek));
+        saveStockBaseWeek(initialWeek);
+        if(saved)restorePasteWorkspace(saved);
         setWeekPage(0);
       }
-    });
+      if(!workspaceActorRef.current)setWorkspaceNotice('사용자를 확인하지 못해 작업 보존이 중단되었습니다. 다시 로그인해주세요.');
+      setWorkspaceReady(true);
+    }).catch(()=>{setWorkspaceNotice('작업 복원 준비에 실패했습니다. 새로고침해주세요.');setWorkspaceReady(true);});
   }, []);
 
   const parseTemplateFavorite = (fav) => {
@@ -1560,13 +1577,20 @@ export default function PasteOrderPage() {
 
   const selectRegistrationWeek = (w) => {
     setWeek(w);
+    completionFingerprintRef.current='';
+    setBulkResult(null);
+    let saved=null;
+    try {if(workspaceActorRef.current)saved=loadPasteWorkspace(localStorage,{actorId:workspaceActorRef.current,week:w});}
+    catch {setWorkspaceNotice('선택 차수의 이전 작업을 불러오지 못했습니다.');}
+    if(saved){restorePasteWorkspace(saved);return;}
+    setOrders(previous=>previous.map(order=>({...order,distributionCompleted:false,orderOnlyRegistered:false,resultMsg:''})));
     setRegisteredOrders({});
-    if (orders.length > 0) reloadRegisteredOrdersForWeek(w, orders);
   };
 
   useEffect(() => {
     if (!week || orders.length === 0) return undefined;
     let cancelled = false;
+    setRegisteredOrders({});
     (async () => {
       const next = {};
       await Promise.all(orders.map(async (o) => {
@@ -1579,13 +1603,14 @@ export default function PasteOrderPage() {
           if (cancelled) return;
           const matched = pickOrderForWeek(od.orders, o.custMatch.CustName, week);
           if (matched) next[o.id] = matched;
+          await fetchShipmentQtys(o.custMatch.CustKey,week,pasteShipmentLookupProdKeys(o,matched));
         } catch { /* ignore */ }
       }));
       if (!cancelled) setRegisteredOrders(next);
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [week]);
+  }, [week,orders.map(order=>`${order.id}:${order.custMatch?.CustKey||''}:${order.items.map(item=>item.prodKey||'').join(',')}`).join('|')]);
 
   const refreshStockDraft = (
     nextText = pasteText,
@@ -1947,12 +1972,22 @@ export default function PasteOrderPage() {
     return () => clearTimeout(t);
   }, [baseStockText, baseStockExcludedLines, allProducts.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleParse = async ({ text: overrideText, targetWeek, preparedAnalysis } = {}) => {
+  const handleParse = async ({ text: overrideText, targetWeek, preparedAnalysis, sourceMessages } = {}) => {
     const inputText = typeof overrideText === 'string' ? overrideText : pasteText;
     const selectedWeek = targetWeek || week;
     if (!inputText.trim()) return;
+    // Reopening the same completed draft is a review, never a new delta write.
+    if(completionFingerprintRef.current && selectedWeek===week && inputText===pasteText
+      && completionFingerprintRef.current===buildPasteWorkspaceFingerprint({week,pasteText,orders,evidenceMessages})
+      && orders.some(order=>order.distributionCompleted)
+      && (!sourceMessages || JSON.stringify(sourceMessages.map(message=>message.identity))===JSON.stringify(evidenceMessages.map(message=>message.identity)))) {
+      setWorkspaceNotice('이미 처리한 작업입니다. 분석과 완료 상태를 유지했습니다.');
+      topRef.current?.scrollIntoView({block:'start'});
+      return;
+    }
     // 명시적으로 다시 분석한 경우에만 이전 완료 잠금을 해제한다.
     setBulkResult(null);
+    completionFingerprintRef.current='';
     setBulkCompletionNotice(null);
     setBulkProgress('');
     const textForParse = textWithoutExcludedLines(inputText, typeof overrideText === 'string' ? [] : pasteExcludedLines);
@@ -1964,13 +1999,9 @@ export default function PasteOrderPage() {
     setDisambigSearch('');
     setDisambigResults([]);
     try {
-      const res = usableAnalysis(preparedAnalysis,textForParse,selectedWeek)?null:await fetch('/api/orders/parse-paste', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ text: textForParse, mixedQuantitySupport: true, selectedOrderYear: selectedYearFromWeek(selectedWeek) }),
-      });
-      const d = res?await res.json():structuredClone(preparedAnalysis.data);
+      const prepared=usablePreparedAnalysis(preparedAnalysis,textForParse,selectedWeek)
+        ?preparedAnalysis:await prepareInboxMessage(textForParse,selectedWeek);
+      const d = structuredClone(prepared.data);
       if (!d.success) { setParseError(d.error || '파싱 실패'); return; }
 
       const cache = await loadMergedMappingCache(orders);
@@ -2074,7 +2105,7 @@ export default function PasteOrderPage() {
   const updateItem = (oid, idx, patch) => {
     setOrders(prev => prev.map(o =>
       o.id === oid
-        ? { ...o, orderOnlyRegistered: false, items: o.items.map((it, i) => {
+        ? { ...o, orderOnlyRegistered: false, distributionCompleted:false,items: o.items.map((it, i) => {
           if(i!==idx)return it;
           const next={...it,...patch};
           if(Object.hasOwn(patch,'prodKey'))return resolvePasteMixedQuantity(next,allProducts.find(prod=>Number(prod.ProdKey)===Number(next.prodKey)));
@@ -2135,6 +2166,7 @@ export default function PasteOrderPage() {
     const inputName = order?.custName || order?.custMatch?.CustName || customer?.CustName;
     updateOrder(oid, {
       custMatch: customer,
+      distributionCompleted:false,orderOnlyRegistered:false,
       custMatchReason: customer ? '사용자 직접 선택' : '업체 선택 필요',
       custFromMapping: false,
       custMappingKey: inputName ? customerCacheKey(inputName) : null,
@@ -2431,7 +2463,7 @@ export default function PasteOrderPage() {
         signal: AbortSignal.timeout(20_000),
       });
       const d = await r.json();
-      if (d.success && d.items) {
+      if (d.success && d.items && currentWeekRef.current===week) {
         const updates = {};
         const diagnostics = {};
         // 요청한 주문 품목을 먼저 0으로 초기화한 뒤 실제 ShipmentDetail 값을 덮는다.
@@ -2600,8 +2632,36 @@ export default function PasteOrderPage() {
   const [bulkProgress, setBulkProgress] = useState('');
   const [bulkResult, setBulkResult] = useState(null); // { okCount, failCount, details }
   const [bulkCompletionNotice, setBulkCompletionNotice] = useState(null);
+  function restorePasteWorkspace(saved) {
+    const state=saved.state;
+    restoredExclusionsRef.current={paste:state.pasteText||'',base:state.baseStockText||''};
+    setPasteText(state.pasteText||'');
+    setPasteExcludedLines(state.pasteExcludedLines||[]);
+    setBaseStockText(state.baseStockText||'');
+    setBaseStockExcludedLines(state.baseStockExcludedLines||[]);
+    setRemainStockText(state.remainStockText||'');
+    setBaseStockMatches(state.baseStockMatches||[]);
+    if(state.stockBaseWeek)setStockBaseWeek(state.stockBaseWeek);
+    setOrders(state.orders||[]);
+    setEvidenceMessages(state.evidenceMessages||[]);
+    setBulkResult(state.bulkResult||null);
+    completionFingerprintRef.current=saved.completionFingerprint||(state.orders?.some(order=>order.distributionCompleted)?saved.intentFingerprint:'')||'';
+    setRegisteredOrders({});
+    setShipmentQtys({});
+    setShipmentDiagnostics({});
+    setWorkspaceNotice('이전 원문·매칭 검토와 처리 상태를 복원했습니다. 현재 주문·분배는 다시 조회합니다.');
+  }
+  useEffect(()=>{
+    if(!workspaceReady||!workspaceActorRef.current||!week||parsing||bulkRunning||adjustSaving||orders.some(order=>order.saving))return;
+    try {
+      savePasteWorkspace(localStorage,{actorId:workspaceActorRef.current,week,
+        state:{pasteText,pasteExcludedLines,orders,evidenceMessages,baseStockText,baseStockExcludedLines,remainStockText,baseStockMatches,stockBaseWeek,bulkResult},
+        completionFingerprint:completionFingerprintRef.current});
+    } catch {setWorkspaceNotice('작업 보존에 실패했습니다. 이 창을 닫기 전에 원문을 복사해주세요.');}
+  },[workspaceReady,week,pasteText,pasteExcludedLines,orders,evidenceMessages,baseStockText,baseStockExcludedLines,remainStockText,baseStockMatches,stockBaseWeek,bulkResult,parsing,bulkRunning,adjustSaving]);
   const handleBulkDistribute = async (oid, { failedOnly = false } = {}) => {
     const order = orders.find(o => o.id === oid);
+    if(order?.distributionCompleted&&!failedOnly){alert('이 업체는 이미 저장·분배가 완료되었습니다. 기존 처리 내역을 확인해주세요.');return;}
     if(order?.items?.some(it=>!it.skip&&it.mixedQuantityError)){alert('혼합수량의 품목 포장수를 확인한 뒤 다시 분석하세요.');return;}
     if (!order || !order.custMatch || !week) { alert('거래처/차수 확인하세요.'); return; }
     if (bulkRunning) return; // 중복 실행 방지 (진행 중 재클릭)
@@ -2756,7 +2816,10 @@ export default function PasteOrderPage() {
 
     learnVerifiedMappings(details.filter(x => x.ok));
     if (okCount > 0) await learnPendingCustomer(order);
+    if(okCount>0&&failCount===0)completionFingerprintRef.current=buildPasteWorkspaceFingerprint({week,pasteText,orders,evidenceMessages});
     updateOrder(oid, {
+      distributionCompleted: okCount > 0 && failCount === 0,
+      orderOnlyRegistered:false,
       resultMsg: okCount > 0
         ? `추가·취소 일괄 등록·분배 완료: 성공 ${okCount}건${failCount ? ` / 실패 ${failCount}건` : ''}`
         : `추가·취소 일괄 등록·분배 실패: ${failCount}건`,
@@ -2794,6 +2857,9 @@ export default function PasteOrderPage() {
   // 화면 전체의 모든 업체를 서버 단일 트랜잭션으로 처리한다.
   // payload는 CANCEL 전체 → ADD 전체 순서이며, 한 건이라도 실패하면 서버가 모두 롤백한다.
   const handleAllMixedDistribute = async () => {
+    if(orders.some(order=>order.distributionCompleted)&&bulkResult?.orderId!=='ALL'){
+      alert('이미 처리 완료한 업체가 포함되어 전체 재등록을 막았습니다. 미처리 업체만 개별 처리해주세요.');return;
+    }
     if (bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone && bulkResult.okCount > 0) {
       alert('이 분석 결과는 이미 일괄 등록·분배가 완료되었습니다.\n중복 가산을 막기 위해 다시 실행할 수 없습니다.\n\n새 입력으로 수정하거나 다시 분석한 뒤 실행하세요.');
       return;
@@ -2968,7 +3034,8 @@ export default function PasteOrderPage() {
       learnVerifiedMappings(details);
       for (const order of orders.filter(order => details.some(detail => detail.orderId === order.id))) await learnPendingCustomer(order);
       setBulkProgress(`완료: ${details.length}건 저장·검증 성공`);
-      setBulkResult({ orderId: 'ALL', okCount: details.length, failCount: 0, details, rolledBack: false });
+      setBulkResult({ orderId: 'ALL', okCount: details.length, failCount: 0, details, rolledBack: false,verified:true });
+      completionFingerprintRef.current=buildPasteWorkspaceFingerprint({week,pasteText,orders,evidenceMessages});
       // 원장 반영이 전체 성공한 경우에만 DB 저장내역/분배수량/히스토리를 화면에 반영한다.
       setRegisteredOrders(prev => {
         const next = { ...prev };
@@ -3000,7 +3067,7 @@ export default function PasteOrderPage() {
       orders.forEach(order => {
         const orderDetails = details.filter(x => x.orderId === order.id);
         if (!orderDetails.length) return;
-        updateOrder(order.id, { resultMsg: `전체 일괄 처리 완료: 성공 ${orderDetails.length}건 / 실패 0건` });
+        updateOrder(order.id, { distributionCompleted:true,orderOnlyRegistered:false,resultMsg: `전체 일괄 처리 완료: 성공 ${orderDetails.length}건 / 실패 0건` });
       });
       loadOrderHistorySummary(week, orders);
       completionNotice = {
@@ -3099,7 +3166,8 @@ export default function PasteOrderPage() {
           ...rows.filter(row => row.orderId === order.id).map(row => row.prodKey),
         ]);
       }));
-      orders.forEach(order => updateOrder(order.id, { resultMsg: '마지막 전체 일괄 되돌리기 완료' }));
+      completionFingerprintRef.current='';
+      orders.forEach(order => updateOrder(order.id, { distributionCompleted:false,resultMsg: '마지막 전체 일괄 되돌리기 완료' }));
       loadOrderHistorySummary(week, orders);
       alert(`전체 일괄 ${rows.length}건을 변경 전 수량으로 되돌렸습니다.`);
     } catch (error) {
@@ -3199,11 +3267,13 @@ export default function PasteOrderPage() {
     }
 
     updateOrder(oid, {
-      orderOnlyRegistered: okCount > 0 && failCount === 0,
+      orderOnlyRegistered: false,
+      distributionCompleted: okCount > 0 && failCount === 0,
       resultMsg: okCount > 0
         ? `일괄 분배 완료: 성공 ${okCount}건${failCount ? ` / 실패 ${failCount}건` : ''}`
         : `일괄 분배 실패: ${failCount}건`,
     });
+    if(okCount>0&&failCount===0)completionFingerprintRef.current=buildPasteWorkspaceFingerprint({week,pasteText,orders,evidenceMessages});
     setBulkRunning(false);
   };
 
@@ -3280,6 +3350,7 @@ export default function PasteOrderPage() {
 
   const handleRegister = async (oid) => {
     const order = orders.find(o => o.id === oid);
+    if(order?.distributionCompleted||order?.orderOnlyRegistered){alert('이미 등록한 작업입니다. 현재 주문내역을 확인해주세요.');return;}
     if(order?.items?.some(it=>!it.skip&&it.mixedQuantityError)){alert('혼합수량의 품목 포장수를 확인한 뒤 다시 분석하세요.');return;}
 
     const allItems  = order?.items || [];
@@ -3758,7 +3829,7 @@ export default function PasteOrderPage() {
     const targets = (order.items || []).filter(it => !it.skip && it.prodKey && (it.flowerName || '기타') === flower);
     if (!targets.length) { alert('해당 품종의 매칭 품목이 없습니다.'); return; }
     setOrders(prev => prev.map(o => o.id === oid
-      ? { ...o, orderOnlyRegistered: false, items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? resolvePasteMixedQuantity({ ...it, unit, unitExplicit: true },allProducts.find(prod=>Number(prod.ProdKey)===Number(it.prodKey)),unit) : it) }
+      ? { ...o, orderOnlyRegistered: false, distributionCompleted:false,items: o.items.map(it => (!it.skip && it.prodKey && (it.flowerName || '기타') === flower) ? resolvePasteMixedQuantity({ ...it, unit, unitExplicit: true },allProducts.find(prod=>Number(prod.ProdKey)===Number(it.prodKey)),unit) : it) }
       : o
     ));
     await Promise.all(targets.map(it => fetch('/api/orders/prod-units', {
@@ -3884,7 +3955,10 @@ export default function PasteOrderPage() {
 
   return (
     <Layout title="붙여넣기 주문등록">
-      <div style={{ padding: '12px 16px', maxWidth: 'min(1920px, 99vw)', margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
+      <div ref={topRef} tabIndex={-1} id="paste-page-top" inert={!workspaceReady?'':undefined} aria-busy={!workspaceReady} style={{ padding: '12px 16px', maxWidth: 'min(1920px, 99vw)', margin: '0 auto', paddingBottom: currentQ ? 280 : 20 }}>
+        <button type="button" className="paste-back-to-top" onClick={()=>{topRef.current?.scrollIntoView({block:'start',behavior:'auto'});topRef.current?.focus({preventScroll:true});}}
+          style={{position:'fixed',right:24,bottom:currentQ?300:20,zIndex:40,padding:'10px 14px',border:'1px solid #1565c0',borderRadius:8,background:'#fff',color:'#1565c0',fontSize:14,fontWeight:700}}>↑ 맨 위로</button>
+        {workspaceNotice&&<p role="status" style={{margin:'4px 0 8px',color:'#245b93'}}>{workspaceNotice}</p>}
         <CollapsibleTop
           storageKey="orders-paste"
           defaultCollapsed
@@ -4078,14 +4152,20 @@ export default function PasteOrderPage() {
             <details className="paste-baseline-panel"><summary>물량표 연결 · {week} · 설정 펼치기</summary><DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
               hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} /></details>
             <div className="paste-sales-inbox"><DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} prepareMessage={prepareInboxMessage} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} operationRevision={bulkResult} onLoadText={({text,messages,sourceWeek,autoAnalyze,preparedAnalysis}) => {
+              if(text===pasteText&&(sourceWeek||week)===week&&orders.some(order=>order.distributionCompleted)
+                &&completionFingerprintRef.current===buildPasteWorkspaceFingerprint({week,pasteText,orders,evidenceMessages})
+                &&JSON.stringify((messages||[]).map(message=>message.identity))===JSON.stringify(evidenceMessages.map(message=>message.identity))){
+                setWorkspaceNotice('이미 처리한 원문입니다. 검토 내용과 완료 상태를 유지했습니다.');
+                document.getElementById('paste-connected-input')?.scrollIntoView({block:'start'});return;
+              }
               if (!autoAnalyze && pasteText.trim() && !window.confirm('현재 입력 내용을 선택한 영업방 대화로 바꿀까요? 아직 주문·분배는 처리하지 않습니다.')) return;
               const nextWeek = sourceWeek || week;
               setEvidenceMessages(messages || []);
               if (sourceWeek && sourceWeek !== week) setWeek(sourceWeek);
-              setPasteText(text); setOrders([]); setParseError(''); setQueueIdx(0);
-              setBulkResult(null); setDetectedWeek(''); setStockDraft(null); setBulkCompletionNotice(null); setBulkProgress('');
+              setPasteText(text); setParseError(''); setQueueIdx(0);
+              if(!autoAnalyze){setOrders([]);setBulkResult(null);completionFingerprintRef.current='';setDetectedWeek('');setStockDraft(null);setBulkCompletionNotice(null);setBulkProgress('');}
               document.getElementById('paste-connected-input')?.scrollIntoView({block:'start'});
-              if (autoAnalyze) void handleParse({ text, targetWeek: nextWeek, preparedAnalysis });
+              if (autoAnalyze) void handleParse({ text, targetWeek: nextWeek, preparedAnalysis,sourceMessages:messages });
             }} /></div>
           </div>
 
@@ -4768,17 +4848,17 @@ export default function PasteOrderPage() {
           const highlight = pasteOrderHighlightState(order);
 
           return (
-            <div key={order.id} data-paste-order-status={highlight.key} style={{ border: `2px solid ${order.orderOnlyRegistered ? highlight.border : '#c5cae9'}`, background: order.orderOnlyRegistered ? highlight.background : '#fff', borderRadius: 8, marginBottom: 16, overflow: 'hidden' }}>
+            <div key={order.id} data-paste-order-status={highlight.key} style={{ border: `2px solid ${order.orderOnlyRegistered || order.distributionCompleted ? highlight.border : '#c5cae9'}`, background: order.orderOnlyRegistered || order.distributionCompleted ? highlight.background : '#fff', borderRadius: 8, marginBottom: 16, overflow: 'hidden' }}>
               {/* 거래처 헤더 */}
               <div id={`paste-customer-${order.id}`} style={{
-                background: order.orderOnlyRegistered ? highlight.color : (order.custMatch ? '#1a237e' : '#e65100'),
+                background: order.orderOnlyRegistered || order.distributionCompleted ? highlight.color : (order.custMatch ? '#1a237e' : '#e65100'),
                 color: '#fff', padding: '10px 16px',
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
                 {order.custMatch ? (
                   <>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>✅ {order.custMatch.CustName}</span>
-                    {order.orderOnlyRegistered && <span role="status" style={{ fontSize: 11, background: '#fff', color: highlight.color, border: `1px solid ${highlight.border}`, borderRadius: 10, padding: '2px 8px', fontWeight: 900 }}>{highlight.label}</span>}
+                    {(order.orderOnlyRegistered || order.distributionCompleted) && <span role="status" style={{ fontSize: 11, background: '#fff', color: highlight.color, border: `1px solid ${highlight.border}`, borderRadius: 10, padding: '2px 8px', fontWeight: 900 }}>{highlight.label}</span>}
                     <span style={{ fontSize: 12, opacity: 0.8 }}>{order.custMatch.CustArea}</span>
                     {orderLocked && <span role="alert" style={{fontSize:11, background:'#fff3cd', color:'#7c2d12', border:'1px solid #fbbf24', borderRadius:4, padding:'3px 7px', fontWeight:900}}>{orderPresence.ownerName || '다른 사용자'}님이 이 업체를 작업 중</span>}
                     {orderPresence.loading && <span style={{fontSize:11, background:'#e3f2fd', color:'#0d47a1', border:'1px solid #90caf9', borderRadius:4, padding:'3px 7px', fontWeight:900}}>작업 상태 확인 중</span>}

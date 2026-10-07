@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {analysisKey,usableAnalysis,createPreanalysisCache,analysisGroups,TTL_MS}=require('../lib/pasteInboxPreanalysis');
+const {analysisKey,usableAnalysis,usablePreparedAnalysis,createPreanalysisCache,analysisGroups,TTL_MS}=require('../lib/pasteInboxPreanalysis');
 const data={success:true,orders:[{custName:'친구',custMatch:{CustKey:1,CustName:'친구플라워'},items:[{inputName:'돈셀',prodKey:2,prodName:'CARNATION Doncel',qty:1,unit:'박스',action:'취소'}]},{custName:'울산신화',custMatch:{CustKey:3,CustName:'울산신화'},items:[{inputName:'문라이트',prodKey:4,prodName:'CARNATION Moon Light',qty:1,unit:'박스',action:'추가'}]}]};
 async function main(){
   let calls=0,time=100,active=0,maxActive=0;
@@ -10,6 +10,23 @@ async function main(){
   assert(!usableAnalysis(a,'원문','2025-39-02',time),'cross-year never reused');
   assert(!usableAnalysis(a,'원문 수정','2026-39-02',time));
   assert(!usableAnalysis(a,'원문','2026-39-02',time+TTL_MS));
+  assert(usablePreparedAnalysis(a,'원문','2026-39-02',time),'fresh transient analysis can open');
+  assert(!usablePreparedAnalysis(a,'원문','2026-39-02',time+TTL_MS),'transient analysis still expires');
+  const persisted={...b,data:{...b.data,analysisStorage:{savedAt:time,cacheHit:true}}};
+  const afterReentry=time+TTL_MS*100;
+  assert(usablePreparedAnalysis(persisted,'원문','2026-39-02',afterReentry),'saved analysis remains visible and openable after memory TTL');
+  assert(usablePreparedAnalysis({...persisted,data:{...persisted.data,analysisStorage:{savedAt:time,cacheHit:false}}},'원문','2026-39-02',afterReentry),'the first successfully saved analysis is also durable');
+  assert(!usableAnalysis(persisted,'원문','2026-39-02',afterReentry),'memory cache still refreshes the saved disk result');
+  assert(!usablePreparedAnalysis(persisted,'원문','2025-39-02',afterReentry),'saved result never crosses years');
+  assert(!usablePreparedAnalysis(persisted,'원문','2026-39-01',afterReentry),'saved result never crosses subweeks');
+  assert(!usablePreparedAnalysis(persisted,'수정 원문','2026-39-02',afterReentry),'saved result never crosses exact source text');
+  for(const savedAt of [NaN,Infinity,-1,afterReentry+1,String(time),undefined]) {
+    assert(!usablePreparedAnalysis({...persisted,data:{...persisted.data,analysisStorage:{savedAt}}},'원문','2026-39-02',afterReentry),'invalid/future saved time cannot extend validity');
+  }
+  assert(!usablePreparedAnalysis({...persisted,at:afterReentry+1},'원문','2026-39-02',afterReentry),'future receipt is rejected after a clock rollback');
+  assert(!usablePreparedAnalysis({...persisted,data:{...persisted.data,analysisStorage:{savedAt:time+1}}},'원문','2026-39-02',time),'future saved metadata cannot fall back to fresh transient validity');
+  assert(!usablePreparedAnalysis({...persisted,data:{...persisted.data,success:false}},'원문','2026-39-02',afterReentry),'failed response cannot become a durable analysis');
+  assert(!usablePreparedAnalysis({...persisted,data:{...persisted.data,orders:null}},'원문','2026-39-02',afterReentry),'missing analysis rows are rejected');
   a.data.orders[0].items[0].qty=999;
   assert.equal(b.data.orders[0].items[0].qty,1,'simultaneous consumers receive independent drafts');
   const fresh=await cache.read('원문','2026-39-02');
