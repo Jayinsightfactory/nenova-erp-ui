@@ -3,10 +3,12 @@ import { buildWeekdayStyledWebWorkbook } from '../lib/weekdayStyledWebWorkbook.j
 import { buildWeekdayWebExportSnapshot } from '../lib/weekdayWebExportSnapshot.js';
 import { buildHorizontalWeekdayMatrix } from '../lib/weekdayHorizontalMatrix.js';
 import { applyWeekdayCarryoverToMatrix } from '../lib/weekdayCarryover.js';
+import { applyEarlyShipmentClassification } from '../lib/weekdayEarlyShipmentPresentation.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { isExpectedWeekdayPrintBlock } from '../lib/weekdayPrintReadiness.js';
 import WeekdayCycleMatrix from './WeekdayCycleMatrix';
+import WeekdayEarlyShipmentPanel from './WeekdayEarlyShipmentPanel';
 import { readWeekdayStoredInputs, saveWeekdayScopedInputs, mergeWeekdayStoredInputs,
   clearWeekdayStoredSubmission, weekdayInputStorageKey } from '../lib/weekdayDraftStorage.js';
 import { wilsonRecordKey, wilsonWriteInput, wilsonPendingAfterSave, validateWilsonWriteResponse } from '../lib/weekdayWilsonClient.js';
@@ -79,6 +81,7 @@ export default function WeekdayEstimateWorkspace() {
   const inputsRef = useRef({ plans: [], wilsonDrafts: [] });
   const wilsonRecoveryKey = inputUser ? `weekday-pending-wilson:${encodeURIComponent(inputUser)}` : null;
   const freshCompareRows = useRef(null);
+  const freshEarly = useRef(null);
   const [compareRows, setCompareRows] = useState(null);
   const [baselines, setBaselines] = useState([]);
   const [baselineCandidates, setBaselineCandidates] = useState([]);
@@ -86,6 +89,9 @@ export default function WeekdayEstimateWorkspace() {
   const [baselineBusy, setBaselineBusy] = useState(false);
   const [baselineError, setBaselineError] = useState('');
   const [pageNotes, setPageNotes] = useState([]);
+  const [earlyRecords, setEarlyRecords] = useState(null);
+  const [earlyNextCycle, setEarlyNextCycle] = useState(null);
+  const [earlyError, setEarlyError] = useState('');
   const [wilsonRecords,setWilsonRecords] = useState([]);
   const [exportWilsonDay,setExportWilsonDay] = useState('일');
   const [wilsonDrafts,setWilsonDrafts] = useState([]);
@@ -136,7 +142,7 @@ export default function WeekdayEstimateWorkspace() {
   currentScope.current = scopeKey;
   const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
   const exportState = useRef(null);
-  exportState.current = { plans: activePlans, compareRows, cycles, baselines, baselineCandidates, carryover, allPlans: plans, wilsonRecords, wilsonDrafts, exportWilsonDay, wilsonBusy, wilsonError };
+  exportState.current = { plans: activePlans, compareRows, cycles, baselines, baselineCandidates, carryover, allPlans: plans, wilsonRecords, wilsonDrafts, exportWilsonDay, wilsonBusy, wilsonError, earlyRecords, earlyError };
   const activeWilsonInputs = wilsonDrafts.filter(record => record.scopeKey === scopeKey && activePlans.some(plan =>
     Number(plan.year) === record.year && Number(plan.prodKey) === record.prodKey && plan.date === record.date
     && plan.orderWeek === record.orderWeek && Number(plan.quantity) === record.expectedTotal));
@@ -535,10 +541,13 @@ export default function WeekdayEstimateWorkspace() {
       if (!compareRows) throw new Error('전산 조회가 완료된 후 다운로드하세요.');
       if (wilsonBusy || wilsonError) throw new Error(wilsonError || '윌슨 수량 조회가 완료된 후 다운로드하세요.');
       const currentCarry = carryover?.scopeKey === scopeKey ? carryover : null;
-      const matrix = applyWeekdayCarryoverToMatrix(buildHorizontalWeekdayMatrix(cycles, activePlans, compareRows,
+      if (!Array.isArray(earlyRecords) || earlyError) throw new Error('선출고 연결 원장 조회가 완료된 후 다운로드하세요.');
+      const classifiedMatrix = applyEarlyShipmentClassification(buildHorizontalWeekdayMatrix(cycles, activePlans, compareRows,
         baselines.filter(record => Number(record.custKey) === Number(customer?.CustKey)),
         baselineCandidates.filter(record => Number(record.custKey) === Number(customer?.CustKey)), currentCarry?.context?.inputs || []),
-        currentCarry?.context, currentCarry?.records || [], plans);
+        earlyRecords, customer?.CustKey);
+      if (classifiedMatrix.earlyClassificationError) throw new Error(`선출고 연결 원장 확인 필요: ${classifiedMatrix.earlyClassificationError}`);
+      const matrix = applyWeekdayCarryoverToMatrix(classifiedMatrix, currentCarry?.context, currentCarry?.records || [], plans);
       const model = buildWeekdayWebExportSnapshot(matrix, `주광 발주내역 · ${year}년 ${majorWeek}차`,
         {wilsonDay:exportWilsonDay,wilsonRecords,wilsonDrafts:activeWilsonInputs,custKey:customer?.CustKey});
       let designBytes;
@@ -625,6 +634,8 @@ export default function WeekdayEstimateWorkspace() {
     const isCurrent=()=>request===comparisonRequest.current && refreshScope===currentScope.current;
     setBaselineCandidates([]);
     setConfirmationStates([]);setConfirmationError('');
+    setEarlyRecords(null);setEarlyNextCycle(null);setEarlyError('');
+    freshEarly.current=null;
     setBusy(true);setQuoteResults([]); setMessage('앞·현재·뒤 차수의 동일 거래처·품목 전산값을 대조 중…');
     try {
       const ranges = new Map();
@@ -668,7 +679,12 @@ export default function WeekdayEstimateWorkspace() {
       setBaselines(results.flatMap(result=>result.baselines || []));
       setBaselineCandidates(results.flatMap(result=>result.candidates || []));
       const ancillary=await Promise.all(cycles.filter(cycle=>cycle.calendarState==='FOUND').map(async cycle=>{
-        let notes=[],quote=null,changes=[],changeError='',confirmation=null,confirmationFailure='',wilson=[],wilsonFailure='';
+        let notes=[],quote=null,changes=[],changeError='',confirmation=null,confirmationFailure='',wilson=[],wilsonFailure='',early=null,earlyFailure='';
+        try {
+          const result=await apiGet('/api/estimate/weekday-early-shipment',{year:cycle.year,majorWeek:cycle.majorWeek,custKey:Number(customer.CustKey)});
+          if(result?.success!==true || result.readOnly!==true || !Array.isArray(result.records)) throw new Error('연결 원장 응답을 확인할 수 없습니다.');
+          early={records:result.records,nextCycle:result.nextCycle};
+        } catch(error) {earlyFailure=`${cycle.year}/${cycle.majorWeek}차: ${error.message}`;}
         try {const result=await apiGet('/api/estimate/weekday-wilson',{year:cycle.year,majorWeek:cycle.majorWeek,custKey:Number(customer.CustKey)});
           if(result.success!==true || !Array.isArray(result.records)) throw new Error('윌슨 구분 응답 확인 필요');
           wilson=result.records;
@@ -702,11 +718,19 @@ export default function WeekdayEstimateWorkspace() {
             quote.managementItems=management.items;
           } catch(error) {quote.managementError=error.message;}
         } catch(error) {quote={year:cycle.year,majorWeek:cycle.majorWeek,error:error.message};}
-        return {notes,quote,changes,changeError,confirmation,confirmationFailure,wilson,wilsonFailure};
+        return {notes,quote,changes,changeError,confirmation,confirmationFailure,wilson,wilsonFailure,early,earlyFailure,cycle};
       }));
       if(!isCurrent()) return false;
       setSavedHistory(ancillary.flatMap(result=>result.changes));setHistoryError(ancillary.map(result=>result.changeError).filter(Boolean).join(' / '));
       setPageNotes(ancillary.flatMap(result=>result.notes));setQuoteResults(ancillary.map(result=>result.quote));
+      const earlyFailures=ancillary.map(result=>result.earlyFailure).filter(Boolean);
+      const centerEarly=ancillary.find(result=>result.cycle.offset===0)?.early;
+      freshEarly.current=earlyFailures.length || !centerEarly?.nextCycle ? null
+        : {scopeKey:refreshScope,nextCycle:centerEarly.nextCycle};
+      setEarlyError(earlyFailures.join(' / '));
+      setEarlyRecords(earlyFailures.length ? null : [...new Map(ancillary.flatMap(result=>result.early?.records || [])
+        .map(record=>[record.operationId,record])).values()]);
+      setEarlyNextCycle(centerEarly?.nextCycle || null);
       setWilsonRecords(ancillary.flatMap(result=>result.wilson));
       setWilsonError(current=>ancillary.map(result=>result.wilsonFailure).filter(Boolean).join(' / ')
         || (wilsonPendingRef.current.length ? current || 'ERP 합계 저장 완료 · 윌슨 구분값 저장 확인 필요' : ''));
@@ -1126,7 +1150,7 @@ export default function WeekdayEstimateWorkspace() {
       <button type="button" aria-expanded={inputListOpen} onClick={() => setInputListOpen(value => !value)}>입력 내역 {activePlans.length}건 · {inputListOpen ? '닫기' : '펼치기'}</button>
       {inputListOpen && <div>
         <button type="button" disabled={editLocked || busy || !(activePlans.length || storedScopeInputs.plans.length || wilsonDrafts.some(record => record.scopeKey === scopeKey))} onClick={() => deleteInputs(activePlans, true)}>현재 범위 입력 전체 삭제</button>
-        <div style={{maxHeight: 220, overflow: 'auto'}}>{activePlans.map(plan => <div key={plan.id} style={{display: 'flex', gap: 10, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #e2e8f0'}}>
+        <div>{activePlans.map(plan => <div key={plan.id} style={{display: 'flex', gap: 10, alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #e2e8f0'}}>
           <span style={{flex: 1}}>{plan.prodName || `품목 ${plan.prodKey}`} · {plan.year}/{plan.orderWeek} · {plan.date} · {plan.quantity} {plan.unit}</span>
           <button type="button" disabled={editLocked || busy} onClick={() => deleteInputs([plan])}>입력 삭제</button>
         </div>)}{!activePlans.length && <p>현재 범위에 미적용 입력이 없습니다.</p>}</div>
@@ -1136,7 +1160,16 @@ export default function WeekdayEstimateWorkspace() {
     {baselineError && <div role="alert" style={{color:'#b42318',padding:6}}>{baselineError}</div>}
     {wilsonError && <div role="alert" style={{color:'#b42318',padding:6}}>윌슨: {wilsonError}</div>}
     {wilsonPending.length>0 && <button type="button" disabled={applyBusy || wilsonBusy || Boolean(pendingApply)} onClick={()=>retryWilson()}>윌슨 구분값 저장 확인 ({wilsonPending.length})</button>}
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy && !wilsonBusy && !wilsonError)} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+    <WeekdayEarlyShipmentPanel key={`early|${scopeKey}`} inputUser={inputUser} customer={customer} sourceCycle={cycles.find(cycle=>cycle.offset===0)} nextCycle={earlyNextCycle}
+      records={earlyRecords} legacyNotes={pageNotes} compareRows={compareRows || []} plans={activePlans} cycles={cycles}
+      loading={busy} error={earlyError} onReload={()=>refreshErp()} refreshSnapshot={async()=>{
+        if(await refreshErp()!==true || !Array.isArray(freshCompareRows.current) || freshEarly.current?.scopeKey!==scopeKey
+          || Number(freshEarly.current.nextCycle.year)!==Number(earlyNextCycle?.year)
+          || String(freshEarly.current.nextCycle.majorWeek)!==String(earlyNextCycle?.majorWeek))
+          throw new Error('최신 전산 분배·선출고 원장 또는 다음 큰 차수가 변경됐습니다. 새로고침 후 다시 확인하세요.');
+        return freshCompareRows.current;
+      }}/>
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy && !wilsonBusy && !wilsonError && Array.isArray(earlyRecords))} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} earlyRecords={earlyRecords || []} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
       wilsonRecords={wilsonRecords.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} wilsonDrafts={wilsonDrafts.filter(record=>record.scopeKey===scopeKey && activePlans.some(plan=>Number(plan.year)===record.year && Number(plan.prodKey)===record.prodKey && plan.date===record.date && Number(plan.quantity)===record.expectedTotal))} wilsonBusy={wilsonBusy} wilsonError={wilsonError} onEditWilson={editWilson}
       confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}

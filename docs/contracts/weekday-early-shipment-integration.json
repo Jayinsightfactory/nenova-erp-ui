@@ -1,0 +1,248 @@
+{
+  "id": "weekday-early-shipment-integration",
+  "title": "큰 차수 선출고의 날짜 분배·재고 조정쌍·업로드 절대수량 통합 계약",
+  "status": "IMPLEMENTED_VERIFIED",
+  "scope": [
+    "lib/weekdayEarlyShipment.js",
+    "lib/weekdayEarlyShipmentApply.js",
+    "lib/weekdayEarlyShipmentStore.js",
+    "lib/weekdayEarlyShipmentClient.js",
+    "lib/weekdayEarlyShipmentPresentation.js",
+    "lib/weekdayEarlyShipmentImport.js",
+    "lib/weekdayDistributionApply.js",
+    "lib/shipmentImport.js",
+    "components/WeekdayEarlyShipmentPanel.js",
+    "components/WeekdayEstimateWorkspace.js",
+    "components/WeekdayCycleMatrix.js",
+    "pages/api/estimate/weekday-early-shipment.js",
+    "pages/api/shipment/distribute-import-preview.js",
+    "pages/api/shipment/distribute-import-apply.js",
+    "pages/shipment/distribute-import.js",
+    "scripts/apply-weekday-early-shipment-migration.mjs",
+    "scripts/test-weekday-early-shipment-sql.cjs",
+    "scripts/test-weekday-distribution-sql.cjs",
+    "docs/migrations/2026-10-08_weekday_early_shipment.sql"
+  ],
+  "evidence": [
+    "output/early-shipment-integration/FormStockAdd.txt",
+    "output/early-shipment-integration/ClassStockHistory.txt",
+    "output/early-shipment-integration/probe.jsonl"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "calendar": {
+    "ui": "Major cycles only; explicit actual source date",
+    "anchors": "Server resolves first validated actual business subweek per major cycle using calendar and existing business-key evidence; never fabricate suffix or cycle53",
+    "dateWrite": "Actual date business key is separate from source stock anchor",
+    "crossYear": "Chronological next major cycle from real calendar, not arithmetic week increment"
+  },
+  "record": {
+    "storage": "New transactional MSSQL linked ledger, schema migration required before implementation",
+    "fields": [
+      "operationId",
+      "requestHash",
+      "actor",
+      "reason",
+      "revision",
+      "sourceYear",
+      "sourceMajorWeek",
+      "targetYear",
+      "targetMajorWeek",
+      "custKey",
+      "prodKey",
+      "unit",
+      "quantity",
+      "sourceDate",
+      "sourceOrderWeek",
+      "sourceStockAnchor",
+      "targetStockAnchor",
+      "targetImportYear",
+      "targetImportWeek",
+      "allocationIntent",
+      "sourceDateBefore",
+      "sourceDateFinal",
+      "sourceDateDelta",
+      "conversionSnapshot",
+      "beforeDigest",
+      "effectKeys",
+      "confirmationBeforeAfter"
+    ],
+    "states": [
+      "PREVIEW",
+      "APPLIED",
+      "REVERSED"
+    ],
+    "failure": "ROLLED_BACK response guarantees zero committed business effects; no durable partially applied success",
+    "idempotency": "Same UUID/hash replays result; changed hash conflicts409; revisions require CAS"
+  },
+  "tableEffects": {
+    "OrderMaster_OrderDetail": "ADD creates positive order only when current-year active order absent; existing order and all CANCEL orders preserved; never zero fake order",
+    "ShipmentMaster_ShipmentDetail_ShipmentDate": "Only validated source dated allocation and associated native pricing/history/fix lifecycle",
+    "StockHistory": "Linked append-only native-compatible adjustment pair and native shipment lifecycle histories",
+    "Product": "Locked live Stock reconciled to native adjustment/fixed shipment deltas; SP snapshot calculation is not assumed to update live Stock",
+    "StockMaster_ProductStock": "Native anchor materialization and earliest-source cascade including future years; no future-snapshot existence preblock",
+    "Estimate_WebProfitReport": "No direct writes; verify native estimate visibility DetailFix and fixed sales downstream",
+    "WebLinkedLedger": "New atomic operation/revision/effect audit; legacy notes remain informational"
+  },
+  "transaction": {
+    "provider": "One tQ executor under one withTransaction; no independently committing HTTP API chain",
+    "sequence": [
+      "gate owner V2 before business locks",
+      "linked operation reservation and ordered source/target leases",
+      "fresh calendar/product/conversion/ERP/stock/CAS validation",
+      "trusted beforePrepare source +q after engine reserve/source lease but before preparePlans",
+      "single engine absolute allocation/fix lifecycle and intermediate stock checks",
+      "target -q adjustment in same outer tQ",
+      "materialize target anchor if required and cascade from earliest source",
+      "outer native output checks and all future negative snapshot rollback",
+      "physical/live/stock/pricing/confirmation readback",
+      "guard advance and APPLIED audit"
+    ],
+    "reuse": "Single engine plus trusted server-only hook or refactored pure provider; default modes unchanged. Never blindly invoke engine twice, put both stock effects before availability check, or copy stock-adjust historical snapshot blocker",
+    "replay": "Linked APPLIED result replays without hook. Engine-only audit without linked ledger conflicts; inner successful audit is not committed until outer pair/readback completes",
+    "finalGuard": "Inner future stock guard precedes target minus and is insufficient: outer full affected future/current snapshot negative check is mandatory"
+  },
+  "units": "Finite positive exact normalized quantities; verified conversion coefficients; decimal computation with native ROUND(2) readback; no silent precision loss or UNKNOWN/NULL as zero",
+  "upload": {
+    "selection": "Only APPLIED unreversed effects matching exact targetYear/targetMajorWeek/customer/product/unit",
+    "formula": "finalTarget = originalTotal - earlyExcludedApplied; delta = finalTarget - existingTarget",
+    "example": {
+      "sourceYear": 2026,
+      "sourceMajorWeek": "40",
+      "targetYear": 2026,
+      "targetMajorWeek": "41",
+      "originalTotal": 10,
+      "existingTarget": 2,
+      "processedEarly": 3,
+      "finalTarget": 7,
+      "delta": 5
+    },
+    "forbidden": "Do not store originalTotal-processedEarly-existingTarget as final target; do not subtract twice across suffix rows, repeated preview, legacy notes or already-excluded source files",
+    "provenance": "Explicit ORIGINAL_INCLUDES_EARLY default versus ALREADY_EXCLUDED. Manual unmatched early-column exclusion means already excluded when validated; trusted raw excluded quantity is informational only, not processed ledger",
+    "excludeOnce": "Server stores deterministic targetImportYear/week from first validated target anchor. earlyExcludedApplied=processedEarlyTotal only in ORIGINAL_INCLUDES_EARLY and exact selected upload year/week matches anchor; other suffix weeks or ALREADY_EXCLUDED apply0 and show reason plus processed total. Reuploads recompute from original, not a consumed balance",
+    "ambiguous": "Major total with multiple suffix buckets or early quantity in nonanchor bucket requires explicit provenance and mapping; block if unknown, no automatic ratios or moving original quantities",
+    "fullCategoryReplacement": "Preserve existing real-customer/product omission-to-zero contract"
+  },
+  "confirmation": "Explicit user button; preserve originally fixed scopes via proven native lifecycle, never auto-confirm unfixed rows; rollback pair/allocation on any native cancel/fix/recalc error",
+  "negativeStock": "Reject actual negative current/future affected snapshots after native calculation; do not fabricate shortage adjustments without explicit separately confirmed user action",
+  "classification": "q<=finalsourceDateQuantity and cumulative active classifiedq<=same finaldate quantity; record marked-existing versus actual saved allocation delta. Source UI remainder adds classifiedq to existing basis without mutating immutable baseline",
+  "requiredFixtures": [
+    "40to41_original10_early3_existing2_final7_delta5",
+    "markExistingNoAdditionalAllocationAndReversePreservesSource",
+    "absoluteDraftTargetNotPlusQ",
+    "cumulativeClassificationCap",
+    "sourcePlusAllowanceBeforeEngineTargetMinusAfterEngine",
+    "postTargetMinusFutureNegativeRollback",
+    "engineOnlyReplayConflict",
+    "priorYearSameWeekIsolation",
+    "realCalendarYearBoundary",
+    "sameTargetTwoSubweeksExcludeOnce",
+    "anchorOriginalModeSubtract_once_otherSuffixReferenceOnly",
+    "reuploadSameOriginalSameFinal_noConsume",
+    "ignoredEarlyColumnAlreadyExcludedNoSecondSubtract",
+    "ambiguousSuffixOriginalProvenanceBlocks",
+    "orderAbsentPositiveCreate_existingOrderPreserve_cancelPreserve",
+    "sourceFixedAndUnfixedLiveVersusSnapshot",
+    "missingTargetAnchorNativeMaterialization",
+    "futureSnapshotCascadeNegativeRollback",
+    "eachStepFailureAtomicRollback",
+    "UUIDReplayHashConflictRevisionCAS",
+    "externalExeEditConflict",
+    "unitPrecisionUnknown",
+    "compensatingReverseAndRevision",
+    "alreadyExcludedUploadProvenance"
+  ],
+  "ui": {
+    "viewport": "1920x1080 CSS pixels at100%",
+    "scroll": "Page primary vertical scroll; horizontal business table exception",
+    "keyboard": "Tab/Shift+Tab Enter/Space Escape arrows and modal focus restoration"
+  },
+  "externalWrites": "Design author performs none; main alone handles schema/deployment/operational writes after required verification",
+  "linkedIdentity": [
+    "sourceYear",
+    "sourceMajorWeek",
+    "targetYear",
+    "targetMajorWeek",
+    "custKey",
+    "prodKey",
+    "unit"
+  ],
+  "actionPolicy": {
+    "PREVIEW": "SELECT only; does not register legacy page notes as processed shipments",
+    "APPLY": "Source actual date is absolute final target, not existing+classifiedq; existing allocation classification permits no-op. Source adjustment +q then engine allocation then target adjustment -q in one outer transaction",
+    "REVERSE": "Cancel classification with append-only compensating stock pair; preserve all source allocation including APPLY_ABSOLUTE. Allocation cancellation uses existing dated ALLOCATION workflow separately."
+  },
+  "actions": [
+    {
+      "name": "PREVIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "APPLY_ABSOLUTE_OR_CLASSIFY",
+      "orderDetail": "create-positive",
+      "shipmentDetail": "set-final-nonnegative"
+    },
+    {
+      "name": "REVERSE_CLASSIFICATION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
+      "name": "IMPORT_SET_FINAL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "set-final-nonnegative"
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "testFile": "__tests__/weekdayEarlyShipment.test.js",
+    "rule": "same major different year is isolated; calendar next major can cross year"
+  },
+  "requiredTestFiles": [
+    "__tests__/weekdayEarlyShipment.test.js",
+    "__tests__/weekdayEarlyShipmentPresentation.test.js",
+    "__tests__/weekdayEarlyShipmentImport.test.js",
+    "__tests__/shipmentImportCustomerExclusionPreview.test.js",
+    "__tests__/weekdayDistributionApply.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/WeekdayEarlyShipmentIntegration.md",
+    "source": "Actual installed Nenova.exe dnSpy CLI FormStockAdd/ClassStockHistory and current read-only MSSQL same-key probe 2026-10-08",
+    "methods": [
+      "FormStockAdd",
+      "ClassStockHistory.ProductStockUpdate",
+      "usp_StockCalculation",
+      "usp_ShipmentFix",
+      "usp_ShipmentFixCancel"
+    ],
+    "tables": [
+      "StockHistory",
+      "Product",
+      "StockMaster",
+      "ProductStock",
+      "CodeInfo",
+      "PeriodDay",
+      "OrderMaster",
+      "OrderDetail",
+      "ShipmentMaster",
+      "ShipmentDetail",
+      "ShipmentDate",
+      "Estimate",
+      "WebProfitReport"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "node scripts/test-weekday-early-shipment-sql.cjs",
+    "npm run build"
+  ]
+}
