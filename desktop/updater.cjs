@@ -39,7 +39,7 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
         const old = current.split('.').map(Number);
         const index = newer.findIndex((n, i) => n !== old[i]);
         const available = index >= 0 && newer[index] > old[index];
-        emit({ phase: available ? 'available' : 'current', version: result.updateInfo.version, message: available ? `앱 ${result.updateInfo.version} 업데이트가 있습니다. 다운로드 중에도 작업할 수 있습니다.` : '현재 앱이 최신 버전입니다.' });
+        emit({ phase: available ? 'available' : 'current', version: result.updateInfo.version, message: available ? `현재 ${current} → 새 버전 ${result.updateInfo.version}. 다운로드 중에도 작업할 수 있습니다.` : `현재 ${current} · 배포 버전 ${result.updateInfo.version}. 적용할 새 업데이트가 없습니다.` });
       } catch { fail(); }
     },
     async download() {

@@ -42,6 +42,9 @@ export default function Dashboard() {
       .catch(e => setErr(e.message))
       .finally(() => setLoading(false));
     loadMenuFavorites();
+    const refresh = () => loadMenuFavorites();
+    window.addEventListener('nenova-menu-favorites-changed', refresh);
+    return () => window.removeEventListener('nenova-menu-favorites-changed', refresh);
   }, []);
 
   const allMenus = useMemo(() => (
@@ -108,6 +111,7 @@ export default function Dashboard() {
         }),
       });
       await loadMenuFavorites();
+      window.dispatchEvent(new Event('nenova-menu-favorites-changed'));
     } catch (e) {
       alert(`메뉴 즐겨찾기 저장 실패: ${e.message}`);
     } finally {
@@ -121,6 +125,7 @@ export default function Dashboard() {
     try {
       await apiDelete('/api/favorites', { favoriteKey });
       await loadMenuFavorites();
+      window.dispatchEvent(new Event('nenova-menu-favorites-changed'));
     } catch (e) {
       alert(`메뉴 즐겨찾기 삭제 실패: ${e.message}`);
     } finally {

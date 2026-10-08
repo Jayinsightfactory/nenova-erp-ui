@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
+import { assertReceiptScope, runReceiptPreparation, verifyReceiptDocument } from '../../lib/invoiceReceiptWorkflow.js';
 import {
   adaptPackingReceipts,
   buildReceiptCommitPending,
@@ -15,6 +16,36 @@ import {
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
 const EMPTY_LIST = Object.freeze([]);
+const WORKFLOW_STAGES = [
+  ['conversion', '국가별 변환'], ['draft', '초안 저장'], ['validation', '서버 검증'],
+  ['receipt', '입고 확인'], ['receiptVerify', '입고 재조회'], ['cost', '원가 계산'],
+  ['costSave', '원가 승인·저장'], ['costVerify', '원가 재조회'],
+];
+const CONVERSION_MISMATCH_WARNING = '국가별 패킹 변환 수량이 원문 수량과 다릅니다. 원문과 변환 근거를 행별로 확인하세요.';
+const RECEIPT_QUANTITY_FIELDS = new Set(['boxQuantity', 'bunchQuantity', 'stemQuantity']);
+
+function conversionMismatchLines(document) {
+  return (document?.lines || []).filter(line => line.sourceEvidence?.conversionValidation?.status === 'MISMATCH');
+}
+
+function unresolvedConversionMismatchLines(document) {
+  return conversionMismatchLines(document).filter(line => line.reviewed?.conversionConfirmed !== true || line.reviewed?.confirmed !== true);
+}
+
+function conversionWarnings(document) {
+  const warnings = (document?.sourceWarnings || []).filter(warning => warning !== CONVERSION_MISMATCH_WARNING);
+  return unresolvedConversionMismatchLines(document).length ? [...warnings, CONVERSION_MISMATCH_WARNING] : warnings;
+}
+
+function applyConversionReviewState(document) {
+  return { ...document, sourceWarnings: conversionWarnings(document) };
+}
+
+function resetWorkflowStages() {
+  return Object.fromEntries(WORKFLOW_STAGES.map(([id]) => [id,
+    { id, status: 'waiting', message: '입력 변경으로 재검증 필요', at: null },
+  ]));
+}
 
 async function readJson(response) {
   const data = await response.json().catch(() => null);
@@ -154,6 +185,10 @@ export default function InvoiceReceiptWorkbench({
   const [browseYear, setBrowseYear] = useState('');
   const [browseWeek, setBrowseWeek] = useState('');
   const [browseScope, setBrowseScope] = useState({ orderYear: '', orderWeek: '' });
+  const workflowGenerationRef = useRef(0);
+  const workflowLockRef = useRef(null);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
   const confirmButtonRef = useRef(null);
   const reasonRef = useRef(null);
   const copyRef = useRef(null);
@@ -178,9 +213,15 @@ export default function InvoiceReceiptWorkbench({
     && (!documentValue?.reviewedMetadata?.country || product.country === documentValue.reviewedMetadata.country)),
   [documentValue?.reviewedMetadata?.country, products]);
   const productByLabel = useMemo(() => new Map(selectableProducts.map(product => [productLabel(product), product])), [selectableProducts]);
+  const onCostStageChange = useCallback(event => {
+    if (!event || event.documentId !== selectedIdRef.current || Number(event.revision) !== Number(documentValue?.revision)) return;
+    setRecords(current => current.map(record => record.document.documentId === event.documentId
+      ? { ...record, stageProgress: { ...(record.stageProgress || {}), [event.id]: event } } : record));
+  }, [documentValue?.revision]);
 
   useEffect(() => {
     let active = true;
+    workflowGenerationRef.current += 1;
     if (!file || !invoices.length || !excels.length) {
       setSourceState({ busy: false, error: '', hash: '' });
       return () => { active = false; };
@@ -250,9 +291,21 @@ export default function InvoiceReceiptWorkbench({
   }, [scopeWeek, scopeYear]);
 
   function updateSelected(mutator) {
+    workflowGenerationRef.current += 1;
     setRecords(current => current.map(record => {
       if (record.document.documentId !== selectedId) return record;
-      return { ...record, document: mutator(record.document), dirty: true, preview: null };
+      const document = applyConversionReviewState(mutator(record.document));
+      const mismatchLines = conversionMismatchLines(document);
+      const unresolved = unresolvedConversionMismatchLines(document);
+      const stageProgress = resetWorkflowStages(record.stageProgress);
+      if (mismatchLines.length) stageProgress.conversion = {
+        id: 'conversion', status: unresolved.length ? 'blocked' : 'passed',
+        message: unresolved.length
+          ? `원문/변환 차이 ${unresolved.length}행의 수량 조정과 명시 확인이 필요합니다.`
+          : `원문/변환 차이 ${mismatchLines.length}행을 확인하고 입고 수량을 명시적으로 승인했습니다.`,
+        at: new Date().toISOString(),
+      };
+      return { ...record, document, dirty: true, preview: null, stageProgress };
     }));
     setOperationResult(null);
   }
@@ -299,7 +352,24 @@ export default function InvoiceReceiptWorkbench({
   function updateLine(lineId, field, value) {
     updateSelected(document => ({
       ...document,
-      lines: document.lines.map(line => line.lineId === lineId ? { ...line, [field]: value } : line),
+      lines: document.lines.map(line => {
+        if (line.lineId !== lineId) return line;
+        const conversionQuantityEdit = line.sourceEvidence?.conversionValidation?.status === 'MISMATCH'
+          && RECEIPT_QUANTITY_FIELDS.has(field) && String(value ?? '') !== String(line[field] ?? '');
+        const reviewed = conversionQuantityEdit
+          ? { ...(line.reviewed || {}), confirmed: false, conversionConfirmed: false }
+          : line.reviewed;
+        return { ...line, [field]: value, ...(reviewed ? { reviewed } : {}) };
+      }),
+    }));
+  }
+
+  function confirmConversionLine(lineId, confirmed) {
+    updateSelected(document => ({
+      ...document,
+      lines: document.lines.map(line => line.lineId === lineId
+        ? { ...line, reviewed: { ...(line.reviewed || {}), confirmed: Boolean(confirmed), conversionConfirmed: Boolean(confirmed) } }
+        : line),
     }));
   }
 
@@ -313,40 +383,105 @@ export default function InvoiceReceiptWorkbench({
     }));
   }
 
-  async function saveDraft() {
-    if (!selected) return;
-    setBusy('save'); setNotice(null);
+  async function saveDraftRecord(target, isCurrent = () => true, applyToState = true) {
+    if (!target) throw new Error('저장할 문서가 없습니다.');
     try {
-      const isUpdate = selected.document.revision != null;
-      const url = isUpdate ? `/api/import/receipts/${selected.document.documentId}` : '/api/import/receipts/drafts';
+      const isUpdate = target.document.revision != null;
+      const url = isUpdate ? `/api/import/receipts/${target.document.documentId}` : '/api/import/receipts/drafts';
       const response = await fetch(url, {
         method: isUpdate ? 'PATCH' : 'POST', credentials: 'same-origin', headers: jsonHeaders,
-        body: JSON.stringify(toReceiptDraftPayload(selected.document)),
+        body: JSON.stringify(toReceiptDraftPayload(target.document)),
       });
       const data = await readJson(response);
       const saved = responseDocument(data);
       if (!saved) throw new Error('저장 응답에서 초안 문서를 확인할 수 없습니다.');
-      const normalized = { ...normalizeReceiptDocument(saved), sourceWarnings: selected.document.sourceWarnings || [] };
-      setRecords(current => current.map(record => record.document.documentId === selected.document.documentId
-        ? { ...record, document: normalized, dirty: false, preview: null } : record));
-      setSelectedId(normalized.documentId);
-      setNotice({ type: 'success', text: `초안 revision ${normalized.revision}을 저장했습니다. ERP 입고 등록은 아직 실행되지 않았습니다.` });
+      const normalized = { ...normalizeReceiptDocument(saved), sourceWarnings: target.document.sourceWarnings || [] };
+      if (applyToState && isCurrent()) {
+        const expectedRevision = target.document.revision == null ? 1 : Number(target.document.revision) + 1;
+        assertReceiptScope(normalized, target.document, expectedRevision);
+        setRecords(current => current.map(record => record.document.documentId === target.document.documentId
+          ? { ...record, document: normalized, dirty: false, preview: null } : record));
+        setSelectedId(normalized.documentId);
+      }
+      return normalized;
     } catch (error) {
-      setNotice({ type: 'error', text: error.message });
-    } finally {
-      setBusy('');
+      throw error;
     }
   }
 
+  async function saveDraft() {
+    if (!selected || busy || workflowLockRef.current || selected.recoveryRequired) return;
+    if (unresolvedConversionMismatchLines(selected.document).length) {
+      setNotice({ type: 'error', text: '원문과 변환 수량 차이를 행별로 확인하고 입고 수량을 수정한 뒤 각 행의 ‘차이 검토 확인’을 체크해야 저장할 수 있습니다.' });
+      return;
+    }
+    workflowLockRef.current = { kind: 'manual-save', documentId: selected.document.documentId };
+    setBusy('save'); setNotice(null);
+    try {
+      const saved = await saveDraftRecord(selected);
+      setManualStage(selected.document.documentId, 'draft', 'passed', `초안 revision ${saved.revision} 저장 및 응답 scope 확인`);
+      setNotice({ type: 'success', text: `초안 revision ${saved.revision}을 저장했습니다. ERP 입고 등록은 아직 실행되지 않았습니다.` });
+    } catch (error) {
+      setManualStage(selected.document.documentId, 'draft', error.resultUnknown || !error.httpStatus || error.httpStatus >= 500 ? 'unknown' : 'failed', error.message);
+      if (error.resultUnknown || !error.httpStatus || error.httpStatus >= 500) {
+        setRecords(current => current.map(record => record.document.documentId === selected.document.documentId
+          ? { ...record, recoveryRequired: true, stageProgress: { ...(record.stageProgress || {}),
+            draft: { id: 'draft', status: 'unknown', message: '저장 결과 확인이 필요합니다. 같은 문서를 다시 불러오세요.', at: new Date().toISOString() } } } : record));
+      }
+      setNotice({ type: 'error', text: error.message });
+    }
+    finally { workflowLockRef.current = null; setBusy(''); }
+  }
+
   function installSavedDocument(loaded) {
-    const normalized = normalizeReceiptDocument(loaded);
+    const normalized = applyConversionReviewState(normalizeReceiptDocument(loaded));
+    const pendingOperation = loadPendingOperation(normalized.documentId);
+    let verifiedReceipt = false;
+    let receiptVerifyError = '';
+    if (normalized.receiptStatus === 'COMMITTED') {
+      try {
+        const verified = verifyReceiptDocument(normalized, normalized);
+        verifiedReceipt = !pendingOperation || pendingOperation.operationId === verified.operation.operationId;
+        if (!verifiedReceipt) receiptVerifyError = '대기 중 operationId와 서버 완료 operationId가 다릅니다.';
+      } catch (error) { receiptVerifyError = error.message; }
+    }
+    if (verifiedReceipt && pendingOperation) storePendingOperation(normalized.documentId, null);
     setRecords(current => {
       const existing = current.find(record => record.document.documentId === normalized.documentId);
+      const sameRevision = existing
+        && Number(existing.document.revision) === Number(normalized.revision)
+        && existing.document.sourceHash === normalized.sourceHash
+        && String(existing.document.orderYear) === String(normalized.orderYear)
+        && String(existing.document.orderWeek) === String(normalized.orderWeek);
+      const now = new Date().toISOString();
+      const initialStages = {
+        conversion: { id: 'conversion', status: 'waiting', displayStatus: '기존 문서', message: '기존 저장 문서 · 이 세션에서 국가별 변환은 실행하지 않았습니다.', at: now },
+        draft: { id: 'draft', status: 'passed', message: `저장된 revision ${normalized.revision}을 서버 조회에서 확인했습니다.`, at: now },
+        validation: { id: 'validation', status: 'waiting', displayStatus: '미리보기 필요', message: '현재 revision의 서버 미리보기 검증 기록이 확인되지 않았습니다.', at: now },
+        receipt: { id: 'receipt', status: pendingOperation ? 'unknown' : 'waiting', message: pendingOperation ? '확인 대기 중인 operation이 있습니다.' : '입고 승인 대기', at: now },
+        receiptVerify: { id: 'receiptVerify', status: pendingOperation ? 'unknown' : 'waiting', message: pendingOperation ? '같은 operation의 결과 재조회가 필요합니다.' : '입고 등록 후 서버 readback을 기다립니다.', at: now },
+        cost: { id: 'cost', status: 'waiting', displayStatus: '입고 확인 후', message: '현재 revision 입고 readback 확인 전에는 원가 계산을 열지 않습니다.', at: now },
+        costSave: { id: 'costSave', status: 'waiting', displayStatus: '승인 대기', message: '실제 원가 계산·검증 후 명시 승인을 기다립니다.', at: now },
+        costVerify: { id: 'costVerify', status: 'waiting', displayStatus: '저장 후 확인', message: '원가 승인 저장 후 별도 재조회가 필요합니다.', at: now },
+      };
+      const priorStages = sameRevision ? existing.stageProgress || {} : {};
+      const stageProgress = { ...initialStages, ...priorStages };
+      if (verifiedReceipt) {
+        stageProgress.receipt = { id: 'receipt', status: 'passed', message: '현재 revision의 COMMITTED operation 확인', at: now };
+        stageProgress.receiptVerify = { id: 'receiptVerify', status: 'passed', message: `문서·revision·원본범위·WarehouseKey ${normalized.warehouseKey} readback 확인`, at: now };
+      } else if (normalized.receiptStatus === 'COMMITTED') {
+        stageProgress.receipt = { id: 'receipt', status: 'unknown', message: '서버 상태는 COMMITTED이나 operation 신원 검증은 완료되지 않았습니다.', at: now };
+        stageProgress.receiptVerify = { id: 'receiptVerify', status: 'failed', message: receiptVerifyError || '입고 readback 검증 실패', at: now };
+      } else if (pendingOperation) {
+        stageProgress.receipt = { id: 'receipt', status: 'unknown', message: '동일 operation 복구 확인이 필요합니다.', at: now };
+        stageProgress.receiptVerify = { id: 'receiptVerify', status: 'unknown', message: '새 입고 요청 전 기존 operation을 확인하세요.', at: now };
+      }
       const nextRecord = {
         document: { ...normalized, sourceWarnings: existing?.document.sourceWarnings || [] },
         dirty: false,
         preview: null,
-        pendingOperation: loadPendingOperation(normalized.documentId),
+        pendingOperation: verifiedReceipt ? null : pendingOperation,
+        stageProgress,
       };
       return [...current.filter(record => record.document.documentId !== normalized.documentId), nextRecord];
     });
@@ -354,47 +489,139 @@ export default function InvoiceReceiptWorkbench({
     return normalized;
   }
 
-  async function refreshSavedDocument(documentId) {
-    const data = await readJson(await fetch(`/api/import/receipts/${documentId}`, { credentials: 'same-origin', cache: 'no-store' }));
-    const loaded = responseDocument(data);
-    if (!loaded) throw new Error('저장 문서를 다시 불러오지 못했습니다.');
-    return installSavedDocument(loaded);
-  }
-
   async function loadDocument(documentId) {
+    const generation = workflowGenerationRef.current;
     setBusy('load'); setNotice(null);
     try {
       const data = await readJson(await fetch(`/api/import/receipts/${documentId}`, { credentials: 'same-origin', cache: 'no-store' }));
       const loaded = responseDocument(data);
       if (!loaded) throw new Error('저장 문서를 불러오지 못했습니다.');
+      if (workflowGenerationRef.current !== generation) return;
       installSavedDocument(loaded);
       setNotice({ type: 'success', text: '저장 초안과 행·이력을 불러왔습니다.' });
     } catch (error) {
-      setNotice({ type: 'error', text: error.message });
+      if (workflowGenerationRef.current === generation) setNotice({ type: 'error', text: error.message });
     } finally {
       setBusy('');
     }
   }
 
   async function requestPreview() {
-    if (!selected || selected.dirty || selected.document.revision == null || selected.document.sourceWarnings?.length) return;
+    if (!selected || selected.dirty || selected.document.revision == null || selected.document.sourceWarnings?.length || busy || workflowLockRef.current) return;
+    workflowLockRef.current = { kind: 'manual-preview', documentId: selected.document.documentId };
     setBusy('preview'); setNotice(null);
     try {
-      const data = await readJson(await fetch(`/api/import/receipts/${selected.document.documentId}/preview`, {
-        method: 'POST', credentials: 'same-origin', headers: jsonHeaders,
-        body: JSON.stringify({ revision: selected.document.revision }),
-      }));
-      if (!data.preview) throw new Error('미리보기 응답이 비어 있습니다.');
+      const result = await previewDraft(selected);
       setRecords(current => current.map(record => record.document.documentId === selected.document.documentId
-        ? { ...record, preview: data.preview } : record));
-      setNotice({ type: data.preview.canCommit ? 'success' : 'info', text: data.preview.canCommit
+        ? { ...record, preview: result } : record));
+      setManualStage(selected.document.documentId, 'validation', result.canCommit === true && result.issues?.length === 0 ? 'passed' : 'blocked',
+        result.canCommit === true && result.issues?.length === 0 ? '서버 미리보기 통과' : '서버 미리보기에서 등록 보류');
+      setNotice({ type: result.canCommit ? 'success' : 'info', text: result.canCommit
         ? '서버 미리보기 검증을 통과했습니다. 등록 전 범위와 이슈 0건을 다시 확인하세요.'
         : '서버 미리보기가 등록을 허용하지 않았습니다. 오른쪽 이슈를 확인하세요.' });
     } catch (error) {
+      setManualStage(selected.document.documentId, 'validation', 'failed', error.message);
       setNotice({ type: 'error', text: error.message });
-    } finally {
-      setBusy('');
     }
+    finally { workflowLockRef.current = null; setBusy(''); }
+  }
+
+  async function previewDraft(target) {
+      const data = await readJson(await fetch(`/api/import/receipts/${target.document.documentId}/preview`, {
+        method: 'POST', credentials: 'same-origin', headers: jsonHeaders,
+        body: JSON.stringify({ revision: target.document.revision }),
+      }));
+      if (!data.preview) throw new Error('미리보기 응답이 비어 있습니다.');
+      if (Number(data.preview.documentRevision) !== Number(target.document.revision)) {
+        throw new Error('서버 미리보기 revision이 현재 문서와 일치하지 않습니다.');
+      }
+      return data.preview;
+  }
+
+  function setWorkflowStage(documentId, generation, event) {
+    const lock = workflowLockRef.current;
+    const draftAdvances = event.id === 'draft' && event.status === 'passed'
+      && Number(event.revision) === Number(lock?.revision) + 1;
+    if (workflowGenerationRef.current !== generation || selectedIdRef.current !== documentId
+      || event.documentId !== documentId
+      || (lock?.generation === generation && lock.revision != null
+        && Number(event.revision) !== Number(lock.revision) && !draftAdvances)) return;
+    if (lock?.generation === generation && event.id === 'draft' && event.status === 'passed') {
+      workflowLockRef.current = { ...lock, revision: event.revision };
+    }
+    setRecords(current => current.map(record => record.document.documentId === documentId
+      ? { ...record, stageProgress: { ...(record.stageProgress || {}), [event.id]: event } } : record));
+  }
+
+  async function runAutomaticPreparation() {
+    if (!selected || busy || workflowLockRef.current || selected.recoveryRequired) return;
+    const target = selected;
+    const documentId = target.document.documentId;
+    const unresolvedConversions = unresolvedConversionMismatchLines(target.document);
+    if (unresolvedConversions.length) {
+      setRecords(current => current.map(item => item.document.documentId === documentId
+        ? { ...item, stageProgress: { ...(item.stageProgress || {}), conversion: {
+          id: 'conversion', status: 'blocked', message: `원문/변환 차이 ${unresolvedConversions.length}행을 확인하고 입고 수량을 명시 승인해야 자동 검증을 시작할 수 있습니다.`, at: new Date().toISOString(),
+        } } } : item));
+      setNotice({ type: 'error', text: '원문과 변환 수량 차이를 행별로 확인하고 각 행의 ‘차이 검토 확인’을 체크해야 자동 검증·저장을 시작할 수 있습니다.' });
+      return;
+    }
+    const generation = ++workflowGenerationRef.current;
+    const isCurrent = () => workflowGenerationRef.current === generation && selectedIdRef.current === documentId;
+    workflowLockRef.current = { documentId, generation, revision: target.document.revision };
+    setBusy('auto-workflow'); setNotice(null);
+    setWorkflowStage(documentId, generation, { id: 'conversion', status: 'passed', message: '기존 국가별 변환 결과 사용', at: new Date().toISOString(), documentId, revision: target.document.revision });
+    try {
+      const result = await runReceiptPreparation({
+        record: target,
+        saveDraft: record => saveDraftRecord({ ...target, document: record }, isCurrent, false),
+        previewDraft: document => previewDraft({ document }),
+        readDocument: async documentId => {
+          const loaded = await readDocument(documentId);
+          verifyReceiptDocument(loaded, target.document);
+          return loaded;
+        },
+        onStage: event => setWorkflowStage(documentId, generation, event),
+        isCurrent,
+      });
+      if (isCurrent()) {
+        const returned = result.document;
+        if (returned && returned.documentId === target.document.documentId
+          && Number.isSafeInteger(Number(returned.revision)) && Number(returned.revision) > 0) {
+          assertReceiptScope(returned, target.document, returned.revision);
+          const revisionAdvanced = target.document.revision == null
+            || Number(returned.revision) > Number(target.document.revision);
+          const sameRevision = Number(returned.revision) === Number(target.document.revision);
+          if (revisionAdvanced || (sameRevision && result.preview)) {
+            setRecords(current => current.map(item => item.document.documentId === documentId
+              ? { ...item,
+                ...(revisionAdvanced ? { document: returned, dirty: false, recoveryRequired: false } : {}),
+                ...(result.preview ? { preview: result.preview } : {}),
+              } : item));
+          }
+        }
+        if (result.stage === 'draft' && result.status === 'UNKNOWN') {
+          setRecords(current => current.map(item => item.document.documentId === documentId
+            ? { ...item, recoveryRequired: true } : item));
+        }
+        if (result.status === 'RECEIPT_VERIFIED') installSavedDocument(result.document);
+        setNotice({ type: result.status === 'BLOCKED' || result.status === 'FAILED' || result.status === 'UNKNOWN' ? 'error' : 'info',
+        text: result.error || (result.status === 'WAITING_CONFIRMATION'
+          ? '초안과 서버 검증을 마쳤습니다. 입고 등록은 실행하지 않았습니다. 범위·사유를 확인하고 명시적으로 승인하세요.'
+          : result.status === 'RECEIPT_VERIFIED' ? '기존 입고를 재조회해 확인했습니다. 새 입고는 실행하지 않았습니다.' : `자동 준비 상태: ${result.status}`) });
+      }
+    } catch (error) {
+      if (isCurrent()) setNotice({ type: 'error', text: error.message });
+    } finally {
+      if (workflowLockRef.current?.generation === generation) { workflowLockRef.current = null; setBusy(''); }
+    }
+  }
+
+  async function readDocument(documentId) {
+    const data = await readJson(await fetch(`/api/import/receipts/${documentId}`, { credentials: 'same-origin', cache: 'no-store' }));
+    const loaded = responseDocument(data);
+    if (!loaded) throw new Error('저장 문서를 다시 불러오지 못했습니다.');
+    return normalizeReceiptDocument(loaded);
   }
 
   function openCommit() {
@@ -412,35 +639,70 @@ export default function InvoiceReceiptWorkbench({
       ? { ...record, pendingOperation: null, preview: invalidatePreview ? null : record.preview } : record));
   }
 
-  async function acceptCommitResult(pending, result, message) {
-    clearPendingCommit(pending.documentId);
-    setRecords(current => current.map(record => record.document.documentId === pending.documentId
-      ? { ...record, document: { ...record.document, receiptStatus: 'COMMITTED', warehouseKey: result.warehouseKey } } : record));
-    setOperationResult(result);
+  function setManualStage(documentId, id, status, message) {
+    setRecords(current => current.map(record => record.document.documentId === documentId
+      ? { ...record, stageProgress: { ...(record.stageProgress || {}), [id]: { id, status, message, at: new Date().toISOString(),
+        documentId, revision: record.document.revision } } } : record));
+  }
+
+  async function acceptCommitResult(pending, result, message, isCurrent = () => true) {
+    const expected = records.find(record => record.document.documentId === pending.documentId)?.document;
+    if (!expected) throw new Error('등록 작업의 원본 문서가 없어 readback 신원을 확인할 수 없습니다.');
+    if (isCurrent()) setRecords(current => current.map(record => record.document.documentId === pending.documentId
+      ? { ...record, stageProgress: { ...(record.stageProgress || {}),
+        receipt: { id: 'receipt', status: 'passed', message: 'ERP 등록 응답 확인', at: new Date().toISOString() },
+        receiptVerify: { id: 'receiptVerify', status: 'running', message: '서버 문서·operation 재조회 중', at: new Date().toISOString() },
+      } } : record));
     try {
-      await refreshSavedDocument(pending.documentId);
+      const fresh = await readDocument(pending.documentId);
+      const verified = verifyReceiptDocument(fresh, { ...expected, operationId: pending.operationId, warehouseKey: result.warehouseKey });
+      if (verified.operation.operationId !== pending.operationId || verified.warehouseKey !== Number(result.warehouseKey)) {
+        throw new Error('재조회 operationId 또는 WarehouseKey가 현재 요청 결과와 일치하지 않습니다.');
+      }
+      if (!isCurrent()) return;
+      installSavedDocument(fresh);
+      clearPendingCommit(pending.documentId);
+      setOperationResult(result);
       setNotice({ type: 'success', text: `${message} WarehouseKey ${result.warehouseKey ?? '응답 누락'} · 원가 ${result.costStatus || '상태 미확인'}` });
     } catch (refreshError) {
-      setNotice({ type: 'error', text: `입고 등록 결과는 확인됐지만 문서 재조회에 실패했습니다: ${refreshError.message}` });
+      if (!isCurrent()) {
+        refreshError.staleWorkflowResponse = true;
+        throw refreshError;
+      }
+      setRecords(current => current.map(record => record.document.documentId === pending.documentId
+        ? { ...record, stageProgress: { ...(record.stageProgress || {}),
+          receipt: { id: 'receipt', status: 'passed', message: 'ERP 등록 응답 확인', at: new Date().toISOString() },
+          receiptVerify: { id: 'receiptVerify', status: 'failed', message: refreshError.message, at: new Date().toISOString() },
+        } } : record));
+      setNotice({ type: 'error', text: `입고 응답은 받았지만 새 문서 재조회 신원 검증에 실패했습니다. pending은 유지했습니다. 재등록하지 말고 ‘입고 readback만 재조회’를 사용하세요: ${refreshError.message}` });
+      refreshError.receiptReadbackFailure = true;
+      throw refreshError;
     }
   }
 
   function handleCommitFailure(pending, error) {
+    if (error.receiptReadbackFailure || error.staleWorkflowResponse) return;
     if (!pending) {
       setNotice({ type: 'error', text: error.message });
       return;
     }
     if (pending && isVerifiedReceiptCommitRejection(error)) {
       clearPendingCommit(pending.documentId, { invalidatePreview: true });
+      setManualStage(pending.documentId, 'receipt', 'failed', error.message);
       setNotice({ type: 'error', text: `${error.message} 서버가 rollback을 확인해 같은 초안을 유지하고 미리보기를 무효화했습니다.` });
       return;
     }
+    setManualStage(pending.documentId, 'receipt', 'unknown', 'operation 상태를 같은 ID로 복구해야 합니다. 새 등록은 시작하지 않습니다.');
     setNotice({ type: 'error', text: `${error.message} 결과가 확정되지 않아 원래 요청 전체와 같은 operationId를 보존했습니다. 새 ID로 자동 재시도하지 않습니다.` });
   }
 
   async function commitReceipt() {
     const reason = confirmReason.trim();
-    if (!selected || !reason || !canCommitReceipt(selected)) return;
+    if (!selected || !reason || !canCommitReceipt(selected) || busy || workflowLockRef.current) return;
+    const generation = workflowGenerationRef.current;
+    const documentId = selected.document.documentId;
+    const isCurrent = () => workflowGenerationRef.current === generation && selectedIdRef.current === documentId;
+    workflowLockRef.current = { kind: 'manual-commit', documentId: selected.document.documentId };
     let operation;
     try {
       const operationId = newUuid();
@@ -452,54 +714,92 @@ export default function InvoiceReceiptWorkbench({
       setRecords(current => current.map(record => record.document.documentId === selected.document.documentId
         ? { ...record, pendingOperation: operation } : record));
       setConfirmOpen(false); setBusy('commit'); setNotice(null);
+      setManualStage(selected.document.documentId, 'receipt', 'running', '명시적으로 승인된 입고 등록 요청 진행 중');
       const data = await submitReceiptCommit(operation);
       if (!data.result) {
         const error = new Error('등록 결과 readback이 비어 있습니다.');
         error.resultUnknown = true;
         throw error;
       }
-      await acceptCommitResult(operation, data.result, '서버 등록 결과와 현재 문서를 다시 확인했습니다.');
+      await acceptCommitResult(operation, data.result, '서버 등록 결과와 현재 문서를 다시 확인했습니다.', isCurrent);
     } catch (error) {
+      if (!isCurrent()) error.staleWorkflowResponse = true;
       handleCommitFailure(operation, error);
     } finally {
+      workflowLockRef.current = null;
       setBusy('');
     }
   }
 
   async function retryPendingOperation() {
     const pending = selected?.pendingOperation;
-    if (!pending) return;
+    if (!pending || busy || workflowLockRef.current) return;
+    const generation = workflowGenerationRef.current;
+    const documentId = selected.document.documentId;
+    const isCurrent = () => workflowGenerationRef.current === generation && selectedIdRef.current === documentId;
+    workflowLockRef.current = { kind: 'operation-recovery', documentId: selected.document.documentId };
     setBusy('operation-retry'); setNotice(null);
+    setManualStage(selected.document.documentId, 'receiptVerify', 'running', '같은 operation 상태를 조회 중');
     try {
       const data = await readJson(await fetch(`/api/import/receipts/operations/${pending.operationId}`, {
         credentials: 'same-origin', cache: 'no-store',
       }));
+      if (!isCurrent()) return;
       if (data.operation) {
         const result = { ...data.operation, ...(data.operation.result || {}) };
         const status = String(result.status || '').toUpperCase();
-        setOperationResult(result);
-        if (['COMMITTED', 'SUCCEEDED', 'SUCCESS'].includes(status) && result.warehouseKey) {
-          await acceptCommitResult(pending, result, '같은 작업의 완료 상태와 현재 문서를 확인했습니다.');
+        if (['COMMITTED', 'SUCCEEDED', 'SUCCESS'].includes(status)) {
+          await acceptCommitResult(pending, result, '같은 작업의 완료 상태와 현재 문서를 확인했습니다.', isCurrent);
         } else if (['FAILED', 'ROLLED_BACK'].includes(status)) {
           clearPendingCommit(pending.documentId, { invalidatePreview: true });
+          setManualStage(pending.documentId, 'receipt', 'failed', `같은 작업이 ${status}로 종료됨`);
           setNotice({ type: 'error', text: `같은 작업이 ${status}로 종료되어 pending을 해제하고 미리보기를 무효화했습니다.` });
         } else {
           setNotice({ type: 'info', text: `같은 작업 상태가 ${result.status || '확인 중'}이므로 요청을 다시 보내지 않았습니다.` });
         }
         return;
       }
+      if (!isCurrent()) return;
       const retried = await submitReceiptCommit(pending);
       if (!retried.result) {
         const error = new Error('같은 작업 재시도 결과 readback이 비어 있습니다.');
         error.resultUnknown = true;
         throw error;
       }
-      await acceptCommitResult(pending, retried.result, '저장해 둔 동일 요청으로 작업을 다시 확인했습니다.');
+      await acceptCommitResult(pending, retried.result, '저장해 둔 동일 요청으로 작업을 다시 확인했습니다.', isCurrent);
     } catch (error) {
+      if (!isCurrent()) error.staleWorkflowResponse = true;
       handleCommitFailure(pending, error);
     } finally {
+      workflowLockRef.current = null;
       setBusy('');
     }
+  }
+
+  async function retryReceiptReadback() {
+    const pending = selected?.pendingOperation;
+    if (!pending || busy || workflowLockRef.current) return;
+    const generation = workflowGenerationRef.current;
+    const documentId = selected.document.documentId;
+    const isCurrent = () => workflowGenerationRef.current === generation && selectedIdRef.current === documentId;
+    workflowLockRef.current = { kind: 'receipt-readback', documentId: pending.documentId };
+    setBusy('receipt-readback');
+    try {
+      const expected = selected.document;
+      const fresh = await readDocument(pending.documentId);
+      const verified = verifyReceiptDocument(fresh, { ...expected, operationId: pending.operationId });
+      if (verified.operation.operationId !== pending.operationId) throw new Error('재조회된 operationId가 대기 작업과 다릅니다.');
+      if (!isCurrent()) return;
+      installSavedDocument(fresh);
+      clearPendingCommit(pending.documentId);
+      setNotice({ type: 'success', text: `입고 readback만 다시 확인했습니다. WarehouseKey ${verified.warehouseKey}. 등록 요청은 보내지 않았습니다.` });
+    } catch (error) {
+      if (!isCurrent()) return;
+      setRecords(current => current.map(record => record.document.documentId === pending.documentId
+        ? { ...record, stageProgress: { ...(record.stageProgress || {}), receipt: { id: 'receipt', status: 'passed', message: '기존 등록 응답 확인', at: new Date().toISOString() },
+          receiptVerify: { id: 'receiptVerify', status: 'failed', message: error.message, at: new Date().toISOString() } } } : record));
+      setNotice({ type: 'error', text: `입고 등록을 다시 보내지 않았습니다. readback 확인 실패, pending 유지: ${error.message}` });
+    } finally { workflowLockRef.current = null; setBusy(''); }
   }
 
   async function copyBrief() {
@@ -514,13 +814,18 @@ export default function InvoiceReceiptWorkbench({
   }
 
   async function refreshAfterCostSave() {
-    if (!documentValue?.documentId) return;
+    const documentId = documentValue?.documentId;
+    if (!documentId) return;
+    const generation = workflowGenerationRef.current;
+    const isCurrent = () => workflowGenerationRef.current === generation && selectedIdRef.current === documentId;
     setBusy('cost-refresh');
     try {
-      const refreshed = await refreshSavedDocument(documentValue.documentId);
+      const refreshed = await readDocument(documentId);
+      if (!isCurrent()) return;
+      installSavedDocument(refreshed);
       setNotice({ type: 'success', text: `원가 저장 후 문서를 갱신했습니다. 원가 상태 ${refreshed.costStatus || '확인 필요'}` });
     } catch (error) {
-      setNotice({ type: 'error', text: `원가는 저장됐지만 현재 문서 갱신에 실패했습니다: ${error.message}` });
+      if (isCurrent()) setNotice({ type: 'error', text: `원가는 저장됐지만 현재 문서 갱신에 실패했습니다: ${error.message}` });
     } finally {
       setBusy('');
     }
@@ -553,8 +858,10 @@ export default function InvoiceReceiptWorkbench({
     {renderSavedDocuments(false)}
   </section>;
 
-  const localWarnings = documentValue.sourceWarnings || [];
-  const canPreview = !selected.dirty && documentValue.revision != null && localWarnings.length === 0 && !selected.pendingOperation;
+  const localWarnings = conversionWarnings(documentValue);
+  const mismatchRows = conversionMismatchLines(documentValue);
+  const canPreview = !selected.dirty && documentValue.revision != null && localWarnings.length === 0
+    && unresolvedConversionMismatchLines(documentValue).length === 0 && !selected.pendingOperation;
   const issueBrief = buildReceiptIssueBrief(documentValue, preview);
   const reconciliationRows = preview?.reconciliation?.rows || [];
   const reconciliationByLine = new Map(reconciliationRows.map(row => [row.lineId, row]));
@@ -563,7 +870,8 @@ export default function InvoiceReceiptWorkbench({
     const mappings = operation?.result?.lineMappings || operation?.lineMappings || [];
     return mappings.map(mapping => mapping.lineId).filter(Boolean);
   }));
-  const currentRevisionCommitted = !selected.dirty
+  const receiptReadbackPassed = selected.stageProgress?.receiptVerify?.status === 'passed';
+  const currentRevisionCommitted = !selected.dirty && receiptReadbackPassed
     && documentValue.receiptStatus === 'COMMITTED'
     && committedOperations.some(operation => Number(operation.documentRevision) === Number(documentValue.revision));
   const costIsStale = documentValue.costStatus === 'STALE'
@@ -578,7 +886,11 @@ export default function InvoiceReceiptWorkbench({
 
     <div className={styles.documentTabs} role="tablist" aria-label="원본 인보이스">
       {records.map((record, index) => <button type="button" role="tab" aria-selected={record.document.documentId === selected.document.documentId}
-        key={record.document.documentId} onClick={() => setSelectedId(record.document.documentId)}>
+        key={record.document.documentId} disabled={Boolean(busy)} onClick={() => {
+          workflowGenerationRef.current += 1;
+          workflowLockRef.current = null;
+          setSelectedId(record.document.documentId);
+        }}>
         {record.document.invoiceNo || `인보이스 ${index + 1}`} {record.dirty ? '•' : ''}
       </button>)}
     </div>
@@ -587,6 +899,43 @@ export default function InvoiceReceiptWorkbench({
       role={notice.type === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
     {localWarnings.map(warning => <p className={styles.warning} role="alert" key={warning}>{warning}</p>)}
 
+    <section className={styles.stagePanel} aria-label="문서별 독립 단계 진행" aria-live="polite">
+      <header><strong>문서 단계</strong><span>{documentValue.documentId} · {documentValue.orderYear || '연도 미입력'} / {documentValue.orderWeek || '차수 미입력'} · revision {documentValue.revision ?? '미저장'} · {documentValue.sourceHash?.slice(0, 12) || 'hash 없음'}</span></header>
+      <div className={styles.stageGrid}>{WORKFLOW_STAGES.map(([id, label]) => {
+        const stage = selected.stageProgress?.[id] || { status: 'waiting' };
+        return <div className={styles.stageCard} data-status={stage.status || 'waiting'} key={id}>
+          <strong>{label}</strong><span>{stage.displayStatus || ({ waiting: '대기', running: '진행 중', passed: '통과', blocked: '차단', failed: '실패', unknown: '확인 불가' })[stage.status] || '대기'}</span>
+          {stage.message && <small>{stage.message}</small>}
+        </div>;
+      })}</div>
+      <small className={styles.scopeHint}>자동 실행 범위: 선택 문서 1건 · sourceHash/revision/연도/차수 고정 · 입고와 원가 승인은 별도 확인</small>
+    </section>
+
+    <fieldset disabled={Boolean(busy)} className={styles.editFieldset}>
+    {mismatchRows.length > 0 && <section className={styles.conversionReview} aria-label="국가별 패킹 변환 수량 차이 검토">
+      <header><strong>원문 수량과 국가별 변환 대조</strong><span>각 행을 비교하고 실제 입고 수량을 입력한 뒤 행별로 확인하세요.</span></header>
+      <div className={styles.conversionReviewRows}>{mismatchRows.map(line => {
+        const evidence = line.sourceEvidence.conversionValidation;
+        const quantityField = RECEIPT_QUANTITY_FIELDS.has(evidence.quantityField) ? evidence.quantityField : null;
+        const quantityLabel = quantityField === 'boxQuantity' ? '박스' : quantityField === 'bunchQuantity' ? '단' : quantityField === 'stemQuantity' ? '송이' : evidence.quantityField || '수량';
+        return <div className={styles.conversionReviewRow} key={line.lineId}>
+          <div className={styles.conversionReviewIdentity}><strong>{line.lineNo}행 · {line.originalName || '원문 품목 미확인'}</strong>
+            <small>{evidence.quantityField || '수량'} · 문서 집계 차이</small></div>
+          <div className={styles.conversionReviewEvidence}>{(evidence.differences || []).map((difference, index) => <span key={`${difference.field || 'quantity'}-${index}`}>
+            원문 {difference.field || quantityLabel}: <b>{displayNumber(difference.sourceValue)}</b> · 변환: <b>{displayNumber(difference.generatedValue)}</b>
+          </span>)}
+            {!evidence.differences?.length && <span>원문 합계 <b>{displayNumber(evidence.sourceTotal)}</b> · 변환 합계 <b>{displayNumber(evidence.generatedTotal)}</b></span>}
+          </div>
+          {quantityField ? <Field label={`입고 ${quantityLabel} 직접 입력`}><NumberInput label={`${line.lineNo}행 입고 ${quantityLabel} 직접 입력`}
+            value={line[quantityField]} onChange={value => updateLine(line.lineId, quantityField, value)} /></Field>
+            : <p className={styles.conversionReviewError}>수량 필드 계약을 확인할 수 없어 저장할 수 없습니다. 원본 분석을 다시 확인하세요.</p>}
+          <label className={styles.conversionConfirm}><input type="checkbox" checked={line.reviewed?.conversionConfirmed === true}
+            disabled={!quantityField || nullableNumber(line[quantityField]) == null} onChange={event => confirmConversionLine(line.lineId, event.target.checked)} />
+            <span>현재 입력 수량 유지·차이 검토 확인</span></label>
+        </div>;
+      })}</div>
+      <small>확인한 행의 mismatch 경고만 해소됩니다. GW·CW·잘림 등 다른 원문 경고는 별도 검토 전까지 유지됩니다.</small>
+    </section>}
     <div className={styles.metadata}>
       <Field label="입고 연도"><input value={documentValue.orderYear ?? ''} inputMode="numeric" placeholder="예: 2026" onChange={event => updateDocumentField('orderYear', event.target.value)} /></Field>
       <Field label="세부차수"><input value={documentValue.orderWeek ?? ''} placeholder="예: 41-01" onChange={event => updateDocumentField('orderWeek', event.target.value)} /></Field>
@@ -620,11 +969,18 @@ export default function InvoiceReceiptWorkbench({
     </div>
 
     <div className={styles.actionBar}>
-      <button type="button" className={styles.primary} onClick={saveDraft} disabled={Boolean(busy)}>{busy === 'save' ? '초안 저장 중…' : documentValue.revision == null ? '초안 저장' : '변경 초안 저장'}</button>
+      <button type="button" className={styles.primary} onClick={runAutomaticPreparation} disabled={Boolean(busy) || Boolean(selected.pendingOperation) || Boolean(selected.recoveryRequired)}>
+        {busy === 'auto-workflow' ? '단계 검증 중…' : '자동 검증·계속'}
+      </button>
+      <button type="button" className={styles.primary} onClick={saveDraft} disabled={Boolean(busy) || Boolean(selected.recoveryRequired)}>{busy === 'save' ? '초안 저장 중…' : documentValue.revision == null ? '초안 저장' : '변경 초안 저장'}</button>
       <button type="button" onClick={requestPreview} disabled={!canPreview || Boolean(busy)}>{busy === 'preview' ? '미리보기 검증 중…' : '서버 미리보기'}</button>
       <button ref={confirmButtonRef} type="button" className={styles.danger} onClick={openCommit} disabled={!canCommitReceipt(selected) || Boolean(busy)}>ERP 입고 등록 확인</button>
+      {selected.recoveryRequired && <button type="button" onClick={() => loadDocument(documentValue.documentId)} disabled={Boolean(busy)}>같은 문서 다시 불러오기</button>}
+      {selected.pendingOperation && selected.stageProgress?.receiptVerify?.status === 'failed' && <button type="button" onClick={retryReceiptReadback} disabled={Boolean(busy)}>
+        {busy === 'receipt-readback' ? '입고 readback 재조회 중…' : '입고 readback만 재조회'}
+      </button>}
       {selected.pendingOperation && <button type="button" onClick={retryPendingOperation} disabled={Boolean(busy)}>{busy === 'operation-retry' ? '같은 작업 확인 중…' : '같은 작업 다시 확인·재시도'}</button>}
-      <button type="button" onClick={() => { setCopyOpen(true); setCopied(false); }}>특이사항 복사</button>
+      <button type="button" onClick={() => { setCopyOpen(true); setCopied(false); }} disabled={Boolean(busy)}>특이사항 복사</button>
       <span className={styles.state}>{selected.dirty ? '저장되지 않은 변경 있음' : `저장됨 · revision ${documentValue.revision}`}</span>
     </div>
 
@@ -675,11 +1031,13 @@ export default function InvoiceReceiptWorkbench({
         {preview && <div className={styles.previewMeta}><span>eligibility</span><strong>{preview.eligibility?.allowed === true ? '허용' : preview.eligibility?.allowed === false ? '차단' : '서버 결과 확인'}</strong><span>원가</span><strong>{preview.cost?.status || preview.costStatus || '서버 결과 확인'}</strong><span>문서 revision</span><strong>{preview.documentRevision ?? '—'}</strong></div>}
       </aside>
     </div>
+    </fieldset>
 
     {renderSavedDocuments(true)}
 
     {currentRevisionCommitted
-      ? <InvoiceReceiptCostReview document={documentValue} onSaved={refreshAfterCostSave} />
+      ? <InvoiceReceiptCostReview document={documentValue} onSaved={refreshAfterCostSave}
+        autoProcess={receiptReadbackPassed} onStageChange={onCostStageChange} />
       : costIsStale
         ? <section className={styles.costStale} role="alert"><strong>도착원가 STALE</strong><span>입고 확정 후 문서가 편집되어 이전 원가는 현재 revision에 적용되지 않습니다. 수정 입고를 다시 preview·commit한 뒤 원가를 재검토하세요.</span></section>
         : <section className={styles.costPending} role="status"><strong>도착원가 PENDING</strong><span>현재 문서 revision의 입고 등록이 완료되면 실제 입고량 원가 검토를 시작할 수 있습니다.</span></section>}

@@ -51,7 +51,7 @@
 
   function moveMenuFocus(event) {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    const items = [...document.querySelectorAll('#favoritesList button, #menuGroups button')];
+    const items = [...document.querySelectorAll('#favoritesList button, #menuGroups button')].filter(button => !button.disabled);
     if (!items.length) return;
     event.preventDefault();
     const index = items.indexOf(document.activeElement);
@@ -160,13 +160,14 @@
     const nextSignature = JSON.stringify([query, state.online, state.menus, state.favorites]);
     if (nextSignature === menuSignature) return;
     menuSignature = nextSignature;
+    const focusedFavorite = document.activeElement?.dataset?.menuFavorite;
     const groups = $('menuGroups');
     groups.replaceChildren();
     let count = 0;
     const startItems = [];
     if (!state.online) startItems.push({ href: '/login', labelKey: '로그인' });
     if (!state.menus.some((group) => group.items?.some((item) => item.href === '/dashboard'))) {
-      startItems.push({ href: '/dashboard', labelKey: '네노바 홈' });
+      startItems.push({ href: '/dashboard', labelKey: '네노바 홈', favorite: state.favorites.some(f => { try { return new URL(f.url).pathname === '/dashboard'; } catch { return false; } }) });
     }
     const allGroups = startItems.length ? [{ group: '시작', items: startItems }, ...state.menus] : state.menus;
     for (const group of allGroups) {
@@ -182,7 +183,14 @@
       for (const item of matching) {
         const button = makeButton('menu-item', '', `${item.labelKey || item.href} 열기`, () => openPage(item));
         const label = document.createElement('span'); label.textContent = item.labelKey || item.href;
-        button.append(label); items.append(button); count++;
+        button.append(label);
+        const row = document.createElement('div'); row.className = 'menu-row';
+        const star = makeButton('menu-favorite', item.favorite ? '★' : '☆', `${item.labelKey || item.href} 즐겨찾기 ${item.favorite ? '해제' : '추가'}`, () => run('menuFavorite', { href: item.href }));
+        star.disabled = !state.online || item.href === '/login';
+        star.dataset.menuFavorite = item.href;
+        star.setAttribute('aria-label', star.title);
+        star.setAttribute('aria-pressed', String(Boolean(item.favorite)));
+        row.append(button, star); items.append(row); count++;
       }
       card.append(heading, items); groups.append(card);
     }
@@ -194,7 +202,7 @@
     if (!matches.length && state.online) {
       const hint = document.createElement('p');
       hint.className = 'home-note';
-      hint.textContent = query ? '검색한 즐겨찾기가 없습니다.' : '업무 화면을 열고 ☆ 또는 Ctrl+D를 누르면 여기에 추가됩니다.';
+      hint.textContent = query ? '검색한 즐겨찾기가 없습니다.' : '아래 메뉴 이름 옆 ☆를 누르면 화면을 열지 않고 즐겨찾기에 추가됩니다.';
       favorites.append(hint);
     }
     for (const item of matches) {
@@ -203,6 +211,7 @@
       const label = document.createElement('span'); label.textContent = item.title || shortUrl(item.url);
       button.append(star, label); favorites.append(button);
     }
+    if (focusedFavorite) [...document.querySelectorAll('[data-menu-favorite]')].find(button => button.dataset.menuFavorite === focusedFavorite)?.focus();
   }
 
   function render() {

@@ -4,6 +4,7 @@
 // 수정이력: 2026-04-09b — Railway 강제 재빌드 v2
 
 import { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -191,6 +192,12 @@ export default function Layout({ children, title }) {
   const [user, setUser] = useState(null);
   const [sidebarFavorites, setSidebarFavorites] = useState([]);
   const [favoriteBusyHref, setFavoriteBusyHref] = useState('');
+  const [favoritesRevision, setFavoritesRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setFavoritesRevision(value => value + 1);
+    window.addEventListener('nenova-menu-favorites-changed', refresh);
+    return () => window.removeEventListener('nenova-menu-favorites-changed', refresh);
+  }, []);
   useEffect(() => {
     try { setUser(JSON.parse(localStorage.getItem('nenovaUser')||'null')); } catch {}
     let active = true;
@@ -224,7 +231,7 @@ export default function Layout({ children, title }) {
       })
       .catch(() => { if (active) setSidebarFavorites([]); });
     return () => { active = false; };
-  }, [user?.userId]);
+  }, [user?.userId, favoritesRevision]);
 
   // 자식창 감지 — hydration 안전. SSR/첫 렌더는 false → 마운트 후 클라이언트에서만 판정.
   // 세 갈래 모두 잡아야 사이드바 중복이 안 생긴다:
@@ -274,6 +281,7 @@ export default function Layout({ children, title }) {
     event.preventDefault();
     event.stopPropagation();
     if (!user?.userId || favoriteBusyHref) return;
+    const trigger = event.currentTarget;
 
     const existing = sidebarFavorites.find(favorite => favorite.href === item.href);
     setFavoriteBusyHref(item.href);
@@ -295,10 +303,19 @@ export default function Layout({ children, title }) {
           ? current
           : [...current, { ...item, favoriteKey: Number(data.favoriteKey) }]);
       }
+      window.dispatchEvent(new Event('nenova-menu-favorites-changed'));
     } catch (error) {
       window.alert(`즐겨찾기 변경 실패: ${error?.message || error}`);
     } finally {
-      setFavoriteBusyHref('');
+      // Re-enable the control before restoring focus, including after a native alert.
+      flushSync(() => setFavoriteBusyHref(''));
+      requestAnimationFrame(() => {
+        // Removing a favorite removes its shortcut; return to its permanent menu toggle.
+        if (trigger.isConnected) { trigger.focus(); return; }
+        const row = [...document.querySelectorAll('[data-sidebar-menu-item]')]
+          .find(element => element.dataset.sidebarMenuItem === item.href);
+        row?.querySelector('[data-testid="sidebar-favorite-toggle"]')?.focus();
+      });
     }
   };
   const navigateInsideChildWindow = (event, item) => {
@@ -327,12 +344,14 @@ export default function Layout({ children, title }) {
         <button
           type="button"
           data-testid="sidebar-favorite-toggle"
+          className="sidebar-favorite-toggle"
           aria-label={`${isFavorite ? t('즐겨찾기에서 제거') : t('즐겨찾기 추가')} · ${t(item.labelKey)}`}
           aria-pressed={isFavorite}
           title={user?.userId ? (isFavorite ? t('즐겨찾기에서 제거') : t('즐겨찾기 추가')) : t('로그인 후 즐겨찾기를 사용할 수 있습니다')}
           disabled={!user?.userId || favoriteBusyHref !== ''}
+          aria-busy={favoriteBusyHref === item.href}
           onClick={event => toggleSidebarFavorite(event, item)}
-          style={{ width: 30, flex: '0 0 30px', border: 0, borderRadius: 0, background: 'transparent', color: isFavorite ? '#e5a500' : '#8090a5', cursor: user?.userId ? 'pointer' : 'default', fontSize: 16, lineHeight: 1, padding: 0 }}
+          style={{ width: 34, minHeight: 34, flex: '0 0 34px', alignSelf: 'center', margin: '2px 4px 2px 0', border: `1px solid ${isFavorite ? '#d6a124' : '#b8c5d4'}`, borderRadius: 4, background: isFavorite ? '#fff4cc' : '#fff', color: isFavorite ? '#956400' : '#52677f', cursor: favoriteBusyHref ? 'wait' : user?.userId ? 'pointer' : 'default', fontSize: 20, lineHeight: 1, padding: 0 }}
         >{isFavorite ? '★' : '☆'}</button>
       </div>
     );
@@ -390,6 +409,7 @@ export default function Layout({ children, title }) {
   return (
     <>
       <Head><title>{t(pageTitle)} - nenova ERP</title></Head>
+      <style>{`.sidebar-favorite-toggle:focus-visible { outline: 3px solid #2563eb; outline-offset: 1px; }`}</style>
       <div className="layout" data-ui-shell="standard">
         <div className="sidebar" data-ui-sidebar>
           <Link href="/dashboard" style={{ textDecoration:'none', color:'inherit', display:'block' }}>
@@ -418,7 +438,7 @@ export default function Layout({ children, title }) {
               <div key={group.group} className="nav-group">
                 {/* 그룹 제목도 번역 */}
                 <div className="nav-group-title">{t(group.group)}</div>
-                {group.items.filter(item => (!item.userIds || item.userIds.includes(user?.userId)) && !favoriteHrefs.has(item.href)).map(renderNavItem)}
+                {group.items.filter(item => !item.userIds || item.userIds.includes(user?.userId)).map(renderNavItem)}
               </div>
             ))}
           </nav>
