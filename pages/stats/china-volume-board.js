@@ -7,11 +7,13 @@ import { apiDelete, apiGet, apiPost } from '../../lib/useApi';
 import { defaultPivotBoardWeek, mergePivotAvailableWeeks } from '../../lib/pivotAvailableWeeks';
 import {
   buildChinaVolumeWorkbookRows,
+  buildChinaVolumeCustomerColumns,
   applyChinaPackingCustomerMatch,
   applyChinaVolumeBoxEntries,
   appendChinaVolumeCellHistory,
   buildChinaVolumeGridTotals,
   canApplyChinaPackingRows,
+  chinaOrderQuantity,
   chinaPackingDistributions,
   chinaVolumeProductLabel,
   matchChinaPackingRows,
@@ -56,10 +58,17 @@ function mergeChinaProductCandidates(pivotData, productCatalog = []) {
     .filter(row => /중국/i.test(String(row?.country || '')))
     .forEach(row => {
       const key = Number(row.prodKey);
-      const existingOutOrders = byKey.get(key)?.outOrders;
-      // 품목 마스터 후보(outOrders 없음)가 이미 채워진 이번 차수 실제 주문수량을 빈 값으로 덮어쓰지 않는다.
-      const outOrders = Object.keys(row.outOrders || {}).length ? row.outOrders : (existingOutOrders || {});
-      byKey.set(key, { ...row, outOrders });
+      const existing = byKey.get(key) || {};
+      // Product catalog rows enrich labels only; do not replace pivot order quantities with shipment/empty maps.
+      const outOrders = Object.keys(row.outOrders || {}).length ? row.outOrders : (existing.outOrders || {});
+      byKey.set(key, {
+        ...existing,
+        ...row,
+        outOrders,
+        orders: row.orders ?? existing.orders ?? {},
+        ordersByCustKey: row.ordersByCustKey ?? existing.ordersByCustKey ?? {},
+        custKeys: row.custKeys ?? existing.custKeys ?? {},
+      });
     });
   return [...byKey.values()];
 }
@@ -279,10 +288,10 @@ function PackingDistributionModal({ draft, customers, products, onChange, onClos
         {draft.distributions.map((item, index) => {
           const [custKey = '', prodKey = ''] = String(item.cellKey || '').split(':');
           const selectedCustomer = customerOptions.find(customer => String(customer.custKey) === String(custKey));
-          const orderedProducts = [...productOptions].sort((left, right) => Number(right.outOrders?.[selectedCustomer?.custName] || 0) - Number(left.outOrders?.[selectedCustomer?.custName] || 0));
+          const orderedProducts = [...productOptions].sort((left, right) => chinaOrderQuantity(right, selectedCustomer) - chinaOrderQuantity(left, selectedCustomer));
           return <div className="distribution-row" key={index}>
             <label>전산 업체<select value={custKey} onChange={event => update(index, { cellKey: `${event.target.value}:${prodKey}` })}><option value="">업체 선택</option>{customerOptions.map(customer => <option key={customer.custKey} value={customer.custKey}>{customer.custName} · {customer.orderCode || '코드없음'}</option>)}</select></label>
-            <label>전산 품목<select value={prodKey} onChange={event => update(index, { cellKey: `${custKey}:${event.target.value}` })}><option value="">품목 선택</option>{orderedProducts.map(product => { const orderQuantity = Number(product.outOrders?.[selectedCustomer?.custName] || 0); return <option key={product.prodKey} value={product.prodKey}>{chinaVolumeProductLabel(product.prodName)} · 주문 {fmt(orderQuantity)}</option>; })}</select></label>
+            <label>전산 품목<select value={prodKey} onChange={event => update(index, { cellKey: `${custKey}:${event.target.value}` })}><option value="">품목 선택</option>{orderedProducts.map(product => { const orderQuantity = chinaOrderQuantity(product, selectedCustomer); return <option key={product.prodKey} value={product.prodKey}>{chinaVolumeProductLabel(product.prodName)} · 주문 {fmt(orderQuantity)}</option>; })}</select></label>
             <label>분배수량<input type="number" min="0.001" step="0.001" value={item.quantity} onChange={event => update(index, { quantity: Number(event.target.value) })} /></label>
             <button className="remove" onClick={() => onChange({ ...draft, distributions: draft.distributions.filter((_, itemIndex) => itemIndex !== index) })}>삭제</button>
           </div>;
@@ -466,20 +475,7 @@ export default function ChinaVolumeBoard() {
     return [...byKey.values()];
   }, [data, packingRows, productCatalog, cells, matchProducts]);
   const customers = useMemo(() => {
-    const used = new Set();
-    chinaRows.forEach(row => Object.entries(row.outOrders || {}).forEach(([name, qty]) => Number(qty || 0) > 0 && used.add(name)));
-    packingRows.forEach(row => row.customer?.custName && used.add(row.customer.custName));
-    packingRows.flatMap(chinaPackingDistributions).forEach(distribution => {
-      const custKey = Number(String(distribution.cellKey || '').split(':')[0]);
-      const customer = (data?.customers || []).find(item => Number(item.custKey) === custKey);
-      if (customer) used.add(customer.custName);
-    });
-    Object.keys(cells || {}).forEach(cellKey => {
-      const custKey = Number(String(cellKey).split(':')[0]);
-      const customer = (data?.customers || []).find(item => Number(item.custKey) === custKey);
-      if (customer) used.add(customer.custName);
-    });
-    return (data?.customers || []).filter(customer => used.has(customer.custName));
+    return buildChinaVolumeCustomerColumns({ rows: chinaRows, customers: data?.customers || [], packingRows, cells });
   }, [data, chinaRows, packingRows, cells]);
   const boxAreas = useMemo(() => planChinaBoxNeighborAreas({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
   const gridTotals = useMemo(() => buildChinaVolumeGridTotals({ rows: chinaRows, customers, cells }), [chinaRows, customers, cells]);
@@ -528,7 +524,7 @@ export default function ChinaVolumeBoard() {
 
   const openCell = (row, customer) => {
     const key = `${customer.custKey}:${row.prodKey}`;
-    const currentQty = Number(row.outOrders?.[customer.custName] ?? row.outOrders?.[customer.orderCode] ?? 0);
+    const currentQty = chinaOrderQuantity(row, customer);
     const saved = cells[key];
     setSelectedKey(key);
     setDraft({
@@ -840,7 +836,7 @@ export default function ChinaVolumeBoard() {
                     <th title={chinaVolumeProductLabel(row.prodName)}><small>{row.flower}</small><span>{chinaVolumeProductLabel(row.prodName)}</span></th>
                     {customers.map(customer => {
                       const key = `${customer.custKey}:${row.prodKey}`;
-                      const originalQty = Number(row.outOrders?.[customer.custName] ?? row.outOrders?.[customer.orderCode] ?? 0);
+                      const originalQty = chinaOrderQuantity(row, customer);
                       const saved = cells[key];
                       const quantity = saved?.quantity ?? originalQty;
                       const orderQuantity = saved?.orderQuantity ?? originalQty;

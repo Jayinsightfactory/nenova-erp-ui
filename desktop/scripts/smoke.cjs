@@ -171,6 +171,12 @@ async function run() {
   assert.equal(first.view.getBounds().y, 44, 'compact tab workspace starts below the 44px tab bar');
   assert.equal(first.view.getBounds().height, 1036, 'compact tab workspace uses the remaining 1036px');
   const shellContents = sourceWindow.win.webContents;
+  for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
+    shellContents.send('desktop:state', { appUpdate: { phase, version: '1.4.0', percent: 42, message: '검증 상태' } });
+    await new Promise(r => setTimeout(r, 50));
+    const updateUi = await shellContents.executeJavaScript("({label:document.getElementById('appUpdateButton').textContent,disabled:document.getElementById('appUpdateButton').disabled,cancel:!document.getElementById('cancelUpdateButton').hidden})");
+    assert.equal(updateUi.label, label); assert.equal(updateUi.disabled, disabled); assert.equal(updateUi.cancel, phase === 'downloading');
+  }
   const compactFavorite = await shellContents.executeJavaScript(`(() => {
     const button = document.querySelector('#compactFavoriteButton');
     return button && { text: button.textContent.trim(), pressed: button.getAttribute('aria-pressed'), visibility: getComputedStyle(button).visibility };

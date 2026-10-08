@@ -157,6 +157,7 @@ export const MENU_ITEMS = [
       { href: '/admin/chat-audit', labelKey: '챗봇 질문/처리현황', popup: false },
       { href: '/admin/workflow',   labelKey: '📊 업무플로우 분석',   popup: false },
       { href: '/dev/project-plan',  labelKey: '작업/기획 현황',       popup: false },
+      { href: '/dev/history', labelKey: '개발 히스토리', popup: false },
       { href: '/demo/tenant-studio', labelKey: '🎨 테넌트 스튜디오',   popup: true },
     ]
   },

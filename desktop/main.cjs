@@ -9,7 +9,8 @@ const SHELL = 'nenova-app://shell/index.html';
 function shellInsets(w) { return { top: w.toolsOpen ? 128 : 44, bottom: w.toolsOpen || w.menuOpen ? 28 : 0 }; }
 const windows = new Map(), tabs = new Map(), auxiliary = new Set();
 let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, restoring = false, saved = null, saveTimer, authTimer, authGeneration = 0;
-let webSession;
+let webSession, updater;
+const { createUpdater, MIN_FREE } = require('./updater.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.setName('Nenova Desktop');
 app.setAppUserModelId('com.nenova.workspace');
@@ -20,7 +21,7 @@ function state(w) {
   return { windowId: w.id, windows: [...windows.values()].map(v => ({ id: v.id, title: `업무 창 ${v.id}` })),
     tabs: w.ids.map(id => tabs.get(id)).filter(Boolean).map(t => ({ id: t.id, title: locked && new URL(t.url).pathname !== '/login' ? '로그인 대기' : t.title, url: locked ? '' : t.url, loading: t.loading, error: t.error, zoom: t.zoom })),
     activeId: w.activeId, menuOpen: w.menuOpen, toolsOpen: w.toolsOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus, version: app.getVersion(), online: !locked,
-    syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || '',
+    appUpdate: updater?.getState(), syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || '',
     message: w.message || (locked ? '로그인이 필요합니다. 업무 화면에서 로그인해 주세요.' : '탭 이동은 작업을 유지합니다 · 종료 전 업무 내용을 저장해 주세요.') };
 }
 function broadcast() {
@@ -37,14 +38,24 @@ function snapshot() {
 }
 function statePath() { return path.join(app.getPath('userData'), 'workspace.encrypted'); }
 function persist(value = snapshot()) {
-  if (!safeStorage.isEncryptionAvailable() || !value.actor) return;
-  try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(statePath() + '.tmp', safeStorage.encryptString(JSON.stringify(value))); fs.renameSync(statePath() + '.tmp', statePath()); }
+  if (!safeStorage.isEncryptionAvailable() || !value.actor) return false;
+  try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(statePath() + '.tmp', safeStorage.encryptString(JSON.stringify(value))); fs.renameSync(statePath() + '.tmp', statePath()); return true; }
   catch {
     for (const w of windows.values()) {
       reportFailure(w, '창 구성 저장에 실패했습니다. 디스크 여유 공간을 확인해 주세요.');
       if (!w.win.isDestroyed()) w.win.webContents.send('desktop:state', state(w));
     }
   }
+}
+function enoughUpdateSpace() {
+  try { return [app.getPath('userData'), app.getPath('temp'), path.dirname(app.getPath('exe'))].every(p => { const s = fs.statfsSync(p); return s.bavail * s.bsize >= MIN_FREE; }); } catch { return false; }
+}
+function prepareUpdate() {
+  const w = [...windows.values()].find(w => w.win.isFocused()) || [...windows.values()][0];
+  if (!w || !confirm(w, '모든 창이 닫힙니다. 업무를 저장하셨나요? 미저장 입력은 사라집니다.', '재시작하여 업데이트')) return false;
+  clearTimeout(saveTimer);
+  if (actor && !locked && !persist()) return false;
+  return true;
 }
 function readSaved() {
   try { if (!safeStorage.isEncryptionAvailable() || fs.statSync(statePath()).size > 1024 * 1024) return null; return safeSnapshot(JSON.parse(safeStorage.decryptString(fs.readFileSync(statePath())))); } catch { return null; }
@@ -242,6 +253,8 @@ function command(w, action, p = {}) {
   const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
   switch (action) {
     case 'state': break;
+    case 'appUpdate': { const phase = updater?.getState().phase; if (phase === 'available') updater.download(); else if (phase === 'downloaded') updater.install(); else updater?.check(); break; }
+    case 'cancelUpdate': updater?.cancel(); break;
     case 'sync': verifyAccount().catch(() => {}); break;
     case 'open': openTab(w, p); break;
     case 'activate': activate(w, p.id); break;
@@ -363,6 +376,13 @@ async function verifyAccount(initial = false) {
   broadcast();
 }
 app.whenReady().then(async () => {
+  const enabled = app.isPackaged && process.platform === 'win32';
+  const engine = enabled ? require('electron-updater').autoUpdater : null;
+  updater = createUpdater({ engine, enabled, enoughSpace: enoughUpdateSpace, prepareInstall: prepareUpdate, notify: () => broadcast() });
+  if (engine) {
+    require('electron').autoUpdater.on('before-quit-for-update', () => { quitting = true; });
+    engine.on('error', () => { quitting = false; });
+  }
   protocol.handle('nenova-app', request => {
     const u = new URL(request.url);
     const name = u.pathname.slice(1);
@@ -371,7 +391,7 @@ app.whenReady().then(async () => {
   });
   webSession = session.fromPartition('persist:nenova-work');
   const desktopUa = webSession.getUserAgent();
-  webSession.setUserAgent(/\bNenovaDesktop\/1\.2\.0\b/.test(desktopUa) ? desktopUa : `${desktopUa} NenovaDesktop/1.2.1`);
+  webSession.setUserAgent(`${desktopUa.replace(/\bNenovaDesktop\/[\d.]+\b/g, '').trim()} NenovaDesktop/${require('./package.json').version}`);
   webSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   webSession.setPermissionCheckHandler(() => false);
   webSession.webRequest.onBeforeRequest({ urls: [`${ORIGIN}/*`] }, (details, callback) => {

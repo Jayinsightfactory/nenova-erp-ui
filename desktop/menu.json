@@ -448,6 +448,11 @@
         "popup": false
       },
       {
+        "href": "/dev/history",
+        "labelKey": "개발 히스토리",
+        "popup": false
+      },
+      {
         "href": "/demo/tenant-studio",
         "labelKey": "🎨 테넌트 스튜디오",
         "popup": true

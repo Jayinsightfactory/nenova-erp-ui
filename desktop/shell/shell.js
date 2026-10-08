@@ -21,7 +21,7 @@
   function call(action, payload) {
     if (!desktop || typeof desktop.invoke !== 'function') return Promise.reject(new Error('데스크톱 연결을 사용할 수 없습니다.'));
     return desktop.invoke(action, payload).catch((error) => {
-      $('statusMessage').textContent = error && error.message ? error.message : '요청을 처리하지 못했습니다.';
+    $('statusMessage').textContent = error && error.message ? error.message : '요청을 처리하지 못했습니다.';
       throw error;
     });
   }
@@ -231,8 +231,13 @@
     $('connectionIndicator').className = `connection-indicator ${state.online ? 'online' : 'offline'}`;
     $('connectionText').textContent = state.online ? '로그인됨' : '로그인 필요';
     $('syncButton').disabled = state.syncStatus === 'checking';
-    $('syncButton').textContent = state.syncStatus === 'checking' ? '업데이트 확인 중…' : '업데이트 확인';
+    $('syncButton').textContent = state.syncStatus === 'checking' ? '웹 메뉴 확인 중…' : '웹 메뉴 갱신';
     $('syncButton').title = state.webVersion ? `웹 메뉴·기능 확인 (${state.webVersion})` : '로그인 후 최신 웹 메뉴·기능을 확인합니다';
+    const update = state.appUpdate || { phase: 'unavailable', message: '' };
+    $('appUpdateButton').disabled = ['unavailable', 'checking', 'downloading', 'installing'].includes(update.phase);
+    $('appUpdateButton').textContent = update.phase === 'available' ? `앱 ${update.version} 다운로드` : update.phase === 'downloaded' ? '재시작하여 업데이트' : update.phase === 'checking' ? '앱 업데이트 확인 중…' : update.phase === 'downloading' ? `다운로드 ${update.percent}%` : '앱 업데이트 확인';
+    $('cancelUpdateButton').hidden = update.phase !== 'downloading';
+    $('appUpdateStatus').textContent = `앱 ${state.version || ''} · ${update.message || ''}`;
     $('statusMessage').textContent = state.message || (tab?.loading ? '화면을 불러오는 중' : tab?.error ? '화면을 불러오지 못했습니다' : '준비됨');
     $('windowLabel').textContent = `업무 창 ${state.windowId || ''}`;
     $('windowCount').textContent = state.windows.length > 1 ? `열린 창 ${state.windows.length}개` : '';
@@ -249,13 +254,15 @@
   function applyState(next) {
     if (!next || typeof next !== 'object') return;
     const wasMenuOpen = state.menuOpen;
-    for (const key of ['windowId', 'activeId', 'menuOpen', 'toolsOpen', 'online', 'message', 'notice', 'version', 'syncStatus', 'webVersion', 'menuVersion']) if (Object.prototype.hasOwnProperty.call(next, key)) state[key] = next[key];
+    for (const key of ['appUpdate', 'windowId', 'activeId', 'menuOpen', 'toolsOpen', 'online', 'message', 'notice', 'version', 'syncStatus', 'webVersion', 'menuVersion']) if (Object.prototype.hasOwnProperty.call(next, key)) state[key] = next[key];
     for (const key of ['windows', 'tabs', 'favorites', 'menus']) if (Array.isArray(next[key])) state[key] = next[key];
     render();
     if (!wasMenuOpen && state.menuOpen) requestAnimationFrame(() => $('menuSearch').focus());
   }
 
   function wire() {
+    $('appUpdateButton').addEventListener('click', () => run('appUpdate'));
+    $('cancelUpdateButton').addEventListener('click', () => run('cancelUpdate'));
     $('syncButton').addEventListener('click', () => run('sync'));
     $('homeButton').addEventListener('click', () => setMenu(true, true));
     $('menuButton').addEventListener('click', () => setMenu(!state.menuOpen, !state.menuOpen));
