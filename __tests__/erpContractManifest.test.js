@@ -29,6 +29,7 @@ async function main() {
   await import('./pricingMatrixApi.test.js');
   await import('./stockRecalcContract.test.js');
   await import('./shipmentDistributionVerification.test.js');
+  await import('./voucherJournal.test.js');
   const { loadManifests, validateManifest } = await import('../scripts/check-erp-contract-manifest.mjs');
   const manifests = loadManifests();
   assert.ok(manifests.length > 0, '기능 계약 manifest가 하나 이상 있어야 합니다.');
@@ -58,6 +59,10 @@ async function main() {
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'hotel-miu-intake'), '호텔+미우 주문입력 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'shipment-fix-remain-check'), '출고확정 SP 잔량검사 계약이 등록되어야 합니다.');
   assert.ok(manifests.some(({ manifest }) => manifest.id === 'shipment-fix-cancel-gate'), '출고확정취소 다음차수 가드·재고게이트 계약이 등록되어야 합니다.');
+  const voucherContract = manifests.find(({ manifest }) => manifest.id === 'web-voucher')?.manifest;
+  assert.ok(voucherContract, '지출결의서·전표 계약(web-voucher)이 등록되어야 합니다.');
+  assert.ok(voucherContract.actions.every((a) => a.orderDetail === 'preserve' && a.shipmentDetail === 'preserve'), 'web-voucher 는 ERP 테이블을 preserve 해야 합니다.');
+  assert.ok(voucherContract.actions.flatMap((a) => a.writeAllowlist || []).every((t) => /^Web(Account|Voucher|VoucherLine|Journal|JournalLine)$/.test(t)), 'web-voucher 쓰기 대상은 Web* 테이블만이어야 합니다.');
   console.log('ERP contract manifest tests passed');
 }
 
