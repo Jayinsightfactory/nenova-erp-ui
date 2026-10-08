@@ -1,5 +1,7 @@
 # 세션 Q&A 인덱스
 
+- [2026-10-08 인보이스 입고 안전검사](2026-10-08_invoice-receipt-eligibility.md) — dnSpy CheckData 누락 조건 정정, 전후차수 공통 SELECT/API와 격리 SQL 검증. 실제 입고 writer/원가/UI는 미연결·미배포.
+
 - [2026-10-08 인보이스 웹 전용 저장 V1](2026-10-08_invoice-web-storage.md) — 6개 빈 테이블 운영 적용/readback 완료. 격리 SQL 저장·롤백·드리프트 검증, 기존 SP/임시입고 보존. 실제 입고 API 연결과 웹 배포는 별도.
 
 - [2026-10-08 인보이스 통합 입고 실DB 조회](2026-10-08_invoice-receipt-live-sql.md) — 로그인 SSMS SELECT로 SP/스키마 검증. 입고번호 발급 누락·공용 임시입고 소비 위험 확인. 운영 데이터/잠금 변경 없음, 신규 저장 DDL·격리검증 필요.

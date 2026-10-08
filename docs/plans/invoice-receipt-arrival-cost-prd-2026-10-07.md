@@ -347,3 +347,14 @@ EXE·공유 SP·기존 ERP 원장 변경이나 운영 시험 INSERT는 하지 �
 SQL2022 compatibility130 실제 fixture 2회, ERP 회귀, 변경 쓰기 guard, 빌드가 통과했다.
 이 반영은 저장 기반만 준비한 것으로 통합 입고 API/도착원가 UI가 활성화되거나
 웹 애플리케이션 배포가 완료된 것은 아니다. §15의 2~5 조건은 계속 남아 있다.
+
+## 17. 2026-10-08 입고 사전검사 분리
+
+CommonLogic 및 ExcelLoadingPackingList 실제 dnSpy CLI를 재실행했다.
+CheckData의 품종 조회에는 INNER JOIN 후 ProdKey=0 조건이 있어 정상 품목의
+CheckFixSave 호출이 누락될 수 있다. 웹은 이 결함이나 조회예외=0건 처리를 복제하지 않는다.
+의도된 CommonLogic 현재확정/전미확정/후확정 검사를 공통 SELECT 코어와
+`POST /api/import/receipts/eligibility`에 구현했다. 기준과 검증은
+`invoice-receipt-eligibility-v1.md` 및 세션 기록 참조.
+이 API는 commitAvailable=false이며 실제 입고·재고 변경 API가 아니다.
+운영 원장 쓰기/공유 SP/EXE 변경은 없고 §15의 실제 writer·원가·UI 수용조건은 남아 있다.
