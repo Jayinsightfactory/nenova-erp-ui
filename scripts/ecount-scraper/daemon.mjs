@@ -20,7 +20,13 @@ async function waitForLogin(page) {
   let lastClick = 0;
   for (;;) {
     await page.waitForTimeout(3000);
-    if (!isLoginPage(page) && /logincc\.ecount\.com/i.test(page.url())) { console.log(`✅ [${now()}] 로그인 감지됨.`); return; }
+    if (!isLoginPage(page) && /logincc\.ecount\.com/i.test(page.url())) {
+      console.log(`✅ [${now()}] 로그인 감지됨. (URL: ${page.url().slice(0, 120)})`);
+      await page.waitForTimeout(5000);
+      // 진단: 로그인 직후 열린 모든 창(팝업 포함) URL과 화면을 남긴다
+      try { const ps = page.context().pages(); console.log(`   (열린 창 ${ps.length}개: ${ps.map(p => p.url().slice(0, 100)).join(' | ')})`); for (let k = 0; k < ps.length; k++) await ps[k].screenshot({ path: `_downloads/page-${k}.png` }).catch(() => {}); } catch {}
+      return;
+    }
     // 2026-10-08 사장님 지시: 세션이 풀리면 로그인 버튼을 눌러 재개. 브라우저가 회사코드·ID·비밀번호를 이미 채워 둔 경우에만 누르고,
     //   스크레이퍼는 어떤 값도 입력하지 않는다(비어 있으면 사람이 로그인할 때까지 대기). 5분에 1회만 시도.
     if (Date.now() - lastClick > 5 * 60 * 1000) {
@@ -48,6 +54,7 @@ async function cycle(page, base) {
     } catch (e) {
       if (e.message === 'LOGIN_EXPIRED') throw e; // 상위에서 재로그인 처리
       console.error(`  [${ds}] 오류:`, e.message);
+      if (/has been closed|browser.*closed|Target closed/i.test(e.message)) throw e;
     }
   }
 }
@@ -68,9 +75,11 @@ async function cycle(page, base) {
     catch (e) {
       if (e.message === 'LOGIN_EXPIRED') {
         console.log(`\n⚠ [${now()}] 세션 만료 감지 — 재로그인 대기.`);
+        try { console.log(`   (만료 시점 URL: ${page.url()})`); await page.screenshot({ path: '_downloads/expired.png' }); } catch {}
         await waitForLogin(page); base = await ensureBooted(page); continue;
       }
       console.error('사이클 오류:', e.message);
+      if (/has been closed|browser.*closed|Target closed/i.test(e.message)) { console.error('브라우저가 닫혀 데몬을 종료합니다(런처가 재기동).'); process.exit(2); }
     }
     await new Promise(r => setTimeout(r, INTERVAL));
   }

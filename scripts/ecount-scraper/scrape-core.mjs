@@ -37,6 +37,8 @@ export function isLoginPage(page) { return /login\.ecount\.com/i.test(page.url()
 
 // 앱 세션 부팅: 루트로 이동해 쿠키→세션 복원. 성공 시 세션ID 포함된 base URL(해시 제외) 반환, 실패 시 null.
 export async function ensureBooted(page) {
+  // 2026-10-08: 방금 로그인해 이미 /view/erp(세션ID 포함) 에 있으면 새로 goto 하지 않는다 — 세션ID 없는 루트로 다시 가면 로그인으로 튕긴다(base=null 원인).
+  if (page.url().includes('logincc.ecount.com/') && page.url().includes('/view/erp')) { await page.waitForLoadState('networkidle').catch(() => {}); await page.waitForTimeout(2500); if (!isLoginPage(page)) return page.url().split('#')[0]; }
   await page.goto(ERP_ROOT, { waitUntil: 'networkidle' }).catch(() => {});
   await page.waitForTimeout(2500);
   if (isLoginPage(page)) return null;
@@ -83,15 +85,17 @@ export async function collectOne(page, base, ds) {
   // 세션ID 유지: base(세션query 포함) + 정확한 메뉴 해시로 앱내 이동. full goto 로 딥링크 접속 금지.
   await page.goto(base + def.hash, { waitUntil: 'networkidle' }).catch(() => {});
   await page.waitForTimeout(2800);
-  if (isLoginPage(page)) throw new Error('LOGIN_EXPIRED');
+  if (isLoginPage(page)) { console.log(`   (collectOne ${ds}: base=${String(base).slice(0, 90)} → ${page.url().slice(0, 120)})`); throw new Error('LOGIN_EXPIRED'); }
   if (def.form) { await page.keyboard.press('F8').catch(() => {}); await page.waitForTimeout(3000); }
   const dlP = page.waitForEvent('download', { timeout: ds === 'sales' ? 60000 : 15000 }).catch(() => null);
   let clicked = false;
+  for (let attempt = 0; attempt < 2 && !clicked; attempt++) { if (attempt) await page.waitForTimeout(5000); // 2026-10-08: 그리드 로딩 지연·공지 팝업으로 Excel 버튼이 늦게 보이는 경우 1회 재시도
   for (const f of [page, ...page.frames()]) {
     for (const loc of [f.getByRole?.('button', { name: /^Excel$/i }), f.locator?.('button:has-text("Excel")'), f.locator?.('a:has-text("Excel")'), f.locator?.('text=Excel')]) {
       try { if (loc && await loc.first().isVisible({ timeout: 700 })) { await loc.first().click({ timeout: 1500 }); clicked = true; break; } } catch {}
     }
     if (clicked) break;
+  }
   }
   if (!clicked) throw new Error('Excel 버튼 못 찾음');
   const dl = await dlP;
