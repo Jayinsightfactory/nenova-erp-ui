@@ -147,7 +147,8 @@ test('automatic receipt progress is scope-locked and never commits or approves c
   assert.match(auto, /assertReceiptScope\(returned, target\.document, returned\.revision\)/);
   assert.match(auto, /sameRevision && result\.preview/);
   assert.match(auto, /Number\(returned\.revision\) > 0/);
-  assert.match(auto, /result\.stage === 'draft'.*\['UNKNOWN', 'FAILED'\]/s);
+  assert.match(auto, /result\.stage === 'draft' && result\.status === 'UNKNOWN'/);
+  assert.doesNotMatch(auto, /result\.stage === 'draft' && result\.status === 'FAILED'/);
   assert.doesNotMatch(auto, /commitReceipt\(|submitReceiptCommit\(|cost-revisions/);
   assert.match(source, /event\.documentId !== documentId/);
   assert.match(source, /event\.revision/);
@@ -174,6 +175,15 @@ test('automatic receipt progress is scope-locked and never commits or approves c
   assert.match(workflowSource, /draftSaveAttempted/);
 });
 
+test('definite automatic draft rejection stays editable; manual-save recovery lock is unknown-only', () => {
+  const auto = source.slice(source.indexOf('async function runAutomaticPreparation'), source.indexOf('async function readDocument'));
+  const manualSave = source.slice(source.indexOf('async function saveDraft()'), source.indexOf('function installSavedDocument'));
+  assert.match(auto, /if \(result\.stage === 'draft' && result\.status === 'UNKNOWN'\)[\s\S]*?recoveryRequired: true/);
+  assert.doesNotMatch(auto, /\['UNKNOWN', 'FAILED'\]/);
+  assert.match(manualSave, /if \(error\.resultUnknown \|\| !error\.httpStatus \|\| error\.httpStatus >= 500\)[\s\S]*?recoveryRequired: true/);
+  assert.match(manualSave, /setManualStage\(selected\.document\.documentId, 'draft', error\.resultUnknown \|\| !error\.httpStatus \|\| error\.httpStatus >= 500 \? 'unknown' : 'failed'/);
+});
+
 test('stage cards expose all independent workflow boundaries and cost stays gated on receipt readback', () => {
   for (const id of ['conversion', 'draft', 'validation', 'receipt', 'receiptVerify', 'cost', 'costSave', 'costVerify']) {
     assert.ok(source.includes(`'${id}'`), `missing stage ${id}`);
@@ -187,6 +197,7 @@ test('stage cards expose all independent workflow boundaries and cost stays gate
 
 test('packing conversion mismatch requires per-row quantity review and preserves unrelated source warnings', () => {
   assert.match(source, /sourceEvidence\?\.conversionValidation\?\.status === 'MISMATCH'/);
+  assert.match(source, /line\.reviewed\?\.conversionConfirmed !== true \|\| line\.reviewed\?\.confirmed !== true/);
   assert.match(source, /difference\.sourceValue/);
   assert.match(source, /difference\.generatedValue/);
   assert.match(source, /입고 \$\{quantityLabel\} 직접 입력/);

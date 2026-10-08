@@ -29,7 +29,7 @@ function conversionMismatchLines(document) {
 }
 
 function unresolvedConversionMismatchLines(document) {
-  return conversionMismatchLines(document).filter(line => line.reviewed?.conversionConfirmed !== true);
+  return conversionMismatchLines(document).filter(line => line.reviewed?.conversionConfirmed !== true || line.reviewed?.confirmed !== true);
 }
 
 function conversionWarnings(document) {
@@ -600,7 +600,7 @@ export default function InvoiceReceiptWorkbench({
               } : item));
           }
         }
-        if (result.stage === 'draft' && ['UNKNOWN', 'FAILED'].includes(result.status)) {
+        if (result.stage === 'draft' && result.status === 'UNKNOWN') {
           setRecords(current => current.map(item => item.document.documentId === documentId
             ? { ...item, recoveryRequired: true } : item));
         }

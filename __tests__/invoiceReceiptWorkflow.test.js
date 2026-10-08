@@ -31,6 +31,16 @@ test('readback must match the expected operation and every warehouse key', () =>
   assert.throws(() => verifyReceiptDocument(document));
 });
 
+test('saved amendment validates its current revision instead of re-reading the prior committed revision', async () => {
+  const document = committed();
+  document.revision = 2;
+  const ctx = context({ document, dirty: false });
+  const result = await runReceiptPreparation(ctx);
+  assert.deepEqual(ctx.calls, ['preview']);
+  assert.equal(result.status, 'WAITING_CONFIRMATION');
+  assert.equal(result.document.revision, 2);
+});
+
 test('all eight existing country paths stop at explicit receipt confirmation; zero preserved', async () => {
   for (const country of ['NL','CN','CO','EC','TH','AU','US','VN']) {
     const document = base(); document.reviewedMetadata.country = country;

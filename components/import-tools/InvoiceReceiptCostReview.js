@@ -454,11 +454,10 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       if (result.ok) {
         writePending(capturedDocument, null);
         if (current()) { setPending(null); setNotice({ type: 'success', text: '현재 문서·revision의 승인 실제 원가를 재조회했습니다.' }); }
-      } else if (result.saved === false) {
-        writePending(capturedDocument, null);
-        if (current()) { setPending(null); setNotice({ type: 'error', text: result.message }); }
       } else {
-        if (current()) setNotice({ type: 'error', text: result.message || '같은 원가 저장 요청을 확인하지 못했습니다. 기존 요청을 보존했습니다.' });
+        // A rejection of this recovery attempt (including expired login) does
+        // not prove that the original, response-lost POST never committed.
+        if (current()) setNotice({ type: 'error', text: `${result.message || '같은 원가 저장 요청을 확인하지 못했습니다.'} 최초 요청의 결과가 확인되지 않아 기존 요청을 보존했습니다.` });
       }
     } catch (error) { if (current()) setNotice({ type: 'error', text: error.message }); }
     finally {

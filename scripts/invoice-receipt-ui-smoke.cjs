@@ -314,7 +314,7 @@ async function run() {
   const executablePath = chromeCandidates.find(candidate => fs.existsSync(candidate));
   if (!executablePath) throw new Error('Chrome executable not found. Set CHROME_PATH.');
 
-  const observed = { api: [], writes: [], blockedExternal: [], unexpectedApi: [], previews: 0, costReads: 0 };
+  const observed = { api: [], writes: [], blockedExternal: [], unexpectedApi: [], previews: 0, costReads: 0, rejectCostRecovery: false };
   logStage('browser-launch');
   const browser = await puppeteer.launch({ executablePath, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   let page;
@@ -351,6 +351,7 @@ async function run() {
       if (url.pathname === `/api/import/receipts/${COMMITTED_ID}` && method === 'GET') return json(request, { success: true, document: committed });
       if (url.pathname === `/api/import/receipts/${DRAFT_ID}` && method === 'PATCH') return json(request, { success: false, code: 'SMOKE_SAVE_FAILED', error: 'SMOKE_SAVE_FAILED' }, 500);
       if (url.pathname === `/api/import/receipts/${COMMITTED_ID}/cost-revisions` && method === 'POST') {
+        if (observed.rejectCostRecovery) return json(request, { success: false, error: 'FIXTURE_LOGIN_EXPIRED' }, 401);
         committed.costStatus = 'APPROVED';
         return json(request, { success: true, cost: { savedCostRevisionIds: [COST_ID] } });
       }
@@ -484,12 +485,23 @@ async function run() {
     await replaceInput(page, 'input[aria-label="1행 단"]', '19');
     assert.equal(await page.$eval(confirmationSelector, input => input.checked), false, 'quantity edits invalidate prior difference review');
 
+    logStage('unknown-cost-recovery-auth-rejection-preserves-original');
+    const pendingKey = `nenova:invoice-cost-pending:${COMMITTED_ID}:4`;
+    const pendingCost = { kind: 'post', warehouseKey: 78001, request: { revision: 4, input: { fixture: 'exact-original' }, reason: 'lost response fixture' } };
+    await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), { key: pendingKey, value: pendingCost });
+    observed.rejectCostRecovery = true;
+    await clickButtonWithin(page, '[aria-label="같은 연도 차수 저장 문서"]', 'SMOKE-COMMITTED', { contains: true });
+    await clickButton(page, '동일한 원가 요청 재시도');
+    await waitForText(page, '최초 요청의 결과가 확인되지 않아 기존 요청을 보존했습니다.');
+    assert.deepEqual(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), pendingKey), pendingCost);
+    assert.equal(await page.$eval('[aria-label="인보이스 도착원가 검토"] fieldset', fieldset => fieldset.disabled), true);
+
     assert.equal(serverApiHits, 0, 'no API request may reach the local fixture server');
     assert.deepEqual(observed.unexpectedApi, []);
     assert.deepEqual(observed.blockedExternal, []);
     const mutations = observed.writes.filter(item => !item.path.endsWith('/preview'));
     assert.equal(observed.writes.filter(item => item.path.endsWith('/preview') && item.method === 'POST').length, 2, 'exactly two read-only previews are expected');
-    assert.equal(mutations.length, 2, 'only the failed mocked draft PATCH and explicit mocked cost approval are expected');
+    assert.equal(mutations.length, 3, 'only mocked draft PATCH, explicit cost approval, and exact pending recovery are expected');
     assert.equal(mutations[0].method, 'PATCH');
     assert.equal(pageErrors.length, 0, `browser errors: ${pageErrors.join(' | ')}`);
     logStage('complete');

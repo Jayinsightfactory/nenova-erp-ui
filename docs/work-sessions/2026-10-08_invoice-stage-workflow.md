@@ -50,6 +50,13 @@
 - `npm run build`, ERP write guard(API변경0), contract manifest92개, dnSpy evidence guard 통과. 최종 검토/후속 수정 시 해당 검증을 다시 실행한다.
 - 설계·ERP 부작용 검토와 bounded UI 구현/테스트를 분리 위임했으며 운영 쓰기·병합·배포는 메인 작업만 담당한다.
 
+### 2. 최종 안전 검토 보완
+
+- 확정4xx 거절은 수정 가능하게 유지하고 응답 불명 UNKNOWN만 초안 재조회 잠금으로 구분했다.
+- 서버 문서가 COMMITTED여도 현재 revision operation이 없고 이전 revision만 있으면 저장된 수정 초안이다. 이때 기존 입고 재조회 루프가 아니라 현재 revision preview 및 명시 수정 승인을 진행한다.
+- unknown 원가 요청의 재시도가 로그인 만료 등으로 거절되어도 최초 요청의 미저장이 증명되지 않는다. 정확한 원래 pending을 보존한다. 브라우저401 fixture에서 요청 유지·폼 잠금 확인.
+- PR #977: 독립 단계 검증. 최종 배포 완료 여부는 후속 배포 기록으로 확인한다.
+
 ## 다음 작업 이어받기
 
 `docs/work-sessions/INDEX.md`, 이 문서 및 단계별 계획/계약을 먼저 읽는다. 변환 성공·입고 저장 성공·원가 저장 성공을 혼동하지 말고 각 서버 readback 근거를 확인한다. 운영 데이터의 테스트 등록은 하지 않는다.
