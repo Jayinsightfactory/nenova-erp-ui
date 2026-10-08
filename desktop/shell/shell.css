@@ -35,3 +35,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 
 .app-update-panel { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:0 0 20px; }
 .app-update-panel [role="status"] { color:#486282; font-size:13px; overflow-wrap:anywhere; }
+
+.menu-row { display:flex; align-items:center; gap:4px; min-width:0; }
+.menu-row .menu-item { flex:1; min-width:0; }
+.menu-favorite { flex:0 0 34px; height:34px; border:1px solid #dce6f0; border-radius:5px; background:#fff; color:#71849b; font-size:21px; line-height:1; }
+.menu-favorite[aria-pressed="true"] { color:#b57600; background:#fff4d6; border-color:#e5bb58; }
+.menu-favorite:hover { border-color:#6a9bd0; }

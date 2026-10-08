@@ -389,3 +389,5 @@
 - [최신 입고 차수 기본 선택, 중국 수량 중앙정렬 및 박스번호 엑셀 제외](2026-10-07_volume-board-inbound-default.md): 진행 중
 
 - [2026-10-08 PC 앱 내부 업데이트](2026-10-08_desktop-in-app-update.md)
+
+- [2026-10-08 웹·PC 메뉴별 즐겨찾기](2026-10-08_menu-favorite-toggles.md)

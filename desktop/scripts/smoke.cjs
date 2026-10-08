@@ -223,6 +223,22 @@ async function run() {
   assert.equal(refreshedState.menuVersion, 'b'.repeat(64));
   assert.equal(refreshedState.webVersion, 'web-2');
   assert.ok(refreshedState.menus[0].items.some(item => item.href === '/test/new-route' && item.labelKey === 'newRoute'));
+  main.command(sourceWindow, 'menu', { open: true });
+  await waitFor(() => shellContents.executeJavaScript("Boolean(document.querySelector('[data-menu-favorite=\"/test/new-route\"]'))"), 'new menu has a favorite toggle');
+  await shellContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  const tabIdsBeforeFavorite = [...main.tabs.keys()];
+  sourceWindow.win.focus(); shellContents.focus();
+  await shellContents.executeJavaScript("document.querySelector('[data-menu-favorite=\"/test/new-route\"]').focus()");
+  shellContents.sendInputEvent({type:'keyDown',keyCode:'Enter'}); shellContents.sendInputEvent({type:'char',keyCode:'\r'}); shellContents.sendInputEvent({type:'keyUp',keyCode:'Enter'});
+  await waitFor(() => main.snapshot().favorites.some(f => new URL(f.url).pathname === '/test/new-route'), 'Enter adds unopened menu to favorites');
+  assert.deepEqual([...main.tabs.keys()],tabIdsBeforeFavorite,'favoriting does not open a tab');
+  await waitFor(() => shellContents.executeJavaScript("document.activeElement?.dataset.menuFavorite === '/test/new-route' && document.activeElement.getAttribute('aria-pressed') === 'true'"),'favorite toggle preserves focus and selected state');
+  shellContents.sendInputEvent({type:'keyDown',keyCode:'Space'}); shellContents.sendInputEvent({type:'keyUp',keyCode:'Space'});
+  await waitFor(() => !main.snapshot().favorites.some(f => new URL(f.url).pathname === '/test/new-route'),'Space removes menu favorite');
+  const unchangedFavorites = main.snapshot().favorites;
+  main.command(sourceWindow,'menuFavorite',{href:'https://evil.test/'});
+  assert.deepEqual(main.snapshot().favorites,unchangedFavorites,'unknown menu cannot create a favorite');
+
   assert.ok(fixtureRequests.filter(request => request.pathname === '/api/desktop/bootstrap').length > bootstrapRequestCount, 'explicit verification refetches bootstrap');
   assert.equal(fixtureRequests.filter(request => request.pathname === '/test/fixture').length, firstPageRequestCount, 'bootstrap refresh does not reload the business page');
   assert.equal([...main.tabs.values()].find(tab => tab.id === first.id).view.webContents.id, firstContents.id, 'bootstrap refresh preserves the same WebContents');
