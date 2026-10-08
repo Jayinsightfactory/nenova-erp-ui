@@ -57,6 +57,27 @@ test('timeline search/filter/date bounds and pagination keep full reachable hist
   assert.ok(first.timeline[0].date >= first.timeline.at(-1).date);
 });
 
+test('order is whitelisted, applied before pagination, and page clamps after filtering', () => {
+  const snapshot = buildSnapshot({ current: Array.from({ length: 121 }, (_, i) => rec(i + 1, ['pages/alpha.js'], i === 0 ? [] : [h(i)])), menus });
+  const newest = querySnapshot(snapshot, { limit: 50 });
+  const oldest = querySnapshot(snapshot, { limit: 50, order: 'oldest' });
+  assert.equal(newest.order, 'newest');
+  assert.equal(querySnapshot(snapshot, { order: 'reverse' }).order, 'newest');
+  assert.equal(oldest.order, 'oldest');
+  assert.ok(newest.timeline[0].date >= newest.timeline.at(-1).date);
+  assert.ok(oldest.timeline[0].date <= oldest.timeline.at(-1).date);
+  const oldestLast = querySnapshot(snapshot, { limit: 50, order: 'oldest', page: 3 });
+  assert.equal(oldestLast.timeline.length, 21);
+  assert.equal(new Set([...oldest.timeline, ...querySnapshot(snapshot, { limit: 50, order: 'oldest', page: 2 }).timeline, ...oldestLast.timeline].map(item => item.id)).size, 121);
+  const filtered = querySnapshot(snapshot, { q: 'change 12', order: 'oldest', page: 999, limit: 2 });
+  assert.equal(filtered.page, filtered.totalPages);
+  assert.ok(filtered.timeline.length > 0);
+  const empty = querySnapshot(snapshot, { q: 'never-matches', page: 999 });
+  assert.equal(empty.totalPages, 1);
+  assert.equal(empty.page, 1);
+  assert.deepEqual(empty.timeline, []);
+});
+
 test('date filtering spans calendar years and UI exposes metadata, disclosure, keyboard, and responsive behavior', () => {
   const snapshot = buildSnapshot({ current: [
     { ...rec(1, ['pages/alpha.js'], []), date: '2025-12-31T14:30:00Z', committedAt: '2025-12-31T14:30:00Z' },
@@ -78,6 +99,9 @@ test('date filtering spans calendar years and UI exposes metadata, disclosure, k
   assert.match(ui, /evidenceLabels\[item\.typeEvidence\]/);
   assert.match(ui, /item\.projectIds\.map\(id => projectLabels\[id\]/);
   assert.match(ui, /AbortController/);
+  for (const marker of ['최신순', '오래된순', "pagination('상단')", "pagination('하단')", '맨 처음', '맨 끝', 'inputMode="numeric"', 'aria-invalid={!!pageError}']) assert.ok(ui.includes(marker), `Navigation marker missing: ${marker}`);
+  assert.match(ui, /if \(!\/\^\[1-9\]/, 'invalid page must be rejected before navigation');
+  assert.match(ui, /changeFilter\(setQ, event\.target\.value\)/);
   assert.match(ui, /aria-expanded/);
   assert.match(ui, /onKeyDown/);
   assert.match(ui, /Escape/);
@@ -214,6 +238,7 @@ test('runtime API is authenticated read-only snapshot GET and never runs Git/SQL
   assert.match(api, /withAuth/);
   assert.match(api, /GET/);
   assert.match(api, /private, no-store/);
+  assert.match(api, /'order'/);
   assert.doesNotMatch(api, /child_process|execSync|execFileSync|query\s*\(|INSERT|UPDATE|DELETE FROM|lib\/db/);
   for (const key of ['q', 'source', 'project', 'type', 'workType', 'from', 'to', 'menu', 'page', 'limit']) assert.match(api, new RegExp(`['\"]${key}['\"]`), `API should forward ${key} filter`);
   const page = fs.readFileSync('pages/dev/history.js', 'utf8');

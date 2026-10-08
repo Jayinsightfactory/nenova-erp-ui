@@ -8,7 +8,7 @@ export default withAuth(function handler(req, res) {
   res.setHeader('Allow', 'GET');
   if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET만 지원합니다.' });
   const query = {};
-  for (const key of ['q', 'source', 'project', 'type', 'workType', 'menu', 'from', 'to', 'page', 'limit']) {
+  for (const key of ['q', 'source', 'project', 'type', 'workType', 'menu', 'from', 'to', 'page', 'limit', 'order']) {
     const value = req.query?.[key];
     if (typeof value === 'string') query[key] = value;
   }

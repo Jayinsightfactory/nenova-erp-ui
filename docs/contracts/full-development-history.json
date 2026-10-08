@@ -11,6 +11,12 @@
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "sourceIdentity": ["source repository", "full commit hash"],
+  "navigation": {
+    "order": ["newest", "oldest"],
+    "defaultOrder": "newest",
+    "pageSize": 50,
+    "pageBounds": "The read-only API clamps a requested page to 1..max(1, totalPages) after filtering and sorting; the UI accepts only a safe integer in that range."
+  },
   "actions": [
     {
       "name": "FULL_DEVELOPMENT_HISTORY_READ",

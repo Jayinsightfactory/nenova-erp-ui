@@ -21,7 +21,10 @@ export default function FullDevelopmentHistory() {
   const [submittedQ, setSubmittedQ] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [order, setOrder] = useState('newest');
   const [page, setPage] = useState(1);
+  const [pageDraft, setPageDraft] = useState('1');
+  const [pageError, setPageError] = useState('');
   const [revision, setRevision] = useState(0);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,41 +33,80 @@ export default function FullDevelopmentHistory() {
   const searchRef = useRef(null);
   const cardRefs = useRef([]);
   const tabRefs = useRef([]);
+  const canonicalRequestRef = useRef('');
 
   useEffect(() => { const id = setTimeout(() => setSubmittedQ(q.trim()), 250); return () => clearTimeout(id); }, [q]);
   useEffect(() => {
     if (project === 'nenovaweb') { setLoading(false); setError(''); return undefined; }
     const controller = new AbortController();
-    const params = new URLSearchParams({ project, source, type, workType, page: String(page), limit: String(PAGE_SIZE) });
+    const params = new URLSearchParams({ project, source, type, workType, order, page: String(page), limit: String(PAGE_SIZE) });
     if (submittedQ) params.set('q', submittedQ);
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    if (canonicalRequestRef.current === params.toString()) { canonicalRequestRef.current = ''; return undefined; }
     setLoading(true); setError('');
     fetch(`${API}?${params}`, { signal: controller.signal })
       .then(async response => { const body = await response.json(); if (!response.ok || body.success === false) throw new Error(body.error || '이력을 불러오지 못했습니다.'); return body; })
-      .then(body => { setData(body); setLoading(false); })
+      .then(body => {
+        setData(body); setLoading(false);
+        if (body.page !== page) {
+          const canonicalParams = new URLSearchParams(params);
+          canonicalParams.set('page', String(body.page));
+          canonicalRequestRef.current = canonicalParams.toString();
+          setPage(body.page);
+        }
+      })
       .catch(reason => { if (reason.name === 'AbortError') return; setError(reason.message || '이력을 불러오지 못했습니다.'); setLoading(false); });
     return () => controller.abort();
-  }, [project, source, type, workType, submittedQ, from, to, page, revision]);
+  }, [project, source, type, workType, order, submittedQ, from, to, page, revision]);
+
+  useEffect(() => { setPageDraft(String(page)); setPageError(''); }, [page]);
 
   const reset = useCallback(() => {
-    setProject('all'); setSource('all'); setType('all'); setWorkType('all'); setQ(''); setSubmittedQ(''); setFrom(''); setTo(''); setPage(1); setExpanded({}); searchRef.current?.focus();
+    setProject('all'); setSource('all'); setType('all'); setWorkType('all'); setOrder('newest'); setQ(''); setSubmittedQ(''); setFrom(''); setTo(''); setPage(1); setPageDraft('1'); setPageError(''); setExpanded({}); searchRef.current?.focus();
   }, []);
   useEffect(() => {
-    const onBack = event => { if (Object.values(expanded).some(Boolean)) { event.preventDefault(); setExpanded({}); return; } if (project === 'all' && source === 'all' && type === 'all' && workType === 'all' && !q && !from && !to && page === 1) return; event.preventDefault(); reset(); };
+    const onBack = event => { if (Object.values(expanded).some(Boolean)) { event.preventDefault(); setExpanded({}); return; } if (project === 'all' && source === 'all' && type === 'all' && workType === 'all' && order === 'newest' && !q && !from && !to && page === 1) return; event.preventDefault(); reset(); };
     const onEscape = event => {
       if (event.key !== 'Escape') return;
       const open = Object.keys(expanded).find(key => expanded[key]);
       if (open) { setExpanded({}); cardRefs.current.find(node => node?.dataset?.cardId === open)?.focus(); return; }
-      if (project !== 'all' || source !== 'all' || type !== 'all' || workType !== 'all' || q || from || to || page !== 1) reset();
+      if (project !== 'all' || source !== 'all' || type !== 'all' || workType !== 'all' || order !== 'newest' || q || from || to || page !== 1) reset();
     };
     window.addEventListener('nenova:menu-back-request', onBack); window.addEventListener('keydown', onEscape);
     return () => { window.removeEventListener('nenova:menu-back-request', onBack); window.removeEventListener('keydown', onEscape); };
-  }, [project, source, type, workType, q, from, to, page, expanded, reset]);
+  }, [project, source, type, workType, order, q, from, to, page, expanded, reset]);
 
   const timeline = data?.timeline || [];
   const totalPages = Math.max(1, data?.totalPages || 1);
-  function changeFilter(setter, value) { setter(value); setPage(1); setExpanded({}); }
+  function changeFilter(setter, value) { setter(value); setPage(1); setPageDraft('1'); setPageError(''); setExpanded({}); }
+  function navigate(target) { if (loading || target === page || target < 1 || target > totalPages) return; setPage(target); setExpanded({}); setPageError(''); }
+  function submitPage(event) {
+    event.preventDefault();
+    if (!/^[1-9]\d*$/.test(pageDraft) || !Number.isSafeInteger(Number(pageDraft)) || Number(pageDraft) > totalPages) {
+      setPageError(`1부터 ${totalPages}까지의 페이지 번호를 입력해 주세요.`);
+      return;
+    }
+    navigate(Number(pageDraft));
+    setPageDraft(String(Number(pageDraft)));
+    setPageError('');
+  }
+  function pagination(position) {
+    if (totalPages <= 1) return null;
+    return <nav className={styles.pagination} aria-label={`이력 페이지 이동 (${position})`}>
+      <button type="button" disabled={loading || page <= 1} onClick={() => navigate(1)}>맨 처음</button>
+      <button type="button" disabled={loading || page <= 1} onClick={() => navigate(page - 1)}>이전</button>
+      <form onSubmit={submitPage} className={styles.pageForm}>
+        <label htmlFor={`history-page-${position}`}>페이지</label>
+        <input id={`history-page-${position}`} type="text" inputMode="numeric" value={pageDraft} onChange={event => { setPageDraft(event.target.value); setPageError(''); }} disabled={loading} aria-invalid={!!pageError} aria-describedby={pageError ? `history-page-error-${position}` : undefined} />
+        <span>/ {totalPages}</span>
+        <button type="submit" disabled={loading}>이동</button>
+      </form>
+      <button type="button" disabled={loading || page >= totalPages} onClick={() => navigate(page + 1)}>다음</button>
+      <button type="button" disabled={loading || page >= totalPages} onClick={() => navigate(totalPages)}>맨 끝</button>
+      {pageError && <span id={`history-page-error-${position}`} className={styles.pageError} role="alert">{pageError}</span>}
+    </nav>;
+  }
   function moveFocus(event, index, refs, count) {
     if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || !count) return;
     event.preventDefault();
@@ -81,10 +123,11 @@ export default function FullDevelopmentHistory() {
     <div className={styles.tabs} role="group" aria-label="프로젝트 선택">{projectOptions.map(([id, label], index) => <button key={id} ref={node => { tabRefs.current[index] = node; }} type="button" aria-pressed={project === id} onKeyDown={event => moveFocus(event, index, tabRefs, projectOptions.length)} onClick={() => changeFilter(setProject, id)}>{label}</button>)}</div>
     {project === 'nenovaweb' ? <div className={styles.state}>Nenovaweb의 개발 기록 원본은 아직 확인되지 않았습니다. 기록이 0건이라는 뜻은 아닙니다.</div> : <>
       <div className={styles.filters}>
-        <label className={styles.search}><span>검색 · 원본 기록 제목/공개 가능한 파일 경로</span><input ref={searchRef} type="search" value={q} placeholder="원본 기록 제목이나 파일 경로" onChange={event => { setQ(event.target.value); setPage(1); }} /></label>
+        <label className={styles.search}><span>검색 · 원본 기록 제목/공개 가능한 파일 경로</span><input ref={searchRef} type="search" value={q} placeholder="원본 기록 제목이나 파일 경로" onChange={event => changeFilter(setQ, event.target.value)} /></label>
         <label><span>개발 프로젝트</span><select value={source} onChange={event => changeFilter(setSource, event.target.value)}><option value="all">전체 개발 프로젝트</option>{Object.entries(sourceLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
         <label><span>기록 종류</span><select value={type} onChange={event => changeFilter(setType, event.target.value)}><option value="all">전체</option><option value="nonmerge">개별 코드 변경 기록</option><option value="merge">코드 통합 기록</option><option value="summary">작업 메모</option></select></label>
         <label><span>작업 종류</span><select value={workType} onChange={event => changeFilter(setWorkType, event.target.value)}><option value="all">전체 작업 종류</option>{Object.entries(typeLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+        <label><span>정렬</span><select value={order} onChange={event => changeFilter(setOrder, event.target.value)}><option value="newest">최신순</option><option value="oldest">오래된순</option></select></label>
         <label><span>시작일</span><input type="date" value={from} onChange={event => changeFilter(setFrom, event.target.value)} /></label>
         <label><span>종료일</span><input type="date" value={to} onChange={event => changeFilter(setTo, event.target.value)} /></label>
         <button type="button" className={styles.reset} onClick={reset}>조건 초기화</button>
@@ -93,6 +136,7 @@ export default function FullDevelopmentHistory() {
       {error && <div role="alert" className={styles.error}>이력을 불러오지 못했습니다: {error} <button type="button" onClick={() => setRevision(value => value + 1)}>다시 시도</button></div>}
       {loading && <p role="status" className={styles.state}>전체 개발 이력을 불러오는 중입니다…</p>}
       {!loading && !error && <><h2 className={styles.resultHeading}>시간순 이력 <small>조건에 맞는 기록 {number(data?.totalEvents)}건 · 코드 변경 {number(data?.filteredCounts?.commits)}건 / 작업 메모 {number(data?.filteredCounts?.summaries)}건</small></h2>
+        {pagination('상단')}
         {!timeline.length && <p className={styles.state}>조건에 맞는 이력이 없습니다.</p>}
         <ol className={styles.timeline}>{timeline.map((item, index) => <li key={item.id} className={styles.card}>
           <button ref={node => { cardRefs.current[index] = node; }} data-card-id={item.id} className={styles.cardButton} type="button" aria-expanded={!!expanded[item.id]} onKeyDown={event => moveFocus(event, index, cardRefs, timeline.length)} onClick={() => setExpanded(previous => ({ ...previous, [item.id]: !previous[item.id] }))}>
@@ -102,7 +146,7 @@ export default function FullDevelopmentHistory() {
           </button>
           {expanded[item.id] && <div className={styles.details}>{item.kind === 'commit' ? <><p>작업 종류를 판단한 근거: {evidenceLabels[item.typeEvidence] || '분류 근거를 확인하기 어려움'} · 관련 프로젝트: {item.projectIds.map(id => projectLabels[id] || '이름 미확인 프로젝트').join(', ')}</p><p>표시 가능한 파일 경로 {number(item.paths.length)}개 · 개인정보 보호를 위해 숨긴 경로 {number(item.redactedPathCount)}개</p>{item.paths.length > 0 && <ul>{item.paths.map(path => <li key={path}>{path}</li>)}</ul>}{item.menuHrefs.length > 0 && <p>연결 메뉴: {item.menuHrefs.join(', ')}</p>}</> : <p>작업 메모는 문서 제목과 날짜만 표시합니다. 본문은 수집하지 않았습니다.</p>}</div>}
         </li>)}</ol>
-        {totalPages > 1 && <nav className={styles.pagination} aria-label="이력 페이지"><button type="button" disabled={page <= 1} onClick={() => setPage(value => value - 1)}>이전</button><span>{page} / {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage(value => value + 1)}>다음</button></nav>}
+        {pagination('하단')}
       </>}
     </>}
   </section>;
