@@ -26,8 +26,13 @@ const assert = require('assert');
     validateChinaCellAllocation,
     validateChinaPackingDistribution,
     summarizeChinaVolumeTotals,
+    isChinaVolumeRow,
     stepChinaOrderWeek,
   } = await import('../lib/chinaVolumeBoard.js');
+
+  assert.strictEqual(isChinaVolumeRow({ country: '', countryFlower: '중국 수국' }), true, '국가명이 비어도 CountryFlower로 중국 품목을 식별한다');
+  assert.strictEqual(isChinaVolumeRow({ country: 'China', countryFlower: '' }), true, '영문 국가명 China도 식별한다');
+  assert.strictEqual(isChinaVolumeRow({ country: '네덜란드', countryFlower: '수국' }), false, '중국 단서가 없는 타국 품목은 제외한다');
 
   assert.strictEqual(chinaVolumeProductLabel('CHINA / ROSE Diana 50cm'), 'ROSE Diana 50cm');
   assert.strictEqual(chinaVolumeProductLabel('China/ Hydrangea Blue (블루)'), 'Hydrangea Blue (블루)');
@@ -253,10 +258,21 @@ const assert = require('assert');
       '7:71': { quantity: 10, allocations: [{ boxNo: '17', quantity: 10 }] },
     },
   };
+  const countryFlowerOnlyTotals = summarizeChinaVolumeTotals({
+    pivotData: {
+      customers: [{ custKey: 81, custName: '중국 주문업체' }],
+      rows: [
+        { prodKey: 72, country: '', countryFlower: '중국 수국', unit: '박스', ordersByCustKey: { 81: 3 } },
+        { prodKey: 73, country: '네덜란드', countryFlower: '튤립', unit: '박스', ordersByCustKey: { 81: 100 } },
+      ],
+    },
+  });
+  assert.strictEqual(countryFlowerOnlyTotals.pivotTotal, 3, 'CountryFlower만으로 중국인 입고 품목은 포함하고 타국 품목은 제외');
+
   const totals = summarizeChinaVolumeTotals(totalFixture);
   assert.strictEqual(totals.packingTotal, 30, '원장 전체 합계');
   assert.strictEqual(totals.matchedPackingTotal + totals.unmatchedPackingTotal, totals.packingTotal, '원장 합계 = 매칭 + 미매칭');
-  assert.strictEqual(totals.pivotTotal, 28, '피벗 합계는 별도 참고값');
+  assert.strictEqual(totals.pivotTotal, 28, '중국 CounName 기준 합계는 기존 결과를 유지한다');
   assert.strictEqual(totals.allocationTotal, 30, '박스 배정 합계');
   assert.strictEqual(totals.pivotVsPackingDifference, -2, '피벗-패킹 차이는 참고값');
   assert.strictEqual(totals.invoiceMismatches.length, 1, '업로드 검토에는 실제 주문-인보이스 차이만 표시한다');

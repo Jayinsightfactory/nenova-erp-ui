@@ -7,9 +7,11 @@ export default withAuth(async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
   try {
     const result = await query(
-      `SELECT p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.OutUnit
+      `SELECT p.ProdKey, p.ProdName, p.DisplayName, p.FlowerName, p.CounName, p.CountryFlower, p.OutUnit
          FROM Product p
-        WHERE p.isDeleted = 0 AND p.CounName = N'중국'
+        WHERE p.isDeleted = 0
+          AND (p.CounName LIKE N'%중국%' OR p.CounName LIKE N'%China%'
+            OR p.CountryFlower LIKE N'%중국%' OR p.CountryFlower LIKE N'%China%')
         ORDER BY p.FlowerName, p.ProdName, p.ProdKey`
     );
     return res.status(200).json({
@@ -20,6 +22,7 @@ export default withAuth(async function handler(req, res) {
         displayName: row.DisplayName || '',
         flower: row.FlowerName || '',
         country: row.CounName || '',
+        countryFlower: row.CountryFlower || '',
         unit: row.OutUnit || '',
         outOrders: {},
       })),

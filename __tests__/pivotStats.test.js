@@ -19,6 +19,8 @@ async function testInboundWeekScope() {
   const incomingQuery = source.match(/const inResult = await query\(([\s\S]*?)\);\s*\n\s*const stockResult/);
   assert('incoming week query pads legacy one-digit subweeks before comparing', Boolean(incomingQuery?.[1]?.includes("normalizedOrderYearWeekSql('wm')")));
   assert('normalized warehouse key reads year and both OrderWeek components', /CAST\(wm\.OrderYear AS NVARCHAR\(4\)\).*CHARINDEX\('-'.*wm\.OrderWeek/s.test(expr));
+  assert('order and inbound pivot rows both retain CountryFlower for country matching', (source.match(/p\.CountryFlower AS countryFlower/g) || []).length === 2);
+  assert('inbound pivot metadata carries CountryFlower through to the response rows', /countryFlower: r\.countryFlower \|\| ''/.test(source) && /countryFlower: item\?\.countryFlower \|\| meta\.countryFlower \|\| ''/.test(source));
 }
 
 async function main() {
