@@ -38,7 +38,7 @@ test('API 인증 GET/정적 데이터/원장 및 shell 미접근, 생성기는 �
  const script=fs.readFileSync('scripts/generate-menu-development-history.cjs','utf8');assert.match(script,/first-parent/);assert.match(script,/diff-merges=first-parent/);assert.match(script,/execFileSync/);
 });
 test('기존 탭 보존/중복 shell 없음/abort 및 오류 상태',()=>{
- const page=fs.readFileSync('pages/dev/history.js','utf8');assert.match(page,/MenuDevelopmentHistory/);for(const key of ['commits','pending','plans','memory'])assert.ok(page.includes(key));assert.doesNotMatch(page,/import Layout|<Layout/);
+ const page=fs.readFileSync('pages/dev/history.js','utf8');assert.match(page,/MenuDevelopmentHistory/);assert.match(page,/useState\('full'\)/);assert.match(page,/\['full', '전체 개발 이력'\]/);assert.match(page,/\['menu', '메뉴별 기능'\]/);assert.match(page,/\['legacy', '기존 작업 히스토리'\]/);for(const key of ['commits','pending','plans','memory'])assert.ok(page.includes(key));assert.doesNotMatch(page,/import Layout|<Layout/);
  const ui=fs.readFileSync('components/dev/MenuDevelopmentHistory.js','utf8');for(const re of [/AbortController/,/Asia\/Seoul/,/button/,/다시 시도/,/확인 불가/])assert.match(ui,re);
 });
 test('상이한 시간대의 실제 시간 순서 및 안전한 페이지 한도',()=>{
