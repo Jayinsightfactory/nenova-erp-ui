@@ -290,6 +290,7 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const targetSuffix = process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '';
 const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}${targetSuffix}`);
 const source = readFileSync(new URL('../components/WeekdayCycleMatrix.js', import.meta.url), 'utf8');
+assert.doesNotMatch(source, /viewport\.style\.maxHeight|window\.innerHeight/, 'product rows must grow with the document instead of a nested viewport');
 const compiled = transformSync(source + '\nexport { QuantityCell };', false, Buffer.from(JSON.stringify({ filename: 'WeekdayCycleMatrix.js',
   jsc: { target: 'es2020', parser: { syntax: 'ecmascript', jsx: true }, transform: { react: { runtime: 'automatic' } } }, module: { type: 'commonjs' } })));
 const mod = { exports: {} };

@@ -360,6 +360,7 @@
     "npm run build"
   ],
   "displayLayout": {
+    "verticalScroll": "Document scroll owns all product rows and expanded work sections, including popup/child shell. No viewport maxHeight on matrix or nested shell vertical scroller. Horizontal table scrolling and explicit dialogs remain independent.",
     "viewport": {
       "width": 1920,
       "height": 1080,

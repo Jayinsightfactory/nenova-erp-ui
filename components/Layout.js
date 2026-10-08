@@ -285,11 +285,12 @@ export default function Layout({ children, title }) {
 
   // ── 팝업 모드 (?popup=1 이거나, 자식창 자동 접힘 / 사용자 강제 접힘)
   if (isPopup || sidebarSuppressed) {
+    const pageScroll = router.pathname === '/estimate/weekday';
     return (
       <>
         <Head><title>{t(pageTitle)} - nenova ERP</title></Head>
-        <style>{`body { overflow: hidden; }`}</style>
-        <div data-ui-shell="popup" style={{ display:'flex', flexDirection:'column', height:'100vh', background:'var(--bg)' }}>
+        <style>{pageScroll ? `body { overflow-y: auto; }` : `body { overflow: hidden; }`}</style>
+        <div data-ui-shell="popup" style={{ display:'flex', flexDirection:'column', ...(pageScroll ? {minHeight:'100vh'} : {height:'100vh'}), background:'var(--bg)' }}>
           <div style={{
             height:28, background:'linear-gradient(to right,#000080,#1084d0)',
             display:'flex', alignItems:'center', padding:'0 10px',
@@ -323,7 +324,7 @@ export default function Layout({ children, title }) {
               </button>
             </span>
           </div>
-          <div style={{flex:1, overflow:'auto', padding:'6px 8px'}}>
+          <div style={{flex:1, minWidth:0, overflow:pageScroll ? 'visible' : 'auto', padding:'6px 8px'}}>
             {children}
           </div>
         </div>
