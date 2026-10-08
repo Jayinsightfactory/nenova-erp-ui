@@ -440,7 +440,6 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     };
     const updateWidths=()=>{
       frame=null;
-      viewport.style.maxHeight=`${Math.max(240,window.innerHeight-top.getBoundingClientRect().bottom-42)}px`;
       const width=`${table.scrollWidth}px`;
       for(const spacer of [topScrollWidth.current,bottomScrollWidth.current]) {
         if(spacer && spacer.style.width!==width) spacer.style.width=width;
