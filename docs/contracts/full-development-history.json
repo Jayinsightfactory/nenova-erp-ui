@@ -8,6 +8,10 @@
     "components/dev/DevelopmentJourney.js",
     "pages/api/dev/development-journey.js",
     "lib/developmentJourney.cjs",
+    "lib/developmentPurposeStories.cjs",
+    "pages/api/dev/development-stories.js",
+    "components/dev/DevelopmentPurposeStories.js",
+    "config/development-purpose-stories.json",
     "lib/fullDevelopmentHistory.cjs",
     "scripts/generate-full-development-history.cjs",
     "scripts/export-external-development-history.cjs"
@@ -35,7 +39,13 @@
     "required": true,
     "description": "서로 다른 연도·저장소의 커밋과 날짜형 요약 제목을 full hash와 ISO 시각으로 식별한다. ERP 차수·MSSQL 원장을 조회하거나 수정하지 않는다."
   },
-  "requiredTestFiles": ["__tests__/fullDevelopmentHistory.test.js", "__tests__/developmentJourney.test.js"],
+  "requiredTestFiles": ["__tests__/fullDevelopmentHistory.test.js", "__tests__/developmentJourney.test.js", "__tests__/developmentPurposeStories.test.js"],
+  "purposeStories": {
+    "default": "Human-authored Korean purpose, user value and actual controls; raw dates remain alternate",
+    "coverage": "Every safe record assigned exactly once to a grounded purpose or explicit review-pending bucket",
+    "evidence": "Full hashes and local documents validated at build/test, private references omitted from API",
+    "sideEffects": "Authenticated GET static metadata only; zero ERP reads or writes"
+  },
   "journey": {
     "route": "/dev/history?view=journey",
     "coverage": "Same complete sanitized snapshot and selector as full-history, never only its first page",
