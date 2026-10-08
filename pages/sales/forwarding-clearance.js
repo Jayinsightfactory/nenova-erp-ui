@@ -39,7 +39,7 @@ export default function ForwardingClearancePage() {
       <Head><title>🚢 포워딩 입력 - nenova ERP</title></Head>
       <div style={st.page}>
         <div style={st.bar}>
-          <h1 style={st.h1}>🚢 포워딩 입력</h1>
+          <h1 data-desktop-chrome style={st.h1}>🚢 포워딩 입력</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
             <input style={{ ...st.weekInput, width: 70 }} value={year} onChange={e => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} aria-label="연도" />
             <input style={st.weekInput} {...weekInput.props} placeholder="27" />

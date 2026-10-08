@@ -2,6 +2,10 @@
   "id": "import-team-tools",
   "title": "수입부 기존 파일 도구의 웹 통합",
   "scope": [
+    "lib/importPackingErpMatches.js",
+    "pages/api/import/tools/product-matches.js",
+    "components/import-tools/PackingProductMatchDialog.js",
+    "styles/PackingProductMatch.module.css",
     "pages/import/tools.js",
     "pages/api/import/tools/state.js",
     "pages/api/import/tools/parse-pdf.js",
@@ -45,13 +49,20 @@
     "CustKey",
     "ProdKey"
   ],
-  "businessIdentityUse": "File tools and checklist runtime state never query or mutate ERP identities. The feedback tab embeds the existing authenticated farm-quality page and delegates its existing read/write scope unchanged to farm-quality.json; no new SQL or duplicated feedback store.",
+  "businessIdentityUse": "Packing product matching reads active Product identities only; country + source description maps to ProdKey in web runtime with CAS and actor history. No ERP writes. The feedback tab embeds the existing authenticated farm-quality page and delegates its existing read/write scope unchanged to farm-quality.json.",
   "webIdentity": [
     "recordKey",
     "revision",
     "authenticatedUserId"
   ],
   "actions": [
+    {
+      "name": "MATCH_ERP_PRODUCT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "packing.erp-matches; authenticated CAS mapping history; Product SELECT only, no receipt/estimate mutations"
+    },
     {
       "name": "REVIEW_EXTRACTION_EVIDENCE",
       "orderDetail": "preserve",
@@ -85,6 +96,9 @@
     "description": "Checklist YYYY-MM-DD/month/year keys isolate 2025 and 2026; file conversion requires explicit year/week; no SQL master queries."
   },
   "requiredTestFiles": [
+    "__tests__/packingProductMatchDialog.test.js",
+    "__tests__/importPackingErpMatches.test.js",
+    "__tests__/importPackingSourceIdentity.test.js",
     "__tests__/importTeamStore.test.js",
     "__tests__/importTeamTools.test.js",
     "__tests__/importTeamChecklist.test.js",
@@ -109,12 +123,15 @@
   ],
   "dnspyEvidence": {
     "required": true,
-    "record": "docs/exe-golden/FormOrderAdd.md",
-    "source": "Existing verified FormOrderAdd writer is explicitly excluded; this feature uses uploaded files and web runtime records only. See IMPORT_TEAM_TOOLS_PRD.md.",
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "source": "ExcelLoadingPackingList.MakeTempTable/CheckData uses exact Product.ProdName + SIZE and active Product. Packing matching reads Product only and writes web runtime mappings; native receipt/order/stock writers are not invoked.",
     "methods": [
-      "btnSave_Click (not invoked)"
+      "MakeTempTable",
+      "CheckData",
+      "InsertMaster (not invoked)"
     ],
     "tables": [
+      "Product (read only)",
       "OrderMaster (preserve)",
       "OrderDetail (preserve)",
       "ShipmentDetail (preserve)",

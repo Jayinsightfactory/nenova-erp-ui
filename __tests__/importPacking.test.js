@@ -13,6 +13,7 @@ async function main() {
   const prompt = await import('../lib/importPackingPrompt.js');
   const review = await import('../lib/importPackingReview.js');
   const awbFields = await import('../lib/importAwbFields.js');
+  const erpMatchHelpers = await import('../lib/importPackingErpMatches.js');
   const root = path.resolve(__dirname, '..');
   const sourcePath = path.join(root, 'output/import-tool-sources/Packing List Nenova.html');
   // Prepared HTML is ignored by Git. Golden fixtures/hashes run without it in CI.
@@ -220,8 +221,18 @@ async function main() {
       useEffect: (fn, deps) => { const index = effectCursor++; const old = effects[index];
         if (!old || deps.some((d,i) => d !== old.deps[i])) effects[index] = { fn, deps, pending: true }; },
     };
-    let resolveFetch; const fetchCalls = [], extractionCalls = [], sharedWrites = [];
-    const fetchStub = (url, options) => { fetchCalls.push({ url, options }); return new Promise(resolve => { resolveFetch = resolve; }); };
+    let resolveFetch; const fetchCalls = [], erpReads = [], extractionCalls = [], sharedWrites = [];
+    const erpProducts = erpMatchHelpers.packingErpProducts(catalog.items.map((product, index) => ({
+      ProdKey: index + 1, ProdCode: product.code ?? `FIXTURE-${index + 1}`, ProdName: product.name,
+      CounName: erpMatchHelpers.PACKING_COUNTRIES[product.country], FlowerName: product.flowerKr ?? '',
+    })));
+    const fetchStub = (url, options) => {
+      if (url === '/api/import/tools/product-matches' && !options?.method) {
+        erpReads.push({ url, options });
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ success: true, products: erpProducts, value: null, revision: 0 }) });
+      }
+      fetchCalls.push({ url, options }); return new Promise(resolve => { resolveFetch = resolve; });
+    };
     const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI }) {
       extractionCalls.push({ country, pdfBase64, allowAI });
       if (allowAI !== true) return { needsAI: true, reason: 'UNSUPPORTED_LAYOUT' };
@@ -235,7 +246,11 @@ async function main() {
     const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, '../../lib/importPacking.js': packing, '../../lib/importPackingState.js': state,
       '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
       '../../lib/importPackingExtractClient.js': extractionMock, '../../lib/importPackingReview.js': review,
-      './PackingEvidenceReview': { default: 'EvidenceReview', __esModule: true }, 'xlsx-js-style': XLSX };
+      '../../lib/importPackingErpMatches.js': erpMatchHelpers,
+      './PackingResults.js': { default: 'PackingResults', __esModule: true },
+      './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
+      './PackingProductMatchDialog.js': { default: 'PackingProductMatchDialog', __esModule: true },
+      'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
       filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')],
       plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')], configFile: false, babelrc: false,
@@ -254,7 +269,7 @@ async function main() {
     assert.ok(text(hostileNotice).includes('<img src=x onerror=alert(1)>'));
     render(); for (const effect of effects) { if (effect.pending) { effect.pending = false; effect.fn(); } }
     await new Promise(setImmediate);
-    let tree = render(); assert.equal(fetchCalls.length, 0);
+    let tree = render(); assert.equal(fetchCalls.length, 0); assert.equal(erpReads.length, 1);
     assert.ok(text(tree).includes('패킹 리스트 생성기'), 'Korean is the default');
     flatten(tree).find(node => node.type === 'button' && text(node) === 'ES').props.onClick();
     tree = render();

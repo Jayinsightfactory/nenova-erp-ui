@@ -27,7 +27,7 @@ export async function getServerSideProps({ req }) {
 export default function OrbitReportPage({ userId, html }) {
   return (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: '#0e1016' }}>
-      <div style={{
+      <div data-desktop-chrome style={{
         flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 12,
         padding: '8px 14px', background: '#171a21', color: '#e7eaf0', borderBottom: '1px solid #262b35',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif', fontSize: 13,

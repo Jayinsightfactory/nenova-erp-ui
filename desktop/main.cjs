@@ -3,9 +3,10 @@ const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen,
 const fs = require('node:fs');
 const path = require('node:path');
 const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, text } = require('./policy.cjs');
-const menus = require('./menu.json');
+const { parseBootstrap } = require('./bootstrap.cjs');
+let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
-const TOP = 128, BOTTOM = 28;
+function shellInsets(w) { return { top: w.toolsOpen ? 128 : 44, bottom: w.toolsOpen || w.menuOpen ? 28 : 0 }; }
 const windows = new Map(), tabs = new Map(), auxiliary = new Set();
 let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, restoring = false, saved = null, saveTimer, authTimer, authGeneration = 0;
 let webSession;
@@ -18,12 +19,18 @@ app.on('second-instance', () => { const w = [...windows.values()][0]?.win; if (w
 function state(w) {
   return { windowId: w.id, windows: [...windows.values()].map(v => ({ id: v.id, title: `업무 창 ${v.id}` })),
     tabs: w.ids.map(id => tabs.get(id)).filter(Boolean).map(t => ({ id: t.id, title: locked && new URL(t.url).pathname !== '/login' ? '로그인 대기' : t.title, url: locked ? '' : t.url, loading: t.loading, error: t.error, zoom: t.zoom })),
-    activeId: w.activeId, menuOpen: w.menuOpen, favorites: locked ? [] : favorites, menus, version: app.getVersion(), online: !locked,
+    activeId: w.activeId, menuOpen: w.menuOpen, toolsOpen: w.toolsOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus, version: app.getVersion(), online: !locked,
+    syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || '',
     message: w.message || (locked ? '로그인이 필요합니다. 업무 화면에서 로그인해 주세요.' : '탭 이동은 작업을 유지합니다 · 종료 전 업무 내용을 저장해 주세요.') };
 }
 function broadcast() {
   for (const w of windows.values()) if (!w.win.isDestroyed()) w.win.webContents.send('desktop:state', state(w));
   if (!restoring && !quitting && actor && !locked) { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 500); }
+}
+function reportFailure(w, message) {
+  if (!w) return;
+  w.message = message;
+  w.notice = w.toolsOpen ? '' : message;
 }
 function snapshot() {
   return safeSnapshot({ actor, favorites, windows: [...windows.values()].map(w => ({ bounds: w.win.getNormalBounds(), maximized: w.win.isMaximized(), active: w.ids.indexOf(w.activeId), tabs: w.ids.map(id => tabs.get(id)) })) });
@@ -32,7 +39,12 @@ function statePath() { return path.join(app.getPath('userData'), 'workspace.encr
 function persist(value = snapshot()) {
   if (!safeStorage.isEncryptionAvailable() || !value.actor) return;
   try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.writeFileSync(statePath() + '.tmp', safeStorage.encryptString(JSON.stringify(value))); fs.renameSync(statePath() + '.tmp', statePath()); }
-  catch { for (const w of windows.values()) w.message = '창 구성 저장에 실패했습니다. 디스크 여유 공간을 확인해 주세요.'; }
+  catch {
+    for (const w of windows.values()) {
+      reportFailure(w, '창 구성 저장에 실패했습니다. 디스크 여유 공간을 확인해 주세요.');
+      if (!w.win.isDestroyed()) w.win.webContents.send('desktop:state', state(w));
+    }
+  }
 }
 function readSaved() {
   try { if (!safeStorage.isEncryptionAvailable() || fs.statSync(statePath()).size > 1024 * 1024) return null; return safeSnapshot(JSON.parse(safeStorage.decryptString(fs.readFileSync(statePath())))); } catch { return null; }
@@ -40,11 +52,20 @@ function readSaved() {
 function layout(w) {
   if (w.win.isDestroyed()) return;
   const [width, height] = w.win.getContentSize();
+  const { top, bottom } = shellInsets(w);
   for (const id of w.ids) {
     const t = tabs.get(id); if (!t) continue;
-    t.view.setBounds({ x: 0, y: TOP, width, height: Math.max(1, height - TOP - BOTTOM) });
+    t.view.setBounds({ x: 0, y: top, width, height: Math.max(1, height - top - bottom) });
     t.view.setVisible(!w.menuOpen && id === w.activeId && (!locked || new URL(t.url).pathname === '/login'));
   }
+}
+function syncRemoteTools(t) {
+  const wc = t?.view?.webContents;
+  if (!wc || wc.isDestroyed()) return;
+  const w = windows.get(t.windowId);
+  if (!w) return;
+  const value = w.toolsOpen ? 'open' : 'closed';
+  wc.executeJavaScript(`document.documentElement.dataset.nenovaDesktopTools = ${JSON.stringify(value)}`).catch(() => {});
 }
 function boundsOnScreen(bounds) {
   const displays = screen.getAllDisplays();
@@ -55,9 +76,9 @@ function boundsOnScreen(bounds) {
 }
 function createWindow(config = {}) {
   const id = String(nextId++);
-  const win = new BrowserWindow({ ...boundsOnScreen(config.bounds), minWidth: 800, minHeight: 600, title: '네노바 업무', icon: path.join(__dirname, 'assets', 'icon.png'), backgroundColor: '#eef3fa', show: false,
+  const win = new BrowserWindow({ ...boundsOnScreen(config.bounds), minWidth: 800, minHeight: 600, title: '네노바 업무', titleBarStyle: 'hidden', titleBarOverlay: { color: '#e9eef6', symbolColor: '#244766', height: 44 }, icon: path.join(__dirname, 'assets', 'icon.png'), backgroundColor: '#eef3fa', show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: !app.isPackaged } });
-  const w = { id, win, ids: [], activeId: null, menuOpen: true, message: '', confirmedClose: false };
+  const w = { id, win, ids: [], activeId: null, menuOpen: true, toolsOpen: false, message: '', notice: '', confirmedClose: false };
   windows.set(id, w);
   win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -80,8 +101,8 @@ function createWindow(config = {}) {
   win.once('ready-to-show', () => { if (config.maximized) win.maximize(); win.show(); });
   broadcast(); return w;
 }
-function confirm(w, message) {
-  return dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: ['계속 작업', '진행'], defaultId: 0, cancelId: 0, noLink: true }) === 1;
+function confirm(w, message, actionLabel = '닫기') {
+  return dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: [actionLabel, '취소'], defaultId: 1, cancelId: 1, noLink: true }) === 0;
 }
 function destroyTab(t) {
   if (!t) return;
@@ -130,8 +151,9 @@ function secureContents(wc, owner) {
     if (!e.isMainFrame && !/^(https:|about:blank|blob:https:\/\/nenovaweb\.com\/)/.test(e.url)) e.preventDefault();
   });
   wc.on('will-prevent-unload', e => {
-    if (confirm(owner(), '화면이 저장되지 않은 변경을 감지했습니다. 화면을 떠날까요?')) e.preventDefault();
-    else { const t = [...tabs.values()].find(t => t.view.webContents === wc); if (t) t.closing = false; }
+    const t = [...tabs.values()].find(t => t.view.webContents === wc);
+    if (confirm(owner(), '화면이 저장되지 않은 변경을 감지했습니다. 화면을 떠날까요?', t?.closing ? '닫기' : '이동')) e.preventDefault();
+    else if (t) t.closing = false;
   });
   wc.setWindowOpenHandler(details => {
     const w = owner();
@@ -162,7 +184,7 @@ function openTab(w, data = {}, adoption = null) {
   let url = adoption && data.url === 'about:blank' ? 'about:blank' : trustedUrl(data.url || '/dashboard');
   if (!url) return null;
   if (locked && new URL(url).pathname !== '/login') url = `${ORIGIN}/login`;
-  if (tabs.size >= 50) { w.message = '열린 탭이 50개입니다. 사용하지 않는 탭을 닫아 주세요.'; broadcast(); return null; }
+  if (tabs.size >= 50) { reportFailure(w, '열린 탭이 50개입니다. 사용하지 않는 탭을 닫아 주세요.'); broadcast(); return null; }
   const id = String(nextId++);
   const view = new WebContentsView({ ...(adoption?.webContents ? { webContents: adoption.webContents } : {}), webPreferences: { session: webSession, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, devTools: !app.isPackaged } });
   const t = { id, windowId: w.id, view, url, title: text(data.title) || '네노바 업무', customTitle: Boolean(data.title), zoom: Number.isFinite(data.zoom) ? Math.min(1.5, Math.max(.5, data.zoom)) : 1, loading: true, error: '' };
@@ -175,11 +197,11 @@ function openTab(w, data = {}, adoption = null) {
   const navigation = (_e, newUrl) => { if (trustedUrl(newUrl, { popup: false })) { t.url = newUrl; layout(windows.get(t.windowId)); broadcast(); } };
   wc.on('did-navigate', navigation); wc.on('did-navigate-in-page', navigation);
   wc.on('page-title-updated', (_e, title) => { if (!t.customTitle) t.title = text(title) || t.title; broadcast(); });
-  wc.on('did-fail-load', (_e, code, description, _url, mainFrame) => { if (mainFrame && code !== -3) { t.error = '화면을 불러오지 못했습니다. 연결을 확인하고 새로고침해 주세요.'; t.loading = false; const owner = windows.get(t.windowId); owner.message = t.error; broadcast(); } });
-  wc.on('render-process-gone', () => { t.error = '화면이 중단되었습니다. 새로고침해 주세요. 저장 여부를 먼저 확인해 주세요.'; broadcast(); });
+  wc.on('did-fail-load', (_e, code, description, _url, mainFrame) => { if (mainFrame && code !== -3) { t.error = '화면을 불러오지 못했습니다. 연결을 확인하고 새로고침해 주세요.'; t.loading = false; reportFailure(windows.get(t.windowId), t.error); broadcast(); } });
+  wc.on('render-process-gone', () => { t.error = '화면이 중단되었습니다. 새로고침해 주세요. 저장 여부를 먼저 확인해 주세요.'; reportFailure(windows.get(t.windowId), t.error); broadcast(); });
   wc.on('close', e => { if (!t.destroying && !t.closing) { e.preventDefault(); closeTab(t); } });
   wc.on('destroyed', () => { if (tabs.has(t.id)) { destroyTab(t); broadcast(); } });
-  wc.on('did-finish-load', () => { wc.setZoomFactor(t.zoom); });
+  wc.on('did-finish-load', () => { wc.setZoomFactor(t.zoom); syncRemoteTools(t); });
   if (!adoption) wc.loadURL(url).catch(() => {}); activate(w, id); return t;
 }
 function moveTab(t, target, beforeId) {
@@ -188,7 +210,7 @@ function moveTab(t, target, beforeId) {
   if (source !== target) { source.win.contentView.removeChildView(t.view); source.ids = source.ids.filter(id => id !== t.id); if (source.activeId === t.id) source.activeId = source.ids.at(-1) || null; if (!source.ids.length) source.menuOpen = true; target.win.contentView.addChildView(t.view); t.windowId = target.id; layout(source); }
   target.ids = target.ids.filter(id => id !== t.id);
   const index = target.ids.indexOf(beforeId); target.ids.splice(index < 0 ? target.ids.length : index, 0, t.id);
-  activate(target, t.id); target.win.show(); target.win.focus();
+  activate(target, t.id); syncRemoteTools(t); target.win.show(); target.win.focus();
 }
 function detach(t, point) {
   if (!t) return;
@@ -210,6 +232,7 @@ function shortcuts(wc, owner) {
     if ((input.control && key === 'r') || key === 'f5') action = () => command(w, 'reload');
     if (input.control && key === 'd') action = () => command(w, 'favorite', { id: w.activeId });
     if (input.control && ['l', 'k'].includes(key)) action = () => command(w, 'menu', { open: true });
+    if (input.control && input.shift && key === 'b') action = () => command(w, 'tools');
     if (input.alt && key === 'arrowleft') action = () => command(w, 'navigate', { direction: 'back' });
     if (input.alt && key === 'arrowright') action = () => command(w, 'navigate', { direction: 'forward' });
     if (action) { event.preventDefault(); action(); }
@@ -219,6 +242,7 @@ function command(w, action, p = {}) {
   const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
   switch (action) {
     case 'state': break;
+    case 'sync': verifyAccount().catch(() => {}); break;
     case 'open': openTab(w, p); break;
     case 'activate': activate(w, p.id); break;
     case 'close': if (t?.windowId === w.id) closeTab(t); break;
@@ -233,12 +257,22 @@ function command(w, action, p = {}) {
       break;
     }
     case 'menu': w.menuOpen = p.open === true || !w.ids.length; layout(w); if (w.menuOpen || !t || locked) w.win.webContents.focus(); else t.view.webContents.focus(); break;
+    case 'tools':
+      w.toolsOpen = !w.toolsOpen;
+      if (w.toolsOpen) w.notice = '';
+      layout(w);
+      for (const id of w.ids) syncRemoteTools(tabs.get(id));
+      if (!w.toolsOpen) {
+        w.win.webContents.focus();
+        w.win.webContents.executeJavaScript('document.getElementById("toolsButton")?.focus()').catch(() => {});
+      }
+      break;
     case 'favorite': if (t && actor && !locked) { const url = safeSnapshot({ favorites: [t] }).favorites[0]?.url; if (url) favorites = favorites.some(f => f.url === url) ? favorites.filter(f => f.url !== url) : [...favorites, { url, title: t.title, zoom: t.zoom }]; } break;
     case 'rename': if (t?.windowId === w.id && text(p.title)) { t.title = text(p.title); t.customTitle = true; } break;
-    case 'navigate': if (t && !locked && confirm(w, '이전·다음 화면으로 이동할까요?')) { const h = t.view.webContents.navigationHistory; if (p.direction === 'back' && h.canGoBack()) h.goBack(); if (p.direction === 'forward' && h.canGoForward()) h.goForward(); } break;
-    case 'reload': if (t && confirm(w, '현재 화면을 새로고침할까요?')) { w.message = ''; if (locked) verifyAccount(); t.view.webContents.reload(); } break;
+    case 'navigate': if (t && !locked && confirm(w, '이전·다음 화면으로 이동할까요?', '이동')) { const h = t.view.webContents.navigationHistory; if (p.direction === 'back' && h.canGoBack()) h.goBack(); if (p.direction === 'forward' && h.canGoForward()) h.goForward(); } break;
+    case 'reload': if (t && confirm(w, '현재 화면을 새로고침할까요?', '새로고침')) { w.message = ''; if (locked) verifyAccount(); t.view.webContents.reload(); } break;
     case 'zoom': if (t && Number.isFinite(p.value)) { t.zoom = Math.round(Math.min(1.5, Math.max(.5, p.value)) * 100) / 100; t.view.webContents.setZoomFactor(t.zoom); } break;
-    case 'print': if (t && !locked) t.view.webContents.print({ silent: false, printBackground: true }, (ok, reason) => { if (!ok && reason !== 'cancelled') { w.message = '인쇄를 완료하지 못했습니다. 프린터 설정을 확인해 주세요.'; broadcast(); } }); break;
+    case 'print': if (t && !locked) t.view.webContents.print({ silent: false, printBackground: true }, (ok, reason) => { if (!ok && reason !== 'cancelled') { reportFailure(w, '인쇄를 완료하지 못했습니다. 프린터 설정을 확인해 주세요.'); broadcast(); } }); break;
     case 'newWindow': createWindow(); break;
     case 'closeWindow': closeWindow(w); break;
     case 'quit': quit(); break;
@@ -255,6 +289,7 @@ function lockAccount() {
 }
 async function verifyAccount(initial = false) {
   const generation = ++authGeneration;
+  syncStatus = 'checking'; broadcast();
   let newActor = '';
   try {
     const response = await webSession.fetch(`${ORIGIN}/api/auth/me`, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(12000) });
@@ -263,12 +298,30 @@ async function verifyAccount(initial = false) {
   } catch { /* Fail closed; the existing login screen remains available. */ }
   if (generation !== authGeneration || quitting) return;
   if (!newActor) {
+    menus = []; syncStatus = 'error';
     lockAccount();
     const w = [...windows.values()][0] || createWindow();
     if (![...tabs.values()].some(t => new URL(t.url).pathname === '/login')) openTab(w, { url: '/login', title: '네노바 로그인' });
     return;
   }
   const changed = actor !== newActor;
+  if (changed) lockAccount();
+  let latest = null;
+  try {
+    const response = await webSession.fetch(`${ORIGIN}/api/desktop/bootstrap`, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(12000) });
+    if (!response.ok) throw new Error('Bootstrap unavailable');
+    const body = await response.text();
+    if (body.length > 256 * 1024) throw new Error('Bootstrap too large');
+    latest = parseBootstrap(JSON.parse(body), newActor);
+    if (generation !== authGeneration || quitting) return;
+    if (!webVersion || latest.webVersion !== webVersion) await webSession.clearCache();
+  } catch { latest = null; }
+  if (generation !== authGeneration || quitting) return;
+  const updatedOpenViews = latest && webVersion && latest.webVersion !== webVersion && !changed && tabs.size > 0;
+  menus = latest?.menus || [];
+  menuVersion = latest?.menuVersion || '';
+  webVersion = latest?.webVersion || '';
+  syncStatus = latest ? 'ready' : 'error';
   if (changed) {
     restoring = true;
     const previousActor = actor || saved?.actor;
@@ -280,7 +333,7 @@ async function verifyAccount(initial = false) {
       } catch {
         restoring = false;
         const w = [...windows.values()][0] || createWindow();
-        w.message = '이전 계정의 화면 정리를 완료하지 못했습니다. 새로고침으로 다시 시도해 주세요.';
+        reportFailure(w, '이전 계정의 화면 정리를 완료하지 못했습니다. 새로고침으로 다시 시도해 주세요.');
         openTab(w, { url: '/login', title: '로그인 다시 확인' }); broadcast(); return;
       }
       if (generation !== authGeneration || quitting) { restoring = false; return; }
@@ -294,12 +347,18 @@ async function verifyAccount(initial = false) {
         if (existing[i]) { w.win.setBounds(boundsOnScreen(config.bounds)); if (config.maximized) w.win.maximize(); }
         for (const entry of config.tabs) openTab(w, entry);
         if (w.ids.length) activate(w, w.ids[Math.min(config.active, w.ids.length - 1)]);
+        w.menuOpen = true;
       });
     } else {
       for (const w of windows.values()) { w.menuOpen = true; w.message = '로그인되었습니다. 업무 메뉴를 선택해 새 탭을 여세요.'; }
     }
     saved = null; restoring = false;
   } else locked = false;
+  const count = menus.reduce((sum, group) => sum + group.items.length, 0);
+  for (const w of windows.values()) {
+    if (latest) w.message = `웹 최신 메뉴 ${count}개 반영 완료${updatedOpenViews ? ' · 작업 중인 화면은 저장 후 새로고침하면 최신 기능이 적용됩니다.' : ' · 새로 여는 화면은 최신 웹 기능을 사용합니다.'}`;
+    else reportFailure(w, '최신 메뉴 확인에 실패했습니다. 업데이트 확인으로 다시 시도하거나 네노바 홈에서 업무를 여세요.');
+  }
   for (const w of windows.values()) layout(w);
   broadcast();
 }
@@ -311,6 +370,8 @@ app.whenReady().then(async () => {
     return new Response(fs.readFileSync(path.join(__dirname, 'shell', name)), { headers: { 'content-type': name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'" } });
   });
   webSession = session.fromPartition('persist:nenova-work');
+  const desktopUa = webSession.getUserAgent();
+  webSession.setUserAgent(/\bNenovaDesktop\/1\.2\.0\b/.test(desktopUa) ? desktopUa : `${desktopUa} NenovaDesktop/1.2.1`);
   webSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   webSession.setPermissionCheckHandler(() => false);
   webSession.webRequest.onBeforeRequest({ urls: [`${ORIGIN}/*`] }, (details, callback) => {
@@ -321,7 +382,7 @@ app.whenReady().then(async () => {
     const owner = [...tabs.values()].find(t => t.view.webContents === wc);
     const w = windows.get(owner?.windowId) || [...windows.values()][0];
     item.setSaveDialogOptions({ title: '네노바 파일 저장', defaultPath: path.join(app.getPath('downloads'), path.basename(item.getFilename()).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')) });
-    item.once('done', (_event, status) => { if (w && windows.has(w.id)) { w.message = status === 'completed' ? '파일 저장을 완료했습니다.' : status === 'cancelled' ? '파일 저장을 취소했습니다.' : '파일 저장에 실패했습니다. 다시 다운로드해 주세요.'; broadcast(); } });
+    item.once('done', (_event, status) => { if (w && windows.has(w.id)) { if (status === 'completed') w.message = '파일 저장을 완료했습니다.'; else if (status === 'cancelled') w.message = '파일 저장을 취소했습니다.'; else reportFailure(w, '파일 저장에 실패했습니다. 다시 다운로드해 주세요.'); broadcast(); } });
   });
   ipcMain.handle('desktop:command', (event, action, payload) => {
     const w = [...windows.values()].find(w => w.win.webContents === event.sender);

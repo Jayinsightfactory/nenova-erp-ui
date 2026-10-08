@@ -2228,7 +2228,7 @@ export default function RaumPnlPage() {
   // ── 렌더 ──
   return (
     <div style={st.page}>
-      <h1 style={st.h1}>라움 초이문 신라호텔 손익계산서</h1>
+      <h1 data-desktop-chrome style={st.h1}>라움 초이문 신라호텔 손익계산서</h1>
       <div style={{ display: 'flex', gap: 8, margin: '0 0 10px', alignItems: 'center', flexWrap: 'wrap' }}>
         {hotelPartners.map(p => (
           <button

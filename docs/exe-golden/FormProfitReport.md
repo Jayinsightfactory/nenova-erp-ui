@@ -1,5 +1,23 @@
 # 주차별 매출이익보고서 — Nenova 호환 근거
 
+## 2026-10-07 실제 재고조정 자동 비고
+
+로컬 실제 dnSpy Console FormStockView 및 운영 SQL의 usp_StockCalculation 정의를 읽어
+조정 원천을 확인했다. StockHistory.AfterValue−BeforeValue 중 CodeInfo.Category='StockType',
+ChangeType=Descr인 이력만 실제 재고조정으로 표시한다. EXISTS로 코드 중복 증폭을 막는다.
+조회는 OrderYear+MajorWeek, 표시는 세부차수·ProdKey·현재 Product.OutUnit별이다.
+현재 품명/단위가 확정 당시와 동일함을 보증하지 않으며 누락 품목도 이력에서 배제하지 않는다.
+
+운영 SELECT(2026-10-07)로 감소 조정, 증감이 상쇄된 이력, 조정 포함 재고 보존식의
+일치를 확인했다. 이전 차수 증가와 다음 차수 감소의 합계가 같아도 품목 구성이
+다를 수 있으므로 단순 원복으로 표현하지 않는다. 조정사유 공란은 업무근거 확인
+대상으로 남긴다. 실제 StockHistoryKey/StockKey 및 운영수치는 로컬 감사기록에만
+보관한다. 공개 회귀시험은 같은 구조의 합성 fixture를 사용한다.
+
+이 기능은 비고영역의 별도 SELECT 조회일 뿐 기존 수기비고, E/F 및 손익 계산,
+ERP 원장, 확정 revision, 계산 snapshot을 변경하지 않는다. 확정 보고서에도
+현재 원장 참고임을 표시하며 확정 당시 근거로 혼용하지 않는다.
+
 ## 2026-10-07 중량 원천 정정 (아래 과거 저장값 우선 규칙의 중량 부분 대체)
 
 실제 CLI `dnSpy.Console.exe --no-color -t FormWarehouseView` 재확인:

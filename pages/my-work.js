@@ -940,7 +940,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
     <div className="wrap">
       <div className="bar">
         <MenuBackButton />
-        <b>내 작업 데이터</b>
+        <b data-desktop-chrome>내 작업 데이터</b>
         {TABS.map((t) => <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>{t.label}</button>)}
         <span className="dim" style={{ marginLeft: 'auto' }}>{userId} 전용</span>
         {!mineOnly && <a href={orbit + '/my-work.html' + orbitQs} target="_blank" rel="noreferrer">새 창</a>}

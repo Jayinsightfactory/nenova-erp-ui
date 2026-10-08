@@ -2,6 +2,8 @@ import styles from '../../styles/ImportPacking.module.css';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import PackingResults from './PackingResults.js';
 import PackingEvidenceReview from './PackingEvidenceReview.js';
+import PackingProductMatchDialog from './PackingProductMatchDialog.js';
+import {packingErpCatalog,packingErpAliases} from '../../lib/importPackingErpMatches.js';
 import { makePackingReviewRows, applyPackingReview, packingReviewWriter } from '../../lib/importPackingReview.js';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
@@ -857,6 +859,12 @@ function AWBPanel({ xlsxLib, lang = 'ko', onBack, readAwbPdf }) {
 // =============================================================================
 
 const readLocalAwbPdf = async base64 => (await import('../../lib/importAwbPdf')).readAwbPdf(base64);
+async function requestErpMatches(body) {
+  const response=await fetch('/api/import/tools/product-matches',body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{cache:'no-store'});
+  const data=await response.json().catch(()=>null);
+  if(!response.ok||!data?.success)throw new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');
+  return data;
+}
 export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
@@ -877,6 +885,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
 
   // Catalog (Lista de productos Nenova) — persists across sessions
   const [catalog, setCatalog] = useState(null);
+  const [erpMatches,setErpMatches]=useState(null);
+  const [matchTarget,setMatchTarget]=useState(null);
+  const [matchError,setMatchError]=useState('');
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState(null);
   const [catalogDraft, setCatalogDraft] = useState(null);
@@ -933,6 +944,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   }, []);
 
   const resetResults = () => {
+    setMatchTarget(null);setMatchError('');
     setReviewRows(null); setReviewOpen(false); setReviewConfirmed(false);
     setNeedsAI(false); setExtractionSource('');
     setExcels([]); setGenerated({}); setLastExtraction(null);
@@ -952,9 +964,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     ++sharedScopeVersion.current; ++catalogReaderVersion.current;
     setCatalogParsing(false); setCatalogReplaceConfirmed(false); setCatalogClearConfirm(false);
     setCatalogLoading(true); setSharedReady(false); setSharedError(null);
-    readPackingRecords(storage).then(records => {
+    Promise.all([readPackingRecords(storage),requestErpMatches()]).then(([records,erp]) => {
       if (!active) return;
       setCatalog(records.catalog); setAliases(records.aliases);
+      setErpMatches(erp);
       resetResults(); setSharedReady(true);
     }).catch(error => {
       if (active) setSharedError(error.message || String(error));
@@ -1110,6 +1123,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   // Used initially after extraction, and again after the user confirms aliases.
   const buildExcels = (params) => {
     const { invoices, masterAwb, weekParsed, currentAliases, wasTruncated = false } = params;
+    const currentErp=params.erpMatches??erpMatches;
+    if(!currentErp)throw new Error('전산 품목을 먼저 불러오세요.');
     const generators = { CO: genColombia, NL: genNL, CN: genChina, EC: genEcuador, TH: genThailand, AU: genAustralia, US: genUS, VN: genVN };
     const gen = generators[country];
     const allPending = [];
@@ -1119,7 +1134,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
       // All invoices in the same PDF share the same week-num.  The farm
       // abbreviation in the filename (e.g. _BAL_, _FLO_) keeps them unique.
       const fileNum = weekParsed.num;
-      const opts = { catalog, masterAwb, aliases: currentAliases };
+      const opts = { catalog:packingErpCatalog(currentErp.products), masterAwb,
+        aliases:packingErpAliases(country,currentAliases,currentErp.value,currentErp.products) };
       const res = gen(packingReviewWriter(xlsxLib, inv, file?.name), inv, weekParsed.week, fileNum, opts);
       if (res.pending && res.pending.length > 0) allPending.push(...res.pending);
       if (res.noMatches && res.noMatches.length > 0) allNm.push(...res.noMatches);
@@ -1160,13 +1176,39 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
   };
 
 
-  const confirmAlias = (description, catalogName) => runSharedWrite(async () => {
-    const items = catalog?.byCountry?.[country] || [];
-    if (!items.some(item => item.name === catalogName)) throw new Error('Product not in country catalog.');
-    const newAliases = { ...aliases, [aliasKey(description)]: catalogName };
-    await savePackingAliases(storage, newAliases);
-    setAliases(newAliases); rebuildWithAliases(newAliases);
-  });
+  const reloadErpMatches=async()=>{
+    if(savingRef.current)return;
+    const scope=sharedScopeVersion.current;
+    savingRef.current=true;setSaving(true);setMatchError('');
+    try {
+      const data=await requestErpMatches();
+      if(scope!==sharedScopeVersion.current)return;
+      setErpMatches(data);
+      if(lastExtraction)buildExcels({invoices:lastExtraction.result.invoices,masterAwb:lastExtraction.masterAwb,
+        weekParsed:lastExtraction.weekParsed,currentAliases:aliases,wasTruncated:lastExtraction.wasTruncated,erpMatches:data});
+    }
+    catch(error){if(scope===sharedScopeVersion.current)setMatchError(error.message);}
+    finally{savingRef.current=false;setSaving(false);}
+  };
+  const openProductMatch=product=>{
+    const description=product.matchingDescription;
+    if(!description){setStatus({type:'error',msg:'이 행의 원문 연결 정보가 없습니다. 파일을 다시 처리하세요.'});return;}
+    setMatchError('');setMatchTarget({description});
+  };
+  const saveErpMatch=async prodKey=>{
+    if(savingRef.current||!matchTarget||!erpMatches||!lastExtraction)return;
+    const scope=sharedScopeVersion.current;
+    savingRef.current=true;setSaving(true);setMatchError('');
+    try {
+      const data=await requestErpMatches({country,description:matchTarget.description,prodKey,expectedRevision:erpMatches.revision});
+      if(scope!==sharedScopeVersion.current)return;
+      setErpMatches(data);
+      buildExcels({invoices:lastExtraction.result.invoices,masterAwb:lastExtraction.masterAwb,weekParsed:lastExtraction.weekParsed,
+        currentAliases:aliases,wasTruncated:lastExtraction.wasTruncated,erpMatches:data});
+      setMatchTarget(null);
+    } catch(error) {if(scope===sharedScopeVersion.current)setMatchError(error.message);}
+    finally {savingRef.current=false;setSaving(false);}
+  };
 
   const clearAliases = () => runSharedWrite(async () => {
     await writePackingRecord(storage, PACKING_STORAGE_KEYS.aliases, null);
@@ -1276,6 +1318,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
 
   return (
     <div className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
+      {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={country} products={erpMatches?.products??[]}
+        onSave={saveErpMatch} onClose={()=>setMatchTarget(null)} onReload={reloadErpMatches} saving={saving} error={matchError}/>}
       {reviewRows && <PackingEvidenceReview rows={reviewRows} open={reviewOpen} onClose={closeReview} onConfirm={confirmReview}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
@@ -1305,7 +1349,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
             ))}
           </div>
         </div>
-        {/* Catalog status / loader */}
+        {erpMatches&&<p style={{margin:'0 0 10px',fontSize:14,color:'#174a36'}}><strong>전산 DB 품목 {erpMatches.products.length.toLocaleString()}개</strong> · 저장된 전산 매칭 {erpMatches.value?.entries?.length??0}개 · 결과 품목을 눌러 검색·매칭하세요.</p>}
+        <details style={{marginBottom:12}}><summary style={{cursor:'pointer',fontSize:13}}>기존 업로드 카탈로그 관리 (참고 보관용 · 현재 매칭은 전산 DB 기준)</summary>
+        {/* Legacy catalog retained without overriding ERP matching. */}
         <div style={{
           background: catalog ? '#e8f5ee' : '#fff8e6',
           border: `1px solid ${catalog ? '#b8e0c8' : '#f5d97a'}`,
@@ -1342,7 +1388,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
             )}
           </div>
         </div>
-
+        </details>
         {catalogParsing && <p role="status" style={{ fontSize: 13 }}>{t.catalogLoading}</p>}
         {catalogDraft && catalogPreviewError && (
           <section role="alert" style={{ border: '1px solid #f8b4b4', borderRadius: 8, padding: 14, marginBottom: 16, background: '#fee', fontSize: 13, overflowWrap: 'anywhere' }}>
@@ -1552,6 +1598,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                   blocked={isBlocked}
                   onDownload={dl}
                   truncated={lastExtraction?.wasTruncated === true}
+                  onMatch={openProductMatch}
+                  mappingDisabled={saving||processing||!sharedReady||!erpMatches}
                 />
 
                 {/* Total mismatch warning */}
@@ -1598,39 +1646,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
                   </div>
                 )}
 
-                {/* Pending decisions panel */}
-                {pending.length > 0 && (
-                  <div style={{ marginTop: 16, background: '#eef6ff', border: '1px solid #c3d3fb', borderRadius: 10, padding: '1rem 1.25rem' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#2457c5', marginBottom: 4 }}>{t.pendingPanel(pending.length)}</div>
-                    <div style={{ fontSize: 13, color: '#2457c5', marginBottom: 10 }}><NoticeText text={t.pendingPanelSub} /></div>
-                    {pending.map((nm, idx) => (
-                      <PendingItem
-                        key={idx}
-                        nm={nm}
-                        catalogItems={(catalog && catalog.byCountry && catalog.byCountry[country]) || []}
-                        onConfirm={confirmAlias}
-                        lang={lang}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* No-matches panel */}
-                {allNoMatches.length > 0 && (
-                  <div style={{ marginTop: '1rem', background: '#fef3c7', border: '1px solid #f5d97a', borderRadius: 10, padding: '1rem 1.25rem' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#92400e', marginBottom: 4 }}>{t.noMatchPanel(allNoMatches.length)}</div>
-                    <div style={{ fontSize: 13, color: '#92400e', marginBottom: 10 }}><NoticeText text={t.noMatchPanelSub} /></div>
-                    {allNoMatches.map((nm, idx) => (
-                      <NoMatchItem
-                        key={idx}
-                        nm={nm}
-                        catalogItems={(catalog && catalog.byCountry && catalog.byCountry[country]) || []}
-                        onConfirm={confirmAlias}
-                        lang={lang}
-                      />
-                    ))}
-                  </div>
-                )}
+                {(pending.length>0||allNoMatches.length>0)&&<p style={{fontSize:13,color:'#92400e'}}>전산 미매칭은 위 표의 품목을 눌러 선택·저장하세요. 매칭이 끝나기 전에는 다운로드되지 않습니다.</p>}
 
                 {/* Aliases footer + manager */}
                 {(() => {

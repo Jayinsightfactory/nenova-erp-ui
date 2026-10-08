@@ -28,7 +28,7 @@ const assert = require('assert');
 
   assert.strictEqual(chinaVolumeProductLabel('CHINA / ROSE Diana 50cm'), 'ROSE Diana 50cm');
   assert.strictEqual(chinaVolumeProductLabel('China/ Hydrangea Blue (블루)'), 'Hydrangea Blue (블루)');
-  assert.strictEqual(chinaVolumeCellText(20, [{ boxNo: '16' }, { boxNo: '17' }]), '20 (16,17)', '2개만 연속이면 압축하지 않는다');
+  assert.strictEqual(chinaVolumeCellText(20, [{ boxNo: '16' }, { boxNo: '17' }]), '20 (16,17)', '웹 화면은 수량과 박스 번호를 함께 표시한다');
 
   assert.strictEqual(formatChinaBoxNumberList(['150', '151', '152', '153', '154', '155', '156']), '150~156', '3개 이상 연속이면 시작~끝으로 압축');
   assert.strictEqual(formatChinaBoxNumberList(['88', '89']), '88,89', '정확히 2개 연속이면 그대로 나열');
@@ -36,7 +36,7 @@ const assert = require('assert');
   assert.strictEqual(formatChinaBoxNumberList(['1', '2', '3', '5', '6']), '1~3,5,6', '끊긴 지점에서 그룹을 나눠 각각 판단');
   assert.strictEqual(formatChinaBoxNumberList(['1', '2', '4', '5', '6', '7']), '1,2,4~7', '앞쪽은 2개라 유지, 뒤쪽은 4개라 압축');
   assert.strictEqual(formatChinaBoxNumberList(['90', '88', '89']), '88~90', '입력 순서와 무관하게 정렬 후 판단');
-  assert.strictEqual(chinaVolumeCellText(350, Array.from({ length: 35 }, (_, i) => ({ boxNo: String(47 + i) }))), '350 (47~81)', '실제 물량표 사례: 35개 연속 박스가 시작~끝으로 압축된다');
+  assert.strictEqual(chinaVolumeCellText(350, Array.from({ length: 35 }, (_, i) => ({ boxNo: String(47 + i) }))), '350 (47~81)', '웹 화면은 실제 배정 박스 범위를 압축해 표시한다');
 
   const workbookRows = buildChinaVolumeWorkbookRows({
     year: 2026,
@@ -47,9 +47,10 @@ const assert = require('assert');
   });
   assert.deepStrictEqual(
     workbookRows[3],
-    ['ROSE Diana 50cm full name', '20 (16,17)', 20, 20, '', 'ROSE Diana 50cm full name'],
+    ['ROSE Diana 50cm full name', 20, 20, 20, '', 'ROSE Diana 50cm full name'],
     '패킹 미반영 시 주문=입고이므로 잔량은 0(빈칸), 마지막 열에 품목명을 한 번 더 적는다',
   );
+  assert.equal(workbookRows[3][1], 20, '수량 엑셀에는 박스번호가 섞이지 않은 숫자 수량만 내보낸다');
   const appliedWorkbookRows = buildChinaVolumeWorkbookRows({
     year: 2026,
     week: '35-01',
@@ -69,7 +70,7 @@ const assert = require('assert');
     ['2026년 35-01 중국 물량표', '서울', '', '', '', ''],
     ['출고요일', '수', '', '', '', ''],
     ['품목', 'CL1\nCL1', '주문', '입고', '잔량', '품목'],
-    ['ROSE Diana', '20 (16)', 20, 20, '', 'ROSE Diana'],
+    ['ROSE Diana', 20, 20, 20, '', 'ROSE Diana'],
   ], '최종 엑셀은 적용된 셀만 포함하고 거래처 지역·비고 기반 중국 출고요일을 표시하며, 마지막에 주문·입고·잔량·품목 반복 열이 붙는다');
 
   const shortageWorkbookRows = buildChinaVolumeWorkbookRows({
@@ -195,7 +196,7 @@ const assert = require('assert');
     rows: [{ prodKey: 70, prodName: 'ROSE Diana', outOrders: { 주광농원: 18 } }],
     cells: pivotCells,
   });
-  assert.strictEqual(packingWorkbookRows[3][1], '20 (16,17)', '엑셀에도 패킹수량과 박스번호를 함께 출력한다');
+  assert.strictEqual(packingWorkbookRows[3][1], 20, '엑셀 수량 셀에는 패킹 수량만 숫자로 출력한다');
   assert.deepStrictEqual(
     packingWorkbookRows[3].slice(2),
     [18, 20, -2, 'ROSE Diana'],

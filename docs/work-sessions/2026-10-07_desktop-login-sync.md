@@ -1,0 +1,25 @@
+# 데스크톱 로그인 메뉴·웹 버전 동기화
+
+## 질문과 답변
+
+- 질문: 모든 메뉴가 포함되어 있는가? 웹 신규 기능을 로그인할 때 자동 업데이트해야 한다.
+- 답변: 1.0의 정적 공통 메뉴 80개를 계정별 서버 메뉴로 교체했다. 웹 MENU_ITEMS 원본의 허용 메뉴 전체를 로그인 시 가져온다. 1.0 사용자는 1.1을 한 번 설치해야 한다. 이후 웹 메뉴·기능 배포는 재설치 없이 반영한다.
+- 범위: 웹 기능·메뉴 동기화. Electron 및 창 관리 실행 파일 자동 설치는 별도 배포 범위다.
+
+## 변경
+
+- 인증된 GET /api/desktop/bootstrap, 계정별 메뉴·SHA256 메뉴 버전·웹 빌드 버전. ERP 원장 쓰기 없음.
+- 응답 사용자/스키마/주소 검증, 계정 전환 경쟁 상태 방어, HTTP 캐시 갱신.
+- 기존 탭 입력 유지 및 업데이트 확인 버튼. 열려 있는 화면은 저장 후 새로고침해야 최신 코드가 반영된다.
+- 동기화 실패는 실패로 표시하며 인증 웹 홈 접근 및 재시도 제공.
+
+## 검증
+
+- 서버 bootstrap 5개, 데스크톱 단위 12개 통과.
+- Electron 1920×1080 및 작은 창 smoke, 별도 프로세스 재시작 복원 통과.
+- Windows 설치·실행·제거, 전체 ERP guard, UI layout, 통합 production build 통과.
+- [PR 953](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/953) 병합 ca21aa5d, [Cafe24 배포 및 hydration smoke](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37584428402) 성공.
+- 실제 운영 로그인 syncStatus=ready / v1.0.2·ca21aa5d, 계정 허용 메뉴 80개 서버와 일치. 주문·불량차감·호텔손익·견적 로드 확인, ERP 업무 쓰기 0건.
+- 설치 파일: C:/Users/USER/Downloads/Nenova-Desktop-1.1.0/Nenova-Desktop-Setup-1.1.0-x64.exe. SHA256 F954ECA118C2A4CC39CD3EF9F257EF4736CB6C0D3B56CE5150A5855B154A7EA4. NotSigned.
+
+설계: [LOGIN_SYNC](../desktop/LOGIN_SYNC.md).

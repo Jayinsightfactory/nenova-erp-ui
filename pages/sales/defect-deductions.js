@@ -1633,7 +1633,7 @@ export default function SalesDefectDeductionsPage() {
     <Layout pageTitle="영업수입불량차감">
       <div className="sales-defect-page">
       <div className="screenOnly">
-      <div className="page-head" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div data-desktop-chrome className="page-head" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0 }}>영업수입불량차감</h2>
         <span style={{ color: '#64748b', fontSize: 12 }}>원본 양식 업로드 → 확인/수정 → 저장 → 견적서관리 일괄 등록</span>
       </div>
