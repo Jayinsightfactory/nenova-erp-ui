@@ -5,7 +5,7 @@
 | 기간 | 2026-10-08 |
 | 화면 | /orders/paste 붙여넣기 주문등록 영업방 수신함 |
 | 원장 부작용 | 읽기 전용 SQL 조회·표시 계산. 주문/분배/재고/견적/매출 및 수동확인 원장 쓰기 없음 |
-| 배포/PR | codex/paste-confirmation-evidence → master → Cafe24; 최종 결과는 연결 PR 기록 |
+| 배포/PR | [PR #984](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/984) → master → Cafe24; 최종 결과는 연결 PR 기록 |
 | 다음 채팅 | 이 기록, distribution-sales-inbox / distribution-live-history 계약 |
 
 ## 이어받을 때 고정된 결정
