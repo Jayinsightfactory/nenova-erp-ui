@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { applyEarlyShipmentClassification, earlyShipmentConfirmationLabel } from '../lib/weekdayEarlyShipmentPresentation.js';
+import { applyEarlyShipmentClassification, earlyShipmentConfirmationLabel, resolveEarlyShipmentRecords } from '../lib/weekdayEarlyShipmentPresentation.js';
 import { buildEarlyShipmentRequest, earlyShipmentSourceSnapshot, createEarlyShipmentRequestScope, earlyShipmentPendingKey,
   readEarlyShipmentPending, persistEarlyShipmentPending, clearEarlyShipmentPending,
   earlyShipmentPostFailure } from '../lib/weekdayEarlyShipmentClient.js';
@@ -32,10 +32,16 @@ assert.equal(original.rows[0].blocks[1].remainderMajorView.value,-3);
 for(const records of [[{...applied,revision:1},{...applied,revision:2,status:'REVERSED'}],
   [{...applied,revision:2,status:'REVERSED'},{...applied,revision:1}]]) {
   const latest=applyEarlyShipmentClassification(original,records,533);
+  const resolved=resolveEarlyShipmentRecords(records);
+  assert.equal(resolved.error,'');
+  assert.equal(resolved.records.length,1,'workspace history and classification share one highest-revision record');
+  assert.equal(resolved.records[0].status,'REVERSED');
   assert.equal(latest.earlyClassificationError,undefined);
   assert.equal(latest.rows[0].blocks[1].remainderMajorView.value,-3,'latest reversed revision wins in either request order');
   assert.equal(latest.rows[0].blocks[2].remainderMajorView.value,8);
 }
+assert.equal(resolveEarlyShipmentRecords([applied,{...applied,quantity:4}]).records,null,
+  'conflicting same revision blocks workspace apply and export before display');
 
 const sourceCycle={year:2026,majorWeek:'40',startDate:'2026-10-01',calendarState:'FOUND'};
 const targetCycle={year:2026,majorWeek:'41',startDate:'2026-10-08',calendarState:'FOUND'};

@@ -3,7 +3,7 @@ import { buildWeekdayStyledWebWorkbook } from '../lib/weekdayStyledWebWorkbook.j
 import { buildWeekdayWebExportSnapshot } from '../lib/weekdayWebExportSnapshot.js';
 import { buildHorizontalWeekdayMatrix } from '../lib/weekdayHorizontalMatrix.js';
 import { applyWeekdayCarryoverToMatrix } from '../lib/weekdayCarryover.js';
-import { applyEarlyShipmentClassification } from '../lib/weekdayEarlyShipmentPresentation.js';
+import { applyEarlyShipmentClassification, resolveEarlyShipmentRecords } from '../lib/weekdayEarlyShipmentPresentation.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../lib/useApi';
 import { isExpectedWeekdayPrintBlock } from '../lib/weekdayPrintReadiness.js';
@@ -724,12 +724,13 @@ export default function WeekdayEstimateWorkspace() {
       setSavedHistory(ancillary.flatMap(result=>result.changes));setHistoryError(ancillary.map(result=>result.changeError).filter(Boolean).join(' / '));
       setPageNotes(ancillary.flatMap(result=>result.notes));setQuoteResults(ancillary.map(result=>result.quote));
       const earlyFailures=ancillary.map(result=>result.earlyFailure).filter(Boolean);
+      const resolvedEarly=resolveEarlyShipmentRecords(ancillary.flatMap(result=>result.early?.records || []));
+      if(resolvedEarly.error) earlyFailures.push(resolvedEarly.error);
       const centerEarly=ancillary.find(result=>result.cycle.offset===0)?.early;
       freshEarly.current=earlyFailures.length || !centerEarly?.nextCycle ? null
         : {scopeKey:refreshScope,nextCycle:centerEarly.nextCycle};
       setEarlyError(earlyFailures.join(' / '));
-      setEarlyRecords(earlyFailures.length ? null : [...new Map(ancillary.flatMap(result=>result.early?.records || [])
-        .map(record=>[record.operationId,record])).values()]);
+      setEarlyRecords(earlyFailures.length ? null : resolvedEarly.records);
       setEarlyNextCycle(centerEarly?.nextCycle || null);
       setWilsonRecords(ancillary.flatMap(result=>result.wilson));
       setWilsonError(current=>ancillary.map(result=>result.wilsonFailure).filter(Boolean).join(' / ')
