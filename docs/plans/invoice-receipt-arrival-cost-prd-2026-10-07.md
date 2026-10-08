@@ -116,7 +116,10 @@ costPerStem/Bunch/Box, status, approvedBy/At, supersedesRevisionId`.
 문서·행·작업 상태·변경 이력을 영구 저장하고 ERP commit과 작업 성공 기록을 같은 SQL transaction에 둔다.
 제안: `WebInvoiceDocument`, `WebInvoiceLine`, `WebInvoiceOperation`, `WebInvoiceHistory`,
 `WebInvoiceCostRevision/Line`. 기존 웹 원가/운임 테이블 재사용 가능성은 스키마 확인 후 확정한다.
-기존 두 요일분배 이력 테이블 승인은 이 신규 DDL 승인과 다르다. **DDL은 별도 승인 전 실행 금지**.
+기존 두 요일분배 이력 테이블 승인은 이 신규 DDL 승인과 다르다.
+2026-10-08 사용자가 웹 전용 테이블 추가 제안에 `진행.`으로 승인했다.
+승인 범위는 `invoice-web-storage-v1.md`의 여섯 웹 전용 빈 테이블이며 기존 EXE/공유 SP/ERP 자료 변경은 아니다.
+검토 및 격리 SQL 테스트 통과 후에만 메인이 운영에 적용한다.
 파일 저장만으로 ERP commit의 원자성/영구 이력을 충족했다고 주장하지 않는다.
 
 ## 6. 주문 대비 입고 대조
@@ -235,8 +238,10 @@ NL `40-2`: FOB비율 G15=(F15×E15)/D6, CNF H15=F15+C11×G15/E15,
 이는 두 원본의 표본 수식 확인이며 모든 국가 공식 승인/재계산 검증은 아니다.
 원본 해시: 중국 `5e9241ac85d3152b976419422d2cce6498c02346563e2dc1a637e7eace9187a7`,
 NL `fc9448ed983d18f0c180b4b8e1f27c1a7ef935b2e657c429eb42f2251b836d42`.
-로컬 DB_SERVER 등 연결설정 없음;
-현행 SP/트리거 원문과 격리SQL 검증은 아직 확보하지 못했다.
+2026-10-08 갱신: 로컬 연결설정 대신 사용자가 로그인한 SSMS에서 SELECT로 현행
+SP/트리거/컬럼/인덱스와 연도별 입고 건수를 확보했다. 상세는 §15 및
+`docs/diagnostics/2026-10-08-invoice-receipt-live-evidence.json` 참조.
+격리 SQL에서 실제 저장·롤백·EXE 동시작업 검증은 아직 하지 않았다.
 
 1. 본 PRD/실행 계약 + 대조 순수 엔진 및 경계 테스트부터 구현.
 2. 국가별 원가 원본 수식과 현행 코드의 차이를 목록화하고 공식 fixture 확보.
@@ -286,3 +291,59 @@ NL `fc9448ed983d18f0c180b4b8e1f27c1a7ef935b2e657c429eb42f2251b836d42`.
   품목·수량·가격·통화·환산근거·배분그룹 변경은 모두 관련 원가를 stale로 만든다.
 - 추가 fixture: 다른 operationId 동시 중복, 한 AWB 두 인보이스 운임, 미산정 원가 피벗,
   동일 ProdKey 복수가격행, 수정 후 상세키 연결.
+
+## 15. 운영 SQL 읽기 검증과 구현 차단 조건 (2026-10-08)
+
+사용자 로그인 SSMS에서 SELECT만 실행했다. VIEW DEFINITION=1. 입고 등록, 채번 SP 실행,
+stock 계산, 확정 변경, 임시행 삭제, 잠금 해제, DDL은 수행하지 않았다.
+UI가 원문의 줄바꿈을 정규화하므로 진단 JSON의 SQL은 재배포용 스크립트가 아니다.
+
+| 확인한 사실 | 구현 영향 |
+|---|---|
+| WarehouseMaster.WarehouseKey는 NOT NULL, 비 identity, 기본값 없음. Master 트리거도 조회되지 않음 | 현재 웹 POST가 키를 생략하는 INSERT는 실제 스키마와 불일치. EXE의 GetNextKey 경로를 명시 구현해야 함 |
+| EXE MakeTempTable은 GetNextKey("WarehouseKey")를 Master/Temp에 함께 기록. 실제 usp_GetNextKey는 KeyNumbering을 트랜잭션으로 증가 | MAX+1 또는 웹 임의 identity 가정 금지. 반환값/실패/중첩 롤백 검사 필요. 진단 중 채번 실행 금지 |
+| usp_CreateWarehouse는 TempWarehouseDetail 전체에서 상세 INSERT, StockHistory 생성, Product.Stock 증가 | 연도·WarehouseKey·사용자 필터가 없는 공용 경로. 새 통합 writer에 바로 연결하면 안 됨 |
+| 실제 staging 4행, WarehouseKey 1종이 존재 | 잔재/고아라고 단정하지 않고 보존. 전체 DELETE 및 자동 청소 금지 |
+| 웹 POST는 web applock 뒤 전체 staging DELETE를 수행 | EXE는 같은 applock 참여 근거가 없음. 웹끼리만 직렬화해도 EXE 동시입고 안전성이 보장되지 않음 |
+| StockCalculation은 OwnerToken V2 gate 및 해당 이후 StockMaster 연쇄 재계산 | scope/소유권/실패 롤백 검증 필수. 현재 빈 gate를 향후 저장 안전성 증거로 사용 금지 |
+| 조회 당시 gate Mode=NULL, PendingCalc=0, ProtocolVersion=2 | 현재 조회 시점의 idle만 확인. 과거 busy 원인이나 재발 없음으로 해석하지 않음 |
+| 입고 관련 다섯 테이블 트리거 조회에서 Product tiny-stock 정규화 트리거 1개만 반환 | 별도 트리거가 staging 소유권이나 Master 번호를 보장한다고 추정 금지 |
+| FreightCostDetail.WarehouseDetailKey 존재, 34행 모두 비NULL. WebArrivalCostLine에는 WarehouseKey/WdetailKey 없음 | 기존 원가 스키마를 동일한 연결 방식으로 취급 금지. 비NULL은 참조 유효성/원가 정확성 검증이 아님 |
+| WarehouseMaster 중량은 nullable decimal, 상세 수량/가격은 float | null을 0으로 바꾸지 않음. 반올림/단위/통화 fixture 필요 |
+
+추가 확인: 실제 usp_CreateWarehouse는 UPrice/TPrice를 재계산하지 않고 복사하며,
+OutUnit/EstUnit에 따라 Box/Bunch/Steam을 각각 선택한다. 중복 품명·삭제품목·NBSP와
+trim 정규화는 preview/commit/실제 SP 결과를 같은 기준으로 검증한다.
+ViewWarehouse는 `wm.isDeleted=0`이며 Product 삭제 조건이 없다. NULL 삭제 플래그를
+활성으로 확장하는 읽기 조건을 native parity라고 주장하지 않는다.
+
+구현 방향은 기존 EXE/공용 SP/공용 임시테이블을 변경하지 않는 웹 전용 문서·작업·이력
+저장 구조를 우선 검토한다. 신규 writer는 공용 staging에 접근하지 않는 격리 경로를
+설계하되, native 입고·재고 효과를 실제 격리 DB에서 대조한 뒤에만 연결한다.
+직접 WarehouseDetail INSERT만으로 native 호환이 완료됐다고 간주하지 않는다.
+웹 전용 저장 구조의 DDL은 §5의 별도 승인 경계를 유지한다.
+
+출시 전 남은 필수 조건:
+
+1. 웹 전용 신규 영구 저장 구조의 구체 DDL 검토·승인 및 적용 — 2026-10-08 완료(§16). 실제 저장 writer 연결은 아래 조건 적용.
+2. native 번호 발급, eligibility, 입고/이력/재고 원자성 및 EXE 동시작업 격리 검증.
+3. 신규·수정·실패·중복·timeout·같은 품목 복수가격 행 매핑 검증.
+4. 국가별 실제량 원가 공식 fixture와 인보이스별 버전/원장 연결 구현.
+5. UI 연결·전체 회귀·빌드·배포·1920×1080 실브라우저 검증.
+
+이 SELECT 조사로 SQL 접근 차단은 해소됐지만, 통합 저장 기능 구현/배포가 완료된 것은 아니다.
+
+## 16. 웹 저장 V1 운영 준비 완료 (2026-10-08)
+
+§15는 앞선 읽기 조사 시점의 기록이다. 후속 사용자 승인에 따라 11:09:59 KST에
+WebInvoiceDocument/Line/Operation/History/CostRevision/CostLine 6개 빈 테이블을
+운영 nenova1_nenova에 추가했다. 동일 세션 readback은 모두0행, TranCount0,
+FK7개 활성/신뢰/NO_ACTION, CHECK38개 fingerprint 일치다.
+기존 공유 SP5개 지문 및 임시입고4행/checksum은 적용 전과 동일하다.
+EXE·공유 SP·기존 ERP 원장 변경이나 운영 시험 INSERT는 하지 않았다.
+
+설계·DDL·격리 SQL fixture·최종 검토 및 운영 근거는
+`docs/work-sessions/2026-10-08_invoice-web-storage.md`에 기록했다.
+SQL2022 compatibility130 실제 fixture 2회, ERP 회귀, 변경 쓰기 guard, 빌드가 통과했다.
+이 반영은 저장 기반만 준비한 것으로 통합 입고 API/도착원가 UI가 활성화되거나
+웹 애플리케이션 배포가 완료된 것은 아니다. §15의 2~5 조건은 계속 남아 있다.

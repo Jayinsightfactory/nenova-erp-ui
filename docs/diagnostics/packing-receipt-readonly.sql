@@ -8,7 +8,20 @@ SELECT o.name, o.type_desc, m.definition
 FROM sys.objects o
 LEFT JOIN sys.sql_modules m ON m.object_id=o.object_id
 WHERE o.name IN (N'usp_CreateWarehouse',N'usp_StockCalculation',N'ViewWarehouse',N'ViewOrder',
-  N'usp_ProductStockUpdate');
+  N'usp_ProductStockUpdate',N'usp_GetNextKey',N'usp_NenovaStockWeekGateEnter',
+  N'usp_NenovaStockWeekGateLeave');
+
+-- 채번 SP를 실행하지 않고 기본값만 확인한다. 키 발급 자체도 DB 쓰기다.
+SELECT c.name AS columnName,c.is_identity,c.is_nullable,dc.definition AS defaultDefinition
+FROM sys.columns c
+LEFT JOIN sys.default_constraints dc ON dc.object_id=c.default_object_id
+WHERE c.object_id=OBJECT_ID(N'dbo.WarehouseMaster') AND c.name IN(N'WarehouseKey',N'isDeleted');
+
+-- 순간 상태일 뿐 고아 판정/자동 정리/잠금 해제 근거가 아니다.
+SELECT Mode,PendingCalc,Action,OrderYear,OrderWeek,LockedAt,ProtocolVersion
+FROM dbo.NenovaStockWeekGate;
+SELECT COUNT_BIG(*) AS stagingRowCount,COUNT(DISTINCT WarehouseKey) AS stagingWarehouseCount
+FROM dbo.TempWarehouseDetail;
 
 SELECT OBJECT_NAME(t.parent_id) AS parentTable,t.name,t.is_disabled,m.definition
 FROM sys.triggers t
