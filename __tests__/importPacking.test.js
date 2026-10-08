@@ -14,6 +14,7 @@ async function main() {
   const review = await import('../lib/importPackingReview.js');
   const awbFields = await import('../lib/importAwbFields.js');
   const erpMatchHelpers = await import('../lib/importPackingErpMatches.js');
+  const receiptAdapter = await import('../lib/importPackingReceiptAdapter.js');
   const root = path.resolve(__dirname, '..');
   const sourcePath = path.join(root, 'output/import-tool-sources/Packing List Nenova.html');
   // Prepared HTML is ignored by Git. Golden fixtures/hashes run without it in CI.
@@ -247,6 +248,7 @@ async function main() {
       '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
       '../../lib/importPackingExtractClient.js': extractionMock, '../../lib/importPackingReview.js': review,
       '../../lib/importPackingErpMatches.js': erpMatchHelpers,
+      '../../lib/importPackingReceiptAdapter.js': receiptAdapter,
       './PackingResults.js': { default: 'PackingResults', __esModule: true },
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
       './PackingProductMatchDialog.js': { default: 'PackingProductMatchDialog', __esModule: true },

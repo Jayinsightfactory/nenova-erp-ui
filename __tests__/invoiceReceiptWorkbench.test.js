@@ -8,6 +8,7 @@ const root = path.join(__dirname, '..');
 const componentPath = path.join(root, 'components/import-tools/InvoiceReceiptWorkbench.js');
 const source = fs.readFileSync(componentPath, 'utf8');
 const adapterSource = fs.readFileSync(path.join(root, 'lib/importPackingReceiptAdapter.js'), 'utf8');
+const workflowSource = fs.readFileSync(path.join(root, 'lib/invoiceReceiptWorkflow.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'styles/InvoiceReceipt.module.css'), 'utf8');
 const packingSource = fs.readFileSync(path.join(root, 'components/import-tools/PackingListTool.js'), 'utf8');
 const pageSource = fs.readFileSync(path.join(root, 'pages/import/tools.js'), 'utf8');
@@ -32,8 +33,8 @@ test('cost review is gated by a committed operation for the current revision and
   assert.match(source, /Number\(operation\.documentRevision\) === Number\(documentValue\.revision\)/);
   assert.match(source, /currentRevisionCommitted = !selected\.dirty/);
   assert.match(source, /committedOperations\.length > 0 && \(selected\.dirty \|\| !currentRevisionCommitted\)/);
-  assert.match(source, /currentRevisionCommitted[\s\S]*?<InvoiceReceiptCostReview document=\{documentValue\} onSaved=\{refreshAfterCostSave\} \/>/);
-  assert.match(source, /refreshAfterCostSave[\s\S]*?refreshSavedDocument\(documentValue\.documentId\)/);
+  assert.match(source, /currentRevisionCommitted[\s\S]*?<InvoiceReceiptCostReview document=\{documentValue\} onSaved=\{refreshAfterCostSave\}[\s\S]*?autoProcess=\{receiptReadbackPassed\} onStageChange=\{onCostStageChange\} \/>/);
+  assert.match(source, /refreshAfterCostSave[\s\S]*?readDocument\(documentId\)[\s\S]*?if \(!isCurrent\(\)\) return;[\s\S]*?installSavedDocument\(refreshed\)/);
   assert.match(source, /도착원가 PENDING/);
   assert.match(source, /도착원가 STALE/);
   assert.match(source, /입고 확정 후 문서가 편집되어 이전 원가는 현재 revision에 적용되지 않습니다/);
@@ -49,9 +50,9 @@ test('source hash and stable identities come from original File bytes, not gener
 
 test('draft, preview, commit and operation recovery follow the connected API contract', () => {
   assert.match(source, /'\/api\/import\/receipts\/drafts'/);
-  assert.match(source, /`\/api\/import\/receipts\/\$\{selected\.document\.documentId\}`/);
-  assert.match(source, /`\/api\/import\/receipts\/\$\{selected\.document\.documentId\}\/preview`/);
-  assert.match(source, /body:\s*JSON\.stringify\(\{\s*revision:\s*selected\.document\.revision\s*\}\)/);
+  assert.match(source, /`\/api\/import\/receipts\/\$\{target\.document\.documentId\}`/);
+  assert.match(source, /`\/api\/import\/receipts\/\$\{target\.document\.documentId\}\/preview`/);
+  assert.match(source, /body:\s*JSON\.stringify\(\{\s*revision:\s*target\.document\.revision\s*\}\)/);
   assert.match(source, /`\/api\/import\/receipts\/\$\{pending\.documentId\}\/commit`/);
   for (const field of ['operationId', 'receiptPartId', 'baselineDigest', 'reason', 'allowPendingCost']) {
     assert.match(source + adapterSource, new RegExp(`\\b${field}\\b`));
@@ -136,4 +137,67 @@ test('1920 workbench is dense, scroll-safe and keeps headers and issue rail visi
   assert.match(css, /\.modal\s*\{[^}]*max-height:\s*calc\(100vh - 48px\)/s);
   assert.match(css, /:focus-visible\s*\{[^}]*outline:\s*3px solid/s);
   assert.doesNotMatch(css, /width:\s*1920px|height:\s*1080px/);
+});
+
+test('automatic receipt progress is scope-locked and never commits or approves cost', () => {
+  const auto = source.slice(source.indexOf('async function runAutomaticPreparation'), source.indexOf('async function readDocument'));
+  assert.match(auto, /runReceiptPreparation/);
+  assert.match(auto, /previewDraft:\s*document\s*=>\s*previewDraft\(\{\s*document\s*\}\)/);
+  assert.match(auto, /saveDraftRecord\(\{ \.\.\.target, document: record \}, isCurrent, false\)/);
+  assert.match(auto, /assertReceiptScope\(returned, target\.document, returned\.revision\)/);
+  assert.match(auto, /sameRevision && result\.preview/);
+  assert.match(auto, /Number\(returned\.revision\) > 0/);
+  assert.match(auto, /result\.stage === 'draft'.*\['UNKNOWN', 'FAILED'\]/s);
+  assert.doesNotMatch(auto, /commitReceipt\(|submitReceiptCommit\(|cost-revisions/);
+  assert.match(source, /event\.documentId !== documentId/);
+  assert.match(source, /event\.revision/);
+  assert.match(source, /setBusy\('auto-workflow'\)/);
+  assert.match(source, /<fieldset disabled=\{Boolean\(busy\)\}/);
+  assert.match(source, /verifyReceiptDocument\(fresh, \{ \.\.\.expected, operationId: pending\.operationId/);
+  assert.match(source, /if \(verified\.operation\.operationId !== pending\.operationId/);
+  assert.match(source, /if \(!isCurrent\(\)\) return;\s+installSavedDocument\(fresh\)/);
+  assert.match(source, /const sameRevision = existing[\s\S]*existing\.stageProgress/);
+  assert.match(source, /conversion: \{ id: 'conversion', status: 'waiting', displayStatus: '기존 문서'/);
+  assert.match(source, /draft: \{ id: 'draft', status: 'passed'/);
+  assert.match(source, /validation: \{ id: 'validation', status: 'waiting', displayStatus: '미리보기 필요'/);
+  assert.match(source, /현재 revision의 COMMITTED operation 확인/);
+  assert.match(source, /const isCurrent = \(\) => workflowGenerationRef\.current === generation && selectedIdRef\.current === documentId/);
+  assert.match(source, /if \(!isCurrent\(\)\) return;\s+installSavedDocument\(fresh\)/);
+  assert.match(source, /error\.staleWorkflowResponse/);
+  assert.match(source, /refreshError\.receiptReadbackFailure = true/);
+  const readbackRetry = source.slice(source.indexOf('async function retryReceiptReadback'), source.indexOf('async function copyBrief'));
+  assert.doesNotMatch(readbackRetry, /submitReceiptCommit\(/);
+  assert.match(readbackRetry, /readDocument\(pending\.documentId\)/);
+  assert.match(readbackRetry, /clearPendingCommit\(pending\.documentId\)/);
+  assert.match(workflowSource, /result\.documentId\) !== key\(document\.documentId\)/);
+  assert.match(workflowSource, /Number\(result\.revision\) !== Number\(document\.revision\)/);
+  assert.match(workflowSource, /draftSaveAttempted/);
+});
+
+test('stage cards expose all independent workflow boundaries and cost stays gated on receipt readback', () => {
+  for (const id of ['conversion', 'draft', 'validation', 'receipt', 'receiptVerify', 'cost', 'costSave', 'costVerify']) {
+    assert.ok(source.includes(`'${id}'`), `missing stage ${id}`);
+  }
+  assert.match(source, /selected\.stageProgress\?\.receiptVerify\?\.status === 'passed'/);
+  assert.match(source, /selected\.recoveryRequired\s*&&\s*<button[\s\S]*?같은 문서 다시 불러오기/);
+  assert.match(source, /입고 readback만 재조회/);
+  assert.match(workflowSource, /status: 'WAITING_CONFIRMATION'/);
+  assert.match(workflowSource, /return \{ status: unknown \? 'UNKNOWN' : 'FAILED'/);
+});
+
+test('packing conversion mismatch requires per-row quantity review and preserves unrelated source warnings', () => {
+  assert.match(source, /sourceEvidence\?\.conversionValidation\?\.status === 'MISMATCH'/);
+  assert.match(source, /difference\.sourceValue/);
+  assert.match(source, /difference\.generatedValue/);
+  assert.match(source, /입고 \$\{quantityLabel\} 직접 입력/);
+  assert.match(source, /conversionConfirmed: Boolean\(confirmed\)/);
+  assert.match(source, /confirmed: false, conversionConfirmed: false/);
+  assert.match(source, /disabled=\{!quantityField \|\| nullableNumber\(line\[quantityField\]\) == null\}/);
+  assert.match(source, /현재 입력 수량 유지·차이 검토 확인/);
+  assert.doesNotMatch(source, /conversionQuantityEdited/);
+  assert.match(source, /if \(unresolvedConversionMismatchLines\(selected\.document\)\.length\)/);
+  assert.match(source, /const unresolvedConversions = unresolvedConversionMismatchLines\(target\.document\)/);
+  assert.match(source, /filter\(warning => warning !== CONVERSION_MISMATCH_WARNING\)/);
+  assert.match(source, /unresolvedConversionMismatchLines\(document\)\.length \? \[\.\.\.warnings, CONVERSION_MISMATCH_WARNING\] : warnings/);
+  assert.match(source, /GW·CW·잘림 등 다른 원문 경고는 별도 검토 전까지 유지됩니다/);
 });

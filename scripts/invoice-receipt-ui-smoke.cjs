@@ -16,6 +16,7 @@ const COMMITTED_ID = '22222222-2222-4222-8222-222222222222';
 const LINE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const PART_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const OPERATION_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const COST_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const HASH = 'a'.repeat(64);
 let smokeStage = 'bundle';
 
@@ -29,6 +30,8 @@ const files = {
   costReview: 'components/import-tools/InvoiceReceiptCostReview.js',
   adapter: 'lib/importPackingReceiptAdapter.js',
   costLib: 'lib/invoiceReceiptCost.js',
+  workflow: 'lib/invoiceReceiptWorkflow.js',
+  costWorkflow: 'lib/invoiceReceiptCostWorkflow.js',
   receiptCss: 'styles/InvoiceReceipt.module.css',
   costCss: 'styles/InvoiceReceiptCost.module.css',
 };
@@ -64,7 +67,7 @@ function documentFixture({ committed = false } = {}) {
     warehouseKey: 78001,
     createdAt: '2026-10-08T01:00:00.000Z',
     completedAt: '2026-10-08T01:00:02.000Z',
-    result: { lineMappings: [{ lineId: LINE_ID, wdetailKey: 88001, outQuantity: 20, unit: '단' }] },
+    result: { documentId, revision, warehouseKey: 78001, lineMappings: [{ lineId: LINE_ID, wdetailKey: 88001, outQuantity: 20, unit: '단' }] },
   };
   return {
     documentId,
@@ -85,6 +88,14 @@ function documentFixture({ committed = false } = {}) {
       country: 'CN', farmName: 'SMOKE FARM', inputDate: '2026-10-08', invoiceDate: '2026-10-07',
       transportMode: 'SEA', awb: 'SMOKE-AWB', gw: 100, cw: 110, freightCurrency: 'CNY',
       costInputs: { freight: { currency: 'CNY', amount: 1000, source: 'review' } }, receiptNotes: 'fixture only',
+      ...(committed ? { invoiceCostInput: {
+        formulaId: 'CN_SEA_ACTUAL_V1', formulaApplicabilityConfirmed: false,
+        formulaEffectiveDate: '2026-10-08', nativeCurrency: 'CNY', freightCurrency: 'CNY',
+        exchangeRateKRW: 200, exchangeRateType: 'PURCHASE', exchangeRateDate: '2026-10-08',
+        freightAmount: 40, costSourceId: 'fixture:invoice:freight:CNY', allocationScope: 'SINGLE_INVOICE',
+        allocationShareNumerator: 1, allocationShareDenominator: 1,
+        lineInputs: [{ lineId: LINE_ID, tariffRate: 0, otherCostPerUnitKRW: 0 }],
+      } } : {}),
     },
     lines: [{
       lineId: LINE_ID, lineNo: 1, originalName: 'SMOKE ROSE', lengthText: '60cm', prodKey: 77,
@@ -106,10 +117,13 @@ const dependencies = {
     './InvoiceReceiptCostReview.js': 'costReview',
     '../../styles/InvoiceReceipt.module.css': 'receiptStyles',
     '../../lib/importPackingReceiptAdapter.js': 'adapter',
+    '../../lib/invoiceReceiptWorkflow.js': 'workflow',
   },
   costReview: {
     react: 'react',
     '../../lib/invoiceReceiptCost': 'costLib',
+    '../../lib/invoiceReceiptCostWorkflow.js': 'costWorkflow',
+    '../../lib/invoiceReceiptCostWorkflow': 'costWorkflow',
     '../../styles/InvoiceReceiptCost.module.css': 'costStyles',
   },
 };
@@ -121,6 +135,8 @@ function browserBundle() {
       costReview(module, exports, require) { ${compile(files.costReview)} },
       adapter(module, exports, require) { ${compile(files.adapter)} },
       costLib(module, exports, require) { ${compile(files.costLib)} },
+      workflow(module, exports, require) { ${compile(files.workflow)} },
+      costWorkflow(module, exports, require) { ${compile(files.costWorkflow)} },
     };
     const dependencyMap = ${JSON.stringify(dependencies)};
     const cache = Object.create(null);
@@ -298,7 +314,7 @@ async function run() {
   const executablePath = chromeCandidates.find(candidate => fs.existsSync(candidate));
   if (!executablePath) throw new Error('Chrome executable not found. Set CHROME_PATH.');
 
-  const observed = { api: [], writes: [], blockedExternal: [], unexpectedApi: [], previews: 0 };
+  const observed = { api: [], writes: [], blockedExternal: [], unexpectedApi: [], previews: 0, costReads: 0 };
   logStage('browser-launch');
   const browser = await puppeteer.launch({ executablePath, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   let page;
@@ -334,6 +350,20 @@ async function run() {
       if (url.pathname === `/api/import/receipts/${DRAFT_ID}` && method === 'GET') return json(request, { success: true, document: draft });
       if (url.pathname === `/api/import/receipts/${COMMITTED_ID}` && method === 'GET') return json(request, { success: true, document: committed });
       if (url.pathname === `/api/import/receipts/${DRAFT_ID}` && method === 'PATCH') return json(request, { success: false, code: 'SMOKE_SAVE_FAILED', error: 'SMOKE_SAVE_FAILED' }, 500);
+      if (url.pathname === `/api/import/receipts/${COMMITTED_ID}/cost-revisions` && method === 'POST') {
+        committed.costStatus = 'APPROVED';
+        return json(request, { success: true, cost: { savedCostRevisionIds: [COST_ID] } });
+      }
+      if (url.pathname === '/api/warehouse/invoice-costs' && method === 'GET') {
+        observed.costReads += 1;
+        if (observed.costReads === 1) return json(request, { success: false, error: 'FIXTURE_READBACK_OUTAGE' }, 503);
+        return json(request, { success: true, costs: {
+          warehouseKey: 78001, documentId: COMMITTED_ID, documentRevision: 4,
+          status: 'APPROVED', documentCostStatus: 'APPROVED',
+          currentActual: { costRevisionId: COST_ID, documentId: COMMITTED_ID, documentRevision: 4,
+            warehouseKey: 78001, basis: 'ACTUAL', status: 'APPROVED', storedStatus: 'APPROVED', liveReceiptStatus: 'MATCH' },
+        } });
+      }
       if (url.pathname === `/api/import/receipts/${DRAFT_ID}/preview` && method === 'POST') {
         observed.previews += 1;
         const issue = { code: 'SMOKE_SELECTED_ISSUE', message: '선택 행 수량을 다시 확인하세요.', lineId: LINE_ID };
@@ -379,8 +409,8 @@ async function run() {
     logStage('draft-reload-after-failed-save');
     await clickButtonWithin(page, '[aria-label="같은 연도 차수 저장 문서"]', 'SMOKE-DRAFT', { contains: true });
     await waitForText(page, '저장됨 · revision 2');
-    logStage('issue-preview');
-    await clickButton(page, '서버 미리보기');
+    logStage('automatic-preview-stops-on-issue');
+    await clickButton(page, '자동 검증·계속');
     await waitForText(page, '선택 행 수량을 다시 확인하세요.');
     await clickButton(page, '선택 행 수량을 다시 확인하세요.', { contains: true });
     logStage('selected-issue-copy');
@@ -392,10 +422,11 @@ async function run() {
     await page.waitForFunction(() => window.__invoiceReceiptCopied?.includes('선택 행 수량을 다시 확인하세요.'));
     await clickButton(page, '닫기');
 
-    logStage('clean-preview');
+    logStage('automatic-preview-waits-for-approval');
     await clickButton(page, 'SMOKE-DRAFT', { contains: true });
-    await clickButton(page, '서버 미리보기');
+    await clickButton(page, '자동 검증·계속');
     await waitForText(page, '이슈 0건 · canCommit true');
+    assert.equal(observed.writes.filter(item => item.path.endsWith('/commit')).length, 0, 'automatic preparation must not commit a receipt');
     logStage('reason-modal');
     await clickButton(page, 'ERP 입고 등록 확인');
     await page.waitForSelector('[role="dialog"][aria-label="ERP 입고 등록 최종 확인"]', { visible: true });
@@ -410,21 +441,55 @@ async function run() {
     logStage('committed-cost-review');
     await clickButtonWithin(page, '[aria-label="같은 연도 차수 저장 문서"]', 'SMOKE-COMMITTED', { contains: true });
     await page.waitForSelector('[aria-label="인보이스 도착원가 검토"]', { visible: true });
+    logStage('committed-automatic-resume-is-read-only');
+    const beforeResumeWrites = observed.writes.length;
+    await clickButton(page, '자동 검증·계속');
+    await waitForText(page, '기존 입고를 재조회해 확인했습니다.');
+    assert.equal(observed.writes.length, beforeResumeWrites, 'resuming a committed receipt must only read, never save or preview');
     assert((await page.$eval('[aria-label="인보이스 도착원가 검토"]', node => node.innerText)).includes('실제 입고량 도착원가'));
     logStage('responsive-layout');
     const viewports = [await viewportCheck(page, 1920, 1080), await viewportCheck(page, 1280, 800)];
+
+    logStage('cost-explicit-approval-and-readback-only-retry');
+    await page.click('[aria-label="인보이스 도착원가 검토"] input[type="checkbox"]');
+    await waitForText(page, '계산 승인 가능');
+    await page.type('[aria-label="인보이스 도착원가 검토"] input[placeholder="검토 근거를 입력하세요"]', 'fixture only');
+    await clickButton(page, '원가 승인 저장');
+    await waitForText(page, 'FIXTURE_READBACK_OUTAGE');
+    const costWritesBeforeRetry = observed.writes.filter(item => item.path.endsWith('/cost-revisions')).length;
+    assert.equal(costWritesBeforeRetry, 1);
+    await clickButton(page, '원가 재조회만 재시도');
+    await waitForText(page, '현재 문서·revision의 승인 실제 원가를 재조회했습니다.');
+    assert.equal(observed.writes.filter(item => item.path.endsWith('/cost-revisions')).length, 1, 'readback retry must never repeat the cost write');
+    assert.equal(observed.costReads, 2);
 
     logStage('dirty-cost-stale');
     await replaceInput(page, 'input[aria-label="1행 단"]', '19');
     await waitForText(page, '도착원가 STALE');
     assert.equal(await page.$('[aria-label="인보이스 도착원가 검토"]'), null, 'dirty committed revision must hide cost review');
 
+    logStage('conversion-difference-explicit-review');
+    draft.lines[0].sourceEvidence.conversionValidation = {
+      status: 'MISMATCH', quantityField: 'bunchQuantity', sourceTotal: 20, generatedTotal: 24,
+      differences: [{ field: 'bunchQuantity', sourceValue: 20, generatedValue: 24 }],
+    };
+    await clickButtonWithin(page, '[aria-label="같은 연도 차수 저장 문서"]', 'SMOKE-DRAFT', { contains: true });
+    await page.waitForSelector('[aria-label="국가별 패킹 변환 수량 차이 검토"]');
+    const writesBeforeDifference = observed.writes.length;
+    await clickButton(page, '자동 검증·계속');
+    assert.equal(observed.writes.length, writesBeforeDifference, 'unreviewed conversion differences must block automatic writes');
+    const confirmationSelector = '[aria-label="국가별 패킹 변환 수량 차이 검토"] input[type="checkbox"]';
+    await page.click(confirmationSelector);
+    assert.equal(await page.$eval(confirmationSelector, input => input.checked), true);
+    await replaceInput(page, 'input[aria-label="1행 단"]', '19');
+    assert.equal(await page.$eval(confirmationSelector, input => input.checked), false, 'quantity edits invalidate prior difference review');
+
     assert.equal(serverApiHits, 0, 'no API request may reach the local fixture server');
     assert.deepEqual(observed.unexpectedApi, []);
     assert.deepEqual(observed.blockedExternal, []);
     const mutations = observed.writes.filter(item => !item.path.endsWith('/preview'));
     assert.equal(observed.writes.filter(item => item.path.endsWith('/preview') && item.method === 'POST').length, 2, 'exactly two read-only previews are expected');
-    assert.equal(mutations.length, 1, 'only the deliberately failed mocked draft PATCH is expected');
+    assert.equal(mutations.length, 2, 'only the failed mocked draft PATCH and explicit mocked cost approval are expected');
     assert.equal(mutations[0].method, 'PATCH');
     assert.equal(pageErrors.length, 0, `browser errors: ${pageErrors.join(' | ')}`);
     logStage('complete');
@@ -434,7 +499,7 @@ async function run() {
       fixtureServer: baseUrl,
       apiReachedServer: serverApiHits,
       mockedWrites: observed.writes.map(item => `${item.method} ${item.path}`),
-      scenarios: ['no-upload saved lookup', 'draft table load', 'failed save retains draft', 'selected issue copy', 'reason modal', 'committed cost review', 'dirty cost stale'],
+      scenarios: ['no-upload saved lookup', 'draft table load', 'failed save retains draft', 'automatic validation stops on issue', 'automatic validation waits for explicit approval', 'selected issue copy', 'reason modal', 'committed resume read-only', 'committed cost review', 'cost explicit approval and readback-only retry', 'dirty cost stale', 'conversion difference explicit review and edit invalidation'],
       viewports,
     }, null, 2));
   } catch (error) {
