@@ -34,9 +34,19 @@
 - 설계: gpt-5.6-sol xhigh. 확정 구현: 지정 terra 사용 불가로 gpt-6-sol medium 대체. 최종 검토: gpt-5.6-sol high.
 - 하위 작업 P0_LOCAL; 외부 쓰기/DB/배포는 금지. 메인이 통합과 외부 작업 담당.
 - 새 계약: `docs/contracts/menu-development-history.json`. 웹 전용으로 실제 dnSpy 저장 순서/ERP 업무키 probe는 N/A이며 거짓 증거를 만들지 않는다.
-- 새 테스트 10건 통과. 필수 회귀/빌드 및 실브라우저 결과는 아래에 갱신한다.
+- 새 테스트 12건 통과. 최초 전체 필수 회귀·빌드 통과 후 최종 검토의 shallow 경계 가짜 A/메타데이터 없는 빌드 fallback 두 항목을 보완했고 필수 검증을 재실행한다.
+- shallow 경계 해시는 최초 추가·횟수 집계에서 모두 제외한다. ENOENT/git 메타데이터 부재만 tracked fallback이며 파싱·Git 손상 오류는 빌드를 실패시킨다.
 - 임시 `.next`, node_modules junction, 로컬 캡처는 커밋 제외.
 
 ## 미완
 
-최종 검토 → 필수 테스트/빌드 성공 → 커밋/PR/병합 → Cafe24 배포 → 운영 화면 스모크.
+최종 검토에서 추가 blocking 없음. 전체 과거 이력을 확보하여 shallow=false, 스냅샷 85개 메뉴/1,289개 고유 변경(이 시점 기준)을 생성했다.
+
+- `npm run test:menu-development-history`: 12/12 통과.
+- `npm run test:erp-contract`: 전체 pre/main/post 통과(UI layout와 신규 테스트 포함).
+- `npm run test:nenova-dnspy-evidence`: 통과.
+- `npm run test:erp-manifest -- --changed-from origin/master`: 통과.
+- `npm run guard:erp-writes -- --changed-from origin/master`: 통과.
+- `npm run build`: 보완 후 재빌드 통과.
+
+남은 단계: PR/병합 → Cafe24 배포 → 운영 화면 스모크.

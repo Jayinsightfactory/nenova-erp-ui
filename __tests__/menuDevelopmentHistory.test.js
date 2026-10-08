@@ -48,3 +48,18 @@ test('상이한 시간대의 실제 시간 순서 및 안전한 페이지 한도
 test('catalog anchor 존재 및 메뉴 내 기능 ID 유일성',()=>{
  const catalog=JSON.parse(fs.readFileSync('config/menu-development-history.json','utf8'));const seen=new Set();for(const x of catalog.features){const key=`${x.route}:${x.id}`;assert.ok(!seen.has(key));seen.add(key);for(const path of x.anchorPaths)assert.ok(fs.existsSync(path),path);}
 });
+test('shallow 경계의 가짜 root A는 최초 추가/수정/변경 건수 모두에서 제외',()=>{
+ const snapshot=buildSnapshot({menus,commits:[c(3,[f('M','pages/alpha.js')]),c(2,[f('A','pages/beta.js')]),c(1,[f('A','pages/alpha.js'),f('A','pages/beta.js')])],isShallow:true,shallowBoundaryHashes:[hash(1)]});
+ assert.equal(snapshot.uniqueCommitCount,2);
+ const alpha=querySnapshot(snapshot,{menu:'/alpha'});assert.equal(alpha.selectedMenu.changeCount,1);assert.equal(alpha.features[0].firstAddedKnown,false);assert.equal(alpha.features[0].modificationCount,null);
+ const beta=querySnapshot(snapshot,{menu:'/beta'});assert.equal(beta.features[0].firstAddedKnown,true);assert.equal(beta.features[0].modificationCount,0);
+});
+test('git 바이너리/메타데이터 없는 빌드만 tracked fallback, 다른 오류는 숨기지 않음',()=>{
+ const vm=require('node:vm');const path=require('node:path');const source=fs.readFileSync('scripts/generate-menu-development-history.cjs','utf8');
+ const saved=buildSnapshot({menus,commits:[c(1,[f('A','pages/alpha.js')])]});
+ const run=(failure)=>{let written;const fakeFs={readFileSync(p){if(p.endsWith('Layout.js'))return "export const MENU_ITEMS = [\n{group:'업무',items:[{href:'/alpha',labelKey:'알파'}]}\n];";if(p.endsWith('config/menu-development-history.json'))return '{"features":[]}';return JSON.stringify(saved);},existsSync(){return true;},mkdirSync(){},writeFileSync(p,value){written=JSON.parse(value);}};
+ vm.runInNewContext(source,{require(name){if(name==='node:fs')return fakeFs;if(name==='node:path')return path;if(name==='node:child_process')return {execFileSync(){throw failure;}};return require('../lib/menuDevelopmentHistory.cjs');},__dirname:path.resolve('scripts'),process:{stdout:{write(){}}}});return written;};
+ assert.equal(run(Object.assign(new Error('missing'),{code:'ENOENT'})).sourceStatus,'tracked-fallback');
+ assert.equal(run(Object.assign(new Error('no repo'),{status:128,stderr:'fatal: not a git repository'})).sourceStatus,'tracked-fallback');
+ assert.throws(()=>run(Object.assign(new Error('corrupt git'),{status:128,stderr:'fatal: bad object HEAD'})),/corrupt git/);
+});

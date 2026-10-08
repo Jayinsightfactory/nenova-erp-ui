@@ -12,17 +12,26 @@ const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/menu-developm
 const menus = extractMenuItems(layout);
 
 function git(args) {
-  return execFileSync('git', ['-c', 'core.quotepath=false', ...args], { cwd: root, encoding: 'utf8', timeout: 120000, maxBuffer: 32 * 1024 * 1024 });
+  try {
+    return execFileSync('git', ['-c', 'core.quotepath=false', ...args], { cwd: root, encoding: 'utf8', timeout: 120000, maxBuffer: 32 * 1024 * 1024 });
+  } catch (error) {
+    error.gitUnavailable = error.code === 'ENOENT'
+      || (error.status === 128 && /not a git repository/i.test(String(error.stderr || '')));
+    throw error;
+  }
 }
 
 let snapshot;
 try {
   const headHash = git(['rev-parse', 'HEAD']).trim();
   const isShallow = git(['rev-parse', '--is-shallow-repository']).trim() === 'true';
+  const shallowBoundaryHashes = isShallow
+    ? fs.readFileSync(path.resolve(root, git(['rev-parse', '--git-path', 'shallow']).trim()), 'utf8').trim().split(/\s+/)
+    : [];
   const raw = git(['log', '--first-parent', '--root', '--diff-merges=first-parent', '-M', '--name-status', '--pretty=format:%x1e%H%x1f%aI%x1f%s%x1f%b%x1d']);
-  snapshot = buildSnapshot({ menus, commits: parseGitLog(raw), catalog, headHash, isShallow });
+  snapshot = buildSnapshot({ menus, commits: parseGitLog(raw), catalog, headHash, isShallow, shallowBoundaryHashes });
 } catch (error) {
-  if (error.code !== 'ENOENT') throw error;
+  if (!error.gitUnavailable) throw error;
   if (!fs.existsSync(output)) throw new Error('Git unavailable and no tracked menu history snapshot exists');
   snapshot = JSON.parse(fs.readFileSync(output, 'utf8'));
   snapshot.sourceStatus = 'tracked-fallback';
