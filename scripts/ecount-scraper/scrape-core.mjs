@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PROFILE = path.join(__dirname, 'ecount-profile');
 const DL = path.join(__dirname, '_downloads');
-export const ERP_ROOT = 'https://logincc.ecount.com/ec5/view/erp';
+export const ERP_ROOT = 'https://logincc.ecount.com/ec56/view/erp'; // 2026-10-08: 이카운트가 /ec5 → /ec56 으로 바뀜(옛 주소는 로그인 페이지로 튕겨 "만료" 오판)
 
 // hash = ECOUNT SPA 메뉴 해시(브라우저 조사로 확보). 세션ID 유지한 채 이 해시로 앱내 이동해야 로그인 안 튕김.
 export const DEFS = {
@@ -85,7 +85,7 @@ export async function collectOne(page, base, ds) {
   await page.waitForTimeout(2800);
   if (isLoginPage(page)) throw new Error('LOGIN_EXPIRED');
   if (def.form) { await page.keyboard.press('F8').catch(() => {}); await page.waitForTimeout(3000); }
-  const dlP = page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
+  const dlP = page.waitForEvent('download', { timeout: ds === 'sales' ? 60000 : 15000 }).catch(() => null);
   let clicked = false;
   for (const f of [page, ...page.frames()]) {
     for (const loc of [f.getByRole?.('button', { name: /^Excel$/i }), f.locator?.('button:has-text("Excel")'), f.locator?.('a:has-text("Excel")'), f.locator?.('text=Excel')]) {
@@ -94,7 +94,17 @@ export async function collectOne(page, base, ds) {
     if (clicked) break;
   }
   if (!clicked) throw new Error('Excel 버튼 못 찾음');
-  const dl = await dlP; if (!dl) throw new Error('Excel 다운로드 미시작(형식선택 팝업?)');
+  const dl = await dlP;
+  if (!dl) { // 2026-10-08 진단: 실패 시점 화면·보이는 팝업 텍스트를 남긴다(조회 전용, 아무것도 누르지 않음)
+    fs.mkdirSync(DL, { recursive: true });
+    const shot = path.join(DL, `${ds}-fail.png`); await page.screenshot({ path: shot, fullPage: false }).catch(() => {});
+    let dlg = ''; for (const f of [page, ...page.frames()]) { try { const t = await f.locator('[role=dialog], .ui-dialog, .modal, .popup, .layer').allInnerTexts(); if (t.length) dlg += t.join(' | ').replace(/s+/g, ' ').slice(0, 400); } catch {} }
+    fs.writeFileSync(path.join(DL, `${ds}-fail.txt`), `url=${page.url()}
+frames=${page.frames().length}
+dialog=${dlg}
+`);
+    throw new Error(`Excel 다운로드 미시작(화면 ${shot}${dlg ? ', 팝업: ' + dlg.slice(0, 120) : ''})`);
+  }
   fs.mkdirSync(DL, { recursive: true });
   const file = path.join(DL, `${ds}.xlsx`); await dl.saveAs(file);
   const { rows, screenTotal } = parseExcel(fs.readFileSync(file), def);
