@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-08T04:43:08.189Z",
+  "generatedAt": "2026-10-08T05:47:49.838Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "278aba9e75eada43c0f2e9ef202c5b684e3218e8",
+      "headHash": "7973eb6175afff2457b70e5dff1065a0921c28f4",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-10-08T04:43:08.189Z",
-      "totalCommits": 2927,
-      "nonMergeCount": 2238,
-      "mergeCount": 689,
+      "collectedAt": "2026-10-08T05:47:49.838Z",
+      "totalCommits": 2929,
+      "nonMergeCount": 2239,
+      "mergeCount": 690,
       "summaryCount": 215,
       "knownSummaryTitles": 174,
       "unknownSummaryTitles": 41,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-10-08T04:38:04.000Z"
+      "lastDate": "2026-10-08T04:46:55.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -100,6 +100,61 @@
     }
   ],
   "records": [
+    {
+      "hash": "7973eb6175afff2457b70e5dff1065a0921c28f4",
+      "date": "2026-10-08T04:46:55.000Z",
+      "committedAt": "2026-10-08T04:46:55.000Z",
+      "subject": "Merge pull request #973 from Jayinsightfactory/codex/plain-development-history",
+      "parents": [
+        "278aba9e75eada43c0f2e9ef202c5b684e3218e8",
+        "0a245ca2c0699e7001d5d478b8b3ce87049e3511"
+      ],
+      "paths": [
+        "__tests__/fullDevelopmentHistory.test.js",
+        "components/dev/FullDevelopmentHistory.js",
+        "components/dev/MenuDevelopmentHistory.js"
+      ],
+      "changedFileCount": 6,
+      "redactedPathCount": 3,
+      "id": "7973eb6175afff2457b70e5dff1065a0921c28f4",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "0a245ca2c0699e7001d5d478b8b3ce87049e3511",
+      "date": "2026-10-08T04:44:54.000Z",
+      "committedAt": "2026-10-08T04:44:54.000Z",
+      "subject": "fix(dev-history): explain records in plain Korean",
+      "parents": [
+        "278aba9e75eada43c0f2e9ef202c5b684e3218e8"
+      ],
+      "paths": [
+        "__tests__/fullDevelopmentHistory.test.js",
+        "components/dev/FullDevelopmentHistory.js",
+        "components/dev/MenuDevelopmentHistory.js"
+      ],
+      "changedFileCount": 6,
+      "redactedPathCount": 3,
+      "id": "0a245ca2c0699e7001d5d478b8b3ce87049e3511",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
     {
       "hash": "278aba9e75eada43c0f2e9ef202c5b684e3218e8",
       "date": "2026-10-08T04:38:04.000Z",
@@ -141393,9 +141448,9 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 4866,
-    "nonMerge": 4171,
-    "merge": 695,
+    "uniqueCommits": 4868,
+    "nonMerge": 4172,
+    "merge": 696,
     "summaries": 300,
     "knownSummaryTitles": 259,
     "unknownSummaryTitles": 41
