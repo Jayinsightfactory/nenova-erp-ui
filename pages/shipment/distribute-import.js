@@ -9,6 +9,7 @@ import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
+  if (r.earlyImportMode) return fmt(r.uploadQty);
   const mult = Number(r.quantityMultiplier || 1);
   if (mult > 1) return `${fmt(r.uploadQty)} (${fmt(r.excelQty)}×${fmt(mult)})`;
   if (r.excelQty != null && !Number.isNaN(Number(r.excelQty)) && Number(r.excelQty) !== Number(r.uploadQty)) {
@@ -114,6 +115,7 @@ export default function DistributeImport() {
   const comparisonRef = useRef(null);
   const preAlignAvailable = false;
   const [file, setFile] = useState(null);
+  const [earlyImportMode, setEarlyImportMode] = useState('ORIGINAL_INCLUDES_EARLY');
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -307,6 +309,7 @@ export default function DistributeImport() {
       const form = new FormData();
       form.append('week', weekInput.value);
       form.append('year', String(weekInput.value || '').match(/^(\d{4})-/)?.[1] || String(new Date().getFullYear()));
+      form.append('earlyImportMode', earlyImportMode);
       form.append('file', file);
       if (Object.keys(custOverridesRef.current).length) {
         form.append('customerOverrides', JSON.stringify(custOverridesRef.current));
@@ -339,6 +342,7 @@ export default function DistributeImport() {
       // 적용대상만 자동 선택하면 기존 분배와 동일한 업체가 통째로 숨겨져
       // 업체/수량 미인식으로 오해할 수 있다. 변경분은 사용자가 필터 버튼으로 좁힌다.
       setFilter(rowCount > 0 ? 'all' : 'apply');
+      if ((data.rows || []).some(row => Number(row.processedEarlyTotal || 0) > 0)) setViewMode('list');
       if (!options.preserveMessage) {
         const viewHint = rowCount > 0 ? ' (전체 업체·수량 표시)' : '';
         const fixedNotice = data.fixBlockedCount > 0 ? `, 확정차단 ${data.fixBlockedCount}건(확정취소 후 재검증 필요)` : '';
@@ -433,6 +437,10 @@ export default function DistributeImport() {
 
   const handleApply = async () => {
     if (!preview) return;
+    if (preview.earlyImport?.mode !== earlyImportMode) {
+      setError('선출고 원문 포함 여부가 검증 이후 바뀌었습니다. 다시 검증하세요.');
+      return;
+    }
     if (unmatchedQtyCount > 0) {
       setError(`미매칭 ${unmatchedQtyCount}건 — 업체·품목 매칭을 완료한 뒤 다시 검증하세요. (업체 ${custMatchPending} / 품목 ${prodMatchPending})`);
       setMatchTab(custMatchPending > 0 ? 'customer' : 'product');
@@ -533,7 +541,8 @@ export default function DistributeImport() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, fullCategoryReplacement: true, ackQtyWarnings, jobId }),
+          body: JSON.stringify({ week: preview.week, year: preview.orderYear, sourceFileName: file?.name || '', rows, fullCategoryReplacement: true, ackQtyWarnings, jobId,
+            earlyImportMode: preview.earlyImport.mode, earlyLedgerFingerprint: preview.earlyImport.fingerprint, earlyImportScope: preview.earlyImport.scope }),
         });
       } catch {
         data = await recoverApplyResult();
@@ -621,6 +630,17 @@ export default function DistributeImport() {
           )}
         >
         <div style={st.uploadBand}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, whiteSpace: 'nowrap' }}>
+            선출고 원문
+            <select value={earlyImportMode} onChange={event => {
+              setEarlyImportMode(event.target.value);
+              setPreview(null);
+              setMessage('원문 기준이 바뀌었습니다. 다시 검증하세요.');
+            }} style={{ height: 34, border: '1px solid #cbd5e1', borderRadius: 6, background: '#fff' }}>
+              <option value="ORIGINAL_INCLUDES_EARLY">선출고 포함 원본</option>
+              <option value="ALREADY_EXCLUDED">이미 선출고 제외</option>
+            </select>
+          </label>
           <input
             ref={fileRef}
             type="file"
@@ -763,6 +783,12 @@ export default function DistributeImport() {
             {' — 새 파일에 없는 업체·품목과 빈칸은 분배 0으로 정리합니다. 기존 주문수량은 유지합니다.'}
           </div>
         )}
+        {preview?.earlyImport && (
+          <div style={{ padding: '8px 14px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, marginBottom: 10, fontSize: 13 }}>
+            선출고 원문 기준: <b>{preview.earlyImport.mode === 'ORIGINAL_INCLUDES_EARLY' ? '선출고 포함 원본' : '이미 선출고 제외'}</b> ·
+            처리된 선출고는 실제 업체·품목·단위·대상 연도/차수의 적용 원장만 조회합니다. 상세목록에서 원문·처리량·최종 목표·현재분배·차이를 확인하세요.
+          </div>
+        )}
         {preview && preview.orderYear && (
           <div style={{ padding: '8px 14px', background: '#e0f2fe', border: '1px solid #0284c7', borderRadius: 8,
             margin: '0 0 10px', fontSize: 13, color: '#075985' }}>
@@ -857,7 +883,7 @@ export default function DistributeImport() {
                 <div style={st.tableWrapLarge}>
                   <table style={st.table}>
                     <thead>
-                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>현재분배</th><th>엑셀수량</th><th>주문변경</th><th>분배차이</th><th>수량경고</th><th>셀</th></tr>
+                      <tr><th>상태</th><th>업체</th><th>품목</th><th>단위</th><th>주문등록</th><th>원문 환산량</th><th>현재분배</th><th>처리 선출고</th><th>이번 제외</th><th>최종 목표</th><th>주문변경</th><th>분배차이</th><th>수량경고</th><th>셀</th></tr>
                     </thead>
                     <tbody>
                       {visibleRows.map(r => (
@@ -867,7 +893,10 @@ export default function DistributeImport() {
                           <td>{r.displayName || r.prodName}</td>
                           <td>{r.outUnit}</td>
                           <td>{fmt(r.orderQty)}</td>
+                          <td>{fmt(r.originalTotal ?? r.uploadQty)}</td>
                           <td>{fmt(r.currentOutQty)}</td>
+                          <td title={r.earlyExclusionReason || ''}>{fmt(r.processedEarlyTotal || 0)}{r.earlyExclusionReason ? ` · ${r.earlyExclusionReason}` : ''}</td>
+                          <td>{fmt(r.earlyExcludedApplied || 0)}</td>
                           <td>{fmtUpload(r)}</td>
                           <td>{fmt(r.changeQty)}</td>
                           <td>{fmt(shipmentDiffQty(r))}</td>
@@ -1746,7 +1775,7 @@ function UnmatchedMatchingModal({
             ) : (
               <>
                 <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
-                  분배 포함은 실제 ERP 업체를 연결하세요. 제외는 이번 파일의 해당 원문 업체열 수량에만 적용하며 다른 업체열은 유지합니다. 주광 선출고가 이전 차수에 반영되었다면 이번 파일에서는 분배 안 함을 선택하세요. 자동으로 제외하지 않습니다.
+                  분배 포함은 실제 ERP 업체를 연결하세요. 이전 차수에 반영된 선출고 열은 분배 안 함으로 제외할 수 있습니다. 제외는 이번 파일의 해당 원문 업체열 수량에만 적용하며 다른 업체열은 유지합니다. 선출고 열을 분배 안 함으로 표시했다면 화면의 선출고 원문 기준도 “이미 선출고 제외”로 선택한 뒤 다시 검증하세요.
                 </div>
                 <table style={st.table}>
                   <thead><tr><th>구분</th><th>엑셀 업체</th><th>건수</th><th>샘플 품목</th><th>분배 포함 · ERP 업체 연결</th><th>이번 파일 분배 선택</th></tr></thead>
@@ -1874,7 +1903,7 @@ const st = {
   controls: { display: 'flex', alignItems: 'center', gap: 4 },
   iconBtn: { width: 32, height: 32, border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, cursor: 'pointer' },
   weekInput: { width: 104, height: 32, border: '1px solid #cbd5e1', borderRadius: 6, textAlign: 'center', fontWeight: 700 },
-  uploadBand: { display: 'flex', alignItems: 'center', gap: 8, padding: 12, border: '1px solid #dbe3ef', background: '#f8fafc', borderRadius: 8, marginBottom: 12 },
+  uploadBand: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: 12, border: '1px solid #dbe3ef', background: '#f8fafc', borderRadius: 8, marginBottom: 12 },
   fileName: { flex: 1, color: '#475569', fontSize: 13 },
   secondaryBtn: { height: 34, padding: '0 14px', border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, cursor: 'pointer' },
   primaryBtn: { height: 34, padding: '0 16px', border: 0, background: '#2563eb', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700 },
@@ -1930,15 +1959,15 @@ const st = {
   verifyTableWrap: { maxHeight: 220, overflow: 'auto', border: '1px solid #fca5a5', borderRadius: 6, background: '#fff' },
   applyTableWrap: { maxHeight: 340, overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 },
   actionBadge: { display: 'inline-block', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 800 },
-  tableWrap: { height: 220, overflow: 'auto' },
-  tableWrapLarge: { maxHeight: 'calc(100vh - 240px)', overflow: 'auto' },
+  tableWrap: { overflowX: 'auto' },
+  tableWrapLarge: { overflowX: 'auto' },
   qtyWarnCell: { color: '#b91c1c', fontSize: 11, maxWidth: 220, whiteSpace: 'normal' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
   panelActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' },
   segment: { display: 'flex', gap: 4 },
   seg: { border: '1px solid #cbd5e1', background: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' },
   segOn: { border: '1px solid #2563eb', background: '#2563eb', color: '#fff', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' },
-  pivotWrap: { maxHeight: 'calc(100vh - 240px)', overflow: 'auto', background: '#fff' },
+  pivotWrap: { overflowX: 'auto', background: '#fff' },
   pivotTable: { width: 'max-content', minWidth: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12 },
   pivotStickyHead: { position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#e2e8f0', color: '#0f172a', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '8px 10px', textAlign: 'left' },
   pivotCustHead: { position: 'sticky', top: 0, zIndex: 3, minWidth: 132, maxWidth: 150, background: '#e2e8f0', color: '#0f172a', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '7px 8px', textAlign: 'center', verticalAlign: 'top' },

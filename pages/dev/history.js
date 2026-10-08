@@ -4,6 +4,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
+import FullDevelopmentHistory from '../../components/dev/FullDevelopmentHistory';
+import MenuDevelopmentHistory from '../../components/dev/MenuDevelopmentHistory';
 
 const API = '/api/dev/git-log';
 
@@ -137,7 +139,7 @@ function inlineFormat(s) {
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#38bdf8;text-decoration:underline;">$1</a>');
 }
 
-export default function HistoryPage() {
+function LegacyHistoryPage() {
   const [data, setData] = useState(null);
   const [selectedHash, setSelectedHash] = useState(null);
   const [diffData, setDiffData] = useState(null);
@@ -145,7 +147,7 @@ export default function HistoryPage() {
   const [diffContent, setDiffContent] = useState('');
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [tab, setTab] = useState('commits');
+  const [tab, setTab] = useState('menu-features');
   const [pendingDiff, setPendingDiff] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -164,7 +166,7 @@ export default function HistoryPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (tab === 'commits') load(); }, [load, tab]);
 
   const loadDiff = async (hash) => {
     if (selectedHash === hash && diffData) {
@@ -221,6 +223,7 @@ export default function HistoryPage() {
   const status  = data?.status || [];
 
   const TABS = [
+    ['menu-features', '메뉴별 기능'],
     ['commits', '커밋 목록'],
     ['pending', '미커밋 변경'],
     ['plans', '작업 플랜'],
@@ -230,7 +233,22 @@ export default function HistoryPage() {
   return (
     <>
       <Head><title>작업 히스토리 — nenova</title></Head>
-      <div style={{ minHeight: '100vh', background: '#0f172a', color: '#e2e8f0', fontFamily: 'monospace' }}>
+      <div style={{ minHeight: '100vh', background: tab === 'menu-features' ? '#f4f8ff' : '#0f172a', color: '#e2e8f0', fontFamily: 'monospace' }}>
+
+        <nav aria-label="개발 히스토리 보기" style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '10px 18px', background: '#fff', borderBottom: '1px solid #d8e5f3' }}>
+          {TABS.map(([k, label]) => (
+            <button key={k} type="button" onClick={() => {
+              if (k === 'pending') loadPending();
+              else if (k === 'plans') loadPlans();
+              else if (k === 'memory') loadMemory();
+              else setTab(k);
+            }} aria-current={tab === k ? 'page' : undefined}
+              style={{ padding: '9px 14px', border: tab === k ? '1px solid #89b7ec' : '1px solid transparent', borderRadius: 8, background: tab === k ? '#eaf4ff' : 'transparent', color: tab === k ? '#14529a' : '#526d88', cursor: 'pointer', fontWeight: tab === k ? 700 : 500 }}>
+              {label}
+            </button>
+          ))}
+        </nav>
+        {tab === 'menu-features' ? <MenuDevelopmentHistory /> : <>
 
         {/* 헤더 */}
         <div style={{ background: '#1e293b', borderBottom: '1px solid #334155', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -241,29 +259,10 @@ export default function HistoryPage() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', height: 'calc(100vh - 49px)' }}>
+        <div style={{ display: 'flex', minHeight: 'calc(100vh - 110px)' }}>
 
           {/* 왼쪽: 탭 + 목록 */}
           <div style={{ width: 340, borderRight: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
-            {/* 탭 */}
-            <div style={{ display: 'flex', background: '#1e293b', borderBottom: '1px solid #334155' }}>
-              {TABS.map(([k, label]) => (
-                <button key={k}
-                  onClick={() => {
-                    if (k === 'pending') loadPending();
-                    else if (k === 'plans') loadPlans();
-                    else if (k === 'memory') loadMemory();
-                    else setTab('commits');
-                  }}
-                  style={{
-                    flex: 1, padding: '8px 0', border: 'none', cursor: 'pointer', fontSize: 11,
-                    background: tab === k ? '#0f172a' : '#1e293b',
-                    color: tab === k ? '#38bdf8' : '#94a3b8',
-                    borderBottom: tab === k ? '2px solid #38bdf8' : '2px solid transparent',
-                  }}>{label}</button>
-              ))}
-            </div>
-
             {/* 미커밋 파일 상태 */}
             {status.length > 0 && tab !== 'memory' && (
               <div style={{ padding: '8px 12px', background: '#1a1a2e', borderBottom: '1px solid #334155', fontSize: 11 }}>
@@ -442,7 +441,19 @@ export default function HistoryPage() {
             )}
           </div>
         </div>
+        </>}
       </div>
     </>
   );
+}
+
+export default function HistoryPage() {
+  const [view, setView] = useState('full');
+  return <>
+    <Head><title>개발 이력 — nenova</title></Head>
+    <nav aria-label="개발 이력 화면 선택" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '12px 24px', background: '#f4f8ff', borderBottom: '1px solid #d5e2f1' }}>
+      {[['full', '전체 개발 이력'], ['menu', '메뉴별 기능'], ['legacy', '기존 작업 히스토리']].map(([id, label]) => <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)} style={{ border: '1px solid #b6cbe4', borderRadius: 8, padding: '9px 14px', background: view === id ? '#1d65ad' : '#fff', color: view === id ? '#fff' : '#194574', cursor: 'pointer' }}>{label}</button>)}
+    </nav>
+    {view === 'full' ? <FullDevelopmentHistory /> : view === 'menu' ? <MenuDevelopmentHistory /> : <LegacyHistoryPage />}
+  </>;
 }

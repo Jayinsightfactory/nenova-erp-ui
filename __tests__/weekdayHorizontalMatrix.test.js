@@ -328,7 +328,7 @@ assert.match(html, /thead th \{ position:static; top:auto;/);
 assert.match(html, /tbody th \{ position:sticky; top:auto; left:0;/);
 assert.match(html, /aria-label="38차 목 견적 출력"[^>]*>출력<\/button>/);
 assert.doesNotMatch(html, /wcm-panel|wcm-cycle-links|wcm-heading/);
-assert.match(html, /max-height:calc\(100dvh - 190px\); overflow-y:auto/);
+assert.match(html, /wcm-table-scroll \{ overflow-y:visible; \}/, 'the wide table uses page vertical scroll');
 assert.match(html, /잔량 미확인/);
 const disconnected = renderToStaticMarkup(React.createElement(Component, { cycles, comparisonRows: [actual()] }));
 assert.match(disconnected, /출력 불가/);

@@ -39,6 +39,8 @@ assert.match(page, /작업 저장/, '차수별 작업 저장 버튼을 제공한
 assert.match(page, /source: 'orders' \}\),[\s\S]*source: 'incoming', country: 'china'/, '중국 물량표는 주문차수와 중국 실제 입고차수를 함께 조회한다');
 assert.match(page, /\.board td span\.qty\{left:0;width:100%;\}/, '중국 물량표 수량은 셀 전체 너비 기준으로 중앙 정렬한다');
 assert.match(page, /defaultPivotBoardWeek\(incomingWeeks, orderWeeks\)/, '페이지 최초 진입은 최신 중국 입고 차수를 우선 선택한다');
+assert.match(page, /buildChinaVolumeCustomerColumns\(\{ rows: chinaRows, customers: data\?\.customers \|\| \[\], packingRows, cells \}\)/, '중국 업체 열은 출고가 아닌 선택 차수의 품목별 주문등록 키로 만든다');
+assert.match(page, /chinaOrderQuantity\(row, customer\)/, '그리드의 주문 기준 수량은 OrderDetail을 읽는다');
 assert.match(page, /availableWeeks\.map/, 'DB 입력 세부차수를 축약하지 않고 선택지로 표시한다');
 assert.match(page, /baseIndex - delta/, '이전·다음 이동은 계산한 주차가 아니라 DB 입력 차수 배열을 따른다');
 assert.match(page, /aria-label="이전 입력 차수"/, '왼쪽 DB 입력 차수 이동 버튼을 제공한다');
@@ -62,7 +64,9 @@ assert.match(page, /\/api\/stats\/china-volume-products/, '선택 차수 피벗�
 assert.match(page, /normalizeChinaText\(search\)/, '품목 검색은 괄호·공백·화종 표기를 정규화한다');
 assert.match(page, /mergeChinaProductCandidates/, '현재 차수 품목과 전산 중국 품목 후보를 ProdKey로 안전하게 합친다');
 assert.match(productApi, /withAuth/, '중국 품목 후보 조회는 로그인 사용자만 가능하다');
-assert.match(productApi, /p\.isDeleted = 0 AND p\.CounName = N'중국'/, '활성 중국 Product만 읽는다');
+assert.match(productApi, /p\.isDeleted = 0[\s\S]*p\.CounName LIKE N'%중국%'[\s\S]*p\.CountryFlower LIKE N'%중국%'/, '활성 중국 품목 후보를 CounName 또는 CountryFlower 기준으로 읽는다');
+assert.match(productApi, /p\.CountryFlower, p\.OutUnit/, '수동 매칭 후보 응답에도 중국 품목 판정용 CountryFlower를 포함한다');
+assert.match(page, /filter\(isChinaVolumeRow\)/, '화면의 품목 필터는 국가명 또는 CountryFlower 공용 판정을 사용한다');
 assert.doesNotMatch(productApi, /\b(?:INSERT|UPDATE|DELETE|MERGE)\b/i, '중국 품목 후보 API는 ERP 원장을 변경하지 않는다');
 assert.match(page, /업체·품목 매칭 수정/, '품목·업체 미매칭과 기존 매칭은 즉시 같은 처리 모달을 연다');
 assert.match(page, /업체·품목 매칭 수정/, '미매칭과 기존 매칭은 같은 업체·품목 편집창에서 수정한다');

@@ -32,6 +32,8 @@ jobs:
         run: npm run test:smoke
       - name: Restore in a separate process
         run: npm run test:restore
+      - name: Update download integrity (no installer execution)
+        run: npm run test:updater
       - name: Build Windows installer
         run: npm run dist
       - name: Installer SHA256
@@ -42,4 +44,6 @@ jobs:
           path: |
             desktop/dist/Nenova-Desktop-Setup-*-x64.exe
             desktop/dist/SHA256.txt
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
           retention-days: 30

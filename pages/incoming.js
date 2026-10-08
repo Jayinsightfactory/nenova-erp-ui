@@ -274,7 +274,14 @@ export default function Warehouse() {
                 summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b[k] || 0), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
                 columns={[
                   { title: '주문코드', dataIndex: '주문코드', width: 90, render: (v) => <Text style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
-                  { title: '품목명(색상)', key: 'name', ellipsis: true, render: (_, d) => <Text strong>{d.DisplayName || d.ProdName}</Text> },
+                  { title: '품목명(색상)', key: 'name', width: 280, render: (_, d) => (
+                    <Text
+                      className="incoming-product-name"
+                      strong
+                      title={d.DisplayName || d.ProdName || ''}
+                      style={{ display: 'block', whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35 }}
+                    >{d.DisplayName || d.ProdName}</Text>
+                  ) },
                   { title: '단위', dataIndex: '단위', width: 56 },
                   { title: '단/송이', dataIndex: '단송이', align: 'right', width: 66, render: fmt },
                   { title: '박스/송이', dataIndex: '박스송이', align: 'right', width: 74, render: fmt },

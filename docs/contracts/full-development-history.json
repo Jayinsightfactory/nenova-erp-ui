@@ -1,0 +1,46 @@
+{
+  "id": "full-development-history",
+  "title": "전체 개발 이력 읽기 전용 Git 메타데이터 원장",
+  "scope": [
+    "pages/dev/history.js",
+    "pages/api/dev/full-history.js",
+    "components/dev/FullDevelopmentHistory.js",
+    "lib/fullDevelopmentHistory.cjs",
+    "scripts/generate-full-development-history.cjs",
+    "scripts/export-external-development-history.cjs"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "sourceIdentity": ["source repository", "full commit hash"],
+  "actions": [
+    {
+      "name": "FULL_DEVELOPMENT_HISTORY_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "서로 다른 연도·저장소의 커밋과 날짜형 요약 제목을 full hash와 ISO 시각으로 식별한다. ERP 차수·MSSQL 원장을 조회하거나 수정하지 않는다."
+  },
+  "requiredTestFiles": ["__tests__/fullDevelopmentHistory.test.js"],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/full-development-history.md",
+    "source": "nenova.exe 대응 기능이 아닌 웹 전용 정적 Git 메타데이터 조회. EXE 및 SQL에 접근하지 않는다.",
+    "methods": ["NenovaWeb withAuth GET static snapshot read"],
+    "tables": ["OrderDetail (preserve; not queried)", "ShipmentDetail (preserve; not queried)", "Estimate (preserve; not queried)", "WebProfitReport (preserve; not queried)"]
+  },
+  "requiredCommands": ["npm run test:full-development-history", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"],
+  "counting": {
+    "unit": "verified default-ref reachable Git commit record, not user request or hours",
+    "global": "exact full-hash union across source repositories; work summaries separate",
+    "merge": "parent count greater than one; counted separately from non-merge",
+    "stage": "external verified main refs plus current ERP build HEAD; ERP non-master build HEAD may include branch commits, explicitly disclosed; no working tree",
+    "classification": "parentless verified root or explicit subject prefix; otherwise unclassified",
+    "safety": "sanitized subject and allowlisted paths only; no author identity, body, diff, private session content, SQL, or ERP data"
+  }
+}

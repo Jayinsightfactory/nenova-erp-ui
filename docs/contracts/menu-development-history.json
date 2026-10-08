@@ -1,0 +1,12 @@
+{
+  "id": "menu-development-history",
+  "title": "메뉴별 기능 추가·반복 수정 이력 읽기 전용 집계",
+  "scope": ["pages/api/dev/menu-history.js", "pages/dev/history.js", "components/dev/MenuDevelopmentHistory.js", "lib/menuDevelopmentHistory.cjs", "scripts/generate-menu-development-history.cjs", "components/Layout.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name": "DEVELOPMENT_HISTORY_READ", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": []}],
+  "crossYearFixture": {"required": true, "description": "Git 해시·전체 날짜 기반 웹 전용 집계. ERP 업무차수와 무관하며 MSSQL 및 모든 원장은 조회·변경하지 않는다. 교차연도 날짜 fixture로 이력 식별 보존을 검사한다."},
+  "requiredTestFiles": ["__tests__/menuDevelopmentHistory.test.js"],
+  "dnspyEvidence": {"required": true, "record": "docs/plans/menu-development-history.md", "source": "nenova.exe 대응 기능이 아닌 웹 전용 Git 메타데이터 조회. EXE/SQL 저장 순서에 접근하거나 변경하지 않는다.", "methods": ["NenovaWeb withAuth GET snapshot read"], "tables": ["OrderDetail (preserve; not queried)", "ShipmentDetail (preserve; not queried)", "Estimate (preserve; not queried)", "WebProfitReport (preserve; not queried)"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run test:ui-layout", "npm run build"],
+  "counting": {"unit": "unique first-parent commit touching evidenced paths; not hours or user conversation count", "global": "hash union, not menu count sum", "initial": "earliest actual anchor A; absent means unknown", "repeat": "unique related commits after evidenced initial addition", "classification": "explicit path catalogue plus primary menu page, automatic classification disclosed"}
+}

@@ -1,5 +1,12 @@
 # 중국 발주 현황 읽기/다운로드 근거 — 2026-10-05
 
+## 2026-10-08 단일 시트 다운로드
+- 사용자 요청에 따라 선택 세부차수 다운로드는 품목별업체수량 1시트만 저장한다. 숨김 수량원본 및 감사 4시트는 제외한다.
+- 삭제 시트 참조 수식은 기존 캐시 표시값으로 변환한다. 수량(박스수), 단위별 합계, HF/CL 리터럴, 날짜, 서식, 고정 행/열은 유지한다.
+- 파일 응답만 변경하며 기존 API, ViewOrder 조회 SQL, 업무키, EXE, 모든 ERP 원장과 견적/매출 downstream은 보존한다. 새 DB/SQL 동작이 없으므로 기존 dnSpy 및 읽기 근거를 재사용한다.
+- 회귀: XLSX 저장/재개봉 후 정확히 1시트, 수식 없음, 소수/누락 환산/중복 CL/교차연도 suffix/업체 필터/260업체 검증.
+
+
 ## 2026-10-07 예시 다운로드 상단 및 파일명
 - main이 실제 설치 EXE FormQuantityPivot를 dnSpy.Console로 재실행하여 ViewOrder.OutQuantity, FROM ViewOrder, btnExcel_Click 확인. 기존 SQL/API/ERP 저장 경로 변경 없음.
 - 첫 시트 표시 행만 추가: 짧은 세부차수 중국 / ETA / 다운로드 시점 Asia/Seoul 날짜 / SEA/Air. 사용자 명시 기준으로 ETA는 이번 다운로드 날짜이며 실제 운송 예정일 계산이 아니다. Customer.OrderCode만 업체 헤더로 유지한다.

@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
 
 // Compile the actual preview and its matching/quantity/fix policies locally.
 // DB and write-only dependencies cannot open a connection or run a transaction.
@@ -13,7 +14,7 @@ const { transformSync } = require(`@next/swc-${process.platform}-${process.arch}
 const lib = fileURLToPath(new URL('../lib/', import.meta.url));
 const realModules = new Set(['shipmentImport', 'orderUtils', 'shipmentImportQty', 'shipmentFixScope',
   'shipmentFixScopeCore', 'shipmentDescr', 'distributeUnits', 'pivotProdName',
-  'pivotVolumeProductLabel', 'dutchVolumeCustomerMatch']);
+  'pivotVolumeProductLabel', 'dutchVolumeCustomerMatch', 'weekdayEarlyShipmentImport']);
 const cache = new Map();
 const forbidden = () => { throw new Error('Preview fixture must never access a real DB or write dependency'); };
 function load(filename) {
@@ -24,6 +25,7 @@ function load(filename) {
     filename, jsc: { target: 'es2020', parser: { syntax: 'ecmascript' } }, module: { type: 'commonjs' },
   })));
   new Function('require', 'module', 'exports', compiled.code)(name => {
+    if (name === './weekdayEstimateCompare.js') return {normalizeWeekdayUnit};
     if (name === './db') return { query: forbidden, withTransaction: forbidden,
       sql: { NVarChar: 'NVarChar', Int: 'Int', Decimal: forbidden } };
     const target = resolve(dirname(filename), name.endsWith('.js') ? name : `${name}.js`);
@@ -51,7 +53,7 @@ const parsedRows = [
     uploadQty: 3, outUnit: '박스', sheetName: '장미', rowNo: 4, colNo: 3 },
 ];
 
-async function preview(customerOverrides = {}) {
+async function preview(customerOverrides = {}, { earlyImportMode = null, sourceRows = parsedRows } = {}) {
   const before = JSON.stringify({ ledger, parsedRows, product, customer });
   const calls = [];
   const queryFn = async (text, params = {}) => {
@@ -80,8 +82,15 @@ async function preview(customerOverrides = {}) {
     if (/FROM ShipmentMaster sm/.test(text) && /NOT EXISTS/.test(text)) return { recordset: [] };
     throw new Error(`Unexpected preview query: ${text}`);
   };
-  const result = await buildImportPreview({ parsedRows, rawWeek: '41-01', rawYear: '2026',
-    customerOverrides, queryFn });
+  const result = await buildImportPreview({ parsedRows: sourceRows, rawWeek: '41-01', rawYear: '2026',
+    customerOverrides, queryFn, earlyImportMode,
+    earlyExclusionLoader: earlyImportMode ? async (_query, scope) => {
+      assert.equal(scope.year, '2026');
+      assert.equal(scope.majorWeek, '41');
+      assert.equal(scope.orderWeek, '41-01');
+      return { fingerprint: 'ledger-v1', rows: [{ custKey: 533, prodKey: 359, unit: '박스',
+        processedEarlyTotal: 3, earlyExcludedApplied: 3, targetImportYear: 2026, targetImportWeek: '41-01' }] };
+    } : null });
   assert.equal(JSON.stringify({ ledger, parsedRows, product, customer }), before,
     'preview/exclusion never mutates current, previous-week or prior-year ledger fixtures');
   assert.equal(result.orderYear, '2026');
@@ -123,5 +132,25 @@ test('unmatched original column blocks until explicitly excluded or connected; u
   const invalidConnection = await preview({ '주광선출고': 999999 });
   assert.equal(invalidConnection.unmatched.length, 1, 'invalid explicit mapping cannot silently resolve another customer');
   assert.equal(invalidConnection.rows[0].uploadQty, 5);
+});
+
+test('preview totals are normalized first, then exclude processed ledger exactly once', async () => {
+  const sourceRows = [{ ...parsedRows[0], uploadQty: 10 }];
+  const original = await preview({}, { earlyImportMode: 'ORIGINAL_INCLUDES_EARLY', sourceRows });
+  assert.equal(original.rows[0].originalTotal, 10);
+  assert.equal(original.rows[0].processedEarlyTotal, 3);
+  assert.equal(original.rows[0].earlyExcludedApplied, 3);
+  assert.equal(original.rows[0].uploadQty, 7);
+  assert.equal(original.rows[0].shipmentDiffQty, 3, 'current 4 gives storage delta 3; 7 is the absolute target');
+  assert.equal(original.earlyImport.fingerprint, 'ledger-v1');
+  const repeated = await preview({}, { earlyImportMode: 'ORIGINAL_INCLUDES_EARLY', sourceRows });
+  assert.equal(repeated.rows[0].uploadQty, 7, 'repeated preview starts from original 10');
+  const excluded = await preview({}, { earlyImportMode: 'ALREADY_EXCLUDED', sourceRows });
+  assert.equal(excluded.rows[0].uploadQty, 10);
+  assert.equal(excluded.rows[0].processedEarlyTotal, 3);
+  assert.equal(excluded.rows[0].earlyExcludedApplied, 0);
+  await assert.rejects(() => preview({}, { earlyImportMode: 'ORIGINAL_INCLUDES_EARLY',
+    sourceRows: [...sourceRows, { ...sourceRows[0], week: '41-02', uploadQty: 4 }] }),
+  { code: 'EARLY_IMPORT_AMBIGUOUS_SUFFIX' }, 'multiple same-major source buckets need explicit mapping');
 });
 

@@ -65,7 +65,7 @@ shell preload는 `newTab`, `activateTab`, `closeTab`, `moveTab`, `bookmark`, `ge
 
 파일 저장은 사용자가 시작한 기존 웹 다운로드에서 시스템 저장 대화상자로 진행한다. 파일명 경로 문자를 정리하고 서버 응답의 경로를 그대로 로컬 저장 경로로 사용하지 않는다. 실행 파일/스크립트 자동 실행, 임의 `shell.openPath`, 다운로드 완료 시 실행은 제공하지 않는다. 인쇄는 대상과 프린터를 확인할 수 있는 대화상자를 우선한다.
 
-설치 패키지는 앱 자산·고정 의존성만 포함하고 개발 `.env`, DB 파일, 운영 인증, 작업 세션 기록을 포함하지 않는다. 배포 아티팩트의 해시와 서명 상태를 기록한다. Electron 또는 설치기 업데이트를 임의 원격 URL에서 다운로드·실행하는 기능을 만들지 않는다. 자동 업데이트는 신뢰할 배포 origin·서명·롤백 절차가 마련된 별도 단계로 둔다.
+설치 패키지는 앱 자산·고정 의존성만 포함하고 개발 `.env`, DB 파일, 운영 인증, 작업 세션 기록을 포함하지 않는다. 배포 아티팩트의 해시와 서명 상태를 기록한다. Electron 또는 설치기 업데이트를 임의 원격 URL에서 다운로드·실행하는 기능을 만들지 않는다. 1.3.0의 사용자 요청 업데이트는 아래 native updater 계약을 따른다. 현 버전에는 Authenticode 서명이 없으며 그 신뢰 경계를 명시한다.
 
 패키징 보강 권고는 `electronFuses`의 `runAsNode:false`, `enableNodeOptionsEnvironmentVariable:false`, `enableNodeCliInspectArguments:false`, `grantFileProtocolExtraPrivileges:false`, `enableCookieEncryption:true`, `onlyLoadAppFromAsar:true`다. ASAR 무결성 검증도 Windows 지원 범위에서 활성화하고 패키지 실행을 확인한다. Cookie 암호화 fuse는 메타데이터 safeStorage와 별개이며, 활성화 후 이전 비암호화 모드로 되돌리는 배포를 하지 않는다. 실제 적용 여부는 최종 EXE의 fuse 읽기 결과로 판단한다. [Electron Fuses](https://www.electronjs.org/docs/latest/tutorial/fuses)
 
@@ -92,3 +92,12 @@ shell preload는 `newTab`, `activateTab`, `closeTab`, `moveTab`, `bookmark`, `ge
 ## 설치기 검증 경계
 
 사용자 PC에 같은 appId의 기존 설치가 있으면 /D로 임시 디렉터리를 지정해도 NSIS가 기존 버전을 제거할 수 있다. 이 경우 설치기를 실행하지 않고 win-unpacked를 별도 userData/sessionData로 실행한다. 설치·제거 시험은 격리 VM에서 한다. 사전 탐지는 버전이 붙는 DisplayName 접두사와 HKCU/HKLM 및 32/64비트 등록을 모두 확인한다. 실행 중인 사용자 프로그램을 중단하지 않는다. 근거: app-builder-lib/templates/nsis/installSection.nsh의 uninstallOldVersion 호출.
+## 1.3.0 native updater 보안·운영 계약
+
+- electron-updater 6.8.10 NSIS를 사용한다. 고정 HTTPS GitHub `Jayinsightfactory/nenova-erp-ui/releases/latest/download`만 feed로 사용한다. 웹/renderer가 feed나 installer 경로를 지정할 수 없다.
+- check/download/install은 기존 local-shell exact sender/mainFrame IPC만 허용한다. 자동 다운로드, 일반 종료 시 자동 설치, downgrade, prerelease, web-installer를 비활성화한다.
+- updater.cjs가 release version, 단일 x64 exe 파일명, 최대 500MiB, SHA512 형식을 검증하고 electron-updater가 다운로드 SHA512를 대조한다. 현재 설치파일은 Authenticode 미서명이다. HTTPS와 SHA512는 전송 무결성 근거이며 발행자 서명 검증을 제공하지 않는다. GitHub release 권한이 신뢰 경계다. 향후 서명 도입 시 publisherName을 설정하고 인증서 교체 절차를 검증한다.
+- 설치 전에 최소 여유 공간 검사, 미저장 입력 폐기 확인(취소 기본), 현재 계정의 encrypted snapshot 저장 성공이 필요하다. 다운로드·확인 실패 시 업무 view를 닫지 않는다. NSIS 실행 이후 실패/UAC 취소에서는 앱이 이미 종료될 수 있으므로 입력 복원을 보장하지 않는다.
+- 1.2.1 이하 도입은 수동 설치 1회 필요. 새 버전 release에는 같은 빌드의 exe/latest.yml/blockmap를 함께 올리고, hash 및 metadata 검증 후 마지막에 latest로 지정한다. 웹 전용 release를 latest로 지정하면 안 된다.
+- 이전 버전 assets는 보존한다. 문제가 있는 release는 검증된 이전 release를 latest로 되돌려 추가 배포를 멈추고, 이미 설치된 버전은 더 높은 수정 버전으로 복구한다. 사용자 PC에서 자동 downgrade나 임의 삭제를 하지 않는다.
+- 실제 설치·제거·권한 상승 검증은 격리 VM에서 수행한다. 사용자 PC에서는 updater 다운로드/해시 확인까지만 검증하며 installer를 실행하지 않는다.
