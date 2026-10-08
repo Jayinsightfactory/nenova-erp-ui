@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "features": [
+    { "route": "/estimate", "id": "estimate-workflow", "title": "견적 업무", "description": "견적 조회·편집·출력 및 관련 API", "anchorPaths": ["pages/api/estimate/index.js"], "paths": ["pages/api/estimate/", "lib/estimate", "__tests__/estimate"] },
+    { "route": "/estimate", "id": "estimate-freight-charge", "title": "견적 운임 등록", "description": "견적서의 운임 등록·적용·근거 검토", "anchorPaths": ["lib/estimateFreightDraft.js"], "paths": ["components/estimate/FreightChargePreviewModal", "lib/estimateFreight", "pages/api/estimate/freight-", "__tests__/estimateFreight"] },
+    { "route": "/freight", "id": "freight-calc", "title": "운송기준원가 계산", "description": "운임·운송원가 계산", "anchorPaths": ["lib/freightCalc.js"], "paths": ["pages/api/freight/", "lib/freightCalc", "lib/freightGroupSearch", "__tests__/freight"] },
+    { "route": "/orders/paste", "id": "paste-mapping", "title": "붙여넣기 매칭", "description": "붙여넣기 주문의 거래처·품목 매칭", "anchorPaths": ["lib/pasteMappingSave.js"], "paths": ["lib/pasteMapping", "pages/api/orders/paste", "__tests__/pasteMapping", "__tests__/pasteRematch"] },
+    { "route": "/stats/pivot", "id": "pivot-exe", "title": "Pivot EXE 호환", "description": "Pivot 통계의 EXE 계산·표시·내보내기", "anchorPaths": ["lib/pivotExeModel.js"], "paths": ["lib/pivotExe", "components/PivotExe", "__tests__/pivotExe"] },
+    { "route": "/arrival-cost", "id": "arrival-cost", "title": "도착원가 계산", "description": "도착원가 계산·조회·엑셀", "anchorPaths": ["lib/arrivalCost.js"], "paths": ["lib/arrivalCost", "__tests__/arrivalCost", "pages/api/arrival-cost"] },
+    { "route": "/sales/farm-quality", "id": "farm-quality", "title": "농장 불량·피드백", "description": "농장 품질 피드백 및 증거 관리", "anchorPaths": ["lib/farmQuality.js"], "paths": ["lib/farmQuality", "__tests__/farmQuality", "pages/api/sales/farm-quality"] },
+    { "route": "/raum/pnl", "id": "raum-pnl", "title": "호텔 손익계산", "description": "라움·신라호텔 손익계산과 매칭", "anchorPaths": ["lib/shillaPnlParse.js"], "paths": ["lib/raumPnl", "lib/shillaPnl", "__tests__/raumPnl", "__tests__/shillaPnl", "pages/api/raum/pnl", "pages/api/raum/shilla"] },
+    { "route": "/sales/shilla-miu-board", "id": "shilla-miu-board", "title": "호텔·미우 통합게시판", "description": "호텔·미우 통합게시판", "anchorPaths": ["lib/shillaMiuBoard.js"], "paths": ["lib/shillaMiuBoard", "__tests__/shillaMiuBoard", "pages/api/sales/shilla-miu-board"] }
+  ]
+}
