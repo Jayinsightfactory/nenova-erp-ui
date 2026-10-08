@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-08T05:47:49.838Z",
+  "generatedAt": "2026-10-08T06:47:36.128Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "7973eb6175afff2457b70e5dff1065a0921c28f4",
+      "headHash": "31534a1ad817c804ae36a5075b069f6ac882036c",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-10-08T05:47:49.838Z",
-      "totalCommits": 2929,
-      "nonMergeCount": 2239,
-      "mergeCount": 690,
-      "summaryCount": 215,
-      "knownSummaryTitles": 174,
+      "collectedAt": "2026-10-08T06:47:36.128Z",
+      "totalCommits": 2938,
+      "nonMergeCount": 2244,
+      "mergeCount": 694,
+      "summaryCount": 217,
+      "knownSummaryTitles": 176,
       "unknownSummaryTitles": 41,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-10-08T04:46:55.000Z"
+      "lastDate": "2026-10-08T06:38:08.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -100,6 +100,296 @@
     }
   ],
   "records": [
+    {
+      "hash": "0e7a77fe658367ab1332055a464051d12748afa5",
+      "date": "2026-10-08T06:38:08.000Z",
+      "committedAt": "2026-10-08T06:38:08.000Z",
+      "subject": "docs(dev-history): record navigation deployment verification",
+      "parents": [
+        "d3d6e83126b91a5dcf7d90c3b48a559ae10b7101"
+      ],
+      "paths": [],
+      "changedFileCount": 1,
+      "redactedPathCount": 1,
+      "id": "0e7a77fe658367ab1332055a464051d12748afa5",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "31534a1ad817c804ae36a5075b069f6ac882036c",
+      "date": "2026-10-08T06:38:08.000Z",
+      "committedAt": "2026-10-08T06:38:08.000Z",
+      "subject": "Merge remote-tracking branch 'origin/master' into codex/development-journey",
+      "parents": [
+        "0e7a77fe658367ab1332055a464051d12748afa5",
+        "e02b36b988e2f888ab8b0ed10086a0f41fb8b742"
+      ],
+      "paths": [
+        "__tests__/erpContractManifest.test.js",
+        "__tests__/importPacking.test.js",
+        "__tests__/importPackingHardening.test.js",
+        "__tests__/importPackingReceiptAdapter.test.js",
+        "__tests__/invoiceReceiptCostWorkflow.test.js",
+        "__tests__/invoiceReceiptWorkbench.test.js",
+        "__tests__/invoiceReceiptWorkflow.test.js",
+        "__tests__/sidebarMenuFavorites.test.js",
+        "components/DesktopDownloadButton.js",
+        "components/Layout.js",
+        "components/import-tools/InvoiceReceiptCostReview.js",
+        "components/import-tools/InvoiceReceiptWorkbench.js",
+        "components/import-tools/PackingListTool.js",
+        "docs/contracts/desktop-bootstrap.json",
+        "docs/contracts/invoice-stage-workflow.json",
+        "docs/desktop/USER_GUIDE.md",
+        "docs/plans/invoice-stage-workflow.md",
+        "lib/importPackingReceiptAdapter.js",
+        "lib/invoiceReceiptCostWorkflow.js",
+        "lib/invoiceReceiptWorkflow.js",
+        "pages/dashboard.js",
+        "pages/login.js",
+        "scripts/invoice-receipt-ui-smoke.cjs",
+        "styles/InvoiceReceipt.module.css",
+        "styles/InvoiceReceiptCost.module.css"
+      ],
+      "changedFileCount": 38,
+      "redactedPathCount": 13,
+      "id": "31534a1ad817c804ae36a5075b069f6ac882036c",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "e02b36b988e2f888ab8b0ed10086a0f41fb8b742",
+      "date": "2026-10-08T06:08:11.000Z",
+      "committedAt": "2026-10-08T06:08:11.000Z",
+      "subject": "수입 인보이스: 국가별 변환·입고·원가 독립 단계 검증 (#977)",
+      "parents": [
+        "7912f13a4627199d8d1447ecac07bad654dbfe29"
+      ],
+      "paths": [
+        "__tests__/erpContractManifest.test.js",
+        "__tests__/importPacking.test.js",
+        "__tests__/importPackingHardening.test.js",
+        "__tests__/importPackingReceiptAdapter.test.js",
+        "__tests__/invoiceReceiptCostWorkflow.test.js",
+        "__tests__/invoiceReceiptWorkbench.test.js",
+        "__tests__/invoiceReceiptWorkflow.test.js",
+        "components/import-tools/InvoiceReceiptCostReview.js",
+        "components/import-tools/InvoiceReceiptWorkbench.js",
+        "components/import-tools/PackingListTool.js",
+        "docs/contracts/invoice-stage-workflow.json",
+        "docs/plans/invoice-stage-workflow.md",
+        "lib/importPackingReceiptAdapter.js",
+        "lib/invoiceReceiptCostWorkflow.js",
+        "lib/invoiceReceiptWorkflow.js",
+        "scripts/invoice-receipt-ui-smoke.cjs",
+        "styles/InvoiceReceipt.module.css",
+        "styles/InvoiceReceiptCost.module.css"
+      ],
+      "changedFileCount": 21,
+      "redactedPathCount": 3,
+      "id": "e02b36b988e2f888ab8b0ed10086a0f41fb8b742",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "7912f13a4627199d8d1447ecac07bad654dbfe29",
+      "date": "2026-10-08T05:59:00.000Z",
+      "committedAt": "2026-10-08T05:59:00.000Z",
+      "subject": "Merge pull request #976 from Jayinsightfactory/codex/desktop-update-button-position",
+      "parents": [
+        "1aec6fa34bc24168da120a6bf21c9eef35d27051",
+        "d0cc0e04374f1c25788ab333fc897ef335aa2aaa"
+      ],
+      "paths": [
+        "components/Layout.js"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 1,
+      "id": "7912f13a4627199d8d1447ecac07bad654dbfe29",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "d0cc0e04374f1c25788ab333fc897ef335aa2aaa",
+      "date": "2026-10-08T05:55:16.000Z",
+      "committedAt": "2026-10-08T05:55:16.000Z",
+      "subject": "fix(menus): restore favorite focus after failed save",
+      "parents": [
+        "0bc13479fbbf18ee96c316d136f72a49d0d4a69a"
+      ],
+      "paths": [
+        "components/Layout.js"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 1,
+      "id": "d0cc0e04374f1c25788ab333fc897ef335aa2aaa",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "1aec6fa34bc24168da120a6bf21c9eef35d27051",
+      "date": "2026-10-08T05:50:49.000Z",
+      "committedAt": "2026-10-08T05:50:49.000Z",
+      "subject": "Merge pull request #975 from Jayinsightfactory/codex/history-page-navigation",
+      "parents": [
+        "9d276db10910f6b4a75dd297077c9bf008a79b9b",
+        "d3d6e83126b91a5dcf7d90c3b48a559ae10b7101"
+      ],
+      "paths": [
+        "__tests__/fullDevelopmentHistory.test.js",
+        "components/dev/FullDevelopmentHistory.js",
+        "components/dev/FullDevelopmentHistory.module.css",
+        "docs/contracts/full-development-history.json",
+        "lib/fullDevelopmentHistory.cjs",
+        "pages/api/dev/full-history.js"
+      ],
+      "changedFileCount": 9,
+      "redactedPathCount": 3,
+      "id": "1aec6fa34bc24168da120a6bf21c9eef35d27051",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "d3d6e83126b91a5dcf7d90c3b48a559ae10b7101",
+      "date": "2026-10-08T05:48:43.000Z",
+      "committedAt": "2026-10-08T05:48:43.000Z",
+      "subject": "feat(dev-history): jump pages and browse oldest records first",
+      "parents": [
+        "7973eb6175afff2457b70e5dff1065a0921c28f4"
+      ],
+      "paths": [
+        "__tests__/fullDevelopmentHistory.test.js",
+        "components/dev/FullDevelopmentHistory.js",
+        "components/dev/FullDevelopmentHistory.module.css",
+        "docs/contracts/full-development-history.json",
+        "lib/fullDevelopmentHistory.cjs",
+        "pages/api/dev/full-history.js"
+      ],
+      "changedFileCount": 9,
+      "redactedPathCount": 3,
+      "id": "d3d6e83126b91a5dcf7d90c3b48a559ae10b7101",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "9d276db10910f6b4a75dd297077c9bf008a79b9b",
+      "date": "2026-10-08T05:46:23.000Z",
+      "committedAt": "2026-10-08T05:46:23.000Z",
+      "subject": "Merge pull request #974 from Jayinsightfactory/codex/desktop-update-button-position",
+      "parents": [
+        "7973eb6175afff2457b70e5dff1065a0921c28f4",
+        "0bc13479fbbf18ee96c316d136f72a49d0d4a69a"
+      ],
+      "paths": [
+        "__tests__/sidebarMenuFavorites.test.js",
+        "components/DesktopDownloadButton.js",
+        "components/Layout.js",
+        "docs/contracts/desktop-bootstrap.json",
+        "docs/desktop/USER_GUIDE.md",
+        "pages/dashboard.js",
+        "pages/login.js"
+      ],
+      "changedFileCount": 18,
+      "redactedPathCount": 11,
+      "id": "9d276db10910f6b4a75dd297077c9bf008a79b9b",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "0bc13479fbbf18ee96c316d136f72a49d0d4a69a",
+      "date": "2026-10-08T05:42:16.000Z",
+      "committedAt": "2026-10-08T05:42:16.000Z",
+      "subject": "feat(menus): add independent favorite toggles on web and desktop",
+      "parents": [
+        "7973eb6175afff2457b70e5dff1065a0921c28f4"
+      ],
+      "paths": [
+        "__tests__/sidebarMenuFavorites.test.js",
+        "components/DesktopDownloadButton.js",
+        "components/Layout.js",
+        "docs/contracts/desktop-bootstrap.json",
+        "docs/desktop/USER_GUIDE.md",
+        "pages/dashboard.js",
+        "pages/login.js"
+      ],
+      "changedFileCount": 18,
+      "redactedPathCount": 11,
+      "id": "0bc13479fbbf18ee96c316d136f72a49d0d4a69a",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
     {
       "hash": "7973eb6175afff2457b70e5dff1065a0921c28f4",
       "date": "2026-10-08T04:46:55.000Z",
@@ -137910,7 +138200,7 @@
       "id": "erp:work-session-212",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 인보이스 웹 전용 저장 V1",
+      "title": "2026-10-08 국가별 인보이스 독립 단계 자동 검증",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -137922,7 +138212,7 @@
       "id": "erp:work-session-213",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 메뉴별 기능 개발 히스토리",
+      "title": "2026-10-08 인보이스 웹 전용 저장 V1",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -137932,6 +138222,30 @@
     },
     {
       "id": "erp:work-session-214",
+      "sourceId": "erp",
+      "date": "2026-10-08T03:00:00.000Z",
+      "title": "2026-10-08 메뉴별 기능 개발 히스토리",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-215",
+      "sourceId": "erp",
+      "date": "2026-10-08T03:00:00.000Z",
+      "title": "2026-10-08 웹·PC 메뉴별 즐겨찾기",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-216",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
       "title": "2026-10-08 주광 대차수 선출고·업로드 통합",
@@ -141448,11 +141762,11 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 4868,
-    "nonMerge": 4172,
-    "merge": 696,
-    "summaries": 300,
-    "knownSummaryTitles": 259,
+    "uniqueCommits": 4877,
+    "nonMerge": 4177,
+    "merge": 700,
+    "summaries": 302,
+    "knownSummaryTitles": 261,
     "unknownSummaryTitles": 41
   },
   "coverageNote": "외부 저장소는 기록된 main, ERP는 이 빌드의 HEAD에서 도달 가능한 커밋을 수집했습니다. ERP 빌드 HEAD가 기본 브랜치가 아니면 해당 브랜치 커밋이 포함될 수 있습니다. 병합 커밋과 업무 요약은 따로 집계하며 개인별 작업 횟수를 뜻하지 않습니다."
