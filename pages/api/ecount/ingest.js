@@ -5,7 +5,17 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { ingestEcount, DATASETS } from '../../../lib/ecountIngest';
+import crypto from 'crypto';
 import { checkAutomationAuth, getAutomationToken } from '../../../lib/automationAuth';
+
+// 2026-10-08: 사장님 PC 상주 수집 데몬은 Orbit 이 내려주는 업무 드라이브 토큰(ORBIT_DRIVE_INGEST_TOKEN)만 갖는다.
+//   이 엔드포인트(ECOUNT 적재)에 한해 그 토큰도 허용 — 다른 자동화 엔드포인트(automation/*)의 인증 범위는 그대로.
+function driveTokenOk(req) {
+  const want = process.env.ORBIT_DRIVE_INGEST_TOKEN, got = getAutomationToken(req);
+  if (!want || !got) return false;
+  const a = Buffer.from(got), b = Buffer.from(want);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 async function core(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
@@ -28,8 +38,10 @@ const tokenAuthed = withActionLog(core, LOG_OPTS);
 export default function handler(req, res) {
   // 토큰 헤더가 있으면 토큰 인증(상주 데몬). 없으면 로그인 세션 폴백.
   if (getAutomationToken(req)) {
-    const a = checkAutomationAuth(req);
-    if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    if (!driveTokenOk(req)) {
+      const a = checkAutomationAuth(req);
+      if (!a.ok) return res.status(a.status).json({ success: false, error: a.error });
+    }
     req.user = { userId: 'ecount-scraper', userName: 'ecount-scraper' };
     return tokenAuthed(req, res);
   }
