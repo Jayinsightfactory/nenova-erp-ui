@@ -325,7 +325,7 @@ export default function ChinaOrderDownloadPage() {
         </table>
         </div>
       </div>}
-      <footer className="page-foot"><span>HF 사전: {seedMapping.sourceFile} · {seed.rows.filter(row => String(row.hfCode || '').trim()).length}개 · 박스 환산은 현재 DB 품목 기준</span><span>엑셀: 코드별 수량표 · 기존 감사 4시트 · 수량원본(숨김)</span></footer>
+      <footer className="page-foot"><span>HF 사전: {seedMapping.sourceFile} · {seed.rows.filter(row => String(row.hfCode || '').trim()).length}개 · 박스 환산은 현재 DB 품목 기준</span><span>엑셀: 품목별업체수량 1시트</span></footer>
     </main>
     <style jsx>{`
       .china-order-page{--ink:#14243a;--muted:#61738a;--line:#d6dfeb;--blue:#174a85;--navy:#102d53;min-width:0;padding:14px 18px 20px;background:#edf2f8;color:var(--ink);font-size:14px;}
