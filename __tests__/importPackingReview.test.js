@@ -1,5 +1,17 @@
 const test=require('node:test'),assert=require('node:assert/strict'),XLSX=require('xlsx-js-style');
 const ready=import('../lib/importPackingReview.js');
+test('AI grand total is not freight-zero evidence; malformed currency stays unknown',async()=>{
+ const {makePackingReviewRows,applyPackingReview}=await ready;
+ const inv={freight_total:0,currency:{value:null,unit:'AUD$'},review_evidence:{freight_total:{value:0,quote:'TOTALL US$57.000'}}};
+ const [row]=makePackingReviewRows([inv],'CO');
+ assert.equal(row.values.freight,'');assert.equal(row.original.freight,null);assert.equal(row.currency,'통화 미확인');
+ assert.equal(row.evidence.freight.quote,'TOTALL US$57.000');
+ row.confirmed=true;row.values.freight='0';
+ assert.throws(()=>applyPackingReview([inv],[row],'CO'),/이유/);
+ row.reason='원본 운송비 무료 확인';assert.equal(applyPackingReview([inv],[row],'CO')[0].freight_total,0);
+ const [explicit]=makePackingReviewRows([{review_evidence:{freight_total:{value:0,quote:'Freight USD 0'}}}],'CO');
+ assert.equal(explicit.values.freight,'0');
+});
 const invoice=()=>({invoice:'2026-41',source_format:'china_invoice_xlsx',gross_weight:null,vol_weight:0,freight:20,invoice_total:120,
  products:[{description:'A',total_bunch:10}],additional_costs:[{description:'Freight',quantity:2,unit_price:10,amount:20}]});
 test('zero, absent, units and invalid numbers remain distinct',async()=>{
