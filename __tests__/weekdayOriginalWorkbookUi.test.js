@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
+import { applyEarlyShipmentClassification } from '../lib/weekdayEarlyShipmentPresentation.js';
 
 const require = createRequire(import.meta.url);
 const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '';
@@ -66,17 +67,23 @@ test('same address with conflicting date/unit blocks without changing links or q
 function downloadEnvironment() {
   let release;
   const bytes = new Uint8Array([80, 75, 3, 4]);
+  const earlyRecord={operationId:'early-fixture',revision:1,status:'APPLIED',custKey:533,prodKey:77,unit:'송이',
+    quantity:3,sourceYear:2026,sourceMajorWeek:'41',targetYear:2026,targetMajorWeek:'42'};
   const env = { scopeKey: scope, customer: { CustKey: 533 }, activePlans: [{ ...linked }],
     compareRows: [{ year: 2026, orderWeek: '41-01', custKey: 533, prodKey: 77, outUnit: '송이',
       state: 'FOUND_UNFIXED', detailRows: 1, shipmentDates: [{ date: linked.date, shipmentQuantity: 8 }] }],
     workbookLinks: { current: [{ ...linked, fileId: 'file-a' }] }, currentScope: { current: scope },
     originalWorkbook: { current: { fileId: 'file-a', scope, savedTemplate: true, file: { name: '주광.xlsx',
       arrayBuffer: () => new Promise(resolve => { release = () => resolve(bytes); }) } } },
-    exportState: { current: { plans: [{ ...linked }], compareRows: [] } },
-    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],activeWilsonInputs:[],exportWilsonDay:'일',wilsonBusy:false,wilsonError:'',
-    buildHorizontalWeekdayMatrix: (...args) => { assert.equal(args[1],env.activePlans); assert.equal(args[2],env.compareRows); return {rows:[]}; },
+    exportState: { current: { plans: [{ ...linked }], compareRows: [], earlyRecords:[earlyRecord], earlyError:'' } },
+    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],activeWilsonInputs:[],exportWilsonDay:'일',wilsonBusy:false,wilsonError:'',earlyRecords:[earlyRecord],earlyError:'',
+    buildHorizontalWeekdayMatrix: (...args) => { assert.equal(args[1],env.activePlans); assert.equal(args[2],env.compareRows);
+      return {rows:[{prodKey:77,blocks:[{cycle:{year:2026,majorWeek:'41'},unit:'송이',remainderMajorView:{value:-3,savedValue:-3}}]}]}; },
+    applyEarlyShipmentClassification,
     applyWeekdayCarryoverToMatrix: matrix => matrix,
-    buildWeekdayWebExportSnapshot: (matrix,title,options) => { assert.equal(options.wilsonDrafts,env.activeWilsonInputs,'same scoped Wilson draft inputs as web matrix'); return {rows:[{name:'웹 품목',values:{quantity:3}}]}; },
+    buildWeekdayWebExportSnapshot: (matrix,title,options) => { assert.equal(options.wilsonDrafts,env.activeWilsonInputs,'same scoped Wilson draft inputs as web matrix');
+      assert.equal(matrix.rows[0].blocks[0].remainderMajorView.value,0,'source APPLIED q classifies -3 residual to zero in workbook');
+      return {rows:[{name:'웹 품목',values:{quantity:3}}]}; },
     buildWeekdayStyledWebWorkbook: async (input, model) => {
       assert.deepEqual(new Uint8Array(input), bytes, 'export receives original formatting source bytes');
       assert.deepEqual(model.rows,[{name:'웹 품목',values:{quantity:3}}]);
@@ -130,6 +137,19 @@ test('unknown Wilson classification cannot be exported as zero', async () => {
     const env=Object.assign(downloadEnvironment(),state);
     await callback('downloadOriginalWorkbook','addSourceRow',env)();
     assert.equal(env.clicked,0);assert.equal(env.patchCalls,0);assert.match(env.error,/윌슨/);
+  }
+});
+
+test('unknown or conflicting linked early shipment blocks workbook before file read', async () => {
+  for(const kind of ['unknown','failed','conflicting']) {
+    const env=downloadEnvironment();
+    if(kind==='unknown')env.earlyRecords=null;
+    if(kind==='failed')env.earlyError='원장 조회 실패';
+    if(kind==='conflicting')env.earlyRecords=[...env.earlyRecords,{...env.earlyRecords[0],quantity:4}];
+    await callback('downloadOriginalWorkbook','addSourceRow',env)();
+    assert.equal(env.clicked,0);assert.equal(env.patchCalls,0);
+    assert.match(env.error,/선출고/);
+    assert.equal(env.busy,false);
   }
 });
 test('Wilson selector remount always shares actual selected weekday including storage fallback', () => {

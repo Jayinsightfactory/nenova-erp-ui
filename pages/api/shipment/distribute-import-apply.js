@@ -1,6 +1,7 @@
 import { withAuth } from '../../../lib/auth';
 import { withActionLog } from '../../../lib/withActionLog';
 import { applyImportRows } from '../../../lib/shipmentImport';
+import { requireEarlyImportMode } from '../../../lib/weekdayEarlyShipmentImport';
 import { initApplyProgress, progressStep, finishApplyProgress } from '../../../lib/importApplyProgress';
 
 export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
@@ -9,6 +10,10 @@ async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method not allowed' });
   const jobId = String(req.body?.jobId || '').slice(0, 80);
   try {
+    const earlyImportMode = requireEarlyImportMode(req.body?.earlyImportMode);
+    if (!req.body?.earlyLedgerFingerprint || req.body?.earlyLedgerFingerprint !== req.body?.rows?.[0]?.earlyLedgerFingerprint) {
+      return res.status(409).json({ success: false, code: 'EARLY_IMPORT_PREVIEW_REQUIRED', error: '선출고 처리 원장을 포함한 검증 결과가 필요합니다. 다시 검증하세요.' });
+    }
     if (req.body?.shipmentOnly) {
       const error = new Error('파일 전체를 주문과 무관하게 분배만 바꾸는 모드는 사용할 수 없습니다. 양수는 주문·분배를 함께 맞추고, 0·빈칸·행누락만 주문을 보존한 채 분배 0으로 처리합니다.');
       error.code = 'SHIPMENT_ONLY_NOT_ALLOWED';
@@ -22,6 +27,9 @@ async function handler(req, res) {
       rawWeek: req.body?.week,
       rawYear: req.body?.year,
       rows: req.body?.rows,
+      earlyImportMode,
+      earlyLedgerFingerprint: req.body?.earlyLedgerFingerprint,
+      earlyImportScope: req.body?.earlyImportScope,
       sourceFileName: req.body?.sourceFileName,
       fullCategoryReplacement: req.body?.fullCategoryReplacement === true,
       user: req.user,

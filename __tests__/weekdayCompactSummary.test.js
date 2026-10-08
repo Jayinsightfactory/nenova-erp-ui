@@ -101,13 +101,13 @@ assert.match(unallocatedMarkup,/wcm-cell wcm-unallocated/,'known empty quantitie
 assert.doesNotMatch(bodyText,/미분배|기준 미확정/,'unallocated rows have no repeated state text');
 assert.match(unallocatedMarkup,/미분배 품목 표시/,'the unallocated row filter remains available');
 assert.match(unallocatedMarkup,/미분배 ·/,'unallocated detail remains available in the title');
-assert.match(source,/wcm-unallocated:not\(\.wcm-proposed\):not\(\.wcm-changed\):not\(\.wcm-early\)/,'draft, change and early cues take precedence');
+assert.match(source,/wcm-unallocated:not\(\.wcm-proposed\):not\(\.wcm-changed\)/,'draft and change cues take precedence');
 assert.match(source,/wcm-provisional:not\(\.wcm-draft\)/,'draft summary styling takes precedence');
 assert.match(render(Matrix,{...props,baselines:[]}),/aria-label="2026\/38-01 최초분배 확정"/,'baseline accessible name remains stable');
 assert.match(source,/font-size:14px; line-height:1.4/,'default data font is at least14');
 assert.match(source,/tbody td \.wcm-quantity-label \{[^\n]*font-size:14px; font-weight:700;[^\n]*text-align:center; justify-content:center/);
 assert.match(source,/tbody td \.wcm-cell input \{[^\n]*font-size:14px; font-weight:700;[^\n]*text-align:center/);
-assert.match(source,/wcm-early-label \.wcm-quantity-label \{ font-size:14px/);
+assert.doesNotMatch(source,/wcm-early-label/,'legacy note is shown outside date cells');
 assert.match(source,/:is\(\.wcm-cell-info,\.wcm-change-note\) \.wcm-quantity-label \{ font-size:14px/);
 assert.match(source,/wcm-compact-summary \.wcm-quote \.wcm-quantity-label \{ font-size:14px/);
 assert.match(source,/wcm-cell-detail \{[^\n]*justify-content:center/);
@@ -395,25 +395,6 @@ slots.length=0;
 let openedNote;
 const earlyBlock={...block,pageNote:{earlyShipment:{date:qday.date,sourceYear:2026,sourceOrderWeek:'37-01',quantity:999.5,unit:'박스'}}};
 const earlyTree=qdraw({block:earlyBlock,onOpenNote:value=>{openedNote=value;}});
-const earlyButton=nodes(earlyTree).find(node=>node.props?.className==='wcm-early-label');
-assert.ok(earlyButton);assert.match(earlyButton.props.title,/2026\/37-01차 선출고/);
-assert.match(earlyButton.props.title,/재확인/);assert.ok(!nodes(earlyButton).some(node=>node.props?.className==='wcm-quantity-label'),'early label quantity remains in detailed tooltip rather than widening the cell');
-assert.equal(nodes(earlyTree).find(node=>node.type==='input').props.value,String(qday.planned??qday.displayCurrent??qday.current),'compact early status never changes quantity');
-earlyButton.props.onClick();assert.equal(openedNote.block,earlyBlock);
-console.log('Compact warning flow, independent change action and unchanged early quantity/note behavior passed');
-
-assert.match(visibleText(renderToStaticMarkup(earlyTree)),/선출고 ↗/,'compact label still names the early-shipment concept');
-const currentZeroDay={...qday,current:0,displayCurrent:0,planned:null,initialDelta:0};
-const previousSource={...actual,year:2026,orderWeek:'37-01',shipmentOutQuantity:3,outUnit:'박스'};
-const sourceRow={...row,blocks:[{...block,productActuals:[previousSource]}]};
-const noteBlock={...block,pageNote:{earlyShipment:{date:qday.date,sourceYear:2026,sourceOrderWeek:'37-01',quantity:3,unit:'박스'}}};
-const earlyStatus=(sources,patch={})=>{slots.length=0;return qdraw({row:{...sourceRow,blocks:[{...block,productActuals:sources}]},day:currentZeroDay,block:{...noteBlock,...patch}});};
-const statusButton=tree=>nodes(tree).find(node=>node.props?.className==='wcm-early-label');
-assert.doesNotMatch(statusButton(earlyStatus([previousSource])).props.title,/재확인/,'current zero does not invalidate known previous-week quantity3');
-for(const sources of [[],[{...previousSource,shipmentOutQuantity:2}],
-  [{...previousSource,year:2025}], [previousSource,{...previousSource}],
-  [{...previousSource,outUnit:'unknown'}],[{...previousSource,state:'ERROR'}]]) {
- assert.match(statusButton(earlyStatus(sources)).props.title,/재확인/,'missing, short, cross-year, ambiguous or unknown source remains review-only');
-}
-assert.doesNotMatch(statusButton(earlyStatus([{...previousSource,year:2025}],{pageNote:{earlyShipment:{...noteBlock.pageNote.earlyShipment,sourceYear:2025}}})).props.title,/재확인/,'source identity explicitly supports the exact prior year');
-console.log('Early-shipment source scope, current-zero preservation and review guards passed');
+assert.equal(nodes(earlyTree).find(node=>node.type==='input').props.value,String(qday.planned??qday.displayCurrent??qday.current),'legacy note never changes quantity');
+assert.equal(nodes(earlyTree).some(node=>node.props?.className==='wcm-early-label'),false,'legacy note has no processed badge in a date cell');
+console.log('Compact warning flow, independent change action and informational legacy note passed');

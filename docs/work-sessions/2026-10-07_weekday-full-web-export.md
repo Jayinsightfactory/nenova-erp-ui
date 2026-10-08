@@ -39,4 +39,13 @@ A. 이전 합산만 표시하는 엑셀 정책보다 이 지시가 우선한다.
 
 ## 이어받기
 
+## 배포 결과
+
+- PR #952 master 병합: 11c375201c4f0450ce3eb77e99d4c706b8a8c5cc.
+- 최종 CI ERP Contract Guard run37582737918 success(1m48s). 로컬 전체 ERP 검사·dnSpy·manifest·쓰기 가드 및 최종 빌드 통과.
+- Cafe24 배포 run37582978163 success, 2026-10-07 KST. 서버 검사와 Actions 공통 화면 smoke 통과.
+- 생성 XLSX 데이터 재읽기와 원본/생성 디자인 렌더 검증 완료. 직접 주광 다운로드 버튼 클릭은 CUA 초기화 오류로 미검증.
+
+## 이어받기 기준
+
 이 문서와 INDEX, estimate-weekday-workspace 계약의 originalWorkbookDownload 항목을 읽는다. 과거 '명시 연결 셀만 수정/나머지 원문 보존'은 현재 다운로드 요구를 충족하지 않는다.
