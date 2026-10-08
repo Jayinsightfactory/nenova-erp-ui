@@ -21,7 +21,13 @@
     "pages/sales/defect-deductions.js",
     "pages/sales/forwarding-clearance.js",
     "pages/shipment/week-pivot.js",
-    "pages/stats/pivot.js"
+    "pages/stats/pivot.js",
+    "desktop/updater.cjs",
+    "desktop/preload.cjs",
+    "desktop/shell/index.html",
+    "desktop/shell/shell.js",
+    "desktop/shell/shell.css",
+    "desktop/package.json"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -53,6 +59,12 @@
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "writeAllowlist": []
+    },
+    {
+      "name": "DESKTOP_NATIVE_UPDATE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
     }
   ],
   "crossYearFixture": {
@@ -63,7 +75,9 @@
     "__tests__/desktopBootstrap.test.mjs",
     "desktop/tests/bootstrap.test.cjs",
     "__tests__/erpContractManifest.test.js",
-    "__tests__/unifiedUi.test.cjs"
+    "__tests__/unifiedUi.test.cjs",
+    "desktop/tests/updater.test.cjs",
+    "desktop/scripts/updater-download-smoke.cjs"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -117,5 +131,11 @@
     "The route reads no database table and writes no ERP ledger.",
     "PC download links on login and the standard topbar point to a versioned public release asset. No authentication values or ERP data are sent; no ERP API is invoked.",
     "NenovaDesktop user agent enables presentation-only compact chrome. Tools reveal restores web navigation, language/logout and contextual back without replacing WebContents or resetting input. Print and business controls are preserved."
-  ]
+  ],
+  "nativeUpdate": {
+    "feed": "Fixed HTTPS GitHub repository latest/download; local shell IPC only",
+    "policy": "Explicit check/download/restart, no update on ordinary quit; downgrade disabled; metadata allowlist and SHA512 integrity; unsigned installer has no publisher identity guarantee",
+    "preserve": "No ERP writes or request replay; persist encrypted window metadata successfully before approved restart",
+    "crossYear": "Restored 2025/2026 routes remain separate through existing safeSnapshot and separate-process restore fixture"
+  }
 }
