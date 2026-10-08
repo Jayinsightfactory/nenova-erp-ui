@@ -5,7 +5,7 @@ import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceCompar
 import {classifyMessage,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
-import {appliedOperationEntry,matchOperationByExactContent,formatKakaoMessage,sourceConfirmation,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
+import {appliedOperationEntry,matchOperationByExactContent,formatKakaoMessage,sourceConfirmation,appliedHistoryEntry,historyApplicationCoverage,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
 import {readApplicationChannel} from '../../lib/distributionApplicationRefresh';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
@@ -350,7 +350,6 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       const duplicateRequest=!!requestId&&liveRequestIdCounts.get(requestId)>1;
       pairedRequests.push({request,requestId:duplicateRequest?null:requestId,expectedRequestId:requestId,index:index+changes.length,duplicateRequest,unparsedRequest:true});
     }
-    const quantityProcessedIds=new Set(quantityProcessed.map(request=>request.id));
     const appliedItems=pairedRequests.map(pair=>{
       const directApplication=pair.request&&!pair.unparsedRequest&&!pair.duplicateRequest
         ?appliedOperationEntry({operation,identity:row.identity,year,week:applicationWeek,request:pair.request,requestId:pair.requestId,requests:liveRequests})
@@ -358,13 +357,11 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       const contentMatch=pair.request&&!pair.unparsedRequest&&!pair.duplicateRequest&&pair.requestId
         ?exactContentOperationMatches.get(`${row.identity}\u001f${pair.requestId}`):null;
       const application=directApplication.status==='APPLIED'?directApplication:contentMatch||directApplication;
-      const quantityHistoryApplied=application.status!=='APPLIED'&&pair.request&&pair.requestId===pair.expectedRequestId
-        &&quantityProcessedIds.has(pair.requestId);
-      return {pair,application:quantityHistoryApplied?{status:'APPLIED',entry:null,matchKind:'QUANTITY_HISTORY'}:application};
+      return {pair,application:appliedHistoryEntry({pair,application,confirmedRequests:confirmed,quantityRequests:quantityProcessed})};
     });
     const appliedCount=appliedItems.filter(item=>item.application.status==='APPLIED').length;
-    const exactHistoryCoverage=pairedRequests.length===changes.length?appliedCount:0;
-    const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length,appliedItemCount:exactHistoryCoverage});
+    const exactHistoryCoverage=historyApplicationCoverage(appliedItems,changes.length);
+    const confirmation=sourceConfirmation({manual,operation,identity:row.identity,year,week:applicationWeek,requestCount:changes.length,...exactHistoryCoverage});
     const {groups,additional}=groupAppliedItems(appliedItems);
     const renderAppliedItem=({pair,application},showCustomer=false)=>{
       const request=pair.request;
@@ -380,7 +377,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       return <div className={`paired-applied-item paired-applied-${status}`} data-request-id={pair.requestId||undefined} data-testid={`applied-item:${pair.index}`} key={`${pair.requestId||pair.expectedRequestId||'visible'}:${pair.index}`}>
         <span className="paired-applied-product" title={`${showCustomer?`${customer} · `:''}${product}`}>{showCustomer?`${customer} · `:''}{product}</span>
         <span className="paired-applied-quantity" title={quantity==='?'?'수량 확인 필요':quantity} aria-label={quantity==='?'?'수량 확인 필요':undefined}>{quantity}</span>
-        <b title={application.matchKind==='QUANTITY_HISTORY'?'전산 수량변경의 방향·정규화 수량이 원문 요청과 일치':application.matchKind==='OPERATION_CONTENT'?'다른 원문 ID의 검증된 작업이력과 차수·업체·품목·방향·수량·단위가 유일하게 일치':'동일 원문·업체·품목·동작의 검증된 저장 기록'}>{application.matchKind==='QUANTITY_HISTORY'?'수량확인':application.matchKind==='OPERATION_CONTENT'?'동일 처리 이력':application.status==='APPLIED'?'적용':'미확인'}</b>
+        <b title={application.matchKind==='SQL_HISTORY'?'동일 원문 요청과 공유 SQL의 업체·품목·방향·환산수량이 정확히 일치 (웹·EXE 공통)':application.matchKind==='QUANTITY_HISTORY'?'전산 수량변경의 방향·정규화 수량이 원문 요청과 일치':application.matchKind==='OPERATION_CONTENT'?'다른 원문 ID의 검증된 작업이력과 차수·업체·품목·방향·수량·단위가 유일하게 일치':'동일 원문·업체·품목·동작의 검증된 저장 기록'}>{application.matchKind==='SQL_HISTORY'?'전산확인':application.matchKind==='QUANTITY_HISTORY'?'수량확인':application.matchKind==='OPERATION_CONTENT'?'동일 처리 이력':application.status==='APPLIED'?'적용':'미확인'}</b>
       </div>;
     };
     const appliedPanel=<section className="paired-applied-items" aria-label="적용 항목 상태">
