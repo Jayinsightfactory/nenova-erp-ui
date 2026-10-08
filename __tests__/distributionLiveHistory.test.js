@@ -117,6 +117,11 @@ for (const count of [1001, MAX_FACT_ROWS, MAX_FACT_ROWS + 1]) {
   assert.equal(paired[0].status, count > MAX_FACT_ROWS ? 'AMBIGUOUS' : 'DISTRIBUTION_EVIDENCE', `${count} history rows pairing`);
   assert.equal(paired[0].requests[0].matchState, count > MAX_FACT_ROWS ? undefined : 'MATCHING_HISTORY');
 }
+const expandedPriorYear = toFacts({ customers: facts.customers, products: facts.products,
+  shipmentRows: [...priorYear.shipmentEvents, ...unrelatedHistory.slice(0, 1000)] });
+assert.equal(expandedPriorYear.queryTruncated, false);
+const expandedCrossYear = pairRequests(parseMessages([capacityRequest], expandedPriorYear, {}, scope), expandedPriorYear, scope);
+assert.equal(expandedCrossYear[0].status, 'NO_LIVE_EVIDENCE', 'expanded capacity must not confirm a prior-year same-week event');
 
 const noDate = pairRequests(parseMessages([{ identity: 'm3', message: '라움 화이트 2박스 추가', timestamp_approximate: false }], facts, {}, scope), facts, scope);
 assert.equal(noDate[0].requests[0].status, 'AMBIGUOUS');
