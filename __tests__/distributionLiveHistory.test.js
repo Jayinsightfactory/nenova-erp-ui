@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { normalizeScope, parseMessages, pairRequests, toFacts, loadLiveHistoryFacts } = require('../lib/distributionLiveHistory');
+const { MAX_FACT_ROWS, normalizeScope, parseMessages, pairRequests, toFacts, loadLiveHistoryFacts } = require('../lib/distributionLiveHistory');
 const balance = require('../lib/distributionRequestBalance');
 
 const scope = normalizeScope({ year: 2026, week: '37-01', from: '2026-09-10', to: '2026-09-11' });
@@ -100,6 +100,23 @@ assert.equal(ambiguousEquivalent[0].requests[0].status, 'PRODUCT_UNRESOLVED');
 const priorYear = toFacts({ customers: facts.customers, products: facts.products, orderRows: [{ ...facts.orderEvents[0], year: '2025', changeAt: '2026-09-10T10:00:00+09:00' }] });
 const crossYear = pairRequests(parseMessages([{ identity: 'm2', message: '라움 화이트 2박스 추가', created_at: '2026-09-10T09:00:00+09:00' }], priorYear, {}, scope), priorYear, scope);
 assert.equal(crossYear[0].requests[0].status, 'NO_LIVE_EVIDENCE');
+
+assert.equal(MAX_FACT_ROWS, 10000);
+const capacityRequest = { identity: 'capacity', message: '라움 화이트 2박스 추가', created_at: '2026-09-10T09:00:00+09:00' };
+const unrelatedHistory = Array.from({ length: MAX_FACT_ROWS }, (_, index) => ({
+  eventId: index + 1000, year: '2026', week: '37-01', custKey: 999, prodKey: 22,
+  unit: '단', before: 0, after: 1, changeLocal: '2026-09-10T10:02:00.000',
+}));
+for (const count of [1001, MAX_FACT_ROWS, MAX_FACT_ROWS + 1]) {
+  const capacityFacts = toFacts({
+    customers: facts.customers, products: facts.products,
+    shipmentRows: [facts.shipmentEvents[0], ...unrelatedHistory.slice(0, count - 1)],
+  });
+  assert.equal(capacityFacts.queryTruncated, count > MAX_FACT_ROWS, `${count} history rows overflow status`);
+  const paired = pairRequests(parseMessages([capacityRequest], capacityFacts, {}, scope), capacityFacts, scope);
+  assert.equal(paired[0].status, count > MAX_FACT_ROWS ? 'AMBIGUOUS' : 'DISTRIBUTION_EVIDENCE', `${count} history rows pairing`);
+  assert.equal(paired[0].requests[0].matchState, count > MAX_FACT_ROWS ? undefined : 'MATCHING_HISTORY');
+}
 
 const noDate = pairRequests(parseMessages([{ identity: 'm3', message: '라움 화이트 2박스 추가', timestamp_approximate: false }], facts, {}, scope), facts, scope);
 assert.equal(noDate[0].requests[0].status, 'AMBIGUOUS');
@@ -212,7 +229,7 @@ const route = source
   .replace("import { withAuth } from '../../../lib/auth';", 'const { withAuth } = deps.auth;')
   .replace("import { loadMappings } from '../../../lib/parseMappings';", 'const { loadMappings } = deps.products;')
   .replace("import { loadCustomerMappings } from '../../../lib/customerMappings';", 'const { loadCustomerMappings } = deps.customers;')
-  .replace("import { normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } from '../../../lib/distributionLiveHistory';", 'const { normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } = deps.live;')
+  .replace("import { MAX_FACT_ROWS, normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } from '../../../lib/distributionLiveHistory';", 'const { MAX_FACT_ROWS, normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } = deps.live;')
   .replace("import { cloneParsedItems, loadDistributionRequestBalanceFacts, buildDistributionRequestBalanceComparison } from '../../../lib/distributionRequestBalance';", 'const { cloneParsedItems, loadDistributionRequestBalanceFacts, buildDistributionRequestBalanceComparison } = deps.balance;')
   .replace('export const config', 'const config')
   .replace('export default withAuth', 'module.exports = withAuth');
@@ -228,7 +245,7 @@ vm.runInNewContext(route, { module: compiledModule, deps: {
     return request;
   } }), sql: {} }, auth: { withAuth: handler => handler },
   products: { loadMappings: () => aliases.products }, customers: { loadCustomerMappings: () => aliases.customers },
-  live: { normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts: async (q, sqlArg, requestedScope) => { routeFactCalls += 1; await q('SELECT 1', { scopeYear: { type: sqlArg.NVarChar, value: requestedScope.year } }); if (routeFailure) throw new Error('mock failure'); return facts; } },
+  live: { MAX_FACT_ROWS, normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts: async (q, sqlArg, requestedScope) => { routeFactCalls += 1; await q('SELECT 1', { scopeYear: { type: sqlArg.NVarChar, value: requestedScope.year } }); if (routeFailure) throw new Error('mock failure'); return requestedScope.weeks[0] === '41-01' ? { ...facts, queryTruncated: true } : facts; } },
   balance,
 }, URL, Date, JSON, String, Number, Array, Object, Set });
 const res = { statusCode: 200, setHeader() {}, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
@@ -289,6 +306,7 @@ compiledModule.exports({ method: 'POST', headers: { origin: 'https://board.examp
   const historySql = sqlCalls.filter(call => /History/.test(call.statement));
   assert.equal(historySql.length, 2);
   for (const call of historySql) {
+    assert.match(call.statement, new RegExp(`SELECT TOP \\(${MAX_FACT_ROWS + 1}\\)`));
     assert.match(call.statement, /OrderYear=@year/);
     assert.match(call.statement, /OrderWeek=@week/);
     assert.match(call.statement, /ChangeDtm>=CONVERT\(datetime,@from,126\)/);
@@ -305,6 +323,11 @@ compiledModule.exports({ method: 'POST', headers: { origin: 'https://board.examp
   assert.doesNotMatch(shipmentSql, /sd\.isDeleted/);
   assert.equal(adapterFacts.shipmentEvents[0].shipmentDate, '2026-09-11');
   assert.equal(adapterFacts.shipmentEvents[0].multiDate, true);
+  const overflowResponse = cacheResponse();
+  await compiledModule.exports(cacheRequest({ week: '41-01' }), overflowResponse);
+  assert.equal(overflowResponse.statusCode, 200);
+  assert.ok(overflowResponse.body.warnings.some(warning => warning.includes(MAX_FACT_ROWS.toLocaleString('ko-KR')) && /조회 기간을 좁혀 주세요/.test(warning)));
+  assert.equal(overflowResponse.body.items[0].status, 'AMBIGUOUS');
   const maximumMessages = Array.from({ length: 1000 }, (_, index) => ({ identity: `batch-${index}`, message: '라움 화이트 1단 추가', created_at: '2026-09-10T09:00:00+09:00' }));
   const maximumBatch = cacheResponse();
   await compiledModule.exports(cacheRequest({ messages: maximumMessages }), maximumBatch);
