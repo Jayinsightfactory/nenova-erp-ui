@@ -12,3 +12,5 @@ A. 최초 업데이트 버튼 위치로 잘못 해석한 변경은 철회했다.
 배포 산출물: PR #974, 구현 0bc13479, master 병합 9d276db1. Desktop 1.3.1 공개. ASAR 소스 일치와 latest.yml SHA512 확인, GitHub 업로드 SHA256 d361cbb6697d6abc09004c643c97a81ffafb6d88aa240843e8db3e9ed3ceced6 확인. 격리된 실제 NsisUpdater에서 현재 1.3.0 → 공개 피드 1.3.1 인식 확인(다운로드/설치 실행 없음). 설치된 사용자 앱 및 프로필은 변경하지 않았다. 실제 설치/UAC 검증은 수행하지 않았다.
 
 운영 검증: 최초 Cafe24 배포 37734064346 및 master 계약/Windows CI 성공. 운영 1920×1080/800×1080 추가·제거·원래 메뉴 유지 검증은 통과했으나, 실패 알림 뒤 초점 복귀가 지연된 React commit과 경합했다. 버튼 비활성 해제를 flushSync로 먼저 반영한 뒤 초점을 복구하도록 후속 수정했다.
+
+최종 완료: PR #976(d0cc0e04), master 7912f13a4627199d8d1447ecac07bad654dbfe29. Cafe24 37735141582 성공(실브라우저 hydration 포함), master ERP 37735141599 / Windows 37735141584 성공. 배포 후 https://nenovaweb.com 에서 1920×1080 및 800×1080 동일 fixture 스모크 전부 통과: 별 독립 조작, 원래 메뉴 유지, Enter/Space, 실패 알림 후 초점 복귀. mock 변경 5회, 실제 쓰기 0회. 웹 로그인 다운로드 링크 1.3.1 확인.

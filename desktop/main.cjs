@@ -101,7 +101,9 @@ function createWindow(config = {}) {
   win.on('close', e => {
     if (quitting || w.confirmedClose) return;
     e.preventDefault();
-    if (windows.size === 1) quit(); else closeWindow(w);
+    // Finish the cancelled native close event before app.quit starts a new close
+    // cycle. Re-entering synchronously can leave no windows but a live process.
+    if (windows.size === 1) setImmediate(quit); else closeWindow(w);
   });
   win.on('closed', () => {
     for (const id of [...w.ids]) destroyTab(tabs.get(id));
