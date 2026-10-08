@@ -1,5 +1,7 @@
 # 세션 Q&A 인덱스
 
+- [2026-10-08 국가별 인보이스 독립 단계 자동 검증](2026-10-08_invoice-stage-workflow.md) — 국가 변환 유지, 초안·입고·원가 별도 검증/재시도. 최종 검증·배포 상태는 세션 기록 참조.
+
 - [2026-10-08 인보이스 입고·도착원가 연결](2026-10-08_invoice-receipt-connected.md) — 실제 writer/초안/UI/원가/입고관리 연결, native 격리 SQL 동시성·재시도·롤백 검증. 최종 배포 결과는 세션 기록 참조.
 
 - [2026-10-08 인보이스 입고 안전검사](2026-10-08_invoice-receipt-eligibility.md) — dnSpy CheckData 누락 조건 정정, 전후차수 공통 SELECT/API와 격리 SQL 검증. 실제 입고 writer/원가/UI는 미연결·미배포.

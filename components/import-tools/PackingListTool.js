@@ -16,6 +16,7 @@ import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePacki
 import { ALL_SEED_ALIASES, aliasKey, parseCatalog, parseAliasesXlsx, exportAliasesXlsx,
   genColombia, genNL, genChina, genEcuador, genThailand, genAustralia, genUS, genVN,
   AWB_DEFAULT_COMPANIES, writeAWBWorkbook, parseWeekFromFilename } from '../../lib/importPacking.js';
+import { packingInvoiceSourceIdentity } from '../../lib/importPackingReceiptAdapter.js';
 
 // Additional UI copy; document data, country keys and workbook labels stay unchanged.
 const UI_COPY = {
@@ -1166,7 +1167,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       if (res.pending && res.pending.length > 0) allPending.push(...res.pending);
       if (res.noMatches && res.noMatches.length > 0) allNm.push(...res.noMatches);
       if (res.totalMismatch) allMismatches.push(res.totalMismatch);
-      return { ...res, wasTruncated, grossWeight: inv.packingReview?.values.gw ?? inv.gross_weight ?? null,
+      return { ...res, sourceInvoiceIdentity: packingInvoiceSourceIdentity(inv, idx), wasTruncated,
+        grossWeight: inv.packingReview?.values.gw ?? inv.gross_weight ?? null,
         chargeableWeight: inv.packingReview?.values.cw ?? inv.vol_weight ?? null };
     });
     // Dedup pending/noMatches by aliasKey so the user sees each distinct

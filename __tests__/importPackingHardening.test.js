@@ -11,6 +11,7 @@ const modulesReady = Promise.all([
   import('../lib/importChinaInvoice.js'),
   import('../lib/importPackingErpMatches.js'),
   import('../lib/importPackingReview.js'),
+  import('../lib/importPackingReceiptAdapter.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -41,7 +42,7 @@ function deferred() {
 
 // Actual component handlers with controlled local hooks. No network, DB or browser.
 async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
-  const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review] = await modulesReady;
+  const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter] = await modulesReady;
   const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [];
   let cursor = 0, currentCatalog = catalog, failure = null, erpFailure = null;
   let erpValue = null, erpRevision = 0;
@@ -103,6 +104,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
     '../../lib/importChinaInvoice.js': chinaInvoice, '../../lib/importPackingErpMatches.js': erpMatchHelpers,
     '../../lib/importPackingReview.js': review,
+    '../../lib/importPackingReceiptAdapter.js': receiptAdapter,
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
     './PackingProductMatchDialog.js': { default: PackingProductMatchDialogStub, __esModule: true } };

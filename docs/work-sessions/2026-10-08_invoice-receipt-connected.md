@@ -7,7 +7,7 @@
 | 화면 | 수입부 업무도구 패킹리스트, 입고관리 |
 | PR | #960 / codex/invoice-receipt-cost-prd |
 | 운영 부작용 | 이번 검증은 운영 SELECT만. 입고 저장 테스트는 고유 격리 SQL DB에서 수행 후 삭제 |
-| 배포 | 최종 배포 결과는 아래 후속 기록 참조. 이 최초 기록 시점에는 미배포 |
+| 배포 | PR #960 병합 및 운영 배포 성공. 아래 최종 배포 검증 참조 |
 
 ## 이어받을 때 고정된 결정
 
@@ -61,3 +61,17 @@
 - 지원하지 않는 국가/공식/혼합통화/공동 비용 배분 및 별도 분할 입고는 검토 필요로 남긴다.
 - 원본 파일 자체의 장기 서버 보관 기능이 아니라 원본 해시·행 근거·검토값을 저장한다.
 - 기존 docs/work-sessions/2026-10-07_packing-db-product-match.md의 선행 사용자 변경은 이번 커밋에서 제외한다.
+
+## 최종 배포 검증 (2026-10-08 KST)
+
+- 기능 커밋: `723ffb82fce6dfcf0510999fbb461f016991c19c`.
+- PR #960: 원격 ERP Contract Guard 통과 후 13:13:32 KST 병합. 운영 SHA `e8de7664b77ad13eb166bea3d82201bda08f7c1e`.
+- Deploy to Cafe24 실행 `37726456265` 성공(13:18:56 KST 완료). 서버 계약/교차연도 검사, SSH 배포, 실브라우저 hydration 모두 통과.
+- 실행 URL: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37726456265
+- 운영 buildId는 `build-1791429272552`에서 `build-1791432935266`으로 변경됨. 실제 화면 왼쪽 상단 SHA도 `e8de7664` 확인.
+- 허용된 테스트 계정 로그인 후 `/import/tools` 및 `/incoming` 1920×1080 CSS/100% 실브라우저 확인. runtime 오류0, API 오류0, 페이지 가로 넘침 없음.
+- 입고관리에서 기존 원장을 실제 클릭해 상세 표의 `실제 도착원가` 열과 원가 조회200까지 확인. 원장 선택은 조회만 수행했다.
+- `/api/ping`: DB 정상. 저장 초안 GET 200(2026/41-01 문서0), 기존 입고 원장의 원가 GET 200(승인 원가 없음). 문서0/원가 없음은 최초 미등록 상태이며 임의 0원 원가를 생성하지 않음.
+- 운영 smoke는 로그인 이외 GET/HEAD/OPTIONS만 허용하는 브라우저 차단 장치 사용. 운영 입고·원가 승인·초안 쓰기0. 신규 입고 저장/수정/원가 승인 자체는 앞서 격리 SQL에서 검증한 결과와 구분한다.
+- 로컬 증거: `outputs/invoice-receipt-live-import.png`, `outputs/invoice-receipt-live-incoming.png`, `outputs/invoice-receipt-ui-1920x1080.png`, `outputs/invoice-receipt-ui-1280x800.png`.
+- 이 배포 후 증거 단락은 로컬 MD에 추가 저장했다. 운영 기능 배포 후 문서만 다시 배포하지 않았다.
