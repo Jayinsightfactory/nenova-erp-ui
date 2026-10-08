@@ -5,6 +5,9 @@
     "pages/dev/history.js",
     "pages/api/dev/full-history.js",
     "components/dev/FullDevelopmentHistory.js",
+    "components/dev/DevelopmentJourney.js",
+    "pages/api/dev/development-journey.js",
+    "lib/developmentJourney.cjs",
     "lib/fullDevelopmentHistory.cjs",
     "scripts/generate-full-development-history.cjs",
     "scripts/export-external-development-history.cjs"
@@ -32,7 +35,15 @@
     "required": true,
     "description": "서로 다른 연도·저장소의 커밋과 날짜형 요약 제목을 full hash와 ISO 시각으로 식별한다. ERP 차수·MSSQL 원장을 조회하거나 수정하지 않는다."
   },
-  "requiredTestFiles": ["__tests__/fullDevelopmentHistory.test.js"],
+  "requiredTestFiles": ["__tests__/fullDevelopmentHistory.test.js", "__tests__/developmentJourney.test.js"],
+  "journey": {
+    "route": "/dev/history?view=journey",
+    "coverage": "Same complete sanitized snapshot and selector as full-history, never only its first page",
+    "grouping": "Asia/Seoul chronological month and day, every selected event exactly once",
+    "details": "Existing authenticated full-history GET with identical filters, exact KST day, oldest order and pages of 50",
+    "counts": "Git changes, code integration records and work summaries remain separate; not requests, hours or deployments",
+    "sideEffects": "Read-only static metadata, zero ERP/SQL access"
+  },
   "dnspyEvidence": {
     "required": true,
     "record": "docs/plans/full-development-history.md",
