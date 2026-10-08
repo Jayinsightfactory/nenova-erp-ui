@@ -5,7 +5,7 @@
 | 기간 | 2026-10-08 |
 | 화면 | /orders/paste 원문 사전 매칭 |
 | 원장 부작용 | 기존 authenticated lookupOnly 사용; API/SQL/ERP 저장 변경 없음 |
-| 배포/PR | codex/paste-analysis-restore → master → Cafe24 자동 배포 |
+| 배포/PR | [PR #979](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/979) → master → Cafe24 자동 배포 |
 | 다음 채팅 | 이 기록과 paste-inbox-preanalysis 계약, 해당 PR 확인 |
 
 ## 이어받을 때 고정된 결정
@@ -19,7 +19,7 @@
 
 **A.** 운영 read-only 진단:169개 카드 중 저장본73건/미저장96건. 신규 모델 호출을 가로채 진단 중 추가 분석/ERP 저장 없음. IntersectionObserver가 전체 길이 목록을 root로 삼아 화면 밖까지 분석 대상으로 표시했다. 저장본 조회를 별도 hydration으로 분리하고 root를 실제 viewport(null)로 변경. 대기열과 실행 중 구분, 재분석 실패 시 이전 결과 유지.
 
-**검증.** cache/store 회귀와 실제 컴포넌트 React hooks의 Chrome smoke(1920×1080 CSS/100%): 화면 밖 저장본 복원, 화면 밖 신규 분석0회, 대기/실행 구분, Enter/Space, Tab/Shift+Tab, 재분석 실패 보존, 재진입 모델 재호출0회, ERP 쓰기0회. 전체 ERP 계약/dnSpy/manifest/write guard/build는 배포 전 필수 게이트.
+**검증.** cache/store 회귀와 실제 컴포넌트 React hooks의 Chrome smoke(1920×1080 CSS/100%): 화면 밖 저장본 복원, 화면 밖 신규 분석0회, 대기/실행 구분, Enter/Space, Tab/Shift+Tab, 재분석 실패 보존, 재진입 모델 재호출0회, ERP 쓰기0회. 전체 verify:erp-change(ERP 계약/dnSpy/manifest/write guard/build) 통과.
 
 **결과.** DistributionMessagePreanalysis.js, pasteInboxPreanalysis.js, pasteInboxPreanalysis.test.js, paste-preanalysis-reentry-smoke.cjs, paste-inbox-preanalysis.json.
 
