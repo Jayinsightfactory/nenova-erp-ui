@@ -458,3 +458,9 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 - 운영 authenticated read-only API probe에서 2026/40-02 CustKey533/ProdKey389 ADD1박스가 ShipmentHistory105309의 0→1(2026-10-05 10:09:22.637 KST)과 정확히 대조됐으나 화면 항목은 미확인이었다. 같은 차수 ProdKey456의 event105310도 동일 증상이다. 2026/40-01 CustKey436/ProdKey866 CANCEL1은 event105879의 1→0과 일치했다. SQL 비교 결과가 compact 항목 상태에 연결되지 않은 화면 누락이었다.
 - 2026/41-01은 기존 1,000건 이력 한도 초과로 전체 증거 판정이 차단됐다. 동일 범위의 bounded SELECT를 10,000건/10,001번째 초과 sentinel로 확대한다. 초과·다중 주장·다른 연도·주문만의 이력은 계속 확인 근거로 사용하지 않는다.
 - 자동 확인은 표시 계산만 수행한다. OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/StockHistory/StockMaster/ProductStock/Estimate/WebProfitReport 및 Amount/Vat/isFix를 모두 보존하며, 저장 SP·확정·재계산·운영 보정은 호출하지 않는다.
+
+## 2026-10-08 조회 결과 보존과 메뉴 재진입
+
+- 같은 세션의 위 dnSpy/native SQL 및 운영 read-only probe를 근거로, 이미 수신한 원문/SQL 비교를 인증 사용자·연도·전체 차수별 브라우저 IndexedDB에 보존한다. 공유 SQL, Join, 단위 환산, 판정과 저장 순서는 변경하지 않는다.
+- 메뉴 재진입은 마지막 조회 시각의 표시를 복원한다. 최신 이력은 명시 새로고침 또는 실제 새 작업 이후에 갱신하며, 복원 시점의 현재값인 것처럼 표시하지 않는다. 저장된 분석/조회 자료는 기존 ERP 저장 전 실시간 검증을 대체하지 않는다.
+- 원문 조회/복원/명시 새로고침 모두 ERP 원장·견적·매출·재고·수동확인 원장 보존이다. 자동 대조에서 정확한 SQL 일치 55건이 전산확인된 직전 운영 결과를 보존 대상으로 사용한다.

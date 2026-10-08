@@ -91,6 +91,9 @@ const blockedExternal = [];
 const problems = [];
 let failHistory = false;
 let liveHistoryPosts = 0;
+let successfulHistoryRevision = 0;
+let smokePhase='initial-load';
+const liveHistoryTrace=[];
 
 function json(request, body, status = 200) {
   return request.respond({ status, contentType: 'application/json; charset=utf-8', body: JSON.stringify(body) });
@@ -113,6 +116,61 @@ async function clickHistoryRefresh(page) {
 }
 async function visibleText(page) {
   return page.$eval('body', node => String(node.innerText || '').replace(/\s+/g, ' ').trim());
+}
+async function snapshotStatusText(page) {
+  const node=await page.$('[data-testid="sales-inbox-snapshot-status"]');
+  return node?node.evaluate(element=>String(element.innerText||'').trim()):'';
+}
+function savedScopeRequestCounts() {
+  const count=predicate=>apiRequests.filter(predicate).length;
+  return {
+    feed:count(request=>request.method==='GET'&&request.path==='/api/kakao/sales-feed'),
+    liveHistory:count(request=>request.method==='POST'&&request.path==='/api/orders/distribution-live-history'),
+    manual:count(request=>request.method==='GET'&&request.path==='/api/orders/distribution-manual-applications'),
+    audits:count(request=>request.method==='GET'&&request.path==='/api/orders/distribution-change-audits'),
+    operations:count(request=>request.method==='GET'&&request.path==='/api/orders/paste-history'&&request.query.who==='all'),
+  };
+}
+async function readMessageCards(page) {
+  return page.$$eval('section.sales-inbox article.message',nodes=>nodes.map(node=>({
+    identity:node.dataset.testid||'',raw:node.querySelector('[data-testid="complete-kakao-message"]')?.innerText||'',
+    items:[...node.querySelectorAll('.paired-applied-item')].map(item=>({text:String(item.innerText||'').replace(/\s+/g,' ').trim(),status:item.querySelector('b')?.innerText||'',requestId:item.dataset.requestId||'',background:getComputedStyle(item).backgroundColor})),
+  })));
+}
+async function automaticRefreshIsChecked(page) {
+  return page.$eval('[data-testid="sales-inbox-refresh-cadence"]',node=>String(node.innerText||'').includes('자동 확인 꺼짐')?false:String(node.innerText||'').includes('자동 확인:')?true:null);
+}
+async function readSavedInboxHistory(page) {
+  return page.evaluate(() => new Promise((resolve,reject)=>{
+    const request=indexedDB.open('nenova-distribution-inbox',1);
+    request.onerror=()=>reject(request.error||new Error('could not open inbox snapshot database'));
+    request.onsuccess=()=>{
+      const db=request.result;
+      if(!db.objectStoreNames.contains('snapshots')){db.close();resolve(null);return;}
+      const tx=db.transaction('snapshots','readonly');
+      const get=tx.objectStore('snapshots').get(JSON.stringify(['live-history-smoke','2026','2026-37-01']));
+      get.onsuccess=()=>resolve(get.result?.data?.liveHistoryStatus||null);
+      get.onerror=()=>reject(get.error||new Error('could not read inbox snapshot'));
+      tx.oncomplete=()=>db.close();
+      tx.onerror=()=>{db.close();reject(tx.error||new Error('inbox snapshot read failed'));};
+    };
+  }));
+}
+async function waitForSavedRevision(page,revision) {
+  try {
+    await waitFor(async()=>{
+      const status=await readSavedInboxHistory(page);
+      return status?.loaded===true&&status.warnings?.includes(`fixture: SQL evidence revision ${revision}`);
+    },`committed IndexedDB SQL history revision ${revision}`);
+    return true;
+  } catch(error) {
+    const status=await readSavedInboxHistory(page).catch(()=>null);
+    problems.push(`${error.message}; latest committed SQL status=${JSON.stringify(status)}`);
+    return false;
+  }
+}
+function assertSameCounts(before,after,description) {
+  for(const key of Object.keys(before))if(before[key]!==after[key])problems.push(`${description} issued an unexpected ${key} request: ${before[key]} -> ${after[key]}`);
 }
 
 (async () => {
@@ -164,13 +222,17 @@ async function visibleText(page) {
       if (parsed.pathname === '/api/orders/distribution-live-history') {
         if (method !== 'POST') return json(request, { error: { code: 'METHOD_NOT_ALLOWED', message: 'fixture permits POST only' } }, 405);
         liveHistoryPosts += 1;
+        const trace={at:new Date().toISOString(),phase:smokePhase,requestNumber:liveHistoryPosts,failFixture:failHistory,revisionBefore:successfulHistoryRevision};
+        liveHistoryTrace.push(trace);
         if (String(payload.year) !== year || !/^\d{2}-\d{2}$/.test(String(payload.week)) || payload.from !== from || payload.to !== to || !Array.isArray(payload.messages)) {
           return json(request, { error: { code: 'BAD_FIXTURE_SCOPE', message: `year/week/from/to/messages contract mismatch: ${JSON.stringify({year:payload.year,week:payload.week,from:payload.from,to:payload.to,messageCount:Array.isArray(payload.messages)?payload.messages.length:null})}` } }, 400);
         }
-        if (failHistory) return json(request, { error: { code: 'LIVE_HISTORY_READ_FAILED', message: 'fixture history read failure' } }, 503);
+        if (failHistory) { trace.outcome='fixture-failure'; return json(request, { error: { code: 'LIVE_HISTORY_READ_FAILED', message: 'fixture history read failure' } }, 503); }
+        successfulHistoryRevision++;
+        trace.outcome='success';trace.revisionAfter=successfulHistoryRevision;
         const requestedWeek = String(payload.week);
         const scopedItems = payload.messages.map(message => responseItems.find(item=>item.sourceIdentity===message.identity) || {sourceIdentity:message.identity,status:'UNCONFIRMED',reason:'fixture',requests:[]});
-        return json(request, { success: true, advisoryOnly: true, erpAction: 'NONE', scope: { year, weeks: [requestedWeek], from, to }, asOf: '2026-10-05T05:00:00.000Z', items: scopedItems, balanceComparison, warnings: ['fixture: 조회 범위가 제한될 수 있습니다.'] });
+        return json(request, { success: true, advisoryOnly: true, erpAction: 'NONE', scope: { year, weeks: [requestedWeek], from, to }, asOf: `2026-10-05T0${4+successfulHistoryRevision}:00:00.000Z`, items: scopedItems, balanceComparison, warnings: [`fixture: SQL evidence revision ${successfulHistoryRevision}`, 'fixture: 조회 범위가 제한될 수 있습니다.'] });
       }
       // The page may auto-request preanalysis. Answer locally so this UI smoke never calls an LLM.
       if (parsed.pathname === '/api/orders/paste-preanalysis' && method === 'POST') {
@@ -179,7 +241,10 @@ async function visibleText(page) {
       }
       if (method !== 'GET') return json(request, { error: { code: 'FIXTURE_WRITE_BLOCKED', message: `fixture blocks ${method} ${parsed.pathname}` } }, 405);
       if (parsed.pathname === '/api/auth/me') return json(request, { success: true, user: { userId: 'live-history-smoke', userName: 'live-history-smoke', role: 'admin' } });
-      if (parsed.pathname === '/api/kakao/sales-feed') return json(request, { ok: true, messages, hasMore: false, nextAfterKey: null });
+      if (parsed.pathname === '/api/kakao/sales-feed') {
+        const inFixturePeriod=parsed.searchParams.get('from')===from&&parsed.searchParams.get('to')===to;
+        return json(request, { ok: true, messages:inFixturePeriod?messages:[], hasMore: false, nextAfterKey: null });
+      }
       if (parsed.pathname === '/api/orders/mappings') return json(request, { success: true, mappings: {} });
       if (parsed.pathname === '/api/master') return json(request, { success: true, data: [] });
       if (parsed.pathname === '/api/orders/distribution-manual-applications') return json(request, { applications: [{year,week,sourceIdentity:fullSqlIdentity,eventId:'a'.repeat(64),status:'MANUALLY_NOT_APPLIED',createdAt:'2026-10-04T10:45:00+09:00',memo:'SQL 근거보다 먼저 한 수동 미처리',advisoryOnly:true,erpAction:'NONE'}], advisoryOnly:true, erpAction:'NONE' });
@@ -198,6 +263,7 @@ async function visibleText(page) {
 
     await page.goto(targetUrl.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await waitFor(async () => (await page.$$('section.sales-inbox input[type="date"]')).length >= 2, 'inbox period controls');
+    await waitFor(async()=>await automaticRefreshIsChecked(page)===false,'automatic new-message refresh default off');
     const expandInboxTools=async()=>{
       const toolSummary=await page.$('section.sales-inbox details.inbox-tools > summary');
       if(!toolSummary)throw new Error('inbox tools disclosure was not found');
@@ -226,6 +292,7 @@ async function visibleText(page) {
     ]);
     await waitFor(() => liveHistoryPosts > 0, 'initial live-history POST');
     await waitFor(async () => (await visibleText(page)).includes('서울꽃') && (await visibleText(page)).includes('부산농원'), 'paired history text');
+    await waitFor(async()=> (await snapshotStatusText(page)).includes('조회 결과 저장'),'initial SQL result snapshot saved');
 
     await waitFor(async()=>await page.$eval('button[data-live-history-refresh]',node=>!node.disabled),'live-history refresh button enabled');
     const keyboardRefreshPrepared=await page.evaluate(()=>{
@@ -246,6 +313,8 @@ async function visibleText(page) {
       const beforeKeyboardRefresh=liveHistoryPosts;
       await page.keyboard.press('Enter');
       await waitFor(()=>liveHistoryPosts>beforeKeyboardRefresh,'keyboard Enter live-history refresh');
+      await waitFor(async()=> (await snapshotStatusText(page)).includes('조회 결과 저장')&&successfulHistoryRevision>=2,'explicit refreshed SQL snapshot saved');
+      await waitForSavedRevision(page,2);
     }
     const keyboardDisclosure=await page.$('section.sales-inbox article.message .compact-source-evidence summary');
     if(!keyboardDisclosure)problems.push('keyboard Space smoke could not find a source-evidence disclosure');
@@ -305,18 +374,75 @@ async function visibleText(page) {
     if (!initialLivePost?.body.messages?.every(message => typeof message.identity === 'string' && message.identity.length > 0)) problems.push('live-history POST did not preserve raw message identities');
     if (!initialLivePost?.body.messages?.some(message => message.identity === firstIdentity) || !initialLivePost?.body.messages?.some(message => message.identity === secondIdentity)) problems.push('live-history POST omitted one raw message');
 
+    const savedCardsBeforeReload=await readMessageCards(page);
+    const savedScopeBeforeReload=savedScopeRequestCounts();
+    const seededExistingWorkspace=await page.evaluate(()=>{
+      const key='nenova:orders-paste:workspace:v1:live-history-smoke:2026-37-01';
+      const serialized=localStorage.getItem(key);
+      if(!serialized)return {ok:false,reason:'workspace snapshot missing'};
+      let snapshot;try{snapshot=JSON.parse(serialized);}catch{return {ok:false,reason:'workspace snapshot is invalid JSON'};}
+      if(!snapshot?.state||!snapshot.intentFingerprint)return {ok:false,reason:'workspace state/fingerprint missing'};
+      snapshot.state.bulkResult={verified:true,orderId:'ALL',okCount:1,failCount:0,details:[{ok:true}]};
+      snapshot.completionFingerprint=snapshot.intentFingerprint;
+      localStorage.setItem(key,JSON.stringify(snapshot));
+      return {ok:true,bulkResult:snapshot.state.bulkResult,completionFingerprint:snapshot.completionFingerprint};
+    });
+    if(!seededExistingWorkspace.ok)problems.push(`could not seed existing verified workspace fixture: ${seededExistingWorkspace.reason}`);
+    smokePhase='reentry-after-keyboard-refresh';
+    await page.reload({waitUntil:'domcontentloaded',timeout:60000});
+    await waitFor(async()=> (await snapshotStatusText(page)).includes('저장된 조회 복원'),'IndexedDB inbox snapshot restored on re-entry');
+    await waitFor(async()=>await page.$eval('section.sales-inbox article.message',node=>!!node),'restored message rows');
+    const restoredPeriod=await page.$eval('[data-testid="sales-inbox-period"]',node=>node.innerText);
+    if(!restoredPeriod.includes(`${from} ~ ${to}`))problems.push(`saved query period was not restored: ${restoredPeriod}`);
+    const selectedWeekText=await page.$eval('section.sales-inbox .bar',node=>node.innerText);
+    if(!selectedWeekText.includes(`${year}-${week}`))problems.push(`saved year/week was not restored: ${selectedWeekText}`);
+    if(await automaticRefreshIsChecked(page)!==false)problems.push('automatic new-message refresh was enabled after snapshot re-entry');
+    const savedCardsAfterReload=await readMessageCards(page);
+    if(JSON.stringify(savedCardsAfterReload)!==JSON.stringify(savedCardsBeforeReload))problems.push(`message IDs, SQL statuses, or raw text changed after snapshot re-entry: ${JSON.stringify({before:savedCardsBeforeReload,after:savedCardsAfterReload})}`);
+    const restoredSqlOnlyClass=await page.$eval(`[data-testid="compact-match-row:${fullSqlIdentity}"]`,node=>node.className);
+    const restoredSqlOnlyConfirm=await page.$eval(`[data-testid="compact-match-row:${fullSqlIdentity}"] .source-confirm-toggle`,node=>node.textContent.trim());
+    if(!restoredSqlOnlyClass.includes('history-completed')||restoredSqlOnlyConfirm!=='확인취소')problems.push(`SQL/manual evidence chronology was not restored: ${restoredSqlOnlyClass} / ${restoredSqlOnlyConfirm}`);
+    const savedScopeAfterReload=savedScopeRequestCounts();
+    assertSameCounts(savedScopeBeforeReload,savedScopeAfterReload,'snapshot re-entry');
+    const restoredSnapshotStatus=await snapshotStatusText(page);
+    if(!restoredSnapshotStatus.includes('저장된 조회 복원'))problems.push(`snapshot status does not report restoration: ${restoredSnapshotStatus}`);
+    const restoredSqlEvidence=await readSavedInboxHistory(page);
+    if(!restoredSqlEvidence?.warnings?.includes('fixture: SQL evidence revision 2'))problems.push(`restored UI is missing committed SQL history revision 2: ${JSON.stringify(restoredSqlEvidence)}`);
+    const restoredWorkspace=await page.evaluate(()=>{
+      const key='nenova:orders-paste:workspace:v1:live-history-smoke:2026-37-01';
+      try { const snapshot=JSON.parse(localStorage.getItem(key)||'null');return {bulkResult:snapshot?.state?.bulkResult||null,completionFingerprint:snapshot?.completionFingerprint||'',intentFingerprint:snapshot?.intentFingerprint||''}; }
+      catch { return null; }
+    });
+    if(!restoredWorkspace?.bulkResult?.verified||restoredWorkspace.bulkResult.orderId!=='ALL'||restoredWorkspace.bulkResult.okCount!==1||restoredWorkspace.bulkResult.failCount!==0||restoredWorkspace.completionFingerprint!==restoredWorkspace.intentFingerprint)problems.push(`existing verified paste result was not preserved on inbox re-entry: ${JSON.stringify(restoredWorkspace)}`);
+
+    const restoredRevisionDisclosure=await page.$('section.sales-inbox details.compact-warnings');
+    if(restoredRevisionDisclosure)await restoredRevisionDisclosure.evaluate(node=>{node.open=true;});
+    const restoredRevisionText=await visibleText(page);
+    if(!restoredRevisionText.includes('fixture: SQL evidence revision 2'))problems.push('the explicit SQL refresh result was not persisted for re-entry');
+
     const textarea = await page.$('section.sales-inbox textarea, textarea[aria-label*="원문"], textarea');
     if (!textarea) problems.push('raw-message textarea is not visible');
     else {
+      smokePhase='draft-edit-after-restore';
+      const postsBeforeDraftEdit=liveHistoryPosts;
       await textarea.focus();
       await page.keyboard.type(' 보존할 초안');
       const beforeRefresh = await page.$eval('textarea', node => node.value);
+      await wait(300);
+      if(liveHistoryPosts!==postsBeforeDraftEdit)problems.push(`editing a draft after restoring a verified existing result triggered a live-history request: ${postsBeforeDraftEdit} -> ${liveHistoryPosts}`);
+      const beforeRefreshCount=liveHistoryPosts;
+      smokePhase='explicit-history-refresh-after-restore';
       await clickHistoryRefresh(page);
-      await waitFor(() => liveHistoryPosts >= 2, 'explicit live-history refresh');
+      await waitFor(() => liveHistoryPosts > beforeRefreshCount, 'explicit live-history refresh after restore');
+      await waitFor(async()=> (await snapshotStatusText(page)).includes('조회 결과 저장')&&successfulHistoryRevision>=3,'refreshed snapshot saved after restore');
+      await waitForSavedRevision(page,3);
+      await wait(300);
+      if(liveHistoryPosts!==beforeRefreshCount+1)problems.push(`one explicit refresh should issue exactly one SQL request: ${beforeRefreshCount} -> ${liveHistoryPosts}`);
       const afterRefresh = await page.$eval('textarea', node => node.value);
       if (afterRefresh !== beforeRefresh) problems.push('textarea draft was lost after live-history refresh');
     }
 
+    smokePhase='failed-history-refresh';
     failHistory = true;
     const postsBeforeFailure = liveHistoryPosts;
     await clickHistoryRefresh(page);
@@ -327,7 +453,18 @@ async function visibleText(page) {
     else problems.push('compact live-history warning disclosure is not present');
     const afterFailure = await visibleText(page);
     if (!afterFailure.includes('서울꽃') || !afterFailure.includes('부산농원')) problems.push('failed live-history refresh cleared the last good result');
-    if (!afterFailure.includes('fixture: 조회 범위가 제한될 수 있습니다.')) problems.push('live-history warnings are not visible');
+    if (!afterFailure.includes('fixture: SQL evidence revision 3')) problems.push('failed refresh cleared the latest successful warning/result');
+    const countsBeforeFailureReentry=savedScopeRequestCounts();
+    smokePhase='reentry-after-failed-refresh';
+    await page.reload({waitUntil:'domcontentloaded',timeout:60000});
+    await waitFor(async()=> (await snapshotStatusText(page)).includes('저장된 조회 복원'),'previous successful snapshot restored after failed refresh');
+    await waitForSavedRevision(page,3);
+    const finalRevisionDisclosure=await page.$('section.sales-inbox details.compact-warnings');
+    if(finalRevisionDisclosure)await finalRevisionDisclosure.evaluate(node=>{node.open=true;});
+    const afterFailureReentry=await visibleText(page);
+    if(!afterFailureReentry.includes('fixture: SQL evidence revision 3'))problems.push('failed refresh overwrote the previously saved snapshot');
+    if(JSON.stringify(await readMessageCards(page))!==JSON.stringify(savedCardsBeforeReload))problems.push('failed refresh changed the previously saved message/SQL evidence snapshot');
+    assertSameCounts(countsBeforeFailureReentry,savedScopeRequestCounts(),'re-entry after failed explicit refresh');
 
     const layout = await page.$eval('section.sales-inbox', element => {
       const rect = element.getBoundingClientRect();
@@ -363,7 +500,7 @@ async function visibleText(page) {
 
     fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
     await page.screenshot({ path: screenshotPath, fullPage: false });
-    console.log(JSON.stringify({ viewport: '1920x1080', responsiveViewports: responsiveLayouts, target: targetUrl.href, liveHistoryPosts, liveHistoryScopes: apiRequests.filter(request=>request.path==='/api/orders/distribution-live-history').map(request=>({year:request.body.year,week:request.body.week,from:request.body.from,to:request.body.to,messageCount:request.body.messages?.length})), newestFirst: /대전꽃집/.test(orderCheck[0] || '') && /양재동/.test(orderCheck[1] || ''), sqlEvidenceChronology: 'manual 10:45 KST < exact SQL event 11:00 KST; newer SQL confirmation wins', layout, forbiddenPosts, blockedExternal, screenshotPath, problems }, null, 2));
+    console.log(JSON.stringify({ viewport: '1920x1080', responsiveViewports: responsiveLayouts, target: targetUrl.href, liveHistoryPosts, liveHistoryTrace, liveHistoryScopes: apiRequests.filter(request=>request.path==='/api/orders/distribution-live-history').map(request=>({year:request.body.year,week:request.body.week,from:request.body.from,to:request.body.to,messageCount:request.body.messages?.length})), newestFirst: /대전꽃집/.test(orderCheck[0] || '') && /양재동/.test(orderCheck[1] || ''), sqlEvidenceChronology: 'manual 10:45 KST < exact SQL event 11:00 KST; newer SQL confirmation wins', layout, forbiddenPosts, blockedExternal, screenshotPath, problems }, null, 2));
     if (problems.length) process.exitCode = 1;
   } catch (error) {
     const failedPage = (await browser.pages()).at(-1);
@@ -372,6 +509,7 @@ async function visibleText(page) {
       failure: error.stack || error.message,
       pageUrl: failedPage?.url() || null,
       problems,
+      liveHistoryTrace,
       relevantApiUrls: apiRequests.filter(request => request.path !== '/api/auth/me').map(request => `${request.method} ${request.path}${Object.keys(request.query || {}).length ? `?${new URLSearchParams(request.query).toString()}` : ''}`),
       pageText: await failedPage?.evaluate(() => document.body?.innerText || '').catch(() => '') || '',
       screenshotPath: screenshotPath.replace(/\.png$/i, '-failure.png'),

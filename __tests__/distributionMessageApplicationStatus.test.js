@@ -81,7 +81,8 @@ assert.match(ui,/exactHistoryCoverage=historyApplicationCoverage\(appliedItems,c
 assert.match(ui,/\.\.\.exactHistoryCoverage/,'all items can be confirmed by quantity or verified committed history');
 assert.match(ui,/exactContentOperationMatches\.get\(/,'exact cross-source operation history is shown and included in full-source confirmation');
 assert.match(ui,/role="alert"/);
-assert.match(ui,/applicationScope,open,disabled,operationRevision/);
+assert.match(ui,/previousOperationRevision\.current!==operationRevision/,'only an actual new operation schedules an evidence refresh');
+assert.match(ui,/!operationRefreshPending\.current/,'opening or enabling a restored inbox alone must not refresh application evidence');
 assert.match(ui,/paired-message-original/,'the full organized Kakao message is visible in the left column');
 assert.match(ui,/paired-applied-items/,'the right column shows applied items, not ERP event explanations');
 assert.match(ui,/application\.status==='APPLIED'\?'적용':'미확인'/,'only an exact verified item audit is colored applied');

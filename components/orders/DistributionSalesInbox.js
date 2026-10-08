@@ -7,6 +7,7 @@ import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
 import {appliedOperationEntry,matchOperationByExactContent,formatKakaoMessage,sourceConfirmation,appliedHistoryEntry,historyApplicationCoverage,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
 import {readApplicationChannel} from '../../lib/distributionApplicationRefresh';
+import {snapshotKey,readInboxSnapshot,writeInboxSnapshot} from '../../lib/distributionInboxSnapshot';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 import DistributionMessagePreanalysis from './DistributionMessagePreanalysis';
@@ -52,7 +53,7 @@ function sourceWeekFromMessage(value, year) {
   return unique.length===1&&year?`${year}-${unique[0]}`:'';
 }
 
-export default function DistributionSalesInbox({year,week,disabled,onLoadText,prepareMessage,evidenceMessages=[],evidenceOrders=[],operationRevision=null}) {
+export default function DistributionSalesInbox({year,week,disabled,onLoadText,prepareMessage,evidenceMessages=[],evidenceOrders=[],operationRevision=null,snapshotActorId='',snapshotAuthReady=false}) {
   const [controlsOpen,setControlsOpen]=useState(false);
   const [expandedEvidence,setExpandedEvidence]=useState({});
   const [open,setOpen]=useState(true),[from,setFrom]=useState(''),[to,setTo]=useState('');
@@ -60,23 +61,69 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   const [cursor,setCursor]=useState(''),[more,setMore]=useState(false),[loadedPeriod,setLoadedPeriod]=useState('');
   const seq=useRef(0);
   const [reviewPage,setReviewPage]=useState(0),[reviewOpen,setReviewOpen]=useState(false),[reviewMounted,setReviewMounted]=useState(false);
-  const [autoRefresh,setAutoRefresh]=useState(true),[pendingRows,setPendingRows]=useState([]),[refreshStatus,setRefreshStatus]=useState({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
+  const [autoRefresh,setAutoRefresh]=useState(false),[pendingRows,setPendingRows]=useState([]),[refreshStatus,setRefreshStatus]=useState({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
   const [manualApplications,setManualApplications]=useState({}),[auditApplications,setAuditApplications]=useState({}),[operationApplications,setOperationApplications]=useState({}),[applicationStatus,setApplicationStatus]=useState({loading:false,error:'',limit:20,asOf:'',loaded:false});
   const [operationHistory,setOperationHistory]=useState([]);
   const [applicationDrafts,setApplicationDrafts]=useState({}),[applicationSaving,setApplicationSaving]=useState({}),[applicationErrors,setApplicationErrors]=useState({});
   const [liveHistory,setLiveHistory]=useState({}),[liveBalanceComparison,setLiveBalanceComparison]=useState(null),[liveHistoryStatus,setLiveHistoryStatus]=useState({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''}),[includeConsistentBalances,setIncludeConsistentBalances]=useState(false),[compactTab,setCompactTab]=useState('REQUEST');
+  const [feedEvidenceRevision,setFeedEvidenceRevision]=useState(0);
+  const [historyAttempted,setHistoryAttempted]=useState(false),[applicationAttempted,setApplicationAttempted]=useState(false);
+  const cacheKey=snapshotKey(snapshotActorId,year,week);
+  const [snapshotPhase,setSnapshotPhase]=useState({key:'',kind:'waiting'}),[snapshotSavedAt,setSnapshotSavedAt]=useState(''),[snapshotError,setSnapshotError]=useState('');
+  const ready=!!cacheKey&&snapshotPhase.key===cacheKey;
+  const skipInitialSave=useRef(''),restoredApplicationScope=useRef(''),snapshotEpoch=useRef(0),initialFeedStarted=useRef(''),initialStatusStarted=useRef(''),initialHistoryStarted=useRef(''),lastFeedEvidenceRevision=useRef(0),previousOperationRevision=useRef(operationRevision),operationRefreshPending=useRef(false);
   const requestBusy=useRef(false),requestOwner=useRef(''),refreshSeq=useRef(0),activeRefreshScope=useRef(''),refreshController=useRef(null),rowsRef=useRef(rows),pendingRowsRef=useRef(pendingRows),selectedRef=useRef(selected),reviewOpenRef=useRef(reviewOpen);
   useEffect(()=>{rowsRef.current=rows;},[rows]);
   useEffect(()=>{pendingRowsRef.current=pendingRows;},[pendingRows]);
   useEffect(()=>{selectedRef.current=selected;},[selected]);
   useEffect(()=>{reviewOpenRef.current=reviewOpen;},[reviewOpen]);
-  useEffect(()=>{const period=recentSalesPeriod();setFrom(previous=>previous||period.from);setTo(previous=>previous||period.to);},[]);
+  useEffect(()=>{
+    const epoch=++snapshotEpoch.current;
+    // The parent may restore an earlier operation while authenticating. Treat
+    // the revision present when this account/week becomes known as baseline;
+    // only later revisions in this same scope represent a new operation.
+    previousOperationRevision.current=operationRevision;operationRefreshPending.current=false;
+    seq.current++;refreshSeq.current++;refreshController.current?.abort();requestBusy.current=false;requestOwner.current='';
+    if(!cacheKey){setSnapshotPhase({key:'',kind:'waiting'});return;}
+    let active=true;
+    const scope={userId:snapshotActorId,year,week};
+    setSnapshotPhase({key:'',kind:'waiting'});setSnapshotError('');setSnapshotSavedAt('');
+    readInboxSnapshot(scope).then(record=>{
+      if(!active||epoch!==snapshotEpoch.current)return;
+      const data=record?.data;
+      if(data){
+        restoredApplicationScope.current=`${cacheKey}:${String(year||'')}:${String(shortApplicationWeek(year,week)||'')}`;
+        setFrom(data.from);setTo(data.to);setRows(data.rows);setSelected(data.selected||{});setCursor(data.cursor);setMore(data.more);setLoadedPeriod(data.loadedPeriod);
+        setPendingRows(data.pendingRows||[]);setRefreshStatus({...data.refreshStatus,loading:false});
+        setManualApplications(data.manualApplications||{});setAuditApplications(data.auditApplications||{});setOperationApplications(data.operationApplications||{});setOperationHistory(data.operationHistory||[]);
+        setApplicationStatus({...data.applicationStatus,loading:false});setLiveHistory(data.liveHistory||{});setLiveBalanceComparison(data.liveBalanceComparison||null);
+        setLiveHistoryStatus({...data.liveHistoryStatus,loading:false});setHistoryAttempted(data.historyAttempted===true);setApplicationAttempted(data.applicationAttempted===true);
+        setSnapshotSavedAt(record.savedAt);skipInitialSave.current=cacheKey;
+        setSnapshotPhase({key:cacheKey,kind:'restored'});
+      } else {
+        const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows([]);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows([]);
+        setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
+        setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});
+        setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setHistoryAttempted(false);setApplicationAttempted(false);
+        skipInitialSave.current='';setSnapshotPhase({key:cacheKey,kind:'empty'});
+      }
+    }).catch(error=>{
+      if(!active||epoch!==snapshotEpoch.current)return;
+      const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows([]);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows([]);
+      setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
+      setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});
+      setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});
+      setHistoryAttempted(false);setApplicationAttempted(false);setSnapshotError('브라우저 저장을 읽지 못했습니다. 현재 결과는 메뉴 재진입 시 유지되지 않을 수 있습니다.');
+      skipInitialSave.current='';setSnapshotPhase({key:cacheKey,kind:'empty'});
+    });
+    return()=>{active=false;seq.current++;refreshSeq.current++;refreshController.current?.abort();};
+  },[cacheKey]);
   const lastReviewPage=Math.max(0,Math.ceil(rows.length/200)-1);
   const currentReviewPage=Math.min(reviewPage,lastReviewPage);
   const count=rows.filter(r=>selected[r.identity]).length;
   const displayRows=useMemo(()=>[...rows].reverse(),[rows]);
   const applicationWeek=shortApplicationWeek(year,week);
-  const applicationScope=`${String(year||'')}:${String(applicationWeek||'')}`;
+  const applicationScope=`${cacheKey}:${String(year||'')}:${String(applicationWeek||'')}`;
   const livePeriod=`${from}/${to}`;
   const liveScope=`${applicationScope}:${livePeriod}`;
   // The parser assigns request IDs by non-empty source-line index. Keep the
@@ -94,8 +141,28 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   const applicationSequence=useRef(0),activeApplicationScope=useRef(applicationScope),applicationMounted=useRef(false),applicationController=useRef(null),applicationInFlight=useRef(false),applicationSaveController=useRef(null),applicationSaveInFlight=useRef(false),applicationScopeEpoch=useRef(0),applicationSaveAttempt=useRef(0),applicationRefreshQueued=useRef(null);
   const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryInFlightBatchKey=useRef(''),liveHistoryAutoBlocked=useRef(false),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey),liveHistoryBatchRef=useRef(liveBatch);
   useEffect(()=>{applicationMounted.current=true;activeApplicationScope.current=applicationScope;applicationScopeEpoch.current++;applicationRefreshQueued.current=null;return()=>{applicationMounted.current=false;applicationController.current?.abort();applicationSaveController.current?.abort();applicationController.current=null;applicationSaveController.current=null;applicationInFlight.current=false;applicationSaveInFlight.current=false;};},[applicationScope]);
-  useEffect(()=>{liveHistoryMounted.current=true;activeLiveHistoryScope.current=liveScope;liveHistoryScopeEpoch.current++;liveHistoryRefreshQueued.current=false;liveHistoryAutoBlocked.current=false;setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setIncludeConsistentBalances(false);return()=>{liveHistoryMounted.current=false;liveHistoryController.current?.abort();liveHistoryController.current=null;liveHistoryInFlight.current=false;clearTimeout(liveHistoryDebounce.current);};},[liveScope]);
+  useEffect(()=>{liveHistoryMounted.current=true;activeLiveHistoryScope.current=liveScope;liveHistoryScopeEpoch.current++;liveHistoryRefreshQueued.current=false;liveHistoryAutoBlocked.current=false;setIncludeConsistentBalances(false);return()=>{liveHistoryMounted.current=false;liveHistoryController.current?.abort();liveHistoryController.current=null;liveHistoryInFlight.current=false;clearTimeout(liveHistoryDebounce.current);};},[liveScope,ready]);
   useEffect(()=>{liveHistoryBatchKeyRef.current=liveBatchKey;liveHistoryBatchRef.current=liveBatch;},[liveBatchKey]);
+  async function loadInitialRemote() {
+    if(requestBusy.current)return;
+    const id=++seq.current,owner=`initial:${cacheKey}:${id}`,period=`${from}/${to}`;
+    const controller=new AbortController();refreshController.current=controller;requestBusy.current=true;requestOwner.current=owner;
+    setRefreshStatus(previous=>({...previous,loading:true,error:''}));
+    try {
+      periodBounds(from,to);
+      const result=await refreshSalesFeed({from,to,maxPages:DEFAULT_MAX_PAGES,signal:controller.signal});
+      if(id!==seq.current||snapshotKey(snapshotActorId,year,week)!==cacheKey)return;
+      setHistoryAttempted(false);setRows(result.messages);setSelected({});setCursor(result.nextAfterKey??'');setMore(!result.complete);setLoadedPeriod(period);
+      setNotice(`${result.messages.length}건 자동 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
+      setRefreshStatus({lastSuccess:new Date().toISOString(),error:'',incomplete:!result.complete,newCount:0,autoShown:result.messages.length,loading:false});
+      setFeedEvidenceRevision(value=>value+1);
+    } catch(error) {
+      if(id===seq.current&&error?.name!=='AbortError')setRefreshStatus(previous=>({...previous,loading:false,error:error.message||'영업방 대화를 읽지 못했습니다. 다시 확인하세요.'}));
+    } finally {
+      if(refreshController.current===controller)refreshController.current=null;
+      if(requestOwner.current===owner){requestBusy.current=false;requestOwner.current='';}
+    }
+  }
   async function loadRemote(next=false) {
     if(requestBusy.current) {setNotice('자동 확인이 끝난 뒤 다시 시도하세요.');return;}
     const id=++seq.current; setBusy(true); setNotice('');
@@ -107,8 +174,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       if(id!==seq.current)return;
       const incoming=data.messages.map(r=>({...r,identity:messageIdentity(r)}));
       setRows(prev=>mergeMessages(period===loadedPeriod?prev:[],incoming).rows);
-      if(period!==loadedPeriod) {setSelected({});setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0});}
-      setCursor(data.nextAfterKey??'');setMore(data.hasMore);setLoadedPeriod(period);
+      if(period!==loadedPeriod) {setSelected({});setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0});setHistoryAttempted(false);}
+      setCursor(data.nextAfterKey??'');setMore(data.hasMore);setLoadedPeriod(period);setHistoryAttempted(false);setFeedEvidenceRevision(value=>value+1);
       setNotice(`${incoming.length}건 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
     } catch(e) {if(id===seq.current)setNotice(e.message);}
     finally {if(requestOwner.current===owner) {requestBusy.current=false;requestOwner.current='';}if(id===seq.current)setBusy(false);}
@@ -124,15 +191,15 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
         return {...r,identity:`upload|${Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('')}`};
       }));
       if(id!==seq.current)return;
-      setRows(previous=>mergeMessages(previous,identified).rows);
+      setRows(previous=>mergeMessages(previous,identified).rows);setHistoryAttempted(false);setFeedEvidenceRevision(value=>value+1);
       setNotice(`${identified.length}건 읽음 · 같은 메시지 식별값은 중복 제외합니다. 서버 수신과 업로드 사이의 중복은 원문 확인이 필요합니다.`);
     } catch(e) {if(id===seq.current)setNotice(e.message||'파일을 읽지 못했습니다.');}
     finally {if(id===seq.current)setBusy(false);}
   }
-  function changePeriod(set,value){seq.current++;set(value);setBusy(false);setMore(false);setCursor('');setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});}
+  function changePeriod(set,value){seq.current++;refreshController.current?.abort();requestBusy.current=false;requestOwner.current='';set(value);setBusy(false);setMore(false);setCursor('');setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});}
   function revealPending() {
     setRows(previous=>mergeMessages(previous,pendingRowsRef.current).rows);
-    setPendingRows([]);setRefreshStatus(previous=>({...previous,newCount:0}));
+    setPendingRows([]);setRefreshStatus(previous=>({...previous,newCount:0}));setHistoryAttempted(false);setFeedEvidenceRevision(value=>value+1);
   }
   async function refreshLiveHistory(scope=liveScope,messages=liveBatch,{force=false}={}) {
     const currentPeriod=`${from}/${to}`;
@@ -174,7 +241,9 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       clearTimeout(timeout);
       if(liveHistoryController.current===controller) {liveHistoryController.current=null;liveHistoryInFlight.current=false;}
       if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current) setLiveHistoryStatus(previous=>({...previous,loading:false}));
-      if(liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,liveHistoryBatchRef.current);}
+      const queued=liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current;
+      if(queued) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,liveHistoryBatchRef.current);}
+      else if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current)setHistoryAttempted(true);
     }
   }
   async function refreshApplicationStatus(scope=applicationScope,{force=false}={}) {
@@ -226,33 +295,36 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       if(applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current){
         setApplicationStatus(previous=>({...previous,loading:false}));
         const queued=applicationRefreshQueued.current;applicationRefreshQueued.current=null;
+        if(!queued?.scope||queued.scope!==scope)setApplicationAttempted(true);
         if(queued?.scope===scope)void refreshApplicationStatus(scope,{force:true});
       }
     }
   }
-  useEffect(()=>{setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationDrafts({});setApplicationSaving({});setApplicationErrors({});setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});},[applicationScope]);
-  useEffect(()=>{if(open&&!disabled)refreshApplicationStatus(applicationScope,{force:true});},[applicationScope,open,disabled,operationRevision]);
+  useEffect(()=>{if(!ready||restoredApplicationScope.current===applicationScope)return;setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationDrafts({});setApplicationSaving({});setApplicationErrors({});setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});},[applicationScope,ready]);
+  useEffect(()=>{if(!ready||!open||disabled||applicationAttempted||initialStatusStarted.current===cacheKey)return;initialStatusStarted.current=cacheKey;void refreshApplicationStatus(applicationScope,{force:true});},[ready,cacheKey,applicationAttempted,open,disabled]);
   useEffect(()=>{
-    if(!open||!autoRefresh||disabled)return()=>{};
+    if(!ready||!open||!autoRefresh||disabled)return()=>{};
     return startBoundedAutoRefresh({immediate:false,intervalMs:HISTORY_REFRESH_INTERVAL_MS,maxBackoffMs:240000,
       isEligible:()=>document.visibilityState==='visible'&&navigator.onLine!==false,
       run:async()=>{if(await refreshApplicationStatus(applicationScope)===false)throw new Error('application refresh failed');},
     });
-  },[applicationScope,open,autoRefresh,disabled]);
+  },[applicationScope,open,autoRefresh,disabled,ready]);
   useEffect(()=>{
-    if(!open||!autoRefresh||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return()=>{};
+    if(!ready||!open||!autoRefresh||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return()=>{};
     const eligible=()=>document.visibilityState==='visible'&&navigator.onLine!==false;
     const run=()=>{if(eligible()&&!liveHistoryAutoBlocked.current)refreshLiveHistory(liveScope,liveBatch);};
     clearTimeout(liveHistoryDebounce.current);
     liveHistoryDebounce.current=setTimeout(run,250);
     const stop=startBoundedAutoRefresh({immediate:false,intervalMs:HISTORY_REFRESH_INTERVAL_MS,isEligible:eligible,run:()=>liveHistoryAutoBlocked.current?undefined:refreshLiveHistory(liveScope,liveBatch)});
     return()=>{clearTimeout(liveHistoryDebounce.current);stop();};
-  },[liveScope,liveBatchKey,loadedPeriod,open,autoRefresh,disabled]);
+  },[liveScope,liveBatchKey,loadedPeriod,open,autoRefresh,disabled,ready]);
+  useEffect(()=>{if(previousOperationRevision.current!==operationRevision){if(operationRevision)operationRefreshPending.current=true;previousOperationRevision.current=operationRevision;}},[operationRevision]);
   useEffect(()=>{
-    if(!operationRevision||!open||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return;
-    liveHistoryAutoBlocked.current=false;
-    void refreshLiveHistory(liveScope,liveBatch,{force:true});
-  },[operationRevision,disabled,open]);
+    if(!ready||!open||disabled||!operationRefreshPending.current)return;
+    operationRefreshPending.current=false;
+    void refreshApplicationStatus(applicationScope,{force:true});
+    if(loadedPeriod===livePeriod&&liveBatch.length){liveHistoryAutoBlocked.current=false;void refreshLiveHistory(liveScope,liveBatch,{force:true});}
+  },[ready,open,disabled,operationRevision,loadedPeriod,liveBatchKey]);
   function updateApplicationDraft(identity,memo) {
     setApplicationDrafts(previous=>({...previous,[identity]:{memo:String(memo||'').slice(0,1000)}}));
     setApplicationErrors(previous=>({...previous,[identity]:''}));
@@ -412,7 +484,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   }
   useEffect(()=>{
     const period=`${from}/${to}`;
-    const eligible=isAutoRefreshEligible({open,autoRefresh,disabled,visible:true,online:true,year,week,period,loadedPeriod});
+    const eligible=ready&&isAutoRefreshEligible({open,autoRefresh,disabled,visible:true,online:true,year,week,period,loadedPeriod});
     if(!eligible)return undefined;
     const initialLoad=loadedPeriod==='';
     const sequence=++refreshSeq.current,scope=period;
@@ -430,15 +502,16 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
           const known=new Set([...rowsRef.current,...pendingRowsRef.current].map(row=>row.identity));
           const incoming=result.messages.filter(row=>!known.has(row.identity));
           const now=new Date().toISOString();
-          if(initialLoad) {
-            setRows(previous=>mergeMessages(previous,result.messages).rows);setCursor(result.nextAfterKey??'');setMore(!result.complete);setLoadedPeriod(period);
+           if(initialLoad) {
+             setHistoryAttempted(false);
+             setRows(previous=>mergeMessages(previous,result.messages).rows);setCursor(result.nextAfterKey??'');setMore(!result.complete);setLoadedPeriod(period);
             setNotice(`${result.messages.length}건 자동 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
             setRefreshStatus({lastSuccess:now,error:'',incomplete:!result.complete,newCount:0,autoShown:result.messages.length,loading:false});
           } else if(shouldBufferIncoming({selectedCount:rowsRef.current.filter(row=>selectedRef.current[row.identity]).length,reviewOpen:reviewOpenRef.current})) {
             if(incoming.length)setPendingRows(previous=>mergeMessages(previous,incoming).rows);
             setRefreshStatus({lastSuccess:now,error:'',incomplete:!result.complete,newCount:pendingRowsRef.current.length+incoming.length,autoShown:0,loading:false});
           } else {
-            if(incoming.length)setRows(previous=>mergeMessages(previous,incoming).rows);
+             if(incoming.length){setHistoryAttempted(false);setRows(previous=>mergeMessages(previous,incoming).rows);}
             setRefreshStatus({lastSuccess:now,error:'',incomplete:!result.complete,newCount:0,autoShown:incoming.length,loading:false});
           }
         } catch(error) {if(error?.name==='AbortError')return;if(isCurrentRefresh({sequence,currentSequence:refreshSeq.current,scope,currentScope:activeRefreshScope.current}))setRefreshStatus(previous=>({...previous,error:error.message||'영업방 자동 확인에 실패했습니다. 기존 목록은 유지됩니다.',loading:false}));throw error;}
@@ -446,10 +519,37 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       }
     });
     return ()=>{refreshSeq.current++;if(activeRefreshScope.current===scope)activeRefreshScope.current='';refreshController.current?.abort();stop();};
-  },[open,autoRefresh,disabled,from,to,loadedPeriod,year,week]);
+  },[open,autoRefresh,disabled,from,to,loadedPeriod,year,week,ready]);
+  useEffect(()=>{
+    if(!ready||!open||disabled||loadedPeriod||initialFeedStarted.current===cacheKey||!from||!to)return;
+    initialFeedStarted.current=cacheKey;
+    void loadInitialRemote();
+  },[ready,cacheKey,open,disabled,loadedPeriod,from,to]);
+  useEffect(()=>{
+    if(!ready||!open||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return;
+    const freshFeed=feedEvidenceRevision>lastFeedEvidenceRevision.current;
+    const missingHistory=!historyAttempted&&!(liveHistoryStatus.loaded&&liveHistoryStatus.scope===liveScope);
+    if(!freshFeed&&!missingHistory)return;
+    const attemptKey=`${cacheKey}:${liveScope}:${liveBatchKey}:${feedEvidenceRevision}`;
+    if(initialHistoryStarted.current===attemptKey)return;
+    initialHistoryStarted.current=attemptKey;lastFeedEvidenceRevision.current=feedEvidenceRevision;
+    liveHistoryAutoBlocked.current=false;
+    void refreshLiveHistory(liveScope,liveBatch,{force:true});
+  },[ready,open,disabled,feedEvidenceRevision,loadedPeriod,liveScope,liveBatchKey,historyAttempted,liveHistoryStatus.loaded,liveHistoryStatus.scope]);
+  useEffect(()=>{
+    if(!ready||!loadedPeriod||loadedPeriod!==livePeriod||!applicationAttempted||(rows.length>0&&!historyAttempted))return;
+    if(skipInitialSave.current===cacheKey){skipInitialSave.current='';return;}
+    const epoch=snapshotEpoch.current;
+    const scope={userId:snapshotActorId,year,week};
+    const data={from,to,rows,selected,cursor,more,loadedPeriod,pendingRows,
+      refreshStatus:{...refreshStatus,loading:false},manualApplications,auditApplications,operationApplications,operationHistory,
+      applicationStatus:{...applicationStatus,loading:false},liveHistory,liveBalanceComparison,
+      liveHistoryStatus:{...liveHistoryStatus,loading:false},historyAttempted,applicationAttempted};
+    writeInboxSnapshot(scope,data).then(savedAt=>{if(epoch===snapshotEpoch.current){setSnapshotSavedAt(savedAt);setSnapshotError('');setSnapshotPhase(previous=>previous.key===cacheKey?{...previous,kind:'fresh'}:previous);}}).catch(()=>{if(epoch===snapshotEpoch.current)setSnapshotError('브라우저 저장 실패 · 메뉴 재진입 시 결과가 유지되지 않을 수 있습니다. 저장 공간과 브라우저 설정을 확인하세요.');});
+  },[ready,cacheKey,from,to,rows,selected,cursor,more,loadedPeriod,pendingRows,refreshStatus,manualApplications,auditApplications,operationApplications,operationHistory,applicationStatus,liveHistory,liveBalanceComparison,liveHistoryStatus,historyAttempted,applicationAttempted]);
   return <section className="sales-inbox" aria-label="영업방 대화 수신함">
-    <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 기본 최근 7일</span></div>
-    <div className="sales-inbox-content" hidden={!open}>
+    <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 기본 최근 7일</span><span data-testid="sales-inbox-snapshot-status" role="status">{snapshotError||(!ready?snapshotAuthReady&&!snapshotActorId?'사용자를 확인하지 못했습니다. 다시 로그인해 주세요.':'저장된 조회 확인 중':snapshotSavedAt?`${snapshotPhase.kind==='restored'?'저장된 조회 복원':'조회 결과 저장'} · 브라우저 마지막 저장 ${shortKstTime(snapshotSavedAt)} · 전산 대조 ${liveHistoryStatus.asOf?shortKstTime(liveHistoryStatus.asOf):'시각 미확인'}`:'조회 결과 저장 준비 중')}</span></div>
+    <div className="sales-inbox-content" hidden={!open||!ready}>
       <small data-testid="sales-inbox-refresh-cadence">{autoRefresh?`자동 확인: 새 대화 ${REFRESH_INTERVAL_MS/1000}초 · 전산 이력·상태 ${HISTORY_REFRESH_INTERVAL_MS/1000}초 (오류 시 지연 또는 수동 재시도). 새 원문·저장 후에는 바로 확인합니다.`:'자동 확인 꺼짐 · 최신 자료는 새로고침 버튼으로 확인하세요.'}</small>
       <details className="inbox-tools" open={controlsOpen} onToggle={event=>setControlsOpen(event.currentTarget.open)}><summary>조회·불러오기·비교 도구 {controlsOpen?'접기':'펼치기'}</summary>
       <div className="bar inbox-controls"><label>시작일 <input type="date" value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
