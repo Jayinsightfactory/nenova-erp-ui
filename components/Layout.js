@@ -4,6 +4,7 @@
 // 수정이력: 2026-04-09b — Railway 강제 재빌드 v2
 
 import { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -306,7 +307,8 @@ export default function Layout({ children, title }) {
     } catch (error) {
       window.alert(`즐겨찾기 변경 실패: ${error?.message || error}`);
     } finally {
-      setFavoriteBusyHref('');
+      // Re-enable the control before restoring focus, including after a native alert.
+      flushSync(() => setFavoriteBusyHref(''));
       requestAnimationFrame(() => {
         // Removing a favorite removes its shortcut; return to its permanent menu toggle.
         if (trigger.isConnected) { trigger.focus(); return; }
