@@ -11,7 +11,18 @@ const assert = (label, cond) => {
 };
 const near = (a, b) => Math.abs(Number(a) - Number(b)) < 0.0001;
 
+async function testInboundWeekScope() {
+  const fs = require('fs');
+  const source = fs.readFileSync(require.resolve('../lib/pivotStats.js'), 'utf8');
+  const { normalizedOrderYearWeekSql } = await import('../lib/pivotWeekScopeSql.js');
+  const expr = normalizedOrderYearWeekSql('wm');
+  const incomingQuery = source.match(/const inResult = await query\(([\s\S]*?)\);\s*\n\s*const stockResult/);
+  assert('incoming week query pads legacy one-digit subweeks before comparing', Boolean(incomingQuery?.[1]?.includes("normalizedOrderYearWeekSql('wm')")));
+  assert('normalized warehouse key reads year and both OrderWeek components', /CAST\(wm\.OrderYear AS NVARCHAR\(4\)\).*CHARINDEX\('-'.*wm\.OrderWeek/s.test(expr));
+}
+
 async function main() {
+  await testInboundWeekScope();
   const { pivotCustomerQuantity } = await import('../lib/pivotCustomerQuantity.js');
   const duplicateNameRow = { orders: { '공통상호': 7 }, ordersByCustKey: { '10': 3, '20': 4 } };
   assert('동일 업체명도 CustKey 10은 자기 주문3만 조회', pivotCustomerQuantity(duplicateNameRow, { custKey: 10, custName: '공통상호' }) === 3);
