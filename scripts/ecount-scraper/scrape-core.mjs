@@ -98,11 +98,8 @@ export async function collectOne(page, base, ds) {
   if (!dl) { // 2026-10-08 진단: 실패 시점 화면·보이는 팝업 텍스트를 남긴다(조회 전용, 아무것도 누르지 않음)
     fs.mkdirSync(DL, { recursive: true });
     const shot = path.join(DL, `${ds}-fail.png`); await page.screenshot({ path: shot, fullPage: false }).catch(() => {});
-    let dlg = ''; for (const f of [page, ...page.frames()]) { try { const t = await f.locator('[role=dialog], .ui-dialog, .modal, .popup, .layer').allInnerTexts(); if (t.length) dlg += t.join(' | ').replace(/s+/g, ' ').slice(0, 400); } catch {} }
-    fs.writeFileSync(path.join(DL, `${ds}-fail.txt`), `url=${page.url()}
-frames=${page.frames().length}
-dialog=${dlg}
-`);
+    let dlg = ''; for (const f of [page, ...page.frames()]) { try { const t = await f.locator('[role=dialog], .ui-dialog, .modal, .popup, .layer').allInnerTexts(); if (t.length) dlg += t.join(' | ').replace(/\s+/g, ' ').slice(0, 400); } catch {} }
+    fs.writeFileSync(path.join(DL, `${ds}-fail.txt`), `url=${page.url()}\nframes=${page.frames().length}\ndialog=${dlg}\n`);
     throw new Error(`Excel 다운로드 미시작(화면 ${shot}${dlg ? ', 팝업: ' + dlg.slice(0, 120) : ''})`);
   }
   fs.mkdirSync(DL, { recursive: true });
