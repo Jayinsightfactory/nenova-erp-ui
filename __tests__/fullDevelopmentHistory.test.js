@@ -69,7 +69,14 @@ test('date filtering spans calendar years and UI exposes metadata, disclosure, k
 
   const ui = fs.readFileSync('components/dev/FullDevelopmentHistory.js', 'utf8');
   const css = fs.readFileSync('components/dev/FullDevelopmentHistory.module.css', 'utf8');
-  for (const marker of ['headHash', 'collectedAt', 'sourceStatus', 'counts?.summaries', 'filteredCounts?.summaries', '커밋 수에 미포함', '비공개 대화 원문 제외']) assert.ok(ui.includes(marker), `UI disclosure marker missing: ${marker}`);
+  for (const marker of ['headHash', 'collectedAt', 'sourceStatus', 'counts?.summaries', 'filteredCounts?.summaries', '코드 변경 기록 수에 미포함', '비공개 대화 원문 제외']) assert.ok(ui.includes(marker), `UI disclosure marker missing: ${marker}`);
+  for (const label of ['전체 개발 변경 기록', '개별 코드 변경 기록', '코드 통합 기록', '작업 메모', '개발 프로젝트', '기록 종류', '작업 종류', '원본 기록 제목', '확인번호', '현재 원본과 같은지는 확인되지 않았습니다']) assert.ok(ui.includes(label), `Plain-language label missing: ${label}`);
+  for (const jargon of ['고유 커밋', '비병합 커밋', '병합 커밋', '원본 저장소', '레코드 종류', '변경 성격', 'main manifest', '빌드 HEAD', '기준 ref']) assert.equal(ui.includes(jargon), false, `Raw jargon should not be visible: ${jargon}`);
+  assert.match(ui, /코드 통합 기록은 개발 내용을 합친 기록이며 배포 횟수가 아닙니다/);
+  assert.match(ui, /코드 변경 기록은 기능 수, 사용자 요청 수, 작업 횟수가 아닙니다/);
+  assert.doesNotMatch(ui, /\{item\.typeEvidence\}|projectIds\.join\(/, 'internal classification codes and project ids must not render raw');
+  assert.match(ui, /evidenceLabels\[item\.typeEvidence\]/);
+  assert.match(ui, /item\.projectIds\.map\(id => projectLabels\[id\]/);
   assert.match(ui, /AbortController/);
   assert.match(ui, /aria-expanded/);
   assert.match(ui, /onKeyDown/);

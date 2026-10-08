@@ -108,10 +108,10 @@ export default function MenuDevelopmentHistory() {
     <section className={styles.root} aria-label="메뉴별 기능 개발 이력">
       <div className={styles.heading}>
         <div>
-          <p className={styles.eyebrow}>DEVELOPMENT HISTORY</p>
+          <p className={styles.eyebrow}>기능 추가·수정 내역</p>
           <h1>메뉴별 기능</h1>
-          <p className={styles.intro}>메뉴와 기능을 선택하면 관련 커밋의 변경 내용을 시간순으로 볼 수 있습니다.</p>
-          {data && <p className={styles.snapshot}>전체 메뉴 {count(data.totalMenuCount ?? data.menus?.length)}개 · 전체 고유 변경 {count(data.uniqueCommitCount)}건 · 자료 생성 {kst(data.generatedAt)}{data.headHash ? ` · 기준 ${data.headHash.slice(0, 10)}` : ''}{data.sourceStatus ? ` · ${data.sourceStatus}` : ''}</p>}
+          <p className={styles.intro}>메뉴와 기능을 선택하면 어떤 기능을 추가하고 수정했는지 날짜순으로 볼 수 있습니다.</p>
+          {data && <p className={styles.snapshot}>전체 메뉴 {count(data.totalMenuCount ?? data.menus?.length)}개 · 중복을 제외한 변경 기록 {count(data.uniqueCommitCount)}건 · 자료 확인 시각 {kst(data.generatedAt)} · {data.sourceStatus === 'git' ? '개발 기록 원본에서 확인' : '저장해 둔 자료 기준 · 현재 원본과 같은지는 미확인'}</p>}
         </div>
         <button type="button" className={styles.refresh} onClick={() => setRevision((value) => value + 1)} disabled={loading}>
           {loading ? '불러오는 중…' : '새로고침'}
@@ -119,10 +119,10 @@ export default function MenuDevelopmentHistory() {
       </div>
 
       <div className={styles.notice} role="note">
-        메뉴·기능 연결은 파일 경로를 바탕으로 추정한 분류입니다. 변경 횟수는 해당 메뉴에 연결된 고유 커밋 수이며, 기능별 수치를 합산한 값이 아닙니다.
-        최초 추가 커밋을 확인할 수 없는 기능은 최초 추가일과 이후 수정 횟수를 “확인 불가”로 표시합니다. 개인별 작업 시간이나 작업 횟수를 뜻하지 않습니다.
+        수정한 프로그램 파일을 기준으로 메뉴와 기능을 분류했습니다. 변경 횟수는 프로그램을 변경해 저장한 기록 수입니다. 요청한 기능 개수나 담당자의 작업 횟수는 아닙니다.
+        한 변경이 여러 기능에 포함될 수 있어 기능별 횟수를 더하면 전체와 다를 수 있습니다. 최초 추가 기록이 없으면 최초 추가일과 이후 수정 횟수는 “확인 불가”로 표시합니다.
       </div>
-      {data?.coverageNote && <p className={styles.coverage}>{data.coverageNote}</p>}
+      {data?.coverageNote && <p className={styles.coverage}>여러 작업을 합친 기록에서는 기본 개발 흐름 한 갈래를 따라 변경 파일 목록을 확인합니다. 다른 갈래의 모든 개별 변경을 보여주는 화면은 아닙니다. 파일 내용이나 실제 업무 내용을 읽어 분류한 것은 아닙니다. {data.isShallow && '이전에 개발한 기록 일부가 없어 집계가 불완전합니다. 실제 변경으로 확인하지 못한 기록은 제외했습니다.'}</p>}
 
       <div className={styles.toolbar}>
         <label className={styles.searchLabel}>
@@ -184,7 +184,7 @@ export default function MenuDevelopmentHistory() {
                   </button>
                 ))}
               </div>
-              <div className={styles.timelineHeader}><h3 className={styles.sectionTitle}>변경 타임라인</h3><span>선택 조건의 고유 변경 {count(data?.totalEvents)}건</span></div>
+              <div className={styles.timelineHeader}><h3 className={styles.sectionTitle}>날짜별 변경 내역</h3><span>조건에 맞는 변경 기록 {count(data?.totalEvents)}건</span></div>
               {!timeline.length && <p className={styles.state}>표시할 변경 이력이 없습니다.</p>}
               <ol className={styles.timeline}>
                 {timeline.map((item) => (
@@ -192,7 +192,7 @@ export default function MenuDevelopmentHistory() {
                     <button type="button" className={styles.eventButton} aria-expanded={Boolean(expanded[item.hash])}
                       onClick={() => setExpanded((current) => ({ ...current, [item.hash]: !current[item.hash] }))}>
                       <span className={styles.eventSubject}>{item.displayTitle || item.subject || '제목 없는 변경'}</span>
-                      <span className={styles.eventMeta}>{kst(item.date)} · <code>{item.hash?.slice(0, 10) || 'hash 확인 불가'}</code> · 파일 {count(item.changedFiles?.length)}개</span>
+                      <span className={styles.eventMeta}>{kst(item.date)} · 확인번호 <code>{item.hash?.slice(0, 10) || '확인 불가'}</code> · 변경 파일 {count(item.changedFiles?.length)}개</span>
                     </button>
                     {expanded[item.hash] && <div className={styles.eventFiles}>
                       {item.bodyExcerpt && <p>{item.bodyExcerpt}</p>}
