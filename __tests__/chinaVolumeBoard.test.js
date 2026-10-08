@@ -3,6 +3,9 @@ const assert = require('assert');
 (async () => {
   const {
     buildChinaVolumeWorkbookRows,
+    buildChinaVolumeCustomerColumns,
+    buildChinaVolumeGridTotals,
+    chinaOrderQuantity,
     applyChinaPackingCustomerMatch,
     rematchChinaPackingRow,
     canApplyChinaPackingRows,
@@ -29,6 +32,24 @@ const assert = require('assert');
   assert.strictEqual(chinaVolumeProductLabel('CHINA / ROSE Diana 50cm'), 'ROSE Diana 50cm');
   assert.strictEqual(chinaVolumeProductLabel('China/ Hydrangea Blue (블루)'), 'Hydrangea Blue (블루)');
   assert.strictEqual(chinaVolumeCellText(20, [{ boxNo: '16' }, { boxNo: '17' }]), '20 (16,17)', '웹 화면은 수량과 박스 번호를 함께 표시한다');
+
+  const orderCustomer = { custKey: 81, custName: '중국 주문업체', orderCode: 'CL81' };
+  const inboundWeekProduct = {
+    prodKey: 810, country: '중국', prodName: 'Rose Inbound', unit: '박스',
+    ordersByCustKey: { 81: 7 }, orders: { '중국 주문업체': 7 },
+    outOrders: { '중국 주문업체': 0 },
+  };
+  assert.deepStrictEqual(buildChinaVolumeCustomerColumns({ rows: [inboundWeekProduct], customers: [orderCustomer] }), [orderCustomer], '출고가 0이어도 선택 차수 OrderDetail이 있는 중국 업체는 표에 표시한다');
+  assert.equal(chinaOrderQuantity(inboundWeekProduct, orderCustomer), 7, '전산 주문비교는 출고(outOrders)가 아니라 OrderDetail 주문수량을 사용한다');
+  assert.equal(buildChinaVolumeGridTotals({ rows: [inboundWeekProduct], customers: [orderCustomer] }).grandTotal, 7, '기초 물량표 수량은 업체별 전산 주문수량에서 시작한다');
+  assert.deepStrictEqual(buildChinaVolumeCustomerColumns({
+    rows: [{ ...inboundWeekProduct, ordersByCustKey: {}, orders: {}, outOrders: { '중국 주문업체': 20 } }],
+    customers: [orderCustomer],
+  }), [], '명시된 해당 차수 주문이 없으면 다른 출고수량을 주문업체 대용으로 사용하지 않는다');
+  const inboundMatch = mergeChinaPackingIntoPivotCells([
+    { mappingStatus: 'MATCHED', cellKey: '81:810', quantity: 5, allocations: [] },
+  ], { customers: [orderCustomer], rows: [inboundWeekProduct] });
+  assert.equal(inboundMatch['81:810'].orderQuantity, 7, '입고 매칭 셀의 주문비교 기준은 실제 등록 주문 7박스다');
 
   assert.strictEqual(formatChinaBoxNumberList(['150', '151', '152', '153', '154', '155', '156']), '150~156', '3개 이상 연속이면 시작~끝으로 압축');
   assert.strictEqual(formatChinaBoxNumberList(['88', '89']), '88,89', '정확히 2개 연속이면 그대로 나열');

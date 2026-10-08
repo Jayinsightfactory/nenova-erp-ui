@@ -22,6 +22,13 @@ assert.match(page, /grid-template-columns:minmax\(0,1fr\) 370px/, '1920×1080에
 assert.match(page, /<div className="side-history"><DutchWorkHistory/, '저장 이력은 우측 세로 패널에 있어야 합니다.');
 assert.equal((page.match(/<DutchWorkHistory\b/g) || []).length, 1, '작업 저장 이력 UI를 복제하면 안 됩니다.');
 assert.match(page, /zoom:\.7;width:142\.8571429%/, '데스크톱 화면은 축소된 기본 배율로 넓은 물량표를 보여야 합니다.');
+assert.match(page, /\.board-primary \.grid-wrap,\.board-primary \.preview-wrap\{max-height:none;min-height:0\}/, '물량표와 검토표는 자체 세로 스크롤 없이 페이지 높이에 맞춰 펼쳐져야 합니다.');
+assert.match(page, /\.board-primary :global\(\.sheet-scroll\)\{max-height:none;min-height:0\}/, '원본 Pivot 물량표는 내부 세로 스크롤 없이 전체 페이지 스크롤을 사용해야 합니다.');
+assert.doesNotMatch(page, /\.board-primary[^\n]*max-height:(?:calc\(100vh|65vh|55vh)/, '브레이크포인트에서도 물량 영역에 고정 높이/내부 세로 스크롤을 되살리면 안 됩니다.');
+assert.match(page, /anchor\.download = `\$\{fileName\.replace\(\/\\\.xlsx\?\$\/i, ''\)\}_물량표\.xlsx`/, '다운로드 파일명은 단가표가 아닌 물량표여야 합니다.');
+assert.match(page, />물량표 다운로드<\/button>/, '엑셀 출력 버튼은 물량표 다운로드로 표시해야 합니다.');
+assert.match(page, /ERP 확정 출고\(적용 불가\)/, '이해하기 어려운 확정 차단을 ERP 확정 출고로 풀어 표시해야 합니다.');
+assert.match(page, /해당 출고의 확정을 ERP에서 취소한 뒤 다시 검증하세요/, '확정 출고 상태에서 필요한 조치를 설명해야 합니다.');
 assert.match(page, /@media\(max-width:1100px\)\{\.dutch-board\{zoom:1;width:100%\}/, '작은 화면에서는 페이지 확대율을 원래대로 복원해야 합니다.');
 assert.match(volumeSheet, /data-testid="dutch-volume-top-scroll"/, '가로로 긴 원본 물량표는 상단 가로 이동바를 제공해야 합니다.');
 assert.match(volumeSheet, /aria-label="원본 물량표 상단 가로 스크롤"/, '상단 가로 이동바는 스크린 리더에서 구분되어야 합니다.');

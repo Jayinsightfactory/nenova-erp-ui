@@ -106,7 +106,7 @@ export async function previewDutchVolume(body, user, deps = {}) {
   const applyRows = priceRows.filter(row => !row.fixBlocked && (row.needsShipmentApply || row.priceChanged || (row.uploadQty > 0 && row.orderQty <= 0)));
   const blockers = [];
   if ((preview.unmatched || []).length) blockers.push(`미매칭 ${preview.unmatched.length}건`);
-  if ((preview.fixBlockedRows || []).length) blockers.push(`확정차단 ${preview.fixBlockedRows.length}건`);
+  if ((preview.fixBlockedRows || []).length) blockers.push(`ERP 확정 출고 ${preview.fixBlockedRows.length}건 — 해당 출고 확정을 취소한 뒤 다시 검증하세요.`);
   // An unmatched positive entry must never make the category look like a
   // complete replacement. Explicitly require every source entry to resolve.
   if (entryMatches.some(item => item.status !== 'matched')) blockers.push('입력 행의 업체·품목 연결이 완료되지 않았습니다.');
