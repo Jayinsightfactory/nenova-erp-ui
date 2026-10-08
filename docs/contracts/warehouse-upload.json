@@ -4,11 +4,23 @@
   "scope": [
     "pages/incoming.js",
     "pages/api/warehouse/index.js",
+    "lib/exeWarehouseViewSql.js",
     "lib/warehousePackingImport.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "warehouseIdentity": ["OrderYear", "OrderWeek", "WarehouseKey", "ProdKey"],
   "actions": [
+    {
+      "name": "WAREHOUSE_LIST_AND_DETAIL_READ",
+      "source": "FormWarehouseView.GetData/GetDetail parity SQL; aggregate aliases match incoming page totals and full product names wrap in the detail table",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve"
+    },
     {
       "name": "PARSE_PACKING_LIST",
       "orderDetail": "preserve",
@@ -70,6 +82,7 @@
   },
   "requiredTestFiles": [
     "__tests__/warehousePackingImport.test.js",
+    "__tests__/incomingWarehouseDisplay.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
