@@ -1,0 +1,33 @@
+{
+  "id": "ecount-ingest",
+  "title": "ECOUNT 화면 수집 적재(/api/ecount/ingest, 웹 전용 테이블) 계약",
+  "scope": [
+    "pages/api/ecount/ingest.js",
+    "lib/ecountIngest.js",
+    "lib/automationAuth.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "ECOUNT_INGEST", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": ["WebEcountSnapshot", "WebEcountRow"] }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "ERP 주문·출고·재고·견적을 쓰지 않는다. 사장님 PC 상주 스크레이퍼(읽기 전용 가드)가 ECOUNT 조회 화면 4종(입출금계좌·거래처채권·거래처채무·판매현황)을 엑셀로 받아 올리면 웹 전용 테이블 WebEcountSnapshot/WebEcountRow 에만 적재하고 4중 검증 점수를 돌려준다. 인증은 Bearer MOYI_API_TOKEN|AUTOMATION_API_TOKEN|ECOUNT_INGEST_TOKEN 또는(2026-10-08) 이 엔드포인트에 한해 ORBIT_DRIVE_INGEST_TOKEN(사장님 PC 데몬 토큰). 헤더 없으면 로그인 세션 폴백."
+  },
+  "requiredTestFiles": [
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "ECOUNT 적재는 nenova.exe 기능이 아닌 웹 전용 수집 기능이며 ERP 테이블 side effect 는 모두 preserve 다. ECOUNT 자체에는 쓰지 않는다(스크레이퍼 prgId 화이트리스트 + 쓰기 요청 abort 가드).",
+    "methods": ["lib/automationAuth.checkAutomationAuth (Bearer 토큰 비교)", "pages/api/ecount/ingest.driveTokenOk (ORBIT_DRIVE_INGEST_TOKEN timingSafeEqual)"],
+    "tables": ["WebEcountSnapshot (write)", "WebEcountRow (write)", "OrderDetail (preserve)", "ShipmentDetail (preserve)"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
