@@ -5,7 +5,7 @@
 | 기간 | 2026-10-07~08 KST |
 | 화면 | 개발 히스토리 `/dev/history` |
 | 원장 부작용 | 없음. 새 API는 Git 스냅샷 GET이며 ERP DB/EXE에 접근하지 않음 |
-| 배포 | 검증·최종 검토 후 PR/병합/배포 예정 |
+| 배포 | PR #962 병합, d5bc95d5 배포 성공, Actions 37711159826 |
 | 다음 채팅 힌트 | 아래 결정과 검증 결과 확인 후 이어가기 |
 
 ## 고정 결정
@@ -38,7 +38,7 @@
 - shallow 경계 해시는 최초 추가·횟수 집계에서 모두 제외한다. ENOENT/git 메타데이터 부재만 tracked fallback이며 파싱·Git 손상 오류는 빌드를 실패시킨다.
 - 임시 `.next`, node_modules junction, 로컬 캡처는 커밋 제외.
 
-## 미완
+## 완료 및 운영 검증
 
 최종 검토에서 추가 blocking 없음. 전체 과거 이력을 확보하여 shallow=false, 스냅샷 85개 메뉴/1,289개 고유 변경(이 시점 기준)을 생성했다.
 
@@ -49,4 +49,6 @@
 - `npm run guard:erp-writes -- --changed-from origin/master`: 통과.
 - `npm run build`: 보완 후 재빌드 통과.
 
-남은 단계: PR/병합 → Cafe24 배포 → 운영 화면 스모크.
+PR #962: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/962 . GitHub verify/installer 통과, Cafe24 배포 및 자동 hydration smoke 성공. 운영 화면의 버전 `v1.0.2·d5bc95d5`, 신규 메뉴/기본 탭 반영 확인.
+
+1920×1080 Chrome 실브라우저에서 인증 실패/다시 시도 상태가 정상 표시됨. 사용자 재로그인 이후 운영 조회, 메뉴·기능 선택, 상세 파일 펼치기, 검색 빈 결과, 페이지 이동, 뒤로가기 선택 초기화를 확인했다. 기준 화면 documentWidth=1920으로 가로 잘림 없음. 작은 화면 viewport override는 즉시 반영되지 않아 추가 실브라우저 responsive 검증 완료로 기록하지 않는다. 최종 캡처: `C:/Users/USER/.codex/visualizations/2026/08/07/019fd9e3-5a33-7ce0-beed-46d08eb583c0/2026-10-08-menu-development-history.jpg`. 임시 viewport를 해제하고 결과 탭을 유지했다. 운영 스냅샷은 후속 배포에 따라 증가하므로 1,289를 고정값으로 취급하지 않는다. 이 최종 배포 기록은 로컬 세션 문서에 갱신했다.

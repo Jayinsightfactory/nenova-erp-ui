@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
+import FullDevelopmentHistory from '../../components/dev/FullDevelopmentHistory';
 import MenuDevelopmentHistory from '../../components/dev/MenuDevelopmentHistory';
 
 const API = '/api/dev/git-log';
@@ -138,7 +139,7 @@ function inlineFormat(s) {
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#38bdf8;text-decoration:underline;">$1</a>');
 }
 
-export default function HistoryPage() {
+function LegacyHistoryPage() {
   const [data, setData] = useState(null);
   const [selectedHash, setSelectedHash] = useState(null);
   const [diffData, setDiffData] = useState(null);
@@ -444,4 +445,15 @@ export default function HistoryPage() {
       </div>
     </>
   );
+}
+
+export default function HistoryPage() {
+  const [view, setView] = useState('full');
+  return <>
+    <Head><title>개발 이력 — nenova</title></Head>
+    <nav aria-label="개발 이력 화면 선택" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '12px 24px', background: '#f4f8ff', borderBottom: '1px solid #d5e2f1' }}>
+      {[['full', '전체 개발 이력'], ['menu', '메뉴별 기능'], ['legacy', '기존 작업 히스토리']].map(([id, label]) => <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)} style={{ border: '1px solid #b6cbe4', borderRadius: 8, padding: '9px 14px', background: view === id ? '#1d65ad' : '#fff', color: view === id ? '#fff' : '#194574', cursor: 'pointer' }}>{label}</button>)}
+    </nav>
+    {view === 'full' ? <FullDevelopmentHistory /> : view === 'menu' ? <MenuDevelopmentHistory /> : <LegacyHistoryPage />}
+  </>;
 }

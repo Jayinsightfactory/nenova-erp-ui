@@ -1,5 +1,7 @@
 # 세션 Q&A 인덱스
 
+- [2026-10-08 MindMap 최초 개발부터 전체 개발 이력](2026-10-08_full-development-history.md) — MindMap·Orbit, 카카오 수집 도구, ERP 전체 커밋과 안전한 업무 요약 제목을 출처별 연결.
+
 - [2026-10-08 주광 대차수 선출고·업로드 통합](2026-10-08_weekday-early-shipment-integration.md) — 원천/대상 재고 조정쌍, 절대 날짜 분배, 업로드 선출고 제외 및 기존 분배 비교.
 - [2026-10-08 메뉴별 기능 개발 히스토리](2026-10-08_menu-development-history.md) — 메뉴/기능 고유 변경 횟수, 최초 추가 이후 반복 수정, 읽기 전용 Git 스냅샷.
 
