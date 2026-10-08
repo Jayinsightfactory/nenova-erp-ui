@@ -2,7 +2,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {spawnSync}=require('node:child_process');
 const dir=path.join(__dirname,'..','__tests__');
-const files=fs.readdirSync(dir).filter(f=>/^distribution(?:Baseline|Change|Checklist|SalesInbox|Audit|ManualApplication|MessageApplicationStatus|LiveHistory|RequestBalance|CompactMatch).*\.test\.js$/.test(f)||['pasteFourColumnLayout.test.js','pasteMappingSave.test.js','pasteMappingApi.test.js','pasteManualMappingOverride.test.js','productSearchWorker.test.js','useRankedProductSearch.test.js'].includes(f)).sort();
+const files=fs.readdirSync(dir).filter(f=>/^distribution(?:Baseline|Change|Checklist|SalesInbox|InboxSnapshot|Audit|ManualApplication|MessageApplicationStatus|LiveHistory|RequestBalance|CompactMatch).*\.test\.js$/.test(f)||['pasteFourColumnLayout.test.js','pasteMappingSave.test.js','pasteMappingApi.test.js','pasteManualMappingOverride.test.js','productSearchWorker.test.js','useRankedProductSearch.test.js'].includes(f)).sort();
 if(files.length<8)throw new Error('Distribution connection tests are missing');
 for(const file of files){
  const result=spawnSync(process.execPath,[path.join(dir,file)],{stdio:'inherit',windowsHide:true});
