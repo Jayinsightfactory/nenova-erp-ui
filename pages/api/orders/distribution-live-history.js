@@ -2,7 +2,7 @@ import { getPool, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { loadMappings } from '../../../lib/parseMappings';
 import { loadCustomerMappings } from '../../../lib/customerMappings';
-import { normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } from '../../../lib/distributionLiveHistory';
+import { MAX_FACT_ROWS, normalizeScope, parseMessages, pairRequests, loadLiveHistoryFacts } from '../../../lib/distributionLiveHistory';
 import { cloneParsedItems, loadDistributionRequestBalanceFacts, buildDistributionRequestBalanceComparison } from '../../../lib/distributionRequestBalance';
 import { groupHistoryReposts, expandHistoryReposts } from '../../../lib/historyReposts';
 
@@ -120,7 +120,7 @@ export default withAuth(async function handler(req, res) {
     ...(reposts.length<messages.length?['동일 원문·시각 또는 삭제 안내만 다른 5분 이내 재전송은 하나의 요청 근거를 공유합니다. 수량은 중복 합산하지 않습니다.']:[]),
     '자동 대조는 참고용이며 ERP 변경·적용·완료를 수행하거나 뜻하지 않습니다.',
     '원본 삭제 또는 확정 시점 때문에 이력이 없을 수 있으며, 대응 이력 부재는 미처리 증거가 아닙니다.',
-    ...(facts.queryTruncated ? ['주문 또는 분배 이력 조회가 1,000건 제한에 도달했습니다. 강한 이력 증거 판정을 하지 않았습니다.'] : []),
+    ...(facts.queryTruncated ? [`주문 또는 분배 이력 조회가 ${MAX_FACT_ROWS.toLocaleString('ko-KR')}건 제한을 초과했습니다. 조회 기간을 좁혀 주세요. 강한 이력 증거 판정을 하지 않았습니다.`] : []),
     ...(balanceUnavailable ? ['현재 분배·전산 저장 잔량 자료를 불러오지 못해 이번 응답에서는 잔량 비교를 생략했습니다.'] : []),
     ...(items.some(item => item.requests.some(request => !request.sourceAt || request.timestamp_approximate)) ? ['원문 시각이 없거나 근사값인 항목은 날짜만으로 이력 연결하지 않았습니다.'] : []),
     ...(items.some(item => item.requests.some(request => request.status === 'UNIT_HISTORY_CANDIDATE')) ? ['품목 환산계수가 없는 단위 불일치는 같은 수량·방향의 전산 이력을 확인 후보로만 표시하며 적용 완료로 판정하지 않습니다.'] : []),

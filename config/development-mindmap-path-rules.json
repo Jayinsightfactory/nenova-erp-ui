@@ -1,0 +1,398 @@
+{
+  "schemaVersion": 1,
+  "sourceId": "mindmap-viewer",
+  "sourceHead": "bdd7f5e07d78e8fe874c83717140a4b568701229",
+  "reviewedAt": "2026-10-08",
+  "reviewMethod": "실제 변경 diff와 현재 소스 트리에서 목적 전용성이 확인된 파일만 골랐다. 여러 기능이 함께 쓰는 공용 파일과 routes/, src/, public/, daemon/ 같은 상위 폴더 규칙은 제외했다.",
+  "integrationNote": "각 항목은 기존 24개 story의 rules.pathPrefixes 후보이다. 경로 규칙은 이후 변경의 목적 분류 보조 수단이며, 과거 기능 완료의 직접 근거를 대신하지 않는다.",
+  "oldRuleDisposition": [
+    {
+      "oldStoryId": "mindmap-work-memory-origin",
+      "newStoryId": "mindmap-purpose-learning-expanded",
+      "reused": [
+        "routes/purposes.js",
+        "src/purpose-engine.js",
+        "src/purpose-classifier.js"
+      ]
+    },
+    {
+      "oldStoryId": "mindmap-portable-multipc-sync",
+      "newStoryId": "mindmap-origin-portable-sync-expanded",
+      "reused": [
+        "setup/orbit-start",
+        "setup/orbit-backup",
+        "setup/export-config",
+        "setup/import-config",
+        "routes/sync.js"
+      ]
+    },
+    {
+      "oldStoryId": "mindmap-ai-hooks-code-analysis",
+      "newStoryId": "mindmap-ai-connectors-expanded",
+      "reused": [
+        "adapters/adapter-",
+        "adapters/ai-adapter-base.js",
+        "tests/unit/code-analyzer.test.js"
+      ]
+    },
+    {
+      "oldStoryId": "mindmap-orbit-spatial-view",
+      "newStoryId": "mindmap-orbit-visual-map-expanded",
+      "reused": [],
+      "excluded": [
+        "sdk/orbit-agent.js"
+      ],
+      "reason": "에이전트 연결용 SDK라 시각화 렌더러 전용 경로로 볼 수 없어 자동 분류에서 제외했다."
+    },
+    {
+      "oldStoryId": "mindmap-personal-learning",
+      "newStoryId": "mindmap-purpose-learning-expanded",
+      "reused": [
+        "routes/personal-learning.js",
+        "src/suggestion-engine.js",
+        "src/stress-detector.js",
+        "src/content-analyzer.js"
+      ],
+      "excluded": [
+        "src/llm-"
+      ],
+      "reason": "여러 AI 공급자와 비용 처리까지 함께 잡는 넓은 접두사라 목적 학습 전용으로 볼 수 없다."
+    },
+    {
+      "oldStoryId": "mindmap-team-workspaces",
+      "newStoryId": "mindmap-team-workspaces-expanded",
+      "reused": [
+        "routes/workspace.js",
+        "routes/workspace-activity.js",
+        "routes/multilevel-auth.js",
+        "src/multilevel-workspace-nodes.js"
+      ]
+    },
+    {
+      "oldStoryId": "mindmap-connectors-and-execution",
+      "newStoryIds": [
+        "mindmap-ai-connectors-expanded",
+        "mindmap-automation-plan-execute"
+      ],
+      "reused": [
+        "routes/webhooks.js",
+        "routes/exec.js"
+      ],
+      "narrowed": {
+        "adapters/": [
+          "adapters/adapter-",
+          "adapters/ai-adapter-base.js",
+          "adapters/calendar-adapter.js",
+          "adapters/daily-work-adapter.js",
+          "adapters/notion-adapter.js",
+          "adapters/slack-adapter.js"
+        ]
+      }
+    },
+    {
+      "oldStoryId": "mindmap-security-and-operations",
+      "newStoryIds": [
+        "mindmap-identity-privacy-boundaries",
+        "mindmap-daemon-fleet-install"
+      ],
+      "reused": [
+        "routes/security.js",
+        "tests/unit/security-scanner.test.js"
+      ],
+      "excluded": [
+        "src/auth.js",
+        "setup/install",
+        ".github/workflows/ci.yml"
+      ],
+      "reason": "인증, 설치, CI는 여러 목적이 함께 바뀌는 공용 경로라 자동 분류 규칙으로 재사용하지 않았다."
+    }
+  ],
+  "stories": [
+    {
+      "storyId": "mindmap-identity-privacy-boundaries",
+      "pathPrefixes": [
+        "config/privacy-policy.json",
+        "routes/privacy.js",
+        "routes/security.js",
+        "src/privacy-gate.js",
+        "src/local-work-extractor.js",
+        "src/secure-collector.js",
+        "public/my-privacy.html",
+        "tests/privacy-gate.check.js",
+        "tests/unit/security-scanner.test.js",
+        "PRIVACY_POLICY.md"
+      ],
+      "basis": "동의·차단·본인 열람·보안 검사만 담당하는 정책, 게이트, 화면, 검사 파일이다. 기존 보안 story의 전용 검사 경로도 이 개인정보 경계 story로 옮겼다."
+    },
+    {
+      "storyId": "mindmap-work-drive-egress-audit",
+      "pathPrefixes": [
+        "src/work-file-uploader.js",
+        "src/egress-monitor.js",
+        "tests/work-file-uploader.check.js"
+      ],
+      "basis": "업무 파일 선별 업로드와 외부 이동 기록을 직접 구현·검사하는 전용 파일이다. 드라이브 이외 기능도 함께 처리하는 공용 서버·데몬 파일은 제외했다."
+    },
+    {
+      "storyId": "mindmap-bank-safe-collection",
+      "pathPrefixes": [
+        "src/bank-mode-toggle.js",
+        "src/bank-safe-collector.js",
+        "tests/unit/screen-capture-fallback.test.js"
+      ],
+      "basis": "은행 보안 프로그램 감지, 안전 수집 전환, 은행 전용 설치와 대체 캡처 검사를 담당한다. 일반 keyboard/screen 수집 파일은 다른 목적도 함께 가져서 제외했다."
+    },
+    {
+      "storyId": "mindmap-erp-work-unit-prototype",
+      "pathPrefixes": [
+        "nenova-erp-ui/src/app/(app)/work-units/page.tsx",
+        "nenova-erp-ui/src/app/(app)/erp-flow/page.tsx",
+        "nenova-erp-ui/src/app/api/work-units/",
+        "nenova-erp-ui/src/app/api/erp/intake/",
+        "scripts/post-work-unit-sample.ps1",
+        "docs/nenova-exe-work-unit-ingest.md",
+        "docs/nenova-work-unit-cross-validation.md"
+      ],
+      "basis": "MindMap 저장소 안의 ERP 작업 단위 원장·수신함·초안 변환 전용 화면, API, 검증 문서와 샘플 전송 스크립트다. KakaoWork 공용 callback은 제외했다."
+    },
+    {
+      "storyId": "mindmap-kakao-operational-intelligence",
+      "pathPrefixes": [
+        "bin/kakao-intel-worker.js",
+        "src/kakao-ontology-sync.js",
+        "public/kakao-intel.html",
+        "migrations/0014_kakao_dedup_reset.sql"
+      ],
+      "basis": "카카오 대화 수집·해독·업무 이벤트 변환·대화 분석·중복 정리만 담당하는 경로다. 프로세스 마이닝과 공용 그래프 파일은 제외했다."
+    },
+    {
+      "storyId": "mindmap-erp-readonly-intelligence",
+      "pathPrefixes": [
+        "routes/erp-analyzer.js"
+      ],
+      "basis": "ERP 조회와 화면·DB 차이 분석을 담당하는 읽기 전용 분석 경로다. 쓰기 기능도 함께 있는 ERP 게시기와 범용 DB route는 제외했다."
+    },
+    {
+      "storyId": "mindmap-ops-ontology-flow",
+      "pathPrefixes": [
+        "routes/ops-ontology.js",
+        "src/flow-handoff.js",
+        "migrations/0012_ops_relation.sql",
+        "docs/nenova-ontology-spec.md"
+      ],
+      "basis": "업무 객체·관계 승격, 인수인계 관계와 그 저장 구조를 직접 다루는 전용 경로다. 여러 분석 화면이 공유하는 flow-map route는 제외했다."
+    },
+    {
+      "storyId": "mindmap-employee-work-understanding",
+      "pathPrefixes": [
+        "routes/work-timetable.js",
+        "public/work-timetable.html",
+        "public/work-daylog.html",
+        "public/work-detail.html",
+        "nenova-erp-ui/src/app/api/employees/directory/route.ts",
+        "nenova-erp-ui/src/lib/employee-directory.ts"
+      ],
+      "basis": "직원별 시간표·일일 원장·작업 상세와 신원 연결을 직접 구현하는 화면과 API다. 여러 역할 분석을 수행하는 공용 worker는 제외했다."
+    },
+    {
+      "storyId": "mindmap-owner-intent-judgment",
+      "pathPrefixes": [
+        "bin/intent-annotator.js",
+        "bin/shadow-predictor.js",
+        "src/judge.js",
+        "src/ocr-triage.js",
+        "src/event-value-judge.js",
+        "src/exec-gate.js",
+        "public/intent-map.html"
+      ],
+      "basis": "의도 가설, 다음 행동 예측, 판단 신뢰도, 되돌리기 어려운 실행의 사람 확인을 담당하는 전용 경로다. 실제 RPA 실행기는 자동화 story에 남겼다."
+    },
+    {
+      "storyId": "mindmap-company-xray-process",
+      "pathPrefixes": [
+        "routes/process-mining.js",
+        "public/process-mining.html",
+        "bin/xray-worker.js",
+        "public/xray.html",
+        "routes/roi.js"
+      ],
+      "basis": "회사 과정 묶기, 병목·사각지대 진단과 자동화 효과 계산을 담당하는 전용 분석 경로다. Kakao 화면과 공용 입력 번들은 제외했다."
+    },
+    {
+      "storyId": "mindmap-automation-plan-execute",
+      "pathPrefixes": [
+        "bin/solution-miner.js",
+        "routes/script-generator.js",
+        "src/judgment-miner.js",
+        "routes/exec.js",
+        "public/cctv.html"
+      ],
+      "basis": "자동화 후보 발굴, 실행 절차 생성과 주기적 판단 경계 갱신을 직접 담당한다. 사람 확인 조건만 담당하는 exec-gate는 판단 story로 분리했다."
+    },
+    {
+      "storyId": "mindmap-company-agents",
+      "pathPrefixes": [
+        "bin/ops-agent-worker.js",
+        "bin/anchor-discovery.js",
+        "scripts/nenova-cross-agent-validation.js"
+      ],
+      "basis": "역할별 회사 분석, 원천 교차검증과 계산 앵커 탐색을 맡는 전용 worker·검증 경로다. Vision worker는 화면 이해 story로 분리했다."
+    },
+    {
+      "storyId": "mindmap-vision-screen-understanding",
+      "pathPrefixes": [
+        "bin/vision-worker.js",
+        "src/vision-analyzer.js",
+        "src/server-vision-worker.js",
+        "setup/remote-vision-worker.ps1",
+        "setup/register-vision-backfill.ps1"
+      ],
+      "basis": "캡처 화면 해독, Vision 작업 큐, 재분석과 원격 Vision worker만 담당한다. 은행·입력 센서도 함께 쓰는 screen-capture는 제외했다."
+    },
+    {
+      "storyId": "mindmap-desktop-observation-sensors",
+      "pathPrefixes": [
+        "src/keyboard-watcher.js",
+        "src/hangul.js",
+        "src/win-shell.js",
+        "setup/uia-recorder.ps1",
+        "routes/work-flow.js",
+        "public/work-flow.html",
+        "public/work-logs.html"
+      ],
+      "basis": "키보드 입력·창 전환과 UIA를 관측하고 순서로 보여 주는 직접 검증된 센서 경로다. mouse·clipboard·screen-capture와 personal-agent는 이번 대표 diff 범위 밖이거나 다른 목적도 함께 가져서 제외했다."
+    },
+    {
+      "storyId": "mindmap-daemon-fleet-install",
+      "pathPrefixes": [
+        "src/self-healer.js",
+        "src/daemon-updater.js",
+        "src/email-notifier.js",
+        "DAEMON_STRUCTURE.md"
+      ],
+      "basis": "수집 프로그램의 자가복구, 업데이트와 운영 알림 전용 경로다. 은행·동의·인증 변경도 섞인 범용 install.ps1과 personal-agent는 제외했다."
+    },
+    {
+      "storyId": "mindmap-resource-cost-operations",
+      "pathPrefixes": [
+        "src/resource-governor.js",
+        "src/quota-guard.js",
+        "src/llm-usage.js",
+        "bin/claude-reaper.js"
+      ],
+      "basis": "PC 자원 제한, 요청 할당량, AI 사용량·비용과 과도한 프로세스 정리를 담당하는 전용 모듈이다. 범용 자동 진단 route는 제외했다."
+    },
+    {
+      "storyId": "mindmap-moyi-product-shell",
+      "pathPrefixes": [
+        "public/moyi.html",
+        "public/orbit-one.html",
+        "public/orbit-hub.html"
+      ],
+      "basis": "흩어진 기능을 한 제품 진입점과 화면틀로 묶는 전용 화면이다. 다른 화면에도 쓰이는 site-nav와 graph-shell은 제외했다."
+    },
+    {
+      "storyId": "mindmap-team-workspaces-expanded",
+      "pathPrefixes": [
+        "routes/workspace.js",
+        "routes/workspace-activity.js",
+        "routes/multilevel-auth.js",
+        "src/multilevel-workspace-nodes.js"
+      ],
+      "basis": "기존 팀 workspace의 공간·활동·단계별 권한·계층 노드 전용 규칙을 그대로 옮겼다. Orbit 공용 3D 패널과 조직 공용 화면은 제외했다."
+    },
+    {
+      "storyId": "mindmap-purpose-learning-expanded",
+      "pathPrefixes": [
+        "routes/purposes.js",
+        "src/purpose-engine.js",
+        "src/purpose-classifier.js",
+        "routes/personal-learning.js",
+        "src/suggestion-engine.js",
+        "src/stress-detector.js",
+        "src/content-analyzer.js",
+        "routes/think-engine.js"
+      ],
+      "basis": "기존 origin의 목적 분류 경로와 personal-learning의 제안·맥락 학습 경로를 합쳤다. 여러 공급자를 함께 처리하는 src/llm- 접두사는 제외했다."
+    },
+    {
+      "storyId": "mindmap-market-growth",
+      "pathPrefixes": [
+        "routes/share.js",
+        "routes/market.js",
+        "routes/marketplace.js",
+        "routes/recommendations.js",
+        "src/market-store.js",
+        "public/marketplace.html",
+        "public/contributor-dashboard.html"
+      ],
+      "basis": "공유 링크 설정, 공유 취소·목록, 추천·좋아요·댓글, 마켓 검색·등록·기여 화면을 담당하는 전용 경로다. 설치 링크와 3D 공용 렌더러는 제외했다."
+    },
+    {
+      "storyId": "mindmap-ai-connectors-expanded",
+      "pathPrefixes": [
+        "adapters/adapter-",
+        "adapters/ai-adapter-base.js",
+        "tests/unit/code-analyzer.test.js",
+        "adapters/calendar-adapter.js",
+        "adapters/daily-work-adapter.js",
+        "adapters/notion-adapter.js",
+        "adapters/slack-adapter.js",
+        "routes/webhooks.js",
+        "src/mcp-server.js",
+        "src/mcp-watcher.js",
+        "mcp-config.example.json",
+        "chrome-extension/"
+      ],
+      "basis": "기존 AI adapter 규칙과 서비스별 connector, webhook, MCP, 브라우저 확장 전용 경로를 합쳤다. 모든 adapter를 잡는 adapters/ 상위 규칙과 실행 route는 제외했다."
+    },
+    {
+      "storyId": "mindmap-orbit-visual-map-expanded",
+      "pathPrefixes": [
+        "public/js/orbit3d-camera.js",
+        "public/js/orbit3d-canvas2d-hit.js",
+        "public/js/orbit3d-layout.js",
+        "public/js/orbit3d-render-canvas.js",
+        "public/js/orbit3d-scene.js"
+      ],
+      "basis": "카메라, 배치, 렌더링, 클릭 판정과 선택처럼 지도 표현 자체만 담당하는 모듈이다. 팀·마켓·설치 기능도 함께 수정된 orbit3d.html과 UI 패널은 제외했다."
+    },
+    {
+      "storyId": "mindmap-origin-portable-sync-expanded",
+      "pathPrefixes": [
+        "setup/orbit-start",
+        "setup/orbit-backup",
+        "setup/export-config",
+        "setup/import-config",
+        "routes/sync.js",
+        "sync-pull",
+        "sync-push",
+        "SYNC_GUIDE.md"
+      ],
+      "basis": "기존 멀티 PC 시작·백업·설정 이동 규칙과 동기화, 사용자 백업 스케줄러 전용 경로를 합쳤다. 화면 데이터 로더처럼 동기화 외 역할이 있는 파일은 제외했다."
+    },
+    {
+      "storyId": "mindmap-runtime-data-operations",
+      "pathPrefixes": [
+        "routes/data-archive.js",
+        "src/db-pg.js",
+        "bin/collection-doctor.js"
+      ],
+      "basis": "데이터 보관, PostgreSQL 저장 계층과 수집 상태 진단을 담당하는 직접 검증된 운영 경로다. server.js, auth.js, 배포 설정처럼 여러 목적이 섞인 파일은 제외했다."
+    }
+  ],
+  "excludedSharedPaths": [
+    "server.js",
+    "daemon/personal-agent.js",
+    "public/app.html",
+    "public/orbit3d.html",
+    "public/js/graph-shell.js",
+    "public/js/site-nav.js",
+    "routes/flow-map.js",
+    "src/screen-capture.js",
+    "src/auth.js",
+    "setup/install.ps1",
+    "adapters/",
+    "src/llm-"
+  ]
+}

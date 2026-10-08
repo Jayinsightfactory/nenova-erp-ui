@@ -26,7 +26,7 @@ const orderOnlySql = buildPivotAvailableWeeksSql('orders');
 assert.match(orderOnlySql, /FROM OrderMaster[\s\S]*OrderYear=@year/, '네덜란드·중국 물량표 선택지는 주문 입력 차수를 연도와 함께 조회해야 한다.');
 assert.doesNotMatch(orderOnlySql, /StockMaster|WarehouseMaster|ShipmentMaster/, '주문이 없는 미래 재고 차수를 네덜란드·중국 물량표 선택지에 섞으면 안 된다.');
 const chinaIncomingSql = buildPivotAvailableWeeksSql('incoming', 'china');
-assert.match(chinaIncomingSql, /FROM dbo\.ViewWarehouse[\s\S]*OrderYear=@year[\s\S]*OutQuantity,0\)>0[\s\S]*중국/, '중국의 연도별 양수 입고를 EXE와 같은 ViewWarehouse에서 선택한다.');
+assert.match(chinaIncomingSql, /FROM dbo\.ViewWarehouse[\s\S]*OrderYear=@year[\s\S]*OutQuantity,0\)>0[\s\S]*CounName LIKE N'%중국%'[\s\S]*CountryFlower LIKE N'%중국%'/, '중국의 연도별 양수 입고를 EXE와 같은 ViewWarehouse에서 CounName 또는 CountryFlower로 선택한다.');
 assert.doesNotMatch(chinaIncomingSql, /WarehouseDetail\.isDeleted|Product\.isDeleted/, 'ViewWarehouse와 다르게 삭제된 라인/품목을 추가 필터링하지 않는다.');
 const dutchIncomingSql = buildPivotAvailableWeeksSql('incoming', 'netherlands');
 assert.match(dutchIncomingSql, /네덜란드.*Netherlands.*Holland.*Dutch/, '네덜란드 국가 표기 변형 입고를 포함한다.');

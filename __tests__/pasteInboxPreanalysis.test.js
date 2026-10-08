@@ -58,6 +58,48 @@ async function main(){
   mixed.orders[0].items[0].mixedQuantityError='포장수 없음';assert(!analysisGroups(mixed)[0].items[0].matched);
   mixed.orders[0].custMatch=null;assert(!analysisGroups(mixed)[0].customerMatched);
   assert.deepEqual(analysisGroups({}),[]);
+
+  // Persistent lookup is a read-only path: it ignores visibility and model
+  // budget, and a miss never falls through to analysis.
+  const lookupCalls=[];
+  const stored = text => ({success:true,orders:[{items:[{qty:text.length}]}],analysisStorage:{savedAt:time,cacheHit:true}});
+  const lookupCache=createPreanalysisCache({persistent:true,autoLimit:0,now:()=>time,fetcher:async(text,week,options)=>{
+    lookupCalls.push({text,week,options});
+    if(options.lookupOnly && text==='missing') return {analysisStorage:{cacheMiss:true}};
+    if(options.lookupOnly) return stored(text);
+    throw new Error('analysis must not run during lookup');
+  }});
+  let lookupStatus=[];
+  const hit=await lookupCache.read('saved','2026-39-02',{lookupOnly:true,eligible:()=>false,automatic:true,onStatus:s=>lookupStatus.push(s)});
+  assert.equal(hit.data.orders[0].items[0].qty,5,'saved lookup works when the view is ineligible and auto budget is zero');
+  assert.deepEqual(lookupStatus,['restoring']);
+  hit.data.orders[0].items[0].qty=900;
+  const independent=await lookupCache.read('saved','2026-39-02',{lookupOnly:true});
+  assert.equal(independent.data.orders[0].items[0].qty,5,'each lookup returns an independent draft');
+  await lookupCache.read('saved','2025-39-02',{lookupOnly:true});
+  await lookupCache.read('saved edited','2026-39-02',{lookupOnly:true});
+  assert.equal(lookupCalls.length,3,'year and exact source text each have separate cache entries');
+  const miss=await lookupCache.read('missing','2026-39-02',{lookupOnly:true,eligible:()=>false,automatic:true});
+  assert.equal(miss,null);
+  assert.equal(lookupCalls.length,4);
+  assert(lookupCalls.every(call=>call.options.lookupOnly),'lookup misses never invoke the analysis fetch path');
+
+  const statusEvents=[];
+  let releaseAnalysis, analysisStarted;
+  const analysisGate=new Promise(resolve=>{releaseAnalysis=resolve;});
+  const analysisBegun=new Promise(resolve=>{analysisStarted=resolve;});
+  let duplicateFetches=0;
+  const statusCache=createPreanalysisCache({fetcher:async()=>{
+    duplicateFetches++; analysisStarted(); await analysisGate; return data;
+  }});
+  const first=statusCache.read('status','2026-39-02',{onStatus:s=>statusEvents.push(`first:${s}`)});
+  await analysisBegun;
+  const second=statusCache.read('status','2026-39-02',{onStatus:s=>statusEvents.push(`second:${s}`)});
+  releaseAnalysis();
+  await Promise.all([first,second]);
+  assert.equal(duplicateFetches,1,'duplicate pending reads share one analysis fetch');
+  assert(statusEvents.includes('first:queued') && statusEvents.includes('first:analyzing'));
+  assert(statusEvents.includes('second:analyzing'),'pending subscriber receives the current analyzing status');
   console.log('paste inbox preanalysis: scope, cache, queue, failures, mixed quantities, advisory display passed');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

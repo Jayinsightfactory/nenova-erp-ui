@@ -26,6 +26,7 @@ import {
   rematchChinaPackingRow,
   setChinaPackingRowDistributions,
   summarizeChinaVolumeTotals,
+  isChinaVolumeRow,
   validateChinaCellAllocation,
   validateChinaPackingDistribution,
 } from '../../lib/chinaVolumeBoard';
@@ -460,7 +461,7 @@ export default function ChinaVolumeBoard() {
 
   const matchProducts = useMemo(() => mergeChinaProductCandidates(data, productCatalog), [data, productCatalog]);
   const chinaRows = useMemo(() => {
-    const byKey = new Map((data?.rows || []).filter(row => /중국/i.test(String(row.country || ''))).map(row => [Number(row.prodKey), row]));
+    const byKey = new Map((data?.rows || []).filter(isChinaVolumeRow).map(row => [Number(row.prodKey), row]));
     packingRows.forEach(row => row.product?.prodKey && !byKey.has(Number(row.product.prodKey)) && byKey.set(Number(row.product.prodKey), { ...row.product, outOrders: {} }));
     packingRows.flatMap(chinaPackingDistributions).forEach(distribution => {
       const prodKey = Number(String(distribution.cellKey || '').split(':')[1]);

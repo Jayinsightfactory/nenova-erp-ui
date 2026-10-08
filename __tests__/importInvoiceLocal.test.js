@@ -95,6 +95,31 @@ async function main() {
     reject(replace(fixture(), '30', '31'));
     reject(remove(fixture(), 'CBS'));
   });
+  check('right-aligned CBS units are identified by column center, not left edge', () => {
+    const f = fixture();
+    const units = f.pages[1].items.find(i => i.str === '30');
+    units.x = 242.9; units.width = 28;
+    const total = f.pages[1].items.find(i => i.y === 560 && i.str === '10');
+    total.x = 297.7; total.width = 28;
+    assert.equal(inspectInvoiceLocal(f).reason, null);
+    assert.equal(parseInvoiceLocal(f).invoices[0].lines.reduce((sum, line) => sum + line.stems, 0), 30);
+    const missing = structuredClone(f);
+    missing.pages[1].items = missing.pages[1].items.filter(i => !(i.y === 560 && i.str === '30'));
+    missing.pages[1].items.find(i => i.y === 560 && i.str === '10').str = '30';
+    assert.equal(reject(missing), 'CBS_UNITS_MISSING');
+    const duplicate = structuredClone(f);
+    duplicate.pages[1].items.push({ str: '30', x: 258, y: 560, width: 12 });
+    assert.equal(reject(duplicate), 'CBS_UNITS_MISSING');
+    const mismatch = structuredClone(f);
+    mismatch.pages[1].items.find(i => i.y === 560 && i.str === '30').str = '31';
+    assert.equal(reject(mismatch), 'MISSING_OR_MISMATCHED_INDEPENDENT_TOTALS');
+    const negative = structuredClone(f);
+    negative.pages[1].items.find(i => i.y === 560 && i.str === '30').str = '-30';
+    assert.equal(reject(negative), 'MISSING_OR_MISMATCHED_INDEPENDENT_TOTALS');
+    const duplicateTotal = structuredClone(f);
+    duplicateTotal.pages[1].items.push(...duplicateTotal.pages[1].items.filter(i => i.y === 560).map(i => ({ ...i, y: 550 })));
+    assert.equal(reject(duplicateTotal), 'CBS_TOTAL_AMBIGUOUS');
+  });
   check('charges independently reconcile; unknown and duplicate charges rejected', () => {
     reject(replace(fixture(), 'Handling', 'Unrecognized charge'));
     reject(remove(fixture(), 'Handling'));
@@ -144,6 +169,29 @@ async function main() {
     });
     await pdf.destroy();
   } else console.log('SKIP actual PDF (local sample not present)');
+  const shiftedFile = path.resolve(__dirname, '../outputs/drive-other-country-audit/mubyilch-41ebd8.pdf');
+  if (fs.existsSync(shiftedFile)) {
+    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const pdf = await getDocument({ data: new Uint8Array(fs.readFileSync(shiftedFile)), useSystemFonts: true }).promise;
+    try {
+      const pages = [];
+      for (let n = 1; n <= pdf.numPages; n++) {
+        const c = await (await pdf.getPage(n)).getTextContent();
+        pages.push({ items: c.items.map(i => ({ str: i.str, x: i.transform[4], y: Math.round(i.transform[5]), width: i.width })) });
+      }
+      check('actual 4-page Holex PDF with shifted CBS units (read-only)', () => {
+        assert.equal(pages.length, 4);
+        const report = inspectInvoiceLocal({ pages });
+        assert.equal(report.reason, null);
+        const inv = report.result.invoices[0];
+        assert.equal(inv.invoice, '1180208');
+        assert.equal(inv.lines.reduce((sum, line) => sum + line.stems, 0), 10027);
+        assert.equal(inv.lines.reduce((sum, line) => sum + line.stems * Math.round(line.price * 100), 0), 1091843);
+        assert.equal(inv.freight, 2159.94); assert.equal(inv.handling, 50); assert.equal(inv.total_value, 13128.37);
+        assert.equal(inv.gross_weight, 714.2); assert.equal(inv.vol_weight, 795);
+      });
+    } finally { await pdf.destroy(); }
+  } else console.log('SKIP actual shifted PDF (private local sample not present; anonymous regression remains mandatory)');
   console.log(`${passed} invoice checks passed`);
 }
 main().catch(e => { console.error(e); process.exitCode = 1; });

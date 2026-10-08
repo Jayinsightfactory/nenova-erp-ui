@@ -1,0 +1,1448 @@
+{
+  "observedAt": "2026-10-08",
+  "source": "User-authenticated SSMS; read-only SELECT against nenova1_nenova. UI Automation normalizes definition whitespace; definitions are evidence, not executable deployment SQL.",
+  "permissions": {
+    "viewDefinition": 1
+  },
+  "snapshot": {
+    "gateMode": null,
+    "pendingCalc": 0,
+    "protocolVersion": 2,
+    "stagingRowCount": 4,
+    "stagingWarehouseCount": 1
+  },
+  "procedures": "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t389 편집 definition (nvarchar) 행 0 Value: -- ============================================= -- Author: <우리비엔씨 이청솔> -- Create date: <2025. 03. 29> -- Description: <TempWarehouseDetail -> WarehouseDetail 데이터 생성> -- Result Code : -- -1: 오류 -- 0: OK -- 1: -- 2: -- ============================================= --exec usp_CreateWarehouse @iUserID = N'admin',@oResult = 0 CREATE PROCEDURE [dbo].[usp_CreateWarehouse] @iUserID nvarchar(20), @oResult int out AS BEGIN SET NOCOUNT ON; set @oResult = 0; BEGIN TRY BEGIN TRANSACTION -- 필요한 데이터 Temp에 넣기 UPDATE td SET td.ProdKey = p.ProdKey, td.OutQuantity = CASE WHEN p.OutUnit = '박스' THEN td.BoxQuantity WHEN p.OutUnit = '단' THEN td.BunchQuantity ELSE td.SteamQuantity END, td.EstQuantity = CASE WHEN p.EstUnit = '박스' THEN td.BoxQuantity WHEN p.EstUnit = '단' THEN td.BunchQuantity ELSE td.SteamQuantity END FROM TempWarehouseDetail td JOIN Product p ON LOWER(REPLACE(LTRIM(RTRIM(td.ProdName)), NCHAR(160), N' ')) = LOWER(REPLACE(LTRIM(RTRIM(p.ProdName)), NCHAR(160), N' ')) WHERE p.isDeleted = 0 -- Detail 생성 INSERT INTO [dbo].[WarehouseDetail] ([ProdKey] ,[OrderCode] ,[BoxQuantity] ,[BunchQuantity] ,[SteamQuantity] ,[SteamOf1Box] ,[SteamOf1Bunch] ,[OutQuantity] ,[EstQuantity] ,[UPrice] ,[TPrice] ,[WarehouseKey]) SELECT ProdKey, OrderCode, BoxQuantity, BunchQuantity, SteamQuantity, SteamOf1Box, SteamOf1Bunch, OutQuantity, EstQuantity, UPrice, TPrice, WarehouseKey FROM TempWarehouseDetail -- 히스토리 생성 INSERT INTO StockHistory ( [ChangeDtm], [OrderYear], [OrderWeek], [ChangeID], [ChangeType], [ColumName], [BeforeValue], [AfterValue], [Descr], [ProdKey] ) SELECT GETDATE(), OrderYear, OrderWeek, @iUserID, '입고', '수량', ISNULL(p.Stock,0), (ISNULL(p.Stock,0) + td.OutQuantity), '파킹리스트 업로드', p.ProdKey FROM Product p JOIN ( SELECT tw.ProdKey, wm.OrderYear, wm.OrderWeek, SUM(OutQuantity) OutQuantity FROM TempWarehouseDetail tw JOIN WarehouseMaster wm ON tw.WarehouseKey = wm.WarehouseKey GROUP BY ProdKey, wm.OrderYear, wm.OrderWeek ) td ON p.ProdKey = td.ProdKey -- 재고 변경 UPDATE p SET p.Stock = (ISNULL(p.Stock,0) + td.OutQuantity) FROM Product p JOIN (select ProdKey, sum(OutQuantity) OutQuantity from TempWarehouseDetail group by ProdKey) td ON p.ProdKey = td.ProdKey if @@TRANCOUNT > 0 COMMIT TRANSACTION; set @oResult = 0; return 0; END TRY BEGIN CATCH if @@TRANCOUNT > 0 ROLLBACK TRANSACTION; set @oResult = -1; return -1; END CATCH; END\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t390 편집 definition (nvarchar) 행 1 Value: -- ============================================= -- Author: <우리비엔씨 이청솔> -- Create date: <2025. 04. 30> -- Description: <출고 확정> -- Result Code : -- -1: 오류 -- 0: OK -- 1: -- 2: -- ============================================= CREATE PROCEDURE [dbo].[usp_StockCalculation] @OrderYear nvarchar(20), @OrderWeek nvarchar(20), @ProdKey INT, @iUserID nvarchar(20), @oResult int out, @oMessage nvarchar(MAX) out -- 체크 후 결과 값 메세지 AS BEGIN SET NOCOUNT ON; set @oResult = 0; set @oMessage = ''; DECLARE @gateRes int, @gateMsg nvarchar(200), @nenovaGateOwnerToken uniqueidentifier; -- NENOVA_STOCK_GATE_OWNER_V2 DECLARE @nenovaGateCalcProdKey int=ISNULL(@ProdKey,0); EXEC dbo.usp_NenovaStockWeekGateEnter @Action = N'CALC', @OrderYear = @OrderYear, @OrderWeek = @OrderWeek, @oResult = @gateRes OUTPUT, @oMessage = @gateMsg OUTPUT, @ProtocolVersion = 2, @OwnerToken = @nenovaGateOwnerToken OUTPUT, @CalcProdKey = @nenovaGateCalcProdKey; IF ISNULL(@gateRes, 0) <> 0 BEGIN SET @oResult = @gateRes; SET @oMessage = @gateMsg; RETURN; END BEGIN TRY BEGIN TRANSACTION IF (@OrderYear <= 2025) BEGIN set @oMessage = '2026년 이전의 자료는 재고를 수정할 수 없습니다.'; -- 오류 메시지 할당 EXEC dbo.usp_NenovaStockWeekGateLeave @Action = N'CALC', @Success = 0, @ProtocolVersion = 2, @OwnerToken = @nenovaGateOwnerToken; return -1; END -- 변수 설정 DECLARE @OrderYearWeek nvarchar(20); DECLARE @StockKey INT; DECLARE @BeforeStockKey INT; SET @OrderYearWeek = @orderYear + REPLACE(@orderWeek, '-', ''); -- 지정한 날짜의 재고Master 가 없다면 Master 생성 IF((SELECT COUNT(*) FROM StockMaster WHERE OrderYear = @OrderYear AND OrderWeek = @OrderWeek) = 0) BEGIN INSERT INTO StockMaster (OrderYear, OrderWeek, OrderYearWeek, Descr, CreateID, CreateDtm, LastUpdateID, LastUpdateDtm) VALUES(@OrderYear, @OrderWeek, @OrderYearWeek, '', @iUserID, GETDATE(), @iUserID, GETDATE()) END -- 선택된 Key 포함해서 그뒤에 내역도 가져와서 계산하기 (앞에가 변경되면 뒤도 자동으로 변경) SELECT sm.OrderYear, sm.OrderWeek INTO #CalculationList FROM StockMaster sm WHERE OrderYearWeek >= @OrderYearWeek ORDER BY sm.OrderYear, sm.OrderWeek DECLARE list_cursor CURSOR FOR SELECT OrderYear, OrderWeek FROM #CalculationList; OPEN list_cursor; FETCH NEXT FROM list_cursor INTO @OrderYear, @OrderWeek; WHILE @@FETCH_STATUS = 0 BEGIN -- 재고 Key 가져오기 SELECT @StockKey = StockKey FROM StockMaster WHERE OrderYear = @OrderYear AND OrderWeek = @OrderWeek SET @OrderYearWeek = @orderYear + REPLACE(@orderWeek, '-', ''); PRINT 'OrderYear ' + CAST(@OrderYear AS NVARCHAR) PRINT 'OrderWeek ' + CAST(@OrderWeek AS NVARCHAR) -- 전차수 재고 Key 가져오기 SELECT TOP 1 @BeforeStockKey = StockKey FROM StockMaster WHERE OrderYearWeek < @OrderYearWeek ORDER BY OrderYearWeek desc, OrderWeek desc PRINT 'OrderWeek ' + CAST(@OrderYearWeek AS NVARCHAR) PRINT 'BeforeStockKey ' + CAST(@BeforeStockKey AS NVARCHAR) -- 적용할 제품에 대한 목록 가져오기 (CountryFlower가 없다면, 전체) SELECT p.ProdKey, ISNULL(ps.Stock, 0) Stock INTO #ProductList FROM Product p LEFT JOIN ( SELECT ProdKey, Stock FROM StockMaster sm JOIN ProductStock ps ON sm.StockKey = ps.StockKey WHERE sm.StockKey = @BeforeStockKey ) ps ON p.ProdKey = ps.ProdKey WHERE 1 = 1 -- 기본 조건 (항상 참) AND p.isDeleted = 0 AND ( ISNULL(@ProdKey,0) = 0 OR p.ProdKey = @ProdKey ); -- 입고수량 가져오기 SELECT vw.ProdKey, ROUND(SUM(vw.OutQuantity),2) OutQuantity INTO #WarehouseList FROM ViewWarehouse vw JOIN #ProductList pl ON vw.ProdKey = pl.ProdKey WHERE vw.OrderYear = @OrderYear AND vw.OrderWeek = @OrderWeek GROUP BY vw.ProdKey -- 출고수량 가져오기 SELECT vs.ProdKey, ROUND(SUM(vs.OutQuantity),2) OutQuantity INTO #ShipmentList FROM ViewShipment vs JOIN #ProductList pl ON vs.ProdKey = pl.ProdKey WHERE vs.OrderYear = @OrderYear AND vs.OrderWeek = @OrderWeek AND vs.DetailFix = 1 GROUP BY vs.ProdKey -- 재고조정수량 가져오기 SELECT sh.ProdKey, ROUND(SUM(sh.AfterValue - sh.BeforeValue),2) OutQuantity INTO #StockHistoryList FROM StockHistory sh JOIN #ProductList pl ON sh.ProdKey = pl.ProdKey JOIN CodeInfo ci ON ci.Category = 'StockType' AND sh.ChangeType = ci.Descr WHERE sh.OrderYear = @OrderYear AND sh.OrderWeek = @OrderWeek GROUP BY sh.ProdKey -- 이미 있는 제품은 재고를 업데이트 UPDATE ps SET ps.Stock = ROUND((pl.Stock + ISNULL(wl.OutQuantity,0) - ISNULL(sl.OutQuantity,0) + ISNULL(shl.OutQuantity,0)),2) FROM #ProductList pl JOIN ProductStock ps ON pl.ProdKey = ps.ProdKey JOIN StockMaster sm ON ps.StockKey = sm.StockKey AND sm.OrderYear = @OrderYear AND sm.OrderWeek = @OrderWeek LEFT JOIN #WarehouseList wl on wl.ProdKey = pl.ProdKey LEFT JOIN #ShipmentList sl on sl.ProdKey = pl.ProdKey LEFT JOIN #StockHistoryList shl on shl.ProdKey = pl.ProdKey -- 없는 제품은 새로 생성 INSERT INTO ProductStock (StockKey, ProdKey, Stock) SELECT @StockKey, pl.ProdKey, ROUND((pl.Stock + ISNULL(wl.OutQuantity,0) - ISNULL(sl.OutQuantity,0) + ISNULL(shl.OutQuantity,0)),2) Stock FROM #ProductList pl LEFT JOIN #WarehouseList wl on wl.ProdKey = pl.ProdKey LEFT JOIN #ShipmentList sl on sl.ProdKey = pl.ProdKey LEFT JOIN #StockHistoryList shl on shl.ProdKey = pl.ProdKey WHERE NOT EXISTS (SELECT * FROM ProductStock ps JOIN StockMaster sm ON ps.StockKey = sm.StockKey AND sm.OrderYear = @OrderYear AND sm.OrderWeek = @OrderWeek WHERE pl.ProdKey = ps.ProdKey) -- Temp 지우기 DROP TABLE #ProductList; DROP TABLE #WarehouseList; DROP TABLE #ShipmentList; DROP TABLE #StockHistoryList; FETCH NEXT FROM list_cursor INTO @OrderYear, @OrderWeek; END CLOSE list_cursor; DEALLOCATE list_cursor; -- 트랜잭션 커밋 IF @@TRANCOUNT > 0 COMMIT TRANSACTION; set @oResult = 0; set @oMessage = '확정 완료'; EXEC dbo.usp_NenovaStockWeekGateLeave @Action = N'CALC', @Success = 1, @ProtocolVersion = 2, @OwnerToken = @nenovaGateOwnerToken; return 0; END TRY BEGIN CATCH IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION; set @oResult = -1; set @oMessage = ERROR_MESSAGE(); -- 오류 메시지 할당 EXEC dbo.usp_NenovaStockWeekGateLeave @Action = N'CALC', @Success = 0, @ProtocolVersion = 2, @OwnerToken = @nenovaGateOwnerToken; return -1; END CATCH; END",
+  "gateAndView": "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1670 편집 name (nvarchar) 행 0 Value: usp_NenovaStockWeekGateEnter\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1671 편집 name (nvarchar) 행 1 Value: usp_NenovaStockWeekGateLeave\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1672 편집 name (nvarchar) 행 2 Value: ViewWarehouse\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1675 편집 type_desc (nvarchar) 행 0 Value: SQL_STORED_PROCEDURE\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1676 편집 type_desc (nvarchar) 행 1 Value: SQL_STORED_PROCEDURE\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1677 편집 type_desc (nvarchar) 행 2 Value: VIEW\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1680 편집 definition (nvarchar) 행 0 Value: CREATE PROCEDURE dbo.usp_NenovaStockWeekGateEnter @Action nvarchar(20), @OrderYear nvarchar(20), @OrderWeek nvarchar(20), @oResult int OUTPUT, @oMessage nvarchar(200) OUTPUT, @ProtocolVersion int=NULL, @OwnerToken uniqueidentifier=NULL OUTPUT, @CalcProdKey int=NULL AS BEGIN -- NENOVA_STOCK_GATE_OWNER_V2: never infer ownership from SPID alone. SET NOCOUNT ON; SET @OwnerToken=NULL; SET @oResult=-99; SET @oMessage=N'STOCK_GATE_BUSY_OR_PENDING_CALC'; IF ISNULL(@ProtocolVersion,0)<>2 BEGIN SET @oResult=-98; SET @oMessage=N'STOCK_GATE_OWNER_PROTOCOL_REQUIRED'; RETURN; END; IF @Action IS NULL OR @Action NOT IN(N'FIX',N'CANCEL',N'CALC') OR @OrderYear IS NULL OR LEN(@OrderYear)<>4 OR @OrderYear LIKE N'%[^0-9]%' OR @OrderWeek IS NULL OR LEN(@OrderWeek)<>5 OR @OrderWeek NOT LIKE N'[0-9][0-9]-[0-9][0-9]' OR (@Action=N'CALC' AND (@CalcProdKey IS NULL OR @CalcProdKey<0)) OR (@Action<>N'CALC' AND @CalcProdKey IS NOT NULL) BEGIN SET @oResult=-98; SET @oMessage=N'STOCK_GATE_SCOPE_INVALID'; RETURN; END; DECLARE @newToken uniqueidentifier=NEWID(), @changed int; BEGIN TRY UPDATE dbo.NenovaStockWeekGate WITH (UPDLOCK,ROWLOCK,NOWAIT) SET Mode=N'RUN', LockedAt=GETDATE(), Action=@Action, OrderYear=@OrderYear, OrderWeek=@OrderWeek, OwnerSessionID=@@SPID, OwnerToken=@newToken, CalcProdKey=@CalcProdKey WHERE GateKey='1' AND ProtocolVersion=2 AND ( (Mode IS NULL AND PendingCalc=0 AND OwnerSessionID IS NULL AND OwnerToken IS NULL) OR (Mode=N'WAIT_CALC' AND PendingCalc=1 AND @Action=N'CALC' AND @CalcProdKey=0 AND OrderYear=@OrderYear AND OrderWeek=@OrderWeek)); SET @changed=@@ROWCOUNT; END TRY BEGIN CATCH IF ERROR_NUMBER()=1222 RETURN; THROW; END CATCH; IF @changed=1 BEGIN SET @OwnerToken=@newToken; SET @oResult=0; SET @oMessage=N''; END; END;\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1681 편집 definition (nvarchar) 행 1 Value: CREATE PROCEDURE dbo.usp_NenovaStockWeekGateLeave @Action nvarchar(20), @Success bit, @ProtocolVersion int=NULL, @OwnerToken uniqueidentifier=NULL, @oResult int=NULL OUTPUT AS BEGIN -- NENOVA_STOCK_GATE_OWNER_V2: stale Leave is a zero-row no-op, including after ROLLBACK. SET NOCOUNT ON; SET @oResult=-98; IF ISNULL(@ProtocolVersion,0)<>2 OR @OwnerToken IS NULL OR @Success IS NULL OR @Action IS NULL OR @Action NOT IN(N'FIX',N'CANCEL',N'CALC') RETURN; DECLARE @pending bit=CASE WHEN (@Action IN(N'FIX',N'CANCEL') AND @Success=1) OR (@Action=N'CALC' AND @Success=0) THEN 1 ELSE 0 END; UPDATE dbo.NenovaStockWeekGate SET Mode=CASE WHEN @pending=1 THEN N'WAIT_CALC' ELSE NULL END, LockedAt=CASE WHEN @pending=1 THEN GETDATE() ELSE NULL END, Action=CASE WHEN @pending=1 THEN @Action ELSE NULL END, OrderYear=CASE WHEN @pending=1 THEN OrderYear ELSE NULL END, OrderWeek=CASE WHEN @pending=1 THEN OrderWeek ELSE NULL END, OwnerSessionID=CASE WHEN @pending=1 THEN OwnerSessionID ELSE NULL END, OwnerToken=CASE WHEN @pending=1 THEN OwnerToken ELSE NULL END, PendingCalc=@pending, CalcProdKey=NULL WHERE GateKey='1' AND ProtocolVersion=2 AND Mode=N'RUN' AND Action=@Action AND OwnerSessionID=@@SPID AND OwnerToken=@OwnerToken; SET @oResult=CASE WHEN @@ROWCOUNT=1 THEN 0 ELSE -97 END; END;\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1682 편집 definition (nvarchar) 행 2 Value: CREATE VIEW [dbo].[ViewWarehouse] AS SELECT wm.WarehouseKey, wm.UploadDtm, wm.FileName, wm.OrderYear, wm.OrderWeek, SUBSTRING(wm.OrderWeek,0,3) OrderWeek2, wm.OrderYear + REPLACE(wm.OrderWeek,'-', '') OrderYearWeek2, wm.FarmName, wm.OrderNo, f.CounKey, wm.InvoiceNo, wd.OrderCode, wm.InputDate, wd.WdetailKey, wd.ProdKey, p.ProdName, p.FlowerName, p.CounName, p.CountryFlower, wd.BoxQuantity, wd.BunchQuantity, wd.SteamQuantity, wd.OutQuantity, wd.EstQuantity, wd.UPrice, wd.TPrice FROM WarehouseMaster wm JOIN WarehouseDetail wd ON wm.WarehouseKey = wd.WarehouseKey JOIN Product p ON wd.ProdKey = p.ProdKey LEFT JOIN Farm f ON wm.FarmName = f.FarmName AND f.isDeleted = 0 WHERE wm.isDeleted = 0\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1688 편집 parentTable (nvarchar) 행 0 Value: Product\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1691 편집 name (nvarchar) 행 0 Value: trg_Product_NormalizeTinyStock\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1694 편집 is_disabled (bit) 행 0 Value: 0\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t1697 편집 definition (nvarchar) 행 0 Value: CREATE TRIGGER dbo.trg_Product_NormalizeTinyStock ON dbo.Product AFTER INSERT, UPDATE AS BEGIN SET NOCOUNT ON; IF TRIGGER_NESTLEVEL() > 1 OR NOT UPDATE(Stock) RETURN; UPDATE p SET p.Stock = 0 FROM dbo.Product AS p JOIN inserted AS i ON i.ProdKey = p.ProdKey WHERE i.Stock IS NOT NULL AND i.Stock <> 0 AND ABS(i.Stock) < 0.000001; END;",
+  "schema": [
+    {
+      "tableName": "FreightCost",
+      "name": "FreightKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": true
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "WarehouseKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "WeightBasis",
+      "dataType": "nvarchar",
+      "max_length": 20,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "ExchangeRate",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 4,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "GrossWeight",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "ChargeableWeight",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "FreightRateUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 4,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "DocFeeUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "InvoiceTotalUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "BakSangRate",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "HandlingFee",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "QuarantinePerItem",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "DomesticFreight",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "DeductFee",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "ExtraFee",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "CreateID",
+      "dataType": "nvarchar",
+      "max_length": 100,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "CreateDtm",
+      "dataType": "datetime",
+      "max_length": 8,
+      "precision": 23,
+      "scale": 3,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "UpdateID",
+      "dataType": "nvarchar",
+      "max_length": 100,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "UpdateDtm",
+      "dataType": "datetime",
+      "max_length": 8,
+      "precision": 23,
+      "scale": 3,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCost",
+      "name": "isDeleted",
+      "dataType": "bit",
+      "max_length": 1,
+      "precision": 1,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "DetailKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": true
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "FreightKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "WarehouseDetailKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "ProdKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "ProdName",
+      "dataType": "nvarchar",
+      "max_length": 400,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "FlowerName",
+      "dataType": "nvarchar",
+      "max_length": 200,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "FarmName",
+      "dataType": "nvarchar",
+      "max_length": 200,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "SteamQty",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "FOBUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "BoxQty",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "BoxWeightUsed",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 3,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "BoxCBMUsed",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 3,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "StemsPerBoxUsed",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "StemsPerBunch",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "SalePriceKRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "TariffRate",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "FreightPerStemUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 6,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "CNF_USD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 6,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "CNF_KRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "TariffKRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "CustomsPerStem",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "ArrivalPerStem",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "ArrivalPerBunch",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "SalePriceExVAT",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "ProfitPerBunch",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "ProfitRate",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 6,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "TotalSaleKRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "TotalProfitKRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 14,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "FreightCostDetail",
+      "name": "SortOrder",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "WdetailKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": true
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "ProdKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "ProdName",
+      "dataType": "nvarchar",
+      "max_length": 500,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "BoxQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "BunchQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "SteamQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "OutQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "EstQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "UPrice",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "TPrice",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "Stock",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "OrderCode",
+      "dataType": "nvarchar",
+      "max_length": 40,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "WarehouseKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "SteamOf1Box",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "TempWarehouseDetail",
+      "name": "SteamOf1Bunch",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "WdetailKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": true
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "ProdKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "OrderCode",
+      "dataType": "nvarchar",
+      "max_length": 40,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "BoxQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "BunchQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "SteamQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "OutQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "EstQuantity",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "UPrice",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "TPrice",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "WarehouseKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "SteamOf1Box",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseDetail",
+      "name": "SteamOf1Bunch",
+      "dataType": "float",
+      "max_length": 8,
+      "precision": 53,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "WarehouseKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "UploadDtm",
+      "dataType": "datetime",
+      "max_length": 8,
+      "precision": 23,
+      "scale": 3,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "FileName",
+      "dataType": "nvarchar",
+      "max_length": 1000,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "OrderYear",
+      "dataType": "nvarchar",
+      "max_length": 8,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "OrderWeek",
+      "dataType": "nvarchar",
+      "max_length": 40,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "FarmName",
+      "dataType": "nvarchar",
+      "max_length": 200,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "InvoiceNo",
+      "dataType": "nvarchar",
+      "max_length": 100,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "InputDate",
+      "dataType": "datetime",
+      "max_length": 8,
+      "precision": 23,
+      "scale": 3,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "OrderNo",
+      "dataType": "nvarchar",
+      "max_length": 100,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "isDeleted",
+      "dataType": "bit",
+      "max_length": 1,
+      "precision": 1,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "CreateID",
+      "dataType": "nvarchar",
+      "max_length": 100,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "CreateDtm",
+      "dataType": "datetime",
+      "max_length": 8,
+      "precision": 23,
+      "scale": 3,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "LastUpdateID",
+      "dataType": "nvarchar",
+      "max_length": 100,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "LastUpdateDtm",
+      "dataType": "datetime",
+      "max_length": 8,
+      "precision": 23,
+      "scale": 3,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "GrossWeight",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "ChargeableWeight",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "FreightRateUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WarehouseMaster",
+      "name": "DocFeeUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 10,
+      "scale": 2,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostImport",
+      "name": "ImportKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": true
+    },
+    {
+      "tableName": "WebArrivalCostImport",
+      "name": "OrderYear",
+      "dataType": "nvarchar",
+      "max_length": 8,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostImport",
+      "name": "UploadFileName",
+      "dataType": "nvarchar",
+      "max_length": 520,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostImport",
+      "name": "RevisionNo",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostImport",
+      "name": "ScopeJson",
+      "dataType": "nvarchar",
+      "max_length": -1,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostImport",
+      "name": "UploadedBy",
+      "dataType": "nvarchar",
+      "max_length": 200,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostImport",
+      "name": "UploadedByName",
+      "dataType": "nvarchar",
+      "max_length": 200,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostImport",
+      "name": "UploadedAt",
+      "dataType": "datetime",
+      "max_length": 8,
+      "precision": 23,
+      "scale": 3,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostImport",
+      "name": "IsDeleted",
+      "dataType": "bit",
+      "max_length": 1,
+      "precision": 1,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "ArrivalLineKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": true
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "ImportKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "OrderYear",
+      "dataType": "nvarchar",
+      "max_length": 8,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "OrderWeek",
+      "dataType": "nvarchar",
+      "max_length": 20,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "CountryName",
+      "dataType": "nvarchar",
+      "max_length": 200,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "FlowerNameRaw",
+      "dataType": "nvarchar",
+      "max_length": 400,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "ProductNameRaw",
+      "dataType": "nvarchar",
+      "max_length": 600,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "FarmNameRaw",
+      "dataType": "nvarchar",
+      "max_length": 400,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "ProdKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "FarmKey",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "Unit",
+      "dataType": "nvarchar",
+      "max_length": 80,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "Quantity",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 4,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "FobUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 6,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "FreightPerUnitUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 6,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "CustomsPerUnitKRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "OtherPerUnitKRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "SourceArrivalCostKRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "SourceArrivalCostVatKRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "SelectedArrivalCostKRW",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "ExchangeRate",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 6,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "GrossWeight",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "ChargeableWeight",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 4,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "FreightUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 6,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "InvoiceUSD",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 6,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "WeightMetricShare",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 8,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "VolumeMetricShare",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 8,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "ValueMetricShare",
+      "dataType": "decimal",
+      "max_length": 9,
+      "precision": 18,
+      "scale": 8,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "AllocationBasis",
+      "dataType": "nvarchar",
+      "max_length": 40,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "MatchStatus",
+      "dataType": "nvarchar",
+      "max_length": 60,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "SourceFileName",
+      "dataType": "nvarchar",
+      "max_length": 520,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "SheetName",
+      "dataType": "nvarchar",
+      "max_length": 240,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "SourceRow",
+      "dataType": "int",
+      "max_length": 4,
+      "precision": 10,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "RawJson",
+      "dataType": "nvarchar",
+      "max_length": -1,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": true,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "Notes",
+      "dataType": "nvarchar",
+      "max_length": 2000,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "IsCurrent",
+      "dataType": "bit",
+      "max_length": 1,
+      "precision": 1,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "CreatedBy",
+      "dataType": "nvarchar",
+      "max_length": 200,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "CreatedAt",
+      "dataType": "datetime",
+      "max_length": 8,
+      "precision": 23,
+      "scale": 3,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "UpdatedBy",
+      "dataType": "nvarchar",
+      "max_length": 200,
+      "precision": 0,
+      "scale": 0,
+      "is_nullable": false,
+      "is_identity": false
+    },
+    {
+      "tableName": "WebArrivalCostLine",
+      "name": "UpdatedAt",
+      "dataType": "datetime",
+      "max_length": 8,
+      "precision": 23,
+      "scale": 3,
+      "is_nullable": false,
+      "is_identity": false
+    }
+  ]
+}

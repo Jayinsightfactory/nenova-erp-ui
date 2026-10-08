@@ -32,6 +32,8 @@ jobs:
         run: npm run test:smoke
       - name: Restore in a separate process
         run: npm run test:restore
+      - name: Native last-window close exits the process
+        run: npm run test:exit
       - name: Update download integrity (no installer execution)
         run: npm run test:updater
       - name: Build Windows installer

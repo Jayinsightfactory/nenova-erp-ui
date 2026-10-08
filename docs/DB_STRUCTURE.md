@@ -154,7 +154,7 @@
 
 **WarehouseMaster** — 입고(AWB/BILL) 헤더
 - PK: `WarehouseKey`
-- `FarmName`, `ArrivalDtm`
+- `FarmName`, `InputDate` (2026-10-08 실제 스키마; 과거 ArrivalDtm 표기 정정)
 - 🆕 `GrossWeight`, `ChargeableWeight`, `FreightRateUSD`, `DocFeeUSD` (2026-04-16)
 
 **WarehouseDetail** — 입고 라인
@@ -163,7 +163,7 @@
 - ⚠️ **`isDeleted` 컬럼 없음** — 삭제 필터는 `WarehouseMaster.isDeleted=0` 으로만 (`WEB_VS_ERP_CONFLICTS.md` §7.6 참조). `wd.isDeleted` 쿼리 시 SQL 오류
 - `OutQuantity` — `Product.OutUnit` 기준 단일값 (박스 품목이면 박스수). OrderDetail/ShipmentDetail 의 OutQuantity 와 동일 패턴 — 송이수 아님
 - `EstQuantity` — 이카운트 구매현황 "수량" (전표 금액기준 수량, 2026-07-09 26차 실측 확인)
-- `TPrice` — 라인 합계 USD (InvoiceTotal 집계 대상)
+- `TPrice` — 원문 라인 합계 (SP는 그대로 복사; USD 고정 의미 없음. 인보이스 통화 별도 검증)
 
 ---
 
@@ -390,3 +390,17 @@ Farm(FarmKey) ── FarmCredit(CreditKey)
 ### 2026-10-05 호텔 업체 연결
 
 `WebPnlHotelCustomerMap`은 기본·등록 호텔의 `PartnerCode`별 명시 선택 `CustKey`와 Revision, 수정자·시각만 보관한다. 활성 Customer를 조회/저장 시 재검증하고 stale Revision은 409로 거부한다. Customer 및 ERP 원장에는 쓰지 않는다. 호텔별 품목 매칭은 WebRaumPnlItem.ProdKey와 부모 수정 이력만 변경하며 같은 호텔·연도의 이름+단위 연결을 다음 업로드에서 재사용한다. 신규 호텔도 차수별 매입단가 화면을 사용한다.
+
+### 2026-10-08 인보이스 웹 저장 V1 — 빈 구조 운영 적용
+
+사용자가 승인한 신규 빈 저장 구조는 `WebInvoiceDocument`, `WebInvoiceLine`,
+`WebInvoiceOperation`, `WebInvoiceHistory`, `WebInvoiceCostRevision`, `WebInvoiceCostLine`이다.
+문서/행 버전, 요청 ID, 변경 이력, 실제량·95% 예상 원가 버전을 분리한다.
+원가 행은 문서·버전·작업·입고번호를 함께 참조하여 다른 입고의 원가 혼입을 방지한다.
+ERP 테이블 FK나 공유 SP 수정, 공용 임시입고 삭제, 기존 데이터 이관은 포함하지 않는다.
+
+- 설계: `docs/plans/invoice-web-storage-v1.md`
+- 생성 및 재실행 검증: `docs/migrations/2026-10-08_web_invoice_storage_v1.sql`
+- 격리 SQL 테스트: `scripts/test-invoice-web-storage-sql.cjs`
+- 운영 readback: `docs/diagnostics/2026-10-08-invoice-storage-production-readback.md` — 6테이블0행, FK7개, CHECK38개, 공유 SP/임시입고 지문 보존.
+- 이 구조가 존재하는 것만으로 인보이스→입고 저장/원가 계산 API 연결이 완료된 것은 아니다.

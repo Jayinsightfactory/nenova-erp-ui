@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.0",
+  "version": "1.3.2",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -13,7 +13,8 @@
     "test:restore": "node scripts/verify-restore.cjs",
     "dist": "npm run menu && electron-builder --win nsis --x64 --publish never",
     "pack": "npm run menu && electron-builder --win --dir --x64",
-    "test:updater": "electron scripts/updater-download-smoke.cjs"
+    "test:updater": "electron scripts/updater-download-smoke.cjs",
+    "test:exit": "node scripts/exit-probe.cjs"
   },
   "devDependencies": {
     "electron": "44.6.0",

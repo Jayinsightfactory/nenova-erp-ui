@@ -1,0 +1,13 @@
+{
+  "id": "invoice-web-storage",
+  "title": "인보이스 웹 전용 저장 V1 — 빈 구조 준비, 실제 ERP 등록 미연결",
+  "scope": ["docs/migrations/2026-10-08_web_invoice_storage_v1.sql", "scripts/test-invoice-web-storage-sql.cjs", "__tests__/invoiceWebStorageContract.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "documentIdentity": ["DocumentId", "Revision"],
+  "invoiceIdentity": ["supplierFarmKey", "normalizedInvoiceNumber", "invoiceYear"],
+  "actions": [{"name": "PREPARE_EMPTY_WEB_INVOICE_STORAGE", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseMaster": "preserve", "warehouseDetail": "preserve", "stock": "preserve", "notes": "사용자 2026-10-08 승인. 여섯 WebInvoice 테이블만 생성. 기존 EXE/SP/임시입고/채번/원가 자료 보존. 마이그레이션은 메인만 실행, runtime DDL 없음."}],
+  "crossYearFixture": {"required": true, "description": "동일 41-01의 2025/2026 문서는 공존. 인보이스 업무키 중복은 차수 이동으로 우회 불가. 실제 loopback SQL fixture에서 검증."},
+  "requiredTestFiles": ["__tests__/invoiceWebStorageContract.test.js", "scripts/test-invoice-web-storage-sql.cjs"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormWarehouseUpload.md", "source": "2026-10-08 actual SSMS read-only SP/schema evidence, docs/diagnostics/2026-10-08-invoice-receipt-live-evidence.json. EXE 경로를 변경하지 않는 웹 전용 저장 구조 준비.", "methods": ["ExcelLoadingPackingList.MakeTempTable", "ExcelLoadingPackingList.InsertMaster"], "tables": ["WarehouseMaster", "WarehouseDetail", "TempWarehouseDetail", "Product"]},
+  "requiredCommands": ["node __tests__/invoiceWebStorageContract.test.js", "node scripts/test-invoice-web-storage-sql.cjs", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}

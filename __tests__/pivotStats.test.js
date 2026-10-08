@@ -15,10 +15,15 @@ async function testInboundWeekScope() {
   const fs = require('fs');
   const source = fs.readFileSync(require.resolve('../lib/pivotStats.js'), 'utf8');
   const { normalizedOrderYearWeekSql } = await import('../lib/pivotWeekScopeSql.js');
-  const expr = normalizedOrderYearWeekSql('wm');
+  const expr = normalizedOrderYearWeekSql('vw');
   const incomingQuery = source.match(/const inResult = await query\(([\s\S]*?)\);\s*\n\s*const stockResult/);
-  assert('incoming week query pads legacy one-digit subweeks before comparing', Boolean(incomingQuery?.[1]?.includes("normalizedOrderYearWeekSql('wm')")));
-  assert('normalized warehouse key reads year and both OrderWeek components', /CAST\(wm\.OrderYear AS NVARCHAR\(4\)\).*CHARINDEX\('-'.*wm\.OrderWeek/s.test(expr));
+  assert('incoming week query uses the same dbo.ViewWarehouse source as nenova.exe', Boolean(incomingQuery?.[1]?.includes('FROM dbo.ViewWarehouse vw')));
+  assert('incoming week query pads legacy one-digit subweeks before comparing', Boolean(incomingQuery?.[1]?.includes("normalizedOrderYearWeekSql('vw')")));
+  assert('normalized warehouse key reads year and both OrderWeek components', /CAST\(vw\.OrderYear AS NVARCHAR\(4\)\).*CHARINDEX\('-'.*vw\.OrderWeek/s.test(expr));
+  assert('inbound view rows are not lost to an extra active-Product filter', Boolean(incomingQuery?.[1]?.includes('JOIN Product p ON vw.ProdKey = p.ProdKey') && !/p\.isDeleted\s*=\s*0/.test(incomingQuery?.[1] || '')));
+  assert('inbound view query retains CountryFlower classification', Boolean(incomingQuery?.[1]?.includes('vw.CountryFlower AS countryFlower')));
+  assert('order and inbound pivot rows both retain CountryFlower for country matching', /p\.CountryFlower AS countryFlower/.test(source) && /vw\.CountryFlower AS countryFlower/.test(incomingQuery?.[1] || ''));
+  assert('inbound pivot metadata carries CountryFlower through to the response rows', /countryFlower: r\.countryFlower \|\| ''/.test(source) && /countryFlower: item\?\.countryFlower \|\| meta\.countryFlower \|\| ''/.test(source));
 }
 
 async function main() {

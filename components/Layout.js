@@ -4,6 +4,7 @@
 // 수정이력: 2026-04-09b — Railway 강제 재빌드 v2
 
 import { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -190,6 +191,13 @@ export default function Layout({ children, title }) {
   // 로그인 유저 (hydration 안전)
   const [user, setUser] = useState(null);
   const [sidebarFavorites, setSidebarFavorites] = useState([]);
+  const [favoriteBusyHref, setFavoriteBusyHref] = useState('');
+  const [favoritesRevision, setFavoritesRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setFavoritesRevision(value => value + 1);
+    window.addEventListener('nenova-menu-favorites-changed', refresh);
+    return () => window.removeEventListener('nenova-menu-favorites-changed', refresh);
+  }, []);
   useEffect(() => {
     try { setUser(JSON.parse(localStorage.getItem('nenovaUser')||'null')); } catch {}
     let active = true;
@@ -214,14 +222,16 @@ export default function Layout({ children, title }) {
           try {
             const saved = JSON.parse(row.FilterData || '{}');
             const item = canonical.get(saved.href);
-            return item && (!item.userIds || item.userIds.includes(user?.userId)) ? item : null;
+            return item && (!item.userIds || item.userIds.includes(user?.userId))
+              ? { ...item, favoriteKey: Number(row.FavoriteKey) }
+              : null;
           } catch { return null; }
         }).filter(Boolean);
         setSidebarFavorites(favorites);
       })
       .catch(() => { if (active) setSidebarFavorites([]); });
     return () => { active = false; };
-  }, [user?.userId]);
+  }, [user?.userId, favoritesRevision]);
 
   // 자식창 감지 — hydration 안전. SSR/첫 렌더는 false → 마운트 후 클라이언트에서만 판정.
   // 세 갈래 모두 잡아야 사이드바 중복이 안 생긴다:
@@ -267,21 +277,85 @@ export default function Layout({ children, title }) {
   const pageTitle = title || MENU_ITEMS.flatMap(g => g.items)
     .find(i => i.href === router.pathname)?.labelKey || 'nenova ERP';
   const favoriteHrefs = new Set(sidebarFavorites.map(item => item.href));
+  const toggleSidebarFavorite = async (event, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!user?.userId || favoriteBusyHref) return;
+    const trigger = event.currentTarget;
+
+    const existing = sidebarFavorites.find(favorite => favorite.href === item.href);
+    setFavoriteBusyHref(item.href);
+    try {
+      const response = await fetch('/api/favorites', {
+        method: existing ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(existing
+          ? { favoriteKey: existing.favoriteKey }
+          : { page: 'dashboard-menu', name: t(item.labelKey), filterData: JSON.stringify({ href: item.href }) }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.success) throw new Error(data?.error || '즐겨찾기를 저장하지 못했습니다.');
+
+      if (existing) {
+        setSidebarFavorites(current => current.filter(favorite => favorite.href !== item.href));
+      } else {
+        setSidebarFavorites(current => current.some(favorite => favorite.href === item.href)
+          ? current
+          : [...current, { ...item, favoriteKey: Number(data.favoriteKey) }]);
+      }
+      window.dispatchEvent(new Event('nenova-menu-favorites-changed'));
+    } catch (error) {
+      window.alert(`즐겨찾기 변경 실패: ${error?.message || error}`);
+    } finally {
+      // Re-enable the control before restoring focus, including after a native alert.
+      flushSync(() => setFavoriteBusyHref(''));
+      requestAnimationFrame(() => {
+        // Removing a favorite removes its shortcut; return to its permanent menu toggle.
+        if (trigger.isConnected) { trigger.focus(); return; }
+        const row = [...document.querySelectorAll('[data-sidebar-menu-item]')]
+          .find(element => element.dataset.sidebarMenuItem === item.href);
+        row?.querySelector('[data-testid="sidebar-favorite-toggle"]')?.focus();
+      });
+    }
+  };
   const navigateInsideChildWindow = (event, item) => {
     event.preventDefault();
     rememberMenuRoute(router.asPath, window.sessionStorage);
     router.push({ pathname: item.href, query: { popup: '1' } });
   };
-  const renderNavItem = item => item.fullscreen ? (
-    <a key={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`} href="#"
-      onClick={e => (isPopup || isChildWindow) ? navigateInsideChildWindow(e, item) : (e.preventDefault(), window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`))}>{t(item.labelKey)}</a>
-  ) : item.popup ? (
-    <a key={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`} href="#"
-      onClick={e => (isPopup || isChildWindow) ? navigateInsideChildWindow(e, item) : (e.preventDefault(), openPopup(item.href, t(item.labelKey)))}>{t(item.labelKey)}</a>
-  ) : (
-    <Link key={item.href} href={item.href} className={`nav-item ${router.pathname === item.href ? 'active' : ''}`}
-      onClick={e => { if (isPopup || isChildWindow) navigateInsideChildWindow(e, item); }}>{t(item.labelKey)}</Link>
-  );
+  const renderNavItem = item => {
+    const isFavorite = favoriteHrefs.has(item.href);
+    const navClassName = `nav-item ${router.pathname === item.href ? 'active' : ''}`;
+    const navStyle = { flex: 1, minWidth: 0, borderBottom: 0, paddingRight: 6 };
+    const link = item.fullscreen ? (
+      <a className={navClassName} style={navStyle} href="#"
+        onClick={e => (isPopup || isChildWindow) ? navigateInsideChildWindow(e, item) : (e.preventDefault(), window.open(item.href, '_blank', `width=${screen.width},height=${screen.height},left=0,top=0,resizable=yes,scrollbars=yes`))}>{t(item.labelKey)}</a>
+    ) : item.popup ? (
+      <a className={navClassName} style={navStyle} href="#"
+        onClick={e => (isPopup || isChildWindow) ? navigateInsideChildWindow(e, item) : (e.preventDefault(), openPopup(item.href, t(item.labelKey)))}>{t(item.labelKey)}</a>
+    ) : (
+      <Link href={item.href} className={navClassName} style={navStyle}
+        onClick={e => { if (isPopup || isChildWindow) navigateInsideChildWindow(e, item); }}>{t(item.labelKey)}</Link>
+    );
+
+    return (
+      <div key={item.href} data-sidebar-menu-item={item.href} style={{ display: 'flex', alignItems: 'stretch', borderBottom: '1px solid #EBEBEB' }}>
+        {link}
+        <button
+          type="button"
+          data-testid="sidebar-favorite-toggle"
+          className="sidebar-favorite-toggle"
+          aria-label={`${isFavorite ? t('즐겨찾기에서 제거') : t('즐겨찾기 추가')} · ${t(item.labelKey)}`}
+          aria-pressed={isFavorite}
+          title={user?.userId ? (isFavorite ? t('즐겨찾기에서 제거') : t('즐겨찾기 추가')) : t('로그인 후 즐겨찾기를 사용할 수 있습니다')}
+          disabled={!user?.userId || favoriteBusyHref !== ''}
+          aria-busy={favoriteBusyHref === item.href}
+          onClick={event => toggleSidebarFavorite(event, item)}
+          style={{ width: 34, minHeight: 34, flex: '0 0 34px', alignSelf: 'center', margin: '2px 4px 2px 0', border: `1px solid ${isFavorite ? '#d6a124' : '#b8c5d4'}`, borderRadius: 4, background: isFavorite ? '#fff4cc' : '#fff', color: isFavorite ? '#956400' : '#52677f', cursor: favoriteBusyHref ? 'wait' : user?.userId ? 'pointer' : 'default', fontSize: 20, lineHeight: 1, padding: 0 }}
+        >{isFavorite ? '★' : '☆'}</button>
+      </div>
+    );
+  };
 
   // ── 팝업 모드 (?popup=1 이거나, 자식창 자동 접힘 / 사용자 강제 접힘)
   if (isPopup || sidebarSuppressed) {
@@ -336,6 +410,7 @@ export default function Layout({ children, title }) {
   return (
     <>
       <Head><title>{t(pageTitle)} - nenova ERP</title></Head>
+      <style>{`.sidebar-favorite-toggle:focus-visible { outline: 3px solid #2563eb; outline-offset: 1px; }`}</style>
       <div className="layout" data-ui-shell="standard">
         <div className="sidebar" data-ui-sidebar>
           <Link href="/dashboard" style={{ textDecoration:'none', color:'inherit', display:'block' }}>
@@ -364,7 +439,7 @@ export default function Layout({ children, title }) {
               <div key={group.group} className="nav-group">
                 {/* 그룹 제목도 번역 */}
                 <div className="nav-group-title">{t(group.group)}</div>
-                {group.items.filter(item => (!item.userIds || item.userIds.includes(user?.userId)) && !favoriteHrefs.has(item.href)).map(renderNavItem)}
+                {group.items.filter(item => !item.userIds || item.userIds.includes(user?.userId)).map(renderNavItem)}
               </div>
             ))}
           </nav>

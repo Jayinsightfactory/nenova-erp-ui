@@ -1,5 +1,30 @@
 # FormWarehouse 입고 엑셀 업로드 — nenova.exe golden
 
+## 2026-10-08 재검증 정정 — 아래 과거 요약보다 우선
+
+- 실제 `CommonLogic`을 dnSpy CLI로 다시 확인했다. `CheckFixSave`는 같은 CountryFlower의
+  현재 `ViewShipment.DetailFix=1`, 직전 `ISNULL(DetailFix,0)=0`, 직후 `DetailFix=1`을 검사한다.
+  전후 차수는 달력 증감이 아니라 StockMaster.OrderYearWeek의 가장 가까운 `<`/`>` 행이다.
+  연도 경계도 포함하고 수량/거래처/입고 대상 ProdKey로 추가 축소하지 않는다.
+- **CheckFixSave 메서드가 있다는 것과 엑셀 업로드에서 호출된다는 것은 다르다.**
+  실제 ExcelLoadingPackingList.CheckData의 품종 SQL은 INNER JOIN 뒤
+  `ISNULL(p.ProdKey,0)=0`이 있어 정상 양수 품목에서는 루프가 비어 있을 수 있다.
+  아래의 "대상 CountryFlower별 검사 통과"는 의도된 정책의 요약이며 실제 모든 업로드가
+  이를 실행한다는 보장이 아니다. 웹은 의도된 CommonLogic 검사를 명시 적용한다.
+- CommonLogic은 조회 예외를 0건으로 반환하지만 웹은 조회 실패 시 fail-closed 한다.
+- 실제 운영 usp_CreateWarehouse는 공용 TempWarehouseDetail **전체**를 소비한다.
+  아래의 기존 SP 재사용 권고는 새 인보이스 writer에 적용하지 않는다. 공용 staging을
+  사용하지 않는 경로의 native 상세/StockHistory/Product.Stock/StockCalculation 효과를
+  격리 SQL에서 검증한 후에만 writer를 연결한다. 현재는 미연결이다.
+- 실제 ViewWarehouse.OrderYearWeek2는 계산 컬럼이며 Master에 추가 저장할 필드가 아니다.
+  WarehouseMaster의 실제 일자는 InputDate다. TPrice는 SP가 원문을 복사하므로
+  통화를 항상 USD라고 추정하지 않는다.
+
+실행: `dnSpy.Console.exe --no-color -t CommonLogic "C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe"`.
+근거: `C:\Users\USER\nenova-decompiled\Nenova\CommonLogic.cs`의 위 네 메서드,
+`docs/diagnostics/2026-10-08-invoice-receipt-live-evidence.json`.
+새 SELECT 사전검사 계약: `docs/plans/invoice-receipt-eligibility-v1.md`.
+
 ## dnSpy/CLI 원본
 
 - 실행 파일: `C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe`
@@ -54,8 +79,10 @@ LOWER(TempWarehouseDetail.ProdName) = LOWER(Product.ProdName)
 
 따라서 SIZE를 버리거나 `LIKE '%name%'`, `TOP 1`로 유사 품목을 선택하면 EXE와
 다르다. 웹 계약은 미등록 또는 중복 정확 일치가 하나라도 있으면 저장 후보 전체를
-비워 부분 저장을 금지한다. 이어 대상 `CountryFlower`별
-`LogicManager.Common.CheckFixSave(OrderYear + OrderWeek, ..., true)`를 통과해야 한다.
+비워 부분 저장을 금지한다. 웹의 의도적 안전 보강으로 대상 `CountryFlower`별
+`LogicManager.Common.CheckFixSave(OrderYear + OrderWeek, ..., true)` 정책을 적용한다.
+실제 EXE CheckData는 위 정정에 적은 불가능한 품종 조회 조건 때문에 정상 품목에서
+이 호출이 누락될 수 있으므로, EXE bulk 업로드의 검사 실행을 보장한다는 뜻이 아니다.
 
 참고로 현재 decompile의 미등록 개수 SQL은 LEFT JOIN 뒤 `p.isDeleted=0` 조건을 두어
 NULL 행을 제외할 여지가 있다. 웹은 이를 복제해 누락시키지 않고 EXE가 의도한
@@ -63,14 +90,15 @@ NULL 행을 제외할 여지가 있다. 웹은 이를 복제해 누락시키지 
 
 ## ExcelLoadingPackingList.InsertMaster — 저장 순서
 
-1. 전체 품목 정확 일치와 확정 범위를 검사한다.
+1. CheckData를 호출한다. 품목/확정 검사 SQL의 누락 가능성은 위 정정 참조.
 2. 준비한 `WarehouseMaster` 한 행을 bulk copy한다.
 3. `DBMSSQL.uspCreateWarehouse()` → `usp_CreateWarehouse(@iUserID, @oResult)`를 호출한다.
 4. 성공한 경우 `uspStockCalculation(SelectOrderYear, SelectOrderWeek, 0)`을 호출한다.
 5. SP 또는 재고계산 실패는 성공으로 표시하지 않는다.
 
-웹의 동일 작업도 직접 `WarehouseDetail`을 일부 INSERT하는 경로가 아니라 이 순서와
-트랜잭션 경계를 따라야 한다. 업로드는 주문·출고·견적·매출 원장을 변경하지 않는다.
+웹의 동일 작업은 이 native 입고·이력·재고 효과를 모두 검증해야 한다. 공용 staging 전체
+소비가 확인되었으므로 신규 invoice writer는 위 정정의 격리 경로를 따른다.
+상세 일부 INSERT만으로 호환 완료를 주장하지 않는다. 주문·출고·견적·매출 원장은 보존한다.
 
 ## 교차연도 fixture
 

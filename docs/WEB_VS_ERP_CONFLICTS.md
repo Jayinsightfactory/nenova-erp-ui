@@ -805,7 +805,7 @@ EXEC dbo.usp_ShipmentFix
 
 ### 11.6 입고 (WarehouseMaster/Detail) 작업 시
 
-- [ ] OrderYearWeek2 컬럼 채우기 (ViewWarehouse 노출 키)
+- [ ] 명시 OrderYear/OrderWeek 저장, ViewWarehouse 계산값 OrderYearWeek2 대조 (2026-10-08 실제 정의: Master에 별도 컬럼을 채우지 않음)
 - [ ] FarmName 이 Farm.FarmName 과 매칭 (LEFT JOIN 이라 없으면 CounKey NULL)
 
 ### 11.7 데이터 사고 시 우선 진단 순서

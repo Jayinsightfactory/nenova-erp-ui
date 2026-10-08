@@ -1,0 +1,12 @@
+{
+  "id": "invoice-receipt-workflow",
+  "title": "인보이스 입고·원가 통합의 대조 기초 계약 (ERP 저장 미연결)",
+  "scope": ["lib/invoiceReceiptReconciliation.js", "__tests__/invoiceReceiptReconciliation.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "comparisonIdentity": ["OrderYear", "OrderWeek", "ProdKey", "unit"],
+  "actions": [{"name": "PREVIEW_RECEIPT_RECONCILIATION", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseMaster": "preserve", "warehouseDetail": "preserve", "stock": "preserve", "notes": "순수 계산. 신규 existing+draft, 수정 existing-target+draft. 선택 연도/세부차수/품목/단위별 비교. missing!=0. 타범위 초안 거부. 단위충돌은 UNIT_CONFLICT/comparable=false. DB/네트워크 없음."}],
+  "crossYearFixture": {"required": true, "description": "2025/2026 동일 41-01 입력에서 명시 2026만 합산. 수정 대상은 선택 범위에 존재하는 WarehouseKey만 허용."},
+  "requiredTestFiles": ["__tests__/invoiceReceiptReconciliation.test.js"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormWarehouseUpload.md", "source": "2026-10-07 실제 CLI/운영 GET, 2026-10-08 로그인 SSMS SELECT로 현행 SP·트리거·스키마 확인. 비자동 WarehouseKey 채번 누락과 공용 staging 전체 소비 위험 확인. 계산만 구현; 격리 저장/동시성 검증·신규 DDL 승인 전 writer 미연결. PRD §15 및 진단 JSON 참조.", "methods": ["ExcelLoadingPackingList.CheckData", "ExcelLoadingPackingList.InsertMaster"], "tables": ["WarehouseMaster", "WarehouseDetail", "Product"]},
+  "requiredCommands": ["node --test __tests__/invoiceReceiptReconciliation.test.js", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}

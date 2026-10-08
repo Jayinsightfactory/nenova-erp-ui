@@ -17,10 +17,11 @@ app.setAppUserModelId('com.nenova.workspace');
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { const w = [...windows.values()][0]?.win; if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); } });
 
+function menuFavoriteEntry(item) { return safeSnapshot({ favorites: [{ url: item.href, title: item.labelKey }] }).favorites[0]; }
 function state(w) {
   return { windowId: w.id, windows: [...windows.values()].map(v => ({ id: v.id, title: `업무 창 ${v.id}` })),
     tabs: w.ids.map(id => tabs.get(id)).filter(Boolean).map(t => ({ id: t.id, title: locked && new URL(t.url).pathname !== '/login' ? '로그인 대기' : t.title, url: locked ? '' : t.url, loading: t.loading, error: t.error, zoom: t.zoom })),
-    activeId: w.activeId, menuOpen: w.menuOpen, toolsOpen: w.toolsOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus, version: app.getVersion(), online: !locked,
+    activeId: w.activeId, menuOpen: w.menuOpen, toolsOpen: w.toolsOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus.map(group => ({ ...group, items: group.items.map(item => ({ ...item, favorite: favorites.some(f => f.url === menuFavoriteEntry(item)?.url) })) })), version: app.getVersion(), online: !locked,
     appUpdate: updater?.getState(), syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || '',
     message: w.message || (locked ? '로그인이 필요합니다. 업무 화면에서 로그인해 주세요.' : '탭 이동은 작업을 유지합니다 · 종료 전 업무 내용을 저장해 주세요.') };
 }
@@ -100,7 +101,9 @@ function createWindow(config = {}) {
   win.on('close', e => {
     if (quitting || w.confirmedClose) return;
     e.preventDefault();
-    if (windows.size === 1) quit(); else closeWindow(w);
+    // Finish the cancelled native close event before app.quit starts a new close
+    // cycle. Re-entering synchronously can leave no windows but a live process.
+    if (windows.size === 1) setImmediate(quit); else closeWindow(w);
   });
   win.on('closed', () => {
     for (const id of [...w.ids]) destroyTab(tabs.get(id));
@@ -280,6 +283,17 @@ function command(w, action, p = {}) {
         w.win.webContents.executeJavaScript('document.getElementById("toolsButton")?.focus()').catch(() => {});
       }
       break;
+    case 'menuFavorite': {
+      if (!actor || locked) break;
+      const item = menus.flatMap(group => group.items).find(item => item.href === p.href) || (p.href === '/dashboard' ? { href: '/dashboard', labelKey: '네노바 홈' } : null);
+      if (!item) break;
+      const entry = menuFavoriteEntry(item);
+      if (!entry) break;
+      if (favorites.some(f => f.url === entry.url)) favorites = favorites.filter(f => f.url !== entry.url);
+      else if (favorites.length < 100) favorites = [...favorites, entry];
+      else reportFailure(w, '즐겨찾기는 최대 100개까지 등록할 수 있습니다.');
+      break;
+    }
     case 'favorite': if (t && actor && !locked) { const url = safeSnapshot({ favorites: [t] }).favorites[0]?.url; if (url) favorites = favorites.some(f => f.url === url) ? favorites.filter(f => f.url !== url) : [...favorites, { url, title: t.title, zoom: t.zoom }]; } break;
     case 'rename': if (t?.windowId === w.id && text(p.title)) { t.title = text(p.title); t.customTitle = true; } break;
     case 'navigate': if (t && !locked && confirm(w, '이전·다음 화면으로 이동할까요?', '이동')) { const h = t.view.webContents.navigationHistory; if (p.direction === 'back' && h.canGoBack()) h.goBack(); if (p.direction === 'forward' && h.canGoForward()) h.goForward(); } break;

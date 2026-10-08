@@ -2,6 +2,7 @@
   "id": "import-team-tools",
   "title": "수입부 기존 파일 도구의 웹 통합",
   "scope": [
+    "__tests__/importPackingAustraliaQuantity.test.js",
     "lib/importPackingErpMatches.js",
     "pages/api/import/tools/product-matches.js",
     "components/import-tools/PackingProductMatchDialog.js",
@@ -96,6 +97,7 @@
     "description": "Checklist YYYY-MM-DD/month/year keys isolate 2025 and 2026; file conversion requires explicit year/week; no SQL master queries."
   },
   "requiredTestFiles": [
+    "__tests__/importPackingAustraliaQuantity.test.js",
     "__tests__/packingProductMatchDialog.test.js",
     "__tests__/importPackingErpMatches.test.js",
     "__tests__/importPackingSourceIdentity.test.js",

@@ -1,0 +1,76 @@
+{
+  "id": "full-development-history",
+  "title": "전체 개발 이력 읽기 전용 Git 메타데이터 원장",
+  "scope": [
+    "pages/dev/history.js",
+    "pages/api/dev/full-history.js",
+    "components/dev/FullDevelopmentHistory.js",
+    "components/dev/DevelopmentJourney.js",
+    "pages/api/dev/development-journey.js",
+    "lib/developmentJourney.cjs",
+    "lib/developmentPurposeStories.cjs",
+    "pages/api/dev/development-stories.js",
+    "components/dev/DevelopmentPurposeStories.js",
+    "config/development-purpose-stories.json",
+    "lib/fullDevelopmentHistory.cjs",
+    "scripts/generate-full-development-history.cjs",
+    "scripts/export-external-development-history.cjs"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "sourceIdentity": ["source repository", "full commit hash"],
+  "navigation": {
+    "order": ["newest", "oldest"],
+    "defaultOrder": "newest",
+    "pageSize": 50,
+    "pageBounds": "The read-only API clamps a requested page to 1..max(1, totalPages) after filtering and sorting; the UI accepts only a safe integer in that range."
+  },
+  "actions": [
+    {
+      "name": "FULL_DEVELOPMENT_HISTORY_READ",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "shipmentDate": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "서로 다른 연도·저장소의 커밋과 날짜형 요약 제목을 full hash와 ISO 시각으로 식별한다. ERP 차수·MSSQL 원장을 조회하거나 수정하지 않는다."
+  },
+  "requiredTestFiles": ["__tests__/fullDevelopmentHistory.test.js", "__tests__/developmentJourney.test.js", "__tests__/developmentPurposeStories.test.js"],
+  "purposeStories": {
+    "default": "Human-authored Korean purpose, user value and actual controls; raw dates remain alternate",
+    "narrative": "Each change can carry grounded problem and result alongside the actual change; optional absent details are never inferred. Same-day story starts follow real timestamps, not alphabetic ids.",
+    "coverage": "Every safe record assigned exactly once to a grounded purpose or explicit review-pending bucket",
+    "evidence": "Full hashes and local documents validated at build/test, private references omitted from API",
+    "summaryEvidence": "Only uniquely matched known-title source/date/title triples from reviewed notes; unstable list ids never determine meaning, ownership conflicts fail and internal explicit references are omitted from API",
+    "reviewNotes": "Optional sanitized reasons use stable existing commit keys only, reject duplicates and unstable summary ids, and are projected only for unassigned records. Code integrations are not new feature outcomes.",
+    "sideEffects": "Authenticated GET static metadata only; zero ERP reads or writes"
+  },
+  "journey": {
+    "route": "/dev/history?view=journey",
+    "coverage": "Same complete sanitized snapshot and selector as full-history, never only its first page",
+    "grouping": "Asia/Seoul chronological month and day, every selected event exactly once",
+    "details": "Existing authenticated full-history GET with identical filters, exact KST day, oldest order and pages of 50",
+    "counts": "Git changes, code integration records and work summaries remain separate; not requests, hours or deployments",
+    "sideEffects": "Read-only static metadata, zero ERP/SQL access"
+  },
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/plans/full-development-history.md",
+    "source": "nenova.exe 대응 기능이 아닌 웹 전용 정적 Git 메타데이터 조회. EXE 및 SQL에 접근하지 않는다.",
+    "methods": ["NenovaWeb withAuth GET static snapshot read"],
+    "tables": ["OrderDetail (preserve; not queried)", "ShipmentDetail (preserve; not queried)", "Estimate (preserve; not queried)", "WebProfitReport (preserve; not queried)"]
+  },
+  "requiredCommands": ["npm run test:full-development-history", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"],
+  "counting": {
+    "unit": "verified default-ref reachable Git commit record, not user request or hours",
+    "global": "exact full-hash union across source repositories; work summaries separate",
+    "merge": "parent count greater than one; counted separately from non-merge",
+    "stage": "external verified main refs plus current ERP build HEAD; ERP non-master build HEAD may include branch commits, explicitly disclosed; no working tree",
+    "classification": "parentless verified root or explicit subject prefix; otherwise unclassified",
+    "safety": "sanitized subject and allowlisted paths only; no author identity, body, diff, private session content, SQL, or ERP data"
+  }
+}
