@@ -1,0 +1,14 @@
+{
+  "id":"invoice-receipt-connected",
+  "title":"인보이스 초안·입고 원장·재고·실제량 원가 연결",
+  "scope":["lib/invoiceReceiptWriter.js","lib/invoiceReceiptNative.js","lib/invoiceReceiptStockReadback.js","lib/invoiceReceiptValidation.js","lib/invoiceReceiptDocuments.js","lib/invoiceReceiptAccess.js","lib/invoiceReceiptApi.js","components/import-tools/InvoiceReceiptWorkbench.js","lib/importPackingReceiptAdapter.js","pages/api/import/receipts/drafts.js","pages/api/import/receipts/[id]/index.js","pages/api/import/receipts/[id]/preview.js","pages/api/import/receipts/[id]/commit.js","pages/api/import/receipts/operations/[id].js","lib/invoiceReceiptCost.js","pages/api/import/receipts/[id]/cost-revisions.js","pages/api/warehouse/invoice-costs.js","components/import-tools/InvoiceReceiptCostReview.js","pages/incoming.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[
+    {"name":"SAVE_INVOICE_DRAFT","orderDetail":"preserve","shipmentDetail":"preserve","notes":"웹 문서/행 append-only revision과 서버 actor 이력. 기존 ERP 원장 보존."},
+    {"name":"COMMIT_INVOICE_RECEIPT","orderDetail":"preserve","shipmentDetail":"preserve","notes":"WarehouseKey native 채번, 문서에 속한 WarehouseDetail만 생성/수정. Product.Stock 차액과 StockHistory 입고, native StockCalculation ProdKey=0 현재/후속 cascade를 단일 외부 transaction. gate V2 완전IDLE 잠금 후 전후차수 재검사. 공용 staging/EXE/SP 수정 없음. 동일 operation 요청 idempotent, 다른payload409, native rollback marker검사."}
+  ],
+  "crossYearFixture":{"required":true,"description":"2025/2026/2027 같은 세부차수 분리, StockMaster 실제 전후차수. 2026 이전 저장 차단. 입고일과 선택년도 충돌 차단."},
+  "requiredTestFiles":["__tests__/invoiceReceiptValidation.test.js","__tests__/invoiceReceiptDocuments.test.js","__tests__/invoiceReceiptDocumentsApi.test.js","__tests__/importPackingReceiptAdapter.test.js","__tests__/invoiceReceiptWorkbench.test.js","__tests__/invoiceReceiptCost.test.js","__tests__/invoiceReceiptStockReadback.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"2026-10-08 SSMS SELECT hex 원문 해시 확인 CreateWarehouse/GetNextKey, 실제 dnSpy ExcelLoadingPackingList와 CommonLogic. docs/plans/invoice-receipt-connected-implementation.md. 격리 실행 결과는 세션 기록에 별도 기재.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster","CommonLogic.CheckFixSave","ClassWarehouseDetail.Update"],"tables":["WarehouseMaster","WarehouseDetail","Product","StockHistory","StockMaster","ProductStock","NenovaStockWeekGate","WebInvoiceDocument","WebInvoiceOperation"]},
+  "requiredCommands":["node scripts/test-invoice-receipt-writer-sql.cjs","npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

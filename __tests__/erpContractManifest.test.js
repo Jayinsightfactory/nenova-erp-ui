@@ -1,6 +1,13 @@
 const assert = require('node:assert/strict');
 
 async function main() {
+  await import('./invoiceReceiptValidation.test.js');
+  await import('./invoiceReceiptDocuments.test.js');
+  await import('./invoiceReceiptDocumentsApi.test.js');
+  await import('./importPackingReceiptAdapter.test.js');
+  await import('./invoiceReceiptWorkbench.test.js');
+  await import('./invoiceReceiptCost.test.js');
+  await import('./invoiceReceiptStockReadback.test.js');
   await import('./invoiceWebStorageContract.test.js');
   await import('./invoiceReceiptReconciliation.test.js');
   await import('./invoiceReceiptEligibility.test.js');

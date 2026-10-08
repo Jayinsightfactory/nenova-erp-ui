@@ -859,13 +859,14 @@ function AWBPanel({ xlsxLib, lang = 'ko', onBack, readAwbPdf }) {
 // =============================================================================
 
 const readLocalAwbPdf = async base64 => (await import('../../lib/importAwbPdf')).readAwbPdf(base64);
+const EMPTY_RECEIPT_ITEMS=Object.freeze([]);
 async function requestErpMatches(body) {
   const response=await fetch('/api/import/tools/product-matches',body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{cache:'no-store'});
   const data=await response.json().catch(()=>null);
   if(!response.ok||!data?.success)throw new Error(data?.error||'전산 품목·매칭 자료를 불러오지 못했습니다. 다시 조회하세요.');
   return data;
 }
-export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf }) {
+export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf, onReceiptSourceChange }) {
   const [screen, setScreen] = useState('country');
   const [country, setCountry] = useState(null);
   const [lang, setLang] = useState('ko');
@@ -942,6 +943,31 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf 
     ++readerVersion.current; ++catalogReaderVersion.current;
     ++sharedScopeVersion.current;
   }, []);
+
+  useEffect(() => {
+    if (typeof onReceiptSourceChange !== 'function') return;
+    if (!file || !lastExtraction || !excels.length || !erpMatches) {
+      onReceiptSourceChange({
+        excels: EMPTY_RECEIPT_ITEMS,
+        invoices: EMPTY_RECEIPT_ITEMS,
+        country: '',
+        file: null,
+        products: erpMatches?.products || EMPTY_RECEIPT_ITEMS,
+        reviewConfirmed: false,
+        truncated: false,
+      });
+      return;
+    }
+    onReceiptSourceChange({
+      excels,
+      invoices: lastExtraction.result.invoices,
+      country,
+      file,
+      products: erpMatches.products,
+      reviewConfirmed,
+      truncated: lastExtraction.wasTruncated === true,
+    });
+  }, [country, erpMatches, excels, file, lastExtraction, onReceiptSourceChange, reviewConfirmed]);
 
   const resetResults = () => {
     setMatchTarget(null);setMatchError('');

@@ -7,9 +7,11 @@ import styles from '../../styles/ImportTools.module.css';
 import FeedbackFrame from '../../components/import-tools/FeedbackFrame';
 const loading=()=> <p className={styles.loading} role="status">업무도구를 불러오는 중입니다…</p>;
 const PackingListTool=dynamic(()=>import('../../components/import-tools/PackingListTool'),{ssr:false,loading});
+const InvoiceReceiptWorkbench=dynamic(()=>import('../../components/import-tools/InvoiceReceiptWorkbench'),{ssr:false,loading});
 const PedidosTool=dynamic(()=>import('../../components/import-tools/PedidosTool'),{ssr:false,loading});
 const ChecklistTool=dynamic(()=>import('../../components/import-tools/ChecklistTool'),{ssr:false,loading});
 const HandoffTool=dynamic(()=>import('../../components/import-tools/HandoffTool'),{ssr:false,loading});
+const EMPTY_RECEIPT_SOURCE=Object.freeze({excels:Object.freeze([]),invoices:Object.freeze([]),country:'',file:null,products:Object.freeze([]),reviewConfirmed:false,truncated:false});
 const tabs=[['packing','패킹리스트','송장 · 항공운송장 변환'],['orders','국가별 발주서','엑셀 변환 · 다운로드'],['checklist','일일 업무','요일 업무 · 미결 · 결제'],['flights','항공 일정','추가 · 수정 · 도착/반입'],['vacations','휴가 관리','잔여 일수 · 계정 이력'],['planting','재배 계획','배정 추가 · 수정 · 삭제'],['feedback','불량 피드백','기존 피드백 · 처리 이력'],['handoff','인수인계·특이사항','이슈 · 처리 · 주의 · 체크'],['history','변경 이력','공동 자료 수정 기록']];
 const checklistTabs={checklist:'daily',flights:'flights',vacations:'vacations',planting:'planting'};
 const recordLabels={'packing.catalog':'품목 카탈로그','packing.aliases':'품목 매칭표','checklist.pending':'미결 업무','checklist.flights':'항공 일정','checklist.planting':'재배 계획'};
@@ -38,16 +40,17 @@ function History(){
 }
 export default function ImportTools(){
  const [tab,setTab]=useState('packing'),[saveError,setSaveError]=useState('');
+ const [receiptSource,setReceiptSource]=useState(EMPTY_RECEIPT_SOURCE);
  const [feedbackVisited,setFeedbackVisited]=useState(false);
  const [flightCount,setFlightCount]=useState(null);
  function selectTab(id){setTab(id);if(id==='feedback')setFeedbackVisited(true);}
  const storage=useMemo(()=>createImportTeamStorage(setSaveError),[]);
  return <><Head><title>수입부 업무도구 | Nenova</title></Head><main className={styles.workspace}>
-  <header className={styles.header}><div><span className={styles.eyebrow}>수입 업무</span><h1>수입부 업무도구</h1><p>파일 변환부터 일정 확인까지, 한곳에서 처리하세요.</p></div><div className={styles.headerMeta}><span className={styles.saveBadge}>팀 공동 저장 · 수정자 이력</span><small>주문·분배·재고 자동 등록 없음</small></div></header>
+  <header className={styles.header}><div><span className={styles.eyebrow}>수입 업무</span><h1>수입부 업무도구</h1><p>파일 변환부터 일정 확인까지, 한곳에서 처리하세요.</p></div><div className={styles.headerMeta}><span className={styles.saveBadge}>팀 공동 저장 · 수정자 이력</span><small>입고 등록은 초안·미리보기·명시 확인 후에만 실행</small></div></header>
   <nav aria-label="수입부 업무도구" className={styles.tabs}>{tabs.map(([id,label,description],index)=><button type="button" key={id} onClick={()=>selectTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${checklistTabs[id]?'checklist':id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}{id==='flights'&&flightCount>0&&<span className={styles.flightBadge}>반입 대기 {flightCount}</span>}</strong><small>{description}</small></span></button>)}</nav>
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
-   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool storage={storage}/></div>
+   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool storage={storage} onReceiptSourceChange={setReceiptSource}/><InvoiceReceiptWorkbench {...receiptSource}/></div>
    <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool/></div>
    <div id="import-panel-checklist" hidden={!checklistTabs[tab]}><ChecklistTool activeTab={checklistTabs[tab]} hideNavigation onFlightCountChange={setFlightCount}/></div>
    <div id="import-panel-feedback" hidden={tab!=='feedback'}>

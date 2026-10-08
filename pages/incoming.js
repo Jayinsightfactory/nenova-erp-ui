@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { apiGetExe } from '../lib/exeParity/client.js';
+import { apiGet } from '../lib/useApi.js';
 import { useLang } from '../lib/i18n';
 import * as XLSX from 'xlsx';
 import { parseWarehousePackingWorkbook } from '../lib/warehousePackingImport.js';
@@ -17,6 +18,9 @@ export default function Warehouse() {
   const [masters, setMasters] = useState([]);
   const [selectedKey, setSelectedKey] = useState(null);
   const [details, setDetails] = useState([]);
+  const [invoiceCosts, setInvoiceCosts] = useState(null);
+  const [costError, setCostError] = useState('');
+  const [costLoading, setCostLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [startDate, setStartDate] = useState('');
@@ -86,6 +90,13 @@ export default function Warehouse() {
     const fm = (masters.find(m => m.WarehouseKey === wk) || {}).FarmName;
     if (fm) { const next = [fm, ...recentFarms.filter(f => f !== fm)].slice(0, 6); setRecentFarms(next); try { localStorage.setItem('incoming.recentFarms', JSON.stringify(next)); } catch {} }
     setDetailLoading(true);
+    setInvoiceCosts(null);
+    setCostError('');
+    setCostLoading(true);
+    apiGet('/api/warehouse/invoice-costs', { warehouseKey: wk })
+      .then(d => { if (seq === detailSeq.current) setInvoiceCosts(d.costs || null); })
+      .catch(e => { if (seq === detailSeq.current) setCostError(e.message); })
+      .finally(() => { if (seq === detailSeq.current) setCostLoading(false); });
     apiGetExe(`/api/warehouse/${wk}`)
       .then(d => { if (seq === detailSeq.current) setDetails(d.items||[]); })
       .catch(e => { if (seq === detailSeq.current) { setDetails([]); setErr(e.message); } })
@@ -93,6 +104,13 @@ export default function Warehouse() {
   };
 
   const selected = masters.find(m => m.WarehouseKey === selectedKey);
+  const actualCostByDetail = new Map((invoiceCosts?.currentActual?.lines || []).map(line => [Number(line.wdetailKey), line]));
+  const expectedCostByDetail = new Map((invoiceCosts?.comparisons?.[0]?.lines || []).map(line => [Number(line.wdetailKey), line]));
+  const renderCost = (detail, map, total = false) => {
+    const line = map.get(Number(detail.WdetailKey));
+    const value = line?.[total ? 'totalCostKRW' : 'costPerUnitKRW'];
+    return Number.isFinite(value) ? `${value.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}원${total ? '' : `/${line.unit}`}` : '—';
+  };
 
   const farmOptions = useMemo(() => [...new Set(masters.map(m => m.FarmName).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [masters]);
   const weekOptions = useMemo(() => [...new Set(masters.map(m => m.OrderWeek).filter(Boolean))].sort().reverse(), [masters]);
@@ -269,8 +287,13 @@ export default function Warehouse() {
         </Col>
         <Col flex="0 0 46%" style={{ minWidth: 0 }}>
           <Card size="small" title={<Space><Text strong>입고 상세 목록</Text>{selected && <Tag color="blue">{selected.FarmName} · {selected.InvoiceNo}</Tag>}</Space>} extra={selectedKey && <Input.Search size="small" allowClear placeholder="품목명·주문코드" value={detailSearch} onChange={(e) => setDetailSearch(e.target.value)} style={{ width: 180 }} />}>
+            {selectedKey && <div style={{ marginBottom: 8 }} role="status">
+              {costError ? <Alert type="warning" showIcon message={`도착원가 조회 실패: ${costError}`} /> : costLoading ? <Text>도착원가 조회 중…</Text> : invoiceCosts?.currentActual ?
+                <Space wrap><Tag color="green">실제 입고량 기준 원가</Tag><Text>합계 {fmt(invoiceCosts.currentActual.totalCostKRW)}원</Text><Text type="secondary">확인: {invoiceCosts.currentActual.approvedBy} · 95% 원가는 비교용</Text></Space> :
+                <Space wrap><Tag color={invoiceCosts?.status === 'STALE' ? 'orange' : 'default'}>{invoiceCosts?.status === 'STALE' ? '원장 변경 · 원가 재검토 필요' : '도착원가 미확정'}</Tag><Text type="secondary">미확정값을 0원으로 표시하지 않습니다.</Text></Space>}
+            </div>}
             {!selectedKey ? <Empty description="원장을 선택하세요" /> : (
-              <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: 800, y: 'calc(100vh - 330px)' }}
+              <Table size="small" rowKey={(d, i) => d.WdetailKey ?? i} loading={detailLoading} dataSource={filteredDetails} pagination={false} scroll={{ x: 1450, y: 'calc(100vh - 370px)' }}
                 summary={(rows) => <Table.Summary fixed><Table.Summary.Row><Table.Summary.Cell index={0} colSpan={5}><Text strong>합계</Text></Table.Summary.Cell>{['BoxQuantity', 'BunchQuantity', 'SteamQuantity'].map((k, i) => <Table.Summary.Cell key={k} index={5 + i} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b[k] || 0), 0))}</Text></Table.Summary.Cell>)}<Table.Summary.Cell index={8} /><Table.Summary.Cell index={9} align="right"><Text strong>{fmt(rows.reduce((a, b) => a + (b.총액 || 0), 0))}</Text></Table.Summary.Cell></Table.Summary.Row></Table.Summary>}
                 columns={[
                   { title: '주문코드', dataIndex: '주문코드', width: 90, render: (v) => <Text style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
@@ -290,6 +313,9 @@ export default function Warehouse() {
                   { title: '송이수량', dataIndex: 'SteamQuantity', align: 'right', width: 74, render: fmt },
                   { title: '단가', dataIndex: '단가', align: 'right', width: 70, render: fmt },
                   { title: '출하단가', dataIndex: '총액', align: 'right', width: 80, render: fmt },
+                  { title: '실제 도착원가', key: 'actualCost', align: 'right', width: 140, render: (_, d) => renderCost(d, actualCostByDetail) },
+                  { title: '도착원가 합계', key: 'actualCostTotal', align: 'right', width: 140, render: (_, d) => renderCost(d, actualCostByDetail, true) },
+                  { title: '95% 예상·비교', key: 'expectedCost', align: 'right', width: 140, render: (_, d) => renderCost(d, expectedCostByDetail) },
                 ]} />
             )}
           </Card>
