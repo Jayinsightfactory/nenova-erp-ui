@@ -8,5 +8,6 @@
 - `Product p`와 `ProdKey`로 결합하고 `p.OutUnit`을 표시 단위로 사용한다.
 - 선택한 입고 헤더는 `WarehouseMaster.OrderYear + OrderWeek` 범위다.
 - 웹 붙여넣기 화면은 선택한 `OrderYear + OrderWeek + ProdKey`의 활성 `WarehouseMaster`만 대상으로 `SUM(WarehouseDetail.OutQuantity)`를 표시한다.
+- 입고관리 원장 목록은 동일한 헤더별 집계를 사용하며 웹 표가 읽는 `totalBox`, `totalBunch`, `totalSteam` 필드명으로 반환한다. 입고 상세 품목명은 UI에서 줄바꿈해 전체 이름을 표시하며 ERP 원장은 변경하지 않는다.
 
 이는 조회 전용 보조 표시다. Warehouse/Order/Shipment/Stock/Estimate 원장을 수정하지 않는다.
