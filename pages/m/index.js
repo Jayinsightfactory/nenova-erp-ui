@@ -82,13 +82,18 @@ export default function MobileHome() {
           </section>
         )}
 
-        {isAdminUser(me) && matches('이사 대표 국가별 물량 보고서') && (
+        {isAdminUser(me) && matches('이사 대표 국가별 물량 보고서 차수별 국가 입고 박스') && (
           <section className="mh-section">
             <div className="mh-section-title">📊 경영 보고서</div>
             <div className="mh-list">
               <button className="mh-row mh-row-mobile" onClick={() => router.push('/m/executive-volume')}>
                 <span className="mh-icon">📈</span>
                 <span className="mh-label">국가별 물량 보고서</span>
+                <span className="mh-arrow">›</span>
+              </button>
+              <button className="mh-row mh-row-mobile" onClick={() => router.push('/m/incoming-box')}>
+                <span className="mh-icon">📦</span>
+                <span className="mh-label">차수별 국가 입고 박스</span>
                 <span className="mh-arrow">›</span>
               </button>
             </div>
