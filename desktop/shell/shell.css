@@ -32,3 +32,6 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 @media(max-width:800px){.toolbar{padding:0 5px}.tool-separator{margin:0 2px}.tool-button{padding:0 5px}.location{padding:0 6px}.zoom-value,.move-select,.move-label{display:none}.home-heading{display:block}.search-wrap{width:100%;max-width:420px;margin-top:20px}.home h1{font-size:20px}}
 @media(max-width:580px){.brandbar{padding:0 8px;gap:7px}.brand-divider{display:none}.top-action{padding:0 6px}.toolbar .location,.toolbar .tool-separator{display:none}.toolbar{justify-content:space-between}.home-inner{padding:18px}.menu-groups{grid-template-columns:1fr}}
 .tab-rename{height:25px;min-width:0;width:100%;border:1px solid #71aaf0;border-radius:4px;padding:0 5px;color:#173d6b;background:#fff;font-size:12px}
+
+.app-update-panel { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:0 0 20px; }
+.app-update-panel [role="status"] { color:#486282; font-size:13px; overflow-wrap:anywhere; }

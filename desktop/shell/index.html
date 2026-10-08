@@ -18,7 +18,7 @@
       <span class="brand-divider" aria-hidden="true"></span>
       <span class="workspace-label">데스크톱 업무 공간</span>
       <div class="brand-actions">
-        <button id="syncButton" class="top-action" type="button" title="로그인 계정의 최신 웹 메뉴와 기능 확인">업데이트 확인</button>
+        <button id="syncButton" class="top-action" type="button" title="로그인 계정의 최신 웹 메뉴와 기능 확인">웹 메뉴 갱신</button>
         <span id="windowCount" class="window-count"></span>
         <button id="newWindowButton" class="top-action" type="button" title="새 창 열기">＋ 새 창</button>
       </div>
@@ -72,6 +72,11 @@
         <section id="favoritesSection" class="favorites-section" aria-labelledby="favoritesHeading" hidden>
           <div class="section-heading"><h2 id="favoritesHeading">즐겨찾기</h2><span>자주 쓰는 화면</span></div>
           <div id="favoritesList" class="favorites-list"></div>
+        </section>
+        <section class="app-update-panel" aria-label="앱 업데이트">
+          <button id="appUpdateButton" class="top-action" type="button">앱 업데이트 확인</button>
+          <button id="cancelUpdateButton" class="top-action" type="button" hidden>다운로드 취소</button>
+          <span id="appUpdateStatus" role="status" aria-live="polite"></span>
         </section>
         <section class="all-menus" aria-labelledby="allMenusHeading">
           <div class="section-heading"><h2 id="allMenusHeading">모든 업무</h2><span id="resultCount"></span></div>
