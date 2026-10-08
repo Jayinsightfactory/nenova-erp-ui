@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-08",
+  "reviewScope": {
+    "file": "config/development-erp-expanded.json",
+    "newStories": "initial-first-14-only",
+    "reviewedStoryCount": 14,
+    "reviewedChangeCount": 78,
+    "reviewedEvidenceRefCount": 151,
+    "reviewedUniqueEvidenceHashCount": 151,
+    "method": "각 변경의 커밋 제목·변경 경로·대표 diff를 확인하고 관련 ERP 계약의 쓰기 범위와 비교했다. 운영 DB는 조회하거나 실행하지 않았다."
+  },
+  "findings": [
+    {
+      "severity": "blocking",
+      "storyId": "erp-stock-status-pivot-origin",
+      "changeTitle": "이전 차수 값 이어쓰기",
+      "evidenceHashes": [
+        "19a5bc792a7558be45b8a46dbf76fa23a2f0e158"
+      ],
+      "evidence": "차수별 시작재고와 시작비고를 직접 편집하는 입력란을 추가했고, 잔량 복사 버튼은 마지막 표시 차수의 양수 잔량을 클립보드 텍스트로 복사한다. 다음 차수 시작값에 자동으로 이어 쓰는 처리는 없다.",
+      "correction": "‘표시된 차수의 시작재고·비고를 직접 고치고, 마지막 차수의 양수 잔량을 클립보드로 복사했다’로 수정한다. 다음 시작값 자동 복사라는 problem/result는 삭제한다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-shipment-import-final-state",
+      "changeTitle": "연도 분리와 주문 보존",
+      "evidenceHashes": [
+        "a3227391f44ea47b3955cbd19dd82db1df9d3843",
+        "2cd10b1dd98b687dbb5692b23742c3b02e70457e",
+        "ebed6e90a5d573f864259f0b952086566f457340"
+      ],
+      "evidence": "shipment-diagnostic 계약의 DISTRIBUTE_IMPORT_FINAL_APPLY는 기존 활성 주문 수량을 보존하지만, 활성 주문이 없고 양수 출고 목표가 있으면 양수 주문을 새로 만든다. 0·빈칸·누락일 때만 주문을 보존하고 분배를 0으로 만든다.",
+      "correction": "‘기존 활성 주문 수량은 유지하고, 주문이 없는 양수 출고만 주문을 만든다. 0·빈칸·누락은 주문을 건드리지 않고 분배만 0으로 맞춘다’로 저장 범위를 정확히 쓴다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-shipment-diagnosis-and-repair",
+      "changeTitle": "실제 화면 재확인",
+      "evidenceHashes": [
+        "888ac3ebd2191200be9c65c56e416ec28810251f",
+        "1d41a447ea7d8966205239982d26b032f9a1880a"
+      ],
+      "evidence": "두 커밋은 ViewOrder·ViewShipment 포함 여부와 견적 노출 조건을 DB 진단 결과에 추가했다. 보정 뒤 브라우저의 실제 주문·출고 화면을 다시 열어 확인한 근거는 아니다.",
+      "correction": "‘전산 ViewOrder·ViewShipment 포함 여부를 직접 조회해 화면에서 빠지는 원인을 진단했다’로 낮춘다. story purpose의 ‘보정 뒤 실제 조회 화면에서 다시 확인’도 삭제한다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-stock-target-adjustment",
+      "changeTitle": "조정·재계산·확정 순서",
+      "evidenceHashes": [
+        "484e273f19e12d5a8fd8dfa634538ed3e23bc60b",
+        "477b136c8949fd9e5b82bdb8445f8b97d3a771c9"
+      ],
+      "evidence": "484e273은 기존 확정 사이클에 수정 대상 CountryFlower와 ProdKey를 전달해 범위를 좁힌 변경이다. 477b136은 2026년 31-01 이후를 다시 계산하는 별도 운영 스크립트다. 두 커밋이 하나의 일반 화면 흐름을 새로 만든 것은 아니다.",
+      "correction": "484e273은 ‘수정한 품종·품목만 확정 사이클 범위에 전달’로 좁힌다. 477b136의 운영 재계산은 공개 사용자 기능과 분리하거나 이 변경에서 제외한다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-stock-target-adjustment",
+      "changeTitle": "음수재고 차단과 보정",
+      "evidenceHashes": [
+        "265673dce075233c14fea5acf157812f339ad992"
+      ],
+      "evidence": "일반 API 변경은 확정 전 음수 예상 품목을 찾아 NEGATIVE_STOCK으로 차단한다. 같은 커밋의 보정은 2026년 31-01과 지정된 네 품목에 한정된 운영 스크립트다.",
+      "correction": "사용자 기능은 ‘음수 예상 품목을 보여 주고 확정을 막았다’로 쓴다. 특정 차수·품목 운영 보정을 모든 범위의 일반 보정 기능처럼 설명하지 않는다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-sales-revenue-and-change-history",
+      "changeTitle": "story 전체",
+      "evidenceHashes": [
+        "111bba1769005e8f6f761d2d9c7fa8238bf85788",
+        "a30dcab4dae3eb69e1f6c946a5edfb535a0f6d2d",
+        "634320fd729ab005ea05959dcb8df6ca9659e5ae"
+      ],
+      "evidence": "앞부분은 판매 파일 업로드·업체 매핑·웹 저장 배치이고, 마감 비교는 ShipmentDetail과 Estimate를 읽어 WebSalesSnapshot에 판매등록 확정본을 남기는 별도 기능이다. 저장 원장과 업무 목적이 다르다.",
+      "correction": "‘영업매출 파일 비교·업로드 이력’과 ‘판매등록 확정 뒤 변경 비교’ 두 이야기로 나눈다. 담당자 필터·가로 스크롤처럼 양쪽 기능의 변경을 한 change에 섞지 않는다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-my-customer-order-entry",
+      "changeTitle": "최종 수량과 승인 기록",
+      "evidenceHashes": [
+        "d8b92470f0f55add2f7d63bd294a3c98c6cc0a29",
+        "4e7f72a9d89af9a80b12b24cf502a2d5eeb2b670",
+        "b1d1d1569ac90c026ccf5e36d22bec420a1f3d20"
+      ],
+      "evidence": "승인 전 변경표와 처리 결과는 React 페이지 상태의 실행 로그 모달에 유지된다. 이 근거에는 승인 내용을 영구 감사 원장에 저장하는 처리가 없다.",
+      "correction": "‘현재·최종 수량을 구분하고 승인 전 변경표를 보여 준 뒤 처리 결과를 같은 창에 표시했다’로 수정한다. ‘승인 내용을 남겼다’는 영구 기록으로 오해되므로 삭제한다."
+    },
+    {
+      "severity": "important",
+      "storyId": "erp-hotel-miu-order-intake",
+      "changeTitle": "등록 표시·취소·다시 연결",
+      "evidenceHashes": [
+        "96b64869f261cd3dfa89ea15fda3970a453a8b7a",
+        "e61bedb7c6731d2985ea4260ded735364efcfc83",
+        "2bc8620e812b2ce5cd37b7d805d2429af546ba02"
+      ],
+      "evidence": "취소는 등록 당시 반올림 스냅샷 수량을 주로 차감하지만 현재 주문보다 크면 0으로 제한한다. 같은 품목이 다른 등록 합산에 남아 있으면 원문 증감량을 사용한다.",
+      "correction": "‘정확히 되돌린다’는 단정을 빼고, 등록 당시 수량과 현재 남은 주문을 확인해 차감하며 다른 합산이 남으면 그 범위를 보존한다고 설명한다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-residual-allocation-board",
+      "changeTitle": "잘못 연결된 업체 고치기",
+      "evidenceHashes": [
+        "2cc5b42abc088fcfa4865a76df7c246f04232d42"
+      ],
+      "evidence": "수정 대상은 WebShillaMiuBoardGroup의 BaseCustKey·BaseCustName 설정 링크다. ERP 주문·출고 행을 다른 업체로 옮기지 않는다.",
+      "correction": "‘실적이 없는 업체로 연결된 웹 게시판 그룹 설정을 진단해 올바른 CustKey로 바꿨다. ERP 주문·출고 원장은 유지했다’로 수정한다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-residual-allocation-board",
+      "changeTitle": "전산 원장과 분리",
+      "evidenceHashes": [],
+      "evidence": "초안의 유일한 무근거 변경이다. 직접 근거가 지정되지 않았다.",
+      "correction": "직접 근거로 21975a4de7f0b7bf7eb3a28645bb811b4a386e74를 사용할 수 있다. 이 커밋의 계약과 API는 WebShillaMiuBoardAllocation만 쓰고 ERP 주문·출고·재고·견적을 보존한다. 또는 ‘최종 저장 단계’와 합쳐 862d6a56359f1a1789ae87b1b4cf122fb362f0c4의 웹 전용 FinalQty·History 저장 범위로 설명한다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-residual-allocation-board",
+      "changeTitle": "story purpose/userValue",
+      "evidenceHashes": [
+        "862d6a56359f1a1789ae87b1b4cf122fb362f0c4"
+      ],
+      "evidence": "업체 최종분배는 ERP 출고 분배가 아니라, 업체가 실제 납품·사용한 수량을 웹 전용 FinalQty로 기록하는 개념이다.",
+      "correction": "‘업체에 배분하고 최종 상태를 저장’ 대신 ‘업체별 최종 납품·사용 수량을 웹 게시판에 기록하고 잔량을 계산’이라고 쓰며 ERP 분배 원장을 바꾸지 않는다고 명시한다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-product-matching-learning",
+      "changeTitle": "확인 선택 기록 및 story purpose/userValue",
+      "evidenceHashes": [
+        "6b994298ae35e0e86fd9c34ee58bb1679a2ad3bf",
+        "df4f2ff6d4498c9bec62c20b3640923e5506c1d4"
+      ],
+      "evidence": "확인 이벤트 저장, 품질 지표 계산, alias 승격 가능 여부를 판단하는 순수 함수는 있다. 그러나 이 근거에는 WebProductMatchAlias를 실제 승격하거나 다음 검색 순위에 반영하는 실행 경로가 없다.",
+      "correction": "이야기 제목을 ‘품목 후보 검색과 확인 선택 기록’으로 낮추고, 결과는 ‘확인 기록을 향후 후보 검토·개선 근거로 볼 수 있다’로 쓴다. 다음 검색에서 먼저 보인다는 단정은 삭제한다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-moyi-drive-administration",
+      "changeTitle": "회사 범위 목록과 미리보기",
+      "evidenceHashes": [
+        "4b2a8828e21910b39097279ae73575e4938c9435",
+        "e74082f4b04dada5670010aafa3df1ac994e484b",
+        "f20cda20b43ce820b996a933acc692c83a04c3ca",
+        "cc85721601375257f9e5ba10b2a18d914f966e75"
+      ],
+      "evidence": "지정 근거는 연결 범위의 파일 목록과 기존 파일 연결 미리보기·일회용 확인값을 지원한다. 짧은 수명 이미지 미리보기 URL을 프록시하는 직접 구현은 별도 커밋 d8f0e9c1ceccccc4ec914557f1c54afc7172cab3이다.",
+      "correction": "‘기존 파일 연결 전 대상 건수·표본 확인’과 ‘이미지 미리보기’를 나누고, 이미지 미리보기에 d8f0e9c1ceccccc4ec914557f1c54afc7172cab3을 근거로 지정한다."
+    },
+    {
+      "severity": "blocking",
+      "storyId": "erp-moyi-drive-administration",
+      "changeTitle": "story purpose/userValue",
+      "evidenceHashes": [
+        "1972fe3c9d7a36c2c790a0c3ff1b8e706f09d8df"
+      ],
+      "evidence": "moyi-drive-admin 계약은 회사·루트 범위를 연결 정보로 고정하지만 권한과 사용자 식별 변경은 MOYI Core 계약 대기로 차단한다.",
+      "correction": "‘사용자 범위를 관리’라는 표현을 빼고 ‘연결이 고정한 회사·루트 범위에서 목록과 미리보기를 확인하며 권한 변경은 아직 막는다’로 한정한다."
+    },
+    {
+      "severity": "important",
+      "storyId": "erp-farm-week-board",
+      "changeTitle": "국가·품종 선택 버튼",
+      "evidenceHashes": [
+        "f9fe74c731a9294a10babaacd8a765b2beb829e7"
+      ],
+      "evidence": "이 커밋은 국가 버튼과, 선택한 국가 안의 품종 버튼을 두 줄로 분리했다. 국가와 품종을 한 버튼에 함께 적던 구조를 바꾼 수정이다.",
+      "correction": "‘국가를 먼저 고른 뒤 그 국가의 품종 버튼으로 표를 바꾸게 했다’로 수정한다."
+    }
+  ],
+  "reviewedWithoutBlockingContentMismatch": [
+    "erp-sales-defect-deduction",
+    "erp-sales-paste-order-entry",
+    "erp-chat-business-insight"
+  ],
+  "limitations": [
+    "코드·계약·커밋 diff만 검토했으며 운영 DB 상태와 배포 화면은 확인하지 않았다.",
+    "problem과 result 중 사용자 불편을 서술한 문장은 커밋에서 직접 확인되지 않는 경우가 있어 메인 통합 때 사실 범위로 다시 좁혀야 한다.",
+    "이번 검토는 초기 14개 newStories만 대상으로 했고 이후 추가된 이야기는 포함하지 않았다."
+  ],
+  "integrationStatus": {
+    "catalogVersion": "2026-10-08.3",
+    "catalog": "config/development-purpose-stories.json",
+    "status": "applied",
+    "note": "검토 당시의 오류 기록이다. 지적된 설명은 통합 카탈로그에서 수정·축소·분리했으며 근거 없는 항목은 제거했다. 현재 운영 기능 전체를 재검증했다는 뜻은 아니다."
+  }
+}
