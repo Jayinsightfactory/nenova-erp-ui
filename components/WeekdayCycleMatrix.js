@@ -5,6 +5,7 @@ import { horizontalCycleColumns, weekdayQuantityLabel, weekdayProductLabel } fro
 import { reconcileWeekdayQuote } from '../lib/weekdayQuoteReconciliation.js';
 import { weekdayUnsavedPrintReason } from '../lib/weekdayDistributionClient.js';
 import { applyWeekdayCarryoverToMatrix } from '../lib/weekdayCarryover.js';
+import { applyEarlyShipmentClassification } from '../lib/weekdayEarlyShipmentPresentation.js';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
 import { resolveWeekdayPrintReadiness } from '../lib/weekdayPrintReadiness.js';
 
@@ -124,17 +125,7 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
     finally { lock.current = false; setSaving(false); }
   }
   const changed = day.initialDelta != null && day.initialDelta !== 0;
-  const early=block.pageNote?.earlyShipment?.date===day.date?block.pageNote.earlyShipment:null;
-  const earlySources=early ? row.blocks.flatMap(sourceBlock=>sourceBlock.productActuals || []).filter(source=>
-    Number(source.year)===Number(early.sourceYear) && String(source.orderWeek)===String(early.sourceOrderWeek)) : [];
-  const earlySource=earlySources.length===1 ? earlySources[0] : null;
-  const sourceUnit=earlySource?.outUnit;
-  const earlyNeedsReview=early && (!earlySource || earlySource.customerLinkError
-    || /ERROR|UNKNOWN|NO_SHIPMENT/.test(String(earlySource.state || ''))
-    || !normalizeWeekdayUnit(sourceUnit) || normalizeWeekdayUnit(sourceUnit)!==normalizeWeekdayUnit(early.unit)
-    || earlySource.shipmentOutQuantity==null || !Number.isFinite(Number(earlySource.shipmentOutQuantity))
-    || Number(earlySource.shipmentOutQuantity)<Number(early.quantity));
-  return <div className={`wcm-cell${day.knownEmpty?' wcm-unallocated':''}${day.planned != null ? ' wcm-proposed' : ''}${changed?' wcm-changed':''}${early?' wcm-early':''}${blockedReason?' wcm-readonly':' wcm-editable'}`} onClick={focusQuantity} title={`${day.knownEmpty?'미분배 · ':''}${description}\n최초 ${numberLabel(day.initial)}${early?`\n수동확인 ${early.sourceYear}/${early.sourceOrderWeek}차 선출고 ${early.quantity} ${early.unit}`:''}${blockedReason ? `\n편집 불가: ${blockedReason}` : '\n숫자 클릭: 원본 수량 초안 편집 · 빈칸은 이 날짜 입력 삭제 · 0은 수량 0 초안 · Enter/다른 칸 클릭으로 초안 기록'}`}>
+  return <div className={`wcm-cell${day.knownEmpty?' wcm-unallocated':''}${day.planned != null ? ' wcm-proposed' : ''}${changed?' wcm-changed':''}${blockedReason?' wcm-readonly':' wcm-editable'}`} onClick={focusQuantity} title={`${day.knownEmpty?'미분배 · ':''}${description}\n최초 ${numberLabel(day.initial)}${blockedReason ? `\n편집 불가: ${blockedReason}` : '\n숫자 클릭: 원본 수량 초안 편집 · 빈칸은 이 날짜 입력 삭제 · 0은 수량 0 초안 · Enter/다른 칸 클릭으로 초안 기록'}`}>
     <span className="wcm-number-display" aria-hidden="true"><QuantityLabel>{weekdayQuantityLabel(visibleQuantity,row,day.unit,block.packaging)}</QuantityLabel></span>
     <input ref={inputControl} type="text" inputMode="decimal" value={value} placeholder="—" disabled={disabled || saving || Boolean(reason)}
       aria-label={`${row.name} ${block.cycle.year}/${day.effectiveOrderWeek} ${day.date} 미적용 초안 수량`}
@@ -153,7 +144,6 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
       aria-label={`${row.name} ${day.date} 수량 내역`} onClick={() => onSelect(`${description}\n${reason}`)}>
       {day.delta != null && day.delta !== 0 ? <>Δ{day.delta > 0 ? '+' : ''}<QuantityLabel>{weekdayQuantityLabel(day.delta,row,day.unit,block.packaging)}</QuantityLabel></> : '!'}</button>}</div>
     {failure && <span className="wcm-cell-error wcm-compact-warning" role="alert"><SummaryDetails label={`${row.name} ${day.date} 입력 오류`} description={failure} visibleLabel="!" autoOpen/></span>}
-    {early && <button type="button" className="wcm-early-label" aria-label={`${row.name} ${day.date} 선출고 비고`} title={`${early.sourceYear}/${early.sourceOrderWeek}차 선출고 ${weekdayQuantityLabel(early.quantity,row,early.unit,block.packaging)}${earlyNeedsReview?' · 재확인':''}`} onClick={()=>onOpenNote?.({row,block})}>선출고 ↗{earlyNeedsReview?' !':''}</button>}
   </div>;
 }
 
@@ -300,7 +290,7 @@ function carryoverInputAlerts(matrix) {
 
 export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparisonRows = [], onMove, busy = false, onExportWorkbook, exportReady = false,
   onEditCell, onClearCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
-  onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], quoteResults = [],
+  onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], earlyRecords = [], quoteResults = [],
   carryover = null, carryoverPlans = plans, onOpenCarryover, carryoverBusy = false, carryoverError = '', editDisabledReason = '',
   confirmationStates = [], confirmationBusy = false, confirmationError = '',
   wilsonRecords = [], wilsonDrafts = [], wilsonError = '', wilsonBusy = false, onEditWilson, onRetryQuote, onWilsonDayChange }) {
@@ -351,8 +341,11 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const disabled = busy || moving;
   const matrix = useMemo(() => {
     const built = buildHorizontalWeekdayMatrix(safeCycles, safePlans, safeComparisons, baselines, baselineCandidates, carryover?.context?.inputs || []);
-    return applyWeekdayCarryoverToMatrix(built, carryover?.context, carryover?.records || [], carryoverPlans);
-  }, [cycles, plans, comparisonRows, baselines, baselineCandidates, carryover, carryoverPlans]);
+    const classified=applyEarlyShipmentClassification(built, earlyRecords,
+      customer?.CustKey ?? customer?.custKey ?? custKey);
+    return classified.earlyClassificationError ? classified
+      : applyWeekdayCarryoverToMatrix(classified, carryover?.context, carryover?.records || [], carryoverPlans);
+  }, [cycles, plans, comparisonRows, baselines, baselineCandidates, carryover, carryoverPlans, earlyRecords, customer?.CustKey, customer?.custKey, custKey]);
   const [carryAlert,setCarryAlert]=useState('');
   const lastCarryAlert=useRef(null);
   const inputRevision=JSON.stringify(safePlans);
@@ -580,6 +573,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       <span className="wcm-muted">일반 + 윌슨 = 실제 견적 합계</span><button type="button" disabled={disabled || exportBusy || !exportReady || typeof onExportWorkbook!=='function'} onClick={exportWorkbook}>{exportBusy?'엑셀 준비 중…':'발주내역 엑셀'}</button>
       <label className="wcm-unallocated-toggle"><input type="checkbox" checked={showUnallocated} onChange={event=>setShowUnallocated(event.target.checked)} aria-label="미분배 품목 표시"/>미분배 품목 표시</label></div>
     {wilsonError && <p className="wcm-error" role="alert">윌슨 분류: {wilsonError}</p>}
+    {matrix.earlyClassificationError && <p className="wcm-error" role="alert">선출고 연결 분류 확인 필요: {matrix.earlyClassificationError} · 잔량을 미확인으로 표시합니다.</p>}
     <details className="wcm-filter-disclosure"><summary>품목 검색·필터 펼치기 {search || flower ? '· 필터 적용 중' : ''}</summary><div className="wcm-toolbar">
       <button type="button" disabled={disabled || adding || !hasCustomer || typeof onAddProduct !== 'function'} onClick={openAdd}>품목 추가</button>
       <label className="wcm-search">품목 검색<input type="search" value={search}
@@ -664,7 +658,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       aria-label="이전·현재·다음 차수 통합 요일표, 가로 스크롤로 연결 차수 보기">
       <table style={{width:170+matrix.cycles.reduce((sum,cycle)=>sum+displayCycleColumns(cycle,wilsonDay).reduce((width,column)=>
         width+(column.kind==='remainingMajor'?3*44:column.kind==='remaining01'?48:46),0),0)}}>
-        <caption>목→수 · 기준 대비 분배 잔량(ERP 재고 아님) · 미확정/초안 예상은 별도 표시 · 변경값 아래 (최초값) · 노랑=변경 · 보라=선출고 · 파랑=미적용 초안 · 품목 행 마우스 강조 · 가로 스크롤로 차수 연결.
+        <caption>목→수 · 기준 대비 분배 잔량(ERP 재고 아님) · 처리된 선출고 분류량은 큰 차수 잔량에만 반영 · 미확정/초안 예상은 별도 표시 · 변경값 아래 (최초값) · 노랑=변경 · 파랑=미적용 초안 · 품목 행 마우스 강조 · 가로 스크롤로 차수 연결.
           출력은 ERP 저장된 확정 견적만 포함하며 화면 초안은 제외합니다. 기준 화면 1920×1080 / 100%.</caption>
         <colgroup><col className="wcm-product-col" />{matrix.cycles.flatMap(cycle=>displayCycleColumns(cycle,wilsonDay)).flatMap((column, index) => Array.from({length:column.kind==='remainingMajor'?3:1},(_,part) => <col key={`${index}|${part}`} className={column.kind==='remainingMajor'?'wcm-summary-col':column.kind.startsWith('initial')?'wcm-baseline-col':column.kind==='remaining01'?'wcm-remainder-col':'wcm-day-col'} />))}</colgroup>
         <thead>
@@ -844,7 +838,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     <style dangerouslySetInnerHTML={{__html:`
       .weekday-cycle-matrix { width:100%; min-width:0; box-sizing:border-box; color:#0f172a; font-size:14px; line-height:1.4; }
       .weekday-cycle-matrix :is(td,th).wcm-provisional:not(.wcm-draft) { background:#fff7da; color:#334155; }
-      .weekday-cycle-matrix .wcm-unallocated:not(.wcm-proposed):not(.wcm-changed):not(.wcm-early) { background:#edf2f7; }
+      .weekday-cycle-matrix .wcm-unallocated:not(.wcm-proposed):not(.wcm-changed) { background:#edf2f7; }
       .weekday-cycle-matrix * { box-sizing:border-box; }
       .weekday-cycle-matrix p { margin:6px 0; }
       .weekday-cycle-matrix .wcm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:7px 0; }
@@ -924,9 +918,6 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-editable { cursor:text; }
       .weekday-cycle-matrix .wcm-readonly { cursor:help; }
       .weekday-cycle-matrix .wcm-changed { background:#fff0b3; }
-      .weekday-cycle-matrix .wcm-early { background:#eadbfa; }
-      .weekday-cycle-matrix .wcm-early-label { position:relative; z-index:2; font-size:10px; line-height:14px; padding:1px; border:0; background:#eadbfa; color:#652397; max-width:100%; white-space:nowrap; }
-      .weekday-cycle-matrix .wcm-early-label .wcm-quantity-label { font-size:14px; color:#122033; }
       .weekday-cycle-matrix .wcm-quote { font-size:12px; padding:1px 3px; line-height:16px; }
       .weekday-cycle-matrix .wcm-major-total { min-width:0; padding:1px; line-height:18px; font-size:14px; }
       .weekday-cycle-matrix .wcm-major-total .wcm-remainder-value { font-size:14px; font-weight:700; line-height:1.2; color:#122033; text-align:center; }
@@ -996,7 +987,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix tbody td .wcm-change-note { font-size:14px; font-weight:700; line-height:1.2; white-space:normal; overflow-wrap:anywhere; }
       .weekday-cycle-matrix tbody td .wcm-cell input { font-size:14px; font-weight:700; line-height:1.2; text-align:center; }
       .weekday-cycle-matrix .wcm-confirmation-disclosure summary, .weekday-cycle-matrix .wcm-filter-disclosure summary { cursor:pointer; font-size:12px; padding:3px; }
-      .weekday-cycle-matrix .wcm-table-scroll { max-height:calc(100dvh - 190px); overflow-y:auto; }
+      .weekday-cycle-matrix .wcm-table-scroll { overflow-y:visible; }
       .weekday-cycle-matrix .wcm-wilson-head, .weekday-cycle-matrix .wcm-wilson-column { background:#f2ecff; }
       .weekday-cycle-matrix .wcm-wilson-cell { display:flex; flex-direction:column; gap:2px; align-items:center; }
       .weekday-cycle-matrix .wcm-wilson-cell input { text-align:center; font-size:14px; font-weight:700; padding:2px; }
