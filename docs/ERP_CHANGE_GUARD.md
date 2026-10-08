@@ -765,3 +765,26 @@ EXE 자체가 이 전역 조건을 검사한다는 뜻이 아니다. 공용 전�
 상세 순서로 한 번만 읽는다. 저장이 끝난 시점의 현재 업체가 저장 시작 시점과 다르면
 이전 업체를 다시 선택하지 않는다. 같은 업체/차수라도 이전 요청이 새 상세/오류/로딩
 상태를 덮지 않는지 `estimateRefreshFlow.test.js`와 `estimateSelectionState.test.js`로 검사한다.
+
+## 2026-10-08 자동 중국물량표 CountryFlower 입고 누락
+
+**증상:** 2026년 41-01에 중국 입고가 확인되는데 자동 중국물량표의 입고수량이 0으로
+표시된다. 수량 조회가 사용하는 `ViewWarehouse`에는 국가 식별용 `CounName`과
+`CountryFlower`가 함께 노출된다. 일부 Product는 `CounName`만으로는 중국으로 판정할 수
+없고 `CountryFlower`에 중국/China가 기록된다.
+
+**원인:** 입고 차수 조회, Product 후보, 피벗 응답, 화면 행 필터가 서로 다른 중국 판정
+조건을 사용했다. 특히 일부 경로가 `CounName`만 확인해 `CountryFlower` 전용 중국 품목의
+양수 입고를 차수/표시 목록에서 놓칠 수 있었다.
+
+| 동작 | OrderMaster/OrderDetail | WarehouseMaster/WarehouseDetail | Shipment*/Stock*/Estimate/WebProfitReport |
+|---|---|---|---|
+| 자동 중국물량표 조회 및 후보 표시 | 보존 | 읽기 전용 | 보존 |
+
+**수정/회귀:** 국가 차수 후보, 수동 매칭 후보, 피벗 응답과 보드 합계/행 필터에
+`CounName OR CountryFlower`의 동일한 중국 식별 규칙을 적용한다. `__tests__/pivotAvailableWeeks.test.js`,
+`__tests__/pivotStats.test.js`, `__tests__/chinaVolumeBoard.test.js`,
+`__tests__/chinaVolumeBoardUi.test.js`에서 CountryFlower-only 중국 및 타국 제외를 검사한다.
+운영 DB 쓰기와 데이터 보정은 하지 않는다. 본 환경에서 운영 DB 인증 정보가 없어
+직접 SQL read-only probe는 수행하지 못했으며, 실제 41-01 화면의 수량 재확인은 배포 후
+인증 브라우저에서 해야 한다.
