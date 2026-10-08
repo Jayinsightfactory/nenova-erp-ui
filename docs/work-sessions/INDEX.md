@@ -1,5 +1,14 @@
 # 세션 Q&A 인덱스
 
+- [2026-10-08 인보이스 입고·도착원가 연결](2026-10-08_invoice-receipt-connected.md) — 실제 writer/초안/UI/원가/입고관리 연결, native 격리 SQL 동시성·재시도·롤백 검증. 최종 배포 결과는 세션 기록 참조.
+
+- [2026-10-08 인보이스 입고 안전검사](2026-10-08_invoice-receipt-eligibility.md) — dnSpy CheckData 누락 조건 정정, 전후차수 공통 SELECT/API와 격리 SQL 검증. 실제 입고 writer/원가/UI는 미연결·미배포.
+
+- [2026-10-08 인보이스 웹 전용 저장 V1](2026-10-08_invoice-web-storage.md) — 6개 빈 테이블 운영 적용/readback 완료. 격리 SQL 저장·롤백·드리프트 검증, 기존 SP/임시입고 보존. 실제 입고 API 연결과 웹 배포는 별도.
+
+- [2026-10-08 인보이스 통합 입고 실DB 조회](2026-10-08_invoice-receipt-live-sql.md) — 로그인 SSMS SELECT로 SP/스키마 검증. 입고번호 발급 누락·공용 임시입고 소비 위험 확인. 운영 데이터/잠금 변경 없음, 신규 저장 DDL·격리검증 필요.
+
+- [2026-10-07 인보이스·입고·도착원가 전체 PRD](2026-10-07_invoice-receipt-cost-prd.md) — 실제량 원가 기본/95% 비교, 순수 대조11개 테스트·전체계약·빌드 통과. 초안 PR960, 운영 저장은 SQL 검증 대기.
 - [2026-10-08 MindMap 최초 개발부터 전체 개발 이력](2026-10-08_full-development-history.md) — MindMap·Orbit, 카카오 수집 도구, ERP 전체 커밋과 안전한 업무 요약 제목을 출처별 연결.
 
 - [2026-10-08 주광 대차수 선출고·업로드 통합](2026-10-08_weekday-early-shipment-integration.md) — 원천/대상 재고 조정쌍, 절대 날짜 분배, 업로드 선출고 제외 및 기존 분배 비교.

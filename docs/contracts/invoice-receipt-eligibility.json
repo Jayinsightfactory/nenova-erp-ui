@@ -1,0 +1,11 @@
+{
+  "id": "invoice-receipt-eligibility",
+  "title": "인보이스 입고 확정 상태 사전검사 — SELECT 전용, 실제 등록 미연결",
+  "scope": ["lib/invoiceReceiptEligibility.js", "pages/api/import/receipts/eligibility.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name": "CHECK_INVOICE_RECEIPT_ELIGIBILITY", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseMaster": "preserve", "warehouseDetail": "preserve", "stock": "preserve", "notes": "선택 품목의 활성 Product.CountryFlower를 서버에서 조회하고 CommonLogic.CheckFixSave 현재/직전/직후 ViewShipment.DetailFix 조건을 검사. SQL 에러는 차단. 웹 테이블/채번/게이트/공용 임시입고 쓰기 없음. commitAvailable=false."}],
+  "crossYearFixture": {"required": true, "description": "2025/2026 동일차수 격리 및 실제 StockMaster 연도경계 직전·직후를 검사. 차수 +/-1 계산 금지."},
+  "requiredTestFiles": ["__tests__/invoiceReceiptEligibility.test.js", "__tests__/invoiceReceiptEligibilityApi.test.js", "scripts/test-invoice-receipt-eligibility-sql.cjs"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormWarehouseUpload.md", "source": "2026-10-08 실제 CommonLogic dnSpy CLI 및 ExcelLoadingPackingList decompile. live-evidence JSON의 실제 SP/스키마. eligibility 계획 문서의 기준 ledger 참조.", "methods": ["CommonLogic.CheckFixSave", "CommonLogic.GetProductListFixStatus", "CommonLogic.GetBeforeOrderYearWeek", "CommonLogic.GetNextOrderYearWeek"], "tables": ["Product", "StockMaster", "ViewShipment"]},
+  "requiredCommands": ["node --test __tests__/invoiceReceiptEligibility.test.js __tests__/invoiceReceiptEligibilityApi.test.js", "node scripts/test-invoice-receipt-eligibility-sql.cjs", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}

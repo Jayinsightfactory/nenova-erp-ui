@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { sqlWarehouseViewGetData } from '../lib/exeWarehouseViewSql.js';
+import { sqlWarehouseViewGetData, sqlWarehouseViewGetDetail } from '../lib/exeWarehouseViewSql.js';
 
 const sql = sqlWarehouseViewGetData();
 assert.match(sql, /SUM\(wd\.BoxQuantity\) AS BoxQuantity/);
@@ -11,8 +11,18 @@ assert.match(sql, /wd\.BunchQuantity AS totalBunch/);
 assert.match(sql, /wd\.SteamQuantity AS totalSteam/);
 assert.match(sql, /GROUP BY WarehouseKey/);
 assert.match(sql, /wm\.isDeleted = 0/);
+for (const field of ['GrossWeight','ChargeableWeight','FreightRateUSD','DocFeeUSD']) assert.ok(sql.includes(`wm.${field}`));
+const detailSql = sqlWarehouseViewGetDetail();
+assert.match(detailSql, /wd\.UPrice AS 단가/);
+assert.match(detailSql, /wd\.TPrice AS 총액/);
+assert.match(detailSql, /wd\.SteamOf1Bunch AS 단송이/);
 
 const page = fs.readFileSync(new URL('../pages/incoming.js', import.meta.url), 'utf8');
+assert.match(page, /\/api\/warehouse\/invoice-costs/);
+assert.match(page, /Number\(line\.wdetailKey\)/);
+assert.match(page, /seq === detailSeq\.current/);
+assert.match(page, /invoiceCosts\?\.status === 'STALE'/);
+assert.match(page, /미확정값을 0원으로 표시하지 않습니다/);
 const productNameStart = page.indexOf("{ title: '품목명(색상)'");
 const productNameEnd = page.indexOf("{ title: '단위'", productNameStart);
 const productNameColumn = productNameStart >= 0 && productNameEnd > productNameStart

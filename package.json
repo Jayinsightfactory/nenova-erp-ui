@@ -3,6 +3,7 @@
   "version": "1.0.2",
   "private": true,
   "scripts": {
+    "test:invoice-receipt": "node --test __tests__/invoiceReceiptReconciliation.test.js",
     "prebuild": "node scripts/generate-menu-development-history.cjs && node scripts/generate-full-development-history.cjs && npm run test:full-development-history",
     "test:menu-development-history": "node --test __tests__/menuDevelopmentHistory.test.js",
     "test:full-development-history": "node --test __tests__/fullDevelopmentHistory.test.js",
