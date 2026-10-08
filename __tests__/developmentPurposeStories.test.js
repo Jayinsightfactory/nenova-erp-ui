@@ -11,6 +11,89 @@ const catalog = stories => ({ schemaVersion: 1, catalogVersion: '2026-10-08.1', 
 const record = (n, subject = '물량표 작업', paths = ['pages/volume.js']) => ({ hash: hash(n), date: '2025-12-31T15:30:00Z', committedAt: '2025-12-31T15:30:00Z', subject, parents: n === 1 ? [] : [hash(n - 1)], paths });
 const snap = current => buildSnapshot({ current, generatedAt: '2026-10-08T00:00:00Z' });
 
+test('review explanations are validated and appear only on pending evidence', () => {
+  const snapshot = snap([record(1), record(2)]);
+  const authored = catalog([story('known', {}, [{ title: '확인된 작업', description: '실제 변경을 확인했다.', evidenceHashes: [hash(1)] }])]);
+  authored.reviewNotes = snapshot.records.map(item => ({ canonicalId: recordKey(item), reason: '변경 내용을 더 확인해야 합니다.' }));
+  const index = buildPurposeIndex(snapshot, authored);
+  assert.equal(index.assignments[recordKey(snapshot.records[0])].reviewReason, undefined);
+  assert.equal(index.assignments[recordKey(snapshot.records[1])].reviewReason, authored.reviewNotes[1].reason);
+  assert.throws(() => buildPurposeIndex(snapshot, { ...authored, reviewNotes: [...authored.reviewNotes, authored.reviewNotes[0]] }), /Invalid development review note/);
+  assert.throws(() => buildPurposeIndex(snapshot, { ...authored, reviewNotes: [{ canonicalId: 'unknown', reason: '근거 없음' }] }), /Invalid development review note/);
+  assert.throws(() => buildPurposeIndex(snapshot, { ...authored, reviewNotes: [{ canonicalId: recordKey(snapshot.records[1]), reason: [] }] }), /Invalid development review note/);
+  const withNote = buildSnapshot({ current: [record(1)], currentSummaries: [{ id: 'shifting-index', date: '2026-10-08T00:00:00Z', title: '작업 메모', path: 'docs/work-sessions' }] });
+  assert.throws(() => buildPurposeIndex(withNote, { ...authored, reviewNotes: [{ canonicalId: recordKey(withNote.summaries[0]), reason: '확인 필요' }] }), /Invalid development review note/);
+  const safe = buildPurposeIndex(snapshot, { ...authored, reviewNotes: [{ canonicalId: recordKey(snapshot.records[1]), reason: 'private.person@example.com API_KEY=abcdefghijklmnop 확인 필요' }] });
+  const pending = queryPurposeStories(safe, { mode: 'records', storyId: 'review-pending' });
+  assert.equal(JSON.stringify(pending).includes('private.person@example.com'), false);
+  assert.equal(JSON.stringify(pending).includes('abcdefghijklmnop'), false);
+  assert.equal(JSON.stringify(queryPurposeStories(safe, { mode: 'overview' })).includes('확인 필요'), false);
+});
+
+test('reviewed summaries require unique exact source/date/title and survive unstable list ids', () => {
+  const make = (id, titleKnown = true) => buildSnapshot({ current: [], currentSummaries: [{ id, date: '2026-10-08T12:00:00+09:00', title: '원문 검토한 메모', titleKnown, path: 'docs/work-sessions' }] });
+  const evidence = { sourceId: 'erp', date: '2026-10-08T03:00:00.000Z', title: '원문 검토한 메모' };
+  const authored = catalog([story('reviewed-note', {}, [{ title: '메모에 남은 개선', description: '원문에서 확인한 변경을 요약한다.', evidenceSummaries: [evidence] }])]);
+  for (const id of ['old-index', 'shifted-index']) {
+    const index = buildPurposeIndex(make(id), authored);
+    assert.equal(index.coverage.assignedRecords, 1);
+    assert.equal(index.stories[0].changes[0].firstDate, '2026-10-08');
+    assert.deepEqual(index.stories[0].changes[0].evidenceKinds, ['summary']);
+    const safe = JSON.stringify(queryPurposeStories(index, { mode: 'overview' }));
+    assert.equal(safe.includes('evidenceSummaries'), false);
+    assert.equal(safe.includes('summaryEvidence'), false);
+  }
+  assert.throws(() => buildPurposeIndex(make('x', false), authored), /Summary evidence missing/);
+  const duplicate = make('one'); duplicate.summaries.push({ ...duplicate.summaries[0], id: 'two' });
+  assert.throws(() => buildPurposeIndex(duplicate, authored), /Summary evidence missing or ambiguous/);
+  const other = { ...story('conflicting-note'), summaryEvidence: [evidence] };
+  assert.throws(() => buildPurposeIndex(make('one'), catalog([...authored.stories, other])), /summary evidence conflict/);
+  const wrong = structuredClone(authored); wrong.stories[0].changes[0].evidenceSummaries[0].title = '다른 메모';
+  assert.throws(() => buildPurposeIndex(make('one'), wrong), /Summary evidence missing/);
+});
+
+test('stories on the same day begin with the actual earliest work, not alphabetic ids', () => {
+  const initial = { ...record(1), committedAt: '2026-02-27T00:54:31Z' };
+  const later = { ...record(2), committedAt: '2026-02-27T05:10:00Z' };
+  const authored = catalog([
+    story('a-later', {}, [{ title: '후속 개선', description: '나중에 개선했다.', evidenceHashes: [hash(2)] }]),
+    story('z-origin', {}, [{ title: '최초 개발', description: '처음 만들었다.', evidenceHashes: [hash(1)] }]),
+  ]);
+  assert.deepEqual(buildPurposeIndex(snap([later, initial]), authored).stories.map(item => item.id), ['z-origin', 'a-later']);
+});
+
+test('mixed timezone commit and summary evidence follows the real instant', () => {
+  const snapshot = buildSnapshot({ current: [{ ...record(1), committedAt: '2026-10-08T12:00:00+09:00' }], currentSummaries: [{ id: 'note', date: '2026-10-08T02:30:00Z', title: '검토한 작업 메모', titleKnown: true, path: 'docs/work-sessions' }] });
+  const note = { sourceId: 'erp', date: snapshot.summaries[0].date, title: snapshot.summaries[0].title };
+  const authored = catalog([
+    story('a-commit', {}, [{ title: '나중 기록', description: '이후 작업이다.', evidenceHashes: [hash(1)] }]),
+    story('z-note', {}, [{ title: '먼저 기록', description: '앞선 작업이다.', evidenceSummaries: [note] }]),
+  ]);
+  assert.deepEqual(buildPurposeIndex(snapshot, authored).stories.map(item => item.id), ['z-note', 'a-commit']);
+});
+
+test('authored problem and outcome remain safe searchable narrative, not inferred from titles', () => {
+  const change = { title: '검색 대기 줄이기', description: '검색 작업을 화면 표시와 나누었다.', problem: '품목을 찾는 동안 입력이 멈췄다.', result: '품목을 찾으면서 입력을 이어갈 수 있다.', evidenceHashes: [hash(1)] };
+  const index = buildPurposeIndex(snap([record(1)]), catalog([story('responsive-search', {}, [change])]));
+  const result = queryPurposeStories(index, { mode: 'overview' });
+  assert.equal(result.stories[0].changes[0].problem, change.problem);
+  assert.equal(result.stories[0].changes[0].result, change.result);
+  const legacy = buildPurposeIndex(snap([record(1)]), catalog([story('legacy', { subjectTerms: ['물량표'] })]));
+  assert.equal(Object.hasOwn(legacy.stories[0].changes[0], 'problem'), false);
+  assert.throws(() => buildPurposeIndex(snap([record(1)]), catalog([story('invalid', {}, [{ ...change, problem: {} }])])), /Invalid story/);
+  assert.throws(() => buildPurposeIndex(snap([record(1)]), catalog([story('invalid-result', {}, [{ ...change, result: [] }])])), /Invalid story/);
+  const privateChange = { ...change, problem: '연결 문의 private.person@example.com', result: 'API_KEY=abcdefghijklmnop 연결값은 공개하지 않는다.' };
+  const safeIndex = buildPurposeIndex(snap([record(1)]), catalog([story('private-fields', {}, [privateChange])]));
+  const publicText = JSON.stringify(queryPurposeStories(safeIndex, { mode: 'overview' }));
+  assert.equal(publicText.includes('private.person@example.com'), false);
+  assert.equal(publicText.includes('abcdefghijklmnop'), false);
+  const ui = fs.readFileSync(path.join(__dirname, '../components/dev/DevelopmentPurposeStories.js'), 'utf8');
+  assert.match(ui, /change\.problem \|\| ''/);
+  assert.match(ui, /change\.result \|\| ''/);
+  assert.match(ui, /해결하려던 문제/);
+  assert.match(ui, /만든 것·바꾼 것/);
+});
+
 test('all story and review pages reconcile the entire tracked snapshot without duplication', () => {
   const snapshot = require('../data/generated/full-development-history.json');
   const authored = require('../config/development-purpose-stories.json');

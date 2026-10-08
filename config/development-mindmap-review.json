@@ -1,0 +1,608 @@
+{
+  "schemaVersion": 1,
+  "reviewedDraft": "config/development-mindmap-expanded.json",
+  "reviewedStoryScope": "first-12-stories",
+  "reviewedStoryCount": 12,
+  "reviewMethod": "Each proposed commit was checked against its Git patch and changed paths in the local mindmap-viewer source. Commit-subject keyword matches alone were rejected.",
+  "integrationRule": "Replace the draft change evidence with only the proposed hashes below. If action is remove-or-unknown, do not publish the change as a completed feature until direct evidence is found.",
+  "globalFindings": [
+    "The draft exact-hash lists are not reliable direct evidence. Several changes contain dozens of commits for unrelated pages, installers, daemon fixes, or UI labels.",
+    "A change should normally keep one to three commits whose patches directly add or fix the described API, screen, gate, worker, or setting.",
+    "Commit 3893c37350d3bb11a823b38f6d1d6e5ab6773843 has a public subject containing employee names. The current sanitizer does not redact Korean names, so that record must not be exposed as a user-facing evidence title without extra redaction.",
+    "Descriptions below intentionally distinguish implemented code from current deployment or operating performance. They do not claim that the feature is still deployed or successful today."
+  ],
+  "reviews": [
+    {
+      "storyId": "mindmap-identity-privacy-boundaries",
+      "changes": [
+        {
+          "changeTitle": "설치 동의와 수집 범위 고지",
+          "action": "replace-evidence-and-tighten-description",
+          "proposedEvidenceHashes": [
+            "900c7a0330d476b66303c923955adf7cc5697de9",
+            "ef4a6a1a62862e04a406d324dceb1cb179604299"
+          ],
+          "revisedDescription": "설치 전에 수집 항목과 이용 목적을 안내하고, 거부하면 설치를 멈추며 동의 여부와 시각을 등록 요청에 담겼다. 동의 전 정책이 꺼져 있는지도 회귀 검사했다.",
+          "verification": "The install patch adds the consent prompt, refusal exit, consent and consentAt fields; the test patch fixes the pre-consent policy to OFF.",
+          "removeFromDraft": [
+            "b3c2ee7be55b3f762fdda35cb8ecefabaafbcc10"
+          ],
+          "note": "The removed commit auto-approves onboarding and consent modals, so it contradicts a user choice claim. The remaining documentation and shell commits are not needed as direct evidence."
+        },
+        {
+          "changeTitle": "개인 대화와 개인 웹 송신 전 차단",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "05bae19f28d881204ee0b775cc4a355cacdd0a08",
+            "bb75473c3cf022afcfc2a1066e39ad131b19ed33"
+          ],
+          "revisedDescription": "수집기 앞에서 개인 웹과 비업무 메신저를 거르고, 동의한 경우에도 원문 대신 로컬에서 뽑은 업무 항목만 보내며 개인 용무 중에는 수집을 멈추게 했다. 업무방 판정은 정규화한 이름의 완전일치로 좁혔다.",
+          "verification": "The privacy patch adds the gate, local extractor, pause file and pause UI/API; the follow-up patch changes room matching from substring to normalized exact match."
+        },
+        {
+          "changeTitle": "수집 내역과 관리자 열람 흔적 공개",
+          "action": "replace-evidence-and-tighten-description",
+          "proposedEvidenceHashes": [
+            "05bae19f28d881204ee0b775cc4a355cacdd0a08",
+            "7c8425dcc5e6ccc33206ab2a4bee94c751146f0f",
+            "89f4a65cdc67645daec4f0858cbec0411e811b55"
+          ],
+          "revisedDescription": "본인 화면에서 수집·차단·개인 용무 기록과 관리자 열람 이력을 보게 하고, 업무 기록과 민감 조회 API에는 본인 또는 관리자 인증과 열람 기록을 붙였다.",
+          "verification": "The patches add the privacy-me response and access-audit table/middleware, an authenticated work-record API, and administrator-or-owner checks on sensitive log/message APIs."
+        },
+        {
+          "changeTitle": "오분류와 노출 회귀 보완",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "bb75473c3cf022afcfc2a1066e39ad131b19ed33",
+            "c6e582f69b67ddd9553cf0c1cfa37bf5090ffb1f"
+          ],
+          "revisedDescription": "업무방 이름은 정규화한 뒤 완전일치로 판정하고, 캡처 썸네일 목록과 이미지에는 관리자 토큰 검사를 붙여 캐시를 private으로 바꿨다.",
+          "verification": "The first patch changes room matching; the second adds thumbnail token propagation, an admin check on both thumbnail endpoints, and private Cache-Control.",
+          "removeFromDraft": [
+            "15616bbb30cdc385baea3d771d32fa5450bc08d4"
+          ],
+          "note": "The removed commit only changes defect-complaint exclusion matching and has no privacy-room or thumbnail code."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-work-drive-egress-audit",
+      "changes": [
+        {
+          "changeTitle": "업무 파일 자동 업로드",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "9c385f031e4c5e10b2499aee99b2422070019f56",
+            "a2289c37fb7f40851a38766c779923eb28eb0148"
+          ],
+          "revisedDescription": "확장자·크기·업무 신호·개인 키워드 검사를 거친 파일만 업무 드라이브로 올리는 업로더와 기존 파일 재처리 명령을 만들었다.",
+          "verification": "The patches add the work-file uploader, server ingest/config route and a drive-backfill command."
+        },
+        {
+          "changeTitle": "대용량·새 형식과 재처리 보완",
+          "action": "replace-all-draft-evidence",
+          "proposedEvidenceHashes": [
+            "21c1150d0f520fa9b1d22797859e85ca7799493b",
+            "f02e3ed9b4432b5499da06538734b0d24bfb12a6",
+            "3b5dacd2eb787ea8e5a402a47b305fc2b070a0e4"
+          ],
+          "revisedDescription": "업무용 ZIP·HTML을 허용하고, 잠긴 파일과 네트워크 실패를 재시도하며 PC별 한 번의 백필과 업로드 상태 통계를 보강했다.",
+          "verification": "The patches change the allowed formats and tests, add retry/backfill state, and publish enabled/uploaded/skipped/error/backfill/retryQueue status in daemon health.",
+          "note": "The draft's 46-hash list mostly consists of unrelated dashboards, landing pages, graph views and navigation work. No direct patch was found for the broad server body-limit claim, so that clause should be omitted."
+        },
+        {
+          "changeTitle": "반출 이력 원장",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "1c5f364e998fcef68310184dba0ce2e7eeee2b76",
+            "02c6c6ef95452043da6197e74b18772f96aa7106"
+          ],
+          "revisedDescription": "USB·클라우드 폴더 복사, 인쇄, 실행 중인 Outlook 첨부와 웹·메신저 업로드를 반출 이력으로 기록하고 대상 장치·프린터·참조 정보를 보강했다.",
+          "verification": "The monitor patch adds the event sources and drive-egress submission; the detail patch adds destination metadata and distinguishes received messenger files."
+        },
+        {
+          "changeTitle": "원본 찾기와 스냅샷",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "f61ac8be216bfb8b00307b7b5c579ee8600a8e28"
+          ],
+          "revisedDescription": "열려 있는 Office 문서와 업무 폴더에서 반출 이벤트의 원본을 찾고, 파일 해시별 한 번만 인증된 업무 드라이브에 스냅샷으로 올리게 했다.",
+          "verification": "The patch adds resolveSourceFile, running-Office GetActiveObject lookup, bounded folder search, SHA-256 deduplication and authenticated drive-ingest snapshot upload.",
+          "removeFromDraft": [
+            "6f8c28d7b494952a9b7d185188529a58e4f6b840",
+            "32b8271c65319de9cf9f721c7dbc53e790addfdc"
+          ],
+          "note": "The removed commits concern daemon log snapshots and a worklog timeline, not file egress snapshots."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-bank-safe-collection",
+      "changes": [
+        {
+          "changeTitle": "은행 창 감지와 안전 모드",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "f57cea0ea24ad74b4658b91e94da3b39aa16cf5a",
+            "bcf2f6125586c37fb3c39cbb40c5bcbade8e8916",
+            "b00d1f79a9dac5c87b10a0532d544059d90c7f89"
+          ],
+          "revisedDescription": "은행 보안 환경에서는 후킹 대신 WMI 기반 수집으로 전환하고, 은행 사이트 병용 때만 안전 모드를 켜며 일시정지된 입력 모듈을 자가복구가 강제로 다시 띄우지 않게 했다.",
+          "verification": "The patches add the WMI bank-safe collector, conditional bank-mode toggle and self-healer exclusions for paused keyboard capture."
+        },
+        {
+          "changeTitle": "백신·보안 프로그램 오탐 완화",
+          "action": "replace-evidence-and-tighten-description",
+          "proposedEvidenceHashes": [
+            "d86d3d2b8f84dd12155285c74485d9a16d0c73d0",
+            "6e627024a958a1809d1c9910d1780f533f8441fa"
+          ],
+          "revisedDescription": "은행 보안 프로그램을 감지하면 화면·입력 수집을 일시정지하고, 설치 단계에는 차단 원인을 구분할 수 있는 보안 예외와 SmartScreen 안내를 보강했다.",
+          "verification": "The patches add security-program detection and collector pause behavior, plus installer guidance and exception handling."
+        },
+        {
+          "changeTitle": "입력훅 없는 창전환·주기 폴백",
+          "action": "keep-with-two-hashes",
+          "proposedEvidenceHashes": [
+            "b9512fd6b404318cb2d990f77f76a7ec2ec58ce3",
+            "58b88442082c0fd3c8c43584fa3c686762e6b8ad"
+          ],
+          "revisedDescription": "입력 훅이 막힌 PC에서는 포그라운드 창 전환과 타이머를 기준으로 제한된 폴백 캡처를 수행하되 유휴·은행 창·일시정지 조건을 그대로 지키게 했다.",
+          "verification": "The keyboard-watcher and screen-capture patches add hook-failure detection and fallback-appchange/fallback-timer capture paths with safety gates."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-erp-work-unit-prototype",
+      "changes": [
+        {
+          "changeTitle": "작업 단위 원장과 필터",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "48a75a36a7b91be5398a30b1b196acdbf2882c0d",
+            "6ef9b04cd302aa5d2452042aa6861a454b91e8db",
+            "d8b9119fa874f3132503555b2edb96e84d62a146"
+          ],
+          "revisedDescription": "작업 단위를 저장하는 API와 원장형 목록을 만들고 검증 상태로 필터링해 후보와 확인 상태를 행 단위로 보게 했다.",
+          "verification": "The patches add persistent work-unit ingestion, a ledger presentation and validation-status filtering."
+        },
+        {
+          "changeTitle": "ERP 수신함과 초안 추출",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "b597d561ca5cc5c5e726706d53f1c7f2d0460ce1",
+            "e73bb47353b2cc4dca3a92b58699724dc23b05dd",
+            "bc0ce6fa312fd9175f103fdf3e97ecff0d346e1e"
+          ],
+          "revisedDescription": "KakaoWork 요청을 ERP 수신함에 저장하고 고객·금액·마감 초안을 추출하며 원본 요청과 전환 결과를 연결했다.",
+          "verification": "The ERP intake patches add the inbox route/page, draft-field parsing and conversion links."
+        },
+        {
+          "changeTitle": "Nenovaweb 화면 보완",
+          "action": "remove-or-unknown",
+          "proposedEvidenceHashes": [],
+          "revisedDescription": null,
+          "verification": "None of the five draft commits changes the claimed week-pivot input, product-name display, duplicate menu/layout, or Computer Use Lab controls. They add an autotest engine, a viewer hub, an installer alias, a manual note and iframe permission.",
+          "note": "Remove this change from the story or locate direct commits in the ERP repository before publishing it as completed."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-kakao-operational-intelligence",
+      "changes": [
+        {
+          "changeTitle": "업무 이벤트·의사결정 동기화",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "f229ebf033d15adeb6bd6f45262acaee53c9ac0f"
+          ],
+          "revisedDescription": "기존 카카오 분석 시트를 읽어 비즈니스 이벤트와 의사결정을 온톨로지 이벤트와 관계로 승격하는 동기화 모듈을 만들었다.",
+          "verification": "The patch adds the sheet reader reuse, kakao ontology sync module, routes and event/relation writes."
+        },
+        {
+          "changeTitle": "방·거래처 그래프",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "3543cc9bcb0923c1affd5d9322b8d79e21e15158",
+            "46cde780a967c050193f78f586253796d9275aaf"
+          ],
+          "revisedDescription": "카카오 방과 거래처 관계를 그래프 데이터에 넣고, 직원·방·화면·파일·거래처를 함께 보여 주는 전체 지도 API를 만들었다.",
+          "verification": "The patches add room/customer nodes and edges to graph-shell/flow-map and a full-map endpoint."
+        },
+        {
+          "changeTitle": "대화 인텔리전스 워커",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "d7a6e3f4eb76080723330268071f496f929f9afd",
+            "a6c4813dd8d72b8cc0108fac559f0164cf7ba154",
+            "a2e44a7277abccc105e4126953d17033f5efeb2f"
+          ],
+          "revisedDescription": "대화에서 거래처 대응과 열린 이슈를 뽑는 워커와 관리자 집계 API를 만들고, 운영 이슈 중심으로 분류 기준과 원문 드릴다운을 보강했다.",
+          "verification": "The worker/API patch creates the extraction and rollup; follow-ups narrow the issue taxonomy and add case drilldown."
+        },
+        {
+          "changeTitle": "중복·인코딩·시각 오류 보완",
+          "action": "replace-all-draft-evidence",
+          "proposedEvidenceHashes": [
+            "b7f78f0d9f88eb4f039a871ae2b4b72af25fbb88",
+            "89003a62a2fba04f3db36a5a0f528d5803cd3462",
+            "35ef7533b7bd689b00a4771cce25a72c94cf54d1"
+          ],
+          "revisedDescription": "한 배치 안의 같은 ID를 먼저 합치고, 깨진 방 이름은 보수적인 근접 규칙으로 정규화했으며 시각 파싱 실패가 현재 시각을 ID에 넣어 매번 중복 생성하던 경로를 고쳤다.",
+          "verification": "All three patches directly modify kakao-ontology-sync or its dedup migration for batch duplication, room-name normalization and stable IDs.",
+          "note": "The other 21 draft commits concern unrelated UI, installer, daemon or Vision duplicate fixes and should not be direct evidence for Kakao ontology deduplication."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-erp-readonly-intelligence",
+      "changes": [
+        {
+          "changeTitle": "ERP 읽기 브릿지",
+          "action": "replace-evidence-and-tighten-description",
+          "proposedEvidenceHashes": [
+            "0898587fdc979c5571cd400fbdee0eba6f4bccfc"
+          ],
+          "revisedDescription": "ERP 기능·수기 공백·화면과 DB 차이를 읽는 분석 API를 만들고 SQL을 조회 전용으로 제한했다.",
+          "verification": "The patch adds routes/erp-analyzer.js with read-only SQL validation and endpoints for features, manual gaps, data-vs-screen, automation gaps and live comparison.",
+          "note": "The nine draft hashes mostly describe a separate nested ERP UI and menu pages, not a read bridge into the observation analysis bundle."
+        },
+        {
+          "changeTitle": "업무 9단계 기준",
+          "action": "keep-one-hash",
+          "proposedEvidenceHashes": [
+            "b4a50bbc4f88f92c0144a64ea6f5d260b4eea3dc"
+          ],
+          "revisedDescription": "발주부터 이익까지 아홉 단계를 정의하고, 사람·월·차수별 ERP 기록과 화면 해독을 같은 단계 표에서 비교하는 통합 화면을 만들었다.",
+          "verification": "The patch defines the nine stages and renders stage, person, month, cycle and source-backed tables in the unified work view."
+        },
+        {
+          "changeTitle": "수기 공백·변경 이력 진단",
+          "action": "replace-evidence-and-tighten-description",
+          "proposedEvidenceHashes": [
+            "0898587fdc979c5571cd400fbdee0eba6f4bccfc",
+            "1ec39ab4356c9f1d50ffd11594e9ae973d12b10d"
+          ],
+          "revisedDescription": "ERP에 남지 않는 수기 업무 후보와 화면·DB 차이를 조회하는 API를 만들고, 수기 공백 조회의 반복 스캔을 한 번의 묶음 조회로 줄였다.",
+          "verification": "The first patch adds the manual-gaps/data-vs-screen endpoints; the second replaces eight fallback scans with one grouped pass.",
+          "note": "The draft claim about a general change-history system is broader than the inspected patches and should be omitted."
+        },
+        {
+          "changeTitle": "ECOUNT·미수·정산 교차",
+          "action": "replace-all-draft-evidence-and-narrow-scope",
+          "proposedEvidenceHashes": [
+            "8f6411e31b7c8b3a17e53576e1c50384d07fcae9"
+          ],
+          "revisedDescription": "Nenovaweb의 ECOUNT 미수 스냅샷을 읽기 전용 프록시로 가져와 거래처별 잔액과 경과 기간을 조기경보 점수와 사유에 반영했다.",
+          "verification": "The patch adds the read-only receivables proxy, customer normalization map and aging-based warning bump in the Kakao intelligence view.",
+          "note": "The draft hashes do not directly support the combined AWB freight, farm-alias and ETA-analysis claim. Those clauses should be removed or separately evidenced."
+        },
+        {
+          "changeTitle": "자동화 전 검증 게이트",
+          "action": "replace-evidence-and-tighten-description",
+          "proposedEvidenceHashes": [
+            "27f8855b4936aff65e8b454e7de80a383a4e7712",
+            "bd178dfb98310f9825593e544294e98aa3406f62"
+          ],
+          "revisedDescription": "ERP 테이블은 조회 전용 목록 API로 확인하고, 관측 세션에서 만든 실행 스크립트는 먼저 dry-run 결과로 검토하게 했다.",
+          "verification": "The first patch adds a SELECT-only table-list endpoint; the second generates dry-run scripts from stitched sessions.",
+          "note": "Arithmetic anchor discovery is reviewed separately under the company-agent methodology story."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-ops-ontology-flow",
+      "changes": [
+        {
+          "changeTitle": "표준 객체와 관계 저장소",
+          "action": "replace-all-draft-evidence",
+          "proposedEvidenceHashes": [
+            "e0c1a478a1387f798c14e3979b2a0a35efcc3bfb",
+            "fd51346b4b741d6bc6733f6ad1c3167cad164e98"
+          ],
+          "revisedDescription": "Action·Person·Customer·Document·Task·App·Room·Process와 출처·신뢰도 규칙을 정하고, 원천 이벤트를 객체와 관계로 승격하는 저장소와 조회 API를 만들었다. 정기 승격과 대화→행동 관계도 추가했다.",
+          "verification": "The ontology patch adds the specification, migration, promoter and APIs; the cron patch schedules promotion and creates talk-triggered relationships.",
+          "note": "Most of the draft's 22 hashes are unrelated 3D UI or generic PostgreSQL compatibility fixes."
+        },
+        {
+          "changeTitle": "시간창 행동 승격",
+          "action": "replace-all-draft-evidence",
+          "proposedEvidenceHashes": [
+            "e0c1a478a1387f798c14e3979b2a0a35efcc3bfb"
+          ],
+          "revisedDescription": "사용자별 시간창에서 여러 원천 이벤트를 묶어 work.action을 만들고 사람·앱·방·프로세스 관계를 멱등 저장했다.",
+          "verification": "The promoter patch groups source events, computes confidence, writes work.action and upserts deterministic relations.",
+          "note": "All seven draft hashes for this change are unrelated installer, VACUUM, clock, certificate or documentation work."
+        },
+        {
+          "changeTitle": "거래처·대화·ERP 연결",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "fd51346b4b741d6bc6733f6ad1c3167cad164e98",
+            "b83f697a124d7b2951bd4231d9f89f3cface4b2a"
+          ],
+          "revisedDescription": "대화가 촉발한 행동 관계를 정기 승격하고, 행동의 거래처 언급과 ERP 결과 연결을 보강했다.",
+          "verification": "The patches add talk_triggered_action and the handoff enricher's action_mentions_customer/action_updated_erp relationships."
+        },
+        {
+          "changeTitle": "핸드오프와 흐름 API",
+          "action": "replace-all-draft-evidence",
+          "proposedEvidenceHashes": [
+            "b83f697a124d7b2951bd4231d9f89f3cface4b2a",
+            "bf0004626522d3a0e5efcdb715b1809b9c7a90c6"
+          ],
+          "revisedDescription": "같은 거래처·문서·주문 키를 다른 사람이 하루 안에 이어 처리한 행동을 handoff 관계로 만들고, 회사·직원·업무단위별 흐름 API로 조회하게 했다.",
+          "verification": "The handoff patch creates action_handoff with shared keys and a 24-hour window; the flow API patch exposes company, employee and work-unit graph levels."
+        },
+        {
+          "changeTitle": "멀티테넌트와 백필 안전성",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "49fd17f26c21617f55bc3fe3e4f3e402247968da",
+            "d584a5db5eeb3f94a8b8eb2ad8ccfa828769614c",
+            "1ed2a5a2fdd7a6205070ae3d9361cdb3f90f4ad4"
+          ],
+          "revisedDescription": "흐름 조회와 보고서를 workspace_id로 제한하고 실제 워크스페이스 ID에 맞췄으며, 오래된 관측은 시작·끝 시간창을 잘라 작은 구간으로 승격할 수 있게 했다.",
+          "verification": "The patches scope flow queries, reports and writes by workspace, align defaults/membership mapping, and add untilHours for bounded promotion windows.",
+          "note": "The draft's directory/person-install commit contains personal identity data and is not evidence for tenant isolation or backfill safety."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-employee-work-understanding",
+      "changes": [
+        {
+          "changeTitle": "직무 프로파일과 신입 매뉴얼",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "7cf2ffa8b0bc28da75901071358210f3f7448df3",
+            "070206afc609e451f2056a32be40c82d2a8db9cb"
+          ],
+          "revisedDescription": "캡처와 업무 흐름을 바탕으로 사람별 직무 프로파일·절차·인수인계 초안·추가 관찰 공백을 만들고 직무 매뉴얼 탭에서 보게 했다.",
+          "verification": "The worker patch creates the duty-profile pipeline; the app patch renders roles, process position, procedures, handoff draft and gaps."
+        },
+        {
+          "changeTitle": "시간·일·주·월 타임테이블",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "00b58027d0d6434aeb2eddeb7eeb2911d712370f"
+          ],
+          "revisedDescription": "관측 이벤트를 5분 슬롯으로 묶은 하루 보기와 장기 work.action을 합산한 일·주·월 보기, 직원별 상위 앱 요약을 제공했다.",
+          "verification": "The patch adds work-timetable page and day/range APIs with 5-minute activity slots and day/week/month work.action aggregation.",
+          "removeFromDraft": [
+            "a72d3bcf24a0fa013767d511de38a7dc82491d86"
+          ],
+          "note": "The removed workday endpoint only supplies a single-date hourly analysis and does not implement the claimed week/month timetable."
+        },
+        {
+          "changeTitle": "작업 상세·일일 원장",
+          "action": "replace-all-draft-evidence",
+          "proposedEvidenceHashes": [
+            "e99f86ba7314dc9d771b4b219d1f588a730e5f7d",
+            "23118216587a9f08528614b46f0865307e2d354a"
+          ],
+          "revisedDescription": "화면 이미지·입력 원문·필드를 보는 작업 상세 화면과 직원별 하루 작업 블록·결과·다음 일·캡처를 묶은 일일 원장 화면을 만들었다.",
+          "verification": "The patches add work-detail and work-daylog pages with the described evidence fields and daily blocks.",
+          "note": "The draft's deep-dive and styling commits are related context but are not the shortest direct evidence for these two screens."
+        },
+        {
+          "changeTitle": "이름·신원 오귀속 보정",
+          "action": "replace-all-draft-evidence-and-avoid-pii-docs",
+          "proposedEvidenceHashes": [
+            "2078eef423da41877e3988fdf3c1ec1e788e26ea",
+            "e68e394ed1646255d4d58495090a0ac326906699",
+            "f36e109d903452f1ed9f408b17404dfdc4897956"
+          ],
+          "revisedDescription": "이메일·내부 ID·메신저 ID·PC 이름·별칭을 한 직원으로 해석하는 디렉터리를 만들고, 골든 이름이 원시 ID일 때 인증 이름을 우선하며 재설치 때는 이전 신원을 재사용하지 않는 fresh 등록을 추가했다.",
+          "verification": "The patches add employee identity resolution, golden-name fallback and a fresh auto-register path with local identity reset.",
+          "note": "The draft evidence mostly consists of notes containing employee-specific corrections. Use the implementation commits instead and do not copy names into the story."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-owner-intent-judgment",
+      "changes": [
+        {
+          "changeTitle": "의도 주석과 시간 맥락",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "98f88494b1f0486c67f9e682335bd7d8a608850a",
+            "9a18ee0447d75008c467ec3eda0cee6688ae344c",
+            "a4ccf061f6172966797a8a23bf25be9acc429893"
+          ],
+          "revisedDescription": "화면 궤적과 시간 리듬에서 단계별 의도 가설·판단 근거·신뢰도를 만드는 주석기와 지도 화면을 만들고, 한글 입력값과 처리량 제한을 보강했다.",
+          "verification": "The patches add intent-annotator, intent-map, input-value fusion and bounded trajectory prompts."
+        },
+        {
+          "changeTitle": "판단 계층과 신뢰도",
+          "action": "keep-one-hash-and-narrow",
+          "proposedEvidenceHashes": [
+            "2bdb9fc64dbd4c7792408e423f36599413799e78"
+          ],
+          "revisedDescription": "캐시→규칙→로컬 kNN→폴백 순서로 답과 신뢰도를 고르는 judge를 만들고 결정 로그와 라벨 되먹임을 Vision 선별에 연결했다.",
+          "verification": "The patch adds judge.js, decision logging, persistent labels, kNN thresholds and OCR triage feedback."
+        },
+        {
+          "changeTitle": "피드백과 예측 검증",
+          "action": "replace-all-draft-evidence-and-retitle",
+          "proposedEvidenceHashes": [
+            "0626e8eba481836fbde35ad895870a1b30217225",
+            "6f98c50b67f64079d572dce92d9d56daa9bed5d9",
+            "b858ae63cbbbd99c60a143002e038429ed33a126"
+          ],
+          "revisedTitle": "섀도 예측과 실제 비교",
+          "revisedDescription": "앞 단계만 보고 다음 행동을 예측한 뒤 실제 단계와 화면·행동·대상·좌표·값 다섯 축으로 비교해 점수를 쌓고, 중단돼도 점별 결과를 보존하도록 했다.",
+          "verification": "The verification patch adds the shadow predictor, score store and confidence-interval gate; follow-ups persist each score immediately and strengthen scoring context/retries.",
+          "note": "The draft's first 28 hashes are 2D/3D labels, layout and workflow-label UI work. They are unrelated to prediction feedback and must be removed."
+        },
+        {
+          "changeTitle": "실행 전 비가역 판단",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "892018227f98985a38cd3e3bc5ff055bb93c312f"
+          ],
+          "revisedDescription": "전송·결제·확정처럼 되돌리기 어려운 동작은 사용자 확인이 없으면 막고, 예상 창과 실제 활성 창이 다르면 RPA 실행을 중단하는 게이트를 만들었다.",
+          "verification": "The patch adds exec-gate.js and wires it into the RPA runner with confirmIrreversible and expectWindow checks.",
+          "note": "Both draft hashes are unrelated ERP-column and installer-verification fixes."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-company-xray-process",
+      "changes": [
+        {
+          "changeTitle": "프로세스 마이닝 기반",
+          "action": "replace-all-draft-evidence",
+          "proposedEvidenceHashes": [
+            "f99be691317b985a433b0e3f9d9984a33c3568e9",
+            "11f9d20c54405fff64774bfd87d3b78e554d09dc",
+            "07daf49730664c258423c1058bb6f7296add8db2"
+          ],
+          "revisedDescription": "이벤트를 활동 블록과 세션으로 묶고 앱 전환 행렬을 만드는 프로세스 마이닝 API를 만든 뒤, 여러 저장소의 이벤트와 교차 분석을 연결했다.",
+          "verification": "The patches add block/session/transition builders, merge PostgreSQL and SQLite recorder events, and add cross-analysis APIs.",
+          "note": "The draft's 31 hashes include many credential-parser/debug and unrelated dashboard commits that are not process-mining foundations."
+        },
+        {
+          "changeTitle": "Company X-ray 리포트",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "19fab455f13dbb64e3bb09bbab760692e15f70bf",
+            "3d93cc7cb4425c708c4db5786c3ce88521616f8a",
+            "b4bf789df6f296e65454016934b205e1e7ef76d5"
+          ],
+          "revisedDescription": "업무 구조·기회·비효율·부하·민감 업무·사각지대를 근거와 한계와 함께 내는 X-ray 워커와 화면을 만들고, 정적 인원 추정을 줄이며 입력 누락을 보완했다.",
+          "verification": "The X-ray patch defines and renders the report fields; follow-ups require data-backed people and preserve typed, click and Vision input."
+        },
+        {
+          "changeTitle": "인과 사슬과 완결성 측정",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "2b172ee357b1e92fffd297d991f33e0800439b1f"
+          ],
+          "revisedDescription": "거래처 키가 붙은 행동의 비율과 대화→행동→ERP 결과 사슬을 계산하고, 사슬이 없으면 0으로 남겨 원인만 있는 경우와 행동만 있는 경우를 따로 표시했다.",
+          "verification": "The patch adds assembleCausalChains, customer-key coverage, verified/complete counts and explicit zero/root-gap reporting."
+        },
+        {
+          "changeTitle": "분석 입력 품질 수술",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "00fe2b8cee5ae3eb4a5b68c17eea74929002eec6",
+            "b4bf789df6f296e65454016934b205e1e7ef76d5"
+          ],
+          "revisedDescription": "짧은 활동 요약 대신 하루 범위의 사람별 입력과 카카오·Vision·ERP 원천을 분석 번들에 넣고, X-ray에 입력값·클릭 좌표·화면 해독이 잘리지 않게 했다.",
+          "verification": "The input-bundle patch adds tenant-scoped people and Kakao/Vision/ERP arrays; the X-ray patch preserves the full typed/mouse/Vision evidence slice."
+        },
+        {
+          "changeTitle": "자동화 ROI와 거래처 건강도",
+          "action": "replace-evidence-and-tighten-description",
+          "proposedEvidenceHashes": [
+            "28bf5f8411bcd19e9212f4326ee9b4d15205bfe9",
+            "0e9ffd068b9aba383af17cca52920df66f9b60fb"
+          ],
+          "revisedDescription": "입력·반복 클릭·소요 시간에서 자동화 잠재 ROI를 계산하고, 거래처 대응 이력과 열린 이슈를 조기경보 화면에 묶었다.",
+          "verification": "The ROI patch adds candidate time/value tracking to ops input; the health patch adds the customer early-warning view.",
+          "note": "The three draft hashes concern user isolation and Vision model routing, not ROI or customer health. ECOUNT aging is kept in the read-only ERP story with its direct patch."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-automation-plan-execute",
+      "changes": [
+        {
+          "changeTitle": "자동화 후보와 제안 화면",
+          "action": "keep-two-hashes-and-tighten-description",
+          "proposedEvidenceHashes": [
+            "e40815a63d9f7c09c376d3d6f81cf0a6ea244a52",
+            "3c611f91b10b514001ac4395724273eb529537f9"
+          ],
+          "revisedDescription": "입력 내용과 화면별 반복 세션에서 자동화 후보와 절차를 뽑아 사람이 검토할 제안 데이터로 만들었다.",
+          "verification": "The patches add semantic candidate extraction from typed input and per-screen candidate mining in solution-miner.",
+          "note": "The inspected commits support candidate generation, but not every claimed proposal-screen field. Keep savings and humanRequired only if another direct UI/API patch is found."
+        },
+        {
+          "changeTitle": "실행 가능성 감사",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "c516eeb55bf7ea48268d7457f14b8dbe27067713",
+            "5b9991dbbb637837926547510242627618af1d41",
+            "ee5964b4ea73c200fba517732b3476afb79f9a38"
+          ],
+          "revisedDescription": "화면 필드와 클릭 좌표를 결합해 절차 spec을 만들고, 좌표·입력값·게이트가 부족한 결과는 실행 가능하다고 저장하지 않고 원인 공백으로 돌렸다.",
+          "verification": "The patches attach clickXY to Vision fields, extract procedure specs, and add persistence fixes plus a feasibility critic/root-gap loop."
+        },
+        {
+          "changeTitle": "자가발전 루프",
+          "action": "keep-one-hash-and-narrow",
+          "proposedEvidenceHashes": [
+            "cc03e041575bddf457cc3d99b8a567914645f9fb"
+          ],
+          "revisedDescription": "업무 루틴의 분기와 주저 신호를 30분마다 다시 계산해 자동화 가능 구간과 사람 판단이 필요한 경계를 최신 지도 API와 화면에 반영했다.",
+          "verification": "The patch adds judgment-miner, a periodic server loop, cache/API and CCTV view integration.",
+          "note": "The patch does not prove that arbitrary execution failures and validation results automatically create and complete new development tasks. The original description was too broad."
+        }
+      ]
+    },
+    {
+      "storyId": "mindmap-company-agents",
+      "changes": [
+        {
+          "changeTitle": "역할별 운영 에이전트",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "70b008268c9d12c5a136bbbb7b9b109f562bcb45"
+          ],
+          "revisedDescription": "공통 ops-input을 받아 예측·병목·부하·자동화 후보와 원천 불일치를 내는 주기 워커를 만들고 결과를 운영 인사이트 패널에 저장·표시했다.",
+          "verification": "The patch adds ops-agent-worker, the shared input endpoint, report storage and the insight panel."
+        },
+        {
+          "changeTitle": "교차검증과 source disagreement",
+          "action": "merge-into-previous-change",
+          "proposedEvidenceHashes": [
+            "70b008268c9d12c5a136bbbb7b9b109f562bcb45"
+          ],
+          "revisedDescription": "카카오·ERP·PC 작업의 일치 여부를 PASS·WARN·FAIL과 confidence로 기록하고 한 원천에만 있는 작업을 source disagreement로 따로 보였다.",
+          "verification": "The same ops-agent patch defines the cross-validator prompt/schema and renders disagreements and verdict/confidence.",
+          "removeFromDraft": [
+            "d316caa8927a5e450ed26204fe8175494ea7301c",
+            "6c46602292278a4ec8ff3cb1572037c2557cd392"
+          ],
+          "note": "The removed commits fix tracker user IDs and OAuth callback tokens, not analysis-source disagreement. Merge this with the previous change to avoid presenting one commit as two independent features."
+        },
+        {
+          "changeTitle": "전문 워커와 역할 분리",
+          "action": "replace-all-draft-evidence-and-narrow-scope",
+          "proposedEvidenceHashes": [
+            "046e07c4328cd1c68b62beb99fe2f24f22730e9d",
+            "6cc9a35eb40cc6c1a69f04901a4cde11cde4b60f",
+            "8dee7aaaf65cfba192d4139d4d473f6d1fe5a5c6"
+          ],
+          "revisedDescription": "화면 분석을 서버 워커와 원격 PC 워커로 나눠 필요한 곳에서 따로 돌리고, 여러 CLI 워커의 모델을 역할별로 고정해 비용과 실패 지점을 구분하기 쉽게 했다.",
+          "verification": "The patches add the server Vision worker, one-click remote worker bootstrap and explicit model selection across seven CLI workers.",
+          "note": "The draft's 22 hashes are mostly one Vision worker's fixes and do not support the broader claim that every Vision, Kakao, intent and X-ray worker was integrated into one screen."
+        },
+        {
+          "changeTitle": "병렬 분석과 앵커 방법론",
+          "action": "replace-evidence",
+          "proposedEvidenceHashes": [
+            "4129f4e0d2c6aa090f3f05af3560d063026c9bb9",
+            "987a9bd74d6742d9c32df283d7bf75dc0efc5a70"
+          ],
+          "revisedDescription": "서로 독립된 두 계산 경로가 같은 값을 가리키는 표의 검증 앵커를 자동으로 찾고, 분석 결과는 evidenceId가 실제 입력에 있고 시간순·필수값을 지키는지 저장 전에 검사하도록 기준을 보강했다.",
+          "verification": "The first patch adds a read-only anchor discovery engine; the second adds independent-review findings and evidence-ID/output validation rules.",
+          "removeFromDraft": [
+            "5e4d5e53384b5a1e7f070e28691c2dc60f1b9b8e",
+            "1c4ab97c5d362f287cfc3ea68da2e66dacc05977"
+          ],
+          "note": "The removed commits are daemon safe-mode/crash and sanitization fixes, unrelated to parallel analysis or arithmetic anchors."
+        }
+      ]
+    }
+  ],
+  "integrationStatus": {
+    "catalogVersion": "2026-10-08.3",
+    "catalog": "config/development-purpose-stories.json",
+    "status": "applied",
+    "note": "검토 당시의 오류 기록이다. 지적된 설명은 통합 카탈로그에서 수정·축소·분리했으며 근거 없는 항목은 제거했다. 현재 운영 기능 전체를 재검증했다는 뜻은 아니다."
+  }
+}
