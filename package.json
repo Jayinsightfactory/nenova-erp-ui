@@ -6,7 +6,7 @@
     "test:invoice-receipt": "node --test __tests__/invoiceReceiptReconciliation.test.js",
     "prebuild": "node scripts/generate-menu-development-history.cjs && node scripts/generate-full-development-history.cjs && npm run test:full-development-history",
     "test:menu-development-history": "node --test __tests__/menuDevelopmentHistory.test.js",
-    "test:full-development-history": "node --test __tests__/fullDevelopmentHistory.test.js __tests__/developmentJourney.test.js",
+    "test:full-development-history": "node --test __tests__/fullDevelopmentHistory.test.js __tests__/developmentJourney.test.js __tests__/developmentPurposeStories.test.js",
     "pretest:import-team": "node --test __tests__/packingResultsUi.test.js __tests__/packingProductMatchDialog.test.js __tests__/importPackingReview.test.js __tests__/packingEvidenceReview.test.js __tests__/importPackingErpMatches.test.js __tests__/importPackingSourceIdentity.test.js",
     "test:operations-knowledge": "node --test __tests__/operationsKnowledgeSchema.test.js __tests__/operationsKnowledgeStore.test.js __tests__/operationsKnowledgeApi.test.js __tests__/operationsKnowledgeAttachments.test.js __tests__/operationsKnowledgeUi.test.js",
     "posttest:import-team": "npm run test:operations-knowledge",
