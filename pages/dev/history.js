@@ -4,8 +4,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import FullDevelopmentHistory from '../../components/dev/FullDevelopmentHistory';
 import MenuDevelopmentHistory from '../../components/dev/MenuDevelopmentHistory';
+import DevelopmentJourney from '../../components/dev/DevelopmentJourney';
 
 const API = '/api/dev/git-log';
 
@@ -448,12 +450,25 @@ function LegacyHistoryPage() {
 }
 
 export default function HistoryPage() {
+  const router = useRouter();
   const [view, setView] = useState('full');
+  useEffect(() => {
+    if (!router.isReady) return;
+    setView(['journey', 'menu', 'legacy'].includes(router.query.view) ? router.query.view : 'full');
+  }, [router.isReady, router.query.view]);
+  function chooseView(id) {
+    setView(id);
+    if (!router.isReady) return;
+    const query = { ...router.query };
+    if (id === 'full') delete query.view;
+    else query.view = id;
+    router.push({ pathname: router.pathname, query }, undefined, { shallow: true, scroll: false });
+  }
   return <>
     <Head><title>개발 이력 — nenova</title></Head>
     <nav aria-label="개발 이력 화면 선택" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '12px 24px', background: '#f4f8ff', borderBottom: '1px solid #d5e2f1' }}>
-      {[['full', '전체 개발 이력'], ['menu', '메뉴별 기능'], ['legacy', '기존 작업 히스토리']].map(([id, label]) => <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)} style={{ border: '1px solid #b6cbe4', borderRadius: 8, padding: '9px 14px', background: view === id ? '#1d65ad' : '#fff', color: view === id ? '#fff' : '#194574', cursor: 'pointer' }}>{label}</button>)}
+      {[['full', '전체 개발 이력'], ['journey', '개발 여정'], ['menu', '메뉴별 기능'], ['legacy', '기존 작업 히스토리']].map(([id, label]) => <button key={id} type="button" aria-pressed={view === id} onClick={() => chooseView(id)} style={{ border: '1px solid #b6cbe4', borderRadius: 8, padding: '9px 14px', background: view === id ? '#1d65ad' : '#fff', color: view === id ? '#fff' : '#194574', cursor: 'pointer' }}>{label}</button>)}
     </nav>
-    {view === 'full' ? <FullDevelopmentHistory /> : view === 'menu' ? <MenuDevelopmentHistory /> : <LegacyHistoryPage />}
+    {view === 'full' ? <FullDevelopmentHistory /> : view === 'journey' ? <DevelopmentJourney /> : view === 'menu' ? <MenuDevelopmentHistory /> : <LegacyHistoryPage />}
   </>;
 }

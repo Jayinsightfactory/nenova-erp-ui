@@ -1,0 +1,15 @@
+{
+  "id": "invoice-stage-workflow",
+  "title": "국가별 인보이스 독립 단계 자동 검증 및 재개",
+  "scope": ["lib/invoiceReceiptWorkflow.js", "lib/invoiceReceiptCostWorkflow.js", "lib/importPackingReceiptAdapter.js", "components/import-tools/PackingListTool.js", "components/import-tools/InvoiceReceiptWorkbench.js", "components/import-tools/InvoiceReceiptCostReview.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "documentIdentity": ["documentId", "sourceHash", "revision"],
+  "actions": [
+    {"name": "AUTO_PREPARE_INVOICE", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "기존 국가별 변환 이후 초안 저장과 서버 preview를 독립 단계로 순차 실행. 명시 입고 확인 전 ERP 쓰기 없음. 각 실패 중단."},
+    {"name": "VERIFY_RECEIPT_AND_COST", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "입고와 원가 저장은 기존 별도 API/명시 승인 유지. 실패한 재조회만 재시도. 원가 실패 시 완료 입고 재생성 금지. SQL/SP/schema 변경 없음."}
+  ],
+  "crossYearFixture": {"required": true, "description": "2025/2026 동일 세부차수 및 다른 documentId/revision/sourceHash readback 혼입 차단."},
+  "requiredTestFiles": ["__tests__/invoiceReceiptWorkflow.test.js", "__tests__/invoiceReceiptCostWorkflow.test.js", "__tests__/invoiceReceiptWorkbench.test.js", "__tests__/importPackingReceiptAdapter.test.js", "__tests__/importPacking.test.js"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormWarehouseUpload.md", "source": "2026-10-08 저장 decompile ExcelLoadingPackingList.MakeTempTable/InsertMaster 재확인 및 같은 날 native SQL/운영 조회 근거 재사용. 기존 원자 writer 보존.", "methods": ["ExcelLoadingPackingList.MakeTempTable", "ExcelLoadingPackingList.InsertMaster"], "tables": ["WarehouseMaster", "WarehouseDetail", "WebInvoiceDocument", "WebInvoiceOperation"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}
