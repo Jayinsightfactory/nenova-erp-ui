@@ -121,6 +121,13 @@ export const MENU_ITEMS = [
     ]
   },
   {
+    group: '회계',
+    items: [
+      { href: '/finance/voucher', labelKey: '지출결의서', popup: false },
+      { href: '/finance/journal', labelKey: '전표현황',   popup: false },
+    ]
+  },
+  {
     group: '통계화면',
     items: [
       { href: '/stock',          labelKey: '재고 관리',      popup: true },
