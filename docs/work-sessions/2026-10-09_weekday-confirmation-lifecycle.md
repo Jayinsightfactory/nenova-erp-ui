@@ -27,3 +27,7 @@
 
 ## 완료 검증·배포 결과
 최종 검사와 배포 결과는 작업 종료 전에 갱신한다. ignored output/early-shipment-integration raw EXE/DB추출물과 output/weekday-confirmation-*.log는 커밋하지 않는다. 비밀값·운영원본자료는 문서에 포함하지 않는다.
+
+최종 로컬 검증: test:erp-contract(전체 UI/주광/선출고 회귀 포함), test:nenova-dnspy-evidence, test:erp-manifest --changed-from origin/master, guard:erp-writes --changed-from origin/master, npm run build 모두 exit0. 기존 weekday-distribution/adversarial 실제SQL suite와 새 lifecycle SQL의 25개 시나리오 통과. 새 이력대조 반영 후 lifecycle 25개와 전체계약/빌드를 다시 통과했다.
+운영 SELECT-only 추가 스키마 확인: ShipmentHistory PK는 ShipHistoryKey(int IDENTITY), 날짜이력대조는 환경별 PK명을 추정하지 않고 exacttimestamp/native ChangeDtm 기준을 사용한다.
+Chrome 로그인은 기존 검증계정 정상로그인으로 해결했다. 배포후 최신 UI 조작은 아래에 추가 기록한다.
