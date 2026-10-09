@@ -1,3 +1,4 @@
+import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
 // pages/orders/import.js — 이미지/엑셀 업로드 주문등록 (라움 등 거래처 발주표)
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -1093,10 +1094,10 @@ export default function OrderImportPage() {
 
   return (
     <>
-      <div style={st.page}>
+      <div className={`${desktopUi.page} ${desktopUi.importPage}`} style={st.page}>
         <div style={st.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-            <div style={st.title}>📤 이미지 / 엑셀 업로드 주문등록</div>
+            <div data-desktop-chrome style={st.title}>📤 이미지 / 엑셀 업로드 주문등록</div>
             <button
               type="button"
               onClick={openTemplateWindow}

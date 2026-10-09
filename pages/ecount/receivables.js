@@ -31,7 +31,7 @@ export default function EcountReceivablesPage() {
 
   return (
     <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>💳 ECOUNT 채권(미수) 현황</h1>
+      <h1 data-desktop-chrome style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>💳 ECOUNT 채권(미수) 현황</h1>
       <p style={{ fontSize: 13, color: '#475569', margin: '0 0 12px', lineHeight: 1.6 }}>
         ECOUNT 기준 거래처별 <b>미수 잔액 + 미수개월(aging)</b>. 오래된 미수일수록 빨갛게 — 누가 얼마를 얼마나 오래 안 갚았는지 한눈에.
         {data?.takenAt && <span style={{ color: '#94a3b8' }}> · 스냅샷 #{data.snapshotKey} ({data.takenAt})</span>}

@@ -85,7 +85,7 @@ export default function PivotImportFarmSettings() {
     <div>
       <div className="page-header">
         <div>
-          <h1>수입부 농장 결제일 설정</h1>
+          <h1 data-desktop-chrome>수입부 농장 결제일 설정</h1>
           <p>수입부 Pivot 정산서에서 사용할 농장별 공통 결제일을 관리합니다.</p>
         </div>
         <div className="page-actions">

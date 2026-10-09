@@ -258,7 +258,7 @@ export default function ChinaOrderDownloadPage() {
     <Head><title>중국 발주 현황 다운로드 - Nenova</title></Head>
     <main className="china-order-page">
       <header className="hero">
-        <div><div className="eyebrow">READ-ONLY · CHINA ORDER REGISTER</div><h1>중국 발주 현황</h1><p>주문등록 수량 기준 · 실제 전산 차수 달력 · HF CODE 브라우저 사전</p></div>
+        <div><div className="eyebrow">READ-ONLY · CHINA ORDER REGISTER</div><h1 data-desktop-chrome>중국 발주 현황</h1><p>주문등록 수량 기준 · 실제 전산 차수 달력 · HF CODE 브라우저 사전</p></div>
         <div className="hero-badge"><span className="live-dot" />ERP 조회 전용 <i>주문·출고·재고 변경 없음</i></div>
       </header>
 

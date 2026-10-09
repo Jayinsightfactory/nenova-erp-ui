@@ -2142,7 +2142,7 @@ export default function StockStatus() {
 
           {/* 헤더 */}
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap' }}>
-            <h2 style={{ margin:0, fontSize:18, fontWeight:700 }}>출고,재고상황</h2>
+            <h2 data-desktop-chrome style={{ margin:0, fontSize:18, fontWeight:700 }}>출고,재고상황</h2>
             <div style={{ display:'flex', alignItems:'center', gap:4, background:'#f5f5f5',
                           padding:'6px 10px', borderRadius:6, border:'1px solid #e0e0e0' }}>
               <span style={{ fontSize:12, color:'#555', fontWeight:600 }}>차수</span>

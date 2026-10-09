@@ -72,7 +72,7 @@ export default function CategoryOverridesAdmin() {
       <Head><title>세부카테고리 관리</title></Head>
       <div style={{ padding: '16px 20px', maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a237e' }}>🏷 세부카테고리 관리</h2>
+          <h2 data-desktop-chrome style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a237e' }}>🏷 세부카테고리 관리</h2>
           <span style={{ fontSize: 11, color: '#888' }}>
             (웹 전용 · Product.FlowerName 미변경 · 전산 DB 안전) · 현재 {list.length}개
           </span>

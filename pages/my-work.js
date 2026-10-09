@@ -937,7 +937,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
     { id: 'radar', label: '도입 레이더' }, // 관리자(isOrbitReportViewer) 전용 — mineOnly 목록에는 없음
   ];
   return (
-    <div className="wrap">
+    <div className="wrap" data-my-work>
       <div className="bar">
         <MenuBackButton />
         <b data-desktop-chrome>내 작업 데이터</b>
@@ -991,6 +991,13 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         .plchip.hi{border-left-color:#3fb950}.plchip.mid{border-left-color:#d29922}
         .plchip:hover{border-color:#58a6ff}.plchip.on{background:#1c2633;border-color:#58a6ff}.plchip.dim{opacity:.3}
         .plside{position:sticky;top:0;background:#151922;border:1px solid #262b35;border-radius:10px;padding:14px 16px;max-height:calc(100vh - 80px);overflow:auto}
+        /* PC pipeline content follows the main stage scroll. Horizontal table
+           overflow stays available; neither lane rows nor detail text is clipped. */
+        @media screen {
+          html[data-nenova-desktop="true"] [data-my-work] .plm{min-width:0}
+          html[data-nenova-desktop="true"] [data-my-work] .pllanes{max-height:none;overflow-x:auto;overflow-y:visible}
+          html[data-nenova-desktop="true"] [data-my-work] .plside{position:static;max-height:none;overflow:visible;overflow-wrap:anywhere;min-width:0}
+        }
         .plside h2{margin:2px 0 6px;font-size:16px}
         .plwhy{color:#c3c9d4}
         .pll{color:#7d8697;font-size:11.5px;font-weight:700;letter-spacing:.03em;margin:10px 0 3px}

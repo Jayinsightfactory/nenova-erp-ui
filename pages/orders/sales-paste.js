@@ -1,3 +1,4 @@
+import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -378,10 +379,10 @@ export default function SalesPasteOrderPage() {
       <Head>
         <title>영업부 붙여서 주문등록</title>
       </Head>
-      <main className="sales-paste-page">
+      <main className={`sales-paste-page ${desktopUi.page}`}>
         <header>
           <div>
-            <h1>내 업체 주문등록</h1>
+            <h1 data-desktop-chrome>내 업체 주문등록</h1>
             <p>
               업체를 선택하고 품목·수량만 붙여넣습니다. 주문만 등록하며
               출고분배는 변경하지 않습니다.

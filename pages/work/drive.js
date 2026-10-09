@@ -206,7 +206,7 @@ export default function WorkDrivePage() {
       {/* ── 툴바 ── */}
       <header className="top">
         <div className="title">
-          <h1>업무 드라이브</h1>
+          <h1 data-desktop-chrome>업무 드라이브</h1>
           <span className="sub">{data ? <>{data.me}{data.dept ? ` · ${data.dept}` : ''} <b>{files.length.toLocaleString()}</b>개 파일</> : '불러오는 중…'}</span>
         </div>
         <label className="search"><span className="ico">⌕</span><input placeholder="파일명 · 이름 · 차수(38-2) 검색" value={q} onChange={(e) => setQ(e.target.value)} />{q && <button className="clr" onClick={() => setQ('')}>✕</button>}</label>

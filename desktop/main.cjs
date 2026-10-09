@@ -116,7 +116,7 @@ function createWindow(config = {}) {
   broadcast(); return w;
 }
 function confirm(w, message, actionLabel = '닫기') {
-  return dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: [actionLabel, '취소'], defaultId: 1, cancelId: 1, noLink: true }) === 0;
+  return dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: [actionLabel, '취소'], defaultId: actionLabel === '닫기' ? 0 : 1, cancelId: 1, noLink: true }) === 0;
 }
 function destroyTab(t) {
   if (!t) return;

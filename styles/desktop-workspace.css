@@ -1,6 +1,6 @@
 /* Only the PC workspace hides duplicate navigation. The desktop's tools button
    restores these controls (language, logout, contextual back) without a reload.
-   Business filters, action bars, tables, dialogs and printing are unchanged. */
+   Toolbar sizing is PC-only; table/grid geometry and printing are preserved. */
 @media screen {
   html[data-nenova-desktop="true"]:not([data-nenova-desktop-tools="open"])
     :is([data-ui-sidebar], [data-ui-topbar], [data-ui-popupbar], .nv-standalone-back, [data-desktop-chrome]) {
@@ -8,5 +8,19 @@
   }
   html[data-nenova-desktop="true"] [data-ui-shell="standard"] .main-content {
     min-width: 0;
+  }
+  html[data-nenova-desktop="true"] [data-ui-shell="standard"] .page-area {
+    padding: 6px 8px;
+  }
+  /* Only explicit business toolbars opt in. Never enlarge cell editors or
+     virtual-grid controls, even when a table is nested inside a filter bar. */
+  html[data-nenova-desktop="true"] .filter-bar:not(table *, [role="grid"] *) {
+    gap: 6px;
+  }
+  html[data-nenova-desktop="true"] .filter-bar
+    :is(.btn, .filter-input, .filter-select):not(table *, [role="grid"] *) {
+    height: 30px;
+    min-height: 30px;
+    font-size: 13px;
   }
 }

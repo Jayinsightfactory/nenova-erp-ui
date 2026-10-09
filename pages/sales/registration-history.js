@@ -478,7 +478,7 @@ export default function SalesRegistrationHistoryPage() {
   return (
     <div style={st.page}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <h1 style={st.h1}>🧾 판매등록 히스토리</h1>
+        <h1 data-desktop-chrome style={st.h1}>🧾 판매등록 히스토리</h1>
         <span style={{ fontSize: 12, color: '#64748b' }}>
           화 17시 최종분배·수 16시 점검 자동 고정 · [판매등록확정] 이후 변경만 비교
         </span>

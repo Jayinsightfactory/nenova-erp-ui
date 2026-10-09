@@ -49,7 +49,7 @@ export default function EcountPage() {
 
   return (
     <div style={s.page}>
-      <h1 style={s.h1}>🔗 ECOUNT 연동 데이터</h1>
+      <h1 data-desktop-chrome style={s.h1}>🔗 ECOUNT 연동 데이터</h1>
       <p style={s.desc}>
         ECOUNT OAPI 로 조회 불가한 4종 데이터를 화면에서 수집(Chrome/owner PC 자동)해 저장합니다.
         모든 수집분은 <b>4중 검증</b>(화면합계·행수 대조 · 내부 산술 · 시계열 급변 · nenovaweb 교차)을 거쳐 신뢰도로 표시됩니다.

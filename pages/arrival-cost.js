@@ -325,7 +325,7 @@ export default function ArrivalCostPage() {
       <div className="arrival-page">
         <div className="arrival-title-row">
           <div>
-            <h2>도착원가</h2>
+            <h2 data-desktop-chrome>도착원가</h2>
             <p>차수별 원가자료를 웹 전용 원장으로 관리합니다. 기존 입고·주문·출고·재고·손익 원장에는 자동 반영하지 않습니다.</p>
           </div>
           <span className="read-only-badge">웹 원장 전용</span>

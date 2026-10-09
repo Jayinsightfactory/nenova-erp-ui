@@ -698,7 +698,7 @@ export default function HotelMiuIntakePage() {
     <div style={st.page} onPaste={onPaste}>
       <div style={st.head}>
         <div>
-          <h1 style={st.h1}>호텔+미우 통합게시판</h1>
+          <h1 data-desktop-chrome style={st.h1}>호텔+미우 통합게시판</h1>
           <p style={st.sub}>기본 업체(라움·신라·쵸이문·미우)와 영업 기준 차수부터 +9차수 안의 세부 1·2·3·4를 고른 뒤, 이미지·텍스트를 업체 합산으로 쌓고 마지막에 주문수량만 더합니다. 출고분배는 하지 않습니다.</p>
         </div>
         <a href="/sales/shilla-miu-allocation" style={st.linkBtn}>잔량분배표</a>

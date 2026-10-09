@@ -1,3 +1,4 @@
+import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
 // pages/orders/new.js
 // 주문 등록 화면
 // 수정이력: 2026-03-27 — Box/단/송이 각각 입력칸, 왼쪽 패널 검색창, 기존 프로그램 레이아웃과 동일하게 수정
@@ -670,10 +671,10 @@ export default function OrderNew() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 72px)' }}>
+    <div className={desktopUi.page} style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 72px)' }}>
 
       {/* ── 주문 정보 툴바 ── */}
-      <div style={{ background: 'var(--header-bg)', border: '1px solid var(--border2)', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+      <div className={desktopUi.toolbar} style={{ background: 'var(--header-bg)', border: '1px solid var(--border2)', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 'bold', fontSize: 12, marginRight: 8 }}>▶ 주문 정보</span>
 
         {/* 주문년도 */}
