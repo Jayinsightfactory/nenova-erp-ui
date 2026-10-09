@@ -936,6 +936,11 @@ export default function InvoiceReceiptWorkbench({
       })}</div>
       <small>확인한 행의 mismatch 경고만 해소됩니다. GW·CW·잘림 등 다른 원문 경고는 별도 검토 전까지 유지됩니다.</small>
     </section>}
+    {documentValue.reviewedMetadata.unclassifiedAdditionalCharges && <p role="status">
+      원문 상품 외 비용 합계: {documentValue.reviewedMetadata.unclassifiedAdditionalCharges.amount}
+      {' '}{documentValue.reviewedMetadata.unclassifiedAdditionalCharges.currency || '통화 미확인'}.
+      문서비·검역비 등이 포함될 수 있어 항공운임으로 자동 입력하지 않았습니다. 원문 내역을 대조해 원가 항목별로 입력하세요.
+    </p>}
     <div className={styles.metadata}>
       <Field label="입고 연도"><input value={documentValue.orderYear ?? ''} inputMode="numeric" placeholder="예: 2026" onChange={event => updateDocumentField('orderYear', event.target.value)} /></Field>
       <Field label="세부차수"><input value={documentValue.orderWeek ?? ''} placeholder="예: 41-01" onChange={event => updateDocumentField('orderWeek', event.target.value)} /></Field>

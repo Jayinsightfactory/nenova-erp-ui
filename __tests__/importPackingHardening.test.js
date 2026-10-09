@@ -12,10 +12,17 @@ const modulesReady = Promise.all([
   import('../lib/importPackingErpMatches.js'),
   import('../lib/importPackingReview.js'),
   import('../lib/importPackingReceiptAdapter.js'),
+  import('../lib/importChinaLegacyInvoice.js'),
+  import('../lib/importChinaLegacyReview.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
   filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')],
+  plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')], configFile: false, babelrc: false,
+}).code;
+const legacyReviewSource = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/ChinaLegacyReview.js'), 'utf8');
+const legacyReviewCode = babel.transformSync(legacyReviewSource, {
+  filename: 'ChinaLegacyReview.js', presets: [require('next/dist/compiled/babel/preset-react')],
   plugins: [require('next/dist/compiled/babel/plugin-transform-modules-commonjs')], configFile: false, babelrc: false,
 }).code;
 const tick = () => new Promise(setImmediate);
@@ -42,8 +49,8 @@ function deferred() {
 
 // Actual component handlers with controlled local hooks. No network, DB or browser.
 async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
-  const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter] = await modulesReady;
-  const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [];
+  const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter, chinaLegacyInvoice, chinaLegacyReview] = await modulesReady;
+  const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [], generationCalls = [];
   let cursor = 0, currentCatalog = catalog, failure = null, erpFailure = null;
   let erpValue = null, erpRevision = 0;
   const react = {
@@ -99,12 +106,16 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   } };
   function PackingResultsStub() {}
   function PackingProductMatchDialogStub() {}
-  const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packing,
+  const packingHarness = { ...packing, genChina(...args) { generationCalls.push(args[1]); return packing.genChina(...args); } };
+  const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packingHarness,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
     '../../lib/importChinaInvoice.js': chinaInvoice, '../../lib/importPackingErpMatches.js': erpMatchHelpers,
     '../../lib/importPackingReview.js': review,
     '../../lib/importPackingReceiptAdapter.js': receiptAdapter,
+    '../../lib/importChinaLegacyInvoice.js': chinaLegacyInvoice,
+    '../../lib/importChinaLegacyReview.js': chinaLegacyReview,
+    './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
     './PackingProductMatchDialog.js': { default: PackingProductMatchDialogStub, __esModule: true } };
@@ -112,7 +123,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   new Function('require', 'module', 'exports', 'fetch', 'FileReader', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(
     key => modules[key], module, module.exports, fetchStub, Reader);
   const h = {
-    writes, readers, requests, erpRequests, extractionCalls, tree: null,
+    writes, readers, requests, erpRequests, extractionCalls, generationCalls, tree: null,
     components: { PackingResultsStub, PackingProductMatchDialogStub },
     render() { cursor = 0; this.tree = awb ? module.exports.AWBPanel({ xlsxLib: XLSX, lang, readAwbPdf, onBack() {} })
       : module.exports.default({ storage }); return this.tree; },
@@ -132,6 +143,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   await h.refresh();
   if (!awb && lang !== 'ko') await h.click(lang === 'es' ? 'ES' : 'EN');
   h.matching = (kind, props) => { cursor = 0; return module.exports[kind]({ ...props, lang }); };
+  h.modules = { chinaLegacyInvoice, chinaLegacyReview, review };
   return h;
 }
 
@@ -185,6 +197,93 @@ test('China accepts a 33MiB XLSX locally and rejects oversize files without AI r
   assert.equal(h.extractionCalls.length, 0);
   assert.equal(h.requests.length, 0);
   assert.equal(h.button('패킹 리스트 생성').props.disabled, true);
+});
+
+test('legacy China promotion is local and genChina stays gated until separate packing review', async () => {
+  const h = await harness({ lang: 'ko' });
+  h.nodes('button').find(node => node.props['aria-label'] === '중국').props.onClick(); h.render();
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
+    ['Supplier Co'], ['INVOICE NO: CN-LEG-1'], ['DATE: 2026-10-09'], ['TO: NENOVA'],
+    ['品名', '英文名', '数量 Qty', '单价 Price', '金额 Amount', '规格 BU/PCS'],
+    ['红玫瑰', 'Rose A', 2, 10, 20, '20pcs'],
+    ['Total Flower amounts', '', 2, '', 20, ''],
+    ['总计 Total amounts', '', '', '', 20, ''],
+  ]), 'Invoice');
+  const base64 = XLSX.write(book, { type: 'base64', bookType: 'xlsx' });
+  h.nodes('input').find(node => node.props.accept === '.pdf,.xlsx').props.onChange({ target: {
+    files: [{ name: '41-1-legacy.xlsx', size: 1000, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }], value: 'legacy',
+  } }); h.render();
+  await h.readers.at(-1).complete(base64); h.render();
+  await h.button('패킹 리스트 생성').props.onClick(); await h.refresh();
+  assert.equal(h.requests.length, 0); assert.equal(h.extractionCalls.length, 0);
+  assert.equal(h.generationCalls.length, 0, 'raw legacy source never reaches genChina');
+  assert.ok(h.nodes('ChinaLegacyReview').length, text(h.tree));
+
+  const legacyView = h.nodes('ChinaLegacyReview')[0];
+  const source = legacyView.props.data.invoices[0];
+  const reviewed = h.modules.chinaLegacyReview.resolveLegacyChinaInvoice(source, {
+    currency: { code: 'CNY', reason: 'Invoice header currency', confirmed: true },
+    rows: [{ source_sheet: 'Invoice', source_row: 6, raw_qty: 2, u_price: 10, t_price: 20,
+      source_unit_spec: '20pcs', raw_unit: '단', pcs: 1, total_stems: 20, reason: 'Manual count confirmed against source', confirmed: true }],
+    invoiceConfirmed: true, comparisonConfirmed: true,
+  });
+  assert.equal(reviewed.source_format, 'china_legacy_invoice_reviewed');
+  legacyView.props.onConfirm({ invoices: [reviewed] }); h.render();
+  assert.equal(h.generationCalls.length, 0, 'legacy unit/currency confirmation alone is not sufficient');
+  const packingReview = h.nodes('PackingEvidenceReview')[0];
+  assert.ok(packingReview, 'promoted invoice proceeds to separate GW/CW/freight review');
+  const reviewRows = h.modules.review.makePackingReviewRows([reviewed], 'CN');
+  const packingDrafts = reviewRows.map(row => ({ invoiceIndex: row.invoiceIndex, values: row.values,
+    confirmed: true, reason: '', metadata: { values: row.metadata.values,
+      confirmed: Object.fromEntries(Object.keys(row.metadata.confirmed).map(field => [field, true])),
+      reasons: Object.fromEntries(Object.keys(row.metadata.reasons).map(field => [field, 'checked against source'])) } }));
+  packingReview.props.onConfirm(packingDrafts); h.render();
+  assert.equal(h.generationCalls.length, 1);
+  assert.equal(h.generationCalls[0].source_format, 'china_legacy_invoice_reviewed');
+  assert.equal(h.requests.length, 0); assert.equal(h.writes.length, 0);
+});
+
+test('legacy China review UI confirms raw 단 and requires explicit positive PCS/stems before helper promotion', async () => {
+  const legacy = await import('../lib/importChinaLegacyReview.js');
+  const source = { invoice: 'CN-UI-1', date: '2026/10/09', raw_date: '2026-10-09', date_order: 'YMD', date_kind: 'invoice',
+    supplier: 'Supplier Co', source_sheet: 'Invoice', source_format: 'china_legacy_invoice_xlsx', currency: null,
+    arithmetic_verified: true, item_subtotal: 20, freight: 0, invoice_total: 20, total_value: 20,
+    additional_costs: [], extractionIssues: [], packing_comparison_status: 'COMPARISON_ONLY', review_states: [],
+    products: [{ source_format: 'china_legacy_invoice_xlsx', source_sheet: 'Invoice', source_row: 6, raw_qty: 2,
+      name_zh: '红玫瑰', name_en: 'Rose A', description: 'Rose A', source_unit_spec: '500g', unitPrice: 10,
+      t_price: 20, amount_matches: true }] };
+  const slots = []; let cursor = 0, confirmed = null;
+  const react = { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+    useState(initial) { const index = cursor++; if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial;
+      return [slots[index], value => { slots[index] = typeof value === 'function' ? value(slots[index]) : value; }]; },
+    useMemo: fn => fn() };
+  const module = { exports: {} };
+  new Function('require', 'module', 'exports', legacyReviewCode)(name => name === 'react' ? react : (() => { throw Error('unexpected import ' + name); })(), module, module.exports);
+  const render = () => { cursor = 0; return module.exports.default({ data: { invoices: [source] },
+    resolveLegacyChinaInvoice: legacy.resolveLegacyChinaInvoice, onConfirm(value) { confirmed = value; } }); };
+  const nodes = (tree, type) => flatten(tree).filter(node => node.type === type);
+  let tree = render();
+  assert.ok(text(tree).includes('500g'));
+  assert.ok(text(tree).includes('total_bunch: 단 확인 후 원문 수량 사용'));
+  const setInput = (label, value) => { tree = render(); nodes(tree, 'input').find(node => node.props['aria-label'] === label).props.onChange({ target: { value } }); tree = render(); };
+  setInput('6행 박스 PCS', '2'); setInput('6행 전체 송이', '20');
+  setInput('6행 확인 근거', 'Invoice row checked'); setInput('통화 코드', 'CNY'); setInput('통화 원문 근거', 'Confirmed against invoice source');
+  tree = render();
+  let checks = nodes(tree, 'input').filter(node => node.props.type === 'checkbox');
+  checks[0].props.onChange({ target: { checked: true } }); tree = render();
+  checks = nodes(tree, 'input').filter(node => node.props.type === 'checkbox');
+  checks[1].props.onChange({ target: { checked: true } }); tree = render();
+  checks = nodes(tree, 'input').filter(node => node.props.type === 'checkbox');
+  checks[2].props.onChange({ target: { checked: true } }); tree = render();
+  nodes(tree, 'button').find(node => text(node) === '확인한 구형 인보이스 값 적용').props.onClick(); tree = render();
+  assert.ok(confirmed, text(tree));
+  const promoted = confirmed.invoices[0];
+  assert.equal(promoted.source_format, 'china_legacy_invoice_reviewed');
+  assert.equal(promoted.products[0].raw_qty, 2); assert.equal(promoted.products[0].total_bunch, 2);
+  assert.equal(promoted.products[0].pcs, 2); assert.equal(promoted.products[0].total_stems, 20);
+  assert.equal(promoted.products[0].bunch_st, 10); assert.equal(promoted.products[0].steam_box, 10);
+  assert.equal(promoted.currency, 'CNY');
 });
 
 test('Korean matching candidates and manual catalog search preserve original product names', async () => {
@@ -539,7 +638,8 @@ test('parent ERP matching saves and rebuilds, while a failed save retains the ta
   h.requests[0].resolve({ ok: true, status: 200, json: async () => ({
     source: 'ai', cacheSaved: true, stop_reason: 'end_turn',
     content: [{ type: 'text', text: JSON.stringify({ invoices: [{
-      invoice: 'INV-ERP-1', supplier: 'Teucali', invoice_total: 120,
+      invoice: 'INV-ERP-1', supplier: 'Teucali', date: '2026-10-09', raw_date: '2026-10-09', date_order: 'YMD',
+      date_kind: 'invoice', currency: 'USD', invoice_total: 120, freight_total: 0,
       products: [{ description: 'CARNATION Doncel RAW', pcs: 2, bunch_st: 20,
         steam_box: 300, total_stems: 600, total_bunch: 30, u_price: 0.2, t_price: 120 }],
     }] }) }],
@@ -569,6 +669,27 @@ test('parent ERP matching saves and rebuilds, while a failed save retains the ta
   dialog = flatten(h.tree).find(node => node.type === h.components.PackingProductMatchDialogStub);
   assert.equal(dialog.props.target.description, 'SECOND SOURCE');
   assert.match(dialog.props.error, /409 revision conflict/);
+});
+
+test('source resolved flags do not clear extraction issues or open the generator gate', async () => {
+  const h = await harness();
+  h.nodes('button').find(node => node.props['aria-label'] === 'Colombia').props.onClick(); h.render();
+  h.inputPdf({ name: '41-1.pdf', type: 'application/pdf', size: 10 });
+  await h.readers[0].complete(); h.render();
+  await h.button('Generar packing list').props.onClick(); h.render();
+  const process = h.button('Analizar con IA (posible coste)').props.onClick();
+  h.requests[0].resolve({ ok: true, status: 200, json: async () => ({
+    source: 'ai', cacheSaved: true, stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ invoices: [{
+      invoice: 'INV-RESOLVED-FLAG', supplier: 'Teucali', date: '2026-10-09', raw_date: '2026-10-09', date_order: 'YMD',
+      date_kind: 'invoice', currency: 'USD', invoice_total: 2, freight_total: 0,
+      extractionIssues: [{ code: 'SOURCE_ASSERTED_RESOLVED', field: 'currency', resolved: true }],
+      products: [{ description: 'ROSE SOURCE', pcs: 1, bunch_st: 10, steam_box: 20,
+        total_stems: 20, total_bunch: 2, u_price: 1, t_price: 2 }],
+    }] }) }],
+  }) });
+  await process; await h.refresh();
+  assert.equal(h.generationCalls.length, 0);
+  assert.ok(text(h.tree).includes('추출 검토 항목 1건'));
 });
 
 test('invoice PDF accepts exact 20MiB, rejects 20MiB + 1 and only sends on explicit AI', async () => {

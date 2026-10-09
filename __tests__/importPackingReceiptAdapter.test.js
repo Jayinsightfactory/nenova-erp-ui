@@ -151,7 +151,7 @@ test('keeps explicit zero distinct from missing values in the draft API payload'
   assert.deepEqual(payload.lines[0].reviewed, { confirmed: false });
 });
 
-test('routes non-USD freight to costInputs and never to ERP header freight fields', async () => {
+test('preserves CN mixed charges for explicit allocation, never assumes pure freight', async () => {
   const adapter = await ready;
   const [document] = await adapter.adaptPackingReceipts({
     sourceHash: 'e'.repeat(64), fileName: '41-01.xlsx', country: 'CN', reviewConfirmed: true,
@@ -162,11 +162,14 @@ test('routes non-USD freight to costInputs and never to ERP header freight field
     products: [{ ProdKey: 99, ProdName: 'CN ERP', country: 'CN', selectable: true }],
   });
   assert.equal(document.reviewedMetadata.freightRate, null);
-  assert.deepEqual(document.reviewedMetadata.costInputs.freight, { currency: 'CNY', amount: 125.5, source: 'invoice' });
+  assert.equal(document.reviewedMetadata.costInputs.freight, undefined);
+  assert.deepEqual(document.reviewedMetadata.unclassifiedAdditionalCharges,
+    { currency: 'CNY', amount: 125.5, source: 'invoice', requiresAllocation: true });
   const payload = adapter.toReceiptDraftPayload(document);
   assert.equal(payload.reviewedMetadata.freightRate, null);
   assert.equal(payload.reviewedMetadata.docFee, null);
-  assert.equal(payload.reviewedMetadata.costInputs.freight.amount, 125.5);
+  assert.equal(payload.reviewedMetadata.costInputs.freight, undefined);
+  assert.equal(payload.reviewedMetadata.unclassifiedAdditionalCharges.amount, 125.5);
 });
 
 test('keeps reviewed USD freight total out of the per-kg ERP header and never invents CW from net weight', async () => {
@@ -180,12 +183,15 @@ test('keeps reviewed USD freight total out of the per-kg ERP header and never in
     products: [{ ProdKey: 100, ProdName: 'CO ERP', country: 'CO', selectable: true }],
   });
   assert.equal(document.reviewedMetadata.freightRate, null, 'invoice freight total is not USD/kg');
-  assert.deepEqual(document.reviewedMetadata.costInputs.freight, { currency: 'USD', amount: 420, source: 'invoice' });
+  assert.equal(document.reviewedMetadata.costInputs.freight, undefined);
+  assert.deepEqual(document.reviewedMetadata.unclassifiedAdditionalCharges,
+    { currency: 'USD', amount: 420, source: 'invoice', requiresAllocation: true });
   assert.equal(document.reviewedMetadata.cw, null, 'net weight is not chargeable weight');
   assert.equal(document.rawMetadata.chargeableWeight, null);
   const payload = adapter.toReceiptDraftPayload(document);
   assert.equal(payload.reviewedMetadata.freightRate, null);
-  assert.equal(payload.reviewedMetadata.costInputs.freight.amount, 420);
+  assert.equal(payload.reviewedMetadata.costInputs.freight, undefined);
+  assert.equal(payload.reviewedMetadata.unclassifiedAdditionalCharges.amount, 420);
 
   const [explicitCw] = await adapter.adaptPackingReceipts({
     sourceHash: '1'.repeat(64), fileName: '2026_41-01_CO.pdf', country: 'CO',

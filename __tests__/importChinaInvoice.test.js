@@ -52,7 +52,11 @@ function generate(packing, inv, opts = {}) {
 test('response contract, correct Hubfresh invoice/date, independent counts and zero price', async () => {
   const inv = await parse();
   assert.equal(inv.invoice, 'XJ-2026-NN004');
-  assert.equal(inv.date, '2026-10-04');
+  assert.equal(inv.date, '2026/10/04');
+  assert.equal(inv.raw_date, '2026-10-04');
+  assert.equal(inv.date_source_raw, '4/10/2026');
+  assert.equal(inv.date_kind, 'invoice');
+  assert.equal(inv.date_order, 'YMD');
   assert.match(inv.supplier, /HUBFRESH/);
   assert.doesNotMatch(inv.supplier, /Melody|Nenova/i);
   const p = inv.products[0];
@@ -330,7 +334,9 @@ test('optional real XJ workbook: counts/zero row/costs/output plus actual catalo
     const inv = response.parsePackingResponse(parser.parseChinaInvoiceWorkbook(XLSX, bytes.toString('base64')), 'CN').result.invoices[0];
     console.log('REAL_PARSE', JSON.stringify({ bytes: bytes.length, elapsedMs: Math.round(performance.now() - start),
       rssDeltaMiB: Math.round((process.memoryUsage().rss - memory) / 1024 / 1024) }));
-    assert.equal(inv.invoice, 'XJ-2026-NN004'); assert.equal(inv.date, '2026-10-04'); assert.match(inv.supplier, /HUBFRESH/);
+    assert.equal(inv.invoice, 'XJ-2026-NN004'); assert.equal(inv.date, '2026/10/04');
+    assert.equal(inv.raw_date, '2026-10-04'); assert.equal(inv.date_kind, 'invoice');
+    assert.equal(inv.date_order, 'YMD'); assert.match(inv.supplier, /HUBFRESH/);
     assert.equal(inv.products.length, 101); assert.equal(inv.total_boxes, 429); assert.equal(inv.total_bunches, 5390);
     assert.equal(inv.total_stems, 68775); assert.equal(inv.item_subtotal, 126325);
     assert.equal(inv.freight, 45825.5); assert.equal(inv.invoice_total, 172150.5); assert.equal(inv.additional_costs.length, 7);

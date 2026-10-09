@@ -3,6 +3,9 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import PackingResults from './PackingResults.js';
 import PackingEvidenceReview from './PackingEvidenceReview.js';
 import PackingProductMatchDialog from './PackingProductMatchDialog.js';
+import ChinaLegacyReview from './ChinaLegacyReview.js';
+import { findLegacyChinaInvoiceCandidates, parseChinaLegacyInvoiceWorkbook } from '../../lib/importChinaLegacyInvoice.js';
+import { resolveLegacyChinaInvoice } from '../../lib/importChinaLegacyReview.js';
 import {packingErpCatalog,packingErpAliases} from '../../lib/importPackingErpMatches.js';
 import { makePackingReviewRows, applyPackingReview, packingReviewWriter } from '../../lib/importPackingReview.js';
 import { parsePackingResponse } from '../../lib/importPackingResponse.js';
@@ -861,6 +864,51 @@ function AWBPanel({ xlsxLib, lang = 'ko', onBack, readAwbPdf }) {
 
 const readLocalAwbPdf = async base64 => (await import('../../lib/importAwbPdf')).readAwbPdf(base64);
 const EMPTY_RECEIPT_ITEMS=Object.freeze([]);
+const LEGACY_CN_REVIEW_STATUS = 'LEGACY_CN_REVIEW_REQUIRED';
+const LEGACY_CN_REVIEW_MESSAGE = '구형 중국 인보이스는 행별 단위·PCS·송이 및 통화를 확인하고, 이어서 중량·운송비 검토를 마쳐야 생성할 수 있습니다.';
+const isLegacyChinaInvoice = invoice => invoice?.source_format === 'china_legacy_invoice_xlsx'
+  || (invoice?.source_format !== 'china_legacy_invoice_reviewed' && (invoice?.legacyReviewRequired === true
+    || invoice?.reviewStatus === LEGACY_CN_REVIEW_STATUS));
+function unresolvedExtractionIssues(invoices = [], result = null) {
+  const issues = [
+    ...(Array.isArray(result?.extractionIssues) ? result.extractionIssues : []),
+    ...(Array.isArray(result?.extraction_issues) ? result.extraction_issues : []),
+    ...invoices.flatMap(invoice => [
+      ...(Array.isArray(invoice?.extractionIssues) ? invoice.extractionIssues : []),
+      ...(Array.isArray(invoice?.extraction_issues) ? invoice.extraction_issues : []),
+    ]),
+  ];
+  // Source/AI status flags are not proof that a validation issue was cleared.
+  // Only the canonical reviewer may remove a resolved issue from the array.
+  return issues;
+}
+function inlineJsonPayload(data) {
+  if (!Array.isArray(data?.content)) return null;
+  const text = data.content.filter(block => block?.type === 'text').map(block => block.text || '').join('');
+  const start = text.indexOf('{'), end = text.lastIndexOf('}');
+  if (start < 0 || end < start) return null;
+  try { return JSON.parse(text.slice(start, end + 1)); } catch { return null; }
+}
+function chinaLegacyReviewPayload(data, result = null) {
+  const envelope = inlineJsonPayload(data);
+  const direct = data?.legacyReview || data?.legacy_review || data?.reviewOnly || data?.review_only
+    || envelope?.legacyReview || envelope?.legacy_review || envelope?.reviewOnly || envelope?.review_only
+    || data;
+  const invoices = result?.invoices || direct?.invoices || envelope?.invoices || [];
+  const marked = String(direct?.status || direct?.reviewStatus || envelope?.status || envelope?.reviewStatus || '').toUpperCase() === LEGACY_CN_REVIEW_STATUS
+    || direct?.legacyReviewRequired === true || envelope?.legacyReviewRequired === true
+    || invoices.some(isLegacyChinaInvoice);
+  if (!marked) return null;
+  return {
+    ...direct,
+    status: LEGACY_CN_REVIEW_STATUS,
+    invoices,
+    reviewRows: direct?.reviewRows || direct?.review_rows || direct?.rows
+      || envelope?.reviewRows || envelope?.review_rows || envelope?.rows || null,
+    extractionIssues: direct?.extractionIssues || direct?.extraction_issues
+      || envelope?.extractionIssues || envelope?.extraction_issues || result?.extractionIssues || [],
+  };
+}
 async function requestErpMatches(body) {
   const response=await fetch('/api/import/tools/product-matches',body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{cache:'no-store'});
   const data=await response.json().catch(()=>null);
@@ -925,6 +973,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const [mismatchOverrides, setMismatchOverrides] = useState(new Set());
   // Last-extracted result so we can rebuild excels after user confirms aliases
   const [lastExtraction, setLastExtraction] = useState(null);
+  const [legacyReviewData, setLegacyReviewData] = useState(null);
+  const [legacyPackingReviewRequired, setLegacyPackingReviewRequired] = useState(false);
   const [reviewRows, setReviewRows] = useState(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
@@ -975,6 +1025,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     setReviewRows(null); setReviewOpen(false); setReviewConfirmed(false);
     setNeedsAI(false); setExtractionSource('');
     setExcels([]); setGenerated({}); setLastExtraction(null);
+    setLegacyReviewData(null);
+    setLegacyPackingReviewRequired(false);
     setPending([]); setAllNoMatches([]); setMismatches([]);
     setMismatchOverrides(new Set()); setSteps([]);
   };
@@ -1150,6 +1202,26 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   // Used initially after extraction, and again after the user confirms aliases.
   const buildExcels = (params) => {
     const { invoices, masterAwb, weekParsed, currentAliases, wasTruncated = false } = params;
+    const sourceInvoices = Array.isArray(invoices) ? invoices : [];
+    const legacyDetected = country === 'CN' && (params.legacyReviewRequired === true
+      || lastExtraction?.legacyReviewRequired === true
+      || sourceInvoices.some(isLegacyChinaInvoice));
+    if (legacyDetected) {
+      setExcels([]); setGenerated({}); setPending([]); setAllNoMatches([]); setMismatches([]);
+      setStatus({ type: 'error', msg: LEGACY_CN_REVIEW_MESSAGE });
+      return false;
+    }
+    if (country === 'CN' && legacyPackingReviewRequired && params.legacyPackingReviewConfirmed !== true) {
+      setExcels([]); setGenerated({});
+      setStatus({ type: 'error', msg: '구형 중국 인보이스는 별도 GW·CW·운송비 검토를 확인한 뒤에만 생성할 수 있습니다.' });
+      return false;
+    }
+    const unresolved = unresolvedExtractionIssues(sourceInvoices, params.extractionResult || lastExtraction?.result);
+    if (unresolved.length) {
+      setExcels([]); setGenerated({}); setPending([]); setAllNoMatches([]); setMismatches([]);
+      setStatus({ type: 'error', msg: `추출 검토 항목 ${unresolved.length}건이 남아 있어 생성하지 않았습니다. 원문 확인 후 다시 검토하세요.` });
+      return false;
+    }
     const currentErp=params.erpMatches??erpMatches;
     if(!currentErp)throw new Error('전산 품목을 먼저 불러오세요.');
     const generators = { CO: genColombia, NL: genNL, CN: genChina, EC: genEcuador, TH: genThailand, AU: genAustralia, US: genUS, VN: genVN };
@@ -1201,6 +1273,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       ? 'error'
       : (dedupedPending.length > 0 || dedupedNm.length > 0 ? 'info' : 'success');
     setStatus({ type: statusType, msg: summary });
+    return true;
   };
 
 
@@ -1273,9 +1346,24 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     ]);
     setStatus({ type: 'info', msg: t.processing });
     try {
-      const extraction=country === 'CN' && /\.xlsx$/i.test(file.name)
-        ? { source: 'local', data: parseChinaInvoiceWorkbook(xlsxLib, pdfBase64) }
-        : await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true});
+      let extraction;
+      if (country === 'CN' && /\.xlsx$/i.test(file.name)) {
+        try {
+          extraction = { source: 'local', data: parseChinaInvoiceWorkbook(xlsxLib, pdfBase64) };
+        } catch (modernError) {
+          try {
+            const workbook = xlsxLib.read(pdfBase64, { type: 'base64', cellFormula: true });
+            const candidates = findLegacyChinaInvoiceCandidates(xlsxLib, workbook);
+            if (!candidates.length) throw modernError;
+            extraction = { source: 'local', data: parseChinaLegacyInvoiceWorkbook(xlsxLib, workbook) };
+          } catch (legacyError) {
+            if (legacyError === modernError) throw modernError;
+            throw legacyError;
+          }
+        }
+      } else {
+        extraction = await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true});
+      }
       if (!isCurrent()) return;
       if(extraction.needsAI){
         setNeedsAI(true);setSteps([]);
@@ -1289,14 +1377,47 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         { label: sourceLabel, state: 'done' },
         { label: t.steps[2], state: 'active' },
       ]);
+      const directLegacy = country === 'CN' ? chinaLegacyReviewPayload(data) : null;
+      if (directLegacy) {
+        const sourceInvoices = directLegacy.invoices || [];
+        let result = directLegacy.result || { invoices: sourceInvoices, extractionIssues: directLegacy.extractionIssues || [] };
+        if (Array.isArray(data?.content)) {
+          try { result = parsePackingResponse(data, 'CN').result; } catch { /* preserve the explicit source-review payload */ }
+        }
+        const normalizedSources = result.invoices?.some(isLegacyChinaInvoice) ? result.invoices : sourceInvoices;
+        result = { ...result, invoices: normalizedSources };
+        setLastExtraction({ result, sourceInvoices: normalizedSources, masterAwb: result.master_awb || '', weekParsed: parsed,
+          wasTruncated: false, legacyReviewRequired: true });
+        setLegacyReviewData({ ...directLegacy, invoices: normalizedSources });
+        setExcels([]); setGenerated({});
+        setStatus({ type: 'error', msg: LEGACY_CN_REVIEW_MESSAGE });
+        setSteps([{ label: t.steps[0], state: 'done' }, { label: '중국 구형 원문 검토 전용', state: 'done' }]);
+        return;
+      }
       const { result, wasTruncated } = parsePackingResponse(data, country);
       const invoices = result.invoices || [];
       const masterAwb = result.master_awb || (invoices[0] && invoices[0].awb) || '';
       if (invoices.length === 0) throw new Error(t.noInvoices);
+      const legacyData = country === 'CN' ? chinaLegacyReviewPayload(data, result) : null;
       // Save extraction for potential re-build after alias updates
-      setLastExtraction({ result, sourceInvoices: invoices, masterAwb, weekParsed: parsed, wasTruncated });
-      buildExcels({ invoices, masterAwb, weekParsed: parsed, currentAliases: aliases, wasTruncated });
+      setLastExtraction({ result, sourceInvoices: invoices, masterAwb, weekParsed: parsed, wasTruncated,
+        legacyReviewRequired: Boolean(legacyData) });
+      if (legacyData) {
+        setLegacyReviewData(legacyData);
+        setExcels([]); setGenerated({});
+        setStatus({ type: 'error', msg: LEGACY_CN_REVIEW_MESSAGE });
+        setSteps([{ label: t.steps[0], state: 'done' }, { label: sourceLabel, state: 'done' }, { label: '구형 중국 검토 전용 · 생성 차단', state: 'done' }]);
+        return;
+      }
+      setLegacyReviewData(null);
+      const unresolved = unresolvedExtractionIssues(invoices, result);
       setReviewRows(makePackingReviewRows(invoices, country)); setReviewOpen(true);
+      if (unresolved.length) {
+        setExcels([]); setGenerated({});
+        setStatus({ type: 'error', msg: `추출 검토 항목 ${unresolved.length}건이 남아 있습니다. 인식값 검토를 적용하기 전에는 패킹을 생성하지 않습니다.` });
+        return;
+      }
+      buildExcels({ invoices, masterAwb, weekParsed: parsed, currentAliases: aliases, wasTruncated, extractionResult: result });
     } catch (e) {
       if (isCurrent()) setStatus({ type: 'error', msg: t.errorPrefix + e.message });
     } finally {
@@ -1336,11 +1457,25 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const closeReview = () => { setReviewOpen(false); setTimeout(() => reviewButtonRef.current?.focus(), 0); };
   const confirmReview = drafts => {
     if (!lastExtraction || processingRef.current || savingRef.current || !sharedReady) throw new Error('현재 파일 분석이 완료된 뒤 다시 확인하세요.');
+    if (country === 'CN' && (lastExtraction.legacyReviewRequired || lastExtraction.sourceInvoices?.some(isLegacyChinaInvoice))) {
+      setStatus({ type: 'error', msg: LEGACY_CN_REVIEW_MESSAGE });
+      throw new Error('일반 GW·CW·운송비 확인은 중국 구형 행 단위·통화 검토를 대신할 수 없습니다.');
+    }
     const invoices = applyPackingReview(lastExtraction.sourceInvoices, drafts, country);
+    const reviewedResult = { ...lastExtraction.result, invoices };
+    setLastExtraction(current => ({ ...current, result: reviewedResult, sourceInvoices: invoices }));
+    const unresolved = unresolvedExtractionIssues(invoices, reviewedResult);
+    if (unresolved.length) {
+      setExcels([]); setGenerated({});
+      setStatus({ type: 'error', msg: `인식값 확인 후에도 추출 검토 항목 ${unresolved.length}건이 남아 있습니다. 해결 근거를 확인하기 전까지 생성을 차단합니다.` });
+      throw new Error('추출 검토 항목이 남아 있습니다. 해당 항목을 해결한 뒤 다시 확인하세요.');
+    }
     // Build first: a failure preserves the previous extraction and review draft.
-    buildExcels({ invoices, masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
-      currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated });
-    setLastExtraction(current => ({ ...current, result: { ...current.result, invoices } }));
+    const built = buildExcels({ invoices, masterAwb: lastExtraction.masterAwb, weekParsed: lastExtraction.weekParsed,
+      currentAliases: aliases, wasTruncated: lastExtraction.wasTruncated, extractionResult: reviewedResult,
+      legacyPackingReviewConfirmed: country === 'CN' && legacyPackingReviewRequired });
+    if (built === false) throw new Error('검토가 끝나지 않아 생성하지 않았습니다.');
+    if (country === 'CN' && legacyPackingReviewRequired) setLegacyPackingReviewRequired(false);
     setReviewConfirmed(true); closeReview();
   };
 
@@ -1566,6 +1701,23 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             </div>
             <div className={styles.modeBadge}>{t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
+            {legacyReviewData && <ChinaLegacyReview data={legacyReviewData} resolveLegacyChinaInvoice={resolveLegacyChinaInvoice} onConfirm={confirmation => {
+              try {
+                const promoted = confirmation.invoices;
+                if (!Array.isArray(promoted) || !promoted.length || promoted.some(isLegacyChinaInvoice)) {
+                  throw new Error('구형 인보이스 검토 결과가 안전한 생성 형식으로 승격되지 않았습니다.');
+                }
+                const result = { ...lastExtraction.result, invoices: promoted };
+                setLastExtraction(current => ({ ...current, result, sourceInvoices: promoted, legacyReviewRequired: false }));
+                setLegacyReviewData(null);
+                setLegacyPackingReviewRequired(true);
+                setReviewRows(makePackingReviewRows(promoted, 'CN')); setReviewOpen(true); setReviewConfirmed(false);
+                setExcels([]); setGenerated({});
+                setStatus({ type: 'info', msg: '행별 단위·박스·송이와 통화 확인을 적용했습니다. 생성 전 중량(GW/CW)·운송비 검토를 별도로 완료하세요.' });
+              } catch (error) {
+                setStatus({ type: 'error', msg: `구형 인보이스 변환 차단: ${error.message}` });
+              }
+            }} />}
             {lastExtraction?.result?.invoices?.[0]?.source_format === 'china_invoice_xlsx' && (() => {
               const inv = lastExtraction.result.invoices[0];
               return <section aria-label="중국 원본 합계 검산" className={styles.sourceBadge}>

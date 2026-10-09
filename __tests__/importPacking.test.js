@@ -24,15 +24,22 @@ async function main() {
   const row = { description: 'CARNATION Doncel', pcs: 2, bunch_st: 20, steam_box: 300,
     total_stems: 600, total_bunch: 30, u_price: 0.2, t_price: 120 };
   const invoice = { invoice: 'INV-1', supplier: 'Teucali', awb: '992-1234-5678',
-    date: '2026/10/06', invoice_total: 120, products: [row] };
+    date: '2026/10/06', raw_date: '2026/10/06', date_kind: 'invoice', date_order: 'YMD',
+    currency: 'USD', freight_total: 0, invoice_total: 120, products: [row] };
   const ai = result => ({ content: [{ type: 'text', text: JSON.stringify(result) }], stop_reason: 'end_turn' });
   const catalog = state.indexPackingCatalog({ items: [{ name: 'CARNATION Doncel', country: 'CO' }] });
   const bufferOf = rows => {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'data');
     return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   };
-  await check('all eight original prompts preserved with explicit human-review evidence extension', () => {
-    const originalPart = country => prompt.buildPrompt(country).split('\n\nMANDATORY HUMAN REVIEW EVIDENCE')[0];
+  await check('original prompts preserved except the verified CO goods-plus-charges correction', () => {
+    const correctedCoCheck = '- Sum the t_price values of all products, then add freight_total. Does goods + extras equal invoice_total? If not, you missed a row, duplicated one, or selected the wrong charge/total — re-read the invoice top to bottom. Do NOT compare goods alone to a grand total that includes extras.';
+    const originalCoCheck = '- Sum the t_price values of all your products. Does it equal invoice_total? If not, you missed a row or duplicated one — re-read the invoice top to bottom.';
+    assert.ok(prompt.buildPrompt('CO').includes(correctedCoCheck));
+    const originalPart = country => {
+      const part = prompt.buildPrompt(country).split('\n\nMANDATORY HUMAN REVIEW EVIDENCE')[0];
+      return country === 'CO' ? part.replace(correctedCoCheck, originalCoCheck) : part;
+    };
     const hashes = {
       CO: 'a0c7454452f7fe85d46b6fd5799b8292fe468d03938a8bc6a2b206a4187309a0',
       NL: 'b10cfcaa7bc66b44924bffa6ccee6ee0049e96dc64d25dcf2fb22d1a9647cf75',
@@ -251,6 +258,7 @@ async function main() {
       '../../lib/importPackingReceiptAdapter.js': receiptAdapter,
       './PackingResults.js': { default: 'PackingResults', __esModule: true },
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
+      './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
       './PackingProductMatchDialog.js': { default: 'PackingProductMatchDialog', __esModule: true },
       'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
