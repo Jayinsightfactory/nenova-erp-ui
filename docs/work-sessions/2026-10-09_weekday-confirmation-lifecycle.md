@@ -31,3 +31,7 @@
 최종 로컬 검증: test:erp-contract(전체 UI/주광/선출고 회귀 포함), test:nenova-dnspy-evidence, test:erp-manifest --changed-from origin/master, guard:erp-writes --changed-from origin/master, npm run build 모두 exit0. 기존 weekday-distribution/adversarial 실제SQL suite와 새 lifecycle SQL의 25개 시나리오 통과. 새 이력대조 반영 후 lifecycle 25개와 전체계약/빌드를 다시 통과했다.
 운영 SELECT-only 추가 스키마 확인: ShipmentHistory PK는 ShipHistoryKey(int IDENTITY), 날짜이력대조는 환경별 PK명을 추정하지 않고 exacttimestamp/native ChangeDtm 기준을 사용한다.
 Chrome 로그인은 기존 검증계정 정상로그인으로 해결했다. 배포후 최신 UI 조작은 아래에 추가 기록한다.
+
+2026-10-09 배포: PR #1009, master b436065305d04367dd4fb7def4ff5ebaeea4fc33. CI 37910430999 / Cafe24 37910647884 성공. Chrome 최신 SHA 확인, 40차 10/04 일요일 실제 확정 견적 1문서·74행 미리보기 확인. 운영 ERP 변경 없이 검증했다. 41차 10/11 미확정 포함 요청은 409 차단 확인.
+추가 UI 검토에서 적용확인·인쇄창 키보드 초점경계/복귀를 보완했다. 저장 중 Escape는 닫지 않고, 인쇄 iframe 내부 Escape/Tab도 모달로 연결한다. 행동 테스트와 ERP 계약에 포함한다. 최초 전체 검사 중 기존 carryover cross-process 경합 테스트가 1회 실패했으며 단독 재실행은 10/10 통과; 부하 없는 전체 재검사 결과를 확인 후 배포한다.
+전체 ERP 계약 재검사 exit0. dnSpy evidence/manifest/write guard/build 모두 exit0. 기존 경합 테스트 단독 및 전체 재검사 통과를 확인했다.
