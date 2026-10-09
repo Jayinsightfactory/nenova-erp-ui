@@ -10,31 +10,22 @@ const item={identity:row.identity,status:'DELIVERED',deliveredAt:'2026-10-09T10:
 const good={ok:true,year,week,items:[item]};
 assert.equal(validatedDeliveryItems(good,[row],year,week)[0].status,'DELIVERED');
 for(const bad of [{...good,year:'2025'},{...good,week:'2026-40-01'},{...good,items:[]},{...good,items:[item,item]},{...good,items:[{...item,deliveredAt:''}]},{...good,items:[{...item,deliveryIdentity:row.identity}]},{...good,items:[{...item,deliveredAt:'2025-10-09T10:01:00+09:00'}]}])assert.throws(()=>validatedDeliveryItems(bad,[row],year,week));
-console.log('delivery client: bounded UTF8 batches, oversize isolation, whitelist, complete scoped evidence passed');
-
-for(const flag of ['truncated','is_truncated']) {
- const request=deliveryRequestBatches([{...row,[flag]:true}],year,week).batches[0][0];
- assert.equal(request[flag],true);
- const result=require('../lib/distributionDeliveryStatus').matchDeliveryStatus({sources:[request],targets:[{...request,[flag]:false,chat_id:'target',external_message_id:'two',chatroom:'현장 추가취소방',created_at:'2026-10-09T10:01:00+09:00'}],year});
- assert.equal(result[0].status,'UNCONFIRMED');assert.equal(result[0].reason,'incomplete');
+const {createDeliveryEvidenceCache}=require('../lib/distributionDeliveryClient');
+const facts=createDeliveryEvidenceCache();
+assert.deepEqual(facts.read('a',year,[row]),{});
+facts.accept('a',year,[row],{[row.identity]:item});
+assert.equal(facts.read('a',year,[row])[row.identity].status,'DELIVERED');
+facts.accept('a',year,[row,{...row,identity:'new'}],{[row.identity]:{identity:row.identity,status:'UNCONFIRMED'}});
+assert.equal(facts.read('a',year,[row])[row.identity].status,'DELIVERED','refresh failure/miss and incoming source cannot erase confirmed fact');
+for(const changed of [{...row,message:row.message+'changed'},{...row,created_at:'2026-10-09T11:00:00+09:00'},{...row,chat_id:'other'}])assert.deepEqual(facts.read('a',year,[changed]),{},'different original cannot inherit proof');
+assert.deepEqual(facts.read('b',year,[row]),{},'actor switch rehydrates from server');
+assert.deepEqual(facts.read('a','2025',[row]),{});
+assert.equal(deliveryRequestBatches([{...row,duplicateOriginal:true}],year,week).batches[0][0].duplicateOriginal,true,'batch preserves global duplicate guard');
+for(const flag of ['truncated','is_truncated']){
+  const flagged={...row,[flag]:true};
+  const source=deliveryRequestBatches([flagged],year,week).batches[0][0];
+  assert.equal(source[flag],true);
+  assert.throws(()=>validatedDeliveryItems(good,[source],year,week));
+  assert.deepEqual(facts.read('a',year,[flagged]),{});
 }
-
-// Render the real hook with controlled React state: unchanged evidence can
-// survive an appended row, but never a new actor, year, raw text or error.
-const fs=require('node:fs'),vm=require('node:vm');
-let hookState={scope:'',items:{},loading:false,error:''},effects=[];
-const source=fs.readFileSync(require.resolve('../components/orders/useDistributionDeliveryStatus'),'utf8').replace(/^import .*;$/gm,'').replace('export default function','function');
-const context={useState:()=>[hookState,next=>{hookState=typeof next==='function'?next(hookState):next;}],useEffect:fn=>effects.push(fn),JSON,Object,Map,Set,document:{visibilityState:'visible'},navigator:{onLine:true},console};
-vm.runInNewContext(source+';this.hook=useDistributionDeliveryStatus;',context);
-const args={rows:[row],year,week,enabled:true,actorId:'a'};
-assert.equal(context.hook(args).pending,true);
-const fingerprint=JSON.stringify([row.message,row.created_at,row.timestamp_approximate,row.source,row.chatroom,row.chat_id,row.external_message_id,row.truncated,row.is_truncated]);
-hookState={scope:'prior',ownerScope:JSON.stringify(['a',year,week]),fingerprints:{[row.identity]:fingerprint},items:{[row.identity]:item},loading:false,error:''};
-assert.equal(context.hook({...args,rows:[row,{...row,identity:'new',message:'distinct raw message'}]}).items[row.identity].status,'DELIVERED');
-assert.equal(Object.keys(context.hook({...args,rows:[row,{...row,identity:'duplicate',message:'  '+row.message+'\n'}]}).items).length,0,'new normalized duplicate must immediately remove retained green, even offline');
-assert.equal(Object.keys(context.hook({...args,actorId:'b'}).items).length,0);
-assert.equal(Object.keys(context.hook({...args,year:'2025'}).items).length,0);
-assert.equal(Object.keys(context.hook({...args,rows:[{...row,message:'changed'}]}).items).length,0);
-hookState={...hookState,items:{},error:'failed'};
-assert.equal(Object.keys(context.hook(args).items).length,0);
-console.log('delivery hook: initial waiting and exact owner/raw evidence retention passed');
+console.log('delivery client: bounded UTF8 batches, scoped evidence, durable in-page confirmations passed');
