@@ -15,6 +15,12 @@ assert.equal(match(undefined,[delivered,{...delivered,external_message_id:'three
 assert.equal(match(undefined,[delivered,delivered])[0].status,'AMBIGUOUS');
 assert(!JSON.stringify(match()).includes(original.message),'response must not leak raw text');
 
+assert.equal(match([{...original,timestamp_approximate:true}])[0].reason,'source_time_approximate');
+assert.equal(match([{...original,chat_id:undefined}])[0].reason,'source_metadata');
+assert.equal(match([{...original,truncated:true}])[0].reason,'incomplete');
+assert.equal(match(undefined,[])[0].reason,'no_target');
+assert.equal(match(undefined,undefined,'2025')[0].reason,'source_time_invalid');
+assert.equal(match(undefined,[delivered,delivered])[0].reason,'ambiguous');
 function harness(fetchImpl,{token='test-token'}={}){
  const source=fs.readFileSync(require.resolve('../pages/api/kakao/delivery-status.js'),'utf8')
   .replace("import { withAuth } from '../../../lib/auth';",'const {withAuth}=deps;')
@@ -31,7 +37,7 @@ function harness(fetchImpl,{token='test-token'}={}){
  assert.equal((await handler({user:null})).code,401);assert.equal(reads,0);
  assert.equal((await handler({user:{accountActive:false}})).code,403);assert.equal((await handler({method:'GET'})).code,405);
  for(const body of [{year:'2025',week:'2026-41-01',sources:[original]},{year:'2026',week:'2026-00-00',sources:[original]},{year:'2026',week:'2026-41-01',sources:Array(201).fill(original)}])assert.equal((await handler({body})).code,400);
- const result=await handler();assert.equal(result.code,200);assert.equal(result.headers['Cache-Control'],'no-store');assert.equal(result.data.items[0].status,'DELIVERED');await handler();assert.equal(reads,1,'successful fixed feed cached');
+ const result=await handler();assert.equal(result.code,200);assert.equal(result.headers['Cache-Control'],'no-store');assert.equal(result.data.items[0].status,'DELIVERED');assert.equal(result.data.diagnostics.targetCount,1);assert.equal(result.data.diagnostics.qualifiedSourceCount,1);await handler();assert.equal(reads,1,'successful fixed feed cached');
  assert.equal((await harness(()=>{throw Error('no fetch');},{token:''})()).code,503);
  let pages=0;const capped=harness(async()=>({ok:true,json:async()=>({ok:true,messages:[{...delivered,external_message_id:String(++pages)}],hasMore:true,nextAfterKey:String(pages)})}));assert.equal((await capped()).code,502);assert.equal(pages,20);await capped();assert.equal(pages,40,'incomplete failure is not cached');
  const wrongRoom=harness(async()=>({ok:true,json:async()=>({ok:true,messages:[{...delivered,chatroom:'other'}],hasMore:false,nextAfterKey:null})}));assert.equal((await wrongRoom()).code,502);

@@ -1,6 +1,6 @@
 # 네노바 PC 홈 — 개인 업무와 최신 소식 PRD
 
-작성: 2026-10-09 · 상태: PC 홈 구현·fixture 검증 완료, 배포 진행 중. 아래 초기 기획의 제안 표현은 작성 당시 상태이며 최종 계약은 `docs/contracts/desktop-home-workspace.json`을 따른다.
+작성: 2026-10-09 · 상태: PC 홈 구현·fixture 검증·웹 API 배포·PC 1.3.5 릴리스 완료. 사용자 설치 적용은 미확인. 아래 초기 기획의 제안 표현은 작성 당시 상태이며 최종 계약은 `docs/contracts/desktop-home-workspace.json`을 따른다.
 
 ## 2026-10-09 구현 확정
 

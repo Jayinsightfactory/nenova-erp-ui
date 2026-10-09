@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
 (async()=>{
- const store=await import('../lib/personalHomeStore.js');const {desktopHomeWorkspace,createHomeQualityCache}=await import('../lib/desktopHomeWorkspace.js');
+ const store=await import('../lib/personalHomeStore.js');const {desktopHomeWorkspace,desktopHomeFeeds,createHomeQualityCache}=await import('../lib/desktopHomeWorkspace.js');
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'nenova-home-fixture-'));
  const now=new Date('2026-01-02T03:00:00Z'),options={root,now:()=>now};let n=0;
  const save=(owner,revision,rest)=>store.mutatePersonalHome(owner,{expectedRevision:revision,requestId:'fixture_'+(++n),date:'2026-01-02',...rest},options);
@@ -38,6 +38,23 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=req
  let home=await desktopHomeWorkspace({userId:'alice',authority:6},{date:'2026-01-02'},null,deps);assert.deepEqual(qualityCalls,[2026,2025]);assert.equal(home.feedback.length,2);assert.notEqual(home.feedback[0].sourceKey,home.feedback[1].sourceKey);assert.equal(home.feedback[0].orderWeek,'40-01');assert.equal(home.guidance.length,1);
  home=await desktopHomeWorkspace({userId:'alice',authority:6},{date:'2026-01-02'},{action:'read',date:'2026-01-02',expectedRevision:home.revision,requestId:'read_valid_key',sourceKey:home.guidance[0].sourceKey},deps);assert.equal(home.guidance[0].unread,false);
  qualityCalls=[];home=await desktopHomeWorkspace({userId:'bob',authority:9},{date:'2026-01-02'},null,deps);assert.equal(qualityCalls.length,0);assert.equal(home.feedback.length,0);
+ // Existing source records remain visible; seven days controls NEW, not existence.
+ const autumn=new Date('2026-10-09T03:00:00Z'),old='2026-01-01T00:00:00Z',fresh='2026-10-08T00:00:00Z';
+ const uid=i=>`${String(i).padStart(8,'0')}-1234-4123-8123-123456789012`;
+ const feedDeps={now:autumn,readKnowledge:async()=>({items:[{id:uid(1),title:'old normal',status:'CURRENT',updatedAt:old},{id:uid(2),title:'old important',status:'CURRENT',priority:'IMPORTANT',updatedAt:old},{id:uid(3),title:'new',status:'CURRENT',updatedAt:fresh},{id:uid(4),status:'CHECK',updatedAt:fresh},{id:uid(5),status:'RETIRED',updatedAt:fresh}]}),loadQuality:async({year})=>{qualityCalls.push(year);return {cases:[{CaseKey:uuid,OrderYear:year,UpdatedAt:old,SourceKey:1}],coverage:{rows:[{sourceKey:1,orderYear:year,orderWeek:'40-01'}]}};}};
+ qualityCalls=[];let feed=await desktopHomeFeeds({authority:6},{reads:{}},feedDeps);
+ assert.deepEqual(qualityCalls,[2026]);assert.equal(feed.guidance.length,3);assert.equal(feed.guidance[0].title,'old important');
+ assert.equal(feed.guidance.find(x=>x.title==='old normal').unread,true);assert.equal(feed.guidance.find(x=>x.title==='old normal').isNew,false);assert.equal(feed.guidance.find(x=>x.title==='new').isNew,true);
+ assert.equal(feed.feedback.length,1);assert.equal(feed.feedback[0].isRecent,false);assert.equal(feed.feedback[0].orderYear,2026);
+ const freshKey=feed.guidance.find(x=>x.title==='new').sourceKey;
+ feed=await desktopHomeFeeds({authority:6},{reads:{[freshKey]:true}},feedDeps);assert.equal(feed.guidance.find(x=>x.title==='new').isNew,false);
+ feed=await desktopHomeFeeds({authority:6},{reads:{[freshKey]:true}},{...feedDeps,readKnowledge:async()=>({items:[{id:uid(3),title:'new',status:'CURRENT',updatedAt:'2026-10-09T00:00:00Z'}]})});assert.equal(feed.guidance[0].isNew,true);
+ qualityCalls=[];feed=await desktopHomeFeeds({authority:6},{reads:{}},{...feedDeps,loadQuality:async({year})=>{qualityCalls.push(year);return {cases:year===2026?[]:[{CaseKey:uuid,OrderYear:2025,UpdatedAt:old}]};}});
+ assert.deepEqual(qualityCalls,[2026,2025]);assert.equal(feed.feedback[0].orderYear,2025);assert.ok(feed.feedback[0].href.includes('year=2025'));assert.equal(feed.feedback[0].orderWeek,null);
+ qualityCalls=[];feed=await desktopHomeFeeds({authority:6},{reads:{}},{...feedDeps,loadQuality:async({year})=>{qualityCalls.push(year);throw Error('unavailable');}});assert.deepEqual(qualityCalls,[2026]);assert.ok(feed.feedErrors.feedback);
+ feed=await desktopHomeFeeds({authority:6},{reads:{}},{...feedDeps,now,loadQuality:async({year})=>{if(year===2025)throw Error('prior unavailable');return {cases:[{CaseKey:uuid,OrderYear:2026,UpdatedAt:old}]};}});assert.equal(feed.feedback.length,1);assert.equal(feed.feedback[0].orderYear,2026);assert.ok(feed.feedErrors.feedback);
+ const many=Array.from({length:25},(_,i)=>({CaseKey:uid(i+1),OrderYear:2026,UpdatedAt:`2026-01-${String(i+1).padStart(2,'0')}T00:00:00Z`}));
+ feed=await desktopHomeFeeds({authority:6},{reads:{}},{...feedDeps,loadQuality:async()=>({cases:many})});assert.equal(feed.feedback.length,20);assert.equal(feed.feedback[0].id,uid(25));assert.equal(feed.feedback[19].id,uid(6));
  const failed=await desktopHomeWorkspace({userId:'bob',authority:6},{date:'2026-01-02'},{action:'create',date:'2026-01-02',title:'실패중 저장',expectedRevision:0,requestId:'failed_feed_save'}, {...deps,readKnowledge:async()=>{throw Error('fixture');},loadQuality:async()=>{throw Error('fixture');}});assert.equal(failed.tasks.length,1);assert.ok(failed.feedErrors.feedback);
  let calls=0,time=0;const cached=createHomeQualityCache(async()=>{calls++;await new Promise(r=>setTimeout(r,5));return {cases:[]};},()=>time);await Promise.all([cached({year:2026}),cached({year:2026})]);assert.equal(calls,1);time=26000;await cached({year:2026});assert.equal(calls,2);
  let failures=0;const bad=createHomeQualityCache(async()=>{failures++;throw Error('retry');});await bad({year:2026}).catch(()=>{});await bad({year:2026}).catch(()=>{});assert.equal(failures,2);

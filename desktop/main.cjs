@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen, dialog, shell, Menu, safeStorage } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen, dialog, shell, Menu, safeStorage, net } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, text } = require('./policy.cjs');
@@ -10,8 +10,8 @@ const SHELL = 'nenova-app://shell/index.html';
 function shellInsets(w) { return { top: w.toolsOpen ? 128 : 44, bottom: w.toolsOpen || w.menuOpen ? 28 : 0 }; }
 const windows = new Map(), tabs = new Map(), auxiliary = new Set();
 let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, restoring = false, saved = null, saveTimer, authTimer, authGeneration = 0;
-let webSession, updater;
-const { createUpdater, MIN_FREE } = require('./updater.cjs');
+let webSession, updater, updateScheduler, updateTimer;
+const { createUpdater, createUpdateScheduler, MIN_FREE } = require('./updater.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.setName('Nenova Desktop');
 app.setAppUserModelId('com.nenova.workspace');
@@ -265,7 +265,7 @@ function command(w, action, p = {}) {
         isCurrent: () => !locked && actor === owner && authGeneration === generation,
         onUnauthorized: () => { lockAccount(); ++authGeneration; verifyAccount().catch(() => {}); } });
     }
-    case 'appUpdate': { const phase = updater?.getState().phase; if (phase === 'available') updater.download(); else if (phase === 'downloaded') updater.install(); else updater?.check(); break; }
+    case 'appUpdate': { if (p.automatic === true) { void updateScheduler?.tick(true); break; } const phase = updater?.getState().phase; if (phase === 'available') updater.download(); else if (phase === 'downloaded') updater.install(); else updater?.check(); break; }
     case 'cancelUpdate': updater?.cancel(); break;
     case 'sync': verifyAccount().catch(() => {}); break;
     case 'open': openTab(w, p); break;
@@ -398,11 +398,15 @@ async function verifyAccount(initial = false) {
   }
   for (const w of windows.values()) layout(w);
   broadcast();
+  void updateScheduler?.tick();
 }
 app.whenReady().then(async () => {
   const enabled = app.isPackaged && process.platform === 'win32';
   const engine = enabled ? require('electron-updater').autoUpdater : null;
   updater = createUpdater({ engine, enabled, enoughSpace: enoughUpdateSpace, prepareInstall: prepareUpdate, notify: () => broadcast() });
+  updateScheduler = createUpdateScheduler({ updater, isReady: () => !locked && !!actor && !quitting, isOnline: () => net.isOnline() });
+  updateTimer = setInterval(() => { void updateScheduler.tick(); }, 60 * 1000);
+  updateTimer.unref();
   if (engine) {
     require('electron').autoUpdater.on('before-quit-for-update', () => { quitting = true; });
     engine.on('error', () => { quitting = false; });
@@ -443,6 +447,7 @@ app.whenReady().then(async () => {
   await verifyAccount(true);
 });
 app.on('before-quit', e => { if (!quitting && windows.size) { e.preventDefault(); quit(); } });
+app.on('will-quit', () => clearInterval(updateTimer));
 app.on('window-all-closed', () => { if (!quitting) { quitting = true; app.quit(); } });
 // Export only to the local Node test runner. No renderer receives this object.
 module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount };

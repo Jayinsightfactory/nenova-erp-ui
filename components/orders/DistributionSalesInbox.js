@@ -11,6 +11,7 @@ import {snapshotKey,readInboxSnapshot,writeInboxSnapshot,retainInboxFeed} from '
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 import DistributionMessagePreanalysis from './DistributionMessagePreanalysis';
+import {DELIVERY_REASON_LABELS} from '../../lib/distributionDeliveryStatus';
 import useDistributionDeliveryStatus from './useDistributionDeliveryStatus';
 
 const MANUAL_APPLICATION_STATUSES=['MANUALLY_APPLIED','MANUALLY_NOT_APPLIED','CLEAR'];
@@ -480,7 +481,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
       <div className="visible-change-meta"><small>{source}</small><button type="button" className="source-hide-toggle" data-testid={`source-fold-toggle:${row.identity}`} aria-expanded={true} onClick={event=>setMessageFold(row.identity,true,event)}>숨기기</button>
-      <button type="button" className={`source-delivery-status ${deliveryStatus.items[row.identity]?.status==='DELIVERED'?'delivered':''}`} data-testid={`source-delivery-status:${row.identity}`} aria-pressed={deliveryStatus.items[row.identity]?.status==='DELIVERED'} aria-disabled="true" title={deliveryStatus.items[row.identity]?.status==='DELIVERED'?`현장 추가취소방 동일 원문 확인 · ${shortKstTime(deliveryStatus.items[row.identity].deliveredAt)}`:deliveryStatus.error||'최근 7일 추가취소방에서 동일 원문의 전송을 확인합니다. 부분 일치·시각 불명확·중복 원문은 완료로 표시하지 않습니다.'}>{deliveryStatus.items[row.identity]?.status==='DELIVERED'?'● 전달완료':deliveryStatus.loading?'전달 확인 중…':deliveryStatus.items[row.identity]?.status==='AMBIGUOUS'?'전달 재확인':'○ 전달 미확인'}</button>
+      <button type="button" className={`source-delivery-status ${deliveryStatus.items[row.identity]?.status==='DELIVERED'?'delivered':''}`} data-testid={`source-delivery-status:${row.identity}`} aria-pressed={deliveryStatus.items[row.identity]?.status==='DELIVERED'} aria-disabled="true" title={deliveryStatus.items[row.identity]?.status==='DELIVERED'?`현장 추가취소방 동일 원문 확인 · ${shortKstTime(deliveryStatus.items[row.identity].deliveredAt)}`:deliveryStatus.error||'최근 7일 추가취소방에서 동일 원문의 전송을 확인합니다. 부분 일치·시각 불명확·중복 원문은 완료로 표시하지 않습니다.'}>{deliveryStatus.items[row.identity]?.status==='DELIVERED'?'● 전달완료':deliveryStatus.error?'전달 조회 실패':deliveryStatus.loading?'전달 확인 중…':deliveryStatus.pending?'전달 확인 대기':deliveryStatus.items[row.identity]?.status==='AMBIGUOUS'?'전달 재확인':`○ 전달 미확인 · ${DELIVERY_REASON_LABELS[deliveryStatus.items[row.identity]?.reason]||'전송 근거 확인 대기'}`}</button>
       <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={confirmation.confirmed&&!confirmation.cancelled} title="확인 표시는 실제 주문·분배 적용과 별개입니다. 확인취소는 전산 작업을 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,confirmation.confirmed&&!confirmation.cancelled?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':confirmation.confirmed&&!confirmation.cancelled?'확인취소':'확인처리'}</button>
       {!prepareMessage&&<button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button>}</div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
@@ -558,7 +559,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     <div className="sales-inbox-content" hidden={!open||!ready}>
       <small data-testid="sales-inbox-shared-status-cadence">공유 처리확인·저장된 분배 이력 {HISTORY_REFRESH_INTERVAL_MS/1000}초마다 확인</small>
       <small data-testid="sales-inbox-delivery-cadence">추가취소방 전달 여부 {HISTORY_REFRESH_INTERVAL_MS/1000}초마다 확인 · 동일 원문 전송 근거가 있으면 전달완료</small>
-      {deliveryStatus.error&&<p role="status">{deliveryStatus.error} 전달 여부는 미확인으로 표시합니다.</p>}
+      {deliveryStatus.diagnostics&&<small data-testid="sales-inbox-delivery-diagnostics">최근 7일 추가취소방 {deliveryStatus.diagnostics.targetCount}건 · 비교 가능한 원문 {deliveryStatus.diagnostics.qualifiedSourceCount}/{rows.length}건</small>}
+      {deliveryStatus.error&&<p role="status">{deliveryStatus.error} 완료 표시를 해제했습니다. 다음 자동 조회에서 다시 확인합니다.</p>}
       <small data-testid="sales-inbox-refresh-cadence">{autoFeedRefresh?`새 카톡 ${REFRESH_INTERVAL_MS/1000}초마다 확인 · 최근 7일 수신분만 중복 없이 추가 · 저장된 원문·전산 확인 유지`:'새 카톡 자동 확인 꺼짐'}{refreshStatus.feedTo&&` · 새 카톡 수신 기간 ${refreshStatus.feedFrom} ~ ${refreshStatus.feedTo}`}</small>
       <details className="inbox-tools" open={controlsOpen} onToggle={event=>setControlsOpen(event.currentTarget.open)}><summary>조회·불러오기·비교 도구 {controlsOpen?'접기':'펼치기'}</summary>
       <div className="bar inbox-controls"><label>시작일 <input type="date" value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
