@@ -141,3 +141,12 @@ function upstream(data) { return {ok:true,json:async()=>data}; }
   assert.equal(invalidNext.statusCode,502);
   console.log('distributionSalesInbox tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
+const canonical={identity:'nenovakakao|sales|m',source:'nenovakakao',chat_id:'sales',external_message_id:'m',chatroom:'영업방',message:'동일 원문',created_at:'2026-10-09T10:00:00+09:00',timestamp_approximate:false};
+const stale={identity:canonical.identity,message:canonical.message,created_at:'2026-10-09',timestamp_approximate:true,checked:true,analysis:{custKey:3}};
+const repaired=mergeMessages([stale],[canonical]).rows[0];
+assert.equal(repaired.timestamp_approximate,false);assert.equal(repaired.chat_id,'sales');assert.equal(repaired.checked,true);assert.deepEqual(repaired.analysis,stale.analysis);
+assert.deepEqual(mergeMessages([stale],[{...canonical,message:'다른 원문'}]).rows[0],stale);
+assert.equal(mergeMessages([stale],[{...canonical,timestamp_approximate:true}]).rows[0].timestamp_approximate,true);
+assert.equal(mergeMessages([stale],[{...canonical,created_at:'2026-02-30T10:00:00+09:00'}]).rows[0].timestamp_approximate,true);
+assert.equal(mergeMessages([canonical],[{...canonical,timestamp_approximate:true,created_at:'2025-01-01'}]).rows[0].created_at,canonical.created_at);

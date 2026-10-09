@@ -76,7 +76,7 @@
     try { const data = await invoke({ method: 'GET', date: requestedDate, offset: 0, limit: 200 });
       if (ticket !== epoch || generation !== readGeneration || requestedDate !== selectedDate) return;
       if (!data?.success || data.ownerId !== owner) throw new Error(data?.error || '개인 업무를 확인하지 못했습니다.');
-      for (const lane of lanes) if (data.feedErrors?.[lane.key] && snapshot?.[lane.key]?.length) data[lane.key] = snapshot[lane.key];
+      for (const lane of lanes) if (data.feedErrors?.[lane.key] && !data[lane.key]?.length && snapshot?.[lane.key]?.length) data[lane.key] = snapshot[lane.key];
       snapshot = data; failures = 0; if (!pending) setError(''); renderData();
     } catch (e) { if (ticket !== epoch || generation !== readGeneration) return; failures++; status.textContent = snapshot ? '갱신 지연 · 마지막 갱신 ' + stamp(snapshot.syncedAt) : '조회 실패 · 다시 시도해 주세요.'; setError(e.message || '조회에 실패했습니다.'); }
     finally { if (ticket === epoch && generation === readGeneration) { querying = false; lock(); if (requestedDate !== selectedDate) void load(); else schedule(); } }
@@ -165,8 +165,8 @@
       row.append(node('strong', '', lane.key === 'guidance' ? '주의·업무 지침' : '수입부 피드백'));
       const copy = node('div', 'hw-feed-copy');
       if (snapshot?.feedErrors?.[lane.key]) copy.append(node('span', 'hw-error-copy', '조회 실패 · ' + snapshot.feedErrors[lane.key]));
-      if (item) { copy.append(node('span', '', (item.unread ? '새 소식 · ' : '') + item.title), node('small', '', (item.orderYear ? item.orderYear + '년 ' + (item.orderWeek ? item.orderWeek + '차' : '차수 미확인') + ' · ' : '') + stamp(item.updatedAt))); }
-      else if (!snapshot?.feedErrors?.[lane.key]) copy.append(node('span', '', !owner ? '로그인 후 확인' : !snapshot ? '소식 확인 중…' : '최근 소식이 없습니다.'));
+      if (item) { copy.append(node('span', '', (item.isNew ? '새 소식 · ' : item.unread ? '미확인 · ' : '') + item.title), node('small', '', (item.orderYear ? item.orderYear + '년 ' + (item.orderWeek ? item.orderWeek + '차' : '차수 미확인') + ' · ' : '') + stamp(item.updatedAt))); }
+      else if (!snapshot?.feedErrors?.[lane.key]) copy.append(node('span', '', !owner ? '로그인 후 확인' : !snapshot ? '소식 확인 중…' : '표시할 내용이 없습니다.'));
       row.append(copy); const controls = node('div', 'hw-feed-controls');
       const ctrl = (name, text, fn, disabled = false) => { const b = button(text, fn); b.dataset.feedControl = lane.key + ':' + name; b.setAttribute('aria-label', row.getAttribute('aria-label') + ' ' + text); b.disabled = disabled; controls.append(b); return b; };
       const move = d => { lane.at = (lane.at + d + items.length) % items.length; renderFeeds(); };

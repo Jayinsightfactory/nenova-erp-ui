@@ -334,9 +334,23 @@ async function run() {
   for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
     shellContents.send('desktop:state', { appUpdate: { phase, version: '1.4.0', percent: 42, message: '검증 상태' } });
     await new Promise(r => setTimeout(r, 50));
-    const updateUi = await shellContents.executeJavaScript("({label:document.getElementById('appUpdateButton').textContent,disabled:document.getElementById('appUpdateButton').disabled,cancel:!document.getElementById('cancelUpdateButton').hidden})");
+    const updateUi = await shellContents.executeJavaScript("({label:document.getElementById('appUpdateButton').textContent,disabled:document.getElementById('appUpdateButton').disabled,cancel:!document.getElementById('cancelUpdateButton').hidden,notice:!document.getElementById('appUpdateNotice').hidden,noticeLabel:document.getElementById('appUpdateNotice').getAttribute('aria-label')})");
     assert.equal(updateUi.label, label); assert.equal(updateUi.disabled, disabled); assert.equal(updateUi.cancel, phase === 'downloading');
+    assert.equal(updateUi.notice, ['available', 'downloaded'].includes(phase), 'update notice is visible in the compact tab bar without opening home');
+    if (phase === 'available') {
+      assert.match(updateUi.noticeLabel, /업데이트가 필요합니다/);
+      const activeId = sourceWindow.activeId, count = main.tabs.size;
+      await shellContents.executeJavaScript("document.getElementById('appUpdateNotice').click()");
+      await waitFor(() => sourceWindow.menuOpen, 'update notice opens the home update controls');
+      assert.equal(sourceWindow.activeId, activeId); assert.equal(main.tabs.size, count);
+      main.command(sourceWindow, 'menu', { open: false });
+    }
   }
+  // Network recovery only asks main to check. It never activates download or
+  // changes the currently edited business tab, even from an available UI state.
+  const beforeAutomaticUpdate = { activeId: sourceWindow.activeId, tabCount: main.tabs.size, menuOpen: sourceWindow.menuOpen };
+  await shellContents.executeJavaScript("window.dispatchEvent(new Event('online'))");
+  assert.deepEqual({ activeId: sourceWindow.activeId, tabCount: main.tabs.size, menuOpen: sourceWindow.menuOpen }, beforeAutomaticUpdate);
   const compactFavorite = await shellContents.executeJavaScript(`(() => {
     const button = document.querySelector('#compactFavoriteButton');
     return button && { text: button.textContent.trim(), pressed: button.getAttribute('aria-pressed'), visibility: getComputedStyle(button).visibility };
@@ -528,12 +542,13 @@ async function run() {
       const rect = el => { const r = el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; };
       return { children: [...heading.children].map(rect), ids: ['appUpdateButton','cancelUpdateButton','appUpdateStatus'].map(id => document.querySelectorAll('#'+id).length),
         notes: [...document.querySelectorAll('#appUpdateNotes li')].map(el => el.textContent), html: !!document.querySelector('#appUpdateNotes img'), executed: !!window.__notesExecuted,
-        width: document.documentElement.scrollWidth, viewport: innerWidth };
+        width: document.documentElement.scrollWidth, viewport: innerWidth, notice: rect(document.querySelector('#appUpdateNotice')), tabs: rect(document.querySelector('#tabs')) };
     })()`);
     assert.deepEqual(updateLayout.ids, [1,1,1], 'update controls remain unique');
     assert.deepEqual(updateLayout.notes, notes.slice(0,3), 'only three plain-text notes render');
     assert.equal(updateLayout.html, false); assert.equal(updateLayout.executed, false, 'release note HTML is inert text');
     assert.ok(updateLayout.width <= updateLayout.viewport, 'long release notes do not overflow');
+    assert.ok(updateLayout.notice.top >= 0 && updateLayout.notice.bottom <= 44 && updateLayout.notice.right <= updateLayout.tabs.left, `${width}px update notice stays inside the tab bar without overlapping tabs`);
     const [welcome, updatePanel, search] = updateLayout.children;
     if (width > 1120) {
       assert.ok(welcome.right <= updatePanel.left && updatePanel.right <= search.left, 'update panel occupies the center header column');
@@ -543,7 +558,7 @@ async function run() {
       assert.ok(welcome.right <= updatePanel.left && search.top >= Math.max(welcome.bottom, updatePanel.bottom), 'medium header keeps search below title and update');
     }
     shellContents.send('desktop:state', { appUpdate: { phase: 'idle', message: '앱 업데이트를 확인할 수 있습니다.' } });
-    await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotes li')?.textContent === '홈에서 내 업무를 입력·수정하고 요일별로 체크할 수 있습니다.'"), 'installed-version note fallback');
+    await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotes li')?.textContent === '새 버전이 있으면 업데이트 필요 안내를 자동으로 표시합니다.'"), 'installed-version note fallback');
     await capture(sourceWindow.win, filename);
   };
   await assertShellWidth(1920, 'shell-1920x1080.png');

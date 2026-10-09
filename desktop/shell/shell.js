@@ -256,15 +256,20 @@
     $('syncButton').textContent = state.syncStatus === 'checking' ? '웹 메뉴 확인 중…' : '웹 메뉴 갱신';
     $('syncButton').title = state.webVersion ? `웹 메뉴·기능 확인 (${state.webVersion})` : '로그인 후 최신 웹 메뉴·기능을 확인합니다';
     const update = state.appUpdate || { phase: 'unavailable', message: '' };
+    const updateNotice = $('appUpdateNotice');
+    updateNotice.hidden = !['available', 'downloaded'].includes(update.phase);
+    updateNotice.textContent = update.phase === 'downloaded' ? '업데이트 준비됨' : '업데이트 필요';
+    updateNotice.title = update.phase === 'downloaded' ? '다운로드 완료. 업데이트 안내 열기' : `업데이트가 필요합니다. 앱 ${update.version || ''} 안내 열기`;
+    updateNotice.setAttribute('aria-label', updateNotice.title);
     $('appUpdateButton').disabled = ['unavailable', 'checking', 'downloading', 'installing'].includes(update.phase);
     $('appUpdateButton').textContent = update.phase === 'available' ? `앱 ${update.version} 다운로드` : update.phase === 'downloaded' ? '재시작하여 업데이트' : update.phase === 'checking' ? '앱 업데이트 확인 중…' : update.phase === 'downloading' ? `다운로드 ${update.percent}%` : '앱 업데이트 확인';
     $('cancelUpdateButton').hidden = update.phase !== 'downloading';
     $('appUpdateStatus').textContent = `앱 ${state.version || ''} · ${update.message || ''}`;
     const releaseNotes = Array.isArray(update.releaseNotes) ? update.releaseNotes.filter(note => typeof note === 'string' && note.trim()).slice(0, 3) : [];
     const notes = releaseNotes.length ? releaseNotes : [
-      '홈에서 내 업무를 입력·수정하고 요일별로 체크할 수 있습니다.',
-      '최신 업무 지침과 수입부 피드백을 홈에서 순환해 보여줍니다.',
-      '기존 색상을 유지하고 업데이트·검색 영역을 간결하게 줄였습니다.'
+      '새 버전이 있으면 업데이트 필요 안내를 자동으로 표시합니다.',
+      '기존 업무 지침과 수입부 피드백도 홈에 계속 표시합니다.',
+      '전달 상태 조회 중과 미확인·조회 실패를 구분합니다.'
     ];
     $('appUpdateNotesHeading').textContent = '앱 ' + (releaseNotes.length ? (update.version || state.version || '') : (state.version || '')) + ' 변경 내용';
     $('appUpdateNotes').replaceChildren(...notes.map(note => {
@@ -297,6 +302,14 @@
   }
 
   function wire() {
+    const updateNotice = document.createElement('button');
+    updateNotice.id = 'appUpdateNotice'; updateNotice.type = 'button'; updateNotice.className = 'top-action app-update-notice'; updateNotice.hidden = true;
+    $('tabs').before(updateNotice);
+    updateNotice.addEventListener('click', () => {
+      lastMenuTrigger = updateNotice;
+      void call('menu', { open: true }).then(() => $('appUpdateButton').focus({ preventScroll: true })).catch(() => {});
+    });
+    window.addEventListener('online', () => run('appUpdate', { automatic: true }));
     $('appUpdateButton').addEventListener('click', () => run('appUpdate'));
     $('cancelUpdateButton').addEventListener('click', () => run('cancelUpdate'));
     $('syncButton').addEventListener('click', () => run('sync'));

@@ -27,13 +27,15 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
     engine.disableWebInstaller = true;
     engine.disableDifferentialDownload = true;
     engine.logger = null;
-    engine.on('error', () => { if (!['checking', 'downloading'].includes(state.phase)) fail(); });
+    // Awaited operations report their own errors. Late engine events must not
+    // erase an available release or an installer already ready to apply.
+    engine.on('error', () => {});
     engine.on('download-progress', p => { if (state.phase === 'downloading') emit({ percent: Math.max(0, Math.min(100, Math.floor(p.percent))), message: `앱 업데이트 다운로드 중 ${Math.floor(p.percent)}%` }); });
   }
   return {
     getState: () => ({ ...state }),
     async check() {
-      if (!enabled || ['checking', 'downloading', 'downloaded', 'installing'].includes(state.phase)) return;
+      if (!enabled || ['checking', 'available', 'downloading', 'downloaded', 'installing'].includes(state.phase)) return;
       emit({ phase: 'checking', version: '', releaseNotes: [], percent: 0, message: '앱 새 버전을 확인하고 있습니다.' });
       try {
         const result = await engine.checkForUpdates();
@@ -43,7 +45,7 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
         const old = current.split('.').map(Number);
         const index = newer.findIndex((n, i) => n !== old[i]);
         const available = index >= 0 && newer[index] > old[index];
-        emit({ phase: available ? 'available' : 'current', version: result.updateInfo.version, releaseNotes: available || result.updateInfo.version === current ? releaseNoteLines(result.updateInfo.releaseNotes) : [], message: available ? `현재 ${current} → 새 버전 ${result.updateInfo.version}. 다운로드 중에도 작업할 수 있습니다.` : `현재 ${current} · 배포 버전 ${result.updateInfo.version}. 적용할 새 업데이트가 없습니다.` });
+        emit({ phase: available ? 'available' : 'current', version: result.updateInfo.version, releaseNotes: available || result.updateInfo.version === current ? releaseNoteLines(result.updateInfo.releaseNotes) : [], message: available ? `업데이트가 필요합니다. 현재 ${current} → 새 버전 ${result.updateInfo.version}. 다운로드 중에도 작업할 수 있습니다.` : `현재 ${current} · 배포 버전 ${result.updateInfo.version}. 적용할 새 업데이트가 없습니다.` });
       } catch { fail(); }
     },
     async download() {
@@ -73,4 +75,26 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
     },
   };
 }
-module.exports = { createUpdater, validInfo, releaseNoteLines, FEED, MIN_FREE };
+// One scheduler per application, shared by all windows. Network restoration can
+// retry early, but repeated online events cannot cause a request storm.
+function createUpdateScheduler({ updater, isReady, isOnline, now = Date.now }) {
+  const interval = 6 * 60 * 60 * 1000, retry = 15 * 60 * 1000, cooldown = 60 * 1000;
+  let nextAt = 0, lastAttempt = -Infinity, wasOnline = false, busy = false;
+  return {
+    async tick(reconnected = false) {
+      const online = isOnline(), restored = online && (!wasOnline || reconnected);
+      wasOnline = online;
+      if (!online || !isReady() || busy) return;
+      const time = now();
+      if (time < nextAt && !restored || time - lastAttempt < cooldown) return;
+      if (!['idle', 'current', 'error'].includes(updater.getState().phase)) return;
+      busy = true; lastAttempt = time; nextAt = time + interval;
+      try { await updater.check(); }
+      finally {
+        if (updater.getState().phase === 'error') nextAt = now() + retry;
+        busy = false;
+      }
+    },
+  };
+}
+module.exports = { createUpdater, createUpdateScheduler, validInfo, releaseNoteLines, FEED, MIN_FREE };

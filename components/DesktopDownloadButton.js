@@ -1,4 +1,4 @@
-export const DESKTOP_DOWNLOAD_URL = 'https://github.com/Jayinsightfactory/nenova-erp-ui/releases/download/desktop-v1.3.5/Nenova-Desktop-Setup-1.3.5-x64.exe';
+export const DESKTOP_DOWNLOAD_URL = 'https://github.com/Jayinsightfactory/nenova-erp-ui/releases/download/desktop-v1.3.6/Nenova-Desktop-Setup-1.3.6-x64.exe';
 
 export default function DesktopDownloadButton({ fullWidth = false }) {
   return (
@@ -8,8 +8,8 @@ export default function DesktopDownloadButton({ fullWidth = false }) {
       rel="noopener noreferrer"
       className="btn btn-sm"
       data-desktop-download
-      aria-label="PC 버전 다운로드 — Windows 64비트, 버전 1.3.5"
-      title="Windows 64비트 · v1.3.5 설치 파일 다운로드"
+      aria-label="PC 버전 다운로드 — Windows 64비트, 버전 1.3.6"
+      title="Windows 64비트 · v1.3.6 설치 파일 다운로드"
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         gap: 5, minHeight: fullWidth ? 36 : 28, padding: '4px 10px',

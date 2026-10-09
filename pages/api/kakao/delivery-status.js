@@ -43,7 +43,9 @@ export default withAuth(async function handler(req,res){
   const period=recentSalesPeriod();
   try{
     const targets=sources.length?await readDeliveryFeed(token,period):[];
-    return res.json({ok:true,year,week,asOf:new Date().toISOString(),...period,items:matchDeliveryStatus({sources,targets,year})});
+    const items=matchDeliveryStatus({sources,targets,year});
+    const qualifiedSourceCount=items.filter(item=>!['source_metadata','incomplete','source_time_approximate','source_time_invalid'].includes(item.reason)).length;
+    return res.json({ok:true,year,week,asOf:new Date().toISOString(),...period,diagnostics:{targetCount:targets.length,qualifiedSourceCount},items});
   }catch{return res.status(502).json({error:'추가취소방 전달 여부를 확인하지 못했습니다. 전달 완료로 표시하지 않습니다.'});}
 });
 export const config={api:{bodyParser:{sizeLimit:'512kb'}}};
