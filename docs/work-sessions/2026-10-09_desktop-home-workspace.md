@@ -43,7 +43,8 @@ PC renderer는 임의 URL·소유자를 선택하지 못한다. main의 고정 H
 - 실제 Electron fixture: 1920×1080 CSSpx/100%, 1024/800px, IPC 생성·완료·읽음·503 재시도·409·계정 A/B 지연 응답 격리·Enter/Space/Escape·Tab/CtrlT/F2.
 - Chrome IPC fixture: 1920/800px 긴 제목 줄바꿈·초안 보존·초점 복귀·상세·순환 정지·가로 잘림/중첩 스크롤 없음.
 - 로컬 production source smoke: 1920/800px 지침 itemId, 피드백 2025/2026 caseKey 원문 이동. API 쓰기 0건.
-- ERP contract/dnSpy evidence/manifest/write guard/UI layout/root build 통과. 최종 backend 수정 후 재검증과 배포 결과는 아래에 기록한다.
+- 최종 backend 수정 후 ERP contract/dnSpy evidence/manifest/write guard/UI layout/root build 재검증 통과. 200규칙·100년 반복 목록 page200 조회 13.6ms, brute-force 비교·강제 종료 잠금 복구·활성/불명확 잠금 보존·5000규칙 한도·2100년 날짜 fixture 통과.
+- 설치파일 SHA256: `193a4f4f83ea06363edbdd5682e213de94418b457b2535c4a1ff082b9a6090c7`. ASAR의 main/bridge/shell 6파일과 최신 소스 일치, latest.yml 크기·SHA512 일치.
 - 테스트는 임시 소유자와 차단된 fixture 네트워크를 사용했다. 운영 개인 업무·공용 체크리스트·ERP DB를 테스트로 수정하지 않았다.
 
 ## 메뉴 기준선
@@ -62,3 +63,5 @@ PC renderer는 임의 URL·소유자를 선택하지 못한다. main의 고정 H
 기존 모든 메뉴 UI 감사는 별도 진행 중이며 이번 홈 적용으로 완료 처리하지 않는다. 사용자 설치 앱이 1.3.5로 바뀌었는지는 명시적 업데이트 후 확인해야 한다. `.next-login-fixture/`는 기존 미추적 산출물이므로 커밋하지 않는다.
 
 이어받기: 이 기록과 홈 계약을 읽고 PR·Cafe24 배포·desktop-v1.3.5 릴리스 결과를 확인한다. 기획 시안이나 fixture 통과를 사용자 설치 완료로 표현하지 않는다.
+
+PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1003

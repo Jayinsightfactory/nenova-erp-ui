@@ -3,7 +3,7 @@ import {desktopHomeWorkspace} from '../../../lib/desktopHomeWorkspace.js';
 export const config={api:{bodyParser:{sizeLimit:'16kb'},responseLimit:'2mb'}};
 export const createDesktopHomeHandler=({workspace=desktopHomeWorkspace}={})=>async(req,res)=>{
   res.setHeader('Cache-Control','private, no-store');res.setHeader('Vary','Cookie, Authorization');
-  if(!req.user?.userId||req.user.accountActive===false)return res.status(403).json({success:false,error:'활성 로그인 계정이 필요합니다.'});
+  if(!req.user?.userId||req.user.accountActive===false)return res.status(403).json({success:false,code:'ACCOUNT_INACTIVE',error:'활성 로그인 계정이 필요합니다.'});
   if(!['GET','POST'].includes(req.method)){res.setHeader('Allow','GET, POST');return res.status(405).json({success:false,error:'지원하지 않는 요청입니다.'});}
   const expected=req.method==='GET'?req.query.expectedOwnerId:req.body?.expectedOwnerId;
   if(expected!==undefined&&expected!==req.user.userId)return res.status(403).json({success:false,code:'ACCOUNT_CHANGED',error:'로그인 계정이 변경되었습니다.'});
