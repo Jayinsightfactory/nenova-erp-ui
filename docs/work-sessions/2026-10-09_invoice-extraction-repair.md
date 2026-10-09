@@ -52,4 +52,24 @@
 
 ## 이어받기
 
+## 최종 통합 추록
+
+- 구현 커밋 `90e66208`, 최신 master 통합 커밋 `d52d32b7`.
+- 고성능 검토자 최종 판정 APPROVED. 두 자리 연도의 원문 근거 우회 회귀 33/33 통과.
+- 최신 통합본 전체 ERP 계약, manifest 93개, 쓰기 범위, dnSpy 근거, 프로덕션 빌드 통과.
+- 실제 Chrome 1920×1080 검토 화면의 입력·확인·키보드·가로 넘침 검사 통과.
+- PR [#992](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/992) 자동 검사 통과 후 병합 완료: `442cf8ca2174e8dd8babf0bb2cdf5e11deea0b5f`.
+- Cafe24 배포 실행 `37868359464` 진행. 운영 완료 판정은 아래 운영 검증 결과를 따른다.
+- 이번 수정 세션 추가 유료 AI 호출 0회, 운영 입고·재고 SQL 쓰기 0회.
+
 `docs/contracts/invoice-extraction-repair.json`, 이 문서와 `2026-10-09_invoice-repair-design.md`를 먼저 읽는다. 로컬 테스트 결과와 운영 배포 결과를 혼동하지 말고, 남은 CO 미파싱 4건은 신규 유료 승인 없이 호출하지 않는다. 운영 ERP 쓰기 없이 원본·합성 회귀를 우선 재사용한다.
+
+## 운영 배포 검증 완료
+
+- PR #992 병합 커밋: `442cf8ca2174e8dd8babf0bb2cdf5e11deea0b5f`.
+- Cafe24 배포 [37868359464](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37868359464) 최종 success. 자동 hydration 브라우저 검사 포함 통과.
+- 운영 buildId `build-1791508286453`, 화면 버전 `442cf8ca` 일치 확인.
+- 로그인한 실제 Chrome 1920×1080에서 중국 구형 검토·날짜 검토·미분류 부대비 모듈 로드, 화면 가로 넘침 없음, JS 오류 0건, 조회 API 오류 0건.
+- 운영 DB health 정상. 입고 초안 조회 HTTP200(해당 2026/41-01 문서 0건), 입고 원가 조회 HTTP200, 입고관리 선택 원가 연결 정상. 승인된 실제 원가 자료 존재를 새로 검증했다는 뜻은 아니다.
+- 운영 입고·재고 저장 및 추가 유료 AI 호출 없음. CO 기존 미파싱 4개 송장 제한은 유지한다.
+- 결과 이미지: `outputs/invoice-repair-live-1920.png`, `outputs/invoice-receipt-live-incoming.png` (비공개 로컬 검증 자료).
