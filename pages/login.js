@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import DesktopDownloadButton from '../components/DesktopDownloadButton';
+import { readLoginId, loginIdCookie } from '../lib/rememberedLoginId';
 
 export default function Login() {
   const router = useRouter();
@@ -9,6 +10,15 @@ export default function Login() {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const passwordInput = useRef(null);
+  useEffect(() => {
+    let remembered = '';
+    try { remembered = readLoginId(document.cookie); } catch { /* Storage may be blocked. */ }
+    if (remembered) {
+      setId(current => current || remembered);
+      passwordInput.current?.focus();
+    }
+  }, []);
 
   // next 쿼리 파라미터 — 로그인 성공 후 이동할 페이지 (예: /m/chat)
   // router.query 는 hydration 후 채워지므로 useEffect 로 읽음
@@ -32,6 +42,8 @@ export default function Login() {
       });
       const data = await res.json();
       if (data.success) {
+        const preference = loginIdCookie(data.user?.userId || id, window.location.protocol === 'https:');
+        try { if (preference) document.cookie = preference; } catch { /* Remembering the ID must not block login. */ }
         localStorage.setItem('nenovaUser', JSON.stringify(data.user));
         // next 파라미터가 있으면 그리로, 없으면 기본 dashboard
         // 보안: next 는 같은 사이트의 경로여야 함 (외부 리다이렉트 방지)
@@ -82,18 +94,20 @@ export default function Login() {
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <tbody>
                 <tr>
-                  <td style={{ padding:'5px 0', width:80, fontWeight:'bold', color:'#333' }}>아이디</td>
+                  <td style={{ padding:'5px 0', width:80, fontWeight:'bold', color:'#333' }}><label htmlFor="login-id">아이디</label></td>
                   <td style={{ padding:'5px 0' }}>
                     <input
+                      id="login-id" name="username" autoComplete="username"
                       style={{ width:'100%', height:24, border:'1px solid #AAA', fontSize:12, padding:'0 4px', fontFamily:'inherit' }}
                       value={id} onChange={e=>setId(e.target.value)} autoFocus
                     />
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ padding:'5px 0', fontWeight:'bold', color:'#333' }}>비밀번호</td>
+                  <td style={{ padding:'5px 0', fontWeight:'bold', color:'#333' }}><label htmlFor="login-password">비밀번호</label></td>
                   <td style={{ padding:'5px 0' }}>
                     <input
+                      id="login-password" name="password" autoComplete="current-password" ref={passwordInput}
                       type="password"
                       style={{ width:'100%', height:24, border:'1px solid #AAA', fontSize:12, padding:'0 4px', fontFamily:'inherit' }}
                       value={pw} onChange={e=>setPw(e.target.value)}
@@ -109,7 +123,7 @@ export default function Login() {
               </button>
               <button type="button"
                 style={{ height:28, padding:'0 20px', fontSize:12, fontFamily:'inherit', border:'1px solid #AAA', background:'#E0E0E0', cursor:'pointer' }}
-                onClick={() => { setId(''); setPw(''); setErr(''); }}>
+                onClick={() => { setPw(''); setErr(''); passwordInput.current?.focus(); }}>
                 취소
               </button>
             </div>
@@ -118,7 +132,7 @@ export default function Login() {
           <div style={{ marginTop:16, paddingTop:12, borderTop:'1px dashed #CCC', textAlign:'center' }}>
             <DesktopDownloadButton fullWidth />
             <div style={{ fontSize:11, color:'#666', marginTop:6, lineHeight:1.5 }}>
-              Windows 64비트 · v1.3.2 · 업무 화면을 탭과 창으로 사용
+              Windows 64비트 · v1.3.4 · 업무 화면을 탭과 창으로 사용
             </div>
           </div>
 

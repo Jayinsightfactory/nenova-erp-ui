@@ -18,7 +18,26 @@ test('review component exposes the integration contract and keeps ERP out of sco
   assert.match(component, /await onConfirm\?\.\(submission\)/);
   assert.match(component, /확인값 적용 · 결과 재생성/);
   assert.match(component, /ERP DB에 저장하지 않습니다/);
+  assert.match(component, /원본 PDF · 인식값 검증/);
+  assert.match(component, /data-testid="source-row-confirm"/);
+  assert.match(component, /data-pdf-ready=\{pdfReady \? 'true' : 'false'\}/);
+  assert.match(component, /onInvalidate\?\.\(\)/);
+  assert.match(component, /sourceInvoiceIdentity\?\.sourceInvoiceIndex === invoiceIndex/);
+  assert.match(component, /product\?\.sourceName === sourceRow\?\.description \|\| product\?\.matchingDescription === sourceRow\?\.description/);
+  assert.match(component, /missingSourceReasonCount/);
+  assert.match(component, /reason: stringValue\(sourceDrafts\[key\]\?\.reason\)/);
+  assert.match(component, /PDF 다시 시도/);
+  assert.match(component, /너비 맞춤/);
   assert.doesNotMatch(component + preview, /fetch\(|XMLHttpRequest|\/api\/|mssql|ShipmentDetail|StockMaster/);
+});
+
+test('source row labels stay compact and use Korean labels instead of parser field names', () => {
+  for (const [field, label] of [['pcs', '박스'], ['total_bunch', '단수'], ['total_stems', '송이 수'], ['steam_box', '박스당 송이'], ['u_price', '단가'], ['t_price', '금액'], ['bunch_st', '단당 송이'], ['stems', '송이 수'], ['price', '단가']]) {
+    assert.match(component, new RegExp(`${field}: '${label}'`));
+  }
+  assert.match(css, /max-height: min\(38vh, 390px\)/);
+  assert.match(css, /\.sourceEditFields \{ display: flex; flex-wrap: wrap/);
+  assert.match(component, /미매칭 · 결과에서 선택 필요/);
 });
 
 test('PDF preview is bounded, local-worker-only, and never guesses a text match', () => {

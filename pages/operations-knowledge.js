@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { verifyReqUser } from '../lib/auth';
 import styles from '../styles/OperationsKnowledge.module.css';
+import { homeKnowledgeTarget } from '../lib/homeSourceLink';
 
 const CATEGORIES = { SITUATION: '상황별 처리', CASE: '과거 사례', SEASON: '시즌 주의', HANDOFF: '인수인계', CHECKLIST: '체크리스트' };
 const STATUSES = { CHECK: '확인 필요', CURRENT: '현재 적용', RETIRED: '적용 종료' };
@@ -127,6 +128,15 @@ export default function OperationsKnowledge() {
   const selected = items.find((item) => item.id === selectedId);
   const legacy = legacyItems.find((item) => String(item.id) === String(legacyId));
   const isOpen = Boolean(selectedId || legacyId || draft);
+  const linkedItem = useRef('');
+  useEffect(() => {
+    if (!router.isReady || loading || busyRef.current || dirtyRef.current) return;
+    const id = homeKnowledgeTarget(router.query);
+    if (!id || linkedItem.current === id) return;
+    linkedItem.current = id;
+    if (!items.some(item => item.id === id)) { setNotice('연결된 지침이 없거나 더 이상 조회할 수 없습니다.'); return; }
+    setSelectedId(id); setLegacyId(null); setDraft(null);
+  }, [router.isReady, router.query.itemId, loading, storedSnapshot]);
 
   function chooseItem(item, event, isLegacy = false) {
     if (busyRef.current) return;
@@ -216,7 +226,7 @@ export default function OperationsKnowledge() {
   }
 
   return <main className={styles.page}>
-    <header className={styles.pageHeader}><div><p className={styles.eyebrow}>업무 매뉴얼 · 공동 지식</p><h1>주의·이슈 및 업무처리 지침</h1><p>반복 상황과 처리 근거를 남겨 팀에서 함께 확인합니다. 시즌 정보는 제목·태그·본문에 기록하세요.</p></div><div className={styles.headerActions}><button type="button" className={styles.ghost} onClick={refresh} disabled={loading || busy}>새로고침</button><button type="button" className={styles.primary} onClick={(event) => openDraft(null, event)} disabled={loading || busy || snapshot.revision === null}>+ 새 지침</button></div></header>
+    <header className={styles.pageHeader}><div><p data-desktop-chrome className={styles.eyebrow}>업무 매뉴얼 · 공동 지식</p><h1 data-desktop-chrome>주의·이슈 및 업무처리 지침</h1><p>반복 상황과 처리 근거를 남겨 팀에서 함께 확인합니다. 시즌 정보는 제목·태그·본문에 기록하세요.</p></div><div className={styles.headerActions}><button type="button" className={styles.ghost} onClick={refresh} disabled={loading || busy}>새로고침</button><button type="button" className={styles.primary} onClick={(event) => openDraft(null, event)} disabled={loading || busy || snapshot.revision === null}>+ 새 지침</button></div></header>
     <div className={styles.statRow}><span>현재 적용 <strong>{items.filter((item) => item.status === 'CURRENT').length}</strong></span><span>확인 필요 <strong>{items.filter((item) => item.status === 'CHECK').length}</strong></span><span>중요 <strong>{items.filter((item) => item.priority === 'IMPORTANT' && item.status !== 'RETIRED').length}</strong></span><span>자료 버전 <strong>{snapshot.revision ?? '—'}</strong></span></div>
     {error && <div className={styles.error} role="alert">{error}</div>}{notice && <div className={styles.notice} role="status">{notice}</div>}
     {conflict && <div className={styles.warning} role="alert">다른 사용자의 저장 내용이 먼저 반영되었습니다. 입력한 초안은 유지됩니다. <button type="button" onClick={refresh}>최신 자료 다시 조회</button>{draft && <button type="button" onClick={restartEdit}>초안 버리고 최신 자료로 편집</button>}</div>}

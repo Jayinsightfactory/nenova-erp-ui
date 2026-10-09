@@ -39,6 +39,39 @@ assert.equal(shouldBufferIncoming({selectedCount:1,reviewOpen:false}),true);
 assert.equal(shouldBufferIncoming({selectedCount:0,reviewOpen:true}),true);
 
 (async()=>{
+  const {createAppendFeedReader}=require('../lib/distributionSalesInboxRefresh');
+  const {mergeMessages}=require('../lib/distributionSalesInbox');
+  const readAppend=createAppendFeedReader();
+  const requests=[];
+  let fail=false;
+  const fetchAppend=async url=>{
+    const query=new URL(url,'http://localhost').searchParams;
+    requests.push(Object.fromEntries(query));
+    if(fail)throw Error('offline');
+    const next=query.get('afterKey')===''?'page-2':null;
+    return {ok:true,json:async()=>({ok:true,messages:[{source:'nenovakakao',chat_id:'sales',external_message_id:next?'old':'new',message:next?'changed old text':'new text'}],hasMore:!!next,nextAfterKey:next})};
+  };
+  const first=await readAppend({fetchImpl:fetchAppend,maxPages:1,now:new Date('2026-12-31T23:59:00+09:00')});
+  assert.equal(first.complete,false);
+  fail=true;
+  await assert.rejects(readAppend({fetchImpl:fetchAppend,maxPages:1}),/offline/);
+  fail=false;
+  const second=await readAppend({fetchImpl:fetchAppend,maxPages:1,now:new Date('2027-01-01T00:01:00+09:00')});
+  assert.equal(requests[2].afterKey,'page-2','failed reads retain the next page, never restart at 600');
+  assert.equal(second.to,'2026-12-31','unfinished scan retains its cursor period across midnight');
+  await readAppend({fetchImpl:fetchAppend,maxPages:1,now:new Date('2027-01-01T00:02:00+09:00')});
+  assert.equal(requests[3].to,'2027-01-01','next completed cycle includes the new KST day/year');
+  assert.equal(requests[3].afterKey,'');
+  const saved={identity:'nenovakakao|sales|old',message:'saved original',confirmed:true};
+  const merged=mergeMessages([saved],[...first.messages,...second.messages]).rows;
+  assert.equal(merged.length,2);
+  assert.equal(merged.find(row=>row.identity===saved.identity),saved,'existing raw text and evidence are preserved');
+  assert(inboxSource.includes('[autoFeedRefresh,setAutoFeedRefresh]=useState(true)'));
+  assert(inboxSource.includes('[autoRefresh,setAutoRefresh]=useState(false)'),'ERP polling remains opt-in');
+  const appendEffect=inboxSource.slice(inboxSource.indexOf('const readAppend=createAppendFeedReader()'),inboxSource.indexOf('},[open,autoFeedRefresh'));
+  assert(!appendEffect.includes('setHistoryAttempted'));
+  assert(!appendEffect.includes('setFeedEvidenceRevision'));
+  assert(!appendEffect.includes('setFrom(')&&!appendEffect.includes('setTo('),'saved evidence period stays fixed');
   const requested=[];
   const pages=[
     {ok:true,messages:[{source:'nenovakakao',chat_id:'room',external_message_id:'a'}],hasMore:true,nextAfterKey:'a'},

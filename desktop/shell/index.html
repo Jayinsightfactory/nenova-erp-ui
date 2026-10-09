@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
   <title>Nenova 데스크톱</title>
   <link rel="stylesheet" href="./shell.css">
+  <script src="./home-workspace.js" defer></script>
   <script src="./shell.js" defer></script>
 </head>
 <body>
@@ -63,20 +64,22 @@
             <h1>오늘의 업무를 시작하세요</h1>
             <p class="home-subtitle">화면을 탭으로 열고, 필요한 탭은 별도 창으로 옮길 수 있습니다.</p>
           </div>
+          <section class="app-update-panel" aria-label="앱 업데이트">
+            <button id="appUpdateButton" class="top-action" type="button">앱 업데이트 확인</button>
+            <button id="cancelUpdateButton" class="top-action" type="button" hidden>다운로드 취소</button>
+            <span id="appUpdateStatus" role="status" aria-live="polite"></span>
+            <details class="update-details"><summary>변경 내용</summary><strong id="appUpdateNotesHeading"></strong><ul id="appUpdateNotes" class="app-update-notes"></ul></details>
+          </section>
           <div class="search-wrap">
             <label for="menuSearch">업무 화면 찾기</label>
             <div class="search-box"><span aria-hidden="true">⌕</span><input id="menuSearch" type="search" placeholder="메뉴 이름 검색" autocomplete="off" spellcheck="false" aria-controls="menuGroups"></div>
             <kbd>Ctrl K</kbd>
           </div>
         </div>
+        <section id="homeWorkspace" class="hw" aria-label="개인 업무와 최신 소식"></section>
         <section id="favoritesSection" class="favorites-section" aria-labelledby="favoritesHeading" hidden>
           <div class="section-heading"><h2 id="favoritesHeading">즐겨찾기</h2><span>자주 쓰는 화면</span></div>
           <div id="favoritesList" class="favorites-list"></div>
-        </section>
-        <section class="app-update-panel" aria-label="앱 업데이트">
-          <button id="appUpdateButton" class="top-action" type="button">앱 업데이트 확인</button>
-          <button id="cancelUpdateButton" class="top-action" type="button" hidden>다운로드 취소</button>
-          <span id="appUpdateStatus" role="status" aria-live="polite"></span>
         </section>
         <section class="all-menus" aria-labelledby="allMenusHeading">
           <div class="section-heading"><h2 id="allMenusHeading">모든 업무</h2><span id="resultCount"></span></div>

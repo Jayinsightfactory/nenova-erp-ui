@@ -76,7 +76,7 @@ export default function FarmWeekBoard() {
   }
   return <section className={styles.root}>
     <Head><title>차수별 농장표 · 네노바</title></Head>
-    <header className={styles.title}><h1 data-ui-page-title>차수별 농장표</h1><span>조회 전용</span><button onClick={()=>setRefresh(v=>v+1)} disabled={busy}>새로고침</button></header>
+    <header className={styles.title}><h1 data-desktop-chrome data-ui-page-title>차수별 농장표</h1><span>조회 전용</span><button onClick={()=>setRefresh(v=>v+1)} disabled={busy}>새로고침</button></header>
     <nav className={styles.tabs} aria-label="보기 선택">{tabs.map(([key,label])=><button key={key} aria-pressed={tab===key} onClick={()=>setTab(key)}>{label}</button>)}</nav>
     <div className={styles.week} aria-label="세부차수 선택"><b>차수</b><button aria-label="이전 세부차수" disabled={!week || !moveFarmWeek(week,-1)} onClick={()=>setWeek(moveFarmWeek(week,-1))}>◀</button>{nearby.map(value=><button key={value} aria-pressed={week===value} onClick={()=>setWeek(value)}>{value}</button>)}<button aria-label="다음 세부차수" disabled={!week || !moveFarmWeek(week,1)} onClick={()=>setWeek(moveFarmWeek(week,1))}>▶</button></div>
     <div className={styles.selectionPanel}>

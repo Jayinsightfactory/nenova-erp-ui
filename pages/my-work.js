@@ -869,7 +869,28 @@ function TrendChart({ days }) {
 }
 function RadarTab() {
   const st = useFeature('adoption-ledger');
-  return <Loading st={st}><Radar data={st.data} /></Loading>;
+  const rep = useFeature('self-tune-report');
+  return <><SelfTuneReport st={rep} /><Loading st={st}><Radar data={st.data} /></Loading></>;
+}
+// 자가수정 일일 보고(2026-10-09 사장님: "자가수정 로직은 도는데 보고가 없다"). self-tune-report.js 가 매일 올린 사람 문장 요약 + 직원별 확증 증감 + 채택 임박 별칭.
+function SelfTuneReport({ st }) {
+  if (st.loading || !st.data) return null; // 아직 안 올라왔으면 조용히 생략(레이더는 그대로)
+  const days = arr(st.data.days); const t = days[days.length - 1]; if (!t) return null;
+  const conf = arr(t.confidence), nearly = arr(t.aliases?.nearly), hints = arr(t.hintChanges);
+  const sign = (d) => (d === null || d === undefined ? '-' : (d > 0 ? '+' : '') + d);
+  return (
+    <div className="doc radar">
+      <h1>자가수정 보고 <small>{dash(t.date)} · 누적 {days.length}일</small></h1>
+      <ul>{arr(t.summary).map((l, i) => <li key={i} className={/^⚠/.test(l) ? 'warn' : ''}>{l}</li>)}</ul>
+      <h2>직원별 확증 <small>어제 대비</small></h2>
+      <div className="tw"><table className="tbl small"><thead><tr><th>직원</th><th>기록</th><th>확증</th><th>%</th><th>어제 대비</th><th>전산/파일/카톡</th></tr></thead>
+        <tbody>{conf.map((c) => <tr key={c.name}><td>{c.name}</td><td>{c.records}</td><td>{c.confirmed}</td><td>{c.pct}</td><td>{sign(c.delta)}</td><td>{c.erp}/{c.file}/{c.msg}</td></tr>)}</tbody></table></div>
+      <h2>채택 임박 별칭 <small>후보 {dash(t.aliases?.candidates)} · 채택 {arr(t.aliases?.active).length}</small></h2>
+      {nearly.length ? <ul>{nearly.map((p, i) => <li key={i}>{p.nick} → {p.canonical} <span className="dim">({p.count}회·{p.days}일, {p.need})</span></li>)}</ul> : <p className="dim">없음</p>}
+      {hints.length ? <><h2>트래킹 요령 변화 <small>{hints.length}명</small></h2><ul>{hints.map((h, i) => <li key={i}><b>{h.name}</b><br /><span className="dim">전: {h.before}</span><br />후: {h.after}</li>)}</ul></> : null}
+      {t.experiment ? <p className="dim">실험 {dash(t.experiment.id)}: {dash(t.experiment.progress)} · 목표 {dash(t.experiment.target)}</p> : null}
+    </div>
+  );
 }
 function Radar({ data }) {
   if (!data) return <p className="warn">adoption-ledger.json 이 아직 올라오지 않았습니다 (사장님 PC run-all.sh → upload-adoption.js).</p>;
@@ -937,7 +958,7 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
     { id: 'radar', label: '도입 레이더' }, // 관리자(isOrbitReportViewer) 전용 — mineOnly 목록에는 없음
   ];
   return (
-    <div className="wrap">
+    <div className="wrap" data-my-work>
       <div className="bar">
         <MenuBackButton />
         <b data-desktop-chrome>내 작업 데이터</b>
@@ -991,6 +1012,13 @@ export default function MyWorkPage({ userId, orbit, orbitQs = '', tab: tab0, min
         .plchip.hi{border-left-color:#3fb950}.plchip.mid{border-left-color:#d29922}
         .plchip:hover{border-color:#58a6ff}.plchip.on{background:#1c2633;border-color:#58a6ff}.plchip.dim{opacity:.3}
         .plside{position:sticky;top:0;background:#151922;border:1px solid #262b35;border-radius:10px;padding:14px 16px;max-height:calc(100vh - 80px);overflow:auto}
+        /* PC pipeline content follows the main stage scroll. Horizontal table
+           overflow stays available; neither lane rows nor detail text is clipped. */
+        @media screen {
+          html[data-nenova-desktop="true"] [data-my-work] .plm{min-width:0}
+          html[data-nenova-desktop="true"] [data-my-work] .pllanes{max-height:none;overflow-x:auto;overflow-y:visible}
+          html[data-nenova-desktop="true"] [data-my-work] .plside{position:static;max-height:none;overflow:visible;overflow-wrap:anywhere;min-width:0}
+        }
         .plside h2{margin:2px 0 6px;font-size:16px}
         .plwhy{color:#c3c9d4}
         .pll{color:#7d8697;font-size:11.5px;font-weight:700;letter-spacing:.03em;margin:10px 0 3px}

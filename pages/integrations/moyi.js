@@ -49,7 +49,7 @@ export default function MoyiIntegration() {
   const toggle = (id) => setSelected((old) => old.includes(id) ? old.filter((x) => x !== id) : [...old, id]);
   return <>
     <div style={{maxWidth: 760, margin: '24px auto', padding: 24, background: '#fff', border: '1px solid #ddd'}}>
-      <h1 style={{marginTop: 0}}>MOYI 보고 연동</h1>
+      <h1 data-desktop-chrome style={{marginTop: 0}}>MOYI 보고 연동</h1>
       <p style={{color: '#666'}}>MOYI 앱 또는 데스크톱에서 발급한 연결코드를 한 번 입력하면, 이후 보고서 수신자를 자동으로 사용할 수 있습니다.</p>
       {!connected && <div style={{display: 'flex', gap: 8, marginTop: 24}}>
         <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="MOYI-NV-XXXX-XXXX" style={{flex: 1, padding: 12, border: '1px solid #bbb'}} />

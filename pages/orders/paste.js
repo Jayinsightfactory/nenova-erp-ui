@@ -4151,7 +4151,7 @@ export default function PasteOrderPage() {
             <div className="paste-column-title">① 영업방 원문 · 최신 전산 이력</div>
             <details className="paste-baseline-panel"><summary>물량표 연결 · {week} · 설정 펼치기</summary><DistributionBaselinePanel week={week} parsing={parsing} running={bulkRunning}
               hasAnalysis={orders.length > 0} hasResult={Boolean(orders.length && bulkResult?.orderId === 'ALL')} /></details>
-            <div className="paste-sales-inbox"><DistributionSalesInbox key={`${selectedYearFromWeek(week)}:${week}`} year={selectedYearFromWeek(week)} week={week} prepareMessage={prepareInboxMessage} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} operationRevision={bulkResult} onLoadText={({text,messages,sourceWeek,autoAnalyze,preparedAnalysis}) => {
+            <div className="paste-sales-inbox"><DistributionSalesInbox year={selectedYearFromWeek(week)} week={week} snapshotActorId={workspaceReady?workspaceActorRef.current:''} snapshotAuthReady={workspaceReady} prepareMessage={prepareInboxMessage} disabled={parsing || bulkRunning || adjustSaving || orders.some(order => order.saving)} evidenceMessages={evidenceMessages} evidenceOrders={orders} operationRevision={bulkResult} onLoadText={({text,messages,sourceWeek,autoAnalyze,preparedAnalysis}) => {
               if(text===pasteText&&(sourceWeek||week)===week&&orders.some(order=>order.distributionCompleted)
                 &&completionFingerprintRef.current===buildPasteWorkspaceFingerprint({week,pasteText,orders,evidenceMessages})
                 &&JSON.stringify((messages||[]).map(message=>message.identity))===JSON.stringify(evidenceMessages.map(message=>message.identity))){

@@ -25,6 +25,13 @@ jobs:
         run: npm run test:nenova-dnspy-evidence
       - name: ERP behavior contracts
         run: npm run test:erp-contract
+      - name: Desktop personal home contracts
+        run: |
+          node __tests__/desktopHomeWorkspace.test.cjs
+          node --test __tests__/homeSourceLink.test.mjs
+          node __tests__/distributionDeliveryStatus.test.js
+          node __tests__/distributionDeliveryClient.test.js
+          node __tests__/distributionSalesInbox.test.js
       - name: MOYI Drive integration contract
         run: npm run verify:moyi-drive-integration
       - name: Changed ERP write scope

@@ -7,6 +7,7 @@ const store = createPasteAnalysisStore();
 export default withAuth(async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'POST') return res.status(405).end();
+  if (req.user?.accountActive === false) return res.status(403).json({success:false,error:'비활성 계정은 공유 분석을 조회할 수 없습니다.'});
   const {text, week, force, allowAnalyze, lookupOnly} = req.body || {};
   try { analysisKey(text, week); }
   catch (error) { return res.status(400).json({success: false, error: error.message}); }

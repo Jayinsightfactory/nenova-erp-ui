@@ -1,3 +1,4 @@
+import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
 import {useState,useMemo,useEffect} from 'react';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
@@ -45,8 +46,8 @@ export default function ImportTools(){
  const [flightCount,setFlightCount]=useState(null);
  function selectTab(id){setTab(id);if(id==='feedback')setFeedbackVisited(true);}
  const storage=useMemo(()=>createImportTeamStorage(setSaveError),[]);
- return <><Head><title>수입부 업무도구 | Nenova</title></Head><main className={styles.workspace}>
-  <header className={styles.header}><div><span className={styles.eyebrow}>수입 업무</span><h1>수입부 업무도구</h1><p>파일 변환부터 일정 확인까지, 한곳에서 처리하세요.</p></div><div className={styles.headerMeta}><span className={styles.saveBadge}>팀 공동 저장 · 수정자 이력</span><small>입고 등록은 초안·미리보기·명시 확인 후에만 실행</small></div></header>
+ return <><Head><title>수입부 업무도구 | Nenova</title></Head><main className={`${styles.workspace} ${desktopUi.page}`}>
+  <header className={styles.header}><div><span data-desktop-chrome className={styles.eyebrow}>수입 업무</span><h1 data-desktop-chrome>수입부 업무도구</h1><p>파일 변환부터 일정 확인까지, 한곳에서 처리하세요.</p></div><div className={styles.headerMeta}><span className={styles.saveBadge}>팀 공동 저장 · 수정자 이력</span><small>입고 등록은 초안·미리보기·명시 확인 후에만 실행</small></div></header>
   <nav aria-label="수입부 업무도구" className={styles.tabs}>{tabs.map(([id,label,description],index)=><button type="button" key={id} onClick={()=>selectTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${checklistTabs[id]?'checklist':id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}{id==='flights'&&flightCount>0&&<span className={styles.flightBadge}>반입 대기 {flightCount}</span>}</strong><small>{description}</small></span></button>)}</nav>
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>

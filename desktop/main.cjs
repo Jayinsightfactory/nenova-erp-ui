@@ -1,16 +1,17 @@
 'use strict';
-const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen, dialog, shell, Menu, safeStorage } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, protocol, session, screen, dialog, shell, Menu, safeStorage, net } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, text } = require('./policy.cjs');
 const { parseBootstrap } = require('./bootstrap.cjs');
+const { homeWorkspaceRequest } = require('./home-workspace.cjs');
 let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
 function shellInsets(w) { return { top: w.toolsOpen ? 128 : 44, bottom: w.toolsOpen || w.menuOpen ? 28 : 0 }; }
 const windows = new Map(), tabs = new Map(), auxiliary = new Set();
 let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, restoring = false, saved = null, saveTimer, authTimer, authGeneration = 0;
-let webSession, updater;
-const { createUpdater, MIN_FREE } = require('./updater.cjs');
+let webSession, updater, updateScheduler, updateTimer;
+const { createUpdater, createUpdateScheduler, MIN_FREE } = require('./updater.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.setName('Nenova Desktop');
 app.setAppUserModelId('com.nenova.workspace');
@@ -22,7 +23,7 @@ function state(w) {
   return { windowId: w.id, windows: [...windows.values()].map(v => ({ id: v.id, title: `업무 창 ${v.id}` })),
     tabs: w.ids.map(id => tabs.get(id)).filter(Boolean).map(t => ({ id: t.id, title: locked && new URL(t.url).pathname !== '/login' ? '로그인 대기' : t.title, url: locked ? '' : t.url, loading: t.loading, error: t.error, zoom: t.zoom })),
     activeId: w.activeId, menuOpen: w.menuOpen, toolsOpen: w.toolsOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus.map(group => ({ ...group, items: group.items.map(item => ({ ...item, favorite: favorites.some(f => f.url === menuFavoriteEntry(item)?.url) })) })), version: app.getVersion(), online: !locked,
-    appUpdate: updater?.getState(), syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || '',
+    appUpdate: updater?.getState(), homeOwnerId: locked ? '' : actor, syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || '',
     message: w.message || (locked ? '로그인이 필요합니다. 업무 화면에서 로그인해 주세요.' : '탭 이동은 작업을 유지합니다 · 종료 전 업무 내용을 저장해 주세요.') };
 }
 function broadcast() {
@@ -116,7 +117,7 @@ function createWindow(config = {}) {
   broadcast(); return w;
 }
 function confirm(w, message, actionLabel = '닫기') {
-  return dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: [actionLabel, '취소'], defaultId: 1, cancelId: 1, noLink: true }) === 0;
+  return dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: [actionLabel, '취소'], defaultId: actionLabel === '닫기' ? 0 : 1, cancelId: 1, noLink: true }) === 0;
 }
 function destroyTab(t) {
   if (!t) return;
@@ -136,13 +137,13 @@ function closeTab(t, ask = true) {
   t.view.webContents.close({ waitForBeforeUnload: true });
 }
 function closeWindow(w) {
-  if (w.ids.length && !confirm(w, '이 창의 모든 탭에서 미저장 입력을 버리고 창을 닫을까요?')) return;
+  if ((w.ids.length || w.homeDirty) && !confirm(w, '이 창의 미저장 입력을 버리고 창을 닫을까요?')) return;
   w.confirmedClose = true; w.win.close();
 }
 function quit() {
   if (quitting) return;
   const w = [...windows.values()].find(w => w.win.isFocused()) || [...windows.values()][0];
-  if (tabs.size && w && !confirm(w, '모든 탭의 미저장 입력을 버리고 네노바 프로그램을 종료할까요?')) return;
+  if ((tabs.size || [...windows.values()].some(item => item.homeDirty)) && w && !confirm(w, '미저장 입력을 버리고 네노바 프로그램을 종료할까요?')) return;
   clearTimeout(saveTimer); if (actor && !locked) persist();
   quitting = true; app.quit();
 }
@@ -256,7 +257,15 @@ function command(w, action, p = {}) {
   const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
   switch (action) {
     case 'state': break;
-    case 'appUpdate': { const phase = updater?.getState().phase; if (phase === 'available') updater.download(); else if (phase === 'downloaded') updater.install(); else updater?.check(); break; }
+    case 'homeDraft': w.homeDirty = p.dirty === true; return state(w);
+    case 'homeWorkspace': {
+      if (locked || !actor) return Promise.reject(new Error('로그인을 다시 확인하세요.'));
+      const owner = actor, generation = authGeneration;
+      return homeWorkspaceRequest({ payload: p, owner, fetch: (url, options) => webSession.fetch(url, options),
+        isCurrent: () => !locked && actor === owner && authGeneration === generation,
+        onUnauthorized: () => { lockAccount(); ++authGeneration; verifyAccount().catch(() => {}); } });
+    }
+    case 'appUpdate': { if (p.automatic === true) { void updateScheduler?.tick(true); break; } const phase = updater?.getState().phase; if (phase === 'available') updater.download(); else if (phase === 'downloaded') updater.install(); else updater?.check(); break; }
     case 'cancelUpdate': updater?.cancel(); break;
     case 'sync': verifyAccount().catch(() => {}); break;
     case 'open': openTab(w, p); break;
@@ -309,6 +318,7 @@ function command(w, action, p = {}) {
 }
 function lockAccount() {
   locked = true;
+  for (const w of windows.values()) w.homeDirty = false;
   clearTimeout(saveTimer);
   for (const t of tabs.values()) if (new URL(t.url).pathname !== '/login') { t.view.webContents.stop(); t.view.setVisible(false); }
   for (const w of auxiliary) w.destroy();
@@ -388,11 +398,15 @@ async function verifyAccount(initial = false) {
   }
   for (const w of windows.values()) layout(w);
   broadcast();
+  void updateScheduler?.tick();
 }
 app.whenReady().then(async () => {
   const enabled = app.isPackaged && process.platform === 'win32';
   const engine = enabled ? require('electron-updater').autoUpdater : null;
   updater = createUpdater({ engine, enabled, enoughSpace: enoughUpdateSpace, prepareInstall: prepareUpdate, notify: () => broadcast() });
+  updateScheduler = createUpdateScheduler({ updater, isReady: () => !locked && !!actor && !quitting, isOnline: () => net.isOnline() });
+  updateTimer = setInterval(() => { void updateScheduler.tick(); }, 60 * 1000);
+  updateTimer.unref();
   if (engine) {
     require('electron').autoUpdater.on('before-quit-for-update', () => { quitting = true; });
     engine.on('error', () => { quitting = false; });
@@ -400,7 +414,7 @@ app.whenReady().then(async () => {
   protocol.handle('nenova-app', request => {
     const u = new URL(request.url);
     const name = u.pathname.slice(1);
-    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css'].includes(name)) return new Response('Not found', { status: 404 });
+    if (u.hostname !== 'shell' || !['index.html','shell.js','shell.css','home-workspace.js'].includes(name)) return new Response('Not found', { status: 404 });
     return new Response(fs.readFileSync(path.join(__dirname, 'shell', name)), { headers: { 'content-type': name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'" } });
   });
   webSession = session.fromPartition('persist:nenova-work');
@@ -433,6 +447,7 @@ app.whenReady().then(async () => {
   await verifyAccount(true);
 });
 app.on('before-quit', e => { if (!quitting && windows.size) { e.preventDefault(); quit(); } });
+app.on('will-quit', () => clearInterval(updateTimer));
 app.on('window-all-closed', () => { if (!quitting) { quitting = true; app.quit(); } });
 // Export only to the local Node test runner. No renderer receives this object.
 module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount };

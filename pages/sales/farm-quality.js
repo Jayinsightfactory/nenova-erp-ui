@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
+import {useRouter} from 'next/router';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {apiGet,apiPost} from '../../lib/useApi';
 import {QUALITY_STATUSES,QUALITY_KINDS,qualityStatus} from '../../lib/farmQuality';
@@ -8,6 +9,7 @@ import {QUALITY_EVIDENCE_MAX_BYTES,QUALITY_EVIDENCE_MAX_FILES} from '../../lib/f
 import {parseJsonResponse} from '../../lib/parseJsonResponse';
 import FarmQualityCoverage from '../../components/FarmQualityCoverage';
 import FarmQualityInbox from '../../components/FarmQualityInbox';
+import {homeFeedbackTarget} from '../../lib/homeSourceLink';
 const labels={...QUALITY_STATUSES,OVERDUE:'기한 초과'};
 const fmt=n=>Number(n||0).toLocaleString('ko-KR',{maximumFractionDigits:1});
 const pct=n=>n==null?'입고 분모 없음':`${Number(n).toLocaleString('ko-KR',{maximumFractionDigits:1})}%`;
@@ -18,6 +20,7 @@ const SIGNAL_FILTERS=[['SAME_ITEM_WEEK','동일 품목 반복'],['FARM_WEEK_CLUS
 const SIGNAL_ATTRIBUTION={FARM:'농장',PRODUCT:'품목',CUSTOMER_PRODUCT:'업체·품목'};
 const needsSignalReview=signal=>Boolean(signal?.reviewRequired||signal?.canCreate===false||!signal?.sourceKey);
 export default function FarmQuality(){
+ const router=useRouter(),linkedCase=useRef('');
  const [year,setYear]=useState(new Date().getFullYear()),[from,setFrom]=useState(1),[to,setTo]=useState(53);
  const [data,setData]=useState({groups:[],cases:[],farmTrends:[],issueCandidates:[],signals:[]}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [tab,setTab]=useState('inbox'),[search,setSearch]=useState(''),[filter,setFilter]=useState('ALL'),[unit,setUnit]=useState(''),[farm,setFarm]=useState(''),[issueWeek,setIssueWeek]=useState('');
@@ -74,6 +77,17 @@ export default function FarmQuality(){
  });
  const signals=unitSignals.filter(s=>signalFilter==='ALL'||s.kind===signalFilter);
  function open(c,trigger){if(dirty&&!window.confirm('작성 중인 내용과 첨부 이미지를 비우고 다른 이력을 볼까요?'))return;selectionTrigger.current=trigger||null;detailPending.current=true;setSelected(c.CaseKey);setDraft(null);clearComposer();setKind('COMMENT');history(c.CaseKey);}
+ useEffect(()=>{
+  if(!router.isReady||dirty||saving||uploading||inboxBusy)return;
+  const target=homeFeedbackTarget(router.query);if(!target)return;
+  const key=target.year+':'+target.id;if(linkedCase.current===key)return;
+  if(Number(year)!==target.year){setYear(target.year);return;}
+  if(loading||Number(data.scope?.year)!==target.year)return;
+  linkedCase.current=key;
+  const row=data.cases.find(c=>String(c.CaseKey).toLowerCase()===target.id);
+  if(!row){setError('연결된 피드백이 없거나 더 이상 조회할 수 없습니다.');return;}
+  setTab('feedback');open(row);
+ },[router.isReady,router.query.caseKey,router.query.year,year,loading,data,dirty,saving,uploading,inboxBusy]);
  function closeDetail(){if(saveLock.current||uploading)return;if(dirty&&!window.confirm('작성 내용과 첨부 이미지를 비우고 닫을까요?'))return;selectionTrigger.current?.focus();setSelected(null);setDraft(null);clearComposer();}
  function create(g){if(saveLock.current||uploading)return;if(needsSignalReview(g)){setError('확인 필요 원본은 피드백 이슈를 만들 수 없습니다. 원본 확인에서 검토해 주세요.');return;}if(dirty&&!window.confirm('작성 중인 내용과 첨부 이미지를 비우고 새 피드백을 만들까요?'))return;selectionTrigger.current=null;detailPending.current=true;eventSequence.current++;setTab('feedback');setSelected(null);setDraft({...g,title:g.kindLabel?`${g.kindLabel} · ${g.productName}`:''});clearComposer();setKind('COMMENT');}
  async function evidenceFetch(url,options){const response=await fetch(url,{credentials:'include',...options});if(response.status===401){window.location.href='/login';throw new Error('로그인이 필요합니다.');}const result=await parseJsonResponse(response);if(!response.ok)throw new Error(result.error||'이미지 처리에 실패했습니다.');return result;}
@@ -97,7 +111,7 @@ export default function FarmQuality(){
   try{const response=await fetch('/api/sales/farm-quality',{method:'DELETE',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({year,caseKey:current.CaseKey,version:current.Version})});const result=await parseJsonResponse(response);if(!response.ok){const failure=new Error(result.error||'피드백 삭제에 실패했습니다.');failure.code=result.code;throw failure;}deleteFocusPending.current=true;eventSequence.current++;setSelected(null);setEvents([]);clearComposer();setMessage(`피드백과 코멘트 ${result.eventCount||0}건을 삭제했습니다.`);await load();}catch(e){setError(e.message);}finally{setSaving(false);saveLock.current=false;}
  }
  return <><Head><title>농장 불량 · 피드백</title></Head><main className="quality">
- <header><div><h1>농장 불량 · 피드백</h1><span>품목별 발생 추이와 농장 답변·개선 이력</span></div><Link href="/sales/defect-deductions">영업수입 불량차감으로</Link></header>
+ <header><div><h1 data-desktop-chrome>농장 불량 · 피드백</h1><span>품목별 발생 추이와 농장 답변·개선 이력</span></div><Link href="/sales/defect-deductions">영업수입 불량차감으로</Link></header>
  <div className="toolbar"><label>연도 <input disabled={saving} type="number" min="2000" max="2100" value={year} onChange={e=>changeScope(setYear,e.target.value)}/></label><label>불량 기간 <input disabled={saving} aria-label="시작 대차수" type="number" min="1" max="53" value={from} onChange={e=>changeScope(setFrom,e.target.value)}/></label><span>~</span><input disabled={saving} aria-label="끝 대차수" type="number" min="1" max="53" value={to} onChange={e=>changeScope(setTo,e.target.value)}/><span>차</span><input className="search" aria-label="농장 품목 검색" placeholder="농장 · 품목 · 피드백 제목 검색" value={search} onChange={e=>setSearch(e.target.value)}/><button ref={deleteFocusFallback} onClick={load} disabled={loading||saving}>새로고침</button></div>
  <nav><button aria-pressed={tab==='inbox'||tab==='feedback'} onClick={()=>switchTab('inbox')}>통합 피드백</button><button aria-pressed={tab==='graph'} onClick={()=>switchTab('graph')}>불량 분석</button><span>{data.author?.department} · {data.author?.name}</span></nav>
  {error&&<div className="error" role="alert">{error}</div>}{message&&<div className="success" role="status">{message}</div>}

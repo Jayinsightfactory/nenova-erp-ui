@@ -15,6 +15,7 @@ async function main() {
   const awbFields = await import('../lib/importAwbFields.js');
   const erpMatchHelpers = await import('../lib/importPackingErpMatches.js');
   const receiptAdapter = await import('../lib/importPackingReceiptAdapter.js');
+  const sourceReview = await import('../lib/importPackingSourceReview.js');
   const root = path.resolve(__dirname, '..');
   const sourcePath = path.join(root, 'output/import-tool-sources/Packing List Nenova.html');
   // Prepared HTML is ignored by Git. Golden fixtures/hashes run without it in CI.
@@ -24,15 +25,22 @@ async function main() {
   const row = { description: 'CARNATION Doncel', pcs: 2, bunch_st: 20, steam_box: 300,
     total_stems: 600, total_bunch: 30, u_price: 0.2, t_price: 120 };
   const invoice = { invoice: 'INV-1', supplier: 'Teucali', awb: '992-1234-5678',
-    date: '2026/10/06', invoice_total: 120, products: [row] };
+    date: '2026/10/06', raw_date: '2026/10/06', date_kind: 'invoice', date_order: 'YMD',
+    currency: 'USD', freight_total: 0, invoice_total: 120, products: [row] };
   const ai = result => ({ content: [{ type: 'text', text: JSON.stringify(result) }], stop_reason: 'end_turn' });
   const catalog = state.indexPackingCatalog({ items: [{ name: 'CARNATION Doncel', country: 'CO' }] });
   const bufferOf = rows => {
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'data');
     return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   };
-  await check('all eight original prompts preserved with explicit human-review evidence extension', () => {
-    const originalPart = country => prompt.buildPrompt(country).split('\n\nMANDATORY HUMAN REVIEW EVIDENCE')[0];
+  await check('original prompts preserved except the verified CO goods-plus-charges correction', () => {
+    const correctedCoCheck = '- Sum the t_price values of all products, then add freight_total. Does goods + extras equal invoice_total? If not, you missed a row, duplicated one, or selected the wrong charge/total — re-read the invoice top to bottom. Do NOT compare goods alone to a grand total that includes extras.';
+    const originalCoCheck = '- Sum the t_price values of all your products. Does it equal invoice_total? If not, you missed a row or duplicated one — re-read the invoice top to bottom.';
+    assert.ok(prompt.buildPrompt('CO').includes(correctedCoCheck));
+    const originalPart = country => {
+      const part = prompt.buildPrompt(country).split('\n\nMANDATORY HUMAN REVIEW EVIDENCE')[0];
+      return country === 'CO' ? part.replace(correctedCoCheck, originalCoCheck) : part;
+    };
     const hashes = {
       CO: 'a0c7454452f7fe85d46b6fd5799b8292fe468d03938a8bc6a2b206a4187309a0',
       NL: 'b10cfcaa7bc66b44924bffa6ccee6ee0049e96dc64d25dcf2fb22d1a9647cf75',
@@ -244,13 +252,35 @@ async function main() {
     } };
     const storage = { get: async key => key === 'nenova_catalog' ? { value: JSON.stringify({ items: catalog.items }) } : null,
       set: async (key, value) => { sharedWrites.push({ key, value }); throw Error('409 revision conflict'); }, delete: async () => { throw Error('delete failed'); } };
+    const hashPromises = [];
+    const browserReceiptAdapter = {
+      ...receiptAdapter,
+      sha256File(file) {
+        const promise = receiptAdapter.sha256File(file, crypto.webcrypto);
+        hashPromises.push(promise);
+        return promise;
+      },
+    };
+    const pdfFixture = size => {
+      const bytes = Buffer.from('%PDF-1.4\npacking-ui-fixture\n', 'utf8');
+      const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      return { name: '40-1.pdf', size, type: 'application/pdf', arrayBuffer: async () => arrayBuffer.slice(0) };
+    };
+    const waitForRealSha = async index => {
+      assert.ok(hashPromises[index], `missing SHA-256 operation ${index}`);
+      const digest = await hashPromises[index];
+      assert.match(digest, /^[a-f0-9]{64}$/, 'browser fixture must complete a real SHA-256');
+      return digest;
+    };
     const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, '../../lib/importPacking.js': packing, '../../lib/importPackingState.js': state,
       '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
       '../../lib/importPackingExtractClient.js': extractionMock, '../../lib/importPackingReview.js': review,
       '../../lib/importPackingErpMatches.js': erpMatchHelpers,
-      '../../lib/importPackingReceiptAdapter.js': receiptAdapter,
+      '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
+      '../../lib/importPackingSourceReview.js': sourceReview,
       './PackingResults.js': { default: 'PackingResults', __esModule: true },
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
+      './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
       './PackingProductMatchDialog.js': { default: 'PackingProductMatchDialog', __esModule: true },
       'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -278,17 +308,22 @@ async function main() {
     flatten(tree).find(node => node.type === 'button' && node.props['aria-label'] === 'Colombia').props.onClick();
     tree = render();
     const pdfInput = flatten(tree).find(node => node.type === 'input' && node.props.accept === '.pdf');
-    pdfInput.props.onChange({ target: { files: [{ name: '40-1.pdf', size: state.PACKING_PDF_MAX_BYTES + 1, type: 'application/pdf' }] } });
+    pdfInput.props.onChange({ target: { files: [pdfFixture(state.PACKING_PDF_MAX_BYTES + 1)] } });
     tree = render(); assert.ok(text(tree).includes('20MiB')); assert.equal(fetchCalls.length, 0);
-    pdfInput.props.onChange({ target: { files: [{ name: '40-1.pdf', size: state.PACKING_PDF_MAX_BYTES, type: 'application/pdf' }] } });
+    pdfInput.props.onChange({ target: { files: [pdfFixture(state.PACKING_PDF_MAX_BYTES)] } });
     tree = render();
+    const localHashIndex = hashPromises.length;
     const localProcess = flatten(tree).find(node => node.type === 'button' && text(node) === 'Generar packing list').props.onClick();
     tree = render(); assert.ok(text(tree).includes('Procesando'));
     assert.equal(fetchCalls.length, 0);
+    await waitForRealSha(localHashIndex);
     await localProcess; tree = render();
     assert.equal(fetchCalls.length, 0, 'default Generate must not call AI');
+    assert.equal(extractionCalls.length, 1, text(tree));
     assert.equal(extractionCalls[0].allowAI, false);
+    const aiHashIndex = hashPromises.length;
     const pendingProcess = flatten(tree).find(node => node.type === 'button' && text(node) === 'Analizar con IA (posible coste)').props.onClick();
+    await waitForRealSha(aiHashIndex);
     tree = render(); assert.ok(text(tree).includes('Procesando'));
     assert.equal(extractionCalls[1].allowAI, true);
     assert.equal(fetchCalls.length, 1);

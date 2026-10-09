@@ -231,7 +231,7 @@ export default function RaumPurchaseCostsPage() {
   const noRows = !sharedState.loading && !shillaState.loading && !sharedState.error && !shillaState.error && !matrix.items.length;
   return <div style={{ padding: 8, color: '#1e293b', fontFamily: 'Malgun Gothic, sans-serif', fontSize: 12 }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 6 }}>
-      <h1 style={{ fontSize: 17, margin: '0 10px 0 0' }}>호텔 차수별 매입단가 관리</h1>
+      <h1 data-desktop-chrome style={{ fontSize: 17, margin: '0 10px 0 0' }}>호텔 차수별 매입단가 관리</h1>
       <button type="button" style={btn} disabled={busy} onClick={() => changeYear(Number(orderYear) - 1)}>◀</button>
       <select value={orderYear} disabled={busy} onChange={event => changeYear(event.target.value)} style={{ height: 28, border, borderRadius: 4, minWidth: 84 }} aria-label="조회 연도">{selectedYears.map(year => <option key={year} value={year}>{year}년</option>)}</select>
       <button type="button" style={btn} disabled={busy} onClick={() => changeYear(Number(orderYear) + 1)}>▶</button>

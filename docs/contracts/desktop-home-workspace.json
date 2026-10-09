@@ -1,0 +1,94 @@
+{
+  "id": "desktop-home-workspace",
+  "title": "Owner-scoped personal home tasks and read-only source news",
+  "scope": [
+    "lib/personalHomeStore.js",
+    "lib/desktopHomeWorkspace.js",
+    "pages/api/desktop/home-workspace.js",
+    "desktop/home-workspace.cjs",
+    "desktop/main.cjs",
+    "desktop/preload.cjs",
+    "desktop/shell/home-workspace.js",
+    "desktop/shell/index.html",
+    "desktop/shell/shell.js",
+    "desktop/shell/shell.css",
+    "desktop/package.json",
+    "desktop/scripts/smoke.cjs",
+    "scripts/desktop-home-workspace-smoke.cjs",
+    "scripts/desktop-home-source-smoke.cjs",
+    "lib/homeSourceLink.js",
+    "pages/operations-knowledge.js",
+    "pages/sales/farm-quality.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "HOME_GET",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PERSONAL_CREATE_UPDATE_COMPLETE_ARCHIVE_RESTORE_STOP",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    },
+    {
+      "name": "PERSONAL_READ_SOURCE_REVISION",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 execution dates preserve separate completion records. January feedback includes current/prior years independently; empty current-year feedback falls back at most one year. Old records remain visible without NEW. Keys/links preserve actual year/version; coverage provides actual OrderWeek, absent week stays null. Partial year failure preserves successful results."
+  },
+  "requiredTestFiles": [
+    "__tests__/desktopHomeWorkspace.test.cjs",
+    "desktop/tests/home-workspace.test.cjs",
+    "__tests__/homeSourceLink.test.mjs",
+    "scripts/desktop-home-source-smoke.cjs",
+    "scripts/desktop-home-workspace-smoke.cjs",
+    "desktop/scripts/smoke.cjs"
+  ],
+  "requiredCommands": [
+    "node __tests__/desktopHomeWorkspace.test.cjs",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run build",
+    "npm run guard:erp-writes -- --changed-from HEAD^"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "Personal tasks/read marks are independent owner-scoped server files, not nenova.exe ERP actions. Source news reuses existing readKnowledge/loadQuality read functions and source permission predicates; no new SQL or ERP mutation.",
+    "methods": [
+      "desktopHomeWorkspace source read projection"
+    ],
+    "tables": [
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)",
+      "Estimate (preserve)",
+      "WebFarmQualityCase (existing loadQuality read)",
+      "WebFarmQualityEvent (existing loadQuality read)"
+    ]
+  },
+  "storage": "data/runtime/personal-home/{sha256(authenticated userId)}.json; owner.json mutex metadata (pid/hostname/token/createdAt), exclusive temp file, fsync and atomic rename, expectedRevision CAS, idempotent requestId/payload hash. Same-host lock recovery requires process.kill(pid,0) ESRCH and a recovery mutex; verified dead directory is atomically quarantined, only lock metadata cleaned. Missing/unknown/live/foreign-host locks fail closed with administrator guidance; release checks ownership token. 16 MiB file, lifetime maximum 5000 rules (not daily executions), 20000 retained mutation request IDs, 500 most recent read markers.",
+  "ownership": "req.user.userId alone selects storage; optional expectedOwnerId only detects account races and mismatch rejects before any read/write. No delegation/ownerId input.",
+  "occurrences": "weekdays=[] means once, [0..6] means daily, subset means selected weekdays. GET has no mutation. Completion/archive/restore target POST date=original occurrenceDate; archived rows remain available with archived=true. Update changes selected occurrence title and applies future schedule after max(selected date,current KST date), preserving prior calendar records. stop ends future recurrence after that boundary. Pagination oldest-first: limit default200/max500, offset, totalTasks, nextOffset. Dates 2000-01-01 through 2100-12-31. A recurring rule whose start-date weekday is unselected first occurs on the next matching selected weekday, not necessarily its start date. Schedule segments are counted arithmetically; snapshot/complete/archive overrides adjust prefix counts, then binary search and a bounded heap produce only the requested page without materializing all historical occurrences.",
+  "feeds": "Valid CURRENT knowledge remains visible regardless of age, important-first/latest order, limit20. Authorized feedback remains visible regardless of age: current reporting year latest20; include prior year during the January seven-day boundary, or fallback exactly one prior year when current-year valid cases are empty. No unbounded history scan; actual OrderYear/OrderWeek and year-specific sourceKey/link are preserved. Seven days determines isRecent; isNew requires isRecent and unread, while unread independently tracks source revision. 25-second yearly loadQuality cache with in-flight dedupe; failures not cached. Per-year failures retain successful year results and expose feedErrors; failed current-year reads do not trigger empty-year fallback. Source errors never block personal task saves. read accepts only an item in the current authorized feed; no source mutation.",
+  "api": "GET date/offset/limit/expectedOwnerId; POST action=create|update|complete|archive|restore|stop|read,expectedRevision,requestId,date,taskId,title,startDate,weekdays,done,sourceKey,expectedOwnerId. Authenticated active users; private no-store; same-origin check on POST. Response ownerId/date/revision/tasks/totalTasks/nextOffset/guidance/feedback/feedErrors/syncedAt. Only personal files mutate.",
+  "personalIdentity": [
+    "authenticated userId",
+    "taskId",
+    "occurrenceDate",
+    "sourceKey"
+  ]
+}

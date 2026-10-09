@@ -73,7 +73,7 @@ export default function ProjectPlan() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: 24, margin: '0 0 6px', letterSpacing: 0 }}>작업내역 / 페이지 기획 / 남은 구현</h1>
+          <h1 data-desktop-chrome style={{ fontSize: 24, margin: '0 0 6px', letterSpacing: 0 }}>작업내역 / 페이지 기획 / 남은 구현</h1>
           <div style={{ color: 'var(--text3)', fontSize: 13 }}>최신 업데이트: {updatedAt}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

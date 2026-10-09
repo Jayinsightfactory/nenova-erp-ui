@@ -1,15 +1,18 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {MAX_TEXT_BYTES,periodBounds,parseSalesExport,mergeMessages,selectedText} from '../../lib/distributionSalesInbox';
-import {REFRESH_INTERVAL_MS,HISTORY_REFRESH_INTERVAL_MS,DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
+import {REFRESH_INTERVAL_MS,HISTORY_REFRESH_INTERVAL_MS,DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,createAppendFeedReader,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
 import {classifyMessage,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
 import {appliedOperationEntry,matchOperationByExactContent,formatKakaoMessage,sourceConfirmation,appliedHistoryEntry,historyApplicationCoverage,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
 import {readApplicationChannel} from '../../lib/distributionApplicationRefresh';
+import {snapshotKey,readInboxSnapshot,writeInboxSnapshot,retainInboxFeed} from '../../lib/distributionInboxSnapshot';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 import DistributionMessagePreanalysis from './DistributionMessagePreanalysis';
+import {DELIVERY_REASON_LABELS} from '../../lib/distributionDeliveryStatus';
+import useDistributionDeliveryStatus from './useDistributionDeliveryStatus';
 
 const MANUAL_APPLICATION_STATUSES=['MANUALLY_APPLIED','MANUALLY_NOT_APPLIED','CLEAR'];
 const MANUAL_APPLICATION_LABELS={MANUALLY_APPLIED:'적용됨 · 수동 확인',MANUALLY_NOT_APPLIED:'미적용 · 수동 확인',CLEAR:'적용 미확인 · 표시 해제'};
@@ -52,31 +55,88 @@ function sourceWeekFromMessage(value, year) {
   return unique.length===1&&year?`${year}-${unique[0]}`:'';
 }
 
-export default function DistributionSalesInbox({year,week,disabled,onLoadText,prepareMessage,evidenceMessages=[],evidenceOrders=[],operationRevision=null}) {
+export default function DistributionSalesInbox({year,week,disabled,onLoadText,prepareMessage,evidenceMessages=[],evidenceOrders=[],operationRevision=null,snapshotActorId='',snapshotAuthReady=false}) {
   const [controlsOpen,setControlsOpen]=useState(false);
   const [expandedEvidence,setExpandedEvidence]=useState({});
+  const [foldedMessages,setFoldedMessages]=useState({});
+  const foldedMessagesRef=useRef({});
+  function setMessageFold(identity,folded,event){const card=event?.currentTarget.closest('article');const next={...foldedMessagesRef.current,[identity]:folded};foldedMessagesRef.current=next;setFoldedMessages(next);if(card)requestAnimationFrame(()=>card.querySelector('.source-hide-toggle,.source-unhide-toggle')?.focus());}
+  function restoreMessageFolds(value){foldedMessagesRef.current=value;setFoldedMessages(value);}
   const [open,setOpen]=useState(true),[from,setFrom]=useState(''),[to,setTo]=useState('');
   const [rows,setRows]=useState([]),[selected,setSelected]=useState({}),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
   const [cursor,setCursor]=useState(''),[more,setMore]=useState(false),[loadedPeriod,setLoadedPeriod]=useState('');
   const seq=useRef(0);
   const [reviewPage,setReviewPage]=useState(0),[reviewOpen,setReviewOpen]=useState(false),[reviewMounted,setReviewMounted]=useState(false);
-  const [autoRefresh,setAutoRefresh]=useState(true),[pendingRows,setPendingRows]=useState([]),[refreshStatus,setRefreshStatus]=useState({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
+  const [autoFeedRefresh,setAutoFeedRefresh]=useState(true);
+  const [autoRefresh,setAutoRefresh]=useState(false),[pendingRows,setPendingRows]=useState([]),[refreshStatus,setRefreshStatus]=useState({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
   const [manualApplications,setManualApplications]=useState({}),[auditApplications,setAuditApplications]=useState({}),[operationApplications,setOperationApplications]=useState({}),[applicationStatus,setApplicationStatus]=useState({loading:false,error:'',limit:20,asOf:'',loaded:false});
   const [operationHistory,setOperationHistory]=useState([]);
   const [applicationDrafts,setApplicationDrafts]=useState({}),[applicationSaving,setApplicationSaving]=useState({}),[applicationErrors,setApplicationErrors]=useState({});
   const [liveHistory,setLiveHistory]=useState({}),[liveBalanceComparison,setLiveBalanceComparison]=useState(null),[liveHistoryStatus,setLiveHistoryStatus]=useState({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''}),[includeConsistentBalances,setIncludeConsistentBalances]=useState(false),[compactTab,setCompactTab]=useState('REQUEST');
+  const [feedEvidenceRevision,setFeedEvidenceRevision]=useState(0);
+  const [historyAttempted,setHistoryAttempted]=useState(false),[applicationAttempted,setApplicationAttempted]=useState(false);
+  const cacheKey=snapshotKey(snapshotActorId,year,week);
+  const [snapshotPhase,setSnapshotPhase]=useState({key:'',kind:'waiting'}),[snapshotSavedAt,setSnapshotSavedAt]=useState(''),[snapshotError,setSnapshotError]=useState('');
+  const ready=!!cacheKey&&snapshotPhase.key===cacheKey;
+  const deliveryStatus=useDistributionDeliveryStatus({rows,year,week,enabled:ready&&open&&!disabled,actorId:snapshotActorId});
+  const skipInitialSave=useRef(''),restoredApplicationScope=useRef(''),snapshotEpoch=useRef(0),initialFeedStarted=useRef(''),initialStatusStarted=useRef(''),initialHistoryStarted=useRef(''),lastFeedEvidenceRevision=useRef(0),previousOperationRevision=useRef(operationRevision),operationRefreshPending=useRef(false);
   const requestBusy=useRef(false),requestOwner=useRef(''),refreshSeq=useRef(0),activeRefreshScope=useRef(''),refreshController=useRef(null),rowsRef=useRef(rows),pendingRowsRef=useRef(pendingRows),selectedRef=useRef(selected),reviewOpenRef=useRef(reviewOpen);
+  const feedOwner=useRef('');
   useEffect(()=>{rowsRef.current=rows;},[rows]);
   useEffect(()=>{pendingRowsRef.current=pendingRows;},[pendingRows]);
   useEffect(()=>{selectedRef.current=selected;},[selected]);
   useEffect(()=>{reviewOpenRef.current=reviewOpen;},[reviewOpen]);
-  useEffect(()=>{const period=recentSalesPeriod();setFrom(previous=>previous||period.from);setTo(previous=>previous||period.to);},[]);
+  useEffect(()=>{
+    const epoch=++snapshotEpoch.current;
+    const owner=snapshotActorId&&year?JSON.stringify([snapshotActorId,String(year)]):'';
+    const carry=retainInboxFeed({owner,previousOwner:feedOwner.current,rows:rowsRef.current,pending:pendingRowsRef.current,foldedMessages:foldedMessagesRef.current});
+    feedOwner.current=owner;
+    // The parent may restore an earlier operation while authenticating. Treat
+    // the revision present when this account/week becomes known as baseline;
+    // only later revisions in this same scope represent a new operation.
+    previousOperationRevision.current=operationRevision;operationRefreshPending.current=false;
+    seq.current++;refreshSeq.current++;refreshController.current?.abort();requestBusy.current=false;requestOwner.current='';
+    if(!cacheKey){setSnapshotPhase({key:'',kind:'waiting'});return;}
+    let active=true;
+    const scope={userId:snapshotActorId,year,week};
+    setSnapshotPhase({key:'',kind:'waiting'});setSnapshotError('');setSnapshotSavedAt('');
+    readInboxSnapshot(scope).then(record=>{
+      if(!active||epoch!==snapshotEpoch.current)return;
+      const data=record?.data;
+      if(data){
+        restoredApplicationScope.current=`${cacheKey}:${String(year||'')}:${String(shortApplicationWeek(year,week)||'')}`;
+        const retained=retainInboxFeed({owner,previousOwner:owner,...carry},data);
+        setFrom(data.from);setTo(data.to);setRows(retained.rows);restoreMessageFolds(retained.foldedMessages);setSelected(data.selected||{});setCursor(data.cursor);setMore(data.more);setLoadedPeriod(data.loadedPeriod);
+        setPendingRows(retained.pending);setRefreshStatus({...data.refreshStatus,loading:false});
+        setManualApplications(data.manualApplications||{});setAuditApplications(data.auditApplications||{});setOperationApplications(data.operationApplications||{});setOperationHistory(data.operationHistory||[]);
+        setApplicationStatus({...data.applicationStatus,loading:false});setLiveHistory(data.liveHistory||{});setLiveBalanceComparison(data.liveBalanceComparison||null);
+        setLiveHistoryStatus({...data.liveHistoryStatus,loading:false});setHistoryAttempted(data.historyAttempted===true);setApplicationAttempted(data.applicationAttempted===true);
+        setSnapshotSavedAt(record.savedAt);skipInitialSave.current=carry.rows.length||carry.pending.length?'':cacheKey;
+        setSnapshotPhase({key:cacheKey,kind:'restored'});
+      } else {
+        const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows(carry.rows);restoreMessageFolds(carry.foldedMessages);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows(carry.pending);
+        setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
+        setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});
+        setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setHistoryAttempted(false);setApplicationAttempted(false);
+        skipInitialSave.current='';setSnapshotPhase({key:cacheKey,kind:'empty'});
+      }
+    }).catch(error=>{
+      if(!active||epoch!==snapshotEpoch.current)return;
+      const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows(carry.rows);restoreMessageFolds(carry.foldedMessages);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows(carry.pending);
+      setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
+      setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});
+      setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});
+      setHistoryAttempted(false);setApplicationAttempted(false);setSnapshotError('브라우저 저장을 읽지 못했습니다. 현재 결과는 메뉴 재진입 시 유지되지 않을 수 있습니다.');
+      skipInitialSave.current='';setSnapshotPhase({key:cacheKey,kind:'empty'});
+    });
+    return()=>{active=false;seq.current++;refreshSeq.current++;refreshController.current?.abort();};
+  },[cacheKey]);
   const lastReviewPage=Math.max(0,Math.ceil(rows.length/200)-1);
   const currentReviewPage=Math.min(reviewPage,lastReviewPage);
   const count=rows.filter(r=>selected[r.identity]).length;
   const displayRows=useMemo(()=>[...rows].reverse(),[rows]);
   const applicationWeek=shortApplicationWeek(year,week);
-  const applicationScope=`${String(year||'')}:${String(applicationWeek||'')}`;
+  const applicationScope=`${cacheKey}:${String(year||'')}:${String(applicationWeek||'')}`;
   const livePeriod=`${from}/${to}`;
   const liveScope=`${applicationScope}:${livePeriod}`;
   // The parser assigns request IDs by non-empty source-line index. Keep the
@@ -94,8 +154,28 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   const applicationSequence=useRef(0),activeApplicationScope=useRef(applicationScope),applicationMounted=useRef(false),applicationController=useRef(null),applicationInFlight=useRef(false),applicationSaveController=useRef(null),applicationSaveInFlight=useRef(false),applicationScopeEpoch=useRef(0),applicationSaveAttempt=useRef(0),applicationRefreshQueued=useRef(null);
   const liveHistorySequence=useRef(0),activeLiveHistoryScope=useRef(liveScope),liveHistoryMounted=useRef(false),liveHistoryController=useRef(null),liveHistoryInFlight=useRef(false),liveHistoryScopeEpoch=useRef(0),liveHistoryRefreshQueued=useRef(false),liveHistoryInFlightBatchKey=useRef(''),liveHistoryAutoBlocked=useRef(false),liveHistoryDebounce=useRef(null),liveHistoryBatchKeyRef=useRef(liveBatchKey),liveHistoryBatchRef=useRef(liveBatch);
   useEffect(()=>{applicationMounted.current=true;activeApplicationScope.current=applicationScope;applicationScopeEpoch.current++;applicationRefreshQueued.current=null;return()=>{applicationMounted.current=false;applicationController.current?.abort();applicationSaveController.current?.abort();applicationController.current=null;applicationSaveController.current=null;applicationInFlight.current=false;applicationSaveInFlight.current=false;};},[applicationScope]);
-  useEffect(()=>{liveHistoryMounted.current=true;activeLiveHistoryScope.current=liveScope;liveHistoryScopeEpoch.current++;liveHistoryRefreshQueued.current=false;liveHistoryAutoBlocked.current=false;setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setIncludeConsistentBalances(false);return()=>{liveHistoryMounted.current=false;liveHistoryController.current?.abort();liveHistoryController.current=null;liveHistoryInFlight.current=false;clearTimeout(liveHistoryDebounce.current);};},[liveScope]);
+  useEffect(()=>{liveHistoryMounted.current=true;activeLiveHistoryScope.current=liveScope;liveHistoryScopeEpoch.current++;liveHistoryRefreshQueued.current=false;liveHistoryAutoBlocked.current=false;setIncludeConsistentBalances(false);return()=>{liveHistoryMounted.current=false;liveHistoryController.current?.abort();liveHistoryController.current=null;liveHistoryInFlight.current=false;clearTimeout(liveHistoryDebounce.current);};},[liveScope,ready]);
   useEffect(()=>{liveHistoryBatchKeyRef.current=liveBatchKey;liveHistoryBatchRef.current=liveBatch;},[liveBatchKey]);
+  async function loadInitialRemote() {
+    if(requestBusy.current)return;
+    const id=++seq.current,owner=`initial:${cacheKey}:${id}`,period=`${from}/${to}`;
+    const controller=new AbortController();refreshController.current=controller;requestBusy.current=true;requestOwner.current=owner;
+    setRefreshStatus(previous=>({...previous,loading:true,error:''}));
+    try {
+      periodBounds(from,to);
+      const result=await refreshSalesFeed({from,to,maxPages:DEFAULT_MAX_PAGES,signal:controller.signal});
+      if(id!==seq.current||snapshotKey(snapshotActorId,year,week)!==cacheKey)return;
+      setHistoryAttempted(false);setRows(previous=>mergeMessages(previous,result.messages).rows);setSelected({});setCursor(result.nextAfterKey??'');setMore(!result.complete);setLoadedPeriod(period);
+      setNotice(`${result.messages.length}건 자동 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
+      setRefreshStatus({lastSuccess:new Date().toISOString(),error:'',incomplete:!result.complete,newCount:0,autoShown:result.messages.length,loading:false});
+      setFeedEvidenceRevision(value=>value+1);
+    } catch(error) {
+      if(id===seq.current&&error?.name!=='AbortError')setRefreshStatus(previous=>({...previous,loading:false,error:error.message||'영업방 대화를 읽지 못했습니다. 다시 확인하세요.'}));
+    } finally {
+      if(refreshController.current===controller)refreshController.current=null;
+      if(requestOwner.current===owner){requestBusy.current=false;requestOwner.current='';}
+    }
+  }
   async function loadRemote(next=false) {
     if(requestBusy.current) {setNotice('자동 확인이 끝난 뒤 다시 시도하세요.');return;}
     const id=++seq.current; setBusy(true); setNotice('');
@@ -107,8 +187,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       if(id!==seq.current)return;
       const incoming=data.messages.map(r=>({...r,identity:messageIdentity(r)}));
       setRows(prev=>mergeMessages(period===loadedPeriod?prev:[],incoming).rows);
-      if(period!==loadedPeriod) {setSelected({});setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0});}
-      setCursor(data.nextAfterKey??'');setMore(data.hasMore);setLoadedPeriod(period);
+      if(period!==loadedPeriod) {setSelected({});setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0});setHistoryAttempted(false);}
+      setCursor(data.nextAfterKey??'');setMore(data.hasMore);setLoadedPeriod(period);setHistoryAttempted(false);setFeedEvidenceRevision(value=>value+1);
       setNotice(`${incoming.length}건 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
     } catch(e) {if(id===seq.current)setNotice(e.message);}
     finally {if(requestOwner.current===owner) {requestBusy.current=false;requestOwner.current='';}if(id===seq.current)setBusy(false);}
@@ -124,12 +204,12 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
         return {...r,identity:`upload|${Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('')}`};
       }));
       if(id!==seq.current)return;
-      setRows(previous=>mergeMessages(previous,identified).rows);
+      setRows(previous=>mergeMessages(previous,identified).rows);setHistoryAttempted(false);setFeedEvidenceRevision(value=>value+1);
       setNotice(`${identified.length}건 읽음 · 같은 메시지 식별값은 중복 제외합니다. 서버 수신과 업로드 사이의 중복은 원문 확인이 필요합니다.`);
     } catch(e) {if(id===seq.current)setNotice(e.message||'파일을 읽지 못했습니다.');}
     finally {if(id===seq.current)setBusy(false);}
   }
-  function changePeriod(set,value){seq.current++;set(value);setBusy(false);setMore(false);setCursor('');setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});}
+  function changePeriod(set,value){seq.current++;refreshController.current?.abort();requestBusy.current=false;requestOwner.current='';set(value);setBusy(false);setMore(false);setCursor('');setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});}
   function revealPending() {
     setRows(previous=>mergeMessages(previous,pendingRowsRef.current).rows);
     setPendingRows([]);setRefreshStatus(previous=>({...previous,newCount:0}));
@@ -174,7 +254,9 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       clearTimeout(timeout);
       if(liveHistoryController.current===controller) {liveHistoryController.current=null;liveHistoryInFlight.current=false;}
       if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current) setLiveHistoryStatus(previous=>({...previous,loading:false}));
-      if(liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,liveHistoryBatchRef.current);}
+      const queued=liveHistoryRefreshQueued.current&&liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current;
+      if(queued) {liveHistoryRefreshQueued.current=false;refreshLiveHistory(scope,liveHistoryBatchRef.current);}
+      else if(liveHistoryMounted.current&&activeLiveHistoryScope.current===scope&&epoch===liveHistoryScopeEpoch.current&&sequence===liveHistorySequence.current)setHistoryAttempted(true);
     }
   }
   async function refreshApplicationStatus(scope=applicationScope,{force=false}={}) {
@@ -226,33 +308,36 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       if(applicationMounted.current&&activeApplicationScope.current===scope&&epoch===applicationScopeEpoch.current&&sequence===applicationSequence.current){
         setApplicationStatus(previous=>({...previous,loading:false}));
         const queued=applicationRefreshQueued.current;applicationRefreshQueued.current=null;
+        if(!queued?.scope||queued.scope!==scope)setApplicationAttempted(true);
         if(queued?.scope===scope)void refreshApplicationStatus(scope,{force:true});
       }
     }
   }
-  useEffect(()=>{setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationDrafts({});setApplicationSaving({});setApplicationErrors({});setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});},[applicationScope]);
-  useEffect(()=>{if(open&&!disabled)refreshApplicationStatus(applicationScope,{force:true});},[applicationScope,open,disabled,operationRevision]);
+  useEffect(()=>{if(!ready||restoredApplicationScope.current===applicationScope)return;setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationDrafts({});setApplicationSaving({});setApplicationErrors({});setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});},[applicationScope,ready]);
+  useEffect(()=>{if(!ready||!open||disabled||!applicationWeek||initialStatusStarted.current===applicationScope)return;initialStatusStarted.current=applicationScope;void refreshApplicationStatus(applicationScope,{force:true});},[ready,applicationScope,applicationWeek,open,disabled]);
   useEffect(()=>{
-    if(!open||!autoRefresh||disabled)return()=>{};
+    if(!ready||!open||disabled||!applicationWeek)return()=>{};
     return startBoundedAutoRefresh({immediate:false,intervalMs:HISTORY_REFRESH_INTERVAL_MS,maxBackoffMs:240000,
       isEligible:()=>document.visibilityState==='visible'&&navigator.onLine!==false,
       run:async()=>{if(await refreshApplicationStatus(applicationScope)===false)throw new Error('application refresh failed');},
     });
-  },[applicationScope,open,autoRefresh,disabled]);
+  },[applicationScope,applicationWeek,open,disabled,ready]);
   useEffect(()=>{
-    if(!open||!autoRefresh||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return()=>{};
+    if(!ready||!open||!autoRefresh||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return()=>{};
     const eligible=()=>document.visibilityState==='visible'&&navigator.onLine!==false;
     const run=()=>{if(eligible()&&!liveHistoryAutoBlocked.current)refreshLiveHistory(liveScope,liveBatch);};
     clearTimeout(liveHistoryDebounce.current);
     liveHistoryDebounce.current=setTimeout(run,250);
     const stop=startBoundedAutoRefresh({immediate:false,intervalMs:HISTORY_REFRESH_INTERVAL_MS,isEligible:eligible,run:()=>liveHistoryAutoBlocked.current?undefined:refreshLiveHistory(liveScope,liveBatch)});
     return()=>{clearTimeout(liveHistoryDebounce.current);stop();};
-  },[liveScope,liveBatchKey,loadedPeriod,open,autoRefresh,disabled]);
+  },[liveScope,liveBatchKey,loadedPeriod,open,autoRefresh,disabled,ready]);
+  useEffect(()=>{if(previousOperationRevision.current!==operationRevision){if(operationRevision)operationRefreshPending.current=true;previousOperationRevision.current=operationRevision;}},[operationRevision]);
   useEffect(()=>{
-    if(!operationRevision||!open||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return;
-    liveHistoryAutoBlocked.current=false;
-    void refreshLiveHistory(liveScope,liveBatch,{force:true});
-  },[operationRevision,disabled,open]);
+    if(!ready||!open||disabled||!operationRefreshPending.current)return;
+    operationRefreshPending.current=false;
+    void refreshApplicationStatus(applicationScope,{force:true});
+    if(loadedPeriod===livePeriod&&liveBatch.length){liveHistoryAutoBlocked.current=false;void refreshLiveHistory(liveScope,liveBatch,{force:true});}
+  },[ready,open,disabled,operationRevision,loadedPeriod,liveBatchKey]);
   function updateApplicationDraft(identity,memo) {
     setApplicationDrafts(previous=>({...previous,[identity]:{memo:String(memo||'').slice(0,1000)}}));
     setApplicationErrors(previous=>({...previous,[identity]:''}));
@@ -320,6 +405,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     </div>;
   }
   function compactMessageRow(row) {
+    if(foldedMessages[row.identity]===true)return <article className="message compact-match-row folded-message" data-testid={`compact-match-row:${row.identity}`} key={row.identity}><span className="folded-message-preview collapsed-message-preview">{String(row.message||'').split(/\r\n|\r|\n/,1)[0]}</span><button type="button" className="source-unhide-toggle" data-testid={`source-fold-toggle:${row.identity}`} aria-expanded={false} onClick={event=>setMessageFold(row.identity,false,event)}>다시 펼치기</button></article>;
     const inLiveRange=liveBatchIdentities.has(row.identity);
     const confirmed=inLiveRange&&hasAcceptedLiveHistoryScope?confirmedHistoryRequests(liveBalanceComparison,row.identity,liveHistory[row.identity]):[];
     const quantityProcessed=inLiveRange&&hasAcceptedLiveHistoryScope?quantityProcessedRequests(row.identity,liveHistory[row.identity]):[];
@@ -394,7 +480,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     return <article className={`message compact-match-row ${confirmation.confirmed&&!confirmation.cancelled?'history-completed':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
-      <div className="visible-change-meta"><small>{source}</small>
+      <div className="visible-change-meta"><small>{source}</small><button type="button" className="source-hide-toggle" data-testid={`source-fold-toggle:${row.identity}`} aria-expanded={true} onClick={event=>setMessageFold(row.identity,true,event)}>숨기기</button>
+      <button type="button" className={`source-delivery-status ${deliveryStatus.items[row.identity]?.status==='DELIVERED'?'delivered':''}`} data-testid={`source-delivery-status:${row.identity}`} aria-pressed={deliveryStatus.items[row.identity]?.status==='DELIVERED'} aria-disabled="true" title={deliveryStatus.items[row.identity]?.status==='DELIVERED'?`현장 추가취소방 동일 원문 확인 · ${shortKstTime(deliveryStatus.items[row.identity].deliveredAt)}`:deliveryStatus.error||'최근 7일 추가취소방에서 동일 원문의 전송을 확인합니다. 부분 일치·시각 불명확·중복 원문은 완료로 표시하지 않습니다.'}>{deliveryStatus.items[row.identity]?.status==='DELIVERED'?'● 전달완료':deliveryStatus.error?'전달 조회 실패':deliveryStatus.loading?'전달 확인 중…':deliveryStatus.pending?'전달 확인 대기':deliveryStatus.items[row.identity]?.status==='AMBIGUOUS'?'전달 재확인':`○ 전달 미확인 · ${DELIVERY_REASON_LABELS[deliveryStatus.items[row.identity]?.reason]||'전송 근거 확인 대기'}`}</button>
       <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={confirmation.confirmed&&!confirmation.cancelled} title="확인 표시는 실제 주문·분배 적용과 별개입니다. 확인취소는 전산 작업을 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,confirmation.confirmed&&!confirmation.cancelled?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':confirmation.confirmed&&!confirmation.cancelled?'확인취소':'확인처리'}</button>
       {!prepareMessage&&<button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button>}</div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
@@ -412,60 +499,85 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   }
   useEffect(()=>{
     const period=`${from}/${to}`;
-    const eligible=isAutoRefreshEligible({open,autoRefresh,disabled,visible:true,online:true,year,week,period,loadedPeriod});
+    const eligible=ready&&!!loadedPeriod&&isAutoRefreshEligible({open,autoRefresh:autoFeedRefresh,disabled,visible:true,online:true,year,week,period,loadedPeriod});
     if(!eligible)return undefined;
-    const initialLoad=loadedPeriod==='';
     const sequence=++refreshSeq.current,scope=period;
+    const readAppend=createAppendFeedReader();
     activeRefreshScope.current=scope;
     const stop=startBoundedAutoRefresh({
       immediate:true,
-      isEligible:()=>!requestBusy.current&&isAutoRefreshEligible({open,autoRefresh,disabled,visible:document.visibilityState==='visible',online:navigator.onLine!==false,year,week,period,loadedPeriod}),
+      isEligible:()=>!requestBusy.current&&isAutoRefreshEligible({open,autoRefresh:autoFeedRefresh,disabled,visible:document.visibilityState==='visible',online:navigator.onLine!==false,year,week,period,loadedPeriod}),
       run:async()=>{
         const owner=`auto:${sequence}`;let controller=null;requestBusy.current=true;requestOwner.current=owner;setRefreshStatus(previous=>({...previous,error:'',loading:true}));
         try {
-          periodBounds(from,to);
           controller=new AbortController();refreshController.current=controller;
-          const result=await refreshSalesFeed({from,to,maxPages:DEFAULT_MAX_PAGES,signal:controller.signal});
+          const result=await readAppend({signal:controller.signal});
           if(!isCurrentRefresh({sequence,currentSequence:refreshSeq.current,scope,currentScope:activeRefreshScope.current}))return;
           const known=new Set([...rowsRef.current,...pendingRowsRef.current].map(row=>row.identity));
           const incoming=result.messages.filter(row=>!known.has(row.identity));
-          const now=new Date().toISOString();
-          if(initialLoad) {
-            setRows(previous=>mergeMessages(previous,result.messages).rows);setCursor(result.nextAfterKey??'');setMore(!result.complete);setLoadedPeriod(period);
-            setNotice(`${result.messages.length}건 자동 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
-            setRefreshStatus({lastSuccess:now,error:'',incomplete:!result.complete,newCount:0,autoShown:result.messages.length,loading:false});
-          } else if(shouldBufferIncoming({selectedCount:rowsRef.current.filter(row=>selectedRef.current[row.identity]).length,reviewOpen:reviewOpenRef.current})) {
-            if(incoming.length)setPendingRows(previous=>mergeMessages(previous,incoming).rows);
-            setRefreshStatus({lastSuccess:now,error:'',incomplete:!result.complete,newCount:pendingRowsRef.current.length+incoming.length,autoShown:0,loading:false});
-          } else {
-            if(incoming.length)setRows(previous=>mergeMessages(previous,incoming).rows);
-            setRefreshStatus({lastSuccess:now,error:'',incomplete:!result.complete,newCount:0,autoShown:incoming.length,loading:false});
+          const buffer=shouldBufferIncoming({selectedCount:rowsRef.current.filter(row=>selectedRef.current[row.identity]).length,reviewOpen:reviewOpenRef.current});
+          if(incoming.length){
+            if(buffer)setPendingRows(previous=>mergeMessages(previous,incoming).rows);
+            else setRows(previous=>mergeMessages(previous,incoming).rows);
           }
+          setRefreshStatus({lastSuccess:new Date().toISOString(),error:'',incomplete:!result.complete,newCount:pendingRowsRef.current.length+(buffer?incoming.length:0),autoShown:buffer?0:incoming.length,loading:false,feedFrom:result.from,feedTo:result.to});
         } catch(error) {if(error?.name==='AbortError')return;if(isCurrentRefresh({sequence,currentSequence:refreshSeq.current,scope,currentScope:activeRefreshScope.current}))setRefreshStatus(previous=>({...previous,error:error.message||'영업방 자동 확인에 실패했습니다. 기존 목록은 유지됩니다.',loading:false}));throw error;}
         finally {if(refreshController.current===controller)refreshController.current=null;if(requestOwner.current===owner) {requestBusy.current=false;requestOwner.current='';}}
       }
     });
     return ()=>{refreshSeq.current++;if(activeRefreshScope.current===scope)activeRefreshScope.current='';refreshController.current?.abort();stop();};
-  },[open,autoRefresh,disabled,from,to,loadedPeriod,year,week]);
+  },[open,autoFeedRefresh,disabled,from,to,loadedPeriod,year,week,ready]);
+  useEffect(()=>{
+    if(!ready||!open||disabled||loadedPeriod||initialFeedStarted.current===cacheKey||!from||!to)return;
+    initialFeedStarted.current=cacheKey;
+    void loadInitialRemote();
+  },[ready,cacheKey,open,disabled,loadedPeriod,from,to]);
+  useEffect(()=>{
+    if(!ready||!open||disabled||loadedPeriod!==livePeriod||!liveBatch.length)return;
+    const freshFeed=feedEvidenceRevision>lastFeedEvidenceRevision.current;
+    const missingHistory=!historyAttempted&&!(liveHistoryStatus.loaded&&liveHistoryStatus.scope===liveScope);
+    if(!freshFeed&&!missingHistory)return;
+    const attemptKey=`${cacheKey}:${liveScope}:${liveBatchKey}:${feedEvidenceRevision}`;
+    if(initialHistoryStarted.current===attemptKey)return;
+    initialHistoryStarted.current=attemptKey;lastFeedEvidenceRevision.current=feedEvidenceRevision;
+    liveHistoryAutoBlocked.current=false;
+    void refreshLiveHistory(liveScope,liveBatch,{force:true});
+  },[ready,open,disabled,feedEvidenceRevision,loadedPeriod,liveScope,liveBatchKey,historyAttempted,liveHistoryStatus.loaded,liveHistoryStatus.scope]);
+  useEffect(()=>{
+    if(!ready||(!loadedPeriod?!rows.length:loadedPeriod!==livePeriod))return;
+    if(skipInitialSave.current===cacheKey){skipInitialSave.current='';return;}
+    const epoch=snapshotEpoch.current;
+    const scope={userId:snapshotActorId,year,week};
+    const data={from,to,rows,selected,foldedMessages,cursor,more,loadedPeriod,pendingRows,
+      refreshStatus:{...refreshStatus,loading:false},manualApplications,auditApplications,operationApplications,operationHistory,
+      applicationStatus:{...applicationStatus,loading:false},liveHistory,liveBalanceComparison,
+      liveHistoryStatus:{...liveHistoryStatus,loading:false},historyAttempted,applicationAttempted};
+    writeInboxSnapshot(scope,data).then(savedAt=>{if(epoch===snapshotEpoch.current){setSnapshotSavedAt(savedAt);setSnapshotError('');setSnapshotPhase(previous=>previous.key===cacheKey?{...previous,kind:'fresh'}:previous);}}).catch(()=>{if(epoch===snapshotEpoch.current)setSnapshotError('브라우저 저장 실패 · 메뉴 재진입 시 결과가 유지되지 않을 수 있습니다. 저장 공간과 브라우저 설정을 확인하세요.');});
+  },[ready,cacheKey,from,to,rows,selected,foldedMessages,cursor,more,loadedPeriod,pendingRows,refreshStatus,manualApplications,auditApplications,operationApplications,operationHistory,applicationStatus,liveHistory,liveBalanceComparison,liveHistoryStatus,historyAttempted,applicationAttempted]);
   return <section className="sales-inbox" aria-label="영업방 대화 수신함">
-    <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 기본 최근 7일</span></div>
-    <div className="sales-inbox-content" hidden={!open}>
-      <small data-testid="sales-inbox-refresh-cadence">{autoRefresh?`자동 확인: 새 대화 ${REFRESH_INTERVAL_MS/1000}초 · 전산 이력·상태 ${HISTORY_REFRESH_INTERVAL_MS/1000}초 (오류 시 지연 또는 수동 재시도). 새 원문·저장 후에는 바로 확인합니다.`:'자동 확인 꺼짐 · 최신 자료는 새로고침 버튼으로 확인하세요.'}</small>
+    <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 기본 최근 7일</span><span data-testid="sales-inbox-snapshot-status" role="status">{snapshotError||(!ready?snapshotAuthReady&&!snapshotActorId?'사용자를 확인하지 못했습니다. 다시 로그인해 주세요.':'저장된 조회 확인 중':snapshotSavedAt?`${snapshotPhase.kind==='restored'?'저장된 조회 복원':'조회 결과 저장'} · 브라우저 마지막 저장 ${shortKstTime(snapshotSavedAt)} · 전산 대조 ${liveHistoryStatus.asOf?shortKstTime(liveHistoryStatus.asOf):'시각 미확인'}`:'조회 결과 저장 준비 중')}</span></div>
+    <div className="sales-inbox-content" hidden={!open||!ready}>
+      <small data-testid="sales-inbox-shared-status-cadence">공유 처리확인·저장된 분배 이력 {HISTORY_REFRESH_INTERVAL_MS/1000}초마다 확인</small>
+      <small data-testid="sales-inbox-delivery-cadence">추가취소방 전달 여부 {HISTORY_REFRESH_INTERVAL_MS/1000}초마다 확인 · 동일 원문 전송 근거가 있으면 전달완료</small>
+      {deliveryStatus.diagnostics&&<small data-testid="sales-inbox-delivery-diagnostics">최근 7일 추가취소방 {deliveryStatus.diagnostics.targetCount}건 · 비교 가능한 원문 {deliveryStatus.diagnostics.qualifiedSourceCount}/{rows.length}건</small>}
+      {deliveryStatus.error&&<p role="status">{deliveryStatus.error} 완료 표시를 해제했습니다. 다음 자동 조회에서 다시 확인합니다.</p>}
+      <small data-testid="sales-inbox-refresh-cadence">{autoFeedRefresh?`새 카톡 ${REFRESH_INTERVAL_MS/1000}초마다 확인 · 최근 7일 수신분만 중복 없이 추가 · 저장된 원문·전산 확인 유지`:'새 카톡 자동 확인 꺼짐'}{refreshStatus.feedTo&&` · 새 카톡 수신 기간 ${refreshStatus.feedFrom} ~ ${refreshStatus.feedTo}`}</small>
       <details className="inbox-tools" open={controlsOpen} onToggle={event=>setControlsOpen(event.currentTarget.open)}><summary>조회·불러오기·비교 도구 {controlsOpen?'접기':'펼치기'}</summary>
       <div className="bar inbox-controls"><label>시작일 <input type="date" value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
         <button type="button" disabled={busy||disabled||!from||!to} onClick={()=>loadRemote()}>영업방 불러오기</button>
-        <label><input type="checkbox" checked={autoRefresh} disabled={disabled} onChange={event=>setAutoRefresh(event.target.checked)}/> {REFRESH_INTERVAL_MS/1000}초마다 새 대화 확인</label>
+        <label><input type="checkbox" checked={autoFeedRefresh} disabled={disabled} onChange={event=>setAutoFeedRefresh(event.target.checked)}/> {REFRESH_INTERVAL_MS/1000}초마다 새 카톡만 추가</label>
+        <label><input type="checkbox" checked={autoRefresh} disabled={disabled} onChange={event=>setAutoRefresh(event.target.checked)}/> 전산 SQL 이력도 주기적으로 갱신</label>
         <button type="button" data-live-history-refresh disabled={disabled||liveHistoryStatus.loading||loadedPeriod!==livePeriod||!applicationWeek||!liveBatch.length} onClick={()=>{liveHistoryAutoBlocked.current=false;refreshLiveHistory(liveScope,liveBatch);}}>최신 이력 새로고침</button>
         <button type="button" data-manual-application-refresh disabled={disabled||applicationStatus.loading||!applicationWeek} onClick={()=>refreshApplicationStatus(applicationScope,{force:true})}>상태 새로고침</button>
         <button type="button" disabled={disabled} onClick={()=>{setReviewMounted(true);setReviewOpen(value=>!value);}}>검토·비교 {reviewOpen?'닫기':'열기'}</button>
         <label className="upload">대화 파일 올리기<input type="file" accept=".txt" disabled={busy||disabled} onChange={upload} aria-label="영업방 대화 파일 올리기"/></label>
         <button type="button" disabled={busy||disabled||!count} onClick={()=>onLoadText({text:selectedText(rows,selected),messages:rows.filter(r=>selected[r.identity])})}>선택 {count}건을 입력칸으로</button>
       </div>
-      {autoRefresh&&loadedPeriod!==`${from}/${to}`&&loadedPeriod!==''&&<p role="status">입력한 새 기간은 수동 불러오기 전까지 자동 조회하지 않습니다.</p>}
+      {autoFeedRefresh&&loadedPeriod!==`${from}/${to}`&&loadedPeriod!==''&&<p role="status">입력한 새 기간은 수동 불러오기 전까지 자동 조회하지 않습니다.</p>}
       {loadedPeriod&&loadedPeriod!==`${from}/${to}`&&<p role="status">현재 표시 원문 기간: {loadedPeriod.replace('/',' ~ ')} · 입력한 조회 기간: {from||'미입력'} ~ {to||'미입력'}. 새 기간은 불러오기 전까지 바뀌지 않습니다.</p>}
       {notice&&<p role="status">{notice}</p>}
       {pendingRows.length>0&&<p role="status">새 대화 {pendingRows.length}건을 확인했습니다. <button type="button" disabled={busy||disabled} onClick={revealPending}>새 대화 {pendingRows.length}건 보기</button></p>}
-      {(refreshStatus.autoShown>0||refreshStatus.incomplete||refreshStatus.lastSuccess||liveHistoryStatus.loaded||loadedPeriod!==livePeriod||applicationStatus.loaded)&&<details className="compact-help"><summary>조회 안내</summary>{refreshStatus.autoShown>0&&<p>새 대화 {refreshStatus.autoShown}건을 바로 표시했습니다.</p>}{refreshStatus.incomplete&&<p>자동 확인은 최대 {DEFAULT_MAX_PAGES}페이지(600건)까지만 읽었습니다. 최신 여부를 확정하려면 날짜를 좁히거나 이 기간의 다음 대화를 더 불러오세요.</p>}{refreshStatus.lastSuccess&&<p>자동 확인 {new Date(refreshStatus.lastSuccess).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'})} · 새 대화 {refreshStatus.newCount}건 대기</p>}<p>{liveHistoryStatus.loading?'최신 전산 이력을 읽는 중입니다.':liveHistoryStatus.loaded?`최신 ${liveBatch.length}건 원문을 한 번에 읽기 전용으로 대조했습니다.${liveHistoryStatus.asOf?` 기준 ${shortKstTime(liveHistoryStatus.asOf)}`:''}`:loadedPeriod!==livePeriod?'현재 표시 원문 기간과 조회 기간이 같아야 최신 이력을 대조합니다.':'최신 전산 이력을 아직 확인하지 못했습니다.'}</p><p>{applicationStatus.loading?'적용 상태·비교 이력을 확인하는 중입니다.':applicationStatus.loaded?`수동 적용 표시는 현재 선택 범위의 원장을, 자동 비교 이력은 최근 ${applicationStatus.limit}개 저장 보고서 범위를 표시합니다.${applicationStatus.asOf?` 최신 기준 ${shortKstTime(applicationStatus.asOf)}`:''}`:'적용 상태·자동 비교 이력을 아직 확인하지 못했습니다.'}</p></details>}
+      {(refreshStatus.autoShown>0||refreshStatus.incomplete||refreshStatus.lastSuccess||liveHistoryStatus.loaded||loadedPeriod!==livePeriod||applicationStatus.loaded)&&<details className="compact-help"><summary>조회 안내</summary>{refreshStatus.autoShown>0&&<p>새 대화 {refreshStatus.autoShown}건을 바로 표시했습니다.</p>}{refreshStatus.incomplete&&<p>새 대화를 계속 확인하고 있습니다. 남은 내용은 자동으로 이어 읽습니다.</p>}{refreshStatus.lastSuccess&&<p>자동 확인 {new Date(refreshStatus.lastSuccess).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'})} · 새 대화 {refreshStatus.newCount}건 대기</p>}<p>{liveHistoryStatus.loading?'최신 전산 이력을 읽는 중입니다.':liveHistoryStatus.loaded?`저장된 원문 ${rows.filter(row=>liveHistory[row.identity]).length}건의 전산 대조 결과입니다. 새로 수신된 미대조 원문은 확인 전까지 미확인으로 표시합니다.${liveHistoryStatus.asOf?` 기준 ${shortKstTime(liveHistoryStatus.asOf)}`:''}`:loadedPeriod!==livePeriod?'현재 표시 원문 기간과 조회 기간이 같아야 최신 이력을 대조합니다.':'최신 전산 이력을 아직 확인하지 못했습니다.'}</p><p>{applicationStatus.loading?'적용 상태·비교 이력을 확인하는 중입니다.':applicationStatus.loaded?`수동 적용 표시는 현재 선택 범위의 원장을, 자동 비교 이력은 최근 ${applicationStatus.limit}개 저장 보고서 범위를 표시합니다.${applicationStatus.asOf?` 최신 기준 ${shortKstTime(applicationStatus.asOf)}`:''}`:'적용 상태·자동 비교 이력을 아직 확인하지 못했습니다.'}</p></details>}
       </details>
       {refreshStatus.error&&<p role="status">{refreshStatus.error}</p>}
       <div className="bar compact-match-tabs" role="tablist" aria-label="영업방 대화 분류"><button type="button" role="tab" aria-selected={compactTab==='REQUEST'} data-testid="compact-match-tab-request" onClick={()=>setCompactTab('REQUEST')}>추가·취소 작업 {compactCounts.REQUEST}건</button><details className="non-action-reference" onToggle={event=>{if(!event.currentTarget.open)setCompactTab('REQUEST');}}><summary>작업 외 원문 · 참고 {compactCounts.STOCK+compactCounts.REVIEW}건</summary><button type="button" role="tab" aria-selected={compactTab==='STOCK'} data-testid="compact-match-tab-stock" onClick={()=>setCompactTab('STOCK')}>잔량 안내 {compactCounts.STOCK}건</button><button type="button" role="tab" aria-selected={compactTab==='REVIEW'} data-testid="compact-match-tab-review" onClick={()=>setCompactTab('REVIEW')}>일반·지시 불명확 {compactCounts.REVIEW}건</button></details><span>{rows.length?`전산 대조 ${hasAcceptedLiveHistoryScope?rows.filter(row=>liveHistory[row.identity]).length:0} / 불러온 ${rows.length}건 · ${liveHistoryStatus.error?'조회 실패':liveHistoryStatus.loading?'조회 중':'최근 200건 제한 없음'}${more||refreshStatus.incomplete?' · 이전 원문 추가 조회 필요':''}`:'자동 대조 원문 없음'}</span></div>
@@ -488,8 +600,10 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       .sales-inbox .inbox-tools>summary{padding:5px 7px;cursor:pointer;color:#245b93}
       .sales-inbox .compact-match-list{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
       .sales-inbox .compact-match-row{margin:1px 0;border-width:1px;min-width:0}
-      .sales-inbox .visible-change-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:2px 5px;background:#f7faff;font-size:11px}
+      .sales-inbox .folded-message{display:flex;align-items:center;gap:8px;padding:5px 8px;min-width:0}.sales-inbox .folded-message-preview{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sales-inbox .folded-message>button{flex:none}.sales-inbox .visible-change-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:2px 5px;background:#f7faff;font-size:11px}
       .sales-inbox .visible-change-meta>button{margin-left:0;font:inherit;font-size:11px;padding:2px 5px;min-height:23px}
+      .sales-inbox .visible-change-meta .source-delivery-status{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;cursor:default}
+      .sales-inbox .visible-change-meta .source-delivery-status.delivered{background:#d1fae5;color:#065f46;border-color:#10b981;font-weight:700;box-shadow:0 0 5px #10b98155}
       .sales-inbox .visible-change-meta .compact-match-status{display:flex;gap:5px;align-items:center}
       .sales-inbox .source-message-context{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 8px;padding:6px 9px;border-left:3px solid #91b4d9;background:#f5f9fe;color:#243b53;font-size:13px;line-height:1.45}
       .sales-inbox .non-action-reference summary{cursor:pointer;color:#62798f;font-size:11px}
