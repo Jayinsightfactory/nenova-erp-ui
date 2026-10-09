@@ -41,3 +41,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .menu-favorite { flex:0 0 34px; height:34px; border:1px solid #dce6f0; border-radius:5px; background:#fff; color:#71849b; font-size:21px; line-height:1; }
 .menu-favorite[aria-pressed="true"] { color:#b57600; background:#fff4d6; border-color:#e5bb58; }
 .menu-favorite:hover { border-color:#6a9bd0; }
+
+/* The update controls sit between the welcome title and menu search. */
+.home-heading{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,1.15fr) minmax(260px,390px);align-items:start;gap:20px}
+.home-heading>*,.app-update-panel{min-width:0}
+.home-heading .search-wrap{width:100%;max-width:none;margin-top:0}
+.app-update-panel{margin:0;gap:6px 8px;padding:10px 12px;border:1px solid #d5e2f1;border-radius:8px;background:#fff}
+.app-update-panel [role="status"],#appUpdateNotesHeading,.app-update-notes{flex-basis:100%;min-width:0;overflow-wrap:anywhere}
+#appUpdateNotesHeading{font-size:12px;color:#244766;margin-top:2px}
+.app-update-notes{margin:0;padding-left:18px;font-size:12px;line-height:1.45;color:#526b87}
+@media(max-width:1120px){.home-heading{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:14px}.home-heading .search-wrap{grid-column:1 / -1}}
+@media(max-width:800px){.home-heading{grid-template-columns:minmax(0,1fr);gap:12px}.home-heading .search-wrap{grid-column:auto}}

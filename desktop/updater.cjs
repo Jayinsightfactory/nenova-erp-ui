@@ -3,6 +3,10 @@
 // Only main owns the feed and installer. The web renderer never supplies URLs.
 const FEED = 'https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download';
 const MIN_FREE = 1024 ** 3;
+function releaseNoteLines(notes) {
+  const text = typeof notes === 'string' ? notes : Array.isArray(notes) ? notes.slice(0, 3).map(item => typeof item?.note === 'string' ? item.note : '').join('\n') : '';
+  return text.slice(0, 6000).split(/\r?\n/).map(line => line.replace(/^\s*[-*#]+\s*/, '').trim()).filter(Boolean).slice(0, 3).map(line => line.slice(0, 240));
+}
 function validInfo(info) {
   if (!info || !/^\d+\.\d+\.\d+$/.test(info.version) || !Array.isArray(info.files) || info.files.length !== 1) return false;
   const f = info.files[0];
@@ -30,7 +34,7 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
     getState: () => ({ ...state }),
     async check() {
       if (!enabled || ['checking', 'downloading', 'downloaded', 'installing'].includes(state.phase)) return;
-      emit({ phase: 'checking', version: '', percent: 0, message: '앱 새 버전을 확인하고 있습니다.' });
+      emit({ phase: 'checking', version: '', releaseNotes: [], percent: 0, message: '앱 새 버전을 확인하고 있습니다.' });
       try {
         const result = await engine.checkForUpdates();
         if (!result || !validInfo(result.updateInfo)) throw Error('Invalid update metadata');
@@ -39,7 +43,7 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
         const old = current.split('.').map(Number);
         const index = newer.findIndex((n, i) => n !== old[i]);
         const available = index >= 0 && newer[index] > old[index];
-        emit({ phase: available ? 'available' : 'current', version: result.updateInfo.version, message: available ? `현재 ${current} → 새 버전 ${result.updateInfo.version}. 다운로드 중에도 작업할 수 있습니다.` : `현재 ${current} · 배포 버전 ${result.updateInfo.version}. 적용할 새 업데이트가 없습니다.` });
+        emit({ phase: available ? 'available' : 'current', version: result.updateInfo.version, releaseNotes: available || result.updateInfo.version === current ? releaseNoteLines(result.updateInfo.releaseNotes) : [], message: available ? `현재 ${current} → 새 버전 ${result.updateInfo.version}. 다운로드 중에도 작업할 수 있습니다.` : `현재 ${current} · 배포 버전 ${result.updateInfo.version}. 적용할 새 업데이트가 없습니다.` });
       } catch { fail(); }
     },
     async download() {
@@ -69,4 +73,4 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
     },
   };
 }
-module.exports = { createUpdater, validInfo, FEED, MIN_FREE };
+module.exports = { createUpdater, validInfo, releaseNoteLines, FEED, MIN_FREE };
