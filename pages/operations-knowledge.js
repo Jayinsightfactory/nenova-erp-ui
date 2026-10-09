@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { verifyReqUser } from '../lib/auth';
 import styles from '../styles/OperationsKnowledge.module.css';
+import { homeKnowledgeTarget } from '../lib/homeSourceLink';
 
 const CATEGORIES = { SITUATION: '상황별 처리', CASE: '과거 사례', SEASON: '시즌 주의', HANDOFF: '인수인계', CHECKLIST: '체크리스트' };
 const STATUSES = { CHECK: '확인 필요', CURRENT: '현재 적용', RETIRED: '적용 종료' };
@@ -127,6 +128,15 @@ export default function OperationsKnowledge() {
   const selected = items.find((item) => item.id === selectedId);
   const legacy = legacyItems.find((item) => String(item.id) === String(legacyId));
   const isOpen = Boolean(selectedId || legacyId || draft);
+  const linkedItem = useRef('');
+  useEffect(() => {
+    if (!router.isReady || loading || busyRef.current || dirtyRef.current) return;
+    const id = homeKnowledgeTarget(router.query);
+    if (!id || linkedItem.current === id) return;
+    linkedItem.current = id;
+    if (!items.some(item => item.id === id)) { setNotice('연결된 지침이 없거나 더 이상 조회할 수 없습니다.'); return; }
+    setSelectedId(id); setLegacyId(null); setDraft(null);
+  }, [router.isReady, router.query.itemId, loading, storedSnapshot]);
 
   function chooseItem(item, event, isLegacy = false) {
     if (busyRef.current) return;

@@ -262,9 +262,9 @@
     $('appUpdateStatus').textContent = `앱 ${state.version || ''} · ${update.message || ''}`;
     const releaseNotes = Array.isArray(update.releaseNotes) ? update.releaseNotes.filter(note => typeof note === 'string' && note.trim()).slice(0, 3) : [];
     const notes = releaseNotes.length ? releaseNotes : [
-      '업데이트 버튼을 시작 화면 상단 중앙으로 이동했습니다.',
-      '업데이트에서 달라진 내용을 짧게 보여줍니다.',
-      '현재 탭 강조와 Enter로 닫기 기능을 유지합니다.'
+      '홈에서 내 업무를 입력·수정하고 요일별로 체크할 수 있습니다.',
+      '최신 업무 지침과 수입부 피드백을 홈에서 순환해 보여줍니다.',
+      '기존 색상을 유지하고 업데이트·검색 영역을 간결하게 줄였습니다.'
     ];
     $('appUpdateNotesHeading').textContent = '앱 ' + (releaseNotes.length ? (update.version || state.version || '') : (state.version || '')) + ' 변경 내용';
     $('appUpdateNotes').replaceChildren(...notes.map(note => {
@@ -289,7 +289,11 @@
     for (const key of ['appUpdate', 'windowId', 'activeId', 'menuOpen', 'toolsOpen', 'online', 'message', 'notice', 'version', 'syncStatus', 'webVersion', 'menuVersion']) if (Object.prototype.hasOwnProperty.call(next, key)) state[key] = next[key];
     for (const key of ['windows', 'tabs', 'favorites', 'menus']) if (Array.isArray(next[key])) state[key] = next[key];
     render();
-    if (!wasMenuOpen && state.menuOpen) requestAnimationFrame(() => $('menuSearch').focus());
+    window.homeWorkspace?.applyState(next);
+    // Commit explicit menu-opening focus with the same render. A queued frame
+    // can run after another native focus/state transition and restore a tab.
+    // Ordinary polling never enters this branch or takes focus from the user.
+    if (!wasMenuOpen && state.menuOpen) $('menuSearch').focus({ preventScroll: true });
   }
 
   function wire() {
@@ -333,7 +337,7 @@
     });
     document.addEventListener('keydown', (event) => {
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'b') { event.preventDefault(); run('tools'); return; }
-      if (event.key === 'Escape' && state.menuOpen) { event.preventDefault(); setMenu(false); return; }
+      if (event.key === 'Escape' && state.menuOpen && !event.defaultPrevented) { event.preventDefault(); setMenu(false); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setMenu(true, true); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 't') { event.preventDefault(); setMenu(true, true); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'w' && state.activeId) { event.preventDefault(); run('close', { id: state.activeId }); }
