@@ -8,11 +8,20 @@ assert(inboxSource.includes('data-testid="sales-inbox-refresh-cadence"'),'cadenc
 assert(inboxSource.includes('void refreshLiveHistory(liveScope,liveBatch,{force:true})'),'post-save history refresh bypasses polling delay');
 assert(inboxSource.includes('const liveBatch=displayRows')&&inboxSource.includes('()=>[...rows].reverse()'),'full history coverage is preserved');
 const {periodBounds}=require('../lib/distributionSalesInbox');
+const {retainRecentSalesRows,assertRecentSalesPeriod}=require('../lib/distributionSalesInboxRefresh');
+const retentionNow=new Date('2026-01-01T00:00:00+09:00');
+const canonical=(id,time)=>({source:'nenovakakao',identity:`nenovakakao|sales|${id}`,created_at:time,message:id});
+const retainedRaw=[canonical('old','2025-12-29T14:59:59Z'),canonical('boundary','2025-12-29T15:00:00Z'),canonical('today','2025-12-31T15:00:00Z'),canonical('future','2026-01-01T15:00:00Z'),canonical('unknown',''),{source:'uploaded-kakao',identity:'upload|old',created_at:'2020-01-01T00:00:00Z'}];
+assert.deepEqual(retainRecentSalesRows(retainedRaw,retentionNow),[retainedRaw[1],retainedRaw[2],retainedRaw[4],retainedRaw[5]],'three KST days only; unknown and explicit uploads remain');
+assert.doesNotThrow(()=>assertRecentSalesPeriod('2025-12-30','2026-01-01',retentionNow));
+assert.throws(()=>assertRecentSalesPeriod('2025-12-29','2026-01-01',retentionNow),/최근 3일/);
+assert.throws(()=>assertRecentSalesPeriod('2026-01-01','2026-01-02',retentionNow),/최근 3일/);
+
 for(const [now,from,to] of [
-  ['2026-09-15T00:00:00+09:00','2026-09-09','2026-09-15'],
-  ['2026-09-14T14:59:59Z','2026-09-08','2026-09-14'],
-  ['2026-01-01T00:00:00+09:00','2025-12-26','2026-01-01'],
-  ['2028-03-01T00:00:00+09:00','2028-02-24','2028-03-01']
+  ['2026-09-15T00:00:00+09:00','2026-09-13','2026-09-15'],
+  ['2026-09-14T14:59:59Z','2026-09-12','2026-09-14'],
+  ['2026-01-01T00:00:00+09:00','2025-12-30','2026-01-01'],
+  ['2028-03-01T00:00:00+09:00','2028-02-28','2028-03-01']
 ]) {
   assert.deepEqual(recentSalesPeriod(new Date(now)),{from,to});
   assert.doesNotThrow(()=>periodBounds(from,to));
@@ -54,14 +63,17 @@ assert.equal(shouldBufferIncoming({selectedCount:0,reviewOpen:true}),true);
   const first=await readAppend({fetchImpl:fetchAppend,maxPages:1,now:new Date('2026-12-31T23:59:00+09:00')});
   assert.equal(first.complete,false);
   fail=true;
-  await assert.rejects(readAppend({fetchImpl:fetchAppend,maxPages:1}),/offline/);
+  await assert.rejects(readAppend({fetchImpl:fetchAppend,maxPages:1,now:new Date('2026-12-31T23:59:30+09:00')}),/offline/);
   fail=false;
-  const second=await readAppend({fetchImpl:fetchAppend,maxPages:1,now:new Date('2027-01-01T00:01:00+09:00')});
+  const second=await readAppend({fetchImpl:fetchAppend,maxPages:1,now:new Date('2026-12-31T23:59:45+09:00')});
   assert.equal(requests[2].afterKey,'page-2','failed reads retain the next page, never restart at 600');
-  assert.equal(second.to,'2026-12-31','unfinished scan retains its cursor period across midnight');
+  assert.equal(second.to,'2026-12-31','same-day unfinished scan retains its cursor after failure');
   await readAppend({fetchImpl:fetchAppend,maxPages:1,now:new Date('2027-01-01T00:02:00+09:00')});
   assert.equal(requests[3].to,'2027-01-01','next completed cycle includes the new KST day/year');
   assert.equal(requests[3].afterKey,'');
+  await readAppend({fetchImpl:fetchAppend,maxPages:1,now:new Date('2027-01-02T00:01:00+09:00')});
+  assert.equal(requests[4].afterKey,'','midnight discards unfinished old-window cursor');
+  assert.equal(requests[4].from,'2026-12-31','rolling scan never reads beyond current three days');
   const saved={identity:'nenovakakao|sales|old',message:'saved original',confirmed:true};
   const merged=mergeMessages([saved],[...first.messages,...second.messages]).rows;
   assert.equal(merged.length,2);
