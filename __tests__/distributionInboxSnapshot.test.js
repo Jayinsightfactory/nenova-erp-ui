@@ -58,3 +58,22 @@ test('corrupt and unknown-version records are ignored',async()=>{
   await assert.rejects(readInboxSnapshot(scope,{indexedDB}),/Invalid inbox snapshot record/);
   await assert.rejects(readInboxSnapshot(scope,{indexedDB:undefined}),/IndexedDB unavailable/);
 });
+
+
+test('same actor/year week transition retains latest raw feed and pending without inheriting evidence',()=>{
+  const {retainInboxFeed}=require('../lib/distributionInboxSnapshot');
+  const old={identity:'old',message:'saved original',created_at:'2026-10-08T00:00:00Z'};
+  const latest={identity:'latest',message:'newly received',created_at:'2026-10-09T00:00:00Z'};
+  const pending={identity:'pending',message:'pending while reviewing',created_at:'2026-10-09T01:00:00Z'};
+  const owner=JSON.stringify(['user-a','2026']);
+  const input={owner,previousOwner:owner,rows:[old,latest],pending:[pending]};
+  const saved={rows:[{...old,message:'older snapshot text'}],pendingRows:[latest],liveHistory:{old:{status:'ORDER_AND_DISTRIBUTION'}},manualApplications:{old:{status:'MANUALLY_APPLIED'}}};
+  const result=retainInboxFeed(input,saved);
+  assert.deepEqual(result.rows,[old,latest]);
+  assert.deepEqual(result.pending,[pending]);
+  assert.equal(result.liveHistory,undefined);
+  assert.equal(result.manualApplications,undefined);
+  assert.deepEqual(retainInboxFeed(input).rows,[old,latest],'empty target snapshot preserves incoming feed');
+  assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-b','2026'])}),{rows:[],pending:[]});
+  assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-a','2025'])}),{rows:[],pending:[]},'prior-year same week never inherits feed or evidence');
+});
