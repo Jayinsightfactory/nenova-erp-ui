@@ -558,7 +558,7 @@ async function run() {
       assert.ok(welcome.right <= updatePanel.left && search.top >= Math.max(welcome.bottom, updatePanel.bottom), 'medium header keeps search below title and update');
     }
     shellContents.send('desktop:state', { appUpdate: { phase: 'idle', message: '앱 업데이트를 확인할 수 있습니다.' } });
-    await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotes li')?.textContent === '새 버전이 있으면 업데이트 필요 안내를 자동으로 표시합니다.'"), 'installed-version note fallback');
+    await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotes li')?.textContent === '확인 필요 지침도 홈에 표시하고 상황·처리 방법을 보여줍니다.'"), 'installed-version note fallback');
     await capture(sourceWindow.win, filename);
   };
   await assertShellWidth(1920, 'shell-1920x1080.png');

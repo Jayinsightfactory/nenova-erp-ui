@@ -165,7 +165,11 @@
       row.append(node('strong', '', lane.key === 'guidance' ? '주의·업무 지침' : '수입부 피드백'));
       const copy = node('div', 'hw-feed-copy');
       if (snapshot?.feedErrors?.[lane.key]) copy.append(node('span', 'hw-error-copy', '조회 실패 · ' + snapshot.feedErrors[lane.key]));
-      if (item) { copy.append(node('span', '', (item.isNew ? '새 소식 · ' : item.unread ? '미확인 · ' : '') + item.title), node('small', '', (item.orderYear ? item.orderYear + '년 ' + (item.orderWeek ? item.orderWeek + '차' : '차수 미확인') + ' · ' : '') + stamp(item.updatedAt))); }
+      if (item) {
+        copy.append(node('span', 'hw-feed-title', (item.isNew ? '새 소식 · ' : item.unread ? '미확인 · ' : '') + item.title));
+        if (contentText(item.summary) && normalizedText(item.summary) !== normalizedText(item.title)) copy.append(node('span', 'hw-feed-summary', item.summary));
+        copy.append(node('small', '', feedMeta(item, lane.key)));
+      }
       else if (!snapshot?.feedErrors?.[lane.key]) copy.append(node('span', '', !owner ? '로그인 후 확인' : !snapshot ? '소식 확인 중…' : '표시할 내용이 없습니다.'));
       row.append(copy); const controls = node('div', 'hw-feed-controls');
       const ctrl = (name, text, fn, disabled = false) => { const b = button(text, fn); b.dataset.feedControl = lane.key + ':' + name; b.setAttribute('aria-label', row.getAttribute('aria-label') + ' ' + text); b.disabled = disabled; controls.append(b); return b; };
@@ -179,10 +183,42 @@
     }
     if (focused) [...feeds.querySelectorAll('button')].find(b => b.dataset.feedControl === focused)?.focus({ preventScroll: true });
   }
+  function contentText(value) { return typeof value === 'string' ? value.trim() : ''; }
+  function normalizedText(value) { return contentText(value).replace(/\s+/g, ' '); }
+  function feedMeta(item, key) {
+    const status = contentText(item.statusLabel) || (key === 'guidance' ? ({ CHECK: '확인 필요', CURRENT: '현재 지침' }[item.status] || '') : contentText(item.status));
+    return [status, item.orderYear ? item.orderYear + '년 ' + (item.orderWeek ? item.orderWeek + '차' : '차수 미확인') : '', stamp(item.updatedAt)].filter(Boolean).join(' · ');
+  }
+  function appendFeedDetails(article, item, key) {
+    const values = item.details && typeof item.details === 'object' ? item.details : {};
+    const list = node('dl', 'hw-detail-fields');
+    const field = (label, value) => {
+      const lines = (Array.isArray(value) ? value : [value]).map(contentText).filter(Boolean);
+      if (!lines.length) return;
+      const body = node('dd');
+      if (Array.isArray(value)) { const items = node('ul'); for (const line of lines) items.append(node('li', '', line)); body.append(items); }
+      else body.textContent = lines[0];
+      list.append(node('dt', '', label), body);
+    };
+    if (key === 'guidance') {
+      for (const [name, label] of [['situation', '상황'], ['action', '조치'], ['caution', '주의사항'], ['checklist', '확인 목록'], ['contact', '담당·연락처'], ['reviewDate', '검토일']]) field(label, values[name]);
+    } else {
+      field('문제 내용', values.problem); field('요청 사항', values.request); field('최근 내용', values.latestBody); field('처리 기한', values.dueDate);
+      const sourceLines = sources => sources.map(source => [contentText(source.productName), contentText(source.farmName), source.orderYear ? String(source.orderYear) + '년' : '', source.orderWeek ? String(source.orderWeek) + '차' : '차수 미확인'].filter(Boolean).join(' · '));
+      if (Array.isArray(values.sources) && values.sources.length) field('이 이력에 연결된 품목·농장·차수', sourceLines(values.sources));
+      else { field('연결된 농장', values.farms); field('연결된 품목', values.products); }
+      if (Array.isArray(values.relatedSources) && values.relatedSources.length) field('관련 그룹 원본 · 개별 이력 연결 미확인', sourceLines(values.relatedSources));
+      const kinds = { COMMENT: '코멘트', REQUEST: '농장 요청 / 재요청', RESPONSE: '농장 답변', APPLY: '개선 적용', CLOSE: '개선 확인', RECUR: '재발 확인' };
+      if (Array.isArray(values.recentEvents)) field('최근 이력', values.recentEvents.map(event => [contentText(event.kindLabel) || kinds[event.kind] || '이력', stamp(event.createdAt), contentText(event.body)].filter(Boolean).join('\n')));
+    }
+    if (list.children.length) article.append(list);
+    else if (contentText(item.summary) && normalizedText(item.summary) !== normalizedText(item.title)) article.append(node('p', '', item.summary));
+    if (item.detailsTruncated) article.append(node('p', 'hw-error-copy', contentText(item.detailNotice) || '일부 상세 내용은 원문 보기에서 확인하세요.'));
+  }
   function showDetail(lane, all) {
     detail = lane.key; detailTrigger = document.activeElement?.dataset.feedControl; feedDetail.replaceChildren(); feedDetail.hidden = false;
     const close = button('닫기', closeDetail); feedDetail.append(close);
-    for (const item of (all ? snapshot[lane.key] : [snapshot[lane.key][lane.at]])) { const article = node('article'); article.append(node('strong', '', item.title), node('p', '', item.summary || ''), node('small', '', (item.orderYear ? item.orderYear + '년 ' + (item.orderWeek ? item.orderWeek + '차' : '차수 미확인') + ' · ' : '') + stamp(item.updatedAt)));
+    for (const item of (all ? snapshot[lane.key] : [snapshot[lane.key][lane.at]])) { const article = node('article'); article.append(node('h3', '', item.title), node('small', '', feedMeta(item, lane.key))); appendFeedDetails(article, item, lane.key);
       const open = button('원문 보기', async () => { const ticket = epoch; open.disabled = true; try { await window.desktop.invoke('open', { url: item.href, title: item.title }); if (ticket === epoch) mutate('read', { sourceKey: item.sourceKey }); } catch (e) { if (ticket === epoch) setError(e.message || '원문을 열지 못했습니다.'); } finally { if (ticket === epoch) open.disabled = false; } }); article.append(open); feedDetail.append(article); }
     close.focus();
   }
