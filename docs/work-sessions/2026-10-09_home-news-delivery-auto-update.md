@@ -11,7 +11,7 @@
 - Electron 단위 25개, native smoke 1920/1024/800, 계정별 탭·즐겨찾기 복원, 닫기/취소, 실제 updater 다운로드 및 SHA512/손상 거부 통과. 모든 fixture는 별도 프로필을 사용하며 설치하지 않는다.
 - ERP 계약, dnSpy evidence, 변경 manifest/write guard, UI layout, Next production build 통과.
 - 수정 전 운영 화면에서는 최초 조회 중 모두 미확인처럼 보였으나 이후 122건 전달완료와 56건 조회 중으로 확인됐다. 모든 미확인이 영구 오류라고 판단하거나 실제 미전달을 완료로 바꾸지 않는다.
-- 설치 파일 1.3.6 SHA256: `6FA0566F8D94D44FC8E9E6EFAA595FD181FD0C5449C963AF50AD3915D45452CC`.
+- 설치 파일 1.3.6 SHA256: `3ADE97EEFBF7F7D62756CA9541ABCE8CF973C8A1759D20989E52B1F4E6B91FC0`.
 
 ## 기준선
 - 적용: 기존 색상, 한 줄 탭, 접근 가능한 안내 버튼, 반응형/키보드 native smoke, 실패 상태 분리, 계정별 읽음/입력 보존.
