@@ -32,6 +32,11 @@ function historySnapshotLabel(snapshot) {
   const dates=snapshot.shipmentDates || snapshot.dates;
   return `${snapshot.shipmentOutQuantity!=null?`총량 ${snapshot.shipmentOutQuantity} · `:''}${Array.isArray(dates)?dates.map(day=>`${day.date} ${day.shipmentQuantity ?? day.quantity}`).join(' / '):JSON.stringify(snapshot)}`;
 }
+function lifecycleLabel(lifecycle) {
+  if(!lifecycle) return '';
+  const labels={CANCEL_CONFIRMATION:'확정 취소',SAVE_QUANTITY:'수량 저장',CONFIRM:'확정',MOVE_DATES:'출고일 이동',SAVE_DATES:'출고일 저장'};
+  return `${lifecycle.beforeFixed?'확정':'미확정'} → ${lifecycle.finalFixed?'확정':'미확정'} · ${(lifecycle.transitionStages || []).map(stage=>labels[stage] || stage).join(' → ')} · 재고 소비 증감 ${lifecycle.consumedDelta}`;
+}
 function carryoverHistoryValue(value) { return value == null ? '미등록' : String(typeof value === 'object' ? value.quantity ?? '미확인' : value); }
 function carryoverActorLabel(actor) { return actor == null ? '담당자 미확인' : typeof actor === 'object' ? actor.userName || actor.userId || actor.name || '담당자 미확인' : String(actor); }
 
@@ -1130,7 +1135,7 @@ export default function WeekdayEstimateWorkspace() {
       </div>}
       <div role="status" style={{ marginTop:5, padding:'3px 6px', borderRadius:4, background:'#fff7df', color:'#624900' }}>{message}</div>
       <details className="weekday-guidance"><summary>안내·작업 기준 펼치기</summary><div style={{fontSize:13,color:'#122033',marginTop:5}}>전산 현재값 = 저장된 조회값 · 파란 수량 = 미저장 초안 {activePlans.length}건 · 최초 기준 = 이 페이지의 불변 기록{plans.length>activePlans.length && ` · 다른 조회 범위 초안 ${plans.length-activePlans.length}건 보관 (이번 저장 제외)`}</div>
-      <div style={{fontSize:12,color:'#624900',marginTop:3}}>작업 순서: 입력 → 입력만 저장(이 브라우저 보관) → 필요할 때 분배 적용 · 변경 확인. 최초 기준 확정은 별도 기록이며, 인쇄는 API가 메인차수 전체 확정을 검사합니다.</div>
+      <div style={{fontSize:12,color:'#624900',marginTop:3}}>작업 순서: 입력 → 입력만 저장(이 브라우저 보관) → 필요할 때 분배 적용 · 변경 확인. 최초 기준 확정은 별도 기록입니다. 전체 견적은 대차수 전체 확정을, 요일 견적은 선택 업체·출고일의 확정과 견적 연결을 검사합니다.</div>
       </details>
       {applyError && <div role="alert" style={{color:'#9f1c16',fontSize:13,overflowWrap:'anywhere'}}>{applyError}</div>}
       {pendingApply && <div style={{fontSize:13,color:'#122033'}}>저장 결과 확인 대기 · 업체 {pendingApply.payload.custKey} · 작업 {pendingApply.payload.operationId} <button disabled={applyBusy} onClick={recheckErpSave}>{applyBusy?'확인 중…':pendingApply.metadataOnly?'윌슨 저장 결과 확인':'같은 작업 저장 상태 다시 조회'}</button></div>}
@@ -1202,7 +1207,7 @@ export default function WeekdayEstimateWorkspace() {
     {applyPreview && <div className="weekday-print-overlay"><section role="dialog" aria-modal="true" aria-label="ERP 저장 변경 확인" style={{...panel,width:'min(760px,100%)',maxHeight:'calc(100vh - 24px)',overflow:'auto',boxSizing:'border-box',fontSize:13,color:'#122033'}}>
       <h2 style={{fontSize:17,margin:'0 0 8px'}}>{applyPreview.metadataOnly?'윌슨 구분만 저장':'분배 적용'} · {customer?.CustName} · 확인 날짜 {applyPreview.preview.length}건</h2>
       {applyPreview.metadataOnly && <p>일반·윌슨 구분만 변경합니다. 기존 ERP 날짜 합계·견적·재고는 그대로 유지합니다.</p>}
-      <p>아래 날짜의 최종 출고수량(OutUnit)을 적용합니다. 예를 들어 현재 100에서 120을 입력하면 20만 증가합니다. 입력하지 않은 기존 날짜는 보존하고, 명시 수량 0은 해당 날짜를 취소합니다. 기존 상세의 확정·미확정 상태를 그대로 유지하며, 신규 상세는 미확정 분배로 등록합니다. 자동 확정은 하지 않습니다. 최초 기준은 보존하고, 실패하면 입력 초안을 유지합니다.</p>
+      <p>아래 날짜의 최종 출고수량(OutUnit)을 적용합니다. 입력하지 않은 날짜는 보존하고, 명시 수량 0은 해당 날짜를 취소합니다. 확정 수량 수정은 확정 취소 → 수량 저장 → 재확정합니다. 확정된 출고일 이동은 확정을 유지합니다. 미확정 출고일 이동은 필요한 수량을 저장한 뒤 확정 → 출고일 이동합니다. 미확정 수량만 수정하거나 새 분배만 등록하면 미확정을 유지합니다. 처리 중 오류가 나면 전체를 취소하고 입력 초안을 유지합니다.</p>
       <div className="scroll-table" style={{maxHeight:'45vh',overflow:'auto'}}><table><thead><tr><th>연도/세부차수</th><th>품목</th><th>날짜</th><th>저장 현재 → 초안 최종</th><th>ERP 상세 확정 전 → 후</th></tr></thead><tbody>{applyPreview.preview.map(cell=><tr key={`${cell.year}|${cell.orderWeek}|${cell.prodName}|${cell.date}`}><td>{cell.year}/{cell.orderWeek}</td><td>{cell.prodName}</td><td>{cell.date}</td><td>{cell.before} → {cell.after} {cell.unit}{cell.after===0?' · 취소':''}</td><td>{cell.detailFlag}</td></tr>)}</tbody></table></div>
       <label style={{display:'block',marginTop:10}}>ERP 변경 사유 (필수)<textarea autoFocus aria-label="ERP 저장 사유" rows={3} maxLength={1000} disabled={applyBusy || Boolean(pendingApply)} value={applyReason} onChange={event=>setApplyReason(event.target.value)} style={{width:'100%',boxSizing:'border-box',font:'inherit',color:'#122033'}}/></label>
       {applyError && <p role="alert" style={{color:'#9f1c16',overflowWrap:'anywhere'}}>{applyError}</p>}
@@ -1303,7 +1308,7 @@ export default function WeekdayEstimateWorkspace() {
         <b style={{display:'block',marginTop:10}}>웹 요일 저장 감사 · 작업 UUID / 전체 거래 보완 기록</b>
         <p className="muted">기존 EXE 공용 출고 이력은 위에 그대로 표시합니다. 같은 웹 저장이 두 출처에 기록될 수 있으며, 명시 UUID 연결이 없는 기록은 시각·수량으로 추정 중복 제거하지 않습니다.</p>
         {historyError && <p role="alert" style={{color:'#9f1c16'}}>{historyError}</p>}
-        {savedHistory.map((event,index)=><div key={`${event.operationId}|${event.prodKey}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>웹 감사 · {event.changedAt || event.createdAt || event.at} · 담당자 {event.userName || event.userId || event.changedBy} · {event.year}/{event.orderWeek} · 품목 {event.prodName || event.prodKey} · 사유: {event.reason}<br/>전: {historySnapshotLabel(event.before)}<br/>후: {historySnapshotLabel(event.after)} · 작업 {event.operationId}</div>)}
+        {savedHistory.map((event,index)=><div key={`${event.operationId}|${event.prodKey}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>웹 감사 · {event.changedAt || event.createdAt || event.at} · 담당자 {event.userName || event.userId || event.changedBy} · {event.year}/{event.orderWeek} · 품목 {event.prodName || event.prodKey} · 사유: {event.reason}<br/>전: {historySnapshotLabel(event.before)}<br/>후: {historySnapshotLabel(event.after)}{event.after?.confirmationLifecycle && <><br/>{lifecycleLabel(event.after.confirmationLifecycle)}</>} · 작업 {event.operationId}</div>)}
       </section>}
 
       {compareRows && <section className="span-12" style={panel}>

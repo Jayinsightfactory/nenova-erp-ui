@@ -16,6 +16,7 @@ import {
 } from '../../../lib/weekdayDistributionApply.js';
 
 const runtimeDependencies = {
+  confirmationLifecycle: true,
   assertGateCapability: assertDirectionalGateCapability,
   lockGate: lockDirectionalGate,
   acquireEditLease: acquireErpEditLease,
@@ -52,6 +53,9 @@ export function createWeekdayApplyHandler({
       return res.status(200).json(result);
     } catch (error) {
       const mapped = weekdayDistributionErrorResponse(error);
+      console.error('[weekday-apply]', { operationId: req.body?.operationId || null,
+        code: error.code || 'INTERNAL_ERROR', stage: error.failureStage || 'TRANSACTION',
+        rolledBack: mapped.body.rolledBack === true });
       return res.status(mapped.status).json(mapped.body);
     }
   };

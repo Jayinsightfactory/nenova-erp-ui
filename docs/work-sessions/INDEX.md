@@ -1,3 +1,4 @@
+- [2026-10-09 주광 확정 전환·요일 인쇄](2026-10-09_weekday-confirmation-lifecycle.md) — 수량/요일별 확정 순서, native 재고·이력 및 원자적 롤백 검증.
 - [2026-10-09 홈 지침·피드백 실제 내용](2026-10-09_home-actionable-source-news.md) — 확인 필요 지침과 농장·품목·문제 내용 보완.
 - [2026-10-09 홈 소식·전달 상태·자동 업데이트 안내](2026-10-09_home-news-delivery-auto-update.md) — PC 1.3.6, 기존 소식 표시와 조회 상태 구분.
 - [2026-10-08 붙여넣기 사전 분석 재진입](2026-10-08_paste-preanalysis-reentry.md) — 저장본 복원, 실제 viewport 신규 분석, 대기/실행 구분.
