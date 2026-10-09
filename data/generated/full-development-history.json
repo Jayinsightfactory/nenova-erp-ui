@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-08T08:42:23.229Z",
+  "generatedAt": "2026-10-09T00:55:44.681Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "9a9a22a1f422ba92e4559fff906612f8b1bc2ea9",
+      "headHash": "ed8c4349dcd3d3cd9fd09878bf1087522ac8f50b",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-10-08T08:42:23.229Z",
-      "totalCommits": 2952,
-      "nonMergeCount": 2252,
-      "mergeCount": 700,
-      "summaryCount": 223,
-      "knownSummaryTitles": 182,
+      "collectedAt": "2026-10-09T00:55:44.681Z",
+      "totalCommits": 2961,
+      "nonMergeCount": 2259,
+      "mergeCount": 702,
+      "summaryCount": 225,
+      "knownSummaryTitles": 184,
       "unknownSummaryTitles": 41,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-10-08T07:56:37.000Z"
+      "lastDate": "2026-10-08T09:38:13.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -100,6 +100,386 @@
     }
   ],
   "records": [
+    {
+      "hash": "ed8c4349dcd3d3cd9fd09878bf1087522ac8f50b",
+      "date": "2026-10-08T09:38:13.000Z",
+      "committedAt": "2026-10-08T09:38:13.000Z",
+      "subject": "fix(ecount-scraper): 자동 로그인 뒤 세션 유지·브라우저 종료 시 재기동·Excel 버튼 재시도 (#989)",
+      "parents": [
+        "84c5904f2a1a32392efb475139b6c7fec400db1e"
+      ],
+      "paths": [
+        "scripts/ecount-scraper/daemon.mjs",
+        "scripts/ecount-scraper/scrape-core.mjs"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 0,
+      "id": "ed8c4349dcd3d3cd9fd09878bf1087522ac8f50b",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "84c5904f2a1a32392efb475139b6c7fec400db1e",
+      "date": "2026-10-08T09:29:43.000Z",
+      "committedAt": "2026-10-08T09:29:43.000Z",
+      "subject": "fix: persist paste inbox query results across menu entry (#988)",
+      "parents": [
+        "fa0d0808ee5f45abfd270b7e7dca5bc732ff1d44"
+      ],
+      "paths": [
+        "__tests__/distributionInboxSnapshot.test.js",
+        "__tests__/distributionMessageApplicationStatus.test.js",
+        "__tests__/distributionSalesInbox.test.js",
+        "components/orders/DistributionSalesInbox.js",
+        "docs/contracts/distribution-sales-inbox.json",
+        "docs/exe-golden/FormShipmentDistribution.md",
+        "lib/distributionInboxSnapshot.js",
+        "pages/orders/paste.js",
+        "scripts/paste-live-history-ui-smoke.cjs",
+        "scripts/test-distribution-connection.cjs"
+      ],
+      "changedFileCount": 12,
+      "redactedPathCount": 2,
+      "id": "84c5904f2a1a32392efb475139b6c7fec400db1e",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/orders/paste",
+        "/orders"
+      ],
+      "workType": "fix",
+      "typeEvidence": "subject-prefix"
+    },
+    {
+      "hash": "fa0d0808ee5f45abfd270b7e7dca5bc732ff1d44",
+      "date": "2026-10-08T09:15:42.000Z",
+      "committedAt": "2026-10-08T09:15:42.000Z",
+      "subject": "Merge pull request #987 from Jayinsightfactory/codex/weekday-page-scroll",
+      "parents": [
+        "5c2e3b54fa7e8fe5f62a1ab70bc634c220cd8706",
+        "01ba1aff01e2af1a114a61b18e0de399f35e2f57"
+      ],
+      "paths": [
+        "__tests__/weekdayHorizontalMatrix.test.js",
+        "components/Layout.js",
+        "components/WeekdayCycleMatrix.js",
+        "docs/contracts/estimate-weekday-workspace.json"
+      ],
+      "changedFileCount": 7,
+      "redactedPathCount": 3,
+      "id": "fa0d0808ee5f45abfd270b7e7dca5bc732ff1d44",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "5c2e3b54fa7e8fe5f62a1ab70bc634c220cd8706",
+      "date": "2026-10-08T09:15:39.000Z",
+      "committedAt": "2026-10-08T09:15:39.000Z",
+      "subject": "fix(ecount-scraper): 상주 데몬 복원력(/ec56·판매현황 60초·실패 캡처·로그인 자동 재개) (#986)",
+      "parents": [
+        "e7d552628f5184f17405ce91e2c3ea3f3812c307"
+      ],
+      "paths": [
+        "scripts/ecount-scraper/daemon.mjs",
+        "scripts/ecount-scraper/run.mjs",
+        "scripts/ecount-scraper/scrape-core.mjs"
+      ],
+      "changedFileCount": 3,
+      "redactedPathCount": 0,
+      "id": "5c2e3b54fa7e8fe5f62a1ab70bc634c220cd8706",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "01ba1aff01e2af1a114a61b18e0de399f35e2f57",
+      "date": "2026-10-08T09:13:17.000Z",
+      "committedAt": "2026-10-08T09:13:17.000Z",
+      "subject": "docs: define weekday primary page scroll contract",
+      "parents": [
+        "235a4b7ff76aeca9a1c2b084c2cb3c924955c391"
+      ],
+      "paths": [
+        "docs/contracts/estimate-weekday-workspace.json"
+      ],
+      "changedFileCount": 3,
+      "redactedPathCount": 2,
+      "id": "01ba1aff01e2af1a114a61b18e0de399f35e2f57",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "235a4b7ff76aeca9a1c2b084c2cb3c924955c391",
+      "date": "2026-10-08T09:10:40.000Z",
+      "committedAt": "2026-10-08T09:10:40.000Z",
+      "subject": "Merge remote-tracking branch 'origin/master' into codex/weekday-page-scroll",
+      "parents": [
+        "f2126d08786f9adc9c64214e6bb880f1510055a2",
+        "e7d552628f5184f17405ce91e2c3ea3f3812c307"
+      ],
+      "paths": [
+        ".github/workflows/desktop-windows.yml",
+        "__tests__/chinaVolumeBoard.test.js",
+        "__tests__/chinaVolumeBoardUi.test.js",
+        "__tests__/developmentJourney.test.js",
+        "__tests__/developmentPurposeStories.test.js",
+        "__tests__/distributionLiveHistory.test.js",
+        "__tests__/distributionMessageApplicationStatus.test.js",
+        "__tests__/erpContractManifest.test.js",
+        "__tests__/fixtures/invoiceNative_ViewOrder.sql",
+        "__tests__/fixtures/invoiceNative_usp_CreateWarehouse.sql",
+        "__tests__/fixtures/invoiceNative_usp_GetNextKey.sql",
+        "__tests__/fixtures/invoiceReceiptSchema.sql",
+        "__tests__/fullDevelopmentHistory.test.js",
+        "__tests__/importInvoiceLocal.test.js",
+        "__tests__/importPacking.test.js",
+        "__tests__/importPackingAustraliaQuantity.test.js",
+        "__tests__/importPackingHardening.test.js",
+        "__tests__/importPackingReceiptAdapter.test.js",
+        "__tests__/importPackingReview.test.js",
+        "__tests__/incomingWarehouseDisplay.test.js",
+        "__tests__/invoiceReceiptCost.test.js",
+        "__tests__/invoiceReceiptCostWorkflow.test.js",
+        "__tests__/invoiceReceiptDocuments.test.js",
+        "__tests__/invoiceReceiptDocumentsApi.test.js",
+        "__tests__/invoiceReceiptEligibility.test.js",
+        "__tests__/invoiceReceiptEligibilityApi.test.js",
+        "__tests__/invoiceReceiptReconciliation.test.js",
+        "__tests__/invoiceReceiptStockReadback.test.js",
+        "__tests__/invoiceReceiptValidation.test.js",
+        "__tests__/invoiceReceiptWorkbench.test.js",
+        "__tests__/invoiceReceiptWorkflow.test.js",
+        "__tests__/invoiceWebStorageContract.test.js",
+        "__tests__/menuDevelopmentHistory.test.js",
+        "__tests__/pasteInboxPreanalysis.test.js",
+        "__tests__/pivotAvailableWeeks.test.js",
+        "__tests__/pivotStats.test.js",
+        "__tests__/sidebarMenuFavorites.test.js",
+        "components/DesktopDownloadButton.js",
+        "components/Layout.js",
+        "components/dev/DevelopmentJourney.js",
+        "components/dev/DevelopmentJourney.module.css",
+        "components/dev/DevelopmentPurposeStories.js",
+        "components/dev/DevelopmentPurposeStories.module.css",
+        "components/dev/FullDevelopmentHistory.js",
+        "components/dev/FullDevelopmentHistory.module.css",
+        "components/dev/MenuDevelopmentHistory.js",
+        "components/import-tools/InvoiceReceiptCostReview.js",
+        "components/import-tools/InvoiceReceiptWorkbench.js",
+        "components/import-tools/PackingListTool.js",
+        "components/orders/DistributionMessagePreanalysis.js",
+        "components/orders/DistributionSalesInbox.js",
+        "config/development-erp-review.json",
+        "config/development-mindmap-path-rules.json",
+        "config/development-mindmap-review.json",
+        "config/development-purpose-stories.json",
+        "docs/DB_STRUCTURE.md",
+        "docs/ERP_CHANGE_GUARD.md",
+        "docs/WEB_VS_ERP_CONFLICTS.md",
+        "docs/contracts/china-volume-board.json",
+        "docs/contracts/desktop-bootstrap.json",
+        "docs/contracts/distribution-live-history.json",
+        "docs/contracts/distribution-sales-inbox.json",
+        "docs/contracts/ecount-ingest.json",
+        "docs/contracts/full-development-history.json",
+        "docs/contracts/import-team-tools.json",
+        "docs/contracts/invoice-receipt-connected.json",
+        "docs/contracts/invoice-receipt-eligibility.json",
+        "docs/contracts/invoice-receipt-workflow.json",
+        "docs/contracts/invoice-stage-workflow.json",
+        "docs/contracts/invoice-web-storage.json",
+        "docs/contracts/paste-inbox-preanalysis.json",
+        "docs/desktop/USER_GUIDE.md",
+        "docs/diagnostics/2026-10-08-invoice-ddl-preflight.md",
+        "docs/diagnostics/2026-10-08-invoice-receipt-key-counts.json",
+        "docs/diagnostics/2026-10-08-invoice-receipt-live-evidence.json",
+        "docs/diagnostics/2026-10-08-invoice-storage-production-readback.md",
+        "docs/diagnostics/invoice-web-storage-preflight.sql",
+        "docs/diagnostics/invoice-web-storage-readback.sql",
+        "docs/diagnostics/packing-receipt-readonly.sql",
+        "docs/exe-golden/FormShipmentDistribution.md",
+        "docs/exe-golden/FormWarehouseView.md",
+        "docs/migrations/2026-10-08_web_invoice_storage_v1.sql",
+        "docs/plans/development-journey.md",
+        "docs/plans/development-purpose-stories.md",
+        "docs/plans/full-development-history.md",
+        "docs/plans/invoice-real-source-validation.md",
+        "docs/plans/invoice-receipt-arrival-cost-prd-2026-10-07.md",
+        "docs/plans/invoice-receipt-connected-implementation.md",
+        "docs/plans/invoice-receipt-eligibility-v1.md",
+        "docs/plans/invoice-stage-workflow.md",
+        "docs/plans/invoice-web-storage-v1.md",
+        "lib/chinaVolumeBoard.js",
+        "lib/developmentJourney.cjs",
+        "lib/developmentPurposeStories.cjs",
+        "lib/distributionLiveHistory.js",
+        "lib/distributionMessageApplicationStatus.js",
+        "lib/exeWarehouseViewSql.js",
+        "lib/fullDevelopmentHistory.cjs",
+        "lib/importInvoiceLocal.js",
+        "lib/importPacking.js",
+        "lib/importPackingReceiptAdapter.js",
+        "lib/importPackingReview.js",
+        "lib/invoiceReceiptAccess.js",
+        "lib/invoiceReceiptApi.js",
+        "lib/invoiceReceiptCost.js",
+        "lib/invoiceReceiptCostWorkflow.js",
+        "lib/invoiceReceiptDocuments.js",
+        "lib/invoiceReceiptEligibility.js",
+        "lib/invoiceReceiptNative.js",
+        "lib/invoiceReceiptReconciliation.js",
+        "lib/invoiceReceiptStockReadback.js",
+        "lib/invoiceReceiptValidation.js",
+        "lib/invoiceReceiptWorkflow.js",
+        "lib/invoiceReceiptWriter.js",
+        "lib/pasteInboxPreanalysis.js",
+        "lib/pivotAvailableWeeks.js",
+        "lib/pivotStats.js",
+        "package.json",
+        "pages/api/dev/development-journey.js",
+        "pages/api/dev/development-stories.js",
+        "pages/api/dev/full-history.js",
+        "pages/api/ecount/ingest.js",
+        "pages/api/import/receipts/drafts.js",
+        "pages/api/import/receipts/eligibility.js",
+        "pages/api/orders/distribution-live-history.js",
+        "pages/api/stats/china-volume-products.js",
+        "pages/api/warehouse/invoice-costs.js",
+        "pages/dashboard.js",
+        "pages/dev/history.js",
+        "pages/import/tools.js",
+        "pages/incoming.js",
+        "pages/login.js",
+        "pages/stats/china-volume-board.js",
+        "scripts/export-external-development-history.cjs",
+        "scripts/generate-full-development-history.cjs",
+        "scripts/inspect-invoice-cost-sources.cjs",
+        "scripts/invoice-receipt-ui-smoke.cjs",
+        "scripts/paste-live-history-ui-smoke.cjs",
+        "scripts/paste-preanalysis-reentry-smoke.cjs",
+        "scripts/test-invoice-receipt-eligibility-sql.cjs",
+        "scripts/test-invoice-receipt-writer-sql.cjs",
+        "scripts/test-invoice-web-storage-sql.cjs",
+        "styles/InvoiceReceipt.module.css",
+        "styles/InvoiceReceiptCost.module.css"
+      ],
+      "changedFileCount": 181,
+      "redactedPathCount": 37,
+      "id": "235a4b7ff76aeca9a1c2b084c2cb3c924955c391",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [
+        "/import",
+        "/import/tools",
+        "/incoming",
+        "/stats/china-volume-board",
+        "/dev/history"
+      ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "f2126d08786f9adc9c64214e6bb880f1510055a2",
+      "date": "2026-10-08T09:10:40.000Z",
+      "committedAt": "2026-10-08T09:10:40.000Z",
+      "subject": "fix: use document scrolling throughout weekday workspace",
+      "parents": [
+        "532fd575d8d029d26edaed6249e48455caaaa931"
+      ],
+      "paths": [
+        "__tests__/weekdayHorizontalMatrix.test.js",
+        "components/Layout.js",
+        "components/WeekdayCycleMatrix.js",
+        "docs/contracts/estimate-weekday-workspace.json"
+      ],
+      "changedFileCount": 4,
+      "redactedPathCount": 0,
+      "id": "f2126d08786f9adc9c64214e6bb880f1510055a2",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "fix",
+      "typeEvidence": "subject-prefix"
+    },
+    {
+      "hash": "e7d552628f5184f17405ce91e2c3ea3f3812c307",
+      "date": "2026-10-08T08:50:19.000Z",
+      "committedAt": "2026-10-08T08:50:19.000Z",
+      "subject": "개발 여정: 전체 작업 목적과 실제 보완 흐름 확대 (#985)",
+      "parents": [
+        "9a9a22a1f422ba92e4559fff906612f8b1bc2ea9"
+      ],
+      "paths": [
+        "__tests__/developmentPurposeStories.test.js",
+        "components/dev/DevelopmentPurposeStories.js",
+        "config/development-erp-review.json",
+        "config/development-mindmap-path-rules.json",
+        "config/development-mindmap-review.json",
+        "config/development-purpose-stories.json",
+        "docs/contracts/full-development-history.json",
+        "docs/plans/development-purpose-stories.md",
+        "lib/developmentPurposeStories.cjs"
+      ],
+      "changedFileCount": 12,
+      "redactedPathCount": 3,
+      "id": "e7d552628f5184f17405ce91e2c3ea3f3812c307",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
     {
       "hash": "9a9a22a1f422ba92e4559fff906612f8b1bc2ea9",
       "date": "2026-10-08T07:56:37.000Z",
@@ -1549,6 +1929,29 @@
       "menuHrefs": [
         "/stats/china-volume-board"
       ],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "532fd575d8d029d26edaed6249e48455caaaa931",
+      "date": "2026-10-08T01:48:42.000Z",
+      "committedAt": "2026-10-08T01:48:42.000Z",
+      "subject": "docs: record early shipment deployment verification",
+      "parents": [
+        "43466ea0ac64cf5a02f5d17c3c7feb279c799f29"
+      ],
+      "paths": [],
+      "changedFileCount": 1,
+      "redactedPathCount": 1,
+      "id": "532fd575d8d029d26edaed6249e48455caaaa931",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
       "workType": "other",
       "typeEvidence": "unclassified"
     },
@@ -138766,7 +139169,7 @@
       "id": "erp:work-session-220",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 붙여넣기 사전 분석 재진입",
+      "title": "2026-10-08 붙여넣기 조회 결과 저장",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -138778,7 +139181,7 @@
       "id": "erp:work-session-221",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 웹·EXE 공통 SQL 처리 확인",
+      "title": "2026-10-08 붙여넣기 사전 분석 재진입",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -138790,7 +139193,31 @@
       "id": "erp:work-session-222",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
+      "title": "2026-10-08 웹·EXE 공통 SQL 처리 확인",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-223",
+      "sourceId": "erp",
+      "date": "2026-10-08T03:00:00.000Z",
       "title": "2026-10-08 주광 대차수 선출고·업로드 통합",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-224",
+      "sourceId": "erp",
+      "date": "2026-10-08T03:00:00.000Z",
+      "title": "2026-10-08 주광 페이지 단일 세로 스크롤",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -142304,11 +142731,11 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 4891,
-    "nonMerge": 4185,
-    "merge": 706,
-    "summaries": 308,
-    "knownSummaryTitles": 267,
+    "uniqueCommits": 4900,
+    "nonMerge": 4192,
+    "merge": 708,
+    "summaries": 310,
+    "knownSummaryTitles": 269,
     "unknownSummaryTitles": 41
   },
   "coverageNote": "외부 저장소는 기록된 main, ERP는 이 빌드의 HEAD에서 도달 가능한 커밋을 수집했습니다. ERP 빌드 HEAD가 기본 브랜치가 아니면 해당 브랜치 커밋이 포함될 수 있습니다. 병합 커밋과 업무 요약은 따로 집계하며 개인별 작업 횟수를 뜻하지 않습니다."

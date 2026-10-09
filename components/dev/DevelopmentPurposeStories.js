@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './DevelopmentPurposeStories.module.css';
 
 const PAGE_SIZE = 50;
-const sourceNames = { erp: 'Nenova ERP', 'mindmap-viewer': 'MindMap Viewer', nenovakakao: 'Nenova Kakao' };
-const confidenceNames = { verified: '근거 직접 확인', supported: '여러 근거로 뒷받침', partial: '일부 확인 필요' };
+const sourceNames = { erp: '회사 업무 프로그램 (Nenova ERP)', 'mindmap-viewer': '생각 정리 프로그램 (MindMap Viewer)', nenovakakao: '카카오톡 업무 도우미 (Nenova Kakao)' };
+const confidenceNames = { verified: '기록에서 확인함', supported: '관련 기록으로 확인함', partial: '일부는 더 확인 필요' };
 const number = value => Number(value || 0).toLocaleString('ko-KR');
 const kst = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' });
 function dateLabel(value) {
@@ -45,17 +45,17 @@ function EvidenceRecords({ storyId, total, page, setPage, data, loading, error, 
     itemRefs.current[next]?.focus();
   }
   return <div ref={panelRef} tabIndex={-1} className={styles.evidencePanel} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); if (expanded) { setExpanded(''); itemRefs.current.find(node => node?.dataset?.recordId === expanded)?.focus(); } else close(); } }}>
-    <div className={styles.evidenceHeading}><div><strong>{storyId === 'review-pending' ? '목적 검토가 필요한 원본 기록' : '이 이야기에 연결된 원본 기록'}</strong><p>제목과 날짜만 표시합니다. 기록 수는 기능이나 완료 성과의 수가 아닙니다.</p></div><button type="button" onClick={close}>근거 닫기</button></div>
+    <div className={styles.evidenceHeading}><div><strong>{storyId === 'review-pending' ? '아직 정리할 원본 기록' : '이 이야기를 확인한 원본 기록'}</strong><p>날짜와 기록 종류를 먼저 보여 줍니다. 원본 제목은 기록을 펼치면 볼 수 있습니다.</p></div><button type="button" onClick={close}>원본 기록 목록 닫기</button></div>
     {loading && <p className={styles.state} role="status">근거 기록을 불러오는 중입니다…</p>}
     {error && <div className={styles.error} role="alert">근거 기록을 불러오지 못했습니다: {error} <button type="button" onClick={retry}>다시 시도</button></div>}
     {!loading && !error && data && <>
       {!data.timeline?.length && <p className={styles.state}>표시할 근거 기록이 없습니다.</p>}
       <ol className={styles.evidenceList}>{(data.timeline || []).map((item, index) => {
         const commit = item.kind === 'commit';
-        const label = commit ? item.isMerge ? '코드 통합 기록' : '개별 코드 변경 기록' : '작업 메모';
+        const label = commit ? item.isMerge ? '여러 수정을 합친 기록' : '프로그램을 고친 기록' : '작업 메모';
         const title = commit ? item.subject : item.title;
-        return <li key={item.id}><button ref={node => { itemRefs.current[index] = node; }} data-record-id={item.id} type="button" onKeyDown={event => moveFocus(event, index, data.timeline.length)} onClick={() => setExpanded(current => current === item.id ? '' : item.id)} aria-expanded={expanded === item.id} aria-label={`${(page - 1) * PAGE_SIZE + index + 1}번째 기록, ${title}`}>
-          <span className={styles.recordOrdinal}>{number((page - 1) * PAGE_SIZE + index + 1)}</span><span className={styles.recordBody}><time>{dateLabel(item.date)}</time><strong>{title}</strong><small>{label} · {item.sourceIds?.map(id => sourceNames[id] || id).join(', ') || '출처 확인 필요'}{commit && item.shortHash ? ` · 확인번호 ${item.shortHash}` : ''}</small></span>
+        return <li key={item.id}><button ref={node => { itemRefs.current[index] = node; }} data-record-id={item.id} type="button" onKeyDown={event => moveFocus(event, index, data.timeline.length)} onClick={() => setExpanded(current => current === item.id ? '' : item.id)} aria-expanded={expanded === item.id} aria-label={`${(page - 1) * PAGE_SIZE + index + 1}번째 ${label}, 원본 제목 ${expanded === item.id ? '접기' : '펼치기'}`}>
+          <span className={styles.recordOrdinal}>{number((page - 1) * PAGE_SIZE + index + 1)}</span><span className={styles.recordBody}><time>{dateLabel(item.date)}</time><strong>{label}</strong><small>{item.sourceIds?.map(id => sourceNames[id] || id).join(', ') || '프로그램 확인 필요'}{commit && item.shortHash ? ` · 확인번호 ${item.shortHash}` : ''}</small></span>
         </button>{expanded === item.id && <div className={styles.recordExtra}>{item.assignment?.reviewReason && <p>확인한 내용: {item.assignment.reviewReason}</p>}원본 기록 제목: {title}. {commit && item.shortHash ? `확인번호 ${item.shortHash}.` : '작업 메모 본문은 표시하지 않습니다.'}</div>}</li>;
       })}</ol>
       {totalPages > 1 && <nav className={styles.pageNav} aria-label="근거 기록 페이지"><button type="button" disabled={page <= 1} onClick={() => setPage(1)}>맨 처음</button><button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>이전</button><span>{page} / {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>다음</button><button type="button" disabled={page >= totalPages} onClick={() => setPage(totalPages)}>맨 끝</button></nav>}
@@ -149,37 +149,37 @@ export default function DevelopmentPurposeStories() {
     return () => window.removeEventListener('nenova:menu-back-request', onBack);
   }, [openStory, query, source, confidence, status]);
 
-  return <section className={styles.root} aria-label="업무 목적별 개발 여정">
-    <header className={styles.hero}><div><p className={styles.eyebrow}>업무를 바꾼 과정</p><h1>무엇을 만들었고, 어떻게 다듬었는지</h1>
-      <p className={styles.lead}>기록의 제목을 나열하는 대신, 확인된 근거를 바탕으로 업무 목적과 실제 변화의 흐름을 읽습니다.</p>
-      <p className={styles.caveat}>연결된 기록 수는 기능·요청·성과·배포 횟수가 아닙니다. 확인한 대표 변경과 해당 기능의 전용 파일을 기준으로 묶으며, 목적이 불분명한 기록은 별도로 남깁니다.</p>
-      <p className={styles.snapshot}>자료 확인: {overview?.generatedAt ? dateLabel(overview.generatedAt) : '불러오는 중'}</p>
+  return <section className={styles.root} aria-label="업무가 편해진 과정">
+    <header className={styles.hero}><div><p className={styles.eyebrow}>개발 이력 쉽게 보기</p><h1>왜 만들었고, 무엇이 편해졌는지</h1>
+      <p className={styles.lead}>기능마다 필요했던 이유, 추가하거나 고친 내용, 편해진 점을 순서대로 볼 수 있습니다.</p>
+      <p className={styles.caveat}>아래 숫자는 확인한 원본 기록의 수입니다. 기능·요청·완료한 일의 수와 같지 않습니다. 어느 이야기인지 확실하지 않은 기록은 따로 두었습니다.</p>
+      <p className={styles.snapshot}>마지막 자료 확인: {overview?.generatedAt ? dateLabel(overview.generatedAt) : '불러오는 중'}</p>
     </div><GuideCharacter /></header>
     {overviewLoading && <p role="status" className={styles.state}>목적별 개발 이야기를 불러오는 중입니다…</p>}
     {overviewError && <div className={styles.error} role="alert">개발 이야기를 불러오지 못했습니다: {overviewError} <button type="button" onClick={() => setRefresh(value => value + 1)}>다시 시도</button></div>}
     {!overviewLoading && !overviewError && overview && <>
-      <p className={styles.coverageNote}>전체 기록 기준 · 아래 검색 조건과 관계없이 모든 기록을 셉니다.</p>
-      <div className={styles.coverage} aria-label="개발 기록 연결 현황"><div><span>전체 기록</span><strong>{number(overview.coverage?.totalRecords)}건</strong></div><div><span>목적 이야기 연결</span><strong>{number(overview.coverage?.assignedRecords)}건</strong></div><div className={styles.pendingCount}><span>목적 검토가 필요한 기록</span><strong>{number(overview.coverage?.reviewPending)}건</strong></div></div>
-      <div className={styles.toolbar}><label className={styles.search}><span>목적·변화 찾기</span><input type="search" value={query} disabled={status === 'review'} onChange={event => changeFilter(setQuery, event.target.value)} placeholder="업무 목적이나 기능 이름 검색" /></label>
-        {sourceFilterAvailable && <label><span>출처</span><select value={source} disabled={status === 'review'} onChange={event => changeFilter(setSource, event.target.value)}><option value="all">전체 출처</option>{Object.entries(sourceNames).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>}
-        <label><span>확인 수준</span><select value={confidence} disabled={status === 'review'} onChange={event => changeFilter(setConfidence, event.target.value)}><option value="all">전체</option>{Object.entries(confidenceNames).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
-        <label><span>기록 상태</span><select value={status} onChange={event => changeFilter(setStatus, event.target.value)}><option value="all">전체</option><option value="linked">목적 이야기 연결</option><option value="review">검토 대기</option></select></label>
+      <p className={styles.coverageNote}>아래 숫자는 검색 조건과 관계없이 모든 원본 기록을 셉니다. 기능 수가 아닙니다.</p>
+      <div className={styles.coverage} aria-label="원본 기록 정리 현황"><div><span>확인한 원본 기록</span><strong>{number(overview.coverage?.totalRecords)}건</strong></div><div><span>이야기로 정리한 기록</span><strong>{number(overview.coverage?.assignedRecords)}건</strong></div><div className={styles.pendingCount}><span>아직 정리할 기록</span><strong>{number(overview.coverage?.reviewPending)}건</strong></div></div>
+      <div className={styles.toolbar}><label className={styles.search}><span>필요했던 이유·달라진 점 찾기</span><input type="search" value={query} disabled={status === 'review'} onChange={event => changeFilter(setQuery, event.target.value)} placeholder="업무나 기능 이름으로 찾기" /></label>
+        {sourceFilterAvailable && <label><span>어느 프로그램</span><select value={source} disabled={status === 'review'} onChange={event => changeFilter(setSource, event.target.value)}><option value="all">모든 프로그램</option>{Object.entries(sourceNames).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>}
+        <label><span>얼마나 확인했나</span><select value={confidence} disabled={status === 'review'} onChange={event => changeFilter(setConfidence, event.target.value)}><option value="all">전체</option>{Object.entries(confidenceNames).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+        <label><span>정리 상태</span><select value={status} onChange={event => changeFilter(setStatus, event.target.value)}><option value="all">전체</option><option value="linked">이야기로 정리됨</option><option value="review">아직 정리 중</option></select></label>
         <button type="button" onClick={() => { setQuery(''); setSource('all'); setConfidence('all'); setStatus('all'); if (openStory) closeRecords(); }}>조건 초기화</button><button type="button" onClick={refreshAll} disabled={overviewLoading}>새로고침</button>
       </div>
       <p className={styles.resultCount}>현재 조건 이야기 {number(visible.length)}개 / 전체 {number(overview.stories?.length)}개</p>
-      {status === 'review' && <p className={styles.filterNote}>검토 대기 원본 기록은 목적 검색·출처·확인 수준을 적용하지 않은 전체 목록입니다. 이야기 필터는 이 보기에서 사용할 수 없습니다.</p>}
+      {status === 'review' && <p className={styles.filterNote}>아직 정리 중인 원본 기록은 업무 검색·어느 프로그램·얼마나 확인했나 조건을 적용하지 않은 전체 목록입니다. 이 보기에서는 이야기 검색 조건을 사용할 수 없습니다.</p>}
       {status !== 'review' && !visible.length && <p className={styles.state}>검색 조건에 맞는 목적 이야기가 없습니다. 전체 기록 현황은 위 집계를 확인해 주세요.</p>}
       {chapters.map(([month, stories], chapterIndex) => <section className={styles.chapter} key={month} aria-label={`${chapterLabel(month)} 목적 이야기`}><div className={styles.chapterHeading}><span className={styles.chapterIndex}>{String(chapterIndex + 1).padStart(2, '0')}</span><div><p className={styles.eyebrow}>시작한 시기</p><h2>{chapterLabel(month)}</h2><p>{number(stories.length)}개의 이야기 · 여러 달의 보완도 같은 이야기에서 이어집니다.</p></div></div>
         <div className={styles.storyList}>{stories.map(story => <article key={story.id} className={styles.storyCard}><div className={styles.storyHeader}><div><p className={styles.period}>{periodLabel(story.firstDate, story.lastDate)}</p><h3>{story.title}</h3></div><span className={`${styles.confidence} ${styles[story.confidence] || ''}`}>{confidenceNames[story.confidence] || '확인 수준 검토 필요'}</span></div>
-          <div className={styles.storyNarrative}><div><span className={styles.fieldLabel}>왜 만들었나</span><p>{story.purpose}</p></div><div><span className={styles.fieldLabel}>사용자가 할 수 있게 된 것</span><p>{story.userValue}</p></div></div>
-          <div className={styles.changes}><h4>만들고 다듬은 흐름</h4><ol>{(story.changes || []).map((change, index) => <li key={`${story.id}-${index}`}><span className={styles.changeDate}>{periodLabel(change.firstDate, change.lastDate)}</span><div><strong>{change.title}</strong>{change.problem && <p><b>해결하려던 문제</b> · {change.problem}</p>}<p>{change.problem || change.result ? <><b>만든 것·바꾼 것</b> · </> : null}{change.description}</p>{change.result && <p><b>달라진 점</b> · {change.result}</p>}{Number.isFinite(change.evidenceCount) && <small>연결 근거 {number(change.evidenceCount)}건</small>}</div></li>)}</ol></div>
+          <div className={styles.storyNarrative}><div><span className={styles.fieldLabel}>왜 필요했나</span><p>{story.purpose}</p></div><div><span className={styles.fieldLabel}>무엇이 편해졌나</span><p>{story.userValue}</p></div></div>
+          <div className={styles.changes}><h4>만들고 다듬은 흐름</h4><ol>{(story.changes || []).map((change, index) => <li key={`${story.id}-${index}`}><span className={styles.changeDate}>{periodLabel(change.firstDate, change.lastDate)}</span><div><strong>{change.title}</strong>{change.problem && <p><b>불편했던 점</b> · {change.problem}</p>}<p>{change.problem || change.result ? <><b>추가·수정한 기능</b> · </> : null}{change.description}</p>{change.result && <p><b>편해진 점</b> · {change.result}</p>}{Number.isFinite(change.evidenceCount) && <small>확인한 원본 기록 {number(change.evidenceCount)}건</small>}</div></li>)}</ol></div>
           <p className={styles.scope}><strong>확인 범위</strong> · {story.scopeNote}</p>
-          <button ref={node => { openRefs.current[story.id] = node; }} className={styles.openEvidence} type="button" aria-expanded={openStory === story.id} onKeyDown={event => moveStoryFocus(event, story.id)} onClick={() => toggleRecords(story.id)}>근거 기록 {number(story.recordCount)}건 {openStory === story.id ? '닫기' : '보기'}</button>
+          <button ref={node => { openRefs.current[story.id] = node; }} className={styles.openEvidence} type="button" aria-expanded={openStory === story.id} onKeyDown={event => moveStoryFocus(event, story.id)} onClick={() => toggleRecords(story.id)}>확인한 원본 기록 {number(story.recordCount)}건 {openStory === story.id ? '닫기' : '보기'}</button>
           {openStory === story.id && <EvidenceRecords storyId={story.id} total={story.recordCount} page={page} setPage={setPage} data={records} loading={recordsLoading} error={recordsError} retry={retryRecords} close={closeRecords} panelRef={panelRef} />}
         </article>)}</div>
       </section>)}
       {showReview && <section className={`${styles.chapter} ${styles.reviewChapter}`} aria-label="목적 검토가 필요한 기록"><div className={styles.chapterHeading}><span className={styles.chapterIndex}>?</span><div><p className={styles.eyebrow}>목적 확인 중</p><h2>아직 목적을 확인 중인 기록</h2><p>다른 이야기로 억지로 연결하지 않고 원본 기록을 그대로 확인할 수 있습니다.</p></div></div>
-        <div className={styles.reviewCard}><div><strong>{number(overview.coverage?.reviewPending)}건 별도 확인</strong><p>여러 목적에 동시에 맞거나 연결 근거가 부족한 기록입니다. 모호한 기록 {number(overview.coverage?.ambiguous)}건 · 아직 연결되지 않은 기록 {number(overview.coverage?.unmatched)}건. 이 중 코드 통합 기록 {number(overview.reviewPending?.counts?.merge)}건은 여러 변경을 합친 기록으로, 별도의 새 기능이나 성과로 세지 않습니다. 이 숫자는 검색 조건과 관계없는 전체 집계입니다.</p></div>
+        <div className={styles.reviewCard}><div><strong>{number(overview.coverage?.reviewPending)}건 별도 확인</strong><p>어느 이야기에 넣을지 하나로 정하기 어려운 기록 {number(overview.coverage?.ambiguous)}건과 아직 알맞은 이야기를 찾지 못한 기록 {number(overview.coverage?.unmatched)}건입니다. 이 가운데 여러 수정을 합친 기록 {number(overview.reviewPending?.counts?.merge)}건은 새 기능이나 완료한 일의 수로 세지 않습니다. 이 숫자는 검색 조건과 관계없는 전체 기록 수입니다.</p></div>
           <button ref={node => { openRefs.current['review-pending'] = node; }} type="button" className={styles.openEvidence} disabled={!overview.coverage?.reviewPending} aria-expanded={openStory === 'review-pending'} onKeyDown={event => moveStoryFocus(event, 'review-pending')} onClick={() => toggleRecords('review-pending')}>검토 대기 원본 기록 {openStory === 'review-pending' ? '닫기' : '보기'}</button>
           {openStory === 'review-pending' && <EvidenceRecords storyId="review-pending" total={overview.coverage.reviewPending} page={page} setPage={setPage} data={records} loading={recordsLoading} error={recordsError} retry={retryRecords} close={closeRecords} panelRef={panelRef} />}
         </div>
