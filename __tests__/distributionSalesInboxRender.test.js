@@ -22,6 +22,7 @@ function render(source,{expanded=false}={}) {
   const module={exports:{}};
   const localRequire=name=>{
     if(name==='react')return mockedReact;
+    if(name==='./useDistributionDeliveryStatus')return {__esModule:true,default:()=>({items:{},loading:false,error:''})};
     if(name.startsWith('./Distribution'))return {__esModule:true,default:()=>null};
     return name.startsWith('.')?require(path.resolve(path.dirname(filename),name)):require(name);
   };
@@ -34,6 +35,7 @@ const closed=render(source),opened=render(source,{expanded:true});
 const count=(html,token)=>html.split(token).length-1;
 assert.equal(count(closed,'class="compact-source-evidence"'),172);
 assert.equal(count(closed,'class="paired-message-original"'),172,'all source messages remain visible');
+assert.equal(count(closed,'class="source-delivery-status "'),172,'each source exposes independent read-only delivery status');
 assert.equal(count(closed,'class="compact-match-expanded"'),0,'closed evidence panels are not mounted');
 assert.equal(count(opened,'class="compact-match-expanded"'),1,'only the selected evidence panel mounts');
 assert(opened.includes('입력칸으로')&&opened.includes('비교 선택'),'original actions remain available when opened');

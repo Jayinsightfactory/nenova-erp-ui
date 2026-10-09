@@ -1,0 +1,20 @@
+{
+  "id": "paste-inbox-delivery-status",
+  "title": "붙여넣기 주문 영업방 원문의 현장 추가취소방 전달 근거",
+  "scope": ["lib/distributionDeliveryStatus.js", "lib/distributionDeliveryClient.js", "components/orders/useDistributionDeliveryStatus.js", "components/orders/DistributionSalesInbox.js", "pages/api/kakao/delivery-status.js", "__tests__/distributionDeliveryStatus.test.js", "__tests__/distributionDeliveryClient.test.js", "scripts/paste-inbox-delivery-smoke.cjs"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "sourceIdentity": ["source", "chat_id", "external_message_id"],
+  "actions": [{"name":"READ_DELIVERY_STATUS","orderDetail":"preserve","shipmentDetail":"preserve","preserve":["all ERP tables","raw source messages","saved ERP evidence","Kakao rooms"]}],
+  "criteria": {
+    "request": "Authenticated POST with selected year and full year-week-subweek, at most 200 raw sources, at most 20000 characters per source and 200000 total characters. accountActive=false is forbidden. No sending or ERP write.",
+    "source": "Only canonical nenovakakao|chat_id|external_message_id identities from 영업방 with exact original raw text and valid nonapproximate timezone-bearing timestamp in selected KST year can match. Uploaded rows remain UNCONFIRMED.",
+    "target": "Fixed authenticated nenova-delivery-feed endpoint only, room exactly 현장 추가취소방, source nenovakakao, distinct valid identity, target timestamp not before source and in selected KST year. No legacy fallback.",
+    "match": "Complete text equality after NFC and whitespace normalization only. Duplicate source texts/identities or multiple qualifying targets are AMBIGUOUS. Partial, truncated, approximate, cross-year and earlier targets cannot produce DELIVERED.",
+    "capacity": "KST current inclusive recent seven calendar days, <=200 target rows per page and <=20 pages; incomplete or invalid feed fails closed with 502. Whole upstream scan has a 15 second deadline. Successful fixed-period feed cached for 30 seconds; failures never cached.",
+    "response": "Returns source identity/status and only matched deliveryIdentity/deliveredAt. No unrelated target raw messages, token, sending capability or ERP application claim. DELIVERED means exact forwarding evidence only."
+  },
+  "crossYearFixture": {"required":true,"description":"2025 source and 2027 target cannot confirm selected 2026 year; selected full week must share year."},
+  "dnspyEvidence": {"required":true,"record":"docs/exe-golden/FormShipmentDistribution.md","source":"C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs","methods":["GetCustomerList"],"tables":["ShipmentDetail","ShipmentDate"],"note":"Web-only Kakao read; native evidence documents the preserved ERP boundary. No native SQL or save behavior is invoked or modified."},
+  "requiredTestFiles": ["__tests__/distributionDeliveryStatus.test.js", "__tests__/distributionDeliveryClient.test.js"],
+  "requiredCommands": ["node __tests__/distributionDeliveryStatus.test.js", "npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"]
+}
