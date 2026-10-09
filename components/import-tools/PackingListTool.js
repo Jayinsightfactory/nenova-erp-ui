@@ -16,10 +16,11 @@ import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePacki
   PACKING_STORAGE_KEYS, isPackingDownloadBlocked, previewPackingCatalog,
   distinctPackingVarieties, PACKING_PDF_MAX_BYTES,
   readPackingPdfResponse } from '../../lib/importPackingState.js';
-import { ALL_SEED_ALIASES, aliasKey, parseCatalog, parseAliasesXlsx, exportAliasesXlsx,
+import { ALL_SEED_ALIASES, aliasKey, packingSourceKey, parseCatalog, parseAliasesXlsx, exportAliasesXlsx,
   genColombia, genNL, genChina, genEcuador, genThailand, genAustralia, genUS, genVN,
   AWB_DEFAULT_COMPANIES, writeAWBWorkbook, parseWeekFromFilename } from '../../lib/importPacking.js';
-import { packingInvoiceSourceIdentity } from '../../lib/importPackingReceiptAdapter.js';
+import { packingInvoiceSourceIdentity, sha256File } from '../../lib/importPackingReceiptAdapter.js';
+import { assertPackingSourceReviewed } from '../../lib/importPackingSourceReview.js';
 
 // Additional UI copy; document data, country keys and workbook labels stay unchanged.
 const UI_COPY = {
@@ -978,6 +979,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const [reviewRows, setReviewRows] = useState(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const [reviewRevision, setReviewRevision] = useState(0);
   const reviewButtonRef = useRef(null);
 
 
@@ -997,7 +999,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
 
   useEffect(() => {
     if (typeof onReceiptSourceChange !== 'function') return;
-    if (!file || !lastExtraction || !excels.length || !erpMatches) {
+    if (!file || !lastExtraction || !excels.length || !erpMatches || !reviewConfirmed) {
       onReceiptSourceChange({
         excels: EMPTY_RECEIPT_ITEMS,
         invoices: EMPTY_RECEIPT_ITEMS,
@@ -1236,10 +1238,21 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       const opts = { catalog:packingErpCatalog(currentErp.products), masterAwb,
         aliases:packingErpAliases(country,currentAliases,currentErp.value,currentErp.products) };
       const res = gen(packingReviewWriter(xlsxLib, inv, file?.name), inv, weekParsed.week, fileNum, opts);
+      const reviewedProducts = (res.products || []).map(product => {
+        const description = String(product.matchingDescription || product.sourceName || '').trim();
+        const matchedName = String(product.matchedName || product.name || '').trim();
+        const entry = (currentErp.value?.entries || []).find(item => item.country === country
+          && item.sourceKey === packingSourceKey(description) && item.prodName === matchedName);
+        const target = entry && currentErp.products.find(item => item.country === country
+          && item.ProdKey === entry.prodKey && item.ProdName === entry.prodName && item.selectable);
+        return target && product.viaAlias === true ? { ...product, erpMatch: {
+          type: 'MANUAL', confirmed: true, prodKey: target.ProdKey, sourceDescription: description, matchedName,
+        } } : product;
+      });
       if (res.pending && res.pending.length > 0) allPending.push(...res.pending);
       if (res.noMatches && res.noMatches.length > 0) allNm.push(...res.noMatches);
       if (res.totalMismatch) allMismatches.push(res.totalMismatch);
-      return { ...res, sourceInvoiceIdentity: packingInvoiceSourceIdentity(inv, idx), wasTruncated,
+      return { ...res, products: reviewedProducts, sourceInvoiceIdentity: packingInvoiceSourceIdentity(inv, idx), wasTruncated,
         grossWeight: inv.packingReview?.values.gw ?? inv.gross_weight ?? null,
         chargeableWeight: inv.packingReview?.values.cw ?? inv.vol_weight ?? null };
     });
@@ -1252,6 +1265,13 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     }
     const newGenerated = {};
     builtExcels.forEach((ex) => { newGenerated[ex.name] = ex.buf; });
+    if (/\.pdf$/i.test(file?.name || '') && reviewConfirmed
+      && JSON.stringify(excels.map(ex => ex.products)) !== JSON.stringify(builtExcels.map(ex => ex.products))) {
+      setReviewConfirmed(false);
+      setReviewRows(makePackingReviewRows(invoices, country));
+      setReviewRevision(value => value + 1);
+      setReviewOpen(true);
+    }
     setGenerated(newGenerated);
     setExcels(builtExcels);
     setPending(dedupedPending);
@@ -1346,6 +1366,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     ]);
     setStatus({ type: 'info', msg: t.processing });
     try {
+      const pdfSourceHash = /\.pdf$/i.test(file.name) ? await sha256File(file) : null;
+      if (!isCurrent()) return;
       let extraction;
       if (country === 'CN' && /\.xlsx$/i.test(file.name)) {
         try {
@@ -1384,7 +1406,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         if (Array.isArray(data?.content)) {
           try { result = parsePackingResponse(data, 'CN').result; } catch { /* preserve the explicit source-review payload */ }
         }
-        const normalizedSources = result.invoices?.some(isLegacyChinaInvoice) ? result.invoices : sourceInvoices;
+        const normalizedSources = (result.invoices?.some(isLegacyChinaInvoice) ? result.invoices : sourceInvoices)
+          .map(invoice => pdfSourceHash ? { ...invoice, pdfReviewRequired: true, pdfSourceHash } : invoice);
         result = { ...result, invoices: normalizedSources };
         setLastExtraction({ result, sourceInvoices: normalizedSources, masterAwb: result.master_awb || '', weekParsed: parsed,
           wasTruncated: false, legacyReviewRequired: true });
@@ -1395,7 +1418,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         return;
       }
       const { result, wasTruncated } = parsePackingResponse(data, country);
-      const invoices = result.invoices || [];
+      const invoices = (result.invoices || []).map(invoice => /\.pdf$/i.test(file?.name || '')
+        ? { ...invoice, pdfReviewRequired: true, pdfSourceHash } : invoice);
+      result.invoices = invoices;
       const masterAwb = result.master_awb || (invoices[0] && invoices[0].awb) || '';
       if (invoices.length === 0) throw new Error(t.noInvoices);
       const legacyData = country === 'CN' ? chinaLegacyReviewPayload(data, result) : null;
@@ -1426,7 +1451,15 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     }
   };
 
-  const isBlocked = excel => !sharedReady || saving || processing || !reviewConfirmed || isPackingDownloadBlocked(excel, {
+  const sourceReviewBlocked = () => {
+    if (!/\.pdf$/i.test(file?.name || '')) return false;
+    try {
+      if (!lastExtraction?.result?.invoices?.length) return true;
+      lastExtraction.result.invoices.forEach(invoice => assertPackingSourceReviewed(invoice, country));
+      return false;
+    } catch { return true; }
+  };
+  const isBlocked = excel => !sharedReady || saving || processing || !reviewConfirmed || sourceReviewBlocked() || isPackingDownloadBlocked(excel, {
     pending, noMatches: allNoMatches, overrides: mismatchOverrides,
     truncated: lastExtraction?.wasTruncated,
   });
@@ -1483,7 +1516,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     <div className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
       {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={country} products={erpMatches?.products??[]}
         onSave={saveErpMatch} onClose={()=>setMatchTarget(null)} onReload={reloadErpMatches} saving={saving} error={matchError}/>}
-      {reviewRows && <PackingEvidenceReview rows={reviewRows} open={reviewOpen} onClose={closeReview} onConfirm={confirmReview}
+      {reviewRows && <PackingEvidenceReview key={reviewRevision} rows={reviewRows} open={reviewOpen} onClose={closeReview} onConfirm={confirmReview}
+        matchedInvoices={excels} onInvalidate={() => setReviewConfirmed(false)}
         fileName={file?.name || ''} pdfBase64={/\.pdf$/i.test(file?.name || '') ? pdfBase64 : null} />}
       <div className={styles.card} style={{ background: 'transparent', borderRadius: 0, border: 0, padding: 0, maxWidth: 'none', minWidth: 0, boxSizing: 'border-box', width: '100%', boxShadow: 'none' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
@@ -1746,7 +1780,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
             {excels.length > 0 && (
               <div style={{ marginTop: '1.25rem' }}>
                 <div role="status" style={{ padding: 12, marginBottom: 12, background: reviewConfirmed ? '#edf8f1' : '#fff4d6', border: '1px solid #ccd6e5', borderRadius: 8 }}>
-                  <button ref={reviewButtonRef} type="button" onClick={() => setReviewOpen(true)} disabled={processing || saving} data-testid="packing-review-open">GW · CW · 운송비 확인/수정</button>
+                  <button ref={reviewButtonRef} type="button" onClick={() => setReviewOpen(true)} disabled={processing || saving} data-testid="packing-review-open">원본 PDF · 인식값 검증/수정</button>
                   <span style={{ marginLeft: 12 }}>{reviewConfirmed ? '확인값 적용됨 · 수정 내역은 다운로드의 인식값 확인 시트에 포함' : '인식값 확인 전 다운로드 보류'}</span>
                   <div>ERP 입고 DB 저장은 아닙니다. 기존 국가별 양식이 지원하지 않는 값은 별도 확인 시트에만 기록됩니다.</div>
                 </div>

@@ -5,12 +5,34 @@ import { isValidNormalizedBBox, loadPdfPreview } from '../../lib/importPackingPd
 const FIELDS = ['gw', 'cw', 'freight'];
 const FIELD_LABELS = { gw: '총중량 (GW)', cw: '운임 적용 중량 (CW)', freight: '운송·부대비' };
 const FIELD_TEST_IDS = { gw: 'field-gw', cw: 'field-cw', freight: 'field-freight' };
+const SOURCE_FIELD_LABELS = { pcs: '박스', total_bunch: '단수', total_stems: '송이 수', steam_box: '박스당 송이', u_price: '단가', t_price: '금액', bunch_st: '단당 송이', stems: '송이 수', price: '단가', raw_qty: '원문 수량', quantity: '수량', qty: '수량', unit_price: '단가', amount: '금액', printed_amount: '인쇄 금액', total: '합계' };
 const METADATA_FIELDS = ['date', 'date_kind', 'currency', 'invoice_total'];
 const METADATA_LABELS = { date: '인쇄 날짜', date_kind: '날짜 의미', currency: 'ISO 통화', invoice_total: '인쇄 송장 총액' };
 const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
 const rowIdentity = row => String(row?.invoiceIndex ?? '');
 const stringValue = value => value === null || value === undefined ? '' : String(value);
+const sourceIdentity = (invoiceIndex, row) => `${invoiceIndex}:${row?.lineIndex ?? ''}`;
+
+function collectSourceRows(rows, safeRows) {
+  const shared = Array.isArray(rows) ? rows.sourceReview : null;
+  if (shared?.required === true && Array.isArray(shared.rows)) {
+    return shared.rows.map((row, index) => ({ invoiceIndex: Number.isInteger(row.invoiceIndex) ? row.invoiceIndex : 0,
+      sourceReview: shared, row, key: sourceIdentity(Number.isInteger(row.invoiceIndex) ? row.invoiceIndex : 0, { ...row, lineIndex: row.lineIndex ?? index }) }));
+  }
+  return safeRows.flatMap((invoice, invoiceIndex) => invoice?.sourceReview?.required === true
+    && Array.isArray(invoice.sourceReview.rows)
+    ? invoice.sourceReview.rows.map((row, index) => ({ invoiceIndex, sourceReview: invoice.sourceReview, row,
+      key: sourceIdentity(invoiceIndex, { ...row, lineIndex: row.lineIndex ?? index }) })) : []);
+}
+
+function sourceDraftsFrom(entries) {
+  return Object.fromEntries(entries.map(({ row, key }) => [key, {
+    values: Object.fromEntries(Object.entries(row?.values || {}).map(([field, value]) => [field, stringValue(value)])),
+    reason: stringValue(row?.reason),
+    confirmed: false,
+  }]));
+}
 
 function makeDraft(row) {
   return {
@@ -137,18 +159,29 @@ export default function PackingEvidenceReview({
   rows,
   onConfirm,
   onClose,
+  onInvalidate,
+  matchedInvoices = [],
   pdfBase64,
   fileName,
   open = true,
 }) {
   const safeRows = Array.isArray(rows) ? rows : [];
+  const sourceEntries = useMemo(() => collectSourceRows(rows, safeRows), [rows]);
+  const sourceReviewRequired = Boolean(rows?.sourceReview?.required === true
+    || safeRows.some(row => row?.sourceReview?.required === true));
   const baselinesRef = useRef(new Map(safeRows.map(row => [rowIdentity(row), makeBaseline(row)])));
-  const [drafts, setDrafts] = useState(() => safeRows.map(makeDraft));
+  const sourceSignature = JSON.stringify(sourceEntries.map(({ invoiceIndex, row }) => ({ invoiceIndex, row })));
+  const sourceSignatureRef = useRef(sourceSignature);
+  const fileIdentityRef = useRef({ pdfBase64, fileName });
+  const [drafts, setDrafts] = useState(() => safeRows.map(row => ({ ...makeDraft(row), confirmed: sourceReviewRequired ? false : row?.confirmed === true })));
+  const [sourceDrafts, setSourceDrafts] = useState(() => sourceDraftsFrom(sourceEntries));
   const [selectedKey, setSelectedKey] = useState(() => rowIdentity(safeRows[0]));
   const [activeField, setActiveField] = useState(() => safeRows.length ? { key: rowIdentity(safeRows[0]), field: 'gw' } : null);
   const [pageNumber, setPageNumber] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [preview, setPreview] = useState(null);
+  const [renderedPage, setRenderedPage] = useState(null);
+  const [pdfRetryCount, setPdfRetryCount] = useState(0);
   const [previewState, setPreviewState] = useState({ loading: false, error: '' });
   const [renderError, setRenderError] = useState('');
   const [highlight, setHighlight] = useState({ source: 'none', bbox: null, label: '위치 확인 필요' });
@@ -158,21 +191,67 @@ export default function PackingEvidenceReview({
   const dialogRef = useRef(null);
   const firstControlRef = useRef(null);
   const canvasRef = useRef(null);
+  const canvasScrollerRef = useRef(null);
+  const autoFitPreviewRef = useRef(null);
+
+  const invalidateConfirmations = () => {
+    setDrafts(previous => previous.map(draft => ({ ...draft, confirmed: false })));
+    setSourceDrafts(previous => Object.fromEntries(Object.entries(previous).map(([key, draft]) => [key, { ...draft, confirmed: false }])));
+    onInvalidate?.();
+  };
+
+  const pdfReady = Boolean(preview && renderedPage?.preview === preview && renderedPage.page === pageNumber
+    && !previewState.loading && !previewState.error && !renderError);
+  const uncheckedSourceCount = sourceEntries.filter(entry => sourceDrafts[entry.key]?.confirmed !== true).length;
+  const sourceInvoiceIndexes = [...new Set(sourceEntries.map(entry => entry.invoiceIndex))];
+  const uncheckedInvoiceCount = sourceInvoiceIndexes.filter(index => drafts.find(draft => rowIdentity(draft) === String(index))?.confirmed !== true).length;
+  const missingSourceReasonCount = sourceEntries.filter(({ row, key }) => {
+    const values = sourceDrafts[key]?.values || {};
+    return Object.entries(values).some(([field, value]) => stringValue(value) !== stringValue(row.originalValues?.[field] ?? row.values?.[field]))
+      && !stringValue(sourceDrafts[key]?.reason).trim();
+  }).length;
+  const sourceGateMessage = !sourceReviewRequired ? ''
+    : !pdfBase64 ? '원본 PDF가 없어 검증을 완료할 수 없습니다.'
+      : !pdfReady ? '현재 PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.'
+        : !sourceEntries.length ? '검토가 필요한 상품행 원문 스냅샷이 없습니다.'
+        : uncheckedSourceCount ? `미확인 상품행 ${uncheckedSourceCount}건을 각각 원문과 대조해 확인하세요.`
+          : missingSourceReasonCount ? `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.`
+            : uncheckedInvoiceCount ? `인보이스 확인 ${uncheckedInvoiceCount}건이 남아 있습니다.` : '';
 
   useEffect(() => {
     const identities = new Set(safeRows.map(rowIdentity));
-    for (const row of safeRows) {
-      const key = rowIdentity(row);
-      if (!baselinesRef.current.has(key)) baselinesRef.current.set(key, makeBaseline(row));
-    }
-    setDrafts(previous => safeRows.map(row => previous.find(draft => rowIdentity(draft) === rowIdentity(row)) || makeDraft(row)));
+    baselinesRef.current = new Map(safeRows.map(row => [rowIdentity(row), makeBaseline(row)]));
+    setDrafts(previous => safeRows.map(row => {
+      const prior = previous.find(draft => rowIdentity(draft) === rowIdentity(row));
+      return prior ? { ...prior, confirmed: sourceReviewRequired ? false : prior.confirmed }
+        : { ...makeDraft(row), confirmed: sourceReviewRequired ? false : row?.confirmed === true };
+    }));
     setSelectedKey(previous => identities.has(previous) ? previous : rowIdentity(safeRows[0]));
   }, [rows]);
+
+  useEffect(() => {
+    if (sourceSignatureRef.current === sourceSignature) return;
+    sourceSignatureRef.current = sourceSignature;
+    setSourceDrafts(sourceDraftsFrom(sourceEntries));
+    invalidateConfirmations();
+    setSubmitError('상품행 원문 스냅샷이 바뀌어 확인을 초기화했습니다. 다시 대조해 주세요.');
+  }, [sourceSignature]);
+
+  useEffect(() => {
+    const previous = fileIdentityRef.current;
+    if (previous.pdfBase64 !== pdfBase64 || previous.fileName !== fileName) {
+      fileIdentityRef.current = { pdfBase64, fileName };
+      setRenderedPage(null);
+      invalidateConfirmations();
+      setSubmitError('원본 파일이 바뀌어 확인을 초기화했습니다. 새 PDF를 대조해 주세요.');
+    }
+  }, [pdfBase64, fileName]);
 
   useEffect(() => {
     let stale = false;
     let loadedPreview = null;
     setPreview(null);
+    setRenderedPage(null);
     setHighlight({ source: 'none', bbox: null, label: '위치 확인 필요' });
     setRenderError('');
     if (!pdfBase64) {
@@ -185,27 +264,45 @@ export default function PackingEvidenceReview({
       if (stale) return result.destroy();
       setPreview(result);
       const firstEvidencePage = Number(safeRows[0]?.evidence?.gw?.page);
-      setPageNumber(Number.isInteger(firstEvidencePage) && firstEvidencePage >= 1 && firstEvidencePage <= result.numPages
+      setPageNumber(!sourceReviewRequired && Number.isInteger(firstEvidencePage) && firstEvidencePage >= 1 && firstEvidencePage <= result.numPages
         ? firstEvidencePage : 1);
       setPreviewState({ loading: false, error: '' });
       return undefined;
     }).catch(error => {
-      if (!stale) setPreviewState({ loading: false, error: error?.message || 'PDF 미리보기를 열지 못했습니다.' });
+      if (!stale) {
+        setPreviewState({ loading: false, error: error?.message || 'PDF 미리보기를 열지 못했습니다.' });
+        setRenderedPage(null);
+        invalidateConfirmations();
+      }
     });
     return () => {
       stale = true;
       loadedPreview?.destroy();
     };
-  }, [pdfBase64]);
+  }, [pdfBase64, pdfRetryCount, sourceReviewRequired]);
 
   useEffect(() => {
     if (!open || !preview || !canvasRef.current) return undefined;
     let stale = false;
+    setRenderedPage(null);
     setRenderError('');
     preview.renderPage(pageNumber, canvasRef.current, zoom).then(result => {
-      if (!stale && !result?.cancelled) setRenderError('');
+      if (!stale && !result?.cancelled) {
+        setRenderError('');
+        setRenderedPage({ preview, page: pageNumber });
+        if (autoFitPreviewRef.current !== preview) {
+          autoFitPreviewRef.current = preview;
+          const availableWidth = (canvasScrollerRef.current?.clientWidth || 0) - 36;
+          const fitZoom = result.width > 0 && availableWidth > 0 ? Math.max(0.75, Math.min(2, zoom * availableWidth / result.width)) : zoom;
+          if (Math.abs(fitZoom - zoom) >= 0.02) setZoom(Number(fitZoom.toFixed(2)));
+        }
+      }
     }).catch(error => {
-      if (!stale) setRenderError(error?.message || 'PDF 페이지를 표시하지 못했습니다.');
+      if (!stale) {
+        setRenderError(error?.message || 'PDF 페이지를 표시하지 못했습니다.');
+        setRenderedPage(null);
+        invalidateConfirmations();
+      }
     });
     return () => { stale = true; };
   }, [open, preview, pageNumber, zoom]);
@@ -214,9 +311,56 @@ export default function PackingEvidenceReview({
   const draftMap = useMemo(() => new Map(drafts.map(draft => [rowIdentity(draft), draft])), [drafts]);
   const selectedRow = rowMap.get(selectedKey) || safeRows[0] || null;
   const selectedDraft = draftMap.get(selectedKey) || drafts[0] || null;
-  const activeEvidence = activeField ? (activeField.field.startsWith('metadata:')
+  const activeEvidence = activeField ? (activeField.sourceKey
+    ? (() => { const entry = sourceEntries.find(item => item.key === activeField.sourceKey); return entry?.row?.evidence?.[activeField.field] || entry?.row?.evidence; })()
+    : activeField.field.startsWith('metadata:')
     ? rowMap.get(activeField.key)?.metadata?.evidence?.[activeField.field.slice(9)]
     : rowMap.get(activeField.key)?.evidence?.[activeField.field]) : null;
+
+  const sourceEntriesForInvoice = invoiceIndex => sourceEntries.filter(entry => entry.invoiceIndex === invoiceIndex);
+  const invoiceSourceRowsConfirmed = invoiceIndex => sourceEntriesForInvoice(invoiceIndex)
+    .every(entry => sourceDrafts[entry.key]?.confirmed === true);
+  const sourceReviewForInvoice = invoiceIndex => safeRows[invoiceIndex]?.sourceReview
+    || (Array.isArray(rows) ? rows.sourceReview : null);
+  const matchedNameForSource = (invoiceIndex, sourceRow) => {
+    const candidates = (Array.isArray(matchedInvoices) ? matchedInvoices : [])
+      .filter(invoice => invoice?.sourceInvoiceIdentity?.sourceInvoiceIndex === invoiceIndex)
+      .flatMap(invoice => Array.isArray(invoice.products) ? invoice.products : [])
+      .filter(product => product?.sourceName === sourceRow?.description || product?.matchingDescription === sourceRow?.description);
+    if (candidates.length !== 1 || candidates[0]?.unmatched === true) return null;
+    return candidates[0]?.matchedName || null;
+  };
+
+  const selectSourceEvidence = (entry, field) => {
+    const evidence = entry.row?.evidence?.[field] || entry.row?.evidence;
+    const page = Number(evidence?.page);
+    setSelectedKey(String(entry.invoiceIndex));
+    setActiveField({ key: String(entry.invoiceIndex), field, sourceKey: entry.key });
+    if (preview && Number.isInteger(page) && page >= 1 && page <= preview.numPages) setPageNumber(page);
+  };
+
+  const updateSourceValue = (entry, field, value) => {
+    onInvalidate?.();
+    setSourceDrafts(previous => ({ ...previous, [entry.key]: {
+      ...previous[entry.key], values: { ...previous[entry.key]?.values, [field]: value }, confirmed: false,
+    } }));
+    setDrafts(previous => previous.map(draft => rowIdentity(draft) === String(entry.invoiceIndex)
+      ? { ...draft, confirmed: false } : draft));
+    setSubmitError('');
+  };
+
+  const updateSourceConfirmed = (entry, confirmed) => {
+    setSourceDrafts(previous => ({ ...previous, [entry.key]: { ...previous[entry.key], confirmed } }));
+    setErrors(previous => ({ ...previous, [String(entry.invoiceIndex)]: { ...previous[String(entry.invoiceIndex)], sourceRows: '' } }));
+    setSubmitError('');
+  };
+
+  const updateSourceReason = (entry, reason) => {
+    onInvalidate?.();
+    setSourceDrafts(previous => ({ ...previous, [entry.key]: { ...previous[entry.key], reason, confirmed: false } }));
+    setDrafts(previous => previous.map(draft => rowIdentity(draft) === String(entry.invoiceIndex) ? { ...draft, confirmed: false } : draft));
+    setSubmitError('');
+  };
 
   useEffect(() => {
     if (!open || !preview) return undefined;
@@ -284,6 +428,7 @@ export default function PackingEvidenceReview({
   };
 
   const updateValue = (key, field, value) => {
+    onInvalidate?.();
     setDrafts(previous => previous.map(draft => rowIdentity(draft) === key
       ? { ...draft, values: { ...draft.values, [field]: value }, confirmed: false }
       : draft));
@@ -292,6 +437,7 @@ export default function PackingEvidenceReview({
   };
 
   const updateReason = (key, reason) => {
+    onInvalidate?.();
     setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? { ...draft, reason } : draft));
     setErrors(previous => ({ ...previous, [key]: { ...previous[key], reason: '' } }));
     setSubmitError('');
@@ -304,6 +450,7 @@ export default function PackingEvidenceReview({
   };
 
   const updateMetadataValue = (key, field, value) => {
+    onInvalidate?.();
     setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? {
       ...draft,
       confirmed: false,
@@ -314,6 +461,7 @@ export default function PackingEvidenceReview({
   };
 
   const updateMetadataReason = (key, field, reason) => {
+    onInvalidate?.();
     setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? {
       ...draft,
       confirmed: false,
@@ -334,6 +482,17 @@ export default function PackingEvidenceReview({
   };
 
   const confirmDrafts = async () => {
+    if (sourceReviewRequired && !pdfReady) {
+      setSubmitError(!pdfBase64 ? '원본 PDF가 없어 상품행 대조 확인을 적용할 수 없습니다.' : 'PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.');
+      return;
+    }
+    if (sourceReviewRequired && (!sourceEntries.length || uncheckedSourceCount > 0 || missingSourceReasonCount > 0 || uncheckedInvoiceCount > 0)) {
+      setSubmitError(!sourceEntries.length ? '검토 상품행 스냅샷이 없어 확인 적용을 차단했습니다.'
+        : uncheckedSourceCount ? `미확인 상품행 ${uncheckedSourceCount}건이 남아 있습니다. 각 행을 확인하세요.`
+          : missingSourceReasonCount ? `수정 사유가 필요한 상품행 ${missingSourceReasonCount}건을 입력하세요.`
+            : `인보이스 확인 ${uncheckedInvoiceCount}건이 남아 있습니다.`);
+      return;
+    }
     const nextErrors = validateDrafts(drafts, baselinesRef.current);
     setErrors(nextErrors);
     setSubmitError('');
@@ -342,10 +501,25 @@ export default function PackingEvidenceReview({
       if (firstKey !== undefined) setSelectedKey(String(firstKey));
       return;
     }
-    const submission = safeRows.map(row => {
+    const submission = safeRows.map((row, invoiceIndex) => {
       const draft = draftMap.get(rowIdentity(row)) || makeDraft(row);
-      return { ...row, values: { ...draft.values }, reason: draft.reason, confirmed: draft.confirmed,
+      const rowSubmission = { ...row, values: { ...draft.values }, reason: draft.reason, confirmed: draft.confirmed,
         ...(draft.metadata ? { metadata: { values: { ...draft.metadata.values }, confirmed: { ...draft.metadata.confirmed }, reasons: { ...draft.metadata.reasons } } } : {}) };
+      if (sourceReviewRequired) {
+        const sourceReview = sourceReviewForInvoice(invoiceIndex) || { required: true };
+        rowSubmission.sourceReview = { ...sourceReview,
+          pdf: { ...(sourceReview.pdf || {}), rendered: pdfReady, page: renderedPage?.page ?? null },
+          rows: sourceEntriesForInvoice(invoiceIndex).map(({ row: sourceRow, key }) => ({
+            ...sourceRow,
+            originalValues: { ...(sourceRow.originalValues || {}) },
+            values: { ...sourceDrafts[key]?.values },
+            reason: stringValue(sourceDrafts[key]?.reason),
+            confirmed: sourceDrafts[key]?.confirmed === true,
+            confirmedAt: sourceDrafts[key]?.confirmed === true ? new Date().toISOString() : null,
+          })),
+        };
+      }
+      return rowSubmission;
     });
     setPending(true);
     try {
@@ -401,12 +575,56 @@ export default function PackingEvidenceReview({
     })}
   </section> : null;
 
+  const sourceReviewSection = sourceReviewRequired ? <section className={styles.sourceReview} aria-label="원본 PDF 상품행 검토" data-testid="source-review">
+    <h4>상품행 원문 대조</h4>
+    <p>AI 신뢰도와 관계없이 각 상품행을 PDF에서 직접 대조하세요. 행의 원문 근거를 누르면 해당 페이지로 이동합니다. 값을 수정하면 그 행과 인보이스 확인이 해제됩니다.</p>
+    {sourceEntriesForInvoice(Number(selectedKey)).length === 0
+      ? <p role="alert" className={styles.error}>이 인보이스에 연결된 상품행 검토 스냅샷이 없습니다.</p>
+      : <div className={styles.sourceTableViewport}>
+        <table className={styles.sourceTable}>
+          <thead><tr><th scope="col">원문 품목 · ERP 매칭</th><th scope="col">원문값 확인·수정 (필드별 원문은 입력에 표시)</th><th scope="col">개별 원문 확인</th></tr></thead>
+          <tbody>{sourceEntriesForInvoice(Number(selectedKey)).map(entry => {
+            const sourceRow = entry.row;
+            const current = sourceDrafts[entry.key] || { values: sourceRow.values || {}, confirmed: false };
+            const evidenceField = Object.keys(sourceRow.evidence || {})[0] || '';
+            const original = sourceRow.originalValues || {};
+            const matchedName = matchedNameForSource(entry.invoiceIndex, sourceRow);
+            return <tr key={entry.key}>
+              <th scope="row" className={styles.sourceName}><span>{sourceRow.description || '원문 품명 없음'}</span><small>원문 행 {sourceRow.lineIndex ?? '—'}</small>
+                <small>{matchedName || '미매칭 · 결과에서 선택 필요'}</small>
+                <button type="button" className={styles.sourceEvidenceButton} onClick={() => selectSourceEvidence(entry, evidenceField)} disabled={!Object.keys(sourceRow.evidence || {}).length}>원문 페이지 열기</button>
+              </th>
+              <td><div className={styles.sourceEditFields}>{Object.entries(current.values || {}).map(([field, value]) => {
+                const sourceValue = original[field] ?? sourceRow.values?.[field];
+                const changed = stringValue(value) !== stringValue(sourceValue);
+                return <label key={field} title={`원문 ${SOURCE_FIELD_LABELS[field] || field}: ${stringValue(sourceValue) || '없음'}`}>
+                  <span>{SOURCE_FIELD_LABELS[field] || field}</span>
+                  <input type="text" value={value ?? ''} aria-label={'원문 ' + (sourceRow.description || '') + ' ' + (SOURCE_FIELD_LABELS[field] || field)}
+                    onFocus={() => selectSourceEvidence(entry, field)} onChange={event => updateSourceValue(entry, field, event.target.value)} />
+                  {changed && <small>원문: {stringValue(sourceValue) || '없음'}</small>}
+                </label>;
+              })}
+                {Object.entries(current.values || {}).some(([field, value]) => stringValue(value) !== stringValue(original[field] ?? sourceRow.values?.[field]))
+                  && <label className={styles.sourceReason}><span>수정 사유</span><input type="text" value={current.reason || ''} aria-label={'원문 ' + (sourceRow.description || '') + ' 수정 사유'} placeholder="변경 근거" onChange={event => updateSourceReason(entry, event.target.value)} /></label>}
+              </div></td>
+              <td><label className={styles.sourceConfirm}>
+                <input type="checkbox" checked={current.confirmed === true} disabled={!pdfReady}
+                  onChange={event => updateSourceConfirmed(entry, event.target.checked)} data-testid="source-row-confirm" />
+                <span>{current.confirmed ? '원문 대조 완료' : '이 상품행 대조 확인'}</span>
+              </label></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>}
+    {sourceReviewRequired && !pdfReady && <p role="status" className={styles.sourceGate}>{sourceGateMessage}</p>}
+  </section> : null;
+
   return (
     <div className={styles.backdrop} data-testid="evidence-review">
-      <section ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-label="패킹 metadata·중량·운송비 근거 확인">
+      <section ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-label="패킹 metadata·중량·운송비 근거 확인" data-pdf-ready={pdfReady ? 'true' : 'false'}>
         <header className={styles.header}>
           <div>
-            <h2>중량·운송비 근거 확인</h2>
+            <h2>{sourceReviewRequired ? '원본 PDF · 인식값 검증' : '원본 PDF · 중량·운송비 근거 확인'}</h2>
             <p>{fileName || '업로드 문서'} · 인보이스 {safeRows.length}건</p>
           </div>
           <button type="button" className={styles.closeButton} onClick={closeReview} disabled={pending} aria-label="근거 확인 닫기">닫기</button>
@@ -435,6 +653,11 @@ export default function PackingEvidenceReview({
                 <button type="button" onClick={() => setPageNumber(value => Math.min(preview?.numPages || value, value + 1))} disabled={!preview || pageNumber >= preview.numPages} aria-label="다음 PDF 페이지">다음</button>
               </div>
               <div className={styles.zoomControls}>
+                <button type="button" onClick={() => {
+                  const canvasWidth = Number.parseFloat(canvasRef.current?.style.width || '0');
+                  const availableWidth = (canvasScrollerRef.current?.clientWidth || 0) - 36;
+                  if (canvasWidth > 0 && availableWidth > 0) setZoom(value => Math.max(0.75, Math.min(2, Number((value * availableWidth / canvasWidth).toFixed(2)))));
+                }} disabled={!preview} aria-label="PDF 너비에 맞춤">너비 맞춤</button>
                 <button type="button" onClick={() => setZoom(value => Math.max(0.75, Number((value - 0.25).toFixed(2))))} disabled={zoom <= 0.75} aria-label="PDF 축소">−</button>
                 <span>{Math.round(zoom * 100)}%</span>
                 <button type="button" onClick={() => setZoom(value => Math.min(2, Number((value + 0.25).toFixed(2))))} disabled={zoom >= 2} aria-label="PDF 확대">+</button>
@@ -444,10 +667,13 @@ export default function PackingEvidenceReview({
             <div className={styles.previewStatus} role="status" aria-live="polite">
               {previewState.loading && '로컬 PDF를 여는 중…'}
               {previewState.error && previewState.error}
-              {!pdfBase64 && 'PDF 원본이 없어 문서 위치를 표시할 수 없습니다. Excel 원본은 별도로 확인하세요.'}
-              {pdfBase64 && preview && !previewState.loading && !previewState.error && `${highlight.label} · ${pageNumber}페이지`}
+              {!pdfBase64 && (sourceReviewRequired ? 'PDF 원본이 없어 상품행 검증과 확인 적용이 차단됩니다.' : 'PDF 원본이 없어 문서 위치를 표시할 수 없습니다. Excel 원본은 별도로 확인하세요.')}
+              {pdfBase64 && preview && !previewState.loading && !previewState.error && !renderError && highlight.label + ' · ' + pageNumber + '페이지'}
+              {(previewState.error || renderError) && <button type="button" onClick={() => {
+                setPreviewState({ loading: false, error: '' }); setRenderError(''); setRenderedPage(null); setPdfRetryCount(value => value + 1);
+              }} aria-label="PDF 다시 불러오기">PDF 다시 시도</button>}
             </div>
-            <div className={styles.canvasScroller} data-testid="pdf-preview" tabIndex="0" aria-label={`PDF ${pageNumber}페이지 미리보기`}>
+            <div ref={canvasScrollerRef} className={styles.canvasScroller} data-testid="pdf-preview" tabIndex="0" aria-label={'PDF ' + pageNumber + '페이지 미리보기'}>
               {pdfBase64 && <div className={styles.canvasStage}>
                 <canvas ref={canvasRef} />
                 {highlight.bbox && <span
@@ -480,6 +706,8 @@ export default function PackingEvidenceReview({
               </div>
 
               {selectedRow?.explanation && <p className={styles.explanation}>{selectedRow.explanation}</p>}
+
+              {sourceReviewSection}
 
               {showMetadataFirst && metadataSection}
 
@@ -532,6 +760,7 @@ export default function PackingEvidenceReview({
                 <input
                   type="checkbox"
                   checked={selectedDraft?.confirmed === true}
+                  disabled={sourceReviewRequired && (!pdfReady || !invoiceSourceRowsConfirmed(Number(selectedKey)))}
                   onChange={event => updateConfirmed(selectedKey, event.target.checked)}
                   data-testid="evidence-confirm"
                 />
@@ -546,10 +775,11 @@ export default function PackingEvidenceReview({
           <p>이 확인은 결과 파일을 다시 만드는 단계이며 ERP DB에 저장하지 않습니다.</p>
           <div>
             <button type="button" onClick={closeReview} disabled={pending}>취소</button>
-            <button type="button" className={styles.applyButton} onClick={confirmDrafts} disabled={pending || !safeRows.length}>
+            <button type="button" className={styles.applyButton} onClick={confirmDrafts} disabled={pending || !safeRows.length || Boolean(sourceGateMessage) || (sourceReviewRequired && !pdfReady)}>
               {pending ? '적용 중…' : '확인값 적용 · 결과 재생성'}
             </button>
           </div>
+          {sourceGateMessage && <p className={styles.sourceGate} role="status">{sourceGateMessage}</p>}
           {submitError && <p className={styles.submitError} role="alert">{submitError}</p>}
         </footer>
       </section>

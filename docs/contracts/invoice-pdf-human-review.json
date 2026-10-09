@@ -1,0 +1,11 @@
+{
+  "id": "invoice-pdf-human-review",
+  "title": "원본 PDF 렌더와 상품 행 대조 확인 후 진행",
+  "scope": ["lib/importPackingSourceReview.js", "lib/importPackingReview.js", "lib/importPackingReceiptAdapter.js", "lib/importPackingPrompt.js", "lib/importInvoiceLocal.js", "components/import-tools/PackingEvidenceReview.js", "components/import-tools/PackingListTool.js", "styles/PackingEvidenceReview.module.css"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [{"name": "REVIEW_PDF_SOURCE", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseMaster": "preserve", "warehouseDetail": "preserve", "stock": "preserve", "notes": "PDF 렌더 성공·상품행 개별 확인·수정값 스냅샷 일치 후에만 다운로드/입고 초안. 미확인/파일변경/렌더 실패는 차단. AI 자체 confidence로 확인 대체 금지."}],
+  "crossYearFixture": {"required": true, "description": "2025/2026 동일 차수라도 확인된 파일/행 스냅샷만 사용; 이전 원문 확인을 새 원문에 재사용 금지."},
+  "requiredTestFiles": ["__tests__/packingSourceReview.test.js", "__tests__/packingPdfSourceBrowser.test.cjs", "__tests__/packingEvidenceReview.test.js", "__tests__/importPackingReceiptAdapter.test.js"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormWarehouseUpload.md", "source": "기존 MakeTempTable의 Box/Bunch/Steam 및 UPrice/TPrice 별도 계약 보존. PDF 검토와 로컬 초안만 변경, SQL writer 수정 없음.", "methods": ["ExcelLoadingPackingList.MakeTempTable", "ExcelLoadingPackingList.InsertMaster"], "tables": ["WarehouseMaster", "WarehouseDetail", "ProductStock"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}

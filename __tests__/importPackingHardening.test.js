@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');
+const { webcrypto } = require('node:crypto');
 const babel = require('next/dist/compiled/babel/core');
 const XLSX = require('xlsx-js-style');
 
@@ -14,6 +15,7 @@ const modulesReady = Promise.all([
   import('../lib/importPackingReceiptAdapter.js'),
   import('../lib/importChinaLegacyInvoice.js'),
   import('../lib/importChinaLegacyReview.js'),
+  import('../lib/importPackingSourceReview.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -47,10 +49,18 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+function browserPdfFile(file) {
+  if (typeof file?.arrayBuffer === 'function') return file;
+  const bytes = Buffer.from(`%PDF-1.4\npacking-browser-fixture:${file?.name || 'invoice.pdf'}\n`, 'utf8');
+  const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  return { ...file, arrayBuffer: async () => arrayBuffer.slice(0) };
+}
+
 // Actual component handlers with controlled local hooks. No network, DB or browser.
 async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
-  const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter, chinaLegacyInvoice, chinaLegacyReview] = await modulesReady;
-  const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [], generationCalls = [];
+  const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter,
+    chinaLegacyInvoice, chinaLegacyReview, sourceReview] = await modulesReady;
+  const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [], generationCalls = [], hashPromises = [];
   let cursor = 0, currentCatalog = catalog, failure = null, erpFailure = null;
   let erpValue = null, erpRevision = 0;
   const react = {
@@ -107,14 +117,23 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   function PackingResultsStub() {}
   function PackingProductMatchDialogStub() {}
   const packingHarness = { ...packing, genChina(...args) { generationCalls.push(args[1]); return packing.genChina(...args); } };
+  const browserReceiptAdapter = {
+    ...receiptAdapter,
+    sha256File(file) {
+      const promise = receiptAdapter.sha256File(file, webcrypto);
+      hashPromises.push(promise);
+      return promise;
+    },
+  };
   const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, 'xlsx-js-style': XLSX, '../../lib/importPacking.js': packingHarness,
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
     '../../lib/importChinaInvoice.js': chinaInvoice, '../../lib/importPackingErpMatches.js': erpMatchHelpers,
     '../../lib/importPackingReview.js': review,
-    '../../lib/importPackingReceiptAdapter.js': receiptAdapter,
+    '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
     '../../lib/importChinaLegacyInvoice.js': chinaLegacyInvoice,
     '../../lib/importChinaLegacyReview.js': chinaLegacyReview,
+    '../../lib/importPackingSourceReview.js': sourceReview,
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
@@ -123,7 +142,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   new Function('require', 'module', 'exports', 'fetch', 'FileReader', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(
     key => modules[key], module, module.exports, fetchStub, Reader);
   const h = {
-    writes, readers, requests, erpRequests, extractionCalls, generationCalls, tree: null,
+    writes, readers, requests, erpRequests, extractionCalls, generationCalls, hashPromises, tree: null,
     components: { PackingResultsStub, PackingProductMatchDialogStub },
     render() { cursor = 0; this.tree = awb ? module.exports.AWBPanel({ xlsxLib: XLSX, lang, readAwbPdf, onBack() {} })
       : module.exports.default({ storage }); return this.tree; },
@@ -133,17 +152,23 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     button(label) { const button = this.nodes('button').find(n => text(n) === label); assert.ok(button, 'Missing button: ' + label); return button; },
     async click(label) { await this.button(label).props.onClick(); await this.refresh(); },
     async upload(file) { this.nodes('input').find(n => n.props.accept === '.xlsx').props.onChange({ target: { files: [file], value: 'file' } }); await this.refresh(); },
-    inputPdf(file) { this.nodes('input').find(n => n.props.accept === '.pdf').props.onChange({ target: { files: [file], value: 'file' } }); this.render(); },
+    inputPdf(file) { this.nodes('input').find(n => n.props.accept === '.pdf').props.onChange({ target: { files: [browserPdfFile(file)], value: 'file' } }); this.render(); },
     radio(index) { this.nodes('input').filter(n => n.props.type === 'radio')[index].props.onChange(); this.render(); },
     fail(error) { failure = error; },
     failErp(error) { erpFailure = error; },
     setCatalog(next) { currentCatalog = next; },
+    async waitForRealSha(index) {
+      assert.ok(hashPromises[index], `missing SHA-256 operation ${index}`);
+      const digest = await hashPromises[index];
+      assert.match(digest, /^[a-f0-9]{64}$/, 'browser fixture must complete a real SHA-256');
+      return digest;
+    },
     unmount() { for (const slot of slots) slot?.cleanup?.(); },
   };
   await h.refresh();
   if (!awb && lang !== 'ko') await h.click(lang === 'es' ? 'ES' : 'EN');
   h.matching = (kind, props) => { cursor = 0; return module.exports[kind]({ ...props, lang }); };
-  h.modules = { chinaLegacyInvoice, chinaLegacyReview, review };
+  h.modules = { chinaLegacyInvoice, chinaLegacyReview, review, sourceReview };
   return h;
 }
 
@@ -634,7 +659,9 @@ test('parent ERP matching saves and rebuilds, while a failed save retains the ta
   h.inputPdf({ name: '40-1.pdf', type: 'application/pdf', size: 10 });
   await h.readers[0].complete(); h.render();
   await h.button('Generar packing list').props.onClick(); h.render();
+  const hashIndex = h.hashPromises.length;
   const process = h.button('Analizar con IA (posible coste)').props.onClick();
+  await h.waitForRealSha(hashIndex);
   h.requests[0].resolve({ ok: true, status: 200, json: async () => ({
     source: 'ai', cacheSaved: true, stop_reason: 'end_turn',
     content: [{ type: 'text', text: JSON.stringify({ invoices: [{
@@ -661,6 +688,10 @@ test('parent ERP matching saves and rebuilds, while a failed save retains the ta
   results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
   assert.equal(results.props.excels[0].products[0].name, 'CARNATION Doncel');
   assert.notEqual(results.props.excels[0].products[0].unmatched, true);
+  assert.deepEqual(results.props.excels[0].products[0].erpMatch, {
+    type: 'MANUAL', confirmed: true, prodKey: 1,
+    sourceDescription: 'CARNATION Doncel RAW', matchedName: 'CARNATION Doncel',
+  });
 
   results.props.onMatch({ matchingDescription: 'SECOND SOURCE' }); h.render();
   h.failErp(Error('409 revision conflict'));
@@ -677,7 +708,9 @@ test('source resolved flags do not clear extraction issues or open the generator
   h.inputPdf({ name: '41-1.pdf', type: 'application/pdf', size: 10 });
   await h.readers[0].complete(); h.render();
   await h.button('Generar packing list').props.onClick(); h.render();
+  const hashIndex = h.hashPromises.length;
   const process = h.button('Analizar con IA (posible coste)').props.onClick();
+  await h.waitForRealSha(hashIndex);
   h.requests[0].resolve({ ok: true, status: 200, json: async () => ({
     source: 'ai', cacheSaved: true, stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ invoices: [{
       invoice: 'INV-RESOLVED-FLAG', supplier: 'Teucali', date: '2026-10-09', raw_date: '2026-10-09', date_order: 'YMD',
@@ -700,15 +733,19 @@ test('invoice PDF accepts exact 20MiB, rejects 20MiB + 1 and only sends on expli
   h.inputPdf({ name: '40-1.pdf', type: 'application/pdf', size: state.PACKING_PDF_MAX_BYTES });
   assert.equal(h.readers.length, 1); await h.readers[0].complete(); h.render();
   assert.equal(h.requests.length, 0);
+  const localHashIndex = h.hashPromises.length;
   const localProcess = h.button('Generar packing list').props.onClick();
   h.button('Generar packing list').props.onClick();
+  await h.waitForRealSha(localHashIndex);
+  await localProcess; h.render();
   assert.equal(h.extractionCalls.length, 1, 'same-tick duplicate local Generate is blocked');
   assert.equal(h.requests.length, 0);
-  await localProcess; h.render();
   assert.equal(h.requests.length, 0, 'default Generate must not call AI');
   assert.equal(h.extractionCalls[0].allowAI, false);
   const aiButton = h.button('Analizar con IA (posible coste)');
+  const aiHashIndex = h.hashPromises.length;
   const process = aiButton.props.onClick(); aiButton.props.onClick();
+  await h.waitForRealSha(aiHashIndex);
   assert.equal(h.extractionCalls[1].allowAI, true);
   assert.equal(h.requests.length, 1, 'same-tick duplicate AI request is blocked');
   h.requests[0].resolve({ ok: false, status: 413, json: async () => { throw Error('Unexpected token <'); } });
