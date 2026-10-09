@@ -515,6 +515,7 @@
     "criteria": "Only structured 409 eligibility is a business waiting state. invalidCount wins over no shipment/unfixed. Never infer state from Korean error strings or zero unknown counts."
   },
   "originalWorkbookDownload": {
+    "presentation": "No year in worksheet title or visible column labels; dates MM/DD, cycle labels major/subweek only. Full year remains in business keys. Prefer exact Product.DisplayName for Korean names, otherwise existing suggestDisplayName mapping; preserve unknown tokens. Numeric zero renders as styled blank for item and subtotal cells without removing rows or changing arithmetic; negative balances stay numeric.",
     "sideEffects": "Browser file download only; preserve OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/StockMaster/ProductStock/Estimate/WebProfitReport and confirmation",
     "layout": "Generate a current-work worksheet using the saved reference category cell styles, widths, borders and grouped merges; every name and value comes from full web matrix. Remove historical source content and sheets.",
     "storage": "Saved Jugwang default is private server runtime, decrypted at deployment from encrypted asset; raw bytes and private deployment key never committed. Manual originals remain browser-memory only.",
