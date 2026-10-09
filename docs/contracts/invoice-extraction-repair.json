@@ -1,0 +1,16 @@
+{
+  "id": "invoice-extraction-repair",
+  "title": "인보이스 날짜·금액·구형 중국 원문 검토 경계",
+  "scope": ["lib/importPackingMetadata.js", "lib/importPackingPrompt.js", "lib/importPackingResponse.js", "lib/importChinaInvoice.js", "lib/importChinaLegacyInvoice.js", "lib/importChinaLegacyReview.js", "lib/importPacking.js", "lib/importPackingReview.js", "lib/importPackingReceiptAdapter.js", "lib/importInvoiceLocal.js", "lib/importPackingState.js", "components/import-tools/PackingListTool.js", "components/import-tools/ChinaLegacyReview.js", "components/import-tools/PackingEvidenceReview.js", "components/import-tools/InvoiceReceiptWorkbench.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name": "REVIEW_INVOICE_METADATA", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "원문 날짜·통화·총액 보존, 미해결 검증 이슈는 입고 초안 변환 차단. 원장 쓰기 없음."},
+    {"name": "PARSE_LEGACY_CHINA", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "6열 원문 수량과 포장 규격 보존. 단위 확인 전 변환 차단. CL 비교 시트 합산 금지."},
+    {"name": "RESOLVE_LEGACY_CHINA", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "원문 수량=단을 개별 확인하고 박스/송이 수량 직접 입력 후에만 기존 변환기로 진행. 다른 단위 자동 환산 없음. 수량·통화·CL 기준 확인 이력 보존."},
+    {"name": "PRESERVE_CN_CO_ADDITIONAL_CHARGES", "orderDetail": "preserve", "shipmentDetail": "preserve", "notes": "상품 외 비용 합계를 순수 항공운임으로 자동 분류하지 않음. 사용자 항목별 원가 검토 필요."}
+  ],
+  "crossYearFixture": {"required": true, "description": "2025/2026 동일33-01의 미해결 날짜 모두 차단; 파일명으로 원문 연도 덮어쓰기 금지."},
+  "requiredTestFiles": ["__tests__/invoiceRepairBoundary.test.js", "__tests__/invoiceRepairBrowser.test.cjs", "__tests__/importPackingReceiptAdapter.test.js", "__tests__/importInvoiceLocal.test.js", "__tests__/importChinaLegacyInvoice.test.js", "__tests__/importChinaLegacyReview.test.js", "__tests__/importPackingMetadata.test.js", "__tests__/importPackingReviewMetadata.test.js", "__tests__/importPackingHardening.test.js"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormWarehouseUpload.md", "source": "ExcelLoadingPackingList Box/Bunch/Steam 및 UPrice/TPrice 별도 읽기 계약 보존. 이번 변경은 추출·검토만 수행하며 SQL writer 변경 없음.", "methods": ["ExcelLoadingPackingList.MakeTempTable", "ExcelLoadingPackingList.InsertMaster"], "tables": ["WarehouseMaster", "WarehouseDetail", "ProductStock"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"]
+}

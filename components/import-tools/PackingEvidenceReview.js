@@ -5,6 +5,8 @@ import { isValidNormalizedBBox, loadPdfPreview } from '../../lib/importPackingPd
 const FIELDS = ['gw', 'cw', 'freight'];
 const FIELD_LABELS = { gw: '총중량 (GW)', cw: '운임 적용 중량 (CW)', freight: '운송·부대비' };
 const FIELD_TEST_IDS = { gw: 'field-gw', cw: 'field-cw', freight: 'field-freight' };
+const METADATA_FIELDS = ['date', 'date_kind', 'currency', 'invoice_total'];
+const METADATA_LABELS = { date: '인쇄 날짜', date_kind: '날짜 의미', currency: 'ISO 통화', invoice_total: '인쇄 송장 총액' };
 const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
 const rowIdentity = row => String(row?.invoiceIndex ?? '');
@@ -16,6 +18,11 @@ function makeDraft(row) {
     values: Object.fromEntries(FIELDS.map(field => [field, stringValue(row?.values?.[field])])),
     reason: stringValue(row?.reason),
     confirmed: row?.confirmed === true,
+    metadata: row?.metadata?.enabled ? {
+      values: Object.fromEntries(METADATA_FIELDS.map(field => [field, stringValue(row.metadata.values?.[field])])),
+      confirmed: Object.fromEntries(METADATA_FIELDS.map(field => [field, row.metadata.confirmed?.[field] === true])),
+      reasons: Object.fromEntries(METADATA_FIELDS.map(field => [field, stringValue(row.metadata.reasons?.[field])])),
+    } : null,
   };
 }
 
@@ -23,6 +30,10 @@ function makeBaseline(row) {
   return {
     invoiceIndex: row?.invoiceIndex,
     values: Object.fromEntries(FIELDS.map(field => [field, stringValue(row?.original?.[field])])),
+    metadata: row?.metadata?.enabled ? {
+      values: Object.fromEntries(METADATA_FIELDS.map(field => [field, stringValue(row.metadata.values?.[field])])),
+      issueFields: [...(row.metadata.issueFields || [])],
+    } : null,
   };
 }
 
@@ -35,6 +46,48 @@ function comparableValue(value) {
 
 function fieldChanged(draft, baseline, field) {
   return comparableValue(draft?.values?.[field]) !== comparableValue(baseline?.values?.[field]);
+}
+
+function metadataComparable(field, value) {
+  const text = stringValue(value).trim();
+  if (field === 'currency') return text.toUpperCase();
+  if (field === 'date_kind') return text.toLowerCase();
+  if (field === 'invoice_total') return comparableValue(text);
+  return text;
+}
+
+function metadataFieldChanged(draft, baseline, field) {
+  return metadataComparable(field, draft?.metadata?.values?.[field])
+    !== metadataComparable(field, baseline?.metadata?.values?.[field]);
+}
+
+function validateMetadataDraft(draft, baseline, rowErrors) {
+  if (!baseline?.metadata) return;
+  for (const field of METADATA_FIELDS) {
+    const value = stringValue(draft.metadata?.values?.[field]).trim();
+    const required = baseline.metadata.issueFields.includes(field) || metadataFieldChanged(draft, baseline, field);
+    if (field === 'date' && value) {
+      const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const date = match && new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+      if (!match || date.getUTCFullYear() !== Number(match[1]) || date.getUTCMonth() !== Number(match[2]) - 1 || date.getUTCDate() !== Number(match[3])) {
+        rowErrors.metadata_date = '실제로 존재하는 YYYY-MM-DD 전체 날짜를 입력하세요.';
+      }
+    } else if (field === 'date' && required) rowErrors.metadata_date = '원문에서 연도까지 확인한 전체 날짜를 입력하세요.';
+    if (field === 'date_kind' && value && !['invoice', 'arrival', 'shipment'].includes(value.toLowerCase())) {
+      rowErrors.metadata_date_kind = '날짜 의미를 인보이스·도착·출고 중에서 선택하세요.';
+    } else if (field === 'date_kind' && required && !value) rowErrors.metadata_date_kind = '원문 날짜의 의미를 선택하세요.';
+    if (field === 'currency' && value && !/^[A-Za-z]{3}$/.test(value)) rowErrors.metadata_currency = '원문에서 확인한 ISO 4217 3문자 통화를 입력하세요.';
+    else if (field === 'currency' && required && !value) rowErrors.metadata_currency = '원문에서 확인한 ISO 4217 통화를 입력하세요.';
+    if (field === 'invoice_total' && value) {
+      const validAmount = /^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,8})?$/.test(value);
+      const amount = validAmount ? Number(value.replaceAll(',', '')) : NaN;
+      if (!validAmount || !Number.isFinite(amount) || Math.abs(amount) > 1e12) rowErrors.metadata_invoice_total = '송장 총액 숫자 형식 또는 범위를 확인하세요.';
+    } else if (field === 'invoice_total' && required) rowErrors.metadata_invoice_total = '원문에 인쇄된 송장 총액을 입력하세요.';
+    if (!required) continue;
+    if (draft.metadata?.confirmed?.[field] !== true) rowErrors[`metadata_${field}_confirmed`] = `${METADATA_LABELS[field]} 항목을 각각 확인 체크하세요.`;
+    if (!stringValue(draft.metadata?.reasons?.[field]).trim()) rowErrors[`metadata_${field}_reason`] = `${METADATA_LABELS[field]} 확인 사유를 입력하세요.`;
+    if (stringValue(draft.metadata?.reasons?.[field]).trim().length > 1000) rowErrors[`metadata_${field}_reason`] = '확인 사유는 1,000자 이내로 입력하세요.';
+  }
 }
 
 function validateDrafts(drafts, baselines) {
@@ -56,6 +109,7 @@ function validateDrafts(drafts, baselines) {
       rowErrors.reason = '인식값을 변경한 사유를 입력하세요.';
     }
     if (!draft.confirmed) rowErrors.confirmed = '이 인보이스의 값을 검토했다는 확인이 필요합니다.';
+    validateMetadataDraft(draft, baselines.get(key), rowErrors);
     if (Object.keys(rowErrors).length) errors[key] = rowErrors;
   }
   return errors;
@@ -160,7 +214,9 @@ export default function PackingEvidenceReview({
   const draftMap = useMemo(() => new Map(drafts.map(draft => [rowIdentity(draft), draft])), [drafts]);
   const selectedRow = rowMap.get(selectedKey) || safeRows[0] || null;
   const selectedDraft = draftMap.get(selectedKey) || drafts[0] || null;
-  const activeEvidence = activeField ? rowMap.get(activeField.key)?.evidence?.[activeField.field] : null;
+  const activeEvidence = activeField ? (activeField.field.startsWith('metadata:')
+    ? rowMap.get(activeField.key)?.metadata?.evidence?.[activeField.field.slice(9)]
+    : rowMap.get(activeField.key)?.evidence?.[activeField.field]) : null;
 
   useEffect(() => {
     if (!open || !preview) return undefined;
@@ -219,7 +275,9 @@ export default function PackingEvidenceReview({
   const selectEvidence = (key, field) => {
     const row = rowMap.get(key);
     setActiveField({ key, field });
-    const evidencePage = Number(row?.evidence?.[field]?.page);
+    const evidence = field.startsWith('metadata:')
+      ? row?.metadata?.evidence?.[field.slice(9)] : row?.evidence?.[field];
+    const evidencePage = Number(evidence?.page);
     if (preview && Number.isInteger(evidencePage) && evidencePage >= 1 && evidencePage <= preview.numPages) {
       setPageNumber(evidencePage);
     }
@@ -245,6 +303,36 @@ export default function PackingEvidenceReview({
     setSubmitError('');
   };
 
+  const updateMetadataValue = (key, field, value) => {
+    setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? {
+      ...draft,
+      confirmed: false,
+      metadata: { ...draft.metadata, values: { ...draft.metadata?.values, [field]: value }, confirmed: { ...draft.metadata?.confirmed, [field]: false } },
+    } : draft));
+    setErrors(previous => ({ ...previous, [key]: { ...previous[key], [`metadata_${field}`]: '', [`metadata_${field}_reason`]: '', [`metadata_${field}_confirmed`]: '', confirmed: '' } }));
+    setSubmitError('');
+  };
+
+  const updateMetadataReason = (key, field, reason) => {
+    setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? {
+      ...draft,
+      confirmed: false,
+      metadata: { ...draft.metadata, reasons: { ...draft.metadata?.reasons, [field]: reason }, confirmed: { ...draft.metadata?.confirmed, [field]: false } },
+    } : draft));
+    setErrors(previous => ({ ...previous, [key]: { ...previous[key], [`metadata_${field}_reason`]: '', [`metadata_${field}_confirmed`]: '', confirmed: '' } }));
+    setSubmitError('');
+  };
+
+  const updateMetadataConfirmed = (key, field, confirmed) => {
+    setDrafts(previous => previous.map(draft => rowIdentity(draft) === key ? {
+      ...draft,
+      confirmed: false,
+      metadata: { ...draft.metadata, confirmed: { ...draft.metadata?.confirmed, [field]: confirmed } },
+    } : draft));
+    setErrors(previous => ({ ...previous, [key]: { ...previous[key], [`metadata_${field}_confirmed`]: '', confirmed: '' } }));
+    setSubmitError('');
+  };
+
   const confirmDrafts = async () => {
     const nextErrors = validateDrafts(drafts, baselinesRef.current);
     setErrors(nextErrors);
@@ -256,7 +344,8 @@ export default function PackingEvidenceReview({
     }
     const submission = safeRows.map(row => {
       const draft = draftMap.get(rowIdentity(row)) || makeDraft(row);
-      return { ...row, values: { ...draft.values }, reason: draft.reason, confirmed: draft.confirmed };
+      return { ...row, values: { ...draft.values }, reason: draft.reason, confirmed: draft.confirmed,
+        ...(draft.metadata ? { metadata: { values: { ...draft.metadata.values }, confirmed: { ...draft.metadata.confirmed }, reasons: { ...draft.metadata.reasons } } } : {}) };
     });
     setPending(true);
     try {
@@ -270,10 +359,51 @@ export default function PackingEvidenceReview({
 
   if (!open) return null;
   const currentErrors = errors[selectedKey] || {};
+  const showMetadataFirst = Boolean(selectedRow?.metadata?.enabled && selectedRow.metadata.issues.length > 0);
+  const metadataSection = selectedRow?.metadata?.enabled ? <section className={styles.fields} aria-label="송장 날짜·통화·총액 원문 검토" data-testid="metadata-review">
+    <h4>송장 원문 정보</h4>
+    <p className={styles.original}>인식 원문 날짜: {selectedRow.metadata.rawDate == null ? '없음' : String(selectedRow.metadata.rawDate)} · 원문 값과 근거는 보존됩니다.</p>
+    {selectedRow.metadata.requiredDateKind && <p className={styles.original}>국가별 날짜 기준: {selectedRow.metadata.requiredDateKind === 'invoice' ? '인보이스 발행일' : selectedRow.metadata.requiredDateKind === 'arrival' ? '도착일' : '출고일'}</p>}
+    {selectedRow.metadata.issues.length > 0 && <ul aria-label="원본 추출 문제">
+      {selectedRow.metadata.issues.map((issue, index) => <li key={`${issue.code || 'issue'}-${index}`}>{issue.message || issue.code || '원문 확인 필요'}</li>)}
+    </ul>}
+    {METADATA_FIELDS.map(field => {
+      const evidence = selectedRow.metadata.evidence?.[field];
+      const id = `metadata-${field}-${selectedKey}`;
+      const errorKey = `metadata_${field}`;
+      const fieldError = currentErrors[errorKey];
+      const reasonError = currentErrors[`${errorKey}_reason`];
+      const confirmError = currentErrors[`${errorKey}_confirmed`];
+      const input = field === 'date'
+        ? <input id={id} type="date" value={selectedDraft?.metadata?.values?.[field] || ''} onFocus={() => selectEvidence(selectedKey, `metadata:${field}`)} onClick={() => selectEvidence(selectedKey, `metadata:${field}`)} onChange={event => updateMetadataValue(selectedKey, field, event.target.value)} aria-invalid={Boolean(fieldError)} data-testid="metadata-date" />
+        : field === 'date_kind'
+          ? <select id={id} value={selectedDraft?.metadata?.values?.[field] || ''} onFocus={() => selectEvidence(selectedKey, `metadata:${field}`)} onChange={event => updateMetadataValue(selectedKey, field, event.target.value)} aria-invalid={Boolean(fieldError)} data-testid="metadata-date-kind">
+            <option value="">선택하세요</option><option value="invoice">인보이스 발행일</option><option value="arrival">도착일</option><option value="shipment">출고·운송일</option>
+          </select>
+          : <input id={id} type="text" inputMode={field === 'invoice_total' ? 'decimal' : 'text'} maxLength={field === 'currency' ? 3 : undefined} value={selectedDraft?.metadata?.values?.[field] || ''} onFocus={() => selectEvidence(selectedKey, `metadata:${field}`)} onClick={() => selectEvidence(selectedKey, `metadata:${field}`)} onChange={event => updateMetadataValue(selectedKey, field, event.target.value)} aria-invalid={Boolean(fieldError)} data-testid={`metadata-${field}`} />;
+      return <div className={styles.fieldCard} key={field}>
+        <div className={styles.fieldHeading}><strong>{METADATA_LABELS[field]}</strong><span>{evidence?.page ? `원문 ${evidence.page}페이지` : '원문 위치 확인 필요'}</span></div>
+        <label htmlFor={id}>{METADATA_LABELS[field]}</label>
+        <p className={styles.original}>기존 인식값: {selectedRow.metadata.original?.[field] === '' || selectedRow.metadata.original?.[field] == null ? '없음' : String(selectedRow.metadata.original[field])}</p>
+        {input}
+        {evidence?.quote && <q className={styles.quote}>{evidence.quote}</q>}
+        {fieldError && <p className={styles.error} role="alert">{fieldError}</p>}
+        <label className={styles.confirmLabel}>
+          <input type="checkbox" checked={selectedDraft?.metadata?.confirmed?.[field] === true} onChange={event => updateMetadataConfirmed(selectedKey, field, event.target.checked)} data-testid={`metadata-confirm-${field}`} />
+          <span>이 {METADATA_LABELS[field]}의 원문과 입력값을 각각 대조했습니다.</span>
+        </label>
+        {confirmError && <p className={styles.error} role="alert">{confirmError}</p>}
+        <label className={styles.reasonLabel} htmlFor={`${id}-reason`}>{METADATA_LABELS[field]} 확인 사유
+          <input id={`${id}-reason`} type="text" value={selectedDraft?.metadata?.reasons?.[field] || ''} onChange={event => updateMetadataReason(selectedKey, field, event.target.value)} placeholder="원문 확인 또는 수정 근거" aria-invalid={Boolean(reasonError)} data-testid={`metadata-reason-${field}`} />
+        </label>
+        {reasonError && <p className={styles.error} role="alert">{reasonError}</p>}
+      </div>;
+    })}
+  </section> : null;
 
   return (
     <div className={styles.backdrop} data-testid="evidence-review">
-      <section ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-label="패킹 중량 및 운송비 근거 확인">
+      <section ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-label="패킹 metadata·중량·운송비 근거 확인">
         <header className={styles.header}>
           <div>
             <h2>중량·운송비 근거 확인</h2>
@@ -351,6 +481,8 @@ export default function PackingEvidenceReview({
 
               {selectedRow?.explanation && <p className={styles.explanation}>{selectedRow.explanation}</p>}
 
+              {showMetadataFirst && metadataSection}
+
               <div className={styles.fields}>
                 {FIELDS.map(field => {
                   const evidence = selectedRow?.evidence?.[field];
@@ -382,6 +514,8 @@ export default function PackingEvidenceReview({
                   </div>;
                 })}
               </div>
+
+              {!showMetadataFirst && metadataSection}
 
               <label className={styles.reasonLabel}>수정 사유
                 <input
