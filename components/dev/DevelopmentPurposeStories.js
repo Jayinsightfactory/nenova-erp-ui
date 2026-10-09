@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import menuDevelopmentDefaults from '../../config/menu-development-defaults.json';
+import storyVisuals from '../../config/development-story-visuals.json';
 import styles from './DevelopmentPurposeStories.module.css';
 
 const PAGE_SIZE = 50;
@@ -32,6 +33,20 @@ function GuideCharacter() {
     <path d="M76 111q16-7 33 1 17-8 33-1v31q-16-7-33 1-17-8-33-1z" fill="#fff" stroke="#176971" strokeWidth="3" strokeLinejoin="round" /><path d="M109 112v31M84 122l16 3m17 0 16-3" stroke="#8bbdbe" strokeWidth="2" />
     <path d="m31 51 5-12 5 12 12 5-12 5-5 12-5-12-12-5z" fill="#edc66e" /><path d="m174 37 3-8 3 8 8 3-8 3-3 8-3-8-8-3z" fill="#edc66e" />
   </svg>;
+}
+
+function StoryVisuals({ storyId }) {
+  const visuals = storyVisuals.stories[storyId];
+  const [failedImages, setFailedImages] = useState({});
+  if (!visuals) return null;
+  return <section className={styles.visualEvidence} aria-label="시도와 결과를 살펴볼 사진">
+    <h4>당시 화면으로 살펴보기</h4>
+    {visuals.images.map(item => <figure key={item.id}>
+      {failedImages[item.id] ? <p role="status">캡처를 불러오지 못했습니다. 페이지를 새로고침해 다시 확인해 주세요.</p> : <a href={item.src} target="_blank" rel="noopener noreferrer" aria-label="당시 테스트 캡처 크게 보기 (새 탭)"><img src={item.src} alt={item.alt} width="1440" height="900" loading="lazy" onError={() => setFailedImages(current => ({ ...current, [item.id]: true }))} /></a>}
+      <figcaption><strong>{item.caption}</strong><p>{item.limitation}</p><small>원본: {item.source.repository} · {item.source.path} · 확인번호 {item.source.commit.slice(0, 8)}</small><p><a href={item.src} target="_blank" rel="noopener noreferrer">캡처 원본 열기 (새 탭)</a></p></figcaption>
+    </figure>)}
+    <p className={styles.visualResult}>{visuals.resultNote}</p>
+  </section>;
 }
 
 function EvidenceRecords({ storyId, total, page, setPage, data, loading, error, retry, close, panelRef }) {
@@ -177,6 +192,7 @@ export default function DevelopmentPurposeStories() {
         <div className={styles.storyList}>{stories.map(story => <article key={story.id} className={styles.storyCard}><div className={styles.storyHeader}><div><p className={styles.period}>{periodLabel(story.firstDate, story.lastDate)}</p><h3>{story.title}</h3></div><span className={`${styles.confidence} ${styles[story.confidence] || ''}`}>{confidenceNames[story.confidence] || '확인 수준 검토 필요'}</span></div>
           <div className={styles.storyNarrative}><div><span className={styles.fieldLabel}>풀어보려는 문제</span><p>{story.purpose}</p></div><div><span className={styles.fieldLabel}>이 기능으로 돕고 싶은 일</span><p>{story.userValue}</p></div></div>
           <div className={styles.changes}><h4>시도와 확인의 흐름</h4><ol>{(story.changes || []).map((change, index) => <li key={`${story.id}-${index}`}><span className={styles.changeDate}>{periodLabel(change.firstDate, change.lastDate)}</span><div><strong>{change.title}</strong>{change.problem && <p><b>시작한 불편</b> · {change.problem}</p>}<p>{change.problem || change.result ? <><b>시도한 방법</b> · </> : null}{change.description}</p>{change.result && <p><b>기록에서 확인한 변화</b> · {change.result}</p>}{Number.isFinite(change.evidenceCount) && <small>확인한 원본 기록 {number(change.evidenceCount)}건</small>}</div></li>)}</ol></div>
+          <StoryVisuals storyId={story.id} />
           <p className={styles.scope}><strong>확인 범위</strong> · {story.scopeNote}</p>
           <button ref={node => { openRefs.current[story.id] = node; }} className={styles.openEvidence} type="button" aria-expanded={openStory === story.id} onKeyDown={event => moveStoryFocus(event, story.id)} onClick={() => toggleRecords(story.id)}>확인한 원본 기록 {number(story.recordCount)}건 {openStory === story.id ? '닫기' : '보기'}</button>
           {openStory === story.id && <EvidenceRecords storyId={story.id} total={story.recordCount} page={page} setPage={setPage} data={records} loading={recordsLoading} error={recordsError} retry={retryRecords} close={closeRecords} panelRef={panelRef} />}

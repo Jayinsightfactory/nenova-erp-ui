@@ -1,0 +1,20 @@
+{
+  "stories": {
+    "mindmap-orbit-visual-map-expanded": {
+      "images": [{
+        "id": "personal-map-attempt",
+        "src": "/development-evidence/mindmap-personal-attempt.png",
+        "alt": "Orbit AI 게스트 테스트 화면. 작업 종류별 색상 안내와 지도 확대·이동 조작이 배치되어 있습니다.",
+        "caption": "시도한 화면 · 흩어진 작업을 지도에서 살펴보려고, 작업 종류를 색으로 나누고 확대·이동 조작을 배치했습니다.",
+        "stage": "attempt",
+        "source": {
+          "repository": "mindmap-viewer",
+          "commit": "aa78dbdf13aa71d433b2f9c5e9e6bd5b288fd737",
+          "path": "test-screenshots/03-personal.png"
+        },
+        "limitation": "원본 프로젝트에 남아 있던 게스트 테스트 캡처입니다. 작업 이름이나 연결 내용은 보이지 않아, 실제 작업이 잘 연결됐는지까지 이 이미지로 확인할 수는 없습니다. 자료가 남은 기록은 2026년 3월 25일이며, 촬영 날짜는 확인되지 않았습니다."
+      }],
+      "resultNote": "결과 화면은 아직 확인 중입니다. 실제 작업들이 연결된 캡처를 찾으면 시도한 화면 옆에 추가하겠습니다."
+    }
+  }
+}
