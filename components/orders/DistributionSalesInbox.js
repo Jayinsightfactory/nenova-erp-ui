@@ -57,6 +57,10 @@ function sourceWeekFromMessage(value, year) {
 export default function DistributionSalesInbox({year,week,disabled,onLoadText,prepareMessage,evidenceMessages=[],evidenceOrders=[],operationRevision=null,snapshotActorId='',snapshotAuthReady=false}) {
   const [controlsOpen,setControlsOpen]=useState(false);
   const [expandedEvidence,setExpandedEvidence]=useState({});
+  const [foldedMessages,setFoldedMessages]=useState({});
+  const foldedMessagesRef=useRef({});
+  function setMessageFold(identity,folded,event){const card=event?.currentTarget.closest('article');const next={...foldedMessagesRef.current,[identity]:folded};foldedMessagesRef.current=next;setFoldedMessages(next);if(card)requestAnimationFrame(()=>card.querySelector('.source-hide-toggle,.source-unhide-toggle')?.focus());}
+  function restoreMessageFolds(value){foldedMessagesRef.current=value;setFoldedMessages(value);}
   const [open,setOpen]=useState(true),[from,setFrom]=useState(''),[to,setTo]=useState('');
   const [rows,setRows]=useState([]),[selected,setSelected]=useState({}),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
   const [cursor,setCursor]=useState(''),[more,setMore]=useState(false),[loadedPeriod,setLoadedPeriod]=useState('');
@@ -84,7 +88,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   useEffect(()=>{
     const epoch=++snapshotEpoch.current;
     const owner=snapshotActorId&&year?JSON.stringify([snapshotActorId,String(year)]):'';
-    const carry=retainInboxFeed({owner,previousOwner:feedOwner.current,rows:rowsRef.current,pending:pendingRowsRef.current});
+    const carry=retainInboxFeed({owner,previousOwner:feedOwner.current,rows:rowsRef.current,pending:pendingRowsRef.current,foldedMessages:foldedMessagesRef.current});
     feedOwner.current=owner;
     // The parent may restore an earlier operation while authenticating. Treat
     // the revision present when this account/week becomes known as baseline;
@@ -101,7 +105,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       if(data){
         restoredApplicationScope.current=`${cacheKey}:${String(year||'')}:${String(shortApplicationWeek(year,week)||'')}`;
         const retained=retainInboxFeed({owner,previousOwner:owner,...carry},data);
-        setFrom(data.from);setTo(data.to);setRows(retained.rows);setSelected(data.selected||{});setCursor(data.cursor);setMore(data.more);setLoadedPeriod(data.loadedPeriod);
+        setFrom(data.from);setTo(data.to);setRows(retained.rows);restoreMessageFolds(retained.foldedMessages);setSelected(data.selected||{});setCursor(data.cursor);setMore(data.more);setLoadedPeriod(data.loadedPeriod);
         setPendingRows(retained.pending);setRefreshStatus({...data.refreshStatus,loading:false});
         setManualApplications(data.manualApplications||{});setAuditApplications(data.auditApplications||{});setOperationApplications(data.operationApplications||{});setOperationHistory(data.operationHistory||[]);
         setApplicationStatus({...data.applicationStatus,loading:false});setLiveHistory(data.liveHistory||{});setLiveBalanceComparison(data.liveBalanceComparison||null);
@@ -109,7 +113,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
         setSnapshotSavedAt(record.savedAt);skipInitialSave.current=carry.rows.length||carry.pending.length?'':cacheKey;
         setSnapshotPhase({key:cacheKey,kind:'restored'});
       } else {
-        const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows(carry.rows);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows(carry.pending);
+        const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows(carry.rows);restoreMessageFolds(carry.foldedMessages);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows(carry.pending);
         setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
         setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});
         setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setHistoryAttempted(false);setApplicationAttempted(false);
@@ -117,7 +121,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       }
     }).catch(error=>{
       if(!active||epoch!==snapshotEpoch.current)return;
-      const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows(carry.rows);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows(carry.pending);
+      const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows(carry.rows);restoreMessageFolds(carry.foldedMessages);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows(carry.pending);
       setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
       setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});
       setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});
@@ -400,6 +404,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     </div>;
   }
   function compactMessageRow(row) {
+    if(foldedMessages[row.identity]===true)return <article className="message compact-match-row folded-message" data-testid={`compact-match-row:${row.identity}`} key={row.identity}><span className="folded-message-preview collapsed-message-preview">{String(row.message||'').split(/\r\n|\r|\n/,1)[0]}</span><button type="button" className="source-unhide-toggle" data-testid={`source-fold-toggle:${row.identity}`} aria-expanded={false} onClick={event=>setMessageFold(row.identity,false,event)}>다시 펼치기</button></article>;
     const inLiveRange=liveBatchIdentities.has(row.identity);
     const confirmed=inLiveRange&&hasAcceptedLiveHistoryScope?confirmedHistoryRequests(liveBalanceComparison,row.identity,liveHistory[row.identity]):[];
     const quantityProcessed=inLiveRange&&hasAcceptedLiveHistoryScope?quantityProcessedRequests(row.identity,liveHistory[row.identity]):[];
@@ -474,7 +479,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     return <article className={`message compact-match-row ${confirmation.confirmed&&!confirmation.cancelled?'history-completed':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
-      <div className="visible-change-meta"><small>{source}</small>
+      <div className="visible-change-meta"><small>{source}</small><button type="button" className="source-hide-toggle" data-testid={`source-fold-toggle:${row.identity}`} aria-expanded={true} onClick={event=>setMessageFold(row.identity,true,event)}>숨기기</button>
       <button type="button" className={`source-delivery-status ${deliveryStatus.items[row.identity]?.status==='DELIVERED'?'delivered':''}`} data-testid={`source-delivery-status:${row.identity}`} aria-pressed={deliveryStatus.items[row.identity]?.status==='DELIVERED'} aria-disabled="true" title={deliveryStatus.items[row.identity]?.status==='DELIVERED'?`현장 추가취소방 동일 원문 확인 · ${shortKstTime(deliveryStatus.items[row.identity].deliveredAt)}`:deliveryStatus.error||'최근 7일 추가취소방에서 동일 원문의 전송을 확인합니다. 부분 일치·시각 불명확·중복 원문은 완료로 표시하지 않습니다.'}>{deliveryStatus.items[row.identity]?.status==='DELIVERED'?'● 전달완료':deliveryStatus.loading?'전달 확인 중…':deliveryStatus.items[row.identity]?.status==='AMBIGUOUS'?'전달 재확인':'○ 전달 미확인'}</button>
       <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={confirmation.confirmed&&!confirmation.cancelled} title="확인 표시는 실제 주문·분배 적용과 별개입니다. 확인취소는 전산 작업을 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,confirmation.confirmed&&!confirmation.cancelled?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':confirmation.confirmed&&!confirmation.cancelled?'확인취소':'확인처리'}</button>
       {!prepareMessage&&<button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button>}</div>
@@ -538,16 +543,16 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     void refreshLiveHistory(liveScope,liveBatch,{force:true});
   },[ready,open,disabled,feedEvidenceRevision,loadedPeriod,liveScope,liveBatchKey,historyAttempted,liveHistoryStatus.loaded,liveHistoryStatus.scope]);
   useEffect(()=>{
-    if(!ready||!loadedPeriod||loadedPeriod!==livePeriod)return;
+    if(!ready||(!loadedPeriod?!rows.length:loadedPeriod!==livePeriod))return;
     if(skipInitialSave.current===cacheKey){skipInitialSave.current='';return;}
     const epoch=snapshotEpoch.current;
     const scope={userId:snapshotActorId,year,week};
-    const data={from,to,rows,selected,cursor,more,loadedPeriod,pendingRows,
+    const data={from,to,rows,selected,foldedMessages,cursor,more,loadedPeriod,pendingRows,
       refreshStatus:{...refreshStatus,loading:false},manualApplications,auditApplications,operationApplications,operationHistory,
       applicationStatus:{...applicationStatus,loading:false},liveHistory,liveBalanceComparison,
       liveHistoryStatus:{...liveHistoryStatus,loading:false},historyAttempted,applicationAttempted};
     writeInboxSnapshot(scope,data).then(savedAt=>{if(epoch===snapshotEpoch.current){setSnapshotSavedAt(savedAt);setSnapshotError('');setSnapshotPhase(previous=>previous.key===cacheKey?{...previous,kind:'fresh'}:previous);}}).catch(()=>{if(epoch===snapshotEpoch.current)setSnapshotError('브라우저 저장 실패 · 메뉴 재진입 시 결과가 유지되지 않을 수 있습니다. 저장 공간과 브라우저 설정을 확인하세요.');});
-  },[ready,cacheKey,from,to,rows,selected,cursor,more,loadedPeriod,pendingRows,refreshStatus,manualApplications,auditApplications,operationApplications,operationHistory,applicationStatus,liveHistory,liveBalanceComparison,liveHistoryStatus,historyAttempted,applicationAttempted]);
+  },[ready,cacheKey,from,to,rows,selected,foldedMessages,cursor,more,loadedPeriod,pendingRows,refreshStatus,manualApplications,auditApplications,operationApplications,operationHistory,applicationStatus,liveHistory,liveBalanceComparison,liveHistoryStatus,historyAttempted,applicationAttempted]);
   return <section className="sales-inbox" aria-label="영업방 대화 수신함">
     <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 기본 최근 7일</span><span data-testid="sales-inbox-snapshot-status" role="status">{snapshotError||(!ready?snapshotAuthReady&&!snapshotActorId?'사용자를 확인하지 못했습니다. 다시 로그인해 주세요.':'저장된 조회 확인 중':snapshotSavedAt?`${snapshotPhase.kind==='restored'?'저장된 조회 복원':'조회 결과 저장'} · 브라우저 마지막 저장 ${shortKstTime(snapshotSavedAt)} · 전산 대조 ${liveHistoryStatus.asOf?shortKstTime(liveHistoryStatus.asOf):'시각 미확인'}`:'조회 결과 저장 준비 중')}</span></div>
     <div className="sales-inbox-content" hidden={!open||!ready}>
@@ -593,7 +598,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       .sales-inbox .inbox-tools>summary{padding:5px 7px;cursor:pointer;color:#245b93}
       .sales-inbox .compact-match-list{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
       .sales-inbox .compact-match-row{margin:1px 0;border-width:1px;min-width:0}
-      .sales-inbox .visible-change-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:2px 5px;background:#f7faff;font-size:11px}
+      .sales-inbox .folded-message{display:flex;align-items:center;gap:8px;padding:5px 8px;min-width:0}.sales-inbox .folded-message-preview{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sales-inbox .folded-message>button{flex:none}.sales-inbox .visible-change-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:2px 5px;background:#f7faff;font-size:11px}
       .sales-inbox .visible-change-meta>button{margin-left:0;font:inherit;font-size:11px;padding:2px 5px;min-height:23px}
       .sales-inbox .visible-change-meta .source-delivery-status{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;cursor:default}
       .sales-inbox .visible-change-meta .source-delivery-status.delivered{background:#d1fae5;color:#065f46;border-color:#10b981;font-weight:700;box-shadow:0 0 5px #10b98155}
