@@ -1,3 +1,4 @@
+import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
 import { useMemo, useState } from 'react';
 import Layout from '../../components/Layout';
 
@@ -33,10 +34,10 @@ export default function KakaoAuditPage() {
 
   return (
     <Layout>
-      <div style={{ padding: 20, maxWidth: 1500, margin: '0 auto' }}>
+      <div className={desktopUi.page} style={{ padding: 20, maxWidth: 1500, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22 }}>카톡 변경사항 DB 검증</h1>
+            <h1 data-desktop-chrome style={{ margin: 0, fontSize: 22 }}>카톡 변경사항 DB 검증</h1>
             <div style={{ marginTop: 4, color: '#667085', fontSize: 13 }}>
               카톡 원문에서 추가/취소 요청을 추출하고 주문등록/출고분배 DB 합계와 대조합니다.
             </div>

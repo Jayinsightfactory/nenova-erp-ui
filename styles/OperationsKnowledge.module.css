@@ -2,3 +2,8 @@
 @media(max-width:1450px){.filters{grid-template-columns:repeat(4,minmax(0,1fr))}.filters .search{grid-column:span 2}.detailPane{max-height:calc(100vh - 380px)}}
 @media(max-width:850px){.page{padding:16px}.pageHeader{align-items:flex-start;flex-direction:column}.pageHeader h1{font-size:22px}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filters .search{grid-column:span 2}.workspace{display:block}.listPane{margin-bottom:12px}.list{max-height:360px;min-height:180px}.detailPane{max-height:none;min-height:300px}.tagGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.filters{grid-template-columns:1fr}.filters .search{grid-column:auto}.formRow,.formRow:has(label:nth-child(3)),.tagGrid{grid-template-columns:1fr}.statRow span{font-size:12px}.detailPane{padding:13px}.legacyCard{display:block}.legacyCard span{display:block;margin-top:3px}}
+
+@media screen {
+  :global(html[data-nenova-desktop="true"]) .page{max-width:none;margin:0;padding:8px 12px 24px}
+  :global(html[data-nenova-desktop="true"]) .pageHeader{margin-bottom:12px}
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { apiGetExe } from '../lib/exeParity/client.js';
 import { apiGet } from '../lib/useApi.js';
+import { incomingDateLabel } from '../lib/incomingDateLabel.js';
 import { useLang } from '../lib/i18n';
 import * as XLSX from 'xlsx';
 import { parseWarehousePackingWorkbook } from '../lib/warehousePackingImport.js';
@@ -275,7 +276,7 @@ export default function Warehouse() {
                 { title: '농장명', dataIndex: 'FarmName', ellipsis: true, sorter: (a, b) => String(a.FarmName || '').localeCompare(String(b.FarmName || ''), 'ko'), filterSearch: true, filters: farmOptions.map((f) => ({ text: f, value: f })), onFilter: (v, r) => r.FarmName === v },
                 { title: '인보이스', dataIndex: 'InvoiceNo', width: 110, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
                 { title: 'AWB', dataIndex: 'AWB', width: 120, ellipsis: true, render: (v) => <Text type="secondary" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{v}</Text> },
-                { title: '입력일자', dataIndex: 'InputDate', width: 100, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
+                { title: '입력일자', dataIndex: 'InputDate', width: 100, render: value => <span style={{ whiteSpace: 'nowrap' }} title={value == null ? '' : String(value)}>{incomingDateLabel(value)}</span>, sorter: (a, b) => String(a.InputDate || '').localeCompare(String(b.InputDate || '')), defaultSortOrder: 'descend' },
                 { title: '박스', dataIndex: 'totalBox', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBox || 0) - (b.totalBox || 0) },
                 { title: '단', dataIndex: 'totalBunch', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalBunch || 0) - (b.totalBunch || 0) },
                 { title: '송이', dataIndex: 'totalSteam', align: 'right', width: 70, render: fmt, sorter: (a, b) => (a.totalSteam || 0) - (b.totalSteam || 0) },

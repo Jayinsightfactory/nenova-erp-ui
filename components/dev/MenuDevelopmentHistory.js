@@ -109,7 +109,7 @@ export default function MenuDevelopmentHistory() {
       <div className={styles.heading}>
         <div>
           <p className={styles.eyebrow}>기능 추가·수정 내역</p>
-          <h1>메뉴별 기능</h1>
+          <h1 data-desktop-chrome>메뉴별 기능</h1>
           <p className={styles.intro}>메뉴와 기능을 선택하면 어떤 기능을 추가하고 수정했는지 날짜순으로 볼 수 있습니다.</p>
           {data && <p className={styles.snapshot}>전체 메뉴 {count(data.totalMenuCount ?? data.menus?.length)}개 · 중복을 제외한 변경 기록 {count(data.uniqueCommitCount)}건 · 자료 확인 시각 {kst(data.generatedAt)} · {data.sourceStatus === 'git' ? '개발 기록 원본에서 확인' : '저장해 둔 자료 기준 · 현재 원본과 같은지는 미확인'}</p>}
         </div>

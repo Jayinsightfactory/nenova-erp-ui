@@ -357,6 +357,34 @@ async function run() {
   await assertShellWidth(1920, 'shell-1920x1080.png');
   await assertShellWidth(800, 'shell-800x1080.png');
 
+  // Overflow tabs reveal a new selection, but leave a manually browsed strip alone.
+  const overflowTabs = [];
+  for (let i = 0; i < 10; i++) {
+    main.command(sourceWindow, 'open', { url: `/test/fixture?overflow=${i}`, title: `가로 탭 확인 ${i}` });
+    overflowTabs.push(sourceWindow.activeId);
+  }
+  const lastOverflow = overflowTabs.at(-1);
+  const tabVisible = id => shellContents.executeJavaScript(`(() => {
+    const root = document.querySelector('#tabs');
+    const item = root.querySelector('[data-id="${id}"]');
+    if (!item) return false;
+    const r = root.getBoundingClientRect(), t = item.getBoundingClientRect();
+    return t.left >= r.left - 1 && t.right <= r.right + 1;
+  })()`);
+  await waitFor(() => tabVisible(lastOverflow), 'new active overflow tab is visible');
+  await waitFor(() => overflowTabs.every(id => !main.tabs.get(id)?.loading), 'overflow fixtures finish loading');
+  await shellContents.executeJavaScript(`document.querySelector('[data-id="${first.id}"] .tab-main').focus(); document.querySelector('#tabs').scrollLeft = 0`);
+  main.command(sourceWindow, 'rename', { id: lastOverflow, title: '주기적 상태 변경 후 탭' });
+  await waitFor(() => shellContents.executeJavaScript(`document.querySelector('[data-id="${lastOverflow}"] .tab-text')?.textContent === '주기적 상태 변경 후 탭'`), 'tab title update rendered');
+  const manualStrip = await shellContents.executeJavaScript(`({ scroll: document.querySelector('#tabs').scrollLeft, focused: document.activeElement.closest('.tab')?.dataset.id })`);
+  assert.equal(manualStrip.scroll, 0, 'title/state redraw preserves manual scroll');
+  assert.equal(manualStrip.focused, first.id, 'tab redraw preserves keyboard focus');
+  main.command(sourceWindow, 'activate', { id: first.id });
+  await waitFor(() => tabVisible(first.id), 'selecting first tab reveals it');
+  main.command(sourceWindow, 'activate', { id: lastOverflow });
+  await waitFor(() => tabVisible(lastOverflow), 'selecting last tab reveals it again');
+  main.command(sourceWindow, 'activate', { id: first.id });
+
   // Ctrl+T reopens the menu from a focused workspace.
   console.log('Smoke: shell layout');
   main.command(sourceWindow, 'menu', { open: false });
@@ -385,7 +413,7 @@ async function run() {
   await waitFor(() => sourceWindow.ids.indexOf(first.id) === beforeKeyboardReorder - 1, 'keyboard tab reorder');
 
   // A close confirmation can be cancelled, then accepted and completed.
-  dialog.showMessageBoxSync = (_window, options) => { assert.deepEqual(options.buttons, ['닫기', '취소']); assert.equal(options.cancelId, 1); assert.equal(options.defaultId, 1); return dialogAnswer; };
+  dialog.showMessageBoxSync = (_window, options) => { assert.deepEqual(options.buttons, ['닫기', '취소']); assert.equal(options.cancelId, 1); assert.equal(options.defaultId, 0, 'Enter defaults to close while Escape cancels'); return dialogAnswer; };
   dialogAnswer = 1;
   console.log('Smoke: cancel close begin');
   main.command(sourceWindow, 'close', { id: second.id });

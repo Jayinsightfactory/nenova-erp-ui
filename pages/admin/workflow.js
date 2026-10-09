@@ -96,7 +96,7 @@ export default function WorkflowAnalysis() {
 
   return (
     <div style={{ padding: 16, maxWidth: 1200, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>📊 직원간 업무플로우 분석</h1>
+      <h1 data-desktop-chrome style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>📊 직원간 업무플로우 분석</h1>
       <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>nenovakakao 대화(이벤트/이슈) + nenova.exe(ViewOrder) 매칭 · 파이프라인 IMPORT→QC→재고→발주→출고→현장. 읽기 전용.</div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>

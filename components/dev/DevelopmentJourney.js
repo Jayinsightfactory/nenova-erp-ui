@@ -152,7 +152,7 @@ function RawDevelopmentJourney() {
 
   return <section className={styles.root} aria-label="개발 여정">
     <header className={styles.hero}>
-      <div><p className={styles.eyebrow}>DEVELOPMENT JOURNEY · 기록으로 보는 흐름</p><h1>개발 여정</h1>
+      <div><p className={styles.eyebrow}>DEVELOPMENT JOURNEY · 기록으로 보는 흐름</p><h1 data-desktop-chrome>개발 여정</h1>
         <p className={styles.lead}>전체 기록을 날짜별로 묶었습니다. 처음 남겨진 기록부터 최근 기록까지, 월과 날짜를 따라 실제 개발 변경 내역을 살펴보세요.</p>
         <p className={styles.caveat}>코드 변경 기록은 기능 수·요청 건수·배포 횟수가 아닙니다. 작업 메모는 별도로 셉니다. 이 화면은 기록에 없는 성과나 사건을 추정하지 않습니다.</p>
         <p className={styles.coverage}>자료 확인 시각: {summary?.generatedAt ? dateTimeLabel(summary.generatedAt) : '확인 중'} · 저장된 개발 기록과 이 웹사이트에 포함된 기록을 표시하며, 현재 진행 중인 로컬 작업은 포함하지 않습니다.</p>

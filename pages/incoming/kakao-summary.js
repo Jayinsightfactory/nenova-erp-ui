@@ -1,3 +1,4 @@
+import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
 import { useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 
@@ -58,10 +59,10 @@ export default function IncomingKakaoSummaryPage() {
 
   return (
     <>
-      <div style={{ padding: 18, maxWidth: 1200, margin: '0 auto' }}>
+      <div className={desktopUi.page} style={{ padding: 18, maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 20 }}>수입방 카톡 수량집계</h1>
+            <h1 data-desktop-chrome style={{ margin: 0, fontSize: 20 }}>수입방 카톡 수량집계</h1>
             <div style={{ marginTop: 4, fontSize: 12, color: '#667085' }}>
               Google Sheet의 카톡 구조화 데이터에서 품목과 수량만 집계합니다.
             </div>

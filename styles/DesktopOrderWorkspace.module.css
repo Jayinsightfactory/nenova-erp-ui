@@ -1,0 +1,18 @@
+/* Explicit page opt-in: preserve ordinary web and printed order forms. */
+@media screen {
+  :global(html[data-nenova-desktop="true"]) .page {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 12px !important;
+  }
+  /* Import keeps its existing bottom clearance for long review workflows. */
+  :global(html[data-nenova-desktop="true"]) .importPage {
+    padding-bottom: 120px !important;
+  }
+  :global(html[data-nenova-desktop="true"]) .toolbar :global(.btn):not(:global(table *), :global([role="grid"] *)),
+  :global(html[data-nenova-desktop="true"]) .toolbar :global(.filter-input):not(:global(table *), :global([role="grid"] *)),
+  :global(html[data-nenova-desktop="true"]) .toolbar :global(.filter-select):not(:global(table *), :global([role="grid"] *)) {
+    min-height: 30px;
+    font-size: 13px;
+  }
+}

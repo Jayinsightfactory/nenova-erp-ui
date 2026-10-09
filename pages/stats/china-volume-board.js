@@ -789,7 +789,7 @@ export default function ChinaVolumeBoard() {
     <>
       <Head><title>자동 중국물량표 - nenova ERP</title></Head>
       <div className="page">
-        <header className="titlebar"><b>자동 중국물량표</b><span>1920×1080 기준</span><button onClick={() => window.opener ? window.close() : router.push('/dashboard')}>닫기</button></header>
+        <header className="titlebar"><b data-desktop-chrome>자동 중국물량표</b><span>1920×1080 기준</span><button onClick={() => window.opener ? window.close() : router.push('/dashboard')}>닫기</button></header>
         <div className="toolbar">
           <label>연도<input type="number" value={year} onChange={e => setYear(Number(e.target.value))} /></label>
           <label className="week-field">DB 입력 차수<button type="button" aria-label="이전 입력 차수" onClick={() => stepWeek(-1)} disabled={weeksLoading || availableWeeks.indexOf(week) >= availableWeeks.length - 1}>‹</button><select aria-label="차수" value={week} onChange={e => setWeek(e.target.value)} disabled={weeksLoading || !availableWeeks.length}>{availableWeeks.map(item => <option key={item} value={item}>{item}</option>)}</select><button type="button" aria-label="다음 입력 차수" onClick={() => stepWeek(1)} disabled={weeksLoading || availableWeeks.indexOf(week) <= 0}>›</button></label>

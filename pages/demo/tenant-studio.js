@@ -67,7 +67,7 @@ export default function TenantStudioPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 1400, margin: '0 auto' }}>
         <header style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 900 }}>테넌트 스튜디오</h1>
+            <h1 data-desktop-chrome style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 900 }}>테넌트 스튜디오</h1>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--text3)', maxWidth: 560 }}>
               요구사항·회사정보·기능을 입력하면 <strong>메뉴·색상·인쇄헤더·용어</strong>가 즉시 바뀝니다.
               결과 JSON을 <code>config/tenant.{'{id}'}.json</code>으로 저장해 배포합니다.

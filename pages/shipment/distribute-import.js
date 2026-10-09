@@ -599,7 +599,7 @@ export default function DistributeImport() {
       <div style={st.page}>
         <div style={st.toolbar}>
           <div>
-            <h1 style={st.title}>출고분배 엑셀 검증 업로드</h1>
+            <h1 data-desktop-chrome style={st.title}>출고분배 엑셀 검증 업로드</h1>
             <div style={st.sub}>차수피벗 출고리스트 또는 분류프로그램 물량표를 읽어 기존 주문등록 수량 기준으로 변경을 검증합니다.</div>
           </div>
           <div style={st.controls}>

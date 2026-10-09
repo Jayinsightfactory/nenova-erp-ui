@@ -10,7 +10,7 @@ const N8N_URL = 'https://n8n.nenovaweb.com/';
 export default function AutomationHub() {
   return (
     <div style={{ maxWidth: 760, margin: '24px auto', padding: '0 12px' }}>
-      <h2 style={{ marginBottom: 4 }}>🔗 업무 자동화 (n8n)</h2>
+      <h2 data-desktop-chrome style={{ marginBottom: 4 }}>🔗 업무 자동화 (n8n)</h2>
       <p style={{ color: 'var(--text3)', marginTop: 0 }}>
         직원이 각자 자기 업무에 맞는 자동화 워크플로우를 만들어 사용하는 도구입니다.
       </p>
