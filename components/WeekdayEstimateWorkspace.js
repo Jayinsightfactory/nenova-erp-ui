@@ -548,7 +548,7 @@ export default function WeekdayEstimateWorkspace() {
         earlyRecords, customer?.CustKey);
       if (classifiedMatrix.earlyClassificationError) throw new Error(`선출고 연결 원장 확인 필요: ${classifiedMatrix.earlyClassificationError}`);
       const matrix = applyWeekdayCarryoverToMatrix(classifiedMatrix, currentCarry?.context, currentCarry?.records || [], plans);
-      const model = buildWeekdayWebExportSnapshot(matrix, `주광 발주내역 · ${year}년 ${majorWeek}차`,
+      const model = buildWeekdayWebExportSnapshot(matrix, `주광 발주내역 · ${majorWeek}차`,
         {wilsonDay:exportWilsonDay,wilsonRecords,wilsonDrafts:activeWilsonInputs,custKey:customer?.CustKey});
       let designBytes;
       if (original.savedTemplate) designBytes = await original.file.arrayBuffer();
