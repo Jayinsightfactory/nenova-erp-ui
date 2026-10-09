@@ -11,3 +11,9 @@ A. 웹/PC가 함께 쓰는 /login에서 마지막 성공 아이디를 표시 전
 - 예외: 없음. 아이디 기억은 사용자 명시 요청이며 인증으로 사용하지 않는다.
 
 검증·배포 결과는 아래에 기록한다. orchestration 문서는 저장소에 없어 사용자 제공 하위작업 역할 지침을 적용했다.
+
+완료: 소스 6881ef07, PR #1001 병합 c63b12d17986d1d98362fca7209d64ccca37d8de. Cafe24 run 37892481961 성공. ERP master run 37892481950 성공.
+
+단위 2건, UI layout/ERP 계약/dnSpy/manifest/write guard, production build 통과. production fixture 및 배포 후 https://nenovaweb.com 로그인 페이지에서 1920×1080/800×1080 브라우저 fixture 통과(2026-10-09). 로그인 POST와 모든 API는 fixture 응답으로 가로채 실제 계정 로그인/운영 쓰기 없이 성공 ID 유지·실패 미덮어쓰기·취소·초점·빈 비밀번호·저장 차단·잘림을 검사했다. PC는 공통 웹 로그인 재진입으로 적용하며 네이티브 앱 버전은 올리지 않았다.
+
+테스트 사전 실행 중 최초 dev 프로세스는 기존 환경에서 scheduler 시작 로그 후 compilation 오류로 중단했다. 최초 Ready→중단의 정확한 시간과 DB 작업 실행 유무는 확인되지 않았다. 이후 모든 실행은 DB 설정을 비운 production fixture로 진행했다. 기능 변경 자체에는 ERP 쓰기가 없다. 임시 .next-login-fixture 삭제는 자동 승인 검토에서 차단되어 미추적 상태로 보존했고 커밋에서 제외했다.
