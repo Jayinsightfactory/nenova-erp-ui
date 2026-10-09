@@ -4,7 +4,7 @@
 |---|---|
 | 날짜 / 작업 | 2026-10-09 / desktop-home-workspace |
 | 화면 | 네노바 PC 네이티브 홈, 지침/농장 피드백 원문 이동 |
-| 상태 | 구현·로컬 검증 완료, PR/배포 진행 중 |
+| 상태 | PR1003 병합·Cafe24 배포·PC1.3.5 공개 완료. 사용자 설치 적용 미확인 |
 | 원장 부작용 | 개인 소유 파일만 쓰기. 주문·출고·재고·견적·매출·공용 체크리스트 변경 없음 |
 | 버전 | PC 1.3.5 |
 
@@ -56,7 +56,7 @@ PC renderer는 임의 URL·소유자를 선택하지 못한다. main의 고정 H
 | 매칭/업로드/ERP 쓰기 | 해당 없음 | 개인 업무 및 기존 원천 읽기만 |
 | 연도/권한 | 적용 | 실제 연도·차수, source 권한, owner 검증 |
 | 중복 Layout | 해당 없음 | native shell, 웹 원문은 기존 shell 유지 |
-| 배포 | 진행 중 | 웹 API와 PC 설치파일 각각 확인 필요 |
+| 배포 | 적용 | PR1003 CI, Cafe24 성공, 공개 업데이트 feed1.3.5/hash 일치 |
 
 ## 미완/다음 작업
 
@@ -65,3 +65,14 @@ PC renderer는 임의 URL·소유자를 선택하지 못한다. main의 고정 H
 이어받기: 이 기록과 홈 계약을 읽고 PR·Cafe24 배포·desktop-v1.3.5 릴리스 결과를 확인한다. 기획 시안이나 fixture 통과를 사용자 설치 완료로 표현하지 않는다.
 
 PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1003
+
+## 배포 결과
+
+- PR1003 최종 head75d91458: Windows installer/ERP guard 성공. master 병합c507b011.
+- Cafe24 run37896854183 성공(https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37896854183), 운영 홈 API 게스트401 JSON 확인.
+- https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.5 공개. 설치파일111708116bytes, GitHub asset SHA256과 로컬 SHA256 일치.
+- 서버 배포 후 latest로 지정했다. 공개 latest/download/latest.yml 버전1.3.5·SHA512 일치, 운영 로그인 다운로드 링크1.3.5 확인.
+- 운영 로그인 페이지를 읽고 API를 fixture로 차단한 Chrome smoke1920/800px 통과: ID 기억, 비밀번호 미저장, 재진입/계정 교체/실패 보존. 운영 로그인 POST/DB 쓰기 없음.
+- 사용자 작업 앱의 강제 종료·설치는 하지 않았다. 앱 업데이트 확인 → 다운로드 → 업무 저장 후 재시작이 필요하다.
+
+이 최종 결과 추가 기록은 병합 이후 현재 작업 브랜치에 보관한다. 기능 코드는 위 master 병합/배포에 포함되어 있다.
