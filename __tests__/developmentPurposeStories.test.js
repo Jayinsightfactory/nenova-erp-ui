@@ -90,9 +90,9 @@ test('authored problem and outcome remain safe searchable narrative, not inferre
   const ui = fs.readFileSync(path.join(__dirname, '../components/dev/DevelopmentPurposeStories.js'), 'utf8');
   assert.match(ui, /change\.problem \|\| ''/);
   assert.match(ui, /change\.result \|\| ''/);
-  assert.match(ui, /불편했던 점/);
-  assert.match(ui, /추가·수정한 기능/);
-  assert.match(ui, /편해진 점/);
+  assert.match(ui, /시작한 불편/);
+  assert.match(ui, /시도한 방법/);
+  assert.match(ui, /기록에서 확인한 변화/);
 });
 
 test('all story and review pages reconcile the entire tracked snapshot without duplication', () => {
@@ -317,7 +317,8 @@ test('purpose UI is the default, raw history stays alternate and API remains aut
   const api = read('pages/api/dev/development-stories.js');
   assert.match(wrapper, /useState\('stories'\)/);
   assert.match(wrapper, /원본 날짜별 기록/);
-  for (const text of ['왜 필요했나', '무엇이 편해졌나', '만들고 다듬은 흐름', '어느 프로그램', '정리 상태', '기능 수가 아닙니다', '여러 수정을 합친 기록', '프로그램을 고친 기록', '업무 검색·어느 프로그램·얼마나 확인했나', 'review-pending', 'AbortController', 'aria-expanded', 'Escape']) assert.ok(ui.includes(text), text);
+  for (const text of ['작은 개선을 쌓아가는 개발 노트', '더 나은 업무 방식을 만들어가는 중', '목표와 시도한 방법, 기록과 피드백', '풀어보려는 문제', '이 기능으로 돕고 싶은 일', '시도와 확인의 흐름', '현재 결과가 모두 다시 검증되었다는 뜻은 아닙니다', '어느 프로그램', '정리 상태', '기능 수가 아닙니다', '여러 수정을 합친 기록', '프로그램을 고친 기록', '업무 검색·어느 프로그램·얼마나 확인했나', 'review-pending', 'AbortController', 'aria-expanded', 'Escape']) assert.ok(ui.includes(text), text);
+  assert.doesNotMatch(ui, /개발 이력 쉽게 보기|왜 만들었고, 무엇이 편해졌는지/);
   for (const text of ['회사 업무 프로그램 (Nenova ERP)', '생각 정리 프로그램 (MindMap Viewer)', '카카오톡 업무 도우미 (Nenova Kakao)', '기록에서 확인함', '일부는 더 확인 필요']) assert.ok(ui.includes(text), text);
   assert.match(ui, /<strong>\{label\}<\/strong>/);
   assert.doesNotMatch(ui, /recordBody[^\n]*<strong>\{title\}<\/strong>/);
@@ -327,4 +328,22 @@ test('purpose UI is the default, raw history stays alternate and API remains aut
   assert.match(api, /req.method !== 'GET'/);
   assert.doesNotMatch(api, /mssql|child_process|execSync|INSERT INTO|UPDATE \[/i);
   assert.doesNotMatch(ui, /dangerouslySetInnerHTML/);
+});
+
+test('purpose UI renders the shared menu-development defaults as a collapsible reference', () => {
+  const defaults = require('../config/menu-development-defaults.json');
+  const ui = fs.readFileSync(path.join(__dirname, '../components/dev/DevelopmentPurposeStories.js'), 'utf8');
+  assert.equal(typeof defaults.version, 'string');
+  assert.match(defaults.intro, /\S/);
+  assert.ok(Array.isArray(defaults.sections) && defaults.sections.length > 0);
+  for (const section of defaults.sections) {
+    assert.match(section.id, /\S/);
+    assert.match(section.title, /\S/);
+    assert.ok(Array.isArray(section.items) && section.items.length > 0);
+    for (const item of section.items) assert.match(item, /\S/);
+  }
+  assert.match(ui, /import menuDevelopmentDefaults from '\.\.\/\.\.\/config\/menu-development-defaults\.json'/);
+  assert.match(ui, /<details[^>]*><summary>메뉴를 만들 때 함께 지킬 기준<\/summary>/);
+  assert.match(ui, /menuDevelopmentDefaults\.intro/);
+  assert.match(ui, /menuDevelopmentDefaults\.sections\.map/);
 });
