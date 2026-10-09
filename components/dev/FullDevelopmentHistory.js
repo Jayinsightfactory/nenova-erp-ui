@@ -114,7 +114,7 @@ export default function FullDevelopmentHistory() {
     refs.current[next]?.focus();
   }
   return <section className={styles.root} aria-label="전체 개발 이력">
-    <div className={styles.heading}><div><p className={styles.eyebrow}>개발 작업 내역</p><h1>전체 개발 이력</h1>
+    <div className={styles.heading}><div><p className={styles.eyebrow}>개발 작업 내역</p><h1 data-desktop-chrome>전체 개발 이력</h1>
       <p className={styles.intro}>MindMap Viewer부터 Nenova ERP까지, 확인된 코드 변경 기록과 작업 메모를 시간순으로 찾습니다. 코드 변경 기록 수는 기능이나 요청 건수가 아닙니다.</p>
       <p className={styles.snapshot}>자료 확인 시각 {dateLabel(data?.generatedAt)}. 저장해 둔 개발 기록과 현재 웹사이트에 포함된 기록을 표시합니다. 별도로 개발 중인 내용, 개인 PC에서만 수정한 내용, 비공개 대화 원문 제외.</p></div>
       <button type="button" className={styles.refresh} onClick={() => setRevision(value => value + 1)} disabled={loading}>{loading ? '불러오는 중…' : '새로고침'}</button></div>

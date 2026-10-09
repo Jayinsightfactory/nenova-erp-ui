@@ -46,7 +46,7 @@ export default function ExeErrorsPage() {
   return (
     <>
       <div style={st.page}>
-        <h1 style={st.h1}>🩺 전산 오류 진단</h1>
+        <h1 data-desktop-chrome style={st.h1}>🩺 전산 오류 진단</h1>
         <p style={st.desc}>
           nenova.exe 에서 뜨는 오류 알림은 DB 상태에서 발생합니다. 알려진 유발 패턴을 차수 단위로 전수 스캔해
           <b> 왜 생겼고 어디서(업체/품목/키) 생겼는지</b> 보여줍니다. 이 화면은 읽기 전용 — 아무것도 수정하지 않습니다.

@@ -190,7 +190,7 @@ export default function WorkManualsPage() {
             <button type="button" onClick={() => setDeptId(null)}>업무 매뉴얼</button>
             <span>›</span><b>{dept.name}</b>
           </nav>
-        ) : <h1>업무 매뉴얼</h1>}
+        ) : <h1 data-desktop-chrome>업무 매뉴얼</h1>}
         <p className="muted">
           {data.isAdmin ? '전 부서 매뉴얼을 볼 수 있습니다.' : '내 매뉴얼만 보입니다.'} 아이콘은 끌어서 순서를 바꿀 수 있습니다.
         </p>
@@ -266,6 +266,10 @@ const css = `
   max-width:980px;margin:0 auto;padding:28px 24px 64px;color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
 .top{margin-bottom:22px}
+@media screen {
+  :global(html[data-nenova-desktop="true"]) .wm{max-width:none;margin:0;padding:8px 12px 24px}
+  :global(html[data-nenova-desktop="true"]) .top{margin-bottom:12px}
+}
 h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0 0 4px}
 .muted{color:var(--ink2);font-size:13px;margin:0}
 .crumb{display:flex;align-items:center;gap:8px;font-size:22px;margin-bottom:4px}

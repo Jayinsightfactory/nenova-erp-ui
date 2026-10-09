@@ -94,7 +94,7 @@ export default function EcountReconcilePage() {
 
   return (
     <div style={{ padding: 16, maxWidth: 1100, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>🔁 ECOUNT 자동 대사</h1>
+      <h1 data-desktop-chrome style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>🔁 ECOUNT 자동 대사</h1>
       <p style={{ fontSize: 13, color: '#475569', margin: '0 0 12px', lineHeight: 1.6 }}>
         웹 <b>순매출(확정일 기준 = ECOUNT 전표일자, 정상출고 − 차감)</b> vs <b>ECOUNT 판매현황(스크랩)</b>을 거래처·품목별로 대조합니다.
         차이 큰 항목만 위로 뜨므로, 월 마감 대사 시 "이번 달 차이가 어디서 났는지" 바로 확인됩니다.

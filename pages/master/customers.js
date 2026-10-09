@@ -66,7 +66,7 @@ export default function Customers() {
     finally { saveBusy.current = false; setSaving(false); }
   };
   return <div className={`customer-page ${ui.page}`} data-compact={compact}>
-    <div className={ui.heading}><div><span className={ui.eyebrow}>기준정보 / 거래처</span><h1>거래처 관리</h1></div><span className={ui.count}>전체 <strong>{rows.length.toLocaleString()}</strong>개</span></div>
+    <div className={ui.heading}><div><span className={ui.eyebrow}>기준정보 / 거래처</span><h1 data-desktop-chrome>거래처 관리</h1></div><span className={ui.count}>전체 <strong>{rows.length.toLocaleString()}</strong>개</span></div>
     <div className="customer-toolbar">
       <input className="form-control customer-search" aria-label="거래처 전체 검색" placeholder="거래처명 · 주문코드 · 지역 · 담당자 검색" value={search} onChange={e => setSearch(e.target.value)} />
       <div className="customer-actions">

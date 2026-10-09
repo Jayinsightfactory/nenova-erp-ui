@@ -67,7 +67,7 @@ export default function FreightCalcPage() {
     <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 12 } }}>
       <div style={{ padding: 8 }}>
         <Space wrap style={{ marginBottom: 8 }}>
-          <Text strong style={{ fontSize: 14 }}>AWB 항공운임 계산기</Text>
+          <Text data-desktop-chrome strong style={{ fontSize: 14 }}>AWB 항공운임 계산기</Text>
           <Select size="small" style={{ width: 150 }} value={year && week ? `${year}|${week}` : undefined} onChange={(v) => { const [y, w] = v.split('|'); setYear(y); setWeek(w); }} options={weeks.map((w) => ({ value: `${w.year}|${w.week}`, label: `${w.year} ${w.week} (${w.n})` }))} />
           {data && <Select size="small" style={{ width: 300 }} value={awbIdx} onChange={setAwbIdx} options={data.awbs.map((a, i) => ({ value: i, label: `${a.awb} · 박스 ${fmt(a.box)} · 농장 ${a.farms.length}${a.freightUSD ? ` · 운임행 $${fmt(a.freightUSD, 2)}` : ''}` }))} />}
           <Button size="small" icon={<ReloadOutlined />} loading={loading} onClick={load}>새로고침</Button>

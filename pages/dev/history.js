@@ -254,7 +254,7 @@ function LegacyHistoryPage() {
 
         {/* 헤더 */}
         <div style={{ background: '#1e293b', borderBottom: '1px solid #334155', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontSize: 18, fontWeight: 700, color: '#38bdf8' }}>🛠 nenova 작업 히스토리</span>
+          <span data-desktop-chrome style={{ fontSize: 18, fontWeight: 700, color: '#38bdf8' }}>🛠 nenova 작업 히스토리</span>
           <span style={{ fontSize: 12, color: '#64748b' }}>브랜치: <strong style={{ color: '#a78bfa' }}>{data?.branch || '...'}</strong></span>
           <button onClick={load} style={{ marginLeft: 'auto', background: '#1d4ed8', border: 'none', color: '#fff', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 12 }}>
             {loading ? '새로고침 중...' : '🔄 새로고침'}

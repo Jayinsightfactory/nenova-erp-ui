@@ -11,6 +11,7 @@
   let dropHandled = false;
   let pending = false;
   let tabSignature = '';
+  let renderedActiveId = null;
   let menuSignature = '';
 
   function activeTab() { return state.tabs.find((tab) => tab.id === state.activeId) || null; }
@@ -69,6 +70,7 @@
       id: document.activeElement.closest('.tab')?.dataset.id,
       selector: document.activeElement.classList.contains('tab-close') ? '.tab-close' : '.tab-main'
     } : null;
+    const activeChanged = renderedActiveId !== state.activeId;
     const scroll = root.scrollLeft;
     root.replaceChildren();
     for (const tab of state.tabs) {
@@ -150,8 +152,19 @@
       root.append(wrapper);
     }
     tabSignature = nextSignature;
+    renderedActiveId = state.activeId;
     root.scrollLeft = scroll;
-    if (focused?.id) root.querySelector(`[data-id="${CSS.escape(focused.id)}"] ${focused.selector}`)?.focus();
+    if (focused?.id) root.querySelector(`[data-id="${CSS.escape(focused.id)}"] ${focused.selector}`)?.focus({ preventScroll: true });
+    // Follow selection only. Loading/title updates must preserve manual scrolling.
+    if (activeChanged) {
+      const active = root.querySelector('.tab.active');
+      if (active) {
+        const bounds = root.getBoundingClientRect();
+        const tabBounds = active.getBoundingClientRect();
+        if (tabBounds.left < bounds.left) root.scrollLeft += tabBounds.left - bounds.left;
+        else if (tabBounds.right > bounds.right) root.scrollLeft += tabBounds.right - bounds.right;
+      }
+    }
     $('tabCount').textContent = `탭 ${state.tabs.length}개`;
   }
 

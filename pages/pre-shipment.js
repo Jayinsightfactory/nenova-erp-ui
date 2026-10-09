@@ -177,7 +177,7 @@ export default function PreShipmentPage() {
   const erpConfirmedTotal = data.items.reduce((sum, item) => sum + number(erpSummary(item)?.ConfirmedQuantity), 0);
   const erpPendingTotal = data.items.reduce((sum, item) => sum + number(erpSummary(item)?.PendingQuantity), 0);
   return <main className="page">
-    <h1>선출고·후출고 관리</h1>
+    <h1 data-desktop-chrome>선출고·후출고 관리</h1>
     <p className="desc">선출고 계획과 정상 귀속 차수를 연결해 실제 출고·재고 수정 이력을 비교합니다. 이 화면은 ERP 입고·주문·출고·재고를 자동 변경하지 않습니다.</p>
     <section className="tracePanel">
       <div className="traceHead"><div><b>업체·품목 붙여넣기 재고 이력</b><span> 붙여넣기 주문등록과 같은 매칭 기준으로 품목별 선출고 차수와 정상차수를 비교합니다.</span></div></div>

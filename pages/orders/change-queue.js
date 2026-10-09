@@ -111,7 +111,7 @@ export default function ChangeQueuePage() {
     <ConfigProvider locale={koKR} theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorPrimary: '#1166BB', borderRadius: 6, fontSize: 12 } }}>
       <div style={{ padding: 12 }}>
         <Space wrap style={{ marginBottom: 8 }}>
-          <Text strong style={{ fontSize: 15 }}>카톡 변경 큐</Text>
+          <Text data-desktop-chrome strong style={{ fontSize: 15 }}>카톡 변경 큐</Text>
           <RangePicker size="small" value={range} onChange={setRange} allowClear={false} />
           <Select size="small" style={{ width: 90 }} value={year} onChange={setYear} options={[0, 1, 2].map((d) => { const y = String(new Date().getFullYear() - d); return { value: y, label: y }; })} />
           <Segmented size="small" value={statusFilter} onChange={setStatusFilter} options={['대기', '반영됨', '무시', '전체']} />
