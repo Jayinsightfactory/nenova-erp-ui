@@ -90,8 +90,9 @@ test('authored problem and outcome remain safe searchable narrative, not inferre
   const ui = fs.readFileSync(path.join(__dirname, '../components/dev/DevelopmentPurposeStories.js'), 'utf8');
   assert.match(ui, /change\.problem \|\| ''/);
   assert.match(ui, /change\.result \|\| ''/);
-  assert.match(ui, /해결하려던 문제/);
-  assert.match(ui, /만든 것·바꾼 것/);
+  assert.match(ui, /불편했던 점/);
+  assert.match(ui, /추가·수정한 기능/);
+  assert.match(ui, /편해진 점/);
 });
 
 test('all story and review pages reconcile the entire tracked snapshot without duplication', () => {
@@ -281,6 +282,34 @@ test('catalog evidence references exist and every narrative describes purpose an
   }
 });
 
+test('plain-language rewrite preserves every story identity, evidence and matching rule', () => {
+  const authored = require('../config/development-purpose-stories.json');
+  const { createHash } = require('node:crypto');
+  const identities = authored.stories.map(item => ({
+    id: item.id,
+    confidence: item.confidence,
+    purposeEvidence: item.purposeEvidence.map(({ summary, ...evidence }) => evidence),
+    changes: item.changes.map(({ title, description, problem, result, ...evidence }) => evidence),
+    rules: item.rules,
+  }));
+  // The 2026-10-09 edit changes explanations only, not ownership or source references.
+  assert.equal(createHash('sha256').update(JSON.stringify(identities)).digest('hex'),
+    '3d79cd359c64f4be587e4157083483a44e41cf0969f979bd785a7ae6a7458ef9');
+});
+
+test('plain explanations retain distinct changes and avoid known translation mistakes', () => {
+  const authored = require('../config/development-purpose-stories.json');
+  for (const item of authored.stories) {
+    assert.equal(new Set(item.changes.map(change => change.description)).size, item.changes.length, `${item.id}:distinct changes`);
+    if (item.id === 'mindmap-origin-portable-sync-expanded') {
+      assert.equal(new Set(item.purposeEvidence.map(evidence => evidence.summary)).size, item.purposeEvidence.length, `${item.id}:distinct evidence`);
+    }
+    const visible = [item.title, item.purpose, item.userValue, item.scopeNote,
+      ...item.changes.flatMap(change => [change.title, change.description, change.problem || '', change.result || ''])].join('\n');
+    assert.doesNotMatch(visible, /기록인(?:한|을|하)|카탈기록|변경 변경 확인번호|현재 PC PC|여러 여러|항목가|항목를|표시을|작업를|기능로|경로을|과정와/, item.id);
+  }
+});
+
 test('purpose UI is the default, raw history stays alternate and API remains authenticated GET-only', () => {
   const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
   const wrapper = read('components/dev/DevelopmentJourney.js');
@@ -288,7 +317,11 @@ test('purpose UI is the default, raw history stays alternate and API remains aut
   const api = read('pages/api/dev/development-stories.js');
   assert.match(wrapper, /useState\('stories'\)/);
   assert.match(wrapper, /원본 날짜별 기록/);
-  for (const text of ['왜 만들었나', '만들고 다듬은 흐름', 'review-pending', 'AbortController', 'aria-expanded', 'Escape']) assert.ok(ui.includes(text), text);
+  for (const text of ['왜 필요했나', '무엇이 편해졌나', '만들고 다듬은 흐름', '어느 프로그램', '정리 상태', '기능 수가 아닙니다', '여러 수정을 합친 기록', '프로그램을 고친 기록', '업무 검색·어느 프로그램·얼마나 확인했나', 'review-pending', 'AbortController', 'aria-expanded', 'Escape']) assert.ok(ui.includes(text), text);
+  for (const text of ['회사 업무 프로그램 (Nenova ERP)', '생각 정리 프로그램 (MindMap Viewer)', '카카오톡 업무 도우미 (Nenova Kakao)', '기록에서 확인함', '일부는 더 확인 필요']) assert.ok(ui.includes(text), text);
+  assert.match(ui, /<strong>\{label\}<\/strong>/);
+  assert.doesNotMatch(ui, /recordBody[^\n]*<strong>\{title\}<\/strong>/);
+  assert.match(ui, /expanded === item\.id && <div[^>]*>.*원본 기록 제목: \{title\}/);
   assert.match(api, /withAuth/);
   assert.match(api, /private, no-store/);
   assert.match(api, /req.method !== 'GET'/);

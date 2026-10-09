@@ -41,7 +41,7 @@
   },
   "requiredTestFiles": ["__tests__/fullDevelopmentHistory.test.js", "__tests__/developmentJourney.test.js", "__tests__/developmentPurposeStories.test.js"],
   "purposeStories": {
-    "default": "Human-authored Korean purpose, user value and actual controls; raw dates remain alternate",
+    "default": "Plain Korean for non-coders: why needed, actual buttons/settings and what became easier; raw technical titles remain available only in explicit original-record views",
     "narrative": "Each change can carry grounded problem and result alongside the actual change; optional absent details are never inferred. Same-day story starts follow real timestamps, not alphabetic ids.",
     "coverage": "Every safe record assigned exactly once to a grounded purpose or explicit review-pending bucket",
     "evidence": "Full hashes and local documents validated at build/test, private references omitted from API",
