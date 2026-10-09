@@ -89,7 +89,7 @@ export async function collectOne(page, base, ds) {
   if (def.form) { await page.keyboard.press('F8').catch(() => {}); await page.waitForTimeout(3000); }
   const dlP = page.waitForEvent('download', { timeout: ds === 'sales' ? 60000 : 15000 }).catch(() => null);
   let clicked = false;
-  for (let attempt = 0; attempt < 2 && !clicked; attempt++) { if (attempt) await page.waitForTimeout(5000); // 2026-10-08: 그리드 로딩 지연·공지 팝업으로 Excel 버튼이 늦게 보이는 경우 1회 재시도
+  for (let attempt = 0; attempt < 4 && !clicked; attempt++) { if (attempt) await page.waitForTimeout(8000); // 2026-10-08: 그리드 로딩 지연·공지 팝업으로 Excel 버튼이 늦게 보이는 경우 재시도(10/9 야간 3회 '버튼 못 찾음' → 3회·8초로 확대)
   for (const f of [page, ...page.frames()]) {
     for (const loc of [f.getByRole?.('button', { name: /^Excel$/i }), f.locator?.('button:has-text("Excel")'), f.locator?.('a:has-text("Excel")'), f.locator?.('text=Excel')]) {
       try { if (loc && await loc.first().isVisible({ timeout: 700 })) { await loc.first().click({ timeout: 1500 }); clicked = true; break; } } catch {}
