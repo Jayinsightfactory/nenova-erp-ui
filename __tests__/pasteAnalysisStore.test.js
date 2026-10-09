@@ -10,7 +10,7 @@ async function main() {
   let calls = 0;
   const analyze = async () => { calls++; await new Promise(resolve => setTimeout(resolve, 10)); return {success: true, orders: [{items: [{qty: 197}]}]}; };
   const store = createPasteAnalysisStore(dir);
-  const [a,b] = await Promise.all([store.read(scope, analyze), store.read(scope, analyze)]);
+  const [a,b] = await Promise.all([store.read(scope, analyze), store.read({...scope, userId: 'user2'}, analyze)]);
   assert.equal(calls, 1); assert.equal(a.analysisStorage.savedAt, b.analysisStorage.savedAt);
   a.orders[0].items[0].qty = 0; assert.equal(b.orders[0].items[0].qty, 197);
   const reopened = await createPasteAnalysisStore(dir).read(scope, analyze);
@@ -18,26 +18,44 @@ async function main() {
   assert.equal(reopened.analysisStorage.cacheHit, true);
   assert.equal(reopened.analysisStorage.savedAt, b.analysisStorage.savedAt);
   await store.read({...scope, week: '2025-39-02'}, analyze);
-  await store.read({...scope, userId: 'user2'}, analyze);
+  const shared = await store.read({...scope, userId: 'user2'}, analyze);
+  assert.equal(shared.analysisStorage.authorId, b.analysisStorage.authorId, 'concurrent first writer remains the recorded author');
+  assert.ok(['user1','user2'].includes(shared.analysisStorage.authorId));
+  assert.equal(shared.analysisStorage.savedAt, b.analysisStorage.savedAt);
   await store.read({...scope, text: scope.text + ' 수정'}, analyze);
-  assert.equal(calls, 4, 'year, user and exact source isolation');
+  assert.equal(calls, 3, 'year/source isolation and cross-account sharing');
   await assert.rejects(store.read({...scope, force: true}, async () => {throw Error('offline');}), /offline/);
   assert.equal((await store.read(scope, analyze)).analysisStorage.savedAt, b.analysisStorage.savedAt, 'failed force preserves prior success');
-  await store.read({...scope, force: true}, analyze); assert.equal(calls, 5);
+  await store.read({...scope, force: true}, analyze); assert.equal(calls, 4);
   await assert.rejects(store.read({...scope, text: 'new', allowAnalyze: false}, analyze), /자동 분석/);
-  await store.read({...scope, allowAnalyze: false}, analyze); assert.equal(calls, 5, 'budget never blocks saved lookup');
+  await store.read({...scope, allowAnalyze: false}, analyze); assert.equal(calls, 4, 'budget never blocks saved lookup');
   await assert.rejects(store.read({...scope, userId: ''}, analyze));
   await assert.rejects(store.read({...scope, week: '39-02'}, analyze));
   await assert.rejects(store.read({...scope, text: 'failure'}, async () => ({success: false})), /분석 실패/);
-  await store.read({...scope, text: 'failure'}, analyze); assert.equal(calls, 6);
+  await store.read({...scope, text: 'failure'}, analyze); assert.equal(calls, 5);
+  const hash = value => require('node:crypto').createHash('sha256').update(value).digest('hex');
+  const legacyScope = {...scope, text: 'legacy-only'};
+  const identity = JSON.stringify([legacyScope.week, legacyScope.text]);
+  const legacyFile = hash(identity) + '.json';
+  for (const [actor, savedAt, qty, key] of [['old1', 100, 1, identity], ['old2', 200, 2, identity], ['invalid', 900, 9, 'wrong']]) {
+    const folder = path.join(dir, hash(actor)); await fs.mkdir(folder);
+    await fs.writeFile(path.join(folder, legacyFile), JSON.stringify({version: 1, identity: key, savedAt, data: {success: true, orders: [{qty}]}}));
+  }
+  const migrated = await store.read({...legacyScope, userId: 'new-account', lookupOnly: true}, analyze);
+  assert.equal(migrated.orders[0].qty, 2, 'newest valid exact legacy result shared');
+  assert.equal(migrated.analysisStorage.savedAt, 200);
+  assert.equal(migrated.analysisStorage.authorHash, hash('old2'));
+  await fs.writeFile(path.join(dir, hash('old2'), legacyFile), JSON.stringify({version: 1, identity, savedAt: 300, data: {success: true, orders: [{qty: 3}]}}));
+  assert.equal((await store.read(legacyScope, analyze)).orders[0].qty, 2, 'legacy never overwrites shared result');
+  assert.equal((await store.read({...legacyScope, week: '2025-39-02', lookupOnly: true}, analyze)).analysisStorage.cacheMiss, true);
   let time = 100;
   const cache = createPreanalysisCache({persistent: true, autoLimit: 0, now: () => time, fetcher: (text, week, options) => store.read({...scope, text, week, ...options}, analyze)});
   await cache.read(scope.text, scope.week, {automatic: true});
   time += TTL_MS; await cache.read(scope.text, scope.week, {automatic: true});
-  assert.equal(calls, 6, 'memory expiration never repeats Claude for saved record');
-  await cache.read(scope.text, scope.week, {force: true}); assert.equal(calls, 7, 'force reaches server');
+  assert.equal(calls, 5, 'memory expiration never repeats Claude for saved record');
+  await cache.read(scope.text, scope.week, {force: true}); assert.equal(calls, 6, 'force reaches server');
   const miss = await store.read({...scope, text: 'lookup-only-missing', lookupOnly: true}, analyze);
-  assert.equal(miss.analysisStorage.cacheMiss, true); assert.equal(calls, 7, 'lookup-only never starts Claude');
+  assert.equal(miss.analysisStorage.cacheMiss, true); assert.equal(calls, 6, 'lookup-only never starts Claude');
   let release, started;
   const gate = new Promise(resolve => {release = resolve;});
   const begun = new Promise(resolve => {started = resolve;});
@@ -49,7 +67,7 @@ async function main() {
   const fast = await priority.read('saved', scope.week);
   assert.equal(fast.data.analysisStorage.cacheHit, true, 'saved result bypasses in-flight Claude queue');
   release(); await slow;
-  console.log('persistent preanalysis: restart, exact identity, cross-year/user, dedup, force, failures, budget passed');
+  console.log('persistent preanalysis: restart, exact identity, cross-year/shared-account/legacy, dedup, force, failures, budget passed');
   // Isolated mkdtemp fixture only; no application/runtime data is removed.
   await fs.rm(dir, {recursive: true});
 }
