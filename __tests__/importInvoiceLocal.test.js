@@ -46,7 +46,7 @@ async function main() {
   const remove = (f, str) => { for (const p of f.pages) p.items = p.items.filter(i => i.str !== str); return f; };
   check('exact invoices JSON and cross-page CL inheritance', () => {
     const f = fixture(), before = JSON.stringify(f);
-    assert.deepEqual(parseInvoiceLocal(f), { invoices: [{ invoice: '777', supplier: 'Holex', awb: '180-1111-2222', date: '2025/03/03', vol_weight: 12, gross_weight: 9.5, total_colli: 1, freight: 2, handling: 1, total_value: 13, lines: [
+    assert.deepEqual(parseInvoiceLocal(f), { invoices: [{ invoice: '777', supplier: 'Holex', awb: '180-1111-2222', date: '2025/03/03', raw_date: '03 maart 2025', date_kind: 'arrival', date_order: 'DMY', currency: 'EUR', vol_weight: 12, gross_weight: 9.5, total_colli: 1, freight: 2, handling: 1, total_value: 13, lines: [
       { cl: 'CL7', description: 'ROSE RED 60cm', stems: 20, price: 0.25 },
       { cl: 'CL7', description: 'ROSE WHITE 70cm', stems: 10, price: 0.5 },
     ] }] });
@@ -159,7 +159,10 @@ async function main() {
       assert.equal(inv.vol_weight, 1222); assert.equal(inv.gross_weight, 1098.5); assert.equal(inv.total_colli, 107);
       const saved = JSON.parse(fs.readFileSync(path.join(path.dirname(file), 'nl-ai-response.json'), 'utf8'));
       const expected = JSON.parse(saved.content[0].text.replace(/^```json\s*|\s*```$/g, '')).invoices[0];
-      assert.deepEqual(Object.keys(inv).sort(), Object.keys(expected).sort());
+      assert.deepEqual(Object.keys(inv).filter(key => !['raw_date', 'date_kind', 'date_order', 'currency'].includes(key)).sort(), Object.keys(expected).sort());
+      assert.equal(inv.currency, 'EUR');
+      assert.equal(inv.date_kind, 'arrival');
+      assert.ok(inv.raw_date);
       assert.deepEqual(Object.keys(inv.lines[0]).sort(), Object.keys(expected.lines[0]).sort());
       console.log(`INFO saved AI sample: ${expected.lines.length} rows / ${expected.lines.reduce((s, l) => s + l.stems, 0)} stems; local PDF: ${inv.lines.length} rows / ${inv.lines.reduce((s, l) => s + l.stems, 0)} stems`);
     });
