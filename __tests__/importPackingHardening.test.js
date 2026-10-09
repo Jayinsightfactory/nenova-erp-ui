@@ -14,6 +14,7 @@ const modulesReady = Promise.all([
   import('../lib/importPackingReceiptAdapter.js'),
   import('../lib/importChinaLegacyInvoice.js'),
   import('../lib/importChinaLegacyReview.js'),
+  import('../lib/importPackingSourceReview.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -49,7 +50,8 @@ function deferred() {
 
 // Actual component handlers with controlled local hooks. No network, DB or browser.
 async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
-  const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter, chinaLegacyInvoice, chinaLegacyReview] = await modulesReady;
+  const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter,
+    chinaLegacyInvoice, chinaLegacyReview, sourceReview] = await modulesReady;
   const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [], generationCalls = [];
   let cursor = 0, currentCatalog = catalog, failure = null, erpFailure = null;
   let erpValue = null, erpRevision = 0;
@@ -115,6 +117,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importPackingReceiptAdapter.js': receiptAdapter,
     '../../lib/importChinaLegacyInvoice.js': chinaLegacyInvoice,
     '../../lib/importChinaLegacyReview.js': chinaLegacyReview,
+    '../../lib/importPackingSourceReview.js': sourceReview,
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
@@ -143,7 +146,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   await h.refresh();
   if (!awb && lang !== 'ko') await h.click(lang === 'es' ? 'ES' : 'EN');
   h.matching = (kind, props) => { cursor = 0; return module.exports[kind]({ ...props, lang }); };
-  h.modules = { chinaLegacyInvoice, chinaLegacyReview, review };
+  h.modules = { chinaLegacyInvoice, chinaLegacyReview, review, sourceReview };
   return h;
 }
 

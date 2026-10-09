@@ -47,8 +47,8 @@ async function main() {
   check('exact invoices JSON and cross-page CL inheritance', () => {
     const f = fixture(), before = JSON.stringify(f);
     assert.deepEqual(parseInvoiceLocal(f), { invoices: [{ invoice: '777', supplier: 'Holex', awb: '180-1111-2222', date: '2025/03/03', raw_date: '03 maart 2025', date_kind: 'arrival', date_order: 'DMY', currency: 'EUR', vol_weight: 12, gross_weight: 9.5, total_colli: 1, freight: 2, handling: 1, total_value: 13, lines: [
-      { cl: 'CL7', description: 'ROSE RED 60cm', stems: 20, price: 0.25 },
-      { cl: 'CL7', description: 'ROSE WHITE 70cm', stems: 10, price: 0.5 },
+      { cl: 'CL7', description: 'ROSE RED 60cm', stems: 20, price: 0.25, t_price: 5, review_evidence: { description: { page: 1, quote: 'ROSE RED 60cm', bbox: null }, stems: { page: 1, quote: '20', bbox: null }, price: { page: 1, quote: '0,25', bbox: null }, t_price: { page: 1, quote: '5,00', bbox: null } } },
+      { cl: 'CL7', description: 'ROSE WHITE 70cm', stems: 10, price: 0.5, t_price: 5, review_evidence: { description: { page: 2, quote: 'ROSE WHITE', bbox: null }, stems: { page: 2, quote: '10', bbox: null }, price: { page: 2, quote: '0,50', bbox: null }, t_price: { page: 2, quote: '5,00', bbox: null } } },
     ] }] });
     assert.equal(JSON.stringify(f), before);
   });
@@ -163,7 +163,8 @@ async function main() {
       assert.equal(inv.currency, 'EUR');
       assert.equal(inv.date_kind, 'arrival');
       assert.ok(inv.raw_date);
-      assert.deepEqual(Object.keys(inv.lines[0]).sort(), Object.keys(expected.lines[0]).sort());
+      assert.deepEqual(Object.keys(inv.lines[0]).filter(key => !['t_price', 'review_evidence'].includes(key)).sort(), Object.keys(expected.lines[0]).sort());
+      assert.ok(inv.lines.every(line => Number.isFinite(line.t_price) && line.review_evidence.description.page > 0));
       console.log(`INFO saved AI sample: ${expected.lines.length} rows / ${expected.lines.reduce((s, l) => s + l.stems, 0)} stems; local PDF: ${inv.lines.length} rows / ${inv.lines.reduce((s, l) => s + l.stems, 0)} stems`);
     });
     check('actual missing interior/last page and malformed total rejected', () => {
