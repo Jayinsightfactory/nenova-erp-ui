@@ -40,7 +40,20 @@
     "docs/plans/weekday-preallocation-drafts-2026-10-05.md",
     "lib/weekdayAllocation.js",
     "__tests__/weekdayAllocation.test.js",
-    "__tests__/weekdayMetadataOnly.test.js"
+    "__tests__/weekdayMetadataOnly.test.js",
+    "lib/weekdayConfirmationLifecycle.js",
+    "__tests__/weekdayConfirmationLifecycle.test.js",
+    "docs/plans/weekday-confirmation-lifecycle-2026-10-09.md",
+    "docs/exe-golden/WeekdayConfirmationLifecycle.md",
+    "scripts/test-weekday-confirmation-lifecycle-sql.cjs",
+    "lib/weekdayPrintReadiness.js",
+    "__tests__/weekdayPrintReadiness.test.js",
+    "__tests__/weekdayPrintEligibility.test.js",
+    "__tests__/weekdayPrintResponse.test.js",
+    "pages/api/estimate/weekday-print.js",
+    "lib/weekdayEstimatePrint.js",
+    "__tests__/weekdayHorizontalMatrix.test.js",
+    "__tests__/weekdayCompactSummary.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -85,8 +98,8 @@
       "warehouse": "preserve",
       "estimate": "preserve",
       "webProfitReport": "preserve",
-      "stock": "fixed old-new Product.Stock/StockHistory and product-scoped native cascade; unfixed save rejected",
-      "rule": "공유 weekdaySaveEligibility로 잠긴 상세 isFix=1을 필수 검사한다. 임의 확정 해제/재확정 없음. 대표 출고일도 digest에 포함하고 EXE day1..7 순서의 마지막 양수 PeriodDay 정확 timestamp로 함께 저장/readback한다. 잠긴 실제 방향·완전한 expected snapshot·단위 검증. 모든 변경과 감사는 같은 transaction."
+      "stock": "normal weekday API: scoped cancel old/fix new stock transitions; internal legacy calls preserve previous fixed-delta policy",
+      "rule": "잠긴 상세 및 exact business identity/snapshot/date/unit/price 검사. 일반 주광 API는 confirmationLifecycle 계약의 확정 취소·수량 저장·재확정을 같은 transaction에서 수행한다. early 내부 호출은 기존 정책 유지. 대표일은 EXE 마지막 양수 날짜이며 로그·native 재계산·readback 원자 적용."
     },
     {
       "name": "MOVE_DAYS_AND_BUSINESS_WEEKS",
@@ -112,7 +125,7 @@
       "shipmentDetail": "preserve",
       "shipmentDate": "preserve",
       "stock": "preserve",
-      "rule": "연도·차수·업체별 영속 before/after와 사용자·사유 조회. 인쇄는 공통 EXE-compatible 저장 확정본 SQL/HTML. 최초 snapshot은 변경하지 않는다."
+      "rule": "영속 before/after·확정단계·소비량·사용자·사유 조회. 선택요일은 선택업체 실제 출고일의 양수 상세 전체 확정 및 연결 검사, 전체견적은 기존 전체대차수 검사. EXE-compatible 저장 확정본만 SQL/HTML 출력, 초안 제외."
     },
     {
       "name": "RESERVE_HISTORY_SAFE_DETAIL_KEY",
@@ -128,17 +141,17 @@
       "name": "APPLY_ALLOCATION_FINAL_QUANTITIES",
       "mode": "ALLOCATION",
       "orderDetail": "create-positive",
-      "shipmentMaster": "create missing exact-scope master unfixed; preserve existing confirmation",
+      "shipmentMaster": "create missing exact-scope master unfixed; normal weekday lifecycle derives touched master from all surviving children",
       "shipmentDetail": "set-final-nonnegative",
       "shipmentDate": "preserve untouched dates; explicit exact-calendar final values",
       "shipmentFarm": "preserve except native zero-detail purge",
-      "stock": "existing fixed direction and native recalculation; unfixed no confirmed stock mutation, positive availability gate remains",
+      "stock": "normal API consumedDelta confirmation transitions and native cascade; internal early wrapper previous behavior; positive allocation availability guard remains",
       "estimate": "preserve",
       "webProfitReport": "preserve",
       "customerProdCost": "read unique native price for new detail only; duplicate blocks",
-      "rule": "100 to120 means delta20; reapply120 is no-op. User explicitly requested direct new allocation then final allocation editing. No auto-confirmation. Missing-master absence receives full server snapshot digest and is revalidated under transaction locks; ambiguous scope remains blocked.",
+      "rule": "100 to120 means delta20; reapply120 no-op. New quantity-only allocation stays unfixed. Existing normal weekday edits follow confirmationLifecycle. All absence/digest/unit/calendar/price locks remain authoritative.",
       "orderPolicy": "ADD with active same-year order preserves it; ADD without active order creates positive order only; CANCEL preserves",
-      "quantityPolicy": "absolute final quantity; preserve existing isFix, new detail isFix0"
+      "quantityPolicy": "absolute final quantity; confirmationLifecycle for normal API, previous confirmation policy for internal early wrapper"
     }
   ],
   "crossYearFixture": {
@@ -158,7 +171,11 @@
     "__tests__/weekdayInitialBaseline.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/weekdayAllocation.test.js",
-    "__tests__/weekdayMetadataOnly.test.js"
+    "__tests__/weekdayMetadataOnly.test.js",
+    "__tests__/weekdayConfirmationLifecycle.test.js",
+    "scripts/test-weekday-confirmation-lifecycle-sql.cjs",
+    "__tests__/weekdayPrintReadiness.test.js",
+    "__tests__/weekdayPrintEligibility.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
@@ -178,7 +195,8 @@
       "PeriodDay",
       "ProductStock",
       "StockHistory"
-    ]
+    ],
+    "confirmationLifecycleRecord": "docs/exe-golden/WeekdayConfirmationLifecycle.md"
   },
   "requiredCommands": [
     "npm run test:erp-contract",
@@ -202,7 +220,7 @@
       "unallocated pre-enter then create unfixed allocation",
       "allocated100 to120 delta20",
       "repeat final120 no extra",
-      "existing unfixed modifies without confirming",
+      "existing unfixed quantity-only modifies without confirming; date movement confirms first",
       "no active current-year order positive ADD creates positive order"
     ],
     "nearMissFixtures": [
@@ -214,5 +232,18 @@
       "negative-stock fixed change rollback",
       "UUID reused with different mode"
     ]
+  },
+  "confirmationLifecycle": {
+    "authority": "trusted normal weekday API dependency only; early-shipment internal wrapper preserves previous behavior",
+    "fixedQuantity": "cancel exact detail, return old stock, save quantity, refix exact detail, consume new stock, then move dates",
+    "fixedDate": "keep fixed, move dates",
+    "unfixedQuantity": "save quantity, remain unfixed",
+    "unfixedDate": "confirm then move dates; combined quantity is saved first",
+    "group": "year+customer+product date decreases and increases across requested subweeks classify movement",
+    "zero": "cancel if fixed and purge; no empty confirmation",
+    "stock": "consumedDelta=finalFixed*newTotal-beforeFixed*oldTotal; native cascading recalculation and negative snapshot validation",
+    "master": "derive touched master status from all surviving children; never change other children",
+    "audit": "before/final confirmation flags, intent, stages and scoped stock transitions stored atomically; rollback does not retain success audit",
+    "print": "selected-day quote validates selected customer active selected-date details; major quote retains major guard"
   }
 }
