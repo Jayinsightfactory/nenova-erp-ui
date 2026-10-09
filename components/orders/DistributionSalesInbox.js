@@ -7,7 +7,7 @@ import {visibleChanges} from '../../lib/distributionVisibleChanges';
 import {readScopedSalesHistory} from '../../lib/scopedSalesHistory';
 import {appliedOperationEntry,matchOperationByExactContent,formatKakaoMessage,sourceConfirmation,appliedHistoryEntry,historyApplicationCoverage,groupAppliedItems} from '../../lib/distributionMessageApplicationStatus';
 import {readApplicationChannel} from '../../lib/distributionApplicationRefresh';
-import {snapshotKey,readInboxSnapshot,writeInboxSnapshot} from '../../lib/distributionInboxSnapshot';
+import {snapshotKey,readInboxSnapshot,writeInboxSnapshot,retainInboxFeed} from '../../lib/distributionInboxSnapshot';
 import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 import DistributionMessagePreanalysis from './DistributionMessagePreanalysis';
@@ -74,12 +74,16 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   const ready=!!cacheKey&&snapshotPhase.key===cacheKey;
   const skipInitialSave=useRef(''),restoredApplicationScope=useRef(''),snapshotEpoch=useRef(0),initialFeedStarted=useRef(''),initialStatusStarted=useRef(''),initialHistoryStarted=useRef(''),lastFeedEvidenceRevision=useRef(0),previousOperationRevision=useRef(operationRevision),operationRefreshPending=useRef(false);
   const requestBusy=useRef(false),requestOwner=useRef(''),refreshSeq=useRef(0),activeRefreshScope=useRef(''),refreshController=useRef(null),rowsRef=useRef(rows),pendingRowsRef=useRef(pendingRows),selectedRef=useRef(selected),reviewOpenRef=useRef(reviewOpen);
+  const feedOwner=useRef('');
   useEffect(()=>{rowsRef.current=rows;},[rows]);
   useEffect(()=>{pendingRowsRef.current=pendingRows;},[pendingRows]);
   useEffect(()=>{selectedRef.current=selected;},[selected]);
   useEffect(()=>{reviewOpenRef.current=reviewOpen;},[reviewOpen]);
   useEffect(()=>{
     const epoch=++snapshotEpoch.current;
+    const owner=snapshotActorId&&year?JSON.stringify([snapshotActorId,String(year)]):'';
+    const carry=retainInboxFeed({owner,previousOwner:feedOwner.current,rows:rowsRef.current,pending:pendingRowsRef.current});
+    feedOwner.current=owner;
     // The parent may restore an earlier operation while authenticating. Treat
     // the revision present when this account/week becomes known as baseline;
     // only later revisions in this same scope represent a new operation.
@@ -94,15 +98,16 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       const data=record?.data;
       if(data){
         restoredApplicationScope.current=`${cacheKey}:${String(year||'')}:${String(shortApplicationWeek(year,week)||'')}`;
-        setFrom(data.from);setTo(data.to);setRows(data.rows);setSelected(data.selected||{});setCursor(data.cursor);setMore(data.more);setLoadedPeriod(data.loadedPeriod);
-        setPendingRows(data.pendingRows||[]);setRefreshStatus({...data.refreshStatus,loading:false});
+        const retained=retainInboxFeed({owner,previousOwner:owner,...carry},data);
+        setFrom(data.from);setTo(data.to);setRows(retained.rows);setSelected(data.selected||{});setCursor(data.cursor);setMore(data.more);setLoadedPeriod(data.loadedPeriod);
+        setPendingRows(retained.pending);setRefreshStatus({...data.refreshStatus,loading:false});
         setManualApplications(data.manualApplications||{});setAuditApplications(data.auditApplications||{});setOperationApplications(data.operationApplications||{});setOperationHistory(data.operationHistory||[]);
         setApplicationStatus({...data.applicationStatus,loading:false});setLiveHistory(data.liveHistory||{});setLiveBalanceComparison(data.liveBalanceComparison||null);
         setLiveHistoryStatus({...data.liveHistoryStatus,loading:false});setHistoryAttempted(data.historyAttempted===true);setApplicationAttempted(data.applicationAttempted===true);
-        setSnapshotSavedAt(record.savedAt);skipInitialSave.current=cacheKey;
+        setSnapshotSavedAt(record.savedAt);skipInitialSave.current=carry.rows.length||carry.pending.length?'':cacheKey;
         setSnapshotPhase({key:cacheKey,kind:'restored'});
       } else {
-        const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows([]);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows([]);
+        const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows(carry.rows);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows(carry.pending);
         setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
         setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});
         setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});setHistoryAttempted(false);setApplicationAttempted(false);
@@ -110,7 +115,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       }
     }).catch(error=>{
       if(!active||epoch!==snapshotEpoch.current)return;
-      const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows([]);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows([]);
+      const period=recentSalesPeriod();setFrom(period.from);setTo(period.to);setRows(carry.rows);setSelected({});setCursor('');setMore(false);setLoadedPeriod('');setPendingRows(carry.pending);
       setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});
       setManualApplications({});setAuditApplications({});setOperationApplications({});setOperationHistory([]);setApplicationStatus({loading:false,error:'',limit:20,asOf:'',loaded:false});
       setLiveHistory({});setLiveBalanceComparison(null);setLiveHistoryStatus({loading:false,error:'',asOf:'',loaded:false,warnings:[],scope:''});
@@ -153,7 +158,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       periodBounds(from,to);
       const result=await refreshSalesFeed({from,to,maxPages:DEFAULT_MAX_PAGES,signal:controller.signal});
       if(id!==seq.current||snapshotKey(snapshotActorId,year,week)!==cacheKey)return;
-      setHistoryAttempted(false);setRows(result.messages);setSelected({});setCursor(result.nextAfterKey??'');setMore(!result.complete);setLoadedPeriod(period);
+      setHistoryAttempted(false);setRows(previous=>mergeMessages(previous,result.messages).rows);setSelected({});setCursor(result.nextAfterKey??'');setMore(!result.complete);setLoadedPeriod(period);
       setNotice(`${result.messages.length}건 자동 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
       setRefreshStatus({lastSuccess:new Date().toISOString(),error:'',incomplete:!result.complete,newCount:0,autoShown:result.messages.length,loading:false});
       setFeedEvidenceRevision(value=>value+1);
@@ -530,7 +535,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     void refreshLiveHistory(liveScope,liveBatch,{force:true});
   },[ready,open,disabled,feedEvidenceRevision,loadedPeriod,liveScope,liveBatchKey,historyAttempted,liveHistoryStatus.loaded,liveHistoryStatus.scope]);
   useEffect(()=>{
-    if(!ready||!loadedPeriod||loadedPeriod!==livePeriod||!applicationAttempted)return;
+    if(!ready||!loadedPeriod||loadedPeriod!==livePeriod)return;
     if(skipInitialSave.current===cacheKey){skipInitialSave.current='';return;}
     const epoch=snapshotEpoch.current;
     const scope={userId:snapshotActorId,year,week};
