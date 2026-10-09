@@ -1,4 +1,5 @@
 import { prepareWeekdayDraftDeletion, weekdayCellDrafts } from '../lib/weekdayDraftDeletion.js';
+import { installWeekdayDialogKeyboard } from '../lib/weekdayDialogKeyboard.js';
 import { buildWeekdayStyledWebWorkbook } from '../lib/weekdayStyledWebWorkbook.js';
 import { buildWeekdayWebExportSnapshot } from '../lib/weekdayWebExportSnapshot.js';
 import { buildHorizontalWeekdayMatrix } from '../lib/weekdayHorizontalMatrix.js';
@@ -166,6 +167,19 @@ export default function WeekdayEstimateWorkspace() {
   const printRequest=useRef(0);
   const printLock=useRef(false);
   const previewFrame=useRef(null);
+  const applyDialog=useRef(null),printDialog=useRef(null);
+  const applyReturnFocus=useRef(null),printReturnFocus=useRef(null);
+  const applyBusyRef=useRef(false);applyBusyRef.current=applyBusy;
+  useEffect(()=>{
+    if(!applyPreview || !applyDialog.current) return;
+    return installWeekdayDialogKeyboard(applyDialog.current,{onClose:()=>setApplyPreview(null),
+      canClose:()=>!applyBusyRef.current,returnFocus:applyReturnFocus.current,initialSelector:'textarea'});
+  },[Boolean(applyPreview)]);
+  useEffect(()=>{
+    if(!printPreview || !printDialog.current) return;
+    return installWeekdayDialogKeyboard(printDialog.current,{onClose:()=>setPrintPreview(null),
+      returnFocus:printReturnFocus.current,initialSelector:'button[data-print-close]',frame:previewFrame.current});
+  },[Boolean(printPreview)]);
   const calendarRequest = useRef(0);
   const defaultCalendarRequest = useRef(0);
   const centerTouched = useRef(false);
@@ -938,6 +952,7 @@ export default function WeekdayEstimateWorkspace() {
     if(printLock.current||!customer?.CustKey) return;
     const draftReason=weekdayUnsavedPrintReason(plans,cycle,customer.CustKey,scopeKey);
     if(draftReason || pendingApply || applyBusy) {setMessage(draftReason || '저장 결과 확인 후 인쇄하세요.');return {success:false,error:draftReason || '저장 결과 확인 후 인쇄하세요.'};}
+    printReturnFocus.current=document.activeElement;
     const requestedScope=scopeKey;
     printLock.current=true;setPrintBusy(true);setPrintPreview(null);const request=++printRequest.current;
     try {
@@ -967,6 +982,7 @@ export default function WeekdayEstimateWorkspace() {
 
   async function openErpSave() {
     if(applyLock.current || pendingOperation.current || recoveryBlocked || busy) return;
+    applyReturnFocus.current=document.activeElement;
     applyLock.current = true;
     setApplyError('');
     try {
@@ -1204,7 +1220,7 @@ export default function WeekdayEstimateWorkspace() {
       </section>
     </div>}
 
-    {applyPreview && <div className="weekday-print-overlay"><section role="dialog" aria-modal="true" aria-label="ERP 저장 변경 확인" style={{...panel,width:'min(760px,100%)',maxHeight:'calc(100vh - 24px)',overflow:'auto',boxSizing:'border-box',fontSize:13,color:'#122033'}}>
+    {applyPreview && <div className="weekday-print-overlay"><section ref={applyDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label="ERP 저장 변경 확인" style={{...panel,width:'min(760px,100%)',maxHeight:'calc(100vh - 24px)',overflow:'auto',boxSizing:'border-box',fontSize:13,color:'#122033'}}>
       <h2 style={{fontSize:17,margin:'0 0 8px'}}>{applyPreview.metadataOnly?'윌슨 구분만 저장':'분배 적용'} · {customer?.CustName} · 확인 날짜 {applyPreview.preview.length}건</h2>
       {applyPreview.metadataOnly && <p>일반·윌슨 구분만 변경합니다. 기존 ERP 날짜 합계·견적·재고는 그대로 유지합니다.</p>}
       <p>아래 날짜의 최종 출고수량(OutUnit)을 적용합니다. 입력하지 않은 날짜는 보존하고, 명시 수량 0은 해당 날짜를 취소합니다. 확정 수량 수정은 확정 취소 → 수량 저장 → 재확정합니다. 확정된 출고일 이동은 확정을 유지합니다. 미확정 출고일 이동은 필요한 수량을 저장한 뒤 확정 → 출고일 이동합니다. 미확정 수량만 수정하거나 새 분배만 등록하면 미확정을 유지합니다. 처리 중 오류가 나면 전체를 취소하고 입력 초안을 유지합니다.</p>
@@ -1336,9 +1352,9 @@ export default function WeekdayEstimateWorkspace() {
       </section>
     </div>
     </details>
-    {printPreview && <div className="weekday-print-overlay" onKeyDown={event=>{if(event.key==='Escape')setPrintPreview(null);}}>
-      <section role="dialog" aria-modal="true" aria-label="요일 견적서 인쇄 미리보기" className="weekday-print-dialog">
-        <div style={{display:'flex',gap:8,alignItems:'center'}}><b style={{flex:1,minWidth:0}}>{printPreview.label} · {printPreview.documentCount}문서 / {printPreview.count}행</b><button className="primary" onClick={()=>previewFrame.current?.contentWindow?.print()}>견적서 출력</button><button autoFocus onClick={()=>setPrintPreview(null)}>닫기</button></div>
+    {printPreview && <div className="weekday-print-overlay">
+      <section ref={printDialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label="요일 견적서 인쇄 미리보기" className="weekday-print-dialog">
+        <div style={{display:'flex',gap:8,alignItems:'center'}}><b style={{flex:1,minWidth:0}}>{printPreview.label} · {printPreview.documentCount}문서 / {printPreview.count}행</b><button className="primary" onClick={()=>previewFrame.current?.contentWindow?.print()}>견적서 출력</button><button data-print-close autoFocus onClick={()=>setPrintPreview(null)}>닫기</button></div>
         <div className="muted">{printPreview.note} · 미적용 초안 제외 · A4 / 배율 100% 권장</div>
         <iframe ref={previewFrame} title="전산 확정 견적서" srcDoc={printPreview.html}/>
       </section>

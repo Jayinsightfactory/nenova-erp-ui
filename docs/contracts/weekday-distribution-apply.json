@@ -53,7 +53,9 @@
     "pages/api/estimate/weekday-print.js",
     "lib/weekdayEstimatePrint.js",
     "__tests__/weekdayHorizontalMatrix.test.js",
-    "__tests__/weekdayCompactSummary.test.js"
+    "__tests__/weekdayCompactSummary.test.js",
+    "lib/weekdayDialogKeyboard.js",
+    "__tests__/weekdayDialogKeyboard.test.js"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -175,7 +177,8 @@
     "__tests__/weekdayConfirmationLifecycle.test.js",
     "scripts/test-weekday-confirmation-lifecycle-sql.cjs",
     "__tests__/weekdayPrintReadiness.test.js",
-    "__tests__/weekdayPrintEligibility.test.js"
+    "__tests__/weekdayPrintEligibility.test.js",
+    "__tests__/weekdayDialogKeyboard.test.js"
   ],
   "dnspyEvidence": {
     "required": true,
