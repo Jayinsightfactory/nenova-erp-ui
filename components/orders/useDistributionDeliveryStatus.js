@@ -7,9 +7,12 @@ export default function useDistributionDeliveryStatus({rows,year,week,enabled,ac
   const ownerScope=JSON.stringify([actorId,year,week]);
   const fingerprints=Object.fromEntries(rows.map(row=>[row.identity,JSON.stringify([row.message,row.created_at,row.timestamp_approximate,row.source,row.chatroom,row.chat_id,row.external_message_id,row.truncated,row.is_truncated])]));
   const scope=JSON.stringify([ownerScope,fingerprints]);
+  const currentTextCounts=new Map();
+  for(const row of rows){const text=String(row.message||'').normalize('NFC').replace(/\s+/gu,' ').trim();currentTextCounts.set(text,(currentTextCounts.get(text)||0)+1);}
+  const currentTextByIdentity=new Map(rows.map(row=>[row.identity,String(row.message||'').normalize('NFC').replace(/\s+/gu,' ').trim()]));
   function retainedItems(previous) {
     if(previous.ownerScope!==ownerScope)return {};
-    return Object.fromEntries(Object.entries(previous.items).filter(([identity])=>previous.fingerprints?.[identity]===fingerprints[identity]));
+    return Object.fromEntries(Object.entries(previous.items).filter(([identity])=>previous.fingerprints?.[identity]===fingerprints[identity]&&currentTextCounts.get(currentTextByIdentity.get(identity))===1));
   }
   const [state,setState]=useState({scope:'',items:{},loading:false,error:''});
   useEffect(()=>{

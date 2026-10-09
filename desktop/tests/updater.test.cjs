@@ -95,6 +95,21 @@ test('check/download do not restart, explicit install approval required', async 
   await updater.install(); assert.equal(installs.length, 0);
   approved = true; await updater.install(); assert.deepEqual(installs, [[true,true]]);
 });
+
+test('installer errors emitted without throwing leave installing and allow an explicit retry', async () => {
+  for (const asynchronous of [false, true]) {
+    const f = fixture();
+    f.engine.quitAndInstall = () => {
+      const emit = () => f.engine.emit('error', Error('Installer unavailable'));
+      if (asynchronous) queueMicrotask(emit); else emit();
+    };
+    await f.updater.check(); await f.updater.download(); await f.updater.install();
+    assert.equal(f.updater.getState().phase, 'error');
+    assert.match(f.updater.getState().message, /실패/);
+    await f.updater.check(); assert.equal(f.updater.getState().phase, 'available');
+    await f.updater.download(); assert.equal(f.updater.getState().phase, 'downloaded');
+  }
+});
 test('offline, low disk, malformed feed and failed persistence never install', async () => {
   for (const mode of ['offline','disk','metadata','persist']) {
     const f = fixture({space: mode !== 'disk', prepare: () => false});

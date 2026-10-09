@@ -27,9 +27,10 @@ function createUpdater({ engine, enabled, notify, enoughSpace, prepareInstall })
     engine.disableWebInstaller = true;
     engine.disableDifferentialDownload = true;
     engine.logger = null;
-    // Awaited operations report their own errors. Late engine events must not
-    // erase an available release or an installer already ready to apply.
-    engine.on('error', () => {});
+    // Check/download promises report their errors. quitAndInstall can instead
+    // emit an error and return without throwing; expose that installation failure.
+    // Late events must not erase available or already downloaded releases.
+    engine.on('error', () => { if (state.phase === 'installing') fail(); });
     engine.on('download-progress', p => { if (state.phase === 'downloading') emit({ percent: Math.max(0, Math.min(100, Math.floor(p.percent))), message: `앱 업데이트 다운로드 중 ${Math.floor(p.percent)}%` }); });
   }
   return {
