@@ -80,3 +80,20 @@
 - 기존 준비된 PC 전용 표시 개선과 함께 1.3.3을 준비한다. 닫기 버튼 기본값만 0으로 변경하며 새로고침·이동·업데이트 재시작 확인의 기본 취소는 유지한다.
 - 전체 메뉴의 셀 너비 조절/스크롤 점검은 여전히 미완이며 이번 배포를 전체 감사 완료로 보고하지 않는다.
 - 운영 DB 쓰기나 nenova.exe 연결 설정 변경은 없다.
+
+### 1.3.3 공개 및 검증 결과
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/995
+- 소스: 3b1e788ecf5912e4b13b1d85e2181f43ae4c740d, master 병합: 5752ae2d122b872f7f2bdd033159d94d8bcf282e.
+- 공개 업데이트: https://github.com/Jayinsightfactory/nenova-erp-ui/releases/tag/desktop-v1.3.3
+- 설치 파일: 111698872 bytes, SHA256 2107c14a6949508d8fcf60101b4a2ff72a46d6aece7f7300fbbf0a2708272007.
+- 공개 latest.yml 1.3.3/버전별 설치 URL/크기/SHA512 일치 확인, app.asar main/shell 코드가 검증한 소스와 동일함 확인.
+- local: Desktop unit17, Electron smoke(1920/800·활성 탭 가시성·취소/닫기), 별도프로세스 복원, 실제 종료, 업데이트 무결성, NSIS dist 모두 통과. 설치 파일은 검사 목적으로 실행하지 않음.
+- web: UI layout, ERP contract, dnSpy evidence, manifest/writeguard(origin/master 기준), Next build(115 static) 및 DOM fixture3개/date helper 통과.
+- PR CI Windows/ERP 및 master CI Windows/ERP 모두 성공. Cafe24 run37870420332 진행 중이며 완료 후 운영 브라우저 점검 예정.
+- 사용자 설치 앱은 자동으로 재시작/업데이트하지 않았음. 이번 배포는 전체85메뉴 UI 감사/셀 너비 조절 완료를 의미하지 않음. 19시 예약은 남은 실제 PC 메뉴 감사에 사용.
+
+### 배포 완료 확인
+- Cafe24 run37870420332 전체 성공(6m0s), SSH 배포 및 실브라우저 hydration smoke 성공.
+- 직접 운영 Chrome smoke: 1920×1080/100%, 로그인 다운로드 링크 1.3.3, React hydration=true, 가로 넘침=false. buildId build-1791509807514.
+- PC 앱 업데이트 피드는 공개 1.3.3. 사용자 앱의 설치/재시작은 실행하지 않았으므로 업데이트 버튼에서 다운로드·재시작 후 적용된다.
+- 남은 예약 작업은 전체 메뉴 글씨 잘림·스크롤·셀/열 크기 조절 감사이며 본 배포와 구분한다.
