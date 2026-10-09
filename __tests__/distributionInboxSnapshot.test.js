@@ -74,6 +74,29 @@ test('same actor/year week transition retains latest raw feed and pending withou
   assert.equal(result.liveHistory,undefined);
   assert.equal(result.manualApplications,undefined);
   assert.deepEqual(retainInboxFeed(input).rows,[old,latest],'empty target snapshot preserves incoming feed');
-  assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-b','2026'])}),{rows:[],pending:[]});
-  assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-a','2025'])}),{rows:[],pending:[]},'prior-year same week never inherits feed or evidence');
+  assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-b','2026'])}),{foldedMessages:{},rows:[],pending:[]});
+  assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-a','2025'])}),{foldedMessages:{},rows:[],pending:[]},'prior-year same week never inherits feed or evidence');
+});
+
+
+test('fold and unfold persist without mutating raw evidence; legacy snapshots stay valid',async()=>{
+  const indexedDB=memoryIndexedDB();
+  await writeInboxSnapshot(scope,{...data,foldedMessages:{'raw|1':true}},{indexedDB});
+  const folded=await readInboxSnapshot(scope,{indexedDB});
+  assert.equal(folded.data.foldedMessages['raw|1'],true);
+  assert.deepEqual(folded.data.rows,data.rows);assert.deepEqual(folded.data.manualApplications,data.manualApplications);
+  await writeInboxSnapshot(scope,{...folded.data,foldedMessages:{'raw|1':false}},{indexedDB});
+  assert.equal((await readInboxSnapshot(scope,{indexedDB})).data.foldedMessages['raw|1'],false);
+  await assert.rejects(writeInboxSnapshot(scope,{...data,foldedMessages:{'raw|1':'yes'}},{indexedDB}),/Invalid inbox snapshot data/);
+  await writeInboxSnapshot(scope,data,{indexedDB});
+  assert.equal((await readInboxSnapshot(scope,{indexedDB})).data.foldedMessages,undefined);
+});
+test('same actor/year carry fold tombstones beat older week snapshots; other scopes do not inherit',()=>{
+  const {retainInboxFeed}=require('../lib/distributionInboxSnapshot');
+  const owner=JSON.stringify(['user-a','2026']);
+  const input={owner,previousOwner:owner,rows:data.rows,foldedMessages:{'raw|1':false,latest:true}};
+  const saved={rows:data.rows,foldedMessages:{'raw|1':true,saved:true}};
+  assert.deepEqual(retainInboxFeed(input,saved).foldedMessages,{'raw|1':false,latest:true,saved:true});
+  assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-b','2026'])}).foldedMessages,{});
+  assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-a','2025'])}).foldedMessages,{});
 });
