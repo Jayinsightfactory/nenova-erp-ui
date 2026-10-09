@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-09T00:55:44.681Z",
+  "generatedAt": "2026-10-09T01:19:30.808Z",
   "coverage": {
     "stage": "verified-refs",
     "definition": "External source main refs and ERP build HEAD; a non-master ERP build HEAD may include its branch commits.",
@@ -16,22 +16,22 @@
       "label": "Nenova ERP",
       "repo": "nenova-erp-ui",
       "ref": "HEAD",
-      "headHash": "ed8c4349dcd3d3cd9fd09878bf1087522ac8f50b",
+      "headHash": "442cf8ca2174e8dd8babf0bb2cdf5e11deea0b5f",
       "sourceStatus": "build-git",
       "stage": "build-head",
       "stale": false,
       "rootHashes": [
         "b4c5da128ba455091a4e602d88953c279eaaed3f"
       ],
-      "collectedAt": "2026-10-09T00:55:44.681Z",
-      "totalCommits": 2961,
-      "nonMergeCount": 2259,
+      "collectedAt": "2026-10-09T01:19:30.808Z",
+      "totalCommits": 2964,
+      "nonMergeCount": 2262,
       "mergeCount": 702,
-      "summaryCount": 225,
-      "knownSummaryTitles": 184,
-      "unknownSummaryTitles": 41,
+      "summaryCount": 232,
+      "knownSummaryTitles": 190,
+      "unknownSummaryTitles": 42,
       "firstDate": "2026-04-01T05:01:29.000Z",
-      "lastDate": "2026-10-08T09:38:13.000Z"
+      "lastDate": "2026-10-09T01:09:04.000Z"
     },
     {
       "id": "mindmap-viewer",
@@ -100,6 +100,114 @@
     }
   ],
   "records": [
+    {
+      "hash": "442cf8ca2174e8dd8babf0bb2cdf5e11deea0b5f",
+      "date": "2026-10-09T01:09:04.000Z",
+      "committedAt": "2026-10-09T01:09:04.000Z",
+      "subject": "fix(import): resolve legacy invoices through explicit source review (#992)",
+      "parents": [
+        "73cb8a2ef88ed612f948cc5ec5b484fd0b15ea3e"
+      ],
+      "paths": [
+        "__tests__/importChinaInvoice.test.js",
+        "__tests__/importChinaLegacyInvoice.test.js",
+        "__tests__/importChinaLegacyReview.test.js",
+        "__tests__/importInvoiceLocal.test.js",
+        "__tests__/importPacking.test.js",
+        "__tests__/importPackingHardening.test.js",
+        "__tests__/importPackingMetadata.test.js",
+        "__tests__/importPackingReceiptAdapter.test.js",
+        "__tests__/importPackingReviewMetadata.test.js",
+        "__tests__/invoiceMetadataRegression.test.js",
+        "__tests__/invoiceRepairBoundary.test.js",
+        "__tests__/invoiceRepairBrowser.test.cjs",
+        "components/import-tools/ChinaLegacyReview.js",
+        "components/import-tools/InvoiceReceiptWorkbench.js",
+        "components/import-tools/PackingEvidenceReview.js",
+        "components/import-tools/PackingListTool.js",
+        "docs/contracts/invoice-extraction-repair.json",
+        "lib/importChinaInvoice.js",
+        "lib/importChinaLegacyInvoice.js",
+        "lib/importChinaLegacyReview.js",
+        "lib/importInvoiceLocal.js",
+        "lib/importPacking.js",
+        "lib/importPackingMetadata.js",
+        "lib/importPackingPrompt.js",
+        "lib/importPackingReceiptAdapter.js",
+        "lib/importPackingResponse.js",
+        "lib/importPackingReview.js",
+        "lib/importPackingState.js",
+        "package.json"
+      ],
+      "changedFileCount": 36,
+      "redactedPathCount": 7,
+      "id": "442cf8ca2174e8dd8babf0bb2cdf5e11deea0b5f",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "73cb8a2ef88ed612f948cc5ec5b484fd0b15ea3e",
+      "date": "2026-10-09T00:59:26.000Z",
+      "committedAt": "2026-10-09T00:59:26.000Z",
+      "subject": "docs(history): 코딩을 몰라도 읽는 업무 목적과 개선 설명 (#991)",
+      "parents": [
+        "89ef359ceaf8526f3ab86bc5486c8ee5e3843e83"
+      ],
+      "paths": [
+        "__tests__/developmentPurposeStories.test.js",
+        "components/dev/DevelopmentPurposeStories.js",
+        "config/development-purpose-stories.json",
+        "docs/contracts/full-development-history.json",
+        "docs/plans/development-purpose-stories.md"
+      ],
+      "changedFileCount": 10,
+      "redactedPathCount": 5,
+      "id": "73cb8a2ef88ed612f948cc5ec5b484fd0b15ea3e",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
+    {
+      "hash": "89ef359ceaf8526f3ab86bc5486c8ee5e3843e83",
+      "date": "2026-10-09T00:56:53.000Z",
+      "committedAt": "2026-10-09T00:56:53.000Z",
+      "subject": "fix(ecount): ingest body 20mb(413 해결)·Excel 버튼 재시도 3회 (#990)",
+      "parents": [
+        "ed8c4349dcd3d3cd9fd09878bf1087522ac8f50b"
+      ],
+      "paths": [
+        "pages/api/ecount/ingest.js",
+        "scripts/ecount-scraper/scrape-core.mjs"
+      ],
+      "changedFileCount": 2,
+      "redactedPathCount": 0,
+      "id": "89ef359ceaf8526f3ab86bc5486c8ee5e3843e83",
+      "kind": "commit",
+      "sourceIds": [
+        "erp"
+      ],
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "menuHrefs": [],
+      "workType": "other",
+      "typeEvidence": "unclassified"
+    },
     {
       "hash": "ed8c4349dcd3d3cd9fd09878bf1087522ac8f50b",
       "date": "2026-10-08T09:38:13.000Z",
@@ -139010,6 +139118,42 @@
   ],
   "summaries": [
     {
+      "id": "erp:work-session-229",
+      "sourceId": "erp",
+      "date": "2026-10-09T03:00:00.000Z",
+      "title": "2026-10-09 개발 이력 쉬운 설명",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-230",
+      "sourceId": "erp",
+      "date": "2026-10-09T03:00:00.000Z",
+      "title": "2026-10-09 인보이스 추출 오류 보수",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-231",
+      "sourceId": "erp",
+      "date": "2026-10-09T03:00:00.000Z",
+      "title": "제목 미확인 · ERP 작업 문서 · 날짜",
+      "titleKnown": false,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
       "id": "erp:work-session-207",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
@@ -139061,7 +139205,7 @@
       "id": "erp:work-session-211",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 MindMap 최초 개발부터 전체 개발 이력",
+      "title": "2026-10-08 업무드라이브 실제 인보이스 테스트",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139073,7 +139217,7 @@
       "id": "erp:work-session-212",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 실제 인보이스 오류 보완",
+      "title": "2026-10-08 MindMap 최초 개발부터 전체 개발 이력",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139085,7 +139229,7 @@
       "id": "erp:work-session-213",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 인보이스 입고·도착원가 연결",
+      "title": "2026-10-08 실제 인보이스 오류 보완",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139097,7 +139241,7 @@
       "id": "erp:work-session-214",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 인보이스 입고 안전검사",
+      "title": "2026-10-08 인보이스 입고·도착원가 연결",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139109,7 +139253,7 @@
       "id": "erp:work-session-215",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 인보이스 통합 입고 실DB 조회",
+      "title": "2026-10-08 인보이스 입고 안전검사",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139121,7 +139265,7 @@
       "id": "erp:work-session-216",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 국가별 인보이스 독립 단계 자동 검증",
+      "title": "2026-10-08 인보이스 통합 입고 실DB 조회",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139133,7 +139277,7 @@
       "id": "erp:work-session-217",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 인보이스 웹 전용 저장 V1",
+      "title": "2026-10-08 실패 인보이스 재검증 및 판정 정정",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139145,7 +139289,7 @@
       "id": "erp:work-session-218",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 메뉴별 기능 개발 히스토리",
+      "title": "2026-10-08 국가별 인보이스 독립 단계 자동 검증",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139157,7 +139301,7 @@
       "id": "erp:work-session-219",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 웹·PC 메뉴별 즐겨찾기",
+      "title": "2026-10-08 국가별 3개 세부차수 인보이스 검증",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139169,7 +139313,7 @@
       "id": "erp:work-session-220",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 붙여넣기 조회 결과 저장",
+      "title": "2026-10-08 인보이스 웹 전용 저장 V1",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139181,7 +139325,7 @@
       "id": "erp:work-session-221",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 붙여넣기 사전 분석 재진입",
+      "title": "2026-10-08 메뉴별 기능 개발 히스토리",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139193,7 +139337,7 @@
       "id": "erp:work-session-222",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 웹·EXE 공통 SQL 처리 확인",
+      "title": "2026-10-08 웹·PC 메뉴별 즐겨찾기",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139205,7 +139349,7 @@
       "id": "erp:work-session-223",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
-      "title": "2026-10-08 주광 대차수 선출고·업로드 통합",
+      "title": "2026-10-08 중국 외 국가 인보이스 AI 테스트",
       "titleKnown": true,
       "path": "docs/work-sessions",
       "projectIds": [
@@ -139215,6 +139359,54 @@
     },
     {
       "id": "erp:work-session-224",
+      "sourceId": "erp",
+      "date": "2026-10-08T03:00:00.000Z",
+      "title": "2026-10-08 붙여넣기 조회 결과 저장",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-225",
+      "sourceId": "erp",
+      "date": "2026-10-08T03:00:00.000Z",
+      "title": "2026-10-08 붙여넣기 사전 분석 재진입",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-226",
+      "sourceId": "erp",
+      "date": "2026-10-08T03:00:00.000Z",
+      "title": "2026-10-08 웹·EXE 공통 SQL 처리 확인",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-227",
+      "sourceId": "erp",
+      "date": "2026-10-08T03:00:00.000Z",
+      "title": "2026-10-08 주광 대차수 선출고·업로드 통합",
+      "titleKnown": true,
+      "path": "docs/work-sessions",
+      "projectIds": [
+        "nenova-erp"
+      ],
+      "kind": "summary"
+    },
+    {
+      "id": "erp:work-session-228",
       "sourceId": "erp",
       "date": "2026-10-08T03:00:00.000Z",
       "title": "2026-10-08 주광 페이지 단일 세로 스크롤",
@@ -142731,12 +142923,12 @@
     }
   ],
   "counts": {
-    "uniqueCommits": 4900,
-    "nonMerge": 4192,
+    "uniqueCommits": 4903,
+    "nonMerge": 4195,
     "merge": 708,
-    "summaries": 310,
-    "knownSummaryTitles": 269,
-    "unknownSummaryTitles": 41
+    "summaries": 317,
+    "knownSummaryTitles": 275,
+    "unknownSummaryTitles": 42
   },
   "coverageNote": "외부 저장소는 기록된 main, ERP는 이 빌드의 HEAD에서 도달 가능한 커밋을 수집했습니다. ERP 빌드 HEAD가 기본 브랜치가 아니면 해당 브랜치 커밋이 포함될 수 있습니다. 병합 커밋과 업무 요약은 따로 집계하며 개인별 작업 횟수를 뜻하지 않습니다."
 }

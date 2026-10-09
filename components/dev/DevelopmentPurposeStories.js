@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import menuDevelopmentDefaults from '../../config/menu-development-defaults.json';
 import styles from './DevelopmentPurposeStories.module.css';
 
 const PAGE_SIZE = 50;
@@ -149,12 +150,15 @@ export default function DevelopmentPurposeStories() {
     return () => window.removeEventListener('nenova:menu-back-request', onBack);
   }, [openStory, query, source, confidence, status]);
 
-  return <section className={styles.root} aria-label="업무가 편해진 과정">
-    <header className={styles.hero}><div><p className={styles.eyebrow}>개발 이력 쉽게 보기</p><h1>왜 만들었고, 무엇이 편해졌는지</h1>
-      <p className={styles.lead}>기능마다 필요했던 이유, 추가하거나 고친 내용, 편해진 점을 순서대로 볼 수 있습니다.</p>
-      <p className={styles.caveat}>아래 숫자는 확인한 원본 기록의 수입니다. 기능·요청·완료한 일의 수와 같지 않습니다. 어느 이야기인지 확실하지 않은 기록은 따로 두었습니다.</p>
+  return <section className={styles.root} aria-label="더 나은 업무 방식을 만들어가는 과정">
+    <header className={styles.hero}><div><p className={styles.eyebrow}>작은 개선을 쌓아가는 개발 노트</p><h1>더 나은 업무 방식을 만들어가는 중</h1>
+      <p className={styles.lead}>업무를 더 낫게 만들기 위해 세운 목표와 시도한 방법, 기록과 피드백으로 확인해 가는 내용을 순서대로 볼 수 있습니다.</p>
+      <p className={styles.caveat}>아래 숫자는 확인한 원본 기록의 수입니다. 기능·요청·완료한 일의 수와 같지 않습니다. 개발 이력은 당시 구현 기록이며, 현재 결과가 모두 다시 검증되었다는 뜻은 아닙니다. 어느 이야기인지 확실하지 않은 기록은 따로 두었습니다.</p>
       <p className={styles.snapshot}>마지막 자료 확인: {overview?.generatedAt ? dateLabel(overview.generatedAt) : '불러오는 중'}</p>
     </div><GuideCharacter /></header>
+    <details className={styles.menuDefaults}><summary>메뉴를 만들 때 함께 지킬 기준</summary><p>{menuDevelopmentDefaults.intro}</p>
+      <div className={styles.defaultsGrid}>{menuDevelopmentDefaults.sections.map(section => <section key={section.id}><h3>{section.title}</h3><ul>{section.items.map(item => <li key={item}>{item}</li>)}</ul></section>)}</div>
+    </details>
     {overviewLoading && <p role="status" className={styles.state}>목적별 개발 이야기를 불러오는 중입니다…</p>}
     {overviewError && <div className={styles.error} role="alert">개발 이야기를 불러오지 못했습니다: {overviewError} <button type="button" onClick={() => setRefresh(value => value + 1)}>다시 시도</button></div>}
     {!overviewLoading && !overviewError && overview && <>
@@ -171,8 +175,8 @@ export default function DevelopmentPurposeStories() {
       {status !== 'review' && !visible.length && <p className={styles.state}>검색 조건에 맞는 목적 이야기가 없습니다. 전체 기록 현황은 위 집계를 확인해 주세요.</p>}
       {chapters.map(([month, stories], chapterIndex) => <section className={styles.chapter} key={month} aria-label={`${chapterLabel(month)} 목적 이야기`}><div className={styles.chapterHeading}><span className={styles.chapterIndex}>{String(chapterIndex + 1).padStart(2, '0')}</span><div><p className={styles.eyebrow}>시작한 시기</p><h2>{chapterLabel(month)}</h2><p>{number(stories.length)}개의 이야기 · 여러 달의 보완도 같은 이야기에서 이어집니다.</p></div></div>
         <div className={styles.storyList}>{stories.map(story => <article key={story.id} className={styles.storyCard}><div className={styles.storyHeader}><div><p className={styles.period}>{periodLabel(story.firstDate, story.lastDate)}</p><h3>{story.title}</h3></div><span className={`${styles.confidence} ${styles[story.confidence] || ''}`}>{confidenceNames[story.confidence] || '확인 수준 검토 필요'}</span></div>
-          <div className={styles.storyNarrative}><div><span className={styles.fieldLabel}>왜 필요했나</span><p>{story.purpose}</p></div><div><span className={styles.fieldLabel}>무엇이 편해졌나</span><p>{story.userValue}</p></div></div>
-          <div className={styles.changes}><h4>만들고 다듬은 흐름</h4><ol>{(story.changes || []).map((change, index) => <li key={`${story.id}-${index}`}><span className={styles.changeDate}>{periodLabel(change.firstDate, change.lastDate)}</span><div><strong>{change.title}</strong>{change.problem && <p><b>불편했던 점</b> · {change.problem}</p>}<p>{change.problem || change.result ? <><b>추가·수정한 기능</b> · </> : null}{change.description}</p>{change.result && <p><b>편해진 점</b> · {change.result}</p>}{Number.isFinite(change.evidenceCount) && <small>확인한 원본 기록 {number(change.evidenceCount)}건</small>}</div></li>)}</ol></div>
+          <div className={styles.storyNarrative}><div><span className={styles.fieldLabel}>풀어보려는 문제</span><p>{story.purpose}</p></div><div><span className={styles.fieldLabel}>이 기능으로 돕고 싶은 일</span><p>{story.userValue}</p></div></div>
+          <div className={styles.changes}><h4>시도와 확인의 흐름</h4><ol>{(story.changes || []).map((change, index) => <li key={`${story.id}-${index}`}><span className={styles.changeDate}>{periodLabel(change.firstDate, change.lastDate)}</span><div><strong>{change.title}</strong>{change.problem && <p><b>시작한 불편</b> · {change.problem}</p>}<p>{change.problem || change.result ? <><b>시도한 방법</b> · </> : null}{change.description}</p>{change.result && <p><b>기록에서 확인한 변화</b> · {change.result}</p>}{Number.isFinite(change.evidenceCount) && <small>확인한 원본 기록 {number(change.evidenceCount)}건</small>}</div></li>)}</ol></div>
           <p className={styles.scope}><strong>확인 범위</strong> · {story.scopeNote}</p>
           <button ref={node => { openRefs.current[story.id] = node; }} className={styles.openEvidence} type="button" aria-expanded={openStory === story.id} onKeyDown={event => moveStoryFocus(event, story.id)} onClick={() => toggleRecords(story.id)}>확인한 원본 기록 {number(story.recordCount)}건 {openStory === story.id ? '닫기' : '보기'}</button>
           {openStory === story.id && <EvidenceRecords storyId={story.id} total={story.recordCount} page={page} setPage={setPage} data={records} loading={recordsLoading} error={recordsError} retry={retryRecords} close={closeRecords} panelRef={panelRef} />}
