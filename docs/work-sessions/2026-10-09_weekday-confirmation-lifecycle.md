@@ -35,3 +35,15 @@ Chrome 로그인은 기존 검증계정 정상로그인으로 해결했다. 배�
 2026-10-09 배포: PR #1009, master b436065305d04367dd4fb7def4ff5ebaeea4fc33. CI 37910430999 / Cafe24 37910647884 성공. Chrome 최신 SHA 확인, 40차 10/04 일요일 실제 확정 견적 1문서·74행 미리보기 확인. 운영 ERP 변경 없이 검증했다. 41차 10/11 미확정 포함 요청은 409 차단 확인.
 추가 UI 검토에서 적용확인·인쇄창 키보드 초점경계/복귀를 보완했다. 저장 중 Escape는 닫지 않고, 인쇄 iframe 내부 Escape/Tab도 모달로 연결한다. 행동 테스트와 ERP 계약에 포함한다. 최초 전체 검사 중 기존 carryover cross-process 경합 테스트가 1회 실패했으며 단독 재실행은 10/10 통과; 부하 없는 전체 재검사 결과를 확인 후 배포한다.
 전체 ERP 계약 재검사 exit0. dnSpy evidence/manifest/write guard/build 모두 exit0. 기존 경합 테스트 단독 및 전체 재검사 통과를 확인했다.
+
+## 최종 완료 (2026-10-09)
+- 본 기능 PR #1009 / master b4360653, 키보드 보완 PR #1010 / master 368faf990988bb1649c61fbb0988c3a3684709fc.
+- PR1010 CI 37912095139 재실행 성공. 최초 실패는 unrelated importChecklistEditing Chromium WS endpoint 30초 시작 timeout; 검사 수정/생략 없이 동일 실패 job 재실행 성공.
+- Cafe24 37912537543 전체 성공: ERP+교차연도 guard, SSH deploy, 실제브라우저 hydration smoke.
+- Codex Chrome 1920×1080/100%, 최신 SHA 368faf99 확인. 고정40차 Brut 10/04 3→4 초안 preview에 확정→확정/확정취소→수량저장→확정 표시; 사유입력 초기초점, Shift+Tab/Tab 경계순환, Escape 닫기 및 ERP버튼복귀 확인. ERP 적용 최종버튼은 누르지 않음.
+- 입력 직후 이월확인 보조패널과 선택칸내역이 배경에 열린 상태에서도 적용모달의 초점 경계를 유지하고 Escape 복귀 확인. 이 배경 보조패널은 기존 UI 동작이다.
+- 40차 10/04 일요일 실제확정견적 1문서/74행. 인쇄창 닫기 초기초점→Tab iframe→Escape 닫기→해당요일출력버튼복귀 통과. 견적서 출력 버튼의 window.print 호출 후 CDP input 응답이 대기되어 페이지 reload로 복귀했으며, OS 인쇄대화상자 내용/물리출력 완료는 주장하지 않는다.
+- SELECT-only HTTP smoke: 40차 10/04 200/74행; 41차10/11 실제미확정 포함은409 차단. 다른업체미확정은 선택업체요일인쇄를 막지않음.
+- 세로통합 확인: viewport1920×1080, documentHeight7237, table clientHeight=scrollHeight6701; 가로 client1874/scroll2643, 위·아래 가로바유지. 모달이 기준화면 안에 위치, 호출버튼/사유/인쇄버튼 확인. Chrome error logs [].
+- 검증용 미적용 입력 삭제후0건 확인. 운영ERP 테스트쓰기는 없음. MSSQL fixture named container nenova-estimate-sql-test-20260826 종료.
+- 잔여 제한: 모호한 복수단가 날짜이동은 저장 전 차단; 실제선택일 미확정은 인쇄차단. 운영사용자의 실제수량변경 트랜잭션은 격리실제SQL로 검증했고 운영데이터를 임의변경하지 않음.
