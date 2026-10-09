@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './DevelopmentJourney.module.css';
+import DevelopmentPurposeStories from './DevelopmentPurposeStories';
+import purposeStyles from './DevelopmentPurposeStories.module.css';
 
 const PAGE_SIZE = 50;
 const sourceNames = { erp: 'Nenova ERP', 'mindmap-viewer': 'MindMap Viewer', nenovakakao: 'Nenova Kakao' };
@@ -36,7 +38,7 @@ function Mascot() {
   </svg>;
 }
 
-export default function DevelopmentJourney() {
+function RawDevelopmentJourney() {
   const [source, setSource] = useState('all');
   const [project, setProject] = useState('all');
   const [type, setType] = useState('all');
@@ -209,4 +211,15 @@ export default function DevelopmentJourney() {
       </>}
     </>}
   </section>;
+}
+
+export default function DevelopmentJourney() {
+  const [mode, setMode] = useState('stories');
+  return <>
+    <nav className={purposeStyles.modeTabs} aria-label="개발 여정 표시 방식">
+      <button type="button" aria-pressed={mode === 'stories'} onClick={() => setMode('stories')}>업무 목적별 여정</button>
+      <button type="button" aria-pressed={mode === 'raw'} onClick={() => setMode('raw')}>원본 날짜별 기록</button>
+    </nav>
+    {mode === 'stories' ? <DevelopmentPurposeStories /> : <RawDevelopmentJourney />}
+  </>;
 }

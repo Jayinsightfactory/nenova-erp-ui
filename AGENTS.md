@@ -1,5 +1,13 @@
 # Nenova ERP 작업 가드
 
+## 메뉴 개발 기본값 필수 확인
+
+새 메뉴를 만들거나 기존 메뉴의 화면·업무 흐름을 수정하기 전에
+[`docs/MENU_DEVELOPMENT_DEFAULTS.md`](docs/MENU_DEVELOPMENT_DEFAULTS.md)를 읽는다.
+작업 시작 때 항상 적용 항목과 이번 기능에만 해당하는 항목을 구분하고, 완료 보고 또는
+PR에 기준선 확인 결과를 `적용 / 해당 없음 / 예외`와 근거로 남긴다. 최신 사용자 지시와
+확인된 기능 계약이 기준선보다 우선하며, 관련 없는 기존 메뉴를 일괄 변경하지 않는다.
+
 ## 새 메뉴·페이지 화면틀 규칙
 
 일반 페이지의 왼쪽 메뉴와 상단바는 `pages/_app.js`만 소유한다. 새 `pages/**` 파일은 내용만 반환하고 `components/Layout`을 import하거나 `<Layout>`으로 다시 감싸지 않는다. 기존 자체 화면틀을 유지하면 `_app.js`의 `NO_LAYOUT`에 명시해 shell이 정확히 하나가 되게 한다. 새 메뉴는 `components/Layout.js`의 `MENU_ITEMS` 한 곳에만 등록한다. 일반 URL은 메뉴/상단바 각 1개, `?popup=1`은 간소화 상단바 1개/왼쪽 메뉴 0개인지 `npm run test:ui-layout`과 실브라우저로 확인한다. 자세한 예시는 `docs/UI_LAYOUT_AND_MENU_CONTRACT.md`를 따른다.

@@ -13,7 +13,8 @@ const COOKIE = process.env.NENOVA_COOKIE || '';
   if (!fs.existsSync(PROFILE)) { console.error('ecount-profile 없음 — login-save.mjs 먼저.'); process.exit(1); }
   const targets = process.argv.slice(2).filter(a => DEFS[a]);
   const list = targets.length ? targets : ['sales', 'ar', 'ap', 'cash'];
-  const ctx = await chromium.launchPersistentContext(PROFILE, { headless: !process.env.SHOW, viewport: { width: 1600, height: 900 }, acceptDownloads: true });
+  // channel:'chromium' = 헤드리스도 로그인 때와 같은 풀 크로미움 빌드 사용(headless shell 은 별도 빌드라 프로필 세션을 못 받아 "만료" 오판, 2026-10-08)
+  const ctx = await chromium.launchPersistentContext(PROFILE, { channel: 'chromium', headless: !process.env.SHOW, viewport: { width: 1600, height: 900 }, acceptDownloads: true });
   await installGuard(ctx);
   const page = ctx.pages()[0] || await ctx.newPage();
   const base = await ensureBooted(page);

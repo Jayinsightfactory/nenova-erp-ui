@@ -77,11 +77,12 @@ const ui=require('node:fs').readFileSync(require('node:path').join(__dirname,'..
 assert.match(ui,/source-confirm-toggle:/);
 assert.match(ui,/confirmation\.confirmed&&!confirmation\.cancelled\?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED'/);
 assert.match(ui,/compact-match-row \$\{confirmation\.confirmed&&!confirmation\.cancelled\?'history-completed':''\}/,'a confirmed source row receives the completion highlight class');
-assert.match(ui,/exactHistoryCoverage=pairedRequests\.length===changes\.length\?appliedCount:0/,'API-only or missing parsed requests prevent whole-source auto-confirmation');
-assert.match(ui,/appliedItemCount:exactHistoryCoverage/,'all items can be confirmed by quantity or verified committed history');
+assert.match(ui,/exactHistoryCoverage=historyApplicationCoverage\(appliedItems,changes.length\)/,'API-only or missing parsed requests prevent whole-source auto-confirmation');
+assert.match(ui,/\.\.\.exactHistoryCoverage/,'all items can be confirmed by quantity or verified committed history');
 assert.match(ui,/exactContentOperationMatches\.get\(/,'exact cross-source operation history is shown and included in full-source confirmation');
 assert.match(ui,/role="alert"/);
-assert.match(ui,/applicationScope,open,disabled,operationRevision/);
+assert.match(ui,/previousOperationRevision\.current!==operationRevision/,'only an actual new operation schedules an evidence refresh');
+assert.match(ui,/!operationRefreshPending\.current/,'opening or enabling a restored inbox alone must not refresh application evidence');
 assert.match(ui,/paired-message-original/,'the full organized Kakao message is visible in the left column');
 assert.match(ui,/paired-applied-items/,'the right column shows applied items, not ERP event explanations');
 assert.match(ui,/application\.status==='APPLIED'\?'적용':'미확인'/,'only an exact verified item audit is colored applied');
@@ -117,3 +118,41 @@ const {readApplicationChannel}=require('../lib/distributionApplicationRefresh');
   assert.deepEqual(state.audit,{old:true});
   console.log('independent application channels, endpoint failure, stale scope and timeout fixtures passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
+
+const {appliedHistoryEntry,historyApplicationCoverage}=require('../lib/distributionMessageApplicationStatus');
+const notApplied={status:'UNCONFIRMED',entry:null};
+const sqlRequest={id:`${identity}:1`,shipmentEvents:[{changeAt:'2026-09-15 11:02:00',before:2,after:7}],qty:2};
+const sqlPair={request:sqlRequest,requestId:sqlRequest.id,expectedRequestId:sqlRequest.id};
+const sql=appliedHistoryEntry({pair:sqlPair,application:notApplied,confirmedRequests:[sqlRequest]});
+assert.equal(sql.matchKind,'SQL_HISTORY','exact SQL result applies even when native event represents combined requests');
+assert.equal(sql.evidenceAt,'2026-09-15T02:02:00.000Z');
+assert.strictEqual(appliedHistoryEntry({pair:sqlPair,application:{status:'APPLIED',matchKind:'OPERATION_CONTENT'},confirmedRequests:[sqlRequest]}).matchKind,'OPERATION_CONTENT','verified web history keeps priority');
+for(const patch of [{unparsedRequest:true},{duplicateRequest:true},{requestId:null},{expectedRequestId:'other:1'}]){
+ assert.equal(appliedHistoryEntry({pair:{...sqlPair,...patch},application:notApplied,confirmedRequests:[sqlRequest]}).status,'UNCONFIRMED');
+}
+assert.equal(appliedHistoryEntry({pair:sqlPair,application:notApplied,confirmedRequests:[sqlRequest,sqlRequest],quantityRequests:[sqlRequest]}).status,'UNCONFIRMED','duplicate exact evidence cannot fall through');
+const quantity=appliedHistoryEntry({pair:sqlPair,application:notApplied,quantityRequests:[sqlRequest]});
+assert.equal(quantity.matchKind,'QUANTITY_HISTORY');assert.equal(quantity.evidenceAt,undefined);
+const sqlItems=[{pair:sqlPair,application:sql}];
+const coverage=historyApplicationCoverage(sqlItems,1);
+assert.deepEqual(coverage,{appliedItemCount:1,evidenceAt:'2026-09-15T02:02:00.000Z'});
+assert.equal(sourceConfirmation({...scope,requestCount:1,manual:cancelled,...coverage}).confirmed,true,'later EXE/SQL change reconfirms earlier manual cancellation');
+assert.equal(sourceConfirmation({...scope,requestCount:1,manual:{...cancelled,createdAt:'2026-09-15T02:03:00Z'},...coverage}).cancelled,true,'later manual cancellation remains authoritative');
+assert.equal(sourceConfirmation({...scope,requestCount:1,manual:cancelled,appliedItemCount:1,evidenceAt:'invalid',asOf:'2099-01-01'}).cancelled,true,'invalid native time and fresh query time cannot override manual cancellation');
+assert.equal(historyApplicationCoverage([...sqlItems,...sqlItems],2).appliedItemCount,0,'duplicate source pairs block completion');
+assert.equal(historyApplicationCoverage([...sqlItems,{pair:{...sqlPair,unparsedRequest:true},application:sql}],1).appliedItemCount,0,'extra API rows block completion');
+assert.equal(historyApplicationCoverage(sqlItems,2).appliedItemCount,0,'missing source requests block completion');
+const secondRequest={...sqlRequest,id:`${identity}:2`};
+const secondPair={request:secondRequest,requestId:secondRequest.id,expectedRequestId:secondRequest.id};
+const mixedCoverage=historyApplicationCoverage([...sqlItems,{pair:secondPair,application:quantity}],2);
+assert.deepEqual(mixedCoverage,{appliedItemCount:2,evidenceAt:null},'exact SQL and quantity evidence jointly complete, but numeric candidates cannot override a manual cancellation by timestamp');
+assert.equal(sourceConfirmation({...scope,...mixedCoverage}).confirmed,true);
+assert.equal(historyApplicationCoverage([{pair:sqlPair,application:{...sql,evidenceAt:null}}],1).evidenceAt,null);
+console.log('exact native SQL item coverage and manual timestamp precedence passed');
+
+const oldExactAndNewCandidate={...sqlRequest,shipmentEvents:[{before:0,after:2,changeAt:'2026-09-15 10:00:00'},{before:2,after:7,changeAt:'2026-09-15 12:00:00'}]};
+const candidateApplication=appliedHistoryEntry({pair:sqlPair,application:notApplied,confirmedRequests:[oldExactAndNewCandidate]});
+assert.equal(candidateApplication.status,'APPLIED','exact SQL comparison still confirms the item');
+assert.equal(candidateApplication.evidenceAt,null,'later nonmatching same-key candidate must not supply completion time');
+const candidateCoverage=historyApplicationCoverage([{pair:sqlPair,application:candidateApplication}],1);
+assert.equal(sourceConfirmation({...scope,requestCount:1,manual:{...cancelled,createdAt:'2026-09-15T02:00:00Z'},...candidateCoverage}).cancelled,true,'old exact history plus unrelated later event cannot override manual cancellation');
