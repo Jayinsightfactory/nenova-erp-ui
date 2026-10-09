@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
   <title>Nenova 데스크톱</title>
   <link rel="stylesheet" href="./shell.css">
+  <script src="./home-workspace.js" defer></script>
   <script src="./shell.js" defer></script>
 </head>
 <body>
@@ -67,8 +68,7 @@
             <button id="appUpdateButton" class="top-action" type="button">앱 업데이트 확인</button>
             <button id="cancelUpdateButton" class="top-action" type="button" hidden>다운로드 취소</button>
             <span id="appUpdateStatus" role="status" aria-live="polite"></span>
-            <strong id="appUpdateNotesHeading"></strong>
-            <ul id="appUpdateNotes" class="app-update-notes"></ul>
+            <details class="update-details"><summary>변경 내용</summary><strong id="appUpdateNotesHeading"></strong><ul id="appUpdateNotes" class="app-update-notes"></ul></details>
           </section>
           <div class="search-wrap">
             <label for="menuSearch">업무 화면 찾기</label>
@@ -76,6 +76,7 @@
             <kbd>Ctrl K</kbd>
           </div>
         </div>
+        <section id="homeWorkspace" class="hw" aria-label="개인 업무와 최신 소식"></section>
         <section id="favoritesSection" class="favorites-section" aria-labelledby="favoritesHeading" hidden>
           <div class="section-heading"><h2 id="favoritesHeading">즐겨찾기</h2><span>자주 쓰는 화면</span></div>
           <div id="favoritesList" class="favorites-list"></div>

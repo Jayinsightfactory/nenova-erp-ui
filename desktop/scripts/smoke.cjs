@@ -24,12 +24,80 @@ let holdAccountABootstrap = false;
 let accountABootstrapStarted = false;
 let releaseAccountABootstrap;
 const fixtureRequests = [];
+const HOME_ROUTE = '/api/desktop/home-workspace';
+const HOME_DATE = '2026-10-09';
+const homeStores = new Map(), homeRequests = [], homeHolds = [];
+let homeFailNextPost = false;
 let main;
 dialog.showMessageBoxSync = () => dialogAnswer;
 
 app.setPath('userData', USER_DATA);
 app.setPath('sessionData', USER_DATA);
 app.setName('Nenova Desktop Smoke');
+
+function homeStore(owner) {
+  if (!homeStores.has(owner)) homeStores.set(owner, { revision: 1, tasks: [{
+    id: `${owner}-task`, title: `${owner} 확인 업무`, startDate: HOME_DATE, weekdays: [],
+    occurrenceDate: HOME_DATE, done: false, carried: false, archived: false, stopped: false,
+  }], guidance: [{ id: 'guide-1', title: '업무 안내 <img src=x onerror="window.__homeInjected=true">',
+    summary: '실제 운영 데이터 없는 스모크 안내', updatedAt: `${HOME_DATE}T00:00:00.000Z`, href: '/test/fixture',
+    sourceKey: 'guidance:smoke-1', unread: true, priority: 'normal' }], feedback: [{ id: 'feedback-1',
+    title: '연도와 차수 확인', summary: '2026년 40-01차 테스트 피드백', updatedAt: `${HOME_DATE}T01:00:00.000Z`,
+    href: '/test/fixture?year=2026&week=40-01', sourceKey: 'feedback:smoke-1', unread: true,
+    priority: 'high', orderYear: 2026, orderWeek: '40-01' }] });
+  return homeStores.get(owner);
+}
+function homeSnapshot(owner, date = HOME_DATE) {
+  const store = homeStore(owner);
+  return structuredClone({ success: true, schemaVersion: 1, ownerId: owner, date, ...store,
+    feedErrors: {}, syncedAt: `${HOME_DATE}T02:00:00.000Z`, totalTasks: store.tasks.length, nextOffset: null });
+}
+function holdHome(predicate) {
+  const held = { predicate, started: false, release: null };
+  homeHolds.push(held);
+  return held;
+}
+async function homeFixture(request, url) {
+  const owner = accountActor;
+  const body = request.method === 'POST' ? await request.json() : null;
+  const date = body?.date || url.searchParams.get('date') || HOME_DATE;
+  const expectedOwnerId = body?.expectedOwnerId || url.searchParams.get('expectedOwnerId');
+  assert.equal(url.pathname, HOME_ROUTE);
+  assert.equal(request.headers.get('origin'), ORIGIN, 'home bridge supplies the fixed Origin');
+  assert.match(date, /^20\d{2}-\d{2}-\d{2}$/);
+  assert.equal(new Date(date + 'T00:00:00Z').toISOString().slice(0, 10), date);
+  const record = { method: request.method, pathname: url.pathname, owner, expectedOwnerId, date, body };
+  homeRequests.push(record);
+  if (expectedOwnerId !== owner) return Response.json({ success: false, code: 'OWNER_CHANGED', error: '계정 변경' }, { status: 409 });
+  const store = homeStore(owner);
+  if (request.method === 'POST') {
+    if (homeFailNextPost) { homeFailNextPost = false; return Response.json({ success: false, code: 'FIXTURE_FAILURE', error: '스모크 저장 실패 · 입력 보존 확인' }, { status: 503 }); }
+    if (body.expectedRevision !== store.revision) return Response.json({ success: false, code: 'REVISION_CONFLICT', error: '다시 조회하세요.' }, { status: 409 });
+    assert.match(body.requestId, /^[\w-]{8,100}$/);
+    if (body.action === 'create') store.tasks.push({ id: `${owner}-created-${store.revision}`, title: body.title,
+      startDate: body.startDate || date, weekdays: body.weekdays || [], occurrenceDate: date,
+      done: false, carried: false, archived: false, stopped: false });
+    else if (body.action === 'read') {
+      const feed = [...store.guidance, ...store.feedback].find(item => item.sourceKey === body.sourceKey);
+      assert.ok(feed, 'read command uses a known fixture sourceKey'); feed.unread = false;
+    } else {
+      const task = store.tasks.find(item => item.id === body.taskId);
+      assert.ok(task, 'mutation uses an account-owned task');
+      if (body.action === 'complete') task.done = body.done;
+      else if (body.action === 'update') Object.assign(task, Object.fromEntries(['title', 'weekdays', 'startDate'].filter(key => body[key] !== undefined).map(key => [key, body[key]])));
+      else if (body.action === 'archive') task.archived = true;
+      else if (body.action === 'restore') task.archived = false;
+      else if (body.action === 'stop') task.stopped = true;
+      else assert.fail(`Unexpected fixture home action: ${body.action}`);
+    }
+    store.revision++;
+  } else assert.equal(request.method, 'GET');
+  // Snapshot before waiting: delayed A data must never become B data by accident.
+  const result = homeSnapshot(owner, date);
+  const held = homeHolds.find(item => !item.started && item.predicate(record));
+  if (held) { held.started = true; await new Promise(resolve => { held.release = resolve; }); }
+  return Response.json(result);
+}
 
 function fixturePage(pathname) {
   const title = pathname.includes('second') ? '두 번째 업무 화면' : '스모크 업무 화면';
@@ -61,12 +129,15 @@ function fixturePage(pathname) {
 
 function installFixtureProtocol() {
   const workSession = session.fromPartition('persist:nenova-work');
+  session.defaultSession.protocol.handle('https', () => new Response('Blocked by smoke fixture', { status: 403 }));
+  for (const isolated of [session.defaultSession, workSession]) isolated.protocol.handle('http', () => new Response('Blocked by smoke fixture', { status: 403 }));
   // The session protocol hook catches every HTTPS request, including any URL
   // the application might construct. No request can reach the real service.
   workSession.protocol.handle('https', async request => {
     const url = new URL(request.url);
     if (url.origin !== ORIGIN) return new Response('Blocked by smoke fixture', { status: 403 });
     fixtureRequests.push({ method: request.method, pathname: url.pathname });
+    if (url.pathname === HOME_ROUTE) return homeFixture(request, url);
     if (url.pathname === '/api/auth/me') {
       if (accountActor === 'desktop-test-b' && holdAccountBAuth) {
         accountBAuthStarted = true;
@@ -113,6 +184,93 @@ function capture(window, name) {
   return window.webContents.capturePage().then(image => {
     fs.writeFileSync(path.join(OUTPUT, name), image.toPNG());
   });
+}
+
+async function homeIpc(contents, payload) {
+  return contents.executeJavaScript(`window.desktop.invoke('homeWorkspace', ${JSON.stringify(payload)})`);
+}
+
+async function verifyHomeBridge(contents) {
+  const initial = await homeIpc(contents, { method: 'GET', date: HOME_DATE, url: 'https://outside.invalid/', ownerId: 'forged' });
+  assert.equal(initial.ownerId, 'desktop-test');
+  assert.equal(initial.date, HOME_DATE);
+  const create = { action: 'create', title: 'IPC 생성 업무', startDate: HOME_DATE, weekdays: [1, 3],
+    date: HOME_DATE, requestId: 'smoke-home-create', expectedRevision: initial.revision,
+    expectedOwnerId: 'forged', ownerId: 'forged', url: 'https://outside.invalid/' };
+  const created = await homeIpc(contents, { method: 'POST', command: create });
+  const task = created.tasks.find(item => item.title === 'IPC 생성 업무');
+  assert.ok(task, 'create IPC returns the persisted fixture task');
+  assert.equal(created.revision, initial.revision + 1);
+  const posted = homeRequests.filter(request => request.method === 'POST').at(-1);
+  assert.equal(posted.expectedOwnerId, 'desktop-test', 'owner is supplied by authenticated main');
+  assert.equal(posted.pathname, HOME_ROUTE, 'shell cannot replace the home endpoint');
+  assert.equal('url' in posted.body, false); assert.equal('ownerId' in posted.body, false);
+  const completed = await homeIpc(contents, { method: 'POST', command: { action: 'complete', taskId: task.id, done: true,
+    date: HOME_DATE, requestId: 'smoke-home-complete', expectedRevision: created.revision } });
+  assert.equal(completed.tasks.find(item => item.id === task.id).done, true);
+  const read = await homeIpc(contents, { method: 'POST', command: { action: 'read', sourceKey: 'guidance:smoke-1',
+    date: HOME_DATE, requestId: 'smoke-home-read', expectedRevision: completed.revision } });
+  assert.equal(read.guidance[0].unread, false);
+  assert.equal(read.feedback[0].orderYear, 2026); assert.equal(read.feedback[0].orderWeek, '40-01');
+  const conflict = await homeIpc(contents, { method: 'POST', command: { action: 'complete', taskId: task.id, done: false,
+    date: HOME_DATE, requestId: 'smoke-home-conflict', expectedRevision: created.revision } });
+  assert.equal(conflict.success, false); assert.equal(conflict.status, 409);
+  assert.equal(homeStore('desktop-test').tasks.find(item => item.id === task.id).done, true, 'stale revision cannot undo completion');
+  const beforeInvalid = homeRequests.length;
+  await assert.rejects(homeIpc(contents, { method: 'DELETE', date: HOME_DATE }));
+  await assert.rejects(homeIpc(contents, { method: 'GET', date: '2026-02-30' }));
+  assert.equal(homeRequests.length, beforeInvalid, 'invalid bridge requests never reach fixture transport');
+  console.log('Smoke: home IPC fixed route, owner, date, create/complete/read and conflict');
+}
+
+async function verifyHomeUi(contents, window) {
+  const previousActive = window.activeId;
+  main.command(window, 'menu', { open: true });
+  await waitFor(() => contents.executeJavaScript('typeof window.homeWorkspace?.applyState === "function" && Boolean(document.querySelector(".hw-task"))'), 'home module loads under native shell CSP');
+  const boundary = await contents.executeJavaScript(`({ protocol: location.protocol,
+    module: [...document.scripts].some(script => script.src === 'nenova-app://shell/home-workspace.js'),
+    csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]').content })`);
+  assert.equal(boundary.protocol, 'nenova-app:'); assert.equal(boundary.module, true);
+  assert.match(boundary.csp, /connect-src 'none'/, 'home UI does not relax browser network CSP');
+  await contents.executeJavaScript(`(() => { const date = document.querySelector('.hw-heading input[type=date]');
+    date.value = '${HOME_DATE}'; date.dispatchEvent(new Event('change', {bubbles:true})); })()`);
+  await waitFor(() => contents.executeJavaScript(`document.querySelector('.hw-rows').textContent.includes('IPC 생성 업무') && !document.querySelector('.hw-add>button').disabled`), 'home reload shows server-confirmed IPC snapshot');
+  assert.equal(await contents.executeJavaScript('Boolean(document.querySelector("#homeWorkspace img")) || Boolean(window.__homeInjected)'), false, 'feed HTML remains inert text');
+  assert.match(await contents.executeJavaScript('document.querySelector(".hw-feeds").textContent'), /2026년 40-01차/);
+
+  homeFailNextPost = true;
+  window.win.focus(); contents.focus();
+  await contents.executeJavaScript(`(() => { const input = document.querySelector('.hw-add>input'); input.value = 'UI 저장 실패 후 재시도'; input.dispatchEvent(new Event('input',{bubbles:true})); input.focus(); })()`);
+  contents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' }); contents.sendInputEvent({ type: 'char', keyCode: '\r' }); contents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+  await waitFor(() => contents.executeJavaScript('!document.querySelector(".hw-error").hidden && document.querySelector(".hw-error").textContent.includes("스모크 저장 실패")'), 'home save failure is visible').catch(async error => {
+    console.error('Home failure diagnostic', await contents.executeJavaScript(`({ focused: document.activeElement.outerHTML, input: document.querySelector('.hw-add>input').value, disabled: document.querySelector('.hw-add>button').disabled, error: document.querySelector('.hw-error').textContent, status: document.querySelector('.hw-status').textContent })`), homeRequests.slice(-3)); throw error;
+  });
+  assert.equal(await contents.executeJavaScript('document.querySelector(".hw-add>input").value'), 'UI 저장 실패 후 재시도');
+  assert.equal(homeStore(accountActor).tasks.some(task => task.title === 'UI 저장 실패 후 재시도'), false, 'failed save creates no task');
+  await contents.executeJavaScript('document.querySelector(".hw-error button").click()');
+  await waitFor(() => contents.executeJavaScript('document.querySelector(".hw-rows").textContent.includes("UI 저장 실패 후 재시도") && document.querySelector(".hw-add>input").value === ""'), 'home retry saves and clears input');
+  const uiTask = homeStore(accountActor).tasks.find(task => task.title === 'UI 저장 실패 후 재시도');
+  assert.ok(uiTask);
+  const attempts = homeRequests.filter(request => request.body?.title === 'UI 저장 실패 후 재시도');
+  assert.equal(attempts.length, 2); assert.equal(attempts[0].body.requestId, attempts[1].body.requestId, 'retry retains request identity');
+  await contents.executeJavaScript(`document.querySelector('[data-task="${uiTask.id}|${HOME_DATE}"] input[type=checkbox]').focus()`);
+  contents.sendInputEvent({ type: 'keyDown', keyCode: 'Space' }); contents.sendInputEvent({ type: 'keyUp', keyCode: 'Space' });
+  await waitFor(() => homeStore(accountActor).tasks.find(task => task.id === uiTask.id).done, 'Space completes a personal task through native IPC');
+  await waitFor(() => contents.executeJavaScript(`document.querySelector('[data-task="${uiTask.id}|${HOME_DATE}"] input[type=checkbox]')?.checked === true`), 'completion renders server confirmation');
+  await contents.executeJavaScript(`document.querySelector('[data-feed-control="feedback:detail"]').focus(); document.querySelector('[data-feed-control="feedback:detail"]').click()`);
+  await waitFor(() => contents.executeJavaScript('!document.querySelector(".hw-detail").hidden'), 'feedback details expand');
+  contents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' }); contents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+  await waitFor(() => contents.executeJavaScript('document.querySelector(".hw-detail").hidden && document.activeElement.dataset.feedControl === "feedback:detail"'), 'Escape restores feed trigger focus');
+  await contents.executeJavaScript(`document.querySelector('[data-feed-control="feedback:detail"]').click(); document.querySelector('.hw-detail article button').click()`);
+  await waitFor(() => homeStore(accountActor).feedback[0].unread === false, 'opening source records explicit read through home API');
+  main.command(window, 'menu', { open: true });
+  await waitFor(() => contents.executeJavaScript('document.querySelector(".hw-rows").textContent.includes("UI 저장 실패 후 재시도")'), 'return to home preserves saved personal tasks');
+  assert.equal(homeRequests.every(request => request.expectedOwnerId === request.owner), true);
+  assert.equal(fixtureRequests.filter(request => request.method === 'POST' && request.pathname !== HOME_ROUTE).length, 0, 'home controls never POST to ERP endpoints');
+  main.command(window, 'activate', { id: previousActive });
+  await waitFor(() => [...main.tabs.values()].every(tab => !tab.loading), 'home source tabs finish loading before synthetic shell-state checks');
+  await contents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  console.log('Smoke: native home CSP, keyboard create/complete, failure/retry, safe feeds and source read');
 }
 
 async function run() {
@@ -171,6 +329,8 @@ async function run() {
   assert.equal(first.view.getBounds().y, 44, 'compact tab workspace starts below the 44px tab bar');
   assert.equal(first.view.getBounds().height, 1036, 'compact tab workspace uses the remaining 1036px');
   const shellContents = sourceWindow.win.webContents;
+  await verifyHomeBridge(shellContents);
+  await verifyHomeUi(shellContents, sourceWindow);
   for (const [phase, label, disabled] of [['available', '앱 1.4.0 다운로드', false], ['downloading', '다운로드 42%', true], ['downloaded', '재시작하여 업데이트', false], ['unavailable', '앱 업데이트 확인', true]]) {
     shellContents.send('desktop:state', { appUpdate: { phase, version: '1.4.0', percent: 42, message: '검증 상태' } });
     await new Promise(r => setTimeout(r, 50));
@@ -352,6 +512,14 @@ async function run() {
     const menuFooter = await shellContents.executeJavaScript('({top:document.querySelector(".statusbar").getBoundingClientRect().top,bottom:document.querySelector(".statusbar").getBoundingClientRect().bottom,height:innerHeight})');
     assert.equal(menuFooter.top, menuFooter.height - 28, `${width}px menu footer top`);
     assert.equal(menuFooter.bottom, menuFooter.height, `${width}px menu footer bottom`);
+    const homeGeometry = await shellContents.executeJavaScript(`(() => {
+      const home = document.querySelector('#home');
+      const parts = [...document.querySelectorAll('.hw-panel,.hw-rows,.hw-feeds')].map(el => ({ width:el.scrollWidth, client:el.clientWidth, overflow:getComputedStyle(el).overflowY }));
+      return { parts, homeOverflow:getComputedStyle(home).overflowY, zoom:devicePixelRatio, viewport:innerWidth };
+    })()`);
+    assert.equal(homeGeometry.parts.length, 3, 'native personal home module rendered its sections');
+    assert.ok(['auto', 'scroll'].includes(homeGeometry.homeOverflow), 'home uses its main page scroll region');
+    assert.ok(homeGeometry.parts.every(part => !['auto','scroll'].includes(part.overflow) && part.width <= part.client + 1), `${width}px personal home has no nested vertical scrollers or horizontal clipping`);
     const notes = ['<img src=x onerror="window.__notesExecuted=true">', '긴 변경 내용 '.repeat(80), '세 번째 변경 내용', '표시하지 않을 네 번째'];
     shellContents.send('desktop:state', { appUpdate: { phase: 'available', version: '9.9.9', message: '업데이트 준비', releaseNotes: notes } });
     await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotesHeading').textContent.includes('9.9.9')"), 'release note target version');
@@ -375,7 +543,7 @@ async function run() {
       assert.ok(welcome.right <= updatePanel.left && search.top >= Math.max(welcome.bottom, updatePanel.bottom), 'medium header keeps search below title and update');
     }
     shellContents.send('desktop:state', { appUpdate: { phase: 'idle', message: '앱 업데이트를 확인할 수 있습니다.' } });
-    await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotes li')?.textContent === '업데이트 버튼을 시작 화면 상단 중앙으로 이동했습니다.'"), 'installed-version note fallback');
+    await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotes li')?.textContent === '홈에서 내 업무를 입력·수정하고 요일별로 체크할 수 있습니다.'"), 'installed-version note fallback');
     await capture(sourceWindow.win, filename);
   };
   await assertShellWidth(1920, 'shell-1920x1080.png');
@@ -419,17 +587,23 @@ async function run() {
   shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'T', modifiers: ['control'] });
   await waitFor(() => sourceWindow.menuOpen, 'Ctrl+T menu shortcut');
   console.log('Smoke: keyboard');
-  await waitFor(() => shellContents.executeJavaScript('document.querySelector(".app-shell").classList.contains("menu-open") && document.activeElement.id === "menuSearch"'), 'Ctrl+T moves focus to menu search');
-  await shellContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  await waitFor(() => shellContents.executeJavaScript('document.querySelector(".app-shell").classList.contains("menu-open") && document.activeElement.id === "menuSearch"'), 'Ctrl+T moves focus to menu search').catch(async error => {
+    console.error('Menu focus diagnostic', await shellContents.executeJavaScript('({active:document.activeElement.outerHTML,menu:document.querySelector(".app-shell").classList.contains("menu-open"),visible:!document.querySelector("#home").hidden})')); throw error;
+  });
+  console.log('Smoke: menu search focused');
+  // The focus assertion already establishes DOM readiness. Do not wait for an
+  // animation frame here: an occluded native window can suspend rAF indefinitely.
   await shellContents.executeJavaScript(`document.querySelector('[data-id="${first.id}"] .tab-main').focus()`);
   await waitFor(() => shellContents.executeJavaScript(`document.activeElement.matches('.tab-main') && document.activeElement.closest('.tab')?.dataset.id === ${JSON.stringify(first.id)}`), 'tab focus settles before F2');
   shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'F2' });
   shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'F2' });
   await waitFor(() => shellContents.executeJavaScript('Boolean(document.querySelector(".tab-rename"))'), 'F2 name editor');
+  console.log('Smoke: F2 editor ready');
   await shellContents.executeJavaScript('document.querySelector(".tab-rename").value = "키보드 이름"');
   shellContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
   shellContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
   await waitFor(() => first.title === '키보드 이름', 'keyboard rename');
+  console.log('Smoke: F2 name saved');
   const beforeKeyboardReorder = sourceWindow.ids.indexOf(first.id);
   assert.ok(beforeKeyboardReorder > 0);
   await shellContents.executeJavaScript(`document.querySelector('[data-id="${first.id}"] .tab-main').focus()`);
@@ -482,6 +656,17 @@ async function run() {
   // locked immediately, writes are blocked, then its views and origin storage
   // are cleared before the new account becomes active. Keep an A bootstrap
   // response pending across that transition to prove it cannot overwrite B.
+  const heldHomeUi = holdHome(request => request.method === 'GET' && request.date === HOME_DATE);
+  await shellContents.executeJavaScript(`document.querySelector('.hw-add>input').value = '계정 A의 남은 입력'; document.querySelector('.hw-add>input').dispatchEvent(new Event('input',{bubbles:true}))`);
+  main.command(sourceWindow, 'menu', { open: true });
+  await waitFor(() => heldHomeUi.started, 'account A UI refresh held across authentication change');
+  const heldHomeRead = holdHome(request => request.method === 'GET' && request.date === '2026-10-08');
+  const heldHomeWrite = holdHome(request => request.body?.requestId === 'smoke-home-delayed-write');
+  // Attach rejection handlers immediately so the harness's unhandled trap stays meaningful.
+  const oldHomeRead = homeIpc(shellContents, { method: 'GET', date: '2026-10-08' }).then(value => ({ value }), error => ({ error: error.message }));
+  const oldHomeWrite = homeIpc(shellContents, { method: 'POST', command: { action: 'read', sourceKey: 'feedback:smoke-1',
+    date: HOME_DATE, requestId: 'smoke-home-delayed-write', expectedRevision: homeStore(accountActor).revision } }).then(value => ({ value }), error => ({ error: error.message }));
+  await waitFor(() => heldHomeRead.started && heldHomeWrite.started, 'account A delayed home GET and POST');
   holdAccountABootstrap = true;
   accountABootstrapStarted = false;
   const accountASync = main.verifyAccount();
@@ -492,12 +677,25 @@ async function run() {
   await workSession.cookies.set({ url: ORIGIN, name: 'nenovaToken', value: 'fixture-account-b', secure: true, httpOnly: true });
   await waitFor(() => accountBAuthStarted, 'account B authentication request');
   assert.equal(main.command(sourceWindow, 'state', {}).online, false, 'old account is locked during pending authentication');
+  assert.equal(main.command(sourceWindow, 'state', {}).homeOwnerId, '', 'pending auth exposes no home owner');
+  await waitFor(() => shellContents.executeJavaScript('document.querySelectorAll(".hw-task").length === 0 && document.querySelector(".hw-add>input").value === "" && document.querySelector(".hw-add>button").disabled'), 'auth lock removes previous home tasks and drafts');
+  await assert.rejects(homeIpc(shellContents, { method: 'GET', date: HOME_DATE }), 'locked home bridge rejects reads');
   await assert.rejects(workSession.fetch(`${ORIGIN}/api/smoke-mutation`, { method: 'POST', body: 'blocked' }));
   assert.equal(fixtureRequests.some(request => request.pathname === '/api/smoke-mutation' && request.method === 'POST'), false, 'locked session sends no mutation request');
   assert.ok(main.tabs.has(first.id), 'old tab remains tracked while auth is pending');
   holdAccountBAuth = false;
   releaseAccountBAuth();
   await waitFor(() => main.snapshot().actor === 'desktop-test-b', 'account B activation');
+  heldHomeRead.release(); heldHomeWrite.release(); heldHomeUi.release();
+  const [staleRead, staleWrite] = await Promise.all([oldHomeRead, oldHomeWrite]);
+  assert.ok(staleRead.error && !staleRead.value, 'old account home GET cannot return data after account switch');
+  assert.ok(staleWrite.error && !staleWrite.value, 'old account home POST cannot expose its response after account switch');
+  const newHome = await homeIpc(shellContents, { method: 'GET', date: HOME_DATE });
+  assert.equal(newHome.ownerId, 'desktop-test-b');
+  assert.equal(newHome.tasks.length, 1, 'new account has only its own fixture tasks');
+  assert.equal(newHome.tasks[0].id, 'desktop-test-b-task');
+  await waitFor(() => shellContents.executeJavaScript('document.querySelector(".hw-rows").textContent.includes("desktop-test-b 확인 업무")'), 'account B UI shows its own home snapshot');
+  assert.equal(await shellContents.executeJavaScript('document.querySelector("#homeWorkspace").textContent.includes("UI 저장 실패 후 재시도") || document.querySelector("#homeWorkspace").textContent.includes("IPC 생성 업무")'), false, 'late account A results do not leak into B home');
   assert.equal(main.command(sourceWindow, 'state', {}).menuVersion, 'd'.repeat(64), 'account B menu wins while the earlier account A bootstrap is pending');
   holdAccountABootstrap = false;
   releaseAccountABootstrap();
@@ -512,7 +710,7 @@ async function run() {
   await waitForTab(accountBTab, async tab => !tab.loading && await tab.view.webContents.executeJavaScript('Boolean(document.querySelector("#smoke-input"))'), 'account B fixture content');
   assert.equal(await accountBTab.view.webContents.executeJavaScript(`localStorage.getItem('account-specific-value')`), null, 'account A localStorage is cleared before account B content loads');
 
-  console.log('Electron smoke passed: tab lifecycle, isolated zoom and web globals, same-origin popup opener, account transition lock/storage clear, viewport overflow, and unload/close confirmation.');
+  console.log('Electron smoke passed: personal home native IPC/UI/failure retry/account races, tab lifecycle, isolated zoom and web globals, same-origin popup opener, account transition lock/storage clear, viewport overflow, and unload/close confirmation.');
   console.log(`Screenshots: ${OUTPUT}`);
 }
 

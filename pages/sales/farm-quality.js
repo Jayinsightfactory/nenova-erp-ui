@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
+import {useRouter} from 'next/router';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {apiGet,apiPost} from '../../lib/useApi';
 import {QUALITY_STATUSES,QUALITY_KINDS,qualityStatus} from '../../lib/farmQuality';
@@ -8,6 +9,7 @@ import {QUALITY_EVIDENCE_MAX_BYTES,QUALITY_EVIDENCE_MAX_FILES} from '../../lib/f
 import {parseJsonResponse} from '../../lib/parseJsonResponse';
 import FarmQualityCoverage from '../../components/FarmQualityCoverage';
 import FarmQualityInbox from '../../components/FarmQualityInbox';
+import {homeFeedbackTarget} from '../../lib/homeSourceLink';
 const labels={...QUALITY_STATUSES,OVERDUE:'기한 초과'};
 const fmt=n=>Number(n||0).toLocaleString('ko-KR',{maximumFractionDigits:1});
 const pct=n=>n==null?'입고 분모 없음':`${Number(n).toLocaleString('ko-KR',{maximumFractionDigits:1})}%`;
@@ -18,6 +20,7 @@ const SIGNAL_FILTERS=[['SAME_ITEM_WEEK','동일 품목 반복'],['FARM_WEEK_CLUS
 const SIGNAL_ATTRIBUTION={FARM:'농장',PRODUCT:'품목',CUSTOMER_PRODUCT:'업체·품목'};
 const needsSignalReview=signal=>Boolean(signal?.reviewRequired||signal?.canCreate===false||!signal?.sourceKey);
 export default function FarmQuality(){
+ const router=useRouter(),linkedCase=useRef('');
  const [year,setYear]=useState(new Date().getFullYear()),[from,setFrom]=useState(1),[to,setTo]=useState(53);
  const [data,setData]=useState({groups:[],cases:[],farmTrends:[],issueCandidates:[],signals:[]}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [tab,setTab]=useState('inbox'),[search,setSearch]=useState(''),[filter,setFilter]=useState('ALL'),[unit,setUnit]=useState(''),[farm,setFarm]=useState(''),[issueWeek,setIssueWeek]=useState('');
@@ -74,6 +77,17 @@ export default function FarmQuality(){
  });
  const signals=unitSignals.filter(s=>signalFilter==='ALL'||s.kind===signalFilter);
  function open(c,trigger){if(dirty&&!window.confirm('작성 중인 내용과 첨부 이미지를 비우고 다른 이력을 볼까요?'))return;selectionTrigger.current=trigger||null;detailPending.current=true;setSelected(c.CaseKey);setDraft(null);clearComposer();setKind('COMMENT');history(c.CaseKey);}
+ useEffect(()=>{
+  if(!router.isReady||dirty||saving||uploading||inboxBusy)return;
+  const target=homeFeedbackTarget(router.query);if(!target)return;
+  const key=target.year+':'+target.id;if(linkedCase.current===key)return;
+  if(Number(year)!==target.year){setYear(target.year);return;}
+  if(loading||Number(data.scope?.year)!==target.year)return;
+  linkedCase.current=key;
+  const row=data.cases.find(c=>String(c.CaseKey).toLowerCase()===target.id);
+  if(!row){setError('연결된 피드백이 없거나 더 이상 조회할 수 없습니다.');return;}
+  setTab('feedback');open(row);
+ },[router.isReady,router.query.caseKey,router.query.year,year,loading,data,dirty,saving,uploading,inboxBusy]);
  function closeDetail(){if(saveLock.current||uploading)return;if(dirty&&!window.confirm('작성 내용과 첨부 이미지를 비우고 닫을까요?'))return;selectionTrigger.current?.focus();setSelected(null);setDraft(null);clearComposer();}
  function create(g){if(saveLock.current||uploading)return;if(needsSignalReview(g)){setError('확인 필요 원본은 피드백 이슈를 만들 수 없습니다. 원본 확인에서 검토해 주세요.');return;}if(dirty&&!window.confirm('작성 중인 내용과 첨부 이미지를 비우고 새 피드백을 만들까요?'))return;selectionTrigger.current=null;detailPending.current=true;eventSequence.current++;setTab('feedback');setSelected(null);setDraft({...g,title:g.kindLabel?`${g.kindLabel} · ${g.productName}`:''});clearComposer();setKind('COMMENT');}
  async function evidenceFetch(url,options){const response=await fetch(url,{credentials:'include',...options});if(response.status===401){window.location.href='/login';throw new Error('로그인이 필요합니다.');}const result=await parseJsonResponse(response);if(!response.ok)throw new Error(result.error||'이미지 처리에 실패했습니다.');return result;}
