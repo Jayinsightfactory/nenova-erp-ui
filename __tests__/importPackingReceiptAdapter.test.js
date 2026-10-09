@@ -4,23 +4,24 @@ const test = require('node:test');
 const ready = import('../lib/importPackingReceiptAdapter.js');
 const sourceReviewReady = import('../lib/importPackingSourceReview.js');
 
-async function applyActualPdfReview(invoice, country, { page = 1 } = {}) {
+async function applyActualPdfReview(invoice, country, { page = 1, sourceHash = invoice?.pdfSourceHash || 'a'.repeat(64) } = {}) {
   const review = await sourceReviewReady;
-  const draft = review.makePackingSourceReview(invoice, country);
+  const sourceBoundInvoice = { ...invoice, pdfSourceHash: sourceHash };
+  const draft = review.makePackingSourceReview(sourceBoundInvoice, country);
   draft.pdf = { rendered: true, page };
   draft.rows = draft.rows.map(row => ({
     ...row,
     confirmed: true,
     reason: '원본 PDF 렌더와 상품행을 직접 대조함',
   }));
-  return review.applyPackingSourceReview(invoice, draft, country, '2026-10-09T00:00:00.000Z');
+  return review.applyPackingSourceReview(sourceBoundInvoice, draft, country, '2026-10-09T00:00:00.000Z');
 }
 
 async function withActualPdfReview(input) {
   return {
     ...input,
     reviewConfirmed: true,
-    invoices: await Promise.all((input.invoices || []).map(invoice => applyActualPdfReview(invoice, input.country))),
+    invoices: await Promise.all((input.invoices || []).map(invoice => applyActualPdfReview(invoice, input.country, { sourceHash: input.sourceHash || invoice?.pdfSourceHash || 'a'.repeat(64) }))),
   };
 }
 
@@ -29,6 +30,16 @@ function identifiedExcels(adapter, invoices, excels) {
     ...excel,
     sourceInvoiceIdentity: adapter.packingInvoiceSourceIdentity(invoices[index], index),
   }));
+}
+
+function manualErpProduct(product, prodKey) {
+  const sourceDescription = product.matchingDescription || product.sourceName;
+  const matchedName = product.matchedName || product.name;
+  return {
+    ...product,
+    viaAlias: true,
+    erpMatch: { type: 'MANUAL', confirmed: true, sourceDescription, matchedName, prodKey },
+  };
 }
 
 test('receipt part identity is generated once and reused from the latest committed revision', async () => {
@@ -105,7 +116,11 @@ test('hashes the original file bytes and creates stable UUIDv8 document and line
   assert.equal(first[0].orderYear, '2026');
   assert.equal(first[0].orderWeek, '41-01');
   assert.equal(first[0].invoiceYear, '2026');
-  assert.deepEqual(first[0].lines[0].reviewed, { confirmed: true });
+  assert.deepEqual(first[0].lines[0].reviewed, {
+    sourceConfirmed: true,
+    erpMatchConfirmed: false,
+    confirmed: false,
+  });
 });
 
 test('PDF receipts require an actual rendered all-row source review and reject stale audits', async () => {
@@ -124,7 +139,7 @@ test('PDF receipts require an actual rendered all-row source review and reject s
   await assert.rejects(adapter.adaptPackingReceipts(base), /상품 원문 검토/,
     'reviewConfirmed alone must not bypass the PDF source audit');
 
-  const reviewed = await applyActualPdfReview(invoice, 'CO');
+  const reviewed = await applyActualPdfReview(invoice, 'CO', { sourceHash: base.sourceHash });
   const [document] = await adapter.adaptPackingReceipts({ ...base, invoices: [reviewed] });
   assert.equal(document.lines[0].originalName, 'ROSE PDF RAW');
   assert.equal(document.rawMetadata.sourceReview.pdf.rendered, true);
@@ -145,6 +160,47 @@ test('PDF receipts require an actual rendered all-row source review and reject s
   await assert.rejects(adapter.adaptPackingReceipts({
     ...base, fileName: '2026_41-01_CO.xlsx', invoices: [{ ...invoice, pdfReviewRequired: true }],
   }), /상품 원문 검토/, 'invoice.pdfReviewRequired must enforce the same gate without a .pdf filename');
+
+  await assert.rejects(adapter.adaptPackingReceipts({
+    ...base, sourceHash: '8'.repeat(64), invoices: [reviewed],
+  }), /SHA-256/, 'the reviewed PDF hash must match the supplied original-file hash');
+});
+
+test('keeps source confirmation separate from exact, fuzzy, seed, and manual ERP matching', async () => {
+  const adapter = await ready;
+  const invoice = { invoice: 'ERP-PROVENANCE', currency: 'USD', products: [
+    { description: 'SOURCE FLOWER', pcs: 1, total_stems: 10, u_price: 1, t_price: 10 },
+  ] };
+  const catalog = [
+    { ProdKey: 1, ProdName: 'SOURCE FLOWER', country: 'CO', selectable: true },
+    { ProdKey: 2, ProdName: 'ERP FLOWER', country: 'CO', selectable: true },
+  ];
+  const adapt = async (generated, reviewConfirmed = true) => (await adapter.adaptPackingReceipts({
+    sourceHash: '6'.repeat(64), fileName: '41-01.xlsx', country: 'CO', reviewConfirmed,
+    invoices: [invoice], excels: [{ products: [generated] }], products: catalog,
+  }))[0];
+  const generated = overrides => ({
+    sourceName: 'SOURCE FLOWER', matchingDescription: 'SOURCE FLOWER', matchedName: 'ERP FLOWER', qty: 10, ...overrides,
+  });
+
+  const exact = await adapt(generated({ matchedName: 'SOURCE FLOWER' }));
+  assert.deepEqual(exact.lines[0].reviewed, { sourceConfirmed: true, erpMatchConfirmed: true, confirmed: true });
+  assert.equal(exact.lines[0].sourceEvidence.generatedMatch.method, 'EXACT_UNIQUE');
+
+  const fuzzy = await adapt(generated({ matchScore: 0.99 }));
+  assert.deepEqual(fuzzy.lines[0].reviewed, { sourceConfirmed: true, erpMatchConfirmed: false, confirmed: false });
+  assert.match(fuzzy.sourceWarnings.join(' '), /수동 매칭/);
+
+  const seed = await adapt(generated({ viaAlias: true }));
+  assert.equal(seed.lines[0].reviewed.erpMatchConfirmed, false, 'viaAlias alone also represents seed aliases');
+
+  const manual = await adapt(manualErpProduct(generated({}), 2));
+  assert.deepEqual(manual.lines[0].reviewed, { sourceConfirmed: true, erpMatchConfirmed: true, confirmed: true });
+  assert.equal(manual.lines[0].sourceEvidence.generatedMatch.method, 'MANUAL');
+  assert.deepEqual(manual.sourceWarnings, []);
+
+  const sourceUnchecked = await adapt(generated({ matchedName: 'SOURCE FLOWER' }), false);
+  assert.deepEqual(sourceUnchecked.lines[0].reviewed, { sourceConfirmed: false, erpMatchConfirmed: true, confirmed: false });
 });
 
 test('uses original numeric invoice quantities and generated products only for unique ProdKey resolution', async () => {
@@ -306,7 +362,7 @@ test('country source contracts preserve explicit quantities and record only dete
     const sourceHash = (index + 1).toString(16).repeat(64);
     const invoice = { invoice: `${fixture.country}-1`, supplier: `${fixture.country} supplier`, date: '2026/10/08', currency: fixture.currency,
       [fixture.lines ? 'lines' : 'products']: [fixture.line] };
-    const targetName = `${fixture.country} ERP`;
+    const targetName = fixture.line.description;
     const generatedQuantity = fixture.country === 'CN' ? fixture.expected.bunch : fixture.expected.stem;
     const excel = { products: [{ sourceName: fixture.line.description, matchingDescription: fixture.line.description,
       matchedName: targetName, qty: generatedQuantity }] };
@@ -335,7 +391,9 @@ test('conversion quantity differences preserve source values and block automatic
   const invoice = { invoice: 'CO-DELTA', supplier: 'Teucali', currency: 'USD', products: [
     { description: 'CARNATION RAW', pcs: 2, total_stems: 500, u_price: 0.4, t_price: 200 },
   ] };
-  const excel = { products: [{ sourceName: 'CARNATION RAW', matchingDescription: 'CARNATION RAW', matchedName: 'CARNATION ERP', qty: 600 }] };
+  const excel = { products: [manualErpProduct({
+    sourceName: 'CARNATION RAW', matchingDescription: 'CARNATION RAW', matchedName: 'CARNATION ERP', qty: 600,
+  }, 90)] };
   const [document] = await adapter.adaptPackingReceipts(await withActualPdfReview({
     sourceHash: 'f'.repeat(64), fileName: '2026_41-01_CO.pdf', country: 'CO', reviewConfirmed: true,
     invoices: [invoice], excels: identifiedExcels(adapter, [invoice], [excel]),
@@ -404,9 +462,9 @@ test('invalid explicit numeric fields are preserved as review evidence and never
     sourceHash: 'c'.repeat(64), fileName: '2026_41-01_NL.xlsx', country: 'NL', reviewConfirmed: true,
     invoices: [blankInvoice],
     excels: identifiedExcels(adapter, [blankInvoice], [{ products: [
-      { sourceName: 'NL BLANK RAW', matchingDescription: 'NL BLANK RAW', matchedName: 'NL ERP', qty: 10 },
+      { sourceName: 'NL BLANK RAW', matchingDescription: 'NL BLANK RAW', matchedName: 'NL BLANK RAW', qty: 10 },
     ] }]),
-    products: [{ ProdKey: 3, ProdName: 'NL ERP', country: 'NL', selectable: true }],
+    products: [{ ProdKey: 3, ProdName: 'NL BLANK RAW', country: 'NL', selectable: true }],
   });
   assert.equal(blankDocument.lines[0].lineAmount, 12.5);
   assert.equal(blankDocument.lines[0].sourceEvidence.sourceFieldStates.lineAmount.status, 'BLANK');

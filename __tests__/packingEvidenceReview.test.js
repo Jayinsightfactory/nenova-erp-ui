@@ -32,7 +32,7 @@ test('review component exposes the integration contract and keeps ERP out of sco
 });
 
 test('source row labels stay compact and use Korean labels instead of parser field names', () => {
-  for (const [field, label] of [['pcs', '박스'], ['total_bunch', '단수'], ['total_stems', '송이 수'], ['u_price', '단가'], ['t_price', '금액'], ['bunch_st', '단당 송이'], ['stems', '송이 수'], ['price', '단가']]) {
+  for (const [field, label] of [['pcs', '박스'], ['total_bunch', '단수'], ['total_stems', '송이 수'], ['steam_box', '박스당 송이'], ['u_price', '단가'], ['t_price', '금액'], ['bunch_st', '단당 송이'], ['stems', '송이 수'], ['price', '단가']]) {
     assert.match(component, new RegExp(`${field}: '${label}'`));
   }
   assert.match(css, /max-height: min\(38vh, 390px\)/);

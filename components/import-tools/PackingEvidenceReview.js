@@ -5,7 +5,7 @@ import { isValidNormalizedBBox, loadPdfPreview } from '../../lib/importPackingPd
 const FIELDS = ['gw', 'cw', 'freight'];
 const FIELD_LABELS = { gw: '총중량 (GW)', cw: '운임 적용 중량 (CW)', freight: '운송·부대비' };
 const FIELD_TEST_IDS = { gw: 'field-gw', cw: 'field-cw', freight: 'field-freight' };
-const SOURCE_FIELD_LABELS = { pcs: '박스', total_bunch: '단수', total_stems: '송이 수', u_price: '단가', t_price: '금액', bunch_st: '단당 송이', stems: '송이 수', price: '단가', raw_qty: '원문 수량', quantity: '수량', qty: '수량', unit_price: '단가', amount: '금액', printed_amount: '인쇄 금액', total: '합계' };
+const SOURCE_FIELD_LABELS = { pcs: '박스', total_bunch: '단수', total_stems: '송이 수', steam_box: '박스당 송이', u_price: '단가', t_price: '금액', bunch_st: '단당 송이', stems: '송이 수', price: '단가', raw_qty: '원문 수량', quantity: '수량', qty: '수량', unit_price: '단가', amount: '금액', printed_amount: '인쇄 금액', total: '합계' };
 const METADATA_FIELDS = ['date', 'date_kind', 'currency', 'invoice_total'];
 const METADATA_LABELS = { date: '인쇄 날짜', date_kind: '날짜 의미', currency: 'ISO 통화', invoice_total: '인쇄 송장 총액' };
 const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';

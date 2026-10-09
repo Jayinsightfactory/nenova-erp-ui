@@ -23,3 +23,19 @@
 ## 검증
 
 PDF 렌더 성공/실패, 근거 위치 없음, 행 미확인/수정 후 재확인, 명시0/빈칸, 이전 연도 동일 차수, 기존 Excel 확인 경로 보존. 실제 PDF의 canvas 출력·화면 배치·키보드·오류 표시를 1920×1080에서 검사한다.
+
+릴리스 전 UI 브라우저 검사는 선택 생략 상태로 통과 처리하지 않는다. Windows에서 `$env:RUN_PACKING_PDF_SOURCE_BROWSER='1'` 설정 후 `node --test __tests__/packingPdfSourceBrowser.test.cjs`를 실제 실행한다. 이 검사는 모의 미리보기 기반 UI 검증이며 별도로 배포 후 실제 PDF canvas 스모크를 수행한다.
+
+## 메뉴 기본 기준 적용
+
+`docs/MENU_DEVELOPMENT_DEFAULTS.md`와 대응 JSON을 읽고 적용했다.
+
+| 기준 | 판정 | 근거 |
+|---|---|---|
+| 범위 제한 | 적용 | 인보이스 원문 검토와 기존 초안 연결만 변경 |
+| 1920×1080·키보드·반응형 | 적용 | PackingEvidenceReview UI/browser 회귀 |
+| 페이지 세로 스크롤 | 예외 | 원문과 결과를 동시에 대조하는 명시적 모달, 두 패널 독립 스크롤 |
+| 원본·수정값과 명시 확인 | 적용 | source review 스냅샷, 수정 사유, 행별 확인 |
+| 미확인·실패 표시 | 적용 | 렌더 실패/재시도와 진행 차단 안내 |
+| ERP 반영 | 해당 없음 | 기존 writer 보존, 검토만으로 DB 저장하지 않음 |
+| 배포 후 확인 | 적용 예정 | 실제 PDF strict smoke 결과를 세션 기록에 갱신 |

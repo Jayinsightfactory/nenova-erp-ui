@@ -252,11 +252,31 @@ async function main() {
     } };
     const storage = { get: async key => key === 'nenova_catalog' ? { value: JSON.stringify({ items: catalog.items }) } : null,
       set: async (key, value) => { sharedWrites.push({ key, value }); throw Error('409 revision conflict'); }, delete: async () => { throw Error('delete failed'); } };
+    const hashPromises = [];
+    const browserReceiptAdapter = {
+      ...receiptAdapter,
+      sha256File(file) {
+        const promise = receiptAdapter.sha256File(file, crypto.webcrypto);
+        hashPromises.push(promise);
+        return promise;
+      },
+    };
+    const pdfFixture = size => {
+      const bytes = Buffer.from('%PDF-1.4\npacking-ui-fixture\n', 'utf8');
+      const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      return { name: '40-1.pdf', size, type: 'application/pdf', arrayBuffer: async () => arrayBuffer.slice(0) };
+    };
+    const waitForRealSha = async index => {
+      assert.ok(hashPromises[index], `missing SHA-256 operation ${index}`);
+      const digest = await hashPromises[index];
+      assert.match(digest, /^[a-f0-9]{64}$/, 'browser fixture must complete a real SHA-256');
+      return digest;
+    };
     const modules = { '../../styles/ImportPacking.module.css': new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) }), react, '../../lib/importPacking.js': packing, '../../lib/importPackingState.js': state,
       '../../lib/importPackingResponse.js': response, '../../lib/importAwbFields.js': awbFields,
       '../../lib/importPackingExtractClient.js': extractionMock, '../../lib/importPackingReview.js': review,
       '../../lib/importPackingErpMatches.js': erpMatchHelpers,
-      '../../lib/importPackingReceiptAdapter.js': receiptAdapter,
+      '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
       '../../lib/importPackingSourceReview.js': sourceReview,
       './PackingResults.js': { default: 'PackingResults', __esModule: true },
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
@@ -288,17 +308,22 @@ async function main() {
     flatten(tree).find(node => node.type === 'button' && node.props['aria-label'] === 'Colombia').props.onClick();
     tree = render();
     const pdfInput = flatten(tree).find(node => node.type === 'input' && node.props.accept === '.pdf');
-    pdfInput.props.onChange({ target: { files: [{ name: '40-1.pdf', size: state.PACKING_PDF_MAX_BYTES + 1, type: 'application/pdf' }] } });
+    pdfInput.props.onChange({ target: { files: [pdfFixture(state.PACKING_PDF_MAX_BYTES + 1)] } });
     tree = render(); assert.ok(text(tree).includes('20MiB')); assert.equal(fetchCalls.length, 0);
-    pdfInput.props.onChange({ target: { files: [{ name: '40-1.pdf', size: state.PACKING_PDF_MAX_BYTES, type: 'application/pdf' }] } });
+    pdfInput.props.onChange({ target: { files: [pdfFixture(state.PACKING_PDF_MAX_BYTES)] } });
     tree = render();
+    const localHashIndex = hashPromises.length;
     const localProcess = flatten(tree).find(node => node.type === 'button' && text(node) === 'Generar packing list').props.onClick();
     tree = render(); assert.ok(text(tree).includes('Procesando'));
     assert.equal(fetchCalls.length, 0);
+    await waitForRealSha(localHashIndex);
     await localProcess; tree = render();
     assert.equal(fetchCalls.length, 0, 'default Generate must not call AI');
+    assert.equal(extractionCalls.length, 1, text(tree));
     assert.equal(extractionCalls[0].allowAI, false);
+    const aiHashIndex = hashPromises.length;
     const pendingProcess = flatten(tree).find(node => node.type === 'button' && text(node) === 'Analizar con IA (posible coste)').props.onClick();
+    await waitForRealSha(aiHashIndex);
     tree = render(); assert.ok(text(tree).includes('Procesando'));
     assert.equal(extractionCalls[1].allowAI, true);
     assert.equal(fetchCalls.length, 1);

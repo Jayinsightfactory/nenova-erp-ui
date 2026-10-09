@@ -16,10 +16,10 @@ import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePacki
   PACKING_STORAGE_KEYS, isPackingDownloadBlocked, previewPackingCatalog,
   distinctPackingVarieties, PACKING_PDF_MAX_BYTES,
   readPackingPdfResponse } from '../../lib/importPackingState.js';
-import { ALL_SEED_ALIASES, aliasKey, parseCatalog, parseAliasesXlsx, exportAliasesXlsx,
+import { ALL_SEED_ALIASES, aliasKey, packingSourceKey, parseCatalog, parseAliasesXlsx, exportAliasesXlsx,
   genColombia, genNL, genChina, genEcuador, genThailand, genAustralia, genUS, genVN,
   AWB_DEFAULT_COMPANIES, writeAWBWorkbook, parseWeekFromFilename } from '../../lib/importPacking.js';
-import { packingInvoiceSourceIdentity } from '../../lib/importPackingReceiptAdapter.js';
+import { packingInvoiceSourceIdentity, sha256File } from '../../lib/importPackingReceiptAdapter.js';
 import { assertPackingSourceReviewed } from '../../lib/importPackingSourceReview.js';
 
 // Additional UI copy; document data, country keys and workbook labels stay unchanged.
@@ -1238,10 +1238,21 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       const opts = { catalog:packingErpCatalog(currentErp.products), masterAwb,
         aliases:packingErpAliases(country,currentAliases,currentErp.value,currentErp.products) };
       const res = gen(packingReviewWriter(xlsxLib, inv, file?.name), inv, weekParsed.week, fileNum, opts);
+      const reviewedProducts = (res.products || []).map(product => {
+        const description = String(product.matchingDescription || product.sourceName || '').trim();
+        const matchedName = String(product.matchedName || product.name || '').trim();
+        const entry = (currentErp.value?.entries || []).find(item => item.country === country
+          && item.sourceKey === packingSourceKey(description) && item.prodName === matchedName);
+        const target = entry && currentErp.products.find(item => item.country === country
+          && item.ProdKey === entry.prodKey && item.ProdName === entry.prodName && item.selectable);
+        return target && product.viaAlias === true ? { ...product, erpMatch: {
+          type: 'MANUAL', confirmed: true, prodKey: target.ProdKey, sourceDescription: description, matchedName,
+        } } : product;
+      });
       if (res.pending && res.pending.length > 0) allPending.push(...res.pending);
       if (res.noMatches && res.noMatches.length > 0) allNm.push(...res.noMatches);
       if (res.totalMismatch) allMismatches.push(res.totalMismatch);
-      return { ...res, sourceInvoiceIdentity: packingInvoiceSourceIdentity(inv, idx), wasTruncated,
+      return { ...res, products: reviewedProducts, sourceInvoiceIdentity: packingInvoiceSourceIdentity(inv, idx), wasTruncated,
         grossWeight: inv.packingReview?.values.gw ?? inv.gross_weight ?? null,
         chargeableWeight: inv.packingReview?.values.cw ?? inv.vol_weight ?? null };
     });
@@ -1355,6 +1366,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     ]);
     setStatus({ type: 'info', msg: t.processing });
     try {
+      const pdfSourceHash = /\.pdf$/i.test(file.name) ? await sha256File(file) : null;
+      if (!isCurrent()) return;
       let extraction;
       if (country === 'CN' && /\.xlsx$/i.test(file.name)) {
         try {
@@ -1393,7 +1406,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         if (Array.isArray(data?.content)) {
           try { result = parsePackingResponse(data, 'CN').result; } catch { /* preserve the explicit source-review payload */ }
         }
-        const normalizedSources = result.invoices?.some(isLegacyChinaInvoice) ? result.invoices : sourceInvoices;
+        const normalizedSources = (result.invoices?.some(isLegacyChinaInvoice) ? result.invoices : sourceInvoices)
+          .map(invoice => pdfSourceHash ? { ...invoice, pdfReviewRequired: true, pdfSourceHash } : invoice);
         result = { ...result, invoices: normalizedSources };
         setLastExtraction({ result, sourceInvoices: normalizedSources, masterAwb: result.master_awb || '', weekParsed: parsed,
           wasTruncated: false, legacyReviewRequired: true });
@@ -1405,7 +1419,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       }
       const { result, wasTruncated } = parsePackingResponse(data, country);
       const invoices = (result.invoices || []).map(invoice => /\.pdf$/i.test(file?.name || '')
-        ? { ...invoice, pdfReviewRequired: true } : invoice);
+        ? { ...invoice, pdfReviewRequired: true, pdfSourceHash } : invoice);
       result.invoices = invoices;
       const masterAwb = result.master_awb || (invoices[0] && invoices[0].awb) || '';
       if (invoices.length === 0) throw new Error(t.noInvoices);

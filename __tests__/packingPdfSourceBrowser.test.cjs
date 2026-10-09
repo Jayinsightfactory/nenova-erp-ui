@@ -14,7 +14,7 @@ test('source PDF review UI gates every row and invoice confirmation at 1920x1080
     }).code;
     const rows = [{ invoiceIndex: 0, label: 'Fixture invoice', currency: 'USD',
       original: { gw: '1', cw: '1', freight: '0' }, values: { gw: '1', cw: '1', freight: '0' }, evidence: {},
-      sourceReview: { required: true, pdf: { rendered: false, page: null }, rows: [
+      sourceReview: { required: true, sourceHash: 'sha256-fixture', pdf: { rendered: false, page: null, fingerprint: 'pdf-fixture-fingerprint' }, rows: [
         { lineIndex: 4, description: 'Exact Rose', values: { raw_qty: '2', u_price: '4', t_price: '8' },
           originalValues: { raw_qty: '2', u_price: '4', t_price: '8' }, evidence: { raw_qty: { page: 2, quote: '2 bunches' }, u_price: { page: 2, quote: '4' }, t_price: { page: 2, quote: '8' } }, confirmed: false },
         { lineIndex: 5, description: 'Unmatched Tulip', values: { raw_qty: '3', u_price: '5', t_price: '15' },
@@ -122,6 +122,8 @@ test('source PDF review UI gates every row and invoice confirmation at 1920x1080
       const result = await page.evaluate(() => ({ invoice: window.submission[0], invalidations: window.invalidateCalls }));
       assert.equal(result.invoice.sourceReview.pdf.rendered, true);
       assert.equal(result.invoice.sourceReview.pdf.page, 2);
+      assert.equal(result.invoice.sourceReview.pdf.fingerprint, 'pdf-fixture-fingerprint');
+      assert.equal(result.invoice.sourceReview.sourceHash, 'sha256-fixture');
       assert.equal(result.invoice.sourceReview.rows[0].values.raw_qty, '2.5');
       assert.equal(result.invoice.sourceReview.rows[0].reason, 'Printed quantity rechecked');
       assert.equal(result.invoice.sourceReview.rows.every(row => row.confirmed), true);
