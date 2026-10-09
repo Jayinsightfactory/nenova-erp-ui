@@ -47,3 +47,5 @@ export default function handler(req, res) {
   }
   return cookieAuthed(req, res);
 }
+// 2026-10-09: 판매현황 8,157행(10/9 00:42) 전송 시 HTTP 413(Next 기본 1MB) → 상한 확대. 행 수가 커도 적재되게.
+export const config = { api: { bodyParser: { sizeLimit: '20mb' } } };
