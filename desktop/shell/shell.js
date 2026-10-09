@@ -267,9 +267,9 @@
     $('appUpdateStatus').textContent = `앱 ${state.version || ''} · ${update.message || ''}`;
     const releaseNotes = Array.isArray(update.releaseNotes) ? update.releaseNotes.filter(note => typeof note === 'string' && note.trim()).slice(0, 3) : [];
     const notes = releaseNotes.length ? releaseNotes : [
-      '새 버전이 있으면 업데이트 필요 안내를 자동으로 표시합니다.',
-      '기존 업무 지침과 수입부 피드백도 홈에 계속 표시합니다.',
-      '전달 상태 조회 중과 미확인·조회 실패를 구분합니다.'
+      '확인 필요 지침도 홈에 표시하고 상황·처리 방법을 보여줍니다.',
+      '수입부 피드백에 농장·품목과 문제 내용을 표시합니다.',
+      '더보기에서 전체 지침과 피드백 상세 내용을 확인할 수 있습니다.'
     ];
     $('appUpdateNotesHeading').textContent = '앱 ' + (releaseNotes.length ? (update.version || state.version || '') : (state.version || '')) + ' 변경 내용';
     $('appUpdateNotes').replaceChildren(...notes.map(note => {
