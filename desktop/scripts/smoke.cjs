@@ -352,9 +352,34 @@ async function run() {
     const menuFooter = await shellContents.executeJavaScript('({top:document.querySelector(".statusbar").getBoundingClientRect().top,bottom:document.querySelector(".statusbar").getBoundingClientRect().bottom,height:innerHeight})');
     assert.equal(menuFooter.top, menuFooter.height - 28, `${width}px menu footer top`);
     assert.equal(menuFooter.bottom, menuFooter.height, `${width}px menu footer bottom`);
+    const notes = ['<img src=x onerror="window.__notesExecuted=true">', '긴 변경 내용 '.repeat(80), '세 번째 변경 내용', '표시하지 않을 네 번째'];
+    shellContents.send('desktop:state', { appUpdate: { phase: 'available', version: '9.9.9', message: '업데이트 준비', releaseNotes: notes } });
+    await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotesHeading').textContent.includes('9.9.9')"), 'release note target version');
+    const updateLayout = await shellContents.executeJavaScript(`(() => {
+      const heading = document.querySelector('.home-heading');
+      const rect = el => { const r = el.getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}; };
+      return { children: [...heading.children].map(rect), ids: ['appUpdateButton','cancelUpdateButton','appUpdateStatus'].map(id => document.querySelectorAll('#'+id).length),
+        notes: [...document.querySelectorAll('#appUpdateNotes li')].map(el => el.textContent), html: !!document.querySelector('#appUpdateNotes img'), executed: !!window.__notesExecuted,
+        width: document.documentElement.scrollWidth, viewport: innerWidth };
+    })()`);
+    assert.deepEqual(updateLayout.ids, [1,1,1], 'update controls remain unique');
+    assert.deepEqual(updateLayout.notes, notes.slice(0,3), 'only three plain-text notes render');
+    assert.equal(updateLayout.html, false); assert.equal(updateLayout.executed, false, 'release note HTML is inert text');
+    assert.ok(updateLayout.width <= updateLayout.viewport, 'long release notes do not overflow');
+    const [welcome, updatePanel, search] = updateLayout.children;
+    if (width > 1120) {
+      assert.ok(welcome.right <= updatePanel.left && updatePanel.right <= search.left, 'update panel occupies the center header column');
+    } else if (width <= 800) {
+      assert.ok(welcome.bottom <= updatePanel.top && updatePanel.bottom <= search.top, 'small header follows title-update-search order');
+    } else {
+      assert.ok(welcome.right <= updatePanel.left && search.top >= Math.max(welcome.bottom, updatePanel.bottom), 'medium header keeps search below title and update');
+    }
+    shellContents.send('desktop:state', { appUpdate: { phase: 'idle', message: '앱 업데이트를 확인할 수 있습니다.' } });
+    await waitFor(() => shellContents.executeJavaScript("document.querySelector('#appUpdateNotes li')?.textContent === '업데이트 버튼을 시작 화면 상단 중앙으로 이동했습니다.'"), 'installed-version note fallback');
     await capture(sourceWindow.win, filename);
   };
   await assertShellWidth(1920, 'shell-1920x1080.png');
+  await assertShellWidth(1024, 'shell-1024x1080.png');
   await assertShellWidth(800, 'shell-800x1080.png');
 
   // Overflow tabs reveal a new selection, but leave a manually browsed strip alone.

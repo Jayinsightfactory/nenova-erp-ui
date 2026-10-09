@@ -260,6 +260,16 @@
     $('appUpdateButton').textContent = update.phase === 'available' ? `앱 ${update.version} 다운로드` : update.phase === 'downloaded' ? '재시작하여 업데이트' : update.phase === 'checking' ? '앱 업데이트 확인 중…' : update.phase === 'downloading' ? `다운로드 ${update.percent}%` : '앱 업데이트 확인';
     $('cancelUpdateButton').hidden = update.phase !== 'downloading';
     $('appUpdateStatus').textContent = `앱 ${state.version || ''} · ${update.message || ''}`;
+    const releaseNotes = Array.isArray(update.releaseNotes) ? update.releaseNotes.filter(note => typeof note === 'string' && note.trim()).slice(0, 3) : [];
+    const notes = releaseNotes.length ? releaseNotes : [
+      '업데이트 버튼을 시작 화면 상단 중앙으로 이동했습니다.',
+      '업데이트에서 달라진 내용을 짧게 보여줍니다.',
+      '현재 탭 강조와 Enter로 닫기 기능을 유지합니다.'
+    ];
+    $('appUpdateNotesHeading').textContent = '앱 ' + (releaseNotes.length ? (update.version || state.version || '') : (state.version || '')) + ' 변경 내용';
+    $('appUpdateNotes').replaceChildren(...notes.map(note => {
+      const item = document.createElement('li'); item.textContent = note; return item;
+    }));
     $('statusMessage').textContent = state.message || (tab?.loading ? '화면을 불러오는 중' : tab?.error ? '화면을 불러오지 못했습니다' : '준비됨');
     $('windowLabel').textContent = `업무 창 ${state.windowId || ''}`;
     $('windowCount').textContent = state.windows.length > 1 ? `열린 창 ${state.windows.length}개` : '';

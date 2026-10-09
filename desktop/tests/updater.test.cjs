@@ -2,8 +2,25 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { createUpdater, validInfo, FEED } = require('../updater.cjs');
+const { createUpdater, validInfo, releaseNoteLines, FEED } = require('../updater.cjs');
 const info = (version = '1.4.0') => ({ version, files: [{ url: `Nenova-Desktop-Setup-${version}-x64.exe`, size: 120000000, sha512: Buffer.alloc(64).toString('base64') }] });
+test('release notes are bounded plain text and keep their version through download', async () => {
+  assert.deepEqual(releaseNoteLines(null), []);
+  assert.deepEqual(releaseNoteLines([{ note: '- 메뉴 위치 개선\n- 버튼 안내' }, { note: 123 }]), ['메뉴 위치 개선', '버튼 안내']);
+  const notes = releaseNoteLines('<img src=x onerror=alert(1)>\n' + '가'.repeat(1000) + '\n세 번째\n네 번째');
+  assert.equal(notes.length, 3); assert.equal(notes[1].length, 240);
+  assert.equal(notes[0], '<img src=x onerror=alert(1)>');
+  const f = fixture();
+  f.engine.checkForUpdates = async () => ({ updateInfo: { ...info(), releaseNotes: '- 상단 업데이트\n- 변경 내용 안내' } });
+  await f.updater.check();
+  assert.deepEqual(f.updater.getState().releaseNotes, ['상단 업데이트', '변경 내용 안내']);
+  await f.updater.download();
+  assert.equal(f.updater.getState().version, '1.4.0');
+  assert.deepEqual(f.updater.getState().releaseNotes, ['상단 업데이트', '변경 내용 안내']);
+  // An older feed must not label outdated release notes as current.
+  const older = fixture(); older.engine.checkForUpdates = async () => ({ updateInfo: { ...info('1.2.0'), releaseNotes: '오래된 변경' } });
+  await older.updater.check(); assert.deepEqual(older.updater.getState().releaseNotes, []);
+});
 function fixture({ enabled = true, space = true, prepare = () => true } = {}) {
   const engine = new EventEmitter();
   engine.currentVersion = { version: '1.3.0' };

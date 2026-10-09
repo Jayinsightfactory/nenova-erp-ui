@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -64,6 +64,9 @@
     "publish": {
       "provider": "generic",
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
+    },
+    "releaseInfo": {
+      "releaseNotes": "업데이트 버튼을 시작 화면 상단 중앙으로 이동했습니다.\n업데이트에서 달라진 내용을 짧게 보여줍니다.\n현재 탭 강조와 Enter로 닫기 기능을 유지합니다."
     }
   },
   "dependencies": {

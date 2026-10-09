@@ -118,7 +118,7 @@ export default function Login() {
           <div style={{ marginTop:16, paddingTop:12, borderTop:'1px dashed #CCC', textAlign:'center' }}>
             <DesktopDownloadButton fullWidth />
             <div style={{ fontSize:11, color:'#666', marginTop:6, lineHeight:1.5 }}>
-              Windows 64비트 · v1.3.3 · 업무 화면을 탭과 창으로 사용
+              Windows 64비트 · v1.3.4 · 업무 화면을 탭과 창으로 사용
             </div>
           </div>
 
