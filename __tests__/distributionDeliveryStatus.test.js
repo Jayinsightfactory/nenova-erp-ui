@@ -26,11 +26,11 @@ assert.equal(match(undefined,[delivered,delivered])[0].reason,'ambiguous');
 const realSource={...original,message:'41-1 콜 카네이션 변경사항\n상희\n돈셀 2박스 추가\n오늘 출고건입니다',created_at:'2026-10-12T02:50:00Z'};
 const realTarget={...delivered,message:realSource.message.replace(/^41-1/u,'41-2'),created_at:'2026-10-12T03:02:00Z'};
 const realMatch=(sources=[realSource],targets=[realTarget],year='2026')=>matchDeliveryStatus({sources,targets,year})[0];
-assert.deepEqual(realMatch(),{identity:realSource.identity,status:'UNCONFIRMED',reason:'week_mismatch',sourceWeek:'41-01',targetWeek:'41-02',candidateDeliveryIdentity:'nenovakakao|delivery|two',candidateDeliveredAt:realTarget.created_at});
+assert.deepEqual(realMatch(),{identity:realSource.identity,status:'DELIVERED',reason:'week_corrected',sourceWeek:'41-01',targetWeek:'41-02',deliveryIdentity:'nenovakakao|delivery|two',deliveredAt:realTarget.created_at});
 assert.equal(realMatch(undefined,[{...realTarget,message:realSource.message}]).status,'DELIVERED','exact match still takes precedence');
 assert.equal(realMatch(undefined,[{...realTarget,message:realSource.message},realTarget]).status,'DELIVERED','an advisory candidate cannot downgrade an exact match');
-assert.equal(realMatch([{...realSource,message:realSource.message.replace('41-1','41-01')}]).reason,'week_mismatch');
-assert.equal(realMatch([{...realSource,message:realSource.message.replace('41-1','41-1차')}],[{...realTarget,message:realTarget.message.replace('41-2','41-2차')}]).reason,'week_mismatch');
+assert.equal(realMatch([{...realSource,message:realSource.message.replace('41-1','41-01')}]).reason,'week_corrected');
+assert.equal(realMatch([{...realSource,message:realSource.message.replace('41-1','41-1차')}],[{...realTarget,message:realTarget.message.replace('41-2','41-2차')}]).reason,'week_corrected');
 for(const message of [
   realTarget.message.replace('2박스','3박스'),
   realTarget.message.replace('돈셀','다른 업체'),
@@ -51,7 +51,10 @@ for(const change of [
 ])assert.equal(realMatch(undefined,[{...realTarget,...change}]).reason,'no_target');
 assert.equal(realMatch(undefined,[realTarget,{...realTarget,external_message_id:'three'}]).status,'AMBIGUOUS');
 assert.equal(realMatch([realSource,{...realSource,identity:'nenovakakao|sales|another',external_message_id:'another'}]).status,'AMBIGUOUS');
-assert(!JSON.stringify(realMatch()).includes(realTarget.message),'advisory response must not leak target text');
+assert.equal(realMatch([realSource,{...realSource,identity:'nenovakakao|sales|another',external_message_id:'another',message:realTarget.message}]).status,'AMBIGUOUS','competing correction sources must not both claim the target');
+assert.equal(realMatch(undefined,[{...realTarget,message:realSource.message},realTarget]).status,'DELIVERED','exact remains valid with a correction candidate');
+assert.equal(realMatch([{...realSource,message:'41-1'}],[{...realTarget,message:'41-2'}]).status,'UNCONFIRMED','week token alone is not a complete body');
+assert(!JSON.stringify(realMatch()).includes(realTarget.message),'corrected response must not leak target text');
 function harness(fetchImpl,{token='test-token',store}={}){
  if(!store){const directory=fs.mkdtempSync(path.join(os.tmpdir(),'delivery-api-'));directories.push(directory);store=createDistributionDeliveryEvidenceStore({directory});}
  const source=fs.readFileSync(require.resolve('../pages/api/kakao/delivery-status.js'),'utf8')
@@ -98,11 +101,20 @@ function harness(fetchImpl,{token='test-token',store}={}){
  const mismatchHandler=harness(async()=>({ok:true,json:async()=>({ok:true,messages:[realTarget],hasMore:false,nextAfterKey:null})}),{store:mismatchStore});
  const mismatchResponse=await mismatchHandler({body:{year:'2026',week:'2026-41-01',sources:[realSource]}});
  assert.equal(mismatchResponse.code,200);
- assert.equal(mismatchResponse.data.items[0].status,'UNCONFIRMED');
- assert.equal(mismatchResponse.data.items[0].reason,'week_mismatch');
- assert.equal(mismatchResponse.data.items[0].deliveryIdentity,undefined);
- assert.equal(mismatchResponse.data.items[0].deliveredAt,undefined);
- assert.equal(mismatchResponse.data.items[0].persisted,undefined);
- assert.equal(await mismatchStore.read({source:realSource,year:'2026'}),null,'week mismatch must not save delivery evidence');
+ assert.equal(mismatchResponse.data.items[0].status,'DELIVERED');
+ assert.equal(mismatchResponse.data.items[0].reason,'week_corrected');
+ assert.equal(mismatchResponse.data.items[0].sourceWeek,'41-01');
+ assert.equal(mismatchResponse.data.items[0].targetWeek,'41-02');
+ assert.equal(mismatchResponse.data.items[0].deliveryIdentity,'nenovakakao|delivery|two');
+ assert.equal(mismatchResponse.data.items[0].deliveredAt,realTarget.created_at);
+ assert.equal(mismatchResponse.data.items[0].persisted,true);
+ assert.equal((await mismatchStore.read({source:realSource,year:'2026'})).reason,'week_corrected','corrected evidence persists');
+ const reloaded=harness(async()=>{throw Error('upstream unavailable');},{store:createDistributionDeliveryEvidenceStore({directory:mismatchDirectory})});
+ assert.equal((await reloaded({body:{year:'2026',week:'2026-42-02',sources:[realSource]}})).data.items[0].targetWeek,'41-02','reload preserves correction metadata without feed');
+ const collisionDirectory=fs.mkdtempSync(path.join(os.tmpdir(),'delivery-correction-collision-'));directories.push(collisionDirectory);
+ const collisionStore=createDistributionDeliveryEvidenceStore({directory:collisionDirectory});
+ const collision=harness(async()=>({ok:true,json:async()=>({ok:true,messages:[realTarget],hasMore:false,nextAfterKey:null})}),{store:collisionStore});
+ assert.equal((await collision({body:{year:'2026',week:'2026-41-01',sources:[{...realSource,duplicateCorrectionOriginal:true}]}})).data.items[0].status,'AMBIGUOUS');
+ assert.equal(await collisionStore.read({source:realSource,year:'2026'}),null,'cross-batch correction collision cannot persist');
  console.log('distribution delivery status tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>{for(const directory of directories)fs.rmSync(directory,{recursive:true,force:true});});
