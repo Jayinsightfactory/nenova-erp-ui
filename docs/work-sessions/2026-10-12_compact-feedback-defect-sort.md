@@ -33,3 +33,6 @@
 - 상단 왼쪽 #menuButton의 메뉴형 문자 아이콘을 currentColor 윤곽 집 SVG로 교체. 접근성 이름/툴팁도 홈으로 변경. 버튼30px·활성화상태·기존toggle·Ctrl+K 유지. 입력/즐겨찾기/ERP 데이터 변경 없음.
 - 적용: 기존공간·색상·키보드·1920×1080 및800×1080. 해당없음: 신규메뉴·SQL·원장쓰기. 작은아이콘변경으로 기존 의미있는 Electron/browser smoke를 재사용했다.
 - Desktopunit/native smoke와홈브라우저 fixture 통과,1920화면육안확인. 설치기 asar 소스일치, SHA256 a10e076df632df0004dfbb1485f3e6ffee6cbd402772fe68fe34a236f0e97902. 최종리뷰 P0–P2없음. 배포확인은 후속기록.
+
+- 1.3.9 최종검증: ERP계약/dnSpy/manifest/쓰기guard/build 모두exit0. PR1012 병합 ec70f43c8b38a1b0e9abe748eb757b6870b73855. PR installer/verify 성공, master Windows38196313897 성공. Cafe24 run38196313904 성공.
+- desktop-v1.3.9 공개,latest feed와로컬일치,공개assetSHA256일치. 운영로그인1920×1080/800×1080에서1.3.9링크·hydration·가로넘침없음확인,비인증홈API401. 사용자설치앱강제재시작은하지않았으며 업데이트후적용.
