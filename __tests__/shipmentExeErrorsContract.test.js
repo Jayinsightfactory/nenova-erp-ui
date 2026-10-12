@@ -14,6 +14,9 @@ async function main() {
   const shipmentFix = fs.readFileSync(path.join(root, 'pages/api/shipment/fix.js'), 'utf8');
   const shipmentImportPrealign = fs.readFileSync(path.join(root, 'pages/api/shipment/distribute-import-prealign.js'), 'utf8');
   const shipmentIndex = fs.readFileSync(path.join(root, 'pages/api/shipment/index.js'), 'utf8');
+  const shipmentReconcile = fs.readFileSync(path.join(root, 'lib/shipmentFixReconcile.js'), 'utf8');
+  const orderYearWeekFix = fs.readFileSync(path.join(root, 'pages/api/shipment/fix-orderyearweek.js'), 'utf8');
+  const orderManagerFix = fs.readFileSync(path.join(root, 'pages/api/shipment/order-manager-fix.js'), 'utf8');
 
   const sqlBlocks = api.match(/sql:\s*`[\s\S]*?`/g) || [];
   assert.equal(sqlBlocks.length, 10, '전산 오류 진단 검사 수가 임의로 줄거나 늘지 않았는지 확인');
@@ -62,6 +65,10 @@ async function main() {
   assert.match(shipmentImportPrealign, /assertProductsNotFixed\(orderYear, normalizedWeek, prodKeys\)/, '엑셀 분배 사전검증은 선택 연도를 전달해야 한다.');
   assert.match(shipmentImportPrealign, /sm\.OrderYear=@orderYear[\s\S]{0,80}sm\.OrderWeek=@week/, '엑셀 분배 사전검증·사후검증은 연도와 차수로 격리해야 한다.');
   assert.match(shipmentIndex, /vs\.OrderWeek = @week AND vs\.OrderYear = @orderYear/, '출고 목록 조회도 다른 연도의 동일 차수를 섞으면 안 된다.');
+  assert.match(shipmentReconcile, /loadWeekOutboundProdKeys\(q, orderYear, orderWeek, sqlTypes\)/, '확정 후 재고 재계산 대상도 선택 연도를 전달해야 한다.');
+  assert.match(shipmentReconcile, /sm\.OrderYear=@yr AND sm\.OrderWeek=@wk/, '확정 후 정합성 지표는 다른 연도의 동일 차수를 섞으면 안 된다.');
+  assert.match(orderYearWeekFix, /sm\.OrderYear=@yr AND sm\.OrderWeek=@wk/, 'OrderYearWeek 보정도 연도와 차수를 함께 사용해야 한다.');
+  assert.match(orderManagerFix, /om\.OrderYear=@yr AND om\.OrderWeek=@wk/, '주문 Manager 보정도 연도와 차수를 함께 사용해야 한다.');
 
   console.log('shipment exe error diagnostic contract tests passed');
 }

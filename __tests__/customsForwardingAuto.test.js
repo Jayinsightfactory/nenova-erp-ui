@@ -61,7 +61,9 @@ async function main() {
   check('저장값이 없으면 내부 원천은 포함가로 계산', worldAuto.row.WorldFreight1 === RATE_DEFAULTS.Truck1t && worldAuto.row.WorldFreight2 === RATE_DEFAULTS.Truck2_5t);
   check('화면 자동 월드운송료는 부가세 제외가로 표시', worldAuto.auto.WorldFreight1 === 90000 && worldAuto.auto.WorldFreight2 === Math.round(RATE_DEFAULTS.Truck2_5t / 1.1));
   const worldLegacy = effectiveCountryWorldFreight({ WorldFreight1: 123456 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
-  check('기존 리터럴은 GW 자동값으로 전환', worldLegacy.row.WorldFreight1 === RATE_DEFAULTS.Truck1t && worldLegacy.source.WorldFreight1 === 'warehouse_gw_auto');
+  check('기존 WebCustoms 직접입력은 자동값보다 우선', worldLegacy.row.WorldFreight1 === 123456 && worldLegacy.source.WorldFreight1 === 'manual_override');
+  const worldExplicitAuto = effectiveCountryWorldFreight({ WorldFreight1: 123456, WorldFreight1Manual: 0 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
+  check('명시적 Manual=0은 GW 자동값 사용', worldExplicitAuto.row.WorldFreight1 === RATE_DEFAULTS.Truck1t && worldExplicitAuto.source.WorldFreight1 === 'warehouse_gw_auto');
   const worldOverride = effectiveCountryWorldFreight({ WorldFreight1: 123456, WorldFreight1Manual: 1 }, { GW1: 800, GW2: 1800 }, RATE_DEFAULTS);
   check('명시적 월드운송료 override는 자동값보다 우선', worldOverride.row.WorldFreight1 === 123456 && worldOverride.row.WorldFreight2 === RATE_DEFAULTS.Truck2_5t);
 

@@ -961,14 +961,16 @@ async function postAdjust(req, res) {
       }
 
       // 입고검증 — 견적서/확정 단계 오류 예방
-      // (a) 입고+수동재고조정 0 인데 출고 ADD: 견적서에서 입고없는 출고로 보임 → 기본 차단, force=true 시만 허용
+      // (a) 입고+수동재고조정 0 인데 출고 ADD: 견적서에서 입고없는 출고로 보임 → 차단
       // (b) 입고+수동재고조정 < 출고 (remainAfter < 0): 잔량 음수, 차수 확정 시 fix.js validate 에서 거부됨 → 차단
-      if (type === 'ADD' && !req.body.force) {
+      // force는 확정 사이클/재고 무결성 우회 수단이 아니다. 선분배가 필요하면 먼저
+      // 명시적인 재고조정 원장을 기록한 뒤 동일 검증을 다시 통과해야 한다.
+      if (type === 'ADD') {
         if (totalIn <= 0) {
-          throw new Error(`입고/재고조정 반영 후 가용수량이 0 이하인 차수입니다. 입고 등록 또는 재고조정 후 분배하세요.\n선분배가 의도라면 force=true 로 강제 진행 (견적서 입고없는출고로 보일 수 있음)`);
+          throw new Error(`입고/재고조정 반영 후 가용수량이 0 이하인 차수입니다. 입고 등록 또는 재고조정 후 분배하세요.`);
         }
         if (totalIn > 0 && remainAfter < 0) {
-          throw new Error(`입고+재고조정(${totalIn}) 초과 분배: 총 ${totalOut} 분배 → 잔량 ${remainAfter}\n강제 진행하려면 force=true (관리자만)`);
+          throw new Error(`입고+재고조정(${totalIn}) 초과 분배: 총 ${totalOut} 분배 → 잔량 ${remainAfter}`);
         }
       }
 

@@ -3,6 +3,7 @@
 // 여기 저장하는 값은 자동감지가 놓쳤을 때(새 농장명 등)만 쓰는 override.
 import { withAuth } from '../../../lib/auth';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { assertProfitReportMutable } from '../../../lib/profitReportSnapshot.js';
 import {
   FORWARDING_DIRECT_CATEGORIES, COLOMBIA_ALLOC_CATEGORIES,
   getRateConfig, loadForwardingWeekly, saveForwardingWeekly,
@@ -26,7 +27,7 @@ export default withAuth(async function handler(req, res) {
       const prevMajor = String(Number(major) - 1).padStart(2, '0');
 
       const [rates, fwd, prevFwd, subWeeks, prevSubWeeks, autoFwd, autoGw] = await Promise.all([
-        getRateConfig(),
+        getRateConfig(orderYear, major),
         loadForwardingWeekly(major, orderYear),
         loadForwardingWeekly(prevMajor, orderYear),
         weeksForMajor(major, orderYear),
@@ -75,6 +76,7 @@ export default withAuth(async function handler(req, res) {
       if (!major) return res.status(400).json({ success: false, error: 'week 필요' });
       const orderYear = resolveActiveOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
+      await assertProfitReportMutable(orderYear, major);
 
       if (req.body?.action === 'saveDirect') {
         if (!req.body?.category) return res.status(400).json({ success: false, error: 'category 필요' });
@@ -91,6 +93,6 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
+    return res.status(e.statusCode || 500).json({ success: false, error: e.message, code: e.code || null });
   }
 });
