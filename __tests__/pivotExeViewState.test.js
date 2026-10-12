@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { EXE_DEFAULT_LAYOUT, EXE_FIELDS } from '../lib/pivotExeModel.js';
-import { normalizePivotExeView, parsePivotExeFavoriteView } from '../lib/pivotExeViewState.js';
+import { getUnavailablePivotExeSelections, normalizePivotExeView, parsePivotExeFavoriteView } from '../lib/pivotExeViewState.js';
 import { getPivotExeDataColumnId, getPivotExeDataWidth } from '../lib/pivotExePresentation.js';
 
 const defaults = normalizePivotExeView();
@@ -24,6 +24,9 @@ assert.ok(oldView.zones.filters.includes('CustOrderCode'),'old favorites gain th
 const codeView=normalizePivotExeView({zones:{rows:['CustOrderCode'],cols:['OrderYear'],filters:[],values:[{id:'Quantity',aggregation:'sum'}]},selections:{CustOrderCode:['0017','',null]},sorts:{CustOrderCode:'desc'}});
 assert.deepEqual(normalizePivotExeView(JSON.parse(JSON.stringify(codeView))),codeView);
 assert.deepEqual(codeView.selections.CustOrderCode,['0017','',null]);
+assert.deepEqual(getUnavailablePivotExeSelections(codeView, { CustOrderCode: ['0017', '', null] }), []);
+assert.deepEqual(getUnavailablePivotExeSelections(codeView, { CustOrderCode: ['0017', null] }), [{ field: 'CustOrderCode', missing: [''] }]);
+assert.deepEqual(getUnavailablePivotExeSelections(codeView, {}), [{ field: 'CustOrderCode', missing: ['0017', '', null] }]);
 assert.equal(codeView.sorts.CustOrderCode,'desc');
 
 const precise = normalizePivotExeView({

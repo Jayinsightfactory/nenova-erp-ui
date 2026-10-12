@@ -58,6 +58,10 @@ const rows = [
   { CustName: '거래처B', CounName: '콜롬비아', OrderWeek: '37-02', Quantity: 8, FlowerName: '카네이션', ProdName: '카네이션 핑크', CountryFlower: '콜롬비아 카네이션', CustArea: '부산', ListType: '03. 입고', ShipmentDtm: '', OrderYear: '2026', UPrice: 900, OrderNo: 'AWB-3702', CustDescr: '', TPrice: 7200 },
   { CustName: '거래처A', CounName: '에콰도르', OrderWeek: '37-01', Quantity: 4, FlowerName: '장미', ProdName: '장미 레드', CountryFlower: '에콰도르 장미', CustArea: '서울', ListType: '04. 출고', ShipmentDtm: '2026-09-10(목)', OrderYear: '2026', UPrice: 0, OrderNo: '', CustDescr: '', TPrice: 0 },
   { CustName: '', CounName: '콜롬비아', OrderWeek: '37-01', Quantity: 3, FlowerName: '수국', ProdName: '수국 블루', CountryFlower: '콜롬비아 수국', CustArea: '', ListType: '01. 전재고', ShipmentDtm: '', OrderYear: '2026', UPrice: 0, OrderNo: '', CustDescr: '', TPrice: 0 },
+  ...(process.env.PIVOT_FILTER_ONLY === '1' ? [
+    { CustName: '거래처A', CounName: '콜롬비아', OrderWeek: '37-01', Quantity: 5, FlowerName: '알스트로', ProdName: '알스트로 화이트', CountryFlower: '콜롬비아 알스트로', CustArea: '서울', ListType: '02. 주문', ShipmentDtm: '', OrderYear: '2026', UPrice: 700, OrderNo: '', CustDescr: '', TPrice: 3500 },
+    { CustName: '거래처B', CounName: '콜롬비아', OrderWeek: '37-02', Quantity: 2, FlowerName: '루스커스', ProdName: '루스커스 그린', CountryFlower: '콜롬비아 루스커스', CustArea: '부산', ListType: '03. 입고', ShipmentDtm: '', OrderYear: '2026', UPrice: 600, OrderNo: '', CustDescr: '', TPrice: 1200 },
+  ] : []),
 ];
 
 const problems = [];
@@ -315,8 +319,94 @@ async function runDelayedAuthLayoutRegression(browser) {
     await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-select"]', node => !node.disabled), 'authenticated per-user layout hydration');
     if (testids.dataRows) assert((await visibleCount(page, testids.dataRows)) > 0, 'mock rawdata rows are not displayed');
 
+    if (process.env.PIVOT_FILTER_ONLY === '1') {
+      // Reproduce the screenshot path against the dedicated five-flower fixture.
+      await page.$eval('[data-testid="pivot-exe-filter-FlowerName"]', button => button.click());
+      await page.waitForSelector('[data-testid="pivot-exe-value-filter"]', { visible:true });
+      await page.evaluate(() => {
+        const dialog = document.querySelector('[data-testid="pivot-exe-value-filter"]');
+        const labels = [...dialog.querySelectorAll('label')];
+        const selected = labels.filter(label => ['카네이션','장미'].includes(label.textContent.trim()));
+        if (labels.length !== 5 || selected.length !== 2) throw new Error(`Expected 5 flower values and two selected; got ${labels.length} values, ${selected.length} targets`);
+        for (const label of labels) {
+          const checkbox = label.querySelector('input[type="checkbox"]');
+          if (checkbox && checkbox.checked !== selected.includes(label)) checkbox.click();
+        }
+      });
+      await page.$eval('[data-testid="pivot-exe-apply-filter"]', button => button.click());
+      await waitFor(() => page.$eval('body', node => {
+        const grid = node.querySelector('[data-testid="pivot-exe-grid"]');
+        const applied = node.querySelector('[data-testid="pivot-applied-filters"]');
+        return Boolean(grid && grid.innerText.includes('12.00') && !grid.innerText.includes('29.50') && !grid.innerText.includes('수국') && !grid.innerText.includes('알스트로') && !grid.innerText.includes('루스커스') && applied?.innerText.includes('꽃: 카네이션, 장미'));
+      }), 'screenshot-style filter applied to visible sheet');
+      await waitFor(() => page.$eval('body', node => !node.querySelector('[data-testid="pivot-loading-overlay"]')), 'screenshot-style filter recalculation completed');
+      console.log(JSON.stringify({ passed: true, test: 'grid-header value filter updates pivot sheet', selectedValues: ['카네이션', '장미'], selectedFrom: 5, filteredTotal: '12.00', originalTotal: '29.50', excludedFlowers: ['수국', '알스트로', '루스커스'], viewport: '1920x1080' }));
+      return;
+    }
+    if (process.env.PIVOT_FAVORITES_ONLY === '1') {
+      const initialReads = rawDataReads;
+      await page.$eval('[data-testid="pivot-exe-decimals-toggle"]', node => node.click());
+      await waitFor(() => page.$eval('[data-testid="pivot-exe-decimals-toggle"]', node => node.textContent.includes('소수점 표시')), 'set zero decimals');
+      await page.$eval('[data-testid="pivot-exe-favorite-manage"]', node => node.click());
+      await page.waitForSelector('[role="dialog"][aria-modal="true"]', { visible: true, timeout: 5000 });
+      await fill(page, 'pivot-exe-favorite-name', 'Smoke favorite layout', 'favorite name');
+      await page.$eval('[data-testid="pivot-exe-favorite-save"]', node => node.click());
+      await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('저장했습니다')), 'favorite save status');
+      const favoriteKey = await page.$eval('[data-testid="pivot-exe-favorite-select"]', node => node.value);
+      assert(favoriteKey, 'new favorite must be selected');
+      assert((await page.$eval('[data-testid="pivot-exe-favorite-preview"]', node => node.innerText)).includes('행:'), 'favorite preview must summarize axes');
+      const preview = await page.$eval('[data-testid="pivot-exe-favorite-preview"]', node => node.innerText);
+      assert(preview.includes('차수 범위는 현재 선택을 유지합니다'), 'favorite preview must explain that the selected range stays unchanged');
+
+      assert(JSON.parse(favoriteMutations.find(item => item.method === 'POST')?.body.filterData).decimals === 0, 'save must persist current display settings');
+      await page.$eval('[data-testid="pivot-exe-decimals-toggle"]', node => node.click());
+      await waitFor(() => page.$eval('[data-testid="pivot-exe-decimals-toggle"]', node => node.textContent.includes('소수점 숨기기')), 'restore default decimals before favorite load');
+      await page.$eval('[data-testid="pivot-exe-favorite-load"]', node => node.click());
+      await waitFor(() => page.$eval('[data-testid="pivot-exe-decimals-toggle"]', node => node.textContent.includes('소수점 표시')), 'favorite restores zero-decimal setting');
+      assert(rawDataReads === initialReads, 'loading a favorite must not reread ERP data or change the selected range');
+
+      await page.$eval('[data-testid="pivot-exe-decimals-toggle"]', node => node.click());
+      await waitFor(() => page.$eval('[data-testid="pivot-exe-decimals-toggle"]', node => node.textContent.includes('소수점 숨기기')), 'change display setting before overwrite');
+      await page.$eval('[data-testid="pivot-exe-favorite-manage"]', node => node.click());
+      await page.waitForSelector('[role="dialog"][aria-modal="true"]', { visible: true, timeout: 5000 });
+      await page.$eval('[data-testid="pivot-exe-favorite-update"]', node => node.click());
+      await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('덮어썼습니다')), 'favorite overwrite status');
+      assert(favoriteMutations.at(-1)?.method === 'PUT' && String(favoriteMutations.at(-1)?.body.favoriteKey) === String(favoriteKey), 'overwrite must update selected favorite');
+      const savedFilterData = favoriteMutations.find(item => item.method === 'POST')?.body.filterData;
+      assert(JSON.parse(savedFilterData).decimals === 0 && JSON.parse(favoriteMutations.at(-1).body.filterData).decimals === 2, 'overwrite must save the current display view');
+      const overwrittenFilterData = favoriteMutations.at(-1).body.filterData;
+
+      await page.$eval('[data-testid="pivot-exe-favorite-manage"]', node => node.click());
+      await page.waitForSelector('[role="dialog"][aria-modal="true"]', { visible: true, timeout: 5000 });
+      await fill(page, 'pivot-exe-favorite-name', 'Smoke renamed layout', 'renamed favorite');
+      await page.$eval('[data-testid="pivot-exe-favorite-rename"]', node => node.click());
+      await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('이름을 변경했습니다')), 'favorite rename status');
+      assert(favoriteMutations.at(-1)?.method === 'PUT' && favoriteMutations.at(-1)?.body.filterData === overwrittenFilterData, 'rename must preserve the previously saved favorite view');
+      assert((await page.$eval('[data-testid="pivot-exe-favorite-select"]', node => [...node.selectedOptions].map(option => option.textContent).join(''))) === 'Smoke renamed layout', 'renamed favorite label was not refreshed');
+
+      await page.$eval('[data-testid="pivot-exe-favorite-manage"]', node => node.click());
+      await page.waitForSelector('[role="dialog"][aria-modal="true"]', { visible: true, timeout: 5000 });
+      await page.$eval('[data-testid="pivot-exe-favorite-delete"]', node => node.click());
+      await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('삭제했습니다')), 'favorite delete status');
+      assert(favoriteDeleteConfirmation.includes('Smoke renamed layout'), 'delete must confirm the selected favorite name');
+      assert(favoriteMutations.at(-1)?.method === 'DELETE' && String(favoriteMutations.at(-1)?.body.favoriteKey) === String(favoriteKey), 'delete must target the selected favorite');
+      const layout = await page.evaluate(() => ({
+        width: innerWidth,
+        height: innerHeight,
+        documentWidth: document.documentElement.scrollWidth,
+        favorites: document.querySelector('[data-testid="pivot-exe-favorites"]')?.getBoundingClientRect().toJSON(),
+      }));
+      assert(layout.width === 1920 && layout.height === 1080, 'favorite UI smoke must use the required 1920x1080 viewport');
+      assert(layout.documentWidth <= layout.width, 'favorite UI overflows horizontally at 1920px');
+      await waitFor(() => page.$eval('body', node => !node.querySelector('[data-testid="pivot-loading-overlay"]')), 'pivot display settles before screenshot');
+      fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
+      await page.screenshot({ path: screenshotPath, fullPage: false });
+      console.log(JSON.stringify({ passed: true, test: 'pivot favorites CRUD, preview, range preservation and 1920x1080 layout', viewport: `${layout.width}x${layout.height}`, favoriteMutations: favoriteMutations.map(item => item.method), rawDataReads, screenshotPath }));
+      return;
+    }
+
     // Exercise actual HTML5 drops and assert the rendered pivot changes without a new raw-data read.
-    const initialLiveTable = await page.$eval('table', node => node.innerText);
+    const initialLiveTable = await page.$eval('[data-testid="pivot-exe-grid"]', node => node.innerText);
     assert(initialLiveTable.includes('27.50'), 'four-row fixture sum must be 27.50 before layout changes');
     const dropField = async (field, zone, zoneId) => {
       const beforeReads = rawDataReads;
@@ -331,18 +421,20 @@ async function runDelayedAuthLayoutRegression(browser) {
         source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: transfer }));
       }, { fieldId: field, destination: zoneId });
       await waitFor(() => page.$eval(`[data-testid="${zoneId}"]`, (node, fieldId) => Boolean(node.querySelector(`[data-testid="pivot-exe-field-${fieldId}"]`)), field), `${field} drop into ${zone}`);
+      await waitFor(() => page.$eval('body', node => !node.querySelector('[data-testid="pivot-loading-overlay"]')), `${field} pivot calculation completed`);
       assert(rawDataReads === beforeReads, `dragging ${field} into ${zone} unexpectedly fetched raw data`);
     };
     await dropField('CustName', 'rows', 'pivot-exe-zone-rows');
     await dropField('CounName', 'columns', 'pivot-exe-zone-cols');
     await dropField('ListType', 'filters', 'pivot-exe-zone-filters');
     await dropField('UPrice', 'values', 'pivot-exe-zone-values');
-    const liveTable = await page.$eval('table', node => node.innerText);
+    const liveTable = await page.$eval('[data-testid="pivot-exe-grid"]', node => node.innerText);
     assert(liveTable !== initialLiveTable, 'field drops must change actual table headers or grouped values');
     assert(liveTable.includes('거래처A') && liveTable.includes('콜롬비아'), 'row/column drops must change visible group labels');
     assert(liveTable.includes('입고단가') && liveTable.includes('1,900.00'), 'numeric field drop must add the correct fixture sum');
     assert(rawDataReads === 1, `layout-only drops must not reread raw rows (reads: ${rawDataReads})`);
     await click(page, 'pivot-exe-reset', 'restore native layout after live drops');
+    await waitFor(() => page.$eval('body', node => !node.querySelector('[data-testid="pivot-loading-overlay"]')), 'layout restore calculation completed');
 
     // Optional external manifests may still exercise explicit controls. The native web contract
     // itself is covered above by dragging whole field buttons between every zone.
@@ -353,6 +445,7 @@ async function runDelayedAuthLayoutRegression(browser) {
       }
     }
     await click(page, 'pivot-exe-reset', 'restore native layout');
+    await waitFor(() => page.$eval('body', node => !node.querySelector('[data-testid="pivot-loading-overlay"]')), 'second layout restore calculation completed');
     assert((await text(page)).includes('수국 화이트'), 'raw fixture is not visible after restoring layout');
     if (testids.search) { await fill(page, testids.search, '수국', 'search'); assert((await text(page)).includes('수국'), 'search result does not retain 수국'); }
     if (testids.filterOpen && testids.filterApply && Array.isArray(testids.filterValues)) {
@@ -371,44 +464,48 @@ async function runDelayedAuthLayoutRegression(browser) {
 
     // Exercise the actual visible filter controls, not just optional test manifests.
     await click(page, 'pivot-exe-field-CounName', 'country menu');
+    await page.waitForSelector('[data-testid="pivot-exe-field-menu"]', { visible:true, timeout:30000 });
     await click(page, null, 'value filter', '값 필터…');
     await click(page, null, 'clear values', '전체 해제');
-    await click(page, null, 'apply empty selection', '선택·순서 적용');
+    await click(page, 'pivot-exe-apply-filter', 'apply empty selection');
+    await waitFor(() => page.$eval('body', node => !node.querySelector('[data-testid="pivot-loading-overlay"]')), 'empty filter calculation completed');
     assert((await text(page)).includes('표시할 데이터가 없습니다.'), 'empty filter must show no rows');
     await click(page, null, 'clear filters', '필터 지우기');
+    await waitFor(() => page.$eval('body', node => !node.querySelector('[data-testid="pivot-loading-overlay"]')), 'clear filter calculation completed');
     await click(page, testids.filterEditor, 'AST editor');
     await click(page, null, 'add condition', '+ 조건');
     await page.select('[role="dialog"] select:nth-of-type(1)', 'AND');
     const condition = await page.$('[role="dialog"] input[placeholder="값"]');
     await condition.type('거래처A');
     await click(page, null, 'apply AST', '적용');
-    assert(!(await page.$eval('table', node => node.innerText)).includes('거래처B'), 'AST customer filter failed');
+    assert(!(await page.$eval('[data-testid="pivot-exe-grid"]', node => node.innerText)).includes('거래처B'), 'AST customer filter failed');
     await click(page, null, 'clear AST', '필터 지우기');
     const expandedRows = await page.$$eval('tbody tr', nodes => nodes.length);
     await click(page, testids.collapseAll, 'collapse all', '모두 접기');
-    assert((await page.$$eval('tbody tr', nodes => nodes.length)) < expandedRows, 'collapse did not reduce visible rows');
+    await waitFor(() => page.$$eval('[data-testid="pivot-exe-grid"] tbody tr', (nodes, count) => nodes.length < count, expandedRows), 'collapsed pivot rows');
+    assert((await page.$$eval('[data-testid="pivot-exe-grid"] tbody tr', nodes => nodes.length)) < expandedRows, 'collapse did not reduce visible rows');
     await click(page, testids.expandAll, 'expand all', '모두 펼침');
     assert((await page.$$eval('tbody tr', nodes => nodes.length)) === expandedRows, 'expand did not restore rows');
     await click(page, 'pivot-exe-field-CounName', 'open sort field');
     await click(page, null, 'sort ascending', '오름차순');
-    assert((await page.$eval('table tbody tr th', node => node.textContent)).includes('에콰도르'), 'ascending country order not applied');
+    assert((await page.$eval('[data-testid="pivot-exe-grid"] tbody tr th', node => node.textContent)).includes('에콰도르'), 'ascending country order not applied');
     assert((await page.$eval('[data-testid="pivot-exe-field-CounName"]', node => node.textContent)).includes('▲'), 'ascending indicator missing');
     await click(page, 'pivot-exe-field-CounName', 'open descending sort');
     await click(page, null, 'sort descending', '내림차순');
-    assert((await page.$eval('table tbody tr th', node => node.textContent)).includes('콜롬비아'), 'descending country order not applied');
+    assert((await page.$eval('[data-testid="pivot-exe-grid"] tbody tr th', node => node.textContent)).includes('콜롬비아'), 'descending country order not applied');
     assert((await page.$eval('[data-testid="pivot-exe-field-CounName"]', node => node.textContent)).includes('▼'), 'descending indicator missing');
     await click(page, 'pivot-exe-field-CounName', 'open clear sort');
     await click(page, null, 'clear sort', '정렬 해제');
 
     // Grouped headers, true cell grid and display-only precision.
-    assert((await page.$$eval('table thead tr', nodes => nodes.length)) >= 3, 'column headers must be hierarchical');
-    assert((await page.$$eval('table th[colspan]', nodes => nodes.some(n => Number(n.colSpan) > 1))), 'column groups are not merged');
-    assert((await page.$$eval('table tbody [rowspan]', nodes => nodes.some(n => Number(n.rowSpan) > 1))), 'row ancestors are not merged');
-    const initialGrid = await page.$eval('table', node => node.innerText);
+    assert((await page.$$eval('[data-testid="pivot-exe-grid"] thead tr', nodes => nodes.length)) >= 3, 'column headers must be hierarchical');
+    assert((await page.$$eval('[data-testid="pivot-exe-grid"] th[colspan]', nodes => nodes.some(n => Number(n.colSpan) > 1))), 'column groups are not merged');
+    assert((await page.$$eval('[data-testid="pivot-exe-grid"] tbody [rowspan]', nodes => nodes.some(n => Number(n.rowSpan) > 1))), 'row ancestors are not merged');
+    const initialGrid = await page.$eval('[data-testid="pivot-exe-grid"]', node => node.innerText);
     await click(page, 'pivot-exe-decimals-toggle', 'hide decimals');
-    assert(!(await page.$eval('table', node => node.innerText)).includes('12.50'), 'decimal hide did not change display');
+    assert(!(await page.$eval('[data-testid="pivot-exe-grid"]', node => node.innerText)).includes('12.50'), 'decimal hide did not change display');
     await click(page, 'pivot-exe-decimals-toggle', 'restore decimals');
-    assert((await page.$eval('table', node => node.innerText)) === initialGrid, 'precision toggle mutated pivot values');
+    assert((await page.$eval('[data-testid="pivot-exe-grid"]', node => node.innerText)) === initialGrid, 'precision toggle mutated pivot values');
 
     // Resize via left-click controls and retain preferences across reload.
     const setControl = async (id, value) => {
@@ -421,7 +518,7 @@ async function runDelayedAuthLayoutRegression(browser) {
     await setControl('pivot-exe-row-height', 32);
     await setControl('pivot-exe-data-width', 120);
     const measured = await page.evaluate(() => {
-      const table = document.querySelector('table');
+      const table = document.querySelector('[data-testid="pivot-exe-grid"]');
       const row = table.querySelector('tbody tr');
       return {height:row.getBoundingClientRect().height,border:getComputedStyle(row.lastElementChild).borderRightWidth};
     });
@@ -450,6 +547,7 @@ async function runDelayedAuthLayoutRegression(browser) {
       node.dispatchEvent(new Event('change', { bubbles: true }));
     }, value);
     await writeDecimals(0);
+    await click(page, 'pivot-exe-favorite-manage', 'open favorite management');
     await setInput('pivot-exe-favorite-name', 'Smoke zero-decimal layout');
     await click(page, 'pivot-exe-favorite-save', 'save mock favorite');
     await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('저장했습니다')), 'favorite save');
@@ -459,6 +557,8 @@ async function runDelayedAuthLayoutRegression(browser) {
     assert(postedView.decimals === 0 && postedView.zeroVisible === false, 'favorite must preserve explicit 0 decimals and false zeroVisible');
     const favoriteKey = await page.$eval(selector('pivot-exe-favorite-select'), node => node.value);
     assert(favoriteKey, 'newly saved mock favorite must be selected');
+    assert((await page.$eval('[data-testid="pivot-exe-favorite-preview"]', node => node.innerText)).includes('행:'), 'selected favorite must show an axes/filter preview');
+    assert((await page.$eval('[data-testid="pivot-exe-favorites"]', node => node.innerText)).includes('차수 범위는 현재 선택을 유지합니다'), 'favorite preview must clarify that the current range is preserved');
 
     await click(page, 'pivot-exe-reset', 'reset before favorite reload');
     assert((await readDecimals()) !== '0', 'reset should restore the default decimal precision');
@@ -468,6 +568,7 @@ async function runDelayedAuthLayoutRegression(browser) {
     assert((await page.$eval('[data-testid="pivot-exe-row-height"]', node => node.value)) === '32', 'favorite load must restore saved row height');
 
     await setControl('pivot-exe-row-height', 33);
+    await click(page, 'pivot-exe-favorite-manage', 'open favorite management for overwrite');
     await click(page, 'pivot-exe-favorite-update', 'update mock favorite');
     await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('덮어썼습니다')), 'favorite update');
     assert(favoriteMutations.at(-1)?.method === 'PUT' && String(favoriteMutations.at(-1)?.body.favoriteKey) === String(favoriteKey), 'favorite PUT must target the selected fixture key');
@@ -499,10 +600,21 @@ async function runDelayedAuthLayoutRegression(browser) {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-select"]', node => [...node.options].some(option => option.value)), 'return to user A favorite');
     await page.select(selector('pivot-exe-favorite-select'), favoriteKey);
+    const oldFilterData = await page.evaluate(key => {
+      const option = [...document.querySelector('[data-testid="pivot-exe-favorite-select"]').options].find(item => item.value === key);
+      return option?.textContent;
+    }, favoriteKey);
+    await click(page, 'pivot-exe-favorite-manage', 'open favorite management for delete');
+    await setInput('pivot-exe-favorite-name', 'Smoke renamed layout');
+    await click(page, 'pivot-exe-favorite-rename', 'rename mock favorite');
+    await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('이름을 변경했습니다')), 'favorite rename');
+    assert(favoriteMutations.at(-1)?.method === 'PUT' && favoriteMutations.at(-1)?.body.filterData === JSON.stringify(JSON.parse(favoriteMutations.find(item => item.method === 'POST')?.body.filterData)), 'rename must preserve the favorite FilterData');
+    assert(oldFilterData === 'Smoke zero-decimal layout', 'rename fixture must start with the original name');
+    await click(page, 'pivot-exe-favorite-manage', 'reopen favorite management after rename');
     await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-delete"]', node => !node.disabled), 'user A delete control enabled');
     await click(page, 'pivot-exe-favorite-delete', 'delete mock favorite');
     await waitFor(() => page.$eval('[data-testid="pivot-exe-favorite-status"]', node => node.textContent.includes('삭제했습니다')), 'favorite delete');
-    assert(favoriteDeleteConfirmation.includes('Smoke zero-decimal layout'), 'favorite delete must ask for confirmation naming only the mock fixture');
+    assert(favoriteDeleteConfirmation.includes('Smoke renamed layout'), 'favorite delete must ask for confirmation naming only the mock fixture');
     assert(favoriteMutations.at(-1)?.method === 'DELETE' && String(favoriteMutations.at(-1)?.body.favoriteKey) === String(favoriteKey), 'favorite DELETE must target the selected fixture key');
 
     for (const width of [1920,1366]) {
@@ -550,13 +662,13 @@ async function runDelayedAuthLayoutRegression(browser) {
     await waitFor(() => fs.readdirSync(downloads).some(name => name.endsWith('.xlsx') && !priorFiles.has(name)), 'XLSX download');
 
     // Scope-changing race: the first good response must survive a later 503.
-    const before = await page.$eval('table', node => node.innerText);
+    const before = await page.$eval('[data-testid="pivot-exe-grid"]', node => node.innerText);
     failNextRawData = true;
     const rangeSelects = await page.$$('main > div:first-child select');
     await rangeSelects[1].select('37-02');
     await waitFor(() => saw503, '503 race response');
     await page.waitForSelector('[data-testid="pivot-exe-error"]');
-    const after = await page.$eval('table', node => node.innerText);
+    const after = await page.$eval('[data-testid="pivot-exe-grid"]', node => node.innerText);
     assert(after === before, 'last good data was not preserved after scope-changing 503');
 
     await page.reload({waitUntil:'domcontentloaded'});
@@ -564,7 +676,7 @@ async function runDelayedAuthLayoutRegression(browser) {
     await waitFor(async () => await page.$eval('[data-testid="pivot-exe-row-height"]', node => node.value === '33'), 'saved row height hydration');
     assert((await page.$eval('[data-testid="pivot-exe-data-width"]', node => node.value)) === '120', 'saved width lost after reload');
     await page.waitForSelector('[data-testid="pivot-exe-grid"]');
-    await waitFor(async () => (await page.$eval('table',node=>node.innerText)).includes('수국 화이트'), 'reloaded fixture');
+    await waitFor(async () => (await page.$eval('[data-testid="pivot-exe-grid"]',node=>node.innerText)).includes('수국 화이트'), 'reloaded fixture');
 
     for (const width of [1366, 1920]) {
       await page.setViewport({ width, height: width === 1920 ? 1080 : 768, deviceScaleFactor: 1 });

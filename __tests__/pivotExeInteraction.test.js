@@ -82,6 +82,12 @@ const gridCss = fs.readFileSync(new URL('../components/PivotExeGrid.module.css',
 assert.doesNotMatch(gridCss, /max-height:\s*calc\(100vh/, 'the table must not own a bounded vertical viewport');
 assert.match(gridCss, /\.scroll\s*\{\s*overflow-x: auto; overflow-y: hidden;/, 'only horizontal overflow stays inside the table');
 assert.match(panelSource, /data-testid="pivot-exe-view-tools"/, 'display settings and favorites occupy the compact right-side tool region');
+const favoritesSource = fs.readFileSync(new URL('../components/PivotExeFavorites.js', import.meta.url), 'utf8');
+assert.match(favoritesSource, /data-testid="pivot-exe-favorite-preview"/, 'selected favorite exposes a compact view preview');
+assert.match(favoritesSource, /data-testid="pivot-exe-favorite-manage"/, 'favorite mutations are grouped behind management');
+assert.match(favoritesSource, /차수 범위는 현재 선택을 유지합니다/, 'favorite preview states the range-preservation rule');
+assert.match(favoritesSource, /name: favoriteName, filterData: selected\.FilterData/, 'rename preserves the saved view rather than overwriting it');
+assert.match(favoritesSource, /getUnavailablePivotExeSelections\(savedView, dataValues\)/, 'favorite load checks selected values against current data');
 assert.match(panelSource, /@media \(max-width: 1450px\)/, 'the tool region stacks below the field deck on narrower screens');
 assert.match(panelSource, /zoneArea\('rows','세로 행','표 왼쪽'\)/, '세로 행 영역을 화면에 명확히 표시한다');
 assert.match(panelSource, /zoneArea\('cols','가로 열','표 위쪽'\)/, '가로 열 영역을 화면에 명확히 표시한다');
@@ -94,7 +100,7 @@ assert.match(panelSource, /pivot-exe-drop-marker/, '드롭할 정확한 삽입 �
 assert.doesNotMatch(panelSource, />⇄<\/button>/, '별도 이동 아이콘을 주 조작으로 노출하지 않는다');
 assert.match(panelSource, /오른쪽.*실제 값 필터/, '필드 오른쪽 화살표가 실제 값 목록을 연다는 안내를 표시한다');
 assert.match(panelSource, /체크한 값과 지정한 순서를 피벗 행·열 및 엑셀에 적용합니다/, '값 선택과 순서의 적용 범위를 명확히 안내한다');
-assert.match(panelSource, /선택·순서 적용/, '순서 초안은 명시 적용한다');
+assert.match(panelSource, /data-testid="pivot-exe-apply-filter"/, '값 선택 초안의 명시 적용 버튼을 제공한다');
 assert.match(panelSource, /zone === 'filters' \? openValueFilter : openFieldMenu/, '필터 영역의 기본 버튼은 실제 값 선택창을 바로 연다');
 assert.match(panelSource, /key=\{filterField\.id\}/, '다른 필드 필터를 열면 초안 값이 해당 필드 기준으로 초기화된다');
 assert.match(gridSource, /가로 데이터 열 전체 너비 조절/, '가로 데이터 열 핸들은 일괄 조절임을 안내한다');
