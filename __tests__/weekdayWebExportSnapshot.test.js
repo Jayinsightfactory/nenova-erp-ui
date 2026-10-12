@@ -20,10 +20,20 @@ assert.equal(weekdayExportProductName({displayName:'SPRAY ROSE / 스노우 플�
 assert.equal(weekdayExportProductName({displayName:'장미빛 화이트'},'장미'),'장미빛 화이트');
 assert.equal(weekdayExportProductName({displayName:'수국 화이트'},'장미'),'수국 화이트','other category is not removed');
 assert.equal(weekdayExportProductName({displayName:'장미'},'장미'),'장미','never create an empty product name');
+assert.equal(weekdayExportProductName({displayName:'장미 / 몬디알 50cm'},'콜롬비아 장미'),'몬디알 50cm','country-specific rose group still removes redundant flower prefix');
+assert.equal(weekdayExportProductName({displayName:'ROSE / White 60cm'},'에콰도르 장미'),'White 60cm');
+assert.equal(weekdayExportProductName({displayName:'장미빛 화이트'},'콜롬비아 장미'),'장미빛 화이트');
 assert.equal(weekdayExportProductName({name:'ROSE CHINA / Proud 60cm'},'장미'),'CHINA / 프라우드 60CM','origin and size survive');
 assert.ok(model.columns.every(column=>column.kind),'semantic column kind reaches the XLSX formatter');
 const duplicateNames=buildWeekdayWebExportSnapshot({...matrix,rows:[englishRow,{...englishRow,prodKey:99}]});
 assert.deepEqual(duplicateNames.rows.map(row=>[row.prodKey,row.name]),[[1,'브루트'],[99,'브루트']],'same variety names never merge different products');
+const countrySortRows=[['장미','에콰도르'],['장미','중국'],['장미','콜롬비아'],['카네이션','콜롬비아'],['수국','콜롬비아'],['알스트로','콜롬비아'],['장미',null]]
+  .map(([flower,country],index)=>({...matrix.rows[0],prodKey:100+index,name:`${flower} fixture`,flowerNames:[flower],countryNames:country?[country]:[]}));
+const countrySorted=buildWeekdayWebExportSnapshot({...matrix,rows:countrySortRows});
+assert.deepEqual(countrySorted.rows.slice(0,4).map(row=>row.category),['카네이션','콜롬비아 장미','수국','알스트로']);
+assert.deepEqual(new Set(countrySorted.rows.slice(4).map(row=>row.category)),new Set(['에콰도르 장미','중국 장미','장미 (국가 미확인)']));
+assert.equal(countrySorted.rows.length,7,'country grouping never removes products');
+assert.ok(countrySorted.rows.every(row=>JSON.stringify(row.values)===JSON.stringify(model.rows[0].values)),'sorting and names preserve every quantity');
 assert.equal(buildWeekdayWebExportSnapshot(buildHorizontalWeekdayMatrix([cycle],[],actual.map(row=>({...row,displayName:'품목 등록 한글명'})),baseline)).rows[0].name,'품목 등록 한글명','comparison metadata reaches export through matrix');
 assert.ok(model.columns.every(column=>!column.label.includes('2026')),'year appears only in internal identity');
 assert.equal(value('10/04\n일'),3,'canonical day total is already normal + Wilson');

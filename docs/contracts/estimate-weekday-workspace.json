@@ -1,6 +1,7 @@
 {
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
+  "stockGateClientRetry": "HTTP409 success=false STOCK_GATE_BUSY retryable=true saved=false만 동일 UUID/불변 본문으로 1,2,3,4,5초 최대 5회 재시도. 그 외 불명확 응답은 GET 결과조회만 수행. gate 및 ERP native 정책 변경 없음. 대기 중 입력 잠금/초안 유지.",
   "scope": [
     "lib/weekdayCustomerLink.js",
     "__tests__/weekdayCustomerLink.test.js",
@@ -384,7 +385,7 @@
     "subweekSummary": "Display 01 sum is Thursday-Sunday visible canonical date quantities, 02 sum Monday-Wednesday; each remainder is corresponding initial allocation minus display date sum. Keep actual OrderWeek for editing/saving/printing and raw ShipmentDetail totals separately. Major display sum/remainder uses the seven visible dates; outside dates stay diagnostic evidence, never silently reassigned.",
     "flowerOrder": [
       "카네이션",
-      "장미",
+      "콜롬비아 장미",
       "수국",
       "알스트로",
       "기타"
@@ -392,11 +393,11 @@
     "flowerGroups": {
       "priority": [
         "카네이션",
-        "장미",
+        "콜롬비아 장미",
         "수국",
         "알스트로"
       ],
-      "otherCategories": "Separate actual FlowerName groups below the four priority categories; unknown or conflicting metadata remains 기타",
+      "otherCategories": "Use scoped Product countryName/CounName and flowerName/FlowerName metadata; only Colombia roses are priority. Ecuador/China/other country roses form separate country + rose groups below Alstro. Missing/conflicting country metadata forms 장미 (국가 미확인), never infer Colombia from product names. Other actual FlowerName groups remain separate; unknown/conflicting flower metadata remains 기타. Shared priority/group comparator governs matrix, UI and XLSX without changing quantities or ERP writes.",
       "defaultExpanded": true,
       "collapse": "Display-only hidden product rows; preserve mounted input controls and pending edits, quantities, drafts, filter/export/print scope and ERP data",
       "controls": "Sticky first-column category header with count, keyboard button and aria-expanded; only categories matching current filters are listed",
