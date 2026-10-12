@@ -267,8 +267,8 @@
     $('appUpdateStatus').textContent = `앱 ${state.version || ''} · ${update.message || ''}`;
     const releaseNotes = Array.isArray(update.releaseNotes) ? update.releaseNotes.filter(note => typeof note === 'string' && note.trim()).slice(0, 3) : [];
     const notes = releaseNotes.length ? releaseNotes : [
-      '홈 수입부 피드백의 요청·지연·답변 상태를 색상으로 구분합니다.',
-      '업체별·담당자별로 불량차감 입력과 확인 목록을 정렬합니다.',
+      '상단 홈 버튼을 알아보기 쉬운 집 모양으로 바꿨습니다.',
+      '기존 홈 열기·닫기와 Ctrl+K 동작은 유지합니다.',
       '기존 작업 공간과 입력·선택 내용을 유지합니다.'
     ];
     $('appUpdateNotesHeading').textContent = '앱 ' + (releaseNotes.length ? (update.version || state.version || '') : (state.version || '')) + ' 변경 내용';
