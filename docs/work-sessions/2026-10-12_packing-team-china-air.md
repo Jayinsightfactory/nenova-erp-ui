@@ -36,4 +36,15 @@ nenova.exe, native SP, 운영 DB 스키마와 원장은 변경하지 않았다. 
 - Chrome 실제 컴포넌트 하네스: 1920×1080 및1280×800 /100%, 추천·키보드·충돌 후 저장 차단·조회 오류/재시도·필터 응답 경합 통과. 브라우저 오류0, 외부/ERP POST0. 인증된 Next 전체 화면 검증과는 구분한다.
 
 ## 후속 작업/컨텍스트 복구
-브랜치 codex/packing-team-matching. 계획 docs/plans/packing-team-matching-2026-10-12.md, 계약 packing-team-matching.json 및 invoice-china-air-cost.json을 확인한다. 실제12행 미매칭/CW 누락과 합성 SQL 테스트를 구분해서 보고한다. 최종 UI smoke, PR/배포 결과는 증거가 생긴 뒤 추가한다.
+브랜치 codex/packing-team-matching. 계획 docs/plans/packing-team-matching-2026-10-12.md, 계약 packing-team-matching.json 및 invoice-china-air-cost.json을 확인한다. 실제12행 미매칭/CW 누락과 합성 SQL 테스트를 구분해서 보고한다.
+
+## 배포 후 확인 (로컬 후속 기록)
+- PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1014 병합. 운영 commit `44544e611c0a3febbc02385c2953b4fa46e58004`.
+- CI 38200216160 및 운영 배포 38200371352 성공. 운영 기본 API 및 hydration smoke 성공.
+- 최종 전체 ERP 계약, 빌드, manifest/write guard 통과. 새 테스트 묶음 63개 통과/옵션 파일1개 skip.
+- 실제 운영 웹 인증 Chrome smoke 2회 성공. 1920×1080/100%, 원본 XLSX28행, GW1985.94/CW빈값, 미매칭12행 중 첫 행 유사후보6개/자동선택없음/저장버튼차단 확인.
+- 메타데이터·결과표·매칭 모달·도착원가 페이지의 가로 넘침 없음. 페이지 JS 오류0. 유일한 console404는 기존 favicon.ico.
+- `/api/arrival-cost/invoice-costs?orderYear=2026&limit=20` GET200/available=true/실제원가0건. 실제 운영 입고나 원가를 승인한 결과가 아니다.
+- 브라우저 non-GET0/ERP write0/유료분석0. 로그인만 Node POST. 실행 보고/스크린샷은 private `outputs/packing-live-smoke/`이며 git 미포함.
+- 최초 smoke는 초기화 전에 국가를 클릭한 테스트 타이밍 때문에 실패했다. 공용 데이터 로드와 React 이벤트 연결을 기다린 재시도2회는 통과했다. 앱 기능 오류로 처리하거나 숨기지 않는다.
+- 격리 SQL DB는 테스트 종료 시 정리됐고 이번에 시작한 로컬 테스트 컨테이너는 원래처럼 정지했다. 임시 Next 서버도 종료했다.
