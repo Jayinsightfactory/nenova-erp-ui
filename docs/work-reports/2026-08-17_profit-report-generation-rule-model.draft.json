@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "0.1-draft",
+  "status": "DRAFT_INCOMPLETE",
+  "generatedAt": "2026-08-17",
+  "scope": {
+    "orderYear": 2026,
+    "majorWeeks": [22, 23, 24, 25, 26, 27, 28],
+    "workbookCount": 7,
+    "sheetInstanceCount": 78,
+    "logicalBusinessSheetCount": 11,
+    "specialSheetCount": 1,
+    "nonEmptyCellCount": 293010,
+    "formulaCellCount": 12865
+  },
+  "workbookInstances": [
+    {"majorWeek": 22, "sheetCount": 11},
+    {"majorWeek": 23, "sheetCount": 11},
+    {"majorWeek": 24, "sheetCount": 12, "specialSheet": "Sheet1"},
+    {"majorWeek": 25, "sheetCount": 11},
+    {"majorWeek": 26, "sheetCount": 11},
+    {"majorWeek": 27, "sheetCount": 11},
+    {"majorWeek": 28, "sheetCount": 11}
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "sheetModels": [
+    {
+      "sheet": "주차별 매출이익 보고서",
+      "grain": "category_per_major_week",
+      "inputs": ["sales", "defect", "otherSales", "purchase", "forwarding", "customs", "beginInventory", "endInventory", "taxableRate"],
+      "derived": {"C": "N+L+O", "P": "Q*R", "T": "S*R", "G": "P+T", "I": "E+G+H-F", "J": "C-I", "K": "J/C", "M": "-L/C"},
+      "exceptions": ["Israel/NewZealand/Japan use noEnding variant", "row22 is deduction through week27 and domestic from week28", "unclassified excluded from totals"]
+    },
+    {
+      "sheet": "재고잔량",
+      "grain": "product_per_stock_snapshot_side",
+      "inputs": ["openingQuantity", "closingQuantity", "conversionQuantity", "priceEvidence"],
+      "derived": ["box*quantityPerBox", "quantity*unitPrice", "Australia quantity*AUDUnitPrice*taxableRate"],
+      "units": ["박스", "단", "송이", "스팀"],
+      "downstream": ["E", "F"],
+      "missingPolicy": "INPUT_REQUIRED_NO_GUESS"
+    },
+    {
+      "sheet": "그외통관비",
+      "grain": "country_per_half_week",
+      "inputs": ["GW", "customs", "sunyul", "worldFreight", "quarantine", "warehouseRate"],
+      "derived": ["warehouse=(GW1+GW2)*rate", "customs=supply", "sunyul/worldFreight/quarantine usually divide by 1.1", "Vietnam sunyul exception"],
+      "currency": "KRW",
+      "downstream": ["H"]
+    },
+    {
+      "sheet": "구매현황",
+      "grain": "warehouse_invoice_line",
+      "inputs": ["vendor", "product", "quantity", "foreignAmount", "commercialRate", "invoice", "weekTag"],
+      "derived": ["category"],
+      "currency": "foreign_by_country",
+      "downstream": ["Q", "inventoryPurchaseQuantity"]
+    },
+    {
+      "sheet": "포워딩",
+      "grain": "forwarding_invoice_line",
+      "inputs": ["billOrAwb", "serviceFeeAmount", "weekTag"],
+      "derived": ["category"],
+      "exclusions": ["Gross weight", "Chargeable weight"],
+      "downstream": ["S", "T"]
+    },
+    {
+      "sheet": "판매현황",
+      "grain": "customer_product_sale_line",
+      "inputs": ["customer", "product", "quantity", "vatIncludedUnitPrice", "supplyAmount", "vat", "grossAmount"],
+      "derived": ["category"],
+      "downstream": ["N"]
+    },
+    {
+      "sheet": "불량차감",
+      "grain": "defect_estimate_line",
+      "inputs": ["customer", "product", "negativeQuantity", "vatIncludedUnitPrice", "supplyAmount", "vat", "grossAmount", "description"],
+      "derived": ["category"],
+      "downstream": ["L"]
+    },
+    {
+      "sheet": "그 외 매출액",
+      "grain": "non_defect_estimate_line",
+      "inputs": ["customer", "estimateType", "quantity", "vatIncludedUnitPrice", "supplyAmount", "vat", "grossAmount", "description"],
+      "derived": ["category"],
+      "downstream": ["O"]
+    },
+    {
+      "sheet": "콜롬비아 1차",
+      "grain": "colombia_flower_type_per_first_subweek",
+      "inputs": ["taxableRate", "airFreight", "GW", "CW", "invoiceAmount", "boxCount", "truckActual", "customs", "disinfection", "quarantine"],
+      "derived": ["weightShare", "cbmShare", "allocatedFreight", "allocatedCustoms"],
+      "downstream": ["H", "S", "averageInventoryCost"]
+    },
+    {
+      "sheet": "콜롬비아 2차",
+      "grain": "colombia_flower_type_per_second_subweek",
+      "inputs": ["taxableRate", "airFreight", "GW", "CW", "invoiceAmount", "boxCount", "truckActual", "customs", "disinfection", "quarantine"],
+      "derived": ["weightShare", "cbmShare", "allocatedFreight", "allocatedCustoms"],
+      "downstream": ["H", "S", "averageInventoryCost"]
+    },
+    {
+      "sheet": "품목리스트",
+      "grain": "product_master_row",
+      "inputs": ["ProdKey", "productCode", "productName", "flowerName", "countryName", "salePrice", "outUnit", "estimateUnit"],
+      "derived": [],
+      "downstream": ["categoryClassification", "unitValidation"],
+      "matchingPolicy": "EXACT_PRODKEY_FIRST_NO_FUZZY_AUTOCONFIRM"
+    }
+  ],
+  "specialSheetModels": [
+    {
+      "sheet": "Sheet1",
+      "majorWeek": 24,
+      "grain": "australia_product_reconciliation",
+      "formula": "opening+inbound+outbound+ending=0",
+      "downstream": [],
+      "role": "manual_audit_only"
+    }
+  ],
+  "inventoryValuationRules": [
+    {
+      "id": "CATEGORY_AVERAGE_LANDED",
+      "categories": ["콜롬비아 수국", "콜롬비아 카네이션", "콜롬비아 장미", "콜롬비아 루스커스", "콜롬비아 알스트로", "베트남"],
+      "formula": "((Q+S)*R+H)/purchaseQuantity*stockQuantity",
+      "required": ["purchaseQuantity>0", "exactWeekRateWhenForeignAmountExists", "stockSnapshot", "completeCustomsAndForwarding"]
+    },
+    {
+      "id": "AUSTRALIA_FOREIGN_ITEM_COST",
+      "categories": ["호주"],
+      "formula": "stockQuantity*itemAUDUnitCost*exactWeekAUDTaxableRate",
+      "required": ["exactProdKey", "matchingUnit", "itemAUDUnitCost", "exactWeekAUDTaxableRate"]
+    },
+    {
+      "id": "VERIFIED_KRW_ITEM_COST",
+      "categories": ["non_formula_categories"],
+      "formula": "stockQuantity*verifiedSupplyUnitCost",
+      "required": ["exactProdKey", "matchingUnit", "sameScopeVerifiedEvidence"],
+      "forbiddenFallbacks": ["fuzzyName", "Product.Cost", "recentPurchaseCost", "otherProductAverage", "previousWeekImplicitCarry"]
+    }
+  ],
+  "knownDrifts": [
+    {"id": "W24_SHEET1_ONLY", "type": "special_sheet"},
+    {"id": "W28_ROW22_DEDUCTION_TO_DOMESTIC", "type": "business_row_change"},
+    {"id": "W27_INVENTORY_TEMPLATE_COMPACTION", "type": "row_layout_change"},
+    {"id": "W28_FORMULA_CATEGORY_ENDING_INVENTORY", "type": "literal_to_formula"},
+    {"id": "W26_W27_VIETNAM_CARRY_DISCONTINUITY", "amountKRW": 3658862.88875, "type": "blocked_anomaly"},
+    {"id": "CARNATION_CLOSING_PRICE_10X", "opening": 11000, "closing": 110000, "type": "quarantined"}
+  ],
+  "unresolvedAutomationBlockers": [
+    {"id": "NEW_NON_FORMULA_PRODUCT_PRICE", "severity": "BLOCKING"},
+    {"id": "USA_COLUMN_P_COST_PROVENANCE", "severity": "BLOCKING"},
+    {"id": "W28_NETHERLANDS_ENDING_VALUE_WITHOUT_VISIBLE_STOCK", "severity": "BLOCKING"},
+    {"id": "W26_W27_VIETNAM_CARRY", "severity": "BLOCKING"},
+    {"id": "CARNATION_110000_ANOMALY", "severity": "BLOCKING"},
+    {"id": "STOCK_ISFIX_DOCUMENT_CONFLICT", "severity": "HIGH"},
+    {"id": "NEW_CATEGORY_CLASSIFICATION", "severity": "HIGH"},
+    {"id": "TAXABLE_RATE_EFFECTIVE_DATE_EVIDENCE", "severity": "HIGH"},
+    {"id": "POST_W28_FORWARDING_COMPLETENESS", "severity": "HIGH"},
+    {"id": "ACTUAL_VS_RECOMMENDED_TRUCK_COST", "severity": "MEDIUM"},
+    {"id": "EXCEL_PREFIX_MATCH_FALSE_POSITIVE", "severity": "MEDIUM"}
+  ],
+  "completionGate": {
+    "allRowsClassified": true,
+    "allowedStates": ["AUTO_CALCULATED", "MANUAL_REQUIRED", "BLOCKED_ANOMALY"],
+    "guessingAllowed": false,
+    "exactProductEvidenceRequired": true,
+    "crossYearIsolationRequired": true,
+    "formulaParityRequired": true,
+    "currentVerdict": "NOT_100_PERCENT_AUTOCOMPLETE"
+  }
+}
