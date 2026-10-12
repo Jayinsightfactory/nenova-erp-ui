@@ -6,7 +6,7 @@
 | 화면 | 주광 견적서 / 웹 작업 엑셀 |
 | 원장 부작용 | 게이트와 ERP 저장 SQL 변경 없음. 검증은 운영 읽기 전용. |
 | 브랜치 | codex/weekday-stock-gate-country-sort |
-| 배포 | 필수 검사 후 PR·Cafe24·Chrome 확인 결과를 기록한다. |
+| 배포 | PR #1029 / master 210211c5 / Cafe24 run 38223457617 성공 |
 
 ## 고정 결정
 - 카네이션 → 콜롬비아 장미 → 수국 → 알스트로 → 기타 순서. 에콰도르/중국 장미는 기타의 국가별 별도 그룹이다.
@@ -27,6 +27,8 @@
 ## 검증과 남은 확인
 - 최신 master 병합 중 별도 PR #1028의 native CALC transaction 경계 수정과 세부차수 정정 기능을 반영했다. 자세한 운영 복구는 2026-10-12_native-stock-busy.md의 별도 작업 기록이며, 이번 작업에서 복구/SQL 설치를 재실행하지 않았다. 통합 후 전체 검사를 다시 수행한다.
 - 주광 전체 회귀, strict gate ack/한도/불변 교차연도 본문/불명확 결과 GET-only 테스트 통과.
-- 필수 ERP 계약·dnSpy·manifest·쓰기 가드·build 및 운영 배포/1920×1080 Chrome 확인을 수행한다.
+- 병합 후 주광 전체 회귀·ERP 계약·dnSpy·manifest·쓰기 가드·build 재통과, GitHub verify 38223175263 성공. Cafe24와 hydration smoke 성공.
+- 실제 Chrome 1920×1080 CSS px, visualViewport.scale=1에서 210211c5 확인. 첫 네 그룹은 카네이션13/콜롬비아장미14/수국14/알스트로8, 에콰도르장미9/중국장미1은 후순위였다. Enter/Space 접기·펼치기 및 Tab 초점 표시 확인. 검증 종료 시 22개 그룹 전부 기본 펼침 복원, 콘솔 error 0, 임시 viewport 해제.
+- 모든 그룹을 접은 상태에서 웹 작업 엑셀 다운로드: 전체114품목, A1:BE185. 동일 국가별 그룹 순서, 한글 품목명, 0값 공란, 합계/잔량/변경/소계 색상 검사 통과. 파일: Downloads/주광_발주내역_2026_41_42_43 (2).xlsx. 웹 캡처: output/weekday-country-sort-live.jpg.
 - 실제 운영 수량 저장을 시험하려고 실행하지 않는다. 운영 게이트 경합의 재현은 모의 fetch로 검사한다.
 - 로컬 근거는 ignored output/weekday-gate-* 및 output/weekday-country-sort-tests.log. 비밀값·운영 원장 덤프는 커밋하지 않는다.
