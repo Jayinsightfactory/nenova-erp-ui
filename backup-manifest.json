@@ -1,0 +1,512 @@
+{
+  "purpose": "Source recovery backup only. Do not merge this branch into production. Each listed commit retains its original source tree.",
+  "date": "2026-10-12",
+  "records": [
+    {
+      "kind": "localCommit",
+      "name": "codex/arrival-drive-run-now",
+      "sha": "1e7667714e458426eaf090b7b289329b9f61b2f5"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/defect-manual-cost",
+      "sha": "05ad49b87f5cd6804d74c1a62b0a45511566ba8f"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/desktop-home-house-icon",
+      "sha": "28a4a9cc8a6040d96ce49cd6eeaea94f876d472f"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/farm-feedback-admin-reset",
+      "sha": "ac4e39cf511ef617c32cc0f8a1a1f966cbebb0e1"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/fix-confirm-status-friendly-errors",
+      "sha": "8840f17b254efb154b176e0d5010200875f912d3"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/fix-split-contract",
+      "sha": "8cd6e7005fcef1bfdfe12927c3fca2a6cbdecc42"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/freight-atomic-registration",
+      "sha": "207931a1dc1dccc40df1d8b87283d50e339a9385"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/home-news-delivery-fixes",
+      "sha": "2a3b56fd3b278aecc6b4ff4497ced90f8bf4473c"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/hotel-arrival-cost-preview",
+      "sha": "e4e646b3444499faca5f0b5fb7cddf8a024ecf20"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/invoice-extraction-repair-release",
+      "sha": "6a0c9e99aaaed8ed17f03cecd1fd321054b81808"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/invoice-pdf-review",
+      "sha": "adabb7752b00e03534012d2a64be8a998be9f2c7"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/invoice-source-validation",
+      "sha": "bd1825c0a945928c52c0a97e08a80f4e181bab72"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/pnl-cost-comparison",
+      "sha": "8b3f1bb6d729c129224958a6aaa4c2666b97d25a"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/pnl-cost-hover",
+      "sha": "f166be08c319f6120f5beccc09962eb648dbc519"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/profit-rate-schedule-0818",
+      "sha": "55d3169599fd86939a76b10d8a99a67023e395aa"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/profit-report-evidence-rag",
+      "sha": "361ce73ff75e613118e413d3038fe00fc96f9a3d"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/review-pr106-additional-product",
+      "sha": "16080464eef7005736013e861c88ec4a146158b0"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/sales-paste-no-overflow-clean",
+      "sha": "19729005edf68da3965adefd59c97b3f3b9b7e41"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/stock-guard-review",
+      "sha": "ccd47b02b7de14fc02f05786fe486ed59dce6e75"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/weekday-carryover-center-input",
+      "sha": "126cef55ea6f4acb33a2fc71a784c9e31e4a91e2"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/weekday-compact-confirmation",
+      "sha": "a920b0279c974e542d1d721758a371cfd23fce27"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/weekday-confirmation-display-fix",
+      "sha": "3d550f20b4423ea0056a29fdabc24e419666f848"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/weekday-dialog-keyboard",
+      "sha": "bc7284fe1053cfd749043f9e025102ad02c6ba05"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/weekday-matrix-readability",
+      "sha": "4b58cc18c831e664ceef03e2493727ec5648b05d"
+    },
+    {
+      "kind": "localCommit",
+      "name": "codex/weekday-quantity-units",
+      "sha": "a9afd257148d39543f0a1dbf49f80cc6e5c0d13d"
+    },
+    {
+      "kind": "localCommit",
+      "name": "feat/arrival-cost-week-farm-group",
+      "sha": "5de126a04e9ab4ee17b1d5215bf337b54f4c2061"
+    },
+    {
+      "kind": "localCommit",
+      "name": "master",
+      "sha": "c494257044661378f009d301690a6311b6f8bb2b"
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/2108/nenova-erp-ui",
+      "sha": "2519ec04038f420cfae71096b3c56df7f16d9c04",
+      "sourceFiles": 21,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/33f2/nenova-erp-ui",
+      "sha": "22f2e07751bc69720e9ec548ae20b5595a51aa38",
+      "sourceFiles": 40,
+      "excludedFiles": 4
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/786a/nenova-erp-ui",
+      "sha": "fa38a5af1f34784acc81ceeffd161732792284b4",
+      "sourceFiles": 9,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/8246/nenova-erp-ui",
+      "sha": "744aa4a4d9aca2a4a2156a04b980e9db3473a0bb",
+      "sourceFiles": 6,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/8cf8/nenova-erp-ui",
+      "sha": "d95571c8dec0840ba5b46346f64c61ea58c8b779",
+      "sourceFiles": 85,
+      "excludedFiles": 6
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/8f00/nenova-erp-ui",
+      "sha": "a17337f0f9f4850be3368e215f7eda86e652312a",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/9add/nenova-erp-ui",
+      "sha": "0e660a68892bb1ccbc4332b881aab1964f8fd226",
+      "sourceFiles": 85,
+      "excludedFiles": 6
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/action-log-outcome/nenova-erp-ui",
+      "sha": "5f77322fc8d147b8cbaada630517c2423657bd19",
+      "sourceFiles": 22,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/arrival-drive-auto",
+      "sha": "7ccae1800e2512d9f389060a6f5357c98fc2cd62",
+      "sourceFiles": 3,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/arrival-drive-run-now",
+      "sha": "d430f02b8bbf745a10fdcbcce46184ff9ec19f29",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/c34d/nenova-erp-ui",
+      "sha": "fd6b54141e00023d1b4044b91cad83b383aa2e4e",
+      "sourceFiles": 85,
+      "excludedFiles": 6
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/china-board-persistence",
+      "sha": "f2c127ab850f299b9bcee9c3b175cb6b67ad940b",
+      "sourceFiles": 3,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/china-box-entry-bulk",
+      "sha": "e6931eb2aca84fab3bb7a92118f91e7ce9818861",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/china-order-export/nenova-erp-ui",
+      "sha": "90d021e4d28f50ea03c5d9b9e0ee489df29eb896",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/customer-price-recent",
+      "sha": "32d0d43fc0e4f0477c321396f255c9872ea1ac10",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/db09/nenova-erp-ui",
+      "sha": "1e4431e5a052f5ea118c71e0c144f6c4055082a5",
+      "sourceFiles": 3,
+      "excludedFiles": 2
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/dutch-upload-distribution/nenova-erp-ui",
+      "sha": "58daa075828cb4509c87ae9edcad807468e79432",
+      "sourceFiles": 7,
+      "excludedFiles": 3
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/f73a/nenova-erp-ui",
+      "sha": "765d87b085f9ebbff651c75dd4dd0b586b1213b8",
+      "sourceFiles": 3,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/f76f/nenova-erp-ui",
+      "sha": "f0707da65b3d09058fb96bb97f93500125ab9e46",
+      "sourceFiles": 85,
+      "excludedFiles": 15
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/import-rematch",
+      "sha": "888814cf9a5e05201ca873703fbd41fb91addd8d",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/menu-development-history/nenova-erp-ui",
+      "sha": "c1f2dc974273eeb85681adec0cbfe084a870868a",
+      "sourceFiles": 4,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/my-order-replace-log",
+      "sha": "a830319faa3a6bb77ef134972b5251bbd176cc0d",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/nenova-usp-fix-remain",
+      "sha": "2149124ce26a9b02ccc3902e9ca08758f482511e",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/operations-knowledge/nenova-erp-ui",
+      "sha": "c58073823f374df1b8881a8b08bf683eb01c7a56",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/paste-unit-audit-0827",
+      "sha": "99b2d0ac114a1f42656d6601c2cf00d37bc5187e",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/pivot-display-export",
+      "sha": "1d40eacb276f1e928920bcd48a815076722fc954",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/pricing-drag-select",
+      "sha": "3af1e9c34694a32fb4dbb37b391d2c5ea224da5e",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/profit-distribution-price-0818",
+      "sha": "44bd99c1b2532e5c7ce3d2f293851524526400d3",
+      "sourceFiles": 11,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/profit-excel-full-reanalysis-0817",
+      "sha": "8295ab3998efc48514b4c743903a08c06ceb14eb",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/profit-full-parity-0812",
+      "sha": "06aa36259f83a4d1cd2e59bc1ce5b02cf0a82af6",
+      "sourceFiles": 39,
+      "excludedFiles": 1
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/profit-ops-audit-0811",
+      "sha": "13e047160a46abcd22589e6672fa7604fb7415c2",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/profit-weight-policy/nenova-erp-ui",
+      "sha": "5fea4fa08031719453de9e8cf308d8c84a76c050",
+      "sourceFiles": 3,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/shilla-pnl-integration/nenova-erp-ui",
+      "sha": "2f56e2de7390eb1e48cb5af8616f5491334decff",
+      "sourceFiles": 15,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/china-order-customer-matrix",
+      "sha": "e782b37ac1dbd22ba35f61f9b75d2c46e7e24d66",
+      "sourceFiles": 3,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/china-order-download",
+      "sha": "a4366de5077c8d8ef65bd1d4e8074cddfeaf2cf8",
+      "sourceFiles": 1,
+      "excludedFiles": 4
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/china-order-subweeks",
+      "sha": "260a779c338a7870a686426176831c43d251da25",
+      "sourceFiles": 1,
+      "excludedFiles": 4
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/estimate-save-conflicts",
+      "sha": "7f2ef0d400008f9af6b79d1210e8ce1da5274f2b",
+      "sourceFiles": 5,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/farm-feedback-inbox",
+      "sha": "21c8ff2b5564c12ded23424c0536dacbe28a89f1",
+      "sourceFiles": 3,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/import-team-tools",
+      "sha": "835b4924ae59627da995e8a3b4a44078ba55b381",
+      "sourceFiles": 5,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/invoice-extraction-repair-release",
+      "sha": "cdb1f18cdfc55d49d962235e771a6c49101c7901",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/invoice-pdf-review",
+      "sha": "cb0f536d9f3fa84e47ba2177dd6eb14cf4a93cf3",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/invoice-source-release",
+      "sha": "3815e4e1d14bb60d9f1a3d03f641d2a934993149",
+      "sourceFiles": 3,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/jugwang-weekday-test-deploy",
+      "sha": "e084803d16caf46e48424e00742e198ce292b8f5",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/nenova-erp-ui",
+      "sha": "cd3fcb5f034fe8e954adcacbb42adfc8dd88ca42",
+      "sourceFiles": 113,
+      "excludedFiles": 36
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/nenova-erp-ui-china-inline",
+      "sha": "1560a562363967d0f4b3789d1643f7c983e25cb7",
+      "sourceFiles": 5,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/nenova-erp-ui/.claude/worktrees/board-overall-columns-20260811",
+      "sha": "6062c20a5d3eb47bff4d3f20e910ac02d7cdce2c",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/nenova-erp-ui/.claude/worktrees/profit-parity-rootcause-20260812",
+      "sha": "aa6597e652cb1050687ca93fd103adae9a7ad917",
+      "sourceFiles": 10,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/order-import-stock-gate-recovery",
+      "sha": "11514a2ac934743ab95835b970541967a0abc224",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/packing-team-matching",
+      "sha": "009464556792e7a5d1fa460032f45c90af25de56",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/pivot-full-controls",
+      "sha": "a48b6dd4b1a872409d9dc5df9167af0a9aa97b68",
+      "sourceFiles": 4,
+      "excludedFiles": 9
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/pivot-top-filter-apply",
+      "sha": "c723d0ebafe44e23fd68e09c43c58d6caf14d21d",
+      "sourceFiles": 6,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/pnl-hotels-shilla-upload",
+      "sha": "3d839ae3e7e81eecaa5c80e516976621657578e1",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-07-11/new-chat/work/raum-manual-merge-save",
+      "sha": "91f8164dffe50756b2ed7d6cab159ad768361f32",
+      "sourceFiles": 2,
+      "excludedFiles": 0
+    }
+  ]
+}
