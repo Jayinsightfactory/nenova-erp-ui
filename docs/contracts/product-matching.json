@@ -4,6 +4,7 @@
   "scope": [
     "lib/naturalLanguageProductMatching.js",
     "lib/productMatchingLearningStore.js",
+    "lib/productMatchingReviewQueue.js",
     "lib/productSearchRanking.js",
     "lib/orderImportMatch.js",
     "lib/salesDefectDeductions.js",
@@ -13,7 +14,8 @@
     "pages/sales/defect-deductions.js",
     "docs/migrations/2026-08-07_product_matching_learning_loop.sql",
     "docs/exe-golden/ProductMatching.md",
-    "__tests__/naturalLanguageProductMatching.test.js"
+    "__tests__/naturalLanguageProductMatching.test.js",
+    "__tests__/productMatchingReviewQueue.test.js"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -33,6 +35,6 @@
   },
   "downstreamPreserve": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "ProductStock", "Estimate", "WebProfitReport", "Product.ProdName", "Product.DisplayName"],
   "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"],
-  "requiredTests": ["__tests__/naturalLanguageProductMatching.test.js"],
-  "requiredTestFiles": ["__tests__/naturalLanguageProductMatching.test.js", "__tests__/erpContractManifest.test.js"]
+  "requiredTests": ["__tests__/naturalLanguageProductMatching.test.js", "__tests__/productMatchingReviewQueue.test.js"],
+  "requiredTestFiles": ["__tests__/naturalLanguageProductMatching.test.js", "__tests__/productMatchingReviewQueue.test.js", "__tests__/erpContractManifest.test.js"]
 }
