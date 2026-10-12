@@ -1,0 +1,13 @@
+{
+  "purpose": "Source recovery backup only. Do not merge this branch into production. Each listed commit retains its original source tree.",
+  "date": "2026-10-12",
+  "records": [
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-05-15/codex-nowlink-kr-nenovaweb-com-git/nenova-erp-ui",
+      "sha": "0f25369f1e9a2127e526b7c2edb85b4512dcb44d",
+      "sourceFiles": 1,
+      "excludedFiles": 2
+    }
+  ]
+}
