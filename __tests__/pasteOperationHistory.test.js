@@ -25,6 +25,13 @@ assert.notEqual(parsePasteOperation({ ...row, LogKey: 6 }).key, op.key);
 assert.equal(parsePasteOperation({ ...row, ActionType: 'SHIPMENT_ADJUST_BATCH_UNDO' }).undo, true);
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const historyUi = fs.readFileSync(path.join(root, 'components/orders/PasteOperationHistory.js'), 'utf8');
+const pastePage = fs.readFileSync(path.join(root, 'pages/orders/paste.js'), 'utf8');
+assert.match(historyUi, /#\{operation\.key\} · \{operation\.week\.replace/);
+assert.match(historyUi, /\{entry\.qty \?\? '\?'\} \{entry\.unit\} \{action\}/);
+assert.match(historyUi, /entry\.type === 'CANCEL' \? '#c62828' : entry\.type === 'ADD' \? '#1565c0'/);
+assert.match(historyUi, /type === 'CANCEL' \? '#fff3f3' : type === 'ADD' \? '#eff6ff'/);
+assert.doesNotMatch(pastePage, /PasteErpHistoryEvidence/);
 let source = fs.readFileSync(path.join(root, 'pages/api/orders/paste-history.js'), 'utf8').replace(/^import .*;\r?\n/gm, '').replace('export default withAuth(', 'globalThis.handler = withAuth(');
 const calls = [];
 const context = { normalizeOrderHistorySearch, parsePasteOperation, matchesPasteOperation, sql: { Int: 'int', NVarChar: 'str' }, withAuth: fn => fn,
@@ -34,6 +41,16 @@ async function run(query = {}, method = 'GET') { let body, status = 200; await c
 const result = await run({ year: '2026', custName: '꽃길' });
 assert.equal(result.body.operations.length, 1); assert.equal(result.body.operations[0].entries.length, 2);
 assert.match(calls[0].statement, /Actor=@actor OR Actor=@actorName/);
+const scoped = await run({ year: '2026', week: '36-01', who: 'all' });
+assert.equal(scoped.body.operations.length, 1);
+const scopedLogQuery = [...calls].reverse().find(call => call.statement.includes('FROM SystemActionLog'));
+assert.match(scopedLogQuery.statement, /JSON_VALUE\(CASE WHEN ISJSON\(Payload\)=1 THEN Payload ELSE N'\{\}' END, '\$\.year'\)=@scopeYear/);
+assert.match(scopedLogQuery.statement, /JSON_VALUE\(CASE WHEN ISJSON\(Payload\)=1 THEN Payload ELSE N'\{\}' END, '\$\.week'\)=@scopeWeek/);
+assert.equal(scopedLogQuery.params.scopeYear.value, '2026'); assert.equal(scopedLogQuery.params.scopeWeek.value, '2026-36-01');
+await run({ year: '2026', week: '36', who: 'all' });
+const majorLogQuery = [...calls].reverse().find(call => call.statement.includes('FROM SystemActionLog'));
+assert.match(majorLogQuery.statement, /JSON_VALUE\(CASE WHEN ISJSON\(Payload\)=1 THEN Payload ELSE N'\{\}' END, '\$\.week'\) LIKE @scopeWeek/);
+assert.equal(majorLogQuery.params.scopeWeek.value, '2026-36-%');
 assert.equal((await run({ year: '2025' })).body.operations.length, 0);
 assert.equal((await run({ year: '2026', cursor: '-1' })).status, 400);
 const before = calls.length; assert.equal((await run({}, 'POST')).status, 405); assert.equal(calls.length, before);

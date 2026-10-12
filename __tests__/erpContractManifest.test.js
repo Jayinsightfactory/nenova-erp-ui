@@ -7,6 +7,9 @@ async function main() {
   await import('./pasteOperationAudit.test.js');
   await import('./estimateDraftReconcile.test.js');
   await import('./pasteOperationHistory.test.js');
+  await import('./distributionMessageApplicationStatus.test.js');
+  await import('./distributionManualApplicationStore.test.js');
+  await import('./distributionManualApplicationApi.test.js');
   await import('./orderHistorySearch.test.js');
   await import('./pivotVolumeCombinedCells.test.js');
   await import('./pasteAiMatchReview.test.js');

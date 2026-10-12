@@ -1,7 +1,7 @@
 {
   "id": "paste-operation-history",
   "title": "붙여넣기 실행 단위 취소·추가 작업이력",
-  "scope": ["lib/pasteOperationHistory.js", "lib/pasteOperationAudit.js", "pages/api/orders/paste-history.js", "pages/orders/history.js", "pages/orders/paste.js", "components/orders/PasteOperationHistory.js", "lib/withActionLog.js", "__tests__/pasteOperationHistory.test.js", "__tests__/pasteOperationAudit.test.js"],
+  "scope": ["lib/pasteOperationHistory.js", "lib/pasteOperationAudit.js", "pages/api/orders/paste-history.js", "pages/api/orders/distribution-manual-applications.js", "pages/orders/history.js", "pages/orders/paste.js", "components/orders/PasteOperationHistory.js", "components/orders/DistributionSalesInbox.js", "lib/distributionMessageApplicationStatus.js", "lib/withActionLog.js", "__tests__/pasteOperationHistory.test.js", "__tests__/pasteOperationAudit.test.js", "__tests__/distributionMessageApplicationStatus.test.js", "__tests__/distributionManualApplicationStore.test.js", "__tests__/distributionManualApplicationApi.test.js"],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {"name":"READ_OPERATION_HISTORY", "orderDetail":"preserve", "shipmentDetail":"preserve", "estimate":"preserve", "sideEffect":"SystemActionLog.LogKey가 실제 HTTP 실행 1건의 그룹키. 본인 Actor가 기본, 연도+차수+거래처+품목 검색은 작업 전체를 유지하며 표시한다. 조회 SQL은 SELECT만 사용한다."},
@@ -12,10 +12,10 @@
   "preserves":["OrderMaster","OrderDetail","ShipmentMaster","ShipmentDetail","ShipmentDate","ShipmentFarm","Estimate","ProductStock","StockHistory","WebProfitReport"],
   "criteria": {
     "grouping":"LogKey only; same timestamp/user must never merge operations",
-    "success":"Result SUCCESS and committedCount > 0; committed=0 is preview, not successful work. A batch launched from exactly one sales-room source stores its bounded sourceIdentity on each audit entry so the inbox can show the verified operation beside that exact message; no raw chat is stored. A later committed undo for the same sourceIdentity suppresses the applied label.",
+    "success":"Result SUCCESS and committedCount > 0; committed=0 is preview, not successful work. A batch launched from exactly one sales-room source stores its bounded sourceIdentity on each audit entry so the inbox can show the verified operation beside that exact message; no raw chat is stored. Auto-completion requires every committed entry to have the exact sourceIdentity, but does not require entry count to equal parsed message-line count because one source line can expand into multiple mapped product entries. A later committed undo for the same sourceIdentity suppresses the applied label. History reads push year/full-week scope into the SystemActionLog query before TOP 201 so unrelated recent operations cannot crowd matching operations out.",
     "legacy":"4000-character truncated payloads explicitly incomplete, never pretend complete or infer rows; exclude unknown/conflicting year from selected scope",
     "privacy":"Never return raw Payload, editGuard, lease token, IP, user agent, auth data",
-    "ui":"Paste entry defaults grouped operations; retain original row-history view as separate tab. 1920x1080 responsive cancel/add columns",
+    "ui":"Paste entry defaults grouped operations; retain original row-history view as separate tab. Show each operation's short week next to its ID; detail quantities are phrased as 'N unit 취소' (red) or 'N unit 추가' (blue), not generic applied wording. Omit the redundant polling PasteErpHistoryEvidence panel from the paste page. 1920x1080 responsive cancel/add columns",
     "scope":"No new history rows fabricated, no operational ERP changes or replay"
   },
   "requiredTestFiles":["__tests__/pasteOperationHistory.test.js","__tests__/pasteOperationAudit.test.js","__tests__/erpContractManifest.test.js"],

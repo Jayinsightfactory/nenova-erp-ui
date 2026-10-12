@@ -22,6 +22,8 @@ assert.match(page, /apiGet\('\/api\/stats\/pivot-data', \{ orderYear: selectedYe
 assert.match(page, /네노바웹 물량 바로 불러오기/);
 assert.match(page, /주광은 업체별 단가를 입력합니다/, '주광 개별단가와 비주광 품목 균일가 규칙을 화면에서 안내해야 합니다.');
 assert.match(page, /dutchPriceKey\(row\)/, '비주광 단가 입력은 업체 행 id가 아니라 품목 균일가 키를 사용해야 합니다.');
+assert.match(page, /<th>단가<\/th>/, '단가 머리글에는 통화기호나 통화코드를 붙이지 않아야 합니다.');
+assert.doesNotMatch(page, /<th>단가 \(\$\{currency\}\)<\/th>/, '단가 머리글에 원화·외화 단위 표시를 반복하지 않아야 합니다.');
 assert.match(page, /isDutchIndividualPriceCustomer\(row\.customer\)/, '주광 업체만 개별단가 입력으로 구분해야 합니다.');
 assert.match(page, /apiGet\('\/api\/stats\/pivot-weeks', \{ orderYear: year, source: 'orders' \}\)/, '선택 연도의 주문 입력 세부차수 목록을 조회해야 합니다.');
 assert.match(page, /availableWeeks\.map\(recordedWeek/, '35-01·35-02 같은 실제 입력 세부차수를 각각 선택할 수 있어야 합니다.');

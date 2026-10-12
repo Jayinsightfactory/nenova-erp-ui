@@ -6,7 +6,6 @@
     "lib/combinedHistoryEvidence.js",
     "__tests__/combinedHistoryEvidence.test.js",
     "lib/pasteEvidenceSource.js",
-    "components/orders/PasteErpHistoryEvidence.js",
     "__tests__/pasteEvidenceSource.test.js",
     "lib/distributionRequestBalance.js",
     "lib/distributionRequestBalanceComparisonUi.js",

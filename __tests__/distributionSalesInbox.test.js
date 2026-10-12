@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const {periodBounds,parseSalesExport,mergeMessages,selectedText}=require('../lib/distributionSalesInbox');
+const {periodBounds,parseSalesExport,mergeMessages,mergeLatestMessages,selectedText}=require('../lib/distributionSalesInbox');
 const {comparisonForIdentity,differenceDelta,isException,isValidBalanceComparison,reasonLabel,shouldHideConsistentIdentity}=require('../lib/distributionRequestBalanceComparisonUi');
 assert.deepEqual(periodBounds('2026-09-10','2026-09-10'),{from:'2026-09-09T15:00:00.000Z',to:'2026-09-10T15:00:00.000Z'});
 assert.throws(()=>periodBounds('2026-02-30','2026-03-01'));
@@ -16,6 +16,11 @@ assert.equal(parseSalesExport('[직원] [오전 9:00] 연도 없는 원문')[0].
 assert.throws(()=>parseSalesExport('형식 없는 일반 문장'));
 const a={identity:'a',message:'1박스 추가',created_at:'2026-09-10'},b={identity:'b',message:'1단 취소',created_at:'2026-09-11'};
 assert.equal(mergeMessages([a],[a,b]).duplicateCount,1);assert.equal(mergeMessages([a],[a,b]).rows.length,2);
+const revisedA={...a,message:'수정된 원문',sender:'발신자'};
+assert.equal(mergeMessages([a],[revisedA]).rows[0].message,'1박스 추가','generic merge retains uploaded/manual originals');
+assert.equal(mergeLatestMessages([a],[revisedA]).rows[0].message,'수정된 원문','feed refresh replaces changed content under the same source identity');
+assert.equal(mergeLatestMessages([a],[revisedA]).changedCount,1);
+assert.equal(mergeLatestMessages([a],[a,b]).newCount,1);
 assert.equal(selectedText([a,b],{b:true}),'1단 취소');
 const api=fs.readFileSync(require.resolve('../pages/api/kakao/sales-feed.js'),'utf8');
 assert.match(api,/withAuth/);assert.match(api,/NENOVA_SALES_READ_TOKEN/);assert.match(api,/r.chat_id!==roomId/);assert.doesNotMatch(api,/googleSheets|\/api\/kakao\/messages/);
@@ -58,7 +63,8 @@ const delayedUpload=new Function('mergeMessages','identified',`return ${uploadUp
 assert.deepEqual(delayedUpload([a]).map(row=>row.identity),['a','b'],'auto-received row survives delayed upload completion');
 assert.deepEqual(mergeMessages(delayedUpload([]),[a]).rows.map(row=>row.identity),['a','b'],'upload survives later automatic completion');
 const refresh=fs.readFileSync(require.resolve('../lib/distributionSalesInboxRefresh'),'utf8');
-assert.match(ui,/readSalesFeedPage/);assert.match(ui,/refreshSalesFeed/);assert.match(ui,/startBoundedAutoRefresh/);assert.match(ui,/새 대화 \{pendingRows\.length\}건 보기/);assert.doesNotMatch(ui,/afterId|nextAfterId/);
+assert.match(ui,/readSalesFeedPage/);assert.match(ui,/refreshSalesFeed/);assert.match(ui,/startBoundedAutoRefresh/);assert.match(ui,/변경 \{pendingRows\.length\}건 반영/);assert.doesNotMatch(ui,/afterId|nextAfterId/);
+assert.match(ui,/mergeLatestMessages\(previous,result\.messages\)/);assert.match(ui,/latestFeedRow/);assert.match(ui,/마지막 원문/);assert.match(ui,/전산 대조 중/);
 assert.match(ui,/refreshSeq/);assert.match(ui,/activeRefreshScope/);assert.match(ui,/requestOwner/);assert.match(ui,/자동 확인이 끝난 뒤 다시 시도하세요/);
 assert.match(ui,/open,setOpen\]=useState\(true\)/);assert.match(ui,/autoRefresh,setAutoRefresh\]=useState\(true\)/);assert.doesNotMatch(ui,/if\(open\)setAutoRefresh\(true\)/);assert.match(ui,/현재 표시 원문 기간/);assert.match(ui,/입력한 조회 기간/);
 assert.match(ui,/입력칸으로/);assert.match(ui,/비교 선택/);assert.match(ui,/검토·비교/);assert.match(ui,/처리함/);assert.match(ui,/미처리/);assert.match(ui,/내 표시는 실제 등록·분배·취소를 실행하거나 확인하지 않습니다/);assert.match(ui,/data-manual-application-refresh/);assert.match(ui,/data-live-history-refresh/);assert.match(ui,/classifyMessage,matchingSummary,summarizeMessage/);assert.match(ui,/compact-match-tab-request/);assert.match(ui,/compact-match-tab-stock/);assert.match(ui,/compact-match-tab-review/);assert.match(ui,/compact-match-row:/);assert.match(ui,/compact-match-status:/);assert.match(ui,/compact-manual-menu:/);assert.match(ui,/compactMessageRow/);assert.match(ui,/visibleDisplayRows\.map\(compactMessageRow\)/);assert.match(ui,/요청별 변화량 · 분배 합계와 저장 잔량은 선택 차수의 품목 전체 기준/);assert.match(ui,/차수 품목 전체 분배 합계/);assert.doesNotMatch(ui,/currentCalculatedBalance|currentDistributionTotal|balanceStatus/);assert.match(ui,/reviewMounted&&<div>/);assert.match(ui,/live-history-panel/);assert.match(ui,/아직 대조하지 않은 원문/);assert.doesNotMatch(ui,/이전 50건 대조|liveHistoryPage/);assert.match(ui,/최신 이력 조회 경고/);assert.match(ui,/ORDER_AND_DISTRIBUTION/);assert.match(ui,/NO_LIVE_EVIDENCE:'대응 이력 미확인'/);assert.match(ui,/저장된 AI 비교 보고서 \(참고\)/);assert.match(ui,/immediate:true/);assert.match(ui,/loadedPeriod,year,week/);assert.match(ui,/영업방 자동 확인을 기다리는 중입니다/);

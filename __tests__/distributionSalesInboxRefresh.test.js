@@ -34,12 +34,12 @@ assert.equal(shouldBufferIncoming({selectedCount:0,reviewOpen:true}),true);
 (async()=>{
   const requested=[];
   const pages=[
-    {ok:true,messages:[{source:'nenovakakao',chat_id:'room',external_message_id:'a'}],hasMore:true,nextAfterKey:'a'},
-    {ok:true,messages:[{source:'nenovakakao',chat_id:'room',external_message_id:'a'},{source:'nenovakakao',chat_id:'room',external_message_id:'b'}],hasMore:false,nextAfterKey:'b'}
+    {ok:true,messages:[{source:'nenovakakao',chat_id:'room',external_message_id:'a',message:'기존 원문'}],hasMore:true,nextAfterKey:'a'},
+    {ok:true,messages:[{source:'nenovakakao',chat_id:'room',external_message_id:'a',message:'수정 원문'},{source:'nenovakakao',chat_id:'room',external_message_id:'b'}],hasMore:false,nextAfterKey:'b'}
   ];
   const fetchImpl=async url=>{requested.push(String(url));return {ok:true,json:async()=>pages.shift()};};
   const result=await refreshSalesFeed({fetchImpl,from:'2026-09-11',to:'2026-09-11'});
-  assert.equal(result.complete,true);assert.equal(result.pages,2);assert.deepEqual(result.messages.map(row=>row.identity),['nenovakakao|room|a','nenovakakao|room|b']);
+  assert.equal(result.complete,true);assert.equal(result.pages,2);assert.deepEqual(result.messages.map(row=>row.identity),['nenovakakao|room|a','nenovakakao|room|b']);assert.equal(result.messages[0].message,'수정 원문','later page representation of a duplicate source identity wins');
   assert.equal(new URL(requested[0],'http://local').searchParams.get('afterKey'),'');assert.equal(new URL(requested[1],'http://local').searchParams.get('afterKey'),'a');
 
   let page=0;

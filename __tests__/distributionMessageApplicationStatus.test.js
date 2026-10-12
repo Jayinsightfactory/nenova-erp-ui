@@ -19,9 +19,11 @@ const manual={sourceIdentity:identity,year:'2026',week:'37-01',status:'MANUALLY_
 assert.equal(sourceConfirmation(scope).confirmed,false);
 assert.equal(sourceConfirmation({...scope,manual}).confirmed,true);
 assert.equal(sourceConfirmation({...scope,operation}).confirmed,true);
+assert.equal(sourceConfirmation({...scope,requestCount:1,operation:{...operation,committedCount:3,entries:[{sourceIdentity:identity},{sourceIdentity:identity},{sourceIdentity:identity}]}}).confirmed,true,'one message may expand into several successfully saved product rows; exact visible-line count is not a safe completion gate');
 for(const patch of [{status:'preview'},{status:'failed'},{undo:true},{undone:true},{incomplete:true},{committedCount:1},{year:'2025'},{week:'37-02'},{entries:[{sourceIdentity:identity}]}]) {
   assert.equal(sourceConfirmation({...scope,operation:{...operation,...patch}}).confirmed,false,JSON.stringify(patch));
 }
+assert.equal(sourceConfirmation({...scope,operation:{...operation,entries:[{sourceIdentity:identity},{sourceIdentity:'another-message'}]}}).confirmed,false,'mixed-source or incomplete linkage never auto-confirms');
 const cancelled={...manual,status:'MANUALLY_NOT_APPLIED'};
 assert.equal(sourceConfirmation({...scope,manual:cancelled,operation}).cancelled,true,'later cancellation overrides automatic completion');
 assert.equal(sourceConfirmation({...scope,manual:cancelled,operation:{...operation,at:'2026-09-15 11:02:00'}}).confirmed,true,'new successful operation reconfirms using KST vs UTC');
