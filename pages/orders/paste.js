@@ -4600,6 +4600,7 @@ export default function PasteOrderPage() {
               {!orders.length && !bulkRunning && <span className="paste-work-empty">분석 전입니다. 기준 원본 또는 영업방 내용을 불러온 뒤 Claude 분석을 실행하세요.</span>}
             </div>
 
+            <AppliedStockCopyPanel draft={stockDraft} result={bulkResult||appliedStockLedger} currentScope={buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches})} bulkRunning={bulkRunning} />
             {globalBatchProcessed && (
               <section id="paste-connected-result" tabIndex={-1} aria-label="일괄 등록 분배 성공 결과" style={{ marginBottom: 8, border: '2px solid #2e7d32', borderRadius: 8, overflow: 'hidden', background: '#f1f8e9' }}>
                 <div style={{ padding: '7px 10px', background: '#2e7d32', color: '#fff', fontSize: 12, fontWeight: 900 }}>✅ 저장 완료 결과 — 아래 수량이 현재 전산에 반영되었습니다.</div>
@@ -4620,7 +4621,6 @@ export default function PasteOrderPage() {
               </section>
             )}
             <StockImpactSummary draft={stockDraft} selectedWeek={week} processed={Boolean(bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone)} />
-            <AppliedStockCopyPanel draft={stockDraft} result={bulkResult||appliedStockLedger} currentScope={buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches})} />
             {bulkResult?.orderId === 'ALL' && <a href="#paste-connected-result-details" style={{ margin: '2px 0 6px', fontSize: 11, color: '#1565c0', fontWeight: 800 }}>전체 저장 내역 아래에서 계속 보기 ↓</a>}
             <section className="paste-work-history" aria-label="최근 붙여넣기 작업 이력">
               <strong>최근 붙여넣기 작업 이력</strong>
@@ -6040,27 +6040,52 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
   );
 }
 
-function AppliedStockCopyPanel({draft,result,currentScope}) {
+function AppliedStockCopyPanel({draft,result,currentScope,bulkRunning=false}) {
   const [copied,setCopied]=useState(false),[copyError,setCopyError]=useState('');
+  const dialogRef=useRef(null),triggerRef=useRef(null);
   const applied=buildAppliedStockCopy({...draft?.appliedCopySource,result,currentScope});
   useEffect(()=>{setCopied(false);setCopyError('');},[applied.text,applied.ready]);
-  return <section data-testid="paste-applied-stock-copy" style={{border:'1px solid #b0bec5',borderRadius:8,padding:12,background:'#fff',marginBottom:12}}>
-    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><strong>적용재고</strong><button type="button" disabled={!applied.ready} onClick={async()=>{try{await navigator.clipboard.writeText(applied.text);setCopied(true);setCopyError('');}catch{setCopyError('복사하지 못했습니다. 아래 원문을 선택해 복사해 주세요.');}}}>{copied?'복사됨':'적용재고 복사'}</button></div>
+  useEffect(()=>{if(bulkRunning&&dialogRef.current?.open)dialogRef.current.close();},[bulkRunning]);
+  const keepModalTabFocus=event=>{
+    if(event.key!=='Tab')return;
+    const controls=[...event.currentTarget.querySelectorAll('button:not(:disabled), textarea:not(:disabled)')];
+    if(!controls.length)return;
+    const first=controls[0],last=controls[controls.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    else if(!controls.includes(document.activeElement)){event.preventDefault();first.focus();}
+  };
+  return <section data-testid="paste-applied-stock-copy" style={{border:'1px solid #b0bec5',borderRadius:8,padding:10,background:'#fff',marginBottom:12}}>
+    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+      <button ref={triggerRef} type="button" disabled={bulkRunning} onClick={()=>{setCopied(false);setCopyError('');dialogRef.current?.showModal();}} style={{padding:'8px 12px',border:'1px solid #1565c0',borderRadius:6,background:'#fff',color:'#0d47a1',fontWeight:800,cursor:bulkRunning?'wait':'pointer'}}>적용재고 확인</button>
+      <span style={{fontSize:12,color:'#455a64'}}>{bulkRunning?'처리 중에는 확인할 수 없습니다.':applied.ready?'저장·검증된 변경을 기초재고에 반영했습니다.':'저장·검증된 결과가 있어야 적용재고를 확인할 수 있습니다.'}</span>
+    </div>
+    <dialog ref={dialogRef} aria-labelledby="paste-applied-stock-title" onKeyDown={keepModalTabFocus} onClose={()=>triggerRef.current?.focus()} style={{width:'calc(100vw - 24px)',maxWidth:960,maxHeight:'calc(100dvh - 24px)',boxSizing:'border-box',padding:0,border:'1px solid #90a4ae',borderRadius:10,boxShadow:'0 18px 48px #26323855',overflow:'hidden'}}>
+      <div style={{display:'flex',flexDirection:'column',maxHeight:'calc(100dvh - 26px)',minWidth:0}}>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',padding:'12px 14px',borderBottom:'1px solid #cbd5e1',background:'#f8fafc',flexShrink:0}}>
+          <strong id="paste-applied-stock-title" style={{fontSize:16,marginRight:'auto'}}>기초재고 기준 적용재고</strong>
+          <button type="button" disabled={!applied.ready||bulkRunning} onClick={async()=>{if(!applied.ready||bulkRunning)return;try{await navigator.clipboard.writeText(applied.text);setCopied(true);setCopyError('');}catch{setCopyError('복사하지 못했습니다. 아래 원문을 선택해 복사해 주세요.');}}} style={{padding:'7px 10px'}}>{copied?'복사됨':'적용재고 복사'}</button>
+          <button type="button" onClick={()=>dialogRef.current?.close()} style={{padding:'7px 10px'}}>닫기</button>
+        </div>
+        <div data-testid="applied-stock-scroll-body" style={{overflowY:'auto',minHeight:0,padding:'12px 14px'}}>
     {applied.ready?<>
-      <p style={{fontSize:12,color:'#455a64',margin:'8px 0'}}>시작재고 + 취소 − 추가 = 적용재고 · 저장·검증된 변경만 반영합니다. 전산 재고 스냅샷과는 별도입니다.</p>
-      <table aria-label="시작재고 기준 적용 변경내역" style={{width:'100%',tableLayout:'fixed',borderCollapse:'collapse',fontSize:12,marginBottom:8}}>
+      <p style={{fontSize:12,color:'#455a64',margin:'0 0 8px'}}>기초재고 + 취소 − 추가 = 적용재고 · 저장·검증된 변경만 반영합니다. 전산 재고 스냅샷과는 별도입니다.</p>
+      <div style={{maxWidth:'100%',overflowX:'auto'}}><table aria-label="기초재고 기준 적용 변경내역" style={{width:'100%',minWidth:620,tableLayout:'fixed',borderCollapse:'collapse',fontSize:12,marginBottom:8}}>
         <caption style={{textAlign:'left',fontWeight:700,padding:'4px 0 8px'}}>변경내역 · 변경 {applied.changeRows.filter(row=>row.changed).length}품목 / 전체 {applied.changeRows.length}품목</caption>
-        <colgroup><col style={{width:'36%'}}/><col/><col/><col/><col/></colgroup>
-        <thead><tr>{['품목','시작재고','추가(−)','취소(+)','적용재고'].map(label=><th key={label} scope="col" style={{padding:'6px 4px',border:'1px solid #cbd5e1',background:'#f1f5f9',overflowWrap:'anywhere'}}>{label}</th>)}</tr></thead>
+        <colgroup><col style={{width:'36%'}}/>{[0,1,2,3].map(index=><col key={index} style={{width:'16%'}}/>)}</colgroup>
+        <thead><tr>{['품목','기초재고','추가(−)','취소(+)','적용재고'].map(label=><th key={label} scope="col" style={{padding:'6px 4px',border:'1px solid #cbd5e1',background:'#f1f5f9',overflowWrap:'anywhere'}}>{label}</th>)}</tr></thead>
         <tbody>{applied.changeRows.map(row=><tr key={row.prodKey} data-testid={`applied-stock-change:${row.prodKey}`} style={{background:row.changed?'#ecfdf5':'#fff'}}>
           <th scope="row" style={{textAlign:'left',padding:'6px 4px',border:'1px solid #cbd5e1',overflowWrap:'anywhere'}}>{row.name}</th>
           {[row.startText,row.addedText,row.cancelledText,row.appliedText].map((value,index)=><td key={index} style={{textAlign:'center',padding:'6px 4px',border:'1px solid #cbd5e1',overflowWrap:'anywhere',fontWeight:index===3?700:400}}>{value}</td>)}
         </tr>)}</tbody>
-      </table>
+      </table></div>
       <small style={{color:'#64748b'}}>적용재고가 0인 품목은 위 변경내역에 남고, 복사할 원문에서는 빠집니다.</small>
       <textarea aria-label="적용재고 원문" readOnly value={applied.text} style={{width:'100%',boxSizing:'border-box',minHeight:120,marginTop:8,resize:'vertical',whiteSpace:'pre-wrap'}}/>
-    </>:<p role="status" style={{color:'#9a3412',marginBottom:0}}>{applied.warnings.join(' ')}</p>}
+    </>:<p role="status" style={{color:'#9a3412',margin:'0 0 8px'}}>{!result?'등록·분배를 실행하고 저장 결과를 검증한 뒤 확인할 수 있습니다. ':''}{applied.warnings.join(' ')}</p>}
     {copyError&&<p role="alert">{copyError}</p>}
+        </div>
+      </div>
+    </dialog>
   </section>;
 }
 
