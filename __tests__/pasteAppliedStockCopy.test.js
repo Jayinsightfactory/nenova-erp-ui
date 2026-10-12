@@ -9,6 +9,10 @@ const result={orderId:'ALL',okCount:1,failCount:0,verified:true,details:[entry],
 const args={baseText,pasteText:currentScope.pasteText,week:currentScope.week,resolvedMatches:matches,products,result,currentScope};
 assert.equal(buildAppliedStockCopy(args).text,'기초재고\n이케바나1\n문라이트1\n--------------','original names and format, zero omitted, English DB names sorted');
 assert.equal(buildAppliedStockCopy(args).text,buildAppliedStockCopy(args).text,'render never reapplies operation to prior remainder');
+const initialChanges=buildAppliedStockCopy(args).changeRows;
+assert.deepEqual(initialChanges.map(row=>row.name),['이케바나','문라이트','노비아'],'change table follows the same DB-name sort and keeps original input names');
+assert.deepEqual(initialChanges.find(row=>row.prodKey===2),{prodKey:2,name:'노비아',start:{main:1,detail:null,unit:'박스',detailUnit:''},added:{main:1,detail:null,unit:'박스',detailUnit:''},cancelled:{main:0,detail:null,unit:'박스',detailUnit:''},applied:{main:0,detail:null,unit:'박스',detailUnit:''},startText:'1박스',addedText:'1박스',cancelledText:'0박스',appliedText:'0박스',changed:true},'zero remainder stays visible in verified change table');
+assert.equal(initialChanges.find(row=>row.prodKey===1).changed,false,'unchanged starting stock is visible without change highlight');
 for(const changed of [{rolledBack:true},{undone:true},{preflightBlocked:true},{stockCopyScope:undefined}])assert.equal(buildAppliedStockCopy({...args,result:{...result,...changed}}).ready,false);
 assert.equal(buildAppliedStockCopy({...args,currentScope:{...currentScope,week:'2025-42-01'}}).ready,false);
 assert.equal(buildAppliedStockCopy({...args,result:{...result,details:[{...entry,orderYear:'2025'}]}}).ready,false,'prior-year same week never subtracts');
@@ -22,11 +26,22 @@ const failed=buildAppliedStockCopy({...args,result:{...result,details:[{...entry
 assert.equal(failed.ready,false,'failed rows alone never claim applied-stock ready');
 const noChange=buildAppliedStockCopy({...args,result:{...result,details:[{...entry,outQtyBefore:1,outQtyAfter:1}]}});
 assert(noChange.text.includes('노비아1'),'already applied/no-change server result does not subtract requested quantity');
+assert.equal(noChange.changeRows.find(row=>row.prodKey===2).added.main,0,'zero shipment delta never claims requested quantity was applied');
+assert.equal(noChange.changeRows.find(row=>row.prodKey===2).changed,false);
 assert.equal(buildAppliedStockCopy({...args,result:{...result,details:[{...entry,unit:'송이'}]}}).ready,false,'unknown conversion blocks');
 const mixedBase='기초재고\n노비아 1박스 + 15스팀 (보관)\n문라이트\n  0.5박스';
 const mixedScope=buildAppliedStockScope({week:args.week,baseText:mixedBase,pasteText:args.pasteText});
 const mixed=buildAppliedStockCopy({...args,baseText:mixedBase,currentScope:mixedScope,result:{...result,stockCopyScope:mixedScope,details:[{...entry,unit:'송이',qty:5,delta:5,outQtyAfter:5}]}});
 assert.equal(mixed.text,'기초재고\n문라이트\n  0.5박스\n노비아 1박스 + 10스팀 (보관)','mixed units and multiline/punctuation survive intact');
+assert.deepEqual(mixed.changeRows.find(row=>row.prodKey===2).added,{main:0,detail:5,unit:'박스',detailUnit:'스팀'},'detail-unit consumption is separate from boxes');
+assert.equal(mixed.changeRows.find(row=>row.prodKey===2).appliedText,'1박스 + 10스팀');
+const mixedBoth=buildAppliedStockCopy({...args,baseText:mixedBase,currentScope:mixedScope,result:{...result,stockCopyScope:mixedScope,details:[{...entry,entryId:'detail-add',unit:'송이',qty:5,delta:5,outQtyAfter:5},{...entry,entryId:'box-cancel',type:'CANCEL',unit:'박스',qty:1,delta:1,outQtyBefore:1,outQtyAfter:0}]}});
+const mixedChange=mixedBoth.changeRows.find(row=>row.prodKey===2);
+assert.equal(mixedChange.startText,'1박스 + 15스팀');
+assert.equal(mixedChange.addedText,'0박스 + 5스팀');
+assert.equal(mixedChange.cancelledText,'1박스 + 0스팀');
+assert.equal(mixedChange.appliedText,'2박스 + 10스팀','main and detail amounts use the exact copy calculation');
+assert(mixedBoth.text.includes('노비아 2박스 + 10스팀'));
 assert.equal(buildAppliedStockCopy({...args,resolvedMatches:new Map()}).ready,false);
 assert.equal(buildAppliedStockCopy({...args,currentScope:{...currentScope,matchesKey:'changed'}}).ready,false,'rematching invalidates old copy result');
 
@@ -48,6 +63,20 @@ const successive=buildAppliedStockCopy({...args,baseText:successiveBase,currentS
 assert.equal(successive.text,'노비아8','successive customer operations accumulate against original base once each');
 assert.equal(buildAppliedStockCopy({...args,result:{...result,verified:false}}).ready,false);
 assert.equal(buildAppliedStockCopy({...args,result:{...result,failCount:1}}).ready,false);
+for(const unsafe of [
+  {...args,result:{...result,verified:false}},
+  {...args,result:{...result,failCount:1}},
+  {...args,result:{...result,rolledBack:true}},
+  {...args,result:{...result,undone:true}},
+  {...args,currentScope:{...currentScope,matchesKey:'stale'}},
+  {...args,result:{...result,details:[{...entry,orderYear:'2025'}]}},
+  {...args,result:{...result,details:[{...entry,orderWeek:'41-01'}]}},
+  {...args,result:{...result,details:[entry,entry]}},
+  {...args,result:{...result,details:[{...entry,qty:2,delta:2,outQtyAfter:2}]}},
+  {...args,result:{...result,details:[{...entry,unit:'송이'}]}},
+])assert.deepEqual(buildAppliedStockCopy(unsafe).changeRows,[],'unsafe results cannot show a misleading verified change table');
+const netZero=buildAppliedStockCopy({...args,result:{...result,details:[entry,{...entry,entryId:'return',type:'CANCEL',outQtyBefore:1,outQtyAfter:0}]}}).changeRows.find(row=>row.prodKey===2);
+assert.equal(netZero.added.main,1);assert.equal(netZero.cancelled.main,1);assert.equal(netZero.applied.main,1);assert.equal(netZero.changed,true,'net zero still shows both actual operations');
 
 const spacedBase='문라이트1\n\n노비아1\n\n이케바나1';
 const spacedScope=buildAppliedStockScope({week:args.week,baseText:spacedBase,pasteText:args.pasteText});

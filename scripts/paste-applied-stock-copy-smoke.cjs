@@ -19,13 +19,24 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{chromium}=requ
   await page.evaluate(value=>{window.actual=value;window.copied='';Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copied=text;}}});},actual);
   await page.addScriptTag({content:`const {useState,useEffect}=React;const buildAppliedStockCopy=()=>window.actual;${compiled.code};window.render=()=>ReactDOM.render(React.createElement(AppliedStockCopyPanel,{draft:{},result:{},currentScope:{}}),document.getElementById('app'));window.render();`});
   assert.equal(await page.getByLabel('적용재고 원문').inputValue(),'이케바나 1\n문라이트 1');
+  const changeTable=page.getByRole('table',{name:'시작재고 기준 적용 변경내역'});
+  assert.equal(await changeTable.getByRole('row').count(),4,'unchanged and zero remainder stock stays in the table');
+  const zeroRow=page.getByTestId('applied-stock-change:12');
+  assert.deepEqual(await zeroRow.getByRole('cell').allTextContents(),['1박스','1박스','0박스','0박스']);
+  assert.equal(await zeroRow.getByRole('rowheader').textContent(),'노비아');
   await page.getByRole('button',{name:'적용재고 복사'}).press('Enter');
   assert.equal(await page.evaluate(()=>window.copied),actual.text);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.setViewportSize({width:1366,height:768});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.evaluate(()=>{navigator.clipboard.writeText=async()=>{throw new Error('clipboard blocked');};});
+  await page.getByRole('button',{name:'복사됨',exact:true}).press('Enter');
+  assert.match(await page.getByRole('alert').textContent(),/아래 원문을 선택해 복사/,'clipboard failure keeps readable fallback');
+  assert.equal(await page.getByLabel('적용재고 원문').inputValue(),actual.text);
   const failed=buildAppliedStockCopy({baseText,pasteText,week,resolvedMatches,products,result:{...result,rolledBack:true},currentScope});
   await page.evaluate(value=>{window.actual=value;window.render();},failed);
-  assert.equal(await page.getByRole('button',{name:'적용재고 복사'}).isEnabled(),false);assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({viewport:'1920x1080 / 1366x768',copiedOriginalNamesInDbOrder:true,zeroOmitted:true,keyboardCopy:true,rollbackBlocksCopy:true,errors}));
+  assert.equal(await page.getByRole('button',{name:'적용재고 복사'}).isEnabled(),false);
+  assert.equal(await page.getByRole('table',{name:'시작재고 기준 적용 변경내역'}).count(),0,'rollback cannot display a verified applied table');assert.deepEqual(errors,[]);
+  console.log(JSON.stringify({viewport:'1920x1080 / 1366x768 / 390x844',copiedOriginalNamesInDbOrder:true,zeroOmitted:true,zeroVisibleInChangeTable:true,keyboardCopy:true,rollbackBlocksCopy:true,errors}));
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

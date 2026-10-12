@@ -9,6 +9,7 @@
     "pages/api/kakao/delivery-status.js",
     "__tests__/distributionDeliveryStatus.test.js",
     "__tests__/distributionDeliveryClient.test.js",
+    "__tests__/distributionDeliveryRefresh.test.js",
     "scripts/paste-inbox-delivery-smoke.cjs",
     "lib/distributionDeliveryEvidenceStore.js",
     "__tests__/distributionDeliveryEvidenceStore.test.js",
@@ -49,7 +50,8 @@
     "persistence": "Only server-verified exact forwarding evidence is stored atomically under data/runtime/distribution-delivery-evidence. Immutable records keyed by selected year plus exact original identity, raw text, timestamp and validity flags are shared across accounts and full-week changes. No expiry or overwrite by unmatched/ambiguous/read failure; response warning distinguishes failed refresh from saved DELIVERED evidence. No ERP tables change.",
     "metadataRefresh": "For identical raw text and canonical identity only, refresh source metadata. Upgrade approximate timestamp only from explicitly nonapproximate valid fresh timestamp. Preserve UI/analysis fields and truncated/is_truncated flags.",
     "diagnostics": "Keep reason codes and safe aggregate targetCount/qualifiedSourceCount when live scan succeeds. Stored-only lookup does not claim a fresh target scan.",
-    "loading": "Initial/scope-change rows show checking before lookup. Exact verified facts survive appended rows, week changes and refresh failures; changed source/year cannot inherit. Unknown rows show lookup failure separately."
+    "loading": "Initial/scope-change rows show checking before lookup. Exact verified facts survive appended rows, week changes and refresh failures; changed source/year cannot inherit. Unknown rows show lookup failure separately.",
+    "refresh": "Visible online page checks every 60 seconds; manual delivery refresh and visibility/online recovery request an immediate read without ERP application, Claude analysis or sending. Disable manual button during lookup. Show last successful lookup time, not a collector health claim. No-target label describes current recent-three-day collected data only. External collector cadence and offline/backlog delay cannot be guaranteed by browser polling."
   },
   "crossYearFixture": {
     "required": true,
@@ -69,11 +71,13 @@
     "note": "Web-only Kakao read; native evidence documents the preserved ERP boundary. No native SQL or save behavior is invoked or modified."
   },
   "requiredTestFiles": [
+    "__tests__/distributionDeliveryRefresh.test.js",
     "__tests__/distributionDeliveryStatus.test.js",
     "__tests__/distributionDeliveryClient.test.js",
     "__tests__/distributionDeliveryEvidenceStore.test.js"
   ],
   "requiredCommands": [
+    "node __tests__/distributionDeliveryRefresh.test.js",
     "node __tests__/distributionDeliveryStatus.test.js",
     "npm run test:erp-contract",
     "npm run test:nenova-dnspy-evidence",
