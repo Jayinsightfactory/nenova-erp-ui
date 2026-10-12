@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const {patch,business,EXPECTED,hash}=require('./native-stock-gate-atomic.cjs');
+const rows=JSON.parse(fs.readFileSync('__tests__/fixtures/native-stock-gate-2026-10-12.json','utf8').replace(/^\uFEFF/,''));
+const original=rows.find(r=>r.name==='usp_StockCalculation').definition;
+const result=patch(original),sql=result.definition;
+assert.equal(hash(original),EXPECTED);assert.equal(business(sql),business(original));
+assert(sql.indexOf('BEGIN TRANSACTION')<sql.indexOf('EXEC dbo.usp_NenovaStockWeekGateEnter'));
+assert(sql.indexOf('IF (@OrderYear <= 2025)')<sql.indexOf('BEGIN TRANSACTION'));
+const success=sql.indexOf("@Success = 1");assert(sql.indexOf('COMMIT TRANSACTION',success)>success);
+assert.equal(sql.match(/BEGIN TRANSACTION/g).length,1);assert.equal(sql.match(/COMMIT TRANSACTION/g).length,2);
+assert.equal(sql.match(/ROLLBACK TRANSACTION/g).length,1);
+assert.equal(sql.slice(sql.indexOf('CREATE PROCEDURE'),sql.indexOf('AS\r\n')),original.slice(original.indexOf('CREATE PROCEDURE'),original.indexOf('AS\r\n')));
+assert.throws(()=>patch(original+' '),/hash mismatch/);
+console.log('Offline native-stock atomic transformer PASS; no SQL execution.');

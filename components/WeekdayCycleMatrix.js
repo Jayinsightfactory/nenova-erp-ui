@@ -85,7 +85,7 @@ const cellDescription = (row, block, day) => [
   block.fixed ? '확정 전산 포함 · 편집은 미적용 초안만' : '', day.editDisabledReason,
 ].filter(Boolean).join('\n');
 
-function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, onClearCell, onSelect, onOpenNote }) {
+function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, onClearCell, onSelect, onOpenNote, onCorrectSubweek, onCancelSubweek, allowCorrection=true }) {
   const [input, setInput] = useState(null);
   const [failure, setFailure] = useState('');
   const [saving, setSaving] = useState(false);
@@ -97,6 +97,11 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
   const reason = day.editDisabledReason || (typeof onEditCell !== 'function' ? '초안 편집 기능 미연결' : '');
   const description = cellDescription(row, block, day);
   const blockedReason = reason || (disabled ? disabledReason || '조회·저장 확인 또는 초안 이동 처리 중입니다.' : saving ? '초안 입력 처리 중입니다.' : '');
+  const correction=day.drafts.length===2 && day.drafts[0].subweekTransfer?.id
+    && day.drafts.every(plan=>plan.subweekTransfer?.id===day.drafts[0].subweekTransfer.id) ? day.drafts[0].subweekTransfer.id : null;
+  const canCorrect=allowCorrection && day.assignedWeekMismatch && day.actualOrderWeeks.length===1
+    && day.actualDetails.length===1 && Number(day.actualDetails[0].shipmentQuantity)>0
+    && !day.drafts.length && Boolean(day.unit) && typeof onCorrectSubweek==='function';
   function focusQuantity(event) {
     if (event.target.closest?.('button,input')) return;
     if (blockedReason) { onSelect(`${description}\n편집 불가: ${blockedReason}`); return; }
@@ -143,6 +148,9 @@ function QuantityCell({ day, row, block, disabled, disabledReason, onEditCell, o
     {(day.delta != null && day.delta !== 0 || reason) && <button type="button" className="wcm-cell-info"
       aria-label={`${row.name} ${day.date} 수량 내역`} onClick={() => onSelect(`${description}\n${reason}`)}>
       {day.delta != null && day.delta !== 0 ? <>Δ{day.delta > 0 ? '+' : ''}<QuantityLabel>{weekdayQuantityLabel(day.delta,row,day.unit,block.packaging)}</QuantityLabel></> : '!'}</button>}</div>
+    {canCorrect && <button type="button" disabled={disabled || saving} aria-label={`${row.name} ${day.date} ${block.cycle.year}/${day.effectiveOrderWeek}에서 ${block.cycle.year}/${day.orderWeek}으로 차수 정정`} title={`실제 ${day.effectiveOrderWeek} → 달력 ${day.orderWeek}; 원본 0·대상 ${day.current} 초안을 함께 만듭니다.`}
+      onClick={()=>onCorrectSubweek({row,block,day})}>차수 정정</button>}
+    {correction && typeof onCancelSubweek==='function' && <button type="button" disabled={disabled || saving} aria-label={`${row.name} ${day.date} 차수 정정 초안 취소`} onClick={()=>onCancelSubweek(correction)}>정정 취소</button>}
     {failure && <span className="wcm-cell-error wcm-compact-warning" role="alert"><SummaryDetails label={`${row.name} ${day.date} 입력 오류`} description={failure} visibleLabel="!" autoOpen/></span>}
   </div>;
 }
@@ -289,7 +297,7 @@ function carryoverInputAlerts(matrix) {
 }
 
 export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparisonRows = [], onMove, busy = false, onExportWorkbook, exportReady = false,
-  onEditCell, onClearCell, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
+  onEditCell, onClearCell, onCorrectSubweek, onCancelSubweek, onPrint, printBusy = false, customer = null, custKey = null, customerProvided,
   onSearchProducts, onAddProduct, baselines = [], baselineCandidates = [], onConfirmBaseline, baselineBusy = false, onOpenNote, pageNotes = [], earlyRecords = [], quoteResults = [],
   carryover = null, carryoverPlans = plans, onOpenCarryover, carryoverBusy = false, carryoverError = '', editDisabledReason = '',
   confirmationStates = [], confirmationBusy = false, confirmationError = '',
@@ -746,7 +754,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                   const savedGeneral=split.savedTotal==null || split.error?null:Number((split.savedTotal-split.savedWilson).toFixed(6));
                   const projectedGeneral=split.total==null || split.error?null:split.total-split.wilson;
                   const shown=selected?{...day,current:savedGeneral,displayCurrent:savedGeneral,planned:day.planned==null?null:projectedGeneral,initial:null,initialDelta:null,delta:null,editDisabledReason:day.editDisabledReason || split.error || (split.total==null?'일반·윌슨 날짜 합계 미확인':'')}:day;
-                  return <td key={day.date || index}><QuantityCell row={row} block={block} day={shown} disabled={disabled || selected&&wilsonBusy} disabledReason={moving?'초안 이동 처리 중입니다.':editDisabledReason} onEditCell={selected&&typeof onEditCell==='function'?payload=>onEditCell({...payload,quantity:payload.quantity+split.wilson}):onEditCell} onClearCell={onClearCell} onSelect={setSelectedInfo} onOpenNote={onOpenNote}/></td>;
+                  return <td key={day.date || index}><QuantityCell row={row} block={block} day={shown} disabled={disabled || selected&&wilsonBusy} disabledReason={moving?'초안 이동 처리 중입니다.':editDisabledReason} onEditCell={selected&&typeof onEditCell==='function'?payload=>onEditCell({...payload,quantity:payload.quantity+split.wilson}):onEditCell} onClearCell={onClearCell} onCorrectSubweek={onCorrectSubweek} onCancelSubweek={onCancelSubweek} allowCorrection={!selected || split.wilson===0} onSelect={setSelectedInfo} onOpenNote={onOpenNote}/></td>;
                 }
                 if(['sum01','sum02','remaining02','remaining01'].includes(column.kind)) {
                   const subweek=column.kind.endsWith('01')?block.subweek01:block.subweek02;

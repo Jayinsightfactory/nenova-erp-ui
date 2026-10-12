@@ -1,4 +1,6 @@
 - [2026-10-12 주광 저장 대기·국가별 품종 순서](2026-10-12_weekday-stock-wait-country-sort.md) — 명시적인 저장 전 잠금만 제한 재시도, 콜롬비아 장미 우선 및 기타 국가 분리.
+- [2026-10-12 EXE BUSY 복구·native CALC 원자성](2026-10-12_native-stock-busy.md) — 특정 잠금 수동복구, 계산·잠금 transaction 일치 패치와 운영 검증.
+- [2026-10-12 주광 세부차수 저장 위치](2026-10-12_weekday-subweek-placement.md) — 달력/실제 차수 불일치 차단, 명시 정정과 SQL·브라우저 검증.
 - [2026-10-12 적용재고 확인 버튼](2026-10-12_applied-stock-review-button.md) — 처리 후 기초재고·변경량·잔량을 별도 창에서 확인하고 복사.
 - [2026-10-12 주광 엑셀 품목명·합계·잔량 색상](2026-10-12_weekday-export-name-colors.md) — 품종 접두어 중복 제거, 원본 서식 보존과 역할별 색상.
 - [2026-10-12 업로드 주문등록 저장매칭 복구](2026-10-12_import-mapping-durability.md) — 업체·화종 문맥키, 기존 수동 이력 재적용, 저장 readback

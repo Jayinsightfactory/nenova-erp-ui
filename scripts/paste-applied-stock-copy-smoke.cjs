@@ -14,7 +14,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{chromium}=requ
  const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
  try{
   const page=await browser.newPage({viewport:{width:1920,height:1080},deviceScaleFactor:1}),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.setContent('<div id="app"></div>');
+  await page.setContent('<style>*{box-sizing:border-box;padding:0;margin:0}</style><div id="app"></div>');
   await page.addScriptTag({path:require.resolve('react').replace(/index\.js$/,'umd/react.development.js')});
   await page.addScriptTag({path:require.resolve('react-dom').replace(/index\.js$/,'umd/react-dom.development.js')});
   await page.evaluate(value=>{window.actual=value;window.copied='';Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copied=text;}}});},actual);
@@ -43,6 +43,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{chromium}=requ
    await page.setViewportSize({width,height});
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`page does not overflow at ${width}`);
    assert.equal(await dialog.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;}),true,`dialog fits ${width}x${height}`);
+   assert.equal(await dialog.evaluate(el=>{const r=el.getBoundingClientRect();return Math.abs(r.left-(innerWidth-r.width)/2)<=1&&Math.abs(r.top-(innerHeight-r.height)/2)<=1;}),true,`dialog stays centered despite global margin reset at ${width}`);
    assert.equal(await dialog.getByRole('button',{name:'닫기'}).isVisible(),true);
    await page.screenshot({path:`${output}-${width}x${height}.png`});
   }
