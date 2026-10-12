@@ -21,7 +21,7 @@ import {
 import { getStatementProductName } from '../lib/estimatePrintFormats.js';
 import { deriveSupportProcessingStatus, isSupportManualCompleteSelectable, isSupportProcessingComplete, supportCarryoverFromLabel, supportProcessingLabel, supportRegisterUsageNotice, supportRegistrationDecisionLabel, supportStatusDetail, buildSupportEstimateCapture } from '../lib/salesDefectSupportStatus.js';
 import { buildEstimateCustomerUrl } from '../lib/estimateFixStatusLink.js';
-import { incomingCountryKey, incomingGroupKey, incomingProductKey, sortIncomingRows } from '../lib/salesDefectIncomingGroup.js';
+import { incomingCountryKey, incomingGroupKey, incomingManagerKey, incomingProductKey, sortDefectDisplayRows, sortIncomingRows } from '../lib/salesDefectIncomingGroup.js';
 import {
   parseQuantityCell,
   parseSalesDefectWorkbook,
@@ -118,8 +118,30 @@ assert.equal(incomingProductKey({ productName: '', matchedFlowerName: '' }), '�
 assert.equal(incomingGroupKey({ customerName: '' }, 'customer'), '거래처 미확인');
 assert.equal(incomingGroupKey({ countryName: '', productName: '', matchedFlowerName: '' }, 'product'), '국가 미확인 · 품종 미확인');
 assert.deepEqual(sortIncomingRows([...incomingFixture, { deductionKey: 99, customerName: '미확인', countryName: '', productName: '장미' }], 'product').at(-1).row.deductionKey, 99, '국가 미확인 행은 확인 가능한 국가 뒤에 둔다.');
+const displayFixture = [
+  { deductionKey: 44, customerName: '나업체', managerName: '김담당' },
+  { deductionKey: 45, customerName: '가업체', managerName: '이담당' },
+  { deductionKey: 46, customerName: '가업체', managerName: '김담당' },
+  { deductionKey: 47, customerName: '가업체', managerName: '김담당' },
+  { deductionKey: 48, customerName: '가업체', managerName: '' },
+];
+const originalDisplayOrder = displayFixture.map((row) => row.deductionKey);
+assert.deepEqual(sortDefectDisplayRows(displayFixture).map(({ row }) => row.deductionKey), [46, 47, 45, 48, 44], '기본 표시는 업체→담당자 순서이며 담당자 미확인은 뒤에 둔다.');
+assert.deepEqual(sortDefectDisplayRows(displayFixture, 'manager').map(({ row }) => row.deductionKey), [46, 47, 44, 45, 48], '담당자 선택은 담당자→업체 순서다.');
+assert.deepEqual(sortDefectDisplayRows(displayFixture, 'manager').map(({ sourceIndex }) => sourceIndex), [2, 3, 0, 1, 4], '표시 순서와 편집·선택의 원본 인덱스를 분리한다.');
+assert.deepEqual(displayFixture.map((row) => row.deductionKey), originalDisplayOrder, '표시 정렬은 원본 입력 배열을 변경하지 않는다.');
+assert.deepEqual(sortDefectDisplayRows(displayFixture, 'unknown').map(({ row }) => row.deductionKey), [46, 47, 45, 48, 44], '잘못된 정렬값은 기본 업체 순서로 돌아간다.');
+assert.equal(incomingManagerKey({ managerName: '' }), '담당자 미확인');
+assert.equal(incomingGroupKey({ managerName: '김담당' }, 'manager'), '김담당');
+assert.deepEqual(sortIncomingRows(displayFixture, 'manager').map(({ row }) => row.deductionKey), [46, 47, 44, 45, 48], '수입부 담당자 묶음도 같은 업체·담당자 우선순위를 사용한다.');
+assert.deepEqual(sortIncomingRows(displayFixture, 'manager').filter(({ isGroupStart }) => isGroupStart).map(({ groupLabel }) => groupLabel), ['김담당', '이담당', '담당자 미확인']);
 assert.ok(deductionContract.actions.some((item) => item.name === 'INCOMING_GROUP_VIEW'), '수입부 거래처/품종 묶음 표시 계약이 있어야 한다.');
-assert.match(pageSource, /incomingGroupMode === 'customer'/);
+assert.match(pageSource, /sortDefectDisplayRows\(rows, salesSortMode\)/);
+assert.match(pageSource, /displayedSalesRows\.map\(\(\{ row, sourceIndex, displayIndex \}\)/);
+assert.match(pageSource, /const index = sourceIndex/);
+assert.match(pageSource, /salesSummaryRows\.map\(\(\{ row, sourceIndex \}, index\)/);
+assert.match(pageSource, /value=\{incomingGroupMode\}/);
+assert.match(pageSource, /value="manager">담당자 → 업체/);
 assert.match(pageSource, /incomingGroupMode === 'product'/);
 const carryoverTabIndex = pageSource.indexOf('>미처리·다음 차수 재시도</button>');
 const farmFeedbackTabIndex = pageSource.indexOf('href="/sales/farm-quality">농장 불량 피드백</a>');

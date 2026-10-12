@@ -11,7 +11,7 @@ import { suggestDisplayName } from '../../lib/displayName';
 import { buildEstimateCustomerUrl, buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { isDefectAdmin, isNoopDeductionHistory, lookupSelectionDelta, mergeSavedDeductionRows, managerFilterForUser, partitionRegistrationPreflight, partitionSelectedDeductionRows, shiftParentWeek } from '../../lib/salesDefectDeductionCore';
 import { isSupportManualCompleteSelectable, isSupportProcessingComplete, SUPPORT_REGISTER_USAGE_STEPS, buildSupportEstimateCapture, getSupportLinkedEstimate, supportRegistrationDecisionLabel, supportStatusDetail } from '../../lib/salesDefectSupportStatus.js';
-import { sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
+import { sortDefectDisplayRows, sortIncomingRows } from '../../lib/salesDefectIncomingGroup.js';
 import { canUseDefectIncoming, canUseDefectSupport } from '../../lib/salesDefectDeductionCore';
 import { selectDefectRange } from '../../lib/defectDragSelection.js';
 import { buildDefectProductDisplay } from '../../lib/defectProductDisplay.js';
@@ -170,6 +170,7 @@ export default function SalesDefectDeductionsPage() {
   const [rows, setRows] = useState([]);
   const [incomingRows, setIncomingRows] = useState([]);
   const [incomingGroupMode, setIncomingGroupMode] = useState('customer');
+  const [salesSortMode, setSalesSortMode] = useState('customer');
   const [supportRows, setSupportRows] = useState([]);
   const [supportSelected, setSupportSelected] = useState(new Set());
   const [supportLoading, setSupportLoading] = useState(false);
@@ -1563,7 +1564,11 @@ export default function SalesDefectDeductionsPage() {
   const meaningfulHistory = history.filter((item) => !isNoopDeductionHistory(item));
   const matchingHistory = meaningfulHistory.filter(isMatchingHistory);
   const reviewRequiredCount = rows.filter((row) => row.importReviewRequired).length;
-  const salesSummaryRows = rows.filter((row) => salesRowHasInput(row));
+  const displayedSalesRows = useMemo(
+    () => sortDefectDisplayRows(rows, salesSortMode),
+    [rows, salesSortMode],
+  );
+  const salesSummaryRows = displayedSalesRows.filter(({ row }) => salesRowHasInput(row));
   const salesStatusCounts = rows.reduce((counts, row) => {
     const state = salesRowSaveState(row);
     counts[state] = (counts[state] || 0) + 1;
@@ -1683,6 +1688,7 @@ export default function SalesDefectDeductionsPage() {
               <button type="button" className={`btn btn-xs ${salesViewMode === 'edit' ? 'btn-primary' : ''}`} onClick={() => setSalesViewMode('edit')}>입력 편집</button>
               <button type="button" className={`btn btn-xs ${salesViewMode === 'summary' ? 'btn-primary' : ''}`} onClick={() => setSalesViewMode('summary')}>완료 목록</button>
             </span>
+            <label className="defect-sort-field">목록 정렬 <select className="input" value={salesSortMode} onChange={(event) => setSalesSortMode(event.target.value)}><option value="customer">업체 → 담당자</option><option value="manager">담당자 → 업체</option></select></label>
           </>}
           <button className="btn btn-primary" onClick={() => (activeTab === 'incoming' ? loadIncoming : activeTab === 'support' ? loadSupport : activeTab === 'carryover' ? loadCarryover : load)()} disabled={managementBusy || loading || incomingLoading || supportLoading || supportRegistering}>조회</button>
           {activeTab === 'sales' && <>
@@ -1775,11 +1781,7 @@ export default function SalesDefectDeductionsPage() {
       <div className="card incoming-review-card">
         <div className="incoming-review-head">
           <div><strong>수입부 확인 — {year}년 {week}차 전체 불량</strong><span>{incomingLoading ? ' 불러오는 중…' : ` ${incomingRows.length}건`}</span></div>
-          <div className="incoming-group-toggle" role="group" aria-label="수입부 확인 목록 묶음 기준">
-            <span>묶어보기</span>
-            <button type="button" className={`btn btn-xs ${incomingGroupMode === 'customer' ? 'is-active' : ''}`} aria-pressed={incomingGroupMode === 'customer'} onClick={() => setIncomingGroupMode('customer')}>거래처</button>
-            <button type="button" className={`btn btn-xs ${incomingGroupMode === 'product' ? 'is-active' : ''}`} aria-pressed={incomingGroupMode === 'product'} onClick={() => setIncomingGroupMode('product')}>품종</button>
-          </div>
+          <label className="incoming-group-toggle">목록 정렬 <select className="input" value={incomingGroupMode} onChange={(event) => setIncomingGroupMode(event.target.value)}><option value="customer">업체 → 담당자</option><option value="manager">담당자 → 업체</option><option value="product">국가·품종별</option></select></label>
           <span className="incoming-review-note">농장을 선택하면 전체 확정되고, 보완 필요 또는 비고를 남긴 행은 농장 미정이어도 우선 저장할 수 있습니다.</span>
         </div>
         <div className="defect-grid-scroll incoming-grid-scroll">
@@ -1928,18 +1930,19 @@ export default function SalesDefectDeductionsPage() {
             <th className="defect-header">No</th><th className="defect-header">담당자</th><th className="defect-header">거래처</th><th className="defect-header">품종</th><th className="defect-header">품명</th><th className="defect-header">차감수량</th><th className="defect-header">크레딧</th><th className="defect-header">농장</th><th className="defect-header">비고</th><th className="defect-header">이전/최근 분배단가</th><th className="defect-header">견적서관리 등록</th>
           </tr></thead>
           <tbody>
-            {rows.map((row, index) => {
+            {displayedSalesRows.map(({ row, sourceIndex, displayIndex }) => {
+              const index = sourceIndex;
               const pf = row.deductionKey ? preflight[row.deductionKey] : null;
               const productMatchText = row.prodKey
                 ? `✓ 전산 매칭 ${[row.countryName, row.matchedFlowerName || row.productName].filter(Boolean).join(' ')} · ${row.matchedProductDbName || row.matchedProductName || row.productName} (#${row.prodKey})`
                 : '미매칭: 품종·품명 매칭 필요';
               return <tr className="defect-row" key={row.deductionKey || `new-${index}`} style={{ background: row.importReviewRequired ? '#fef2f2' : row.status === 'REGISTERED' ? '#f0fdf4' : row.needsReview ? '#fff7ed' : undefined }}>
                 <td className="defect-select-cell">
-                  <label className="defect-select-hit" title={`${index + 1}번 행 선택`} {...selectionZoneProps('sales-select', index, selected, setSelected)}>
-                    <input type="checkbox" aria-label={`영업 입력 ${index + 1}행 선택`} checked={selected.has(index)} disabled={loading || saving} onChange={() => toggle(index)} />
+                  <label className="defect-select-hit" title={`${displayIndex + 1}번 행 선택`} {...selectionZoneProps('sales-select', index, selected, setSelected)}>
+                    <input type="checkbox" aria-label={`영업 입력 ${displayIndex + 1}행 선택`} checked={selected.has(index)} disabled={loading || saving} onChange={() => toggle(index)} />
                   </label>
                 </td>
-                <td>{index + 1}</td>
+                <td>{displayIndex + 1}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <div>{row.managerName || '-'}</div>
                   {row.importReviewRequired && <div className="sales-row-review-alert" role="alert">
@@ -2071,10 +2074,10 @@ export default function SalesDefectDeductionsPage() {
             <table className="data-table sales-summary-table">
               <thead><tr><th>No</th><th>담당자</th><th>거래처</th><th>품종</th><th>전산 품명</th><th>차감수량</th><th>크레딧</th><th>농장</th><th>비고</th><th>저장 상태</th><th>견적서</th><th>편집</th></tr></thead>
               <tbody>
-                {salesSummaryRows.map((row, index) => {
+                {salesSummaryRows.map(({ row, sourceIndex }, index) => {
                   const saveState = salesRowSaveState(row);
                   const stateClass = saveState === '저장 완료' ? 'sales-summary-state-ok' : saveState === '초기화됨' ? 'sales-summary-state-reset' : 'sales-summary-state-warn';
-                  return <tr key={row.deductionKey || `summary-${index}`} className={row.importReviewRequired ? 'sales-summary-review-row' : ''}>
+                  return <tr key={row.deductionKey || `summary-${sourceIndex}`} className={row.importReviewRequired ? 'sales-summary-review-row' : ''}>
                     <td>{index + 1}</td>
                     <td>{row.managerName || '-'}</td>
                     <td>{row.customerName || '-'}</td>
@@ -2124,9 +2127,7 @@ export default function SalesDefectDeductionsPage() {
         .incoming-review-head strong { color: #1e3a8a; }
         .incoming-review-head span { color: #475569; font-size: 12px; }
         .incoming-group-toggle { display: inline-flex; align-items: center; gap: 3px; padding: 3px; border: 1px solid #bfcee2; border-radius: 6px; background: #f8fafc; }
-        .incoming-group-toggle > span { padding: 0 5px; font-weight: 700; color: #334155; }
-        .incoming-group-toggle .btn { min-width: 62px; border-color: transparent; background: transparent; }
-        .incoming-group-toggle .btn.is-active { color: #fff; border-color: #1d4ed8; background: #1d4ed8; box-shadow: 0 1px 2px rgba(30, 64, 175, .25); }
+        .incoming-group-toggle .input { min-width: 150px; }
         .incoming-grid tr.incoming-country-divider td { padding: 4px 10px; border-top: 1px solid #5f86bd; border-bottom: 1px solid #b8cbe5; background: #e7effa; color: #173d72; text-align: left; }
         .incoming-country-divider strong { margin-right: 8px; font-size: 13px; }
         .incoming-country-divider span { color: #5a708e; font-size: 11px; font-weight: 700; }
@@ -2144,6 +2145,8 @@ export default function SalesDefectDeductionsPage() {
         .incoming-confirmed { color: #166534; font-weight: 700; }
         .incoming-pending { color: #b45309; font-weight: 700; }
         .sales-view-toggle { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); background: #f8fafc; border-radius: 4px; }
+        .defect-sort-field { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .defect-sort-field .input { min-width: 150px; }
         .sales-save-summary { margin-left: 10px; color: #475569; }
         .sales-summary-card { padding: 0; overflow: visible; }
         .sales-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
