@@ -61,21 +61,28 @@ export default withAuth(async function handler(req, res) {
   return res.status(405).end();
 });
 
-async function resolveOrderYearWeek(parentWeek) {
+async function resolveOrderYearWeek(parentWeek, requestedYear) {
   const pw = String(parentWeek || '').split('-')[0];
+  const explicitYear = /^\d{4}$/.test(String(requestedYear || '').trim())
+    ? String(requestedYear).trim()
+    : '';
   const r = await query(
     `SELECT TOP 1 sm.OrderYear, sm.OrderYearWeek
        FROM ShipmentMaster sm
       WHERE sm.isDeleted = 0
         AND LEFT(sm.OrderWeek, CHARINDEX('-', sm.OrderWeek + N'-') - 1) = @pw
+        ${explicitYear ? 'AND sm.OrderYear = @yr' : ''}
       ORDER BY sm.CreateDtm DESC`,
-    { pw: { type: sql.NVarChar, value: pw } }
+    {
+      pw: { type: sql.NVarChar, value: pw },
+      ...(explicitYear ? { yr: { type: sql.NVarChar, value: explicitYear } } : {}),
+    }
   );
   const row = r.recordset[0];
   if (row?.OrderYearWeek) {
     return { orderYear: row.OrderYear, orderYearWeek: String(row.OrderYearWeek) };
   }
-  const year = row?.OrderYear || new Date().getFullYear();
+  const year = explicitYear || row?.OrderYear || new Date().getFullYear();
   return {
     orderYear: year,
     orderYearWeek: buildEstimateOrderYearWeek(year, pw),
@@ -193,7 +200,7 @@ async function getEstimates(req, res) {
       return res.status(400).json({ success: false, error: 'week, custKey 필요' });
     }
     try {
-      const { orderYearWeek } = await resolveOrderYearWeek(week);
+      const { orderYearWeek } = await resolveOrderYearWeek(week, year);
       const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
       const rows = await loadExeExcelDetailItems({
         orderYearWeek,
@@ -255,7 +262,8 @@ async function getEstimates(req, res) {
            ) AS orderQty
            FROM OrderMaster om
            JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.isDeleted = 0
-           WHERE om.CustKey = @ck AND LEFT(om.OrderWeek, LEN(@pw)) = @pw
+           WHERE om.CustKey = @ck AND om.OrderYear = @yr
+             AND LEFT(om.OrderWeek, LEN(@pw)) = @pw
              AND om.isDeleted = 0 AND od.ProdKey = p.ProdKey
          ) od_agg
          OUTER APPLY (
@@ -268,7 +276,8 @@ async function getEstimates(req, res) {
            COUNT(DISTINCT sm.ShipmentKey) AS shipKeyCount
            FROM ShipmentMaster sm
            JOIN ShipmentDetail sd ON sm.ShipmentKey = sd.ShipmentKey
-           WHERE sm.CustKey = @ck AND LEFT(sm.OrderWeek, LEN(@pw)) = @pw
+           WHERE sm.CustKey = @ck AND sm.OrderYear = @yr
+             AND LEFT(sm.OrderWeek, LEN(@pw)) = @pw
              AND sm.isDeleted = 0 AND sd.ProdKey = p.ProdKey
          ) sd_agg
          WHERE p.isDeleted = 0
@@ -278,6 +287,7 @@ async function getEstimates(req, res) {
         {
           ck: { type: sql.Int, value: parseInt(custKey) },
           pw: { type: sql.NVarChar, value: parentWeek },
+          yr: { type: sql.Int, value: parseInt(year, 10) },
         }
       );
       // 분류
@@ -306,7 +316,7 @@ async function getEstimates(req, res) {
     try {
       const byDate = req.query.byDate === '1' || req.query.byDate === 'true';
       if (byDate && useExeParity && custKey && week) {
-        const { orderYearWeek } = await resolveOrderYearWeek(week);
+        const { orderYearWeek } = await resolveOrderYearWeek(week, year);
         const isPrint = req.query.printDetail === '1' || req.query.printDetail === 'true';
         if (isPrint) {
           const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
@@ -345,7 +355,7 @@ async function getEstimates(req, res) {
   // ── 거래처+차수 상세 (exe GetDetail 1회 조회)
   if (custKey && week && (req.query.byDate === '1' || req.query.byDate === 'true') && req.query.itemsOnly === '1') {
     try {
-      const { orderYearWeek } = await resolveOrderYearWeek(week);
+      const { orderYearWeek } = await resolveOrderYearWeek(week, year);
       const isPrint = req.query.printDetail === '1' || req.query.printDetail === 'true';
       if (isPrint) {
         const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
@@ -381,7 +391,7 @@ async function getEstimates(req, res) {
   const parentWeek = week ? week.split('-')[0] : '';
 
   try {
-    const { orderYearWeek } = week ? await resolveOrderYearWeek(week) : { orderYearWeek: null };
+    const { orderYearWeek } = week ? await resolveOrderYearWeek(week, year) : { orderYearWeek: null };
     const wdIn = activeWdKrToExeSqlIn(parseWeekDaysQuery(weekDays));
     const ck = custKey ? parseInt(custKey, 10) : null;
 

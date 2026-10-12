@@ -682,7 +682,7 @@ function SearchableSelect({ options, value, onChange, placeholder = '검색...' 
   );
 }
 
-export default function Estimate() {
+export default function Estimate({ weekdayWorkspace = false }) {
   const { t } = useLang();
   // 차수: 단순 숫자 (14, 15 …) — 세부차수(14-01, 14-02)는 자동 그룹핑
   const [weekNum, setWeekNum] = useState(getCurrentWeekNum);
@@ -991,6 +991,7 @@ export default function Estimate() {
   const [selectedCust, setSelectedCust] = useState(null);
   const [showCustDrop, setShowCustDrop] = useState(false);
   const custDropRef = useRef();
+  const [weekdayCustomerStatus, setWeekdayCustomerStatus] = useState('');
 
   // WeekDay 필터 — 업체 검색 시에도 EXE 기본값인 전체 출고요일을 유지한다.
   const [activeWD, setActiveWD] = useState(new Set(WEEKDAYS));
@@ -1140,13 +1141,44 @@ export default function Estimate() {
   // ── 업체 검색 디바운스
   useEffect(() => {
     if (custSearch.length < 1) { setCustList([]); return; }
-    const t = setTimeout(() => {
-      apiGet('/api/customers/search', { q: custSearch })
-        .then(d => { setCustList(d.customers || []); setShowCustDrop(true); })
+      const t = setTimeout(() => {
+        apiGet('/api/customers/search', { q: custSearch })
+        .then(d => { setCustList(d.customers || []); setShowCustDrop(!selectedCust && (d.customers || []).length > 0); })
         .catch(() => {});
-    }, 300);
-    return () => clearTimeout(t);
-  }, [custSearch]);
+      }, 300);
+      return () => clearTimeout(t);
+  }, [custSearch, selectedCust?.CustKey]);
+
+  // 주광 전용 메뉴는 주광을 기본 선택으로 제안하되, 거래처 선택은 계속 열어 둔다.
+  // 이름이 정확히 같은 거래처가 하나일 때만 자동 선택해 유사 거래처 오선택을 막는다.
+  useEffect(() => {
+    if (!weekdayWorkspace) return;
+    let cancelled = false;
+    setWeekdayCustomerStatus('주광 거래처 확인 중…');
+    apiGet('/api/customers/search', { q: '주광' })
+      .then((d) => {
+        if (cancelled) return;
+        const customers = d.customers || [];
+        const exact = customers.filter((c) => String(c.CustName || '').replace(/\s+/g, '') === '주광');
+        if (exact.length === 1) {
+          const customer = exact[0];
+          setSelectedCust(customer);
+          setCustSearch(customer.CustName);
+          setWeekdayCustomerStatus('주광 기본 선택 · 거래처를 바꾸면 다른 업체도 요일별로 조회·인쇄할 수 있습니다.');
+        } else {
+          setCustSearch('주광');
+          setCustList(customers);
+          setShowCustDrop(customers.length > 0);
+          setWeekdayCustomerStatus(exact.length > 1
+            ? '주광 이름이 같은 거래처가 여러 개입니다. 목록에서 사용할 거래처를 선택하세요.'
+            : '주광과 일치하는 거래처를 자동 확정하지 않았습니다. 목록에서 업체를 선택하세요.');
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setWeekdayCustomerStatus(`주광 거래처 조회 실패: ${error.message}`);
+      });
+    return () => { cancelled = true; };
+  }, [weekdayWorkspace]);
 
   // ── 품목 목록 로드 (모달 드롭다운용)
   useEffect(() => {
@@ -1172,6 +1204,7 @@ export default function Estimate() {
     const includeUnfixedForLoad = opts.includeUnfixedOverride ?? includeUnfixed;
     return apiGet('/api/estimate', {
       week: weekNum,        // "14" 전달 → API에서 14-01, 14-02 등 자동 매칭
+      year: yearStr,
       custKey: selectedCust?.CustKey || '',
       includeUnfixed: includeUnfixedForLoad ? '1' : '',
       ...(activeWD.size < 7 ? { weekDays: [...activeWD].join(',') } : {}),
@@ -1200,7 +1233,7 @@ export default function Estimate() {
     const t = setTimeout(() => load(true), 200); // 입력 디바운스
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekNum, selectedCust?.CustKey, autoLoad, includeUnfixed, activeWD]);
+  }, [weekNum, yearStr, selectedCust?.CustKey, autoLoad, includeUnfixed, activeWD]);
 
   // exe: GetDetail=전체 로드 → grdViewEstimate ActiveFilterString(WeekDay 코드)
   const filterItemsByWeekday = useCallback(
@@ -1221,6 +1254,7 @@ export default function Estimate() {
     setItemLoading(true);
     const detailParams = {
       week: weekNum,
+      year: yearStr,
       custKey,
       byDate: 1,
       itemsOnly: 1,
@@ -1235,7 +1269,7 @@ export default function Estimate() {
       .finally(() => setItemLoading(false));
     // 주문 vs 출고 불일치 자동 검증
     if (custKey && weekNum) {
-      apiGet('/api/estimate', { view: 'mismatch', week: weekNum, custKey })
+      apiGet('/api/estimate', { view: 'mismatch', week: weekNum, year: yearStr, custKey })
         .then(d => { if (d.success) setMismatch(d); else setMismatch(null); })
         .catch(() => setMismatch(null));
     }
@@ -1247,6 +1281,7 @@ export default function Estimate() {
     try {
       const d = await apiGet('/api/estimate', {
         week: weekNum,
+        year: yearStr,
         custKey: ship.CustKey,
         byDate: 1,
         itemsOnly: 1,
@@ -1261,7 +1296,7 @@ export default function Estimate() {
       setItems(nextItems);
       return nextItems;
     }
-  }, [selectedId, shipments, weekNum]);
+  }, [selectedId, shipments, weekNum, yearStr]);
 
   const selectedShip = shipments.find(s => `${s.ParentWeek}_${s.CustKey}` === selectedId);
 
@@ -2565,6 +2600,7 @@ export default function Estimate() {
         const d = await apiGet('/api/estimate', {
           view: 'excelDetail',
           week: weekNum,
+          year: yearStr,
           custKey: ship.CustKey,
           weekDays,
         });
@@ -2581,7 +2617,7 @@ export default function Estimate() {
     } catch (e) {
       alert(e.message || '이카운트 Excel 저장 실패');
     }
-  }, [weekNum, activeWD, selectedGroups, selectedShip, shipments]);
+  }, [weekNum, yearStr, activeWD, selectedGroups, selectedShip, shipments]);
 
   const openPrintDialog = (printFormat = ESTIMATE_PRINT_FORMAT.ESTIMATE) => {
     setPrintOpts(o => ({ ...o, outType: 'total', printFormat }));
@@ -2667,6 +2703,7 @@ export default function Estimate() {
       const params = new URLSearchParams({
         custKey: String(ship.CustKey || ''),
         week: String(ship.ParentWeek || week),
+        year: yearStr,
         byDate: '1',
         itemsOnly: '1',
         printDetail: '1',
@@ -2801,7 +2838,7 @@ export default function Estimate() {
     }
 
     setShowPrintDialog(false);
-  }, [filteredItems, selectedShip, weekNum, loadEstimateLogoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday, activeWD]);
+  }, [filteredItems, selectedShip, weekNum, yearStr, loadEstimateLogoDataUrl, selectedGroups, shipments, reloadSelectedShipmentItems, filterItemsByWeekday, activeWD]);
 
   const doActualExcelExport = useCallback(async (opts) => {
     const week = weekNum || '';
@@ -2834,6 +2871,7 @@ export default function Estimate() {
       const params = new URLSearchParams({
         custKey: String(ship.CustKey || ''),
         week: String(ship.ParentWeek || week),
+        year: yearStr,
         byDate: '1',
         itemsOnly: '1',
         printDetail: '1',
@@ -2947,7 +2985,7 @@ export default function Estimate() {
       : `${title}_${sheets[0].name}_${week}차.xlsx`;
     downloadEstimatePrintWorkbook(wb, fileName);
     setShowPrintDialog(false);
-  }, [weekNum, activeWD, selectedGroups, shipments, selectedShip, reloadSelectedShipmentItems, filterItemsByWeekday]);
+  }, [weekNum, yearStr, activeWD, selectedGroups, shipments, selectedShip, reloadSelectedShipmentItems, filterItemsByWeekday]);
 
   /** 주문등록(ViewOrder) 품목 → 거래명세표 Excel (인쇄·엑셀과 동일 양식) */
   const handleOrderStatementExcel = useCallback(async () => {
@@ -3061,6 +3099,7 @@ export default function Estimate() {
             const params = new URLSearchParams({
               custKey: String(ship.CustKey || ''),
               week: String(ship.ParentWeek || weekNum || ''),
+              year: yearStr,
               byDate: '1',
               itemsOnly: '1',
               printDetail: '1',
@@ -3097,7 +3136,7 @@ export default function Estimate() {
       }
     })();
     return () => { cancelled = true; };
-  }, [showPrintDialog, selectedGroups, selectedShip, shipments, printOpts.printFormat, activeWD, weekNum]);
+  }, [showPrintDialog, selectedGroups, selectedShip, shipments, printOpts.printFormat, activeWD, weekNum, yearStr]);
 
   // 품목 옵션 (검색 가능 드롭다운용)
   const prodOptions = products.map(p => ({
@@ -3324,6 +3363,21 @@ export default function Estimate() {
 
   return (
     <div>
+      {weekdayWorkspace && (
+        <section style={{
+          marginBottom: 8, padding: '9px 12px', border: '1px solid #b8c9ee',
+          borderLeft: '4px solid #1d4ed8', borderRadius: 7, background: '#f5f8ff',
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+        }}>
+          <strong style={{ color: '#173b91', fontSize: 14 }}>주광 요일별 견적</strong>
+          <span style={{ fontSize: 12, color: '#334155' }}>
+            {weekdayCustomerStatus || '주광을 기본으로 조회합니다. 거래처를 바꾸면 다른 업체도 같은 요일 기준으로 조회·인쇄할 수 있습니다.'}
+          </span>
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: '#52627a' }}>
+            요일 선택 후 견적서 출력 · 기존 견적서 관리와 같은 전산 기준
+          </span>
+        </section>
+      )}
       {/* ── 필터 바 ── */}
       <div className="filter-bar">
         {/* 연도 (별도) */}
