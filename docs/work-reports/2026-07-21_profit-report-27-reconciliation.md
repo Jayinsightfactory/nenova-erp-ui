@@ -135,3 +135,30 @@ OrderWeek IN (@endWeek, @fallbackWeek)
 ## 27차 현재 웹·엑셀 100% 판정
 
 27차 화면을 재조회해 표시값을 다시 대조한 결과, 호주·베트남의 시작 전 H/R 예외를 제외해도 나머지 숫자가 100% 일치하지 않는다. 정확히 일치하는 것은 L(불량금액)뿐이다. C 차이는 `기타(미분류)` 행의 현재 전산 거래가 포함된 영향이고, G/H/I/J/P/T는 원가·통관·환율·재고 스냅샷 원천이 엑셀 캐시와 달라서 발생한다. 따라서 이번 변경은 감사 오탐을 제거한 것이며, 엑셀과 숫자를 100% 같게 만드는 데이터 보정 변경은 아니다.
+
+## 22~27차 확장 감사 — read-only 환경 제약 기록 (2026-08-11)
+
+이 절은 22~27차(ProductStock 이월체인), 25~27차(FreightCost.ExchangeRate), OrderWeek 2025/2026 혼재를 라이브 DB로 확인해 달라는 후속 요청에 대한 기록이다. **쓰기 위반 0건** — 이번 세션은 코드 Read/Grep만 수행했고, SQL 실행·API POST/PUT/PATCH/DELETE·파일 업로드·환경변수 변경을 하지 않았다. 다른 worktree의 `.env`도 열람하지 않았다.
+
+### 환경 확인 결과 (실측)
+
+- 이 worktree에는 `.env`가 없다. `.env.local.example`(플레이스홀더 `DB_PASSWORD=여기에_DB비밀번호_입력`)만 존재하며 `DB_SERVER/DB_USER/DB_PASSWORD` 등 실제 자격증명이 `process.env`에 없다 (`node -e` 확인).
+- 로컬에 실행 중인 서버가 없다 (`localhost:3000` 연결 실패).
+- `https://nenovaweb.com/api/ping`은 200으로 응답해 아웃바운드 네트워크는 가능하나, `/api/sales/profit-report`는 `lib/auth.js`의 `withAuth`로 보호되어 있고 이 세션에는 로그인 세션/JWT가 없어 인증 API 호출이 불가하다.
+- 결론: **1·2·3·6번 요청(StockMaster 실측, stockWeeks 실반환값, FreightCost.ExchangeRate 실측, OrderWeek 2025/2026 실제 혼재 사례)은 이번 세션에서 라이브로 확인할 수 없었다.** 아래는 대신 코드 근거로 확인 가능한 범위만 정리한다.
+
+### 코드로 확인된 사항 (라이브 데이터 아님, 로직 검증만)
+
+- `lib/profitReport.js:413-434` `latestStockSnapshotWeek(major, orderYear)`은 특정 연도·차수를 하드코딩하지 않는 범용 함수다. `stockPriceRows`/`stockSnapshotByCategory`가 매번 `(major, orderYear)`와 `(prevMajor, prevOrderYear)`를 동시에 호출하므로(`pages/api/sales/profit-report.js:23-46`), 24→25, 25→26, 26→27 이월 체인이 **같은 코드 경로**를 반복 사용하는 구조인 것은 코드로 확인했다. 01차만 `prevMajor='52'` + `prevOrderYear=orderYear-1`로 분기한다 (`profit-report.js:27-28`). 다만 22~27주 각 `StockMaster.isFix`/`StockKey`/`ProductStock` 실제 행 값은 미확인이다.
+- R(환율) 자동값은 3단 폴백이다: ①`invoiceRatesByCategory` — `FreightCost.ExchangeRate`를 `WarehouseDetail.TPrice` 가중평균 (`lib/profitReport.js:374-400`), ②`currentMajor>=29`이고 전차수 `WebProfitReport.R`이 있으면 상속 (`profit-report.js:64-66`), ③`CurrencyMaster` 현재값 fallback. 이 폴백은 **국가/카테고리 무관 공통 로직**이며 호주(AUD)만의 별도 소스 분기는 코드에 없다 — 즉 "AUD 신규 소스"는 카테고리별 통화 매핑(`CATEGORY_CURRENCY.호주='AUD'`, `profit-report.js:554`)이 같은 3단 폴백을 타는 구조이지, AUD 전용 신규 원천이 추가된 것은 아니다. 실제 25~27차에 호주 BILL의 `FreightCost.ExchangeRate` 스냅샷이 존재하는지는 라이브 DB 확인이 필요하다.
+- 호주 28차·베트남 29차 시작차수 게이팅은 `lib/profitReportAudit.js:5-6` `{ 호주:{H:28,R:28}, 베트남:{H:29,R:29} }`로 코드에 고정돼 있다. 25~27차는 이 게이팅 시작차수 이전이므로, 해당 구간에서 호주/베트남 H·R 미입력은 설계상 정상(경고 미생성)이다.
+- `OrderWeek`만으로 조회하지 않는다는 계약은 `resolveActiveOrderYear`/`requireOrderYear`(`lib/orderUtils.js:39-71`)가 `OrderYear`를 별도 필수 파라미터로 강제하는 구조로 코드상 확인했다. 그러나 실제 데이터에 2025/2026 `OrderWeek` 혼재 인스턴스가 있는지, 있다면 어느 API/화면이 실제로 영향받는지는 라이브 쿼리 없이는 답할 수 없다.
+
+### 확인하지 못한 항목 (재개 조건)
+
+1. 22~27주 `StockMaster(OrderWeek, isFix, StockKey)` 실제 행과 `ProductStock` 존재 여부
+2. 25~27주 웹 API `stockWeeks.begin/end`(및 `beginStockMasterIsFix/endStockMasterIsFix`) 실반환값과 1번의 일치 여부
+3. 25~27주 `FreightCost.ExchangeRate`가 통화/국가/입고월별로 실제 존재하는지, 호주(AUD) BILL 스냅샷의 유무
+4. 실제 `OrderWeek` 2025/2026 혼재 사례(있다면 위치)
+
+재개하려면 다음 중 하나가 필요하다: (a) 이 worktree `.env`에 읽기 전용 DB 자격증명을 채워 `scripts/probe-*.mjs` 패턴으로 직접 SELECT 조회, 또는 (b) 인증된 세션 쿠키/JWT를 제공해 `https://nenovaweb.com/api/sales/profit-report?week=NN&orderYear=2026` GET 응답을 주차별로 수집. 둘 다 이번 세션에는 제공되지 않았다.
