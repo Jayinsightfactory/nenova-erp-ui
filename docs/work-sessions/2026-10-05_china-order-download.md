@@ -5,7 +5,7 @@
 | 화면 | 중국 발주 현황 다운로드 `/stats/china-order-download` |
 | 기준 브랜치 | origin/master 9916866c, 독립 codex/china-order-download |
 | 원장 부작용 | SQL SELECT만, 기존 EXE/주문/분배/출고/입고/재고/견적/Product 변경 없음 |
-| 구현/배포 | 로컬 기능·ERP 회귀·브라우저·빌드 검증 완료, PR #867 검증 후 배포 예정 |
+| 구현/배포 | PR #867 병합 및 Cafe24 배포 성공, 운영 브라우저·DB 조회·엑셀 대조 완료 |
 | PR | https://github.com/Jayinsightfactory/nenova-erp-ui/pull/867 |
 
 ## 고정 결정
@@ -46,3 +46,12 @@
 
 ## 이어받기
 이 문서와 `docs/plans/china-order-download-2026-10-05.md`, `docs/contracts/china-order-download.json`을 읽는다. 주문 수량 또는 HF 변경 요청은 조회전용 계약을 ERP 쓰기 요청으로 확대하지 않는다. 공유 HF 사전 요구는 별도 저장범위 합의가 필요하다.
+
+## 배포 후 최종 확인 — 2026-10-05 10:56 KST
+- PR #867 squash merge: `3d2298d049a29df81ccdb31a0cb3e19664640c31`. 배포 run https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37252994467 성공(4분38초), 운영 화면 버전 `v1.0.2-3d2298d0` 확인.
+- 운영 화면 https://nenovaweb.com/stats/china-order-download . 1920×1080/100% 일반 탭 shell1/sidebar1, popup shell1/sidebar0, 가로 문서폭1920/7차수 정상, React 오류0.
+- 실제2026년40차 중심37~43차: 169품목, 주문1336행,42업체. 같은 시점 native pivot 중국 주문1336개 업무키 수량 전부 일치, stockless 추가0. 사전 표본1332에서1336으로 증가한 운영수량을 최신 조회값으로 확인했다(고정 fixture 수량을 운영 원장으로 쓰지 않음).
+- 모든1336주문행의 CL 코드가 현재 활성 Customer.OrderCode와 일치. CL2/CLS 등 텍스트 보존. 실제 XLSX `발주현황171행/업체별발주580행/주문상세1337행/조회기준6행`(각 헤더 포함), 품목별7차수 수량·합계 및 업체별 합계가 원본 상세와 일치.
+- 운영 앞차수 이동39차→36~42차 연속7개 조회, 실제 첨부 업로드 및 기본 사전 복원 성공. 미인증GET401/불완전연도query400 확인.
+- 일반 화면 확인은 새 탭에서 수행했다. 기존 Layout은 popup 창의 sessionStorage nvPopupWin을 유지하므로 popup 창에서 query를 지워도 popup이 유지되는 것은 기존 정상 동작(새 기능의 메뉴 누락 아님).
+- 후속 QA 기록은 로컬 작업세션에 보존하고 같은 PR에 검증 결과를 남긴다. 비밀값/raw 업무자료는 커밋하지 않는다.
