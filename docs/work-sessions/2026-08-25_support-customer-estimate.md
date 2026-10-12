@@ -73,7 +73,7 @@
 
 **A.** 원인: `TR_ShipmentDetail_OutQty_Log`가 웹 수정 시 SqlClient 감사줄을 Descr에 append. 트리거를 SqlClient/Node면 skip하도록 바꿨고(운영 적용), `appendDescr`이 감사줄을 버린다. 견적 적요는 운영로그·업로드 로그를 숨기고 직접입력만 표시. 기존 SqlClient 2035건+잔여 191건 정리.
 
-**결과.** PR·Cafe24 배포 진행.
+**결과.** PR #357 squash merge `3c23ed1`. Cafe24 배포 성공 (Actions 32830268617). ping 200. 운영 트리거·Descr 정리 완료.
 
 ## 미완
 
