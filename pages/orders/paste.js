@@ -6060,7 +6060,7 @@ function AppliedStockCopyPanel({draft,result,currentScope,bulkRunning=false}) {
       <button ref={triggerRef} type="button" disabled={bulkRunning} onClick={()=>{setCopied(false);setCopyError('');dialogRef.current?.showModal();}} style={{padding:'8px 12px',border:'1px solid #1565c0',borderRadius:6,background:'#fff',color:'#0d47a1',fontWeight:800,cursor:bulkRunning?'wait':'pointer'}}>적용재고 확인</button>
       <span style={{fontSize:12,color:'#455a64'}}>{bulkRunning?'처리 중에는 확인할 수 없습니다.':applied.ready?'저장·검증된 변경을 기초재고에 반영했습니다.':'저장·검증된 결과가 있어야 적용재고를 확인할 수 있습니다.'}</span>
     </div>
-    <dialog ref={dialogRef} aria-labelledby="paste-applied-stock-title" onKeyDown={keepModalTabFocus} onClose={()=>triggerRef.current?.focus()} style={{width:'calc(100vw - 24px)',maxWidth:960,maxHeight:'calc(100dvh - 24px)',boxSizing:'border-box',padding:0,border:'1px solid #90a4ae',borderRadius:10,boxShadow:'0 18px 48px #26323855',overflow:'hidden'}}>
+    <dialog ref={dialogRef} aria-labelledby="paste-applied-stock-title" onKeyDown={keepModalTabFocus} onClose={()=>triggerRef.current?.focus()} style={{margin:'auto',width:'calc(100vw - 24px)',maxWidth:960,maxHeight:'calc(100dvh - 24px)',boxSizing:'border-box',padding:0,border:'1px solid #90a4ae',borderRadius:10,boxShadow:'0 18px 48px #26323855',overflow:'hidden'}}>
       <div style={{display:'flex',flexDirection:'column',maxHeight:'calc(100dvh - 26px)',minWidth:0}}>
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',padding:'12px 14px',borderBottom:'1px solid #cbd5e1',background:'#f8fafc',flexShrink:0}}>
           <strong id="paste-applied-stock-title" style={{fontSize:16,marginRight:'auto'}}>기초재고 기준 적용재고</strong>
