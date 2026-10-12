@@ -4,6 +4,29 @@
 
 ---
 
+## [2026-08-07] 세션 — 멀티세션 컨트롤 타워 운영 설계
+
+### 작업 내용
+- 기존 기능 완성도 감사, 신규 기능 개발, 실제 웹·DB·nenova.exe·MOYI 검증을 동시에 관리하는 컨트롤 타워 운영 규칙을 문서화.
+- 작업 ID, 별도 branch/worktree, 세션 상태, DB 쓰기 직렬화, 통합 QA·배포 단일 책임을 고정.
+- 세션별 인수인계 템플릿과 사용자 지시문을 추가.
+
+### 변경된 파일
+- docs/NENOVA_CONTROL_TOWER.md
+- docs/work-sessions/README.md
+- docs/work-sessions/TEMPLATE.md
+- .claude/CLAUDE.md
+
+### 검증
+- git diff --check ✅
+- ERP 원장 코드 변경 없음
+
+### 다음 작업
+- 컨트롤 타워에서 기존 메뉴 완성도 감사 작업을 먼저 생성.
+- 재고·MOYI·자연어 매칭·Drive 기능을 작업 ID별로 분리.
+
+---
+
 ## [2026-08-04] 세션 — 견적서관리 불량차감·판매요청 직접입력
 
 ### 작업 내용
