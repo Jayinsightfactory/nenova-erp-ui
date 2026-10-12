@@ -4,14 +4,36 @@
     {
       "name": "nenova-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "nenova-railway",
       "runtimeExecutable": "railway",
-      "runtimeArgs": ["run", "npm", "run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "npm",
+        "run",
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "nenova-parity-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/Users/USER/Documents/Codex/2026-07-11/new-chat/work/nenova-erp-ui/.claude/worktrees/profit-parity-rootcause-20260812",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3199"
+      ],
+      "port": 3199
     }
   ]
 }
