@@ -5,7 +5,7 @@
 | 날짜 | 2026-09-14 |
 | 화면 | /raum/pnl 라움·초이문 손익계산서 |
 | 원장 부작용 | 기존 웹 결산 저장 범위만, ERP 주문·분배·재고·견적 보존 |
-| PR·배포 | PR586, 운영 반영은 CI 이후 |
+| PR·배포 | PR586 병합, Cafe24 run34815877058 성공 |
 
 ## 고정 결정
 
@@ -26,4 +26,8 @@
 - 손익계산서 집중 검사, 전체 ERP 계약, dnSpy 근거/manifest/쓰기 범위, production build 통과.
 - 실브라우저 가상 API 5가지 시나리오 통과, 1920×1080/1366×768 캡처 검토 완료. 실제 운영 결산 저장은 미실행.
 - 단일 차수 강남 복수시트도 원본 파일/token/snapshot import 저장 경로를 유지하도록 최종 리뷰 지적을 반영했다.
-- [PR586](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/586). 남은 작업: CI, 병합·Cafe24 배포, 운영 읽기 전용 확인.
+- [PR586](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/586) 병합 완료: `3ca4d54e066c6b98e383d6ff5e9cc328fbdd443c`.
+- PR CI run34815778393 성공. 로컬 junction 때문에 못 돌린 MOYI HTTP 통합 검사도 원격 CI에서 성공했다.
+- [Cafe24 배포](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/34815877058) 성공. 서버 반영·실브라우저 hydration 검사 완료.
+- 로그인된 Chrome `/raum/pnl?popup=1`: 버전 `3ca4d54e`, 새로운 업로드 testid 존재, 목록 로딩 완료, 콘솔 오류 0, 1920×1080에서 가로 넘침 없음. 운영 파일 업로드·결산 저장·ERP 쓰기 없음.
+- 사용자 안내: 페이지 새로 열기 → 같은 엑셀 재업로드 → 강남 원본 시트·합산 수량/금액 확인 체크 → 저장. 실제 사용자 파일은 미제공이므로 해당 파일 저장 완료를 대신 주장하지 않는다.
