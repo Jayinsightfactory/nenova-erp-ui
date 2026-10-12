@@ -89,7 +89,7 @@
       "businessScope": ["OrderYear", "OrderWeek"],
       "identity": ["BoardKey"],
       "multipleWorkCopies": "multiple BoardKey work copies may coexist for the same OrderYear + OrderWeek; list GET uses the explicit year+week scope, optional detail GET may use BoardKey, and update POST/delete always identify BoardKey explicitly",
-      "rowVersion": "every mutable BoardKey row has RowVersion; save/delete requires expectedRowVersion and returns HTTP 409 with no mutation when stale",
+      "rowVersion": "every mutable BoardKey row has RowVersion as a 16-character uppercase hexadecimal token; save/delete requires BoardKey + expectedRowVersion and returns HTTP 409 with no mutation when stale",
       "uploadRetention": "original file metadata, source sheet name, source row, raw customer/item/box text and parsed quantity are retained inside each BoardKey JSON payload",
       "deleteRetention": "delete is a reversible soft-delete of the selected BoardKey work copy; it must not delete ERP rows or erase its packing/matching audit",
       "staleRevision": "save/delete must include BoardKey + expectedRowVersion; a stale token changes zero rows and returns HTTP 409/reload-required",

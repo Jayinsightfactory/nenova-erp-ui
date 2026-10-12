@@ -38,7 +38,8 @@ function saveBoard(state, input) {
   if (current && input.expectedRowVersion !== current.rowVersion) {
     return { ok: false, status: 409, conflict: 'STALE_ROW_VERSION', state };
   }
-  const next = { ...input, rowVersion: (current?.rowVersion || 0) + 1, isDeleted: false };
+  const nextNumber = current ? parseInt(current.rowVersion, 16) + 1 : 1;
+  const next = { ...input, rowVersion: nextNumber.toString(16).toUpperCase().padStart(16, '0'), isDeleted: false };
   return { ok: true, state: { ...state, [input.boardKey]: next } };
 }
 
@@ -47,35 +48,36 @@ function softDeleteBoard(state, input) {
   if (!current || current.rowVersion !== input.expectedRowVersion || current.isDeleted) {
     return { ok: false, status: 409, conflict: 'STALE_ROW_VERSION', state };
   }
-  return { ok: true, state: { ...state, [input.boardKey]: { ...current, rowVersion: current.rowVersion + 1, isDeleted: true } } };
+  const nextVersion = (parseInt(current.rowVersion, 16) + 1).toString(16).toUpperCase().padStart(16, '0');
+  return { ok: true, state: { ...state, [input.boardKey]: { ...current, rowVersion: nextVersion, isDeleted: true } } };
 }
 
 let state = {};
 let result = saveBoard(state, { boardKey: 'board-a', orderYear: 2026, orderWeek: '35-01', payload: 'v1', expectedRowVersion: undefined });
 assert(result.ok);
 state = result.state;
-assert.strictEqual(state['board-a'].rowVersion, 1);
+assert.match(state['board-a'].rowVersion, /^[0-9A-F]{16}$/);
 // 동일 차수의 별도 작업본은 독립 BoardKey로 공존한다.
 result = saveBoard(state, { boardKey: 'board-b', orderYear: 2026, orderWeek: '35-01', payload: 'other', expectedRowVersion: undefined });
 assert(result.ok);
 state = result.state;
 assert.strictEqual(state['board-b'].payload, 'other');
 // board-a의 수정은 해당 BoardKey와 연도·차수 범위에만 적용된다.
-result = saveBoard(state, { boardKey: 'board-a', orderYear: 2026, orderWeek: '35-01', payload: 'v2', expectedRowVersion: 1 });
+result = saveBoard(state, { boardKey: 'board-a', orderYear: 2026, orderWeek: '35-01', payload: 'v2', expectedRowVersion: '0000000000000001' });
 assert(result.ok);
 state = result.state;
-assert.strictEqual(state['board-a'].rowVersion, 2);
+assert.strictEqual(state['board-a'].rowVersion, '0000000000000002');
 assert.strictEqual(state['board-a'].payload, 'v2');
 assert.strictEqual(state['board-b'].payload, 'other');
 // 낡은 화면의 저장은 절대 최신 데이터를 덮지 않는다.
 const beforeStale = JSON.stringify(state);
-result = saveBoard(state, { boardKey: 'board-a', orderYear: 2026, orderWeek: '35-01', payload: 'stale', expectedRowVersion: 1 });
+result = saveBoard(state, { boardKey: 'board-a', orderYear: 2026, orderWeek: '35-01', payload: 'stale', expectedRowVersion: '0000000000000001' });
 assert.strictEqual(result.ok, false);
 assert.strictEqual(result.status, 409);
 assert.strictEqual(result.conflict, 'STALE_ROW_VERSION');
 assert.strictEqual(JSON.stringify(result.state), beforeStale);
 // 삭제는 soft-delete이며 BoardKey 본문/업로드/매칭 이력이 남는 전제다.
-result = softDeleteBoard(state, { boardKey: 'board-a', expectedRowVersion: 2 });
+result = softDeleteBoard(state, { boardKey: 'board-a', expectedRowVersion: '0000000000000002' });
 assert(result.ok);
 assert.strictEqual(result.state['board-a'].isDeleted, true);
 assert.strictEqual(result.state['board-a'].payload, 'v2');
