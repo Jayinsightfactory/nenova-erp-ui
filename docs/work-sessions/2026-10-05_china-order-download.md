@@ -5,8 +5,8 @@
 | 화면 | 중국 발주 현황 다운로드 `/stats/china-order-download` |
 | 기준 브랜치 | origin/master 9916866c, 독립 codex/china-order-download |
 | 원장 부작용 | SQL SELECT만, 기존 EXE/주문/분배/출고/입고/재고/견적/Product 변경 없음 |
-| 구현/배포 | 로컬 기능·ERP 회귀·브라우저·빌드 검증 완료, PR #867 검증 후 배포 예정 |
-| PR | https://github.com/Jayinsightfactory/nenova-erp-ui/pull/867 |
+| 구현/배포 | 초기 #867 배포 완료, 단일 세부차수·업체 표시 정정 #868 배포 및 운영 QA 완료 |
+| PR | https://github.com/Jayinsightfactory/nenova-erp-ui/pull/868 (초기 #867) |
 
 ## 고정 결정
 - 최신 합의: 중심차수 이전3+현재+다음3, 총7개 **메인차수는 선택 범위**. 범위 내 모든 실제 세부차수를 선택 목록으로 제공하고, **화면·엑셀은 선택한 세부차수 하나만** 표시한다. 업체명·CL 코드·품목·HF·단위·수량을 함께 보여준다. 최초 메인차수 합산 표시 결정은 폐기.
@@ -59,7 +59,7 @@
 **Q.** 단일 차수로 보여야 하고 업체도 같이 표시돼야 한다.
 **확인 답변.** 세부차수 하나만 표시,7개 메인차수는 선택 범위.
 **A.** 단일 선택 모델 `selectChinaOrderSubweek`로 정확한 연도+세부차수 주문만 표시/엑셀 생성. 화면 CustKey+ProdKey+단위 행에 업체명·Customer.OrderCode(CL)·품목/HF/수량 표시. 업체명/CL/품목/HF 검색 후 다운로드도 동일 고객 행만 포함. 같은 CL의 다른 업체는 합치지 않는다. 합계는 단위별 분리. 원장/EXE/SQL/API 쿼리 변경 없음.
-**상태.** codex/china-order-subweeks 로컬 구현·검증 완료, 새 PR/배포 전.
+**상태.** codex/china-order-subweeks 구현·검증, PR #868 병합·배포·운영 QA 완료.
 
 ### 7. 사전 근거와 검증 진행
 **A.** main이 orchestration을 primary 정본에서 선독, npm ci와 운영 읽기 probe·actual dnSpy CLI 완료. 설계/리뷰 gpt-5.6-sol xhigh, 분리 구현 gpt-6-luna high(지정중간모델 미제공). 기능18개·전체 ERP 회귀·manifest78개·dnSpy evidence·write scope0변경API·최종생산빌드 통과. 개발 webpack instrumentation의 기존 mssql edge 모듈 오류는 기능 수정과 분리하고 생산 빌드로 브라우저 검증했다. 임시output/빌드자료/인증정보 커밋 금지.
@@ -67,3 +67,10 @@
 ### 8. 단일 차수 최종 로컬 QA
 **A.** production bundle 실제 브라우저1920×1080/100%: 40-01 123품목·34업체·327업체/품목행, 업체명과 전산 CL 표시, 숫자14px 진한 중앙, shell1/팝업 sidebar0·일반 sidebar1, 문서가로폭1920. 전체 선택목록12실제 세부차수(40-03 포함),7메인범위 유지. 1100×800 가로문서 잘림0. 실제 페이지 스크롤 소유자에서650px 내려 헤더가 화면상단에 유지되는 것 검증.
 **A.** 40-01/40-03 전환·특정업체 검색 후 각각 실제 다운로드 XLSX 재독해: 발주현황8열·업체별발주11열, 선택 연도/세부차수만 상세에 포함, 화면 customer row와 고객키/CL/원본수량/합계 전부 일치. 4시트 렌더 검토(회색흰색/모든테두리/원본명줄바꿈). 검색 후 전체 선택목록 유지, 원본HF 업로드/기본복원, 중심차수 stale 및 응답scope 불일치 다운로드 차단, 브라우저 pageerror0. 최종 고성능 리뷰 P0/P1 없음; sticky P2도 실브라우저로 종료.
+
+### 9. PR 병합
+**결과.** PR #868 https://github.com/Jayinsightfactory/nenova-erp-ui/pull/868, head2972754917079b436b9b8d43f90849ea97ecccdc. GitHub ERP Contract Guard run37255816596 성공 후 squash 병합 master c3c379f39757015bc39efec87c5bb2f2a63b114f(2026-10-05T02:34:10Z). 자동 Cafe24 run37255919828 성공. 이 후속 운영 QA는 local 문서에 보관하며 배포만을 위한 추가 커밋은 만들지 않는다.
+
+### 10. 운영 최종 확인
+**결과.** 2026-10-05T02:38:53Z 운영 로그인 후 읽기 전용 조회·브라우저·실제 XLSX 다운로드 재독해 성공. 7메인 선택범위37~43,12실제 세부차수 선택목록,40-03 포함. 단일40-01 34업체327업체/품목행,40-03 별도 수량, 업체 검색 후 해당 고객만 내보내기. 모든 주문 CL은 현재활성 Customer.OrderCode와 일치, 원본 중국 native 피벗 OrderYear+OrderWeek+CustKey+ProdKey 수량과 일치. 1920x1080/100% 헤더sticky/중앙14px/문서폭/일반·팝업 shell 정상,1100x800 가로잘림0,브라우저 pageerror0. 원본HF 재업로드·기본복원 확인. EXE/SQL/API query/운영 원장 보존.
+**배포.** https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37255919828 성공, 운영 v1.0.2-c3c379f3. 다운로드는 선택한 세부차수 하나를 포함하며7메인 합산이 아니다.
