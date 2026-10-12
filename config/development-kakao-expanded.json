@@ -1,0 +1,1223 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "2026-10-08.1",
+  "sourceId": "nenovakakao",
+  "sourceRef": "main",
+  "sourceHead": "0602a4075883eebb3b0b4e7d4c27cbe53112a6a4",
+  "title": "Nenova Kakao 전체 개발 이야기",
+  "description": "Nenova Kakao main에 도달한 115개 변경 확인번호를 실제 코드와 저장소 문서로 검토해, 왜 시작했고 어떤 조작·설정·처리를 만들었으며 어떤 문제를 보완했는지 쉬운 업무 이야기로 정리한다.",
+  "reviewScope": {
+    "totalIds": 115,
+    "featureIds": 113,
+    "mergeIds": 2,
+    "firstObservedAt": "2026-04-12T06:22:30Z",
+    "lastObservedAt": "2026-09-28T00:47:19Z",
+    "inventorySnapshotGeneratedAt": "2026-10-08T07:26:59.397Z",
+    "evidence": "준비된 외부 저장소 main snapshot의 정확한 40자리 변경 확인번호와 data/generated/full-development-history.json",
+    "privacy": "대화 원문, 사람 이름, 고객·품목·주문 값, 인증값은 싣지 않았다. 버튼·설정·처리 흐름과 공개 가능한 코드 근거만 요약했다."
+  },
+  "stateSeparation": {
+    "historicalChanges": "changes는 해당 변경 확인번호 시점에 새로 만들거나 보완한 내용이다.",
+    "currentMain": "현재 상태 설명은 sourceHead의 main에서 다시 확인되는 코드와 문서만 가리킨다. 당시 운영 중이었거나 실제 전송·저장이 끝났다는 뜻으로 확대하지 않는다.",
+    "mergePolicy": "병합 확인번호는 검토 목록에는 포함하지만 별도 기능으로 세지 않는다."
+  },
+  "stories": [
+    {
+      "id": "kakao-bidirectional-bridge",
+      "title": "카카오 대화를 MOYI 업무 흐름과 양방향 연결",
+      "purpose": "카카오 대화를 수집·분류해 업무 시스템으로 보내고, MOYI의 승인 요청과 결과를 다시 정확한 카카오 대화방으로 전달한다.",
+      "userValue": "사람이 대화방과 업무 시스템 사이에서 내용을 반복해 옮기는 일을 줄이면서도, 확인되지 않은 상태에서는 자동 처리를 멈출 수 있다.",
+      "scopeNote": "초기 수집 도구에서 회사별 양방향 브리지와 닫힌 실패 방식의 수신 워커로 확장된 당시 흐름이다. 현재 main에는 이 기반이 남아 있지만, 실행 여부와 연결 상태는 배포 PC의 설정을 따로 확인해야 한다.",
+      "confidence": "verified",
+      "purposeEvidence": [
+        {
+          "kind": "commit",
+          "ref": "8cd6959bbc493c2bab3e2a5c610628a70a892d5f",
+          "summary": "카카오 수집·분류·시트 자동화의 최초 전체 코드가 들어왔다."
+        },
+        {
+          "kind": "commit",
+          "ref": "d4e7cc9b1a076a90fdbf33402da2094bc476c72d",
+          "summary": "MOYI의 발송 대기 항목을 카카오로 보내고 결과를 확인하는 반대 방향 연결이 추가됐다."
+        },
+        {
+          "kind": "commit",
+          "ref": "976a63ad7491e157e1b5c4298200368d94436647",
+          "summary": "상태를 검증하지 못하면 수신하지 않는 안전한 카카오 입력 경로가 추가됐다."
+        }
+      ],
+      "changes": [
+        {
+          "title": "수집·분류·시트 자동화 시작",
+          "problem": "카카오 대화를 사람이 방마다 확인하고 업무 종류별로 다시 정리해야 했다.",
+          "description": "방 선택, 메시지 추출, 업무 분류, 알림, 시트 동기화와 상태 표시를 한 실행 흐름으로 묶었다.",
+          "result": "대화를 업무 자료로 모으고 분류하는 첫 자동화 기반이 생겼다.",
+          "evidenceHashes": [
+            "8cd6959bbc493c2bab3e2a5c610628a70a892d5f"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "양방향 브리지 역할 확정",
+          "problem": "수집 도구와 통합 업무 시스템이 어떤 책임을 나눠 갖는지 불분명했다.",
+          "description": "연결 문서에 카카오와 업무 허브 사이의 입출력 방향과 책임을 정리했다.",
+          "result": "후속 개발이 단순 수집기가 아니라 양방향 연결 도구라는 같은 기준을 따를 수 있게 됐다.",
+          "evidenceHashes": [
+            "3b53bf100a0c72008f2aea28e49f747593f1ffc5",
+            "c411de3c6dd889123c233e717ecf617331d66ac3"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "MOYI 발송 대기함 연결",
+          "problem": "업무 시스템에서 승인되거나 준비된 내용을 사람이 다시 카카오에 붙여 넣어야 했다.",
+          "description": "발송 대기 항목을 읽어 카카오로 보내고 확인 응답을 남기는 워커를 만들고, 회사별 연결 주소와 인증 헤더를 분리했다.",
+          "result": "회사별 연결을 섞지 않고 MOYI에서 카카오로 보내는 경로가 생겼다.",
+          "evidenceHashes": [
+            "d4e7cc9b1a076a90fdbf33402da2094bc476c72d",
+            "6f5abf0f8e9707f4d40bef4c630fcf21c00a1e53"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "운영 콘솔과 전달 상태 보존",
+          "problem": "백그라운드 워커가 살아 있는지, 메시지가 어디까지 전달됐는지 운영자가 한곳에서 확인하기 어려웠다.",
+          "description": "MOYI 카카오 워커와 운영 콘솔을 추가하고, 안전한 방 열기와 전달 결과를 디스크에 남기도록 연결했다.",
+          "result": "운영자가 워커 상태를 보고 재시작해도 전달 진행 상태를 이어갈 수 있게 됐다.",
+          "evidenceHashes": [
+            "1cf303d00977bad4d135538cc856defce1ae3ce5",
+            "06dc0cff169bd605b7a70ad6c33ac1e24378dc04"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "승인 대상 대화방 자동 탐색",
+          "problem": "승인 메시지를 보낼 방 목록을 매번 수동으로 관리하면 누락되거나 오래된 설정을 쓰기 쉬웠다.",
+          "description": "카카오 화면에서 방을 찾아 MOYI와 맞추는 동기화 작업을 만들고, 환경설정 다시 읽기와 화면 글자 인식 모델 설정을 보완했다.",
+          "result": "방 탐색이 실패한 상태를 그대로 성공으로 넘기지 않고 다시 확인할 수 있게 됐다.",
+          "evidenceHashes": [
+            "de04f08e66c698470ce9836a0639817cd29fbad6",
+            "7125f54323088884a5d931ed41db8e430d993e8e",
+            "d6a1b6fd5db9e5b5e46ae3749507ca4658908c84",
+            "f83a5b7fb3db9ee5ce1eccfd26c02d28cdc04545"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "검증 실패 시 수신 중단",
+          "problem": "방이나 내보내기 결과를 확인하지 못한 상태에서 새 메시지로 처리하면 다른 대화를 잘못 가져올 수 있었다.",
+          "description": "방·파일·기준점 확인이 모두 끝난 경우에만 카카오 수신 내용을 MOYI로 넘기는 닫힌 실패 방식의 동기화를 추가했다.",
+          "result": "확인되지 않은 수신 결과가 업무 입력으로 넘어가는 위험을 줄였다.",
+          "evidenceHashes": [
+            "976a63ad7491e157e1b5c4298200368d94436647"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "잠깐의 서버 오류에서 워커 유지",
+          "problem": "일시적인 API 오류 한 번으로 전체 카카오 연결 워커가 멈출 수 있었다.",
+          "description": "일시 오류는 기록한 뒤 다음 순회를 계속하도록 워커 예외 처리를 보완했다.",
+          "result": "짧은 연결 장애 뒤에도 운영자가 매번 직접 다시 켜지 않아도 되게 됐다.",
+          "evidenceHashes": [
+            "95cf5c3da88e14296933c17b2362486ffacbaad5"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "읽지 않은 방 우선 수신",
+          "problem": "새 메시지가 없는 방까지 반복해서 열면 화면 작업이 느려지고 다른 업무가 기다렸다.",
+          "description": "읽지 않음 표시가 있는 방만 수신 내보내기 대상으로 삼는 조건을 추가했다.",
+          "result": "새 메시지가 있는 방에 화면 사용 시간을 먼저 쓸 수 있게 됐다.",
+          "evidenceHashes": [
+            "809567a977f42ad0bad9706786975153537e94ee"
+          ],
+          "evidenceRefs": []
+        }
+      ],
+      "rules": {
+        "pathPrefixes": [
+          "core/moyi_outbound.py",
+          "core/moyi_inbound.py",
+          "core/moyi_worker.py",
+          "core/moyi_room_sync.py",
+          "SOLUTION_LINK.md"
+        ],
+        "subjectTerms": [
+          "양방향 브릿지",
+          "MOYI Kakao worker",
+          "inbound sync",
+          "outbound"
+        ],
+        "sourceIds": [
+          "nenovakakao"
+        ],
+        "excludeTerms": [],
+        "priority": 100
+      }
+    },
+    {
+      "id": "kakao-exact-room-and-attachments",
+      "title": "정확한 대화방을 열어 잘못 보내는 사고 방지",
+      "purpose": "동명이인, 친구 바로가기, 남은 검색어, 숨겨진 창 때문에 다른 방을 열거나 보내는 위험을 줄이고 검증된 대화방에서만 작업한다.",
+      "userValue": "자동화가 빠르게 움직이더라도 실제 방 제목과 창 상태를 다시 확인한 뒤 보내므로 오발송 위험이 낮아진다.",
+      "scopeNote": "이 이야기는 대화방 선택과 창 복구만 다룬다. 첨부파일 수집의 세부 흐름은 별도 이야기로 분리했다. 현재 main도 정확한 방 확인을 사용하지만 실제 카카오 화면 변경 여부는 실행 PC에서 확인해야 한다.",
+      "confidence": "verified",
+      "purposeEvidence": [
+        {
+          "kind": "commit",
+          "ref": "56f01fd7a9d8fb061edca80bb47af4d55535603c",
+          "summary": "검색 결과가 아니라 실제 열린 방 제목을 확인하는 흐름이 도입됐다."
+        },
+        {
+          "kind": "commit",
+          "ref": "9c48ef62fb5f636e6ee5e3ea94adcd170252d423",
+          "summary": "허용된 방 이름만 정확히 검색하도록 범위를 좁혔다."
+        }
+      ],
+      "changes": [
+        {
+          "title": "정확한 방 창 열기",
+          "problem": "검색 결과의 비슷한 이름을 눌러 다른 대화방이 열릴 수 있었다.",
+          "description": "원하는 방 이름과 실제 열린 카카오 창 제목이 맞는지 확인한 뒤 작업하도록 바꿨다.",
+          "result": "방 이름이 맞지 않으면 발송을 진행하지 않게 됐다.",
+          "evidenceHashes": [
+            "56f01fd7a9d8fb061edca80bb47af4d55535603c"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "허용 방만 검색",
+          "problem": "카카오 검색에서 친구 바로가기나 허용하지 않은 비슷한 방이 먼저 잡힐 수 있었다.",
+          "description": "허용 목록의 대화방만 정확히 찾고 친구 바로가기는 방 검색 결과로 사용하지 않도록 했다.",
+          "result": "같은 이름의 개인 대화와 단체방을 혼동할 가능성을 줄였다.",
+          "evidenceHashes": [
+            "9c48ef62fb5f636e6ee5e3ea94adcd170252d423",
+            "cd1cce0cc18ac615f83ebba612ce266c5e056d58"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "남은 검색어 안전하게 교체",
+          "problem": "이전 검색어가 남거나 전체 단축키가 다른 창에 적용되면 엉뚱한 방을 찾을 수 있었다.",
+          "description": "카카오 검색 입력칸에 초점을 맞추고 기존 글자를 지운 뒤 새 방 이름을 넣는 공통 처리를 만들었다.",
+          "result": "연속으로 여러 방을 처리할 때 직전 검색 상태가 다음 방에 섞이지 않게 됐다.",
+          "evidenceHashes": [
+            "9cc68c056119ca54d09568449cd4742304277e89",
+            "1977e442eb0882b39cf6362d36c2f86a5dc5ddcb",
+            "ca04377d76f0d85892930420b523291d97cb986b",
+            "93c22f99ac80837c63a35eb2095beb9867f4a83e"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "필요한 방만 지정 수집",
+          "problem": "한 방의 최신 내용만 필요해도 모든 방을 차례로 열어야 했다.",
+          "description": "수신 작업에 대상 방을 지정해 그 방만 확인할 수 있는 선택지를 추가했다.",
+          "result": "승인 확인처럼 급한 방을 짧게 다시 읽을 수 있게 됐다.",
+          "evidenceHashes": [
+            "ce30388e66dcdc82252436783e7180acca71f725"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "보내기 직전 방 재확인",
+          "problem": "방을 찾은 뒤 다른 창이 앞에 오면 실제 발송 대상이 바뀔 수 있었다.",
+          "description": "메시지를 전달하기 직전에 정확한 방이 열려 있는지 다시 확인하고, 아니면 해당 방을 다시 열도록 했다.",
+          "result": "탐색 시점과 발송 시점 사이의 화면 변경도 확인하게 됐다.",
+          "evidenceHashes": [
+            "8ca74f8bf4ab351966b21a5ef24fe87ad2b0ab07"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "숨은 창을 안전하게 복구",
+          "problem": "카카오 창이 숨겨졌거나 검색 입력칸의 초점이 빠지면 자동화가 다른 프로그램을 조작할 수 있었다.",
+          "description": "창을 최소화하지 않고 다시 보이게 하고, 방 검색 입력칸을 명시적으로 열어 초점을 맞추며, 백그라운드 워커가 카카오를 안전하게 활성화하도록 보완했다.",
+          "result": "창 상태가 달라져도 확인 가능한 카카오 화면으로 돌아온 뒤 작업하게 됐다.",
+          "evidenceHashes": [
+            "34e5b6a1ad8e4dfcfb8755bdaff1107ebe9c1d13",
+            "7102d0309bfd1f3f1080651bd8874e9be80a21c3",
+            "2dac2967c0842c3e7b5486084f0b096281834cbc",
+            "6f3865e1730a9a24b473bb142c9da601d63c358d"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "검증된 방을 다시 사용",
+          "problem": "내보내기마다 방을 다시 열면 화면 전환이 늘고, 앞에 나온 창을 잘못 판단할 여지가 있었다.",
+          "description": "현재 전면 창이 카카오 방 소유 창인지 확인하고, 이미 맞는 방이면 그대로 내보내기에 사용하도록 했다.",
+          "result": "불필요한 방 전환을 줄이면서도 전면 창 확인은 유지했다.",
+          "evidenceHashes": [
+            "bb3d647db0a42ac38e0f5d38bb1c92d406963696",
+            "2b23fb7aaf80ff307be9280d6c4387bff7e9e5a9",
+            "5bc65e819cec5244a9082bddc411e7b1a332d6ac"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "대소문자만 다른 방 제목도 오류로 설명",
+          "problem": "영문 대소문자만 다른 방 제목이 단순 실패로 보여 원인을 알아보기 어려웠다.",
+          "description": "실제 제목과 기대 제목이 대소문자만 다른 경우를 별도 불일치 사유로 표시했다.",
+          "result": "운영자가 방 설정을 고쳐야 하는지 빠르게 판단할 수 있게 됐다.",
+          "evidenceHashes": [
+            "09c2ceca39761285befef129e9cd907fe94089a2"
+          ],
+          "evidenceRefs": []
+        }
+      ],
+      "rules": {
+        "pathPrefixes": [
+          "core/kakao_search.py",
+          "core/safe_worker_room.py",
+          "core/window_detector.py",
+          "core/moyi_room_sync.py"
+        ],
+        "subjectTerms": [
+          "exact Kakao room",
+          "room search",
+          "foreground",
+          "friend shortcut"
+        ],
+        "sourceIds": [
+          "nenovakakao"
+        ],
+        "excludeTerms": [],
+        "priority": 98
+      }
+    },
+    {
+      "id": "kakao-attachments-and-history",
+      "title": "사진·파일과 긴 대화 이력을 끊김 없이 수집",
+      "purpose": "텍스트뿐 아니라 사진과 파일을 안전하게 가져오고, 첨부 실패나 대량 밀림이 있어도 확인된 메시지와 기준점을 보존한다.",
+      "userValue": "첨부 하나가 실패해도 나머지 대화가 사라지지 않고, 재시작 후에도 이미 처리한 구간과 남은 구간을 구분할 수 있다.",
+      "scopeNote": "첨부 서랍과 내보내기 화면 변화에 대응해 보완된 당시 작업이다. 현재 main에는 첨부·이력 코드가 남아 있지만 실제 카카오 버전의 화면 호환은 실행 검증이 필요하다.",
+      "confidence": "verified",
+      "purposeEvidence": [
+        {
+          "kind": "commit",
+          "ref": "24b930410cbb8573cbfcbddd370468aba8fb1612",
+          "summary": "카카오 첨부파일을 업무 시스템과 양방향으로 연결하는 코드가 추가됐다."
+        },
+        {
+          "kind": "commit",
+          "ref": "ff56791ebb891a1899d43160687da410737415d2",
+          "summary": "수집한 카카오 이력을 별도 보관 경로에 남기도록 확장됐다."
+        }
+      ],
+      "changes": [
+        {
+          "title": "사진·파일 양방향 처리",
+          "problem": "텍스트 외 자료는 별도로 내려받고 다시 올려야 해 업무 맥락이 끊겼다.",
+          "description": "첨부 내보내기 표시를 인식하고 사진 미리보기에서 내려받은 파일을 수신·발송 흐름에 연결했다.",
+          "result": "대화 본문과 첨부를 같은 업무 건으로 이어 처리할 기반이 생겼다.",
+          "evidenceHashes": [
+            "24b930410cbb8573cbfcbddd370468aba8fb1612",
+            "82d64ea3992ba90fd85595f23e0dcb5f116219d1",
+            "4eea0c3df446a9f4f887dc8b5784bb861e25dea3"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "내보내기 저장 창 닫힘 확인",
+          "problem": "저장 창이 남아 있는데 다음 화면 조작을 시작하면 잘못된 파일명이나 위치에 입력할 수 있었다.",
+          "description": "카카오 대화 내보내기 뒤 저장 창이 실제로 닫혔는지 확인하는 단계를 추가했다.",
+          "result": "저장이 끝나지 않은 상태를 다음 업무 단계로 넘기지 않게 됐다.",
+          "evidenceHashes": [
+            "ded8b6a51d33112d5c1829af8699fe80ceb8bf5f"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "첨부 실패 뒤에도 텍스트 보존",
+          "problem": "사진이나 파일 하나의 다운로드 실패 때문에 같은 대화의 텍스트까지 처리되지 않을 수 있었다.",
+          "description": "첨부 실패와 텍스트 처리를 분리하고, 바뀐 카카오 첨부 서랍 구조도 열 수 있도록 보완했다.",
+          "result": "첨부 오류가 있어도 확인된 텍스트 메시지는 계속 전달할 수 있게 됐다.",
+          "evidenceHashes": [
+            "773f58309dcefa2820258771183338e66d7f3f2e",
+            "72a2c566a5a778e73095191329e3e18b5fab197e"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "여러 사진 선택과 다운로드 확인 보완",
+          "problem": "다중 선택, 외부 파일 경고, 이전 선택 잔류, 여러 장 사진 때문에 실제 내려받은 수와 원문이 어긋날 수 있었다.",
+          "description": "Ctrl 다중 선택, 외부 파일 경고 확인, 남은 선택 해제, 사진 파일 검증과 여러 장 사진 이벤트 처리를 차례로 추가했다.",
+          "result": "여러 첨부를 받을 때 직전 선택이나 관련 없는 파일을 결과로 착각하는 위험을 줄였다.",
+          "evidenceHashes": [
+            "282f97630934dd67a9b1230b208135adca44964c",
+            "8f3d63f3d857c143da6f9edf5674ab860f9a34fe",
+            "07e98352130033e26d4f36d2b9d0719a7b97daf9",
+            "3f75b20d48a1f254b11059218ff6b9feffc7f637",
+            "484d75733af9d0c23e59c5b0e8575644fc16ec9f"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "대량 밀림 안전 재개",
+          "problem": "메시지가 많이 밀린 뒤 한꺼번에 다시 읽으면 중복 전송하거나 기준점을 건너뛸 수 있었다.",
+          "description": "큰 backlog를 작은 구간으로 이어 읽고, 확인된 최신 기준점을 보존하며 재개하도록 했다.",
+          "result": "오래 멈춘 뒤에도 이미 처리한 메시지와 남은 메시지를 구분해 재개할 수 있게 됐다.",
+          "evidenceHashes": [
+            "74d09fb1f997ab4ad4215917ffa41476b6ac8e34"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "대화 이력 별도 보관",
+          "problem": "업무 처리 뒤 원문 수집 이력을 다시 확인할 지속적인 보관 경로가 부족했다.",
+          "description": "수신한 카카오 이력을 작업 기억 보관 경로에 내보내는 sink를 추가했다.",
+          "result": "처리 흐름과 별개로 수집 이력을 다시 대조할 근거가 남게 됐다.",
+          "evidenceHashes": [
+            "ff56791ebb891a1899d43160687da410737415d2"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "원문·전달 시각과 내보내기 완료 기록",
+          "problem": "언제 받은 내용이고 언제 전달했는지, 내보내기 완료 확인을 받았는지 구분하기 어려웠다.",
+          "description": "카카오 원문 시각과 전달 시각을 따로 남기고, 내보내기 완료 확인을 처리하며 이미 검증한 방은 다음 내보내기까지 유지했다.",
+          "result": "느린 구간과 실제 전달 순서를 이력에서 더 정확히 구분할 수 있게 됐다.",
+          "evidenceHashes": [
+            "c1a3d553f780a081d1e56975fd0030d8327b2378",
+            "31248e6e5fbeb67df43d89fc3457be2c50a7b96d",
+            "49e5121cc567aeadb0f782376c9aab3e3877f896"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "내보내기와 발송 순서 직렬화",
+          "problem": "여러 방 내보내기나 발송이 동시에 카카오 화면을 조작하면 대상 방과 입력 내용이 섞일 수 있었다.",
+          "description": "여러 방 내보내기를 한 번에 하나씩 실행하고, 메시지 발송도 내보내기와 같은 화면 잠금을 사용하도록 했다.",
+          "result": "카카오 화면을 쓰는 작업이 서로 끼어들지 않게 됐다.",
+          "evidenceHashes": [
+            "8b8425ea7d20dd6a6c500ee0b4e1099806338ac1",
+            "4b58d79c3ffe23133379c86f1129826b13ce6803"
+          ],
+          "evidenceRefs": []
+        }
+      ],
+      "rules": {
+        "pathPrefixes": [
+          "core/drawer_handler.py",
+          "core/moyi_inbound.py",
+          "core/mindmap_sink.py"
+        ],
+        "subjectTerms": [
+          "attachment",
+          "photo",
+          "backlog",
+          "archive Kakao history",
+          "Serialize Kakao"
+        ],
+        "sourceIds": [
+          "nenovakakao"
+        ],
+        "excludeTerms": [],
+        "priority": 96
+      }
+    },
+    {
+      "id": "kakao-approved-sales-orders",
+      "title": "영업 요청을 사람 승인 후 검토·전달",
+      "purpose": "판매 대화에서 추가·취소와 주문 후보를 찾되, 최신 원문과 전체 마스터를 확인하고 사람이 승인한 항목만 검토·전달 흐름으로 넘긴다.",
+      "userValue": "자동 분석의 속도를 얻으면서도 삭제된 메시지, 오래된 승인, 잘못 연결된 고객·품목이 바로 실행되는 일을 막을 수 있다.",
+      "scopeNote": "초기 수입 주문 검토 기능과 후반의 추가·취소 승인 운영이 함께 발전한 기록이다. 2026-09-16 문서에는 수입 주문 실행을 설정으로 보류할 수 있다고 적혀 있으므로, 코드 존재를 현재 자동 등록 중이라는 뜻으로 해석하지 않는다.",
+      "confidence": "verified",
+      "purposeEvidence": [
+        {
+          "kind": "commit",
+          "ref": "4f98202f75e682178bfdcee83c84ab8130279f5d",
+          "summary": "영업방 키워드가 바로 실행되지 않고 승인 경로로 들어가도록 바뀌었다."
+        },
+        {
+          "kind": "commit",
+          "ref": "00cd4245cae16c2d68d71121ad2713c337d37d38",
+          "summary": "수입 주문을 검토한 뒤 처리하는 별도 흐름이 추가됐다."
+        },
+        {
+          "kind": "commit",
+          "ref": "500019ce18853f966b34fc94c158a3a241013332",
+          "summary": "승인 확인을 먼저 처리하고 주문 검토 결과는 분리된 시트로 보내도록 정리됐다."
+        }
+      ],
+      "changes": [
+        {
+          "title": "모든 영업 키워드 승인 경유",
+          "problem": "판매방에서 잡힌 키워드가 사람 확인 없이 전달되면 잘못된 추가·취소가 퍼질 수 있었다.",
+          "description": "판매방 키워드를 승인 후보로 만들고, 어떤 키워드 경로도 승인 단계를 건너뛰지 못하게 했다.",
+          "result": "자동 분류 결과를 사람이 보고 보낼지 결정하는 공통 흐름이 생겼다.",
+          "evidenceHashes": [
+            "4f98202f75e682178bfdcee83c84ab8130279f5d",
+            "10e759578c14e8f851208fc201ff9e3626120fc0"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "검토형 수입 주문 흐름",
+          "problem": "수입방 주문 후보를 곧바로 전산 입력으로 넘기기에는 매칭과 필수값을 사람이 확인할 자리가 부족했다.",
+          "description": "대화를 주문 후보로 분석하고 운영 콘솔에서 검토한 뒤 서비스 어댑터로 넘기는 흐름을 추가했다.",
+          "result": "자동 분석과 실제 주문 처리 사이에 검토 단계를 둘 수 있게 됐다.",
+          "evidenceHashes": [
+            "00cd4245cae16c2d68d71121ad2713c337d37d38"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "담당자별 로그인 설정",
+          "problem": "여러 담당자의 전산 작업에 하나의 로그인 정보를 공용으로 쓰면 권한과 기록 주체가 섞일 수 있었다.",
+          "description": "운영 콘솔에서 담당자별 Nenova 로그인 프로필을 따로 저장하고 선택하도록 만들었다.",
+          "result": "주문 후보의 담당자에 맞는 계정 설정을 적용할 수 있게 됐다.",
+          "evidenceHashes": [
+            "aaca0f48e7af21112758ca549e1acd7eba2e039f"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "여러 고객 주문 사전 모의 실행",
+          "problem": "한 대화에 여러 고객 주문이 섞이면 일부만 잘못 연결돼도 실제 입력 결과를 되돌리기 어려웠다.",
+          "description": "여러 고객의 주문 후보를 실제 반영 전에 분석·검증하는 모의 실행 경로를 추가했다.",
+          "result": "실제 입력 전 고객·품목별 결과를 나눠 검토할 수 있게 됐다.",
+          "evidenceHashes": [
+            "3bac8c212df221751ecce00d063d8a5e7b87c1ce"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "휴대폰에서 짧게 승인",
+          "problem": "긴 승인 문구는 카카오에서 잘리거나 한 품목 승인에도 복잡한 답장을 요구했다.",
+          "description": "한 품목은 한 요청으로 보이고, 승인 안내와 답장 형식을 카카오 길이에 맞게 줄였으며 초기 사용자는 선택된 담당자로 제한했다.",
+          "result": "휴대폰에서 승인 대상을 읽고 짧게 답하기 쉬워졌다.",
+          "evidenceHashes": [
+            "0c451269981c30b328c618f5ff1830bf394720b2",
+            "e530e59397eb96626178dad664ba203e28c9d44e",
+            "27e49687fffbcb2a0cef0ab783cef8d09c899899",
+            "2baeaab9df2a379a5439abc19e2ed46ebb9be708",
+            "f0e0b9dadf8e6d2bd57e3c97ef7ec08357963c5e"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "붙여넣기 완료와 최신 메시지 확인",
+          "problem": "여러 줄 붙여넣기가 끝나기 전에 검증하거나, 삭제됐거나 오래된 답장을 새 승인으로 읽을 수 있었다.",
+          "description": "카카오 여러 줄 붙여넣기가 끝날 때까지 기다리고 승인 질문 뒤에 온 삭제되지 않은 최신 메시지만 답으로 인정했다.",
+          "result": "잘린 전송과 과거 답장 재사용을 함께 막았다.",
+          "evidenceHashes": [
+            "8287faf4f4f2b5036ce56e319733f7c821649763",
+            "92147c9d06ee5f68975491393e2092abbdcc76b1"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "전체 마스터로 주문 매칭",
+          "problem": "일부 품목·거래처 목록만 보면 실제 전산에 있는 주문 대상을 놓치거나 비슷한 항목을 잘못 고를 수 있었다.",
+          "description": "주문 후보를 제한된 목록이 아니라 Nenova 전체 마스터 조회 결과와 대조하도록 바꿨다.",
+          "result": "실제 전산 기준으로 고객과 품목 후보를 검토할 수 있게 됐다.",
+          "evidenceHashes": [
+            "103505a0521425707bc3dcf971ee1685c254ed0b"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "승인 우선·주문 검토 시트 분리",
+          "problem": "긴 주문 분석이 카카오 승인 답변 확인을 늦추고, 분석 결과가 일반 운영 자료와 섞였다.",
+          "description": "승인 확인 순위를 높이고 주문 검토 결과를 별도 시트에 동기화하는 메뉴와 설정을 추가했다.",
+          "result": "급한 승인 답변을 먼저 처리하면서 주문 분석 결과는 따로 검토할 수 있게 됐다.",
+          "evidenceHashes": [
+            "500019ce18853f966b34fc94c158a3a241013332"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "주문 분석을 화면 작업에서 분리",
+          "problem": "AI 주문 분석과 카카오 화면 조작이 같은 순서에 묶이면 승인 대기 시간이 길어졌다.",
+          "description": "주문 분석 큐를 별도 처리로 분리하고 카카오 승인 순회는 짧게 유지했다.",
+          "result": "분석이 오래 걸려도 새 승인 답변을 확인할 기회가 늘었다.",
+          "evidenceHashes": [
+            "86a12a49da42d4a0633947521938b962323ee1b4"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "서버 보관을 승인 처리 밖으로 이동",
+          "problem": "메시지 보관 서버가 느리면 승인 확인까지 함께 기다려야 했다.",
+          "description": "수신 이력 보관을 별도 큐로 보내고 승인 화면 작업이 끝난 뒤 처리하도록 했다.",
+          "result": "보관 지연이 급한 승인 답변 처리 시간을 직접 막지 않게 됐다.",
+          "evidenceHashes": [
+            "d6fee1e620d667c5b3a84bb687a7d4351ff6b904"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "늦은 답장도 최신 질문에 연결",
+          "problem": "항목별 답장이 늦게 오면 이미 다음 확인 순회가 지나 응답을 놓칠 수 있었다.",
+          "description": "검증된 최신 승인 질문의 항목 표시와 일치하면 늦게 도착한 답장도 처리하도록 했다.",
+          "result": "사용자가 바로 답하지 못했더라도 같은 최신 질문에 대한 답은 이어서 반영할 수 있게 됐다.",
+          "evidenceHashes": [
+            "88761ee4486da1f7aa245e3a0f2c93529052b308"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "항목 표시와 진행 상태 영속화",
+          "problem": "재시작 뒤 과거 승인과 현재 기다리는 항목이 섞이고, 여러 표시를 한 번에 승인하기 어려웠다.",
+          "description": "항목 표시와 완료 상태를 디스크에 보존하고, 과거 승인 이력과 현재 진행률을 나누며 쉼표로 묶은 표시도 같은 동작으로 해석했다.",
+          "result": "재시작 뒤에도 어떤 항목이 끝났고 무엇을 기다리는지 이어 볼 수 있게 됐다.",
+          "evidenceHashes": [
+            "f0b4e8fabf37217ee066ccf62ea16c782ed8fef7",
+            "4ad86df758f53d772212880e2e0de6a2f62872bf",
+            "30a972da0ecb02f56204ce001f078ca64837d4bb"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "누락 의심 전달 재확인",
+          "problem": "승인했지만 대상 방 전달이 보이지 않는 건을 무조건 다시 보내면 중복이 생기고, 그냥 두면 누락될 수 있었다.",
+          "description": "최신 방 기록을 다시 대조한 뒤 네·아니요로 재확인하는 알림을 보내고, 검증된 답변만 재전달에 사용했다.",
+          "result": "누락과 중복 사이에서 사람이 근거를 보고 재전달 여부를 결정할 수 있게 됐다.",
+          "evidenceHashes": [
+            "763974eb9a9899f99232af0c72674abfab5ce66e"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "불량 답변과 주문 수집 순서 분리",
+          "problem": "새 불량 수집, 불량 답변 확인, 수입 주문 분석이 한 흐름에서 서로 오래 기다리게 했다.",
+          "description": "불량 답변 확인을 신규 수집과 분리하고, 운영 설정에서 수입 주문 처리를 보류할 수 있게 했다.",
+          "result": "추가·취소와 불량 승인을 우선하면서 주문 기능은 기록을 지우지 않고 멈춰 둘 수 있게 됐다.",
+          "evidenceHashes": [
+            "80a635edfdd3ab51ccf09ef1eab0b5f0b115dd71"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "묶음 번호로 추가·취소 승인",
+          "problem": "여러 승인 묶음의 항목 표시가 비슷하면 어느 질문에 대한 답인지 헷갈릴 수 있었다.",
+          "description": "승인 묶음마다 번호를 붙이고 번호와 항목 글자를 함께 답하도록 안내했으며, 붙여 쓴 복수 답장도 해석했다.",
+          "result": "같은 대화 안에 여러 승인 질문이 있어도 답장 대상을 구분하기 쉬워졌다.",
+          "evidenceHashes": [
+            "5bdac05a6ec206049606c89ed079606d1eadc013",
+            "aa531f9ee29b2d98769a7007d455c5b90a88bcaf"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "수동 전달 흔적이 있으면 자동 재알림 보류",
+          "problem": "사람이 대상 방 문구를 조금 고쳐 직접 보낸 경우 자동 대조가 누락으로 오해해 다시 물을 수 있었다.",
+          "description": "원문 이후의 수동 전달 후보를 찾되 자동 완료로 확정하지 않고 검토 보류 상태에 남겼다.",
+          "result": "자동 재전송은 막으면서 운영자가 실제 전달 여부를 확인할 근거를 보존했다.",
+          "evidenceHashes": [
+            "a8136b58c4d59f5c56942123ce8d136da83c5110"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "추가·취소 문장만 Nenovaweb에 전달",
+          "problem": "판매방의 일반 대화까지 전산 작업 후보로 넘기면 불필요한 분석과 오판이 늘었다.",
+          "description": "명시적인 추가·취소 판매 문장만 Nenovaweb 입력으로 보내고 방 내보내기 한 번이 끝날 때마다 대기 묶음을 비웠다.",
+          "result": "전산 쪽에는 실제 조치 후보만 작은 단위로 도착하게 됐다.",
+          "evidenceHashes": [
+            "ba732db7a4cff4b888da60988d6504f1aa87a7fc"
+          ],
+          "evidenceRefs": []
+        }
+      ],
+      "rules": {
+        "pathPrefixes": [
+          "core/keyword_approval.py",
+          "core/keyword_forward.py",
+          "core/import_order.py",
+          "core/order_review.py",
+          "core/order_analysis_queue.py"
+        ],
+        "subjectTerms": [
+          "sales approval",
+          "import order",
+          "order review",
+          "approval labels",
+          "additional and cancellation"
+        ],
+        "sourceIds": [
+          "nenovakakao"
+        ],
+        "excludeTerms": [],
+        "priority": 99
+      }
+    },
+    {
+      "id": "kakao-defect-approval",
+      "title": "불량 차감을 요청자 확인과 재승인으로 처리",
+      "purpose": "카카오 불량 요청에서 품목·수량·대상 차수를 보수적으로 찾고, 원문 작성자가 최신 매칭을 승인한 건만 로그인된 Nenovaweb 영업입력 경로로 넘긴다.",
+      "userValue": "품목명이 줄임말이거나 비슷해도 자동으로 단정하지 않고, 틀린 매칭은 고쳐 다시 승인받은 뒤 저장 결과를 확인할 수 있다.",
+      "scopeNote": "설계·오프라인 검증에서 시작해 제한된 브라우저 세션 연결, 저장 후 재조회, 완료 회신과 스크린샷까지 확장된 기록이다. 현재 main에 코드가 있어도 확장 연결·로그인·승인·운영 설정이 없으면 저장되지 않으며, 당시 문서의 실운영 결과는 현재 상태 보장이 아니다.",
+      "confidence": "verified",
+      "purposeEvidence": [
+        {
+          "kind": "commit",
+          "ref": "98daa794c77a9db195f01af9107608e7368fce13",
+          "summary": "추가·취소보다 뒤에서 사람 승인을 받아 불량 차감을 처리하는 설계가 작성됐다."
+        },
+        {
+          "kind": "commit",
+          "ref": "e33fef7fdb7c02eb94cd7ae5802f64ea1e5beeb2",
+          "summary": "승인된 불량 텍스트를 검증된 영업입력 저장 어댑터로 연결했다."
+        },
+        {
+          "kind": "commit",
+          "ref": "728136a43b906530fa6079e4ebe9d37ee7051ca8",
+          "summary": "로그인된 제한 페이지에서만 동작하는 브라우저 세션 연결이 추가됐다."
+        }
+      ],
+      "changes": [
+        {
+          "title": "승인형 불량 차감 설계",
+          "problem": "불량 대화는 품목·거래처·차수가 모호할 수 있어 일반 키워드 전달처럼 처리하면 잘못 차감할 위험이 컸다.",
+          "description": "추가·취소 승인보다 낮은 순위에서 불량 후보를 보여주고, 틀리면 품목을 고쳐 새 버전으로 다시 승인받는 흐름을 설계했다.",
+          "result": "품목명 수정 자체를 저장 승인으로 보지 않는 안전 기준이 생겼다.",
+          "evidenceHashes": [
+            "98daa794c77a9db195f01af9107608e7368fce13",
+            "5efb83ab0ed60d82ff56ac3c9526ffe3165988c4"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "과거 자료에서 보수적 후보 추출",
+          "problem": "실제 대화 형식을 보지 않고 규칙을 만들면 사진 글, 복수 품목, 줄임말을 잘못 자동 확정할 수 있었다.",
+          "description": "저장된 대화 자료에서 불량 후보를 오프라인으로 추출하고, 필수값이 없거나 모호하면 후보 상태로 남기는 파서를 만들었다.",
+          "result": "과거 대화를 실제 차감으로 재생하지 않고 추출 규칙만 검증할 수 있게 됐다.",
+          "evidenceHashes": [
+            "f5d337ede4bc0522f6107331d882160c16cd2e95"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "최신 수정 버전에만 승인 적용",
+          "problem": "품목을 수정한 뒤 예전 질문의 답장을 새 매칭 승인으로 잘못 사용할 수 있었다.",
+          "description": "불량 요청에 버전과 승인 메시지 경계를 묶고, 수정 시 이전 승인을 무효로 만드는 승인 상태 처리를 추가했다.",
+          "result": "최신 매칭 내용을 다시 확인한 답장만 저장 단계로 갈 수 있게 됐다.",
+          "evidenceHashes": [
+            "fa32f625be41462f865d1625576814316d026bb4"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "승인된 불량을 영업입력과 연결",
+          "problem": "승인 흐름이 있어도 실제 저장 전후 내용을 검증하는 전산 연결이 없었다.",
+          "description": "조회·재매칭·저장 동작을 분리한 서비스와 실행기를 만들고, 승인 내용과 저장 후 조회 결과가 맞는지 확인하도록 했다.",
+          "result": "승인된 텍스트를 검증된 영업입력 저장 흐름으로 넘길 수 있게 됐다.",
+          "evidenceHashes": [
+            "e33fef7fdb7c02eb94cd7ae5802f64ea1e5beeb2"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "빈 줄이 달라도 전달 질문 복구",
+          "problem": "카카오 내보내기가 빈 줄을 없애면 실제 보낸 승인 질문을 찾지 못해 답장 확인도 멈췄다.",
+          "description": "줄바꿈과 끝 공백만 정규화해 보낸 질문을 다시 대조하고, 결과 불명 상태에서는 자동 재전송하지 않도록 했다.",
+          "result": "같은 질문을 두 번 보내지 않고 이미 전달된 질문의 답을 계속 기다릴 수 있게 됐다.",
+          "evidenceHashes": [
+            "4e0b07170cb01b71af2f2028ad8ecf32b32c20a9"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "원문 작성자에게 간결하게 재확인",
+          "problem": "한 운영자가 모든 불량을 대신 승인하거나 긴 질문을 받으면 실제 요청자 판단과 멀어질 수 있었다.",
+          "description": "원문 작성자의 개인 대화로 승인 질문을 보내고, 원산지와 간결한 품목 표현을 함께 써 후보를 좁혔다.",
+          "result": "실제 요청자가 자신이 보낸 항목의 매칭을 확인하는 흐름이 됐다.",
+          "evidenceHashes": [
+            "3725ecbb62cdf83a1d508527d2381cab54fa6fed"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "길이 미기재 시 50cm 후보 우선",
+          "problem": "같은 품종에 여러 길이가 있을 때 길이 없는 원문을 임의 품목으로 연결할 수 있었다.",
+          "description": "길이가 적혀 있지 않을 때는 50cm 후보가 실제 마스터에 있는 경우에만 우선하고, 없으면 다른 길이를 자동 승인하지 않도록 했다.",
+          "result": "기본 규격을 일관되게 적용하면서도 존재하지 않는 50cm를 만들어내지 않게 됐다.",
+          "evidenceHashes": [
+            "453d3df4a5cafdc22d90b9e07949111f747855e0"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "로그인된 Chrome 세션만 제한 연결",
+          "problem": "로컬 자동화가 웹 비밀번호나 쿠키를 따로 다루면 계정 위험이 커지고 실제 로그인 권한과 어긋날 수 있었다.",
+          "description": "지정된 영업입력 페이지에서만 동작하는 Chrome 확장과 네이티브 연결을 만들고, 조회·재매칭·저장 요청만 허용했다.",
+          "result": "로그인 비밀값을 추출하지 않고 현재 웹 세션의 권한으로 승인된 작업만 전달할 수 있게 됐다.",
+          "evidenceHashes": [
+            "728136a43b906530fa6079e4ebe9d37ee7051ca8"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "사진 수집은 저녁으로 미루고 텍스트 먼저 처리",
+          "problem": "낮에 사진 다운로드가 길어지면 추가·취소 승인과 불량 질문이 함께 늦어졌다.",
+          "description": "사진 원문과 방 정보를 먼저 대기 목록에 보존하고, 저녁 시간대의 별도 순회에서 한 방씩 받도록 설정했다.",
+          "result": "업무 시간에는 텍스트 승인 흐름을 먼저 진행하면서 사진 누락 여부는 대기 상태로 남길 수 있게 됐다.",
+          "evidenceHashes": [
+            "815e304afe4c6484af5c2231e92113f642e2f708"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "실제 전산 기록으로 매칭 검증",
+          "problem": "줄임말과 한글 표기 규칙이 테스트 예시에는 맞아도 실제 품목 기록에서 틀릴 수 있었다.",
+          "description": "품종·원산지·규격 별칭을 보완하고, 개발 자료와 분리한 전산 표본으로 후보 선택과 보류 결과를 평가했다.",
+          "result": "맞힌 비율뿐 아니라 보류와 검증 범위의 한계를 문서로 남길 수 있게 됐다.",
+          "evidenceHashes": [
+            "c1f22846cdf3c9f67231df4ca115feda2e6d08c1"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "송이 수량 단위 보존",
+          "problem": "꽃 수량의 송이 단위를 임의로 단이나 박스로 바꾸면 실제 차감 수량이 달라질 수 있었다.",
+          "description": "승인 문구와 영업입력 전달에서 송이 수량을 지원되는 전산 단위로 명시해 수량 자체는 바꾸지 않도록 했다.",
+          "result": "단위가 다른 요청도 몰래 환산하지 않고 승인 내용 그대로 저장할 수 있게 됐다.",
+          "evidenceHashes": [
+            "1642ca77cbae26a5c3b5c03c210283354fcb974a"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "숫자로 짧게 답하고 대표 별칭 보완",
+          "problem": "긴 불량 식별자를 휴대폰에서 입력하기 어렵고, 자주 쓰는 품종명이 전산명과 달라 매칭이 보류됐다.",
+          "description": "각 질문에 새 숫자를 붙여 맞아·틀려·안함으로 답하게 하고, 확인된 대표 품종 별칭을 매칭 사전에 추가했다.",
+          "result": "짧게 답하면서도 질문 버전과 품종 후보를 정확히 구분할 수 있게 됐다.",
+          "evidenceHashes": [
+            "684925695af884aaef67fde5b9220aa26650b551"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "불량 차감은 원문 다음 차수로 계산",
+          "problem": "원문에 적힌 차수와 실제 차감 입력 차수를 같은 값으로 쓰면 합의된 업무 기준과 어긋났다.",
+          "description": "원문 연도·차수의 다음 주를 입력 범위로 계산하고 연말에는 다음 연도 1차로 넘기는 공통 함수를 추가했다.",
+          "result": "조회·재매칭·저장·재조회가 모두 같은 다음 차수 기준을 쓰게 됐다.",
+          "evidenceHashes": [
+            "721a252e3485b4521a2ddb411076d120f1aa70d0"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "모든 작성자 답장 수집과 저장 결과 복구",
+          "problem": "같은 담당자의 여러 대기 질문 중 일부 답장을 놓치거나, 실제 저장은 됐지만 응답 필드가 부족해 다시 저장할 위험이 있었다.",
+          "description": "한 번 읽은 개인 대화에서 모든 대기 질문 답장을 나누어 처리하고, 정확한 요청 비고와 필드가 맞으면 재삽입 없이 완료로 복구했다.",
+          "result": "답장 누락과 중복 차감 위험을 함께 줄였다.",
+          "evidenceHashes": [
+            "fa39b661828f50e97db5b3082e3ab6a31bc887a6"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "소리와 한글 표기로 품종 후보 찾기",
+          "problem": "외래 품종명은 들리는 대로 적거나 한글 카탈로그명을 써서 영문 전산명과 정확히 일치하지 않는 경우가 있었다.",
+          "description": "발음, 한글 카탈로그 표기와 학습된 별칭을 후보 찾기에 사용하고, 특정 꽃 종류 표현과 묵음이 있는 이름을 추가 보완했다.",
+          "result": "표기가 달라도 후보를 제시하되 자동 승인하지 않고 작성자 확인으로 이어갈 수 있게 됐다.",
+          "evidenceHashes": [
+            "f681634aefe8ea71c1659c92b975b3cad6d52626",
+            "eeb3ec1390e9eeedc8e90a909ef33ca9d862a952"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "완료 회신에 실제 저장 내용 표시",
+          "problem": "완료됐다는 문구만으로는 어떤 품목·수량이 저장됐는지 카카오에서 다시 확인하기 어려웠다.",
+          "description": "저장 후 재조회로 확인한 불량 상세를 완료 회신에 함께 넣었다.",
+          "result": "요청자가 카카오 회신만 보고도 실제 반영 내용을 대조할 수 있게 됐다.",
+          "evidenceHashes": [
+            "410d974790397ce1871d53fd85f78cc84f6bf245"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "완료된 건만 증빙 화면 첨부",
+          "problem": "저장 완료 회신에 화면 근거가 필요해도 임의 페이지나 미완료 상태를 캡처하면 잘못된 증빙이 될 수 있었다.",
+          "description": "완료 상태와 대상 페이지를 확인한 경우에만 제한된 브라우저 연결로 화면을 캡처해 완료 흐름에 붙이도록 했다.",
+          "result": "저장 확인 뒤의 화면 근거를 카카오 완료 안내와 함께 전달할 수 있게 됐다.",
+          "evidenceHashes": [
+            "0602a4075883eebb3b0b4e7d4c27cbe53112a6a4"
+          ],
+          "evidenceRefs": []
+        }
+      ],
+      "rules": {
+        "pathPrefixes": [
+          "core/defect_",
+          "browser-extension/",
+          "docs/defect-"
+        ],
+        "subjectTerms": [
+          "defect",
+          "불량",
+          "Chrome session bridge",
+          "saved defect details"
+        ],
+        "sourceIds": [
+          "nenovakakao"
+        ],
+        "excludeTerms": [],
+        "priority": 100
+      }
+    },
+    {
+      "id": "kakao-operator-safety-controls",
+      "title": "운영자가 즉시 멈추고 상태를 보존해 재개",
+      "purpose": "카카오 화면 자동화가 잘못 움직이거나 연결이 불안할 때 운영자가 즉시 멈추고, 확인된 기준점과 승인 상태를 잃지 않은 채 안전하게 다시 시작한다.",
+      "userValue": "오류를 억지로 넘기지 않고 멈춘 이유를 확인한 뒤 재개할 수 있으며, 긴 분석·보관 작업이 급한 승인 처리를 가로막는 일을 줄인다.",
+      "scopeNote": "콘솔 일시정지에서 화면 위 고정 중지·시작 버튼까지 발전한 기록이다. 현재 main에는 제어 코드가 남아 있지만 실제 프로세스가 실행 중인지, 현재 일시정지 상태인지는 저장소만으로 확인할 수 없다.",
+      "confidence": "verified",
+      "purposeEvidence": [
+        {
+          "kind": "commit",
+          "ref": "b002de7e3fd1c07390ee4f721f1521e6b04b4ec0",
+          "summary": "운영 콘솔에서 카카오 워커를 일시정지하는 제어가 추가됐다."
+        },
+        {
+          "kind": "commit",
+          "ref": "9bd56ab40ff8be58b2a93e7d0386f3b98c3afe7f",
+          "summary": "화면 오른쪽 위에 항상 보이는 중지 버튼이 추가됐다."
+        },
+        {
+          "kind": "commit",
+          "ref": "52905633a67c5dcbee1d94429cf37d4f51e7fd08",
+          "summary": "고정 중지 버튼 옆에 시작 제어가 추가됐다."
+        }
+      ],
+      "changes": [
+        {
+          "title": "운영 콘솔 일시정지",
+          "problem": "자동화가 잘못된 화면을 조작할 때 전체 프로그램을 강제로 끄지 않고 멈출 방법이 필요했다.",
+          "description": "운영 콘솔에 일시정지 제어와 워커가 확인하는 공통 중지 상태를 추가했다.",
+          "result": "운영자가 새 카카오 작업 시작을 즉시 막을 수 있게 됐다.",
+          "evidenceHashes": [
+            "b002de7e3fd1c07390ee4f721f1521e6b04b4ec0"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "재사용 가능한 안전 설치 설정",
+          "problem": "다른 PC에서 연결 주소나 실행 설정을 수작업으로 맞추면 잘못된 회사나 비밀값 위치를 쓸 수 있었다.",
+          "description": "설치 시 필요한 값을 묻고 로컬 설정 파일을 만드는 구성 스크립트와 실행 배치를 추가했다.",
+          "result": "새 PC에서도 같은 설치 순서를 반복하고 설정 누락을 먼저 확인할 수 있게 됐다.",
+          "evidenceHashes": [
+            "feb554852e0084c85366fef4024a01553135c0d3"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "한 방 오류를 다른 방과 분리",
+          "problem": "한 대화방의 내보내기 오류가 전체 수신 순회를 멈출 수 있었다.",
+          "description": "방별 수신 오류를 따로 기록하고 다음 허용 방 처리를 계속하도록 했다.",
+          "result": "문제 있는 한 방 때문에 다른 방의 새 메시지까지 모두 밀리지 않게 됐다.",
+          "evidenceHashes": [
+            "3eb0ac7cede8b363dec147530828bdbf8f5672ea"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "재개 버튼이 워커도 다시 시작",
+          "problem": "화면상 재개 상태만 바뀌고 실제 연결 워커가 꺼져 있으면 자동화가 돌아오지 않았다.",
+          "description": "운영 콘솔의 재개 동작이 중지 상태를 풀면서 connector worker 프로세스도 다시 시작하도록 했다.",
+          "result": "운영자가 한 번의 재개 조작으로 실제 작업 프로세스까지 복구할 수 있게 됐다.",
+          "evidenceHashes": [
+            "a50a87c45c52ec615412be2a42402cd9bd286bf6"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "최신 기준점 이후만 전송하고 오류 뒤 위치 복구",
+          "problem": "재시작이나 방 오류 뒤 과거 메시지를 다시 보내거나 다음 수집 위치를 잃을 수 있었다.",
+          "description": "최신 수신 기준점을 읽고 그 이후 카카오 이벤트만 보내며, 방 오류 뒤에도 저장된 위치에서 다시 시작하도록 했다.",
+          "result": "재개 때 중복 전송과 메시지 건너뜀 위험을 줄였다.",
+          "evidenceHashes": [
+            "18b7761c3fa7ea75c501d53e3244eabdbb6bbf21",
+            "01e572fe2af1c7215d9468d6f1569689bf2b4544",
+            "b9e34b6b2f4f989619db73846266549150ea0490"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "보낼 메시지를 방 수집보다 먼저 처리",
+          "problem": "긴 수신 방 순회 때문에 이미 준비된 승인·결과 메시지 발송이 늦어질 수 있었다.",
+          "description": "워커 순서에서 MOYI 발송 대기함을 새 방 수집보다 먼저 확인하도록 했다.",
+          "result": "사람이 기다리는 승인 질문과 처리 결과를 더 빨리 보낼 수 있게 됐다.",
+          "evidenceHashes": [
+            "ea845b0ab060d099159c742fa756850f946114c1"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "승인 회신·동기화 복구와 세션 인수인계",
+          "problem": "운영 기간이 길어지며 승인 회신 누락, 동기화 상태 손상, 너무 큰 보고 파일과 다음 세션의 맥락 손실이 함께 쌓였다.",
+          "description": "승인 대기·회신 확인, 원자적 상태 저장, 오류 알림, 동기화 복구, 보고 압축과 감독 시작 스크립트를 한 차례 정비하고 인수인계 문서를 추가했다.",
+          "result": "재시작 뒤 상태를 복구하고 다음 운영자가 확인해야 할 근거를 이어받을 수 있게 됐다.",
+          "evidenceHashes": [
+            "1c27f2dcdbf1244c829216aa2270d2e6c0d22fb4"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "미응답 알림 묶기와 사용자 정지 보존",
+          "problem": "답이 없는 항목마다 알림을 보내면 대화가 길어지고, 사용자가 멈춘 상태가 재시작 때 풀릴 수 있었다.",
+          "description": "미응답 항목을 한 안내로 묶고 사용자가 선택한 일시정지 상태를 재시작 후에도 유지하도록 했다.",
+          "result": "알림 수를 줄이면서 사용자의 중지 결정을 코드 배포나 재시작이 덮어쓰지 않게 됐다.",
+          "evidenceHashes": [
+            "d84cc1a266ffebd0e8bf000a9b8f8c6a609bab3d"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "운영 콘솔에서 보고·승인 담당자 설정",
+          "problem": "코드나 로컬 파일을 직접 고쳐야 보고 받을 사람과 승인 담당자를 바꿀 수 있었다.",
+          "description": "운영 콘솔에 보고 대상과 승인 담당자를 선택·저장하는 설정 화면을 추가했다.",
+          "result": "운영자가 코드를 수정하지 않고 담당자 설정을 바꿀 수 있게 됐다.",
+          "evidenceHashes": [
+            "e0c092e21eae0b40d52b04a90165ad6489633326"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "담당자 개인 대화는 친구 목록에서만 열기",
+          "problem": "통합 검색으로 담당자 이름을 찾으면 같은 이름의 방이나 검색 결과를 잘못 열 수 있었다.",
+          "description": "담당자 개인 대화는 카카오 친구 목록 경로로만 열고 실제 메인 창 손잡이와 열린 대화를 확인하도록 했다.",
+          "result": "승인 질문이 동명이인이나 다른 단체방으로 가는 위험을 줄였다.",
+          "evidenceHashes": [
+            "9b7f4ce27a85eb035c45b13078e32ab2d20bd3ed",
+            "53d4eba8e8df26c5e37411e117b6278149e7332c"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "기술 오류는 로컬에만 표시",
+          "problem": "내부 오류 문구가 카카오 승인 대화에 섞이거나 오래된 질문이 다시 나타나면 사용자가 잘못 답할 수 있었다.",
+          "description": "기술 알림은 운영 콘솔에 남기고, 현재 유효하지 않은 승인 질문은 카카오로 보내지 않도록 했다.",
+          "result": "사용자 대화에는 실제 승인·처리 안내만 남고 기술 진단은 운영자가 따로 볼 수 있게 됐다.",
+          "evidenceHashes": [
+            "3fc934f6e440b046fa29895a10079c8d21b8e675"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "중지 신호 우선과 첨부 지연 구간 기록",
+          "problem": "화면 자동화 중 마우스 안전 중지가 발생해도 후속 단계가 계속되거나, 첨부 처리의 어느 단계가 느린지 알기 어려웠다.",
+          "description": "안전 중지 신호를 상위 실행기로 전달해 후속 작업을 막고, 내보내기·사진·파일·업로드 단계별 시간을 기록했다.",
+          "result": "사용자 중지를 즉시 존중하고 느린 첨부 단계의 위치를 운영 로그로 찾을 수 있게 됐다.",
+          "evidenceHashes": [
+            "99e9a35c2271630f78d7eb9095fa0721ebee34c1"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "안전 중지 발생 상태 기록",
+          "problem": "승인 화면 배포 중 화면 모서리 안전 중지가 발생한 사실을 놓치면 자동으로 재개해 같은 위험을 반복할 수 있었다.",
+          "description": "안전 중지로 배포 실행이 멈춘 당시 상태와 재개 전 확인점을 인수인계 문서에 남겼다.",
+          "result": "코드가 준비됐다는 이유만으로 실제 운영까지 완료됐다고 오해하지 않게 됐다.",
+          "evidenceHashes": [
+            "d192e23098af36584075afa921f9b107d2e71f5e"
+          ],
+          "evidenceRefs": []
+        },
+        {
+          "title": "화면 위 고정 중지·시작 버튼",
+          "problem": "자동화가 다른 창을 열고 있을 때 운영 콘솔을 찾아 중지하거나 다시 시작하기 어려웠다.",
+          "description": "화면 오른쪽 위에 항상 보이는 중지 버튼을 만들고, 이후 같은 작은 창에 시작 제어를 나란히 추가했다.",
+          "result": "운영자가 현재 어떤 화면을 보고 있든 빠르게 멈추고 확인 후 다시 시작할 수 있게 됐다.",
+          "evidenceHashes": [
+            "9bd56ab40ff8be58b2a93e7d0386f3b98c3afe7f",
+            "52905633a67c5dcbee1d94429cf37d4f51e7fd08"
+          ],
+          "evidenceRefs": []
+        }
+      ],
+      "rules": {
+        "pathPrefixes": [
+          "core/moyi_control.py",
+          "core/agent_runtime.py",
+          "core/operator_settings.py",
+          "moyi_console.py",
+          "moyi_stop_button.py"
+        ],
+        "subjectTerms": [
+          "pause control",
+          "resume",
+          "stop button",
+          "operator",
+          "fail-safe stop"
+        ],
+        "sourceIds": [
+          "nenovakakao"
+        ],
+        "excludeTerms": [],
+        "priority": 99
+      }
+    },
+    {
+      "id": "kakao-import-sync-reconciliation",
+      "title": "수입방·견적방 동기화 누락을 쓰기 전에 대조",
+      "purpose": "오래된 기준점과 현재 대화 원본·시트 기록을 비교해 누락 후보와 중복 위험을 먼저 밝히고, 근거 없이 기준점을 옮기거나 과거 대화를 다시 쓰지 않는다.",
+      "userValue": "동기화가 밀렸을 때 빠르게 덮어쓰는 대신, 어느 기간을 확인하지 못했는지와 어떤 행이 중복 후보인지 알고 안전한 복구 순서를 정할 수 있다.",
+      "scopeNote": "이 이야기는 기능 출시가 아니라 2026-09-14 읽기 전용 대조와 복구 계획의 기록이다. 문서상 시트 값·원문·기준점·예약 설정은 변경하지 않았으며, 현재 누락이 해결됐는지는 이 저장소 근거만으로 확인할 수 없다.",
+      "confidence": "verified",
+      "purposeEvidence": [
+        {
+          "kind": "commit",
+          "ref": "e0c34004f3ab64d83ba7da2d962efc4871ef9f55",
+          "summary": "수입방과 견적방의 원본 기간, 시트 일치 여부, 중복 ID 위험과 안전한 복구 순서를 문서로 남겼다."
+        }
+      ],
+      "changes": [
+        {
+          "title": "기준점 이동 전 읽기 전용 대조",
+          "problem": "기존 체크포인트가 가리키는 원본을 찾지 못한 상태에서 최신 파일 끝으로 옮기면 확인하지 못한 기간을 영구히 건너뛸 수 있었다.",
+          "description": "수입방·견적방 원본과 네 개 시트 탭을 대조해 미일치 후보, 날짜 미확정 항목, 반복 ID와 본문 충돌을 분리하고 안전한 후속 순서를 문서화했다.",
+          "result": "미확인 구간을 숨기지 않고, 중복 방지와 배치별 검증 뒤에만 복구하도록 기준을 세웠다.",
+          "evidenceHashes": [
+            "e0c34004f3ab64d83ba7da2d962efc4871ef9f55"
+          ],
+          "evidenceRefs": []
+        }
+      ],
+      "rules": {
+        "pathPrefixes": [
+          "docs/sync-reconciliation-2026-09-14.md"
+        ],
+        "subjectTerms": [
+          "sync reconciliation"
+        ],
+        "sourceIds": [
+          "nenovakakao"
+        ],
+        "excludeTerms": [],
+        "priority": 90
+      }
+    }
+  ],
+  "reviewedIds": [
+    "8cd6959bbc493c2bab3e2a5c610628a70a892d5f",
+    "3b53bf100a0c72008f2aea28e49f747593f1ffc5",
+    "c411de3c6dd889123c233e717ecf617331d66ac3",
+    "d4e7cc9b1a076a90fdbf33402da2094bc476c72d",
+    "6f5abf0f8e9707f4d40bef4c630fcf21c00a1e53",
+    "1cf303d00977bad4d135538cc856defce1ae3ce5",
+    "06dc0cff169bd605b7a70ad6c33ac1e24378dc04",
+    "de04f08e66c698470ce9836a0639817cd29fbad6",
+    "7125f54323088884a5d931ed41db8e430d993e8e",
+    "d6a1b6fd5db9e5b5e46ae3749507ca4658908c84",
+    "f83a5b7fb3db9ee5ce1eccfd26c02d28cdc04545",
+    "976a63ad7491e157e1b5c4298200368d94436647",
+    "89dabf38294e4dfd0d54f27fa401041dd151e04c",
+    "56f01fd7a9d8fb061edca80bb47af4d55535603c",
+    "28276a594bd244eedcb4d775b3663bc0c2233284",
+    "95cf5c3da88e14296933c17b2362486ffacbaad5",
+    "809567a977f42ad0bad9706786975153537e94ee",
+    "b002de7e3fd1c07390ee4f721f1521e6b04b4ec0",
+    "9c48ef62fb5f636e6ee5e3ea94adcd170252d423",
+    "cd1cce0cc18ac615f83ebba612ce266c5e056d58",
+    "9cc68c056119ca54d09568449cd4742304277e89",
+    "1977e442eb0882b39cf6362d36c2f86a5dc5ddcb",
+    "24b930410cbb8573cbfcbddd370468aba8fb1612",
+    "82d64ea3992ba90fd85595f23e0dcb5f116219d1",
+    "ce30388e66dcdc82252436783e7180acca71f725",
+    "4eea0c3df446a9f4f887dc8b5784bb861e25dea3",
+    "ca04377d76f0d85892930420b523291d97cb986b",
+    "93c22f99ac80837c63a35eb2095beb9867f4a83e",
+    "8ca74f8bf4ab351966b21a5ef24fe87ad2b0ab07",
+    "feb554852e0084c85366fef4024a01553135c0d3",
+    "34e5b6a1ad8e4dfcfb8755bdaff1107ebe9c1d13",
+    "7102d0309bfd1f3f1080651bd8874e9be80a21c3",
+    "2dac2967c0842c3e7b5486084f0b096281834cbc",
+    "3eb0ac7cede8b363dec147530828bdbf8f5672ea",
+    "a50a87c45c52ec615412be2a42402cd9bd286bf6",
+    "18b7761c3fa7ea75c501d53e3244eabdbb6bbf21",
+    "ea845b0ab060d099159c742fa756850f946114c1",
+    "6f3865e1730a9a24b473bb142c9da601d63c358d",
+    "01e572fe2af1c7215d9468d6f1569689bf2b4544",
+    "b9e34b6b2f4f989619db73846266549150ea0490",
+    "ded8b6a51d33112d5c1829af8699fe80ceb8bf5f",
+    "bb3d647db0a42ac38e0f5d38bb1c92d406963696",
+    "2b23fb7aaf80ff307be9280d6c4387bff7e9e5a9",
+    "5bc65e819cec5244a9082bddc411e7b1a332d6ac",
+    "773f58309dcefa2820258771183338e66d7f3f2e",
+    "72a2c566a5a778e73095191329e3e18b5fab197e",
+    "282f97630934dd67a9b1230b208135adca44964c",
+    "8f3d63f3d857c143da6f9edf5674ab860f9a34fe",
+    "07e98352130033e26d4f36d2b9d0719a7b97daf9",
+    "3f75b20d48a1f254b11059218ff6b9feffc7f637",
+    "484d75733af9d0c23e59c5b0e8575644fc16ec9f",
+    "74d09fb1f997ab4ad4215917ffa41476b6ac8e34",
+    "ff56791ebb891a1899d43160687da410737415d2",
+    "4f98202f75e682178bfdcee83c84ab8130279f5d",
+    "10e759578c14e8f851208fc201ff9e3626120fc0",
+    "00cd4245cae16c2d68d71121ad2713c337d37d38",
+    "aaca0f48e7af21112758ca549e1acd7eba2e039f",
+    "3bac8c212df221751ecce00d063d8a5e7b87c1ce",
+    "0c451269981c30b328c618f5ff1830bf394720b2",
+    "e530e59397eb96626178dad664ba203e28c9d44e",
+    "27e49687fffbcb2a0cef0ab783cef8d09c899899",
+    "2baeaab9df2a379a5439abc19e2ed46ebb9be708",
+    "f0e0b9dadf8e6d2bd57e3c97ef7ec08357963c5e",
+    "8287faf4f4f2b5036ce56e319733f7c821649763",
+    "92147c9d06ee5f68975491393e2092abbdcc76b1",
+    "103505a0521425707bc3dcf971ee1685c254ed0b",
+    "1c27f2dcdbf1244c829216aa2270d2e6c0d22fb4",
+    "d84cc1a266ffebd0e8bf000a9b8f8c6a609bab3d",
+    "e0c34004f3ab64d83ba7da2d962efc4871ef9f55",
+    "e0c092e21eae0b40d52b04a90165ad6489633326",
+    "9b7f4ce27a85eb035c45b13078e32ab2d20bd3ed",
+    "500019ce18853f966b34fc94c158a3a241013332",
+    "53d4eba8e8df26c5e37411e117b6278149e7332c",
+    "3fc934f6e440b046fa29895a10079c8d21b8e675",
+    "86a12a49da42d4a0633947521938b962323ee1b4",
+    "d6fee1e620d667c5b3a84bb687a7d4351ff6b904",
+    "88761ee4486da1f7aa245e3a0f2c93529052b308",
+    "f0b4e8fabf37217ee066ccf62ea16c782ed8fef7",
+    "4ad86df758f53d772212880e2e0de6a2f62872bf",
+    "30a972da0ecb02f56204ce001f078ca64837d4bb",
+    "98daa794c77a9db195f01af9107608e7368fce13",
+    "5efb83ab0ed60d82ff56ac3c9526ffe3165988c4",
+    "f5d337ede4bc0522f6107331d882160c16cd2e95",
+    "99e9a35c2271630f78d7eb9095fa0721ebee34c1",
+    "fa32f625be41462f865d1625576814316d026bb4",
+    "e33fef7fdb7c02eb94cd7ae5802f64ea1e5beeb2",
+    "4e0b07170cb01b71af2f2028ad8ecf32b32c20a9",
+    "3725ecbb62cdf83a1d508527d2381cab54fa6fed",
+    "453d3df4a5cafdc22d90b9e07949111f747855e0",
+    "728136a43b906530fa6079e4ebe9d37ee7051ca8",
+    "815e304afe4c6484af5c2231e92113f642e2f708",
+    "763974eb9a9899f99232af0c72674abfab5ce66e",
+    "80a635edfdd3ab51ccf09ef1eab0b5f0b115dd71",
+    "c1f22846cdf3c9f67231df4ca115feda2e6d08c1",
+    "1642ca77cbae26a5c3b5c03c210283354fcb974a",
+    "684925695af884aaef67fde5b9220aa26650b551",
+    "d192e23098af36584075afa921f9b107d2e71f5e",
+    "5bdac05a6ec206049606c89ed079606d1eadc013",
+    "aa531f9ee29b2d98769a7007d455c5b90a88bcaf",
+    "721a252e3485b4521a2ddb411076d120f1aa70d0",
+    "fa39b661828f50e97db5b3082e3ab6a31bc887a6",
+    "a8136b58c4d59f5c56942123ce8d136da83c5110",
+    "c1a3d553f780a081d1e56975fd0030d8327b2378",
+    "31248e6e5fbeb67df43d89fc3457be2c50a7b96d",
+    "49e5121cc567aeadb0f782376c9aab3e3877f896",
+    "8b8425ea7d20dd6a6c500ee0b4e1099806338ac1",
+    "4b58d79c3ffe23133379c86f1129826b13ce6803",
+    "09c2ceca39761285befef129e9cd907fe94089a2",
+    "ba732db7a4cff4b888da60988d6504f1aa87a7fc",
+    "f681634aefe8ea71c1659c92b975b3cad6d52626",
+    "9bd56ab40ff8be58b2a93e7d0386f3b98c3afe7f",
+    "eeb3ec1390e9eeedc8e90a909ef33ca9d862a952",
+    "52905633a67c5dcbee1d94429cf37d4f51e7fd08",
+    "410d974790397ce1871d53fd85f78cc84f6bf245",
+    "0602a4075883eebb3b0b4e7d4c27cbe53112a6a4"
+  ],
+  "unknownIds": [
+    {
+      "id": "89dabf38294e4dfd0d54f27fa401041dd151e04c",
+      "reason": "방 탐색 안전장치와 닫힌 실패 수신 변경을 합친 병합 확인번호다. 원래 기능 근거는 각 부모 변경에 연결했으며 병합 자체는 기능으로 세지 않았다."
+    },
+    {
+      "id": "28276a594bd244eedcb4d775b3663bc0c2233284",
+      "reason": "정확한 카카오 방 열기 변경을 main에 합친 병합 확인번호다. 원래 기능 근거는 56f01fd7a9d8fb061edca80bb47af4d55535603c에 연결했으며 병합 자체는 기능으로 세지 않았다."
+    }
+  ]
+}
