@@ -93,7 +93,11 @@ const attentionRows = rows => rows.filter(r => needsCheck(r, 'E') || needsCheck(
 // 자동 환율 원천이 없고 매입/포워딩 금액이 있는 행은 사용자가 바로 R을 입력할 수 있어야 한다.
 // 검증 배너만 표시하고 입력 경로를 숨기면 보고서 저장이 막히므로, 해당 행의 R 셀을 자동 편집칸으로 노출한다.
 function needsRateInput(row) {
-  if (!row || row.manual?.R != null || row.source?.R !== 'missing') return false;
+  if (!row || row.manual?.R != null) return false;
+  // 서버가 이미 "구매/포워딩은 있는데 과세환율 원천이 없다"를 판정해 rateNeedsInput으로 내려준다.
+  // 통화마스터 현재값이나 전차수 값을 자동 상속하지 않으므로 이 행은 반드시 담당자 입력이 필요하다.
+  if (row.rateNeedsInput != null) return Boolean(row.rateNeedsInput);
+  if (row.source?.R !== 'missing') return false;
   return Math.abs(Number(row.auto?.Q || 0)) > 0.001 || Math.abs(Number(row.auto?.S || 0)) > 0.001;
 }
 
@@ -130,12 +134,12 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
   const warn = needsCheck(row, col) || missingRate;
   const titles = {
     R: missingRate
-      ? `⚠ ${row.currency || '-'} 환율 원천이 없습니다. 이 칸에 해당 차수 인보이스 과세환율을 입력하고 저장하세요.`
-      : `입고별 과세환율 스냅샷(${row.currency || '-'} · FreightCost, 통관 신고 시점 관세청 과세환율) 또는 전차수 확정 과세환율/CurrencyMaster 적용 — 상업환율과 다르면 인보이스 과세환율로 직접 입력`,
+      ? `⚠ ${row.currency || '-'} 과세환율 원천이 없습니다. 통화마스터의 현재 환율이나 전 차수 값을 자동으로 갖다 쓰지 않으니, 이 칸에 해당 차수 관세청 과세환율을 직접 입력하고 저장하세요.${row.rateCarry ? ` (전 차수 참고값 ${fmtInput(row.rateCarry)} — 확인 후 적용)` : ''}`
+      : `${row.currency || '-'} 과세환율 — 입고 통관 스냅샷(FreightCost) 또는 그 차수에 저장해 둔 관세청 과세환율입니다. 구매현황의 상업(환전) 환율과는 원래 다른 값이며, 인보이스 과세환율이 다르면 직접 입력하세요.`,
     S: '비우면 입고관리 자동감지(운송료/SERVICE FEE 라인) 사용 — [🚢 포워딩 입력]에서 확인/override 가능, 입력하면 수기값 우선',
     H: '비우면 [📦 그외통관비 입력] 화면 저장값 사용(백상창고료+관세+선율+월드운송료+한국방역, 콜롬비아 4품목은 무게비율 자동배분), 입력하면 수기값 우선',
     E: row.inheritedE ? '전차수 저장 기말재고에서 이월됨 (비우면 전차수 자동계산값 사용)' : '전차수 기말재고 이월 — 비우면 전차수 F를 같은 공식으로 자동계산',
-    F: `${row.stock?.week || '마지막 재고 스냅샷 세부차수'} EXE 재고현황 기준 자동: (구매금액×환율+포워딩×환율+그외통관비)÷매입총수량×기말재고수량 — 직접 입력하면 수기값 우선`,
+    F: `${row.stock?.week || '마지막 재고 스냅샷 세부차수'} EXE 재고현황 기준 자동: 품목별 (남은 재고수량 × 재고평가단가)를 모두 더한 뒤 ÷1.1 — 평가단가는 재고단가표 > 수국단가표 > 품목원가 순. 직접 입력하면 수기값 우선`,
   };
   const title = missingRate
     ? titles[col]
@@ -481,8 +485,8 @@ export default function ProfitReportPage() {
           const c = row.calc;
           // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 비율 공식이 나중에 바뀌어도
           // 과거 확정본은 불변이어야 한다. 2026-08-11 결함수정).
-          const D = row.confirmed ? c.D : calcRevenueRatio(c, wTotals);
-          const U = row.confirmed ? c.U : calcPurchaseRatio(c, wTotals);
+          const D = row.confirmed ? c.D : calcRevenueRatio(c, wTotals, row.category);
+          const U = row.confirmed ? c.U : calcPurchaseRatio(c, wTotals, row.category);
           return (
             <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
               {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
@@ -649,10 +653,10 @@ export default function ProfitReportPage() {
           <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
           (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
           청구서 환율·실사재고·특수 통관비처럼 예외값을 넣을 때만 <b>🛠 수기 보정</b>을 열어 입력하면 해당 값이 우선합니다.
-          환율(R)은 입고별 과세환율 스냅샷(FreightCost, 통관 신고 시점 관세청 과세환율 — 호주 AUD 포함 전 통화 동일 기준) → 전차수 확정 과세환율 → CurrencyMaster 순서로 사용합니다. 구매현황의 상업(환전)환율과는 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
+          환율(R)은 입고별 과세환율 스냅샷(FreightCost, 통관 신고 시점 관세청 과세환율 — 호주 AUD 포함 전 통화 동일 기준) → 그 차수에 저장해 둔 공식 과세환율 → 담당자 직접 입력 순서로만 사용합니다. 통화마스터의 현재 환율이나 전 차수 환율을 과거 차수에 자동으로 갖다 쓰지 않습니다(과세환율은 주마다 고시값이 다름). 구매현황의 상업(환전)환율과도 다른 값이니 혼동하지 마세요. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 그 차수 관세청 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
-          {data?.rates?.length ? ` · 참고 환율: ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
+          {data?.rates?.length ? ` · 통화마스터 현재 환율(참고용, 계산 미반영): ${data.rates.map(r => `${r.CurrencyCode} ${fmt(r.ExchangeRate)}`).join(' · ')}` : ''}</>
         )}
       </div>
 
@@ -768,7 +772,10 @@ export default function ProfitReportPage() {
 
       {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
         <div style={st.attentionBanner}>
-          ⚠ <b>환율 입력 필요</b> — 환율 원천이 없는 행의 R 입력칸이 자동으로 표시되었습니다. 인보이스 과세환율을 입력한 뒤 저장하세요.
+          ⚠ <b>과세환율 입력 필요</b> — 과세환율 원천이 없는 행의 R 입력칸이 자동으로 표시되었습니다.
+          통화마스터의 현재 환율이나 전 차수 환율을 과거 차수에 자동으로 적용하지 않으므로(주마다 고시값이 다름),
+          해당 차수 관세청 과세환율을 직접 입력한 뒤 저장하세요.
+          {data.taxableRateApiConfigured === false && ' 공식 조회 자격정보(KCS_EXCHANGE_RATE_API_URL/KEY)가 배포에 없어 자동 조회는 불가합니다.'}
         </div>
       )}
 
@@ -808,11 +815,21 @@ export default function ProfitReportPage() {
               {rows.map(row => {
                 const c = row.calc;
                 // 확정 스냅샷 행은 저장된 D/U를 그대로 쓴다(재계산 금지 — 2026-08-11 결함수정).
-                const D = row.confirmed ? c.D : calcRevenueRatio(c, totals);
-                const U = row.confirmed ? c.U : calcPurchaseRatio(c, totals);
+                const D = row.confirmed ? c.D : calcRevenueRatio(c, totals, row.category);
+                const U = row.confirmed ? c.U : calcPurchaseRatio(c, totals, row.category);
                 return (
-                  <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb' } : undefined}>
-                    {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
+                  <tr key={row.category} style={row.category === '기타(미분류)' ? { background: '#fffbeb', color: '#92400e' } : undefined}>
+                    {isVisible('category') && (
+                      <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>
+                        {row.category}
+                        {row.category === '기타(미분류)' && (
+                          <span
+                            style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: '#b45309' }}
+                            title="원본 매출원가 양식에 없는 줄입니다. 아래 합계 줄과 엑셀 합계에 넣지 않으며, 원본 품목의 국가/화종을 정정해야 정식 카테고리로 잡힙니다."
+                          >확인 전용(합계 제외)</span>
+                        )}
+                      </td>
+                    )}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
                         {!data.confirmed && (showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}

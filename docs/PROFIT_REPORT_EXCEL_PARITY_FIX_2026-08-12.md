@@ -1,5 +1,15 @@
 # 주차별 매출이익보고서 — 22~27차 그외통관비 Excel Parity 수정 (2026-08-12)
 
+
+> ⚠️ **일부 대체됨 (2026-08-12 후속 작업).** 아래 3번 항목의 `lib/profitReportAuditedBaseline.js`
+> (22~27차 **최종 H 합계** 하드코딩 폴백)와 `__tests__/profitReportAuditedBaseline.test.js`는 삭제됐다.
+> 최종 합계 폴백은 원천 누락을 숨기고 감사 테스트를 자기증명으로 만들기 때문에, 원본 워크북의
+> **구성요소**를 스냅샷하고 H는 원본 공식으로 계산하는 `lib/profitReportHistoricalCustoms.js`로
+> 대체했다. 트럭 등급 규칙(1대 선택)도 용량분해 추천 + 실제값 우선으로 바뀌었다.
+> 현행 근거는 [`PROFIT_REPORT_WORKBOOK_REBASELINE_2026-08-12.md`](PROFIT_REPORT_WORKBOOK_REBASELINE_2026-08-12.md)와
+> [`exe-golden/FormProfitReport.md`](exe-golden/FormProfitReport.md)를 따른다. 나머지 항목(콜롬비아 영문
+> 분류, 국가 월드운송료 결합 GW, 요율 스냅샷 정책)은 그대로 유효하다.
+
 ## 배경
 
 사용자가 원본 6개 엑셀 파일("매출원가 양식 - NN차_재고수정.xlsx", 22~27차, Downloads 폴더)을

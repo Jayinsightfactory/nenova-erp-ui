@@ -14,6 +14,7 @@ import { computeCustomsAndForwarding } from '../../../lib/customsForwarding';
 import { buildProfitReportAudit } from '../../../lib/profitReportAudit';
 import { buildMonthlyProfitSummary } from '../../../lib/profitReportMonthly.js';
 import { getActiveConfirm } from '../../../lib/profitReportConfirm.js';
+import { loadTaxableRates, resolveTaxableRate, hasKcsApiCredentials } from '../../../lib/taxableExchangeRate.js';
 
 export function parseMajor(raw) {
   const m = String(raw || '').trim().match(/^(\d{1,2})(-\d{2})?$/);
@@ -27,7 +28,7 @@ export async function loadReportData(major, orderYear) {
   // 연도 경계인 01차에서만 전년도 52차를 사용한다.
   const prevOrderYear = currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear);
   const prevMajor = currentMajor <= 1 ? '52' : String(currentMajor - 1).padStart(2, '0');
-  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails, prevConfirm] = await Promise.all([
+  const [N, est, Q, S, rates, invoiceRates, cur, prev, stockEnd, stockBegin, purchQty, prevQ, prevS, prevPurchQty, customs, prevCustoms, unclassifiedDetails, prevConfirm, savedRates] = await Promise.all([
         salesByCategory(major, orderYear),
         estimateByCategory(major, orderYear),
         purchaseByCategory(major, orderYear),
@@ -46,13 +47,13 @@ export async function loadReportData(major, orderYear) {
         computeCustomsAndForwarding(prevMajor, prevOrderYear),  // E 자동계산용: 전차수 H/S
         unclassifiedDetailsByCategory(major, orderYear),       // 기타(미분류) 원본 품목을 비고에 자동 기록
         getActiveConfirm(prevOrderYear, prevMajor),         // E 이월 1순위: 전차수 활성 확정 스냅샷 F(REPORT_CONFIRM_SNAPSHOT)
+        loadTaxableRates(major, orderYear),                 // R 2순위: 그 주차에 저장/캐시된 공식 과세환율
       ]);
 
       const keys = [...CATEGORIES.map(c => c.key)];
       const extraHasData = [N, est.L, est.O, Q, S].some(m => Math.abs(Number(m?.[EXTRA_CATEGORY] || 0)) > 0.001);
       if (extraHasData) keys.push(EXTRA_CATEGORY);
 
-      const rateByCode = Object.fromEntries((rates || []).map(r => [r.CurrencyCode, Number(r.ExchangeRate)]));
       const rows = keys.map(key => {
         const def = CATEGORIES.find(c => c.key === key) || {};
         const man = cur.manual[key] || {};
@@ -63,27 +64,22 @@ export async function loadReportData(major, orderYear) {
         const prevConfirmFValue = prevConfirmF != null ? Number(prevConfirmF) : null;
         const prevF = prevConfirmFValue != null ? prevConfirmFValue : prevMan.F;
         const curCode = currencyCodeForCategory(key);
-        const snapshotR = invoiceRates?.[key] != null ? Number(invoiceRates[key]) : null;
-        // 29차 이후에는 당주 FreightCost 스냅샷이 없더라도 전차수에 확정 저장된
-        // 과세환율(R)을 우선 상속한다. CurrencyMaster는 통관 신고 주차와 다른
-        // 현재 마스터값일 수 있으므로 마지막 fallback으로만 사용한다.
-        const previousTaxableR = currentMajor >= 29 && prevMan.R != null && Number(prevMan.R) > 0
-          ? Number(prevMan.R)
-          : null;
-        const autoR = snapshotR != null
-          ? snapshotR
-          : previousTaxableR != null
-            ? previousTaxableR
-            : curCode && rateByCode[curCode] != null
-              ? rateByCode[curCode]
-              : null;
-        const autoRSource = snapshotR != null
-          ? 'freight_cost_snapshot'
-          : previousTaxableR != null
-            ? 'previous_report_taxable_rate'
-            : autoR != null
-              ? 'currency_master_fallback'
-              : 'missing';
+        // R 과세환율 — CurrencyMaster 현재값이나 전차수 값을 과거 주차에 **자동 상속하지 않는다**.
+        // 원천은 당주 FreightCost 스냅샷 또는 그 주차에 저장/캐시된 공식 과세환율뿐이며,
+        // 둘 다 없으면 원천 누락(missing)으로 남겨 담당자가 입력하게 한다(2026-08-12 업무규칙).
+        // 전차수 값은 rCarry(참고 제안)로만 화면에 보여주고 계산에는 넣지 않는다.
+        const hasPurchase = Math.abs(Number(Q[key] || 0)) > 0.001
+          || Math.abs(Number(customs.S[key] ?? S[key] ?? 0)) > 0.001;
+        const rResolved = resolveTaxableRate({
+          currency: curCode,
+          snapshotRate: invoiceRates?.[key],
+          savedRate: savedRates.byCategory[key] || (curCode ? savedRates.byCurrency[curCode] : null),
+          manualRate: null,                    // 수기 R은 아래 manual.R 로 별도 적용된다
+          previousRate: prevMan.R,
+          hasPurchase,
+        });
+        const autoR = rResolved.rate;
+        const autoRSource = rResolved.source;
         // H 그외통관비 — 그외통관비 입력/포워딩 입력 화면에서 저장한 구조화 값(2026-07-10). 미입력 카테고리는 0.
         const autoH = customs.H[key] ?? 0;
         const prevAutoH = prevCustoms.H[key] ?? 0;
@@ -109,26 +105,15 @@ export async function loadReportData(major, orderYear) {
           // 값을 추정해 채우지 않고 audit이 needs_input으로 명시하게 한다(2026-08-11 결함수정 7).
           recentCostMissingQty: stockEnd.recentCostMissingQty?.[key] != null ? Number(stockEnd.recentCostMissingQty[key]) : 0,
         };
-        // 서버 기준 자동 F (저장된 수기 H/R/S 반영) — 화면 실값·엑셀생성 기본값
-        const autoF = computeAutoEndingStock(stock, {
-          Q: Number(Q[key] || 0),
-          S: man.S ?? autoS,
-          H: man.H ?? autoH,
-          R: man.R ?? autoR,
-        });
-        // 자동 E = 전차수 F 를 같은 방식으로 계산 (전차수 저장 수기값 반영)
+        // 서버 기준 자동 F = Σ(기말 ProductStock 수량 × 품목별 재고평가단가) ÷ 1.1 (원본 재고잔량 시트).
+        // 평가단가를 하나도 못 찾은 카테고리만 최근 매입단가×환율로 fallback 한다.
+        const autoF = computeAutoEndingStock(stock, { R: man.R ?? autoR });
+        // 자동 E = 전차수 말 스냅샷을 같은 공식으로 계산 (확정 스냅샷/수기 F가 있으면 아래에서 우선함)
         const autoE = computeAutoEndingStock({
-          purchQty: prevPurchQty[key] != null ? Number(prevPurchQty[key]) : 0,
           endQty: stockBegin.qtys[key] != null ? Number(stockBegin.qtys[key]) : 0,
           recentCost: stockBegin.recentCost[key] != null ? Number(stockBegin.recentCost[key]) : 0,
           tableF: stockBegin.values[key] != null ? stockBegin.values[key] : null,
-          unitMismatch: Boolean(stockBegin.unitMismatch?.[key]),
-        }, {
-          Q: Number(prevQ[key] || 0),
-          S: prevMan.S ?? prevAutoS,
-          H: prevMan.H ?? prevAutoH,
-          R: prevMan.R ?? autoR,
-        });
+        }, { R: prevMan.R ?? autoR });
         const source = {
           E: man.E != null
             ? 'manual'
@@ -162,8 +147,11 @@ export async function loadReportData(major, orderYear) {
             H: autoH,                                    // 그외통관비 자동값(그외통관비/포워딩 입력 화면 연동)
             E: autoE != null ? Math.round(autoE) : null, // 전차수 기말재고 자동계산(엑셀 방식)
             F: autoF != null ? Math.round(autoF) : null, // 이번 차수 기말재고 자동계산(엑셀 방식)
-            R: autoR,                                    // BILL 스냅샷 → 전차수 과세환율 → CurrencyMaster
+            R: autoR,                                    // 당주 FreightCost 과세환율 스냅샷 > 그 주차 저장/캐시 공식 과세환율
           },
+          // 전차수 과세환율 — **참고 제안 전용**. 사용자가 명시적으로 적용/저장하기 전에는 계산에 들어가지 않는다.
+          rateCarry: rResolved.carry,
+          rateNeedsInput: man.R == null && rResolved.needsInput,
           manual: {
             E: man.E ?? (prevF ?? null),   // 우선순위: 이번차수 저장값 > 전차수 활성 확정 스냅샷 F > 전차수 저장 기말 > (auto)
             F: man.F ?? null,
@@ -182,6 +170,10 @@ export async function loadReportData(major, orderYear) {
     autoNote: formatUnclassifiedNote(unclassifiedDetails),
     unclassifiedDetails,
     rates,
+    // 과세환율 공식 조회(관세청 OpenAPI) 자격정보가 배포에 주입돼 있는지 — 없으면 화면이
+    // "공식 조회 불가, 직접 입력 필요"로 안내한다. 키 값 자체는 절대 응답에 넣지 않는다.
+    taxableRateApiConfigured: hasKcsApiCredentials(),
+    savedTaxableRates: savedRates,
     stockWeeks: {
       begin: stockBegin.week,
       end: stockEnd.week,

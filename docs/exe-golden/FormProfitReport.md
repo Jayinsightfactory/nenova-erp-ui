@@ -64,6 +64,13 @@
 | 월별 행 펼치기·월경계 차수 확인 | 보존 | 보존 | 읽기만 함 | 보존 | 보존 | 읽기만 함 |
 | 기존 주차 보고서의 수기 저장 | 보존 | 보존 | 보존 | 보존 | 보존 | 기존 주차 키로만 저장 |
 | `항목별 데이터 기준 보기` 펼치기·접기 | 보존 | 보존 | 보존 | 보존 | 보존 | 보존(조회도 하지 않음) |
+| 과세환율 조회(TAXABLE_RATE_READ) | 보존 | 보존 | 보존 | 보존 | 보존 | 보존(웹 전용 `WebTaxableExchangeRate`만 SELECT) |
+| 과세환율 저장(TAXABLE_RATE_SAVE) | 보존 | 보존 | 보존 | 보존 | 보존 | 보존(웹 전용 `WebTaxableExchangeRate`/`...History`만 MERGE·INSERT) |
+| 그외통관비 국가/콜롬비아 저장 | 보존 | 보존 | 보존 | 보존 | 보존 | 보존(웹 전용 `WebCustomsWeekly`/`WebColombiaWeekly`/`WebCustomsHistory`만) |
+| 실제 배차 대수·단가 수정 저장 | 보존 | 보존 | 보존 | 보존 | 보존 | 보존(위와 동일 — 추천값은 저장하지 않고 유효값만 스냅샷) |
+| historical snapshot seed 마이그레이션 | 보존 | 보존 | 보존 | 보존 | 보존 | 보존(웹 전용 테이블에만 INSERT, 기존 행 미덮어씀) |
+
+`CurrencyMaster`는 이 기능이 **읽기만** 한다. 과세환율(R)의 자동 원천으로는 더 이상 사용하지 않는다.
 
 ## 항목별 데이터 기준 보기(2026-08-11)
 
@@ -188,6 +195,118 @@ HandlingFee/CustomsFee/DisinfectFee/QuarantineDeductFee 구성요소도 원본 �
 - 회귀는 코드 리뷰로 확인(순수 UI 상태 로직이라 DB 없는 단위 테스트로 커버하기 어려움) —
   `__tests__/customsForwardingAuto.test.js`/`profitReportAuditedBaseline.test.js`가 서버 쪽
   총액·우선순위를 고정하므로, 화면이 그 총액과 다른 값을 보여주면 수동 스모크에서 즉시 드러난다.
+
+## 22~27차 원본 워크북 전면 재대조 — 원천 구성요소 스냅샷·과세환율·재고평가·미분류 (2026-08-12)
+
+원본 `매출원가 양식 - NN차_재고수정.xlsx`(22~27차 6개, Downloads, read-only)의 **전 시트**를
+`scripts/probe-profit-workbook-full.mjs`(구조 덤프)와 `scripts/extract-profit-workbook-fixture.mjs`
+(구조화 추출)로 다시 읽어 `__tests__/fixtures/profit-report-22-27-full.json`을 만들고, 웹 계산을 그
+원본에 맞췄다. 이 기능은 `nenova.exe`에 별도 Form이 없는 웹 전용 보고서이므로 dnSpy 재조사가 아니라
+원본 워크북 대조가 근거다. 공용 읽기 계약(`ViewShipment`/`ViewWarehouse`/`ViewOrder`)은 변경 없다.
+
+### 원본 시트 구조(확인된 사실)
+
+| 시트 | 내용 |
+|---|---|
+| `주차별 매출이익 보고서` | 7~21행 = 15개 카테고리, 22행 = 공제, 23행 = 합계. **`기타(미분류)` 행은 존재하지 않는다.** |
+| `그외통관비` | 국가 11행 × 5개 블록(백상창고료 GW, 관세, 선율, 월드운송료, 한국방역) + 합계. 트럭 단가표 N20:O22(1t 99,000 / 2.5t 187,000 / 5t 275,000) |
+| `콜롬비아 1차`/`2차` | 반차수 통관비 DETAIL(창고비=GW×요율, 통관수수료 33,000, 검역대행=품목수×10,000, 운송비=Σ대수×단가, 관세료/소독비용/검역비용) + 품목별 박스당무게·박스수량·박스당CBM |
+| `재고잔량` | 품목별 `수량 × 가격` 합산 후 그룹 합계 ÷ 1.1 |
+
+합계행 SUM 범위는 열마다 다르다 — C/D/E/F/J는 공제(22행) 포함 `SUM(7:22)`, G/H/I/L/N/O/P/Q/S/T는
+`SUM(7:21)`, `K=J23/(C23+F23)`, `M=-(L23/C23)`, `U=SUM(U7:U20)`(베트남까지 제외, 원본 그대로).
+
+### 결함 1 — 최종 H 합계 하드코딩 폴백이 원천 누락을 숨김
+
+`lib/profitReportAuditedBaseline.js`는 22~27차 국가별 H의 **최종 합계**만 런타임 폴백으로 갖고 있었다.
+그러면 화면 H가 맞더라도 그 값을 만드는 원천(백상 GW·관세·선율·월드운송료·방역)이 운영 DB에 없다는
+사실이 숨겨지고, 감사 테스트도 "하드코딩 합계 == 하드코딩 합계"를 비교하는 자기증명이 된다.
+
+원본 `그외통관비`/`콜롬비아 1·2차` 시트에는 구성요소가 **전부 그대로** 들어 있으므로(역산이 아니다),
+`lib/profitReportHistoricalCustoms.js`(신규)가 그 구성요소를 스냅샷하고 최종 H는
+`computeCountryCustomsTotal`/`computeColombiaCustomsTotal`이 원본 공식으로 계산하도록 바꿨다.
+`lib/profitReportAuditedBaseline.js`는 삭제했다.
+
+- 검증: 국가 66건 + 콜롬비아 반차수 12건 전부가 원본 셀값과 상대오차 1e-6 이하로 일치
+  (`__tests__/profitReportHistoricalCustoms.test.js`, `__tests__/profitReportFullColumnParity.test.js`).
+- 화면 source 태그는 `historical_snapshot`으로 표시해 자동값으로 오인되지 않게 한다.
+- 같은 값을 운영 DB에 물리적으로 넣으려면
+  `docs/migrations/2026-08-12_profit_report_historical_customs_seed.sql`(웹 전용 테이블에만 INSERT,
+  기존 행 미덮어씀, `scripts/gen-historical-customs-seed.mjs`가 모듈에서 생성)을 실행한다.
+- 백상 창고료 요율은 **시트 단위로 다르다** — 22차 `콜롬비아` 시트는 370원/kg인데 같은 22차
+  `그외통관비`(국가) 시트는 460원/kg이다. 이전 구현이 22차를 통째로 370으로 본 것은 오류였다.
+- 요율 스냅샷은 백상뿐 아니라 트럭 단가·검역대행 단가까지 행 단위로 적용한다
+  (`ratesForRow`: `BakSangRateApplied`/`TruckRatesApplied`/`QuarantinePerItemRateApplied` > 전역 단가표).
+
+### 결함 2 — 과세환율(R)에 CurrencyMaster 현재값·전차수 값을 자동 상속
+
+R은 AUD를 포함한 **전 통화가** 그 통관 신고 주차의 관세청 과세환율이다. 이전 구현은 원천이 없으면
+`CurrencyMaster` 현재 환율을 자동 적용하고 29차 이후에는 전차수 R까지 상속해, **틀린 값이 맞는 값처럼**
+보였다. 이제 원천은 ① 담당자 직접 입력 ② 당주 `FreightCost.ExchangeRate` 스냅샷 ③ 그 주차에 저장/캐시된
+공식 과세환율뿐이고, 셋 다 없으면 `missing`으로 남겨 입력칸을 연다. 전차수 값은 `rateCarry`(참고 제안)로만
+보여 주며 사용자가 적용·저장하기 전에는 계산에 들어가지 않는다.
+
+- 저장 모델: `WebTaxableExchangeRate(OrderYear, MajorWeek, Currency, Category)` + 이력 테이블
+  (`docs/migrations/2026-08-12_web_taxable_exchange_rate.sql`, `lib/taxableExchangeRate.js`,
+  `pages/api/sales/taxable-exchange-rate.js`). GET은 SELECT 전용이며 테이블이 없어도 보고서 조회를
+  막지 않는다.
+- `Category` 스코프가 필요한 이유: 원본 27차는 같은 USD인데도 콜롬비아 1538.30, 태국·에콰도르 1548.52로
+  달랐다. 통관 신고 주차가 달라서 생기는 정상 차이이며(콜롬비아가 한 주 뒤진다), 통화 하나로 뭉치면 재현할 수 없다.
+- H(호주 입력 시작 28차)와 R(AUD 존재 여부)은 서로 다른 문제다. 22~27차에도 호주 구매가 있던
+  23·24·27차에는 AUD 과세환율(1079.48 / 1083.36 / 1068.23)이 존재하며 seed에 포함했다.
+  구매가 없던 22·25·26차는 원본도 공란이라 seed하지 않는다.
+- 관세청 OpenAPI 자격정보는 `KCS_EXCHANGE_RATE_API_URL`/`KCS_EXCHANGE_RATE_API_KEY` 환경변수 이름만
+  `.env.local.example`에 선언한다. 키가 없으면 공식 조회를 시도하지 않고 원천 누락으로 표시한다.
+
+### 결함 3 — F(기말상품재고액)가 원본에 없는 착륙원가 평균단가를 사용
+
+이전 1순위 공식 `(구매금액×환율 + 포워딩×환율 + 그외통관비) ÷ 매입총수량 × 기말수량`은 원본 어느
+시트에도 없다. 원본 `재고잔량` 시트는 품목마다 `수량 × 가격`을 합산하고 그룹 합계를 ÷1.1 한다.
+이 착륙원가 식이 27차 F 오차를 41.6%까지 벌렸다.
+
+이제 `F = Σ(마지막 확정 세부차수 ProductStock 수량 × 품목별 재고평가단가) ÷ 1.1`이며(평가단가 우선순위
+`WebStockPrice` > 수국단가표 > `Product.Cost`), 평가단가를 하나도 못 찾은 경우에만 품목별 최근 매입
+외화단가 × 수량 × R로 fallback 한다. 그마저 없으면 값을 추정해 채우지 않고
+`STOCK_VALUATION_PRICE_MISSING` 검증으로 남긴다. 착륙원가 식 우회용이던 `unitMismatch` 분기는
+계산에서 제거하고 `categoryUnitMismatch`는 진단 표시 전용으로만 남겼다.
+
+E(기초재고)는 같은 `OrderYear`의 전차수 마지막 확정 F를 그대로 물려받고(27차→26차), 01차에서만 전년도
+52차로 넘어간다. 우선순위는 ① 이번 차수 수기값 ② 전차수 활성 확정 스냅샷 F ③ 전차수 수기 F
+④ 전차수 자동계산이며, 확정 이후에는 DB가 바뀌어도 확정값이 재계산되지 않는다.
+
+⚠️ 원본 `재고잔량` 시트의 **단순 전체합을 본표 E/F로 복사하면 안 된다.** 그 시트에는 수동 정정·오입력이
+남아 있다(예: 27차 카네이션 기말단가 110,000 = 기초 11,000의 10배). 본표 E/F는 카테고리별로 따로
+입력된 값이며 시트 총합과 일치하지 않는다.
+
+### 결함 4 — `기타(미분류)`가 공식 본표 합계에 섞임
+
+원본 본표에는 `기타(미분류)` 행이 없다. 이제 이 행은 검증 목록(`UNCLASSIFIED_DATA`)과 비고에만 표시하고
+**공식 합계(C/D/E/F/G/H/I/J/K/L/M/N/O/P/Q/S/T/U 전부)에서 제외**한다. 자동으로 정식 카테고리에
+합산하지 않으며, 분류를 정정하기 전까지 audit-only 영역이다. 화면 합계와 엑셀 export 합계는
+`lib/profitReportCalc.js`의 `computeProfitTotals`/`calcRevenueRatio`/`calcPurchaseRatio` 한 곳을
+공유하므로 항상 같다.
+
+### 결함 5 — 트럭 자동추천이 등급 1대만 선택
+
+이전 규칙은 `GW≤1,000→1t / ≤2,500→2.5t / 그 외 5t`로 항상 한 대만 골랐다. 확정된 업무 규칙은 합산 GW를
+**용량 단위로 분해**하는 것이다(`lib/colombiaTruck.js deriveTruckCapacityAllocation`).
+
+1. 큰 용량부터, 남은 중량이 그 용량을 꽉 채울 때만 한 대를 배정하고 차감한다.
+2. 마지막 잔여 중량은 그것을 한 대로 덮는 최소 용량 한 대로 마감한다.
+3. 뒤쪽 작은 차량 묶음을 더 큰 차량 한 대로 바꿔도 **총 용량이 늘지 않을 때만** 바꾼다.
+
+사용자 확정 기준 케이스 `3,000kg → 2.5t 1대 + 1t 1대`가 그대로 나오며, 비용이 더 싼 5t 1대로 묶지 않는다.
+**과거 Excel/DB에 남은 실제 배차 대수·청구액은 항상 추천값보다 우선한다** — 원본 27-01은 GW 7,020kg에
+실제로 5t 1대만 청구됐고(추천은 5t+2.5t), historical snapshot이 그 실제값을 보존한다. 화면은 추천과
+실제를 배지로 구분해 표시하며 실제 대수·비용과 단가는 차수별로 수정 저장할 수 있다.
+
+### 검증 범위
+
+`__tests__/profitReportFullColumnParity.test.js`가 22~27차 **96개 카테고리 행 × C~U 전 열 + 합계행**을
+원본 셀값과 대조한다. 원본이 준 입력값(N/L/O/Q/R/S/E/F/H)만 웹 계산 함수에 넣고 결과값
+(C/D/G/I/J/K/M/P/T/U)과 합계행을 계산해 비교하므로, 하드코딩된 결과를 읽어 통과시키지 않는다.
+현재 전 열 최대 상대오차는 0이다. H 원천 대조(구성요소 → 원본 공식 → 원본 H)는 5% 초과를 실패로
+표시하며 국가 66건·콜롬비아 4품목 24건 모두 통과한다.
 
 ## 사전 확인 기록
 

@@ -19,7 +19,7 @@ async function buildLiveConfirmPayload(major, orderYear) {
   const totals = computeProfitTotals(rows);
   const rowsWithRatios = rows.map((r) => ({
     ...r,
-    calc: { ...r.calc, D: calcRevenueRatio(r.calc, totals), U: calcPurchaseRatio(r.calc, totals) },
+    calc: { ...r.calc, D: calcRevenueRatio(r.calc, totals, r.category), U: calcPurchaseRatio(r.calc, totals, r.category) },
   }));
   return { rows: rowsWithRatios, totals, stockWeeks: data.stockWeeks, audit: data.audit };
 }

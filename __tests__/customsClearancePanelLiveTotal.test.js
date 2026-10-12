@@ -43,18 +43,18 @@ async function main() {
   console.log('\n=== lib/customsForwarding.js는 이 순수 계산식을 재구현하지 않고 그대로 재노출한다 ===');
   const {
     computeCountryCustomsTotal: calcCountry, computeColombiaCustomsTotal: calcColombia,
-    computeColombiaAllocation: calcAlloc, effectiveRatesForWeek: calcRates,
+    computeColombiaAllocation: calcAlloc, ratesForRow: calcRates,
     COLOMBIA_ALLOC_CATEGORIES: calcCategories,
   } = await import('../lib/customsForwardingCalc.js');
   const {
     computeCountryCustomsTotal: fwdCountry, computeColombiaCustomsTotal: fwdColombia,
-    computeColombiaAllocation: fwdAlloc, effectiveRatesForWeek: fwdRates,
+    computeColombiaAllocation: fwdAlloc, ratesForRow: fwdRates,
     COLOMBIA_ALLOC_CATEGORIES: fwdCategories,
   } = await import('../lib/customsForwarding.js');
   check('computeCountryCustomsTotal 참조 동일(재구현 아님)', calcCountry === fwdCountry);
   check('computeColombiaCustomsTotal 참조 동일(재구현 아님)', calcColombia === fwdColombia);
   check('computeColombiaAllocation 참조 동일(재구현 아님)', calcAlloc === fwdAlloc);
-  check('effectiveRatesForWeek 참조 동일(재구현 아님)', calcRates === fwdRates);
+  check('ratesForRow 참조 동일(재구현 아님)', calcRates === fwdRates);
   check('COLOMBIA_ALLOC_CATEGORIES 참조 동일(재구현 아님)', calcCategories === fwdCategories);
   check('customsForwarding.js 소스에 독립 재구현이 남아있지 않음(export function computeCountryCustomsTotal 정의 없음)',
     !/export function computeCountryCustomsTotal/.test(forwardingSource));
@@ -63,9 +63,9 @@ async function main() {
   check("패널이 lib/customsForwardingCalc(DB 없음)에서 import — lib/customsForwarding(DB 있음)이 아님",
     /from\s+'\.\.\/lib\/customsForwardingCalc'/.test(panelSource)
     && !/from\s+'\.\.\/lib\/customsForwarding'/.test(panelSource));
-  check('패널이 computeCountryCustomsTotal/computeColombiaCustomsTotal/computeColombiaAllocation/effectiveRatesForWeek를 import',
+  check('패널이 computeCountryCustomsTotal/computeColombiaCustomsTotal/computeColombiaAllocation/ratesForRow를 import',
     /computeCountryCustomsTotal/.test(panelSource) && /computeColombiaCustomsTotal/.test(panelSource)
-    && /computeColombiaAllocation/.test(panelSource) && /effectiveRatesForWeek/.test(panelSource));
+    && /computeColombiaAllocation/.test(panelSource) && /ratesForRow/.test(panelSource));
   check('countryTotal()이 수기 편집 여부에 따라 즉시 재계산(hasEdit 분기)',
     /const countryTotal = \(row\) => \{/.test(panelSource) && /hasEdit/.test(panelSource));
   check('화면 "합계" 셀이 정적 row.total이 아니라 countryTotal(row)을 렌더',

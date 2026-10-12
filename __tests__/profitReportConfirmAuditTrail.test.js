@@ -105,9 +105,12 @@ async function main() {
   for (const testFile of [
     'profitReportConfirmSnapshotImmutability.test.js',
     'profitReportConfirmAuditTrail.test.js',
-    'profitReportAustraliaUnitFallback.test.js',
+    'profitReportEndingStockValuation.test.js',
     'profitReportCountryClassificationParity.test.js',
     'profitReportRecentCostCutoff.test.js',
+    'profitReportHistoricalCustoms.test.js',
+    'profitReportFullColumnParity.test.js',
+    'taxableExchangeRate.test.js',
   ]) {
     check(`test:erp-contract가 ${testFile}를 실행함`, erpContractCmd.includes(testFile));
   }

@@ -168,12 +168,16 @@ async function main() {
     /박스당 무게 × 박스수/.test(byKey.H.formula) && /1·2·3칸에 나눠/.test(byKey['in-customs-split'].formula));
   check('재고단가표 ÷1.1 평가식 명시', /÷ 1\.1/.test(byKey['in-stockprice'].formula));
 
-  // 기말재고 F 자동공식
-  check('기말재고 설명이 엑셀 원본 공식을 그대로 서술',
-    /구매금액 × 환율 \+ 포워딩 × 환율 \+ 그외통관비/.test(byKey.F.formula)
-    && /매입 총수량/.test(byKey.F.formula) && /최근 매입단가/.test(byKey.F.formula));
-  check('기말재고 자동공식 코드가 유지됨',
-    /landedWon \/ purchQty\) \* endQty/.test(calcSource) && /recentCost\) \* n0\(R\)/.test(calcSource));
+  // 기말재고 F 자동공식 — 원본 재고잔량 시트 공식(Σ 수량×평가단가 ÷ 1.1)
+  check('기말재고 설명이 원본 재고잔량 시트 공식을 그대로 서술',
+    /남은 재고수량 × 재고평가단가/.test(byKey.F.formula)
+    && /÷ 1\.1/.test(byKey.F.formula) && /최근 매입단가/.test(byKey.F.formula));
+  check('기말재고 자동공식 코드가 유지됨(평가단가 1순위 + 최근단가 fallback)',
+    /stock\.tableF != null && n0\(stock\.tableF\) !== 0/.test(calcSource)
+    && /recentCost\) \* n0\(R\)/.test(calcSource));
+  check('폐기된 착륙원가 평균단가(landedWon ÷ purchQty) 공식이 되살아나지 않음',
+    !/landedWon/.test(calcSource));
+  check('설명이 확정 후 고정(스냅샷)임을 안내', /확정하면 그 시점 값으로 고정/.test(byKey.F.note));
 
   // 차수 경계
   check('전차수 산출 코드 = currentMajor - 1, 01차만 전년 52차',
@@ -189,12 +193,26 @@ async function main() {
   check('마지막 세부차수 선택 코드가 유지됨(ProductStock 존재 + suffix DESC)',
     /EXISTS \(SELECT 1 FROM ProductStock ps WHERE ps\.StockKey=sm\.StockKey\)/.test(reportSource));
 
-  // 29차 환율 상속
-  check('29차 상속 코드 존재', /currentMajor >= 29 && prevMan\.R != null/.test(apiSource));
-  check('29차 상속 설명이 코드 순서와 동일',
-    /29차 이후/.test(byKey['bd-rate-29'].formula) && /통화마스터/.test(byKey['bd-rate-29'].formula)
-    && /29차부터는 전 차수 보고서에 저장된 과세환율/.test(byKey.R.source));
-  check('28차 이하는 상속 없음 명시', /28차 이하/.test(byKey['bd-rate-29'].note));
+  // 과세환율 우선순위 — CurrencyMaster/전차수 자동 상속 금지(2026-08-12 업무규칙)
+  check('R 결정에 resolveTaxableRate 공용 함수를 사용', /resolveTaxableRate\(\{/.test(apiSource));
+  check('과거 차수에 CurrencyMaster 현재 환율을 자동 적용하는 코드가 없음',
+    !/rateByCode\[curCode\]/.test(apiSource) && !/currency_master_fallback/.test(apiSource));
+  check('전차수 R 자동 상속 코드가 없음', !/currentMajor >= 29 && prevMan\.R != null/.test(apiSource));
+  check('전차수 값은 참고값(carry)으로만 전달', /rateCarry: rResolved\.carry/.test(apiSource));
+  check('설명이 코드 우선순위와 동일(입고 스냅샷 → 그 차수 저장값 → 직접입력)',
+    /그 차수에 저장해 둔 공식 과세환율/.test(byKey.R.source)
+    && /담당자 직접 입력/.test(byKey['bd-rate-29'].formula));
+  check('설명이 통화마스터/전차수 자동상속 금지를 명시',
+    /자동으로 갖다 쓰지 않습니다/.test(byKey['bd-rate-29'].note)
+    && /눌러서 적용하고 저장해야/.test(byKey['bd-rate-29'].note));
+
+  // 미분류 audit-only + 트럭 추천/실제 설명
+  check('미분류가 공식 합계에서 제외됨을 설명', /어느 합계에도 넣지 않습니다/.test(byKey['bd-unclassified'].formula));
+  check('미분류 설명이 자동 합산 금지를 명시', /임의로 가까운 나라에 합산하지 않습니다/.test(byKey['bd-unclassified'].note));
+  check('D 설명이 미분류 제외를 명시', /“기타\(미분류\)” 줄은 넣지 않습니다/.test(byKey.D.formula));
+  check('합계 설명이 미분류 제외를 명시', /“기타\(미분류\)” 줄은 어느 합계에도 넣지 않습니다/.test(byKey['row-total'].formula));
+  check('트럭 추천 규칙(3,000kg → 2.5t + 1t)을 설명', /3,000kg이면 2\.5t 1대 \+ 1t 1대/.test(byKey['bd-truck'].formula));
+  check('트럭 실제값이 추천보다 우선함을 설명', /실제값이 추천보다 항상 먼저/.test(byKey['bd-truck'].note));
 
   // 확정 출고 필터
   check('순수매출 SQL이 ShipmentMaster.isFix=1 확정 필터를 유지', /ISNULL\(sm\.isFix,0\)=1/.test(reportSource));

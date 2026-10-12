@@ -107,7 +107,11 @@ async function main() {
   check('음수 재고도 감사 대상으로 조회', stockSection.includes('ISNULL(ps.Stock,0) <> 0'));
   check('호주는 AUD', reportSource.includes("'호주': 'AUD'"));
   check('차수별 인보이스 환율 스냅샷을 현재 환율보다 우선', reportSource.includes('export async function invoiceRatesByCategory') && reportSource.includes('FreightCost fc') && reportSource.includes('fc.ExchangeRate'));
-  check('29차 이후 전차수 확정 과세환율을 CurrencyMaster보다 우선', reportApiSource.includes('previousTaxableR') && reportApiSource.includes('previous_report_taxable_rate') && reportApiSource.includes('currentMajor >= 29'));
+  check('과세환율은 그 주차 원천만 사용 — CurrencyMaster/전차수 자동 상속 없음',
+    reportApiSource.includes('resolveTaxableRate({')
+    && !reportApiSource.includes('currency_master_fallback')
+    && !reportApiSource.includes('previous_report_taxable_rate'));
+  check('전차수 과세환율은 참고값(carry)으로만 전달', reportApiSource.includes('rateCarry: rResolved.carry'));
   check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' && needsRateInput(row)") && pageSource.includes('환율 입력 필요'));
   // 2026-08-11: 각 함수의 인라인 LIKE '%운송료%' 조건이 공용 stockablePurchaseItemSql()로
   // 통합됐다(27차 F 폭증 결함 수정 — 상세는 __tests__/profitReportStockCostExclusionContract.test.js).
@@ -147,8 +151,8 @@ async function main() {
   const audited = buildProfitReportAudit([{
     category: '태국', currency: 'USD',
     auto: { N: 100, Q: 10, S: 2, R: 1550 }, manual: {},
-    stock: { endQty: 3 },
-    source: { E: 'auto_exe_stock_view', H: 'missing', F: 'auto_unverified_snapshot', R: 'currency_master_fallback' },
+    stock: { endQty: 3, tableF: 24000 },
+    source: { E: 'auto_exe_stock_view', H: 'missing', F: 'auto_unverified_snapshot', R: 'freight_cost_snapshot' },
   }, {
     category: '기타(미분류)', auto: { N: 50 }, manual: {}, stock: {}, source: {},
   }]);
@@ -193,11 +197,16 @@ async function main() {
   const rose27StockRows = [2, 4, 5, 6, 10, 10, 10, 10, 10, 10, 15, 16, 16, 18, 20, 27, 40, 50];
   const rose27EndQty = rose27StockRows.reduce((sum, qty) => sum + qty, 0);
   check('27-02 EXE 장미 재고현황 마지막 잔량 합계 = 279단', rose27EndQty === 279);
+  // F는 Σ(수량 × 품목별 재고평가단가) ÷ 1.1 (원본 재고잔량 시트). 서버가 품목별로 이미 집계해
+  // stock.tableF로 넘겨주므로, 여기서는 279단이 그 집계에 반영된 값이 그대로 F가 되는지 확인한다.
+  const rose27UnitPrice = 8400;
+  const rose27TableF = (rose27EndQty * rose27UnitPrice) / 1.1;
   const rose27AutoF = computeAutoEndingStock(
-    { purchQty: 2810, endQty: rose27EndQty },
-    { Q: 11022, S: 2813.5339799347653, H: 0, R: 1550 },
+    { endQty: rose27EndQty, tableF: rose27TableF, recentCost: 1 },
+    { R: 1550 },
   );
-  check('F는 재고현황 279단을 수식에 직접 반영', near(rose27AutoF, 2129244.3664138042, 0.01));
+  check('F는 재고현황 279단 × 평가단가 ÷ 1.1 을 그대로 사용', near(rose27AutoF, rose27TableF, 0.01),
+    `${rose27AutoF} != ${rose27TableF}`);
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);
   process.exit(failed ? 1 : 0);

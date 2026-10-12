@@ -9,7 +9,7 @@ import { COUNTRY_INPUT_FIELDS, vatInclusiveToNet, vatNetToInclusive } from '../l
 // 이전에는 입력칸을 고쳐도 "합계"·"저장" 버튼 옆 합계가 마지막 조회 시점 값에 멈춰 있어, 화면에
 // 보이는 값과 저장하면 실제로 반영될 값이 저장 전까지 서로 달랐다).
 import {
-  effectiveRatesForWeek, computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaAllocation,
+  ratesForRow, computeCountryCustomsTotal, computeColombiaCustomsTotal, computeColombiaAllocation,
 } from '../lib/customsForwardingCalc';
 
 const n0 = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? 0 : Number(v));
@@ -209,7 +209,15 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   // 콜롬비아도 동일 원칙 — carry는 표시하되 유효값/저장 대상에 자동 포함하지 않는다.
   const colValue = (c, field) => {
     if (colombiaEdits[c.orderWeek]?.[field] !== undefined) return colombiaEdits[c.orderWeek][field];
-    if (COLOMBIA_TRUCK_FIELDS.has(field) && c.truckAuto) return c.truckAuto[field] || 0;
+    // 트럭 대수는 **실제 배차값(저장/원본 스냅샷)이 추천보다 항상 우선**한다.
+    // 저장된 실제값이 하나도 없을 때만 합산 GW 용량분해 추천값을 채운다.
+    if (COLOMBIA_TRUCK_FIELDS.has(field)) {
+      const actual = c.truckActual && [...COLOMBIA_TRUCK_FIELDS].some((k) => n0(c.truckActual[k]) > 0)
+        ? c.truckActual : null;
+      if (actual) return actual[field] || 0;
+      if (c.saved?.[field] != null) return c.saved[field];
+      return c.truckAuto ? (c.truckAuto[field] || 0) : '';
+    }
     if (c.saved?.[field] != null) return c.saved[field];
     return '';
   };
@@ -223,8 +231,8 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     COLOMBIA_FIELDS.forEach(([f]) => {
       const hasEdit = colombiaEdits[c.orderWeek]?.[f] !== undefined;
       if (COLOMBIA_TRUCK_FIELDS.has(f)) {
-        if (c.truckAuto) out[f] = c.truckAuto[f] || 0;
-        else if (hasEdit || c.saved?.[f] != null) out[f] = colValue(c, f);
+        // 수기 수정값 > 저장/원본 실제 배차 > 추천값 순으로 그 시점 유효값을 저장한다.
+        if (hasEdit || c.saved?.[f] != null || c.truckActual || c.truckAuto) out[f] = n0(colValue(c, f));
         return;
       }
       if (!hasEdit && c.saved?.[f] == null) return;
@@ -233,9 +241,10 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     return out;
   };
 
-  // 저장 시점에 적용될 유효 백상 창고료 요율(감사 기준값 22~27차 우선) — 서버 resolver와 동일 함수를
-  // 그대로 재사용해, 미리보기 총액도 서버가 실제로 계산할 값과 같은 요율을 쓴다.
-  const effectiveRates = data ? effectiveRatesForWeek(data.rates, data.orderYear, data.major) : null;
+  // 이 행에 적용될 유효 요율 — 저장/historical 스냅샷(BakSangRateApplied·TruckRatesApplied 등)이
+  // 있으면 그 값이 전역 단가표보다 우선한다. 서버 resolver와 같은 함수(ratesForRow)를 그대로
+  // 재사용해, 미리보기 총액도 서버가 실제로 계산할 값과 같은 요율을 쓴다.
+  const ratesFor = (row) => (data ? ratesForRow(row?.saved || row?.historical || null, data.rates) : null);
 
   // 이 국가행의 "지금 화면에 보이는" 합계 — 수기 편집이 없으면 서버가 마지막 조회 시 계산해 준
   // row.total(저장값/자동값/감사기준값 중 하나)을 그대로 쓴다. 편집이 있으면 countryValue()가
@@ -243,6 +252,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   // 입력칸에 보이는 값과 합계·저장 버튼 옆 합계가 항상 같은 값을 가리키게 한다.
   const countryTotal = (row) => {
     const hasEdit = Boolean(countryEdits[row.category] && Object.keys(countryEdits[row.category]).length);
+    const effectiveRates = ratesFor(row);
     if (!hasEdit || !effectiveRates) return n0(row.total);
     const liveRow = {};
     COUNTRY_FIELD_KEYS.forEach((field) => {
@@ -263,10 +273,12 @@ export default function CustomsClearancePanel({ week, onSaved }) {
   };
   const colombiaHasEdit = (c) => Boolean(colombiaEdits[c.orderWeek] && Object.keys(colombiaEdits[c.orderWeek]).length);
   const colombiaTotal = (c) => {
+    const effectiveRates = ratesFor(c);
     if (!colombiaHasEdit(c) || !effectiveRates) return n0(c.total);
     return computeColombiaCustomsTotal(colombiaLiveRow(c), effectiveRates);
   };
   const colombiaAllocationH = (c) => {
+    const effectiveRates = ratesFor(c);
     if (!colombiaHasEdit(c) || !effectiveRates) return c.allocationH || {};
     const alloc = computeColombiaAllocation({ ...colombiaLiveRow(c), AirRateUSD: 0 }, c.boxQty, effectiveRates);
     return Object.fromEntries(Object.entries(alloc).map(([cat, v]) => [cat, Math.round(v.H)]));
@@ -462,13 +474,13 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                 </thead>
                 <tbody>
                   {visibleCountries.map((row) => {
-                    const isBaseline = row.totalSource === 'audited_baseline';
+                    const isBaseline = row.totalSource === 'historical_snapshot';
                     const carried = !row.saved && !isBaseline && row.carry;
                     return (
                       <tr key={row.category} style={{ background: isBaseline ? '#ecfdf5' : carried ? '#fff7ed' : '#fff' }}>
                         <td style={st.tdLabel}>
                           {row.category}
-                          {isBaseline && <span style={st.baselineBadge} title="저장값이 없어 감사 기준값(검증된 과거 확정값)을 자동 적용 중입니다">감사기준값</span>}
+                          {isBaseline && <span style={st.baselineBadge} title="이 차수는 운영 DB에 저장된 입력행이 없어, 원본 매출원가 양식에서 그대로 옮겨 온 과거 원천값(무게·관세·선율·운송료·방역과 실제 배차)으로 계산 중입니다. 여기에 값을 입력해 저장하면 저장값이 우선합니다.">원본 스냅샷</span>}
                         </td>
                         {COUNTRY_PHASES.map((phase) => {
                           const isSplit = phase.keys.length > 1;
@@ -565,13 +577,13 @@ export default function CustomsClearancePanel({ week, onSaved }) {
           <div style={st.panel}>
             <div style={st.panelHead}><strong>콜롬비아 4품목 무게배분 (반차수별 — 카네이션·장미·알스트로·루스커스 공유)</strong></div>
             {(data.colombia || []).map((c) => {
-              const isBaseline = c.totalSource === 'audited_baseline';
+              const isBaseline = c.totalSource === 'historical_snapshot';
               const carried = !c.saved && !isBaseline && c.carry;
               return (
                 <div key={c.orderWeek} style={{ padding: 12, borderBottom: '1px solid #eef2f7', background: isBaseline ? '#ecfdf5' : carried ? '#fff7ed' : '#fff' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <b style={{ fontSize: 13 }}>{c.orderWeek}</b>
-                    {isBaseline && <span style={st.baselineBadge} title="저장값이 없어 감사 기준값(검증된 과거 확정값)을 자동 적용 중입니다">감사기준값</span>}
+                    {isBaseline && <span style={st.baselineBadge} title="이 차수는 운영 DB에 저장된 입력행이 없어, 원본 매출원가 양식에서 그대로 옮겨 온 과거 원천값(무게·관세·선율·운송료·방역과 실제 배차)으로 계산 중입니다. 여기에 값을 입력해 저장하면 저장값이 우선합니다.">원본 스냅샷</span>}
                     <span style={{ fontSize: 11, color: '#64748b' }}>
                       박스수량(자동): 장미{c.boxQty['콜롬비아 장미'] || 0} · 카네이션{c.boxQty['콜롬비아 카네이션'] || 0} · 알스트로{c.boxQty['콜롬비아 알스트로'] || 0} · 루스커스{c.boxQty['콜롬비아 루스커스'] || 0}
                     </span>
@@ -588,13 +600,29 @@ export default function CustomsClearancePanel({ week, onSaved }) {
                       const isTruck = COLOMBIA_TRUCK_FIELDS.has(f);
                       const auto = isGw ? data.autoGw?.colombia?.[c.orderWeek]?.[f] : null;
                       const cur = colValue(c, f);
-                      if (isTruck && c.truckAuto) {
+                      if (isTruck) {
+                        const hasActual = Boolean(c.truckActual)
+                          && [...COLOMBIA_TRUCK_FIELDS].some((k) => n0(c.truckActual[k]) > 0);
+                        const recommended = c.truckAuto ? n0(c.truckAuto[f]) : null;
                         return (
                           <label key={f} style={st.rateField}>
-                            <span style={{ fontSize: 10, color: '#64748b' }}>{label}</span>
-                            <span title="입고 Gross weight 구간으로 자동 계산" style={{ fontSize: 13, fontWeight: 700, padding: '5px 0', color: '#059669' }}>
-                              {c.truckAuto[f] || 0} (GW기반 자동)
+                            <span style={{ fontSize: 10, color: '#64748b' }}>
+                              {label}
+                              <span style={{ marginLeft: 4, color: hasActual ? '#b45309' : '#059669', fontWeight: 700 }}>
+                                {hasActual ? '실제' : '추천'}
+                              </span>
                             </span>
+                            <NumericInput
+                              style={{ ...st.input, color: hasActual ? '#b45309' : '#059669', fontWeight: 700 }}
+                              value={cur}
+                              onChange={(v) => setColEdit(c.orderWeek, f, v)}
+                              title={hasActual
+                                ? '실제 배차된 대수입니다(저장값 또는 원본 스냅샷). 자동추천으로 덮어쓰지 않습니다 — 필요하면 직접 고쳐 저장하세요.'
+                                : '합산 Gross weight를 용량 단위로 분해한 추천값입니다(예: 3,000kg → 2.5t 1대 + 1t 1대). 실제 배차가 다르면 고쳐서 저장하세요.'}
+                            />
+                            {recommended != null && (
+                              <span style={{ fontSize: 10, color: '#94a3b8' }}>추천 {recommended}대</span>
+                            )}
                           </label>
                         );
                       }

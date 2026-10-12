@@ -9,6 +9,7 @@ import {
   loadColombiaWeekly, saveColombiaWeekly,
   weeksForMajor, colombiaBoxQtyByCategory, loadWarehouseGw, activeCustomsCategories,
   resolveCountryCustomsTotal, resolveColombiaCustomsAllocation,
+  describeTruckAllocation, HISTORICAL_SOURCE_TAG,
 } from '../../../lib/customsForwarding';
 
 function parseMajor(raw) {
@@ -45,8 +46,8 @@ export default withAuth(async function handler(req, res) {
       // 국가/콜롬비아 모두 resolveCountryCustomsTotal/resolveColombiaCustomsAllocation을 거친다 —
       // 이 화면의 "합계"·박스수량이 실제 매출이익보고서 H 계산(computeCustomsAndForwarding)과
       // 항상 같은 값을 보이도록 두 API가 같은 함수 하나만 공유한다. 저장행이 전혀 없고 2026 22~27차
-      // 감사 기준값이 있으면 totalSource='audited_baseline'으로 표시된다(carry와는 별개 — carry는
-      // 저장값이 없을 때의 "전차수 참고값" 제안이며 합계 계산에는 반영되지 않는다).
+      // historical snapshot(원본 워크북 구성요소)이 있으면 totalSource='historical_snapshot'으로
+      // 표시된다(carry와는 별개 — carry는 저장값이 없을 때의 "전차수 참고값" 제안이며 합계에 미반영).
       const countries = COUNTRY_CATEGORIES.map((cat) => {
         const row = countryRows[cat] || null;
         const prevRow = prevCountryRows[cat] || null;
@@ -55,8 +56,10 @@ export default withAuth(async function handler(req, res) {
           category: cat,
           saved: row,
           carry: !row && prevRow ? prevRow : null, // 저장값 없을 때만 전차수 값을 참고 제안(사장님 지정) — 합계에는 미반영
+          historical: resolved.source === HISTORICAL_SOURCE_TAG ? resolved.world.row : null,
           worldFreightAuto: resolved.world.auto,
           worldFreightSource: resolved.world.source,
+          effectiveRates: resolved.effectiveRates,
           total: resolved.total,
           totalSource: resolved.source,
         };
@@ -74,8 +77,12 @@ export default withAuth(async function handler(req, res) {
           boxQty: resolved.boxQty,
           total: resolved.total,
           totalSource: resolved.source,
+          historical: resolved.source === HISTORICAL_SOURCE_TAG ? resolved.allocationRow || null : null,
           truckAuto: resolved.truckAuto,
-          truckSource: resolved.source === 'audited_baseline' ? 'audited_baseline' : (resolved.truckAuto?.source || null),
+          truckRecommended: resolved.truckAuto ? describeTruckAllocation(resolved.truckAuto) : null,
+          truckActual: resolved.truckActual,
+          truckSource: resolved.truckActual ? 'saved_actual' : (resolved.truckAuto?.source || null),
+          effectiveRates: resolved.effectiveRates,
           allocationH: Object.fromEntries(COLOMBIA_ALLOC_CATEGORIES.map((cat) => [cat, Math.round(resolved.allocation[cat].H)])),
         };
       });
