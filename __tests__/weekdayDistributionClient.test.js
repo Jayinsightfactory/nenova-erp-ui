@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { buildWeekdayDistributionSubmission as build, clearSubmittedWeekdayDrafts as clear, saveWeekdayDistribution as save,
   checkWeekdayDistributionStatus as status, weekdayDraftScope, weekdayUnsavedPrintReason, moveWeekdayDistributionDraft as moveDraft,
   projectWeekdayDistribution as project, validateWeekdayDistributionCompareResponse as validateCompare,
-  weekdayDistributionPreviewMatches as previewMatches } from '../lib/weekdayDistributionClient.js';
+  weekdayDistributionPreviewMatches as previewMatches, weekdayEditPageLabel, weekdayDistributionFailureMessage } from '../lib/weekdayDistributionClient.js';
 import { weekdaySnapshotDigest, assertWeekdaySnapshotDigest, normalizeWeekdayApplyRequest } from '../lib/weekdayDistributionPolicy.js';
 
 const operationId='b0b22222-2222-4222-8222-222222222222';
@@ -302,6 +302,20 @@ assert.equal((await save(submission,{fetcher:async(url,options)=>{calls.push({ur
 assert.equal(calls.length,1);
 assert.deepEqual(submission.payload,input && build(input).payload,'failure does not mutate drafts/reason/UUID');
 assert.equal(JSON.stringify(input.plans),draftsBeforeEligibility,'rejected save leaves the editable drafts intact');
+assert.equal(weekdayEditPageLabel('estimate'), '견적서 관리');
+assert.equal(weekdayEditPageLabel('estimate-weekday-apply'), '주광 견적서');
+assert.equal(weekdayEditPageLabel('unknown'), '다른 작업 화면');
+assert.equal(weekdayEditPageLabel(), '다른 작업 화면');
+const lockedLease = { ownerName: '임재용', pageCode: 'estimate', leaseStamp: 'hidden-stamp', leaseToken: 'hidden-token' };
+const lockedBody = { success: false, code: 'ERP_EDIT_LOCKED', error: '다른 사용자가 이 업체를 작업 중입니다. 저장하지 않았습니다.', lease: lockedLease };
+const lockedFailure = await save(submission, { fetcher: async () => reply(409, lockedBody) });
+assert.equal(lockedFailure.state, 'failed');
+assert.match(lockedFailure.error, /임재용 · 견적서 관리에서 작업 중/);
+assert.match(lockedFailure.error, /저장하지 않았습니다/);
+assert.doesNotMatch(lockedFailure.error, /hidden-stamp|hidden-token|leaseStamp|leaseToken/);
+assert.match(weekdayDistributionFailureMessage({ ...lockedBody, lease: { ...lockedLease, pageCode: 'estimate-weekday-apply' } }), /임재용 · 주광 견적서에서 작업 중/);
+assert.match(weekdayDistributionFailureMessage({ ...lockedBody, lease: { ...lockedLease, pageCode: '' } }), /임재용 · 다른 작업 화면에서 작업 중/);
+assert.equal(weekdayDistributionFailureMessage({ code: 'STALE_SNAPSHOT', error: '기존 오류' }), '기존 오류');
 for(const code of [500,503]) {
   calls=[];
   const failed=await save(submission,{fetcher:async(url,options)=>{calls.push({url,options});return reply(code,{success:false,rolledBack:true,error:'confirmed rollback'});}});

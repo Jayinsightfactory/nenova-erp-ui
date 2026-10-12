@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {buildHorizontalWeekdayMatrix} from '../lib/weekdayHorizontalMatrix.js';
-import {buildWeekdayWebExportSnapshot} from '../lib/weekdayWebExportSnapshot.js';
+import {buildWeekdayWebExportSnapshot,weekdayWebExportCycleKey,weekdayWebExportSelectionNames} from '../lib/weekdayWebExportSnapshot.js';
 const cycle={offset:0,year:2026,majorWeek:'40',startDate:'2026-10-01',calendarState:'FOUND',days:Array.from({length:7},(_,i)=>({date:`2026-10-0${i+1}`,label:['목','금','토','일','월','화','수'][i],orderWeek:i<4?'40-01':'40-02',calendarState:'FOUND'}))};
 const actual=[{year:2026,orderWeek:'40-01',prodKey:1,prodName:'웹에서 변경한 품목',flowerName:'카네이션',custKey:533,outUnit:'박스',state:'FOUND_UNFIXED',detailRows:1,shipmentOutQuantity:5,shipmentDates:[{date:'2026-10-04',shipmentQuantity:3}]},
 {year:2026,orderWeek:'40-02',prodKey:1,custKey:533,outUnit:'박스',state:'NO_SHIPMENT',detailRows:0,shipmentOutQuantity:null,shipmentDates:[]}];
@@ -45,4 +45,19 @@ model=buildWeekdayWebExportSnapshot({cycles:[cycle,otherCycle],rows:[multiUnit]}
 assert.deepEqual(model.rows.map(row=>row.unit),['박스','송이']);
 assert.equal(model.rows[0].values[model.columns.find(column=>column.label==='41차 합계').key],null,'different-unit cycle stays in its own row');
 assert.equal(model.rows[1].values[model.columns.find(column=>column.label==='40차 합계').key],null);
+const crossYearMatrix=buildHorizontalWeekdayMatrix([previous,cycle,otherCycle],drafts,actual,baseline);
+assert.deepEqual([previous,cycle,otherCycle].map(weekdayWebExportCycleKey),['2025|40','2026|40','2026|41']);
+assert.deepEqual(weekdayWebExportSelectionNames(['2026|42','2026|41']),{title:'41·42차',file:'2026_41_42'});
+assert.deepEqual(weekdayWebExportSelectionNames(['2026|01','2025|53']),{title:'2025년 53차 · 2026년 1차',file:'2025_53_2026_01'});
+const selected=(keys)=>buildWeekdayWebExportSnapshot(crossYearMatrix,'선택 차수',{selectedCycles:keys});
+assert.equal(selected(['2026|40']).columns.length,buildWeekdayWebExportSnapshot(matrix).columns.length);
+assert.ok(selected(['2026|40']).columns.every(column=>column.key.includes('|2026|40|')));
+assert.ok(selected(['2025|40']).columns.every(column=>column.key.includes('|2025|40|')),'same major week in another year stays separate');
+assert.ok(selected(['2026|40','2026|41']).columns.every(column=>!column.key.includes('|2025|')));
+assert.ok(selected(['2026|40','2026|41']).columns.some(column=>column.key.includes('|2026|41|')));
+assert.equal(selected(['2026|40']).rows[0].values[selected(['2026|40']).columns.find(column=>column.label==='40-1 합계').key],4);
+assert.throws(()=>selected([]),/하나 이상/);
+assert.throws(()=>selected(['2024|40']),/현재 조회 범위/);
+assert.throws(()=>selected(['2026|40','2026|40']),/현재 조회 범위/);
+assert.ok(buildWeekdayWebExportSnapshot(crossYearMatrix).columns.length>selected(['2026|40']).columns.length,'default retains every cycle');
 console.log('Full web export snapshot: current names, absolute draft totals, 5-3=2 balance, Wilson once, cross-year unknown and all products passed');
