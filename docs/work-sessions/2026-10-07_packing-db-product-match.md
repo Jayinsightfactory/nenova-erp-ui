@@ -7,7 +7,7 @@
 |브랜치|codex/packing-db-product-match|
 |원장 부작용|Product SELECT만 추가. 주문/입고/출고/재고/견적/매출 변경 없음|
 |웹 저장|packing.erp-matches, CAS revision, 인증 계정·전후 매칭 이력|
-|배포|최종 검증/배포 결과는 아래에 기록|
+|배포|PR #954 병합·Cafe24 배포·운영 브라우저 검증 완료|
 
 ## 이어받을 때 고정된 결정
 - 이전 미매칭은 업로드 카탈로그 기준이었다. 이번부터 활성 전산 DB Product 기준으로 자동/수동 매칭한다.
@@ -37,6 +37,11 @@
 - 최종 집중/수입부 테스트 32+183(선택적 skip 포함), 지침17개 통과. ERP 전체 계약, dnSpy 근거, manifest와 API 쓰기 범위 가드 통과.
 - 실제 XLSX 101행, 수량5390단/68775송이 보존, 매칭 실패409 후 재시도/재업로드 재사용 검증. 1920×1080/100%에서 행31px·품목14px. 900/480px 가로잘림 없음.
 - 실제 예시 PDF의 로컬 렌더링과 GW/CW 수정/0값/근거 강조 회귀 통과(추출 응답 fixture, 유료 AI 호출 없음).
+- 최신 master 통합 후 운영용 build, desktop-bootstrap 추가 회귀 통과. 최종 브라우저에서 저장 중 Tab 유지, 1920/900/480 팝업 화면 이탈 없음까지 확인.
+- PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/954 CI 성공 및 squash 병합. merge `6a9508df837ab610e4e202fd09a37840d8aa4c76`.
+- Cafe24 배포 https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37585448795 성공, 배포 자체 실브라우저 hydration smoke 통과.
+- 운영 인증 GET `/api/import/tools/product-matches` HTTP200/no-store: 지원국가 활성품목3016, 중국426, 중복 제외 선택가능3007, 새 매칭revision0. 이 probe는 실제 운영 Product 읽기이며 쓰기 없음.
+- 운영 브라우저 `https://nenovaweb.com/import/tools` 1920×1080/100%, 900/480 검증 통과: 실제 XLSX101행, 검색·선택·저장실패409·재조회·재시도·재업로드 재사용, 저장 중 Tab/닫기 Escape/초점복귀,31px행/14px품목. 매칭 GET/POST는 fixture로 가로채므로 운영 매칭 기록을 오염시키지 않았다. 로그인 외 운영 쓰기/유료 AI 없음.
 
 ## 남은 경계
 - 실제 AI 추출 정확도 전체 검증 또는 ERP 입고 자동저장은 이번 변경에 포함하지 않는다.

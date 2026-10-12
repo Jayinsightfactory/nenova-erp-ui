@@ -6,7 +6,7 @@
 | 작업 | import-team-tools / codex/invoice-stage-workflow |
 | 화면 | 수입부 패킹리스트 → 인보이스 입고 검토·등록 → 도착원가 |
 | 원장 부작용 | 기존 명시 입고 승인 API만 Warehouse/Stock 반영. 이번 작업에서 운영 DB 쓰기·DDL·EXE/SP 수정 없음 |
-| 상태 | 구현·통합 검증 중. 배포 전에는 배포 완료로 보고하지 않음 |
+| 상태 | PR #977 병합·배포·운영 읽기 전용 스모크 완료 |
 
 ## 고정 결정
 
@@ -60,3 +60,17 @@
 ## 다음 작업 이어받기
 
 `docs/work-sessions/INDEX.md`, 이 문서 및 단계별 계획/계약을 먼저 읽는다. 변환 성공·입고 저장 성공·원가 저장 성공을 혼동하지 말고 각 서버 readback 근거를 확인한다. 운영 데이터의 테스트 등록은 하지 않는다.
+
+## 병합·배포 기록
+
+- 최종 기능 HEAD `2f120d1d08106cb3b49e29196b095c6895dade33`.
+- 최종 안전 재검토: 발견했던 P2 3건 해소, 추가 P1/P2 없음. 수정 후 전체 ERP contract/build/격리 브라우저 모두 다시 통과.
+- PR #977 원격 ERP Contract Guard `37735773053` 성공. 2026-10-08 15:08:12 KST squash 병합, 운영 대상 SHA `e02b36b988e2f888ab8b0ed10086a0f41fb8b742`.
+- Deploy to Cafe24 `37735977383` 성공, 5분16초. 서버 계약/교차연도 검증·SSH 배포·실브라우저 hydration 모두 통과.
+- 배포 전 확인한 live buildId: `build-1791439280473`.
+- 이 단락은 기능 병합 뒤 로컬 MD에 추가된 검증 기록이며 별도 운영 재배포를 위한 변경이 아니다.
+- 운영 최종 스모크 성공: `build-1791439814844`, `/import/tools` 및 `/incoming` 1920×1080/100%, 가로 넘침0·runtime오류0·API오류0. 새 자동 준비 및 원가 재조회 복구 코드가 실제 내려오는 것도 확인.
+- 문서 GET200(2026/41-01 저장문서0), 기존 원장 원가 GET200(승인원가없음), DB health 정상. 등록/원가 승인을 운영에 테스트 저장한 결과가 아니며, 실제 쓰기는 격리 SQL/브라우저 fixture 검증과 구분한다. 운영 데이터 쓰기0.
+- 배포 코드 marker 검사는 압축 JS의 Unicode/hex 문자열 escape를 해독하도록 로컬 검증기만 보완한 뒤 통과했다. 운영 기능 수정·재배포는 하지 않았다.
+- 근거: `outputs/stages-final-erp.log`, `outputs/stages-final-build.log`, `outputs/stages-native-sql.log`, `outputs/stages-browser.log`, `outputs/stages-live-smoke.log`.
+- 기존 generated-history stash 및 무관한 `2026-10-07_packing-db-product-match.md` 수정은 보존했다. 생성 이력 JSON과 outputs를 기능 커밋에 섞지 않았다.
