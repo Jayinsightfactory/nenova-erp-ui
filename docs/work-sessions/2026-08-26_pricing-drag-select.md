@@ -23,3 +23,4 @@ docs/CODEX_SUBTASK_ORCHESTRATION.md 부재; 사용자 제공 역할분담 지침
 - rectanglePricingCellKeys와 applyPricingCellCost 실행형 fixture: 정/역방향 직사각형, 단일칸, 숨긴행/업체/기본단가 제외,0/소수,잘못된 값,미선택초안보존,원값복원 dirty해제 PASS.
 - 전체 test:erp-contract, dnSpy, manifest, write guard PASS. 하위세션 최종 npm run build PASS, 메인 동시 빌드 시도는 lock으로 종료(빌드실패 아님).
 - 운영 단가 저장은 하지 않음. Chrome runtime tabs=[]이고 new tab이 normal-window 오류로 실패하여 수동 드래그 실브라우저 검증은 미완료.
+- PR370 CI32944184751 PASS, merge e9b2404. Cafe24 배포32944264174 SUCCESS(자동 hydration smoke 포함). 상태 DEPLOYED; 실제 드래그 SMOKE_VERIFIED는 Chrome 정상 창을 연 뒤 진행 필요.
