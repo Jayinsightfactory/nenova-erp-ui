@@ -30,6 +30,7 @@ import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/past
 import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 import { buildStockNoteChangeEntry, resolveInitialStockBaseWeek } from '../../lib/pasteStockNote';
+import { buildAppliedStockCopy, buildAppliedStockScope, appendAppliedStockResult } from '../../lib/pasteAppliedStockCopy';
 import { chooseStockProductCandidate, formatStockDelta, formatStockVector, parseBaseStockQuantityLine, resolveStockProjectionIdentity, summarizeStockProjection } from '../../lib/pasteStockProjection';
 import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence, takeoverErpEditPresence } from '../../hooks/useErpEditPresence';
 
@@ -289,6 +290,7 @@ function isNaturalCustomerLine(line) {
 
 function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
   const rows = [];
+  const invalidRows = [];
   const byKey = {};
   const skip = new Set(excludedLineNos || []);
   let currentFlower = '';
@@ -296,7 +298,7 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
     if (skip.has(lineIdx)) return;
     const line = raw.trim();
     if (!line || isSeparatorLine(line) || /^(잔량|잔량재고|기초재고|기존재고|시작재고|시작잔량|재고)$/i.test(line)) return;
-    if (/^\d{1,2}\s*-\s*\d{1,2}(?:\s*차)?$/.test(line)) return;
+    if (/^(?:20\d{2}\s*-\s*)?\d{1,2}\s*-\s*\d{1,2}(?:\s*차)?$/.test(line)) return;
 
     const headerFlower = normalizeFlowerContext((line.match(/(수국|장미|카네이션|카네|알스트로(?:메리아)?|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|리시안|튤립)/) || [])[1]);
     if (headerFlower && /변경사항|차\s*$/.test(line)) {
@@ -311,8 +313,9 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
     }
 
     const parsedQuantity = parseBaseStockQuantityLine(line);
-    if (!parsedQuantity) return;
+    if (!parsedQuantity) { invalidRows.push({idx: lineIdx, source: line, reason: '품목명과 수량을 확인하세요.'}); return; }
     const { name, qty, boxQty, detailQty, detailUnit, unit } = parsedQuantity;
+    if (!Number.isFinite(qty) || qty < 0 || (boxQty != null && (!Number.isFinite(boxQty) || boxQty < 0)) || (detailQty != null && (!Number.isFinite(detailQty) || detailQty < 0))) invalidRows.push({idx: lineIdx, source: line, reason: '수량은 0 이상의 숫자로 입력하세요.'});
     const matchName = applyFlowerContext(name, currentFlower);
     const row = {
       name,
@@ -329,7 +332,25 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
     byKey[stockNorm(matchName)] = row;
     byKey[stockNorm(name)] = row;
   });
-  return { rows, byKey };
+  return { rows, byKey, invalidRows };
+}
+
+function stockNoteSaveFingerprint({baseStockText, baseWeek, week, baseStockExcludedLines, pasteText, pasteExcludedLines, remainStockText}) {
+  return JSON.stringify([baseWeek, week, baseStockText, baseStockExcludedLines, pasteText, pasteExcludedLines, remainStockText]);
+}
+
+function stockNoteMatchReview(text, exclusions, matches, products) {
+  const parsed = parseBaseStockText(text, {excludedLineNos: exclusions});
+  const byLine = new Map((matches || []).map(row => [row.idx, row]));
+  const productKeys = new Set((products || []).map(product => Number(product.ProdKey)));
+  const unmatched = parsed.rows.filter(row => {
+    const match = byLine.get(row.idx);
+    const key = Number(match?.prodKey);
+    return !Number.isInteger(key) || key <= 0 || !productKeys.has(key)
+      || match.name !== row.name || match.qty !== row.qty || match.boxQty !== row.boxQty || match.detailQty !== row.detailQty || (row.unit && match.unit !== row.unit) || (row.detailUnit && match.detailUnit !== row.detailUnit);
+  });
+  return {total: parsed.rows.length, matched: parsed.rows.length - unmatched.length, invalidRows: parsed.invalidRows,
+    ready: parsed.invalidRows.length === 0 && unmatched.length === 0 && (!String(text || '').trim() || parsed.rows.length > 0)};
 }
 
 function stockRowQuantityLabel(row, quantity = row?.qty) {
@@ -1075,6 +1096,7 @@ function buildKakaoStockDraft({
 
   return {
     stockBaseWeek,
+    appliedCopySource: {baseText,pasteText:text,week:selectedWeek,resolvedMatches,products,baseExcludedLineNos},
     baseRows: base.rows,
     records,
     extraRows,
@@ -1165,6 +1187,10 @@ export default function PasteOrderPage() {
   const [stockNoteSaving, setStockNoteSaving] = useState(false);
   const [stockNoteLoading, setStockNoteLoading] = useState(false);
   const [stockNoteStatus, setStockNoteStatus] = useState('');
+  const [stockNoteReview, setStockNoteReview] = useState(null);
+  const stockNoteReviewAttemptRef = useRef(false);
+  const stockNoteCurrentFingerprintRef = useRef('');
+  const stockNoteWriteReceiptRef = useRef(null);
   const [orderTemplates, setOrderTemplates] = useState([]);
   const [templateDraft, setTemplateDraft] = useState(null);
   const [templateSaving, setTemplateSaving] = useState(false);
@@ -1853,7 +1879,7 @@ export default function PasteOrderPage() {
     pasteText,
     baseStockText,
     remainStockText,
-    baseStockMatches: baseStockMatches.filter(m => m.prodKey),
+    baseStockMatches,
     pasteExcludedLines,
     baseStockExcludedLines,
     changeLogs: savedStockNote?.data?.changeLogs || [],
@@ -1869,7 +1895,8 @@ export default function PasteOrderPage() {
       : `기존재고 ${formatWeekDisplay(baseWeek)}`;
   };
 
-  const saveStockNote = async ({ forceCreate = false } = {}) => {
+  const persistStockNote = async ({ forceCreate = false, fingerprint } = {}) => {
+    if (fingerprint !== stockNoteCurrentFingerprintRef.current || !stockNoteMatchReview(baseStockText, baseStockExcludedLines, baseStockMatches, allProducts).ready) return;
     const baseWeek = stockBaseWeek || week;
     if (!baseWeek) { alert('기존재고 기준차수를 먼저 선택하세요.'); return; }
     if (!baseStockText.trim() && !pasteText.trim() && !remainStockText.trim()) {
@@ -1898,7 +1925,10 @@ export default function PasteOrderPage() {
     try {
       const payload = { name, filterData: JSON.stringify(data) };
       let saved;
-      if (!forceCreate && existingNote?.FavoriteKey) {
+      const receipt = stockNoteWriteReceiptRef.current;
+      if (receipt?.fingerprint === fingerprint) {
+        saved = {favoriteKey: receipt.note.FavoriteKey};
+      } else if (!forceCreate && existingNote?.FavoriteKey) {
         saved = await apiPut('/api/favorites', {
           favoriteKey: existingNote.FavoriteKey,
           ...payload,
@@ -1909,26 +1939,65 @@ export default function PasteOrderPage() {
           ...payload,
         });
       }
-      const note = {
+      const note = receipt?.fingerprint === fingerprint ? receipt.note : {
         FavoriteKey: saved.favoriteKey || existingNote?.FavoriteKey,
         FavName: name,
         FilterData: JSON.stringify(data),
         data,
       };
+      stockNoteWriteReceiptRef.current = {fingerprint, note};
       const verification = await apiGet('/api/favorites', { page: STOCK_NOTE_PAGE });
       const verified = (verification.favorites || []).some(
         (fav) => Number(fav.FavoriteKey) === Number(note.FavoriteKey) && fav.FilterData === note.FilterData,
       );
-      if (!verified) throw new Error('저장 후 재조회 검증에 실패했습니다.');
+      if (!verified) throw new Error('저장 후 재조회 검증에 실패했습니다. 다시 시도하면 저장 결과만 재확인합니다.');
+      stockNoteWriteReceiptRef.current = null;
+      if (fingerprint !== stockNoteCurrentFingerprintRef.current) {
+        setStockNoteReview(null);
+        setStockNoteStatus('이전 입력 저장은 완료됐습니다. 변경된 입력은 다시 저장해 주세요.');
+        return;
+      }
       setSavedStockNote(note);
       setStockNoteStatus(`${forceCreate ? '새 기록 저장' : existingNote?.FavoriteKey ? '현재 저장본 덮어쓰기' : '현재 값 저장'} 완료 · 재조회 확인: ${formatWeekDisplay(baseWeek)}${changeEntry ? ` · ±변경 ${changeEntry.changes.length}건` : ''}`);
       refreshStockDraft(pasteText, baseStockText, week, remainStockText, baseWeek, orders, baseStockMatches);
+      setStockNoteReview(null);
     } catch (e) {
-      alert(`기존재고 저장 실패: ${e.message}`);
+      setStockNoteReview(prior => prior ? {...prior, error: `기존재고 저장 실패: ${e.message}`} : prior);
     } finally {
       setStockNoteSaving(false);
     }
   };
+
+  const currentStockNoteFingerprint = stockNoteSaveFingerprint({baseStockText, baseWeek: stockBaseWeek || week, week, baseStockExcludedLines, pasteText, pasteExcludedLines, remainStockText});
+  stockNoteCurrentFingerprintRef.current = currentStockNoteFingerprint;
+  const stockNoteReviewProgress = stockNoteMatchReview(baseStockText, baseStockExcludedLines, baseStockMatches, allProducts);
+  const saveStockNote = ({forceCreate = false} = {}) => {
+    if (stockNoteSaving || stockNoteReview) return;
+    const baseWeek = stockBaseWeek || week;
+    if (!/^20\d{2}-(0[1-9]|[1-4]\d|5[0-3])-(0[1-9]|[1-9]\d)$/.test(baseWeek)) {alert('기존재고 기준차수를 먼저 선택하세요.'); return;}
+    if (!baseStockText.trim() && !pasteText.trim() && !remainStockText.trim()) {alert('저장할 내용을 입력하세요.'); return;}
+    rematchBaseStock();
+    stockNoteReviewAttemptRef.current = false;
+    stockNoteWriteReceiptRef.current = null;
+    setStockNoteReview({forceCreate, fingerprint: currentStockNoteFingerprint, error: ''});
+    setBaseStockMatchEditIdx(null);
+  };
+  useEffect(() => {
+    if (!stockNoteReview || stockNoteSaving) return;
+    if (stockNoteReview.fingerprint !== currentStockNoteFingerprint) {
+      setStockNoteReview(null);
+      setStockNoteStatus('입력 내용 또는 차수가 변경되어 저장을 취소했습니다. 다시 저장해 주세요.');
+      return;
+    }
+    if (!stockNoteReviewProgress.ready || stockNoteReviewAttemptRef.current || stockNoteReview.error) return;
+    // Let the matching window paint before the single save begins.
+    const timer = setTimeout(() => {
+      if (stockNoteReviewAttemptRef.current) return;
+      stockNoteReviewAttemptRef.current = true;
+      void persistStockNote({forceCreate: stockNoteReview.forceCreate, fingerprint: stockNoteReview.fingerprint});
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [stockNoteReview, stockNoteSaving, currentStockNoteFingerprint, baseStockMatches, allProducts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const deleteStockNote = async () => {
     const baseWeek = stockBaseWeek || week;
@@ -2631,6 +2700,11 @@ export default function PasteOrderPage() {
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState('');
   const [bulkResult, setBulkResult] = useState(null); // { okCount, failCount, details }
+  const [appliedStockLedger,setAppliedStockLedger]=useState(null);
+  function publishAppliedStockResult(result){
+    const ledger=appendAppliedStockResult(appliedStockLedger,result);
+    setAppliedStockLedger(ledger);setBulkResult(ledger);
+  }
   const [bulkCompletionNotice, setBulkCompletionNotice] = useState(null);
   function restorePasteWorkspace(saved) {
     const state=saved.state;
@@ -2645,6 +2719,7 @@ export default function PasteOrderPage() {
     setOrders(state.orders||[]);
     setEvidenceMessages(state.evidenceMessages||[]);
     setBulkResult(state.bulkResult||null);
+    setAppliedStockLedger(state.appliedStockLedger||state.bulkResult||null);
     completionFingerprintRef.current=saved.completionFingerprint||(state.orders?.some(order=>order.distributionCompleted)?saved.intentFingerprint:'')||'';
     setRegisteredOrders({});
     setShipmentQtys({});
@@ -2655,11 +2730,12 @@ export default function PasteOrderPage() {
     if(!workspaceReady||!workspaceActorRef.current||!week||parsing||bulkRunning||adjustSaving||orders.some(order=>order.saving))return;
     try {
       savePasteWorkspace(localStorage,{actorId:workspaceActorRef.current,week,
-        state:{pasteText,pasteExcludedLines,orders,evidenceMessages,baseStockText,baseStockExcludedLines,remainStockText,baseStockMatches,stockBaseWeek,bulkResult},
+        state:{pasteText,pasteExcludedLines,orders,evidenceMessages,baseStockText,baseStockExcludedLines,remainStockText,baseStockMatches,stockBaseWeek,bulkResult,appliedStockLedger},
         completionFingerprint:completionFingerprintRef.current});
     } catch {setWorkspaceNotice('작업 보존에 실패했습니다. 이 창을 닫기 전에 원문을 복사해주세요.');}
-  },[workspaceReady,week,pasteText,pasteExcludedLines,orders,evidenceMessages,baseStockText,baseStockExcludedLines,remainStockText,baseStockMatches,stockBaseWeek,bulkResult,parsing,bulkRunning,adjustSaving]);
+  },[workspaceReady,week,pasteText,pasteExcludedLines,orders,evidenceMessages,baseStockText,baseStockExcludedLines,remainStockText,baseStockMatches,stockBaseWeek,bulkResult,appliedStockLedger,parsing,bulkRunning,adjustSaving]);
   const handleBulkDistribute = async (oid, { failedOnly = false } = {}) => {
+    const stockCopyScope=buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches});
     const order = orders.find(o => o.id === oid);
     if(order?.distributionCompleted&&!failedOnly){alert('이 업체는 이미 저장·분배가 완료되었습니다. 기존 처리 내역을 확인해주세요.');return;}
     if(order?.items?.some(it=>!it.skip&&it.mixedQuantityError)){alert('혼합수량의 품목 포장수를 확인한 뒤 다시 분석하세요.');return;}
@@ -2793,7 +2869,7 @@ export default function PasteOrderPage() {
     }
     const okCount = details.filter(x => x.ok).length;
     const failCount = details.filter(x => !x.ok).length;
-    setBulkResult({ orderId: oid, okCount, failCount, details });
+    publishAppliedStockResult({ orderId: oid, okCount, failCount, details,stockCopyScope,verified:failCount===0&&okCount>0 });
 
     if (okCount > 0) {
       setRegisteredOrders(prev => ({
@@ -2857,6 +2933,7 @@ export default function PasteOrderPage() {
   // 화면 전체의 모든 업체를 서버 단일 트랜잭션으로 처리한다.
   // payload는 CANCEL 전체 → ADD 전체 순서이며, 한 건이라도 실패하면 서버가 모두 롤백한다.
   const handleAllMixedDistribute = async () => {
+    const stockCopyScope=buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches});
     if(orders.some(order=>order.distributionCompleted)&&bulkResult?.orderId!=='ALL'){
       alert('이미 처리 완료한 업체가 포함되어 전체 재등록을 막았습니다. 미처리 업체만 개별 처리해주세요.');return;
     }
@@ -3034,7 +3111,7 @@ export default function PasteOrderPage() {
       learnVerifiedMappings(details);
       for (const order of orders.filter(order => details.some(detail => detail.orderId === order.id))) await learnPendingCustomer(order);
       setBulkProgress(`완료: ${details.length}건 저장·검증 성공`);
-      setBulkResult({ orderId: 'ALL', okCount: details.length, failCount: 0, details, rolledBack: false,verified:true });
+      publishAppliedStockResult({ orderId: 'ALL', okCount: details.length, failCount: 0, details, rolledBack: false,verified:true,stockCopyScope });
       completionFingerprintRef.current=buildPasteWorkspaceFingerprint({week,pasteText,orders,evidenceMessages});
       // 원장 반영이 전체 성공한 경우에만 DB 저장내역/분배수량/히스토리를 화면에 반영한다.
       setRegisteredOrders(prev => {
@@ -3090,12 +3167,13 @@ export default function PasteOrderPage() {
         rolledBack: true,
         error: displayError,
       }));
-      setBulkResult({
+      publishAppliedStockResult({
         orderId: 'ALL',
         okCount: 0,
         failCount: targets.length,
         details,
         rolledBack: true,
+        stockCopyScope,
         failedIndex: error.failedIndex,
         error: error.message,
       });
@@ -3155,6 +3233,7 @@ export default function PasteOrderPage() {
         throw pasteWriteError(response, result, '전체 일괄 되돌리기에 실패했습니다.');
       }
       undoSucceeded = true;
+      setAppliedStockLedger(null);
       setBulkResult(prev => ({ ...prev, undone: true, undoResults: result.results || [] }));
       await Promise.all(orders.filter(order => order.custMatch).map(async order => {
         const od = await apiGet('/api/orders', { custName: order.custMatch.CustName, ...orderQueryParams(week) });
@@ -3189,6 +3268,7 @@ export default function PasteOrderPage() {
   // 등록된 주문을 기준으로 분배만 다시 저장한다.
   // 등록 후 하단 "일괄 분배"에서 주문등록이 재가산되지 않도록 /api/shipment/distribute 만 호출.
   const handleDistributeOnly = async (oid) => {
+    const stockCopyScope=buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches});
     const ro = registeredOrders[oid];
     const targetWeek = ro?.week || week;
     if (!ro || !ro.custKey || !targetWeek) { alert('등록된 주문내역/차수를 확인하세요.'); return; }
@@ -3239,6 +3319,7 @@ export default function PasteOrderPage() {
           ...t,
           type: 'DISTRIBUTE',
           ok: true,
+          verified: true,
           qtyBefore: beforeQty,
           qtyAfter: Number(saved?.outQty),
           outQtyBefore: beforeQty,
@@ -3255,7 +3336,7 @@ export default function PasteOrderPage() {
     await releasePasteGuard(pasteGuard);
     const okCount = details.filter(x => x.ok).length;
     const failCount = details.filter(x => !x.ok).length;
-    setBulkResult({ orderId: oid, okCount, failCount, details });
+    publishAppliedStockResult({ orderId: oid, okCount, failCount, details,stockCopyScope,verified:saveSucceeded });
 
     if (okCount > 0) {
       const shipUpdates = {};
@@ -4353,6 +4434,8 @@ export default function PasteOrderPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
                 <span style={{ fontSize: 11, color: '#475569', fontWeight: 800 }}>기준차수</span>
                 <input
+                  data-testid="stock-base-week"
+                  aria-label="기초재고 기준차수"
                   list="paste-stock-base-week-list"
                   value={stockBaseWeek || ''}
                   onChange={e => { selectStockBaseWeek(e.target.value); setStockNoteStatus(''); }}
@@ -4454,6 +4537,8 @@ export default function PasteOrderPage() {
               className="paste-main-ta"
               style={{ width: '100%', padding: '8px 10px', border: '1px solid #b8c7d9', borderRadius: 6, fontSize: 13, lineHeight: 1.4, fontFamily: 'monospace', resize: 'none', boxSizing: 'border-box', background: '#fff' }}
               placeholder={'수국\n블루 2\n라벤더 14\n화이트 1'}
+              data-testid="base-stock-input"
+              aria-label="기초재고 원문"
               value={baseStockText}
               onChange={e => handleBaseStockTextChange(e.target.value)}
             />
@@ -4480,7 +4565,7 @@ export default function PasteOrderPage() {
               ) : (
                 <div className="paste-side-off">🚫 제외 하이라이트 OFF</div>
               )}
-              {baseStockText.trim() ? (
+              {baseStockText.trim() && !stockNoteReview ? (
                 <BaseStockMatchPanel
                   rows={baseStockMatches}
                   editIdx={baseStockMatchEditIdx}
@@ -4535,6 +4620,7 @@ export default function PasteOrderPage() {
               </section>
             )}
             <StockImpactSummary draft={stockDraft} selectedWeek={week} processed={Boolean(bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone)} />
+            <AppliedStockCopyPanel draft={stockDraft} result={bulkResult||appliedStockLedger} currentScope={buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches})} />
             {bulkResult?.orderId === 'ALL' && <a href="#paste-connected-result-details" style={{ margin: '2px 0 6px', fontSize: 11, color: '#1565c0', fontWeight: 800 }}>전체 저장 내역 아래에서 계속 보기 ↓</a>}
             <section className="paste-work-history" aria-label="최근 붙여넣기 작업 이력">
               <strong>최근 붙여넣기 작업 이력</strong>
@@ -5708,6 +5794,23 @@ export default function PasteOrderPage() {
           </section>
         </div>
       )}
+      {stockNoteReview && (
+        <StockNoteMatchingDialog saving={stockNoteSaving} onClose={() => {if (!stockNoteSaving) setStockNoteReview(null);}}>
+          <h2 id="stock-note-match-title" style={{margin: '0 0 10px', fontSize: 20}}>기초재고 품목 매칭 확인</h2>
+          <p role="status" data-testid="stock-note-match-progress">{stockNoteReviewProgress.matched}/{stockNoteReviewProgress.total} 매칭 · {stockNoteReviewProgress.ready ? '100% 확인 후 저장합니다.' : '모든 품목을 매칭하면 자동 저장합니다.'}</p>
+          {baseStockText.trim() && stockNoteReviewProgress.total === 0 && <p role="alert" style={{color: '#b91c1c'}}>저장할 기초재고 품목과 수량이 없습니다. 닫은 후 입력 내용을 확인해 주세요.</p>}
+          {stockNoteReviewProgress.invalidRows.length > 0 && <div role="alert" style={{color: '#b91c1c', marginBottom: 12}}>
+            <strong>수량을 읽을 수 없는 줄이 있어 저장할 수 없습니다. 닫은 후 원문을 수정하거나 제외해 주세요.</strong>
+            <ul>{stockNoteReviewProgress.invalidRows.map(row => <li key={row.idx}>{row.idx + 1}행: {row.source} · {row.reason}</li>)}</ul>
+          </div>}
+          {baseStockText.trim() ? <fieldset disabled={stockNoteSaving || !!stockNoteWriteReceiptRef.current} style={{border: 0, padding: 0, margin: 0}}><BaseStockMatchPanel rows={baseStockMatches} editIdx={baseStockMatchEditIdx} setEditIdx={setBaseStockMatchEditIdx} allProducts={allProducts} onRematch={() => rematchBaseStock()} onPickProduct={(idx, prod) => {if (!stockNoteSaving) applyBaseStockProduct(idx, prod, true);}} buildCandidates={buildCandidates} /></fieldset> : <p>기초재고 입력 없음 · 수정내역과 잔량재고를 저장합니다.</p>}
+          {stockNoteReview.error && <div role="alert" data-testid="stock-note-save-error" style={{color: '#b91c1c', marginTop: 12}}>{stockNoteReview.error}</div>}
+          <div style={{display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16}}>
+            {stockNoteReview.error && <button type="button" disabled={stockNoteSaving || !stockNoteReviewProgress.ready} onClick={() => {stockNoteReviewAttemptRef.current = false; setStockNoteReview(prior => ({...prior, error: ''}));}}>저장 다시 시도</button>}
+            <button type="button" data-testid="stock-note-save-cancel" autoFocus disabled={stockNoteSaving} onClick={() => setStockNoteReview(null)}>{stockNoteSaving ? '저장 중…' : '취소 · 닫기'}</button>
+          </div>
+        </StockNoteMatchingDialog>
+      )}
       <StockNotePicker
         open={showStockPicker}
         notes={stockNotesAll}
@@ -5782,6 +5885,29 @@ function StockImpactSummary({ draft, selectedWeek, processed = false }) {
       )}
     </section>
   );
+}
+
+function StockNoteMatchingDialog({children, saving, onClose}) {
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    const previous = document.activeElement;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.querySelector('[autofocus], button:not(:disabled), input:not(:disabled)')?.focus();
+    return () => {document.body.style.overflow = overflow; previous?.focus?.();};
+  }, []);
+  const handleKeyDown = event => {
+    if (event.key === 'Escape') {event.preventDefault(); if (!saving) onClose(); return;}
+    if (event.key !== 'Tab') return;
+    const targets = [...dialogRef.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]')].filter(element => element.getClientRects().length > 0);
+    const first = targets[0], last = targets[targets.length - 1];
+    if (!first) {event.preventDefault(); dialogRef.current.focus(); return;}
+    if (event.shiftKey && (document.activeElement === first || !dialogRef.current.contains(document.activeElement))) {event.preventDefault(); last.focus();}
+    else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current.contains(document.activeElement))) {event.preventDefault(); first.focus();}
+  };
+  return <div style={{position: 'fixed', inset: 0, zIndex: 1600, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20}}>
+    <section data-testid="stock-note-match-dialog" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="stock-note-match-title" aria-busy={saving} tabIndex={-1} onKeyDown={handleKeyDown} style={{width: 'min(850px, 100%)', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', background: '#fff', borderRadius: 12, padding: 24, boxSizing: 'border-box'}}>{children}</section>
+  </div>;
 }
 
 function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch, onPickProduct, buildCandidates, embedded = false }) {
@@ -5878,10 +6004,20 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
+            aria-label="기초재고 품목 검색"
+            onKeyDown={event => {if (event.key === 'ArrowDown') {event.preventDefault(); event.currentTarget.parentElement.querySelector('[data-stock-candidates] button')?.focus();}}}
             placeholder="품명 검색..."
             style={{ width: '100%', boxSizing: 'border-box', padding: '4px 8px', fontSize: 12, border: '1px solid #cbd5e1', borderRadius: 4, marginBottom: 6 }}
           />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 120, overflowY: 'auto' }}>
+          <div data-stock-candidates onKeyDown={event => {
+            if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+            const buttons = [...event.currentTarget.querySelectorAll('button:not(:disabled)')];
+            if (!buttons.length) return;
+            event.preventDefault();
+            const current = buttons.indexOf(document.activeElement);
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+            buttons[next]?.focus();
+          }} style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 120, overflowY: 'auto' }}>
             {candidates.map(({ prod, score }) => (
               <button
                 key={prod.ProdKey}
@@ -5902,6 +6038,17 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
       )}
     </div>
   );
+}
+
+function AppliedStockCopyPanel({draft,result,currentScope}) {
+  const [copied,setCopied]=useState(false),[copyError,setCopyError]=useState('');
+  const applied=buildAppliedStockCopy({...draft?.appliedCopySource,result,currentScope});
+  useEffect(()=>{setCopied(false);setCopyError('');},[applied.text,applied.ready]);
+  return <section data-testid="paste-applied-stock-copy" style={{border:'1px solid #b0bec5',borderRadius:8,padding:12,background:'#fff',marginBottom:12}}>
+    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><strong>적용재고</strong><button type="button" disabled={!applied.ready} onClick={async()=>{try{await navigator.clipboard.writeText(applied.text);setCopied(true);setCopyError('');}catch{setCopyError('복사하지 못했습니다. 아래 원문을 선택해 복사해 주세요.');}}}>{copied?'복사됨':'적용재고 복사'}</button></div>
+    {applied.ready?<textarea aria-label="적용재고 원문" readOnly value={applied.text} style={{width:'100%',boxSizing:'border-box',minHeight:120,marginTop:8,resize:'vertical',whiteSpace:'pre-wrap'}}/>:<p role="status" style={{color:'#9a3412',marginBottom:0}}>{applied.warnings.join(' ')}</p>}
+    {copyError&&<p role="alert">{copyError}</p>}
+  </section>;
 }
 
 function StockDraftPanel({ draft, copied, onCopy }) {
