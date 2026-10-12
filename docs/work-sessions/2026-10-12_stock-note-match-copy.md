@@ -44,3 +44,7 @@ A. 전체 ERP 계약·dnSpy 근거·변경 manifest/write guard·빌드 후 PR/�
 기능 PR #1015는 master 4603a0118f06ddadf2a04b8a8d3f28f2e631f3a4로 병합되고 Cafe24 실행38200667865가 성공했다. 운영1920×1080에서 적용재고 복사 영역, 수량 불명확 원문의 매칭 창/저장 차단, Escape 닫기를 확인했다. 임시 원문은 비운 상태로 복원했으며 운영 Favorite·ERP 저장은 하지 않았다.
 
 운영에서 Escape 후 BODY로 초점이 이동하는 문제가 추가 확인됐다. 자식 autoFocus가 실행된 뒤 모달 effect에서 이전 초점을 읽어 닫기 버튼 자신을 기록하는 것이 원인이다. 저장 클릭 시 호출 버튼을 먼저 기록하고 모달 닫기 때 그 버튼으로 복귀하도록 보완한다. 실제 페이지 브라우저 fixture에 호출 버튼 초점 복귀 검사를 추가한다. 이 보완도 전체 검사·빌드·CI·배포 뒤 재검증한다.
+
+**최종 결과.** 초점 보완 [PR #1016](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1016), master `e8e4516b2874a4df5b23b8812d200023af9d40af`, [Cafe24 실행38202200142](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/38202200142) 성공. 전체 ERP 계약·dnSpy 근거·변경 manifest/write guard·빌드·CI·운영 hydration smoke 통과. 로컬 개발 서버 시작 지연으로 브라우저 검사를 운영 방식의 `next start` 서버에서 다시 실행해 성공했다. 1920×1080 및1366×768 fixture에서 미매칭 차단, Escape 취소/호출 버튼 복귀, 100% 한 번 저장, 원입력 보존, 오류/ERP 쓰기 없음 확인. 실제 모달 컴포넌트에서도 자식 autoFocus 이후 Escape 초점 복귀를 확인했다.
+
+운영 로그인 브라우저1920×1080에서 적용재고 복사 영역·입력 화면 노출 및 가로 잘림 없음, 수량 불명확 임시 입력의 저장 차단·매칭 창·Escape 닫기·저장 버튼 초점 복귀(true)를 확인했다. 임시 원문/기준 입력을 비우고 viewport 설정을 해제했다. 운영 Favorite/ERP 저장을 실행하지 않았다. 적용재고 수량·정렬·0 제외·누적 및 롤백 검증은 격리 fixture와 순수 회귀로 확인했으며 운영 분배를 테스트 목적으로 실행하지 않았다. 이 최종 배포 결과 추가분은 로컬 세션 기록이다.
