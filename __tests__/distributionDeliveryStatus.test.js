@@ -23,6 +23,35 @@ assert.equal(match([{...original,truncated:true}])[0].reason,'incomplete');
 assert.equal(match(undefined,[])[0].reason,'no_target');
 assert.equal(match(undefined,undefined,'2025')[0].reason,'source_time_invalid');
 assert.equal(match(undefined,[delivered,delivered])[0].reason,'ambiguous');
+const realSource={...original,message:'41-1 콜 카네이션 변경사항\n상희\n돈셀 2박스 추가\n오늘 출고건입니다',created_at:'2026-10-12T02:50:00Z'};
+const realTarget={...delivered,message:realSource.message.replace(/^41-1/u,'41-2'),created_at:'2026-10-12T03:02:00Z'};
+const realMatch=(sources=[realSource],targets=[realTarget],year='2026')=>matchDeliveryStatus({sources,targets,year})[0];
+assert.deepEqual(realMatch(),{identity:realSource.identity,status:'UNCONFIRMED',reason:'week_mismatch',sourceWeek:'41-01',targetWeek:'41-02',candidateDeliveryIdentity:'nenovakakao|delivery|two',candidateDeliveredAt:realTarget.created_at});
+assert.equal(realMatch(undefined,[{...realTarget,message:realSource.message}]).status,'DELIVERED','exact match still takes precedence');
+assert.equal(realMatch(undefined,[{...realTarget,message:realSource.message},realTarget]).status,'DELIVERED','an advisory candidate cannot downgrade an exact match');
+assert.equal(realMatch([{...realSource,message:realSource.message.replace('41-1','41-01')}]).reason,'week_mismatch');
+assert.equal(realMatch([{...realSource,message:realSource.message.replace('41-1','41-1차')}],[{...realTarget,message:realTarget.message.replace('41-2','41-2차')}]).reason,'week_mismatch');
+for(const message of [
+  realTarget.message.replace('2박스','3박스'),
+  realTarget.message.replace('돈셀','다른 업체'),
+  realTarget.message.replace('추가','취소'),
+  realTarget.message.replace('41-2','41-02 다른 내용'),
+  realTarget.message.replace('41-2','54-2'),
+  realTarget.message.replace('41-2','41-00'),
+  realTarget.message.replace('41-2','41-100'),
+  realTarget.message.replace('41-2','안내 41-2'),
+])assert.equal(realMatch(undefined,[{...realTarget,message}]).reason,'no_target',`not a sole valid leading week change: ${message}`);
+for(const change of [
+  {created_at:'2026-10-12T02:49:59Z'},
+  {timestamp_approximate:true},
+  {truncated:true},
+  {message:'41-2 콜 카네이션 변경사항…'},
+  {chatroom:'다른방'},
+  {created_at:'2027-10-12T03:02:00Z'},
+])assert.equal(realMatch(undefined,[{...realTarget,...change}]).reason,'no_target');
+assert.equal(realMatch(undefined,[realTarget,{...realTarget,external_message_id:'three'}]).status,'AMBIGUOUS');
+assert.equal(realMatch([realSource,{...realSource,identity:'nenovakakao|sales|another',external_message_id:'another'}]).status,'AMBIGUOUS');
+assert(!JSON.stringify(realMatch()).includes(realTarget.message),'advisory response must not leak target text');
 function harness(fetchImpl,{token='test-token',store}={}){
  if(!store){const directory=fs.mkdtempSync(path.join(os.tmpdir(),'delivery-api-'));directories.push(directory);store=createDistributionDeliveryEvidenceStore({directory});}
  const source=fs.readFileSync(require.resolve('../pages/api/kakao/delivery-status.js'),'utf8')
@@ -64,5 +93,16 @@ function harness(fetchImpl,{token='test-token',store}={}){
  assert.equal((await duplicateHandler({body:{year:'2026',week:'2026-41-01',sources:[{...original,duplicateOriginal:true}]}})).data.items[0].status,'AMBIGUOUS');
  assert.equal(await duplicateStore.read({source:original,year:'2026'}),null,'cross-batch duplicate flag must prevent new persistence');
  assert.equal((await initial({body:{year:'2026',week:'2026-41-01',sources:[{...original,duplicateOriginal:true}]}})).data.items[0].status,'DELIVERED','existing verified fact is preserved');
+ const mismatchDirectory=fs.mkdtempSync(path.join(os.tmpdir(),'delivery-mismatch-'));directories.push(mismatchDirectory);
+ const mismatchStore=createDistributionDeliveryEvidenceStore({directory:mismatchDirectory});
+ const mismatchHandler=harness(async()=>({ok:true,json:async()=>({ok:true,messages:[realTarget],hasMore:false,nextAfterKey:null})}),{store:mismatchStore});
+ const mismatchResponse=await mismatchHandler({body:{year:'2026',week:'2026-41-01',sources:[realSource]}});
+ assert.equal(mismatchResponse.code,200);
+ assert.equal(mismatchResponse.data.items[0].status,'UNCONFIRMED');
+ assert.equal(mismatchResponse.data.items[0].reason,'week_mismatch');
+ assert.equal(mismatchResponse.data.items[0].deliveryIdentity,undefined);
+ assert.equal(mismatchResponse.data.items[0].deliveredAt,undefined);
+ assert.equal(mismatchResponse.data.items[0].persisted,undefined);
+ assert.equal(await mismatchStore.read({source:realSource,year:'2026'}),null,'week mismatch must not save delivery evidence');
  console.log('distribution delivery status tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>{for(const directory of directories)fs.rmSync(directory,{recursive:true,force:true});});
