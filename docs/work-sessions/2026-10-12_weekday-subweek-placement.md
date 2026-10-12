@@ -4,7 +4,7 @@
 |---|---|
 | 화면 | 주광 견적서 `/estimate/weekday` |
 | 브랜치 | codex/weekday-subweek-placement-fix |
-| 운영 쓰기 | 이 변경의 Brut 보정은 아직 미실행 |
+| 운영 쓰기 | Brut 보정 완료 및 새 연결 원장/견적 parity 검증 PASS |
 | 관련 별도 사건 | EXE BUSY는 별도 수동 복구 기록 참조 |
 
 ## 고정 결정
@@ -37,3 +37,14 @@
 PR/master/Cafe24 결과를 후속 기록한다. Brut 운영 보정은 배포 성공 후 최신 원장을 다시 대조하고 수행한다.
 
 추가 검증: 기존 target 월요일3 → 화요일2와 source legacy 화요일2 제거를 함께 적용하는 실제 SQL fixture PASS. 전체 ERP 계약·빌드 최종 PASS. stock gate 소유권 실제 SQL 29개 검사 PASS.
+
+## 최종 배포와 실제 보정
+
+- PR #1028 병합: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1028
+- master `7c3193f2811bcd3430c846933257760df767cc1c`, Cafe24 run `38222836288` success. 운영 weekday bundle의 차수 정정/정정 취소 표시 및 Chrome 로그인 hydration PASS (`build-1791793380113`).
+- 최초 보정 실행은 사전 snapshot에서 같은 transaction에 병렬 SELECT를 보내 EREQINPROG로 저장 진입 전 실패했다. 해당 유지보수 프로세스만 종료하고 연결을 정리했다. 조회를 순차 처리하도록 고친 뒤 원래6/3 및 날짜가 그대로임을 재조회했다. 제품 저장 API 변경 없음.
+- 사용자 확인대로 operation UUID `a3e523a4-dd97-4a35-823a-912bb7c31ed9`, 실제 서비스 actor `codex-maintenance`로 정상 ALLOCATION core를 단일 transaction 실행·commit.
+- 최종 2026/41-01/533/359: 10/11(일)4박스, 41-02: 10/13(화)2박스, 양쪽 상세확정 유지. source 화요일2와 target 월요일3 제거.
+- 출고 확정 합계9→6, Product.Stock +3, 견적 gross1,417,500→945,000. 기존 활성 주문5/3, 농장, Estimate, WebProfitReport, 전년도·타 업체 보존을 transaction 안에서 검사. 미래 ProductStock 음수 없음.
+- 별도 새 연결 ViewOrder 5/3, ViewShipment DetailFix1 및 native ViewOrder+ShipmentDate+PeriodDay join으로 일요일4/화요일2, 견적단위60/30, 단가10500과 gross945000 검증 PASS. 최종 gate IDLE/PendingCalc0, capability ready.
+- EXE 화면에서 직접 확정취소를 누른 검증은 수행하지 않았다. native DB 실행·조회 parity를 확인한 결과다.

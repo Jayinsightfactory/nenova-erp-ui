@@ -39,3 +39,5 @@
 이번 변경은 CALC의 영구 RUN 잔류 경로를 보완한다. 활성 transaction이 살아 있으면 정상 BUSY는 가능하며, attention만 받고 연결이 유지되면 caller rollback/disposal이 필요하다. FIX/CANCEL의 별도 진입 경계와 다른 종류의 BUSY까지 모두 제거했다고 주장하지 않는다. 자동 시간 만료/없는 세션 reclaim 금지는 유지한다.
 
 원문 probe, 정확 토큰, 복구 전후 스냅샷은 `outputs/busy-*`와 `outputs/native-atomic-production-verified.json` 로컬 보관. 비밀값·운영 원문은 커밋하지 않는다. 버전 관리 fixture에는 SP 정의3개만 포함한다.
+
+최종 소스 배포: PR #1028 / master7c3193f2 / Cafe24 run38222836288 success. 격리 stockGateOwnership --sql 29검사 PASS. Brut 보정 후에도 별도 연결에서 IDLE/PendingCalc0/capability ready 재확인. 사용자는 중지했던 확정·확정취소·재고 계산을 재개할 수 있다.
