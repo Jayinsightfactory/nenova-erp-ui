@@ -1,0 +1,18 @@
+{
+  "purpose": "Source recovery backup only. Do not merge this branch into production. Each listed commit retains its original source tree.",
+  "date": "2026-10-12",
+  "records": [
+    {
+      "kind": "localCommit",
+      "name": "feat/eta-drive-awb-suggest",
+      "sha": "56f36cb445bd7e5ef59fa266590819dd09c2a5e2"
+    },
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": ".codex/worktrees/hotel-miu-clamp-cancel/nenova-erp-ui",
+      "sha": "bf55c78d992ac12c7c8699359c9734a025e2641b",
+      "sourceFiles": 1,
+      "excludedFiles": 0
+    }
+  ]
+}
