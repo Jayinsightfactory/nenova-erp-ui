@@ -14,3 +14,7 @@ Q. 업체별 품목 단가를 입력하고 Enter를 치면 바로 아래 품목 
 ## 검증
 
 첫행/중간/끝/없는키, 재정렬/필터, 동일 업체 유지 fixture 통과. test:erp-contract, dnSpy evidence, manifest 및 ERP write guard(origin/master 기준), production build, diff --check 모두 통과. 운영 단가 저장은 실행하지 않는다. PR/배포 후 별도 탭에서 포커스 이동을 확인하고 사용자 편집 중인 기존 탭은 보존한다.
+
+PR #368 / feature 0ea077c / merge 813b744. CI verify 32935545069 성공. Cafe24 deployment 32935618185 성공.
+
+운영 별도 탭 813b744에서 Moon 검색(77업체 × 3품목), 청지화원 Moon Light → Mix Box A → Moon Golem Enter 이동 확인. 마지막 행 Enter는 그대로 유지. 저장(0개) 비활성 유지, DB 저장 없음. 사용자가 편집하던 원래 탭은 보존.
