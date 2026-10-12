@@ -17,7 +17,15 @@ const target = { ...source,chat_id:'delivery',external_message_id:'2',chatroom:'
   for(const change of [{message:'different'},{created_at:'2025-10-09T10:01:00+09:00'},{created_at:'2026-10-09T09:59:00+09:00'},{timestamp_approximate:true}])await assert.rejects(first.confirm({source,target:{...target,...change},year:'2026'}),/unverified/);
   assert.deepEqual(await first.read({source,year:'2026'}),results[0],'invalid new evidence cannot erase saved confirmation');
   assert(!fs.readFileSync(path.join(directory,evidenceKey(source,'2026')+'.json'),'utf8').includes(source.message),'stored record contains fingerprint, not source raw text');
-  assert.equal(fs.readdirSync(directory).length,1,'temporary files cleaned');
+  const correctedSource={...source,external_message_id:'corrected',identity:'nenovakakao|sales|corrected',message:'41-1 콜 카네이션 변경사항\n상희\n돈셀 2박스 추가\n오늘 출고건입니다',created_at:'2026-10-12T11:50:00+09:00'};
+  const correctedTarget={...target,message:correctedSource.message.replace(/^41-1/u,'41-2'),created_at:'2026-10-12T12:02:00+09:00'};
+  const corrected=await first.confirm({source:correctedSource,target:correctedTarget,year:'2026'});
+  assert.equal(corrected.reason,'week_corrected');
+  assert.equal(corrected.sourceWeek,'41-01');assert.equal(corrected.targetWeek,'41-02');
+  assert.deepEqual(await restartedOtherAccount.read({source:correctedSource,year:'2026'}),corrected,'restart retains corrected-week metadata');
+  const stored=fs.readFileSync(path.join(directory,evidenceKey(correctedSource,'2026')+'.json'),'utf8');
+  assert(!stored.includes(correctedSource.message)&&!stored.includes(correctedTarget.message),'corrected evidence stores no raw source/target text');
+  assert.equal(fs.readdirSync(directory).length,2,'temporary files cleaned');
   console.log('distribution delivery evidence store tests passed');
  } finally { fs.rmSync(directory,{recursive:true,force:true}); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

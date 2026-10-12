@@ -12,7 +12,7 @@ import DistributionChecklistReview from './DistributionChecklistReview';
 import DistributionChangeAudit from './DistributionChangeAudit';
 import DistributionMessagePreanalysis from './DistributionMessagePreanalysis';
 import {DELIVERY_REASON_LABELS} from '../../lib/distributionDeliveryStatus';
-import {deliveryMismatchLabel} from '../../lib/distributionDeliveryClient';
+import {deliveryCorrectedLabel} from '../../lib/distributionDeliveryClient';
 import useDistributionDeliveryStatus from './useDistributionDeliveryStatus';
 
 const MANUAL_APPLICATION_STATUSES=['MANUALLY_APPLIED','MANUALLY_NOT_APPLIED','CLEAR'];
@@ -479,11 +479,13 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
         {additional.map(item=>renderAppliedItem(item,true))}
       </details>}</div>
     </section>;
+    const deliveryItem=deliveryStatus.items[row.identity];
+    const correctedLabel=deliveryCorrectedLabel(deliveryItem);
     return <article className={`message compact-match-row ${confirmation.confirmed&&!confirmation.cancelled?'history-completed':''}`} data-testid={`compact-match-row:${row.identity}`} key={row.identity}>
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
       <div className="visible-change-meta"><small>{source}</small><button type="button" className="source-hide-toggle" data-testid={`source-fold-toggle:${row.identity}`} aria-expanded={true} onClick={event=>setMessageFold(row.identity,true,event)}>숨기기</button>
-      <button type="button" className={`source-delivery-status ${deliveryStatus.items[row.identity]?.status==='DELIVERED'?'delivered':deliveryMismatchLabel(deliveryStatus.items[row.identity])?'week-mismatch':''}`} data-testid={`source-delivery-status:${row.identity}`} aria-pressed={deliveryStatus.items[row.identity]?.status==='DELIVERED'} aria-disabled="true" title={deliveryStatus.items[row.identity]?.status==='DELIVERED'?`현장 추가취소방 동일 원문 확인 · ${shortKstTime(deliveryStatus.items[row.identity].deliveredAt)}`:deliveryStatus.error|| (deliveryMismatchLabel(deliveryStatus.items[row.identity])?`${deliveryMismatchLabel(deliveryStatus.items[row.identity])} · ${shortKstTime(deliveryStatus.items[row.identity].candidateDeliveredAt)} · 차수가 달라 정상 전달완료로 처리하지 않습니다. 주문·분배 차수는 변경하지 않습니다.`:'최근 3일 추가취소방에서 동일 원문의 전송을 확인합니다. 부분 일치·시각 불명확·중복 원문은 완료로 표시하지 않습니다.')}>{deliveryStatus.items[row.identity]?.status==='DELIVERED'?'● 전달완료':deliveryStatus.error?'전달 조회 실패':deliveryStatus.loading?'전달 확인 중…':deliveryStatus.pending?'전달 확인 대기':deliveryMismatchLabel(deliveryStatus.items[row.identity])|| (deliveryStatus.items[row.identity]?.status==='AMBIGUOUS'?'전달 재확인':`○ 전달 미확인 · ${DELIVERY_REASON_LABELS[deliveryStatus.items[row.identity]?.reason]||'전송 근거 확인 대기'}`)}</button>
+      <button type="button" className={`source-delivery-status ${deliveryItem?.status==='DELIVERED'?'delivered':''}`} data-testid={`source-delivery-status:${row.identity}`} aria-pressed={deliveryItem?.status==='DELIVERED'} aria-disabled="true" title={deliveryItem?.status==='DELIVERED'?`현장 추가취소방 ${correctedLabel?'차수 수정 외 동일 원문':'동일 원문'} 확인 · ${shortKstTime(deliveryItem.deliveredAt)} · 주문·분배 차수는 변경하지 않습니다.`:deliveryStatus.error||'최근 3일 추가취소방에서 동일 원문의 전송을 확인합니다. 부분 일치·시각 불명확·중복 원문은 완료로 표시하지 않습니다.'}>{correctedLabel|| (deliveryItem?.status==='DELIVERED'?'● 전달완료':deliveryStatus.error?'전달 조회 실패':deliveryStatus.loading?'전달 확인 중…':deliveryStatus.pending?'전달 확인 대기':deliveryItem?.status==='AMBIGUOUS'?'전달 재확인':`○ 전달 미확인 · ${DELIVERY_REASON_LABELS[deliveryItem?.reason]||'전송 근거 확인 대기'}`)}</button>
       <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={confirmation.confirmed&&!confirmation.cancelled} title="확인 표시는 실제 주문·분배 적용과 별개입니다. 확인취소는 전산 작업을 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,confirmation.confirmed&&!confirmation.cancelled?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':confirmation.confirmed&&!confirmation.cancelled?'확인취소':'확인처리'}</button>
       {!prepareMessage&&<button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button>}</div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
@@ -563,7 +565,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     <div className="sales-inbox-content" hidden={!open||!ready}>
       <small data-testid="sales-inbox-shared-status-cadence">공유 처리확인·저장된 분배 이력 {HISTORY_REFRESH_INTERVAL_MS/1000}초마다 확인</small>
       <small data-testid="sales-inbox-delivery-cadence">추가취소방 전달 여부 {HISTORY_REFRESH_INTERVAL_MS/1000}초마다 확인 · 마지막 조회 {deliveryStatus.checkedAt?shortKstTime(deliveryStatus.checkedAt):'확인 중'} · <button type="button" data-testid="sales-inbox-delivery-refresh" disabled={disabled||deliveryStatus.loading||!rows.length} onClick={deliveryStatus.refresh}>{deliveryStatus.loading?'전달 확인 중…':'전달 지금 확인'}</button></small>
-      <small>카톡 수집 후 동일 원문이 확인되면 전달완료로 표시합니다. 미확인은 미전달 확정이 아니며, 수집 PC가 꺼져 있거나 수집이 늦으면 표시도 지연됩니다. 주문·분배 적용과는 별개입니다.</small>
+      <small>카톡 수집 후 동일 원문이나 맨 앞 차수만 수정되고 나머지 내용이 같은 원문이 유일하게 확인되면 전달완료로 표시합니다. 미확인은 미전달 확정이 아니며, 수집 PC가 꺼져 있거나 수집이 늦으면 표시도 지연됩니다. 주문·분배 적용과는 별개입니다.</small>
       {deliveryStatus.diagnostics&&<small data-testid="sales-inbox-delivery-diagnostics">최근 3일 추가취소방 {deliveryStatus.diagnostics.targetCount}건 · 비교 가능한 원문 {deliveryStatus.diagnostics.qualifiedSourceCount}/{rows.length}건</small>}
       {deliveryStatus.error&&<p role="status">{deliveryStatus.error} 저장된 전달 완료는 유지됩니다. 아직 확인되지 않은 건은 다시 확인해 주세요.</p>}
       <small data-testid="sales-inbox-refresh-cadence">{autoFeedRefresh?`새 카톡 ${REFRESH_INTERVAL_MS/1000}초마다 확인 · 최근 3일 수신분만 중복 없이 추가 · 저장된 원문·전산 확인 유지`:'새 카톡 자동 확인 꺼짐'}{refreshStatus.feedTo&&` · 새 카톡 수신 기간 ${refreshStatus.feedFrom} ~ ${refreshStatus.feedTo}`}</small>
@@ -609,7 +611,6 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       .sales-inbox .visible-change-meta>button{margin-left:0;font:inherit;font-size:11px;padding:2px 5px;min-height:23px}
       .sales-inbox .visible-change-meta .source-delivery-status{background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;cursor:default}
       .sales-inbox .visible-change-meta .source-delivery-status.delivered{background:#d1fae5;color:#065f46;border-color:#10b981;font-weight:700;box-shadow:0 0 5px #10b98155}
-      .sales-inbox .visible-change-meta .source-delivery-status.week-mismatch{background:#fff7ed;color:#9a3412;border-color:#fb923c;white-space:normal;text-align:left}
       .sales-inbox .visible-change-meta .compact-match-status{display:flex;gap:5px;align-items:center}
       .sales-inbox .source-message-context{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 8px;padding:6px 9px;border-left:3px solid #91b4d9;background:#f5f9fe;color:#243b53;font-size:13px;line-height:1.45}
       .sales-inbox .non-action-reference summary{cursor:pointer;color:#62798f;font-size:11px}

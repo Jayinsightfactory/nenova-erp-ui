@@ -8,10 +8,11 @@ assert.equal(oversized.length,1);assert.equal(batches.flat().length,220);
 for(const sources of batches){assert(sources.length<=200);assert(sources.reduce((sum,row)=>sum+row.message.length,0)<=200000);assert(Buffer.byteLength(JSON.stringify({year,week,sources}))<=450000);assert(!('privateExtra' in sources[0]));}
 const item={identity:row.identity,status:'DELIVERED',deliveredAt:'2026-10-09T10:01:00+09:00',deliveryIdentity:'nenovakakao|delivery|two'};
 const good={ok:true,year,week,items:[item]};
-const mismatch={identity:row.identity,status:'UNCONFIRMED',reason:'week_mismatch',sourceWeek:'41-01',targetWeek:'41-02',candidateDeliveryIdentity:'nenovakakao|delivery|other',candidateDeliveredAt:'2026-10-09T10:01:00+09:00'};
-assert.equal(validatedDeliveryItems({...good,items:[mismatch]},[row],year,week)[0].status,'UNCONFIRMED');
-assert.match(require('../lib/distributionDeliveryClient').deliveryMismatchLabel(mismatch),/41-01 → 41-02/);
-for(const change of [{status:'DELIVERED'},{targetWeek:'41-01'},{sourceWeek:'99-01'},{candidateDeliveryIdentity:row.identity},{candidateDeliveredAt:'2025-10-09T10:01:00+09:00'},{candidateDeliveredAt:'2026-10-09T09:00:00+09:00'}])assert.throws(()=>validatedDeliveryItems({...good,items:[{...mismatch,...change}]},[row],year,week));
+const correctedSource={...row,message:'41-1 꽃집\n화이트 2박스 추가'};
+const corrected={...item,reason:'week_corrected',sourceWeek:'41-01',targetWeek:'41-02'};
+assert.equal(validatedDeliveryItems({...good,items:[corrected]},[correctedSource],year,week)[0].status,'DELIVERED');
+assert.equal(require('../lib/distributionDeliveryClient').deliveryCorrectedLabel(corrected),'전달완료 · 차수 수정 (41-01 → 41-02)');
+for(const change of [{status:'UNCONFIRMED'},{targetWeek:'41-01'},{sourceWeek:'99-01'},{sourceWeek:'40-01'},{deliveryIdentity:row.identity},{deliveredAt:'2025-10-09T10:01:00+09:00'},{deliveredAt:'2026-10-09T09:00:00+09:00'}])assert.throws(()=>validatedDeliveryItems({...good,items:[{...corrected,...change}]},[correctedSource],year,week));
 assert.equal(validatedDeliveryItems(good,[row],year,week)[0].status,'DELIVERED');
 for(const bad of [{...good,year:'2025'},{...good,week:'2026-40-01'},{...good,items:[]},{...good,items:[item,item]},{...good,items:[{...item,deliveredAt:''}]},{...good,items:[{...item,deliveryIdentity:row.identity}]},{...good,items:[{...item,deliveredAt:'2025-10-09T10:01:00+09:00'}]}])assert.throws(()=>validatedDeliveryItems(bad,[row],year,week));
 const {createDeliveryEvidenceCache}=require('../lib/distributionDeliveryClient');
@@ -25,6 +26,10 @@ for(const changed of [{...row,message:row.message+'changed'},{...row,created_at:
 assert.deepEqual(facts.read('b',year,[row]),{},'actor switch rehydrates from server');
 assert.deepEqual(facts.read('a','2025',[row]),{});
 assert.equal(deliveryRequestBatches([{...row,duplicateOriginal:true}],year,week).batches[0][0].duplicateOriginal,true,'batch preserves global duplicate guard');
+const {markDeliveryDuplicates}=require('../lib/distributionDeliveryClient');
+const corrections=markDeliveryDuplicates([correctedSource,{...correctedSource,identity:'nenovakakao|sales|two',external_message_id:'two',message:'41-2 꽃집\n화이트 2박스 추가'}]);
+assert(corrections.every(source=>source.duplicateCorrectionOriginal===true&&!source.duplicateOriginal),'whole-inbox correction collision is distinct from exact duplicate');
+assert.equal(deliveryRequestBatches(corrections,year,week).batches[0][0].duplicateCorrectionOriginal,true,'batch preserves correction collision');
 for(const flag of ['truncated','is_truncated']){
   const flagged={...row,[flag]:true};
   const source=deliveryRequestBatches([flagged],year,week).batches[0][0];

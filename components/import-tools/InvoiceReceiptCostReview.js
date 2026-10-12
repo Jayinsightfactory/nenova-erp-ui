@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { INVOICE_COST_FORMULAS, previewInvoiceCost, restoredInvoiceCostInput } from '../../lib/invoiceReceiptCost';
 import { acquireInvoiceCostWorkflowLock, classifyInvoiceCostPostResponse, invoiceCostApprovalInvalidationEvents, isInvoiceCostGenerationCurrent, runInvoiceCostSaveWorkflow, runInvoiceCostStageRunner, shouldShowInvoiceCostPreviewNotice, verifyInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
 import styles from '../../styles/InvoiceReceiptCost.module.css';
+import { downloadInvoiceCostExport, invoiceCostExportEligibility } from '../../lib/invoiceReceiptStageLogClient.js';
+import { validateInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -212,7 +214,7 @@ function unitLabel(value) {
 
 export default function InvoiceReceiptCostReview({ document, onSaved, autoProcess = false, onStageChange }) {
   const receiptLines = useMemo(() => committedReceiptLines(document), [document]);
-  const identity = `${String(document?.documentId || '')}:${Number(document?.revision)}`;
+  const identity = `${String(document?.documentId || '')}:${Number(document?.revision)}:${document?.sourceHash || ''}`;
   const identityRef = useRef(identity);
   const generationRef = useRef(0);
   const mountedRef = useRef(false);
@@ -236,6 +238,10 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const [busyIdentity, setBusyIdentity] = useState('');
   const busy = busyIdentity === identity || workflowLocksRef.current.has(identity);
   const [notice, setNotice] = useState(null);
+  const [verifiedExport, setVerifiedExport] = useState(null);
+  const [exportBusy, setExportBusy] = useState(false);
+  const exportLockRef = useRef(false);
+  const exportInputGenerationRef = useRef(0);
   const [pending, setPending] = useState(null);
   const [pendingIdentity, setPendingIdentity] = useState('');
   const pendingRef = useRef(pending);
@@ -261,7 +267,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   function emitStage(id, status, message) {
     if (stageStatuses.current[id] === status) return;
     stageStatuses.current[id] = status;
-    try { stageCallback.current?.({ documentId: String(document?.documentId || ''), revision: Number(document?.revision), id, status, message, at: new Date().toISOString() }); }
+    try { stageCallback.current?.({ documentId: String(document?.documentId || ''), revision: Number(document?.revision), sourceHash: document?.sourceHash, id, status, message, at: new Date().toISOString() }); }
     catch { /* Parent progress observers cannot block this document's local workflow. */ }
   }
 
@@ -287,6 +293,27 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     emitStage('costSave', 'waiting', '승인 사유와 사용자의 저장 확인을 기다립니다.');
     emitStage('costVerify', 'waiting', '원가 저장 후 별도 재조회를 기다립니다.');
   }, [identity]);
+
+  useEffect(() => {
+    setVerifiedExport(null);
+    if (document?.costStatus !== 'APPROVED' || document?.receiptStatus !== 'COMMITTED') return;
+    const abort = new AbortController(), expectedIdentity = identity, expectedGeneration = generationRef.current;
+    const expectedInputGeneration = exportInputGenerationRef.current;
+    const warehouseKey = currentCommittedWarehouseKey(document);
+    if (!warehouseKey) return;
+    (async () => {
+      try {
+        const response = await fetch(`/api/warehouse/invoice-costs?warehouseKey=${encodeURIComponent(warehouseKey)}`, { credentials: 'same-origin', cache: 'no-store', signal: abort.signal });
+        const data = await response.json();
+        const verified = validateInvoiceCostReadback(document, warehouseKey, data);
+        if (!response.ok || !verified.ok) throw new Error(verified.message || '승인 원가 재조회 실패');
+        if (!abort.signal.aborted && isCurrent(expectedIdentity, expectedGeneration) && exportInputGenerationRef.current === expectedInputGeneration) setVerifiedExport({ identity: expectedIdentity, actual: verified.actual });
+      } catch (error) {
+        if (!abort.signal.aborted && isCurrent(expectedIdentity, expectedGeneration)) setNotice({ type: 'error', text: '다운로드용 승인 원가를 확인하지 못했습니다. 승인 입력을 다시 불러오세요.' });
+      }
+    })();
+    return () => abort.abort();
+  }, [identity, document?.costStatus, document?.receiptStatus]);
 
   useEffect(() => {
     if (!document || !autoProcess || formIdentity !== identity || pendingIdentity !== identity || pending) return;
@@ -347,6 +374,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }
 
   function invalidateApprovalStages() {
+    exportInputGenerationRef.current += 1;
+    setVerifiedExport(null);
     for (const event of invoiceCostApprovalInvalidationEvents(document)) emitStage(event.id, event.status, event.message);
   }
 
@@ -372,6 +401,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       pristineRef.current = false;
       setInputEdited(true);
       invalidateApprovalStages();
+      setVerifiedExport({ identity: expectedIdentity, actual: data.costs.currentActual });
       setPreview(null);
       setNotice({ type: 'success', text: '승인 입력을 불러왔습니다. 현재 자료를 다시 검토하고 공식 적용 확인을 직접 체크하세요.' });
     } catch (error) {
@@ -436,7 +466,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
             if (data.cost?.idempotent) setNotice({ type: 'success', text: '같은 승인 요청이 저장된 응답입니다. 별도 재조회로 현재 적용 여부를 확인합니다.' });
           }
         },
-        onSaved: cost => { if (current()) savedCallback.current?.(cost); },
+        onSaved: cost => { if (current()) { setVerifiedExport({ identity: expectedIdentity, actual: cost }); savedCallback.current?.(cost); } },
       });
       if (result.ok) {
         writePending(capturedDocument, null);
@@ -481,7 +511,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
             if (!response.ok) throw new Error(data.error || '원가 재조회 요청이 실패했습니다.');
             return data;
           },
-          onSaved: cost => { if (current()) savedCallback.current?.(cost); },
+          onSaved: cost => { if (current()) { setVerifiedExport({ identity: expectedIdentity, actual: cost }); savedCallback.current?.(cost); } },
         });
       } else {
         result = await runInvoiceCostSaveWorkflow({
@@ -499,7 +529,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
             writePending(capturedDocument, verifying);
             if (current()) setPending(verifying);
           },
-          onSaved: cost => { if (current()) savedCallback.current?.(cost); },
+          onSaved: cost => { if (current()) { setVerifiedExport({ identity: expectedIdentity, actual: cost }); savedCallback.current?.(cost); } },
         });
       }
       if (result.ok) {
@@ -524,6 +554,20 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const selectedFormula = INVOICE_COST_FORMULAS[form.formulaId];
   const isChinaAir = form.formulaId === 'CN_AIR_WEIGHT_CBM_V1';
   const reviewOnly = allowedFormulaIds.length === 0 || (form.formulaId && (!selectedFormula || form.formulaId !== allowedFormulaIds[0]));
+  const exportActual = verifiedExport?.identity === identity ? verifiedExport.actual : null;
+  const exportEligibility = invoiceCostExportEligibility(document, exportActual);
+  async function downloadCost() {
+    if (busy || pending || exportLockRef.current || !exportEligibility.allowed) return;
+    const expectedIdentity = identity, expectedGeneration = generationRef.current;
+    const expectedInputGeneration = exportInputGenerationRef.current;
+    exportLockRef.current = true; setExportBusy(true);
+    try { await downloadInvoiceCostExport(exportActual, { isCurrent: () => isCurrent(expectedIdentity, expectedGeneration) && exportInputGenerationRef.current === expectedInputGeneration }); }
+    catch (error) { if (isCurrent(expectedIdentity, expectedGeneration)) {
+      if (error.httpStatus === 409) setVerifiedExport(null);
+      setNotice({ type: 'error', text: error.message });
+    } }
+    finally { exportLockRef.current = false; if (isCurrent(expectedIdentity, expectedGeneration)) setExportBusy(false); }
+  }
 
   return <section className={styles.root} aria-label="인보이스 도착원가 검토">
     <header className={styles.header}>
@@ -532,10 +576,18 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <div className={styles.status}><span>문서 버전</span><strong>{document.revision ?? '—'}</strong><span>입고 상태</span><strong>{receiptStatusLabel(document.receiptStatus)}</strong></div>
     </header>
 
-    {notice && <p className={notice.type === 'error' ? styles.error : styles.success} role={notice.type === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
+    {exportActual && <div className={`${styles.actions} ${styles.savedActions}`} aria-label="승인 원가 양식 다운로드">
+      <div><strong>저장된 승인 원가</strong><p>승인·재조회 완료 · 다운로드는 선택 사항입니다.</p></div>
+      {exportEligibility.allowed ? <button type="button" onClick={downloadCost} disabled={busy || Boolean(pending) || exportBusy}>{exportBusy ? '양식 준비 중…' : '도착원가 양식 다운로드'}</button>
+        : <p role="status">{exportEligibility.message}</p>}
+    </div>}
     {reviewOnly && <p className={styles.reviewOnly} role="status">{country} / {documentTransport(document) || '운송 미확인'} 조합에는 검증된 원가 공식이 없습니다. 입고 성공은 보존되며 원가는 계산·저장되지 않습니다.</p>}
-    <button type="button" onClick={loadApprovedInput} disabled={busy || Boolean(pending) || inputEdited || formIdentity !== identity || !currentCommittedWarehouseKey(document)}>승인 입력 불러오기</button>
-    <p>현재 문서·버전의 승인 입력만 불러옵니다. 입력을 편집한 뒤에는 덮어쓰지 않습니다. 적용 확인은 다시 필요합니다.</p>
+    <div className={`${styles.actions} ${styles.savedActions}`}>
+      <button type="button" onClick={loadApprovedInput} disabled={busy || Boolean(pending) || inputEdited || formIdentity !== identity || !currentCommittedWarehouseKey(document)}>승인 입력 불러오기</button>
+      <p>현재 버전의 승인 입력을 불러옵니다. 편집값은 덮어쓰지 않으며 적용 확인은 다시 필요합니다.</p>
+    </div>
+    <h4>현재 편집값 검토</h4>
+    {notice && <p className={notice.type === 'error' ? styles.error : styles.success} role={notice.type === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
 
     <ol className={styles.workflow} aria-label="원가 처리 단계">
       <li><strong>원가 계산</strong><span>{autoProcess ? '자동 계산' : '수동 미리보기'}</span></li>

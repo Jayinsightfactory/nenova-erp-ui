@@ -53,7 +53,9 @@ export default withAuth(async function handler(req,res){
   try{
     const targets=sources.length?await readDeliveryFeed(token,period):[];
     // The client batches raw messages; carry ambiguity observed across all batches.
-    const matched=matchDeliveryStatus({sources,targets,year}).map((item,index)=>sources[index].duplicateOriginal===true?{identity:item.identity,status:'AMBIGUOUS',reason:'ambiguous'}:item);
+    const matched=matchDeliveryStatus({sources,targets,year}).map((item,index)=>
+      sources[index].duplicateOriginal===true||sources[index].duplicateCorrectionOriginal===true&&item.reason==='week_corrected'
+        ?{identity:item.identity,status:'AMBIGUOUS',reason:'ambiguous'}:item);
     const items=await Promise.all(matched.map(async(item,index)=>saved[index]||(item.status==='DELIVERED'?evidenceStore.confirm({source:sources[index],target:targets.find(target=>deliveryIdentity(target)===item.deliveryIdentity),year}):item)));
     const qualifiedSourceCount=matched.filter(item=>!['source_metadata','incomplete','source_time_approximate','source_time_invalid'].includes(item.reason)).length;
     return res.json({...response(items),diagnostics:{targetCount:targets.length,qualifiedSourceCount}});
