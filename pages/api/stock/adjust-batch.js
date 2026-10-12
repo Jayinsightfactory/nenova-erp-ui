@@ -1,8 +1,8 @@
 // pages/api/stock/adjust-batch.js
-// POST { week, orderYear?, edits: [{ prodKey, afterStock, descr? }], force? }
+// POST { week, orderYear?, edits: [{ prodKey, afterStock, descr? }] }
 //   여러 품목의 재고를 목표값(afterStock)으로 한 번에 조정 — 각 건 StockHistory INSERT + usp_StockCalculation.
-//   확정된 차수(ShipmentMaster/ShipmentDetail/StockMaster isFix=1)는 기본 차단 —
-//   프론트는 lib/fixCycleClient.js 의 runEditWithFixCycle 로 확정해제→적용(force=true)→재확정 사이클을 태울 것.
+//   확정된 차수(ShipmentMaster/ShipmentDetail/StockMaster isFix=1)는 항상 차단 —
+//   프론트는 lib/fixCycleClient.js 의 runEditWithFixCycle 로 확정해제→적용→재확정 사이클을 태울 것.
 //   (docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md C-1/C-3)
 
 import { query, withTransaction, sql } from '../../../lib/db';
@@ -64,7 +64,7 @@ function stockCalculationSql() {
 export default withAuth(async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'POST만 지원' });
 
-  const { week: rawWeek, orderYear: requestedYear, year, edits, force } = req.body || {};
+  const { week: rawWeek, orderYear: requestedYear, year, edits } = req.body || {};
   if (!rawWeek) return res.status(400).json({ success: false, error: 'week 필요' });
   if (!Array.isArray(edits) || edits.length === 0) {
     return res.status(400).json({ success: false, error: 'edits 필요' });
@@ -79,7 +79,7 @@ export default withAuth(async function handler(req, res) {
   );
 
   try {
-    if (!force && await isWeekFixed(orderYear, week)) {
+    if (await isWeekFixed(orderYear, week)) {
       return res.status(409).json({
         success: false,
         code: 'WEEK_FIXED',
@@ -87,24 +87,30 @@ export default withAuth(async function handler(req, res) {
       });
     }
 
-    const results = [];
-    const errors = [];
-
-    for (const e of edits) {
+    const normalizedEdits = edits.map((e) => {
       const pk = Number(e.prodKey);
       const after = Number(e.afterStock);
       if (!Number.isFinite(pk) || !Number.isFinite(after)) {
-        errors.push({ prodKey: e.prodKey, message: '잘못된 값' });
-        continue;
+        throw new Error(`ProdKey=${e.prodKey}의 재고조정 값이 올바르지 않습니다.`);
       }
-      try {
-        const applied = await withTransaction(async (tQuery) => {
+      return { ...e, pk, after };
+    });
+
+    // 여러 행을 한 트랜잭션으로 처리해 SP/PK/데이터 오류가 한 건이라도 나면
+    // StockHistory, Product.Stock, ProductStock 계산 결과를 전부 롤백한다.
+    const results = await withTransaction(async (tQuery) => {
+      const appliedRows = [];
+      for (const e of normalizedEdits) {
+          const { pk, after } = e;
           const beforeResult = await tQuery(
             `SELECT ISNULL(Stock,0) AS Stock FROM Product WHERE ProdKey=@pk`,
             { pk: { type: sql.Int, value: pk } }
           );
           const before = Number(beforeResult.recordset[0]?.Stock || 0);
-          if (Math.abs(after - before) < 0.0001) return false;
+          if (Math.abs(after - before) < 0.0001) {
+            appliedRows.push({ prodKey: pk, ok: true, changed: false });
+            continue;
+          }
 
           await tQuery(
             `INSERT INTO StockHistory
@@ -134,19 +140,16 @@ export default withAuth(async function handler(req, res) {
             uid:  { type: sql.NVarChar, value: uid },
             pk:   { type: sql.Int, value: pk },
           });
-          return true;
-        });
-        results.push({ prodKey: pk, ok: true, changed: applied });
-      } catch (err) {
-        errors.push({ prodKey: pk, message: err.message });
-      }
-    }
+          appliedRows.push({ prodKey: pk, ok: true, changed: true });
+        }
+      return appliedRows;
+    });
 
-    return res.status(errors.length ? 207 : 200).json({
-      success: errors.length === 0,
-      message: `재고 일괄수정 — 성공 ${results.length}건${errors.length ? ` / 실패 ${errors.length}건` : ''}`,
+    return res.status(200).json({
+      success: true,
+      message: `재고 일괄수정 — 성공 ${results.length}건`,
       results,
-      errors,
+      errors: [],
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });

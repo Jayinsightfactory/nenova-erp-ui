@@ -22,6 +22,9 @@ const assert = require('assert');
   assert.strictEqual(isNonValueWeightItem('Gross weigth'), true);
   assert.strictEqual(classifyCategory('국내', '기타', 'Gross weight'), null);
   assert.strictEqual(classifyCategory('콜롬비아', '카네이션', 'CARNATION Moon Light'), '콜롬비아 카네이션');
+  assert.strictEqual(classifyCategory('국내', '왁스', 'CARNATION/CHINA'), '중국');
+  assert.strictEqual(classifyCategory('국내', '왁스', 'ROSE / CHINA'), '중국');
+  assert.strictEqual(classifyCategory('국내', '왁스', '샘플/단'), '국내');
 
   console.log('profitReportClassification.test.js: PASS');
 })().catch((error) => {

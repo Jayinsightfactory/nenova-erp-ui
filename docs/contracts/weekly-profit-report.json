@@ -1,6 +1,6 @@
 {
   "id": "weekly-profit-report",
-  "title": "주차별 매출이익보고서 입고중량·통관비 자동계산 계약",
+  "title": "주차별 매출이익보고서 확정 기초·기말재고 및 자동계산 계약",
   "scope": [
     "pages/sales/profit-report.js",
     "pages/sales/customs-clearance.js",
@@ -10,6 +10,9 @@
     "pages/api/sales/customs-clearance.js",
     "pages/api/sales/forwarding-clearance.js",
     "lib/profitReport.js",
+    "lib/profitReportCountryResolver.js",
+    "lib/profitReportSnapshot.js",
+    "lib/profitReportStockPolicy.js",
     "lib/profitReportClassification.js",
     "lib/profitReportNotes.js",
     "lib/profitReportAudit.js",
@@ -17,8 +20,29 @@
     "lib/customsFields.js",
     "lib/colombiaTruck.js",
     "lib/profitReportCalc.js",
+    "lib/profitMarginDecomposition.js",
+    "lib/profitReportExplanations.js",
     "lib/profitReportMonthly.js",
-    "components/CustomsClearancePanel.js"
+    "lib/profitReportEvidence/sourceResolvers.mjs",
+    "lib/profitReportEvidence/canonical.mjs",
+    "lib/profitReportEvidence/workbookEvidence.mjs",
+    "lib/profitReportEvidence/formulaFingerprint.mjs",
+    "lib/profitReportEvidence/provenance.mjs",
+    "lib/profitReportEvidence/regeneration.mjs",
+    "lib/webSchemaContract.js",
+    "data/profit-report-evidence/registry/v1/index.json",
+    "data/profit-report-evidence/manual-input-manifest.v1.json",
+    "data/profit-report-evidence/formula-functions.v1.json",
+    "components/CustomsClearancePanel.js",
+    "components/ForwardingClearancePanel.js",
+    "data/profit-report-confirmed-snapshots.json",
+    "scripts/profit-report-acceptance-harness.mjs",
+    "__tests__/helpers/profitReportAcceptance.mjs",
+    "docs/migrations/2026-08-13_web_profit_report_snapshot.sql",
+    "docs/migrations/2026-08-13_web_customs_rate_history.sql",
+    "docs/migrations/2026-08-13_profit_report_country_resolver_dry_run.sql",
+    "docs/migrations/2026-08-13_profit_report_evidence_rag.sql",
+    "docs/contracts/profit-report-evidence-rag.json"
   ],
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
@@ -48,6 +72,12 @@
       "shipmentDetail": "preserve"
     },
     {
+      "name": "REPORT_CONFIRM_SNAPSHOT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "insert immutable payload into WebProfitReportSnapshot only; migration must already exist and runtime GET/POST must not execute DDL"
+    },
+    {
       "name": "MOYI_REPORT_PUSH",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
@@ -61,12 +91,34 @@
   ],
   "crossYearFixture": {
     "required": true,
-    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 선택된 OrderYear만 읽고 쓴다. 일반 차수(예: 27차)의 기초재고는 같은 OrderYear의 전차수(27차라면 26차) 마지막 ProductStock 스냅샷을 사용하고, 01차에서만 전년도 52차로 넘어간다. StockMaster.isFix는 스냅샷 선택의 단독 조건이 아니라 진단값이다. 국가별 원천 입력(H/R) 시작 차수는 호주 28차, 베트남 29차이며 시작 차수 전 미입력은 정상 미적용으로 감사하지 않는다. 29차 이후 R은 당주 FreightCost.ExchangeRate, 전차수 확정 WebProfitReport R, CurrencyMaster 순서로 선택한다."
+    "description": "2025와 2026에 같은 OrderWeek가 존재해도 보고서·입고·수기값은 선택된 OrderYear만 읽고 쓴다. 22~28차 기초재고는 같은 OrderYear의 직전 대차수 마지막 확정 ProductStock 스냅샷, 기말재고는 현재 대차수의 마지막 확정 ProductStock 스냅샷을 사용한다. 전년도 동일 차수·미확정 스냅샷·입고-출고 추정으로 fallback하지 않는다."
+  },
+  "inventorySnapshotContract": {
+    "validatedMajors": [22, 23, 24, 25, 26, 27, 28],
+    "opening": "same OrderYear, previous major, highest numeric subweek with StockMaster.isFix=1 and ProductStock rows",
+    "closing": "same OrderYear, current major, highest numeric subweek with StockMaster.isFix=1 and ProductStock rows",
+    "duplicateTieBreak": ["ProductStock row count DESC", "StockKey DESC"],
+    "stockAdjustment": "include only through the selected confirmed ProductStock snapshot produced by usp_StockCalculation; never add StockHistory delta again",
+    "priceEvidence": "same StockMaster OrderYear+OrderWeek and ProdKey in WebStockPriceEvidence, VERIFIED with sourceRef/effectiveAt/confirmedBy/confirmedAt",
+    "missingBehavior": "INPUT_REQUIRED or UNVERIFIED; never silently substitute Product.Cost, recent purchase cost, hardcoded price, or direct E/F final value",
+    "manualOverrideBoundary": "WebProfitReport E/F final-value override is forbidden; only inventory unit-price or stock-adjustment evidence in the explicit manifest may be supplied"
+  },
+  "shipmentReadContract": {
+    "master": "selected OrderYear + OrderWeek prefix + OrderYearWeek + isFix=1 + isDeleted=0",
+    "detail": "ShipmentDetail.isFix=1 and OutQuantity<>0",
+    "crossYearFallback": "forbidden"
   },
   "requiredTestFiles": [
     "__tests__/profitReportWorkbookParity.test.js",
+    "__tests__/profitMarginDecomposition.test.js",
+    "__tests__/profitReportCountryResolver.test.js",
+    "__tests__/profitReportSnapshot.test.js",
+    "__tests__/profitReportAcceptanceHarness.test.js",
+    "__tests__/profitReportEvidence.test.js",
+    "__tests__/profitReportStockLinkContract.test.js",
     "__tests__/profitReportClassification.test.js",
     "__tests__/customsForwardingAuto.test.js",
+    "__tests__/profitReportWeek28Customs.test.js",
     "__tests__/erpContractManifest.test.js",
     "__tests__/moyiReportPush.test.js",
     "__tests__/profitReportMonthly.test.js"
@@ -90,6 +142,8 @@
       "ViewShipment fixed-detail selection",
       "ViewWarehouse warehouse-weight selection",
       "ViewOrder year/week identity",
+      "StockMaster/ProductStock confirmed subweek selection",
+      "usp_StockCalculation adjustment inclusion without report-side double counting",
       "PeriodDay week date span for monthly boundary classification"
     ],
     "tables": [

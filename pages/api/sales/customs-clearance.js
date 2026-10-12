@@ -2,6 +2,7 @@
 // H(그외통관비) 자동값의 소스. 단가표(백상/트럭/검역대행/콜롬비아 박스무게)는 관리자 수정 가능.
 import { withAuth } from '../../../lib/auth';
 import { resolveActiveOrderYear } from '../../../lib/orderUtils';
+import { assertProfitReportMutable } from '../../../lib/profitReportSnapshot.js';
 import {
   COUNTRY_CATEGORIES, COLOMBIA_ALLOC_CATEGORIES,
   getRateConfig, saveRateConfig,
@@ -27,7 +28,7 @@ export default withAuth(async function handler(req, res) {
       const prevMajor = String(Number(major) - 1).padStart(2, '0');
 
       const [rates, countryRows, prevCountryRows, subWeeks, prevSubWeeks, autoGw] = await Promise.all([
-        getRateConfig(),
+        getRateConfig(orderYear, major),
         loadCustomsWeekly(major, orderYear),
         loadCustomsWeekly(prevMajor, orderYear),
         weeksForMajor(major, orderYear),
@@ -84,9 +85,10 @@ export default withAuth(async function handler(req, res) {
       if (!major) return res.status(400).json({ success: false, error: 'week 필요' });
       const orderYear = resolveActiveOrderYear(`${major}-01`, req.body?.year);
       const actor = req.user?.userName || req.user?.userId || 'user';
+      await assertProfitReportMutable(orderYear, major);
 
       if (req.body?.action === 'saveRates') {
-        await saveRateConfig(req.body?.rates || {}, actor);
+        await saveRateConfig(req.body?.rates || {}, actor, orderYear, major);
         return res.status(200).json({ success: true });
       }
       if (req.body?.action === 'saveCountry') {
@@ -110,6 +112,6 @@ export default withAuth(async function handler(req, res) {
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
+    return res.status(e.statusCode || 500).json({ success: false, error: e.message, code: e.code || null });
   }
 });
