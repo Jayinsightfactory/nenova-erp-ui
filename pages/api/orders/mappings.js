@@ -50,7 +50,7 @@ export default withAuth(function handler(req, res) {
       prodInfo.manual = true;
     }
     const result = normalizedCustKey > 0
-      ? saveCustomerProductMapping(normalizedCustKey, inputToken, prodInfo, { custName })
+      ? saveCustomerProductMapping(normalizedCustKey, inputToken, prodInfo, { custName, actor: req.user?.userId || '' })
       : saveMapping(inputToken, prodInfo, { force: !!force });
     if (!result.saved && result.reason === 'fallback-suspect') {
       // 사용자에게 경고 + force 재시도 안내. 409 Conflict.
