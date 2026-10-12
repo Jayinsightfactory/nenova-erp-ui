@@ -4,6 +4,9 @@ async function main() {
   await import('./invoiceReceiptValidation.test.js');
   await import('./invoiceReceiptWorkflow.test.js');
   await import('./invoiceReceiptCostWorkflow.test.js');
+  await import('./invoiceReceiptStageLog.test.js');
+  await import('./invoiceReceiptStageLogUi.test.js');
+  await import('./invoiceReceiptCostExport.test.js');
   await import('./invoiceReceiptDocuments.test.js');
   await import('./invoiceReceiptDocumentsApi.test.js');
   await import('./importPackingReceiptAdapter.test.js');

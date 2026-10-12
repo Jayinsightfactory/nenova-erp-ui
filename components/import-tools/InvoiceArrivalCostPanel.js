@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styles from '../../styles/InvoiceArrivalCostPanel.module.css';
+import { downloadInvoiceCostExport, invoiceCostExportEligibility } from '../../lib/invoiceReceiptStageLogClient.js';
 
 const display = value => value === null || value === undefined || value === '' ? '—' : value;
 const amount = value => value === null || value === undefined || value === '' ? '—' : Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 6 });
@@ -11,6 +12,8 @@ export default function InvoiceArrivalCostPanel({ orderYear, orderWeek, country 
   const generation = useRef(0);
   const controller = useRef(null);
   const liveScope = useRef(scope);
+  const [exportState, setExportState] = useState({ scope: '', busy: false, error: '' });
+  const exportLock = useRef(false);
   liveScope.current = scope;
 
   async function load(append = false) {
@@ -31,6 +34,7 @@ export default function InvoiceArrivalCostPanel({ orderYear, orderWeek, country 
       if (generation.current !== id || liveScope.current !== expectedScope) return;
       setState(previous => ({ ...data, scope: expectedScope, loading: false, error: '', rows: append && previous.scope === expectedScope
         ? [...previous.rows, ...data.rows.filter(row => !previous.rows.some(old => old.warehouseKey === row.warehouseKey))] : data.rows }));
+      setExportState({ scope: expectedScope, busy: false, error: '' });
     } catch (error) {
       if (abort.signal.aborted || generation.current !== id || liveScope.current !== expectedScope) return;
       setState(previous => ({ ...previous, loading: false, error: error.message || '조회에 실패했습니다.' }));
@@ -43,6 +47,14 @@ export default function InvoiceArrivalCostPanel({ orderYear, orderWeek, country 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope, enabled]);
   const visible = state.scope === scope;
+  async function downloadCost(actual) {
+    if (!visible || state.loading || state.error || exportLock.current || exportState.scope === scope && exportState.staleRevision === actual.costRevisionId || !invoiceCostExportEligibility(null, actual).allowed) return;
+    const expectedScope = scope;
+    exportLock.current = true; setExportState({ scope, busy: true, error: '' });
+    try { await downloadInvoiceCostExport(actual, { isCurrent: () => liveScope.current === expectedScope }); }
+    catch (error) { if (liveScope.current === expectedScope) setExportState({ scope: expectedScope, busy: false, error: error.message, staleRevision: error.httpStatus === 409 ? actual.costRevisionId : '' }); }
+    finally { exportLock.current = false; if (liveScope.current === expectedScope) setExportState(current => ({ ...current, busy: false })); }
+  }
   return <section className={styles.panel} aria-label="인보이스 입고 원가" aria-busy={state.loading}>
     <div className={styles.header}><h2>인보이스 입고 원가</h2>
       <button type="button" disabled={state.loading} onClick={() => enabled ? load() : setEnabled(true)}>인보이스 입고 원가 조회</button>
@@ -51,6 +63,7 @@ export default function InvoiceArrivalCostPanel({ orderYear, orderWeek, country 
     <p>조회 범위: {display(orderYear)}년 · {orderWeek || '전체 차수'} · {country || '전체 국가'}</p>
     {state.loading && <p role="status">조회 중…</p>}
     {state.error && <p role="alert" className={styles.error}>{state.error} {visible ? '이전 조회 결과입니다. 최신 여부를 다시 확인하세요.' : '새 필터 조회에 실패했습니다. 이전 필터의 결과는 표시하지 않습니다.'}</p>}
+    {exportState.scope === scope && exportState.error && <p role="alert" className={styles.error}>{exportState.error}</p>}
     {visible && state.available === false && <p role="status">{state.message}</p>}
     {visible && state.available !== false && <div className={styles.scroll}><table><thead><tr>{['연도차수', '인보이스', '입고번호', '공식', '실제총원가', '상태', '승인자'].map(label => <th key={label}>{label}</th>)}</tr></thead>
       <tbody>{state.rows.map(row => <React.Fragment key={row.warehouseKey}><tr>
@@ -58,7 +71,11 @@ export default function InvoiceArrivalCostPanel({ orderYear, orderWeek, country 
         <td>{display(row.currentActual?.formulaId)}</td><td>{amount(row.currentActual?.totalCostKRW)} {row.currentActual?.totalCostKRW != null ? 'KRW' : ''}</td>
         <td>{row.currentActual ? '승인된 실제 원가' : row.latestStale ? 'STALE · 현재 원가 없음' : display(row.status)}</td>
         <td>{display(row.currentActual?.approvedBy)}<br />{display(row.currentActual?.approvedAt)}</td>
-      </tr><tr><td colSpan={7}>{row.currentActual ? <details><summary>품목별 실제 원가 보기</summary><table><thead><tr>{['품목명', '품목키', '입고상세키', '단위', '수량', '단위당 원가(KRW)', '원가(KRW)'].map(label => <th key={label}>{label}</th>)}</tr></thead>
+      </tr><tr><td colSpan={7}>{row.currentActual && !row.currentActual.costRevisionId && <p role="status">다운로드할 승인 원가를 다시 조회하세요.</p>}
+      {row.currentActual?.costRevisionId && (invoiceCostExportEligibility(null, row.currentActual).allowed
+        ? <button type="button" disabled={state.loading || exportLock.current || Boolean(state.error) || exportState.scope === scope && exportState.staleRevision === row.currentActual.costRevisionId} onClick={() => downloadCost(row.currentActual)}>{exportState.scope === scope && exportState.busy ? '양식 준비 중…' : '도착원가 양식 다운로드'}</button>
+        : <p role="status">{invoiceCostExportEligibility(null, row.currentActual).message}</p>)}
+      {row.currentActual ? <details><summary>품목별 실제 원가 보기</summary><table><thead><tr>{['품목명', '품목키', '입고상세키', '단위', '수량', '단위당 원가(KRW)', '원가(KRW)'].map(label => <th key={label}>{label}</th>)}</tr></thead>
         <tbody>{row.currentActual.lines.map((line, index) => <tr key={`${line.wdetailKey}-${index}`}><td>{display(line.productName)}</td><td>{display(line.prodKey)}</td><td>{display(line.wdetailKey)}</td><td>{display(line.unit)}</td><td>{amount(line.quantity)}</td><td>{amount(line.costPerUnitKRW)}</td><td>{amount(line.totalCostKRW)}</td></tr>)}</tbody></table></details>
         : row.latestStale ? <p className={styles.warning}>과거 비교용 · 현재 원가 아님: {display(row.latestStale.formulaId)} / {amount(row.latestStale.totalCostKRW)} KRW / {display(row.latestStale.approvedBy)} / {display(row.latestStale.approvedAt)}</p> : '현재 승인된 실제 원가가 없습니다.'}</td></tr></React.Fragment>)}</tbody></table>
       {!state.rows.length && <p>조회 범위에 인보이스 실제 원가가 없습니다.</p>}</div>}

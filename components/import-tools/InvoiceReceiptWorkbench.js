@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import InvoiceReceiptCostReview from './InvoiceReceiptCostReview.js';
+import { createInvoiceReceiptStageLogClient, currentInvoiceStageHistory, invoiceStageHistorySummary } from '../../lib/invoiceReceiptStageLogClient.js';
 import styles from '../../styles/InvoiceReceipt.module.css';
 import { assertReceiptScope, runReceiptPreparation, verifyReceiptDocument } from '../../lib/invoiceReceiptWorkflow.js';
 import {
@@ -193,10 +194,33 @@ export default function InvoiceReceiptWorkbench({
   const reasonRef = useRef(null);
   const copyRef = useRef(null);
   const rowRefs = useRef(new Map());
+  const loggingDocumentsRef = useRef(new Map());
+  const logMountedRef = useRef(true);
+  const [stageLog, setStageLog] = useState({ pending: [], acknowledged: [], busy: false });
+  const stageLoggerRef = useRef(null);
+  if (!stageLoggerRef.current) stageLoggerRef.current = createInvoiceReceiptStageLogClient({
+    onChange: value => { if (logMountedRef.current) setStageLog(value); },
+  });
+  useEffect(() => { logMountedRef.current = true; return () => { logMountedRef.current = false; }; }, []);
+  const logStage = useCallback((event, occurrenceDocument) => {
+    const saved = loggingDocumentsRef.current.get(`${event.documentId}:${event.revision}`);
+    const document = occurrenceDocument || saved;
+    if (document) stageLoggerRef.current.enqueue(document, event);
+  }, []);
 
   const selected = records.find(record => record.document.documentId === selectedId) || records[0] || null;
   const documentValue = selected?.document || null;
   const preview = selected?.preview || null;
+  useEffect(() => {
+    if (!documentValue || selected?.dirty) return;
+    for (const stage of Object.values(selected?.stageProgress || {})) {
+      logStage({ ...stage, documentId: documentValue.documentId, revision: stage.revision ?? documentValue.revision }, documentValue);
+    }
+  }, [selected?.stageProgress, selected?.dirty, documentValue, logStage]);
+  const stageHistory = currentInvoiceStageHistory(documentValue, stageLog.acknowledged);
+  const latestStageHistory = stageHistory.length ? invoiceStageHistorySummary(stageHistory.at(-1)) : null;
+  const pendingStageLogs = stageLog.pending.filter(item => item.documentId === documentValue?.documentId
+    && item.payload.documentRevision === Number(documentValue?.revision) && item.payload.sourceHash === documentValue?.sourceHash);
   const issues = Array.isArray(preview?.issues) ? preview.issues : [];
   const issuesByLine = useMemo(() => {
     const grouped = new Map();
@@ -215,9 +239,10 @@ export default function InvoiceReceiptWorkbench({
   const productByLabel = useMemo(() => new Map(selectableProducts.map(product => [productLabel(product), product])), [selectableProducts]);
   const onCostStageChange = useCallback(event => {
     if (!event || event.documentId !== selectedIdRef.current || Number(event.revision) !== Number(documentValue?.revision)) return;
+    logStage(event, documentValue);
     setRecords(current => current.map(record => record.document.documentId === event.documentId
       ? { ...record, stageProgress: { ...(record.stageProgress || {}), [event.id]: event } } : record));
-  }, [documentValue?.revision]);
+  }, [documentValue, logStage]);
 
   useEffect(() => {
     let active = true;
@@ -396,6 +421,10 @@ export default function InvoiceReceiptWorkbench({
       const saved = responseDocument(data);
       if (!saved) throw new Error('저장 응답에서 초안 문서를 확인할 수 없습니다.');
       const normalized = { ...normalizeReceiptDocument(saved), sourceWarnings: target.document.sourceWarnings || [] };
+      const expectedSavedRevision = target.document.revision == null ? 1 : Number(target.document.revision) + 1;
+      assertReceiptScope(normalized, target.document, expectedSavedRevision);
+      loggingDocumentsRef.current.set(`${normalized.documentId}:${normalized.revision}`, normalized);
+      stageLoggerRef.current.enqueue(normalized, { id: 'draft', status: 'passed' });
       if (applyToState && isCurrent()) {
         const expectedRevision = target.document.revision == null ? 1 : Number(target.document.revision) + 1;
         assertReceiptScope(normalized, target.document, expectedRevision);
@@ -549,6 +578,9 @@ export default function InvoiceReceiptWorkbench({
     if (lock?.generation === generation && event.id === 'draft' && event.status === 'passed') {
       workflowLockRef.current = { ...lock, revision: event.revision };
     }
+    const occurrenceDocument = Number(event.revision) === Number(lock?.document?.revision) ? lock.document
+      : loggingDocumentsRef.current.get(`${documentId}:${event.revision}`);
+    if (occurrenceDocument && occurrenceDocument.sourceHash === lock?.document?.sourceHash) logStage(event, occurrenceDocument);
     setRecords(current => current.map(record => record.document.documentId === documentId
       ? { ...record, stageProgress: { ...(record.stageProgress || {}), [event.id]: event } } : record));
   }
@@ -568,7 +600,7 @@ export default function InvoiceReceiptWorkbench({
     }
     const generation = ++workflowGenerationRef.current;
     const isCurrent = () => workflowGenerationRef.current === generation && selectedIdRef.current === documentId;
-    workflowLockRef.current = { documentId, generation, revision: target.document.revision };
+    workflowLockRef.current = { documentId, generation, revision: target.document.revision, document: { ...target.document } };
     setBusy('auto-workflow'); setNotice(null);
     setWorkflowStage(documentId, generation, { id: 'conversion', status: 'passed', message: '기존 국가별 변환 결과 사용', at: new Date().toISOString(), documentId, revision: target.document.revision });
     try {
@@ -640,6 +672,8 @@ export default function InvoiceReceiptWorkbench({
   }
 
   function setManualStage(documentId, id, status, message) {
+    const document = records.find(record => record.document.documentId === documentId)?.document;
+    if (document) logStage({ documentId, revision: document.revision, id, status }, document);
     setRecords(current => current.map(record => record.document.documentId === documentId
       ? { ...record, stageProgress: { ...(record.stageProgress || {}), [id]: { id, status, message, at: new Date().toISOString(),
         documentId, revision: record.document.revision } } } : record));
@@ -842,7 +876,10 @@ export default function InvoiceReceiptWorkbench({
       <div className={styles.savedList}>{savedDocuments.length === 0 ? <span className={styles.muted}>조회 결과 없음</span> : savedDocuments.map(item => <button type="button" key={item.documentId} onClick={() => loadDocument(item.documentId)} disabled={Boolean(busy)}>
         <strong>{item.invoiceNo || '번호 없음'}</strong><span>{item.farmName || item.reviewedMetadata?.farmName || '농장 미선택'}</span><small>rev {item.revision} · {item.receiptStatus || 'DRAFT'}</small>
       </button>)}</div>
-      {includeHistory && documentValue?.history?.length > 0 && <details><summary>선택 문서 이력 {documentValue.history.length}건</summary><ol>{documentValue.history.map((entry, index) => <li key={entry.historyId || `${entry.revision}-${index}`}>{entry.action || 'UPDATE'} · revision {entry.revision ?? '—'} · {entry.createdAt || entry.at || ''}</li>)}</ol></details>}
+      {includeHistory && documentValue?.history?.length > 0 && <details><summary>선택 문서 전체 이력 {documentValue.history.length}건</summary><ol>{documentValue.history.map((entry, index) => {
+        const summary = invoiceStageHistorySummary({ ...entry, event: entry.after || {} });
+        return <li key={entry.historyId || `${entry.revision}-${index}`}>{summary.title} · 버전 {entry.revision ?? '—'} · {summary.status} · {summary.time} · {summary.actor} · {summary.provenance}</li>;
+      })}</ol></details>}
     </section>;
   }
 
@@ -909,6 +946,25 @@ export default function InvoiceReceiptWorkbench({
         </div>;
       })}</div>
       <small className={styles.scopeHint}>자동 실행 범위: 선택 문서 1건 · sourceHash/revision/연도/차수 고정 · 입고와 원가 승인은 별도 확인</small>
+      <p>품목 매칭·필수값 확인 후 입고와 원가를 각각 승인하세요. 다운로드는 원가 완료 후 선택할 수 있습니다.</p>
+      {documentValue.lines.some(line => !line.prodKey) && <p role="alert">품목 수동 매칭이 필요합니다. 미매칭 행을 선택하고 필수 수량·단위·단가 및 농장·연도·차수를 확인하세요.</p>}
+    </section>
+    <section aria-label="현재 버전 처리 로그">
+      {pendingStageLogs.length > 0 && <p role={pendingStageLogs.some(item => item.error) ? 'alert' : 'status'}>
+        단계 로그 {pendingStageLogs.length}건 {pendingStageLogs.some(item => item.terminal) ? '저장할 수 없는 로그가 있습니다. 문서를 다시 조회하세요.' : pendingStageLogs.some(item => item.error) ? '저장 확인 실패 · 로그만 재시도하세요. 입고·원가 저장은 다시 실행하지 마세요.' : '저장 확인 중'}
+        <button type="button" disabled={stageLog.busy || pendingStageLogs.every(item => item.terminal)} onClick={() => stageLoggerRef.current.retry(pendingStageLogs[0]?.scope)}>로그만 다시 저장</button>
+      </p>}
+      <details><summary>처리 로그 {stageHistory.length}건{latestStageHistory ? ` · ${latestStageHistory.title} · ${latestStageHistory.status} · ${latestStageHistory.actor} · ${latestStageHistory.time}` : ' · 아직 기록 없음'}</summary>
+        {!stageHistory.length && <p>{documentValue.revision == null ? '문서를 저장하면 단계 로그를 기록합니다.' : '현재 버전의 서버 처리 이력이 아직 없습니다.'}</p>}
+        <ol>{stageHistory.map((entry, index) => { const summary = invoiceStageHistorySummary(entry); return <li key={entry.historyId || entry.event?.eventId || index}>
+          <strong>{summary.title}</strong>{' · '}{summary.status}{' · '}{summary.time}{' · '}{summary.actor}{' · '}{summary.provenance}
+          {entry.event?.code && <details><summary>상세 코드</summary><code>{entry.event.code}</code></details>}
+        </li>; })}</ol>
+        {pendingStageLogs.length > 0 && <ul>{pendingStageLogs.map(item => {
+          const summary = invoiceStageHistorySummary({ event: item.payload, observedAt: item.observedAt });
+          return <li key={item.payload.eventId}>{summary.title} · 로그 미저장 · {summary.time} · {item.terminal ? '문서 재조회 필요' : item.error ? '로그 재시도 가능' : '전송 대기'}{item.error ? ` · ${item.error}` : ''}</li>;
+        })}</ul>}
+      </details>
     </section>
 
     <fieldset disabled={Boolean(busy)} className={styles.editFieldset}>
