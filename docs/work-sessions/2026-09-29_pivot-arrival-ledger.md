@@ -15,7 +15,8 @@ A. 입고에만 값을 붙이던 조건 및 FreightCost 원천을 확인. WebArr
 - ERP contract/dnSpy/manifest/write guard/build 통과. mock loader 500개 배치와 연도 바인딩, 실패 전파, 미래·다른연도·잘못된품목·비현재본·환산누락·숫자차수·0원 fixture 통과.
 - 수정 loader로 운영 SELECT 재검증: 2026 38-01~39-01 원본3,952행/원가연결3,268행. 범위품목키642개 중 이전차수참조409개. 1330 주문10,205 확인. 수량/행수 불변.
 - 1920×1080 로컬 production build: 도착원가10,205.75→10,206, 분배단가12,500.25와 수량 소수점 유지. XLSX 원본 number와 정수 numFmt 검증.
-- 배포 대기. 기존 unrelated 문서와 `.tmp`는 제외.
+- PR #784 병합 d6899378423f6102747ec35ed75d91e7f2241e34, Cafe24 run36506986014 성공.
+- 운영 브라우저 38-01~39-01/콜롬비아/장미/02.주문: 3,952행, Be Sweet50cm10,205 및60cm10,495 확인. 오류로그0. 운영 브라우저 확대 영향으로 inner2133×1200; 로컬은1920×1080 확인. 기존 unrelated 문서와 `.tmp`는 제외.
 
 ## 다음 세션
 작업 경로 action-log-outcome/nenova-erp-ui, branch codex/pivot-arrival-ledger. 배포/실브라우저 결과를 아래에 추가하고 사용자에게 원인·수정·미연결 제한을 안내한다. ERP DB 보정 없음.

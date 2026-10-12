@@ -30,4 +30,13 @@
 
 ## 비커밋 파일
 
+## 최종 진행 상태 (배포 미완료)
+
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/847
+- 구현 커밋 `1d09508d`, master #846 병합 후 브랜치 HEAD `cd073f10`.
+- 최신 병합 상태에서도 ERP contract, dnSpy, manifest, write guard, build 모두 통과.
+- Git 원격 및 GitHub branch API는 `cd073f10`을 반환하지만 PR API는 `1d09508d`와 CONFLICTING을 계속 반환하고 Actions 실행이 생성되지 않았다. 검증 생략 병합/배포는 하지 않았다.
+- 재개: PR HEAD가 실제 브랜치 HEAD로 동기화되는지 확인 → PR CI 통과 → SHA 고정 병합 → Cafe24 workflow 성공 → /incoming 운영 스모크. 운영 브라우저는 로그인 필요.
+- 스크린샷 `.tmp/warehouse-desktop-qa.png`는 로컬 mock 409 실패 복구 검증이며 운영 장애가 아니다.
+
 `.tmp/warehouse-*`의 raw probe, CLI 출력, fixture XLSX/UI 및 로그는 작업용이며 커밋하지 않는다. 비밀값은 기록하지 않는다.

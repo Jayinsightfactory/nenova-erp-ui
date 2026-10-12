@@ -23,3 +23,10 @@ ERP 계약 전체 및 production build 통과(최종 배포 상태는 PR/Actions
 
 ## 비커밋 자료
 .tmp/farm-board-* fixture 서버·번들·로그·스크린샷, DB 환경파일은 커밋하지 않는다.
+
+## 배포 결과
+- PR #834 병합: 3b0ad621. Cafe24 Actions 36804225726 성공, hydration smoke 성공.
+- 운영 39-02 콜롬비아 카네이션: Ayura/Don Eusebio/El Cactus 등 농장 열, 주문·분배 비교 탭 확인.
+- 일반 shell/sidebar/topbar 각 1, popup sidebar 0/popupbar 1. 콘솔 error 없음.
+- 로컬 fixture 1920×1080/390×844 검증. 운영 브라우저 기존 배율 때문에 CSS viewport1710, viewport override 후2133으로 관측됨. 임시 override는 원복.
+- 운영 CDP screenshot 시간초과; DOM/실제 수량 표 확인으로 운영 검증, 로컬 fixture 캡처만 저장.

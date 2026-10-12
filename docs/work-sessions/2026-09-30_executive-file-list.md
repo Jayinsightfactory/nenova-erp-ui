@@ -5,7 +5,7 @@
 | 세션 | 2026-09-30 executive-file-list |
 | 화면 | /m/executive?demo=weekly 및 인증된 preview=1 |
 | 원장 부작용 | 없음. UI 변경, 가상 자료만 사용 |
-| 배포 | codex/executive-file-list PR 및 Cafe24 배포 결과 참조 |
+| 배포 | PR #819, merge afbf9f2ec1e6053d086d4ed29833cb22bdeae6bb, Cafe24 run 36675974492 성공 |
 | 이어받기 | UI 계약 docs/ui-contracts/executive-mobile-ui.json |
 
 ## 고정 결정
@@ -23,6 +23,8 @@
 **A.** 파일 목록으로 재구성했다. 보기를 눌러야 상세를 열고 뒤로가기로 목록에 복귀한다.
 
 **검증.** 예시 SSR/엑셀 수식 테스트 통과. 브라우저 320×740, 390×844, 1920×1080에서 수평 넘침 없음. 보기/복귀와 다른 연도 빈 목록을 확인했다. ERP/API 변경 없음.
+
+**배포 결과.** 필수 보호 검사와 빌드 통과. Cafe24 배포와 자동 hydration smoke 성공. 운영 390×844 목록 및 상세/복귀 확인, 예시_주차별매출이익_2026-39 (2).xlsx 다운로드 7,750바이트 확인. 증거 화면 .tmp/executive-file-list-live.png. 이 배포 후 결과 추가는 로컬 인계 기록이다.
 
 ## 남은 범위
 

@@ -7,6 +7,8 @@
 | 원장 부작용 | 없음, 예시 fixture 및 기존 순수 집계 함수만 사용 |
 | 배포 | codex/executive-monthly-view PR 참조 |
 
+배포 후 결과(로컬 인계 추가): PR #820 병합 437c9a84116294b81ddfaee740139ce89ba8adb2. Cafe24 run 36679401761 성공, 자동 hydration smoke 성공. 로컬 브라우저 호텔별 격리/뒤로가기/320·390·1920px 확인 완료. 운영 수동 브라우저 탭은 종료되어 재연결 시도에서 webview attach timeout; open_in_codex는 queued 반환. 운영 SSR HTTP 확인으로 홈 메뉴와 차수 선택 부재를 확인하며 수동 운영 화면 스모크는 미완으로 구분한다.
+
 ## 고정 결정
 
 - 파일 목록을 유지하고 월별 보기 버튼으로 전환한다.

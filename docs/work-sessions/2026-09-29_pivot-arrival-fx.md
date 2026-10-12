@@ -24,4 +24,6 @@ Order/Shipment/ShipmentDate/Farm/Stock/Estimate/WebProfitReport/원가 원본 �
 - 로컬 실제 build 1920×1080: USD0 거부,1400 적용 시15000→14500, 미확인1개 빈칸/이유, 원본 복원15000 확인. 1280×800 입력5칸 모두 viewport 안, console error 없음.
 - XLSX write/read roundtrip에서 조정14500과 USD1400 설명 시트 확인. 브라우저 download event 대기는 도구 timeout으로 별도 미확인; 원가 계산/생성 단위검증과 화면 클릭 후 오류 없음 확인.
 - 운영 DB readonly 같은 query 재실행4000행(업무 진행 중 증가),3300원가 연결. BeSweet37-1 원가 구성 재현. 원본/ERP 쓰기 없음.
-- 배포 진행 중.
+- PR #785 / commit46f5ba17, verify36509266758 통과, squash c80b213e master 병합. Cafe24 run36509398666 성공(deploy4m39s, ERP 재검증/SSH배포/실브라우저 hydration 모두 성공, 선행 배포 대기 후 실행).
+- 운영 브라우저 2026 38-01~39-01 4008행: USD1400 적용 BeSweet50cm10205→9866, 복원10205, 수량/분배단가 보존. 조회 전체 재계산불가7개 별도 표시. console error 없음. 화면은 원본 복원 상태로 둠.
+- 운영 캡처는 CDP timeout으로 실패. 로컬1920×1080 캡처는 확인됨. 운영 viewport 임시 override는 reset 완료.

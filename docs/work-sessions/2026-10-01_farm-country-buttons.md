@@ -5,3 +5,4 @@
 - 기준 근거: pages/shipment/week-pivot.js 국가/꽃 chip 선택 UI. 농장명 전체 줄바꿈 유지.
 - 부작용: 화면 상태만 변경. API/SQL/ERP 주문·입고·분배·견적·매출 원장 모두 보존. 기존 farm-week-board 계약 및 dnSpy/probe 근거 유지.
 - 브라우저: 1920×1080 CSS pixel, 중국 선택 시 콜롬비아 품종 숨김, 활성 버튼 상태, 동일 국가 재클릭과 비교탭 전환 시 품종 보존, 긴 농장명 줄바꿈 확인.
+- 완료: 로컬 필수 가드/빌드 및 PR #839 CI 통과. master 2fde7097, Cafe24 run 36806700751 배포 및 hydration smoke 통과. 운영에서 국가 13개 버튼, 콜롬비아 9개→중국 3개 품종 전환 및 aria-pressed 활성, 콘솔 error 없음 확인. 700px 가로 잘림 없음.

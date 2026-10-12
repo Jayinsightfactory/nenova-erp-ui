@@ -20,7 +20,10 @@
 - UI-layout, ERP contract, dnSpy evidence, manifest, ERP writes, production build 통과.
 - PR #769 / merge 5352d502 / deploy 36366951171. 실제 인증 브라우저에서 지출결의 73건과 PC 접기 확인.
 - 첫 실브라우저에서 추출 JSX의 styled-jsx scope 누락을 발견, `.wd :global(...)` 범위로 버튼 간격/활성 색상 보정 및 회귀 assertion 추가.
-- UI 기준 viewport: 1920×1080 CSS px / scale 1; 후속 스타일 배포 후 최종 검증.
+- 후속 PR #770 / merge 17fd2dde / deploy 36367578372. 운영 화면에서 해당 버전 표시 확인.
+- 실브라우저: 1920×1080 CSS px / scale 1, 가로 overflow 없음, 좌측 차수 x=8 / 우측 PC x=1716, 선택 탭 배경 rgb(234,240,255) / padding 5px 9px 확인.
+- 지출결의 73건(헤더 포함 74행), PC 접기/펼치기 정상. 800×900에서 세로 반응형 전환 및 페이지 가로 overflow 없음. 임시 viewport 복원. 브라우저 error 로그 없음.
+- 증거 화면: `.tmp/work-drive-subtabs-1920.png` (운영 파일명이 포함되어 Git에 올리지 않음).
 
 ## 다음 작업
 - 세부 분류는 파일 내용을 읽은 확정 분류가 아니라 파일명 기반 탐색임. 서버 대분류를 교정하면 그 범위 안에서 다시 계산된다.

@@ -27,4 +27,6 @@ A. 조회/필터/집계/화면 표시의 단계 완료율을 표시한다. 서�
 - test:pivot-exe/erp-contract/nenova-dnspy-evidence/erp-manifest/guard:erp-writes/ui-layout 및 build 통과. 마지막 작은 상태 변경 후 build 재확인.
 - 실제 빌드 자산을 localhost fixture 서버로 제공(운영 인증/DB 없음).16,000행에서 필터 적용50%·완료 후800행/수량800 확인. 조회 취소 시 로딩 해제와 엑셀 차단, 재조회 복구.503은 검증용 오류로 표시하며100%/다운로드 금지.
 - 1920×1080 및1280×800 중앙 카드 위치/회전 CSS/취소버튼 확인, worker 로딩 및 콘솔 오류 없음. `.tmp` 진단 로그·probe·fixture는 커밋하지 않는다.
-- 배포/운영 검증 진행 중.
+- PR #775, master ea2dce41, Cafe24 deploy run 36382659790 성공.
+- 운영 1920×1080: 최초/재조회 중앙 로딩 0% 및 취소 버튼 확인, 완료 후 로딩 해제·콘솔 오류 없음. 동일 2026 01-01~02-02 8,066행에서 CONSTRUNORTE JAR 장미 입고 합계 630/410/1,040 유지 확인.
+- 운영 완료 화면: `.tmp/pivot-loading-production-1920.png` (빠른 조회로 캡처 시점에는 결과 화면). 로딩 표시 자체는 운영 DOM과 로컬 지연 fixture 화면으로 확인.
