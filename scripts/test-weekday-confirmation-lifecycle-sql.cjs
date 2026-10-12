@@ -55,12 +55,12 @@ async function main() {
           shipmentDates:actual.shipmentDates,snapshotDigest:policy.weekdaySnapshotDigest(change,actual)},dates}]};
     }
     async function state(tQ) {
-      const rows=await tQ(`SELECT SdetailKey,ShipmentKey,OutQuantity,isFix FROM ShipmentDetail ORDER BY SdetailKey;
+      const rows=await tQ(`SELECT SdetailKey,ShipmentKey,CustKey,ProdKey,OutQuantity,Cost,Amount,Vat,isFix FROM ShipmentDetail ORDER BY SdetailKey;
         SELECT Stock FROM Product WHERE ProdKey=866;
         SELECT BeforeValue,AfterValue,Descr FROM StockHistory WHERE ChangeType=N'출고' ORDER BY ChangeDtm,BeforeValue;
-        SELECT SdetailKey,CONVERT(varchar(10),ShipmentDtm,23) date,ShipmentQuantity FROM ShipmentDate ORDER BY SdateKey;
+        SELECT SdateKey,SdetailKey,CONVERT(varchar(23),ShipmentDtm,121) date,ShipmentQuantity,EstQuantity,Cost,Amount,Vat,Descr FROM ShipmentDate ORDER BY SdateKey;
         SELECT COUNT(*) n FROM Estimate;
-        SELECT ShipmentKey,isFix FROM ShipmentMaster ORDER BY ShipmentKey;
+        SELECT ShipmentKey,OrderYear,OrderWeek,CustKey,isFix FROM ShipmentMaster ORDER BY ShipmentKey;
         SELECT StockKey,ProdKey,Stock FROM ProductStock ORDER BY StockKey,ProdKey;
         SELECT OrderDetailKey,OutQuantity,OrderQuantity FROM OrderDetail ORDER BY OrderDetailKey;
         SELECT UUID,RequestHash,ResponseJson FROM WebWeekdayDistributionOperation ORDER BY UUID;
@@ -144,6 +144,127 @@ async function main() {
       assert.ok(scopeDetails.every(row=>Boolean(row.isFix)),'source and destination fixed after date movement');
       console.log(`PASS cross-subweek ${fixed?'fixed':'unfixed'}`);
     });
+    // Native legacy rows may retain -01 on Monday. Correct the business week
+    // while preserving the date, total allocation, exact price and other days.
+    async function seedSameDateTransfer(tQ) {
+      await tQ(`INSERT PeriodDay(PeriodDayKey,OrderYearWeek,BaseYmd,WeekDay)
+          VALUES(6,N'202638',N'2026-09-14',2);
+        UPDATE ShipmentDate SET ShipmentQuantity=3,EstQuantity=90,
+          Amount=ROUND(Cost*90/1.1,0),Vat=Cost*90-ROUND(Cost*90/1.1,0) WHERE SdateKey=119701;
+        INSERT ShipmentDate(SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat,Descr)
+          SELECT 119702,89892,CONVERT(datetime,'2026-09-14 00:00:00.000',121),2,60,Cost,
+            ROUND(Cost*60/1.1,0),Cost*60-ROUND(Cost*60/1.1,0),N'legacy Monday under -01'
+          FROM ShipmentDetail WHERE SdetailKey=89892;
+        UPDATE ShipmentDetail SET Amount=d.Amount,Vat=d.Vat FROM ShipmentDetail s
+          CROSS APPLY(SELECT SUM(Amount) Amount,SUM(Vat) Vat FROM ShipmentDate WHERE SdetailKey=s.SdetailKey)d
+          WHERE s.SdetailKey=89892;`);
+      const request=await body(tQ,[{date:'2026-09-14',quantity:0}]);
+      request.changes.push((await body(tQ,[{date:'2026-09-14',quantity:2}],'37-02')).changes[0]);
+      return request;
+    }
+    await transaction(pool,async tQ=>{
+      const request=await seedSameDateTransfer(tQ),beforeTransfer=await state(tQ);
+      const applied=await core.executeWeekdayDistributionApply(tQ,sql,request,user,deps);
+      const result=await state(tQ);sentinels(result);
+      assert.equal(applied.success,true);
+      assert.equal(applied.changes.length,2);
+      assert.ok(applied.changes.every(change=>change.confirmationLifecycle.finalFixed));
+      const source=result.details.find(row=>row.SdetailKey===89892);
+      const target=result.details.find(row=>row.ShipmentKey===6267&&row.ProdKey===866);
+      assert.equal(Number(source.OutQuantity),23);
+      assert.equal(Number(target.OutQuantity),2);
+      assert.ok(Boolean(source.isFix)&&Boolean(target.isFix));
+      assert.equal(source.CustKey,533);assert.equal(target.CustKey,533);
+      assert.equal(Number(source.Cost),Number(target.Cost));
+      assert.deepEqual(result.dates.filter(row=>row.SdetailKey===source.SdetailKey),
+        beforeTransfer.dates.filter(row=>row.SdetailKey===source.SdetailKey&&!row.date.startsWith('2026-09-14')),
+        'other source dates retain physical keys, quantities, timestamps, costs and gross');
+      const targetDates=result.dates.filter(row=>row.SdetailKey===target.SdetailKey);
+      assert.equal(targetDates.length,1);
+      assert.equal(targetDates[0].date,'2026-09-14 00:00:00.000');
+      assert.equal(Number(targetDates[0].ShipmentQuantity),2);
+      const gross=snapshot=>snapshot.dates.reduce((sum,row)=>sum+Number(row.Amount)+Number(row.Vat),0);
+      assert.ok(Math.abs(gross(result)-gross(beforeTransfer))<0.000001,'same-date transfer preserves total date gross');
+      assert.equal(result.stock,beforeTransfer.stock,'confirmed same-total transfer has zero net stock consumption');
+      assert.deepEqual(result.orders,beforeTransfer.orders,'both existing orders remain unchanged');
+      assert.deepEqual(result.details.filter(row=>[90001,90002].includes(row.SdetailKey)),
+        beforeTransfer.details.filter(row=>[90001,90002].includes(row.SdetailKey)),
+        'other customer and prior-year detail amounts remain unchanged');
+      assert.ok(result.masters.filter(row=>[6266,6267].includes(row.ShipmentKey)).every(row=>Boolean(row.isFix)));
+      assert.deepEqual(await core.executeWeekdayDistributionApply(tQ,sql,request,user,deps),applied);
+      assert.deepEqual(await state(tQ),result,'same-date transfer UUID replay is physically inert');
+      console.log('PASS same-date legacy subweek transfer preserves 23/2, other dates, gross, stock, orders and sentinels');
+    });
+    await transaction(pool,async tQ=>{
+      await seedSameDateTransfer(tQ);
+      await tQ(`UPDATE ShipmentDate SET ShipmentDtm=CONVERT(datetime,'2026-09-15 00:00:00.000',121)
+          WHERE SdateKey=119702;
+        INSERT ShipmentDetail(SdetailKey,ShipmentKey,CustKey,ProdKey,ShipmentDtm,OutQuantity,
+          BoxQuantity,BunchQuantity,SteamQuantity,EstQuantity,Cost,Amount,Vat,isFix)
+          SELECT 90004,6267,533,866,CONVERT(datetime,'2026-09-14 00:00:00.000',121),3,
+            3,90,90,90,Cost,ROUND(Cost*90/1.1,0),Cost*90-ROUND(Cost*90/1.1,0),1
+          FROM ShipmentDetail WHERE SdetailKey=89892;
+        INSERT ShipmentDate(SdateKey,SdetailKey,ShipmentDtm,ShipmentQuantity,EstQuantity,Cost,Amount,Vat,Descr)
+          SELECT 119703,SdetailKey,ShipmentDtm,3,90,Cost,Amount,Vat,N'existing confirmed target Monday'
+          FROM ShipmentDetail WHERE SdetailKey=90004;
+        UPDATE Product SET Stock=97 WHERE ProdKey=866;`);
+      const request=await body(tQ,[{date:'2026-09-15',quantity:0}]);
+      request.changes.push((await body(tQ,[{date:'2026-09-14',quantity:0},{date:'2026-09-15',quantity:2}],'37-02')).changes[0]);
+      const beforeTransfer=await state(tQ);
+      const applied=await core.executeWeekdayDistributionApply(tQ,sql,request,user,deps);
+      const result=await state(tQ);sentinels(result);
+      assert.equal(applied.success,true);assert.equal(applied.changes.length,2);
+      const source=result.details.find(row=>row.SdetailKey===89892);
+      const target=result.details.find(row=>row.SdetailKey===90004);
+      assert.equal(Number(source.OutQuantity),23);assert.equal(Number(target.OutQuantity),2);
+      assert.ok(Boolean(source.isFix)&&Boolean(target.isFix));
+      assert.equal(source.CustKey,533);assert.equal(target.CustKey,533);
+      const scopedTotal=snapshot=>snapshot.details.filter(row=>[89892,90004].includes(row.SdetailKey))
+        .reduce((sum,row)=>sum+Number(row.OutQuantity),0);
+      assert.equal(scopedTotal(beforeTransfer),28);assert.equal(scopedTotal(result),25);
+      assert.equal(result.stock,beforeTransfer.stock+3,'cancelling target Monday credits net three boxes');
+      assert.deepEqual(result.orders,beforeTransfer.orders,'both active order quantities and identities are preserved');
+      assert.deepEqual(result.details.filter(row=>![89892,90004].includes(row.SdetailKey)),
+        beforeTransfer.details.filter(row=>![89892,90004].includes(row.SdetailKey)),
+        'other customer/prior-year details and amounts are unchanged');
+      assert.deepEqual(result.dates.filter(row=>row.SdetailKey===89892),
+        beforeTransfer.dates.filter(row=>row.SdetailKey===89892&&!row.date.startsWith('2026-09-15')),
+        'other source dates and exact stored price fields are unchanged');
+      assert.deepEqual(result.dates.filter(row=>row.SdetailKey===90004)
+        .map(row=>[row.date,Number(row.ShipmentQuantity),Number(row.EstQuantity)]),
+        [['2026-09-15 00:00:00.000',2,60]],'existing target Monday is replaced by Tuesday two');
+      const dateGross=snapshot=>snapshot.dates.reduce((sum,row)=>sum+Number(row.Amount)+Number(row.Vat),0);
+      const detailGross=snapshot=>snapshot.details.reduce((sum,row)=>sum+Number(row.Amount)+Number(row.Vat),0);
+      const cancelledGross=3*30*Number(target.Cost);
+      assert.ok(Math.abs(dateGross(beforeTransfer)-dateGross(result)-cancelledGross)<0.000001,
+        'date gross decreases by exactly three boxes times conversion and original cost');
+      assert.ok(Math.abs(detailGross(beforeTransfer)-detailGross(result)-cancelledGross)<0.000001,
+        'detail gross agrees with the net cancelled quantity');
+      assert.ok(result.masters.filter(row=>[6266,6267].includes(row.ShipmentKey)).every(row=>Boolean(row.isFix)));
+      assert.deepEqual(await core.executeWeekdayDistributionApply(tQ,sql,request,user,deps),applied);
+      assert.deepEqual(await state(tQ),result,'existing-target correction UUID replay is physically inert');
+      console.log('PASS existing confirmed target Monday3 -> Tuesday2 plus source Tuesday2 -> 0: 28->25, stock+3, gross/order/sentinel preservation');
+    });
+    const beforeSameDateFailure=await transaction(pool,state);
+    for(const stage of ['target-materialization','target-confirmation']) {
+      let fired=false;
+      await assert.rejects(()=>transaction(pool,async tQ=>{
+        const request=await seedSameDateTransfer(tQ);
+        const injected=async(statement,params={})=>{
+          const result=await tQ(statement,params);
+          const match=stage==='target-materialization'
+            ? /INSERT INTO ShipmentDetail\b/i.test(statement)&&Number(params.sk?.value)===6267
+            : /INSERT INTO StockHistory/i.test(statement)&&params.descr?.value==='출고확정'&&params.wk?.value==='37-02';
+          if(match) {fired=true;throw Object.assign(new Error(`injected same-date ${stage}`),{code:'FIXTURE_SAME_DATE_FAILURE'});}
+          return result;
+        };
+        await core.executeWeekdayDistributionApply(injected,sql,request,user,deps);
+      },true),error=>error.code==='FIXTURE_SAME_DATE_FAILURE');
+      assert.equal(fired,true,`${stage} failure reached target SQL write`);
+      assert.deepEqual(await transaction(pool,state),beforeSameDateFailure,
+        `${stage} failure rolls back source/target quantities, amounts, dates, stock, orders, fixation and audit`);
+      console.log(`PASS same-date transfer rollback after ${stage}`);
+    }
     await transaction(pool,async tQ=>{
       await tQ('UPDATE Product SET Stock=0 WHERE ProdKey=866');
       const request=await body(tQ,[{date:'2026-09-13',quantity:10}]);

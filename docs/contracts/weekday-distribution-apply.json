@@ -3,10 +3,22 @@
   "title": "주광 요일별 실제 분배·출고일 원자 저장",
   "editConflictPresentation": {
     "source": "ERP_EDIT_LOCKED response lease.ownerName and lease.pageCode",
-    "menuLabels": {"estimate": "견적서 관리", "estimate-weekday-apply": "주광 견적서"},
+    "menuLabels": {
+      "estimate": "견적서 관리",
+      "estimate-weekday-apply": "주광 견적서"
+    },
     "unknownMenuLabel": "다른 작업 화면",
-    "preserve": ["server error", "drafts", "operation identity", "pending status-only recovery", "all ERP and lease write policies"],
-    "neverDisplay": ["leaseToken", "leaseStamp"],
+    "preserve": [
+      "server error",
+      "drafts",
+      "operation identity",
+      "pending status-only recovery",
+      "all ERP and lease write policies"
+    ],
+    "neverDisplay": [
+      "leaseToken",
+      "leaseStamp"
+    ],
     "fixture": "__tests__/weekdayDistributionClient.test.js"
   },
   "scope": [
@@ -63,7 +75,8 @@
     "__tests__/weekdayHorizontalMatrix.test.js",
     "__tests__/weekdayCompactSummary.test.js",
     "lib/weekdayDialogKeyboard.js",
-    "__tests__/weekdayDialogKeyboard.test.js"
+    "__tests__/weekdayDialogKeyboard.test.js",
+    "docs/plans/weekday-subweek-placement-2026-10-12.md"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -256,5 +269,24 @@
     "master": "derive touched master status from all surviving children; never change other children",
     "audit": "before/final confirmation flags, intent, stages and scoped stock transitions stored atomically; rollback does not retain success audit",
     "print": "selected-day quote validates selected customer active selected-date details; major quote retains major guard"
+  },
+  "subweekPlacement": {
+    "display": "Canonical shipping-day column never silently edits a different actual full business week",
+    "normalEdit": "Noncanonical actual dates require explicit subweek correction",
+    "correction": "Client creates validated source zero plus canonical target positive paired drafts for same year, parent week, customer, product, date and unit; both physical snapshot digests required",
+    "transaction": "Existing ALLOCATION multi-key transaction and confirmation lifecycle; no server policy or new pricing authority",
+    "preserve": [
+      "other dates",
+      "active order quantities",
+      "total gross for equal-quantity transfer",
+      "other customer and prior-year same-week data",
+      "Estimate and WebProfitReport direct write prohibition"
+    ],
+    "fixtures": [
+      "__tests__/weekdayDistributionClient.test.js",
+      "__tests__/weekdayHorizontalMatrix.test.js",
+      "scripts/test-weekday-confirmation-lifecycle-sql.cjs"
+    ],
+    "evidence": "docs/plans/weekday-subweek-placement-2026-10-12.md"
   }
 }
