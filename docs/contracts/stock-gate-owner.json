@@ -5,15 +5,52 @@
     "lib/stockGateOperation.js",
     "docs/migrations/2026-08-26_nenova_stock_gate_owner.sql",
     "__tests__/stockGateOwnership.test.js",
-    "docs/contracts/stock-gate-owner.json"
+    "docs/contracts/stock-gate-owner.json",
+    "scripts/native-stock-gate-atomic.cjs",
+    "scripts/native-stock-gate-atomic.test.cjs",
+    "scripts/native-stock-gate-atomic-installer.cjs",
+    "scripts/native-stock-gate-atomic-installer.test.cjs",
+    "scripts/native-stock-gate-atomic-sql-fixture.cjs",
+    "docs/plans/native-stock-gate-atomic-2026-10-12.md",
+    "__tests__/fixtures/native-stock-gate-2026-10-12.json"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
-    {"name": "ENTER", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "NULL only; WAIT_CALC accepts same year/week full-product CALC on another physical session; each acquisition gets NEWID; RUN never reenters or expires"},
-    {"name": "LEAVE", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "compare Mode=RUN, Action, OwnerSessionID=@@SPID and caller-local OwnerToken; a stale/missing token changes zero rows"},
-    {"name": "CALC_FAILURE", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "matching acquired owner retains WAIT_CALC; an outer rollback may restore an earlier owner/token, which Leave must preserve"},
-    {"name": "LEGACY_CLEAR", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "no-argument global Clear raises STOCK_GATE_UNSAFE_CLEAR_DISABLED; old raw clear violates the V2 state CHECK; explicit same-outer-transaction deferred clear uses stockGateOperation helper and verifies native success, original transaction marker, SPID, acquisition token and year/week/action, then requires one changed row"},
-    {"name": "CAPABILITY", "orderDetail": "preserve", "shipmentDetail": "preserve", "gate": "read-only ProtocolVersion=2 and IsReady=1; verifies six module hashes, owner column types/nullability, and the trusted/enabled state constraint definition hash"}
+    {
+      "name": "ENTER",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "gate": "NULL only; WAIT_CALC accepts same year/week full-product CALC on another physical session; each acquisition gets NEWID; RUN never reenters or expires"
+    },
+    {
+      "name": "LEAVE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "gate": "compare Mode=RUN, Action, OwnerSessionID=@@SPID and caller-local OwnerToken; a stale/missing token changes zero rows"
+    },
+    {
+      "name": "CALC_FAILURE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "gate": "matching acquired owner retains WAIT_CALC; an outer rollback may restore an earlier owner/token, which Leave must preserve"
+    },
+    {
+      "name": "LEGACY_CLEAR",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "gate": "no-argument global Clear raises STOCK_GATE_UNSAFE_CLEAR_DISABLED; old raw clear violates the V2 state CHECK; explicit same-outer-transaction deferred clear uses stockGateOperation helper and verifies native success, original transaction marker, SPID, acquisition token and year/week/action, then requires one changed row"
+    },
+    {
+      "name": "CAPABILITY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "gate": "read-only ProtocolVersion=2 and IsReady=1; verifies six module hashes, owner column types/nullability, and the trusted/enabled state constraint definition hash"
+    }
   ],
   "sideEffects": {
     "NenovaStockWeekGate": "add OwnerSessionID, OwnerToken, PendingCalc, CalcProdKey, ProtocolVersion and a validated state CHECK; no ledger rows",
@@ -45,10 +82,22 @@
     "required": true,
     "record": "docs/exe-golden/FormShipmentDistribution.md",
     "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
-    "methods": ["btnFix_Click", "btnFixCancel_Click", "uspStockCalculation"],
-    "tables": ["NenovaStockWeekGate", "StockMaster", "ProductStock", "StockHistory"]
+    "methods": [
+      "btnFix_Click",
+      "btnFixCancel_Click",
+      "uspStockCalculation"
+    ],
+    "tables": [
+      "NenovaStockWeekGate",
+      "StockMaster",
+      "ProductStock",
+      "StockHistory"
+    ]
   },
-  "requiredTestFiles": ["__tests__/stockGateOwnership.test.js", "__tests__/erpContractManifest.test.js"],
+  "requiredTestFiles": [
+    "__tests__/stockGateOwnership.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
   "requiredCommands": [
     "node __tests__/stockGateOwnership.test.js",
     "node __tests__/stockGateOwnership.test.js --sql",
@@ -58,5 +107,32 @@
     "npm run build"
   ],
   "testBoundary": "Default test is offline. --sql accepts explicit JSON from stdin only; fixed loopback:14339, dedicated NenovaStockGateOwnerFixture database, fixtureOnly=true. Never imports app db/auth/env loaders. SQL integration is mandatory before deployment; offline tests do not establish SQL concurrency correctness.",
-  "integrationOwner": "Main owns package/CI registration and API wiring; package.json and application files are outside this subtask's write scope. Main has registered the offline test under test:estimate-edit-safety. SQL --sql remains an explicit isolated-fixture gate, not an application startup action."
+  "integrationOwner": "Main owns package/CI registration and API wiring; package.json and application files are outside this subtask's write scope. Main has registered the offline test under test:estimate-edit-safety. SQL --sql remains an explicit isolated-fixture gate, not an application startup action.",
+  "atomicNativeCalc": {
+    "source": "2026-10-12 live usp_StockCalculation hash 879357e7bf8aabe4cb60f853d18331109580f673e0dc3ba21570ad984bfbc67b",
+    "scope": "CALC only; unchanged six native parameters and stock business SQL",
+    "transaction": "Begin before GateEnter; successful GateLeave before committing this call level; preserve existing outer caller level and existing error rollback semantics",
+    "recovery": "No automatic RUN or WAIT_CALC reclaim; manual recovery is separate",
+    "deployment": "Main only, all writers drained, idle gate XLOCK NOWAIT, exact metadata/hash/signature/SET options, atomic ALTER and existing hash property update, capability and transaction checks",
+    "validation": [
+      "offline business SQL byte equality",
+      "injected installer guard fixtures",
+      "isolated SQL busy/success/outer rollback/invalid year/error/attention rollback/disconnect"
+    ],
+    "limitations": "Attention alone can leave a live transaction until caller rollback/disposal. FIX/CANCEL acquisition windows are outside this patch.",
+    "reviewDetails": {
+      "scope": "CALC only; FIX/CANCEL unchanged. No automatic RUN reclamation.",
+      "transaction": "Begin native transaction level before GateEnter; success Leave before commit. Busy return closes own level. Pre-2026 rejection occurs before gate/transaction. Existing native CATCH whole-transaction rollback remains.",
+      "business": "Exact stock calculation body bytes and six external parameters preserved.",
+      "disconnect": "Physical disconnect rolls back calculation plus gate acquisition. Attention alone may leave live open transaction; caller rollback/disposal remains necessary.",
+      "installer": "Offline dry-run default. Apply and all-writers-drained acknowledgement mandatory. Same DDL transaction validates fully idle gate XLOCK NOWAIT, original exact definition hash, parameters, SET options, execute-as NULL, no signatures, existing hash property and V2 capability. Updates only CALC definition and its existing capability hash; rollback on any failed postcheck. No permission changes.",
+      "normalization": "Post-ALTER sys.sql_modules definition must equal one of exactly prepared CREATE or ALTER texts by SHA256. No whitespace or business-body normalization. SQL2016 CREATE preservation is supported; arbitrary changed body is rejected.",
+      "evidence": "Main reports production patch and rollback-only actual CALC smoke completed; reviewer tests are offline/injected only. Operational records remain with main.",
+      "fixtures": [
+        "scripts/native-stock-gate-atomic.test.cjs",
+        "scripts/native-stock-gate-atomic-installer.test.cjs",
+        "scripts/native-stock-gate-atomic-sql-fixture.cjs"
+      ]
+    }
+  }
 }
