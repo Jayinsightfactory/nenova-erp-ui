@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {deliveryRequestBatches,validatedDeliveryItems,createDeliveryEvidenceCache} from '../../lib/distributionDeliveryClient';
+import {markDeliveryDuplicates,deliveryRequestBatches,validatedDeliveryItems,createDeliveryEvidenceCache} from '../../lib/distributionDeliveryClient';
 import {startBoundedAutoRefresh,HISTORY_REFRESH_INTERVAL_MS} from '../../lib/distributionSalesInboxRefresh';
 
 // Delivery evidence is read-only and refreshed independently of ERP processing.
@@ -28,10 +28,8 @@ export default function useDistributionDeliveryStatus({rows,year,week,enabled,ac
         setState(previous=>({scope,items:{...(previous.scope===scope?previous.items:{}),...cache.current.read(actorId,year,rows)},loading:true,error:''}));
         try {
           const items={};let warning='',targetCount=null,qualifiedSourceCount=0;
-          // Duplicate original texts remain unconfirmed across batch boundaries too.
-          const counts=new Map();
-          for(const row of rows){const text=String(row.message||'').normalize('NFC').replace(/\s+/g,' ').trim();counts.set(text,(counts.get(text)||0)+1);}
-          const {batches,oversized}=deliveryRequestBatches(rows.map(row=>({...row,duplicateOriginal:counts.get(String(row.message||'').normalize('NFC').replace(/\s+/g,' ').trim())>1})),year,week);
+          // Carry whole-inbox duplicate guards across request batch boundaries.
+          const {batches,oversized}=deliveryRequestBatches(markDeliveryDuplicates(rows),year,week);
           for(const row of oversized)items[row.identity]={identity:row.identity,status:'UNCONFIRMED',reason:'incomplete'};
           for(const sources of batches){
             const response=await fetch('/api/kakao/delivery-status',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({year,week,sources})});
@@ -41,7 +39,7 @@ export default function useDistributionDeliveryStatus({rows,year,week,enabled,ac
             if(Number.isSafeInteger(data.diagnostics?.targetCount)&&data.diagnostics.targetCount>=0){targetCount=Math.max(targetCount??0,data.diagnostics.targetCount);qualifiedSourceCount+=data.diagnostics.qualifiedSourceCount||0;}
             for(const item of validatedDeliveryItems(data,sources,year,week)){
               const original=sources.find(row=>row.identity===item.identity);
-              const duplicated=counts.get(String(original.message||'').normalize('NFC').replace(/\s+/g,' ').trim())>1;
+              const duplicated=original.duplicateOriginal===true||original.duplicateCorrectionOriginal===true&&item.reason==='week_corrected';
               items[item.identity]=duplicated&&item.persisted!==true?{identity:item.identity,status:'AMBIGUOUS',reason:'ambiguous'}:item;
             }
             if(active){const confirmed=cache.current.accept(actorId,year,rows,items);setState({scope,items:{...items,...confirmed},loading:true,error:warning});}

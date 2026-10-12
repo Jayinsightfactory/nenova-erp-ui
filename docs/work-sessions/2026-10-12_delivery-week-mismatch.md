@@ -45,10 +45,43 @@ dnSpy CLI로 설치 EXE FormShipmentDistribution의 선택 연도·차수 및 Sh
 - client 응답의 후보 차수/식별자/시각을 재검증하고 잘못된 후보 응답은 조회 오류로 차단.
 - 전체 ERP 계약, dnSpy evidence, manifest100개, 변경 API 쓰기검사0개, UI layout, Next16.2.1 production build 통과.
 - 격리 Chrome1920×1080/1366×768: 주황색 차수불일치1건/정상완료1건, aria-pressed=false, 수동 Enter조회, 실패시 기존확인 유지/재조회 복원, 가로넘침 없음·ERP쓰기0·브라우저 오류0 통과.
-- 배포 결과는 최종 기록에 보완.
+- PR #1020 master 병합(09f3c0bb), Cafe24 workflow 38212046207 성공.
+- 운영 화면 새로고침 후 09f3c0bb 버전과 실제 상희 돈셀 2박스 건의 `전달 내용 발견 · 차수 다름 (41-01 → 41-02)` 표시 확인. DOM viewport1920×1080, 가로 overflow 없음. 운영 주문·분배 버튼 실행 없음.
+- 캡처: outputs/delivery-week-mismatch-production.png (로컬 증거).
 
 ## 이어서 볼 것
 
-정상 완료로 바꾸려면 두 방의 차수 차이가 실제 업무상 의도인지 원문 작성자에게 확인해야 한다. 웹이 이를 추측해 실제 업무 차수를 자동 변경해서는 안 된다.
+아래 후속 사용자 결정이 앞선 주의 표시 정책보다 우선한다. 웹이 실제 ERP 업무 차수를 자동 변경해서는 안 되는 경계는 유지한다.
+
+## 후속 Q&A — 차수 수정 전달도 자동 완료
+
+**Q.** 차수는 잘못 작성해 수정하여 전달한 것이다. 업체·품목·수량이 같으면 확인처리만 문제없이 되면 된다. 수정해 달라.
+
+**결정.** 유효한 맨 앞 차수 토큰만 다르고 나머지 정규화 전체 본문이 같은 유일한 전달은 DELIVERED/week_corrected로 자동 확인한다. 별도 수동 승인 버튼은 요구하지 않는다. 확인된 sourceWeek/targetWeek, 전달 식별자·시각을 웹 전용 증거에 보관하여 재진입·재시작에도 유지한다. 이전 완전일치 저장본은 그대로 읽는다.
+
+### 기준과 소비 경로
+
+| 기준 | 근거 | 적용 경로 |
+|---|---|---|
+| 차수만 다른 전달 허용 | 최신 명시 사용자 결정과 위 실제 PG 원문 대조 | 공통 matchDeliveryStatus → API → 증거 저장 재검증 |
+| 나머지 전체 본문 일치 | 업체·품목·수량·단위·추가/취소 보존 | NFC/공백 정규화, 맨 앞 유효 차수만 제외 |
+| 기존 식별·연도·정확 시각·방·원문 완전성 유지 | 기존 인증/전달 계약 | matcher, client, evidence read |
+| 중복/경쟁 후보 제외 | 다른 요청을 중복 완료시키지 않음 | 같은 batch 및 분할 요청 경계 |
+| 표시·저장 | 전달완료와 전산 적용은 별개 | 녹색 완료 + 차수 수정 이력, 기존 주문/분배 버튼 보존 |
+
+| 동작 | 원문/카톡방 | 웹 전달 증거 JSON | Order/Shipment/ShipmentDate/Farm/Stock/Estimate/WebProfitReport |
+|---|---|---|---|
+| 차수 수정 전달 자동확인 | 읽기·보존 | 검증된 완료 근거만 원자적 저장 | 전부 보존, 실제 차수 이동·등록·분배 없음 |
+
+실제 설치 EXE FormShipmentDistribution을 다시 CLI로 읽어 선택 OrderYear/OrderWeek 및 GetCustomerList 경계를 확인했다. 이 기능은 해당 SQL/SP를 호출하지 않는다. 원천 데이터 근거는 이번 세션 앞선 읽기 전용 PG 대조이며 운영 원장 테스트 쓰기는 하지 않는다.
+
+메뉴 기준: 완료/실패 구분·재진입 이력 유지·1920×1080/100% 표시 검증 적용. 새 shell/메뉴/검색/ERP 저장 전 확인은 해당 없음. 배포 전 관련 회귀·전체 계약·dnSpy·manifest·write guard·빌드, 배포 후 실제 상희 돈셀 건 재조회로 검증한다.
+
+### 후속 검증 결과
+
+- status/client/evidence-store/refresh/render 테스트, 전체 ERP 계약, dnSpy, manifest100개, 변경 API1개의 write guard, UI layout, production build 통과.
+- 격리 Chrome1920×1080/1366×768에서 완료2건(차수 수정1건), 새로고침 실패시 녹색 유지·재접속 복원·Enter조회·접기/복귀 키보드·가로넘침 없음·ERP쓰기0·화면오류0 통과.
+- 초기 전체검사는 병렬 구현 도중 이전 UI import 때문에 실패했으며 구현 종료 후 전체 재실행 exit0으로 확인했다. 검증 실패본은 배포하지 않았다.
+- 구현 gpt-6-sol/high(terra 미제공 대체), 최종 검토 gpt-5.6-sol/high. 독립 검토 차단 이슈 없음. 외부 쓰기는 메인만 수행.
 
 하위 작업: 구현 gpt-6-sol/high(terra 미제공 대체), 검토 gpt-6.1-sol/high(고성능 sol 대체), 로컬만. 메인이 PG 읽기·dnSpy·기준/의존성 준비와 외부 배포를 소유한다.
