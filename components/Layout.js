@@ -108,6 +108,7 @@ export const MENU_ITEMS = [
       { href: '/stock',          labelKey: '재고 관리',      popup: true },
       { href: '/stats/monthly',  labelKey: '월별 판매 현황', popup: false },
       { href: '/stats/pivot',    labelKey: 'Pivot 통계',     popup: true },
+      { href: '/stats/volume-board', labelKey: '물량표', popup: true },
       { href: '/stats/dutch-volume-board', labelKey: '네덜란드 물량표', popup: false },
       { href: '/stats/china-volume-board', labelKey: '자동 중국물량표', popup: true },
       { href: '/stats/pivot-import', labelKey: '수입부 Pivot', popup: true },

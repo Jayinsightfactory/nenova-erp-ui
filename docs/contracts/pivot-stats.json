@@ -3,6 +3,7 @@
   "title": "피벗 통계 품목 필터 검색 계약",
   "scope": [
     "pages/stats/pivot.js",
+    "pages/stats/volume-board.js",
     "pages/api/stats/pivot-weeks.js",
     "pages/api/stats/pivot-volume-excel.js",
     "components/PivotExePanel.js",
@@ -58,6 +59,12 @@
       "shipmentDetail": "preserve"
     },
     {
+      "name": "PIVOT_VOLUME_MENU_SPECIES_DOWNLOAD",
+      "description": "통계 메뉴의 물량표 화면에서 연도·실제 입력 차수 시작/끝을 선택하고 기존 pivot-volume-excel 목록 및 품종별 XLSX 다운로드를 재사용한다. 선택 다운로드 버튼은 기존 피벗 화면에서 제거한다. 조회·다운로드 전용이며 ERP 원장을 변경하지 않는다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
       "name": "PIVOT_EXE_FIELD_ZONES_AND_COLLECTIVE_WIDTH",
       "description": "전산 피벗 배치판은 nenova.exe의 공간 관계처럼 필터를 맨 위, 세로 행을 표 왼쪽, 가로 열을 표 위쪽, 값을 숫자 영역 위치에 고정한다. 필드 버튼 전체를 직접 마우스로 끌어 영역 사이와 같은 영역 안의 정확한 삽입 위치에 놓고, 드래그 중 대상 영역과 파란 삽입선을 표시한다. 가로 데이터 열 하나의 너비를 조절하면 현재 피벗의 모든 가로 데이터 열에 같은 CSS 픽셀 너비를 적용하고 사용자별 브라우저 설정에만 저장한다. 조회 API, 집계 원본값, 엑셀 숫자값과 ERP 원장은 변경하지 않는다.",
       "orderDetail": "preserve",
@@ -82,6 +89,7 @@
     "__tests__/pivotFilterOptions.test.js",
     "__tests__/pivotVolumeNetherlands.test.js",
     "__tests__/pivotAvailableWeeks.test.js",
+    "__tests__/pivotVolumeMenu.test.js",
     "__tests__/pivotExeLiveLayout.test.js",
     "__tests__/pivotExeInteraction.test.js",
     "__tests__/erpContractManifest.test.js"
