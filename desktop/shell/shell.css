@@ -67,3 +67,5 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 @media(max-width:1120px){.home-heading{grid-template-columns:minmax(0,1fr) 240px}.hw-feed{grid-template-columns:145px minmax(0,1fr)}.hw-feed-controls{grid-column:2}.hw-edit{grid-template-columns:minmax(0,1fr) 145px}.hw-edit .hw-repeat{grid-column:1/-1}.hw-add{grid-template-columns:minmax(0,1fr) auto}.hw-add>.hw-repeat{grid-row:2;grid-column:1/-1}}
 @media(max-width:800px){.home-heading{grid-template-columns:minmax(0,1fr)}.hw-feed{grid-template-columns:1fr;gap:5px}.hw-feed-controls{grid-column:1}.hw-task-label{flex-basis:100%}.hw-task{padding-bottom:8px}.hw-task-meta{flex:1}.hw-heading{gap:6px}.hw-count{margin-left:0}.hw-edit{grid-template-columns:minmax(0,1fr)}.hw-edit .hw-repeat{grid-column:1}.hw-add>input{width:100%}.hw{font-size:14px}}
 @media(pointer:coarse){.hw button,.hw input:not([type=checkbox]),.hw select,.hw-days label{min-height:44px}.hw input:not([type=checkbox]),.hw select{font-size:16px}}
+
+.tabbar-action svg{display:block;margin:auto}

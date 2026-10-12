@@ -22,3 +22,14 @@
 - 검증 통과: 홈 owner/year/budget/오래된 지연 우선 포함 fixture, 불량 정렬 unit, 홈1920×1080·800×1080 브라우저 fixture, 불량1920×1080·800×900 브라우저 fixture(정렬 후 선택·비고 보존), Electron25 unit/native smoke/restore/updater 무설치 검증, ERP 계약·dnSpy·manifest·쓰기 가드·UI layout. 실제 설치 사용자 앱을 임의 재시작하지 않았다.
 - 최종 리뷰의 집계 범위 P2 해결: 표시N건 명시, 최대20건 적용 전에 긴급순 정렬, 전체 현황 원문 안내. 이후 추가 P0–P2 없음.
 - PC1.3.8 설치기 패키지의 shell 소스 일치 확인. SHA256 28bb2286d9a7dde3bccf5e4ff8e403a66def9de3d77da63534412b3da66d4885.
+
+## 운영 배포 완료
+- 최종 production build exit0. PR1011 https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1011 병합, master 0a2aecf4db4408f601d4325474753d00c6b3a430. PR Windows installer/ERP verify 모두 성공. master Windows run38194313051 성공.
+- Cafe24 run38194313118 성공(SSH배포 및 실브라우저 hydration 포함). 운영 로그인1920×1080/800×1080 CSS px 100%에서1.3.8 다운로드·hydration=true·가로넘침false 확인. 비인증 홈API401 확인.
+- desktop-v1.3.8 공개 및 latest.yml 로컬과일치. 공개설치기111710891bytes, GitHub asset SHA256과 로컬검증값 일치. 새 설치기 source asar shell 동일.
+- 인증된 실제 운영 홈/불량 행의 내용과 사용자의 설치된 PC 앱 업데이트 완료는 직접 확인하지 않았다. 해당 화면동작은 fixture실브라우저 및 isolated Electron으로 검증했다. 운영 원장쓰기/강제 앱재시작 없음.
+
+## 추가 요청: 홈 버튼 집 모양 (PC1.3.9)
+- 상단 왼쪽 #menuButton의 메뉴형 문자 아이콘을 currentColor 윤곽 집 SVG로 교체. 접근성 이름/툴팁도 홈으로 변경. 버튼30px·활성화상태·기존toggle·Ctrl+K 유지. 입력/즐겨찾기/ERP 데이터 변경 없음.
+- 적용: 기존공간·색상·키보드·1920×1080 및800×1080. 해당없음: 신규메뉴·SQL·원장쓰기. 작은아이콘변경으로 기존 의미있는 Electron/browser smoke를 재사용했다.
+- Desktopunit/native smoke와홈브라우저 fixture 통과,1920화면육안확인. 설치기 asar 소스일치, SHA256 a10e076df632df0004dfbb1485f3e6ffee6cbd402772fe68fe34a236f0e97902. 최종리뷰 P0–P2없음. 배포확인은 후속기록.
