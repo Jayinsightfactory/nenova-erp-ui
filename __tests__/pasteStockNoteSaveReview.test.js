@@ -7,7 +7,8 @@ import {buildStockNoteChangeEntry} from '../lib/pasteStockNote.js';
 
 const page = fs.readFileSync('pages/orders/paste.js', 'utf8');
 const prefix = page.slice(0, page.indexOf('export default function')).replace(/^import .*\r?\n/gm, '');
-const context = vm.createContext({parseBaseStockQuantityLine, textWithoutExcludedLines, buildStockNoteChangeEntry, formatWeekDisplay: value => value});
+const invokingButton={name:'stock-note-save'};
+const context = vm.createContext({document:{activeElement:invokingButton},parseBaseStockQuantityLine, textWithoutExcludedLines, buildStockNoteChangeEntry, formatWeekDisplay: value => value});
 vm.runInContext(prefix, context);
 const products = [{ProdKey: 11, ProdName: 'Novia'}, {ProdKey: 22, ProdName: 'Blue'}];
 const text = '카네이션\n노비아 0박스\n블루 1+15스팀';
@@ -61,6 +62,7 @@ function render() {
 render();
 vm.runInContext('saveStockNote({forceCreate: true})', context);
 assert.equal(context.stockNoteReview.forceCreate, true);
+assert.equal(context.stockNoteReview.returnFocus,invokingButton,'capture invoking control before child autofocus mounts');
 assert.equal(writes, 0, 'click opens review without favorites mutation');
 render(); assert.equal(context.timer, undefined, 'partial mapping does not schedule save');
 context.setStockNoteReview(null); render(); assert.equal(writes, 0, 'cancel writes nothing');

@@ -29,6 +29,8 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
   await page.waitForTimeout(400);assert.equal(favorites.length,0,'incomplete match never saves');
   await page.getByTestId('stock-note-save-cancel').press('Escape');
   await dialog.waitFor({state:'hidden'});assert.equal(favorites.length,0,'Escape cancels without saving');
+  await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='현재 값 저장');
+  assert.equal(await page.getByRole('button',{name:'현재 값 저장',exact:true}).evaluate(node=>node===document.activeElement),true,'Escape returns focus to invoking save button');
   await page.getByRole('button',{name:'현재 값 저장',exact:true}).click();await dialog.waitFor();
   await dialog.getByRole('button',{name:/품목지정/}).nth(1).click();
   await dialog.getByPlaceholder('품명 검색...').fill('Novia');
