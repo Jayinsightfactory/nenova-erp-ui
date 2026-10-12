@@ -914,6 +914,94 @@ async function testCostSaveReadIdempotencyAndStaleExeDetail(pool,writer,costApi)
 
 async function applyMigration(pool, source) { await runBatches(pool,source,'web invoice migration'); }
 
+// Invoked only by the opt-in private workbook case, inside the invocation-owned DB.
+async function testPrivateStageLogsAndCostExport(pool,scenario,committed,read,document) {
+  const stageApi=await import(pathToFileURL(path.join(ROOT,'lib','invoiceReceiptStageLog.js')).href);
+  const exportApi=await import(pathToFileURL(path.join(ROOT,'lib','invoiceReceiptCostExport.js')).href);
+  const XLSX=require('xlsx-js-style'),JSZip=require('jszip');
+  const queryFn=(statement,params={})=>query(pool,statement,params);
+  const protectedBefore=await protectedSnapshot(pool),stockBefore=await stockSnapshot(pool);
+  const costBefore={revisions:await rows(pool,'WebInvoiceCostRevision','CostRevisionId'),lines:await rows(pool,'WebInvoiceCostLine','CostRevisionId,LineId')};
+  const historyCount=async()=>Number((await queryFn(`SELECT COUNT_BIG(*) N FROM dbo.WebInvoiceHistory
+    WHERE DocumentId=@id AND Action=N'WORKFLOW_STAGE';`,{id:{type:sql.UniqueIdentifier,value:scenario.documentId}})).recordset[0].N);
+  const historyBefore=await historyCount();
+  const input={documentRevision:document.revision,sourceHash:scenario.sourceHash,stage:'costVerify',status:'passed',attemptId:crypto.randomUUID(),eventId:crypto.randomUUID()};
+  const stageArgs={withTransactionFn:withTransactionFn(pool),types:sql,documentId:scenario.documentId,actor:'TEST_ONLY:invoice-cost-export-fixture',input};
+  stage('TEST_ONLY private stage logging, idempotency and current-cost export');
+  const logged=await stageApi.appendInvoiceReceiptStageEvent(stageArgs);
+  ensure(logged.idempotent===false&&logged.event.stage==='costVerify'&&logged.event.status==='passed',
+    'stage log must append the server-verified current actual cost event');
+  ensure(logged.event.evidence?.origin==='SERVER_VERIFIED'&&logged.event.evidence?.erpProof===true
+    &&logged.event.evidence?.costRevisionId===read.currentActual.costRevisionId
+    &&logged.event.evidence?.warehouseKey===committed.warehouseKey&&logged.event.orderYear==='2026'
+    &&logged.event.orderWeek==='41-02','stage evidence must retain exact current-year receipt and actual cost scope');
+  const replay=await stageApi.appendInvoiceReceiptStageEvent(stageArgs);
+  ensure(replay.idempotent===true&&replay.event.historyId===logged.event.historyId,'stage retry must reuse the same history event');
+  assert.equal(await historyCount(),historyBefore+1,'stage replay must not append another history row');
+  const rejects=async(action,label,prefix)=>{
+    await assert.rejects(action,error=>typeof error.code==='string'&&error.code.startsWith(prefix)&&Number(error.statusCode)>=400,label);
+  };
+  await rejects(()=>stageApi.appendInvoiceReceiptStageEvent({...stageArgs,input:{...input,status:'failed',code:'COST_MISMATCH'}}),'changed event payload must not overwrite prior success','STAGE_');
+  for(const changed of [{documentRevision:document.revision+1},{sourceHash:'f'.repeat(64)}]) {
+    await rejects(()=>stageApi.appendInvoiceReceiptStageEvent({...stageArgs,input:{...input,...changed,eventId:crypto.randomUUID()}}),'stale revision/source must not append history','STAGE_');
+  }
+  const exportArgs={queryFn,types:sql,documentId:scenario.documentId,warehouseKey:String(committed.warehouseKey),costRevisionId:read.currentActual.costRevisionId};
+  const exported=await exportApi.exportCurrentInvoiceCost(exportArgs);
+  ensure(Buffer.isBuffer(exported.buffer)&&exported.buffer.length>0&&/\.xlsx$/i.test(exported.filename),'full SQL exporter must return an XLSX buffer and filename');
+  const workbook=XLSX.read(exported.buffer,{type:'buffer',cellStyles:true});
+  assert.equal(workbook.SheetNames.length,1,'export must contain only the approved snapshot sheet');
+  const sheet=workbook.Sheets[workbook.SheetNames[0]],value=address=>sheet[address]?.v;
+  assert.equal(value('C5'),'2026/41-02');assert.equal(value('C9'),28);
+  ensure(Math.abs(Number(value('C10'))-read.currentActual.totalCostKRW)<0.0001,'export header must equal current approved total');
+  assert.equal(value('C7'),230,'FX stays explicitly TEST_ONLY');
+  assert.equal(value('C8'),1985.94);assert.equal(value('E8'),1985.94,'CW is TEST_ONLY equal GW, not actual-source CW');
+  assert.equal(value('J13'),'환율 종류','exchange-rate basis must retain its current metadata label');
+  assert.equal(value('K13'),'TEST_ONLY','workbook must disclose the synthetic FX basis');
+  const expectedNames=document.lines.slice().sort((a,b)=>a.lineNo-b.lineNo).map(line=>line.originalName);
+  let total=0,quantity=0;
+  for(let index=0;index<28;index++){
+    const row=24+index;
+    assert.equal(value(`B${row}`),expectedNames[index],'all original product names must retain source order');
+    assert.equal(value(`N${row}`),'BUNCH','no arbitrary ERP unit conversion');
+    ensure(Number.isFinite(value(`O${row}`))&&Number.isFinite(value(`E${row}`)),'every exported actual line needs numeric quantity and total');
+    total+=value(`O${row}`);quantity+=value(`E${row}`);
+  }
+  assert.equal(value('B52'),undefined,'export must not add a 29th product');
+  ensure(Math.abs(total-read.currentActual.totalCostKRW)<0.0001&&Math.abs(quantity-2380)<0.000001,'28 exported lines must conserve approved cost and actual bunch totals');
+  for(const cell of Object.values(sheet))if(cell&&typeof cell==='object')assert.equal(cell.f,undefined,'exported snapshot must contain no recalculation formulas');
+  const zip=await JSZip.loadAsync(exported.buffer);
+  const sheetXml=await zip.file('xl/worksheets/sheet1.xml').async('string');
+  const stylesXml=await zip.file('xl/styles.xml').async('string');
+  assert.match(sheetXml,/<cols>/);assert.match(sheetXml,/<mergeCell ref="B51:D51"/);
+  for(const address of ['B23','B24','M24','O24','B51','M51','O51'])assert.match(sheetXml,new RegExp(`<c r="${address}" s="[1-9][0-9]*"`),'header, first and expanded final rows must retain style IDs');
+  for(const kind of ['fonts','fills','borders','cellXfs'])assert.match(stylesXml,new RegExp(`<${kind}\\b`),'template font/fill/border/number styles must survive export');
+  ensure(!Object.keys(zip.files).some(name=>/externalLinks|vbaProject/i.test(name)),'private snapshot must not include external links or macros');
+  // Every near-miss mutates only a rollback-only transaction in the owned fixture.
+  const misses=[
+    ['same-week previous-year native receipt',`UPDATE dbo.WarehouseMaster SET OrderYear=N'2025' WHERE WarehouseKey=@wk;`],
+    ['document revision',`UPDATE dbo.WebInvoiceDocument SET Revision=Revision+1 WHERE DocumentId=@id;`],
+    ['source identity',`UPDATE dbo.WebInvoiceDocument SET SourceHash=@badHash WHERE DocumentId=@id;`],
+    ['live native quantity drift',`UPDATE dbo.WarehouseDetail SET OutQuantity=OutQuantity+1 WHERE WdetailKey=(SELECT MIN(WdetailKey) FROM dbo.WarehouseDetail WHERE WarehouseKey=@wk);`],
+  ];
+  for(const [label,statement] of misses){
+    const tx=new sql.Transaction(pool);await tx.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+    try{
+      const txQuery=(text,params={})=>query(tx,text,params);
+      await txQuery(statement,{id:{type:sql.UniqueIdentifier,value:scenario.documentId},wk:{type:sql.Int,value:committed.warehouseKey},badHash:{type:sql.Binary(32),value:Buffer.alloc(32,255)}});
+      await rejects(()=>exportApi.exportCurrentInvoiceCost({...exportArgs,queryFn:txQuery}),`${label} must reject current actual export`,'COST_EXPORT_');
+      await rejects(()=>stageApi.appendInvoiceReceiptStageEvent({...stageArgs,withTransactionFn:callback=>callback(txQuery),input:{...input,eventId:crypto.randomUUID()}}),`${label} must not receive a new verified stage success`,'STAGE_');
+    }finally{await tx.rollback();}
+  }
+  await rejects(()=>exportApi.exportCurrentInvoiceCost({...exportArgs,costRevisionId:crypto.randomUUID()}),'noncurrent approved revision must not export','COST_EXPORT_');
+  assert.equal(await historyCount(),historyBefore+1,'failed source/year/revision/stale requests must leave stage history unchanged');
+  assert.deepEqual(await protectedSnapshot(pool),protectedBefore,'stage logs/export must preserve staging/order/shipment sentinels');
+  assert.deepEqual(await stockSnapshot(pool),stockBefore,'stage logs/export and rollback probes must preserve warehouse/stock/history/key numbering');
+  assert.deepEqual({revisions:await rows(pool,'WebInvoiceCostRevision','CostRevisionId'),lines:await rows(pool,'WebInvoiceCostLine','CostRevisionId,LineId')},costBefore,'stage logs/export must not rewrite persisted cost approvals');
+  const output=path.join(ROOT,'outputs','invoice-cost-export-fixture.xlsx');
+  fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,exported.buffer);
+  console.log('ok - TEST_ONLY private 28-row SQL stage evidence/idempotency, source/year/revision/stale failures, ERP preservation, workbook totals/styles; private QA export: outputs/invoice-cost-export-fixture.xlsx');
+}
+
 async function testPrivateChinaInvoiceWriterAndAirCost(pool,writer,costApi,documents) {
   const {loadChinaInvoiceReceiptScenario,chinaAirTestOnlyCostInput}=require('../__tests__/fixtures/chinaInvoiceReceiptScenario.cjs');
   // File input only: HOST/PORT/database/credentials and parseArgs stay closed.
@@ -1090,6 +1178,7 @@ async function testPrivateChinaInvoiceWriterAndAirCost(pool,writer,costApi,docum
   assertCanonicalMetadata(reloaded.reviewedMetadata);
   assert.equal(JSON.stringify(scenario.invoice),sourceBefore,'actual parser output must remain unmodified');
   assert.deepEqual(await protectedSnapshot(pool),protectedBefore,'cost save/read must preserve order/shipment/staging sentinels');
+  await testPrivateStageLogsAndCostExport(pool,scenario,committed,read,reloaded);
   console.log('ok - actual invoice quantities/prices with synthetic fixture matching and TEST_ONLY cost inputs: 28 lines, 159 boxes, 2380 bunches, 30900 stems, CNY goods 57330 / grand 84844.9, GW 1985.94; writer/stock/cost readback and idempotency passed.');
 }
 

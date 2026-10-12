@@ -1,0 +1,189 @@
+{
+  "id": "invoice-cost-export",
+  "title": "서버 승인 원가의 CN 항공 단일 원본 양식 출력과 내구성 단계 이력",
+  "scope": [
+    "lib/invoiceReceiptCostExport.js",
+    "lib/invoiceReceiptStageLog.js",
+    "lib/invoiceReceiptStageLogClient.js",
+    "lib/invoiceReceiptCost.js",
+    "lib/invoiceCostTemplates/china-air-v1.json",
+    "scripts/build-invoice-cost-template.cjs",
+    "scripts/test-invoice-receipt-writer-sql.cjs",
+    "pages/api/import/receipts/[id]/stage-events.js",
+    "pages/api/import/receipts/[id]/cost-export.js",
+    "components/import-tools/InvoiceReceiptWorkbench.js",
+    "components/import-tools/InvoiceArrivalCostPanel.js",
+    "components/import-tools/InvoiceReceiptCostReview.js",
+    "styles/InvoiceReceiptCost.module.css"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "documentIdentity": [
+    "documentId",
+    "revision",
+    "sourceHash",
+    "operationId",
+    "warehouseKey",
+    "costRevisionId"
+  ],
+  "actions": [
+    {
+      "name": "APPEND_INVOICE_STAGE_EVENT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "preserve",
+      "warehouseDetail": "preserve",
+      "stock": "preserve",
+      "webInvoiceHistory": "append-only idempotent attempt events; no DDL",
+      "notes": "WORKFLOW_STAGE flat AfterJson; status running/blocked/failed/unknown/passed. Async best-effort transport; durable only when acknowledged; retry logging only and never block or repeat ERP writes. Server actor/time, whitelisted code, no free text. Pre-save conversion/matching remains local; existing draft success captures rows."
+    },
+    {
+      "name": "VERIFY_INVOICE_STAGE_EVENT",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "read-only",
+      "warehouseDetail": "read-only",
+      "stock": "preserve",
+      "notes": "current source/revision and stage-specific authoritative checks; COMMITTED operation for receipt identity; readInvoiceCosts currentActual ACTUAL APPROVED stored APPROVED liveReceiptStatus MATCH for approved cost proofs"
+    },
+    {
+      "name": "EXPORT_APPROVED_CN_AIR_COST",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "warehouseMaster": "read-only",
+      "warehouseDetail": "read-only",
+      "stock": "preserve",
+      "estimate": "preserve",
+      "webProfitReport": "preserve",
+      "webArrivalCost": "preserve",
+      "webInvoiceCostRevision": "read-only",
+      "webInvoiceCostLine": "read-only",
+      "webInvoiceHistory": "preserve; GET strictly read-only, no export event INSERT",
+      "notes": "server approved full snapshot and persisted lines only; exact current costRevisionId and live STALE recheck before response; no client values/formulas/cell coordinates/paths; no fallback workbook"
+    }
+  ],
+  "templateProfile": {
+    "id": "CN_AIR_ORIGINAL_V1",
+    "version": "1.0.0",
+    "formulaId": "CN_AIR_WEIGHT_CBM_V1",
+    "formulaVersion": "1.0.0",
+    "sourceHash": "e1bb0315998c2f3550a0edab8353147612cd6c46d7247b287656eca1c3ee4233",
+    "layoutSheet": "27-2 CLOUD",
+    "formulaEvidenceSheets": [
+      "27-2 CLOUD",
+      "26-2 CLOUD"
+    ],
+    "output": "sanitized current-result-only single sheet",
+    "detailStartRow": 24,
+    "detailPrototypeRow": 24,
+    "originalLastDetailRow": 33,
+    "rowPolicy": "bounded dynamic expansion preserving original style indices, row height and merge patterns; update dimensions/filter/print references",
+    "preserve": [
+      "cell styles",
+      "column widths",
+      "row heights",
+      "merge patterns",
+      "theme",
+      "existing print settings"
+    ],
+    "remove": [
+      "historical sheets and amounts",
+      "unreferenced historical shared strings",
+      "comments and VML",
+      "historical hidden values",
+      "formula caches and calcChain",
+      "unsupported external/embedded relationships",
+      "historical properties"
+    ],
+    "valuePolicy": "approved values in original cost-result positions; explicit unit mapping; no unsupported expense breakup or historical defaults inferred",
+    "otherProfiles": "EXPORT_TEMPLATE_UNSUPPORTED until independent template fidelity approval",
+    "runtimePolicy": "sanitized format JSON asset generated from hash-verified source at build/preparation; asset hash/profile metadata checked; original private XLSX not required at runtime",
+    "implementationPolicy": "runtime software OOXML export, not conversational artifact authoring; no modification of historical source workbook",
+    "registryOwner": "lib/invoiceReceiptCostExport.js; Franklin owns context and API"
+  },
+  "eventPolicy": {
+    "action": "WORKFLOW_STAGE",
+    "endpoint": "pages/api/import/receipts/[id]/stage-events.js",
+    "envelope": "flat AfterJson",
+    "requestFields": [
+      "documentRevision",
+      "sourceHash",
+      "stage",
+      "status",
+      "attemptId",
+      "eventId",
+      "code (optional whitelist)"
+    ],
+    "stages": [
+      "draft",
+      "validation",
+      "receipt",
+      "receiptVerify",
+      "cost",
+      "costSave",
+      "costVerify"
+    ],
+    "statuses": [
+      "running",
+      "blocked",
+      "failed",
+      "unknown",
+      "passed"
+    ],
+    "idempotency": "same eventId same payload returns saved event; changed payload 409; no DDL; no additional attempt terminal state machine",
+    "proof": "browser passed never proves ERP success; server current source/revision and authoritative operation/readInvoiceCosts MATCH validation",
+    "failurePolicy": "asynchronous best effort, durable when acknowledged; explicit log-only retry, never gate/repeat business mutation",
+    "preDocumentLimitation": "pre-save conversion/matching not server durable; existing draft success persists rows; no promised retrospective event capture",
+    "freeText": "forbidden; code whitelist and server-generated display only"
+  },
+  "security": {
+    "access": "withAuth plus active account and canManageInvoiceReceipt for logs/export",
+    "download": "strict read-only GET, private no-store XLSX with safe filename; no export log write; response is not browser disk-save proof",
+    "snapshot": "internal approved full snapshot only, never client editable projection; raw snapshot is not exposed in public response",
+    "validation": "strict identifiers/current source/revision/operation/cost revision; fresh live receipt MATCH; no client amounts/formulas/paths; whitelisted stage fields/code"
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "2025/2026 same 41-02 remain isolated by document/source/revision/operation and WarehouseKey. Actual 41-2 28-line test is isolated only, not operational approval."
+  },
+  "requiredTestFiles": [
+    "__tests__/invoiceReceiptStageLog.test.js",
+    "__tests__/invoiceReceiptStageLogUi.test.js",
+    "__tests__/invoiceReceiptCostExport.test.js",
+    "__tests__/invoiceReceiptWorkflow.test.js",
+    "__tests__/invoiceReceiptCostWorkflow.test.js",
+    "__tests__/invoiceReceiptWorkbench.test.js",
+    "__tests__/invoiceReceiptChinaAirCost.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormWarehouseUpload.md",
+    "source": "reuse documented native receipt identity/units and existing writer readback; export and stage logging add no EXE/SP/schema/ERP writer changes",
+    "methods": [
+      "ExcelLoadingPackingList.MakeTempTable",
+      "ExcelLoadingPackingList.InsertMaster"
+    ],
+    "tables": [
+      "WarehouseMaster (read-only)",
+      "WarehouseDetail (read-only)",
+      "WebInvoiceDocument",
+      "WebInvoiceOperation",
+      "WebInvoiceCostRevision (read-only)",
+      "WebInvoiceCostLine (read-only)",
+      "WebInvoiceHistory (web events only)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from origin/master",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ],
+  "designDocument": "docs/plans/invoice-cost-export.md",
+  "status": "implemented; unit, isolated SQL, template fidelity/render, browser and production build verified; operational receipt approval is separate"
+}
