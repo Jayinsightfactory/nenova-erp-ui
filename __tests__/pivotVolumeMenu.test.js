@@ -17,8 +17,19 @@ assert.doesNotMatch(pivot, /차수·품종별\(선택\)|const openPick|const dow
 
 assert.match(page, /\/api\/stats\/pivot-weeks\?/,
   '새 화면은 선택 연도의 실제 입력 차수를 읽어야 합니다.');
-assert.match(page, /aria-label="시작 차수"/);
-assert.match(page, /aria-label="끝 차수"/);
+assert.doesNotMatch(page, /<select\b/,
+  '차수 선택은 드롭다운 대신 한눈에 보이는 버튼 목록이어야 합니다.');
+assert.match(page, /role="radiogroup" aria-label=\{`\$\{group\.label\} 선택`\}/,
+  '시작/끝 차수 버튼은 보조기술에 선택 그룹으로 전달되어야 합니다.');
+assert.match(page, /role="radio"[\s\S]*?aria-checked=\{active\}/,
+  '현재 선택된 차수 버튼은 활성 상태를 접근성 속성으로 표시해야 합니다.');
+assert.match(page, /tabIndex=\{active \? 0 : -1\}/,
+  '차수 버튼 그룹은 현재 활성 버튼만 탭 정지점이어야 합니다.');
+assert.match(page, /\.week-choice-button\[aria-checked="true"\][\s\S]*?background: #1764b0/,
+  '활성 차수 버튼은 채워진 강조색으로 보여야 합니다.');
+for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) {
+  assert.ok(page.includes(key), `${key} 키로 차수 버튼 사이를 이동할 수 있어야 합니다.`);
+}
 assert.match(page, /list:\s*'1'/,
   '선택한 연도·차수 범위에 대한 품종 목록을 기존 API로 읽어야 합니다.');
 assert.match(page, /species:\s*item\.key/,
