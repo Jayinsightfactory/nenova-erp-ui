@@ -5,7 +5,8 @@
 | 날짜 | 2026-09-16 |
 | 화면 | /stats/pivot 전산 피벗 |
 | 원장 부작용 | 없음: API/SQL/집계/엑셀 계산 변경 없음 |
-| 상태 | 구현·로컬 검증 완료, 배포 진행 |
+| 상태 | PR #659 병합·배포 성공 |
+| 배포 | 35080160512, merge 4a18e9a6, 자동 hydration smoke 통과 |
 
 ## 고정된 결정
 
@@ -30,5 +31,8 @@ A. 표 높이 제한 제거, 문서 scroll/resize 구독, 화면에 보이는 �
 - 1280×800: 페이지 가로 넘침 없음(문서 너비 1266), 가로바/본문/고정 헤더 scrollLeft 모두696. 헤더 top16px 유지, console error 없음.
 - 모두 접기 2행/비가상화 및 다시 펼치기 회귀 통과. 가상화 중 DOM 셀은 화면 구간만 유지.
 - 독립 검토에서 열 제목이 사라지는 문제를 확인해 동기 고정 헤더로 보완했다.
-- 배포 결과는 완료 후 기록.
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/659
+- 배포: https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/35080160512 (3m9s, success).
+- 운영 URL 기본 화면 표시 확인. In-app 브라우저 미로그인으로 운영 실데이터 수동 스크롤 검증은 불가; 합성 fixture 실제 브라우저 검증과 운영 자동 hydration smoke를 완료했다.
+- 이 배포 결과 추가 기록은 후속 배포를 불필요하게 실행하지 않도록 로컬에 보관하고 PR 완료 코멘트에도 남긴다.
 - outputs/ 및 다른 농장 피드백 세션 문서의 기존 수정은 커밋에서 제외.
