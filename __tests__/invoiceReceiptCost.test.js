@@ -5,6 +5,7 @@ import {
   previewInvoiceCost,
   readInvoiceCosts,
   saveInvoiceCostRevision,
+  restoredInvoiceCostInput,
 } from '../lib/invoiceReceiptCost.js';
 
 const IDS = Object.freeze({
@@ -234,8 +235,8 @@ const types = new Proxy({ MAX: 'MAX' }, { get(target, key) {
 } });
 const values = params => Object.fromEntries(Object.entries(params || {}).map(([key, item]) => [key, item?.value]));
 
-function persistenceDb() {
-  const input = commonInput('CN_SEA_ACTUAL_V1', { lineInputs: [{ lineId: IDS.line1, tariffRate: 0, otherCostPerUnitKRW: 0 }] });
+function persistenceDb(inputOverride, metadataOverride) {
+  const input = inputOverride || commonInput('CN_SEA_ACTUAL_V1', { lineInputs: [{ lineId: IDS.line1, tariffRate: 0, otherCostPerUnitKRW: 0 }] });
   const state = {
     queries: [], revisions: [], costLines: [], history: [], documentCostStatus: 'PENDING',
     warehouseHeader: { WarehouseKey: 901, OrderYear: '2026', OrderWeek: '41-01', FarmName: 'Fixture Farm',
@@ -247,7 +248,7 @@ function persistenceDb() {
   const document = {
     DocumentId: IDS.document, OrderYear: '2026', OrderWeek: '41-01', Revision: 1, FarmKey: 7, InvoiceNo: 'CN-1', InvoiceYear: '2026',
     SourceHash: Buffer.from('aa'.repeat(32), 'hex'), OriginalFileName: 'cn.xlsx', ReceiptStatus: 'COMMITTED', CostStatus: 'PENDING',
-    RawMetadataJson: '{}', ReviewedMetadataJson: JSON.stringify({ country: 'CN', transportMode: 'SEA', inputDate: '2026-10-08' }),
+    RawMetadataJson: '{}', ReviewedMetadataJson: JSON.stringify(metadataOverride || { country: 'CN', transportMode: 'SEA', inputDate: '2026-10-08' }),
     CreatedBy: 'creator', CreatedAt: new Date('2026-10-08T00:00:00Z'), UpdatedBy: 'writer', UpdatedAt: new Date('2026-10-08T00:01:00Z'), RowVersion: Buffer.alloc(8),
   };
   const line = { DocumentId: IDS.document, Revision: 1, LineId: IDS.line1, LineNo: 1, OriginalName: 'Rose', LengthText: null, ProdKey: 10,
@@ -317,6 +318,49 @@ function persistenceDb() {
   const withTransactionFn = async (callback, options) => { state.options = options; return callback(execute); };
   return { input, state, execute, withTransactionFn };
 }
+
+test('saved AIR inputs restore through the real save/read functions with a whitelist, fresh scope, and no auto-confirmation', async () => {
+  const formula = INVOICE_COST_FORMULAS.CN_AIR_WEIGHT_CBM_V1;
+  const input = { ...commonInput('CN_SEA_ACTUAL_V1'), ...formula, customsTotalKRW: 1234,
+    privateUnapprovedField: { secret: 'DO_NOT_EXPOSE' },
+    lineInputs: [{ lineId: IDS.line1, tariffRate: 0.214, otherCostPerUnitKRW: 3, grossWeightKg: 100,
+      volumeWeightKg: 120, rawParserData: 'DO_NOT_EXPOSE' }] };
+  const metadata = { country: 'CN', transportMode: 'AIR', inputDate: '2026-10-08', gw: 100, cw: 120 };
+  const db = persistenceDb(input, metadata);
+  const saved = await saveInvoiceCostRevision({ withTransactionFn: db.withTransactionFn, types, documentId: IDS.document,
+    revision: 1, actor: 'approver', input, reason: 'checked current air costs' });
+  assert.equal(saved.currentActual.formulaId, formula.formulaId);
+  assert.equal(db.state.revisions.length, 1);
+  assert.ok(JSON.parse(db.state.revisions[0].InputSnapshotJson).input.privateUnapprovedField,
+    'the test actually saves the extra input inside the private snapshot');
+  const readback = await readInvoiceCosts({ queryFn: db.execute, types, warehouseKey: 901 });
+  const editable = readback.currentActual.editableInput;
+  assert.equal(editable.invoiceSourceHash, 'aa'.repeat(32));
+  assert.equal(editable.input.formulaSourceHash, formula.formulaSourceHash);
+  assert.equal(editable.input.costSourceId, input.costSourceId);
+  assert.equal(editable.input.customsTotalKRW, 1234);
+  assert.equal(editable.input.lineInputs[0].grossWeightKg, 100);
+  assert.equal(editable.input.lineInputs[0].volumeWeightKg, 120);
+  assert.equal(editable.input.lineInputs[0].tariffRate, 0.214);
+  assert.equal(editable.input.formulaApplicabilityConfirmed, false);
+  assert.equal('privateUnapprovedField' in editable.input, false);
+  assert.equal('rawParserData' in editable.input.lineInputs[0], false);
+  assert.doesNotMatch(JSON.stringify(readback), /DO_NOT_EXPOSE|InputSnapshotJson|receiptSnapshot|saveFingerprint|_snapshot/);
+  const document = { documentId: IDS.document, revision: 1, sourceHash: 'aa'.repeat(32), reviewedMetadata: metadata };
+  const lines = [{ lineId: IDS.line1 }];
+  assert.equal(restoredInvoiceCostInput(document, lines, readback).formulaApplicabilityConfirmed, false);
+  assert.equal(restoredInvoiceCostInput({ ...document, revision: 2 }, lines, readback), null);
+  assert.equal(restoredInvoiceCostInput({ ...document, sourceHash: 'bb'.repeat(32) }, lines, readback), null);
+  assert.equal(restoredInvoiceCostInput(document, [{ lineId: IDS.line2 }], readback), null);
+  const mismatched = structuredClone(readback);
+  mismatched.currentActual.formulaVersion = '2.0.0';
+  assert.equal(restoredInvoiceCostInput(document, lines, mismatched), null);
+  db.state.warehouseDetails[0].OutQuantity = 9;
+  const stale = await readInvoiceCosts({ queryFn: db.execute, types, warehouseKey: 901 });
+  assert.equal(stale.currentActual, null);
+  assert.ok(stale.revisions.every(revision => !Object.hasOwn(revision, 'editableInput')));
+  assert.equal(restoredInvoiceCostInput(document, lines, stale), null);
+});
 
 test('cost persistence locks, maps committed lineId to WdetailKey, stales separately, and retries idempotently', async () => {
   const db = persistenceDb();

@@ -914,6 +914,185 @@ async function testCostSaveReadIdempotencyAndStaleExeDetail(pool,writer,costApi)
 
 async function applyMigration(pool, source) { await runBatches(pool,source,'web invoice migration'); }
 
+async function testPrivateChinaInvoiceWriterAndAirCost(pool,writer,costApi,documents) {
+  const {loadChinaInvoiceReceiptScenario,chinaAirTestOnlyCostInput}=require('../__tests__/fixtures/chinaInvoiceReceiptScenario.cjs');
+  // File input only: HOST/PORT/database/credentials and parseArgs stay closed.
+  const scenario=await loadChinaInvoiceReceiptScenario(process.env.NENOVA_FIXTURE_CHINA_WORKBOOK);
+  if(!scenario){
+    console.log('SKIP: optional private 41-2 XLSX case (NENOVA_FIXTURE_CHINA_WORKBOOK absent); mandatory synthetic scenarios completed.');
+    return;
+  }
+  stage('actual invoice quantities/prices with synthetic fixture matching and TEST_ONLY cost inputs');
+  console.log('MODE: actual invoice quantities/prices with synthetic fixture matching and TEST_ONLY cost inputs');
+  console.log('TEST_ONLY: synthetic ProdKey 7300..7327/farm 7101; CW=actual GW (actual CW is missing), FX=230, tariff=0, customs=1000, combined freight classification=27514.9 CNY.');
+  console.log('NOT VERIFIED: actual ERP matching; the 12 real unmatched ERP rows are not resolved or altered by this fixture.');
+  const sourceBefore=scenario.rawInvoiceJson;
+  const costInput=chinaAirTestOnlyCostInput(costApi,scenario);
+  const invoiceNo=`TEST_ONLY_CN41_2_${scenario.documentId.slice(0,8)}`;
+  const metadata={country:'CN',farmName:'Fixture Farm',inputDate:'2026-10-10',transportMode:'AIR',
+    gw:scenario.invoice.gross_weight,cw:scenario.invoice.gross_weight,
+    testOnly:{syntheticMatching:true,metadataConfirmedForFixtureOnly:true,cw:'TEST_ONLY equal GW; source CW missing',
+      costClassification:'TEST_ONLY combined charges; not real approval'}};
+  const assertCanonicalMetadata=value=>{
+    assert.equal(value.gw,scenario.invoice.gross_weight,'saved/reloaded canonical gw must retain actual source GW');
+    assert.equal(value.cw,scenario.invoice.gross_weight,'saved/reloaded canonical cw must retain the explicit TEST_ONLY CW');
+    assert.equal(Object.hasOwn(value,'grossWeight'),false,'noncanonical grossWeight must not be stored or reintroduced');
+    assert.equal(Object.hasOwn(value,'chargeableWeight'),false,'noncanonical chargeableWeight must not be stored or reintroduced');
+  };
+  assertCanonicalMetadata(metadata);
+  await query(pool,`INSERT dbo.StockMaster(StockKey,OrderYear,OrderWeek,OrderYearWeek,Descr,isFix,CreateID)
+      VALUES(2512,N'2025',N'41-02',N'20254102',N'TEST_ONLY previous-year sentinel',1,N'fixture'),
+            (2612,N'2026',N'41-02',N'20264102',N'TEST_ONLY actual invoice fixture',1,N'fixture');
+    INSERT dbo.OrderMaster(OrderMasterKey,OrderYear,OrderWeek,OrderYearWeek,CustKey,Manager,OrderCode,Descr)
+      VALUES(8300,N'2025',N'41-02',N'20254102',7001,N'invoice-fixture',N'TEST_PREV',N'TEST_ONLY previous-year sentinel'),
+            (8301,N'2026',N'41-02',N'20264102',7001,N'invoice-fixture',N'TEST_CURR',N'TEST_ONLY synthetic matching');`);
+  for(const line of scenario.lines){
+    const p=line.source;
+    await query(pool,`INSERT dbo.Product(ProdKey,ProdName,CountryFlower,CounName,FlowerName,OutUnit,EstUnit,
+        BunchOf1Box,SteamOf1Bunch,SteamOf1Box,Stock,isDeleted)
+      VALUES(@pk,@name,N'ORCHID',N'중국',N'ORCHID',N'단',N'단',@bunchPerBox,@stemPerBunch,@stemPerBox,0,0);
+      INSERT dbo.ProductStock(StockKey,ProdKey,Stock) VALUES(2512,@pk,0);
+      INSERT dbo.OrderDetail(OrderDetailKey,OrderMasterKey,ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,OutQuantity,EstQuantity,NoneOutQuantity)
+      VALUES(@previousDetail,8300,@pk,@box,@bunch,@stem,@sentinel,@sentinel,0),
+            (@currentDetail,8301,@pk,@box,@bunch,@stem,@bunch,@bunch,0);`,{
+      pk:{type:sql.Int,value:line.prodKey},name:{type:sql.NVarChar(250),value:line.syntheticName},
+      bunchPerBox:{type:sql.Float,value:p.total_bunch/p.pcs},stemPerBunch:{type:sql.Float,value:p.total_stems/p.total_bunch},
+      stemPerBox:{type:sql.Float,value:p.total_stems/p.pcs},box:{type:sql.Float,value:p.pcs},
+      bunch:{type:sql.Float,value:p.total_bunch},stem:{type:sql.Float,value:p.total_stems},sentinel:{type:sql.Float,value:p.total_bunch+10000},
+      previousDetail:{type:sql.Int,value:8400+line.lineNo},currentDetail:{type:sql.Int,value:8500+line.lineNo},
+    });
+  }
+  await query(pool,`INSERT dbo.WebInvoiceDocument
+    (DocumentId,OrderYear,OrderWeek,Revision,FarmKey,InvoiceNo,InvoiceYear,SourceHash,OriginalFileName,BusinessKeyHash,
+     ReceiptStatus,CostStatus,RawMetadataJson,ReviewedMetadataJson,CreatedBy,CreatedAt,UpdatedBy,UpdatedAt)
+    VALUES(@id,N'2026',N'41-02',1,7101,@invoice,N'2026',@hash,@filename,NULL,N'DRAFT',N'PENDING',@raw,@reviewed,
+      N'invoice-fixture',SYSUTCDATETIME(),N'invoice-fixture',SYSUTCDATETIME());`,{
+    id:{type:sql.UniqueIdentifier,value:scenario.documentId},invoice:{type:sql.NVarChar(100),value:invoiceNo},
+    hash:{type:sql.Binary(32),value:Buffer.from(scenario.sourceHash,'hex')},filename:{type:sql.NVarChar(500),value:scenario.originalFileName},
+    raw:{type:sql.NVarChar(sql.MAX),value:sourceBefore},reviewed:{type:sql.NVarChar(sql.MAX),value:JSON.stringify(metadata)},
+  });
+  for(const line of scenario.lines){
+    const p=line.source;
+    await query(pool,`INSERT dbo.WebInvoiceLine
+      (DocumentId,Revision,LineId,[LineNo],OriginalName,LengthText,ProdKey,BoxQuantity,BunchQuantity,StemQuantity,
+       PriceUnit,UnitPrice,Currency,LineAmount,SourceEvidenceJson,ReviewedJson)
+      VALUES(@id,1,@lineId,@lineNo,@name,@length,@pk,@box,@bunch,@stem,N'단',@price,N'CNY',@amount,@source,@reviewed);`,{
+      id:{type:sql.UniqueIdentifier,value:scenario.documentId},lineId:{type:sql.UniqueIdentifier,value:line.lineId},lineNo:{type:sql.Int,value:line.lineNo},
+      name:{type:sql.NVarChar(500),value:p.source_description||p.description},length:{type:sql.NVarChar(100),value:p.stem_length||''},
+      pk:{type:sql.Int,value:line.prodKey},box:{type:sql.Decimal(18,6),value:p.pcs},bunch:{type:sql.Decimal(18,6),value:p.total_bunch},
+      stem:{type:sql.Decimal(18,6),value:p.total_stems},price:{type:sql.Decimal(18,6),value:p.u_price},amount:{type:sql.Decimal(18,6),value:p.t_price},
+      source:{type:sql.NVarChar(sql.MAX),value:JSON.stringify(p)},
+      reviewed:{type:sql.NVarChar(sql.MAX),value:JSON.stringify({unit:'단',TEST_ONLY:'synthetic fixture mapping; not actual ERP matching'})},
+    });
+  }
+  const protectedBefore=await protectedSnapshot(pool);
+  const ctx=writerContext(pool,writer);
+  const preview=await ctx.preview(scenario.documentId,1);
+  assertCanonicalMetadata(preview.document.reviewedMetadata);
+  ensure(preview.canCommit===true,`28-row synthetic mapping writer preview must pass: ${JSON.stringify(preview.issues)}`);
+  const committed=await commitArgs(ctx,scenario.documentId,scenario.operationId,scenario.receiptPartId,preview.baselineDigest);
+  const replay=await commitArgs(ctx,scenario.documentId,scenario.operationId,scenario.receiptPartId,preview.baselineDigest);
+  assert.deepEqual(replay,committed,'private 28-row writer replay must be idempotent');
+  const details=(await query(pool,`SELECT ProdKey,BoxQuantity,BunchQuantity,SteamQuantity,OutQuantity,EstQuantity,UPrice,TPrice
+    FROM dbo.WarehouseDetail WHERE WarehouseKey=@wk ORDER BY ProdKey;`,{wk:{type:sql.Int,value:committed.warehouseKey}})).recordset;
+  ensure(details.length===28,'actual source must create exactly 28 distinct warehouse price lines');
+  const sum=key=>details.reduce((total,row)=>total+Number(row[key]),0);
+  for(const [key,value] of Object.entries({BoxQuantity:159,BunchQuantity:2380,SteamQuantity:30900,TPrice:57330}))
+    ensure(Math.abs(sum(key)-value)<0.000001,`actual workbook ${key} must be conserved in WarehouseDetail`);
+  for(const [i,detail] of details.entries()){
+    const line=scenario.lines[i],p=line.source;
+    ensure(detail.ProdKey===line.prodKey&&Math.abs(detail.UPrice-p.u_price)<0.000001&&Math.abs(detail.TPrice-p.t_price)<0.000001
+      &&Math.abs(detail.BoxQuantity-p.pcs)<0.000001&&Math.abs(detail.BunchQuantity-p.total_bunch)<0.000001
+      &&Math.abs(detail.SteamQuantity-p.total_stems)<0.000001&&Math.abs(detail.OutQuantity-p.total_bunch)<0.000001
+      &&Math.abs(detail.EstQuantity-p.total_bunch)<0.000001,'each original quantity and separate unit/total price must survive writer commit');
+  }
+  const stock=(await query(pool,`SELECT p.ProdKey,p.Stock,ps.Stock WeekStock,prior.Stock PriorYearStock,
+      sh.BeforeValue,sh.AfterValue,sh.OrderYear,sh.OrderWeek,
+      (SELECT COUNT_BIG(*) FROM dbo.StockHistory allSh WHERE allSh.ProdKey=p.ProdKey) HistoryCount
+    FROM dbo.Product p JOIN dbo.ProductStock ps ON ps.ProdKey=p.ProdKey AND ps.StockKey=2612
+    JOIN dbo.ProductStock prior ON prior.ProdKey=p.ProdKey AND prior.StockKey=2512
+    JOIN dbo.StockHistory sh ON sh.ProdKey=p.ProdKey
+    WHERE p.ProdKey>=7300 AND p.ProdKey<7328 ORDER BY p.ProdKey;`)).recordset;
+  ensure(stock.length===28,'28 synthetic products must have native stock and history readback');
+  for(const [i,row] of stock.entries())ensure(row.ProdKey===scenario.lines[i].prodKey&&row.PriorYearStock===0&&row.BeforeValue===0
+    &&Math.abs(row.Stock-scenario.lines[i].source.total_bunch)<0.000001
+    &&Math.abs(row.WeekStock-scenario.lines[i].source.total_bunch)<0.000001
+    &&Math.abs(row.AfterValue-scenario.lines[i].source.total_bunch)<0.000001
+    &&Number(row.HistoryCount)===1&&row.OrderYear==='2026'&&row.OrderWeek==='41-02',
+  'synthetic stock/history must match source bunches once and preserve previous-year sentinel');
+  assert.deepEqual(await protectedSnapshot(pool),protectedBefore,'28-row writer must preserve staging and all order/shipment sentinels');
+  const saveArgs={withTransactionFn:withTransactionFn(pool),types:sql,documentId:scenario.documentId,revision:1,
+    actor:'invoice-fixture-cost',input:costInput,reason:'TEST_ONLY synthetic matching, CW/FX/tariff/customs and combined-charge classification; not real approval'};
+  const saved=await costApi.saveInvoiceCostRevision(saveArgs);
+  ensure(saved.idempotent===false&&saved.status==='APPROVED'&&saved.currentActual?.lines.length===28,
+    'TEST_ONLY CN_AIR cost must save 28 actual-quantity lines');
+  const read=await costApi.readInvoiceCosts({queryFn:(statement,params={})=>query(pool,statement,params),types:sql,warehouseKey:committed.warehouseKey});
+  ensure(read.status==='APPROVED'&&read.currentActual?.lines.length===28&&read.currentActual.formulaId==='CN_AIR_WEIGHT_CBM_V1',
+    'TEST_ONLY CN_AIR SQL read must return all 28 approved fixture cost lines');
+  const editable=read.currentActual.editableInput;
+  ensure(editable&&typeof editable==='object','actual 28-row cost read must expose sanitized editableInput');
+  assert.deepEqual(Object.keys(editable).sort(),['input','invoiceSourceHash'],'editableInput must contain only the approved input and source identity');
+  assert.equal(editable.invoiceSourceHash,scenario.sourceHash,'editable input must belong to the actual source workbook');
+  assert.deepEqual(Object.keys(editable.input).sort(),[
+    'formulaEffectiveDate','nativeCurrency','freightCurrency','exchangeRateType','exchangeRateDate','costSourceId','allocationScope',
+    'exchangeRateKRW','freightAmount','customsTotalKRW','allocationShareNumerator','allocationShareDenominator','expected95Quantity',
+    'formulaId','formulaVersion','formulaSourceHash','formulaSourceSheet','formulaSourceCells','formulaApplicabilityConfirmed','lineInputs',
+  ].sort(),'editable input must expose only explicitly allowed formula/cost fields');
+  assert.equal(editable.input.formulaApplicabilityConfirmed,false,'restored approved costs require explicit applicability reconfirmation');
+  assert.equal(editable.input.lineInputs.length,28,'editable input must restore all actual source line weights');
+  const remainingSourceLines=new Map(scenario.lines.map(line=>[line.lineId.toLowerCase(),line]));
+  let editableGrossWeight=0;
+  for(const line of editable.input.lineInputs){
+    assert.deepEqual(Object.keys(line).sort(),['lineId','tariffRate','otherCostPerUnitKRW','stemsPerBunch','grossWeightKg','volumeWeightKg'].sort(),
+      'restored line input must contain only approved numeric fields and line identity');
+    const sourceLine=remainingSourceLines.get(line.lineId);
+    ensure(sourceLine,'editable line identity must be unique and belong to the actual 28-row invoice');
+    remainingSourceLines.delete(line.lineId);
+    assert.equal(line.grossWeightKg,sourceLine.source.gross_weight,'editable line GW must retain the actual workbook weight');
+    assert.equal(line.volumeWeightKg,null,'GW=CW fixture must restore blank CBM/volume weight as null, not invent a value');
+    assert.equal(line.tariffRate,0);assert.equal(line.otherCostPerUnitKRW,0);
+    assert.equal(line.stemsPerBunch,null,'unused cost inputs must not be invented during restoration');
+    editableGrossWeight+=line.grossWeightKg;
+  }
+  assert.equal(remainingSourceLines.size,0,'editable input must cover every source line exactly once');
+  ensure(Math.abs(editableGrossWeight-metadata.gw)<0.000001&&Math.abs(editableGrossWeight-metadata.cw)<0.000001,
+    'restored line weights must match canonical document gw and explicit TEST_ONLY cw');
+  const assertNoPrivateSnapshots=value=>{
+    if(!value||typeof value!=='object')return;
+    for(const [key,child] of Object.entries(value)){
+      ensure(!['_snapshot','snapshot','rawsnapshot','rawinput','inputsnapshotjson','receiptsnapshot'].includes(key.toLowerCase()),
+        'actual cost read must not expose private snapshots or unsanitized raw input');
+      assertNoPrivateSnapshots(child);
+    }
+  };
+  assertNoPrivateSnapshots(read);
+  const totals=read.currentActual.lines.reduce((sum,line)=>{
+    for(const key of ['goodsNative','freightNative','customsKRW'])sum[key]+=Number(line.componentAmounts[key]);
+    sum.totalCostKRW+=Number(line.totalCostKRW);return sum;
+  },{goodsNative:0,freightNative:0,customsKRW:0,totalCostKRW:0});
+  for(const [key,value] of Object.entries({goodsNative:57330,freightNative:27514.9,customsKRW:1000,totalCostKRW:84844.9*230+1000}))
+    ensure(Math.abs(totals[key]-value)<0.0001,`TEST_ONLY CN_AIR cost ${key} must conserve all allocated totals`);
+  const costReplay=await costApi.saveInvoiceCostRevision(saveArgs);
+  ensure(costReplay.idempotent===true&&costReplay.savedCostRevisionId===saved.currentActual.costRevisionId,
+    'private CN_AIR cost replay must reuse the original revision');
+  const stored=(await query(pool,`SELECT r.InputSnapshotJson,
+    (SELECT COUNT_BIG(*) FROM dbo.WebInvoiceCostLine l WHERE l.CostRevisionId=r.CostRevisionId) LineCount,
+    d.RawMetadataJson,d.ReviewedMetadataJson,d.SourceHash FROM dbo.WebInvoiceCostRevision r
+    JOIN dbo.WebInvoiceDocument d ON d.DocumentId=r.DocumentId WHERE r.DocumentId=@id;`,{
+    id:{type:sql.UniqueIdentifier,value:scenario.documentId},
+  })).recordset;
+  ensure(stored.length===1&&Number(stored[0].LineCount)===28,'idempotent private CN_AIR cost must leave one revision and 28 lines');
+  ensure(JSON.parse(stored[0].InputSnapshotJson).invoiceSourceHash===scenario.sourceHash
+    &&Buffer.from(stored[0].SourceHash).toString('hex')===scenario.sourceHash,'cost and document must retain actual workbook SHA-256');
+  assert.equal(stored[0].RawMetadataJson,sourceBefore,'raw actual source must not gain synthetic mappings or a fabricated CW');
+  assertCanonicalMetadata(JSON.parse(stored[0].ReviewedMetadataJson));
+  const reloaded=await documents.getInvoiceDocument({queryFn:(statement,params={})=>query(pool,statement,params),types:sql,documentId:scenario.documentId});
+  assertCanonicalMetadata(reloaded.reviewedMetadata);
+  assert.equal(JSON.stringify(scenario.invoice),sourceBefore,'actual parser output must remain unmodified');
+  assert.deepEqual(await protectedSnapshot(pool),protectedBefore,'cost save/read must preserve order/shipment/staging sentinels');
+  console.log('ok - actual invoice quantities/prices with synthetic fixture matching and TEST_ONLY cost inputs: 28 lines, 159 boxes, 2380 bunches, 30900 stems, CNY goods 57330 / grand 84844.9, GW 1985.94; writer/stock/cost readback and idempotency passed.');
+}
+
 async function main() {
   stage('argument and local-input preflight');
   const args=parseArgs(process.argv);
@@ -989,6 +1168,9 @@ async function main() {
     await testBusyGatePreserved(pool,writer,protectedBefore);
     stage('actual invoice cost save/read/idempotency and EXE-detail stale-read scenarios');
     await testCostSaveReadIdempotencyAndStaleExeDetail(pool,writer,costs);
+    // Optional private case is deliberately last; existing protected baselines
+    // and every mandatory synthetic scenario above retain their original scope.
+    await testPrivateChinaInvoiceWriterAndAirCost(pool,writer,costs,documents);
     stage('fixture scenarios passed');
     console.log('PASS: isolated invoice receipt writer SQL fixture scenarios completed.');
   }finally{

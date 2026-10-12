@@ -61,8 +61,16 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter,
     chinaLegacyInvoice, chinaLegacyReview, sourceReview] = await modulesReady;
   const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [], generationCalls = [], hashPromises = [];
-  let cursor = 0, currentCatalog = catalog, failure = null, erpFailure = null;
+  let cursor = 0, currentCatalog = catalog, currentAliases = null, failure = null, erpFailure = null;
+  const storageReads=[];
+  const receiptSources=[];
+  const onReceiptSourceChange=source=>receiptSources.push(source);
   let erpValue = null, erpRevision = 0;
+  let revisionGate=null;
+  const listeners = new Map();
+  const browserWindow = { setInterval(fn) { listeners.set('poll',fn); return 1; }, clearInterval() { listeners.delete('poll'); },
+    addEventListener(name,fn) { listeners.set(name,fn); }, removeEventListener(name,fn) { if(listeners.get(name)===fn)listeners.delete(name); } };
+  const browserDocument = { defaultView:browserWindow,visibilityState:'visible', addEventListener:browserWindow.addEventListener, removeEventListener:browserWindow.removeEventListener };
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
     useState(value) { const i = cursor++; if (!(i in slots)) slots[i] = typeof value === 'function' ? value() : value;
@@ -74,8 +82,8 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     } },
   };
   const storage = {
-    get: async key => key === state.PACKING_STORAGE_KEYS.catalog && currentCatalog
-      ? { value: JSON.stringify(currentCatalog) } : null,
+    get: async key => { storageReads.push(key);return key === state.PACKING_STORAGE_KEYS.catalog && currentCatalog
+      ? { value: JSON.stringify(currentCatalog) } : key===state.PACKING_STORAGE_KEYS.aliases&&currentAliases?{value:JSON.stringify(currentAliases)}:null; },
     set: async (key, value) => { writes.push({ key, value: JSON.parse(value) }); if (failure) throw failure; currentCatalog = JSON.parse(value); return { success: true }; },
     delete: async key => { writes.push({ key, value: null }); if (failure) throw failure; currentCatalog = null; return { success: true }; },
   };
@@ -92,8 +100,10 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     FlowerName: product.flowerKr ?? '',
   })));
   const fetchStub = (url, options) => {
-    if (url === '/api/import/tools/product-matches') {
+    if (url.startsWith('/api/import/tools/product-matches')) {
       erpRequests.push({ url, options });
+      if(url.includes('revisionOnly=1')&&revisionGate){const gate=revisionGate;revisionGate=null;return gate.promise;}
+      if(url.includes('revisionOnly=1'))return Promise.resolve({ok:true,status:200,json:async()=>({success:true,scope:'team',value:erpValue,revision:erpRevision})});
       if (options?.method === 'POST') {
         if (erpFailure) return Promise.resolve({ ok: false, status: 409, json: async () => ({ success: false, error: erpFailure.message }) });
         const body = JSON.parse(options.body);
@@ -139,13 +149,13 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
     './PackingProductMatchDialog.js': { default: PackingProductMatchDialogStub, __esModule: true } };
   const module = { exports: {} };
-  new Function('require', 'module', 'exports', 'fetch', 'FileReader', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(
-    key => modules[key], module, module.exports, fetchStub, Reader);
+  new Function('require', 'module', 'exports', 'fetch', 'FileReader', 'window', 'document', code + '\nmodule.exports.AWBPanel = AWBPanel; module.exports.PendingItem = PendingItem; module.exports.NoMatchItem = NoMatchItem;')(
+    key => modules[key], module, module.exports, fetchStub, Reader, browserWindow, browserDocument);
   const h = {
-    writes, readers, requests, erpRequests, extractionCalls, generationCalls, hashPromises, tree: null,
+    writes, readers, requests, erpRequests, extractionCalls, generationCalls, hashPromises, storageReads, receiptSources, tree: null,
     components: { PackingResultsStub, PackingProductMatchDialogStub },
     render() { cursor = 0; this.tree = awb ? module.exports.AWBPanel({ xlsxLib: XLSX, lang, readAwbPdf, onBack() {} })
-      : module.exports.default({ storage }); return this.tree; },
+      : module.exports.default({ storage, onReceiptSourceChange }); return this.tree; },
     effects() { for (const i of effects.splice(0)) { slots[i].cleanup?.(); slots[i].cleanup = slots[i].fn(); } },
     async refresh() { this.render(); this.effects(); await tick(); return this.render(); },
     nodes(type) { return flatten(this.tree).filter(n => n.type === type); },
@@ -157,7 +167,14 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     fail(error) { failure = error; },
     failErp(error) { erpFailure = error; },
     setCatalog(next) { currentCatalog = next; },
+    setLegacyAliases(next) { currentAliases=next; },
+    setTeamMatches(value,revision) { erpValue=value;erpRevision=revision; },
+    holdRevision() { revisionGate=deferred();return revisionGate; },
+    async poll() { await listeners.get('poll')?.();await this.refresh(); },
+    async event(name) { await listeners.get(name)?.();await this.refresh(); },
+    setVisible(value) { browserDocument.visibilityState=value?'visible':'hidden'; },
     async waitForRealSha(index) {
+      if(!hashPromises[index])await tick();
       assert.ok(hashPromises[index], `missing SHA-256 operation ${index}`);
       const digest = await hashPromises[index];
       assert.match(digest, /^[a-f0-9]{64}$/, 'browser fixture must complete a real SHA-256');
@@ -676,13 +693,32 @@ test('parent ERP matching saves and rebuilds, while a failed save retains the ta
   let results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
   assert.ok(results, 'parent renders packing results');
   assert.equal(results.props.excels[0].products[0].unmatched, true);
-  results.props.onMatch({ matchingDescription: 'CARNATION Doncel RAW' }); h.render();
+  const retainedExcels=results.props.excels;
+  const retainedReview=flatten(h.tree).find(node=>node.type==='PackingEvidenceReview');
+  h.setTeamMatches(null,4);
+  await h.poll();
+  assert.ok(text(h.tree).includes('최신 팀 매칭 적용'));
+  results=flatten(h.tree).find(node=>node.type===h.components.PackingResultsStub);
+  assert.equal(results.props.excels,retainedExcels,'background revision notice preserves generated draft identity');
+  assert.equal(results.props.blocked(results.props.excels[0]),true);
+  assert.equal(h.receiptSources.at(-1).excels.length,0,'stale notice suspends new receipt adaptation without touching workbench records');
+  if(retainedReview)assert.equal(flatten(h.tree).find(node=>node.type==='PackingEvidenceReview')?.props.rows,retainedReview.props.rows);
+  await results.props.onMatch({ matchingDescription: 'CARNATION Doncel RAW' }); h.render();
   let dialog = flatten(h.tree).find(node => node.type === h.components.PackingProductMatchDialogStub);
   assert.equal(dialog.props.target.description, 'CARNATION Doncel RAW');
-  await dialog.props.onSave(1); await h.refresh();
+  assert.equal(dialog.props.target.expectedRevision,4);
+  h.setTeamMatches(null,5);
+  await h.poll();
+  dialog=flatten(h.tree).find(node=>node.type===h.components.PackingProductMatchDialogStub);
+  assert.equal(dialog.props.target.expectedRevision,4,'background poll never rebases the opened selection');
+  const saving=dialog.props.onSave(1);
+  const requestsDuringSave=h.erpRequests.length;
+  await h.poll();
+  assert.equal(h.erpRequests.length,requestsDuringSave,'poll pauses while save is in flight');
+  await saving; await h.refresh();
   assert.equal(h.erpRequests.filter(request => request.options?.method === 'POST').length, 1);
   assert.deepEqual(JSON.parse(h.erpRequests.at(-1).options.body), {
-    country: 'CO', description: 'CARNATION Doncel RAW', prodKey: 1, expectedRevision: 0,
+    country: 'CO', description: 'CARNATION Doncel RAW', prodKey: 1, expectedRevision: 4,
   });
   assert.equal(flatten(h.tree).some(node => node.type === h.components.PackingProductMatchDialogStub), false);
   results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
@@ -693,13 +729,79 @@ test('parent ERP matching saves and rebuilds, while a failed save retains the ta
     sourceDescription: 'CARNATION Doncel RAW', matchedName: 'CARNATION Doncel',
   });
 
-  results.props.onMatch({ matchingDescription: 'SECOND SOURCE' }); h.render();
+  await results.props.onMatch({ matchingDescription: 'SECOND SOURCE' }); h.render();
   h.failErp(Error('409 revision conflict'));
   dialog = flatten(h.tree).find(node => node.type === h.components.PackingProductMatchDialogStub);
   await dialog.props.onSave(1); await h.refresh();
   dialog = flatten(h.tree).find(node => node.type === h.components.PackingProductMatchDialogStub);
   assert.equal(dialog.props.target.description, 'SECOND SOURCE');
   assert.match(dialog.props.error, /409 revision conflict/);
+  const postCount=h.erpRequests.filter(request=>request.options?.method==='POST').length;
+  await dialog.props.onSave(1);await h.refresh();
+  assert.equal(h.erpRequests.filter(request=>request.options?.method==='POST').length,postCount,'conflict requires explicit reload, no retry');
+  assert.equal(dialog.props.target.requiresReload,true);
+  h.failErp(null);
+  await dialog.props.onReload();await h.refresh();
+  dialog=flatten(h.tree).find(node=>node.type===h.components.PackingProductMatchDialogStub);
+  assert.equal(dialog.props.target.requiresReload,false);
+  assert.equal(dialog.props.target.expectedRevision,6);
+});
+
+test('A/B refresh singleflight and late revision response cannot invalidate a newer explicit reload',async()=>{
+  const h=await harness({lang:'ko'});
+  await h.upload(catalogFile([[1,'A','Retained catalog draft','','콜롬비아']],'retained.xlsx'));
+  h.setTeamMatches(null,1);await h.poll();
+  assert.ok(text(h.tree).includes('최신 팀 매칭 적용'));
+  const gate=h.holdRevision();
+  const pending=h.poll();
+  const inFlight=h.erpRequests.length;
+  await h.event('focus');await h.event('visibilitychange');
+  assert.equal(h.erpRequests.length,inFlight,'focus and visibility share the in-flight revision request');
+  // No extraction exists: explicit reload still establishes the newest read sequence.
+  h.setTeamMatches(null,9);
+  await h.click('최신 팀 매칭 적용');
+  gate.resolve({ok:true,status:200,json:async()=>({success:true,scope:'team',revision:8,value:null})});
+  await pending;
+  assert.ok(text(h.tree).includes('retained.xlsx'));
+  assert.ok(!text(h.tree).includes('팀 공용 매칭이 변경되었습니다'));
+  h.setVisible(false);const beforeHidden=h.erpRequests.length;
+  await h.poll();assert.equal(h.erpRequests.length,beforeHidden,'hidden document does not poll');
+  h.setVisible(true);h.setTeamMatches(null,10);await h.event('visibilitychange');
+  assert.ok(text(h.tree).includes('팀 공용 매칭이 변경되었습니다'),'returning to visible detects session B revision');
+  h.unmount();
+});
+
+test('each new process reads current team matches and legacy aliases before generating with local returned values',async()=>{
+  const h=await harness();
+  h.nodes('button').find(node=>node.props['aria-label']==='Colombia').props.onClick();h.render();
+  h.inputPdf({name:'41-1.pdf',type:'application/pdf',size:10});await h.readers[0].complete();h.render();
+  await h.button('Generar packing list').props.onClick();await h.refresh();
+  const [,packing,,,,erp]=await modulesReady;
+  const description='TEAM SOURCE RAW';
+  const products=erp.packingErpProducts([{ProdKey:1,ProdName:'CARNATION Doncel',CounName:'콜롬비아',isDeleted:0}]);
+  h.setTeamMatches(erp.upsertPackingErpMatch(null,{country:'CO',description,prodKey:1},products),12);
+  h.setLegacyAliases({[packing.aliasKey('LEGACY SOURCE RAW')]:'CARNATION Doncel'});
+  const reads=h.storageReads.length;
+  const hashIndex=h.hashPromises.length;
+  const processing=h.button('Analizar con IA (posible coste)').props.onClick();
+  await h.waitForRealSha(hashIndex);
+  const during=h.erpRequests.length;await h.poll();
+  assert.equal(h.erpRequests.length,during,'poll is paused while processing');
+  h.requests[0].resolve({ok:true,status:200,json:async()=>({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify({invoices:[{
+    invoice:'FRESH',supplier:'Teucali',date:'2026-10-09',raw_date:'2026-10-09',date_order:'YMD',date_kind:'invoice',currency:'USD',invoice_total:2,freight_total:0,
+    products:[description,'LEGACY SOURCE RAW'].map(description=>({description,pcs:1,bunch_st:10,steam_box:10,total_stems:10,total_bunch:1,u_price:0.1,t_price:1})),
+  }]})}]})});
+  await processing;await h.refresh();
+  const results=flatten(h.tree).find(node=>node.type===h.components.PackingResultsStub);
+  assert.equal(results.props.excels[0].products[0].erpMatch.prodKey,1);
+  assert.equal(results.props.excels[0].products[1].name,'CARNATION Doncel');
+  assert.ok(h.storageReads.length>reads,'process reloads legacy records, not only ERP matches');
+  assert.equal(h.erpRequests.filter(request=>!request.options?.method&&!request.url.includes('?')).length,3);
+  assert.equal(h.writes.length,0,'legacy aliases are read without migration or writes');
+  const receiptUpdates=h.receiptSources.length;
+  await results.props.onMatch({matchingDescription:description});await h.refresh();
+  assert.equal(h.receiptSources.length,receiptUpdates,'fresh dialog read alone must not republish receipt source and replace drafts');
+  h.unmount();
 });
 
 test('source resolved flags do not clear extraction issues or open the generator gate', async () => {

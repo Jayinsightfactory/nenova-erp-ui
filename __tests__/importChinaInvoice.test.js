@@ -49,6 +49,27 @@ function generate(packing, inv, opts = {}) {
   return { result, book, sheet: book.Sheets[book.SheetNames[0]] };
 }
 
+test('Hubfresh English name/Length header variant preserves totals and source GW without inventing CW', async () => {
+  const rows = fixture([flower('Rose Proud', '75-80cm', 27, 'A级单头玫瑰')]);
+  rows[10][2] = '英语品名\nEnglish name';
+  rows[10][5] = '长度\nLength';
+  rows[10][6] = '规格\nSpecification of product';
+  rows[10][15] = '实际毛重A.G.W.T.';
+  rows[12][15] = rows[11][15];
+  const inv = await parse(rows);
+  assert.equal(inv.products.length, 1);
+  assert.equal(inv.products[0].length.key, '75-80CM');
+  assert.equal(inv.gross_weight, 88.13);
+  assert.equal(inv.review_evidence.gross_weight.source_cell, 'P13');
+  assert.equal(inv.vol_weight, undefined);
+  assert.equal(inv.currency, 'CNY');
+  rows[12][15] += 1;
+  await assert.rejects(() => parse(rows), /gross weight subtotal mismatch/);
+  rows[12][15] -= 1;
+  rows[10][3] = 'English item name';
+  await assert.rejects(() => parse(rows), /ambiguous product headers/);
+});
+
 test('response contract, correct Hubfresh invoice/date, independent counts and zero price', async () => {
   const inv = await parse();
   assert.equal(inv.invoice, 'XJ-2026-NN004');

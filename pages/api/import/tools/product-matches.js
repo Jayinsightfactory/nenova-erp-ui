@@ -12,13 +12,17 @@ export default withAuth(async function handler(req,res) {
     return res.status(405).json({success:false,error:'지원하지 않는 요청입니다.'});
   }
   try {
+    if (req.method === 'GET' && req.query?.revisionOnly === '1') {
+      const record = await readImportTeamRecord(PACKING_ERP_MATCH_KEY);
+      return res.json({success:true,value:record.value,revision:record.revision,scope:'team'});
+    }
     const [result, record] = await Promise.all([query(PACKING_PRODUCT_SCOPE_SQL),readImportTeamRecord(PACKING_ERP_MATCH_KEY)]);
     const products = packingErpProducts(result.recordset);
-    if (req.method === 'GET') return res.json({success:true,products,value:record.value,revision:record.revision});
+    if (req.method === 'GET') return res.json({success:true,products,value:record.value,revision:record.revision,scope:'team'});
     if (!Number.isSafeInteger(req.body?.expectedRevision) || req.body.expectedRevision < 0) return res.status(400).json({success:false,error:'자료 버전을 다시 조회하세요.'});
     const value = upsertPackingErpMatch(record.value,req.body,products);
     const saved = await writeImportTeamRecord(PACKING_ERP_MATCH_KEY,{value,expectedRevision:req.body.expectedRevision,actor:req.user});
-    return res.json({success:true,products,value:saved.value,revision:saved.revision});
+    return res.json({success:true,products,value:saved.value,revision:saved.revision,scope:'team'});
   } catch (error) {
     return res.status(error.statusCode || 500).json({success:false,error:error.statusCode ? error.message : '전산 품목·매칭 자료를 읽거나 저장하지 못했습니다. 초안을 유지하고 다시 시도하세요.'});
   }

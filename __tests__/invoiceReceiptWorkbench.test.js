@@ -20,7 +20,7 @@ test('component compiles and is connected only through the bounded packing sourc
     configFile: false,
     babelrc: false,
   });
-  assert.match(packingSource, /onReceiptSourceChange\(\{[\s\S]*?excels,[\s\S]*?invoices:\s*lastExtraction\.result\.invoices,[\s\S]*?country,[\s\S]*?file,[\s\S]*?products:\s*erpMatches\.products,[\s\S]*?reviewConfirmed,[\s\S]*?truncated:/);
+  assert.match(packingSource, /onReceiptSourceChange\(\{[\s\S]*?excels,[\s\S]*?invoices:\s*lastExtraction\.result\.invoices,[\s\S]*?country,[\s\S]*?file,[\s\S]*?products:\s*generatedErp\.products,[\s\S]*?reviewConfirmed,[\s\S]*?truncated:/);
   assert.match(pageSource, /<InvoiceReceiptWorkbench \{\.\.\.receiptSource\}\/>/);
   assert.doesNotMatch(pageSource, /receiptSource&&<InvoiceReceiptWorkbench/);
   assert.match(pageSource, /EMPTY_RECEIPT_SOURCE=Object\.freeze/);
@@ -125,7 +125,7 @@ test('saved receipt documents remain reachable without re-uploading a source fil
   assert.match(source, /저장 세부차수/);
   assert.match(source, /setBrowseScope/);
   assert.match(source, /loadDocument\(item\.documentId\)/);
-  assert.match(packingSource, /products: erpMatches\?\.products \|\| EMPTY_RECEIPT_ITEMS/);
+  assert.match(packingSource, /products: generatedErp\?\.products \|\| EMPTY_RECEIPT_ITEMS/);
 });
 
 test('1920 workbench is dense, scroll-safe and keeps headers and issue rail visible', () => {
