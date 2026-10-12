@@ -33,6 +33,19 @@ const sampleState = () => ({
   }],
 });
 
+test('committed applied-stock ledger survives result dismissal/failure and stays actor/year scoped',()=>{
+  const storage=memoryStorage(),state=sampleState();
+  const ledger={verified:true,stockCopyScope:{week:'2026-38-01',baseText:'노비아 10'},stockCopyDetails:[{ok:true,verified:true,prodKey:12,qty:1,entryId:'execution:item',editGuard:{token:'never-save'}}]};
+  for(const bulkResult of [null,{verified:false,rolledBack:true,failCount:1}]){
+    savePasteWorkspace(storage,{actorId:'user-a',week:'2026-38-01',state:{...state,bulkResult,appliedStockLedger:ledger}});
+    const restored=loadPasteWorkspace(storage,{actorId:'user-a',week:'2026-38-01'});
+    assert.equal(restored.state.appliedStockLedger.stockCopyDetails[0].entryId,'execution:item');
+    assert.equal(restored.state.appliedStockLedger.stockCopyDetails[0].editGuard,undefined);
+    assert.equal(loadPasteWorkspace(storage,{actorId:'user-b',week:'2026-38-01'}),null);
+    assert.equal(loadPasteWorkspace(storage,{actorId:'user-a',week:'2025-38-01'}),null);
+  }
+});
+
 test('workspace keys are canonical and isolate actor and cross-year week', () => {
   assert.equal(buildPasteWorkspaceKey('user a', '2026-38-01'), 'nenova:orders-paste:workspace:v1:user%20a:2026-38-01');
   assert.notEqual(buildPasteWorkspaceKey('user-a', '2026-38-01'), buildPasteWorkspaceKey('user-b', '2026-38-01'));

@@ -1,0 +1,68 @@
+{
+  "id": "paste-stock-note",
+  "title": "기초재고 저장 전 전체 품목 매칭 확인",
+  "scope": [
+    "pages/orders/paste.js",
+    "__tests__/pasteStockNoteSaveReview.test.js",
+    "scripts/paste-stock-note-save-smoke.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "REVIEW_STOCK_NOTE_MATCHES",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": [
+        "all ERP tables",
+        "original source text"
+      ]
+    },
+    {
+      "name": "SAVE_MATCHED_STOCK_NOTE",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": [
+        "all ERP tables"
+      ]
+    }
+  ],
+  "criteria": {
+    "save": "Save opens matching review. Every nonexcluded parsed stock row requires valid nonnegative finite quantities and a positive integer ProdKey present in current products. Invalid nonheader nonexcluded source lines block save explicitly. Zero is valid. Only 100% matching saves once automatically after review renders. Snapshot contains every matched row, exact raw text and exclusions.",
+    "scope": "Pending save includes forceCreate and fingerprint of base text, base week, order week, exclusions and other persisted source texts. Scope or text edits cancel stale save. Full-year week identity remains unchanged.",
+    "failure": "Cancel never writes favorites. Failure preserves mappings and shows retry. ERP/order/shipment/stock mutation APIs are never called.",
+    "keyboard": "Dialog initial focus, Tab/Shift+Tab containment, Escape cancel, focus restored to invoking button. Existing product matching editor is reused. Dialog scroll is an explicit modal exception."
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "Pending 2026 stock-note save never applies after changing to 2025 even with same short week or same source."
+  },
+  "requiredTestFiles": [
+    "__tests__/pasteStockNoteSaveReview.test.js",
+    "__tests__/pasteStockNote.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": [
+      "GetCustomerList"
+    ],
+    "tables": [
+      "ShipmentDetail",
+      "ShipmentDate"
+    ],
+    "note": "Web favorite draft only; existing ERP save SQL and native forms unchanged."
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}

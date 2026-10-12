@@ -1,0 +1,68 @@
+{
+  "id": "paste-applied-stock-copy",
+  "title": "처리된 기초재고 원문 복사",
+  "scope": [
+    "lib/pasteAppliedStockCopy.js",
+    "pages/orders/paste.js",
+    "__tests__/pasteAppliedStockCopy.test.js",
+    "lib/pasteWorkspace.js",
+    "__tests__/pasteWorkspace.test.js",
+    "scripts/paste-applied-stock-copy-smoke.cjs"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "COPY_APPLIED_STOCK",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "preserve": [
+        "all ERP tables",
+        "StockHistory",
+        "Estimate",
+        "ShipmentFarm",
+        "ShipmentDate",
+        "ShipmentDetail.Amount/Vat/isFix",
+        "WebProfitReport"
+      ]
+    }
+  ],
+  "criteria": {
+    "authority": "Only exact current full-year/week/base/paste/base-week/mapping/exclusion scope with verified successful committed bulk-result rows (failCount zero), never preview records, rolled back, undone, failed or duplicate entries. Accumulate successive per-customer committed operations with unique execution IDs and restore that accumulator in existing pasteWorkspace. ADD subtracts original input quantity, CANCEL adds it only when actual transaction shipment before/after changed in that direction; zero delta does not consume again. Do not use current cumulative shipment quantities. Verified operation facts live independently of dismissible bulkResult in appliedStockLedger and survive failed retries and workspace reload. Unsupported absolute distribution requires a fresh base/scope before copy; undo invalidates the ledger.",
+    "format": "Keep original base-stock input names, numeric token formatting, units, headers, separators and two-line name/quantity structure. Sort product blocks by matched DB ProdName using English A-Z ordering within source header/separator sections; omit exactly zero vectors only, retain positive fractions. Explicit excluded lines and exact signed text ranges use textWithoutExcludedLines, same as analysis/parser; raw source remains the scope fingerprint.",
+    "safety": "Unknown product, duplicate base product, unit mismatch, invalid quantity and negative remainder disable applied copy with explicit warnings; never clamp. No unit conversion is invented; mixed box/detail quantities updated independently. Missing unit follows existing parser main-box semantics.",
+    "source": "pages/api/products/search.js full-list ORDER BY CounName, FlowerName, ProdName; source matching keys from existing resolved product matches. Original base text and current successful result are independently persisted in existing pasteWorkspace."
+  },
+  "crossYearFixture": {
+    "required": true,
+    "description": "Prior-year same week verified result cannot change current selected full-week base stock."
+  },
+  "requiredTestFiles": [
+    "__tests__/pasteAppliedStockCopy.test.js"
+  ],
+  "requiredCommands": [
+    "node __tests__/pasteAppliedStockCopy.test.js",
+    "npm run test:erp-contract",
+    "npm run build",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run test:erp-manifest -- --changed-from HEAD^",
+    "npm run guard:erp-writes -- --changed-from HEAD^"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/FormShipmentDistribution.md",
+    "source": "C:\\Users\\USER\\nenova-decompiled\\Nenova\\FormShipmentDistribution.cs",
+    "methods": [
+      "GetCustomerList"
+    ],
+    "tables": [
+      "ShipmentDetail",
+      "ShipmentDate"
+    ],
+    "note": "Web-only projection preserves native ERP write boundary; no new SQL or native behavior."
+  }
+}
