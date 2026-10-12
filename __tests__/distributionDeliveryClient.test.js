@@ -8,6 +8,10 @@ assert.equal(oversized.length,1);assert.equal(batches.flat().length,220);
 for(const sources of batches){assert(sources.length<=200);assert(sources.reduce((sum,row)=>sum+row.message.length,0)<=200000);assert(Buffer.byteLength(JSON.stringify({year,week,sources}))<=450000);assert(!('privateExtra' in sources[0]));}
 const item={identity:row.identity,status:'DELIVERED',deliveredAt:'2026-10-09T10:01:00+09:00',deliveryIdentity:'nenovakakao|delivery|two'};
 const good={ok:true,year,week,items:[item]};
+const mismatch={identity:row.identity,status:'UNCONFIRMED',reason:'week_mismatch',sourceWeek:'41-01',targetWeek:'41-02',candidateDeliveryIdentity:'nenovakakao|delivery|other',candidateDeliveredAt:'2026-10-09T10:01:00+09:00'};
+assert.equal(validatedDeliveryItems({...good,items:[mismatch]},[row],year,week)[0].status,'UNCONFIRMED');
+assert.match(require('../lib/distributionDeliveryClient').deliveryMismatchLabel(mismatch),/41-01 → 41-02/);
+for(const change of [{status:'DELIVERED'},{targetWeek:'41-01'},{sourceWeek:'99-01'},{candidateDeliveryIdentity:row.identity},{candidateDeliveredAt:'2025-10-09T10:01:00+09:00'},{candidateDeliveredAt:'2026-10-09T09:00:00+09:00'}])assert.throws(()=>validatedDeliveryItems({...good,items:[{...mismatch,...change}]},[row],year,week));
 assert.equal(validatedDeliveryItems(good,[row],year,week)[0].status,'DELIVERED');
 for(const bad of [{...good,year:'2025'},{...good,week:'2026-40-01'},{...good,items:[]},{...good,items:[item,item]},{...good,items:[{...item,deliveredAt:''}]},{...good,items:[{...item,deliveryIdentity:row.identity}]},{...good,items:[{...item,deliveredAt:'2025-10-09T10:01:00+09:00'}]}])assert.throws(()=>validatedDeliveryItems(bad,[row],year,week));
 const {createDeliveryEvidenceCache}=require('../lib/distributionDeliveryClient');

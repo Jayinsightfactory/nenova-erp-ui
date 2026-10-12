@@ -41,6 +41,7 @@
     }
   ],
   "criteria": {
+    "weekMismatchAdvisory": "When no exact match exists, a unique valid same-year later target differing only in its anchored valid leading week-subweek token may return UNCONFIRMED/week_mismatch with sourceWeek/targetWeek and candidate identity/time. Never DELIVERED, persisted evidence, ERP apply or automatic cycle correction. Different body/customer/product/quantity/action, earlier/approximate/truncated/wrong-room targets cannot qualify. Duplicate candidates remain ambiguous. No target raw text returned.",
     "request": "Authenticated POST with selected year and full year-week-subweek, at most 200 raw sources, at most 20000 characters per source and 200000 total characters. accountActive=false is forbidden. No sending or ERP write.",
     "source": "Only canonical nenovakakao|chat_id|external_message_id identities from 영업방 with exact original raw text and valid nonapproximate timezone-bearing timestamp in selected KST year can match. Uploaded rows remain UNCONFIRMED.",
     "target": "Fixed authenticated nenova-delivery-feed endpoint only, room exactly 현장 추가취소방, source nenovakakao, distinct valid identity, target timestamp not before source and in selected KST year. No legacy fallback.",
