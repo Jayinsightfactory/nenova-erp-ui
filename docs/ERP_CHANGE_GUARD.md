@@ -1,5 +1,11 @@
 # Nenova ERP 기능 변경 가드
 
+## 2026-10-12 주광 달력 열과 실제 저장 세부차수
+
+기존 날짜를 수평 달력 열에 표시하면서 실제 업무차수로 저장하면 열의 41-02와 저장41-01이 달라질 수 있다. 일반 편집은 불일치를 명시적으로 차단하고, 차수 정정은 같은 연도·대차수·업체·품목·날짜·단위의 source0/target최종수량 짝으로만 제출한다. 각 업무키의 전체 snapshot digest를 그대로 사용한다. 날짜만으로 legacy 행을 조용히 재매핑하거나 일반 중복 날짜 검증을 풀지 않는다.
+
+기존 ALLOCATION 원자 저장의 단가 bucket/총 gross 보존·확정 lifecycle·native 재고·stale·UUID 검증을 유지한다. client 짝 검증과 브라우저 초안 roundtrip, 실제 SQL 동일날짜 세부차수 이동/target실패 rollback/타 업체·전년도 보존 fixture를 함께 실행한다. 근거와 부작용 표는 `docs/plans/weekday-subweek-placement-2026-10-12.md` 및 `docs/exe-golden/WeekdayConfirmationLifecycle.md`를 따른다.
+
 ## 2026-10-07 보고서 GW/CW와 환율 원천
 
 GW는 실중량, CW는 청구중량이다. CW>GW는 정상이며 항공료는 CBM비율,

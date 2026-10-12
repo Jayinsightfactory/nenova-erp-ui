@@ -19,7 +19,7 @@ import { validateWeekdayConfirmationResponse } from '../lib/weekdayConfirmation.
 import { buildWeekdayPrintRequests, validateWeekdayPrintResponse, buildWeekdayEstimatePrintBundle } from '../lib/weekdayEstimatePrintBundle.js';
 import { buildWeekdayDistributionSubmission, clearSubmittedWeekdayDrafts, checkWeekdayDistributionStatus,
   saveWeekdayDistribution, weekdayDraftScope, weekdayUnsavedPrintReason, moveWeekdayDistributionDraft, projectWeekdayDistribution,
-  validateWeekdayDistributionCompareResponse, weekdayDistributionPreviewMatches } from '../lib/weekdayDistributionClient.js';
+  validateWeekdayDistributionCompareResponse, weekdayDistributionPreviewMatches, validateWeekdaySubweekTransfer } from '../lib/weekdayDistributionClient.js';
 
 const initialYear = new Date().getFullYear();
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
@@ -864,6 +864,39 @@ export default function WeekdayEstimateWorkspace() {
     return true;
   }
 
+  function correctSubweek({row,block,day}) {
+    if(editLocked || busy || !customer?.CustKey || !Array.isArray(compareRows)) return false;
+    const year=Number(block.cycle.year),custKey=Number(customer.CustKey),prodKey=Number(row.prodKey);
+    const unit=normalizeWeekdayUnit(day.unit),quantity=Number(day.actualDetails?.[0]?.shipmentQuantity);
+    const sourceOrderWeek=day.effectiveOrderWeek,targetOrderWeek=day.orderWeek;
+    if(!day.assignedWeekMismatch || day.actualDetails?.length!==1 || day.drafts?.length || !unit
+      || !Number.isFinite(quantity) || quantity<=0 || !sourceOrderWeek || !targetOrderWeek
+      || activePlans.some(plan=>Number(plan.year)===year && Number(plan.prodKey)===prodKey && plan.date===day.date)) {
+      setMessage('차수 정정 전 실제 저장 차수·수량·단위와 기존 초안을 확인하세요.');return false;
+    }
+    const transferId=crypto.randomUUID();
+    const base={draftScope:scopeKey,custKey,prodKey,prodName:row.name,year,date:day.date,unit,
+      sheet:'전산 대조',sourceCell:day.date,header:day.date,raw:quantity,sourceYear:null,sourceOrderWeek:null,wdetailKey:null};
+    const transfer={id:transferId,sourceOrderWeek,targetOrderWeek,quantity};
+    const source={...base,id:`subweek|${transferId}|source`,orderWeek:sourceOrderWeek,quantity:0,
+      sourceLabel:`차수 정정 원본 ${sourceOrderWeek} → 0`,subweekTransfer:{...transfer,role:'SOURCE'}};
+    const target={...base,id:`subweek|${transferId}|target`,orderWeek:targetOrderWeek,quantity,
+      sourceLabel:`차수 정정 대상 ${targetOrderWeek} → ${quantity}`,subweekTransfer:{...transfer,role:'TARGET'}};
+    try {validateWeekdaySubweekTransfer([source,target],compareRows,cycles,custKey);}
+    catch(error){setMessage(`${error.message} 전산 새로고침 후 다시 확인하세요.`);return false;}
+    setPlans(current=>[...current,source,target]);
+    setDraftHistory(current=>[{id:transferId,kind:'SUBWEEK_CORRECTION_DRAFT',applied:false,at:new Date().toISOString(),prodKey,
+      before:{year,orderWeek:sourceOrderWeek,date:day.date,quantity},after:{year,orderWeek:targetOrderWeek,date:day.date,quantity}},...current]);
+    setMessage(`${year}/${sourceOrderWeek} ${quantity} ${unit} → 0, ${year}/${targetOrderWeek} 0 → ${quantity} ${unit} 차수 정정 초안 2건을 만들었습니다. 분배 적용 · 변경 확인에서 함께 검토하세요.`);
+    return true;
+  }
+
+  function cancelSubweek(transferId) {
+    const pair=activePlans.filter(plan=>plan.subweekTransfer?.id===transferId);
+    if(pair.length!==2) {setMessage('차수 정정 초안 짝을 확인하세요.');return false;}
+    return deleteInputs(pair);
+  }
+
   function editGridCell(cell) {
     if(editLocked) return false;
     const qty=Number(cell.quantity);
@@ -872,6 +905,7 @@ export default function WeekdayEstimateWorkspace() {
     if(!customer?.CustKey || !normalizedUnit || !destination || destination.day.calendarState!=='FOUND'
       || Number(cell.year)!==destination.cycle.year || String(cell.orderWeek).split('-')[0]!==destination.cycle.majorWeek
       || !Number.isFinite(qty)||qty<0) {setMessage('수량·단위·전산 달력·차수 기준을 확인하세요.');return false;}
+    if(cell.orderWeek!==destination.day.orderWeek) {setMessage(`실제 저장 차수 ${cell.orderWeek} / 달력 차수 ${destination.day.orderWeek}가 다릅니다. 차수 정정을 선택하세요.`);return false;}
     const matching=activePlans.filter(item=>Number(item.custKey)===Number(customer.CustKey)&&Number(item.prodKey)===Number(cell.prodKey)&&Number(item.year)===Number(cell.year)&&item.date===cell.date);
     if(matching.length>1 || matching.some(item=>normalizeWeekdayUnit(item.unit)!==normalizedUnit||item.orderWeek!==cell.orderWeek)) {
       setMessage('이 날짜에는 복수 초안 또는 다른 업무차수/단위가 있습니다. 상세 초안에서 각각 수정하세요.');return false;
@@ -1210,7 +1244,7 @@ export default function WeekdayEstimateWorkspace() {
           throw new Error('최신 전산 분배·선출고 원장 또는 다음 큰 차수가 변경됐습니다. 새로고침 후 다시 확인하세요.');
         return freshCompareRows.current;
       }}/>
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(selectedExportCycleKeys.length && parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy && !wilsonBusy && !wilsonError && Array.isArray(earlyRecords))} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} earlyRecords={earlyRecords || []} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(selectedExportCycleKeys.length && parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy && !wilsonBusy && !wilsonError && Array.isArray(earlyRecords))} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} earlyRecords={earlyRecords || []} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onCorrectSubweek={correctSubweek} onCancelSubweek={cancelSubweek} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
       wilsonRecords={wilsonRecords.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} wilsonDrafts={wilsonDrafts.filter(record=>record.scopeKey===scopeKey && activePlans.some(plan=>Number(plan.year)===record.year && Number(plan.prodKey)===record.prodKey && plan.date===record.date && Number(plan.quantity)===record.expectedTotal))} wilsonBusy={wilsonBusy} wilsonError={wilsonError} onEditWilson={editWilson}
       confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}

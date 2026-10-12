@@ -25,6 +25,21 @@ test('manual input save survives refresh; user and cross-year scope stay isolate
   assert.deepEqual(restored.plans, [plan(), prior]);
 });
 
+test('explicit subweek correction pair survives browser save and malformed metadata is rejected', async () => {
+  const h=await modulePromise, storage=memory();
+  const meta={id:'pair-41',sourceOrderWeek:'41-01',targetOrderWeek:'41-02',quantity:2};
+  const source=plan({id:'pair-source',date:'2026-10-13',orderWeek:'41-01',quantity:0,
+    subweekTransfer:{...meta,role:'SOURCE'}});
+  const target=plan({id:'pair-target',date:'2026-10-13',orderWeek:'41-02',quantity:2,
+    subweekTransfer:{...meta,role:'TARGET'}});
+  h.saveWeekdayScopedInputs(storage,'staff',scope,[source,target],[]);
+  assert.deepEqual(h.readWeekdayStoredInputs(storage,'staff').plans,[source,target]);
+  for(const broken of [{...source,quantity:1},
+    {...target,subweekTransfer:{...target.subweekTransfer,targetOrderWeek:'42-02'}},
+    {...target,subweekTransfer:{...target.subweekTransfer,token:'secret'}}])
+    assert.throws(()=>h.saveWeekdayScopedInputs(memory(),'staff',scope,[broken],[]),/검증/);
+});
+
 test('saving one scope never deletes another customer or year; empty current scope is explicit clear', async () => {
   const h = await modulePromise, storage = memory();
   h.saveWeekdayScopedInputs(storage, 'staff', scope, [plan()], [split()]);
