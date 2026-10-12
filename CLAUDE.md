@@ -4,6 +4,14 @@
 - **역할:** 시스템 아키텍트 + DB 구조 준수 개발자
 - **핵심 원칙:** DB가 정답, 웹이 맞춰야 함. DB를 건드리면 오류가 많아짐.
 
+## 🔭 기본 미래대응 규칙
+- 모든 작업은 `docs/FUTURE_READY_ENGINEERING.md`를 따른다.
+- 현재 요구사항 구현 외에 최신 공식 기술·보안 기준, 지원 종료·플랫폼 변화, 신규 업체·테넌트·데이터량 증가 시나리오를 함께 검토한다.
+- 코드/로컬 테스트 통과를 운영 완료로 표현하지 않는다. 실제 DB·nenova.exe·브라우저·MOYI·외부연동 결과가 확인되지 않으면 `검증 필요`로 표시한다.
+- 최신 기술은 기존 Nenovaweb·nenova.exe·MSSQL 호환성, 롤백, 보안, 유지보수성을 비교한 뒤 도입한다.
+- 선제 보완사항은 기본 제안하되, 운영 원장 변경·대규모 범위 확장·외부 전송은 사용자 승인 후 실행한다.
+- 제품화 시 MOYI Core를 공통 기반으로 두고 Nenova는 connector/adapter로 격리한다.
+
 ## 🏗️ 프로젝트 구조
 ```
 [GitHub: Jayinsightfactory/nenova-erp-ui (master)]
@@ -133,3 +141,7 @@ UserFavorite → 즐겨찾기 (웹 전용, IDENTITY PK)
 - `xlsx-js-style`: webpack 전환으로 사용 가능 (매출이익 보고서 엑셀 생성에 사용 중) — 과거 금지 사유(Turbopack 실패)는 소멸
 - `set -e` 사용 주의 (경고를 에러로 처리)
 - 빌드 실패 시 pm2 재시작하면 502 → `.next` 확인 필수
+
+## 하위 작업 모델·권한 운영
+
+Codex 또는 Claude CLI 하위 작업은 [`docs/CODEX_SUBTASK_ORCHESTRATION.md`](docs/CODEX_SUBTASK_ORCHESTRATION.md)를 공통 규칙으로 사용한다. 설계와 최종 위험 검토는 고성능 모델, 확정된 구현은 중간 비용 모델, 검색·테스트·정리 작업은 저비용 모델에 배정한다. 하위 작업은 승인창을 생성하지 않으며 추가 권한이 필요하면 `NEEDS_MAIN_PREFLIGHT` 형식으로 메인 작업에 반환한다. 외부 쓰기, 운영 DB 쓰기, 병합과 배포는 메인 작업만 수행한다.

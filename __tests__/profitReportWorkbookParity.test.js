@@ -71,7 +71,7 @@ async function main() {
     auto: { N: 1000, L: 0, O: 0, Q: 0, R: 1, S: 0, H: 0, E: 0, F: 300 },
     manual: { F: 999 },
   }, { 태국: { F: '' } });
-  check('F 수기값을 비우면 자동값으로 즉시 복귀', near(clearedF.F, 300));
+  check('F 최종값 수기 override를 무시하고 검증된 서버값만 사용', near(clearedF.F, 300));
   const noEnding = computeProfitRow({
     category: '일본', variant: 'noEnding', stock: {},
     auto: { N: 1000, L: 0, O: 0, Q: 1, R: 100, S: 0, H: 0, E: 20, F: 30 }, manual: {},
@@ -87,6 +87,7 @@ async function main() {
   console.log('\n=== 재고·환율·감사 회귀 ===');
   const reportSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReport.js'), 'utf8');
   const reportApiSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'sales', 'profit-report.js'), 'utf8');
+  const resolverSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'profitReportCountryResolver.js'), 'utf8');
   const pageSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'sales', 'profit-report.js'), 'utf8');
   const customsPanelSource = fs.readFileSync(path.join(__dirname, '..', 'components', 'CustomsClearancePanel.js'), 'utf8');
   const stockApiSource = fs.readFileSync(path.join(__dirname, '..', 'pages', 'api', 'stock', 'index.js'), 'utf8');
@@ -97,17 +98,16 @@ async function main() {
       && reportSource.includes('EXISTS (SELECT 1 FROM ProductStock ps WHERE ps.StockKey=sm.StockKey)')
       && reportSource.includes('OrderWeek LIKE @pfx')
       && reportSource.includes('TRY_CONVERT(INT, SUBSTRING(sm.OrderWeek, CHARINDEX(\'-\', sm.OrderWeek)+1, 10)) DESC')
-      && !reportSource.slice(reportSource.indexOf('export async function latestStockSnapshotWeek'), reportSource.indexOf('/** 재고단가표 편집용')).includes('ISNULL(sm.isFix,0)=1'));
+      && reportSource.slice(reportSource.indexOf('export async function latestStockSnapshotWeek'), reportSource.indexOf('/** 재고단가표 편집용')).includes('ISNULL(sm.isFix,0)=1'));
   check('단가표도 동일한 마지막 ProductStock 스냅샷을 사용', reportSource.includes('latestStockSnapshotWeek(major, orderYear)') && reportSource.includes('latestStockSnapshotWeek(prevMajor, prevOrderYear)'));
   check('중복 StockMaster는 선택된 StockKey 하나만 집계', stockSection.includes('smk.StockKey=@stockKey') && reportSource.includes('smk.StockKey = @beginStockKey'));
-  check('01차 기초재고는 전년도 전차수 스냅샷을 사용', reportApiSource.includes("currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear)") && reportApiSource.includes("currentMajor <= 1 ? '52'"));
-  check('27차 기초재고는 같은 연도의 26차 스냅샷을 사용', reportApiSource.includes('currentMajor <= 1 ? String(Number(orderYear) - 1) : String(orderYear)') && reportApiSource.includes("currentMajor - 1).padStart(2, '0')"));
+  check('기초·기말 차수는 공통 정책으로 연결', reportApiSource.includes('resolveProfitReportInventoryPeriods(orderYear, major)'));
   check('시작재고·입출고를 보고서에서 임의 재계산하지 않음', !stockSection.includes('FlowDelta') && !stockSection.includes('EffectiveStock'));
   check('박스→단/송이와 단→송이 환산을 구분', reportSource.includes("p.OutUnit,N'') = N'박스'") && reportSource.includes("p.EstUnit,N'') = N'단'") && reportSource.includes("p.OutUnit,N'') = N'단'") && reportSource.includes("p.EstUnit,N'') = N'송이'"));
   check('음수 재고도 감사 대상으로 조회', stockSection.includes('ISNULL(ps.Stock,0) <> 0'));
-  check('호주는 AUD', reportSource.includes("'호주': 'AUD'"));
+  check('호주는 AUD', resolverSource.includes("호주: 'AUD'"));
   check('차수별 인보이스 환율 스냅샷을 현재 환율보다 우선', reportSource.includes('export async function invoiceRatesByCategory') && reportSource.includes('FreightCost fc') && reportSource.includes('fc.ExchangeRate'));
-  check('29차 이후 전차수 확정 과세환율을 CurrencyMaster보다 우선', reportApiSource.includes('previousTaxableR') && reportApiSource.includes('previous_report_taxable_rate') && reportApiSource.includes('currentMajor >= 29'));
+  check('29차 이후 전차수 확정 과세환율을 CurrencyMaster보다 우선', reportApiSource.includes('resolveProfitReportRate') && resolverSource.includes('previous_report_taxable_rate') && resolverSource.includes('major < 29'));
   check('환율 원천이 없으면 해당 R 입력칸을 자동 노출', pageSource.includes('function needsRateInput') && pageSource.includes("cd.key === 'R' && needsRateInput(row)") && pageSource.includes('환율 입력 필요'));
   check('Q와 매입수량에서 포워딩 행 이중계상 차단', (reportSource.match(/ProdName,N''\) LIKE N'%운송료%'/g) || []).length >= 2);
   check('매출·불량·그외매출은 전산 확정 ShipmentMaster만 집계',
@@ -118,7 +118,7 @@ async function main() {
   check('통관·포워딩 입력 패널은 기본 접힘', pageSource.includes("const [showCustoms, setShowCustoms] = useState(false)") && pageSource.includes("const [showForwarding, setShowForwarding] = useState(false)"));
   check('수기 보정은 기본 접힘·누락 환율만 자동 입력 노출', pageSource.includes("const [showOverrides, setShowOverrides] = useState(false)") && pageSource.includes("showOverrides || (cd.key === 'R' && needsRateInput(row))"));
   check('비고사항은 별도 저장 버튼으로 저장', pageSource.includes("const [noteDirty, setNoteDirty] = useState(false)") && pageSource.includes("action: 'saveNote'") && pageSource.includes('비고 저장'));
-  check('비고사항 변경은 전체 저장·엑셀 다운로드 전에 반영', pageSource.includes('const dirty = Object.keys(edits).length > 0 || noteDirty') && (pageSource.includes('if (dirty) await save()') || pageSource.includes('if (dirty && !(await save())) return')));
+  check('비고사항 변경은 전체 저장·엑셀 다운로드 전에 반영', pageSource.includes('Object.keys(edits).length > 0 || noteDirty') && (pageSource.includes('if (dirty) await save()') || pageSource.includes('if (dirty && !(await save())) return')));
   check('비고사항은 WebProfitReport TextValue로 연도·차수별 저장', reportSource.includes("if (note != null) await upsert('_note', 'note', null, note)") && reportApiSource.includes("req.body?.action === 'saveNote'") && reportApiSource.includes('slice(0, 2000)'));
   check('관세·선율 분할 입력칸은 금액 전체가 보이도록 가로 폭 확보', customsPanelSource.includes('minWidth: 235') && customsPanelSource.includes('minWidth: 1500') && customsPanelSource.includes('splitInput: { width: 68'));
   check('통관비 숫자 입력은 엔터로 다음 입력칸 이동', customsPanelSource.includes('focusNextCustomsInput') && customsPanelSource.includes("onKeyDown={focusNextCustomsInput}"));
@@ -181,11 +181,14 @@ async function main() {
   const rose27StockRows = [2, 4, 5, 6, 10, 10, 10, 10, 10, 10, 15, 16, 16, 18, 20, 27, 40, 50];
   const rose27EndQty = rose27StockRows.reduce((sum, qty) => sum + qty, 0);
   check('27-02 EXE 장미 재고현황 마지막 잔량 합계 = 279단', rose27EndQty === 279);
-  const rose27AutoF = computeAutoEndingStock(
-    { purchQty: 2810, endQty: rose27EndQty },
-    { Q: 11022, S: 2813.5339799347653, H: 0, R: 1550 },
-  );
-  check('F는 재고현황 279단을 수식에 직접 반영', near(rose27AutoF, 2129244.3664138042, 0.01));
+  const rose27AutoF = computeAutoEndingStock({
+    endQty: rose27EndQty,
+    snapshotConfirmed: true,
+    priceEvidenceStatus: 'VERIFIED',
+    evidenceValue: 2129244.3664138042,
+  });
+  check('F는 확정 재고현황 279단과 당시 단가 evidence 결과만 반영', near(rose27AutoF, 2129244.3664138042, 0.01));
+  check('F 단가 evidence가 없으면 조용한 fallback 없이 INPUT_REQUIRED 값(null)', computeAutoEndingStock({ endQty: rose27EndQty, snapshotConfirmed: true, priceEvidenceStatus: 'INPUT_REQUIRED' }) === null);
 
   console.log(`\n총 ${failed ? '실패' : '성공'} — 실패 ${failed}건`);
   process.exit(failed ? 1 : 0);

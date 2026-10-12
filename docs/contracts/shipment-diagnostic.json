@@ -8,7 +8,11 @@
     "pages/admin/distribute-repair.js",
     "pages/api/shipment/distribute-import-prealign.js",
     "pages/api/shipment/index.js",
+    "pages/api/shipment/fix-orderyearweek.js",
+    "pages/api/shipment/order-manager-fix.js",
     "pages/api/stock/adjust-batch.js",
+    "__tests__/erpWriteSafetyHardening.test.js",
+    "lib/shipmentFixReconcile.js",
     "pages/shipment/exe-errors.js",
     "pages/api/shipment/distribute.js",
     "pages/api/shipment/distribute-sp.js",
@@ -44,6 +48,7 @@
   },
   "requiredTestFiles": [
     "__tests__/shipmentExeErrorsContract.test.js",
+    "__tests__/erpWriteSafetyHardening.test.js",
     "__tests__/shipmentImportApply.test.js",
     "__tests__/shipmentImportAudit.test.js",
     "__tests__/erpContractManifest.test.js"

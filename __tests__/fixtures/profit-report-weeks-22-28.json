@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "toleranceRate": 0.05,
+  "workbook": {
+    "week": 28,
+    "relativePath": ".verify/inputs/profit-report-week-28.xlsx",
+    "sha256": "D777E8745B3B1E2FBF89AC782633E9FD654F38FD7684ECBB620032221ECB156B",
+    "expectedSheets": [
+      "주차별 매출이익 보고서",
+      "재고잔량",
+      "그외통관비",
+      "구매현황",
+      "포워딩",
+      "판매현황",
+      "불량차감",
+      "그 외 매출액",
+      "콜롬비아 1차",
+      "콜롬비아 2차",
+      "품목리스트"
+    ],
+    "report": {
+      "sheet": "주차별 매출이익 보고서",
+      "headerRow": 6,
+      "firstItemRow": 7,
+      "lastItemRow": 22,
+      "totalRow": 23
+    }
+  },
+  "weeks": [
+    {
+      "week": 22,
+      "coverage": "contract_only",
+      "status": "unverified",
+      "reason": "22차 원본 workbook이 허용 입력에 없어 저장소의 기존 순수 계산 계약만 실행함"
+    },
+    {
+      "week": 23,
+      "coverage": "contract_only",
+      "status": "unverified",
+      "reason": "23차 원본 workbook이 허용 입력에 없어 저장소의 기존 순수 계산 계약만 실행함"
+    },
+    {
+      "week": 24,
+      "coverage": "contract_only",
+      "status": "unverified",
+      "reason": "24차 원본 workbook이 허용 입력에 없어 저장소의 기존 순수 계산 계약만 실행함"
+    },
+    {
+      "week": 25,
+      "coverage": "contract_only",
+      "status": "unverified",
+      "reason": "25차 원본 workbook이 허용 입력에 없어 저장소의 기존 순수 계산 계약만 실행함"
+    },
+    {
+      "week": 26,
+      "coverage": "contract_fixture",
+      "status": "unverified",
+      "reason": "26차 콜롬비아 H/S 회귀 fixture는 있으나 전체 시트 원본이 없음"
+    },
+    {
+      "week": 27,
+      "coverage": "ending_inventory_total",
+      "status": "unverified",
+      "reason": "27차 F 합계 문서 근거만 있고 항목별 F 및 전체 시트 원본이 없음"
+    },
+    {
+      "week": 28,
+      "coverage": "full_workbook",
+      "status": "verified",
+      "reason": "허용된 원본 workbook의 전체 시트와 수식 캐시를 검사함"
+    }
+  ],
+  "priorWeekEndingInventory": {
+    "week": 27,
+    "total": 13229405.204,
+    "evidence": "docs/work-reports/2026-07-21_profit-report-27-reconciliation.md"
+  },
+  "crossYearFixture": {
+    "selectedOrderYear": 2026,
+    "majorWeek": "28",
+    "orderIdentity": {
+      "orderWeek": "28-01",
+      "custKey": 7001,
+      "prodKey": 8101
+    },
+    "orderRows": [
+      { "orderYear": 2025, "orderWeek": "28-01", "custKey": 7001, "prodKey": 8101, "quantity": 999 },
+      { "orderYear": 2026, "orderWeek": "28-01", "custKey": 7001, "prodKey": 8101, "quantity": 28 }
+    ],
+    "stockRows": [
+      { "orderYear": 2025, "orderWeek": "28-02", "stockKey": 50, "productRowCount": 100 },
+      { "orderYear": 2026, "orderWeek": "28-01", "stockKey": 60, "productRowCount": 80 },
+      { "orderYear": 2026, "orderWeek": "28-02", "stockKey": 61, "productRowCount": 90 },
+      { "orderYear": 2026, "orderWeek": "28-02", "stockKey": 62, "productRowCount": 95 }
+    ],
+    "expectedOrderQuantity": 28,
+    "expectedStockKey": 62
+  },
+  "detailSheets": [
+    { "sheet": "판매현황", "categoryColumn": "I", "valueColumn": "E", "startRow": 4, "metric": "N" },
+    { "sheet": "불량차감", "categoryColumn": "J", "valueColumn": "F", "startRow": 3, "metric": "L" },
+    { "sheet": "그 외 매출액", "categoryColumn": "J", "valueColumn": "F", "startRow": 3, "metric": "O" },
+    { "sheet": "구매현황", "categoryColumn": "N", "valueColumn": "G", "startRow": 3, "metric": "Q" },
+    { "sheet": "포워딩", "categoryColumn": "N", "valueColumn": "G", "startRow": 3, "metric": "S", "directOnly": true }
+  ],
+  "staticContracts": {
+    "reportSource": "lib/profitReport.js",
+    "apiSource": "pages/api/sales/profit-report.js",
+    "customsSource": "lib/customsForwarding.js"
+  }
+}

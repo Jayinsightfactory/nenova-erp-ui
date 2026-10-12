@@ -117,7 +117,7 @@ function HistoryButton({ orderYear, scopeType, scopeKey }) {
   );
 }
 
-export default function CustomsClearancePanel({ week, onSaved }) {
+export default function CustomsClearancePanel({ week, year, onSaved }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -134,13 +134,14 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     if (!week) return;
     setLoading(true); setError(''); setMessage('');
     try {
-      const r = await fetch(`/api/sales/customs-clearance?week=${encodeURIComponent(week)}`, { credentials: 'same-origin' });
+      const yearQuery = year ? `&year=${encodeURIComponent(year)}` : '';
+      const r = await fetch(`/api/sales/customs-clearance?week=${encodeURIComponent(week)}${yearQuery}`, { credentials: 'same-origin' });
       const d = await r.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
       setCountryEdits({}); setColombiaEdits({}); setRateEdits({});
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, [week]);
+  }, [week, year]);
   useEffect(() => { if (week) load(); }, [week, load]);
 
   const countryValue = (row, field) => {
@@ -190,7 +191,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
     try {
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveCountry', category: row.category, row: countryOut(row) }),
+        body: JSON.stringify({ week, year, action: 'saveCountry', category: row.category, row: countryOut(row) }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
@@ -214,7 +215,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
         .map((row) => ({ category: row.category, row: countryOut(row) }));
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveCountries', rows }),
+        body: JSON.stringify({ week, year, action: 'saveCountries', rows }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
@@ -236,7 +237,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
       });
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveColombia', orderWeek: c.orderWeek, row: out }),
+        body: JSON.stringify({ week, year, action: 'saveColombia', orderWeek: c.orderWeek, row: out }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
@@ -252,7 +253,7 @@ export default function CustomsClearancePanel({ week, onSaved }) {
       const merged = { ...data.rates, ...rateEdits };
       const r = await fetch('/api/sales/customs-clearance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week, action: 'saveRates', rates: merged }),
+        body: JSON.stringify({ week, year, action: 'saveRates', rates: merged }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
