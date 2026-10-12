@@ -43,4 +43,12 @@
 - 지정 분리 구현 모델 미제공 시 gpt-6-luna/high 대체, 최종 검토gpt-5.6-sol/xhigh. Excel worker 파일만 분리, main이 실제dnSpy·운영읽기·API/UI·외부반영 수행. DB/EXE/SP 보정 없음.
 
 ## 이어받기
+후속 PR [#881](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/881), head3a5b2a3e5579954a05a7982aef0e94dda3ea5003, master squash efdee1ae774df965e051689df25e422fb54f21e1. 독립 최종 검토 blocking/actionable 없음, [CI37267624457](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37267624457) 성공. Cafe24 [37267869097](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/37267869097) 직렬 대기, 운영 완료는 아래 최종 배포 확인으로 판정.
+
+### 후속 최종 배포 확인
+- Cafe24 run37267869097 전체 성공: ERP 계약·서버 빌드/재시작·Hydration smoke 포함. 운영 배포 성공은 head efdee1ae774df965e051689df25e422fb54f21e1로 확인했다.
+- 2026-10-05 14:34:01 KST 운영 브라우저1920×1080/100%·1100×800 통과. 39-01 28품목×5업체,40-01 123품목×34업체,40-03·검색 후 실제 다운로드6시트(기본수량표+숨김원본+기존감사4) 수량·박스·HF·CL·단위합계 모두 대조. 기본 Excel 헤더는 CL만, 문자그룹 우선. HF 미매칭 문구가 기본 품목명에 없는 것을 확인했다.
+- 현재 Product master의 BunchOf1Box/SteamOf1Box와 새 API 모든 주문의 분모 필드를 같은 ProdKey로 읽기 대조해 일치. 현재 Customer master CL 및 native Pivot 중국 주문 원수량도 같은 연도/fullWeek/CustKey/ProdKey로 일치. pageerror0,문서가로overflow0,하단프레임1005.30px. 운영 원장 쓰기/보정 없음.
+- 이 배포 후 기록은 로컬 handoff와 PR 검증 댓글로 남긴다. 인증정보·원본 데이터·스크린샷·중간 생성 XLSX는 ignore된 output에만 보관하며 Git에 포함하지 않는다.
+
 이 문서와 `docs/plans/china-order-customer-matrix-2026-10-05.md`, `docs/contracts/china-order-download.json`, `docs/exe-golden/ChinaOrderDownload.md`를 먼저 읽는다. 이전 단일 차수 계약은 [앞선 세션](2026-10-05_china-order-download.md) 참고. 품목 표시 코드=HF, 업체 표시 코드=Customer.OrderCode(CL), 원장 쓰기 없는 작업이라는 결정을 유지한다.
