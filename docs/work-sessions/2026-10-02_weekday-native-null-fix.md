@@ -25,3 +25,14 @@ EXE·운영 SQL 데이터·스키마·SP를 변경하지 않았다. 자동 확�
 ## 후속·주의
 
 배포 후 version/API/실화면 읽기 전용 확인을 수행한다. 운영에서 남은 미확정·날짜·금액 오류는 숨기거나 자동 보정하지 않는다. 범용 distribute-diagnose/exe-errors/item-trace의 과거 진단·보정 제안은 별도 정정 범위이며, 정상 NULL의 일괄 SQL 보정 근거로 삼지 않는다.
+
+## 배포 후 읽기 전용 확인
+
+이 절은 병합 이후의 로컬 후속 기록이다. [PR858](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/858)의 코드 commit34f5d33d는 master782ae53e로 병합됐다. [Cafe24 배포36966293660](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/36966293660)은 성공했고 실화면 버전은 `v1.0.2·782ae53e`였다.
+
+- 주광39차 확인: 전체998건/확정998건, unknown0·연결 warning0. 이전606건 경고는 이번 운영 조회에서0으로 확인됐다.
+- 주광 블루:39-01 13박스 +39-02 7박스, 두 행 모두 fixed=true·customerLinkError 없음·유효 raw snapshot digest.
+- 요일 견적 API 대차수39: HTTP200,94행. 기존 견적 관리도94행/블루600송이, 공급가1,363,637원/VAT136,363원.
+- 실제40차는 미확정759건으로409 유지,41/42차는 양수 출고 없음으로409 유지. 오류 상세는 헤더 접힌 영역이며 tbody 반복 원문0개.
+- 실화면1920×1080/100%, 문서 가로 overflow 없음·수량18px·page error 없음. 최초 기준 확정·비고/잔량/ERP 저장·운영 수량 변경·EXE 조작/물리 인쇄는 수행하지 않았다.
+- 운영 파일/스키마/SP 보정 없음. 운영 수량에 문제가 없다고 일반화하지 않는다. 기존에 잘못 보관된 최초 기준도 자동 덮어쓰지 않았다.
