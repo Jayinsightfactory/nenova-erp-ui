@@ -5,7 +5,7 @@
 | 기간 | 2026-10-12 |
 | 화면 | 주광 견적서 웹 작업 엑셀 다운로드 / 발주내역 엑셀 |
 | 원장 부작용 | 없음, 브라우저 파일 표현만 변경 |
-| 배포 | 아래 실행 상태 참조 |
+| 배포 | PR #1024, master f88b73f9, Cafe24 run 38220651811 성공 |
 | 다음 채팅 | 이 파일과 docs/plans/weekday-export-name-colors-2026-10-12.md |
 
 ## 고정 결정
@@ -19,7 +19,15 @@
 
 **A.** snapshot에 품종 접두어 정리와 column.kind 전달을 추가하고, XLSX 원본 스타일을 복제해 역할별 채우기 색을 적용했다. 원본 양식으로 생성한 결과를 렌더링해 이름/값/색/0 빈칸/음수를 확인했다. native FormEstimateView 재확인과 필수 ERP 검사·빌드를 통과했다.
 
-**결과.** lib/weekdayWebExportSnapshot.js, lib/weekdayStyledWebWorkbook.js 및 회귀 테스트/계약 갱신. PR·배포·운영 다운로드 검증 진행 중.
+**결과.** lib/weekdayWebExportSnapshot.js, lib/weekdayStyledWebWorkbook.js 및 회귀 테스트/계약 갱신. [PR #1024](https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1024) 병합과 [Cafe24 배포](https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/38220651811) 성공. 운영 화면 f88b73f9 확인.
+
+### 2. 배포 후 검증
+- Codex Chrome, 1920×1080 CSS pixel / scale 1. Enter로 다운로드 실행, 41·42·43차 전체 114개 품목 성공 알림과 실제 XLSX 확인.
+- 출력 범위 A1:BE180. 68개 품목명 중복 접두어 제거. 날짜 MM/DD, 윌슨 별도 셀, 합계/잔량/변경/소계 4색, 0 빈칸과 음수 보존 확인. 실제 다운로드를 Artifact Tool로 렌더링해 검수했다.
+- 배포 전후 2,239개 값 셀 대조 중 11개 차이가 있었다. 플라야블랑카 50/60CM 두 품목의 현재 ERP 화면에 이미 반영된 수량·잔량 변화였으며, 화면 DOM의 현재 20/40 출고, 80/40 합계와 -20 잔량을 엑셀과 다시 대조해 일치 확인했다. 시간 차이를 무시하고 전후 수량이 전부 동일하다고 판정하지 않았다.
+- 브루트 일반 3 + 윌슨 1 = 4, 세부 잔량 2/-2, 대차수 합계 9 확인. 브라우저 오류 로그 0건. ERP 저장/분배/확정 버튼은 실행하지 않았다.
+- 브라우저 다운로드 이벤트 대기는 시간초과했으나 실제 다운로드 성공 알림과 로컬 파일 생성이 확인되어 파일 자체로 검증했다. 임시 viewport 설정은 해제했다.
+- 기능 배포 완료. 이 사후 검증 기록은 작업 브랜치의 후속 문서 커밋으로 보관한다.
 
 ## 로컬 증거
 output/weekday-export-*.log, output/weekday-export-native-20261012.txt, output/weekday-export-format/ (원본/운영 데이터 포함 가능, 커밋 제외).
