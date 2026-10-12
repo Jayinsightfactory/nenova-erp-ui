@@ -90,7 +90,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{chromium}=requ
   assert.equal(await dialog.getByRole('table').count(),0,'open dialog immediately hides stale stock');
   assert.equal(await dialog.getByRole('button',{name:'적용재고 복사'}).isEnabled(),false,'open dialog cannot copy stale stock');
   await page.evaluate(value=>{window.actual=value;window.render();},actual);
-  await page.evaluate(()=>window.render({bulkRunning:true}));assert.equal(await dialog.isVisible(),false,'running closes stale open dialog');
+  await page.evaluate(()=>window.render({bulkRunning:true}));await dialog.waitFor({state:'hidden'});assert.equal(await dialog.isVisible(),false,'running closes stale open dialog');
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({viewport:'1920x1080 / 1366x768 / 390x844',output,keyboardOpenClose:true,focusReturn:true,clipboardFallback:true,rollbackBlocksCopy:true,staleBlocksCopy:true,noResultHint:true,runningCloses:true,manyRowsScroll:true,errors}));
  }finally{await browser.close();}

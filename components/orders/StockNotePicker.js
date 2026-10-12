@@ -3,7 +3,7 @@
 //  - 저장된 시작재고 목록(여러 차수/여러 건)을 체크박스로 다중 선택
 //  - "합쳐서 불러오기"(기존 입력에 추가) 또는 "교체로 불러오기"
 //  notes: [{ FavoriteKey, data:{ baseWeek, baseStockText, savedAt? } }]
-//  onApply(combinedText, mode)  mode: 'append' | 'replace'
+//  onApply(combinedText, mode, selectedNotes)  mode: 'append' | 'replace'
 import { useEffect, useMemo, useState } from 'react';
 
 export default function StockNotePicker({ open, notes, onApply, onClose, formatWeek }) {
@@ -40,7 +40,7 @@ export default function StockNotePicker({ open, notes, onApply, onClose, formatW
 
   const apply = (mode) => {
     if (!picked.size) { alert('불러올 시작재고를 1개 이상 선택하세요.'); return; }
-    onApply(combinedText, mode);
+    onApply(combinedText, mode, list.filter(n => picked.has(n.FavoriteKey)));
   };
 
   return (

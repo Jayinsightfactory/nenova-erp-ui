@@ -105,4 +105,35 @@ const afterAbsolute=appendAppliedStockResult(absolute,{...result,stockCopyScope:
 assert.equal(afterAbsolute.stockCopyUnsupported,true,'later ADD cannot hide unaccounted absolute distribution');
 assert.equal(buildAppliedStockCopy({...args,baseText:successiveBase,currentScope:successiveScope,result:afterAbsolute}).ready,false);
 assert.equal(appendAppliedStockResult(absolute,result,{executionId:'new-source'}).stockCopyUnsupported,false,'new source scope resets unsupported operation flag');
+
+const sameNameBase='41-2 잔량\n로즈우드 ２박스 (보관 １)\n제외할 품목 9\n로즈우드 3박스';
+const sameNameProducts=[{ProdKey:11,ProdName:'Zulu Rosewood'},{ProdKey:22,ProdName:'Alpha Rosewood'}];
+const sameNameRows=[
+  {idx:1,name:'로즈우드',matchName:'로즈우드',flowerContext:'',qty:2,unit:'박스',prodKey:11},
+  {idx:3,name:'로즈우드',matchName:'로즈우드',flowerContext:'',qty:3,unit:'박스',prodKey:22},
+];
+const sameNameScope=buildAppliedStockScope({week:args.week,baseText:sameNameBase,pasteText:args.pasteText,excludedLines:[2],matches:sameNameRows});
+const sameNameArgs={...args,baseText:sameNameBase,baseExcludedLineNos:[2],baseStockMatches:sameNameRows,
+  products:sameNameProducts,currentScope:sameNameScope,result:{...result,stockCopyScope:sameNameScope,details:[{...entry,prodKey:22}]}};
+const sameNameCopy=buildAppliedStockCopy(sameNameArgs);
+assert.equal(sameNameCopy.ready,true,'two same-name source rows can retain distinct confirmed IDs');
+assert.equal(sameNameCopy.changeRows.find(row=>row.prodKey===11).applied.main,2);
+assert.equal(sameNameCopy.changeRows.find(row=>row.prodKey===22).applied.main,2);
+assert(sameNameCopy.text.includes('로즈우드 ２박스 (보관 １)'),'fullwidth unchanged quantity and memo survive');
+assert(sameNameCopy.text.includes('로즈우드 2박스'),'fullwidth/ordinary quantity replacement works');
+const changedFullwidth=buildAppliedStockCopy({...sameNameArgs,result:{...sameNameArgs.result,details:[{...entry,prodKey:11}]}});
+assert(changedFullwidth.text.includes('로즈우드 1박스 (보관 １)'),'changed fullwidth quantity is replaced without altering fullwidth memo digits');
+assert(!sameNameCopy.text.includes('제외할 품목'),'numeric excluded line is omitted without shifting later row identity');
+assert.equal(buildAppliedStockCopy({...sameNameArgs,baseStockMatches:[sameNameRows[0]]}).ready,false,'explicit missing row never falls back to name alias');
+assert.equal(buildAppliedStockCopy({...sameNameArgs,baseStockMatches:sameNameRows.map(row=>({...row,idx:row.idx+1}))}).ready,false,'stale line identity blocks copy');
+const duplicated=buildAppliedStockCopy({...sameNameArgs,baseStockMatches:sameNameRows.map(row=>({...row,prodKey:22}))});
+assert.equal(duplicated.ready,false);
+assert(duplicated.warnings.some(warning=>warning.includes('2줄 로즈우드 / 4줄 로즈우드')),'true duplicate key reports both original line numbers');
+assert.equal(buildAppliedStockCopy({...sameNameArgs,baseStockMatches:sameNameRows,products:[sameNameProducts[0]]}).ready,false,'removed product never gets automatic fallback');
+const separatorBase='기초재고\n로즈우드 2박스\nㅡㅡㅡㅡ\n로즈우드 3박스';
+const separatorMatches=sameNameRows.map((row,index)=>({...row,idx:index?3:1}));
+const separatorScope=buildAppliedStockScope({week:args.week,baseText:separatorBase,pasteText:args.pasteText,matches:separatorMatches});
+assert.equal(buildAppliedStockCopy({...sameNameArgs,baseText:separatorBase,baseExcludedLineNos:[],baseStockMatches:separatorMatches,
+  currentScope:separatorScope,result:{...result,stockCopyScope:separatorScope,details:[{...entry,prodKey:22}]}}).ready,true,'page-accepted separator remains a copy section boundary');
+assert.equal(buildAppliedStockCopy({...sameNameArgs,baseText:sameNameBase+'\n읽을수없는행',currentScope:buildAppliedStockScope({week:args.week,baseText:sameNameBase+'\n읽을수없는행',pasteText:args.pasteText,matches:sameNameRows}),result:{...result,stockCopyScope:buildAppliedStockScope({week:args.week,baseText:sameNameBase+'\n읽을수없는행',pasteText:args.pasteText,matches:sameNameRows})}}).ready,false,'unparsed nonheader source line blocks explicit copy');
 console.log('paste applied stock copy tests passed');

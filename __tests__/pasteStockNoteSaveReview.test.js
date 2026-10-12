@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import {parseBaseStockQuantityLine} from '../lib/pasteStockProjection.js';
+import {parseBaseStockQuantityLine,isBaseStockHeaderLine} from '../lib/pasteStockProjection.js';
+import {previousBaseStockMatches,confirmedBaseStockMatch,combinePickedBaseStockInput} from '../lib/pasteBaseStockMapping.js';
 import {textWithoutExcludedLines} from '../lib/pasteExcludeText.js';
 import {buildStockNoteChangeEntry} from '../lib/pasteStockNote.js';
 
 const page = fs.readFileSync('pages/orders/paste.js', 'utf8');
 const prefix = page.slice(0, page.indexOf('export default function')).replace(/^import .*\r?\n/gm, '');
 const invokingButton={name:'stock-note-save'};
-const context = vm.createContext({document:{activeElement:invokingButton},parseBaseStockQuantityLine, textWithoutExcludedLines, buildStockNoteChangeEntry, formatWeekDisplay: value => value});
+const context = vm.createContext({document:{activeElement:invokingButton},parseBaseStockQuantityLine,isBaseStockHeaderLine,previousBaseStockMatches,confirmedBaseStockMatch,combinePickedBaseStockInput, textWithoutExcludedLines, buildStockNoteChangeEntry, formatWeekDisplay: value => value});
 vm.runInContext(prefix, context);
 const products = [{ProdKey: 11, ProdName: 'Novia'}, {ProdKey: 22, ProdName: 'Blue'}];
 const text = '카네이션\n노비아 0박스\n블루 1+15스팀';
