@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { shiftOrderWeek } from '../lib/orderUtils.js';
 
 const menu = fs.readFileSync('components/Layout.js', 'utf8');
 const pivot = fs.readFileSync('pages/stats/pivot.js', 'utf8');
@@ -21,10 +22,22 @@ assert.doesNotMatch(page, /<select\b/,
   '차수 선택은 드롭다운 대신 한눈에 보이는 버튼 목록이어야 합니다.');
 assert.match(page, /role="radiogroup" aria-label=\{`\$\{group\.label\} 선택`\}/,
   '시작/끝 차수 버튼은 보조기술에 선택 그룹으로 전달되어야 합니다.');
+assert.match(page, /for \(let offset = 0; offset <= 5; offset \+= 1\)/,
+  '기준 차수부터 다음 5차수까지만 빠른 선택 버튼으로 보여야 합니다.');
+assert.match(page, /범위 밖 직접 입력/,
+  '빠른 선택 범위를 넘는 차수는 시작/끝 차수별로 직접 입력할 수 있어야 합니다.');
+assert.match(page, /normalizeRoundInput/,
+  '직접 입력 차수는 연도 내 유효 범위인 01-01~52-04로 검증해야 합니다.');
+assert.match(page, /shiftOrderWeek\(current, 1\)/,
+  '빠른 선택 차수 계산은 공통 주문 차수 이동 규칙을 사용해야 합니다.');
+assert.match(page, /roundOrdinal\(next\) <= roundOrdinal\(current\)/,
+  '연도 마지막 차수에서 빠른 선택이 차수 순서를 역행하거나 순환하지 않아야 합니다.');
+assert.equal(shiftOrderWeek('41-04', 1), '42-01', '본차수 경계에서는 다음 본차수의 첫 세부차수로 이동해야 합니다.');
+assert.equal(shiftOrderWeek('52-04', 1), '52-01', '공통 차수 이동기의 연도 마지막 경계는 순환하므로 UI에서 이를 차단해야 합니다.');
 assert.match(page, /role="radio"[\s\S]*?aria-checked=\{active\}/,
   '현재 선택된 차수 버튼은 활성 상태를 접근성 속성으로 표시해야 합니다.');
-assert.match(page, /tabIndex=\{active \? 0 : -1\}/,
-  '차수 버튼 그룹은 현재 활성 버튼만 탭 정지점이어야 합니다.');
+assert.match(page, /tabIndex=\{active \|\| \(!quickWeeks\.includes\(group\.value\) && index === 0\) \? 0 : -1\}/,
+  '차수 버튼 그룹은 활성 버튼을 탭 정지점으로 하고, 직접 입력 차수가 선택된 경우 첫 빠른 선택 버튼을 탭 정지점으로 유지해야 합니다.');
 assert.match(page, /\.week-choice-button\[aria-checked="true"\][\s\S]*?background: #1764b0/,
   '활성 차수 버튼은 채워진 강조색으로 보여야 합니다.');
 for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) {

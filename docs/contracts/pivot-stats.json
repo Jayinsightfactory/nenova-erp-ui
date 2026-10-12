@@ -73,7 +73,7 @@
     },
     {
       "name": "PIVOT_VOLUME_MENU_SPECIES_DOWNLOAD",
-      "description": "통계 메뉴의 물량표 화면에서 연도·실제 입력 차수 시작/끝을 선택하고 기존 pivot-volume-excel 목록 및 품종별 XLSX 다운로드를 재사용한다. 선택 다운로드 버튼은 기존 피벗 화면에서 제거한다. 조회·다운로드 전용이며 ERP 원장을 변경하지 않는다.",
+      "description": "통계 메뉴의 물량표 화면에서 연도와 시작/끝 차수를 선택한다. 기준 차수부터 공통 차수 이동 규칙으로 다음 5차수까지 버튼 빠른 선택을 제공하고, 범위 밖은 연도 내 유효한 01-01~52-04 형식으로 직접 입력할 수 있다. 기존 pivot-volume-excel 목록 및 품종별 XLSX 다운로드를 재사용한다. 조회·다운로드 전용이며 ERP 원장을 변경하지 않는다.",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
     },
