@@ -1,0 +1,16 @@
+.panel { margin: 16px 0; padding: 18px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #172033; font-size: 14px; min-width: 0; }
+.header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.header h2 { font-size: 18px; margin: 0; }
+.panel button { font: inherit; padding: 8px 12px; border: 1px solid #64748b; border-radius: 5px; background: #f8fafc; color: #172033; cursor: pointer; }
+.panel button:disabled { cursor: wait; opacity: .6; }
+.panel a { color: #1d4ed8; }
+.panel :is(button,a,summary):focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.panel p { line-height: 1.6; margin: 10px 0; }
+.scroll { overflow-x: auto; }
+.panel table { width: 100%; border-collapse: collapse; min-width: 820px; font-size: 14px; }
+.panel th, .panel td { text-align: left; padding: 10px; border-bottom: 1px solid #e2e8f0; overflow-wrap: anywhere; }
+.panel th { background: #f1f5f9; }
+.panel summary { cursor: pointer; padding: 6px 0; }
+.error { color: #991b1b; background: #fef2f2; padding: 10px; }
+.warning { color: #854d0e; background: #fefce8; padding: 8px; }
+@media (max-width: 768px) { .panel { padding: 12px; } .header { align-items: flex-start; } }

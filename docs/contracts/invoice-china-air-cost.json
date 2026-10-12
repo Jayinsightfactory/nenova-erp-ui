@@ -1,0 +1,11 @@
+{
+  "id":"invoice-china-air-cost",
+  "title":"중국 항공 원가 · 실입고 무게/부피중량 배분",
+  "scope":["lib/invoiceReceiptCost.js","components/import-tools/InvoiceReceiptCostReview.js","lib/importPackingReceiptAdapter.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"PREVIEW_CN_AIR_COST","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","warehouseDetail":"preserve","stock":"preserve","notes":"사용자 원가자료 SHA256 e1bb0315998c2f3550a0edab8353147612cd6c46d7247b287656eca1c3ee4233. 27-2 CLOUD/26-2 CLOUD. GW=CW는 GW, GW<CW는 부피 환산중량으로 운임 배분, 통관은 항상GW. 환율/비용/관세/현재 GW,CW 확인필수. 과거 고정요율/0분모/음수잔여 복제 금지."},{"name":"APPROVE_CN_AIR_COST","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","stock":"preserve","notes":"기존 승인 저장 트랜잭션과 WebInvoiceCostRevision/Line, 실제 입고 readback/STALE검사만 재사용. ERP/EXE/SP/DB schema 변경 없음."}],
+  "crossYearFixture":{"required":true,"description":"원가 원본의 17~27차 환율/고정비를 2026/41-02로 자동 승격하지 않음. 문서 연도/세부차수/revision과 실제 입고 연결 검증 유지."},
+  "requiredTestFiles":["__tests__/invoiceReceiptChinaAirCost.test.js","__tests__/invoiceReceiptCost.test.js","__tests__/importPackingReceiptAdapter.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","source":"실제 ExcelLoadingPackingList.MakeTempTable의 단위/원문 UPrice TPrice 보존. 기존 WebInvoiceCost 저장/입고검증경로 재사용, nativeSQLwriter 변경 없음. 운영 Product/매칭 SELECT와 localhost14339 격리 native writer검증만 수행.","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.InsertMaster"],"tables":["WarehouseMaster","WarehouseDetail","WebInvoiceCostRevision","WebInvoiceCostLine"]},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}

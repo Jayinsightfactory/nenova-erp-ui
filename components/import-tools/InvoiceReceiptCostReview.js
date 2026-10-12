@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { INVOICE_COST_FORMULAS, previewInvoiceCost } from '../../lib/invoiceReceiptCost';
+import { INVOICE_COST_FORMULAS, previewInvoiceCost, restoredInvoiceCostInput } from '../../lib/invoiceReceiptCost';
 import { acquireInvoiceCostWorkflowLock, classifyInvoiceCostPostResponse, invoiceCostApprovalInvalidationEvents, isInvoiceCostGenerationCurrent, runInvoiceCostSaveWorkflow, runInvoiceCostStageRunner, shouldShowInvoiceCostPreviewNotice, verifyInvoiceCostReadback } from '../../lib/invoiceReceiptCostWorkflow';
 import styles from '../../styles/InvoiceReceiptCost.module.css';
 
@@ -82,6 +82,12 @@ function initialForm(document, receiptLines) {
       tariffRate: savedLines.get(String(line.lineId).toLowerCase())?.tariffRate ?? '',
       otherCostPerUnitKRW: savedLines.get(String(line.lineId).toLowerCase())?.otherCostPerUnitKRW ?? '',
       stemsPerBunch: savedLines.get(String(line.lineId).toLowerCase())?.stemsPerBunch ?? '',
+      grossWeightKg: savedLines.get(String(line.lineId).toLowerCase())?.grossWeightKg
+        ?? (documentCountry(document) === 'CN' && documentTransport(document) === 'AIR'
+          && line.sourceEvidence?.grossWeightKg !== null && line.sourceEvidence?.grossWeightKg !== undefined
+          && line.sourceEvidence?.grossWeightKg !== '' && Number.isFinite(Number(line.sourceEvidence?.grossWeightKg))
+          && Number(line.sourceEvidence.grossWeightKg) >= 0 ? Number(line.sourceEvidence.grossWeightKg) : ''),
+      volumeWeightKg: savedLines.get(String(line.lineId).toLowerCase())?.volumeWeightKg ?? '',
     })),
   };
 }
@@ -114,6 +120,7 @@ function applicableFormulaId(document) {
   const country = documentCountry(document);
   const transport = documentTransport(document);
   if (country === 'CN' && transport === 'SEA') return 'CN_SEA_ACTUAL_V1';
+  if (country === 'CN' && transport === 'AIR') return 'CN_AIR_WEIGHT_CBM_V1';
   if (country === 'NL' && transport === 'AIR') return 'NL_AMOUNT_V1';
   return '';
 }
@@ -184,6 +191,8 @@ function payloadOf(form) {
       tariffRate: numberOrNull(line.tariffRate),
       otherCostPerUnitKRW: numberOrNull(line.otherCostPerUnitKRW),
       stemsPerBunch: numberOrNull(line.stemsPerBunch),
+      grossWeightKg: numberOrNull(line.grossWeightKg),
+      volumeWeightKg: numberOrNull(line.volumeWeightKg),
     })),
   };
 }
@@ -208,6 +217,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const generationRef = useRef(0);
   const mountedRef = useRef(false);
   const workflowLocksRef = useRef(new Set());
+  const pristineRef = useRef(true);
+  const [inputEdited, setInputEdited] = useState(false);
   const isCurrent = (expectedIdentity = identity, expectedGeneration = generationRef.current) => isInvoiceCostGenerationCurrent({
     mounted: mountedRef.current, currentIdentity: identityRef.current, currentGeneration: generationRef.current,
     expectedIdentity, expectedGeneration,
@@ -255,6 +266,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }
 
   useEffect(() => {
+    pristineRef.current = true;
+    setInputEdited(false);
     setFormIdentity(identity);
     const nextReceiptLines = committedReceiptLines(document);
     const nextForm = initialForm(document, nextReceiptLines);
@@ -299,12 +312,16 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   if (!document) return null;
 
   function update(name, value) {
+    pristineRef.current = false;
+    setInputEdited(true);
     invalidateApprovalStages();
     setForm(current => ({ ...current, [name]: value }));
     setPreview(null);
   }
 
   function chooseFormula(formulaId) {
+    pristineRef.current = false;
+    setInputEdited(true);
     invalidateApprovalStages();
     const formula = INVOICE_COST_FORMULAS[formulaId];
     setForm(current => ({
@@ -319,6 +336,8 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   }
 
   function updateLine(lineId, name, value) {
+    pristineRef.current = false;
+    setInputEdited(true);
     invalidateApprovalStages();
     setForm(current => ({
       ...current,
@@ -329,6 +348,38 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
   function invalidateApprovalStages() {
     for (const event of invoiceCostApprovalInvalidationEvents(document)) emitStage(event.id, event.status, event.message);
+  }
+
+  async function loadApprovedInput() {
+    if (!pristineRef.current || pending || busy) return;
+    const expectedIdentity = identity;
+    const expectedGeneration = generationRef.current;
+    const warehouseKey = currentCommittedWarehouseKey(document);
+    if (!warehouseKey || !acquireInvoiceCostWorkflowLock(workflowLocksRef.current, expectedIdentity)) return;
+    setBusyIdentity(expectedIdentity);
+    try {
+      const response = await fetch(`/api/warehouse/invoice-costs?warehouseKey=${encodeURIComponent(warehouseKey)}`, {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      const data = await response.json();
+      if (!isCurrent(expectedIdentity, expectedGeneration) || !pristineRef.current) return;
+      if (!response.ok || !data.success || Number(data.costs?.warehouseKey) !== warehouseKey) throw new Error('승인 입력 조회가 실패했습니다.');
+      const restored = restoredInvoiceCostInput(document, receiptLines, data.costs);
+      if (!restored) throw new Error('현재 문서·revision·원본과 일치하는 승인 입력이 없거나 입고가 변경되었습니다.');
+      const editable = Object.fromEntries(Object.entries(restored).map(([key, value]) => [key, value === null ? '' : value]));
+      editable.lineInputs = restored.lineInputs.map(line => Object.fromEntries(Object.entries(line).map(([key, value]) => [key, value === null ? '' : value])));
+      setForm(initialForm({ ...document, reviewedMetadata: { ...document.reviewedMetadata, invoiceCostInput: editable } }, receiptLines));
+      pristineRef.current = false;
+      setInputEdited(true);
+      invalidateApprovalStages();
+      setPreview(null);
+      setNotice({ type: 'success', text: '승인 입력을 불러왔습니다. 현재 자료를 다시 검토하고 공식 적용 확인을 직접 체크하세요.' });
+    } catch (error) {
+      if (isCurrent(expectedIdentity, expectedGeneration)) setNotice({ type: 'error', text: error.message });
+    } finally {
+      workflowLocksRef.current.delete(expectedIdentity);
+      if (mountedRef.current && identityRef.current === expectedIdentity) setBusyIdentity(value => value === expectedIdentity ? '' : value);
+    }
   }
 
   async function runPreview() {
@@ -471,17 +522,20 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
   const allowedFormulaIds = applicableFormulaId(document) ? [applicableFormulaId(document)] : [];
   const allowedFormulas = allowedFormulaIds.map(id => INVOICE_COST_FORMULAS[id]);
   const selectedFormula = INVOICE_COST_FORMULAS[form.formulaId];
+  const isChinaAir = form.formulaId === 'CN_AIR_WEIGHT_CBM_V1';
   const reviewOnly = allowedFormulaIds.length === 0 || (form.formulaId && (!selectedFormula || form.formulaId !== allowedFormulaIds[0]));
 
   return <section className={styles.root} aria-label="인보이스 도착원가 검토">
     <header className={styles.header}>
       <div><span className={styles.eyebrow}>검증된 원가 계산</span><h3>실제 입고량 도착원가</h3>
-        <p>승인된 두 공식만 계산합니다. 적용 확인은 이 문서에 대한 수동 검토이며 공식의 보편적 유효성을 뜻하지 않습니다. 95% 적재 예상값은 비교 전용입니다.</p></div>
+        <p>검증된 공식만 계산합니다. 적용 확인은 이 문서에 대한 수동 검토이며 공식의 보편적 유효성을 뜻하지 않습니다. 95% 적재 예상값은 비교 전용입니다.</p></div>
       <div className={styles.status}><span>문서 버전</span><strong>{document.revision ?? '—'}</strong><span>입고 상태</span><strong>{receiptStatusLabel(document.receiptStatus)}</strong></div>
     </header>
 
     {notice && <p className={notice.type === 'error' ? styles.error : styles.success} role={notice.type === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
     {reviewOnly && <p className={styles.reviewOnly} role="status">{country} / {documentTransport(document) || '운송 미확인'} 조합에는 검증된 원가 공식이 없습니다. 입고 성공은 보존되며 원가는 계산·저장되지 않습니다.</p>}
+    <button type="button" onClick={loadApprovedInput} disabled={busy || Boolean(pending) || inputEdited || formIdentity !== identity || !currentCommittedWarehouseKey(document)}>승인 입력 불러오기</button>
+    <p>현재 문서·버전의 승인 입력만 불러옵니다. 입력을 편집한 뒤에는 덮어쓰지 않습니다. 적용 확인은 다시 필요합니다.</p>
 
     <ol className={styles.workflow} aria-label="원가 처리 단계">
       <li><strong>원가 계산</strong><span>{autoProcess ? '자동 계산' : '수동 미리보기'}</span></li>
@@ -502,7 +556,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <Field label="환율 종류"><input value={form.exchangeRateType} onChange={event => update('exchangeRateType', event.target.value)} placeholder="매입/신고 등" /></Field>
       <Field label="환율 기준일"><input type="date" value={form.exchangeRateDate} onChange={event => update('exchangeRateDate', event.target.value)} /></Field>
       <Field label="운임 원금"><input type="number" step="0.000001" min="0" value={form.freightAmount} onChange={event => update('freightAmount', event.target.value)} /></Field>
-      <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" value={form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="NL 공식 필수" /></Field>
+      <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" value={form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="NL·중국 항공 필수" /></Field>
       <Field label="비용 원천 식별값" wide><input value={form.costSourceId} onChange={event => update('costSourceId', event.target.value)} placeholder="공급자 + 전표번호 + 비용항목 + 통화" /></Field>
       <Field label="비용 배분 범위"><select value={form.allocationScope} onChange={event => update('allocationScope', event.target.value)}><option value="">범위를 선택하세요</option><option value="SINGLE_INVOICE">이 인보이스에만 배분</option><option value="SHARED">여러 인보이스 공동 비용 · 저장 불가</option></select></Field>
       <Field label="이 문서 배분 몫"><span className={styles.share}><input aria-label="배분 분자" type="number" step="0.000001" min="0" value={form.allocationShareNumerator} onChange={event => update('allocationShareNumerator', event.target.value)} /><b>/</b><input aria-label="배분 분모" type="number" step="0.000001" min="0.000001" value={form.allocationShareDenominator} onChange={event => update('allocationShareDenominator', event.target.value)} /></span></Field>
@@ -510,9 +564,12 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <Field label={`공식 적용일 (입고일 ${document.reviewedMetadata?.inputDate || '미확인'})`}><input type="date" value={form.formulaEffectiveDate} onChange={event => update('formulaEffectiveDate', event.target.value)} /></Field>
     </div>
 
+    {isChinaAir && <p role="status">현재 문서 GW: {document.reviewedMetadata?.gw ?? '미확인'} kg · CW: {document.reviewedMetadata?.cw ?? '미확인'} kg.
+      GW/CW가 없거나 잘못되면 문서 메타데이터 검토에서 수정하세요. GW≈CW(0.01kg)는 실중량, CW&gt;GW는 CBM 환산중량으로 운임을 배분하며 통관비는 항상 실중량으로 배분합니다.
+      행별 CBM 환산중량은 kg입니다. 원시 m³나 임의 환산계수를 입력하지 마세요. 인식 GW는 미확정 힌트이며 현재 자료와 대조해야 합니다.</p>}
     <label className={styles.confirmation}><input type="checkbox" checked={form.formulaApplicabilityConfirmed === true}
       onChange={event => update('formulaApplicabilityConfirmed', event.target.checked)} />
-      <span>이 입고일·운송·품목에 해당 원본 계산식 적용을 확인했습니다</span></label>
+      <span>이 입고일·운송·품목에 해당 원본 계산식 적용을 확인했습니다{isChinaAir ? ' · 현재 GW/CW와 행별 실중량·CBM 환산중량을 직접 검토했습니다' : ''}</span></label>
 
     <details className={styles.evidence}>
       <summary>검증된 계산 근거 보기</summary>
@@ -523,7 +580,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     </details>
 
     <div className={styles.tableRegion} role="region" aria-label="행별 원가 입력과 결과" tabIndex={0}>
-      <table className={styles.table}><thead><tr><th>행</th><th>원문 품목</th><th>실제량</th><th>원문 금액/통화</th><th>관세율</th><th>기타비/단위</th><th>단당 송이</th><th>실제 원가</th></tr></thead>
+      <table className={styles.table}><thead><tr><th>행</th><th>원문 품목</th><th>실제량</th><th>원문 금액/통화</th><th>관세율</th><th>기타비/단위</th><th>단당 송이</th>{isChinaAir && <><th>실중량 kg</th><th>CBM 환산중량 kg</th></>}<th>실제 원가</th></tr></thead>
         <tbody>{receiptLines.map((line, index) => {
           const lineInput = form.lineInputs.find(item => item.lineId === line.lineId) || {};
           const result = lineResult.get(String(line.lineId).toLowerCase());
@@ -531,6 +588,9 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
             <td><input aria-label={`${index + 1}행 관세율`} type="number" min="0" max="1" step="0.000001" value={lineInput.tariffRate ?? ''} onChange={event => updateLine(line.lineId, 'tariffRate', event.target.value)} /></td>
             <td><input aria-label={`${index + 1}행 기타비`} type="number" min="0" step="0.000001" value={lineInput.otherCostPerUnitKRW ?? ''} onChange={event => updateLine(line.lineId, 'otherCostPerUnitKRW', event.target.value)} disabled={form.formulaId === 'NL_AMOUNT_V1'} /></td>
             <td><input aria-label={`${index + 1}행 단당 송이`} type="number" min="0" step="0.000001" value={lineInput.stemsPerBunch ?? ''} onChange={event => updateLine(line.lineId, 'stemsPerBunch', event.target.value)} disabled={form.formulaId !== 'NL_AMOUNT_V1'} /></td>
+            {isChinaAir && <><td><input aria-label={`${index + 1}행 실중량 kg`} type="number" min="0" step="0.000001" value={lineInput.grossWeightKg ?? ''} onChange={event => updateLine(line.lineId, 'grossWeightKg', event.target.value)} />
+              {line.sourceEvidence?.grossWeightKg !== undefined && <small>인식 힌트: {line.sourceEvidence.grossWeightKg} kg · 직접 검토 필요</small>}</td>
+              <td><input aria-label={`${index + 1}행 CBM 환산중량 kg`} type="number" min="0" step="0.000001" value={lineInput.volumeWeightKg ?? ''} onChange={event => updateLine(line.lineId, 'volumeWeightKg', event.target.value)} /></td></>}
             <td>{result ? result.quantity === 0
               ? <><strong>취소행</strong><small>단위원가 미산정 · 합계 {money(result.totalCostKRW)}</small></>
               : <><strong>{money(result.costPerUnitKRW)}</strong><small>{unitLabel(result.unit)} · 합계 {money(result.totalCostKRW)}</small></> : '—'}</td></tr>;
@@ -539,7 +599,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
     <div className={styles.actions}>
       <button type="button" onClick={runPreview} disabled={busy}>입력값으로 미리보기</button>
-      <label><span>승인 사유</span><input value={reason} onChange={event => setReason(event.target.value)} placeholder="검토 근거를 입력하세요" /></label>
+      <label><span>승인 사유</span><input value={reason} onChange={event => { pristineRef.current = false; setInputEdited(true); setReason(event.target.value); }} placeholder="검토 근거를 입력하세요" /></label>
       <button type="button" className={styles.primary} onClick={save} disabled={busy || Boolean(pending) || preview?.status !== 'APPROVED' || !reason.trim()}>{busy ? '저장 중…' : '원가 승인 저장'}</button>
     </div>
     </fieldset>

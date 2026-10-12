@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import ArrivalDriveAutoPanel from '../components/ArrivalDriveAutoPanel';
+import InvoiceArrivalCostPanel from '../components/import-tools/InvoiceArrivalCostPanel';
 import { parseJsonResponse } from '../lib/parseJsonResponse';
 import { arrivalVarietyWeightActive, arrivalWeightHints, filterArrivalRowsByWeight, formatFarmCostSummary, groupArrivalCostRows, normalizeWeekOrder, rowCost, sectionArrivalCostGroupsByWeek } from '../lib/arrivalCostView.js';
 import { recalcArrivalCostWithFx } from '../lib/arrivalCostFxPreview.js';
@@ -331,6 +332,7 @@ export default function ArrivalCostPage() {
           <span className="read-only-badge">웹 원장 전용</span>
         </div>
 
+        <InvoiceArrivalCostPanel orderYear={appliedFilters.orderYear} orderWeek={appliedFilters.orderWeek} country={appliedFilters.country} />
         <ArrivalDriveAutoPanel />
         <section className="arrival-card">
           <div className="section-title">엑셀 업로드</div>
