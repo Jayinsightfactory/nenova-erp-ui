@@ -459,6 +459,21 @@ assert.equal(inputFor(rejectedHost).props.value, '12', 'failed edit retains user
 assert.ok(descendants(rejectedHost.render()).some((element) => element.props?.role === 'alert'));
 
 const printRequests = [];
+const partialQuote={year:2026,majorWeek:'38',printReadiness:{scope:'ALL_CUSTOMERS_MAJOR_WEEK',
+  positiveCount:100,unfixedCount:99,invalidCount:0,reasons:[]}};
+const datePrintRequests=[];
+const dateReadyHost=mount(eventModule.exports.default,{cycles,comparisonRows:[actual({custKey:7})],
+  customer:{CustKey:7},quoteResults:[partialQuote],onPrint(payload){datePrintRequests.push(payload);}});
+const dateButton=descendants(dateReadyHost.render()).find(element=>element.props?.label==='38차 목 견적 출력');
+assert.equal(dateButton.props.reason,'','confirmed selected day is available despite major all-customer readiness');
+await dateButton.props.onClick();
+assert.equal(datePrintRequests.length,1);
+assert.match(descendants(dateReadyHost.render()).filter(element=>element.props?.label==='전체 견적')[1].props.reason,/확정 대기/,
+  'whole-major printing preserves the broad completion gate');
+const dateUnfixedHost=mount(eventModule.exports.default,{cycles,comparisonRows:[actual({custKey:7,fixed:false})],
+  customer:{CustKey:7},quoteResults:[partialQuote],onPrint(){throw Error('must not print');}});
+assert.match(descendants(dateUnfixedHost.render()).find(element=>element.props?.label==='38차 목 견적 출력').props.reason,/미확정/,
+  'selected unfixed date is rejected before transport');
 const mainHost = mount(eventModule.exports.default, { cycles, plans: [plan()], comparisonRows: [actual()],
   customer: { CustKey: 7 }, onEditCell() {}, onPrint(payload) { printRequests.push(payload); } });
 const printButton = (label) => descendants(mainHost.render()).find((element) => element.props?.label === label);

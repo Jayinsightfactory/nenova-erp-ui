@@ -24,7 +24,7 @@ const allocationInput={...input,mode:'ALLOCATION'};
 const unconfirmed={...row,fixed:false,shipmentDates:row.shipmentDates.map(day=>({...day,detailFixed:false}))};
 const unconfirmedSubmission=build({...allocationInput,compareRows:[unconfirmed],plans:[{...plan,quantity:12}]});
 assert.equal(unconfirmedSubmission.payload.mode,'ALLOCATION');
-assert.equal(unconfirmedSubmission.preview[0].detailFlag,'상세 미확정 → 미확정 유지');
+assert.equal(unconfirmedSubmission.preview[0].detailFlag,'미확정 → 미확정 · 수량 저장');
 assert.equal(unconfirmedSubmission.payload.changes[0].expected.shipmentDates[0].detailFixed,false,
   'existing unfixed source is retained rather than automatically confirmed');
 assert.throws(()=>build({...input,compareRows:[unconfirmed]}),/미확정/,'omitted mode preserves fixed-only legacy policy');
@@ -33,7 +33,25 @@ const emptyAllocation={...row,state:'NO_SHIPMENT',detailRows:0,fixed:null,master
 const newAllocation=build({...allocationInput,compareRows:[emptyAllocation],plans:[{...plan,quantity:12}]});
 assert.equal(newAllocation.preview[0].before,0);
 assert.equal(newAllocation.preview[0].after,12);
-assert.equal(newAllocation.preview[0].detailFlag,'미확정 분배 등록');
+assert.equal(newAllocation.preview[0].detailFlag,'미확정 → 미확정 · 수량 저장');
+const fixedQuantityPreview=build({...allocationInput,plans:[{...plan,quantity:12}]}).preview[0];
+assert.equal(fixedQuantityPreview.detailFlag,'확정 → 확정 · 확정 취소 → 수량 저장 → 확정');
+assert.equal(fixedQuantityPreview.lifecycle.consumedDelta,7);
+const movingPlans=[{...plan,quantity:0},{...plan,id:'moved',date:'2026-09-20',quantity:5}];
+const fixedMovePreview=build({...allocationInput,plans:movingPlans});
+assert.ok(fixedMovePreview.preview.every(cell=>cell.detailFlag==='확정 → 확정 · 출고일 이동'));
+assert.equal(fixedMovePreview.preview[0].lifecycle.consumedDelta,0);
+const unfixedMovePreview=build({...allocationInput,compareRows:[unconfirmed],plans:movingPlans});
+assert.ok(unfixedMovePreview.preview.every(cell=>cell.detailFlag==='미확정 → 확정 · 확정 → 출고일 이동'));
+assert.equal(unfixedMovePreview.preview[0].lifecycle.consumedDelta,25,'date move confirms the whole detail');
+const unfixedCombined=build({...allocationInput,compareRows:[unconfirmed],plans:[movingPlans[0],{...movingPlans[1],quantity:7}]});
+assert.equal(unfixedCombined.preview[0].detailFlag,'미확정 → 확정 · 수량 저장 → 확정 → 출고일 이동');
+assert.equal(unfixedCombined.preview[0].lifecycle.consumedDelta,27);
+const crossWeekTarget={...emptyAllocation,orderWeek:'38-02'};
+const crossWeekPreview=build({...allocationInput,compareRows:[unconfirmed,crossWeekTarget],
+  plans:[movingPlans[0],{...movingPlans[1],orderWeek:'38-02',date:'2026-09-21'}]});
+assert.ok(crossWeekPreview.preview.every(cell=>cell.lifecycle.dateMove && cell.lifecycle.finalFixed),
+  'cross-subweek redistribution must not be mistaken for two quantity-only edits');
 assert.deepEqual(newAllocation.payload.changes[0].dates,[{date:plan.date,quantity:12}]);
 assert.equal(build({...allocationInput,compareRows:[{...emptyAllocation,masterFixed:null}],plans:[{...plan,quantity:12}]}).payload.mode,'ALLOCATION',
   'server digest plus complete empty source can prove a missing master for native creation');

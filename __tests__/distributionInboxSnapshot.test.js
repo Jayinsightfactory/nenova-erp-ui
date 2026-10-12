@@ -100,3 +100,16 @@ test('same actor/year carry fold tombstones beat older week snapshots; other sco
   assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-b','2026'])}).foldedMessages,{});
   assert.deepEqual(retainInboxFeed({...input,owner:JSON.stringify(['user-a','2025'])}).foldedMessages,{});
 });
+
+
+test('legacy seven-day raw snapshot is pruned independently from saved matching and operation evidence',()=>{
+  const {retainInboxFeed}=require('../lib/distributionInboxSnapshot');
+  const owner='same-user-year',now=new Date('2026-10-09T12:00:00+09:00');
+  const raw=(id,created_at)=>({identity:`nenovakakao|sales|${id}`,source:'nenovakakao',message:id,created_at});
+  const old=raw('old','2026-10-06T23:59:59+09:00'),current=raw('current','2026-10-07T00:00:00+09:00');
+  const saved={rows:[old,current],pendingRows:[old],manualApplications:{[old.identity]:{status:'MANUALLY_APPLIED'}},operationHistory:[{id:'kept'}],savedAnalysis:{productKey:123}};
+  const before=structuredClone(saved);
+  const result=retainInboxFeed({owner,previousOwner:owner,now},saved);
+  assert.deepEqual(result.rows,[current]);assert.deepEqual(result.pending,[]);
+  assert.deepEqual(saved,before,'raw retention never mutates persisted analysis or evidence');
+});

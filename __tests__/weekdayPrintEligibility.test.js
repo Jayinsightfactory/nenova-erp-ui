@@ -109,11 +109,17 @@ assert.equal(partial.calls.some(call=>call.statement.includes('WITH list AS')),f
 const dateScope=normalizeWeekdayPrintRequest({year:2026,majorWeek:38,custKey:533,mode:'dates',dates:['2026-09-17']});
 const datePartial=await execute([row(),row({SdetailKey:102,OrderWeek:'38-02',isFix:0})],
   [day(),day({SdetailKey:102,SdateKey:2})],dateScope);
-assert.equal(datePartial.error.status,409,'date-only selection still requires all main-cycle details fixed');
+assert.equal(datePartial.error.status,409,'selected actual date includes an unfixed detail and must reject the whole quote');
 assert.equal(datePartial.calls.some(call=>call.statement.includes('WITH list AS')),false);
 const datePassed=await execute([row()],[day()],dateScope);
 assert.equal(datePassed.value.items.length,2);
 assert.equal(datePassed.calls.at(-1).params.printDate0.value,'2026-09-17');
+const unrelatedUnfixed=await execute([row(),row({SdetailKey:102,isFix:0,MasterCustKey:999})],
+  [day(),day({SdetailKey:102,SdateKey:2})],dateScope);
+assert.equal(unrelatedUnfixed.value.items.length,2,'other customer does not block selected confirmed date');
+const differentDayUnfixed=await execute([row(),row({SdetailKey:102,isFix:0})],
+  [day(),day({SdetailKey:102,SdateKey:2,ShipmentTimestamp:'2026-09-18 00:00:00.000'})],dateScope);
+assert.equal(differentDayUnfixed.value.items.length,2,'other date does not block selected confirmed date');
 const altered=await execute([row()],[day()],scope,[{...quote[0],Amount:99999},quote[1]]);
 assert.equal(altered.error.status,409,'mutated quote cannot pass');
 const zeroPriceRow=row({Cost:0,Amount:0,Vat:0});

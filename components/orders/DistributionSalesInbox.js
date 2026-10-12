@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {MAX_TEXT_BYTES,periodBounds,parseSalesExport,mergeMessages,selectedText} from '../../lib/distributionSalesInbox';
-import {REFRESH_INTERVAL_MS,HISTORY_REFRESH_INTERVAL_MS,DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,createAppendFeedReader,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
+import {REFRESH_INTERVAL_MS,HISTORY_REFRESH_INTERVAL_MS,DEFAULT_MAX_PAGES,isAutoRefreshEligible,isCurrentRefresh,recentSalesPeriod,retainRecentSalesRows,assertRecentSalesPeriod,createAppendFeedReader,messageIdentity,readSalesFeedPage,refreshSalesFeed,shouldBufferIncoming,startBoundedAutoRefresh} from '../../lib/distributionSalesInboxRefresh';
 import {comparisonForIdentity,differenceDelta,evidenceLabel,isValidBalanceComparison,reasonLabel,signedDelta,shouldHideConsistentIdentity} from '../../lib/distributionRequestBalanceComparisonUi';
 import {classifyMessage,summarizeMessage,confirmedHistoryRequests,quantityProcessedRequests} from '../../lib/distributionCompactMatchUi';
 import {visibleChanges} from '../../lib/distributionVisibleChanges';
@@ -106,7 +106,8 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       if(data){
         restoredApplicationScope.current=`${cacheKey}:${String(year||'')}:${String(shortApplicationWeek(year,week)||'')}`;
         const retained=retainInboxFeed({owner,previousOwner:owner,...carry},data);
-        setFrom(data.from);setTo(data.to);setRows(retained.rows);restoreMessageFolds(retained.foldedMessages);setSelected(data.selected||{});setCursor(data.cursor);setMore(data.more);setLoadedPeriod(data.loadedPeriod);
+        const recent=recentSalesPeriod(),samePeriod=data.from===recent.from&&data.to===recent.to;
+        setFrom(recent.from);setTo(recent.to);setRows(retained.rows);restoreMessageFolds(retained.foldedMessages);setSelected(data.selected||{});setCursor(samePeriod?data.cursor:'');setMore(samePeriod?data.more:false);setLoadedPeriod(samePeriod?data.loadedPeriod:'');
         setPendingRows(retained.pending);setRefreshStatus({...data.refreshStatus,loading:false});
         setManualApplications(data.manualApplications||{});setAuditApplications(data.auditApplications||{});setOperationApplications(data.operationApplications||{});setOperationHistory(data.operationHistory||[]);
         setApplicationStatus({...data.applicationStatus,loading:false});setLiveHistory(data.liveHistory||{});setLiveBalanceComparison(data.liveBalanceComparison||null);
@@ -162,10 +163,10 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     const controller=new AbortController();refreshController.current=controller;requestBusy.current=true;requestOwner.current=owner;
     setRefreshStatus(previous=>({...previous,loading:true,error:''}));
     try {
-      periodBounds(from,to);
+      periodBounds(from,to);assertRecentSalesPeriod(from,to);
       const result=await refreshSalesFeed({from,to,maxPages:DEFAULT_MAX_PAGES,signal:controller.signal});
       if(id!==seq.current||snapshotKey(snapshotActorId,year,week)!==cacheKey)return;
-      setHistoryAttempted(false);setRows(previous=>mergeMessages(previous,result.messages).rows);setSelected({});setCursor(result.nextAfterKey??'');setMore(!result.complete);setLoadedPeriod(period);
+      setHistoryAttempted(false);setRows(previous=>retainRecentSalesRows(mergeMessages(previous,result.messages).rows));setSelected({});setCursor(result.nextAfterKey??'');setMore(!result.complete);setLoadedPeriod(period);
       setNotice(`${result.messages.length}건 자동 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
       setRefreshStatus({lastSuccess:new Date().toISOString(),error:'',incomplete:!result.complete,newCount:0,autoShown:result.messages.length,loading:false});
       setFeedEvidenceRevision(value=>value+1);
@@ -181,12 +182,12 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     const id=++seq.current; setBusy(true); setNotice('');
     const owner=`manual:${id}`;requestBusy.current=true;requestOwner.current=owner;
     try {
-      periodBounds(from,to);
+      periodBounds(from,to);assertRecentSalesPeriod(from,to);
       const period=`${from}/${to}`;
       const data=await readSalesFeedPage({from,to,afterKey:next&&period===loadedPeriod?cursor:''});
       if(id!==seq.current)return;
       const incoming=data.messages.map(r=>({...r,identity:messageIdentity(r)}));
-      setRows(prev=>mergeMessages(period===loadedPeriod?prev:[],incoming).rows);
+      setRows(prev=>retainRecentSalesRows(mergeMessages(period===loadedPeriod?prev:[],incoming).rows));
       if(period!==loadedPeriod) {setSelected({});setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0});setHistoryAttempted(false);}
       setCursor(data.nextAfterKey??'');setMore(data.hasMore);setLoadedPeriod(period);setHistoryAttempted(false);setFeedEvidenceRevision(value=>value+1);
       setNotice(`${incoming.length}건 확인 · 수신은 주문 등록 완료를 뜻하지 않습니다.`);
@@ -211,7 +212,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
   }
   function changePeriod(set,value){seq.current++;refreshController.current?.abort();requestBusy.current=false;requestOwner.current='';set(value);setBusy(false);setMore(false);setCursor('');setPendingRows([]);setRefreshStatus({lastSuccess:'',error:'',incomplete:false,newCount:0,autoShown:0,loading:false});}
   function revealPending() {
-    setRows(previous=>mergeMessages(previous,pendingRowsRef.current).rows);
+    setRows(previous=>retainRecentSalesRows(mergeMessages(previous,pendingRowsRef.current).rows));
     setPendingRows([]);setRefreshStatus(previous=>({...previous,newCount:0}));
   }
   async function refreshLiveHistory(scope=liveScope,messages=liveBatch,{force=false}={}) {
@@ -481,7 +482,7 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
       {confirmation.cancelled&&<div style={{padding:'4px 7px',color:'#805d19'}}>확인취소 · 재확인 필요 (전산 작업은 유지)</div>}
       {hasAcceptedLiveHistoryScope&&liveHistory[row.identity]?.repostOf&&<small style={{display:'block',padding:'4px 7px'}}>동일 원문 재전송 · 기존 처리 근거 공유 (수량 중복 합산 없음)</small>}
       <div className="visible-change-meta"><small>{source}</small><button type="button" className="source-hide-toggle" data-testid={`source-fold-toggle:${row.identity}`} aria-expanded={true} onClick={event=>setMessageFold(row.identity,true,event)}>숨기기</button>
-      <button type="button" className={`source-delivery-status ${deliveryStatus.items[row.identity]?.status==='DELIVERED'?'delivered':''}`} data-testid={`source-delivery-status:${row.identity}`} aria-pressed={deliveryStatus.items[row.identity]?.status==='DELIVERED'} aria-disabled="true" title={deliveryStatus.items[row.identity]?.status==='DELIVERED'?`현장 추가취소방 동일 원문 확인 · ${shortKstTime(deliveryStatus.items[row.identity].deliveredAt)}`:deliveryStatus.error||'최근 7일 추가취소방에서 동일 원문의 전송을 확인합니다. 부분 일치·시각 불명확·중복 원문은 완료로 표시하지 않습니다.'}>{deliveryStatus.items[row.identity]?.status==='DELIVERED'?'● 전달완료':deliveryStatus.error?'전달 조회 실패':deliveryStatus.loading?'전달 확인 중…':deliveryStatus.pending?'전달 확인 대기':deliveryStatus.items[row.identity]?.status==='AMBIGUOUS'?'전달 재확인':`○ 전달 미확인 · ${DELIVERY_REASON_LABELS[deliveryStatus.items[row.identity]?.reason]||'전송 근거 확인 대기'}`}</button>
+      <button type="button" className={`source-delivery-status ${deliveryStatus.items[row.identity]?.status==='DELIVERED'?'delivered':''}`} data-testid={`source-delivery-status:${row.identity}`} aria-pressed={deliveryStatus.items[row.identity]?.status==='DELIVERED'} aria-disabled="true" title={deliveryStatus.items[row.identity]?.status==='DELIVERED'?`현장 추가취소방 동일 원문 확인 · ${shortKstTime(deliveryStatus.items[row.identity].deliveredAt)}`:deliveryStatus.error||'최근 3일 추가취소방에서 동일 원문의 전송을 확인합니다. 부분 일치·시각 불명확·중복 원문은 완료로 표시하지 않습니다.'}>{deliveryStatus.items[row.identity]?.status==='DELIVERED'?'● 전달완료':deliveryStatus.error?'전달 조회 실패':deliveryStatus.loading?'전달 확인 중…':deliveryStatus.pending?'전달 확인 대기':deliveryStatus.items[row.identity]?.status==='AMBIGUOUS'?'전달 재확인':`○ 전달 미확인 · ${DELIVERY_REASON_LABELS[deliveryStatus.items[row.identity]?.reason]||'전송 근거 확인 대기'}`}</button>
       <button type="button" className="source-confirm-toggle" data-testid={`source-confirm-toggle:${row.identity}`} aria-pressed={confirmation.confirmed&&!confirmation.cancelled} title="확인 표시는 실제 주문·분배 적용과 별개입니다. 확인취소는 전산 작업을 되돌리지 않습니다." disabled={disabled||!!applicationSaving[row.identity]||!applicationWeek||!applicationStatus.loaded} onClick={()=>saveManualApplication(row.identity,confirmation.confirmed&&!confirmation.cancelled?'MANUALLY_NOT_APPLIED':'MANUALLY_APPLIED')}>{applicationSaving[row.identity]?'저장 중…':confirmation.confirmed&&!confirmation.cancelled?'확인취소':'확인처리'}</button>
       {!prepareMessage&&<button type="button" title="클릭한 원문만 AI 분석·매칭합니다. 전산 저장은 별도 실행입니다." disabled={busy||disabled||!sourceWeek} onClick={()=>onLoadText({text:row.message,messages:[row],sourceWeek,autoAnalyze:true})}>원문 AI 분석·매칭</button>}</div>
       {applicationErrors[row.identity]&&<p className="application-error" role="alert">{applicationErrors[row.identity]}</p>}
@@ -516,9 +517,11 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
           const known=new Set([...rowsRef.current,...pendingRowsRef.current].map(row=>row.identity));
           const incoming=result.messages.filter(row=>!known.has(row.identity));
           const buffer=shouldBufferIncoming({selectedCount:rowsRef.current.filter(row=>selectedRef.current[row.identity]).length,reviewOpen:reviewOpenRef.current});
+          setRows(previous=>retainRecentSalesRows(previous));
+          setPendingRows(previous=>retainRecentSalesRows(previous));
           if(incoming.length){
-            if(buffer)setPendingRows(previous=>mergeMessages(previous,incoming).rows);
-            else setRows(previous=>mergeMessages(previous,incoming).rows);
+            if(buffer)setPendingRows(previous=>retainRecentSalesRows(mergeMessages(previous,incoming).rows));
+            else setRows(previous=>retainRecentSalesRows(mergeMessages(previous,incoming).rows));
           }
           setRefreshStatus({lastSuccess:new Date().toISOString(),error:'',incomplete:!result.complete,newCount:pendingRowsRef.current.length+(buffer?incoming.length:0),autoShown:buffer?0:incoming.length,loading:false,feedFrom:result.from,feedTo:result.to});
         } catch(error) {if(error?.name==='AbortError')return;if(isCurrentRefresh({sequence,currentSequence:refreshSeq.current,scope,currentScope:activeRefreshScope.current}))setRefreshStatus(previous=>({...previous,error:error.message||'영업방 자동 확인에 실패했습니다. 기존 목록은 유지됩니다.',loading:false}));throw error;}
@@ -555,15 +558,15 @@ export default function DistributionSalesInbox({year,week,disabled,onLoadText,pr
     writeInboxSnapshot(scope,data).then(savedAt=>{if(epoch===snapshotEpoch.current){setSnapshotSavedAt(savedAt);setSnapshotError('');setSnapshotPhase(previous=>previous.key===cacheKey?{...previous,kind:'fresh'}:previous);}}).catch(()=>{if(epoch===snapshotEpoch.current)setSnapshotError('브라우저 저장 실패 · 메뉴 재진입 시 결과가 유지되지 않을 수 있습니다. 저장 공간과 브라우저 설정을 확인하세요.');});
   },[ready,cacheKey,from,to,rows,selected,foldedMessages,cursor,more,loadedPeriod,pendingRows,refreshStatus,manualApplications,auditApplications,operationApplications,operationHistory,applicationStatus,liveHistory,liveBalanceComparison,liveHistoryStatus,historyAttempted,applicationAttempted]);
   return <section className="sales-inbox" aria-label="영업방 대화 수신함">
-    <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 기본 최근 7일</span><span data-testid="sales-inbox-snapshot-status" role="status">{snapshotError||(!ready?snapshotAuthReady&&!snapshotActorId?'사용자를 확인하지 못했습니다. 다시 로그인해 주세요.':'저장된 조회 확인 중':snapshotSavedAt?`${snapshotPhase.kind==='restored'?'저장된 조회 복원':'조회 결과 저장'} · 브라우저 마지막 저장 ${shortKstTime(snapshotSavedAt)} · 전산 대조 ${liveHistoryStatus.asOf?shortKstTime(liveHistoryStatus.asOf):'시각 미확인'}`:'조회 결과 저장 준비 중')}</span></div>
+    <div className="bar"><button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'▾':'▸'} 영업방 대화</button><span>선택 차수 {week||'미선택'} · 원문 선택 후 입력칸으로</span><span data-testid="sales-inbox-period">조회 기간 {from} ~ {to} · 최근 3일만 표시</span><span data-testid="sales-inbox-snapshot-status" role="status">{snapshotError||(!ready?snapshotAuthReady&&!snapshotActorId?'사용자를 확인하지 못했습니다. 다시 로그인해 주세요.':'저장된 조회 확인 중':snapshotSavedAt?`${snapshotPhase.kind==='restored'?'저장된 조회 복원':'조회 결과 저장'} · 브라우저 마지막 저장 ${shortKstTime(snapshotSavedAt)} · 전산 대조 ${liveHistoryStatus.asOf?shortKstTime(liveHistoryStatus.asOf):'시각 미확인'}`:'조회 결과 저장 준비 중')}</span></div>
     <div className="sales-inbox-content" hidden={!open||!ready}>
       <small data-testid="sales-inbox-shared-status-cadence">공유 처리확인·저장된 분배 이력 {HISTORY_REFRESH_INTERVAL_MS/1000}초마다 확인</small>
       <small data-testid="sales-inbox-delivery-cadence">추가취소방 전달 여부 {HISTORY_REFRESH_INTERVAL_MS/1000}초마다 확인 · 동일 원문 전송 근거가 있으면 전달완료</small>
-      {deliveryStatus.diagnostics&&<small data-testid="sales-inbox-delivery-diagnostics">최근 7일 추가취소방 {deliveryStatus.diagnostics.targetCount}건 · 비교 가능한 원문 {deliveryStatus.diagnostics.qualifiedSourceCount}/{rows.length}건</small>}
-      {deliveryStatus.error&&<p role="status">{deliveryStatus.error} 완료 표시를 해제했습니다. 다음 자동 조회에서 다시 확인합니다.</p>}
-      <small data-testid="sales-inbox-refresh-cadence">{autoFeedRefresh?`새 카톡 ${REFRESH_INTERVAL_MS/1000}초마다 확인 · 최근 7일 수신분만 중복 없이 추가 · 저장된 원문·전산 확인 유지`:'새 카톡 자동 확인 꺼짐'}{refreshStatus.feedTo&&` · 새 카톡 수신 기간 ${refreshStatus.feedFrom} ~ ${refreshStatus.feedTo}`}</small>
+      {deliveryStatus.diagnostics&&<small data-testid="sales-inbox-delivery-diagnostics">최근 3일 추가취소방 {deliveryStatus.diagnostics.targetCount}건 · 비교 가능한 원문 {deliveryStatus.diagnostics.qualifiedSourceCount}/{rows.length}건</small>}
+      {deliveryStatus.error&&<p role="status">{deliveryStatus.error} 저장된 전달 완료는 유지됩니다. 아직 확인되지 않은 건은 다시 확인해 주세요.</p>}
+      <small data-testid="sales-inbox-refresh-cadence">{autoFeedRefresh?`새 카톡 ${REFRESH_INTERVAL_MS/1000}초마다 확인 · 최근 3일 수신분만 중복 없이 추가 · 저장된 원문·전산 확인 유지`:'새 카톡 자동 확인 꺼짐'}{refreshStatus.feedTo&&` · 새 카톡 수신 기간 ${refreshStatus.feedFrom} ~ ${refreshStatus.feedTo}`}</small>
       <details className="inbox-tools" open={controlsOpen} onToggle={event=>setControlsOpen(event.currentTarget.open)}><summary>조회·불러오기·비교 도구 {controlsOpen?'접기':'펼치기'}</summary>
-      <div className="bar inbox-controls"><label>시작일 <input type="date" value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
+      <div className="bar inbox-controls"><label>시작일 <input type="date" min={recentSalesPeriod().from} max={recentSalesPeriod().to} value={from} onChange={e=>changePeriod(setFrom,e.target.value)}/></label><label>종료일 <input type="date" min={recentSalesPeriod().from} max={recentSalesPeriod().to} value={to} onChange={e=>changePeriod(setTo,e.target.value)}/></label>
         <button type="button" disabled={busy||disabled||!from||!to} onClick={()=>loadRemote()}>영업방 불러오기</button>
         <label><input type="checkbox" checked={autoFeedRefresh} disabled={disabled} onChange={event=>setAutoFeedRefresh(event.target.checked)}/> {REFRESH_INTERVAL_MS/1000}초마다 새 카톡만 추가</label>
         <label><input type="checkbox" checked={autoRefresh} disabled={disabled} onChange={event=>setAutoRefresh(event.target.checked)}/> 전산 SQL 이력도 주기적으로 갱신</label>

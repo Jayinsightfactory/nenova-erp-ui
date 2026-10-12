@@ -76,7 +76,9 @@ assert.doesNotMatch(emptyReadyMarkup,/견적 조회 실패|<span>실패<\/span>/
 const waitingMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({positiveCount:1345,unfixedCount:97})]});
 assert.match(waitingMarkup,/확정 대기 97건 · 해당 연도·차수 전체 업체/);
 assert.match(waitingMarkup,/href="\/shipment\/fix-status\?popup=1"/);
-assert.match(waitingMarkup,/확정 현황에서 2026년 38차를 조회·확정한 뒤 전산 새로고침/);
+assert.match(waitingMarkup,/전체 견적: 확정 대기/);
+assert.match(waitingMarkup,/요일 견적은 선택 업체·출고일의 확정만 확인/);
+assert.match(waitingMarkup,/href="\/shipment\/fix-status\?popup=1"/);
 assert.doesNotMatch(waitingMarkup,/견적 조회 실패|<span>실패<\/span>/,'unfixed rows give actionable scope rather than a network failure');
 const invalidMarkup=render(Matrix,{...props,plans:[],quoteResults:[readinessResult({positiveCount:10,invalidCount:2,reasons:['<script>technical link detail</script>']})]});
 assert.match(invalidMarkup,/견적 연결 확인 2건 · 상세/);

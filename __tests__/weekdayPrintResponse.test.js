@@ -4,12 +4,12 @@ const test = require('node:test');
 const source = fs.readFileSync('pages/api/estimate/weekday-print.js', 'utf8')
   .replace(/^import .*;\r?\n/gm, '').replace('export default', 'return');
 const scope = { year: 2026, majorWeek: '41', custKey: 533, mode: 'major', dates: [] };
-async function responseFor(error) {
+async function responseFor(error,requestScope=scope) {
   const handler = Function('withTransaction','sql','withAuth','normalizeWeekdayPrintRequest','readWeekdayPrintInTransaction',source)(
-    callback => callback(() => {}), {}, handler => handler, () => scope, async () => { throw error; });
+    callback => callback(() => {}), {}, handler => handler, () => requestScope, async () => { throw error; });
   const response = { statusCode: 200, setHeader() {}, status(code) { this.statusCode=code; return this; },
     json(body) { this.body=body; return this; } };
-  await handler({ method:'POST', body:scope }, response);
+  await handler({ method:'POST', body:requestScope }, response);
   return response;
 }
 test('actual print handler distinguishes empty/unfixed/invalid readiness without changing 409 guard', async () => {
@@ -23,6 +23,14 @@ test('actual print handler distinguishes empty/unfixed/invalid readiness without
     assert.equal(result.body.unfixedCount,eligibility.unfixedCount);
     assert.deepEqual(result.body.printReadiness,{ scope:'ALL_CUSTOMERS_MAJOR_WEEK', ...eligibility });
   }
+});
+test('selected-day conflict reports selected customer/date scope and never returns a partial quote', async()=>{
+  const eligibility={positiveCount:1,unfixedCount:1,invalidCount:0,reasons:[]};
+  const result=await responseFor(Object.assign(new Error('selected day is not fixed'),{status:409,eligibility}),
+    {...scope,mode:'dates',dates:['2026-10-11']});
+  assert.equal(result.statusCode,409);
+  assert.deepEqual(result.body.printReadiness,{scope:'SELECTED_CUSTOMER_DATES',...eligibility});
+  assert.equal(result.body.items,undefined);
 });
 test('non-eligibility conflicts and missing customer do not masquerade as empty shipment', async () => {
   for (const status of [409,404]) {

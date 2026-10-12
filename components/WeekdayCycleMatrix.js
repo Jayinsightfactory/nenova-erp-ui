@@ -7,7 +7,7 @@ import { weekdayUnsavedPrintReason } from '../lib/weekdayDistributionClient.js';
 import { applyWeekdayCarryoverToMatrix } from '../lib/weekdayCarryover.js';
 import { applyEarlyShipmentClassification } from '../lib/weekdayEarlyShipmentPresentation.js';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
-import { resolveWeekdayPrintReadiness } from '../lib/weekdayPrintReadiness.js';
+import { resolveWeekdayPrintReadiness, selectedWeekdayPrintReason } from '../lib/weekdayPrintReadiness.js';
 
 const numberLabel = (value) => value == null || !Number.isFinite(Number(value))
   ? '미확인' : String(Number(value));
@@ -369,7 +369,8 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     && String(result.majorWeek) === String(cycle.majorWeek)));
   const hasCustomer = customerProvided ?? (Number(customer?.CustKey ?? customer?.custKey ?? custKey) > 0);
   const printReason = (cycle, dates, mode) => weekdayUnsavedPrintReason(safePlans,cycle,customer?.CustKey ?? customer?.custKey ?? custKey)
-    || (['NO_SHIPMENT','UNFIXED','INVALID'].includes(quoteReadinessForCycle(cycle)?.state) ? quoteReadinessForCycle(cycle).label : '')
+    || (mode==='dates' ? selectedWeekdayPrintReason(safeComparisons,cycle,dates,customer?.CustKey ?? customer?.custKey ?? custKey)
+      : ['NO_SHIPMENT','UNFIXED','INVALID'].includes(quoteReadinessForCycle(cycle)?.state) ? quoteReadinessForCycle(cycle).label : '')
     || (busy ? '전산 조회/처리 중' : horizontalPrintReason({ cycle, dates, mode, onPrint,
     customerProvided: hasCustomer, printBusy: printBusy || printing }));
   const shipmentRows = matrix.rows.filter((row) => showUnallocated || hasHorizontalShipmentQuantity(row)
@@ -670,7 +671,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 <div className="wcm-cycle-header"><div className="wcm-cycle-title"><strong>{cycle.offset < 0 ? '이전' : cycle.offset > 0 ? '다음' : '현재'} {cycleLabel(cycle)}</strong>
                   <ConfirmationBadges cycle={cycle} states={confirmationStates} busy={confirmationBusy} error={confirmationError}/></div>
                   {readiness?.state==='NO_SHIPMENT' && <span className="wcm-readiness" title={readiness.action}>{readiness.label} · {readiness.action}</span>}
-                  {readiness?.state==='UNFIXED' && <span className="wcm-readiness">{readiness.label} · 해당 연도·차수 전체 업체 · 확정 현황에서 {cycle.year}년 {cycle.majorWeek}차를 조회·확정한 뒤 전산 새로고침 · <a href="/shipment/fix-status?popup=1" target="_blank" rel="noopener noreferrer">확정 현황</a></span>}
+                  {readiness?.state==='UNFIXED' && <span className="wcm-readiness">전체 견적: {readiness.label} · 해당 연도·차수 전체 업체 · 요일 견적은 선택 업체·출고일의 확정만 확인 · <a href="/shipment/fix-status?popup=1" target="_blank" rel="noopener noreferrer">확정 현황</a></span>}
                   {readiness?.state==='INVALID' && <details className="wcm-readiness wcm-warning"><summary>{readiness.label} · 상세</summary><pre>{readiness.reason || readiness.action}</pre></details>}
                   {readiness?.state==='ERROR' && <div className="wcm-readiness-failure"><details className="wcm-quote-error"><summary>견적 조회 실패 · 상세</summary><pre>{readiness.reason}</pre></details><button type="button" disabled={disabled || typeof onRetryQuote!=='function'} onClick={()=>onRetryQuote(cycle)}>다시 조회</button></div>}
                   <span className="wcm-muted">{cycle.startDate} ~ {cycle.endDate}</span>

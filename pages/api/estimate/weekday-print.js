@@ -16,7 +16,7 @@ export default withAuth(async function handler(req,res) {
   } catch(error) {
     if(error.status===409 || error.status===404) return res.status(error.status).json({success:false,error:error.message,
       ...(error.eligibility?{unfixedCount:error.eligibility.unfixedCount,invalidCount:error.eligibility.invalidCount,
-        printReadiness:{scope:'ALL_CUSTOMERS_MAJOR_WEEK',positiveCount:error.eligibility.positiveCount,
+        printReadiness:{scope:scope.mode==='dates'?'SELECTED_CUSTOMER_DATES':'ALL_CUSTOMERS_MAJOR_WEEK',positiveCount:error.eligibility.positiveCount,
           unfixedCount:error.eligibility.unfixedCount,invalidCount:error.eligibility.invalidCount,
           reasons:error.eligibility.reasons}}:{}),readOnly:true});
     console.error('[weekday-print]',error);
