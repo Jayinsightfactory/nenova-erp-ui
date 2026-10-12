@@ -1,6 +1,14 @@
 {
   "id": "weekday-distribution-apply",
   "title": "주광 요일별 실제 분배·출고일 원자 저장",
+  "editConflictPresentation": {
+    "source": "ERP_EDIT_LOCKED response lease.ownerName and lease.pageCode",
+    "menuLabels": {"estimate": "견적서 관리", "estimate-weekday-apply": "주광 견적서"},
+    "unknownMenuLabel": "다른 작업 화면",
+    "preserve": ["server error", "drafts", "operation identity", "pending status-only recovery", "all ERP and lease write policies"],
+    "neverDisplay": ["leaseToken", "leaseStamp"],
+    "fixture": "__tests__/weekdayDistributionClient.test.js"
+  },
   "scope": [
     "lib/weekdayCustomerLink.js",
     "__tests__/weekdayCustomerLink.test.js",

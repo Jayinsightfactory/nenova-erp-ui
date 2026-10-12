@@ -515,7 +515,7 @@
     "criteria": "Only structured 409 eligibility is a business waiting state. invalidCount wins over no shipment/unfixed. Never infer state from Korean error strings or zero unknown counts."
   },
   "originalWorkbookDownload": {
-    "presentation": "No year in worksheet title or visible column labels; dates MM/DD, cycle labels major/subweek only. Full year remains in business keys. Prefer exact Product.DisplayName for Korean names, otherwise existing suggestDisplayName mapping; preserve unknown tokens. Numeric zero renders as styled blank for item and subtotal cells without removing rows or changing arithmetic; negative balances stay numeric.",
+    "presentation": "No year in same-year worksheet title or visible column labels; selected major weeks appear in the title and dates remain MM/DD. Only a cross-year selection shows each year in the title to prevent ambiguity. Downloaded filename always lists selected years and major weeks; full year remains in business keys. Prefer exact Product.DisplayName for Korean names, otherwise existing suggestDisplayName mapping; preserve unknown tokens. Numeric zero renders as styled blank for item and subtotal cells without removing rows or changing arithmetic; negative balances stay numeric.",
     "sideEffects": "Browser file download only; preserve OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/StockMaster/ProductStock/Estimate/WebProfitReport and confirmation",
     "layout": "Generate a current-work worksheet using the saved reference category cell styles, widths, borders and grouped merges; every name and value comes from full web matrix. Remove historical source content and sheets.",
     "storage": "Saved Jugwang default is private server runtime, decrypted at deployment from encrypted asset; raw bytes and private deployment key never committed. Manual originals remain browser-memory only.",
@@ -523,7 +523,9 @@
     "preserve": "Preserve formatting assets only; never retain old source names, quantities, shared strings, formulas or unrelated private worksheets in output.",
     "legacy": "Export requires reference XLSX styles; generated output is always XLSX.",
     "quantities": "All matrix rows before search/collapse; latest user instruction splits selected weekday into normal/Wilson/day-total columns. Canonical day totals and subweek/major totals include Wilson once. Validate classification unit/expectedTotal/status and prefer matching draft. Unknown stays blank; zero and negative remainders preserved; units separated. Carryover same as matrix.",
-    "routes": "Header and matrix both full snapshot exporter; selected Wilson weekday shared via callback; stale scope/file/plans/comparison/calendar/baseline/carryover/Wilson classification/selected day blocks download after awaits."
+    "routes": "Header and matrix both use the same full snapshot exporter and selected cycles; selected Wilson weekday shared via callback; stale scope/file/plans/comparison/calendar/baseline/carryover/Wilson classification/selected day/selected cycles blocks download after awaits.",
+    "cycleSelection": "Available choices come from the queried cycles, keyed by explicit year+majorWeek; default all, reset on customer/year/center-week scope change. Require at least one choice and lock checkboxes during download. Export only selected cycle columns and values, retain full product rows and original template styles. Same-year title lists chosen weeks without year; cross-year title includes each year, and filename always includes years and weeks. Never infer selection by repeated majorWeek alone. Browser download only; no ERP write.",
+    "cycleSelectionFixtures": ["__tests__/weekdayWebExportSnapshot.test.js", "__tests__/weekdayOriginalWorkbookUi.test.js"]
   },
   "savedWorkbookTemplate": {
     "storage": "AES-256-GCM envelope in repository, deployment-only private key, exact SHA-verified file data/runtime/weekday-template/jugwang-order.xlsx (600); preserve all15 source sheets",

@@ -1,7 +1,7 @@
 import { prepareWeekdayDraftDeletion, weekdayCellDrafts } from '../lib/weekdayDraftDeletion.js';
 import { installWeekdayDialogKeyboard } from '../lib/weekdayDialogKeyboard.js';
 import { buildWeekdayStyledWebWorkbook } from '../lib/weekdayStyledWebWorkbook.js';
-import { buildWeekdayWebExportSnapshot } from '../lib/weekdayWebExportSnapshot.js';
+import { buildWeekdayWebExportSnapshot, weekdayWebExportCycleKey, weekdayWebExportSelectionNames } from '../lib/weekdayWebExportSnapshot.js';
 import { buildHorizontalWeekdayMatrix } from '../lib/weekdayHorizontalMatrix.js';
 import { applyWeekdayCarryoverToMatrix } from '../lib/weekdayCarryover.js';
 import { applyEarlyShipmentClassification, resolveEarlyShipmentRecords } from '../lib/weekdayEarlyShipmentPresentation.js';
@@ -129,6 +129,7 @@ export default function WeekdayEstimateWorkspace() {
   const baselineRequest = useRef(0);
   const baselineLock = useRef(false);
   const [cycles, setCycles] = useState([]);
+  const [exportCycleSelection, setExportCycleSelection] = useState({scopeKey:'',keys:null});
   const [calendarError, setCalendarError] = useState('');
   const [sourceLots, setSourceLots] = useState([]);
   const [erpHistory, setErpHistory] = useState([]);
@@ -144,11 +145,21 @@ export default function WeekdayEstimateWorkspace() {
   const applyLock = useRef(false);
   const pendingOperation = useRef(null);
   const scopeKey = weekdayDraftScope(customer?.CustKey, year, majorWeek);
+  useEffect(()=>setExportCycleSelection({scopeKey,keys:null}),[scopeKey]);
+  const availableExportCycles = cycles.map(cycle=>({cycle,key:weekdayWebExportCycleKey(cycle)})).filter(item=>item.key);
+  const availableExportCycleKeys = availableExportCycles.map(item=>item.key);
+  const selectedExportCycleKeys = exportCycleSelection.scopeKey===scopeKey && exportCycleSelection.keys?.every(key=>availableExportCycleKeys.includes(key))
+    ? exportCycleSelection.keys : availableExportCycleKeys;
+  const toggleExportCycle = key => {
+    const next = selectedExportCycleKeys.includes(key) ? selectedExportCycleKeys.filter(item=>item!==key) : [...selectedExportCycleKeys,key];
+    setExportCycleSelection({scopeKey,keys:next});
+    setDownloadError('');
+  };
   const currentScope = useRef(scopeKey);
   currentScope.current = scopeKey;
   const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
   const exportState = useRef(null);
-  exportState.current = { plans: activePlans, compareRows, cycles, baselines, baselineCandidates, carryover, allPlans: plans, wilsonRecords, wilsonDrafts, exportWilsonDay, wilsonBusy, wilsonError, earlyRecords, earlyError };
+  exportState.current = { plans: activePlans, compareRows, cycles, selectedExportCycleKeys, baselines, baselineCandidates, carryover, allPlans: plans, wilsonRecords, wilsonDrafts, exportWilsonDay, wilsonBusy, wilsonError, earlyRecords, earlyError };
   const activeWilsonInputs = wilsonDrafts.filter(record => record.scopeKey === scopeKey && activePlans.some(plan =>
     Number(plan.year) === record.year && Number(plan.prodKey) === record.prodKey && plan.date === record.date
     && plan.orderWeek === record.orderWeek && Number(plan.quantity) === record.expectedTotal));
@@ -554,6 +565,7 @@ export default function WeekdayEstimateWorkspace() {
   async function downloadOriginalWorkbook() {
     const original = originalWorkbook.current;
     if (!original || original.scope !== scopeKey) { setDownloadError('현재 거래처·차수에서 원본 엑셀을 다시 업로드하세요.'); return; }
+    if (!selectedExportCycleKeys.length) { setDownloadError('다운로드할 차수를 하나 이상 선택하세요.'); return; }
     setDownloadBusy(true); setDownloadError('');
     try {
       const snapshot = JSON.stringify(exportState.current);
@@ -567,8 +579,9 @@ export default function WeekdayEstimateWorkspace() {
         earlyRecords, customer?.CustKey);
       if (classifiedMatrix.earlyClassificationError) throw new Error(`선출고 연결 원장 확인 필요: ${classifiedMatrix.earlyClassificationError}`);
       const matrix = applyWeekdayCarryoverToMatrix(classifiedMatrix, currentCarry?.context, currentCarry?.records || [], plans);
-      const model = buildWeekdayWebExportSnapshot(matrix, `주광 발주내역 · ${majorWeek}차`,
-        {wilsonDay:exportWilsonDay,wilsonRecords,wilsonDrafts:activeWilsonInputs,custKey:customer?.CustKey});
+      const selectionNames = weekdayWebExportSelectionNames(selectedExportCycleKeys);
+      const model = buildWeekdayWebExportSnapshot(matrix, `주광 발주내역 · ${selectionNames.title}`,
+        {wilsonDay:exportWilsonDay,wilsonRecords,wilsonDrafts:activeWilsonInputs,custKey:customer?.CustKey,selectedCycles:selectedExportCycleKeys});
       let designBytes;
       if (original.savedTemplate) designBytes = await original.file.arrayBuffer();
       else {
@@ -580,9 +593,9 @@ export default function WeekdayEstimateWorkspace() {
       if (originalWorkbook.current !== original || currentScope.current !== original.scope) throw new Error('거래처·차수 또는 원본이 변경되었습니다. 다시 다운로드하세요.');
       if (snapshot !== JSON.stringify(exportState.current)) throw new Error('수량 또는 전산 조회값이 변경되었습니다. 다시 다운로드하세요.');
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `주광_발주내역_${year}_${majorWeek}.xlsx`;
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `주광_발주내역_${selectionNames.file}.xlsx`;
       document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage(`발주 양식으로 웹 작업 전체 ${model.rows.length}개 품목을 다운로드했습니다. 기존·윌슨·요일 합계를 구분하며 미확인 수량은 빈칸입니다.`);
+      setMessage(`선택한 ${selectedExportCycleKeys.length}개 차수의 웹 작업 전체 ${model.rows.length}개 품목을 발주 양식으로 다운로드했습니다. 기존·윌슨·요일 합계를 구분하며 미확인 수량은 빈칸입니다.`);
     } catch (error) { setDownloadError(error.message || '원본 엑셀을 저장하지 못했습니다.'); }
     finally { setDownloadBusy(false); }
   }
@@ -1138,7 +1151,13 @@ export default function WeekdayEstimateWorkspace() {
         <button aria-label="이전 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===-1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(-1)}>◀</button>
         <button aria-label="다음 차수를 중심으로" disabled={applyBusy || busy || baselineBusy || noteBusy || carryoverBusy || !cycles.some(cycle=>cycle.offset===1&&cycle.calendarState==='FOUND')} onClick={()=>shiftCenter(1)}>▶</button>
         <input aria-label="요일별 출고 엑셀 파일" style={{width:230}} type="file" accept=".xlsx,.xls" onChange={(e) => {setToolsOpen(true);uploadWorkbook(e.target.files?.[0]);}} disabled={busy || editLocked} />
-        <button onClick={downloadOriginalWorkbook} disabled={busy || downloadBusy || !compareRows || !parsed || originalWorkbook.current?.scope !== scopeKey} title="저장한 발주 양식의 디자인에 웹 전체 품목명·현재 수량·합계·잔량을 채웁니다. 검색이나 접힌 품목도 포함합니다.">{downloadBusy ? '엑셀 저장 중…' : '웹 작업 엑셀 다운로드'}</button>
+        {availableExportCycles.length>0 && <fieldset aria-label="엑셀 다운로드 차수" style={{display:'inline-flex',alignItems:'center',gap:6,border:'1px solid #cbd5e1',borderRadius:5,padding:'2px 6px',margin:0}}>
+          <legend style={{fontSize:12,padding:'0 3px'}}>엑셀 차수</legend>
+          {availableExportCycles.map(({cycle,key})=><label key={key} style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:13,whiteSpace:'nowrap'}}>
+            <input type="checkbox" aria-label={`${cycle.year}년 ${cycle.majorWeek}차 엑셀 포함`} checked={selectedExportCycleKeys.includes(key)} disabled={downloadBusy} onChange={()=>toggleExportCycle(key)} />{cycle.year}년 {cycle.majorWeek}차
+          </label>)}
+        </fieldset>}
+        <button onClick={downloadOriginalWorkbook} disabled={busy || downloadBusy || !compareRows || !parsed || !selectedExportCycleKeys.length || originalWorkbook.current?.scope !== scopeKey} title="저장한 발주 양식의 디자인에 선택한 차수의 웹 전체 품목명·현재 수량·합계·잔량을 채웁니다. 검색이나 접힌 품목도 포함합니다.">{downloadBusy ? '엑셀 저장 중…' : '웹 작업 엑셀 다운로드'}</button>
         <button onClick={compareWithErp} disabled={busy || editLocked || !customer}>전산 새로고침</button>
         <button onClick={saveInputOnly} disabled={!inputLoaded || !inputUser || editLocked || busy || !customer}>입력만 저장</button>
         <button aria-label="ERP 저장 · 변경 확인" className="primary" onClick={openErpSave} disabled={busy || editLocked || !activePlans.length || !compareRows}>분배 적용 · 변경 확인</button>
@@ -1191,7 +1210,7 @@ export default function WeekdayEstimateWorkspace() {
           throw new Error('최신 전산 분배·선출고 원장 또는 다음 큰 차수가 변경됐습니다. 새로고침 후 다시 확인하세요.');
         return freshCompareRows.current;
       }}/>
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy && !wilsonBusy && !wilsonError && Array.isArray(earlyRecords))} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} earlyRecords={earlyRecords || []} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(selectedExportCycleKeys.length && parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy && !wilsonBusy && !wilsonError && Array.isArray(earlyRecords))} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} earlyRecords={earlyRecords || []} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
       wilsonRecords={wilsonRecords.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} wilsonDrafts={wilsonDrafts.filter(record=>record.scopeKey===scopeKey && activePlans.some(plan=>Number(plan.year)===record.year && Number(plan.prodKey)===record.prodKey && plan.date===record.date && Number(plan.quantity)===record.expectedTotal))} wilsonBusy={wilsonBusy} wilsonError={wilsonError} onEditWilson={editWilson}
       confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
 import { applyEarlyShipmentClassification } from '../lib/weekdayEarlyShipmentPresentation.js';
+import { weekdayWebExportSelectionNames } from '../lib/weekdayWebExportSnapshot.js';
 
 const require = createRequire(import.meta.url);
 const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '';
@@ -75,13 +76,15 @@ function downloadEnvironment() {
     workbookLinks: { current: [{ ...linked, fileId: 'file-a' }] }, currentScope: { current: scope },
     originalWorkbook: { current: { fileId: 'file-a', scope, savedTemplate: true, file: { name: '주광.xlsx',
       arrayBuffer: () => new Promise(resolve => { release = () => resolve(bytes); }) } } },
-    exportState: { current: { plans: [{ ...linked }], compareRows: [], earlyRecords:[earlyRecord], earlyError:'' } },
-    cycles: [], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],activeWilsonInputs:[],exportWilsonDay:'일',wilsonBusy:false,wilsonError:'',earlyRecords:[earlyRecord],earlyError:'',
+    exportState: { current: { plans: [{ ...linked }], compareRows: [], selectedExportCycleKeys:['2026|41'], earlyRecords:[earlyRecord], earlyError:'' } },
+    cycles: [], selectedExportCycleKeys:['2026|41'], baselines: [], baselineCandidates: [], carryover: null, plans: [], year: 2026, majorWeek: '41', wilsonRecords:[],wilsonDrafts:[],activeWilsonInputs:[],exportWilsonDay:'일',wilsonBusy:false,wilsonError:'',earlyRecords:[earlyRecord],earlyError:'',
     buildHorizontalWeekdayMatrix: (...args) => { assert.equal(args[1],env.activePlans); assert.equal(args[2],env.compareRows);
       return {rows:[{prodKey:77,blocks:[{cycle:{year:2026,majorWeek:'41'},unit:'송이',remainderMajorView:{value:-3,savedValue:-3}}]}]}; },
     applyEarlyShipmentClassification,
-    applyWeekdayCarryoverToMatrix: matrix => matrix,
+    applyWeekdayCarryoverToMatrix: matrix => matrix, weekdayWebExportSelectionNames,
     buildWeekdayWebExportSnapshot: (matrix,title,options) => { assert.equal(options.wilsonDrafts,env.activeWilsonInputs,'same scoped Wilson draft inputs as web matrix');
+      assert.deepEqual(options.selectedCycles,env.selectedExportCycleKeys,'selected cycle keys reach the workbook model');
+      assert.equal(title,'주광 발주내역 · 41차');
       assert.equal(matrix.rows[0].blocks[0].remainderMajorView.value,0,'source APPLIED q classifies -3 residual to zero in workbook');
       return {rows:[{name:'웹 품목',values:{quantity:3}}]}; },
     buildWeekdayStyledWebWorkbook: async (input, model) => {
@@ -91,7 +94,7 @@ function downloadEnvironment() {
     }, patchCalls: 0, urls: 0, clicked: 0, revoked: 0, Blob,
     URL: { createObjectURL() { env.urls++; return 'blob:fixture'; }, revokeObjectURL() { env.revoked++; } },
     document: { body: { appendChild() {} }, createElement(tag) { assert.equal(tag, 'a');
-      return { click() { env.clicked++; }, remove() {} }; } }, setTimeout(fn) { fn(); },
+      return { click() { assert.equal(this.download,'주광_발주내역_2026_41.xlsx'); env.clicked++; }, remove() {} }; } }, setTimeout(fn) { fn(); },
     setDownloadBusy(value) { env.busy = value; }, setDownloadError(value) { env.error = value; },
     setMessage(value) { env.message = value; }, release: () => release() };
   return env;
@@ -102,10 +105,10 @@ test('download fills design with full web snapshot, then releases busy state', a
   assert.equal(env.busy, true); env.release(); await pending;
   assert.equal(env.patchCalls, 1); assert.equal(env.urls, 1); assert.equal(env.clicked, 1);
   assert.equal(env.revoked, 1); assert.equal(env.busy, false); assert.equal(env.error, '');
-  assert.match(env.message, /전체 1개 품목/);
+  assert.match(env.message, /선택한 1개 차수.*전체 1개 품목/);
 });
 test('quantity or ERP snapshot change during file read prevents any download', async () => {
-  for (const changed of ['plans', 'compareRows', 'baselines', 'carryover', 'cycles','wilsonRecords','wilsonDrafts','exportWilsonDay']) {
+  for (const changed of ['plans', 'compareRows', 'baselines', 'carryover', 'cycles','selectedExportCycleKeys','wilsonRecords','wilsonDrafts','exportWilsonDay']) {
     const env = downloadEnvironment();
     const pending = callback('downloadOriginalWorkbook', 'addSourceRow', env)();
     env.exportState.current = { ...env.exportState.current, [changed]: [{ quantity: 999 }] };
@@ -113,6 +116,11 @@ test('quantity or ERP snapshot change during file read prevents any download', a
     assert.equal(env.urls, 0); assert.equal(env.clicked, 0); assert.equal(env.message, undefined);
     assert.match(env.error, / 수량|수량 또는 전산/); assert.equal(env.busy, false);
   }
+});
+test('no cycle selection blocks download before reading the template', async () => {
+  const env=downloadEnvironment(); env.selectedExportCycleKeys=[];
+  await callback('downloadOriginalWorkbook','addSourceRow',env)();
+  assert.equal(env.patchCalls,0); assert.equal(env.clicked,0); assert.match(env.error,/하나 이상/);
 });
 test('original file replacement or scope switch during await prevents download', async () => {
   for (const changed of ['file', 'scope']) {
