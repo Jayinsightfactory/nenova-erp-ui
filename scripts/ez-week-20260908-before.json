@@ -1,0 +1,7417 @@
+[
+  [
+    {
+      "WarehouseKey": 7211,
+      "UploadDtm": "2026-09-08T14:47:56.850Z",
+      "FileName": "C:\\Users\\네노바7\\Desktop\\aaaaaaaaaaaa\\07-09_NL_EZ_PROFORMA.xlsx",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "FarmName": "EZ Flower",
+      "InvoiceNo": "PROFORMA",
+      "InputDate": "2026-09-09T00:00:00.000Z",
+      "OrderNo": "180-9160 1285",
+      "isDeleted": false,
+      "CreateID": "nenovaIC2",
+      "CreateDtm": "2026-09-08T14:47:56.850Z",
+      "LastUpdateID": "nenovaIC2",
+      "LastUpdateDtm": "2026-09-08T14:47:56.850Z",
+      "GrossWeight": null,
+      "ChargeableWeight": null,
+      "FreightRateUSD": null,
+      "DocFeeUSD": null
+    },
+    {
+      "WarehouseKey": 7212,
+      "UploadDtm": "2026-09-08T14:49:41.843Z",
+      "FileName": "C:\\Users\\네노바7\\Desktop\\aaaaaaaaaaaa\\37-01_NL_EZ_PROFORMA.xlsx",
+      "OrderYear": "2026",
+      "OrderWeek": "37-01",
+      "FarmName": "EZ Flower",
+      "InvoiceNo": "PROFORMA",
+      "InputDate": "2026-09-09T00:00:00.000Z",
+      "OrderNo": "180-9160 1285",
+      "isDeleted": true,
+      "CreateID": "nenovaIC2",
+      "CreateDtm": "2026-09-08T14:49:41.843Z",
+      "LastUpdateID": "nenovaIC2",
+      "LastUpdateDtm": "2026-08-09T00:00:00.000Z",
+      "GrossWeight": null,
+      "ChargeableWeight": null,
+      "FreightRateUSD": null,
+      "DocFeeUSD": null
+    }
+  ],
+  [
+    {
+      "WdetailKey": 40794,
+      "ProdKey": 3355,
+      "OrderCode": "1",
+      "BoxQuantity": 1,
+      "BunchQuantity": 40,
+      "SteamQuantity": 40,
+      "OutQuantity": 40,
+      "EstQuantity": 40,
+      "UPrice": 3.75,
+      "TPrice": 150,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 0,
+      "SteamOf1Bunch": 1
+    },
+    {
+      "WdetailKey": 40795,
+      "ProdKey": 2829,
+      "OrderCode": "2",
+      "BoxQuantity": 1,
+      "BunchQuantity": 100,
+      "SteamQuantity": 100,
+      "OutQuantity": 100,
+      "EstQuantity": 100,
+      "UPrice": 1.25,
+      "TPrice": 125,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 0,
+      "SteamOf1Bunch": 1
+    },
+    {
+      "WdetailKey": 40796,
+      "ProdKey": 2565,
+      "OrderCode": "3",
+      "BoxQuantity": 1,
+      "BunchQuantity": 60,
+      "SteamQuantity": 600,
+      "OutQuantity": 60,
+      "EstQuantity": 60,
+      "UPrice": 0.59,
+      "TPrice": 354,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 0,
+      "SteamOf1Bunch": 10
+    },
+    {
+      "WdetailKey": 40797,
+      "ProdKey": 3354,
+      "OrderCode": "4",
+      "BoxQuantity": 1,
+      "BunchQuantity": 90,
+      "SteamQuantity": 90,
+      "OutQuantity": 90,
+      "EstQuantity": 90,
+      "UPrice": 0.79,
+      "TPrice": 71.1,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 0,
+      "SteamOf1Bunch": 1
+    },
+    {
+      "WdetailKey": 40798,
+      "ProdKey": 3356,
+      "OrderCode": "5",
+      "BoxQuantity": 1,
+      "BunchQuantity": 100,
+      "SteamQuantity": 100,
+      "OutQuantity": 100,
+      "EstQuantity": 100,
+      "UPrice": 4.5,
+      "TPrice": 450,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 0,
+      "SteamOf1Bunch": 1
+    },
+    {
+      "WdetailKey": 40799,
+      "ProdKey": 3356,
+      "OrderCode": "6",
+      "BoxQuantity": 1,
+      "BunchQuantity": 50,
+      "SteamQuantity": 50,
+      "OutQuantity": 50,
+      "EstQuantity": 50,
+      "UPrice": 4.5,
+      "TPrice": 225,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 0,
+      "SteamOf1Bunch": 1
+    },
+    {
+      "WdetailKey": 40800,
+      "ProdKey": 3357,
+      "OrderCode": "7",
+      "BoxQuantity": 1,
+      "BunchQuantity": 80,
+      "SteamQuantity": 80,
+      "OutQuantity": 80,
+      "EstQuantity": 80,
+      "UPrice": 4.5,
+      "TPrice": 360,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 0,
+      "SteamOf1Bunch": 1
+    },
+    {
+      "WdetailKey": 40801,
+      "ProdKey": 3353,
+      "OrderCode": "8",
+      "BoxQuantity": 1,
+      "BunchQuantity": 50,
+      "SteamQuantity": 500,
+      "OutQuantity": 50,
+      "EstQuantity": 50,
+      "UPrice": 0.69,
+      "TPrice": 345,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 0,
+      "SteamOf1Bunch": 10
+    },
+    {
+      "WdetailKey": 40802,
+      "ProdKey": 3101,
+      "OrderCode": "9",
+      "BoxQuantity": 1,
+      "BunchQuantity": 1,
+      "SteamQuantity": 74,
+      "OutQuantity": 74,
+      "EstQuantity": 74,
+      "UPrice": 0,
+      "TPrice": 0,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 1,
+      "SteamOf1Bunch": 1
+    },
+    {
+      "WdetailKey": 40803,
+      "ProdKey": 3100,
+      "OrderCode": "10",
+      "BoxQuantity": 1,
+      "BunchQuantity": 1,
+      "SteamQuantity": 99,
+      "OutQuantity": 99,
+      "EstQuantity": 99,
+      "UPrice": 0,
+      "TPrice": 0,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 1,
+      "SteamOf1Bunch": 1
+    },
+    {
+      "WdetailKey": 40804,
+      "ProdKey": 2182,
+      "OrderCode": "11",
+      "BoxQuantity": 1,
+      "BunchQuantity": 1,
+      "SteamQuantity": 1,
+      "OutQuantity": 1,
+      "EstQuantity": 1,
+      "UPrice": 345.88,
+      "TPrice": 345.88,
+      "WarehouseKey": 7211,
+      "SteamOf1Box": 1,
+      "SteamOf1Bunch": 1
+    }
+  ],
+  [
+    {
+      "StockHistoryKey": 462164,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 1541.1,
+      "AfterValue": 1542.1,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 2182
+    },
+    {
+      "StockHistoryKey": 462165,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 0,
+      "AfterValue": 60,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 2565
+    },
+    {
+      "StockHistoryKey": 462166,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 0,
+      "AfterValue": 100,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 2829
+    },
+    {
+      "StockHistoryKey": 462167,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 373135.3,
+      "AfterValue": 373234.3,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 3100
+    },
+    {
+      "StockHistoryKey": 462168,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 391145.4,
+      "AfterValue": 391219.4,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 3101
+    },
+    {
+      "StockHistoryKey": 462169,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 0,
+      "AfterValue": 50,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 3353
+    },
+    {
+      "StockHistoryKey": 462170,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 0,
+      "AfterValue": 90,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 3354
+    },
+    {
+      "StockHistoryKey": 462171,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 0,
+      "AfterValue": 40,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 3355
+    },
+    {
+      "StockHistoryKey": 462172,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 0,
+      "AfterValue": 150,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 3356
+    },
+    {
+      "StockHistoryKey": 462173,
+      "ChangeDtm": "2026-09-08T14:47:57.060Z",
+      "OrderYear": "2026",
+      "OrderWeek": "07-09",
+      "ChangeID": "nenovaIC2",
+      "ChangeType": "입고",
+      "ColumName": "수량",
+      "BeforeValue": 0,
+      "AfterValue": 80,
+      "Descr": "파킹리스트 업로드",
+      "ProdKey": 3357
+    }
+  ],
+  [
+    {
+      "ProdKey": 2182,
+      "Stock": 1542.1
+    },
+    {
+      "ProdKey": 2565,
+      "Stock": 60
+    },
+    {
+      "ProdKey": 2829,
+      "Stock": 100
+    },
+    {
+      "ProdKey": 3100,
+      "Stock": 373234.3
+    },
+    {
+      "ProdKey": 3101,
+      "Stock": 391219.4
+    },
+    {
+      "ProdKey": 3353,
+      "Stock": 50
+    },
+    {
+      "ProdKey": 3354,
+      "Stock": 90
+    },
+    {
+      "ProdKey": 3355,
+      "Stock": 40
+    },
+    {
+      "ProdKey": 3356,
+      "Stock": 250
+    },
+    {
+      "ProdKey": 3357,
+      "Stock": 80
+    }
+  ],
+  [
+    {
+      "StockKey": 1,
+      "OrderYear": "2025",
+      "OrderWeek": "28-01",
+      "OrderYearWeek": "20252801",
+      "isFix": null,
+      "Descr": null,
+      "CreateID": "sys",
+      "CreateDtm": "2025-07-15T15:56:06.510Z",
+      "LastUpdateID": "sys",
+      "LastUpdateDtm": "2025-07-15T15:56:06.510Z"
+    },
+    {
+      "StockKey": 2,
+      "OrderYear": "2025",
+      "OrderWeek": "29-01",
+      "OrderYearWeek": "20252901",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass3",
+      "CreateDtm": "2025-07-15T16:07:55.480Z",
+      "LastUpdateID": "nenovass3",
+      "LastUpdateDtm": "2025-07-15T16:07:55.480Z"
+    },
+    {
+      "StockKey": 3,
+      "OrderYear": "2025",
+      "OrderWeek": "29-02",
+      "OrderYearWeek": "20252902",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-07-16T10:08:58.897Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-07-16T10:08:58.897Z"
+    },
+    {
+      "StockKey": 4,
+      "OrderYear": "2025",
+      "OrderWeek": "30-01",
+      "OrderYearWeek": "20253001",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-07-16T16:18:45.843Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-07-16T16:18:45.843Z"
+    },
+    {
+      "StockKey": 5,
+      "OrderYear": "2025",
+      "OrderWeek": "30-02",
+      "OrderYearWeek": "20253002",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-07-17T16:07:26.550Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-07-17T16:07:26.550Z"
+    },
+    {
+      "StockKey": 6,
+      "OrderYear": "2025",
+      "OrderWeek": "31-01",
+      "OrderYearWeek": "20253101",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-07-22T14:11:01.150Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-07-22T14:11:01.150Z"
+    },
+    {
+      "StockKey": 7,
+      "OrderYear": "2025",
+      "OrderWeek": "34-01",
+      "OrderYearWeek": "20253401",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-07-23T16:42:09.430Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-07-23T16:42:09.430Z"
+    },
+    {
+      "StockKey": 8,
+      "OrderYear": "2025",
+      "OrderWeek": "30-04",
+      "OrderYearWeek": "20253004",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-07-24T11:06:40.403Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-07-24T11:06:40.403Z"
+    },
+    {
+      "StockKey": 9,
+      "OrderYear": "2025",
+      "OrderWeek": "31-02",
+      "OrderYearWeek": "20253102",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-07-24T13:52:48.643Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-07-24T13:52:48.643Z"
+    },
+    {
+      "StockKey": 10,
+      "OrderYear": "2025",
+      "OrderWeek": "32-02",
+      "OrderYearWeek": "20253202",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass3",
+      "CreateDtm": "2025-07-24T15:31:42.617Z",
+      "LastUpdateID": "nenovass3",
+      "LastUpdateDtm": "2025-07-24T15:31:42.617Z"
+    },
+    {
+      "StockKey": 11,
+      "OrderYear": "2025",
+      "OrderWeek": "32-01",
+      "OrderYearWeek": "20253201",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass3",
+      "CreateDtm": "2025-07-29T10:29:58.063Z",
+      "LastUpdateID": "nenovass3",
+      "LastUpdateDtm": "2025-07-29T10:29:58.063Z"
+    },
+    {
+      "StockKey": 12,
+      "OrderYear": "2025",
+      "OrderWeek": "31-04",
+      "OrderYearWeek": "20253104",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-07-31T09:33:30.737Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-07-31T09:33:30.737Z"
+    },
+    {
+      "StockKey": 13,
+      "OrderYear": "2025",
+      "OrderWeek": "32-04",
+      "OrderYearWeek": "20253204",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-08-04T09:46:46.310Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-08-04T09:46:46.310Z"
+    },
+    {
+      "StockKey": 14,
+      "OrderYear": "2025",
+      "OrderWeek": "33-01",
+      "OrderYearWeek": "20253301",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-08-04T13:03:17.390Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-08-04T13:03:17.390Z"
+    },
+    {
+      "StockKey": 15,
+      "OrderYear": "2025",
+      "OrderWeek": "33-04",
+      "OrderYearWeek": "20253304",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-08-07T13:47:08.910Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-08-07T13:47:08.910Z"
+    },
+    {
+      "StockKey": 16,
+      "OrderYear": "2025",
+      "OrderWeek": "33-02",
+      "OrderYearWeek": "20253302",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenova1",
+      "CreateDtm": "2025-08-07T15:48:00.960Z",
+      "LastUpdateID": "nenova1",
+      "LastUpdateDtm": "2025-08-07T15:48:00.960Z"
+    },
+    {
+      "StockKey": 17,
+      "OrderYear": "2025",
+      "OrderWeek": "38-01",
+      "OrderYearWeek": "20253801",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaIC3",
+      "CreateDtm": "2025-08-11T13:42:26.807Z",
+      "LastUpdateID": "nenovaIC3",
+      "LastUpdateDtm": "2025-08-11T13:42:26.807Z"
+    },
+    {
+      "StockKey": 18,
+      "OrderYear": "2025",
+      "OrderWeek": "33-03",
+      "OrderYearWeek": "20253303",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-08-12T10:41:34.067Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-08-12T10:41:34.067Z"
+    },
+    {
+      "StockKey": 19,
+      "OrderYear": "2025",
+      "OrderWeek": "34-02",
+      "OrderYearWeek": "20253402",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-08-12T13:40:05.017Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-08-12T13:40:05.017Z"
+    },
+    {
+      "StockKey": 20,
+      "OrderYear": "2025",
+      "OrderWeek": "34-04",
+      "OrderYearWeek": "20253404",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-08-14T14:46:34.353Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-08-14T14:46:34.353Z"
+    },
+    {
+      "StockKey": 21,
+      "OrderYear": "2025",
+      "OrderWeek": "35-01",
+      "OrderYearWeek": "20253501",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-08-14T17:15:45.950Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-08-14T17:15:45.950Z"
+    },
+    {
+      "StockKey": 22,
+      "OrderYear": "2025",
+      "OrderWeek": "34-03",
+      "OrderYearWeek": "20253403",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaIC3",
+      "CreateDtm": "2025-08-18T11:27:58.067Z",
+      "LastUpdateID": "nenovaIC3",
+      "LastUpdateDtm": "2025-08-18T11:27:58.067Z"
+    },
+    {
+      "StockKey": 23,
+      "OrderYear": "2025",
+      "OrderWeek": "35-02",
+      "OrderYearWeek": "20253502",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass3",
+      "CreateDtm": "2025-08-21T13:53:15.037Z",
+      "LastUpdateID": "nenovass3",
+      "LastUpdateDtm": "2025-08-21T13:53:15.037Z"
+    },
+    {
+      "StockKey": 24,
+      "OrderYear": "2025",
+      "OrderWeek": "35-04",
+      "OrderYearWeek": "20253504",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-08-22T13:54:59.347Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-08-22T13:54:59.347Z"
+    },
+    {
+      "StockKey": 25,
+      "OrderYear": "2025",
+      "OrderWeek": "36-01",
+      "OrderYearWeek": "20253601",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass3",
+      "CreateDtm": "2025-08-25T09:14:44.290Z",
+      "LastUpdateID": "nenovass3",
+      "LastUpdateDtm": "2025-08-25T09:14:44.290Z"
+    },
+    {
+      "StockKey": 26,
+      "OrderYear": "2025",
+      "OrderWeek": "36-02",
+      "OrderYearWeek": "20253602",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-08-27T09:45:24.757Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-08-27T09:45:24.757Z"
+    },
+    {
+      "StockKey": 27,
+      "OrderYear": "2025",
+      "OrderWeek": "36-04",
+      "OrderYearWeek": "20253604",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-08-29T13:54:42.077Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-08-29T13:54:42.077Z"
+    },
+    {
+      "StockKey": 28,
+      "OrderYear": "2025",
+      "OrderWeek": "37-01",
+      "OrderYearWeek": "20253701",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-09-01T10:29:55.600Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-09-01T10:29:55.600Z"
+    },
+    {
+      "StockKey": 29,
+      "OrderYear": "2025",
+      "OrderWeek": "37-02",
+      "OrderYearWeek": "20253702",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-09-03T10:00:22.293Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-09-03T10:00:22.293Z"
+    },
+    {
+      "StockKey": 30,
+      "OrderYear": "2025",
+      "OrderWeek": "37-04",
+      "OrderYearWeek": "20253704",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-09-05T14:06:05.883Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-09-05T14:06:05.883Z"
+    },
+    {
+      "StockKey": 31,
+      "OrderYear": "2025",
+      "OrderWeek": "39-01",
+      "OrderYearWeek": "20253901",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass3",
+      "CreateDtm": "2025-09-05T14:42:07.770Z",
+      "LastUpdateID": "nenovass3",
+      "LastUpdateDtm": "2025-09-05T14:42:07.770Z"
+    },
+    {
+      "StockKey": 32,
+      "OrderYear": "2025",
+      "OrderWeek": "39-02",
+      "OrderYearWeek": "20253902",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass3",
+      "CreateDtm": "2025-09-05T14:43:13.637Z",
+      "LastUpdateID": "nenovass3",
+      "LastUpdateDtm": "2025-09-05T14:43:13.637Z"
+    },
+    {
+      "StockKey": 33,
+      "OrderYear": "2025",
+      "OrderWeek": "38-02",
+      "OrderYearWeek": "20253802",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass3",
+      "CreateDtm": "2025-09-08T16:31:15.173Z",
+      "LastUpdateID": "nenovass3",
+      "LastUpdateDtm": "2025-09-08T16:31:15.173Z"
+    },
+    {
+      "StockKey": 34,
+      "OrderYear": "2025",
+      "OrderWeek": "40-01",
+      "OrderYearWeek": "20254001",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-09-15T15:28:27.720Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-09-15T15:28:27.720Z"
+    },
+    {
+      "StockKey": 35,
+      "OrderYear": "2025",
+      "OrderWeek": "33-08",
+      "OrderYearWeek": "20253308",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-09-16T16:45:02.393Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-09-16T16:45:02.393Z"
+    },
+    {
+      "StockKey": 36,
+      "OrderYear": "2025",
+      "OrderWeek": "41-01",
+      "OrderYearWeek": "20254101",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-09-18T12:46:41.210Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-09-18T12:46:41.210Z"
+    },
+    {
+      "StockKey": 37,
+      "OrderYear": "2025",
+      "OrderWeek": "39-04",
+      "OrderYearWeek": "20253904",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-09-19T15:36:41.523Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-09-19T15:36:41.523Z"
+    },
+    {
+      "StockKey": 38,
+      "OrderYear": "2025",
+      "OrderWeek": "38-03",
+      "OrderYearWeek": "20253803",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-09-23T14:13:33.177Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-09-23T14:13:33.177Z"
+    },
+    {
+      "StockKey": 39,
+      "OrderYear": "2025",
+      "OrderWeek": "39-03",
+      "OrderYearWeek": "20253903",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-09-23T14:40:56.053Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-09-23T14:40:56.053Z"
+    },
+    {
+      "StockKey": 40,
+      "OrderYear": "2025",
+      "OrderWeek": "38-04",
+      "OrderYearWeek": "20253804",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-09-25T12:07:27.553Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-09-25T12:07:27.553Z"
+    },
+    {
+      "StockKey": 41,
+      "OrderYear": "2025",
+      "OrderWeek": "41-02",
+      "OrderYearWeek": "20254102",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-09-26T09:06:11.580Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-09-26T09:06:11.580Z"
+    },
+    {
+      "StockKey": 42,
+      "OrderYear": "2025",
+      "OrderWeek": "40-04",
+      "OrderYearWeek": "20254004",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-09-26T11:50:19.383Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-09-26T11:50:19.383Z"
+    },
+    {
+      "StockKey": 43,
+      "OrderYear": "2025",
+      "OrderWeek": "42-01",
+      "OrderYearWeek": "20254201",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-09-26T15:22:09.990Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-09-26T15:22:09.990Z"
+    },
+    {
+      "StockKey": 44,
+      "OrderYear": "2025",
+      "OrderWeek": "41-04",
+      "OrderYearWeek": "20254104",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-09-30T18:05:20.380Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-09-30T18:05:20.380Z"
+    },
+    {
+      "StockKey": 45,
+      "OrderYear": "2025",
+      "OrderWeek": "34-09",
+      "OrderYearWeek": "20253409",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "sys",
+      "CreateDtm": "2025-10-01T11:18:08.757Z",
+      "LastUpdateID": "sys",
+      "LastUpdateDtm": "2025-10-01T11:18:08.757Z"
+    },
+    {
+      "StockKey": 46,
+      "OrderYear": "2025",
+      "OrderWeek": "42-02",
+      "OrderYearWeek": "20254202",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-10-01T17:11:58.643Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-10-01T17:11:58.643Z"
+    },
+    {
+      "StockKey": 47,
+      "OrderYear": "2025",
+      "OrderWeek": "42-04",
+      "OrderYearWeek": "20254204",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-10-10T14:51:55.330Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-10-10T14:51:55.330Z"
+    },
+    {
+      "StockKey": 48,
+      "OrderYear": "2025",
+      "OrderWeek": "43-01",
+      "OrderYearWeek": "20254301",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-10-13T11:56:21.440Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-10-13T11:56:21.440Z"
+    },
+    {
+      "StockKey": 49,
+      "OrderYear": "2025",
+      "OrderWeek": "43-02",
+      "OrderYearWeek": "20254302",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovass2",
+      "CreateDtm": "2025-10-13T14:18:38.107Z",
+      "LastUpdateID": "nenovass2",
+      "LastUpdateDtm": "2025-10-13T14:18:38.107Z"
+    },
+    {
+      "StockKey": 50,
+      "OrderYear": "2025",
+      "OrderWeek": "41-03",
+      "OrderYearWeek": "20254103",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-10-14T09:57:29.590Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-10-14T09:57:29.590Z"
+    },
+    {
+      "StockKey": 51,
+      "OrderYear": "2025",
+      "OrderWeek": "44-01",
+      "OrderYearWeek": "20254401",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2025-10-16T19:27:15.927Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2025-10-16T19:27:15.927Z"
+    },
+    {
+      "StockKey": 52,
+      "OrderYear": "2025",
+      "OrderWeek": "43-03",
+      "OrderYearWeek": "20254303",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-10-19T11:53:59.363Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-10-19T11:53:59.363Z"
+    },
+    {
+      "StockKey": 53,
+      "OrderYear": "2025",
+      "OrderWeek": "44-03",
+      "OrderYearWeek": "20254403",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS2",
+      "CreateDtm": "2025-10-21T14:47:07.063Z",
+      "LastUpdateID": "nenovaSS2",
+      "LastUpdateDtm": "2025-10-21T14:47:07.063Z"
+    },
+    {
+      "StockKey": 54,
+      "OrderYear": "2025",
+      "OrderWeek": "44-02",
+      "OrderYearWeek": "20254402",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS2",
+      "CreateDtm": "2025-10-21T14:53:50.907Z",
+      "LastUpdateID": "nenovaSS2",
+      "LastUpdateDtm": "2025-10-21T14:53:50.907Z"
+    },
+    {
+      "StockKey": 55,
+      "OrderYear": "2025",
+      "OrderWeek": "50-01",
+      "OrderYearWeek": "20255001",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS2",
+      "CreateDtm": "2025-10-22T16:49:04.257Z",
+      "LastUpdateID": "nenovaSS2",
+      "LastUpdateDtm": "2025-10-22T16:49:04.257Z"
+    },
+    {
+      "StockKey": 56,
+      "OrderYear": "2025",
+      "OrderWeek": "43-04",
+      "OrderYearWeek": "20254304",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS2",
+      "CreateDtm": "2025-10-23T15:29:24.763Z",
+      "LastUpdateID": "nenovaSS2",
+      "LastUpdateDtm": "2025-10-23T15:29:24.763Z"
+    },
+    {
+      "StockKey": 57,
+      "OrderYear": "2025",
+      "OrderWeek": "45-01",
+      "OrderYearWeek": "20254501",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-10-27T14:31:39.560Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-10-27T14:31:39.560Z"
+    },
+    {
+      "StockKey": 58,
+      "OrderYear": "2025",
+      "OrderWeek": "45-02",
+      "OrderYearWeek": "20254502",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS2",
+      "CreateDtm": "2025-10-28T20:20:39.653Z",
+      "LastUpdateID": "nenovaSS2",
+      "LastUpdateDtm": "2025-10-28T20:20:39.653Z"
+    },
+    {
+      "StockKey": 59,
+      "OrderYear": "2025",
+      "OrderWeek": "47-01",
+      "OrderYearWeek": "20254701",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-10-29T17:51:17.650Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-10-29T17:51:17.650Z"
+    },
+    {
+      "StockKey": 60,
+      "OrderYear": "2025",
+      "OrderWeek": "44-04",
+      "OrderYearWeek": "20254404",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS2",
+      "CreateDtm": "2025-10-30T10:25:24.093Z",
+      "LastUpdateID": "nenovaSS2",
+      "LastUpdateDtm": "2025-10-30T10:25:24.093Z"
+    },
+    {
+      "StockKey": 61,
+      "OrderYear": "2025",
+      "OrderWeek": "46-01",
+      "OrderYearWeek": "20254601",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-11-03T16:29:07.513Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-11-03T16:29:07.513Z"
+    },
+    {
+      "StockKey": 62,
+      "OrderYear": "2025",
+      "OrderWeek": "46-02",
+      "OrderYearWeek": "20254602",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS2",
+      "CreateDtm": "2025-11-03T17:43:29.100Z",
+      "LastUpdateID": "nenovaSS2",
+      "LastUpdateDtm": "2025-11-03T17:43:29.100Z"
+    },
+    {
+      "StockKey": 63,
+      "OrderYear": "2025",
+      "OrderWeek": "45-03",
+      "OrderYearWeek": "20254503",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2025-11-05T09:12:40.153Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2025-11-05T09:12:40.153Z"
+    },
+    {
+      "StockKey": 64,
+      "OrderYear": "2025",
+      "OrderWeek": "47-02",
+      "OrderYearWeek": "20254702",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovasd2",
+      "CreateDtm": "2025-11-07T17:14:29.223Z",
+      "LastUpdateID": "nenovasd2",
+      "LastUpdateDtm": "2025-11-07T17:14:29.223Z"
+    },
+    {
+      "StockKey": 65,
+      "OrderYear": "2025",
+      "OrderWeek": "51-01",
+      "OrderYearWeek": "20255101",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2025-11-10T11:07:35.007Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2025-11-10T11:07:35.007Z"
+    },
+    {
+      "StockKey": 66,
+      "OrderYear": "2025",
+      "OrderWeek": "49-02",
+      "OrderYearWeek": "20254902",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-11-11T07:56:50.567Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-11-11T07:56:50.567Z"
+    },
+    {
+      "StockKey": 67,
+      "OrderYear": "2025",
+      "OrderWeek": "49-01",
+      "OrderYearWeek": "20254901",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-11-11T07:57:42.447Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-11-11T07:57:42.447Z"
+    },
+    {
+      "StockKey": 68,
+      "OrderYear": "2025",
+      "OrderWeek": "50-02",
+      "OrderYearWeek": "20255002",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-11-11T07:59:07.020Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-11-11T07:59:07.020Z"
+    },
+    {
+      "StockKey": 69,
+      "OrderYear": "2025",
+      "OrderWeek": "51-02",
+      "OrderYearWeek": "20255102",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2025-11-11T14:26:29.923Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2025-11-11T14:26:29.923Z"
+    },
+    {
+      "StockKey": 70,
+      "OrderYear": "2025",
+      "OrderWeek": "52-01",
+      "OrderYearWeek": "20255201",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-11-12T14:28:43.170Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-11-12T14:28:43.170Z"
+    },
+    {
+      "StockKey": 71,
+      "OrderYear": "2025",
+      "OrderWeek": "48-01",
+      "OrderYearWeek": "20254801",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-11-12T16:21:13.177Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-11-12T16:21:13.177Z"
+    },
+    {
+      "StockKey": 72,
+      "OrderYear": "2025",
+      "OrderWeek": "48-02",
+      "OrderYearWeek": "20254802",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-11-12T16:21:38.257Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-11-12T16:21:38.257Z"
+    },
+    {
+      "StockKey": 73,
+      "OrderYear": "2025",
+      "OrderWeek": "470-01",
+      "OrderYearWeek": "202547001",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaIC3",
+      "CreateDtm": "2025-11-17T09:06:14.557Z",
+      "LastUpdateID": "nenovaIC3",
+      "LastUpdateDtm": "2025-11-17T09:06:14.557Z"
+    },
+    {
+      "StockKey": 74,
+      "OrderYear": "2025",
+      "OrderWeek": "60-01",
+      "OrderYearWeek": "20256001",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2025-12-10T14:03:20.677Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2025-12-10T14:03:20.677Z"
+    },
+    {
+      "StockKey": 75,
+      "OrderYear": "2025",
+      "OrderWeek": "53-01",
+      "OrderYearWeek": "20255301",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2025-12-11T15:06:04.137Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2025-12-11T15:06:04.137Z"
+    },
+    {
+      "StockKey": 76,
+      "OrderYear": "2026",
+      "OrderWeek": "01-01",
+      "OrderYearWeek": "20260101",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenova1",
+      "CreateDtm": "2025-12-12T13:34:49.243Z",
+      "LastUpdateID": "nenova1",
+      "LastUpdateDtm": "2025-12-12T13:34:49.243Z"
+    },
+    {
+      "StockKey": 77,
+      "OrderYear": "2026",
+      "OrderWeek": "02-01",
+      "OrderYearWeek": "20260201",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenova1",
+      "CreateDtm": "2025-12-12T13:36:46.497Z",
+      "LastUpdateID": "nenova1",
+      "LastUpdateDtm": "2025-12-12T13:36:46.497Z"
+    },
+    {
+      "StockKey": 78,
+      "OrderYear": "2025",
+      "OrderWeek": "52-02",
+      "OrderYearWeek": "20255202",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2025-12-12T13:39:43.487Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2025-12-12T13:39:43.487Z"
+    },
+    {
+      "StockKey": 79,
+      "OrderYear": "2026",
+      "OrderWeek": "06-01",
+      "OrderYearWeek": "20260601",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-12-12T13:42:52.750Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-12-12T13:42:52.750Z"
+    },
+    {
+      "StockKey": 80,
+      "OrderYear": "2026",
+      "OrderWeek": "01-02",
+      "OrderYearWeek": "20260102",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2025-12-12T13:57:00.033Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2025-12-12T13:57:00.033Z"
+    },
+    {
+      "StockKey": 81,
+      "OrderYear": "2026",
+      "OrderWeek": "03-01",
+      "OrderYearWeek": "20260301",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenova1",
+      "CreateDtm": "2025-12-12T14:35:38.427Z",
+      "LastUpdateID": "nenova1",
+      "LastUpdateDtm": "2025-12-12T14:35:38.427Z"
+    },
+    {
+      "StockKey": 82,
+      "OrderYear": "2025",
+      "OrderWeek": "01-01",
+      "OrderYearWeek": "20250101",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-12-20T14:35:55.200Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-12-20T14:35:55.200Z"
+    },
+    {
+      "StockKey": 83,
+      "OrderYear": "2025",
+      "OrderWeek": "01-02",
+      "OrderYearWeek": "20250102",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-12-22T16:07:17.670Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-12-22T16:07:17.670Z"
+    },
+    {
+      "StockKey": 84,
+      "OrderYear": "2025",
+      "OrderWeek": "02-01",
+      "OrderYearWeek": "20250201",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-12-25T14:35:27.927Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-12-25T14:35:27.927Z"
+    },
+    {
+      "StockKey": 85,
+      "OrderYear": "2025",
+      "OrderWeek": "06-01",
+      "OrderYearWeek": "20250601",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-12-25T14:39:08.800Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-12-25T14:39:08.800Z"
+    },
+    {
+      "StockKey": 86,
+      "OrderYear": "2026",
+      "OrderWeek": "02-02",
+      "OrderYearWeek": "20260202",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2025-12-26T17:44:20.240Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2025-12-26T17:44:20.240Z"
+    },
+    {
+      "StockKey": 87,
+      "OrderYear": "2025",
+      "OrderWeek": "02-02",
+      "OrderYearWeek": "20250202",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2025-12-29T14:22:41.720Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2025-12-29T14:22:41.720Z"
+    },
+    {
+      "StockKey": 88,
+      "OrderYear": "2026",
+      "OrderWeek": "04-01",
+      "OrderYearWeek": "20260401",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-01-05T17:34:06.690Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-01-05T17:34:06.690Z"
+    },
+    {
+      "StockKey": 89,
+      "OrderYear": "2026",
+      "OrderWeek": "03-02",
+      "OrderYearWeek": "20260302",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-01-05T18:16:17.490Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-01-05T18:16:17.490Z"
+    },
+    {
+      "StockKey": 90,
+      "OrderYear": "2026",
+      "OrderWeek": "04-02",
+      "OrderYearWeek": "20260402",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-01-12T09:41:55.470Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-01-12T09:41:55.470Z"
+    },
+    {
+      "StockKey": 91,
+      "OrderYear": "2026",
+      "OrderWeek": "05-01",
+      "OrderYearWeek": "20260501",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-01-12T14:49:28.547Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-01-12T14:49:28.547Z"
+    },
+    {
+      "StockKey": 92,
+      "OrderYear": "2026",
+      "OrderWeek": "05-02",
+      "OrderYearWeek": "20260502",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-01-16T17:01:16.570Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-01-16T17:01:16.570Z"
+    },
+    {
+      "StockKey": 93,
+      "OrderYear": "2026",
+      "OrderWeek": "08-01",
+      "OrderYearWeek": "20260801",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-01-26T09:30:44.663Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-01-26T09:30:44.663Z"
+    },
+    {
+      "StockKey": 94,
+      "OrderYear": "2026",
+      "OrderWeek": "50-01",
+      "OrderYearWeek": "20265001",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2026-01-26T10:55:53.753Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2026-01-26T10:55:53.753Z"
+    },
+    {
+      "StockKey": 95,
+      "OrderYear": "2026",
+      "OrderWeek": "06-02",
+      "OrderYearWeek": "20260602",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-01-26T14:28:19.417Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-01-26T14:28:19.417Z"
+    },
+    {
+      "StockKey": 96,
+      "OrderYear": "2026",
+      "OrderWeek": "07-01",
+      "OrderYearWeek": "20260701",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-01-28T14:53:02.360Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-01-28T14:53:02.360Z"
+    },
+    {
+      "StockKey": 97,
+      "OrderYear": "2026",
+      "OrderWeek": "08-02",
+      "OrderYearWeek": "20260802",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-02-04T15:12:55.620Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-02-04T15:12:55.620Z"
+    },
+    {
+      "StockKey": 98,
+      "OrderYear": "2026",
+      "OrderWeek": "09-01",
+      "OrderYearWeek": "20260901",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-02-09T17:22:07.340Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-02-09T17:22:07.340Z"
+    },
+    {
+      "StockKey": 99,
+      "OrderYear": "2026",
+      "OrderWeek": "09-02",
+      "OrderYearWeek": "20260902",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-02-09T17:28:07.607Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-02-09T17:28:07.607Z"
+    },
+    {
+      "StockKey": 100,
+      "OrderYear": "2026",
+      "OrderWeek": "07-02",
+      "OrderYearWeek": "20260702",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaIC3",
+      "CreateDtm": "2026-02-10T12:48:00.153Z",
+      "LastUpdateID": "nenovaIC3",
+      "LastUpdateDtm": "2026-02-10T12:48:00.153Z"
+    },
+    {
+      "StockKey": 101,
+      "OrderYear": "2026",
+      "OrderWeek": "10-01",
+      "OrderYearWeek": "20261001",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2026-02-19T18:03:56.007Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2026-02-19T18:03:56.007Z"
+    },
+    {
+      "StockKey": 102,
+      "OrderYear": "2026",
+      "OrderWeek": "10-02",
+      "OrderYearWeek": "20261002",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-02-23T09:52:32.043Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-02-23T09:52:32.043Z"
+    },
+    {
+      "StockKey": 103,
+      "OrderYear": "2026",
+      "OrderWeek": "09-03",
+      "OrderYearWeek": "20260903",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2026-02-23T13:08:35.290Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2026-02-23T13:08:35.290Z"
+    },
+    {
+      "StockKey": 104,
+      "OrderYear": "2026",
+      "OrderWeek": "11-01",
+      "OrderYearWeek": "20261101",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-02-23T14:15:12.900Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-02-23T14:15:12.900Z"
+    },
+    {
+      "StockKey": 105,
+      "OrderYear": "2026",
+      "OrderWeek": "11-02",
+      "OrderYearWeek": "20261102",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-02-25T16:14:53.037Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-02-25T16:14:53.037Z"
+    },
+    {
+      "StockKey": 106,
+      "OrderYear": "2026",
+      "OrderWeek": "12-02",
+      "OrderYearWeek": "20261202",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-02-25T16:15:33.207Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-02-25T16:15:33.207Z"
+    },
+    {
+      "StockKey": 107,
+      "OrderYear": "2026",
+      "OrderWeek": "13-02",
+      "OrderYearWeek": "20261302",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-02-25T16:16:06.300Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-02-25T16:16:06.300Z"
+    },
+    {
+      "StockKey": 108,
+      "OrderYear": "2026",
+      "OrderWeek": "12-01",
+      "OrderYearWeek": "20261201",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-02-25T16:43:19.077Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-02-25T16:43:19.077Z"
+    },
+    {
+      "StockKey": 109,
+      "OrderYear": "2026",
+      "OrderWeek": "13-01",
+      "OrderYearWeek": "20261301",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-02-25T16:43:35.010Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-02-25T16:43:35.010Z"
+    },
+    {
+      "StockKey": 110,
+      "OrderYear": "2026",
+      "OrderWeek": "14-02",
+      "OrderYearWeek": "20261402",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-03-12T12:58:33.800Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-03-12T12:58:33.800Z"
+    },
+    {
+      "StockKey": 111,
+      "OrderYear": "2026",
+      "OrderWeek": "14-01",
+      "OrderYearWeek": "20261401",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-03-12T13:01:28.307Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-03-12T13:01:28.307Z"
+    },
+    {
+      "StockKey": 112,
+      "OrderYear": "2026",
+      "OrderWeek": "17-01",
+      "OrderYearWeek": "20261701",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-03-20T09:01:48.560Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-03-20T09:01:48.560Z"
+    },
+    {
+      "StockKey": 113,
+      "OrderYear": "2026",
+      "OrderWeek": "15-01",
+      "OrderYearWeek": "20261501",
+      "isFix": 0,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-03-25T16:06:47.220Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-03-25T16:06:47.220Z"
+    },
+    {
+      "StockKey": 114,
+      "OrderYear": "2026",
+      "OrderWeek": "15-02",
+      "OrderYearWeek": "20261502",
+      "isFix": 0,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-03-26T12:26:19.683Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-03-26T12:26:19.683Z"
+    },
+    {
+      "StockKey": 115,
+      "OrderYear": "2026",
+      "OrderWeek": "16-01",
+      "OrderYearWeek": "20261601",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-03-30T10:30:27.873Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-03-30T10:30:27.873Z"
+    },
+    {
+      "StockKey": 116,
+      "OrderYear": "2026",
+      "OrderWeek": "16-02",
+      "OrderYearWeek": "20261602",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD2",
+      "CreateDtm": "2026-04-06T13:09:31.977Z",
+      "LastUpdateID": "nenovaSD2",
+      "LastUpdateDtm": "2026-04-06T13:09:31.977Z"
+    },
+    {
+      "StockKey": 117,
+      "OrderYear": "2026",
+      "OrderWeek": "17-02",
+      "OrderYearWeek": "20261702",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-04-13T15:30:40.540Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-04-13T15:30:40.540Z"
+    },
+    {
+      "StockKey": 118,
+      "OrderYear": null,
+      "OrderWeek": "15-02",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 119,
+      "OrderYear": null,
+      "OrderWeek": "15-02",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 120,
+      "OrderYear": null,
+      "OrderWeek": "15-02",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 121,
+      "OrderYear": null,
+      "OrderWeek": "15-02",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 122,
+      "OrderYear": null,
+      "OrderWeek": "15-02",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 123,
+      "OrderYear": null,
+      "OrderWeek": "15-02",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 124,
+      "OrderYear": null,
+      "OrderWeek": "15-02",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 125,
+      "OrderYear": null,
+      "OrderWeek": "15-02",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 126,
+      "OrderYear": null,
+      "OrderWeek": "15-02",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 127,
+      "OrderYear": "2026",
+      "OrderWeek": "18-01",
+      "OrderYearWeek": "20261801",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenova1",
+      "CreateDtm": "2026-04-16T11:33:20.630Z",
+      "LastUpdateID": "nenova1",
+      "LastUpdateDtm": "2026-04-16T11:33:20.630Z"
+    },
+    {
+      "StockKey": 128,
+      "OrderYear": "2026",
+      "OrderWeek": "19-01",
+      "OrderYearWeek": "20261901",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenova1",
+      "CreateDtm": "2026-04-16T13:19:53.403Z",
+      "LastUpdateID": "nenova1",
+      "LastUpdateDtm": "2026-04-16T13:19:53.403Z"
+    },
+    {
+      "StockKey": 129,
+      "OrderYear": "2026",
+      "OrderWeek": "17-01B",
+      "OrderYearWeek": "20261701B",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaIC3",
+      "CreateDtm": "2026-04-21T13:30:09.790Z",
+      "LastUpdateID": "nenovaIC3",
+      "LastUpdateDtm": "2026-04-21T13:30:09.790Z"
+    },
+    {
+      "StockKey": 130,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 131,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 132,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 133,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 134,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 135,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 136,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 137,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 138,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 139,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 140,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 141,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 142,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 143,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 144,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 145,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 146,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 147,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 148,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 149,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 150,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 151,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 152,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 153,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 154,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 155,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 156,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 157,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 158,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 159,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 160,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 161,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 162,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 163,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 164,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 165,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 166,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 167,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 168,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 169,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 170,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 171,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 172,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 173,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 174,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 175,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 176,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 177,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 178,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 179,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 180,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 181,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 182,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 183,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 184,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 185,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 186,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 187,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 188,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 189,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 190,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 191,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 192,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 193,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 194,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 195,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 196,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 197,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 198,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 199,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 200,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 201,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 202,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 203,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 204,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 205,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 206,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 207,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 208,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 209,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 210,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 211,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 212,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 213,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 214,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 215,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 216,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 217,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 218,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 219,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 220,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 221,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 222,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 223,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 224,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 225,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 226,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 227,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 228,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 229,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 230,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 231,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 232,
+      "OrderYear": null,
+      "OrderWeek": "17-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 233,
+      "OrderYear": "2026",
+      "OrderWeek": "19-02",
+      "OrderYearWeek": "20261902",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-04-23T15:26:26.527Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-04-23T15:26:26.527Z"
+    },
+    {
+      "StockKey": 234,
+      "OrderYear": "2026",
+      "OrderWeek": "18-02",
+      "OrderYearWeek": "20261802",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS3",
+      "CreateDtm": "2026-04-24T10:26:59.070Z",
+      "LastUpdateID": "nenovaSS3",
+      "LastUpdateDtm": "2026-04-24T10:26:59.070Z"
+    },
+    {
+      "StockKey": 235,
+      "OrderYear": "2026",
+      "OrderWeek": "20-01",
+      "OrderYearWeek": "20262001",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-04T15:08:46.990Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-04T15:08:46.990Z"
+    },
+    {
+      "StockKey": 236,
+      "OrderYear": "2026",
+      "OrderWeek": "20-02",
+      "OrderYearWeek": "20262002",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-05-04T18:56:03.737Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-05-04T18:56:03.737Z"
+    },
+    {
+      "StockKey": 237,
+      "OrderYear": null,
+      "OrderWeek": "19-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 238,
+      "OrderYear": null,
+      "OrderWeek": "19-01",
+      "OrderYearWeek": null,
+      "isFix": 1,
+      "Descr": null,
+      "CreateID": null,
+      "CreateDtm": null,
+      "LastUpdateID": null,
+      "LastUpdateDtm": null
+    },
+    {
+      "StockKey": 239,
+      "OrderYear": "2026",
+      "OrderWeek": "21-01",
+      "OrderYearWeek": "20262101",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-05-08T17:13:50.970Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-05-08T17:13:50.970Z"
+    },
+    {
+      "StockKey": 240,
+      "OrderYear": "2026",
+      "OrderWeek": "22-01",
+      "OrderYearWeek": "20262201",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-12T13:38:34.960Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-12T13:38:34.960Z"
+    },
+    {
+      "StockKey": 241,
+      "OrderYear": "2026",
+      "OrderWeek": "21-02",
+      "OrderYearWeek": "20262102",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-05-12T14:24:41.697Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-05-12T14:24:41.697Z"
+    },
+    {
+      "StockKey": 242,
+      "OrderYear": "2026",
+      "OrderWeek": "21-03",
+      "OrderYearWeek": "20262103",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS2",
+      "CreateDtm": "2026-05-18T10:26:41.350Z",
+      "LastUpdateID": "nenovaSS2",
+      "LastUpdateDtm": "2026-05-18T10:26:41.350Z"
+    },
+    {
+      "StockKey": 243,
+      "OrderYear": "2026",
+      "OrderWeek": "22-02",
+      "OrderYearWeek": "20262202",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD1",
+      "CreateDtm": "2026-05-18T11:01:45.417Z",
+      "LastUpdateID": "nenovaSD1",
+      "LastUpdateDtm": "2026-05-18T11:01:45.417Z"
+    },
+    {
+      "StockKey": 244,
+      "OrderYear": "2026",
+      "OrderWeek": "23-01",
+      "OrderYearWeek": "20262301",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-18T11:22:16.000Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-18T11:22:16.000Z"
+    },
+    {
+      "StockKey": 245,
+      "OrderYear": "2026",
+      "OrderWeek": "24-01",
+      "OrderYearWeek": "20262401",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-19T17:52:07.887Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-19T17:52:07.887Z"
+    },
+    {
+      "StockKey": 246,
+      "OrderYear": "2026",
+      "OrderWeek": "25-01",
+      "OrderYearWeek": "20262501",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-19T17:52:21.693Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-19T17:52:21.693Z"
+    },
+    {
+      "StockKey": 247,
+      "OrderYear": "2026",
+      "OrderWeek": "26-01",
+      "OrderYearWeek": "20262601",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-19T17:52:48.130Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-19T17:52:48.130Z"
+    },
+    {
+      "StockKey": 248,
+      "OrderYear": "2026",
+      "OrderWeek": "27-01",
+      "OrderYearWeek": "20262701",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-19T17:53:02.863Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-19T17:53:02.863Z"
+    },
+    {
+      "StockKey": 249,
+      "OrderYear": "2026",
+      "OrderWeek": "28-01",
+      "OrderYearWeek": "20262801",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-19T17:53:33.410Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-19T17:53:33.410Z"
+    },
+    {
+      "StockKey": 250,
+      "OrderYear": "2026",
+      "OrderWeek": "29-01",
+      "OrderYearWeek": "20262901",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-19T17:53:47.087Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-19T17:53:47.087Z"
+    },
+    {
+      "StockKey": 251,
+      "OrderYear": "2026",
+      "OrderWeek": "30-01",
+      "OrderYearWeek": "20263001",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-19T17:53:59.480Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-19T17:53:59.480Z"
+    },
+    {
+      "StockKey": 252,
+      "OrderYear": "2026",
+      "OrderWeek": "23-02",
+      "OrderYearWeek": "20262302",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-19T17:56:13.147Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-19T17:56:13.147Z"
+    },
+    {
+      "StockKey": 253,
+      "OrderYear": "2026",
+      "OrderWeek": "24-02",
+      "OrderYearWeek": "20262402",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-19T17:57:08.663Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-19T17:57:08.663Z"
+    },
+    {
+      "StockKey": 254,
+      "OrderYear": "2026",
+      "OrderWeek": "25-02",
+      "OrderYearWeek": "20262502",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-05-25T14:38:22.370Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-05-25T14:38:22.370Z"
+    },
+    {
+      "StockKey": 255,
+      "OrderYear": "2026",
+      "OrderWeek": "26-02",
+      "OrderYearWeek": "20262602",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-06-15T14:03:41.950Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-06-15T14:03:41.950Z"
+    },
+    {
+      "StockKey": 256,
+      "OrderYear": "2026",
+      "OrderWeek": "27-02",
+      "OrderYearWeek": "20262702",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-06-16T16:35:58.823Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-06-16T16:35:58.823Z"
+    },
+    {
+      "StockKey": 257,
+      "OrderYear": "2026",
+      "OrderWeek": "28-02",
+      "OrderYearWeek": "20262802",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-06-22T17:21:31.150Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-06-22T17:21:31.150Z"
+    },
+    {
+      "StockKey": 258,
+      "OrderYear": "2026",
+      "OrderWeek": "29-02",
+      "OrderYearWeek": "20262902",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-07-06T14:18:42.417Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-07-06T14:18:42.417Z"
+    },
+    {
+      "StockKey": 259,
+      "OrderYear": "2026",
+      "OrderWeek": "30-02",
+      "OrderYearWeek": "20263002",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-07-10T17:49:05.447Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-07-10T17:49:05.447Z"
+    },
+    {
+      "StockKey": 260,
+      "OrderYear": "2026",
+      "OrderWeek": "31-01",
+      "OrderYearWeek": "20263101",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-07-13T13:59:01.160Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-07-13T13:59:01.160Z"
+    },
+    {
+      "StockKey": 261,
+      "OrderYear": "2026",
+      "OrderWeek": "31-02",
+      "OrderYearWeek": "20263102",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-07-13T13:59:19.040Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-07-13T13:59:19.040Z"
+    },
+    {
+      "StockKey": 262,
+      "OrderYear": "2026",
+      "OrderWeek": "32-01",
+      "OrderYearWeek": "20263201",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-07-20T14:01:47.880Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-07-20T14:01:47.880Z"
+    },
+    {
+      "StockKey": 263,
+      "OrderYear": "2026",
+      "OrderWeek": "32-02",
+      "OrderYearWeek": "20263202",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSS1",
+      "CreateDtm": "2026-07-21T16:18:32.600Z",
+      "LastUpdateID": "nenovaSS1",
+      "LastUpdateDtm": "2026-07-21T16:18:32.600Z"
+    },
+    {
+      "StockKey": 264,
+      "OrderYear": "2026",
+      "OrderWeek": "33-01",
+      "OrderYearWeek": "20263301",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-07-27T14:22:48.393Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-07-27T14:22:48.393Z"
+    },
+    {
+      "StockKey": 265,
+      "OrderYear": "2026",
+      "OrderWeek": "33-02",
+      "OrderYearWeek": "20263302",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-07-27T15:28:49.187Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-07-27T15:28:49.187Z"
+    },
+    {
+      "StockKey": 266,
+      "OrderYear": "2026",
+      "OrderWeek": "34-01",
+      "OrderYearWeek": "20263401",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-07-28T14:16:33.330Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-07-28T14:16:33.330Z"
+    },
+    {
+      "StockKey": 267,
+      "OrderYear": "2026",
+      "OrderWeek": "34-02",
+      "OrderYearWeek": "20263402",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-07-29T17:41:31.993Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-07-29T17:41:31.993Z"
+    },
+    {
+      "StockKey": 268,
+      "OrderYear": "2026",
+      "OrderWeek": "35-01",
+      "OrderYearWeek": "20263501",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-08-04T09:43:45.507Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-08-04T09:43:45.507Z"
+    },
+    {
+      "StockKey": 269,
+      "OrderYear": "2026",
+      "OrderWeek": "36-01",
+      "OrderYearWeek": "20263601",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-08-12T14:14:17.453Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-08-12T14:14:17.453Z"
+    },
+    {
+      "StockKey": 270,
+      "OrderYear": "2026",
+      "OrderWeek": "37-01",
+      "OrderYearWeek": "20263701",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-08-12T14:15:04.460Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-08-12T14:15:04.460Z"
+    },
+    {
+      "StockKey": 271,
+      "OrderYear": "2026",
+      "OrderWeek": "35-02",
+      "OrderYearWeek": "20263502",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-08-13T14:51:57.440Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-08-13T14:51:57.440Z"
+    },
+    {
+      "StockKey": 272,
+      "OrderYear": "2026",
+      "OrderWeek": "36-02",
+      "OrderYearWeek": "20263602",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-08-21T16:47:21.167Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-08-21T16:47:21.167Z"
+    },
+    {
+      "StockKey": 273,
+      "OrderYear": "2026",
+      "OrderWeek": "34-02A",
+      "OrderYearWeek": "20263402A",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaIC4",
+      "CreateDtm": "2026-08-24T14:39:53.297Z",
+      "LastUpdateID": "nenovaIC4",
+      "LastUpdateDtm": "2026-08-24T14:39:53.297Z"
+    },
+    {
+      "StockKey": 274,
+      "OrderYear": "2026",
+      "OrderWeek": "34-02B",
+      "OrderYearWeek": "20263402B",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaIC4",
+      "CreateDtm": "2026-08-24T14:41:02.380Z",
+      "LastUpdateID": "nenovaIC4",
+      "LastUpdateDtm": "2026-08-24T14:41:02.380Z"
+    },
+    {
+      "StockKey": 275,
+      "OrderYear": "2026",
+      "OrderWeek": "37-02",
+      "OrderYearWeek": "20263702",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-08-30T14:20:31.263Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-08-30T14:20:31.263Z"
+    },
+    {
+      "StockKey": 276,
+      "OrderYear": "2026",
+      "OrderWeek": "38-01",
+      "OrderYearWeek": "20263801",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-09-02T10:16:09.793Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-09-02T10:16:09.793Z"
+    },
+    {
+      "StockKey": 277,
+      "OrderYear": "2026",
+      "OrderWeek": "38-02",
+      "OrderYearWeek": "20263802",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-09-03T17:45:30.510Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-09-03T17:45:30.510Z"
+    },
+    {
+      "StockKey": 278,
+      "OrderYear": "2026",
+      "OrderWeek": "39-02",
+      "OrderYearWeek": "20263902",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD7",
+      "CreateDtm": "2026-09-07T15:33:34.100Z",
+      "LastUpdateID": "nenovaSD7",
+      "LastUpdateDtm": "2026-09-07T15:33:34.100Z"
+    },
+    {
+      "StockKey": 279,
+      "OrderYear": "2026",
+      "OrderWeek": "39-01",
+      "OrderYearWeek": "20263901",
+      "isFix": null,
+      "Descr": "",
+      "CreateID": "nenovaSD3",
+      "CreateDtm": "2026-09-07T15:46:34.653Z",
+      "LastUpdateID": "nenovaSD3",
+      "LastUpdateDtm": "2026-09-07T15:46:34.653Z"
+    }
+  ],
+  [
+    {
+      "ProdKey": 2182,
+      "StockKey": 1,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 1,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 1,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 2,
+      "Stock": 697
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 2,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 2,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 3,
+      "Stock": 698
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 3,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 3,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 4,
+      "Stock": 701
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 4,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 4,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 5,
+      "Stock": 702
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 5,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 5,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 6,
+      "Stock": 702
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 6,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 6,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 7,
+      "Stock": 696
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 7,
+      "Stock": 35
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 7,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 8,
+      "Stock": 702
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 8,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 8,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 9,
+      "Stock": 703
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 9,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 9,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 10,
+      "Stock": 703
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 10,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 10,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 11,
+      "Stock": 703
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 11,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 11,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 12,
+      "Stock": 703
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 12,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 12,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 13,
+      "Stock": 704
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 13,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 13,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 14,
+      "Stock": 700
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 14,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 14,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 15,
+      "Stock": 700
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 15,
+      "Stock": 35
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 15,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 16,
+      "Stock": 700
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 16,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 16,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 17,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 17,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 17,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 18,
+      "Stock": 700
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 18,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 18,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 19,
+      "Stock": 696
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 19,
+      "Stock": 35
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 19,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 20,
+      "Stock": 499
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 20,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 20,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 21,
+      "Stock": 697
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 21,
+      "Stock": 145
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 21,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 22,
+      "Stock": 696
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 22,
+      "Stock": 35
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 22,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 23,
+      "Stock": 697
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 23,
+      "Stock": 145
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 23,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 24,
+      "Stock": 697
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 24,
+      "Stock": 145
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 24,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 25,
+      "Stock": 697
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 25,
+      "Stock": 145
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 25,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 26,
+      "Stock": 698
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 26,
+      "Stock": 145
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 26,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 27,
+      "Stock": 698
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 27,
+      "Stock": 145
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 27,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 28,
+      "Stock": 698
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 28,
+      "Stock": 145
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 28,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 29,
+      "Stock": 698
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 29,
+      "Stock": 145
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 29,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 30,
+      "Stock": 698
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 30,
+      "Stock": 145
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 30,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 31,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 31,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 31,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 32,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 32,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 32,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 33,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 33,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 33,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 34,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 34,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 34,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 35,
+      "Stock": 700
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 35,
+      "Stock": 35
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 35,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 36,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 36,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 36,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 37,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 37,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 37,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 38,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 38,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 38,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 39,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 39,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 39,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 40,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 40,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 40,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 41,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 41,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 41,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 42,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 42,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 42,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 43,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 43,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 43,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 44,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 44,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 44,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 45,
+      "Stock": 499
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 45,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 45,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 46,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 46,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 46,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 47,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 47,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 47,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 48,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 48,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 48,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 49,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 49,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 49,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 50,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 50,
+      "Stock": 105
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 50,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 51,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 51,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 51,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 52,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 52,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 52,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 53,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 53,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 53,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 54,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 54,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 54,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 55,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 55,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 55,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 56,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 56,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 56,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 57,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 57,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 57,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 58,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 58,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 58,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 59,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 59,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 59,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 60,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 60,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 60,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 61,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 61,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 61,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 62,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 62,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 62,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 63,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 63,
+      "Stock": 140
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 63,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 64,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 64,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 64,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 65,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 65,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 65,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 66,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 66,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 66,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 67,
+      "Stock": 596
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 67,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 67,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 68,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 68,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 68,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 69,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 69,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 69,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 70,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 70,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 70,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 71,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 71,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 71,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 72,
+      "Stock": 596
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 72,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 72,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 73,
+      "Stock": 599
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 73,
+      "Stock": 110
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 73,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 74,
+      "Stock": 1000
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 74,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 74,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 75,
+      "Stock": 1000
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 75,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 75,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 76,
+      "Stock": 1000
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 76,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 76,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 77,
+      "Stock": 996
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 77,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 77,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 78,
+      "Stock": 1000
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 78,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 78,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 79,
+      "Stock": 1029
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 79,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 79,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 79,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 79,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 80,
+      "Stock": 996
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 80,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 80,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 81,
+      "Stock": 1003
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 81,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 81,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 82,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 82,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 82,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 83,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 83,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 83,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 84,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 84,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 84,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 85,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 85,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 85,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 86,
+      "Stock": 996
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 86,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 86,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 87,
+      "Stock": 594
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 87,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 87,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 88,
+      "Stock": 1012
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 88,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 88,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 89,
+      "Stock": 1003
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 89,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 89,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 90,
+      "Stock": 1012
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 90,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 90,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 91,
+      "Stock": 1020
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 91,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 91,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 91,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 91,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 92,
+      "Stock": 1020
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 92,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 92,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 92,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 92,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 93,
+      "Stock": 1057
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 93,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 93,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 93,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 93,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 94,
+      "Stock": 1536.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 94,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 94,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 94,
+      "Stock": 376812.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 94,
+      "Stock": 401057.3
+    },
+    {
+      "ProdKey": 3353,
+      "StockKey": 94,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3354,
+      "StockKey": 94,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3355,
+      "StockKey": 94,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3356,
+      "StockKey": 94,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3357,
+      "StockKey": 94,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 95,
+      "Stock": 1036
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 95,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 95,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 95,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 95,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 96,
+      "Stock": 1047
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 96,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 96,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 96,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 96,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 97,
+      "Stock": 1064
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 97,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 97,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 97,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 97,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 98,
+      "Stock": 1078
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 98,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 98,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 98,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 98,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 99,
+      "Stock": 1084
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 99,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 99,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 99,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 99,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 100,
+      "Stock": 1049
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 100,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 100,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 100,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 100,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 101,
+      "Stock": 1098
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 101,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 101,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 101,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 101,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 102,
+      "Stock": 1104
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 102,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 102,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 102,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 102,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 103,
+      "Stock": 1086
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 103,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 103,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 103,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 103,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 104,
+      "Stock": 1113
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 104,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 104,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 104,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 104,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 105,
+      "Stock": 1118
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 105,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 105,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 105,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 105,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 106,
+      "Stock": 1136
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 106,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 106,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 106,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 106,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 107,
+      "Stock": 1151
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 107,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 107,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 107,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 107,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 108,
+      "Stock": 1130
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 108,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 108,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 108,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 108,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 109,
+      "Stock": 1145
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 109,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 109,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 109,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 109,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 110,
+      "Stock": 1168
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 110,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 110,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 110,
+      "Stock": 4547
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 110,
+      "Stock": 5343
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 111,
+      "Stock": 1162
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 111,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 111,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 111,
+      "Stock": 3032
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 111,
+      "Stock": 3534
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 112,
+      "Stock": 1224
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 112,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 112,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 112,
+      "Stock": 45336.2
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 112,
+      "Stock": 47348.1
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 113,
+      "Stock": 1177
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 113,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 113,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 113,
+      "Stock": 4724
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 113,
+      "Stock": 5573
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 114,
+      "Stock": 1183
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 114,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 114,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 114,
+      "Stock": 4724
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 114,
+      "Stock": 5573
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 115,
+      "Stock": 1197
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 115,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 115,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 115,
+      "Stock": 12896
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 115,
+      "Stock": 14395
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 116,
+      "Stock": 1208
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 116,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 116,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 116,
+      "Stock": 14101
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 116,
+      "Stock": 15673
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 117,
+      "Stock": 1232
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 117,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 117,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 117,
+      "Stock": 56648.8
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 117,
+      "Stock": 59413.9
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 127,
+      "Stock": 1254
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 127,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 127,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 127,
+      "Stock": 84265.9
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 127,
+      "Stock": 88401.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 128,
+      "Stock": 1265
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 128,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 128,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 128,
+      "Stock": 97297.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 128,
+      "Stock": 102095.5
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 129,
+      "Stock": 1224
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 129,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 129,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 129,
+      "Stock": 45336.2
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 129,
+      "Stock": 47348.1
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 233,
+      "Stock": 1271
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 233,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 233,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 233,
+      "Stock": 101320.2
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 233,
+      "Stock": 106419.8
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 234,
+      "Stock": 1255
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 234,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 234,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 234,
+      "Stock": 84980.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 234,
+      "Stock": 89195.5
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 235,
+      "Stock": 1282
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 235,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 235,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 235,
+      "Stock": 112708.3
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 235,
+      "Stock": 118759.8
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 236,
+      "Stock": 1288
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 236,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 236,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 236,
+      "Stock": 118512.3
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 236,
+      "Stock": 125163.8
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 239,
+      "Stock": 1298
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 239,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 239,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 239,
+      "Stock": 132269.7
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 239,
+      "Stock": 140342.8
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 240,
+      "Stock": 1312
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 240,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 240,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 240,
+      "Stock": 145961.2
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 240,
+      "Stock": 155003.9
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 241,
+      "Stock": 1303
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 241,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 241,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 241,
+      "Stock": 133303.2
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 241,
+      "Stock": 141456.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 242,
+      "Stock": 1303
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 242,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 242,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 242,
+      "Stock": 133303.2
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 242,
+      "Stock": 141456.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 243,
+      "Stock": 1319
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 243,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 243,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 243,
+      "Stock": 149602.2
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 243,
+      "Stock": 158920.5
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 244,
+      "Stock": 1330
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 244,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 244,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 244,
+      "Stock": 159401.6
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 244,
+      "Stock": 169267
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 245,
+      "Stock": 1345
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 245,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 245,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 245,
+      "Stock": 171226.4
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 245,
+      "Stock": 181833.2
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 246,
+      "Stock": 1362
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 246,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 246,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 246,
+      "Stock": 184270.6
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 246,
+      "Stock": 195738.7
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 247,
+      "Stock": 1377
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 247,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 247,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 247,
+      "Stock": 197825.9
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 247,
+      "Stock": 210160
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 248,
+      "Stock": 1392
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 248,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 248,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 248,
+      "Stock": 211289.9
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 248,
+      "Stock": 224707.5
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 249,
+      "Stock": 1407
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 249,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 249,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 249,
+      "Stock": 226089
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 249,
+      "Stock": 240367.6
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 250,
+      "Stock": 1421
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 250,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 250,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 250,
+      "Stock": 241119.8
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 250,
+      "Stock": 255642.2
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 251,
+      "Stock": 1434
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 251,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 251,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 251,
+      "Stock": 252268.8
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 251,
+      "Stock": 266915.2
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 252,
+      "Stock": 1336
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 252,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 252,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 252,
+      "Stock": 161502.4
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 252,
+      "Stock": 171575.7
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 253,
+      "Stock": 1352
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 253,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 253,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 253,
+      "Stock": 174487.4
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 253,
+      "Stock": 185461.2
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 254,
+      "Stock": 1368
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 254,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 254,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 254,
+      "Stock": 187275.9
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 254,
+      "Stock": 199062.7
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 255,
+      "Stock": 1383
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 255,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 255,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 255,
+      "Stock": 200641.9
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 255,
+      "Stock": 213366
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 256,
+      "Stock": 1398
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 256,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 256,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 256,
+      "Stock": 215200
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 256,
+      "Stock": 228889.6
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 257,
+      "Stock": 1413
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 257,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 257,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 257,
+      "Stock": 230624.8
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 257,
+      "Stock": 245365.7
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 258,
+      "Stock": 1428
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 258,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 258,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 258,
+      "Stock": 244274.8
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 258,
+      "Stock": 258673.2
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 259,
+      "Stock": 1440
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 259,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 259,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 259,
+      "Stock": 254891.8
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 259,
+      "Stock": 269374.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 260,
+      "Stock": 1445
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 260,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 260,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 260,
+      "Stock": 257382.7
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 260,
+      "Stock": 273646.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 261,
+      "Stock": 1450
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 261,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 261,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 261,
+      "Stock": 259721.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 261,
+      "Stock": 276162.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 262,
+      "Stock": 1462
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 262,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 262,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 262,
+      "Stock": 271488.6
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 262,
+      "Stock": 287938.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 263,
+      "Stock": 1467
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 263,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 263,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 263,
+      "Stock": 274517.3
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 263,
+      "Stock": 291103.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 264,
+      "Stock": 1477
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 264,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 264,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 264,
+      "Stock": 285691.3
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 264,
+      "Stock": 302943.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 265,
+      "Stock": 1483
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 265,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 265,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 265,
+      "Stock": 291411.8
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 265,
+      "Stock": 310045.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 266,
+      "Stock": 1492
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 266,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 266,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 266,
+      "Stock": 306300.4
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 266,
+      "Stock": 324653.9
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 267,
+      "Stock": 1500
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 267,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 267,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 267,
+      "Stock": 313015.3
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 267,
+      "Stock": 332276.9
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 268,
+      "Stock": 1509.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 268,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 268,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 268,
+      "Stock": 329813.3
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 268,
+      "Stock": 349687.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 269,
+      "Stock": 1524.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 269,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 269,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 269,
+      "Stock": 352627.4
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 269,
+      "Stock": 374289.9
+    },
+    {
+      "ProdKey": 3353,
+      "StockKey": 269,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3354,
+      "StockKey": 269,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3355,
+      "StockKey": 269,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3356,
+      "StockKey": 269,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3357,
+      "StockKey": 269,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 270,
+      "Stock": 1536.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 270,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 270,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 270,
+      "Stock": 376812.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 270,
+      "Stock": 401057.3
+    },
+    {
+      "ProdKey": 3353,
+      "StockKey": 270,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3354,
+      "StockKey": 270,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3355,
+      "StockKey": 270,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3356,
+      "StockKey": 270,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3357,
+      "StockKey": 270,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 271,
+      "Stock": 1516.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 271,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 271,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 271,
+      "Stock": 336689.9
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 271,
+      "Stock": 357734.4
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 272,
+      "Stock": 1532.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 272,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 272,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 272,
+      "Stock": 361493.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 272,
+      "Stock": 384689.3
+    },
+    {
+      "ProdKey": 3353,
+      "StockKey": 272,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3354,
+      "StockKey": 272,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3355,
+      "StockKey": 272,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3356,
+      "StockKey": 272,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3357,
+      "StockKey": 272,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 273,
+      "Stock": 1500
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 273,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 273,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 273,
+      "Stock": 313015.3
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 273,
+      "Stock": 332276.9
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 274,
+      "Stock": 1500
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 274,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 274,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 274,
+      "Stock": 313015.3
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 274,
+      "Stock": 332276.9
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 275,
+      "Stock": 1536.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 275,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 275,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 275,
+      "Stock": 376812.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 275,
+      "Stock": 401057.3
+    },
+    {
+      "ProdKey": 3353,
+      "StockKey": 275,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3354,
+      "StockKey": 275,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3355,
+      "StockKey": 275,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3356,
+      "StockKey": 275,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3357,
+      "StockKey": 275,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 276,
+      "Stock": 1536.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 276,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 276,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 276,
+      "Stock": 376812.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 276,
+      "Stock": 401057.3
+    },
+    {
+      "ProdKey": 3353,
+      "StockKey": 276,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3354,
+      "StockKey": 276,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3355,
+      "StockKey": 276,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3356,
+      "StockKey": 276,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3357,
+      "StockKey": 276,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 277,
+      "Stock": 1536.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 277,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 277,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 277,
+      "Stock": 376812.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 277,
+      "Stock": 401057.3
+    },
+    {
+      "ProdKey": 3353,
+      "StockKey": 277,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3354,
+      "StockKey": 277,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3355,
+      "StockKey": 277,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3356,
+      "StockKey": 277,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3357,
+      "StockKey": 277,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 278,
+      "Stock": 1536.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 278,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 278,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 278,
+      "Stock": 376812.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 278,
+      "Stock": 401057.3
+    },
+    {
+      "ProdKey": 3353,
+      "StockKey": 278,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3354,
+      "StockKey": 278,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3355,
+      "StockKey": 278,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3356,
+      "StockKey": 278,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3357,
+      "StockKey": 278,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2182,
+      "StockKey": 279,
+      "Stock": 1536.1
+    },
+    {
+      "ProdKey": 2565,
+      "StockKey": 279,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 2829,
+      "StockKey": 279,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3100,
+      "StockKey": 279,
+      "Stock": 376812.1
+    },
+    {
+      "ProdKey": 3101,
+      "StockKey": 279,
+      "Stock": 401057.3
+    },
+    {
+      "ProdKey": 3353,
+      "StockKey": 279,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3354,
+      "StockKey": 279,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3355,
+      "StockKey": 279,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3356,
+      "StockKey": 279,
+      "Stock": 0
+    },
+    {
+      "ProdKey": 3357,
+      "StockKey": 279,
+      "Stock": 0
+    }
+  ],
+  [
+    {
+      "OrderMasterKey": 6298,
+      "OrderYear": "2026",
+      "OrderWeek": "37-01",
+      "OrderWeek2": "37",
+      "OrderYearWeek": "202637",
+      "OrderYearWeek2": "20263701",
+      "OrderDtm": "2026-09-08T00:00:00.000Z",
+      "Manager": "김도준",
+      "CustKey": 533,
+      "CustName": "주광농원",
+      "CustArea": "경부선_주광",
+      "BusinessManager": "김원영",
+      "CustDescr": "주광/중-일/태-월/수-일/카-일,월/장-일/알-일/CL2",
+      "isUseOrderCode": false,
+      "OrderCode": "CL2",
+      "Descr": "",
+      "OrderDetailKey": 76391,
+      "ProdKey": 2565,
+      "ProdName": "[EZ] Tulip / Single Royal Virgen White",
+      "FlowerName": "튤립",
+      "CounName": "네덜란드",
+      "CountryFlower": "네덜란드",
+      "DetailDescr": "",
+      "BoxQuantity": 60,
+      "BunchQuantity": 60,
+      "SteamQuantity": 600,
+      "OutQuantity": 60,
+      "EstQuantity": 60,
+      "NoneOutQuantity": 0
+    },
+    {
+      "OrderMasterKey": 6298,
+      "OrderYear": "2026",
+      "OrderWeek": "37-01",
+      "OrderWeek2": "37",
+      "OrderYearWeek": "202637",
+      "OrderYearWeek2": "20263701",
+      "OrderDtm": "2026-09-08T00:00:00.000Z",
+      "Manager": "김도준",
+      "CustKey": 533,
+      "CustName": "주광농원",
+      "CustArea": "경부선_주광",
+      "BusinessManager": "김원영",
+      "CustDescr": "주광/중-일/태-월/수-일/카-일,월/장-일/알-일/CL2",
+      "isUseOrderCode": false,
+      "OrderCode": "CL2",
+      "Descr": "",
+      "OrderDetailKey": 76390,
+      "ProdKey": 2829,
+      "ProdName": "[EZ] Astilbe / Washington White",
+      "FlowerName": "아스틸베",
+      "CounName": "네덜란드",
+      "CountryFlower": "네덜란드",
+      "DetailDescr": "",
+      "BoxQuantity": 0,
+      "BunchQuantity": 0,
+      "SteamQuantity": 100,
+      "OutQuantity": 100,
+      "EstQuantity": 100,
+      "NoneOutQuantity": 0
+    },
+    {
+      "OrderMasterKey": 6298,
+      "OrderYear": "2026",
+      "OrderWeek": "37-01",
+      "OrderWeek2": "37",
+      "OrderYearWeek": "202637",
+      "OrderYearWeek2": "20263701",
+      "OrderDtm": "2026-09-08T00:00:00.000Z",
+      "Manager": "김도준",
+      "CustKey": 533,
+      "CustName": "주광농원",
+      "CustArea": "경부선_주광",
+      "BusinessManager": "김원영",
+      "CustDescr": "주광/중-일/태-월/수-일/카-일,월/장-일/알-일/CL2",
+      "isUseOrderCode": false,
+      "OrderCode": "CL2",
+      "Descr": "",
+      "OrderDetailKey": 77624,
+      "ProdKey": 3353,
+      "ProdName": "[EZ] Tulip / Single Yellow Flight",
+      "FlowerName": "튤립",
+      "CounName": "네덜란드",
+      "CountryFlower": "네덜란드",
+      "DetailDescr": "",
+      "BoxQuantity": 0,
+      "BunchQuantity": 50,
+      "SteamQuantity": 500,
+      "OutQuantity": 50,
+      "EstQuantity": 50,
+      "NoneOutQuantity": 0
+    },
+    {
+      "OrderMasterKey": 6298,
+      "OrderYear": "2026",
+      "OrderWeek": "37-01",
+      "OrderWeek2": "37",
+      "OrderYearWeek": "202637",
+      "OrderYearWeek2": "20263701",
+      "OrderDtm": "2026-09-08T00:00:00.000Z",
+      "Manager": "김도준",
+      "CustKey": 533,
+      "CustName": "주광농원",
+      "CustArea": "경부선_주광",
+      "BusinessManager": "김원영",
+      "CustDescr": "주광/중-일/태-월/수-일/카-일,월/장-일/알-일/CL2",
+      "isUseOrderCode": false,
+      "OrderCode": "CL2",
+      "Descr": "",
+      "OrderDetailKey": 77629,
+      "ProdKey": 3354,
+      "ProdName": "[EZ]Allium / Green Drops 65cm",
+      "FlowerName": "알륨",
+      "CounName": "네덜란드",
+      "CountryFlower": "네덜란드",
+      "DetailDescr": "",
+      "BoxQuantity": 0,
+      "BunchQuantity": 0,
+      "SteamQuantity": 90,
+      "OutQuantity": 90,
+      "EstQuantity": 90,
+      "NoneOutQuantity": 0
+    },
+    {
+      "OrderMasterKey": 6298,
+      "OrderYear": "2026",
+      "OrderWeek": "37-01",
+      "OrderWeek2": "37",
+      "OrderYearWeek": "202637",
+      "OrderYearWeek2": "20263701",
+      "OrderDtm": "2026-09-08T00:00:00.000Z",
+      "Manager": "김도준",
+      "CustKey": 533,
+      "CustName": "주광농원",
+      "CustArea": "경부선_주광",
+      "BusinessManager": "김원영",
+      "CustDescr": "주광/중-일/태-월/수-일/카-일,월/장-일/알-일/CL2",
+      "isUseOrderCode": false,
+      "OrderCode": "CL2",
+      "Descr": "",
+      "OrderDetailKey": 77628,
+      "ProdKey": 3355,
+      "ProdName": "[EZ]Allium /  Mount Everest",
+      "FlowerName": "알륨",
+      "CounName": "네덜란드",
+      "CountryFlower": "네덜란드",
+      "DetailDescr": "",
+      "BoxQuantity": 0,
+      "BunchQuantity": 0,
+      "SteamQuantity": 40,
+      "OutQuantity": 40,
+      "EstQuantity": 40,
+      "NoneOutQuantity": 0
+    },
+    {
+      "OrderMasterKey": 6298,
+      "OrderYear": "2026",
+      "OrderWeek": "37-01",
+      "OrderWeek2": "37",
+      "OrderYearWeek": "202637",
+      "OrderYearWeek2": "20263701",
+      "OrderDtm": "2026-09-08T00:00:00.000Z",
+      "Manager": "김도준",
+      "CustKey": 533,
+      "CustName": "주광농원",
+      "CustArea": "경부선_주광",
+      "BusinessManager": "김원영",
+      "CustDescr": "주광/중-일/태-월/수-일/카-일,월/장-일/알-일/CL2",
+      "isUseOrderCode": false,
+      "OrderCode": "CL2",
+      "Descr": "",
+      "OrderDetailKey": 77627,
+      "ProdKey": 3356,
+      "ProdName": "[EZ] Delphinium / ZOFIA ",
+      "FlowerName": "델피늄",
+      "CounName": "네덜란드",
+      "CountryFlower": "네덜란드",
+      "DetailDescr": "",
+      "BoxQuantity": 0,
+      "BunchQuantity": 0,
+      "SteamQuantity": 150,
+      "OutQuantity": 150,
+      "EstQuantity": 150,
+      "NoneOutQuantity": 0
+    },
+    {
+      "OrderMasterKey": 6298,
+      "OrderYear": "2026",
+      "OrderWeek": "37-01",
+      "OrderWeek2": "37",
+      "OrderYearWeek": "202637",
+      "OrderYearWeek2": "20263701",
+      "OrderDtm": "2026-09-08T00:00:00.000Z",
+      "Manager": "김도준",
+      "CustKey": 533,
+      "CustName": "주광농원",
+      "CustArea": "경부선_주광",
+      "BusinessManager": "김원영",
+      "CustDescr": "주광/중-일/태-월/수-일/카-일,월/장-일/알-일/CL2",
+      "isUseOrderCode": false,
+      "OrderCode": "CL2",
+      "Descr": "",
+      "OrderDetailKey": 77626,
+      "ProdKey": 3357,
+      "ProdName": "[EZ] Delphinium / Elatum Impressive White",
+      "FlowerName": "델피늄",
+      "CounName": "네덜란드",
+      "CountryFlower": "네덜란드",
+      "DetailDescr": "",
+      "BoxQuantity": 0,
+      "BunchQuantity": 0,
+      "SteamQuantity": 80,
+      "OutQuantity": 80,
+      "EstQuantity": 80,
+      "NoneOutQuantity": 0
+    }
+  ],
+  []
+]

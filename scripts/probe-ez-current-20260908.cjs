@@ -1,0 +1,5 @@
+const sql=require('mssql');
+(async()=>{const p=await sql.connect({server:process.env.DB_SERVER,port:Number(process.env.DB_PORT||1433),database:process.env.DB_NAME,user:process.env.DB_USER,password:process.env.DB_PASSWORD,options:{encrypt:false,trustServerCertificate:true},requestTimeout:15000});try{const r=await p.request().query(`
+SELECT wm.WarehouseKey,wm.OrderYear,wm.OrderWeek,wm.FarmName,wm.InvoiceNo,wm.isDeleted,wm.CreateID,wm.CreateDtm,wm.LastUpdateID,wm.LastUpdateDtm,(SELECT COUNT(*) FROM WarehouseDetail d WHERE d.WarehouseKey=wm.WarehouseKey) detailRows FROM WarehouseMaster wm WHERE wm.OrderYear='2026' AND wm.FarmName='EZ Flower' AND (wm.OrderWeek IN ('07-09','37-01') OR wm.WarehouseKey>=7211) ORDER BY wm.WarehouseKey;
+SELECT TOP 25 StockHistoryKey,ProdKey,OrderYear,OrderWeek,ChangeType,BeforeValue,AfterValue,ChangeID,ChangeDtm,Descr FROM StockHistory WHERE ProdKey IN(2565,2829,3353,3354,3355,3356,3357) AND ChangeDtm>='20260908' ORDER BY StockHistoryKey DESC;
+`);console.log(JSON.stringify(r.recordsets));}finally{await p.close()}})().catch(e=>{console.error(e.code,e.message);process.exitCode=1});
