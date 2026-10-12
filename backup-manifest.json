@@ -1,0 +1,13 @@
+{
+  "purpose": "Source recovery backup only. Do not merge this branch into production. Each listed commit retains its original source tree.",
+  "date": "2026-10-12",
+  "records": [
+    {
+      "kind": "workingTreeSnapshot",
+      "workspace": "Documents/Codex/2026-08-08/nenova-matching-training-sample-audit/work/nenova-erp-ui-audit",
+      "sha": "e33b3bb91631b024cb2962c0f267e82415071aa0",
+      "sourceFiles": 4,
+      "excludedFiles": 0
+    }
+  ]
+}
