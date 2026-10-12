@@ -160,21 +160,33 @@
   function renderFeeds() {
     const focused = document.activeElement?.dataset.feedControl; feeds.replaceChildren();
     for (const lane of lanes) {
-      const items = snapshot?.[lane.key] || []; lane.at %= Math.max(1, items.length); const item = items[lane.at];
+      const items = feedItems(lane.key); lane.at %= Math.max(1, items.length); const item = items[lane.at];
       const row = node('section', 'hw-feed'); row.setAttribute('aria-label', lane.key === 'guidance' ? '주의·업무 지침' : '수입부 피드백');
       row.append(node('strong', '', lane.key === 'guidance' ? '주의·업무 지침' : '수입부 피드백'));
       const copy = node('div', 'hw-feed-copy');
       if (snapshot?.feedErrors?.[lane.key]) copy.append(node('span', 'hw-error-copy', '조회 실패 · ' + snapshot.feedErrors[lane.key]));
       if (item) {
-        copy.append(node('span', 'hw-feed-title', (item.isNew ? '새 소식 · ' : item.unread ? '미확인 · ' : '') + item.title));
+        copy.append(node('span', 'hw-feed-title', (lane.key === 'feedback' ? '' : item.isNew ? '새 소식 · ' : item.unread ? '미확인 · ' : '') + item.title));
         if (contentText(item.summary) && normalizedText(item.summary) !== normalizedText(item.title)) copy.append(node('span', 'hw-feed-summary', item.summary));
-        copy.append(node('small', '', feedMeta(item, lane.key)));
+        if (lane.key === 'feedback') {
+          const presentation = feedbackPresentation(item), meta = node('div', 'hw-feedback-meta');
+          const badge = node('span', 'hw-feedback-state is-' + presentation.tone, presentation.label);
+          badge.title = '업무 상태 · ' + presentation.description;
+          meta.append(badge, node('small', 'hw-feed-read', item.unread ? (item.isNew ? '새 소식 · 읽지 않음' : '읽지 않음') : '읽음'), node('small', '', feedMeta(item, lane.key, false)));
+          copy.append(meta);
+        } else copy.append(node('small', '', feedMeta(item, lane.key)));
       }
       else if (!snapshot?.feedErrors?.[lane.key]) copy.append(node('span', '', !owner ? '로그인 후 확인' : !snapshot ? '소식 확인 중…' : '표시할 내용이 없습니다.'));
       row.append(copy); const controls = node('div', 'hw-feed-controls');
       const ctrl = (name, text, fn, disabled = false) => { const b = button(text, fn); b.dataset.feedControl = lane.key + ':' + name; b.setAttribute('aria-label', row.getAttribute('aria-label') + ' ' + text); b.disabled = disabled; controls.append(b); return b; };
       const move = d => { lane.at = (lane.at + d + items.length) % items.length; renderFeeds(); };
-      controls.append(node('small', '', items.length ? (lane.at + 1) + '/' + items.length : ''));
+      const position = items.length ? (lane.at + 1) + '/' + items.length : '';
+      if (lane.key === 'feedback') {
+        const tones = items.map(item => feedbackPresentation(item).tone);
+        const counts = node('small', 'hw-feedback-count', `표시 ${items.length}건 · 지연 ${tones.filter(t => t === 'overdue').length} · 필요 ${tones.filter(t => t === 'waiting').length} · 답변 ${tones.filter(t => t === 'answered').length}${position ? ' · ' + position : ''}`);
+        counts.title = `표시 중 ${items.length}건 기준, 전체 현황은 원문에서 확인하세요. 필요: 요청 필요·답변 필요·재발 확인(지연 제외). 답변: 답변 도착·개선 확인. 지연 → 필요 → 처리 중 순서로 표시합니다.`;
+        counts.setAttribute('aria-label', counts.textContent + '. ' + counts.title); controls.append(counts);
+      } else controls.append(node('small', '', position));
       ctrl('prev', '이전', () => move(-1), items.length < 2); ctrl('next', '다음', () => move(1), items.length < 2);
       const pause = ctrl('pause', lane.paused ? '재생' : '일시정지', () => { lane.paused = !lane.paused; renderFeeds(); }, !items.length); pause.setAttribute('aria-pressed', String(lane.paused));
       ctrl('detail', '더보기', e => showDetail(lane, false, e), !item); ctrl('all', '전체', () => showDetail(lane, true), !items.length);
@@ -185,9 +197,34 @@
   }
   function contentText(value) { return typeof value === 'string' ? value.trim() : ''; }
   function normalizedText(value) { return contentText(value).replace(/\s+/g, ' '); }
-  function feedMeta(item, key) {
-    const status = contentText(item.statusLabel) || (key === 'guidance' ? ({ CHECK: '확인 필요', CURRENT: '현재 지침' }[item.status] || '') : contentText(item.status));
-    return [status, item.orderYear ? item.orderYear + '년 ' + (item.orderWeek ? item.orderWeek + '차' : '차수 미확인') : '', stamp(item.updatedAt)].filter(Boolean).join(' · ');
+  function feedItems(key) {
+    const items = snapshot?.[key] || [];
+    if (key !== 'feedback') return items;
+    const priority = { overdue: 0, waiting: 1, progress: 2, answered: 3, unknown: 4 };
+    // Stable sorting preserves the server's newest-first order within a status.
+    return [...items].sort((a, b) => priority[feedbackPresentation(a).tone] - priority[feedbackPresentation(b).tone]);
+  }
+  function feedbackPresentation(item) {
+    // Match farmQuality.qualityStatus: only an unanswered WAITING request can
+    // exceed its answer due date. Read markers never determine workflow state.
+    const rawDue = Object.prototype.hasOwnProperty.call(item, 'dueDate') ? item.dueDate : item.details?.dueDate;
+    const due = typeof rawDue === 'string' && /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(rawDue) ? rawDue.slice(0, 10) : '';
+    const validDue = due && Number.isFinite(Date.parse(rawDue)) && Number.isFinite(Date.parse(due + 'T00:00:00Z')) && new Date(due + 'T00:00:00Z').toISOString().slice(0, 10) === due;
+    if (item.status === 'WAITING' && validDue && due < today()) return { tone: 'overdue', label: '기한 초과', description: due + ' 답변 기한이 지났으며 아직 미답변입니다.' };
+    const statuses = {
+      NEW: ['waiting', '요청 필요', '농장 요청이 필요한 상태입니다.'],
+      WAITING: ['waiting', '답변 필요', '농장 답변을 기다리는 상태입니다.'],
+      RECURRED: ['waiting', '재발 확인', '재발이 기록되어 후속 확인이 필요합니다.'],
+      OBSERVING: ['progress', '개선 관찰 중', '답변 이후 개선 적용 결과를 관찰 중입니다.'],
+      ANSWERED: ['answered', '답변 도착', '농장 답변이 등록되었습니다. 개선 완료를 뜻하지 않습니다.'],
+      CLOSED: ['answered', '개선 확인', '개선 확인으로 종료된 상태입니다.'],
+    };
+    const [tone, label, description] = statuses[item.status] || ['unknown', '상태 확인 필요', '업무 상태를 원문에서 확인하세요.'];
+    return { tone, label, description };
+  }
+  function feedMeta(item, key, includeStatus = true) {
+    const status = key === 'feedback' ? feedbackPresentation(item).label : contentText(item.statusLabel) || ({ CHECK: '확인 필요', CURRENT: '현재 지침' }[item.status] || '');
+    return [includeStatus ? status : '', item.orderYear ? item.orderYear + '년 ' + (item.orderWeek ? item.orderWeek + '차' : '차수 미확인') : '', stamp(item.updatedAt)].filter(Boolean).join(' · ');
   }
   function appendFeedDetails(article, item, key) {
     const values = item.details && typeof item.details === 'object' ? item.details : {};
@@ -218,7 +255,8 @@
   function showDetail(lane, all) {
     detail = lane.key; detailTrigger = document.activeElement?.dataset.feedControl; feedDetail.replaceChildren(); feedDetail.hidden = false;
     const close = button('닫기', closeDetail); feedDetail.append(close);
-    for (const item of (all ? snapshot[lane.key] : [snapshot[lane.key][lane.at]])) { const article = node('article'); article.append(node('h3', '', item.title), node('small', '', feedMeta(item, lane.key))); appendFeedDetails(article, item, lane.key);
+    const items = feedItems(lane.key);
+    for (const item of (all ? items : [items[lane.at]])) { const article = node('article'); article.append(node('h3', '', item.title), node('small', '', feedMeta(item, lane.key))); appendFeedDetails(article, item, lane.key);
       const open = button('원문 보기', async () => { const ticket = epoch; open.disabled = true; try { await window.desktop.invoke('open', { url: item.href, title: item.title }); if (ticket === epoch) mutate('read', { sourceKey: item.sourceKey }); } catch (e) { if (ticket === epoch) setError(e.message || '원문을 열지 못했습니다.'); } finally { if (ticket === epoch) open.disabled = false; } }); article.append(open); feedDetail.append(article); }
     close.focus();
   }

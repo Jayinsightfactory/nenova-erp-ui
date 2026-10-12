@@ -1,6 +1,6 @@
 {
   "name": "nenova-desktop",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "description": "Nenova 업무 탭과 창 관리 프로그램",
   "author": "Nenova",
   "private": true,
@@ -67,7 +67,7 @@
       "url": "https://github.com/Jayinsightfactory/nenova-erp-ui/releases/latest/download"
     },
     "releaseInfo": {
-      "releaseNotes": "확인 필요 지침도 홈에 표시하고 상황·처리 방법을 보여줍니다.\n수입부 피드백에 농장·품목과 문제 내용을 표시합니다.\n더보기에서 전체 지침과 피드백 상세 내용을 확인할 수 있습니다."
+      "releaseNotes": "홈 수입부 피드백의 요청·지연·답변 상태를 색상으로 구분합니다.\n업체별·담당자별로 불량차감 입력과 확인 목록을 정렬합니다.\n기존 작업 공간과 입력·선택 내용을 유지합니다."
     }
   },
   "dependencies": {

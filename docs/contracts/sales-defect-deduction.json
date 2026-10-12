@@ -1,6 +1,7 @@
 {
   "id": "sales-defect-deduction",
   "title": "영업수입불량차감 양식·견적서관리 등록 계약",
+  "displaySorting": "Sales input and saved-summary default to customer then manager; manager then customer is selectable. Incoming confirmation supports both and retains country/product grouping. Display projections preserve row references and sourceIndex; selection, edit, deletion and save identity and ERP write behavior remain unchanged across years.",
   "scope": [
     "pages/sales/defect-deductions.js",
     "scripts/defect-incoming-group-smoke.cjs",

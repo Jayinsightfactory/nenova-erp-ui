@@ -1,6 +1,7 @@
 {
   "id": "desktop-home-workspace",
   "title": "Owner-scoped personal home tasks and read-only source news",
+  "feedbackPresentation": "Read markers are separate from workflow. Only WAITING with a valid due date before today in Asia/Seoul is overdue. Compact badges and counts preserve existing ticker space; urgency orders overdue, request/answer needed, observing, answered/closed. Top-level dueDate survives omitted details. Original source status and ERP data are preserved.",
   "scope": [
     "lib/personalHomeStore.js",
     "lib/desktopHomeWorkspace.js",
