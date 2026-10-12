@@ -1,7 +1,7 @@
 import desktopUi from '../../styles/DesktopOrderWorkspace.module.css';
 // pages/orders/import.js — 이미지/엑셀 업로드 주문등록 (라움 등 거래처 발주표)
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useId } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { apiGet, apiPost } from '../../lib/useApi';
 import { getCurrentWeek, formatWeekDisplay } from '../../lib/useWeekInput';
@@ -39,10 +39,10 @@ const DEFAULT_CUST_SEARCH = '라움';
 const IMPORT_CUST_STORAGE_KEY = 'nenova_import_last_cust';
 
 async function persistItemMapping(item, prod, { force = true, custKey = null, custName = '' } = {}) {
-  if (!item?.inputName || !prod?.ProdKey) return false;
-  try {
-    await apiPost('/api/orders/mappings', {
-      inputToken: item.inputName,
+  const inputToken = item?.matchName || item?.inputName;
+  if (!inputToken || !prod?.ProdKey) throw new Error('저장할 품목명과 ERP 품목을 확인하세요.');
+  const saved = await apiPost('/api/orders/mappings', {
+      inputToken,
       prodKey: prod.ProdKey,
       prodName: prod.ProdName,
       displayName: prod.DisplayName || prod.ProdName,
@@ -53,19 +53,18 @@ async function persistItemMapping(item, prod, { force = true, custKey = null, cu
       manual: true,
       custKey,
       custName,
-    });
-    if (item.unit) {
-      await apiPost('/api/orders/import-units', {
-        inputName: item.inputName,
-        unit: item.unit,
-        source: 'manual',
-      });
-    }
-    return true;
-  } catch (e) {
-    console.warn('[import] mapping save failed:', e?.message || e);
-    return false;
+  });
+  if (saved?.success !== true || !saved.key || (custKey && Number(saved.custKey) !== Number(custKey))) {
+    throw new Error(saved?.error || '매칭 저장 결과를 확인할 수 없습니다.');
   }
+  const readback = await apiGet('/api/orders/mappings', { custKey: custKey || undefined });
+  const current = readback?.mappings?.[saved.key];
+  if (readback?.success !== true || Number(current?.prodKey) !== Number(prod.ProdKey) || current?.manual !== true) {
+    throw new Error('저장한 매칭을 다시 조회했지만 선택한 품목을 확인할 수 없습니다.');
+  }
+  // Unit is part of the mapping itself. A separate unit-catalog write cannot make
+  // an already verified product mapping appear to have failed.
+  return true;
 }
 
 function getNearby2026Weeks(range = 4) {
@@ -228,7 +227,7 @@ function ExcelSheetPreview({
                                   allProducts={allProducts}
                                   editing={editProdIdx === entry.itemIndex}
                                   onToggleEdit={() => onEditProdIdx(editProdIdx === entry.itemIndex ? null : entry.itemIndex)}
-                                  onPick={(product) => onPickProduct(entry.itemIndex, product)}
+                                  onPick={(product) => onPickProduct(entry.itemIndex, product, item)}
                                   onClear={() => onClearProduct(entry.itemIndex)}
                                   onPersistMapping={onPersistMapping}
                                   compact
@@ -434,7 +433,12 @@ function CustomerSearchSelect({ value, onChange, placeholder }) {
 function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = false }) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const savingRef = useRef(false);
   const wrapRef = useRef(null);
+  const listId = useId();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -473,12 +477,41 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
   }, [search, allProducts]);
 
   const pick = async (prod) => {
-    const saved = onPersistMapping ? await onPersistMapping(row, prod) : true;
-    onPick(prod);
-    setOpen(false);
-    setSearch('');
-    if (!saved) {
-      alert('현재 화면의 품목은 변경했지만 저장매핑 반영에 실패했습니다. 다시 업로드하기 전에 품목을 다시 선택해 주세요.');
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setSaveError('');
+    try {
+      if (onPersistMapping && await onPersistMapping(row, prod) !== true) {
+        throw new Error('매칭 저장이 완료되지 않았습니다.');
+      }
+      onPick(prod);
+      setOpen(false);
+      setSearch('');
+    } catch (error) {
+      setSaveError(`${error?.message || '매칭 저장에 실패했습니다.'} 같은 품목을 다시 선택해 재시도하세요.`);
+      setOpen(true);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === 'Escape' && open) {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      return;
+    }
+    if (!searchHits.length) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setOpen(true);
+      setActiveIndex(index => (index + (event.key === 'ArrowDown' ? 1 : -1) + searchHits.length) % searchHits.length);
+    } else if (event.key === 'Enter' && open) {
+      event.preventDefault();
+      void pick(searchHits[Math.min(activeIndex, searchHits.length - 1)].prod);
     }
   };
 
@@ -491,6 +524,7 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
               key={s.prodKey}
               type="button"
               style={st.suggestBtn}
+              disabled={saving}
               title={`${s.score}%`}
               onClick={() => void pick({
                 ProdKey: s.prodKey,
@@ -511,13 +545,25 @@ function ProductPicker({ row, allProducts, onPick, onPersistMapping, compact = f
           style={{ ...st.input, width: '100%', height: compact ? 24 : undefined, padding: compact ? '2px 5px' : st.input.padding, boxSizing: 'border-box' }}
           placeholder={compact ? '품목 검색…' : '품목 검색 (한글·영문)…'}
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setOpen(true); }}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open && searchHits.length > 0}
+          aria-controls={listId}
+          aria-activedescendant={open && searchHits.length > 0 ? `${listId}-${Math.min(activeIndex, searchHits.length - 1)}` : undefined}
+          onChange={(e) => { setSearch(e.target.value); setActiveIndex(0); setOpen(true); }}
           onFocus={() => setOpen(true)}
+          onKeyDown={handleSearchKeyDown}
+          disabled={saving}
         />
+        {(saving || saveError) && (
+          <div role={saveError ? 'alert' : 'status'} aria-live="polite" style={{ marginTop: 4, fontSize: 11, color: saveError ? '#b91c1c' : '#1d4ed8' }}>
+            {saveError || '매칭 저장과 재조회 확인 중…'}
+          </div>
+        )}
         {open && search.trim() && searchHits.length > 0 && (
-          <div style={st.dropdown}>
-            {searchHits.map(({ prod, score }) => (
-              <button key={prod.ProdKey} type="button" style={st.pickRow} onMouseDown={() => void pick(prod)}>
+          <div id={listId} role="listbox" style={st.dropdown}>
+            {searchHits.map(({ prod, score }, index) => (
+              <button key={prod.ProdKey} id={`${listId}-${index}`} role="option" aria-selected={index === activeIndex} type="button" style={{ ...st.pickRow, background: index === activeIndex ? '#dbeafe' : '#fff' }} disabled={saving} onMouseEnter={() => setActiveIndex(index)} onClick={() => void pick(prod)}>
                 {score}% · {getDisplayName(prod)} · {prod.CounName || ''}
               </button>
             ))}
@@ -611,7 +657,17 @@ export default function OrderImportPage() {
   const [dragOver, setDragOver] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
   const [editProdIdx, setEditProdIdx] = useState(null);
+  const [rematchRevision, setRematchRevision] = useState(0);
+  const [rematchBusy, setRematchBusy] = useState(false);
+  const [rematchMessage, setRematchMessage] = useState('');
   const fileRef = useRef(null);
+  const rematchRequestRef = useRef(0);
+  const itemsRef = useRef(items);
+  const custRef = useRef(cust);
+  const draftHasCustomerRef = useRef(false);
+  const weekChosenRef = useRef(false);
+  itemsRef.current = items;
+  custRef.current = cust;
 
   const appendRegisterLog = useCallback((message, type = 'info') => {
     setRegisterLogs((prev) => [...prev, {
@@ -630,8 +686,9 @@ export default function OrderImportPage() {
     setLogs(draft.logs || []);
     setFileName(draft.fileName || '');
     setSourceType(draft.sourceType || '');
-    if (draft.week) setWeek(draft.week);
-    if (draft.cust?.CustKey) setCust(draft.cust);
+    if (draft.week) { weekChosenRef.current = true; setWeek(draft.week); }
+    if (draft.cust?.CustKey) { draftHasCustomerRef.current = true; setCust(draft.cust); }
+    setRematchRevision(revision => revision + 1);
     setResultMsg(`💾 이전 매칭 ${draft.items.length}건 복원 (${draft.fileName || '업로드'})`);
   }, []);
 
@@ -657,7 +714,7 @@ export default function OrderImportPage() {
           }
         } catch { /* ignore */ }
         if (!nextCust) nextCust = await loadDefaultCust();
-        if (nextCust) setCust(nextCust);
+        if (nextCust && !draftHasCustomerRef.current) setCust(nextCust);
       } catch { /* ignore */ }
     })();
   }, [loadDefaultCust]);
@@ -693,10 +750,54 @@ export default function OrderImportPage() {
       const nearby = getNearby2026Weeks(4);
       const dbWeeks = (d.weeks || []).filter(w => !nearby.includes(w));
       setWeeks([...nearby, ...dbWeeks]);
-      setWeek(def);
+      if (!weekChosenRef.current) setWeek(def);
     }).catch(() => {
       setWeeks(getNearby2026Weeks(4));
     });
+  }, []);
+
+  const reapplySavedMappings = useCallback(async (targetCustKey) => {
+    const snapshot = itemsRef.current;
+    if (!targetCustKey || !snapshot.length || !allProducts.length) return;
+    const requestId = ++rematchRequestRef.current;
+    setRematchBusy(true);
+    setRematchMessage('저장된 품목 매칭 확인 중…');
+    try {
+      const response = await apiPost('/api/orders/import-rematch', { custKey: targetCustKey, items: snapshot });
+      if (requestId !== rematchRequestRef.current || String(custRef.current?.CustKey) !== String(targetCustKey)) return;
+      if (response?.success !== true || !Array.isArray(response.items) || response.items.length !== snapshot.length) {
+        throw new Error(response?.error || '매칭 재적용 결과가 원본 행과 일치하지 않습니다.');
+      }
+      setItems(current => current.map((row, index) => {
+        // Only rows still identical to the request may be replaced. User edits,
+        // customer changes, and a newer upload always win over a late response.
+        if (row !== snapshot[index]) return row;
+        const restored = response.items[index];
+        if (!restored || restored.inputName !== row.inputName
+          || String(restored.rowNo ?? '') !== String(row.rowNo ?? '')) return row;
+        return { ...row, ...restored, qty: row.qty, unit: row.unit, skip: row.skip };
+      }));
+      setRematchMessage(`저장 매칭 ${Number(response.restoredCount || 0)}건 재적용 · 사용 가능 ${Number(response.availableCount || 0)}건`);
+    } catch (error) {
+      if (requestId === rematchRequestRef.current) setRematchMessage(`저장 매칭 재적용 실패: ${error?.message || '다시 시도하세요.'}`);
+    } finally {
+      if (requestId === rematchRequestRef.current) setRematchBusy(false);
+    }
+  }, [allProducts.length]);
+
+  useEffect(() => {
+    if (rematchRevision && cust?.CustKey && items.length && allProducts.length) {
+      void reapplySavedMappings(cust.CustKey);
+    }
+    // Item edits and rematch results must never start another automatic request.
+  }, [rematchRevision, cust?.CustKey, allProducts.length, reapplySavedMappings]);
+
+  const changeCustomer = useCallback((nextCust) => {
+    ++rematchRequestRef.current;
+    custRef.current = nextCust;
+    setCust(nextCust);
+    setRematchBusy(false);
+    setRematchMessage('');
   }, []);
 
   const openTemplateWindow = useCallback(() => {
@@ -781,7 +882,7 @@ export default function OrderImportPage() {
   const resetDefaultCust = async () => {
     try {
       const next = await loadDefaultCust();
-      if (next) setCust(next);
+      if (next) changeCustomer(next);
       else alert(`「${DEFAULT_CUST_SEARCH}」 거래처를 찾을 수 없습니다.`);
     } catch (e) {
       alert(e.message);
@@ -792,6 +893,9 @@ export default function OrderImportPage() {
 
   const uploadFile = useCallback(async (file) => {
     if (!file) return;
+    ++rematchRequestRef.current;
+    setRematchBusy(false);
+    setRematchMessage('');
     setLoading(true);
     setResultMsg('');
     setRegisteredResult(null);
@@ -815,6 +919,7 @@ export default function OrderImportPage() {
         throw new Error(detail ? `${d.error || '파싱 실패'}\n\n${detail}` : (d.error || '파싱 실패'));
       }
       setItems(d.items || []);
+      setRematchRevision(revision => revision + 1);
       setSummary(d.summary || null);
       setLogs(d.logs || []);
       setSheetPreview(d.sheetPreview || null);
@@ -823,16 +928,17 @@ export default function OrderImportPage() {
       const meta = d.metadata || {};
       if (meta.majorWeek) {
         const year = new Date().getFullYear();
+        weekChosenRef.current = true;
         setWeek(`${year}-${meta.majorWeek}-01`);
       }
       if (d.matchedCustomer?.CustKey) {
-        setCust({ CustKey:d.matchedCustomer.CustKey, CustName:d.matchedCustomer.CustName });
+        changeCustomer({ CustKey:d.matchedCustomer.CustKey, CustName:d.matchedCustomer.CustName });
         setResultMsg(`✅ 업체 자동매칭: ${d.matchedCustomer.CustName}${d.matchedCustomer.fromMapping ? ' (저장 매핑)' : ''}`);
       } else if (meta.customerName) {
         try {
           const found = await apiGet('/api/customers/search', { q: meta.customerName });
           const exact = (found.customers || []).find(c => String(c.CustName).replace(/\s/g, '') === String(meta.customerName).replace(/\s/g, ''));
-          if (exact) setCust({ CustKey: exact.CustKey, CustName: exact.CustName });
+          if (exact) changeCustomer({ CustKey: exact.CustKey, CustName: exact.CustName });
           else setResultMsg(`⚠ 업체 자동매칭 실패: ${meta.customerName} — 업체를 직접 선택하세요.`);
         } catch { /* 사용자가 직접 선택 */ }
       }
@@ -842,7 +948,7 @@ export default function OrderImportPage() {
     } finally {
       setLoading(false);
     }
-  }, [cust]);
+  }, [cust, week, changeCustomer]);
 
   const prepareShipmentList = async () => {
     let sourceItems = items;
@@ -915,16 +1021,22 @@ export default function OrderImportPage() {
     setItems(prev => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   };
 
-  const handlePersistMapping = useCallback((row, prod) => {
-    return persistItemMapping(row, prod, {
+  const handlePersistMapping = useCallback(async (row, prod) => {
+    const selectedCustKey = cust?.CustKey || null;
+    await persistItemMapping(row, prod, {
       force: true,
-      custKey: cust?.CustKey || null,
+      custKey: selectedCustKey,
       custName: cust?.CustName || '',
     });
+    if (!itemsRef.current.includes(row) || String(custRef.current?.CustKey || '') !== String(selectedCustKey || '')) {
+      throw new Error('저장 확인 중 업로드 행 또는 거래처가 변경됐습니다.');
+    }
+    return true;
   }, [cust?.CustKey, cust?.CustName]);
 
-  const pickProduct = (idx, prod) => {
-    const current = items[idx];
+  const pickProduct = (idx, prod, expectedRow) => {
+    const current = itemsRef.current[idx];
+    if (current !== expectedRow) return;
     const nextRow = {
       ...current,
       prodKey: prod.ProdKey,
@@ -1180,7 +1292,10 @@ export default function OrderImportPage() {
               </span>
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <CustomerSearchSelect value={cust?.CustKey || ''} onChange={setCust} />
+              <CustomerSearchSelect value={cust?.CustKey || ''} onChange={changeCustomer} />
+              <button type="button" style={{ ...st.btn, ...st.btnSecondary, fontSize: 11, padding: '5px 10px' }} disabled={rematchBusy || !cust?.CustKey || !items.length || !allProducts.length} onClick={() => void reapplySavedMappings(cust.CustKey)}>
+                {rematchBusy ? '저장 매칭 확인 중…' : '저장 매칭 다시 적용'}
+              </button>
               {isDefaultCust && (
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#1a237e', background: '#e8eaf6', padding: '4px 10px', borderRadius: 10 }}>
                   기본: 라움
@@ -1201,6 +1316,7 @@ export default function OrderImportPage() {
                 </span>
               )}
             </div>
+            {rematchMessage && <div role={rematchMessage.includes('실패') ? 'alert' : 'status'} aria-live="polite" style={{ marginTop: 6, fontSize: 11, color: rematchMessage.includes('실패') ? '#b91c1c' : '#166534' }}>{rematchMessage}</div>}
           </div>
 
           <div style={{ marginBottom: 12 }}>
@@ -1216,7 +1332,7 @@ export default function OrderImportPage() {
                 <button
                   key={w}
                   type="button"
-                  onClick={() => setWeek(w)}
+                  onClick={() => { weekChosenRef.current = true; setWeek(w); }}
                   style={{
                     padding: '5px 22px',
                     borderRadius: 20,
@@ -1247,7 +1363,7 @@ export default function OrderImportPage() {
                       <button
                         key={w}
                         type="button"
-                        onClick={() => setWeek(w)}
+                        onClick={() => { weekChosenRef.current = true; setWeek(w); }}
                         style={{
                           padding: '4px 11px',
                           borderRadius: 20,
@@ -1266,7 +1382,7 @@ export default function OrderImportPage() {
               </div>
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <input style={st.input} value={week} onChange={(e) => setWeek(e.target.value)} placeholder="2026-28-01" />
+              <input style={st.input} value={week} onChange={(e) => { weekChosenRef.current = true; setWeek(e.target.value); }} placeholder="2026-28-01" />
               {week && (
                 <span style={{ fontSize: 12, color: '#1a237e', fontWeight: 600 }}>
                   선택: {formatWeekDisplay(week)}
@@ -1573,7 +1689,7 @@ export default function OrderImportPage() {
                           allProducts={allProducts}
                           editing={editProdIdx === idx}
                           onToggleEdit={() => setEditProdIdx(editProdIdx === idx ? null : idx)}
-                          onPick={(p) => pickProduct(idx, p)}
+                          onPick={(p) => pickProduct(idx, p, row)}
                           onClear={() => clearProduct(idx)}
                           onPersistMapping={handlePersistMapping}
                           compact
