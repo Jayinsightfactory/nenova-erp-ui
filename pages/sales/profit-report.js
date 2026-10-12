@@ -1,11 +1,13 @@
 // 주차별 매출이익 보고서 — "매출원가 양식.xlsx" 첫 시트와 동일 셀 구조.
-// 자동(SQL/수식): N순수매출·L불량·O그외매출·Q구매외화·E/F재고·H통관비·R환율·S포워딩USD / 수기 보정: E·F·H·R·S·비고
+// 자동(SQL/수식): N순수매출·L불량·O그외매출·Q구매외화·E/F재고 / 외부 확정값: H·R·S / 비고
 // 계산열은 엑셀 수식 그대로: C=N+L+O, G=P+T, P=Q×R, T=S×R, I=E+G+H−F, J=C−I, K=J/C, M=−L/C, D=C/ΣC, U=P/ΣP
 // (이스라엘·뉴질랜드·일본: I=E+G+H, J=C−I+F, K=J/(C+F) — 원본 수식 변형 유지)
 import { Fragment, useEffect, useMemo, useState } from 'react';
 // Layout 은 _app.js 가 전역 래핑 — 페이지 자체 래핑 금지(이중 사이드바 원인)
 import { getCurrentWeek, useWeekInput } from '../../lib/useWeekInput';
 import { computeProfitRow, computeProfitTotals } from '../../lib/profitReportCalc';
+import { decomposeProfitMarginChange } from '../../lib/profitMarginDecomposition';
+import { PROFIT_REPORT_EXPLANATIONS } from '../../lib/profitReportExplanations';
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
 
@@ -31,8 +33,8 @@ const COLUMN_DEFS = [
   { key: 'category', label: '품명' },
   { key: 'C', label: '매출액' },
   { key: 'D', label: '매출비율' },
-  { key: 'E', label: '기초상품재고액', editable: true },
-  { key: 'F', label: '기말상품재고액', editable: true },
+  { key: 'E', label: '기초상품재고액' },
+  { key: 'F', label: '기말상품재고액' },
   { key: 'G', label: '매입액(상품+포워딩)' },
   { key: 'H', label: '그외통관비', editable: true, editWidth: 74 },
   { key: 'I', label: '매출원가', bold: true },
@@ -79,13 +81,10 @@ function readonlyValue(key, obj, ctx) {
   }
 }
 
-// 재고 스냅샷 확인 필요 — 수기입력도 없고, 앵커(실사 시작재고)도 없이 오염 가능성 있는 ProductStock
-// 스냅샷에만 의존 중인 E/F. lib/profitReport.js stockSnapshotByCategory 의 anchored 플래그 기반.
+// 재고 스냅샷 또는 당시 단가 evidence 확인 필요.
 function needsCheck(row, col) {
   if (col !== 'E' && col !== 'F') return false;
-  if (row.manual[col] != null) return false; // 수기입력 있으면 확인 불필요(사용자가 이미 확정)
-  const anchored = col === 'E' ? row.stockAnchored?.begin : row.stockAnchored?.end;
-  return anchored === false;
+  return row.inventoryEvidence?.[col]?.status && row.inventoryEvidence[col].status !== 'VERIFIED';
 }
 const attentionRows = rows => rows.filter(r => needsCheck(r, 'E') || needsCheck(r, 'F'));
 
@@ -98,7 +97,7 @@ function needsRateInput(row) {
 
 // 모듈 스코프에 고정 — 컴포넌트 내부에 정의하면 렌더될 때마다 새 함수 identity 가 생겨
 // React 가 매번 다른 컴포넌트로 취급해 <input> 을 언마운트시킴(입력 중 포커스 튕김 버그의 원인).
-function NumericInput({ value, onChange, style, placeholder, title }) {
+function NumericInput({ value, onChange, style, placeholder, title, disabled = false }) {
   const [focused, setFocused] = useState(false);
   const raw = value == null ? '' : String(value).replace(/,/g, '');
   return (
@@ -107,6 +106,7 @@ function NumericInput({ value, onChange, style, placeholder, title }) {
       value={focused ? raw : fmtInput(raw)}
       placeholder={placeholder}
       title={title}
+      disabled={disabled}
       onFocus={() => setFocused(true)}
       onBlur={() => {
         setFocused(false);
@@ -117,7 +117,7 @@ function NumericInput({ value, onChange, style, placeholder, title }) {
   );
 }
 
-function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
+function EditCell({ row, col, width = 86, edits, setEdit, autoValue, disabled = false }) {
   const e = edits[row.category]?.[col];
   const base = row.manual[col];
   const auto = autoValue !== undefined ? autoValue
@@ -147,6 +147,7 @@ function EditCell({ row, col, width = 86, edits, setEdit, autoValue }) {
       value={val}
       placeholder={placeholder}
       title={title}
+      disabled={disabled}
       onChange={value => setEdit(row.category, col, value)}
     />
   );
@@ -156,6 +157,7 @@ export default function ProfitReportPage() {
   const weekInput = useWeekInput(getDefaultMajor());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [moyiSending, setMoyiSending] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -167,6 +169,10 @@ export default function ProfitReportPage() {
   const [showCustoms, setShowCustoms] = useState(false);
   const [showForwarding, setShowForwarding] = useState(false);
   const [showOverrides, setShowOverrides] = useState(false);
+  const [showExplanations, setShowExplanations] = useState(false);
+  const [showMarginBridge, setShowMarginBridge] = useState(false);
+  const [marginBaseline, setMarginBaseline] = useState(null);
+  const [marginLoading, setMarginLoading] = useState(false);
 
   // ── 컬럼 표시/숨김 (localStorage 에 저장 — 다음에 열어도 유지)
   const [visibleCols, setVisibleCols] = useState(ALL_COL_KEYS);
@@ -225,12 +231,19 @@ export default function ProfitReportPage() {
 
   const load = async (weekOverride) => {
     const wk = weekOverride ?? weekInput.value;
+    const year = String(data?.orderYear || getDefaultYear());
     setLoading(true); setError(''); setMessage(''); setEdits({});
     try {
-      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(wk)}&year=${encodeURIComponent(year)}`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '조회 실패');
       setData(d);
+      if (d.snapshot?.immutable) {
+        setShowOverrides(false);
+        setShowCustoms(false);
+        setShowForwarding(false);
+      }
+      setMarginBaseline(null);
       setNote(d.note || '');
       setNoteDirty(false);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
@@ -252,12 +265,13 @@ export default function ProfitReportPage() {
       for (let m = to; m >= from; m--) majors.push(String(m).padStart(2, '0')); // 최신 차수가 위로
       const results = await Promise.all(majors.map(async (mj) => {
         try {
-          const res = await fetch(`/api/sales/profit-report?week=${mj}`, { credentials: 'same-origin' });
+          const year = String(data?.orderYear || getDefaultYear());
+          const res = await fetch(`/api/sales/profit-report?week=${mj}&year=${encodeURIComponent(year)}`, { credentials: 'same-origin' });
           const d = await res.json();
           if (!d.success) return { major: mj, error: d.error || '조회 실패' };
           const rows = (d.rows || []).map(r => ({ ...r, calc: computeProfitRow(r) }));
           const totals = computeProfitTotals(rows);
-          return { major: mj, rows, totals };
+          return { major: mj, orderYear: d.orderYear, rows, totals, audit: d.audit };
         } catch (e) { return { major: mj, error: e.message }; }
       }));
       setWeeksData(results);
@@ -305,36 +319,45 @@ export default function ProfitReportPage() {
   });
 
   const save = async () => {
+    if (data?.snapshot?.immutable) { setError('확정 스냅샷은 수기값을 변경할 수 없습니다.'); return false; }
     setSaving(true); setError(''); setMessage('');
     try {
       const values = {};
+      const evidence = {};
       for (const row of data?.rows || []) {
         const e = edits[row.category] || {};
         const out = {};
-        for (const col of ['E', 'F', 'H', 'R', 'S']) {
-          if (e[col] !== undefined) out[col] = e[col] === '' ? null : Number(e[col]);
-          else if (row.manual[col] != null) out[col] = row.manual[col];
+        for (const col of ['H', 'R', 'S']) {
+          if (e[col] === undefined) continue;
+          out[col] = e[col] === '' ? null : Number(e[col]);
+          const rawEvidence = window.prompt(`${row.category} ${col} 외부 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
+          if (!rawEvidence) throw new Error(`${row.category}.${col} 외부 근거 입력이 취소되었습니다.`);
+          const [sourceRef, effectiveAt] = rawEvidence.split('|').map(value => value.trim());
+          if (!sourceRef || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveAt || '')) throw new Error(`${row.category}.${col} 근거 형식이 올바르지 않습니다.`);
+          if (!evidence[row.category]) evidence[row.category] = {};
+          evidence[row.category][col] = { sourceRef, effectiveAt };
         }
         if (Object.keys(out).length) values[row.category] = out;
       }
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week: weekInput.value, values, note }),
+        body: JSON.stringify({ week: weekInput.value, year: data?.orderYear, values, evidence, note }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
       await load();
-      setMessage('저장 완료 — 수기값(기초/기말/통관비/환율/포워딩)과 비고가 보관되었습니다.');
+      setMessage('저장 완료 — 외부 근거가 연결된 통관비/환율/포워딩 값과 비고가 보관되었습니다.');
       return true;
     } catch (e) { setError(e.message); return false; } finally { setSaving(false); }
   };
 
   const saveNote = async () => {
+    if (data?.snapshot?.immutable) { setError('확정 스냅샷은 비고를 변경할 수 없습니다.'); return; }
     setSaving(true); setError(''); setMessage('');
     try {
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ week: weekInput.value, action: 'saveNote', note }),
+        body: JSON.stringify({ week: weekInput.value, year: data?.orderYear, action: 'saveNote', note }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '비고 저장 실패');
@@ -348,10 +371,55 @@ export default function ProfitReportPage() {
     return { rows, totals: computeProfitTotals(rows) };
   }, [data, edits]);
 
+  const marginBridge = useMemo(() => {
+    if (!data || !marginBaseline) return null;
+    const baselineRows = (marginBaseline.rows || []).map(row => ({ ...row, calc: computeProfitRow(row) }));
+    return decomposeProfitMarginChange(
+      { orderYear: marginBaseline.orderYear, major: marginBaseline.major, rows: baselineRows },
+      { orderYear: data.orderYear, major: data.major, rows: rowsCalc.rows },
+    );
+  }, [data, marginBaseline, rowsCalc.rows]);
+
+  const loadMarginBaseline = async () => {
+    if (!data) return;
+    const major = Number(data.major);
+    const previousMajor = major <= 1 ? '52' : String(major - 1).padStart(2, '0');
+    const previousYear = major <= 1 ? String(Number(data.orderYear) - 1) : String(data.orderYear);
+    setMarginLoading(true); setError('');
+    try {
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(previousMajor)}&year=${encodeURIComponent(previousYear)}`, { credentials: 'same-origin' });
+      const baseline = await res.json();
+      if (!baseline.success) throw new Error(baseline.error || '직전 차수 조회 실패');
+      setMarginBaseline(baseline);
+    } catch (e) { setError(e.message); } finally { setMarginLoading(false); }
+  };
+
+  const toggleMarginBridge = async () => {
+    const next = !showMarginBridge;
+    setShowMarginBridge(next);
+    if (next && !marginBaseline && !marginLoading) await loadMarginBaseline();
+  };
+
+  const confirmSnapshot = async () => {
+    if (!data || data.snapshot?.immutable || confirming) return;
+    if (!window.confirm(`${data.orderYear}년 ${data.major}차 현재 계산값을 확정할까요? 확정 후에는 수기값·비고·단가를 수정할 수 없습니다.`)) return;
+    setConfirming(true); setError(''); setMessage('');
+    try {
+      const res = await fetch('/api/sales/profit-report', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ week: data.major, year: data.orderYear, action: 'confirmSnapshot' }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || '확정 실패');
+      await load(data.major);
+      setMessage('확정 스냅샷 저장 완료 — 이후 조회·Excel·MOYI 출력은 고정 payload를 사용합니다.');
+    } catch (e) { setError(e.message); } finally { setConfirming(false); }
+  };
+
   const downloadExcel = async () => {
     if (dirty && !(await save())) return;  // 수정 중이던 수기값/비고를 먼저 저장해 파일에 반영
     const colsParam = visibleCols.filter(k => k !== 'category').join(',');
-    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&excel=1&cols=${encodeURIComponent(colsParam)}`;
+    window.location.href = `/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(data?.orderYear || getDefaultYear())}&excel=1&cols=${encodeURIComponent(colsParam)}`;
   };
 
   const sendToMoyi = async () => {
@@ -382,7 +450,7 @@ export default function ProfitReportPage() {
   const openPriceModal = async () => {
     setPriceEdits({});
     try {
-      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&stockPrices=1`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/sales/profit-report?week=${encodeURIComponent(weekInput.value)}&year=${encodeURIComponent(data?.orderYear || getDefaultYear())}&stockPrices=1`, { credentials: 'same-origin' });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '단가표 조회 실패');
       setPriceModal(d);
@@ -390,9 +458,19 @@ export default function ProfitReportPage() {
   };
   const savePrices = async () => {
     try {
+      if (!priceModal?.endWeek) throw new Error('확정 기말 ProductStock 세부차수가 없습니다.');
+      const prices = {};
+      for (const [prodKey, price] of Object.entries(priceEdits)) {
+        if (price == null || price === '') { prices[prodKey] = null; continue; }
+        const rawEvidence = window.prompt(`ProdKey ${prodKey} 단가 근거를 'sourceRef|YYYY-MM-DD' 형식으로 입력하세요.`, 'invoice:|');
+        if (!rawEvidence) throw new Error(`ProdKey ${prodKey} 단가 근거 입력이 취소되었습니다.`);
+        const [sourceRef, effectiveAt] = rawEvidence.split('|').map(value => value.trim());
+        if (!sourceRef || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveAt || '')) throw new Error(`ProdKey ${prodKey} 근거 형식이 올바르지 않습니다.`);
+        prices[prodKey] = { price: Number(price), sourceRef, effectiveAt };
+      }
       const res = await fetch('/api/sales/profit-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-        body: JSON.stringify({ action: 'stockPrices', week: weekInput.value, prices: priceEdits }),
+        body: JSON.stringify({ action: 'stockPrices', week: weekInput.value, year: data?.orderYear, orderWeek: priceModal.endWeek, prices }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || '저장 실패');
@@ -402,10 +480,32 @@ export default function ProfitReportPage() {
     } catch (e) { setError(e.message); }
   };
 
-  const setEdit = (cat, col, val) => setEdits(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [col]: val } }));
-  const dirty = Object.keys(edits).length > 0 || noteDirty;
+  const snapshotImmutable = data?.snapshot?.immutable === true;
+  const setEdit = (cat, col, val) => {
+    if (snapshotImmutable) return;
+    setEdits(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [col]: val } }));
+  };
+  const dirty = !snapshotImmutable && (Object.keys(edits).length > 0 || noteDirty);
   const { rows, totals } = rowsCalc;
-  const needsAttention = attentionRows(rows);
+  const validationItems = useMemo(() => {
+    const items = [...(data?.audit?.issues || [])];
+    for (const row of attentionRows(rowsCalc.rows)) items.push({
+      severity: 'warning', code: 'STOCK_ANCHOR_CHECK', category: row.category, columns: ['E', 'F'],
+      message: '실사 시작재고 앵커 없이 ProductStock 스냅샷에 의존해 실제 재고수량 대조가 필요합니다.',
+    });
+    for (const row of rowsCalc.rows.filter(needsRateInput)) items.push({
+      severity: 'warning', code: 'RATE_INPUT_REQUIRED', category: row.category, columns: ['R'],
+      message: '환율 입력 필요 — 환율 원천이 없어 표의 R 입력칸에 인보이스 과세환율을 입력해야 합니다.',
+    });
+    for (const issue of marginBridge?.issues || []) items.push({ ...issue, category: issue.category || '이익률 브리지', columns: issue.columns || ['K'] });
+    const seen = new Set();
+    return items.filter(item => {
+      const key = `${item.code}|${item.category}|${(item.columns || []).join('/')}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [data, rowsCalc.rows, marginBridge]);
 
   // 읽기전용 세부표 — 차수별 뷰에서 펼쳤을 때 쓰는 카테고리별 내역(편집 불가)
   const ReadonlyDetailTable = ({ rows: wRows, totals: wTotals }) => (
@@ -448,6 +548,11 @@ export default function ProfitReportPage() {
     <div style={st.page}>
       <div style={st.bar}>
         <h1 style={st.h1}>📈 {viewMode === 'months' ? '월별 매출이익 보고서' : '주차별 매출이익 보고서'}{viewMode === 'months' && monthlyData ? ` — ${monthlyData.year}` : data ? ` — ${data.major}차 (${data.orderYear})` : ''}</h1>
+        {viewMode === 'category' && data?.snapshot && (
+          <span style={snapshotImmutable ? st.snapshotConfirmed : st.snapshotLive} title={data.snapshot.sourceRef || data.snapshot.evidenceReason || ''}>
+            {snapshotImmutable ? '확정 스냅샷' : 'LIVE · 미확정'}
+          </span>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <div style={st.viewToggleWrap}>
             <button style={viewMode === 'category' ? st.viewToggleOn : st.viewToggleOff} onClick={() => setViewMode('category')}>카테고리별</button>
@@ -465,9 +570,15 @@ export default function ProfitReportPage() {
                 </div>
               </div>
               <button style={st.primaryBtn} onClick={() => load()} disabled={loading}>{loading ? '조회 중…' : '조회'}</button>
-              <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data}>
+              <button style={{ ...st.primaryBtn, background: dirty ? '#16a34a' : '#94a3b8' }} onClick={save} disabled={saving || !data || snapshotImmutable}>
                 {saving ? '저장 중…' : `저장${dirty ? ' *' : ''}`}
               </button>
+              {!snapshotImmutable && data && (
+                <button style={{ ...st.primaryBtn, background: '#7c2d12' }} onClick={confirmSnapshot} disabled={confirming || saving}
+                  title="현재 서버 계산값을 한 번만 확정하며 이후에는 덮어쓰지 않습니다">
+                  {confirming ? '확정 중…' : '🔒 현재값 확정'}
+                </button>
+              )}
               <button style={{ ...st.primaryBtn, background: '#0f766e' }} onClick={downloadExcel} disabled={!data || saving}
                 title="원본 양식과 동일한 첫 시트 + 현재 화면에 표시된 컬럼만 담은 두번째 시트, 총 2개 시트로 다운로드">
                 📥 엑셀 다운로드
@@ -476,19 +587,25 @@ export default function ProfitReportPage() {
                 title="현재 주차별 매출이익 보고서 원본 XLSX를 MOYI Drive로 전송하고 성공·실패·재시도 이력을 남깁니다">
                 {moyiSending ? '📤 MOYI 전송 중…' : '📤 MOYI 전송'}
               </button>
-              <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data}
+              <button style={st.secondaryBtn} onClick={openPriceModal} disabled={!data || snapshotImmutable}
                 title="재고가 있는 품목의 평가단가를 관리합니다 (지정 > 수국표 > 품목Cost 순 적용)">
                 🏷 재고단가표
               </button>
-              <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data}
+              <button style={showExplanations ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowExplanations(v => !v)} disabled={!data}>
+                ℹ 원천·공식 설명{showExplanations ? ' ▲' : ' ▼'}
+              </button>
+              <button style={showMarginBridge ? st.toggleBtnOn : st.secondaryBtn} onClick={toggleMarginBridge} disabled={!data || marginLoading}>
+                {marginLoading ? '분해 중…' : `↔ 이익률 차이${showMarginBridge ? ' ▲' : ' ▼'}`}
+              </button>
+              <button style={showOverrides ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowOverrides(v => !v)} disabled={!data || snapshotImmutable}
                 title="자동값을 우선 사용합니다. 청구서·실사와 다른 예외 행을 수정할 때만 수기 보정을 엽니다">
                 🛠 수기 보정{showOverrides ? ' ▲' : ' ▼'}
               </button>
-              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data}
+              <button style={showCustoms ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowCustoms(v => !v)} disabled={!data || snapshotImmutable}
                 title="백상창고료·관세·선율·월드운송료·한국방역·콜롬비아 무게배분 입력 — H(그외통관비) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
                 📦 그외통관비 입력{showCustoms ? ' ▲' : ' ▼'}
               </button>
-              <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data}
+              <button style={showForwarding ? st.toggleBtnOn : st.secondaryBtn} onClick={() => setShowForwarding(v => !v)} disabled={!data || snapshotImmutable}
                 title="네덜란드·중국·콜롬비아·에콰도르·태국 항공/포워딩 비용 입력 — S(포워딩) 자동값의 소스, 저장하면 아래 표가 바로 재계산됩니다">
                 🚢 포워딩 입력{showForwarding ? ' ▲' : ' ▼'}
               </button>
@@ -568,9 +685,8 @@ export default function ProfitReportPage() {
         {viewMode === 'months' ? (
           <>월별 화면은 <b>PeriodDay의 실제 차수 기간</b>으로 분류합니다. 한 달 안에 완전히 들어오는 차수만 월별 합계에 포함하고, 월경계 차수는 별도 확인목록에 남깁니다. 기초·기말재고는 기존 주차 원장 기준을 유지하며 월 단위로 재계산하지 않습니다.</>
         ) : (
-          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>기말재고(F) = 엑셀 원본 공식: (구매금액×환율+포워딩×환율+그외통관비) ÷ 매입총수량 × 기말재고수량</b>
-          (매입 없는 주는 품목별 최근 매입단가×환율, 그것도 없으면 [🏷 재고단가표] 평가 · 기초(E)=전차수 기말 이월) — E/F/H/R/S는 자동값이 기본이며 표에는 읽기전용으로 표시됩니다.
-          청구서 환율·실사재고·특수 통관비처럼 예외값을 넣을 때만 <b>🛠 수기 보정</b>을 열어 입력하면 해당 값이 우선합니다.
+          <>자동(파랑): 순수매출·불량·그외매출·구매금액 = 전산 DB / <b>E/F = 확정 ProductStock 수량 × 해당 스냅샷 시점 VERIFIED 단가</b>입니다.
+          단가 근거가 없으면 INPUT_REQUIRED로 표시하며 최근원가·Product.Cost·최종값 직접입력으로 대체하지 않습니다. H/R/S는 인보이스 등 외부 확정값만 sourceRef와 기준일을 함께 입력할 수 있습니다.
           환율(R)은 BILL 시점 FreightCost 환율 스냅샷 → 전차수 확정 과세환율 → CurrencyMaster 순서로 사용합니다. 원천이 없으면 해당 행에 R 입력칸이 자동 표시되며, 인보이스 과세환율을 입력 후 저장하면 됩니다. 금액·수량은 소수점 없이 천 단위 콤마로 표시합니다.
           포워딩(USD)은 입고관리(운송료/SERVICE FEE 라인)에서 자동감지(노랑=수정중·초록=저장됨).
           {data?.stockWeeks?.end ? ` · 재고 스냅샷: 기말=${data.stockWeeks.end}${data.stockWeeks.begin ? `, 기초=${data.stockWeeks.begin}말` : ''}` : ''}
@@ -580,52 +696,65 @@ export default function ProfitReportPage() {
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}
-      {viewMode !== 'months' && data?.audit?.issues?.length > 0 && (
-        <div style={data.audit.status === 'needs_input' ? st.auditError : st.auditWarning}>
-          <strong>{data.audit.errorCount > 0 ? '검증 필요' : '자동값 확인 안내'}: 오류 {data.audit.errorCount}건 · 확인 {data.audit.warningCount}건</strong>
-          <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
-            {data.audit.issues.slice(0, 10).map((issue, i) => (
-              <li key={`${issue.code}-${issue.category}-${i}`}>
-                <b>{issue.category}</b> [{issue.columns.join('/')}] {issue.message}
-              </li>
+
+      {viewMode === 'category' && data && showExplanations && (
+        <section style={st.explanationPanel}>
+          <div style={st.panelTitle}>원천·공식·확정·직접입력 설명</div>
+          <div style={st.explanationGrid}>
+            {PROFIT_REPORT_EXPLANATIONS.map(item => (
+              <details key={item.key} style={st.explanationItem}>
+                <summary style={st.explanationSummary}>{item.key} · {item.label}</summary>
+                <dl style={st.explanationList}>
+                  <div><dt>원천</dt><dd>{item.source}</dd></div>
+                  <div><dt>공식</dt><dd>{item.formula}</dd></div>
+                  <div><dt>확정</dt><dd>{item.confirmed}</dd></div>
+                  <div><dt>직접입력</dt><dd>{item.manual}</dd></div>
+                </dl>
+              </details>
             ))}
-          </ul>
-          {data.audit.issues.length > 10 && <div style={{ marginTop: 4 }}>외 {data.audit.issues.length - 10}건 — API audit.issues에서 전체 확인</div>}
-        </div>
+          </div>
+        </section>
       )}
 
-      {viewMode === 'category' && data && needsAttention.length > 0 && (
-        <div style={st.attentionBanner}>
-          ⚠ <b>확인 필요</b> — 실사 시작재고(차수피벗) 없이 재고 스냅샷에만 의존 중이라 기초/기말재고가 부정확할 수 있습니다:{' '}
-          {needsAttention.map(r => r.category).join(', ')}
-        </div>
+      {viewMode === 'category' && data && showMarginBridge && marginBridge && (
+        <section style={st.bridgePanel}>
+          <div style={st.panelTitle}>이익률 차이 — {marginBridge.baseline.key} → {marginBridge.comparison.key}</div>
+          <div style={st.bridgeSummary}>
+            <span>기준 {pct(marginBridge.baseline.margin)}</span>
+            <span>차이 {marginBridge.difference == null ? '—' : `${marginBridge.difference >= 0 ? '+' : ''}${(marginBridge.difference * 100).toFixed(2)}%p`}</span>
+            <span>비교 {pct(marginBridge.comparison.margin)}</span>
+          </div>
+          <div style={st.bridgeGrid}>
+            {marginBridge.contributions.map(item => (
+              <div key={item.key} style={st.bridgeItem}>
+                <span>{item.label}</span>
+                <b style={{ color: item.value < 0 ? '#dc2626' : '#166534' }}>{item.value >= 0 ? '+' : ''}{item.percentagePoints.toFixed(2)}%p</b>
+              </div>
+            ))}
+          </div>
+          <div style={st.bridgeNote}>판매믹스·분배단가·원가·재고·환율·운송의 모든 교체 순서를 평균해 상호작용을 배분합니다. 분배단가는 판매수량 API가 없어 매출총액 변화 대체치이며 미검증입니다.</div>
+        </section>
       )}
 
-      {viewMode === 'category' && data && data.rows?.some(needsRateInput) && (
-        <div style={st.attentionBanner}>
-          ⚠ <b>환율 입력 필요</b> — 환율 원천이 없는 행의 R 입력칸이 자동으로 표시되었습니다. 인보이스 과세환율을 입력한 뒤 저장하세요.
-        </div>
-      )}
-
-      {viewMode === 'category' && data && showCustoms && (
+      {viewMode === 'category' && data && !snapshotImmutable && showCustoms && (
         <div style={st.embedPanel}>
           <div style={st.embedPanelHead}>
             <strong>📦 그외통관비 입력 — {data.major}차</strong>
             <button style={st.tinyCloseBtn} onClick={() => setShowCustoms(false)}>접기 ▲</button>
           </div>
           <div style={st.embedPanelBody}>
-            <CustomsClearancePanel week={weekInput.value} onSaved={load} />
+            <CustomsClearancePanel week={weekInput.value} year={data.orderYear} onSaved={load} />
           </div>
         </div>
       )}
-      {viewMode === 'category' && data && showForwarding && (
+      {viewMode === 'category' && data && !snapshotImmutable && showForwarding && (
         <div style={st.embedPanel}>
           <div style={st.embedPanelHead}>
             <strong>🚢 포워딩 입력 — {data.major}차</strong>
             <button style={st.tinyCloseBtn} onClick={() => setShowForwarding(false)}>접기 ▲</button>
           </div>
           <div style={st.embedPanelBody}>
-            <ForwardingClearancePanel week={weekInput.value} onSaved={load} />
+            <ForwardingClearancePanel week={weekInput.value} year={data.orderYear} onSaved={load} />
           </div>
         </div>
       )}
@@ -649,7 +778,7 @@ export default function ProfitReportPage() {
                     {isVisible('category') && <td style={{ ...st.td, ...st.stickyCol, fontWeight: 700 }}>{row.category}</td>}
                     {shownColumns.map(cd => (
                       <td key={cd.key} style={{ ...st.tdNum, fontWeight: cd.bold ? 700 : undefined, color: cd.key === 'J' ? (c.J < 0 ? '#dc2626' : '#166534') : cd.color }}>
-                        {(showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} /> : readonlyValue(cd.key, c, { D, U })}
+                        {!snapshotImmutable && (showOverrides || (cd.key === 'R' && needsRateInput(row))) && cd.editable ? <EditCell row={row} col={cd.key} width={cd.editWidth || 86} edits={edits} setEdit={setEdit} autoValue={cd.key === 'F' ? c.F : undefined} disabled={snapshotImmutable} /> : readonlyValue(cd.key, c, { D, U })}
                       </td>
                     ))}
                   </tr>
@@ -666,6 +795,19 @@ export default function ProfitReportPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {viewMode === 'category' && data && validationItems.length > 0 && (
+        <section style={validationItems.some(item => item.severity === 'error') ? st.auditError : st.auditWarning}>
+          <strong>검증 필요 · 오류 {validationItems.filter(item => item.severity === 'error').length}건 · 확인 {validationItems.filter(item => item.severity !== 'error').length}건</strong>
+          <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
+            {validationItems.map((issue, index) => (
+              <li key={`${issue.code}-${issue.category}-${index}`}>
+                <b>{issue.category}</b>{issue.columns?.length ? ` [${issue.columns.join('/')}]` : ''} {issue.message}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {viewMode === 'weeks' && (
@@ -833,14 +975,15 @@ export default function ProfitReportPage() {
             style={st.noteArea}
             value={note}
             maxLength={2000}
-            onChange={e => { setNote(e.target.value); setNoteDirty(true); }}
+            readOnly={snapshotImmutable}
+            onChange={e => { if (!snapshotImmutable) { setNote(e.target.value); setNoteDirty(true); } }}
             placeholder="예: 콜롬비아 수국: 냉해 21박스 (약 1,644,545원) …"
           />
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 5 }}>
             <span style={{ fontSize: 11, color: noteDirty ? '#b45309' : '#64748b' }}>
               {note.length.toLocaleString()}/2,000자{noteDirty ? ' · 저장되지 않음' : ' · 저장됨'}
             </span>
-            <button style={{ ...st.primaryBtn, background: noteDirty ? '#16a34a' : '#94a3b8' }} onClick={saveNote} disabled={saving || !data}>
+            <button style={{ ...st.primaryBtn, background: noteDirty ? '#16a34a' : '#94a3b8' }} onClick={saveNote} disabled={saving || !data || snapshotImmutable}>
               {saving ? '저장 중…' : '비고 저장'}
             </button>
           </div>
@@ -911,6 +1054,8 @@ const st = {
   page: { padding: 14, maxWidth: 1900, margin: '0 auto' },
   bar: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' },
   h1: { fontSize: 18, fontWeight: 800, margin: 0 },
+  snapshotConfirmed: { background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 999, padding: '4px 9px', fontSize: 11, fontWeight: 800 },
+  snapshotLive: { background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 999, padding: '4px 9px', fontSize: 11, fontWeight: 800 },
   label: { fontSize: 13, fontWeight: 700, color: '#334155' },
   weekInput: { border: '1px solid #cbd5e1', borderRight: 'none', borderRadius: '8px 0 0 8px', padding: '7px 10px', fontSize: 14, width: 70 },
   weekStepperWrap: { display: 'flex', alignItems: 'stretch' },
@@ -941,6 +1086,17 @@ const st = {
   auditError: { background: '#fff7ed', border: '1px solid #f97316', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   auditWarning: { background: '#fffbeb', border: '1px solid #f59e0b', color: '#92400e', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.5 },
   attentionBanner: { background: '#fff7ed', border: '1px solid #fb923c', color: '#9a3412', borderRadius: 8, padding: '9px 12px', fontSize: 12.5, marginBottom: 8, lineHeight: 1.6 },
+  explanationPanel: { background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 10, padding: 10, marginBottom: 10 },
+  panelTitle: { fontSize: 13, fontWeight: 800, color: '#1e293b', marginBottom: 8 },
+  explanationGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 6 },
+  explanationItem: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 7, padding: '6px 9px' },
+  explanationSummary: { cursor: 'pointer', fontSize: 12.5, fontWeight: 800, color: '#334155' },
+  explanationList: { margin: '7px 0 0', fontSize: 11.5, lineHeight: 1.45, color: '#475569' },
+  bridgePanel: { background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: 10, marginBottom: 10 },
+  bridgeSummary: { display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12.5, fontWeight: 800, color: '#334155', marginBottom: 8 },
+  bridgeGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 6 },
+  bridgeItem: { display: 'flex', justifyContent: 'space-between', gap: 8, background: '#fff', border: '1px solid #bbf7d0', borderRadius: 6, padding: '6px 8px', fontSize: 11.5 },
+  bridgeNote: { marginTop: 7, fontSize: 11, lineHeight: 1.5, color: '#4b5563' },
   monthlyInfo: { background: '#eff6ff', border: '1px solid #93c5fd', color: '#1e3a8a', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, marginBottom: 10, lineHeight: 1.6 },
   monthDetail: { padding: 9, background: '#f8fafc' },
   monthDetailTitle: { fontWeight: 800, color: '#334155', fontSize: 12, marginBottom: 5 },

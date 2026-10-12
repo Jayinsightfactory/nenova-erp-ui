@@ -6,6 +6,7 @@
 > ✏️ **확정차수 단가/수량 수정, 매출이익 보고서 편집, 통관비 입력이면:** [`docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md`](../docs/CONFIRMED_WEEK_EDIT_SAFETY_CHECKLIST.md) 먼저 (C-1: isFix 확인 후 fix-cycle 경유, C-5: bit 컬럼 다값 마커 함정 등, 30초).
 > 🔗 도메인 규칙 상세: 프로젝트 루트 [`CLAUDE.md`](../CLAUDE.md) · DB 구조 [`docs/DB_STRUCTURE.md`](../docs/DB_STRUCTURE.md)
 > 🤖 **에이전트 팀 활성화** (2026-04-29~): 다도메인/복잡 작업은 `nenova-orchestrator` 가 specialist 에 위임. 자세한 내용 [`.claude/agents/README.md`](agents/README.md) · 도입 배경 [`docs/AGENT_TEAM_ADOPTION.md`](../docs/AGENT_TEAM_ADOPTION.md)
+> 🧭 **컨트롤 타워 세션 운영**: 여러 Codex/Claude 세션은 [`docs/NENOVA_CONTROL_TOWER.md`](../docs/NENOVA_CONTROL_TOWER.md)와 [`docs/work-sessions/README.md`](../docs/work-sessions/README.md)에 따라 분리·검증·병합한다.
 > 🧭 **호환성 범위:** Nenovaweb↔`nenova.exe` 공유 ERP가 대상이며, Android/Expo 경고는 별도 MOYI 저장소에서 처리한다. [`docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md`](../docs/NENOVA_WEB_COMPATIBILITY_SCOPE.md)
 
 ---
@@ -100,13 +101,15 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 
 ## ✅ 작업 시작 전 체크리스트 (매 세션)
 
-1. `.claude/CLAUDE.md` (이 파일) 읽기
-2. `.claude/PLAN.md` → 현재 작업이 플랜에 있는지 확인
-3. `.claude/PROGRESS.md` → 마지막 세션 상태 + 미결 이슈 확인
-4. `git log master --oneline | head -10` → 최근 HEAD 파악
-5. `git tag -l "backup-*" "dangling/*" "stable-*"` → 보존 태그 인지
-6. DB 작업이면 `docs/DB_STRUCTURE.md` + `docs/migrations/*` 선행 참조
-7. 수정 파일의 기존 패턴 파악 후 동일 방식으로 작업
+1. 작업 ID·브랜치·작업 범위를 먼저 확인
+2. `docs/NENOVA_CONTROL_TOWER.md`와 `docs/work-sessions/README.md` 읽기
+3. `.claude/CLAUDE.md` (이 파일) 읽기
+4. `.claude/PLAN.md` → 현재 작업이 플랜에 있는지 확인
+5. `.claude/PROGRESS.md` → 마지막 세션 상태 + 미결 이슈 확인
+6. `git log master --oneline | head -10` → 최근 HEAD 파악
+7. `git tag -l "backup-*" "dangling/*" "stable-*"` → 보존 태그 인지
+8. DB 작업이면 `docs/DB_STRUCTURE.md` + `docs/migrations/*` 선행 참조
+9. 수정 파일의 기존 패턴 파악 후 동일 방식으로 작업
 
 ---
 
@@ -174,3 +177,7 @@ DB 컬럼: PascalCase (OrderMasterKey, SdetailKey)
 - 루트 `CLAUDE.md` — 도메인 규칙 상세 (출고일 계산, 진단 API 등)
 
 *이 파일은 프로젝트의 단일 진실 소스(Single Source of Truth)입니다.*
+
+## 하위 작업 모델·권한 운영
+
+모든 병렬 Codex/Claude 작업은 [`../docs/CODEX_SUBTASK_ORCHESTRATION.md`](../docs/CODEX_SUBTASK_ORCHESTRATION.md)를 적용한다. 메인 작업이 권한·입력·의존성을 사전 준비하고, 하위 작업은 승인 요청 없이 허용된 로컬 범위만 수행한다. 권한이 더 필요하면 승인창 대신 `NEEDS_MAIN_PREFLIGHT`를 반환한다. 설계·최종 검토는 고성능 모델, 확정 구현은 중간 비용 모델, 검색·테스트·문서 정리는 저비용 모델을 사용한다.
