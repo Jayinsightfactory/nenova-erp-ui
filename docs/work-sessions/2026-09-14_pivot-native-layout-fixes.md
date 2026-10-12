@@ -4,7 +4,7 @@
 |---|---|
 | 화면 | `/stats/pivot` 전산 피벗 모드 |
 | 원장 부작용 | 없음. API/SQL/SP/원본 모델 보존, UI·엑셀 표시만 수정 |
-| 상태 | 구현·로컬 검증 완료, 운영 배포 대기 |
+| 상태 | 구현·로컬 검증·PR 병합·Cafe24 배포·운영 읽기 전용 검증 완료 |
 | 설계 | `docs/work-reports/2026-09-14_pivot-native-layout-fixes.md` |
 
 ## 고정 결정
@@ -44,3 +44,26 @@
 
 `outputs/`의 빌드/다운로드/스크린샷은 로컬 검증용이며 커밋하지 않는다.
 운영 PR/배포/읽기 전용 smoke 증거는 완료 후 아래에 추가한다.
+
+## 기준 코드 반영
+
+- PR https://github.com/Jayinsightfactory/nenova-erp-ui/pull/575
+- 소스 ec79b059, 최신 master 통합 d1b0a519, 병합 2ce720a9d4dfa4dad2075e4154827404a136cb12
+- CI verify 성공(43초), 최신 master 병합 후 production build 재통과.
+- 최종 local smoke 재통과: 문제 0, 외부 요청 0, ERP 쓰기 요청 0.
+- 독립 재검토: XLSX 2개 지적 수정 확인, 추가 배포 차단 없음.
+
+## 운영 검증 완료
+
+- Cafe24 deploy https://github.com/Jayinsightfactory/nenova-erp-ui/actions/runs/34801766475
+  성공(2분 44초), SSH 배포 및 hydration smoke 성공.
+- 운영 2026-37-01: 원본 2,507행 / 표시 345행 정상.
+- 좌클릭 구분 필터를 출고만으로 적용: 원본 812행 / 표시 243행.
+- 품목명 내림차순 ▼, 소수점 숨김, 행 높이 28px, 데이터 열 96px 실측.
+- 1920×1080 viewport, header 5행, scrollTop 1080에서 sticky 가림/겹침 없음,
+  페이지 가로 overflow false, console error/warn 0.
+- 필터 위치·그룹 표·스크롤 화면을 실제 캡처해 확인했다.
+- 검증 후 높이 24/소수 2/정렬 해제/필터 해제로 복원: 2,507/345 다시 확인.
+- 검증용 탭만 닫고 viewport override 해제. 사용자 다른 탭은 보존.
+- API/SQL/SP/ERP 원장/원본 숫자 변경 없음. 이것은 표시·조작 검증이며 전체 SQL 숫자
+  원천 전수 대조나 다른 메뉴 검증을 수행했다는 의미가 아니다.
