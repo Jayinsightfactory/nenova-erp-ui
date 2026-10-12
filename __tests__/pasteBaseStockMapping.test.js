@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {previousBaseStockMatches,confirmedBaseStockMatch,combinePickedBaseStockInput} from '../lib/pasteBaseStockMapping.js';
+
+const row=(idx,qty,prodKey,flowerContext='')=>({idx,name:'로즈우드',matchName:flowerContext?`${flowerContext} 로즈우드`:'로즈우드',flowerContext,qty,unit:'박스',prodKey});
+const previous=[row(0,1,11),row(1,10,22)];
+const inserted=[row(0,8),row(1,1),row(2,10)];
+const moved=previousBaseStockMatches(inserted,previous);
+assert.equal(moved.has(0),false,'inserted same-name row cannot steal previous first mapping');
+assert.equal(moved.get(1).prodKey,11);
+assert.equal(moved.get(2).prodKey,22);
+const changed=previousBaseStockMatches([row(0,2),row(1,10)],previous);
+assert.equal(changed.get(0).prodKey,11,'quantity edit retains the remaining unique row identity');
+assert.equal(changed.get(1).prodKey,22);
+const contextChange=previousBaseStockMatches([row(0,1,null,'장미')],previous);
+assert.equal(contextChange.size,0,'different flower context does not inherit a prior choice');
+const duplicatePrevious=[row(0,1,11),row(1,1,22)];
+assert.equal(previousBaseStockMatches([row(0,1),row(1,1),row(2,1)],duplicatePrevious).size,0,'new indistinguishable duplicate requires confirmation');
+assert.equal(previousBaseStockMatches([row(0,1),row(1,1)],duplicatePrevious).get(1).prodKey,22,'unchanged duplicate line positions retain distinct IDs');
+const products=[{ProdKey:11},{ProdKey:22}];
+assert.equal(confirmedBaseStockMatch(row(0,1,11),[row(0,1,11)],products).prodKey,11);
+assert.equal(confirmedBaseStockMatch(row(0,2,11),[row(0,1,11)],products),null,'stale quantity is rejected at copy boundary');
+assert.equal(confirmedBaseStockMatch(row(0,1,11),[row(0,1,11),row(0,1,22)],products),null,'duplicate line IDs fail closed');
+assert.equal(confirmedBaseStockMatch(row(0,1,11),[row(0,1,11)],[{ProdKey:22}]),null,'deleted product fails closed');
+
+const first={data:{baseStockText:'수국\n블루 1',baseStockMatches:[{idx:1,name:'블루',matchName:'수국 블루',flowerContext:'수국',qty:1,unit:'',prodKey:11}],baseStockExcludedLines:[]}};
+const second={data:{baseStockText:'로즈우드 3',baseStockMatches:[row(0,3,22)],baseStockExcludedLines:[]}};
+const combined=combinePickedBaseStockInput([first,second]);
+assert.equal(combined.text,'수국\n블루 1\n기초재고\n로즈우드 3');
+assert.equal(combined.matches[0].idx,1);
+assert.equal(combined.matches[1].idx,3,'picker offsets saved row identity after a context-reset boundary');
+const appended=combinePickedBaseStockInput([second],{mode:'append',text:'기초재고\n기존 1',matches:[{idx:1,prodKey:9}],exclusions:[1]});
+assert.equal(appended.matches[0].idx,1);
+assert.equal(appended.matches[1].idx,3);
+assert.deepEqual(appended.exclusions,[1]);
+console.log('base stock row mapping tests passed');

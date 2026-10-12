@@ -57,7 +57,7 @@ assert.match(page, /새 기록으로 저장/);
 assert.match(page, /현재 저장본 덮어쓰기/);
 assert.match(page, /const handleBaseStockTextChange = \(nextText\) => \{[\s\S]*buildBaseStockMatchRows[\s\S]*refreshStockDraft/);
 assert.match(page, /const entry = \{ status: 'matched', names: \[label\], prodKey: Number\(it\.prodKey\) \}/);
-assert.match(page, /buildStockRowsByIdentity\(base, resolvedMatches\)/);
+assert.match(page, /buildStockRowsByIdentity\(base, resolvedMatches, baseStockMatches, products\)/);
 assert.match(page, /resolveStockProjectionIdentity\(record\.productName, resolvedMatches, stockNorm\)/);
 assert.match(page, /const analyzedRecords = buildAnalyzedStockRecords\(analysisOrders, selectedWeek\)/);
 assert.match(page, /const records = analyzedRecords\.length > 0 \? analyzedRecords : parsedChanges\.records/);

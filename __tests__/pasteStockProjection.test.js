@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import { chooseStockProductCandidate, formatStockDelta, formatStockVector, parseBaseStockQuantityLine, resolveStockProjectionIdentity, summarizeStockProjection } from '../lib/pasteStockProjection.js';
+import { chooseStockProductCandidate, formatStockDelta, formatStockVector, isBaseStockHeaderLine, parseBaseStockQuantityLine, resolveStockProjectionIdentity, summarizeStockProjection } from '../lib/pasteStockProjection.js';
+
+assert.equal(isBaseStockHeaderLine('41-2 잔량'), true);
+assert.equal(isBaseStockHeaderLine('2026-41-02 기초재고'), true);
+assert.equal(isBaseStockHeaderLine('블루 3'), false);
+assert.equal(isBaseStockHeaderLine('41-2 잔량 수량확인'), false);
+assert.deepEqual(parseBaseStockQuantityLine('블루３+20스팀 (주광여분 3)'), {
+  name: '블루', qty: 3, boxQty: 3, detailQty: 20, detailUnit: '스팀', unit: '박스',
+});
+assert.deepEqual(parseBaseStockQuantityLine('ＲＯＳＥ １０단'), {name: 'ＲＯＳＥ', qty: 10, unit: '단'});
 
 const normalize = (value) => String(value || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const aliases = new Map([

@@ -31,7 +31,8 @@ import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 import { buildStockNoteChangeEntry, resolveInitialStockBaseWeek } from '../../lib/pasteStockNote';
 import { buildAppliedStockCopy, buildAppliedStockScope, appendAppliedStockResult } from '../../lib/pasteAppliedStockCopy';
-import { chooseStockProductCandidate, formatStockDelta, formatStockVector, parseBaseStockQuantityLine, resolveStockProjectionIdentity, summarizeStockProjection } from '../../lib/pasteStockProjection';
+import { previousBaseStockMatches, confirmedBaseStockMatch, combinePickedBaseStockInput } from '../../lib/pasteBaseStockMapping';
+import { chooseStockProductCandidate, formatStockDelta, formatStockVector, isBaseStockHeaderLine, parseBaseStockQuantityLine, resolveStockProjectionIdentity, summarizeStockProjection } from '../../lib/pasteStockProjection';
 import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence, takeoverErpEditPresence } from '../../hooks/useErpEditPresence';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
@@ -297,8 +298,8 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
   textWithoutExcludedLines(text, excludedLineNos.filter(value => typeof value === 'object')).split(/\r?\n/).forEach((raw, lineIdx) => {
     if (skip.has(lineIdx)) return;
     const line = raw.trim();
-    if (!line || isSeparatorLine(line) || /^(잔량|잔량재고|기초재고|기존재고|시작재고|시작잔량|재고)$/i.test(line)) return;
-    if (/^(?:20\d{2}\s*-\s*)?\d{1,2}\s*-\s*\d{1,2}(?:\s*차)?$/.test(line)) return;
+    if (!line || isSeparatorLine(line)) return;
+    if (isBaseStockHeaderLine(line)) { if (/잔량|재고/.test(line)) currentFlower = ''; return; }
 
     const headerFlower = normalizeFlowerContext((line.match(/(수국|장미|카네이션|카네|알스트로(?:메리아)?|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|리시안|튤립)/) || [])[1]);
     if (headerFlower && /변경사항|차\s*$/.test(line)) {
@@ -341,14 +342,7 @@ function stockNoteSaveFingerprint({baseStockText, baseWeek, week, baseStockExclu
 
 function stockNoteMatchReview(text, exclusions, matches, products) {
   const parsed = parseBaseStockText(text, {excludedLineNos: exclusions});
-  const byLine = new Map((matches || []).map(row => [row.idx, row]));
-  const productKeys = new Set((products || []).map(product => Number(product.ProdKey)));
-  const unmatched = parsed.rows.filter(row => {
-    const match = byLine.get(row.idx);
-    const key = Number(match?.prodKey);
-    return !Number.isInteger(key) || key <= 0 || !productKeys.has(key)
-      || match.name !== row.name || match.qty !== row.qty || match.boxQty !== row.boxQty || match.detailQty !== row.detailQty || (row.unit && match.unit !== row.unit) || (row.detailUnit && match.detailUnit !== row.detailUnit);
-  });
+  const unmatched = parsed.rows.filter(row => !confirmedBaseStockMatch(row, matches, products));
   return {total: parsed.rows.length, matched: parsed.rows.length - unmatched.length, invalidRows: parsed.invalidRows,
     ready: parsed.invalidRows.length === 0 && unmatched.length === 0 && (!String(text || '').trim() || parsed.rows.length > 0)};
 }
@@ -390,16 +384,11 @@ function resolveProductForStockName(name, products, cache) {
 
 function buildBaseStockMatchRows(text, products, cache, prevMatches = [], excludedLineNos = []) {
   const parsed = parseBaseStockText(text, { excludedLineNos });
-  const prevByKey = {};
-  (prevMatches || []).forEach(m => {
-    const key = stockNorm(m.name);
-    if (key) prevByKey[key] = m;
-  });
-  return parsed.rows.map(row => {
-    const key = stockNorm(row.matchName || row.name);
-    const prev = prevByKey[key] || prevByKey[stockNorm(row.name)];
+  const previous = previousBaseStockMatches(parsed.rows, prevMatches);
+  return parsed.rows.map((row, index) => {
+    const prev = previous.get(index);
     const lookupName = row.matchName || row.name;
-    if (prev?.prodKey) {
+    if (prev?.prodKey || prev?.missingProdKey) {
       const prod = (products || []).find(p => Number(p.ProdKey) === Number(prev.prodKey));
       if (prod) {
         return {
@@ -419,6 +408,8 @@ function buildBaseStockMatchRows(text, products, cache, prevMatches = [], exclud
           fromMapping: !!prev.fromMapping,
         };
       }
+      return {...row, prodKey: null, prodName: null, displayName: null,
+        matchStatus: 'missing', missingProdKey: prev.prodKey || prev.missingProdKey, candidates: []};
     }
     const resolved = resolveProductForStockName(lookupName, products, cache);
     if (resolved.prod) {
@@ -728,6 +719,7 @@ function buildAnalyzedStockRecords(analysisOrders, selectedWeek) {
         week: selectedWeek || '',
         weekLabel: shortWeekLabel(selectedWeek || ''),
         productName,
+        prodKey: Number(item.prodKey) || null,
         reportedRemain: null,
         unit: normalizeOrderUnit(item.unit),
         changes: [{
@@ -765,6 +757,13 @@ function isManagedProduct(prod) {
 
 function buildResolvedMatchMap(orders, products, stockMatches = []) {
   const map = new Map();
+  const addAlias = (key, entry) => {
+    if (!key) return;
+    const prior = map.get(key);
+    if (prior && (prior.status === 'ambiguous' || prior.prodKey !== entry.prodKey)) {
+      map.set(key, {status: 'ambiguous', names: [...new Set([...(prior.names || []), ...(entry.names || [])])], prodKey: null});
+    } else map.set(key, entry);
+  };
   for (const o of orders || []) {
     for (const it of o.items || []) {
       if (it.skip || !it.prodKey) continue;
@@ -773,7 +772,7 @@ function buildResolvedMatchMap(orders, products, stockMatches = []) {
       const entry = { status: 'matched', names: [label], prodKey: Number(it.prodKey) };
       [it.inputName, it.prodName, it.displayName, label].forEach((name) => {
         const key = stockNorm(name);
-        if (key) map.set(key, entry);
+        addAlias(key, entry);
       });
     }
   }
@@ -784,17 +783,25 @@ function buildResolvedMatchMap(orders, products, stockMatches = []) {
     const entry = { status: 'matched', names: [label], prodKey: Number(m.prodKey) };
     [m.name, m.matchName, m.prodName, m.displayName, label].forEach((name) => {
       const key = stockNorm(name);
-      if (key) map.set(key, entry);
+      addAlias(key, entry);
     });
   }
   return map;
 }
 
-function buildStockRowsByIdentity(parsed, resolvedMatches) {
+function baseStockIdentity(row, matches, products, resolvedMatches) {
+  if (!Array.isArray(matches)) return resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
+  const confirmed = confirmedBaseStockMatch(row, matches, products);
+  if (confirmed) return {key: `prod:${confirmed.prodKey}`, normalizedName: stockNorm(row.matchName || row.name),
+    prodKey: confirmed.prodKey, match: {status: 'matched', prodKey: confirmed.prodKey, names: [confirmed.match.displayName || confirmed.match.prodName || row.name]}};
+  return {key: `row:${row.idx}`, normalizedName: stockNorm(row.matchName || row.name), prodKey: null, match: null};
+}
+
+function buildStockRowsByIdentity(parsed, resolvedMatches, baseStockMatches, products) {
   const rowsByIdentity = new Map();
   (parsed?.rows || []).forEach((row) => {
-    const identity = resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
-    if (!identity.normalizedName) return;
+    const identity = baseStockIdentity(row, baseStockMatches, products, resolvedMatches);
+    if (!identity.key) return;
     const existing = rowsByIdentity.get(identity.key);
     const existingBoxQty = existing?.boxQty ?? (normalizeOrderUnit(existing?.unit || row.unit) === '박스' ? existing?.qty : 0);
     const rowBoxQty = row.boxQty ?? (normalizeOrderUnit(row.unit) === '박스' ? row.qty : 0);
@@ -842,31 +849,39 @@ function productMatchSummary(productName, products, resolvedMatches) {
 
 function buildKakaoStockDraft({
   text, baseText, remainText = '', selectedWeek, stockBaseWeek, products, resolvedMatches,
-  analysisOrders = [], pasteExcludedLineNos = [], baseExcludedLineNos = [],
+  analysisOrders = [], pasteExcludedLineNos = [], baseExcludedLineNos = [], baseStockMatches,
 }) {
   const filteredText = textWithoutExcludedLines(text, pasteExcludedLineNos);
-  const filteredBase = textWithoutExcludedLines(baseText, baseExcludedLineNos);
-  const base = parseBaseStockText(filteredBase);
+  const base = parseBaseStockText(baseText, {excludedLineNos: baseExcludedLineNos});
   const finalRemain = parseBaseStockText(remainText);
   const parsedChanges = parseKakaoStockRecords(filteredText, selectedWeek);
   const analyzedRecords = buildAnalyzedStockRecords(analysisOrders, selectedWeek);
   const records = analyzedRecords.length > 0 ? analyzedRecords : parsedChanges.records;
   const extraRows = parsedChanges.extraRows;
-  const baseByIdentity = buildStockRowsByIdentity(base, resolvedMatches);
+  const baseByIdentity = buildStockRowsByIdentity(base, resolvedMatches, baseStockMatches, products);
   const finalRemainByIdentity = buildStockRowsByIdentity(finalRemain, resolvedMatches);
   const confirmRows = [];
   const productWeekCounts = {};
+  const recordIdentity = record => {
+    const key = Number(record.prodKey);
+    const product = products?.find(item => Number(item.ProdKey) === key);
+    if (Number.isInteger(key) && key > 0 && product) return {
+      key: `prod:${key}`, normalizedName: stockNorm(record.productName), prodKey: key,
+      match: {status: 'matched', prodKey: key, names: [product.DisplayName || product.ProdName]},
+    };
+    return resolveStockProjectionIdentity(record.productName, resolvedMatches, stockNorm);
+  };
 
   records.forEach(record => {
-    const identity = resolveStockProjectionIdentity(record.productName, resolvedMatches, stockNorm);
+    const identity = recordIdentity(record);
     const key = `${identity.key}|${record.week}`;
     productWeekCounts[key] = (productWeekCounts[key] || 0) + 1;
   });
 
   const recordsByProduct = new Map();
   records.forEach((record, order) => {
-    const identity = resolveStockProjectionIdentity(record.productName, resolvedMatches, stockNorm);
-    const key = identity.normalizedName ? identity.key : `line-${record.lineNo}`;
+    const identity = recordIdentity(record);
+    const key = (identity.prodKey || identity.normalizedName) ? identity.key : `line-${record.lineNo}`;
     if (!recordsByProduct.has(key)) recordsByProduct.set(key, []);
     recordsByProduct.get(key).push({ ...record, order, identityKey: key, match: identity.match });
   });
@@ -993,7 +1008,7 @@ function buildKakaoStockDraft({
 
   const shownRemainKeys = new Set(remainRows.map(row => row.identityKey || resolveStockProjectionIdentity(row.productName, resolvedMatches, stockNorm).key));
   base.rows.forEach(row => {
-    const identity = resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
+    const identity = baseStockIdentity(row, baseStockMatches, products, resolvedMatches);
     const productKey = identity.key;
     if (!productKey || shownRemainKeys.has(productKey)) return;
     shownRemainKeys.add(productKey);
@@ -1096,7 +1111,7 @@ function buildKakaoStockDraft({
 
   return {
     stockBaseWeek,
-    appliedCopySource: {baseText,pasteText:text,week:selectedWeek,resolvedMatches,products,baseExcludedLineNos},
+    appliedCopySource: {baseText,pasteText:text,week:selectedWeek,resolvedMatches,products,baseExcludedLineNos,baseStockMatches},
     baseRows: base.rows,
     records,
     extraRows,
@@ -1659,6 +1674,7 @@ export default function PasteOrderPage() {
       analysisOrders: ordersForMatch,
       pasteExcludedLineNos: excludedOverrides.pasteExcludedLineNos ?? pasteExcludedLines,
       baseExcludedLineNos: excludedOverrides.baseExcludedLineNos ?? baseStockExcludedLines,
+      baseStockMatches: stockMatchesForDraft,
     });
     setStockDraft(draft);
     setStockCopied(false);
@@ -1809,9 +1825,10 @@ export default function PasteOrderPage() {
           week,
           hit.data.remainStockText || '',
           hit.data.baseWeek || targetBaseWeek,
-          Array.isArray(hit.data.pasteExcludedLines) ? hit.data.pasteExcludedLines : [],
-          Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : [],
+          [],
           matches,
+          {pasteExcludedLineNos: Array.isArray(hit.data.pasteExcludedLines) ? hit.data.pasteExcludedLines : [],
+            baseExcludedLineNos: Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : []},
         );
         const savedOrderWeek = hit.data.orderWeek;
         const orderWeekHint = savedOrderWeek && savedOrderWeek !== week
@@ -1852,14 +1869,19 @@ export default function PasteOrderPage() {
   };
 
   // 피커에서 선택한 시작재고들을 합쳐(또는 교체로) 기존재고 입력에 넣는다.
-  const applyPickedStock = (combinedText, mode) => {
-    setBaseStockText(prev => {
-      const next = mode === 'append'
-        ? [prev.trim(), combinedText.trim()].filter(Boolean).join('\n')
-        : combinedText.trim();
-      rematchBaseStock(next, []);
-      return next;
-    });
+  const applyPickedStock = (combinedText, mode, pickedNotes = []) => {
+    const combined = pickedNotes.length
+      ? combinePickedBaseStockInput(pickedNotes, {mode, text: baseStockText, matches: baseStockMatches, exclusions: baseStockExcludedLines})
+      : {text: mode === 'append' ? [baseStockText, combinedText].filter(Boolean).join('\n') : combinedText,
+        matches: mode === 'append' ? baseStockMatches : [], exclusions: mode === 'append' ? baseStockExcludedLines : []};
+    const cache = {...mappingCache, ...loadCache()};
+    const rows = buildBaseStockMatchRows(combined.text, allProducts, cache, combined.matches, combined.exclusions);
+    restoredExclusionsRef.current.base = combined.text;
+    setBaseStockText(combined.text);
+    setBaseStockExcludedLines(combined.exclusions);
+    setBaseStockMatches(rows);
+    refreshStockDraft(pasteText, combined.text, week, remainStockText, stockBaseWeek, [], rows,
+      {baseExcludedLineNos: combined.exclusions});
     setOrders([]);
     setShowStockPicker(false);
     setStockNoteStatus(mode === 'append' ? '선택한 시작재고를 기존 입력에 합쳤습니다.' : '선택한 시작재고로 교체했습니다.');
