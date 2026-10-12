@@ -140,6 +140,7 @@ export default function WeekdayEstimateWorkspace() {
   const [applyReason, setApplyReason] = useState('');
   const [applyError, setApplyError] = useState('');
   const [applyBusy, setApplyBusy] = useState(false);
+  const [applyProgress, setApplyProgress] = useState('');
   const [pendingApply, setPendingApply] = useState(null);
   const [recoveryBlocked, setRecoveryBlocked] = useState(false);
   const applyLock = useRef(false);
@@ -1126,9 +1127,13 @@ export default function WeekdayEstimateWorkspace() {
     applyLock.current=true;pendingOperation.current=submission;setApplyBusy(true);setApplyError('');
     try {
       if(submission.metadataOnly) await finishMetadataOnlySave(submission);
-      else await finishErpSave(submission,await saveWeekdayDistribution(submission));
+      else await finishErpSave(submission,await saveWeekdayDistribution(submission,{onState:state=>setApplyProgress(
+        state.state==='waiting'
+          ? `다른 재고 계산이 진행 중입니다. 입력값을 유지하며 ${state.delayMs/1000}초 후 다시 저장합니다. (${state.retry}/${state.retries})`
+          : `재고 계산 대기 후 저장을 다시 확인하고 있습니다. (${state.retry}/${state.retries})`
+      )}));
     } catch(error) {setPendingApply(submission);setApplyError(error.message);}
-    finally {applyLock.current=false;setApplyBusy(false);}
+    finally {applyLock.current=false;setApplyBusy(false);setApplyProgress('');}
   }
 
   async function recheckErpSave() {
@@ -1280,6 +1285,7 @@ export default function WeekdayEstimateWorkspace() {
       <div className="scroll-table" style={{maxHeight:'45vh',overflow:'auto'}}><table><thead><tr><th>연도/세부차수</th><th>품목</th><th>날짜</th><th>저장 현재 → 초안 최종</th><th>ERP 상세 확정 전 → 후</th></tr></thead><tbody>{applyPreview.preview.map(cell=><tr key={`${cell.year}|${cell.orderWeek}|${cell.prodName}|${cell.date}`}><td>{cell.year}/{cell.orderWeek}</td><td>{cell.prodName}</td><td>{cell.date}</td><td>{cell.before} → {cell.after} {cell.unit}{cell.after===0?' · 취소':''}</td><td>{cell.detailFlag}</td></tr>)}</tbody></table></div>
       <label style={{display:'block',marginTop:10}}>ERP 변경 사유 (필수)<textarea autoFocus aria-label="ERP 저장 사유" rows={3} maxLength={1000} disabled={applyBusy || Boolean(pendingApply)} value={applyReason} onChange={event=>setApplyReason(event.target.value)} style={{width:'100%',boxSizing:'border-box',font:'inherit',color:'#122033'}}/></label>
       {applyError && <p role="alert" style={{color:'#9f1c16',overflowWrap:'anywhere'}}>{applyError}</p>}
+      {applyBusy && applyProgress && <p role="status" aria-live="polite" style={{color:'#16345a'}}>{applyProgress}</p>}
       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}><button className="primary" onClick={confirmErpSave} disabled={applyBusy || Boolean(pendingApply) || !applyReason.trim()}>{applyBusy?'저장/결과 확인 중…':applyPreview.metadataOnly?'확인 · 윌슨 구분만 저장':'변경 확인 · 분배 적용'}</button>{pendingApply && <button disabled={applyBusy} onClick={recheckErpSave}>저장 상태 다시 조회</button>}<button disabled={applyBusy} onClick={()=>setApplyPreview(null)}>닫기 · 초안 유지</button></div>
     </section></div>}
 

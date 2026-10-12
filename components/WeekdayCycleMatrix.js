@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { buildHorizontalWeekdayMatrix, horizontalCycleKey, horizontalEditPayload,
-  horizontalPrintReason, validateHorizontalQuantity, hasHorizontalShipmentQuantity, weekdayFlowerPriority } from '../lib/weekdayHorizontalMatrix.js';
+  horizontalPrintReason, validateHorizontalQuantity, hasHorizontalShipmentQuantity, weekdayFlowerGroup, compareWeekdayFlowerRows } from '../lib/weekdayHorizontalMatrix.js';
 import { horizontalCycleColumns, weekdayQuantityLabel, weekdayProductLabel } from '../lib/weekdayHorizontalMatrix.js';
 import { reconcileWeekdayQuote } from '../lib/weekdayQuoteReconciliation.js';
 import { weekdayUnsavedPrintReason } from '../lib/weekdayDistributionClient.js';
@@ -307,13 +307,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const safeComparisons = Array.isArray(comparisonRows) ? comparisonRows : [];
   const [search, setSearch] = useState('');
   const [collapsedFlowers,setCollapsedFlowers]=useState({});
-  const flowerGroupLabels=['카네이션','장미','수국','알스트로'];
-  const flowerGroup=row=>{
-    const priority=weekdayFlowerPriority(row);
-    if(priority<4)return flowerGroupLabels[priority];
-    const metadata=[...new Set(row.flowerNames.map(name=>String(name).trim()).filter(Boolean))];
-    return metadata.length===1 && !/^(?:unknown|미확인|품종 미확인|\?)$/i.test(metadata[0]) ? metadata[0] : '기타';
-  };
+  const flowerGroup=weekdayFlowerGroup;
   const [flower, setFlower] = useState('');
   const [wilsonDay,setWilsonDay]=useState('일');
   const [exportBusy,setExportBusy]=useState(false);
@@ -387,8 +381,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
   const flowers = [...new Set(shipmentRows.flatMap((row) => row.flowerNames))].sort();
   const query = search.trim().toLocaleLowerCase();
   const visibleRows = shipmentRows.filter((row) => (!flower || row.flowerNames.includes(flower))
-    && (!query || `${row.prodKey} ${row.name} ${row.flowerNames.join(' ')}`.toLocaleLowerCase().includes(query))).sort((a,b)=>weekdayFlowerPriority(a)-weekdayFlowerPriority(b)
-      || flowerGroup(a).localeCompare(flowerGroup(b),'ko'));
+    && (!query || `${row.prodKey} ${row.name} ${row.flowerNames.join(' ')} ${flowerGroup(row)}`.toLocaleLowerCase().includes(query))).sort(compareWeekdayFlowerRows);
   useEffect(()=>{
     if(query || flower)setCollapsedFlowers(previous=>{
       const next={...previous};for(const row of visibleRows)next[flowerGroup(row)]=false;return next;

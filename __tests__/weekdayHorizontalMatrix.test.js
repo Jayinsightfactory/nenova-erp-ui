@@ -48,11 +48,32 @@ assert.equal(prioritized.rows[0].blocks[1].currentTotal,0,'zero/cancelled distri
 assert.equal(JSON.stringify(prioritySource),prioritySnapshot,'sorting never mutates ERP input');
 
 const floral = build(cycles,[],['LILY','ALSTROEMERIA','HYDRANGEA','ROSE','CARNATION'].map((flowerName,index) =>
-  actual({prodKey:600+index,flowerName,prodName:`${flowerName} White`})));
+  actual({prodKey:600+index,flowerName,countryName:'콜롬비아',prodName:`${flowerName} White`})));
 assert.deepEqual(floral.rows.map(row=>row.flowerNames[0]),['CARNATION','ROSE','HYDRANGEA','ALSTROEMERIA','LILY']);
 assert.equal(helper.weekdayFlowerPriority({flowerNames:['LILY'],name:'ROSE Red'}),4,'authoritative category beats name prefix');
 assert.equal(helper.weekdayFlowerPriority({name:'Primrose Red'}),4,'no substring category match');
 assert.equal(helper.weekdayFlowerPriority({flowerNames:['장미','수국']}),4,'conflicting categories remain other');
+const countryRows=[
+  {flowerNames:['장미'],countryNames:['에콰도르'],name:'콜롬비아 ROSE fixture'},
+  {flowerNames:['장미'],countryNames:['중국']},
+  {flowerNames:['장미'],countryNames:['콜롬비아']},
+  {flowerNames:['카네이션']},{flowerNames:['수국']},{flowerNames:['알스트로']},
+  {flowerNames:['장미']},{flowerNames:['장미'],countryNames:['콜롬비아','에콰도르']},
+];
+assert.deepEqual([...countryRows].sort(helper.compareWeekdayFlowerRows).slice(0,4).map(helper.weekdayFlowerGroup),
+  ['카네이션','콜롬비아 장미','수국','알스트로']);
+assert.equal(helper.weekdayFlowerPriority(countryRows[0]),4,'authoritative Ecuador beats product-name Colombia');
+assert.equal(helper.weekdayFlowerGroup(countryRows[0]),'에콰도르 장미');
+assert.equal(helper.weekdayFlowerGroup(countryRows[1]),'중국 장미');
+for(const row of countryRows.slice(6)) {
+  assert.equal(helper.weekdayFlowerPriority(row),4,'missing/conflicting country cannot assume Colombia');
+  assert.equal(helper.weekdayFlowerGroup(row),'장미 (국가 미확인)');
+}
+assert.equal(helper.weekdayFlowerPriority({flowerNames:['ROSE'],countryNames:['COLOMBIA']}),1);
+const scopedCountries=build([cycles[1]],[],[actual({countryName:'콜롬비아'}),actual({year:2025,countryName:'에콰도르'})]);
+assert.deepEqual(scopedCountries.rows[0].countryNames,['콜롬비아'],'outside-year country cannot contaminate current product grouping');
+const draftCountry=build([cycles[1]],[plan({countryName:'콜롬비아'})],[actual({countryName:'에콰도르'})]);
+assert.deepEqual(draftCountry.rows[0].countryNames,['에콰도르'],'editable draft metadata cannot override Product country read');
 
 const businessBaselines = ['01','02'].map(suffix=>({year:2026,orderWeek:`38-${suffix}`,
   rows:[{prodKey:101,unit:'박스',quantity:20}]}));

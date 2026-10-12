@@ -306,6 +306,39 @@ assert.equal(weekdayUnsavedPrintReason([plan],cycles[1],533),'');
 assert.equal(weekdayUnsavedPrintReason([plan],cycles[0],534),'');
 
 const reply=(code,data)=>({ok:code>=200&&code<300,status:code,json:async()=>data});
+const busyAck={success:false,code:'STOCK_GATE_BUSY',retryable:true,saved:false,rolledBack:true};
+{
+  const sent=[], waits=[], states=[];
+  const fixedSubmission=JSON.parse(JSON.stringify(submission));
+  fixedSubmission.payload.changes.push({...fixedSubmission.payload.changes[0],year:2027,orderWeek:'01-01'});
+  const expected=JSON.stringify(fixedSubmission.payload);
+  const result=await save(fixedSubmission,{fetcher:async(url,options)=>{
+    sent.push(options.body);
+    return sent.length===1?reply(409,busyAck):reply(200,{success:true,saved:true,operationId});
+  },pause:async(ms)=>{waits.push(ms);fixedSubmission.payload.changes[0].year=1999;},onState:state=>states.push(state.state)});
+  assert.equal(result.state,'saved');assert.deepEqual(sent,[expected,expected]);
+  assert.deepEqual(waits,[1000]);assert.deepEqual(states,['waiting','saving']);
+}
+{
+  let posts=0;const waits=[];
+  const result=await save(submission,{fetcher:async()=>{posts++;return reply(409,busyAck);},pause:async(ms)=>waits.push(ms)});
+  assert.equal(result.state,'failed');assert.match(result.error,/입력값은 유지/);
+  assert.equal(posts,6);assert.deepEqual(waits,[1000,2000,3000,4000,5000]);
+}
+for(const ack of [{...busyAck,retryable:undefined},{...busyAck,retryable:'true'},{...busyAck,saved:undefined},
+  {...busyAck,saved:true},{...busyAck,code:'ERP_EDIT_LOCKED'},{...busyAck,code:'INSUFFICIENT_STOCK'}]) {
+  let posts=0;
+  assert.equal((await save(submission,{fetcher:async()=>{posts++;return reply(409,ack);},pause:async()=>assert.fail('must not retry')})).state,'failed');
+  assert.equal(posts,1);
+}
+{
+  let posts=0,gets=0;
+  const result=await save(submission,{fetcher:async(url,options)=>{
+    if(options.method==='POST') {posts++;if(posts===1)return reply(409,busyAck);throw new Error('lost response');}
+    gets++;return reply(200,{success:true,saved:false});
+  },pause:async()=>{}});
+  assert.equal(result.state,'pending');assert.equal(posts,2);assert.equal(gets,3);
+}
 let calls=[];
 const fetcher=async(url,options)=>{calls.push({url,options});return reply(200,{success:true,saved:true,operationId});};
 assert.equal((await save(submission,{fetcher})).state,'saved');
