@@ -30,3 +30,10 @@ docs/CODEX_SUBTASK_ORCHESTRATION.md는 저장소에 없음; 사용자 제공 메
 - REPLACE는 출고/견적/재고 재계산을 건드리지 않는다. ADD는 기존 재고 재계산 절차를 유지한다. 실제 운영 주문 쓰기 테스트는 실행하지 않았다.
 - UI는 시작/성공/실패/응답불명/저장후 조회실패를 구분하며 로그에 실행 당시 업체/차수와 기존·입력·최종 수량을 보존한다.
 - ERP manifest/write guard/dnSpy 및 최종 Next build 통과. 전체 ERP 계약과 CI/배포 결과는 후속 기록한다.
+
+## 반영 확인
+- 전체 ERP 계약 PASS, PR369 CI32941525588 SUCCESS. merge abe9fc8.
+- 운영 화면 버전 abe9fc8 확인. 36-01/(주)영남꽃소재 현재 주문35품목, Moon Light4박스 표시 확인.
+- 저장하지 않고 입력3 미리보기: 변경후3/추가후7, 두 등록버튼 활성, 실행로그 열기/닫기 확인. 검증 초안은 제거했고 실제 주문 POST는 하지 않음.
+- Chrome DOM 스모크 PASS. screenshot은 CDP capture timeout으로 이미지 검증 미완료.
+- Cafe24 deploy32941614967 및 master ERP32941614917 모두 SUCCESS (배포 workflow hydration smoke 포함).
