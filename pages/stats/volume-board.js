@@ -63,6 +63,27 @@ export default function VolumeBoard() {
   const endIndex = weeks.indexOf(weekEnd || weekStart);
   const invalidRange = startIndex >= 0 && endIndex >= 0 && startIndex < endIndex;
 
+  const selectStartWeek = (week) => {
+    const nextStartIndex = weeks.indexOf(week);
+    setWeekStart(week);
+    if (weeks.indexOf(weekEnd) < nextStartIndex) setWeekEnd(week);
+  };
+
+  const handleRoundKeyDown = (event) => {
+    const key = event.key;
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(key)) return;
+    const options = Array.from(event.currentTarget.parentElement.querySelectorAll('button[data-week-option]:not(:disabled)'));
+    const currentIndex = options.indexOf(event.currentTarget);
+    if (currentIndex < 0 || !options.length) return;
+    const nextIndex = key === 'Home' ? 0 : key === 'End' ? options.length - 1 :
+      Math.max(0, Math.min(options.length - 1, currentIndex + (key === 'ArrowLeft' || key === 'ArrowUp' ? -1 : 1)));
+    event.preventDefault();
+    if (nextIndex !== currentIndex) {
+      options[nextIndex].focus();
+      options[nextIndex].click();
+    }
+  };
+
   const loadSpecies = async (event) => {
     event?.preventDefault();
     setError('');
@@ -131,29 +152,49 @@ export default function VolumeBoard() {
     <>
       <Head><title>물량표</title></Head>
       <main style={{ minHeight: 'calc(100vh - 48px)', background: '#f2f5f9', padding: '28px 20px' }}>
-        <section style={{ width: 'min(680px, 100%)', margin: '0 auto', background: '#fff', border: '1px solid #cbd8e8', borderRadius: 10, boxShadow: '0 8px 26px rgba(22,50,82,.12)', overflow: 'hidden' }}>
+        <section style={{ width: 'min(1120px, 100%)', margin: '0 auto', background: '#fff', border: '1px solid #cbd8e8', borderRadius: 10, boxShadow: '0 8px 26px rgba(22,50,82,.12)', overflow: 'hidden' }}>
           <header style={{ padding: '18px 22px', background: '#174b89', color: '#fff' }}>
             <h1 style={{ margin: 0, fontSize: 20 }}>차수별 품종 물량표</h1>
             <p style={{ margin: '6px 0 0', fontSize: 13, opacity: .9 }}>연도와 차수를 선택하고 다운로드할 품종을 고르세요.</p>
           </header>
           <form onSubmit={loadSpecies} style={{ padding: 20 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 1fr', gap: 12, alignItems: 'end' }}>
-              <label style={{ display: 'grid', gap: 5, fontSize: 13, fontWeight: 700, color: '#284564' }}>
+            <div className="round-selection-grid">
+              <label className="year-picker" style={{ display: 'grid', gap: 5, fontSize: 13, fontWeight: 700, color: '#284564' }}>
                 연도
                 <input aria-label="연도" type="number" min="2020" max="2099" step="1" value={year} onChange={event => setYear(event.target.value)} style={inputStyle} />
               </label>
-              <label style={{ display: 'grid', gap: 5, fontSize: 13, fontWeight: 700, color: '#284564' }}>
-                시작 차수
-                <select aria-label="시작 차수" value={weekStart} onChange={event => setWeekStart(event.target.value)} disabled={weeksBusy || !weeks.length} style={inputStyle}>
-                  {weeks.map(week => <option key={week} value={week}>{week}</option>)}
-                </select>
-              </label>
-              <label style={{ display: 'grid', gap: 5, fontSize: 13, fontWeight: 700, color: '#284564' }}>
-                끝 차수
-                <select aria-label="끝 차수" value={weekEnd} onChange={event => setWeekEnd(event.target.value)} disabled={weeksBusy || !weeks.length} style={inputStyle}>
-                  {weeks.map(week => <option key={week} value={week}>{week}</option>)}
-                </select>
-              </label>
+              {[
+                { label: '시작 차수', value: weekStart, onSelect: selectStartWeek },
+                { label: '끝 차수', value: weekEnd, onSelect: setWeekEnd },
+              ].map(group => (
+                <fieldset key={group.label} className="week-picker">
+                  <legend>{group.label}</legend>
+                  <div role="radiogroup" aria-label={`${group.label} 선택`} className="week-choice-list">
+                    {weeks.map((week, index) => {
+                      const active = group.value === week;
+                      const disabled = weeksBusy || !!busy || (group.label === '끝 차수' && startIndex >= 0 && index < startIndex);
+                      return (
+                        <button
+                          key={week}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          aria-label={`${group.label} ${week}`}
+                          data-week-option="true"
+                          tabIndex={active ? 0 : -1}
+                          className="week-choice-button"
+                          disabled={disabled}
+                          onClick={() => group.onSelect(week)}
+                          onKeyDown={handleRoundKeyDown}
+                        >
+                          {week}
+                        </button>
+                      );
+                    })}
+                    {!weeks.length && <span className="week-choice-empty">{weeksBusy ? '차수 불러오는 중…' : '선택할 차수가 없습니다.'}</span>}
+                  </div>
+                </fieldset>
+              ))}
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 16, flexWrap: 'wrap' }}>
               <button type="submit" style={{ ...buttonStyle, color: '#fff', background: '#1764b0' }} disabled={weeksBusy || !!busy || !weeks.length}>
@@ -197,6 +238,19 @@ export default function VolumeBoard() {
           </form>
         </section>
       </main>
+      <style jsx>{`
+        .round-selection-grid { display: grid; grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+        .week-picker { min-width: 0; margin: 0; padding: 8px 10px 10px; border: 1px solid #cbd8e8; border-radius: 7px; }
+        .week-picker legend { padding: 0 5px; color: #284564; font-size: 13px; font-weight: 700; }
+        .week-choice-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; }
+        .week-choice-button { min-height: 36px; padding: 5px 7px; border: 1px solid #9db4d0; border-radius: 5px; background: #f8fafc; color: #284564; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .week-choice-button[aria-checked="true"] { border-color: #0e4f96; background: #1764b0; color: #fff; box-shadow: inset 0 0 0 1px #0e4f96, 0 0 0 2px #dcecff; }
+        .week-choice-button:focus-visible { outline: 3px solid #e5a900; outline-offset: 2px; z-index: 1; }
+        .week-choice-button:disabled { opacity: .45; cursor: not-allowed; }
+        .week-choice-empty { grid-column: 1 / -1; padding: 5px 2px; color: #61758d; font-size: 13px; }
+        @media (max-width: 800px) { .round-selection-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .year-picker { grid-column: 1 / -1; max-width: 170px; } }
+        @media (max-width: 560px) { .round-selection-grid { grid-template-columns: minmax(0, 1fr); } .year-picker { grid-column: auto; } }
+      `}</style>
     </>
   );
 }
