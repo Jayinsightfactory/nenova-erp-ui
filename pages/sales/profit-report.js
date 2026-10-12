@@ -9,6 +9,7 @@ import { computeProfitRow, computeProfitTotals, calcRevenueRatio, calcPurchaseRa
 import CustomsClearancePanel from '../../components/CustomsClearancePanel';
 import ForwardingClearancePanel from '../../components/ForwardingClearancePanel';
 import ProfitReportSourceGuide from '../../components/ProfitReportSourceGuide';
+import ProfitReportExcelParity from '../../components/ProfitReportExcelParity';
 
 function getDefaultMajor() {
   const m = String(getCurrentWeek() || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -719,6 +720,16 @@ export default function ProfitReportPage() {
       </div>
 
       <ProfitReportSourceGuide />
+
+      {/* 원본 엑셀(2026 22~27차) 대조 — 조회·표시 전용. 화면이 이미 계산한 값만 넘기며 DB·저장에 관여하지 않는다. */}
+      {viewMode === 'category' && data && (
+        <ProfitReportExcelParity
+          orderYear={data.orderYear}
+          major={data.major}
+          rowsWithCalc={rowsCalc.rows}
+          totals={rowsCalc.totals}
+        />
+      )}
 
       {error && <div style={st.error}>{error}</div>}
       {message && <div style={st.message}>{message}</div>}

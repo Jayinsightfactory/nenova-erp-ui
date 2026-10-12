@@ -32,9 +32,18 @@
     "docs/migrations/2026-08-12_web_profit_report_historical_seed.sql",
     "docs/migrations/2026-08-12_web_taxable_exchange_rate.sql",
     "scripts/extract-profit-report-workbooks.mjs",
-    "components/CustomsClearancePanel.js"
+    "components/CustomsClearancePanel.js",
+    "lib/profitReportExcelParity.js",
+    "lib/profitReportExcelBaseline.js",
+    "components/ProfitReportExcelParity.js",
+    "scripts/build-profit-report-excel-baseline.mjs"
   ],
-  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
   "actions": [
     {
       "name": "REPORT_READ",
@@ -131,6 +140,12 @@
       "shipmentDetail": "preserve",
       "erpLedgerWrite": "forbidden",
       "sideEffect": "audit 경고가 남아 있어도 관리자 권한과 사유(reason) 입력이 모두 있어야 확정 스냅샷을 저장한다. reason이 비어 있으면 저장을 거부한다. 저장 시 강제 확정 사용자, 사유, 무시된 audit 이슈 목록을 감사 로그(스냅샷 레코드 또는 별도 감사 테이블)에 함께 남긴다. 저장 대상과 ERP 원장 금지 범위는 REPORT_CONFIRM_SNAPSHOT과 동일하다."
+    },
+    {
+      "name": "REPORT_EXCEL_PARITY_VIEW",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "sideEffect": "read-only; '원본 엑셀 대조' 패널은 화면이 이미 계산한 rowsWithCalc/totals 를 lib/profitReportExcelParity.js 순수 함수에 넘겨 판정만 렌더링한다. DB 조회·저장·다운로드가 없고 보고서 계산에 되먹임하지 않는다. 기준값 lib/profitReportExcelBaseline.js 는 __tests__/fixtures/profit-report-22-27.json 에서 기계 생성한 2026년 22~27차 원본 엑셀 값이며 대조 표시에만 쓴다(보고서 자동값으로 들어가지 않는다). 기본 접힘이고 접힌 동안에는 계산도 하지 않는다."
     }
   ],
   "crossYearFixture": {
@@ -156,12 +171,19 @@
     "__tests__/profitReportGetReadOnlyDdl.test.js",
     "__tests__/profitReportHistoricalCustoms.test.js",
     "__tests__/colombiaFlowerClassification.test.js",
-    "__tests__/customsClearancePanelLiveTotal.test.js"
+    "__tests__/customsClearancePanelLiveTotal.test.js",
+    "__tests__/profitReportExcelParity.test.js"
   ],
   "historicalCustomsPolicy": {
     "description": "2026-08-12 원천 정정: 22~27차 그외통관비(H) 원본 엑셀 historical snapshot(lib/profitReportHistoricalCustoms.js)을 국가/콜롬비아 저장행이 전혀 없을 때만 폴백으로 적용한다. 이전 구현(lib/profitReportAuditedBaseline.js)은 검증된 '최종 H 합계'만 갖고 있어 운영 DB 입력 부재를 화면에서 숨겼다 — 이제는 백상 GW·관세·선율·월드운송료·한국방역 구성요소를 그대로 갖고 있어 총액을 항상 같은 프로덕션 공식(computeCountryCustomsTotal/computeColombiaCustomsTotal)으로 재계산한다. 우선순위는 explicit saved row(WebCustomsWeekly/WebColombiaWeekly) > excel historical snapshot(2026년 22~27차만) > current auto(입고 GW 자동병합) > global defaults(RATE_DEFAULTS/WebCustomsRateConfig)이며, 저장행에 조금이라도 값이 있으면 historical snapshot은 전혀 적용하지 않는다(행 단위 폴백 — 필드 일부만 덮어쓰지 않음). 연도가 정확히 2026과 일치할 때만 적용되어 2025년 동일 차수는 절대 오염되지 않는다. 백상 창고료 요율은 scope별로 분리된다 — 국가 시트(그외통관비 화면)는 22~27차 전부 460원/kg, 콜롬비아 4품목 반차수 시트는 22차만 370원/kg·23~27차는 460원/kg이다(lib/customsForwardingCalc.js effectiveRatesForWeek scope 파라미터). WebCustomsWeekly/WebColombiaWeekly.BakSangRateApplied 스냅샷이 있으면 그 값이 최우선이다(전역 요율 변경이 과거 저장행을 재계산하지 않음).",
-    "resolvers": ["lib/customsForwarding.js resolveCountryCustomsTotal()", "lib/customsForwarding.js resolveColombiaCustomsAllocation()"],
-    "consumers": ["lib/customsForwarding.js computeCustomsAndForwarding()", "pages/api/sales/customs-clearance.js GET"],
+    "resolvers": [
+      "lib/customsForwarding.js resolveCountryCustomsTotal()",
+      "lib/customsForwarding.js resolveColombiaCustomsAllocation()"
+    ],
+    "consumers": [
+      "lib/customsForwarding.js computeCustomsAndForwarding()",
+      "pages/api/sales/customs-clearance.js GET"
+    ],
     "worldFreightCombinedGw": "국가별(콜롬비아 수국 포함) 월드운송료 추천은 그 대차수의 GW1+GW2 합산 중량을 lib/colombiaTruck.js deriveTruckPlan()에 한 번만 넣는다. 5t 묶음을 먼저 배정하고 잔여가 1t 이하면 1t 1대, 2.5t 이하면 2.5t 1대, 2.5t 초과면 2.5t 1대와 필요한 1t 차량을 더한다(1.371t=2.5t, 3t=2.5t+1t). 계산된 조합 금액 전부를 1차 칸에 반영하고 2차 자동값은 0이다. 저장된 실제값(WorldFreight{1,2}Manual=1, historical snapshot 포함)이 있으면 추천값이 그 실제값을 절대 덮지 않는다. 콜롬비아 4품목(장미/카네이션/알스트로/루스커스)의 국내운송도 저장된 실제 대수가 우선이고, 없을 때만 같은 추천식을 쓴다."
   },
   "automaticCategoryRules": {
@@ -172,7 +194,10 @@
     "네덜란드 운송료": "네덜란드",
     "태국 운송료": "태국",
     "중국 운송료": "중국",
-    "nonValueItems": ["Chargeable weight", "Gross weight"],
+    "nonValueItems": [
+      "Chargeable weight",
+      "Gross weight"
+    ],
     "nonValueBehavior": "매출이익 보고서 금액·수량·미분류 비고에서 제외",
     "colombiaAllocClassifier": "콜롬비아 4품목 무게배분(colombiaBoxQtyByCategory)은 lib/colombiaFlowerClassification.js 토큰맵을 따라 FlowerName·ProdName 양쪽에서 한글(장미/카네이션/알스트로/루스커스)과 영문(Rose/Carnation/Alstro/Ruscus)을 모두 인식한다(2026-08-12 결함수정 — 이전에는 FlowerName 한글만 인식해 영문 품목이 배분 대상에서 누락됐다). 운송료/SERVICE FEE/현지상차운임/GW·CW placeholder 행은 항상 제외한다."
   },
