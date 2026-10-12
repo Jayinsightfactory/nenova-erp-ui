@@ -6,6 +6,14 @@ import {startBoundedAutoRefresh,HISTORY_REFRESH_INTERVAL_MS} from '../../lib/dis
 export default function useDistributionDeliveryStatus({rows,year,week,enabled,actorId}) {
   const scope=JSON.stringify([actorId,year,week,rows.map(row=>[row.identity,row.message,row.created_at,row.timestamp_approximate,row.source,row.chatroom,row.chat_id,row.external_message_id,row.truncated,row.is_truncated])]);
   const [state,setState]=useState({scope:'',items:{},loading:false,error:''});
+  const [refreshSequence,setRefreshSequence]=useState(0);
+  const refresh=()=>{if(enabled&&rows.length&&!state.loading)setRefreshSequence(value=>value+1);};
+  useEffect(()=>{
+    const wake=()=>{if(document.visibilityState==='visible'&&navigator.onLine!==false)refresh();};
+    document.addEventListener('visibilitychange',wake);
+    window.addEventListener('online',wake);
+    return()=>{document.removeEventListener('visibilitychange',wake);window.removeEventListener('online',wake);};
+  },[enabled,rows.length,state.loading]);
   const cache=useRef(null);
   if(!cache.current)cache.current=createDeliveryEvidenceCache();
   useEffect(()=>{
@@ -38,7 +46,7 @@ export default function useDistributionDeliveryStatus({rows,year,week,enabled,ac
             }
             if(active){const confirmed=cache.current.accept(actorId,year,rows,items);setState({scope,items:{...items,...confirmed},loading:true,error:warning});}
           }
-          if(active)setState({scope,items:{...items,...cache.current.read(actorId,year,rows)},loading:false,error:warning,...(targetCount!==null?{diagnostics:{targetCount,qualifiedSourceCount}}:{})});
+          if(active)setState({scope,items:{...items,...cache.current.read(actorId,year,rows)},loading:false,error:warning,checkedAt:new Date().toISOString(),...(targetCount!==null?{diagnostics:{targetCount,qualifiedSourceCount}}:{})});
         } catch(error){
           // Refresh failure is separate from a previously verified fact.
           if(active)setState({scope,items:cache.current.read(actorId,year,rows),loading:false,error:error.name==='AbortError'?'전달 확인 시간이 초과되었습니다.':String(error.message)});
@@ -47,6 +55,6 @@ export default function useDistributionDeliveryStatus({rows,year,week,enabled,ac
       },
     });
     return()=>{active=false;stop();controller?.abort();};
-  },[scope,enabled]);
-  return state.scope===scope?state:{items:cache.current.read(actorId,year,rows),loading:enabled&&rows.length>0,error:''};
+  },[scope,enabled,refreshSequence]);
+  return {...(state.scope===scope?state:{items:cache.current.read(actorId,year,rows),loading:enabled&&rows.length>0,error:''}),refresh};
 }

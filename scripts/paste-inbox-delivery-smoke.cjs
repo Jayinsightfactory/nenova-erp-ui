@@ -8,7 +8,7 @@ const fs=require('node:fs');
   const page=await browser.newPage({viewport:{width:1920,height:1080}}),errors=[],writes=[];
   page.on('pageerror',error=>errors.push(error.message));
   const messages=[0,1].map(index=>({source:'nenovakakao',chatroom:'영업방',chat_id:'sales-fixture',external_message_id:String(index),sender:'검증 담당',created_at:new Date(Date.now()-600000).toISOString(),timestamp_approximate:false,message:`41-1 수국 변경사항\n검증꽃집${index}\n화이트 ${index+1}박스 추가`}));
-  let fail=false,networkFail=false,analysisRequests=0;
+  let fail=false,networkFail=false,analysisRequests=0,deliveryRequests=0;
   await page.clock.install();
   await page.addInitScript(()=>localStorage.setItem('nenovaUser',JSON.stringify({userId:'fixture',userName:'UI 검사',authority:1})));
   await page.route('**/api/**',async route=>{
@@ -22,6 +22,7 @@ const fs=require('node:fs');
     data={success:true,orders:[{custName:'검증꽃집',custMatch:{CustKey:533,CustName:'검증꽃집'},items:[{inputName:'화이트',prodName:'화이트 저장 품목',prodKey:866,qty:2,unit:'박스',action:'ADD'}]}],analysisStorage:{cacheHit:true,shared:true,savedAt:Date.now()}};
    }
    if(url.pathname.endsWith('/delivery-status')){
+    deliveryRequests++;
     if(networkFail)return route.fulfill({status:502,json:{error:'전달 조회 실패 검증'}});
     const body=request.postDataJSON();
     data={ok:true,year:body.year,week:body.week,...(fail?{warning:'최신 조회 실패 · 저장된 근거 유지 검증'}:{}),items:body.sources.map(source=>({identity:source.identity,status:source.external_message_id==='0'?'DELIVERED':'UNCONFIRMED',...(source.external_message_id==='0'?{persisted:true,deliveryIdentity:'nenovakakao|delivery-fixture|proof',deliveredAt:new Date().toISOString()}: {})}))};
@@ -32,6 +33,13 @@ const fs=require('node:fs');
   await page.waitForSelector('.source-delivery-status.delivered');
   assert.equal(await page.locator('.source-delivery-status.delivered').count(),1);
   assert.equal(await page.locator('.source-delivery-status').count(),2);
+  await page.getByTestId('sales-inbox-delivery-refresh').waitFor({state:'visible'});
+  await page.waitForFunction(()=>!document.querySelector('[data-testid="sales-inbox-delivery-refresh"]').disabled);
+  const beforeManual=deliveryRequests;
+  await page.getByTestId('sales-inbox-delivery-refresh').press('Enter');
+  await page.waitForFunction(()=>!document.querySelector('[data-testid="sales-inbox-delivery-refresh"]').disabled);
+  assert(deliveryRequests>beforeManual,'manual delivery check must perform read-only lookup');
+  assert.match(await page.getByTestId('sales-inbox-delivery-cadence').innerText(),/마지막 조회/);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   fs.mkdirSync('outputs/shared-delivery-smoke',{recursive:true});
   await page.screenshot({path:'outputs/shared-delivery-smoke/1920.png'});

@@ -6046,7 +6046,20 @@ function AppliedStockCopyPanel({draft,result,currentScope}) {
   useEffect(()=>{setCopied(false);setCopyError('');},[applied.text,applied.ready]);
   return <section data-testid="paste-applied-stock-copy" style={{border:'1px solid #b0bec5',borderRadius:8,padding:12,background:'#fff',marginBottom:12}}>
     <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><strong>적용재고</strong><button type="button" disabled={!applied.ready} onClick={async()=>{try{await navigator.clipboard.writeText(applied.text);setCopied(true);setCopyError('');}catch{setCopyError('복사하지 못했습니다. 아래 원문을 선택해 복사해 주세요.');}}}>{copied?'복사됨':'적용재고 복사'}</button></div>
-    {applied.ready?<textarea aria-label="적용재고 원문" readOnly value={applied.text} style={{width:'100%',boxSizing:'border-box',minHeight:120,marginTop:8,resize:'vertical',whiteSpace:'pre-wrap'}}/>:<p role="status" style={{color:'#9a3412',marginBottom:0}}>{applied.warnings.join(' ')}</p>}
+    {applied.ready?<>
+      <p style={{fontSize:12,color:'#455a64',margin:'8px 0'}}>시작재고 + 취소 − 추가 = 적용재고 · 저장·검증된 변경만 반영합니다. 전산 재고 스냅샷과는 별도입니다.</p>
+      <table aria-label="시작재고 기준 적용 변경내역" style={{width:'100%',tableLayout:'fixed',borderCollapse:'collapse',fontSize:12,marginBottom:8}}>
+        <caption style={{textAlign:'left',fontWeight:700,padding:'4px 0 8px'}}>변경내역 · 변경 {applied.changeRows.filter(row=>row.changed).length}품목 / 전체 {applied.changeRows.length}품목</caption>
+        <colgroup><col style={{width:'36%'}}/><col/><col/><col/><col/></colgroup>
+        <thead><tr>{['품목','시작재고','추가(−)','취소(+)','적용재고'].map(label=><th key={label} scope="col" style={{padding:'6px 4px',border:'1px solid #cbd5e1',background:'#f1f5f9',overflowWrap:'anywhere'}}>{label}</th>)}</tr></thead>
+        <tbody>{applied.changeRows.map(row=><tr key={row.prodKey} data-testid={`applied-stock-change:${row.prodKey}`} style={{background:row.changed?'#ecfdf5':'#fff'}}>
+          <th scope="row" style={{textAlign:'left',padding:'6px 4px',border:'1px solid #cbd5e1',overflowWrap:'anywhere'}}>{row.name}</th>
+          {[row.startText,row.addedText,row.cancelledText,row.appliedText].map((value,index)=><td key={index} style={{textAlign:'center',padding:'6px 4px',border:'1px solid #cbd5e1',overflowWrap:'anywhere',fontWeight:index===3?700:400}}>{value}</td>)}
+        </tr>)}</tbody>
+      </table>
+      <small style={{color:'#64748b'}}>적용재고가 0인 품목은 위 변경내역에 남고, 복사할 원문에서는 빠집니다.</small>
+      <textarea aria-label="적용재고 원문" readOnly value={applied.text} style={{width:'100%',boxSizing:'border-box',minHeight:120,marginTop:8,resize:'vertical',whiteSpace:'pre-wrap'}}/>
+    </>:<p role="status" style={{color:'#9a3412',marginBottom:0}}>{applied.warnings.join(' ')}</p>}
     {copyError&&<p role="alert">{copyError}</p>}
   </section>;
 }
