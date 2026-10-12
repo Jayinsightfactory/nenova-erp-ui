@@ -5,6 +5,7 @@ import {
   assertDeductionMutationOwnership,
   assertIncomingConfirmed,
   collectDeductionEstimateKeys,
+  classifyRegistrationResultRow,
   ensureRegistrationRequestKey,
   explainDefectLedgerRegisterMiss,
   isDeductionOwnedByUser,
@@ -14,6 +15,15 @@ import {
   shouldResetIncomingConfirmation,
 } from '../lib/salesDefectDeductionState.js';
 import { applyManualCostContext, getManualCostOverride, saveManualCost, validateManualCost } from '../lib/salesDefectManualCost.js';
+
+assert.deepEqual(classifyRegistrationResultRow({ error: '잔여수량이 없는 완료 행은 다시 등록할 수 없습니다.', quantity: 0 }), {
+  code: 'ALREADY_COMPLETED', label: '이미 등록 완료', isError: false, isRegisterable: false,
+});
+assert.deepEqual(classifyRegistrationResultRow({ error: '이미 같은 차수에 동일 품목·수량의 기존 차감 견적 #8832이 있습니다.' }), {
+  code: 'EXISTING_DUPLICATE', label: '기존 견적 중복', isError: false, isRegisterable: false,
+});
+assert.equal(classifyRegistrationResultRow({ error: '분배 단가가 없습니다.' }).code, 'ERROR');
+assert.equal(classifyRegistrationResultRow({ error: '', quantity: 3, after: { EstimateKey: null } }).code, 'READY');
 
 assert.equal(shouldResetIncomingConfirmation(
   { custKey: 10, prodKey: 20, quantity: 4, sourceUnit: '단', creditApplied: true, farmName: 'Farm A', note: '확인' },

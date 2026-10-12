@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { apiGet, apiPost } from '../../lib/useApi';
-import { ensureRegistrationRequestKey } from '../../lib/salesDefectDeductionState';
+import { classifyRegistrationResultRow, ensureRegistrationRequestKey } from '../../lib/salesDefectDeductionState';
 import { SUPPORT_REGISTER_USAGE_STEPS, supportRegisterUsageNotice } from '../../lib/salesDefectSupportStatus.js';
 
 const fmt = (value) => Number(value || 0).toLocaleString();
 const dateText = (value) => value ? String(value).slice(0, 19).replace('T', ' ') : '-';
 const rowProductName = (row = {}) => row.after?.ProdName || row.productDbName || row.productName || '-';
 const rowIdentityText = (row = {}) => `${row.customerName || '-'} · ${rowProductName(row)} · ${fmt(row.editQuantity || row.quantity)} ${row.sourceUnit || row.after?.Unit || ''}`;
+const resultRowQuantity = (row = {}) => Number(row.editQuantity || row.quantity || Math.abs(Number(row.before?.Quantity || 0)) || 0);
 const REGISTRATION_PREVIEW_BATCH_SIZE = 10;
 const REGISTRATION_APPLY_BATCH_SIZE = 10;
 
@@ -51,7 +52,12 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   const deductionType = String(router.query.type || '불량차감');
   const supportMode = String(router.query.support || '') === '1';
   const excludedRows = useMemo(() => rows.filter((row) => excludedKeys.has(Number(row.deductionKey))), [rows, excludedKeys]);
-  const waitingForApply = !loading && !applying && !verified && rows.length > 0;
+  const resultCounts = useMemo(() => rows.reduce((counts, row) => {
+    const code = classifyRegistrationResultRow(row).code;
+    counts[code] = (counts[code] || 0) + 1;
+    return counts;
+  }, { READY: 0, ALREADY_COMPLETED: 0, EXISTING_DUPLICATE: 0, ERROR: 0 }), [rows]);
+  const waitingForApply = !loading && !applying && !verified && resultCounts.READY > 0;
   const appendLog = (label) => {
     const at = new Date().toLocaleTimeString('ko-KR');
     setLogs((current) => [...current, { at, label }]);
@@ -136,7 +142,11 @@ export default function SalesDefectDeductionRegisterReviewPage() {
   };
 
   const apply = async () => {
-    const activeRows = rows.filter((row) => !excludedKeys.has(Number(row.deductionKey)));
+    const activeRows = rows.filter((row) => {
+      if (excludedKeys.has(Number(row.deductionKey))) return false;
+      const code = classifyRegistrationResultRow(row).code;
+      return code !== 'ALREADY_COMPLETED' && code !== 'EXISTING_DUPLICATE';
+    });
     if (!activeRows.length) {
       setError('등록할 행이 없습니다. 제외를 해제하거나 창을 닫아주세요.');
       return;
@@ -239,12 +249,14 @@ export default function SalesDefectDeductionRegisterReviewPage() {
             <h2>{supportMode ? '영업지원 전산등록 — 견적서관리 반영 결과' : '견적서 등록 검토'}</h2>
             <div className="sub">{year}년 {week}차 · {deductionType} · 기존 견적서와 적용 후 값을 비교한 뒤 등록합니다.</div>
           </div>
-          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !rows.length}>{supportMode ? (waitingForApply ? '전산등록 실행 및 검증 ← 클릭' : '전산등록 실행 및 검증') : '수정 적용 및 등록'}</button>{rows.some((row) => !excludedKeys.has(Number(row.deductionKey)) && (row.error || !row.after || !(Number(row.editQuantity) > 0))) && <button className="btn btn-danger" onClick={excludeInvalidRows} disabled={loading || applying}>오류 건 제외하고 계속</button>}<button className="btn" onClick={load} disabled={loading || applying}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
+          <div className="head-actions"><button className="btn btn-primary" onClick={apply} disabled={applying || loading || !rows.length || resultCounts.READY === 0}>{supportMode ? (waitingForApply ? '전산등록 실행 및 검증 ← 클릭' : '전산등록 실행 및 검증') : '수정 적용 및 등록'}</button>{rows.some((row) => !excludedKeys.has(Number(row.deductionKey)) && classifyRegistrationResultRow(row).code === 'ERROR') && <button className="btn btn-danger" onClick={excludeInvalidRows} disabled={loading || applying}>오류 건 제외하고 계속</button>}<button className="btn" onClick={load} disabled={loading || applying}>새로 불러오기</button>{verified && <button className="btn" onClick={openEstimateManagement}>견적서관리 새창 열기</button>}<button className="btn" onClick={() => window.close()}>닫기</button></div>
         </div>
+        {!loading && rows.length > 0 && <div className="result-summary" role="status"><span className="ready">신규 등록 가능 <b>{resultCounts.READY}</b>건</span><span className="completed">이미 등록 완료 <b>{resultCounts.ALREADY_COMPLETED}</b>건</span><span className="duplicate">기존 견적 중복 <b>{resultCounts.EXISTING_DUPLICATE}</b>건</span><span className="failed">실제 오류 <b>{resultCounts.ERROR}</b>건</span></div>}
+        {!loading && rows.length > 0 && resultCounts.READY === 0 && resultCounts.ERROR === 0 && <div className="notice ok"><strong>추가 등록할 대상이 없습니다.</strong> 완료된 행과 기존 견적 중복 행만 확인되었습니다. 전산등록 버튼을 다시 누르지 않아도 됩니다.</div>}
         {waitingForApply && <div className="notice waiting" role="status"><strong>진행 대기 중</strong> · 기존 견적서 조회가 완료되었습니다. 상단의 「전산등록 실행 및 검증 ← 클릭」 버튼을 눌러야 실제 등록이 시작됩니다.</div>}
         {message && <div className="notice ok">{message}{verified && ' 재조회 검증 완료.'}</div>}
         {error && <div className="notice error">{error}</div>}
-        {excludedRows.length > 0 && <div className="notice excluded-summary"><strong>이번 등록 제외 {excludedRows.length}건</strong>{excludedRows.map((row) => <div key={row.deductionKey}><b>{row.customerName || '-'}</b> · {rowProductName(row)} · {fmt(row.editQuantity || row.quantity)} {row.sourceUnit || row.after?.Unit || ''} · 원장키 #{row.deductionKey}{row.error ? ` · ${row.error}` : ''}</div>)}</div>}
+        {excludedRows.length > 0 && <div className="notice excluded-summary"><strong>이번 등록에서 처리하지 않는 항목 {excludedRows.length}건</strong>{excludedRows.map((row) => { const result = classifyRegistrationResultRow(row); return <div className={`excluded-row ${result.code.toLowerCase()}`} key={row.deductionKey}><span className="result-badge">{result.label}</span> <b>{row.customerName || '-'}</b> · {rowProductName(row)} · {fmt(resultRowQuantity(row))} {row.sourceUnit || row.after?.Unit || row.before?.Unit || ''} · 원장키 #{row.deductionKey}{row.before?.EstimateKey ? ` · 견적 #${row.before.EstimateKey}` : ''}{row.error ? ` · ${row.error}` : ''}</div>; })}</div>}
         <div className="notice usage" role="note"><strong>공지</strong> {supportRegisterUsageNotice()}
           <ol>{SUPPORT_REGISTER_USAGE_STEPS.map((step) => <li key={step}>{step}</li>)}</ol>
         </div>
@@ -254,9 +266,10 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           {rows.map((row, index) => {
             const after = adjustedAfter(row);
             const excluded = excludedKeys.has(Number(row.deductionKey));
-            return <div className={`review-card ${row.error ? 'has-error' : ''} ${excluded ? 'is-excluded' : ''}`} key={row.deductionKey || index}>
-              <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span>{excluded && <span className="excluded-badge">이번 등록 제외</span>}<button className="row-exclude" onClick={() => setRowExcluded(row.deductionKey, !excluded)} disabled={loading || applying}>{excluded ? '제외 해제' : '이 행 제외'}</button><span>원장키 #{row.deductionKey}</span></div>
-              {row.error && <div className="row-error">{row.error}</div>}
+            const result = classifyRegistrationResultRow(row);
+            return <div className={`review-card result-${result.code.toLowerCase()} ${result.isError ? 'has-error' : ''} ${excluded ? 'is-excluded' : ''}`} key={row.deductionKey || index}>
+              <div className="row-title"><strong>{index + 1}. {row.customerName || '-'}</strong><span>{row.after?.ProdName || row.productDbName || row.productName || '-'} / {row.colorName || '-'}</span><span className="result-badge">{result.label}</span>{excluded && <span className="excluded-badge">이번 등록 제외</span>}<button className="row-exclude" onClick={() => setRowExcluded(row.deductionKey, !excluded)} disabled={loading || applying || (!result.isRegisterable && !result.isError)}>{excluded ? '제외 해제' : '이 행 제외'}</button><span>원장키 #{row.deductionKey}</span></div>
+              {row.error && <div className={result.isError ? 'row-error' : 'row-result'}>{row.error}</div>}
               <div className="compare-grid">
                 <section className="compare-pane before"><h3>기존 견적서 내용</h3>{row.before ? <>
                   <div><b>견적서 키</b> #{row.before.EstimateKey}</div><div><b>일자</b> {dateText(row.before.EstimateDtm)}</div><div><b>수량</b> {fmt(row.before.Quantity)} {row.before.Unit || ''}</div><div><b>단가</b> {fmt(row.before.Cost)}원</div><div><b>금액</b> {fmt(row.before.Amount)}원 / 부가세 {fmt(row.before.Vat)}원</div><div><b>적요</b> {row.before.Descr || '-'}</div>
@@ -277,6 +290,7 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           .review-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #94a3b8; background: #f8fafc; }
           h2 { margin: 0; font-size: 18px; } .sub { margin-top: 2px; color: #64748b; font-size: 11px; }
           .head-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+          .result-summary { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; padding: 6px; border: 1px solid #94a3b8; background: #f8fafc; font-size: 12px; } .result-summary span { padding: 4px 8px; border: 1px solid; border-radius: 999px; } .result-summary .ready { color: #1d4ed8; background: #eff6ff; border-color: #60a5fa; } .result-summary .completed { color: #166534; background: #f0fdf4; border-color: #4ade80; } .result-summary .duplicate { color: #92400e; background: #fffbeb; border-color: #f59e0b; } .result-summary .failed { color: #991b1b; background: #fef2f2; border-color: #ef4444; }
           .notice { margin-top: 4px; padding: 5px 7px; border: 1px solid; font-size: 11px; } .notice.waiting { color: #92400e; background: #fff7d6; border: 2px solid #f59e0b; font-size: 13px; } .notice.waiting strong { color: #b45309; } .notice.ok { color: #166534; background: #f0fdf4; border-color: #86efac; } .notice.error { color: #991b1b; background: #fef2f2; border-color: #fca5a5; white-space: pre-wrap; } .notice.info { color: #1e3a8a; background: #eff6ff; border-color: #93c5fd; }
           .notice.excluded-summary { color: #7f1d1d; background: #fff7ed; border-color: #fb923c; } .notice.excluded-summary strong { display: block; margin-bottom: 3px; } .notice.excluded-summary div { padding: 2px 0; border-top: 1px solid #fed7aa; } .notice.excluded-summary div:first-of-type { border-top: 0; }
           .notice.usage { color: #92400e; background: #fffbeb; border-color: #fbbf24; } .notice.usage ol { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 0; padding: 0; list-style: none; } .notice.usage li { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid #fbbf24; background: #fff; border-radius: 999px; font-weight: 700; } .notice.usage li::after { content: '→'; color: #d97706; } .notice.usage li:last-child::after { content: ''; }
@@ -284,11 +298,13 @@ export default function SalesDefectDeductionRegisterReviewPage() {
           .process-log strong { display: block; margin-bottom: 3px; color: #1e3a8a; } .process-log div { padding: 1px 0; } .process-log span { display: inline-block; min-width: 68px; color: #64748b; font-variant-numeric: tabular-nums; }
           .review-list { margin-top: 4px; display: grid; gap: 4px; }
           .review-card { border: 1px solid #94a3b8; background: #fff; } .review-card.has-error { border-color: #ef4444; }
+          .review-card.result-already_completed { border-color: #4ade80; } .review-card.result-existing_duplicate { border-color: #f59e0b; }
           .review-card.is-excluded { opacity: .62; border-style: dashed; } .review-card.is-excluded .compare-grid { pointer-events: none; }
           .row-title { display: flex; gap: 8px; align-items: center; padding: 4px 7px; background: #e2e8f0; border-bottom: 1px solid #cbd5e1; font-size: 12px; } .row-title > span:last-child { margin-left: auto; color: #64748b; font-size: 10px; }
-          .excluded-badge { padding: 2px 6px; color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 999px; font-size: 10px; font-weight: 700; }
+          .result-badge, .excluded-badge { padding: 2px 6px; border-radius: 999px; font-size: 10px; font-weight: 700; } .result-badge { color: #334155; background: #fff; border: 1px solid #94a3b8; } .excluded-badge { color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; }
           .row-exclude { min-height: 25px; padding: 2px 8px; color: #991b1b; background: #fff; border: 1px solid #ef4444; cursor: pointer; font-size: 11px; font-weight: 700; } .row-exclude:disabled { cursor: default; opacity: .5; }
           .row-error { padding: 4px 7px; color: #991b1b; background: #fef2f2; font-size: 11px; }
+          .row-result { padding: 4px 7px; color: #166534; background: #f0fdf4; font-size: 11px; }
           .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; } .compare-pane { padding: 5px 8px; min-height: 110px; font-size: 11px; line-height: 1.45; } .compare-pane + .compare-pane { border-left: 1px solid #cbd5e1; } .compare-pane.before { background: #f8fafc; } .compare-pane.after { background: #fff; } h3 { margin: 0 0 3px; font-size: 12px; color: #1e3a8a; }
           .compare-pane b { display: inline-block; min-width: 78px; color: #475569; } .compare-pane small { color: #64748b; }
           .estimate-view-preview { margin-bottom: 4px; padding: 4px 6px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; line-height: 1.3; }
