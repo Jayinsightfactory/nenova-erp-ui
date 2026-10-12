@@ -11,7 +11,7 @@ async function main() {
   for (const token of ['단', 'BUNCH', 'bunches', 'bun']) {
     assert.equal(parseExplicitOrderUnit(token), '단', token);
   }
-  for (const token of ['송이', '송 이', '스팀', '스팀(대)', '스팀 ( 대 )', '스템', 'stem', 'stems', 'steam']) {
+  for (const token of ['송이', '송 이', '송이(대)', '송이 ( 대 )', '스팀', '스팀(대)', '스팀 ( 대 )', '스템', '스템(대)', 'stem', 'stems', 'steam']) {
     assert.equal(parseExplicitOrderUnit(token), '송이', token);
   }
 
@@ -19,6 +19,15 @@ async function main() {
   assert.equal(resolvePasteOrderUnit({ prod: alstro, parsedUnit: '박스', unitExplicit: true }), '박스');
   assert.equal(resolvePasteOrderUnit({ prod: alstro, parsedUnit: '단', unitExplicit: true }), '단');
   assert.equal(resolvePasteOrderUnit({ prod: alstro, parsedUnit: '', unitExplicit: false }), '단');
+
+  // parse-paste preserves this explicit Korean source token verbatim; it must
+  // not fall through to the matched product/history default of 박스.
+  const boxedProduct = { ProdKey: 8800, OutUnit: '박스' };
+  assert.equal(
+    resolvePasteOrderUnit({ prod: boxedProduct, parsedUnit: '송이(대)', unitExplicit: true, prodUnitMap: { 8800: '박스' } }),
+    '송이',
+    'explicit 송이(대) wins over Product.OutUnit and prior box history',
+  );
 
   const root = path.join(__dirname, '..');
   const parser = fs.readFileSync(path.join(root, 'pages/api/orders/parse-paste.js'), 'utf8');
