@@ -11,7 +11,7 @@
 3. 연도/차수가 모호하거나 거래처/품목 ID가 없으면 등록하지 않는다.
 4. 원본 표현, 정규화 값, 후보, 최종 선택은 덮어쓰지 않고 revision/event로 연결한다.
 5. 품종(`FlowerName/family`), 원본 품명, 색상, 전산 품명(`Product.ProdName/DisplayName`)은 서로 다른 필드다.
-6. 주문등록 action은 `OrderMaster/OrderDetail`만 쓸 수 있다. `Shipment*`, Warehouse, Stock, Estimate, WebProfitReport는 보존한다.
+6. 주문등록 action은 `OrderMaster/OrderDetail`과 변경 감사용 `OrderHistory`만 쓸 수 있다. `Shipment*`, Warehouse, Stock, Estimate, WebProfitReport는 보존한다.
 7. 분석/매칭만으로 Product/Customer 또는 추천 사전을 변경하지 않는다. 사용자가 학습 반영을 명시해야 한다.
 8. 승인된 snapshot과 실행 payload가 byte-stable canonical hash로 동일해야 한다.
 
@@ -138,7 +138,7 @@
 
 ## 6. 중복/합산 계약
 
-중복 그룹키는 기본적으로 `OrderYear + OrderWeek + CustKey + ProdKey + unit + command`다. source provenance는 합산 후에도 `contributions[]`로 보존한다.
+중복 그룹키는 기본적으로 `OrderYear + OrderWeek + CustKey + ProdKey + unit + command`다. source provenance는 합산 후에도 `contributions[]`로 보존한다. `ADD`와 `CANCEL`은 서로 다른 그룹이며 자동 상계하지 않는다.
 
 ```json
 {
@@ -152,7 +152,7 @@
 }
 ```
 
-정책은 preview와 승인 snapshot에 포함하며 승인 후 변경할 수 없다.
+정책은 preview와 승인 snapshot에 포함하며 승인 후 변경할 수 없다. 기본 합산 범위는 결정 대기 상태다. 결정 전에는 `DUPLICATE_REVIEW_REQUIRED`를 발생시키고 그룹마다 정책을 명시적으로 선택한다.
 
 ## 7. 검증 계약
 
@@ -187,7 +187,7 @@
 }
 ```
 
-입력자와 승인자를 분리하는 기준은 tenant 정책으로 두되, 강제되는 경우 동일 `UserID` 승인 거부. 승인 후 source/row/match/정책이 바뀌면 `APPROVAL_STALE`로 폐기한다.
+입력자와 승인자를 분리하는 기준은 결정 대기인 tenant 정책으로 둔다. `requireDifferentApprover`, `requireDifferentExecutor`, 적용 수량/행수/취소 threshold를 version으로 고정하고, 강제 시 동일 `UserID` 승인을 거부한다. 승인 후 source/row/match/합산/부분등록 정책이 바뀌면 `APPROVAL_STALE`로 폐기한다.
 
 ## 9. 등록 요청/결과 계약
 
@@ -226,9 +226,21 @@
 ```
 
 - `mode`가 `ORDER_ONLY`가 아니면 거부한다.
+- `source=raum-pnl` 또는 `ensureShipmentMaster=true`를 포함하면 거부한다. 현재 `/api/orders`의 조건부 빈 `ShipmentMaster` 생성 경로를 우회해야 한다.
 - idempotency key에 unique constraint를 두고 transaction 시작 시 lock/acquire한다.
-- 성공행을 포함한 부분 실패 재시도는 성공행을 재가산하지 않는다.
+- 부분등록 OFF는 전체 items를 단일 transaction으로 처리하고 한 행이라도 실패하면 전부 rollback한다.
+- 부분등록 ON은 승인 snapshot에 행별 execution key와 등록 집합을 고정한다. 성공행을 포함한 재시도는 성공행을 재가산하지 않는다.
 - 현재 `/api/orders`의 delta semantics를 쓸 경우 `before + delta = after`를 같은 transaction/사후 read로 확인한다.
+- `CANCEL`은 정책 결정 전 `CANCEL_POLICY_REQUIRED`로 차단한다. 허용돼도 ADD와 합산·상계하지 않고 별도 승인 action으로 다룬다.
+
+### 원본/OCR 보존 계약
+
+- 원본 blob은 immutable이며 content hash, 암호화 key version, 저장 위치, 수신 actor/time을 가진다.
+- OCR은 별도 version으로 저장하고 provider/model/version, bbox/confidence, OCR text hash를 기록한다.
+- 정규화/correction은 OCR 원문을 덮어쓰지 않는 append-only event다.
+- application log에는 원본/OCR text/base64를 넣지 않는다.
+- 원본, OCR, correction, 승인/실행 감사는 서로 다른 retention class를 가진다. 기간·삭제·legal hold 결정 전에는 `RETENTION_POLICY_PENDING`으로 Phase 3/connector 운영 활성화를 차단한다.
+- 승인된 provider policy(tenant opt-in, 처리 region, 학습금지, retention/삭제 SLA, subprocessors, 비용 한도)가 없으면 외부 OCR을 호출하지 않는다.
 
 ## 10. EXE 호환/교차연도 fixture
 

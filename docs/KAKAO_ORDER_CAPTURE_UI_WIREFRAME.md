@@ -63,7 +63,7 @@
 - checkbox/Shift 범위 선택 후 거래처, 단위, 출고일, 연도/차수, 제외/포함을 일괄 변경한다.
 - `같은 원본 품명 모두 적용`과 `이 batch에만`/`추천 사전에 저장`을 분리한다.
 - 중복 그룹은 `원본별 유지`, `source 내 합산`, `batch 전체 합산` preview를 나란히 비교한다.
-- 음수/취소는 별도 아이콘과 confirmation reason을 요구하며 정책 미확정 상태에서는 등록 차단한다.
+- 음수/취소는 별도 아이콘과 confirmation reason을 요구하며 `CANCEL_POLICY_PENDING`에서는 등록 차단한다. 양수 ADD와 CANCEL을 합계 0으로 상계해 숨기지 않는다.
 - 오류 행을 고쳐도 정상 행의 선택·매칭·수정 이력은 유지한다.
 
 ## 6. 검증/승인 drawer
@@ -77,9 +77,11 @@
 | 수량 | 현재 주문, 입력 delta/목표정책, 예상 후 수량, 단위별 ERP 컬럼 |
 | 충돌 | 동일 batch/idempotency, 기존 원장, 연도/차수 모호, 승인 이후 변경 |
 | 비대상 | Shipment*, Warehouse*, Stock*, Estimate, WebProfitReport 모두 `변경 없음` |
-| 승인 | 입력자/승인자, revision/hash, 부분등록 정책 |
+| 승인 | 입력자/승인자/실행자, revision/hash, 4-eyes 적용 근거, 부분등록 정책 |
 
 승인 이후 행이 바뀌면 승인을 무효화하고 재검증을 요구한다. `주문등록` 버튼은 승인된 동일 revision에만 활성화한다.
+
+부분등록 OFF는 “오류 1행이면 전체 미등록”과 transaction rollback 범위를 표시한다. ON은 승인된 등록행/제외행 수, 제외 reason, 행별 재시도/idempotency 범위를 표시한다. 두 정책의 기본값은 사용자 결정 전까지 확정 표시하지 않는다.
 
 ## 7. 실행 결과
 

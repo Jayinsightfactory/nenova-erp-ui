@@ -51,7 +51,7 @@
 5. 정규화: 거래처, 품종, 원본 품명, 색상, 수량, 단위, 출고일, 연도/차수 후보를 만든다.
 6. DB 매칭: `CustKey`, `ProdKey` 후보와 근거/점수 표시. 자동 확정 threshold를 넘지 못하면 추천 상태.
 7. 검토: 미매칭/모호/중복/취소/단위 오류만 수정하고 정상 행은 유지한다.
-8. 검증: 원본 총량, 단위별 합계, 교차연도 격리, 현재 주문 충돌, 등록 side effect를 검사한다.
+8. 검증: 원본 총량, 단위별 합계, 교차연도 격리, 현재 주문 충돌, 등록 side effect를 검사한다. 이 단계까지는 ERP 원장을 쓰지 않는다.
 9. 등록 preview: 승인 당시 immutable snapshot과 `nenova.exe` 기준 필드를 표시한다.
 10. 승인/실행: 승인자 권한과 idempotency key를 검증한 뒤 주문만 등록한다.
 11. 결과: 행별 성공/실패/재시도 가능 여부, OrderMasterKey/OrderDetailKey, 원본 근거, 감사 event를 남긴다.
@@ -78,10 +78,20 @@
 | 정규화/매칭/수정 | C/I | 보존 | 보존 | 보존 | 보존 | 보존 |
 | 검증/등록 preview | I | 읽기만 | 읽기만 | 보존 | 보존 | 보존 |
 | 승인 | C/I | 보존 | 보존 | 보존 | 보존 | 보존 |
-| 주문등록 실행 | I | C 또는 기존 current-year master 재사용 | C/U(delta 정책 확정 시) | **보존** | **보존** | **보존** |
+| 주문등록 실행 | I + `OrderHistory` append | C 또는 기존 current-year master 재사용 | C/U(승인된 양수 ADD delta만) | **보존** | **보존** | **보존** |
 | 재시도 | I | idempotency 결과 재사용 | 중복 delta 금지 | 보존 | 보존 | 보존 |
 
-`C/U/I`는 create/update/append history를 뜻한다. 신규 화면은 `ensureShipmentMaster`, `/api/shipment/adjust`, `/api/shipment/distribute`를 호출하지 않는다. 실행 결과에 `shipmentMutationCount=0`, `stockMutationCount=0`, `estimateMutationCount=0`을 명시한다.
+`C/U/I`는 create/update/append history를 뜻한다. 신규 화면은 `/api/orders`를 재사용하더라도 `source=raum-pnl`과 `ensureShipmentMaster=true`를 전달하지 않으며, 서버의 전용 `ORDER_ONLY` adapter가 두 값을 거부해야 한다. 허용 ERP 쓰기는 `OrderMaster`, `OrderDetail`, `OrderHistory`뿐이다. `/api/shipment/adjust`, `/api/shipment/distribute`는 호출하지 않는다. 실행 결과에 `shipmentMutationCount=0`, `stockMutationCount=0`, `estimateMutationCount=0`을 명시한다.
+
+### 단계별 상태와 쓰기 경계
+
+`DRAFT → NORMALIZED → MATCHED → VALIDATED → PREVIEWED → APPROVED → REGISTERING → SUCCEEDED|PARTIAL|FAILED`
+
+- `DRAFT`부터 `PREVIEWED`까지는 Web 작업/근거 테이블만 쓰고 ERP 원장은 읽기 전용이다.
+- `APPROVED`는 승인 snapshot/hash만 고정한다. ERP 쓰기는 아직 없다.
+- `REGISTERING` 진입 시 승인 hash, 4-eyes 정책, idempotency key, DB read snapshot freshness를 다시 검사한다.
+- 승인 이후 source/row/match/합산/부분등록 정책이 바뀌면 `APPROVAL_STALE`로 되돌리고 재검증·재승인을 요구한다.
+- OCR이나 매칭 실패는 행을 자동 제외하지 않는다. 명시적 제외 reason과 승인 snapshot이 있어야 등록 대상에서 빠진다.
 
 ## 7. 추가 API 초안
 
@@ -98,7 +108,7 @@
 | `GET /api/order-capture/batches/:id` | 다시 열기/결과 조회 | read-only |
 | `POST /api/order-capture/batches/:id/clone` | 새 batch에 근거 복제 | Web tables only |
 
-등록 API는 `Idempotency-Key = sha256(tenantId + batchId + approvalRevision + action)`을 받고 DB unique constraint로 중복 실행을 막는다. 같은 key의 재호출은 최초 결과를 반환한다.
+등록 API는 `Idempotency-Key = sha256(tenantId + batchId + approvalRevision + action)`을 받고 DB unique constraint로 중복 실행을 막는다. 같은 key의 재호출은 최초 결과를 반환한다. 행별 실행 키도 고정해 부분 실패 재시도 때 성공행을 다시 가산하지 않는다.
 
 ## 8. 데이터 모델 초안
 
@@ -122,11 +132,12 @@
 | 수입부 | 조회/보조 | 품목 보조 | 불가 | 불가 | 필요한 행만 |
 | 관리자 | O | O | O | O | 감사 목적 |
 
-- 파일은 확장자 allowlist, MIME과 magic signature 교차검증, 크기/행수/압축해제 한도, 임의 UUID 이름, webroot 밖 격리 저장, 악성코드 검사, CSRF와 권한검사를 적용한다. [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html)
-- File API는 사용자가 input 또는 drag/drop으로 명시적으로 제공한 파일만 읽는 모델이다. [MDN File API](https://developer.mozilla.org/en-US/docs/Web/API/File_API)
-- 클립보드 자동 읽기는 secure context, 사용자 활성화, 브라우저별 permission 차이가 있으므로 기본 입력은 `paste` event를 사용하고 “클립보드에서 읽기” 버튼은 progressive enhancement로 둔다. [MDN Clipboard API](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API), [MDN DataTransfer](https://developer.mozilla.org/en-US/docs/Web/API/DataTransfer)
+- 파일은 확장자 allowlist, MIME과 magic signature 교차검증, 크기/행수/압축해제 한도, 임의 UUID 이름, webroot 밖 격리 저장, 악성코드 검사, CSRF와 권한검사를 적용한다.
+- 브라우저는 사용자가 input 또는 drag/drop으로 명시적으로 제공한 파일만 읽는다.
+- 클립보드 자동 읽기는 사용자 활성화와 권한 차이가 있으므로 기본 입력은 `paste` event를 사용하고 “클립보드에서 읽기” 버튼은 progressive enhancement로 둔다.
 - 원본 카카오 내용·개인정보·가격조건은 구조화 application log/LLM prompt log에 넣지 않는다. source ID/hash/크기/상태만 기록하고 열람은 별도 감사 대상이다.
-- OCR 외부 전송은 tenant별 opt-in, 제공자/리전/보존기간 고지, 전송 전 crop/redaction, 재처리 비용 상한을 둔다.
+- OCR 외부 전송은 tenant별 opt-in, 제공자/리전/보존기간 고지, 전송 전 crop/redaction, 재처리 비용 상한을 둔다. 제공자가 정해지기 전에는 Phase 3를 활성화하지 않는다. 학습 사용 금지·zero-retention 가능 여부·subprocessor·국외이전·삭제 확인 방법을 provider별 decision record로 승인한다.
+- 원본 blob, 추출 OCR 원문, 정규화 행, correction, 승인 snapshot은 서로 다른 객체/version으로 보존하며 서로 덮어쓰지 않는다. 보존기간 결정 전에는 `RETENTION_POLICY_PENDING` 상태로 둔다.
 
 ## 10. 단계별 구현
 
@@ -162,7 +173,7 @@
 5. 2025 `29-02`가 있어도 2026 `29-02` preview/등록은 2026 master만 사용한다.
 6. 차수/연도가 모호하면 register가 409 `AMBIGUOUS_PERIOD`로 차단된다.
 7. 같은 idempotency key를 동시에 두 번 보내도 수량은 한 번만 증가한다.
-8. 정상/오류 혼합 batch에서 부분등록 OFF는 전체 차단, ON은 승인된 행만 등록한다.
+8. 정상/오류 혼합 batch에서 부분등록 OFF는 한 transaction으로 전부 성공하거나 전부 rollback한다. ON은 승인된 행별 실행 집합만 등록하고 성공행 재가산을 막는다.
 9. 등록 전후 Shipment/Stock/Estimate/Profit 행 hash/count가 보존된다.
 10. OCR 저신뢰 행은 승인 불가이고, 수정 후 원본/OCR/수정 event가 모두 남는다.
 11. 악성 확장자/위조 MIME/과대 파일/수식 폭탄 CSV가 차단된다.
@@ -170,13 +181,14 @@
 
 ## 12. 사용자 결정 필요사항
 
-1. 음수/“취소”는 이 화면에서 주문 수량 감소로 허용할지, 별도 취소 workflow로 보낼지.
-2. 같은 `CustKey + ProdKey + unit` 행의 기본 합산 범위: source 내부/전체 batch/합산 안 함.
-3. 부분등록 기본값과 승인자 분리(4-eyes) 적용 기준.
-4. 원본/OCR/correction/감사 보존기간과 삭제·법적보존 정책.
-5. 외부 OCR 제공자, 데이터 리전, tenant opt-in, 월 비용 한도.
-6. 기존 `/orders/import`를 in-place 전환할지 `/orders/capture`로 병행 출시할지.
+1. **결정 대기 — 음수/취소:** 이 화면에서 감소를 허용할지 별도 workflow로 보낼지. 결정 전에는 `CANCEL_POLICY_PENDING`으로 차단하며 양수 ADD와 상계하지 않는다.
+2. **결정 대기 — 중복 합산:** `OrderYear + OrderWeek + CustKey + ProdKey + unit + command` 행의 기본 합산 범위. 결정 전에는 자동 합산하지 않고 그룹별 명시 선택을 요구한다.
+3. **결정 대기 — 부분등록:** 기본값과 transaction 경계. 안전 기본안은 OFF이나 사용자 결정 전 정책값으로 확정하지 않는다.
+4. **결정 대기 — 4-eyes:** 적용 대상, 입력자/승인자 분리, 승인자/실행자 분리 여부. 결정 전에는 동일인 승인 가능으로 추정하지 않는다.
+5. **결정 대기 — 보존:** 원본/OCR/correction/감사 각각의 보존기간, 삭제권한, legal hold, backup 삭제 시점.
+6. **결정 대기 — 외부 OCR:** 제공자, 처리 리전, tenant opt-in, zero-retention/학습금지, subprocessor, 월 비용 한도.
+7. **결정 대기 — 출시 경로:** 기존 `/orders/import`를 전환할지 `/orders/capture`로 병행할지.
 
 ## 13. 구현 착수 전 필수 증거
 
-이번 산출물은 기획이므로 운영 DB probe와 원장 write를 수행하지 않았다. 실제 구현 전에는 `FormOrderAdd`/`ClassOrderMaster`/`ClassOrderDetail`의 조회·저장 순서를 로컬 dnSpy CLI로 재확인하고 `docs/exe-golden` 근거, 동일 업무키 read-only probe, 계약 JSON, 교차연도 fixture를 추가해야 한다. 주문등록 후 `ViewOrder`에는 보이고 `ViewShipment`, `ShipmentDate`, `ShipmentFarm`, Stock, Estimate, WebProfitReport는 변하지 않는다는 사후 검증을 실행 가능한 테스트로 고정한다.
+이번 산출물은 기획이므로 운영 DB probe와 원장 write를 수행하지 않았다. 따라서 EXE parity와 실제 원장 사후 상태는 **미검증**이다. 실제 구현 전에는 PR을 최신 `master`에 맞추고 `docs/contracts/product-matching.json` 등 그 시점의 계약을 다시 대조해야 한다. 또한 `FormOrderAdd`/`ClassOrderMaster`/`ClassOrderDetail`의 조회·저장 순서를 로컬 dnSpy CLI로 재확인하고 `docs/exe-golden` 근거, 동일 업무키 read-only probe, 신규 기능 계약 JSON, 교차연도 fixture를 추가해야 한다. 주문등록 후 `ViewOrder`에는 보이고 `ViewShipment`, `ShipmentDate`, `ShipmentFarm`, Stock, Estimate, WebProfitReport는 변하지 않는다는 사후 검증을 실행 가능한 테스트로 고정한다.
