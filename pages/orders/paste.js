@@ -1979,7 +1979,7 @@ export default function PasteOrderPage() {
     rematchBaseStock();
     stockNoteReviewAttemptRef.current = false;
     stockNoteWriteReceiptRef.current = null;
-    setStockNoteReview({forceCreate, fingerprint: currentStockNoteFingerprint, error: ''});
+    setStockNoteReview({forceCreate, fingerprint: currentStockNoteFingerprint, error: '', returnFocus: document.activeElement});
     setBaseStockMatchEditIdx(null);
   };
   useEffect(() => {
@@ -5795,7 +5795,7 @@ export default function PasteOrderPage() {
         </div>
       )}
       {stockNoteReview && (
-        <StockNoteMatchingDialog saving={stockNoteSaving} onClose={() => {if (!stockNoteSaving) setStockNoteReview(null);}}>
+        <StockNoteMatchingDialog saving={stockNoteSaving} returnFocus={stockNoteReview.returnFocus} onClose={() => {if (!stockNoteSaving) setStockNoteReview(null);}}>
           <h2 id="stock-note-match-title" style={{margin: '0 0 10px', fontSize: 20}}>기초재고 품목 매칭 확인</h2>
           <p role="status" data-testid="stock-note-match-progress">{stockNoteReviewProgress.matched}/{stockNoteReviewProgress.total} 매칭 · {stockNoteReviewProgress.ready ? '100% 확인 후 저장합니다.' : '모든 품목을 매칭하면 자동 저장합니다.'}</p>
           {baseStockText.trim() && stockNoteReviewProgress.total === 0 && <p role="alert" style={{color: '#b91c1c'}}>저장할 기초재고 품목과 수량이 없습니다. 닫은 후 입력 내용을 확인해 주세요.</p>}
@@ -5887,10 +5887,10 @@ function StockImpactSummary({ draft, selectedWeek, processed = false }) {
   );
 }
 
-function StockNoteMatchingDialog({children, saving, onClose}) {
+function StockNoteMatchingDialog({children, saving, onClose, returnFocus}) {
   const dialogRef = useRef(null);
   useEffect(() => {
-    const previous = document.activeElement;
+    const previous = returnFocus || document.activeElement;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     dialogRef.current?.querySelector('[autofocus], button:not(:disabled), input:not(:disabled)')?.focus();
