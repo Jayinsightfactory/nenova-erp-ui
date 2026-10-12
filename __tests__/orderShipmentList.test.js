@@ -71,9 +71,19 @@ assert.doesNotMatch(persistSource, /confidenceLabel === 'high'/,
 const page = fs.readFileSync(path.join(process.cwd(),'pages/orders/import.js'),'utf8');
 assert.ok(page.indexOf('1. 파일을 드래그하거나 클릭하여 업로드') < page.indexOf('2. 자동 매칭 결과 확인'), '업로드가 거래처·차수 매칭보다 먼저 보여야 한다');
 assert.ok(page.indexOf('📥 출고리스트 엑셀 만들기') < page.indexOf('품목 매칭 결과'), '출고리스트 생성 UI가 품목 매칭표보다 위에 있어야 한다');
-assert.match(page, /const saved = onPersistMapping \? await onPersistMapping\(row, prod\) : true;/,
-  '품목 선택 UI는 서버 저장매핑 완료를 기다린 뒤 현재 품목을 확정해야 한다');
-assert.match(page, /return persistItemMapping\(row, prod, \{[\s\S]*custKey: cust\?\.CustKey \|\| null/,
+assert.match(page, /if \(onPersistMapping && await onPersistMapping\(row, prod\) !== true\) \{[\s\S]*throw new Error\([\s\S]*onPick\(prod\)/,
+  '품목 선택 UI는 서버 저장과 재조회가 끝난 뒤 현재 품목을 확정해야 한다');
+assert.match(page, /catch \(error\) \{\s*setSaveError\([\s\S]*setOpen\(true\)/,
+  '매칭 저장 실패 시 선택 창과 오류를 유지해 같은 품목을 재시도할 수 있어야 한다');
+assert.match(page, /event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/,
+  '품목 검색 후보는 방향키로 이동할 수 있어야 한다');
+assert.match(page, /event\.key === 'Enter' && open[\s\S]*void pick\(searchHits\[/,
+  '검색 입력에서 Enter로 선택한 후보를 저장할 수 있어야 한다');
+assert.match(page, /event\.key === 'Escape' && open[\s\S]*setOpen\(false\)/,
+  '검색 입력에서 Escape로 후보 목록을 닫을 수 있어야 한다');
+assert.match(page, /String\(restored\.rowNo \?\? ''\) !== String\(row\.rowNo \?\? ''\)/,
+  '행 번호가 없는 과거 초안도 재매칭 결과를 적용할 수 있어야 한다');
+assert.match(page, /await persistItemMapping\(row, prod, \{[\s\S]*custKey: selectedCustKey/,
   '수동 품목 변경 저장 결과가 선택 UI까지 전달돼야 한다');
 assert.match(page, /fd\.append\('custKey', String\(cust\.CustKey\)\)/,
   '업로드 파싱에도 선택 업체를 전달해 업체별 저장매칭을 적용해야 한다');
