@@ -17,3 +17,4 @@ dnSpy.Console.exe -t FormShipmentDistribution 실제 실행: btnSave_Click의 cl
 - test:pivot-adjust, test:erp-contract, test:nenova-dnspy-evidence, test:erp-manifest(--changed-from origin/master), guard:erp-writes, build PASS.
 - XLSX styled write/read roundtrip에서 숫자·SUM·0수량 비고·텍스트 안전성·wrapText 보존 검증.
 - 연결 Chrome 탭 0개로 실제 화면 클릭 검증은 미완료. 배포 자동 스모크와 구분해 보고한다.
+- PR371 merge 0130cee, Deploy to Cafe24 run32945951848 SUCCESS. 자동 hydration/week-pivot mount/layout smoke PASS. 실제 사용자 데이터 클릭·토글 육안 검증은 Chrome 연결 후 남음.
