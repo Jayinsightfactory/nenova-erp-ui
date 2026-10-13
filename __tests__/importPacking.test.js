@@ -16,6 +16,7 @@ async function main() {
   const erpMatchHelpers = await import('../lib/importPackingErpMatches.js');
   const receiptAdapter = await import('../lib/importPackingReceiptAdapter.js');
   const sourceReview = await import('../lib/importPackingSourceReview.js');
+  const matchPreview = await import('../lib/importPackingMatchPreview.js');
   const chinaInvoiceFormat = await import('../lib/importChinaInvoiceFormat.js');
   const root = path.resolve(__dirname, '..');
   const sourcePath = path.join(root, 'output/import-tool-sources/Packing List Nenova.html');
@@ -280,6 +281,7 @@ async function main() {
       '../../lib/importPackingErpMatches.js': erpMatchHelpers,
       '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
       '../../lib/importPackingSourceReview.js': sourceReview,
+      '../../lib/importPackingMatchPreview.js': matchPreview,
       '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
       './PackingResults.js': { default: 'PackingResults', __esModule: true },
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
@@ -333,7 +335,13 @@ async function main() {
     assert.equal(fetchCalls[0].url, '/api/import/tools/parse-pdf');
     assert.deepEqual(Object.keys(JSON.parse(fetchCalls[0].options.body)).sort(), ['country','pdfBase64']);
     resolveFetch({ ok: true, status: 200, json: async () => ({ ...ai({ invoices: [invoice] }), source: 'ai', cacheSaved: true }) }); await pendingProcess;
-    tree = render(); assert.ok(text(tree).includes('Todo correcto'));
+    tree = render();
+    assert.ok(text(tree).includes('DB 매칭 미리보기'), 'parsed invoices remain in matching-first preview');
+    assert.ok(text(tree).includes('원문 검토'), 'final generation still requires explicit review');
+    const reviewDialog = flatten(tree).find(node => node.type === 'EvidenceReview');
+    assert.equal(reviewDialog.props.open, false, 'extraction does not auto-open the source review modal');
+    const previewResults = flatten(tree).find(node => node.type === 'PackingResults');
+    assert.equal(previewResults.props.previewOnly, true);
     assert.ok(text(tree).includes('Análisis IA completado'));
     const upload = flatten(tree).find(node => node.type === 'input' && node.props.accept === '.xlsx');
     upload.props.onChange({ target: { files: [{ name: 'catalog.xlsx', arrayBuffer: async () => bufferOf([['No','Code','Name','Flower','Country'], [1,'X','NEW NAME','장미','콜롬비아']]) }] } });

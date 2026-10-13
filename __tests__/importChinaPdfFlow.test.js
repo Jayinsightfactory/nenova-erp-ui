@@ -76,7 +76,7 @@ test('offsetting row-price errors cannot pass structured China generation',async
  }
 });
 test('actual private 41-1 PDF fixture extracts locally with zero network calls',{skip:!process.env.CHINA_PDF_FIXTURE},async()=>{
- const [client,response]=await ready;let calls=0;
+ const [client,response,,review]=await ready;let calls=0;
  const data=JSON.parse(fs.readFileSync(process.env.CHINA_PDF_FIXTURE,'utf8'));
  assert.equal(data.pages.length,7);
  const out=await client.extractPackingDocument({country:'CN',pdfBase64:'private-fixture',readPdf:async()=>data,fetchImpl:async()=>{calls++;throw Error('network forbidden');}});
@@ -88,6 +88,11 @@ test('actual private 41-1 PDF fixture extracts locally with zero network calls',
  const missing=inv.products.filter(p=>p.u_price==null);assert.equal(missing.length,1);
  assert.equal(missing[0].total_bunch,140);
  assert.ok(inv.extractionIssues.some(x=>x.code==='AMOUNT_COMPONENTS_UNAVAILABLE'));
+ const bound=review.bindPackingSourceReviewPolicy({...inv,pdfReviewRequired:true,pdfSourceHash:'a'.repeat(64)},'CN',{source:out.source});
+ const sourceDraft=review.makePackingSourceReview(bound,'CN');
+ assert.equal(sourceDraft.rows.filter(row=>row.reviewRequired).length,2,'Only missing-price and carton-warning rows need source checks');
+ assert.equal(sourceDraft.rows.filter(row=>row.auditMethod==='MACHINE_VERIFIED').length,99);
+ assert.equal(sourceDraft.rows.filter(row=>row.confirmed).length,0,'Machine checks never impersonate human confirmation');
 });
 test('PDF receipt draft is blocked before source review; confirmed source retains quantities and GW without writes',async()=>{
  const [,,packing,review]=await ready;

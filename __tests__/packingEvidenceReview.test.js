@@ -40,6 +40,20 @@ test('source row labels stay compact and use Korean labels instead of parser fie
   assert.match(component, /미매칭 · 결과에서 선택 필요/);
 });
 
+test('matching-first review defaults to manual rows and can open a specific source line', () => {
+  assert.match(component, /initialTarget = null/);
+  assert.match(component, /entry\.invoiceIndex === initialTarget\.invoiceIndex && entry\.row\?\.lineIndex === initialTarget\.lineIndex/);
+  assert.match(component, /setSelectedKey\(String\(targetEntry\.invoiceIndex\)\)/);
+  assert.match(component, /sourceKey: targetEntry\.key/);
+  assert.match(component, /targetPage <= result\.numPages/);
+  assert.match(component, /targetEntry\?\.row\?\.reviewRequired === false/);
+  assert.match(component, /\.filter\(entry => showAllSourceRows \|\| sourceNeedsHumanReview\(entry\)\)/);
+  assert.match(component, /data-testid="source-show-all"/);
+  assert.match(component, /needsHumanReview \? <label/);
+  assert.match(component, /로컬 파서 검산 · 사람 확인 아님/);
+  assert.doesNotMatch(component, /source-(?:bulk|select-all|confirm-all)/);
+});
+
 test('PDF preview is bounded, local-worker-only, and never guesses a text match', () => {
   assert.match(preview, /MAX_PDF_BYTES = 20 \* 1024 \* 1024/);
   assert.match(preview, /MAX_PAGES = 100/);
