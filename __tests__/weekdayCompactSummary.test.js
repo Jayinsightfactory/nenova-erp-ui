@@ -24,6 +24,10 @@ const load = (react = React) => {
   return mod.exports;
 };
 const {default:Matrix, CompactSummary, ConfirmationBadges, carryoverInputAlerts} = load();
+// React 18 drops unknown boolean DOM attributes: inert must survive actual SSR.
+const stickyHarness={...React,useMemo:factory=>factory(),useEffect(){},useRef:()=>({current:null}),
+  useState(initial){return [initial===null?{left:0,top:0,width:1920,tableWidth:2830}:initial,()=>{}];}};
+const StickyMatrix=load(stickyHarness).default;
 const render = (Component, props) => renderToStaticMarkup(React.createElement(Component, props));
 const cycles = [-1,0,1].map(offset => ({offset,year:2026,majorWeek:String(38+offset),calendarState:'FOUND',
   startDate:shiftDate('2026-09-17',offset*7),endDate:shiftDate('2026-09-17',offset*7+6),
@@ -43,6 +47,9 @@ const props = {cycles,comparisonRows:comparisons,plans:[draft],baselines:[baseli
   customer:{CustKey:7},onEditCell(){},onPrint(){}};
 const snapshot = JSON.stringify(props);
 let html = render(Matrix,props);
+const stickyHtml=renderToStaticMarkup(StickyMatrix(props));
+assert.match(stickyHtml,/<thead inert="" aria-hidden="true">/,'original header is inert while the interactive clone is active');
+assert.equal((stickyHtml.match(/<thead inert=/g)||[]).length,1,'only original header is inert; floating header remains keyboard accessible');
 assert.equal(JSON.stringify(props),snapshot,'display never mutates raw quantity/baseline/draft inputs');
 assert.equal((html.match(/class="wcm-compact-summary"/g)||[]).length,9);
 assert.equal((html.match(/<td class="wcm-total wcm-major-total(?: [^"]*)?"/g)||[]).length,9,'three actual summary cells per cycle');

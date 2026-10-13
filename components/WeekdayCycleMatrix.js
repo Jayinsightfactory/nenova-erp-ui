@@ -577,7 +577,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
     }
   }
 
-  const renderHeader=(floating=false)=>(<thead inert={!floating && stickyLayout ? true : undefined} aria-hidden={!floating && stickyLayout ? true : undefined}>
+  const renderHeader=(floating=false)=>(<thead inert={!floating && stickyLayout ? '' : undefined} aria-hidden={!floating && stickyLayout ? true : undefined}>
           <tr><th rowSpan={3} scope="col">품목 <span className="wcm-muted">· 단위</span></th>
             {matrix.cycles.map((cycle) => {
               const dates = (selectedDates[cycleKey(cycle)] || []).filter((value) => cycle.days.some((day) => day.date === value));

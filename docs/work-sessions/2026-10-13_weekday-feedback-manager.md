@@ -29,3 +29,10 @@
 - 실제 동시 계산 중 일시 대기는 정상 보호 동작이며 모든 BUSY를 제거하지 않는다.
 - 브라우저1920×1080 검증은 배포 후 수행. 현재 연결 Chrome은 로그인 필요; 사용자는 웹앱에서 작업했다고 설명했다.
 - output/ 하위 SQL probe·추출 원문·테스트 로그는 로컬 ignored. 계정/비밀 원문 커밋 금지.
+
+## Chrome 실조작 결과
+- 운영과 분리된 loopback fixture에 실제 WeekdayCycleMatrix/helper를 번들해 50품목×3대차수 검증. 운영 API/DB 연결 없음.
+- 1920×1080/100%: window/page-area 세로스크롤 고정헤더, 가로40px 이동 동기화, 고정헤더 체크박스 Space·마우스 동작 확인.
+- 실제 React에서 boolean inert 속성이 누락되는 문제를 발견하고 빈 문자열로 수정. 원본 thead만 inert+aria-hidden, 복제헤더 조작 가능. SSR 회귀 포함.
+- 900×700: 420px 상세가 화면 안에 표시, Enter 열기/Escape 닫기/호출버튼 초점복귀 확인. 표 자체 clientHeight=scrollHeight로 내부 세로스크롤 없음.
+- 증거: 로컬 ignored output/weekday-sticky-chrome-1920.jpg. 운영 인증 후 화면 확인은 별도이며 이 결과를 운영 smoke로 주장하지 않는다.
