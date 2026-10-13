@@ -16,6 +16,7 @@ const modulesReady = Promise.all([
   import('../lib/importChinaLegacyInvoice.js'),
   import('../lib/importChinaLegacyReview.js'),
   import('../lib/importPackingSourceReview.js'),
+  import('../lib/importChinaInvoiceFormat.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -59,7 +60,7 @@ function browserPdfFile(file) {
 // Actual component handlers with controlled local hooks. No network, DB or browser.
 async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
   const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter,
-    chinaLegacyInvoice, chinaLegacyReview, sourceReview] = await modulesReady;
+    chinaLegacyInvoice, chinaLegacyReview, sourceReview, chinaInvoiceFormat] = await modulesReady;
   const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [], generationCalls = [], hashPromises = [];
   let cursor = 0, currentCatalog = catalog, currentAliases = null, failure = null, erpFailure = null;
   const storageReads=[];
@@ -140,6 +141,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
     '../../lib/importChinaInvoice.js': chinaInvoice, '../../lib/importPackingErpMatches.js': erpMatchHelpers,
+    '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
     '../../lib/importPackingReview.js': review,
     '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
     '../../lib/importChinaLegacyInvoice.js': chinaLegacyInvoice,

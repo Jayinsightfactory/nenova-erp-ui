@@ -12,6 +12,7 @@ import { parsePackingResponse } from '../../lib/importPackingResponse.js';
 import { parseAwbFields, parsePrintedDate } from '../../lib/importAwbFields.js';
 import { extractPackingDocument } from '../../lib/importPackingExtractClient.js';
 import { parseChinaInvoiceWorkbook, CHINA_INVOICE_MAX_BYTES } from '../../lib/importChinaInvoice.js';
+import { isModernChinaInvoice } from '../../lib/importChinaInvoiceFormat.js';
 import { readPackingRecords, indexPackingCatalog, savePackingAliases, writePackingRecord,
   PACKING_STORAGE_KEYS, isPackingDownloadBlocked, previewPackingCatalog,
   distinctPackingVarieties, PACKING_PDF_MAX_BYTES,
@@ -1828,14 +1829,14 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 setStatus({ type: 'error', msg: `구형 인보이스 변환 차단: ${error.message}` });
               }
             }} />}
-            {lastExtraction?.result?.invoices?.[0]?.source_format === 'china_invoice_xlsx' && (() => {
+            {isModernChinaInvoice(lastExtraction?.result?.invoices?.[0]?.source_format) && (() => {
               const inv = lastExtraction.result.invoices[0];
               return <section aria-label="중국 원본 합계 검산" className={styles.sourceBadge}>
                 <strong>원본 합계 검산 · {inv.invoice} · {inv.date}</strong>
                 <div style={{display:'flex',flexWrap:'wrap',gap:'8px 24px',marginTop:6}}>
                   {[['박스', inv.total_boxes], ['단수', inv.total_bunches], ['송이수', inv.total_stems], ['품목금액 CNY', inv.item_subtotal], ['부대비용 CNY', inv.freight], ['전체금액 CNY', inv.total_value]].map(([label, value]) => <span key={label}>{label} <strong>{Number(value).toLocaleString('ko-KR',{maximumFractionDigits:2})}</strong></span>)}
                 </div>
-                <small>부대비용은 꽃 수량에서 제외합니다. 0원 품목도 포함하며, 미매칭 품목은 아래에서 확인·저장한 뒤 다운로드합니다.</small>
+                <small>부대비용은 꽃 수량에서 제외합니다. 명시된 0원과 미확인 단가는 구분하며, 미확인 값과 미매칭 품목을 확인한 뒤 다운로드합니다.</small>
               </section>;
             })()}
             {status && (
