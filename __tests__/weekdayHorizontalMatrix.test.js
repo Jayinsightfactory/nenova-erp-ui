@@ -84,12 +84,12 @@ const businessBlock = build(cycles,[],businessActuals,businessBaselines).rows[0]
 assert.equal(businessBlock.subweek01.effectiveTotal,11);
 assert.equal(businessBlock.subweek02.effectiveTotal,0,'Sunday displays in Thursday–Sunday interval regardless of source key');
 assert.equal(businessBlock.subweek01.remainderView.value,9);
-assert.equal(businessBlock.subweek02.remainderView.value,20,'standalone -02 baseline minus -02 allocation');
+assert.equal(businessBlock.subweek02.remainderView.value,29,'-02 carries the -01 remainder plus its own baseline');
 const businessDraft = build(cycles,[plan({orderWeek:'38-02',date:sunday,quantity:9})],businessActuals,businessBaselines).rows[0].blocks[1];
 assert.equal(businessDraft.subweek01.effectiveTotal,null,'noncanonical legacy draft cannot silently project as a valid edit');
 assert.match(businessDraft.days[3].editDisabledReason,/차수 정정/);
 assert.equal(businessDraft.subweek02.effectiveTotal,0);
-assert.equal(businessDraft.subweek02.remainderView.value,20);
+assert.equal(businessDraft.subweek02.remainderView.value,null,'invalid first interval draft propagates to cumulative second remainder');
 const mismatchedDates = build(cycles,[],[actual({shipmentOutQuantity:10})],businessBaselines).rows[0].blocks[1];
 assert.equal(mismatchedDates.subweek01.effectiveTotal,4,'visible date total is independent of raw detail total');
 assert.equal(mismatchedDates.subweek01.remainderView.value,16,'known dated evidence supports visible remainder');
@@ -634,3 +634,29 @@ const missingCustomerHost = mount(eventModule.exports.default, { cycles, onAddPr
 assert.equal(descendants(missingCustomerHost.render()).find((element) => element.type === 'button'
   && element.props.children === '품목 추가').props.disabled, true);
 console.log(`Horizontal weekday matrix: ${eligibilityCases.length} raw-shipment eligibility and real SSR fixtures, raw row preservation, hidden count/empty/filter states, async product picker pending/failure/success/zero-row retention, union/33-column ordering, year identity, outside rows, unit/duplicate guards, zero validation, print eligibility and edit/print/search event handlers passed.`);
+
+// Cumulative subweek balance: 30-25=5, then 5+5-10=0.
+const cumulativeBases=['01','02'].map(suffix=>({year:2026,orderWeek:`38-${suffix}`,
+  rows:[{prodKey:101,unit:'박스',quantity:suffix==='01'?30:5}]}));
+const cumulativeActuals=[actual({shipmentOutQuantity:25,shipmentDates:[{date:sunday,shipmentQuantity:25}]}),
+  actual({orderWeek:'38-02',shipmentOutQuantity:10,shipmentDates:[{date:'2026-09-21',shipmentQuantity:10}]})];
+const cumulativeBlock=(draft=[],bases=cumulativeBases,candidates=[])=>build(cycles,draft,cumulativeActuals,bases,candidates).rows[0].blocks[1];
+const cumulative=cumulativeBlock();
+assert.equal(cumulative.subweek01.remainderView.value,5);
+assert.equal(cumulative.subweek02.remainderView.value,0);
+assert.equal(cumulative.subweek02.remainderView.savedValue,0);
+const firstDraft=cumulativeBlock([plan({date:sunday,quantity:27})]);
+assert.equal(firstDraft.subweek02.remainderView.value,-2);
+assert.equal(firstDraft.subweek02.remainderView.hasDraft,true);
+assert.equal(firstDraft.subweek02.remainderView.savedValue,0);
+const secondDraft=cumulativeBlock([plan({orderWeek:'38-02',date:'2026-09-21',quantity:8})]);
+assert.equal(secondDraft.subweek02.remainderView.value,2);
+assert.equal(secondDraft.subweek02.remainderView.hasDraft,true);
+const provisionalFirst=cumulativeBlock([],cumulativeBases.slice(1),[{...cumulativeBases[0],provisional:true}]);
+assert.equal(provisionalFirst.subweek02.remainderView.value,0);
+assert.equal(provisionalFirst.subweek02.remainderView.hasProvisional,true);
+assert.equal(provisionalFirst.subweek02.remainderView.savedValue,null);
+for(const invalidBases of [cumulativeBases.slice(1),cumulativeBases.slice(0,1),
+  cumulativeBases.map((record,index)=>index===0?{...record,year:2025}:record),
+  cumulativeBases.map((record,index)=>index===0?{...record,rows:[{prodKey:101,unit:'단',quantity:30}]}:record)])
+  assert.equal(cumulativeBlock([],invalidBases).subweek02.remainderView.value,null,'unknown/cross-year/unit basis is not zero');
