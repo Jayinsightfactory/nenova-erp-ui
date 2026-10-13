@@ -84,9 +84,11 @@ test('renders every result row with optional China columns and stable smoke sele
   assert.equal(nodes.find(node => node.props?.['data-testid'] === 'packing-results-issues'), undefined, 'row issue cards are not duplicated beside the table');
   assert.equal(nodes.find(node => node.props?.['data-testid'] === 'packing-results-copy-open')?.type, 'button');
   assert.equal(nodes.filter(node => node.type === 'tr').length, 102, 'header plus all 101 product rows');
-  for (const heading of ['원문품목', '길이', '박스', '단수', '송이', '단가', '금액', '매칭·확인사항']) {
+  for (const heading of ['원문품목', '길이', 'DB 매칭·확인사항', '박스', '단수', '송이', '단가', '금액']) {
     assert.ok(text(tree).includes(heading), `missing optional column ${heading}`);
   }
+  const header = nodes.filter(node => node.type === 'th').map(text);
+  assert.deepEqual(header, ['No.', '원문품목', '길이', 'DB 매칭·확인사항', '박스', '단수', '송이', '단가', '금액']);
   assert.ok(text(tree).includes('GW 미확인'));
   assert.ok(text(tree).includes('CW 0kg'));
   assert.ok(text(tree).includes('매칭 101'));
@@ -169,7 +171,7 @@ test('successful parent rebuild removes a review row safely, failed/no rebuild r
   } finally { global.document = oldDocument; }
 });
 
-test('shows a target only when it differs from the source and keeps the original product once per row', () => {
+test('shows the explicit original and resolved database product in separate columns', () => {
   state.length = 0;
   const tree = render({
     excels: [{
@@ -180,15 +182,43 @@ test('shows a target only when it differs from the source and keeps the original
       ],
     }],
     country: 'CN', blocked: () => false, onDownload() {}, onMatch() {},
-    erpProducts: [{ ProdKey: 1, ProdName: 'same' }, { ProdKey: 2, ProdName: 'ERP TARGET' }],
+    erpProducts: [{ ProdKey: 1, ProdName: 'same', country: 'CN' }, { ProdKey: 2, ProdName: 'ERP TARGET', country: 'CN' }],
   });
   const rows = flatten(tree).filter(node => node.type === 'tr').slice(1);
 
-  assert.equal(text(rows[0]).match(/SAME/gi)?.length, 1, 'case-only equality does not duplicate the target');
-  assert.equal(text(rows[1]).match(/SOURCE ONLY/g)?.length, 1, 'the original appears only in its match button');
+  const rowCells = row => flatten(row).filter(node => node.type === 'td');
+  assert.equal(text(rowCells(rows[0])[1]), 'SAME', 'source remains in the original column');
+  assert.match(text(rowCells(rows[0]).find(node => node.props.className === 'matchCell')), /^same/, 'database name is rendered even when case-only equal');
+  assert.equal(text(rowCells(rows[1])[1]), 'SOURCE ONLY', 'source remains in its own column');
+  assert.match(text(rowCells(rows[1]).find(node => node.props.className === 'matchCell')), /ERP TARGET/, 'DB name comes from the resolved database product');
   assert.match(text(rows[1]), /ERP TARGET/);
   const buttons = flatten(tree).filter(node => node.props?.['data-testid'] === 'packing-product-match');
   assert.equal(buttons[1].props.title, 'SOURCE ONLY', 'sourceName remains the visible baseline');
+});
+
+test('DB-missing and similar-review status buttons invoke the existing match callback with the original row identity', () => {
+  state.length = 0;
+  const products = [
+    { source_row: 10, sourceName: 'SIMILAR SOURCE', name: 'DB TARGET', qty: 1, matchScore: 0.91 },
+    { source_row: 11, sourceName: 'UNMATCHED SOURCE', name: 'UNMATCHED SOURCE', unmatched: true, qty: 2 },
+  ];
+  const excel = { name: 'status-actions.xlsx', products };
+  const calls = [];
+  const tree = render({ excels: [excel], country: 'CN', erpProducts: [{ ProdKey: 7, ProdName: 'DB TARGET', country: 'CN' }],
+    blocked: () => false, onDownload() {}, onMatch: (...args) => calls.push(args) });
+  const nodes = flatten(tree);
+  const statusActions = nodes.filter(node => node.props?.['data-testid'] === 'packing-result-status-match');
+  assert.equal(statusActions.length, 2);
+  assert.ok(statusActions.every(node => node.type === 'button'), 'status actions use native buttons');
+  assert.match(text(statusActions[0]), /유사 매칭/);
+  assert.equal(text(statusActions[1]), 'DB 미매칭');
+  statusActions[0].props.onClick();
+  statusActions[1].props.onClick();
+  assert.deepEqual(calls, [[products[0], excel, 0], [products[1], excel, 1]]);
+
+  const sourceButton = nodes.find(node => node.props?.['data-testid'] === 'packing-product-match');
+  sourceButton.props.onClick();
+  assert.deepEqual(calls[2], [products[0], excel, 0], 'the original source-name action remains available');
 });
 
 test('disables matching without a parent callback or while mapping is disabled', () => {
@@ -200,6 +230,11 @@ test('disables matching without a parent callback or while mapping is disabled',
   state.length = 0;
   const mappingDisabled = render({ excels: [excel], country: 'CN', blocked: () => false, onDownload() {}, onMatch() {}, mappingDisabled: true });
   assert.equal(flatten(mappingDisabled).find(node => node.props?.['data-testid'] === 'packing-product-match').props.disabled, true);
+
+  state.length = 0;
+  const statusDisabled = render({ excels: [{ name: 'unmatched.xlsx', products: [{ sourceName: 'UNKNOWN', unmatched: true }] }],
+    country: 'CN', blocked: () => false, onDownload() {}, onMatch() {}, mappingDisabled: true });
+  assert.equal(flatten(statusDisabled).find(node => node.props?.['data-testid'] === 'packing-result-status-match').props.disabled, true);
 });
 
 test('arrow keys move focus between row match buttons', () => {

@@ -1031,7 +1031,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   const resetResults = () => {
     setMatchTarget(null);setMatchError('');
     setReviewRows(null); setReviewOpen(false); setReviewConfirmed(false);
-    setNeedsAI(false); setExtractionSource('');
+    setNeedsAI(false); setExtractionSource(''); setPdfRetryJobId(null);
     setExcels([]); setGenerated({}); setLastExtraction(null);
     setLegacyReviewData(null);
     setLegacyPackingReviewRequired(false);
@@ -1401,8 +1401,9 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
   });
 
   const [needsAI, setNeedsAI] = useState(false);
+  const [pdfRetryJobId, setPdfRetryJobId] = useState(null);
   const [extractionSource, setExtractionSource] = useState('');
-  const process = async (allowAI = false) => {
+  const process = async (allowAI = false, retryJobId = null) => {
     if (!pdfBase64 || !xlsxLib || !sharedReady || savingRef.current || processingRef.current || catalogParsing) return;
     const parsed = parseWeekFromFilename(file.name);
     if (!parsed) {
@@ -1442,7 +1443,15 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
           }
         }
       } else {
-        extraction = await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true});
+        extraction = await extractPackingDocument({country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,
+          onProgress: progress => {
+            if (!isCurrent()) return;
+            const label=progress.stage==='SUBMITTING'?'PDF 분석 접수 중':'AI 분석 중 · 결과 확인 중';
+            setSteps([{label,state:'active'}]);
+            setStatus({type:'info',msg:progress.stage==='SUBMITTING'
+              ? '분석 작업을 접수합니다. 원본 파일은 유지됩니다.'
+              : `AI 분석 결과를 확인하고 있습니다${progress.elapsedSeconds ? ` (${progress.elapsedSeconds}초 경과)` : ''}. 결과 조회는 AI를 다시 호출하지 않습니다.`});
+          }});
       }
       if (!isCurrent()) return;
       if(extraction.needsAI){
@@ -1502,7 +1511,12 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       }
       buildExcels({ invoices, masterAwb, weekParsed: parsed, currentAliases: freshRecords.aliases, erpMatches:freshErp, wasTruncated, extractionResult: result });
     } catch (e) {
-      if (isCurrent()) setStatus({ type: 'error', msg: t.errorPrefix + e.message });
+      if (isCurrent()) {
+        setStatus({ type: 'error', msg: t.errorPrefix + e.message });
+        setSteps([{label:'인보이스 분석 중단 · 파일 유지',state:'error'}]);
+        if (allowAI===true) setNeedsAI(true);
+        setPdfRetryJobId(e.pdfRetryJobId || null);
+      }
     } finally {
       processingRef.current = false;
       setProcessing(false);
@@ -1790,7 +1804,10 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
               <button onClick={() => process(false)} disabled={!pdfBase64 || processing || !xlsxLib} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: (pdfBase64 && !processing) ? 'pointer' : 'not-allowed', border: '1px solid #2457c5', background: '#2457c5', color: '#fff', opacity: (pdfBase64 && !processing) ? 1 : 0.35 }}>
                 {processing ? t.processing : t.generate}
               </button>
-              {needsAI&&<button onClick={()=>process(true)} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{t.aiAnalyze}</button>}
+              {needsAI&&<button onClick={()=>{
+                if (pdfRetryJobId && !toolRoot.current?.ownerDocument?.defaultView?.confirm('이전 분석의 결과가 불명확하여 추가 비용이 발생할 수 있습니다. 같은 파일을 새로 AI 분석할까요?')) return;
+                return process(true,pdfRetryJobId);
+              }} disabled={processing} style={{padding:'9px 18px',borderRadius:8,border:'1px solid #b67b12',background:'#fff4d6',fontWeight:600}}>{pdfRetryJobId?'새로 AI 분석 (추가 비용 확인)':t.aiAnalyze}</button>}
             </div>
             <div className={styles.modeBadge}>{t.localMode}</div>
             {extractionSource&&<p className={styles.sourceBadge} role="status" style={{fontSize:13,color:'#176039'}}>{extractionSource}</p>}
