@@ -126,7 +126,10 @@ assert(changedFullwidth.text.includes('로즈우드 1박스 (보관 １)'),'chan
 assert(!sameNameCopy.text.includes('제외할 품목'),'numeric excluded line is omitted without shifting later row identity');
 assert.equal(buildAppliedStockCopy({...sameNameArgs,baseStockMatches:[sameNameRows[0]]}).ready,false,'explicit missing row never falls back to name alias');
 assert.equal(buildAppliedStockCopy({...sameNameArgs,baseStockMatches:sameNameRows.map(row=>({...row,idx:row.idx+1}))}).ready,false,'stale line identity blocks copy');
-const duplicated=buildAppliedStockCopy({...sameNameArgs,baseStockMatches:sameNameRows.map(row=>({...row,prodKey:22}))});
+const duplicateMatches=sameNameRows.map(row=>({...row,prodKey:22}));
+const duplicateScope=buildAppliedStockScope({week:args.week,baseText:sameNameBase,pasteText:args.pasteText,excludedLines:[2],matches:duplicateMatches});
+const duplicated=buildAppliedStockCopy({...sameNameArgs,baseStockMatches:duplicateMatches,currentScope:duplicateScope,
+  result:{...sameNameArgs.result,stockCopyScope:duplicateScope}});
 assert.equal(duplicated.ready,false);
 assert(duplicated.warnings.some(warning=>warning.includes('2줄 로즈우드 / 4줄 로즈우드')),'true duplicate key reports both original line numbers');
 assert.equal(buildAppliedStockCopy({...sameNameArgs,baseStockMatches:sameNameRows,products:[sameNameProducts[0]]}).ready,false,'removed product never gets automatic fallback');
