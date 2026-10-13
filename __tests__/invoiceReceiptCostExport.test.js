@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 import JSZip from 'jszip';
 import { createInvoiceCostWorkbook, exportCurrentInvoiceCost } from '../lib/invoiceReceiptCostExport.js';
 import { INVOICE_COST_FORMULAS, previewInvoiceCost } from '../lib/invoiceReceiptCost.js';
@@ -183,29 +184,16 @@ function harness() {
 for (const [profileId, filename, count] of [
   ['NL_ORIGINAL_V1', 'muwamf7z-fc9448.xlsx', 60], ['CN_SEA_ORIGINAL_V1', 'muw7yf7b-5e9241.xlsx', 105],
 ]) {
-  test(`${profileId} exact source formatting, expanded rows, approved values and no historical payload`, async () => {
+  test(`${profileId} committed asset formatting, expanded rows, approved values and no historical payload`, async () => {
     const profile = INVOICE_COST_EXPORT_PROFILES[profileId], nl = profileId === 'NL_ORIGINAL_V1';
     const asset = require(`../lib/invoiceCostTemplates/${nl ? 'netherlands' : 'china-sea'}-v1.json`);
-    const source = readFileSync(new URL(`../outputs/drive-pair-discovery/sources/${filename}`, import.meta.url));
-    assert.equal(createHash('sha256').update(source).digest('hex'), profile.sourceHash);
-    const original = await JSZip.loadAsync(source);
-    const wb = await original.file('xl/workbook.xml').async('string');
-    const sheetTag = [...wb.matchAll(/<sheet\b[^>]*\/>/g)].map(m => m[0]).find(s => s.includes(`name="${profile.sourceSheet}"`));
-    const rid = sheetTag.match(/r:id="([^"]+)"/)[1];
-    const rels = await original.file('xl/_rels/workbook.xml.rels').async('string');
-    const rel = [...rels.matchAll(/<Relationship\b[^>]*\/>/g)].map(m => m[0]).find(s => s.includes(`Id="${rid}"`));
-    const target = rel.match(/Target="([^"]+)"/)[1];
-    const originalSheet = await original.file(target.startsWith('/') ? target.slice(1) : `xl/${target}`).async('string');
     const f = invoiceCostExportFixture(count, profile.formulaId);
     // Saved allocation share is already applied: export must not multiply it again.
     const bytes = await createInvoiceCostWorkbook(f), zip = await JSZip.loadAsync(bytes);
-    assert.equal(await zip.file('xl/styles.xml').async('string'), await original.file('xl/styles.xml').async('string'));
-    assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), await original.file('xl/theme/theme1.xml').async('string'));
+    assert.equal(await zip.file('xl/styles.xml').async('string'), asset.styles);
+    assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), asset.theme);
     const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
-    for (const name of ['cols', 'sheetViews', 'sheetFormatPr', 'pageMargins', 'pageSetup', 'printOptions']) {
-      const part = originalSheet.match(new RegExp(`<${name}\\b[^>]*(?:/>|>[\\s\\S]*?</${name}>)`))?.[0];
-      if (part) assert.ok(sheet.includes(part.replace(/\s+r:id="[^"]*"/g, '')));
-    }
+    for (const part of [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print]) assert.ok(sheet.includes(part));
     for (const row of asset.rows) assert.ok(sheet.includes(`<row ${row.attrs}>`));
     for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge}"`));
     const last = profile.detailStartRow + count - 1;
@@ -264,25 +252,14 @@ for (const [id, assetName, filename] of [
   ['AU_ORIGINAL_V1', 'australia', 'muwcdvon-7cb66c'], ['NZ_ORIGINAL_V1', 'new-zealand', 'mv4zc4up-c58848'],
   ['EC_ORIGINAL_V1', 'ecuador', 'muuscu1e-9f8890'],
 ]) {
-  test(`${id} source fidelity, explicit price/ERP units, numeric and boolean components, safe quantity format`, async () => {
+  test(`${id} committed asset fidelity, explicit price/ERP units, numeric and boolean components, safe quantity format`, async () => {
     const p = INVOICE_COST_EXPORT_PROFILES[id], f = invoiceCostExportFixture(28, p.formulaId);
     const asset = require(`../lib/invoiceCostTemplates/${assetName}-v1.json`);
-    const bytes = readFileSync(new URL(`../outputs/drive-pair-discovery/sources/${filename}.xlsx`, import.meta.url));
-    assert.equal(createHash('sha256').update(bytes).digest('hex'), p.sourceHash);
-    const original = await JSZip.loadAsync(bytes), wb = await original.file('xl/workbook.xml').async('string');
-    const sheetTag = [...wb.matchAll(/<sheet\b[^>]*\/>/g)].map(m => m[0]).find(s => s.includes(`name="${p.sourceSheet}"`));
-    const rid = sheetTag.match(/r:id="([^"]+)"/)[1], rels = await original.file('xl/_rels/workbook.xml.rels').async('string');
-    const rel = [...rels.matchAll(/<Relationship\b[^>]*\/>/g)].map(m => m[0]).find(s => s.includes(`Id="${rid}"`));
-    const target = rel.match(/Target="([^"]+)"/)[1];
-    const originalSheet = await original.file(target.startsWith('/') ? target.slice(1) : `xl/${target}`).async('string');
     const buffer = await createInvoiceCostWorkbook(f), output = await JSZip.loadAsync(buffer);
-    assertFormatOnlyStyleClones(await output.file('xl/styles.xml').async('string'), await original.file('xl/styles.xml').async('string'));
-    assert.equal(await output.file('xl/theme/theme1.xml').async('string'), await original.file('xl/theme/theme1.xml').async('string'));
+    assertFormatOnlyStyleClones(await output.file('xl/styles.xml').async('string'), asset.styles);
+    assert.equal(await output.file('xl/theme/theme1.xml').async('string'), asset.theme);
     const xml = await output.file('xl/worksheets/sheet1.xml').async('string');
-    for (const name of ['cols', 'sheetViews', 'sheetFormatPr', 'pageMargins', 'pageSetup', 'printOptions']) {
-      const tag = originalSheet.match(new RegExp(`<${name}\\b[^>]*(?:/>|>[\\s\\S]*?</${name}>)`))?.[0];
-      if (tag) assert.ok(xml.includes(tag.replace(/\s+r:id="[^"]*"/g, '')));
-    }
+    for (const part of [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print]) assert.ok(xml.includes(part));
     for (const row of asset.rows) assert.ok(xml.includes(`<row ${row.attrs}>`));
     for (const merge of asset.merges) assert.ok(xml.includes(`ref="${merge}"`));
     const book = XLSX.read(buffer, { cellNF: true }), s = book.Sheets['승인 원가'];
@@ -326,11 +303,10 @@ for (const [id, assetName, filename] of [
 ]) {
   test(`${id} source-bound grouped approved values, dynamic layout, and explicit TH first-row correction`, async () => {
     const p = INVOICE_COST_EXPORT_PROFILES[id], th = id === 'TH_ORIGINAL_V1', f = invoiceCostExportFixture(28, p.formulaId);
-    const source = readFileSync(new URL(`../outputs/drive-pair-discovery/sources/${filename}.xlsx`, import.meta.url));
-    assert.equal(createHash('sha256').update(source).digest('hex'), p.sourceHash);
-    const original = await JSZip.loadAsync(source), asset = require(`../lib/invoiceCostTemplates/${assetName}-v1.json`);
+    const asset = require(`../lib/invoiceCostTemplates/${assetName}-v1.json`);
     const buffer = await createInvoiceCostWorkbook(f), zip = await JSZip.loadAsync(buffer);
-    for (const name of ['styles.xml', 'theme/theme1.xml']) assert.equal(await zip.file(`xl/${name}`).async('string'), await original.file(`xl/${name}`).async('string'));
+    assert.equal(await zip.file('xl/styles.xml').async('string'), asset.styles);
+    assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), asset.theme);
     const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
     for (const part of [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print]) assert.ok(sheet.includes(part));
     for (const row of asset.rows) assert.ok(sheet.includes(`<row ${row.attrs}>`));
@@ -457,8 +433,64 @@ test('route enforces GET, real receipt role policy, no-store, binary response, a
   res = response(); await failing(req, res); assert.equal(res.code, 503); assert.doesNotMatch(JSON.stringify(res.body), /private SQL detail/);
 });
 
-const referencePath = 'C:/Users/USER/Downloads/CHINA 중국 원가자료 (8).xlsx';
-test('template formatting matches the verified original and original file is not changed', { skip: !existsSync(referencePath) }, async () => {
+const privateSourcesDisabled = process.env.INVOICE_COST_EXPORT_NO_PRIVATE_SOURCES === '1';
+const privateAssets = [
+  ['NL_ORIGINAL_V1', 'netherlands', 'muwamf7z-fc9448'], ['CN_SEA_ORIGINAL_V1', 'china-sea', 'muw7yf7b-5e9241'],
+  ['US_ORIGINAL_V1', 'us', 'mv4lixlm-49d523'], ['VN_ORIGINAL_V1', 'vietnam', 'mubybcd0-81123f'],
+  ['AU_ORIGINAL_V1', 'australia', 'muwcdvon-7cb66c'], ['NZ_ORIGINAL_V1', 'new-zealand', 'mv4zc4up-c58848'],
+  ['EC_ORIGINAL_V1', 'ecuador', 'muuscu1e-9f8890'], ['CO_ORIGINAL_V1', 'colombia', 'muki3lfy-23d4f8'],
+  ['TH_ORIGINAL_V1', 'thailand', 'muulcr7t-dcbb0b'],
+];
+
+test('all committed sanitized assets have pinned hashes, source identities and format-only cells without private XLSX', () => {
+  for (const [id, name] of [['CN_AIR_ORIGINAL_V1', 'china-air'], ...privateAssets]) {
+    const asset = require(`../lib/invoiceCostTemplates/${name}-v1.json`), p = INVOICE_COST_EXPORT_PROFILES[id];
+    const { assetHash, ...format } = asset;
+    assert.equal(createHash('sha256').update(JSON.stringify(format)).digest('hex'), p.assetHash);
+    assert.equal(assetHash, p.assetHash); assert.equal(asset.sourceHash, p.sourceHash);
+    assert.equal(asset.sourceSheet, p.sourceSheet); assert.equal(asset.profileId, id);
+    assert.equal(asset.profileVersion, p.version);
+    assert.ok(asset.styles && asset.theme && asset.cols && asset.sheetViews && asset.sheetFormatPr && asset.rows.length);
+    for (const row of asset.rows) for (const cell of row.cells) assert.deepEqual(Object.keys(cell).sort(), ['ref', 'style']);
+  }
+});
+
+// Optional local evidence parity only. All calculation/layout/security tests above
+// use committed sanitized assets and are mandatory even when private files are absent.
+for (const [id, name, filename] of privateAssets) {
+  const path = process.env.INVOICE_COST_PRIVATE_SOURCE_DIR
+    ? join(process.env.INVOICE_COST_PRIVATE_SOURCE_DIR, `${filename}.xlsx`)
+    : new URL(`../outputs/drive-pair-discovery/sources/${filename}.xlsx`, import.meta.url);
+  test(`optional private-original parity ${id}`, { skip: privateSourcesDisabled || !existsSync(path) }, async () => {
+    const p = INVOICE_COST_EXPORT_PROFILES[id], asset = require(`../lib/invoiceCostTemplates/${name}-v1.json`);
+    const bytes = readFileSync(path); assert.equal(createHash('sha256').update(bytes).digest('hex'), p.sourceHash);
+    const zip = await JSZip.loadAsync(bytes), wb = await zip.file('xl/workbook.xml').async('string');
+    const sheetTag = [...wb.matchAll(/<sheet\b[^>]*\/>/g)].map(m => m[0]).find(s => s.includes(`name="${p.sourceSheet}"`));
+    const rid = sheetTag.match(/r:id="([^"]+)"/)[1], rels = await zip.file('xl/_rels/workbook.xml.rels').async('string');
+    const rel = [...rels.matchAll(/<Relationship\b[^>]*\/>/g)].map(m => m[0]).find(s => s.includes(`Id="${rid}"`));
+    const target = rel.match(/Target="([^"]+)"/)[1];
+    const sheet = await zip.file(target.startsWith('/') ? target.slice(1) : `xl/${target}`).async('string');
+    assert.equal(await zip.file('xl/styles.xml').async('string'), asset.styles);
+    assert.equal(await zip.file('xl/theme/theme1.xml').async('string'), asset.theme);
+    for (const part of [asset.cols, asset.sheetViews, asset.sheetFormatPr, asset.print]) {
+      assert.ok(sheet.replace(/\s+r:id="[^"]*"/g, '').includes(part));
+    }
+    for (const merge of asset.merges) assert.ok(sheet.includes(`ref="${merge}"`));
+    for (const row of asset.rows) {
+      const r = row.attrs.match(/\br="(\d+)"/)[1];
+      const original = sheet.match(new RegExp(`<row\\b([^>]*\\br="${r}"[^>]*)>([\\s\\S]*?)</row>`));
+      assert.ok(original); assert.equal(original[1].replace(/\s(?:spans|xr:uid)="[^"]*"/g, ''), row.attrs);
+      for (const cell of row.cells) {
+        const source = original[2].match(new RegExp(`<c\\b([^>]*\\br="${cell.ref}"[^>]*)`));
+        assert.ok(source); assert.equal(source[1].match(/\bs="(\d+)"/)?.[1] || '0', cell.style);
+      }
+    }
+    assert.equal(createHash('sha256').update(readFileSync(path)).digest('hex'), p.sourceHash);
+  });
+}
+
+const referencePath = process.env.INVOICE_COST_AIR_PRIVATE_SOURCE || 'C:/Users/USER/Downloads/CHINA 중국 원가자료 (8).xlsx';
+test('optional private-original CN air parity and unchanged file', { skip: privateSourcesDisabled || !existsSync(referencePath) }, async () => {
   const bytes = readFileSync(referencePath); assert.equal(createHash('sha256').update(bytes).digest('hex'), FORMULA.formulaSourceHash);
   const zip = await JSZip.loadAsync(bytes);
   assert.equal(await zip.file('xl/styles.xml').async('string'), template.styles);
