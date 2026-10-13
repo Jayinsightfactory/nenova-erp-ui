@@ -103,7 +103,10 @@ test('only current APPROVED ACTUAL MATCH CN AIR can export; lagging document sta
  assert.equal(invoiceCostExportEligibility(doc, actual).allowed, true);
  for (const patch of [{ status: 'STALE' }, { storedStatus: 'STALE' }, { basis: 'EXPECTED_95' }, { liveReceiptStatus: 'MISMATCH' }, { documentRevision: 2 }, { costRevisionId: '' }]) assert.equal(invoiceCostExportEligibility(doc, { ...actual, ...patch }).allowed, false);
  assert.equal(invoiceCostExportEligibility({ ...doc, costStatus: 'STALE' }, actual).allowed, false);
- assert.match(invoiceCostExportEligibility(doc, { ...actual, formulaId: 'NL_AMOUNT_V1' }).message, /양식 준비 중.*승인은 유효/);
+ for (const formulaId of ['NL_AMOUNT_V1', 'CN_SEA_ACTUAL_V1']) {
+   assert.equal(invoiceCostExportEligibility(doc, { ...actual, formulaId }).allowed, true);
+ }
+ assert.match(invoiceCostExportEligibility(doc, { ...actual, formulaId: 'UNVERIFIED_FORMULA' }).message, /양식 준비 중.*승인은 유효/);
 });
 
 test('download uses authenticated GET identifiers only; JSON/HTML errors never become spreadsheets', async () => {
