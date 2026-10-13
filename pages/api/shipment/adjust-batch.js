@@ -3,6 +3,7 @@
 // ShipmentAdjustment/Order/Shipment/Date/Farm/History 변경을 전부 롤백한다.
 
 import { withTransaction } from '../../../lib/db.js';
+import { SHIPMENT_ADJUSTMENT_TRANSACTION_OPTIONS } from '../../../lib/shipmentAdjustmentLock.js';
 import { withAuth } from '../../../lib/auth.js';
 import { withActionLog } from '../../../lib/withActionLog.js';
 import {
@@ -43,8 +44,8 @@ async function handler(req, res) {
       // 사전검증도 실제 저장 코어와 사후 원장 대조를 그대로 실행하되,
       // 성공한 트랜잭션까지 반드시 rollback하여 ERP 원장을 보존한다.
       withTransactionFn: preflightOnly
-        ? (callback) => withTransaction(callback, { rollbackOnly: true })
-        : withTransaction,
+        ? (callback) => withTransaction(callback, { ...SHIPMENT_ADJUSTMENT_TRANSACTION_OPTIONS, rollbackOnly: true })
+        : (callback) => withTransaction(callback, SHIPMENT_ADJUSTMENT_TRANSACTION_OPTIONS),
       executeEntryFn: executeShipmentAdjustmentInTransaction,
     });
 
