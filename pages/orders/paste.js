@@ -31,7 +31,8 @@ import CollapsibleTop from '../../components/CollapsibleTop';
 import { customerMatchesSearch } from '../../lib/customerSearch';
 import { buildStockNoteChangeEntry, resolveInitialStockBaseWeek } from '../../lib/pasteStockNote';
 import { buildAppliedStockCopy, buildAppliedStockScope, appendAppliedStockResult } from '../../lib/pasteAppliedStockCopy';
-import { chooseStockProductCandidate, formatStockDelta, formatStockVector, parseBaseStockQuantityLine, resolveStockProjectionIdentity, summarizeStockProjection } from '../../lib/pasteStockProjection';
+import { previousBaseStockMatches, confirmedBaseStockMatch, combinePickedBaseStockInput } from '../../lib/pasteBaseStockMapping';
+import { chooseStockProductCandidate, formatStockDelta, formatStockVector, isBaseStockHeaderLine, parseBaseStockQuantityLine, resolveStockProjectionIdentity, summarizeStockProjection } from '../../lib/pasteStockProjection';
 import { acquireErpEditPresence, editGuardFromPresence, getErpEditClientId, heartbeatErpEditPresence, refreshErpEditPresence, releaseErpEditPresence, takeoverErpEditPresence } from '../../hooks/useErpEditPresence';
 
 const MAPPING_KEY = 'nenova_paste_mappings';
@@ -297,8 +298,8 @@ function parseBaseStockText(text, { excludedLineNos = [] } = {}) {
   textWithoutExcludedLines(text, excludedLineNos.filter(value => typeof value === 'object')).split(/\r?\n/).forEach((raw, lineIdx) => {
     if (skip.has(lineIdx)) return;
     const line = raw.trim();
-    if (!line || isSeparatorLine(line) || /^(잔량|잔량재고|기초재고|기존재고|시작재고|시작잔량|재고)$/i.test(line)) return;
-    if (/^(?:20\d{2}\s*-\s*)?\d{1,2}\s*-\s*\d{1,2}(?:\s*차)?$/.test(line)) return;
+    if (!line || isSeparatorLine(line)) return;
+    if (isBaseStockHeaderLine(line)) { if (/잔량|재고/.test(line)) currentFlower = ''; return; }
 
     const headerFlower = normalizeFlowerContext((line.match(/(수국|장미|카네이션|카네|알스트로(?:메리아)?|루스커스|호주|레몬잎|호접|덴파레|리시안셔스|리시안|튤립)/) || [])[1]);
     if (headerFlower && /변경사항|차\s*$/.test(line)) {
@@ -341,14 +342,7 @@ function stockNoteSaveFingerprint({baseStockText, baseWeek, week, baseStockExclu
 
 function stockNoteMatchReview(text, exclusions, matches, products) {
   const parsed = parseBaseStockText(text, {excludedLineNos: exclusions});
-  const byLine = new Map((matches || []).map(row => [row.idx, row]));
-  const productKeys = new Set((products || []).map(product => Number(product.ProdKey)));
-  const unmatched = parsed.rows.filter(row => {
-    const match = byLine.get(row.idx);
-    const key = Number(match?.prodKey);
-    return !Number.isInteger(key) || key <= 0 || !productKeys.has(key)
-      || match.name !== row.name || match.qty !== row.qty || match.boxQty !== row.boxQty || match.detailQty !== row.detailQty || (row.unit && match.unit !== row.unit) || (row.detailUnit && match.detailUnit !== row.detailUnit);
-  });
+  const unmatched = parsed.rows.filter(row => !confirmedBaseStockMatch(row, matches, products));
   return {total: parsed.rows.length, matched: parsed.rows.length - unmatched.length, invalidRows: parsed.invalidRows,
     ready: parsed.invalidRows.length === 0 && unmatched.length === 0 && (!String(text || '').trim() || parsed.rows.length > 0)};
 }
@@ -390,16 +384,11 @@ function resolveProductForStockName(name, products, cache) {
 
 function buildBaseStockMatchRows(text, products, cache, prevMatches = [], excludedLineNos = []) {
   const parsed = parseBaseStockText(text, { excludedLineNos });
-  const prevByKey = {};
-  (prevMatches || []).forEach(m => {
-    const key = stockNorm(m.name);
-    if (key) prevByKey[key] = m;
-  });
-  return parsed.rows.map(row => {
-    const key = stockNorm(row.matchName || row.name);
-    const prev = prevByKey[key] || prevByKey[stockNorm(row.name)];
+  const previous = previousBaseStockMatches(parsed.rows, prevMatches);
+  return parsed.rows.map((row, index) => {
+    const prev = previous.get(index);
     const lookupName = row.matchName || row.name;
-    if (prev?.prodKey) {
+    if (prev?.prodKey || prev?.missingProdKey) {
       const prod = (products || []).find(p => Number(p.ProdKey) === Number(prev.prodKey));
       if (prod) {
         return {
@@ -419,6 +408,8 @@ function buildBaseStockMatchRows(text, products, cache, prevMatches = [], exclud
           fromMapping: !!prev.fromMapping,
         };
       }
+      return {...row, prodKey: null, prodName: null, displayName: null,
+        matchStatus: 'missing', missingProdKey: prev.prodKey || prev.missingProdKey, candidates: []};
     }
     const resolved = resolveProductForStockName(lookupName, products, cache);
     if (resolved.prod) {
@@ -728,6 +719,7 @@ function buildAnalyzedStockRecords(analysisOrders, selectedWeek) {
         week: selectedWeek || '',
         weekLabel: shortWeekLabel(selectedWeek || ''),
         productName,
+        prodKey: Number(item.prodKey) || null,
         reportedRemain: null,
         unit: normalizeOrderUnit(item.unit),
         changes: [{
@@ -765,6 +757,13 @@ function isManagedProduct(prod) {
 
 function buildResolvedMatchMap(orders, products, stockMatches = []) {
   const map = new Map();
+  const addAlias = (key, entry) => {
+    if (!key) return;
+    const prior = map.get(key);
+    if (prior && (prior.status === 'ambiguous' || prior.prodKey !== entry.prodKey)) {
+      map.set(key, {status: 'ambiguous', names: [...new Set([...(prior.names || []), ...(entry.names || [])])], prodKey: null});
+    } else map.set(key, entry);
+  };
   for (const o of orders || []) {
     for (const it of o.items || []) {
       if (it.skip || !it.prodKey) continue;
@@ -773,7 +772,7 @@ function buildResolvedMatchMap(orders, products, stockMatches = []) {
       const entry = { status: 'matched', names: [label], prodKey: Number(it.prodKey) };
       [it.inputName, it.prodName, it.displayName, label].forEach((name) => {
         const key = stockNorm(name);
-        if (key) map.set(key, entry);
+        addAlias(key, entry);
       });
     }
   }
@@ -784,17 +783,25 @@ function buildResolvedMatchMap(orders, products, stockMatches = []) {
     const entry = { status: 'matched', names: [label], prodKey: Number(m.prodKey) };
     [m.name, m.matchName, m.prodName, m.displayName, label].forEach((name) => {
       const key = stockNorm(name);
-      if (key) map.set(key, entry);
+      addAlias(key, entry);
     });
   }
   return map;
 }
 
-function buildStockRowsByIdentity(parsed, resolvedMatches) {
+function baseStockIdentity(row, matches, products, resolvedMatches) {
+  if (!Array.isArray(matches)) return resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
+  const confirmed = confirmedBaseStockMatch(row, matches, products);
+  if (confirmed) return {key: `prod:${confirmed.prodKey}`, normalizedName: stockNorm(row.matchName || row.name),
+    prodKey: confirmed.prodKey, match: {status: 'matched', prodKey: confirmed.prodKey, names: [confirmed.match.displayName || confirmed.match.prodName || row.name]}};
+  return {key: `row:${row.idx}`, normalizedName: stockNorm(row.matchName || row.name), prodKey: null, match: null};
+}
+
+function buildStockRowsByIdentity(parsed, resolvedMatches, baseStockMatches, products) {
   const rowsByIdentity = new Map();
   (parsed?.rows || []).forEach((row) => {
-    const identity = resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
-    if (!identity.normalizedName) return;
+    const identity = baseStockIdentity(row, baseStockMatches, products, resolvedMatches);
+    if (!identity.key) return;
     const existing = rowsByIdentity.get(identity.key);
     const existingBoxQty = existing?.boxQty ?? (normalizeOrderUnit(existing?.unit || row.unit) === '박스' ? existing?.qty : 0);
     const rowBoxQty = row.boxQty ?? (normalizeOrderUnit(row.unit) === '박스' ? row.qty : 0);
@@ -842,31 +849,39 @@ function productMatchSummary(productName, products, resolvedMatches) {
 
 function buildKakaoStockDraft({
   text, baseText, remainText = '', selectedWeek, stockBaseWeek, products, resolvedMatches,
-  analysisOrders = [], pasteExcludedLineNos = [], baseExcludedLineNos = [],
+  analysisOrders = [], pasteExcludedLineNos = [], baseExcludedLineNos = [], baseStockMatches,
 }) {
   const filteredText = textWithoutExcludedLines(text, pasteExcludedLineNos);
-  const filteredBase = textWithoutExcludedLines(baseText, baseExcludedLineNos);
-  const base = parseBaseStockText(filteredBase);
+  const base = parseBaseStockText(baseText, {excludedLineNos: baseExcludedLineNos});
   const finalRemain = parseBaseStockText(remainText);
   const parsedChanges = parseKakaoStockRecords(filteredText, selectedWeek);
   const analyzedRecords = buildAnalyzedStockRecords(analysisOrders, selectedWeek);
   const records = analyzedRecords.length > 0 ? analyzedRecords : parsedChanges.records;
   const extraRows = parsedChanges.extraRows;
-  const baseByIdentity = buildStockRowsByIdentity(base, resolvedMatches);
+  const baseByIdentity = buildStockRowsByIdentity(base, resolvedMatches, baseStockMatches, products);
   const finalRemainByIdentity = buildStockRowsByIdentity(finalRemain, resolvedMatches);
   const confirmRows = [];
   const productWeekCounts = {};
+  const recordIdentity = record => {
+    const key = Number(record.prodKey);
+    const product = products?.find(item => Number(item.ProdKey) === key);
+    if (Number.isInteger(key) && key > 0 && product) return {
+      key: `prod:${key}`, normalizedName: stockNorm(record.productName), prodKey: key,
+      match: {status: 'matched', prodKey: key, names: [product.DisplayName || product.ProdName]},
+    };
+    return resolveStockProjectionIdentity(record.productName, resolvedMatches, stockNorm);
+  };
 
   records.forEach(record => {
-    const identity = resolveStockProjectionIdentity(record.productName, resolvedMatches, stockNorm);
+    const identity = recordIdentity(record);
     const key = `${identity.key}|${record.week}`;
     productWeekCounts[key] = (productWeekCounts[key] || 0) + 1;
   });
 
   const recordsByProduct = new Map();
   records.forEach((record, order) => {
-    const identity = resolveStockProjectionIdentity(record.productName, resolvedMatches, stockNorm);
-    const key = identity.normalizedName ? identity.key : `line-${record.lineNo}`;
+    const identity = recordIdentity(record);
+    const key = (identity.prodKey || identity.normalizedName) ? identity.key : `line-${record.lineNo}`;
     if (!recordsByProduct.has(key)) recordsByProduct.set(key, []);
     recordsByProduct.get(key).push({ ...record, order, identityKey: key, match: identity.match });
   });
@@ -993,7 +1008,7 @@ function buildKakaoStockDraft({
 
   const shownRemainKeys = new Set(remainRows.map(row => row.identityKey || resolveStockProjectionIdentity(row.productName, resolvedMatches, stockNorm).key));
   base.rows.forEach(row => {
-    const identity = resolveStockProjectionIdentity(row.matchName || row.name, resolvedMatches, stockNorm);
+    const identity = baseStockIdentity(row, baseStockMatches, products, resolvedMatches);
     const productKey = identity.key;
     if (!productKey || shownRemainKeys.has(productKey)) return;
     shownRemainKeys.add(productKey);
@@ -1096,7 +1111,7 @@ function buildKakaoStockDraft({
 
   return {
     stockBaseWeek,
-    appliedCopySource: {baseText,pasteText:text,week:selectedWeek,resolvedMatches,products,baseExcludedLineNos},
+    appliedCopySource: {baseText,pasteText:text,week:selectedWeek,resolvedMatches,products,baseExcludedLineNos,baseStockMatches},
     baseRows: base.rows,
     records,
     extraRows,
@@ -1178,6 +1193,8 @@ export default function PasteOrderPage() {
   useEffect(() => { if(restoredExclusionsRef.current.paste!==pasteText)setPasteExcludedLines([]); restoredExclusionsRef.current.paste=null; }, [pasteText]);
   useEffect(() => { if(restoredExclusionsRef.current.base!==baseStockText)setBaseStockExcludedLines([]); restoredExclusionsRef.current.base=null; }, [baseStockText]);
   const [baseStockMatches, setBaseStockMatches] = useState([]);
+  const baseStockMatchesRef = useRef(baseStockMatches);
+  const baseStockRematchRevisionRef = useRef(0);
   const [baseStockMatchEditIdx, setBaseStockMatchEditIdx] = useState(null);
   const [pendingParseAfterLoad, setPendingParseAfterLoad] = useState(false);
   const [remainStockText, setRemainStockText] = useState('');
@@ -1659,19 +1676,23 @@ export default function PasteOrderPage() {
       analysisOrders: ordersForMatch,
       pasteExcludedLineNos: excludedOverrides.pasteExcludedLineNos ?? pasteExcludedLines,
       baseExcludedLineNos: excludedOverrides.baseExcludedLineNos ?? baseStockExcludedLines,
+      baseStockMatches: stockMatchesForDraft,
     });
     setStockDraft(draft);
     setStockCopied(false);
     return draft;
   };
 
-  const rematchBaseStock = (text = baseStockText, prevMatches = baseStockMatches) => {
+  const rematchBaseStock = (text = baseStockText, prevMatches = baseStockMatchesRef.current, excludedLines = baseStockExcludedLines) => {
+    baseStockRematchRevisionRef.current += 1;
     if (!text.trim()) {
+      baseStockMatchesRef.current = [];
       setBaseStockMatches([]);
       return [];
     }
     const cache = { ...mappingCache, ...loadCache() };
-    const rows = buildBaseStockMatchRows(text, allProducts, cache, prevMatches, baseStockExcludedLines);
+    const rows = buildBaseStockMatchRows(text, allProducts, cache, prevMatches, excludedLines);
+    baseStockMatchesRef.current = rows;
     setBaseStockMatches(rows);
     refreshStockDraft(pasteText, text, week, remainStockText, stockBaseWeek, orders, rows);
     return rows;
@@ -1681,8 +1702,10 @@ export default function PasteOrderPage() {
     setBaseStockText(nextText);
     const cache = { ...mappingCache, ...loadCache() };
     const rows = nextText.trim()
-      ? buildBaseStockMatchRows(nextText, allProducts, cache, baseStockMatches, baseStockExcludedLines)
+      ? buildBaseStockMatchRows(nextText, allProducts, cache, baseStockMatchesRef.current, baseStockExcludedLines)
       : [];
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = rows;
     setBaseStockMatches(rows);
     refreshStockDraft(pasteText, nextText, week, remainStockText, stockBaseWeek, orders, rows);
     if (currentStockNote) setStockNoteStatus('수정 후 저장 필요');
@@ -1706,7 +1729,9 @@ export default function PasteOrderPage() {
   const handleBaseStockExcludedLinesChange = (nextLines) => {
     setBaseStockExcludedLines(nextLines);
     const cache = { ...mappingCache, ...loadCache() };
-    const rows = buildBaseStockMatchRows(baseStockText, allProducts, cache, baseStockMatches, nextLines);
+    const rows = buildBaseStockMatchRows(baseStockText, allProducts, cache, baseStockMatchesRef.current, nextLines);
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = rows;
     setBaseStockMatches(rows);
     refreshStockDraft(
       pasteText,
@@ -1722,8 +1747,10 @@ export default function PasteOrderPage() {
 
   const applyBaseStockProduct = (idx, prod, saveToCache = true) => {
     if (!prod) return;
-    const sourceRow = baseStockMatches[idx];
-    setBaseStockMatches(prev => prev.map((row, i) => {
+    const currentMatches = baseStockMatchesRef.current;
+    const sourceRow = currentMatches[idx];
+    if (!sourceRow) return;
+    const nextMatches = currentMatches.map((row, i) => {
       if (i !== idx) return row;
       return {
         ...row,
@@ -1733,17 +1760,15 @@ export default function PasteOrderPage() {
         matchStatus: 'manual',
         fromMapping: false,
       };
-    }));
+    });
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = nextMatches;
+    setBaseStockMatches(nextMatches);
     if (saveToCache && sourceRow?.name) {
       void learnItemMapping({ inputName: sourceRow.name }, prod);
     }
     setBaseStockMatchEditIdx(null);
-    setTimeout(() => {
-      setBaseStockMatches(cur => {
-        refreshStockDraft(pasteText, baseStockText, week, remainStockText, stockBaseWeek, orders, cur);
-        return cur;
-      });
-    }, 0);
+    refreshStockDraft(pasteText, baseStockText, week, remainStockText, stockBaseWeek, orders, nextMatches);
   };
 
   const selectStockBaseWeek = (w) => {
@@ -1798,6 +1823,8 @@ export default function PasteOrderPage() {
           hit.data.baseStockMatches || [],
           Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : [],
         );
+        baseStockRematchRevisionRef.current += 1;
+        baseStockMatchesRef.current = matches;
         setBaseStockMatches(matches);
         setOrders([]);
         setParseError('');
@@ -1809,9 +1836,10 @@ export default function PasteOrderPage() {
           week,
           hit.data.remainStockText || '',
           hit.data.baseWeek || targetBaseWeek,
-          Array.isArray(hit.data.pasteExcludedLines) ? hit.data.pasteExcludedLines : [],
-          Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : [],
+          [],
           matches,
+          {pasteExcludedLineNos: Array.isArray(hit.data.pasteExcludedLines) ? hit.data.pasteExcludedLines : [],
+            baseExcludedLineNos: Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : []},
         );
         const savedOrderWeek = hit.data.orderWeek;
         const orderWeekHint = savedOrderWeek && savedOrderWeek !== week
@@ -1852,14 +1880,21 @@ export default function PasteOrderPage() {
   };
 
   // 피커에서 선택한 시작재고들을 합쳐(또는 교체로) 기존재고 입력에 넣는다.
-  const applyPickedStock = (combinedText, mode) => {
-    setBaseStockText(prev => {
-      const next = mode === 'append'
-        ? [prev.trim(), combinedText.trim()].filter(Boolean).join('\n')
-        : combinedText.trim();
-      rematchBaseStock(next, []);
-      return next;
-    });
+  const applyPickedStock = (combinedText, mode, pickedNotes = []) => {
+    const combined = pickedNotes.length
+      ? combinePickedBaseStockInput(pickedNotes, {mode, text: baseStockText, matches: baseStockMatches, exclusions: baseStockExcludedLines})
+      : {text: mode === 'append' ? [baseStockText, combinedText].filter(Boolean).join('\n') : combinedText,
+        matches: mode === 'append' ? baseStockMatches : [], exclusions: mode === 'append' ? baseStockExcludedLines : []};
+    const cache = {...mappingCache, ...loadCache()};
+    const rows = buildBaseStockMatchRows(combined.text, allProducts, cache, combined.matches, combined.exclusions);
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = rows;
+    restoredExclusionsRef.current.base = combined.text;
+    setBaseStockText(combined.text);
+    setBaseStockExcludedLines(combined.exclusions);
+    setBaseStockMatches(rows);
+    refreshStockDraft(pasteText, combined.text, week, remainStockText, stockBaseWeek, [], rows,
+      {baseExcludedLineNos: combined.exclusions});
     setOrders([]);
     setShowStockPicker(false);
     setStockNoteStatus(mode === 'append' ? '선택한 시작재고를 기존 입력에 합쳤습니다.' : '선택한 시작재고로 교체했습니다.');
@@ -2034,10 +2069,16 @@ export default function PasteOrderPage() {
 
   useEffect(() => {
     if (!allProducts.length || !baseStockText.trim()) {
-      if (!baseStockText.trim()) setBaseStockMatches([]);
+      if (!baseStockText.trim()) { baseStockMatchesRef.current = []; setBaseStockMatches([]); }
       return undefined;
     }
-    const t = setTimeout(() => rematchBaseStock(), 350);
+    const revision = baseStockRematchRevisionRef.current;
+    const text = baseStockText;
+    const exclusions = baseStockExcludedLines;
+    const t = setTimeout(() => {
+      if (revision !== baseStockRematchRevisionRef.current) return;
+      rematchBaseStock(text, baseStockMatchesRef.current, exclusions);
+    }, 350);
     return () => clearTimeout(t);
   }, [baseStockText, baseStockExcludedLines, allProducts.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2714,7 +2755,9 @@ export default function PasteOrderPage() {
     setBaseStockText(state.baseStockText||'');
     setBaseStockExcludedLines(state.baseStockExcludedLines||[]);
     setRemainStockText(state.remainStockText||'');
-    setBaseStockMatches(state.baseStockMatches||[]);
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = state.baseStockMatches || [];
+    setBaseStockMatches(baseStockMatchesRef.current);
     if(state.stockBaseWeek)setStockBaseWeek(state.stockBaseWeek);
     setOrders(state.orders||[]);
     setEvidenceMessages(state.evidenceMessages||[]);
@@ -4600,6 +4643,7 @@ export default function PasteOrderPage() {
               {!orders.length && !bulkRunning && <span className="paste-work-empty">분석 전입니다. 기준 원본 또는 영업방 내용을 불러온 뒤 Claude 분석을 실행하세요.</span>}
             </div>
 
+            <AppliedStockCopyPanel source={{baseText:baseStockText,pasteText,week,resolvedMatches:buildResolvedMatchMap(orders,allProducts,baseStockMatches),products:allProducts,baseExcludedLineNos:baseStockExcludedLines,baseStockMatches}} result={bulkResult||appliedStockLedger} currentScope={buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches})} bulkRunning={bulkRunning} />
             {globalBatchProcessed && (
               <section id="paste-connected-result" tabIndex={-1} aria-label="일괄 등록 분배 성공 결과" style={{ marginBottom: 8, border: '2px solid #2e7d32', borderRadius: 8, overflow: 'hidden', background: '#f1f8e9' }}>
                 <div style={{ padding: '7px 10px', background: '#2e7d32', color: '#fff', fontSize: 12, fontWeight: 900 }}>✅ 저장 완료 결과 — 아래 수량이 현재 전산에 반영되었습니다.</div>
@@ -4620,7 +4664,6 @@ export default function PasteOrderPage() {
               </section>
             )}
             <StockImpactSummary draft={stockDraft} selectedWeek={week} processed={Boolean(bulkResult?.orderId === 'ALL' && !bulkResult.rolledBack && !bulkResult.undone)} />
-            <AppliedStockCopyPanel draft={stockDraft} result={bulkResult||appliedStockLedger} currentScope={buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches})} />
             {bulkResult?.orderId === 'ALL' && <a href="#paste-connected-result-details" style={{ margin: '2px 0 6px', fontSize: 11, color: '#1565c0', fontWeight: 800 }}>전체 저장 내역 아래에서 계속 보기 ↓</a>}
             <section className="paste-work-history" aria-label="최근 붙여넣기 작업 이력">
               <strong>최근 붙여넣기 작업 이력</strong>
@@ -6040,27 +6083,52 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
   );
 }
 
-function AppliedStockCopyPanel({draft,result,currentScope}) {
+function AppliedStockCopyPanel({source,result,currentScope,bulkRunning=false}) {
   const [copied,setCopied]=useState(false),[copyError,setCopyError]=useState('');
-  const applied=buildAppliedStockCopy({...draft?.appliedCopySource,result,currentScope});
+  const dialogRef=useRef(null),triggerRef=useRef(null);
+  const applied=buildAppliedStockCopy({...source,result,currentScope});
   useEffect(()=>{setCopied(false);setCopyError('');},[applied.text,applied.ready]);
-  return <section data-testid="paste-applied-stock-copy" style={{border:'1px solid #b0bec5',borderRadius:8,padding:12,background:'#fff',marginBottom:12}}>
-    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><strong>적용재고</strong><button type="button" disabled={!applied.ready} onClick={async()=>{try{await navigator.clipboard.writeText(applied.text);setCopied(true);setCopyError('');}catch{setCopyError('복사하지 못했습니다. 아래 원문을 선택해 복사해 주세요.');}}}>{copied?'복사됨':'적용재고 복사'}</button></div>
+  useEffect(()=>{if(bulkRunning&&dialogRef.current?.open)dialogRef.current.close();},[bulkRunning]);
+  const keepModalTabFocus=event=>{
+    if(event.key!=='Tab')return;
+    const controls=[...event.currentTarget.querySelectorAll('button:not(:disabled), textarea:not(:disabled)')];
+    if(!controls.length)return;
+    const first=controls[0],last=controls[controls.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    else if(!controls.includes(document.activeElement)){event.preventDefault();first.focus();}
+  };
+  return <section data-testid="paste-applied-stock-copy" style={{border:'1px solid #b0bec5',borderRadius:8,padding:10,background:'#fff',marginBottom:12}}>
+    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+      <button ref={triggerRef} type="button" disabled={bulkRunning} onClick={()=>{setCopied(false);setCopyError('');dialogRef.current?.showModal();}} style={{padding:'8px 12px',border:'1px solid #1565c0',borderRadius:6,background:'#fff',color:'#0d47a1',fontWeight:800,cursor:bulkRunning?'wait':'pointer'}}>적용재고 확인</button>
+      <span style={{fontSize:12,color:'#455a64'}}>{bulkRunning?'처리 중에는 확인할 수 없습니다.':applied.ready?'저장·검증된 변경을 기초재고에 반영했습니다.':'저장·검증된 결과가 있어야 적용재고를 확인할 수 있습니다.'}</span>
+    </div>
+    <dialog ref={dialogRef} aria-labelledby="paste-applied-stock-title" onKeyDown={keepModalTabFocus} onClose={()=>triggerRef.current?.focus()} style={{margin:'auto',width:'calc(100vw - 24px)',maxWidth:960,maxHeight:'calc(100dvh - 24px)',boxSizing:'border-box',padding:0,border:'1px solid #90a4ae',borderRadius:10,boxShadow:'0 18px 48px #26323855',overflow:'hidden'}}>
+      <div style={{display:'flex',flexDirection:'column',maxHeight:'calc(100dvh - 26px)',minWidth:0}}>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',padding:'12px 14px',borderBottom:'1px solid #cbd5e1',background:'#f8fafc',flexShrink:0}}>
+          <strong id="paste-applied-stock-title" style={{fontSize:16,marginRight:'auto'}}>기초재고 기준 적용재고</strong>
+          <button type="button" disabled={!applied.ready||bulkRunning} onClick={async()=>{if(!applied.ready||bulkRunning)return;try{await navigator.clipboard.writeText(applied.text);setCopied(true);setCopyError('');}catch{setCopyError('복사하지 못했습니다. 아래 원문을 선택해 복사해 주세요.');}}} style={{padding:'7px 10px'}}>{copied?'복사됨':'적용재고 복사'}</button>
+          <button type="button" onClick={()=>dialogRef.current?.close()} style={{padding:'7px 10px'}}>닫기</button>
+        </div>
+        <div data-testid="applied-stock-scroll-body" style={{overflowY:'auto',minHeight:0,padding:'12px 14px'}}>
     {applied.ready?<>
-      <p style={{fontSize:12,color:'#455a64',margin:'8px 0'}}>시작재고 + 취소 − 추가 = 적용재고 · 저장·검증된 변경만 반영합니다. 전산 재고 스냅샷과는 별도입니다.</p>
-      <table aria-label="시작재고 기준 적용 변경내역" style={{width:'100%',tableLayout:'fixed',borderCollapse:'collapse',fontSize:12,marginBottom:8}}>
+      <p style={{fontSize:12,color:'#455a64',margin:'0 0 8px'}}>기초재고 + 취소 − 추가 = 적용재고 · 저장·검증된 변경만 반영합니다. 전산 재고 스냅샷과는 별도입니다.</p>
+      <div style={{maxWidth:'100%',overflowX:'auto'}}><table aria-label="기초재고 기준 적용 변경내역" style={{width:'100%',minWidth:620,tableLayout:'fixed',borderCollapse:'collapse',fontSize:12,marginBottom:8}}>
         <caption style={{textAlign:'left',fontWeight:700,padding:'4px 0 8px'}}>변경내역 · 변경 {applied.changeRows.filter(row=>row.changed).length}품목 / 전체 {applied.changeRows.length}품목</caption>
-        <colgroup><col style={{width:'36%'}}/><col/><col/><col/><col/></colgroup>
-        <thead><tr>{['품목','시작재고','추가(−)','취소(+)','적용재고'].map(label=><th key={label} scope="col" style={{padding:'6px 4px',border:'1px solid #cbd5e1',background:'#f1f5f9',overflowWrap:'anywhere'}}>{label}</th>)}</tr></thead>
+        <colgroup><col style={{width:'36%'}}/>{[0,1,2,3].map(index=><col key={index} style={{width:'16%'}}/>)}</colgroup>
+        <thead><tr>{['품목','기초재고','추가(−)','취소(+)','적용재고'].map(label=><th key={label} scope="col" style={{padding:'6px 4px',border:'1px solid #cbd5e1',background:'#f1f5f9',overflowWrap:'anywhere'}}>{label}</th>)}</tr></thead>
         <tbody>{applied.changeRows.map(row=><tr key={row.prodKey} data-testid={`applied-stock-change:${row.prodKey}`} style={{background:row.changed?'#ecfdf5':'#fff'}}>
           <th scope="row" style={{textAlign:'left',padding:'6px 4px',border:'1px solid #cbd5e1',overflowWrap:'anywhere'}}>{row.name}</th>
           {[row.startText,row.addedText,row.cancelledText,row.appliedText].map((value,index)=><td key={index} style={{textAlign:'center',padding:'6px 4px',border:'1px solid #cbd5e1',overflowWrap:'anywhere',fontWeight:index===3?700:400}}>{value}</td>)}
         </tr>)}</tbody>
-      </table>
+      </table></div>
       <small style={{color:'#64748b'}}>적용재고가 0인 품목은 위 변경내역에 남고, 복사할 원문에서는 빠집니다.</small>
       <textarea aria-label="적용재고 원문" readOnly value={applied.text} style={{width:'100%',boxSizing:'border-box',minHeight:120,marginTop:8,resize:'vertical',whiteSpace:'pre-wrap'}}/>
-    </>:<p role="status" style={{color:'#9a3412',marginBottom:0}}>{applied.warnings.join(' ')}</p>}
+    </>:<p role="status" style={{color:'#9a3412',margin:'0 0 8px'}}>{!result?'등록·분배를 실행하고 저장 결과를 검증한 뒤 확인할 수 있습니다. ':''}{applied.warnings.join(' ')}</p>}
     {copyError&&<p role="alert">{copyError}</p>}
+        </div>
+      </div>
+    </dialog>
   </section>;
 }
 

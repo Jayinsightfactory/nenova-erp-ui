@@ -48,11 +48,32 @@ assert.equal(prioritized.rows[0].blocks[1].currentTotal,0,'zero/cancelled distri
 assert.equal(JSON.stringify(prioritySource),prioritySnapshot,'sorting never mutates ERP input');
 
 const floral = build(cycles,[],['LILY','ALSTROEMERIA','HYDRANGEA','ROSE','CARNATION'].map((flowerName,index) =>
-  actual({prodKey:600+index,flowerName,prodName:`${flowerName} White`})));
+  actual({prodKey:600+index,flowerName,countryName:'콜롬비아',prodName:`${flowerName} White`})));
 assert.deepEqual(floral.rows.map(row=>row.flowerNames[0]),['CARNATION','ROSE','HYDRANGEA','ALSTROEMERIA','LILY']);
 assert.equal(helper.weekdayFlowerPriority({flowerNames:['LILY'],name:'ROSE Red'}),4,'authoritative category beats name prefix');
 assert.equal(helper.weekdayFlowerPriority({name:'Primrose Red'}),4,'no substring category match');
 assert.equal(helper.weekdayFlowerPriority({flowerNames:['장미','수국']}),4,'conflicting categories remain other');
+const countryRows=[
+  {flowerNames:['장미'],countryNames:['에콰도르'],name:'콜롬비아 ROSE fixture'},
+  {flowerNames:['장미'],countryNames:['중국']},
+  {flowerNames:['장미'],countryNames:['콜롬비아']},
+  {flowerNames:['카네이션']},{flowerNames:['수국']},{flowerNames:['알스트로']},
+  {flowerNames:['장미']},{flowerNames:['장미'],countryNames:['콜롬비아','에콰도르']},
+];
+assert.deepEqual([...countryRows].sort(helper.compareWeekdayFlowerRows).slice(0,4).map(helper.weekdayFlowerGroup),
+  ['카네이션','콜롬비아 장미','수국','알스트로']);
+assert.equal(helper.weekdayFlowerPriority(countryRows[0]),4,'authoritative Ecuador beats product-name Colombia');
+assert.equal(helper.weekdayFlowerGroup(countryRows[0]),'에콰도르 장미');
+assert.equal(helper.weekdayFlowerGroup(countryRows[1]),'중국 장미');
+for(const row of countryRows.slice(6)) {
+  assert.equal(helper.weekdayFlowerPriority(row),4,'missing/conflicting country cannot assume Colombia');
+  assert.equal(helper.weekdayFlowerGroup(row),'장미 (국가 미확인)');
+}
+assert.equal(helper.weekdayFlowerPriority({flowerNames:['ROSE'],countryNames:['COLOMBIA']}),1);
+const scopedCountries=build([cycles[1]],[],[actual({countryName:'콜롬비아'}),actual({year:2025,countryName:'에콰도르'})]);
+assert.deepEqual(scopedCountries.rows[0].countryNames,['콜롬비아'],'outside-year country cannot contaminate current product grouping');
+const draftCountry=build([cycles[1]],[plan({countryName:'콜롬비아'})],[actual({countryName:'에콰도르'})]);
+assert.deepEqual(draftCountry.rows[0].countryNames,['에콰도르'],'editable draft metadata cannot override Product country read');
 
 const businessBaselines = ['01','02'].map(suffix=>({year:2026,orderWeek:`38-${suffix}`,
   rows:[{prodKey:101,unit:'박스',quantity:20}]}));
@@ -65,7 +86,8 @@ assert.equal(businessBlock.subweek02.effectiveTotal,0,'Sunday displays in Thursd
 assert.equal(businessBlock.subweek01.remainderView.value,9);
 assert.equal(businessBlock.subweek02.remainderView.value,20,'standalone -02 baseline minus -02 allocation');
 const businessDraft = build(cycles,[plan({orderWeek:'38-02',date:sunday,quantity:9})],businessActuals,businessBaselines).rows[0].blocks[1];
-assert.equal(businessDraft.subweek01.effectiveTotal,13);
+assert.equal(businessDraft.subweek01.effectiveTotal,null,'noncanonical legacy draft cannot silently project as a valid edit');
+assert.match(businessDraft.days[3].editDisabledReason,/차수 정정/);
 assert.equal(businessDraft.subweek02.effectiveTotal,0);
 assert.equal(businessDraft.subweek02.remainderView.value,20);
 const mismatchedDates = build(cycles,[],[actual({shipmentOutQuantity:10})],businessBaselines).rows[0].blocks[1];
@@ -237,11 +259,9 @@ const legacyRow = rowFor([], [actual({ orderWeek: '38-02' })]);
 const legacyBlock = legacyRow.blocks[1];
 assert.equal(legacyBlock.days[0].assignedWeekMismatch, true);
 assert.equal(legacyBlock.days[0].effectiveOrderWeek, '38-02');
-assert.deepEqual(edit(legacyRow, legacyBlock, legacyBlock.days[0], '0'), {
-  prodKey: 101, prodName: 'CARNATION Blue', unit: '박스', year: 2026, orderWeek: '38-02', date: '2026-09-17', quantity: 0,
-});
+assert.throws(() => edit(legacyRow, legacyBlock, legacyBlock.days[0], '0'), /차수 정정/);
 assert.equal(edit(legacyRow, legacyBlock, legacyBlock.days[1], '5').orderWeek, '38-01', 'absent actual date uses calendar full week');
-assert.equal(edit(legacyRow, legacyBlock, legacyBlock.days[0], ''), null);
+assert.throws(() => edit(legacyRow, legacyBlock, legacyBlock.days[0], ''), /차수 정정/);
 const ambiguous = blockFor([], [actual(), actual({ orderWeek: '38-02' })]);
 assert.equal(ambiguous.days[0].current, null, 'different actual business keys are not merged');
 assert.equal(ambiguous.days[0].actualDetails.length, 2);
@@ -263,7 +283,7 @@ assert.match(mismatchedPlan.days[0].editDisabledReason, /초안과 실제 업무
 for (const value of ['', ' ', null, undefined]) assert.equal(validate(value).state, 'UNCHANGED');
 for (const value of [0, '0', '0.0', '2.5', '.5', '1e2']) assert.equal(validate(value).state, 'VALID');
 for (const value of [-1, '-2', NaN, Infinity, 'NaN', 'abc', '0x10', '2단', '1e999', false]) assert.equal(validate(value).state, 'INVALID');
-assert.throws(() => edit(legacyRow, legacyBlock, legacyBlock.days[0], -1), /0 이상의/);
+assert.throws(() => edit(legacyRow, legacyBlock, legacyBlock.days[1], -1), /0 이상의/);
 
 const options = { cycle: cycles[1], dates: ['2026-09-17'], onPrint: () => {}, customerProvided: true };
 assert.equal(printReason(options), '');
@@ -389,8 +409,16 @@ const descendants = (element) => !element || typeof element !== 'object' ? []
   : [element, ...React.Children.toArray(element.props?.children).flatMap(descendants)];
 let edits = [];
 const cellHost = mount(eventModule.exports.QuantityCell, { row: legacyRow, block: legacyBlock,
-  day: legacyBlock.days[0], disabled: false, onSelect: () => {}, onEditCell: (payload) => { edits.push(payload); } });
+  day: legacyBlock.days[1], disabled: false, onSelect: () => {}, onEditCell: (payload) => { edits.push(payload); } });
 const inputFor = (host) => descendants(host.render()).find((element) => element.type === 'input');
+const correctionCalls=[];
+const correctionCell=mount(eventModule.exports.QuantityCell,{row:legacyRow,block:legacyBlock,day:legacyBlock.days[0],
+  disabled:false,onSelect(){},onCorrectSubweek(payload){correctionCalls.push(payload);}});
+assert.equal(inputFor(correctionCell).props.disabled,true,'noncanonical saved date is read-only in the general editor');
+const correctionButton=descendants(correctionCell.render()).find(element=>element.type==='button' && element.props?.children==='차수 정정');
+assert.ok(correctionButton,'explicit correction remains available');
+correctionButton.props.onClick();
+assert.equal(correctionCalls[0].day.effectiveOrderWeek,'38-02');
 const unallocatedEdits=[];
 const unallocatedCell=mount(eventModule.exports.QuantityCell,{row:rowFor([],knownEmptyRows),block:emptyBlock,
   day:emptyBlock.days[3],disabled:false,onSelect(){},onEditCell(payload){unallocatedEdits.push(payload);}});
@@ -428,7 +456,7 @@ inputFor(cellHost).props.onChange({ target: { value: '0' } });
 await inputFor(cellHost).props.onBlur();
 assert.equal(edits.length, 1);
 assert.equal(edits[0].quantity, 0);
-assert.equal(edits[0].orderWeek, '38-02');
+assert.equal(edits[0].orderWeek, '38-01');
 await inputFor(cellHost).props.onBlur();
 assert.equal(edits.length, 1, 'blur without a new edit is idempotent');
 inputFor(cellHost).props.onChange({ target: { value: '' } });
@@ -452,7 +480,7 @@ assert.equal(inputFor(blockedHost).props.disabled, true);
 inputFor(blockedHost).props.onChange({ target: { value: '3' } });
 await inputFor(blockedHost).props.onBlur();
 const rejectedHost = mount(eventModule.exports.QuantityCell, { row: legacyRow, block: legacyBlock,
-  day: legacyBlock.days[0], disabled: false, onSelect: () => {}, onEditCell: () => ({ success: false, error: 'fixture failure' }) });
+  day: legacyBlock.days[1], disabled: false, onSelect: () => {}, onEditCell: () => ({ success: false, error: 'fixture failure' }) });
 inputFor(rejectedHost).props.onChange({ target: { value: '12' } });
 await inputFor(rejectedHost).props.onBlur();
 assert.equal(inputFor(rejectedHost).props.value, '12', 'failed edit retains user input');

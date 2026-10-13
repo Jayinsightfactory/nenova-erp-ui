@@ -278,7 +278,9 @@ async function handler(req, res) {
     }
 
     const summary = summarizeMatches(items);
-    const mappingSaved = persistImportMatchMappings(items);
+    const mappingSaved = persistImportMatchMappings(items, {
+      custKey: matchedCustomer?.CustKey, custName: matchedCustomer?.CustName,
+    });
     if (mappingSaved.length > 0) {
       logs.push(`품목 매핑 저장 ${mappingSaved.length}건 (다음 업로드 재사용)`);
     }

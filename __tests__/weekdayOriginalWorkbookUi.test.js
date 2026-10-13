@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { normalizeWeekdayUnit } from '../lib/weekdayEstimateCompare.js';
 import { applyEarlyShipmentClassification } from '../lib/weekdayEarlyShipmentPresentation.js';
 import { weekdayWebExportSelectionNames } from '../lib/weekdayWebExportSnapshot.js';
+import { validateWeekdaySubweekTransfer } from '../lib/weekdayDistributionClient.js';
 
 const require = createRequire(import.meta.url);
 const suffix = process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '';
@@ -121,6 +122,22 @@ test('no cycle selection blocks download before reading the template', async () 
   const env=downloadEnvironment(); env.selectedExportCycleKeys=[];
   await callback('downloadOriginalWorkbook','addSourceRow',env)();
   assert.equal(env.patchCalls,0); assert.equal(env.clicked,0); assert.match(env.error,/하나 이상/);
+});
+test('explicit correction creates a cancellable source-zero and canonical-target pair without ERP write', () => {
+  const date='2026-10-13',sourceWeek='41-01',targetWeek='41-02';
+  const day={date,orderWeek:targetWeek,effectiveOrderWeek:sourceWeek,assignedWeekMismatch:true,
+    actualDetails:[{date,shipmentQuantity:2}],drafts:[],unit:'박스'};
+  const env={editLocked:false,busy:false,customer:{CustKey:533},compareRows:[
+    {year:2026,orderWeek:sourceWeek,custKey:533,prodKey:359,outUnit:'박스',shipmentDates:[{date,shipmentQuantity:2}]},
+    {year:2026,orderWeek:targetWeek,custKey:533,prodKey:359,outUnit:'박스',shipmentDates:[]}],
+    cycles:[{year:2026,majorWeek:'41',calendarState:'FOUND',days:[{date,orderWeek:targetWeek,calendarState:'FOUND'}]}],
+    activePlans:[],scopeKey:scope,normalizeWeekdayUnit,validateWeekdaySubweekTransfer,
+    crypto:{randomUUID:()=> 'pair-fixture'},setPlans(fn){env.activePlans=fn(env.activePlans);},
+    setDraftHistory(fn){env.history=fn(env.history || []);},setMessage(value){env.message=value;}};
+  const result=callback('correctSubweek','cancelSubweek',env)({row:{prodKey:359,name:'Brut'},block:{cycle:{year:2026}},day});
+  assert.equal(result,true); assert.deepEqual(env.activePlans.map(plan=>[plan.orderWeek,plan.quantity]),[[sourceWeek,0],[targetWeek,2]]);
+  assert.equal(env.activePlans[0].subweekTransfer.id,env.activePlans[1].subweekTransfer.id);
+  assert.match(env.message,/분배 적용 · 변경 확인/);
 });
 test('original file replacement or scope switch during await prevents download', async () => {
   for (const changed of ['file', 'scope']) {

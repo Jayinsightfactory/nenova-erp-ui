@@ -50,19 +50,56 @@ test('new target uses one CPC or native zero; existing active order is never exp
     error=>error.code==='ALLOCATION_SCOPE_UNVERIFIED');
 });
 
-test('CANCEL does not request/create orders; positive no-order requires active UserInfo manager', async () => {
+test('CANCEL preserves orders; new master uses active authenticated UserID', async () => {
   const actual=empty(), plan=buildWeekdayChangePlan(change(actual),actual,calendar,{mode:'ALLOCATION'});
   const calls=[];
   await prepareWeekdayAllocation(async statement=>{
     calls.push(statement);
     if(statement.includes('CustomerProdCost'))return {recordset:[{Cost:700}]};
     if(statement.includes('OrderMaster'))return {recordset:[]};
-    return {recordset:[{UserID:'manager'}]};
-  },types,[plan]);
-  assert.ok(calls.some(statement=>statement.includes('ISNULL(isDeleted,0)=0')));
+    return {recordset:[{UserID:'login-id'}]};
+  },types,[plan],'login-id');
+  assert.ok(calls.some(statement=>statement.includes('WHERE UserID=@manager AND isDeleted=0')));
   assert.equal(plan.allocationOrder.existing,null);
+  assert.equal(plan.allocationOrder.manager,'login-id');
   calls.length=0;
   const cancel={...plan,newDetail:false,delta:-20,actual:{...actual,detail:{DetailCost:700}}};
   await prepareWeekdayAllocation(async statement=>{calls.push(statement);throw Error('no reads expected');},types,[cancel]);
   assert.equal(calls.length,0);
+});
+
+const newPlan=()=>buildWeekdayChangePlan(change(empty()),empty(),calendar,{mode:'ALLOCATION'});
+test('existing master preserves its native UserID even when customer manager is a display name',async()=>{
+  const plan=newPlan();plan.actual.customer.Manager='담당자 이름';
+  await prepareWeekdayAllocation(async(statement,params)=>{
+    if(statement.includes('CustomerProdCost'))return {recordset:[]};
+    if(statement.includes('OrderMaster'))return {recordset:[{OrderMasterKey:9,Manager:'native-id',OrderDetailKey:null}]};
+    assert.equal(params.manager.value,'native-id');
+    assert.equal(statement.includes('isDeleted'),false,'native ViewOrder allows a still-linked deleted account');
+    return {recordset:[{UserID:'native-id',isDeleted:1}]};
+  },types,[plan],'other-login');
+  assert.equal(plan.allocationOrder.masterKey,9);assert.equal(plan.allocationOrder.manager,'native-id');
+  assert.equal(plan.actual.customer.Manager,'담당자 이름');
+});
+test('new master validates login ID instead of customer display name',async()=>{
+  const plan=newPlan();plan.actual.customer.Manager='담당자 이름';
+  await prepareWeekdayAllocation(async(statement,params)=>{
+    if(statement.includes('CustomerProdCost') || statement.includes('OrderMaster'))return {recordset:[]};
+    assert.equal(params.manager.value,'authenticated-id');assert.match(statement,/AND isDeleted=0/);
+    return {recordset:[{UserID:'authenticated-id'}]};
+  },types,[plan],'authenticated-id');
+  assert.equal(plan.allocationOrder.manager,'authenticated-id');
+});
+test('new master refuses missing login or inactive/nonexistent login without customer fallback',async()=>{
+  for(const userId of [undefined,'','authenticated-id']) {
+    await assert.rejects(prepareWeekdayAllocation(async(statement)=>({recordset:[]}),types,[newPlan()],userId),
+      error=>error.code==='ALLOCATION_SCOPE_UNVERIFIED');
+  }
+});
+test('existing master missing UserInfo link is rejected without replacing its manager',async()=>{
+  const plan=newPlan();
+  await assert.rejects(prepareWeekdayAllocation(async(statement)=>{
+    if(statement.includes('OrderMaster'))return {recordset:[{OrderMasterKey:9,Manager:'missing-id',OrderDetailKey:null}]};
+    return {recordset:[]};
+  },types,[plan],'authenticated-id'),error=>error.code==='ALLOCATION_SCOPE_UNVERIFIED');
 });

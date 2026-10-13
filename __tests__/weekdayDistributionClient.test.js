@@ -248,17 +248,31 @@ assert.equal(previewMatches(newAllocation,{...newAllocation,payload:{...newAlloc
   'explicit allocation authority cannot be replaced with legacy authority after preview');
 assert.deepEqual(build({...input,plans:[plan,crossPlan],compareRows:[row,crossRow]}).payload.changes.map(item=>[item.year,item.orderWeek]),[[2026,'38-01'],[2027,'01-01']]);
 assert.deepEqual(build({...input,plans:[plan,crossPlan],compareRows:[row,crossRow]}).payload.changes.map(item=>item.expected.snapshotDigest),[snapshotDigest,crossRow.snapshotDigest],'cross-year groups use their own exact read-row digest');
-// Production legacy Sunday belongs to actual 38-02. Amend/cancel that exact row;
-// do not change its full business week to calendar-recommended 38-01.
+// An actual Sunday in 38-02 cannot be silently amended under the 38-01 calendar.
 const legacySunday={...row.shipmentDates[0],date:'2026-09-20',timestamp:'2026-09-20 00:00:00.123',weekDay:1,shipmentQuantity:13,estimateQuantity:130};
 const existing={...row,orderWeek:'38-02',shipmentOutQuantity:13,shipmentDates:[legacySunday]};
 const legacyPlan={...plan,orderWeek:'38-02',date:legacySunday.date};
 for(const quantity of [17,0]) {
-  const accepted=build({...input,plans:[{...legacyPlan,quantity}],compareRows:[existing]}).payload.changes[0];
-  assert.equal(accepted.orderWeek,'38-02','legacy business week must not be remapped');
-  assert.deepEqual(accepted.dates,[{date:legacySunday.date,quantity}]);
-  assert.deepEqual(accepted.expected.shipmentDates,[legacySunday],'exact physical PK/timestamp snapshot is retained');
+  assert.throws(()=>build({...input,plans:[{...legacyPlan,quantity}],compareRows:[existing]}),/차수 정정/);
 }
+const transferId='test-pair';
+const transfer={id:transferId,sourceOrderWeek:'38-02',targetOrderWeek:'38-01',quantity:13};
+const transferSource={...legacyPlan,id:'transfer-source',quantity:0,subweekTransfer:{...transfer,role:'SOURCE'}};
+const transferTarget={...plan,id:'transfer-target',date:legacySunday.date,quantity:13,subweekTransfer:{...transfer,role:'TARGET'}};
+const transferRows=[existing,row];
+const corrected=build({...allocationInput,plans:[transferSource,transferTarget],compareRows:transferRows});
+assert.deepEqual(corrected.payload.changes.map(change=>[change.year,change.orderWeek,change.dates]),
+  [[2026,'38-02',[{date:legacySunday.date,quantity:0}]],[2026,'38-01',[{date:legacySunday.date,quantity:13}]]]);
+assert.deepEqual(corrected.payload.changes.map(change=>change.expected.snapshotDigest),[existing.snapshotDigest,row.snapshotDigest]);
+const absentCanonical={...emptyAllocation,orderWeek:'38-01',masterFixed:null};
+const correctedIntoAbsent=build({...allocationInput,plans:[transferSource,transferTarget],compareRows:[existing,absentCanonical]});
+assert.deepEqual(correctedIntoAbsent.payload.changes[1].dates,[{date:legacySunday.date,quantity:13}],
+  'production shape: actual source date cancels while absent canonical subweek receives the exact quantity');
+for(const variants of [[transferSource],[transferTarget],[transferSource,{...transferTarget,year:2025}],
+  [transferSource,{...transferTarget,unit:'송이'}],[transferSource,{...transferTarget,quantity:12}],
+  [transferSource,transferTarget,{...plan,id:'third',date:legacySunday.date}]])
+  assert.throws(()=>build({...allocationInput,plans:variants,compareRows:transferRows}),/차수 정정|복수 날짜/);
+assert.throws(()=>build({...allocationInput,plans:[transferSource,transferTarget],compareRows:[existing,{...row,snapshotDigest:null}]}),/digest/);
 assert.throws(()=>build({...input,plans:[{...legacyPlan,quantity:17}],compareRows:[{...existing,detailRows:0,shipmentOutQuantity:0,shipmentDates:[]}]}),/명시적으로 검토/,'new Sunday cannot be assigned to 38-02');
 assert.throws(()=>build({...input,plans:[{...legacyPlan,quantity:17}],compareRows:[existing,{...existing,orderWeek:'38-01'}]}),/명시적으로 검토/,'same date in multiple business weeks remains blocked');
 assert.throws(()=>build({...input,plans:[{...legacyPlan,year:2025,quantity:17}],compareRows:[{...existing,year:2025}]}),/연도·차수/,'legacy exception does not weaken whole-cycle year scope');
@@ -292,6 +306,39 @@ assert.equal(weekdayUnsavedPrintReason([plan],cycles[1],533),'');
 assert.equal(weekdayUnsavedPrintReason([plan],cycles[0],534),'');
 
 const reply=(code,data)=>({ok:code>=200&&code<300,status:code,json:async()=>data});
+const busyAck={success:false,code:'STOCK_GATE_BUSY',retryable:true,saved:false,rolledBack:true};
+{
+  const sent=[], waits=[], states=[];
+  const fixedSubmission=JSON.parse(JSON.stringify(submission));
+  fixedSubmission.payload.changes.push({...fixedSubmission.payload.changes[0],year:2027,orderWeek:'01-01'});
+  const expected=JSON.stringify(fixedSubmission.payload);
+  const result=await save(fixedSubmission,{fetcher:async(url,options)=>{
+    sent.push(options.body);
+    return sent.length===1?reply(409,busyAck):reply(200,{success:true,saved:true,operationId});
+  },pause:async(ms)=>{waits.push(ms);fixedSubmission.payload.changes[0].year=1999;},onState:state=>states.push(state.state)});
+  assert.equal(result.state,'saved');assert.deepEqual(sent,[expected,expected]);
+  assert.deepEqual(waits,[1000]);assert.deepEqual(states,['waiting','saving']);
+}
+{
+  let posts=0;const waits=[];
+  const result=await save(submission,{fetcher:async()=>{posts++;return reply(409,busyAck);},pause:async(ms)=>waits.push(ms)});
+  assert.equal(result.state,'failed');assert.match(result.error,/입력값은 유지/);
+  assert.equal(posts,6);assert.deepEqual(waits,[1000,2000,3000,4000,5000]);
+}
+for(const ack of [{...busyAck,retryable:undefined},{...busyAck,retryable:'true'},{...busyAck,saved:undefined},
+  {...busyAck,saved:true},{...busyAck,code:'ERP_EDIT_LOCKED'},{...busyAck,code:'INSUFFICIENT_STOCK'}]) {
+  let posts=0;
+  assert.equal((await save(submission,{fetcher:async()=>{posts++;return reply(409,ack);},pause:async()=>assert.fail('must not retry')})).state,'failed');
+  assert.equal(posts,1);
+}
+{
+  let posts=0,gets=0;
+  const result=await save(submission,{fetcher:async(url,options)=>{
+    if(options.method==='POST') {posts++;if(posts===1)return reply(409,busyAck);throw new Error('lost response');}
+    gets++;return reply(200,{success:true,saved:false});
+  },pause:async()=>{}});
+  assert.equal(result.state,'pending');assert.equal(posts,2);assert.equal(gets,3);
+}
 let calls=[];
 const fetcher=async(url,options)=>{calls.push({url,options});return reply(200,{success:true,saved:true,operationId});};
 assert.equal((await save(submission,{fetcher})).state,'saved');

@@ -10,6 +10,8 @@ import { apiGet, apiPost } from '../lib/useApi';
 import { isExpectedWeekdayPrintBlock } from '../lib/weekdayPrintReadiness.js';
 import WeekdayCycleMatrix from './WeekdayCycleMatrix';
 import WeekdayEarlyShipmentPanel from './WeekdayEarlyShipmentPanel';
+import WeekdaySaveReceipt, { WeekdaySavedHistoryEvent } from './WeekdaySaveReceipt';
+import { loadWeekdaySaveReceipt, validateWeekdaySavedHistoryScope } from '../lib/weekdaySaveReceipt.js';
 import { readWeekdayStoredInputs, saveWeekdayScopedInputs, mergeWeekdayStoredInputs,
   clearWeekdayStoredSubmission, weekdayInputStorageKey } from '../lib/weekdayDraftStorage.js';
 import { wilsonRecordKey, wilsonWriteInput, wilsonPendingAfterSave, validateWilsonWriteResponse } from '../lib/weekdayWilsonClient.js';
@@ -19,7 +21,7 @@ import { validateWeekdayConfirmationResponse } from '../lib/weekdayConfirmation.
 import { buildWeekdayPrintRequests, validateWeekdayPrintResponse, buildWeekdayEstimatePrintBundle } from '../lib/weekdayEstimatePrintBundle.js';
 import { buildWeekdayDistributionSubmission, clearSubmittedWeekdayDrafts, checkWeekdayDistributionStatus,
   saveWeekdayDistribution, weekdayDraftScope, weekdayUnsavedPrintReason, moveWeekdayDistributionDraft, projectWeekdayDistribution,
-  validateWeekdayDistributionCompareResponse, weekdayDistributionPreviewMatches } from '../lib/weekdayDistributionClient.js';
+  validateWeekdayDistributionCompareResponse, weekdayDistributionPreviewMatches, validateWeekdaySubweekTransfer } from '../lib/weekdayDistributionClient.js';
 
 const initialYear = new Date().getFullYear();
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
@@ -135,11 +137,18 @@ export default function WeekdayEstimateWorkspace() {
   const [erpHistory, setErpHistory] = useState([]);
   const [draftHistory, setDraftHistory] = useState([]);
   const [savedHistory, setSavedHistory] = useState([]);
+  const [saveReceipt, setSaveReceipt] = useState(null);
+  const [receiptError, setReceiptError] = useState('');
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const receiptSubmission = useRef(null);
+  const receiptRequest = useRef(0);
   const [historyError, setHistoryError] = useState('');
   const [applyPreview, setApplyPreview] = useState(null);
   const [applyReason, setApplyReason] = useState('');
   const [applyError, setApplyError] = useState('');
   const [applyBusy, setApplyBusy] = useState(false);
+  const [applyProgress, setApplyProgress] = useState('');
   const [pendingApply, setPendingApply] = useState(null);
   const [recoveryBlocked, setRecoveryBlocked] = useState(false);
   const applyLock = useRef(false);
@@ -157,6 +166,10 @@ export default function WeekdayEstimateWorkspace() {
   };
   const currentScope = useRef(scopeKey);
   currentScope.current = scopeKey;
+  useEffect(()=>{
+    receiptRequest.current+=1;receiptSubmission.current=null;
+    setSaveReceipt(null);setReceiptError('');setReceiptBusy(false);setHistoryOpen(false);
+  },[scopeKey]);
   const activePlans = plans.filter(plan => plan.draftScope === scopeKey);
   const exportState = useRef(null);
   exportState.current = { plans: activePlans, compareRows, cycles, selectedExportCycleKeys, baselines, baselineCandidates, carryover, allPlans: plans, wilsonRecords, wilsonDrafts, exportWilsonDay, wilsonBusy, wilsonError, earlyRecords, earlyError };
@@ -731,7 +744,7 @@ export default function WeekdayEstimateWorkspace() {
         }
         try {
           const history=await apiGet('/api/estimate/weekday-changes',{custKey:Number(customer.CustKey),year:cycle.year,majorWeek:cycle.majorWeek});
-          if(history.success!==true || !Array.isArray(history.changes)) throw new Error('영구 이력 응답을 확인할 수 없습니다.');
+          validateWeekdaySavedHistoryScope(history,{custKey:Number(customer.CustKey),year:cycle.year,majorWeek:cycle.majorWeek});
           changes=history.changes;
         }
         catch(error) {changeError=`${cycle.year}/${cycle.majorWeek} 저장 이력 조회 실패: ${error.message}`;}
@@ -864,6 +877,39 @@ export default function WeekdayEstimateWorkspace() {
     return true;
   }
 
+  function correctSubweek({row,block,day}) {
+    if(editLocked || busy || !customer?.CustKey || !Array.isArray(compareRows)) return false;
+    const year=Number(block.cycle.year),custKey=Number(customer.CustKey),prodKey=Number(row.prodKey);
+    const unit=normalizeWeekdayUnit(day.unit),quantity=Number(day.actualDetails?.[0]?.shipmentQuantity);
+    const sourceOrderWeek=day.effectiveOrderWeek,targetOrderWeek=day.orderWeek;
+    if(!day.assignedWeekMismatch || day.actualDetails?.length!==1 || day.drafts?.length || !unit
+      || !Number.isFinite(quantity) || quantity<=0 || !sourceOrderWeek || !targetOrderWeek
+      || activePlans.some(plan=>Number(plan.year)===year && Number(plan.prodKey)===prodKey && plan.date===day.date)) {
+      setMessage('차수 정정 전 실제 저장 차수·수량·단위와 기존 초안을 확인하세요.');return false;
+    }
+    const transferId=crypto.randomUUID();
+    const base={draftScope:scopeKey,custKey,prodKey,prodName:row.name,year,date:day.date,unit,
+      sheet:'전산 대조',sourceCell:day.date,header:day.date,raw:quantity,sourceYear:null,sourceOrderWeek:null,wdetailKey:null};
+    const transfer={id:transferId,sourceOrderWeek,targetOrderWeek,quantity};
+    const source={...base,id:`subweek|${transferId}|source`,orderWeek:sourceOrderWeek,quantity:0,
+      sourceLabel:`차수 정정 원본 ${sourceOrderWeek} → 0`,subweekTransfer:{...transfer,role:'SOURCE'}};
+    const target={...base,id:`subweek|${transferId}|target`,orderWeek:targetOrderWeek,quantity,
+      sourceLabel:`차수 정정 대상 ${targetOrderWeek} → ${quantity}`,subweekTransfer:{...transfer,role:'TARGET'}};
+    try {validateWeekdaySubweekTransfer([source,target],compareRows,cycles,custKey);}
+    catch(error){setMessage(`${error.message} 전산 새로고침 후 다시 확인하세요.`);return false;}
+    setPlans(current=>[...current,source,target]);
+    setDraftHistory(current=>[{id:transferId,kind:'SUBWEEK_CORRECTION_DRAFT',applied:false,at:new Date().toISOString(),prodKey,
+      before:{year,orderWeek:sourceOrderWeek,date:day.date,quantity},after:{year,orderWeek:targetOrderWeek,date:day.date,quantity}},...current]);
+    setMessage(`${year}/${sourceOrderWeek} ${quantity} ${unit} → 0, ${year}/${targetOrderWeek} 0 → ${quantity} ${unit} 차수 정정 초안 2건을 만들었습니다. 분배 적용 · 변경 확인에서 함께 검토하세요.`);
+    return true;
+  }
+
+  function cancelSubweek(transferId) {
+    const pair=activePlans.filter(plan=>plan.subweekTransfer?.id===transferId);
+    if(pair.length!==2) {setMessage('차수 정정 초안 짝을 확인하세요.');return false;}
+    return deleteInputs(pair);
+  }
+
   function editGridCell(cell) {
     if(editLocked) return false;
     const qty=Number(cell.quantity);
@@ -872,6 +918,7 @@ export default function WeekdayEstimateWorkspace() {
     if(!customer?.CustKey || !normalizedUnit || !destination || destination.day.calendarState!=='FOUND'
       || Number(cell.year)!==destination.cycle.year || String(cell.orderWeek).split('-')[0]!==destination.cycle.majorWeek
       || !Number.isFinite(qty)||qty<0) {setMessage('수량·단위·전산 달력·차수 기준을 확인하세요.');return false;}
+    if(cell.orderWeek!==destination.day.orderWeek) {setMessage(`실제 저장 차수 ${cell.orderWeek} / 달력 차수 ${destination.day.orderWeek}가 다릅니다. 차수 정정을 선택하세요.`);return false;}
     const matching=activePlans.filter(item=>Number(item.custKey)===Number(customer.CustKey)&&Number(item.prodKey)===Number(cell.prodKey)&&Number(item.year)===Number(cell.year)&&item.date===cell.date);
     if(matching.length>1 || matching.some(item=>normalizeWeekdayUnit(item.unit)!==normalizedUnit||item.orderWeek!==cell.orderWeek)) {
       setMessage('이 날짜에는 복수 초안 또는 다른 업무차수/단위가 있습니다. 상세 초안에서 각각 수정하세요.');return false;
@@ -1007,6 +1054,33 @@ export default function WeekdayEstimateWorkspace() {
     finally { applyLock.current = false; }
   }
 
+  async function readSavedResult(submission,latestRows=null) {
+    if(submission.scopeKey!==currentScope.current) return;
+    receiptSubmission.current=submission;
+    const request=++receiptRequest.current;
+    const isCurrent=()=>request===receiptRequest.current && submission.scopeKey===currentScope.current;
+    setReceiptBusy(true);setReceiptError('');
+    setSaveReceipt(current=>current?.operationId===submission.payload.operationId?current:null);
+    try {
+      const get=async(path,params)=>{
+        const response=await fetch(`${path}?${new URLSearchParams(params)}`,{credentials:'include',cache:'no-store'});
+        const result=await response.json();
+        if(!response.ok) throw new Error(result.error || '영속 저장 결과 조회 실패');
+        return result;
+      };
+      const receipt=await loadWeekdaySaveReceipt(submission,{get,isCurrent,latestRows});
+      if(receipt && isCurrent()) setSaveReceipt(receipt);
+    } catch(error) {if(isCurrent()) setReceiptError(error.message);}
+    finally {if(isCurrent()) setReceiptBusy(false);}
+  }
+  async function retrySavedResult() {
+    const submission=receiptSubmission.current;
+    if(!submission || receiptBusy || busy || applyBusy || submission.scopeKey!==currentScope.current) return;
+    const refreshed=await refreshErp();
+    if(submission===receiptSubmission.current && submission.scopeKey===currentScope.current)
+      await readSavedResult(submission,refreshed===true?freshCompareRows.current:null);
+  }
+
   async function finishErpSave(submission,outcome) {
     if(outcome.state==='saved') {
       let keepErpRecovery=false;
@@ -1034,6 +1108,7 @@ export default function WeekdayEstimateWorkspace() {
         setApplyReason('');
         const refreshed=await refreshErp();
         setMessage(refreshed===true?'ERP 저장 응답을 확인했습니다. 저장된 요일 수량·견적·이력을 다시 조회했습니다. 최초 기준은 보존됩니다.':'ERP 저장은 확인됐으나 최신 자료 재조회에 실패했습니다. 전산 새로고침으로 확인하세요.');
+        await readSavedResult(submission,refreshed===true?freshCompareRows.current:null);
       } else setMessage('이전 조회 범위의 ERP 저장을 확인했습니다. 제출한 초안만 정리했으며 현재 범위는 변경하지 않았습니다.');
     } else if(outcome.state==='failed') {
       try {sessionStorage.removeItem('weekday-pending-erp-operation');} catch { /* Keep drafts and error. */ }
@@ -1092,9 +1167,13 @@ export default function WeekdayEstimateWorkspace() {
     applyLock.current=true;pendingOperation.current=submission;setApplyBusy(true);setApplyError('');
     try {
       if(submission.metadataOnly) await finishMetadataOnlySave(submission);
-      else await finishErpSave(submission,await saveWeekdayDistribution(submission));
+      else await finishErpSave(submission,await saveWeekdayDistribution(submission,{onState:state=>setApplyProgress(
+        state.state==='waiting'
+          ? `다른 재고 계산이 진행 중입니다. 입력값을 유지하며 ${state.delayMs/1000}초 후 다시 저장합니다. (${state.retry}/${state.retries})`
+          : `재고 계산 대기 후 저장을 다시 확인하고 있습니다. (${state.retry}/${state.retries})`
+      )}));
     } catch(error) {setPendingApply(submission);setApplyError(error.message);}
-    finally {applyLock.current=false;setApplyBusy(false);}
+    finally {applyLock.current=false;setApplyBusy(false);setApplyProgress('');}
   }
 
   async function recheckErpSave() {
@@ -1187,6 +1266,12 @@ export default function WeekdayEstimateWorkspace() {
       {downloadError && <div role="alert" style={{color:'#b42318'}}>{downloadError}</div>}
     </header>
 
+    <WeekdaySaveReceipt receipt={saveReceipt} error={receiptError} busy={receiptBusy}
+      onRetry={receiptSubmission.current?retrySavedResult:null} names={Object.fromEntries((compareRows || []).map(row=>[row.prodKey,row.displayName || row.prodName]))}/>
+    {(savedHistory.length>0 || historyError) && <div style={{padding:'4px 8px'}}><button type="button" onClick={()=>{
+      setHistoryOpen(true);requestAnimationFrame(()=>{const details=document.getElementById('weekday-saved-history');details?.scrollIntoView({block:'start'});details?.querySelector('summary')?.focus({preventScroll:true});});
+    }}>저장 변경 이력 {savedHistory.length}건 보기</button></div>}
+
     <section aria-label="미적용 입력 내역" style={{padding: '4px 8px', background: '#fff', borderBottom: '1px solid #cbd5e1'}}>
       <button type="button" aria-expanded={inputListOpen} onClick={() => setInputListOpen(value => !value)}>입력 내역 {activePlans.length}건 · {inputListOpen ? '닫기' : '펼치기'}</button>
       {inputListOpen && <div>
@@ -1210,7 +1295,7 @@ export default function WeekdayEstimateWorkspace() {
           throw new Error('최신 전산 분배·선출고 원장 또는 다음 큰 차수가 변경됐습니다. 새로고침 후 다시 확인하세요.');
         return freshCompareRows.current;
       }}/>
-    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(selectedExportCycleKeys.length && parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy && !wilsonBusy && !wilsonError && Array.isArray(earlyRecords))} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} earlyRecords={earlyRecords || []} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
+    <WeekdayCycleMatrix key={`${customer?.CustKey || 'none'}|${year}|${majorWeek}`} onExportWorkbook={downloadOriginalWorkbook} onWilsonDayChange={setExportWilsonDay} exportReady={Boolean(selectedExportCycleKeys.length && parsed && originalWorkbook.current?.scope === scopeKey && !templateBusy && !downloadBusy && !wilsonBusy && !wilsonError && Array.isArray(earlyRecords))} cycles={cycles} plans={activePlans} comparisonRows={compareRows || []} baselines={baselines.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} baselineCandidates={baselineCandidates.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} pageNotes={pageNotes} earlyRecords={earlyRecords || []} quoteResults={quoteResults} onRetryQuote={()=>refreshErp()} onOpenNote={openPageNote} onConfirmBaseline={openBaselineConfirmation} baselineBusy={baselineBusy} onMove={moveDraft} busy={busy || editLocked} onEditCell={editGridCell} onClearCell={clearGridCell} onCorrectSubweek={correctSubweek} onCancelSubweek={cancelSubweek} onPrint={openWeekdayPrint} printBusy={printBusy || applyBusy || Boolean(pendingApply)} customer={customer} onSearchProducts={searchGridProducts} onAddProduct={addGridProduct}
       wilsonRecords={wilsonRecords.filter(record=>Number(record.custKey)===Number(customer?.CustKey))} wilsonDrafts={wilsonDrafts.filter(record=>record.scopeKey===scopeKey && activePlans.some(plan=>Number(plan.year)===record.year && Number(plan.prodKey)===record.prodKey && plan.date===record.date && Number(plan.quantity)===record.expectedTotal))} wilsonBusy={wilsonBusy} wilsonError={wilsonError} onEditWilson={editWilson}
       confirmationStates={confirmationStates} confirmationBusy={busy} confirmationError={confirmationError}
       carryover={carryover?.scopeKey===scopeKey?carryover:null} carryoverPlans={plans} onOpenCarryover={openCarryover} carryoverBusy={carryoverBusy || carryoverLoading} carryoverError={carryoverError}
@@ -1246,6 +1331,7 @@ export default function WeekdayEstimateWorkspace() {
       <div className="scroll-table" style={{maxHeight:'45vh',overflow:'auto'}}><table><thead><tr><th>연도/세부차수</th><th>품목</th><th>날짜</th><th>저장 현재 → 초안 최종</th><th>ERP 상세 확정 전 → 후</th></tr></thead><tbody>{applyPreview.preview.map(cell=><tr key={`${cell.year}|${cell.orderWeek}|${cell.prodName}|${cell.date}`}><td>{cell.year}/{cell.orderWeek}</td><td>{cell.prodName}</td><td>{cell.date}</td><td>{cell.before} → {cell.after} {cell.unit}{cell.after===0?' · 취소':''}</td><td>{cell.detailFlag}</td></tr>)}</tbody></table></div>
       <label style={{display:'block',marginTop:10}}>ERP 변경 사유 (필수)<textarea autoFocus aria-label="ERP 저장 사유" rows={3} maxLength={1000} disabled={applyBusy || Boolean(pendingApply)} value={applyReason} onChange={event=>setApplyReason(event.target.value)} style={{width:'100%',boxSizing:'border-box',font:'inherit',color:'#122033'}}/></label>
       {applyError && <p role="alert" style={{color:'#9f1c16',overflowWrap:'anywhere'}}>{applyError}</p>}
+      {applyBusy && applyProgress && <p role="status" aria-live="polite" style={{color:'#16345a'}}>{applyProgress}</p>}
       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}><button className="primary" onClick={confirmErpSave} disabled={applyBusy || Boolean(pendingApply) || !applyReason.trim()}>{applyBusy?'저장/결과 확인 중…':applyPreview.metadataOnly?'확인 · 윌슨 구분만 저장':'변경 확인 · 분배 적용'}</button>{pendingApply && <button disabled={applyBusy} onClick={recheckErpSave}>저장 상태 다시 조회</button>}<button disabled={applyBusy} onClick={()=>setApplyPreview(null)}>닫기 · 초안 유지</button></div>
     </section></div>}
 
@@ -1338,12 +1424,14 @@ export default function WeekdayEstimateWorkspace() {
       </section>
 
       {(draftHistory.length > 0 || erpHistory.length > 0 || savedHistory.length>0 || historyError) && <section className="span-12" style={panel}>
-        <h2 style={{fontSize:17,margin:'0 0 10px'}}>변경 이력 · 초안과 전산 기록 구분</h2>
+        <details id="weekday-saved-history" style={{scrollMarginTop:160}} open={historyOpen} onToggle={event=>setHistoryOpen(event.currentTarget.open)}>
+        <summary style={{fontSize:17,margin:'0 0 10px',cursor:'pointer'}}>변경 이력 · 초안과 전산 기록 구분 · 저장 {savedHistory.length}건</summary>
         <div className="grid"><div className="span-6"><b>현재 화면 초안 (ERP 미적용)</b>{draftHistory.map((event)=><div key={event.id} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13}}>{event.at?.slice(0,19).replace('T',' ')} · 품목 {event.prodKey} · {event.kind}<br/>{event.before?.year}/{event.before?.orderWeek} {event.before?.date} → {event.after ? `${event.after.year}/${event.after.orderWeek} ${event.after.date}` : '초안 제거'} · {event.quantity != null ? `${event.quantity} ${event.unit}` : `${event.before?.quantity ?? '—'} → ${event.after?.quantity ?? '—'}`} {event.reason && `· ${event.reason}`} {event.draftSnapshot && activePlans.some(plan => JSON.stringify(plan) === JSON.stringify(event.draftSnapshot)) && <button type="button" disabled={editLocked || busy} onClick={() => deleteInputs([event.draftSnapshot])}>연결 입력 삭제</button>}</div>)}</div><div className="span-6"><b>EXE 공용 출고 이력 · ShipmentHistory</b><p className="muted">nenova.exe와 공유하는 기존 일자별 신규·수정·삭제 기록입니다. 상세행이 완전히 삭제된 취소건은 기존 EXE 조회에서 빠질 수 있으며, 웹 저장건은 아래 영속 감사에서 조회합니다. 기존 ShipmentHistory 행의 보존과 EXE 화면의 조회 가능 여부는 다릅니다. 명시 작업 UUID가 없는 이력은 이동·웹 감사와 자동 연결하거나 중복 제거하지 않습니다.</p>{erpHistory.map((event,index)=><div key={`${event.SdetailKey}|${event.ChangeDtm}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>EXE 공용 · {event.ChangeDtm} · 담당자 {event.ChangeID} · {event.OrderYear}/{event.OrderWeek} · 품목 {event.ProdKey}<br/>{event.ShipmentDate} {event.ChangeType} · {event.BeforeValue} → {event.AfterValue}{event.Descr && <div>비고: {event.Descr}</div>}</div>)}</div></div>
         <b style={{display:'block',marginTop:10}}>웹 요일 저장 감사 · 작업 UUID / 전체 거래 보완 기록</b>
         <p className="muted">기존 EXE 공용 출고 이력은 위에 그대로 표시합니다. 같은 웹 저장이 두 출처에 기록될 수 있으며, 명시 UUID 연결이 없는 기록은 시각·수량으로 추정 중복 제거하지 않습니다.</p>
         {historyError && <p role="alert" style={{color:'#9f1c16'}}>{historyError}</p>}
-        {savedHistory.map((event,index)=><div key={`${event.operationId}|${event.prodKey}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>웹 감사 · {event.changedAt || event.createdAt || event.at} · 담당자 {event.userName || event.userId || event.changedBy} · {event.year}/{event.orderWeek} · 품목 {event.prodName || event.prodKey} · 사유: {event.reason}<br/>전: {historySnapshotLabel(event.before)}<br/>후: {historySnapshotLabel(event.after)}{event.after?.confirmationLifecycle && <><br/>{lifecycleLabel(event.after.confirmationLifecycle)}</>} · 작업 {event.operationId}</div>)}
+        {savedHistory.map((event,index)=><WeekdaySavedHistoryEvent key={`${event.operationId}|${event.year}|${event.orderWeek}|${event.prodKey}|${index}`} event={event} prodName={(compareRows || []).find(row=>Number(row.prodKey)===Number(event.prodKey))?.prodName}/>)}
+        </details>
       </section>}
 
       {compareRows && <section className="span-12" style={panel}>

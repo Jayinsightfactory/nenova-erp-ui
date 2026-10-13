@@ -1,7 +1,18 @@
 {
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
+  "pageHeaderFeedback": "Measured fixed duplicate of the same React header follows page scroll and original horizontal viewport; only one header is accessible at a time. Original page vertical scroll remains primary. Input/carry notices stay compact in normal flow; full details open only on explicit user action and Escape returns focus.",
+  "stockGateClientRetry": "HTTP409 success=false STOCK_GATE_BUSY retryable=true saved=false만 동일 UUID/불변 본문으로 1,2,3,4,5초 최대 5회 재시도. 그 외 불명확 응답은 GET 결과조회만 수행. gate 및 ERP native 정책 변경 없음. 대기 중 입력 잠금/초안 유지.",
+  "saveReceipt": "After success, GET durable operation by exact UUID/customer and year/major audit; require exact business keys and before/after equality. Display saved date changes, confirmation and latest-read comparison separately. Retry is GET-only; stale scope never updates UI.",
   "scope": [
+    "lib/weekdaySaveReceipt.js",
+    "components/WeekdaySaveReceipt.js",
+    "__tests__/weekdaySaveReceipt.test.js",
+    "__tests__/weekdaySaveReceiptUi.test.cjs",
+    "docs/plans/2026-10-13_weekday-save-receipt.md",
+    "lib/weekdayStickyHeader.js",
+    "__tests__/weekdayStickyHeader.test.js",
+    "docs/plans/weekday-sticky-feedback-2026-10-13.md",
     "lib/weekdayCustomerLink.js",
     "__tests__/weekdayCustomerLink.test.js",
     "docs/plans/weekday-native-customer-read-2026-10-02.md",
@@ -294,6 +305,9 @@
     "description": "비교 요청 year=2026, orderWeek=38-02, custKey=7, prodKey=101이면 같은 38-02의 2025년 행은 결과에 포함되지 않는다. 모든 쿼리는 OrderYear/OrderWeek/CustKey/ProdKey를 제한한다."
   },
   "requiredTestFiles": [
+    "__tests__/weekdayStickyHeader.test.js",
+    "__tests__/weekdaySaveReceipt.test.js",
+    "__tests__/weekdaySaveReceiptUi.test.cjs",
     "__tests__/weekdayCustomerLink.test.js",
     "__tests__/weekdayPrintEligibility.test.js",
     "__tests__/weekdayConfirmation.test.js",
@@ -384,7 +398,7 @@
     "subweekSummary": "Display 01 sum is Thursday-Sunday visible canonical date quantities, 02 sum Monday-Wednesday; each remainder is corresponding initial allocation minus display date sum. Keep actual OrderWeek for editing/saving/printing and raw ShipmentDetail totals separately. Major display sum/remainder uses the seven visible dates; outside dates stay diagnostic evidence, never silently reassigned.",
     "flowerOrder": [
       "카네이션",
-      "장미",
+      "콜롬비아 장미",
       "수국",
       "알스트로",
       "기타"
@@ -392,11 +406,11 @@
     "flowerGroups": {
       "priority": [
         "카네이션",
-        "장미",
+        "콜롬비아 장미",
         "수국",
         "알스트로"
       ],
-      "otherCategories": "Separate actual FlowerName groups below the four priority categories; unknown or conflicting metadata remains 기타",
+      "otherCategories": "Use scoped Product countryName/CounName and flowerName/FlowerName metadata; only Colombia roses are priority. Ecuador/China/other country roses form separate country + rose groups below Alstro. Missing/conflicting country metadata forms 장미 (국가 미확인), never infer Colombia from product names. Other actual FlowerName groups remain separate; unknown/conflicting flower metadata remains 기타. Shared priority/group comparator governs matrix, UI and XLSX without changing quantities or ERP writes.",
       "defaultExpanded": true,
       "collapse": "Display-only hidden product rows; preserve mounted input controls and pending edits, quantities, drafts, filter/export/print scope and ERP data",
       "controls": "Sticky first-column category header with count, keyboard button and aria-expanded; only categories matching current filters are listed",
@@ -480,7 +494,7 @@
     "blank": "Explicitly emptied quantity field removes matching unapplied date input and linked Wilson draft; zero remains an explicit quantity proposal",
     "history": "Accessible input list supports exact-row deletion and current-scope clear; unrelated scope/year/customer and newer edits survive stale actions",
     "persistence": "CAS expected stored scope; clear matching saved browser records before committing React state; failure preserves inputs; pending apply/recovery stays locked",
-    "errorDisplay": "Compact alert trigger and fixed dialog outside table layout; fresh input failures open an alert, persistent row warnings remain reopenable without expanding cells"
+    "errorDisplay": "Compact in-flow alert and manual details trigger; never auto-open a large dialog or move focus while entering quantities. Manual details stay outside table layout and never expand cells."
   },
   "cellStatusPresentation": {
     "unallocated": "knownEmpty without draft: cell color only, no repeated visible status text",
@@ -515,12 +529,12 @@
     "criteria": "Only structured 409 eligibility is a business waiting state. invalidCount wins over no shipment/unfixed. Never infer state from Korean error strings or zero unknown counts."
   },
   "originalWorkbookDownload": {
-    "presentation": "No year in same-year worksheet title or visible column labels; selected major weeks appear in the title and dates remain MM/DD. Only a cross-year selection shows each year in the title to prevent ambiguity. Downloaded filename always lists selected years and major weeks; full year remains in business keys. Prefer exact Product.DisplayName for Korean names, otherwise existing suggestDisplayName mapping; preserve unknown tokens. Numeric zero renders as styled blank for item and subtotal cells without removing rows or changing arithmetic; negative balances stay numeric.",
+    "presentation": "No year in same-year worksheet title or visible column labels; selected major weeks appear in the title and dates remain MM/DD. Only a cross-year selection shows each year in the title to prevent ambiguity. Downloaded filename always lists selected years and major weeks; full year remains in business keys. Prefer Product.DisplayName for Korean names, otherwise existing suggestDisplayName mapping; remove only a leading category token repeated by the row group, preserving variety/origin/size, unknown tokens and distinct product rows. Numeric zero renders as styled blank for item and subtotal cells without removing rows or changing arithmetic; negative balances stay numeric.",
     "sideEffects": "Browser file download only; preserve OrderDetail/ShipmentDetail/ShipmentDate/ShipmentFarm/StockMaster/ProductStock/Estimate/WebProfitReport and confirmation",
     "layout": "Generate a current-work worksheet using the saved reference category cell styles, widths, borders and grouped merges; every name and value comes from full web matrix. Remove historical source content and sheets.",
     "storage": "Saved Jugwang default is private server runtime, decrypted at deployment from encrypted asset; raw bytes and private deployment key never committed. Manual originals remain browser-memory only.",
     "source": "Cust533 exact saved SHA default loads for valid scope; user manual uploads take precedence. Default load parses original only and never creates plans/links or ERP writes. Past source quantities and dates are never auto-converted to current cycle.",
-    "preserve": "Preserve formatting assets only; never retain old source names, quantities, shared strings, formulas or unrelated private worksheets in output.",
+    "preserve": "Preserve original fonts, borders, number formats, alignment and XF records; append cached XF clones with semantic fills: sum E7F0FF, balance E6F4EA, change FFF2CC, full subtotal row C9DDF3. Column kind determines header/body/blank colors, subtotal overrides column colors. Never retain old source names, quantities, shared strings, formulas or unrelated private worksheets in output.",
     "legacy": "Export requires reference XLSX styles; generated output is always XLSX.",
     "quantities": "All matrix rows before search/collapse; latest user instruction splits selected weekday into normal/Wilson/day-total columns. Canonical day totals and subweek/major totals include Wilson once. Validate classification unit/expectedTotal/status and prefer matching draft. Unknown stays blank; zero and negative remainders preserved; units separated. Carryover same as matrix.",
     "routes": "Header and matrix both use the same full snapshot exporter and selected cycles; selected Wilson weekday shared via callback; stale scope/file/plans/comparison/calendar/baseline/carryover/Wilson classification/selected day/selected cycles blocks download after awaits.",
