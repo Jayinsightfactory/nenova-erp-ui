@@ -1,5 +1,6 @@
 {
   "id": "sales-defect-deduction",
+  "sharedDuplicateLock": "Final lock:true Estimate revalidation uses estimateDuplicateWriteGuard transaction lock shared with direct estimate create/update, keyed by year+parentWeek+customer+product. Existing conservative support duplicate predicate, auto-source sticky guard and carryover requestKey remain unchanged.",
   "title": "영업수입불량차감 양식·견적서관리 등록 계약",
   "displaySorting": "Sales input and saved-summary default to customer then manager; manager then customer is selectable. Incoming confirmation supports both and retains country/product grouping. Display projections preserve row references and sourceIndex; selection, edit, deletion and save identity and ERP write behavior remain unchanged across years.",
   "scope": [
