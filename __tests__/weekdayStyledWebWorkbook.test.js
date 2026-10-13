@@ -70,7 +70,7 @@ const wide=await buildWeekdayStyledWebWorkbook(bytes,{columns:wideColumns,rows:[
 const wideZip=await JSZip.loadAsync(wide),wideXml=await wideZip.file('xl/worksheets/sheet1.xml').async('string'),wideStyles=await wideZip.file('xl/styles.xml').async('string');
 const col=index=>{let name='';for(let value=index+1;value;value=Math.floor((value-1)/26))name=String.fromCharCode(65+(value-1)%26)+name;return name;};
 const expectedColors={dayTotal:'FFE7F0FF',sum01:'FFE7F0FF',sum02:'FFE7F0FF',total:'FFE7F0FF',
-  remaining01:'FFE6F4EA',remaining02:'FFE6F4EA',remaining:'FFE6F4EA',change:'FFFFF2CC'};
+  remaining01:'FFE6F4EA',remaining02:'FFE6F4EA',remaining:'FFE6F4EA',change:'FFFFF2CC',initial01:'FFFFF2CC',initial02:'FFFFF2CC'};
 const stripFill=xf=>xf.replace(/\s+(?:fillId|applyFill)="[^"]*"/g,'');
 for(const [index,kind] of kinds.entries()) {
   const column=col(index+3),color=expectedColors[kind];
@@ -84,8 +84,30 @@ for(const [index,kind] of kinds.entries()) {
   }
   assert.equal(colorAt(wideXml,wideStyles,`${column}4`),'FFC9DDF3','subtotal overrides all column roles');
 }
-assert.equal(nodes(wideStyles,'cellXfs','xf').length,10,'clones are cached by base style and role, not per cell');
-assert.equal(nodes(wideStyles,'fills','fill').length,6,'four distinct semantic fills appended once');
-assert.equal(Number(wideStyles.match(/<cellXfs[^>]*count="(\d+)"/)?.[1]),10,'XF count follows appended nodes');
-assert.equal(Number(wideStyles.match(/<fills[^>]*count="(\d+)"/)?.[1]),6,'fill count follows appended nodes');
+assert.equal(nodes(wideStyles,'cellXfs','xf').length,12,'clones are cached by base style and role, not per cell');
+assert.equal(nodes(wideStyles,'fills','fill').length,7,'five semantic role fills appended once');
+assert.equal(Number(wideStyles.match(/<cellXfs[^>]*count="(\d+)"/)?.[1]),12,'XF count follows appended nodes');
+assert.equal(Number(wideStyles.match(/<fills[^>]*count="(\d+)"/)?.[1]),7,'fill count follows appended nodes');
+const groupedColumns=[{key:'base',kind:'initial01',label:'41-1 물량표 기준'},
+  ...['day','wilson','dayTotal'].map((kind,index)=>({key:kind,kind,label:`10/11\n${kind}`,groupKey:'2026|41-1',groupLabel:'41-1'})),
+  {key:'balance',kind:'remaining01',label:'41-1 잔량'},
+  {key:'next',kind:'day',label:'10/12\n월',groupKey:'2026|41-2',groupLabel:'41-2'}];
+const grouped=await buildWeekdayStyledWebWorkbook(bytes,{columns:groupedColumns,rows:[
+  {category:'카네이션',name:'브루트',unit:'박스',values:{base:5,day:2,wilson:1,dayTotal:3,balance:2,next:0}},
+  {category:'수국',name:'화이트',unit:'단',values:{base:0,day:0,wilson:0,dayTotal:0,balance:0,next:0}}]});
+const groupedZip=await JSZip.loadAsync(grouped),groupedXml=await groupedZip.file('xl/worksheets/sheet1.xml').async('string');
+const groupedStyles=await groupedZip.file('xl/styles.xml').async('string'),groupedBook=await groupedZip.file('xl/workbook.xml').async('string');
+assert.match(groupedXml,/<mergeCell ref="E2:G2"/,'day, Wilson and day total share one subweek header');
+assert.match(groupedXml,/<mergeCell ref="D2:D3"/);assert.match(groupedXml,/<mergeCell ref="H2:H3"/);
+assert.match(groupedXml,/<mergeCell ref="E7:G7"/,'category header repeats both rows');
+assert.match(groupedXml,/ySplit="3" topLeftCell="D4"/);
+assert.match(groupedBook,/name="_xlnm.Print_Titles"[^>]*>[^<]*!\$1:\$3</);
+assert.match(groupedBook,/name="_xlnm.Print_Area"[^>]*>[^<]*!\$A\$1:\$I\$11</);
+const groupedSheet=XLSX.read(grouped,{type:'array'}).Sheets['주광 발주내역'];
+assert.equal(groupedSheet.E2.v,'41-1');assert.equal(groupedSheet.E3.v,'10/11\nday');
+assert.equal(groupedSheet.E4.v,2);assert.equal(groupedSheet.F4.v,1);assert.equal(groupedSheet.G4.v,3);
+assert.equal(groupedSheet.I4?.v,undefined,'zero remains blank under grouped header');
+assert.equal(colorAt(groupedXml,groupedStyles,'D4'),'FFFFF2CC');
+assert.equal(colorAt(groupedXml,groupedStyles,'G4'),'FFE7F0FF');
+assert.equal(colorAt(groupedXml,groupedStyles,'H4'),'FFE6F4EA');
 console.log('weekdayStyledWebWorkbook: full current names, quantities, dynamic groups, native cell styles, zero/null/negative and no stale source data passed');

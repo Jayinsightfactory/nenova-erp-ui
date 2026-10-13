@@ -609,7 +609,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
                 const saved=baselines.find(record=>Number(record.year)===Number(cycle.year)&&record.orderWeek===`${cycle.majorWeek}-${suffix}`);
                 const candidate=baselineCandidates.find(record=>Number(record.year)===Number(cycle.year)&&record.orderWeek===`${cycle.majorWeek}-${suffix}`);
                 return <th key={column.kind} rowSpan={2} scope="col" className={initial?`wcm-initial wcm-cycle-start${!saved&&!candidate?.error?' wcm-provisional':''}`:'wcm-total'} title={initial&&!saved?'기준 미확정 · 최초분배 기준 보관 전':undefined}>
-                  {initial ? <>{cycle.majorWeek}-{suffix}<br/>최초분배<br/>{saved?<small title={`${saved.confirmedAt} · ${saved.confirmedBy}`}>기준 보관됨</small>:<>{(candidate?.error || busy) && <small className={candidate?.error?'wcm-warning':'wcm-muted'} title={candidate?.error || '기준 조회 중'}>{candidate?.error?'조회 실패':'조회 중'}</small>}<button type="button" className="wcm-confirm" disabled={busy || baselineBusy || !hasCustomer || cycle.calendarState!=='FOUND' || typeof onConfirmBaseline!=='function'}
+                  {initial ? <>{cycle.majorWeek}-{suffix}<br/>물량표 기준<br/>{saved?<small title={`${saved.confirmedAt} · ${saved.confirmedBy}`}>기준 보관됨</small>:<>{(candidate?.error || busy) && <small className={candidate?.error?'wcm-warning':'wcm-muted'} title={candidate?.error || '기준 조회 중'}>{candidate?.error?'조회 실패':'조회 중'}</small>}<button type="button" className="wcm-confirm" disabled={busy || baselineBusy || !hasCustomer || cycle.calendarState!=='FOUND' || typeof onConfirmBaseline!=='function'}
                     aria-label={`${cycle.year}/${cycle.majorWeek}-${suffix} 최초분배 확정`} onClick={()=>onConfirmBaseline({cycle,orderWeek:`${cycle.majorWeek}-${suffix}`})}>기준 확정</button></>}</>
                     : column.kind==='remaining01' ? <>{cycle.majorWeek}-01<br/>잔량</> : <>{cycle.majorWeek}차<br/>합계<br/><small>잔량·변경</small></>}
                 </th>;
@@ -921,7 +921,7 @@ export default function WeekdayCycleMatrix({ cycles = [], plans = [], comparison
       .weekday-cycle-matrix .wcm-product small { margin-left:auto; color:#122033; flex-shrink:0; font-size:10px; }
       .weekday-cycle-matrix .wcm-badge { font-size:12px; padding:1px 3px; background:#e4ecf5; color:#405774; border-radius:3px; max-width:72px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; flex-shrink:0; }
       .weekday-cycle-matrix .wcm-total { background:#f1f6fb; font-variant-numeric:tabular-nums; }
-      .weekday-cycle-matrix .wcm-initial { background:#edf7f0; font-variant-numeric:tabular-nums; font-size:14px; }
+      .weekday-cycle-matrix .wcm-initial { background:#fff7da; font-variant-numeric:tabular-nums; font-size:14px; }
       .weekday-cycle-matrix .wcm-confirm { padding:1px 3px; font-size:12px; }
       .weekday-cycle-matrix .wcm-remainder-status { display:block; font-size:12px; line-height:16px; }
       .weekday-cycle-matrix .wcm-major-heading { display:flex; flex-flow:row wrap; align-items:center; justify-content:space-between; gap:0 3px; min-width:0; text-align:left; }
