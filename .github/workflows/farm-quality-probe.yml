@@ -1,4 +1,4 @@
-name: Cafe24 bounded temporary build swap
+name: Cafe24 remove task temporary build swap
 on:
   workflow_dispatch:
 jobs:
@@ -14,10 +14,12 @@ jobs:
           script: |
             set -eu
             target=/var/tmp/nenova-build-38336101010.swap
+            test "$(readlink -f "$target")" = "$target"
+            available=$(awk '/MemAvailable:/{print $2}' /proc/meminfo)
+            used=$(swapon --show=NAME,USED --bytes --noheadings | awk -v t="$target" '$1==t{print int($2/1024)}')
+            test -n "$used"
+            test "$available" -gt "$((used+262144))"
+            swapoff "$target"
+            rm -- "$target"
             test ! -e "$target"
-            test "$(df --output=avail -k /var/tmp | tail -1)" -gt 4194304
-            install -m 600 /dev/null "$target"
-            fallocate -l 2G "$target"
-            mkswap "$target"
-            swapon "$target"
             free -m
