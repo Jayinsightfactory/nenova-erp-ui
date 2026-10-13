@@ -1,11 +1,14 @@
 {
   "id": "estimate-weekday-workspace",
   "title": "주광 기본·거래처 선택형 요일별 견적 워크스페이스 계약",
+  "quantityKeyboard": "Visible enabled normal and Wilson quantity inputs support adjacent row/column arrow navigation. Preserve composition, modifiers, text selection and interior caret editing; blur uses the existing draft commit only. Automatic cell feedback is compact and in page flow, with explicit details and Escape dismissal. No ERP API, confirmation, stock, quote or quantity policy changes.",
   "subweekBalanceExport": "Display baseline as 물량표 기준; interval02 remainder includes interval01 remainder plus interval02 baseline minus interval02 dated shipments. Preserve unknown/provisional/draft state, incoming prior major carry once, manual major closing separately, and all ERP ledgers. Excel repeats product name before each subweek in one table, omits visible unit column while retaining unit-separated rows/subtotals, groups dated normal/Wilson/day-total columns under year-scoped subweek labels and colors baseline pale yellow, totals blue, balances green; numeric zero remains blank.",
   "pageHeaderFeedback": "Measured fixed duplicate of the same React header follows page scroll and original horizontal viewport; only one header is accessible at a time. Original page vertical scroll remains primary. Input/carry notices stay compact in normal flow; full details open only on explicit user action and Escape returns focus.",
   "stockGateClientRetry": "HTTP409 success=false STOCK_GATE_BUSY retryable=true saved=false만 동일 UUID/불변 본문으로 1,2,3,4,5초 최대 5회 재시도. 그 외 불명확 응답은 GET 결과조회만 수행. gate 및 ERP native 정책 변경 없음. 대기 중 입력 잠금/초안 유지.",
   "saveReceipt": "History shortcut opens its outer tools disclosure before scrolling and focusing; durable web audit appears before collapsed legacy EXE/draft history. After success, GET durable operation by exact UUID/customer and year/major audit; require exact business keys and before/after equality. Display saved date changes, confirmation and latest-read comparison separately. Retry is GET-only; stale scope never updates UI.",
   "scope": [
+    "lib/weekdayQuantityKeyboard.js",
+    "__tests__/weekdayQuantityKeyboard.test.js",
     "docs/plans/weekday-subweek-balance-export-2026-10-13.md",
     "lib/weekdaySaveReceipt.js",
     "components/WeekdaySaveReceipt.js",
