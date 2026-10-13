@@ -43,6 +43,24 @@ function lifecycleLabel(lifecycle) {
 function carryoverHistoryValue(value) { return value == null ? '미등록' : String(typeof value === 'object' ? value.quantity ?? '미확인' : value); }
 function carryoverActorLabel(actor) { return actor == null ? '담당자 미확인' : typeof actor === 'object' ? actor.userName || actor.userId || actor.name || '담당자 미확인' : String(actor); }
 
+export function revealWeekdaySavedHistory({openTools,openHistory,schedule,findHistory}) {
+  openTools();openHistory();
+  schedule(()=>{
+    const details=findHistory();
+    // Open every disclosure ancestor before scrolling/focusing its contents.
+    // Controlled React state above also keeps the outer tools panel open.
+    for(let ancestor=details?.parentElement;ancestor;ancestor=ancestor.parentElement)
+      if(ancestor.tagName==='DETAILS') ancestor.open=true;
+    if(details) details.open=true;
+    details?.scrollIntoView({block:'start'});
+    details?.querySelector('summary')?.focus({preventScroll:true});
+  });
+}
+
+export function WeekdayHistorySections({saved,legacy}) {
+  return <>{saved}<details><summary>기존 초안·EXE 공용 이력 펼치기</summary>{legacy}</details></>;
+}
+
 export async function loadWeekdaySavedTemplate({ custKey, scopeKey, isCurrent, getOriginal, fetchTemplate }) {
   if (Number(custKey) !== 533 || !/^533\|(?:20\d{2}|21\d{2}|2200)\|(?:0[1-9]|[1-4]\d|5[0-3])$/.test(scopeKey || '')) return null;
   const manual = () => { const value = getOriginal(); return value && !value.savedTemplate && Number(value.scope?.split('|')[0]) === 533; };
@@ -1269,7 +1287,8 @@ export default function WeekdayEstimateWorkspace() {
     <WeekdaySaveReceipt receipt={saveReceipt} error={receiptError} busy={receiptBusy}
       onRetry={receiptSubmission.current?retrySavedResult:null} names={Object.fromEntries((compareRows || []).map(row=>[row.prodKey,row.displayName || row.prodName]))}/>
     {(savedHistory.length>0 || historyError) && <div style={{padding:'4px 8px'}}><button type="button" onClick={()=>{
-      setHistoryOpen(true);requestAnimationFrame(()=>{const details=document.getElementById('weekday-saved-history');details?.scrollIntoView({block:'start'});details?.querySelector('summary')?.focus({preventScroll:true});});
+      revealWeekdaySavedHistory({openTools:()=>setToolsOpen(true),openHistory:()=>setHistoryOpen(true),
+        schedule:callback=>requestAnimationFrame(callback),findHistory:()=>document.getElementById('weekday-saved-history')});
     }}>저장 변경 이력 {savedHistory.length}건 보기</button></div>}
 
     <section aria-label="미적용 입력 내역" style={{padding: '4px 8px', background: '#fff', borderBottom: '1px solid #cbd5e1'}}>
@@ -1426,11 +1445,12 @@ export default function WeekdayEstimateWorkspace() {
       {(draftHistory.length > 0 || erpHistory.length > 0 || savedHistory.length>0 || historyError) && <section className="span-12" style={panel}>
         <details id="weekday-saved-history" style={{scrollMarginTop:160}} open={historyOpen} onToggle={event=>setHistoryOpen(event.currentTarget.open)}>
         <summary style={{fontSize:17,margin:'0 0 10px',cursor:'pointer'}}>변경 이력 · 초안과 전산 기록 구분 · 저장 {savedHistory.length}건</summary>
-        <div className="grid"><div className="span-6"><b>현재 화면 초안 (ERP 미적용)</b>{draftHistory.map((event)=><div key={event.id} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13}}>{event.at?.slice(0,19).replace('T',' ')} · 품목 {event.prodKey} · {event.kind}<br/>{event.before?.year}/{event.before?.orderWeek} {event.before?.date} → {event.after ? `${event.after.year}/${event.after.orderWeek} ${event.after.date}` : '초안 제거'} · {event.quantity != null ? `${event.quantity} ${event.unit}` : `${event.before?.quantity ?? '—'} → ${event.after?.quantity ?? '—'}`} {event.reason && `· ${event.reason}`} {event.draftSnapshot && activePlans.some(plan => JSON.stringify(plan) === JSON.stringify(event.draftSnapshot)) && <button type="button" disabled={editLocked || busy} onClick={() => deleteInputs([event.draftSnapshot])}>연결 입력 삭제</button>}</div>)}</div><div className="span-6"><b>EXE 공용 출고 이력 · ShipmentHistory</b><p className="muted">nenova.exe와 공유하는 기존 일자별 신규·수정·삭제 기록입니다. 상세행이 완전히 삭제된 취소건은 기존 EXE 조회에서 빠질 수 있으며, 웹 저장건은 아래 영속 감사에서 조회합니다. 기존 ShipmentHistory 행의 보존과 EXE 화면의 조회 가능 여부는 다릅니다. 명시 작업 UUID가 없는 이력은 이동·웹 감사와 자동 연결하거나 중복 제거하지 않습니다.</p>{erpHistory.map((event,index)=><div key={`${event.SdetailKey}|${event.ChangeDtm}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>EXE 공용 · {event.ChangeDtm} · 담당자 {event.ChangeID} · {event.OrderYear}/{event.OrderWeek} · 품목 {event.ProdKey}<br/>{event.ShipmentDate} {event.ChangeType} · {event.BeforeValue} → {event.AfterValue}{event.Descr && <div>비고: {event.Descr}</div>}</div>)}</div></div>
+        <WeekdayHistorySections saved={<>
         <b style={{display:'block',marginTop:10}}>웹 요일 저장 감사 · 작업 UUID / 전체 거래 보완 기록</b>
-        <p className="muted">기존 EXE 공용 출고 이력은 위에 그대로 표시합니다. 같은 웹 저장이 두 출처에 기록될 수 있으며, 명시 UUID 연결이 없는 기록은 시각·수량으로 추정 중복 제거하지 않습니다.</p>
+        <p className="muted">기존 초안과 EXE 공용 이력은 아래에서 펼쳐 확인할 수 있습니다. 같은 웹 저장이 두 출처에 기록될 수 있으며, 명시 UUID 연결이 없는 기록은 시각·수량으로 추정 중복 제거하지 않습니다.</p>
         {historyError && <p role="alert" style={{color:'#9f1c16'}}>{historyError}</p>}
         {savedHistory.map((event,index)=><WeekdaySavedHistoryEvent key={`${event.operationId}|${event.year}|${event.orderWeek}|${event.prodKey}|${index}`} event={event} prodName={(compareRows || []).find(row=>Number(row.prodKey)===Number(event.prodKey))?.prodName}/>)}
+        </>} legacy={<div className="grid"><div className="span-6"><b>현재 화면 초안 (ERP 미적용)</b>{draftHistory.map((event)=><div key={event.id} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13}}>{event.at?.slice(0,19).replace('T',' ')} · 품목 {event.prodKey} · {event.kind}<br/>{event.before?.year}/{event.before?.orderWeek} {event.before?.date} → {event.after ? `${event.after.year}/${event.after.orderWeek} ${event.after.date}` : '초안 제거'} · {event.quantity != null ? `${event.quantity} ${event.unit}` : `${event.before?.quantity ?? '—'} → ${event.after?.quantity ?? '—'}`} {event.reason && `· ${event.reason}`} {event.draftSnapshot && activePlans.some(plan => JSON.stringify(plan) === JSON.stringify(event.draftSnapshot)) && <button type="button" disabled={editLocked || busy} onClick={() => deleteInputs([event.draftSnapshot])}>연결 입력 삭제</button>}</div>)}</div><div className="span-6"><b>EXE 공용 출고 이력 · ShipmentHistory</b><p className="muted">nenova.exe와 공유하는 기존 일자별 신규·수정·삭제 기록입니다. 상세행이 완전히 삭제된 취소건은 기존 EXE 조회에서 빠질 수 있으며, 웹 저장건은 위 영속 감사에서 조회합니다. 기존 ShipmentHistory 행의 보존과 EXE 화면의 조회 가능 여부는 다릅니다. 명시 작업 UUID가 없는 이력은 이동·웹 감사와 자동 연결하거나 중복 제거하지 않습니다.</p>{erpHistory.map((event,index)=><div key={`${event.SdetailKey}|${event.ChangeDtm}|${index}`} style={{padding:'6px 0',borderBottom:'1px solid #ddd',fontSize:13,color:'#122033',overflowWrap:'anywhere'}}>EXE 공용 · {event.ChangeDtm} · 담당자 {event.ChangeID} · {event.OrderYear}/{event.OrderWeek} · 품목 {event.ProdKey}<br/>{event.ShipmentDate} {event.ChangeType} · {event.BeforeValue} → {event.AfterValue}{event.Descr && <div>비고: {event.Descr}</div>}</div>)}</div></div>}/>
         </details>
       </section>}
 
