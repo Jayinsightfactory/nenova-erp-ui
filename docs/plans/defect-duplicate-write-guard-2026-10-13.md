@@ -68,7 +68,11 @@ lock scope = version + OrderYear + parent OrderWeek + CustKey + ProdKey
 - `CodeInfo.Category='EstimateType' AND DetailCode=@typeCode`의 정확한 코드 일치만 사용한다.
 - 결과가 0행 또는 2행 이상이거나 family를 유일하게 정할 수 없으면
   `ESTIMATE_TYPE_IDENTITY_UNKNOWN`(409)으로 fail closed 한다.
-- canonical family는 `CodeInfo.Descr2`의 trim 값이다. `불량차감`, `검역차감`, `단가차감`, `취소차감`, `부족차감`, `중복차감`, `출하오류차감`, `판매요청`은 서로 다른 family다.
+- canonical family는 `CodeInfo.Descr2`의 trim 값을 우선하고, 기존 코드의
+  `Descr2`가 비어 있으면 해당 exact-code 행의 `Descr`를 사용한다. 둘 다 비어 있거나
+  exact-code 행들에서 family가 하나로 정해지지 않으면 차단한다. `불량차감`,
+  `검역차감`, `단가차감`, `취소차감`, `부족차감`, `중복차감`, `출하오류차감`,
+  `판매요청`은 서로 다른 family다.
 - 기존 직접 생성의 `TOP 1` type-code 선택과 Product `EstUnit` 기반 저장 단위 규칙은
   변경하지 않는다. CodeInfo 표기 단위와 입력/저장 unit의 일치를 새 저장 조건으로
   강제하지 않는다. 저장 unit은 exact fingerprint의 독립 항목으로만 비교한다.
@@ -125,7 +129,7 @@ EstimateDtm의 SQL date
 6. 기존 EstimateType 코드의 CodeInfo family와 prospective unit을 별도 fingerprint 항목으로 확정
 7. 자기 `EstimateKey`를 제외한 exact duplicate 후보 잠금 조회
 8. 충돌이면 409 rollback, 아니면 기존 필드 UPDATE 1건
-9. `rowsAffected===1`, 저장 후 snapshot, edit guard revision 확인 후 commit
+9. 저장 후 PK snapshot과 edit guard revision을 확인한 뒤 commit
 
 ## 7. 영업지원 경로
 
