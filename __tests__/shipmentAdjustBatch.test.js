@@ -103,7 +103,7 @@ async function main() {
     '기존 단건 POST도 추출한 트랜잭션 코어를 재사용해야 한다.',
   );
   assert.match(batchApiSource, /runShipmentAdjustmentBatchTransaction\(\{/);
-  assert.match(batchApiSource, /withTransactionFn:[\s\S]*?: withTransaction,/);
+  assert.match(batchApiSource, /withTransactionFn:[\s\S]*?SHIPMENT_ADJUSTMENT_TRANSACTION_OPTIONS/);
   assert.match(batchApiSource, /preflightOnly/);
   assert.match(batchApiSource, /rollbackOnly: true/);
   assert.match(batchApiSource, /committedCount: preflightOnly \? 0 : results\.length/);
@@ -114,7 +114,7 @@ async function main() {
 
   const dbSource = fs.readFileSync('lib/db.js', 'utf8');
   assert.match(dbSource, /const rollbackOnly = options\.rollbackOnly === true/);
-  assert.match(dbSource, /if \(rollbackOnly\) await transaction\.rollback\(\)/);
+  assert.match(dbSource, /if \(rollbackOnly\)\s*\{[\s\S]*?await transaction\.rollback\(\)/);
 
   const pasteSource = fs.readFileSync('pages/orders/paste.js', 'utf8');
   assert.match(pasteSource, /preflightOnly: true/);
