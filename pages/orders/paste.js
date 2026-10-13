@@ -24,6 +24,7 @@ import { resolvePasteOrderUnit, resolvePasteMixedQuantity } from '../../lib/past
 import { applyPasteCustomerMappings, pasteCustomerMappingKey } from '../../lib/pasteCustomerMapping.js';
 import { buildPasteMixedActionPreview, getPasteMixedBatchStartBlocker, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, pasteShipmentLookupProdKeys, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
+import { formatPasteBatchFailure } from '../../lib/pasteBatchFailure.js';
 import { pasteOrderHighlightState } from '../../lib/pasteOrderHighlight.js';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/pasteIncomingDisplay.js';
@@ -3108,14 +3109,16 @@ export default function PasteOrderPage() {
       const preflightResult = await preflightResponse.json().catch(() => ({}));
       if (!preflightResponse.ok || preflightResult.success !== true || preflightResult.verified !== true || preflightResult.preflight !== true) {
         const failed = preflightResult.failedEntry || {};
-        const failedLabel = [failed.custName, failed.inputName || failed.prodName, failed.qty && `${failed.qty}${failed.unit || ''}`]
-          .filter(Boolean).join(' / ');
         const preflightError = pasteWriteError(
           preflightResponse,
           preflightResult,
-          `저장 전 검증에 실패했습니다.${failedLabel ? `\n실패 항목: ${failedLabel}` : ''}`,
+          '저장 전 검증에 실패했습니다.',
         );
-        preflightError.failedIndex = Number.isInteger(failed.inputIndex) ? failed.inputIndex : failed.executionIndex;
+        preflightError.message = formatPasteBatchFailure({
+          message: preflightError.message, failedEntry: failed, targets,
+          year: selectedYearFromWeek(week), week,
+        });
+        preflightError.failedIndex = Number.isInteger(failed.inputIndex) ? failed.inputIndex : undefined;
         preflightError.rolledBack = true;
         throw preflightError;
       }
@@ -3129,11 +3132,12 @@ export default function PasteOrderPage() {
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result.success !== true || result.verified !== true) {
         const rollbackError = pasteWriteError(response, result, '전체 일괄 처리에 실패했습니다.');
-        rollbackError.failedIndex = Number.isInteger(result.failedIndex)
-          ? result.failedIndex
-          : Number.isInteger(result.failedEntry?.inputIndex)
-            ? result.failedEntry.inputIndex
-            : result.failedEntry?.executionIndex;
+        rollbackError.message = formatPasteBatchFailure({
+          message: rollbackError.message, failedEntry: result.failedEntry, targets,
+          year: selectedYearFromWeek(week), week,
+        });
+        rollbackError.failedIndex = Number.isInteger(result.failedEntry?.inputIndex)
+          ? result.failedEntry.inputIndex : undefined;
         rollbackError.rolledBack = result.rolledBack !== false;
         throw rollbackError;
       }
