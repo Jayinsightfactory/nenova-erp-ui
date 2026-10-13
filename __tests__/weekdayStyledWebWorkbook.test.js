@@ -97,17 +97,31 @@ const grouped=await buildWeekdayStyledWebWorkbook(bytes,{columns:groupedColumns,
   {category:'수국',name:'화이트',unit:'단',values:{base:0,day:0,wilson:0,dayTotal:0,balance:0,next:0}}]});
 const groupedZip=await JSZip.loadAsync(grouped),groupedXml=await groupedZip.file('xl/worksheets/sheet1.xml').async('string');
 const groupedStyles=await groupedZip.file('xl/styles.xml').async('string'),groupedBook=await groupedZip.file('xl/workbook.xml').async('string');
-assert.match(groupedXml,/<mergeCell ref="E2:G2"/,'day, Wilson and day total share one subweek header');
-assert.match(groupedXml,/<mergeCell ref="D2:D3"/);assert.match(groupedXml,/<mergeCell ref="H2:H3"/);
-assert.match(groupedXml,/<mergeCell ref="E7:G7"/,'category header repeats both rows');
-assert.match(groupedXml,/ySplit="3" topLeftCell="D4"/);
+assert.match(groupedXml,/<mergeCell ref="D2:F2"/,'day, Wilson and day total share one subweek header');
+assert.match(groupedXml,/<mergeCell ref="C2:C3"/);assert.match(groupedXml,/<mergeCell ref="G2:G3"/);
+assert.match(groupedXml,/<mergeCell ref="D7:F7"/,'category header repeats both rows');
+assert.match(groupedXml,/xSplit="2" ySplit="3" topLeftCell="C4"/);
 assert.match(groupedBook,/name="_xlnm.Print_Titles"[^>]*>[^<]*!\$1:\$3</);
-assert.match(groupedBook,/name="_xlnm.Print_Area"[^>]*>[^<]*!\$A\$1:\$I\$11</);
+assert.match(groupedBook,/name="_xlnm.Print_Area"[^>]*>[^<]*!\$A\$1:\$H\$11</);
 const groupedSheet=XLSX.read(grouped,{type:'array'}).Sheets['주광 발주내역'];
-assert.equal(groupedSheet.E2.v,'41-1');assert.equal(groupedSheet.E3.v,'10/11\nday');
-assert.equal(groupedSheet.E4.v,2);assert.equal(groupedSheet.F4.v,1);assert.equal(groupedSheet.G4.v,3);
-assert.equal(groupedSheet.I4?.v,undefined,'zero remains blank under grouped header');
-assert.equal(colorAt(groupedXml,groupedStyles,'D4'),'FFFFF2CC');
-assert.equal(colorAt(groupedXml,groupedStyles,'G4'),'FFE7F0FF');
-assert.equal(colorAt(groupedXml,groupedStyles,'H4'),'FFE6F4EA');
+assert.equal(groupedSheet.D2.v,'41-1');assert.equal(groupedSheet.D3.v,'10/11\nday');
+assert.equal(groupedSheet.D4.v,2);assert.equal(groupedSheet.E4.v,1);assert.equal(groupedSheet.F4.v,3);
+assert.equal(groupedSheet.H4?.v,undefined,'zero remains blank under grouped header');
+assert.equal(colorAt(groupedXml,groupedStyles,'C4'),'FFFFF2CC');
+assert.equal(colorAt(groupedXml,groupedStyles,'F4'),'FFE7F0FF');
+assert.equal(colorAt(groupedXml,groupedStyles,'G4'),'FFE6F4EA');
+const repeatedColumns=['41-1','41-2','42-1','42-2'].flatMap((section,index)=>[
+  {key:`base${index}`,kind:index%2?'initial02':'initial01',label:`${section} 물량표 기준`},
+  {key:`day${index}`,kind:'day',label:'10/11\n일',groupKey:`2026|${section}`,groupLabel:section}]);
+const repeatedBytes=await buildWeekdayStyledWebWorkbook(bytes,{columns:repeatedColumns,rows:[
+  {category:'카네이션',name:'브루트',unit:'박스',values:Object.fromEntries(repeatedColumns.map(column=>[column.key,2]))},
+  {category:'카네이션',name:'브루트',unit:'단',values:Object.fromEntries(repeatedColumns.map(column=>[column.key,10]))}]});
+const repeatedZip=await JSZip.loadAsync(repeatedBytes),repeatedXml=await repeatedZip.file('xl/worksheets/sheet1.xml').async('string');
+const repeatedSheet=XLSX.read(repeatedBytes,{type:'array'}).Sheets['주광 발주내역'];
+assert.doesNotMatch(repeatedXml,/>단위<|>박스<|>단</,'unit columns and values are omitted from presentation');
+for(const address of ['B4','E4','H4','K4']) assert.equal(repeatedSheet[address].v,'브루트','product name repeats before every subweek');
+for(const address of ['C4','F4','I4','L4']) assert.equal(repeatedSheet[address].v,2,'quantity remains aligned after repeated names');
+assert.equal(repeatedSheet.C6.v,2);assert.equal(repeatedSheet.C7.v,10,'mixed units retain separate subtotals, never sum to12');
+assert.match(repeatedXml,/<mergeCell ref="E2:E3"/,'repeated product header merges vertically');
+assert.match(repeatedXml,/<dimension ref="A1:M8"/,'dimension includes repeated name columns');
 console.log('weekdayStyledWebWorkbook: full current names, quantities, dynamic groups, native cell styles, zero/null/negative and no stale source data passed');
