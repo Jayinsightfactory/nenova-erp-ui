@@ -233,7 +233,7 @@ const registerDeductionsSource = deductionSource.slice(
   deductionSource.indexOf('export async function registerDeductions'),
   deductionSource.indexOf('export async function deleteDeductions'),
 );
-assert.match(registerDeductionsSource, /skipped\.push\(\{ deductionKey: key, error: error\.message \}\)/, '판매행 없는 행은 전체 작업을 실패시키지 않고 행별 자동 미처리해야 합니다.');
+assert.match(registerDeductionsSource, /skipped\.push\(\{ deductionKey: key, error: error\.message, errorCode: error\.code \|\| '' \}\)/, '판매행 없는 행은 전체 작업을 실패시키지 않고 행별 자동 미처리하며 안정된 오류 코드를 보존해야 합니다.');
 assert.match(registerDeductionsSource, /if \(!ctx\.shipmentKey\) throw new Error\([\s\S]*이월 대기/, '대상 차수 판매행이 없으면 Estimate 생성 전에 미처리해야 합니다.');
 assert.match(registerDeductionsSource, /RemainingQuantity=CASE WHEN IsCarryoverLedger=1[\s\S]*RemainingQuantity,Quantity\)-@applyQty/, '부분 처리 시 실제 처리수량만 잔량에서 차감해야 합니다.');
 assert.doesNotMatch(registerDeductionsSource, /(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+)?(?:OrderDetail|ShipmentDetail|ShipmentDate|ShipmentMaster|StockHistory|ProductStock)\b/i, '견적 일괄등록은 Order/Shipment/Stock 원장을 변경하면 안 됩니다.');
@@ -784,7 +784,7 @@ for (const bad of [undefined, '', 0, false, -1, NaN, '1.23456']) assert.throws((
 
 const txRow = { ...source30Row, DeductionKey: 704, OrderWeek: '30', Quantity: 2, RemainingQuantity: 2, Status: 'DRAFT', EstimateKey: null, RowVersionNo: 4, IsDeleted: 0 };
 const fakeTransaction = async (callback, failInsert = false) => callback(async (sqlText) => {
-  if (sqlText.includes('SELECT * FROM WebSalesDefectDeduction')) return { recordset: [txRow] };
+  if (sqlText.includes('FROM WebSalesDefectDeduction d')) return { recordset: [txRow] };
   if (sqlText.includes('SELECT TOP 1 EstUnit')) return { recordset: [{ EstUnit: '단' }] };
   if (sqlText.includes('FROM WebSalesDefectDeductionHistory')) return { recordset: [] };
   if (sqlText.includes('INSERT INTO WebSalesDefectDeductionHistory') && failInsert) throw new Error('insert failed');
@@ -800,7 +800,7 @@ let committedCostWrites = [];
 const stageCostTransaction = (fail = false, storedRow = txRow) => async (callback) => {
   const staged = [];
   const result = await callback(async (sqlText, params) => {
-    if (sqlText.includes('SELECT * FROM WebSalesDefectDeduction')) return { recordset: [storedRow] };
+    if (sqlText.includes('FROM WebSalesDefectDeduction d')) return { recordset: [storedRow] };
     if (sqlText.includes('SELECT TOP 1 EstUnit')) return { recordset: [{ EstUnit: '단' }] };
     if (sqlText.includes('FROM WebSalesDefectDeductionHistory')) return { recordset: [] };
     if (/^UPDATE|^INSERT/.test(sqlText.trim())) {
