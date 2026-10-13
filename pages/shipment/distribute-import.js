@@ -9,6 +9,9 @@ import { buildImportFixBlockedAlert } from '../../lib/shipmentFixScopeCore';
 
 const fmt = n => Number(n || 0).toLocaleString('ko-KR');
 const fmtUpload = r => {
+  if (r.productFamily === 'alstroemeria' || /알스트로|alstroe?meria/i.test(`${r.sheetName || ''} ${r.productLabel || ''}`)) {
+    return `${fmt(r.uploadQty)}(${fmt(Number(r.uploadQty || 0) / 16)})`;
+  }
   if (r.earlyImportMode) return fmt(r.uploadQty);
   const mult = Number(r.quantityMultiplier || 1);
   if (mult > 1) return `${fmt(r.uploadQty)} (${fmt(r.excelQty)}×${fmt(mult)})`;

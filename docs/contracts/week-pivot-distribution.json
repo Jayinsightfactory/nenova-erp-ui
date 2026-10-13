@@ -4,7 +4,11 @@
   "title": "차수피벗 업체 분배수량 변경 계약",
   "estimateVisibilityReadPerformance": "Preserve TOP400/year/weeks/q/base order and all native counts. Split repeated correlated native views into bounded independent SELECT aggregates keyed by candidate SdetailKey; preserve broad OrderYearWeek2 and explicit CustKey/ProdKey diagnostic counts separately, exact date multiplicity, active raw orders and split count. All ERP tables/SP/indexes preserved; no NOLOCK, timeout increase or validation bypass.",
   "adjustmentConcurrency": "Single, batch, preflight and undo adjustment cores acquire one transaction-owned SQL applock before ERP lease/snapshot locks. Keep CANCEL-before-ADD business order. Shared global PK allocators require one gate across business keys. Only confirmed deadlock aborts replay the whole transaction, at most five retries for adjustment routes; unknown commit outcomes never replay. Preflight always rolls back; native ERP calculation and downstream write scope are unchanged.",
+  "batchFailureContext": "Preflight and commit failures display the server failedEntry action, customer, original input plus matched product/key, quantity/unit and selected year/week. Client labels may fill only missing names from matching inputIndex and business keys; executionIndex is never an input index. Context enriches server error rather than being discarded by error fallback. Preserve payload, stock gates, mappings and atomic transaction behavior; similar names never authorize a product substitution.",
   "scope": [
+    "scripts/paste-batch-failure-smoke.cjs",
+    "lib/pasteBatchFailure.js",
+    "__tests__/pasteBatchFailure.test.js",
     "lib/shipmentAdjustmentLock.js",
     "__tests__/dbDeadlockRetry.test.js",
     "scripts/test-shipment-adjustment-lock-sql.cjs",
@@ -240,6 +244,7 @@
     }
   },
   "requiredTestFiles": [
+    "__tests__/pasteBatchFailure.test.js",
     "__tests__/dbDeadlockRetry.test.js",
     "__tests__/estimateVisibilityRead.test.js",
     "__tests__/weekPivotSheet.test.js",

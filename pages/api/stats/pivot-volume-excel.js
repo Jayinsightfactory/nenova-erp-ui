@@ -145,7 +145,7 @@ function isAlstroRow(row) {
 
 function q(row, value) {
   const amount = n(value);
-  return isAlstroRow(row) ? amount / ALSTRO_DIVISOR : amount;
+  return amount;
 }
 
 function dutchColorLabel(descr) {
@@ -240,6 +240,9 @@ function makeColumnPlan(rows, customers, farms, meta) {
 function makeSheet(rows, customers, farms, meta) {
   const colPlan = makeColumnPlan(rows, customers, farms, meta);
   const aoa = [[], [], []];
+  const separateClientRow = !isNetherlandsVolume(meta) && showsCustomerCL(meta);
+  const headerRows = separateClientRow ? 4 : 3;
+  if (separateClientRow) aoa.push(['클라이언트 번호']);
 
   colPlan.forEach((col, idx) => {
     if (col.type === 'flower') {
@@ -264,6 +267,10 @@ function makeSheet(rows, customers, farms, meta) {
       const cl = String(col.customer?.orderCode || '').trim();
       const customerName = isNetherlandsVolume(meta) ? String(col.customer?.custName || col.label) : col.label;
       aoa[2][idx] = (showsCustomerCL(meta) && cl) ? `${customerName}\n${cl}` : col.label;
+      if (separateClientRow) {
+        aoa[2][idx] = customerName;
+        aoa[3][idx] = cl;
+      }
     } else if (col.type === 'summary') {
       aoa[0][idx] = '';
       aoa[1][idx] = '';
@@ -318,9 +325,10 @@ function makeSheet(rows, customers, farms, meta) {
     wch: col.type === 'flower' ? 12 : col.type === 'product' ? 24 : col.type === 'color' ? 8 : col.type === 'summary' || col.type === 'farm-total' ? 8 : col.type === 'customer' ? isNetherlandsVolume(meta) ? DUTCH_CUSTOMER_COL_WCH : CUSTOMER_COL_WCH : 5,
   }));
   ws['!rows'] = [{ hpt: 32 }, { hpt: 20 }, { hpt: 44 }];
-  ws['!freeze'] = { xSplit: isNetherlandsVolume(meta) ? 3 : 1, ySplit: 3 };
+  if (separateClientRow) ws['!rows'].push({ hpt: 20 });
+  ws['!freeze'] = { xSplit: isNetherlandsVolume(meta) ? 3 : 1, ySplit: headerRows };
 
-  const dataStart = 4;
+  const dataStart = headerRows + 1;
   const totalRow = dataStart + rows.length;
   const summaryCols = {};
   colPlan.forEach((col, idx) => {
@@ -358,13 +366,14 @@ function makeSheet(rows, customers, farms, meta) {
   });
 
   ws.A1 = { t: 's', v: volumeTitle(meta) };
+  if (rows.some(isAlstroRow)) ws.A2 = { t: 's', v: '알스트로 ERP 수량 (÷16 참고)' };
   for (let r = 1; r <= totalRow; r += 1) {
     colPlan.forEach((col, idx) => {
       const addr = encodeCell(r, idx + 1);
       if (!ws[addr]) ws[addr] = { t: 's', v: '' };
       const cellVal = typeof ws[addr].v === 'number' ? ws[addr].v : null;
       const remainNeg = col.type === 'summary' && col.label === '잔량' && cellVal != null && cellVal < 0;
-      if (r <= 3) {
+      if (r <= headerRows) {
         ws[addr].s = r === 1 ? STYLES.title
           : (r === 3 && (col.type === 'customer' || col.type === 'farm')) ? STYLES.headerTop  // #5 업체/농장 위쪽맞춤
           : STYLES.header;
@@ -421,6 +430,25 @@ function makeSheet(rows, customers, farms, meta) {
       ws['!cols'][idx].wch = width;
     });
   }
+
+  // Store the actual quantity. A2 explicitly versions the unit for re-import;
+  // legacy unmarked workbooks retain their historical x16 conversion.
+  rows.forEach((row, rowIdx) => {
+    if (!isAlstroRow(row)) return;
+    colPlan.forEach((col, idx) => {
+      const cell = ws[encodeCell(dataStart + rowIdx, idx + 1)];
+      if (cell?.t !== 'n') return;
+      const suffix = meta.combined && col.type === 'customer'
+        ? ` [${combinedParts(meta.combined, row, col.customer, q).map(v => Number(v.toFixed(4))).join(',')}]` : '';
+      const annotation = `(${Number((cell.v / ALSTRO_DIVISOR).toFixed(4))})${suffix}`;
+      const label = `${cell.v}${annotation}`;
+      const decimals = String(cell.v).split('.')[1]?.length || 0;
+      const numFmt = `${decimals ? `0.${'0'.repeat(Math.min(decimals, 8))}` : '0'}"${annotation}"`;
+      cell.z = numFmt;
+      cell.s = { ...cell.s, numFmt };
+      ws['!cols'][idx].wch = Math.max(ws['!cols'][idx].wch, label.length + 1);
+    });
+  });
 
   // Calculate after combined-cell widths are finalized; include explicit CL line breaks.
   ws['!rows'][2].hpt = Math.max(44, ...colPlan.map((col, idx) =>

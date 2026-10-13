@@ -36,6 +36,12 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {
+      "name": "CHINA_CLIENT_HEADER_ALSTRO_DISPLAY",
+      "description": "중국은 업체명 다음 독립 CL 행을 생성하고 재업로드에서 명시적 헤더 행을 제외한다. 알스트로는 원수량(원수량/16) 표시. 새 파일은 실제 ERP 숫자값과 A2 명시 단위 표식을 저장하여 재업로드 환산을 생략한다. 표식 없는 구형 파일은 기존 16배 환산을 보존한다. 괄호는 다운로드 시점 참고값이다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
       "name": "PIVOT_EXE_FIELD_VALUE_FILTER",
       "description": "각 필드의 값 필터 버튼은 현재 조회 결과의 distinct 실제 값 목록을 열고, 체크한 값만 화면 집계와 같은 피벗 모델 기반 엑셀에 반영한다. 필터 영역에서는 필드명 버튼이 값 선택창을 바로 열고 현재 선택 요약을 표시한다. 전체 선택은 필터 초기화와 같고 전체 해제는 의도적인 0행 필터로 보존한다.",
       "orderDetail": "preserve",

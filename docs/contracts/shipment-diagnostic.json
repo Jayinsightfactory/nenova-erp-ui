@@ -68,6 +68,12 @@
   ],
   "actions": [
     {
+      "name": "ALSTRO_EXPLICIT_ERP_QUANTITY_IMPORT",
+      "description": "A2='알스트로 ERP 수량 (÷16 참고)'로 표식된 신규 파일만 alstroErpQuantity=true를 파싱한다. preview/preflight/transaction은 normalizeUploadQtyForProduct 공통 정책으로 실제 수량을 보존한다. 구형 파일은 16배, 동일 업무키의 혼합 인코딩은 차단. 중국 CL 행은 수량 데이터에서 제외한다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
       "name": "DIAGNOSTIC_READ",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
