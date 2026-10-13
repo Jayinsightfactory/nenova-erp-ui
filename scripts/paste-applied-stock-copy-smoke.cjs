@@ -18,7 +18,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{chromium}=requ
   await page.addScriptTag({path:require.resolve('react').replace(/index\.js$/,'umd/react.development.js')});
   await page.addScriptTag({path:require.resolve('react-dom').replace(/index\.js$/,'umd/react-dom.development.js')});
   await page.evaluate(value=>{window.actual=value;window.copied='';Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copied=text;}}});},actual);
-  await page.addScriptTag({content:`const {useState,useEffect,useRef}=React;const buildAppliedStockCopy=()=>window.actual;${compiled.code};window.render=(props={})=>ReactDOM.render(React.createElement(AppliedStockCopyPanel,{draft:{},result:Object.hasOwn(props,'result')?props.result:{},currentScope:props.currentScope??{},bulkRunning:props.bulkRunning??false}),document.getElementById('app'));window.render();`});
+  await page.addScriptTag({content:`const {useState,useEffect,useRef}=React;const buildAppliedStockCopy=()=>window.actual;${compiled.code};window.render=(props={})=>ReactDOM.render(React.createElement(AppliedStockCopyPanel,{source:props.source??{},result:Object.hasOwn(props,'result')?props.result:{},currentScope:props.currentScope??{},bulkRunning:props.bulkRunning??false}),document.getElementById('app'));window.render();`});
   const trigger=page.getByRole('button',{name:'적용재고 확인'}),dialog=page.getByRole('dialog',{name:'기초재고 기준 적용재고'});
   assert.equal(await dialog.isVisible(),false,'detail starts hidden');
   await trigger.focus();await trigger.press('Enter');assert.equal(await dialog.isVisible(),true);
