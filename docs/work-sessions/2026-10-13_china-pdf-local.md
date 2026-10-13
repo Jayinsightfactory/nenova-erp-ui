@@ -35,4 +35,5 @@
 - `test:erp-contract`, `test:erp-manifest -- --changed-from origin/master`, `guard:erp-writes`, `test:nenova-dnspy-evidence`, production build 통과. 추가 포맷 import에 맞게 기존 두 UI 테스트의 명시 모듈 mock도 갱신했다.
 - 실제 PDF를 실제 PDF.js worker와 PackingListTool로1920×1080/100%,1280×800에서 검증:101행,7페이지 렌더, 인쇄 합계 일치. 누락단가1행/명시0원0행을 구분. 원본 검토 gate는 해제하지 않았다.
 - 브라우저 검사 POST0/운영 ERP 쓰기0/저장0/유료 호출0. 서버 배포 및 운영 업로드 결과는 배포 후 별도 기록한다.
+- 최종 검토에서 원본 포장규격·박스범위 검증, 비용명 allowlist, 수동수정 후 품목별 금액 오차 상쇄 방지를 추가 요구했다. 실제 PDF의 박스번호 건너뜀은 존재하므로 연속번호 강제는 하지 않고 범위 개수·중복 여부를 검사한다. 행별 GW의 PDF 페이지/원문도 입고 초안 근거에 보존한다.
 - private outputs/china-pdf-local 및 원문은 커밋하지 않는다. 기존 무관한 worktree 변경은 보존한다.

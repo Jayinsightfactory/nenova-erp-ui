@@ -38,12 +38,13 @@ test('allowlisted positioned Hubfresh table preserves source quantities, identit
   assert.equal(invoice.products[2].source_cells.u_price.quote,'-');
   assert.equal(invoice.products[2].source_cells.u_price.page,2);
   assert.equal(invoice.products[2].source_cells.u_price.bbox,null);
+  assert.deepEqual(invoice.products[1].source_cells.gross_weight,{value:20,quote:'20.00',page:1,bbox:null});
   assert.equal(invoice.products[0].source_cells.description.page,1);
   assert.match(invoice.products[0].source_cells.description.quote,/아미초/);
   assert.deepEqual([invoice.total_boxes,invoice.total_bunches,invoice.total_stems,invoice.gross_weight,invoice.item_subtotal,invoice.freight,invoice.invoice_total],[4,40,400,40,300,30,330]);
   assert.equal(invoice.vol_weight,null);
-  assert.equal(invoice.additional_costs.length,2);
-  assert.equal(invoice.additional_costs[0].amount,20);
+  assert.equal(invoice.additional_costs.length,7);
+  assert.equal(invoice.additional_costs[0].amount,10);
   assert.equal(invoice.review_evidence.gross_weight.page,2);
   assert.equal(invoice.review_evidence.gross_weight.bbox,null);
   assert.equal(invoice.review_evidence.invoice_total.page,3);
@@ -101,14 +102,30 @@ test('malformed numbers and independent product totals cannot produce partial re
 
 test('charge sequence, line multiplication, flower repeat and invoice grand total are independently checked',()=>{
   const cases=[
-    value=>{item(value,2,'SEA FREIGHT CHARGE/海运费').str='花材金额';},
+    value=>{item(value,2,'SEA FREIGHT CHARGE/海运+冷链运输/Logistics Fee / 物流费').str='花材金额';},
     value=>{item(value,3,'花材金额').str='Freight';},
     value=>{item(value,3,'330.00').str='331.00';},
-    value=>{item(value,2,'20.00').str='21.00';},
+    value=>{item(value,2,'10.00').str='11.00';},
     value=>{item(value,3,'300.00').str='299.00';},
     value=>{item(value,2,'2').str='3';},
+    value=>{item(value,3,'检疫箱 Quarantine box').str='UNKNOWN FEE';},
   ];
   for(const [index,change] of cases.entries()){const value=copy();change(value);reject(value,`charge case ${index}`);}
+});
+
+test('packing specification, bunches per box and carton range syntax/length are checked while real gaps remain allowed',()=>{
+  const cases=[
+    value=>{item(value,1,'10stem/bunch').str='unknown spec';},
+    value=>{item(value,1,'10stem/bunch').str='5stem/bunch';},
+    value=>{item(value,1,'10').str='9';},
+    value=>{item(value,1,'2-3').str='2-99';},
+    value=>{item(value,1,'2-3').str='1-2';},
+    value=>{item(value,1,'2-3').str='2,4';},
+    value=>{item(value,1,'100*40*20').str='unknown carton';},
+  ];
+  for(const [index,change] of cases.entries()){const value=copy();change(value);reject(value,`packing case ${index}`);}
+  const gap=copy();item(gap,2,'4').str='5';
+  assert.equal(inspectChinaPdfInvoice(gap).reason,null,'carton numbers may have legitimate gaps');
 });
 
 test('text-only scan and malformed positioned items require another path without throwing',()=>{
@@ -137,6 +154,9 @@ test('optional private PDF.js fixture agrees with independent row/total audit',a
   const parsed=inspectChinaPdfInvoice(JSON.parse(positioned));
   assert.equal(parsed.reason,null);
   const invoice=parsed.result.invoices[0],audit=JSON.parse(report);
+  assert.equal(JSON.parse(positioned).pages.length,7);
+  assert.equal(audit.source.sha256,'1e66a6877cc58cdebc73055664ed7bda0fe612b0d32e3c075a964e1077ef530d');
+  assert.equal(audit.rowCount,101);
   assert.equal(invoice.products.length,audit.rowCount);
   assert.equal(invoice.total_boxes,audit.totals.expected.boxes);
   assert.equal(invoice.total_bunches,audit.totals.expected.bunches);
@@ -147,4 +167,6 @@ test('optional private PDF.js fixture agrees with independent row/total audit',a
   assert.deepEqual(invoice.products.map(row=>[row.pcs,row.total_bunch,row.total_stems,row.gross_weight,row.u_price,row.t_price]),
     audit.rows.map(row=>[row.values.boxes,row.values.bunches,row.values.stems,row.values.grossWeight,row.values.unitPrice,row.values.goodsAmount]));
   assert.equal(invoice.products.filter(row=>row.u_price===null&&row.t_price===null).length,audit.priceMissingRows.length);
+  assert.deepEqual(invoice.products[14].carton_number_audit,{numbered:24,unlisted:14,requires_review:true});
+  assert.match(invoice.products[14].source_cells.pcs.quote,/38 boxes; Ctn No 48-69, 420- 421,.*14 not listed/);
 });

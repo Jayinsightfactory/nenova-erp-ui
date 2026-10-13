@@ -30,11 +30,16 @@ export function makeChinaPdfFixture(){
     ...product(542,{category:'配花',chinese:'白水晶',name:'리모늄 (Sinensis white)',length:'70cm',carton:'4',boxes:1,bunches:10,stems:100,weight:'10.00',price:'-',amount:'-'}),
     item('4',443.2,243),item('40',485.6,243),item('400',553,243),item('40.00',584.1,243),item('300.00',621.7,243),
     item('Charge items /费用项目',112.1,174),
-    ...charge(151,1,'BOXING AND PACKING/纸箱打包',4,'5.00','20.00'),
-    ...charge(122,2,'SEA FREIGHT CHARGE/海运费',1,'10.00','10.00'),
+    ...charge(151,1,'BOXING AND PACKING/纸箱打包',4,'2.50','10.00'),
+    ...charge(122,2,'Documents / 单证文件/Phytosanitary Certificate, Customs ，CO Declaration / 植物检疫证书，产地证，报关单',1,'2.00','2.00'),
+    ...charge(84,3,'SEA FREIGHT CHARGE/海运+冷链运输/Logistics Fee / 物流费',1,'3.00','3.00'),
   ];
   const third=[
-    ...charge(459,3,'花材金额',1,'300.00','300.00'),
+    ...charge(545,4,'代加工 PROCESS COST',1,'4.00','4.00'),
+    ...charge(524,5,'检疫箱 Quarantine box',1,'5.00','5.00'),
+    ...charge(502,6,'Temperature Data Logger /温度记录仪',1,'3.00','3.00'),
+    ...charge(481,7,'Loading and Unloading Fee / 装卸费',1,'3.00','3.00'),
+    ...charge(459,8,'花材金额',1,'300.00','300.00'),
     item('Total additional charges/附加费用合计',106.9,441),item('330.00',251.4,441),
   ];
   return {pages:[page(first),page(second),page(third)]};
