@@ -39,3 +39,4 @@
 - 독립 검토에서 stale recovery 파일의 영구 busy 발견. OS 소유 IPC mutex로 교체(Windows named pipe/Linux abstract socket), 짧은 상태변경만 잠근다. 작업 프로세스 종료 시 커널이 해제. 기존 file guard/recovery는 사용하지 않는다.
 - 동시에 실행된 Windows 회귀에서 named pipe 종료 중 EACCES 가능성을 보완. bounded retry 뒤 실패 시 유료 호출 전 차단한다. retryId 형식/원문일치 검증과 sync 결과불명 표시 계약도 보강.
 - 최종 전체 test:erp-contract, test:nenova-dnspy-evidence, test:erp-manifest(origin/master), guard:erp-writes(origin/master), production build 통과. 실제 유료분석/배포 결과는 아래 후속 기록으로 구분한다.
+- 최종 독립검토 P1/P2 blocker 없음. Windows 결과파일 rename의 일시 EPERM/EACCES를 원본을 보존한 bounded retry로 처리. job/API/client25개 통과, 리뷰의 핵심10회 반복 및 병렬391pass/10skip/0fail. 초안커밋만이 아니라 이 보강을 포함한 최신 CI 성공 후 병합한다.

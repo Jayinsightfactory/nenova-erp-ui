@@ -135,3 +135,23 @@ test('rapid successive owner close/rebind never turns an admitted job into a pre
     assert.equal(result.status,'SUCCEEDED');
   }
 }));
+
+test('Windows transient EPERM replacing a job record retries without losing the durable result',{skip:process.platform!=='win32'},()=>tempRoot(async root=>{
+  const admitted=await startPackingPdfJob('alice',key,{root});
+  const originalRename=fs.rename;
+  let denied=0;
+  fs.rename=async(from,to)=>{
+    if(!denied&&to.endsWith(`${admitted.job.jobId}.json`)){
+      denied++;
+      throw Object.assign(Error('simulated open reader'),{code:'EPERM'});
+    }
+    return originalRename(from,to);
+  };
+  try{
+    assert.equal(await markPackingPdfAttempt('alice',admitted.job.jobId,admitted.token,{root}),true);
+    const finished=await finishPackingPdfJob('alice',admitted.job.jobId,admitted.token,{result:{content:[]}},{root});
+    assert.equal(finished.status,'SUCCEEDED');
+    assert.equal((await getPackingPdfJob('alice',admitted.job.jobId,{root})).status,'SUCCEEDED');
+    assert.equal(denied,1);
+  }finally{fs.rename=originalRename;}
+}));
