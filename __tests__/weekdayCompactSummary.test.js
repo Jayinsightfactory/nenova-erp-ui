@@ -122,13 +122,13 @@ assert.match(source,/wcm-compact-summary \.wcm-quote \.wcm-quantity-label \{ fon
 assert.match(source,/wcm-cell-detail \{[^\n]*justify-content:center/);
 assert.match(source,/wcm-original \{[^\n]*justify-content:center/);
 assert.match(source,/wcm-summary-row \{ display:flex; flex-direction:column/);
-assert.equal((source.match(/width:min\(760px,calc\(100vw - 32px\)\)/g)||[]).length,1);
-assert.equal((source.match(/max-block-size:min\(70vh,calc\(100vh - 32px\)\)/g)||[]).length,2);
-assert.match(source,/wcm-selected \{[^\n]*font-size:18px; line-height:1.5/);
+assert.doesNotMatch(source,/wcm-selected \{[^\n]*position:fixed/,'automatic selection stays in page flow and never covers inputs');
+assert.equal((source.match(/max-block-size:min\(70vh,calc\(100vh - 32px\)\)/g)||[]).length,1);
+assert.match(source,/wcm-selected \{[^\n]*font-size:14px; line-height:1.5/);
 assert.match(source,/wcm-detail-popover \{[^\n]*font-size:14px; line-height:1.5/);
 assert.match(source,/wcm-detail-popover \{[^\n]*width:min\(420px,calc\(100vw - 32px\)\)[^\n]*z-index:80/);
 assert.match(source,/:is\(\.wcm-cell-detail,\.wcm-cell-error\):has\(\.wcm-detail-popover\) \{ z-index:80/,'manual details escape low cell stacking contexts above fixed header');
-assert.match(source,/wcm-selected strong \{ font-size:20px/);
+assert.match(source,/<SummaryDetails key=\{selectedInfo.split/,'full selected-cell text opens only on request');
 assert.match(html,/요일표 상단 가로 스크롤/); assert.match(html,/요일표 하단 가로 스크롤/);
 assert.match(source,/tbody tr:is\(:hover,:focus-within\)/);
 assert.doesNotMatch(source,/\bfetch\s*\(|width:1920px|height:1080px/);
