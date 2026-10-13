@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/ImportPacking.module.css';
+import { packingMatchReview } from '../../lib/packingMatchReview';
 
 const hasValue = value => value !== null && value !== undefined && value !== '';
 const STEM_QUANTITY_COUNTRIES = new Set(['NL', 'CO', 'EC', 'TH', 'AU', 'US', 'VN']);
@@ -54,22 +55,22 @@ function mismatchText(mismatch) {
   return `패킹 리스트 ${formatNumber(computed, 2)} · 인보이스 ${formatNumber(expected, 2)} · 차이 ${difference > 0 ? '+' : ''}${formatNumber(difference, 2)}`;
 }
 
-function buildIssueSummary(excels, country, notes, truncated = false) {
+function buildIssueSummary(excels, country, notes, truncated = false, erpProducts = []) {
   const lines = ['패킹 리스트 확인 필요 항목'];
   let issueCount = 0;
 
   excels.forEach(excel => {
     const products = Array.isArray(excel.products) ? excel.products : [];
     const rowIssues = products
-      .map((product, index) => ({ product, index, key: rowKey(excel, product, index) }))
-      .filter(item => item.product.unmatched);
+      .map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: packingMatchReview(product, erpProducts, country) }))
+      .filter(item => item.review.needsReview);
     const hasMismatch = Boolean(excel.totalMismatch);
     const isTruncated = Boolean(truncated || excel.wasTruncated || excel.truncated);
     if (!rowIssues.length && !hasMismatch && !isTruncated) return;
 
     lines.push('', excel.label || excel.name || '결과 파일');
-    rowIssues.forEach(({ product, key }) => {
-      const reason = String(notes[key] || '').trim() || '전산 미매칭';
+    rowIssues.forEach(({ product, key, review }) => {
+      const reason = String(notes[key] || '').trim() || review.label;
       lines.push(`- ${productName(product)} · ${quantityText(product, country)} · 사유: ${reason}`);
       issueCount += 1;
     });
@@ -191,18 +192,32 @@ export default function PackingResults({
   onMatch,
   mappingDisabled = false,
   truncated = false,
+  erpProducts = [],
 }) {
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState({});
   const [dialogText, setDialogText] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
+  const [view, setView] = useState('REVIEW_REQUIRED');
+  const filterButtonRef = useRef(null);
   const rowRefs = useRef({});
   const matchButtonRefs = useRef({});
   const summaryButtonRef = useRef(null);
   const dialogRef = useRef(null);
   const dialogTextareaRef = useRef(null);
   const safeExcels = Array.isArray(excels) ? excels : [];
-  const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated), [safeExcels, country, notes, truncated]);
+  const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated, erpProducts), [safeExcels, country, notes, truncated, erpProducts]);
+  const reviewedExcels = safeExcels.map(excel => ({ excel, rows: (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: packingMatchReview(product, erpProducts, country) })) }));
+  const counts = reviewedExcels.flatMap(item => item.rows).reduce((result, row) => ({ ...result, [row.review.status]: result[row.review.status] + 1 }), { EXACT: 0, MANUAL: 0, REVIEW: 0, UNMATCHED: 0 });
+  const visibleKeys = reviewedExcels.flatMap(item => item.rows.filter(row => view === 'ALL' || row.review.needsReview).map(row => row.key));
+  useEffect(() => {
+    if (!selected?.rowKey || visibleKeys.includes(selected.rowKey)) return;
+    setSelected(null);
+    if (typeof document !== 'undefined' && (!document.activeElement || document.activeElement === document.body)) {
+      const next = visibleKeys.map(key => matchButtonRefs.current[key]).find(node => node && !node.disabled);
+      (next || filterButtonRef.current)?.focus();
+    }
+  }, [visibleKeys.join('\n'), selected?.rowKey]);
 
   const closeDialog = () => {
     setDialogText('');
@@ -265,8 +280,8 @@ export default function PackingResults({
     <section className={styles.resultsSection} aria-label="생성된 패킹 리스트 결과" data-testid="packing-results">
       <div className={styles.resultsHeadingRow}>
         <div>
-          <h3 className={styles.resultsHeading}>생성 결과</h3>
-          <p className={styles.resultsHint}>원문 품목을 선택해 전산 품목을 매칭하고, 필요한 행에 확인 메모를 남기세요.</p>
+          <h3 className={styles.resultsHeading}>품목 매칭 확인</h3>
+          <p className={styles.resultsHint}>DB 미매칭·유사 매칭만 먼저 표시합니다. 원문 품목을 눌러 전산 품목을 선택·저장하세요.</p>
         </div>
         <button ref={summaryButtonRef} type="button" onClick={openSummary} className={styles.summaryButton} data-testid="packing-results-copy-open">
           이슈 요약 새 창
@@ -274,7 +289,14 @@ export default function PackingResults({
         </button>
       </div>
 
-      {safeExcels.map((excel, excelIndex) => {
+      <div className={styles.matchReviewBar}>
+        <p role="status">정확 {counts.EXACT} · 수동 {counts.MANUAL} · 유사 {counts.REVIEW} · 미매칭 {counts.UNMATCHED}
+          {counts.REVIEW + counts.UNMATCHED === 0 ? ' · 품목 매칭 완료 (수량·중량은 별도 확인)' : ` · 확인 필요 ${counts.REVIEW + counts.UNMATCHED}건`}</p>
+        <button ref={filterButtonRef} type="button" aria-pressed={view === 'ALL'} data-testid="packing-results-view-toggle" onClick={() => setView(current => current === 'ALL' ? 'REVIEW_REQUIRED' : 'ALL')}>
+          {view === 'ALL' ? '확인 필요만 보기' : '전체 보기'}</button>
+      </div>
+
+      {reviewedExcels.map(({ excel, rows }, excelIndex) => {
         const products = Array.isArray(excel.products) ? excel.products : [];
         const include = {
           stemLength: products.some(product => hasValue(product.stemLength ?? product.stem_length)),
@@ -283,13 +305,12 @@ export default function PackingResults({
           unitPrice: products.some(product => hasValue(product.unitPrice)),
           lineAmount: products.some(product => hasValue(product.lineAmount)),
         };
-        const rowIssues = products
-          .map((product, index) => ({ product, index, key: rowKey(excel, product, index) }))
-          .filter(item => item.product.unmatched);
+        const rowIssues = rows.filter(item => item.review.needsReview);
+        const visibleRows = rows.filter(item => view === 'ALL' || item.review.needsReview);
         const mismatch = excel.totalMismatch;
         const resultTruncated = Boolean(truncated || excel.wasTruncated || excel.truncated);
         const issueCount = rowIssues.length + (mismatch ? 1 : 0) + (resultTruncated ? 1 : 0);
-        const rowKeys = products.map((product, index) => rowKey(excel, product, index));
+        const rowKeys = visibleRows.map(item => item.key);
         const knownQuantities = products.map(product => finiteNumber(product.qty)).filter(value => value !== null);
         const quantityTotal = knownQuantities.reduce((sum, value) => sum + value, 0);
         const hasUnknownQuantity = knownQuantities.length !== products.length;
@@ -329,7 +350,8 @@ export default function PackingResults({
             </header>
 
             <div className={styles.resultWorkspace}>
-              <div className={styles.sheetScroll} role="region" aria-label={`${excel.label || excel.name} 전체 행`} tabIndex="0">
+              {visibleRows.length === 0 && <p className={styles.matchReviewEmpty} role="status">품목 매칭 완료 (수량·중량은 별도 확인). 완료된 품목은 전체 보기에서 확인하세요.</p>}
+              <div className={styles.sheetScroll} role="region" aria-label={`${excel.label || excel.name} ${view === 'ALL' ? '전체 행' : '확인 필요 행'}`} tabIndex="0">
                 <table className={styles.resultSheet} data-testid="packing-results-table" data-result-name={excel.name || ''}>
                   <thead>
                     <tr>
@@ -345,13 +367,13 @@ export default function PackingResults({
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map((product, index) => {
+                    {visibleRows.map(({ product, index, review }) => {
                       const key = rowKey(excel, product, index);
                       const isSelected = selected?.rowKey === key;
                       const sourceName = sourceProductName(product);
                       const matchedName = productName(product);
-                      const showMatchedName = !product.unmatched && !namesMatch(sourceName, matchedName);
-                      const status = product.unmatched ? '전산 미매칭' : product.viaAlias ? '별칭 매칭' : '자동 매칭';
+                      const showMatchedName = review.prodKey && !namesMatch(sourceName, matchedName);
+                      const status = review.label;
                       const matchDisabled = typeof onMatch !== 'function' || mappingDisabled;
                       return (
                         <tr
@@ -359,7 +381,7 @@ export default function PackingResults({
                           ref={node => { if (node) rowRefs.current[key] = node; else delete rowRefs.current[key]; }}
                           tabIndex="-1"
                           aria-selected={isSelected}
-                          className={`${product.unmatched ? styles.unmatchedRow : ''}${isSelected ? ` ${styles.selectedRow}` : ''}`}
+                          className={`${review.needsReview ? styles.unmatchedRow : ''}${isSelected ? ` ${styles.selectedRow}` : ''}`}
                         >
                           <td className={styles.rowNumber}>{index + 1}</td>
                           <td className={styles.productCell}>
@@ -391,8 +413,8 @@ export default function PackingResults({
                           <td className={styles.matchCell}>
                             <div className={styles.matchSummary}>
                               {showMatchedName && <strong className={styles.matchTarget} title={matchedName}>{matchedName}</strong>}
-                              <span className={`${styles.statusChip} ${product.unmatched ? styles.statusIssue : product.viaAlias ? styles.statusAlias : styles.statusMatched}`}>{status}</span>
-                              {product.unmatched && (
+                              <span className={`${styles.statusChip} ${review.needsReview ? styles.statusIssue : review.status === 'MANUAL' ? styles.statusAlias : styles.statusMatched}`}>{status}</span>
+                              {review.needsReview && (
                                 <label className={styles.inlineNote}>
                                   <span>사유 메모 (이 화면만)</span>
                                   <input

@@ -1866,6 +1866,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
                 })()}
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#526580', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>{t.generatedSection}</div>
                 <PackingResults
+                  erpProducts={generatedErp?.products || []}
                   excels={excels}
                   country={country}
                   blocked={isBlocked}

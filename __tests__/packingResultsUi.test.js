@@ -17,6 +17,7 @@ const code = babel.transformSync(source, {
 
 const state = [];
 let cursor = 0;
+let effects = [];
 const React = {
   createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
   useState(initial) {
@@ -25,14 +26,17 @@ const React = {
     return [state[index], value => { state[index] = typeof value === 'function' ? value(state[index]) : value; }];
   },
   useMemo: fn => { cursor++; return fn(); },
-  useRef(initial) { cursor++; return { current: initial }; },
-  useEffect() { cursor++; },
+  useRef(initial) { const index = cursor++; if (!(index in state)) state[index] = { current: initial }; return state[index]; },
+  useEffect(effect) { cursor++; effects.push(effect); },
 };
 const css = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) });
 const moduleUnderTest = { exports: {} };
+let packingMatchReview;
+test.before(async () => { ({ packingMatchReview } = await import('../lib/packingMatchReview.js')); });
 new Function('require', 'module', 'exports', code)(key => {
   if (key === 'react') return React;
   if (key === '../../styles/ImportPacking.module.css') return css;
+  if (key === '../../lib/packingMatchReview') return { packingMatchReview: (...args) => packingMatchReview(...args) };
   throw new Error('Unexpected dependency: ' + key);
 }, moduleUnderTest, moduleUnderTest.exports);
 
@@ -45,6 +49,7 @@ const text = node => typeof node === 'string' || typeof node === 'number' ? Stri
 
 function render(props) {
   cursor = 0;
+  effects = [];
   return PackingResults(props);
 }
 
@@ -69,6 +74,7 @@ test('renders every result row with optional China columns and stable smoke sele
   const matches = [];
   const tree = render({
     excels: [excel], country: 'CN', blocked: item => item === excel, onDownload() {},
+    erpProducts: products.map((product, index) => ({ ProdKey: index + 1, ProdName: product.name, country: 'CN' })),
     onMatch: (...args) => matches.push(args),
   });
   const nodes = flatten(tree);
@@ -94,7 +100,73 @@ test('renders every result row with optional China columns and stable smoke sele
   assert.equal(matchButtons[0].props.disabled, false);
   matchButtons[0].props.onClick();
   assert.deepEqual(matches[0], [products[0], excel, 0]);
-  assert.match(text(tree), /전산 미매칭/);
+  assert.match(text(tree), /DB 미매칭/);
+});
+
+test('default review list, ALL toggle, summaries and callbacks preserve original full-array identity', () => {
+  state.length = 0;
+  const products = [
+    { sourceName: 'EXACT', name: 'EXACT', qty: 10 },
+    { sourceName: 'MANUAL SOURCE', name: 'MANUAL TARGET', qty: 20, viaAlias: true, erpMatch: { type: 'MANUAL', confirmed: true, prodKey: 2, sourceDescription: 'MANUAL SOURCE', matchedName: 'MANUAL TARGET' } },
+    { sourceName: 'SIMILAR SOURCE', name: 'SIMILAR TARGET', qty: 30, score: 100, similarity: 1 },
+    { sourceName: 'UNKNOWN', name: 'UNKNOWN', qty: 40, unmatched: true },
+  ];
+  const erpProducts = ['EXACT', 'MANUAL TARGET', 'SIMILAR TARGET'].map((ProdName, index) => ({ ProdKey: index + 1, ProdName, country: 'CN' }));
+  const excel = { name: 'review.xlsx', products };
+  const matches = [], downloads = [];
+  const props = { excels: [excel], country: 'CN', erpProducts, blocked: () => false, onDownload: name => downloads.push(name), onMatch: (...args) => matches.push(args) };
+  let tree = render(props);
+  let nodes = flatten(tree);
+  let buttons = nodes.filter(node => node.props?.['data-testid'] === 'packing-product-match');
+  assert.deepEqual(buttons.map(text), ['SIMILAR SOURCE', 'UNKNOWN']);
+  assert.match(text(tree), /정확 1 · 수동 1 · 유사 1 · 미매칭 1/);
+  assert.match(text(tree), /단수 합계 100단/);
+  assert.match(text(tree), /유사 매칭 · 확인 필요/);
+  assert.doesNotMatch(text(tree), /100%|자동 매칭/);
+  let focused = '';
+  buttons[0].props.ref({ disabled: false, focus() { focused = 'SIMILAR SOURCE'; } });
+  buttons[1].props.ref({ disabled: false, focus() { focused = 'UNKNOWN'; } });
+  buttons[0].props.onKeyDown({ key: 'ArrowDown', preventDefault() {} });
+  assert.equal(focused, 'UNKNOWN', 'arrow navigation skips hidden completed rows');
+  buttons[0].props.onClick();
+  assert.deepEqual(matches[0], [products[2], excel, 2]);
+  nodes.find(node => node.type === 'button' && text(node).includes('⬇ 다운로드')).props.onClick();
+  assert.deepEqual(downloads, ['review.xlsx']);
+  assert.equal(buildIssueSummary([excel], 'CN', {}, false, erpProducts).issueCount, 2);
+  nodes.find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props.onClick();
+  tree = render(props); nodes = flatten(tree);
+  buttons = nodes.filter(node => node.props?.['data-testid'] === 'packing-product-match');
+  assert.equal(buttons.length, 4);
+  assert.equal(nodes.find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props['aria-pressed'], true);
+  buttons[1].props.onClick(); assert.deepEqual(matches[1], [products[1], excel, 1]);
+  nodes.find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props.onClick();
+  assert.equal(flatten(render(props)).filter(node => node.props?.['data-testid'] === 'packing-product-match').length, 2);
+});
+
+test('successful parent rebuild removes a review row safely, failed/no rebuild retains it, and all-clear remains qualified', () => {
+  state.length = 0;
+  const excel = { name: 'focus.xlsx', products: [{ sourceName: 'A', name: 'TARGET', qty: 1 }, { sourceName: 'B', name: 'B', qty: 2, unmatched: true }] };
+  const props = { excels: [excel], country: 'CN', erpProducts: [{ ProdKey: 1, ProdName: 'TARGET' }, { ProdKey: 2, ProdName: 'B' }], blocked: () => false, onDownload() {}, onMatch() {} };
+  let tree = render(props);
+  let buttons = flatten(tree).filter(node => node.props?.['data-testid'] === 'packing-product-match');
+  let focused = '';
+  buttons[1].props.ref({ disabled: false, focus() { focused = 'B'; } });
+  buttons[0].props.onFocus(); buttons[0].props.onClick();
+  assert.equal(flatten(render(props)).filter(node => node.props?.['data-testid'] === 'packing-product-match').length, 2, 'click alone never hides a row before save success');
+  excel.products[0] = { ...excel.products[0], sourceName: 'TARGET' };
+  const oldDocument = global.document;
+  const body = {}; global.document = { body, activeElement: body };
+  try {
+    tree = render(props); effects.forEach(effect => effect());
+    assert.equal(focused, 'B');
+    buttons = flatten(tree).filter(node => node.props?.['data-testid'] === 'packing-product-match');
+    assert.deepEqual(buttons.map(text), ['B']);
+    excel.products[1] = { ...excel.products[1], unmatched: false };
+    tree = render(props);
+    assert.equal(flatten(tree).filter(node => node.props?.['data-testid'] === 'packing-product-match').length, 0);
+    assert.match(text(tree), /품목 매칭 완료 \(수량·중량은 별도 확인\)/);
+    assert.match(text(tree), /단수 합계 3단/);
+  } finally { global.document = oldDocument; }
 });
 
 test('shows a target only when it differs from the source and keeps the original product once per row', () => {
@@ -108,6 +180,7 @@ test('shows a target only when it differs from the source and keeps the original
       ],
     }],
     country: 'CN', blocked: () => false, onDownload() {}, onMatch() {},
+    erpProducts: [{ ProdKey: 1, ProdName: 'same' }, { ProdKey: 2, ProdName: 'ERP TARGET' }],
   });
   const rows = flatten(tree).filter(node => node.type === 'tr').slice(1);
 
@@ -180,14 +253,14 @@ test('copy summary preserves explicit zero, marks unknown quantity, and carries 
     products: [
       { source_row: 7, name: 'ZERO <img src=x onerror=alert(1)>', qty: 0, unmatched: true },
       { source_row: 8, name: 'UNKNOWN', qty: null, unmatched: true },
-      { name: 'MATCHED', qty: 9, unmatched: false },
+      { sourceName: 'MATCHED', name: 'MATCHED', qty: 9, unmatched: false },
     ],
     totalMismatch: { computed: 0, expected: 10, invoice: 'INV-1' },
   };
-  const summary = buildIssueSummary([excel], 'CN', { 'china.xlsx::7': '원문 품명 확인' }, true);
+  const summary = buildIssueSummary([excel], 'CN', { 'china.xlsx::7': '원문 품명 확인' }, true, [{ ProdKey: 1, ProdName: 'MATCHED', country: 'CN' }]);
 
   assert.match(summary.text, /ZERO <img src=x onerror=alert\(1\)> · 0단 · 사유: 원문 품명 확인/);
-  assert.match(summary.text, /UNKNOWN · 수량 미확인 · 사유: 전산 미매칭/);
+  assert.match(summary.text, /UNKNOWN · 수량 미확인 · 사유: DB 미매칭/);
   assert.match(summary.text, /패킹 리스트 0 · 인보이스 10/);
   assert.match(summary.text, /PDF 분석 결과가 잘려/);
   assert.doesNotMatch(summary.text, /MATCHED/);
@@ -213,5 +286,5 @@ test('same item in different invoices keeps separate quantities and notes', () =
   ], 'CN', { '2026-41.xlsx::7': '이전 인보이스 확인' });
   assert.equal(summary.issueCount, 2);
   assert.match(summary.text, /ROSE · 2단 · 사유: 이전 인보이스 확인/);
-  assert.match(summary.text, /ROSE · 8단 · 사유: 전산 미매칭/);
+  assert.match(summary.text, /ROSE · 8단 · 사유: DB 미매칭/);
 });
