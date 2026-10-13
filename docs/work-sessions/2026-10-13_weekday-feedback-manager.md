@@ -36,3 +36,13 @@
 - 실제 React에서 boolean inert 속성이 누락되는 문제를 발견하고 빈 문자열로 수정. 원본 thead만 inert+aria-hidden, 복제헤더 조작 가능. SSR 회귀 포함.
 - 900×700: 420px 상세가 화면 안에 표시, Enter 열기/Escape 닫기/호출버튼 초점복귀 확인. 표 자체 clientHeight=scrollHeight로 내부 세로스크롤 없음.
 - 증거: 로컬 ignored output/weekday-sticky-chrome-1920.jpg. 운영 인증 후 화면 확인은 별도이며 이 결과를 운영 smoke로 주장하지 않는다.
+
+## 운영 확인 및 후속 보완
+- PR1031 merge d9b4c946 운영페이지표시확인. 실제1920×1080에서 고정header top0/154px, 원본inert=true, 표clientHeight=scrollHeight6199 확인.
+- 운영영속감사5건중 Hydrangea2026/42-01의2026-10-15 0→10,10-18 20→10,미확정→확정 확인(이번작업은읽기만). output/weekday-audit-live-1920.jpg 및 weekday-sticky-live-1920.jpg.
+- 실제바로가기가 접힌상위tools안의history만열던문제발견. 후속branch codex/weekday-history-access에서 상위영역함께열기+웹감사를먼저표시,기존EXE/초안내역은접어서보존.
+- Cafe24run38333701277은코드교체후공통estimate-visibility 진단60초500으로실패(12pass1fail). 이전무관배포도같은실패. 완료로간주하지않고같은진단을보완중.
+- 관련사전기준 docs/plans/estimate-visibility-read-performance-2026-10-13.md. 원장수정/인덱스변경/NOLOCK/timeout확대없이native조회조건보존.
+
+- 후속 검증: estimate-visibility 실제 격리 SQL 원문 동등성 6개 조회 PASS. 운영 읽기 진단 1,751ms / 21행, 기존 60초 timeout 해소. 저장 이력은 부모 도구 패널까지 열고 최근 웹 감사부터 표시하도록 수정.
+- 후속 전체 test:erp-contract, dnSpy evidence, manifest, write guard, production build PASS. 독립 최종 검토 blocking 결함 없음. 진단 SELECT는 저장 검증을 대체하지 않는다.

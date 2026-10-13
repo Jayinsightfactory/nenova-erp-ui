@@ -5,7 +5,15 @@ const read = (file) => fs.readFileSync(file, 'utf8');
 const farmApi = read('pages/api/shipment/farm-distribution.js');
 const adjust = read('pages/api/shipment/adjust.js');
 const estimateSql = read('lib/exeEstimateViewSql.js');
-const estimateDiagnostic = read('pages/api/shipment/estimate-visibility.js');
+const estimateDiagnosticRoute = read('pages/api/shipment/estimate-visibility.js');
+const { readEstimateVisibility } = await import('../lib/estimateVisibilityRead.js');
+const diagnosticStatements=[];
+await readEstimateVisibility(async(statement)=>{
+  diagnosticStatements.push(statement);
+  return {recordset:diagnosticStatements.length===1 ? [{SdetailKey:1}] : []};
+},{NVarChar:'nvarchar',Int:'int'},{year:'2026',weeks:['23-01'],q:'test'});
+const estimateDiagnostic=diagnosticStatements.join('\n');
+assert.match(estimateDiagnosticRoute,/readEstimateVisibility/);
 const profitReport = read('lib/profitReport.js');
 const salesStatus = read('pages/api/sales/status.js');
 const farmCandidates = read('lib/shipmentFarmCandidates.js');
@@ -31,7 +39,7 @@ assert.match(estimateSql, /JOIN ViewOrder vo/);
 assert.match(estimateSql, /JOIN ShipmentDate/);
 assert.match(estimateSql, /JOIN PeriodDay/);
 assert.match(estimateSql, /vs\.DetailFix = 1/);
-assert.equal((estimateDiagnostic.match(/vs\.DetailFix = 1/g) || []).length, 2);
+assert.equal((estimateDiagnostic.match(/vs\.DetailFix\s*=\s*1/g) || []).length, 2);
 
 // 매출/주차별 손익은 확정 출고의 저장 금액을 집계한다. 농장 배정만 바뀐
 // 경우 이 원장의 수량·Amount·Vat·isFix가 바뀌지 않아야 한다.
