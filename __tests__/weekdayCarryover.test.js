@@ -217,3 +217,38 @@ test('same-day live source plus cross-subweek zero tombstone keeps 01 editable o
   assert.match(unknown.editDisabledReason, /수량 확인 필요/);
   assert.throws(() => horizontalEditPayload({ prodKey: 919 }, unknownBlock, unknown, 8));
 });
+
+test('incoming major balance enters both subweek displays once while current manual close stays separate',()=>{
+  const matrix={rows:[{prodKey:866,blocks:cycles.map(cycle=>({cycle,unit:'박스',productPlans:[],
+    remainderMajorView:{value:0,hasDraft:false},remainder01View:{value:5},
+    subweek01:{effectiveTotal:25,remainderView:{value:5,hasDraft:false}},
+    subweek02:{effectiveTotal:10,remainderView:{value:0,hasDraft:false}}}))}]};
+  const before=JSON.stringify(matrix);
+  const projected=applyWeekdayCarryoverToMatrix(matrix,context,[record(),record({majorWeek:'38',startDate:'2026-09-17',quantity:99})]);
+  const current=projected.rows[0].blocks[1];
+  assert.equal(current.remainderMajorView.value,99);
+  assert.equal(current.subweek01.remainderView.value,10);
+  assert.equal(current.subweek02.remainderView.value,5,'incoming5+cumulative0; do not add the incoming-adjusted01 again');
+  assert.equal(current.remainder01View.value,10);
+  assert.equal(current.subweek01.effectiveTotal,25);assert.equal(current.subweek02.effectiveTotal,10);
+  assert.equal(JSON.stringify(matrix),before,'nested original subweek objects stay unchanged');
+});
+test('unknown incoming and inherited draft/provisional flags propagate to both subweek remainders',()=>{
+  const matrix={rows:[{prodKey:866,blocks:cycles.map(cycle=>({cycle,unit:'박스',productPlans:[],
+    remainderMajorView:{value:0},remainder01View:{value:5},
+    subweek01:{remainderView:{value:5}},subweek02:{remainderView:{value:0}}}))}]};
+  const dirty={...context,inputs:context.inputs.map((input,index)=>index===0?{...input,provisional:true,hasDraft:true}:input)};
+  const noSeed=applyWeekdayCarryoverToMatrix(matrix,dirty,[record()]);
+  // A manual seed intentionally clears previous flags; downstream own flags still propagate.
+  assert.equal(noSeed.rows[0].blocks[1].subweek02.remainderView.hasProvisional,false);
+  matrix.rows[0].blocks[1].remainderMajorView={value:0,hasDraft:true,hasProvisional:true};
+  const inherited=applyWeekdayCarryoverToMatrix(matrix,context,[record()]).rows[0].blocks[2];
+  for(const subweek of [inherited.subweek01,inherited.subweek02]) {
+    assert.equal(subweek.remainderView.hasDraft,true);
+    assert.equal(subweek.remainderView.hasProvisional,true);
+  }
+  const unknownContext={...context,inputs:context.inputs.map((input,index)=>index===1?{...input,unit:'단'}:input)};
+  const unknown=applyWeekdayCarryoverToMatrix(matrix,unknownContext,[record()]).rows[0].blocks[1];
+  assert.equal(unknown.subweek01.remainderView.value,null);
+  assert.equal(unknown.subweek02.remainderView.value,null);
+});

@@ -25,6 +25,11 @@ assert.equal(weekdayExportProductName({displayName:'ROSE / White 60cm'},'에콰�
 assert.equal(weekdayExportProductName({displayName:'장미빛 화이트'},'콜롬비아 장미'),'장미빛 화이트');
 assert.equal(weekdayExportProductName({name:'ROSE CHINA / Proud 60cm'},'장미'),'CHINA / 프라우드 60CM','origin and size survive');
 assert.ok(model.columns.every(column=>column.kind),'semantic column kind reaches the XLSX formatter');
+assert.equal(model.columns.find(column=>column.kind==='initial01').label,'40-1 물량표 기준');
+assert.equal(model.columns.find(column=>column.kind==='initial02').label,'40-2 물량표 기준');
+assert.deepEqual(model.columns.filter(column=>column.groupKey==='2026|40-1').map(column=>column.kind),['day','day','day','day','wilson','dayTotal']);
+assert.deepEqual(model.columns.filter(column=>column.groupKey==='2026|40-2').map(column=>column.kind),['day','day','day']);
+assert.ok(model.columns.filter(column=>column.groupKey).every(column=>['40-1','40-2'].includes(column.groupLabel)));
 const duplicateNames=buildWeekdayWebExportSnapshot({...matrix,rows:[englishRow,{...englishRow,prodKey:99}]});
 assert.deepEqual(duplicateNames.rows.map(row=>[row.prodKey,row.name]),[[1,'브루트'],[99,'브루트']],'same variety names never merge different products');
 const countrySortRows=[['장미','에콰도르'],['장미','중국'],['장미','콜롬비아'],['카네이션','콜롬비아'],['수국','콜롬비아'],['알스트로','콜롬비아'],['장미',null]]
