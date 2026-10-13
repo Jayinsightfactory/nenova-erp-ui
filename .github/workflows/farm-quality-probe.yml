@@ -1,4 +1,4 @@
-name: Cafe24 read-only build diagnosis
+name: Cafe24 bounded temporary build swap
 on:
   workflow_dispatch:
 jobs:
@@ -12,9 +12,12 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: 22
           script: |
+            set -eu
+            target=/var/tmp/nenova-build-38336101010.swap
+            test ! -e "$target"
+            test "$(df --output=avail -k /var/tmp | tail -1)" -gt 4194304
+            install -m 600 /dev/null "$target"
+            fallocate -l 2G "$target"
+            mkswap "$target"
+            swapon "$target"
             free -m
-            df -h /var/www/nenova-erp
-            ps -eo pid,comm,rss --sort=-rss | head -12
-            dmesg -T | grep -Ei 'out of memory|killed process|oom-kill' | tail -8
-            stat -c '%y %n' /root/.pm2/logs/nenova-erp-error-0.log
-            grep -B 8 -A 5 '883d22bb-6a9d-42f1-a9e0-e5e4b34993b7' /root/.pm2/logs/nenova-erp-error-0.log | tail -30
