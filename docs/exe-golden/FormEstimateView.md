@@ -1,5 +1,30 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-10-13 카톡 자동 불량 원천의 등록 격리
+
+메인이 실제 설치 EXE에 아래 CLI를 실행해 ClassEstimate.Insert/Update/Delete를 재확인했다.
+
+```powershell
+& 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe' --no-color -t ClassEstimate 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+```
+
+Insert는 EstimateType/EstimateDtm/ProdKey/Unit/Quantity/Cost/Amount/Vat/Descr/ShipmentKey,
+Update는 EstimateKey로 동일 금액·품목 필드를 변경한다. 주문·ShipmentDetail·ShipmentDate·Stock 쓰기는 없다.
+카톡 자동 초안/이월 결합은 웹에만 있는 기능이므로 이번 차단은 EXE 저장 공식 변경이 아니라 웹 등록 후보 보호다.
+
+운영 SELECT 전수(2026-10-13): 원장881/이력2721건에서 현재 또는 과거 원천 표식이 있는135건,
+실제 Estimate가 남은91건(29업체)을 검토 후보로 추출했다. 그중41차78건,38~40차13건이다.
+등록 당시 수입확인 false65/true26건으로 확인 여부만으로 자동자료 혼입을 막을 수 없다.
+생성 감사 계정, 원장 담당자 귀속, 실제 REGISTER_ESTIMATE 계정·시각은 각각 별도로 보존한다.
+EstimateDtm은 업무일자이므로 실제 등록시각으로 해석하지 않는다.
+이 목록은 오류 확정 목록이 아니며 운영 보정·삭제는 수행하지 않았다. 로컬 비공개 감사 파일은 커밋하지 않는다.
+
+|동작|Estimate|웹 원장/이력|주문·출고·재고·손익|
+|---|---|---|---|
+|원천/등록 감사|SELECT|SELECT|보존|
+|자동자료 일반등록 거부|보존|보존|보존|
+|정상 수동등록|기존 계약 유지|기존 계약 유지|보존|
+
 ## 2026-10-07 이전 차수 실제 등록 안내
 
 실제 설치 EXE를 dnSpy CLI로 ClassEstimate와 FormEstimateView 재확인했다. ClassEstimate는 Estimate PK로 Insert/Update/Delete하고, FormEstimateView는 선택 OrderYearWeek의 견적을 읽는다. 현재40차를 열면 과거38차 Estimate가 없는 것은 정상이다.
