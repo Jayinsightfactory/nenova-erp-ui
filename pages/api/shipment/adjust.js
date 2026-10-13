@@ -17,6 +17,7 @@
 // GET   ?week=18-01&prodKey=456  → 해당 차수+품목의 Adjustment 시계열 (비고 렌더링용)
 
 import { withTransaction, query, sql } from '../../../lib/db';
+import { acquireShipmentAdjustmentLock, SHIPMENT_ADJUSTMENT_TRANSACTION_OPTIONS } from '../../../lib/shipmentAdjustmentLock';
 import { withAuth } from '../../../lib/auth';
 import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { withActionLog } from '../../../lib/withActionLog';
@@ -590,6 +591,7 @@ export async function executeShipmentAdjustmentInTransaction(tQ, { body = {}, us
     error.statusCode = 400;
     throw error;
   }
+  await acquireShipmentAdjustmentLock(tQ);
   await assertErpEditGuard(tQ, { orderYear, orderWeek, custKey: Number(custKey) }, user, body);
   const pivotDistribution = isPivotDistributionMode(mode);
   const autoCancel = isAutoCancelMode(mode);
@@ -1261,7 +1263,7 @@ async function postAdjust(req, res) {
       body: req.body,
       user: req.user,
       capabilities,
-    }));
+    }), SHIPMENT_ADJUSTMENT_TRANSACTION_OPTIONS);
     return res.status(200).json({
       success: true,
       type: result.type,

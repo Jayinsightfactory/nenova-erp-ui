@@ -3,7 +3,11 @@
   "mixedPasteQuantity": "Explicit 6박스+17스팀 retains two source quantity components. A complete natural parse is authoritative over scalar LLM output for mixed expressions; incomplete coverage is rejected. After final Product selection, resolvePasteMixedQuantity converts to one finer input unit with actual positive Product pack factors (30 stems/box => 197 stems), reused after saved/manual product rematching. Missing metadata yields zero plus a visible error and blocks registration; never silently retain only 17. Manual quantity edits explicitly replace the mixed expression. Individual or bulk unit changes recalculate from retained source components into the requested unit, never reinterpret 197 stems as 197 boxes. Existing adjust preview/write conversion and year/customer/product scope are unchanged. Parse and preview preserve every ERP table; no automatic repair or registration.",
   "title": "차수피벗 업체 분배수량 변경 계약",
   "estimateVisibilityReadPerformance": "Preserve TOP400/year/weeks/q/base order and all native counts. Split repeated correlated native views into bounded independent SELECT aggregates keyed by candidate SdetailKey; preserve broad OrderYearWeek2 and explicit CustKey/ProdKey diagnostic counts separately, exact date multiplicity, active raw orders and split count. All ERP tables/SP/indexes preserved; no NOLOCK, timeout increase or validation bypass.",
+  "adjustmentConcurrency": "Single, batch, preflight and undo adjustment cores acquire one transaction-owned SQL applock before ERP lease/snapshot locks. Keep CANCEL-before-ADD business order. Shared global PK allocators require one gate across business keys. Only confirmed deadlock aborts replay the whole transaction, at most five retries for adjustment routes; unknown commit outcomes never replay. Preflight always rolls back; native ERP calculation and downstream write scope are unchanged.",
   "scope": [
+    "lib/shipmentAdjustmentLock.js",
+    "__tests__/dbDeadlockRetry.test.js",
+    "scripts/test-shipment-adjustment-lock-sql.cjs",
     "lib/estimateVisibilityRead.js",
     "__tests__/estimateVisibilityRead.test.js",
     "scripts/test-estimate-visibility-sql.cjs",
@@ -236,6 +240,7 @@
     }
   },
   "requiredTestFiles": [
+    "__tests__/dbDeadlockRetry.test.js",
     "__tests__/estimateVisibilityRead.test.js",
     "__tests__/weekPivotSheet.test.js",
     "__tests__/weekPivotDisplay.test.js",
