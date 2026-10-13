@@ -141,6 +141,8 @@ const refreshCalls = [];
 Object.assign(context, {
   allProducts: products,
   mappingCache: {},
+  baseStockMatchesRef: {current: []},
+  baseStockRematchRevisionRef: {current: 0},
   parseStockNoteFavorite: favorite => ({...favorite, data: JSON.parse(favorite.FilterData || '{}')}),
   apiGet: async () => ({favorites: [{FavoriteKey: 77, FilterData: JSON.stringify(saved)}]}),
   setStockNoteLoading: () => {},
