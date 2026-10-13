@@ -23,6 +23,12 @@
 - 보완 후 20개 브라우저 시나리오 및 exporter 22개 재통과. 최종 통합 회귀·배포는 아래 후속 기록 전까지 미완료다.
 - ERP 전체 회귀, dnSpy 근거, manifest, write guard 초기 통과. 최종 변경 후 재검증·빌드·배포 결과는 후속 기록한다.
 
+## 최종 로컬 통합 검증
+
+- master d9b4c946를 통합했다. 이전 squash 병합과 충돌한 파일은 기존 c593135d와 master 내용이 동일함을 확인하고 이번 확장본을 유지했다. INDEX는 양쪽 기록을 모두 보존했다.
+- 국가별 계산·승인·출력 236개 통과, 최종 전체 ERP 계약/교차연도 회귀 통과, dnSpy evidence 통과, manifest 102개 통과, write guard 통과(변경 API 0개), production build 통과.
+- PR: https://github.com/Jayinsightfactory/nenova-erp-ui/pull/1035 . 이 기록 시점에는 원격 CI/배포 대기이며 운영 완료를 의미하지 않는다.
+
 ## 근거와 한계
 
 국가별 셀 근거와 원본 결함은 `docs/plans/invoice-additional-country-evidence.md` 참조. 실제 최신 인보이스에 입력할 환율/비용/손실은 사용자가 확인해야 한다. 시험값을 운영 승인 원가로 보고하지 않는다. 실제 업무 파일·스크린샷·임시 스크립트는 outputs에만 두고 커밋하지 않는다.
