@@ -23,6 +23,21 @@ function formatNumber(value, maximumFractionDigits = 3) {
     : number.toLocaleString('ko-KR', { maximumFractionDigits });
 }
 
+function sourceIssueText(requirement) {
+  const labels = {
+    PRICE_OR_AMOUNT_MISSING: '단가·금액 미확인',
+    CARTON_NUMBER_WARNING: '박스 번호 확인',
+    POSITIONED_EVIDENCE_UNAVAILABLE: '원문 위치 확인',
+    SOURCE_ROW_CHANGED: '원문 행 변경됨',
+    VERIFIED_BASELINE_UNAVAILABLE: '원문 검증 필요',
+    SOURCE_REVIEW_UNAVAILABLE: '원문 확인 필요',
+  };
+  return (Array.isArray(requirement?.reasons) ? requirement.reasons : [])
+    .map(reason => labels[reason] || '원문 확인 필요').join(' · ') || '원문 확인 필요';
+}
+
+function productSourceNeedsReview(product) { return product?.sourceReview?.required === true; }
+
 function rowKey(excel, product, index) {
   return `${excel.name}::${hasValue(product.source_row) ? product.source_row : index}`;
 }
@@ -59,14 +74,15 @@ function buildIssueSummary(excels, country, notes, truncated = false, erpProduct
     const products = Array.isArray(excel.products) ? excel.products : [];
     const rowIssues = products
       .map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: packingMatchReview(product, erpProducts, country) }))
-      .filter(item => item.review.needsReview);
+      .filter(item => item.review.needsReview || productSourceNeedsReview(item.product));
     const hasMismatch = Boolean(excel.totalMismatch);
     const isTruncated = Boolean(truncated || excel.wasTruncated || excel.truncated);
     if (!rowIssues.length && !hasMismatch && !isTruncated) return;
 
     lines.push('', excel.label || excel.name || '결과 파일');
     rowIssues.forEach(({ product, key, review }) => {
-      const reason = String(notes[key] || '').trim() || review.label;
+      const fallback = [review.needsReview ? review.label : '', productSourceNeedsReview(product) ? sourceIssueText(product.sourceReview) : ''].filter(Boolean).join(' · ');
+      const reason = String(notes[key] || '').trim() || fallback;
       lines.push(`- ${productName(product)} · ${quantityText(product, country)} · 사유: ${reason}`);
       issueCount += 1;
     });
@@ -189,6 +205,8 @@ export default function PackingResults({
   mappingDisabled = false,
   truncated = false,
   erpProducts = [],
+  previewOnly = false,
+  onReviewSource,
 }) {
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState({});
@@ -205,7 +223,7 @@ export default function PackingResults({
   const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated, erpProducts), [safeExcels, country, notes, truncated, erpProducts]);
   const reviewedExcels = safeExcels.map(excel => ({ excel, rows: (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: packingMatchReview(product, erpProducts, country) })) }));
   const counts = reviewedExcels.flatMap(item => item.rows).reduce((result, row) => ({ ...result, [row.review.status]: result[row.review.status] + 1 }), { EXACT: 0, MANUAL: 0, REVIEW: 0, UNMATCHED: 0 });
-  const visibleKeys = reviewedExcels.flatMap(item => item.rows.filter(row => view === 'ALL' || row.review.needsReview).map(row => row.key));
+  const visibleKeys = reviewedExcels.flatMap(item => item.rows.filter(row => view === 'ALL' || row.review.needsReview || productSourceNeedsReview(row.product)).map(row => row.key));
   useEffect(() => {
     if (!selected?.rowKey || visibleKeys.includes(selected.rowKey)) return;
     setSelected(null);
@@ -287,7 +305,9 @@ export default function PackingResults({
 
       <div className={styles.matchReviewBar}>
         <p role="status">정확 {counts.EXACT} · 수동 {counts.MANUAL} · 유사 {counts.REVIEW} · 미매칭 {counts.UNMATCHED}
-          {counts.REVIEW + counts.UNMATCHED === 0 ? ' · 품목 매칭 완료 (수량·중량은 별도 확인)' : ` · 확인 필요 ${counts.REVIEW + counts.UNMATCHED}건`}</p>
+          {counts.REVIEW + counts.UNMATCHED === 0 ? ' · 품목 매칭 완료 (수량·중량은 별도 확인)' : ` · 매칭 확인 ${counts.REVIEW + counts.UNMATCHED}건`}
+          {(() => { const count = reviewedExcels.flatMap(item => item.rows).filter(row => productSourceNeedsReview(row.product)).length;
+            return count ? ` · 원문 확인 ${count}건` : ''; })()}</p>
         <button ref={filterButtonRef} type="button" aria-pressed={view === 'ALL'} data-testid="packing-results-view-toggle" onClick={() => setView(current => current === 'ALL' ? 'REVIEW_REQUIRED' : 'ALL')}>
           {view === 'ALL' ? '확인 필요만 보기' : '전체 보기'}</button>
       </div>
@@ -301,8 +321,8 @@ export default function PackingResults({
           unitPrice: products.some(product => hasValue(product.unitPrice)),
           lineAmount: products.some(product => hasValue(product.lineAmount)),
         };
-        const rowIssues = rows.filter(item => item.review.needsReview);
-        const visibleRows = rows.filter(item => view === 'ALL' || item.review.needsReview);
+        const rowIssues = rows.filter(item => item.review.needsReview || productSourceNeedsReview(item.product));
+        const visibleRows = rows.filter(item => view === 'ALL' || item.review.needsReview || productSourceNeedsReview(item.product));
         const mismatch = excel.totalMismatch;
         const resultTruncated = Boolean(truncated || excel.wasTruncated || excel.truncated);
         const issueCount = rowIssues.length + (mismatch ? 1 : 0) + (resultTruncated ? 1 : 0);
@@ -335,14 +355,14 @@ export default function PackingResults({
                   {hasWeightMetadata ? ` · GW ${weightText(excel.grossWeight)} · CW ${weightText(excel.chargeableWeight)}` : ''}
                 </p>
               </div>
-              <button
+              {previewOnly ? <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 28, border: '1px solid #ccd6e5', borderRadius: 7, padding: '4px 9px', background: '#f4f7fb', color: '#526580', fontSize: 12, fontWeight: 600 }}>미리보기 · 다운로드 생성 안 됨</span> : <button
                 type="button"
                 onClick={() => { if (!downloadBlocked) onDownload(excel.name); }}
                 disabled={downloadBlocked}
                 className={styles.downloadButton}
               >
                 {downloadBlocked ? '🔒 다운로드 차단' : '⬇ 다운로드'}
-              </button>
+              </button>}
             </header>
 
             <div className={styles.resultWorkspace}>
@@ -423,6 +443,13 @@ export default function PackingResults({
                                       aria-label={`${status}: ${sourceName} 전산 품목 확인`}
                                       disabled={matchDisabled} onClick={openMatch}>{status}</button>
                                   : <span className={`${styles.statusChip} ${review.status === 'MANUAL' ? styles.statusAlias : styles.statusMatched}`}>{status}</span>}
+                                {productSourceNeedsReview(product) && (
+                                  <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid="packing-result-source-review"
+                                    aria-label={`${sourceName} 원문 확인: ${sourceIssueText(product.sourceReview)}`}
+                                    onClick={() => onReviewSource?.(product, excel, index)}>
+                                    원문 확인 · {sourceIssueText(product.sourceReview)}
+                                  </button>
+                                )}
                                 {review.needsReview && (
                                   <label className={styles.inlineNote}>
                                     <span>사유 메모 (이 화면만)</span>

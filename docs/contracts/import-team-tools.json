@@ -29,6 +29,7 @@
     "styles/ImportTools.module.css",
     "styles/ImportPacking.module.css",
     "lib/importPacking.js",
+    "lib/importPackingMatchPreview.js",
     "lib/importPackingPrompt.js",
     "lib/importPackingReview.js",
     "lib/importPackingPdfPreview.js",
@@ -115,6 +116,7 @@
     "description": "Checklist YYYY-MM-DD/month/year keys isolate 2025 and 2026; file conversion requires explicit year/week; no SQL master queries."
   },
   "requiredTestFiles": [
+    "__tests__/importPackingMatchPreview.test.js",
     "__tests__/importChinaPdfInvoice.test.js",
     "__tests__/importChinaPdfFlow.test.js",
     "__tests__/importPackingAustraliaQuantity.test.js",
