@@ -120,6 +120,49 @@ async function main() {
       assert.deepEqual(await state(tQ),result,'UUID replay is physically inert');
       console.log(`PASS ${scenario.label}`);
     });
+    for(const createMaster of [false,true]) await transaction(pool,async tQ=>{
+      await unfixed(tQ);
+      await tQ(`UPDATE Customer SET Manager=N'담당자 이름' WHERE CustKey=533;
+        DELETE OrderDetail WHERE OrderMasterKey=3701;`);
+      if(createMaster) await tQ('DELETE OrderMaster WHERE OrderMasterKey=3701');
+      const request=await body(tQ,[{date:'2026-09-13',quantity:21}]);
+      const applied=await core.executeWeekdayDistributionApply(tQ,sql,request,user,deps);
+      assert.equal(applied.saved,true);
+      const orders=(await tQ(`SELECT om.Manager,od.OutQuantity FROM OrderMaster om JOIN OrderDetail od ON od.OrderMasterKey=om.OrderMasterKey
+        WHERE om.OrderYear=N'2026' AND om.OrderWeek=N'37-01' AND om.CustKey=533 AND od.ProdKey=866`)).recordset;
+      assert.equal(orders.length,1);assert.equal(orders[0].Manager,'fixture-user');
+      assert.ok(Number(orders[0].OutQuantity)>0);sentinels(await state(tQ));
+      assert.equal((await tQ('SELECT Manager FROM Customer WHERE CustKey=533')).recordset[0].Manager,'담당자 이름');
+      console.log(`PASS business contact name preserved; ${createMaster?'new master uses login':'existing master keeps manager'}`);
+    });
+    const beforeManagerFailure=await transaction(pool,state);
+    await assert.rejects(()=>transaction(pool,async tQ=>{
+      await unfixed(tQ);
+      await tQ(`DELETE OrderDetail WHERE OrderMasterKey=3701; DELETE OrderMaster WHERE OrderMasterKey=3701;
+        UPDATE UserInfo SET isDeleted=1 WHERE UserID=N'fixture-user';`);
+      await core.executeWeekdayDistributionApply(tQ,sql,await body(tQ,[{date:'2026-09-13',quantity:21}]),user,deps);
+    }),error=>error.code==='ALLOCATION_SCOPE_UNVERIFIED');
+    assert.deepEqual(await transaction(pool,state),beforeManagerFailure,'invalid new-order actor rolls back all business and audit writes');
+    await transaction(pool,async tQ=>{
+      await gate.lockDirectionalGate(tQ);
+      const row=(await tQ('SELECT Mode,PendingCalc,OwnerToken,OwnerSessionID FROM NenovaStockWeekGate')).recordset[0];
+      assert.equal(row.Mode,null);assert.equal(Boolean(row.PendingCalc),false);assert.equal(row.OwnerToken,null);assert.equal(row.OwnerSessionID,null);
+    });
+    console.log('PASS manager failure rollback releases gate for the next transaction');
+    const busyRequest=await transaction(pool,tQ=>body(tQ,[{date:'2026-09-13',quantity:18}]));
+    const gateOwner=new sql.Transaction(pool);await gateOwner.begin();
+    try {
+      await fixture.tQuery(gateOwner)('SELECT GateKey FROM NenovaStockWeekGate WITH (UPDLOCK,HOLDLOCK) WHERE GateKey=\'1\'');
+      await assert.rejects(()=>transaction(pool,tQ=>core.executeWeekdayDistributionApply(tQ,sql,busyRequest,user,deps)),error=>{
+        assert.equal(error.code,'STOCK_GATE_BUSY');assert.equal(error.preWriteGateBusy,true);return true;
+      });
+    } finally {await gateOwner.rollback();}
+    assert.deepEqual(await transaction(pool,state),beforeManagerFailure,'contended gate produces no business/audit writes');
+    await transaction(pool,async tQ=>{
+      const saved=await core.executeWeekdayDistributionApply(tQ,sql,busyRequest,user,deps);
+      assert.equal(saved.saved,true);sentinels(await state(tQ));
+    });
+    console.log('PASS active gate rejects before writes; identical UUID succeeds after owner rollback');
     await transaction(pool,async tQ=>{
       await unfixed(tQ);
       await tQ(`INSERT ShipmentHistory(SdetailKey,ShipmentDtm,ChangeType,BeforeValue,AfterValue,Descr,ChangeID,ChangeDtm)

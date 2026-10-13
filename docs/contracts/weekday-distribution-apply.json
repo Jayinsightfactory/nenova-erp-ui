@@ -1,6 +1,13 @@
 {
   "id": "weekday-distribution-apply",
   "title": "주광 요일별 실제 분배·출고일 원자 저장",
+  "orderManagerPolicy": {
+    "existingMaster": "Preserve stored OrderMaster.Manager; require unique UserInfo.UserID join without adding an isDeleted read predicate, matching native ViewOrder. Never validate Customer.Manager as a login ID.",
+    "newMaster": "Authenticated userId, locked unique UserInfo row with isDeleted=0; matches FormOrderAdd Program.Option.LoginID and CommonLogic.GetUserInfo(false). No name mapping or admin fallback.",
+    "preserve": "Customer.Manager, UserInfo, active positive orders, CANCEL semantics, confirmation lifecycle, stock gate ownership, transaction atomicity",
+    "evidence": "docs/exe-golden/WeekdayOrderManager.md",
+    "sqlFixture": "scripts/test-weekday-confirmation-lifecycle-sql.cjs: contact-name existing/new master, invalid actor rollback and gate release, prewrite busy/no audit, same UUID retry, cross-year sentinels"
+  },
   "editConflictPresentation": {
     "source": "ERP_EDIT_LOCKED response lease.ownerName and lease.pageCode",
     "menuLabels": {
@@ -22,6 +29,9 @@
     "fixture": "__tests__/weekdayDistributionClient.test.js"
   },
   "scope": [
+    "docs/exe-golden/WeekdayOrderManager.md",
+    "docs/plans/weekday-order-manager-2026-10-13.md",
+    "docs/plans/weekday-feedback-safety-2026-10-13.md",
     "lib/weekdayCustomerLink.js",
     "__tests__/weekdayCustomerLink.test.js",
     "docs/plans/weekday-native-customer-read-2026-10-02.md",
