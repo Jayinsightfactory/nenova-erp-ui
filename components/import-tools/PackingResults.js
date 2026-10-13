@@ -42,10 +42,6 @@ function sourceProductName(product) {
   return String(product.sourceName || product.matchingDescription || product.name || '품목명 미상').trim() || '품목명 미상';
 }
 
-function namesMatch(left, right) {
-  return String(left || '').trim().toLocaleUpperCase() === String(right || '').trim().toLocaleUpperCase();
-}
-
 function mismatchText(mismatch) {
   if (!mismatch || typeof mismatch !== 'object') return '인보이스 합계 불일치';
   const computed = finiteNumber(mismatch.computed);
@@ -281,7 +277,7 @@ export default function PackingResults({
       <div className={styles.resultsHeadingRow}>
         <div>
           <h3 className={styles.resultsHeading}>품목 매칭 확인</h3>
-          <p className={styles.resultsHint}>DB 미매칭·유사 매칭만 먼저 표시합니다. 원문 품목을 눌러 전산 품목을 선택·저장하세요.</p>
+          <p className={styles.resultsHint}>DB 미매칭·유사 매칭만 먼저 표시합니다. 미매칭·확인 필요 버튼에서 전산 품목을 선택·저장하세요. 저장한 매칭은 팀 공용으로 다음 업로드에도 적용됩니다.</p>
         </div>
         <button ref={summaryButtonRef} type="button" onClick={openSummary} className={styles.summaryButton} data-testid="packing-results-copy-open">
           이슈 요약 새 창
@@ -353,17 +349,28 @@ export default function PackingResults({
               {visibleRows.length === 0 && <p className={styles.matchReviewEmpty} role="status">품목 매칭 완료 (수량·중량은 별도 확인). 완료된 품목은 전체 보기에서 확인하세요.</p>}
               <div className={styles.sheetScroll} role="region" aria-label={`${excel.label || excel.name} ${view === 'ALL' ? '전체 행' : '확인 필요 행'}`} tabIndex="0">
                 <table className={styles.resultSheet} data-testid="packing-results-table" data-result-name={excel.name || ''}>
+                  <colgroup>
+                    <col className={styles.rowNumberColumn} />
+                    <col className={styles.productColumn} />
+                    {include.stemLength && <col className={styles.lengthColumn} />}
+                    <col className={styles.matchDataColumn} />
+                    {include.boxes && <col className={styles.boxesColumn} />}
+                    <col className={styles.quantityColumn} />
+                    {include.stems && <col className={styles.stemsColumn} />}
+                    {include.unitPrice && <col className={styles.priceColumn} />}
+                    {include.lineAmount && <col className={styles.amountColumn} />}
+                  </colgroup>
                   <thead>
                     <tr>
                       <th scope="col">No.</th>
                       <th scope="col">원문품목</th>
                       {include.stemLength && <th scope="col">길이</th>}
+                      <th scope="col" className={styles.matchColumn}>DB 매칭·확인사항</th>
                       {include.boxes && <th scope="col" className={styles.numberCell}>박스</th>}
                       <th scope="col" className={styles.numberCell}>{country === 'CN' ? '단수' : unit || '수량'}</th>
                       {include.stems && <th scope="col" className={styles.numberCell}>송이</th>}
                       {include.unitPrice && <th scope="col" className={styles.numberCell}>단가</th>}
                       {include.lineAmount && <th scope="col" className={styles.numberCell}>금액</th>}
-                      <th scope="col" className={styles.matchColumn}>매칭·확인사항</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -371,10 +378,16 @@ export default function PackingResults({
                       const key = rowKey(excel, product, index);
                       const isSelected = selected?.rowKey === key;
                       const sourceName = sourceProductName(product);
-                      const matchedName = productName(product);
-                      const showMatchedName = review.prodKey && !namesMatch(sourceName, matchedName);
+                      const matchedProduct = review.prodKey == null ? null : erpProducts.find(item =>
+                        Number(item.ProdKey) === Number(review.prodKey) && (!country || !item.country || item.country === country));
+                      const matchedName = String(matchedProduct?.ProdName || '').trim();
                       const status = review.label;
                       const matchDisabled = typeof onMatch !== 'function' || mappingDisabled;
+                      const openMatch = () => {
+                        if (matchDisabled) return;
+                        setSelected({ excelName: excel.name, rowKey: key });
+                        onMatch(product, excel, index);
+                      };
                       return (
                         <tr
                           key={key}
@@ -393,11 +406,7 @@ export default function PackingResults({
                               title={sourceName}
                               aria-label={`${sourceName} 전산 품목 매칭`}
                               disabled={matchDisabled}
-                              onClick={() => {
-                                if (matchDisabled) return;
-                                setSelected({ excelName: excel.name, rowKey: key });
-                                onMatch(product, excel, index);
-                              }}
+                              onClick={openMatch}
                               onFocus={() => setSelected({ excelName: excel.name, rowKey: key })}
                               onKeyDown={event => handleMatchArrow(event, rowKeys, key)}
                             >
@@ -405,30 +414,36 @@ export default function PackingResults({
                             </button>
                           </td>
                           {include.stemLength && <td>{hasValue(product.stemLength ?? product.stem_length) ? (product.stemLength ?? product.stem_length) : '—'}</td>}
+                          <td className={styles.matchCell}>
+                            <div className={styles.matchSummary}>
+                              {review.prodKey != null && <strong className={styles.matchTarget}>{matchedName || '전산 품목 정보 없음'}</strong>}
+                              <div className={styles.matchActions}>
+                                {review.needsReview
+                                  ? <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid="packing-result-status-match"
+                                      aria-label={`${status}: ${sourceName} 전산 품목 확인`}
+                                      disabled={matchDisabled} onClick={openMatch}>{status}</button>
+                                  : <span className={`${styles.statusChip} ${review.status === 'MANUAL' ? styles.statusAlias : styles.statusMatched}`}>{status}</span>}
+                                {review.needsReview && (
+                                  <label className={styles.inlineNote}>
+                                    <span>사유 메모 (이 화면만)</span>
+                                    <input
+                                      type="text"
+                                      value={notes[key] || ''}
+                                      onFocus={() => setSelected({ excelName: excel.name, rowKey: key })}
+                                      onChange={event => setNotes(current => ({ ...current, [key]: event.target.value }))}
+                                      placeholder="예: 품명 확인 필요"
+                                      aria-label={`${sourceName} 미매칭 사유 메모`}
+                                    />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+                          </td>
                           {include.boxes && <td className={styles.numberCell}>{formatNumber(product.boxes)}</td>}
                           <td className={styles.numberCell}>{formatNumber(product.qty)}</td>
                           {include.stems && <td className={styles.numberCell}>{formatNumber(product.stems)}</td>}
                           {include.unitPrice && <td className={styles.numberCell}>{formatNumber(product.unitPrice, 3)}</td>}
                           {include.lineAmount && <td className={styles.numberCell}>{formatNumber(product.lineAmount, 2)}</td>}
-                          <td className={styles.matchCell}>
-                            <div className={styles.matchSummary}>
-                              {showMatchedName && <strong className={styles.matchTarget} title={matchedName}>{matchedName}</strong>}
-                              <span className={`${styles.statusChip} ${review.needsReview ? styles.statusIssue : review.status === 'MANUAL' ? styles.statusAlias : styles.statusMatched}`}>{status}</span>
-                              {review.needsReview && (
-                                <label className={styles.inlineNote}>
-                                  <span>사유 메모 (이 화면만)</span>
-                                  <input
-                                    type="text"
-                                    value={notes[key] || ''}
-                                    onFocus={() => setSelected({ excelName: excel.name, rowKey: key })}
-                                    onChange={event => setNotes(current => ({ ...current, [key]: event.target.value }))}
-                                    placeholder="예: 품명 확인 필요"
-                                    aria-label={`${sourceName} 미매칭 사유 메모`}
-                                  />
-                                </label>
-                              )}
-                            </div>
-                          </td>
                         </tr>
                       );
                     })}

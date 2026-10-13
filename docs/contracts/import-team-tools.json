@@ -4,6 +4,7 @@
   "scope": [
     "__tests__/importPackingAustraliaQuantity.test.js",
     "lib/importPackingErpMatches.js",
+    "lib/productSearchRanking.js",
     "pages/api/import/tools/product-matches.js",
     "components/import-tools/PackingProductMatchDialog.js",
     "styles/PackingProductMatch.module.css",
@@ -15,6 +16,7 @@
     "lib/importTeamPdf.js",
     "lib/importTeamPdfQuota.js",
     "lib/importTeamPdfCache.js",
+    "lib/importTeamPdfJobs.js",
     "lib/importPackingExtractClient.js",
     "lib/importInvoiceLocal.js",
     "lib/importChinaInvoice.js",
@@ -57,6 +59,13 @@
     "authenticatedUserId"
   ],
   "actions": [
+    {
+      "name": "ANALYZE_PDF_ASYNC",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "authenticated user-isolated job/result/cache/quota only; sync and async share fenced admission; polling GET never initiates AI; uncertain dispatch requires explicit retry identity and extra-cost confirmation; one provider call bounded to ten minutes; no PDF persistence and no ERP writes"
+    },
     {
       "name": "MATCH_ERP_PRODUCT",
       "orderDetail": "preserve",
@@ -111,6 +120,9 @@
     "__tests__/importPedidos.test.js",
     "__tests__/importTeamClient.test.js",
     "__tests__/importTeamPdfCache.test.js",
+    "__tests__/importTeamPdfJobs.test.js",
+    "__tests__/parsePdfJobsApi.test.js",
+    "__tests__/packingSimilarRanking.test.js",
     "__tests__/importPackingExtractClient.test.js",
     "__tests__/importAwbFields.test.js",
     "__tests__/importInvoiceLocal.test.js",
