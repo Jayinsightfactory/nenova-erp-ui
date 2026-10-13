@@ -75,6 +75,34 @@ async function main() {
   assert.equal(XLSX.SSF.format(decimalCombined.C4.z, decimalCombined.C4.v), '1.9');
   assert.deepEqual(combined.A1.s, ordinary.A1.s);
   assert.equal(combined.B2.v, '');
+  for (const year of [2025, 2026]) {
+    const china = context.generate([row(1, 16)], [{custName:'Customer',custKey:1,orderCode:'CL2'}], [],
+      {country:'중국',flower:'중국',weekLabel:`${year}-41-01`}).ws;
+    assert.equal(china.B3.v, 'Customer');
+    assert.equal(china.B4.v, 'CL2');
+    assert.equal(china.A4.v, '클라이언트 번호');
+    assert.equal(china.B5.v, 16);
+    assert.equal(china.B6.f, 'SUM(B5:B5)');
+    assert.equal(china['!freeze'].ySplit, 4);
+  }
+  for (const amount of [16,32,8]) {
+    const alstro = context.generate([{...row(1,amount), flower:'알스트로',prodName:'ALSTROMERIA Lavender'}], args[1], [],
+      {flower:'알스트로',weekLabel:'41-01'}).ws;
+    assert.equal(alstro.B4.v, amount, 'new file stores ERP quantity without loss');
+    assert.equal(XLSX.SSF.format(alstro.B4.z, amount), `${amount}(${amount/16})`);
+    assert.equal(alstro.A2.v, '알스트로 ERP 수량 (÷16 참고)');
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, alstro, '알스트로');
+    const back = XLSX.read(XLSX.write(wb, {type:'buffer',bookType:'xlsx'}), {type:'buffer',cellNF:true});
+    assert.equal(back.Sheets['알스트로'].B4.v, amount);
+    assert.equal(back.Sheets['알스트로'].B4.w, `${amount}(${amount/16})`);
+  }
+  const page = fs.readFileSync(path.join(__dirname, '../pages/shipment/distribute-import.js'), 'utf8');
+  const formatter = page.slice(page.indexOf('const fmt ='), page.indexOf('const qtyWarningText'));
+  vm.runInContext(formatter + '\nthis.displayUpload = fmtUpload;', context);
+  assert.equal(context.displayUpload({productFamily:'alstroemeria',uploadQty:16,excelQty:1}), '16(1)');
+  assert.equal(context.displayUpload({productFamily:'alstroemeria',uploadQty:32,excelQty:32,alstroErpQuantity:true}), '32(2)');
+  assert.equal(context.displayUpload({productFamily:'rose',uploadQty:16,excelQty:16}), '16');
   console.log('pivot combined cells: defaults, year, missing, precision, production sheet and XLSX roundtrip passed');
 }
 main().catch(e=>{ console.error(e); process.exitCode=1; });

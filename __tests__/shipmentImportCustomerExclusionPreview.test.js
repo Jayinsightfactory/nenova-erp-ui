@@ -35,7 +35,30 @@ function load(filename) {
   }, mod, mod.exports);
   return mod.exports;
 }
-const { buildImportPreview } = load(resolve(lib, 'shipmentImport.js'));
+const { buildImportPreview, parseAllocationWorkbook } = load(resolve(lib, 'shipmentImport.js'));
+const { normalizeUploadQtyForProduct } = load(resolve(lib, 'shipmentImportQty.js'));
+
+test('separate client header and explicit alstro ERP unit roundtrip preserve quantities', () => {
+  const XLSX = require('xlsx-js-style');
+  for (const year of [2025, 2026]) {
+    for (const actual of [16, 32, 8, 0]) {
+      const sheet = XLSX.utils.aoa_to_sheet([
+        [`${year}-41-01 알스트로`], ['알스트로 ERP 수량 (÷16 참고)'],
+        ['', '주광', '주문', '입고'], ['클라이언트 번호', 'CL2'],
+        ['ALSTROMERIA Lavender', actual, actual, 0], ['합계', actual, actual, 0],
+      ]);
+      const workbook = { SheetNames:['알스트로'], Sheets:{알스트로:sheet} };
+      const decoded = XLSX.read(XLSX.write(workbook, {type:'buffer',bookType:'xlsx'}), {type:'buffer'});
+      const parsed = parseAllocationWorkbook(XLSX, decoded).rows;
+      assert.equal(parsed.length, 1);
+      assert.equal(parsed[0].rowNo, 5);
+      assert.equal(parsed[0].customerLabel, '주광');
+      assert.equal(normalizeUploadQtyForProduct(parsed[0]), actual);
+      assert.equal(normalizeUploadQtyForProduct({...parsed[0], alstroErpQuantity:false, uploadQty:actual/16}), actual);
+      assert.equal(normalizeUploadQtyForProduct({...parsed[0], alstroErpQuantity:'true', uploadQty:1}), 16);
+    }
+  }
+});
 
 const product = { ProdKey: 359, ProdName: 'ROSE / Brut', DisplayName: 'Brut',
   FlowerName: '장미', CounName: '에콰도르', CountryFlower: '에콰도르 장미',
@@ -132,6 +155,15 @@ test('unmatched original column blocks until explicitly excluded or connected; u
   const invalidConnection = await preview({ '주광선출고': 999999 });
   assert.equal(invalidConnection.unmatched.length, 1, 'invalid explicit mapping cannot silently resolve another customer');
   assert.equal(invalidConnection.rows[0].uploadQty, 5);
+});
+
+test('alstro unit marker survives preview and preflight normalization; mixed units block', async () => {
+  const source = {...parsedRows[0], productFamily:'alstroemeria', uploadQty:16, alstroErpQuantity:true};
+  const result = await preview({}, {sourceRows:[source]});
+  assert.equal(result.rows[0].uploadQty, 16);
+  assert.equal(result.rows[0].alstroErpQuantity, true);
+  assert.equal(normalizeUploadQtyForProduct(result.rows[0], product), 16);
+  await assert.rejects(preview({}, {sourceRows:[source, {...source, uploadQty:1, alstroErpQuantity:false}]}), /섞여/);
 });
 
 test('preview totals are normalized first, then exclude processed ledger exactly once', async () => {
