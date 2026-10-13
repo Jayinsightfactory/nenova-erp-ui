@@ -237,6 +237,39 @@ test('disables matching without a parent callback or while mapping is disabled',
   assert.equal(flatten(statusDisabled).find(node => node.props?.['data-testid'] === 'packing-result-status-match').props.disabled, true);
 });
 
+test('preview-only rows never expose download and source issues join the default review filter', () => {
+  state.length = 0;
+  const products = [
+    { source_row: 1, sourceName: 'TARGET', name: 'TARGET', qty: null,
+      sourceReview: { required: true, reasons: ['PRICE_OR_AMOUNT_MISSING'] } },
+    { source_row: 2, sourceName: 'TARGET', name: 'TARGET', qty: 15,
+      sourceReview: { required: false, reasons: [] } },
+  ];
+  const excel = { name: 'preview-only', label: 'Invoice preview', products, previewOnly: true };
+  const reviews = [];
+  const tree = render({ excels: [excel], country: 'CN', previewOnly: true, erpProducts: [{ ProdKey: 3, ProdName: 'TARGET', country: 'CN' }],
+    blocked: () => true, onDownload() {}, onMatch() {}, onReviewSource: (...args) => reviews.push(args) });
+  let nodes = flatten(tree);
+  assert.equal(nodes.find(node => node.props?.['data-testid'] === 'packing-results-table').props['data-result-name'], 'preview-only');
+  assert.equal(nodes.filter(node => node.props?.['data-testid'] === 'packing-product-match').length, 1,
+    'the exact DB match still appears when the source itself needs review');
+  assert.equal(nodes.find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props['aria-pressed'], false);
+  assert.match(text(tree), /원문 확인 1건/);
+  assert.match(text(tree), /미리보기 · 다운로드 생성 안 됨/);
+  assert.equal(nodes.some(node => node.type === 'button' && text(node).includes('다운로드')), false);
+  const sourceIssue = nodes.find(node => node.props?.['data-testid'] === 'packing-result-source-review');
+  assert.ok(sourceIssue);
+  assert.match(text(sourceIssue), /단가·금액 미확인/);
+  sourceIssue.props.onClick();
+  assert.deepEqual(reviews[0], [products[0], excel, 0]);
+
+  nodes.find(node => node.props?.['data-testid'] === 'packing-results-view-toggle').props.onClick();
+  nodes = flatten(render({ excels: [excel], country: 'CN', previewOnly: true, erpProducts: [{ ProdKey: 3, ProdName: 'TARGET', country: 'CN' }],
+    blocked: () => true, onDownload() {}, onMatch() {}, onReviewSource() {} }));
+  assert.equal(nodes.filter(node => node.props?.['data-testid'] === 'packing-product-match').length, 2,
+    '전체 보기 restores completed rows alongside the retained source review issue');
+});
+
 test('arrow keys move focus between row match buttons', () => {
   state.length = 0;
   const tree = render({
