@@ -25,6 +25,10 @@ import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { exeAmountVatSql } from '../../../lib/estimateDateQuantity.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
 import { dedupeEstimatePhysicalRows } from '../../../lib/estimatePhysicalRow.js';
+import {
+  acquireEstimateDuplicateWriteLock,
+  assertNoDuplicateEstimateWrite,
+} from '../../../lib/estimateDuplicateWriteGuard.js';
 
 export default withAuth(withActionLog(async function handler(req, res) {
   if (req.method === 'GET')  return await getEstimates(req, res);
@@ -944,6 +948,14 @@ async function createEstimate(req, res) {
       ? (Number(context.shipmentKey) || parseInt(targetShipmentKey, 10) || selectedShipmentKey)
       : Number(context.shipmentKey);
     const inserted = await withTransaction(async (tQ) => {
+      if (qty < 0) {
+        await acquireEstimateDuplicateWriteLock(tQ, {
+          year: targetYear,
+          parentWeek: targetParentWeek,
+          custKey: targetCustKey,
+          prodKey: requestedProdKey,
+        });
+      }
       const lockedMaster = await tQ(
         `SELECT OrderYear, OrderWeek, CustKey FROM ShipmentMaster WITH (UPDLOCK, HOLDLOCK)
           WHERE ShipmentKey=@sk AND ISNULL(isDeleted,0)=0`,
@@ -958,6 +970,23 @@ async function createEstimate(req, res) {
         throw error;
       }
       await assertErpEditGuard(tQ, { orderYear: targetYear, orderWeek: locked.OrderWeek, custKey: targetCustKey }, req.user, req.body);
+      if (qty < 0) {
+        await assertNoDuplicateEstimateWrite(tQ, {
+          year: targetYear,
+          parentWeek: targetParentWeek,
+          fullWeek: locked.OrderWeek,
+          custKey: targetCustKey,
+          prodKey: requestedProdKey,
+          shipmentKey: appliedShipmentKey,
+          estimateType: typeCode,
+          unit: estUnit,
+          quantity: qty,
+          cost: effectiveCost,
+          estimateDate: dtValue,
+          descr: descr || '',
+          lockAlreadyHeld: true,
+        });
+      }
       const insertResult = await tQ(
       `DECLARE @EstimateInserted TABLE (EstimateKey INT);
        INSERT INTO Estimate
@@ -997,6 +1026,12 @@ async function createEstimate(req, res) {
       costOrderWeek: context.costOrderWeek || '',
     });
   } catch (err) {
-    return res.status(['ESTIMATE_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err.code) ? 409 : Number(err.statusCode || 500)).json({ success: false, code: err.code, error: err.message, lease: err.lease || null });
+    return res.status(['ESTIMATE_SCOPE_MISMATCH', 'ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err.code) ? 409 : Number(err.statusCode || 500)).json({
+      success: false,
+      code: err.code,
+      error: err.message,
+      lease: err.lease || null,
+      conflictEstimateKey: err.conflictEstimateKey || null,
+    });
   }
 }

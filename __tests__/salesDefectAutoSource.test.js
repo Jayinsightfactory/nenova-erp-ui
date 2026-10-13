@@ -119,6 +119,7 @@ const value = (params, name) => params?.[name]?.value;
 const fakeRegisterQuery = async (statement, params = {}) => {
   const source = String(statement);
   if (/\b(?:INSERT|UPDATE|DELETE)\b/i.test(source)) registerWrites.push({ source, key: value(params, 'key') });
+  if (/sp_getapplock/.test(source)) return { recordset: [{ LockResult: 0 }] };
   if (/CodeInfo/.test(source)) return { recordset: [{ DetailCode: '불량차감' }] };
   if (/FROM WebSalesDefectDeduction d/.test(source)) return { recordset: [{ ...registerRows.get(Number(value(params, 'key'))) }] };
   if (/FROM ShipmentMaster sm/.test(source) && /TargetOrderYear/.test(source)) {
@@ -186,6 +187,7 @@ await assert.rejects(registerDeductions({
   withTransaction: async (callback) => callback(async (statement, params = {}) => {
     const source = String(statement);
     if (/\b(?:INSERT|UPDATE|DELETE)\b/i.test(source)) finalRereadWrites.push(source);
+    if (/sp_getapplock/.test(source)) return { recordset: [{ LockResult: 0 }] };
     if (/CodeInfo/.test(source)) return { recordset: [{ DetailCode: '불량차감' }] };
     if (/FROM WebSalesDefectDeduction d/.test(source)) {
       finalReadCount += 1;
