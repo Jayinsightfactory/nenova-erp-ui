@@ -243,12 +243,12 @@ export default function PackingEvidenceReview({
   }, [rows]);
 
   useEffect(() => {
-    if (!targetEntry) return;
+    if (!open || !targetEntry) return;
     setSelectedKey(String(targetEntry.invoiceIndex));
     setActiveField({ key: String(targetEntry.invoiceIndex), field: 'description', sourceKey: targetEntry.key });
     if (targetEntry.row?.reviewRequired === false) setShowAllSourceRows(true);
     if (preview && Number.isInteger(targetPage) && targetPage > 0 && targetPage <= preview.numPages) setPageNumber(targetPage);
-  }, [targetEntry?.key, targetPage]);
+  }, [open, targetEntry?.key, targetPage]);
 
   useEffect(() => {
     if (sourceSignatureRef.current === sourceSignature) return;

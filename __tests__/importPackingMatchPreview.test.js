@@ -23,6 +23,7 @@ test('NL preview reads invoice.lines and applies the same built-in NL mapping wi
   assert.deepEqual(preview.products.map(row => row.lineAmount), [null, null]);
   assert.ok(preview.products.every(row => row.sourceReview.required === false), 'non-PDF invoice rows are not forced into PDF source review');
   assert.equal(preview.previewOnly, true);
+  assert.equal(preview.sourceInvoiceIdentity.sourceInvoiceIndex, 0, 'PDF review can link preview ERP names to the original invoice');
 });
 
 test('CN preview preserves bunch quantity and missing price as null and marks only PDF source review issues', () => {
