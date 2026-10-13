@@ -20,6 +20,8 @@
     "lib/importPackingExtractClient.js",
     "lib/importInvoiceLocal.js",
     "lib/importChinaInvoice.js",
+    "lib/importChinaInvoiceFormat.js",
+    "lib/importChinaPdfInvoice.js",
     "lib/importAwbFields.js",
     "lib/importTeamChecklist.js",
     "lib/importTeamKorean.js",
@@ -59,6 +61,13 @@
     "authenticatedUserId"
   ],
   "actions": [
+    {
+      "name": "ANALYZE_CHINA_TEXT_PDF_LOCAL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "none; browser PDF.js text coordinates, strict Hubfresh layout and independent totals; preserve unknown prices as null and require existing source review; no AI/network/ERP write"
+    },
     {
       "name": "ANALYZE_PDF_ASYNC",
       "orderDetail": "preserve",
@@ -106,6 +115,8 @@
     "description": "Checklist YYYY-MM-DD/month/year keys isolate 2025 and 2026; file conversion requires explicit year/week; no SQL master queries."
   },
   "requiredTestFiles": [
+    "__tests__/importChinaPdfInvoice.test.js",
+    "__tests__/importChinaPdfFlow.test.js",
     "__tests__/importPackingAustraliaQuantity.test.js",
     "__tests__/packingProductMatchDialog.test.js",
     "__tests__/importPackingErpMatches.test.js",
