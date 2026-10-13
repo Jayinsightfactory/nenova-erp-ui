@@ -46,3 +46,12 @@
 
 - 후속 검증: estimate-visibility 실제 격리 SQL 원문 동등성 6개 조회 PASS. 운영 읽기 진단 1,751ms / 21행, 기존 60초 timeout 해소. 저장 이력은 부모 도구 패널까지 열고 최근 웹 감사부터 표시하도록 수정.
 - 후속 전체 test:erp-contract, dnSpy evidence, manifest, write guard, production build PASS. 독립 최종 검토 blocking 결함 없음. 진단 SELECT는 저장 검증을 대체하지 않는다.
+
+## 최종 배포 및 운영 검증
+- PR #1034 병합: 224b0a9b3b915047bf2b8351c2d1cab944e5598a. Cafe24 run 38336101010 attempt 2 SUCCESS, 운영 smoke 15 passed / 0 failed, hydration smoke SUCCESS.
+- 첫 시도는 서버 커널 OOM으로 build node가 종료되었고 기존 산출물/서비스는 보존됐다. 읽기 진단 run38336614809에서 확인, 작업 전용 /var/tmp/nenova-build-38336101010.swap 2GiB를 일시 사용했다. 성공 후 메모리 여유를 확인해 swapoff 및 파일 제거 run38337386789 SUCCESS. 영구 설정 변경 없음. 진단용 branch는 master에 병합하지 않았다.
+- 운영 Chrome 1920×1080/100%에서 새 버전224b0a9b 확인. 도구 패널이 접힌 상태에서 저장 이력 바로가기 → 부모/이력 모두 open, top159.7px로 이동. 웹 감사 먼저, 기존 EXE 이력은 접혀 있음.
+- 기존 Hydrangea Peach 2026/42-01 감사: 10/15 0→10, 10/18 20→10, 미확정→확정 확인. 이번 검증은 운영 수량을 변경하지 않았다.
+- 새 배포 page scroll 후 header top0/height153.6px, 원본 inert=true 확인. 브라우저 viewport override 복원.
+- 증거: output/weekday-history-final-1920.jpg, output/weekday-sticky-final-1920.jpg 및 output/weekday-followup-deploy-success.log (ignored local evidence).
+- 남는 정상 제한: 실제 동시 재고 계산 점유 중 잠깐 BUSY 대기가 가능하다. 실패 롤백/잠금 해제/동일 UUID 재시도는 격리 SQL 검증 완료. 운영 저장 시뮬레이션으로 실제 원장을 바꾸지는 않았다.
