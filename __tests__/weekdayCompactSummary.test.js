@@ -115,11 +115,13 @@ assert.match(source,/wcm-compact-summary \.wcm-quote \.wcm-quantity-label \{ fon
 assert.match(source,/wcm-cell-detail \{[^\n]*justify-content:center/);
 assert.match(source,/wcm-original \{[^\n]*justify-content:center/);
 assert.match(source,/wcm-summary-row \{ display:flex; flex-direction:column/);
-assert.equal((source.match(/width:min\(760px,calc\(100vw - 32px\)\)/g)||[]).length,2);
+assert.equal((source.match(/width:min\(760px,calc\(100vw - 32px\)\)/g)||[]).length,1);
 assert.equal((source.match(/max-block-size:min\(70vh,calc\(100vh - 32px\)\)/g)||[]).length,2);
 assert.match(source,/wcm-selected \{[^\n]*font-size:18px; line-height:1.5/);
-assert.match(source,/wcm-detail-popover \{[^\n]*font-size:18px; line-height:1.5/);
-assert.match(source,/:is\(\.wcm-selected,\.wcm-detail-popover\) strong \{ font-size:20px/);
+assert.match(source,/wcm-detail-popover \{[^\n]*font-size:14px; line-height:1.5/);
+assert.match(source,/wcm-detail-popover \{[^\n]*width:min\(420px,calc\(100vw - 32px\)\)[^\n]*z-index:80/);
+assert.match(source,/:is\(\.wcm-cell-detail,\.wcm-cell-error\):has\(\.wcm-detail-popover\) \{ z-index:80/,'manual details escape low cell stacking contexts above fixed header');
+assert.match(source,/wcm-selected strong \{ font-size:20px/);
 assert.match(html,/요일표 상단 가로 스크롤/); assert.match(html,/요일표 하단 가로 스크롤/);
 assert.match(source,/tbody tr:is\(:hover,:focus-within\)/);
 assert.doesNotMatch(source,/\bfetch\s*\(|width:1920px|height:1080px/);
@@ -258,7 +260,7 @@ for(const countryFlower of thirteenNames) assert.ok(many.includes(countryFlower)
 assert.match(many,/콜 수국 미확정 !/);assert.match(many,/네덜 튤립 ✓/);
 assert.doesNotMatch(many,/>ERP확정 ·/,'category chips do not repeat ERP prefix');
 
-console.log('Weekday compact summary: actual column density, centered14px quantities, dynamic one/three-cycle widths, accessible760px/18px popover and focus, fixed/partial linkage warnings, unknown category, scope/error guards, draft/raw conversions, handler/print preservation passed');
+console.log('Weekday compact summary: actual column density, centered14px quantities, dynamic one/three-cycle widths, compact420px/14px manual popover and focus, fixed/partial linkage warnings, unknown category, scope/error guards, draft/raw conversions, handler/print preservation passed');
 
 // Wilson splits remain web metadata; only one canonical ERP quantity is edited.
 const sunday={...actual,shipmentOutQuantity:10,shipmentDates:[{date:'2026-09-20',shipmentQuantity:10}]};
@@ -346,17 +348,17 @@ assert.doesNotMatch(visibleText(render(CompactSummary,{...summaryProps,carryover
   'carry failure is a compact alert rather than long row text');
 console.log('Blank draft deletion, explicit zero, async failure preservation and compact error details passed');
 
-assert.equal(alert.props.children.props.autoOpen,true,'new input failure opens its details automatically');
+assert.notEqual(alert.props.children.props.autoOpen,true,'new input failure keeps editing focus and offers manual details');
 slots.length=0;index=0;effects=[];
 Details({...detailsProps,autoOpen:true});effects.forEach(effect=>effect());index=0;effects=[];
-assert.ok(nodes(Details({...detailsProps,autoOpen:true})).some(node=>node.props?.role==='dialog'),'automatic failure alert uses the accessible dialog');
+assert.ok(!nodes(Details({...detailsProps,autoOpen:true})).some(node=>node.props?.role==='dialog'),'failure status never automatically opens a blocking detail panel');
 slots.length=0;let wclear;
 wview=wdraw({onClearCell:async payload=>{wclear=payload;return true;}});
 nodes(wview).find(node=>node.type==='input').props.onChange({target:{value:''}});
 await nodes(wdraw({onClearCell:async payload=>{wclear=payload;return true;}})).find(node=>node.type==='input').props.onBlur();
 assert.equal(wclear.quantity,null);assert.equal(wclear.clear,true,'blank Wilson removes the linked date draft instead of recording zero');
 assert.deepEqual(qevents.find(item=>item[0]==='clear')[1].expectedDrafts,qday.drafts,'deletion carries rendered draft fingerprints');
-console.log('Automatic error dialog, Wilson blank deletion and draft compare evidence passed');
+console.log('Nonblocking error feedback, Wilson blank deletion and draft compare evidence passed');
 
 
 assert.match(source,/wcm-cell-error \{[^\n]*z-index:40/,'input error dialog stacking context stays above selected-cell details');
