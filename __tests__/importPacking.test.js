@@ -205,14 +205,15 @@ async function main() {
   await check('native component syntax and server-only credential boundary', () => {
     babel.transformSync(componentSource, { filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')], configFile: false, babelrc: false });
     assert.doesNotMatch(componentSource, /dangerouslySetInnerHTML|ReactDOM|window\.|localStorage|apiKey|saveApiKey|buildPrompt|cdn\.jsdelivr|api\.anthropic|claude-sonnet/);
-    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true\}\)/);
+    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,/);
     assert.match(componentSource, /onClick=\{\(\) => process\(false\)\}/);
-    assert.match(componentSource, /onClick=\{\(\)=>process\(true\)\}/);
+    assert.match(componentSource, /return process\(true,pdfRetryJobId\)/);
+    assert.match(componentSource, /pdfRetryJobId && !toolRoot\.current\?\.ownerDocument\?\.defaultView\?\.confirm/);
     assert.match(componentSource, /f\.size > PACKING_PDF_MAX_BYTES/);
     assert.equal(state.PACKING_PDF_MAX_BYTES, 20 * 1024 * 1024);
     const extractionSource = fs.readFileSync(path.join(root, 'lib/importPackingExtractClient.js'), 'utf8');
     assert.match(extractionSource, /fetchImpl\('\/api\/import\/tools\/parse-pdf'/);
-    assert.match(extractionSource, /JSON\.stringify\(\{country,pdfBase64\}\)/);
+    assert.match(extractionSource, /JSON\.stringify\(\{country,pdfBase64,async:true,/);
     for (const notice of ['AI service', 'servicio de IA', 'AI 서비스']) assert.ok(componentSource.includes(notice));
   });
   // Real handler tests with local hooks; no browser, network, or mounted app.

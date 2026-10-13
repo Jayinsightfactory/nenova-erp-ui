@@ -116,9 +116,10 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     }
     const request = { url, options, ...deferred() }; requests.push(request); return request.promise;
   };
-  const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI }) {
+  const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI, onProgress }) {
     extractionCalls.push({ country, pdfBase64, allowAI });
     if (allowAI !== true) return { needsAI: true, reason: 'UNSUPPORTED_LAYOUT' };
+    onProgress?.({stage:'ANALYZING',elapsedSeconds:181});
     const data = await state.readPackingPdfResponse(await fetchStub('/api/import/tools/parse-pdf', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, pdfBase64 }),
     }));
@@ -862,6 +863,25 @@ test('invoice PDF race guard ignores a removed file and older FileReader complet
   await h.click('Quitar'); await h.readers[0].complete(); h.render();
   assert.equal(h.button('Generar packing list').props.disabled, true);
   assert.equal(h.requests.length, 0);
+});
+
+test('PDF timeout ends active reading, retains source and enables explicit retry without auto requests', async () => {
+  const h=await harness({lang:'ko'});
+  h.nodes('button').find(n=>n.props['aria-label']==='콜롬비아').props.onClick();h.render();
+  h.inputPdf({name:'41-1.pdf',type:'application/pdf',size:100});await h.readers[0].complete();h.render();
+  await h.click('패킹 리스트 생성');
+  const hashIndex=h.hashPromises.length;
+  const operation=h.button('AI 분석 (비용 발생 가능)').props.onClick();
+  await h.waitForRealSha(hashIndex);h.render();
+  assert.ok(text(h.tree).includes('181초 경과'));
+  h.requests[0].resolve({ok:false,status:504,json:async()=>({error:{message:'분석 시간 초과'}})});
+  await operation;h.render();
+  assert.ok(text(h.tree).includes('분석 중단 · 파일 유지'));
+  assert.ok(!text(h.tree).includes('인보이스 읽는 중'));
+  assert.ok(!text(h.tree).includes('AI 분석 중 · 결과 확인 중'));
+  assert.ok(text(h.tree).includes('41-1.pdf'));
+  assert.equal(h.button('AI 분석 (비용 발생 가능)').props.disabled,false);
+  assert.equal(h.requests.length,1);assert.equal(h.writes.length,0);
 });
 
 test('AWB uses the same 20MiB bound and ignores late local parser completion', async () => {
