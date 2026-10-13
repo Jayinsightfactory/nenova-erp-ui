@@ -1,0 +1,16 @@
+{
+  "id": "invoice-additional-country-cost",
+  "title": "국가별 근거 기반 도착원가 확장",
+  "scope": ["lib/invoiceReceiptAdditionalCost.js", "lib/invoiceReceiptGroupedCost.js", "lib/invoiceReceiptCost.js", "components/import-tools/InvoiceReceiptCostReview.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name": "PREVIEW_ADDITIONAL_COUNTRY_COST", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseMaster": "preserve", "warehouseDetail": "preserve", "stock": "preserve", "notes": "Only source hash/sheet/cell verified formulas; explicit currency, units, freight and conversion; no guessed rates. CNF freight never counted twice."},
+    {"name": "APPROVE_ADDITIONAL_COUNTRY_COST", "orderDetail": "preserve", "shipmentDetail": "preserve", "warehouseMaster": "read-only", "warehouseDetail": "read-only", "stock": "preserve", "notes": "Existing WebInvoiceCostRevision/Line transaction and exact current receipt snapshot MATCH gates retained. No new native writer, schema, EXE or SP modification."}
+  ],
+  "crossYearFixture": {"required": true, "description": "Formula history is provenance, not default current-cycle input. Document date and full current revision/operation/warehouse scope remain required."},
+  "requiredTestFiles": ["__tests__/invoiceReceiptAdditionalCost.test.js", "__tests__/invoiceReceiptGroupedCost.test.js", "__tests__/invoiceReceiptCostRegistryUi.test.js", "__tests__/invoiceReceiptCost.test.js", "__tests__/invoiceReceiptCostWorkflow.test.js"],
+  "dnspyEvidence": {"required": true, "record": "docs/exe-golden/FormWarehouseUpload.md", "source": "Read actual decompiled ExcelLoadingPackingList.MakeTempTable 2026-10-13: BoxQuantity/BunchQuantity/SteamQuantity and UPrice/TPrice are distinct. Cost extension preserves existing writer and full receipt readback.", "methods": ["ExcelLoadingPackingList.MakeTempTable", "ExcelLoadingPackingList.InsertMaster"], "tables": ["WarehouseMaster", "WarehouseDetail", "WebInvoiceCostRevision", "WebInvoiceCostLine"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from origin/master", "npm run guard:erp-writes -- --changed-from origin/master", "npm run build"],
+  "designDocument": "docs/plans/invoice-cost-export.md",
+  "status": "in progress; operational writes not performed"
+}

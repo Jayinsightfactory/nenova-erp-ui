@@ -63,6 +63,31 @@ function chinaLineInputs() {
   ];
 }
 
+test('additional country profiles pass through common confirmation and current-date gates', () => {
+  for (const [formulaId, country, quantity, unitPrice, amount, settings] of [
+    ['US_CNF_BOX_V1', 'US', 50, 100, 200, { bunchesPerBox: 25 }],
+    ['VN_CNF_STEM_V1', 'VN', 10, 6.5, 650, { stemsPerBunch: 10 }],
+  ]) {
+    const input = commonInput(formulaId, { nativeCurrency: 'USD', freightCurrency: 'USD',
+      exchangeRateKRW: 1400, freightAmount: 0, customsTotalKRW: 2000,
+      lineInputs: [{ lineId: IDS.line1, tariffRate: 0, otherCostPerUnitKRW: '', ...settings }] });
+    const document = { reviewedMetadata: { country, transportMode: 'AIR', inputDate: '2026-10-08' }, costInput: input };
+    const lines = [{ lineId: IDS.line1, prodKey: 10, outQuantity: quantity, outUnit: 'BUNCH',
+      unitPrice, lineAmount: amount, currency: 'USD' }];
+    const result = previewInvoiceCost(document, lines);
+    assert.equal(result.status, 'APPROVED', JSON.stringify(result.issues));
+    assert.equal(result.totals.totalCostKRW, amount * 1400 + 2000);
+    assert.equal(result.lines[0].componentAmounts.freightIncluded, true);
+    for (const change of [{ formulaApplicabilityConfirmed: false }, { formulaEffectiveDate: '2025-10-08' },
+      { formulaSourceHash: 'bb'.repeat(32) }, { freightAmount: 1 },
+      { exchangeRateKRW: true }, { freightAmount: ' ' }, { allocationShareNumerator: true }]) {
+      const rejected = previewInvoiceCost({ ...document, costInput: { ...input, ...change } }, lines);
+      assert.equal(rejected.status, 'REVIEW_REQUIRED');
+      assert.equal(rejected.totals, null);
+    }
+  }
+});
+
 test('CN sea uses actual receipt quantity for freight allocation and keeps 95% as comparison only', () => {
   const input = commonInput('CN_SEA_ACTUAL_V1', { lineInputs: chinaLineInputs(), expected95Quantity: 50 });
   const result = previewInvoiceCost(chinaDocument(input), chinaLines());
@@ -254,6 +279,7 @@ function persistenceDb(inputOverride, metadataOverride) {
   const line = { DocumentId: IDS.document, Revision: 1, LineId: IDS.line1, LineNo: 1, OriginalName: 'Rose', LengthText: null, ProdKey: 10,
     BoxQuantity: null, BunchQuantity: 10, StemQuantity: null, PriceUnit: 'BUNCH', UnitPrice: 10, Currency: 'CNY', LineAmount: 100,
     SourceEvidenceJson: '{}', ReviewedJson: '{}' };
+  state.documentLine = line;
   const operation = { OperationId: IDS.operation, DocumentId: IDS.document, DocumentRevision: 1, ReceiptPartId: IDS.part,
     RequestHash: Buffer.from('cc'.repeat(32), 'hex'), Action: 'CREATE_RECEIPT', Status: 'COMMITTED', WarehouseKey: 901,
     ResultJson: JSON.stringify({ receiptDigest: 'dd'.repeat(32), lineMappings: [{ lineId: IDS.line1, wdetailKey: 7001,
@@ -318,6 +344,57 @@ function persistenceDb(inputOverride, metadataOverride) {
   const withTransactionFn = async (callback, options) => { state.options = options; return callback(execute); };
   return { input, state, execute, withTransactionFn };
 }
+
+test('US box conversion survives approval/readback and remains unconfirmed on restore', async () => {
+  const input = commonInput('US_CNF_BOX_V1', { nativeCurrency: 'USD', freightCurrency: 'USD',
+    freightAmount: 0, customsTotalKRW: 1000,
+    lineInputs: [{ lineId: IDS.line1, tariffRate: 0, bunchesPerBox: 25, stemsPerBunch: 10, otherCostPerUnitKRW: '' }] });
+  const db = persistenceDb(input, { country: 'US', transportMode: 'AIR', inputDate: '2026-10-08' });
+  db.state.documentLine.Currency = 'USD';
+  db.state.documentLine.PriceUnit = 'BOX';
+  db.state.documentLine.UnitPrice = 250;
+  db.state.documentLine.BoxQuantity = 0.4;
+  db.state.warehouseDetails[0].UPrice = 250;
+  db.state.warehouseDetails[0].BoxQuantity = 0.4;
+  const operation = JSON.parse(db.state.operation.ResultJson);
+  operation.lineMappings[0].unitPrice = 250;
+  operation.lineMappings[0].boxQuantity = 0.4;
+  operation.receiptSnapshot.details[0].UPrice = 250;
+  operation.receiptSnapshot.details[0].BoxQuantity = 0.4;
+  db.state.operation.ResultJson = JSON.stringify(operation);
+  await saveInvoiceCostRevision({ withTransactionFn: db.withTransactionFn, types, documentId: IDS.document,
+    revision: 1, actor: 'approver', input, reason: 'confirmed box to bunch conversion' });
+  const result = await readInvoiceCosts({ queryFn: db.execute, types, warehouseKey: 901 });
+  assert.equal(result.currentActual.formulaId, 'US_CNF_BOX_V1');
+  assert.equal(result.currentActual.editableInput.input.lineInputs[0].bunchesPerBox, 25);
+  assert.equal(result.currentActual.editableInput.input.formulaApplicabilityConfirmed, false);
+  assert.equal(result.currentActual.totalCostKRW, 151000);
+  db.state.warehouseDetails[0].OutQuantity = 11;
+  assert.equal((await readInvoiceCosts({ queryFn: db.execute, types, warehouseKey: 901 })).currentActual, null);
+});
+
+test('TH group identity and quantities restore without silently confirming loss treatment', async () => {
+  const input = commonInput('TH_GROUP_BOX_SHARE_V1', { nativeCurrency: 'USD', freightCurrency: 'USD',
+    freightAmount: 10, customsTotalKRW: 1000, lossTreatmentConfirmed: true,
+    costGroups: [{ groupId: 'OTHERS', quantity: 100, boxQuantity: 1, internalNote: 'PRIVATE' }],
+    lineInputs: [{ lineId: IDS.line1, tariffRate: 0, stemsPerBunch: 10, groupId: 'OTHERS' }] });
+  const db = persistenceDb(input, { country: 'TH', transportMode: 'AIR', inputDate: '2026-10-08' });
+  db.state.documentLine.Currency = 'USD'; db.state.documentLine.PriceUnit = 'STEM'; db.state.documentLine.UnitPrice = 1;
+  db.state.warehouseDetails[0].UPrice = 1;
+  const operation = JSON.parse(db.state.operation.ResultJson);
+  operation.lineMappings[0].unitPrice = 1; operation.receiptSnapshot.details[0].UPrice = 1;
+  db.state.operation.ResultJson = JSON.stringify(operation);
+  await saveInvoiceCostRevision({ withTransactionFn: db.withTransactionFn, types, documentId: IDS.document,
+    revision: 1, actor: 'approver', input, reason: 'confirmed packaging and current customs total' });
+  const result = await readInvoiceCosts({ queryFn: db.execute, types, warehouseKey: 901 });
+  const restored = result.currentActual.editableInput.input;
+  assert.equal(restored.lineInputs[0].groupId, 'OTHERS');
+  assert.equal(restored.costGroups[0].quantity, 100);
+  assert.equal(restored.lossTreatmentConfirmed, false);
+  assert.equal(restored.formulaApplicabilityConfirmed, false);
+  assert.equal('internalNote' in restored.costGroups[0], false);
+  assert.equal(result.currentActual.totalCostKRW, 166000);
+});
 
 test('saved AIR inputs restore through the real save/read functions with a whitelist, fresh scope, and no auto-confirmation', async () => {
   const formula = INVOICE_COST_FORMULAS.CN_AIR_WEIGHT_CBM_V1;
