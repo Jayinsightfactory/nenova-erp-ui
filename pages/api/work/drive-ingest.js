@@ -8,6 +8,8 @@ import formidable from 'formidable';
 import { ingestFile, FILE_MAX } from '../../../lib/workDrive';
 import { importRemitFile } from '../../../lib/farmRemitInbox';
 import { REMIT_FILE_RE } from '../../../lib/farmRemitImport';
+import * as XLSX from 'xlsx';
+import { onFileIngested } from '../../../lib/workDrivePairs';
 
 export const config = { api: { bodyParser: false } };
 
@@ -43,5 +45,7 @@ export default async function handler(req, res) {
     try { remit = await importRemitFile({ buffer, fileId: r.id, fileName: _fn, by: 'drive:' + (r.classification?.uploaderName || '') }); }
     catch (e) { console.error('[drive-ingest] remit import failed:', e.message); remit = { error: e.message }; }
   }
+  // 인보이스 PDF·결과 엑셀이면 짝(data/drive/pairs.json) 재계산. 실패해도 업로드는 성공
+  if (!r.duplicate) { try { onFileIngested({ id: r.id, filename: pick('filename') || f.originalFilename || '' }, { xlsxLib: XLSX }); } catch (e) { console.error('[drive-ingest] pairs failed:', e.message); } }
   return res.status(200).json({ success: true, id: r.id, duplicate: r.duplicate, version: r.version, classification: r.classification, remit });
 }
