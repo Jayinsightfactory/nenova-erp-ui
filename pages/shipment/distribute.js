@@ -3,6 +3,7 @@ import { apiGet } from '../../lib/useApi';
 import { useWeekInput, getCurrentWeek, WeekInput } from '../../lib/useWeekInput';
 import { useLang } from '../../lib/i18n';
 import { rankProductSearchOptions } from '../../lib/productSearchRanking';
+import { distributeProductName, distributePreviousStock, distributePreviousStockTotal } from '../../lib/distributeProductDisplay';
 
 const fmt = n => Number(n || 0).toLocaleString();
 const PG_SEP = '::';
@@ -727,6 +728,8 @@ export default function Distribute() {
   const filteredProds = rankProductSearchOptions(prodFilter, products, { limit: 500 });
   const totalOutInput = Object.values(outInputs).reduce((a,b)=>a+b,0);
   const remain = (inQty||0) - totalOutInput;
+  const selectedFlower = prodGroups.find(group => group.key === prodGroup)?.flower || '';
+  const previousStock = distributePreviousStock(selectedProd);
 
   const tabs = ['출고 분배 및 농장 정보','출고일 지정','출고 분배 집계'];
 
@@ -882,7 +885,7 @@ export default function Distribute() {
 
       {/* 탭1 본문 */}
       {tab === 0 && (
-        <div style={{display:'grid',gridTemplateColumns: viewMode==='prod'?'320px 1fr':'240px 1fr',flex:1,overflow:'hidden',background:'var(--surface)',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px'}}>
+        <div style={{display:'grid',gridTemplateColumns: viewMode==='prod'?'minmax(360px, 34%) minmax(0, 1fr)':'240px minmax(0, 1fr)',flex:1,overflow:'hidden',background:'var(--surface)',border:'1px solid var(--border)',borderTop:'none',borderRadius:'0 0 8px 8px'}}>
 
           {/* ── 품목 기준: 왼쪽 품목 목록 ── */}
           {viewMode === 'prod' && (
@@ -892,12 +895,12 @@ export default function Distribute() {
               </div>
               <div style={{overflowY:'auto',flex:1}}>
                 {loading ? <div className="skeleton" style={{margin:12,height:300,borderRadius:8}}></div> : (
-                  <table className="tbl" style={{fontSize:12}}>
+                  <table className="tbl" style={{fontSize:12,minWidth:620}}>
                     <thead>
                       <tr>
-                        <th>품목명(색상)</th><th>단위</th>
+                        <th style={{minWidth:180}}>품목명(색상)</th><th>단위</th>
                         <th style={{textAlign:'right'}}>box</th><th style={{textAlign:'right'}}>단</th><th style={{textAlign:'right'}}>송이</th>
-                        <th style={{textAlign:'right',color:'var(--text3)'}}>전재고</th>
+                        <th style={{textAlign:'right',color:'var(--text3)'}}>전차수 잔량</th>
                         <th style={{textAlign:'right',color:'var(--blue)'}}>입고</th>
                         <th style={{textAlign:'right'}}>출고</th>
                         <th style={{textAlign:'right',color:'var(--green)'}}>현재고</th>
@@ -906,17 +909,27 @@ export default function Distribute() {
                     <tbody>
                       {filteredProds.length === 0
                         ? <tr><td colSpan={9} style={{textAlign:'center',padding:32,color:'var(--text3)'}}>차수 선택 후 조회하세요</td></tr>
-                        : filteredProds.map(p => {
+                        : filteredProds.map((p, productIndex) => {
                           const isSelected = selectedProd?.ProdKey === p.ProdKey;
                           const hasStock = p.inQty > 0;
                           return (
                             <tr key={p.ProdKey} className={isSelected?'selected':''} onClick={()=>selectProd(p)} style={{cursor:'pointer',background:hasStock&&!isSelected?'#F0F7FF':undefined}}>
-                              <td style={{fontWeight:hasStock?600:400,color:hasStock?'var(--blue)':'var(--text2)'}}>{p.DisplayName || p.ProdName}</td>
+                              <td style={{minWidth:180,maxWidth:240,whiteSpace:'normal',overflowWrap:'anywhere',fontWeight:hasStock?600:400,color:hasStock?'var(--blue)':'var(--text2)'}}>
+                                <button type="button" data-product-select title={p.DisplayName || p.ProdName}
+                                  onClick={e=>{e.stopPropagation();selectProd(p);}}
+                                  onKeyDown={e=>{
+                                    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+                                    e.preventDefault();
+                                    const nextIndex = Math.max(0, Math.min(filteredProds.length - 1, productIndex + (e.key === 'ArrowDown' ? 1 : -1)));
+                                    e.currentTarget.closest('tbody')?.querySelectorAll('button[data-product-select]')[nextIndex]?.focus();
+                                  }}
+                                  style={{width:'100%',padding:0,border:0,background:'transparent',color:'inherit',font:'inherit',textAlign:'left',whiteSpace:'normal',overflowWrap:'anywhere',cursor:'pointer'}}>{distributeProductName(p, selectedFlower)}</button>
+                              </td>
                               <td style={{color:'var(--text3)'}}>{p.OutUnit}</td>
                               <td className="num">{p.BunchOf1Box||0}</td>
                               <td className="num">{p.SteamOf1Box||0}</td>
                               <td className="num">{(p.BunchOf1Box||0)*(p.SteamOf1Box||0)}</td>
-                              <td className="num" style={{color:'var(--text3)'}}>{((p.prevStock||0)-(p.inQty||0))!==0?((p.prevStock||0)-(p.inQty||0)).toFixed(2):'—'}</td>
+                              <td className="num" style={{color:'var(--text3)'}} title={distributePreviousStock(p)==null?'품종 선택 후 전차수 잔량 확인':undefined}>{distributePreviousStock(p)?.toFixed(2) ?? '—'}</td>
                               <td className="num" style={{color:'var(--blue)',fontWeight:p.inQty>0?700:400}}>{p.inQty?.toFixed(2)||'—'}</td>
                               <td className="num">{p.outQty?.toFixed(2)||'—'}</td>
                               <td className="num" style={{fontWeight:700,color:(p.prevStock-p.outQty)>0?'var(--green)':'var(--text3)'}}>{((p.prevStock||0)-(p.outQty||0)).toFixed(2)}</td>
@@ -927,7 +940,7 @@ export default function Distribute() {
                     <tfoot>
                       <tr className="foot">
                         <td colSpan={5}>합계</td>
-                        <td className="num">{filteredProds.reduce((a,b)=>a+((b.prevStock||0)-(b.inQty||0)),0).toFixed(2)}</td>
+                        <td className="num">{distributePreviousStockTotal(filteredProds)?.toFixed(2) ?? '—'}</td>
                         <td className="num">{filteredProds.reduce((a,b)=>a+(b.inQty||0),0).toFixed(2)}</td>
                         <td className="num">{filteredProds.reduce((a,b)=>a+(b.outQty||0),0).toFixed(2)}</td>
                         <td className="num">{filteredProds.reduce((a,b)=>a+((b.prevStock||0)-(b.outQty||0)),0).toFixed(2)}</td>
@@ -989,6 +1002,7 @@ export default function Distribute() {
                     <div key={label} style={{flex:1,padding:'10px 16px',textAlign:'center',borderRight:'1px solid var(--border)'}}>
                       <div style={{fontSize:11,color:'var(--text3)',marginBottom:3}}>{label}</div>
                       <div style={{fontSize:20,fontWeight:900,fontFamily:'var(--mono)',color}}>{(val||0).toFixed(2)}</div>
+                      {label === '입고수량' && selectedProd && <div style={{fontSize:12,color:'var(--text2)',marginTop:3}}>전차수 잔량 {previousStock == null ? '품종 선택 후 확인' : `${previousStock.toFixed(2)} ${selectedProd.OutUnit || ''}`}</div>}
                     </div>
                   ))}
                 </div>
@@ -1000,7 +1014,7 @@ export default function Distribute() {
                     : (
                       <>
                         <div style={{padding:'6px 14px',background:'var(--blue-bg)',fontSize:12,color:'var(--blue)',fontWeight:600}}>
-                          {selectedProd.DisplayName || selectedProd.ProdName} — 거래처 분배 정보
+                          {distributeProductName(selectedProd, selectedFlower)} — 거래처 분배 정보
                         </div>
                         <table className="tbl" style={{fontSize:12}}>
                           <thead>
