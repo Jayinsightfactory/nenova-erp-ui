@@ -4,6 +4,8 @@
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
+const jwt = require('jsonwebtoken');
+const { attachRequestAudit } = require('./lib/userActivityHttp.cjs');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';
@@ -16,6 +18,16 @@ app.prepare().then(() => {
   createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
+      if (parsedUrl.pathname.startsWith('/api/')) {
+        let user = null;
+        try {
+          const cookie = /(?:^|;\s*)nenovaToken=([^;]+)/.exec(req.headers.cookie || '');
+          const token = cookie ? decodeURIComponent(cookie[1]) : /^Bearer (.+)$/.exec(req.headers.authorization || '')?.[1];
+          const secret = process.env.JWT_SECRET || (dev ? 'nenova-dev-only-secret-change-me' : null);
+          if (token && secret) user = jwt.verify(token, secret);
+        } catch { /* Unverified claims are never an audit actor. */ }
+        attachRequestAudit(req, res, user);
+      }
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);

@@ -136,6 +136,8 @@ new Function('require', 'module', 'exports', authCompiled)((name)=>name === 'jso
                 userId: 1
             };
         }
+    } : name.includes('userActivityHttp') ? {
+        attachRequestAudit () {}
     } : name.includes('apiLogger') ? {
         trackApiCall () {}
     } : {

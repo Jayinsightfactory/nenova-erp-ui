@@ -27,8 +27,20 @@ app.setPath('userData', profile); app.setPath('sessionData', profile);
 let answer = 0;
 dialog.showMessageBoxSync = (_win, options) => { console.log('DIALOG', options.message); return answer; };
 app.whenReady().then(() => {
-  session.fromPartition('persist:nenova-work').protocol.handle('https', request => {
-    const pathname = new URL(request.url).pathname;
+  const workSession = session.fromPartition('persist:nenova-work');
+  session.defaultSession.protocol.handle('https', () => new Response('Blocked by exit fixture', { status: 403 }));
+  for (const isolated of [session.defaultSession, workSession]) isolated.protocol.handle('http', () => new Response('Blocked by exit fixture', { status: 403 }));
+  workSession.protocol.handle('https', async request => {
+    const url = new URL(request.url), pathname = url.pathname;
+    if (url.origin !== 'https://nenovaweb.com') return new Response('Blocked by exit fixture', { status: 403 });
+    if (pathname === '/api/work/activity' && request.method === 'POST') {
+      const body = await request.json();
+      assert.equal(body.expectedUserId, 'exit-probe');
+      assert.ok(body.events.length <= 50 && body.events.every(event => event.kind === 'desktop' && !event.path.includes('?')));
+      return Response.json({ success: true, acceptedIds: body.events.map(event => event.id) });
+    }
+    assert.ok(['GET', 'HEAD'].includes(request.method), 'no ERP mutation requests');
+    if (pathname === '/api/desktop/home-workspace') return Response.json({ success: true, schemaVersion: 1, ownerId: 'exit-probe', revision: 0, tasks: [], guidance: [], feedback: [] });
     if (pathname === '/api/auth/me') return Response.json({ success: true, user: { userId: 'exit-probe' } });
     if (pathname === '/api/desktop/bootstrap') return Response.json({ success: true, schemaVersion: 1, user: { userId: 'exit-probe' }, webVersion: 'fixture', menuVersion: 'a'.repeat(64), menus: [{group:'Fixture',items:[{href:'/test/probe',labelKey:'Probe',popup:false}]}] });
     return new Response('<!doctype html><title>Isolated exit fixture</title><p>No live requests</p>', {headers:{'content-type':'text/html'}});
