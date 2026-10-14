@@ -24,6 +24,7 @@ import {
   sqlDistributeGetPivotData,
 } from '../../../lib/exeShipmentDistributionSql.js';
 import { safeNextShipmentDetailKey } from '../../../lib/safeNextKey.js';
+import { insertDistributionEditAudit } from '../../../lib/shipmentDistributionAudit.js';
 
 // MAX(Key)+1 안전 INSERT — HOLDLOCK + PK 충돌 방지
 async function safeNextKey(tQ, table, keyCol) {
@@ -286,6 +287,7 @@ function mapExeProductShipmentRow(row) {
     ProdKey: row.ProdKey,
     주문코드: row.OrderCode,
     단위: row.OutUnit,
+    OutUnit: row.OutUnit,
     주문수량: orderQty,
     출고수량: outQty,
     차이: orderQty - outQty,
@@ -294,6 +296,7 @@ function mapExeProductShipmentRow(row) {
     출고Steam: row.sSteamQuantity,
     Cost: Number(row.Cost) || 0,
     비고: row.Descr || '',
+    ShipmentDescr: row.Descr || '',
     EstUnit: row.EstUnit,
     BunchOf1Box: row.BunchOf1Box,
     SteamOf1Bunch: row.SteamOf1Bunch,
@@ -436,7 +439,7 @@ async function getDistribute(req, res) {
       const result = await query(
         `SELECT
           c.CustKey, c.CustName, c.OrderCode AS 주문코드,
-          p.OutUnit AS 단위,
+          p.OutUnit AS 단위, p.OutUnit AS OutUnit,
           ISNULL(od.BoxQuantity, 0) AS 주문Box,
           ISNULL(od.BunchQuantity, 0) AS 주문Bunch,
           ISNULL(od.SteamQuantity, 0) AS 주문Steam,
@@ -451,7 +454,7 @@ async function getDistribute(req, res) {
           ISNULL(sd.BunchQuantity, 0) AS 출고Bunch,
           ISNULL(sd.SteamQuantity, 0) AS 출고Steam,
           ISNULL(sd.Cost, ISNULL(cpc.Cost, p.Cost)) AS 단가,
-          od.Descr AS 비고
+          od.Descr AS 비고, ISNULL(sd.Descr,N'') AS ShipmentDescr
          FROM OrderMaster om
          JOIN Customer c    ON om.CustKey = c.CustKey
          JOIN OrderDetail od ON om.OrderMasterKey = od.OrderMasterKey AND od.ProdKey = @pk AND od.isDeleted = 0
@@ -494,6 +497,7 @@ async function getDistribute(req, res) {
                WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
                ELSE ISNULL(od.BoxQuantity,0) END AS 주문수량,
           ISNULL(sd.OutQuantity, 0) AS 출고수량,
+          ISNULL(sd.Descr,N'') AS ShipmentDescr,
           (CASE WHEN p.OutUnit='단'  THEN ISNULL(od.BunchQuantity,0)
                 WHEN p.OutUnit='송이' THEN ISNULL(od.SteamQuantity,0)
                 ELSE ISNULL(od.BoxQuantity,0) END - ISNULL(sd.OutQuantity, 0)) AS 잔량,
@@ -685,7 +689,7 @@ async function getDistribute(req, res) {
 
     return res.status(400).json({ success: false, error: 'type 파라미터 필요 (groups|products|custDist|custItems|custList|dates|summary)' });
   } catch (err) {
-    const status = ['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500;
+    const status = err?.statusCode || (['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500);
     return res.status(status).json({ success: false, code: err?.code, error: err.message, lease: err?.lease || null });
   }
 }
@@ -704,7 +708,7 @@ async function saveDistribute(req, res) {
 
     // Product 환산정보
     const prodInfo = await query(
-      `SELECT OutUnit, EstUnit, BunchOf1Box, SteamOf1Box, SteamOf1Bunch, ISNULL(Cost,0) AS ProductCost FROM Product WHERE ProdKey=@pk`,
+      `SELECT ProdName, OutUnit, EstUnit, BunchOf1Box, SteamOf1Box, SteamOf1Bunch, ISNULL(Cost,0) AS ProductCost FROM Product WHERE ProdKey=@pk`,
       { pk: { type: sql.Int, value: parseInt(prodKey) } }
     );
     const product = prodInfo.recordset[0] || {};
@@ -712,7 +716,7 @@ async function saveDistribute(req, res) {
 
     const priceInfo = await query(
       `SELECT TOP 1
-              ISNULL(cpc.Cost,0) AS CustomerCost,
+              c.CustName, ISNULL(cpc.Cost,0) AS CustomerCost,
               ISNULL(c.BaseOutDay,0) AS BaseOutDay
          FROM Customer c
          LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=c.CustKey AND cpc.ProdKey=@pk
@@ -788,15 +792,19 @@ async function saveDistribute(req, res) {
       // 기존 수량 조회 (이력용)
       const oldSd = await tQuery(
         `SELECT SdetailKey, OutQuantity, ISNULL(Descr,N'') AS Descr
-           FROM ShipmentDetail WHERE ShipmentKey=@sk AND ProdKey=@pk`,
+           FROM ShipmentDetail WITH (UPDLOCK, HOLDLOCK) WHERE ShipmentKey=@sk AND ProdKey=@pk`,
         { sk: { type: sql.Int, value: sk }, pk: { type: sql.Int, value: parseInt(prodKey) } }
       );
+      if (oldSd.recordset.length > 1) {
+        throw new Error(`${week}차 업체 ${custKey}·품목 ${prodKey} 출고상세가 중복되어 저장을 중단했습니다.`);
+      }
       const oldRow = oldSd.recordset[0];
-      const oldQty = oldRow?.OutQuantity || 0;
+      const oldQty = Number(oldRow?.OutQuantity || 0);
       const qty = parseFloat(outQty) || 0;
 
       if (qty <= 0) {
         if (oldRow?.SdetailKey) {
+          await insertShipmentHistory(tQuery, oldRow.SdetailKey, String(oldQty), '0', changeEntry(userName, oldQty, 0), uid);
           await tQuery(`DELETE FROM ShipmentDate WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: oldRow.SdetailKey } });
           await tQuery(`DELETE FROM ShipmentDetail WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: oldRow.SdetailKey } });
         }
@@ -865,6 +873,14 @@ async function saveDistribute(req, res) {
       const verification = await verifyDistributedRow(tQuery, {
         orderYear, orderWeek: week, custKey, prodKey, expectedQty: qty > 0 ? distributeUnits(qty, product).outQty : 0,
       });
+      const afterQty = Number(verification.detailQty);
+      if (oldQty !== afterQty) {
+        await insertDistributionEditAudit(tQuery, {
+          orderYear, orderWeek: week, actor: userName,
+          entries: [{ custKey, prodKey, outQtyBefore: oldQty, outQtyAfter: afterQty,
+            unit: product.OutUnit, custName: priceInfo.recordset[0]?.CustName, prodName: product.ProdName }],
+        });
+      }
       return { shipmentKey: sk, verification };
     });
 
@@ -876,7 +892,7 @@ async function saveDistribute(req, res) {
       message: '출고 분배 저장 및 검증 완료',
     });
   } catch (err) {
-    const status = ['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500;
+    const status = err?.statusCode || (['ERP_EDIT_LOCKED', 'ERP_EDIT_STALE', 'ERP_EDIT_GUARD_INVALID'].includes(err?.code) ? 409 : 500);
     return res.status(status).json({ success: false, code: err?.code, error: err.message, lease: err?.lease || null });
   }
 }
@@ -915,8 +931,7 @@ async function saveDistributeBatch(req, res) {
 
     const uid = req.user?.userId || 'system';
     const userName = req.user?.userName || uid;
-    const week = normalizeOrderWeek(rawWeek);
-    const orderYear = resolveActiveOrderYear(rawWeek, year);
+    const { orderYear, orderWeek: week } = requireOrderYear(rawWeek, year || '');
     const ywk = orderYear + (week || '').split('-')[0];
     const explicitShipDate = outDate ? new Date(outDate) : null;
     const hasShipmentYearWeekColumn = await columnExists('ShipmentMaster', 'OrderYearWeek');
@@ -926,11 +941,12 @@ async function saveDistributeBatch(req, res) {
         await assertErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: entryCustomers[0] }, req.user, req.body);
       }
       const saved = [];
+      const auditRows = [];
       for (const entry of normalizedEntries) {
         await assertProductScopeNotFixed(tQuery, orderYear, week, entry.prodKey);
 
         const prodInfo = await tQuery(
-          `SELECT OutUnit, EstUnit, BunchOf1Box, SteamOf1Box, SteamOf1Bunch,
+          `SELECT ProdName, OutUnit, EstUnit, BunchOf1Box, SteamOf1Box, SteamOf1Bunch,
                   ISNULL(Cost,0) AS ProductCost
              FROM Product WITH (HOLDLOCK)
             WHERE ProdKey=@pk AND ISNULL(isDeleted,0)=0`,
@@ -939,7 +955,7 @@ async function saveDistributeBatch(req, res) {
         if (prodInfo.recordset.length !== 1) throw new Error(`품목 ${entry.prodKey} 정보를 찾을 수 없습니다.`);
         const product = prodInfo.recordset[0];
         const priceInfo = await tQuery(
-          `SELECT TOP 1 ISNULL(cpc.Cost,0) AS CustomerCost, ISNULL(c.BaseOutDay,0) AS BaseOutDay
+          `SELECT TOP 1 c.CustName, ISNULL(cpc.Cost,0) AS CustomerCost, ISNULL(c.BaseOutDay,0) AS BaseOutDay
              FROM Customer c WITH (HOLDLOCK)
              LEFT JOIN CustomerProdCost cpc ON cpc.CustKey=c.CustKey AND cpc.ProdKey=@pk
             WHERE c.CustKey=@ck AND ISNULL(c.isDeleted,0)=0`,
@@ -1053,6 +1069,10 @@ async function saveDistributeBatch(req, res) {
             await tQuery(`DELETE FROM ShipmentDetail WHERE SdetailKey=@dk`, { dk: { type: sql.Int, value: oldRow.SdetailKey } });
           }
           saved.push({ ...entry, shipmentKey, action: 'delete' });
+          if (oldQty !== 0) {
+            auditRows.push({ custKey: entry.custKey, prodKey: entry.prodKey, outQtyBefore: oldQty, outQtyAfter: 0,
+              unit: product.OutUnit, custName: priceInfo.recordset[0]?.CustName, prodName: product.ProdName });
+          }
           continue;
         }
 
@@ -1104,6 +1124,10 @@ async function saveDistributeBatch(req, res) {
         await refreshShipmentDatesAfterDetailChange(tQuery, targetSdk, sql, { shipDtm: resolvedShipDate });
         await insertShipmentHistory(tQuery, targetSdk, String(oldQty), String(canonicalOutQty), logEntry, uid);
         saved.push({ ...entry, shipmentKey, sdetailKey: targetSdk, outQty: canonicalOutQty, action: oldRow ? 'update' : 'insert' });
+        if (oldQty !== canonicalOutQty) {
+          auditRows.push({ custKey: entry.custKey, prodKey: entry.prodKey, outQtyBefore: oldQty, outQtyAfter: canonicalOutQty,
+            unit: product.OutUnit, custName: priceInfo.recordset[0]?.CustName, prodName: product.ProdName });
+        }
       }
       for (const row of saved) {
         row.verification = await verifyDistributedRow(tQuery, {
@@ -1117,6 +1141,7 @@ async function saveDistributeBatch(req, res) {
       if (entryCustomers.length === 1) {
         await advanceErpEditGuard(tQuery, { orderYear, orderWeek: week, custKey: entryCustomers[0] }, req.user, req.body);
       }
+      await insertDistributionEditAudit(tQuery, { orderYear, orderWeek: week, actor: userName, entries: auditRows });
       return saved;
     });
 

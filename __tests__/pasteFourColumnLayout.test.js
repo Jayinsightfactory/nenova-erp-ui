@@ -73,7 +73,7 @@ assert.doesNotMatch(operationHistory, /취소 \{cancelCount\}/, '카드 헤더 �
 assert.doesNotMatch(operationHistory, /저장 \{operation\.committedCount\}건/, '저장 완료 라벨과 중복되는 저장 건수를 제거한다.');
 assert.match(operationHistory, /filters\.year}년 \{filters\.week \|\| '전체 차수'\}/);
 assert.match(operationHistory, /filters\.who === 'mine' \? '내 작업' : '전체 작업'/);
-assert.match(operationHistory, /현재 조회 구간에는 붙여넣기 작업 이력이 없습니다/);
+assert.match(operationHistory, /현재 조회 구간에는 붙여넣기·출고분배 수정 이력이 없습니다/);
 assert.match(operationHistory, /onClick=\{\(\) => load\(data\.nextCursor\)\}/);
 assert.match(operationHistory, />다음 기록 검색<\/button>/);
 assert.match(operationHistory, /useEffect\(\(\) => \{ load\(\); return \(\) => \{ seq\.current \+= 1; \}; \}, \[\]\);/);
