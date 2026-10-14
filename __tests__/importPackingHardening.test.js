@@ -134,6 +134,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   } };
   function PackingResultsStub() {}
   function PackingProductMatchDialogStub() {}
+  function PackingMatchManagerStub() {}
   const packingHarness = { ...packing, genChina(...args) { generationCalls.push(args[1]); return packing.genChina(...args); } };
   const browserReceiptAdapter = {
     ...receiptAdapter,
@@ -159,6 +160,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/packingWorkDraft.js': { ...packingWorkDraft, createPackingWorkDraftStore: () => workDraftStore },
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
+    './PackingMatchManager.js': { default: PackingMatchManagerStub, __esModule: true },
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
     './PackingProductMatchDialog.js': { default: PackingProductMatchDialogStub, __esModule: true } };
   const module = { exports: {} };
@@ -166,7 +168,7 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     key => modules[key], module, module.exports, fetchStub, Reader, browserWindow, browserDocument);
   const h = {
     writes, readers, requests, erpRequests, extractionCalls, generationCalls, hashPromises, storageReads, receiptSources, tree: null,
-    components: { PackingResultsStub, PackingProductMatchDialogStub },
+    components: { PackingResultsStub, PackingProductMatchDialogStub, PackingMatchManagerStub },
     render() { cursor = 0; this.tree = awb ? module.exports.AWBPanel({ xlsxLib: XLSX, lang, readAwbPdf, onBack() {} })
       : module.exports.default({ storage, onReceiptSourceChange, userId }); return this.tree; },
     effects() { for (const i of effects.splice(0)) { slots[i].cleanup?.(); slots[i].cleanup = slots[i].fn(); } },
@@ -202,6 +204,47 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
   h.modules = { chinaLegacyInvoice, chinaLegacyReview, review, sourceReview };
   return h;
 }
+
+test('saved DB mapping manager edits without a file and uses the saved country with CAS', async () => {
+  const h = await harness({lang:'ko'});
+  const [,packing] = await modulesReady;
+  const entry = {country:'NL',description:'Dynasty original',sourceKey:packing.packingSourceKey('Dynasty original'),prodKey:2,prodName:'TULIP Dynasty'};
+  h.setTeamMatches({version:1,entries:[entry]},7);
+  await h.nodes(h.components.PackingMatchManagerStub)[0].props.onReload(); await h.refresh();
+  await h.nodes(h.components.PackingMatchManagerStub)[0].props.onEdit(entry); await h.refresh();
+  let dialog = h.nodes(h.components.PackingProductMatchDialogStub)[0];
+  assert.equal(dialog.props.country,'NL'); assert.equal(dialog.props.target.currentName,'TULIP Dynasty');
+  assert.equal(dialog.props.target.expectedRevision,7);
+  await dialog.props.onSave(2); await h.refresh();
+  assert.equal(h.nodes(h.components.PackingProductMatchDialogStub).length,0);
+  assert.deepEqual(JSON.parse(h.erpRequests.find(request=>request.options?.method==='POST').options.body),
+    {country:'NL',description:'Dynasty original',prodKey:2,expectedRevision:7});
+  assert.equal(h.requests.length,0); assert.equal(h.writes.length,0); assert.equal(h.readers.length,0);
+  assert.match(text(h.tree),/팀 공용 DB 매칭을 수정/);
+  await h.nodes(h.components.PackingMatchManagerStub)[0].props.onEdit(entry); await h.refresh();
+  h.failErp(Error('409 conflict'));
+  await h.nodes(h.components.PackingProductMatchDialogStub)[0].props.onSave(2); await h.refresh();
+  dialog=h.nodes(h.components.PackingProductMatchDialogStub)[0];
+  assert.equal(dialog.props.target.requiresReload,true);
+  const posts=h.erpRequests.filter(request=>request.options?.method==='POST').length;
+  await dialog.props.onSave(2); await h.refresh();
+  assert.equal(h.erpRequests.filter(request=>request.options?.method==='POST').length,posts);
+  h.failErp(null); h.setTeamMatches({version:1,entries:[]},9);
+  await dialog.props.onReload(); await h.refresh();
+  dialog=h.nodes(h.components.PackingProductMatchDialogStub)[0];
+  assert.equal(dialog.props.target.requiresReload,true);
+  assert.match(dialog.props.error,/더 이상 없습니다/);
+});
+
+test('mapping manager fresh-read failure leaves the current matching table intact', async () => {
+  const h=await harness({lang:'ko'});
+  const manager=h.nodes(h.components.PackingMatchManagerStub)[0];
+  h.failErpRead(Error('read unavailable'));
+  await manager.props.onEdit({country:'CN',sourceKey:'missing'}); await h.refresh();
+  assert.equal(h.nodes(h.components.PackingProductMatchDialogStub).length,0);
+  assert.equal(h.erpRequests.filter(request=>request.options?.method==='POST').length,0);
+  assert.match(text(h.tree),/read unavailable/);
+});
 
 test('Korean is the default and country keys, optional languages and catalog confirmations remain intact', async () => {
   const h = await harness({ lang: 'ko' });

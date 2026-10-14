@@ -291,6 +291,7 @@ async function main() {
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
       './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
       './PackingProductMatchDialog.js': { default: 'PackingProductMatchDialog', __esModule: true },
+      './PackingMatchManager.js': { default: 'PackingMatchManager', __esModule: true },
       'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
       filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')],

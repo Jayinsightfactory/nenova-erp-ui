@@ -1,0 +1,11 @@
+{
+  "id":"packing-match-manager",
+  "title":"패킹 팀 공용 DB 매칭 조회·수정",
+  "scope":["components/import-tools/PackingMatchManager.js","styles/PackingMatchManager.module.css","components/import-tools/PackingListTool.js"],
+  "businessIdentity":["OrderYear","OrderWeek","CustKey","ProdKey"],
+  "actions":[{"name":"VIEW_MATCHES","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","stock":"preserve","notes":"기존 Product SELECT와 팀 공용 매칭 GET. 파일 없이 국가/원문/DB품목명/코드/상태 검색."},{"name":"EDIT_MATCH","orderDetail":"preserve","shipmentDetail":"preserve","warehouseMaster":"preserve","stock":"preserve","notes":"원문 국가/sourceKey 보존, 기존 POST와 CAS로 연결 DB 품목만 수정. 기존 웹 감사기록. 실패/409 보존. 현재 파일 검토 유지, 생성바이트 무효화. ERP 원장·기존 입고 문서에 소급 쓰기 없음."}],
+  "crossYearFixture":{"required":true,"description":"팀 공용 품목 연결은 연도/차수 원장과 분리. 2025/2026 같은 세부차수의 주문/분배/입고/재고/견적 변경 없음."},
+  "requiredTestFiles":["__tests__/packingMatchManager.test.js","__tests__/importPackingHardening.test.js","__tests__/packingTeamMatching.test.js","__tests__/packingProductMatchDialog.test.js"],
+  "dnspyEvidence":{"required":true,"record":"docs/exe-golden/FormWarehouseUpload.md","methods":["ExcelLoadingPackingList.MakeTempTable","ExcelLoadingPackingList.CheckData"],"tables":["Product"],"source":"ProdName+SIZE 정확 연결 및 독립 입고 저장 경계 보존. 기존 PACKING_PRODUCT_SCOPE_SQL/packingErpProducts/upsertPackingErpMatch/CAS를 그대로 사용. SQL/API 변경 없음."},
+  "requiredCommands":["npm run test:erp-contract","npm run test:nenova-dnspy-evidence","npm run test:erp-manifest -- --changed-from origin/master","npm run guard:erp-writes -- --changed-from origin/master","npm run build"]
+}
