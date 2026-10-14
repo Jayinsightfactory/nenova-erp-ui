@@ -32,11 +32,16 @@ const React = {
 const css = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) });
 const moduleUnderTest = { exports: {} };
 let packingMatchReview;
-test.before(async () => { ({ packingMatchReview } = await import('../lib/packingMatchReview.js')); });
+let effectivePackingMatchReview;
+test.before(async () => {
+  ({ packingMatchReview } = await import('../lib/packingMatchReview.js'));
+  ({ effectivePackingMatchReview } = await import('../lib/packingReceiptMatchState.js'));
+});
 new Function('require', 'module', 'exports', code)(key => {
   if (key === 'react') return React;
   if (key === '../../styles/ImportPacking.module.css') return css;
   if (key === '../../lib/packingMatchReview') return { packingMatchReview: (...args) => packingMatchReview(...args) };
+  if (key === '../../lib/packingReceiptMatchState') return { effectivePackingMatchReview: (...args) => effectivePackingMatchReview(...args) };
   throw new Error('Unexpected dependency: ' + key);
 }, moduleUnderTest, moduleUnderTest.exports);
 
@@ -121,7 +126,7 @@ test('default review list, ALL toggle, summaries and callbacks preserve original
   let nodes = flatten(tree);
   let buttons = nodes.filter(node => node.props?.['data-testid'] === 'packing-product-match');
   assert.deepEqual(buttons.map(text), ['SIMILAR SOURCE', 'UNKNOWN']);
-  assert.match(text(tree), /정확 1 · 수동 1 · 유사 1 · 미매칭 1/);
+  assert.match(text(tree), /정확 1 · 팀 공용 수동 1 · 문서 행 선택 0 · 유사 1 · 미매칭 1/);
   assert.match(text(tree), /단수 합계 100단/);
   assert.match(text(tree), /유사 매칭 · 확인 필요/);
   assert.doesNotMatch(text(tree), /100%|자동 매칭/);
