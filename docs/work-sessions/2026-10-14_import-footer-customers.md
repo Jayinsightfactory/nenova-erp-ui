@@ -5,7 +5,7 @@
 | 기간 | 2026-10-14 |
 | 화면 | /shipment/distribute-import 검증 후 피벗 비교표 |
 | 원장 부작용 | 없음: 표시 전용 |
-| 배포/PR | 검증 및 배포 진행 중 |
+| 배포/PR | PR #1055 / master e2fc5ea1 / Cafe24 run38529535874 성공 |
 | 이어받기 | 하단 합계의 업체명 표시만 변경. 수량·환산·업로드 동작 보존 |
 
 ## 고정된 결정 / 구현 전 기준
@@ -33,3 +33,4 @@
 - 기존 shipmentImportCustomerChoiceUi에서 새 테스트를 함께 호출하므로 test:shipment-import 및 ERP gate에 포함.
 - 실제 PivotComparison을 로컬 fixture로 브라우저 확인: 1920×1080/100% 상·하단 모든 열의 x/width 일치, 긴 이름 줄바꿈 및 합계 수량 아래 정렬 확인. 768px에서도 문서폭 768px, 표1287px는 내부 가로 스크롤로 유지. 새 조작부/모달/포커스 변경 없음.
 - npm run verify:erp-change 통과(exit 0): board, 전체 ERP 계약, dnSpy evidence, manifest, 쓰기 guard, Next 생산 빌드. 운영 배포 확인 진행 중. 운영 분배 실행은 하지 않는다.
+- 운영 페이지 e2fc5ea1 로드 확인. 브라우저 파일 URL 접근 비활성화로 운영 업로드 재현은 중단했으며 권한을 변경하지 않았다. 실제 PivotComparison의 하단 렌더/열 정렬은 로컬 브라우저로 검증. 운영 주문·분배는 실행하지 않음.

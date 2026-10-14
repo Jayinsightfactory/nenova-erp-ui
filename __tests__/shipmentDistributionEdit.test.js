@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import './distributeProductDisplay.test.js';
+import './distributeProductDisplayUi.test.cjs';
 import fs from 'node:fs';
 import { resolveShipmentDistributionEditPolicy } from '../lib/shipmentDistributionEditPolicy.js';
 
