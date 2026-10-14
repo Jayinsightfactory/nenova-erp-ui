@@ -296,7 +296,7 @@ function makeSheet(rows, customers, farms, meta) {
       else if (col.type === 'summary' && col.label === '주문') line.push(q(row, sumOrderQty(row)) || '');
       else if (col.type === 'summary' && col.label === '입고') line.push(q(row, sumIncomingQty(row)) || '');
       else if (col.type === 'summary' && col.label === '재고') line.push('');
-      else if (col.type === 'summary' && col.label === '잔량') line.push(q(row, row.curStock) || '');
+      else if (col.type === 'summary' && col.label === '잔량') line.push(q(row, sumIncomingQty(row)) - q(row, sumOrderQty(row)));
       else if (col.type === 'farm') line.push(q(row, row.incoming?.[col.farm]) || '');
       else if (col.type === 'farm-total') line.push(q(row, sumIncomingQty(row)) || '');
       else line.push('');
@@ -313,7 +313,7 @@ function makeSheet(rows, customers, farms, meta) {
     else if (col.type === 'summary' && col.label === '주문') totals.push(rows.reduce((sum, row) => sum + q(row, sumOrderQty(row)), 0) || '');
     else if (col.type === 'summary' && col.label === '입고') totals.push(rows.reduce((sum, row) => sum + q(row, sumIncomingQty(row)), 0) || '');
     else if (col.type === 'summary' && col.label === '재고') totals.push('');
-    else if (col.type === 'summary' && col.label === '잔량') totals.push(rows.reduce((sum, row) => sum + q(row, row.curStock), 0) || '');
+    else if (col.type === 'summary' && col.label === '잔량') totals.push(rows.reduce((sum, row) => sum + q(row, sumIncomingQty(row)) - q(row, sumOrderQty(row)), 0));
     else if (col.type === 'farm') totals.push(rows.reduce((sum, row) => sum + q(row, row.incoming?.[col.farm]), 0) || '');
     else if (col.type === 'farm-total') totals.push(rows.reduce((sum, row) => sum + q(row, sumIncomingQty(row)), 0) || '');
     else totals.push('');
@@ -347,10 +347,11 @@ function makeSheet(rows, customers, farms, meta) {
     if (summaryCols['잔량']) {
       const inCell = encodeCell(excelRow, summaryCols['입고']);
       const orderCell = encodeCell(excelRow, summaryCols['주문']);
+      const stockCell = encodeCell(excelRow, summaryCols['재고']);
       ws[encodeCell(excelRow, summaryCols['잔량'])] = {
         t: 'n',
-        v: q(row, row.curStock),
-        f: `SUM(${inCell})-SUM(${orderCell})`,
+        v: q(row, sumIncomingQty(row)) - q(row, sumOrderQty(row)),
+        f: `SUM(${inCell})-SUM(${orderCell})+SUM(${stockCell})`,
         s: STYLES.summary,
       };
     }
