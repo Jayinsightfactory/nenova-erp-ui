@@ -16,6 +16,8 @@ const modulesReady = Promise.all([
   import('../lib/importChinaLegacyInvoice.js'),
   import('../lib/importChinaLegacyReview.js'),
   import('../lib/importPackingSourceReview.js'),
+  import('../lib/importChinaInvoiceFormat.js'),
+  import('../lib/importPackingMatchPreview.js'),
 ]);
 const source = fs.readFileSync(require('node:path').join(__dirname, '../components/import-tools/PackingListTool.js'), 'utf8');
 const code = babel.transformSync(source.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
@@ -59,7 +61,7 @@ function browserPdfFile(file) {
 // Actual component handlers with controlled local hooks. No network, DB or browser.
 async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es' } = {}) {
   const [state, packing, response, awbFields, chinaInvoice, erpMatchHelpers, review, receiptAdapter,
-    chinaLegacyInvoice, chinaLegacyReview, sourceReview] = await modulesReady;
+    chinaLegacyInvoice, chinaLegacyReview, sourceReview, chinaInvoiceFormat, matchPreview] = await modulesReady;
   const slots = [], effects = [], readers = [], writes = [], requests = [], erpRequests = [], extractionCalls = [], generationCalls = [], hashPromises = [];
   let cursor = 0, currentCatalog = catalog, currentAliases = null, failure = null, erpFailure = null;
   const storageReads=[];
@@ -116,9 +118,10 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     }
     const request = { url, options, ...deferred() }; requests.push(request); return request.promise;
   };
-  const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI }) {
+  const extractionMock = { async extractPackingDocument({ country, pdfBase64, allowAI, onProgress }) {
     extractionCalls.push({ country, pdfBase64, allowAI });
     if (allowAI !== true) return { needsAI: true, reason: 'UNSUPPORTED_LAYOUT' };
+    onProgress?.({stage:'ANALYZING',elapsedSeconds:181});
     const data = await state.readPackingPdfResponse(await fetchStub('/api/import/tools/parse-pdf', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ country, pdfBase64 }),
     }));
@@ -139,11 +142,13 @@ async function harness({ catalog = initial, awb = false, readAwbPdf, lang = 'es'
     '../../lib/importPackingState.js': state, '../../lib/importPackingResponse.js': response,
     '../../lib/importAwbFields.js': awbFields, '../../lib/importPackingExtractClient.js': extractionMock,
     '../../lib/importChinaInvoice.js': chinaInvoice, '../../lib/importPackingErpMatches.js': erpMatchHelpers,
+    '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
     '../../lib/importPackingReview.js': review,
     '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
     '../../lib/importChinaLegacyInvoice.js': chinaLegacyInvoice,
     '../../lib/importChinaLegacyReview.js': chinaLegacyReview,
     '../../lib/importPackingSourceReview.js': sourceReview,
+    '../../lib/importPackingMatchPreview.js': matchPreview,
     './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
     './PackingResults.js': { default: PackingResultsStub, __esModule: true },
     './PackingEvidenceReview.js': { default: 'PackingEvidenceReview', __esModule: true },
@@ -747,6 +752,58 @@ test('parent ERP matching saves and rebuilds, while a failed save retains the ta
   assert.equal(dialog.props.target.expectedRevision,6);
 });
 
+test('explicit ERP refresh after generation invalidates old workbook but retains source-review draft', async () => {
+  const h = await harness();
+  const [,,,,,, review,,,, sourceReview] = await modulesReady;
+  h.nodes('button').find(node => node.props['aria-label'] === 'Colombia').props.onClick(); await h.refresh();
+  h.inputPdf({ name: '41-1.pdf', type: 'application/pdf', size: 10 });
+  await h.readers[0].complete(); h.render();
+  await h.button('Generar packing list').props.onClick(); h.render();
+  const hashIndex = h.hashPromises.length;
+  const process = h.button('Analizar con IA (posible coste)').props.onClick();
+  const sourceHash = await h.waitForRealSha(hashIndex);
+  h.requests[0].resolve({ ok: true, status: 200, json: async () => ({
+    source: 'ai', cacheSaved: true, stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ invoices: [{
+      invoice: 'INV-REFRESH', supplier: 'Teucali', date: '2026-10-09', raw_date: '2026-10-09', date_order: 'YMD',
+      date_kind: 'invoice', currency: 'USD', invoice_total: 20, freight_total: 0,
+      products: [{ description: 'CARNATION Doncel', pcs: 1, total_bunch: 1, total_stems: 20, u_price: 1, t_price: 20 }],
+    }] }) }],
+  }) });
+  await process; await h.refresh();
+  let reviewNode = flatten(h.tree).find(node => node.type === 'PackingEvidenceReview');
+  const sourceInvoice = { invoice: 'INV-REFRESH', supplier: 'Teucali', date: '2026-10-09', raw_date: '2026-10-09',
+    date_order: 'YMD', date_kind: 'invoice', currency: 'USD', invoice_total: 20, freight_total: 0,
+    pdfReviewRequired: true, pdfSourceHash: sourceHash,
+    products: [{ description: 'CARNATION Doncel', pcs: 1, total_bunch: 1, total_stems: 20, u_price: 1, t_price: 20 }] };
+  const sourceDraft = sourceReview.makePackingSourceReview(sourceInvoice, 'CO');
+  sourceDraft.pdf = { rendered: true, page: 1 };
+  sourceDraft.rows = sourceDraft.rows.map(row => ({ ...row, confirmed: true }));
+  let drafts = review.makePackingReviewRows([sourceInvoice], 'CO').map(draft => ({ ...draft, confirmed: true, sourceReview: sourceDraft }));
+  await reviewNode.props.onConfirm(drafts); await h.refresh();
+  let results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
+  assert.equal(results.props.previewOnly, false);
+  assert.equal(results.props.excels[0].name.endsWith('.xlsx'), true);
+  const oldWorkbook = results.props.excels[0];
+  const retainedReview = flatten(h.tree).find(node => node.type === 'PackingEvidenceReview');
+
+  h.setTeamMatches(null, 2);
+  await results.props.onMatch({ matchingDescription: 'CARNATION Doncel' }); await h.refresh();
+  const dialog = flatten(h.tree).find(node => node.type === h.components.PackingProductMatchDialogStub);
+  await dialog.props.onReload(); await h.refresh();
+  results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
+  assert.equal(results.props.previewOnly, true);
+  assert.notEqual(results.props.excels[0], oldWorkbook, 'fresh mapping preview replaces the generated workbook view');
+  assert.equal(h.receiptSources.at(-1).excels.length, 0, 'invalidated output no longer publishes receipt rows');
+  assert.equal(flatten(h.tree).find(node => node.type === 'PackingEvidenceReview').props.rows, retainedReview.props.rows,
+    'the source-review draft rows stay mounted through mapping refresh');
+  assert.equal(h.erpRequests.filter(request => request.options?.method === 'POST').length, 0,
+    'refresh is read-only and does not save an ERP mapping');
+  reviewNode = flatten(h.tree).find(node => node.type === 'PackingEvidenceReview');
+  await reviewNode.props.onConfirm(drafts); await h.refresh();
+  assert.equal(flatten(h.tree).find(node => node.type === h.components.PackingResultsStub).props.previewOnly, false,
+    'the original source snapshot can be reapplied after mapping refresh');
+});
+
 test('A/B refresh singleflight and late revision response cannot invalidate a newer explicit reload',async()=>{
   const h=await harness({lang:'ko'});
   await h.upload(catalogFile([[1,'A','Retained catalog draft','','콜롬비아']],'retained.xlsx'));
@@ -824,7 +881,12 @@ test('source resolved flags do not clear extraction issues or open the generator
   }) });
   await process; await h.refresh();
   assert.equal(h.generationCalls.length, 0);
-  assert.ok(text(h.tree).includes('추출 검토 항목 1건'));
+  assert.ok(text(h.tree).includes('추출 검토 1건은 인식값 확인 전까지 패킹을 생성하지 않습니다.'));
+  const results = flatten(h.tree).find(node => node.type === h.components.PackingResultsStub);
+  assert.equal(results.props.previewOnly, true);
+  assert.equal(results.props.excels.length, 1);
+  assert.equal(results.props.excels[0].products[0].sourceReview.required, true);
+  assert.equal(h.receiptSources.at(-1).excels.length, 0, 'preview never publishes receipt adaptation data');
 });
 
 test('invoice PDF accepts exact 20MiB, rejects 20MiB + 1 and only sends on explicit AI', async () => {
@@ -862,6 +924,25 @@ test('invoice PDF race guard ignores a removed file and older FileReader complet
   await h.click('Quitar'); await h.readers[0].complete(); h.render();
   assert.equal(h.button('Generar packing list').props.disabled, true);
   assert.equal(h.requests.length, 0);
+});
+
+test('PDF timeout ends active reading, retains source and enables explicit retry without auto requests', async () => {
+  const h=await harness({lang:'ko'});
+  h.nodes('button').find(n=>n.props['aria-label']==='콜롬비아').props.onClick();h.render();
+  h.inputPdf({name:'41-1.pdf',type:'application/pdf',size:100});await h.readers[0].complete();h.render();
+  await h.click('패킹 리스트 생성');
+  const hashIndex=h.hashPromises.length;
+  const operation=h.button('AI 분석 (비용 발생 가능)').props.onClick();
+  await h.waitForRealSha(hashIndex);h.render();
+  assert.ok(text(h.tree).includes('181초 경과'));
+  h.requests[0].resolve({ok:false,status:504,json:async()=>({error:{message:'분석 시간 초과'}})});
+  await operation;h.render();
+  assert.ok(text(h.tree).includes('분석 중단 · 파일 유지'));
+  assert.ok(!text(h.tree).includes('인보이스 읽는 중'));
+  assert.ok(!text(h.tree).includes('AI 분석 중 · 결과 확인 중'));
+  assert.ok(text(h.tree).includes('41-1.pdf'));
+  assert.equal(h.button('AI 분석 (비용 발생 가능)').props.disabled,false);
+  assert.equal(h.requests.length,1);assert.equal(h.writes.length,0);
 });
 
 test('AWB uses the same 20MiB bound and ignores late local parser completion', async () => {

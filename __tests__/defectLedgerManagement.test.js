@@ -63,7 +63,15 @@ function fixture({ failHistory = false, failSecond = false, unmapped = false, in
     const query = async (sql, params = {}) => {
       queries.push(sql);
       const key = params.key?.value;
-      if (/SELECT \* FROM WebSalesDefectDeduction/.test(sql)) return { recordset: structuredClone(state.ledger.filter((r) => r.DeductionKey === key)) };
+      if (/FROM WebSalesDefectDeduction d\s+WITH \(UPDLOCK,HOLDLOCK\)\s+WHERE/.test(sql)) {
+        return { recordset: structuredClone(state.ledger.filter((r) => r.DeductionKey === key)) };
+      }
+      if (/FROM WebSalesDefectDeduction d\s+WHERE/.test(sql)) {
+        assert.equal(queries.slice(0, -1).some((previous) =>
+          /FROM WebSalesDefectDeduction d\s+WITH \(UPDLOCK,HOLDLOCK\)\s+WHERE/.test(previous)), true,
+        'management follow-up read requires an earlier locked ledger read');
+        return { recordset: structuredClone(state.ledger.filter((r) => r.DeductionKey === key)) };
+      }
       if (/SELECT \* FROM WebSalesCarryoverApplication/.test(sql)) return { recordset: state.applications.filter((r) => r.DeductionKey === key) };
       if (/SELECT ActionType,BeforeJson,AfterJson FROM WebSalesDefectDeductionHistory/.test(sql)) return { recordset: [] };
       if (/FROM (Customer|Product)/.test(sql)) return { recordset: invalidMatch ? [] : [{ id: params.id.value }] };

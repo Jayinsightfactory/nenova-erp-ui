@@ -4,6 +4,32 @@ const test = require('node:test');
 const ready = import('../lib/importPackingReceiptAdapter.js');
 const sourceReviewReady = import('../lib/importPackingSourceReview.js');
 
+test('mixed local parser and human source audits retain distinct receipt provenance', async () => {
+  const adapter = await ready, review = await sourceReviewReady;
+  const { inspectChinaPdfInvoice } = await import('../lib/importChinaPdfInvoice.js');
+  const { makeChinaPdfFixture } = await import('./fixtures/chinaPdfFixture.js');
+  const { normalizePackingMetadata } = await import('../lib/importPackingMetadata.js');
+  const raw = normalizePackingMetadata(inspectChinaPdfInvoice(makeChinaPdfFixture()).result.invoices[0], 'CN');
+  const sourceHash = 'a'.repeat(64);
+  const bound = review.bindPackingSourceReviewPolicy({ ...raw, pdfSourceHash: sourceHash, pdfReviewRequired: true }, 'CN', { source: 'local' });
+  const draft = review.makePackingSourceReview(bound, 'CN');
+  draft.pdf = { rendered: true, page: 2 };
+  draft.rows[2].values.u_price = 0;
+  draft.rows[2].values.t_price = 0;
+  draft.rows[2].reason = 'Synthetic fixture explicit zero confirmation';
+  draft.rows[2].confirmed = true;
+  const invoice = review.applyPackingSourceReview(bound, draft, 'CN');
+  // This unit isolates row provenance; invoice metadata review has separate tests.
+  invoice.extractionIssues = [];
+  const [result] = await adapter.adaptPackingReceipts({ invoices: [invoice], country: 'CN', sourceHash,
+    fileName: '2026_41-01_CN.pdf', reviewConfirmed: true });
+  assert.equal(result.lines[0].reviewed.sourceConfirmed, false);
+  assert.equal(result.lines[0].reviewed.sourceValidated, true);
+  assert.equal(result.lines[0].reviewed.sourceMethod, 'MACHINE_VERIFIED');
+  assert.equal(result.lines[2].reviewed.sourceConfirmed, true);
+  assert.equal(result.lines[0].reviewed.confirmed, false, 'Source verification alone cannot confirm ERP matching');
+});
+
 async function applyActualPdfReview(invoice, country, { page = 1, sourceHash = invoice?.pdfSourceHash || 'a'.repeat(64) } = {}) {
   const review = await sourceReviewReady;
   const sourceBoundInvoice = { ...invoice, pdfSourceHash: sourceHash };

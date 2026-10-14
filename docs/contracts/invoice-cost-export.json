@@ -1,12 +1,23 @@
 {
   "id": "invoice-cost-export",
-  "title": "서버 승인 원가의 CN 항공 단일 원본 양식 출력과 내구성 단계 이력",
+  "title": "서버 승인 원가의 국가별 원본 양식 출력과 내구성 단계 이력",
   "scope": [
     "lib/invoiceReceiptCostExport.js",
+    "lib/invoiceCostExportProfiles.js",
     "lib/invoiceReceiptStageLog.js",
     "lib/invoiceReceiptStageLogClient.js",
     "lib/invoiceReceiptCost.js",
     "lib/invoiceCostTemplates/china-air-v1.json",
+    "lib/invoiceCostTemplates/china-sea-v1.json",
+    "lib/invoiceCostTemplates/netherlands-v1.json",
+    "lib/invoiceCostTemplates/us-v1.json",
+    "lib/invoiceCostTemplates/vietnam-v1.json",
+    "lib/invoiceCostTemplates/australia-v1.json",
+    "lib/invoiceCostTemplates/new-zealand-v1.json",
+    "lib/invoiceCostTemplates/ecuador-v1.json",
+    "lib/invoiceCostTemplates/colombia-v1.json",
+    "lib/invoiceCostTemplates/thailand-v1.json",
+    "lib/invoiceCostTemplates/extract-format.cjs",
     "scripts/build-invoice-cost-template.cjs",
     "scripts/test-invoice-receipt-writer-sql.cjs",
     "pages/api/import/receipts/[id]/stage-events.js",
@@ -51,7 +62,7 @@
       "notes": "current source/revision and stage-specific authoritative checks; COMMITTED operation for receipt identity; readInvoiceCosts currentActual ACTUAL APPROVED stored APPROVED liveReceiptStatus MATCH for approved cost proofs"
     },
     {
-      "name": "EXPORT_APPROVED_CN_AIR_COST",
+      "name": "EXPORT_APPROVED_COUNTRY_COST",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve",
       "warehouseMaster": "read-only",
@@ -100,10 +111,10 @@
       "historical properties"
     ],
     "valuePolicy": "approved values in original cost-result positions; explicit unit mapping; no unsupported expense breakup or historical defaults inferred",
-    "otherProfiles": "EXPORT_TEMPLATE_UNSUPPORTED until independent template fidelity approval",
+    "otherProfiles": "Only enabled profiles in lib/invoiceCostExportProfiles.js with source-bound sanitized assets and exact approved recalculation; all others EXPORT_TEMPLATE_UNSUPPORTED",
     "runtimePolicy": "sanitized format JSON asset generated from hash-verified source at build/preparation; asset hash/profile metadata checked; original private XLSX not required at runtime",
     "implementationPolicy": "runtime software OOXML export, not conversational artifact authoring; no modification of historical source workbook",
-    "registryOwner": "lib/invoiceReceiptCostExport.js; Franklin owns context and API"
+    "registryOwner": "lib/invoiceCostExportProfiles.js; server export validates source-bound assets"
   },
   "eventPolicy": {
     "action": "WORKFLOW_STAGE",
@@ -185,5 +196,5 @@
     "npm run build"
   ],
   "designDocument": "docs/plans/invoice-cost-export.md",
-  "status": "implemented; unit, isolated SQL, template fidelity/render, browser and production build verified; operational receipt approval is separate"
+  "status": "country expansion in progress; original CN AIR verification retained; operational receipt approval is separate"
 }

@@ -24,6 +24,7 @@ import { resolvePasteOrderUnit, resolvePasteMixedQuantity } from '../../lib/past
 import { applyPasteCustomerMappings, pasteCustomerMappingKey } from '../../lib/pasteCustomerMapping.js';
 import { buildPasteMixedActionPreview, getPasteMixedBatchStartBlocker, orderPasteMixedBatchTargets, pasteBatchActionType, pasteBatchRetryKey, pasteShipmentLookupProdKeys, validatePasteMixedBatchIntent } from '../../lib/pasteMixedBatch.js';
 import { buildPasteBatchChangeAudit, mergePasteRegisteredItems, pasteAuditChanged } from '../../lib/pasteBatchHistory.js';
+import { formatPasteBatchFailure } from '../../lib/pasteBatchFailure.js';
 import { pasteOrderHighlightState } from '../../lib/pasteOrderHighlight.js';
 import { buildEstimateFixStatusUrl } from '../../lib/estimateFixStatusLink.js';
 import { buildPasteIncomingMap, pasteIncomingDisplayState } from '../../lib/pasteIncomingDisplay.js';
@@ -1193,6 +1194,8 @@ export default function PasteOrderPage() {
   useEffect(() => { if(restoredExclusionsRef.current.paste!==pasteText)setPasteExcludedLines([]); restoredExclusionsRef.current.paste=null; }, [pasteText]);
   useEffect(() => { if(restoredExclusionsRef.current.base!==baseStockText)setBaseStockExcludedLines([]); restoredExclusionsRef.current.base=null; }, [baseStockText]);
   const [baseStockMatches, setBaseStockMatches] = useState([]);
+  const baseStockMatchesRef = useRef(baseStockMatches);
+  const baseStockRematchRevisionRef = useRef(0);
   const [baseStockMatchEditIdx, setBaseStockMatchEditIdx] = useState(null);
   const [pendingParseAfterLoad, setPendingParseAfterLoad] = useState(false);
   const [remainStockText, setRemainStockText] = useState('');
@@ -1681,13 +1684,16 @@ export default function PasteOrderPage() {
     return draft;
   };
 
-  const rematchBaseStock = (text = baseStockText, prevMatches = baseStockMatches) => {
+  const rematchBaseStock = (text = baseStockText, prevMatches = baseStockMatchesRef.current, excludedLines = baseStockExcludedLines) => {
+    baseStockRematchRevisionRef.current += 1;
     if (!text.trim()) {
+      baseStockMatchesRef.current = [];
       setBaseStockMatches([]);
       return [];
     }
     const cache = { ...mappingCache, ...loadCache() };
-    const rows = buildBaseStockMatchRows(text, allProducts, cache, prevMatches, baseStockExcludedLines);
+    const rows = buildBaseStockMatchRows(text, allProducts, cache, prevMatches, excludedLines);
+    baseStockMatchesRef.current = rows;
     setBaseStockMatches(rows);
     refreshStockDraft(pasteText, text, week, remainStockText, stockBaseWeek, orders, rows);
     return rows;
@@ -1697,8 +1703,10 @@ export default function PasteOrderPage() {
     setBaseStockText(nextText);
     const cache = { ...mappingCache, ...loadCache() };
     const rows = nextText.trim()
-      ? buildBaseStockMatchRows(nextText, allProducts, cache, baseStockMatches, baseStockExcludedLines)
+      ? buildBaseStockMatchRows(nextText, allProducts, cache, baseStockMatchesRef.current, baseStockExcludedLines)
       : [];
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = rows;
     setBaseStockMatches(rows);
     refreshStockDraft(pasteText, nextText, week, remainStockText, stockBaseWeek, orders, rows);
     if (currentStockNote) setStockNoteStatus('수정 후 저장 필요');
@@ -1722,7 +1730,9 @@ export default function PasteOrderPage() {
   const handleBaseStockExcludedLinesChange = (nextLines) => {
     setBaseStockExcludedLines(nextLines);
     const cache = { ...mappingCache, ...loadCache() };
-    const rows = buildBaseStockMatchRows(baseStockText, allProducts, cache, baseStockMatches, nextLines);
+    const rows = buildBaseStockMatchRows(baseStockText, allProducts, cache, baseStockMatchesRef.current, nextLines);
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = rows;
     setBaseStockMatches(rows);
     refreshStockDraft(
       pasteText,
@@ -1738,8 +1748,10 @@ export default function PasteOrderPage() {
 
   const applyBaseStockProduct = (idx, prod, saveToCache = true) => {
     if (!prod) return;
-    const sourceRow = baseStockMatches[idx];
-    setBaseStockMatches(prev => prev.map((row, i) => {
+    const currentMatches = baseStockMatchesRef.current;
+    const sourceRow = currentMatches[idx];
+    if (!sourceRow) return;
+    const nextMatches = currentMatches.map((row, i) => {
       if (i !== idx) return row;
       return {
         ...row,
@@ -1749,17 +1761,15 @@ export default function PasteOrderPage() {
         matchStatus: 'manual',
         fromMapping: false,
       };
-    }));
+    });
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = nextMatches;
+    setBaseStockMatches(nextMatches);
     if (saveToCache && sourceRow?.name) {
       void learnItemMapping({ inputName: sourceRow.name }, prod);
     }
     setBaseStockMatchEditIdx(null);
-    setTimeout(() => {
-      setBaseStockMatches(cur => {
-        refreshStockDraft(pasteText, baseStockText, week, remainStockText, stockBaseWeek, orders, cur);
-        return cur;
-      });
-    }, 0);
+    refreshStockDraft(pasteText, baseStockText, week, remainStockText, stockBaseWeek, orders, nextMatches);
   };
 
   const selectStockBaseWeek = (w) => {
@@ -1814,6 +1824,8 @@ export default function PasteOrderPage() {
           hit.data.baseStockMatches || [],
           Array.isArray(hit.data.baseStockExcludedLines) ? hit.data.baseStockExcludedLines : [],
         );
+        baseStockRematchRevisionRef.current += 1;
+        baseStockMatchesRef.current = matches;
         setBaseStockMatches(matches);
         setOrders([]);
         setParseError('');
@@ -1876,6 +1888,8 @@ export default function PasteOrderPage() {
         matches: mode === 'append' ? baseStockMatches : [], exclusions: mode === 'append' ? baseStockExcludedLines : []};
     const cache = {...mappingCache, ...loadCache()};
     const rows = buildBaseStockMatchRows(combined.text, allProducts, cache, combined.matches, combined.exclusions);
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = rows;
     restoredExclusionsRef.current.base = combined.text;
     setBaseStockText(combined.text);
     setBaseStockExcludedLines(combined.exclusions);
@@ -2056,10 +2070,16 @@ export default function PasteOrderPage() {
 
   useEffect(() => {
     if (!allProducts.length || !baseStockText.trim()) {
-      if (!baseStockText.trim()) setBaseStockMatches([]);
+      if (!baseStockText.trim()) { baseStockMatchesRef.current = []; setBaseStockMatches([]); }
       return undefined;
     }
-    const t = setTimeout(() => rematchBaseStock(), 350);
+    const revision = baseStockRematchRevisionRef.current;
+    const text = baseStockText;
+    const exclusions = baseStockExcludedLines;
+    const t = setTimeout(() => {
+      if (revision !== baseStockRematchRevisionRef.current) return;
+      rematchBaseStock(text, baseStockMatchesRef.current, exclusions);
+    }, 350);
     return () => clearTimeout(t);
   }, [baseStockText, baseStockExcludedLines, allProducts.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2736,7 +2756,9 @@ export default function PasteOrderPage() {
     setBaseStockText(state.baseStockText||'');
     setBaseStockExcludedLines(state.baseStockExcludedLines||[]);
     setRemainStockText(state.remainStockText||'');
-    setBaseStockMatches(state.baseStockMatches||[]);
+    baseStockRematchRevisionRef.current += 1;
+    baseStockMatchesRef.current = state.baseStockMatches || [];
+    setBaseStockMatches(baseStockMatchesRef.current);
     if(state.stockBaseWeek)setStockBaseWeek(state.stockBaseWeek);
     setOrders(state.orders||[]);
     setEvidenceMessages(state.evidenceMessages||[]);
@@ -3087,14 +3109,16 @@ export default function PasteOrderPage() {
       const preflightResult = await preflightResponse.json().catch(() => ({}));
       if (!preflightResponse.ok || preflightResult.success !== true || preflightResult.verified !== true || preflightResult.preflight !== true) {
         const failed = preflightResult.failedEntry || {};
-        const failedLabel = [failed.custName, failed.inputName || failed.prodName, failed.qty && `${failed.qty}${failed.unit || ''}`]
-          .filter(Boolean).join(' / ');
         const preflightError = pasteWriteError(
           preflightResponse,
           preflightResult,
-          `저장 전 검증에 실패했습니다.${failedLabel ? `\n실패 항목: ${failedLabel}` : ''}`,
+          '저장 전 검증에 실패했습니다.',
         );
-        preflightError.failedIndex = Number.isInteger(failed.inputIndex) ? failed.inputIndex : failed.executionIndex;
+        preflightError.message = formatPasteBatchFailure({
+          message: preflightError.message, failedEntry: failed, targets,
+          year: selectedYearFromWeek(week), week,
+        });
+        preflightError.failedIndex = Number.isInteger(failed.inputIndex) ? failed.inputIndex : undefined;
         preflightError.rolledBack = true;
         throw preflightError;
       }
@@ -3108,11 +3132,12 @@ export default function PasteOrderPage() {
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result.success !== true || result.verified !== true) {
         const rollbackError = pasteWriteError(response, result, '전체 일괄 처리에 실패했습니다.');
-        rollbackError.failedIndex = Number.isInteger(result.failedIndex)
-          ? result.failedIndex
-          : Number.isInteger(result.failedEntry?.inputIndex)
-            ? result.failedEntry.inputIndex
-            : result.failedEntry?.executionIndex;
+        rollbackError.message = formatPasteBatchFailure({
+          message: rollbackError.message, failedEntry: result.failedEntry, targets,
+          year: selectedYearFromWeek(week), week,
+        });
+        rollbackError.failedIndex = Number.isInteger(result.failedEntry?.inputIndex)
+          ? result.failedEntry.inputIndex : undefined;
         rollbackError.rolledBack = result.rolledBack !== false;
         throw rollbackError;
       }
@@ -4622,7 +4647,7 @@ export default function PasteOrderPage() {
               {!orders.length && !bulkRunning && <span className="paste-work-empty">분석 전입니다. 기준 원본 또는 영업방 내용을 불러온 뒤 Claude 분석을 실행하세요.</span>}
             </div>
 
-            <AppliedStockCopyPanel draft={stockDraft} result={bulkResult||appliedStockLedger} currentScope={buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches})} bulkRunning={bulkRunning} />
+            <AppliedStockCopyPanel source={{baseText:baseStockText,pasteText,week,resolvedMatches:buildResolvedMatchMap(orders,allProducts,baseStockMatches),products:allProducts,baseExcludedLineNos:baseStockExcludedLines,baseStockMatches}} result={bulkResult||appliedStockLedger} currentScope={buildAppliedStockScope({week,baseText:baseStockText,pasteText,baseWeek:stockBaseWeek||week,excludedLines:baseStockExcludedLines,matches:baseStockMatches})} bulkRunning={bulkRunning} />
             {globalBatchProcessed && (
               <section id="paste-connected-result" tabIndex={-1} aria-label="일괄 등록 분배 성공 결과" style={{ marginBottom: 8, border: '2px solid #2e7d32', borderRadius: 8, overflow: 'hidden', background: '#f1f8e9' }}>
                 <div style={{ padding: '7px 10px', background: '#2e7d32', color: '#fff', fontSize: 12, fontWeight: 900 }}>✅ 저장 완료 결과 — 아래 수량이 현재 전산에 반영되었습니다.</div>
@@ -6062,10 +6087,10 @@ function BaseStockMatchPanel({ rows, editIdx, setEditIdx, allProducts, onRematch
   );
 }
 
-function AppliedStockCopyPanel({draft,result,currentScope,bulkRunning=false}) {
+function AppliedStockCopyPanel({source,result,currentScope,bulkRunning=false}) {
   const [copied,setCopied]=useState(false),[copyError,setCopyError]=useState('');
   const dialogRef=useRef(null),triggerRef=useRef(null);
-  const applied=buildAppliedStockCopy({...draft?.appliedCopySource,result,currentScope});
+  const applied=buildAppliedStockCopy({...source,result,currentScope});
   useEffect(()=>{setCopied(false);setCopyError('');},[applied.text,applied.ready]);
   useEffect(()=>{if(bulkRunning&&dialogRef.current?.open)dialogRef.current.close();},[bulkRunning]);
   const keepModalTabFocus=event=>{

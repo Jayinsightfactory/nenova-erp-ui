@@ -1,0 +1,23 @@
+{
+  "id": "estimate-duplicate-write-guard",
+  "title": "견적 차감 동일행 재등록 및 동시 쓰기 방지",
+  "scope": ["lib/estimateDuplicateWriteGuard.js", "pages/api/estimate/index.js", "pages/api/estimate/update-entry.js", "lib/salesDefectDeductions.js", "__tests__/estimateDuplicateWriteGuard.test.js"],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    {"name":"DIRECT_NEGATIVE_CREATE", "orderDetail":"preserve", "shipmentDetail":"preserve", "estimate":"insert one only if no exact collision; otherwise rollback", "stockMaster":"preserve"},
+    {"name":"DIRECT_NEGATIVE_UPDATE", "orderDetail":"preserve", "shipmentDetail":"preserve", "estimate":"update selected PK only; exclude self from collision", "stockMaster":"preserve"},
+    {"name":"SUPPORT_REGISTER", "orderDetail":"preserve", "shipmentDetail":"preserve", "estimate":"existing sales-defect-deduction contract unchanged; shared transaction lock added", "stockMaster":"preserve"}
+  ],
+  "criteria": {
+    "lock": "Transaction-owned Exclusive sp_getapplock keyed by explicit year + parent week + customer + product; finite timeout; invalid/negative result fails closed",
+    "directNegativeExact": ["year", "actual full week", "customer", "shipment PK", "product", "negative sign", "CodeInfo canonical family", "normalized unit", "quantity", "cost", "SQL date", "trigger-effective description"],
+    "support": "Preserve existing parent-week/customer/product/absolute-quantity/unit predicate and auto-source priority; do not narrow by family/cost/date/description",
+    "protected": ["OrderDetail", "ShipmentDetail", "ShipmentDate", "ShipmentFarm", "Stock", "StockHistory", "WebProfitReport"],
+    "differentFamily": "Equal quantity and cost do not prove duplicate: defect deduction and price deduction remain distinct",
+    "deletion": "No proven duplicate in current reviewed set; no operational deletion in this change; CustKey 687 excluded"
+  },
+  "crossYearFixture": {"required":true, "description":"Same parent week/customer/product in 2025 and 2026 have different lock resources and query scope"},
+  "requiredTestFiles": ["__tests__/estimateDuplicateWriteGuard.test.js", "__tests__/salesDefectAutoSource.test.js", "__tests__/salesDefectDeductionState.test.js"],
+  "dnspyEvidence": {"required":true, "record":"docs/exe-golden/FormEstimateView.md", "source":"Local installed Nenova.exe via dnSpy.Console ClassEstimate, rechecked 2026-10-13", "methods":["ClassEstimate.Insert", "ClassEstimate.Update", "ClassEstimate.Delete"], "tables":["Estimate", "ShipmentMaster", "CodeInfo"]},
+  "requiredCommands": ["npm run test:erp-contract", "npm run test:nenova-dnspy-evidence", "npm run test:erp-manifest -- --changed-from HEAD^", "npm run guard:erp-writes -- --changed-from HEAD^", "npm run build"]
+}

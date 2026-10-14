@@ -3,6 +3,7 @@
 // 각 행의 현재값이 처리 직후 값과 다르면 전체 트랜잭션을 롤백한다.
 
 import { withTransaction } from '../../../lib/db.js';
+import { SHIPMENT_ADJUSTMENT_TRANSACTION_OPTIONS } from '../../../lib/shipmentAdjustmentLock.js';
 import { withAuth } from '../../../lib/auth.js';
 import { withActionLog } from '../../../lib/withActionLog.js';
 import { normalizePasteUndoBatch, runPasteUndoBatchTransaction } from '../../../lib/pasteBatchUndo.js';
@@ -18,7 +19,7 @@ async function handler(req, res) {
       batch,
       user: req.user,
       capabilities,
-      withTransactionFn: withTransaction,
+      withTransactionFn: (callback) => withTransaction(callback, SHIPMENT_ADJUSTMENT_TRANSACTION_OPTIONS),
       executeEntryFn: executeShipmentAdjustmentInTransaction,
     });
     return res.status(200).json({

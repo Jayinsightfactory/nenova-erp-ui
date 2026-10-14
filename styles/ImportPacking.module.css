@@ -70,6 +70,9 @@
 }
 .resultsHeading { margin: 0; font-size: 15px; color: #172b4d; }
 .resultsHint { margin: 3px 0 0; color: #526580; font-size: 13px; }
+.matchReviewBar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; font-size: 14px; }
+.matchReviewBar p { margin: 0; overflow-wrap: anywhere; }
+.matchReviewEmpty { margin: 0; padding: 12px 16px; color: #176039; font-size: 14px; }
 .summaryButton { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .summaryCount {
   display: inline-flex;
@@ -118,7 +121,15 @@
   overflow: hidden;
 }
 .sheetScroll { min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
-.resultSheet { width: 100%; min-width: 920px; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.resultSheet { width: 100%; min-width: 1200px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.rowNumberColumn { width: 52px; }
+.productColumn { width: 24%; }
+.lengthColumn { width: 78px; }
+.matchDataColumn { width: 28%; }
+.boxesColumn, .stemsColumn { width: 78px; }
+.quantityColumn { width: 92px; }
+.priceColumn { width: 92px; }
+.amountColumn { width: 104px; }
 .resultSheet th, .resultSheet td {
   padding: 2px 6px;
   border-right: 1px solid #e4eaf2;
@@ -136,40 +147,43 @@
 }
 .resultSheet tbody tr { background: #fff; }
 .resultSheet tbody td { white-space: nowrap; }
+.resultSheet tbody td.productCell, .resultSheet tbody td.matchCell { white-space: normal; overflow-wrap: anywhere; }
 .resultSheet tbody tr:nth-child(even) { background: #fafbfd; }
 .resultSheet tbody tr:focus { outline: 3px solid #2457c5; outline-offset: -3px; }
 .resultSheet .unmatchedRow { background: #fff7ed; }
 .resultSheet .selectedRow { background: #fff1b8; box-shadow: inset 4px 0 0 #d97706; }
 .rowNumber { width: 56px; color: #66758c; text-align: center !important; font-variant-numeric: tabular-nums; }
-.productCell { width: 250px; max-width: 300px; font-weight: 600; color: #172b4d; }
+.productCell { font-weight: 600; color: #172b4d; }
 .productMatchButton {
   display: block;
   width: 100%;
   min-height: 26px !important;
-  overflow: hidden;
-  padding: 2px 5px !important;
+  padding: 2px 4px !important;
   border-color: transparent !important;
   background: transparent !important;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 14px !important;
+  white-space: normal;
+  overflow-wrap: anywhere;
   box-shadow: none !important;
 }
 .productMatchButton:not(:disabled) { color: #174ea6; text-decoration: underline; text-underline-offset: 2px; }
 .productMatchButton:disabled { color: #172b4d; }
 .numberCell { text-align: right !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.statusChip { display: inline-flex; white-space: nowrap; border-radius: 999px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
+.statusChip { display: inline-flex; align-items: center; white-space: normal; border-radius: 999px; padding: 2px 7px; font-size: 12px; font-weight: 700; }
+.statusAction { min-height: 26px !important; padding: 2px 8px !important; border-color: #e5a7a7 !important; background: #fff !important; color: #9b1c1c !important; text-align: left; }
 .statusMatched { background: #e8f5ee; color: #176039; }
 .statusAlias { background: #e8f0fe; color: #2457c5; }
 .statusIssue { background: #fde8e8; color: #9b1c1c; }
-.matchColumn { min-width: 360px; }
-.matchCell { min-width: 360px; }
-.matchSummary { display: flex; min-width: 0; align-items: center; gap: 7px; }
-.matchTarget { max-width: 220px; overflow: hidden; color: #172b4d; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.inlineNote { display: flex; min-width: 0; flex: 1 1 180px; align-items: center; gap: 6px; color: #526580; font-size: 12px; }
-.inlineNote span { white-space: nowrap; }
+.matchColumn { width: 28%; min-width: 250px; }
+.matchCell { width: 28%; min-width: 250px; }
+.matchSummary { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 4px 7px; }
+.matchTarget { flex: 1 0 100%; color: #172b4d; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; white-space: normal; }
+.matchActions { display: flex; min-width: 0; max-width: 100%; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 4px 7px; }
+.inlineNote { display: flex; min-width: 0; max-width: 100%; flex: 1 1 190px; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: #526580; font-size: 12px; }
+.inlineNote span { white-space: normal; }
 .inlineNote input {
-  width: 180px;
+  width: min(180px, 100%);
   min-height: 26px !important;
   padding: 3px 7px;
   border: 1px solid #ccd6e5;
@@ -202,7 +216,7 @@
 
 @media (max-width: 900px) {
   .countryGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .matchColumn, .matchCell { min-width: 330px; }
+  .matchColumn, .matchCell { min-width: 250px; }
 }
 @media (max-width: 600px) {
   .countryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

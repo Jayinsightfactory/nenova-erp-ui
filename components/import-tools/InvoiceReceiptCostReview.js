@@ -27,6 +27,8 @@ const EMPTY_FORM = Object.freeze({
   allocationShareNumerator: '',
   allocationShareDenominator: '',
   expected95Quantity: '',
+  costGroups: [],
+  lossTreatmentConfirmed: false,
   lineInputs: [],
 });
 
@@ -34,6 +36,59 @@ function numberOrNull(value) {
   if (value === '' || value === null || value === undefined) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : value;
+}
+
+const LINE_FIELD_LABELS = Object.freeze({ tariffRate: '관세율', otherCostPerUnitKRW: '기타비/단위', stemsPerBunch: '단당 송이', bunchesPerBox: '박스당 단수', grossWeightKg: '실중량 kg', volumeWeightKg: 'CBM 환산중량 kg' });
+const LEGACY_LINE_FIELDS = Object.freeze({
+  CN_SEA_ACTUAL_V1: ['tariffRate', 'otherCostPerUnitKRW'],
+  CN_AIR_WEIGHT_CBM_V1: ['tariffRate', 'otherCostPerUnitKRW', 'grossWeightKg', 'volumeWeightKg'],
+  NL_AMOUNT_V1: ['tariffRate', 'stemsPerBunch'],
+});
+function formulaLineFields(formula) {
+  return [...new Set(Array.isArray(formula?.lineInputFields) ? formula.lineInputFields : LEGACY_LINE_FIELDS[formula?.formulaId] || [])]
+    .filter(key => typeof key === 'string' && /^[a-z][a-zA-Z0-9]*$/.test(key) && key !== 'lineId');
+}
+function allLineFields() {
+  return [...new Set([...Object.keys(LINE_FIELD_LABELS), ...Object.values(INVOICE_COST_FORMULAS).flatMap(formulaLineFields)])];
+}
+const GROUP_FIELD_LABELS = Object.freeze({ quantity: '송이수 (STEM)', boxQuantity: '박스수', grossWeightKg: '실중량 kg', volumeWeightKg: '부피중량 kg' });
+const GROUP_LABELS = Object.freeze({ ROSE: '장미', CARNATION: '카네이션', ALSTROMERIA: '알스트로', RUSCUS: '루스커스', ANTHURIUM: '안스리움', OTHERS: '기타', LOOSE_BLOOMS: '루스블룸' });
+const DERIVED_GROUP_LINE_FIELDS = ['grossWeightKg', 'volumeWeightKg', 'allocationShare'];
+function groupLabel(groupId) { return GROUP_LABELS[groupId] || groupId; }
+function visibleLineFields(formula) {
+  return formulaLineFields(formula).filter(key => key !== 'groupId' && !(formulaGroupIds(formula).length && DERIVED_GROUP_LINE_FIELDS.includes(key)));
+}
+function formulaGroupIds(formula) {
+  return [...new Set(formula?.costGroupIds || formula?.groupIds || [])].filter(id => typeof id === 'string' && id.length > 0);
+}
+function formulaGroupFields(formula) {
+  return (formula?.costGroupFields || Object.keys(GROUP_FIELD_LABELS)).filter(key => Object.hasOwn(GROUP_FIELD_LABELS, key));
+}
+function formulaGroups(formula, saved = []) {
+  return formulaGroupIds(formula).map(groupId => ({ groupId, ...Object.fromEntries(Object.keys(GROUP_FIELD_LABELS).map(key => [key, saved.find(group => group.groupId === groupId)?.[key] ?? ''])) }));
+}
+function editedGroupForm(current, groupId, name, value) {
+  return { ...current, formulaApplicabilityConfirmed: false, lossTreatmentConfirmed: false,
+    costGroups: current.costGroups.map(group => group.groupId === groupId ? { ...group, [name]: value } : group) };
+}
+function editedForm(current, name, value) {
+  return { ...current, [name]: value, formulaApplicabilityConfirmed: name === 'formulaApplicabilityConfirmed' ? value === true : false,
+    lossTreatmentConfirmed: name === 'lossTreatmentConfirmed' ? value === true : name === 'formulaApplicabilityConfirmed' ? current.lossTreatmentConfirmed === true : false };
+}
+function switchedFormulaForm(current, formulaId) {
+  const formula = INVOICE_COST_FORMULAS[formulaId];
+  const fields = new Set(formulaLineFields(formula));
+  return { ...current, formulaId, formulaApplicabilityConfirmed: false,
+    lossTreatmentConfirmed: false, costGroups: formulaGroups(formula, current.formulaId === formulaId ? current.costGroups : []),
+    formulaVersion: formula?.formulaVersion || '', formulaSourceHash: formula?.formulaSourceHash || '',
+    formulaSourceSheet: formula?.formulaSourceSheet || '', formulaSourceCells: formula?.formulaSourceCells || '',
+    lineInputs: current.lineInputs.map(line => ({ lineId: line.lineId,
+      ...Object.fromEntries(allLineFields().map(key => [key, fields.has(key) ? line[key] ?? '' : ''])),
+      groupId: fields.has('groupId') && formulaGroupIds(formula).includes(line.groupId) ? line.groupId : '' })),
+  };
+}
+function formulaPriceBasis(formula) {
+  return ({ BOX: '박스', BUNCH: '단', STEM: '송이', AMOUNT: '상품금액' })[formula?.priceBasis] || formula?.priceBasis || '공식 근거 확인 필요';
 }
 
 function committedReceiptLines(document) {
@@ -79,8 +134,12 @@ function initialForm(document, receiptLines) {
       formulaSourceSheet: verifiedFormula.formulaSourceSheet,
       formulaSourceCells: verifiedFormula.formulaSourceCells,
     } : {}),
+    formulaApplicabilityConfirmed: false,
+    lossTreatmentConfirmed: false,
+    costGroups: formulaGroups(verifiedFormula, saved.costGroups),
     lineInputs: receiptLines.map(line => ({
       lineId: line.lineId,
+      ...Object.fromEntries(allLineFields().map(key => [key, savedLines.get(String(line.lineId).toLowerCase())?.[key] ?? ''])),
       tariffRate: savedLines.get(String(line.lineId).toLowerCase())?.tariffRate ?? '',
       otherCostPerUnitKRW: savedLines.get(String(line.lineId).toLowerCase())?.otherCostPerUnitKRW ?? '',
       stemsPerBunch: savedLines.get(String(line.lineId).toLowerCase())?.stemsPerBunch ?? '',
@@ -90,6 +149,7 @@ function initialForm(document, receiptLines) {
           && line.sourceEvidence?.grossWeightKg !== '' && Number.isFinite(Number(line.sourceEvidence?.grossWeightKg))
           && Number(line.sourceEvidence.grossWeightKg) >= 0 ? Number(line.sourceEvidence.grossWeightKg) : ''),
       volumeWeightKg: savedLines.get(String(line.lineId).toLowerCase())?.volumeWeightKg ?? '',
+      groupId: String(savedLines.get(String(line.lineId).toLowerCase())?.groupId ?? ''),
     })),
   };
 }
@@ -102,6 +162,13 @@ function documentCountry(document) {
   const value = String(document?.reviewedMetadata?.country || '').trim().toUpperCase();
   if (['CN', 'CHINA', '중국'].includes(value)) return 'CN';
   if (['NL', 'NETHERLANDS', 'HOLLAND', '네덜란드'].includes(value)) return 'NL';
+  if (['US', 'USA', '미국'].includes(value)) return 'US';
+  if (['VN', 'VIETNAM', '베트남'].includes(value)) return 'VN';
+  if (['AU', 'AUSTRALIA', '호주'].includes(value)) return 'AU';
+  if (['NZ', 'NEW ZEALAND', '뉴질랜드'].includes(value)) return 'NZ';
+  if (['EC', 'ECUADOR', '에콰도르'].includes(value)) return 'EC';
+  if (['CO', 'COLOMBIA', '콜롬비아'].includes(value)) return 'CO';
+  if (['TH', 'THAILAND', '태국'].includes(value)) return 'TH';
   return value;
 }
 
@@ -119,12 +186,13 @@ function currentCommittedWarehouseKey(document) {
 }
 
 function applicableFormulaId(document) {
-  const country = documentCountry(document);
-  const transport = documentTransport(document);
-  if (country === 'CN' && transport === 'SEA') return 'CN_SEA_ACTUAL_V1';
-  if (country === 'CN' && transport === 'AIR') return 'CN_AIR_WEIGHT_CBM_V1';
-  if (country === 'NL' && transport === 'AIR') return 'NL_AMOUNT_V1';
-  return '';
+  const choices = applicableFormulas(document);
+  return choices.length === 1 ? choices[0].formulaId : '';
+}
+function applicableFormulas(document) {
+  const country = documentCountry(document), transport = documentTransport(document);
+  return Object.values(INVOICE_COST_FORMULAS).filter(formula => formula.country === country && formula.transportMode === transport
+    && country && transport && formula.formulaId && formula.formulaSourceHash && formula.formulaVersion);
 }
 
 function pendingStorageKey(document) {
@@ -188,13 +256,19 @@ function payloadOf(form) {
     allocationShareNumerator: numberOrNull(form.allocationShareNumerator),
     allocationShareDenominator: numberOrNull(form.allocationShareDenominator),
     expected95Quantity: numberOrNull(form.expected95Quantity),
+    lossTreatmentConfirmed: form.lossTreatmentConfirmed === true,
+    costGroups: (form.costGroups || []).filter(group => Object.keys(GROUP_FIELD_LABELS).some(key => group[key] !== '' && group[key] !== null && group[key] !== undefined)).map(group => ({ groupId: String(group.groupId ?? ''),
+      ...Object.fromEntries(Object.keys(GROUP_FIELD_LABELS).map(key => [key, numberOrNull(group[key])])) })),
     lineInputs: form.lineInputs.map(line => ({
       lineId: line.lineId,
+      ...Object.fromEntries(allLineFields().map(key => [key, numberOrNull(line[key])])),
       tariffRate: numberOrNull(line.tariffRate),
       otherCostPerUnitKRW: numberOrNull(line.otherCostPerUnitKRW),
       stemsPerBunch: numberOrNull(line.stemsPerBunch),
       grossWeightKg: numberOrNull(line.grossWeightKg),
       volumeWeightKg: numberOrNull(line.volumeWeightKg),
+      groupId: String(line.groupId ?? ''),
+      ...(formulaGroupIds(INVOICE_COST_FORMULAS[form.formulaId]).length ? Object.fromEntries(DERIVED_GROUP_LINE_FIELDS.map(key => [key, null])) : {}),
     })),
   };
 }
@@ -342,7 +416,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     pristineRef.current = false;
     setInputEdited(true);
     invalidateApprovalStages();
-    setForm(current => ({ ...current, [name]: value }));
+    setForm(current => editedForm(current, name, value));
     setPreview(null);
   }
 
@@ -350,15 +424,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     pristineRef.current = false;
     setInputEdited(true);
     invalidateApprovalStages();
-    const formula = INVOICE_COST_FORMULAS[formulaId];
-    setForm(current => ({
-      ...current,
-      formulaId,
-      formulaVersion: formula?.formulaVersion || '',
-      formulaSourceHash: formula?.formulaSourceHash || '',
-      formulaSourceSheet: formula?.formulaSourceSheet || '',
-      formulaSourceCells: formula?.formulaSourceCells || '',
-    }));
+    setForm(current => switchedFormulaForm(current, formulaId));
     setPreview(null);
   }
 
@@ -368,8 +434,18 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     invalidateApprovalStages();
     setForm(current => ({
       ...current,
+      formulaApplicabilityConfirmed: false,
+      lossTreatmentConfirmed: false,
       lineInputs: current.lineInputs.map(line => line.lineId === lineId ? { ...line, [name]: value } : line),
     }));
+    setPreview(null);
+  }
+
+  function updateGroup(groupId, name, value) {
+    pristineRef.current = false;
+    setInputEdited(true);
+    invalidateApprovalStages();
+    setForm(current => editedGroupForm(current, groupId, name, value));
     setPreview(null);
   }
 
@@ -549,11 +625,14 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
   const lineResult = new Map((preview?.lines || []).map(line => [line.lineId, line]));
   const country = documentCountry(document);
-  const allowedFormulaIds = applicableFormulaId(document) ? [applicableFormulaId(document)] : [];
-  const allowedFormulas = allowedFormulaIds.map(id => INVOICE_COST_FORMULAS[id]);
+  const allowedFormulas = applicableFormulas(document);
+  const allowedFormulaIds = allowedFormulas.map(formula => formula.formulaId);
   const selectedFormula = INVOICE_COST_FORMULAS[form.formulaId];
   const isChinaAir = form.formulaId === 'CN_AIR_WEIGHT_CBM_V1';
-  const reviewOnly = allowedFormulaIds.length === 0 || (form.formulaId && (!selectedFormula || form.formulaId !== allowedFormulaIds[0]));
+  const lineFields = visibleLineFields(selectedFormula);
+  const groupIds = formulaGroupIds(selectedFormula);
+  const groupFields = formulaGroupFields(selectedFormula);
+  const reviewOnly = allowedFormulaIds.length === 0 || (form.formulaId && (!selectedFormula || !allowedFormulaIds.includes(form.formulaId)));
   const exportActual = verifiedExport?.identity === identity ? verifiedExport.actual : null;
   const exportEligibility = invoiceCostExportEligibility(document, exportActual);
   async function downloadCost() {
@@ -608,7 +687,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <Field label="환율 종류"><input value={form.exchangeRateType} onChange={event => update('exchangeRateType', event.target.value)} placeholder="매입/신고 등" /></Field>
       <Field label="환율 기준일"><input type="date" value={form.exchangeRateDate} onChange={event => update('exchangeRateDate', event.target.value)} /></Field>
       <Field label="운임 원금"><input type="number" step="0.000001" min="0" value={form.freightAmount} onChange={event => update('freightAmount', event.target.value)} /></Field>
-      <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" value={form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="NL·중국 항공 필수" /></Field>
+      <Field label="통관비 합계 (KRW)"><input type="number" step="0.000001" min="0" value={form.customsTotalKRW} onChange={event => update('customsTotalKRW', event.target.value)} placeholder="공식 기준 확인 · 누락은 0이 아님" /></Field>
       <Field label="비용 원천 식별값" wide><input value={form.costSourceId} onChange={event => update('costSourceId', event.target.value)} placeholder="공급자 + 전표번호 + 비용항목 + 통화" /></Field>
       <Field label="비용 배분 범위"><select value={form.allocationScope} onChange={event => update('allocationScope', event.target.value)}><option value="">범위를 선택하세요</option><option value="SINGLE_INVOICE">이 인보이스에만 배분</option><option value="SHARED">여러 인보이스 공동 비용 · 저장 불가</option></select></Field>
       <Field label="이 문서 배분 몫"><span className={styles.share}><input aria-label="배분 분자" type="number" step="0.000001" min="0" value={form.allocationShareNumerator} onChange={event => update('allocationShareNumerator', event.target.value)} /><b>/</b><input aria-label="배분 분모" type="number" step="0.000001" min="0.000001" value={form.allocationShareDenominator} onChange={event => update('allocationShareDenominator', event.target.value)} /></span></Field>
@@ -616,9 +695,32 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
       <Field label={`공식 적용일 (입고일 ${document.reviewedMetadata?.inputDate || '미확인'})`}><input type="date" value={form.formulaEffectiveDate} onChange={event => update('formulaEffectiveDate', event.target.value)} /></Field>
     </div>
 
-    {isChinaAir && <p role="status">현재 문서 GW: {document.reviewedMetadata?.gw ?? '미확인'} kg · CW: {document.reviewedMetadata?.cw ?? '미확인'} kg.
+    <p role="status">원문 가격 기준: {formulaPriceBasis(selectedFormula)} · 실제 원가 단위는 각 행의 ERP 단위입니다. 환산계수는 원문 근거로 직접 입력하세요.
+      공식 전환 시 새 공식에서 사용하지 않는 행 입력은 비우며, 적용 확인을 다시 해야 합니다.</p>
+    {selectedFormula?.freightIncluded === true && <p role="alert" className={styles.reviewOnly}>CNF 가격에 운임이 포함되어 있습니다. 중복 가산을 막기 위해 별도 운임 원금에 0을 직접 입력하고 운임 통화도 확인하세요.
+      기존 운임을 자동으로 0으로 바꾸지 않습니다. 다른 청구 비용은 해당 공식의 입력 근거를 확인하세요.</p>}
+    <p role="status">현재 문서 GW: {document.reviewedMetadata?.gw ?? '미확인'} kg · CW: {document.reviewedMetadata?.cw ?? '미확인'} kg.
+      중량 입력·확인은 문서 메타데이터 검토에서 수행하세요. 운임·환율·통관비와 단위 환산은 현재 자료로 직접 확인하며 누락값을 0으로 대신하지 않습니다.</p>
+    {isChinaAir && <p role="status">
       GW/CW가 없거나 잘못되면 문서 메타데이터 검토에서 수정하세요. GW≈CW(0.01kg)는 실중량, CW&gt;GW는 CBM 환산중량으로 운임을 배분하며 통관비는 항상 실중량으로 배분합니다.
       행별 CBM 환산중량은 kg입니다. 원시 m³나 임의 환산계수를 입력하지 마세요. 인식 GW는 미확정 힌트이며 현재 자료와 대조해야 합니다.</p>}
+    {groupIds.length > 0 && <>
+      <h4>포장 그룹 수동 확인</h4>
+      <p>송이수·박스수·중량은 원문 근거로 직접 입력하세요. 품목명으로 그룹을 추정하거나 자동 선택하지 않습니다. 사용하지 않는 그룹은 비워 두세요.</p>
+      {country === 'CO' && <p role="status">그룹 실중량 합계는 문서 GW, 그룹 부피중량 합계는 문서 CW와 각각 일치해야 합니다 (0.01 kg). 합계가 다르면 계산 승인할 수 없습니다.</p>}
+      {country === 'CO' && <p role="status">CO 운임은 문서 GW와 CW가 정확히 같을 때 실중량, CW가 더 클 때 부피중량으로 배분합니다. 중국 항공의 근사 일치 분기와 다릅니다. 통관비는 실중량 기준입니다.</p>}
+      <p>행별 실중량·CBM 환산중량·배분비율은 별도 필수 입력이 아닙니다. 그룹 내 실제 송이수 비율로 계산하므로 입력 칸을 숨기고 기존 선택적 행 배분값 대신 그룹 계산값을 사용합니다.</p>
+      {country === 'TH' && selectedFormula?.sourceCaveat && <p role="note">원본 첫 행의 단 환산 셀 P15는 손상되어 그대로 사용하지 않습니다. 검증된 N15 송이당 원가와 정상인 후속 행의 단 환산 근거로 정정 계산합니다. 검역 손실·소독비는 직접 확인한 현재 통관비 합계에 포함해야 합니다.</p>}
+      <div className={styles.tableRegion} role="region" aria-label="포장 그룹 원가 입력" tabIndex={0}>
+        <table className={styles.table}><thead><tr><th>고정 그룹</th>{groupFields.map(key => <th key={key}>{GROUP_FIELD_LABELS[key]}</th>)}</tr></thead>
+          <tbody>{groupIds.map(groupId => {
+            const group = form.costGroups?.find(item => item.groupId === groupId) || {};
+            return <tr key={groupId}><th scope="row">{groupLabel(groupId)}</th>{groupFields.map(key => <td key={key}><input aria-label={`${groupLabel(groupId)} ${GROUP_FIELD_LABELS[key]}`} type="number" min="0" step="0.000001" value={group[key] ?? ''} onChange={event => updateGroup(groupId, key, event.target.value)} /></td>)}</tr>;
+          })}</tbody></table>
+      </div>
+      {country === 'TH' && <label className={styles.confirmation}><input type="checkbox" checked={form.lossTreatmentConfirmed === true} onChange={event => update('lossTreatmentConfirmed', event.target.checked)} />
+        <span>검역 손실·소독비를 확인하고 현재 통관비 합계에 포함했습니다 (없으면 0 확인)</span></label>}
+    </>}
     <label className={styles.confirmation}><input type="checkbox" checked={form.formulaApplicabilityConfirmed === true}
       onChange={event => update('formulaApplicabilityConfirmed', event.target.checked)} />
       <span>이 입고일·운송·품목에 해당 원본 계산식 적용을 확인했습니다{isChinaAir ? ' · 현재 GW/CW와 행별 실중량·CBM 환산중량을 직접 검토했습니다' : ''}</span></label>
@@ -632,17 +734,14 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
     </details>
 
     <div className={styles.tableRegion} role="region" aria-label="행별 원가 입력과 결과" tabIndex={0}>
-      <table className={styles.table}><thead><tr><th>행</th><th>원문 품목</th><th>실제량</th><th>원문 금액/통화</th><th>관세율</th><th>기타비/단위</th><th>단당 송이</th>{isChinaAir && <><th>실중량 kg</th><th>CBM 환산중량 kg</th></>}<th>실제 원가</th></tr></thead>
+      <table className={styles.table}><thead><tr><th>행</th><th>원문 품목</th><th>실제량</th><th>원문 금액/통화</th>{groupIds.length > 0 && <th>포장 그룹</th>}{lineFields.map(key => <th key={key}>{LINE_FIELD_LABELS[key] || key}</th>)}<th>실제 원가</th></tr></thead>
         <tbody>{receiptLines.map((line, index) => {
           const lineInput = form.lineInputs.find(item => item.lineId === line.lineId) || {};
           const result = lineResult.get(String(line.lineId).toLowerCase());
           return <tr key={line.lineId || index}><td>{line.lineNo ?? index + 1}</td><td className={styles.productCell}><strong>{line.originalName || '품목명 없음'}</strong><small>{line.lengthText || ''}{line.prodKey ? `${line.lengthText ? ' · ' : ''}전산 품목 ${line.prodKey}` : ''}</small></td><td>{line.outQuantity ?? '—'} {line.outUnit || ''}</td><td>{line.lineAmount ?? '—'} {line.currency || '통화 없음'}</td>
-            <td><input aria-label={`${index + 1}행 관세율`} type="number" min="0" max="1" step="0.000001" value={lineInput.tariffRate ?? ''} onChange={event => updateLine(line.lineId, 'tariffRate', event.target.value)} /></td>
-            <td><input aria-label={`${index + 1}행 기타비`} type="number" min="0" step="0.000001" value={lineInput.otherCostPerUnitKRW ?? ''} onChange={event => updateLine(line.lineId, 'otherCostPerUnitKRW', event.target.value)} disabled={form.formulaId === 'NL_AMOUNT_V1'} /></td>
-            <td><input aria-label={`${index + 1}행 단당 송이`} type="number" min="0" step="0.000001" value={lineInput.stemsPerBunch ?? ''} onChange={event => updateLine(line.lineId, 'stemsPerBunch', event.target.value)} disabled={form.formulaId !== 'NL_AMOUNT_V1'} /></td>
-            {isChinaAir && <><td><input aria-label={`${index + 1}행 실중량 kg`} type="number" min="0" step="0.000001" value={lineInput.grossWeightKg ?? ''} onChange={event => updateLine(line.lineId, 'grossWeightKg', event.target.value)} />
-              {line.sourceEvidence?.grossWeightKg !== undefined && <small>인식 힌트: {line.sourceEvidence.grossWeightKg} kg · 직접 검토 필요</small>}</td>
-              <td><input aria-label={`${index + 1}행 CBM 환산중량 kg`} type="number" min="0" step="0.000001" value={lineInput.volumeWeightKg ?? ''} onChange={event => updateLine(line.lineId, 'volumeWeightKg', event.target.value)} /></td></>}
+            {groupIds.length > 0 && <td><select aria-label={`${index + 1}행 포장 그룹`} value={lineInput.groupId ?? ''} onChange={event => updateLine(line.lineId, 'groupId', event.target.value)}><option value="">그룹을 선택하세요</option>{groupIds.map(groupId => <option key={groupId} value={groupId}>{groupLabel(groupId)}</option>)}</select></td>}
+            {lineFields.map(key => <td key={key}><input aria-label={`${index + 1}행 ${LINE_FIELD_LABELS[key] || key}`} type="number" min="0" max={key === 'tariffRate' ? '1' : undefined} step="0.000001" value={lineInput[key] ?? ''} onChange={event => updateLine(line.lineId, key, event.target.value)} />
+              {key === 'grossWeightKg' && line.sourceEvidence?.grossWeightKg !== undefined && <small>인식 힌트: {line.sourceEvidence.grossWeightKg} kg · 직접 검토 필요</small>}</td>)}
             <td>{result ? result.quantity === 0
               ? <><strong>취소행</strong><small>단위원가 미산정 · 합계 {money(result.totalCostKRW)}</small></>
               : <><strong>{money(result.costPerUnitKRW)}</strong><small>{unitLabel(result.unit)} · 합계 {money(result.totalCostKRW)}</small></> : '—'}</td></tr>;
@@ -651,7 +750,7 @@ export default function InvoiceReceiptCostReview({ document, onSaved, autoProces
 
     <div className={styles.actions}>
       <button type="button" onClick={runPreview} disabled={busy}>입력값으로 미리보기</button>
-      <label><span>승인 사유</span><input value={reason} onChange={event => { pristineRef.current = false; setInputEdited(true); setReason(event.target.value); }} placeholder="검토 근거를 입력하세요" /></label>
+      <label><span>승인 사유</span><input value={reason} onChange={event => { pristineRef.current = false; setInputEdited(true); setReason(event.target.value); update('formulaApplicabilityConfirmed', false); }} placeholder="검토 근거를 입력하세요" /></label>
       <button type="button" className={styles.primary} onClick={save} disabled={busy || Boolean(pending) || preview?.status !== 'APPROVED' || !reason.trim()}>{busy ? '저장 중…' : '원가 승인 저장'}</button>
     </div>
     </fieldset>

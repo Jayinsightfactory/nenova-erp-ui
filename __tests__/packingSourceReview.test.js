@@ -3,6 +3,23 @@ const assert = require('node:assert/strict');
 
 const sourceModule = import('../lib/importPackingSourceReview.js');
 const reviewModule = import('../lib/importPackingReview.js');
+const chinaModule = import('../lib/importChinaPdfInvoice.js');
+const fixtureModule = import('./fixtures/chinaPdfFixture.js');
+const responseModule = import('../lib/importPackingResponse.js');
+
+async function localChinaInvoice({ allPriced = false } = {}) {
+  const { inspectChinaPdfInvoice } = await chinaModule;
+  const { makeChinaPdfFixture } = await fixtureModule;
+  const fixture = makeChinaPdfFixture();
+  if (allPriced) {
+    for (const item of fixture.pages[1].items.filter(item => item.str === '-')) item.str = '0.00';
+  }
+  const parsed = inspectChinaPdfInvoice(fixture);
+  assert.equal(parsed.reason, null);
+  const { parsePackingResponse } = await responseModule;
+  const normalized = parsePackingResponse({ content: [{ type: 'text', text: JSON.stringify(parsed.result) }] }, 'CN').result.invoices[0];
+  return { ...normalized, pdfSourceHash: 'd'.repeat(64), pdfReviewRequired: true };
+}
 
 function readyInvoice(overrides = {}) {
   return {
@@ -207,4 +224,105 @@ test('packing review applies source rows before metadata validation and keeps so
   assert.equal(result.packingReview.sourceReview.pdf.rendered, true);
   assert.equal(result.packingReview.sourceReview.sourceMetadata.date, '2025/04/17', 'source audit retains the original date separately from the product-row identity snapshot');
   assert.equal(assertPackingSourceReviewed(result, 'CO'), true, 'metadata date correction does not stale the confirmed product rows');
+});
+
+test('local CN binding marks positioned priced rows machine-verified and missing price manual', async () => {
+  const { bindPackingSourceReviewPolicy, getPackingSourceReviewRequirement, makePackingSourceReview } = await sourceModule;
+  const raw = await localChinaInvoice();
+  const invoice = bindPackingSourceReviewPolicy(raw, 'CN', { source: 'local' });
+  assert.equal(raw.sourceReviewPolicy, undefined);
+  assert.equal(invoice.sourceReviewPolicy.sourceHash, 'd'.repeat(64));
+  assert.deepEqual(invoice.products.map((_, index) => getPackingSourceReviewRequirement(invoice, 'CN', index).required), [false, false, true]);
+  assert.ok(getPackingSourceReviewRequirement(invoice, 'CN', 2).reasons.includes('PRICE_OR_AMOUNT_MISSING'));
+  const draft = makePackingSourceReview(invoice, 'CN');
+  assert.deepEqual(draft.rows.map(row => [row.reviewRequired, row.auditMethod, row.confirmed]), [
+    [false, 'MACHINE_VERIFIED', false], [false, 'MACHINE_VERIFIED', false], [true, 'MANUAL', false],
+  ]);
+  assert.equal(getPackingSourceReviewRequirement(raw, 'CN', 0).required, true, 'source format alone never grants proof');
+  assert.equal(bindPackingSourceReviewPolicy(raw, 'CN', { source: 'ai' }).sourceReviewPolicy, undefined);
+});
+
+test('local proof is bound to original hash, invoice identity, positioned quote and row snapshot', async () => {
+  const { bindPackingSourceReviewPolicy, getPackingSourceReviewRequirement } = await sourceModule;
+  const invoice = bindPackingSourceReviewPolicy(await localChinaInvoice(), 'CN', { source: 'local' });
+  const changed = [
+    { ...invoice, pdfSourceHash: 'e'.repeat(64) },
+    { ...invoice, invoice: 'DIFFERENT' },
+    { ...invoice, products: invoice.products.map((row, index) => index === 0 ? { ...row, pcs: 8 } : row) },
+    { ...invoice, products: invoice.products.map((row, index) => index === 0 ? { ...row, source_cells: { ...row.source_cells, pcs: { ...row.source_cells.pcs, quote: '8' } } } : row) },
+  ];
+  for (const candidate of changed) assert.equal(getPackingSourceReviewRequirement(candidate, 'CN', 0).required, true);
+  const warning = { ...invoice, products: invoice.products.map((row, index) => index === 0
+    ? { ...row, carton_number_audit: { numbered: 0, unlisted: 1, requires_review: true } } : row) };
+  assert.equal(getPackingSourceReviewRequirement(warning, 'CN', 0).required, true);
+  assert.equal(getPackingSourceReviewRequirement({ ...invoice, sourceReviewPolicy: { ...invoice.sourceReviewPolicy,
+    sourceSnapshotId: 'forged' } }, 'CN', 0).required, true);
+  assert.equal(getPackingSourceReviewRequirement({ ...invoice, sourceReviewPolicy: { ...invoice.sourceReviewPolicy,
+    sourceSnapshot: { ...invoice.sourceReviewPolicy.sourceSnapshot, invoice: 'forged' } } }, 'CN', 0).required, true);
+  const removedAudit = { ...invoice, products: invoice.products.map((row, index) => index === 0
+    ? { ...row, carton_number_audit: undefined } : row) };
+  assert.equal(getPackingSourceReviewRequirement(removedAudit, 'CN', 0).required, true);
+});
+
+test('caller-declared local source and copied or invented parser markers cannot grant machine verification', async () => {
+  const { bindPackingSourceReviewPolicy, getPackingSourceReviewRequirement } = await sourceModule;
+  const genuine = await localChinaInvoice();
+  const forged = { ...genuine, local_parser_proof: { kind: 'HUBFRESH_POSITIONED_V1', token: 'invented' } };
+  assert.equal(bindPackingSourceReviewPolicy(forged, 'CN', { source: 'local' }).sourceReviewPolicy, undefined);
+  const altered = { ...genuine, products: genuine.products.map((row, index) => index === 0
+    ? { ...row, carton_number_audit: undefined } : row) };
+  assert.equal(bindPackingSourceReviewPolicy(altered, 'CN', { source: 'local' }).sourceReviewPolicy, undefined,
+    'private parser proof also binds the unmodified carton audit');
+  assert.equal(getPackingSourceReviewRequirement(genuine, 'CN', 0).required, true,
+    'a failed proof cannot be replayed');
+  const ai = { ...readyInvoice({ source_format: 'china_invoice_pdf', pdfSourceHash: 'd'.repeat(64) }),
+    local_parser_proof: genuine.local_parser_proof };
+  assert.equal(bindPackingSourceReviewPolicy(ai, 'CN', { source: 'local' }).sourceReviewPolicy, undefined);
+});
+
+test('machine-only local rows apply without PDF render or human confirmation, and audit time is not human confirmation', async () => {
+  const { bindPackingSourceReviewPolicy, makePackingSourceReview, applyPackingSourceReview, assertPackingSourceReviewed } = await sourceModule;
+  const invoice = bindPackingSourceReviewPolicy(await localChinaInvoice({ allPriced: true }), 'CN', { source: 'local' });
+  const draft = makePackingSourceReview(invoice, 'CN');
+  assert.deepEqual(draft.rows.map(row => row.reviewRequired), [false, false, false]);
+  const applied = applyPackingSourceReview(invoice, draft, 'CN', '2026-10-13T00:00:00.000Z');
+  assert.equal(applied.packingReview.sourceReview.recordedAt, '2026-10-13T00:00:00.000Z');
+  assert.equal(applied.packingReview.sourceReview.confirmedAt, null);
+  assert.deepEqual(applied.packingReview.sourceReview.rows.map(row => [row.method, row.confirmed]), [
+    ['MACHINE_VERIFIED', false], ['MACHINE_VERIFIED', false], ['MACHINE_VERIFIED', false],
+  ]);
+  assert.equal(assertPackingSourceReviewed({ ...applied, extractionIssues: [] }, 'CN'), true,
+    'source audit remains valid after the separate metadata review clears its issues');
+});
+
+test('missing price or edited machine row requires an individual reason, render and confirmation', async () => {
+  const { bindPackingSourceReviewPolicy, getPackingSourceReviewRequirement, makePackingSourceReview, applyPackingSourceReview, assertPackingSourceReviewed } = await sourceModule;
+  const invoice = bindPackingSourceReviewPolicy(await localChinaInvoice(), 'CN', { source: 'local' });
+  const draft = makePackingSourceReview(invoice, 'CN');
+  draft.rows[2].values.u_price = 0;
+  draft.rows[2].values.t_price = 0;
+  assert.throws(() => applyPackingSourceReview(invoice, draft, 'CN'), /사유를 입력/);
+  draft.rows[2].reason = '원문 가격 재확인';
+  assert.throws(() => applyPackingSourceReview(invoice, draft, 'CN'), /개별 확인/);
+  draft.rows[2].confirmed = true;
+  assert.throws(() => applyPackingSourceReview(invoice, draft, 'CN'), /PDF 페이지 렌더/);
+  draft.pdf = { rendered: true, page: 2 };
+  const applied = applyPackingSourceReview(invoice, draft, 'CN', '2026-10-13T01:00:00.000Z');
+  assert.deepEqual(applied.packingReview.sourceReview.rows.map(row => row.method), ['MACHINE_VERIFIED', 'MACHINE_VERIFIED', 'MANUAL']);
+  assert.equal(applied.packingReview.sourceReview.confirmedAt, '2026-10-13T01:00:00.000Z');
+  assert.equal(getPackingSourceReviewRequirement(applied, 'CN', 0).required, false,
+    'a manually corrected neighbor must not erase the original proof for unchanged rows');
+  assert.equal(assertPackingSourceReviewed({ ...applied, extractionIssues: [] }, 'CN'), true);
+
+  const priced = bindPackingSourceReviewPolicy(await localChinaInvoice({ allPriced: true }), 'CN', { source: 'local' });
+  const edited = makePackingSourceReview(priced, 'CN');
+  edited.rows[0].values.description += ' corrected';
+  edited.rows[0].reason = '원문 표기 수정';
+  edited.pdf = { rendered: true, page: 1 };
+  assert.throws(() => applyPackingSourceReview(priced, edited, 'CN'), /개별 확인/);
+
+  const formatted = makePackingSourceReview(priced, 'CN');
+  formatted.rows[0].values.u_price = String(formatted.rows[0].values.u_price) + '.0';
+  assert.throws(() => applyPackingSourceReview(priced, formatted, 'CN'), /사유를 입력/,
+    'even a display-only edit cannot be recorded as machine verification');
 });

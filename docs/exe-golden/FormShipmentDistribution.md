@@ -464,3 +464,15 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 - 같은 세션의 위 dnSpy/native SQL 및 운영 read-only probe를 근거로, 이미 수신한 원문/SQL 비교를 인증 사용자·연도·전체 차수별 브라우저 IndexedDB에 보존한다. 공유 SQL, Join, 단위 환산, 판정과 저장 순서는 변경하지 않는다.
 - 메뉴 재진입은 마지막 조회 시각의 표시를 복원한다. 최신 이력은 명시 새로고침 또는 실제 새 작업 이후에 갱신하며, 복원 시점의 현재값인 것처럼 표시하지 않는다. 저장된 분석/조회 자료는 기존 ERP 저장 전 실시간 검증을 대체하지 않는다.
 - 원문 조회/복원/명시 새로고침 모두 ERP 원장·견적·매출·재고·수동확인 원장 보존이다. 자동 대조에서 정확한 SQL 일치 55건이 전산확인된 직전 운영 결과를 보존 대상으로 사용한다.
+
+## 2026-10-13 붙여넣기 분배 교착 복구
+
+- 설치 `C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe`의 FormShipmentDistribution을 로컬 dnSpy CLI로 재실행했다. GetShipmentMaster / btnSave_Click 및 ShipmentDate 연결을 확인했다. 기존 Master/Detail/Date/Farm 저장 의미와 단위·연도·확정·견적 정책은 변경하지 않는다.
+- 운영 감사 LogKey11368(2026-10-13 11:26:03): 2026/41-02, CustKey611/ProdKey1306 CANCEL10 및 CustKey456/ProdKey1306 ADD10의 atomic batch가 SQL1205 victim으로 중단됐다. 실제 deadlock graph가 없어 상대 SQL 문장은 확정하지 않는다.
+- 변경 전 읽기 전용 item-trace: 동일 품목456 주문10/출고10/날짜10,611 주문10/출고상세 없음, 전년도2025/41-02 대응행 없음. 오류 시점 이후 상태일 수 있으므로 중단 배치를 재실행하지 않았다. ViewOrder 양쪽 노출;456 ViewShipment 노출, MasterFix0. 견적 진단은 GetDetail0/DetailSplit1/PeriodExact1로 기존 상태를 기록했다. 견적 노출 정정은 이번 범위가 아니다.
+- 공유 조정 코어의 첫 ERP/lease 잠금 전에 transaction-owned applock을 획득한다. CANCEL 전체→ADD 전체 및 native 저장 순서를 바꾸지 않고 조정 요청을 직렬화한다. EXE 등 비참여 writer와 SQL1205 발생 시 확인된 abort만 전체 transaction 재시도한다. commit 응답 불명은 재실행하지 않는다.
+- Estimate, WebProfitReport, Amount/Vat/isFix 및 재고 SP에 새 쓰기를 추가하지 않는다. 기존 조정의 부작용만 유지한다. 실제 SQL fixture에서 역순 writer, 자동1205 retry, rollbackOnly, 실패 rollback 및 전년도 sentinel 보존을 검증한다.
+
+## 2026-10-13 알스트로 추가/취소 실패 행 구분
+
+설치 EXE FormShipmentDistribution GetShipmentMaster/btnSave_Click/ShipmentDate를 dnSpy CLI로 다시 확인했다. 이번 수정은 웹 오류 문자열만 보완하며 native 저장순서·수량·View 조인과 모든 원장을 보존한다. 운영2026/41-02 수경원예436 Mila2429의 주문/분배/날짜16단과 왕자원예478의32단이 존재한다. Mlla90은 해당차수 조회0행이다. Log11425는 취소2429 이후 추가90의 가용재고 검사에서 실패했고, CANCEL 재고차단이 아니다. 전년도2025/41-02는 대응행0개. 두 대상업체 ViewOrder/ViewShipment 노출, MasterFix0, 견적 GetDetail0/DetailSplit1/PeriodExact1의 기존 진단을 기록하고 보정하지 않는다. 저장매칭은 manual2429로 유지돼 있다. UI는 실패 항목의 추가/취소·업체·별칭·전산품목키·연도차수를 표시하고, 유사품목 자동치환·force 우회·운영 재실행을 하지 않는다.

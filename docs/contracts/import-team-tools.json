@@ -4,6 +4,7 @@
   "scope": [
     "__tests__/importPackingAustraliaQuantity.test.js",
     "lib/importPackingErpMatches.js",
+    "lib/productSearchRanking.js",
     "pages/api/import/tools/product-matches.js",
     "components/import-tools/PackingProductMatchDialog.js",
     "styles/PackingProductMatch.module.css",
@@ -15,9 +16,12 @@
     "lib/importTeamPdf.js",
     "lib/importTeamPdfQuota.js",
     "lib/importTeamPdfCache.js",
+    "lib/importTeamPdfJobs.js",
     "lib/importPackingExtractClient.js",
     "lib/importInvoiceLocal.js",
     "lib/importChinaInvoice.js",
+    "lib/importChinaInvoiceFormat.js",
+    "lib/importChinaPdfInvoice.js",
     "lib/importAwbFields.js",
     "lib/importTeamChecklist.js",
     "lib/importTeamKorean.js",
@@ -25,6 +29,7 @@
     "styles/ImportTools.module.css",
     "styles/ImportPacking.module.css",
     "lib/importPacking.js",
+    "lib/importPackingMatchPreview.js",
     "lib/importPackingPrompt.js",
     "lib/importPackingReview.js",
     "lib/importPackingPdfPreview.js",
@@ -57,6 +62,20 @@
     "authenticatedUserId"
   ],
   "actions": [
+    {
+      "name": "ANALYZE_CHINA_TEXT_PDF_LOCAL",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "none; browser PDF.js text coordinates, strict Hubfresh layout and independent totals; preserve unknown prices as null and require existing source review; no AI/network/ERP write"
+    },
+    {
+      "name": "ANALYZE_PDF_ASYNC",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "stock": "preserve",
+      "runtimeFile": "authenticated user-isolated job/result/cache/quota only; sync and async share fenced admission; polling GET never initiates AI; uncertain dispatch requires explicit retry identity and extra-cost confirmation; one provider call bounded to ten minutes; no PDF persistence and no ERP writes"
+    },
     {
       "name": "MATCH_ERP_PRODUCT",
       "orderDetail": "preserve",
@@ -97,6 +116,9 @@
     "description": "Checklist YYYY-MM-DD/month/year keys isolate 2025 and 2026; file conversion requires explicit year/week; no SQL master queries."
   },
   "requiredTestFiles": [
+    "__tests__/importPackingMatchPreview.test.js",
+    "__tests__/importChinaPdfInvoice.test.js",
+    "__tests__/importChinaPdfFlow.test.js",
     "__tests__/importPackingAustraliaQuantity.test.js",
     "__tests__/packingProductMatchDialog.test.js",
     "__tests__/importPackingErpMatches.test.js",
@@ -111,6 +133,9 @@
     "__tests__/importPedidos.test.js",
     "__tests__/importTeamClient.test.js",
     "__tests__/importTeamPdfCache.test.js",
+    "__tests__/importTeamPdfJobs.test.js",
+    "__tests__/parsePdfJobsApi.test.js",
+    "__tests__/packingSimilarRanking.test.js",
     "__tests__/importPackingExtractClient.test.js",
     "__tests__/importAwbFields.test.js",
     "__tests__/importInvoiceLocal.test.js",

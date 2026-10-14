@@ -1,5 +1,30 @@
 # FormEstimateView — exe golden (dnSpy)
 
+## 2026-10-13 카톡 자동 불량 원천의 등록 격리
+
+메인이 실제 설치 EXE에 아래 CLI를 실행해 ClassEstimate.Insert/Update/Delete를 재확인했다.
+
+```powershell
+& 'C:\Users\USER\Desktop\백업\다운로드\dnSpy-net-win32\dnSpy.Console.exe' --no-color -t ClassEstimate 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
+```
+
+Insert는 EstimateType/EstimateDtm/ProdKey/Unit/Quantity/Cost/Amount/Vat/Descr/ShipmentKey,
+Update는 EstimateKey로 동일 금액·품목 필드를 변경한다. 주문·ShipmentDetail·ShipmentDate·Stock 쓰기는 없다.
+카톡 자동 초안/이월 결합은 웹에만 있는 기능이므로 이번 차단은 EXE 저장 공식 변경이 아니라 웹 등록 후보 보호다.
+
+운영 SELECT 전수(2026-10-13): 원장881/이력2721건에서 현재 또는 과거 원천 표식이 있는135건,
+실제 Estimate가 남은91건(29업체)을 검토 후보로 추출했다. 그중41차78건,38~40차13건이다.
+등록 당시 수입확인 false65/true26건으로 확인 여부만으로 자동자료 혼입을 막을 수 없다.
+생성 감사 계정, 원장 담당자 귀속, 실제 REGISTER_ESTIMATE 계정·시각은 각각 별도로 보존한다.
+EstimateDtm은 업무일자이므로 실제 등록시각으로 해석하지 않는다.
+이 목록은 오류 확정 목록이 아니며 운영 보정·삭제는 수행하지 않았다. 로컬 비공개 감사 파일은 커밋하지 않는다.
+
+|동작|Estimate|웹 원장/이력|주문·출고·재고·손익|
+|---|---|---|---|
+|원천/등록 감사|SELECT|SELECT|보존|
+|자동자료 일반등록 거부|보존|보존|보존|
+|정상 수동등록|기존 계약 유지|기존 계약 유지|보존|
+
 ## 2026-10-07 이전 차수 실제 등록 안내
 
 실제 설치 EXE를 dnSpy CLI로 ClassEstimate와 FormEstimateView 재확인했다. ClassEstimate는 Estimate PK로 Insert/Update/Delete하고, FormEstimateView는 선택 OrderYearWeek의 견적을 읽는다. 현재40차를 열면 과거38차 Estimate가 없는 것은 정상이다.
@@ -448,3 +473,16 @@ EXE 호환 조회의 `ViewShipment`와 `ViewOrder` 결합에서 같은 업무키
   주광은 동일 범위의 이 값을 별도 읽어 인쇄 순수량/금액과 대조한다. 날짜별 반올림과
   단가별 반올림의 차이, 조회 실패 또는 단위 불명은 일치로 덮지 않는다.
 - 이 대조는 SELECT-only이며 Estimate/ShipmentDate/분배 확정·재고에 쓰지 않는다.
+
+## 2026-10-13 차감 동일행 저장 방지 근거
+
+- 로컬 dnSpy.Console.exe `-t ClassEstimate`로 설치된 `Nenova.exe`를 다시 읽었다.
+  Insert/Update/Delete는 Estimate만 변경하며 출고·재고 재계산 호출이 없다.
+- 운영 읽기 검사에서 CodeInfo EstimateType 24개를 확인했다. 10051은 불량차감/단,
+  10298은 단가차감/단으로, 같은 -20단과 단가 10,000원만으로 중복을 판정하면 안 된다.
+- Estimate의 INSERT/UPDATE 적요 정리 트리거와 `fn_SanitizeEstimateDescr` 사용 조건을
+  확인했다. 쓰기 전 중복 비교는 실제 저장되는 적요를 기준으로 한다.
+- 웹 직접 생성/수정과 영업지원 등록의 공통 트랜잭션 잠금은 EXE 필드·금액 계산식을
+  바꾸지 않는다. EXE 외부 쓰기의 멱등성을 보장하는 DB 제약은 추가하지 않았다.
+- 원본 운영 증거는 비공개 outputs에 보관한다. 진화원은 보정에서 제외하며,
+  재검사 결과 확정 중복 0건으로 이 변경에 운영 DELETE는 포함하지 않는다.

@@ -2,11 +2,15 @@
 //
 // nenova.exe ClassEstimate.Update와 동일하게 Estimate 한 행만 갱신한다.
 // Order/Shipment/ShipmentDate/재고 원장은 이 경로에서 변경하지 않는다.
-import { withTransaction, sql } from '../../../lib/db';
+import { query, withTransaction, sql } from '../../../lib/db';
 import { withAuth } from '../../../lib/auth';
 import { assertErpWriteScope, requireErpWriteScope } from '../../../lib/erpWriteScope.js';
 import { amountVatFromCostEst } from '../../../lib/distributeUnits.js';
 import { assertErpEditGuard, advanceErpEditGuard } from '../../../lib/erpEditPresence.js';
+import {
+  acquireEstimateDuplicateWriteLock,
+  assertNoDuplicateEstimateWrite,
+} from '../../../lib/estimateDuplicateWriteGuard.js';
 
 function parseDate(value) {
   if (!value) return null;
@@ -72,7 +76,41 @@ export default withAuth(async function handler(req, res) {
   }
 
   try {
+    // 기존 UI 요청에는 orderWeek가 없으므로 잠금 없는 PK preflight로 실제 부모차수를
+    // 얻는다. 트랜잭션에서는 이 scope가 그대로인지 잠금 재조회로 다시 확인한다.
+    const preflight = await query(
+      `SELECT e.EstimateKey,e.ShipmentKey,ISNULL(e.Quantity,0) AS Quantity,
+              sm.OrderYear,sm.OrderWeek,sm.CustKey
+         FROM Estimate e
+         JOIN ShipmentMaster sm ON sm.ShipmentKey=e.ShipmentKey
+        WHERE e.EstimateKey=@ek
+          AND (@sk IS NULL OR e.ShipmentKey=@sk)
+          AND ISNULL(sm.isDeleted,0)=0`,
+      {
+        ek: { type: sql.Int, value: estimateKey },
+        sk: { type: sql.Int, value: shipmentKey },
+      },
+    );
+    const preflightRow = preflight.recordset?.[0];
+    if (!preflightRow) throw new Error(`EstimateKey=${estimateKey} 견적 행을 찾을 수 없습니다.`);
+    assertErpWriteScope(preflightRow, writeScope, `EstimateKey=${estimateKey}`);
+    const requestedParentWeek = String(preflightRow.OrderWeek || '').split('-')[0];
+    if (!/^\d{1,2}$/.test(requestedParentWeek)) {
+      const error = new Error('견적 행의 실제 차수를 확인할 수 없습니다. 다시 조회하세요.');
+      error.code = 'ERP_SCOPE_MISMATCH';
+      throw error;
+    }
+    const preflightIsNegative = Number(preflightRow.Quantity) < 0;
+
     const result = await withTransaction(async (tQ) => {
+      if (preflightIsNegative) {
+        await acquireEstimateDuplicateWriteLock(tQ, {
+          year: writeScope.orderYear,
+          parentWeek: requestedParentWeek,
+          custKey: writeScope.custKey,
+          prodKey,
+        });
+      }
       const current = await tQ(
         `SELECT e.EstimateKey, e.ShipmentKey, e.EstimateType, e.ProdKey, e.Unit,
                 ISNULL(e.Quantity,0) AS Quantity, ISNULL(e.Cost,0) AS Cost,
@@ -92,6 +130,14 @@ export default withAuth(async function handler(req, res) {
       const row = current.recordset?.[0];
       if (!row) throw new Error(`EstimateKey=${estimateKey} 견적 행을 찾을 수 없습니다.`);
       assertErpWriteScope(row, writeScope, `EstimateKey=${estimateKey}`);
+      if (Number(row.ShipmentKey) !== Number(preflightRow.ShipmentKey)
+        || String(row.OrderWeek || '') !== String(preflightRow.OrderWeek || '')
+        || Number(String(row.OrderWeek || '').split('-')[0]) !== Number(requestedParentWeek)
+        || (Number(row.Quantity) < 0) !== preflightIsNegative) {
+        const error = new Error('견적 행의 실제 차수가 요청 범위와 다릅니다. 다시 조회하세요.');
+        error.code = 'STALE_DATA';
+        throw error;
+      }
       await assertErpEditGuard(tQ, { ...writeScope, orderWeek: row.OrderWeek }, req.user, body);
 
       const oldQuantity = Number(row.Quantity || 0);
@@ -139,6 +185,25 @@ export default withAuth(async function handler(req, res) {
         : String(row.Descr || '');
       const dt = inputDate || row.EstimateDtm || new Date();
 
+      if (signedQuantity < 0) {
+        await assertNoDuplicateEstimateWrite(tQ, {
+          year: row.OrderYear,
+          parentWeek: requestedParentWeek,
+          fullWeek: row.OrderWeek,
+          custKey: row.CustKey,
+          prodKey,
+          shipmentKey: row.ShipmentKey,
+          estimateType: row.EstimateType,
+          unit,
+          quantity: signedQuantity,
+          cost,
+          estimateDate: dt,
+          descr,
+          excludeEstimateKey: estimateKey,
+          lockAlreadyHeld: true,
+        });
+      }
+
       // Estimate는 운영 트리거가 있을 수 있으므로 OUTPUT을 사용하지 않는다.
       await tQ(
         `UPDATE Estimate
@@ -176,6 +241,7 @@ export default withAuth(async function handler(req, res) {
       code: error.code,
       error: error.message,
       lease: error.lease || null,
+      conflictEstimateKey: error.conflictEstimateKey || null,
     });
   }
 });
