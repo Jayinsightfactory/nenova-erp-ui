@@ -1,0 +1,57 @@
+name: Export Confirmed Drive Invoice Pairs
+
+# 수동 실행 전용 — data/drive/pairs.json 의 status=confirmed 쌍에 해당하는 인보이스 PDF·결과 엑셀만 tar 로 묶어
+# Actions artifact(7일 보존)로 올린다. 골든테스트(nenova-work-features/invoice/golden.py) 입력용.
+# 다른 드라이브 파일은 포함하지 않는다. 읽기 전용(MSSQL 무관). gh workflow run drive-pairs-export.yml
+on:
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pack confirmed pairs on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 172.233.89.171
+          username: root
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          command_timeout: 10m
+          script: |
+            set -e
+            cd /var/www/nenova-erp
+            rm -rf /tmp/pairs-export && mkdir -p /tmp/pairs-export
+            node -e '
+              const fs=require("fs"),path=require("path");
+              const root="data/drive";
+              const doc=JSON.parse(fs.readFileSync(root+"/pairs.json","utf8"));
+              const byId=new Map();
+              for(const l of fs.readFileSync(root+"/index.jsonl","utf8").split("\n")){try{const r=JSON.parse(l);if(r&&r.id)byId.set(r.id,r)}catch{}}
+              const conf=doc.pairs.filter(p=>p.status==="confirmed");
+              const rels=new Set(),pairs=[];
+              for(const p of conf){
+                const a=byId.get(p.invoice.id),b=byId.get(p.workbook.id);
+                if(!a||!b||!a.rel||!b.rel)continue;
+                for(const r of [a.rel,b.rel]){const abs=path.resolve(root,r);if(!abs.startsWith(path.resolve(root)))throw new Error("bad rel "+r);rels.add(r)}
+                pairs.push({...p,invoiceRel:a.rel,workbookRel:b.rel});
+              }
+              fs.writeFileSync("/tmp/pairs-export/rels.txt",[...rels].join("\n")+"\n");
+              fs.writeFileSync("/tmp/pairs-export/confirmed-pairs.json",JSON.stringify({generatedAt:doc.generatedAt,count:pairs.length,pairs},null,1));
+              console.log("confirmed",conf.length,"exported",pairs.length,"files",rels.size);
+            '
+            tar -czf /tmp/pairs-export.tgz -C data/drive -T /tmp/pairs-export/rels.txt -C /tmp/pairs-export confirmed-pairs.json
+            ls -la /tmp/pairs-export.tgz
+      - name: Fetch archive
+        env:
+          SSHPASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          sudo apt-get install -y -qq sshpass >/dev/null
+          sshpass -e scp -o StrictHostKeyChecking=no root@172.233.89.171:/tmp/pairs-export.tgz .
+          sshpass -e ssh -o StrictHostKeyChecking=no root@172.233.89.171 'rm -rf /tmp/pairs-export /tmp/pairs-export.tgz'
+          ls -la pairs-export.tgz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drive-confirmed-pairs
+          path: pairs-export.tgz
+          retention-days: 7
