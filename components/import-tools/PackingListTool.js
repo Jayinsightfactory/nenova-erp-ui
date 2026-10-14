@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import PackingResults from './PackingResults.js';
 import PackingEvidenceReview from './PackingEvidenceReview.js';
 import PackingProductMatchDialog from './PackingProductMatchDialog.js';
+import PackingMatchManager from './PackingMatchManager.js';
 import ChinaLegacyReview from './ChinaLegacyReview.js';
 import { findLegacyChinaInvoiceCandidates, parseChinaLegacyInvoiceWorkbook } from '../../lib/importChinaLegacyInvoice.js';
 import { resolveLegacyChinaInvoice } from '../../lib/importChinaLegacyReview.js';
@@ -1428,7 +1429,11 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       setErpMatches(data);setAliases(records.aliases);
       refreshPreviewForMappings({ nextAliases: records.aliases, nextErp: data });
       setLatestShared(false);
-      setMatchTarget(target=>target?{...target,expectedRevision:data.revision,requiresReload:false}:target);
+      if (matchTarget?.origin === 'manager') {
+        const entry = data.value?.entries?.find(e => e.country === matchTarget.country && e.sourceKey === packingSourceKey(matchTarget.description));
+        if (!entry) { setMatchTarget(target => target ? {...target, requiresReload:true} : target); throw new Error('저장된 연결이 더 이상 없습니다. 창을 닫고 매칭 목록을 다시 확인하세요.'); }
+        setMatchTarget(target => target ? {...target, currentName:entry.prodName, expectedRevision:data.revision, requiresReload:false} : target);
+      } else setMatchTarget(target=>target?{...target,expectedRevision:data.revision,requiresReload:false}:target);
     }
     catch(error){if(scope===sharedScopeVersion.current){setMatchError(error.message);setStatus({type:'error',msg:error.message});}}
     finally{savingRef.current=false;setSaving(false);}
@@ -1448,17 +1453,18 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
     finally{savingRef.current=false;setSaving(false);}
   };
   const saveErpMatch=async prodKey=>{
-    if(savingRef.current||processingRef.current||!matchTarget||matchTarget.requiresReload||!erpMatches||!lastExtraction)return;
+    if(savingRef.current||processingRef.current||!matchTarget||matchTarget.requiresReload||!erpMatches||(!lastExtraction&&matchTarget.origin!=='manager'))return;
     const scope=sharedScopeVersion.current;
     savingRef.current=true;setSaving(true);setMatchError('');
     ++erpReadSequence.current;
     try {
-      const data=await requestErpMatches({country,description:matchTarget.description,prodKey,expectedRevision:matchTarget.expectedRevision});
+      const data=await requestErpMatches({country:matchTarget.country ?? country,description:matchTarget.description,prodKey,expectedRevision:matchTarget.expectedRevision});
       if(scope!==sharedScopeVersion.current)return;
       setErpMatches(data);
       refreshPreviewForMappings({ nextErp: data });
       setMatchTarget(null);
       setLatestShared(false);
+      if (matchTarget.origin === 'manager') setStatus({type:'success',msg:'팀 공용 DB 매칭을 수정했습니다. 다음 업로드와 현재 매칭표에 적용되며, 이미 저장된 입고 문서는 변경하지 않습니다.'});
     } catch(error) {
       if(scope===sharedScopeVersion.current){
         setMatchError(error.message);
@@ -1470,6 +1476,22 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
       }
     }
     finally {savingRef.current=false;setSaving(false);}
+  };
+
+  const openSavedErpMatch=async entry=>{
+    if(savingRef.current||processingRef.current||!sharedReady||catalogParsing||restoringWork)return;
+    const scope=sharedScopeVersion.current,version=readerVersion.current,sequence=++erpReadSequence.current;
+    savingRef.current=true;setSaving(true);setMatchError('');
+    try {
+      const data=await requestErpMatches();
+      if(scope!==sharedScopeVersion.current||version!==readerVersion.current||sequence!==erpReadSequence.current)return;
+      setErpMatches(data);
+      if(data.revision!==erpMatches?.revision)setLatestShared(true);
+      const current=data.value?.entries?.find(e=>e.country===entry.country&&e.sourceKey===entry.sourceKey);
+      if(!current)throw new Error('저장된 연결이 더 이상 없습니다. 최신 목록을 확인하세요.');
+      setMatchTarget({origin:'manager',country:current.country,description:current.description,currentName:current.prodName,expectedRevision:data.revision});
+    } catch(error){if(scope===sharedScopeVersion.current){setMatchError(error.message);setStatus({type:'error',msg:error.message});}}
+    finally{savingRef.current=false;setSaving(false);}
   };
 
   const clearAliases = () => runSharedWrite(async () => {
@@ -1707,7 +1729,7 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
 
   return (
     <div ref={toolRoot} className={styles.root} lang={lang} style={{ fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', background: 'transparent', padding: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', color: '#172b4d' }}>
-      {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={country} products={erpMatches?.products??[]} matchEntries={erpMatches?.value?.entries??[]}
+      {matchTarget&&<PackingProductMatchDialog target={matchTarget} country={matchTarget.country ?? country} products={erpMatches?.products??[]} matchEntries={erpMatches?.value?.entries??[]}
         onSave={saveErpMatch} onClose={()=>setMatchTarget(null)} onReload={reloadErpMatches} saving={saving} error={matchError}/>}
       {reviewRows && <PackingEvidenceReview key={reviewRevision} rows={reviewRows} open={reviewOpen} onClose={closeReview} onConfirm={confirmReview}
         matchedInvoices={excels.length ? excels : matchPreview} initialTarget={reviewInitialTarget}
@@ -1753,6 +1775,8 @@ export default function PackingListTool({ storage, readAwbPdf = readLocalAwbPdf,
         </div>
         {latestShared&&<div role="status">팀 공용 매칭이 변경되었습니다. 현재 추출·검토·중량·단가와 입고 초안은 유지됩니다. 다운로드와 새 입고 연결 전 최신 매칭을 적용하세요. <button type="button" disabled={saving||processing} onClick={reloadErpMatches}>최신 팀 매칭 적용</button></div>}
         {erpMatches&&<p style={{margin:'0 0 10px',fontSize:14,color:'#174a36'}}><strong>전산 DB 품목 {erpMatches.products.length.toLocaleString()}개</strong> · 저장된 전산 매칭 {erpMatches.value?.entries?.length??0}개 · 결과 품목을 눌러 검색·매칭하세요.</p>}
+        {erpMatches&&<PackingMatchManager entries={erpMatches.value?.entries??[]} products={erpMatches.products}
+          disabled={saving||processing||restoringWork||catalogLoading||catalogParsing||!sharedReady||Boolean(matchTarget)} onEdit={openSavedErpMatch} onReload={reloadErpMatches}/>}
         <details style={{marginBottom:12}}><summary style={{cursor:'pointer',fontSize:13}}>기존 업로드 카탈로그 관리 (참고 보관용 · 현재 매칭은 전산 DB 기준)</summary>
         {/* Legacy catalog retained without overriding ERP matching. */}
         <div style={{
