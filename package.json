@@ -68,7 +68,7 @@
     "migrate:profit-report-evidence": "node scripts/apply-profit-report-evidence-migrations.mjs",
     "migrate:erp-edit-presence": "node scripts/apply-erp-edit-presence-migration.mjs",
     "migrate:shipment-import-snapshot": "node scripts/apply-shipment-import-snapshot-migration.mjs",
-    "test:moyi-drive-admin": "node __tests__/moyiDriveAdmin.test.js && node __tests__/moyiDriveViewModel.test.js && node __tests__/moyiDriveLayoutContract.test.js",
+    "test:moyi-drive-admin": "node __tests__/workDrivePairs.test.js && node __tests__/moyiDriveAdmin.test.js && node __tests__/moyiDriveViewModel.test.js && node __tests__/moyiDriveLayoutContract.test.js",
     "test:shinhan-bank": "node __tests__/shinhanBankSync.test.js",
     "test:ui-layout": "node __tests__/workDriveCategories.test.cjs && node __tests__/unifiedUi.test.cjs && node scripts/check-ui-layout-contract.mjs && node __tests__/menuNavigationHistory.test.js && node __tests__/contextualMenuBack.test.js && node __tests__/sidebarMenuFavorites.test.js && node __tests__/nenovaSs3AdminAccess.test.js",
     "sync:orbit-manuals": "node scripts/sync-orbit-manuals.js",

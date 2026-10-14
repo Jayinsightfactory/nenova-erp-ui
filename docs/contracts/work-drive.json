@@ -7,7 +7,10 @@
     "pages/api/work/drive-ingest.js",
     "lib/workDrive.js",
     "components/Layout.js",
-    "pages/api/work/drive-egress.js"
+    "pages/api/work/drive-egress.js",
+    "pages/api/work/drive-pairs.js",
+    "lib/workDrivePairs.js",
+    "scripts/work-drive-pairs-recompute.mjs"
   ],
   "businessIdentity": [
     "OrderYear",
@@ -35,6 +38,11 @@
       "name": "DRIVE_DOWNLOAD_LOGGED",
       "orderDetail": "preserve",
       "shipmentDetail": "preserve"
+    },
+    {
+      "name": "DRIVE_INVOICE_RESULT_PAIRS_FILE_ONLY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
     }
   ],
   "crossYearFixture": {
@@ -43,6 +51,7 @@
   },
   "requiredTestFiles": [
     "__tests__/workDrive.test.js",
+    "__tests__/workDrivePairs.test.js",
     "__tests__/erpContractManifest.test.js"
   ],
   "dnspyEvidence": {
@@ -52,7 +61,8 @@
     "methods": [
       "ORBIT_DRIVE_INGEST_TOKEN timing-safe compare (pages/api/work/drive-ingest.js)",
       "NenovaWeb JWT userName→부서 접근 규칙 (lib/workDrive.canView/canDownload)",
-      "File-only persistence under data/drive (no SQL)"
+      "File-only persistence under data/drive (no SQL)",
+      "Invoice PDF ↔ result workbook pairing from data/drive/index.jsonl → data/drive/pairs.json (lib/workDrivePairs, admin-only GET /api/work/drive-pairs, no SQL)"
     ],
     "tables": [
       "UserInfo (login source only; no write)",
