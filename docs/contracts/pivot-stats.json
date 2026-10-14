@@ -36,6 +36,12 @@
   "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
   "actions": [
     {
+      "name": "PIVOT_VOLUME_MANUAL_STOCK_REMAINING_FORMULA",
+      "description": "다운로드 물량표의 재고는 수기 입력용 공란을 유지한다. 잔량은 같은 행의 입고-주문(기존 출고 수량 원천)+재고 SUM 수식이며 공란 재고는 0으로 계산한다. 최초 캐시는 표시 입고-주문을 사용하고 curStock 스냅샷은 사용하지 않는다. 잔량 합계는 캐시 0인 경우에도 상세행 SUM 수식을 유지한다. 음수·소수 수기 재고를 허용하며 기존 국가별 레이아웃·헤더·수량 원천·ERP 원장은 보존한다.",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve"
+    },
+    {
       "name": "CHINA_CLIENT_HEADER_ALSTRO_DISPLAY",
       "description": "중국은 업체명 다음 독립 CL 행을 생성하고 재업로드에서 명시적 헤더 행을 제외한다. 알스트로는 원수량(원수량/16) 표시. 새 파일은 실제 ERP 숫자값과 A2 명시 단위 표식을 저장하여 재업로드 환산을 생략한다. 표식 없는 구형 파일은 기존 16배 환산을 보존한다. 괄호는 다운로드 시점 참고값이다.",
       "orderDetail": "preserve",
@@ -109,6 +115,7 @@
     "__tests__/pivotExeInteraction.test.js",
     "__tests__/pivotExeSupplement.test.js",
     "__tests__/pivotVolumeCombinedCells.test.js",
+    "__tests__/pivotVolumeRemainingFormula.test.js",
     "__tests__/pivotProductSearch.test.js",
     "__tests__/pivotFilterOptions.test.js",
     "__tests__/pivotVolumeNetherlands.test.js",
