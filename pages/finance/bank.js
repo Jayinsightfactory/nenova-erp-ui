@@ -112,28 +112,67 @@ export default function BankPage() {
 
   const f = k => e => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
+  // 신한은행 API 연동 상태 — GET 은 은행을 호출하지 않고 서버 설정·최근 적재만 본다.
+  const [shinhan, setShinhan] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const loadShinhan = useCallback(() => {
+    apiGet('/api/finance/shinhan-sync').then(setShinhan).catch(() => setShinhan({ forbidden: true }));
+  }, []);
+  useEffect(() => { loadShinhan(); }, [loadShinhan]);
+
+  const handleShinhanSync = async () => {
+    if (!confirm(`신한은행에서 ${dateFrom} ~ ${dateTo} 거래내역을 가져옵니다. 진행할까요?`)) return;
+    setSyncing(true);
+    try {
+      const r = await apiPost('/api/finance/shinhan-sync', { from: dateFrom, to: dateTo });
+      const ins = (r.report || []).reduce((a, x) => a + (x.inserted || 0), 0);
+      const got = (r.report || []).reduce((a, x) => a + (x.fetched || 0), 0);
+      setSuccessMsg(`신한 동기화 완료: 조회 ${got}건, 신규 적재 ${ins}건`);
+      setTimeout(() => setSuccessMsg(''), 5000);
+      loadShinhan();
+      load();
+    } catch (e) { alert('신한 동기화 실패: ' + e.message); }
+    finally { setSyncing(false); }
+  };
+
+  const shinhanReady = !!shinhan?.configured;
+
   return (
     <>
-      {/* 샘플모드 배너 */}
+      {/* 신한은행 연동 상태 배너 */}
       <div style={{
-        background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
+        background: shinhanReady ? '#ecfdf5' : '#eff6ff', border: `1px solid ${shinhanReady ? '#a7f3d0' : '#bfdbfe'}`, borderRadius: 8,
         padding: '10px 16px', marginBottom: 14, display: 'flex',
         alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 13, color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 13, color: shinhanReady ? '#047857' : '#1d4ed8', display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 16 }}>🏦</span>
-            <strong>현재 샘플 모드입니다.</strong>
-            &nbsp;신한은행 API 연동 완료 후 실시간 데이터로 전환됩니다.
+            {shinhan?.forbidden && <strong>신한은행 API 연동은 관리자 계정에서 실행합니다.</strong>}
+            {!shinhan?.forbidden && shinhanReady && (
+              <>
+                <strong>신한은행 API 연동 {shinhan.mode === 'prod' ? '운영' : '테스트'} 모드</strong>
+                &nbsp;계좌 {(shinhan.accounts || []).join(', ') || '-'} · 적재 {fmt(shinhan.syncedRows)}건
+                {shinhan.lastSync && <> · 최근 동기화 {String(shinhan.lastSync).replace('T', ' ').slice(0, 16)}</>}
+              </>
+            )}
+            {!shinhan?.forbidden && !shinhanReady && (
+              <>
+                <strong>신한은행 API 준비 중입니다.</strong>
+                &nbsp;서버에 {(shinhan?.missing || ['SHINHAN_CLIENT_ID', 'SHINHAN_CLIENT_SECRET']).join(', ')} 설정 후 실거래 동기화가 켜집니다. 그 전까지는 수동 입력(샘플)으로 화면을 확인합니다.
+              </>
+            )}
           </span>
           <span style={{ fontSize: 12, color: '#3b82f6', paddingLeft: 22 }}>
-            💡 신한은행 API 연동 후 수납 데이터는 이카운트 회계 자동분개와 연동되어 전표가 자동 생성됩니다.
+            💡 동기화된 입금 내역은 채권·견적 거래처와 대사해 입금 처리에 쓰고, 이카운트 자동분개와 연동됩니다.
             &nbsp;<a href="/ecount/dashboard" style={{ color: '#1d4ed8', textDecoration: 'underline' }}>이카운트 연동 현황 보기 →</a>
           </span>
         </div>
-        <button className="btn btn-sm btn-primary" onClick={openModal}>
-          직접 입력으로 테스트하기
-        </button>
+        {!shinhan?.forbidden && (
+          <button className="btn btn-sm btn-primary" onClick={shinhanReady ? handleShinhanSync : openModal} disabled={syncing}>
+            {shinhanReady ? (syncing ? '동기화 중…' : '🔄 신한 동기화') : '직접 입력으로 테스트하기'}
+          </button>
+        )}
       </div>
 
       {/* 필터바 */}

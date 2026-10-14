@@ -1,0 +1,46 @@
+{
+  "id": "shinhan-bank-sync",
+  "title": "신한은행 오픈API 계좌거래내역 동기화(웹 전용 BankTransaction) 계약",
+  "scope": [
+    "lib/shinhanApi.js",
+    "pages/api/finance/shinhan-sync.js",
+    "pages/api/finance/bank.js",
+    "pages/finance/bank.js"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "SHINHAN_TOKEN_ISSUE_2LEGGED", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "SHINHAN_TRANSACTIONS_FETCH", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "SHINHAN_LOAN_TRANSACTIONS_FETCH", "orderDetail": "preserve", "shipmentDetail": "preserve" },
+    { "name": "BANK_TRANSACTION_INSERT_DEDUP", "orderDetail": "preserve", "shipmentDetail": "preserve" }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "은행 거래내역은 웹 전용 BankTransaction 에만 적재하고 ERP 주문·출고·입고·재고 원장은 읽지도 쓰지도 않는다. 차수(OrderYear/OrderWeek) 귀속은 이후 입금 대사 단계에서 사람이 확인하며, 다른 연도의 같은 차수와 합치지 않는다."
+  },
+  "requiredTestFiles": [
+    "__tests__/shinhanBankSync.test.js",
+    "__tests__/erpContractManifest.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "은행 거래내역 조회는 nenova.exe 기능이 아닌 웹 전용 연동이며, 저장 대상 BankTransaction 은 pages/api/finance/bank.js 가 만든 웹 전용 테이블이다. ERP 테이블 side effect 는 모두 preserve 다.",
+    "methods": [
+      "Shinhan 2-legged token: HMAC-SHA256(secret, timestamp|client_id) base64",
+      "Shinhan API hsKey: HMAC-SHA256(secret, request body) base64",
+      "BankTransaction insert guarded by NOT EXISTS natural key"
+    ],
+    "tables": [
+      "BankTransaction (web-only, insert with dedup)",
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)"
+    ]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "npm run build"
+  ]
+}
