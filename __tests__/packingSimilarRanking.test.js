@@ -27,3 +27,9 @@ test('common ranking default is identical with omitted and explicit false opt-in
  const products=[p(1,'Moon Light'),p(2,'Candlelight'),p(3,'튤립')];
  for(const q of ['', '문라이트','Moon Ligth','ㅁㄹㅇㅌ']) assert.deepEqual(rankProductSearchOptions(q,products),rankProductSearchOptions(q,products,{packingSuggestions:false}));
 });
+
+test('packing suggestions prioritize original word order over popularity and ignore DB annotations',()=>{
+ const products=[p(2,'White CHINA Preserved Asparagus',{UsageCount:1e12}),p(1,'CHINA Preserved Asparagus White (보존 아스파라거스)')];
+ assert.equal(rank('Preserved Asparagus - White',products)[0].ProdKey,1);
+ assert.equal(rank('Preserved Asparagus - White',[...products,p(3,'CHINA Preserved Asparagus Burgundy')])[0].ProdKey,1);
+});

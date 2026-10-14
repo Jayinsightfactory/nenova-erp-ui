@@ -2,6 +2,7 @@
 import { query, sql } from '../../../lib/db';
 import { createToken } from '../../../lib/auth';
 import { effectiveAuthority } from '../../../lib/userAccess';
+import activityHttp from '../../../lib/userActivityHttp.cjs';
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILURES = 10;
@@ -67,6 +68,7 @@ export default async function handler(req, res) {
     }
 
     const token = createToken(user);
+    activityHttp.attachRequestAudit(req, res, { userId: user.UserID, userName: user.UserName });
     attempts.delete(attemptKey);
     const secureCookie = process.env.NODE_ENV === 'production' ? '; Secure' : '';
 

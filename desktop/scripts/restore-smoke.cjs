@@ -16,6 +16,8 @@ const PLAINTEXT_SENTINEL = 'NEVER_PERSIST_FORM_VALUE_74cc';
 const TITLE_2025 = 'Restore fixture 2025 title';
 const TITLE_2026 = 'Restore fixture 2026 title';
 const requests = [];
+const activityEvents = [];
+let holdActivity = false;
 let main;
 
 function assertIsTestProfile() {
@@ -40,10 +42,23 @@ function html(url) {
 
 function installFixtureProtocol() {
   const workSession = session.fromPartition('persist:nenova-work');
+  session.defaultSession.protocol.handle('https', () => new Response('Blocked by restore fixture', { status: 403 }));
+  for (const isolated of [session.defaultSession, workSession]) isolated.protocol.handle('http', () => new Response('Blocked by restore fixture', { status: 403 }));
   workSession.protocol.handle('https', async request => {
     const url = new URL(request.url);
     if (url.origin !== ORIGIN) return new Response('Blocked by restore fixture', { status: 403 });
     requests.push({ method: request.method, pathname: url.pathname });
+    if (url.pathname === '/api/work/activity' && request.method === 'POST') {
+      const body = await request.json();
+      assert.equal(body.expectedUserId, ACTOR, 'activity remains owned by the fixture actor');
+      assert.ok(body.events.length <= 50 && body.events.every(event => event.kind === 'desktop' && !event.path.includes('?')));
+      assert.equal(JSON.stringify(body).includes(PLAINTEXT_SENTINEL), false);
+      if (holdActivity) return Response.json({ success: false }, { status: 503 });
+      activityEvents.push(...body.events);
+      return Response.json({ success: true, acceptedIds: body.events.map(event => event.id) });
+    }
+    if (!['GET', 'HEAD'].includes(request.method)) return new Response('ERP mutation blocked by fixture', { status: 403 });
+    if (url.pathname === '/api/desktop/home-workspace') return Response.json({ success: true, schemaVersion: 1, ownerId: ACTOR, revision: 0, tasks: [], guidance: [], feedback: [] });
     if (url.pathname === '/api/auth/me') return Response.json({ success: true, user: { userId: ACTOR, userName: ACTOR } });
     if (url.pathname === '/api/desktop/bootstrap') return Response.json({
       success: true, schemaVersion: 1, user: { userId: ACTOR }, webVersion: 'web-1',
@@ -123,11 +138,21 @@ async function writePhase() {
   assert.equal(JSON.stringify(decrypted).includes(PLAINTEXT_SENTINEL), false, 'unsaved form data is absent from the persisted snapshot');
   assert.ok(Math.abs(tab2025.view.webContents.getZoomFactor() - 1.2) < 0.001);
   assert.ok(Math.abs(tab2026.view.webContents.getZoomFactor() - 0.9) < 0.001);
-  assert.equal(requests.some(request => request.method !== 'GET' && request.method !== 'HEAD'), false, 'write phase sent no mutation requests');
+  assert.equal(requests.some(request => !['GET', 'HEAD'].includes(request.method) && !(request.method === 'POST' && request.pathname === '/api/work/activity')), false, 'write phase sent no ERP mutation requests');
+  holdActivity = true;
+  main.command(firstWindow, 'zoom', { id: tab2025.id, value: 1.2 });
+  const activityPath = path.join(PROFILE, 'activity.encrypted');
+  await waitFor(() => fs.existsSync(activityPath) && JSON.parse(safeStorage.decryptString(fs.readFileSync(activityPath))).length > 0, 'encrypted pending activity');
+  const activityBytes = fs.readFileSync(activityPath);
+  assert.equal(activityBytes.toString('utf8').includes(ACTOR), false, 'activity owner is encrypted');
+  assert.equal(activityBytes.toString('utf8').includes('desktop-command'), false, 'activity content is encrypted');
+  assert.equal(safeStorage.decryptString(activityBytes).includes(PLAINTEXT_SENTINEL), false, 'activity excludes raw form content');
   console.log(`Write phase passed: encrypted snapshot at ${statePath}`);
 }
 
 async function readPhase() {
+  const pending = JSON.parse(safeStorage.decryptString(fs.readFileSync(path.join(PROFILE, 'activity.encrypted'))));
+  assert.ok(pending.length > 0, 'write phase retained unacknowledged activity');
   const statePath = path.join(PROFILE, 'workspace.encrypted');
   assert.ok(fs.existsSync(statePath), 'write phase produced encrypted workspace state');
   await waitFor(() => main.windows.size === 2, 'two restored windows');
@@ -149,7 +174,8 @@ async function readPhase() {
   assert.equal(tabs.filter(tab => tab.windowId === tab2025.windowId || tab.windowId === tab2026.windowId).length, 2, 'cross-year tabs remain in their original window');
   assert.equal(await tab2025.view.webContents.executeJavaScript(`document.querySelector('#unsaved-form-value').value`), 'fixture initial form value', 'form fixture starts with its default value, not prior unsaved edits');
   assert.equal(JSON.stringify(main.snapshot()).includes(PLAINTEXT_SENTINEL), false);
-  assert.equal(requests.some(request => request.method !== 'GET' && request.method !== 'HEAD'), false, 'read phase sent no mutation requests');
+  await waitFor(() => pending.every(row => activityEvents.some(event => event.id === row.event.id)), 'pending encrypted activity acknowledged after process restart');
+  assert.equal(requests.some(request => !['GET', 'HEAD'].includes(request.method) && !(request.method === 'POST' && request.pathname === '/api/work/activity')), false, 'read phase sent no ERP mutation requests');
   console.log('Read phase passed: matching actor restored tabs, windows, favorite, cross-year routes, and isolated zoom.');
 }
 

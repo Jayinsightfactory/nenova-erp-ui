@@ -16,6 +16,10 @@ async function main() {
   const erpMatchHelpers = await import('../lib/importPackingErpMatches.js');
   const receiptAdapter = await import('../lib/importPackingReceiptAdapter.js');
   const sourceReview = await import('../lib/importPackingSourceReview.js');
+  const matchPreview = await import('../lib/importPackingMatchPreview.js');
+  const matchReview = await import('../lib/packingMatchReview.js');
+  const workDraft = await import('../lib/packingWorkDraft.js');
+  const chinaInvoiceFormat = await import('../lib/importChinaInvoiceFormat.js');
   const root = path.resolve(__dirname, '..');
   const sourcePath = path.join(root, 'output/import-tool-sources/Packing List Nenova.html');
   // Prepared HTML is ignored by Git. Golden fixtures/hashes run without it in CI.
@@ -205,14 +209,15 @@ async function main() {
   await check('native component syntax and server-only credential boundary', () => {
     babel.transformSync(componentSource, { filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')], configFile: false, babelrc: false });
     assert.doesNotMatch(componentSource, /dangerouslySetInnerHTML|ReactDOM|window\.|localStorage|apiKey|saveApiKey|buildPrompt|cdn\.jsdelivr|api\.anthropic|claude-sonnet/);
-    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true\}\)/);
+    assert.match(componentSource, /extractPackingDocument\(\{country,pdfBase64,readPdf:readAwbPdf,allowAI:allowAI===true,retryJobId,/);
     assert.match(componentSource, /onClick=\{\(\) => process\(false\)\}/);
-    assert.match(componentSource, /onClick=\{\(\)=>process\(true\)\}/);
+    assert.match(componentSource, /return process\(true,pdfRetryJobId\)/);
+    assert.match(componentSource, /pdfRetryJobId && !toolRoot\.current\?\.ownerDocument\?\.defaultView\?\.confirm/);
     assert.match(componentSource, /f\.size > PACKING_PDF_MAX_BYTES/);
     assert.equal(state.PACKING_PDF_MAX_BYTES, 20 * 1024 * 1024);
     const extractionSource = fs.readFileSync(path.join(root, 'lib/importPackingExtractClient.js'), 'utf8');
     assert.match(extractionSource, /fetchImpl\('\/api\/import\/tools\/parse-pdf'/);
-    assert.match(extractionSource, /JSON\.stringify\(\{country,pdfBase64\}\)/);
+    assert.match(extractionSource, /JSON\.stringify\(\{country,pdfBase64,async:true,/);
     for (const notice of ['AI service', 'servicio de IA', 'AI 서비스']) assert.ok(componentSource.includes(notice));
   });
   // Real handler tests with local hooks; no browser, network, or mounted app.
@@ -278,10 +283,15 @@ async function main() {
       '../../lib/importPackingErpMatches.js': erpMatchHelpers,
       '../../lib/importPackingReceiptAdapter.js': browserReceiptAdapter,
       '../../lib/importPackingSourceReview.js': sourceReview,
+      '../../lib/importPackingMatchPreview.js': matchPreview,
+      '../../lib/packingMatchReview.js': matchReview,
+      '../../lib/packingWorkDraft.js': workDraft,
+      '../../lib/importChinaInvoiceFormat.js': chinaInvoiceFormat,
       './PackingResults.js': { default: 'PackingResults', __esModule: true },
       './PackingEvidenceReview.js': { default: 'EvidenceReview', __esModule: true },
       './ChinaLegacyReview.js': { default: 'ChinaLegacyReview', __esModule: true },
       './PackingProductMatchDialog.js': { default: 'PackingProductMatchDialog', __esModule: true },
+      './PackingMatchManager.js': { default: 'PackingMatchManager', __esModule: true },
       'xlsx-js-style': XLSX };
     const code = babel.transformSync(componentSource.replace("import('xlsx-js-style')", "Promise.resolve(require('xlsx-js-style'))"), {
       filename: 'PackingListTool.js', presets: [require('next/dist/compiled/babel/preset-react')],
@@ -330,7 +340,13 @@ async function main() {
     assert.equal(fetchCalls[0].url, '/api/import/tools/parse-pdf');
     assert.deepEqual(Object.keys(JSON.parse(fetchCalls[0].options.body)).sort(), ['country','pdfBase64']);
     resolveFetch({ ok: true, status: 200, json: async () => ({ ...ai({ invoices: [invoice] }), source: 'ai', cacheSaved: true }) }); await pendingProcess;
-    tree = render(); assert.ok(text(tree).includes('Todo correcto'));
+    tree = render();
+    assert.ok(text(tree).includes('DB 매칭 미리보기'), 'parsed invoices remain in matching-first preview');
+    assert.ok(text(tree).includes('원문 검토'), 'final generation still requires explicit review');
+    const reviewDialog = flatten(tree).find(node => node.type === 'EvidenceReview');
+    assert.equal(reviewDialog.props.open, false, 'extraction does not auto-open the source review modal');
+    const previewResults = flatten(tree).find(node => node.type === 'PackingResults');
+    assert.equal(previewResults.props.previewOnly, true);
     assert.ok(text(tree).includes('Análisis IA completado'));
     const upload = flatten(tree).find(node => node.type === 'input' && node.props.accept === '.xlsx');
     upload.props.onChange({ target: { files: [{ name: 'catalog.xlsx', arrayBuffer: async () => bufferOf([['No','Code','Name','Flower','Country'], [1,'X','NEW NAME','장미','콜롬비아']]) }] } });

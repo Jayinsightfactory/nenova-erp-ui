@@ -233,7 +233,7 @@ const registerDeductionsSource = deductionSource.slice(
   deductionSource.indexOf('export async function registerDeductions'),
   deductionSource.indexOf('export async function deleteDeductions'),
 );
-assert.match(registerDeductionsSource, /skipped\.push\(\{ deductionKey: key, error: error\.message \}\)/, '판매행 없는 행은 전체 작업을 실패시키지 않고 행별 자동 미처리해야 합니다.');
+assert.match(registerDeductionsSource, /skipped\.push\(\{ deductionKey: key, error: error\.message, errorCode: error\.code \|\| '' \}\)/, '판매행 없는 행은 전체 작업을 실패시키지 않고 행별 자동 미처리하며 안정된 오류 코드를 보존해야 합니다.');
 assert.match(registerDeductionsSource, /if \(!ctx\.shipmentKey\) throw new Error\([\s\S]*이월 대기/, '대상 차수 판매행이 없으면 Estimate 생성 전에 미처리해야 합니다.');
 assert.match(registerDeductionsSource, /RemainingQuantity=CASE WHEN IsCarryoverLedger=1[\s\S]*RemainingQuantity,Quantity\)-@applyQty/, '부분 처리 시 실제 처리수량만 잔량에서 차감해야 합니다.');
 assert.doesNotMatch(registerDeductionsSource, /(?:INSERT|UPDATE|DELETE)\s+(?:INTO\s+)?(?:OrderDetail|ShipmentDetail|ShipmentDate|ShipmentMaster|StockHistory|ProductStock)\b/i, '견적 일괄등록은 Order/Shipment/Stock 원장을 변경하면 안 됩니다.');
@@ -419,7 +419,7 @@ assert.ok(!orderImportPageSource.includes('nenova_import_local_mappings'), '엑�
 assert.ok(orderImportPageSource.includes("'/api/orders/mappings'"), '엑셀 업로드 주문등록의 사용자 선택은 붙여넣기와 같은 공용 저장매핑 API에 누적해야 한다.');
 assert.ok(weekPivotSource.includes('rankProductSearchOptions'), '차수피벗 품목 선택도 공용 랭킹을 사용해야 한다.');
 assert.ok(stockStatusSource.includes('rankProductSearchOptions'), '재고·주문등록 모달 품목 선택도 공용 랭킹을 사용해야 한다.');
-assert.ok(distributeSource.includes('rankProductSearchOptions'), '출고분배 품목 검색도 공용 랭킹을 사용해야 한다.');
+assert.ok(distributeSource.includes('sortDistributionProducts') && !distributeSource.includes('rankProductSearchOptions'), '출고분배는 2026-10-14 사용자 지시에 따라 검색 결과도 품목명 A-Z 순서를 유지한다.');
 assert.ok(mappingStatusSource.includes('useRankedProductSearch') && searchWorkerSource.includes('rankProductSearchOptions(data.query, products'), '저장 매칭 재지정 검색도 Worker의 공용 랭킹을 사용해야 한다.');
 assert.ok(estimatePageSource.includes("view: 'defectContext'"), '품목 선택 시 EXE 판매행·분배단가 컨텍스트를 서버에서 다시 조회해야 한다.');
 assert.ok(estimatePageSource.includes("['단','박스','스팀(대)']"), '견적 직접입력 단위는 단/박스/스팀(대) 세 가지여야 한다.');
@@ -784,7 +784,7 @@ for (const bad of [undefined, '', 0, false, -1, NaN, '1.23456']) assert.throws((
 
 const txRow = { ...source30Row, DeductionKey: 704, OrderWeek: '30', Quantity: 2, RemainingQuantity: 2, Status: 'DRAFT', EstimateKey: null, RowVersionNo: 4, IsDeleted: 0 };
 const fakeTransaction = async (callback, failInsert = false) => callback(async (sqlText) => {
-  if (sqlText.includes('SELECT * FROM WebSalesDefectDeduction')) return { recordset: [txRow] };
+  if (sqlText.includes('FROM WebSalesDefectDeduction d')) return { recordset: [txRow] };
   if (sqlText.includes('SELECT TOP 1 EstUnit')) return { recordset: [{ EstUnit: '단' }] };
   if (sqlText.includes('FROM WebSalesDefectDeductionHistory')) return { recordset: [] };
   if (sqlText.includes('INSERT INTO WebSalesDefectDeductionHistory') && failInsert) throw new Error('insert failed');
@@ -800,7 +800,7 @@ let committedCostWrites = [];
 const stageCostTransaction = (fail = false, storedRow = txRow) => async (callback) => {
   const staged = [];
   const result = await callback(async (sqlText, params) => {
-    if (sqlText.includes('SELECT * FROM WebSalesDefectDeduction')) return { recordset: [storedRow] };
+    if (sqlText.includes('FROM WebSalesDefectDeduction d')) return { recordset: [storedRow] };
     if (sqlText.includes('SELECT TOP 1 EstUnit')) return { recordset: [{ EstUnit: '단' }] };
     if (sqlText.includes('FROM WebSalesDefectDeductionHistory')) return { recordset: [] };
     if (/^UPDATE|^INSERT/.test(sqlText.trim())) {

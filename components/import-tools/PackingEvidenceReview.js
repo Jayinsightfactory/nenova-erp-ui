@@ -33,6 +33,10 @@ function sourceDraftsFrom(entries) {
     confirmed: false,
   }]));
 }
+function sourceDraftChanged(row, draft) {
+  return Object.entries(draft?.values || {}).some(([field, value]) =>
+    stringValue(value) !== stringValue(row?.originalValues?.[field] ?? row?.values?.[field]));
+}
 
 function makeDraft(row) {
   return {
@@ -164,9 +168,14 @@ export default function PackingEvidenceReview({
   pdfBase64,
   fileName,
   open = true,
+  initialTarget = null,
 }) {
   const safeRows = Array.isArray(rows) ? rows : [];
   const sourceEntries = useMemo(() => collectSourceRows(rows, safeRows), [rows]);
+  const targetEntry = Number.isInteger(initialTarget?.invoiceIndex) && Number.isInteger(initialTarget?.lineIndex)
+    ? sourceEntries.find(entry => entry.invoiceIndex === initialTarget.invoiceIndex && entry.row?.lineIndex === initialTarget.lineIndex)
+    : null;
+  const targetPage = Number(targetEntry?.row?.evidence?.description?.page);
   const sourceReviewRequired = Boolean(rows?.sourceReview?.required === true
     || safeRows.some(row => row?.sourceReview?.required === true));
   const baselinesRef = useRef(new Map(safeRows.map(row => [rowIdentity(row), makeBaseline(row)])));
@@ -175,9 +184,12 @@ export default function PackingEvidenceReview({
   const fileIdentityRef = useRef({ pdfBase64, fileName });
   const [drafts, setDrafts] = useState(() => safeRows.map(row => ({ ...makeDraft(row), confirmed: sourceReviewRequired ? false : row?.confirmed === true })));
   const [sourceDrafts, setSourceDrafts] = useState(() => sourceDraftsFrom(sourceEntries));
-  const [selectedKey, setSelectedKey] = useState(() => rowIdentity(safeRows[0]));
-  const [activeField, setActiveField] = useState(() => safeRows.length ? { key: rowIdentity(safeRows[0]), field: 'gw' } : null);
-  const [pageNumber, setPageNumber] = useState(1);
+  const [showAllSourceRows, setShowAllSourceRows] = useState(() => targetEntry?.row?.reviewRequired === false);
+  const [selectedKey, setSelectedKey] = useState(() => targetEntry ? String(targetEntry.invoiceIndex) : rowIdentity(safeRows[0]));
+  const [activeField, setActiveField] = useState(() => targetEntry
+    ? { key: String(targetEntry.invoiceIndex), field: 'description', sourceKey: targetEntry.key }
+    : safeRows.length ? { key: rowIdentity(safeRows[0]), field: 'gw' } : null);
+  const [pageNumber, setPageNumber] = useState(() => Number.isInteger(targetPage) && targetPage > 0 ? targetPage : 1);
   const [zoom, setZoom] = useState(1);
   const [preview, setPreview] = useState(null);
   const [renderedPage, setRenderedPage] = useState(null);
@@ -202,14 +214,15 @@ export default function PackingEvidenceReview({
 
   const pdfReady = Boolean(preview && renderedPage?.preview === preview && renderedPage.page === pageNumber
     && !previewState.loading && !previewState.error && !renderError);
-  const uncheckedSourceCount = sourceEntries.filter(entry => sourceDrafts[entry.key]?.confirmed !== true).length;
+  const sourceNeedsHumanReview = entry => entry.row?.reviewRequired !== false
+    || sourceDraftChanged(entry.row, sourceDrafts[entry.key]);
+  const manualSourceCount = sourceEntries.filter(sourceNeedsHumanReview).length;
+  const uncheckedSourceCount = sourceEntries.filter(entry => sourceNeedsHumanReview(entry)
+    && sourceDrafts[entry.key]?.confirmed !== true).length;
   const sourceInvoiceIndexes = [...new Set(sourceEntries.map(entry => entry.invoiceIndex))];
   const uncheckedInvoiceCount = sourceInvoiceIndexes.filter(index => drafts.find(draft => rowIdentity(draft) === String(index))?.confirmed !== true).length;
-  const missingSourceReasonCount = sourceEntries.filter(({ row, key }) => {
-    const values = sourceDrafts[key]?.values || {};
-    return Object.entries(values).some(([field, value]) => stringValue(value) !== stringValue(row.originalValues?.[field] ?? row.values?.[field]))
-      && !stringValue(sourceDrafts[key]?.reason).trim();
-  }).length;
+  const missingSourceReasonCount = sourceEntries.filter(({ row, key }) => sourceDraftChanged(row, sourceDrafts[key])
+    && !stringValue(sourceDrafts[key]?.reason).trim()).length;
   const sourceGateMessage = !sourceReviewRequired ? ''
     : !pdfBase64 ? '원본 PDF가 없어 검증을 완료할 수 없습니다.'
       : !pdfReady ? '현재 PDF 페이지가 실제로 렌더링될 때까지 확인 적용이 차단됩니다.'
@@ -228,6 +241,14 @@ export default function PackingEvidenceReview({
     }));
     setSelectedKey(previous => identities.has(previous) ? previous : rowIdentity(safeRows[0]));
   }, [rows]);
+
+  useEffect(() => {
+    if (!open || !targetEntry) return;
+    setSelectedKey(String(targetEntry.invoiceIndex));
+    setActiveField({ key: String(targetEntry.invoiceIndex), field: 'description', sourceKey: targetEntry.key });
+    if (targetEntry.row?.reviewRequired === false) setShowAllSourceRows(true);
+    if (preview && Number.isInteger(targetPage) && targetPage > 0 && targetPage <= preview.numPages) setPageNumber(targetPage);
+  }, [open, targetEntry?.key, targetPage]);
 
   useEffect(() => {
     if (sourceSignatureRef.current === sourceSignature) return;
@@ -264,7 +285,8 @@ export default function PackingEvidenceReview({
       if (stale) return result.destroy();
       setPreview(result);
       const firstEvidencePage = Number(safeRows[0]?.evidence?.gw?.page);
-      setPageNumber(!sourceReviewRequired && Number.isInteger(firstEvidencePage) && firstEvidencePage >= 1 && firstEvidencePage <= result.numPages
+      setPageNumber(targetEntry && Number.isInteger(targetPage) && targetPage >= 1 && targetPage <= result.numPages
+        ? targetPage : !sourceReviewRequired && Number.isInteger(firstEvidencePage) && firstEvidencePage >= 1 && firstEvidencePage <= result.numPages
         ? firstEvidencePage : 1);
       setPreviewState({ loading: false, error: '' });
       return undefined;
@@ -319,7 +341,7 @@ export default function PackingEvidenceReview({
 
   const sourceEntriesForInvoice = invoiceIndex => sourceEntries.filter(entry => entry.invoiceIndex === invoiceIndex);
   const invoiceSourceRowsConfirmed = invoiceIndex => sourceEntriesForInvoice(invoiceIndex)
-    .every(entry => sourceDrafts[entry.key]?.confirmed === true);
+    .every(entry => !sourceNeedsHumanReview(entry) || sourceDrafts[entry.key]?.confirmed === true);
   const sourceReviewForInvoice = invoiceIndex => safeRows[invoiceIndex]?.sourceReview
     || (Array.isArray(rows) ? rows.sourceReview : null);
   const matchedNameForSource = (invoiceIndex, sourceRow) => {
@@ -577,15 +599,17 @@ export default function PackingEvidenceReview({
 
   const sourceReviewSection = sourceReviewRequired ? <section className={styles.sourceReview} aria-label="원본 PDF 상품행 검토" data-testid="source-review">
     <h4>상품행 원문 대조</h4>
-    <p>AI 신뢰도와 관계없이 각 상품행을 PDF에서 직접 대조하세요. 행의 원문 근거를 누르면 해당 페이지로 이동합니다. 값을 수정하면 그 행과 인보이스 확인이 해제됩니다.</p>
+    <p>원문 검산 완료 {sourceEntries.length - manualSourceCount}건 · 직접 확인 필요 {manualSourceCount}건. 기계 검산은 사람의 확인 기록이 아닙니다. 값을 수정한 행은 원본 PDF와 다시 대조하고 사유를 남기세요.</p>
+    <button type="button" onClick={() => setShowAllSourceRows(value => !value)} data-testid="source-show-all">{showAllSourceRows ? '확인 필요만 보기' : '전체 상품행 보기'}</button>
     {sourceEntriesForInvoice(Number(selectedKey)).length === 0
       ? <p role="alert" className={styles.error}>이 인보이스에 연결된 상품행 검토 스냅샷이 없습니다.</p>
       : <div className={styles.sourceTableViewport}>
         <table className={styles.sourceTable}>
           <thead><tr><th scope="col">원문 품목 · ERP 매칭</th><th scope="col">원문값 확인·수정 (필드별 원문은 입력에 표시)</th><th scope="col">개별 원문 확인</th></tr></thead>
-          <tbody>{sourceEntriesForInvoice(Number(selectedKey)).map(entry => {
+          <tbody>{sourceEntriesForInvoice(Number(selectedKey)).filter(entry => showAllSourceRows || sourceNeedsHumanReview(entry)).map(entry => {
             const sourceRow = entry.row;
             const current = sourceDrafts[entry.key] || { values: sourceRow.values || {}, confirmed: false };
+            const needsHumanReview = sourceNeedsHumanReview(entry);
             const evidenceField = Object.keys(sourceRow.evidence || {})[0] || '';
             const original = sourceRow.originalValues || {};
             const matchedName = matchedNameForSource(entry.invoiceIndex, sourceRow);
@@ -607,11 +631,11 @@ export default function PackingEvidenceReview({
                 {Object.entries(current.values || {}).some(([field, value]) => stringValue(value) !== stringValue(original[field] ?? sourceRow.values?.[field]))
                   && <label className={styles.sourceReason}><span>수정 사유</span><input type="text" value={current.reason || ''} aria-label={'원문 ' + (sourceRow.description || '') + ' 수정 사유'} placeholder="변경 근거" onChange={event => updateSourceReason(entry, event.target.value)} /></label>}
               </div></td>
-              <td><label className={styles.sourceConfirm}>
+              <td>{needsHumanReview ? <label className={styles.sourceConfirm}>
                 <input type="checkbox" checked={current.confirmed === true} disabled={!pdfReady}
                   onChange={event => updateSourceConfirmed(entry, event.target.checked)} data-testid="source-row-confirm" />
                 <span>{current.confirmed ? '원문 대조 완료' : '이 상품행 대조 확인'}</span>
-              </label></td>
+              </label> : <span>로컬 파서 검산 · 사람 확인 아님</span>}</td>
             </tr>;
           })}</tbody>
         </table>

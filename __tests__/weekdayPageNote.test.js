@@ -247,10 +247,12 @@ if (process.argv[2] === '--note-child') {
     const authSource = await fs.promises.readFile(path.join(root, 'lib/auth.js'), 'utf8');
     const start = authSource.indexOf('export function withAuth(handler)');
     const end = authSource.indexOf('// getServerSideProps', start);
-    const withAuth = new Function('jwt', 'getJwtSecret', 'trackApiCall', 'applyEffectiveWebAccess',
+    const auditedUsers = [];
+    const withAuth = new Function('jwt', 'getJwtSecret', 'trackApiCall', 'applyEffectiveWebAccess', 'activityHttp',
       authSource.slice(start, end).replace('export function', 'function') + '\nreturn withAuth;')(
       { verify: token => { if (token !== 'fixture-valid') throw new Error('invalid'); return { userId: 'verified-user' }; } },
-      () => 'test-only-fixture', () => {}, user => user);
+      () => 'test-only-fixture', () => {}, user => user,
+      { attachRequestAudit: (req, res, user) => auditedUsers.push(user.userId) });
     let handled = 0;
     const authenticated = withAuth(async (req, res) => { handled++; return res.status(200).json({ userId: req.user.userId }); });
     for (const [headers, expected] of [[{}, 401], [{ authorization: 'Bearer fixture-expired' }, 401],
@@ -262,6 +264,7 @@ if (process.argv[2] === '--note-child') {
       if (expected === 200) assert.equal(res.body.userId, 'verified-user');
     }
     assert.equal(handled, 1);
+    assert.deepEqual(auditedUsers, ['verified-user']);
   });
 
   test('baseline-only notes use actual validated immutable get export; corrupt baseline fails closed', async () => temporary(async directory => {

@@ -1,0 +1,103 @@
+{
+  "id": "web-user-activity",
+  "title": "Authenticated web and desktop user activity audit",
+  "scope": [
+    "components/UserActivityRecorder.js",
+    "components/UserActivityLogPanel.js",
+    "pages/_app.js",
+    "pages/admin/activity.js",
+    "pages/api/work/activity.js",
+    "lib/auth.js",
+    "lib/userActivityStore.cjs",
+    "lib/userActivityHttp.cjs",
+    "lib/userActivityClient.js",
+    "desktop/activity.cjs",
+    "desktop/main.cjs",
+    "web.js",
+    "pages/api/auth/login.js"
+  ],
+  "businessIdentity": [
+    "OrderYear",
+    "OrderWeek",
+    "CustKey",
+    "ProdKey"
+  ],
+  "actions": [
+    {
+      "name": "RECORD_AND_QUERY_WEB_ACTIVITY",
+      "orderDetail": "preserve",
+      "shipmentDetail": "preserve",
+      "writeAllowlist": []
+    }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "KST 2025/2026 boundary event dates remain separate; deduplicated retries preserve original received year/day. All ERP business keys and ledgers preserved."
+  },
+  "requiredTestFiles": [
+    "scripts/test-user-activity-server.cjs",
+    "__tests__/userActivityClient.test.js",
+    "desktop/tests/activity.test.cjs",
+    "scripts/user-activity-ui-smoke.cjs"
+  ],
+  "requiredCommands": [
+    "npm run test:user-activity",
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run build",
+    "npm run guard:erp-writes -- --changed-from HEAD^",
+    "node scripts/user-activity-ui-smoke.cjs"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "Web-only audit journal and read projection; no ERP SQL or native EXE implementation modified. Existing native compatibility evidence remains authoritative and every ERP table is preserved.",
+    "methods": [
+      "authenticated web interaction metadata",
+      "server HTTP completion metadata",
+      "desktop allowed command metadata"
+    ],
+    "tables": [
+      "OrderDetail (preserve)",
+      "ShipmentDetail (preserve)",
+      "ShipmentDate (preserve)",
+      "ShipmentFarm (preserve)",
+      "Estimate (preserve)",
+      "StockHistory (preserve)",
+      "WebProfitReport (preserve)"
+    ]
+  },
+  "privacy": "No input values, raw DOM, secrets, URL query/hash, request or response body. Server derives actor from authentication. Source based on UA is display metadata only.",
+  "access": "All authenticated users record; existing isOrbitReportViewer decides read access. Client visibility is not authorization.",
+  "readApi": {
+    "path": "/api/work/activity",
+    "filters": [
+      "from",
+      "to",
+      "userId",
+      "source",
+      "kind",
+      "outcome",
+      "path",
+      "cursor",
+      "hour"
+    ],
+    "response": [
+      "items",
+      "nextCursor",
+      "from",
+      "to"
+    ],
+    "timeZone": "Asia/Seoul"
+  },
+  "semantics": "Click or submission is an attempt. HTTP success alone does not establish committed business changes. NENOVA.EXE is outside collection scope. No retroactive or lossless completeness claim.",
+  "retention": "No automatic deletion. Actor+event ID deduplication, Linux file/index fsync before acknowledgement. Browser localStorage uses per-account/per-event keys to recover after tab/browser close; blocked/full storage reports errors and retains bounded memory queue. Electron queue encrypted on disk. Server failed HTTP records retry from process-global bounded 1000-event queue every 5 seconds; pending/dropped health remains warning and is exposed by me. Process exit during storage failure can lose this server retry queue; browser storage clearing and disk failure can lose records. Disk/inode health monitored. No lossless claim.",
+  "presentation": "1920x1080 CSS pixels at 100%; page vertical scroll, table-only horizontal scroll, full label wrapping, native keyboard controls, focus returns to results heading after query; existing ERP history remains intact.",
+  "sideEffects": "OrderDetail, ShipmentDetail, ShipmentDate, ShipmentFarm, Estimate, StockHistory, WebProfitReport and all ERP ledgers preserved. New storage is web audit only.",
+  "coverage": "Authenticated web interaction and API logs plus Electron allowed shell commands; generic action correlation covers synchronous event requests, not awaited/delayed handlers. recordedBy identifies server records versus untrusted client metadata. All ERP ledgers preserve; native dnSpy changes not applicable.",
+  "auditIdentity": [
+    "server authenticated userId",
+    "event id",
+    "actionId"
+  ]
+}

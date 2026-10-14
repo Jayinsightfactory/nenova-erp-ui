@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../../styles/ImportPacking.module.css';
+import { packingMatchReview } from '../../lib/packingMatchReview';
 
 const hasValue = value => value !== null && value !== undefined && value !== '';
 const STEM_QUANTITY_COUNTRIES = new Set(['NL', 'CO', 'EC', 'TH', 'AU', 'US', 'VN']);
@@ -22,6 +23,21 @@ function formatNumber(value, maximumFractionDigits = 3) {
     : number.toLocaleString('ko-KR', { maximumFractionDigits });
 }
 
+function sourceIssueText(requirement) {
+  const labels = {
+    PRICE_OR_AMOUNT_MISSING: '단가·금액 미확인',
+    CARTON_NUMBER_WARNING: '박스 번호 확인',
+    POSITIONED_EVIDENCE_UNAVAILABLE: '원문 위치 확인',
+    SOURCE_ROW_CHANGED: '원문 행 변경됨',
+    VERIFIED_BASELINE_UNAVAILABLE: '원문 검증 필요',
+    SOURCE_REVIEW_UNAVAILABLE: '원문 확인 필요',
+  };
+  return (Array.isArray(requirement?.reasons) ? requirement.reasons : [])
+    .map(reason => labels[reason] || '원문 확인 필요').join(' · ') || '원문 확인 필요';
+}
+
+function productSourceNeedsReview(product) { return product?.sourceReview?.required === true; }
+
 function rowKey(excel, product, index) {
   return `${excel.name}::${hasValue(product.source_row) ? product.source_row : index}`;
 }
@@ -41,10 +57,6 @@ function sourceProductName(product) {
   return String(product.sourceName || product.matchingDescription || product.name || '품목명 미상').trim() || '품목명 미상';
 }
 
-function namesMatch(left, right) {
-  return String(left || '').trim().toLocaleUpperCase() === String(right || '').trim().toLocaleUpperCase();
-}
-
 function mismatchText(mismatch) {
   if (!mismatch || typeof mismatch !== 'object') return '인보이스 합계 불일치';
   const computed = finiteNumber(mismatch.computed);
@@ -54,22 +66,23 @@ function mismatchText(mismatch) {
   return `패킹 리스트 ${formatNumber(computed, 2)} · 인보이스 ${formatNumber(expected, 2)} · 차이 ${difference > 0 ? '+' : ''}${formatNumber(difference, 2)}`;
 }
 
-function buildIssueSummary(excels, country, notes, truncated = false) {
+function buildIssueSummary(excels, country, notes, truncated = false, erpProducts = []) {
   const lines = ['패킹 리스트 확인 필요 항목'];
   let issueCount = 0;
 
   excels.forEach(excel => {
     const products = Array.isArray(excel.products) ? excel.products : [];
     const rowIssues = products
-      .map((product, index) => ({ product, index, key: rowKey(excel, product, index) }))
-      .filter(item => item.product.unmatched);
+      .map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: packingMatchReview(product, erpProducts, country) }))
+      .filter(item => item.review.needsReview || productSourceNeedsReview(item.product));
     const hasMismatch = Boolean(excel.totalMismatch);
     const isTruncated = Boolean(truncated || excel.wasTruncated || excel.truncated);
     if (!rowIssues.length && !hasMismatch && !isTruncated) return;
 
     lines.push('', excel.label || excel.name || '결과 파일');
-    rowIssues.forEach(({ product, key }) => {
-      const reason = String(notes[key] || '').trim() || '전산 미매칭';
+    rowIssues.forEach(({ product, key, review }) => {
+      const fallback = [review.needsReview ? review.label : '', productSourceNeedsReview(product) ? sourceIssueText(product.sourceReview) : ''].filter(Boolean).join(' · ');
+      const reason = String(notes[key] || '').trim() || fallback;
       lines.push(`- ${productName(product)} · ${quantityText(product, country)} · 사유: ${reason}`);
       issueCount += 1;
     });
@@ -191,18 +204,37 @@ export default function PackingResults({
   onMatch,
   mappingDisabled = false,
   truncated = false,
+  erpProducts = [],
+  previewOnly = false,
+  onReviewSource,
 }) {
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState({});
   const [dialogText, setDialogText] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
+  const [view, setView] = useState('REVIEW_REQUIRED');
+  const filterButtonRef = useRef(null);
   const rowRefs = useRef({});
   const matchButtonRefs = useRef({});
   const summaryButtonRef = useRef(null);
   const dialogRef = useRef(null);
   const dialogTextareaRef = useRef(null);
   const safeExcels = Array.isArray(excels) ? excels : [];
-  const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated), [safeExcels, country, notes, truncated]);
+  const summary = useMemo(() => buildIssueSummary(safeExcels, country, notes, truncated, erpProducts), [safeExcels, country, notes, truncated, erpProducts]);
+  const reviewedExcels = safeExcels.map(excel => ({ excel, rows: (Array.isArray(excel.products) ? excel.products : []).map((product, index) => ({ product, index, key: rowKey(excel, product, index), review: packingMatchReview(product, erpProducts, country) })) }));
+  const counts = reviewedExcels.flatMap(item => item.rows).reduce((result, row) => ({ ...result, [row.review.status]: result[row.review.status] + 1 }), { EXACT: 0, MANUAL: 0, REVIEW: 0, UNMATCHED: 0 });
+  useEffect(() => {
+    if (counts.EXACT + counts.MANUAL > 0 && counts.REVIEW + counts.UNMATCHED === 0) setView('ALL');
+  }, [counts.EXACT, counts.MANUAL, counts.REVIEW, counts.UNMATCHED]);
+  const visibleKeys = reviewedExcels.flatMap(item => item.rows.filter(row => view === 'ALL' || row.review.needsReview || productSourceNeedsReview(row.product)).map(row => row.key));
+  useEffect(() => {
+    if (!selected?.rowKey || visibleKeys.includes(selected.rowKey)) return;
+    setSelected(null);
+    if (typeof document !== 'undefined' && (!document.activeElement || document.activeElement === document.body)) {
+      const next = visibleKeys.map(key => matchButtonRefs.current[key]).find(node => node && !node.disabled);
+      (next || filterButtonRef.current)?.focus();
+    }
+  }, [visibleKeys.join('\n'), selected?.rowKey]);
 
   const closeDialog = () => {
     setDialogText('');
@@ -265,8 +297,8 @@ export default function PackingResults({
     <section className={styles.resultsSection} aria-label="생성된 패킹 리스트 결과" data-testid="packing-results">
       <div className={styles.resultsHeadingRow}>
         <div>
-          <h3 className={styles.resultsHeading}>생성 결과</h3>
-          <p className={styles.resultsHint}>원문 품목을 선택해 전산 품목을 매칭하고, 필요한 행에 확인 메모를 남기세요.</p>
+          <h3 className={styles.resultsHeading}>품목 매칭 확인</h3>
+          <p className={styles.resultsHint}>DB 미매칭·유사 매칭만 먼저 표시합니다. 미매칭·확인 필요 버튼에서 전산 품목을 선택·저장하세요. 저장한 매칭은 팀 공용으로 다음 업로드에도 적용됩니다.</p>
         </div>
         <button ref={summaryButtonRef} type="button" onClick={openSummary} className={styles.summaryButton} data-testid="packing-results-copy-open">
           이슈 요약 새 창
@@ -274,7 +306,16 @@ export default function PackingResults({
         </button>
       </div>
 
-      {safeExcels.map((excel, excelIndex) => {
+      <div className={styles.matchReviewBar}>
+        <p role="status">정확 {counts.EXACT} · 수동 {counts.MANUAL} · 유사 {counts.REVIEW} · 미매칭 {counts.UNMATCHED}
+          {counts.REVIEW + counts.UNMATCHED === 0 ? ' · 품목 매칭 완료 (수량·중량은 별도 확인)' : ` · 매칭 확인 ${counts.REVIEW + counts.UNMATCHED}건`}
+          {(() => { const count = reviewedExcels.flatMap(item => item.rows).filter(row => productSourceNeedsReview(row.product)).length;
+            return count ? ` · 원문 확인 ${count}건` : ''; })()}</p>
+        <button ref={filterButtonRef} type="button" aria-pressed={view === 'ALL'} data-testid="packing-results-view-toggle" onClick={() => setView(current => current === 'ALL' ? 'REVIEW_REQUIRED' : 'ALL')}>
+          {view === 'ALL' ? '확인 필요만 보기' : '전체 보기'}</button>
+      </div>
+
+      {reviewedExcels.map(({ excel, rows }, excelIndex) => {
         const products = Array.isArray(excel.products) ? excel.products : [];
         const include = {
           stemLength: products.some(product => hasValue(product.stemLength ?? product.stem_length)),
@@ -283,13 +324,12 @@ export default function PackingResults({
           unitPrice: products.some(product => hasValue(product.unitPrice)),
           lineAmount: products.some(product => hasValue(product.lineAmount)),
         };
-        const rowIssues = products
-          .map((product, index) => ({ product, index, key: rowKey(excel, product, index) }))
-          .filter(item => item.product.unmatched);
+        const rowIssues = rows.filter(item => item.review.needsReview || productSourceNeedsReview(item.product));
+        const visibleRows = rows.filter(item => view === 'ALL' || item.review.needsReview || productSourceNeedsReview(item.product));
         const mismatch = excel.totalMismatch;
         const resultTruncated = Boolean(truncated || excel.wasTruncated || excel.truncated);
         const issueCount = rowIssues.length + (mismatch ? 1 : 0) + (resultTruncated ? 1 : 0);
-        const rowKeys = products.map((product, index) => rowKey(excel, product, index));
+        const rowKeys = visibleRows.map(item => item.key);
         const knownQuantities = products.map(product => finiteNumber(product.qty)).filter(value => value !== null);
         const quantityTotal = knownQuantities.reduce((sum, value) => sum + value, 0);
         const hasUnknownQuantity = knownQuantities.length !== products.length;
@@ -318,48 +358,66 @@ export default function PackingResults({
                   {hasWeightMetadata ? ` · GW ${weightText(excel.grossWeight)} · CW ${weightText(excel.chargeableWeight)}` : ''}
                 </p>
               </div>
-              <button
+              {previewOnly ? <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 28, border: '1px solid #ccd6e5', borderRadius: 7, padding: '4px 9px', background: '#f4f7fb', color: '#526580', fontSize: 12, fontWeight: 600 }}>미리보기 · 다운로드 생성 안 됨</span> : <button
                 type="button"
                 onClick={() => { if (!downloadBlocked) onDownload(excel.name); }}
                 disabled={downloadBlocked}
                 className={styles.downloadButton}
               >
                 {downloadBlocked ? '🔒 다운로드 차단' : '⬇ 다운로드'}
-              </button>
+              </button>}
             </header>
 
             <div className={styles.resultWorkspace}>
-              <div className={styles.sheetScroll} role="region" aria-label={`${excel.label || excel.name} 전체 행`} tabIndex="0">
+              {visibleRows.length === 0 && <p className={styles.matchReviewEmpty} role="status">품목 매칭 완료 (수량·중량은 별도 확인). 완료된 품목은 전체 보기에서 확인하세요.</p>}
+              <div className={styles.sheetScroll} role="region" aria-label={`${excel.label || excel.name} ${view === 'ALL' ? '전체 행' : '확인 필요 행'}`} tabIndex="0">
                 <table className={styles.resultSheet} data-testid="packing-results-table" data-result-name={excel.name || ''}>
+                  <colgroup>
+                    <col className={styles.rowNumberColumn} />
+                    <col className={styles.productColumn} />
+                    {include.stemLength && <col className={styles.lengthColumn} />}
+                    <col className={styles.matchDataColumn} />
+                    {include.boxes && <col className={styles.boxesColumn} />}
+                    <col className={styles.quantityColumn} />
+                    {include.stems && <col className={styles.stemsColumn} />}
+                    {include.unitPrice && <col className={styles.priceColumn} />}
+                    {include.lineAmount && <col className={styles.amountColumn} />}
+                  </colgroup>
                   <thead>
                     <tr>
                       <th scope="col">No.</th>
                       <th scope="col">원문품목</th>
                       {include.stemLength && <th scope="col">길이</th>}
+                      <th scope="col" className={styles.matchColumn}>DB 매칭·확인사항</th>
                       {include.boxes && <th scope="col" className={styles.numberCell}>박스</th>}
                       <th scope="col" className={styles.numberCell}>{country === 'CN' ? '단수' : unit || '수량'}</th>
                       {include.stems && <th scope="col" className={styles.numberCell}>송이</th>}
                       {include.unitPrice && <th scope="col" className={styles.numberCell}>단가</th>}
                       {include.lineAmount && <th scope="col" className={styles.numberCell}>금액</th>}
-                      <th scope="col" className={styles.matchColumn}>매칭·확인사항</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map((product, index) => {
+                    {visibleRows.map(({ product, index, review }) => {
                       const key = rowKey(excel, product, index);
                       const isSelected = selected?.rowKey === key;
                       const sourceName = sourceProductName(product);
-                      const matchedName = productName(product);
-                      const showMatchedName = !product.unmatched && !namesMatch(sourceName, matchedName);
-                      const status = product.unmatched ? '전산 미매칭' : product.viaAlias ? '별칭 매칭' : '자동 매칭';
+                      const matchedProduct = review.prodKey == null ? null : erpProducts.find(item =>
+                        Number(item.ProdKey) === Number(review.prodKey) && (!country || !item.country || item.country === country));
+                      const matchedName = String(matchedProduct?.ProdName || '').trim();
+                      const status = review.label;
                       const matchDisabled = typeof onMatch !== 'function' || mappingDisabled;
+                      const openMatch = () => {
+                        if (matchDisabled) return;
+                        setSelected({ excelName: excel.name, rowKey: key });
+                        onMatch(product, excel, index);
+                      };
                       return (
                         <tr
                           key={key}
                           ref={node => { if (node) rowRefs.current[key] = node; else delete rowRefs.current[key]; }}
                           tabIndex="-1"
                           aria-selected={isSelected}
-                          className={`${product.unmatched ? styles.unmatchedRow : ''}${isSelected ? ` ${styles.selectedRow}` : ''}`}
+                          className={`${review.needsReview ? styles.unmatchedRow : ''}${isSelected ? ` ${styles.selectedRow}` : ''}`}
                         >
                           <td className={styles.rowNumber}>{index + 1}</td>
                           <td className={styles.productCell}>
@@ -371,11 +429,7 @@ export default function PackingResults({
                               title={sourceName}
                               aria-label={`${sourceName} 전산 품목 매칭`}
                               disabled={matchDisabled}
-                              onClick={() => {
-                                if (matchDisabled) return;
-                                setSelected({ excelName: excel.name, rowKey: key });
-                                onMatch(product, excel, index);
-                              }}
+                              onClick={openMatch}
                               onFocus={() => setSelected({ excelName: excel.name, rowKey: key })}
                               onKeyDown={event => handleMatchArrow(event, rowKeys, key)}
                             >
@@ -383,30 +437,43 @@ export default function PackingResults({
                             </button>
                           </td>
                           {include.stemLength && <td>{hasValue(product.stemLength ?? product.stem_length) ? (product.stemLength ?? product.stem_length) : '—'}</td>}
+                          <td className={styles.matchCell}>
+                            <div className={styles.matchSummary}>
+                              {review.prodKey != null && <strong className={styles.matchTarget}>{matchedName || '전산 품목 정보 없음'}</strong>}
+                              <div className={styles.matchActions}>
+                                {review.needsReview
+                                  ? <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid="packing-result-status-match"
+                                      aria-label={`${status}: ${sourceName} 전산 품목 확인`}
+                                      disabled={matchDisabled} onClick={openMatch}>{status}</button>
+                                  : <span className={`${styles.statusChip} ${review.status === 'MANUAL' ? styles.statusAlias : styles.statusMatched}`}>{status}</span>}
+                                {productSourceNeedsReview(product) && (
+                                  <button type="button" className={`${styles.statusChip} ${styles.statusAction}`} data-testid="packing-result-source-review"
+                                    aria-label={`${sourceName} 원문 확인: ${sourceIssueText(product.sourceReview)}`}
+                                    onClick={() => onReviewSource?.(product, excel, index)}>
+                                    원문 확인 · {sourceIssueText(product.sourceReview)}
+                                  </button>
+                                )}
+                                {review.needsReview && (
+                                  <label className={styles.inlineNote}>
+                                    <span>사유 메모 (이 화면만)</span>
+                                    <input
+                                      type="text"
+                                      value={notes[key] || ''}
+                                      onFocus={() => setSelected({ excelName: excel.name, rowKey: key })}
+                                      onChange={event => setNotes(current => ({ ...current, [key]: event.target.value }))}
+                                      placeholder="예: 품명 확인 필요"
+                                      aria-label={`${sourceName} 미매칭 사유 메모`}
+                                    />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+                          </td>
                           {include.boxes && <td className={styles.numberCell}>{formatNumber(product.boxes)}</td>}
                           <td className={styles.numberCell}>{formatNumber(product.qty)}</td>
                           {include.stems && <td className={styles.numberCell}>{formatNumber(product.stems)}</td>}
                           {include.unitPrice && <td className={styles.numberCell}>{formatNumber(product.unitPrice, 3)}</td>}
                           {include.lineAmount && <td className={styles.numberCell}>{formatNumber(product.lineAmount, 2)}</td>}
-                          <td className={styles.matchCell}>
-                            <div className={styles.matchSummary}>
-                              {showMatchedName && <strong className={styles.matchTarget} title={matchedName}>{matchedName}</strong>}
-                              <span className={`${styles.statusChip} ${product.unmatched ? styles.statusIssue : product.viaAlias ? styles.statusAlias : styles.statusMatched}`}>{status}</span>
-                              {product.unmatched && (
-                                <label className={styles.inlineNote}>
-                                  <span>사유 메모 (이 화면만)</span>
-                                  <input
-                                    type="text"
-                                    value={notes[key] || ''}
-                                    onFocus={() => setSelected({ excelName: excel.name, rowKey: key })}
-                                    onChange={event => setNotes(current => ({ ...current, [key]: event.target.value }))}
-                                    placeholder="예: 품명 확인 필요"
-                                    aria-label={`${sourceName} 미매칭 사유 메모`}
-                                  />
-                                </label>
-                              )}
-                            </div>
-                          </td>
                         </tr>
                       );
                     })}

@@ -1,6 +1,7 @@
 import Layout, { MENU_ITEMS } from '../components/Layout';
 import MenuBackButton from '../components/MenuBackButton';
 import ReplayRecorder from '../components/ReplayRecorder';
+import UserActivityRecorder from '../components/UserActivityRecorder';
 import '../styles/globals.css';
 import '../styles/unified-ui.css';
 import '../styles/desktop-workspace.css';
@@ -63,6 +64,7 @@ export default function App({ Component, pageProps }) {
         <style>{`body { background: #F0F0F0; }`}</style>
         {needsStandaloneBack && <MenuBackButton standalone />}
         <ReplayRecorder />
+        <UserActivityRecorder />
         {page}
       </>
     );
@@ -71,6 +73,7 @@ export default function App({ Component, pageProps }) {
   return (
     <Layout>
       <ReplayRecorder />
+      <UserActivityRecorder />
       {page}
     </Layout>
   );

@@ -39,7 +39,7 @@ function History(){
   </table>{!busy&&!rows.length&&<div className={styles.empty}>아직 공동 자료 변경 이력이 없습니다.<small>카탈로그나 체크리스트를 저장하면 이곳에 기록됩니다.</small></div>}{busy&&<p role="status" className={styles.loading}>변경 이력을 불러오는 중입니다…</p>}</div>
  </section>;
 }
-export default function ImportTools(){
+export default function ImportTools({userId=''}){
  const [tab,setTab]=useState('packing'),[saveError,setSaveError]=useState('');
  const [receiptSource,setReceiptSource]=useState(EMPTY_RECEIPT_SOURCE);
  const [feedbackVisited,setFeedbackVisited]=useState(false);
@@ -51,7 +51,7 @@ export default function ImportTools(){
   <nav aria-label="수입부 업무도구" className={styles.tabs}>{tabs.map(([id,label,description],index)=><button type="button" key={id} onClick={()=>selectTab(id)} aria-pressed={tab===id} aria-controls={`import-panel-${checklistTabs[id]?'checklist':id}`} className={tab===id?styles.activeTab:''}><span className={styles.tabNumber}>{String(index+1).padStart(2,'0')}</span><span><strong>{label}{id==='flights'&&flightCount>0&&<span className={styles.flightBadge}>반입 대기 {flightCount}</span>}</strong><small>{description}</small></span></button>)}</nav>
   {saveError&&<div role="alert" className={styles.error}>공동 저장 실패: {saveError} <button onClick={()=>window.location.reload()}>공동 자료 다시 조회</button></div>}
   <div className={styles.content}>
-   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool storage={storage} onReceiptSourceChange={setReceiptSource}/><InvoiceReceiptWorkbench {...receiptSource}/></div>
+   <div id="import-panel-packing" hidden={tab!=='packing'}><PackingListTool key={userId} userId={userId} storage={storage} onReceiptSourceChange={setReceiptSource}/><div id="packing-receipt-stage" tabIndex={-1} style={{scrollMarginTop:16}}><InvoiceReceiptWorkbench key={userId} {...receiptSource}/></div></div>
    <div id="import-panel-orders" hidden={tab!=='orders'}><PedidosTool/></div>
    <div id="import-panel-checklist" hidden={!checklistTabs[tab]}><ChecklistTool activeTab={checklistTabs[tab]} hideNavigation onFlightCountChange={setFlightCount}/></div>
    <div id="import-panel-feedback" hidden={tab!=='feedback'}>
@@ -63,4 +63,4 @@ export default function ImportTools(){
   </div>
  </main></>;
 }
-export function getServerSideProps({req}){const user=verifyReqUser(req);if(!user)return {redirect:{destination:'/login',permanent:false}};return {props:{}};}
+export function getServerSideProps({req}){const user=verifyReqUser(req);if(!user)return {redirect:{destination:'/login',permanent:false}};return {props:{userId:String(user.userId)}};}

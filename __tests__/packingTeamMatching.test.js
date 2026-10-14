@@ -6,6 +6,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import * as policy from '../lib/importPackingErpMatches.js';
 import {readImportTeamRecord,writeImportTeamRecord} from '../lib/importTeamStore.js';
+import {makeProductResolver} from '../lib/importPacking.js';
 
 test('A/B sessions share one team record; revision-only never queries SQL; stale CAS leaves bytes unchanged',async()=>{
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'packing-team-refresh-'));
@@ -30,6 +31,13 @@ test('A/B sessions share one team record; revision-only never queries SQL; stale
     assert.equal((await invoke('A','POST',body)).status,200);
     const b=await invoke('B');
     assert.equal(b.data.revision,1);assert.equal(b.data.value.entries[0].prodKey,1);assert.equal(b.data.scope,'team');
+    // A different operator's next upload rebuilds its resolver from the durable
+    // team read, not from the first browser's in-memory selection.
+    const resolver=makeProductResolver('CN',policy.packingErpCatalog(b.data.products),
+      policy.packingErpAliases('CN',{},b.data.value,b.data.products),{pending:[],noMatches:[]});
+    const nextUpload=resolver({description:body.description},0);
+    assert.equal(nextUpload.matchedName,'ROSE RED 60cm');
+    assert.notEqual(nextUpload.unmatched,true);
     const files=(await fs.readdir(root)).filter(name=>name.endsWith('.json'));
     const before=await Promise.all(files.map(name=>fs.readFile(path.join(root,name),'utf8')));
     assert.equal((await invoke('B','POST',body)).status,409);
