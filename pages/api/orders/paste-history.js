@@ -17,7 +17,7 @@ export default withAuth(async function handler(req, res) {
     if (scope.week) params.scopeWeek = { type: sql.NVarChar, value: `${scope.year}-${scope.week}${scope.majorOnly ? '-%' : ''}` };
     const found = await query(`SELECT TOP 201 LogKey, CONVERT(NVARCHAR(19), ActionDtm, 120) AS ActionDtm,
       Actor, ActionType, Payload, Result, ResultDesc
-      FROM SystemActionLog WHERE ActionType IN ('SHIPMENT_ADJUST_BATCH','SHIPMENT_ADJUST_BATCH_UNDO')
+      FROM SystemActionLog WHERE ActionType IN ('SHIPMENT_ADJUST_BATCH','SHIPMENT_ADJUST_BATCH_UNDO','SHIPMENT_DISTRIBUTION_EDIT')
       AND LogKey < @cursor
       AND JSON_VALUE(CASE WHEN ISJSON(Payload)=1 THEN Payload ELSE N'{}' END, '$.year')=@scopeYear
       ${scopedWeek} ${who === 'mine' ? 'AND (Actor=@actor OR Actor=@actorName)' : ''}

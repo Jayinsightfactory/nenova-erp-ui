@@ -1,6 +1,6 @@
 {
   "id": "paste-operation-history",
-  "title": "붙여넣기 실행 단위 취소·추가 작업이력",
+  "title": "붙여넣기 실행 및 출고분배 수량 수정 작업이력",
   "scope": [
     "lib/pasteOperationHistory.js",
     "lib/pasteOperationAudit.js",
@@ -75,7 +75,8 @@
     "privacy": "Never return raw Payload, editGuard, lease token, IP, user agent, auth data",
     "ui": "Paste entry defaults grouped operations; retain original row-history view as separate tab. Show short week beside operation ID; render N unit 추가 in blue and N unit 취소 in red rather than generic applied wording. Remove redundant polling PasteErpHistoryEvidence panel. 1920x1080 responsive cancel/add columns",
     "scope": "No new history rows fabricated, no operational ERP changes or replay",
-    "partialStatusReads": "Manual confirmation, advisory comparison, verified operation-history responses apply independently under scope/epoch/sequence guard; failure preserves only own channel in same scope and explicit warning, never suppresses successful confirmation. Automatic operation confirmation requires verified=true. Distribution success is distinct from order-only waiting."
+    "partialStatusReads": "Manual confirmation, advisory comparison, verified operation-history responses apply independently under scope/epoch/sequence guard; failure preserves only own channel in same scope and explicit warning, never suppresses successful confirmation. Automatic operation confirmation requires verified=true. Distribution success is distinct from order-only waiting.",
+    "distributionEdits": "SHIPMENT_DISTRIBUTION_EDIT records verified absolute OutUnit before/after in the ERP transaction; shown as DISTRIBUTE, never interpreted as ADD/CANCEL or Kakao delivery evidence. Zero deletion remains visible. Visible screen refreshes on focus and every30seconds."
   },
   "requiredTestFiles": [
     "__tests__/pasteOperationHistory.test.js",

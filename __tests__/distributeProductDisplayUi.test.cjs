@@ -27,8 +27,9 @@ const Page = load(source, name=>{
   if(name.endsWith('/useApi')) return {apiGet:()=>{throw Error('Display fixture must not query ERP');}};
   if(name.endsWith('/useWeekInput')) return {useWeekInput:()=>({value:'2026-41-01'}),getCurrentWeek:()=> '2026-41-01',WeekInput:()=>null};
   if(name.endsWith('/i18n')) return {useLang:()=>({t:key=>key})};
-  if(name.endsWith('/productSearchRanking')) return {rankProductSearchOptions:(_query,items)=>items};
   if(name.endsWith('/distributeProductDisplay')) return display;
+  if(name.endsWith('/shipmentDistributionWorkspace.js')) return load(fs.readFileSync('lib/shipmentDistributionWorkspace.js','utf8'),require);
+  if(name.endsWith('/DistributionPicker')) return load(fs.readFileSync('components/shipment/DistributionPicker.js','utf8'),require);
   return require(name);
 }).default;
 const html=renderToStaticMarkup(React.createElement(Page));

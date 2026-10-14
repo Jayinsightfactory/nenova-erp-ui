@@ -419,7 +419,7 @@ assert.ok(!orderImportPageSource.includes('nenova_import_local_mappings'), '엑�
 assert.ok(orderImportPageSource.includes("'/api/orders/mappings'"), '엑셀 업로드 주문등록의 사용자 선택은 붙여넣기와 같은 공용 저장매핑 API에 누적해야 한다.');
 assert.ok(weekPivotSource.includes('rankProductSearchOptions'), '차수피벗 품목 선택도 공용 랭킹을 사용해야 한다.');
 assert.ok(stockStatusSource.includes('rankProductSearchOptions'), '재고·주문등록 모달 품목 선택도 공용 랭킹을 사용해야 한다.');
-assert.ok(distributeSource.includes('rankProductSearchOptions'), '출고분배 품목 검색도 공용 랭킹을 사용해야 한다.');
+assert.ok(distributeSource.includes('sortDistributionProducts') && !distributeSource.includes('rankProductSearchOptions'), '출고분배는 2026-10-14 사용자 지시에 따라 검색 결과도 품목명 A-Z 순서를 유지한다.');
 assert.ok(mappingStatusSource.includes('useRankedProductSearch') && searchWorkerSource.includes('rankProductSearchOptions(data.query, products'), '저장 매칭 재지정 검색도 Worker의 공용 랭킹을 사용해야 한다.');
 assert.ok(estimatePageSource.includes("view: 'defectContext'"), '품목 선택 시 EXE 판매행·분배단가 컨텍스트를 서버에서 다시 조회해야 한다.');
 assert.ok(estimatePageSource.includes("['단','박스','스팀(대)']"), '견적 직접입력 단위는 단/박스/스팀(대) 세 가지여야 한다.');

@@ -473,6 +473,14 @@ $exe = 'C:\Program Files (x86)\Wooribnc\Nenova\Nenova.exe'
 - 공유 조정 코어의 첫 ERP/lease 잠금 전에 transaction-owned applock을 획득한다. CANCEL 전체→ADD 전체 및 native 저장 순서를 바꾸지 않고 조정 요청을 직렬화한다. EXE 등 비참여 writer와 SQL1205 발생 시 확인된 abort만 전체 transaction 재시도한다. commit 응답 불명은 재실행하지 않는다.
 - Estimate, WebProfitReport, Amount/Vat/isFix 및 재고 SP에 새 쓰기를 추가하지 않는다. 기존 조정의 부작용만 유지한다. 실제 SQL fixture에서 역순 writer, 자동1205 retry, rollbackOnly, 실패 rollback 및 전년도 sentinel 보존을 검증한다.
 
+## 2026-10-14 출고분배 버튼·키보드와 확정 이력
+
+- 실제 설치 EXE FormShipmentDistribution을 dnSpy.Console로 재실행하여 GetShipmentMaster, btnSave_Click의 OutQuantity/EstQuantity 및 Amount/Vat, ShipmentDate 갱신 순서를 확인했다. 웹 기존 단위 환산·농장/확정 보호·견적/재고 정책은 유지한다.
+- 운영 읽기 전용 2026/41-02 CustKey478 ProdKey2429: 주문32, 상세/출고일48단, 날짜1개, 농장0개, MasterFix0. 상세95862 Amount305455/Vat30545, 날짜 금액 동일. ViewOrder/ViewShipment 노출, 견적 DetailFix=1 조건 GetDetail0/PeriodExact1/DetailSplit1. 기존 견적 노출 상태를 보정하지 않는다. CustKey436 동일품목은 주문16/분배없음. 2025/41-02 대응행 없음.
+- 2026 대차수41 보고서 확정 조회: activeConfirm=null, history0. 직접 Estimate/WebProfitReport/StockHistory 쓰기 추가 없음. 테스트나 스모크를 위한 운영 수량 변경도 없음.
+- 수량 저장의 검증이 끝난 같은 transaction에서 SystemActionLog에 DISTRIBUTE 절대수량 before/after snapshot을 추가한다. 0 삭제 후에도 연도·차수·업체·품목·출고단위가 남는다. 감사 실패는 전체 rollback, 기존0→0 정리는 빈 이력으로 허용한다. 카톡 ADD/CANCEL 요청 또는 전달 완료로 해석하지 않는다.
+- 격리 SQL fixture는 감사 insert 실패 rollback, 삭제 이력 보존 및 이전연도 수량99 보존을 확인한다. 근거 파일: docs/plans/shipment-distribution-keyboard-2026-10-14.md.
+
 ## 2026-10-13 알스트로 추가/취소 실패 행 구분
 
 설치 EXE FormShipmentDistribution GetShipmentMaster/btnSave_Click/ShipmentDate를 dnSpy CLI로 다시 확인했다. 이번 수정은 웹 오류 문자열만 보완하며 native 저장순서·수량·View 조인과 모든 원장을 보존한다. 운영2026/41-02 수경원예436 Mila2429의 주문/분배/날짜16단과 왕자원예478의32단이 존재한다. Mlla90은 해당차수 조회0행이다. Log11425는 취소2429 이후 추가90의 가용재고 검사에서 실패했고, CANCEL 재고차단이 아니다. 전년도2025/41-02는 대응행0개. 두 대상업체 ViewOrder/ViewShipment 노출, MasterFix0, 견적 GetDetail0/DetailSplit1/PeriodExact1의 기존 진단을 기록하고 보정하지 않는다. 저장매칭은 manual2429로 유지돼 있다. UI는 실패 항목의 추가/취소·업체·별칭·전산품목키·연도차수를 표시하고, 유사품목 자동치환·force 우회·운영 재실행을 하지 않는다.
