@@ -67,6 +67,10 @@ jobs:
             # copyFileSync(COPYFILE_EXCL) never overwrites a migrated runtime store.
             node -e 'const fs=require("fs"); const src="data/order-mappings.json", dst="data/order-mappings.runtime.json"; if(fs.existsSync(src)&&!fs.existsSync(dst)){const value=JSON.parse(fs.readFileSync(src,"utf8")); if(!value||Array.isArray(value)||typeof value!=="object")throw Error("Invalid mapping store"); fs.copyFileSync(src,dst,fs.constants.COPYFILE_EXCL);}' || exit 1
             git reset --hard origin/master
+            # Audit events survive source resets/build swaps and are never release artifacts.
+            export NENOVA_ACTIVITY_DIR=/var/lib/nenova/user-activity
+            mkdir -p "$NENOVA_ACTIVITY_DIR"
+            test -w "$NENOVA_ACTIVITY_DIR" || exit 1
             node scripts/install-weekday-template.cjs || exit 1
             unset WEEKDAY_TEMPLATE_KEY
             # The still-running previous build writes the old filename until reload.

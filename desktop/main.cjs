@@ -5,12 +5,14 @@ const path = require('node:path');
 const { ORIGIN, trustedUrl, externalUrl, safeSnapshot, text } = require('./policy.cjs');
 const { parseBootstrap } = require('./bootstrap.cjs');
 const { homeWorkspaceRequest } = require('./home-workspace.cjs');
+const { createActivity } = require('./activity.cjs');
 let menus = [], syncStatus = 'checking', menuVersion = '', webVersion = '';
 const SHELL = 'nenova-app://shell/index.html';
 function shellInsets(w) { return { top: w.toolsOpen ? 128 : 44, bottom: w.toolsOpen || w.menuOpen ? 28 : 0 }; }
 const windows = new Map(), tabs = new Map(), auxiliary = new Set();
 let nextId = 1, favorites = [], actor = '', locked = true, quitting = false, restoring = false, saved = null, saveTimer, authTimer, authGeneration = 0;
 let webSession, updater, updateScheduler, updateTimer;
+let activity, activityTimer, activityWarning = '';
 const { createUpdater, createUpdateScheduler, MIN_FREE } = require('./updater.cjs');
 protocol.registerSchemesAsPrivileged([{ scheme: 'nenova-app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.setName('Nenova Desktop');
@@ -23,7 +25,7 @@ function state(w) {
   return { windowId: w.id, windows: [...windows.values()].map(v => ({ id: v.id, title: `업무 창 ${v.id}` })),
     tabs: w.ids.map(id => tabs.get(id)).filter(Boolean).map(t => ({ id: t.id, title: locked && new URL(t.url).pathname !== '/login' ? '로그인 대기' : t.title, url: locked ? '' : t.url, loading: t.loading, error: t.error, zoom: t.zoom })),
     activeId: w.activeId, menuOpen: w.menuOpen, toolsOpen: w.toolsOpen, favorites: locked ? [] : favorites, menus: locked ? [] : menus.map(group => ({ ...group, items: group.items.map(item => ({ ...item, favorite: favorites.some(f => f.url === menuFavoriteEntry(item)?.url) })) })), version: app.getVersion(), online: !locked,
-    appUpdate: updater?.getState(), homeOwnerId: locked ? '' : actor, syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || '',
+    appUpdate: updater?.getState(), homeOwnerId: locked ? '' : actor, syncStatus, webVersion: locked ? '' : webVersion, menuVersion: locked ? '' : menuVersion, notice: w.notice || activityWarning,
     message: w.message || (locked ? '로그인이 필요합니다. 업무 화면에서 로그인해 주세요.' : '탭 이동은 작업을 유지합니다 · 종료 전 업무 내용을 저장해 주세요.') };
 }
 function broadcast() {
@@ -117,7 +119,9 @@ function createWindow(config = {}) {
   broadcast(); return w;
 }
 function confirm(w, message, actionLabel = '닫기') {
-  return dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: [actionLabel, '취소'], defaultId: actionLabel === '닫기' ? 0 : 1, cancelId: 1, noLink: true }) === 0;
+  const accepted = dialog.showMessageBoxSync(w.win, { type: 'question', title: '작업 확인', message, detail: '저장하지 않은 입력은 복원되지 않을 수 있습니다. 탭 이동·창 분리는 입력을 유지합니다.', buttons: [actionLabel, '취소'], defaultId: actionLabel === '닫기' ? 0 : 1, cancelId: 1, noLink: true }) === 0;
+  activity?.record(accepted ? 'confirmAccepted' : 'confirmCanceled', tabs.get(w.activeId)?.url);
+  return accepted;
 }
 function destroyTab(t) {
   if (!t) return;
@@ -131,17 +135,20 @@ function destroyTab(t) {
 }
 function closeTab(t, ask = true) {
   if (!t) return;
+  activity?.record('close', t.url);
   const w = windows.get(t.windowId);
   if (ask && !confirm(w, `“${t.title}” 탭을 닫을까요?`)) return;
   t.closing = true;
   t.view.webContents.close({ waitForBeforeUnload: true });
 }
 function closeWindow(w) {
+  activity?.record('closeWindow', tabs.get(w.activeId)?.url);
   if ((w.ids.length || w.homeDirty) && !confirm(w, '이 창의 미저장 입력을 버리고 창을 닫을까요?')) return;
   w.confirmedClose = true; w.win.close();
 }
 function quit() {
   if (quitting) return;
+  activity?.record('quit', '/desktop');
   const w = [...windows.values()].find(w => w.win.isFocused()) || [...windows.values()][0];
   if ((tabs.size || [...windows.values()].some(item => item.homeDirty)) && w && !confirm(w, '미저장 입력을 버리고 네노바 프로그램을 종료할까요?')) return;
   clearTimeout(saveTimer); if (actor && !locked) persist();
@@ -240,9 +247,9 @@ function shortcuts(wc, owner) {
     const key = input.key.toLowerCase(), w = owner(); if (!w) return;
     let action;
     if (input.control && key === 't') action = () => command(w, 'menu', { open: true });
-    if (input.control && key === 'w') action = () => closeTab(tabs.get(w.activeId));
-    if (input.control && key === 'n') action = () => createWindow();
-    if (input.control && key === 'tab') action = () => { const i = w.ids.indexOf(w.activeId), n = w.ids.length; if (n) activate(w, w.ids[(i + (input.shift ? n - 1 : 1)) % n]); };
+    if (input.control && key === 'w') action = () => command(w, 'close', {id:w.activeId});
+    if (input.control && key === 'n') action = () => command(w, 'newWindow');
+    if (input.control && key === 'tab') action = () => { const i = w.ids.indexOf(w.activeId), n = w.ids.length; if (n) command(w, 'activate', {id:w.ids[(i + (input.shift ? n - 1 : 1)) % n]}); };
     if (input.control && key === 'p') action = () => command(w, 'print');
     if ((input.control && key === 'r') || key === 'f5') action = () => command(w, 'reload');
     if (input.control && key === 'd') action = () => command(w, 'favorite', { id: w.activeId });
@@ -255,6 +262,9 @@ function shortcuts(wc, owner) {
 }
 function command(w, action, p = {}) {
   const t = tabs.get(typeof p.id === 'string' ? p.id : w.activeId);
+  const auditAction = action === 'homeWorkspace' && p.method === 'POST'
+    ? ({create:'homeCreate',update:'homeUpdate',complete:'homeComplete',archive:'homeArchive',restore:'homeRestore',stop:'homeStop',read:'homeRead'}[p.command?.action] || action) : action;
+  if (!['close', 'closeWindow', 'quit'].includes(action) && !(action === 'appUpdate' && p.automatic === true)) activity?.record(auditAction, trustedUrl(p.url || p.href) || t?.url || '/desktop');
   switch (action) {
     case 'state': break;
     case 'homeDraft': w.homeDirty = p.dirty === true; return state(w);
@@ -420,6 +430,20 @@ app.whenReady().then(async () => {
   webSession = session.fromPartition('persist:nenova-work');
   const desktopUa = webSession.getUserAgent();
   webSession.setUserAgent(`${desktopUa.replace(/\bNenovaDesktop\/[\d.]+\b/g, '').trim()} NenovaDesktop/${require('./package.json').version}`);
+  const activityPath = path.join(app.getPath('userData'), 'activity.encrypted');
+  activity = createActivity({
+    endpoint: `${ORIGIN}/api/work/activity`, owner: () => locked ? '' : actor,
+    fetch: (url, options) => webSession.fetch(url, options),
+    read: () => fs.existsSync(activityPath) ? JSON.parse(safeStorage.decryptString(fs.readFileSync(activityPath))) : [],
+    write: rows => {
+      if (!safeStorage.isEncryptionAvailable()) throw new Error('Encryption unavailable');
+      fs.mkdirSync(path.dirname(activityPath), {recursive:true});
+      fs.writeFileSync(activityPath + '.tmp', safeStorage.encryptString(JSON.stringify(rows)));
+      fs.renameSync(activityPath + '.tmp', activityPath);
+    },
+    warn: message => { activityWarning = message; broadcast(); },
+  });
+  activityTimer = setInterval(() => void activity.flush(), 5000);
   webSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   webSession.setPermissionCheckHandler(() => false);
   webSession.webRequest.onBeforeRequest({ urls: [`${ORIGIN}/*`] }, (details, callback) => {
@@ -447,7 +471,7 @@ app.whenReady().then(async () => {
   await verifyAccount(true);
 });
 app.on('before-quit', e => { if (!quitting && windows.size) { e.preventDefault(); quit(); } });
-app.on('will-quit', () => clearInterval(updateTimer));
+app.on('will-quit', () => { clearInterval(updateTimer); clearInterval(activityTimer); });
 app.on('window-all-closed', () => { if (!quitting) { quitting = true; app.quit(); } });
 // Export only to the local Node test runner. No renderer receives this object.
 module.exports = { windows, tabs, command, createWindow, moveTab, snapshot, verifyAccount };

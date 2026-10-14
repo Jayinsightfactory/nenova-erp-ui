@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { apiGet } from '../../lib/useApi';
+import UserActivityLogPanel from '../../components/UserActivityLogPanel';
 
 const CATEGORY_MAP = {
   '재고': { color: '#996600', bg: '#FFF8E0', label: '재고' },
@@ -90,6 +91,7 @@ export default function ActivityLog() {
 
   return (
     <div>
+      <UserActivityLogPanel />
       {/* 필터 바 */}
       <div className="filter-bar">
         <span className="filter-label">기간</span>

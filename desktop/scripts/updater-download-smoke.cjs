@@ -8,7 +8,7 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const { createHash } = require('node:crypto');
-const { app } = require('electron');
+const { app, session } = require('electron');
 const { NsisUpdater } = require('electron-updater');
 const { ElectronHttpExecutor } = require('electron-updater/out/electronHttpExecutor');
 const { validInfo } = require('../updater.cjs');
@@ -76,6 +76,10 @@ app.whenReady().then(async () => {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+    const url = new URL(details.url);
+    callback({ cancel: url.origin !== baseUrl });
+  });
   await testCase(baseUrl, false);
   await testCase(baseUrl, true);
   assert.equal(installAttempts, 0);

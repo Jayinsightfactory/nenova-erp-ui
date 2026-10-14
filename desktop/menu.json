@@ -333,6 +333,11 @@
         "popup": false
       },
       {
+        "href": "/stats/volume-board",
+        "labelKey": "물량표",
+        "popup": true
+      },
+      {
         "href": "/stats/dutch-volume-board",
         "labelKey": "네덜란드 물량표",
         "popup": false

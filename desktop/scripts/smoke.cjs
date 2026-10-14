@@ -25,6 +25,8 @@ let accountABootstrapStarted = false;
 let releaseAccountABootstrap;
 const fixtureRequests = [];
 const HOME_ROUTE = '/api/desktop/home-workspace';
+const ACTIVITY_ROUTE = '/api/work/activity';
+const activityEvents = [];
 const HOME_DATE = '2026-10-09';
 const homeStores = new Map(), homeRequests = [], homeHolds = [];
 let homeFailNextPost = false;
@@ -137,6 +139,14 @@ function installFixtureProtocol() {
     const url = new URL(request.url);
     if (url.origin !== ORIGIN) return new Response('Blocked by smoke fixture', { status: 403 });
     fixtureRequests.push({ method: request.method, pathname: url.pathname });
+    if (url.pathname === ACTIVITY_ROUTE && request.method === 'POST') {
+      const body = await request.json();
+      if (body.expectedUserId !== accountActor) return Response.json({success:false}, {status:409});
+      assert.ok(body.events.every(event => event.kind === 'desktop' && !event.path.includes('?')));
+      assert.ok(body.events.every(event => !('password' in event) && !('value' in event)));
+      activityEvents.push(...body.events);
+      return Response.json({success:true,acceptedIds:body.events.map(event=>event.id)});
+    }
     if (url.pathname === HOME_ROUTE) return homeFixture(request, url);
     if (url.pathname === '/api/auth/me') {
       if (accountActor === 'desktop-test-b' && holdAccountBAuth) {
@@ -266,7 +276,8 @@ async function verifyHomeUi(contents, window) {
   main.command(window, 'menu', { open: true });
   await waitFor(() => contents.executeJavaScript('document.querySelector(".hw-rows").textContent.includes("UI 저장 실패 후 재시도")'), 'return to home preserves saved personal tasks');
   assert.equal(homeRequests.every(request => request.expectedOwnerId === request.owner), true);
-  assert.equal(fixtureRequests.filter(request => request.method === 'POST' && request.pathname !== HOME_ROUTE).length, 0, 'home controls never POST to ERP endpoints');
+  assert.equal(fixtureRequests.filter(request => request.method === 'POST' && ![HOME_ROUTE, ACTIVITY_ROUTE].includes(request.pathname)).length, 0, 'home controls never POST to ERP endpoints');
+  assert.ok(activityEvents.some(event => event.label === '내 업무 추가'), 'native shell task action is acknowledged in activity fixture');
   main.command(window, 'activate', { id: previousActive });
   await waitFor(() => [...main.tabs.values()].every(tab => !tab.loading), 'home source tabs finish loading before synthetic shell-state checks');
   await contents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
