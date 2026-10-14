@@ -1,0 +1,43 @@
+{
+  "id": "web-voucher",
+  "title": "지출결의서·전표 1단계(/api/finance/voucher, /api/finance/journal, 웹 전용 dbo.Web* 테이블) 계약",
+  "scope": [
+    "pages/api/finance/voucher/index.js",
+    "pages/api/finance/voucher/[key].js",
+    "pages/api/finance/voucher/post-journal.js",
+    "pages/api/finance/voucher/accounts.js",
+    "pages/api/finance/journal/index.js",
+    "lib/voucherJournal.js",
+    "lib/voucherStore.js",
+    "pages/finance/voucher.js",
+    "pages/finance/journal.js",
+    "docs/migrations/2026-10-09_web_voucher.sql"
+  ],
+  "businessIdentity": ["OrderYear", "OrderWeek", "CustKey", "ProdKey"],
+  "actions": [
+    { "name": "WEB_VOUCHER", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": ["WebVoucher", "WebVoucherLine"] },
+    { "name": "WEB_VOUCHER_POST_JOURNAL", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": ["WebVoucher", "WebJournal", "WebJournalLine"] },
+    { "name": "WEB_ACCOUNT_SEED", "orderDetail": "preserve", "shipmentDetail": "preserve", "writeAllowlist": ["WebAccount"], "note": "docs/migrations/2026-10-09_web_voucher.sql 로 SSMS 수동 실행(INSERT ... WHERE NOT EXISTS). API 는 읽기만." }
+  ],
+  "crossYearFixture": {
+    "required": true,
+    "description": "ERP 주문·출고·재고·견적·거래처 테이블은 쓰지 않는다(Customer 는 거래처명 보강 SELECT 만, CustKey 는 참조값 저장·FK 없음). 관찰 명세 _kmh-ecount-spec.md §6 전표·회계거래, §7 지급·지출결의서(7-1 지출/7-2 외화송금 지급/7-3 해외직원 급여), §11 입력화면을 웹 전용 dbo.WebAccount/WebVoucher/WebVoucherLine/WebJournal/WebJournalLine 로 구현. 일자-No. 채번 yy/mm/dd-n, 상태 작성→결재완료(전표 자동생성)→송금완료→전표반영(전표 확정·수정불가), 취소=확정 전표 역분개. 자동분개: 지출=비용 차변/보통예금(103) 대변, 지급=외상매입금(251) 차변/보통예금 대변+환차손(952)/환차익(907), 급여=급여(802) 차변/보통예금 대변. 차변합=대변합 앱 검증(lib/voucherJournal.assertBalanced). 이카운트에는 어떤 쓰기도 없다. 차수는 OrderYearWeek 문자열만 저장(ERP 조인 없음)."
+  },
+  "requiredTestFiles": [
+    "__tests__/erpContractManifest.test.js",
+    "__tests__/voucherJournal.test.js"
+  ],
+  "dnspyEvidence": {
+    "required": true,
+    "record": "docs/exe-golden/README.md",
+    "source": "지출결의서·전표는 nenova.exe 기능이 아닌 웹 전용 회계 기능(이카운트 대체)이며 ERP 테이블 side effect 는 모두 preserve 다. 근거 문서: nenova-work-features/observed/_kmh-ecount-spec.md (관찰 기반 화면 명세).",
+    "methods": ["lib/voucherJournal.buildJournalLines (자동분개)", "lib/voucherJournal.assertBalanced (차대변 일치)", "lib/voucherJournal.reverseJournalLines (역분개)", "lib/voucherJournal.nextVoucherNo (채번)", "lib/voucherStore.transitionVoucher (상태 전이 트랜잭션)"],
+    "tables": ["WebAccount (seed only)", "WebVoucher (write)", "WebVoucherLine (write)", "WebJournal (write)", "WebJournalLine (write)", "Customer (read)", "OrderDetail (preserve)", "ShipmentDetail (preserve)"]
+  },
+  "requiredCommands": [
+    "npm run test:erp-contract",
+    "npm run test:nenova-dnspy-evidence",
+    "npm run guard:erp-writes -- --changed-from origin/master",
+    "npm run build"
+  ]
+}
